@@ -1,0 +1,228 @@
+- alert
+- link "跳到主要内容":
+  - /url: "#wsx-main-content"
+- navigation "主导航":
+  - button "组织菜单，当前：org org-fullstack-7n-c31495b5-0d6c23f263b1":
+    - generic: o
+  - link "首页":
+    - /url: /home
+    - generic: 首页
+  - link "对话":
+    - /url: /chat
+    - generic: 对话
+  - link "项目":
+    - /url: /projects
+    - generic: 项目
+  - link "研究":
+    - /url: /research
+    - generic: 研究
+  - link "访谈":
+    - /url: /itv
+    - generic: 访谈
+  - link "大脑":
+    - /url: /brain
+    - generic: 大脑
+  - link "任务":
+    - /url: /tasks
+    - generic: 任务
+  - link "工作流":
+    - /url: /workflows
+    - generic: 工作流
+  - link "组织后台":
+    - /url: /admin
+    - generic: 组织后台
+  - button "更多":
+    - generic: 更多
+  - button "任务提醒，0 条未读":
+    - generic: 提醒
+  - generic: 0 条未读
+  - button "提交反馈":
+    - generic: 反馈
+  - button "个人菜单":
+    - generic: F
+- banner:
+  - generic: org org-fullstack-7n-c31495b5-0d6c23f263b1
+  - paragraph: 管理员
+  - paragraph: 不在具体项目里 · 引导师/组长/组员等项目内角色暂不适用
+- main:
+  - main:
+    - button "← 返回列表"
+    - textbox "问卷名称": CURRENT 标签与新增取消验收
+    - paragraph: 已保存 · 2026/10/2 23:08:53
+    - button "更多操作"
+    - button "发布回收"
+    - navigation "问卷工作流":
+      - button "1. 设计问卷":
+        - generic: "1"
+        - text: 设计问卷
+      - button "2. 发布回收":
+        - generic: "2"
+        - text: 发布回收
+      - button "3. 查看答卷":
+        - generic: "3"
+        - text: 查看答卷
+    - status: 修改已保存
+    - paragraph: 选择题型，配置题目，再用实时预览试填。
+    - button "试填问卷"
+    - button "撤销最近修改":
+      - text: 撤销
+    - button "重做最近修改" [disabled]:
+      - text: 重做
+    - complementary "题目大纲":
+      - region "题型工具箱":
+        - heading "题型工具箱" [level=2]
+        - button "新增题目"
+        - heading "选择" [level=3]
+        - button "单选":
+          - text: 单选
+        - button "多选":
+          - text: 多选
+        - button "下拉选择":
+          - text: 下拉选择
+        - button "图片单选":
+          - text: 图片单选
+        - button "图片多选":
+          - text: 图片多选
+        - heading "输入" [level=3]
+        - button "单行文本":
+          - text: 单行文本
+        - button "多行文本":
+          - text: 多行文本
+        - button "多项填空":
+          - text: 多项填空
+        - button "数字":
+          - text: 数字
+        - button "日期":
+          - text: 日期
+        - button "时间":
+          - text: 时间
+        - button "日期时间":
+          - text: 日期时间
+        - button "邮箱":
+          - text: 邮箱
+        - button "手机":
+          - text: 手机
+        - button "地址":
+          - text: 地址
+        - button "级联选择":
+          - text: 级联选择
+        - heading "评分" [level=3]
+        - button "量表":
+          - text: 量表
+        - button "星级评分":
+          - text: 星级评分
+        - button "NPS":
+          - text: NPS
+        - button "滑块":
+          - text: 滑块
+        - heading "矩阵" [level=3]
+        - button "矩阵单选":
+          - text: 矩阵单选
+        - button "矩阵多选":
+          - text: 矩阵多选
+        - button "矩阵量表":
+          - text: 矩阵量表
+        - button "矩阵填空":
+          - text: 矩阵填空
+        - button "矩阵下拉":
+          - text: 矩阵下拉
+        - heading "比较" [level=3]
+        - button "排序":
+          - text: 排序
+        - button "比重分配":
+          - text: 比重分配
+        - heading "材料" [level=3]
+        - button "文件上传":
+          - text: 文件上传
+        - button "签名":
+          - text: 签名
+        - heading "页面元素" [level=3]
+        - button "说明文字/图片":
+          - text: 说明文字/图片
+        - button "分节与分页":
+          - text: 分节与分页
+      - heading "题目大纲" [level=2]
+      - paragraph: 题目目录 · 2
+      - searchbox "搜索题目"
+      - list:
+        - button "选择题目 1：单行文本": 1. 单行文本
+        - button "上移题目：单行文本" [disabled]:
+        - button "下移题目：单行文本":
+        - button "选择题目 2：单行文本": 2. 单行文本
+        - button "上移题目：单行文本":
+        - button "下移题目：单行文本" [disabled]:
+    - region "题目设置":
+      - paragraph: 手动创建 · 题库认证：待认证
+      - text: 题型
+      - combobox "题型":
+        - option "单选"
+        - option "多选"
+        - option "下拉选择"
+        - option "图片单选"
+        - option "图片多选"
+        - option "单行文本" [selected]
+        - option "多行文本"
+        - option "多项填空"
+        - option "数字"
+        - option "日期"
+        - option "时间"
+        - option "日期时间"
+        - option "邮箱"
+        - option "手机"
+        - option "地址"
+        - option "级联选择"
+        - option "量表"
+        - option "星级评分"
+        - option "NPS"
+        - option "滑块"
+        - option "矩阵单选"
+        - option "矩阵多选"
+        - option "矩阵量表"
+        - option "矩阵填空"
+        - option "矩阵下拉"
+        - option "排序"
+        - option "比重分配"
+        - option "文件上传"
+        - option "签名"
+        - option "说明文字/图片"
+        - option "分节与分页"
+      - checkbox "必答" [checked]
+      - text: 必答
+      - text: 所属章节
+      - textbox "所属章节": general
+      - generic "高级规则"
+      - button "上移"
+      - button "下移" [disabled]
+      - button "复制题目"
+      - button "删除题目"
+    - complementary "实时预览":
+      - region "问卷设计画布":
+        - heading "问卷设计画布" [level=2]
+        - button "桌面预览" [pressed]
+        - button "平板预览"
+        - button "手机预览"
+        - region "问卷封面":
+          - heading "CURRENT 标签与新增取消验收" [level=2]
+        - heading "general" [level=3]
+        - generic: 2 题
+        - generic: "*"
+        - generic: "01"
+        - button "编辑第 1 题：单行文本": 单行文本
+        - button "题目说明": 添加题目说明
+        - group "单行文本 *":
+          - generic: 单行文本 *
+          - textbox "单行文本"
+        - generic: "*"
+        - generic: "02"
+        - button "编辑第 2 题：单行文本": 单行文本
+        - button "题目说明": 添加题目说明
+        - group "单行文本 *":
+          - generic: 单行文本 *
+          - textbox "单行文本"
+        - generic "编辑题目内容"
+        - generic "第 2 题操作":
+          - button "在第 2 题后添加题目":
+          - button "复制第 2 题":
+          - button "上移第 2 题":
+          - button "下移第 2 题" [disabled]:
+          - button "删除第 2 题":

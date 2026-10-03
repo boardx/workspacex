@@ -1,7 +1,7 @@
 import * as React from "react";
 import { afterEach, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, within } from "@testing-library/react";
-import { createSurveyQuestion } from "@repo/contracts/survey-question-types";
+import { createSurveyQuestion, SurveyWorkflowQuestionSchema } from "@repo/contracts/survey-question-types";
 import { SurveyQuestionEditor } from "@/components/survey/live/question-editor";
 import { ResponsiveDesignerPanel } from "@/components/survey/live/responsive-designer-panel";
 
@@ -272,4 +272,69 @@ it("clears local undo history when a template replaces the question set", () => 
   fireEvent.click(screen.getByRole("button", { name: "应用外部模板" }));
   expect(screen.getByRole("button", { name: "编辑第 1 题：模板问题" })).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "撤销最近修改" })).toBeDisabled();
+});
+
+
+it("preserves undo and redo through schema-normalized autosave but resets on genuine remote changes", () => {
+  function DesignerWithAutosave() {
+    const [value, setValue] = React.useState([createSurveyQuestion("short", "original", 1)]);
+    return <>
+      <button onClick={() => setValue(current => current.map(question => ({ ...question, title: "真实远端修改" })))}>加载远端更改</button>
+      <SurveyQuestionEditor studioLayout questions={value} onChange={next => setValue(next.map(question => SurveyWorkflowQuestionSchema.parse(question)))} />
+    </>;
+  }
+  render(<DesignerWithAutosave />);
+  fireEvent.click(screen.getByRole("button", { name: /^新增题目$/ }));
+  expect(screen.getByText("题目目录 · 2")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "撤销最近修改" })).toBeEnabled();
+  fireEvent.click(screen.getByRole("button", { name: "撤销最近修改" }));
+  expect(screen.getByText("题目目录 · 1")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "重做最近修改" })).toBeEnabled();
+  fireEvent.click(screen.getByRole("button", { name: "重做最近修改" }));
+  expect(screen.getByText("题目目录 · 2")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "撤销最近修改" })).toBeEnabled();
+  fireEvent.click(screen.getByRole("button", { name: /^新增题目$/ }));
+  expect(screen.getByText("题目目录 · 3")).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "撤销最近修改" }));
+  expect(screen.getByText("题目目录 · 2")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "撤销最近修改" })).toBeEnabled();
+  expect(screen.getByRole("button", { name: "重做最近修改" })).toBeEnabled();
+  fireEvent.click(screen.getByRole("button", { name: "加载远端更改" }));
+  expect(screen.getByRole("button", { name: "撤销最近修改" })).toBeDisabled();
+  expect(screen.getByRole("button", { name: "重做最近修改" })).toBeDisabled();
+});
+
+it("preserves manual selection and consecutive edits after a repair target is selected", () => {
+  function Designer() {
+    const [questions, setQuestions] = React.useState([
+      { ...createSurveyQuestion("image_single", "repair", 1), title: "原修复题" },
+      { ...createSurveyQuestion("image_multi", "other", 2), title: "另一图片题" },
+    ]);
+    return <SurveyQuestionEditor studioLayout selectedQuestionId="repair" questions={questions} onChange={setQuestions} />;
+  }
+  render(<Designer />);
+  const settings = screen.getByRole("region", { name: "题目设置" });
+  expect(within(settings).getByRole("combobox", { name: "题型" })).toHaveValue("image_single");
+  fireEvent.click(screen.getByRole("button", { name: "选择题目 2：另一图片题" }));
+  const canvas = screen.getByRole("region", { name: "问卷设计画布" });
+  fireEvent.click(within(canvas).getByText("编辑题目内容"));
+  fireEvent.change(within(canvas).getByRole("textbox", { name: "图片替代文字 other-option-1" }), { target: { value: "另一题图片一" } });
+  expect(within(settings).getByRole("combobox", { name: "题型" })).toHaveValue("image_multi");
+  expect(within(canvas).getByRole("textbox", { name: "图片替代文字 other-option-1" })).toHaveValue("另一题图片一");
+  fireEvent.change(within(canvas).getByRole("textbox", { name: "图片替代文字 other-option-2" }), { target: { value: "另一题图片二" } });
+  expect(within(canvas).getByRole("textbox", { name: "图片替代文字 other-option-2" })).toHaveValue("另一题图片二");
+});
+
+it("applies a pending repair target when it loads and allows a renewed repair request", () => {
+  const first = { ...createSurveyQuestion("short", "first", 1), title: "第一题" };
+  const target = { ...createSurveyQuestion("open", "target", 2), title: "修复目标" };
+  const change = vi.fn();
+  const view = render(<SurveyQuestionEditor questions={[first]} selectedQuestionId="target" onChange={change} />);
+  view.rerender(<SurveyQuestionEditor questions={[first, target]} selectedQuestionId="target" onChange={change} />);
+  expect(screen.getByRole("combobox", { name: "题型" })).toHaveValue("open");
+  fireEvent.click(screen.getByRole("button", { name: "选择题目 1：第一题" }));
+  expect(screen.getByRole("combobox", { name: "题型" })).toHaveValue("short");
+  view.rerender(<SurveyQuestionEditor questions={[first, target]} selectedQuestionId={null} onChange={change} />);
+  view.rerender(<SurveyQuestionEditor questions={[first, target]} selectedQuestionId="target" onChange={change} />);
+  expect(screen.getByRole("combobox", { name: "题型" })).toHaveValue("open");
 });

@@ -1,0 +1,11 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/apps/web
+
+ ✓ tests/ui/interview-source-runs.test.tsx (9 tests) 1124ms
+
+ Test Files  1 passed (1)
+      Tests  9 passed (9)
+   Start at  19:42:53
+   Duration  11.05s (transform 2.46s, setup 666ms, collect 3.94s, tests 1.12s, environment 2.66s, prepare 1.86s)
+

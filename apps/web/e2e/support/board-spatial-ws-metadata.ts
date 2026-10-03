@@ -10,6 +10,7 @@ export function spatialFrameMetadata(payload: string | Buffer) {
     return {
       type: typeof frame.type === 'string' && types.has(frame.type) ? frame.type : 'unknown',
       ...(typeof frame.updateId === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(frame.updateId) ? { updateId: frame.updateId } : {}),
+      ...(typeof frame.gestureId === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(frame.gestureId) ? { gestureId: frame.gestureId } : {}),
       ...(typeof frame.seq === 'number' && Number.isSafeInteger(frame.seq) && frame.seq >= 0 ? { seq: frame.seq } : {}),
       ...(typeof frame.code === 'string' && /^[A-Z_]{1,64}$/.test(frame.code) ? { code: frame.code } : {}),
     };

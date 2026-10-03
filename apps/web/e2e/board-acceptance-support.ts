@@ -1,10 +1,12 @@
 import {expect, type APIRequestContext, type Page} from '@playwright/test';
+import {expectBoardSynced} from './support/board-sync-status';
 import {createHash,randomUUID} from 'node:crypto';
 import type {WhiteboardCommand, WhiteboardObject} from '@repo/whiteboard-core';
+import {rotatedAnchorPoint} from '@repo/whiteboard-core';
 import {SESSION_TOKEN_STORAGE_KEY} from '../lib/api-client';
 import {FULLSTACK_E2E} from './fullstack-smoke-fixture';
 
-export const BOARD_SYNCED_STATUS = /^已同步(?: · 序列 \d+)?$/;
+export {BOARD_SYNCED_STATUS} from './support/board-sync-status';
 export const apiOrigin = () => `http://127.0.0.1:${process.env.WORKSPACEX_API_PORT}`;
 export async function boardLogin(page: Page, email: string = FULLSTACK_E2E.email, password: string = FULLSTACK_E2E.password) {
   await page.goto('/login'); await page.getByTestId('login-email').fill(email);
@@ -86,7 +88,7 @@ export async function canonicalRows(page: Page): Promise<CanonicalRow[]> {
 }
 export async function openBoard(page: Page, id: string, count: number) {
   await page.goto(`/studio/board/${id}`);
-  await expect(page.getByText(BOARD_SYNCED_STATUS)).toBeVisible({timeout: 30_000});
+  await expectBoardSynced(page,30_000);
   await expect(page.getByTestId('board-a11y-mirror').locator('li[data-object-id]')).toHaveCount(count);
 }
 export async function settled(page: Page) {
@@ -101,35 +103,58 @@ export async function selectAll(page: Page, count: number) {
 /** Read-only projection coordinates. Input still uses real Playwright mouse events. */
 export async function objectPoint(page: Page, id: string, header = false) {
   await settled(page);
-  const surface = page.getByTestId('board-fabric-surface'), box = await surface.boundingBox();
-  expect(box).not.toBeNull();
-  const scenes = JSON.parse((await surface.getAttribute('data-object-scenes')) ?? '[]') as Array<{id: string; left: number; top: number; width: number; height: number}>;
-  const scene = scenes.find(value => value.id === id); expect(scene, `Fabric projection for ${id}`).toBeTruthy();
-  const zoom = Number(await surface.getAttribute('data-viewport-zoom'));
-  const panX = Number(await surface.getAttribute('data-viewport-pan-x')), panY = Number(await surface.getAttribute('data-viewport-pan-y'));
-  const fractions: Array<readonly [number, number]> = header ? [[0.5, 10], [0.25, 10], [0.75, 10]] :
-    [[0.5, 0.5], [0.25, 0.5], [0.75, 0.5], [0.25, 0.75], [0.75, 0.75]];
-  const points = fractions.map(([fx, fy]) => ({
-    x: box!.x + panX + (scene!.left + scene!.width * fx) * zoom,
-    y: box!.y + panY + (scene!.top + (header ? fy : scene!.height * fy)) * zoom,
-  }));
-  const point = await page.evaluate(candidates => candidates.find(candidate =>
-    (document.elementFromPoint(candidate.x, candidate.y) as HTMLElement | null)?.dataset.fabric === 'top') ?? null, points);
+  const point = await page.getByTestId('board-fabric-surface').evaluate((surface, input) => {
+    // Read one DOM projection snapshot; separate protocol awaits can mix renders.
+    const box = surface.getBoundingClientRect();
+    const scenes = JSON.parse(surface.getAttribute('data-object-scenes') ?? '[]') as Array<{id: string; left: number; top: number; width: number; height: number}>;
+    const scene = scenes.find(value => value.id === input.id);
+    if (!scene) throw new Error(`Missing Fabric projection for ${input.id}`);
+    const zoom = Number(surface.getAttribute('data-viewport-zoom'));
+    const panX = Number(surface.getAttribute('data-viewport-pan-x'));
+    const panY = Number(surface.getAttribute('data-viewport-pan-y'));
+    const fractions: Array<readonly [number, number]> = input.header ? [[0.5, 10], [0.25, 10], [0.75, 10]] :
+      [[0.5, 0.5], [0.25, 0.5], [0.75, 0.5], [0.25, 0.75], [0.75, 0.75]];
+    for (const [fx, fy] of fractions) {
+      const x = box.x + panX + (scene.left + scene.width * fx) * zoom;
+      const y = box.y + panY + (scene.top + (input.header ? fy : scene.height * fy)) * zoom;
+      if ((document.elementFromPoint(x, y) as HTMLElement | null)?.dataset.fabric === 'top') return {x, y, zoom};
+    }
+    return null;
+  }, {id, header});
   expect(point, `Object ${id} must expose a Fabric hit point outside overlays`).not.toBeNull();
-  return {...point!, zoom};
+  return point!;
+}
+async function surfaceSnapshot(page: Page, x: number, y: number) {
+  return page.getByTestId('board-fabric-surface').evaluate((surface, point) => {
+    const target = document.elementFromPoint(point.x, point.y);
+    return {target: target?.tagName, testId: (target as HTMLElement | null)?.dataset.testid, fabric: (target as HTMLElement | null)?.dataset.fabric, zoom: surface.getAttribute('data-viewport-zoom'), panX: surface.getAttribute('data-viewport-pan-x'), panY: surface.getAttribute('data-viewport-pan-y'), scenes: surface.getAttribute('data-object-scenes'), selected: Array.from(surface.querySelectorAll('[aria-pressed="true"]')).map(element => (element as HTMLElement).dataset.testid)};
+  }, {x,y});
 }
 export async function dragObject(page: Page, id: string, dx: number, dy: number, header = false, expectedParentId?: string, maxSceneError = 1) {
+  // The next real gesture must start from an acknowledged canonical state.
+  await expectBoardSynced(page,30_000);
   await page.keyboard.press('Escape'); await page.getByTestId('board-tool-select').click();
   await page.getByTestId('board-zoom-fit-board').click();
   const before = (await canonicalRows(page)).find(row => row.id === id)!;
   const point = await objectPoint(page, id, header);
+  const diagnosticsEnabled = process.env.BOARD_DRAG_DIAGNOSTIC === '1';
+  const diagnostic = async (phase: string) => {
+    const projection = await surfaceSnapshot(page, point.x, point.y);
+    console.log('BOARD_DRAG_DIAGNOSTIC', JSON.stringify({id, phase, point, dx, dy, projection, rows: await canonicalRows(page)}));
+  };
+  if (diagnosticsEnabled) await diagnostic('before');
   await page.mouse.move(point.x, point.y); await page.mouse.down();
-  await page.mouse.move(point.x + dx * point.zoom, point.y + dy * point.zoom, {steps: 12}); await page.mouse.up();
+  if (diagnosticsEnabled) await diagnostic('down');
+  await page.mouse.move(point.x + dx * point.zoom, point.y + dy * point.zoom, {steps: 12});
+  if (diagnosticsEnabled) await diagnostic('moved');
+  await page.mouse.up();
+  if (diagnosticsEnabled) await diagnostic('up');
   // Reparenting is center-hit based and an auto-expanding panel may move its
   // own bounds while accepting the child. parentId is the canonical outcome;
   // the pre-drop absolute target is not stable across that container update.
   if (expectedParentId !== undefined) {
     await expect.poll(async () => (await canonicalRows(page)).find(row => row.id === id)?.parentId).toBe(expectedParentId);
+    await expectBoardSynced(page,30_000);
     return;
   }
   // Fabric converts between viewport and scene coordinates while dragging.
@@ -140,6 +165,7 @@ export async function dragObject(page: Page, id: string, dx: number, dy: number,
     if (!geometry) return Number.POSITIVE_INFINITY;
     return Math.max(Math.abs(geometry.x - before.geometry.x - dx), Math.abs(geometry.y - before.geometry.y - dy));
   }).toBeLessThanOrEqual(maxSceneError);
+  await expectBoardSynced(page,30_000);
 }
 export function gridValid(rows: CanonicalRow[], columns = 3, gap = 24) {
   const sorted = [...rows].sort((a, b) => a.geometry.y - b.geometry.y || a.geometry.x - b.geometry.x);
@@ -151,9 +177,23 @@ export function gridValid(rows: CanonicalRow[], columns = 3, gap = 24) {
 export async function connectByHandles(page: Page, from: string, to: string) {
   await page.keyboard.press('Escape'); await page.getByTestId('board-tool-select').click();
   await page.getByTestId('board-zoom-fit-board').click();
-  await settled(page);
-  const surface = page.getByTestId('board-fabric-surface');
-  const blank = await surface.evaluate(element => {
+  const boardId = new URL(page.url()).pathname.split('/').at(-1)!;
+  const token = await page.evaluate(key => localStorage.getItem(key), SESSION_TOKEN_STORAGE_KEY);
+  expect(token).toBeTruthy();
+  const expectedRows = await canonicalRows(page);
+  const expectedIds = expectedRows.map(object => object.id).sort();
+  expect(expectedIds).toContain(from); expect(expectedIds).toContain(to);
+  await expectBoardSynced(page,30_000);
+  await expect.poll(async () => {
+    const persisted = await canonicalBoardSnapshot(page.request, token!, boardId);
+    return persisted.objects.map(object => ({id:object.id,text:object.text,geometry:object.geometry,parentId:object.parentId??''})).sort((a,b)=>a.id.localeCompare(b.id));
+  }, {timeout: 30_000, message: 'local object content and geometry must be durably acknowledged before connecting'}).toEqual(expectedRows.map(({id,text,geometry,parentId})=>({id,text,geometry,parentId})));
+  await expect.poll(() => canonicalRows(page)).toEqual(expectedRows);
+  const before = await canonicalBoardSnapshot(page.request, token!, boardId);
+  expect(before.objects.map(object => object.id).sort()).toEqual(expectedIds);
+  expect(before.objects.map(object => ({id:object.id,text:object.text,geometry:object.geometry,parentId:object.parentId??''})).sort((a,b)=>a.id.localeCompare(b.id))).toEqual(expectedRows.map(({id,text,geometry,parentId})=>({id,text,geometry,parentId})));
+  const blankSurface = page.getByTestId('board-fabric-surface');
+  const blank = await blankSurface.evaluate(element => {
     const box = element.getBoundingClientRect();
     const scenes = JSON.parse(element.getAttribute('data-object-scenes') ?? '[]') as Array<{left: number; top: number; width: number; height: number}>;
     const zoom = Number(element.getAttribute('data-viewport-zoom'));
@@ -171,19 +211,40 @@ export async function connectByHandles(page: Page, from: string, to: string) {
   expect(blank, 'A real empty canvas hit must clear the previous multi-selection').not.toBeNull();
   await page.mouse.click(blank!.x, blank!.y);
   await expect(page.getByTestId('board-a11y-selection-announcement')).toHaveText('未选择对象');
-  const source = await objectPoint(page, from);
-  await page.mouse.click(source.x, source.y);
+  const sourceOutline = page.getByTestId(`board-a11y-object-${from}`);
+  await sourceOutline.focus(); await sourceOutline.press('Enter');
+  const editor = page.getByTestId('board-thinking-editor');
+  if (await editor.count()) await editor.press('Escape');
+  await expect(editor).toHaveCount(0);
+  await expect(sourceOutline).toHaveAttribute('aria-pressed', 'true');
   await expect(page.getByTestId('board-a11y-selection-announcement')).toHaveText('已选择 1 个对象');
+  await expect(page.getByTestId('board-a11y-mirror').locator('button[aria-pressed="true"]')).toHaveCount(1);
+  const source = await objectPoint(page, from);
   await page.mouse.move(source.x, source.y);
-  // Start from one selected source; Escape alone does not clear a layout multi-selection.
-  let clicks = 0;
   const sourceHandle = page.getByTestId(`connector-handle-${from}-right`);
-  await expect(sourceHandle).toBeVisible(); await sourceHandle.click(); clicks++;
-  const target = await objectPoint(page, to); await page.mouse.move(target.x, target.y);
-  const targetHandle = page.getByTestId(`connector-handle-${to}-left`);
-  await expect(targetHandle).toBeVisible(); await targetHandle.click(); clicks++;
+  await expect(sourceHandle).toBeVisible();
+  const sourceBounds = await sourceHandle.boundingBox(); expect(sourceBounds).not.toBeNull();
+  const target = before.objects.find(object => object.id === to)!; expect(target).toBeTruthy();
+  const anchor = rotatedAnchorPoint(target, 'left');
+  const surface = page.getByTestId('board-fabric-surface'), bounds = await surface.boundingBox(); expect(bounds).not.toBeNull();
+  const zoom = Number(await surface.getAttribute('data-viewport-zoom'));
+  const destination = {x: bounds!.x + Number(await surface.getAttribute('data-viewport-pan-x')) + anchor.x * zoom,
+    y: bounds!.y + Number(await surface.getAttribute('data-viewport-pan-y')) + anchor.y * zoom};
+  await page.mouse.move(sourceBounds!.x + sourceBounds!.width / 2, sourceBounds!.y + sourceBounds!.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(destination.x, destination.y, {steps: 12});
+  await expect(page.getByTestId('board-connector-snap-cue')).toHaveAttribute('data-target-id', to);
+  expect(await canonicalBoardSnapshot(page.request, token!, boardId)).toEqual(before);
+  await page.mouse.up();
   await expect.poll(async () => (await canonicalRows(page)).filter(row => row.kind === 'connector' && row.from === from && row.to === to).length).toBe(1);
-  return clicks;
+  await expect(page.getByTestId('board-tool-select')).toHaveAttribute('aria-pressed', 'true');
+  await expect.poll(() => boardHead(page.request, token!, boardId)).toEqual({epoch: before.revision.epoch, seq: before.revision.seq + 1});
+  const after = await canonicalBoardSnapshot(page.request, token!, boardId);
+  expect(after.objects).toHaveLength(before.objects.length + 1);
+  expect(after.objects.filter(object => object.kind === 'connector' && object.connector?.from === from && object.connector?.to === to)).toHaveLength(1);
+  await page.reload(); await expectBoardSynced(page,30_000);
+  expect(await canonicalBoardSnapshot(page.request, token!, boardId)).toEqual(after);
+  return 1;
 }
 export function connectorsBound(rows: CanonicalRow[]) {
   return rows.filter(row => row.kind === 'connector').every(edge => {
@@ -211,4 +272,19 @@ export async function seedExistingFrame(page: Page, x: number, y: number, width 
   });
   await expect(page.getByTestId('board-a11y-mirror').locator(`li[data-object-id="${id}"]`)).toBeVisible();
   return id;
+}
+
+/** Find a blank point from the real projected scenes; creation ignores object hits. */
+export async function clickBlankCanvas(page: Page) {
+  const surface=page.getByTestId('board-fabric-surface');
+  const point=await surface.evaluate(element=>{
+    const canvas=element.querySelector('canvas.upper-canvas');if(!canvas)throw new Error('Fabric interaction canvas missing');
+    const rect=canvas.getBoundingClientRect(),zoom=Number(element.getAttribute('data-viewport-zoom')),panX=Number(element.getAttribute('data-viewport-pan-x')),panY=Number(element.getAttribute('data-viewport-pan-y'));
+    const scenes=JSON.parse(element.getAttribute('data-object-scenes')??'[]') as Array<{left:number;top:number;width:number;height:number}>;
+    for(let y=100;y<Math.min(rect.height-180,420);y+=40)for(let x=40;x<rect.width-40;x+=40){
+      if(!scenes.some(scene=>x>=scene.left*zoom+panX-12&&x<=((scene.left+scene.width)*zoom+panX+12)&&y>=scene.top*zoom+panY-12&&y<=((scene.top+scene.height)*zoom+panY+12)))return{x,y};
+    }
+    throw new Error('No exposed blank canvas point available for actual placement');
+  });
+  await surface.locator('canvas.upper-canvas').click({position:point});
 }

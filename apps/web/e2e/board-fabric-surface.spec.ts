@@ -1,9 +1,11 @@
 import { seedExistingFrame } from "./board-acceptance-support";
+import {expectBoardSynced} from './support/board-sync-status';
 import { randomUUID } from "node:crypto";
 import { expect, request as playwrightRequest, test, type APIRequestContext, type Locator, type Page } from "@playwright/test";
 import { SESSION_TOKEN_STORAGE_KEY } from "../lib/api-client";
 import { FULLSTACK_E2E } from "./fullstack-smoke-fixture";
 import { readBoardViewportSnapshot } from "./board-viewport-snapshot";
+import { canonicalBoardSnapshot } from "./board-acceptance-support";
 
 /** Real services only: authenticated UI, HTTP Board lifecycle and the production collaboration route. */
 test.describe.configure({ mode: "serial", timeout: 120_000 });
@@ -58,8 +60,8 @@ test.afterEach(async () => {
 // observed in CI #4984. This helper regression does not emulate Board services.
 test('viewport snapshot survives ACK banner removal between protocol reads', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
-  await page.setContent(`<style>html,body{margin:0}main{width:100vw;height:100vh;position:relative}section,canvas{position:absolute;inset:0;width:100%;height:100%}aside{position:absolute;top:64px;left:0;width:100%;height:32px}</style><main><section data-testid="board-editor-region"><canvas data-testid="board-fabric-surface"></canvas></section><aside data-testid="board-sync-banner">Pending ACK</aside></main>`);
-  const banner = page.getByTestId('board-sync-banner');
+  await page.setContent(`<style>html,body{margin:0}main{width:100vw;height:100vh;position:relative}section,canvas{position:absolute;inset:0;width:100%;height:100%}aside{position:absolute;top:64px;left:0;width:100%;height:32px}</style><main><section data-testid="board-editor-region"><canvas data-testid="board-fabric-surface"></canvas></section><aside data-viewport-transient-banner>Pending ACK</aside></main>`);
+  const banner = page.locator('[data-viewport-transient-banner]');
   expect(await readBoardViewportSnapshot(page)).toMatchObject({ bannerBounds: { x: 0, y: 64, width: 1280, height: 32 } });
   expect(await banner.isVisible()).toBe(true);
   // An ACK commits between the old isVisible and boundingBox protocol calls.
@@ -91,7 +93,7 @@ test("fabric surface viewport", async ({ page, request: api }) => {
   boardToArchive = { id: boardId, token, lifecycleRevision: board.lifecycleRevision };
   await page.goto(`/studio/board/${boardId}`);
   await expect(page.getByTestId("collaborative-editor")).toBeVisible({ timeout: 30_000 });
-  await expect(page.getByText(/^已同步$/)).toBeVisible({ timeout: 30_000 });
+  await expectBoardSynced(page,30_000);
 
   const surface = page.getByTestId("board-fabric-surface");
   const canvas = page.getByTestId("board-fabric-canvas");
@@ -121,8 +123,12 @@ test("fabric surface viewport", async ({ page, request: api }) => {
     // race that transition and can wait forever for an already removed banner.
     const { bounds, shellBounds, regionBounds, bannerBounds, viewport } = await readBoardViewportSnapshot(page);
     expect(bounds).not.toBeNull();
-    // Sync notices overlay the editor; pending/ACK transitions must never
+    // Header sync state overlays the editor; pending/ACK transitions must never
     // resize the canvas or change its pointer coordinate origin.
+    await expect(page.getByTestId("board-sync-banner")).toHaveCount(0); // testid-gate: absent Sync feedback belongs in the header, never in a standalone canvas banner.
+    const header = page.getByTestId("board-editor-header");
+    await expect(header.getByTestId("board-sync-status")).toBeVisible();
+    const headerBounds = await header.boundingBox();
     expect(shellBounds).not.toBeNull();
     expect(regionBounds).not.toBeNull();
     for (const [actual, expected] of [
@@ -135,10 +141,7 @@ test("fabric surface viewport", async ({ page, request: api }) => {
       [bounds!.width, regionBounds!.width], [bounds!.height, regionBounds!.height],
     ]) expect(Math.abs(actual! - expected!)).toBeLessThanOrEqual(1);
     expect(regionBounds!.height).toBeGreaterThan(0);
-    if (bannerBounds) {
-      expect(bannerBounds).toMatchObject({ x: 0, y: 64, width: viewport.width });
-      expect(bannerBounds.height).toBeGreaterThan(0);
-    }
+    expect(headerBounds).toMatchObject({ x: 0, y: 0, width: viewport.width, height: 64 });
   };
   await expect(assertViewportBounds).toPass({timeout: 5000});
   await page.setViewportSize({width: 1024, height: 768});
@@ -179,8 +182,7 @@ test("fabric surface viewport", async ({ page, request: api }) => {
       });
       await page.mouse.move(point.x, point.y);
       await page.keyboard.down("ControlOrMeta");
-      await page.mouse.wheel(0, deltaY);
-      await page.keyboard.up("ControlOrMeta");
+      try { await page.mouse.wheel(0, deltaY); } finally { await page.keyboard.up("ControlOrMeta"); }
       await page.waitForTimeout(75);
       await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
     }
@@ -220,7 +222,7 @@ test("selected object inspector adapts to each widget and a narrow editor", asyn
   const board = await created.json() as { id: string; lifecycleRevision: number };
   boardToArchive = { id: board.id, token, lifecycleRevision: board.lifecycleRevision };
   await page.goto(`/studio/board/${board.id}`);
-  await expect(page.getByText(/^已同步$/)).toBeVisible({ timeout: 30_000 });
+  await expectBoardSynced(page,30_000);
 
   const editor = page.getByTestId("collaborative-editor");
   const inspector = page.getByTestId("board-context-toolbar");
@@ -346,9 +348,14 @@ test("selected object inspector adapts to each widget and a narrow editor", asyn
   await page.keyboard.press("ArrowLeft");
   await expect(widthResizer).toHaveAttribute("aria-valuenow", String(previousWidth - 24));
   const previousHeight = Number(await heightResizer.getAttribute("aria-valuenow"));
+  const maxHeight = Number(await heightResizer.getAttribute("aria-valuemax"));
+  const minHeight = Number(await heightResizer.getAttribute("aria-valuemin"));
+  const expandedHeight = Math.min(maxHeight, previousHeight + 24);
   await heightResizer.focus();
   await page.keyboard.press("ArrowDown");
-  await expect(heightResizer).toHaveAttribute("aria-valuenow", String(previousHeight - 24));
+  await expect(heightResizer).toHaveAttribute("aria-valuenow", String(expandedHeight));
+  await page.keyboard.press("ArrowUp");
+  await expect(heightResizer).toHaveAttribute("aria-valuenow", String(Math.max(minHeight, expandedHeight - 24)));
   await expect(page.getByTestId("board-inspector-scroll-content")).toBeVisible();
   await capture("selected-inspector-narrow");
 });
@@ -361,7 +368,11 @@ test("live drag attachments follow before one durable transform and survive undo
   boardToArchive = { ...board, token };
   const a = randomUUID(), b = randomUUID(), edge = randomUUID();
   const geometry = { x: 220, y: 220, width: 180, height: 140, rotation: 0 };
-  const object = (id: string, kind: "sticky" | "connector", value: typeof geometry) => ({ id, schemaVersion: 1, kind, geometry: value, text: id, style: {}, parentId: null, orderKey: id });
+  // Explicit rectangle semantics preserve this fixture's 180x140 hit geometry;
+  // legacy stickies default to square and normalize height on transform.
+  const stickyMetadata = { variant: "rectangle", sizing: "fixed", color: "#F8D76E" };
+  const object = (id: string, kind: "sticky" | "connector", value: typeof geometry) => ({ id, schemaVersion: 1, kind, geometry: value, text: id, style: {}, parentId: null, orderKey: id,
+    ...(kind === "sticky" ? { extensionData: { thinkingInput: { sticky: stickyMetadata } } } : {}) });
   await apiRequest(api, token, "POST", `/v1/whiteboards/${board.id}/operations`, {
     apiVersion: "2026-09-01", requestId: randomUUID(), boardId: board.id, expectedRevision: { epoch: 1, seq: 0 },
     actor: { kind: "human", actorId: FULLSTACK_E2E.adminUserId, orgId: FULLSTACK_E2E.orgId, role: "owner", scopes: ["board:read", "board:write"], delegatedBy: null },
@@ -375,6 +386,14 @@ test("live drag attachments follow before one durable transform and survive undo
   const canonical = () => page.getByTestId("board-a11y-mirror").locator(`li[data-object-id="${a}"]`).getAttribute("data-geometry");
   const scenes = () => surface.evaluate(el => ({ items: JSON.parse(el.getAttribute("data-object-scenes")!) as Array<{ id: string; left: number; top: number; width: number; height: number }>, z: Number(el.getAttribute("data-viewport-zoom")), px: Number(el.getAttribute("data-viewport-pan-x")), py: Number(el.getAttribute("data-viewport-pan-y")), box: el.getBoundingClientRect().toJSON() as { x: number; y: number } }));
   const before = await canonical(), initial = await scenes(), note = initial.items.find(item => item.id === a)!;
+  const savedDocument = await canonicalBoardSnapshot(api, token, board.id);
+  for (const id of [a, b]) {
+    const saved = savedDocument.objects.find(object => object.id === id)!;
+    expect(saved.extensionData?.thinkingInput).toMatchObject({ sticky: stickyMetadata });
+    expect(saved.geometry).toMatchObject({ width: 180, height: 140 });
+    expect(initial.items.find(item => item.id === id)).toMatchObject({ left: saved.geometry.x, top: saved.geometry.y, width: 180, height: 140 });
+  }
+  const savedHead = await (await apiRequest(api, token, "GET", `/v1/whiteboards/${board.id}/head`)).json() as { epoch: number; seq: number };
   const x = initial.box.x + initial.px + (note.left + note.width / 2) * initial.z, y = initial.box.y + initial.py + (note.top + note.height / 2) * initial.z;
   await page.mouse.click(x, y);
   const toolbar = page.getByTestId("board-context-toolbar"), handle = page.getByTestId(`connector-handle-${a}-right`);
@@ -385,9 +404,34 @@ test("live drag attachments follow before one durable transform and survive undo
   expect(await canonical(), "live drag must not commit before pointer release").toBe(before);
   expect(Math.abs((await handle.boundingBox())!.x - handleBefore.x)).toBeGreaterThan(50);
   const current = await scenes(), moved = current.items.find(item => item.id === a)!, attached = current.items.find(item => item.id === edge)!;
+  const destination = current.items.find(item => item.id === b)!;
+  expect(JSON.parse((await canonical())!)).toMatchObject({ width: 180, height: 140 });
+  expect(moved).toMatchObject({ width: 180, height: 140 });
+  expect(destination).toMatchObject({ width: 180, height: 140 });
+  const heldDocument = await canonicalBoardSnapshot(api, token, board.id);
+  expect(heldDocument.objects, "held gesture must preserve canonical geometry and rectangle metadata").toEqual(savedDocument.objects);
+  const endpoints = { start: { x: moved.left + moved.width, y: moved.top + moved.height / 2 }, end: { x: destination.left, y: destination.top + destination.height / 2 } };
+  // Bounding boxes include arrow/label/stroke bounds. Independently probe the
+  // actual Fabric ink on the live expected segment, away from the midpoint label.
+  const probes = await surface.locator('canvas.lower-canvas').evaluate((element, input) => {
+    const canvas = element as HTMLCanvasElement, context = canvas.getContext('2d')!, box = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / box.width, scaleY = canvas.height / box.height;
+    return [.08, .16, .24].map(t => {
+      const world = { x: input.endpoints.start.x + t * (input.endpoints.end.x - input.endpoints.start.x), y: input.endpoints.start.y + t * (input.endpoints.end.y - input.endpoints.start.y) };
+      const client = { x: input.current.box.x + input.current.px + world.x * input.current.z, y: input.current.box.y + input.current.py + world.y * input.current.z };
+      const x = Math.round((client.x - box.x) * scaleX), y = Math.round((client.y - box.y) * scaleY);
+      const rgba = context.getImageData(x - 3, y - 3, 7, 7).data; let ink = 0, alphaSum = 0;
+      for (let index = 0; index < rgba.length; index += 4) if (Math.abs(rgba[index]! - 41) <= 2 && Math.abs(rgba[index + 1]! - 38) <= 2 && Math.abs(rgba[index + 2]! - 30) <= 2 && rgba[index + 3]! > 0) { ink++; alphaSum += rgba[index + 3]!; }
+      return { t, world, client, ink, alphaSum };
+    });
+  }, { current, endpoints });
+  await info.attach("live-path-measurements", { body: JSON.stringify({ current, endpoints, probes, savedHead }), contentType: "application/json" });
+  expect(await (await apiRequest(api, token, "GET", `/v1/whiteboards/${board.id}/head`)).json(), "held pointer must not advance durable head").toEqual(savedHead);
+  for (const probe of probes) { expect(probe.ink, `actual Fabric path at ${probe.t}`).toBeGreaterThan(0); expect(probe.alphaSum).toBeGreaterThan(255); }
   expect(Math.abs(attached.left - moved.left - moved.width)).toBeLessThan(8);
   await info.attach("live-drag-attachments", { body: await page.screenshot(), contentType: "image/png" });
   await page.mouse.up(); await expect.poll(canonical).not.toBe(before); const after = await canonical();
+  await expect.poll(async () => (await (await apiRequest(api, token, "GET", `/v1/whiteboards/${board.id}/head`)).json()).seq).toBe(savedHead.seq + 1);
   await page.getByRole("button", { name: "撤销", exact: true }).click(); await expect.poll(canonical).toBe(before);
   await page.getByRole("button", { name: "重做", exact: true }).click(); await expect.poll(canonical).toBe(after);
   await expect(page.getByTestId("board-sync-status")).toHaveAttribute("aria-label", /已同步/);

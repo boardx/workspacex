@@ -1,0 +1,44 @@
+[stack-admission] load1=21.50 cores=10 perCore=2.15 running=2/2
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 0s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 5s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 10s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 15s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 20s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排到了，等了 25s
+[test-isolation] id=run-mur2d2i1-cebe301e-f11becf1b954 db=wsx_f11becf1b95469614b40 compose=wsx-f11becf1b95469614b40 pg=20185 redis=21185 api=24185 web=25185 sandbox=26185 model=27185 deep-agent=28185 asr=29185 vision=30185 loopback-sandbox=31185 mail=19185
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/apps/api
+
+[db-isolation] db=wsx_f11becf1b95469614b40 capacity=100 current=6 required=32
+ ✓ tests/itv/interview-markdown-execution.test.ts (10 tests) 56963ms
+   ✓ Markdown task execution > previews an authorized virtual persona as unsaved Markdown and rejects stale versions 552ms
+   ✓ Markdown task execution > branches confirmed source versions without touching historical bodies or execution 846ms
+   ✓ Markdown task execution > projects truthful history from source execution without rewriting legacy research fields 1154ms
+   ✓ Markdown task execution > calls the actual model port with confirmed Markdown, retains failure, and only reports after tasks complete 841ms
+   ✓ Markdown task execution > claims one batch, persists answer Markdown before scheduling and never duplicates it 917ms
+   ✓ Markdown task execution > runs five experts concurrently and leaves overflow for the next round 1741ms
+   ✓ Markdown task execution > preserves failed text, retries only its gap and rejects stale versions or unauthorized control 1432ms
+   ✓ Markdown task execution > rechecks actor visibility when the model answer returns 549ms
+   ✓ Markdown task execution > recovers an expired claim and refuses writeback from the obsolete worker 389ms
+   ✓ Markdown task execution > pins confirmed versions and refuses a changed source during model execution 859ms
+ ✓ tests/itv/interview-report-recovery-db.test.ts (6 tests) 6814ms
+   ✓ #5104 real DB report quality recovery > preserves rejected v1 bytes/hash/references then saves full rewritten v2 without concatenation, one increment per save 1337ms
+   ✓ #5104 real DB report quality recovery > bounds a still-invalid rewrite at two calls and retains both failed documents without granting approval 965ms
+   ✓ #5104 real DB report quality recovery > uses one call and one draft save for an already-qualified report 783ms
+   ✓ #5104 real DB report quality recovery > recovers a single expert synthetic study without inventing agreement or participant evidence 1205ms
+   ✓ #5104 real DB report quality recovery > rechecks source_change after preserving failure and before calling the second model 589ms
+   ✓ #5104 real DB report quality recovery > rechecks permission_revocation after preserving failure and before calling the second model 632ms
+
+ Test Files  2 passed (2)
+      Tests  16 passed (16)
+   Start at  22:34:22
+   Duration  75.63s (transform 2.32s, setup 29ms, collect 4.49s, tests 63.78s, environment 0ms, prepare 269ms)
+
+[db-isolation] db=wsx_f11becf1b95469614b40 peak_connections=6
+[timing] pnpm --filter @repo/api exec vitest run tests/itv/interview-report-recovery-db.test.ts tests/itv/interview-markdown-execution.test.ts --maxWorkers=1 --minWorkers=1
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：25s
+  命令执行：1m18s
+  清理：1s
+  总计：1m43s

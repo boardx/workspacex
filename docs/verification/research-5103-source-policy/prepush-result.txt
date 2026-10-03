@@ -1,0 +1,22 @@
+@repo/api:lint: ✅ agenda tier catalog is in sync with the definition table
+@repo/api:lint: ✅ lint-skill-context-api-only: 78 个文件，skill 取数只经 Context API（I-25）
+@repo/api:lint: scanned=78 violations=0
+@repo/api:lint: ✅ lint-naming-single-source: 0 处败选名（stepId / step_id / agenda_stage / stage.<action>）
+@repo/api:lint: scanned-roots=4
+@repo/api:lint: lint-work-skill-manifests: 89/89 个 Work Skill manifest 通过
+@repo/api:lint: ✅ lint-arch-deps: 1919 files, all dependencies point inward
+@repo/api:lint: scanned=1919
+
+ Tasks:    7 successful, 7 total
+Cached:    5 cached, 7 total
+  Time:    24.102s 
+
+  ℹ 本地只跑了 typecheck/lint。单元测试与 backend-gates（RLS 反证 / 运行时门 /
+    迁移幂等 / 契约单源 / 洋葱分层 / core-loop e2e）在 PR 的 CI 上跑——本地绿 ≠ CI 绿。
+remote: 
+remote: Create a pull request for 'codex/research-5103-source-policy' on GitHub by visiting:        
+remote:      https://github.com/boardx/workspacex/pull/new/codex/research-5103-source-policy        
+remote: 
+To https://github.com/boardx/workspacex.git
+ * [new branch]          codex/research-5103-source-policy -> codex/research-5103-source-policy
+branch 'codex/research-5103-source-policy' set up to track 'origin/codex/research-5103-source-policy'.

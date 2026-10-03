@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import {expectBoardSynced} from './support/board-sync-status';
 import { writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -6,6 +7,7 @@ import { expect, test, type Page, type APIRequestContext } from '@playwright/tes
 import { SESSION_TOKEN_STORAGE_KEY } from '../lib/api-client';
 import { resolveObjectPath } from '../../api/src/infrastructure/storage/object-store-path';
 import { FULLSTACK_E2E } from './fullstack-smoke-fixture';
+import {createNativeSticky,observeNativeStickyWrites} from './support/board-native-sticky-create';
 
 /** Real services only: no route interception, business mocks or injected test principals. */
 test.describe.configure({ mode: 'serial', timeout: 120_000 });
@@ -40,13 +42,14 @@ async function archiveBoard(api: APIRequestContext, token: string, boardId: stri
   const current = await (await request(api, token, 'GET', `/whiteboards/${boardId}`)).json() as {archived: boolean; lifecycleRevision: number};
   if (!current.archived) await request(api, token, 'PATCH', `/whiteboards/${boardId}`, {archived: true, expectedLifecycleRevision: current.lifecycleRevision});
 }
-async function synced(page:Page){await expect(page.getByTestId('collaborative-editor')).toBeVisible({timeout:30_000});await expect(page.getByText(/^已同步(?: · 序列 \d+)?(?: · 只读)?$/)).toBeVisible({timeout:30_000});}
+async function synced(page:Page){await expect(page.getByTestId('collaborative-editor')).toBeVisible({timeout:30_000});await expectBoardSynced(page,30_000,true);}
 
 test('realtime presence field convergence',async({browser,request:api,baseURL})=>{
   const ownerContext=await browser.newContext({baseURL}),editorContext=await browser.newContext({baseURL}),viewerContext=await browser.newContext({baseURL});
   const owner=await ownerContext.newPage(),editor=await editorContext.newPage(),viewer=await viewerContext.newPage();
   for (const page of [owner, editor, viewer]) page.setDefaultTimeout(15_000);
   let boardId:string|undefined,ownerToken:string|undefined,editorToken:string|undefined,viewerToken:string|undefined;
+  let stickyUpdates=()=>0;
   try{
     await test.step('authenticate the three independent users',async()=>{
       const [authenticatedOwnerToken,authenticatedEditorToken,authenticatedViewerToken]=await Promise.all([login(owner,'OWNER'),login(editor,'EDITOR'),login(viewer,'VIEWER')]);
@@ -62,6 +65,7 @@ test('realtime presence field convergence',async({browser,request:api,baseURL})=
       ]);
     });
     await test.step('connect all three clients',async()=>{
+      stickyUpdates=observeNativeStickyWrites(owner,boardId!);
       await Promise.all([owner,editor,viewer].map(async page=>{await page.goto(`/studio/board/${boardId}`);await synced(page);}));
     });
     await test.step('keep the board fullscreen at supported viewport widths',async()=>{
@@ -73,8 +77,7 @@ test('realtime presence field convergence',async({browser,request:api,baseURL})=
       }
     });
     await test.step('merge concurrent geometry and text fields from the same synced base in both browser contexts',async()=>{
-      await owner.keyboard.press('n');
-      await owner.getByLabel('对象文字',{exact:true}).fill('团队中文协作便签');await synced(owner);
+      await createNativeSticky(owner,'团队中文协作便签',{api,token:ownerToken!,boardId:boardId!,updates:stickyUpdates});await synced(owner);
       const editorNote=editor.getByRole('button',{name:'图形：团队中文协作便签',exact:true});await expect(editorNote).toBeVisible({timeout:20_000});
       const objectId=(await editorNote.getAttribute('data-testid'))?.replace('board-a11y-object-','');expect(objectId).toBeTruthy();
       const commandFromBrowser=async(page:Page,token:string,commands:unknown[])=>page.evaluate(async({tokenValue,currentBoardId,requestId,commandsValue})=>{
@@ -169,8 +172,9 @@ test('comments anchor ACL',async({browser,request:api,baseURL})=>{
     [ownerToken,commenterToken]=await Promise.all([login(owner,'OWNER'),login(commenter,'VIEWER')]);
     const created=await request(api,ownerToken,'POST','/whiteboards',{requestId:randomUUID(),name:`Comment ACL ${randomUUID()}`});boardId=(await created.json() as {id:string}).id;
     await request(api,ownerToken,'PUT',`/whiteboards/${boardId}/members`,{userId:required('WHITEBOARD_VIEWER_USER_ID'),role:'commenter'});
+    const stickyUpdates=observeNativeStickyWrites(owner,boardId!);
     await owner.goto(`/studio/board/${boardId}`);await commenter.goto(`/studio/board/${boardId}`);await Promise.all([synced(owner),synced(commenter)]);
-    await owner.keyboard.press('n');await owner.getByLabel('对象文字',{exact:true}).fill('comment anchor target');await synced(owner);
+    await createNativeSticky(owner,'comment anchor target',{api,token:ownerToken,boardId:boardId!,updates:stickyUpdates});await synced(owner);
     const target=commenter.getByRole('button',{name:'图形：comment anchor target',exact:true});await expect(target).toBeVisible({timeout:20_000});await target.focus();await target.press('Enter');
     await expect(commenter.getByLabel('对象文字',{exact:true})).toHaveCount(0);await commenter.getByRole('button',{name:'评论',exact:true}).click();await commenter.getByLabel('评论内容').fill('object anchored by commenter');await commenter.getByRole('button',{name:'发布评论'}).click();
     await owner.reload();await synced(owner);const indicator=owner.locator('[data-testid^="board-comment-indicator-"]');await expect(indicator).toHaveCount(1,{timeout:20_000});await indicator.click();await expect(owner.getByText('object anchored by commenter')).toBeVisible();

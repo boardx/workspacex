@@ -1,8 +1,10 @@
+import {createSpatialWsMetadataRecorder} from "./support/board-spatial-ws-metadata";
 import {randomUUID} from 'node:crypto';
 import {expect} from '@playwright/test';
 import {test,assertJourneyReload} from './board-journey-evidence';
 import type {WhiteboardCommand} from '@repo/whiteboard-core';
 import {FULLSTACK_E2E} from './fullstack-smoke-fixture';
+import {connectionGestureMetric} from '../scripts/board-connection-gesture-metric.mjs';
 import {archiveAcceptanceBoard, boardApi, boardHead, boardLogin, canonicalRows,
   connectByHandles, connectorsBound, createAcceptanceBoard, createCommands, dragObject,
   gridValid, object, openBoard, operate, provenance, selectAll} from './board-acceptance-support';
@@ -66,6 +68,16 @@ test('Organize: 20 scattered stickies -> equal-gap grid in <=2 actions', async (
 });
 
 test('Panel: drag 10 unparented objects inside, then move the whole container', async ({page, request}) => {
+  const transport = createSpatialWsMetadataRecorder(); transport.observe(page, 'original');
+  const http: Array<{method: string; route: string; status: number}> = [];
+  page.on('response', response => {
+    const path = new URL(response.url()).pathname;
+    const route = /\/whiteboards\/[^/]+\/sync$/.test(path) ? 'sync'
+      : /\/whiteboards\/[^/]+\/operations$/.test(path) ? 'operations'
+      : /\/whiteboards\/[^/]+\/head$/.test(path) ? 'head'
+      : /\/whiteboards\/[^/]+$/.test(path) ? 'board' : null;
+    if (route && http.length < 200) http.push({method: response.request().method(), route, status: response.status()});
+  });
   const token = await boardLogin(page), id = await createAcceptanceBoard(request, token, 'Acceptance panel');
   try {
     const panel = {...object('research-panel', 'frame', 100, 120, 'Customer research', 1100, 550), extensionData: {spatial: panelMetadata}};
@@ -100,17 +112,28 @@ test('Panel: drag 10 unparented objects inside, then move the whole container', 
       if (next.id !== panel.id) expect(next.parentId).toBe(panel.id);
     }
     await assertJourneyReload(page, id, after, request, token);
-  } finally { await archiveAcceptanceBoard(request, token, id); }
+  } catch (error) {
+    try {
+      await test.info().attach('panel-failure-transport', {body: JSON.stringify({http, websocket: transport.snapshot(), denied: await page.getByTestId('denied').count()}), contentType: 'application/json'});
+    } catch (diagnosticError) { throw new AggregateError([error, diagnosticError], 'Panel failure and diagnostic capture failed', {cause: error}); }
+    throw error;
+  } finally {
+    // Archive safe routing/receipt metadata even when fail-closed removes the UI.
+    // This distinguishes server rejection from receipt conflicts without payloads.
+    try {
+      await test.info().attach('panel-transport-metadata',{body:JSON.stringify({...transport.snapshot(),ui:{phase:await page.evaluate(()=>document.querySelector('[data-testid="board-sync-status"]')?.getAttribute('data-sync-state')??null).catch(()=>null),failClosed:await page.getByRole('heading',{name:'无法继续访问白板',exact:true}).count()===1}}),contentType:'application/json'});
+    } finally { await archiveAcceptanceBoard(request, token, id); }
+  }
 });
 
-test('Diagram: A->B->C via two-click connections remain attached after each shape moves', async ({page, request}) => {
+test('Diagram: A->B->C via one-drag connections remain attached after each shape moves', async ({page, request}) => {
   const token = await boardLogin(page), id = await createAcceptanceBoard(request, token, 'Acceptance diagram');
   try {
     const shapes = ['A', 'B', 'C'].map((name, index) => object(name, 'rectangle', 150 + index * 360, 300, name, 200, 140));
     await operate(request, token, id, createCommands(shapes)); await openBoard(page, id, 3);
-    const clicks = [await connectByHandles(page, 'A', 'B'), await connectByHandles(page, 'B', 'C')];
-    await metric('connection-clicks-per-edge', Math.max(...clicks), 2);
-    expect(clicks.every(count => count <= 2)).toBe(true);
+    const gestures = [await connectByHandles(page, 'A', 'B'), await connectByHandles(page, 'B', 'C')];
+    await metric(connectionGestureMetric.name, Math.max(...gestures), connectionGestureMetric.limit);
+    expect(gestures.every(count => count === 1)).toBe(true);
     let rows = await canonicalRows(page);
     expect(rows.filter(row => row.kind === 'connector')).toHaveLength(2); expect(connectorsBound(rows)).toBe(true);
     // Fit-to-board places the outer shapes against opposite viewport edges. Drag
@@ -146,9 +169,9 @@ test('Visual Research: valid screenshot in one paste mixed with Sticky/Text/Arro
     const image = (await canonicalRows(page)).find(row => row.kind === 'image')!;
     await expect(page.getByTestId(`board-a11y-object-${image.id}`)).toHaveAttribute('aria-description', /图片已验证/, {timeout: 30_000});
     await metric('screenshot-paste-actions', 1, 1);
-    await page.keyboard.press('n'); await page.getByLabel('对象文字', {exact: true}).fill('Research insight'); await page.keyboard.press('Escape');
+    await page.keyboard.press('n'); await page.getByTestId('board-fabric-surface').locator('canvas.upper-canvas').click({position:{x:100,y:120}}); await page.getByLabel('对象文字', {exact: true}).fill('Research insight'); await page.keyboard.press('Escape');
     await page.getByTestId('board-tool-select').focus();
-    await page.keyboard.press('t'); await page.getByLabel('对象文字', {exact: true}).fill('Interview summary'); await page.keyboard.press('Escape');
+    await page.keyboard.press('t'); await page.getByTestId('board-fabric-surface').locator('canvas.upper-canvas').click({position:{x:400,y:120}}); await page.getByLabel('对象文字', {exact: true}).fill('Interview summary'); await page.keyboard.press('Escape');
     await page.getByTestId('board-add-more').click(); await page.getByTestId('board-content-tile').click();
     await page.keyboard.press('Escape');
     await expect.poll(async () => (await canonicalRows(page)).filter(row => row.kind === 'card').length).toBe(1);
@@ -165,6 +188,7 @@ test('Visual Research: valid screenshot in one paste mixed with Sticky/Text/Arro
         || a.top + a.height <= b.top + 1 || b.top + b.height <= a.top + 1));
     }).toBe(true);
     const sticky = content.find(row => row.kind === 'sticky')!, tile = content.find(row => row.kind === 'card')!;
+    await expect(page.getByTestId('board-a11y-selection-announcement')).toHaveText('已选择 4 个对象');
     await connectByHandles(page, sticky.id, tile.id);
     const mixed = await canonicalRows(page);
     expect(mixed).toHaveLength(5); expect(connectorsBound(mixed)).toBe(true);

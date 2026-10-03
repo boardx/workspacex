@@ -44,6 +44,33 @@ function Intake({ onImportFile, onVoice }: { onImportFile?: (file: File) => Prom
   const [markdown, setMarkdown] = React.useState(raw);
   return <InterviewIntakeStep markdown={markdown} onChange={setMarkdown} onConfirm={async () => undefined} onImportFile={onImportFile} onVoice={onVoice} pending={false} />;
 }
+it("uploads the first research file without attempting to save a blank intake", async () => {
+  vi.stubEnv("NEXT_PUBLIC_API_URL", "http://localhost:4100");
+  vi.stubEnv("NEXT_PUBLIC_API_PATH_PREFIX", "");
+  const imported = "# 原始需求\n研究家具安装体验。";
+  const blankWrites: string[] = [];
+  let uploaded = false;
+  const source = () => ({ interviewId: "itv-blank", revisionId: "rev-blank", version: uploaded ? 2 : 1,
+    documents: uploaded ? [{ documentId: "intake-upload", step: "intake", version: 1, contentHash: "a".repeat(64), evidenceMode: "simulated", references: [], markdown: imported }] : [],
+    states: uploaded ? [{ documentId: "intake-upload", status: "draft", failure: null }] : [] });
+  vi.stubGlobal("fetch", async (url: string, init: RequestInit) => {
+    if (url.endsWith("/markdown/intake") && init.method === "POST") {
+      blankWrites.push(String(init.body));
+      return new Response(JSON.stringify({ reasonCode: "INVALID_INPUT" }), { status: 400 });
+    }
+    if (url.includes("/attachments")) {
+      uploaded = true;
+      return new Response(JSON.stringify({ source: source(), original: { assetId: "asset-first", filename: "需求.md", mime: "text/markdown", bytes: 100, sha256: "b".repeat(64) } }));
+    }
+    return new Response(JSON.stringify(source()));
+  });
+  render(<InterviewMarkdownPlanningStep interviewId="itv-blank" step="intake" onVersionChange={vi.fn()} onDirtyChange={vi.fn()} onContinue={vi.fn()} />);
+  const input = screen.getByRole("textbox", { name: "研究需求 Markdown" });
+  await waitFor(() => expect(input).toBeEnabled());
+  fireEvent.change(screen.getByLabelText("导入研究文件"), { target: { files: [new File([imported], "需求.md", { type: "text/markdown" })] } });
+  await waitFor(() => expect(input).toHaveValue(imported));
+  expect(blankWrites).toEqual([]);
+});
 it("importsTextAsMarkdown keeps Markdown editable without a structured research copy", () => {
   render(<Intake />);
   const input = screen.getByRole("textbox", { name: "研究需求 Markdown" });

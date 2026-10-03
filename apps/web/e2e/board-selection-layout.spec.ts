@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import {expectBoardSynced} from './support/board-sync-status';
 import { expect, request as playwrightRequest, test, type APIRequestContext, type Page } from "@playwright/test";
 import { SESSION_TOKEN_STORAGE_KEY } from "../lib/api-client";
 import { FULLSTACK_E2E } from "./fullstack-smoke-fixture";
@@ -177,12 +178,14 @@ async function setupMixedBoard(page: Page, request: APIRequestContext, browser: 
   const secondContext = await browser.newContext({ baseURL, viewport: { width: 1440, height: 900 } });
   const second = await secondContext.newPage();
   await page.goto(`/studio/board/${boardId}`);
-  await expect(page.getByText(/^已同步$/)).toBeVisible({ timeout: 30_000 });
+  await expectBoardSynced(page,30_000);
   await page.keyboard.press("Shift+N");
   await page.getByTestId("board-bulk-text").fill("一\n二\n三\n四\n五\n六");
   await page.getByTestId("board-bulk-apply").click();
   await expect(page.getByTestId("board-a11y-mirror").getByRole("button")).toHaveCount(6);
+  await page.getByTestId("board-tool-select").focus();
   await page.keyboard.press("t");
+  await page.getByTestId("board-fabric-surface").locator("canvas.upper-canvas").click({position:{x:100,y:120}});
   const textEditor = page.getByLabel("对象文字", { exact: true });
   await expect(textEditor).toBeVisible();
   await textEditor.fill("研究标题");
@@ -191,7 +194,7 @@ async function setupMixedBoard(page: Page, request: APIRequestContext, browser: 
   await expect(page.getByTestId("board-a11y-mirror").getByRole("button", { name: "图形：研究标题" })).toBeVisible();
   await login(second);
   await second.goto(`/studio/board/${boardId}`);
-  await expect(second.getByText(/^已同步$/)).toBeVisible({ timeout: 30_000 });
+  await expectBoardSynced(second,30_000);
   await expect(second.getByTestId("board-a11y-mirror").getByRole("button")).toHaveCount(7);
   const original = await geometry(page);
   await expect.poll(() => geometry(second)).toBe(original);
@@ -342,7 +345,7 @@ test.describe("organize <=2 actions", () => {
         await page.getByTestId("board-layout-preview-apply").click();
         await expect(page.getByText("应用失败：预览后对象已被其他协作者修改。", { exact: true })).toBeVisible();
         await expect.poll(() => geometry(page)).toBe(afterRemoteEdit);
-        await page.reload(); await expect(page.getByText(/^已同步$/)).toBeVisible({ timeout: 30_000 });
+        await page.reload(); await expectBoardSynced(page,30_000);
         await expect.poll(() => geometry(page)).toBe(afterRemoteEdit);
       } finally { await secondContext.close(); }
     });

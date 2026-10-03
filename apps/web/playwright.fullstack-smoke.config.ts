@@ -1,4 +1,5 @@
 import path from "node:path";
+import { randomUUID } from "node:crypto";
 import { defineConfig, devices } from "@playwright/test";
 import { EMPTY_DB_TAG_RE } from "./e2e/core-loop-fixture";
 import { FULLSTACK_E2E, MAIL_LOOPBACK } from "./e2e/fullstack-smoke-fixture";
@@ -8,6 +9,10 @@ function required(name: string): string {
   if (!value) throw new Error(`${name} is required; run through the root #74 isolation wrapper`);
   return value;
 }
+
+// Bind acceptance receipts to this config's fresh build and API process.
+process.env.BOARD_ACCEPTANCE_RUNTIME_MARKER ??= randomUUID();
+process.env.BOARD_ACCEPTANCE_RUNTIME_STARTED_AT ??= new Date().toISOString();
 
 const apiPort = required("WORKSPACEX_API_PORT");
 const webPort = required("WORKSPACEX_WEB_PORT");
@@ -430,6 +435,15 @@ export default defineConfig({
       fullyParallel: false,
     },
     {
+      name: "board-image-ingress",
+      testMatch: ["board-image-ingress-acceptance.spec.ts"],
+      dependencies: ["official-role-workflow", "realtime-voice"],
+      workers: 1,
+      fullyParallel: false,
+      retries: 0,
+      timeout: 120_000,
+    },
+    {
       /**
        * 「agent/skill 从 GitHub 导入 → 文件浏览+编辑 → 后台测试 → chat `#` 调用」
        * 这条用户旅程的验收线**不能**并进上面的 `seeded`（尽管它同样要用种子里的组织
@@ -487,11 +501,13 @@ export default defineConfig({
         // Draw preview/cancellation remains in smoke. The 30-minute meeting-room
         // acceptance runs in its dedicated Board CI lane with a private ledger key.
         "board-drawing-live-preview.spec.ts",
+        // R09 owns disposable Boards/tenant and shares this existing isolated stack.
+        "board-files-acceptance.spec.ts",
       ],
       grepInvert: EMPTY_DB_TAG_RE,
       // Official imports must follow seeded empty-catalog checks and precede
       // later mutation journeys; dependency ordering also survives parallel CI.
-      dependencies: ["official-role-workflow", "realtime-voice"],
+      dependencies: ["official-role-workflow", "realtime-voice", "board-image-ingress"],
     },
     {
       // In the CI seeded-github-import dependency closure, after empty-catalog checks.
@@ -756,6 +772,7 @@ export default defineConfig({
       reuseExistingServer: false,
       env: {
         ...process.env, ...fixtureEnv, ...modelProviderEnv, ...mailProviderEnv,
+        WORKSPACEX_DEPLOYMENT_MARKER: process.env.BOARD_ACCEPTANCE_RUNTIME_MARKER,
         // #466 反证 `no-asr-provider`：把 ASR 上游的配置整组撤掉，
         // WS 面必须以 `ASR_NOT_CONFIGURED` 诚实降级，而不是静默失败或换个提供方。
         ...(process.env.CORE_LOOP_COUNTERPROOF_7 === "no-asr-provider" ? {} : asrProviderEnv),

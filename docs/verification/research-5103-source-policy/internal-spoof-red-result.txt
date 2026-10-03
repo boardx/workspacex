@@ -1,0 +1,20 @@
+     48|   it("fails before model invocation when every source is outside the r…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 9 passed (10)
+   Start at  22:41:09
+   Duration  3.53s (transform 564ms, setup 5ms, collect 717ms, tests 13ms, environment 0ms, prepare 28ms)
+
+[db-isolation] db=wsx_5737d0fc7396e1116090 peak_connections=1
+undefined
+/Users/shenyangjun/.codex/worktrees/research-5056-fixes/workspacex/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/research/guided-report-source-policy.test.ts --maxWorkers=1 --minWorkers=1
+[timing] pnpm --filter @repo/api exec vitest run tests/research/guided-report-source-policy.test.ts --maxWorkers=1 --minWorkers=1
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：5s
+  清理：0s
+  总计：5s

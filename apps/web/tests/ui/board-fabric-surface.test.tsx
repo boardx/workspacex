@@ -3,6 +3,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { BOARD_FABRIC_VISUAL } from "@/components/whiteboard/fabric/board-fabric-visual";
 import { drawingToolStyle } from "@/components/whiteboard/drawing-tool-style";
 import type { BoardFabricObject, BoardViewport } from "@/components/whiteboard/fabric/board-fabric-object";
+import { toBoardFabricObjects } from "@/components/whiteboard/whiteboard-fabric-projection";
+import { sharedOutboxPanelCommands } from "../../e2e/support/board-shared-outbox-fixture";
 
 interface MockProjectedObject {
   data?: { boardObjectId?: string; adapterKind?: string; stickyVariant?: string; sizingMode?: string; drawingPreview?: boolean };
@@ -30,10 +32,15 @@ const probe = vi.hoisted(() => ({
   primitiveKinds: [] as string[],
   imageSources: [] as string[],
   imageOptions: [] as Record<string, unknown>[],
+  canvas: null as { _currentTransform: unknown } | null,
+  canvasWidth: 1200,
+  canvasHeight: 800,
+  resize: null as (() => void) | null,
 
 }));
 
-vi.mock("fabric", () => {
+vi.mock("fabric", async () => {
+  const actual = await vi.importActual<typeof import("fabric")>("fabric");
   class MockObject implements MockProjectedObject {
     data?: { boardObjectId?: string; adapterKind?: string; stickyVariant?: string; sizingMode?: string };
     left = 0; top = 0; width = 100; height = 80; scaleX = 1; scaleY = 1; angle = 0;
@@ -44,6 +51,8 @@ vi.mock("fabric", () => {
     set(values: Record<string, unknown>) { Object.assign(this, values); return this; }
     setControlsVisibility(values: Record<string, boolean>) { this.controls = { ...values }; return this; }
     setCoords() {}
+    getPositionByOrigin() { return new actual.Point(this.left, this.top); }
+    setPositionByOrigin(point: { x: number; y: number }) { this.left = point.x; this.top = point.y; }
     getBoundingRect() { return { left: this.left, top: this.top, width: this.width * this.scaleX, height: this.height * this.scaleY }; }
     getTotalAngle() { return this.angle; }
     calcTransformMatrix() {
@@ -56,7 +65,15 @@ vi.mock("fabric", () => {
   }
   class MockRect extends MockObject { mockKind = "rect"; constructor(first?: unknown, second?: Record<string, unknown>) { super(undefined, second ?? (first as Record<string, unknown>)); probe.primitiveKinds.push("Rect"); } }
   class MockCircle extends MockObject { mockKind = "circle"; constructor(first?: unknown, second?: Record<string, unknown>) { super(first, second); probe.primitiveKinds.push("Circle"); } }
-  class MockTextbox extends MockObject { mockKind = "textbox"; }
+  class MockTextbox extends MockObject {
+    mockKind = "textbox";
+    text?: string; fontFamily?: string; fontSize?: number; fontWeight?: number; lineHeight?: number;
+    initDimensions() {}
+    calcTextWidth() {
+      return new actual.Textbox(this.text ?? "", { width: this.width, fontFamily: this.fontFamily, fontSize: this.fontSize,
+        fontWeight: this.fontWeight, lineHeight: this.lineHeight, splitByGrapheme: true }).calcTextWidth();
+    }
+  }
   class MockPath extends MockObject { constructor(first?: unknown, second?: Record<string, unknown>) { super(first, second); probe.primitiveKinds.push("Path"); } }
   class MockImage extends MockObject { constructor(first?: unknown, second: Record<string, unknown> = {}) { super(first, second); probe.primitiveKinds.push("Image"); probe.imageOptions.push(second); } setElement() {} }
   class MockGroup extends MockObject {
@@ -67,7 +84,9 @@ vi.mock("fabric", () => {
   }
   class Canvas {
     selection = true; defaultCursor = "default"; viewportTransform = [1, 0, 0, 1, 0, 0];
-    constructor() { probe.instances += 1; }
+    _currentTransform: unknown = null;
+    upperCanvasEl: HTMLCanvasElement;
+    constructor(element: HTMLCanvasElement) { this.upperCanvasEl = element; probe.instances += 1; probe.canvas = this; }
     add(object: MockProjectedObject) { probe.objects.push(object); }
     remove(object: MockProjectedObject) {
       probe.objects.splice(probe.objects.indexOf(object), 1);
@@ -87,7 +106,7 @@ vi.mock("fabric", () => {
       probe.objects.splice(index, 0, object);
     }
     setViewportTransform(value: number[]) { this.viewportTransform = value; probe.zoom = value[0] ?? 1; }
-    getWidth() { return 1200; } getHeight() { return 800; } getZoom() { return probe.zoom; }
+    getWidth() { return probe.canvasWidth; } getHeight() { return probe.canvasHeight; } getZoom() { return probe.zoom; }
     zoomToPoint(_point: unknown, value: number) { probe.zoom = value; }
     getScenePoint(event?: MouseEvent) { return event && (event.clientX || event.clientY) ? { x: event.clientX, y: event.clientY } : { x: 123, y: 234 }; }
     setActiveObject(object: MockProjectedObject) { probe.active = object; probe.activeId = object.data?.boardObjectId ?? null; if (probe.emitSelectionOnSet) probe.handlers.get("selection:updated")?.({ target: object }); }
@@ -95,13 +114,19 @@ vi.mock("fabric", () => {
     getActiveObject() { return probe.active ?? probe.objects.find((object) => object.data?.boardObjectId === probe.activeId); }
     clear() { probe.clearCalls += 1; }
   }
-  class ActiveSelection extends MockObject { constructor(public objects: MockProjectedObject[]) { super(); } getObjects() { return this.objects; } setControlsVisibility() { return this; } }
+  class ActiveSelection extends MockObject {
+    constructor(public objects: MockProjectedObject[]) { super(); }
+    getObjects() { return this.objects; }
+    removeAll() { const previous = this.objects; this.objects = []; return previous; }
+    add(...objects: MockProjectedObject[]) { this.objects.push(...objects); return this.objects.length; }
+    setControlsVisibility() { return this; }
+  }
   const util = { qrDecompose: (matrix: number[] & { angle?: number }) => ({ angle: matrix.angle ?? Math.atan2(matrix[1] ?? 0, matrix[0] ?? 1) * 180 / Math.PI, scaleX: Math.hypot(matrix[0] ?? 1, matrix[1] ?? 0), scaleY: Math.hypot(matrix[2] ?? 0, matrix[3] ?? 1), translateX: matrix[4] ?? 0, translateY: matrix[5] ?? 0, skewX: 0, skewY: 0 }) };
   return { ActiveSelection, Canvas, Rect: MockRect, Circle: MockCircle, Line: MockObject, Path: MockPath, FabricImage: MockImage, Triangle: MockObject, Textbox: MockTextbox, Group: MockGroup, Point: MockObject, util };
 
 });
 
-class ResizeObserverMock { observe() {} disconnect() {} }
+class ResizeObserverMock { constructor(callback: () => void) { probe.resize = callback; } observe() {} disconnect() {} }
 vi.stubGlobal("ResizeObserver", ResizeObserverMock);
 vi.stubGlobal("Image", class {
   alt = ""; onload: (() => void) | null = null; private value = "";
@@ -109,7 +134,7 @@ vi.stubGlobal("Image", class {
   get src() { return this.value; }
 });
 
-import { BoardFabricSurface, connectorTipAngles } from "@/components/whiteboard/fabric/board-fabric-surface";
+import { BoardFabricSurface, connectorTipAngles, createFabricObject } from "@/components/whiteboard/fabric/board-fabric-surface";
 
 const OBJECTS: readonly BoardFabricObject[] = [
   { id: "s-1", kind: "sticky", revision: 1, orderKey: "a", geometry: { x: 40, y: 60, width: 220, height: 180, rotation: 0 }, style: { fill: "#F8D76E", textColor: "#29261E" }, content: { text: "一个观察" } },
@@ -122,8 +147,147 @@ function renderSurface(overrides: Partial<React.ComponentProps<typeof BoardFabri
 }
 
 describe("BoardFabricSurface", () => {
+  beforeEach(() => { probe.canvasWidth = 1200; probe.canvasHeight = 800; probe.resize = null; });
   beforeEach(() => { probe.instances = 0; probe.objects.length = 0; probe.handlers.clear(); probe.active = null; probe.activeId = null; probe.emitSelectionOnSet = false; probe.zoom = 1; probe.clearCalls = 0; probe.renderCalls = 0; probe.moveCalls = 0; probe.primitiveKinds.length = 0; probe.imageSources.length = 0; probe.imageOptions.length = 0; });
 
+
+  it.each(["hand", "draw-pen", "erase"] as const)("keeps %s projections noninteractive after canonical updates and additions", tool => {
+    const callbacks = { onSelectionChange: vi.fn(), onObjectTransform: vi.fn(), onViewportChange: vi.fn() };
+    const props = { objects: OBJECTS, selectedObjectIds: [], readOnly: false, tool, viewport: VIEWPORT, ...callbacks };
+    const view = render(<BoardFabricSurface {...props} />);
+    expect(probe.objects.every(item => !item.selectable && !item.evented)).toBe(true);
+    view.rerender(<BoardFabricSurface {...props} objects={[
+      ...OBJECTS.map(item => ({ ...item, revision: item.revision + 1 })),
+      { ...OBJECTS[0]!, id: "remote-sticky" },
+    ]} />);
+    expect(probe.objects).toHaveLength(3);
+    expect(probe.objects.every(item => !item.selectable && !item.evented)).toBe(true);
+    view.rerender(<BoardFabricSurface {...props} tool="select" />);
+    expect(probe.objects.every(item => item.selectable && item.evented)).toBe(true);
+  });
+
+  it("cancels a stale Fabric transform before a hand pan can move its target", () => {
+    const onViewportChange = vi.fn(), onObjectTransform = vi.fn();
+    renderSurface({ tool: "hand", onViewportChange, onObjectTransform });
+    probe.canvas!._currentTransform = { target: probe.objects[0], action: "drag" };
+    probe.handlers.get("mouse:down")?.({ target: probe.objects[0], e: new MouseEvent("mousedown", { clientX: 400, clientY: 300 }) });
+    expect(probe.canvas!._currentTransform).toBeNull();
+    probe.handlers.get("mouse:move")?.({ e: new MouseEvent("mousemove", { clientX: 510, clientY: 340 }) });
+    probe.handlers.get("mouse:up")?.({ e: new MouseEvent("mouseup", { clientX: 510, clientY: 340 }) });
+    expect(onViewportChange).toHaveBeenLastCalledWith(expect.objectContaining({ panX: 110, panY: 40 }), "pan");
+    expect(onObjectTransform).not.toHaveBeenCalled();
+  });
+
+  it("pans with two-finger wheel in select mode and reserves control-wheel for pinch zoom", () => {
+    const onViewportChange = vi.fn();
+    renderSurface({ onViewportChange });
+    probe.handlers.get("mouse:wheel")?.({ e: new WheelEvent("wheel", { deltaX: 31, deltaY: 48, cancelable: true }) });
+    expect(onViewportChange).toHaveBeenLastCalledWith(expect.objectContaining({ zoom: 1, panX: -31, panY: -48 }), "pan");
+    probe.handlers.get("mouse:wheel")?.({ e: new WheelEvent("wheel", { deltaY: -80, ctrlKey: true, cancelable: true }) });
+    expect(onViewportChange).toHaveBeenLastCalledWith(expect.objectContaining({ zoom: expect.any(Number) }), "wheel");
+    expect(probe.zoom).toBeGreaterThan(1);
+  });
+
+  it.each([1, 2])("pans with mouse button %s over an object without a create or transform", button => {
+    const onViewportChange = vi.fn(), onCanvasClick = vi.fn(), onObjectTransform = vi.fn();
+    renderSurface({ onViewportChange, onCanvasClick, onObjectTransform });
+    probe.handlers.get("mouse:down")?.({ target: probe.objects[0], e: new MouseEvent("mousedown", { button, clientX: 100, clientY: 100 }) });
+    probe.handlers.get("mouse:move")?.({ e: new MouseEvent("mousemove", { buttons: button === 1 ? 4 : 2, clientX: 135, clientY: 125 }) });
+    expect(onViewportChange).toHaveBeenLastCalledWith(expect.objectContaining({ panX: 35, panY: 25 }), "pan");
+    probe.handlers.get("mouse:up")?.({ e: new MouseEvent("mouseup", { button, clientX: 135, clientY: 125 }) });
+    expect(onViewportChange).toHaveBeenLastCalledWith(expect.objectContaining({ panX: 35, panY: 25 }), "pan");
+    expect(onCanvasClick).not.toHaveBeenCalled();
+    expect(onObjectTransform).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { tool: "select" as const, button: 1 },
+    { tool: "select" as const, button: 2 },
+    { tool: "hand" as const, button: 0 },
+  ])("restores the published viewport when $tool button $button panning is cancelled", ({ tool, button }) => {
+    const onViewportChange = vi.fn();
+    const initial = { ...VIEWPORT, zoom: 2, panX: 12, panY: -8 };
+    renderSurface({ tool, viewport: initial, onViewportChange });
+    probe.handlers.get("mouse:down")?.({ e: new MouseEvent("mousedown", { button, clientX: 100, clientY: 100 }) });
+    probe.handlers.get("mouse:move")?.({ e: new MouseEvent("mousemove", { clientX: 135, clientY: 125 }) });
+    expect(onViewportChange).toHaveBeenLastCalledWith(expect.objectContaining({ zoom: 2, panX: 47, panY: 17 }), "pan");
+    const cancel = new Event("pointercancel");
+    Object.defineProperties(cancel, { pointerId: { value: 1 }, pointerType: { value: "mouse" }, isPrimary: { value: true } });
+    act(() => document.dispatchEvent(cancel));
+    expect(onViewportChange).toHaveBeenLastCalledWith(initial, "pan");
+    const callsAfterCancel = onViewportChange.mock.calls.length;
+    probe.handlers.get("mouse:move")?.({ e: new MouseEvent("mousemove", { clientX: 200, clientY: 200 }) });
+    probe.handlers.get("mouse:up")?.({ e: new MouseEvent("mouseup", { button, clientX: 200, clientY: 200 }) });
+    expect(onViewportChange).toHaveBeenCalledTimes(callsAfterCancel);
+  });
+
+  it("publishes transient snapped geometry during a move and clears it at completion", () => {
+    const onTransformPreview = vi.fn(), onObjectTransform = vi.fn(() => true);
+    renderSurface({ onTransformPreview, onObjectTransform });
+    const sticky = probe.objects[0]!;
+    sticky.left += 77; sticky.top += 33;
+    probe.handlers.get("object:moving")?.({ target: sticky });
+    expect(onTransformPreview).toHaveBeenLastCalledWith([expect.objectContaining({ id: "s-1", geometry: expect.objectContaining({ x: 117, y: 93 }) })]);
+    expect(onObjectTransform).not.toHaveBeenCalled();
+    probe.handlers.get("object:modified")?.({ target: sticky });
+    expect(onObjectTransform).toHaveBeenCalledWith("s-1", expect.objectContaining({ x: 117, y: 93 }));
+    expect(onTransformPreview).toHaveBeenLastCalledWith([]);
+  });
+
+  it("preserves imported non-square Sticky dimensions during held movement and release", () => {
+    const canonical: BoardFabricObject = { ...OBJECTS[0]!, geometry: { x: 150, y: 240, width: 120, height: 100, rotation: 0 }, sticky: { variant: "square", sizingMode: "fixed" } };
+    const onTransformPreview = vi.fn(), onObjectTransform = vi.fn(() => true);
+    renderSurface({ objects: [canonical], onTransformPreview, onObjectTransform });
+    const sticky = probe.objects[0]!;
+    sticky.left += 70; sticky.top += 40;
+    act(() => probe.handlers.get("object:moving")?.({ target: sticky }));
+    expect(onTransformPreview).toHaveBeenLastCalledWith([{ id: canonical.id, geometry: { x: 220, y: 280, width: 120, height: 100, rotation: 0 } }]);
+    expect(onObjectTransform).not.toHaveBeenCalled();
+    expect(canonical.geometry).toEqual({ x: 150, y: 240, width: 120, height: 100, rotation: 0 });
+    act(() => probe.handlers.get("object:modified")?.({ target: sticky }));
+    expect(onObjectTransform).toHaveBeenCalledTimes(1);
+    expect(onObjectTransform).toHaveBeenCalledWith(canonical.id, { x: 220, y: 280, width: 120, height: 100, rotation: 0 });
+    onObjectTransform.mockClear();
+    sticky.angle = 90;
+    act(() => probe.handlers.get("object:rotating")?.({ target: sticky }));
+    expect(onTransformPreview).toHaveBeenLastCalledWith([{ id: canonical.id, geometry: { x: 220, y: 280, width: 120, height: 100, rotation: 90 } }]);
+    act(() => probe.handlers.get("object:modified")?.({ target: sticky }));
+    expect(onObjectTransform).toHaveBeenCalledTimes(1);
+    expect(onObjectTransform).toHaveBeenCalledWith(canonical.id, { x: 220, y: 280, width: 120, height: 100, rotation: 90 });
+  });
+
+  it("updates attached arrows in the local drag preview without committing per frame", () => {
+    const arrow: BoardFabricObject = { id: "edge", kind: "connector", revision: 1, orderKey: "z", geometry: { x: 260, y: 150, width: 100, height: 1, rotation: 0 }, style: { fill: "", textColor: "#222" }, content: { text: "" }, connector: { from: "s-1", to: "r-1", fromAnchor: "right", toAnchor: "left", type: "straight", startStyle: "none", endStyle: "arrow", lineStyle: "solid", label: "", semanticRelation: "", start: { x: 260, y: 150 }, end: { x: 360, y: 150 } } };
+    const onObjectTransform = vi.fn(() => true);
+    renderSurface({ objects: [...OBJECTS, arrow], onObjectTransform });
+    const sticky = probe.objects.find(item => item.data?.boardObjectId === "s-1")!;
+    const originalArrow = probe.objects.find(item => item.data?.boardObjectId === "edge")!;
+    sticky.left += 40;
+    probe.handlers.get("object:moving")?.({ target: sticky });
+    const movedArrow = probe.objects.find(item => item.data?.boardObjectId === "edge")!;
+    expect(movedArrow).not.toBe(originalArrow);
+    expect(movedArrow.children?.[0]?.text).toBe("M 300 150 L 360 150");
+    expect(onObjectTransform).not.toHaveBeenCalled();
+  });
+
+  it("rotates an attached arrow offset with its object during the live preview", () => {
+    const arrow: BoardFabricObject = { id: "edge", kind: "connector", revision: 1, orderKey: "z", geometry: { x: 270, y: 155, width: 90, height: 1, rotation: 0 }, style: { fill: "", textColor: "#222" }, content: { text: "" }, connector: { from: "s-1", to: "r-1", fromAnchor: "right", toAnchor: "left", type: "straight", startStyle: "none", endStyle: "arrow", lineStyle: "solid", label: "", semanticRelation: "", start: { x: 270, y: 155 }, end: { x: 360, y: 155 } } };
+    renderSurface({ objects: [...OBJECTS, arrow] });
+    const sticky = probe.objects.find(item => item.data?.boardObjectId === "s-1")!;
+    sticky.angle = 90;
+    probe.handlers.get("object:rotating")?.({ target: sticky });
+    // Right anchor (220,90) plus local offset (10,5) rotates about (40,60).
+    const edge = probe.objects.find(item => item.data?.boardObjectId === "edge")!;
+    expect(edge.children?.[0]?.text).toBe("M -55 290 L 360 155");
+  });
+
+  it("retains an active multi-selection instance across equivalent controlled updates", () => {
+    const selection = ["s-1", "r-1"];
+    const view = renderSurface({ selectedObjectIds: selection });
+    const active = probe.active;
+    view.rerender(<BoardFabricSurface objects={[...OBJECTS]} selectedObjectIds={[...selection]} readOnly={false} tool="select" viewport={VIEWPORT} onSelectionChange={vi.fn()} onObjectTransform={vi.fn(() => true)} onViewportChange={vi.fn()} />);
+    expect(probe.active).toBe(active);
+  });
 
   it("renders sticky paper, blue corners and a world-anchored grid without changing persisted appearance", () => {
     renderSurface({ objects: [{ ...OBJECTS[0]!, sticky: { variant: "square", sizingMode: "auto-height" } }], selectedObjectIds: ["s-1"] });
@@ -134,6 +298,20 @@ describe("BoardFabricSurface", () => {
     expect(sticky.children![1]).toMatchObject({ fontFamily: BOARD_FABRIC_VISUAL.fontFamily, width: 172 });
     expect(screen.getByTestId("board-fabric-surface")).toHaveStyle({ backgroundColor: "#FCFCFB", backgroundSize: "20px 20px", backgroundPosition: "-10px -10px" });
     expect(probe.objects).toHaveLength(1);
+  });
+
+  it("cancels a held node preview on blur and ignores the late modified event", () => {
+    const onTransformPreview = vi.fn(), onObjectTransform = vi.fn(() => true);
+    renderSurface({ selectedObjectIds: ["s-1"], onTransformPreview, onObjectTransform });
+    const sticky = probe.objects.find(object => object.data?.boardObjectId === "s-1")!;
+    act(() => probe.handlers.get("mouse:down")?.({ target: sticky, e: new MouseEvent("mousedown", { clientX: 50, clientY: 80 }) }));
+    sticky.left += 77;
+    act(() => probe.handlers.get("object:moving")?.({ target: sticky }));
+    act(() => window.dispatchEvent(new Event("blur")));
+    expect(sticky.left).toBe(40);
+    expect(onTransformPreview).toHaveBeenLastCalledWith([]);
+    act(() => probe.handlers.get("object:modified")?.({ target: sticky }));
+    expect(onObjectTransform).not.toHaveBeenCalled();
   });
 
   it("orients connector tips from each final path tangent", () => {
@@ -169,10 +347,12 @@ describe("BoardFabricSurface", () => {
     probe.handlers.get("mouse:move")?.({ e: pointer("pointermove", 60, 80, .9) } as never);
 
     const preview = probe.objects.filter((object) => object.data?.drawingPreview);
-    expect(preview).toHaveLength(2);
+    expect(preview).toHaveLength(1);
     expect(screen.getByTestId("board-fabric-surface")).toHaveAttribute("data-drawing-preview-segments", "2");
-    expect(preview.map((segment) => segment.text)).toEqual(["M 10 20 L 30 40", "M 30 40 L 60 80"]);
-    expect(preview[1]!.strokeWidth).toBeGreaterThan(preview[0]!.strokeWidth!);
+    expect(preview[0]).toMatchObject({ fill: drawingToolStyle("pen").color, strokeWidth: 0, opacity: 1 });
+    const radii = [...preview[0]!.text!.matchAll(/A ([\d.]+) [\d.]+/g)].map(match => Number(match[1]));
+    expect(radii).toHaveLength(4);
+    expect(radii[2]).toBeGreaterThan(radii[0]!);
     expect(onDrawingComplete).not.toHaveBeenCalled();
 
     fireEvent.pointerCancel(screen.getByTestId("board-fabric-surface"), { pointerType: "mouse", isPrimary: true });
@@ -205,7 +385,7 @@ describe("BoardFabricSurface", () => {
     };
     probe.handlers.get("mouse:down")?.({ e: pointer("pointerdown", 20, 30) } as never);
     probe.handlers.get("mouse:move")?.({ e: pointer("pointermove", 60, 70) } as never);
-    expect(probe.objects.find((object) => object.data?.drawingPreview)).toMatchObject({ stroke: appearance.color, strokeWidth: appearance.width, opacity: appearance.opacity });
+    expect(probe.objects.find((object) => object.data?.drawingPreview)).toMatchObject({ fill: appearance.color, strokeWidth: 0, opacity: appearance.opacity });
     probe.handlers.get("mouse:up")?.({ e: pointer("pointerup", 60, 70) } as never);
     expect(onDrawingComplete).toHaveBeenCalledWith({ tool: "pen", appearance, points: [
       { x: 20, y: 30, pressure: 1 },
@@ -213,11 +393,21 @@ describe("BoardFabricSurface", () => {
     ] });
   });
 
+  it("eraser only reports hit drawing vectors and never paints a white preview over other objects", () => {
+    const drawing: BoardFabricObject = { ...OBJECTS[0]!, id: "ink", kind: "drawing", geometry: { x: 0, y: 0, width: 100, height: 100, rotation: 0 }, boardContent: { version: 1, type: "drawing", strokes: [{ id: "stroke", tool: "pen", points: [{ x: 0, y: 0, pressure: 1 }, { x: 100, y: 100, pressure: 1 }], color: "#111111", width: 3, opacity: 1 }] } };
+    const onDrawingComplete = vi.fn();
+    renderSurface({ objects: [...OBJECTS, drawing, { ...drawing, id: "locked", locked: true }], tool: "erase", onDrawingComplete });
+    probe.handlers.get("mouse:down")?.({ e: new MouseEvent("mousedown", { clientX: 40, clientY: 60 }) });
+    probe.handlers.get("mouse:move")?.({ e: new MouseEvent("mousemove", { clientX: 60, clientY: 40 }) });
+    expect(probe.objects.some(object => object.data?.drawingPreview)).toBe(false);
+    probe.handlers.get("mouse:up")?.({ e: new MouseEvent("mouseup", { clientX: 60, clientY: 40 }) });
+    expect(onDrawingComplete).toHaveBeenCalledWith(expect.objectContaining({ tool: "eraser", targetObjectIds: ["ink"] }));
+  });
+
   it.each([
     ["draw-pen", "pen"],
     ["draw-marker", "marker"],
     ["draw-highlighter", "highlighter"],
-    ["erase", "eraser"],
   ] as const)("uses the persisted %s style for its live preview", (tool, drawingTool) => {
     renderSurface({ tool });
     const pointer = (type: string, x: number, y: number) => {
@@ -229,8 +419,8 @@ describe("BoardFabricSurface", () => {
     probe.handlers.get("mouse:move")?.({ e: pointer("pointermove", 30, 40) } as never);
     const preview = probe.objects.find((object) => object.data?.drawingPreview)!;
     expect(preview).toMatchObject({
-      stroke: drawingToolStyle(drawingTool).color,
-      strokeWidth: drawingToolStyle(drawingTool).width,
+      fill: drawingToolStyle(drawingTool).color,
+      strokeWidth: 0,
       opacity: drawingToolStyle(drawingTool).opacity,
     });
   });
@@ -270,6 +460,22 @@ describe("BoardFabricSurface", () => {
     }
   });
 
+  it.each([undefined, { stroke: "#E11D48", strokeWidth: 7 }, { stroke: "#E11D48", strokeWidth: 0 }])("preserves canonical frame outline defaults and explicit styles through projection patches: %j", (style) => {
+    const frame=sharedOutboxPanelCommands(["visible-frame"])[0]!.object;
+    const canonical={...frame,style:style?.stroke ? {stroke:style.stroke} : {}};
+    const project=()=>toBoardFabricObjects([canonical]).map(object=>({...object,style:{...object.style,...style}}));
+    const objects=project();
+    expect(objects[0]?.kind).toBe("panel");
+    const constructed=createFabricObject(objects[0]!) as unknown as MockProjectedObject;
+    expect(constructed.children?.[0]).toMatchObject({stroke:style?.stroke ?? "#94A3B8",strokeWidth:style?.strokeWidth ?? 1});
+    const props={objects,selectedObjectIds:[],readOnly:false,tool:"select" as const,viewport:VIEWPORT,onSelectionChange:vi.fn(),onObjectTransform:vi.fn(),onViewportChange:vi.fn()};
+    const view=render(<BoardFabricSurface {...props}/>);
+    const outline=()=>probe.objects.find(object=>object.data?.boardObjectId===frame.id)!.children![0]!;
+    expect(outline()).toMatchObject({stroke:style?.stroke ?? "#94A3B8",strokeWidth:style?.strokeWidth ?? 1});
+    view.rerender(<BoardFabricSurface {...props} objects={project().map(object=>({...object,revision:object.revision+1,geometry:{...object.geometry,x:64}}))}/>);
+    expect(outline()).toMatchObject({stroke:style?.stroke ?? "#94A3B8",strokeWidth:style?.strokeWidth ?? 1});
+  });
+
   it("renders verified bytes through the session object URL with intrinsic crop and rounded clipping", () => {
     const ready: BoardFabricObject = { ...OBJECTS[0]!, id: "verified-image", kind: "image", imageAssetUrl: "blob:verified-image", geometry: { x: 20, y: 30, width: 200, height: 120, rotation: 0 }, boardContent: { version: 1, type: "image", status: "ready", assetId: "local-session-1", sourceUrl: "https://assets.example.com/changed.png", mimeType: "image/png", intrinsicWidth: 400, intrinsicHeight: 300, crop: { x: .25, y: .1, width: .5, height: .8 }, opacity: .7, borderColor: "#112233", borderWidth: 2, cornerRadius: 16, fileName: "verified.png", replacementOf: null, failureCode: null, byteSize: 24, contentDigest: `sha256:${"a".repeat(64)}`, magicMimeType: "image/png", persistence: "local-session" } };
     renderSurface({ objects: [ready] });
@@ -284,7 +490,7 @@ describe("BoardFabricSurface", () => {
     renderSurface({ objects: [OBJECTS[0]!, OBJECTS[1]!, panel, edge] });
     expect(probe.objects.map((object) => object.data?.boardObjectId)).toEqual(["panel", "s-1", "r-1", "edge"]);
     expect(probe.objects.find((object) => object.data?.boardObjectId === "edge")?.children?.filter(child => child.mockKind === "textbox")).toHaveLength(label ? 1 : 0);
-    expect(probe.objects.find((object) => object.data?.boardObjectId === "edge")).toMatchObject({ selectable: true, evented: true, perPixelTargetFind: true, lockMovementX: true, lockMovementY: true, lockScalingX: true, lockScalingY: true, lockRotation: true, hasControls: false });
+    expect(probe.objects.find((object) => object.data?.boardObjectId === "edge")).toMatchObject({ selectable: true, evented: true, perPixelTargetFind: true, lockMovementX: true, lockMovementY: true, lockScalingX: true, lockScalingY: true, lockRotation: true, hasControls: false, hasBorders: false });
   });
 
   it("highlights and reparents nested Panels at the completed Fabric gesture boundary", () => {
@@ -301,13 +507,14 @@ describe("BoardFabricSurface", () => {
     expect(onPanelHoverChange).toHaveBeenLastCalledWith(null);
   });
 
-  it("converts a dragged dock tool drop into world coordinates without creating renderer-owned state", () => {
+  it.each([0.5, 1, 2])("converts a dragged dock tool drop at zoom %s into world coordinates without creating renderer-owned state", (zoom) => {
     const onToolDrop = vi.fn();
-    renderSurface({ viewport: { ...VIEWPORT, zoom: 2, panX: 10, panY: 20 }, onToolDrop });
+    renderSurface({ viewport: { ...VIEWPORT, zoom, panX: 10, panY: 20 }, onToolDrop });
+    vi.spyOn(screen.getByTestId("board-fabric-surface"), "getBoundingClientRect").mockReturnValue({ left: 30, top: 40, width: 1000, height: 800, right: 1030, bottom: 840, x: 30, y: 40, toJSON() {} });
     const payload = JSON.stringify({ kind: "sticky", variant: "circle" });
     const event = createEvent.drop(screen.getByTestId("board-fabric-surface"));
     Object.defineProperties(event, {
-      clientX: { value: 210 }, clientY: { value: 220 },
+      clientX: { value: 40 + 100 * zoom }, clientY: { value: 60 + 100 * zoom },
       dataTransfer: { value: { getData: (type: string) => type === "application/x-workspacex-board-tool" ? payload : "", types: ["application/x-workspacex-board-tool"] } },
     });
     fireEvent(screen.getByTestId("board-fabric-surface"), event);
@@ -420,6 +627,46 @@ describe("BoardFabricSurface", () => {
     expect(onSelectionChange).toHaveBeenCalledWith(["r-1", "s-1"], "canvas");
   });
 
+  it("styles a Fabric-created ActiveSelection without replacing its gesture or rotation control on echo", async () => {
+    const { ActiveSelection } = await import("fabric");
+    const { Control } = await vi.importActual<typeof import("fabric")>("fabric");
+    const onSelectionChange = vi.fn();
+    const { rerender } = renderSurface({ selectedObjectIds: [], onSelectionChange });
+    const automatic = new ActiveSelection(probe.objects as never[]);
+    automatic.set({ borderColor: "#B2CCFF" });
+    automatic.controls = { mtr: new Control({ x: 0, y: -.5, offsetX: 0, offsetY: -40 }) };
+    const visibility = vi.spyOn(automatic, "setControlsVisibility");
+    const gesture = { target: automatic };
+    probe.active = automatic as unknown as MockProjectedObject;
+    act(() => probe.handlers.get("selection:created")?.({ target: probe.active! }));
+    expect(automatic.borderColor).toBe(BOARD_FABRIC_VISUAL.selection.borderColor);
+    expect(automatic.controls.mtr).toMatchObject(BOARD_FABRIC_VISUAL.rotationControl);
+    expect(visibility).toHaveBeenCalledWith({ ml: false, mr: false, mt: false, mb: false });
+    const rotation = automatic.controls.mtr;
+    rerender(<BoardFabricSurface objects={OBJECTS} selectedObjectIds={["s-1", "r-1"]} readOnly={false} tool="select" viewport={VIEWPORT} onSelectionChange={onSelectionChange} onObjectTransform={vi.fn()} onViewportChange={vi.fn()} />);
+    expect(probe.active).toBe(automatic);
+    expect(probe.active).toBe(gesture.target);
+    expect(automatic.controls.mtr).toBe(rotation);
+    expect(automatic).toMatchObject(BOARD_FABRIC_VISUAL.selection);
+  });
+
+  it("preserves held multi-object rotation, scale and local coordinates across preview array echoes", () => {
+    const { rerender } = renderSurface({ selectedObjectIds: ["s-1", "r-1"] });
+    const selection = probe.active!;
+    const members = [...probe.objects];
+    for (const member of members) Object.assign(member, { group: selection });
+    Object.assign(selection, { angle: 35, scaleX: 1.4, scaleY: .8 });
+    const local = members.map(member => ({ left: member.left, top: member.top, scaleX: member.scaleX, scaleY: member.scaleY }));
+    rerender(<BoardFabricSurface objects={OBJECTS.map(object => ({ ...object }))} selectedObjectIds={["s-1", "r-1"]} readOnly={false} tool="select" viewport={VIEWPORT} onSelectionChange={vi.fn()} onObjectTransform={vi.fn()} onViewportChange={vi.fn()} />);
+    expect(probe.active).toBe(selection);
+    expect(selection).toMatchObject({ angle: 35, scaleX: 1.4, scaleY: .8 });
+    expect(members.map(member => ({ left: member.left, top: member.top, scaleX: member.scaleX, scaleY: member.scaleY }))).toEqual(local);
+    const remote = OBJECTS.map(object => object.id === "s-1" ? { ...object, revision: object.revision + 1, geometry: { ...object.geometry, x: 500 } } : object);
+    rerender(<BoardFabricSurface objects={remote} selectedObjectIds={["s-1", "r-1"]} readOnly={false} tool="select" viewport={VIEWPORT} onSelectionChange={vi.fn()} onObjectTransform={vi.fn()} onViewportChange={vi.fn()} />);
+    expect(probe.objects.find(object => object.data?.boardObjectId === "s-1")?.left).toBe(500);
+    expect(selection).toMatchObject({ angle: 0, scaleX: 1, scaleY: 1 });
+  });
+
   it("renders alignment guides and equal 24 px spacing while an object moves", async () => {
     const spaced: BoardFabricObject[] = [
       { ...OBJECTS[0]!, id: "left", geometry: { x: 0, y: 60, width: 100, height: 80, rotation: 0 } },
@@ -428,9 +675,12 @@ describe("BoardFabricSurface", () => {
     ];
     renderSurface({ objects: spaced, selectedObjectIds: ["moving"] });
     const moving = probe.objects.find((object) => object.data?.boardObjectId === "moving")!;
+    act(() => probe.handlers.get("mouse:down")?.({ target: moving, e: new MouseEvent("mousedown", { button: 0 }) }));
     act(() => probe.handlers.get("object:moving")?.({ target: moving }));
     expect(await screen.findByTestId("board-smart-guides")).toBeVisible();
     expect(screen.getAllByTestId("board-spacing-measurement").map((node) => node.textContent)).toContain("24 px");
+    act(() => probe.handlers.get("mouse:up")?.({ target: moving, e: new MouseEvent("mouseup", { button: 0 }) }));
+    expect(screen.queryByTestId("board-smart-guides")).toBeNull();
   });
 
   it("commits one normalized geometry callback at gesture end and blocks viewer writes", () => {
@@ -502,6 +752,37 @@ describe("BoardFabricSurface", () => {
     zoomedOut.left = 136;
     act(() => probe.handlers.get("object:moving")?.({ target: zoomedOut }));
     expect(await screen.findByTestId("board-smart-guides")).toBeVisible();
+  });
+
+  it.each(["single", "group"])("keeps the real Fabric %s rotation pivot fixed instead of axis-snapping its position", async mode => {
+    const { Rect, ActiveSelection } = await vi.importActual<typeof import("fabric")>("fabric");
+    const child = new Rect({ left: 40, top: 60, width: 100, height: 80, strokeWidth: 0, originX: "left", originY: "top" });
+    Object.assign(child, { data: { boardObjectId: "s-1" } });
+    const other = new Rect({ left: 200, top: 60, width: 100, height: 80, strokeWidth: 0, originX: "left", originY: "top" });
+    Object.assign(other, { data: { boardObjectId: "r-1" } });
+    const target = mode === "single" ? child : new ActiveSelection([child, other]);
+    target.set({ angle: 14 }); target.setCoords();
+    const pivot = target.getCenterPoint(), bounds = target.getBoundingRect();
+    const axisTarget: BoardFabricObject = { ...OBJECTS[1]!, id: "axis", geometry: { x: bounds.left + 3, y: bounds.top + 3, width: bounds.width, height: bounds.height, rotation: 0 } };
+    renderSurface({ objects: [...OBJECTS, axisTarget], selectedObjectIds: [] });
+    act(() => probe.handlers.get("object:rotating")?.({ target: target as unknown as MockProjectedObject }));
+    expect(target.angle).toBe(15);
+    expect(target.getCenterPoint().x).toBeCloseTo(pivot.x, 8);
+    expect(target.getCenterPoint().y).toBeCloseTo(pivot.y, 8);
+    expect(screen.queryByTestId("board-smart-guides")).toBeNull();
+    target.set({ angle: 29 });
+    const customPivot = target.getPositionByOrigin("right", "bottom");
+    act(() => probe.handlers.get("object:rotating")?.({ target, transform: { target, originX: "right", originY: "bottom" } } as never));
+    expect(target.angle).toBe(30);
+    expect(target.getPositionByOrigin("right", "bottom").x).toBeCloseTo(customPivot.x, 8);
+    expect(target.getPositionByOrigin("right", "bottom").y).toBeCloseTo(customPivot.y, 8);
+    target.set({ angle: 44 });
+    const altPivot = target.getCenterPoint();
+    act(() => probe.handlers.get("object:rotating")?.({ target, e: new MouseEvent("mousemove", { altKey: true }) } as never));
+    expect(target.angle).toBe(44);
+    expect(target.getCenterPoint()).toEqual(altPivot);
+    expect(screen.queryByTestId("board-smart-guides")).toBeNull();
+    target.dispose();
   });
 
   it("commits an ActiveSelection as one batch and restores every member when rejected", () => {
@@ -747,6 +1028,30 @@ describe("BoardFabricSurface", () => {
     probe.handlers.get("object:modified")?.({ target: valid });
     expect(onObjectTransform).toHaveBeenCalledOnce();
     expect(onObjectTransform).toHaveBeenCalledWith("s-1", expect.objectContaining({ x: 120 }));
+  });
+
+  it("does not replay Fit when selection chrome changes, but fits new requests and real resizes", () => {
+    const onViewportChange = vi.fn();
+    const props = { objects: OBJECTS, selectedObjectIds: [] as string[], readOnly: false, tool: "select" as const,
+      viewport: { ...VIEWPORT, fitRequest: 1 }, onSelectionChange: vi.fn(), onObjectTransform: vi.fn(), onViewportChange };
+    const initialInsets = { left: 48, right: 48, top: 48, bottom: 48 };
+    const selectedInsets = { ...initialInsets, top: 120 };
+    const view = render(<BoardFabricSurface {...props} fitInsets={initialInsets} />);
+    expect(onViewportChange).toHaveBeenCalledTimes(1);
+    const initialFit = onViewportChange.mock.calls[0]![0];
+    view.rerender(<BoardFabricSurface {...props} selectedObjectIds={["r-1"]} fitInsets={selectedInsets} />);
+    expect(onViewportChange).toHaveBeenCalledTimes(1);
+    view.rerender(<BoardFabricSurface {...props} selectedObjectIds={["r-1"]} fitInsets={selectedInsets} viewport={{ ...VIEWPORT, fitRequest: 2 }} />);
+    expect(onViewportChange).toHaveBeenCalledTimes(2);
+    expect(onViewportChange.mock.calls[1]![0]).not.toEqual(initialFit);
+    probe.canvasWidth = 900;
+    const host = screen.getByTestId("board-fabric-surface");
+    Object.defineProperty(host, "clientWidth", { configurable: true, value: 900 });
+    act(() => probe.resize?.());
+    expect(onViewportChange).toHaveBeenCalledTimes(3);
+    expect(onViewportChange.mock.calls[2]![0].zoom).toBeLessThan(onViewportChange.mock.calls[1]![0].zoom);
+    act(() => probe.resize?.());
+    expect(onViewportChange).toHaveBeenCalledTimes(3);
   });
 
   it("clamps viewport to 5%-800% and fits canonical content locally", () => {
