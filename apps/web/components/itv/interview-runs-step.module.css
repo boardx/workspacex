@@ -5,13 +5,11 @@
 .transcript :global(.chat-markdown.interview-report-markdown) h1,
 .transcript :global(.chat-markdown.interview-report-markdown) h2 {
   margin: 2rem 0 1rem;
-  font-size: 1.25rem;
   font-weight: 600;
   line-height: 1.6;
 }
 .transcript :global(.chat-markdown.interview-report-markdown) h3 {
   margin: 1.75rem 0 0.75rem;
-  font-size: 1.125rem;
   font-weight: 600;
   line-height: 1.7;
 }
@@ -21,7 +19,6 @@
 .transcript :global(.chat-markdown.interview-report-markdown) p,
 .transcript :global(.chat-markdown.interview-report-markdown) li,
 .transcript :global(.chat-markdown.interview-report-markdown) blockquote {
-  font-size: 1rem;
   line-height: 1.9;
 }
 .transcript :global(.chat-markdown.interview-report-markdown) p {

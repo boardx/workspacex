@@ -71,7 +71,7 @@ export function InterviewRunsStep({ runs, document, pending, onGenerateReport, t
     </InterviewStepHeader>
     <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground"><span>{taskProgress ? `已完成专家 ${completed}/${runs.length}` : `已保存回答 ${answered}/${total}`}</span><div aria-label="专家任务状态" className="flex flex-wrap gap-2">{statusCounts.map(({ status, label, color }) => { const count = runs.filter((run) => run.status === status).length; return count ? <span key={status} className={`rounded-full px-2 py-1 ${color}`}>{label} {count}</span> : null; })}</div></div>
     <div className="grid items-start gap-6 lg:grid-cols-[18rem_minmax(0,1fr)]">
-      <aside aria-label="访谈专家" className="min-w-0 lg:sticky lg:top-6">
+      <aside aria-label="访谈专家" className="min-w-0 lg:sticky lg:top-[calc(var(--itv-header-height,0px)+1.5rem)]">
         <div className="mb-3 flex items-center justify-between px-2"><h3 className="text-sm font-semibold">专家进度</h3><span className="text-xs text-muted-foreground">{completed}/{runs.length}</span></div>
         <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-1">{runs.map((run) => {
           const selected = expert === run.expertId;
