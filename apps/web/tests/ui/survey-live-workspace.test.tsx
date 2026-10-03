@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type { SurveyRuntime } from '@repo/contracts/survey-runtime';
-import { parseSurveyDesignMarkdown, serializeSurveyPublicationMarkdown } from '@repo/contracts/survey-source';
+import { parseSurveyDesignMarkdown, parseSurveyReportTemplateMarkdown, serializeSurveyPublicationMarkdown } from '@repo/contracts/survey-source';
 import { LiveSurveyWorkspace } from '@/components/survey/live/survey-workspace';
 const request=vi.hoisted(()=>vi.fn());
 const router=vi.hoisted(()=>({replace:vi.fn(),push:vi.fn()}));
@@ -372,4 +372,66 @@ describe('live survey workspace persistence',()=>{
   }));
   expect(await screen.findByText('排除原因：重复测试提交')).toBeInTheDocument();
  });
+});
+
+
+describe('report template unbinding persistence',()=>{
+ const boundRuntime=():SurveyRuntime=>runtime({tags:['保留标签'],template:{id:'bound-template',title:'坏映射报告',sections:[{id:'bad-section',title:'分析',blocks:[{id:'bad-block',title:'已删除题目',type:'bar',questionIds:['missing-question'],statistic:'distribution',samplePolicy:'valid',minGroupSize:5}]}]}});
+ it('clears local mapping blockers immediately and autosaves an optional empty report template that survives reload',async()=>{
+  const original=boundRuntime();let persisted:SurveyRuntime=original;
+  request.mockResolvedValueOnce(original).mockImplementationOnce(async(_path:string,options:{body:{documents:{reportTemplate:string}}})=>{
+   const parsed=parseSurveyReportTemplateMarkdown(options.body.documents.reportTemplate);
+   if(!parsed.ok)throw new Error('invalid saved report document');
+   persisted={...original,version:5,template:parsed.template};return persisted;
+  });
+  const view=render(<LiveSurveyWorkspace surveyId="saved-survey" initialStep="template"/>);
+  await screen.findByRole('button',{name:'不使用报告模板'});
+  expect(screen.getByRole('region',{name:'设计检查'})).not.toHaveTextContent('设计检查通过');
+  fireEvent.click(screen.getByRole('button',{name:'不使用报告模板'}));
+  expect(screen.getByRole('region',{name:'设计检查'})).toHaveTextContent('设计检查通过');
+  expect(screen.queryByText('部分内容块需要配置或补充数据，请检查对应内容块。')).not.toBeInTheDocument();
+  expect(request).toHaveBeenCalledTimes(1);
+  await flushAutosave();
+  expect(request).toHaveBeenLastCalledWith('/surveys/saved-survey/source',expect.objectContaining({method:'PUT',body:expect.objectContaining({expectedVersion:4})}),expect.anything());
+  expect(persisted.template.sections).toEqual([]);expect(persisted.questions).toEqual(original.questions);expect(persisted.tags).toEqual(original.tags);
+  view.unmount();request.mockResolvedValueOnce(structuredClone(persisted));
+  render(<LiveSurveyWorkspace surveyId="saved-survey" initialStep="template"/>);
+  await screen.findByLabelText('报告标题');
+  expect(screen.queryByRole('button',{name:'不使用报告模板'})).not.toBeInTheDocument();
+  expect(screen.getByRole('region',{name:'设计检查'})).toHaveTextContent('设计检查通过');
+  expect(request).toHaveBeenCalledTimes(3);
+ });
+ it('autosaves only report configuration on a published survey while preserving its questions, publication, batches and old report',async()=>{
+  const original=boundRuntime();
+  const publication={token:'frozen-token',version:4,status:'collecting' as const,expiresAt:'2030-10-20T10:00:00.000Z',questions:original.questions};
+  const batch={...publication,id:'original-batch',createdAt:'2026-09-20T10:00:00.000Z',closedAt:null};
+  const report={id:'old-report',title:'旧报告应保留',sections:[{id:'s',title:'旧报告章节',blocks:[]}],issues:[]};
+  const published=runtime({...original,status:'collecting',publication,collectionBatches:[batch],activeCollectionBatchId:batch.id,report,reportBasisVersion:3,reportBasisAnswerRevision:0});
+  let saved:SurveyRuntime=published;
+  request.mockResolvedValueOnce(published).mockImplementationOnce(async(_path:string,options:{body:{template:SurveyRuntime['template']}})=>{
+   saved={...published,version:5,template:options.body.template};return saved;
+  });
+  render(<LiveSurveyWorkspace surveyId="saved-survey" initialStep="template"/>);
+  fireEvent.click(await screen.findByRole('button',{name:'不使用报告模板'}));
+  await flushAutosave();
+  expect(request).toHaveBeenLastCalledWith('/surveys/saved-survey',expect.objectContaining({method:'PUT',body:expect.objectContaining({expectedVersion:4,questions:published.questions,tags:published.tags,template:expect.objectContaining({sections:[]})})}),expect.anything());
+  expect(saved.publication).toEqual(publication);expect(saved.collectionBatches).toEqual([batch]);expect(saved.questions).toEqual(published.questions);expect(saved.report).toEqual(report);
+  fireEvent.click(screen.getByRole('button',{name:'更多操作'}));
+  fireEvent.click(screen.getByRole('button',{name:'分析报告（可选）'}));
+  await screen.findByRole('heading',{name:'旧报告应保留'});
+  expect(screen.getByText(/当前展示上次生成的报告/)).toBeInTheDocument();
+  request.mockResolvedValueOnce({...saved,version:6,report:{...report,title:'新报告'},reportBasisVersion:5});
+  fireEvent.click(screen.getByRole('button',{name:'重新生成报告'}));
+  await screen.findByRole('heading',{name:'新报告'});
+  expect(screen.queryByText(/当前展示上次生成的报告/)).not.toBeInTheDocument();
+ });
+});
+
+it('keeps ordinary report template title edits unsaved until explicit save',async()=>{
+ request.mockResolvedValueOnce(runtime());
+ render(<LiveSurveyWorkspace surveyId="saved-survey" initialStep="template"/>);
+ fireEvent.change(await screen.findByLabelText('报告标题'),{target:{value:'仅预览的新标题'}});
+ await flushAutosave();
+ expect(request).toHaveBeenCalledTimes(1);
+ expect(screen.getByLabelText('报告标题')).toHaveValue('仅预览的新标题');
 });
