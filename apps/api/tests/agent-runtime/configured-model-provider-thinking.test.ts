@@ -146,6 +146,19 @@ describe("#2504 ConfiguredModelProvider 对已知混合思考 modelId + 百炼 e
     expect(lastBody).not.toHaveProperty("enable_thinking");
   });
 
+  it("explicit research thinking-off applies to streaming with both compatibility gates", async () => {
+    const p = provider({ streamEnabled: true, thinkingDisableModelIds: new Set([ALLOWED_MODEL_ID]), bailianExtensionsEnabled: true });
+    await p.completeStream!({ modelProvider: PROVIDER, modelId: ALLOWED_MODEL_ID, system: "s", user: "u", thinkingMode: "off" }, async () => {});
+    expect(lastBody?.enable_thinking).toBe(false);
+    expect(lastBody?.reasoning_effort).toBe("none");
+  });
+  it.each([[false, ALLOWED_MODEL_ID], [true, OTHER_MODEL_ID]] as const)("does not send research thinking extensions to unsupported endpoint/model (%s, %s)", async (bailianExtensionsEnabled, modelId) => {
+    const p = provider({ streamEnabled: true, thinkingDisableModelIds: new Set([ALLOWED_MODEL_ID]), bailianExtensionsEnabled });
+    await p.completeStream!({ modelProvider: PROVIDER, modelId, system: "s", user: "u", thinkingMode: "off" }, async () => {});
+    expect(lastBody).not.toHaveProperty("enable_thinking");
+    expect(lastBody).not.toHaveProperty("reasoning_effort");
+  });
+
   it("跨 provider 的调用在到达 postCompletions 之前就被拒绝——同一 modelId 字符串不能跨部署的 provider 身份泄漏 enable_thinking", async () => {
     // 第一轮独立复审诊断问的是：如果另一个部署配的 provider 不是这个 ConfiguredModelProvider
     // 实例配置的那个（例如它自己的 provider 叫 "some-other-openai-compatible-vendor"），

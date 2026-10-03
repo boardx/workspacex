@@ -1,3 +1,4 @@
+import { withGuidedThinkingPolicy } from "./guided-thinking-policy";
 import { reportBasis } from "./guided-report-checkpoint";
 import { GUIDED_PLAN_BUDGET_MS, GUIDED_REPORT_PREPARATION_BUDGET_MS, SearchBudget } from "./guided-search-budget";
 import { supplementQuery } from "./guided-supplement-query";
@@ -179,7 +180,7 @@ function applyDraft(state: ResearchRuntime, draft: RuntimeDraft) {
 export class GuidedRuntimeService {
   constructor(private readonly store: GuidedRuntimeStore, private readonly model: ModelCallPort, private readonly search: GuidedSearchPort,
     private readonly modelConfig = guidedModelConfig(), private readonly reportModel: ModelCallPort = model,
-    private readonly internalSourceAccess?: GuidedInternalSourceAccessPort, private readonly debugTrace?: DebugTracePort) {}
+    private readonly internalSourceAccess?: GuidedInternalSourceAccessPort, private readonly debugTrace?: DebugTracePort) { this.model = withGuidedThinkingPolicy(model); this.reportModel = withGuidedThinkingPolicy(reportModel); }
   get(actor: RuntimeActor, session: GuidedResearchSession) {
     if (actor.sessionId !== session.sessionId) throw new ResearchRuntimeError("RESEARCH_NOT_FOUND");
     return this.store.read(actor, initialRuntime(session));
