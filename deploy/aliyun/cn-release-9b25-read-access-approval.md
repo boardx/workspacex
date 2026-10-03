@@ -47,6 +47,19 @@
 
 真正已证实的前置不符：三库 PUBLIC 都拥有 TEMPORARY。新角色即使 NOINHERIT，也自动获得 PUBLIC 权限；仅 REVOKE TEMP FROM wsx_release_backup_ro 不能否定 PUBLIC 继承。故原包“无 database CREATE/TEMP”目前无法成立。没有擅自全局 REVOKE PUBLIC；也没有创建一个已知不满足原包的角色。[PostgreSQL 16 REVOKE](https://www.postgresql.org/docs/16/sql-revoke.html)
 
-18:31:55 UTC 精确 readonly ACL follow-up t-sh06yy7gpqarym8（command c-sh06yy7gpptao74）Success/exit0/Dropped0：之前 tableWrite=1 全部是 pg_catalog.pg_settings 的 UPDATE，不是已发现的业务表写入；不能把粗计数当成业务写权。main 的五个 PUBLIC SECURITY DEFINER EXECUTE 目标已列签名/返回类型/definition MD5，见 cn-release-backup-public-acl-detail.json；它们需要逐个核对实际 body，不能仅因 SECURITY DEFINER 就断言会改业务数据，也不能未核对就声明没有写/锁定路径。
+18:31:55 UTC 精确 readonly ACL follow-up t-sh06yy7gpqarym8（command c-sh06yy7gpptao74）Success/exit0/Dropped0：之前 tableWrite=1 全部是 pg_catalog.pg_settings 的 UPDATE，不是已发现的业务表写入；不能把粗计数当成业务写权。main 的五个 PUBLIC SECURITY DEFINER EXECUTE 目标已列签名/返回类型/definition MD5，见 cn-release-backup-public-acl-detail.json；18:43:52–53 UTC readonly invocation t-sh06yy8j45krda8 已核对五个实际 prosrc SHA256，全部与精确 baseline ba634 的迁移源码相同，完整对应及源码见 cn-release-backup-public-function-bodies.json。四个 SQL 函数仅 SELECT；wave2_skill_file_insert_before_publish 为 trigger，含 SELECT FOR UPDATE，会锁行，但没有持久业务数据 INSERT/UPDATE/DELETE。未调用这些函数或在生产演示锁定。
 
 下一步必须保持已批准范围：先澄清严格无 TEMP 条件及这五个函数的实际能力；如果需要修改共享 PUBLIC ACL 或扩大临时身份能力，须提交精确对象/角色影响、ACL 回退与额外决策，不能从本次批准推导。现有 API 不含 migration credential；这只说明身份分离，不能推断 root 私有 migrationSecretRef 缺失，更不能要求用户把密码发进聊天。所有秘密仍仅允许既有受信私有引用。
+
+
+## 一次性待决定的最小差异：保留现有 PUBLIC 权限，仅受控备份使用
+
+原备份身份创建/使用批准继续有效；下面是尚未批准的能力差异，不自动修改原“无 TEMP”门。建议不更改共享 PUBLIC ACL，不影响现有应用。唯一权限条件差异是：接受三库继承的 PUBLIC TEMP、pg_catalog.pg_settings 会话设置 UPDATE，以及上述五个精确 baseline body 的 PUBLIC EXECUTE；其它原权限限制、三库范围、全租户 BYPASSRLS、单连接、最长一小时和撤权要求保持。
+
+风险：TEMP 允许建立临时对象；结合现有 SECURITY DEFINER trigger，凭据误用可以尝试通过临时触发器造成业务行锁。没有发现 PUBLIC 持久业务表写权限，不等于此角色在数据库权限层完全无副作用。default_transaction_read_only 可由用户覆写，不能作为权限隔离证明。
+
+只有固定源码拥有的串行 pg_dump/custom-format 路径可使用凭据；不允许任意 SQL、主动函数调用、临时表/trigger 创建或凭据交给其它作业。工具需显式只读快照事务、锁等待和总时限，冻结实际 peer/source/profile/body hash，核实拥有的 helper/container/backend PID，超时先 join 自有进程再按原清单撤权。上述工具约束尚未全部实现和独审，批准差异也不能据此立即执行。
+
+执行输入进度：18:43 root 私有 migrationSecretRef 已证实存在、root-owned 0600，身份 migration_admin，未输出密码；无需用户在聊天发送秘密。host /usr/bin/pg_dump 不存在；18:48/18:51 readonly 镜像目录和 inspect 发现已缓存 PostgreSQL16.15 客户端镜像 sha256:eac621400b7b7ff52493883e41e930e3d104695fea5b68cc0c42370cf7880067，可准备复用方案，尚未启动容器或实测二进制。限定搜索的 maintenance-recovery/restore-rehearsal/backup 目录没有发现既有加密收件证书或恢复计划；这不是证明全机器不存在。加密收件人、私钥保管与恢复可用性仍需在同一精确执行包中冻结，不能删除唯一解密密钥或借用稳定应用凭据。
+
+当前没有 CREATE ROLE/GRANT/凭据写入，没有活跃临时角色租约；不全局撤 PUBLIC TEMP、不更改 SSL/白名单，不启动备份导出。实际三库一致快照、当前 epoch 的隔离恢复及六流程仍未验证；备份读取批准不含停写、迁移、恢复写入或切流。
