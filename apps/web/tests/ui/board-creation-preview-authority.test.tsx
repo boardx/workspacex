@@ -78,7 +78,7 @@ it('preserves the selected Sticky color and variant in picker and Dock drag payl
     const setData = vi.fn();
     fireEvent.dragStart(screen.getByTestId(testId), { dataTransfer: { setData } });
     expect(setData).toHaveBeenCalledOnce();
-    const [mime, payload] = setData.mock.calls[0];
+    const [mime, payload] = setData.mock.calls[0]!;
     expect(mime).toBe('application/x-workspacex-board-tool');
     expect(JSON.parse(payload)).toEqual({ kind: 'sticky', variant: 'rectangle', color: STICKY_COLOR_PRESETS.pink });
   }
