@@ -4,6 +4,7 @@ import {dirname,join} from 'node:path';
 import {createHash} from 'node:crypto';
 const jsonNames=new Set(['canonical-upload','pg-independent-pointers','pg-target-after-source-delete','migration-evidence.json','storage-runtime.json',
  'captured-vendor-evidence.json','captured-vendor-runtime.json','agent-api-evidence','ai-api-evidence','same-browser-outbox-evidence','portable-roundtrip','portable-revocation-race','api-ws-objectstore-runtime.json']);
+const navigationName=/^navigation-layout-(?:1024x900|1536x1024|1672x941)$/;
 const pngNames=new Set(['owner-after-refresh.png','independent-peer.png','roundtrip-owner-after-refresh.png','roundtrip-independent-peer.png','portable-confirmed-canvas']);
 /** Deliberately omit config/env, test titles, stdout and raw error text from artifacts. */
 export function boardCiErrorReason(error){
@@ -22,11 +23,13 @@ export default class BoardCiReporter{
   const row=this.tests.get(test.id)??{expectedStatus:test.expectedStatus,status:'unexpected',results:[]};
   const attachments=[];
   for(const attachment of result.attachments??[]){
-   const json=jsonNames.has(attachment.name),png=pngNames.has(attachment.name)||/^meeting-room-\d+$/.test(attachment.name);
+   const navigation=navigationName.test(attachment.name);
+   const json=jsonNames.has(attachment.name)||navigation,png=pngNames.has(attachment.name)||/^meeting-room-\d+$/.test(attachment.name);
    if(!json&&!png)continue;
    if(attachment.contentType!==(json?'application/json':'image/png')){this.errors.push({code:'ATTACHMENT_TYPE'});continue;}
    try{
-    const bytes=attachment.body?Buffer.from(attachment.body):readFileSync(attachment.path);
+    let bytes=attachment.body?Buffer.from(attachment.body):readFileSync(attachment.path);
+    if(navigation)bytes=Buffer.from(JSON.stringify(navigationGeometry(JSON.parse(bytes.toString()))));
     if(json)JSON.parse(bytes.toString());else if(!bytes.subarray(0,8).equals(Buffer.from([137,80,78,71,13,10,26,10])))throw Error();
     const directory=join(dirname(process.env.PLAYWRIGHT_JSON_OUTPUT_FILE),'browser','attachments',String(this.tests.size),String(result.retry));mkdirSync(directory,{recursive:true});
     const name=attachment.name+(json&&!attachment.name.endsWith('.json')?'.json':png&&!attachment.name.endsWith('.png')?'.png':'');
@@ -44,4 +47,11 @@ export default class BoardCiReporter{
   if(!process.env.PLAYWRIGHT_JSON_OUTPUT_FILE)throw Error('CI_RESULT_PATH_REQUIRED');
   writeFileSync(process.env.PLAYWRIGHT_JSON_OUTPUT_FILE,JSON.stringify({errors:this.errors,suites:[{specs:[{tests:[...this.tests.values()]}]}]})+'\n',{mode:0o600});
  }
+}
+
+/** Numeric geometry only: no URLs, DOM text, actor IDs or arbitrary attachment keys. */
+export function navigationGeometry(value){
+ const number=(row,key)=>{if(typeof row?.[key]!=="number"||!Number.isFinite(row[key]))throw Error('INVALID_NAVIGATION_GEOMETRY');return row[key];};
+ const rect=row=>Object.fromEntries(['x','y','width','height'].map(key=>[key,number(row,key)]));
+ return {navigation:rect(value?.navigation),offsetParent:value?.offsetParent===null?null:{...rect(value?.offsetParent),clientWidth:number(value?.offsetParent,'clientWidth')},documentClientWidth:number(value,'documentClientWidth'),innerWidth:number(value,'innerWidth'),rootFontSize:number(value,'rootFontSize'),positioningRight:number(value,'positioningRight'),containingBlock:{...rect(value?.containingBlock),clientWidth:number(value?.containingBlock,'clientWidth')},main:{...rect(value?.main),...Object.fromEntries(['clientWidth','scrollWidth','clientHeight','scrollHeight'].map(key=>[key,number(value?.main,key)]))}};
 }
