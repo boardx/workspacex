@@ -5,6 +5,7 @@ import {once} from 'node:events';
 import {join,resolve,basename,relative,isAbsolute} from 'node:path';
 import {pathToFileURL} from 'node:url';
 import {createHash,randomUUID} from 'node:crypto';
+import {safeStartupCode,parseIdentityCwd,parseIdentityListener} from '../e2e/support/native-runtime/native-startup-receipt.mjs';
 
 const suites={
   'e2e/board-r01-existing-runtime.config.ts':{count:8,files:['board-r01-native-matrix.spec.ts'],projects:['r01-native-1440','r01-native-390'],titles:['N01-N02 auxiliary pan held release cancellation and Select pointer wheel preserve the document','N05 transformed multi drawing erase preserves image Sticky Shape and locked ink in one durable history transaction',... [.5,2].map(zoom=>`N03-N04 native Sticky Shape Drawing multi transform at zoom ${zoom} and nonzero pan preserves atomic history`)]},
@@ -61,6 +62,9 @@ export function safeAcceptanceDiagnostics(config,report,root=resolve(process.cwd
     const message=typeof error?.message==='string'?error.message:'';
     const matches=Object.entries(signatures).filter(([,values])=>values.some(value=>message.includes(value))).map(([key])=>key);
     if(matches.length>0)return{matchedFailure:matches.length===1?matches[0]:'UNKNOWN',ambiguous:matches.length>1};
+    const identityCodes=['IDENTITY_SOURCE','IDENTITY_CWD','IDENTITY_LISTENER','IDENTITY_ANCESTRY'];
+    const code=Object.getOwnPropertyDescriptor(error??{},'code')?.value;
+    if(identityCodes.includes(code)||identityCodes.includes(message))return{matchedFailure:identityCodes.includes(code)?code:message,ambiguous:false};
     if(status==='timedOut'||error?.name==='TimeoutError')return{matchedFailure:'TIMEOUT',ambiguous:false};
     if(error?.code==='ERR_ASSERTION'||message.includes('expect('))return{matchedFailure:'ASSERTION',ambiguous:false};
     return{matchedFailure:'UNKNOWN',ambiguous:false};
@@ -98,6 +102,31 @@ export function suitePresent(config,tracked,root=resolve(process.cwd())){
 export function runtimeExitProof(code,signal,wasAlive){assert.equal(wasAlive,true,'Runtime exited before owned stop');assert.equal(signal,null);assert.equal(code,0);}
 export function runtimeSpawnState(child){const state={failed:false};child.on('error',()=>{state.failed=true;});return state;}
 export function sameRuntimeProof(before,after){assert.deepEqual(after,before);}
+
+// Fixed categories and bounded identity facts only. A verification exception
+// does not prove that the manifest or source bytes actually changed.
+export function safeEndRuntimeFailure(error){
+  const ownData=(object,key)=>{
+    if(!object||typeof object!=='object')return undefined;
+    const descriptor=Object.getOwnPropertyDescriptor(object,key);
+    return descriptor&&Object.hasOwn(descriptor,'value')?descriptor.value:undefined;
+  };
+  let code;
+  try{code=ownData(error,'code');}catch{ /* Hostile descriptors cannot escape diagnostics. */ }
+  const output={code:safeStartupCode({code}),identityCwd:null,identityListener:null};
+  for(const [key,parse] of [['identityCwd',parseIdentityCwd],['identityListener',parseIdentityListener]])try{
+    const value=ownData(error,key);
+    if(!value||typeof value!=='object'||Array.isArray(value))continue;
+    const descriptors=Object.getOwnPropertyDescriptors(value),snapshot={};
+    // Validate a stable data-only snapshot. Parsers may read fields repeatedly;
+    // accessor values must never run or change between validation and copying.
+    if(Object.values(descriptors).some(descriptor=>!Object.hasOwn(descriptor,'value')))continue;
+    for(const [name,descriptor] of Object.entries(descriptors))Object.defineProperty(snapshot,name,{value:descriptor.value,enumerable:true});
+    output[key]=parse(snapshot);
+  }catch{ /* Invalid context must never replace the original verification failure. */ }
+  return output;
+}
+
 
 export function safeStartupDiagnostics(log){
   const known=['native-migrate','native-fullstack-seed','native-web-build'];
@@ -154,6 +183,7 @@ export async function run(args=process.argv.slice(2)){
   const privateLog=join(privateRoot,'execution.log'),fd=openSync(privateLog,'wx',0o600);
   let runtime,runtimeState,exitCode=null,failureReason=null,cleanupCompleted=false,runtimeExit=null,phase='PREPARE',adapter,adapterState,runtimeBefore;
   const cleanupFailures=[];
+  let endRuntimeFailure=null,adapterEndRuntimeFailure=null;
   const execute=async(executable,args,environment=process.env)=>{
     const child=spawn(executable,args,{cwd:root,env:environment,stdio:['ignore',fd,fd]});
     const [code,signal]=await once(child,'exit');assert.equal(signal,null);assert.equal(code,0);
@@ -192,8 +222,8 @@ export async function run(args=process.argv.slice(2)){
     if(isR01){const summary=r01ResultSummary(r01ReportReceipts(parsed,join(privateRoot,'artifacts'),head),head);writeFileSync(join(safeRoot,'r01-summary.json'),JSON.stringify(summary,null,2),{mode:0o600,flag:'wx'});assert.equal(summary.cleanupPending,false,'R01 owned boards remain preserved pending authorized cleanup');}
   }catch{failureReason=failureReason??'NATIVE_RUN_FAILED';}
   finally{
-    if(adapterState)try{await adapterState.verifyEnd();}catch{cleanupFailures.push('R08_END_RUNTIME_PROOF_FAILED');}
-    if(runtimeBefore)try{sameRuntimeProof(runtimeBefore.before,runtimeBefore.proof());}catch{cleanupFailures.push('END_RUNTIME_IDENTITY_CHANGED');}
+    if(adapterState)try{await adapterState.verifyEnd();}catch(error){adapterEndRuntimeFailure=safeEndRuntimeFailure(error);cleanupFailures.push('R08_END_RUNTIME_PROOF_FAILED');}
+    if(runtimeBefore)try{sameRuntimeProof(runtimeBefore.before,runtimeBefore.proof());}catch(error){endRuntimeFailure=safeEndRuntimeFailure(error);cleanupFailures.push('END_RUNTIME_IDENTITY_CHANGED');}
     try{
       if(runtime){
         assert.equal(runtimeState.failed,false,'Owned runtime spawn failed');
@@ -219,7 +249,7 @@ export async function run(args=process.argv.slice(2)){
       const diagnostics=await import(pathToFileURL(join(support,'native-startup-receipt.mjs')).href);
       startupFailure=startupFailureProof(diagnostics,data,head);
     }catch{startupFailure=null;cleanupFailures.push('STARTUP_FAILURE_RECEIPT_INVALID');cleanupCompleted=false;failureReason=failureReason??'STARTUP_FAILURE_RECEIPT_INVALID';}
-    writeFileSync(join(safeRoot,'receipt.json'),JSON.stringify({sourceHead:head,phase,startupDiagnostics,startupFailure,exitCode,runtimeExit,failureReason,cleanupCompleted,cleanupFailures,privateEvidenceRetained:true,requiredSuiteComplete:false,visuallyAccepted:false},null,2),{mode:0o600,flag:'wx'});
+    writeFileSync(join(safeRoot,'receipt.json'),JSON.stringify({sourceHead:head,phase,startupDiagnostics,startupFailure,exitCode,runtimeExit,failureReason,cleanupCompleted,cleanupFailures,endRuntimeFailure,adapterEndRuntimeFailure,privateEvidenceRetained:true,requiredSuiteComplete:false,visuallyAccepted:false},null,2),{mode:0o600,flag:'wx'});
   }
   if(failureReason)throw new Error(failureReason);
 }

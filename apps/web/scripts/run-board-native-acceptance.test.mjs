@@ -179,3 +179,50 @@ test('safe diagnostics use the main metadata suite authority for sync case ordin
     rmSync(join(support,'r08-native-suite.json'));assert.throws(()=>safeAcceptanceDiagnostics(config,report,root));
   }finally{rmSync(root,{recursive:true});}
 });
+
+
+test('end verification retains fixed cause and bounded facts without changing the cleanup block',async()=>{
+ const {safeEndRuntimeFailure}=await import('./run-board-native-acceptance.mjs');
+ const facts={service:'web',pidAlive:false,commandExit:null,pathPresent:false,pathEqual:false,childExitCode:1,childSignal:null};
+ const error=Object.assign(new Error('private credential URL /private/path'),{code:'IDENTITY_CWD',identityCwd:facts});
+ assert.deepEqual(safeEndRuntimeFailure(error),{code:'IDENTITY_CWD',identityCwd:facts,identityListener:null});
+ const listener={service:'api',pidAlive:true,commandExit:null,listenerCount:0,ancestryVerified:false,childExitCode:null,childSignal:null};
+ assert.deepEqual(safeEndRuntimeFailure(Object.assign(new Error('secret'),{code:'IDENTITY_LISTENER',identityListener:listener})),{code:'IDENTITY_LISTENER',identityCwd:null,identityListener:listener});
+ for(const invalid of [{...facts,path:'/private'}, {...facts,childExitCode:1.5}, {...facts,service:'foreign'}, {...facts,pidAlive:'private'}])assert.equal(safeEndRuntimeFailure(Object.assign(error,{identityCwd:invalid})).identityCwd,null);
+ const getter=new Error('secret');Object.defineProperty(getter,'identityCwd',{get(){throw new Error('must not execute')}});assert.equal(safeEndRuntimeFailure(getter).identityCwd,null);
+ const output=safeEndRuntimeFailure(Object.assign(new Error('private data'),{code:'PRIVATE_CODE',identityListener:{...listener,private:'secret'}}));assert.deepEqual(output,{code:'UNKNOWN',identityCwd:null,identityListener:null});
+ assert.ok(!JSON.stringify(output).includes('private'));
+ const source=readFileSync(new URL('./run-board-native-acceptance.mjs',import.meta.url),'utf8');
+ assert.match(source,/endRuntimeFailure=safeEndRuntimeFailure\(error\);cleanupFailures.push\('END_RUNTIME_IDENTITY_CHANGED'\)/);
+ assert.match(source,/cleanupCompleted=cleanupFailures.length===0/);
+ assert.throws(()=>sameRuntimeProof({identity:{pid:1}},{identity:{pid:2}}));
+});
+test('private first errors classify fixed identity causes without exporting messages',async()=>{
+ const {safeAcceptanceDiagnostics}=await import('./run-board-native-acceptance.mjs');
+ const config='e2e/board-r01-existing-runtime.config.ts';
+ const report=error=>({suites:[{specs:[{file:'board-r01-native-matrix.spec.ts',tests:[{results:[{status:'failed',errors:[error]}]}]}]}]});
+ for(const code of ['IDENTITY_SOURCE','IDENTITY_CWD','IDENTITY_LISTENER','IDENTITY_ANCESTRY']){
+  const output=safeAcceptanceDiagnostics(config,report({message:'private token',code}));assert.equal(output.firstFailure.matchedFailure,code);assert.ok(!JSON.stringify(output).includes('private'));
+  assert.equal(safeAcceptanceDiagnostics(config,report({message:code})).firstFailure.matchedFailure,code);
+ }
+ assert.equal(safeAcceptanceDiagnostics(config,report({message:'private IDENTITY_CWD suffix'})).firstFailure.matchedFailure,'UNKNOWN');
+});
+
+
+test('end identity diagnostics never execute changing code or nested context accessors',async()=>{
+ const {safeEndRuntimeFailure}=await import('./run-board-native-acceptance.mjs');
+ let codeReads=0;const error=new Error('private original');
+ Object.defineProperty(error,'code',{get(){return ++codeReads===1?'IDENTITY_CWD':'private-code-leak';}});
+ assert.deepEqual(safeEndRuntimeFailure(error),{code:'UNKNOWN',identityCwd:null,identityListener:null});assert.equal(codeReads,0);
+ const facts={service:'web',pidAlive:true,commandExit:null,pathPresent:true,pathEqual:true,childExitCode:null,childSignal:null};
+ for(const field of Object.keys(facts)){
+  let reads=0;const context={...facts};Object.defineProperty(context,field,{enumerable:true,get(){return ++reads===1?facts[field]:'private-context-leak';}});
+  const result=safeEndRuntimeFailure(Object.assign(new Error('private original'),{code:'IDENTITY_CWD',identityCwd:context}));
+  assert.deepEqual(result,{code:'IDENTITY_CWD',identityCwd:null,identityListener:null});assert.equal(reads,0);assert.ok(!JSON.stringify(result).includes('private'));
+ }
+ const listener={service:'api',pidAlive:true,commandExit:null,listenerCount:1,ancestryVerified:true,childExitCode:null,childSignal:null};
+ for(const field of Object.keys(listener)){
+  let reads=0;const context={...listener};Object.defineProperty(context,field,{enumerable:true,get(){return ++reads===1?listener[field]:'private-context-leak';}});
+  assert.equal(safeEndRuntimeFailure(Object.assign(new Error('secret'),{code:'IDENTITY_LISTENER',identityListener:context})).identityListener,null);assert.equal(reads,0);
+ }
+});
