@@ -1,0 +1,301 @@
+- alert
+- link "跳到主要内容":
+  - /url: "#wsx-main-content"
+- navigation "主导航":
+  - button "组织菜单，当前：org org-fullstack-5e-986ac146-12206c108846":
+    - generic: o
+  - link "首页":
+    - /url: /home
+    - generic: 首页
+  - link "对话":
+    - /url: /chat
+    - generic: 对话
+  - link "项目":
+    - /url: /projects
+    - generic: 项目
+  - link "研究":
+    - /url: /research
+    - generic: 研究
+  - link "访谈":
+    - /url: /itv
+    - generic: 访谈
+  - link "大脑":
+    - /url: /brain
+    - generic: 大脑
+  - link "任务":
+    - /url: /tasks
+    - generic: 任务
+  - link "工作流":
+    - /url: /workflows
+    - generic: 工作流
+  - link "组织后台":
+    - /url: /admin
+    - generic: 组织后台
+  - button "更多":
+    - generic: 更多
+  - button "任务提醒，0 条未读":
+    - generic: 提醒
+  - generic: 0 条未读
+  - button "提交反馈":
+    - generic: 反馈
+  - button "个人菜单":
+    - generic: F
+- banner:
+  - generic: org org-fullstack-5e-986ac146-12206c108846
+  - paragraph: 管理员
+  - paragraph: 不在具体项目里 · 引导师/组长/组员等项目内角色暂不适用
+- main:
+  - main:
+    - button "← 返回列表"
+    - textbox "问卷名称": 合成验收20261004-报告真实答卷
+    - paragraph: 已保存 · 2026/10/4 05:13:10
+    - button "更多操作"
+    - button "保存修改" [disabled]
+    - navigation "问卷工作流":
+      - button "1. 设计问卷":
+        - generic: "1"
+        - text: 设计问卷
+      - button "2. 发布回收":
+        - generic: "2"
+        - text: 发布回收
+      - button "3. 查看答卷":
+        - generic: "3"
+        - text: 查看答卷
+    - region "设计检查": 设计检查通过
+    - region "报告模板操作":
+      - button "使用报告模板"
+      - button "保存为报告模板"
+      - link "管理模板库":
+        - /url: /studio/survey?tab=reports
+    - text: 报告标题
+    - textbox "报告标题": 团队协作健康度调查分析报告
+    - button "返回编辑" [active]
+    - button "导出模板"
+    - button "导入模板"
+    - article:
+      - heading "团队协作健康度调查分析报告" [level=1]
+      - paragraph: 样本口径：总答卷 1 · 待复核 0 · 已排除 0 · 纳入分析 1
+      - status "低样本说明": 当前仅纳入 1 份答卷，仅展示描述性结果，不代表目标人群，也不形成行动结论。建议先补充样本并核对原始反馈。
+      - heading "基本情况" [level=2]
+      - heading "您加入当前团队多久了？：实际选择情况" [level=3]
+      - paragraph: “您加入当前团队多久了？ · 1–3年”有 1 份选择。统计仅描述本次作答。
+      - heading "您主要采用哪种协作方式？：实际选择情况" [level=3]
+      - paragraph: “您主要采用哪种协作方式？ · 混合办公”有 1 份选择。统计仅描述本次作答。
+      - heading "合成指标-目标均值：均值解读" [level=3]
+      - paragraph: “我清楚团队当前最重要的目标。”的均值为 4。该题仅有 1 份有效作答，反映该受访者的反馈。
+      - heading "合成雷达-三项均值：均值解读" [level=3]
+      - paragraph: “我清楚团队当前最重要的目标。”的均值为 4。该题仅有 1 份有效作答，反映该受访者的反馈。 “我知道自己的工作如何支持团队目标。”的均值为 4。该题仅有 1 份有效作答，反映该受访者的反馈。 “团队对任务优先级有一致理解。”的均值为 4。该题仅有 1 份有效作答，反映该受访者的反馈。
+      - heading "合成数据表-团队时长：实际选择情况" [level=3]
+      - paragraph: “您加入当前团队多久了？ · 1–3年”有 1 份选择。统计仅描述本次作答。
+      - heading "合成差距-目标5：均值解读" [level=3]
+      - paragraph: “我清楚团队当前最重要的目标。”的均值为 4。该题仅有 1 份有效作答，反映该受访者的反馈。模板目标为 5，目标减当前值为 1。 “我知道自己的工作如何支持团队目标。”的均值为 4。该题仅有 1 份有效作答，反映该受访者的反馈。模板目标为 5，目标减当前值为 1。 “团队对任务优先级有一致理解。”的均值为 4。该题仅有 1 份有效作答，反映该受访者的反馈。模板目标为 5，目标减当前值为 1。
+      - heading "您加入当前团队多久了？" [level=3]
+      - paragraph: 样本策略：仅正常质量答卷 · 实际样本量 1
+      - img "这是一个图表，图表类型是柱状图。其数据是——不足3个月的数据是0，0，3–12个月的数据是0，1，1–3年的数据是1，2，3年以上的数据是0，3。":
+      - heading "您主要采用哪种协作方式？" [level=3]
+      - paragraph: 样本策略：仅正常质量答卷 · 实际样本量 1
+      - img "这是一个图表，图表类型是柱状图。其数据是——现场办公的数据是0，0，远程办公的数据是0，1，混合办公的数据是1，2。":
+      - heading "合成文字-真实答卷顺序验收" [level=3]
+      - paragraph: 真实提交样本用于检查报告控件与保存顺序。
+      - heading "合成指标-目标均值" [level=3]
+      - paragraph: 样本策略：仅正常质量答卷 · 实际样本量 1
+      - term: 我清楚团队当前最重要的目标。
+      - definition: "4"
+      - definition: 有效样本 1
+      - heading "合成雷达-三项均值" [level=3]
+      - paragraph: 样本策略：仅正常质量答卷 · 实际样本量 1
+      - img "这是一个图表，图表类型是雷达图。其数据是——数据的数据是4，4，4。":
+      - heading "合成数据表-团队时长" [level=3]
+      - paragraph: 样本策略：仅正常质量答卷 · 实际样本量 1
+      - table:
+        - rowgroup:
+          - row "指标 数值 有效样本":
+            - columnheader "指标"
+            - columnheader "数值"
+            - columnheader "有效样本"
+        - rowgroup:
+          - row "您加入当前团队多久了？ · 不足3个月 0 0":
+            - cell "您加入当前团队多久了？ · 不足3个月"
+            - cell "0"
+            - cell "0"
+          - row "您加入当前团队多久了？ · 3–12个月 0 0":
+            - cell "您加入当前团队多久了？ · 3–12个月"
+            - cell "0"
+            - cell "0"
+          - row "您加入当前团队多久了？ · 1–3年 1 1":
+            - cell "您加入当前团队多久了？ · 1–3年"
+            - cell "1"
+            - cell "1"
+          - row "您加入当前团队多久了？ · 3年以上 0 0":
+            - cell "您加入当前团队多久了？ · 3年以上"
+            - cell "0"
+            - cell "0"
+      - heading "合成趋势-目标均值" [level=3]
+      - paragraph: 样本策略：仅正常质量答卷 · 实际样本量 1
+      - img "这是一个图表，图表类型是折线图，表示我清楚团队当前最重要的目标。。其数据是——2026-10-03的数据是0，4。":
+      - heading "合成差距-目标5" [level=3]
+      - paragraph: 样本策略：仅正常质量答卷 · 实际样本量 1
+      - table:
+        - rowgroup:
+          - row "指标 数值 有效样本 目标 差距":
+            - columnheader "指标"
+            - columnheader "数值"
+            - columnheader "有效样本"
+            - columnheader "目标"
+            - columnheader "差距"
+        - rowgroup:
+          - row "我清楚团队当前最重要的目标。 4 1 5 1":
+            - cell "我清楚团队当前最重要的目标。"
+            - cell "4"
+            - cell "1"
+            - cell "5"
+            - cell "1"
+          - row "我知道自己的工作如何支持团队目标。 4 1 5 1":
+            - cell "我知道自己的工作如何支持团队目标。"
+            - cell "4"
+            - cell "1"
+            - cell "5"
+            - cell "1"
+          - row "团队对任务优先级有一致理解。 4 1 5 1":
+            - cell "团队对任务优先级有一致理解。"
+            - cell "4"
+            - cell "1"
+            - cell "5"
+            - cell "1"
+      - heading "目标共识" [level=2]
+      - heading "本章 3 项评分均为 4" [level=3]
+      - paragraph: “我清楚团队当前最重要的目标。”为 4（有效作答 1 份）；“我知道自己的工作如何支持团队目标。”为 4（有效作答 1 份）；“团队对任务优先级有一致理解。”为 4（有效作答 1 份）。共同取值为 1、2、3、4、5。每项仅有 1 份有效作答，仅反映受访者反馈，不能代表整个组织。
+      - heading "我清楚团队当前最重要的目标。" [level=3]
+      - paragraph: 样本策略：仅正常质量答卷 · 实际样本量 1
+      - term
+      - definition: "4"
+      - definition: 有效样本 1
+      - heading "我知道自己的工作如何支持团队目标。" [level=3]
+      - paragraph: 样本策略：仅正常质量答卷 · 实际样本量 1
+      - term
+      - definition: "4"
+      - definition: 有效样本 1
+      - heading "团队对任务优先级有一致理解。" [level=3]
+      - paragraph: 样本策略：仅正常质量答卷 · 实际样本量 1
+      - term
+      - definition: "4"
+      - definition: 有效样本 1
+      - heading "沟通与信任" [level=2]
+      - heading "本章 4 项评分均为 4" [level=3]
+      - paragraph: “我可以在团队中安全地表达不同观点。”为 4（有效作答 1 份）；“需要帮助时，能及时获得同事支持。”为 4（有效作答 1 份）；“团队能坦诚讨论错误并改进。”为 4（有效作答 1 份）；“重要信息会及时同步给相关成员。”为 4（有效作答 1 份）。共同取值为 1、2、3、4、5。每项仅有 1 份有效作答，仅反映受访者反馈，不能代表整个组织。
+      - heading "我可以在团队中安全地表达不同观点。" [level=3]
+      - paragraph: 样本策略：仅正常质量答卷 · 实际样本量 1
+      - term
+      - definition: "4"
+      - definition: 有效样本 1
+      - heading "需要帮助时，能及时获得同事支持。" [level=3]
+      - paragraph: 样本策略：仅正常质量答卷 · 实际样本量 1
+      - term
+      - definition: "4"
+      - definition: 有效样本 1
+      - heading "团队能坦诚讨论错误并改进。" [level=3]
+      - paragraph: 样本策略：仅正常质量答卷 · 实际样本量 1
+      - term
+      - definition: "4"
+      - definition: 有效样本 1
+      - heading "重要信息会及时同步给相关成员。" [level=3]
+      - paragraph: 样本策略：仅正常质量答卷 · 实际样本量 1
+      - term
+      - definition: "4"
+      - definition: 有效样本 1
+      - heading "工作体验" [level=2]
+      - heading "本章 3 项评分均为 4" [level=3]
+      - paragraph: “我有足够连续时间完成专注工作。”为 4（有效作答 1 份）；“会议与日常沟通的投入是合理的。”为 4（有效作答 1 份）；“我具备完成工作所需的工具和资源。”为 4（有效作答 1 份）。共同取值为 1、2、3、4、5。每项仅有 1 份有效作答，仅反映受访者反馈，不能代表整个组织。
+      - heading "最近两周的工作负荷如何？：实际选择情况" [level=3]
+      - paragraph: “最近两周的工作负荷如何？ · 适中”有 1 份选择。统计仅描述本次作答。
+      - heading "最近两周的工作负荷如何？" [level=3]
+      - paragraph: 样本策略：仅正常质量答卷 · 实际样本量 1
+      - img "这是一个图表，图表类型是柱状图。其数据是——明显不足的数据是0，0，较轻的数据是0，1，适中的数据是1，2，偏重的数据是0，3，严重超负荷的数据是0，4。":
+      - heading "我有足够连续时间完成专注工作。" [level=3]
+      - paragraph: 样本策略：仅正常质量答卷 · 实际样本量 1
+      - term
+      - definition: "4"
+      - definition: 有效样本 1
+      - heading "会议与日常沟通的投入是合理的。" [level=3]
+      - paragraph: 样本策略：仅正常质量答卷 · 实际样本量 1
+      - term
+      - definition: "4"
+      - definition: 有效样本 1
+      - heading "我具备完成工作所需的工具和资源。" [level=3]
+      - paragraph: 样本策略：仅正常质量答卷 · 实际样本量 1
+      - term
+      - definition: "4"
+      - definition: 有效样本 1
+      - heading "成长支持" [level=2]
+      - heading "本章 3 项评分均为 4" [level=3]
+      - paragraph: “我能获得具体且有帮助的反馈。”为 4（有效作答 1 份）；“团队给予我学习和尝试的机会。”为 4（有效作答 1 份）；“我的贡献得到公平认可。”为 4（有效作答 1 份）。共同取值为 1、2、3、4、5。每项仅有 1 份有效作答，仅反映受访者反馈，不能代表整个组织。
+      - heading "我能获得具体且有帮助的反馈。" [level=3]
+      - paragraph: 样本策略：仅正常质量答卷 · 实际样本量 1
+      - term
+      - definition: "4"
+      - definition: 有效样本 1
+      - heading "团队给予我学习和尝试的机会。" [level=3]
+      - paragraph: 样本策略：仅正常质量答卷 · 实际样本量 1
+      - term
+      - definition: "4"
+      - definition: 有效样本 1
+      - heading "我的贡献得到公平认可。" [level=3]
+      - paragraph: 样本策略：仅正常质量答卷 · 实际样本量 1
+      - term
+      - definition: "4"
+      - definition: 有效样本 1
+      - heading "整体感受" [level=2]
+      - heading "您向同事推荐加入本团队的可能性有多大？：NPS解读" [level=3]
+      - paragraph: “您向同事推荐加入本团队的可能性有多大？”的NPS为 0。该题仅有 1 份有效作答，反映该受访者的反馈。NPS 为推荐者比例减贬损者比例，范围为 -100 至 100；单份结果不是群体口碑。
+      - heading "您向同事推荐加入本团队的可能性有多大？" [level=3]
+      - paragraph: 样本策略：仅正常质量答卷 · 实际样本量 1
+      - table:
+        - rowgroup:
+          - row "指标 数值 有效样本":
+            - columnheader "指标"
+            - columnheader "数值"
+            - columnheader "有效样本"
+        - rowgroup:
+          - row "您向同事推荐加入本团队的可能性有多大？ 0 1":
+            - cell "您向同事推荐加入本团队的可能性有多大？"
+            - cell "0"
+            - cell "1"
+      - heading "改进建议" [level=2]
+      - heading "哪些方面最需要改善？：实际选择情况" [level=3]
+      - paragraph: “哪些方面最需要改善？ · 目标清晰度”有 1 份选择；“哪些方面最需要改善？ · 沟通效率”有 1 份选择。统计仅描述本次作答。
+      - heading "作答排序给出的优先关注顺序" [level=3]
+      - paragraph: “请按改善优先级排序。 · 减少无效会议”：平均名次 1，有效作答 1 份；“请按改善优先级排序。 · 明确职责”：平均名次 2，有效作答 1 份；“请按改善优先级排序。 · 改善信息共享”：平均名次 3，有效作答 1 份；“请按改善优先级排序。 · 调整工作节奏”：平均名次 4，有效作答 1 份。名次越小表示排序越靠前；并列项保持并列。
+      - heading "您希望团队保持或改变什么？：受访者提出的具体反馈" [level=3]
+      - paragraph: “合成验收答卷：保持目标清晰，改善沟通。”。以上为受访者原话，尚不能据此判断原因或发生频率。
+      - heading "哪些方面最需要改善？" [level=3]
+      - paragraph: 样本策略：仅正常质量答卷 · 实际样本量 1
+      - img "这是一个图表，图表类型是柱状图。其数据是——目标清晰度的数据是1，0，沟通效率的数据是1，1，工作负荷的数据是0，2，心理安全的数据是0，3，成长机会的数据是0，4，协作工具的数据是0，5。":
+      - heading "请按改善优先级排序。" [level=3]
+      - paragraph: 样本策略：仅正常质量答卷 · 实际样本量 1
+      - table:
+        - rowgroup:
+          - row "指标 数值 有效样本":
+            - columnheader "指标"
+            - columnheader "数值"
+            - columnheader "有效样本"
+        - rowgroup:
+          - row "请按改善优先级排序。 · 减少无效会议 1 1":
+            - cell "请按改善优先级排序。 · 减少无效会议"
+            - cell "1"
+            - cell "1"
+          - row "请按改善优先级排序。 · 明确职责 2 1":
+            - cell "请按改善优先级排序。 · 明确职责"
+            - cell "2"
+            - cell "1"
+          - row "请按改善优先级排序。 · 改善信息共享 3 1":
+            - cell "请按改善优先级排序。 · 改善信息共享"
+            - cell "3"
+            - cell "1"
+          - row "请按改善优先级排序。 · 调整工作节奏 4 1":
+            - cell "请按改善优先级排序。 · 调整工作节奏"
+            - cell "4"
+            - cell "1"
+      - heading "您希望团队保持或改变什么？" [level=3]
+      - paragraph: 样本策略：仅正常质量答卷 · 实际样本量 1
+      - term
+      - definition: 合成验收答卷：保持目标清晰，改善沟通。

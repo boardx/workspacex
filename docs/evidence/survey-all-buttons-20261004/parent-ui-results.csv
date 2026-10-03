@@ -1,0 +1,11 @@
+id,status,source_sha,action,result,evidence
+SV26-0066,PASS,814dc05a36e1f2645b7528b9dacc0a344ec615ae,Blank survey create,At least one question automatic design error without publish check,main-publish-visible.txt and CUA transcript
+SV26-0073,PASS,814dc05a36e1f2645b7528b9dacc0a344ec615ae,Add multiline question,Automatic design check changes to pass before publication,main-publish-visible.txt and CUA transcript
+SV26-0056,PASS,814dc05a36e1f2645b7528b9dacc0a344ec615ae,Click second workflow step,Publication page reached and design question saved,main-missing-start.png
+SV26-0518,PASS,5eff031f44eeee9e9bd6f5e6ba11ed4d49ef4eaa,Start02:41/end02:43 publish,Waiting start then opens at start,PR5265 schedule-5192/browser.md
+SV26-0519,PASS,5eff031f44eeee9e9bd6f5e6ba11ed4d49ef4eaa,Publish end greater than start,Dates accepted and frozen,PR5265 schedule-5192/browser.md
+SV26-0520,PASS,5eff031f44eeee9e9bd6f5e6ba11ed4d49ef4eaa,Start03:00/end02:59 publish,Visible error and no publication,PR5265 schedule-5192/browser.md
+SV26-0521,PASS,5eff031f44eeee9e9bd6f5e6ba11ed4d49ef4eaa,Open public page before start,No form or upload control; pending message,PR5265 schedule-5192/pre-start.png
+SV26-0523,PASS,5eff031f44eeee9e9bd6f5e6ba11ed4d49ef4eaa,Reload public after deadline,No form; closed/expired message,PR5265 schedule-5192/public-expired.png
+SV26-0524,PASS,5eff031f44eeee9e9bd6f5e6ba11ed4d49ef4eaa,Keep owner page open across start and end,Status follows both boundaries without owner reload,PR5265 schedule-5192/browser.md
+SV26-0527,PASS,5eff031f44eeee9e9bd6f5e6ba11ed4d49ef4eaa,Reload owner after scheduled publish,Both immutable timestamps retained,PR5265 schedule-5192/frozen-after-reload.png

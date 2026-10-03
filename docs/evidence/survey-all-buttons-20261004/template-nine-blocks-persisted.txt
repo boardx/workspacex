@@ -1,0 +1,340 @@
+- alert
+- link "跳到主要内容":
+  - /url: "#wsx-main-content"
+- navigation "主导航":
+  - button "组织菜单，当前：org org-fullstack-5e-986ac146-12206c108846":
+    - generic: o
+  - link "首页":
+    - /url: /home
+    - generic: 首页
+  - link "对话":
+    - /url: /chat
+    - generic: 对话
+  - link "项目":
+    - /url: /projects
+    - generic: 项目
+  - link "研究":
+    - /url: /research
+    - generic: 研究
+  - link "访谈":
+    - /url: /itv
+    - generic: 访谈
+  - link "大脑":
+    - /url: /brain
+    - generic: 大脑
+  - link "任务":
+    - /url: /tasks
+    - generic: 任务
+  - link "工作流":
+    - /url: /workflows
+    - generic: 工作流
+  - link "组织后台":
+    - /url: /admin
+    - generic: 组织后台
+  - button "更多":
+    - generic: 更多
+  - button "任务提醒，0 条未读":
+    - generic: 提醒
+  - generic: 0 条未读
+  - button "提交反馈":
+    - generic: 反馈
+  - button "个人菜单":
+    - generic: F
+- banner:
+  - generic: org org-fullstack-5e-986ac146-12206c108846
+  - paragraph: 管理员
+  - paragraph: 不在具体项目里 · 引导师/组长/组员等项目内角色暂不适用
+- main:
+  - main:
+    - button "返回模板列表"
+    - heading "编辑问卷模板" [level=1]
+    - paragraph: 已保存 · 2026/10/4 02:34:23
+    - button "刷新"
+    - button "另存副本"
+    - button "保存模板" [disabled]
+    - text: 模板名称
+    - textbox "模板名称": 合成验收20261004-模板子验收-组织画像
+    - text: 模板说明
+    - textbox "模板说明": 合成模板验收：仅测试数据。
+    - tablist "模板配置":
+      - tab "题目配置"
+      - tab "报告配置" [selected]
+    - paragraph: 自由组织章节与内容块。预览仅用于检查布局，数据将在实际问卷回收后计算。
+    - tabpanel "报告配置":
+      - text: 报告标题
+      - textbox "报告标题": 合成报告九类型
+      - button "预览完整报告"
+      - button "导出模板"
+      - button "导入模板"
+      - paragraph: 部分内容块需要配置或补充数据，请检查对应内容块。
+      - complementary:
+        - paragraph: 报告章节 · 2
+        - list:
+          - button "1. 组织画像 1 个内容块":
+            - text: 1. 组织画像
+            - generic: 1 个内容块
+          - button "2. 合成九类型章节 9 个内容块" [active]:
+            - text: 2. 合成九类型章节
+            - generic: 9 个内容块
+        - button "新增章节"
+      - text: 章节标题
+      - textbox "章节标题": 合成九类型章节
+      - checkbox "生成章节解读与行动建议"
+      - text: 生成章节解读与行动建议
+      - button "复制章节"
+      - button "章节上移": 上移
+      - button "章节下移" [disabled]: 下移
+      - button "删除章节"
+      - generic: 1 · 文字说明
+      - button "内容块 1 上移" [disabled]: 上移
+      - button "内容块 1 下移": 下移
+      - button "复制"
+      - button "删除"
+      - text: 内容标题
+      - textbox "内容标题": 合成文字
+      - text: 正文
+      - textbox "正文": 真实浏览器创建的合成文字正文。
+      - text: 说明 / 图注
+      - textbox "说明 / 图注": 合成图注
+      - generic: 2 · 指标卡
+      - button "内容块 2 上移": 上移
+      - button "内容块 2 下移": 下移
+      - button "复制"
+      - button "删除"
+      - text: 内容标题
+      - textbox "内容标题": 指标卡
+      - group "绑定题目（可多选）":
+        - generic: 绑定题目（可多选）
+        - checkbox "1. 您目前承担的主要职责层级是？" [checked]
+        - generic: 1. 您目前承担的主要职责层级是？
+        - checkbox "2. 所在组织的主要业务领域是？"
+        - generic: 2. 所在组织的主要业务领域是？
+        - checkbox "3. 您所在组织的员工规模大致是？"
+        - generic: 3. 您所在组织的员工规模大致是？
+      - text: 统计口径
+      - combobox "统计口径":
+        - option "选项数量" [selected]
+        - option "选择比例（%）"
+        - option "有效样本数"
+      - text: 分组题目
+      - combobox "分组题目":
+        - option "不分组" [selected]
+        - option "您目前承担的主要职责层级是？"
+        - option "所在组织的主要业务领域是？"
+        - option "您所在组织的员工规模大致是？"
+      - text: 样本范围
+      - combobox "样本范围":
+        - option "已通过复核" [selected]
+        - option "全部答卷"
+      - text: 最小分组样本
+      - spinbutton "最小分组样本": "10"
+      - text: 说明 / 图注
+      - textbox "说明 / 图注"
+      - paragraph: 没有可用样本
+      - paragraph: 您目前承担的主要职责层级是？：没有合法作答样本
+      - paragraph: 没有可用于图表的合法作答样本
+      - generic: 3 · 数据表
+      - button "内容块 3 上移": 上移
+      - button "内容块 3 下移": 下移
+      - button "复制"
+      - button "删除"
+      - text: 内容标题
+      - textbox "内容标题": 数据表
+      - group "绑定题目（可多选）":
+        - generic: 绑定题目（可多选）
+        - checkbox "1. 您目前承担的主要职责层级是？"
+        - generic: 1. 您目前承担的主要职责层级是？
+        - checkbox "2. 所在组织的主要业务领域是？"
+        - generic: 2. 所在组织的主要业务领域是？
+        - checkbox "3. 您所在组织的员工规模大致是？"
+        - generic: 3. 您所在组织的员工规模大致是？
+      - text: 统计口径
+      - combobox "统计口径":
+        - option "请先绑定题目" [disabled] [selected]
+      - text: 分组题目
+      - combobox "分组题目":
+        - option "不分组" [selected]
+        - option "您目前承担的主要职责层级是？"
+        - option "所在组织的主要业务领域是？"
+        - option "您所在组织的员工规模大致是？"
+      - text: 样本范围
+      - combobox "样本范围":
+        - option "已通过复核" [selected]
+        - option "全部答卷"
+      - text: 最小分组样本
+      - spinbutton "最小分组样本": "5"
+      - text: 说明 / 图注
+      - textbox "说明 / 图注"
+      - paragraph: 尚未选择题目
+      - paragraph: 没有可用样本
+      - paragraph: 没有可用于图表的合法作答样本
+      - generic: 4 · 柱状图
+      - button "内容块 4 上移": 上移
+      - button "内容块 4 下移": 下移
+      - button "复制"
+      - button "删除"
+      - text: 内容标题
+      - textbox "内容标题": 柱状图
+      - group "绑定题目（可多选）":
+        - generic: 绑定题目（可多选）
+        - checkbox "1. 您目前承担的主要职责层级是？"
+        - generic: 1. 您目前承担的主要职责层级是？
+        - checkbox "2. 所在组织的主要业务领域是？"
+        - generic: 2. 所在组织的主要业务领域是？
+        - checkbox "3. 您所在组织的员工规模大致是？"
+        - generic: 3. 您所在组织的员工规模大致是？
+      - text: 统计口径
+      - combobox "统计口径":
+        - option "请先绑定题目" [disabled] [selected]
+      - text: 分组题目
+      - combobox "分组题目":
+        - option "不分组" [selected]
+        - option "您目前承担的主要职责层级是？"
+        - option "所在组织的主要业务领域是？"
+        - option "您所在组织的员工规模大致是？"
+      - text: 样本范围
+      - combobox "样本范围":
+        - option "已通过复核" [selected]
+        - option "全部答卷"
+      - text: 最小分组样本
+      - spinbutton "最小分组样本": "5"
+      - text: 说明 / 图注
+      - textbox "说明 / 图注"
+      - paragraph: 尚未选择题目
+      - paragraph: 没有可用样本
+      - paragraph: 没有可用于图表的合法作答样本
+      - generic: 5 · 雷达图
+      - button "内容块 5 上移": 上移
+      - button "内容块 5 下移": 下移
+      - button "复制"
+      - button "删除"
+      - text: 内容标题
+      - textbox "内容标题": 雷达图
+      - group "绑定题目（可多选）":
+        - generic: 绑定题目（可多选）
+        - checkbox "1. 您目前承担的主要职责层级是？"
+        - generic: 1. 您目前承担的主要职责层级是？
+        - checkbox "2. 所在组织的主要业务领域是？"
+        - generic: 2. 所在组织的主要业务领域是？
+        - checkbox "3. 您所在组织的员工规模大致是？"
+        - generic: 3. 您所在组织的员工规模大致是？
+      - text: 统计口径
+      - combobox "统计口径":
+        - option "请先绑定题目" [disabled] [selected]
+      - text: 分组题目
+      - combobox "分组题目":
+        - option "不分组" [selected]
+        - option "您目前承担的主要职责层级是？"
+        - option "所在组织的主要业务领域是？"
+        - option "您所在组织的员工规模大致是？"
+      - text: 样本范围
+      - combobox "样本范围":
+        - option "已通过复核" [selected]
+        - option "全部答卷"
+      - text: 最小分组样本
+      - spinbutton "最小分组样本": "5"
+      - text: 说明 / 图注
+      - textbox "说明 / 图注"
+      - paragraph: 尚未选择题目
+      - paragraph: 雷达图需要至少三个同量纲的量表题目，并使用均值
+      - generic: 6 · 时间趋势
+      - button "内容块 6 上移": 上移
+      - button "内容块 6 下移": 下移
+      - button "复制"
+      - button "删除"
+      - text: 内容标题
+      - textbox "内容标题": 时间趋势
+      - group "绑定题目（可多选）":
+        - generic: 绑定题目（可多选）
+        - checkbox "1. 您目前承担的主要职责层级是？"
+        - generic: 1. 您目前承担的主要职责层级是？
+        - checkbox "2. 所在组织的主要业务领域是？"
+        - generic: 2. 所在组织的主要业务领域是？
+        - checkbox "3. 您所在组织的员工规模大致是？"
+        - generic: 3. 您所在组织的员工规模大致是？
+      - text: 统计口径
+      - combobox "统计口径":
+        - option "请先绑定题目" [disabled] [selected]
+      - text: 分组题目
+      - combobox "分组题目":
+        - option "不分组" [selected]
+        - option "您目前承担的主要职责层级是？"
+        - option "所在组织的主要业务领域是？"
+        - option "您所在组织的员工规模大致是？"
+      - text: 样本范围
+      - combobox "样本范围":
+        - option "已通过复核" [selected]
+        - option "全部答卷"
+      - text: 最小分组样本
+      - spinbutton "最小分组样本": "5"
+      - text: 说明 / 图注
+      - textbox "说明 / 图注"
+      - paragraph: 尚未选择题目
+      - paragraph: 没有可用样本
+      - paragraph: 没有可用于图表的合法作答样本
+      - generic: 7 · 差距矩阵
+      - button "内容块 7 上移": 上移
+      - button "内容块 7 下移": 下移
+      - button "复制"
+      - button "删除"
+      - text: 内容标题
+      - textbox "内容标题": 差距矩阵
+      - group "绑定题目（可多选）":
+        - generic: 绑定题目（可多选）
+        - checkbox "1. 您目前承担的主要职责层级是？"
+        - generic: 1. 您目前承担的主要职责层级是？
+        - checkbox "2. 所在组织的主要业务领域是？"
+        - generic: 2. 所在组织的主要业务领域是？
+        - checkbox "3. 您所在组织的员工规模大致是？"
+        - generic: 3. 您所在组织的员工规模大致是？
+      - text: 统计口径
+      - combobox "统计口径":
+        - option "请先绑定题目" [disabled] [selected]
+      - text: 分组题目
+      - combobox "分组题目":
+        - option "不分组" [selected]
+        - option "您目前承担的主要职责层级是？"
+        - option "所在组织的主要业务领域是？"
+        - option "您所在组织的员工规模大致是？"
+      - text: 样本范围
+      - combobox "样本范围":
+        - option "已通过复核" [selected]
+        - option "全部答卷"
+      - text: 最小分组样本
+      - spinbutton "最小分组样本": "5"
+      - text: 目标值
+      - spinbutton "目标值": "4"
+      - text: 说明 / 图注
+      - textbox "说明 / 图注"
+      - paragraph: 尚未选择题目
+      - paragraph: 没有可用样本
+      - paragraph: 没有可用于图表的合法作答样本
+      - generic: 8 · 图片
+      - button "内容块 8 上移": 上移
+      - button "内容块 8 下移": 下移
+      - button "复制"
+      - button "删除"
+      - text: 内容标题
+      - textbox "内容标题": 图片
+      - text: 图片地址（HTTPS）
+      - textbox "图片地址":
+        - /placeholder: https://…
+        - text: https://example.com/synthetic-survey-image.png
+      - text: 说明 / 图注
+      - textbox "说明 / 图注"
+      - generic: 9 · 分页
+      - button "内容块 9 上移": 上移
+      - button "内容块 9 下移" [disabled]: 下移
+      - button "复制"
+      - button "删除"
+      - paragraph: 导出时从下一页开始。
+      - paragraph: 添加内容块
+      - button "添加文字说明": 文字说明
+      - button "添加指标卡": 指标卡
+      - button "添加数据表": 数据表
+      - button "添加柱状图": 柱状图
+      - button "添加雷达图": 雷达图
+      - button "添加时间趋势": 时间趋势
+      - button "添加差距矩阵": 差距矩阵
+      - button "添加图片": 图片
+      - button "添加分页": 分页
