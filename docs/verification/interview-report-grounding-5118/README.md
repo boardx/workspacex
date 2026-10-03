@@ -10,8 +10,8 @@ The report view shows the exact saved quotation, answer version and trusted expe
 
 ## Verification
 
-- API exact-commit full unit: 48 passed; final targeted grounding/recovery: 26 passed, including negative consensus and mixed legacy/new spans. Logs `/tmp/wsx-5118-api-unit-exact.txt`, `/tmp/interview-5118-gaps-green.txt`.
-- Real PostgreSQL execution/recovery/diagnostics: 27 passed. Controller: 22 passed on isolated rerun. The original four-suite attempt hit a 120-second controller bootstrap timeout; no timeout was changed. Logs `/tmp/interview-5118-db-final.txt`, `/tmp/interview-5118-controller-retry.txt`.
+- API full unit: 52 passed at f858d83b868be1438b2ba6add298345eb6645cde; final targeted grounding/recovery: 26 passed before the coordinated-subject addition. Runtime/unit files are unchanged by cd1350f10 (DB fixtures only). Logs `/tmp/wsx-5118-api-unit-f858.txt`, `/tmp/interview-5118-gaps-green.txt`.
+- Fresh PostgreSQL at cd1350f10f0734dfa89e5ef37eb9d9bc56152c72: execution11/recovery-db6/source10, 27 passed; diagnostics additionally13 passed (unit category). Log `/tmp/interview-5118-cd1350-db-regression.txt`, exit0. Controller22 passed earlier on isolated rerun; the original four-suite attempt hit a120-second controller bootstrap timeout, and no timeout was changed. Log `/tmp/interview-5118-controller-retry.txt`.
 - Web source/report suites: 15 passed, including exact quote, pinned-version mismatch, unknown legacy identity, citation scroll/focus. Log `/tmp/wsx-5118-web-ui-final2.txt`.
 - API final typecheck exit 0. Web typecheck/pre-push are checked again after the final commit; CI is authoritative for the exact PR tree.
 - Local owned API/Next/PGlite at 15470/15460/15475, migration applied by the owner path. A synthetic fixture was written through the real execution store control/claim/finish and report validator/store: one trusted answer span, two exact references. No external model was called for this fixture. The fixture deliberately includes a conflicting body role claim and a counterexample.
@@ -19,6 +19,6 @@ The report view shows the exact saved quotation, answer version and trusted expe
 
 ## Review and compatibility
 
-Independent review found an omitted legacy-gap issue; it was fixed and regression tested. Final exact-SHA review/CI are required. Metadata fields are optional for reading old records; old strict compiled clients require the matching updated web/API. Apply the migration before the matching runtime update. No merge or deployment is authorized in this task.
+Independent review found an omitted legacy-gap issue; it was fixed and regression tested. Independent final runtime/test-head review ACCEPT at cd1350f10f0734dfa89e5ef37eb9d9bc56152c72. Exact current-head CI remains required. Metadata fields are optional for reading old records; old strict compiled clients require the matching updated web/API. Apply the migration before the matching runtime update. No merge or deployment is authorized in this task.
 
 Locator IDs are identifiers, not the ordinal of a displayed citation card. The fixture contains references `answer-2` (installation quote, first displayed card) and `answer-3` (counterexample, second displayed card); `answer-1` is an uncited body heading. `citation-dom.json` records the real rendered IDs, link text and positions. Do not infer a locator ID from screenshot order.
