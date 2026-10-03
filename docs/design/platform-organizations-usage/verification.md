@@ -165,3 +165,9 @@ scanned=1933
 Separate reviewer ledger_review reviewed current source and independently reran focused tests: 26/26 pass. Initial P2 findings (pre-dispatch metering and empty paused/interrupted envelopes) were fixed and re-reviewed. No remaining source blocker for entering draft; complete feature remains unfinished.
 
 Real PG replay/RLS tests and additive migration are authored, not executed. All-provider HTTP attempts, durable compensation, quota reservations, catalog/plans, cost policies and full analytics remain incomplete. No screenshot evidence exists; this is not end-to-end evidence.
+
+## Catalog source checkpoint
+
+Focused API suite: 42/42 passed, including real loopback SSE transport (no external provider cost). UI fixture tests: 17/17 previously passed, current rerun pending. Independent source review confirmed literal search, formal-only catalog, fail-closed permissions and plan transaction structure. Its save/selection finding was fixed by disabling organization switching/search/refresh/pagination during save; failed detail state is explicit.
+
+Real PG catalog/RLS/concurrency/audit tests are authored for isolated CI only. No local DB, Docker, heavy build, production provisioning or screenshot capture occurred. Full accounting, reservations, bounded fallback and expanded analytics remain unfinished.

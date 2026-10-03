@@ -1,3 +1,7 @@
+import { PlatformOrganizationController } from "./interface/controllers/platform-organization.controller";
+import { PLATFORM_ORGANIZATION_REPOSITORY } from "./application/system/platform-organization-ports";
+import { PgPlatformOrganizationRepository } from "./infrastructure/system/pg-platform-organization-repository";
+import { platformOrgCatalogConfig } from "./infrastructure/db/pg-config";
 import { OFFICIAL_ROLE_UPGRADE_REPOSITORY } from "./application/agent-import/upgrade-official-roles";
 import { PgOfficialRoleUpgradeRepository } from "./infrastructure/agent/pg-official-role-upgrade-repository";
 import { OfficialRoleUpgradeController } from "./interface/controllers/official-role-upgrade.controller";
@@ -1238,6 +1242,7 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
   HomeProjectPreviewsController,
     PlatformAccessController,
     PlatformMemberController,
+    PlatformOrganizationController,
     FilesBrowserController, FilesDeletionController,
     FilesDeliveryController,
     ArtifactFileVersionsController,
@@ -2944,6 +2949,11 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
       inject: [DATABASE_PORT],
     },
     // member-role-management delta：平台级名册只读端口；改角色复用上面的 ORG_MEMBER_REPOSITORY。
+    {
+      provide: PLATFORM_ORGANIZATION_REPOSITORY,
+      useFactory: (db: DatabasePort) => { const cfg = platformOrgCatalogConfig(); return new PgPlatformOrganizationRepository(db, cfg ? new PgDatabase(cfg) : null); },
+      inject: [DATABASE_PORT],
+    },
     {
       provide: PLATFORM_MEMBER_REPOSITORY,
       useFactory: (db: DatabasePort) => new PgPlatformMemberRepository(db),

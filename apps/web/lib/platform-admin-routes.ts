@@ -21,6 +21,7 @@ export const PLATFORM_ADMIN_ROUTES: Record<string, AdminModuleKey> = {
   mcp: "mcp",
   // 平台 / 运营
   members: "platform",
+  organizations: "organizations",
   "ops-status": "ops-status",
   telemetry: "telemetry",
   // UC-17.8 研发闭环

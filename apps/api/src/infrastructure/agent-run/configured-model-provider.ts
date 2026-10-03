@@ -604,7 +604,7 @@ export class ConfiguredModelProvider implements ModelCallPort {
     const message = parsed.choices?.[0]?.message;
     const content = message?.content;
     if (typeof content !== "string" || content.trim() === "") {
-      throw new ModelCallError("MODEL_CALL_FAILED", "model provider returned no content");
+      throw new ModelCallError("MODEL_CALL_FAILED", "model provider returned no content", readUsage(parsed.usage));
     }
     // Read straight off the wire response, never computed. Absent or non-numeric ⇒
     // `undefined` (the port's "not reported" state) -- not `0` invented at this layer.
@@ -647,9 +647,13 @@ export class ConfiguredModelProvider implements ModelCallPort {
     const response = await this.postCompletions(input, true);
 
     if (!response.ok) {
+      let failedUsage: ReportedUsage | undefined;
+      try { failedUsage = readUsage(((await response.json()) as CompletionResponse).usage); }
+      catch { failedUsage = undefined; }
       throw new ModelCallError(
         "MODEL_CALL_FAILED",
         `model provider responded with HTTP ${response.status}`,
+        failedUsage,
       );
     }
     if (response.body === null) {
@@ -709,11 +713,6 @@ export class ConfiguredModelProvider implements ModelCallPort {
               // here one bad frame among dozens is not that same signal, so it is skipped.
               continue;
             }
-            const delta = chunk.choices?.[0]?.delta?.content;
-            if (typeof delta === "string" && delta !== "") {
-              text += delta;
-              await onDelta(delta, { messageId: finalMessageId });
-            }
             // 流式的 usage 通常只在最后一帧出现；每帧覆盖式合并，缺的维度保留上一次的值，
             // 不用后来的 undefined 把已经报过的数抹掉。
             const framed = readUsage(chunk.usage);
@@ -722,15 +721,24 @@ export class ConfiguredModelProvider implements ModelCallPort {
               prompt: framed.prompt ?? usage.prompt,
               completion: framed.completion ?? usage.completion,
             };
+            const delta = chunk.choices?.[0]?.delta?.content;
+            if (typeof delta === "string" && delta !== "") {
+              text += delta;
+              await onDelta(delta, { messageId: finalMessageId });
+            }
           }
         }
       }
     } catch (e) {
-      if (e instanceof ModelCallError) throw e;
+      if (e instanceof ModelCallError) throw new ModelCallError(e.code, e.detail, {
+        total: e.usage?.total ?? usage.total, prompt: e.usage?.prompt ?? usage.prompt,
+        completion: e.usage?.completion ?? usage.completion,
+      });
       // 同 `postCompletions`：只取枚举 token，`message` 不读。
       throw new ModelCallError(
         "MODEL_CALL_FAILED",
         `model provider stream transport failure (${classifyTransportError(e)})`,
+        usage,
       );
     }
 

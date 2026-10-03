@@ -45,6 +45,7 @@ import {
   personalRealtimeTranscription,
   planControl,
   platformMembers,
+  platformOrganizations,
   project,
   research,
   recording,
@@ -552,6 +553,8 @@ function permissionReasonOf(exception: HttpException): { reasonCode?: string; cu
    * 一直没被真正走到过。平台成员屏要靠同一个码区分「你不是超管」与「服务挂了」，
    * 所以这里把它接进闭集。仍然是闭集：枚举外的任意字符串照旧到不了客户端。
    */
+  const platformOrganizationError = platformOrganizations.ErrorCode.safeParse(raw);
+  if (platformOrganizationError.success) return { reasonCode: platformOrganizationError.data };
   const platformMembersError = platformMembers.PlatformMembersError.safeParse(raw);
   if (platformMembersError.success) return { reasonCode: platformMembersError.data };
 

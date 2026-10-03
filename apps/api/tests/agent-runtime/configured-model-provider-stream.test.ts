@@ -36,7 +36,7 @@ async function startServer(): Promise<void> {
   server = createServer((_req: IncomingMessage, res: ServerResponse) => {
     if (nextStatus !== 200) {
       res.writeHead(nextStatus, { "content-type": "application/json" });
-      res.end(JSON.stringify({ error: "boom" }));
+      res.end(JSON.stringify({ error: "boom", usage: { total_tokens: 3, prompt_tokens: 3, completion_tokens: 0 } }));
       return;
     }
     res.writeHead(200, { "content-type": "text/event-stream" });
@@ -193,6 +193,21 @@ describe("ConfiguredModelProvider.completeStream", () => {
         async () => {},
       ),
     ).rejects.toMatchObject({ code: "MODEL_CALL_FAILED" });
+  });
+
+  it("HTTP failure retains billable usage without provider error text", async () => {
+    nextStatus = 429;
+    await expect(provider().completeStream!(
+      { modelProvider: PROVIDER, modelId: "m1", system: "s", user: "u" }, async () => {},
+    )).rejects.toMatchObject({ usage: { total: 3, prompt: 3, completion: 0 } });
+  });
+
+  it("consumer failure preserves usage in the same SSE frame", async () => {
+    nextFrames = [sseChunk("a", { usage: 7 }), doneFrame()];
+    await expect(provider().completeStream!(
+      { modelProvider: PROVIDER, modelId: "m1", system: "s", user: "u" },
+      async () => { throw new Error("consumer failed"); },
+    )).rejects.toMatchObject({ usage: { total: 7 } });
   });
 
   it("run 钉的 provider 与部署配置的 provider 不一致：拒绝，不悄悄改用配置的那个", async () => {
