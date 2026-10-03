@@ -42,7 +42,7 @@ describe("durable research orchestration", () => {
     const search = vi.fn(async (_query: string) => [{ title: "Policy", url: "https://example.org/policy", content: "Grid policy requires permits." }]);
     const model = { complete: vi.fn(async (input: { user: string }) => {
       const context = JSON.parse(input.user);
-      return { text: JSON.stringify({ evaluations: context.chunks.map((chunk: { sourceId: string; chunkId: string; content: string }) => ({ sourceId: chunk.sourceId, chunkId: chunk.chunkId, irrelevant: false, matches: [{ questionId: context.questions[0].id, quote: chunk.content, insight: "Policy evidence", relevance: "direct" }] })) }) };
+      return { text: JSON.stringify({ evaluations: context.chunks.map((chunk: { sourceId: string; chunkId: string; quoteOptions: { text: string; quoteRef: string }[] }) => ({ sourceId: chunk.sourceId, chunkId: chunk.chunkId, irrelevant: false, matches: [{ questionId: context.questions[0].id, quoteRef: chunk.quoteOptions[0]!.quoteRef, insight: "Policy evidence", relevance: "direct" }] })) }) };
     }) };
     const service = new GuidedRuntimeService(f.store, model, { search, read: async () => ({ text: "Grid policy requires permits.", contentKind: "text", truncated: false }) }, { provider: "test", id: "test" });
     const result = await service.execute(f.actor, f.session, { sessionId: "session", node: "research", action: "retry", requestId: "long-query", expectedVersion: 0 });
