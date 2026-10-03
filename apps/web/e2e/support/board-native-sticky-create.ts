@@ -38,6 +38,19 @@ export async function createNativeSticky(page:Page,text:string,proof:{api:APIReq
   await expectBoardSynced(page,30_000);
   const before=await canonicalRows(page);
   const armedSnapshot=await canonicalBoardSnapshot(proof.api,proof.token,proof.boardId),armedHead=await boardHead(proof.api,proof.token,proof.boardId),armedUpdates=proof.updates();
+  const selected=page.locator('[data-testid="board-a11y-mirror"] button[aria-pressed="true"]');
+  if(await selected.count()){
+    // The multi-selection toolbar has no close button. Select one real outline
+    // object to expose its inspector, then use the actual Cancel selection control.
+    await selected.first().focus(); // Native focus exposes the sr-only outline.
+    await selected.first().click();
+    await expect(selected).toHaveCount(1);
+    await page.getByRole('button',{name:'取消选择',exact:true}).click();
+    await expect(selected).toHaveCount(0);
+    expect(await canonicalRows(page)).toEqual(before);
+    expect(await canonicalBoardSnapshot(proof.api,proof.token,proof.boardId)).toEqual(armedSnapshot);
+    expect(await boardHead(proof.api,proof.token,proof.boardId)).toEqual(armedHead);expect(proof.updates()).toBe(armedUpdates);
+  }
   await page.getByTestId('board-tool-select').focus();
   await page.keyboard.press('n');
   await expect(page.getByTestId('board-add-sticky')).toHaveAttribute('aria-pressed','true');
