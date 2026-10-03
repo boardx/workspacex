@@ -6,6 +6,31 @@ const update=()=>({type:'update' as const,epoch:1,updateId:crypto.randomUUID(),g
 beforeEach(()=>{vi.stubGlobal('indexedDB',new IDBFactory());vi.stubGlobal('crypto',webcrypto);});
 afterEach(()=>{vi.restoreAllMocks();vi.unstubAllGlobals();});
 describe('real IndexedDB transactions across independent outbox instances',()=>{
+ it('atomically grants one sender, releases only its own lease, and ACK removes the durable claim',async()=>{
+  const a=new IndexedDbEncryptedWhiteboardOutbox('claims'),b=new IndexedDbEncryptedWhiteboardOutbox('claims'),message=update();
+  try{
+   await a.persist('token',message);
+   const claims=await Promise.all([a.claim('token',message.updateId,'a',1000),b.claim('token',message.updateId,'b',1000)]);
+   expect(claims.filter(Boolean)).toHaveLength(1);
+   const owner=claims[0]?'a':'b',other=owner==='a'?'b':'a';
+   await b.releaseClaims('token',other);expect(await b.claim('token',message.updateId,other,1000)).toBe(false);
+   await a.releaseClaims('token',owner);expect(await b.claim('token',message.updateId,other,1000)).toBe(true);
+   await b.acknowledge('token',message.updateId);expect(await a.claim('token',message.updateId,'a',1000)).toBe(false);
+   expect((await a.restore('token')).updates).toEqual([]);
+  }finally{a.close();b.close();}
+ });
+ it('claim cannot cross board, token or revoked generation and expires at its fixed deadline',async()=>{
+  const a=new IndexedDbEncryptedWhiteboardOutbox('claims'),b=new IndexedDbEncryptedWhiteboardOutbox('other'),message=update();
+  try{
+   await a.persist('token',message);vi.spyOn(Date,'now').mockReturnValue(10000);
+   expect(await a.claim('token',message.updateId,'a',1000)).toBe(true);
+   expect(await a.claim('other-token',message.updateId,'b',1000)).toBe(false);
+   expect(await b.claim('token',message.updateId,'b',1000)).toBe(false);
+   vi.mocked(Date.now).mockReturnValue(10999);expect(await a.claim('token',message.updateId,'b',1000)).toBe(false);
+   vi.mocked(Date.now).mockReturnValue(11000);expect(await a.claim('token',message.updateId,'b',1000)).toBe(true);
+   await a.revoke('token');await expect(a.claim('token',message.updateId,'a',1000)).rejects.toThrow('OUTBOX_REVOKED');
+  }finally{a.close();b.close();}
+ });
  it.each(['old','new'])('rebind cannot resurrect rows after %s generation revoked during crypto',async(revoked)=>{
   const first=new IndexedDbEncryptedWhiteboardOutbox('board'),other=new IndexedDbEncryptedWhiteboardOutbox('board');await first.persist('old',update());
   let release!:()=>void,start!:()=>void;const gate=new Promise<void>(resolve=>{release=resolve;}),started=new Promise<void>(resolve=>{start=resolve;});

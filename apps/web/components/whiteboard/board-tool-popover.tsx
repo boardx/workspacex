@@ -2,7 +2,7 @@
 
 import * as Dialog from "@radix-ui/react-dialog";
 import { X } from "lucide-react";
-import { useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 
 /** Non-modal inspector: explicit entry, Escape/outside dismissal and focus return. */
@@ -11,13 +11,15 @@ export function BoardToolPopover({ label, children, trigger, open, onOpenChange,
   const [localOpen, setLocalOpen] = useState(false);
   const isOpen = open ?? localOpen;
   const triggerRef = useRef<HTMLButtonElement>(null);
+  const [content, setContent] = useState<HTMLDivElement | null>(null);
   const [anchor,setAnchor] = useState({left:16,top:80,maxHeight:0,side:'above' as 'above'|'below'});
-  useEffect(() => {
-    if (!isOpen || placement !== "above") return;
-    let frame=0;
-    const update = () => {
-      const bounds = triggerRef.current?.getBoundingClientRect();
+  const updateAnchor = useCallback(() => {
+    if (!isOpen || placement !== "above" || !content) return;
+    const trigger = triggerRef.current;
+    if (!trigger) return;
+      const bounds = trigger.getBoundingClientRect();
       if (!bounds) return;
+      window.dispatchEvent(new CustomEvent("board-inspector-space", { detail: { trigger, height: content.scrollHeight } }));
       const next = {
         left: Math.max(16, Math.min(bounds.left, window.innerWidth - 336)),
         top: bounds.top - 8,
@@ -25,11 +27,19 @@ export function BoardToolPopover({ label, children, trigger, open, onOpenChange,
         side: "above" as const,
       };
       setAnchor(previous => previous.left === next.left && previous.top === next.top && previous.maxHeight === next.maxHeight && previous.side === next.side ? previous : next);
-    };
-    const follow = () => { update();frame=requestAnimationFrame(follow); };
-    follow();window.addEventListener("resize",update);window.addEventListener("scroll",update,true);
-    return () => {cancelAnimationFrame(frame);window.removeEventListener("resize",update);window.removeEventListener("scroll",update,true);};
-  },[isOpen,placement]);
+  }, [isOpen, placement, content]);
+  // Radix mounts its portal after the opening render. Reserve the real content
+  // height at that mount and follow the toolbar's resulting layout before paint.
+  useLayoutEffect(updateAnchor);
+  useEffect(() => {
+    if (!isOpen || placement !== "above" || !content) return;
+    const trigger = triggerRef.current;
+    if (!trigger) return;
+    let frame=0;
+    const follow = () => { updateAnchor();frame=requestAnimationFrame(follow); };
+    follow();window.addEventListener("resize",updateAnchor);window.addEventListener("scroll",updateAnchor,true);
+    return () => {cancelAnimationFrame(frame);window.removeEventListener("resize",updateAnchor);window.removeEventListener("scroll",updateAnchor,true);window.dispatchEvent(new CustomEvent("board-inspector-space", { detail: { trigger, height: 0 } }));};
+  },[isOpen,placement,content,updateAnchor]);
   const updateOpen = (next: boolean) => { setLocalOpen(next); onOpenChange?.(next); if (next) window.dispatchEvent(new CustomEvent("board-inspector-open", { detail: id })); };
   useEffect(() => { const closeOthers = (event: Event) => { if (isOpen && (event as CustomEvent<string>).detail !== id) { setLocalOpen(false); onOpenChange?.(false); } }; window.addEventListener("board-inspector-open", closeOthers); return () => window.removeEventListener("board-inspector-open", closeOthers); }, [id, isOpen, onOpenChange]);
   return <Dialog.Root modal={false} open={isOpen} onOpenChange={updateOpen}>
@@ -42,7 +52,7 @@ export function BoardToolPopover({ label, children, trigger, open, onOpenChange,
       visibility: anchor.maxHeight < 2 ? "hidden" : undefined,
       pointerEvents: anchor.maxHeight < 2 ? "none" : undefined,
     } : undefined} aria-describedby={undefined} onEscapeKeyDown={onEscapeKeyDown} className={`fixed ${placement === "left" ? "left-4" : "right-4"} top-20 z-50 max-h-[calc(100dvh-12rem)] w-80 max-w-[calc(100vw-2rem)] overflow-y-auto [&_button]:min-h-11 [&_button]:min-w-11 [&_input]:min-h-11 [&_select]:min-h-11 rounded-2xl border border-border bg-card text-foreground shadow-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-ring motion-safe:animate-in motion-safe:fade-in`}>
-      <div className="p-4">
+      <div ref={setContent} className="p-4">
         <div className="mb-4 flex items-center justify-between gap-2"><Dialog.Title className="text-14 font-semibold">{label}</Dialog.Title><Dialog.Close asChild><Button variant="ghost" size="icon" aria-label={`关闭${label}`} className="min-h-11 min-w-11"><X className="h-4 w-4" /></Button></Dialog.Close></div>
         {children}
       </div>

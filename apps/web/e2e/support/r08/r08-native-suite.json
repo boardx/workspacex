@@ -1,0 +1,9 @@
+{
+  "config": "e2e/board-peer-existing-runtime.config.ts",
+  "files": ["board-peer-origin-close.spec.ts", "board-sync-lifecycle.spec.ts"],
+  "requiredScreenshotNames": ["origin-offline-two-receipts", "peer-recovered-without-reload", "peer-real-503-recovered", "peer-reload-persisted", "drag-pending", "drag-acked", "text-pending", "text-acked", "undo-pending", "undo-acked", "independent-peer-offline", "independent-peer-refreshed"],
+  "projects": [
+    {"name": "chromium-same-profile-peer-1440", "viewport": {"width": 1440, "height": 900}},
+    {"name": "chromium-same-profile-peer-390", "viewport": {"width": 390, "height": 844}}
+  ]
+}

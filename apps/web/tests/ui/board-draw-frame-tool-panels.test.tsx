@@ -21,7 +21,7 @@ function FrameHarness({onChoice=vi.fn()}:{onChoice?:(choice:BoardFrameChoice,mod
 it("offers all drawing instruments and keeps stroke appearance controls stateful",()=>{
   const onChoice=vi.fn();
   render(<DrawHarness onChoice={onChoice}/>);
-  expect(screen.getByTestId("board-draw-tool-panel")).toHaveClass("w-[min(40rem,calc(100vw-2rem))]","bg-card","border-border","shadow-2xl","px-4","py-3");
+  expect(screen.getByTestId("board-draw-tool-panel")).toHaveClass("w-[min(40rem,calc(100vw-2rem))]","bg-card","border-border","shadow-2xl","px-4","py-3.5");
   expect(screen.getByTestId("board-draw-tool-panel")).not.toHaveClass("bg-card/98","backdrop-blur");
   for(const name of ["Pen","Marker","Pencil","Highlighter","Eraser"]) expect(screen.getByRole("button",{name})).toBeVisible();
   fireEvent.click(screen.getByTestId("board-draw-pencil"));
@@ -64,6 +64,7 @@ it("keeps highlighter alpha when adjusting width/color and blocks read-only edit
   fireEvent.click(screen.getByTestId("board-draw-color-ef4444"));
   expect(onAppearance).toHaveBeenLastCalledWith({...props.appearance,color:"#EF4444"});
   onAppearance.mockClear();rerender(<BoardDrawToolPanel {...props} readOnly/>);
+  for(const width of [3,8,20])expect(screen.getByTestId(`board-draw-stroke-${width}`)).toBeDisabled();
   fireEvent.click(screen.getByTestId("board-draw-pen"));
   fireEvent.click(screen.getByTestId("board-draw-stroke-3"));
   fireEvent.click(screen.getByTestId("board-draw-color-2563eb"));
@@ -76,6 +77,23 @@ it("shows the renderer's fixed eraser width without offering ineffective width c
   expect(screen.queryByTestId("board-draw-stroke-3")).not.toBeInTheDocument();
   expect(screen.queryByTestId("board-draw-stroke-8")).not.toBeInTheDocument();
   expect(screen.queryByTestId("board-draw-stroke-20")).not.toBeInTheDocument();
+  expect(screen.getByTestId("board-draw-eraser-width-preview")).toHaveStyle({width:"24px",height:"24px"});
+  expect(screen.getByTestId("board-draw-color-2563eb")).toBeDisabled();
+  expect(screen.getByTestId("board-draw-color-custom")).toBeDisabled();
+});
+
+it("retains one thickness track across all five instruments without changing their visual styles",()=>{
+  render(<DrawHarness/>);
+  for(const choice of ["pen","marker","pencil","highlighter","eraser"] as const){
+    fireEvent.click(screen.getByTestId(`board-draw-${choice}`));
+    expect(screen.getByRole("group",{name:"Stroke"})).toHaveClass("w-[9.5rem]","shrink-0");
+    expect(screen.getByTestId("board-draw-tool-panel")).toHaveClass("py-3.5");
+    expect(screen.queryByText("Opacity")).not.toBeInTheDocument();
+    if(choice!=="eraser")expect(screen.getByTestId(`board-draw-preview-${choice}`)).toHaveStyle({backgroundColor:drawingChoiceStyle(choice).color,opacity:drawingChoiceStyle(choice).opacity});
+  }
+  fireEvent.click(screen.getByTestId("board-draw-pen"));
+  expect(screen.getByTestId("board-draw-color-2563eb")).toBeEnabled();
+  expect(screen.getByTestId("board-draw-color-custom")).toBeEnabled();
 });
 
 it("maps frame choices to canonical modes and exposes preset and custom sizes",()=>{
