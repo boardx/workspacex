@@ -1,0 +1,32 @@
+empty-template-warning-green.log
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/survey-report-echarts/apps/web
+
+ ✓ tests/ui/survey-live-workspace.test.tsx (35 tests | 34 skipped) 1879ms
+   ✓ report template unbinding persistence > clears local mapping blockers immediately and autosaves an optional empty report template that survives reload 1878ms
+
+ Test Files  1 passed (1)
+      Tests  1 passed | 34 skipped (35)
+   Start at  12:24:34
+   Duration  4.05s (transform 676ms, setup 83ms, collect 1.24s, tests 1.88s, environment 538ms, prepare 87ms)
+
+empty-template-warning-red.log
+ ❯ tests/ui/survey-live-workspace.test.tsx:392:62
+    390|   fireEvent.click(screen.getByRole('button',{name:'不使用报告模板'}));
+    391|   expect(screen.getByRole('region',{name:'设计检查'})).toHaveTextConte…
+    392|   expect(screen.queryByText('部分内容块需要配置或补充数据，请检查对应…
+       |                                                              ^
+    393|   expect(request).toHaveBeenCalledTimes(1);
+    394|   await flushAutosave();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 34 skipped (35)
+   Start at  12:23:37
+   Duration  2.20s (transform 613ms, setup 94ms, collect 1.24s, tests 144ms, environment 551ms, prepare 38ms)
+
+undefined
+/Users/shenyangjun/.codex/worktrees/survey-report-echarts/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/ui/survey-live-workspace.test.tsx -t clears local mapping blockers

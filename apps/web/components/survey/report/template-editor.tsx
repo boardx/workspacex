@@ -130,7 +130,7 @@ export function FlexibleReportEditor({
           </>
         )}
       </div>
-      {compiled.issues.length > 0 && (
+      {template.sections.length > 0 && compiled.issues.length > 0 && (
         <p className="px-4 pt-3 text-11 text-warning">
           部分内容块需要配置或补充数据，请检查对应内容块。
         </p>

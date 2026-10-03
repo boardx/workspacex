@@ -389,6 +389,7 @@ describe('report template unbinding persistence',()=>{
   expect(screen.getByRole('region',{name:'设计检查'})).not.toHaveTextContent('设计检查通过');
   fireEvent.click(screen.getByRole('button',{name:'不使用报告模板'}));
   expect(screen.getByRole('region',{name:'设计检查'})).toHaveTextContent('设计检查通过');
+  expect(screen.queryByText('部分内容块需要配置或补充数据，请检查对应内容块。')).not.toBeInTheDocument();
   expect(request).toHaveBeenCalledTimes(1);
   await flushAutosave();
   expect(request).toHaveBeenLastCalledWith('/surveys/saved-survey/source',expect.objectContaining({method:'PUT',body:expect.objectContaining({expectedVersion:4})}),expect.anything());
