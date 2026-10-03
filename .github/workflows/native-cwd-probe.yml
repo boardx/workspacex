@@ -1,0 +1,35 @@
+name: Native CWD Mechanics Probe
+on:
+  pull_request:
+    paths:
+      - .github/workflows/native-cwd-probe.yml
+      - apps/web/scripts/probe-native-cwd.mjs
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  cwd-probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4.4.0
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+      - name: Install diagnostic dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y lsof
+          pnpm install --frozen-lockfile
+      - name: Probe the actual shared process wrapper on Linux
+        env:
+          CWD_PROBE_OUTPUT: ${{ runner.temp }}/native-cwd-probe.json
+        run: node --import tsx apps/web/scripts/probe-native-cwd.mjs
+      - name: Preserve only the safe diagnostic receipt
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: native-cwd-probe-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/native-cwd-probe.json
+          if-no-files-found: error
