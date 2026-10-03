@@ -55,7 +55,7 @@ export class GuidedResearchController {
     const input = C.operations.getGuidedResearchRuntimeProgress.in.safeParse({ ...(query as object), sessionId });
     if (!input.success) throw new BadRequestException();
     const state = await this.getRuntime(principal, sessionId);
-    if (input.data.knownFields) return runtimeDelta(state!, input.data.knownFields);
+    // Polling keeps source bodies out of transport; command/SSE snapshots use field patches.
     return runtimeProgress(state!, input.data.requestId, input.data.offset, input.data.digest, input.data.sourceCursor);
   }
 

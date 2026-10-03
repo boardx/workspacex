@@ -54,3 +54,20 @@ it("streams changed snapshots and does not resend report text after token deltas
   expect(events[2].state.changes).toEqual({ busy: false });
   expect(execute.mock.calls[0]?.[2]).not.toHaveProperty("knownFields");
 });
+
+
+it("keeps polling compact even when field fingerprints are supplied", async () => {
+  const { GuidedResearchController } = await import("../../src/interface/controllers/guided-research.controller");
+  const { vi } = await import("vitest");
+  const current = { ...state, currentNode: "research" as const, sources: [{ id: "source", taskId: "task", title: "Evidence", url: "https://example.org/evidence", content: "large-source-body".repeat(1000), retrievedAt: "now", decision: "accepted" as const }] };
+  const controller = new GuidedResearchController({} as never, {} as never, {} as never, {} as never, {} as never, {} as never);
+  vi.spyOn(controller, "getRuntime").mockResolvedValue(current);
+  const first = await controller.getRuntimeProgress({ userId: "u", orgId: "org" as never }, "s", { knownFields: JSON.stringify(fingerprints()) });
+  expect(first).toMatchObject({ research: { sources: [{ id: "source", title: "Evidence" }] } });
+  expect(JSON.stringify(first)).not.toContain("large-source-body");
+  const cursor = "research" in first ? first.research?.cursor : undefined;
+  expect(cursor).toBeTruthy();
+  const unchanged = await controller.getRuntimeProgress({ userId: "u", orgId: "org" as never }, "s", { knownFields: JSON.stringify(fingerprints()), sourceCursor: cursor });
+  expect(unchanged).toMatchObject({ research: { cursor } });
+  expect("research" in unchanged && unchanged.research).not.toHaveProperty("sources");
+});
