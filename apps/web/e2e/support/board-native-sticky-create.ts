@@ -52,7 +52,14 @@ async function createNativeTextObject(page:Page,text:string,proof:NativeCreation
       if(occupied.some(g=>Math.abs(x-g.x)<=g.width/2+24&&Math.abs(y-g.y)<=g.height/2+24))continue;
       return{x:box.x+x,y:box.y+y};
     }
-    throw new Error('NO_NATIVE_BLANK_POSITION');
+    // Diagnose center reachability separately without weakening the required paper footprint.
+    let unobstructedCenters=0;
+    for(let y=12;y<box.height-12;y+=28)for(let x=12;x<box.width-12;x+=28){
+      if(document.elementFromPoint(box.x+x,box.y+y)!==canvas)continue;
+      if(occupied.some(g=>Math.abs(x-g.x)<=g.width/2+24&&Math.abs(y-g.y)<=g.height/2+24))continue;
+      unobstructedCenters++;
+    }
+    throw new Error(`NO_NATIVE_BLANK_POSITION ${JSON.stringify({canvas:{x:box.x,y:box.y,width:box.width,height:box.height},zoom,margin,unobstructedCenters,chrome:chrome.map(rect=>({x:rect.x,y:rect.y,width:rect.width,height:rect.height}))})}`);
   },expectedCount);
   const point=await blankPoint(before.length);
   expect(await canonicalRows(page)).toEqual(before);
