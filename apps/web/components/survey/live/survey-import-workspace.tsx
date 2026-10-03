@@ -22,7 +22,7 @@ export function SurveyImportWorkspace({ draft, projectId }: { draft: SurveyCreat
     if (!sessionKey) return;
     setCreatedId(window.sessionStorage.getItem(`${sessionKey}:created-id`));
   }, [sessionKey]);
-  if (!draft) return <main className="mx-auto max-w-4xl p-6"><p role="alert">导入信息无效，请返回问卷列表重新创建。</p><Button variant="outline" onClick={() => router.replace("/studio/survey")}>返回列表</Button></main>;
+  if (!draft) return <main className="mx-auto max-w-4xl space-y-6 p-6"><Button variant="outline" onClick={() => router.replace("/studio/survey")}>返回列表</Button><p role="alert">导入信息无效，请返回问卷列表重新创建。</p></main>;
   async function apply(markdown: string) {
     if (!draft || busy) return;
     const parsed = parseSurveyDesignMarkdown(markdown);
@@ -55,7 +55,7 @@ export function SurveyImportWorkspace({ draft, projectId }: { draft: SurveyCreat
     } finally { setBusy(false); }
   }
   return <main className="mx-auto max-w-7xl space-y-6 p-6 lg:p-8">
-    <header className="flex flex-wrap items-center justify-between gap-4"><div><h1 className="text-28 font-semibold">导入内容</h1><p className="mt-1 text-13 text-muted-foreground">{draft.name} · AI 先生成 Markdown 提案，校对后才创建问卷。</p></div><Button variant="outline" onClick={() => router.replace(withProjectId("/studio/survey", projectId))}>← 返回列表</Button></header>
+    <header className="space-y-4"><Button variant="outline" onClick={() => router.replace(withProjectId("/studio/survey", projectId))}>← 返回列表</Button><div><h1 className="text-28 font-semibold">导入内容</h1><p className="mt-1 text-13 text-muted-foreground">{draft.name} · AI 先生成 Markdown 提案，校对后才创建问卷。</p></div></header>
     <nav aria-label="问卷创建步骤" className="flex gap-4 text-13"><span aria-current="step" className="font-semibold">1 导入内容</span><span>2 设计问卷</span><span>3 发布与回收</span><span>4 查看答卷</span></nav>
     <SurveyAiProposal locked={false} storageKey={sessionKey} onApply={apply} />
     {error && <p role="alert" className="text-destructive">{error}</p>}
