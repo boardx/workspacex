@@ -36,7 +36,7 @@ async function shapeStrokePixels(page:Page,geometry:{x:number;y:number;width:num
  const grid=await lower.evaluate((element,view)=>{const canvas=element as HTMLCanvasElement,box=canvas.getBoundingClientRect();if(![box.width,box.height].every(Number.isFinite)||box.width<=0||box.height<=0)throw new Error('R01_STROKE_GRID_INVALID');return {sx:canvas.width/box.width,sy:canvas.height/box.height,zoom:view.z,panX:view.box.x-box.x+view.x,panY:view.box.y-box.y+view.y};},view);
  const selectionChrome=held?{color:BOARD_FABRIC_VISUAL.selection.borderColor,borderWidth:BOARD_FABRIC_VISUAL.selection.borderScaleFactor,padding:0}:undefined;
  const samples=await lower.evaluate(sampleLiteralShapeStroke,{geometry,grid,selectionChrome});
- const fill=await lower.evaluate(sampleLiteralShapeStroke,{geometry,grid,variant:'none'});
+ const fill=await lower.evaluate(sampleLiteralShapeStroke,{geometry,grid,variant:'none' as const});
  for(const [edge,sample] of samples.entries()){if(!sample.reference.some((value,index)=>Math.abs(value-fill[edge]!.reference[index]!)>5))throw new Error(held?'R01_EMPTY_CHROME_COMPOSITE_REFERENCE':'R01_EMPTY_STROKE_REFERENCE');for(let index=0;index<sample.reference.length;index++)if(Math.abs(sample.reference[index]!-sample.observed[index]!)>5)throw new Error(held?'R01_LITERAL_CHROME_COMPOSITE_MISMATCH':'R01_LITERAL_STROKE_PIXEL_MISMATCH');}
 }
 async function withBoard(page:Page,api:APIRequestContext,info:TestInfo,run:(binding:{token:string;boardId:string;transport:ReturnType<typeof createSpatialWsMetadataRecorder>})=>Promise<void>){
@@ -150,6 +150,7 @@ test('N05 transformed multi drawing erase preserves image Sticky Shape and locke
  await expect.poll(async()=>(await canonicalBoardSnapshot(api,token,boardId)).revision.seq).toBe(baseline.revision.seq+1);
  const erased=await canonicalBoardSnapshot(api,token,boardId);assertAtomicRevision(baseline.revision,erased.revision,1);
  expect(updates()).toHaveLength(1);const sent=updates()[0]!;expect(sent.client).toBe('original');expect(typeof sent.updateId).toBe('string');expect(typeof sent.gestureId).toBe('string');expect(sent.epoch).toBe(baseline.revision.epoch);
+ if(typeof sent.updateId!=='string')throw new Error('R01_UPDATE_ID_REQUIRED');const eraseUpdateId=sent.updateId;
  await expect.poll(()=>transport.snapshot().events.slice(eventStart).filter(event=>event.direction==='received'&&event.type==='ack'&&event.client===sent.client&&event.socketId===sent.socketId&&event.updateId===sent.updateId&&event.gestureId===sent.gestureId&&event.seq===erased.revision.seq).length).toBe(1);
  const expansions=Object.fromEntries(drawings.slice(0,2).map(drawing=>{const original=baseline.objects.find(object=>object.id===drawing.id)!,content=original.extensionData!.contentObject as {strokes:Array<{points:Array<{x:number;y:number}>}>};return [drawing.id,expandedDrawingGeometry(original.geometry,content.strokes.flatMap(stroke=>stroke.points),worldInputs)];}));
  assertEraseObjects(baseline.objects,erased.objects,drawings.slice(0,2).map(drawing=>drawing.id),expansions);
@@ -173,17 +174,18 @@ test('N05 transformed multi drawing erase preserves image Sticky Shape and locke
   const historyEvents=()=>transport.snapshot().events.slice(start),historyUpdates=()=>historyEvents().filter(event=>event.direction==='sent'&&event.type==='update');
   await expect.poll(()=>historyUpdates().length).toBe(1);const update=historyUpdates()[0]!;
   expect(update.client).toBe('original');expect(typeof update.updateId).toBe('string');expect(update.updateId).not.toBe(previousUpdateId);expect(typeof update.gestureId).toBe('string');expect(update.epoch).toBe(beforeRevision.epoch);
+  if(typeof update.updateId!=='string')throw new Error('R01_HISTORY_UPDATE_ID_REQUIRED');
   const matchingAcks=()=>historyEvents().filter(event=>event.direction==='received'&&event.type==='ack'&&event.client===update.client&&event.socketId===update.socketId&&event.updateId===update.updateId&&event.gestureId===update.gestureId&&event.seq===expected.revision.seq);
   await expect.poll(()=>matchingAcks().length).toBe(1);await settled(page);await expectBoardSynced(page);
   expect(await canonicalBoardSnapshot(api,token,boardId)).toEqual(expected);expect(historyUpdates()).toHaveLength(1);expect(matchingAcks()).toHaveLength(1);
-  return update;
+  return update.updateId;
  };
  const undoStart=transport.snapshot().events.length;await page.keyboard.press('ControlOrMeta+z');await expect.poll(async()=>(await canonicalBoardSnapshot(api,token,boardId)).objects).toEqual(baseline.objects);
- const undone=await canonicalBoardSnapshot(api,token,boardId);assertAtomicRevision(erased.revision,undone.revision,1);const undoUpdate=await assertHistoryReceipt(undoStart,erased.revision,undone,sent.updateId!);
- await clearSelection();expect(await Promise.all(sites.map(site=>rgba(page,screen(site.point),11)))).toEqual(ink);await assertHistoryReceipt(undoStart,erased.revision,undone,sent.updateId!);
+ const undone=await canonicalBoardSnapshot(api,token,boardId);assertAtomicRevision(erased.revision,undone.revision,1);const undoUpdateId=await assertHistoryReceipt(undoStart,erased.revision,undone,eraseUpdateId);
+ await clearSelection();expect(await Promise.all(sites.map(site=>rgba(page,screen(site.point),11)))).toEqual(ink);await assertHistoryReceipt(undoStart,erased.revision,undone,eraseUpdateId);
  const redoStart=transport.snapshot().events.length;await page.keyboard.press('ControlOrMeta+Shift+z');await expect.poll(async()=>(await canonicalBoardSnapshot(api,token,boardId)).objects).toEqual(erased.objects);
- const redone=await canonicalBoardSnapshot(api,token,boardId);assertAtomicRevision(undone.revision,redone.revision,1);assertAtomicRevision(erased.revision,redone.revision,2);await assertHistoryReceipt(redoStart,undone.revision,redone,undoUpdate.updateId!);
- await clearSelection();expect(await Promise.all(sites.map(site=>rgba(page,screen(site.point),11)))).toEqual(erasedInk);await assertHistoryReceipt(redoStart,undone.revision,redone,undoUpdate.updateId!);
+ const redone=await canonicalBoardSnapshot(api,token,boardId);assertAtomicRevision(undone.revision,redone.revision,1);assertAtomicRevision(erased.revision,redone.revision,2);await assertHistoryReceipt(redoStart,undone.revision,redone,undoUpdateId);
+ await clearSelection();expect(await Promise.all(sites.map(site=>rgba(page,screen(site.point),11)))).toEqual(erasedInk);await assertHistoryReceipt(redoStart,undone.revision,redone,undoUpdateId);
  await page.getByTestId('board-add-draw').click();await page.getByTestId('board-draw-eraser').click();const emptyStart=transport.snapshot().events.length,empty=screen({x:20,y:30});await topCanvas(page,empty);await page.mouse.move(empty.x,empty.y);await page.mouse.down();await page.mouse.move(empty.x+10,empty.y+5);await page.mouse.up();expect(await canonicalBoardSnapshot(api,token,boardId)).toEqual(redone);await settled(page);await expectBoardSynced(page);expect(await canonicalBoardSnapshot(api,token,boardId)).toEqual(redone);expect(transport.snapshot().events.slice(emptyStart).filter(event=>event.direction==='sent'&&event.type==='update')).toEqual([]);
  await page.reload();await expectBoardSynced(page);await expect(page.getByTestId('board-a11y-mirror').locator('li[data-object-id]')).toHaveCount(6);expect(await canonicalBoardSnapshot(api,token,boardId)).toEqual(redone);await clearSelection();
  const refreshed=await viewport(page),refreshScreen=(point:{x:number;y:number})=>({x:refreshed.box.x+refreshed.x+point.x*refreshed.z,y:refreshed.box.y+refreshed.y+point.y*refreshed.z});
@@ -228,7 +230,7 @@ for(const matrixZoom of [.5,2])test(`N03-N04 native Sticky Shape Drawing multi t
    const observed=await page.getByTestId('board-selection-layout-toolbar').evaluate(element=>{const toolbar=element.getBoundingClientRect(),parent=(element as HTMLElement).offsetParent;if(!parent)throw new Error('R01_MENU_PARENT_REQUIRED');const frame=parent.getBoundingClientRect();return {origin:{x:frame.x,y:frame.y},position:{x:toolbar.x-frame.x,y:toolbar.y-frame.y},frame:{width:frame.width,height:frame.height},size:{width:toolbar.width,height:toolbar.height},chrome:Array.from(document.querySelectorAll('[data-board-chrome]')).map(node=>{const rect=node.getBoundingClientRect();return {x:rect.x-frame.x,y:rect.y-frame.y,width:rect.width,height:rect.height};}).filter(rect=>rect.width>0&&rect.height>0)};});
    assertPoints([observed.origin],[{x:v.box.x,y:v.box.y}],.01);
    const corners=expected.flatMap(value=>entityCorners(value.geometry)),xs=corners.map(point=>point.x),ys=corners.map(point=>point.y),geometry={x:Math.min(...xs),y:Math.min(...ys),width:Math.max(...xs)-Math.min(...xs),height:Math.max(...ys)-Math.min(...ys)};
-   const position=boardToolbarPosition(geometry,{zoom:v.z,panX:v.x,panY:v.y},observed.frame,observed.size,observed.chrome);assertPoints([observed.position],[{x:Number(position.left),y:Number(position.top)}],2);
+   const position=boardToolbarPosition(geometry,{zoom:v.z,panX:v.x,panY:v.y,fitRequest:0},observed.frame,observed.size,observed.chrome);assertPoints([observed.position],[{x:Number(position.left),y:Number(position.top)}],2);
   };
   const verifyEntityPixels=async(project:(point:{x:number;y:number})=>{x:number;y:number},view=v,held=true)=>{
    for(const value of expected){const color=value.id===a.id?[34,197,94]:value.id===b.id?[37,99,235]:[220,38,38];

@@ -734,16 +734,22 @@ describe("BoardFabricSurface", () => {
   it("exposes and refreshes read-only Fabric scene observations without emitting commands", async () => {
     const onObjectsTransform = vi.fn(() => true);
     const onObjectTransform = vi.fn();
+    const observedMatrix = (object: MockProjectedObject) => {
+      const matrix = object.calcTransformMatrix();
+      expect(matrix).toHaveLength(6);
+      expect(matrix.every(Number.isFinite)).toBe(true);
+      return matrix.map(value => Object.is(value, -0) ? 0 : value);
+    };
     renderSurface({ onObjectsTransform, onObjectTransform });
     const scenes = JSON.parse(screen.getByTestId("board-fabric-surface").getAttribute("data-object-scenes")!) as Array<{ id: string; left: number; top: number; width: number; height: number }>;
-    expect(scenes.find(value => value.id === "s-1")).toEqual({ id: "s-1", left: 40, top: 60, width: expect.closeTo(220), height: 180, transformMatrix: probe.objects[0]!.calcTransformMatrix(), worldCorners: probe.objects[0]!.getCoords() });
-    expect(scenes.find(value => value.id === "r-1")).toEqual({ id: "r-1", left: 360, top: 80, width: 240, height: 140, transformMatrix: probe.objects[1]!.calcTransformMatrix(), worldCorners: probe.objects[1]!.getCoords() });
+    expect(scenes.find(value => value.id === "s-1")).toEqual({ id: "s-1", left: 40, top: 60, width: expect.closeTo(220), height: 180, transformMatrix: observedMatrix(probe.objects[0]!), worldCorners: probe.objects[0]!.getCoords() });
+    expect(scenes.find(value => value.id === "r-1")).toEqual({ id: "r-1", left: 360, top: 80, width: 240, height: 140, transformMatrix: observedMatrix(probe.objects[1]!), worldCorners: probe.objects[1]!.getCoords() });
     const target = probe.objects[0]!;
     target.left += 40;
     act(() => probe.handlers.get("object:moving")?.({ target }));
     await waitFor(() => {
       const refreshed = JSON.parse(screen.getByTestId("board-fabric-surface").getAttribute("data-object-scenes")!);
-      expect(refreshed.find((value: { id: string }) => value.id === "s-1")).toEqual({ id: "s-1", ...target.getBoundingRect(), transformMatrix: target.calcTransformMatrix(), worldCorners: target.getCoords() });
+      expect(refreshed.find((value: { id: string }) => value.id === "s-1")).toEqual({ id: "s-1", ...target.getBoundingRect(), transformMatrix: observedMatrix(target), worldCorners: target.getCoords() });
     });
     expect(onObjectsTransform).not.toHaveBeenCalled();
     expect(onObjectTransform).not.toHaveBeenCalled();

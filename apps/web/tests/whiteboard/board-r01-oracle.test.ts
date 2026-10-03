@@ -71,7 +71,7 @@ describe('independent R01 oracle rejects misleading geometry and partial transac
    const group=new fabric.Group([new fabric.Rect({width:65,height:55,fill:'#2563EB',stroke:'#18181B',strokeWidth:1,strokeUniform:true,originX:'center',originY:'center'})],{layoutManager:new fabric.LayoutManager(new fabric.FixedLayout()),width:65,height:55});group.set({left:geometry.x,top:geometry.y,angle:-21,originX:'left',originY:'top'});canvas.add(group);canvas.setActiveObject(new fabric.ActiveSelection([group],{canvas,borderColor:'#B2CCFF'}));canvas.setViewportTransform([2,0,0,2,20,20]);canvas.renderAll();
    const grid={sx:1,sy:1,zoom:2,panX:20,panY:20},covered=sampleLiteralShapeStroke(canvas.lowerCanvasEl,{geometry,grid});expect(covered.some(sample=>sample.observed.some((value,index)=>Math.abs(value-sample.reference[index]!)>5))).toBe(true);
    // Causal diagnostic only; production and the native matrix retain controls.
-   canvas.skipControlsDrawing=true;canvas.renderAll();for(const sample of sampleLiteralShapeStroke(canvas.lowerCanvasEl,{geometry,grid}))expect(Math.max(...sample.observed.map((value,index)=>Math.abs(value-sample.reference[index]!)))).toBeLessThanOrEqual(5);
+   canvas.set('skipControlsDrawing',true);canvas.renderAll();for(const sample of sampleLiteralShapeStroke(canvas.lowerCanvasEl,{geometry,grid}))expect(Math.max(...sample.observed.map((value,index)=>Math.abs(value-sample.reference[index]!)))).toBeLessThanOrEqual(5);
   }finally{await canvas.dispose();}
  });
  it('rotates all entity corners about the input-defined group pivot',()=>{
