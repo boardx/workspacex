@@ -1,6 +1,7 @@
-import datetime,importlib.util,pathlib,unittest,copy,hashlib,sys,io
+import datetime,importlib.util,pathlib,unittest,copy,hashlib,sys,io,json,os,tempfile,subprocess
 from unittest.mock import patch
 D=pathlib.Path(__file__).parent
+sys.path.insert(0,str(D.parents[2]/'.agents/skills/workspacex-cn-release/scripts'))
 sp=importlib.util.spec_from_file_location('tool',D/'cn-build-tool-identity.py');m=importlib.util.module_from_spec(sp);sp.loader.exec_module(m)
 APP='9'*40;TOOL='a'*40
 class Identity(unittest.TestCase):
@@ -33,7 +34,7 @@ class Identity(unittest.TestCase):
       if str(path)==installed:return b'drift' if drift=='installed' else data[k]
      raise AssertionError('unexpected read')
     def git(args,**kw):
-     if args[2]==v['applicationSource']['path']:
+     if args[args.index('-C')+1]==v['applicationSource']['path']:
       if args[-1]=='--is-bare-repository':return b'true'
       if args[-1]=='refs/heads/candidate^{commit}':return APP.encode()
       if args[-1]==APP+'^{tree}':return ('c'*40).encode()
@@ -44,7 +45,7 @@ class Identity(unittest.TestCase):
      if args[-2:]==['status','--porcelain']:return b'M file' if drift=='dirty' else b''
      if args[-2]=='show':return b'drift' if drift=='object' else data[args[-1].split(':',1)[1]]
      raise AssertionError(args)
-    with patch.object(m.os,'geteuid',return_value=0),patch.object(m,'private_read',side_effect=read),patch.object(m.subprocess,'check_output',side_effect=git),patch.object(m.subprocess,'run',return_value=type('Result',(),{'returncode':1,'stdout':b''})()),patch.object(m.pathlib.Path,'lstat',return_value=type('Stat',(),{'st_mode':0o40700,'st_uid':0})()),patch.object(m.pathlib.Path,'exists',return_value=False),patch.object(m.pathlib.Path,'glob',return_value=[]),patch.object(sys,'argv',['tool','/manifest',APP,'2026.10.3-cn.1','fixture','prebuild']),patch('sys.stdout',new_callable=io.StringIO):
+    with patch.object(m,'trust_git_root'),patch.object(m.os,'geteuid',return_value=0),patch.object(m,'private_read',side_effect=read),patch.object(m.subprocess,'check_output',side_effect=git),patch.object(m.subprocess,'run',return_value=type('Result',(),{'returncode':1,'stdout':b''})()),patch.object(m.pathlib.Path,'lstat',return_value=type('Stat',(),{'st_mode':0o40700,'st_uid':0})()),patch.object(m.pathlib.Path,'exists',return_value=False),patch.object(m.pathlib.Path,'glob',return_value=[]),patch.object(sys,'argv',['tool','/manifest',APP,'2026.10.3-cn.1','fixture','prebuild']),patch('sys.stdout',new_callable=io.StringIO):
      if drift=='none':m.main()
      else:
       with self.assertRaises(ValueError):m.main()
@@ -52,14 +53,19 @@ class Identity(unittest.TestCase):
   import json
   binding=self.fixture();manifest={'sourceRevision':APP,'release':binding['release'],'images':{k:{'image':'registry.example/wsx/'+k+'@sha256:'+'b'*64} for k in ('web','api','agent','sandbox','postgres','redis')}}
   raw=json.dumps(manifest).encode();seal={'schemaVersion':1,'status':'sealed','sourceRevision':APP,'manifestSha256':hashlib.sha256(raw).hexdigest()}
-  prebuild={'phase':'prebuild','sourceSha':APP,'release':binding['release'],'attemptId':binding['attemptId'],'issuedAt':(datetime.datetime.now(datetime.timezone.utc)-datetime.timedelta(minutes=1)).isoformat(),'expiresAt':(datetime.datetime.now(datetime.timezone.utc)+datetime.timedelta(minutes=10)).isoformat(),'checks':{'bootstrap.compatibility':{'status':'passed','metadata':{'evidenceMode':'source-static','readOnlyTransaction':False,'stateClass':'unknown','schemaContract':False,'permissionContract':False,'agentSeedContract':False}}}}
+  sys.path.insert(0,str(D.parents[2]/'.agents/skills/workspacex-cn-release/scripts'))
+  from test_validate_preflight import fixture
+  prebuild=json.loads(json.dumps(fixture()).replace('a'*40,APP).replace('2026.9.15-cn.2',binding['release']).replace('attempt-1',binding['attemptId']))
+  prebuild['issuedAt']=(datetime.datetime.now(datetime.timezone.utc)-datetime.timedelta(minutes=1)).strftime('%Y-%m-%dT%H:%M:%SZ');prebuild['expiresAt']=(datetime.datetime.now(datetime.timezone.utc)+datetime.timedelta(minutes=10)).strftime('%Y-%m-%dT%H:%M:%SZ')
+
   return binding,manifest,seal,prebuild
  def test_sealed_receipt_actual_hashes_and_no_ready(self):
   import json
   binding,manifest,seal,prebuild=self.receipt_fixture();raw=[json.dumps(x).encode() for x in (manifest,seal,prebuild)]
   seen=[]
   def inspect(image):seen.append(image);return 'Digest: sha256:'+'b'*64+'\n'
-  value=m.sealed_receipt(binding,*raw,inspect)
+  from validate_preflight import validate
+  value=m.sealed_receipt(binding,*raw,inspect,lambda raw:validate(json.loads(raw)))
   self.assertEqual(len(seen),6);self.assertEqual(value['applicationRevision'],APP);self.assertEqual(value['toolRevision'],TOOL)
   for key in ('ready','prepared','productionActivated'):self.assertIs(value[key],False)
   self.assertEqual(value['sealSha256'],hashlib.sha256(raw[1]).hexdigest())
@@ -76,7 +82,63 @@ class Identity(unittest.TestCase):
     if bad=='expired':prebuild['expiresAt']='2000-01-01T00:00:00Z'
     if bad=='dynamic':prebuild['checks']['bootstrap.compatibility']['metadata']['schemaContract']=True
     if bad in ('mutable','missing'):seal['manifestSha256']=hashlib.sha256(json.dumps(manifest).encode()).hexdigest()
-    with self.assertRaises(ValueError):m.sealed_receipt(binding,*[json.dumps(x).encode() for x in (manifest,seal,prebuild)],lambda _: 'Digest: sha256:'+('0' if bad=='registry' else 'b')*64+'\n')
+    with self.assertRaises((ValueError,__import__('validate_preflight').ContractError)):m.sealed_receipt(binding,*[json.dumps(x).encode() for x in (manifest,seal,prebuild)],lambda _: 'Digest: sha256:'+('0' if bad=='registry' else 'b')*64+'\n',lambda raw: __import__('validate_preflight').validate(json.loads(raw)))
+ def test_real_git_metadata_rejects_symlinks_gitfile_and_include(self):
+  for bad in ('safe','gitfile','config-symlink','object-symlink','commondir','include','writable'):
+   with self.subTest(bad=bad),tempfile.TemporaryDirectory() as temp:
+    root=pathlib.Path(temp)/'tool';root.mkdir(mode=0o700)
+    subprocess.run(['git','init','-q',str(root)],check=True)
+    gd=root/'.git'
+    if bad=='gitfile':
+     import shutil
+     shutil.rmtree(gd);gd.write_text('gitdir: /untrusted\n')
+    if bad=='config-symlink':(gd/'config').unlink();(gd/'config').symlink_to('/etc/passwd')
+    if bad=='object-symlink':(gd/'objects'/'external').symlink_to('/etc')
+    if bad=='commondir':(gd/'commondir').write_text('/external')
+    if bad=='include':
+     with (gd/'config').open('a') as f:f.write('\n[include]\n path=/external\n')
+    if bad=='writable':(gd/'config').chmod(0o666)
+    if bad=='safe':m.trust_git_root(root,False,expected_uid=os.getuid(),boundary=temp)
+    else:
+     with self.assertRaises(ValueError):m.trust_git_root(root,False,expected_uid=os.getuid(),boundary=temp)
+ def test_atomic_receipt_failed_write_leaves_no_partial_final(self):
+  with tempfile.TemporaryDirectory(dir='/private/tmp') as temp:
+   output=pathlib.Path(temp)/'receipt.json'
+   # Parent ownership guard is orthogonal; use real owned files/link/fsync on fixture.
+   real_lstat=pathlib.Path.lstat
+   def st(path):
+    value=real_lstat(path)
+    return type('S',(),{'st_mode':value.st_mode & ~0o022,'st_uid':0,'st_dev':value.st_dev,'st_ino':value.st_ino})()
+   with patch.object(pathlib.Path,'lstat',st),patch.object(m.os,'fsync',side_effect=OSError('fixture ENOSPC')):
+    with self.assertRaises(OSError):m.atomic_receipt(output,{'ready':False})
+   self.assertFalse(output.exists());self.assertEqual(list(pathlib.Path(temp).glob('.build-only.*')),[])
+ def test_atomic_receipt_existing_final_is_never_replaced(self):
+  with tempfile.TemporaryDirectory(dir='/private/tmp') as temp:
+   output=pathlib.Path(temp)/'receipt.json';output.write_bytes(b'original')
+   real_lstat=pathlib.Path.lstat
+   def st(path):
+    value=real_lstat(path)
+    return type('S',(),{'st_mode':value.st_mode & ~0o022,'st_uid':0,'st_dev':value.st_dev,'st_ino':value.st_ino})()
+   with patch.object(pathlib.Path,'lstat',st),self.assertRaises(FileExistsError):m.atomic_receipt(output,{'ready':False})
+   self.assertEqual(output.read_bytes(),b'original');self.assertEqual(list(pathlib.Path(temp).glob('.build-only.*')),[])
+ def test_exact_validator_rejects_stored_receipt_drift(self):
+  from validate_preflight import validate
+  _,_,_,prebuild=self.receipt_fixture();raw=json.dumps(prebuild).encode();stored=validate(prebuild)
+  validator=D.parents[2]/'.agents/skills/workspacex-cn-release/scripts/validate_preflight.py'
+  with patch.object(m,'private_read',return_value=validator.read_bytes()):
+   self.assertEqual(m.validate_full_prebuild(validator,raw,json.dumps(stored).encode()),stored)
+   stored['ready']=False
+   with self.assertRaises(ValueError):m.validate_full_prebuild(validator,raw,json.dumps(stored).encode())
+ def test_full_gate_rejects_missing_schema_or_check(self):
+  from validate_preflight import validate,ContractError
+  for bad in ('schema','missing-check','failed-check','static-dynamic'):
+   binding,manifest,seal,prebuild=self.receipt_fixture()
+   if bad=='schema':prebuild.pop('schemaVersion')
+   if bad=='missing-check':prebuild['checks'].pop('registry.acr_auth')
+   if bad=='failed-check':prebuild['checks']['registry.acr_auth']['status']='failed'
+   if bad=='static-dynamic':prebuild['checks']['bootstrap.compatibility']['metadata']['permissionContract']=True
+   with self.subTest(bad=bad),self.assertRaises((ValueError,ContractError)):
+    m.sealed_receipt(binding,*[json.dumps(x).encode() for x in (manifest,seal,prebuild)],lambda _: 'Digest: sha256:'+'b'*64+'\n',lambda raw:validate(json.loads(raw)))
  def test_source_cache_cannot_be_moving_main(self):
   for key,bad in [('path','/opt/workspacex-cn/release-origin-cache.git'),('ref','refs/heads/main'),('treeSha','notsha'),('inventorySha256','notsha')]:
    with self.subTest(key=key):
