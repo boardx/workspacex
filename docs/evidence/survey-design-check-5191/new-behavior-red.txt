@@ -1,0 +1,29 @@
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/survey-report-echarts/apps/web
+
+ ❯ tests/ui/survey-live-publishing.test.tsx (14 tests | 2 failed | 12 skipped) 2040ms
+   × live survey trusted publishing > checks the current design automatically and updates errors after editing 1032ms
+     → Unable to find role="region" and name "设计检查"
+
+Ignored nodes: comments, script, style
+<body>
+  <div>
+    <main
+      class="min-w-0 bg-background lg:flex lg:h-full lg:min-h-0 lg:flex-col lg:overflow-hidden"
+    >
+      <header
+        class="flex flex-wrap items-center gap-3 border-b border-border bg-card px-5 py-3"
+      >
+        <button
+          class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-all duration-200 ease-in-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-8 px-3 text-13"
+        >
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 12 skipped (14)
+   Start at  09:24:44
+   Duration  4.28s (transform 599ms, setup 110ms, collect 1.25s, tests 2.04s, environment 703ms, prepare 35ms)
+
+undefined
+/Users/shenyangjun/.codex/worktrees/survey-report-echarts/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/ui/survey-live-publishing.test.tsx -t checks the current design automatically|publishes a saved valid draft directly

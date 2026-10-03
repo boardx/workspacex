@@ -7,11 +7,13 @@ import { InterviewMarkdownPlanningStep } from "@/components/itv/interview-markdo
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); vi.unstubAllEnvs(); });
 
 const raw = "# 研究需求\r\n\r\n教师最近一次备课 🧪\r\n";
-it("keeps import and next-step controls together above the demand editor", () => {
+it("places input tools beside the editor while keeping confirmation in the header", () => {
   render(<InterviewIntakeStep markdown={raw} onChange={vi.fn()} onConfirm={async () => {}} pending={false} />);
-  for (const name of ["语音输入", "导入文本文档", "下一步：确认分析"]) {
-    expect(screen.getByRole("button", { name }).closest('[data-testid="itv-step-actions"]')).not.toBeNull();
+  for (const name of ["语音输入", "导入文本文档"]) {
+    expect(screen.getByRole("button", { name }).closest('[data-testid="itv-step-actions"]')).toBeNull();
+    expect(screen.getByRole("button", { name }).closest("section")?.querySelector("textarea")).not.toBeNull();
   }
+  expect(screen.getByRole("button", { name: "下一步：确认分析" }).closest('[data-testid="itv-step-actions"]')).not.toBeNull();
 });
 it("native file input saves imported Markdown through the sole source API", async () => {
   vi.stubEnv("NEXT_PUBLIC_API_URL", "http://localhost:4100"); vi.stubEnv("NEXT_PUBLIC_API_PATH_PREFIX", "");

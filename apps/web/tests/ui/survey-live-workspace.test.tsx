@@ -116,7 +116,7 @@ describe('live survey workspace persistence',()=>{
   expect(await screen.findByRole('alert')).toHaveTextContent('请先校对并应用 Markdown');
   expect(request).toHaveBeenCalledTimes(1);
   fireEvent.click(screen.getByRole('button',{name:'3. 发布回收'}));
-  fireEvent.click(screen.getByRole('button',{name:'检查发布条件'}));
+  fireEvent.click(screen.getByRole('button',{name:'开始回收'}));
   expect(await screen.findByRole('alert')).toHaveTextContent('请先校对并应用 Markdown');
   expect(request).toHaveBeenCalledTimes(1);
  });
@@ -137,7 +137,7 @@ describe('live survey workspace persistence',()=>{
   expect(screen.queryByLabelText('问卷 Markdown')).not.toBeInTheDocument();
   expect(screen.getByRole('heading',{name:'题型工具箱'})).toBeInTheDocument();
   fireEvent.click(screen.getByRole('button',{name:'发布回收'}));
-  expect(screen.getByRole('button',{name:'检查发布条件'})).toBeInTheDocument();
+  expect(screen.getByRole('button',{name:'开始回收'})).toBeInTheDocument();
   expect(screen.getByRole('region',{name:'问卷回收状态'})).toBeInTheDocument();
   expect(screen.getByRole('complementary',{name:'回收设置面板'})).toBeInTheDocument();
  });

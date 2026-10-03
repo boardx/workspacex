@@ -49,9 +49,7 @@ coordinator 开的分支写完即 push + 开 PR（base 永远直指 `main`），
 唤醒的判断，后改为脚本生成。派生视图禁止手改同理（AGENTS.md 硬约束）。
 （loop-brief「依赖图」章；AGENTS.md「功能清单是权威」条。）
 
-## 8. 破坏性动作永远在 loop 之外
-合并 PR、`sweep-docker --apply`、`--force` 抢占等破坏性/不可逆操作不进自动循环——
-loop 只推进到「就绪待授权」，把清单列进汇报（「PR #N 已 review 通过，需要人工点
-一下」），等人类或 coord-main 明确授权后在 loop 之外执行。判定标准本身可靠也不
-豁免：错的是未经授权执行这个顺序，不是结果。
-（loop-brief §0 前两条 + 步骤 8；`coordinator-sop.md` 铁律 3/8，ADR-007。）
+## 8. 破坏性动作需要显式授权
+PR 自动合并的授权政策唯一权威为 `coordinator-sop.md` 铁律 12；执行路径见该文
+PR 队列章节。其余 `sweep-docker --apply`、`--force` 抢占等破坏性操作仍不进自动
+循环，等待人类或 coord-main 明确授权后执行。

@@ -27,7 +27,24 @@ const durableConfigSchema = z.object({
 }).strict();
 const diffSchema = z.object({
   migrationRisk: z.enum(["none", "compatible", "destructive"]),
+  pendingMigrationCount: z.number().int().nonnegative(),
   changedServices: z.array(z.enum(["web", "api", "agent", "sandbox"])).max(4),
+}).strict();
+/** A shared-database upgrade must prove both binaries against the exact upgraded
+ * schema. A candidate-only smoke or synthetic model cannot authorize live migration. */
+const migrationCompatibilitySchema = z.object({
+  baselineSourceRevision: sha,
+  sourceRevision: sha,
+  baselineSha256: sha256,
+  planSha256: sha256,
+  pendingSha256: sha256,
+  scope: z.literal("restored-baseline-runtime"),
+  sqlExecuted: z.literal(true),
+  cleanupPassed: z.literal(true),
+  oldRead: terminalCheck,
+  oldWrite: terminalCheck,
+  candidateRead: terminalCheck,
+  candidateWrite: terminalCheck,
 }).strict();
 const imageSetSchema = z.object({ web: digest, api: digest, agent: digest, sandbox: digest }).strict();
 
@@ -36,6 +53,10 @@ export const preparedCnReleaseSchema = z.object({
   status: z.literal("prepared").default("prepared"),
   sourceRevision: sha,
   baselineSha256: sha256,
+  baselineSourceRevision: sha.optional(),
+  migrationPlanSha256: sha256.optional(),
+  pendingMigrationSha256: sha256.optional(),
+  migrationCompatibility: migrationCompatibilitySchema.optional(),
   release: z.string().regex(/^v?\d+\.\d+\.\d+(?:-[a-zA-Z0-9]+(?:[.-][a-zA-Z0-9]+)*)?$/),
   manifestSha256: sha256,
   images: imageSetSchema,
@@ -60,6 +81,19 @@ export const preparedCnReleaseSchema = z.object({
   }
   if (value.diff.migrationRisk === "destructive") {
     context.addIssue({ code: z.ZodIssueCode.custom, path: ["diff", "migrationRisk"], message: "DESTRUCTIVE_MIGRATION_REQUIRES_MAINTENANCE_LANE" });
+  }
+  if (value.diff.migrationRisk === "none" && value.diff.pendingMigrationCount !== 0) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ["diff", "migrationRisk"], message: "NONEMPTY_PENDING_MIGRATIONS_REQUIRE_ASSESSMENT" });
+  }
+  if (value.diff.migrationRisk === "compatible") {
+    const proof = value.migrationCompatibility;
+    if (!proof || !value.baselineSourceRevision || !value.migrationPlanSha256 || !value.pendingMigrationSha256
+      || proof.sourceRevision !== value.sourceRevision || proof.baselineSourceRevision !== value.baselineSourceRevision
+      || proof.baselineSha256 !== value.baselineSha256 || proof.planSha256 !== value.migrationPlanSha256
+      || proof.pendingSha256 !== value.pendingMigrationSha256
+      || value.checks.migrationAssessed.evidenceSha256 !== value.migrationPlanSha256) {
+      context.addIssue({ code: z.ZodIssueCode.custom, path: ["migrationCompatibility"], message: "EXACT_OLD_NEW_MIGRATION_PROOF_REQUIRED" });
+    }
   }
   for (const [index, failure] of value.failures.entries()) {
     if (failure.waiver && Date.parse(failure.waiver.expiresAt) > expires) {
@@ -103,6 +137,7 @@ export interface PreparationActions {
   buildImmutableImages(): Promise<z.infer<typeof imageSetSchema>>;
   renderCanonicalConfig(): Promise<z.infer<typeof durableConfigSchema>>;
   assessDiff(): Promise<z.infer<typeof diffSchema>>;
+  readMigrationEvidence?(): Promise<{ planBytes: Uint8Array; pendingBytes: Uint8Array; compatibility: z.infer<typeof migrationCompatibilitySchema> }>;
   verifyDatabaseBackup(): Promise<"passed">;
   runShadowChecks(): Promise<{ shadowReadiness: "passed"; shadowBusiness: "passed" }>;
 }
@@ -111,17 +146,38 @@ const gate=(value:unknown)=>({status:"passed" as const,evidenceSha256:createHash
 export async function createPreparedCnRelease(input: {
   sourceRevision: string; baselineSha256: string; release: string; manifestSha256: string;
   preparedAt: string; expiresAt: string; failures?: ReleaseFailure[];
+  baselineSourceRevision?: string; migrationPlanSha256?: string; pendingMigrationSha256?: string;
+  migrationCompatibility?: z.infer<typeof migrationCompatibilitySchema>;
 }, actions: PreparationActions): Promise<PreparedCnRelease> {
   const frozen = await actions.freezeSource();
   if (frozen !== input.sourceRevision) throw new Error("SOURCE_FREEZE_MISMATCH");
   const [images, durableConfig, diff, databaseBackup, shadow] = await Promise.all([
     actions.buildImmutableImages(), actions.renderCanonicalConfig(), actions.assessDiff(), actions.verifyDatabaseBackup(), actions.runShadowChecks(),
   ]);
+  let migrationAssessed = gate(diff);
+  let migrationBindings = {};
+  if (diff.migrationRisk === "compatible") {
+    if (!actions.readMigrationEvidence) throw new Error("TRUSTED_MIGRATION_EVIDENCE_REQUIRED");
+    const evidence = await actions.readMigrationEvidence();
+    const planSha256 = createHash("sha256").update(evidence.planBytes).digest("hex");
+    const pendingSha256 = createHash("sha256").update(evidence.pendingBytes).digest("hex");
+    const proof = migrationCompatibilitySchema.parse(evidence.compatibility);
+    if (proof.planSha256 !== planSha256 || proof.pendingSha256 !== pendingSha256
+      || proof.sourceRevision !== input.sourceRevision || proof.baselineSha256 !== input.baselineSha256
+      || (input.migrationPlanSha256 && input.migrationPlanSha256 !== planSha256)
+      || (input.pendingMigrationSha256 && input.pendingMigrationSha256 !== pendingSha256)
+      || (input.baselineSourceRevision && input.baselineSourceRevision !== proof.baselineSourceRevision)) {
+      throw new Error("MIGRATION_EVIDENCE_BYTES_MISMATCH");
+    }
+    migrationAssessed = { status: "passed", evidenceSha256: planSha256 };
+    migrationBindings = { baselineSourceRevision: proof.baselineSourceRevision, migrationPlanSha256: planSha256,
+      pendingMigrationSha256: pendingSha256, migrationCompatibility: proof };
+  }
   const receipt = validatePreparedCnRelease({
-    schemaVersion: 1, status: "prepared", ...input, failures: input.failures ?? [], images, durableConfig, diff,
+    schemaVersion: 1, status: "prepared", ...input, ...migrationBindings, failures: input.failures ?? [], images, durableConfig, diff,
     checks: {
       sourceFrozen: gate(frozen), imagesImmutable: gate(images), canonicalConfigRendered: gate(durableConfig),
-      migrationAssessed: gate(diff), databaseBackup: gate(databaseBackup),
+      migrationAssessed, databaseBackup: gate(databaseBackup),
       shadowReadiness: gate(shadow.shadowReadiness), shadowBusiness: gate(shadow.shadowBusiness),
     },
   });
