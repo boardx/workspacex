@@ -4,7 +4,7 @@
   "baseCommit": "64cc2b85053823a4c7461eb404b9f3a99c749a33",
   "applicationRevision": "9b25bfa65662b96c0826fe67506b562ea46aa6d0",
   "baselineRevision": "ba6343199f3c834d6a198f83d0c771614292c82b",
-  "sourceInventorySha256": "7738a8230c1b6a2fd3a4f4cd3af6669eb49e3071aa9c27dd76c3b18ae6cc11fc",
+  "sourceInventorySha256": "a120a7ca91786be89f0e5b6d10b39be92633d7ac3b800601312eb1a65795cea8",
   "sourceRows": [
     {
       "path": ".harness/scripts/build-cn-maintenance-controller.cjs",
@@ -628,8 +628,8 @@
     },
     {
       "path": "deploy/aliyun/cn-maintenance-source-handoff.md",
-      "sha256": "16e4dbc9be7fb71ebc91f38c82677c522b9475a0e8edffbae0a0a5cab73cc088",
-      "bytes": 25482
+      "sha256": "c877132680712bf9719bded1f6415e71ea11d8b779cb303bc3cb43e61a992e31",
+      "bytes": 26345
     },
     {
       "path": "deploy/aliyun/cn-native-backup-cost-evidence.json",
@@ -650,6 +650,16 @@
       "path": "deploy/aliyun/cn-native-clone-execution-decision.md",
       "sha256": "8c5da49825e782a7ee90ac1c297efd85974564f1d7708a1858aafcce6ec456d3",
       "bytes": 9272
+    },
+    {
+      "path": "deploy/aliyun/cn-native-clone-first-execution-receipt.json",
+      "sha256": "577d97a50a6b5d45ee6d71a97cb6be5f0ce7df5659dc435dc2e69d463539108e",
+      "bytes": 6041
+    },
+    {
+      "path": "deploy/aliyun/cn-native-clone-provider-diagnosis.md",
+      "sha256": "88ee3a1150aa6e4b27c9a1b9da9e5a4ceaf6ae475dab50873b4f9386301072cd",
+      "bytes": 4016
     },
     {
       "path": "deploy/aliyun/cn-native-clone-review-proposal.json",
