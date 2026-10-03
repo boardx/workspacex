@@ -13,3 +13,5 @@ subprocess.run(['node','--test',str(VM/'cn-maintenance-drain-test.cjs')],cwd=ROO
 
 for test in ['cn-maintenance-browser-test.cjs','cn-maintenance-canonical-test.cjs','cn_restore_catalog_test.cjs','existing_session_restore_test.cjs','restore_sql_stream_test.cjs','existing_fidelity_session_test.cjs','offline_restore_pipeline_test.cjs','retained_session_recovery_test.cjs']:
  subprocess.run(['node','--test',str(VM/test)],cwd=ROOT,check=True,timeout=20)
+
+subprocess.run(['node','--import','tsx','--test',str(ROOT/'packages/cloud-deploy/src/cn-maintenance-host/maintenance_transport_test.ts')],cwd=ROOT,check=True,timeout=20)

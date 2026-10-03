@@ -2,7 +2,8 @@
 import type pg from 'pg';
 import {migrate}from './pinned-app-9b/migrator';
 import type{PgConfig}from './pinned-app-9b/pg-config';
-import{withExistingMigrationPeer}from './pinned-app-9b/migration-pg';
+import{withExistingMigrationPeer,verifyMigrationPeer,approveExistingNoTls}from './pinned-app-9b/migration-pg';
+import{verifyRdsTransportPreflight}from '../managed-data-preflight';
 import{migrationSourceSchema,sourceEvidenceSchema,verifyExternalSourceIdentity,identityHash}from '../cn-migration-source-identity';
 export async function migrateExistingSession(client:pg.Client,cfg:PgConfig,source:unknown,sourceEvidence:unknown,approvedException:unknown,dir:string,lockTimeoutMs:number){
  const target=migrationSourceSchema.parse(source);const evidence=sourceEvidenceSchema.parse(sourceEvidence);
@@ -10,4 +11,25 @@ export async function migrateExistingSession(client:pg.Client,cfg:PgConfig,sourc
  if(target.sslMode==='verify-full'&&(!cfg.ssl||cfg.ssl.rejectUnauthorized!==true))throw new Error('EXISTING_MIGRATION_TLS_CONFIG');
  if(target.sslMode==='disable'&&cfg.ssl!==false)throw new Error('EXISTING_MIGRATION_TLS_CONFIG');
  return withExistingMigrationPeer(client,target,()=>migrate(cfg,{dir,lockTimeoutMs}),{sourceEvidence:evidence,approvedRdsTlsException:approvedException});
+}
+
+/** Shared socket/provider proof for control and borrowed recovery consumers.
+ * Callers must obtain inputs from their pinned root-private source plan; this
+ * function supplies no exception flag, connection, permission or READY. */
+export interface ExistingMaintenanceTransportInput {source:unknown;sourceEvidence:unknown;approvedRdsTlsException?:unknown;sslResponse:unknown;allowlistResponse:unknown}
+export function approveExistingMaintenanceTransportInputs(input:ExistingMaintenanceTransportInput){
+ const source=migrationSourceSchema.parse(input.source),evidence=sourceEvidenceSchema.parse(input.sourceEvidence);
+ if(!verifyExternalSourceIdentity(source,evidence))throw Error('MAINTENANCE_EXTERNAL_TRANSPORT_IDENTITY');
+ if(source.sslMode==='disable'){
+  const checks=verifyRdsTransportPreflight({region:source.regionId,rdsInstanceId:source.dbInstanceId,postgresHost:evidence.configuration.host,rdsTlsException:evidence.configuration.rdsTlsException},{attribute:evidence.attributeResponse,ssl:input.sslResponse,allowlist:input.allowlistResponse});
+  if(checks.some(c=>!c.passed))throw Error('MAINTENANCE_EXISTING_EXCEPTION_PROVIDER_UNPROVEN');
+  approveExistingNoTls(source,evidence,input.approvedRdsTlsException);
+ }
+ const endpoint=evidence.netInfoResponse.DBInstanceNetInfos.DBInstanceNetInfo.find(e=>e.IPType==='Private'&&e.VPCId===evidence.attributeResponse.Items.DBInstanceAttribute[0]!.VpcId&&e.ConnectionString===evidence.configuration.host&&Number(e.Port)===evidence.configuration.port)!;
+ return {privateAddress:endpoint.IPAddress};
+}
+export function verifyExistingMaintenanceTransport(input:ExistingMaintenanceTransportInput,observed:{database:string;user:string;serverAddress:string|null;serverPort:number;remoteAddress:string;remotePort:number;encrypted:boolean;authorized:boolean;localAddress?:string}){
+ approveExistingMaintenanceTransportInputs(input);const source=migrationSourceSchema.parse(input.source),evidence=sourceEvidenceSchema.parse(input.sourceEvidence);
+ verifyMigrationPeer(source,observed,{sourceEvidence:evidence,approvedRdsTlsException:input.approvedRdsTlsException});
+ return {sslMode:source.sslMode,configurationSha256:source.configurationSha256,providerEvidenceSha256:source.providerEvidenceSha256};
 }

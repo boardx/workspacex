@@ -4,7 +4,7 @@
   "baseCommit": "64cc2b85053823a4c7461eb404b9f3a99c749a33",
   "applicationRevision": "9b25bfa65662b96c0826fe67506b562ea46aa6d0",
   "baselineRevision": "ba6343199f3c834d6a198f83d0c771614292c82b",
-  "sourceInventorySha256": "b429d3dcb8ab70f4166835e5c00a8cdcdb003ce1a428d49dd32f4709bdcaf615",
+  "sourceInventorySha256": "3ca447abe64bf01b6c3899b4758fa3290c379c0cac16da95696d5096bcf784bf",
   "sourceRows": [
     {
       "path": ".harness/scripts/build-cn-maintenance-controller.cjs",
@@ -13,8 +13,8 @@
     },
     {
       "path": ".harness/scripts/run-cn-maintenance-pure-tests.py",
-      "sha256": "07091b63c4234cb09f38aa5af7c5215f5813497367d68f677c0d286936ce3c98",
-      "bytes": 1370
+      "sha256": "ecf2b01ce84b088cd4f4cfa84a2b40a1828474075953c1819f584e0b617cac0e",
+      "bytes": 1541
     },
     {
       "path": ".harness/scripts/vm/build-cn-release-candidate.sh",
@@ -83,8 +83,8 @@
     },
     {
       "path": ".harness/scripts/vm/cn-maintenance-migrator.cjs",
-      "sha256": "78596d9e28092813071874902564db3b0c995fcca19a93c73b8a731a6dd8a214",
-      "bytes": 155584
+      "sha256": "914424385531db97c301f0780e0c1632b44f144f7de6bad7aa8c4c1bae54c997",
+      "bytes": 160259
     },
     {
       "path": ".harness/scripts/vm/cn-maintenance-recovery-evidence-verifier.py",
@@ -463,13 +463,18 @@
     },
     {
       "path": "deploy/aliyun/cn-maintenance-source-handoff.md",
-      "sha256": "7059716bf3f4df7493c8193fd487d50edd7490b267d73710bca17e671552d86d",
-      "bytes": 11925
+      "sha256": "f532faee970ec7d41e3c9ff9cc1a109e0f7eac23503ca61592a65082c6b93d61",
+      "bytes": 14092
     },
     {
       "path": "deploy/aliyun/cn-release-9b25-once-plan.md",
-      "sha256": "af6d89dc86e727dacc4d352687f60d0f9865702dce0184cc6d9c99b7571cd728",
-      "bytes": 11096
+      "sha256": "bd275f0657569d2929d4773585b4759ec307e22f840b075929b74a37adf3eb4a",
+      "bytes": 11886
+    },
+    {
+      "path": "deploy/aliyun/cn-release-9b25-read-access-approval.md",
+      "sha256": "db990b3945abb0638873777441c214551d6466343567479bc15f601ff04503af",
+      "bytes": 7156
     },
     {
       "path": "deploy/aliyun/cn-release-9b25-source-inventory.json",
@@ -480,6 +485,16 @@
       "path": "deploy/aliyun/cn-release-existing-backup-capability.json",
       "sha256": "17470be97c0c420e38ef7865a4765c46c5d71a78496dc7c0d7ed3f1d1a9bcc56",
       "bytes": 2180
+    },
+    {
+      "path": "deploy/aliyun/cn-release-existing-rds-transport.json",
+      "sha256": "2d8172326c318416a5b2ebd0474a6cbbfe10fd8f762d932403532a19effbb813",
+      "bytes": 5676
+    },
+    {
+      "path": "deploy/aliyun/cn-release-existing-transport-config.json",
+      "sha256": "0faaff47764f2ffd3d7b8a3035e97c3749a878152e458cc0941d94129a5dc549",
+      "bytes": 2333
     },
     {
       "path": "deploy/aliyun/cn-tool-install-recovery.md",
@@ -547,9 +562,14 @@
       "bytes": 7239
     },
     {
+      "path": "packages/cloud-deploy/src/cn-maintenance-host/maintenance_transport_test.ts",
+      "sha256": "170178b8bad1b27a6198f6c58da973cab4f362781f7b94130d675e1af4169d77",
+      "bytes": 3711
+    },
+    {
       "path": "packages/cloud-deploy/src/cn-maintenance-host/migration_library.ts",
-      "sha256": "8f10abce0db8c32d27e6bd20b64add3c6699570e4d25232ec2f766cc9111b293",
-      "bytes": 1483
+      "sha256": "ea8c7e7e29547aa688032428bd15c1d77799849cfacc6be161c9482f2a57c8d0",
+      "bytes": 3836
     },
     {
       "path": "packages/cloud-deploy/src/cn-maintenance-host/migration_snapshot_query.ts",
@@ -672,6 +692,11 @@
       "bytes": 5436
     },
     {
+      "path": "packages/cloud-deploy/src/managed-data-preflight.ts",
+      "sha256": "685bb69d70c5fa7afd32de3328d3d2293d7bd8e1a7ee3fee9aab377554fe884c",
+      "bytes": 11201
+    },
+    {
       "path": "packages/cloud-deploy/test/cn-maintenance-acceptance-contract.test.ts",
       "sha256": "27eb8c01b9a982f9d143a273c7ac4154a6dc0ada444cfe289dfc29a735542e52",
       "bytes": 2290
@@ -707,10 +732,11 @@
   "newToolRevision": null,
   "ready": false,
   "remainingImplementation": [
-    "maintenance acceptance ordering/writer-lane design and implementation (startup rejects before mutation)",
-    "prehold common-snapshot/full-object/retained full-catalog proof collectors and independent validators remain incomplete",
-    "held diagnostic preactivate consumer: legacy bootstrap collector is rejected before invocation",
-    "NOLOGIN recovery: inert existing-session transaction/COPY primitive only; offline decoder/authorization/host wiring/fidelity still incomplete"
+    "production A-route adapter/current-epoch producer and candidate writer activation remain incomplete",
+    "backup identity exact effective readonly/RLS privileges require user decision and fresh exact grant/revoke plan",
+    "existing Serverless protected exception compatibility consumers remain unwired and fail closed",
+    "held diagnostic preactivate consumer remains incomplete",
+    "real current-epoch isolated restore and candidate core-flow acceptance are unexecuted"
   ],
   "remainingExecution": [
     "exact reviewed merged tool revision and fresh complete host/runtime inventory",

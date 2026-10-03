@@ -55,16 +55,20 @@ resume-intent 前，只有当前备份覆盖全部修改面且持续停写被证
 
 完整 capture JSON 字节 SHA 与 canonical catalog facts SHA 分开绑定和验证，不能填同一个 digest 糊过运输/读回两侧。roles restore 只允许已封锁完整角色集合的 NOLOGIN 重申，不能执行原始 cluster role dump；其它角色属性/成员重建需求会在 capability 阶段拒绝，需具体审查和相应实现/批准。此修复保留封锁，不提供真实恢复完成或 common-epoch 证明。
 
-## 2026-10-03 17:21 UTC：已证实的 backup-read / TLS 批准点
+## 2026-10-03：已证实的 backup-read 权限与运输兼容缺口
 
 只读生产证据见 `cn-release-existing-backup-capability.json`。ECS invocation `t-sh06yy17t0nu134` / command `c-sh06yy17t08un0g`，三库 READ ONLY/ROLLBACK，Success / exit 0 / Dropped 0。RDS DescribeAccounts 返回七个现有账号；唯一现有诊断身份 app_diag_ro 无特权继承、无 BYPASSRLS。实际主库 SELECT 缺 237/238 表、12 个序列，有 212 张 RLS 表；agent 缺 7/7 表、1 个序列；memory 缺 2/2 表。不能用该身份完整 pg_dump。现有系统所有非 diagnostic LOGIN 身份仍属于全 writer 封锁集合；不得把 migration_admin 临时 LOGIN 当作 backup-read。
 
-三库实际会话 TLS=false，DescribeDBInstanceSSL 返回 SSLEnabled=off（RequestId `01A102CA-EE14-5174-8411-5538A9EA42C8`）。现有 retained/session 门要求实际 TLS=true；已有应用 TLS exception 不等于批准放宽恢复门。
+三库实际会话 TLS=false，DescribeDBInstanceSSL 返回 SSLEnabled=off（RequestId `01A102CA-EE14-5174-8411-5538A9EA42C8`）。实际 provider 属性为 Serverless，官方不支持 SSL；实际生产配置含既有私网例外。现有 retained/session 的 TLS=true 常量是源码兼容缺口，必须复用 authoritative provider/配置/socket 验证接线，不能直接放宽恢复门。
 
 待人类决定的精确权限范围（以下均未执行）：
 
 - 若批准新增专用 `wsx_release_backup_ro`：仅目标 RDS pgm-uf6rg214cp381l49 及三库；不得扩 app_diag_ro。角色无 superuser/createRole/createDb/replication，无 membership/SET ROLE 路径；完整 RLS 归档需要明确批准 BYPASSRLS。仅授 CONNECT、实际用户 schema USAGE、实际表/序列 SELECT；无 INSERT/UPDATE/DELETE/TRUNCATE/TRIGGER/REFERENCES、sequence USAGE/UPDATE、schema/database CREATE/TEMP 或 SECURITY DEFINER EXECUTE；不授默认未来对象权限。新凭据仅进入 root 私有备份输入，不进入应用配置。执行前先列 fresh schema/对象授权集合和所有 PUBLIC 继承有效写权限，若无法证明只读就拒绝。临时 LOGIN 的开始/结束、固定 pg_dump 进程/网络/TLS、连接归属与清理必须进入本次封存授权及持锁观察，不能凭账号名字排除 writer。
-- 若批准修复本次恢复通道 TLS：目标仅该既有 RDS，先核 provider SSL 切换影响、证书/域名验证及当前客户端支持，提交 exact provider 操作和配置差异再执行；不以本条批量授权开启 SSL、改应用或重启。应用稳定配置与已有例外不得悄悄修改。
+- 本实例不支持 SSL，不请求或执行开启 SSL、实例转换、应用配置更改或重启。运输兼容修复仅属源码工作，普通 TLS 实例的 verify-full 校验保持；本 Serverless 必须绑定已有配置与 provider/socket 证据。
 - 实际恢复/隔离验收目标仍须是已经存在且明确批准的非生产三库和对象范围；本证据不批准购买/创建目标。没有目标时不运行真实恢复、备份数据搬运或测试写入。
 
 这些是已证实的能力/权限决策，不是新增自动化功能。producer 必须等明确选择才可绑定安全身份；candidate writer 源码仍可独立推进，但生产入口不因这份文档变 READY。A 的执行次序及失败保全继续使用 c6c8985d 的状态机。
+
+## TLS 判断更正与收窄的批准包
+
+后续实际 DescribeDBInstanceAttribute 确认该实例为 Serverless，官方 SSL 文档明确不支持；17:44:02 UTC 生产配置也确认既有 serverless-no-tls 例外及仅 192.168.100.40/32 源地址。此前“需批准修复 TLS”的判断已撤回，禁止对该实例发 ModifyDBInstanceSSL。应修复恢复消费者复用既有 authoritative 例外/私网验证的接线，不能放入一个泛化 insecure flag。当前唯一新增安全决策为受控、限时、三库完整读取的专用 backup 角色；精确边界、撤销和证据见 cn-release-9b25-read-access-approval.md。候选 writer 与 A 生产闭包尚未完成。
