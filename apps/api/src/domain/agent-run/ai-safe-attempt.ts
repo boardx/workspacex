@@ -12,6 +12,7 @@ export interface VerifiedAiBinding {
 export interface VerifiedInputBound {
  readonly modelProvider:string;readonly runtimeModelId:string;
  readonly tokens:number;readonly implementation:string;readonly version:string;
+ readonly serializedBodySha256?:string;
  readonly source:"provider-count"|"verified-tokenizer"|"verified-upper-bound";
 }
 type Decision="allowed"|"AI_POLICY_UNCONFIGURED"|"AI_CONFIDENTIALITY_UNKNOWN"|"AI_ATTEMPTS_EXHAUSTED"

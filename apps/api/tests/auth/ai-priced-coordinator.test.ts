@@ -1,3 +1,4 @@
+import {createHash} from "node:crypto";
 import {describe,it,expect,vi} from "vitest";
 import {executePricedModelCall} from "../../src/application/agent-run/execute-priced-model-call";
 import {ModelCallError,type ModelCallInput,type ModelCallPort} from "../../src/application/agent-run/ports";
@@ -19,7 +20,7 @@ const fixture=()=>{
  };
  const model:ModelCallPort={supportsRequestAccounting:()=>true,supportsDispatchAdmission:()=>true,complete};
  const currentCandidates=vi.fn().mockResolvedValue({pool:prices.map(p=>({modelId:p.modelId,kind:"closed-api",shape:"single",status:"已启用",complianceAttrs:[],members:[],contextWindow:100,capabilityTags:[]})),bindings:prices.map(p=>({...p,contextWindow:100,capabilityTags:[],outputCapSupported:true,billedOutputBoundVerified:true,accountingComplete:true}))});
- const measure=vi.fn(async(request:{modelProvider:string;modelId:string})=>({modelProvider:request.modelProvider,runtimeModelId:request.modelId,tokens:1,implementation:"fixture",version:"1",source:"provider-count" as const}));
+ const measure=vi.fn(async(request:{modelProvider:string;modelId:string;serializedBody:string})=>({modelProvider:request.modelProvider,runtimeModelId:request.modelId,tokens:1,implementation:"fixture",version:"1",serializedBodySha256:createHash("sha256").update(request.serializedBody).digest("hex"),source:"provider-count" as const}));
  const subject={orgId:toOrgId("org-coordinator"),userId:"u",runId:"r",executionAttemptId:"a",logicalCallId:"stable-logical-call",projectId:null,threadId:null,agentId:null,callPurpose:"primary" as const,primaryModelId:"primary",confidentiality:"non-confidential" as const,requiredCapabilities:[]};
  return {subject,deps:{model,policy,admission,usage,currentCandidates,measure},calls,setError:(value:unknown)=>{error=value;}};
 };
@@ -59,6 +60,16 @@ describe("one bounded authorized logical model call",()=>{
   await expect(executePricedModelCall(denied.subject,{system:"s",user:"u"},denied.deps)).rejects.toThrow("TOKEN_LIMIT_REACHED");expect(denied.calls).toEqual([]);
   const unknown=fixture();await expect(executePricedModelCall({...unknown.subject,confidentiality:"unknown"},{system:"s",user:"u"},unknown.deps)).rejects.toThrow("AI_CONFIDENTIALITY_UNKNOWN");expect(unknown.calls).toEqual([]);
   const cancelled=fixture();const abort=new AbortController();abort.abort();await expect(executePricedModelCall(cancelled.subject,{system:"s",user:"u",signal:abort.signal},cancelled.deps)).rejects.toThrow("AI_CALL_CANCELLED");expect(cancelled.calls).toEqual([]);expect(cancelled.deps.policy.resolveBudgetPolicy).not.toHaveBeenCalled();
+ });
+ it("preserves progress events and never retries after observed progress",async()=>{
+  const base=fixture();const progress=vi.fn(async()=>{});
+  base.deps.model.completeWithProgress=async(input,onProgress)=>{
+   await onProgress({kind:"fixture-progress"} as never);
+   throw new ModelCallError("MODEL_CALL_FAILED","HTTP 503",undefined,"temporarily-unavailable");
+  };
+  await expect(executePricedModelCall(base.subject,{system:"s",user:"u"},base.deps,undefined,progress)).rejects.toBeInstanceOf(ModelCallError);
+  expect(progress).toHaveBeenCalledOnce();expect(base.deps.policy.resolveBudgetPolicy).toHaveBeenCalledTimes(2);
+  expect(base.deps.admission.reserve).not.toHaveBeenCalled();
  });
  it("does not fallback after streamed output or cancellation during a failed attempt",async()=>{
   const streaming=fixture();streaming.deps.model.completeStream=async(input,onDelta)=>{await onDelta("paid partial");throw new ModelCallError("MODEL_CALL_FAILED","HTTP 503",undefined,"temporarily-unavailable");};

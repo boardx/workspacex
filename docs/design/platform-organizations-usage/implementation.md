@@ -40,28 +40,21 @@ Org admin sees only own org; ordinary member only self. Platform operator catalo
 6. **Same-ledger analytics.** Org and individual APIs share predicate/window snapshot; filter provider+model/member/project; summaries equal details including unattributed/unknown rows. Use half-open absolute windows and explicit IANA timezone for display buckets. Comparison is the preceding equal-length window, not an unexplained percentage. Late corrections and quality coverage are consistent. User/org/admin/platform permission-negative tests. Screenshots verify actual endpoints and distinguish fixtures from live evidence.
 7. **Full verification and review.** Test real DB append-only/RLS, receipt replay, concurrent reservation, crash/outbox recovery, stream cancel/missing usage, billed failure/retry, compatible and denied fallback, permission negatives. Assert provider inventory coverage rather than only grep counts. Normal hooks/CI and independent security review; no claim of completed feature until these gates and complete UI evidence pass. One final draft PR remains with the unique issue until scope is complete.
 
-## Provider coverage inventory (not yet complete)
+## Current provider coverage and evidence
 
-| Path | Actual source boundary | Current change |
-|---|---|---|
-| Primary Chat / digital-agent gateway | `configured-model-provider.ts`, `deep-agent-model-provider.ts`, `deep-research-model-provider.ts` through `invoke-kernel.ts` | Envelope receipts; control return now counted; provider HTTP/preflight/internal request distinction remains |
-| History compaction | `execute-run.ts` L2 `deps.model.complete` | Separate receipt now added; direct executor compaction unit test |
-| Skill script regeneration | `execute-run.ts` regenerate callback | Separate receipt now added; helper tests, actual sandbox regeneration integration not run |
-| Python root/task classification/child agents/Skills/workflows | `deep_agent_service/model.py`, graph/harness and native tools | Not instrumented per real request; aggregate gateway receipt must not be claimed sufficient |
-| Digital interview and guided research | `infrastructure/interview/workflow/digital-interview-model-config.ts`, `research` workflows | Not newly instrumented or policy-enforced |
-| Embedding / rerank / KG | `retrieval/langchain-embedding-client.ts`, `langchain-rerank-client.ts`, KG embedding/extraction clients | Missing uniform initiating-user/service attribution and per-request ledger bridge |
-| Background title/followup/feedback/error summary | model config factories under chat/feedback/logging | Missing common request admission/accounting; service identity must be explicit |
-| Vision / images | `bailian-vision-extractor.ts`, `bailian-image-provider.ts`, `openai-image-provider.ts`, standard-image-service | Native units and any provider-reported tokens need separate dimensions |
-| Audio transcription / speech | `configured-realtime-asr-provider.ts`, audio-asr/standard audio providers and Python tools | Native seconds/channels remain native; no fabricated conversion |
-| Trial-run / local model | skill trial-run and `identity/http-local-model-runtime.ts` | Existing trial path intentionally optional usage; full requirement needs deliberate admission/attribution change |
+`coverage.json` is the current machine-checked source inventory. The dated checkpoint sections below record earlier milestones and must not override that matrix. Coverage validation checks required route IDs, source/test existence and disabled production enforcement; it does not certify every vendor or deployed runtime.
 
-Provider cache/reasoning token details are usually subsets of input/output, not extra totals. Preserve raw numeric details with explicit units and provenance; never add them again to total. Unknown reports mean coverage missing, not zero spend. Estimate only with an identified estimator/version and never relabel it reported. Token usage is not monetary cost or member performance.
+The actual claimed executor's Configured HTTP primary call, history summary and script regeneration now enter the sole priced coordinator through injected `RunAiAdmission`. Tests exercise executor → lease/profile wrapper → coordinator → HTTP, with fake policy/pool/count implementations. Production kernel DI does not yet inject admission. The trusted registration API checks deployment revocation, actual adapter accounting/admission capabilities and the SHA256 of the exact final serialized request body. No concrete vendor tokenizer or deployment certification is supplied. Progress and deltas are preserved; emitted progress forbids fallback. Native billing quantities retain exact image/pixel/time/character/request units in the domain; persistence and actual adapter hooks remain unfinished.
 
-## Current evidence and blocking gates
+This batch passed 138 light API tests and API typecheck. Independent review passed 17 focused tests and found no blocking defect in this batch. The reviewer did not run actual HTTP/PG/vendor/deployed graph tests. The preceding pushed head `97f2f9308a86883a881e01c7fbc68d305b0f70d4` passed remote backend-gates, deep-agent-tests, Board and native acceptance, plus harness verify-affected. Harness control-plane remains failed; no gate was bypassed. Earlier real PG suites exercised catalog/policy and admission locks/replay/RLS/append-only behavior. New executor composition still needs its own remote acceptance.
 
-API focused tests use no DB, Docker or real provider; mock SQL parameter tests are not PostgreSQL evidence. Additive migration was authored, never applied. No production organization plan/limit changed. UI was not changed and no UI screenshot exists. Real migration, RLS/replay/concurrency, Python/HTTP attempt integration and durable delivery remain unverified. `pnpm harness readiness` succeeded and showed unrelated CLR queue; user direct assignment is the reason for this ad hoc queue exception. No coordinator identity/credential was provided, so no fabricated registry identity or lease/loop has been created.
+Catalog, policy and usage UI source uses live APIs. Authentic operator screenshots are absent: CUA browser inventory failed to load its request-header policy. Do not present fixture tests or pre-existing runtime smoke screenshots as proof of this new operator UI. No local DB, Docker, heavy build, production SQL, plan/limit update, deployment or merge was performed.
 
-Existing shared hooks are preserved. Independent review found pre-dispatch metering and paused-envelope misclassification; both were corrected and regression tests added. Full feature cannot be declared complete from this foundation. The current practical gate is an approved isolated CI/runtime verification environment for DB and providers; local release resources are deliberately untouched.
+Remaining source work includes production composition with authoritative task facts and concrete verified registrations; Python/child per-HTTP admission with durable price ownership; interview/research/background/embedding/trial bridges; native storage/analytics/pricing and real hooks; pre-save crash repair. Configuration decisions block production enable, not this continuing source work. Enterprise exempts product token limits only, while accounting and finite monetary/safety protection persist.
+
+## Historical implementation checkpoints
+
+The following sections retain earlier chronological evidence; use `coverage.json` and the current evidence above for present completion status.
 
 ## Catalog source milestone
 

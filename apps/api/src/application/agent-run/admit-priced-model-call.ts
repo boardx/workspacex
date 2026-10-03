@@ -1,3 +1,4 @@
+import {createHash} from "node:crypto";
 import type {OrgId} from "../../domain/org-id";
 import {prepareAiAttempt,type AiPoolCandidate,type VerifiedAiBinding,type VerifiedInputBound} from "../../domain/agent-run/ai-safe-attempt";
 import {priceAiTokens} from "../../domain/agent-run/ai-budget";
@@ -38,9 +39,11 @@ export async function preparePricedModelCall(subject:AiPricedCallSubject,deps:{
     ||request.outputTokenLimit===undefined||request.outputTokenLimit>price.maxOutputTokens)throw new Error("AI_DISPATCH_BINDING_MISMATCH");
    if(prepared.has(request.requestId))throw new Error("AI_REQUEST_REPLAY_NO_DISPATCH");
    const current=await deps.currentCandidates();
+   const measuredInput=await deps.measure(request);
+   if(measuredInput?.serializedBodySha256!==createHash("sha256").update(request.serializedBody).digest("hex"))throw new Error("AI_INPUT_BODY_BOUND_UNVERIFIED");
    const decision=prepareAiAttempt({configuration,priceVersion:budget.priceVersion,primaryModelId:subject.primaryModelId,
     attempt:subject.attempt,confidentiality:subject.confidentiality,requiredCapabilities:subject.requiredCapabilities,
-    ...current,measuredInput:await deps.measure(request)});
+    ...current,measuredInput});
    if(decision.decision!=="allowed")throw new Error(decision.decision);
    const reservation=await deps.admission.reserve(subject.orgId,{requestId:request.requestId,userId:subject.userId,
     windowStart:configuration.window.start,windowEnd:configuration.window.end,logicalCallId:subject.logicalCallId,logicalAttempt:subject.attempt,maximumAttempts:configuration.maxAttempts,maximumTokens:decision.maximumTokens,

@@ -1,4 +1,4 @@
-import {ModelCallError,type ModelCallInput,type ModelCallCompletion,type ModelCallPort,type ModelDeltaMetadata} from "./ports";
+import {ModelCallError,type ModelCallInput,type ModelCallCompletion,type ModelCallPort,type ModelDeltaMetadata,type ModelCallProgressEvent} from "./ports";
 import {preparePricedModelCall,type AiPricedCallSubject,type AiPricedCallDependencies} from "./admit-priced-model-call";
 
 export interface AiModelSelection {
@@ -14,8 +14,9 @@ export interface AiPricedCompletion extends ModelCallCompletion {readonly aiSele
 export async function executePricedModelCall(
  subject:Omit<AiPricedCallSubject,"attempt">,
  input:Omit<ModelCallInput,"modelProvider"|"modelId"|"outputTokenLimit"|"beforeProviderDispatch"|"onProviderRequest">,
- deps:AiPricedCallDependencies&{readonly model:ModelCallPort;readonly onModelSelection?:(selection:AiModelSelection)=>Promise<void>},
+ deps:AiPricedCallDependencies&{readonly model:ModelCallPort;readonly onModelSelection?:(selection:AiModelSelection)=>Promise<void>;readonly verifyDispatch?:()=>Promise<void>},
  onDelta?:(delta:string,metadata?:ModelDeltaMetadata)=>Promise<void>,
+ onProgress?:(event:ModelCallProgressEvent)=>Promise<void>,
 ):Promise<AiPricedCompletion>{
  const cancelled=()=>{if(input.signal?.aborted)throw new Error("AI_CALL_CANCELLED");};
  cancelled();
@@ -31,10 +32,16 @@ export async function executePricedModelCall(
   await deps.onModelSelection?.(selection);
   let accountingFailed=false,emitted=false;
   const bound:ModelCallInput={...input,...prepared,
-   beforeProviderDispatch:async request=>{cancelled();await prepared.beforeProviderDispatch!(request);cancelled();},
-   onProviderRequest:async event=>{try{await prepared.onProviderRequest!(event);}catch(error){accountingFailed=true;throw error;}},
+   beforeProviderDispatch:async request=>{cancelled();await deps.verifyDispatch?.();await prepared.beforeProviderDispatch!(request);cancelled();await deps.verifyDispatch?.();},
+   onProviderRequest:async event=>{try{await prepared.onProviderRequest!(event);if(event.phase==="started"){cancelled();await deps.verifyDispatch?.();}}catch(error){accountingFailed=true;throw error;}},
   };
   try{
+   if(onProgress){
+    if(!deps.model.completeWithProgress)throw new Error("AI_PROGRESS_ADAPTER_UNAVAILABLE");
+    const completion=await deps.model.completeWithProgress(bound,async event=>{emitted=true;await onProgress(event);},
+     onDelta?async(delta,metadata)=>{emitted=true;await onDelta(delta,metadata);}:undefined);
+    return {...completion,aiSelection:selection};
+   }
    if(onDelta&&deps.model.completeStream){
     const completion=await deps.model.completeStream(bound,async(delta,metadata)=>{emitted=true;await onDelta(delta,metadata);});
     return {...completion,aiSelection:selection};

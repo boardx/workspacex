@@ -1,3 +1,4 @@
+import type {RunAiAdmission} from "./priced-run-model";
 import { assertFrozenAgentSkillScope } from "./frozen-agent-skill-scope";
 import { requesterMemoryHistory } from "./requester-memory-context";
 import { turnKnowledgeContext, type TurnKnowledgeDeps } from "../knowledge-graph/recall-knowledge";
@@ -288,11 +289,9 @@ export interface ExecuteAgentRunDeps extends TurnKnowledgeDeps {
   readonly artifactContinuations?: ArtifactContinuationReader;
   readonly runs: AgentRunStore;
   readonly model: ModelCallPort;
-  /**
-   * F159 计量。**可选**：只有真正产生计费事实的执行路径接它（`trial-run-agent` 一类
-   * 不接，试跑不算进任何人的月度额度）。写失败不 fail run，理由见 `meter()` 的注释。
-   */
+  /** Legacy metering; enforced admission owns only actual dispatch receipts. */
   readonly usage?: TokenUsageMeterPort;
+  readonly aiAdmission?:RunAiAdmission;
   readonly clock: AgentRunClock;
   /**
    * F155 L3 —— 文件式检索（design delta `context-engine-l3-file-based`，人类 2026-08-14 签核）。
