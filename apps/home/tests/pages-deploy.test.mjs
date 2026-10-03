@@ -62,7 +62,8 @@ test('packaging rejects a real dirty tracked home source from its nested working
     const git = args => execFileSync('git', args, { cwd: repo, stdio: 'pipe' });
     git(['init']); git(['add', 'apps/home']); git(['-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.invalid', 'commit', '-m', 'fixture']);
     writeFileSync(index, readFileSync(index, 'utf8') + '\nDirty tracked edit');
-    const result = spawnSync(process.execPath, [script, join(repo, 'package')], { cwd: home, encoding: 'utf8' });
+    const fixtureSha = git(['rev-parse', 'HEAD']).toString().trim();
+    const result = spawnSync(process.execPath, [script, join(repo, 'package')], { cwd: home, encoding: 'utf8', env: { ...process.env, GITHUB_SHA: fixtureSha } });
     assert.notEqual(result.status, 0); assert.match(result.stderr, /tracked home sources are dirty/);
   } finally { rmSync(repo, { recursive: true, force: true }); }
 });
