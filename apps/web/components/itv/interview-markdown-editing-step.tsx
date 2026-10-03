@@ -4,6 +4,7 @@ import { interviewMarkdown } from "@repo/contracts";
 import { loadDigitalExperts, type DigitalExpertCatalogRow } from "@/lib/interview-api";
 import { initializeInterviewMarkdown, loadInterviewMarkdown, saveInterviewMarkdown, confirmInterviewMarkdown, generateInterviewMarkdown, previewVirtualExpertMarkdown,
   type InterviewMarkdownEnvelope, type InterviewMarkdownDocument } from "@/lib/interview-markdown-api";
+import { getInterviewGenerationSession, subscribeInterviewGeneration, runInterviewGeneration } from "@/lib/interview-generation-session";
 import { ApiError } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import { InterviewExpertsStep } from "./interview-experts-step";
@@ -20,6 +21,7 @@ export function InterviewMarkdownEditingStep({ interviewId, step, onVersionChang
   onDirtyChange: (dirty: boolean) => void; onContinue: (step: "experts" | "outline" | "runs") => void;
   onRunningStepChange?: (step: string | null) => void;
 }) {
+  const session = React.useSyncExternalStore(subscribeInterviewGeneration, () => getInterviewGenerationSession(interviewId), () => null);
   const [source, setSource] = React.useState<InterviewMarkdownEnvelope | null>(null);
   const [markdown, setMarkdown] = React.useState("");
   const [directory, setDirectory] = React.useState<readonly DigitalExpertCatalogRow[]>([]);
@@ -79,7 +81,8 @@ export function InterviewMarkdownEditingStep({ interviewId, step, onVersionChang
   }
   async function generateStep(targetStep: "experts" | "outline", current?: InterviewMarkdownEnvelope) {
     const latest = current ?? source ?? await loadInterviewMarkdown(interviewId);
-    const next = receive(await generateInterviewMarkdown(interviewId, targetStep, { expectedVersion: latest.version, expectedDocumentVersion: latest.documents.find((doc) => doc.step === targetStep)?.version ?? 0 }));
+    const operation = () => generateInterviewMarkdown(interviewId, targetStep, { expectedVersion: latest.version, expectedDocumentVersion: latest.documents.find((doc) => doc.step === targetStep)?.version ?? 0 });
+    const next = receive(await (targetStep === "outline" ? runInterviewGeneration(interviewId, "outline", operation) : operation()));
     if (targetStep === step) {
       setMarkdown(next.documents.find((doc) => doc.step === targetStep)?.markdown ?? "");
       dirty.current = false; callbacks.current.onDirtyChange(false);
@@ -95,15 +98,28 @@ export function InterviewMarkdownEditingStep({ interviewId, step, onVersionChang
       const outline = confirmed.documents.find((item) => item.step === "outline");
       const hasExpertQuestions = outline ? interviewMarkdown.parseInterviewMarkdown(outline).blocks.some((block) =>
         block.links.some((link) => /^#expert-[^\s#]+$/u.test(link.url))) : false;
+      callbacks.current.onContinue("outline");
       if (!hasExpertQuestions) await generateStep("outline", confirmed);
+      return;
     }
-    callbacks.current.onContinue(step === "experts" ? "outline" : "runs");
+    callbacks.current.onContinue("runs");
   }
   const saved = source?.documents.find((doc) => doc.step === step);
   const savedStatus = source?.states.find((item) => item.documentId === saved?.documentId)?.status;
   const immutable = savedStatus === "confirmed" || savedStatus === "completed";
   const document: InterviewMarkdownDocument = { ...(saved ?? { documentId: `unsaved-${step}`, step, version: 1, contentHash: "0".repeat(64), evidenceMode: "simulated" as const, references: [] }), markdown };
-  const props = { document, pending: pending || immutable,
+  React.useEffect(() => {
+    if (step !== "outline" || session?.step !== "outline") return;
+    if (session.status === "running") { setPending(true); setGenerating(true); }
+    else {
+      setPending(false); setGenerating(false);
+      if (session.source) { receive(session.source); setMarkdown(session.source.documents.find(doc => doc.step === "outline")?.markdown ?? ""); }
+      if (session.status === "failed") { setError(generationUnavailableMessage("outline")); setRetryGenerationStep("outline"); }
+    }
+  // Session changes, rather than render closures, deliver the in-flight request across routes.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session, step]);
+  const props = { document, pending: pending || immutable || (session?.step === step && session.status === "running"),
     avatarContext: source?.revisionId ? { interviewId, revisionId: source.revisionId } : undefined,
     savedExpertIds: saved ? interviewMarkdown.projectInterviewMarkdownExperts(saved).map((expert) => expert.expertId) : [],
     onChange: (text: string) => { setMarkdown(text); dirty.current = true; callbacks.current.onDirtyChange(true); },

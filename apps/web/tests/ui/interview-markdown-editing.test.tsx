@@ -400,3 +400,24 @@ it("persisted add refreshes the source and enables avatar editing without confir
   await waitFor(() => expect(screen.getByRole("button", { name: "编辑专家 林知远（虚拟）" })).toBeEnabled());
   expect(mutations[0]).toContain("/markdown/experts");
 });
+
+it("navigates to questions before their delayed model response finishes", async () => {
+  vi.stubEnv("NEXT_PUBLIC_API_URL", "http://localhost:4100"); vi.stubEnv("NEXT_PUBLIC_API_PATH_PREFIX", "");
+  const expert = { ...source, markdown: "## [护理专家](#expert-nurse)\n\n专业角色：护理" };
+  const current = { interviewId: "itv-immediate", revisionId: "rev-immediate", version: 1, documents: [expert], states: [{ documentId: expert.documentId, status: "draft", failure: null }] };
+  let finish!: (response: Response) => void;
+  let requested = false;
+  vi.stubGlobal("fetch", async (url: string) => {
+    if (url.endsWith("/digital/experts")) return new Response(JSON.stringify({ items: [] }));
+    if (url.endsWith("/experts/confirm")) return new Response(JSON.stringify({ ...current, version: 2, states: [{ documentId: expert.documentId, status: "confirmed", failure: null }] }));
+    if (url.endsWith("/outline/generate")) { requested = true; return new Promise<Response>(resolve => { finish = resolve; }); }
+    return new Response(JSON.stringify(current));
+  });
+  const onContinue = vi.fn();
+  render(<InterviewMarkdownEditingStep interviewId="itv-immediate" step="experts" onVersionChange={vi.fn()} onDirtyChange={vi.fn()} onContinue={onContinue} />);
+  await vi.waitFor(() => expect(screen.getByRole("button", { name: "确认专家并生成问题" })).toBeEnabled());
+  fireEvent.click(screen.getByRole("button", { name: "确认专家并生成问题" }));
+  await vi.waitFor(() => expect(requested).toBe(true));
+  expect(onContinue).toHaveBeenCalledWith("outline");
+  finish(new Response(JSON.stringify({ ...current, version: 3 })));
+});

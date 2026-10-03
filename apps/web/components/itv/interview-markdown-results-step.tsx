@@ -57,6 +57,14 @@ export function InterviewMarkdownResultsStep({ interviewId, step, runs, legacySe
       if (action !== "pause") { dispatching.current = false; if (mounted.current) setPending(false); }
     }
   }, [interviewId, receive]);
+  const autoStartedRevision = React.useRef<string | null>(null);
+  React.useEffect(() => {
+    if (step !== "runs" || !source || source.execution || pending || error || autoStartedRevision.current === source.revisionId) return;
+    const outline = source.documents.find(doc => doc.step === "outline");
+    if (!outline?.markdown.trim() || !source.states.some(state => state.documentId === outline.documentId && ["confirmed", "completed"].includes(state.status))) return;
+    autoStartedRevision.current = source.revisionId;
+    void execute("start");
+  }, [source, step, pending, error, execute]);
   React.useEffect(() => { onBusyChange?.(pending); }, [pending, onBusyChange]);
   React.useEffect(() => { onRunningStepChange?.(generatingReport ? "report" : pending ? step : source?.execution?.status === "running" ? "runs" : null); }, [pending, generatingReport, source?.execution?.status, step, onRunningStepChange]);
   React.useEffect(() => () => onRunningStepChange?.(null), [onRunningStepChange]);
@@ -118,10 +126,10 @@ export function InterviewMarkdownResultsStep({ interviewId, step, runs, legacySe
     {error && <div role="alert" className="mb-4 rounded-lg border border-destructive/20 p-4 text-sm text-destructive"><p>{error}</p><Button variant="outline" className="mt-3" disabled={pending} onClick={() => void loadInterviewMarkdown(interviewId).then((next) => { receive(next); setError(""); }).catch(() => setError("载入失败，请稍后重试。"))}>重新载入状态</Button></div>}
     {state?.status === "failed" && <p role="alert" className="mb-4 text-sm text-destructive">本次生成未完成，以下为已保存内容，不代表完整报告。</p>}
     {step === "runs" ? <InterviewRunsStep runs={sourceRuns} taskProgress={Boolean(execution)} document={document} pending={pending} onGenerateReport={() => void generateReport()} actions={<>
-      {!execution && <Button disabled={pending || !source} onClick={() => void execute("start")}>开始模拟访谈</Button>}
+      {!execution && <Button variant="primary" disabled={pending || !source} onClick={() => void execute("start")}>开始模拟访谈</Button>}
       {execution?.status === "running" && <Button variant="outline" onClick={() => void execute("pause")}>暂停后续访谈</Button>}
-      {execution?.status === "paused" && <Button disabled={pending} onClick={() => void execute("resume")}>继续访谈</Button>}
-      {execution?.status === "failed" && <Button disabled={pending} onClick={() => void execute("retry")}>重试未完成专家</Button>}
+      {execution?.status === "paused" && <Button variant="primary" disabled={pending} onClick={() => void execute("resume")}>继续访谈</Button>}
+      {execution?.status === "failed" && <Button variant="primary" disabled={pending} onClick={() => void execute("retry")}>重试未完成专家</Button>}
     </>} /> : document ? <InterviewReportStep actions={reportRetry} document={document} expertsDocument={experts} execution={execution} legacySelectedExpertIds={legacySelectedExpertIds} legacyRuns={runs} reportStatus={state?.status} shareUrl={`/itv/${encodeURIComponent(interviewId)}/report?documentId=${encodeURIComponent(document.documentId)}&version=${document.version}`} /> : <><InterviewStepHeader title="研究报告">{reportRetry}</InterviewStepHeader><p className="text-sm text-muted-foreground">暂无已保存的报告 Markdown，请先完成访谈。</p></>}
     {step === "report" && source && document && <InterviewSourceReportReview source={source} onSaved={receive} />}
   </div>;

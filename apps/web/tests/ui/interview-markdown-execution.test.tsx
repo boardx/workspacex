@@ -100,3 +100,13 @@ it("a generated report resolving after unmount cannot navigate or publish a vers
   expect(report).not.toHaveBeenCalled();
   expect(version).toHaveBeenCalledTimes(notifications);
 });
+
+it("automatically starts confirmed questions without a second start click", async () => {
+  const outline = { documentId: "outline-auto", step: "outline" as const, version: 1, contentHash: "a".repeat(64), evidenceMode: "simulated" as const, references: [], markdown: "## [护理专家](#expert-nurse-7)\n\n1. 最近一次发生了什么？" };
+  api.initializeInterviewMarkdown.mockResolvedValue({ ...source, interviewId: "itv-auto", documents: [outline], states: [{ documentId: outline.documentId, status: "confirmed", failure: null }] });
+  api.loadInterviewMarkdown.mockResolvedValue({ ...source, interviewId: "itv-auto", version: 9 });
+  api.executeInterviewMarkdown.mockResolvedValue({ ...active, interviewId: "itv-auto", execution: { ...active.execution!, status: "paused" } });
+  render(<InterviewMarkdownResultsStep interviewId="itv-auto" step="runs" runs={[]} onVersionChange={vi.fn()} onReport={vi.fn()} />);
+  await waitFor(() => expect(api.executeInterviewMarkdown).toHaveBeenCalledWith("itv-auto", { expectedVersion: 9, action: "start" }));
+  expect(api.executeInterviewMarkdown).toHaveBeenCalledTimes(1);
+});
