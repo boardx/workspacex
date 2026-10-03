@@ -12,9 +12,12 @@ export const Query=z.object({start:Timestamp,end:Timestamp,timezone:Zone,asOf:Ti
  .refine(q=>Boolean(q.cursorTime)===Boolean(q.cursorId),"Both cursor fields are required")
  .refine(q=>!(q.projectId&&q.unassignedProject==="true"),"Project filters conflict");
 export const Totals=z.object({inputTokens:Tokens,outputTokens:Tokens,totalTokens:Tokens,callCount:Count,failedCalls:Count,
- reportedCalls:Count,legacyCalls:Count,unknownCalls:Count,unknownInputCalls:Count,unknownOutputCalls:Count}).strict();
+ reportedCalls:Count,legacyCalls:Count,unknownCalls:Count,unknownInputCalls:Count,unknownOutputCalls:Count,nativeCalls:Count.default(0)}).strict();
+export const NATIVE_UNITS=["image","pixel","millisecond","microsecond","character","request"] as const;
+export const NativeUsage=z.object({unit:z.enum(NATIVE_UNITS),quantity:Tokens.nullable(),source:z.enum(["reported","estimated","unknown"])}).strict();
 export const Summary=z.object({asOf:Timestamp,start:Timestamp,end:Timestamp,timezone:Zone,coverage:z.literal("partial"),
  current:Totals,previous:Totals,
+ nativeUnits:z.array(z.object({unit:NativeUsage.shape.unit,reportedQuantity:Tokens,estimatedQuantity:Tokens,reportedCalls:Count,estimatedCalls:Count,unknownCalls:Count}).strict()).default([]),
  dispatchIntents:Count,unsettledDispatchIntents:Count,
  truncated:z.object({members:z.boolean(),models:z.boolean(),matrix:z.boolean(),projects:z.boolean()}).strict(),
  trend:z.array(z.object({day:z.string(),totalTokens:Tokens,callCount:Count}).strict()),
@@ -28,7 +31,7 @@ export const Call=z.object({id:z.string(),subtaskId:z.string().nullable().defaul
  occurredAt:Timestamp,startedAt:Timestamp.nullable(),endedAt:Timestamp.nullable(),executionAttemptId:z.string().nullable(),
  totalTokens:Tokens,inputTokens:Tokens.nullable(),outputTokens:Tokens.nullable(),
  cacheInputTokens:Tokens.nullable().default(null),reasoningOutputTokens:Tokens.nullable().default(null),
- totalSource:z.enum(["reported","unknown","legacy"]),outcome:z.enum(["succeeded","failed"]),callPurpose:z.string().nullable(),
+ nativeUsage:NativeUsage.nullable().default(null),totalSource:z.enum(["reported","unknown","legacy","not-applicable"]),outcome:z.enum(["succeeded","failed"]),callPurpose:z.string().nullable(),
  costMicros:Tokens.nullable(),currency:z.string().nullable(),priceVersion:z.string().nullable(),
 }).strict();
 export const Calls=z.object({asOf:Timestamp,coverage:z.literal("partial"),calls:z.array(Call),

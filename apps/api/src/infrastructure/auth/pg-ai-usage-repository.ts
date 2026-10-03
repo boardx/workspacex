@@ -12,8 +12,8 @@ const stats=(relation:string)=>`(SELECT jsonb_build_object('inputTokens',COALESC
  'outputTokens',COALESCE(sum(tokens_completion),0)::text,'totalTokens',COALESCE(sum(tokens_total),0)::text,
  'callCount',count(*),'failedCalls',count(*) FILTER(WHERE outcome='failed'),
  'reportedCalls',count(*) FILTER(WHERE total_source='reported'),'legacyCalls',count(*) FILTER(WHERE total_source='legacy'),
- 'unknownCalls',count(*) FILTER(WHERE total_source='unknown'),'unknownInputCalls',count(*) FILTER(WHERE tokens_prompt IS NULL),
- 'unknownOutputCalls',count(*) FILTER(WHERE tokens_completion IS NULL)) FROM ${relation})`;
+ 'unknownCalls',count(*) FILTER(WHERE total_source='unknown'),'unknownInputCalls',count(*) FILTER(WHERE total_source<>'not-applicable' AND tokens_prompt IS NULL),
+ 'unknownOutputCalls',count(*) FILTER(WHERE total_source<>'not-applicable' AND tokens_completion IS NULL),'nativeCalls',count(*) FILTER(WHERE total_source='not-applicable')) FROM ${relation})`;
 /** Metadata-only same-ledger read; authorized scope is resolved before this repository. */
 export class PgAiUsageRepository implements AiUsageRepository {
  constructor(private readonly db:DatabasePort){}
@@ -37,6 +37,11 @@ export class PgAiUsageRepository implements AiUsageRepository {
    trend AS(SELECT (event_time AT TIME ZONE $14)::date AS day,COALESCE(sum(tokens_total),0) AS tokens,count(*) AS calls FROM period_current GROUP BY day)
    SELECT jsonb_build_object('dispatchIntents',(SELECT count(*) FROM model_request_starts WHERE ${scoped} AND started_at>=$10::timestamptz AND started_at<$11::timestamptz),
     'unsettledDispatchIntents',(SELECT count(*) FROM model_request_starts s WHERE ${scoped} AND started_at>=$10::timestamptz AND started_at<$11::timestamptz AND NOT EXISTS(SELECT 1 FROM token_usage_events e WHERE e.id=s.id AND e.org_id=s.org_id AND e.occurred_at<=$13::timestamptz)),
+    'nativeUnits',COALESCE((SELECT jsonb_agg(jsonb_build_object('unit',native_unit,'reportedQuantity',reported_quantity::text,'estimatedQuantity',estimated_quantity::text,'reportedCalls',reported_calls,'estimatedCalls',estimated_calls,'unknownCalls',unknown_calls) ORDER BY native_unit)
+     FROM(SELECT native_unit,COALESCE(sum(native_quantity) FILTER(WHERE native_source='reported'),0) AS reported_quantity,
+      COALESCE(sum(native_quantity) FILTER(WHERE native_source='estimated'),0) AS estimated_quantity,
+      count(*) FILTER(WHERE native_source='reported') AS reported_calls,count(*) FILTER(WHERE native_source='estimated') AS estimated_calls,
+      count(*) FILTER(WHERE native_source='unknown') AS unknown_calls FROM period_current WHERE native_unit IS NOT NULL GROUP BY native_unit) native),'[]'::jsonb),
     'current',${stats("period_current")},'previous',${stats("period_previous")},
     'trend',COALESCE((SELECT jsonb_agg(jsonb_build_object('day',day::text,'totalTokens',tokens::text,'callCount',calls) ORDER BY day) FROM trend),'[]'::jsonb),
     'members',COALESCE((SELECT jsonb_agg(jsonb_build_object('userId',user_id,'totalTokens',tokens::text,'callCount',calls) ORDER BY tokens DESC,user_id) FROM (SELECT * FROM members ORDER BY tokens DESC,user_id LIMIT 200) x),'[]'::jsonb),
@@ -56,6 +61,7 @@ export class PgAiUsageRepository implements AiUsageRepository {
    to_char(request_ended_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS "endedAt",execution_attempt_id AS "executionAttemptId",
    tokens_total::text AS "totalTokens",tokens_prompt::text AS "inputTokens",tokens_completion::text AS "outputTokens",
    tokens_cache_input::text AS "cacheInputTokens",tokens_reasoning_output::text AS "reasoningOutputTokens",
+   CASE WHEN native_unit IS NULL THEN NULL ELSE jsonb_build_object('unit',native_unit,'quantity',native_quantity::text,'source',native_source) END AS "nativeUsage",
    total_source AS "totalSource",outcome,call_purpose AS "callPurpose",cost_micros::text AS "costMicros",currency,price_version AS "priceVersion"
    FROM token_usage_events WHERE ${scoped} AND ${eventTime}>=$10::timestamptz AND ${eventTime}<$11::timestamptz
    AND $12::timestamptz IS NOT NULL AND $14::text IS NOT NULL

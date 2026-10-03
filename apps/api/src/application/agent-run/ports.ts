@@ -1525,7 +1525,9 @@ export interface TokenUsageRecord {
   readonly threadId?: string | null;
   readonly agentId?: string | null;
   /** Legacy records omit this; new writes explicitly distinguish missing total usage. */
-  readonly totalSource?: "reported" | "unknown";
+  readonly totalSource?: "reported" | "unknown" | "not-applicable";
+  /** Native dimensions never masquerade as reported zero tokens. */
+  readonly nativeUsage?:{readonly unit:import("../../domain/agent-run/ai-billable-unit").AiNativeUnit;readonly quantity:bigint|null;readonly source:"reported"|"estimated"|"unknown"};
   readonly callPurpose?: "primary" | "history-summary" | "script-retry";
   readonly userId: string;
   readonly runId: string | null;

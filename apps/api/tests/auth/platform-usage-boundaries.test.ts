@@ -19,8 +19,8 @@ describe("#5261 metadata exemption enforced premises",()=>{
   const repo=source("../../src/infrastructure/auth/pg-ai-admission-repository.ts");
   expect(repo).not.toContain("withoutTenant");expect(repo).not.toMatch(/return\s+(policy|used|held|receipt|row)\.rows/);
   expect(repo).not.toMatch(/\b(FROM|JOIN)\s+(artifacts|chat_messages|agent_run_steps|credentials)\b/i);
-  // Late receipt pricing is composed; the fourth runtime-admission argument remains absent.
-  expect(source("../../src/kernel.module.ts")).toContain("new PgRuntimeModelUsageRepository(db,usage,new PgAiAdmissionRepository(db))");
+  // Paid runtime options are composed only through the explicit default-off deployment gate.
+  expect(source("../../src/kernel.module.ts")).toContain("new PgRuntimeModelUsageRepository(db,usage,new PgAiAdmissionRepository(db),wiring?.runtime)");
  });
  it("platform routes remain guarded and audit writes have the platform tenant scope",()=>{
   expect(Reflect.getMetadata(GUARDS_METADATA,PlatformOrganizationController)).toContain(PlatformOperatorGuard);

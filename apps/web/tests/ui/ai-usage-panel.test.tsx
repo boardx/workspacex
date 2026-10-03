@@ -4,14 +4,14 @@ import {fireEvent,render,screen,waitFor} from "@testing-library/react";
 import {AiUsagePanel} from "../../components/admin/ai-usage-panel";
 import {readAiUsage,readAiUsageCalls} from "../../lib/live-ai-usage";
 vi.mock("../../lib/live-ai-usage",()=>({readAiUsage:vi.fn(),readAiUsageCalls:vi.fn()}));
-const totals={inputTokens:"5",outputTokens:"3",totalTokens:"8",callCount:1,failedCalls:0,reportedCalls:1,legacyCalls:0,unknownCalls:0,unknownInputCalls:0,unknownOutputCalls:0};
-const summary={asOf:"2026-10-03T00:00:00Z",start:"2026-10-01T00:00:00Z",end:"2026-10-03T00:00:00Z",timezone:"Etc/UTC",coverage:"partial" as const,
+const totals={inputTokens:"5",outputTokens:"3",totalTokens:"8",callCount:1,failedCalls:0,reportedCalls:1,legacyCalls:0,unknownCalls:0,unknownInputCalls:0,unknownOutputCalls:0,nativeCalls:0};
+const summary={asOf:"2026-10-03T00:00:00Z",start:"2026-10-01T00:00:00Z",end:"2026-10-03T00:00:00Z",timezone:"Etc/UTC",coverage:"partial" as const,nativeUnits:[],
  current:totals,previous:totals,dispatchIntents:2,unsettledDispatchIntents:1,
  truncated:{members:false,models:false,matrix:false,projects:false},trend:[{day:"2026-10-02",totalTokens:"8",callCount:1}],
  members:[{userId:"member-a",totalTokens:"8",callCount:1}],models:[{modelProvider:"p",modelId:"m",totalTokens:"8",callCount:1}],
  matrix:[{userId:"member-a",modelProvider:"p",modelId:"m",totalTokens:"8",callCount:1}],projects:[{projectId:null,totalTokens:"8",callCount:1}]};
 const call={id:"receipt-a",userId:"member-a",runId:null,projectId:null,threadId:null,agentId:null,modelProvider:"p",modelId:"m",occurredAt:"2026-10-02T00:00:00.000001Z",
- startedAt:null,endedAt:null,executionAttemptId:null,totalTokens:"8",inputTokens:"5",outputTokens:"3",totalSource:"reported" as const,outcome:"succeeded" as const,callPurpose:null,costMicros:null,currency:null,priceVersion:null,cacheInputTokens:null,reasoningOutputTokens:null,subtaskId:null};
+ startedAt:null,endedAt:null,executionAttemptId:null,totalTokens:"8",inputTokens:"5",outputTokens:"3",totalSource:"reported" as const,outcome:"succeeded" as const,callPurpose:null,costMicros:null,currency:null,priceVersion:null,cacheInputTokens:null,reasoningOutputTokens:null,subtaskId:null,nativeUsage:null};
 beforeEach(()=>{vi.clearAllMocks();vi.mocked(readAiUsage).mockResolvedValue(summary);vi.mocked(readAiUsageCalls).mockResolvedValue({asOf:summary.asOf,coverage:"partial",calls:[call],nextCursor:null});});
 describe("AI usage live endpoint projection (fixture, not live backend)",()=>{
  it("shows coverage/unknown price and drills member×model to same-ledger calls",async()=>{
@@ -33,4 +33,11 @@ describe("AI usage live endpoint projection (fixture, not live backend)",()=>{
   render(<AiUsagePanel orgId="org-a"/>);await screen.findByRole("alert");
   expect(screen.queryByText(/此窗口与筛选下没有/)).toBeNull();expect(screen.queryByText(/private upstream detail/)).toBeNull();
  });
+});
+
+it("shows native units with Token not applicable instead of reported zero Tokens",async()=>{
+ vi.mocked(readAiUsageCalls).mockResolvedValue({asOf:summary.asOf,coverage:"partial",nextCursor:null,calls:[{...call,totalTokens:"0",inputTokens:null,outputTokens:null,totalSource:"not-applicable",nativeUsage:{unit:"millisecond",quantity:"2000",source:"estimated"}}]});
+ render(<AiUsagePanel orgId="org-a"/>);
+ await waitFor(()=>expect(screen.getByText(/Token 不适用/)).toBeTruthy());
+ expect(screen.getByText(/2000 millisecond · estimated/)).toBeTruthy();
 });

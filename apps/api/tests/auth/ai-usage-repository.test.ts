@@ -53,4 +53,22 @@ describe("same ledger reports — isolated PostgreSQL",()=>{
   await usage.record(toOrgId(ORG),{eventId:"late-r",userId:"alice",runId:null,modelProvider:"p",modelId:"m",tokensTotal:3,promptTokens:2,completionTokens:1,outcome:"succeeded",totalSource:"reported"});
   expect((await report.calls(toOrgId(ORG),{...query,asOf:initial.asOf})).calls.some(c=>c.id==="late-r")).toBe(false);
  });
+ it("native dimensions keep original units, unknown provenance, and one receipt across report projections",async()=>{
+  for(const [id,source,quantity] of [["native-estimated","estimated",2000n],["native-reported","reported",3n],["native-unknown","unknown",null]] as const){
+   await usage.record(toOrgId(ORG),{eventId:id,userId:"alice",runId:null,modelProvider:"p",modelId:"native",tokensTotal:0,promptTokens:null,completionTokens:null,outcome:"succeeded",totalSource:"not-applicable",requestStartedAt:new Date(now).toISOString(),nativeUsage:{unit:"millisecond",quantity,source}});
+  }
+  const summary=await report.summary(toOrgId(ORG),query);
+  expect(summary.current).toMatchObject({totalTokens:"15",nativeCalls:3,reportedCalls:1,unknownCalls:1,callCount:5});
+  expect(summary.nativeUnits).toEqual([{unit:"millisecond",reportedQuantity:"3",estimatedQuantity:"2000",reportedCalls:1,estimatedCalls:1,unknownCalls:1}]);
+  const calls=await report.calls(toOrgId(ORG),{...query,asOf:summary.asOf});
+  expect(calls.calls.filter(c=>c.totalSource==="not-applicable")).toHaveLength(3);
+  expect(calls.calls.find(c=>c.id==="native-unknown")!.nativeUsage).toEqual({unit:"millisecond",quantity:null,source:"unknown"});
+  expect((await asApp(OTHER,c=>c.query("SELECT id FROM token_usage_events WHERE org_id=$1 AND native_unit IS NOT NULL",[ORG]))).rows).toEqual([]);
+ });
+ it("database constraints independently reject fabricated Token/native provenance and ledger mutation",async()=>{
+  await expect(asApp(ORG,c=>c.query("INSERT INTO token_usage_events(id,org_id,user_id,model_provider,model_id,tokens_total,total_source,native_unit,native_quantity,native_source) VALUES('bad-native',$1,'alice','p','m',1,'not-applicable','image',1,'reported')",[ORG]))).rejects.toThrow();
+  await usage.record(toOrgId(ORG),{eventId:"immutable-native",userId:"alice",runId:null,modelProvider:"p",modelId:"native",tokensTotal:0,promptTokens:null,completionTokens:null,outcome:"succeeded",totalSource:"not-applicable",nativeUsage:{unit:"image",quantity:1n,source:"reported"}});
+  await expect(asApp(ORG,c=>c.query("UPDATE token_usage_events SET native_quantity=99 WHERE id='immutable-native'"))).rejects.toThrow();
+ });
+
 });

@@ -1,3 +1,6 @@
+import {AI_QUOTA_RUNTIME_CONFIGURATION,AI_QUOTA_RUNTIME_WIRING,createAiQuotaRuntimeWiring,type AiQuotaRuntimeConfiguration,type AiQuotaRuntimeWiring} from "./infrastructure/agent-run/ai-runtime-wiring";
+import type {DynamicModule} from "@nestjs/common";
+import type {ModelPoolRepository} from "./application/model/ports";
 import {PgAiAdmissionRepository} from "./infrastructure/auth/pg-ai-admission-repository";
 import { AiUsageController } from "./interface/controllers/ai-usage.controller";
 import { AI_USAGE_REPOSITORY } from "./application/auth/ai-usage-ports";
@@ -2376,6 +2379,7 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
         firstValue: FirstValueRecorder,
         embeddings: EmbeddingPort | null,
         workflows: WorkflowRuntimeService,
+        aiWiring: AiQuotaRuntimeWiring|null,
       ) =>
         new AgentRunExecutor(
           runs, model, logger, process.env.KERNEL_AGENT_RUN_AUTOSTART !== "0", usage,
@@ -2434,13 +2438,14 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
           workflows,
           // AG07：Agent 经 `request_handoff` 请求转交——登记待发起人确认的 handoff 行（与 HTTP 面同一个存储实现）。
           new PgAgentHandoffStore(db),
+          aiWiring?.run,
         ),
       inject: [
         AGENT_RUN_STORE, MODEL_CALL_PORT, LOGGER_PORT, TOKEN_USAGE_METER, DATABASE_PORT,
         IDENTITY_REPOSITORY, CANVAS_TEMPLATE_REPOSITORY, DECISION_ID_FACTORY, OBJECT_STORE,
         SKILL_SANDBOX_PORT, RUN_EVENT_BUS, TOOL_PERMISSION_GRANT_STORE,
         INTERJECTION_STORE, ARTIFACT_CONTINUATION_READER, NATIVE_SESSION_OWNER, NATIVE_OUTPUT_STAGING,
-        INTERJECTION_CARRY_OVER_DELIVERY, FIRST_VALUE_RECORDER, EMBEDDING_PORT, WORKFLOW_RUNTIME_SERVICE,
+        INTERJECTION_CARRY_OVER_DELIVERY, FIRST_VALUE_RECORDER, EMBEDDING_PORT, WORKFLOW_RUNTIME_SERVICE, AI_QUOTA_RUNTIME_WIRING,
       ],
     },
     // issue #3405 —— 带入投递的唯一实现。走 chat 受理的唯一入口 `acceptHumanMessage`，
@@ -2448,7 +2453,11 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
     { provide: INTERJECTION_CARRY_OVER_DELIVERY, useClass: AcceptMessageCarryOverDelivery },
     // F159. 计量的唯一写入实现。挂在执行器上而不是 provider 上：provider 只知道
     // 「这次返回了多少 token」，不知道这次调用属于哪个组织的哪个人——那是 run 才有的事实。
-    {provide:RUNTIME_MODEL_USAGE,useFactory:(db:DatabasePort,usage:TokenUsageMeterPort)=>new PgRuntimeModelUsageRepository(db,usage,new PgAiAdmissionRepository(db)),inject:[DATABASE_PORT,TOKEN_USAGE_METER]},
+    {provide:AI_QUOTA_RUNTIME_CONFIGURATION,useValue:null},
+    {provide:AI_QUOTA_RUNTIME_WIRING,useFactory:(configuration:AiQuotaRuntimeConfiguration|null,db:DatabasePort,identity:IdentityRepository,pool:ModelPoolRepository,model:ModelCallPort,usage:TokenUsageMeterPort)=>
+      createAiQuotaRuntimeWiring(process.env.KERNEL_AI_PRODUCT_QUOTA_ENABLED==="1",configuration,{db,identity,pool,model,usage}),
+      inject:[AI_QUOTA_RUNTIME_CONFIGURATION,DATABASE_PORT,IDENTITY_REPOSITORY,MODEL_POOL_REPOSITORY,MODEL_CALL_PORT,TOKEN_USAGE_METER]},
+    {provide:RUNTIME_MODEL_USAGE,useFactory:(db:DatabasePort,usage:TokenUsageMeterPort,wiring:AiQuotaRuntimeWiring|null)=>new PgRuntimeModelUsageRepository(db,usage,new PgAiAdmissionRepository(db),wiring?.runtime),inject:[DATABASE_PORT,TOKEN_USAGE_METER,AI_QUOTA_RUNTIME_WIRING]},
     {
       provide: TOKEN_USAGE_METER,
       useFactory: (db: DatabasePort) => new PgTokenUsageRepository(db),
@@ -3307,7 +3316,12 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
       inject: [DATABASE_PORT],
     },
     { provide: REALTIME_ASR_TICKET_STORE, useFactory: (db: DatabasePort) => new PgRealtimeAsrTicketStore(db), inject: [DATABASE_PORT] },
-    { provide: ASR_USAGE_METER, useFactory: (db: DatabasePort) => new PgAsrUsageMeter(db), inject: [DATABASE_PORT] },
+    { provide: ASR_USAGE_METER, useFactory: (db: DatabasePort) => {
+      const enabled=process.env.KERNEL_NATIVE_USAGE_LEDGER_ENABLED==="1";
+      const provider=(process.env.KERNEL_ASR_PROVIDER??"").trim();
+      if(enabled&&(!provider||!(process.env.KERNEL_ASR_MODEL??"").trim()))throw new Error("NATIVE_ASR_LEDGER_BINDING_UNCONFIGURED");
+      return new PgAsrUsageMeter(db,enabled?provider:undefined);
+    }, inject: [DATABASE_PORT] },
     // #466: the realtime ASR upstream. ONE adapter, selected explicitly by
     // `KERNEL_ASR_PROVIDER`; unconfigured means `ASR_NOT_CONFIGURED` reaches the browser,
     // never a silent fallback to some other provider. See the adapter's header for why
@@ -3666,4 +3680,9 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
     { provide: APP_FILTER, useClass: AllExceptionsFilter },
   ],
 })
-export class KernelModule {}
+export class KernelModule {
+  /** Optional trusted deployment composition; the environment enforcement flag remains off by default. */
+  static withAiQuotaRuntime(configuration:AiQuotaRuntimeConfiguration):DynamicModule{
+    return {module:KernelModule,providers:[{provide:AI_QUOTA_RUNTIME_CONFIGURATION,useValue:configuration}]};
+  }
+}

@@ -46,6 +46,7 @@ export function AiUsagePanel({orgId,platform=false,selfUserId}:{orgId:string;pla
    <p>发送意图 {summary.dispatchIntents} 次 · 未结算 {summary.unsettledDispatchIntents} 次</p>
    <p>上一等长窗口：{tokens(summary.previous.totalTokens)} Token / {summary.previous.callCount} 次调用</p>
    {Object.values(summary.truncated).some(Boolean)&&<p>分组结果已达展示上限，请缩短窗口或使用成员/模型筛选。</p>}
+   {summary.nativeUnits.map(unit=><p key={unit.unit}>{unit.unit}：已报告 {unit.reportedQuantity} · 估算 {unit.estimatedQuantity} · 未知 {unit.unknownCalls} 次</p>)}
    <h3 className="font-semibold">每日趋势（{summary.timezone}）</h3><div className="flex flex-wrap gap-3">{summary.trend.map(day=><p key={day.day}>{day.day}：{tokens(day.totalTokens)}</p>)}</div>
    <h3 className="font-semibold">成员排名</h3><div className="flex flex-wrap gap-2">{summary.members.map(member=><Button key={member.userId} variant="outline" onClick={()=>setQuery({...query,userId:member.userId})}>{member.userId} · {tokens(member.totalTokens)}</Button>)}
     {query.userId&&<Button variant="ghost" onClick={()=>setQuery({...query,userId:undefined})}>全部有权查看的成员</Button>}</div>
@@ -57,8 +58,8 @@ export function AiUsagePanel({orgId,platform=false,selfUserId}:{orgId:string;pla
     <Table><TableHeader><TableRow><TableHead>时间/调用</TableHead><TableHead>成员/归因</TableHead><TableHead>模型</TableHead><TableHead>输入/输出/总量</TableHead><TableHead>口径/结果</TableHead><TableHead>费用</TableHead></TableRow></TableHeader>
      <TableBody>{calls.calls.map(call=><TableRow key={call.id}><TableCell>{timestamp(call.startedAt??call.occurredAt,summary.timezone)}<div className="text-12">{call.id}</div></TableCell>
       <TableCell>{call.userId}<div className="text-12">{call.projectId??"未归属项目"} · {call.runId??"无运行归因"}</div></TableCell>
-      <TableCell>{call.modelProvider} / {call.modelId}</TableCell><TableCell>{tokens(call.inputTokens)} / {tokens(call.outputTokens)} / {call.totalSource==="unknown"?"未报告":tokens(call.totalTokens)}<div className="text-12">缓存输入 {tokens(call.cacheInputTokens)} · 推理输出 {tokens(call.reasoningOutputTokens)}（已包含在输入/输出内）</div></TableCell>
-      <TableCell>{call.totalSource} · {call.outcome}</TableCell><TableCell>{call.costMicros===null?"未配置价格/未报告":`${BigInt(call.costMicros)/1000000n}.${(BigInt(call.costMicros)%1000000n).toString().padStart(6,"0")} ${call.currency}`}<div className="text-12">{call.priceVersion??""}</div></TableCell></TableRow>)}</TableBody></Table>
+      <TableCell>{call.modelProvider} / {call.modelId}</TableCell><TableCell>{tokens(call.inputTokens)} / {tokens(call.outputTokens)} / {call.totalSource==="not-applicable"?"Token 不适用":call.totalSource==="unknown"?"未报告":tokens(call.totalTokens)}{call.totalSource!=="not-applicable"&&<div className="text-12">缓存输入 {tokens(call.cacheInputTokens)} · 推理输出 {tokens(call.reasoningOutputTokens)}（已包含在输入/输出内）</div>}</TableCell>
+      <TableCell>{call.nativeUsage?`${call.nativeUsage.quantity??"未报告"} ${call.nativeUsage.unit} · ${call.nativeUsage.source}`:call.totalSource} · {call.outcome}</TableCell><TableCell>{call.costMicros===null?"未配置价格/未报告":`${BigInt(call.costMicros)/1000000n}.${(BigInt(call.costMicros)%1000000n).toString().padStart(6,"0")} ${call.currency}`}<div className="text-12">{call.priceVersion??""}</div></TableCell></TableRow>)}</TableBody></Table>
     {calls.calls.length===0&&<p>此窗口与筛选下没有已落账调用。</p>}
     <div className="flex gap-2"><Button variant="outline" disabled={!cursor} onClick={()=>setCursor(null)}>回到首页</Button><Button variant="outline" disabled={!calls.nextCursor} onClick={()=>setCursor(calls.nextCursor)}>下一页调用</Button></div>
    </>}
