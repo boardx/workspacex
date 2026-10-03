@@ -112,6 +112,7 @@ held 零提交、release 一次提交、preview 清空与节点 geometry 恢复�
 完整源 SHA，旧截图继续属于旧来源。证据追加 commit 与应用源码测试 commit 分别记录；
 source-only review、组件通过和浏览器接受是不同证据层级。
 
+<a id="shape-缓存证据分层"></a>
 ## Shape 缓存证据分层
 
 2026-10-03，PR #5169 的 exact source
