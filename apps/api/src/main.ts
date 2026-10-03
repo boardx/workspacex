@@ -25,7 +25,7 @@ import type { DebugRecorder } from "./application/diagnostics/debug-recorder";
 import { sweepDebugEvents } from "./infrastructure/diagnostics/pg-debug-event-store";
 import { attachAsrGateway } from "./interface/ws/asr-stream.gateway";
 import { attachAsrDraftGateway } from "./interface/ws/asr-draft.gateway";
-import { attachRealtimeDigitalHumanGateway, readRealtimeModelConfig } from "./interface/ws/realtime-digital-human.gateway";
+import { attachRealtimeDigitalHumanGateway, readRealtimeModelConfig, type RealtimeModelConfig } from "./interface/ws/realtime-digital-human.gateway";
 import { AGENT_DIRECTORY_REPOSITORY } from "./application/agent/list-agent-directory";
 import { realtimeVoiceSessionService } from "./application/chat/realtime-voice-session";
 import { attachPersonalRealtimeAsrGateway } from "./interface/ws/personal-realtime-asr.gateway";
@@ -193,7 +193,8 @@ function loadLocalEnvFileForDev(): void {
  *   without ever listening, and hanging a socket server off a server that never binds leaves
  *   a listener nobody closes.
  */
-export function attachStreamingSurfaces(app: NestExpressApplication): void {
+export function attachStreamingSurfaces(app: NestExpressApplication, options: { realtimeConfig?: RealtimeModelConfig } = {}): void {
+  const realtimeConfig = options.realtimeConfig ?? readRealtimeModelConfig();
   attachWhiteboardGateway(app.getHttpServer(), {
     principals: app.get(PRINCIPAL_RESOLVER_PORT),
     boards: app.get(WHITEBOARD_REPOSITORY),
@@ -216,14 +217,15 @@ export function attachStreamingSurfaces(app: NestExpressApplication): void {
   });
   attachRealtimeDigitalHumanGateway(app.getHttpServer(), {
     principals: app.get(PRINCIPAL_RESOLVER_PORT),
+    config: () => realtimeConfig,
     // Chat 语音模式：线程判权 + 已发布角色解析 + 转写落库（见 `realtime-voice-session.ts`）。
     voice: realtimeVoiceSessionService({
       repo: app.get(IDENTITY_REPOSITORY),
       ids: app.get(DECISION_ID_FACTORY),
       chat: app.get(CHAT_REPOSITORY),
       directory: app.get(AGENT_DIRECTORY_REPOSITORY),
-      voiceMap: readRealtimeModelConfig().voiceMap,
-      defaultVoice: readRealtimeModelConfig().defaultVoice,
+      voiceMap: realtimeConfig.voiceMap,
+      defaultVoice: realtimeConfig.defaultVoice,
     }),
   });
   attachPersonalRealtimeAsrGateway(app.getHttpServer(), {
@@ -249,17 +251,22 @@ export function attachStreamingSurfaces(app: NestExpressApplication): void {
   });
 }
 
-if (isProcessEntry()) {
-  loadLocalEnvFileForDev();
+export async function startApi(options: {
+  port?: number;
+  listenHost?: string;
+  loadLocalEnv?: boolean;
+  realtimeConfig?: RealtimeModelConfig;
+} = {}): Promise<NestExpressApplication> {
+  if (options.loadLocalEnv !== false) loadLocalEnvFileForDev();
   const app = await createApp();
   app.enableShutdownHooks(["SIGTERM", "SIGINT"]);
-  const port = Number(process.env.PORT ?? 3200);
+  const port = options.port ?? Number(process.env.PORT ?? 3200);
   // KERNEL_LISTEN_HOST: WorkspaceX Local pins the API to 127.0.0.1 -- a single-user desktop must
   // not expose its session tokens to the LAN (the DMG showed up as `*:3200`, 2026-09-17).
   // Unset = today's behaviour (all interfaces) for every server deployment.
-  const listenHost = process.env.KERNEL_LISTEN_HOST?.trim();
+  const listenHost = options.listenHost ?? process.env.KERNEL_LISTEN_HOST?.trim();
   if (listenHost) await app.listen(port, listenHost); else await app.listen(port);
-  attachStreamingSurfaces(app);
+  attachStreamingSurfaces(app, { realtimeConfig: options.realtimeConfig });
   process.stdout.write(`api listening on ${port}\n`);
 
   /**
@@ -347,4 +354,7 @@ if (isProcessEntry()) {
   };
   await sweepOrphans();
   setInterval(() => void sweepOrphans(), ORPHANED_RUN_SWEEP_INTERVAL_MS).unref();
+  return app;
 }
+
+if (isProcessEntry()) await startApi();

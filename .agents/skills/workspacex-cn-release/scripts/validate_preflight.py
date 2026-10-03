@@ -64,6 +64,7 @@ BOOTSTRAP_FAILURE_CODES = {
     "BOOTSTRAP_COMPATIBILITY_UNKNOWN",
 }
 BOOTSTRAP_SAFE_METADATA_KEYS = {
+    "evidenceMode",
     "readOnlyTransaction",
     "productionWriteStatements",
     "imageEntrypoint",
@@ -298,18 +299,25 @@ def validate(value: object, now: datetime | None = None) -> dict:
     if_passed("database.drain_read_access", drain.get("role") == "app_diag_ro" and drain.get("canReadAgentRuns") is True, "app_diag_ro drain read is unproved")
     bootstrap = metadata(checks, "bootstrap.compatibility")
     need(set(bootstrap) <= BOOTSTRAP_SAFE_METADATA_KEYS, "bootstrap.compatibility.metadata contains a non-redacted key")
-    bootstrap_ok = (
-        bootstrap.get("readOnlyTransaction") is True
-        and bootstrap.get("productionWriteStatements") == 0
+    common_bootstrap_ok = (
+        bootstrap.get("productionWriteStatements") == 0
         and bootstrap.get("sourceEntrypoint" if phase == "prebuild" else "imageEntrypoint") is True
         and bootstrap.get("inputContract") is True
-        and bootstrap.get("schemaContract") is True
-        and bootstrap.get("permissionContract") is True
-        and bootstrap.get("stateClass") in {"empty", "matching-existing"}
-        and bootstrap.get("agentSeedContract") is True
         and bootstrap.get("exactlyOneMachineRecord") is True
     )
-    if_passed("bootstrap.compatibility", bootstrap_ok, "bootstrap compatibility is unproved or not read-only")
+    if phase == "prebuild":
+        bootstrap_ok = (common_bootstrap_ok
+            and bootstrap.get("evidenceMode") == "source-static"
+            and bootstrap.get("readOnlyTransaction") is False
+            and bootstrap.get("stateClass") == "unknown"
+            and all(bootstrap.get(key) is False for key in ("schemaContract", "permissionContract", "agentSeedContract")))
+    else:
+        bootstrap_ok = (common_bootstrap_ok
+            and bootstrap.get("evidenceMode") == "database-dynamic"
+            and bootstrap.get("readOnlyTransaction") is True
+            and bootstrap.get("stateClass") in {"empty", "matching-existing"}
+            and all(bootstrap.get(key) is True for key in ("schemaContract", "permissionContract", "agentSeedContract")))
+    if_passed("bootstrap.compatibility", bootstrap_ok, "bootstrap evidence does not prove the required phase")
     if phase == "prebuild":
         need("imageEntrypoint" not in bootstrap, "prebuild must not claim a target image entrypoint")
     else:

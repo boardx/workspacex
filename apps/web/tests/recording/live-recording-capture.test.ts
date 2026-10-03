@@ -24,6 +24,8 @@ function fakeCaptureEnv() {
   const track = { stop: vi.fn() };
   const stream = { getAudioTracks: () => [track], getTracks: () => [track] } as unknown as MediaStream;
   const context = {
+    state: "running",
+    resume: vi.fn().mockResolvedValue(undefined),
     sampleRate: 48_000,
     destination: {},
     createMediaStreamSource: vi.fn(() => ({ connect: vi.fn(), disconnect: vi.fn() })),
@@ -34,6 +36,36 @@ function fakeCaptureEnv() {
 }
 
 describe("#466 采音失败必须具名且可渲染", () => {
+  it("恢复 suspended 采音后才建立管线，并输出正常 PCM 帧", async () => {
+    const { stream, context, track } = fakeCaptureEnv();
+    let state = "suspended";
+    Object.defineProperty(context, "state", { get: () => state });
+    vi.mocked(context.resume).mockImplementation(async () => { state = "running"; });
+    const handle = await startCapture({ getUserMedia: async () => stream, createAudioContext: () => context });
+    expect(context.resume).toHaveBeenCalledOnce();
+    const processor = vi.mocked(context.createScriptProcessor).mock.results[0]!.value;
+    const received = vi.fn();
+    handle.onFrame(received);
+    processor.onaudioprocess!({ inputBuffer: { getChannelData: () => Float32Array.from([0.5, 0.5, 0.5]) } } as unknown as AudioProcessingEvent);
+    expect(received).toHaveBeenCalledWith(Int16Array.from([16383]));
+    await handle.stop();
+    expect(track.stop).toHaveBeenCalledOnce();
+    expect(context.close).toHaveBeenCalledOnce();
+  });
+
+  it.each(["rejected", "still-suspended"])("恢复 %s 时失败并释放设备，不返回假采音句柄", async (failure) => {
+    const { stream, context, track } = fakeCaptureEnv();
+    Object.defineProperty(context, "state", { value: "suspended" });
+    if (failure === "rejected") vi.mocked(context.resume).mockRejectedValue(domError("NotAllowedError"));
+    // Cleanup failure must not hide the actual startup failure.
+    vi.mocked(context.close).mockRejectedValue(new Error("cleanup failure"));
+    await expect(startCapture({ getUserMedia: async () => stream, createAudioContext: () => context }))
+      .rejects.toMatchObject({ kind: failure === "rejected" ? "permission-denied" : "capture-failed" });
+    expect(track.stop).toHaveBeenCalledOnce();
+    expect(context.close).toHaveBeenCalledOnce();
+    expect(context.createMediaStreamSource).not.toHaveBeenCalled();
+  });
+
   it.each([
     ["NotAllowedError", "permission-denied"],
     ["SecurityError", "permission-denied"],

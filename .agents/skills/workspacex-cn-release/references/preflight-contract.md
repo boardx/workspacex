@@ -23,7 +23,7 @@ prebuild 必须提供验证脚本 `REQUIRED` 集合中的全部 20 项检查；p
 | `runtime.release_lock` / `runtime.no_orphans` | 锁 metadata 的 `attemptId` 必须等于顶层 attempt 且 `heldByAttempt=true`；孤儿检查必须 `scanPassed=true,count=0` | 同左，每次验证都读取动态事实 |
 | `config.release_manifest.metadata` | `{"kind":"source-plan","sourceSha":"exact 40hex","release":"固定版本"}`；禁止 `imageDigest`/`imageDigests` | `kind=sealed-images`，并有 exact `imageDigests` 映射，键必须恰为 `api`、`web`、`agent`、`sandbox` |
 | `config.durable_profiles` | ASR、GitHub issue、平台超级管理员三项必须分别为 true | 同左；聚合布尔 `requiredReferencesPresent=true` 不足以定位漏项 |
-| `bootstrap.compatibility.metadata` | 只读事务、零生产写入、`sourceEntrypoint=true`、输入/schema/权限/状态/Agent seed/单记录均验证；禁止 `imageEntrypoint` | 同样的只读 DB 检查，但必须是目标镜像的 `imageEntrypoint=true`；禁止源码入口替代 |
+| `bootstrap.compatibility.metadata` | `evidenceMode=source-static`，零生产写入、`sourceEntrypoint=true`、`inputContract=true`、单记录；`readOnlyTransaction=false`、schema/权限/Agent seed=false、`stateClass=unknown`；禁止 `imageEntrypoint` | `evidenceMode=database-dynamic`，目标镜像的 `imageEntrypoint=true`、只读事务和完整 schema/权限/状态/Agent seed 检查；禁止源码入口或静态证明替代 |
 | `build.affected_services` | `diffComputed=true`，metadata 的 baseline/source SHA 必须等于顶层身份，服务只能是四服务的无重复子集 | 同左 |
 | `deploy.trusted_copy` | `hashesMatch=true` 且 `checkedEntrypoints>0` | 同左 |
 | `network.dependencies` | `probed=true` 且 ACR、OSS、RDS、Redis 四项 live probe 分别为 true | 同左 |
@@ -39,6 +39,12 @@ prebuild 必须提供验证脚本 `REQUIRED` 集合中的全部 20 项检查；p
 
 ## 输出协议
 
-`bootstrap.compatibility` 的 DB probe 应在构建前检查输入和只读数据库兼容性；构建后重新执行镜像入口和 DB probe，尤其在迁移/激活前。镜像 digest 必须来自可鉴权的 registry manifest，不能用源码 hash 冒充。preactivate 阶段还需 canonical Prepare/影子业务与浏览器验收，独立于本 JSON 结构。
+构建前只证明 exact source 静态依赖和输入，不连接未迁移的旧数据库。构建后需对迁移后的目标数据库执行镜像入口和完整只读 DB probe，在激活前通过。镜像 digest 必须来自可鉴权的 registry manifest，不能用源码 hash 冒充。preactivate 阶段还需 canonical Prepare/影子业务与浏览器验收，独立于本 JSON 结构。
 
 成功或 blocker 只向 stdout 写一行 `CN_RELEASE_PREFLIGHT_JSON={...}`，内含 `phase`、`ready`、`checkedCount`、`blockers`、四项身份、`issuedAt`、`expiresAt` 和对原始输入 canonical JSON 计算的 `receiptSha256`。诊断写 stderr。成功退出 0；blocker 退出 1；schema 错误退出 2。调用方解析固定前缀，不能假设 pnpm 或 shell stdout 只有 JSON。
+
+## 首轮剩余门（#5166）
+
+本修复只解除 build 门。`deploy-cn-production.sh:269–274` 的 prepare 仍在依赖/迁移前要求 preactivate，collector 动态镜像 probe 仍连接当前生产。隔离动态验收没有直接注入 production preactivate 的消费入口，不能换绑为生产证明。首次不兼容迁移仍需独立维护 lane：隔离验收 → 人类维护窗口 → 停写/排空与新备份 → 生产迁移 → 生产动态 bootstrap 检查 → prepare/activate。该 lane 未由本修复实现，未验收不声明 READY。
+
+`verify-cn-release-preflight.sh` 通过 `git show "$revision:.../validate_preflight.py"` 加载候选内验证器，collector 同样验证候选内脚本身份。因此仅合入 main 不改变旧候选 9b25 的运行行为；现有入口没有独立 operational validator override。正式使用需新 exact candidate 包含该修复并重新 freeze/build/Devapp gates，或先另行实现、审阅与授权绑定独立 operational 身份的加载机制。本修复不偷偷更换 app candidate 或跳过旧验证器。

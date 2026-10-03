@@ -1,0 +1,15 @@
+
+ RUN  v2.1.9 /private/tmp/wsx-digital-acceptance-20261002/apps/api
+
+[realtime-digital-human] upstream error: {"code":"InvalidApiKey","message":"secret detail"}
+ ✓ tests/chat/realtime-digital-human-gateway.test.ts (32 tests) 3461ms
+   ✓ WS /chat/realtime-digital-human — Chat 语音模式 > upstream close remains bounded when append never resolves, without a false persisted acknowledgement 2014ms
+   ✓ WS /chat/realtime-digital-human — Chat 语音模式 > explicit browser loopback keeps a finite PCM stream actionable and cancels its next chunk 523ms
+   ✓ WS /chat/realtime-digital-human — Chat 语音模式 > loopback omni upstream: readable Chinese user + role-aware assistant turn is relayed as live captions, audio and persisted 628ms
+ ✓ tests/chat/realtime-voice-session.test.ts (13 tests) 8ms
+
+ Test Files  2 passed (2)
+      Tests  45 passed (45)
+   Start at  00:02:35
+   Duration  4.92s (transform 575ms, setup 0ms, collect 1.20s, tests 3.47s, environment 0ms, prepare 67ms)
+

@@ -41,7 +41,7 @@ def fixture(phase: str = "prebuild") -> dict:
         "cleanupRegistered": True,
     }
     checks["database.drain_read_access"]["metadata"] = {"role": "app_diag_ro", "canReadAgentRuns": True}
-    checks["bootstrap.compatibility"]["metadata"] = {"readOnlyTransaction": True, "productionWriteStatements": 0, "sourceEntrypoint": True, "inputContract": True, "schemaContract": True, "permissionContract": True, "stateClass": "matching-existing", "agentSeedContract": True, "exactlyOneMachineRecord": True}
+    checks["bootstrap.compatibility"]["metadata"] = {"evidenceMode": "source-static", "readOnlyTransaction": False, "productionWriteStatements": 0, "sourceEntrypoint": True, "inputContract": True, "schemaContract": False, "permissionContract": False, "stateClass": "unknown", "agentSeedContract": False, "exactlyOneMachineRecord": True}
     checks["secrets.stable_continuity"]["metadata"] = {"requiredCount": 12, "matchedCount": 12, "missingKeyIds": [], "rotatedKeyIds": [], "consumerDriftIds": [], "stableDirectory": True, "baselineReadable": True, "candidateWillReuse": True, "noMutation": True}
     checks["build.affected_services"]["metadata"] = {"diffComputed": True, "baselineSha": "e" * 40, "sourceSha": SHA, "services": ["api", "web"]}
     checks["deploy.trusted_copy"]["metadata"] = {"hashesMatch": True, "checkedEntrypoints": 4}
@@ -50,7 +50,7 @@ def fixture(phase: str = "prebuild") -> dict:
         checks["config.release_manifest"]["metadata"].update(kind="sealed-images", imageDigests=IMAGE_DIGESTS.copy())
         boot = checks["bootstrap.compatibility"]["metadata"]
         boot.pop("sourceEntrypoint")
-        boot["imageEntrypoint"] = True
+        boot.update(imageEntrypoint=True, evidenceMode="database-dynamic", readOnlyTransaction=True, schemaContract=True, permissionContract=True, agentSeedContract=True, stateClass="matching-existing")
         checks["build.target_images"] = {
             "status": "passed",
             "evidenceSha256": "d" * 64,
@@ -84,6 +84,18 @@ class TestValidatePreflight(unittest.TestCase):
         result = validate(fixture("preactivate"), NOW)
         self.assertTrue(result["ready"])
         self.assertEqual(result["checkedCount"], len(REQUIRED) + 1)
+
+    def test_static_proof_never_claims_database_readiness(self) -> None:
+        for key, value in [("schemaContract", True), ("permissionContract", True), ("agentSeedContract", True), ("readOnlyTransaction", True), ("stateClass", "empty"), ("inputContract", False)]:
+            data = fixture()
+            data["checks"]["bootstrap.compatibility"]["metadata"][key] = value
+            self.reject(data)
+
+    def test_activation_requires_every_dynamic_database_check(self) -> None:
+        for key, value in [("schemaContract", False), ("permissionContract", False), ("agentSeedContract", False), ("readOnlyTransaction", False), ("evidenceMode", "source-static"), ("stateClass", "unknown")]:
+            data = fixture("preactivate")
+            data["checks"]["bootstrap.compatibility"]["metadata"][key] = value
+            self.reject(data)
 
     def test_prebuild_cannot_claim_image_or_use_target_check(self) -> None:
         data = fixture()
