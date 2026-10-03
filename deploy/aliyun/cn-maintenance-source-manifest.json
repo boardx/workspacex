@@ -4,7 +4,7 @@
   "baseCommit": "64cc2b85053823a4c7461eb404b9f3a99c749a33",
   "applicationRevision": "9b25bfa65662b96c0826fe67506b562ea46aa6d0",
   "baselineRevision": "ba6343199f3c834d6a198f83d0c771614292c82b",
-  "sourceInventorySha256": "b698b04e28daea12daa08d9c0e95a06eb616c496bbf6f8a27e0ed624d57dfd75",
+  "sourceInventorySha256": "2a37eb6c1009090b386e726f6aab0bbdcf395ad406f817e7070d8232eba4f9a7",
   "sourceRows": [
     {
       "path": ".harness/scripts/build-cn-maintenance-controller.cjs",
@@ -123,8 +123,8 @@
     },
     {
       "path": ".harness/scripts/vm/cn-migration-snapshot-query.cjs",
-      "sha256": "30e68ac46cafaa973c88fc9f5e08e17e3457dd7844912c744bff26ac4244bc71",
-      "bytes": 192828
+      "sha256": "8995281996a1e015a228e65ffd1dc3d297ca3e489c2b8bc48598c7efa025337a",
+      "bytes": 192859
     },
     {
       "path": ".harness/scripts/vm/cn-production-bootstrap.test.ts",
@@ -623,8 +623,8 @@
     },
     {
       "path": "deploy/aliyun/cn-maintenance-source-handoff.md",
-      "sha256": "ac0c95fdddc01be666ed46e63ae468ee2681cf1e76fb2c334a810fec70dd5f28",
-      "bytes": 21802
+      "sha256": "6d6e6634a2efcb1af42c35c14a888e096df1a614f6ad834d34f6fbda94d5a244",
+      "bytes": 22369
     },
     {
       "path": "deploy/aliyun/cn-release-9b25-once-plan.md",
