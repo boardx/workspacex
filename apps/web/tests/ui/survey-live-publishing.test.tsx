@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import type { SurveyPublishBlocker } from "@repo/contracts/survey";
 import type { SurveyRuntime } from "@repo/contracts/survey-runtime";
 import { LiveSurveyWorkspace } from "@/components/survey/live/survey-workspace";
@@ -313,4 +313,64 @@ describe("live survey trusted publishing", () => {
     expect(screen.queryByRole("button", { name: "开始回收" })).not.toBeInTheDocument();
     expect(client.request).toHaveBeenLastCalledWith("/surveys/survey-1/publish", { method: "POST", body: { expectedVersion: 4 } }, expect.anything());
   });
+  it("posts the selected collection start and end directly on initial publication", async () => {
+    const startsAt = new Date("2030-10-03T10:00").toISOString();
+    const expiresAt = new Date("2030-10-04T10:00").toISOString();
+    client.request.mockResolvedValueOnce(runtime()).mockResolvedValueOnce(runtime({ status: "collecting", version: 5, publication: { token: "scheduled-token", status: "collecting", version: 4, startsAt, expiresAt, questions: runtime().questions } }));
+    render(<LiveSurveyWorkspace surveyId="survey-1" initialStep="publish" />);
+    fireEvent.change(await screen.findByLabelText("开始时间"), { target: { value: "2030-10-03T10:00" } });
+    fireEvent.change(screen.getByLabelText("截止时间"), { target: { value: "2030-10-04T10:00" } });
+    fireEvent.click(screen.getByRole("button", { name: "开始回收" }));
+    await waitFor(() => expect(client.request).toHaveBeenLastCalledWith("/surveys/survey-1/publish", { method: "POST", body: { expectedVersion: 4, startsAt, expiresAt } }, expect.anything()));
+    expect(await screen.findByRole("heading", { name: "问卷等待开始" })).toBeInTheDocument();
+    expect(screen.getByText(/开始时间：/)).toHaveTextContent(new Date(startsAt).toLocaleString("zh-CN"));
+  });
+
+  it("blocks invalid collection windows locally without sending a publication command", async () => {
+    client.request.mockResolvedValueOnce(runtime());
+    render(<LiveSurveyWorkspace surveyId="survey-1" initialStep="publish" />);
+    fireEvent.change(await screen.findByLabelText("开始时间"), { target: { value: "2030-10-04T10:00" } });
+    fireEvent.change(screen.getByLabelText("截止时间"), { target: { value: "2030-10-03T10:00" } });
+    fireEvent.click(screen.getByRole("button", { name: "开始回收" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent(/截止时间.*晚于.*开始时间/);
+    expect(client.request).toHaveBeenCalledTimes(1);
+    expect(client.request).not.toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ method: "POST" }), expect.anything());
+  });
+
+  it("posts a new immutable schedule when republishing a closed batch", async () => {
+    const startsAt = new Date("2030-10-05T10:00").toISOString();
+    const expiresAt = new Date("2030-10-07T10:00").toISOString();
+    const closed = runtime({ status: "closed", publication: { token: "old-token", status: "closed", version: 4, expiresAt: "2026-10-01T00:00:00.000Z", questions: runtime().questions } });
+    client.request.mockResolvedValueOnce(closed).mockResolvedValueOnce(runtime({ status: "collecting", version: 5, publication: { token: "new-token", status: "collecting", version: 4, startsAt, expiresAt, questions: runtime().questions } }));
+    render(<LiveSurveyWorkspace surveyId="survey-1" initialStep="publish" />);
+    fireEvent.change(await screen.findByLabelText("开始时间"), { target: { value: "2030-10-05T10:00" } });
+    fireEvent.change(screen.getByLabelText("截止时间"), { target: { value: "2030-10-07T10:00" } });
+    fireEvent.click(screen.getByRole("button", { name: "再次发布" }));
+    await waitFor(() => expect(client.request).toHaveBeenLastCalledWith("/surveys/survey-1/republish", { method: "POST", body: { expectedVersion: 4, startsAt, expiresAt } }, expect.anything()));
+    expect(await screen.findByRole("heading", { name: "问卷等待开始" })).toBeInTheDocument();
+  });
+
+  it("updates the active batch start and expiry while viewing a closed historical batch", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2030-10-03T00:00:00.000Z"));
+    try {
+      const questions = runtime().questions;
+      const old = { id: "old", token: "old-token", status: "closed" as const, version: 3, questions, startsAt: "2030-10-01T00:00:00.000Z", expiresAt: "2030-10-02T00:00:00.000Z", createdAt: "2030-10-01T00:00:00.000Z", closedAt: "2030-10-02T00:00:00.000Z" };
+      const active = { id: "active", token: "active-token", status: "collecting" as const, version: 4, questions, startsAt: "2030-10-03T00:00:01.000Z", expiresAt: "2030-10-03T00:00:02.000Z", createdAt: "2030-10-03T00:00:00.000Z", closedAt: null };
+      client.request.mockResolvedValueOnce(runtime({ status: "collecting", publication: active, collectionBatches: [old, active], activeCollectionBatchId: "active" }));
+      await act(async () => { render(<LiveSurveyWorkspace surveyId="survey-1" initialStep="publish" />); });
+      fireEvent.change(screen.getByRole("combobox", { name: "回收批次" }), { target: { value: "old" } });
+      expect(screen.getByRole("heading", { name: "问卷已停止回收" })).toBeInTheDocument();
+      const activeOption = () => within(screen.getByRole("combobox", { name: "回收批次" })).getAllByRole("option")[1]!;
+      expect(activeOption()).toHaveTextContent("等待开始");
+      await act(async () => { await vi.advanceTimersByTimeAsync(1001); });
+      expect(activeOption()).toHaveTextContent("正在回收");
+      expect(screen.getByRole("heading", { name: "问卷已停止回收" })).toBeInTheDocument();
+      await act(async () => { await vi.advanceTimersByTimeAsync(1000); });
+      expect(activeOption()).toHaveTextContent("已到截止时间");
+      expect(screen.getByRole("heading", { name: "问卷已停止回收" })).toBeInTheDocument();
+      expect(client.request).toHaveBeenCalledTimes(1);
+    } finally { vi.useRealTimers(); }
+  });
+
 });

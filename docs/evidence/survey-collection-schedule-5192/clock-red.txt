@@ -1,0 +1,26 @@
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/survey-report-echarts/apps/web
+
+ ❯ tests/ui/survey-live-publishing.test.tsx (21 tests | 1 failed) 1126ms
+   × live survey trusted publishing > updates the active batch start and expiry while viewing a closed historical batch 18ms
+     → expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  正在回收
+Received:
+  2. 等待开始 · 2030/10/3 08:00:00
+       |                              ^
+    368|       expect(screen.getByRole("heading", { name: "问卷已停止回收" })).…
+    369|       await act(async () => { await vi.advanceTimersByTimeAsync(1000);…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 20 passed (21)
+   Start at  10:14:52
+   Duration  3.36s (transform 721ms, setup 117ms, collect 1.37s, tests 1.13s, environment 542ms, prepare 52ms)
+
+undefined
+/Users/shenyangjun/.codex/worktrees/survey-report-echarts/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/ui/survey-live-publishing.test.tsx

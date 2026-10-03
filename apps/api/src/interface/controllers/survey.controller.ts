@@ -76,6 +76,8 @@ async function run<T>(work: () => Promise<T>): Promise<T> {
         reasonCode: "SURVEY_SOURCE_INVALID",
         diagnostics: e.details,
       });
+    if (e.code === "not_started") throw new ConflictException({ reasonCode: "SURVEY_NOT_STARTED" });
+    if (e.code === "invalid_collection_window") throw new BadRequestException({ reasonCode: "SURVEY_COLLECTION_WINDOW_INVALID" });
     if (e.code === "closed" || e.code === "expired")
       throw new GoneException(e.code);
     throw new BadRequestException(e.code);
@@ -192,6 +194,7 @@ export class SurveyController {
         id,
         input.expectedVersion,
         input.expiresAt,
+        input.startsAt,
       ),
     );
   }
@@ -231,6 +234,7 @@ export class SurveyController {
         id,
         input.expectedVersion,
         input.expiresAt,
+        input.startsAt,
       ),
     );
   }
@@ -250,7 +254,7 @@ export class SurveyController {
   ) {
     assertPrincipal(p);
     const input = parse(SurveyPublishInputSchema, body);
-    return run(() => this.service.republish(p.orgId, p.userId, id, input.expectedVersion, input.expiresAt));
+    return run(() => this.service.republish(p.orgId, p.userId, id, input.expectedVersion, input.expiresAt, input.startsAt));
   }
   @Patch("/:id/responses/:responseId") review(
     @CurrentPrincipal() p: Principal,

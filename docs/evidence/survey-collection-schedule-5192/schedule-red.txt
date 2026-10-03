@@ -1,0 +1,26 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/survey-report-echarts/apps/api
+
+ ❯ tests/survey/survey-collection-schedule.test.ts (11 tests | 10 failed) 23ms
+   × survey collection schedule > retains optional startsAt in the command schema and rejects reversed or empty windows 3ms
+     → [
+  {
+    "code": "unrecognized_keys",
+    "keys": [
+      "startsAt"
+    ],
+    "path": [],
+
+ ❯ tests/survey/survey-collection-schedule.test.ts:64:40
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[10/10]⎯
+
+ Test Files  1 failed (1)
+      Tests  10 failed | 1 passed (11)
+   Start at  10:00:36
+   Duration  755ms (transform 425ms, setup 0ms, collect 642ms, tests 23ms, environment 0ms, prepare 25ms)
+
+undefined
+/Users/shenyangjun/.codex/worktrees/survey-report-echarts/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run --config /private/tmp/survey-5192/domain.config.mts

@@ -36,6 +36,8 @@ export const SurveyCommandErrorCodeSchema = z.enum([
   "INVALID_TRANSITION",
   "SURVEY_VERSION_CONFLICT",
   "SURVEY_PUBLISH_BLOCKED",
+  "SURVEY_NOT_STARTED",
+  "SURVEY_COLLECTION_WINDOW_INVALID",
 ]);
 import {
   SurveyWorkflowQuestionSchema,
