@@ -1,7 +1,7 @@
 import { CheckCircle2, Circle, Loader2, AlertCircle } from "lucide-react";
 import type { GuidedResearchRuntime } from "@/lib/guided-research-api";
 const stages = { evidence: "整理研究证据", chapter: "生成", review: "生成", synthesis: "生成综合结论", validation: "保存报告" };
-const statusLabels = { pending: "等待生成", running: "生成中", retrying: "重试生成中", completed: "生成完成", warning: "需要完善", failed: "生成失败" };
+const statusLabels = { pending: "等待生成", running: "生成中", retrying: "生成中", completed: "生成完成", warning: "部分内容待核实", failed: "生成失败" };
 type TimelineStep = NonNullable<GuidedResearchRuntime["reportTimeline"]>[number];
 function generationSteps(timeline: TimelineStep[]): TimelineStep[] {
   const sections = new Set<string>();
@@ -29,10 +29,10 @@ export function GuidedResearchReportTimeline({ state, interrupted = false }: { s
       const active = item.status === "running" || item.status === "retrying";
       const Icon = item.status === "completed" ? CheckCircle2 : item.status === "failed" || item.status === "warning" ? AlertCircle : active ? Loader2 : Circle;
       const title = item.sectionId && state.outline.find((section) => section.id === item.sectionId)?.title;
-      const detail = interrupted && active ? "执行中断" : item.status === "failed" ? "生成失败" : item.status === "warning" ? (item.stage === "evidence" ? "存在证据缺口" : "需要完善") : null;
+      const detail = interrupted && active ? "执行中断" : item.status === "failed" ? "生成失败" : item.status === "warning" ? (item.stage === "evidence" ? "存在证据缺口" : "部分内容待核实") : null;
       return <li key={item.id} className="relative flex min-w-0 gap-3 text-12 before:absolute before:-bottom-4 before:left-2 before:top-5 before:w-px before:bg-border last:before:hidden" data-testid="research-report-timeline-step" data-stage={item.stage} data-section-id={item.sectionId} data-status={item.status} aria-busy={active && !interrupted || undefined}>
         <Icon className={`mt-0.5 size-4 shrink-0 ${active && !interrupted ? "animate-spin motion-reduce:animate-none text-primary" : "text-muted-foreground"}`} aria-hidden />
-        <p className="min-w-0 break-words font-medium"><span className="sr-only">{interrupted && active ? "执行中断" : statusLabels[item.status]}，</span>{stages[item.stage]}{title ? ` · ${title}` : ""}{detail && <span className="ml-2 font-normal text-muted-foreground">{detail}</span>}{item.stage === "evidence" && item.total !== undefined && <span className="ml-2 font-normal text-muted-foreground">{item.completed ?? 0} / {item.total} 批次</span>}{item.stage !== "evidence" && item.attempts > 1 && <span className="ml-2 font-normal text-muted-foreground">第 {item.attempts} 次尝试</span>}</p>
+        <p className="min-w-0 break-words font-medium"><span className="sr-only">{interrupted && active ? "执行中断" : statusLabels[item.status]}，</span>{stages[item.stage]}{title ? ` · ${title}` : ""}{detail && <span className="ml-2 font-normal text-muted-foreground">{detail}</span>}{item.stage === "evidence" && item.total !== undefined && <span className="ml-2 font-normal text-muted-foreground">整理进度 {Math.round(Math.min(1, (item.completed ?? 0) / Math.max(1, item.total)) * 100)}%</span>}</p>
       </li>;
     })}</ol>
   </details>;

@@ -1,3 +1,4 @@
+import { reportBasis } from "./guided-report-checkpoint";
 import { GUIDED_PLAN_BUDGET_MS, GUIDED_REPORT_PREPARATION_BUDGET_MS, SearchBudget } from "./guided-search-budget";
 import { supplementQuery } from "./guided-supplement-query";
 import type { DebugTracePort } from "../ports/debug-trace.port";
@@ -283,10 +284,13 @@ export class GuidedRuntimeService {
       appendActivity(state, "reading", "读取并验证已接受来源", "started");
       await persist();
       const allowPartial = Boolean(state.reportPartial);
+      const reusePreparedBasis = resume && state.reportCheckpoint?.basis === reportBasis(state, this.modelConfig, instruction ?? state.reportCheckpoint?.instruction);
       const preparationBudget = new SearchBudget(GUIDED_REPORT_PREPARATION_BUDGET_MS, "RESEARCH_REPORT_PREPARATION_TIME_BUDGET_EXCEEDED");
       try {
-        await this.reviewSources(state, persist, preparationBudget);
-        await this.readSourceDocuments(state, persist, { budget: preparationBudget });
+        if (!reusePreparedBasis) {
+          await this.reviewSources(state, persist, preparationBudget);
+          await this.readSourceDocuments(state, persist, { budget: preparationBudget });
+        }
       } finally { preparationBudget.dispose(); }
       appendActivity(state, "reading", "来源读取与可用性验证完成", "succeeded");
       state.reportPartial = allowPartial;
@@ -614,7 +618,7 @@ export class GuidedRuntimeService {
     internalSources: Awaited<ReturnType<GuidedInternalSourceAccessPort["loadAuthorizedSources"]>> = []) {
     const { node, action } = command;
     if (steeringActions.has(action)) { applyResearchSteering(state, command); return; }
-    if (state.controlStatus === "paused" && node === "research" && ["start", "retry", "generate"].includes(action)) throw new ResearchRuntimeError("RESEARCH_WORKFLOW_PAUSED");
+    if (state.controlStatus === "paused" && (node === "research" || node === "report") && ["start", "retry", "generate"].includes(action)) throw new ResearchRuntimeError("RESEARCH_WORKFLOW_PAUSED");
     if (command.allowPartialResearch !== undefined && (node !== "research" || !["confirm", "complete"].includes(action))) throw new ResearchRuntimeError("RESEARCH_NODE_STATE_INVALID");
     if (command.draft && command.draft.node !== node) throw new ResearchRuntimeError("RESEARCH_NODE_MISMATCH");
     if (action === "add_source" || action === "remove_source") { await this.editSource(state, command); return; }

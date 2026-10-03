@@ -189,7 +189,7 @@ describe("reference research workflow", () => {
     expect(screen.getByRole("alert")).toBeInTheDocument();
     expect(screen.getByRole("alert")).not.toHaveTextContent("模型服务暂时不可用");
     expect(screen.getByRole("alert")).toHaveTextContent("研究流程");
-    fireEvent.click(screen.getByRole("button", { name: "生成完整报告" }));
+    fireEvent.click(screen.getByRole("button", { name: "继续生成" }));
     await waitFor(() => expect(executeResearchRuntime).toHaveBeenCalledTimes(1));
     expect(executeResearchRuntime).toHaveBeenCalledWith(expect.objectContaining({ action: "retry", node: "report", expectedVersion: state.version }), expect.any(Function), expect.any(AbortSignal), expect.objectContaining({ sessionId: expect.any(String) }));
   });
@@ -198,7 +198,7 @@ describe("reference research workflow", () => {
     const state = { ...initial, report: null, busy: true, leaseUntil: "2000-01-01T00:00:00.000Z", errorCode: null, reportCheckpoint: { basis: "basis", chapters: [{ sectionId: "o1", body: "重启前保存的章节", sourceIds: ["source1"] }] } };
     vi.mocked(getResearchRuntime).mockResolvedValue(state); vi.mocked(executeResearchRuntime).mockImplementation(() => new Promise(() => undefined));
     render(<GuidedResearchLive sessionId={state.sessionId} onBack={vi.fn()} />);
-    const resume = await screen.findByRole("button", { name: "生成完整报告" });
+    const resume = await screen.findByRole("button", { name: "继续生成" });
     expect(resume).toBeEnabled();
     expect(screen.getByText("重启前保存的章节")).toBeInTheDocument();
     fireEvent.click(resume);
@@ -222,7 +222,7 @@ describe("reference research workflow", () => {
     vi.mocked(executeResearchRuntime).mockImplementation(() => new Promise(() => undefined));
     render(<GuidedResearchLive sessionId={state.sessionId} onBack={vi.fn()} />);
 
-    expect(await screen.findByRole("button", { name: "生成完整报告" })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "继续生成" })).toBeInTheDocument();
     fireEvent.pointerDown(screen.getByRole("button", { name: "更多操作" }), { button: 0, ctrlKey: false });
     fireEvent.click(await screen.findByRole("menuitem", { name: "重新生成报告" }));
     expect(executeResearchRuntime).toHaveBeenCalledWith(expect.objectContaining({ action: "generate", node: "report" }), expect.any(Function), expect.any(AbortSignal), expect.objectContaining({ sessionId: expect.any(String) }));
