@@ -33,8 +33,7 @@ import {
  */
 
 function git(args: string[]): string[] {
-  // Full tracked-file discovery can exceed Node's 1 MiB default; retain a finite cap.
-  const out = execFileSync("git", args, { cwd: REPO_ROOT, encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
+  const out = execFileSync("git", args, { cwd: REPO_ROOT, encoding: "utf8" });
   return out.split("\n").filter((l) => l.length > 0);
 }
 
@@ -77,7 +76,7 @@ describe("开工流程第 2 步在干净 clone 上可复现（#401）", () => {
   });
 
   it("只靠被 Git 追踪的权威源，就能发现唯一 in_progress 的 feature，并重建出它所在 sprint 的视图", () => {
-    const tracked = new Set(git(["ls-files"]));
+    const tracked = new Set(git(["ls-files", "--", "phases/*/feature_list.json"]));
     let phasesSeen = 0;
     let rowsSeen = 0;
 
