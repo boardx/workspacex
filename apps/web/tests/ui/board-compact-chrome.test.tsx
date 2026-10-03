@@ -31,3 +31,29 @@ it("does not reopen a creation palette just because an existing text object is s
   expect(screen.queryByTestId("board-tool-picker")).toBeNull();
   for (const tool of ["sticky", "shape", "draw", "connector"]) expect(screen.getByTestId(`board-add-${tool}`)).toHaveStyle({minHeight:"56px",minWidth:"56px"});
 });
+
+
+it("closes an explicitly opened picker when controlled creation clears and does not resurrect it on shortcut arming", () => {
+  const callbacks={onToolChange:vi.fn(),onCreationToolChange:vi.fn(),onQuickCreate:vi.fn(),onBulkSticky:vi.fn(),onImageRequest:vi.fn()};
+  const view=render(<BoardBottomDock activeTool="select" creationTool={{kind:"sticky",variant:"square"}} readOnly={false} {...callbacks}/>);
+  fireEvent.click(screen.getByTestId("board-add-sticky"));
+  expect(screen.getByTestId("board-tool-picker")).toBeVisible();
+  expect(screen.getByTestId("board-tool-picker")).toHaveAttribute("data-board-chrome","tool-picker");
+  fireEvent.click(screen.getByTestId("board-sticky-circle"));
+  expect(callbacks.onCreationToolChange).toHaveBeenLastCalledWith({kind:"sticky",variant:"circle"});
+  view.rerender(<BoardBottomDock activeTool="select" creationTool={{kind:"sticky",variant:"circle"}} readOnly={false} {...callbacks}/>);
+  expect(screen.getByTestId("board-tool-picker")).toBeVisible();
+  // Completing/cancelling the one-shot creation clears the controlled mode.
+  view.rerender(<BoardBottomDock activeTool="select" creationTool={null} readOnly={false} {...callbacks}/>);
+  expect(screen.queryByTestId("board-tool-picker")).toBeNull();
+  // Native N/T only arm the controlled mode; they do not request a dock menu.
+  for(const creationTool of [{kind:"sticky",variant:"square"},{kind:"text",preset:"body"}] as const){
+    view.rerender(<BoardBottomDock activeTool="select" creationTool={creationTool} readOnly={false} {...callbacks}/>);
+    expect(screen.queryByTestId("board-tool-picker")).toBeNull();
+    view.rerender(<BoardBottomDock activeTool="select" creationTool={null} readOnly={false} {...callbacks}/>);
+  }
+  view.rerender(<BoardBottomDock activeTool="select" creationTool={{kind:"sticky",variant:"square"}} readOnly={false} {...callbacks}/>);
+  fireEvent.click(screen.getByTestId("board-add-sticky"));
+  expect(screen.getByTestId("board-tool-picker")).toBeVisible();
+  expect(callbacks.onQuickCreate).not.toHaveBeenCalled();
+});
