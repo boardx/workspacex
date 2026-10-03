@@ -8,12 +8,12 @@ const phases=new Set(['BOOTSTRAP','SOURCE','IMPORT','PREFLIGHT','TOOLCHAIN','PLA
 const identityCodes=new Set(['IDENTITY_SOURCE','IDENTITY_CWD','IDENTITY_LISTENER','IDENTITY_ANCESTRY']);
 const codes=new Set(['ERR_ASSERTION','MODULE_NOT_FOUND','ERR_MODULE_NOT_FOUND','ENOENT','EACCES','EPERM','ENOSPC','ENOTDIR','EADDRINUSE','ECONNREFUSED','ECONNRESET','ETIMEDOUT','ENOBUFS','ERR_CHILD_PROCESS_STDIO_MAXBUFFER','TYPE_ERROR','UNKNOWN',...identityCodes]);
 
-export function identityOperation(code,operation,identityCwd){
+export function identityOperation(code,operation,context){
   assert(identityCodes.has(code));
   try{return operation();}catch(cause){
     if(cause instanceof Error&&identityCodes.has(Object.getOwnPropertyDescriptor(cause,'code')?.value))throw cause;
     const error=new Error(code,{cause});error.code=code;
-    try{if(identityCwd)error.identityCwd=parseIdentityCwd(identityCwd);}catch{ /* Invalid diagnostics must not replace the original identity failure. */ }
+    try{if(context&&code==='IDENTITY_CWD')error.identityCwd=parseIdentityCwd(context);if(context&&code==='IDENTITY_LISTENER')error.identityListener=parseIdentityListener(context);}catch{ /* Invalid diagnostics must not replace the original identity failure. */ }
     throw error;
   }
 }
@@ -29,6 +29,17 @@ export function parseIdentityCwd(value){
   return{...value};
 }
 
+export function parseIdentityListener(value){
+  assert(value&&typeof value==='object'&&!Array.isArray(value));
+  assert.deepEqual(Object.keys(value).sort(),['allDescend','childExitCode','childSignal','commandExit','listenerCount','pidAlive','service']);
+  assert(value.service==='web'||value.service==='api');
+  for(const key of ['pidAlive','allDescend'])assert(value[key]===null||typeof value[key]==='boolean');
+  for(const key of ['commandExit','childExitCode'])assert(value[key]===null||(Number.isInteger(value[key])&&value[key]>=-1&&value[key]<=255));
+  assert(value.listenerCount===null||(Number.isInteger(value.listenerCount)&&value.listenerCount>=0&&value.listenerCount<=4096));
+  assert(value.childSignal===null||['SIGTERM','SIGKILL','SIGINT','SIGHUP','SIGABRT','SIGSEGV'].includes(value.childSignal));
+  return{...value};
+}
+
 export function safeStartupCode(error){
   try{if(codes.has(error?.code))return error.code;if(error instanceof TypeError)return 'TYPE_ERROR';}catch{ /* Error accessors must not escape the whitelist. */ }
   return 'UNKNOWN';
@@ -36,12 +47,16 @@ export function safeStartupCode(error){
 
 export function parseStartupReceipt(value){
   assert(value&&typeof value==='object'&&!Array.isArray(value));
-  assert.deepEqual(Object.keys(value).sort(),Object.hasOwn(value,'identityCwd')?['code','identityCwd','phase','sourceHead','status']:['code','phase','sourceHead','status']);
+  const keys=['code','phase','sourceHead','status'];
+  if(Object.hasOwn(value,'identityCwd'))keys.push('identityCwd');
+  if(Object.hasOwn(value,'identityListener'))keys.push('identityListener');
+  assert.deepEqual(Object.keys(value).sort(),keys.sort());
   assert(phases.has(value.phase)&&codes.has(value.code));assert.equal(value.status,'failed');
   assert(value.sourceHead===null||(typeof value.sourceHead==='string'&&/^[a-f0-9]{40}$/.test(value.sourceHead)));
   if(value.sourceHead===null)assert(value.phase==='BOOTSTRAP'||value.phase==='SOURCE');
   const receipt={phase:value.phase,code:value.code,status:'failed',sourceHead:value.sourceHead};
   if(Object.hasOwn(value,'identityCwd')){assert(value.phase==='IDENTITY'&&value.code==='IDENTITY_CWD');receipt.identityCwd=parseIdentityCwd(value.identityCwd);}
+  if(Object.hasOwn(value,'identityListener')){assert(value.phase==='IDENTITY'&&value.code==='IDENTITY_LISTENER');receipt.identityListener=parseIdentityListener(value.identityListener);}
   return receipt;
 }
 
@@ -59,8 +74,8 @@ function assertPrivateDirectory(data){
   return directory;
 }
 
-export function writeStartupFailure({data,phase,sourceHead,error,identityCwd}){
-  const receipt=parseStartupReceipt({phase,code:safeStartupCode(error),status:'failed',sourceHead,...(identityCwd?{identityCwd}:{})});
+export function writeStartupFailure({data,phase,sourceHead,error,identityCwd,identityListener}){
+  const receipt=parseStartupReceipt({phase,code:safeStartupCode(error),status:'failed',sourceHead,...(identityCwd?{identityCwd}:{}),...(identityListener?{identityListener}:{})});
   assertPrivateDirectory(data);
   const target=join(data,'native-startup-failure.json');assert(!existsSync(target),'Existing startup failure evidence must be retained');
   const temporary=join(data,`.native-startup-${randomUUID()}.json`),fd=openSync(temporary,'wx',0o600);

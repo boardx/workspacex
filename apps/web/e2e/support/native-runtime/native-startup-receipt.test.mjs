@@ -4,6 +4,13 @@ import {mkdtempSync,chmodSync,lstatSync,readFileSync,rmSync,realpathSync,symlink
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {safeStartupCode,parseStartupReceipt,writeStartupFailure,readStartupFailure,identityOperation} from './native-startup-receipt.mjs';
+import {listenerObservationCount} from './runtime-attestation.mjs';
+
+test('listener diagnostic counts actual nonempty observations without inventing PID zero',()=>{
+  assert.equal(listenerObservationCount(''),0);assert.equal(listenerObservationCount(' \n\n'),0);
+  assert.equal(listenerObservationCount('123\n'),1);assert.equal(listenerObservationCount('123\n456\n'),2);
+  assert.throws(()=>listenerObservationCount(undefined));
+});
 
 test('identity suboperations retain original private cause while exposing only sole fixed codes',()=>{
   for(const code of ['IDENTITY_SOURCE','IDENTITY_CWD','IDENTITY_LISTENER','IDENTITY_ANCESTRY']){
@@ -39,6 +46,23 @@ test('real import failure exposes only fixed phase and Node code, not its privat
   assert.equal(safeStartupCode(failure),'ERR_MODULE_NOT_FOUND');
   assert.equal(safeStartupCode(new Error('password=private SQL secret URL token')),'UNKNOWN');
   assert.equal(safeStartupCode({get code(){throw new Error('private');}}),'UNKNOWN');
+});
+
+test('listener diagnostics preserve the private cause and never expose PID port paths or raw output',()=>{
+  const legacy={phase:'IDENTITY',code:'IDENTITY_LISTENER',status:'failed',sourceHead:'a'.repeat(40)};
+  assert.deepEqual(parseStartupReceipt(legacy),legacy);
+  const context={service:'web',pidAlive:true,commandExit:1,listenerCount:null,allDescend:null,childExitCode:null,childSignal:null};
+  const original=new Error('private token port PID stderr');let failure;
+  try{identityOperation('IDENTITY_LISTENER',()=>{throw original;},context);}catch(error){failure=error;}
+  assert.equal(failure.cause,original);assert.deepEqual(failure.identityListener,context);
+  assert.deepEqual(parseStartupReceipt({...legacy,identityListener:context}).identityListener,context);
+  for(const invalid of [{...context,pid:123},{...context,port:123},{...context,path:'/private'},{...context,raw:'token'},{...context,service:'postgres'},{...context,listenerCount:-1},{...context,listenerCount:4097},{...context,commandExit:256},{...context,allDescend:'true'}]){
+    assert.throws(()=>parseStartupReceipt({...legacy,identityListener:invalid}));
+    let rejected;try{identityOperation('IDENTITY_LISTENER',()=>{throw original;},invalid);}catch(error){rejected=error;}
+    assert.equal(rejected.cause,original);assert.equal(rejected.identityListener,undefined);
+  }
+  assert.throws(()=>parseStartupReceipt({...legacy,code:'IDENTITY_CWD',identityListener:context}));
+  assert.equal(JSON.stringify(parseStartupReceipt({...legacy,identityListener:context})).includes('private'),false);
 });
 test('startup receipt rejects extra/private fields and unknown schema values',()=>{
   const valid={phase:'IMPORT',code:'ERR_MODULE_NOT_FOUND',status:'failed',sourceHead:'a'.repeat(40)};

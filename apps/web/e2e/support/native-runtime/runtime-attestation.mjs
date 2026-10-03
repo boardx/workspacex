@@ -76,6 +76,8 @@ export function runtimeProcessCwd(pid,{platform=globalThis.process.platform,read
   return exec('lsof',['-a','-p',String(pid),'-d','cwd','-Fn'],{encoding:'utf8'}).split('\n').find(line=>line.startsWith('n'))?.slice(1);
 }
 
+export function listenerObservationCount(output){assert.equal(typeof output,'string');return output.split('\n').filter(line=>line.trim().length>0).length;}
+
 function verifyRuntimeIdentity({manifestPath,root,base,origin,sourceFiles}) {
   assert(manifestPath,'Explicit candidate runtime manifest required');
   const manifest=JSON.parse(readFileSync(manifestPath,'utf8'));
@@ -107,11 +109,18 @@ function verifyRuntimeIdentity({manifestPath,root,base,origin,sourceFiles}) {
     assert(realpathSync(cwd).startsWith(canonical+'/'),'runtime must execute within candidate');
     },identityCwd);
     const url=new URL(kind==='web'?base:origin),port=url.port|| (url.protocol==='https:'?'443':'80');
+    const identityListener={service:kind,pidAlive:null,commandExit:null,listenerCount:null,allDescend:null,childExitCode:null,childSignal:null};
     identityOperation('IDENTITY_LISTENER',()=>{
-    const listeners=execFileSync('lsof',['-nP',`-iTCP:${port}`,'-sTCP:LISTEN','-t'],{encoding:'utf8'}).trim().split('\n').map(Number);
+    try{globalThis.process.kill(process.pid,0);identityListener.pidAlive=true;}catch(error){if(error.code==='ESRCH')identityListener.pidAlive=false;}
+    let listenerOutput;
+    try{listenerOutput=execFileSync('lsof',['-nP',`-iTCP:${port}`,'-sTCP:LISTEN','-t'],{encoding:'utf8'});identityListener.commandExit=0;}
+    catch(error){identityListener.commandExit=Number.isInteger(error.status)&&error.status>=-1&&error.status<=255?error.status:-1;throw error;}
+    const listeners=listenerOutput.trim().split('\n').map(Number);
+    identityListener.listenerCount=listenerObservationCount(listenerOutput);
     const parentOf=pid=>identityOperation('IDENTITY_ANCESTRY',()=>Number(execFileSync('ps',['-o','ppid=','-p',String(pid)],{encoding:'utf8'}).trim()));
-    assert(listeners.length>0&&listeners.every(pid=>descendsFrom(pid,process.pid,parentOf)),`${kind} listener must belong to attested service process`);
-    });
+    const allDescend=listeners.every(pid=>descendsFrom(pid,process.pid,parentOf));identityListener.allDescend=allDescend;
+    assert(listeners.length>0&&allDescend,`${kind} listener must belong to attested service process`);
+    },identityListener);
   }
   return {head:manifest.head,webRoot:canonical,apiRoot:canonical,processes:manifest.processes,sourceHashes:manifest.sourceHashes};
 }

@@ -71,6 +71,6 @@ const run=async(name,launch,cwd,env)=>{const result=await runToCompletion({name,
  verifyRuntimeManifest({manifestPath,root,base:manifest.webBase,origin:manifest.apiBase,sourceFiles});manifest.ready=true;save();writeFileSync(join(data,'native-runner-environment.json'),JSON.stringify(apiEnvironment),{mode:0o600,flag:'wx'});console.log(`NATIVE_BOARD_RUNTIME_READY ${manifestPath}`);
 }
 }catch(error){
- try{if(data){const context=error.identityCwd;const identityCwd=context?{...context,...cwdChildState(context.service)}:undefined;writeStartupFailure({data,phase,sourceHead,error,identityCwd});}}catch{ /* Missing receipt is not a successful startup. */ }
+ try{if(data){const context=error.identityCwd;const identityCwd=context?{...context,...cwdChildState(context.service)}:undefined;const listenerContext=error.identityListener;const identityListener=listenerContext?{...listenerContext,...cwdChildState(listenerContext.service)}:undefined;writeStartupFailure({data,phase,sourceHead,error,identityCwd,identityListener});}}catch{ /* Missing receipt is not a successful startup. */ }
  try{await stopRuntime();}catch(cleanupError){throw new AggregateError([error,cleanupError],'Native runtime startup and cleanup failed',{cause:error});}throw error;
 }
