@@ -21,7 +21,7 @@ function source(id: string, content: string): ResearchRuntime["sources"][number]
 const direct = source("kpl", "王者荣耀职业联赛 KPL 的商业收入来自赛事赞助及版权。");
 const context = source("competitor", "作为移动电竞对照，Mobile Legends 赛事采用地区联赛及赞助模式。");
 const car = source("acura", "Search Inventory: Acura vehicles available at local dealers.");
-type Input = { chunks: { sourceId: string; chunkId: string; taskId: string; questionIds: string[]; content: string }[]; questions: { id: string }[] };
+type Input = { chunks: { sourceId: string; chunkId: string; taskId: string; questionIds: string[]; content: string }[]; questions: { id: string; sectionId: string }[] };
 function evaluation(input: Input) {
   return { evaluations: input.chunks.map((chunk) => ({ sourceId: chunk.sourceId, chunkId: chunk.chunkId,
     irrelevant: chunk.content === car.content, matches: chunk.content === car.content ? [] : [{ questionId: chunk.questionIds[0]!,
@@ -327,4 +327,16 @@ describe("actionable source output repair", () => {
     expect(f.model.complete).toHaveBeenCalledTimes(1);
     expect(f.search).not.toHaveBeenCalled();
   });
+});
+
+it("reevaluates retrieved facts against replacement chapter questions instead of deleting unexamined sources (#5081)", async () => {
+  const state = runtime(); state.outline[0]!.id = "replacement";
+  const model = complete(); const excluded = { ...context, decision: "excluded" as const };
+  const result = await screenResearchSources(state, [direct, car, excluded], model);
+  expect(model).toHaveBeenCalled();
+  expect(result.map((item) => item.id)).toEqual([direct.id, excluded.id]);
+  const input = model.mock.calls[0]![1] as Input;
+  expect(input.chunks.every((chunk) => chunk.questionIds.length > 0)).toBe(true);
+  expect(input.questions.every((question) => question.sectionId === "replacement")).toBe(true);
+  expect(result[0]!.content).toBe(direct.content);
 });

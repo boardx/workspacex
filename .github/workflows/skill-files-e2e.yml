@@ -22,9 +22,17 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter web exec playwright install --with-deps chromium
+      - name: Verify isolated import credential boundaries
+        run: node --test scripts/tests/studio-skill-files-credentials.test.mjs
+      # Optional public-read credential; fork PRs stay anonymous, never borrow github.token.
+      - name: Verify dedicated public Skill import authentication (optional)
+        env:
+          WORKSPACEX_SKILL_IMPORT_GITHUB_TOKEN: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && secrets.WORKSPACEX_SKILL_IMPORT_GITHUB_TOKEN || '' }}
+        run: node .harness/scripts/ci-skill-import-auth-probe.mjs
       - name: Run isolated real import, save and pin recovery
         env:
           TMPDIR: ${{ runner.temp }}
+          WORKSPACEX_SKILL_IMPORT_GITHUB_TOKEN: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && secrets.WORKSPACEX_SKILL_IMPORT_GITHUB_TOKEN || '' }}
         run: pnpm exec tsx .harness/scripts/with-test-isolation.ts -- node scripts/studio-skill-files-e2e.mjs -- pnpm --filter web exec playwright test --config playwright.skill-files.config.ts
       - name: Retain structured browser evidence
         if: always()

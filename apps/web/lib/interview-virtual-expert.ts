@@ -16,16 +16,23 @@ const sections = [
 /** A narrow, lossless Markdown format for editable AI proposals; unknown output is rejected. */
 export function parseVirtualExpertProposal(markdown: string): VirtualExpertFields {
   const normalized = markdown.replace(/\r\n?/gu, "\n").trim();
-  const title = /^# ([^\n]+)\n\n/u.exec(normalized);
+  const title = /^# ([^\n]+)\n/u.exec(normalized);
   if (!title || /<[^>]+>/u.test(normalized)) throw new Error("VIRTUAL_EXPERT_PROPOSAL_INCOMPLETE");
   const matches = [...normalized.matchAll(/^## ([^\n]+)\n/gmu)];
   if (matches.length !== sections.length || matches.some((match, index) => match[1] !== sections[index]?.[0])) {
     throw new Error("VIRTUAL_EXPERT_PROPOSAL_INCOMPLETE");
   }
-  if (normalized.slice(title[0].length, matches[0]?.index).trim()) throw new Error("VIRTUAL_EXPERT_PROPOSAL_INCOMPLETE");
+  const titleBody = normalized.slice(title[0].length, matches[0]?.index).trim();
+  // The server asks for a "虚拟角色名称" section. Preserve its actual name
+  // when a model follows that labeled-section format instead of naming the H1.
+  const labeledName = title[1]?.trim() === "虚拟角色名称";
+  const name = labeledName ? titleBody : title[1]?.trim();
+  if ((labeledName && (!name || name.includes("\n") || /^#/u.test(name))) || (!labeledName && titleBody)) {
+    throw new Error("VIRTUAL_EXPERT_PROPOSAL_INCOMPLETE");
+  }
   const values = matches.map((match, index) => normalized.slice((match.index ?? 0) + match[0].length, matches[index + 1]?.index ?? normalized.length).trim());
-  if (!title[1]?.trim() || values.some((value) => !value || /^#{1,6}\s/gmu.test(value))) throw new Error("VIRTUAL_EXPERT_PROPOSAL_INCOMPLETE");
-  return { name: title[1].trim(), role: values[0]!, domains: values[1]!, focus: values[2]!, style: values[3]!, bio: values[4]!, limits: values[5]! };
+  if (!name || values.some((value) => !value || /^#{1,6}\s/gmu.test(value))) throw new Error("VIRTUAL_EXPERT_PROPOSAL_INCOMPLETE");
+  return { name, role: values[0]!, domains: values[1]!, focus: values[2]!, style: values[3]!, bio: values[4]!, limits: values[5]! };
 }
 
 export function renderVirtualExpertMarkdown(fields: VirtualExpertFields): string {

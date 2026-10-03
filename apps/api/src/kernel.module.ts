@@ -6,6 +6,9 @@ import {WHITEBOARD_ORGANIZE_SERVICE,WhiteboardOrganizeService} from './applicati
 import {PgBoardOrganizeActorDirectory} from './infrastructure/whiteboard/pg-organize-actor-directory';
 import { WhiteboardAssetsController } from './interface/controllers/whiteboard-assets.controller';
 import { WHITEBOARD_IMAGE_ASSETS, WhiteboardImageAssets } from './application/whiteboard/image-assets';
+import { WhiteboardFilesController } from './interface/controllers/whiteboard-files.controller';
+import { WHITEBOARD_FILE_ASSETS, WhiteboardFileAssets } from './application/whiteboard/file-assets';
+import { PgBoardFileAssets } from './infrastructure/whiteboard/pg-file-assets';
 import { boardAssetDownloadGrantSignerFromEnv } from './application/whiteboard/asset-download-grant';
 import { SecureWhiteboardObjectStore, WHITEBOARD_SECURE_OBJECT_STORE, whiteboardObjectEncryptionPolicy } from './infrastructure/whiteboard/secure-object-store';
 import { PgBoardImageAssets } from './infrastructure/whiteboard/pg-image-assets';
@@ -1179,6 +1182,7 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
 
 @Module({
   controllers: [
+    WhiteboardFilesController,
     WorkflowRuntimeController,
     BoardRunCardsController,
     KnowledgeGraphController,
@@ -2707,14 +2711,15 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
         decisions: import("./application/identity/ports").DecisionIdFactory,
         reader: import("./application/interview/read-interview-markdown").InterviewMarkdownReader,
         model: ModelCallPort,
+        debugTrace: import("./application/ports/debug-trace.port").DebugTracePort,
       ) => {
         const config = readDigitalInterviewModelConfig();
-        const deps = { repo, scope, decisions, reader, model, modelProvider: config.provider, modelId: config.modelId };
+        const deps = { repo, scope, decisions, reader, model, debugTrace, modelProvider: config.provider, modelId: config.modelId };
         return { generate: (input: import("./application/interview/generate-interview-markdown").GenerateMarkdownInput) =>
           generateInterviewMarkdown(deps, input),
           previewVirtualExpert: (input: Parameters<typeof previewVirtualExpertMarkdown>[1]) => previewVirtualExpertMarkdown(deps, input) };
       },
-      inject: [DIGITAL_INTERVIEW_REPOSITORY, INTERVIEW_SCOPE_REPOSITORY, DECISION_ID_FACTORY, INTERVIEW_MARKDOWN_READER, MODEL_CALL_PORT],
+      inject: [DIGITAL_INTERVIEW_REPOSITORY, INTERVIEW_SCOPE_REPOSITORY, DECISION_ID_FACTORY, INTERVIEW_MARKDOWN_READER, MODEL_CALL_PORT, DEBUG_TRACE_PORT],
     },
     {
       provide: INTERVIEW_MARKDOWN_EXECUTION,
@@ -3414,6 +3419,11 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
     {
       provide: WHITEBOARD_IMAGE_ASSETS,
       useFactory: (boards: PgWhiteboardRepository, db: DatabasePort, objects: SecureWhiteboardObjectStore) => new WhiteboardImageAssets(boards, new PgBoardImageAssets(db), objects, new SharpBoardImageVerifier(), boardAssetDownloadGrantSignerFromEnv()),
+      inject: [WHITEBOARD_REPOSITORY, DATABASE_PORT, WHITEBOARD_SECURE_OBJECT_STORE],
+    },
+    {
+      provide: WHITEBOARD_FILE_ASSETS,
+      useFactory: (boards: PgWhiteboardRepository, db: DatabasePort, objects: SecureWhiteboardObjectStore) => new WhiteboardFileAssets(boards, new PgBoardFileAssets(db, boards), objects),
       inject: [WHITEBOARD_REPOSITORY, DATABASE_PORT, WHITEBOARD_SECURE_OBJECT_STORE],
     },
     {

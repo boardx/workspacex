@@ -28,10 +28,16 @@ const readRecord=(path,prefix)=>{
 };
 const bootstrap=readRecord(bootstrapPath,"CN_BOOTSTRAP_COMPAT_JSON=");
 const b=bootstrap.value;
-if(b.sourceSha!==sourceSha||b.phase!==phase||b.ready!==true||b.readOnlyTransaction!==true||b.productionWriteStatements!==0||!Array.isArray(b.blockers)||b.blockers.length)throw Error("BOOTSTRAP_COMPATIBILITY_UNPROVEN");
-if(phase==="preactivate"&&b.imageDigest!==JSON.parse(fs.readFileSync(manifestPath,"utf8")).images.api.image.split("@")[1])throw Error("BOOTSTRAP_IMAGE_IDENTITY_DIFFERS");
+if(b.schemaVersion!==1||b.sourceSha!==sourceSha||b.phase!==phase||b.ready!==true||b.productionWriteStatements!==0||!Array.isArray(b.blockers)||b.blockers.length)throw Error("BOOTSTRAP_COMPATIBILITY_UNPROVEN");
+// Static source proof cannot claim database compatibility; dynamic image proof remains mandatory.
+if(phase==="prebuild"){
+  if(b.imageDigest!==undefined||b.checks?.imageEntrypoint!==undefined||b.checks?.sourceEntrypoint!==true||b.checks?.inputContract!==true||b.readOnlyTransaction!==false||b.stateClass!=="unknown"||["schemaContract","permissionContract","agentSeedContract"].some(key=>b.checks?.[key]!==false))throw Error("BOOTSTRAP_SOURCE_STATIC_UNPROVEN");
+}else if(phase==="preactivate"){
+  if(b.readOnlyTransaction!==true||b.checks?.sourceEntrypoint!==undefined||b.checks?.imageEntrypoint!==true||b.checks?.inputContract!==true||!["empty","matching-existing"].includes(b.stateClass)||["schemaContract","permissionContract","agentSeedContract"].some(key=>b.checks?.[key]!==true))throw Error("BOOTSTRAP_DYNAMIC_COMPATIBILITY_UNPROVEN");
+  if(b.imageDigest!==JSON.parse(fs.readFileSync(manifestPath,"utf8")).images.api.image.split("@")[1])throw Error("BOOTSTRAP_IMAGE_IDENTITY_DIFFERS");
+}else throw Error("BOOTSTRAP_PHASE_INVALID");
 checks["bootstrap.compatibility"]={status:"passed",evidenceSha256:digest(bootstrap.raw),metadata:{
-  readOnlyTransaction:b.readOnlyTransaction,productionWriteStatements:b.productionWriteStatements,...b.checks,
+  evidenceMode:phase==="prebuild"?"source-static":"database-dynamic",readOnlyTransaction:b.readOnlyTransaction,productionWriteStatements:b.productionWriteStatements,...b.checks,
   stateClass:b.stateClass,exactlyOneMachineRecord:true,emailSha256:b.adminEmailSha256,
 }};
 for(const [key,path,prefix] of [["config.durable_profiles",runtimePath,"CN_RUNTIME_ENVIRONMENT_PREFLIGHT_JSON="],["secrets.stable_continuity",stablePath,"CN_STABLE_SECRET_PREFLIGHT "],["cloud.managed_data_permissions",managedPath,"CN_MANAGED_DATA_PREFLIGHT_JSON="]]){

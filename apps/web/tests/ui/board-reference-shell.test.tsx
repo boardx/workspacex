@@ -22,19 +22,21 @@ it('changes creation defaults only and retains accessible shapes and read-only p
 it('selecting the sticky tool does not create an unintended note before canvas placement',()=>{
  const create=vi.fn(),change=vi.fn();render(<BoardBottomDock activeTool="select" creationTool={null} readOnly={false} onToolChange={vi.fn()} onCreationToolChange={change} onQuickCreate={create} onBulkSticky={vi.fn()} onImageRequest={vi.fn()}/>);fireEvent.click(screen.getByTestId('board-add-sticky'));expect(change).toHaveBeenCalledWith({kind:'sticky',variant:'square'});expect(create).not.toHaveBeenCalled();
 });
-it('keeps the FigJam tool order and exposes Frame as a first-class creation mode',()=>{
+it('keeps the FigJam tool order and keeps Frame creation hidden',()=>{
  const creation=vi.fn();
- render(<BoardBottomDock activeTool="select" creationTool={null} readOnly={false} onToolChange={vi.fn()} onCreationToolChange={creation} onQuickCreate={vi.fn()} onBulkSticky={vi.fn()} onImageRequest={vi.fn()}/>);
+ const view = render(<BoardBottomDock activeTool="select" creationTool={null} readOnly={false} onToolChange={vi.fn()} onCreationToolChange={creation} onQuickCreate={vi.fn()} onBulkSticky={vi.fn()} onImageRequest={vi.fn()}/>);
+ expect(screen.queryByTestId("board-add-connector")).toBeNull();
+ view.rerender(<BoardBottomDock connectorEnabled activeTool="select" creationTool={null} readOnly={false} onToolChange={vi.fn()} onCreationToolChange={creation} onQuickCreate={vi.fn()} onBulkSticky={vi.fn()} onImageRequest={vi.fn()}/>);
  const dock=screen.getByTestId('board-creation-dock');
  expect(dock).toHaveClass('w-max','max-w-[calc(100vw-2rem)]');
  expect(dock.lastElementChild).toHaveClass('w-max','max-w-full','gap-0.5','p-1','xl:gap-1','xl:p-1.5');
- const ordered=['board-tool-select','board-tool-hand','board-add-sticky','board-add-text','board-add-shape','board-add-connector','board-add-draw','board-add-image','board-add-frame','board-add-more'];
+ const ordered=['board-tool-select','board-tool-hand','board-add-sticky','board-add-text','board-add-shape','board-add-draw','board-add-image','board-add-connector','board-add-more'];
  const positions=ordered.map(id=>Array.from(dock.querySelectorAll('button')).indexOf(screen.getByTestId(id)));
  expect(positions).toEqual([...positions].sort((a,b)=>a-b));
- fireEvent.click(screen.getByTestId('board-add-frame'));
- expect(creation).toHaveBeenLastCalledWith({kind:'panel',mode:'freeform'});
- expect(screen.queryByTestId('board-tool-picker')).toBeNull();
- expect(screen.getByTestId('board-add-frame')).toHaveAccessibleName('Frame，快捷键 F');
+ expect(screen.queryByTestId('board-add-frame')).toBeNull();
+ expect(creation).not.toHaveBeenCalled();
+ expect(screen.getByTestId('board-add-connector')).toBeInTheDocument();
+ expect(screen.getByTestId('board-add-connector')).toBeVisible();
  fireEvent.click(screen.getByTestId('board-add-more'));
  expect(screen.queryByTestId('board-add-panel')).toBeNull();
 });

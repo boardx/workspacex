@@ -150,6 +150,10 @@ export class PgBoardContentCopyStore implements BoardContentCopyPort {
       Y.applyUpdate(doc,snapshot); validateDocument(doc);
       const copied = new Set<string>();
       for (const object of readObjects(doc)) {
+        const content = readContentObject(object);
+        // File assets have board-scoped ACLs. Refuse a duplicate until its file roots can be copied.
+        if (content?.type === 'tile' && content.tileType === 'file' && content.fields.some(field => field.key === 'assetId' && field.value.startsWith('board-file-'))) throw new WhiteboardResourceError('COPY_INTEGRITY_FAILED');
+        if (content?.type === 'template' && content.objects?.some(item => item.content.type === 'tile' && item.content.tileType === 'file' && item.content.fields.some(field => field.key === 'assetId' && field.value.startsWith('board-file-')))) throw new WhiteboardResourceError('COPY_INTEGRITY_FAILED');
         if (object.kind !== 'image') continue;
         const image = readContentObject(object);
         // Session blobs or source-board URLs would produce an apparently successful but unreadable duplicate.

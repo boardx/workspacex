@@ -86,7 +86,15 @@ export const WhiteboardExtensionData = z.record(z.unknown()).superRefine((value,
     ctx.addIssue({ code: z.ZodIssueCode.custom, message: error instanceof Error && error.message.startsWith('UNSAFE_EXTENSION') ? error.message : 'Extension must be bounded plain JSON' });
   }
 });
-const WhiteboardPoint = z.object({ x: z.number().finite().min(-1000000).max(1000000), y: z.number().finite().min(-1000000).max(1000000) }).strict();
+export const WhiteboardPoint = z.object({ x: z.number().finite().min(-1000000).max(1000000), y: z.number().finite().min(-1000000).max(1000000) }).strict();
+export const WHITEBOARD_CONNECTOR_LIMITS = { defaultStrokeWidth: 2, strokeWidthMin: 1, strokeWidthMax: 24, waypointsMax: 8, labelOffsetMax: 1000000 } as const;
+export const WhiteboardConnectorRoute = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('curve'), startOffset: WhiteboardPoint, endOffset: WhiteboardPoint }).strict(),
+  z.object({ kind: z.literal('elbow'), waypoints: z.array(WhiteboardPoint).min(1).max(WHITEBOARD_CONNECTOR_LIMITS.waypointsMax) }).strict(),
+]);
+export type WhiteboardConnectorRoute = z.infer<typeof WhiteboardConnectorRoute>;
+export const WhiteboardConnectorLabelPosition = z.object({ t: z.number().finite().min(0).max(1), normalOffset: z.number().finite().min(-WHITEBOARD_CONNECTOR_LIMITS.labelOffsetMax).max(WHITEBOARD_CONNECTOR_LIMITS.labelOffsetMax) }).strict();
+export type WhiteboardConnectorLabelPosition = z.infer<typeof WhiteboardConnectorLabelPosition>;
 export const WhiteboardConnector = z.object({
   from: WhiteboardObjectId.optional(), to: WhiteboardObjectId.optional(),
   fromPoint: WhiteboardPoint.optional(), toPoint: WhiteboardPoint.optional(),
@@ -99,12 +107,17 @@ export const WhiteboardConnector = z.object({
   endStyle: z.enum(['none', 'arrow', 'circle', 'diamond']).optional(),
   lineStyle: z.enum(['solid', 'dashed', 'dotted']).optional(),
   label: z.string().max(1000).optional(), semanticRelation: z.string().max(256).optional(),
+  strokeWidth: z.number().finite().min(WHITEBOARD_CONNECTOR_LIMITS.strokeWidthMin).max(WHITEBOARD_CONNECTOR_LIMITS.strokeWidthMax).optional(),
+  route: WhiteboardConnectorRoute.optional(),
+  labelPosition: WhiteboardConnectorLabelPosition.optional(),
 }).strict().superRefine((connector, ctx) => {
+  if (connector.route && connector.route.kind !== (connector.type ?? 'straight')) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Route kind must match connector type' });
   if (connector.fromOffset && !connector.from) ctx.addIssue({code:z.ZodIssueCode.custom,message:'Offset requires attached from endpoint'});
   if (connector.toOffset && !connector.to) ctx.addIssue({code:z.ZodIssueCode.custom,message:'Offset requires attached to endpoint'});
   if (Boolean(connector.from) === Boolean(connector.fromPoint)) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Connector from endpoint must be attached or free' });
   if (Boolean(connector.to) === Boolean(connector.toPoint)) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Connector to endpoint must be attached or free' });
 });
+export type WhiteboardConnector = z.infer<typeof WhiteboardConnector>;
 export const WhiteboardObject = z.object({
   id: WhiteboardObjectId, schemaVersion: z.literal(1),
   kind: z.enum(['sticky', 'text', 'rectangle', 'ellipse', 'frame', 'group', 'connector', 'image', 'drawing', 'extension']),

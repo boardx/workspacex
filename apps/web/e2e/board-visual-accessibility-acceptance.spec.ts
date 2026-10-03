@@ -1,3 +1,4 @@
+import {clickBlankCanvas} from "./board-acceptance-support";
 import AxeBuilder from '@axe-core/playwright';
 import {expect,test} from '@playwright/test';
 import {writeFile} from 'node:fs/promises';
@@ -20,7 +21,7 @@ test('visual and accessibility real object states, input and negative controls',
     await openBoard(page,boardId,0);
     for(const viewport of visualViewports){await page.setViewportSize(viewport);captures.push(await captureVisual(page,info,`empty-${viewport.width}`));}
     // Keyboard path must create canonical content and retain editable focus.
-    await page.getByTestId('board-tool-select').focus();await page.keyboard.press('n');
+    await page.getByTestId('board-tool-select').focus();await page.keyboard.press('n');await clickBlankCanvas(page);
     await expect(page.getByLabel('对象文字',{exact:true})).toBeFocused();
     const longText='用户不知道如何开始使用产品，需要清晰的下一步。'.repeat(18);
     await page.getByLabel('对象文字',{exact:true}).fill(longText);await page.keyboard.press('Tab');
@@ -37,6 +38,7 @@ test('visual and accessibility real object states, input and negative controls',
       {...object('visual-connector','connector',0,0,'关联',1,1),connector:{from:'visual-text',to:'visual-shape',fromAnchor:'right' as const,toAnchor:'left' as const,type:'straight' as const,endStyle:'arrow' as const}}];
     await operate(request,token,boardId,createCommands(values));
     const png=boardImagePngFixture();
+    await page.getByTestId('board-add-image').click();await expect(page.getByRole('dialog',{name:'添加图片'})).toBeVisible();
     await page.getByTestId('board-image-input').setInputFiles({name:'visual-reference.png',mimeType:'image/png',buffer:png});
     await expect.poll(async()=>(await canonicalRows(page)).filter(row=>row.kind==='image').length).toBe(1);
     // A real vector stroke through browser mouse input, not a background bitmap fixture.
@@ -71,7 +73,7 @@ test('visual and accessibility real object states, input and negative controls',
       // Equivalent reflow + text scaling, explicitly not native browser zoom evidence.
       await page.setViewportSize({width:Math.round(1280/scale),height:720});
       await page.addStyleTag({content:`html {font-size:${16*scale}px !important} textarea,input,button {font-size:${14*scale}px !important}`});
-      await page.getByTestId('board-tool-select').focus();await page.keyboard.press('n');
+      await page.getByTestId('board-tool-select').focus();await page.keyboard.press('n');await clickBlankCanvas(page);
       await expect(page.getByLabel('对象文字',{exact:true})).toBeFocused();await page.getByLabel('对象文字',{exact:true}).fill(`Reflow ${scale*100}%`);
       const fontSize=await page.getByLabel('对象文字',{exact:true}).evaluate(element=>parseFloat(getComputedStyle(element).fontSize));expect(fontSize).toBeGreaterThanOrEqual(14*scale);
       captures.push(await captureVisual(page,info,`reflow-text-${scale*100}`,false));await page.keyboard.press('Escape');

@@ -5,7 +5,7 @@ import { join,dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
-import { artifactDigest,verifySourceBytes,systemdIdentity,dockerIdentity,collectMixedRuntime,composeContainerName,assertStartedAfterBuild } from './devapp-runtime-identity.mjs';
+import { artifactDigest,verifySourceBytes,systemdIdentity,dockerIdentity,collectMixedRuntime,composeContainerName,assertStartedAfterBuild,publicMarkerEnvironment,verifyPublicMarkerProcesses,installPublicMarker } from './devapp-runtime-identity.mjs';
 const source='a'.repeat(40),image='sha256:'+'b'.repeat(64),dirs:string[]=[];
 afterEach(()=>{for(const p of dirs.splice(0))rmSync(p,{recursive:true,force:true})});
 function fixture(){const p=mkdtempSync(join(tmpdir(),'runtime-identity-'));dirs.push(p);for(const n of ['apps/api/src','apps/web/.next/server','apps/web/.next/cache','apps/web/public','packages/foo/src','packages/foo/dist'])mkdirSync(join(p,n),{recursive:true});for(const n of ['apps/api/src/main.ts','apps/api/package.json','apps/web/.next/BUILD_ID','apps/web/.next/server/app.js','apps/web/package.json','package.json','pnpm-lock.yaml','packages/foo/src/index.ts','packages/foo/dist/index.js'])writeFileSync(join(p,n),'original');return p}
@@ -24,6 +24,38 @@ function processPorts(kind='api'){
 }
 function dockerRun(){return (bin:string,args:string[])=>JSON.stringify(args[0]==='inspect'?[{Id:'container',Image:image,State:{Running:true,StartedAt:'2026-10-01T00:00:00Z'}}]:[{Id:image,Config:{Labels:{'org.opencontainers.image.revision':source}}}])}
 describe('Devapp runtime identity actual mixed topology',()=>{
+ it('preflights all marker paths and restores exact owned bytes after a partial commit failure',()=>{
+  const base='/etc/workspacex-devapp',dropDir='/etc/systemd/system/workspacex-web.service.d',env=base+'/public-runtime.env',drop=dropDir+'/50-workspacex-public-marker.conf';
+  const old=new Map([[env,Buffer.from('old marker')],[drop,Buffer.from('old drop-in')]]),files=new Map(old);let unsafe=false,failDrop=false;
+  const ports={existsSync:(p:string)=>files.has(p),lstatSync:(p:string)=>({isDirectory:()=>!files.has(p),isFile:()=>files.has(p),isSymbolicLink:()=>unsafe&&p===dropDir,uid:0,gid:0,mode:files.has(p)?0o600:0o755}),readFileSync:(p:string)=>files.get(p),writeFileSync:(p:string,bytes:any)=>{if(files.has(p))throw Error('EXISTS');files.set(p,Buffer.from(bytes));},renameSync:(a:string,b:string)=>{if(failDrop&&b===drop)throw Error('ORIGINAL_COMMIT_FAILURE');files.set(b,files.get(a)!);files.delete(a);},unlinkSync:(p:string)=>{files.delete(p);}};
+  unsafe=true;expect(()=>installPublicMarker(base,dropDir,'new',ports)).toThrow('RUNTIME_PUBLIC_MARKER_DIRECTORY');expect(files).toEqual(old);
+  unsafe=false;failDrop=true;let error:AggregateError|undefined;
+  try{installPublicMarker(base,dropDir,'new',ports);}catch(e){error=e as AggregateError;}
+  expect(error?.errors[0].message).toBe('ORIGINAL_COMMIT_FAILURE');expect(files).toEqual(old);
+  failDrop=false;installPublicMarker(base,dropDir,'new',ports);expect(files.get(env)?.toString()).toBe('new');expect(files.get(drop)?.toString()).toBe('[Service]\nEnvironmentFile='+env+'\n');expect(files.size).toBe(2);
+ });
+ it('removes a newly created marker when the second commit fails and retains restoration errors',()=>{
+  const base='/etc/workspacex-devapp',dropDir='/etc/systemd/system/workspacex-web.service.d',env=base+'/public-runtime.env',drop=dropDir+'/50-workspacex-public-marker.conf',files=new Map<string,Buffer>();let failCleanup=false;
+  const ports={existsSync:(p:string)=>files.has(p),lstatSync:(p:string)=>({isDirectory:()=>!files.has(p),isFile:()=>files.has(p),isSymbolicLink:()=>false,uid:0,gid:0,mode:files.has(p)?0o600:0o755}),readFileSync:(p:string)=>files.get(p),writeFileSync:(p:string,bytes:any)=>files.set(p,Buffer.from(bytes)),renameSync:(a:string,b:string)=>{if(b===drop)throw Error('COMMIT_FAILURE');files.set(b,files.get(a)!);files.delete(a);},unlinkSync:(p:string)=>{if(failCleanup&&p===env)throw Error('RESTORE_FAILURE');files.delete(p);}};
+  expect(()=>installPublicMarker(base,dropDir,'new',ports)).toThrow('RUNTIME_PUBLIC_MARKER_TRANSACTION');expect(files.size).toBe(0);
+  failCleanup=true;let error:AggregateError|undefined;try{installPublicMarker(base,dropDir,'new',ports);}catch(e){error=e as AggregateError;}
+  expect(error?.errors.map(e=>e.message)).toEqual(['COMMIT_FAILURE','RESTORE_FAILURE']);expect([...files.keys()]).toEqual([env]);
+ });
+ it('publishes only exact verified source, including rollback, without exposing receipt internals',()=>{
+  const digest='d'.repeat(64),app='/private/source',build={schemaVersion:1,sourceSha:source,appDir:app,artifactSha256:digest,observedAt:'2026-10-02T00:00:00Z',privateToken:'never-public',pid:123};
+  expect(publicMarkerEnvironment(build,source,app,digest)).toBe('WORKSPACEX_DEPLOYMENT_MARKER='+source+'\n');
+  const rollback='c'.repeat(40);expect(publicMarkerEnvironment({...build,sourceSha:rollback},rollback,app,digest)).toBe('WORKSPACEX_DEPLOYMENT_MARKER='+rollback+'\n');
+ });
+ it('rejects missing, wrong-source, stale-build and unsafe marker receipts before publishing',()=>{
+  const digest='d'.repeat(64),app='/private/source',build={schemaVersion:1,sourceSha:source,appDir:app,artifactSha256:digest,observedAt:'2026-10-02T00:00:00Z'};
+  for(const candidate of [null,{}, {...build,sourceSha:'b'.repeat(40)},{...build,artifactSha256:'e'.repeat(64)},{...build,appDir:'/another'}, {...build,observedAt:'invalid'},{...build,sourceSha:source+'\nSECRET=x'}])expect(()=>publicMarkerEnvironment(candidate,source,app,digest)).toThrow('RUNTIME_PUBLIC_MARKER_BUILD');
+  expect(()=>publicMarkerEnvironment(build,source+'\nSECRET=x',app,digest)).toThrow('RUNTIME_PUBLIC_MARKER_BUILD');
+ });
+ it('requires the actual Next process environment marker, not just a file or systemd parent',()=>{
+  const identity={applicationProcesses:[{pid:123},{pid:124}]},environ=(marker:string)=>({readFileSync:()=>Buffer.from('PRIVATE_SECRET=not-public\0'+marker+'\0')});
+  expect(()=>verifyPublicMarkerProcesses(identity,source,environ('WORKSPACEX_DEPLOYMENT_MARKER='+source))).not.toThrow();
+  for(const marker of ['', 'WORKSPACEX_DEPLOYMENT_MARKER='+'b'.repeat(40),'WORKSPACEX_DEPLOYMENT_MARKER='+source+'\0WORKSPACEX_DEPLOYMENT_MARKER='+source])expect(()=>verifyPublicMarkerProcesses(identity,source,environ(marker))).toThrow('RUNTIME_PUBLIC_MARKER_PROCESS');
+ });
  it('accepts a real committed Next catch-all route and readonly CLI before build, then rejects actual byte drift',()=>{
   const {p,commit}=committedFixture();const dir=join(p,'apps/web/app/api/copilotkit/[[...slug]]');mkdirSync(dir,{recursive:true});writeFileSync(join(dir,'route.ts'),'export const POST = 1');const revision=commit();
   expect(()=>verifySourceBytes(p,revision)).not.toThrow();

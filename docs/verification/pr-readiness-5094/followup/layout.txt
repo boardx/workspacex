@@ -1,0 +1,14 @@
+  ✘  2 [seeded-github-import] › e2e/board-files-acceptance.spec.ts:13:5 › R09 real file drop, multipart filenames, durable refresh download and tenant ACL (608ms)
+  ✓  1 [seeded-github-import] › e2e/board-selection-layout.spec.ts:206:9 › organize <=2 actions › snap guideline zoom › 15 layout commands converge and undo (29.3s)
+  ✓  3 [seeded-github-import] › e2e/board-selection-layout.spec.ts:229:9 › organize <=2 actions › snap guideline zoom › Alt-drag duplicates ActiveSelection, converges and undoes (6.3s)
+  ✓  4 [seeded-github-import] › e2e/board-selection-layout.spec.ts:278:9 › organize <=2 actions › snap guideline zoom › pointer snap guide converges and undoes (6.2s)
+  ✓  5 [seeded-github-import] › e2e/board-selection-layout.spec.ts:319:9 › organize <=2 actions › snap guideline zoom › smart preview cancel apply undo CAS and reload (7.3s)
+  ✓  6 [seeded-github-import] › e2e/board-selection-layout.spec.ts:357:5 › visual acceptance: compact selection in three viewports (5.9s)
+    Error: Acceptance requires exact clean source
+    > 13 |   expect(sha).toMatch(/^[a-f0-9]{40}$/); expect(dirty, 'Acceptance requires exact clean source').toBe('');
+  1 failed
+  5 passed (4.1m)
+[timing] pnpm --filter web exec playwright test --config playwright.fullstack-smoke.config.ts --project=seeded-github-import --no-deps e2e/board-files-acceptance.spec.ts e2e/board-selection-layout.spec.ts
+  命令执行：4m9s
+  清理：1s
+  总计：4m10s
