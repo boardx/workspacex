@@ -45,7 +45,7 @@ class Journal:
  def __init__(self,path,identity):
   self.path=pathlib.Path(path);require(not self.path.exists(),'RECOVERY_REPLAY_REQUIRES_RECONCILIATION')
   s=self.path.parent.lstat();require(stat.S_ISDIR(s.st_mode) and s.st_uid==0 and stat.S_IMODE(s.st_mode)==0o700,'JOURNAL_PARENT')
-  self.value={'schemaVersion':1,'identity':identity,'events':[],'writesHeld':True,'ready':False}
+  self.value={'schemaVersion':1,'identity':identity,'events':[],'writesHeld':None,'writeState':'fresh-observation-required','ready':False}
  def record(self,state,**facts):
   self.value['events'].append({'state':state,'at':time.time(),**facts})
   tmp=self.path.with_name('.recovery-'+os.urandom(16).hex())

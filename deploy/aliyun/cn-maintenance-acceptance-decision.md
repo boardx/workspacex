@@ -27,9 +27,11 @@
 | 阶段 | 允许验收 | 写入边界 | 锁与失败处置 |
 | --- | --- | --- | --- |
 | 独立候选 | 六条真实业务流程 | 独立恢复的三库与对象命名空间，批准的单租户/账号/thread/Skill/PDF 数据范围 | 独立环境锁；不得生成生产恢复 LOGIN 的授权 |
-| 生产全停写 | 固定源/镜像/迁移 ledger、诊断权限、三库连接与角色、已存在会话的反馈关联只读 GET | 所有 fenced role 必须 NOLOGIN；同一 sealed 诊断连接查 drain；不启动 bootstrap、不 unpause API | 始终继承同一 FD9 和 hold generation；读前读后复验全 writer barrier；未知状态保留锁/hold |
+| 生产全停写 | 固定源/镜像/迁移 ledger、诊断权限、三库连接与角色；不含经过普通 API 的认证 GET | 所有 fenced role 必须 NOLOGIN；同一 sealed 诊断连接查 drain；不启动 bootstrap、不 unpause API | 始终继承同一 FD9 和 hold generation；读前读后复验全 writer barrier；未知状态保留锁/hold |
 | 经批准恢复写入后的公开验收 | 登录、hello、ASR、反馈关联、Skill/Tool、PDF | 单独批准的恢复写入阶段和测试数据范围；不得称为全停写阶段 PASS | 发布 owner 保留维护锁直到公开验收终态；失败停止新增写入并进入新恢复计划，不以镜像回滚替代三库恢复 |
 
 实际 browser consumer 中，hello/Skill/PDF 创建并持久化 agent runs，PDF 同时创建对象。ASR 会调用实时服务，其全部存储副作用尚未证明为只读，按写入型处理。登录提交也不能用登录页 GET 替代，认证会话/审计副作用按写入型处理。`githubFeedbackRead` 的 GET 只有在已有认证会话下才是单独的只读子验收；整段 browser 脚本会先登录，因此整段仍不能在全停写阶段运行。
 
 源码 `acceptance_contract.ts` 校验以上边界，不能执行恢复写入，也不能签发通过证据。当前顶层缺能力拒绝保留。旧 maintenance preactivate collector 会启动 bootstrap 容器和新连接，现已在调用前拒绝；它不能通过普通 provision fallback 填补维护验收。
+
+反馈关联 use case 自身不落库，但其认证 API 在全停写 fence 中也被暂停；当前不得仅凭已有会话将该产品 GET 放入 held 阶段。认证 session store 是 Redis 写入面，登录真实提交也不是三库 SQL 只读探测。held 阶段目前只允许固定 sealed 诊断消费者读回，不允许 unpause 普通 API 来补 UI 证据。

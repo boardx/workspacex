@@ -4,7 +4,7 @@
   "baseCommit": "64cc2b85053823a4c7461eb404b9f3a99c749a33",
   "applicationRevision": "9b25bfa65662b96c0826fe67506b562ea46aa6d0",
   "baselineRevision": "ba6343199f3c834d6a198f83d0c771614292c82b",
-  "sourceInventorySha256": "57d3a8f467fdb49a1f8d55471f1c620d30dfcf8be38166c416ec9d1e54881f2b",
+  "sourceInventorySha256": "8b929167d3100a5645aebe70cf26f85dd84b3564ee48e605331c1634f4a48e76",
   "sourceRows": [
     {
       "path": ".harness/scripts/build-cn-maintenance-controller.cjs",
@@ -95,6 +95,11 @@
       "path": ".harness/scripts/vm/cn-migration-snapshot-query.cjs",
       "sha256": "132665ed57ac7d18790719d18620ae9f1b11eae2c06233892f42886e93121643",
       "bytes": 187071
+    },
+    {
+      "path": ".harness/scripts/vm/cn-production-bootstrap.test.ts",
+      "sha256": "46b3c2a98b99661b89d5f34e770e428867d8cc22d4c84708f2089ef7bfd4d328",
+      "bytes": 12648
     },
     {
       "path": ".harness/scripts/vm/cn-production-rds-identity-probe.py",
@@ -203,8 +208,8 @@
     },
     {
       "path": ".harness/scripts/vm/cn_production_recovery_executor.py",
-      "sha256": "0311468d4caca714d7b7429683c73855679db1d4d4f646ee97fc0c4aa1ec2dcb",
-      "bytes": 12603
+      "sha256": "bf96c7051851eeb56419a99a4e11ec63797e644f9bc081d78fb3922679c57a48",
+      "bytes": 12645
     },
     {
       "path": ".harness/scripts/vm/cn_production_recovery_executor_test.py",
@@ -398,8 +403,8 @@
     },
     {
       "path": "deploy/aliyun/cn-maintenance-acceptance-decision.md",
-      "sha256": "4bbf6e5ed976362a77424186ac914b392118b83ee093cfaea0546953051e0937",
-      "bytes": 4265
+      "sha256": "bf4387001afd3abe5840ecf31b27d589d005e0cc40c84a1e8b08e1a6d97c8b4e",
+      "bytes": 4633
     },
     {
       "path": "deploy/aliyun/cn-maintenance-recovery-collection-plan.md",
@@ -423,8 +428,8 @@
     },
     {
       "path": "packages/cloud-deploy/src/cn-maintenance-host/acceptance_contract.ts",
-      "sha256": "3414d2160e8b0013ef86aa74f87def5b51a1af0807ff89030b99a8b8994df68d",
-      "bytes": 2217
+      "sha256": "9fa938173213f2ce1a728e534e5b374d71c3021b515d99a475bb1a4517b5f160",
+      "bytes": 2264
     },
     {
       "path": "packages/cloud-deploy/src/cn-maintenance-host/actions_test.ts",
@@ -588,8 +593,8 @@
     },
     {
       "path": "packages/cloud-deploy/test/cn-maintenance-acceptance-contract.test.ts",
-      "sha256": "f4c354d335320c88b92f58b62d600d7b86464ba022baa331fbbaca7dfc84ee78",
-      "bytes": 2254
+      "sha256": "0895a628bfd26d890ddd8998af9588da2b965d048fd463ac99cc2ee00099ecaa",
+      "bytes": 2278
     },
     {
       "path": "packages/cloud-deploy/test/cn-maintenance-activation-transport.test.ts",

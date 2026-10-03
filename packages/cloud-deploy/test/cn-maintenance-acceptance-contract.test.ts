@@ -3,7 +3,7 @@ import {assertJourneyBoundary,maintenanceJourneyEffects,rejectLegacyHeldPrefligh
 const held:AcceptanceBoundary={phase:'production-held-readback',lockRetained:true,writesHeld:true,testDataScopeApproved:false,publicResumeAuthorized:false};
 describe('maintenance acceptance boundaries',()=>{
  for(const journey of ['login','hello','asr','skillTool','pdfDownload'] as const)it(`rejects ${journey} under the all-writer barrier`,()=>expect(()=>assertJourneyBoundary(journey,held)).toThrow('HELD_WRITE_JOURNEY_FORBIDDEN'));
- it('permits only an existing authenticated feedback read under a retained hold',()=>expect(()=>assertJourneyBoundary('githubFeedbackRead',held)).not.toThrow());
+ it('read-only feedback GET cannot unpause the fenced authenticated API',()=>expect(()=>assertJourneyBoundary('githubFeedbackRead',held)).toThrow('HELD_AUTHENTICATED_API_UNAVAILABLE'));
  it('cannot report held PASS after releasing ordinary writers',()=>expect(()=>assertJourneyBoundary('githubFeedbackRead',{...held,writesHeld:false})).toThrow('HELD_READBACK_WRITES_RELEASED'));
  it('public flows require explicit resume authorization, test scope and retained lock',()=>{
   const publicBoundary:AcceptanceBoundary={...held,phase:'production-public',writesHeld:false,testDataScopeApproved:true,publicResumeAuthorized:true};

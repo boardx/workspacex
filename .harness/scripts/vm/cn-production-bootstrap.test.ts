@@ -47,7 +47,10 @@ describe("China production trusted deployment entrypoints", () => {
     expect(prebuild).toBeGreaterThan(-1);
     expect(prebuild).toBeLessThan(buildStarted);
     expect(buildStarted).toBeLessThan(publisher);
-    expect(deploy.match(/"\$PREFLIGHT_VERIFIER" preactivate/g)).toHaveLength(2);
+    const invocation = '"$PREFLIGHT_VERIFIER" ${preflight_flags[@]+"${preflight_flags[@]}"} preactivate';
+    expect(deploy.split(invocation)).toHaveLength(3);
+    expect(deploy).toContain('preflight_flags=(--operational)');
+    expect(deploy).toContain('maintenance hold blocks ordinary release');
     expect(preflight).toContain('git -C "$REPOSITORY_DIR" show "$revision:.agents/skills/workspacex-cn-release/scripts/validate_preflight.py"');
     expect(preflight).toContain('protected receipt must be root:root 0600');
     expect(preflight).toContain('readlink "/proc/$PPID/fd/9"');
