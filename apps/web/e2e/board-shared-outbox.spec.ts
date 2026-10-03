@@ -2,6 +2,7 @@ import {createHash,randomUUID} from 'node:crypto';
 import {writeFile} from 'node:fs/promises';
 import {expectBoardSynced} from './support/board-sync-status';
 import {CreateBoard} from '@repo/contracts/whiteboard';
+import {WHITEBOARD_SYNC} from '@repo/contracts/whiteboard-sync';
 import {expect,test,type Page,type CDPSession} from '@playwright/test';
 import {FULLSTACK_E2E as F} from './fullstack-smoke-fixture';
 import {SESSION_TOKEN_STORAGE_KEY} from '../lib/api-client';
@@ -27,7 +28,7 @@ test('same-browser tabs drain a shared durable outbox without duplicate commits'
  const startedAt=performance.now();const milestones:Array<{name:string;elapsedMs:number}>=[];
  const mark=(name:string)=>milestones.push({name,elapsedMs:Math.round(performance.now()-startedAt)});
  let token='',boardId='',archived=false,peer:Page|undefined;const evidence:Record<string,unknown>={drainSlaMs:DRAIN_SLA_MS,http,milestones};
- let ownerLifecycle:CDPSession|undefined,ownerFrozen=false;
+ let ownerLifecycle:CDPSession|undefined,ownerPaused=false;
  const ackGate:{updateId:string|null;release:(()=>void)|null;heldAt:number|null;releasedAt:number|null}={updateId:null,release:null,heldAt:null,releasedAt:null};
  const call=async(method:string,path:string,data?:unknown)=>{const safePath=new URL(path,'http://diagnostic.invalid').pathname,index=http.push({method,path:safePath,status:0})-1;const response=await request.fetch(`${api}${path}`,{method,data,timeout:15_000,headers:{Authorization:`Bearer ${token}`}});const status=response.status();http[index]!.status=status;
   // Record only routing metadata, never credentials, request/response bodies or query strings.
@@ -39,10 +40,10 @@ test('same-browser tabs drain a shared durable outbox without duplicate commits'
   token=(await page.evaluate(key=>localStorage.getItem(key),SESSION_TOKEN_STORAGE_KEY))!;
   const board=await call('POST','/whiteboards',CreateBoard.parse({requestId:randomUUID(),name:'Same-browser durable outbox'}));boardId=board.id;mark('board-created');
   // Keep one real server receipt unacknowledged in the original tab. The
-  // original tab is later genuinely frozen so its lease-renewal timer stops;
+  // original target is later debugger-paused so its lease-renewal timer stops;
   // the unmodified durable claim must expire before the peer replays that ID.
   // Every other frame is forwarded unchanged to the actual API.
-  await page.routeWebSocket(url=>url.pathname===`/v1/whiteboards/${boardId}/sync`,socket=>{
+  await page.routeWebSocket(url=>url.pathname===WHITEBOARD_SYNC.path.replace(':boardId',encodeURIComponent(boardId)),socket=>{
    const server=socket.connectToServer();
    socket.onMessage(message=>server.send(message));
    server.onMessage(message=>{
@@ -81,12 +82,18 @@ test('same-browser tabs drain a shared durable outbox without duplicate commits'
   mark('local-updates-queued');
   const expected=await rows(page);expect(expected).toHaveLength(8);expect(expected.every(row=>row.kind==='sticky')).toBe(true);expect(expected.map(row=>row.id)).toEqual([...createdIds].sort());expect(expected.every(row=>row.text?.includes('shared-tab-proof'))).toBe(true);
   const started=performance.now(),deadline=started+DRAIN_SLA_MS;
+  const remaining=()=>Math.max(1,deadline-performance.now());
   // A suspended original tab cannot renew its in-flight claim. Keep its actual
   // server ACK held, without editing durable records or shortening the lease.
+  await expect.poll(()=>ackGate.updateId!==null&&ackGate.release!==null,{timeout:remaining(),message:'Actual contract route must capture one real server ACK'}).toBe(true);
+  evidence.ackGate={updateId:ackGate.updateId,held:true};
   ownerLifecycle=await page.context().newCDPSession(page);
-  await ownerLifecycle.send('Page.setWebLifecycleState',{state:'frozen'});ownerFrozen=true;mark('original-tab-frozen');
+  ownerLifecycle.on('Debugger.paused',()=>{ownerPaused=true;});
+  ownerLifecycle.on('Debugger.resumed',()=>{ownerPaused=false;});
+  await ownerLifecycle.send('Debugger.enable');
+  await ownerLifecycle.send('Debugger.pause');
+  await expect.poll(()=>ownerPaused,{timeout:remaining(),message:'Original target must actually pause before peer admission'}).toBe(true);mark('original-tab-paused');
   const testPeer=await page.context().newPage();peer=testPeer;testPeer.setDefaultTimeout(15_000);testPeer.setDefaultNavigationTimeout(15_000);metadata.observe(testPeer,'peer');await testPeer.goto(`/studio/board/${boardId}`);mark('peer-opened');
-  const remaining=()=>Math.max(1,deadline-performance.now());
   await expect.poll(()=>{
    const id=ackGate.updateId;
    return id!==null&&metadata.snapshot().events.some(event=>event.client==='peer'&&event.direction==='sent'&&event.type==='update'&&event.updateId===id);
@@ -94,7 +101,8 @@ test('same-browser tabs drain a shared durable outbox without duplicate commits'
   // Request delivery of the captured receipt before resuming timers. Actual
   // delivery and lease fencing are verified by the real synced/receipt proof.
   expect(ackGate.release).not.toBeNull();ackGate.release!();mark('original-real-ack-released');
-  await ownerLifecycle.send('Page.setWebLifecycleState',{state:'active'});ownerFrozen=false;mark('original-tab-resumed');
+  await ownerLifecycle.send('Debugger.resume');
+  await expect.poll(()=>!ownerPaused,{timeout:remaining(),message:'Original target must actually resume for ACK delivery'}).toBe(true);mark('original-tab-resumed');
   evidence.ackGate={updateId:ackGate.updateId,heldMs:ackGate.releasedAt!-ackGate.heldAt!};
   await expectBoardSynced(page,remaining());await expectBoardSynced(testPeer,remaining());
   await expect.poll(()=>rows(testPeer),{timeout:remaining()}).toEqual(expected);expect(await rows(page)).toEqual(expected);
@@ -115,7 +123,7 @@ test('same-browser tabs drain a shared durable outbox without duplicate commits'
   await testPeer.close();peer=undefined;
  }finally{
   const lifecycleCleanupErrors:string[]=[];
-  try{if(ownerFrozen)await ownerLifecycle?.send('Page.setWebLifecycleState',{state:'active'});}catch(error){lifecycleCleanupErrors.push(`restore: ${String(error)}`);}
+  try{if(ownerPaused)await ownerLifecycle?.send('Debugger.resume');}catch(error){lifecycleCleanupErrors.push(`restore: ${String(error)}`);}
   try{ackGate.release?.();}catch(error){lifecycleCleanupErrors.push(`release: ${String(error)}`);}
   try{await ownerLifecycle?.detach();}catch(error){lifecycleCleanupErrors.push(`detach: ${String(error)}`);}
   evidence.lifecycleCleanupErrors=lifecycleCleanupErrors;
