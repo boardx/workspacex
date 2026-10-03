@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { researchToBriefGraph } from "../../src/infrastructure/workflow/research-to-brief-graph";
+import { researchToBriefGraph, type ResearchToBriefGraphDeps } from "../../src/infrastructure/workflow/research-to-brief-graph";
 import { W001 } from "../../src/domain/work-content/definitions/W001";
 import type { StageExecution } from "../../src/application/workflow/run-instance";
 import type { PinnedWorkflowInstance } from "../../src/application/workflow/workflow-ports";
@@ -8,7 +8,7 @@ import { runInstance, type RunInstanceDeps } from "../../src/application/workflo
 import { toResearchRuntimeDefinition } from "../../src/domain/work-content/workflow-definition";
 import type { WorkflowStoredEvent, WorkflowEventInput } from "../../src/application/workflow/workflow-runtime-ports";
 
-function fixture(orgId = "org-a", instanceId = "instance-a") {
+function fixture(orgId = "org-a", instanceId = "instance-a", publication: Pick<ResearchToBriefGraphDeps, "effects" | "publishArtifact"> = {}) {
   const rows = new Map<string, WorkflowStageOutputRow>();
   const instance: PinnedWorkflowInstance = {
     orgId, instanceId, workflowKey: W001.key, definitionVersion: 1, graphRef: "research-to-brief:1",
@@ -31,9 +31,9 @@ function fixture(orgId = "org-a", instanceId = "instance-a") {
       { text: "虚构引用", evidenceRefs: ["invented"] },
     ] };
   }) };
-  const graph = researchToBriefGraph({ skills, outputs,
+  const graph = researchToBriefGraph({ skills, outputs, ...publication,
     instances: { find: vi.fn(async (org, id) => org === orgId && id === instanceId ? instance : null),
-      create: vi.fn() } });
+      create: vi.fn() } }, publication.publishArtifact ? 2 : 1);
   function execution(stageId: string): StageExecution {
     return { instanceId, stageId, attempt: 1, input: { question: "仅基于材料分析", recipientCategories: ["internal"] },
       pinnedSkills: W001.stages.flatMap((stage) => stage.skills.map((stableId) =>
@@ -168,5 +168,66 @@ describe("W001 checkpointed professional stage bodies", () => {
     expect(await f.run()).toBe("awaiting_gate_decision");
     expect(f.skills.run.mock.calls.filter(([call]) => call.stageId === "search")).toHaveLength(1);
     expect(f.events.filter((event) => event.stageId === "search" && event.type === "stage_output_written")).toHaveLength(1);
+  });
+});
+
+
+describe("W001 native publication bridge", () => {
+  async function prepared() {
+    const publish = vi.fn(async (_args: import("../../src/application/work-content/research-brief-publication").ResearchBriefPublication) => ({ artifactId: "native-artifact", versionId: "native-version", materializedKeys: ["content.md", "provenance.json"] }));
+    const execute = vi.fn(async (_lease: import("../../src/application/workflow/workflow-ports").WorkflowLease, command: import("../../src/application/workflow/effect-gateway").ExecuteEffectCommand, work: (args: Record<string, unknown>) => Promise<Record<string, unknown>>) => ({ kind: "executed", result: await work(command.args), provenance: { approvalRequestId: command.approvalRequestId } }));
+    const f = fixture("org-a", "instance-a", { effects: () => ({ execute }) as unknown as import("../../src/application/workflow/effect-gateway").EffectGateway, publishArtifact: publish });
+    f.instance.definitionVersion = 2; f.instance.graphRef = "research-to-brief:2";
+    f.instance.pinnedSkills = f.execution("scope").pinnedSkills;
+    for (const node of W001.stages.slice(0, 7)) await f.stage(node.stageId);
+    const review = f.execution("review_brief"); review.approval = { gateId: "review_brief-gate-1", decidedBy: "reviewer" };
+    await f.stage("review_brief", review);
+    return { ...f, publish, execute };
+  }
+  it("publishes only the reviewed evidenced digest via permission/receipt gateway with frozen provenance", async () => {
+    const f = await prepared(); const result = await f.stage("publish");
+    expect(result.content.output).toMatchObject({ artifact: { artifactId: "native-artifact" } });
+    expect(f.execute.mock.calls[0]![1]).toMatchObject({ capabilityCategory: "artifact.write", sideEffect: "write", approvalRequestId: "review_brief-gate-1" });
+    expect(f.publish.mock.calls[0]![0]).toMatchObject({ orgId: "org-a", provenance: { instanceId: "instance-a", agentVersionId: "frozen-agent-version", pinnedSkills: f.instance.pinnedSkills, approval: { decidedBy: "reviewer" }, semanticSupportVerified: false } });
+    expect(f.outputs.put).not.toHaveBeenCalled();
+  });
+  it("rejects missing/self approval, modified reviewed body and cross-tenant instance before gateway", async () => {
+    const f = await prepared();
+    const row = f.rows.get("org-a/instance-a/review_brief/1")!;
+    for (const approval of [null, { gateId: "g", decidedBy: "initiator" }]) {
+      row.content.output = { approval, draft: f.rows.get("org-a/instance-a/draft/1")!.content.output };
+      await expect(f.stage("publish")).rejects.toMatchObject({ reason: "independent_review_approval_missing" });
+    }
+    row.content.output = { approval: { gateId: "g", decidedBy: "reviewer" }, draft: {} };
+    await expect(f.stage("publish")).rejects.toMatchObject({ reason: "reviewed_brief_changed" });
+    const exec = f.execution("publish"); exec.lease.orgId = "org-b";
+    await expect(f.stage("publish", exec)).rejects.toMatchObject({ reason: "instance_missing_or_wrong_workflow" });
+    expect(f.execute).not.toHaveBeenCalled(); expect(f.publish).not.toHaveBeenCalled();
+  });
+  it("never writes on gateway refusal/replay and keeps distribution closed", async () => {
+    const f = await prepared();
+    f.execute.mockRejectedValueOnce(new Error("blocked_permission"));
+    await expect(f.stage("publish")).rejects.toThrow("blocked_permission");
+    expect(f.publish).not.toHaveBeenCalled();
+    f.execute.mockResolvedValueOnce({ kind: "replayed", result: { artifactId: "previous" }, provenance: {} } as never);
+    expect((await f.stage("publish")).content.output).toMatchObject({ artifact: { artifactId: "previous" } });
+    expect(f.publish).not.toHaveBeenCalled();
+    await expect(f.stage("distribute")).rejects.toMatchObject({ reason: "publication_contract_not_connected" });
+  });
+});
+
+
+describe("W001 v2 actual approval admission", () => {
+  it("admits independent designated organization reviewer and refuses self/outsider; legacy v1 unchanged", async () => {
+    const { researchPublicationDefinition } = await import("../../src/domain/work-content/research-publication-definition");
+    const { gateEligibility } = await import("../../src/application/workflow/human-gate-state");
+    const { WorkflowDefinitionVersionInput } = await import("@repo/contracts/workflow-runtime");
+    const v2 = WorkflowDefinitionVersionInput.parse(researchPublicationDefinition()); const gate = v2.stages.find(s => s.stageId === "review_brief")!.humanGate!;
+    expect(gateEligibility(gate, { userId: "reviewer", orgRole: "admin" }, "initiator")).toEqual({ ok: true });
+    expect(gateEligibility(gate, { userId: "initiator", orgRole: "admin" }, "initiator")).toEqual({ ok: false, code: "self_approval_forbidden" });
+    expect(gateEligibility(gate, { userId: "other", orgRole: "member" }, "initiator")).toEqual({ ok: false, code: "not_designated_approver" });
+    expect(v2.stages.find(s => s.stageId === "publish")).toMatchObject({ sideEffect: "write", capabilityCategories: ["artifact.write"] });
+    const legacy = toResearchRuntimeDefinition(W001).stages.find(s => s.stageId === "review_brief")!.humanGate!;
+    expect(legacy).toMatchObject({ approverRoles: ["workflow_initiator"], allowSelfApproval: true });
   });
 });
