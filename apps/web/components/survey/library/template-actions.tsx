@@ -204,7 +204,7 @@ export function SurveyTemplateActions({
         {kind === "report" && !saveOnly && draft.template.sections.length > 0 && (
           <Button variant="outline" disabled={disabled || busy || locked} onClick={() => {
             if (disabled || busy || locked) return;
-            const cleared = { id: crypto.randomUUID(), title: draft.title, sections: [] };
+            const cleared = { id: crypto.randomUUID(), title: draft.title.trim(), sections: [] };
             setUnbound({ previous: structuredClone(draft.template), cleared });
             onApply({ ...draft, template: cleared });
             setNotice("已不使用报告模板，可撤销解绑。修改将自动保存。");

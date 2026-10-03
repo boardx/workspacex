@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { parseSurveyReportTemplateMarkdown, serializeSurveyReportTemplateMarkdown } from "@repo/contracts/survey-source";
 import type { SurveyDraftInput } from "@repo/contracts/survey-runtime";
 import type { SurveyLibraryTemplate } from "@repo/contracts/survey-template-library";
 import { SurveyTemplateActions } from "@/components/survey/library/template-actions";
@@ -337,6 +338,20 @@ describe("report template unbinding", () => {
     expect(cleared.tags).toEqual(current.tags);
     expect(current.template.sections).toHaveLength(1);
     expect(source).toEqual(snapshot);
+    expect(request).not.toHaveBeenCalled();
+  });
+  it("unbinds an unsaved whitespace-padded survey title into valid report source", () => {
+    const current = { ...boundDraft(), title: "  当前问卷  " }, onApply = vi.fn();
+    render(<SurveyTemplateActions kind="report" draft={current} onApply={onApply} />);
+    fireEvent.click(screen.getByRole("button", { name: "不使用报告模板" }));
+    const cleared = onApply.mock.calls[0]![0] as SurveyDraftInput;
+    const parsed = parseSurveyReportTemplateMarkdown(serializeSurveyReportTemplateMarkdown(cleared.template));
+    expect(parsed.ok).toBe(true);
+    expect(cleared.template.title).toBe("当前问卷");
+    expect(cleared.template.sections).toEqual([]);
+    expect(cleared.title).toBe(current.title);
+    expect(cleared.questions).toEqual(current.questions);
+    expect(cleared.tags).toEqual(current.tags);
     expect(request).not.toHaveBeenCalled();
   });
   it("undoes only the template and retains subsequent question and tag edits", () => {
