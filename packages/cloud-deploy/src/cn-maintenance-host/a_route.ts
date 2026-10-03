@@ -12,6 +12,8 @@ export interface ARouteOperations {
  blockAllWrites(identity: MaintenanceIdentity): Promise<void>;
  verifyWritesBlocked(identity: MaintenanceIdentity): Promise<void>;
  captureAndVerifyCurrentEpochRecovery(identity: MaintenanceIdentity): Promise<void>;
+ /** Repeat six candidate journeys against the freshly restored A2 artifacts. */
+ verifyCurrentEpochIsolatedCandidateAcceptance(identity: MaintenanceIdentity): Promise<void>;
  migrateExactPlan(identity: MaintenanceIdentity): Promise<void>;
  verifyHeldCandidateReadback(identity: MaintenanceIdentity): Promise<void>;
  stageCandidateRuntime(identity: MaintenanceIdentity): Promise<void>;
@@ -31,7 +33,7 @@ export interface ARouteOperations {
 }
 export async function runARouteMaintenanceRelease(request: MaintenanceRequest, ops: ARouteOperations): Promise<void> {
  if(request.maintenanceOptIn!=='stop-all-writes-and-require-database-recovery'||!/^[a-f0-9]{40}$/.test(request.sourceRevision)||!/^[a-f0-9]{40}$/.test(request.baselineRevision)||!/^[a-f0-9]{64}$/.test(request.migrationPlanSha256)||!/^[A-Za-z0-9-]{1,128}$/.test(request.attemptId))throw Error('A_ROUTE_IDENTITY_INVALID');
- for(const name of ['acquireReleaseLock','prepareOffline','verifyPreholdRecoveryCapability','verifyIsolatedCandidateAcceptance','persistMaintenanceHold','verifyMaintenanceHoldPresent','blockAllWrites','verifyWritesBlocked','captureAndVerifyCurrentEpochRecovery','migrateExactPlan','verifyHeldCandidateReadback','stageCandidateRuntime','verifyCandidateRuntimeIdentity','persistCandidateResumeIntent','resumeExactCandidateWriters','verifyCandidateWritersResumed','verifyPublicAcceptance','blockCandidateWriters','verifyNoMigrationCommitted','resumeUnchangedBaselineCancellation','verifyBaselineCancellation','clearAndVerifyMaintenanceHold','recordRecoveryRequired','recordReconciliationRequired'] as const)if(typeof ops[name]!=='function')throw Error('A_ROUTE_CAPABILITY_MISSING:'+name);
+ for(const name of ['acquireReleaseLock','prepareOffline','verifyPreholdRecoveryCapability','verifyIsolatedCandidateAcceptance','persistMaintenanceHold','verifyMaintenanceHoldPresent','blockAllWrites','verifyWritesBlocked','captureAndVerifyCurrentEpochRecovery','verifyCurrentEpochIsolatedCandidateAcceptance','migrateExactPlan','verifyHeldCandidateReadback','stageCandidateRuntime','verifyCandidateRuntimeIdentity','persistCandidateResumeIntent','resumeExactCandidateWriters','verifyCandidateWritersResumed','verifyPublicAcceptance','blockCandidateWriters','verifyNoMigrationCommitted','resumeUnchangedBaselineCancellation','verifyBaselineCancellation','clearAndVerifyMaintenanceHold','recordRecoveryRequired','recordReconciliationRequired'] as const)if(typeof ops[name]!=='function')throw Error('A_ROUTE_CAPABILITY_MISSING:'+name);
  const identity=Object.freeze({sourceRevision:request.sourceRevision,baselineRevision:request.baselineRevision,migrationPlanSha256:request.migrationPlanSha256,attemptId:request.attemptId});
  const release=await ops.acquireReleaseLock(identity);
  let holdIntent=false,migrationIntent=false,resumeIntent=false,retainLock=false;
@@ -44,6 +46,7 @@ export async function runARouteMaintenanceRelease(request: MaintenanceRequest, o
   await ops.blockAllWrites(identity);await ops.verifyWritesBlocked(identity);
   // This receipt is produced after drain and belongs to this exact hold epoch.
   await ops.captureAndVerifyCurrentEpochRecovery(identity);
+  await ops.verifyCurrentEpochIsolatedCandidateAcceptance(identity);
   migrationIntent=true;await ops.migrateExactPlan(identity);
   await ops.verifyHeldCandidateReadback(identity);
   await ops.stageCandidateRuntime(identity);await ops.verifyCandidateRuntimeIdentity(identity);
