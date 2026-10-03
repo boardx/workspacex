@@ -102,7 +102,7 @@ class Identity(unittest.TestCase):
     else:
      with self.assertRaises(ValueError):m.trust_git_root(root,False,expected_uid=os.getuid(),boundary=temp)
  def test_real_fsmonitor_command_cannot_execute(self):
-  with tempfile.TemporaryDirectory(dir='/private/tmp') as temp:
+  with tempfile.TemporaryDirectory(dir=pathlib.Path(tempfile.gettempdir()).resolve()) as temp:
    root=pathlib.Path(temp)/'tool';marker=pathlib.Path(temp)/'executed';root.mkdir(mode=0o700)
    subprocess.run(['git','init','-q',str(root)],check=True)
    command='touch '+str(marker)
@@ -112,7 +112,7 @@ class Identity(unittest.TestCase):
    subprocess.run(['git',*m.GIT_OPTIONS,'-C',str(root),'status','--porcelain'],env=env,check=True,stdout=subprocess.PIPE)
    self.assertFalse(marker.exists())
  def test_atomic_receipt_failed_write_leaves_no_partial_final(self):
-  with tempfile.TemporaryDirectory(dir='/private/tmp') as temp:
+  with tempfile.TemporaryDirectory(dir=pathlib.Path(tempfile.gettempdir()).resolve()) as temp:
    output=pathlib.Path(temp)/'receipt.json'
    # Parent ownership guard is orthogonal; use real owned files/link/fsync on fixture.
    real_lstat=pathlib.Path.lstat
@@ -123,7 +123,7 @@ class Identity(unittest.TestCase):
     with self.assertRaises(OSError):m.atomic_receipt(output,{'ready':False})
    self.assertFalse(output.exists());self.assertEqual(list(pathlib.Path(temp).glob('.build-only.*')),[])
  def test_atomic_receipt_existing_final_is_never_replaced(self):
-  with tempfile.TemporaryDirectory(dir='/private/tmp') as temp:
+  with tempfile.TemporaryDirectory(dir=pathlib.Path(tempfile.gettempdir()).resolve()) as temp:
    output=pathlib.Path(temp)/'receipt.json';output.write_bytes(b'original')
    real_lstat=pathlib.Path.lstat
    def st(path):
@@ -133,7 +133,7 @@ class Identity(unittest.TestCase):
    self.assertEqual(output.read_bytes(),b'original');self.assertEqual(list(pathlib.Path(temp).glob('.build-only.*')),[])
  def test_real_atomic_parent_failure_retry_and_cleanup_failure(self):
   for kind in ('success','parent-failure','same-retry','cleanup-failure','readback-failure'):
-   with self.subTest(kind=kind),tempfile.TemporaryDirectory(dir='/private/tmp') as temp:
+   with self.subTest(kind=kind),tempfile.TemporaryDirectory(dir=pathlib.Path(tempfile.gettempdir()).resolve()) as temp:
     output=pathlib.Path(temp)/'receipt.json';result={'ready':False};raw=(json.dumps(result,sort_keys=True)+'\n').encode()
     real_lstat=pathlib.Path.lstat;real_sync=os.fsync;real_unlink=pathlib.Path.unlink;calls=[0]
     def st(path):
