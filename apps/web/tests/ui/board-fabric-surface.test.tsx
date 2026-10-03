@@ -1,5 +1,6 @@
 import { act, createEvent, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { Canvas } from "fabric";
 import { BOARD_FABRIC_VISUAL } from "@/components/whiteboard/fabric/board-fabric-visual";
 import { drawingToolStyle } from "@/components/whiteboard/drawing-tool-style";
 import type { BoardFabricObject, BoardViewport } from "@/components/whiteboard/fabric/board-fabric-object";
@@ -169,6 +170,64 @@ describe("BoardFabricSurface", () => {
     expect(probe.objects.every(item => item.selectable && item.evented)).toBe(true);
   });
 
+  it("places over an existing hit target without moving it and restores selection after placement", () => {
+    const onCanvasClick = vi.fn(), onObjectTransform = vi.fn();
+    const props = { objects: OBJECTS, selectedObjectIds: [], readOnly: false, tool: "select" as const, viewport: VIEWPORT, onSelectionChange: vi.fn(), onObjectTransform, onViewportChange: vi.fn() };
+    const view = renderSurface({ creationMode: true, onCanvasClick, onObjectTransform });
+    expect(probe.objects.every(object => !object.selectable && !object.evented)).toBe(true);
+    probe.canvas!._currentTransform = { target: probe.objects[0], action: "drag" };
+    probe.handlers.get("mouse:down")?.({ target: probe.objects[0], e: new MouseEvent("mousedown", { clientX: 400, clientY: 300 }) });
+    expect(onCanvasClick).toHaveBeenCalledTimes(1);
+    expect(onCanvasClick).toHaveBeenCalledWith({ x: 400, y: 300 });
+    expect(probe.canvas!._currentTransform).toBeNull();
+    probe.handlers.get("mouse:up")?.({ target: probe.objects[0], e: new MouseEvent("mouseup", { clientX: 400, clientY: 300 }) });
+    expect(onObjectTransform).not.toHaveBeenCalled();
+    view.rerender(<BoardFabricSurface {...props} creationMode={false} onCanvasClick={onCanvasClick} />);
+    expect(probe.objects.every(object => object.selectable && object.evented)).toBe(true);
+    probe.handlers.get("mouse:down")?.({ target: probe.objects[0], e: new MouseEvent("mousedown") });
+    expect(onCanvasClick).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps refreshed projections noninteractive during placement", () => {
+    const props = { objects: OBJECTS, selectedObjectIds: [], readOnly: false, tool: "select" as const, viewport: VIEWPORT, onSelectionChange: vi.fn(), onObjectTransform: vi.fn(), onViewportChange: vi.fn() };
+    const view = renderSurface({ creationMode: true });
+    view.rerender(<BoardFabricSurface {...props} creationMode objects={props.objects.map(object => ({ ...object, revision: object.revision + 1 }))} />);
+    expect(probe.objects.every(object => !object.selectable && !object.evented)).toBe(true);
+  });
+
+  it.each([{ selectedObjectIds: ["s-1"] }, { selectedObjectIds: ["s-1", "r-1"] }])("temporarily clears Fabric active chrome without clearing controlled selection: $selectedObjectIds", ({ selectedObjectIds }) => {
+    const onSelectionChange = vi.fn();
+    const props = { objects: OBJECTS, selectedObjectIds, readOnly: false, tool: "select" as const, viewport: VIEWPORT, onSelectionChange, onObjectTransform: vi.fn(), onViewportChange: vi.fn() };
+    const view = render(<BoardFabricSurface {...props} />);
+    expect(probe.active).not.toBeNull();
+    onSelectionChange.mockClear();
+    const discard = vi.spyOn(Canvas.prototype, "discardActiveObject").mockImplementationOnce(function () {
+      probe.active = null;
+      probe.activeId = null;
+      probe.handlers.get("selection:cleared")?.({});
+      return this;
+    });
+    try {
+      view.rerender(<BoardFabricSurface {...props} creationMode />);
+      expect(discard).toHaveBeenCalledTimes(1);
+      expect(probe.active).toBeNull();
+      expect(onSelectionChange).not.toHaveBeenCalled();
+      view.rerender(<BoardFabricSurface {...props} creationMode objects={OBJECTS.map(object => ({ ...object, revision: object.revision + 1 }))} />);
+      expect(probe.active).toBeNull();
+      expect(onSelectionChange).not.toHaveBeenCalled();
+      view.rerender(<BoardFabricSurface {...props} creationMode={false} />);
+      expect(probe.active).not.toBeNull();
+      expect(onSelectionChange).not.toHaveBeenCalled();
+    } finally { discard.mockRestore(); }
+  });
+
+  it.each([{ readOnly: true, tool: "select" as const }, { readOnly: false, tool: "hand" as const }])("does not place in readonly or hand mode: $readOnly / $tool", options => {
+    const onCanvasClick = vi.fn();
+    renderSurface({ ...options, creationMode: true, onCanvasClick });
+    probe.handlers.get("mouse:down")?.({ e: new MouseEvent("mousedown", { clientX: 400, clientY: 300 }) });
+    expect(onCanvasClick).not.toHaveBeenCalled();
+  });
+
   it("cancels a stale Fabric transform before a hand pan can move its target", () => {
     const onViewportChange = vi.fn(), onObjectTransform = vi.fn();
     renderSurface({ tool: "hand", onViewportChange, onObjectTransform });
@@ -193,7 +252,7 @@ describe("BoardFabricSurface", () => {
 
   it.each([1, 2])("pans with mouse button %s over an object without a create or transform", button => {
     const onViewportChange = vi.fn(), onCanvasClick = vi.fn(), onObjectTransform = vi.fn();
-    renderSurface({ onViewportChange, onCanvasClick, onObjectTransform });
+    renderSurface({ creationMode: true, onViewportChange, onCanvasClick, onObjectTransform });
     probe.handlers.get("mouse:down")?.({ target: probe.objects[0], e: new MouseEvent("mousedown", { button, clientX: 100, clientY: 100 }) });
     probe.handlers.get("mouse:move")?.({ e: new MouseEvent("mousemove", { buttons: button === 1 ? 4 : 2, clientX: 135, clientY: 125 }) });
     expect(onViewportChange).toHaveBeenLastCalledWith(expect.objectContaining({ panX: 35, panY: 25 }), "pan");

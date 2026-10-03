@@ -65,6 +65,8 @@ export interface BoardFabricSurfaceProps {
   selectedObjectIds: readonly string[];
   readOnly: boolean;
   tool: BoardFabricTool;
+  /** Single-shot placement takes priority over existing object hit targets. */
+  creationMode?: boolean;
   viewport: BoardViewport;
   fitInsets?: BoardFitInsets;
   onSelectionChange: (objectIds: readonly string[], source: BoardSelectionSource) => void;
@@ -588,7 +590,7 @@ export function geometryFromFabricSceneTransform(projected: TaggedFabricObject):
   return { x: canonicalTransformNumber(x), y: canonicalTransformNumber(y), width: canonicalTransformNumber(width), height: canonicalTransformNumber(height), rotation: canonicalTransformNumber(rotation) };
 }
 
-export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool, viewport, drawingAppearance, editingObjectId, onSelectionChange, onObjectTransform, onObjectsTransform, onTransformPreview, onViewportChange, onCanvasClick, onCanvasDoubleClick, onObjectDoubleClick, onToolDrop, onDrawingComplete, onPanelHoverChange, onObjectReparent, onObjectHoverChange, fitInsets, className }: BoardFabricSurfaceProps) {
+export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool, creationMode = false, viewport, drawingAppearance, editingObjectId, onSelectionChange, onObjectTransform, onObjectsTransform, onTransformPreview, onViewportChange, onCanvasClick, onCanvasDoubleClick, onObjectDoubleClick, onToolDrop, onDrawingComplete, onPanelHoverChange, onObjectReparent, onObjectHoverChange, fitInsets, className }: BoardFabricSurfaceProps) {
   const hostRef = React.useRef<HTMLDivElement>(null);
   const canvasElementRef = React.useRef<HTMLCanvasElement>(null);
   const canvasRef = React.useRef<Canvas | null>(null);
@@ -608,10 +610,10 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
   const cancelDrawingRef = React.useRef<() => void>(() => undefined);
   const cancelTransformRef = React.useRef<() => void>(() => undefined);
   const callbacksRef = React.useRef({ onSelectionChange, onObjectTransform, onObjectsTransform, onTransformPreview, onViewportChange, onCanvasClick, onCanvasDoubleClick, onObjectDoubleClick, onToolDrop, onDrawingComplete, onPanelHoverChange, onObjectReparent, onObjectHoverChange });
-  const stateRef = React.useRef({ readOnly, tool, viewport, drawingAppearance });
+  const stateRef = React.useRef({ readOnly, tool, creationMode, viewport, drawingAppearance });
   callbacksRef.current = { onSelectionChange, onObjectTransform, onObjectsTransform, onTransformPreview, onViewportChange, onCanvasClick, onCanvasDoubleClick, onObjectDoubleClick, onToolDrop, onDrawingComplete, onPanelHoverChange, onObjectReparent, onObjectHoverChange };
   const clearTransformPreviewRef = React.useRef<() => void>(() => undefined);
-  stateRef.current = { readOnly, tool, viewport, drawingAppearance };
+  stateRef.current = { readOnly, tool, creationMode, viewport, drawingAppearance };
   selectedObjectIdsRef.current = selectedObjectIds;
   const scheduleRender = React.useCallback(() => {
     if (renderFrameRef.current !== null) return;
@@ -1053,6 +1055,11 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
       }
       const point = canvas.getScenePoint(event.e);
       if (![point.x, point.y].every(Number.isFinite)) return;
+      if (stateRef.current.creationMode && stateRef.current.tool === "select" && !stateRef.current.readOnly) {
+        canvas._currentTransform = null;
+        callbacksRef.current.onCanvasClick?.({ x: point.x, y: point.y });
+        return;
+      }
       activeInput = input.id;
       const ids = selectedObjectIdsRef.current.filter((id) => { const canonical = canonicalRef.current.get(id); return canonical && !canonical.locked && canonical.kind !== "placeholder"; });
       duplicateGesture = (event.e as MouseEvent).altKey && ids.length ? { ids, start: { x: point.x, y: point.y }, current: { x: point.x, y: point.y }, handled: false } : null;
@@ -1063,7 +1070,7 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
         drawing = { tool: drawingTool, appearance: activeDrawingAppearance(drawingTool), points: [{ x: pointer.x, y: pointer.y, pressure: pressureOf(input) }] };
         return;
       }
-      if (stateRef.current.tool === "select" && !event.target) {
+      if (stateRef.current.tool === "select" && !stateRef.current.readOnly && !event.target) {
         const pointer = canvas.getScenePoint(event.e);
         callbacksRef.current.onCanvasClick?.({ x: pointer.x, y: pointer.y });
       }
@@ -1247,7 +1254,7 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
         const richProjectionChanged = Boolean(current && revisionChanged && ["shape", "drawing", "image", "card", "panel"].includes(object.kind));
         const connectorProjectionChanged = Boolean(current && object.kind === "connector" && (revisionChanged || connectorAppearanceChanged));
         const replace = !current || (!failedAtThisRevision && (current.data?.adapterKind !== object.kind || stickyShapeChanged || richProjectionChanged || connectorProjectionChanged));
-        const interactive = !readOnly && stateRef.current.tool === "select" && !object.hidden && object.kind !== "placeholder";
+        const interactive = !readOnly && !stateRef.current.creationMode && stateRef.current.tool === "select" && !object.hidden && object.kind !== "placeholder";
         const patch = !replace && !failedAtThisRevision && (revisionChanged || current?.selectable !== interactive || current?.evented !== interactive);
         return [object.id, { connectorRenderIdentity, failedAtThisRevision, replace, patch }] as const;
       }));
@@ -1300,7 +1307,7 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
         const projected = registryRef.current.get(object.id);
         if (projected) {
           // Canonical refreshes must not reactivate object dragging under navigation or drawing tools.
-          const interactive = !readOnly && stateRef.current.tool === "select" && !rendered.hidden && rendered.kind !== "placeholder";
+          const interactive = !readOnly && !stateRef.current.creationMode && stateRef.current.tool === "select" && !rendered.hidden && rendered.kind !== "placeholder";
           projected.set({ selectable: interactive, evented: interactive });
         }
         if (projected?.data) projected.data.connectorRenderIdentity = connectorRenderIdentity;
@@ -1345,22 +1352,24 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
     clearTransformPreviewRef.current();
     cancelDrawingRef.current();
     cancelTransformRef.current();
-    canvas.selection = tool === "select" && !readOnly;
+    canvas.selection = tool === "select" && !readOnly && !creationMode;
+    canvas.skipTargetFind = creationMode && tool === "select";
     canvas.defaultCursor = tool === "hand" ? "grab" : tool.startsWith("draw-") ? "crosshair" : tool === "erase" ? "cell" : "default";
     for (const [id, projected] of registryRef.current) {
       const canonical = canonicalRef.current.get(id);
-      const selectable = !readOnly && tool === "select" && !canonical?.hidden && canonical?.kind !== "placeholder";
-      const evented = !readOnly && tool === "select" && !canonical?.hidden && canonical?.kind !== "placeholder";
+      const selectable = !readOnly && !creationMode && tool === "select" && !canonical?.hidden && canonical?.kind !== "placeholder";
+      const evented = !readOnly && !creationMode && tool === "select" && !canonical?.hidden && canonical?.kind !== "placeholder";
       const autoSize = canonical?.kind === "sticky" && canonical.sticky?.sizingMode === "auto-size";
       projected.set({ selectable, evented, lockMovementX: Boolean(canonical?.locked), lockMovementY: Boolean(canonical?.locked), lockScalingX: Boolean(canonical?.locked) || autoSize, lockScalingY: Boolean(canonical?.locked) || autoSize, lockRotation: Boolean(canonical?.locked), ...connectorInteraction(canonical?.kind ?? "") });
     }
     canvas.requestRenderAll();
-  }, [readOnly, tool]);
+  }, [readOnly, tool, creationMode]);
 
   React.useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const projected = selectedObjectIds.flatMap((id) => { const object = registryRef.current.get(id); return object && !canonicalRef.current.get(id)?.hidden ? [object] : []; });
+    // Keep canonical selection intact while hiding Fabric's active controls for placement.
+    const projected = creationMode ? [] : selectedObjectIds.flatMap((id) => { const object = registryRef.current.get(id); return object && !canonicalRef.current.get(id)?.hidden ? [object] : []; });
     const transformable = projected.filter((object) => {
       const canonical = canonicalRef.current.get(object.data?.boardObjectId ?? "");
       return canonical && !canonical.locked && canonical.kind !== "placeholder" && canonical.kind !== "connector";
@@ -1394,7 +1403,7 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
       setSelectionScene({ bounds, hitPoints: transformable.map((object) => { const item = object.getBoundingRect(); return { x: item.left + item.width / 2, y: item.top + item.height / 2 }; }) });
     } else setSelectionScene(null);
     scheduleRender();
-  }, [objects, scheduleRender, selectedObjectIds]);
+  }, [creationMode, objects, scheduleRender, selectedObjectIds]);
 
   React.useEffect(() => {
     const canvas = canvasRef.current;
