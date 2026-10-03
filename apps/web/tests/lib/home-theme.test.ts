@@ -37,6 +37,7 @@ describe("organization homepage brand palette", () => {
     const style = homeThemeStyle({ ...homeConfig.DEFAULT_HOME_THEME, primary: "#FFFFFF", secondary: "#000000" }) as Record<string,string>;
     expect(style["--primary-foreground"]).toBe("240 6% 8.4%");
     expect(style["--secondary-foreground"]).toBe("0 0% 100%");
+    expect(style["--destructive-hover"]).toBe(style["--destructive"]);
     expect(homeThemeStyle(null)).toEqual({});
   });
 });

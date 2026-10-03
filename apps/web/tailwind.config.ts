@@ -77,6 +77,7 @@ const config: Config = {
       // 实测骨架尺寸（原型 computed style）：图标栏 76 / 左栏 272 / 右栏 316
       // （issue #2130 —— 右栏 300 → 316，人类导入新 UX 设计裁决的取值）
       width: { rail: "76px", panel: "272px", "panel-alt": "316px" },
+      maxWidth: { auth: "21rem" },
       minWidth: { rail: "76px" },
       keyframes: {
         "fade-in": { from: { opacity: "0" }, to: { opacity: "1" } },

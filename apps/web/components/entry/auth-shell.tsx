@@ -33,11 +33,11 @@ export function AuthShell({
   testId?: string;
 }) {
   return (
-    <div className="mx-auto flex min-h-screen w-full max-w-7xl bg-background lg:my-8 lg:min-h-0 lg:overflow-hidden lg:rounded-container lg:border lg:border-border-subtle" data-testid="auth-shell">
+    <div className="mx-auto flex min-h-screen w-full max-w-7xl bg-background lg:my-8 lg:w-[calc(100%-4rem)] lg:min-h-0 lg:overflow-hidden lg:rounded-container lg:border lg:border-border-subtle" data-testid="auth-shell">
       <BrandPanel />
-      <main className="flex min-h-screen min-w-0 flex-1 flex-col bg-card px-6 py-8 sm:px-10 lg:min-h-0 lg:px-16 lg:py-12">
-        {aside ? <div className="mx-auto w-full max-w-sm">{aside}</div> : null}
-        <div className="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center gap-8 py-8 lg:py-12">
+      <main className="flex min-h-screen min-w-0 flex-1 flex-col bg-card px-6 py-8 sm:px-10 lg:min-h-0 lg:px-10 lg:py-6">
+        {aside ? <div className="mx-auto w-full max-w-auth">{aside}</div> : null}
+        <div className="mx-auto flex w-full max-w-auth flex-1 flex-col justify-center gap-8 py-8 lg:py-6">
           <WorkspaceXWordmark className="-ml-2 h-14 w-auto self-start lg:hidden" />
           <section className="flex flex-col gap-6" data-testid={testId}>
             <header className="flex flex-col gap-1.5">
@@ -51,7 +51,7 @@ export function AuthShell({
           </section>
           {footer ? <div className="text-12 text-muted-foreground">{footer}</div> : null}
         </div>
-        <p className="mx-auto w-full max-w-sm text-11 text-muted-foreground lg:hidden">
+        <p className="mx-auto w-full max-w-auth text-11 text-muted-foreground lg:hidden">
           © WorkspaceX
         </p>
       </main>
@@ -62,13 +62,13 @@ export function AuthShell({
 function BrandPanel() {
   return (
     <aside
-      className="hidden w-5/12 max-w-xl shrink-0 flex-col justify-between gap-8 overflow-y-auto border-r border-border-subtle bg-panel p-10 lg:flex lg:p-12"
+      className="hidden w-1/2 max-w-xl shrink-0 flex-col justify-between gap-6 overflow-y-auto border-r border-border-subtle bg-panel p-10 lg:flex lg:p-10"
       data-testid="auth-brand"
     >
       <WorkspaceXWordmark className="-ml-2 h-14 w-auto shrink-0 self-start" />
       <div className="flex flex-col gap-8">
         <div className="flex flex-col gap-3">
-          <h2 className="text-30 font-semibold leading-snug tracking-tight xl:text-40">
+          <h2 className="text-30 font-semibold leading-snug tracking-tight lg:text-40">
             与 AI 一起，<br />把工作做好。
           </h2>
           <p className="text-14 text-muted-foreground">团队协作与知识，汇于一个工作空间。</p>

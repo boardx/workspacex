@@ -1,0 +1,6012 @@
+{
+  "summary": {
+    "routes": 131,
+    "components": 706,
+    "routesInheritingBaseTokens": 131,
+    "routesReusingSharedPrimitives": 114,
+    "candidateFiles": 539,
+    "exceptionKinds": {
+      "scopedTheme": 6,
+      "authoredContent": 159,
+      "literalColorCandidate": 430,
+      "utilityPaletteCandidate": 0
+    },
+    "note": "Static dependency evidence, not full route or interaction acceptance. CSS and dynamic imports may add runtime dependencies."
+  },
+  "pages": [
+    {
+      "route": "/auth/activate",
+      "source": "app/(entry)/auth/activate/page.tsx",
+      "inheritsRootTokens": true,
+      "sharedPrimitives": [
+        "components/ui/button.tsx",
+        "components/ui/input.tsx",
+        "components/ui/label.tsx"
+      ],
+      "scopedTheme": false,
+      "browserQA": "pending individual runtime verification"
+    },
+    {
+      "route": "/auth/register",
+      "source": "app/(entry)/auth/register/page.tsx",
+      "inheritsRootTokens": true,
+      "sharedPrimitives": [
+        "components/ui/button.tsx",
+        "components/ui/input.tsx",
+        "components/ui/label.tsx"
+      ],
+      "scopedTheme": false,
+      "browserQA": "pending individual runtime verification"
+    },
+    {
+      "route": "/auth/reset-password",
+      "source": "app/(entry)/auth/reset-password/page.tsx",
+      "inheritsRootTokens": true,
+      "sharedPrimitives": [
+        "components/ui/button.tsx",
+        "components/ui/input.tsx",
+        "components/ui/label.tsx"
+      ],
+      "scopedTheme": false,
+      "browserQA": "pending individual runtime verification"
+    },
+    {
+      "route": "/auth/verify-email",
+      "source": "app/(entry)/auth/verify-email/page.tsx",
+      "inheritsRootTokens": true,
+      "sharedPrimitives": [
+        "components/ui/button.tsx"
+      ],
+      "scopedTheme": false,
+      "browserQA": "pending individual runtime verification"
+    },
+    {
+      "route": "/consent",
+      "source": "app/(entry)/consent/page.tsx",
+      "inheritsRootTokens": true,
+      "sharedPrimitives": [
+        "components/ui/badge.tsx",
+        "components/ui/button.tsx",
+        "components/ui/checkbox.tsx",
+        "components/ui/separator.tsx"
+      ],
+      "scopedTheme": false,
+      "browserQA": "pending individual runtime verification"
+    },
+    {
+      "route": "/group",
+      "source": "app/(entry)/group/page.tsx",
+      "inheritsRootTokens": true,
+      "sharedPrimitives": [
+        "components/ui/avatar-illustration.tsx",
+        "components/ui/avatar.tsx",
+        "components/ui/badge.tsx",
+        "components/ui/button.tsx",
+        "components/ui/input.tsx",
+        "components/ui/separator.tsx",
+        "components/ui/toggle.tsx"
+      ],
+      "scopedTheme": false,
+      "browserQA": "pending individual runtime verification"
+    },
+    {
+      "route": "/join",
+      "source": "app/(entry)/join/page.tsx",
+      "inheritsRootTokens": true,
+      "sharedPrimitives": [
+        "components/ui/badge.tsx",
+        "components/ui/button.tsx",
+        "components/ui/input.tsx",
+        "components/ui/label.tsx"
+      ],
+      "scopedTheme": false,
+      "browserQA": "pending individual runtime verification"
+    },
+    {
+      "route": "/login",
+      "source": "app/(entry)/login/page.tsx",
+      "inheritsRootTokens": true,
+      "sharedPrimitives": [
+        "components/ui/button.tsx",
+        "components/ui/input.tsx",
+        "components/ui/label.tsx",
+        "components/ui/separator.tsx"
+      ],
+      "scopedTheme": false,
+      "browserQA": "pending individual runtime verification"
+    },
+    {
+      "route": "/session",
+      "source": "app/(entry)/session/page.tsx",
+      "inheritsRootTokens": true,
+      "sharedPrimitives": [
+        "components/ui/badge.tsx",
+        "components/ui/button.tsx",
+        "components/ui/checkbox.tsx",
+        "components/ui/separator.tsx",
+        "components/ui/toggle.tsx"
+      ],
+      "scopedTheme": false,
+      "browserQA": "pending individual runtime verification"
+    },
+    {
+      "route": "/admin/[module]",
+      "source": "app/admin/[module]/page.tsx",
+      "inheritsRootTokens": true,
+      "sharedPrimitives": [
+        "components/ui/avatar-illustration.tsx",
+        "components/ui/avatar.tsx",
+        "components/ui/badge.tsx",
+        "components/ui/button.tsx",
+        "components/ui/card.tsx",
+        "components/ui/dialog.tsx",
+        "components/ui/dropdown-menu.tsx",
+        "components/ui/input.tsx",
+        "components/ui/label.tsx",
+        "components/ui/menu.tsx",
+        "components/ui/progress.tsx",
+        "components/ui/separator.tsx",
+        "components/ui/table.tsx",
+        "components/ui/tabs.tsx",
+        "components/ui/tag-chip.tsx",
+        "components/ui/tag-input.tsx",
+        "components/ui/textarea.tsx",
+        "components/ui/toggle.tsx",
+        "components/ui/tooltip.tsx"
+      ],
+      "scopedTheme": false,
+      "browserQA": "pending individual runtime verification"
+    },
+    {
+      "route": "/admin/agent/[id]",
+      "source": "app/admin/agent/[id]/page.tsx",
+      "inheritsRootTokens": true,
+      "sharedPrimitives": [],
+      "scopedTheme": false,
+      "browserQA": "pending individual runtime verification"
+    },
+    {
+      "route": "/admin",
+      "source": "app/admin/page.tsx",
+      "inheritsRootTokens": true,
+      "sharedPrimitives": [
+        "components/ui/badge.tsx",
+        "components/ui/button.tsx",
+        "components/ui/card.tsx",
+        "components/ui/dialog.tsx",
+        "components/ui/dropdown-menu.tsx",
+        "components/ui/menu.tsx",
+        "components/ui/progress.tsx",
+        "components/ui/separator.tsx",
+        "components/ui/tag-chip.tsx",
+        "components/ui/tag-input.tsx",
+        "components/ui/tooltip.tsx"
+      ],
+      "scopedTheme": false,
+      "browserQA": "pending individual runtime verification"
+    },
+    {
+      "route": "/admin/skill/[id]",
+      "source": "app/admin/skill/[id]/page.tsx",
+      "inheritsRootTokens": true,
+      "sharedPrimitives": [],
+      "scopedTheme": false,
+      "browserQA": "pending individual runtime verification"
+    },
+    {
+      "route": "/agent/[id]",
+      "source": "app/agent/[id]/page.tsx",
+      "inheritsRootTokens": true,
+      "sharedPrimitives": [
+        "components/ui/avatar-illustration.tsx",
+        "components/ui/avatar.tsx",
+        "components/ui/badge.tsx",
+        "components/ui/button.tsx",
+        "components/ui/dialog.tsx",
+        "components/ui/dropdown-menu.tsx",
+        "components/ui/menu.tsx",
+        "components/ui/tag-chip.tsx",
+        "components/ui/tag-input.tsx",
+        "components/ui/tooltip.tsx"
+      ],
+      "scopedTheme": false,
+      "browserQA": "pending individual runtime verification"
+    },
+    {
+      "route": "/agent",
+      "source": "app/agent/page.tsx",
+      "inheritsRootTokens": true,
+      "sharedPrimitives": [
+        "components/ui/avatar-illustration.tsx",
+        "components/ui/avatar.tsx",
+        "components/ui/badge.tsx",
+        "components/ui/button.tsx",
+        "components/ui/card.tsx",
+        "components/ui/dialog.tsx",
+        "components/ui/dropdown-menu.tsx",
+        "components/ui/input.tsx",
+        "components/ui/menu.tsx",
+        "components/ui/resource-card.tsx",
+        "components/ui/tag-chip.tsx",
+        "components/ui/tag-input.tsx",
+        "components/ui/tooltip.tsx"
+      ],
+      "scopedTheme": false,
+      "browserQA": "pending individual runtime verification"
+    },
+    {
+      "route": "/asset-governance",
+      "source": "app/asset-governance/page.tsx",
+      "inheritsRootTokens": true,
+      "sharedPrimitives": [
+        "components/ui/badge.tsx",
+        "components/ui/button.tsx",
+        "components/ui/dialog.tsx",
+        "components/ui/dropdown-menu.tsx",
+        "components/ui/menu.tsx",
+        "components/ui/tag-chip.tsx",
+        "components/ui/tag-input.tsx",
+        "components/ui/tooltip.tsx"
+      ],
+      "scopedTheme": false,
+      "browserQA": "pending individual runtime verification"
+    },
+    {
+      "route": "/brain",
+      "source": "app/brain/page.tsx",
+      "inheritsRootTokens": true,
+      "sharedPrimitives": [
+        "components/ui/badge.tsx",
+        "components/ui/button.tsx",
+        "components/ui/dialog.tsx",
+        "components/ui/dropdown-menu.tsx",
+        "components/ui/input.tsx",
+        "components/ui/menu.tsx",
+        "components/ui/select.tsx",
+        "components/ui/tabs.tsx",
+        "components/ui/tag-chip.tsx",
+        "components/ui/tag-input.tsx",
+        "components/ui/tooltip.tsx"
+      ],
+      "scopedTheme": false,
+      "browserQA": "pending individual runtime verification"
+    },
+    {
+      "route": "/canvas/[screen]",
+      "source": "app/canvas/[screen]/page.tsx",
+      "inheritsRootTokens": true,
+      "sharedPrimitives": [
+        "components/ui/avatar-illustration.tsx",
+        "components/ui/avatar.tsx",
+        "components/ui/badge.tsx",
+        "components/ui/button.tsx",
+        "components/ui/card.tsx",
+        "components/ui/checkbox.tsx",
+        "components/ui/dialog.tsx",
+        "components/ui/dropdown-menu.tsx",
+        "components/ui/input.tsx",
+        "components/ui/menu.tsx",
+        "components/ui/resource-card.tsx",
+        "components/ui/table.tsx",
+        "components/ui/tag-chip.tsx",
+        "components/ui/tag-filter-bar.tsx",
+        "components/ui/tag-input.tsx",
+        "components/ui/textarea.tsx",
+        "components/ui/toggle.tsx",
+        "components/ui/tooltip.tsx"
+      ],
+      "scopedTheme": false,
+      "browserQA": "pending individual runtime verification"
+    },
+    {
+      "route": "/canvas",
+      "source": "app/canvas/page.tsx",
+      "inheritsRootTokens": true,
+      "sharedPrimitives": [],
+      "scopedTheme": false,
+      "browserQA": "pending individual runtime verification"
+    },
+    {
+      "route": "/chat/[threadId]",
+      "source": "app/chat/(v2)/[threadId]/page.tsx",
+      "inheritsRootTokens": true,
+      "sharedPrimitives": [],
+      "scopedTheme": false,
+      "browserQA": "pending individual runtime verification"
+    },
+    {
+      "route": "/chat",
+      "source": "app/chat/(v2)/page.tsx",
+      "inheritsRootTokens": true,
+      "sharedPrimitives": [],
+      "scopedTheme": false,
+      "browserQA": "pending individual runtime verification"
+    },
+    {
+      "route": "/chat/copilotkit-preview",
+      "source": "app/chat/copilotkit-preview/page.tsx",
+      "inheritsRootTokens": true,
+      "sharedPrimitives": [],
+      "scopedTheme": false,
+      "browserQA": "pending individual runtime verification"
+    },
+    {
+      "route": "/chat/copilotkit-v2/[threadId]",
+      "source": "app/chat/copilotkit-v2/[threadId]/page.tsx",
+      "inheritsRootTokens": true,
+      "sharedPrimitives": [
+        "components/ui/avatar-illustration.tsx",
+        "components/ui/avatar.tsx",
+        "components/ui/badge.tsx",
+        "components/ui/button.tsx",
+        "components/ui/card.tsx",
+        "components/ui/checkbox.tsx",
+        "components/ui/dialog.tsx",
+        "components/ui/dropdown-menu.tsx",
+        "components/ui/input.tsx",
+        "components/ui/label.tsx",
+        "components/ui/menu.tsx",
+        "components/ui/progress.tsx",
+        "components/ui/select.tsx",
+        "components/ui/separator.tsx",
+        "components/ui/table.tsx",
+        "components/ui/tag-chip.tsx",
+        "components/ui/tag-input.tsx",
+        "components/ui/textarea.tsx",
+        "components/ui/toggle.tsx",
+        "components/ui/tooltip.tsx"
+      ],
+      "scopedTheme": false,
+      "browserQA": "pending individual runtime verification"
+    },
+    {
+      "route": "/chat/copilotkit-v2",
+      "source": "app/chat/copilotkit-v2/page.tsx",
+      "inheritsRootTokens": true,
+      "sharedPrimitives": [
+        "components/ui/avatar-illustration.tsx",
+        "components/ui/avatar.tsx",
+        "components/ui/badge.tsx",
+        "components/ui/button.tsx",
+        "components/ui/card.tsx",
+        "components/ui/checkbox.tsx",
+        "components/ui/dialog.tsx",
+        "components/ui/dropdown-menu.tsx",
+        "components/ui/input.tsx",
+        "components/ui/label.tsx",
+        "components/ui/menu.tsx",
+        "components/ui/progress.tsx",
+        "components/ui/select.tsx",
+        "components/ui/separator.tsx",
+        "components/ui/table.tsx",
+        "components/ui/tag-chip.tsx",
+        "components/ui/tag-input.tsx",
+        "components/ui/textarea.tsx",
+        "components/ui/toggle.tsx",
+        "components/ui/tooltip.tsx"
+      ],
+      "scopedTheme": false,
+      "browserQA": "pending individual runtime verification"
+    },
+    {
+      "route": "/chat/landing",
+      "source": "app/chat/landing/page.tsx",
+      "inheritsRootTokens": true,
+      "sharedPrimitives": [
+        "components/ui/avatar-illustration.tsx",
+        "components/ui/avatar.tsx",
+        "components/ui/badge.tsx",
+        "components/ui/button.tsx",
+        "components/ui/card.tsx",
+        "components/ui/dialog.tsx",
+        "components/ui/dropdown-menu.tsx",
+        "components/ui/menu.tsx",
+        "components/ui/separator.tsx",
+        "components/ui/tag-chip.tsx",
+        "components/ui/tag-input.tsx",
+        "components/ui/tooltip.tsx"
+      ],
+      "scopedTheme": false,
+      "browserQA": "pending individual runtime verification"
+    },
+    {
+      "route": "/chat/legacy",
+      "source": "app/chat/legacy/page.tsx",
+      "inheritsRootTokens": true,
+      "sharedPrimitives": [
+        "components/ui/avatar-illustration.tsx",
+        "components/ui/avatar.tsx",
+        "components/ui/badge.tsx",
+        "components/ui/button.tsx",
+        "components/ui/dialog.tsx",
+        "components/ui/dropdown-menu.tsx",
+        "components/ui/input.tsx",
+        "components/ui/menu.tsx",
+        "components/ui/progress.tsx",
+        "components/ui/separator.tsx",
+        "components/ui/table.tsx",
+        "components/ui/tag-chip.tsx",
+        "components/ui/tag-input.tsx",
+        "components/ui/textarea.tsx",
+        "components/ui/tooltip.tsx"
+      ],
+      "scopedTheme": false,
+      "browserQA": "pending individual runtime verification"
+    },
+    {
+      "route": "/chat/live",
+      "source": "app/chat/live/page.tsx",
+      "inheritsRootTokens": true,
+      "sharedPrimitives": [
+        "components/ui/button.tsx",
+        "components/ui/card.tsx",
+        "components/ui/dropdown-menu.tsx",
+        "components/ui/input.tsx",
+        "components/ui/select.tsx"
+      ],
+      "scopedTheme": false,
+      "browserQA": "pending individual runtime verification"
+    },
+    {
+      "route": "/chat/preset",
+      "source": "app/chat/preset/page.tsx",
+      "inheritsRootTokens": true,
+      "sharedPrimitives": [
+        "components/ui/avatar-illustration.tsx",
+        "components/ui/avatar.tsx",
+        "components/ui/badge.tsx",
+        "components/ui/button.tsx",
+        "components/ui/dialog.tsx",
+        "components/ui/dropdown-menu.tsx",
+        "components/ui/menu.tsx",
+        "components/ui/separator.tsx",
+        "components/ui/table.tsx",
+        "components/ui/tag-chip.tsx",
+        "components/ui/tag-input.tsx",
+        "components/ui/textarea.tsx",
+        "components/ui/tooltip.tsx"
+      ],
+      "scopedTheme": false,
+      "browserQA": "pending individual runtime verification"
+    },
+    {
+      "route": "/d/[token]",
+      "source": "app/d/[token]/page.tsx",
+      "inheritsRootTokens": true,
+      "sharedPrimitives": [
+        "components/ui/button.tsx"
+      ],
+      "scopedTheme": true,
+      "browserQA": "pending individual runtime verification"
+    },
+    {
+      "route": "/home",
+      "source": "app/home/page.tsx",
+      "inheritsRootTokens": true,
+      "sharedPrimitives": [
+        "components/ui/avatar-illustration.tsx",
+        "components/ui/avatar.tsx",
+        "components/ui/badge.tsx",
+        "components/ui/button.tsx",
+        "components/ui/card.tsx",
+        "components/ui/dialog.tsx",
+        "components/ui/dropdown-menu.tsx",
+        "components/ui/menu.tsx",
+        "components/ui/resource-card.tsx",
+        "components/ui/tag-chip.tsx",
+        "components/ui/tag-input.tsx",
+        "components/ui/tooltip.tsx"
+      ],
+      "scopedTheme": true,
+      "browserQA": "pending individual runtime verification"
+    },
+    {
+      "route": "/itv/[interviewId]/[stage]",
+      "source": "app/itv/[interviewId]/[stage]/page.tsx",
+      "inheritsRootTokens": true,
+      "sharedPrimitives": [
+        "components/ui/avatar-illustration.tsx",
+        "components/ui/badge.tsx",
+        "components/ui/button.tsx",
+        "components/ui/checkbox.tsx",
+        "components/ui/dialog.tsx",
+        "components/ui/dropdown-menu.tsx",
+        "components/ui/input.tsx",
+        "components/ui/menu.tsx",
+        "components/ui/tag-chip.tsx",
+        "components/ui/tag-input.tsx",
+        "components/ui/tooltip.tsx"
+      ],
+      "scopedTheme": false,
+      "browserQA": "pending individual runtime verification"
+    },
+    {
+      "route": "/itv/[interviewId]/setup",
+      "source": "app/itv/[interviewId]/setup/page.tsx",
+      "inheritsRootTokens": true,
+      "sharedPrimitives": [
+        "components/ui/avatar-illustration.tsx",
+        "components/ui/badge.tsx",
+        "components/ui/button.tsx",
+        "components/ui/checkbox.tsx",
+        "components/ui/dialog.tsx",
+        "components/ui/dropdown-menu.tsx",
+        "components/ui/input.tsx",
+        "components/ui/menu.tsx",
+        "components/ui/tag-chip.tsx",
+        "components/ui/tag-input.tsx",
+        "components/ui/tooltip.tsx"
+      ],
+      "scopedTheme": false,
+      "browserQA": "pending individual runtime verification"
+    },
+    {
+      "route": "/itv/experts/[expertId]",
+      "source": "app/itv/experts/[expertId]/page.tsx",
+      "inheritsRootTokens": true,
+      "sharedPrimitives": [
+        "components/ui/avatar-illustration.tsx",
+        "components/ui/badge.tsx",
+        "components/ui/button.tsx",
+        "components/ui/dialog.tsx",
+        "components/ui/dropdown-menu.tsx",
+        "components/ui/menu.tsx",
+        "components/ui/tag-chip.tsx",
+        "components/ui/tag-input.tsx",
+        "components/ui/tooltip.tsx"
+      ],
+      "scopedTheme": false,
+      "browserQA": "pending individual runtime verification"
+    },
+    {
+      "route": "/itv/live",
+      "source": "app/itv/live/page.tsx",
+      "inheritsRootTokens": true,
+      "sharedPrimitives": [
+        "components/ui/button.tsx",
+        "components/ui/card.tsx",
+        "components/ui/dropdown-menu.tsx",
+        "components/ui/input.tsx",
+        "components/ui/select.tsx"
+      ],
+      "scopedTheme": false,
+      "browserQA": "pending individual runtime verification"
+    },
+    {
+      "route": "/itv/new",
+      "source": "app/itv/new/page.tsx",
+      "inheritsRootTokens": true,
+      "sharedPrimitives": [],
+      "scopedTheme": false,
+      "browserQA": "pending individual runtime verification"
+    },
+    {
+      "route": "/itv",
+      "source": "app/itv/page.tsx",
+      "inheritsRootTokens": true,
+      "sharedPrimitives": [
+        "components/ui/avatar-illustration.tsx",
+        "components/ui/badge.tsx",
+        "components/ui/button.tsx",
+        "components/ui/card.tsx",
+        "components/ui/dialog.tsx",
+        "components/ui/dropdown-menu.tsx",
+        "components/ui/input.tsx",
+        "components/ui/label.tsx",
+        "components/ui/menu.tsx",
+        "components/ui/resource-card.tsx",
+        "components/ui/tabs.tsx",
+        "components/ui/tag-chip.tsx",
+        "components/ui/tag-filter-bar.tsx",
+        "components/ui/tag-input.tsx",
+        "components/ui/tooltip.tsx"
+      ],
+      "scopedTheme": false,
+      "browserQA": "pending individual runtime verification"
+    },
+    {
+      "route": "/itv/quick/[interviewId]",
+      "source": "app/itv/quick/[interviewId]/page.tsx",
+      "inheritsRootTokens": true,
+      "sharedPrimitives": [
+        "components/ui/badge.tsx",
+        "components/ui/button.tsx",
+        "components/ui/dialog.tsx",
+        "components/ui/dropdown-menu.tsx",
+        "components/ui/menu.tsx",
+        "components/ui/tag-chip.tsx",
+        "components/ui/tag-input.tsx",
+        "components/ui/tooltip.tsx"
+      ],
+      "scopedTheme": false,
+      "browserQA": "pending individual runtime verification"
+    },
+    {
+      "route": "/kitchen-sink",
+      "source": "app/kitchen-sink/page.tsx",
+      "inheritsRootTokens": true,
+      "sharedPrimitives": [
+        "components/ui/badge.tsx",
+        "components/ui/button.tsx",
+        "components/ui/card.tsx",
+        "components/ui/dialog.tsx",
+        "components/ui/dropdown-menu.tsx",
+        "components/ui/input.tsx",
+        "components/ui/label.tsx",
+        "components/ui/menu.tsx",
+        "components/ui/pagination.tsx",
+        "components/ui/select.tsx",
+        "components/ui/table.tsx",
+        "components/ui/tag-chip.tsx",
+        "components/ui/tag-input.tsx",
+        "components/ui/tooltip.tsx"
+      ],
+      "scopedTheme": false,
+      "browserQA": "pending individual runtime verification"
+    },
+    {
+      "route": "/org-admin/home-config",
+      "source": "app/org-admin/home-config/page.tsx",
+      "inheritsRootTokens": true,
+      "sharedPrimitives": [
+        "components/ui/avatar-illustration.tsx",
+        "components/ui/avatar.tsx",
+        "components/ui/badge.tsx",
+        "components/ui/button.tsx",
+        "components/ui/card.tsx",
+        "components/ui/checkbox.tsx",
+        "components/ui/dialog.tsx",
+        "components/ui/dropdown-menu.tsx",
+        "components/ui/input.tsx",
+        "components/ui/label.tsx",
+        "components/ui/menu.tsx",
+        "components/ui/resource-card.tsx",
+        "components/ui/tag-chip.tsx",
+        "components/ui/tag-input.tsx",
+        "components/ui/textarea.tsx",
+        "components/ui/tooltip.tsx"
+      ],
+      "scopedTheme": true,
+      "browserQA": "pending individual runtime verification"
+    },
+    {
+      "route": "/org-admin/invites",
+      "source": "app/org-admin/invites/page.tsx",
+      "inheritsRootTokens": true,
+      "sharedPrimitives": [
+        "components/ui/avatar-illustration.tsx",
+        "components/ui/avatar.tsx",
+        "components/ui/badge.tsx",
+        "components/ui/button.tsx",
+        "components/ui/dialog.tsx",
+        "components/ui/dropdown-menu.tsx",
+        "components/ui/input.tsx",
+        "components/ui/label.tsx",
+        "components/ui/menu.tsx",
+        "components/ui/tag-chip.tsx",
+        "components/ui/tag-input.tsx",
+        "components/ui/textarea.tsx",
+        "components/ui/toggle.tsx",
+        "components/ui/tooltip.tsx"
+      ],
+      "scopedTheme": false,
+      "browserQA": "pending individual runtime verification"
+    },
+    {
+      "route": "/org-admin/members",
+      "source": "app/org-admin/members/page.tsx",
+      "inheritsRootTokens": true,
+      "sharedPrimitives": [
+        "components/ui/avatar-illustration.tsx",
+        "components/ui/avatar.tsx",
+        "components/ui/badge.tsx",
+        "components/ui/button.tsx",
+        "components/ui/dialog.tsx",
+        "components/ui/dropdown-menu.tsx",
+        "components/ui/input.tsx",
+        "components/ui/label.tsx",
+        "components/ui/menu.tsx",
+        "components/ui/tag-chip.tsx",
+        "components/ui/tag-input.tsx",
+        "components/ui/textarea.tsx",
+        "components/ui/toggle.tsx",
+        "components/ui/tooltip.tsx"
+      ],
+      "scopedTheme": false,
+      "browserQA": "pending individual runtime verification"
+    },
+    {
+      "route": "/org-admin",
+      "source": "app/org-admin/page.tsx",
+      "inheritsRootTokens": true,
+      "sharedPrimitives": [],
+      "scopedTheme": false,
+      "browserQA": "pending individual runtime verification"
+    },
+    {
+      "route": "/org-admin/preview",
+      "source": "app/org-admin/preview/page.tsx",
+      "inheritsRootTokens": true,
+      "sharedPrimitives": [
+        "components/ui/badge.tsx",
+        "components/ui/button.tsx",
+        "components/ui/card.tsx",
+        "components/ui/dialog.tsx",
+        "components/ui/dropdown-menu.tsx",
+        "components/ui/input.tsx",
+        "components/ui/label.tsx",
+        "components/ui/menu.tsx",
+        "components/ui/tag-chip.tsx",
+        "components/ui/tag-input.tsx",
+        "components/ui/tooltip.tsx"
+      ],
+      "scopedTheme": false,
+      "browserQA": "pending individual runtime verification"
+    },
+    {
+      "route": "/org-admin/profile",
+      "source": "app/org-admin/profile/page.tsx",
+      "inheritsRootTokens": true,
+      "sharedPrimitives": [
+        "components/ui/avatar-illustration.tsx",
+        "components/ui/avatar.tsx",
+        "components/ui/badge.tsx",
+        "components/ui/button.tsx",
+        "components/ui/dialog.tsx",
+        "components/ui/dropdown-menu.tsx",
+        "components/ui/input.tsx",
+        "components/ui/label.tsx",
+        "components/ui/menu.tsx",
+        "components/ui/tag-chip.tsx",
+        "components/ui/tag-input.tsx",
+        "components/ui/textarea.tsx",
+        "components/ui/toggle.tsx",
+        "components/ui/tooltip.tsx"
+      ],
+      "scopedTheme": false,
+      "browserQA": "pending individual runtime verification"
+    },
+    {
+      "route": "/org-admin/workflow-grants",
+      "source": "app/org-admin/workflow-grants/page.tsx",
+      "inheritsRootTokens": true,
+      "sharedPrimitives": [
+        "components/ui/badge.tsx",
+        "components/ui/button.tsx",
+        "components/ui/dialog.tsx",
+        "components/ui/dropdown-menu.tsx",
+        "components/ui/menu.tsx",
+        "components/ui/tag-chip.tsx",
+        "components/ui/tag-input.tsx",
+        "components/ui/tooltip.tsx"
+      ],
+      "scopedTheme": false,
+      "browserQA": "pending individual runtime verification"
+    },
+    {
+      "route": "/",
+      "source": "app/page.tsx",
+      "inheritsRootTokens": true,
+      "sharedPrimitives": [],
+      "scopedTheme": false,
+      "browserQA": "pending individual runtime verification"
+    },
+    {
+      "route": "/platform-admin/[module]",
+      "source": "app/platform-admin/[module]/page.tsx",
+      "inheritsRootTokens": true,
+      "sharedPrimitives": [
+        "components/ui/avatar-illustration.tsx",
+        "components/ui/avatar.tsx",
+        "components/ui/badge.tsx",
+        "components/ui/button.tsx",
+        "components/ui/card.tsx",
+        "components/ui/checkbox.tsx",
+        "components/ui/dialog.tsx",
+        "components/ui/dropdown-menu.tsx",
+        "components/ui/inline-tag-editor.tsx",
+        "components/ui/input.tsx",
+        "components/ui/label.tsx",
+        "components/ui/menu.tsx",
+        "components/ui/progress.tsx",
+        "components/ui/resource-card.tsx",
+        "components/ui/select.tsx",
+        "components/ui/tag-chip.tsx",
+        "components/ui/tag-filter-bar.tsx",
+        "components/ui/tag-input.tsx",
+        "components/ui/textarea.tsx",
+        "components/ui/toggle.tsx",
+        "components/ui/tooltip.tsx"
+      ],
+      "scopedTheme": false,
+      "browserQA": "pending individual runtime verification"
+    },
+    {
+      "route": "/platform-admin/agent/[id]",
+      "source": "app/platform-admin/agent/[id]/page.tsx",
+      "inheritsRootTokens": true,
+      "sharedPrimitives": [
+        "components/ui/avatar-illustration.tsx",
+        "components/ui/avatar.tsx",
+        "components/ui/badge.tsx",
+        "components/ui/button.tsx",
+        "components/ui/card.tsx",
+        "components/ui/dialog.tsx",
+        "components/ui/dropdown-menu.tsx",
+        "components/ui/input.tsx",
+        "components/ui/menu.tsx",
+        "components/ui/select.tsx",
+        "components/ui/tag-chip.tsx",
+        "components/ui/tag-input.tsx",
+        "components/ui/tooltip.tsx"
+      ],
+      "scopedTheme": false,
+      "browserQA": "pending individual runtime verification"
+    },
+    {
+      "route": "/platform-admin/design-workbench/[projectId]",
+      "source": "app/platform-admin/design-workbench/[projectId]/page.tsx",
+      "inheritsRootTokens": true,
+      "sharedPrimitives": [
+        "components/ui/badge.tsx",
+        "components/ui/button.tsx",
+        "components/ui/dropdown-menu.tsx",
+        "components/ui/input.tsx",
+        "components/ui/menu.tsx",
+        "components/ui/textarea.tsx"
+      ],
+      "scopedTheme": true,
+      "browserQA": "pending individual runtime verification"
+    },
+    {
+      "route": "/platform-admin",
+      "source": "app/platform-admin/page.tsx",
+      "inheritsRootTokens": true,
+      "sharedPrimitives": [],
+      "scopedTheme": false,
+      "browserQA": "pending individual runtime verification"
+    },
+    {
+      "route": "/platform-admin/skill/[id]/bindings",
+      "source": "app/platform-admin/skill/[id]/bindings/page.tsx",
+      "inheritsRootTokens": true,
+      "sharedPrimitives": [
+        "components/ui/button.tsx"
+      ],
+      "scopedTheme": false,
+      "browserQA": "pending individual runtime verification"
+    },
+    {
+      "route": "/platform-admin/skill/[id]",
+      "source": "app/platform-admin/skill/[id]/page.tsx",
+      "inheritsRootTokens": true,
+      "sharedPrimitives": [
+        "components/ui/badge.tsx",
+        "components/ui/button.tsx",
+        "components/ui/card.tsx",
+        "components/ui/dialog.tsx",
+        "components/ui/dropdown-menu.tsx",
+        "components/ui/input.tsx",
+        "components/ui/menu.tsx",
+        "components/ui/tag-chip.tsx",
+        "components/ui/tag-input.tsx",
+        "components/ui/textarea.tsx",
+        "components/ui/tooltip.tsx"
+      ],
+      "scopedTheme": false,
+      "browserQA": "pending individual runtime verification"
+    },
+    {
+      "route": "/preview/agent-interrupts",
+      "source": "app/preview/agent-interrupts/page.tsx",
+      "inheritsRootTokens": true,
+      "sharedPrimitives": [
+        "components/ui/badge.tsx",
+        "components/ui/button.tsx",
+        "components/ui/card.tsx",
+        "components/ui/checkbox.tsx",
+        "components/ui/dropdown-menu.tsx",
+        "components/ui/input.tsx",
+        "components/ui/select.tsx",
+        "components/ui/textarea.tsx"
+      ],
+      "scopedTheme": false,
+      "browserQA": "pending individual runtime verification"
+    },
+    {
+      "route": "/preview/agent-kernel",
+      "source": "app/preview/agent-kernel/page.tsx",
+      "inheritsRootTokens": true,
+      "sharedPrimitives": [
+        "components/ui/badge.tsx",
+        "components/ui/button.tsx",
+        "components/ui/card.tsx",
+        "components/ui/input.tsx",
+        "components/ui/label.tsx",
+        "components/ui/progress.tsx",
+        "components/ui/textarea.tsx"
+      ],
+      "scopedTheme": false,
+      "browserQA": "pending individual runtime verification"
+    },
+    {
+      "route": "/preview/agent-runtime",
+      "source": "app/preview/agent-runtime/page.tsx",
+      "inheritsRootTokens": true,
+      "sharedPrimitives": [
+        "components/ui/avatar-illustration.tsx",
+        "components/ui/avatar.tsx",
+        "components/ui/badge.tsx",
+        "components/ui/button.tsx",
+        "components/ui/card.tsx",
+        "components/ui/checkbox.tsx",
+        "components/ui/dialog.tsx",
+        "components/ui/textarea.tsx",
+        "components/ui/toggle.tsx"
+      ],
+      "scopedTheme": false,
+      "browserQA": "pending individual runtime verification"
+    },
+    {
+      "route": "/preview/agent-tool-chain",
+      "source": "app/preview/agent-tool-chain/page.tsx",
+      "inheritsRootTokens": true,
+      "sharedPrimitives": [
+        "components/ui/badge.tsx"
+      ],
+      "scopedTheme": false,
+      "browserQA": "pending individual runtime verification"
+    },
+    {
+      "route": "/preview/ai-capability-studio/adapt",
+      "source": "app/preview/ai-capability-studio/adapt/page.tsx",
+      "inheritsRootTokens": true,
+      "sharedPrimitives": [
+        "components/ui/button.tsx",
+        "components/ui/input.tsx",
+        "components/ui/textarea.tsx"
+      ],
+      "scopedTheme": false,
+      "browserQA": "pending individual runtime verification"
+    },
+    {
+      "route": "/preview/ai-capability-studio/connections",
+      "source": "app/preview/ai-capability-studio/connections/page.tsx",
+      "inheritsRootTokens": true,
+      "sharedPrimitives": [
+        "components/ui/button.tsx"
+      ],
+      "scopedTheme": false,
+      "browserQA": "pending individual runtime verification"
+    },
+    {
+      "route": "/preview/ai-capability-studio/governance",
+      "source": "app/preview/ai-capability-studio/governance/page.tsx",
+      "inheritsRootTokens": true,
+      "sharedPrimitives": [
+        "components/ui/badge.tsx",
+        "components/ui/button.tsx",
+        "components/ui/dialog.tsx",
+        "components/ui/dropdown-menu.tsx",
+        "components/ui/input.tsx",
+        "components/ui/select.tsx"
+      ],
+      "scopedTheme": false,
+      "browserQA": "pending individual runtime verification"
+    },
+    {
+      "route": "/preview/ai-capability-studio/import",
+      "source": "app/preview/ai-capability-studio/import/page.tsx",
+      "inheritsRootTokens": true,
+      "sharedPrimitives": [
+        "components/ui/button.tsx",
+        "components/ui/dropdown-menu.tsx",
+        "components/ui/input.tsx",
+        "components/ui/select.tsx"
+      ],
+      "scopedTheme": false,
+      "browserQA": "pending individual runtime verification"
+    },
+    {
+      "route": "/preview/ai-capability-studio/source",
+      "source": "app/preview/ai-capability-studio/source/page.tsx",
+      "inheritsRootTokens": true,
+      "sharedPrimitives": [
+        "components/ui/button.tsx",
+        "components/ui/input.tsx"
+      ],
+      "scopedTheme": false,
+      "browserQA": "pending individual runtime verification"
+    },
+    {
+      "route": "/preview/ai-capability-studio/uploads",
+      "source": "app/preview/ai-capability-studio/uploads/page.tsx",
+      "inheritsRootTokens": true,
+      "sharedPrimitives": [
+        "components/ui/button.tsx"
+      ],
+      "scopedTheme": false,
+      "browserQA": "pending individual runtime verification"
+    },
+    {
+      "route": "/preview/ai-capability-studio/workbench",
+      "source": "app/preview/ai-capability-studio/workbench/page.tsx",
+      "inheritsRootTokens": true,
+      "sharedPrimitives": [
+        "components/ui/button.tsx",
+        "components/ui/dialog.tsx",
+        "components/ui/input.tsx",
+        "components/ui/textarea.tsx"
+      ],
+      "scopedTheme": false,
+      "browserQA": "pending individual runtime verification"
+    },
+    {
+      "route": "/preview/billing",
+      "source": "app/preview/billing/page.tsx",
+      "inheritsRootTokens": true,
+      "sharedPrimitives": [
+        "components/ui/badge.tsx",
+        "components/ui/button.tsx",
+        "components/ui/dialog.tsx",
+        "components/ui/dropdown-menu.tsx",
+        "components/ui/input.tsx",
+        "components/ui/label.tsx",
+        "components/ui/menu.tsx",
+        "components/ui/pagination.tsx",
+        "components/ui/select.tsx",
+        "components/ui/table.tsx",
+        "components/ui/toggle.tsx"
+      ],
+      "scopedTheme": false,
+      "browserQA": "pending individual runtime verification"
+    },
+    {
+      "route": "/preview/board-authoring",
+      "source": "app/preview/board-authoring/page.tsx",
+      "inheritsRootTokens": true,
+      "sharedPrimitives": [],
+      "scopedTheme": true,
+      "browserQA": "pending individual runtime verification"
+    },
+    {
+      "route": "/preview/board-fabric-v01",
+      "source": "app/preview/board-fabric-v01/page.tsx",
+      "inheritsRootTokens": true,
+      "sharedPrimitives": [
+        "components/ui/button.tsx"
+      ],
+      "scopedTheme": false,
+      "browserQA": "pending individual runtime verification"
+    },
+    {
+      "route": "/preview/board-object-authoring",
+      "source": "app/preview/board-object-authoring/page.tsx",
+      "inheritsRootTokens": true,
+      "sharedPrimitives": [
+        "components/ui/button.tsx",
+        "components/ui/dropdown-menu.tsx",
+        "components/ui/select.tsx",
+        "components/ui/textarea.tsx"
+      ],
+      "scopedTheme": false,
+      "browserQA": "pending individual runtime verification"
+    },
+    {
+      "route": "/preview/board-workspace",
+      "source": "app/preview/board-workspace/page.tsx",
+      "inheritsRootTokens": true,
+      "sharedPrimitives": [
+        "components/ui/button.tsx",
+        "components/ui/dialog.tsx",
+        "components/ui/dropdown-menu.tsx",
+        "components/ui/input.tsx"
+      ],
+      "scopedTheme": false,
+      "browserQA": "pending individual runtime verification"
+    },
+    {
+      "route": "/preview/canvas-streaming",
+      "source": "app/preview/canvas-streaming/page.tsx",
+      "inheritsRootTokens": true,
+      "sharedPrimitives": [
+        "components/ui/badge.tsx",
+        "components/ui/button.tsx",
+        "components/ui/dialog.tsx",
+        "components/ui/input.tsx",
+        "components/ui/table.tsx",
+        "components/ui/textarea.tsx",
+        "components/ui/tooltip.tsx"
+      ],
+      "scopedTheme": false,
+      "browserQA": "pending individual runtime verification"
+    },
+    {
+      "route": "/preview/canvas-template-gallery",
+      "source": "app/preview/canvas-template-gallery/page.tsx",
+      "inheritsRootTokens": true,
+      "sharedPrimitives": [
+        "components/ui/badge.tsx",
+        "components/ui/button.tsx",
+        "components/ui/checkbox.tsx",
+        "components/ui/input.tsx",
+        "components/ui/textarea.tsx"
+      ],
+      "scopedTheme": false,
+      "browserQA": "pending individual runtime verification"
+    },
+    {
+      "route": "/preview/chat-attach-modal",
+      "source": "app/preview/chat-attach-modal/page.tsx",
+      "inheritsRootTokens": true,
+      "sharedPrimitives": [
+        "components/ui/badge.tsx",
+        "components/ui/button.tsx",
+        "components/ui/dialog.tsx",
+        "components/ui/progress.tsx"
+      ],
+      "scopedTheme": false,
+      "browserQA": "pending individual runtime verification"
+    },
+    {
+      "route": "/preview/chat-create-project",
+      "source": "app/preview/chat-create-project/page.tsx",
+      "inheritsRootTokens": true,
+      "sharedPrimitives": [
+        "components/ui/button.tsx",
+        "components/ui/card.tsx",
+        "components/ui/input.tsx",
+        "components/ui/separator.tsx"
+      ],
+      "scopedTheme": false,
+      "browserQA": "pending individual runtime verification"
+    },
+    {
+      "route": "/preview/chat-diagram-fabric",
+      "source": "app/preview/chat-diagram-fabric/page.tsx",
+      "inheritsRootTokens": true,
+      "sharedPrimitives": [
+        "components/ui/avatar-illustration.tsx",
+        "components/ui/avatar.tsx",
+        "components/ui/badge.tsx",
+        "components/ui/button.tsx",
+        "components/ui/dialog.tsx",
+        "components/ui/input.tsx",
+        "components/ui/table.tsx",
+        "components/ui/textarea.tsx",
+        "components/ui/tooltip.tsx"
+      ],
+      "scopedTheme": false,
+      "browserQA": "pending individual runtime verification"
+    },
+    {
+      "route": "/preview/chat-file-upload",
+      "source": "app/preview/chat-file-upload/page.tsx",
+      "inheritsRootTokens": true,
+      "sharedPrimitives": [
+        "components/ui/badge.tsx",
+        "components/ui/button.tsx",
+        "components/ui/progress.tsx",
+        "components/ui/textarea.tsx"
+      ],
+      "scopedTheme": false,
+      "browserQA": "pending individual runtime verification"
+    },
+    {
+      "route": "/preview/chat-knowledge-graph",
+      "source": "app/preview/chat-knowledge-graph/page.tsx",
+      "inheritsRootTokens": true,
+      "sharedPrimitives": [
+        "components/ui/badge.tsx",
+        "components/ui/button.tsx",
+        "components/ui/checkbox.tsx",
+        "components/ui/dialog.tsx",
+        "components/ui/dropdown-menu.tsx",
+        "components/ui/input.tsx",
+        "components/ui/separator.tsx",
+        "components/ui/textarea.tsx"
+      ],
+      "scopedTheme": false,
+      "browserQA": "pending individual runtime verification"
+    },
+    {
+      "route": "/preview/chat-viz",
+      "source": "app/preview/chat-viz/page.tsx",
+      "inheritsRootTokens": true,
+      "sharedPrimitives": [
+        "components/ui/avatar-illustration.tsx",
+        "components/ui/avatar.tsx",
+        "components/ui/badge.tsx",
+        "components/ui/button.tsx",
+        "components/ui/dialog.tsx",
+        "components/ui/input.tsx",
+        "components/ui/table.tsx",
+        "components/ui/textarea.tsx",
+        "components/ui/tooltip.tsx"
+      ],
+      "scopedTheme": false,
+      "browserQA": "pending individual runtime verification"
+    },
+    {
+      "route": "/preview/context-pack",
+      "source": "app/preview/context-pack/page.tsx",
+      "inheritsRootTokens": true,
+      "sharedPrimitives": [
+        "components/ui/badge.tsx",
+        "components/ui/button.tsx",
+        "components/ui/dialog.tsx",
+        "components/ui/dropdown-menu.tsx",
+        "components/ui/menu.tsx",
+        "components/ui/separator.tsx",
+        "components/ui/tag-chip.tsx",
+        "components/ui/tag-input.tsx",
+        "components/ui/tooltip.tsx"
+      ],
+      "scopedTheme": false,
+      "browserQA": "pending individual runtime verification"
+    },
+    {
+      "route": "/preview/feedback-design-loop",
+      "source": "app/preview/feedback-design-loop/page.tsx",
+      "inheritsRootTokens": true,
+      "sharedPrimitives": [
+        "components/ui/badge.tsx",
+        "components/ui/button.tsx",
+        "components/ui/card.tsx",
+        "components/ui/dialog.tsx",
+        "components/ui/dropdown-menu.tsx",
+        "components/ui/inline-tag-editor.tsx",
+        "components/ui/input.tsx",
+        "components/ui/menu.tsx",
+        "components/ui/resource-card.tsx",
+        "components/ui/select.tsx",
+        "components/ui/tag-chip.tsx",
+        "components/ui/tag-filter-bar.tsx",
+        "components/ui/tag-input.tsx",
+        "components/ui/textarea.tsx",
+        "components/ui/tooltip.tsx"
+      ],
+      "scopedTheme": true,
+      "browserQA": "pending individual runtime verification"
+    },
+    {
+      "route": "/preview/feedback-loop",
+      "source": "app/preview/feedback-loop/page.tsx",
+      "inheritsRootTokens": true,
+      "sharedPrimitives": [
+        "components/ui/badge.tsx",
+        "components/ui/button.tsx",
+        "components/ui/dialog.tsx",
+        "components/ui/tag-chip.tsx",
+        "components/ui/tag-input.tsx",
+        "components/ui/tooltip.tsx"
+      ],
+      "scopedTheme": false,
+      "browserQA": "pending individual runtime verification"
+    },
+    {
+      "route": "/preview/live-collab-orchestration",
+      "source": "app/preview/live-collab-orchestration/page.tsx",
+      "inheritsRootTokens": true,
+      "sharedPrimitives": [
+        "components/ui/avatar-illustration.tsx",
+        "components/ui/avatar.tsx",
+        "components/ui/badge.tsx",
+        "components/ui/button.tsx",
+        "components/ui/card.tsx",
+        "components/ui/progress.tsx"
+      ],
+      "scopedTheme": false,
+      "browserQA": "pending individual runtime verification"
+    },
+    {
+      "route": "/preview/plan-control-live",
+      "source": "app/preview/plan-control-live/page.tsx",
+      "inheritsRootTokens": true,
+      "sharedPrimitives": [
+        "components/ui/badge.tsx",
+        "components/ui/button.tsx",
+        "components/ui/card.tsx"
+      ],
+      "scopedTheme": false,
+      "browserQA": "pending individual runtime verification"
+    },
+    {
+      "route": "/preview/plan-control",
+      "source": "app/preview/plan-control/page.tsx",
+      "inheritsRootTokens": true,
+      "sharedPrimitives": [
+        "components/ui/badge.tsx",
+        "components/ui/button.tsx",
+        "components/ui/card.tsx",
+        "components/ui/input.tsx",
+        "components/ui/label.tsx",
+        "components/ui/progress.tsx"
+      ],
+      "scopedTheme": false,
+      "browserQA": "pending individual runtime verification"
+    },
+    {
+      "route": "/preview/tasks",
+      "source": "app/preview/tasks/page.tsx",
+      "inheritsRootTokens": true,
+      "sharedPrimitives": [
+        "components/ui/avatar-illustration.tsx",
+        "components/ui/avatar.tsx",
+        "components/ui/badge.tsx",
+        "components/ui/button.tsx",
+        "components/ui/dialog.tsx",
+        "components/ui/dropdown-menu.tsx",
+        "components/ui/menu.tsx",
+        "components/ui/progress.tsx",
+        "components/ui/tag-chip.tsx",
+        "components/ui/tag-input.tsx",
+        "components/ui/tooltip.tsx"
+      ],
+      "scopedTheme": false,
+      "browserQA": "pending individual runtime verification"
+    },
+    {
+      "route": "/preview/whiteboard",
+      "source": "app/preview/whiteboard/page.tsx",
+      "inheritsRootTokens": true,
+      "sharedPrimitives": [
+        "components/ui/badge.tsx",
+        "components/ui/button.tsx",
+        "components/ui/dialog.tsx",
+        "components/ui/dropdown-menu.tsx",
+        "components/ui/input.tsx",
+        "components/ui/menu.tsx",
+        "components/ui/tag-chip.tsx",
+        "components/ui/tag-input.tsx",
+        "components/ui/textarea.tsx",
+        "components/ui/tooltip.tsx"
+      ],
+      "scopedTheme": false,
+      "browserQA": "pending individual runtime verification"
+    },
+    {
+      "route": "/preview/work-stack",
+      "source": "app/preview/work-stack/page.tsx",
+      "inheritsRootTokens": true,
+      "sharedPrimitives": [
+        "components/ui/avatar-illustration.tsx",
+        "components/ui/avatar.tsx",
+        "components/ui/badge.tsx",
+        "components/ui/button.tsx",
+        "components/ui/card.tsx",
+        "components/ui/checkbox.tsx",
+        "components/ui/input.tsx",
+        "components/ui/label.tsx",
+        "components/ui/resource-card.tsx",
+        "components/ui/separator.tsx",
+        "components/ui/tag-chip.tsx",
+        "components/ui/textarea.tsx",
+        "components/ui/tooltip.tsx"
+      ],
+      "scopedTheme": false,
+      "browserQA": "pending individual runtime verification"
+    },
+    {
+      "route": "/profile",
+      "source": "app/profile/page.tsx",
+      "inheritsRootTokens": true,
+      "sharedPrimitives": [
+        "components/ui/avatar-illustration.tsx",
+        "components/ui/avatar.tsx",
+        "components/ui/badge.tsx",
+        "components/ui/button.tsx",
+        "components/ui/dialog.tsx",
+        "components/ui/dropdown-menu.tsx",
+        "components/ui/input.tsx",
+        "components/ui/label.tsx",
+        "components/ui/menu.tsx",
+        "components/ui/pagination.tsx",
+        "components/ui/tag-chip.tsx",
+        "components/ui/tag-input.tsx",
+        "components/ui/tooltip.tsx"
+      ],
+      "scopedTheme": false,
+      "browserQA": "pending individual runtime verification"
+    },
+    {
+      "route": "/profile/preview",
+      "source": "app/profile/preview/page.tsx",
+      "inheritsRootTokens": true,
+      "sharedPrimitives": [
+        "components/ui/avatar-illustration.tsx",
+        "components/ui/avatar.tsx",
+        "components/ui/badge.tsx",
+        "components/ui/button.tsx",
+        "components/ui/dialog.tsx",
+        "components/ui/dropdown-menu.tsx",
+        "components/ui/input.tsx",
+        "components/ui/label.tsx",
+        "components/ui/menu.tsx",
+        "components/ui/pagination.tsx",
+        "components/ui/tag-chip.tsx",
+        "components/ui/tag-input.tsx",
+        "components/ui/tooltip.tsx"
+      ],
+      "scopedTheme": false,
+      "browserQA": "pending individual runtime verification"
+    },
+    {
+      "route": "/project/live",
+      "source": "app/project/live/page.tsx",
+      "inheritsRootTokens": true,
+      "sharedPrimitives": [
+        "components/ui/button.tsx",
+        "components/ui/card.tsx",
+        "components/ui/dropdown-menu.tsx",
+        "components/ui/input.tsx",
+        "components/ui/select.tsx"
+      ],
+      "scopedTheme": false,
+      "browserQA": "pending individual runtime verification"
+    },
+    {
+      "route": "/project/new",
+      "source": "app/project/new/page.tsx",
+      "inheritsRootTokens": true,
+      "sharedPrimitives": [
+        "components/ui/badge.tsx",
+        "components/ui/button.tsx",
+        "components/ui/card.tsx",
+        "components/ui/dialog.tsx",
+        "components/ui/dropdown-menu.tsx",
+        "components/ui/input.tsx",
+        "components/ui/menu.tsx",
+        "components/ui/tag-chip.tsx",
+        "components/ui/tag-input.tsx",
+        "components/ui/tooltip.tsx"
+      ],
+      "scopedTheme": false,
+      "browserQA": "pending individual runtime verification"
+    },
+    {
+      "route": "/project",
+      "source": "app/project/page.tsx",
+      "inheritsRootTokens": true,
+      "sharedPrimitives": [],
+      "scopedTheme": false,
+      "browserQA": "pending individual runtime verification"
+    },
+    {
+      "route": "/projects/[projectId]/canvas",
+      "source": "app/projects/[projectId]/canvas/page.tsx",
+      "inheritsRootTokens": true,
+      "sharedPrimitives": [
+        "components/ui/avatar-illustration.tsx",
+        "components/ui/avatar.tsx",
+        "components/ui/badge.tsx",
+        "components/ui/button.tsx",
+        "components/ui/dialog.tsx",
+        "components/ui/dropdown-menu.tsx",
+        "components/ui/menu.tsx",
+        "components/ui/tag-chip.tsx",
+        "components/ui/tag-input.tsx",
+        "components/ui/textarea.tsx",
+        "components/ui/toggle.tsx",
+        "components/ui/tooltip.tsx"
+      ],
+      "scopedTheme": false,
+      "browserQA": "pending individual runtime verification"
+    },
+    {
+      "route": "/projects/[projectId]/files",
+      "source": "app/projects/[projectId]/files/page.tsx",
+      "inheritsRootTokens": true,
+      "sharedPrimitives": [
+        "components/ui/badge.tsx",
+        "components/ui/button.tsx",
+        "components/ui/checkbox.tsx",
+        "components/ui/dialog.tsx",
+        "components/ui/dropdown-menu.tsx",
+        "components/ui/input.tsx",
+        "components/ui/menu.tsx",
+        "components/ui/separator.tsx",
+        "components/ui/table.tsx",
+        "components/ui/tag-chip.tsx",
+        "components/ui/tag-input.tsx",
+        "components/ui/textarea.tsx",
+        "components/ui/tooltip.tsx"
+      ],
+      "scopedTheme": false,
+      "browserQA": "pending individual runtime verification"
+    },
+    {
+      "route": "/projects/[projectId]",
+      "source": "app/projects/[projectId]/page.tsx",
+      "inheritsRootTokens": true,
+      "sharedPrimitives": [
+        "components/ui/avatar-illustration.tsx",
+        "components/ui/avatar.tsx",
+        "components/ui/badge.tsx",
+        "components/ui/button.tsx",
+        "components/ui/card.tsx",
+        "components/ui/checkbox.tsx",
+        "components/ui/dialog.tsx",
+        "components/ui/dropdown-menu.tsx",
+        "components/ui/input.tsx",
+        "components/ui/menu.tsx",
+        "components/ui/resource-card.tsx",
+        "components/ui/select.tsx",
+        "components/ui/separator.tsx",
+        "components/ui/table.tsx",
+        "components/ui/tabs.tsx",
+        "components/ui/tag-chip.tsx",
+        "components/ui/tag-input.tsx",
+        "components/ui/textarea.tsx",
+        "components/ui/toggle.tsx",
+        "components/ui/tooltip.tsx"
+      ],
+      "scopedTheme": false,
+      "browserQA": "pending individual runtime verification"
+    },
+    {
+      "route": "/projects/join",
+      "source": "app/projects/join/page.tsx",
+      "inheritsRootTokens": true,
+      "sharedPrimitives": [
+        "components/ui/button.tsx",
+        "components/ui/input.tsx",
+        "components/ui/label.tsx"
+      ],
+      "scopedTheme": false,
+      "browserQA": "pending individual runtime verification"
+    },
+    {
+      "route": "/projects",
+      "source": "app/projects/page.tsx",
+      "inheritsRootTokens": true,
+      "sharedPrimitives": [
+        "components/ui/badge.tsx",
+        "components/ui/button.tsx",
+        "components/ui/card.tsx",
+        "components/ui/dialog.tsx",
+        "components/ui/dropdown-menu.tsx",
+        "components/ui/inline-tag-editor.tsx",
+        "components/ui/input.tsx",
+        "components/ui/menu.tsx",
+        "components/ui/resource-card.tsx",
+        "components/ui/tag-chip.tsx",
+        "components/ui/tag-filter-bar.tsx",
+        "components/ui/tag-input.tsx",
+        "components/ui/tooltip.tsx"
+      ],
+      "scopedTheme": false,
+      "browserQA": "pending individual runtime verification"
+    },
+    {
+      "route": "/rec",
+      "source": "app/rec/page.tsx",
+      "inheritsRootTokens": true,
+      "sharedPrimitives": [
+        "components/ui/avatar-illustration.tsx",
+        "components/ui/avatar.tsx",
+        "components/ui/badge.tsx",
+        "components/ui/button.tsx",
+        "components/ui/card.tsx",
+        "components/ui/checkbox.tsx",
+        "components/ui/dialog.tsx",
+        "components/ui/dropdown-menu.tsx",
+        "components/ui/input.tsx",
+        "components/ui/label.tsx",
+        "components/ui/menu.tsx",
+        "components/ui/resource-card.tsx",
+        "components/ui/tag-chip.tsx",
+        "components/ui/tag-filter-bar.tsx",
+        "components/ui/tag-input.tsx",
+        "components/ui/toggle.tsx",
+        "components/ui/tooltip.tsx"
+      ],
+      "scopedTheme": false,
+      "browserQA": "pending individual runtime verification"
+    },
+    {
+      "route": "/research/[sessionId]/[stage]",
+      "source": "app/research/[sessionId]/[stage]/page.tsx",
+      "inheritsRootTokens": true,
+      "sharedPrimitives": [
+        "components/ui/badge.tsx",
+        "components/ui/button.tsx",
+        "components/ui/card.tsx",
+        "components/ui/dialog.tsx",
+        "components/ui/dropdown-menu.tsx",
+        "components/ui/input.tsx",
+        "components/ui/textarea.tsx"
+      ],
+      "scopedTheme": false,
+      "browserQA": "pending individual runtime verification"
+    },
+    {
+      "route": "/research/new",
+      "source": "app/research/new/page.tsx",
+      "inheritsRootTokens": true,
+      "sharedPrimitives": [
+        "components/ui/badge.tsx",
+        "components/ui/button.tsx",
+        "components/ui/card.tsx",
+        "components/ui/dialog.tsx",
+        "components/ui/input.tsx",
+        "components/ui/label.tsx",
+        "components/ui/tag-chip.tsx",
+        "components/ui/tag-input.tsx",
+        "components/ui/textarea.tsx"
+      ],
+      "scopedTheme": false,
+      "browserQA": "pending individual runtime verification"
+    },
+    {
+      "route": "/research",
+      "source": "app/research/page.tsx",
+      "inheritsRootTokens": true,
+      "sharedPrimitives": [
+        "components/ui/badge.tsx",
+        "components/ui/button.tsx",
+        "components/ui/card.tsx",
+        "components/ui/dialog.tsx",
+        "components/ui/dropdown-menu.tsx",
+        "components/ui/input.tsx",
+        "components/ui/label.tsx",
+        "components/ui/menu.tsx",
+        "components/ui/progress.tsx",
+        "components/ui/resource-card.tsx",
+        "components/ui/tag-chip.tsx",
+        "components/ui/tag-filter-bar.tsx",
+        "components/ui/tag-input.tsx",
+        "components/ui/textarea.tsx",
+        "components/ui/tooltip.tsx"
+      ],
+      "scopedTheme": false,
+      "browserQA": "pending individual runtime verification"
+    },
+    {
+      "route": "/skill",
+      "source": "app/skill/page.tsx",
+      "inheritsRootTokens": true,
+      "sharedPrimitives": [
+        "components/ui/badge.tsx",
+        "components/ui/button.tsx",
+        "components/ui/card.tsx",
+        "components/ui/checkbox.tsx",
+        "components/ui/dialog.tsx",
+        "components/ui/dropdown-menu.tsx",
+        "components/ui/input.tsx",
+        "components/ui/label.tsx",
+        "components/ui/menu.tsx",
+        "components/ui/resource-card.tsx",
+        "components/ui/tag-chip.tsx",
+        "components/ui/tag-filter-bar.tsx",
+        "components/ui/tag-input.tsx",
+        "components/ui/textarea.tsx",
+        "components/ui/tooltip.tsx"
+      ],
+      "scopedTheme": false,
+      "browserQA": "pending individual runtime verification"
+    },
+    {
+      "route": "/studio/board/[boardId]/digital-human",
+      "source": "app/studio/board/[boardId]/digital-human/page.tsx",
+      "inheritsRootTokens": true,
+      "sharedPrimitives": [
+        "components/ui/avatar-illustration.tsx",
+        "components/ui/avatar.tsx",
+        "components/ui/badge.tsx",
+        "components/ui/button.tsx",
+        "components/ui/card.tsx",
+        "components/ui/checkbox.tsx",
+        "components/ui/dialog.tsx",
+        "components/ui/dropdown-menu.tsx",
+        "components/ui/input.tsx",
+        "components/ui/label.tsx",
+        "components/ui/progress.tsx",
+        "components/ui/select.tsx",
+        "components/ui/separator.tsx",
+        "components/ui/table.tsx",
+        "components/ui/tag-chip.tsx",
+        "components/ui/tag-input.tsx",
+        "components/ui/textarea.tsx",
+        "components/ui/toggle.tsx",
+        "components/ui/tooltip.tsx"
+      ],
+      "scopedTheme": false,
+      "browserQA": "pending individual runtime verification"
+    },
+    {
+      "route": "/studio/board/[boardId]",
+      "source": "app/studio/board/[boardId]/page.tsx",
+      "inheritsRootTokens": true,
+      "sharedPrimitives": [
+        "components/ui/badge.tsx",
+        "components/ui/button.tsx",
+        "components/ui/dialog.tsx",
+        "components/ui/dropdown-menu.tsx",
+        "components/ui/input.tsx",
+        "components/ui/menu.tsx",
+        "components/ui/tag-chip.tsx",
+        "components/ui/tag-input.tsx",
+        "components/ui/textarea.tsx",
+        "components/ui/tooltip.tsx"
+      ],
+      "scopedTheme": false,
+      "browserQA": "pending individual runtime verification"
+    },
+    {
+      "route": "/studio/board",
+      "source": "app/studio/board/page.tsx",
+      "inheritsRootTokens": true,
+      "sharedPrimitives": [
+        "components/ui/badge.tsx",
+        "components/ui/button.tsx",
+        "components/ui/card.tsx",
+        "components/ui/dialog.tsx",
+        "components/ui/dropdown-menu.tsx",
+        "components/ui/input.tsx",
+        "components/ui/menu.tsx",
+        "components/ui/resource-card.tsx",
+        "components/ui/tag-chip.tsx",
+        "components/ui/tag-filter-bar.tsx",
+        "components/ui/tag-input.tsx",
+        "components/ui/tooltip.tsx"
+      ],
+      "scopedTheme": false,
+      "browserQA": "pending individual runtime verification"
+    },
+    {
+      "route": "/studio/design-workbench/[projectId]",
+      "source": "app/studio/design-workbench/[projectId]/page.tsx",
+      "inheritsRootTokens": true,
+      "sharedPrimitives": [
+        "components/ui/badge.tsx",
+        "components/ui/button.tsx",
+        "components/ui/dropdown-menu.tsx",
+        "components/ui/input.tsx",
+        "components/ui/menu.tsx",
+        "components/ui/textarea.tsx"
+      ],
+      "scopedTheme": true,
+      "browserQA": "pending individual runtime verification"
+    },
+    {
+      "route": "/studio/design-workbench",
+      "source": "app/studio/design-workbench/page.tsx",
+      "inheritsRootTokens": true,
+      "sharedPrimitives": [
+        "components/ui/badge.tsx",
+        "components/ui/button.tsx",
+        "components/ui/card.tsx",
+        "components/ui/dialog.tsx",
+        "components/ui/dropdown-menu.tsx",
+        "components/ui/input.tsx",
+        "components/ui/menu.tsx",
+        "components/ui/resource-card.tsx",
+        "components/ui/select.tsx",
+        "components/ui/tag-chip.tsx",
+        "components/ui/tag-filter-bar.tsx",
+        "components/ui/tag-input.tsx",
+        "components/ui/textarea.tsx",
+        "components/ui/tooltip.tsx"
+      ],
+      "scopedTheme": false,
+      "browserQA": "pending individual runtime verification"
+    },
+    {
+      "route": "/studio/feedback-drafts",
+      "source": "app/studio/feedback-drafts/page.tsx",
+      "inheritsRootTokens": true,
+      "sharedPrimitives": [
+        "components/ui/badge.tsx",
+        "components/ui/button.tsx",
+        "components/ui/dialog.tsx",
+        "components/ui/dropdown-menu.tsx",
+        "components/ui/menu.tsx",
+        "components/ui/select.tsx",
+        "components/ui/tag-chip.tsx",
+        "components/ui/tag-input.tsx",
+        "components/ui/textarea.tsx",
+        "components/ui/tooltip.tsx"
+      ],
+      "scopedTheme": false,
+      "browserQA": "pending individual runtime verification"
+    },
+    {
+      "route": "/studio/interview/[id]",
+      "source": "app/studio/interview/[id]/page.tsx",
+      "inheritsRootTokens": true,
+      "sharedPrimitives": [],
+      "scopedTheme": false,
+      "browserQA": "pending individual runtime verification"
+    },
+    {
+      "route": "/studio/interview",
+      "source": "app/studio/interview/page.tsx",
+      "inheritsRootTokens": true,
+      "sharedPrimitives": [],
+      "scopedTheme": false,
+      "browserQA": "pending individual runtime verification"
+    },
+    {
+      "route": "/studio/prototype",
+      "source": "app/studio/prototype/page.tsx",
+      "inheritsRootTokens": true,
+      "sharedPrimitives": [],
+      "scopedTheme": false,
+      "browserQA": "pending individual runtime verification"
+    },
+    {
+      "route": "/studio/research",
+      "source": "app/studio/research/page.tsx",
+      "inheritsRootTokens": true,
+      "sharedPrimitives": [],
+      "scopedTheme": false,
+      "browserQA": "pending individual runtime verification"
+    },
+    {
+      "route": "/studio/survey/[surveyId]/design",
+      "source": "app/studio/survey/[surveyId]/design/page.tsx",
+      "inheritsRootTokens": true,
+      "sharedPrimitives": [
+        "components/ui/button.tsx",
+        "components/ui/dialog.tsx",
+        "components/ui/input.tsx",
+        "components/ui/textarea.tsx"
+      ],
+      "scopedTheme": false,
+      "browserQA": "pending individual runtime verification"
+    },
+    {
+      "route": "/studio/survey/[surveyId]",
+      "source": "app/studio/survey/[surveyId]/page.tsx",
+      "inheritsRootTokens": true,
+      "sharedPrimitives": [
+        "components/ui/button.tsx",
+        "components/ui/dialog.tsx",
+        "components/ui/input.tsx",
+        "components/ui/textarea.tsx"
+      ],
+      "scopedTheme": false,
+      "browserQA": "pending individual runtime verification"
+    },
+    {
+      "route": "/studio/survey/[surveyId]/publish",
+      "source": "app/studio/survey/[surveyId]/publish/page.tsx",
+      "inheritsRootTokens": true,
+      "sharedPrimitives": [
+        "components/ui/button.tsx",
+        "components/ui/dialog.tsx",
+        "components/ui/input.tsx",
+        "components/ui/textarea.tsx"
+      ],
+      "scopedTheme": false,
+      "browserQA": "pending individual runtime verification"
+    },
+    {
+      "route": "/studio/survey/[surveyId]/report",
+      "source": "app/studio/survey/[surveyId]/report/page.tsx",
+      "inheritsRootTokens": true,
+      "sharedPrimitives": [
+        "components/ui/button.tsx",
+        "components/ui/dialog.tsx",
+        "components/ui/input.tsx",
+        "components/ui/textarea.tsx"
+      ],
+      "scopedTheme": false,
+      "browserQA": "pending individual runtime verification"
+    },
+    {
+      "route": "/studio/survey/[surveyId]/responses",
+      "source": "app/studio/survey/[surveyId]/responses/page.tsx",
+      "inheritsRootTokens": true,
+      "sharedPrimitives": [
+        "components/ui/button.tsx",
+        "components/ui/dialog.tsx",
+        "components/ui/input.tsx",
+        "components/ui/textarea.tsx"
+      ],
+      "scopedTheme": false,
+      "browserQA": "pending individual runtime verification"
+    },
+    {
+      "route": "/studio/survey/[surveyId]/template",
+      "source": "app/studio/survey/[surveyId]/template/page.tsx",
+      "inheritsRootTokens": true,
+      "sharedPrimitives": [
+        "components/ui/button.tsx",
+        "components/ui/dialog.tsx",
+        "components/ui/input.tsx",
+        "components/ui/textarea.tsx"
+      ],
+      "scopedTheme": false,
+      "browserQA": "pending individual runtime verification"
+    },
+    {
+      "route": "/studio/survey/new/import",
+      "source": "app/studio/survey/new/import/page.tsx",
+      "inheritsRootTokens": true,
+      "sharedPrimitives": [
+        "components/ui/button.tsx",
+        "components/ui/dialog.tsx"
+      ],
+      "scopedTheme": false,
+      "browserQA": "pending individual runtime verification"
+    },
+    {
+      "route": "/studio/survey",
+      "source": "app/studio/survey/page.tsx",
+      "inheritsRootTokens": true,
+      "sharedPrimitives": [
+        "components/ui/badge.tsx",
+        "components/ui/button.tsx",
+        "components/ui/card.tsx",
+        "components/ui/dialog.tsx",
+        "components/ui/dropdown-menu.tsx",
+        "components/ui/input.tsx",
+        "components/ui/menu.tsx",
+        "components/ui/resource-card.tsx",
+        "components/ui/tag-chip.tsx",
+        "components/ui/tag-filter-bar.tsx",
+        "components/ui/tag-input.tsx"
+      ],
+      "scopedTheme": false,
+      "browserQA": "pending individual runtime verification"
+    },
+    {
+      "route": "/studio/survey/question-templates/[templateId]",
+      "source": "app/studio/survey/question-templates/[templateId]/page.tsx",
+      "inheritsRootTokens": true,
+      "sharedPrimitives": [
+        "components/ui/button.tsx",
+        "components/ui/dialog.tsx",
+        "components/ui/input.tsx",
+        "components/ui/textarea.tsx"
+      ],
+      "scopedTheme": false,
+      "browserQA": "pending individual runtime verification"
+    },
+    {
+      "route": "/studio/survey/templates/[templateId]",
+      "source": "app/studio/survey/templates/[templateId]/page.tsx",
+      "inheritsRootTokens": true,
+      "sharedPrimitives": [
+        "components/ui/button.tsx",
+        "components/ui/dialog.tsx",
+        "components/ui/input.tsx",
+        "components/ui/textarea.tsx"
+      ],
+      "scopedTheme": false,
+      "browserQA": "pending individual runtime verification"
+    },
+    {
+      "route": "/surveys/[token]",
+      "source": "app/surveys/[token]/page.tsx",
+      "inheritsRootTokens": true,
+      "sharedPrimitives": [
+        "components/ui/button.tsx",
+        "components/ui/input.tsx",
+        "components/ui/textarea.tsx"
+      ],
+      "scopedTheme": false,
+      "browserQA": "pending individual runtime verification"
+    },
+    {
+      "route": "/tasks",
+      "source": "app/tasks/page.tsx",
+      "inheritsRootTokens": true,
+      "sharedPrimitives": [
+        "components/ui/avatar-illustration.tsx",
+        "components/ui/avatar.tsx",
+        "components/ui/badge.tsx",
+        "components/ui/button.tsx",
+        "components/ui/dialog.tsx",
+        "components/ui/dropdown-menu.tsx",
+        "components/ui/input.tsx",
+        "components/ui/label.tsx",
+        "components/ui/menu.tsx",
+        "components/ui/tag-chip.tsx",
+        "components/ui/tag-input.tsx",
+        "components/ui/tooltip.tsx"
+      ],
+      "scopedTheme": false,
+      "browserQA": "pending individual runtime verification"
+    },
+    {
+      "route": "/tpl/designer",
+      "source": "app/tpl/designer/page.tsx",
+      "inheritsRootTokens": true,
+      "sharedPrimitives": [
+        "components/ui/badge.tsx",
+        "components/ui/button.tsx",
+        "components/ui/checkbox.tsx",
+        "components/ui/dialog.tsx",
+        "components/ui/dropdown-menu.tsx",
+        "components/ui/input.tsx",
+        "components/ui/menu.tsx",
+        "components/ui/progress.tsx",
+        "components/ui/select.tsx",
+        "components/ui/table.tsx",
+        "components/ui/tag-chip.tsx",
+        "components/ui/tag-input.tsx",
+        "components/ui/textarea.tsx",
+        "components/ui/tooltip.tsx"
+      ],
+      "scopedTheme": false,
+      "browserQA": "pending individual runtime verification"
+    },
+    {
+      "route": "/tpl/list",
+      "source": "app/tpl/list/page.tsx",
+      "inheritsRootTokens": true,
+      "sharedPrimitives": [
+        "components/ui/badge.tsx",
+        "components/ui/button.tsx",
+        "components/ui/card.tsx",
+        "components/ui/dialog.tsx",
+        "components/ui/dropdown-menu.tsx",
+        "components/ui/input.tsx",
+        "components/ui/label.tsx",
+        "components/ui/menu.tsx",
+        "components/ui/resource-card.tsx",
+        "components/ui/tag-chip.tsx",
+        "components/ui/tag-input.tsx",
+        "components/ui/tooltip.tsx"
+      ],
+      "scopedTheme": false,
+      "browserQA": "pending individual runtime verification"
+    },
+    {
+      "route": "/tpl",
+      "source": "app/tpl/page.tsx",
+      "inheritsRootTokens": true,
+      "sharedPrimitives": [
+        "components/ui/badge.tsx",
+        "components/ui/button.tsx",
+        "components/ui/card.tsx",
+        "components/ui/checkbox.tsx",
+        "components/ui/dialog.tsx",
+        "components/ui/dropdown-menu.tsx",
+        "components/ui/input.tsx",
+        "components/ui/label.tsx",
+        "components/ui/menu.tsx",
+        "components/ui/progress.tsx",
+        "components/ui/resource-card.tsx",
+        "components/ui/table.tsx",
+        "components/ui/tabs.tsx",
+        "components/ui/tag-chip.tsx",
+        "components/ui/tag-filter-bar.tsx",
+        "components/ui/tag-input.tsx",
+        "components/ui/textarea.tsx",
+        "components/ui/tooltip.tsx"
+      ],
+      "scopedTheme": false,
+      "browserQA": "pending individual runtime verification"
+    },
+    {
+      "route": "/workflows/approvals",
+      "source": "app/workflows/approvals/page.tsx",
+      "inheritsRootTokens": true,
+      "sharedPrimitives": [
+        "components/ui/badge.tsx",
+        "components/ui/button.tsx",
+        "components/ui/dialog.tsx",
+        "components/ui/dropdown-menu.tsx",
+        "components/ui/menu.tsx",
+        "components/ui/tag-chip.tsx",
+        "components/ui/tag-input.tsx",
+        "components/ui/tooltip.tsx"
+      ],
+      "scopedTheme": false,
+      "browserQA": "pending individual runtime verification"
+    },
+    {
+      "route": "/workflows/board",
+      "source": "app/workflows/board/page.tsx",
+      "inheritsRootTokens": true,
+      "sharedPrimitives": [
+        "components/ui/avatar-illustration.tsx",
+        "components/ui/avatar.tsx",
+        "components/ui/badge.tsx",
+        "components/ui/button.tsx",
+        "components/ui/dialog.tsx",
+        "components/ui/dropdown-menu.tsx",
+        "components/ui/menu.tsx",
+        "components/ui/tag-chip.tsx",
+        "components/ui/tag-input.tsx",
+        "components/ui/tooltip.tsx"
+      ],
+      "scopedTheme": false,
+      "browserQA": "pending individual runtime verification"
+    },
+    {
+      "route": "/workflows",
+      "source": "app/workflows/page.tsx",
+      "inheritsRootTokens": true,
+      "sharedPrimitives": [],
+      "scopedTheme": false,
+      "browserQA": "pending individual runtime verification"
+    },
+    {
+      "route": "/workflows/runs/[instanceId]",
+      "source": "app/workflows/runs/[instanceId]/page.tsx",
+      "inheritsRootTokens": true,
+      "sharedPrimitives": [
+        "components/ui/badge.tsx",
+        "components/ui/button.tsx",
+        "components/ui/dialog.tsx",
+        "components/ui/dropdown-menu.tsx",
+        "components/ui/menu.tsx",
+        "components/ui/tag-chip.tsx",
+        "components/ui/tag-input.tsx",
+        "components/ui/tooltip.tsx"
+      ],
+      "scopedTheme": false,
+      "browserQA": "pending individual runtime verification"
+    },
+    {
+      "route": "/workflows/runs/[instanceId]/result",
+      "source": "app/workflows/runs/[instanceId]/result/page.tsx",
+      "inheritsRootTokens": true,
+      "sharedPrimitives": [
+        "components/ui/badge.tsx",
+        "components/ui/button.tsx",
+        "components/ui/dialog.tsx",
+        "components/ui/dropdown-menu.tsx",
+        "components/ui/menu.tsx",
+        "components/ui/tag-chip.tsx",
+        "components/ui/tag-input.tsx",
+        "components/ui/tooltip.tsx"
+      ],
+      "scopedTheme": false,
+      "browserQA": "pending individual runtime verification"
+    },
+    {
+      "route": "/workflows/runs",
+      "source": "app/workflows/runs/page.tsx",
+      "inheritsRootTokens": true,
+      "sharedPrimitives": [
+        "components/ui/badge.tsx",
+        "components/ui/button.tsx",
+        "components/ui/dialog.tsx",
+        "components/ui/dropdown-menu.tsx",
+        "components/ui/menu.tsx",
+        "components/ui/tag-chip.tsx",
+        "components/ui/tag-input.tsx",
+        "components/ui/tooltip.tsx"
+      ],
+      "scopedTheme": false,
+      "browserQA": "pending individual runtime verification"
+    }
+  ],
+  "exceptions": [
+    {
+      "source": "app/(entry)/auth/activate/page.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "app/(entry)/auth/reset-password/page.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "app/(entry)/consent/page.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "app/api/copilotkit/[[...slug]]/route.ts",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "app/canvas/[screen]/page.tsx",
+      "kinds": [
+        "authoredContent",
+        "literalColorCandidate"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "app/canvas/page.tsx",
+      "kinds": [
+        "authoredContent"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "app/chat/(v2)/[threadId]/page.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "app/chat/(v2)/layout.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "app/chat/(v2)/page.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "app/chat/copilotkit-preview/page.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "app/chat/copilotkit-v2/[threadId]/page.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "app/chat/copilotkit-v2/copilotkit-v2-providers.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "app/chat/copilotkit-v2/layout.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "app/chat/copilotkit-v2/page.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "app/chat/legacy/page.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "app/global-error.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "app/itv/live/page.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "app/org-admin/home-config/page.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "app/org-admin/invites/page.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "app/org-admin/members/page.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "app/org-admin/page.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "app/org-admin/profile/page.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "app/platform-admin/skill/[id]/page.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "app/preview/board-fabric-v01/page.tsx",
+      "kinds": [
+        "authoredContent"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "app/preview/canvas-streaming/page.tsx",
+      "kinds": [
+        "authoredContent",
+        "literalColorCandidate"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "app/preview/canvas-template-gallery/page.tsx",
+      "kinds": [
+        "authoredContent"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "app/preview/chat-create-project/page.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "app/preview/chat-diagram-fabric/page.tsx",
+      "kinds": [
+        "authoredContent"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "app/preview/chat-knowledge-graph/page.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "app/preview/plan-control-live/page.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "app/preview/whiteboard/page.tsx",
+      "kinds": [
+        "authoredContent"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "app/profile/page.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "app/project/live/page.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "app/project/new/page.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "app/project/page.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "app/projects/[projectId]/canvas/page.tsx",
+      "kinds": [
+        "authoredContent",
+        "literalColorCandidate"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "app/projects/[projectId]/files/page.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "app/projects/[projectId]/page.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "app/projects/join/page.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "app/skill/page.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "app/studio/design-workbench/[projectId]/page.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "app/studio/feedback-drafts/page.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "app/tpl/designer/page.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "app/tpl/list/page.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/admin/admin-header.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/admin/admin-nav.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/admin/admin-screen.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/admin/agent-capability-graph-canvas.tsx",
+      "kinds": [
+        "authoredContent",
+        "literalColorCandidate"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "components/admin/agent-capability-graph.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/admin/agent-definition-create-panel.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/admin/agent-definition-list-panel.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/admin/agent-screen.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/admin/agent-url-import-panel.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/admin/canvas-template-screen.tsx",
+      "kinds": [
+        "authoredContent",
+        "literalColorCandidate"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "components/admin/capability-catalog-screen.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/admin/capability-edit-page.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/admin/capability-mutate.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/admin/first-value-funnel-panel.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/admin/local-export-panel.tsx",
+      "kinds": [
+        "authoredContent"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "components/admin/local-org-live.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/admin/local-org-screen.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/admin/mcp-remote-discover-panel.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/admin/mcp-screen.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/admin/member-invites-panel.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/admin/members-screen.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/admin/memory-ops-panels.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/admin/model-screen.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/admin/no-backend-notice.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/admin/ops-status-screen.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/admin/overview-live.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/admin/overview-screen.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/admin/platform-extraction-setting-panel.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/admin/skill-url-import-panel.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/agent-interrupts/confirm-intent-card.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/agent-kernel/agent-kernel-units.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/agent-kernel/interjection-composer.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/agent-kernel/risk-badge.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/agent-kernel/tool-permission-card.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/asset-governance/ag-screens.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/asset-governance/ag-shared.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/asset-governance/asset-code-editor.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/board-workspace-preview/canvas.tsx",
+      "kinds": [
+        "authoredContent",
+        "literalColorCandidate"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "components/board-workspace-preview/seed.ts",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/board-workspace-preview/sticky.ts",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/board-workspace-preview/tool-art.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/board-workspace-preview/workspace.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/brain/about-me.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/brain/brain-screen.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/brain/consolidation-history.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/brain/personal-memory.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/brain/share-to-project.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/brain/shared-layers.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/brain/use-brain-data.ts",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/canvas/ai-draft-panel.tsx",
+      "kinds": [
+        "authoredContent"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "components/canvas/canvas-hub.tsx",
+      "kinds": [
+        "authoredContent"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "components/canvas/canvas-left-panel.tsx",
+      "kinds": [
+        "authoredContent"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "components/canvas/canvas-main.tsx",
+      "kinds": [
+        "authoredContent"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "components/canvas/canvas-right-panel.tsx",
+      "kinds": [
+        "authoredContent"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "components/canvas/canvas-stage.tsx",
+      "kinds": [
+        "authoredContent",
+        "literalColorCandidate"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "components/canvas/canvas-template-gallery.tsx",
+      "kinds": [
+        "authoredContent"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "components/canvas/canvas-toolbar.tsx",
+      "kinds": [
+        "authoredContent"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "components/canvas/conflict-bar.tsx",
+      "kinds": [
+        "authoredContent"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "components/canvas/knowledge-backflow.tsx",
+      "kinds": [
+        "authoredContent"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "components/canvas/segment-binding.tsx",
+      "kinds": [
+        "authoredContent"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "components/canvas/template-a1-thumbnail.tsx",
+      "kinds": [
+        "authoredContent",
+        "literalColorCandidate"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "components/canvas/template-admin.tsx",
+      "kinds": [
+        "authoredContent",
+        "literalColorCandidate"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "components/canvas/template-apply-dialog.tsx",
+      "kinds": [
+        "authoredContent",
+        "literalColorCandidate"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "components/canvas/template-canvas-grid.tsx",
+      "kinds": [
+        "authoredContent",
+        "literalColorCandidate"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "components/canvas/template-display-panel.tsx",
+      "kinds": [
+        "authoredContent",
+        "literalColorCandidate"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "components/canvas/template-dry-run-drawer.tsx",
+      "kinds": [
+        "authoredContent"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "components/canvas/template-editor-model.ts",
+      "kinds": [
+        "authoredContent",
+        "literalColorCandidate"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "components/canvas/template-editor-panel.tsx",
+      "kinds": [
+        "authoredContent",
+        "literalColorCandidate"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "components/canvas/template-editor.tsx",
+      "kinds": [
+        "authoredContent"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "components/canvas/template-prompt-drawer.tsx",
+      "kinds": [
+        "authoredContent"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "components/canvas/template-simulate-dialog.tsx",
+      "kinds": [
+        "authoredContent",
+        "literalColorCandidate"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "components/canvas/template-tag-input.tsx",
+      "kinds": [
+        "authoredContent"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "components/canvas/template-trial-dialog.tsx",
+      "kinds": [
+        "authoredContent",
+        "literalColorCandidate"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "components/chat/active-file-panel.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/chat/agent-approval-panel.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/chat/agent-plan-panel.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/chat/agent-tool-chain.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/chat/ai-message.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/chat/chat-artifact-preview-dialog.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/chat/chat-artifact-view.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/chat/chat-artifacts-panel.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/chat/chat-attachment-preview-modal.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/chat/chat-attachment-slides-preview.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/chat/chat-canvas-fabric.tsx",
+      "kinds": [
+        "authoredContent",
+        "literalColorCandidate"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "components/chat/chat-canvas-modal.tsx",
+      "kinds": [
+        "authoredContent",
+        "literalColorCandidate"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "components/chat/chat-code-fence.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/chat/chat-composer-attachments.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/chat/chat-composer-icon-button.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/chat/chat-composer-pickers.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/chat/chat-diagram-board-handoff.tsx",
+      "kinds": [
+        "authoredContent"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "components/chat/chat-diagram-canvas-modal.tsx",
+      "kinds": [
+        "authoredContent",
+        "literalColorCandidate"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "components/chat/chat-diagram-fabric.tsx",
+      "kinds": [
+        "authoredContent",
+        "literalColorCandidate"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "components/chat/chat-error-state.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/chat/chat-live-announcer.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/chat/chat-live-message-panel-helpers.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/chat/chat-live-message-panel.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/chat/chat-main.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/chat/chat-materials-panel.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/chat/chat-panel-skeleton.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/chat/chat-popover-coordinator.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/chat/chat-read-screen.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/chat/chat-recording-panel.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/chat/chat-roster-panel.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/chat/chat-skill-mount-panel.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/chat/chat-task-inspector.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/chat/chat-task-workbench-capability-picker.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/chat/chat-task-workbench-empty-state.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/chat/copilotkit-preview-panel.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/chat/copilotkit-v2-agent-interrupts.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/chat/copilotkit-v2-assistant-message.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/chat/copilotkit-v2-message-actions.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/chat/copilotkit-v2-panel-body.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/chat/copilotkit-v2-panel.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/chat/copilotkit-v2-plan-control.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/chat/copilotkit-v2-shell-route.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/chat/copilotkit-v2-shell.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/chat/copilotkit-v2-tool-renderers.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/chat/copilotkit-v2-user-message.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/chat/document-generation-auto-approve-toggle.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/chat/knowledge/answer-knowledge-footer.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/chat/knowledge/citation-detail.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/chat/knowledge/claim-source-drawer.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/chat/knowledge/claim-time-badges.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/chat/knowledge/conflict-prompt-card.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/chat/knowledge/extraction-feedback-chip.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/chat/knowledge/knowledge-graph-canvas.tsx",
+      "kinds": [
+        "authoredContent",
+        "literalColorCandidate"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "components/chat/knowledge/knowledge-panel.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/chat/knowledge/memory-card.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/chat/knowledge/memory-overview-card.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/chat/knowledge/session-briefing.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/chat/knowledge/supersede-notice-line.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/chat/knowledge/thread-knowledge-tab.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/chat/knowledge/turn-memory-line.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/chat/markdown-message.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/chat/markdown-prose.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/chat/mermaid-diagram.tsx",
+      "kinds": [
+        "authoredContent"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "components/chat/message-citations.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/chat/message-landing.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/chat/message-rating.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/chat/personal-chat-screen.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/chat/produced-file-pdf-preview.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/chat/project-chat-context-bar.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/chat/run-progress-butterfly.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/chat/run-progress-card.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/chat/subtask-run-live-panel.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/chat/subtask-run-panel.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/chat/thread-list-shell.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/chat/workbench/restored-interrupt-form.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/chat/workbench/restored-run-approval.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/chat/workbench/run-interjections.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/chat/workbench/run-trace-live-preview.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/chat/workbench/run-trace-live-strip.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/chat/workbench/run-trace-panel.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/chat/workbench/task-notifications.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/chat/workbench/task-timeline.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/design-loop/canvas-appearance.tsx",
+      "kinds": [
+        "authoredContent",
+        "literalColorCandidate"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "components/design-loop/comment-pins.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/design-loop/comments-panel.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/design-loop/detail-canvas-toolbar.tsx",
+      "kinds": [
+        "authoredContent",
+        "literalColorCandidate"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "components/design-loop/detail-chat-log.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/design-loop/detail-parts.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/design-loop/detail-screen.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/design-loop/detail-side-panel.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/design-loop/import-thread-dialog.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/design-loop/inbox-drawer.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/design-loop/inbox-screen.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/design-loop/inbox-shared.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/design-loop/inspector-image-field.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/design-loop/present-mode.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/design-loop/prototype-board.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/design-loop/prototype-canvas.tsx",
+      "kinds": [
+        "scopedTheme",
+        "authoredContent",
+        "literalColorCandidate"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "components/design-loop/prototype-code-panel.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/design-loop/prototype-export.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/design-loop/prototype-inspector.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/design-loop/prototype-layers.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/design-loop/shared-design-view.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/design-loop/studio-drafts-screen.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/design-loop/studio-workbench-screen.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/design-loop/variants-panel.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/design-loop/workbench-screen.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/entry/consent-form.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/entry/invite-activation.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/entry/login-form.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/entry/metamorphosis.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/entry/registration.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/entry/reset-password.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/feedback/feedback-dialog.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/files/files-app.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/home/home-banner.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/home/home-screen.tsx",
+      "kinds": [
+        "scopedTheme"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "components/home/home-sections.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/itv/expert-avatar.tsx",
+      "kinds": [
+        "authoredContent"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "components/live-collab/orchestration-preview.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/org-admin/home-config-appearance-section.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/org-admin/home-config-form-model.ts",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/org-admin/home-config-recommend-sections.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/org-admin/home-config-screen.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/org-admin/home-config-theme-section.tsx",
+      "kinds": [
+        "scopedTheme"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "components/org-admin/knowledge-extraction-toggle.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/org-admin/members-screen.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/org-admin/org-admin-screen.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/org-admin/shared-invite-links.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/org-admin/standing-tool-grants.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/plan-control/plan-confirm-gate.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/plan-control/plan-failure-recovery.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/plan-control/plan-panel-edit.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/plan-control/plan-panel-readonly.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/plan-control/plan-phase-indicator.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/plan-control/plan-run-progress.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/profile/profile-screen.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/project/create-project-dialog.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/project/create-project-form.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/project/new-project-flow.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/project/project-ai-settings-panel.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/project/project-brain-panel.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/project/project-collaborators-panel.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/project/project-content-card.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/project/project-content.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/project/project-evidence-section.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/project/project-invitation-landing.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/project/project-invite-card.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/project/project-links.ts",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/project/project-resource-section.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/project/project-workbench.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/project/research-overview.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/project/tab-brain.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/project/tab-general-overview.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/project/tab-overview.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/project/tab-prep.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/project/tab-settings.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/project/workshop-project-flow.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/projects/projects-screen.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/rec/transcription-history.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/research-studio/guided-research-home-status.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/session/session-provider.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/shell/app-shell.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/shell/edition-banner.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/shell/icon-rail.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/shell/org-menu.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/shell/prototype-data-banner.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/shell/rail-notifications.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/shell/workspacex-logo.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/skill/skill-app.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/skill/skill-catalog-live.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/survey/live/question-material.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/survey/report/report-chart.tsx",
+      "kinds": [
+        "authoredContent",
+        "literalColorCandidate"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "components/survey/report/report-export.ts",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/survey/report/report-format.ts",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/tpl/blueprint-list-screen-live.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/tpl/save-as-org-template-action.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/tpl/tpl-app.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/tpl/workflow-screen.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/ui/avatar-illustration.tsx",
+      "kinds": [
+        "authoredContent"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "components/ui/avatar.tsx",
+      "kinds": [
+        "authoredContent",
+        "literalColorCandidate"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "components/ui/button.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/ui/toggle.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "components/whiteboard/authoring-preview/board-object-authoring-preview.tsx",
+      "kinds": [
+        "authoredContent"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "components/whiteboard/authoring-preview/board-object-authoring-surface.tsx",
+      "kinds": [
+        "authoredContent",
+        "literalColorCandidate"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "components/whiteboard/board-ai-proposal-panel.tsx",
+      "kinds": [
+        "authoredContent",
+        "literalColorCandidate"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "components/whiteboard/board-authoring-preview.tsx",
+      "kinds": [
+        "scopedTheme",
+        "authoredContent",
+        "literalColorCandidate"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "components/whiteboard/board-bottom-dock.tsx",
+      "kinds": [
+        "authoredContent"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "components/whiteboard/board-canvas-status-layout.ts",
+      "kinds": [
+        "authoredContent"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "components/whiteboard/board-card-menu.tsx",
+      "kinds": [
+        "authoredContent"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "components/whiteboard/board-chrome-fit.ts",
+      "kinds": [
+        "authoredContent"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "components/whiteboard/board-comments.ts",
+      "kinds": [
+        "authoredContent"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "components/whiteboard/board-connector-handles.tsx",
+      "kinds": [
+        "authoredContent"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "components/whiteboard/board-connector-picker.tsx",
+      "kinds": [
+        "authoredContent"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "components/whiteboard/board-connector-preview.tsx",
+      "kinds": [
+        "authoredContent"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "components/whiteboard/board-connector-toolbar.tsx",
+      "kinds": [
+        "authoredContent"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "components/whiteboard/board-content-adapter.ts",
+      "kinds": [
+        "authoredContent"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "components/whiteboard/board-content-object-inspector.tsx",
+      "kinds": [
+        "authoredContent"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "components/whiteboard/board-create-dialog.tsx",
+      "kinds": [
+        "authoredContent"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "components/whiteboard/board-diagram-source-export.tsx",
+      "kinds": [
+        "authoredContent"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "components/whiteboard/board-draw-tool-panel.tsx",
+      "kinds": [
+        "authoredContent",
+        "literalColorCandidate"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "components/whiteboard/board-drawing-eraser.ts",
+      "kinds": [
+        "authoredContent"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "components/whiteboard/board-editor-header.tsx",
+      "kinds": [
+        "authoredContent"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "components/whiteboard/board-file-upload.ts",
+      "kinds": [
+        "authoredContent"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "components/whiteboard/board-frame-tool-panel.tsx",
+      "kinds": [
+        "authoredContent"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "components/whiteboard/board-image-upload-dialog.tsx",
+      "kinds": [
+        "authoredContent"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "components/whiteboard/board-import-panel.tsx",
+      "kinds": [
+        "authoredContent"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "components/whiteboard/board-mention-picker.tsx",
+      "kinds": [
+        "authoredContent"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "components/whiteboard/board-organize-controls.tsx",
+      "kinds": [
+        "authoredContent"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "components/whiteboard/board-presentation-controls.tsx",
+      "kinds": [
+        "authoredContent"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "components/whiteboard/board-select-all.ts",
+      "kinds": [
+        "authoredContent"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "components/whiteboard/board-selected-object-panel.tsx",
+      "kinds": [
+        "authoredContent"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "components/whiteboard/board-session-image-assets.ts",
+      "kinds": [
+        "authoredContent"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "components/whiteboard/board-share-dialog.tsx",
+      "kinds": [
+        "authoredContent"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "components/whiteboard/board-sticky-picker.tsx",
+      "kinds": [
+        "authoredContent"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "components/whiteboard/board-sync-indicator.tsx",
+      "kinds": [
+        "authoredContent"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "components/whiteboard/board-tag-manager.tsx",
+      "kinds": [
+        "authoredContent"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "components/whiteboard/board-tool-popover.tsx",
+      "kinds": [
+        "authoredContent"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "components/whiteboard/board-tool-preview.tsx",
+      "kinds": [
+        "authoredContent"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "components/whiteboard/board-viewport-controls.tsx",
+      "kinds": [
+        "authoredContent"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "components/whiteboard/collaborative-editor.tsx",
+      "kinds": [
+        "authoredContent"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "components/whiteboard/collaborative-thinking-editor.tsx",
+      "kinds": [
+        "authoredContent",
+        "literalColorCandidate"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "components/whiteboard/connection-handle-visibility.ts",
+      "kinds": [
+        "authoredContent"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "components/whiteboard/connector-gesture.ts",
+      "kinds": [
+        "authoredContent"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "components/whiteboard/drawing-coordinate-space.ts",
+      "kinds": [
+        "authoredContent"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "components/whiteboard/drawing-tool-style.ts",
+      "kinds": [
+        "authoredContent",
+        "literalColorCandidate"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "components/whiteboard/fabric-preview/board-fabric-preview.tsx",
+      "kinds": [
+        "authoredContent"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "components/whiteboard/fabric-preview/board-fabric-surface.tsx",
+      "kinds": [
+        "authoredContent",
+        "literalColorCandidate"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "components/whiteboard/fabric/board-a11y-mirror.tsx",
+      "kinds": [
+        "authoredContent"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "components/whiteboard/fabric/board-fabric-object.ts",
+      "kinds": [
+        "authoredContent"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "components/whiteboard/fabric/board-fabric-surface.tsx",
+      "kinds": [
+        "authoredContent",
+        "literalColorCandidate"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "components/whiteboard/fabric/board-fabric-visual.ts",
+      "kinds": [
+        "authoredContent",
+        "literalColorCandidate"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "components/whiteboard/fabric/board-pinch-viewport.ts",
+      "kinds": [
+        "authoredContent"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "components/whiteboard/fabric/connector-interaction.ts",
+      "kinds": [
+        "authoredContent"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "components/whiteboard/fabric/drawing-cache-bounds.ts",
+      "kinds": [
+        "authoredContent"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "components/whiteboard/fabric/drawing-hit-test.ts",
+      "kinds": [
+        "authoredContent"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "components/whiteboard/fabric/drawing-stroke-path.ts",
+      "kinds": [
+        "authoredContent"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "components/whiteboard/fabric/fabric-input.ts",
+      "kinds": [
+        "authoredContent"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "components/whiteboard/fabric/fabric-transform.ts",
+      "kinds": [
+        "authoredContent"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "components/whiteboard/fabric/sticky-text-layout.ts",
+      "kinds": [
+        "authoredContent"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "components/whiteboard/live-board.tsx",
+      "kinds": [
+        "authoredContent"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "components/whiteboard/object-context-toolbar.tsx",
+      "kinds": [
+        "authoredContent",
+        "literalColorCandidate"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "components/whiteboard/preview-model.ts",
+      "kinds": [
+        "authoredContent"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "components/whiteboard/realtime-digital-human-workspace.tsx",
+      "kinds": [
+        "authoredContent",
+        "literalColorCandidate"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "components/whiteboard/thinking-input-editor.tsx",
+      "kinds": [
+        "authoredContent"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "components/whiteboard/use-board-chrome-insets.ts",
+      "kinds": [
+        "authoredContent"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "components/whiteboard/use-board-connector-gesture.ts",
+      "kinds": [
+        "authoredContent"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "components/whiteboard/use-board-frame.ts",
+      "kinds": [
+        "authoredContent"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "components/whiteboard/use-board-image-upload.ts",
+      "kinds": [
+        "authoredContent"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "components/whiteboard/use-board-organize-fit.ts",
+      "kinds": [
+        "authoredContent"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "components/whiteboard/use-board-overlay-navigation.ts",
+      "kinds": [
+        "authoredContent"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "components/whiteboard/use-board-toolbar-position.ts",
+      "kinds": [
+        "authoredContent"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "components/whiteboard/use-sticky-font-revision.ts",
+      "kinds": [
+        "authoredContent"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "components/whiteboard/use-whiteboard-document.ts",
+      "kinds": [
+        "authoredContent"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "components/whiteboard/whiteboard-fabric-projection.ts",
+      "kinds": [
+        "authoredContent",
+        "literalColorCandidate"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "components/whiteboard/whiteboard-library.tsx",
+      "kinds": [
+        "authoredContent"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "components/whiteboard/whiteboard-renderer.tsx",
+      "kinds": [
+        "authoredContent"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "components/whiteboard/whiteboard-screen.tsx",
+      "kinds": [
+        "authoredContent"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "lib/about-me-view.ts",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "lib/activation-link.ts",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "lib/agent-capability-graph-model.ts",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "lib/agent-definition.ts",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "lib/agent-interrupts-types.ts",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "lib/agent-kernel-risk.ts",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "lib/agent-kernel-stream.ts",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "lib/agent-run-phase.ts",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "lib/agent-run-stream.ts",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "lib/agent-run.ts",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "lib/agent-url-import.ts",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "lib/agui-file-events.ts",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "lib/agui-plan-todos.ts",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "lib/api-client.ts",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "lib/asset-directory.ts",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "lib/auth.ts",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "lib/board-diagram-source.ts",
+      "kinds": [
+        "authoredContent"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "lib/board-performance-fixtures.ts",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "lib/brain-memory-actions.ts",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "lib/brain-view.ts",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "lib/canvas-screens.ts",
+      "kinds": [
+        "authoredContent",
+        "literalColorCandidate"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "lib/canvas/auto-template-layout.ts",
+      "kinds": [
+        "authoredContent",
+        "literalColorCandidate"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "lib/canvas/canvas-fence-identity.ts",
+      "kinds": [
+        "authoredContent",
+        "literalColorCandidate"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "lib/canvas/canvas-fence.ts",
+      "kinds": [
+        "authoredContent",
+        "literalColorCandidate"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "lib/canvas/cap-fence-bullets.ts",
+      "kinds": [
+        "authoredContent",
+        "literalColorCandidate"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "lib/canvas/explicit-template-layout.ts",
+      "kinds": [
+        "authoredContent",
+        "literalColorCandidate"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "lib/canvas/export-image.ts",
+      "kinds": [
+        "authoredContent"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "lib/canvas/export-scale.ts",
+      "kinds": [
+        "authoredContent"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "lib/canvas/fence-template-resolver.ts",
+      "kinds": [
+        "authoredContent",
+        "literalColorCandidate"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "lib/canvas/layout-drift.ts",
+      "kinds": [
+        "authoredContent",
+        "literalColorCandidate"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "lib/canvas/serialize-canvas-markdown.ts",
+      "kinds": [
+        "authoredContent"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "lib/canvas/streaming-fence-sample.ts",
+      "kinds": [
+        "authoredContent",
+        "literalColorCandidate"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "lib/canvas/template-editor-preview.ts",
+      "kinds": [
+        "authoredContent"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "lib/chat-attachment-format.ts",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "lib/chat-board-diagram-layout.ts",
+      "kinds": [
+        "authoredContent"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "lib/chat-citation-view.ts",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "lib/chat-composer-running-reply.ts",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "lib/chat-failure-copy.ts",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "lib/chat-host-interjection-run.ts",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "lib/chat-message-focus.ts",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "lib/chat-run-pause-entry.ts",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "lib/chat-task-inspector-tabs.ts",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "lib/chat-workbench/live-plan-context.ts",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "lib/chat-workbench/project-scope.ts",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "lib/chat-workbench/queue-failure-copy.ts",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "lib/chat-workbench/restore-final-messages.ts",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "lib/chat-workbench/run-trace.ts",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "lib/chat-workbench/thread-pages.ts",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "lib/chat-workbench/tool-label.ts",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "lib/chat-workbench/tool-outcome.ts",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "lib/chat-workbench/use-interval-focus-refresh.ts",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "lib/chat-workbench/use-run-trace.ts",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "lib/chat-workbench/use-template-recommendations.ts",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "lib/chat-workbench/use-timeline-scroll.ts",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "lib/chat/diagram-readback.ts",
+      "kinds": [
+        "authoredContent",
+        "literalColorCandidate"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "lib/chat/use-subtask-runs.ts",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "lib/composer-mention-detection.ts",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "lib/copilotkit-v2-agent-header.ts",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "lib/copilotkit-v2-agent-options.ts",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "lib/copilotkit-v2-agent-query.ts",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "lib/copilotkit-v2-agent-selection.tsx",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "lib/copilotkit-v2-agui-url.ts",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "lib/copilotkit-v2-error-copy.ts",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "lib/copilotkit-v2-failure-banner.ts",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "lib/copilotkit-v2-message-identity.ts",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "lib/copilotkit-v2-persisted-messages.ts",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "lib/copilotkit-v2-run-progress.ts",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "lib/copilotkit-v2-run-restore.ts",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "lib/copilotkit-v2-scroll.ts",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "lib/copilotkit-v2-task-mode.ts",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "lib/design-comments.ts",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "lib/design-doc-markdown.ts",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "lib/document-generation-auto-approve.ts",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "lib/export-file-name.ts",
+      "kinds": [
+        "authoredContent"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "lib/home-config-catalog.ts",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "lib/home-theme.ts",
+      "kinds": [
+        "scopedTheme",
+        "literalColorCandidate"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "lib/html-page-srcdoc.ts",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "lib/identity.ts",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "lib/interview-expert-avatar.ts",
+      "kinds": [
+        "authoredContent"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "lib/knowledge-graph-api.ts",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "lib/knowledge-graph-citation.ts",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "lib/knowledge-graph-events.ts",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "lib/knowledge-graph-failure.ts",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "lib/knowledge-graph-recall.ts",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "lib/knowledge-graph-share-api.ts",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "lib/knowledge-graph-view.ts",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "lib/live-admin-nav-counts.ts",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "lib/live-agent-capability-graph.ts",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "lib/live-asr-draft.ts",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "lib/live-asr.ts",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "lib/live-canvas.ts",
+      "kinds": [
+        "authoredContent",
+        "literalColorCandidate"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "lib/live-capabilities.ts",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "lib/live-chat.ts",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "lib/live-consent.ts",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "lib/live-design-workbench.ts",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "lib/live-first-value.ts",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "lib/live-home-config.ts",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "lib/live-identity.ts",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "lib/live-interviews.ts",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "lib/live-mcp-admin.ts",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "lib/live-memory-ops.ts",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "lib/live-model.ts",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "lib/live-org-admin.ts",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "lib/live-platform-extraction-setting.ts",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "lib/live-project-ai-settings.ts",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "lib/live-project-collaborators.ts",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "lib/live-project-evidence.ts",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "lib/live-project-invitations.ts",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "lib/live-project-members.ts",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "lib/live-projects.ts",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "lib/live-provenance.ts",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "lib/live-recording.ts",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "lib/live-skill-admin.ts",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "lib/live-skill-mount.ts",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "lib/live-skill.ts",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "lib/live-whiteboard-import.ts",
+      "kinds": [
+        "authoredContent"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "lib/live-whiteboard.ts",
+      "kinds": [
+        "authoredContent"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "lib/live-workflow-orchestration.ts",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "lib/mermaid-diagram-type.ts",
+      "kinds": [
+        "authoredContent"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "lib/mock/admin.ts",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "lib/mock/agent-interrupts.ts",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "lib/mock/agent-kernel.ts",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "lib/mock/agent-tool-chain.ts",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "lib/mock/canvas-templates.ts",
+      "kinds": [
+        "authoredContent"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "lib/mock/canvas.ts",
+      "kinds": [
+        "authoredContent",
+        "literalColorCandidate"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "lib/mock/chat-diagram-fabric.ts",
+      "kinds": [
+        "authoredContent"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "lib/mock/chat.ts",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "lib/mock/knowledge-graph.ts",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "lib/mock/org-admin.ts",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "lib/mock/plan-control.ts",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "lib/mock/skill.ts",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "lib/mock/subtask-run.ts",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "lib/nav-ia.ts",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "lib/navigation.ts",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "lib/org-display.ts",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "lib/plan-control-api.ts",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "lib/plan-control-copy.ts",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "lib/project-context.ts",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "lib/project-workbench.ts",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "lib/prototype-devices.ts",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "lib/prototype-diff.ts",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "lib/prototype-export-html.ts",
+      "kinds": [
+        "scopedTheme",
+        "authoredContent",
+        "literalColorCandidate"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "lib/prototype-export-render.ts",
+      "kinds": [
+        "authoredContent"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "lib/prototype-image-upload.ts",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "lib/prototype-node-actions.ts",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "lib/prototype-pptx-export.ts",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "lib/prototype-react-export-icons.ts",
+      "kinds": [
+        "authoredContent",
+        "literalColorCandidate"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "lib/prototype-react-export.ts",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "lib/provenance-labels.ts",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "lib/query-keys.ts",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "lib/report-client-error.ts",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "lib/research-report-export.ts",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "lib/session-briefing-view.ts",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "lib/skill-trial-run.ts",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "lib/system-uptime.ts",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "lib/use-asr-draft.ts",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "lib/use-composer-voice-session.ts",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "lib/use-plan-ledger-polling.ts",
+      "kinds": [
+        "literalColorCandidate"
+      ],
+      "disposition": "inspect candidate before editing"
+    },
+    {
+      "source": "lib/whiteboard-indexeddb.ts",
+      "kinds": [
+        "authoredContent"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "lib/whiteboard-operation-client.ts",
+      "kinds": [
+        "authoredContent"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "lib/whiteboard-outbox-key-envelope.ts",
+      "kinds": [
+        "authoredContent"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "lib/whiteboard-outbox-key-store.ts",
+      "kinds": [
+        "authoredContent"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "lib/whiteboard-outbox.ts",
+      "kinds": [
+        "authoredContent"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    },
+    {
+      "source": "lib/whiteboard-provider.ts",
+      "kinds": [
+        "authoredContent"
+      ],
+      "disposition": "preserve user content or scoped override; inspect representative render"
+    }
+  ]
+}
