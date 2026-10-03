@@ -96,6 +96,9 @@ export function BoardBottomDock({ editing=false,connectorEnabled=false,stickyCol
   };
   useEffect(() => { const closeOutside = (event: PointerEvent) => { if (!portalEvents.current.has(event) && !dockRef.current?.contains(event.target as Node)) setPickerOpen(false); }; window.addEventListener("pointerdown", closeOutside); return () => window.removeEventListener("pointerdown", closeOutside); }, []);
   const [pickerOpen, setPickerOpen] = useState(false);
+  // A cleared one-shot mode ends its explicit dock menu. Shortcut arming must
+  // not revive the previous menu merely because the same tool is selected.
+  useEffect(() => { if (creationTool === null) setPickerOpen(false); }, [creationTool]);
   const recent = useRef({sticky:{kind:"sticky",variant:"square"} as Exclude<BoardCreationTool,null>,text:{kind:"text",preset:"body"} as Exclude<BoardCreationTool,null>,shape:{kind:"shape",variant:"rounded-rectangle"} as Exclude<BoardCreationTool,null>});
   useEffect(()=>{if(creationTool?.kind==="sticky"||creationTool?.kind==="text"||creationTool?.kind==="shape")recent.current[creationTool.kind]=creationTool;},[creationTool]);
   useEffect(() => { const close = (event: KeyboardEvent) => { if (event.key === "Escape" && !portalEvents.current.has(event)) setPickerOpen(false); }; window.addEventListener("keydown", close); return () => window.removeEventListener("keydown", close); }, []);
@@ -140,7 +143,7 @@ export function BoardBottomDock({ editing=false,connectorEnabled=false,stickyCol
       }}
       aria-label="白板工具" className={cn("absolute bottom-5 inset-x-4 z-30 mx-auto w-max max-w-[calc(100vw-2rem)]",editing&&"max-sm:hidden")}>
       {pickerOpen && (stickyOpen || textOpen || shapeOpen || contentOpen || connectorOpen) && (
-        <div data-testid="board-tool-picker" data-picker-anchor={creationTool?.kind} style={{ position: "absolute", bottom: "100%", left: pickerPosition.left, width: pickerPosition.width, marginBottom: 16, maxHeight: "min(320px, calc(100dvh - 180px))" }} className="flex min-w-0 flex-wrap items-center justify-center gap-2 overflow-auto rounded-lg border border-border-subtle bg-card p-2 shadow-lg motion-safe:animate-in motion-safe:slide-in-from-bottom-2 motion-safe:fade-in">
+        <div data-testid="board-tool-picker" data-board-chrome="tool-picker" data-picker-anchor={creationTool?.kind} style={{ position: "absolute", bottom: "100%", left: pickerPosition.left, width: pickerPosition.width, marginBottom: 16, maxHeight: "min(320px, calc(100dvh - 180px))" }} className="flex min-w-0 flex-wrap items-center justify-center gap-2 overflow-auto rounded-lg border border-border-subtle bg-card p-2 shadow-lg motion-safe:animate-in motion-safe:slide-in-from-bottom-2 motion-safe:fade-in">
           {stickyOpen ? <BoardStickyPicker color={stickyColor} variant={creationTool.variant} readOnly={readOnly} onColorChange={value=>onStickyColorChange?.(value)} onVariantChange={variant=>onCreationToolChange({kind:"sticky",variant})} onBulk={onBulkSticky}/> : textOpen ? TEXT_PRESETS.map(({ preset, label }) => (
             <button
               key={preset}
