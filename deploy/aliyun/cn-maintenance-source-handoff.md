@@ -17,3 +17,5 @@ Canonical draft PR: https://github.com/boardx/workspacex/pull/5247 . Normal push
 The legacy held preactivate collector still starts bootstrap containers/new connections. Its consumer now rejects before invocation with MAINTENANCE_HELD_PREFLIGHT_CONSUMER_NOT_IMPLEMENTED. A real held diagnostic preactivate replacement remains source work. Recovery producer/validator/prehold positive closure remains incomplete, as explicitly described in cn-maintenance-recovery-collection-plan.md. No dummy positive receipt is used to clear either gate.
 
 重连只读核对：工作树仍为原分支、00730db81、无未提交改动，进程筛查无本工作树发布/测试/推送进程。A 阶段设计补全 A0–A6、同 epoch 重验及 resume-intent 后新写入保护；设计不是执行器或生产批准，positive-proof 和 held-preactivate 消费者仍未实现。
+
+本次执行范围已收窄：见 cn-release-9b25-once-plan.md 与 exact Git-only inventory（393/255/新增138；fresh生产pending未知）。账本探测接口超时且接受状态未知，未重发；不以旧记录补当前PASS。CLI参数缺陷已修并加纯反证，catalog结构采集及同源比较补全；仍没有真实恢复/停写只读消费者/A执行器完整链路或生产批准。

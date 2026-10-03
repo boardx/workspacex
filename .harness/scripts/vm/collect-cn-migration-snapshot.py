@@ -27,7 +27,7 @@ def collect(plan,cli,now=time.monotonic,pause=time.sleep):
  script='/usr/bin/node '+content+'\n'
  require(sha(script.encode())==plan['querySha256'],'QUERY_COMMAND_HASH')
  account=cli(['sts','GetCallerIdentity']);require(account.get('AccountId')==plan['accountId'],'CREDENTIAL_ACCOUNT_MISMATCH')
- response=cli(['ecs','RunCommand','--RegionId',plan['regionId'],'--Type','RunShellScript','--Content',base64.b64encode(script.encode()).decode(),'--InstanceId.1',plan['ecsInstanceId'],'--Timeout','120','--WorkingDir',ROOT,'--Username','root','--Name','wsx-readonly-ledger-'+plan['identity']['attemptId']])
+ response=cli(['ecs','RunCommand','--RegionId',plan['regionId'],'--Type','RunShellScript','--CommandContent',base64.b64encode(script.encode()).decode(),'--ContentEncoding','Base64','--InstanceId',json.dumps([plan['ecsInstanceId']],separators=(',',':')),'--Timeout','120','--WorkingDir',ROOT,'--Username','root','--Name','wsx-readonly-ledger-'+plan['identity']['attemptId']])
  require(type(response.get('InvokeId'))is str and type(response.get('CommandId'))is str,'PROVIDER_START_RESPONSE')
  invocation=response['InvokeId'];command=response['CommandId'];deadline=now()+180
  while True:

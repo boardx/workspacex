@@ -1,4 +1,4 @@
-import importlib.machinery,importlib.util,pathlib,unittest,json,hashlib
+import importlib.machinery,importlib.util,pathlib,unittest,json,hashlib,base64
 p=pathlib.Path(__file__).with_name('collect-cn-migration-snapshot.py');loader=importlib.machinery.SourceFileLoader('collector',str(p));spec=importlib.util.spec_from_loader(loader.name,loader);m=importlib.util.module_from_spec(spec);loader.exec_module(m)
 class Collector(unittest.TestCase):
  def plan(self):
@@ -11,6 +11,12 @@ class Collector(unittest.TestCase):
    if args[1]=='RunCommand':return{'InvokeId':'inv','CommandId':'cmd'}
    return response
   response=raw;actual,cloud=m.collect(plan,cli);self.assertEqual(actual,raw);self.assertEqual(cloud['invokeId'],'inv');self.assertEqual(calls[1][1],'RunCommand')
+  args=calls[1];self.assertNotIn('--Content',args);self.assertNotIn('--InstanceId.1',args)
+  self.assertEqual(args[args.index('--ContentEncoding')+1],'Base64')
+  self.assertEqual(json.loads(args[args.index('--InstanceId')+1]),[plan['ecsInstanceId']])
+  script=base64.b64decode(args[args.index('--CommandContent')+1]).decode()
+  self.assertEqual(hashlib.sha256(script.encode()).hexdigest(),plan['querySha256'])
+  self.assertEqual(script,'/usr/bin/node /usr/local/lib/workspacex-cn/cn-migration-snapshot-query.cjs --readonly-ledger '+'a'*40+' one\n')
  def test_truncated_provider_output_never_success(self):
   plan=self.plan()
   def cli(args,raw=False):

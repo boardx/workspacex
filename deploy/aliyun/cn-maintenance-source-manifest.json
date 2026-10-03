@@ -4,7 +4,7 @@
   "baseCommit": "64cc2b85053823a4c7461eb404b9f3a99c749a33",
   "applicationRevision": "9b25bfa65662b96c0826fe67506b562ea46aa6d0",
   "baselineRevision": "ba6343199f3c834d6a198f83d0c771614292c82b",
-  "sourceInventorySha256": "839e3171ed93a22e685ac42f67011ed66af8ecb7afec1941ed01d43e909e8f26",
+  "sourceInventorySha256": "744f987a75c8f59a1cc34656d9083dc77e664c14c1727dfa76edcc35e939c973",
   "sourceRows": [
     {
       "path": ".harness/scripts/build-cn-maintenance-controller.cjs",
@@ -13,8 +13,8 @@
     },
     {
       "path": ".harness/scripts/run-cn-maintenance-pure-tests.py",
-      "sha256": "68e992f99ca9411917584ca63d28df67f4bd5219b2f15f7abc7c825d88755dd3",
-      "bytes": 1164
+      "sha256": "e43534fa049d5a02f2d48958604b8bb1959a3b8b9304abfcb374c0d8cc56e827",
+      "bytes": 1194
     },
     {
       "path": ".harness/scripts/vm/build-cn-release-candidate.sh",
@@ -108,8 +108,8 @@
     },
     {
       "path": ".harness/scripts/vm/cn-production-recovery-catalog.cjs",
-      "sha256": "beac2e9e333bbae5168d10269a5fc66f833ad464aaa8ddf128d1a073464a490b",
-      "bytes": 10695
+      "sha256": "ff0b2235d42d6ed3d0bfc36780201df90bcbbf1aa189a134874667ad5b62b4d5",
+      "bytes": 14647
     },
     {
       "path": ".harness/scripts/vm/cn-production-recovery-executor.py",
@@ -233,13 +233,13 @@
     },
     {
       "path": ".harness/scripts/vm/cn_restore_catalog.cjs",
-      "sha256": "beac2e9e333bbae5168d10269a5fc66f833ad464aaa8ddf128d1a073464a490b",
-      "bytes": 10695
+      "sha256": "b56a4de602a0275db24e1c512b29928579bff6e029a4fd2668577307f0983374",
+      "bytes": 157
     },
     {
       "path": ".harness/scripts/vm/cn_restore_catalog_test.cjs",
-      "sha256": "4f3b60e2167641bd4d52f0fa2e8a3f34e20064eeacd3fea5766b552fbd1e732d",
-      "bytes": 5494
+      "sha256": "6f0b1148660a62dd808e5a826300325f804d44c5a5babc0e7d54ab1f3bb5a608",
+      "bytes": 6044
     },
     {
       "path": ".harness/scripts/vm/cn_restore_objects.cjs",
@@ -273,8 +273,8 @@
     },
     {
       "path": ".harness/scripts/vm/collect-cn-migration-snapshot.py",
-      "sha256": "9520a3b211060f149b33ac6b215dc4f8949513468d534081cba58b8c965d0779",
-      "bytes": 7866
+      "sha256": "9d3a5a84820bab7967f68f3fc19a93607bfa370069410bd0301d233456076844",
+      "bytes": 7935
     },
     {
       "path": ".harness/scripts/vm/collect-cn-release-preflight.sh",
@@ -283,8 +283,8 @@
     },
     {
       "path": ".harness/scripts/vm/collect_cn_migration_snapshot_test.py",
-      "sha256": "83129809452b17c16a319a05aaa799d47a44f1d8d89393019b8b83e12f295fd1",
-      "bytes": 2552
+      "sha256": "e8b4c2c2f0a5557e5fa364b4a6b8153dfb5e0424aaea06b77d06a87fa8d24905",
+      "bytes": 3108
     },
     {
       "path": ".harness/scripts/vm/control_connection.cjs",
@@ -413,8 +413,18 @@
     },
     {
       "path": "deploy/aliyun/cn-maintenance-source-handoff.md",
-      "sha256": "d88b3e5625beaee274bf8f858727144193f1bc553b7d877687887a97e8501c3d",
-      "bytes": 3997
+      "sha256": "c198637bdb7790c370de10d1ef44c1f9d7e3a228017ffea564d0a6cd22883d38",
+      "bytes": 4400
+    },
+    {
+      "path": "deploy/aliyun/cn-release-9b25-once-plan.md",
+      "sha256": "2084b51b513d9dc12aaf093867434729009a1a65cd843e15d62b246ce98ec6c8",
+      "bytes": 7930
+    },
+    {
+      "path": "deploy/aliyun/cn-release-9b25-source-inventory.json",
+      "sha256": "7a55ceece6e53a64482b6587ec2e47b26d98acce07f5d653325d80e10cc609eb",
+      "bytes": 89048
     },
     {
       "path": "deploy/aliyun/cn-tool-install-recovery.md",
