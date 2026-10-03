@@ -6,6 +6,7 @@
 
 - 管理入口：独立 IAB 标签访问 localhost:3000；该服务现有工作区 `/Users/shenyangjun/.codex/worktrees/research-latency-title/workspacex`，检查时干净，HEAD `09f220ec772b0e424ef08b30e6d7a9aca22cfa76`。未重启或修改该服务。
 - 拉取最新 main：`814dc05a36e1f2645b7528b9dacc0a344ec615ae`。本轮涉及的 rec 组件与个人转录客户端同旧服务版本无差异；并不据此宣称全部 API/部署同版。
+- 修复实际 main 基线：`caf445c3c65eab8e614ea9ecd60cfaa112879f46`（开分支时共享 origin/main 已包含 #5254/#5256；与最初 fetch 的 814dc05a 不同）。PR 比较当前 main，仅包含本模块改动。
 - 修复工作区：`/Users/shenyangjun/boardx/workspacex/.worktrees/coord-voice-f175-transcription-management`，复用旧干净 worktree；分支 `codex/voice-review-navigation`。本 session 未创建新 worktree。
 - 导航修复真实 UI：本会话独立 localhost:3318，基于最新 main；测试代码 exact SHA `502d225dc0fb1aee1257a59807a48aa0d7ae5093`。从实时页及引述页实际点击进入校对页，保留角色/载体/项目参数。
 - 测试资料：新建 `语音按钮验收-20261004-合成文本`，改名 `语音按钮验收-20261004-已改名`；标签 `voice-audit`、`合成验收`，正文仅含合成测试句子。未采人类音频、未删除对象、未分享资料、未部署。
@@ -69,8 +70,8 @@ PASS 表示本轮真实点击及可观察结果；BLOCKED 包括明确条件缺�
 
 根因：相对链接 `?screen=assign` 覆盖整个查询串。复用 `useRecScreenHref`，复制当前查询参数并仅 set(screen)，两个出口共用。
 
-- 初始化：先失败于错误 pnpm11 与旧 worktree 根依赖指向共享 checkout；只解绑本 worktree 自己软链接、使用仓库 pnpm9.15.0 独立安装后 `./init.sh` 快速路径退出 0。见 init.log。
-- 反证：4 个导航行为测试失败于 mode 丢失。见 navigation-red.log。
+- 初始化：先失败于错误 pnpm11 与旧 worktree 根依赖指向共享 checkout；只解绑本 worktree 自己软链接、使用仓库 pnpm9.15.0 独立安装后 `./init.sh` 快速路径退出 0。见 init.txt。
+- 反证：4 个导航行为测试失败于 mode 丢失。见 navigation-red.txt。
 - 回归：`corepack pnpm --filter web exec vitest run tests/ui/rec-review-navigation.test.tsx tests/ui/rec-fidelity-gaps.test.tsx tests/ui/realtime-transcription-workspace.test.tsx tests/ui/realtime-transcription-history.test.tsx`：54/54，退出 0。
 - `corepack pnpm --filter web typecheck`：退出 0；先重建独立工作区 fabric-markdown 产物解决旧声明文件。
 - 改动文件 `next lint --file …`：无 warning/error，退出 0。

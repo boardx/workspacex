@@ -1,0 +1,18 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/coord-voice-f175-transcription-management/apps/web
+
+ ✓ tests/ui/rec-fidelity-gaps.test.tsx (11 tests) 22ms
+ ✓ tests/ui/realtime-transcription-workspace.test.tsx (11 tests) 186ms
+ ✓ tests/ui/rec-review-navigation.test.tsx (4 tests) 192ms
+ ✓ tests/ui/realtime-transcription-history.test.tsx (28 tests) 5192ms
+   ✓ 实时转录历史工作台 > does not reconnect after leaving the workspace 1235ms
+   ✓ 实时转录历史工作台 > automatically reconnects a dropped stream and retains saved text without stale events 1047ms
+   ✓ 实时转录历史工作台 > cancels scheduled reconnect when the user stops 1223ms
+   ✓ 实时转录历史工作台 > keeps saved text and distinguishes persistent refresh failure from stopping failure 782ms
+
+ Test Files  4 passed (4)
+      Tests  54 passed (54)
+   Start at  02:22:37
+   Duration  7.71s (transform 1.15s, setup 735ms, collect 4.54s, tests 5.59s, environment 2.85s, prepare 224ms)
+
