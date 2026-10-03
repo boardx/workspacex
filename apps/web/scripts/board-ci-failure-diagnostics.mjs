@@ -1,4 +1,5 @@
-import diagnosticPolicy from './board-ci-diagnostic-policy.json' with {type:'json'};
+import {readFileSync} from 'node:fs';
+const diagnosticPolicy=JSON.parse(readFileSync(new URL('./board-ci-diagnostic-policy.json',import.meta.url),'utf8'));
 const projects=new Set(['chromium','firefox','webkit','board-api-ws-objectstore']);
 const specs=new Set(['board-selection-layout.spec.ts','board-shared-outbox.spec.ts','board-visual-accessibility-acceptance.spec.ts','board-compact-chrome-acceptance.spec.ts']);
 const numeric=value=>typeof value==='number'&&Number.isFinite(value)?value:undefined;

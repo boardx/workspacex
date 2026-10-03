@@ -42,6 +42,25 @@ test('same-browser tabs drain a shared durable outbox without duplicate commits'
  };
  const lifecycleBinding=`boardOutboxLifecycle${randomUUID().replaceAll('-','')}`;
  const lifecycleEvents={freeze:0,resume:0};
+ const recordVisibility=(stage:'before-freeze'|'native-visibilitychange'|'after-active',value:{state?:string;trustedChanges?:number;untrustedChanges?:number;sameDocument?:number}|undefined)=>{
+  if(!value||!['visible','hidden'].includes(value.state??'')||![0,1].includes(value.sameDocument??-1))return;
+  if(!['trustedChanges','untrustedChanges'].every(key=>{const n=value[key as 'trustedChanges'|'untrustedChanges'];return Number.isSafeInteger(n)&&n!>=0&&n!<=1_000_000;}))return;
+  const safe={stage,state:value.state,trustedChanges:value.trustedChanges,untrustedChanges:value.untrustedChanges,sameDocument:value.sameDocument};
+  console.info('OWNED_LIFECYCLE_VISIBILITY',JSON.stringify(safe));
+  const samples=(evidence.ownerVisibilitySamples??=[]) as unknown[];samples.push(safe);
+ };
+ const captureVisibility=async(stage:'before-freeze'|'after-active')=>{
+  if(!ownerLifecycle)throw new Error('OWNED_LIFECYCLE_SESSION_MISSING');
+  const sample=await ownerLifecycle.send('Runtime.evaluate',{expression:`(()=>{const observed=globalThis[${JSON.stringify(lifecycleBinding+'Visibility')}];return {state:document.visibilityState,trustedChanges:observed?.trustedChanges,untrustedChanges:observed?.untrustedChanges,sameDocument:observed?.document===document?1:0};})()`,returnByValue:true});
+  expect(sample.exceptionDetails,'Owned visibility sample must be readable').toBeUndefined();
+  const value=sample.result.value as {state?:string;trustedChanges?:number;untrustedChanges?:number;sameDocument?:number}|undefined;
+  expect(['visible','hidden']).toContain(value?.state);
+  for(const key of ['trustedChanges','untrustedChanges'] as const){expect(Number.isSafeInteger(value?.[key])).toBe(true);expect(value?.[key]).toBeGreaterThanOrEqual(0);expect(value?.[key]).toBeLessThanOrEqual(1_000_000);}
+  expect([0,1]).toContain(value?.sameDocument);
+  recordVisibility(stage,value);
+  expect(value!.sameDocument,'Lifecycle observation must remain on the original document').toBe(1);
+ };
+
  const ackGate:{updateId:string|null;release:(()=>void)|null;heldAt:number|null;releasedAt:number|null}={updateId:null,release:null,heldAt:null,releasedAt:null};
  const call=async(method:string,path:string,data?:unknown)=>{const safePath=new URL(path,'http://diagnostic.invalid').pathname,index=http.push({method,path:safePath,status:0})-1;const response=await request.fetch(`${api}${path}`,{method,data,timeout:15_000,headers:{Authorization:`Bearer ${token}`}});const status=response.status();http[index]!.status=status;
   // Record only routing metadata, never credentials, request/response bodies or query strings.
@@ -105,18 +124,19 @@ test('same-browser tabs drain a shared durable outbox without duplicate commits'
   await ownerLifecycle.send('Runtime.addBinding',{name:lifecycleBinding});
   ownerLifecycle.on('Runtime.bindingCalled',event=>{
    if(event.name!==lifecycleBinding)return;
-   try{const observed=JSON.parse(event.payload) as {type?:string;trusted?:boolean};
+   try{const observed=JSON.parse(event.payload) as {type?:string;trusted?:boolean;state?:string;trustedChanges?:number;untrustedChanges?:number;sameDocument?:number};
+    if(observed.type==='visibilitychange'){recordVisibility('native-visibilitychange',observed);return;}
     if(observed.type==='ready'){lifecycleReady++;return;}
     if(observed.trusted===true&&(observed.type==='freeze'||observed.type==='resume'))lifecycleEvents[observed.type]++;
    }catch{/* Unknown payload is never lifecycle proof. */}
   });
-  const installedLifecycle=await ownerLifecycle.send('Runtime.evaluate',{expression:`globalThis[${JSON.stringify(lifecycleBinding+'Counts')}] = {freeze:0,resume:0,untrusted:0};globalThis[${JSON.stringify(lifecycleBinding+'Handlers')}] = Object.fromEntries(['freeze','resume'].map(type=>{const notify=globalThis[${JSON.stringify(lifecycleBinding)}];const listener=event=>{const counts=globalThis[${JSON.stringify(lifecycleBinding+'Counts')}];if(event.isTrusted)counts[event.type]++;else counts.untrusted++;notify(JSON.stringify({type:event.type,trusted:event.isTrusted}));};document.addEventListener(type,listener);return [type,listener];}));globalThis[${JSON.stringify(lifecycleBinding)}](JSON.stringify({type:'ready'}));`});
+  const installedLifecycle=await ownerLifecycle.send('Runtime.evaluate',{expression:`globalThis[${JSON.stringify(lifecycleBinding+'Counts')}] = {freeze:0,resume:0,untrusted:0};globalThis[${JSON.stringify(lifecycleBinding+'Visibility')}]={document,trustedChanges:0,untrustedChanges:0};globalThis[${JSON.stringify(lifecycleBinding+'Handlers')}] = Object.fromEntries(['freeze','resume','visibilitychange'].map(type=>{const notify=globalThis[${JSON.stringify(lifecycleBinding)}];const listener=event=>{const counts=globalThis[${JSON.stringify(lifecycleBinding+'Counts')}];if(type==='visibilitychange'){const visibility=globalThis[${JSON.stringify(lifecycleBinding+'Visibility')}];if(event.isTrusted)visibility.trustedChanges++;else visibility.untrustedChanges++;notify(JSON.stringify({type:'visibilitychange',state:document.visibilityState,trustedChanges:visibility.trustedChanges,untrustedChanges:visibility.untrustedChanges,sameDocument:visibility.document===document?1:0}));return;}if(event.isTrusted)counts[event.type]++;else counts.untrusted++;notify(JSON.stringify({type:event.type,trusted:event.isTrusted}));};document.addEventListener(type,listener);return [type,listener];}));globalThis[${JSON.stringify(lifecycleBinding)}](JSON.stringify({type:'ready'}));`});
   expect(installedLifecycle.exceptionDetails,'Owned lifecycle observers must actually install').toBeUndefined();
   await expect.poll(()=>lifecycleReady,{timeout:remaining(),message:'Owned lifecycle binding must prove readiness before freezing'}).toBe(1);
   evidence.lifecycleObserverReady=lifecycleReady;
   // Freeze only this page's lifecycle. Debugger.pause can stop sibling pages in
   // the same renderer, making peer lease recovery impossible to exercise.
-  ownerFrozen=true;await ownerLifecycle.send('Page.setWebLifecycleState',{state:'frozen'});
+  await captureVisibility('before-freeze');ownerFrozen=true;await ownerLifecycle.send('Page.setWebLifecycleState',{state:'frozen'});
   await expect.poll(()=>lifecycleEvents.freeze,{timeout:remaining(),message:'Original page must emit a trusted native freeze event'}).toBe(1);
   evidence.ownerLifecycleControl='page-frozen';mark('original-tab-paused');
   const testPeer=await page.context().newPage();peer=testPeer;testPeer.setDefaultTimeout(15_000);testPeer.setDefaultNavigationTimeout(15_000);metadata.observe(testPeer,'peer');await testPeer.goto(`/studio/board/${boardId}`);mark('peer-opened');
@@ -131,6 +151,7 @@ test('same-browser tabs drain a shared durable outbox without duplicate commits'
   expect(ackGate.release).not.toBeNull();ackGate.release!();mark('original-real-ack-released');
   await ownerLifecycle.send('Page.setWebLifecycleState',{state:'active'});
   await expect.poll(()=>lifecycleEvents.resume,{timeout:remaining(),message:'Original page must emit a trusted native resume event'}).toBe(1);ownerFrozen=false;mark('original-tab-resumed');
+  await captureVisibility('after-active');
   evidence.ownerLifecycleEvents={...lifecycleEvents};
   evidence.ackGate={updateId:ackGate.updateId,heldMs:ackGate.releasedAt!-ackGate.heldAt!};
   await expectBoardSynced(page,remaining());await expectBoardSynced(testPeer,remaining());
@@ -153,10 +174,13 @@ test('same-browser tabs drain a shared durable outbox without duplicate commits'
   await testPeer.close();peer=undefined;
  }catch(error){primaryFailed=true;primaryFailure=error;throw error;}finally{
   const lifecycleCleanupErrors:string[]=[];
-  try{if(ownerFrozen){await ownerLifecycle?.send('Page.setWebLifecycleState',{state:'active'});await expect.poll(()=>lifecycleEvents.resume,{timeout:5000,message:'Owned frozen page must actually resume during cleanup'}).toBe(1);ownerFrozen=false;}}catch(error){lifecycleCleanupErrors.push(`restore: ${String(error)}`);}
+  if(ownerFrozen){
+   try{await ownerLifecycle?.send('Page.setWebLifecycleState',{state:'active'});await expect.poll(()=>lifecycleEvents.resume,{timeout:5000,message:'Owned frozen page must actually resume during cleanup'}).toBe(1);ownerFrozen=false;}catch(error){lifecycleCleanupErrors.push(`restore: ${String(error)}`);}
+   try{if(!ownerFrozen)await captureVisibility('after-active');}catch(error){lifecycleCleanupErrors.push(`visibility-after-restore: ${String(error)}`);}
+  }
   try{ackGate.release?.();}catch(error){lifecycleCleanupErrors.push(`release: ${String(error)}`);}
   try{if(ownerLifecycle&&!nativeCountsCaptured)await captureNativeCounts();}catch(error){lifecycleCleanupErrors.push(`counts: ${String(error)}`);}
-  try{if(ownerLifecycle){const removed=await ownerLifecycle.send('Runtime.evaluate',{expression:`for(const [type,listener] of Object.entries(globalThis[${JSON.stringify(lifecycleBinding+'Handlers')}]??{}))document.removeEventListener(type,listener);delete globalThis[${JSON.stringify(lifecycleBinding+'Handlers')}];delete globalThis[${JSON.stringify(lifecycleBinding+'Counts')}];`});expect(removed.exceptionDetails,'Owned lifecycle observers must actually be removed').toBeUndefined();}}catch(error){lifecycleCleanupErrors.push(`listeners: ${String(error)}`);}
+  try{if(ownerLifecycle){const removed=await ownerLifecycle.send('Runtime.evaluate',{expression:`for(const [type,listener] of Object.entries(globalThis[${JSON.stringify(lifecycleBinding+'Handlers')}]??{}))document.removeEventListener(type,listener);delete globalThis[${JSON.stringify(lifecycleBinding+'Handlers')}];delete globalThis[${JSON.stringify(lifecycleBinding+'Counts')}];delete globalThis[${JSON.stringify(lifecycleBinding+'Visibility')}];`});expect(removed.exceptionDetails,'Owned lifecycle observers must actually be removed').toBeUndefined();}}catch(error){lifecycleCleanupErrors.push(`listeners: ${String(error)}`);}
   try{await ownerLifecycle?.send('Runtime.removeBinding',{name:lifecycleBinding});}catch(error){lifecycleCleanupErrors.push(`binding: ${String(error)}`);}
   try{await ownerLifecycle?.detach();}catch(error){lifecycleCleanupErrors.push(`detach: ${String(error)}`);}
   evidence.lifecycleCleanupErrors=lifecycleCleanupErrors;evidence.ownerLifecycleEvents={...lifecycleEvents};
