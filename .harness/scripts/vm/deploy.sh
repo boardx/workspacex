@@ -775,6 +775,8 @@ echo "  必需 env var 就绪"
 
 # Bind actual build bytes before the restart, then attest only after real smoke success.
 DEVAPP_BUILD_RECEIPT=$(node /usr/local/lib/workspacex-devapp-runtime-identity.mjs build "$SOURCE_REVISION" "$APP_DIR")
+node /usr/local/lib/workspacex-devapp-runtime-identity.mjs publish-marker "$SOURCE_REVISION" "$APP_DIR" "$DEVAPP_BUILD_RECEIPT"
+systemctl daemon-reload
 step "6. 重启服务"
 systemctl restart workspacex-api workspacex-web
 for s in workspacex-api workspacex-web; do

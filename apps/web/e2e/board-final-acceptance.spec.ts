@@ -1,10 +1,10 @@
+import {createSpatialWsMetadataRecorder} from "./support/board-spatial-ws-metadata";
 import {randomUUID} from 'node:crypto';
 import {expect} from '@playwright/test';
 import {test,assertJourneyReload} from './board-journey-evidence';
 import type {WhiteboardCommand} from '@repo/whiteboard-core';
 import {FULLSTACK_E2E} from './fullstack-smoke-fixture';
 import {connectionGestureMetric} from '../scripts/board-connection-gesture-metric.mjs';
-import {createSpatialWsMetadataRecorder} from './support/board-spatial-ws-metadata';
 import {archiveAcceptanceBoard, boardApi, boardHead, boardLogin, canonicalRows,
   connectByHandles, connectorsBound, createAcceptanceBoard, createCommands, dragObject,
   gridValid, object, openBoard, operate, provenance, selectAll} from './board-acceptance-support';
@@ -117,7 +117,13 @@ test('Panel: drag 10 unparented objects inside, then move the whole container', 
       await test.info().attach('panel-failure-transport', {body: JSON.stringify({http, websocket: transport.snapshot(), denied: await page.getByTestId('denied').count()}), contentType: 'application/json'});
     } catch (diagnosticError) { throw new AggregateError([error, diagnosticError], 'Panel failure and diagnostic capture failed', {cause: error}); }
     throw error;
-  } finally { await archiveAcceptanceBoard(request, token, id); }
+  } finally {
+    // Archive safe routing/receipt metadata even when fail-closed removes the UI.
+    // This distinguishes server rejection from receipt conflicts without payloads.
+    try {
+      await test.info().attach('panel-transport-metadata',{body:JSON.stringify({...transport.snapshot(),ui:{phase:await page.evaluate(()=>document.querySelector('[data-testid="board-sync-status"]')?.getAttribute('data-sync-state')??null).catch(()=>null),failClosed:await page.getByRole('heading',{name:'无法继续访问白板',exact:true}).count()===1}}),contentType:'application/json'});
+    } finally { await archiveAcceptanceBoard(request, token, id); }
+  }
 });
 
 test('Diagram: A->B->C via one-drag connections remain attached after each shape moves', async ({page, request}) => {
@@ -163,9 +169,9 @@ test('Visual Research: valid screenshot in one paste mixed with Sticky/Text/Arro
     const image = (await canonicalRows(page)).find(row => row.kind === 'image')!;
     await expect(page.getByTestId(`board-a11y-object-${image.id}`)).toHaveAttribute('aria-description', /图片已验证/, {timeout: 30_000});
     await metric('screenshot-paste-actions', 1, 1);
-    await page.keyboard.press('n'); await page.getByLabel('对象文字', {exact: true}).fill('Research insight'); await page.keyboard.press('Escape');
+    await page.keyboard.press('n'); await page.getByTestId('board-fabric-surface').locator('canvas.upper-canvas').click({position:{x:100,y:120}}); await page.getByLabel('对象文字', {exact: true}).fill('Research insight'); await page.keyboard.press('Escape');
     await page.getByTestId('board-tool-select').focus();
-    await page.keyboard.press('t'); await page.getByLabel('对象文字', {exact: true}).fill('Interview summary'); await page.keyboard.press('Escape');
+    await page.keyboard.press('t'); await page.getByTestId('board-fabric-surface').locator('canvas.upper-canvas').click({position:{x:400,y:120}}); await page.getByLabel('对象文字', {exact: true}).fill('Interview summary'); await page.keyboard.press('Escape');
     await page.getByTestId('board-add-more').click(); await page.getByTestId('board-content-tile').click();
     await page.keyboard.press('Escape');
     await expect.poll(async () => (await canonicalRows(page)).filter(row => row.kind === 'card').length).toBe(1);

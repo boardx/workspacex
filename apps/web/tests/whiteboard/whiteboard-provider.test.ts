@@ -50,6 +50,31 @@ it('handshakes before writes, only ACK clears pending, and reconnect replays sam
   second.message({ type: 'ack', updateId: pending.updateId, gestureId:pending.gestureId, seq: 1 }); expect(state?.pending).toBe(0);
   provider.close(); doc.destroy(); server.destroy();
 });
+
+it('temporary validator failure keeps the exact pending intent until an ACK on the replacement socket', () => {
+  const doc=createWhiteboardDocument(),server=createWhiteboardDocument();let state!:WhiteboardConnectionState;
+  const provider=new WhiteboardProvider(doc,'recover-board',value=>{state=value;}),first=Socket.sockets[0]!;
+  sync(first,server);burst(doc,1);const intent=updates(first)[0]!;
+  first.message({type:'error',code:'VALIDATOR_UNAVAILABLE',recoverable:true});
+  expect(state).toMatchObject({phase:'offline',pending:1,reason:'VALIDATOR_UNAVAILABLE'});
+  first.onclose?.({code:1006});provider.retryNow();const replacement=Socket.sockets.at(-1)!;
+  first.message({type:'ack',updateId:intent.updateId,gestureId:intent.gestureId,seq:1});expect(state.pending).toBe(1);
+  sync(replacement,server);expect(updates(replacement)).toEqual([intent]);expect(state.pending).toBe(1);
+  replacement.message({type:'ack',updateId:intent.updateId,gestureId:intent.gestureId,seq:1});expect(state.pending).toBe(0);
+  const last={...state};provider.close();replacement.message({type:'sync',epoch:1,seq:2,update:bytesToBase64(Y.encodeStateAsUpdate(server)),role:'owner',archived:false});
+  expect(state).toEqual(last);doc.destroy();server.destroy();
+});
+
+it('an older duplicate ACK never regresses the displayed acknowledged sequence', () => {
+  const doc=createWhiteboardDocument(),server=createWhiteboardDocument();let state!:WhiteboardConnectionState;
+  const provider=new WhiteboardProvider(doc,'sequence-board',value=>{state=value;}),socket=Socket.sockets[0]!;
+  sync(socket,server);burst(doc,2);const [one,two]=updates(socket);
+  socket.message({type:'ack',updateId:one!.updateId,gestureId:one!.gestureId,seq:1});
+  socket.message({type:'ack',updateId:two!.updateId,gestureId:two!.gestureId,seq:2});
+  socket.message({type:'ack',updateId:one!.updateId,gestureId:one!.gestureId,seq:1});
+  expect(state).toMatchObject({pending:0,duplicateAcks:1,lastAckSequence:2,lastAckReceipt:{seq:2}});
+  provider.close();doc.destroy();server.destroy();
+});
 it('permission rejection stops retry and clears visible document', () => {
   const doc = createWhiteboardDocument(); let state: WhiteboardConnectionState | undefined;
   const provider = new WhiteboardProvider(doc, 'board-1', value => { state = value; });

@@ -3,6 +3,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { BOARD_FABRIC_VISUAL } from "@/components/whiteboard/fabric/board-fabric-visual";
 import { drawingToolStyle } from "@/components/whiteboard/drawing-tool-style";
 import type { BoardFabricObject, BoardViewport } from "@/components/whiteboard/fabric/board-fabric-object";
+import { toBoardFabricObjects } from "@/components/whiteboard/whiteboard-fabric-projection";
+import { sharedOutboxPanelCommands } from "../../e2e/support/board-shared-outbox-fixture";
 
 interface MockProjectedObject {
   data?: { boardObjectId?: string; adapterKind?: string; stickyVariant?: string; sizingMode?: string; drawingPreview?: boolean };
@@ -132,7 +134,7 @@ vi.stubGlobal("Image", class {
   get src() { return this.value; }
 });
 
-import { BoardFabricSurface, connectorTipAngles } from "@/components/whiteboard/fabric/board-fabric-surface";
+import { BoardFabricSurface, connectorTipAngles, createFabricObject } from "@/components/whiteboard/fabric/board-fabric-surface";
 
 const OBJECTS: readonly BoardFabricObject[] = [
   { id: "s-1", kind: "sticky", revision: 1, orderKey: "a", geometry: { x: 40, y: 60, width: 220, height: 180, rotation: 0 }, style: { fill: "#F8D76E", textColor: "#29261E" }, content: { text: "一个观察" } },
@@ -458,6 +460,22 @@ describe("BoardFabricSurface", () => {
     }
   });
 
+  it.each([undefined, { stroke: "#E11D48", strokeWidth: 7 }, { stroke: "#E11D48", strokeWidth: 0 }])("preserves canonical frame outline defaults and explicit styles through projection patches: %j", (style) => {
+    const frame=sharedOutboxPanelCommands(["visible-frame"])[0]!.object;
+    const canonical={...frame,style:style?.stroke ? {stroke:style.stroke} : {}};
+    const project=()=>toBoardFabricObjects([canonical]).map(object=>({...object,style:{...object.style,...style}}));
+    const objects=project();
+    expect(objects[0]?.kind).toBe("panel");
+    const constructed=createFabricObject(objects[0]!) as unknown as MockProjectedObject;
+    expect(constructed.children?.[0]).toMatchObject({stroke:style?.stroke ?? "#94A3B8",strokeWidth:style?.strokeWidth ?? 1});
+    const props={objects,selectedObjectIds:[],readOnly:false,tool:"select" as const,viewport:VIEWPORT,onSelectionChange:vi.fn(),onObjectTransform:vi.fn(),onViewportChange:vi.fn()};
+    const view=render(<BoardFabricSurface {...props}/>);
+    const outline=()=>probe.objects.find(object=>object.data?.boardObjectId===frame.id)!.children![0]!;
+    expect(outline()).toMatchObject({stroke:style?.stroke ?? "#94A3B8",strokeWidth:style?.strokeWidth ?? 1});
+    view.rerender(<BoardFabricSurface {...props} objects={project().map(object=>({...object,revision:object.revision+1,geometry:{...object.geometry,x:64}}))}/>);
+    expect(outline()).toMatchObject({stroke:style?.stroke ?? "#94A3B8",strokeWidth:style?.strokeWidth ?? 1});
+  });
+
   it("renders verified bytes through the session object URL with intrinsic crop and rounded clipping", () => {
     const ready: BoardFabricObject = { ...OBJECTS[0]!, id: "verified-image", kind: "image", imageAssetUrl: "blob:verified-image", geometry: { x: 20, y: 30, width: 200, height: 120, rotation: 0 }, boardContent: { version: 1, type: "image", status: "ready", assetId: "local-session-1", sourceUrl: "https://assets.example.com/changed.png", mimeType: "image/png", intrinsicWidth: 400, intrinsicHeight: 300, crop: { x: .25, y: .1, width: .5, height: .8 }, opacity: .7, borderColor: "#112233", borderWidth: 2, cornerRadius: 16, fileName: "verified.png", replacementOf: null, failureCode: null, byteSize: 24, contentDigest: `sha256:${"a".repeat(64)}`, magicMimeType: "image/png", persistence: "local-session" } };
     renderSurface({ objects: [ready] });
@@ -489,13 +507,14 @@ describe("BoardFabricSurface", () => {
     expect(onPanelHoverChange).toHaveBeenLastCalledWith(null);
   });
 
-  it("converts a dragged dock tool drop into world coordinates without creating renderer-owned state", () => {
+  it.each([0.5, 1, 2])("converts a dragged dock tool drop at zoom %s into world coordinates without creating renderer-owned state", (zoom) => {
     const onToolDrop = vi.fn();
-    renderSurface({ viewport: { ...VIEWPORT, zoom: 2, panX: 10, panY: 20 }, onToolDrop });
+    renderSurface({ viewport: { ...VIEWPORT, zoom, panX: 10, panY: 20 }, onToolDrop });
+    vi.spyOn(screen.getByTestId("board-fabric-surface"), "getBoundingClientRect").mockReturnValue({ left: 30, top: 40, width: 1000, height: 800, right: 1030, bottom: 840, x: 30, y: 40, toJSON() {} });
     const payload = JSON.stringify({ kind: "sticky", variant: "circle" });
     const event = createEvent.drop(screen.getByTestId("board-fabric-surface"));
     Object.defineProperties(event, {
-      clientX: { value: 210 }, clientY: { value: 220 },
+      clientX: { value: 40 + 100 * zoom }, clientY: { value: 60 + 100 * zoom },
       dataTransfer: { value: { getData: (type: string) => type === "application/x-workspacex-board-tool" ? payload : "", types: ["application/x-workspacex-board-tool"] } },
     });
     fireEvent(screen.getByTestId("board-fabric-surface"), event);
