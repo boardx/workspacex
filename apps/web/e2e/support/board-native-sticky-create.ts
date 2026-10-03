@@ -11,13 +11,20 @@ export function observeNativeStickyWrites(page:Page,boardId:string){
 }
 
 /** Keyboard arms one creation; only native blank-canvas input creates content. */
-export async function createNativeSticky(page:Page,text:string,proof:{api:APIRequestContext;token:string;boardId:string;updates:()=>number}){
+type NativeCreationProof={api:APIRequestContext;token:string;boardId:string;updates:()=>number};
+export async function createNativeSticky(page:Page,text:string,proof:NativeCreationProof,options:{finishEditor?:boolean}={}){
+  return createNativeTextObject(page,text,proof,'sticky',options);
+}
+export async function createNativeText(page:Page,text:string,proof:NativeCreationProof,options:{finishEditor?:boolean}={}){
+  return createNativeTextObject(page,text,proof,'text',options);
+}
+async function createNativeTextObject(page:Page,text:string,proof:NativeCreationProof,kind:'sticky'|'text',options:{finishEditor?:boolean}){
   await expectBoardSynced(page,30_000);
   const before=await canonicalRows(page);
   const armedSnapshot=await canonicalBoardSnapshot(proof.api,proof.token,proof.boardId),armedHead=await boardHead(proof.api,proof.token,proof.boardId),armedUpdates=proof.updates();
   await page.getByTestId('board-tool-select').focus();
-  await page.keyboard.press('n');
-  await expect(page.getByTestId('board-add-sticky')).toHaveAttribute('aria-pressed','true');
+  await page.keyboard.press(kind==='sticky'?'n':'t');
+  await expect(page.getByTestId(`board-add-${kind}`)).toHaveAttribute('aria-pressed','true');
   expect(await canonicalRows(page)).toEqual(before);
   expect(await canonicalBoardSnapshot(proof.api,proof.token,proof.boardId)).toEqual(armedSnapshot);
   expect(await boardHead(proof.api,proof.token,proof.boardId)).toEqual(armedHead);expect(proof.updates()).toBe(armedUpdates);
@@ -45,7 +52,14 @@ export async function createNativeSticky(page:Page,text:string,proof:{api:APIReq
       if(occupied.some(g=>Math.abs(x-g.x)<=g.width/2+24&&Math.abs(y-g.y)<=g.height/2+24))continue;
       return{x:box.x+x,y:box.y+y};
     }
-    throw new Error('NO_NATIVE_BLANK_POSITION');
+    // Diagnose center reachability separately without weakening the required paper footprint.
+    let unobstructedCenters=0;
+    for(let y=12;y<box.height-12;y+=28)for(let x=12;x<box.width-12;x+=28){
+      if(document.elementFromPoint(box.x+x,box.y+y)!==canvas)continue;
+      if(occupied.some(g=>Math.abs(x-g.x)<=g.width/2+24&&Math.abs(y-g.y)<=g.height/2+24))continue;
+      unobstructedCenters++;
+    }
+    throw new Error(`NO_NATIVE_BLANK_POSITION ${JSON.stringify({canvas:{x:box.x,y:box.y,width:box.width,height:box.height},zoom,margin,unobstructedCenters,chrome:chrome.map(rect=>({x:rect.x,y:rect.y,width:rect.width,height:rect.height}))})}`);
   },expectedCount);
   const point=await blankPoint(before.length);
   expect(await canonicalRows(page)).toEqual(before);
@@ -54,13 +68,13 @@ export async function createNativeSticky(page:Page,text:string,proof:{api:APIReq
   await expectBoardSynced(page,30_000);
   await expect.poll(async()=> (await canonicalRows(page)).length).toBe(before.length+1);
   await expect(page.getByTestId('board-tool-select')).toHaveAttribute('aria-pressed','true');
-  await expect(page.getByTestId('board-add-sticky')).toHaveAttribute('aria-pressed','false');
+  await expect(page.getByTestId(`board-add-${kind}`)).toHaveAttribute('aria-pressed','false');
   const editor=page.getByLabel('对象文字',{exact:true});
   await expect(editor).toBeFocused();await editor.fill(text);await editor.press('Escape');
   await expect(editor).toHaveCount(0);
   const created=(await canonicalRows(page)).filter(row=>!before.some(old=>old.id===row.id));
   expect(created).toHaveLength(1);const note=created[0];if(!note)throw new Error('NATIVE_STICKY_NOT_CREATED');
-  expect(note).toMatchObject({kind:'sticky',text});
+  expect(note).toMatchObject({kind,text});
   expect((await canonicalRows(page)).filter(row=>row.id!==note.id)).toEqual(before);
   await expectBoardSynced(page,30_000);
   const snapshot=await canonicalBoardSnapshot(proof.api,proof.token,proof.boardId),head=await boardHead(proof.api,proof.token,proof.boardId),updates=proof.updates();
@@ -76,5 +90,12 @@ export async function createNativeSticky(page:Page,text:string,proof:{api:APIReq
   await expectBoardSynced(page,30_000);
   expect(await canonicalBoardSnapshot(proof.api,proof.token,proof.boardId)).toEqual(snapshot);
   expect(await boardHead(proof.api,proof.token,proof.boardId)).toEqual(head);expect(proof.updates()).toBe(updates);
+  if(options.finishEditor===false){
+    const outline=page.getByTestId('board-a11y-mirror').locator(`li[data-object-id="${note.id}"] button`);
+    await outline.focus();await outline.press('Enter');
+    await expect(editor).toBeFocused();await expect(editor).toHaveValue(text);
+    expect(await canonicalBoardSnapshot(proof.api,proof.token,proof.boardId)).toEqual(snapshot);
+    expect(await boardHead(proof.api,proof.token,proof.boardId)).toEqual(head);expect(proof.updates()).toBe(updates);
+  }
   return note;
 }
