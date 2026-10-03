@@ -76,7 +76,9 @@ describe("开工流程第 2 步在干净 clone 上可复现（#401）", () => {
   });
 
   it("只靠被 Git 追踪的权威源，就能发现唯一 in_progress 的 feature，并重建出它所在 sprint 的视图", () => {
-    const tracked = new Set(git(["ls-files"]));
+    // Only authoritative phase lists are consumed below; avoid buffering the
+    // unrelated full repository path inventory (CI exceeded execFileSync 1 MiB).
+    const tracked = new Set(git(["ls-files", "--", "phases/*/feature_list.json"]));
     let phasesSeen = 0;
     let rowsSeen = 0;
 

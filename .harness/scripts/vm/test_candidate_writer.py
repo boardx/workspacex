@@ -1,7 +1,7 @@
 import copy
 import time
 import unittest
-from candidate_writer import APP, BASELINE, SCOPES, CandidateWriterAdapter
+from candidate_writer import APP, BASELINE, SCOPES, CandidateWriterAdapter, verify_candidate_backend_seal
 from writer_fence import DATABASES, FAMILIES, digest
 
 class Journal:
@@ -29,6 +29,8 @@ class Transport:
                     completionSha256=p['migrationCompletionSha256'], ledgerSha256=p['migrationLedgerSha256'],
                     observedAt=time.time(), nonce=nonce, evidenceSha256='e'*64,
                     source='durable-completion-and-live-diagnostic-ledger', databasePeers=p['databasePeers'])
+    def attest_candidate_backends(self, p, nonce):
+        return seal_fixture(p,nonce)
     def reopen_candidate(self, p):
         assert self.j.durable[-1]['state'] == 'candidate-resume-intent'
         self.calls.append('reopen'); self.opened = True
@@ -56,7 +58,7 @@ def fixture():
     p = dict(identity=identity, baselineRevision=BASELINE, host={'instanceId': 'host', 'bootId':'boot'},
              diagnosticClientIdentity='workspacex-maintenance-one-diag', holdGeneration='a'*32, epoch='5'*64, migrationCompletionSha256='6'*64,
              migrationLedgerSha256='7'*64, candidateWriters=c, baselineWriters=b, artifactSha256='b' * 64,
-             databasePeers={db: {'systemIdentifier': db} for db in DATABASES},
+             databasePeers={db: {'systemIdentifier': db, 'serverAddr':'10.0.0.1','serverPort':5432} for db in DATABASES},
              closedAdmission={'kind': 'role-login-v1', 'login': {db: {'app': False, 'lane': False, 'migration_admin':False} for db in DATABASES}},
              candidateAdmission={'kind': 'role-login-v1', 'login': {db: {'app': False, 'lane': True, 'migration_admin':False} for db in DATABASES}},
              candidateRoles={db: ['lane'] for db in DATABASES}, baselineRoles={db: ['app'] for db in DATABASES},
@@ -70,6 +72,21 @@ def fixture():
                                writersSha256=digest(c), artifactSha256=p['artifactSha256'], epoch=p['epoch'])
     j = Journal(identity); j.record('writes-held'); t = Transport(p, j)
     return identity, p, j, t
+
+def seal_fixture(p, nonce):
+    sockets={db:[] for db in DATABASES}
+    for db in DATABASES:
+        for session in p['candidateSessions'][db]:
+            b=session['binding']
+            sockets[db].append(dict(pid=session['pid'],backendStart=session['backendStart'],
+                writerKey=session['writerKey'], containerId=b['containerId'], imageId=b['imageId'],
+                configSha256=b['configSha256'], processPid=100, processStart='1234',
+                cgroupContainerId=b['containerId'], socketInode=567, localAddr='10.0.0.2',
+                localPort=43210, remoteAddr='10.0.0.1',remotePort=5432,
+                pgClientAddr='10.0.0.2',pgClientPort=43210,peerSha256=session['peerSha256']))
+    return dict(identity=p['identity'],host=p['host'],epoch=p['epoch'],holdGeneration=p['holdGeneration'],
+                nonce=nonce, observedAt=time.time(),source='live-pg-client-port-and-host-socket-cgroup',
+                databasePeers=p['databasePeers'],sessions=copy.deepcopy(p['candidateSessions']),socketWitnesses=sockets)
 
 class Tests(unittest.TestCase):
     def test_resume_intent_durable_and_candidate_only(self):
@@ -178,6 +195,28 @@ class Tests(unittest.TestCase):
                 CandidateWriterAdapter(i,p,t,j).resume_candidate(i)
             self.assertEqual(t.calls,[])
 
+    def test_dynamic_backend_seal_ownership_and_freshness(self):
+        i,p,j,t=fixture()
+        p['candidateSessions'][DATABASES[0]]=[dict(pid=42,backendStart='2026-10-03T00:01:00Z',
+            role='lane',transactionMode='idle',backendType='client backend',peerSha256='9'*64,
+            writerKey='candidate',binding=p['candidateWriters'][0]['binding'])]
+        proof=seal_fixture(p,'nonce')
+        self.assertEqual(verify_candidate_backend_seal(p,'nonce',proof),p['candidateSessions'])
+        mutations=(lambda x:x.update(nonce='other'),lambda x:x.update(observedAt=time.time()-31),
+                   lambda x:x['socketWitnesses'][DATABASES[0]][0].update(cgroupContainerId='3'*64),
+                   lambda x:x['socketWitnesses'][DATABASES[0]][0].update(pgClientPort=12345),
+                   lambda x:x['socketWitnesses'][DATABASES[0]][0].update(backendStart='other'),
+                   lambda x:x['socketWitnesses'][DATABASES[0]].clear())
+        for mutate in mutations:
+            bad=copy.deepcopy(proof);mutate(bad)
+            with self.assertRaises(RuntimeError):verify_candidate_backend_seal(p,'nonce',bad)
+
+    def test_missing_actual_collector_rejects_before_reopen(self):
+        i,p,j,t=fixture();t.attest_candidate_backends=None
+        with self.assertRaisesRegex(RuntimeError,'COLLECTOR_NOT_IMPLEMENTED'):
+            CandidateWriterAdapter(i,p,t,j).resume_candidate(i)
+        self.assertEqual(t.calls,[])
+
     def test_hold_drift_or_noncanonical_schema_rejects(self):
         for mutate in (lambda h:h.update(generation='0'*32),
                        lambda h:h.update(epoch='e'*64),
@@ -188,6 +227,26 @@ class Tests(unittest.TestCase):
             t.read_hold=bad
             with self.assertRaises(RuntimeError): CandidateWriterAdapter(i,p,t,j).resume_candidate(i)
             self.assertEqual(t.calls,[])
+
+    def test_journal_failure_cannot_skip_reblock_or_publish_success(self):
+        for reblock_fails in (False, True):
+            i,p,j,t=fixture();a=CandidateWriterAdapter(i,p,t,j);t.fail=True
+            original=j.record
+            def record(state, **data):
+                if state in ('candidate-resume-uncertain','candidate-reblocked',
+                             'candidate-reconciliation-required'):
+                    raise OSError('fsync failed')
+                original(state,**data)
+            j.record=record
+            if reblock_fails:
+                def fail(plan):
+                    t.calls.append('reblock');raise RuntimeError('cannot-close')
+                t.reblock_candidate=fail
+            with self.assertRaisesRegex(RuntimeError,'lost-response'):a.resume_candidate(i)
+            self.assertEqual(t.calls,['reopen','reblock'])
+            self.assertTrue(a.resume_unknown)
+            self.assertEqual(j.durable[-1]['state'],'candidate-resume-intent')
+            self.assertFalse(any(e['state']=='candidate-resumed' for e in j.durable))
 
     def test_bad_revision_admission_staging_alias(self):
         for mutate in (lambda p:p.update(baselineRevision='main'),

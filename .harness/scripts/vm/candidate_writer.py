@@ -5,7 +5,8 @@ verify_staging, verify_completed_migration, observe_candidate, reopen_candidate,
 reblock_candidate. All proof methods must collect live source facts, not echo plan.
 Shared approved DB roles confer no baseline session exemption: each live writer
 session must match an exact candidate-owned session binding. Candidate session bindings must be attested by the host before sealing the plan;
-this module provides no safe mechanism to create new session bindings at reopen.
+dynamic seal is accepted only from the trusted compiled joint socket/PG collector;
+current HostTransport lacks that collector and therefore reopening fails closed.
 The supplied journal must be the existing durable writer-fence Journal.
 """
 import copy
@@ -136,6 +137,8 @@ class CandidateWriterAdapter:
         self.identity = copy.deepcopy(identity)
         self.plan = copy.deepcopy(plan)
         self.transport, self.journal = transport, journal
+        self.runtime_sessions = None
+        self.resume_unknown = False
         require(identity['sourceRevision'] == APP and plan['baselineRevision'] == BASELINE,
                 'CANDIDATE_FROZEN_REVISION')
         require(plan['identity'] == identity and journal.value['identity'] == identity,
@@ -222,7 +225,7 @@ class CandidateWriterAdapter:
             for session in v['sessions']:
                 # Exact session bindings include PID, backendStart, role and real peer/TLS facts.
                 require(session in self.plan['heldSessions'][db] or
-                        (opened and session in self.plan['candidateSessions'][db] and
+                        (opened and self.runtime_sessions is not None and session in self.runtime_sessions[db] and
                          session['role'] in self.plan['candidateRoles'][db] and
                          session['writerKey'] in {w['key'] for w in self.plan['candidateWriters']} and
                          session['binding'] == next(w['binding'] for w in self.plan['candidateWriters']
@@ -236,6 +239,8 @@ class CandidateWriterAdapter:
                 'CANDIDATE_RETRY_REQUIRES_RECONCILIATION')
         require(any(e['state'] == 'writes-held' for e in self.journal.value['events']),
                 'CANDIDATE_DURABLE_HELD_PROOF_MISSING')
+        collector = getattr(self.transport, 'attest_candidate_backends', None)
+        require(callable(collector), 'CANDIDATE_BACKEND_COLLECTOR_NOT_IMPLEMENTED')
         before = self._observe()
         nonce = secrets.token_hex(32)
         # Host MUST read fsynced completion file and query the held diagnostic session;
@@ -267,19 +272,36 @@ class CandidateWriterAdapter:
         try:
             self.transport.reopen_candidate(copy.deepcopy(self.plan))
             self._guard(identity)
+            nonce = secrets.token_hex(32)
+            seal = collector(copy.deepcopy(self.plan), nonce)
+            self.runtime_sessions = verify_candidate_backend_seal(self.plan, nonce, seal)
+            self.journal.record('candidate-backends-sealed', sealSha256=digest(seal),
+                                holdDisposition='retain')
+            self._guard(identity)
             live = self._observe(opened=True)
             self.journal.record('candidate-resumed', observation=live, holdDisposition='retain')
             return live
         except BaseException:
-            self.journal.record('candidate-resume-uncertain', holdDisposition='retain')
+            # Reblocking MUST run even when the journal/filesystem itself fails.
+            # A durable resume intent already exists; it never becomes acceptance.
+            self.resume_unknown = True
+            try:
+                self.journal.record('candidate-resume-uncertain', holdDisposition='retain')
+            except BaseException:
+                pass
             try:
                 self.transport.reblock_candidate(copy.deepcopy(self.plan))
                 self._guard(identity)
                 closed = self._observe()
                 self.journal.record('candidate-reblocked', observation=closed, holdDisposition='retain')
+                self.resume_unknown = False
             except BaseException:
-                self.journal.record('candidate-reconciliation-required', holdDisposition='retain',
-                                    lockDisposition='retain')
+                self.resume_unknown = True
+                try:
+                    self.journal.record('candidate-reconciliation-required', holdDisposition='retain',
+                                        lockDisposition='retain')
+                except BaseException:
+                    pass  # Preserve original failure; never return a success receipt.
             raise
 
     def resume_baseline(self, identity):
@@ -287,3 +309,63 @@ class CandidateWriterAdapter:
         require(not any('migration' in e['state'] for e in self.journal.value['events']),
                 'BASELINE_RESUME_AFTER_MIGRATION_FORBIDDEN')
         raise RuntimeError('BASELINE_RESUME_UNSUPPORTED_BY_CANDIDATE_ADAPTER')
+
+
+def verify_candidate_backend_seal(plan, nonce, proof):
+    """Validate a compiled host collector's joint socket/PG/container witness.
+
+    The collector MUST read pg_stat_activity client_addr/client_port, host socket
+    ownership and cgroup/container identity in the same bounded observation. A DB
+    application_name, role or source IP alone is insufficient. This validator
+    cannot authenticate a caller-supplied dict; only the installed trusted host
+    collector may supply proof. Current HostTransport does not implement it.
+    """
+    exact(proof, ('identity', 'host', 'epoch', 'holdGeneration', 'nonce', 'observedAt',
+                  'source', 'databasePeers', 'sessions', 'socketWitnesses'),
+          'CANDIDATE_BACKEND_SEAL_SCHEMA')
+    require(proof['identity'] == plan['identity'] and proof['host'] == plan['host'] and
+            proof['epoch'] == plan['epoch'] and proof['holdGeneration'] == plan['holdGeneration'] and
+            proof['nonce'] == nonce and proof['databasePeers'] == plan['databasePeers'] and
+            proof['source'] == 'live-pg-client-port-and-host-socket-cgroup' and
+            type(proof['observedAt']) in (int, float) and
+            0 <= time.time() - proof['observedAt'] <= 30, 'CANDIDATE_BACKEND_SEAL_BINDING')
+    exact(proof['sessions'], DATABASES, 'CANDIDATE_BACKEND_DATABASE_CLOSURE')
+    exact(proof['socketWitnesses'], DATABASES, 'CANDIDATE_SOCKET_DATABASE_CLOSURE')
+    updated = copy.deepcopy(plan)
+    updated['candidateSessions'] = copy.deepcopy(proof['sessions'])
+    validate(updated, plan['identity'])
+    for db in DATABASES:
+        sessions, witnesses = proof['sessions'][db], proof['socketWitnesses'][db]
+        require(type(witnesses) is list and len(sessions) == len(witnesses),
+                'CANDIDATE_SOCKET_WITNESS_CLOSURE')
+        seen = set()
+        for witness in witnesses:
+            exact(witness, ('pid', 'backendStart', 'writerKey', 'containerId', 'imageId',
+                            'configSha256', 'processPid', 'processStart', 'cgroupContainerId',
+                            'socketInode', 'localAddr', 'localPort', 'remoteAddr', 'remotePort',
+                            'pgClientAddr', 'pgClientPort', 'peerSha256'),
+                  'CANDIDATE_SOCKET_WITNESS_SCHEMA')
+            key = (witness['pid'], witness['backendStart'])
+            require(key not in seen, 'CANDIDATE_SOCKET_WITNESS_DUPLICATE')
+            seen.add(key)
+            matches = [s for s in sessions if (s['pid'], s['backendStart']) == key]
+            require(len(matches) == 1, 'CANDIDATE_SOCKET_SESSION_NOT_BOUND')
+            session = matches[0]
+            binding = session['binding']
+            peer = plan['databasePeers'][db]
+            require(witness['writerKey'] == session['writerKey'] and
+                    witness['containerId'] == witness['cgroupContainerId'] == binding['containerId'] and
+                    witness['imageId'] == binding['imageId'] and
+                    witness['configSha256'] == binding['configSha256'] and
+                    witness['peerSha256'] == session['peerSha256'] and
+                    type(witness['processPid']) is int and witness['processPid'] > 1 and
+                    type(witness['processStart']) is str and witness['processStart'] and
+                    type(witness['socketInode']) is int and witness['socketInode'] > 0 and
+                    type(witness['localAddr']) is str and witness['localAddr'] and
+                    witness['localAddr'] == witness['pgClientAddr'] and
+                    type(witness['localPort']) is int and 0 < witness['localPort'] < 65536 and
+                    witness['localPort'] == witness['pgClientPort'] and
+                    witness['remoteAddr'] == peer['serverAddr'] and
+                    type(witness['remotePort']) is int and witness['remotePort'] == peer['serverPort'],
+                    'CANDIDATE_SOCKET_OWNER_NOT_PROVEN')
+    return copy.deepcopy(proof['sessions'])

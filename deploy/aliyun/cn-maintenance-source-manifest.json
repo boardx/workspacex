@@ -4,12 +4,17 @@
   "baseCommit": "64cc2b85053823a4c7461eb404b9f3a99c749a33",
   "applicationRevision": "9b25bfa65662b96c0826fe67506b562ea46aa6d0",
   "baselineRevision": "ba6343199f3c834d6a198f83d0c771614292c82b",
-  "sourceInventorySha256": "4c469518a12fe3182baa57d9f203063048ae22ce73c3ef3f62f74646ba4cad84",
+  "sourceInventorySha256": "820a2a042146c7fdcc818d32c2dd9cfd570f3321ea8fdf8d47d6bb321c30ff01",
   "sourceRows": [
     {
       "path": ".harness/scripts/build-cn-maintenance-controller.cjs",
       "sha256": "4b009c493552e67646e1575f4bfd1a2d30df44fc740569d84b874692a935aad6",
       "bytes": 1676
+    },
+    {
+      "path": ".harness/scripts/lint-startup-discovery.test.ts",
+      "sha256": "6f1c3767695253451fd32e16cc2e1958ced897b9b9923346a8f7f247974fc74b",
+      "bytes": 5660
     },
     {
       "path": ".harness/scripts/run-cn-maintenance-pure-tests.py",
@@ -22,9 +27,14 @@
       "bytes": 8771
     },
     {
+      "path": ".harness/scripts/vm/candidate_backend_collector.py",
+      "sha256": "08a4628ee1623933f4f98b04e490f8d8ef419eac9e80c290045ed72507d86c85",
+      "bytes": 10326
+    },
+    {
       "path": ".harness/scripts/vm/candidate_writer.py",
-      "sha256": "e0ff42cc6e6c46f584cb26e80bde4c7814d4b14a305ec70cac7ce38b107f9a64",
-      "bytes": 19009
+      "sha256": "8b49766c7c447d7889abd2eb7f3e49d68d053037278d28d30cc8640cba7b486f",
+      "bytes": 24208
     },
     {
       "path": ".harness/scripts/vm/cn-build-tool-identity.py",
@@ -135,6 +145,16 @@
       "path": ".harness/scripts/vm/cn-tool-install-transaction.py",
       "sha256": "0940fbf37b13029ca05a2b165b18b411ff980b461d2630eb03e3db3139e8a47b",
       "bytes": 28546
+    },
+    {
+      "path": ".harness/scripts/vm/cn_backup_package.py",
+      "sha256": "d72bd9a318ae7a73aad34352fa9ab5a84b3785081a11a539979dbf1c3c33e019",
+      "bytes": 13122
+    },
+    {
+      "path": ".harness/scripts/vm/cn_backup_stream.py",
+      "sha256": "cfdb0239047db89f8a8b6418025b391a8ab3e18c66c952c21026d200665cd4a3",
+      "bytes": 5845
     },
     {
       "path": ".harness/scripts/vm/cn_build_tool_identity_test.py",
@@ -392,9 +412,24 @@
       "bytes": 11079
     },
     {
+      "path": ".harness/scripts/vm/test_candidate_backend_collector.py",
+      "sha256": "befc0220a44fd53a896d38eadc2b1883e85399e8c11dc1548c71ce9fa2485643",
+      "bytes": 6057
+    },
+    {
       "path": ".harness/scripts/vm/test_candidate_writer.py",
-      "sha256": "e6d01e12ab4f51946c526ad1ff135b6dae81270b5f10724e364db76ae4faeabb",
-      "bytes": 13391
+      "sha256": "086d72b403680f414be26e4d7801a0718a38f04e34e9f86c9c97aaa62b566a99",
+      "bytes": 17114
+    },
+    {
+      "path": ".harness/scripts/vm/test_cn_backup_package.py",
+      "sha256": "f9e2430e400f4ba051100ef86c20be2a959c9562c79a9ae5b4f065d93873db49",
+      "bytes": 7628
+    },
+    {
+      "path": ".harness/scripts/vm/test_cn_backup_stream.py",
+      "sha256": "e9efe9580452423b31d71663d8d267b3e582552e670c0744a63474f726a390aa",
+      "bytes": 3104
     },
     {
       "path": ".harness/scripts/vm/test_control_connection.cjs",
@@ -478,8 +513,8 @@
     },
     {
       "path": "deploy/aliyun/cn-maintenance-source-handoff.md",
-      "sha256": "e1fa4677697e8cf28b4cf3a93388f35071041bddb309bb44cec7542c0ba3b72b",
-      "bytes": 17179
+      "sha256": "219d7d478b0d52580cef275addd5af758ec282baa4f4edaf0701990e4453e11e",
+      "bytes": 17818
     },
     {
       "path": "deploy/aliyun/cn-release-9b25-once-plan.md",
@@ -488,8 +523,8 @@
     },
     {
       "path": "deploy/aliyun/cn-release-9b25-read-access-approval.md",
-      "sha256": "8f5f1c14610527457117ba042512b365fccc54eafb09bb89d35831e8080cadd7",
-      "bytes": 9975
+      "sha256": "571a4fae3d83bca3b57fa89e92a9edfe45d5f21e4e84e06d016dd88df81bc655",
+      "bytes": 12692
     },
     {
       "path": "deploy/aliyun/cn-release-9b25-source-inventory.json",
@@ -728,8 +763,8 @@
     },
     {
       "path": "packages/cloud-deploy/test/cn-maintenance-activation-transport.test.ts",
-      "sha256": "cd43f99b68a0b7002f4506b02752b315bb1dd3fd8817c450840496fbbb00f83e",
-      "bytes": 4716
+      "sha256": "ec717a32d20b005d2efdad70e51cc6d7a676bf99e8f0f2f889fae2fe605d70b6",
+      "bytes": 5414
     },
     {
       "path": "packages/cloud-deploy/test/cn-maintenance-host-tools.test.ts",
@@ -759,9 +794,10 @@
   "remainingImplementation": [
     "full protected production A-route adapter and current-epoch snapshot/restore/acceptance producer remain incomplete",
     "exact protected existingProductionTransport descriptor preparation and installation binding remain incomplete",
-    "candidate host proof/reopen/reblock callbacks and dynamic backend identity sealing remain incomplete",
-    "backup role is approved but original strict no-TEMP scope is incompatible with existing PUBLIC ACL; no role/grants/credentials created",
-    "five PUBLIC SECURITY DEFINER runtime bodies require exact capability verification",
+    "candidate dynamic backend seal and readonly proc collector exist but fixed diagnostic registration, protected host binding, NAT and existing plaintext exception remain incomplete",
+    "backup lease and bounded ciphertext subprocess pipeline exist but protected host permission/backend/credential/cleanup adapter remains incomplete",
+    "original backup role approval remains; limited PUBLIC TEMP/session/five-function capability delta is proposed but unapproved",
+    "recipient certificate/private-key custody and verified recovery input package remain unfrozen",
     "held preactivate/candidate startup and true production acceptance remain incomplete"
   ],
   "remainingExecution": [
