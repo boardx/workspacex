@@ -203,7 +203,7 @@ describe("#451 PR 队列状态机", () => {
     }
   });
 
-  it("反证 8：无人值守 heartbeat 即便面对 READY_TO_MERGE 也一律拒绝合并", () => {
+  it("反证 8：未获显式授权的无人值守 heartbeat 即便面对 READY_TO_MERGE 也拒绝合并", () => {
     const ready = classifyPr(greenFacts());
     expect(ready.state).toBe("READY_TO_MERGE");
     expect(mergeAuthorization(ready.state, "unattended").allowed).toBe(false);

@@ -97,6 +97,8 @@ protection（`gh api repos/boardx/workspacex/branches/main/protection` 返回 40
 完整 diff 或启动多轮审查。合并前重新确认该 PR 当前状态并用
 `gh pr merge N --squash --delete-branch --match-head-commit <head_sha>` 锁定已核对的
 head；队列启用时遵循 `merge_route` 入队。状态不变且无可执行动作时保持静默。
+需要修复、处理冲突或补审时，按 PR 明确 ownership 派给 subagent；复用已有
+agent 与当前 SHA 证据，避免重复派审。主协调者只负责协调与合并。
 这条路径节省重复读取，不削减 `classifyPr` 的实际门禁。
 
 **合并后收尾**（`--post-merge N`）核验四件事，缺一即非 0 退出：PR 确实 merged、

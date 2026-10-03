@@ -129,7 +129,7 @@ function render(results: Array<{ facts: PrFacts; result: PrClassification }>, ar
     const route = resolveMergeRoute({ state: result.state, mode, queueEnabled });
     log.info(`   合并授权：${route.allowed ? "允许" : "拒绝"}（路线 ${route.route}） — ${route.reason}`);
     if (route.allowed) {
-      log.info(`   coord-main 执行：gh pr merge ${result.number} --squash --delete-branch`);
+      log.info(`   coord-main 执行：gh pr merge ${result.number} --squash --delete-branch --match-head-commit ${facts.headSha}`);
       // 队列启用时同一条命令是**入队**而不是立即合并——说清楚，免得把「已入队」读成「已合入」。
       if (route.route === "enqueue") log.info("   （合并队列已启用：这条命令是把 PR 加入队列，候选组跑完完整验证才会真正合入）");
     }
