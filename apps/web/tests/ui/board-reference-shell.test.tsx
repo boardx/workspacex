@@ -44,7 +44,7 @@ it('keeps zoom, fit, and a keyboard-accessible overview action together at the l
  const fit=vi.fn();
  render(<BoardViewportControls zoom={1} onZoom={vi.fn()} onFitBoard={fit} onFitSelection={vi.fn()} hasSelection={false}/>);
  const controls=screen.getByTestId('board-navigation-controls');
- expect(controls.parentElement).toHaveClass('bottom-24','right-4','xl:bottom-5');
+ expect(controls.parentElement).toHaveClass('bottom-[96px]','right-[16px]','xl:bottom-[20px]');
  expect(within(controls).getByTestId('board-zoom-fit-board')).toBeVisible();
  const overview=within(controls).getByTestId('board-overview-fit');
  expect(overview).toHaveAccessibleName('画布概览：显示全部内容');
