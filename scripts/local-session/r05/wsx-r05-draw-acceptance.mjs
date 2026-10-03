@@ -8,10 +8,11 @@ import {createHash} from 'node:crypto';
 import {fileURLToPath} from 'node:url';
 import {execFileSync} from 'node:child_process';
 import {createFailureState,recordFailure,reportFailure} from './wsx-r05-safe-failure.mjs';
-const driverFiles=['wsx-r05-draw-acceptance.mjs','wsx-r05-draw-pixel-oracle.mjs','wsx-r05-instrument-projection-oracle.mjs','wsx-r05-multi-eraser-acceptance.mjs','wsx-r05-multi-eraser-oracle.mjs','wsx-r05-panel-oracle.mjs','wsx-r05-blending-oracle.mjs','wsx-r05-safe-failure.mjs'].map(name=>fileURLToPath(new URL(name,import.meta.url)));
+import {createBoardRegistry,trackBrowserServer,closeOwnedBrowser} from './wsx-r05-owned-resources.mjs';
+const driverFiles=['wsx-r05-draw-acceptance.mjs','wsx-r05-draw-pixel-oracle.mjs','wsx-r05-instrument-projection-oracle.mjs','wsx-r05-multi-eraser-acceptance.mjs','wsx-r05-multi-eraser-oracle.mjs','wsx-r05-panel-oracle.mjs','wsx-r05-blending-oracle.mjs','wsx-r05-safe-failure.mjs','wsx-r05-owned-resources.mjs'].map(name=>fileURLToPath(new URL(name,import.meta.url)));
 const hashDrivers=()=>Object.fromEntries(driverFiles.map(path=>[path,createHash('sha256').update(readFileSync(path)).digest('hex')]));
 const args=Object.fromEntries(process.argv.slice(2).reduce((pairs,value,index,all)=>value.startsWith('--')?[...pairs,[value.slice(2),all[index+1]]]:pairs,[]));
-let browser,outputReady=false;
+let browser,browserServer,browserOwner,boardRegistry,outputReady=false;
 const failureState=createFailureState();
 try{
 for(const key of ['root','base','api','manifest','storage-state','board','out','source-sha','panel-baseline','panel-baseline-sha'])assert(args[key],`--${key} required`);
@@ -20,6 +21,7 @@ let parent=dirname(output);
 assert.equal(realpathSync(parent),parent,'Output parent must be physical, not an alias');
 while(!temporaryRoots.includes(parent)){const stat=lstatSync(parent);assert(!stat.isSymbolicLink()&&stat.isDirectory()&&stat.uid===process.getuid()&&(stat.mode&0o777)===0o700,'Output ancestors must be private and owned');const next=dirname(parent);assert.notEqual(next,parent,'Output must be under the system temporary root');parent=next;}
 mkdirSync(output,{mode:0o700});outputReady=true;
+boardRegistry=createBoardRegistry(output,args.board);
 const initialDriverHashes=hashDrivers();
 const {assertPanelCompression}=await import('./wsx-r05-panel-oracle.mjs');
 const {assertStrokePixelOracle}=await import('./wsx-r05-draw-pixel-oracle.mjs');
@@ -53,7 +55,9 @@ const {register}=createRequire(join(root,'package.json'))('tsx/esm/api');registe
 const {drawingChoiceStyle}=await import(join(root,'apps/web/components/whiteboard/drawing-tool-style.ts'));
 const {readBoardContent}=await import(join(root,'apps/web/components/whiteboard/board-content-adapter.ts'));
 const scheduler=createAcceptanceRequestScheduler();
-browser=await chromium.launch();
+browserServer=await chromium.launchServer();
+browserOwner=trackBrowserServer(browserServer);
+browser=await chromium.connect(browserServer.wsEndpoint());
 const context=await browser.newContext({storageState:args['storage-state']});
 const page=await context.newPage();const results=[];let token;
 let boardId=args.board;
@@ -65,7 +69,7 @@ const state=async()=>({head:await api('GET',`/v1/whiteboards/${boardId}/head`),o
 const strokes=rows=>rows.filter(row=>row.kind==='drawing').flatMap(row=>row.extensionData.contentObject.strokes);
 const screenshots=[];
 const screenshot=async(name)=>{const path=join(args.out,`${name}.png`),bytes=await page.screenshot({path}),receipt={name,path,sha256:createHash('sha256').update(bytes).digest('hex')};screenshots.push(receipt);return receipt;};
-const freshBoard=async(name)=>{const board=await api('POST','/whiteboards',{requestId:crypto.randomUUID(),name:`R05 private ${name}`});boardId=board.id;await page.goto(`${args.base}/studio/board/${boardId}`);await page.getByTestId('board-add-draw').waitFor();assert.equal((await objects()).length,0);};
+const freshBoard=async(name)=>{const requestId=crypto.randomUUID();boardRegistry.beforeCreate(requestId);const board=await api('POST','/whiteboards',{requestId,name:`R05 private ${name}`});boardRegistry.created(requestId,board.id);boardId=board.id;await page.goto(`${args.base}/studio/board/${boardId}`);await page.getByTestId('board-add-draw').waitFor();assert.equal((await objects()).length,0);};
 const inkSamples=points=>page.locator('canvas.lower-canvas').evaluate((canvas,points)=>{const rect=canvas.getBoundingClientRect(),ctx=canvas.getContext('2d');return points.map(point=>{const rgba=Array.from(ctx.getImageData(Math.round((point.x-rect.x)*canvas.width/rect.width),Math.round((point.y-rect.y)*canvas.height/rect.height),1,1).data);return{point,rgba,darkness:(255-(rgba[0]+rgba[1]+rgba[2])/3)*rgba[3]/255};});},points);
 const viewport=()=>page.getByTestId('board-fabric-surface').evaluate(surface=>{const box=surface.getBoundingClientRect();return{left:box.x,top:box.y,zoom:Number(surface.dataset.viewportZoom),panX:Number(surface.dataset.viewportPanX),panY:Number(surface.dataset.viewportPanY)};});
 const setRealZoom=async(target)=>{const before=await state(),view=await viewport();assert(Object.values(view).every(Number.isFinite)&&view.zoom>0);if(Math.abs(view.zoom-target)>.001){await page.mouse.move(200,650);await page.keyboard.down('Control');try{await page.mouse.wheel(0,Math.log(target/view.zoom)/Math.log(.998));}finally{await page.keyboard.up('Control');}}await poll(viewport,value=>Math.abs(value.zoom-target)<.001);assert.deepEqual(await state(),before,'Real wheel zoom must not write a board operation');};
@@ -188,5 +192,11 @@ try{
 }catch(error){
  recordFailure(failureState,error);
  if(outputReady){try{writeFileSync(join(args.out,'draw-terminal-failure.json'),JSON.stringify({status:'failed',reason:'R05_SETUP_OR_ACCEPTANCE_FAILED',requiredSuiteComplete:false,browserVisualAccepted:false},null,2),{mode:0o600,flag:'wx'});}catch{console.error('R05_TERMINAL_RECEIPT_UNAVAILABLE');}}
-}finally{if(browser){try{await browser.close();}catch(cleanupError){if(outputReady){try{writeFileSync(join(args.out,'draw-cleanup-failure.json'),JSON.stringify({status:'failed',reason:'R05_BROWSER_CLOSE_FAILED',requiredSuiteComplete:false,browserVisualAccepted:false}),{mode:0o600,flag:'wx'});}catch{console.error('R05_CLEANUP_RECEIPT_UNAVAILABLE');}}recordFailure(failureState,cleanupError);}}}
+}finally{
+ let browserClosed=!browserServer;
+ try{await closeOwnedBrowser(browserServer,browserOwner);browserClosed=true;}catch(cleanupError){recordFailure(failureState,cleanupError);}
+ const cleanupPending=Boolean(boardRegistry?.cleanupPending)||!browserClosed;
+ if(outputReady){try{writeFileSync(join(args.out,'draw-resource-result.json'),JSON.stringify({browserClosed,cleanupPending,requiredSuiteComplete:false,browserVisualAccepted:false}),{mode:0o600,flag:'wx'});}catch(error){recordFailure(failureState,error);}}
+ if(cleanupPending)recordFailure(failureState,Error('R05_RESOURCE_CLEANUP_PENDING'));
+}
 reportFailure(failureState);
