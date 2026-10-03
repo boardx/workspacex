@@ -23,7 +23,7 @@ export function suiteDefinition(config,root=resolve(process.cwd())){
   assert(metadata.projects.every(project=>typeof project.name==='string'&&project.name.length>0));
   assert(Array.isArray(metadata.requiredScreenshotNames)&&metadata.requiredScreenshotNames.length>0);
   assert.equal(new Set(metadata.requiredScreenshotNames).size,metadata.requiredScreenshotNames.length);
-  assert(metadata.requiredScreenshotNames.every(name=>/^[a-z-]+$/.test(name)));
+  assert(metadata.requiredScreenshotNames.every(name=>/^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/.test(name)));
   return{files:metadata.files,projects:metadata.projects.map(project=>project.name),screenshots:metadata.projects.flatMap(project=>metadata.requiredScreenshotNames.map(name=>`${name}-${project.viewport.width}.png`)),count:metadata.files.length*metadata.projects.length};
 }
 

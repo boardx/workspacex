@@ -37,7 +37,7 @@ test('S01-S03 independent processes and users prove pending ACK, offline converg
  const control=async(command:string)=>{const response=await api.post(`${new URL(proxyUrl!).origin}/__board_fault/${command}`,{headers:{'x-board-fault-control':secret!}});expect(response.status()).toBe(200);};
  const cloud=async(page:Page,phase:'pending'|'synced'|'offline',name:string)=>{
   const status=page.getByTestId('board-sync-status');await expect(status).toHaveAttribute('data-sync-phase',phase);
-  await expect(page.getByTestId('board-sync-banner')).toHaveCount(0);
+  await expect(page.getByTestId('board-sync-banner')).toHaveCount(0); // testid-gate: absent Legacy sync feedback belongs in the header cloud; standalone banner was removed.
   if(phase==='pending'){await expect(status).not.toHaveAttribute('aria-label',/^已同步/);await expect(status.locator('svg')).toHaveClass(/lucide-loader-circle/);const animation=await status.locator('svg').evaluate(element=>{const style=getComputedStyle(element);return {name:style.animationName,state:style.animationPlayState,duration:style.animationDuration};});expect(animation.name).not.toBe('none');expect(animation.state).toBe('running');expect(parseFloat(animation.duration)).toBeGreaterThan(0);}
   const bounds=await status.locator('svg').boundingBox(),viewport=page.viewportSize()!;expect(bounds).not.toBeNull();
   expect(bounds!.x).toBeGreaterThanOrEqual(0);expect(bounds!.y).toBeGreaterThanOrEqual(0);expect(bounds!.x+bounds!.width).toBeLessThanOrEqual(viewport.width);expect(bounds!.y+bounds!.height).toBeLessThanOrEqual(64);
