@@ -90,7 +90,7 @@ function requestError(error: unknown): string {
   return "暂时无法连接研究服务，请检查网络后重试。";
 }
 type Recovery = { draft: Draft | null; node: Command["node"]; synchronized: boolean };
-export function GuidedResearchLive({ sessionId, researchName, onBack, initialNode, visualStage: routeStage }: { sessionId: string; researchName?: string; onBack: () => void; initialNode?: Command["node"]; visualStage?: GuidedResearchVisualStage }) {
+export function GuidedResearchLive({ sessionId, researchName, onBack, onLoadRetry, initialNode, visualStage: routeStage }: { sessionId: string; researchName?: string; onBack: () => void; onLoadRetry?: () => void; initialNode?: Command["node"]; visualStage?: GuidedResearchVisualStage }) {
   const [chaptersOpen, setChaptersOpen] = React.useState(routeStage === "chapters");
   const [state, setState] = React.useState<Runtime | null>(null);
   const [node, setNode] = React.useState<Command["node"]>("brief");
@@ -346,7 +346,7 @@ export function GuidedResearchLive({ sessionId, researchName, onBack, initialNod
   function navigate(next: Command["node"]) { if (state) { browsingRef.current = true; setBrowsing(true); setNode(next); setDraft(draftOf(state, next)); setError(null); } }
   const validDraft = !topicInformationDirty && Boolean(draft && C.GuidedResearchRuntimeDraft.safeParse(draft).success);
   const invalidSavedDirections = Boolean(state?.generatedNodes.includes("directions") && draft?.node === "directions" && !validDraft);
-  if (!state || state.sessionId !== sessionId) return <GuidedResearchSixStepShell current={routeStage ?? "import"} available={[]} onBack={onBack} onNavigate={() => undefined} main={<div role="status" className="p-4">{error ?? "正在恢复研究会话…"}{error && <Button variant="outline" onClick={() => setLoadAttempt((attempt) => attempt + 1)}>重试加载</Button>}</div>} />;
+  if (!state || state.sessionId !== sessionId) return <GuidedResearchSixStepShell current={routeStage ?? "import"} available={[]} onBack={onBack} onNavigate={() => undefined} main={<div role="status" className="p-4">{error ?? "正在恢复研究会话…"}{error && <Button variant="outline" onClick={() => { setLoadAttempt((attempt) => attempt + 1); onLoadRetry?.(); }}>重试加载</Button>}</div>} />;
   const latestRecoveryDraft = recovery?.synchronized ? draftOf(state, recovery.node) : null;
   const proposal = !state.busy && !state.errorCode && state.proposal?.version === state.version && state.proposal.draft.node === node ? state.proposal : null;
   const proposalEdited = Boolean(proposal && JSON.stringify(draft) !== JSON.stringify(proposal.draft));
