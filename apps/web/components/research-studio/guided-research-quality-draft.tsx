@@ -6,6 +6,6 @@ import { GuidedResearchReportDocument } from "./guided-research-report-document"
 export function GuidedResearchQualityDraft({ state, actions, moreActions, onRegenerate }: { state: GuidedResearchRuntime; actions?: ReactNode; moreActions?: ReactNode; onRegenerate?: () => void }) {
   if (state.report || !state.reportDraft) return null;
   return <section className="space-y-4" data-testid="research-quality-draft">
-    <GuidedResearchReportDocument document={researchReportDocument(state.reportDraft, state.sources, state.outline)} provisional title="研究报告" actions={actions} moreActions={moreActions} onRegenerate={onRegenerate} regenerateDisabled={state.busy} />
+    <GuidedResearchReportDocument document={researchReportDocument(state.reportDraft, state.sources, state.outline, { brief: state.brief })} provisional title="研究报告" actions={actions} moreActions={moreActions} onRegenerate={onRegenerate} regenerateDisabled={state.busy} />
   </section>;
 }
