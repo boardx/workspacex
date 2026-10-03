@@ -31,6 +31,7 @@ export const DB_FREE_TEST_PREFIXES = [
   "tests/agent-run/runtime-profile-continuation.test.ts",
   "tests/support/fixture-ownership.test.ts",
   "tests/research/google-guided-search.test.ts",
+  "tests/research/guided-runtime-diagnostics.test.ts",
   "tests/workflow/effect-projection.test.ts",
   "tests/contract-single-source.test.ts",
   "tests/agent-runtime/starter-import-org-scope.test.ts",

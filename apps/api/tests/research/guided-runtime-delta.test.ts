@@ -28,9 +28,10 @@ it("strips cache hints from command execution and returns only changed fields", 
   const controller = new GuidedResearchController({} as never, {} as never, {} as never, {} as never, {} as never, { execute } as never);
   vi.spyOn(controller as never, "current" as never).mockResolvedValue({} as never);
   const input = { requestId: "r", expectedVersion: 2, node: "outline", action: "save", draft: { node: "outline", value: [{ id: "o", title: "chapter", questions: ["q"], enabled: true, order: 0 }] }, knownFields: fingerprints() };
-  const result = await controller.executeRuntime({ userId: "u", orgId: "org" as never }, "s", input);
+  const result = await controller.executeRuntime({ userId: "u", orgId: "org" as never }, "s", input, { traceId: "delta-command-trace" } as never);
   expect(result).toMatchObject({ type: "patch", changes: { busy: true } });
   expect(execute.mock.calls[0]?.[2]).not.toHaveProperty("knownFields");
+  expect(execute.mock.calls[0]?.[4]).toBe("delta-command-trace");
   expect(result).not.toHaveProperty("messages");
 });
 
@@ -39,7 +40,7 @@ it("streams changed snapshots and does not resend report text after token deltas
   const { vi } = await import("vitest");
   const stream = { requestId: "r", sequence: 0, text: "", status: "streaming" as const };
   const busy = { ...state, version: 3, revision: 2, busy: true, reportStream: stream };
-  const execute = vi.fn(async (_scope, _session, _command, send) => {
+  const execute = vi.fn(async (_scope, _session, _command, send, _traceId?: string) => {
     send({ type: "snapshot", state: busy });
     send({ type: "report_delta", sessionId: "s", requestId: "r", version: 3, sequence: 1, delta: "正文" });
     send({ type: "result", state: { ...busy, busy: false, reportStream: { ...stream, sequence: 1, text: "正文" } } });
@@ -48,11 +49,12 @@ it("streams changed snapshots and does not resend report text after token deltas
   vi.spyOn(controller as never, "current" as never).mockResolvedValue({} as never);
   const frames: string[] = [];
   const response = { setHeader: vi.fn(), flushHeaders: vi.fn(), on: vi.fn(), off: vi.fn(), end: vi.fn(), write: (frame: string) => frames.push(frame), writableLength: 0, destroyed: false };
-  await controller.streamRuntime({ userId: "u", orgId: "org" as never }, "s", { requestId: "r", expectedVersion: 2, node: "report", action: "generate", knownFields: fingerprints() }, response as never);
+  await controller.streamRuntime({ userId: "u", orgId: "org" as never }, "s", { requestId: "r", expectedVersion: 2, node: "report", action: "generate", knownFields: fingerprints() }, response as never, { traceId: "delta-stream-trace" } as never);
   const events = frames.map((frame) => JSON.parse(frame.slice(6)));
   expect(events.map((event) => event.type)).toEqual(["patch", "report_delta", "result_patch"]);
   expect(events[2].state.changes).toEqual({ busy: false });
   expect(execute.mock.calls[0]?.[2]).not.toHaveProperty("knownFields");
+  expect(execute.mock.calls[0]?.[4]).toBe("delta-stream-trace");
 });
 
 

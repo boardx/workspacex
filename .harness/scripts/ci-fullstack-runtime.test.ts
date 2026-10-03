@@ -64,10 +64,14 @@ describe('preinstalled fullstack CI runtime', () => {
     expect(args).toContain('exec pnpm --filter web run e2e:trace-geometry');
     expect(args).not.toContain('exec pnpm run verify:fullstack-smoke');
   });
-  it('changes only smoke setup, retains full commands, evidence and 20 minute limit', () => {
+  it('retains full commands and evidence within a bounded complete-run budget', () => {
     const workflow = readFileSync(new URL('../../.github/workflows/harness-verify.yml', import.meta.url), 'utf8');
     const lane = workflow.slice(workflow.indexOf('  fullstack-smoke:'), workflow.indexOf('  # #2084:'));
-    expect(lane).toContain('timeout-minutes: 20');
+    // Full execution plus setup/evidence exceeded the old 20-minute deadline.
+    // Validate a bounded operational budget rather than duplicating its exact value.
+    const budget = Number(lane.match(/^    timeout-minutes:\s*(\d+)\s*$/m)?.[1]);
+    expect(budget).toBeGreaterThanOrEqual(30);
+    expect(budget).toBeLessThanOrEqual(45);
     expect(lane).toContain('persist-credentials: false');
     expect(lane).toContain('GH_TOKEN: ${{ github.token }}');
     expect(lane).toContain('WORKSPACEX_SKILL_IMPORT_GITHUB_TOKEN: ${{ secrets.WORKSPACEX_SKILL_IMPORT_GITHUB_TOKEN }}');

@@ -534,7 +534,9 @@ jobs:
   fullstack-smoke:
     if: github.event_name != 'schedule' || github.event.schedule == '0 * * * *'
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    # 147 browser cases take ~19m including application startup; installation,
+    # geometry checks and evidence upload also count toward the job deadline.
+    timeout-minutes: 35
     # #633（人类裁决 2026-08-06）：不再阻塞合并——`continue-on-error: true` 让本 job
     # 无论步骤是否失败，check run 结论都报 success，仅剩信息性价值（红了不拦 PR，
     # 但 evidence/日志仍然照常上传，供人回看）。真正阻塞发布的是 backend-gates.yml 的

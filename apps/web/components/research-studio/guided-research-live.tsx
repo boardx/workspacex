@@ -61,7 +61,7 @@ const errors: Record<string, string> = {
   RESEARCH_SOURCE_ACCESS_DENIED: "所选内部资料不在当前授权范围内。",
   RESEARCH_WORKFLOW_PAUSED: "研究已暂停，请继续后再执行检索。",
   RESEARCH_PLAN_TIME_BUDGET_EXCEEDED: "计划生成超过本轮时间上限，已停止等待。请重试，或编辑已有计划后继续。",
-  RESEARCH_WORKFLOW_UNAVAILABLE: "模型服务暂时不可用，请稍后重试；持续失败请联系管理员检查模型配置。",
+  RESEARCH_WORKFLOW_UNAVAILABLE: "研究流程暂时无法完成，请稍后重试；持续失败请联系管理员排查。",
   RESEARCH_NODE_MISMATCH: "研究步骤已变化，请查看最新进度后继续。",
   RESEARCH_IDEMPOTENCY_REPLAY_MISMATCH: "请求状态发生冲突，请核对最新进度后重新操作。",
   RESEARCH_WORKFLOW_BUSY: "研究正在处理中，请稍候。",

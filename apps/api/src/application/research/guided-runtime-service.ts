@@ -1,6 +1,7 @@
 import { GUIDED_PLAN_BUDGET_MS, SearchBudget } from "./guided-search-budget";
 import { supplementQuery } from "./guided-supplement-query";
 import type { DebugTracePort } from "../ports/debug-trace.port";
+import { recordResearchFailure, type ResearchExecutionDiagnostic } from "./guided-runtime-diagnostics";
 import { sourceAllowedByPolicy, sourcePolicyDomains, internalSourceReference } from "./guided-source-policy";
 import { isRecoverableSearchFailure, recoveryQueries } from "./guided-search-recovery";
 import { parseSourceRelevanceJson, screenResearchSources, sourceRelevanceBasis, sourceTaskIds } from "./guided-source-relevance";
@@ -182,14 +183,21 @@ export class GuidedRuntimeService {
     if (actor.sessionId !== session.sessionId) throw new ResearchRuntimeError("RESEARCH_NOT_FOUND");
     return this.store.read(actor, initialRuntime(session));
   }
-  async execute(actor: RuntimeActor, session: GuidedResearchSession, command: RuntimeCommand, observer?: RuntimeObserver): Promise<ResearchRuntime> {
+  async execute(actor: RuntimeActor, session: GuidedResearchSession, command: RuntimeCommand, observer?: RuntimeObserver, traceId = command.requestId): Promise<ResearchRuntime> {
+    const diagnostic: ResearchExecutionDiagnostic = { phase: "state_read", traceId };
+    try { return await this.executeCommand(actor, session, command, observer, diagnostic); }
+    catch (error) { recordResearchFailure(this.debugTrace, diagnostic, actor, command, error); throw error; }
+  }
+  private async executeCommand(actor: RuntimeActor, session: GuidedResearchSession, command: RuntimeCommand, observer: RuntimeObserver | undefined, diagnostic: ResearchExecutionDiagnostic): Promise<ResearchRuntime> {
     if (actor.sessionId !== command.sessionId || session.sessionId !== command.sessionId) throw new ResearchRuntimeError("RESEARCH_NOT_FOUND");
     if (["pause", "resume", "resolve_conflict"].includes(command.action) && this.store.steer) {
+      diagnostic.phase = "steer";
       const steered = await this.store.steer(actor, command, fingerprint(command));
       observer?.({ type: "result", state: structuredClone(steered) });
       return steered;
     }
     const current = await this.get(actor, session);
+    diagnostic.phase = "source_authorization";
     const requestedInternalSources = command.sourcePolicy?.internalSourceIds ?? current.sourcePolicy?.internalSourceIds ?? [];
     let internalSources: Awaited<ReturnType<GuidedInternalSourceAccessPort["loadAuthorizedSources"]>> = [];
     if (requestedInternalSources.length) {
@@ -197,6 +205,7 @@ export class GuidedRuntimeService {
       assertInternalSourceAccess(requestedInternalSources, authorized);
       internalSources = await this.internalSourceAccess!.loadAuthorizedSources(actor, requestedInternalSources);
     }
+    diagnostic.phase = "claim";
     const { state, replay } = await this.store.claim(actor, command, fingerprint(command));
     const observe: RuntimeObserver = (event) => { try { observer?.(event); } catch { /* A disconnected observer cannot cancel durable work. */ } };
     if (replay) { observe({ type: "snapshot", state: structuredClone(state) }); observe({ type: "result", state: structuredClone(state) }); return state; }
@@ -208,11 +217,13 @@ export class GuidedRuntimeService {
         throw new ResearchRuntimeError("RESEARCH_WORKFLOW_PAUSED");
       }
     }, { requestId: command.requestId, observe });
+    diagnostic.phase = "perform";
     try {
       await this.perform(state, command, persist, internalSources);
       state.progress = null;
       Object.assign(state, projectResearchTrust(state));
     } catch (error) {
+      recordResearchFailure(this.debugTrace, diagnostic, actor, command, error, state.progress?.stage);
       if (error instanceof ResearchRuntimeError && error.reasonCode === "RESEARCH_WORKFLOW_PAUSED") {
         state.progress = null;
       } else {
@@ -226,6 +237,7 @@ export class GuidedRuntimeService {
     const validation = state.reportTimeline?.find((item) => item.stage === "validation");
     const committingReport = validation?.status === "running" && Boolean(state.report || state.reportDraft) && !state.errorCode;
     if (committingReport) updateReportTimeline(state, "validation", state.reportDraft ? "warning" : "completed", state.reportDraft ? { reasonCode: "RESEARCH_REPORT_QUALITY_INSUFFICIENT" } : {});
+    diagnostic.phase = "final_persistence";
     try { await this.store.write(actor, command.requestId, state, true); }
     catch (error) {
       if (committingReport) {
@@ -256,7 +268,7 @@ export class GuidedRuntimeService {
         validate?.(value);
         call.status = "succeeded";
         return value;
-      } catch (error) { throw error instanceof ResearchRuntimeError ? error : new ResearchRuntimeError("RESEARCH_WORKFLOW_UNAVAILABLE"); }
+      } catch (error) { throw error instanceof ResearchRuntimeError ? error : new ResearchRuntimeError("RESEARCH_WORKFLOW_UNAVAILABLE", { cause: error }); }
     } finally { planningBudget?.dispose(); }
   }
   private context(state: ResearchRuntime) {

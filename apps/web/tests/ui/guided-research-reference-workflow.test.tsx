@@ -187,6 +187,8 @@ describe("reference research workflow", () => {
     expect(await screen.findByText("已经保存的章节")).toBeInTheDocument();
     expect(screen.queryByTestId("research-runtime-progress")).not.toBeInTheDocument();
     expect(screen.getByRole("alert")).toBeInTheDocument();
+    expect(screen.getByRole("alert")).not.toHaveTextContent("模型服务暂时不可用");
+    expect(screen.getByRole("alert")).toHaveTextContent("研究流程");
     fireEvent.click(screen.getByRole("button", { name: "生成完整报告" }));
     await waitFor(() => expect(executeResearchRuntime).toHaveBeenCalledTimes(1));
     expect(executeResearchRuntime).toHaveBeenCalledWith(expect.objectContaining({ action: "retry", node: "report", expectedVersion: state.version }), expect.any(Function), expect.any(AbortSignal), expect.objectContaining({ sessionId: expect.any(String) }));

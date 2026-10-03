@@ -575,6 +575,39 @@ describe("durable research runtime with real PostgreSQL and controlled provider 
 });
 
 describe("report streaming and explicit partial evidence", () => {
+  it.each(["state_read", "claim", "final_persistence"] as const)("binds a rejected %s stream to its HTTP trace without exposing the raw exception", async (phase) => {
+    await reachResearch();
+    const original = await service.get(actor, session);
+    const pg = new PgGuidedRuntimeStore(db);
+    const error = Object.assign(new Error("PRIVATE RESEARCH BODY postgres://SECRET"), { code: "23505" });
+    const record = vi.fn();
+    const runtime = new GuidedRuntimeService({
+      read: async (...args) => { if (phase === "state_read") throw error; return pg.read(...args); },
+      claim: async (...args) => { if (phase === "claim") throw error; return pg.claim(...args); },
+      write: async (...args) => { if (phase === "final_persistence" && args[3]) throw error; return pg.write(...args); },
+    }, model, search, { provider: "test", id: "test-model" }, model, undefined,
+    { record } as unknown as import("../../src/application/ports/debug-trace.port").DebugTracePort);
+    const routeService = app.get<GuidedRuntimeService>(GUIDED_RUNTIME_SERVICE);
+    const spy = vi.spyOn(routeService, "execute").mockImplementation((...args) => runtime.execute(...args));
+    const command = { sessionId: actor.sessionId, node: "research", action: "resume", requestId: randomUUID(), expectedVersion: original.version, expectedRevision: original.planRevision ?? 0, idempotencyKey: randomUUID() };
+    try {
+      const response = await fetch(`${base}/research/guided-sessions/${actor.sessionId}/runtime/commands/stream`, {
+        method: "POST", headers: { "content-type": "application/json", "x-kernel-test-principal": `${userId}:${orgId}` }, body: JSON.stringify(command),
+      });
+      expect(response.headers.get("content-type")).toContain("text/event-stream");
+      const text = await response.text();
+      expect(text).toContain('"type":"error","reasonCode":"RESEARCH_WORKFLOW_UNAVAILABLE"');
+      expect(text).not.toMatch(/PRIVATE RESEARCH BODY|SECRET|23505|postgres:/);
+      const traceId = response.headers.get("x-trace-id");
+      expect(traceId).toMatch(/^[a-f0-9-]{36}$/);
+      expect(record).toHaveBeenCalledWith(expect.objectContaining({ traceId, kind: "research.runtime.failed", data: expect.objectContaining({ phase, requestId: command.requestId }) }));
+      expect(JSON.stringify(record.mock.calls)).not.toMatch(/PRIVATE RESEARCH BODY|SECRET|postgres:/);
+      const retained = await pg.read(actor, initialRuntime(session));
+      expect(retained.sources).toEqual(original.sources);
+      expect(retained.reportCheckpoint).toEqual(original.reportCheckpoint);
+    } finally { spy.mockRestore(); }
+  });
+
   it("persists the first provider delta before completion and survives observer disconnect/replay", async () => {
     await reachResearch();
     let release!: () => void;
