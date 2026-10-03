@@ -35,38 +35,38 @@ jobs:
     runs-on: [self-hosted, linux, workspacex-cn-production]
     timeout-minutes: 45
     steps:
-      - name: Check out the exact GitHub candidate
-        uses: actions/checkout@v5
-        with:
-          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.release_sha || github.event.workflow_run.head_sha }}
-          fetch-depth: 0
-          persist-credentials: false
-
-      - name: Seed the China source mirror from GitHub
+      - name: Check out exact candidate from verified domestic cache
         shell: bash
         env:
           EVENT_NAME: ${{ github.event_name }}
           RUN_SHA: ${{ github.event.workflow_run.head_sha }}
           INPUT_SHA: ${{ inputs.release_sha }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           revision="${RUN_SHA}"
           [[ "${EVENT_NAME}" == "workflow_dispatch" ]] && revision="${INPUT_SHA}"
-          [[ "${revision}" =~ ^[a-f0-9]{40}$ && "$(git rev-parse HEAD)" == "${revision}" ]] || { echo "::error::release SHA or checkout differs"; exit 1; }
-          # Old candidates cannot inherit a dispatcher introduced after their source freeze.
+          [[ "${revision}" =~ ^[a-f0-9]{40}$ ]] || exit 2
+          expected_main_cn=$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/main-cn" --jq '.object.sha')
+          [[ "${expected_main_cn}" =~ ^[a-f0-9]{40}$ ]] || exit 2
+          bundle=$(mktemp)
+          trap 'rm -f "$bundle"' EXIT
+          # Trusted root export takes the same release.lock as all cache writers.
+          # An absent, borrowed, partial or wrong-SHA cache is NOT_READY, never HTTPS fallback.
+          sudo -n /usr/local/bin/workspacex-cn-export-source "${revision}" "${expected_main_cn}" "gha-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" > "$bundle"
+          [[ -s "$bundle" ]] || { echo "::error::CN_DOMESTIC_SOURCE_NOT_READY"; exit 3; }
+          [[ -d "$GITHUB_WORKSPACE" && ! -L "$GITHUB_WORKSPACE" ]] || exit 3
+          # Disposable runner workspace only; no privileged production checkout/cache writes.
+          find "$GITHUB_WORKSPACE" -mindepth 1 -maxdepth 1 -exec rm -rf -- {} +
+          GIT_NO_LAZY_FETCH=1 git clone --no-local --no-checkout "$bundle" "$GITHUB_WORKSPACE"
+          GIT_NO_LAZY_FETCH=1 git -C "$GITHUB_WORKSPACE" fsck --full --no-reflogs
+          git checkout --detach "${revision}"
+          [[ "$(git rev-parse HEAD)" == "${revision}" && "$(git rev-parse origin/main-cn)" == "${expected_main_cn}" ]] || exit 3
+          git merge-base --is-ancestor "${revision}" origin/main
+          git merge-base --is-ancestor "${expected_main_cn}" "${revision}"
           [[ -f .harness/scripts/vm/cn-frozen-release-identity.mjs ]] && grep -q CN_FROZEN_RELEASE_DISPATCHER_V1 .github/workflows/promote-cn-production.yml || { echo "::error::CN_FROZEN_RELEASE_DISPATCHER_NOT_READY"; exit 3; }
-          git rev-parse --verify origin/main >/dev/null
-          git merge-base --is-ancestor "${revision}" origin/main || { echo "::error::release SHA is not contained in main"; exit 1; }
-          cache=/opt/workspacex-cn/release-origin-cache.git
-          repository=/opt/workspacex-cn/repository
-          [[ -d "${cache}" && ! -L "${cache}" && "$(git -C "${cache}" rev-parse --is-bare-repository)" == true ]] || { echo "::error::CN_SOURCE_CACHE_UNTRUSTED"; exit 1; }
-          [[ "$(git -C "${repository}" remote get-url origin)" == "${cache}" ]] || { echo "::error::CN_RELEASE_ORIGIN_DRIFT"; exit 1; }
-          git -C "${cache}" fetch --no-tags "${GITHUB_WORKSPACE}" "+${revision}:refs/heads/main"
-          [[ "$(git -C "${cache}" rev-parse refs/heads/main)" == "${revision}" ]] || { echo "::error::CN_SOURCE_CACHE_REVISION_MISMATCH"; exit 1; }
-          GIT_NO_LAZY_FETCH=1 git -C "${cache}" fsck --full --no-reflogs
-          expected_main_cn=$(git rev-parse origin/main-cn)
-          [[ "$(git -C "${cache}" rev-parse refs/heads/main-cn)" == "${expected_main_cn}" ]] || { echo "::error::CN_RELEASE_NOT_READY_BASELINE_MIRROR"; exit 3; }
-          [[ "$(git -C "${repository}" rev-parse origin/main-cn)" == "${expected_main_cn}" ]] || { echo "::error::CN_RELEASE_NOT_READY_BASELINE_REPOSITORY"; exit 3; }
+          echo "CN_RELEASE_WORKFLOW_SHA=${GITHUB_SHA}" >> "$GITHUB_ENV"
+          echo "CN_RELEASE_SOURCE_SHA=${revision}" >> "$GITHUB_ENV"
 
       - name: Fail closed if privileged build entrypoints drifted
         shell: bash

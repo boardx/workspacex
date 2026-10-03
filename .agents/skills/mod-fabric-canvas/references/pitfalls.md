@@ -41,6 +41,21 @@
 - 精确 Playwright core CLI、Turbo plan/execute 参数的代码单源和旧缺 Chromium 日志，
   见 [CI 前提](verification.md#ci-前提)。本索引不复制 runner 或其安装策略。
 
+## 2026-10-03 Shape 逻辑边界与缓存支持域
+
+Shape 的 FixedLayout 逻辑容器与子对象描边的可见外沿不是同一边界。不能把子对象
+描边吸收到 canonical width/height，也不能用去掉默认描边的 fixture 代替用户对象。
+逻辑尺寸修正见 [PR #5155](https://github.com/boardx/workspacex/pull/5155)，缓存支持域修正见
+[PR #5169](https://github.com/boardx/workspacex/pull/5169)。后者只扩投影缓存支持域，
+不扩大 canonical geometry、不全局关闭缓存；`strokeUniform`、父级缩放与 viewport/retina
+缩放必须分别核验。算法仅以该 PR 的
+[ShapeProjectionGroup 源码](https://github.com/boardx/workspacex/blob/8ae84fd715eb5018d5f79075f83f05a6c4a592bc/apps/web/components/whiteboard/fabric/shape-projection-group.ts)
+为单源，此处不复制 padding 公式。
+
+缓存尺寸、实际平移后的左右/上下支持范围、缓存上限与 canonical 重建稳定性是不同门。
+尺寸门通过不等于像素完整，达到 Fabric 缓存上限也不等于保留了全分辨率描边。
+本轮实际证据与未验边界见 [Shape 缓存证据分层](verification.md#shape-缓存证据分层)。
+
 ## 回流模板
 
 ```text

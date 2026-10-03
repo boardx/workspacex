@@ -14,6 +14,7 @@ class FakeSocket {
   private listeners = new Map<string, Array<(e: { data?: unknown }) => void>>();
   constructor() { FakeSocket.last = this; setTimeout(() => { this.readyState = 1; this.emit("open", {}); }, 0); }
   addEventListener(type: string, fn: (e: { data?: unknown }) => void) { this.listeners.set(type, [...(this.listeners.get(type) ?? []), fn]); }
+  removeEventListener(type: string, fn: (e: { data?: unknown }) => void) { this.listeners.set(type, (this.listeners.get(type) ?? []).filter(listener => listener !== fn)); }
   emit(type: string, e: { data?: unknown }) { for (const fn of this.listeners.get(type) ?? []) fn(e); }
   send(data: unknown) {
     this.sent.push(data);

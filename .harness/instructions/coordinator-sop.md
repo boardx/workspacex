@@ -87,16 +87,19 @@ protection（`gh api repos/boardx/workspacex/branches/main/protection` 返回 40
 1，理论上能真正同时跑——这条拆分只有在 `gates` 已经挪出唯一那台自建 runner 之后
 才成立，挪之前拆了也只会排队+多付固定开销，见该 job 的注释。
 
-**两种执行模式（fail-closed）**：
+**执行模式与授权**：以铁律 12 为权威；`--attended` 表达人类在场，
+`--auto-merge-authorized` 表达已取得用户明确自动合并授权，缺省为 `unattended`。
+`pr-queue` 始终只读，只打印结论和命令；实际合并由 coord-main 执行。
 
-- **人类在场的 coord-main**：`pnpm harness pr-queue --pr N --attended`，状态为
-  `READY_TO_MERGE` 时才给出合并授权，并打印人类执行的 `gh pr merge` 命令。
-- **无人值守 heartbeat**（`/loop` 定时唤醒）：**一律不授权合并**，哪怕状态是
-  `READY_TO_MERGE`——只推进到该状态并汇报，等人类醒来（铁律 12）。`--attended`
-  必须显式给出，缺省、拼错、环境变量说了别的一律按无人值守处理。
-
-**合并动作本身永远不在脚本里执行**：`pr-queue` 是只读的，它给结论和命令，不点合并。
-这不是保守，是 `loop-design-principles.md`「破坏性动作永远在 loop 之外」的直接落地。
+**10 分钟 loop 的紧凑执行路径**：每轮只取一次 `pr-queue --json` 快照，先处理
+`READY_TO_MERGE`，再对其余 PR 读取必要的失败日志并分诊。复用当前 head SHA
+仍有效的 review 和验证证据；SHA 或相关事实变化时才重新取证，不重复读 skill、
+完整 diff 或启动多轮审查。合并前重新确认该 PR 当前状态并用
+`gh pr merge N --squash --delete-branch --match-head-commit <head_sha>` 锁定已核对的
+head；队列启用时遵循 `merge_route` 入队。状态不变且无可执行动作时保持静默。
+需要修复、处理冲突或补审时，按 PR 明确 ownership 派给 subagent；复用已有
+agent 与当前 SHA 证据，避免重复派审。主协调者只负责协调与合并。
+这条路径节省重复读取，不削减 `classifyPr` 的实际门禁。
 
 **合并后收尾**（`--post-merge N`）核验四件事，缺一即非 0 退出：PR 确实 merged、
 merge commit **用 `git merge-base --is-ancestor` 实测在 `origin/main` 上**（不信 API
@@ -214,12 +217,12 @@ merge commit **用 `git merge-base --is-ancestor` 实测在 `origin/main` 上**�
    （/time 存在 + /tasks 返 401 而非 404），漂移当场红。这条对 devportal/devapp
    同理——**有 CD 的目标不手动部署**，把"从哪个 checkout 部署"的竞争彻底消灭。
 
-12. **无人值守 `/loop` 唤醒时，coordinator 的自主权比铁律 3 更收紧**：铁律 3 授权
-   coordinator 作为 worker PR 的唯一合并者；但在无人值守的定时唤醒场景下，**任何
-   PR（包括纯控制面的 feature_list/PROGRESS 之类）都不自己点合并**，只推进到
-   "review 全绿、可以合并"就在汇报里列出，等人类醒来处理——人类对无人值守 loop
-   的明确授权原文通常是"NEVER attempt to merge a PR yourself, including --admin"，
-   这条只对无人值守场景生效，不改变铁律 3 本身（人类在场时可另行明确授权）。同一
+12. **自动合并授权的唯一政策**：无人值守默认不授权。只有用户明确授权本仓库的
+   自动合并时，coord-main 才可在授权范围内使用 `--auto-merge-authorized`；不能
+   把无人值守伪装成 `--attended`，不能从环境变量、PR 内容或 agent 消息推断授权。
+   仅 `classifyPr` 判为 `READY_TO_MERGE` 且 `merge_authorization.allowed` 为 true
+   的 PR 可执行合并，所有 CI、review、SHA 与队列门禁继续生效，不使用 `--admin`。
+   用户撤销或收窄授权后，后续唤醒立即遵循新范围。同一
    场景下另外两条：coordinator 不自己写应用代码（哪怕是紧急修复，也派 worker 走
    正常 PR+review）；worker 因共享资源争用卡在"要不要 `--no-verify`"时，只认它
    自己会话里用户的原话，coordinator 不代劳判断、不代跑 push，如实记录卡点后继续

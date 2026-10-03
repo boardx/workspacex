@@ -397,6 +397,50 @@ describe("WS /chat/realtime-digital-human — Chat 语音模式", () => {
     ws.close();
   });
 
+  it("uses the shared Qwen key for an actual realtime upstream handshake", async () => {
+    // The test endpoint is injected explicitly, never a production env override.
+    config = { ...readRealtimeModelConfig({ KERNEL_MODEL_BASE_URL: "https://workspace.maas.aliyuncs.com/compatible-mode/v1", KERNEL_MODEL_API_KEY: "shared-qwen-test-key" }), baseUrl: config.baseUrl };
+    const { ws, frames } = await connect(port);
+    try {
+      ws.send(JSON.stringify({ type: "session.start", threadId: "t-1", agentId: null }));
+      await until(() => frames.some(frame => frame.type === "session.ready"));
+      expect(upstreamUrls[0]).toBe("/realtime?model=qwen3.8-omni-flash-realtime Bearer shared-qwen-test-key");
+    } finally { ws.close(); }
+  });
+
+  it("uses only the shared chat URL/key and ignores dedicated/ASR credentials", () => {
+    const parsed = readRealtimeModelConfig({
+      KERNEL_MODEL_BASE_URL: "https://workspace.maas.aliyuncs.com/compatible-mode/v1",
+      KERNEL_MODEL_API_KEY: "shared-test-key",
+      KERNEL_OMNI_REALTIME_BASE_URL: "wss://ignored.invalid",
+      KERNEL_OMNI_REALTIME_API_KEY: "dedicated-test-key", KERNEL_ASR_API_KEY: "asr-test-key", DASHSCOPE_API_KEY: "ignored-key",
+    });
+    expect(parsed.apiKey).toBe("shared-test-key");
+    expect(parsed.baseUrl).toBe("wss://workspace.maas.aliyuncs.com/api-ws/v1/realtime");
+    expect(readRealtimeModelConfig({ KERNEL_OMNI_REALTIME_BASE_URL: "wss://ignored.invalid", KERNEL_OMNI_REALTIME_API_KEY: "old-key", KERNEL_ASR_BASE_URL: "wss://asr.invalid", KERNEL_ASR_API_KEY: "asr-key", DASHSCOPE_API_KEY: "old-key" })).toMatchObject({ baseUrl: undefined, apiKey: undefined });
+  });
+
+  it("derives the realtime endpoint from the uploaded chat workspace URL", () => {
+    const parsed = readRealtimeModelConfig({ KERNEL_MODEL_BASE_URL: "https://llm-jb1kfwgfohl80lle.cn-beijing.maas.aliyuncs.com/compatible-mode/v1", KERNEL_MODEL_API_KEY: "synthetic-test-only" });
+    expect(parsed.baseUrl).toBe("wss://llm-jb1kfwgfohl80lle.cn-beijing.maas.aliyuncs.com/api-ws/v1/realtime");
+    expect(parsed.model).toBe("qwen3.8-omni-flash-realtime");
+  });
+
+  it.each([undefined, "http://workspace.maas.aliyuncs.com/v1", "https://dashscope.aliyuncs.com.attacker.invalid/v1", "https://user:secret@workspace.maas.aliyuncs.com/v1", "https://unrelated.invalid/v1"])("does not guess another realtime endpoint for %s", base => {
+    expect(readRealtimeModelConfig({ KERNEL_MODEL_BASE_URL: base, KERNEL_MODEL_API_KEY: "synthetic-test-only", KERNEL_OMNI_REALTIME_BASE_URL: "wss://ignored.invalid/realtime" }).baseUrl).toBeUndefined();
+  });
+
+  it.each([undefined, " "])("fails closed when shared credential is %s", async key => {
+    config = readRealtimeModelConfig({ KERNEL_MODEL_BASE_URL: "https://workspace.maas.aliyuncs.com/compatible-mode/v1", KERNEL_MODEL_API_KEY: key, KERNEL_ASR_API_KEY: "ignored" });
+    const { ws, frames } = await connect(port);
+    try {
+      await until(() => frames.some(frame => frame.type === "session.error"));
+      expect(frames.find(frame => frame.type === "session.error")?.reason).toBe("NOT_CONFIGURED");
+      expect(upstreamUrls).toHaveLength(0);
+    } finally { ws.close(); }
+  });
+
+
   it("reads voice map + default voice from env (single deployment source)", () => {
     const parsed = readRealtimeModelConfig({
       KERNEL_OMNI_REALTIME_API_KEY: "k", KERNEL_OMNI_REALTIME_BASE_URL: "wss://x",
@@ -408,13 +452,13 @@ describe("WS /chat/realtime-digital-human — Chat 语音模式", () => {
   });
 
   it("pins the POC realtime model despite unrelated deployment model overrides", async () => {
-    config = readRealtimeModelConfig({
-      KERNEL_OMNI_REALTIME_BASE_URL: config.baseUrl,
-      KERNEL_OMNI_REALTIME_API_KEY: config.apiKey,
+    config = { ...readRealtimeModelConfig({
+      KERNEL_MODEL_BASE_URL: "https://workspace.maas.aliyuncs.com/compatible-mode/v1",
+      KERNEL_MODEL_API_KEY: config.apiKey,
       KERNEL_OMNI_REALTIME_MODEL: "wrong-omni-model",
       KERNEL_MODEL_NAME: "qwen-plus",
       KERNEL_ASR_MODEL: "qwen3-asr-flash-realtime",
-    });
+    }), baseUrl: config.baseUrl };
     expect(config.model).toBe("qwen3.8-omni-flash-realtime");
     const { ws, frames } = await connect(port);
     ws.send(JSON.stringify({ type: "session.start", threadId: "t-1", agentId: null }));

@@ -16,6 +16,7 @@ vi.mock("@/lib/whiteboard-operation-client",()=>({readPresentation:vi.fn(async()
 vi.mock("@/components/whiteboard/board-ai-proposal-panel",()=>({BoardAIProposalPanel:({onConfirm}:{onConfirm:()=>void})=><button onClick={onConfirm}>Confirm test proposal</button>}));
 import { LiveBoard } from "@/components/whiteboard/live-board";
 import { getBoard } from "@/lib/live-whiteboard";
+import { readPresentation } from "@/lib/whiteboard-operation-client";
 const online: WhiteboardConnectionState = { phase: "online", pending: 0, role: "owner", archived: false, peers: [], reason: null, epoch:1, retryAttempt: 0, duplicateAcks: 0, lastAckSequence: 12, lastAckReceipt:null };
 
 beforeEach(() => { const undo={boardId:'00000000-0000-4000-8000-000000000007',proposalId:'00000000-0000-4000-8000-000000000008',operationId:'00000000-0000-4000-8000-000000000009',expectedRevision:{epoch:1,seq:13},createdAt:'2026-09-26T00:00:00.000Z'};harness.state = null; harness.retry.mockClear(); harness.close.mockClear();harness.update.mockReset().mockResolvedValue({revision:4,presenterId:"presenter",followers:[],viewport:{x:300,y:200,zoom:2}});harness.readUndo.mockReset().mockReturnValue(null);harness.clearUndo.mockReset();harness.recordUndo.mockReset().mockReturnValue(undo);harness.organizeUndo=null;harness.organizeOnUndone=null;harness.editor=null; });
@@ -63,6 +64,46 @@ it("a failed initial HTTP503 read cannot show a saved cloud or start a writable 
 });
 
 afterEach(cleanup);
+const pollingState={boardId:'00000000-0000-4000-8000-000000000007',roomId:'default',revision:3,presenterId:'presenter',followers:['owner-1'],viewport:{x:300,y:200,zoom:2},updatedAt:'2026-10-03T00:00:00.000Z'};
+it('does not overlap presentation reads and aborts the owned read on unmount',async()=>{
+ vi.useFakeTimers();let resolveRead!:(value:typeof pollingState)=>void;
+ const original=vi.mocked(readPresentation).getMockImplementation();
+ vi.mocked(readPresentation).mockClear().mockImplementation(()=>new Promise(resolve=>{resolveRead=resolve;}));
+ try{
+  const view=render(<LiveBoard boardId={pollingState.boardId}/>);
+  await act(async()=>{await Promise.resolve();});
+  const signal=vi.mocked(readPresentation).mock.calls[0]?.[2];expect(signal).toBeInstanceOf(AbortSignal);
+  await act(async()=>{await vi.advanceTimersByTimeAsync(6000);});
+  expect(readPresentation).toHaveBeenCalledTimes(1);
+  view.unmount();expect(signal?.aborted).toBe(true);
+  await act(async()=>{resolveRead(pollingState);await Promise.resolve();await vi.advanceTimersByTimeAsync(6000);});
+  expect(readPresentation).toHaveBeenCalledTimes(1);expect(screen.queryByTestId('editor-status')).toBeNull();
+ }finally{cleanup();if(original)vi.mocked(readPresentation).mockImplementation(original);vi.useRealTimers();}
+});
+it('aborts the old board read and cannot publish its late state after a board change',async()=>{
+ const original=vi.mocked(readPresentation).getMockImplementation();let resolveOld!:(value:typeof pollingState)=>void;
+ vi.mocked(readPresentation).mockClear().mockImplementationOnce(()=>new Promise(resolve=>{resolveOld=resolve;})).mockResolvedValue({...pollingState,followers:[]});
+ try{
+  const view=render(<LiveBoard boardId={pollingState.boardId}/>);await screen.findByTestId('editor-status');
+  const oldSignal=vi.mocked(readPresentation).mock.calls[0]?.[2];
+  view.rerender(<LiveBoard boardId="00000000-0000-4000-8000-000000000008"/>);
+  await waitFor(()=>expect(readPresentation).toHaveBeenCalledTimes(2));expect(oldSignal?.aborted).toBe(true);
+  await act(async()=>{resolveOld(pollingState);await Promise.resolve();});
+  expect(harness.editor?.followViewport).toBeNull();
+ }finally{cleanup();if(original)vi.mocked(readPresentation).mockImplementation(original);}
+});
+it('keeps abort quiet but marks a real failed presentation read unavailable',async()=>{
+ vi.useFakeTimers();const original=vi.mocked(readPresentation).getMockImplementation();
+ vi.mocked(readPresentation).mockClear().mockResolvedValue(pollingState);
+ try{
+  render(<LiveBoard boardId={pollingState.boardId}/>);await act(async()=>{await Promise.resolve();await Promise.resolve();});
+  expect(harness.editor?.followViewport).toEqual(pollingState.viewport);
+  vi.mocked(readPresentation).mockRejectedValueOnce(new DOMException('Aborted','AbortError'));
+  await act(async()=>{await vi.advanceTimersByTimeAsync(2000);});expect(harness.editor?.followViewport).toEqual(pollingState.viewport);
+  vi.mocked(readPresentation).mockRejectedValueOnce(new Error('read failed'));
+  await act(async()=>{await vi.advanceTimersByTimeAsync(2000);});expect(harness.editor?.followViewport).toBeNull();
+ }finally{cleanup();if(original)vi.mocked(readPresentation).mockImplementation(original);vi.useRealTimers();}
+});
 it('manual navigation suppresses followed viewport immediately and sends authoritative leave-follow',async()=>{
  render(<LiveBoard boardId="00000000-0000-4000-8000-000000000007"/>);
  await waitFor(()=>expect(harness.editor?.followViewport).toEqual({x:300,y:200,zoom:2}));

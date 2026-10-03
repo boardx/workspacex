@@ -1,0 +1,24 @@
+     42|     const state = fixture(1); const f = setup((c) => { const result = …
+     43|     await expect(f.run(state)).rejects.toThrow("RESEARCH_CONTENT_REFER…
+       |                              ^
+     44|   });
+     45| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/6]⎯
+
+ Test Files  1 failed (1)
+      Tests  6 failed (6)
+   Start at  23:58:55
+   Duration  3.26s (transform 511ms, setup 4ms, collect 639ms, tests 9ms, environment 0ms, prepare 29ms)
+
+[db-isolation] db=wsx_f4cfb953c780379e36d1 peak_connections=1
+undefined
+/Users/shenyangjun/.codex/worktrees/research-5056-fixes/workspacex/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/research/guided-report-evidence-retry.test.ts --maxWorkers=1 --minWorkers=1
+[timing] pnpm --filter @repo/api exec vitest run tests/research/guided-report-evidence-retry.test.ts --maxWorkers=1 --minWorkers=1
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：4s
+  清理：0s
+  总计：4s

@@ -1,3 +1,4 @@
+import type { DebugTracePort } from "../ports/debug-trace.port";
 import { sourceAllowedByPolicy, sourcePolicyDomains, internalSourceReference } from "./guided-source-policy";
 import { isRecoverableSearchFailure, recoveryQueries } from "./guided-search-recovery";
 import { parseSourceRelevanceJson, screenResearchSources, sourceRelevanceBasis, sourceTaskIds } from "./guided-source-relevance";
@@ -174,7 +175,7 @@ function applyDraft(state: ResearchRuntime, draft: RuntimeDraft) {
 export class GuidedRuntimeService {
   constructor(private readonly store: GuidedRuntimeStore, private readonly model: ModelCallPort, private readonly search: GuidedSearchPort,
     private readonly modelConfig = guidedModelConfig(), private readonly reportModel: ModelCallPort = model,
-    private readonly internalSourceAccess?: GuidedInternalSourceAccessPort) {}
+    private readonly internalSourceAccess?: GuidedInternalSourceAccessPort, private readonly debugTrace?: DebugTracePort) {}
   get(actor: RuntimeActor, session: GuidedResearchSession) {
     if (actor.sessionId !== session.sessionId) throw new ResearchRuntimeError("RESEARCH_NOT_FOUND");
     return this.store.read(actor, initialRuntime(session));
@@ -273,7 +274,10 @@ export class GuidedRuntimeService {
     }
     if (node === "report" && !state.sources.some((source) => source.decision === "accepted")) throw new ResearchRuntimeError("RESEARCH_SOURCES_REQUIRED");
     if (node === "report") { appendActivity(state, "writing", "开始基于逐问题证据撰写报告", "started"); await persist(); }
-    const value = node === "report" ? await generateReportChapters(state, this.reportModel, this.modelConfig, persist, instruction, resume) : await this.completeJson(state, node, `Generate the ${node} step. Output exactly ${shapes[node]}. ${researchDesignInstruction(node)} For reports cover every enabled outline section exactly once; cite only provided accepted source IDs in sourceIds; do not put URLs or bracket citation markers in prose; state evidence limitations. When reportPartial is true, explicitly identify failed-query coverage gaps from evidenceGaps and do not claim exhaustive research.`, { ...this.context(state), instruction }, persist, (generated) => {
+    const value = node === "report" ? await generateReportChapters(state, this.reportModel, this.modelConfig, persist, instruction, resume, (event) => this.debugTrace?.record({
+      traceId: persist.requestId ?? state.sessionId, kind: "research.report.evidence_attempt", level: event.failed ? "warn" : "info",
+      msg: "Report evidence validation attempt", durationMs: event.durationMs, data: { sessionId: state.sessionId, ...event },
+    })) : await this.completeJson(state, node, `Generate the ${node} step. Output exactly ${shapes[node]}. ${researchDesignInstruction(node)} For reports cover every enabled outline section exactly once; cite only provided accepted source IDs in sourceIds; do not put URLs or bracket citation markers in prose; state evidence limitations. When reportPartial is true, explicitly identify failed-query coverage gaps from evidenceGaps and do not claim exhaustive research.`, { ...this.context(state), instruction }, persist, (generated) => {
       const candidate = C.GuidedResearchRuntimeDraft.safeParse({ node, value: generated });
       if (!candidate.success) throw new ResearchRuntimeError("RESEARCH_NODE_STATE_INVALID");
       validateGeneratedResearchDesign(node, candidate.data.value);
