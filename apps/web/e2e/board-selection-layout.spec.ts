@@ -403,7 +403,7 @@ test("visual acceptance: compact selection in three viewports", async ({ page, r
           expect(target!.width).toBeGreaterThanOrEqual(44); expect(target!.height).toBeGreaterThanOrEqual(44);
         }
         // Connector creation is reached through the selected object's actual handles.
-        await expect(page.getByTestId("board-add-connector")).toHaveCount(0); // testid-gate: absent Connector entry is intentionally hidden; selected-object handles remain available.
+        await expect(page.getByTestId("board-add-connector")).toHaveCount(0);
         const handles = page.locator(`[data-testid^="connector-handle-${object.id}-"]`);
         await expect(handles).toHaveCount(4);
         for (const handle of await handles.all()) {
