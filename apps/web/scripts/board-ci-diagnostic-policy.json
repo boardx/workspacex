@@ -16,6 +16,9 @@
     "board-navigation-controls",
     "board-tool-picker",
     "board-creation-dock",
+    "board-context-toolbar",
+    "collaborative-editor",
+    "board-tool-popover",
     "OTHER"
   ]
 }

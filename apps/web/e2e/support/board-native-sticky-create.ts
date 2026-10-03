@@ -26,6 +26,32 @@ export function nativeBlankCandidates(input:{canvas:NativeRect;viewport:{width:n
   return points.sort((a,b)=>(a.x-center.x)**2+(a.y-center.y)**2-((b.x-center.x)**2+(b.y-center.y)**2));
 }
 
+/** Self-contained for Playwright serialization and no-service DOM counterproof. */
+export function nativeBlankHitPoint(host:Element,{points,geometry,hitPolicy}:{points:Array<{x:number;y:number}>;geometry:{canvas:NativeRect;zoom:number;paperMargin:number;requestedPaperMargin:number;chrome:NativeRect[]};hitPolicy:{hitControls:string[];hitTags:string[]}}){
+    const canvas=host.querySelector('canvas.upper-canvas');
+    if(!canvas)throw new Error('MISSING_NATIVE_CANVAS');
+    const controls=new Set(hitPolicy.hitControls);
+    const tags=new Set(hitPolicy.hitTags);
+    const hits=[];
+    for(const point of points){
+     const hit=document.elementFromPoint(point.x,point.y);
+     if(hit===canvas)return point;
+     if(hits.length<8){
+      const bounds=hit?.getBoundingClientRect();
+      // Dynamic private IDs may sit inside known chrome. Only return fixed
+      // allowlisted ancestry; never retain IDs, text, URLs or DOM content.
+      let control='OTHER',ancestor=hit;
+      for(let depth=0;ancestor&&depth<16;depth++,ancestor=ancestor.parentElement){
+       const id=ancestor.getAttribute('data-testid');
+       if(id&&controls.has(id)){control=id;break;}
+      }
+      hits.push({tag:hit&&tags.has(hit.tagName.toUpperCase())?hit.tagName.toUpperCase():'OTHER',control,rect:bounds?{x:bounds.x,y:bounds.y,width:bounds.width,height:bounds.height}:null,isCanvas:hit instanceof HTMLCanvasElement});
+     }
+    }
+    throw new Error(`NO_NATIVE_BLANK_POSITION ${JSON.stringify({canvas:geometry.canvas,zoom:geometry.zoom,margin:geometry.paperMargin,requestedPaperMargin:geometry.requestedPaperMargin,candidateCenters:points.length,unobstructedCenters:0,chrome:geometry.chrome,hits})}`);
+
+}
+
 export function observeNativeStickyWrites(page:Page,boardId:string){
   let updates=0;
   page.on('websocket',socket=>{if(socket.url().includes(`/whiteboards/${boardId}/sync`))socket.on('framesent',frame=>{
@@ -95,21 +121,7 @@ async function createNativeTextObject(page:Page,text:string,proof:NativeCreation
       zoom,requestedPaperMargin:Math.max(120,120*zoom),paperMargin:Math.max(8,Math.min(Math.max(120,120*zoom),Math.min(box.width,innerWidth)/4,Math.min(box.height,innerHeight)/4)),chrome:chrome.map(r=>({x:r.x,y:r.y,width:r.width,height:r.height}))};
    },expectedCount);
    const candidates=await page.evaluate(nativeBlankCandidates,sample);
-   return page.getByTestId('board-fabric-surface').evaluate((host,{points,geometry,hitPolicy})=>{
-    const canvas=host.querySelector('canvas.upper-canvas');
-    const controls=new Set(hitPolicy.hitControls);
-    const tags=new Set(hitPolicy.hitTags);
-    const hits=[];
-    for(const point of points){
-     const hit=document.elementFromPoint(point.x,point.y);
-     if(hit===canvas)return point;
-     if(hits.length<8){
-      const bounds=hit?.getBoundingClientRect();const closest=hit?.closest('[data-testid]')?.getAttribute('data-testid');
-      hits.push({tag:hit&&tags.has(hit.tagName.toUpperCase())?hit.tagName.toUpperCase():'OTHER',control:closest&&controls.has(closest)?closest:'OTHER',rect:bounds?{x:bounds.x,y:bounds.y,width:bounds.width,height:bounds.height}:null,isCanvas:hit instanceof HTMLCanvasElement});
-     }
-    }
-    throw new Error(`NO_NATIVE_BLANK_POSITION ${JSON.stringify({canvas:geometry.canvas,zoom:geometry.zoom,margin:geometry.paperMargin,requestedPaperMargin:geometry.requestedPaperMargin,candidateCenters:points.length,unobstructedCenters:0,chrome:geometry.chrome,hits})}`);
-   },{points:candidates,geometry:sample,hitPolicy:diagnosticPolicy});
+   return page.getByTestId('board-fabric-surface').evaluate(nativeBlankHitPoint,{points:candidates,geometry:sample,hitPolicy:diagnosticPolicy});
   };
   const point=await blankPoint(before.length);
   expect(await canonicalRows(page)).toEqual(before);
