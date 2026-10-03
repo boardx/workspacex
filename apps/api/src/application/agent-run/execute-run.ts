@@ -5,7 +5,9 @@ import { appendEscalationPolicyContext, appendPlanLedgerContext } from "./system
 import { withAttachmentNotice } from "./attachment-notice";
 export { withAttachmentNotice } from "./attachment-notice";
 import { dependenciesForRuntimeProfile } from "./runtime-profile-routing";
-import { ROLE_CONTEXT_GUIDANCE } from "./role-context-guidance";
+import { appendRoleCapabilityContext } from "./workflow-capability-context";
+import { isContextIndependentRequest, isReadOnlyRoleIntroduction } from "./role-introduction-context";
+import { professionalOutputGuidance } from "./role-context-guidance";
 import { routeCapabilityRun } from "./capability-runtime-routing";
 import type { NativeOutputStaging } from "./native-output-staging";
 import type { NativeSessionOwner } from "./native-session-owner";
@@ -533,6 +535,7 @@ async function executeClaimed(
   const stepSeqBase = run.resumeStepSeqBase ?? 1;
   /* ── step: context_built ── */
   const contextStartedAt = deps.clock.now();
+  const readOnlyIntroduction = run.inputAttachments.length === 0 && isReadOnlyRoleIntroduction(run.inputText);
   const contextInput = sha256(
     JSON.stringify([run.agentVersionId, run.skillVersionIds, run.inputMessageId]),
   );
@@ -628,19 +631,18 @@ async function executeClaimed(
      * 表、一个围栏都没有（记录代理逐请求取证，2026-09-22：一次画像请求 5 次模型调用，
      * 其中两次纯属绕路，最终 4/5 才出围栏）。本轮用不上的工具，本轮就别让模型看见。
      */
-    // `"*"` = 本轮一个工具都不挂：一张工作坊画布是写 ```canvas 围栏写出来的，没有任何工具
-    // 参与其中。实测（2026-09-22）画布请求的提示里工具 schema 仍占约 2 200 token（`write_todos`
+    // `"*"` 不挂工具：画布围栏与自足角色介绍无需执行；同样不注入 wx_remember 指令。
+    // 实测（2026-09-22）画布请求的工具 schema 仍占约 2 200 token（`write_todos`
     // 一个就 4 333 字符），而模型在 4/5 的画布里一次工具都没调——剩下那 1/5 调了也只是绕路：
     // 它把画布委托给 skill，skill 回了 markdown 表格，围栏没了。
-    excludedTools = canvasRequested ? ["*"] : undefined;
+    excludedTools = canvasRequested || readOnlyIntroduction ? ["*"] : undefined;
     system = buildSystemPrompt(catalogHint ? `${run.instructions}\n\n${catalogHint}` : run.instructions, catalogSkills, canvasGuidance, systemPromptMode, {
       // same switch as the canvas dictionary: in `matched` mode the mermaid rules ride along
       // only when the message asks for a diagram (#3749 B1.2)
       visualization: (deps.canvasTemplates?.mode ?? "all") === "all" || mentionsDiagramIntent(run.inputText),
-      // #4344：本轮挂了工具（画布请求一个工具都不挂）才告诉模型怎么用 `wx_remember`。
-      remember: !canvasRequested,
+      remember: !canvasRequested && !readOnlyIntroduction,
     });
-    system = `${system}\n\n${ROLE_CONTEXT_GUIDANCE}`;
+    system = `${await appendRoleCapabilityContext(system, deps, orgId, run)}\n\n${professionalOutputGuidance(contextStartedAt)}`;
     /*
      * #1624 —— 告诉模型它**真的能执行代码**。
      *
@@ -711,25 +713,23 @@ async function executeClaimed(
    * because of it -- especially since #709 ships behind no flag and must not be able to
    * regress runs that never needed history in the first place.
    */
+  const useConversationContext = run.inputAttachments.length > 0 || !isContextIndependentRequest(run.inputText);
   let history: readonly ThreadHistoryMessage[] = [];
-  // F157 —— L1/L2 快照字段。悲观初始化：`l1MessageCount` 只在真正算出 `l1` 之后才前推；
-  // `l2Status` 默认 `"degraded"`、只在两条正常收尾路径（复用已有摘要 / 新摘要写回或竞态丢失）
-  // 上才翻成 `"ok"`——这样"外层 try 整体失败"与"内层 L2 try 自己抛错"两条路径**不必各写一次
-  // 赋值**，天然都停在悲观默认值上，不会有遗漏某条 catch 分支忘记标记降级的风险。
+  // F157：读取历史时 L2 悲观为 degraded；明确隔离本轮上下文时零注入且不改持久状态。
   let l1MessageCount = 0;
   // F190 §1②：L1 已保留消息的 id 集合，供工具轨迹去重判定用（该 run 的写回消息若仍在这个
   // 集合里，说明 L1 原文已经覆盖了它，工具轨迹伪消息要跳过这一轮，见下方 L3 之前那段）。
   // 读取失败时保持空集——空集下 `buildToolTraceMessage` 里"找不到证据说它已被 L1 覆盖"这条
   // 保守规则不会误伤：宁可多算一轮（不跳过），不猜一个可能是错的"已覆盖"结论。
   let l1MessageIds: ReadonlySet<string> = new Set();
-  let l2Status: Exclude<ContextLayerStatus, "not_configured"> = "degraded";
+  let l2Status: Exclude<ContextLayerStatus, "not_configured"> = useConversationContext ? "degraded" : "ok";
   let l2CoveredThroughId: string | null = null;
   try {
     // F154 L2——宽窗口取回（见 `L2_CATCHUP_FETCH_LIMIT` 注释：不撑大 L1，只给 L2 增量判断更多
     // 候选）。L1 仍是纯字符预算裁剪（`trimHistoryToBudget`，与 #709/V8 逐字节相同的函数）。
-    const candidates = await deps.runs.readThreadHistory(
+    const candidates = useConversationContext ? await deps.runs.readThreadHistory(
       orgId, run.threadId, run.inputMessageId, L2_CATCHUP_FETCH_LIMIT,
-    );
+    ) : [];
     const l1 = trimHistoryToBudget(candidates, HISTORY_MAX_CHARS);
     l1MessageCount = l1.length; // F157：这是本轮真正进模型的 L1 条数，读取失败时保持默认 0。
     l1MessageIds = new Set(l1.map((m) => m.id).filter((id): id is string => id !== undefined));
@@ -739,7 +739,7 @@ async function executeClaimed(
     // 与 #709 原本「没历史也能单轮作答」的保守失败模式一致。
     let l2Summary: string | null = null;
     try {
-      const persisted = await deps.runs.readThreadContextState(orgId, run.threadId);
+      const persisted = useConversationContext ? await deps.runs.readThreadContextState(orgId, run.threadId) : null;
       const increment = planLayeredHistoryIncrement(candidates, l1, persisted?.summarizedThroughId ?? null);
       if (increment.toSummarize.length === 0) {
         // 没有新增区间——直接复用已有摘要，本轮零模型调用（V2：不重读全史重算）。
@@ -819,10 +819,10 @@ async function executeClaimed(
    */
   // F190 —— 三态默认值，同 L3 的既有写法：没配 `deps.toolTrace` 就是 "not_configured"；
   // 配了就悲观从 "degraded" 起步，只有真正查询成功才翻 "ok"。
-  let toolTraceStatus: ContextLayerStatus = deps.toolTrace ? "degraded" : "not_configured";
+  let toolTraceStatus: ContextLayerStatus = useConversationContext && deps.toolTrace ? "degraded" : "not_configured";
   let toolTraceRunCount = 0;
   let toolTraceStepCount = 0;
-  if (deps.toolTrace) {
+  if (deps.toolTrace && useConversationContext) {
     try {
       const traceRuns = await deps.toolTrace.recent(
         orgId, run.threadId, run.runId, TOOL_TRACE_RUN_LIMIT,
@@ -876,17 +876,17 @@ async function executeClaimed(
    */
   // F157：L3 三态默认值——没配 `deps.files` 就是 "not_configured"（这次执行根本没接这一层）；
   // 配了就悲观从 "degraded" 起步，只有真正查询成功才翻 "ok"（同 L2 的悲观默认写法）。
-  let l3Status: ContextLayerStatus = deps.files ? "degraded" : "not_configured";
+  let l3Status: ContextLayerStatus = useConversationContext && deps.files ? "degraded" : "not_configured";
   let l3HitCount = 0;
   let l3Sources: readonly string[] = [];
   // F156（design-delta `personal-thread-own-attachment-recall` §2 点 2）：这次 L3 查询走的是
   // 哪条范围分支，由 `run.projectId` 是否为空**在发起查询之前**就已经确定——与查询成不成功、
   // 命中多少条无关（哪怕降级为空，「这次本该查的是哪条分支」仍是一个可以诚实记录的事实）。
   // `deps.files` 未配置时保持 `null`（这次执行根本没有发起 L3 查询）。
-  const l3RetrievalScope: "own-attachment" | "project-retrieval" | null = deps.files
+  const l3RetrievalScope: "own-attachment" | "project-retrieval" | null = deps.files && useConversationContext
     ? (run.projectId === null || run.projectId === "" ? "own-attachment" : "project-retrieval")
     : null;
-  if (deps.files) {
+  if (deps.files && useConversationContext) {
     try {
       const hits = await deps.files.search(
         orgId,
@@ -919,7 +919,7 @@ async function executeClaimed(
 
   // Phase 18 F08 / F17 —— 会话记忆（uc-18-2）与「记住 / 忘掉」卡片说明（uc-18-6），放在 history 最前；
   // 读不到 / 开不了卡只记日志，绝不 fail run（降级纪律见 recall-knowledge.ts turnKnowledgeContext）。
-  const notes = deps.knowledge ? await turnKnowledgeContext(deps.knowledge, deps.memoryCards, { orgId, run }, deps.log, deps.memoryChange) : [];
+  const notes = useConversationContext && deps.knowledge ? await turnKnowledgeContext(deps.knowledge, deps.memoryCards, { orgId, run }, deps.log, deps.memoryChange) : [];
   history = [...requesterMemoryHistory(notes), ...history];
 
   // V9-b 前置 A（#970）：把附件元数据折进模型可见的 content——历史每轮 + 当前触发消息。

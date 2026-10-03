@@ -38,8 +38,6 @@ export function InterviewIntakeStep({ markdown, onChange, onConfirm, pending, on
   }
   return <div data-testid="itv-markdown-intake">
     <InterviewStepHeader title="导入需求">
-      {voiceSessionToken ? <InterviewVoiceInput sessionToken={voiceSessionToken} disabled={pending || working} readOnly={readOnly} onAppend={append} onPreview={setVoicePreview} onBusyChange={(active) => { setVoiceBusy(active); onVoiceBusyChange?.(active); }} /> : <Button variant="outline" disabled={busy || readOnly || !onVoice} onClick={() => void perform(async () => append(await onVoice!()))}><Mic className="size-4" aria-hidden />语音输入</Button>}
-      <Button variant="outline" disabled={busy || readOnly || !(onImportFile || onUploadFile)} onClick={() => fileInput.current?.click()}><FileText className="size-4" aria-hidden />{onUploadFile ? "上传研究文件" : "导入文本文档"}</Button>
       <Button variant="primary" disabled={busy || !markdown.trim()} onClick={() => void perform(onConfirm)}>{busy ? "正在处理…" : "下一步：确认分析"}<ArrowRight className="size-4" aria-hidden /></Button>
     </InterviewStepHeader>
     <section className="rounded-2xl border border-border bg-card p-4 lg:p-5">
@@ -50,6 +48,9 @@ export function InterviewIntakeStep({ markdown, onChange, onConfirm, pending, on
           className="min-h-64 w-full resize-y bg-transparent text-sm leading-7 outline-none focus-visible:ring-2 focus-visible:ring-ring" />
         <div className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-3">
           <div className="flex flex-wrap gap-3">
+      {voiceSessionToken ? <InterviewVoiceInput sessionToken={voiceSessionToken} disabled={pending || working} readOnly={readOnly} onAppend={append} onPreview={setVoicePreview} onBusyChange={(active) => { setVoiceBusy(active); onVoiceBusyChange?.(active); }} /> : <Button variant="outline" disabled={busy || readOnly || !onVoice} onClick={() => void perform(async () => append(await onVoice!()))}><Mic className="size-4" aria-hidden />语音输入</Button>}
+      <Button variant="outline" disabled={busy || readOnly || !(onImportFile || onUploadFile)} onClick={() => fileInput.current?.click()}><FileText className="size-4" aria-hidden />{onUploadFile ? "上传研究文件" : "导入文本文档"}</Button>
+
             <input ref={fileInput} type="file" accept={onUploadFile ? ".txt,.md,.markdown,.pdf,.docx,.pptx,.xlsx,.csv" : ".txt,.md,.markdown,text/plain,text/markdown"} aria-label="导入研究文件" className="sr-only" disabled={busy || readOnly || !(onImportFile || onUploadFile)}
               onChange={(event) => { const file = event.target.files?.[0]; event.target.value = ""; if (file && !readOnly) void perform(async () => { if (onUploadFile) await onUploadFile(file); else if (onImportFile) append(await onImportFile(file)); }); }} />
           </div>

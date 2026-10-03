@@ -11,7 +11,10 @@ for (const line of fs.readFileSync(envFile,"utf8").trimEnd().split("\n")) {
 }
 environment.CN_BOOTSTRAP_PHASE=phase; environment.CN_BOOTSTRAP_SOURCE_SHA=sourceSha;
 if(imageDigest) environment.CN_BOOTSTRAP_IMAGE_DIGEST=imageDigest;
-const result=spawnSync(process.execPath,["--import","tsx","scripts/provision-admin-compatibility.ts"],{
+// Candidate schema may not exist before migrations: prebuild proves only source/input.
+const args=["--import","tsx","scripts/provision-admin-compatibility.ts"];
+if(phase==="prebuild") args.push("--static");
+const result=spawnSync(process.execPath,args,{
   cwd: repository+"/apps/api", env:environment, encoding:"utf8",timeout:45000,maxBuffer:65536,
 });
 // Raw provider/database errors are never propagated. The CLI owns redaction.

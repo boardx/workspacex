@@ -22,6 +22,7 @@ import type {
   RunFailureCode, RunLocator, RunProjection, ThreadHistoryMessage,
 } from "../../src/application/agent-run/ports";
 import { ModelCallError } from "../../src/application/agent-run/ports";
+import { isContextIndependentRequest, isReadOnlyRoleIntroduction } from "../../src/application/agent-run/role-introduction-context";
 import { ROLE_CONTEXT_GUIDANCE } from "../../src/application/agent-run/role-context-guidance";
 import { classifyModelCallFailureReason } from "../../src/domain/agent-run/model-call-failure-reason";
 import type { Guarded } from "../../src/application/security/permission-filter";
@@ -448,18 +449,30 @@ describe("#3403 ④ a run that dies with a tool call still open blames the tool,
   });
 });
 
-it("selected role and memory boundary reach the real executor model port without deleting personal history", async () => {
+it.each(["你可以做什么？", "请分析附件中的战略计划"])("role introduction excludes personal history while business turns preserve it: %s", async (inputText) => {
   const instructions = "Turn discovery signals into prioritized problem statements and PRDs.";
-  const run = baseRun({ instructions, inputText: "你可以做什么？", projectId: null, skillVersionIds: [] });
+  const run = baseRun({ instructions, inputText, projectId: null, skillVersionIds: [] });
   const store = fakeStore(run, []);
-  store.readThreadHistory = async () => [{ role: "user", content: "我的方向是佛学的冥想" }];
+  const history = [{ role: "user" as const, content: "我的方向是佛学的冥想" }];
+  const readHistory = vi.fn(async () => history);
+  store.readThreadHistory = readHistory;
   let received: ModelCallInput | undefined;
   const model: ModelCallPort = { complete: async (input) => { received = input; return { text: "captured", inputTokens: 1, outputTokens: 1 }; } };
   await executeQueuedRuns(deps(store, model), { orgId: ORG });
   expect(received?.system).toContain(instructions);
   expect(received?.system).toContain(ROLE_CONTEXT_GUIDANCE);
-  expect(received?.history).toContainEqual({ role: "user", content: "我的方向是佛学的冥想" });
-  expect(received?.user).toBe("你可以做什么？");
+  expect(received?.system).toContain("1970-01-01T00:00:00.000Z");
+  if (inputText === "你可以做什么？") {
+    expect(received?.history ?? []).toHaveLength(0);
+    expect(readHistory).not.toHaveBeenCalled();
+    expect(received?.excludedTools).toEqual(["*"]);
+  } else {
+    expect(received?.history).toContainEqual(history[0]);
+    expect(readHistory).toHaveBeenCalledOnce();
+    expect(received?.excludedTools).toBeUndefined();
+  }
+  expect(history).toEqual([{ role: "user", content: "我的方向是佛学的冥想" }]);
+  expect(received?.user).toBe(inputText);
   // This checks transport and boundaries, not real-model obedience.
 });
 
@@ -477,10 +490,111 @@ it.each(["你是谁？", "请分析附件中的战略计划"])("recalled first-p
   await executeQueuedRuns(d, { orgId: ORG });
   expect(received?.system).toContain(instructions);
   const recalled = received?.history?.filter(m => m.content.includes(statement));
-  expect(recalled).toHaveLength(1);
-  expect(recalled![0]!.role).toBe("user");
-  expect(recalled![0]!.content).toContain("用户背景参考材料");
+  expect(recalled).toHaveLength(inputText === "你是谁？" ? 0 : 1);
+  if (inputText !== "你是谁？") {
+    expect(recalled![0]!.role).toBe("user");
+    expect(recalled![0]!.content).toContain("用户背景参考材料");
+  }
   expect(received?.user).toBe(inputText);
   expect(store.failedWith).toBeNull();
   // Captured execution input is protocol evidence, not real-model role obedience.
+});
+
+
+it.each(["catalog", "unavailable"])("frozen workflow authority reaches the executor model without importing unauthorized catalog items: %s", async (mode) => {
+  const run = baseRun({ skillVersionIds: [], instructions: "你是研究与知识分析师（D002）" });
+  const store = fakeStore(run, []);
+  store.readRunWorkflowContext = async () => ({ agentId: run.agentId, agentVersionId: run.agentVersionId, requesterUserId: run.requesterUserId, workflowAllowlist: ["W001"] });
+  let received: ModelCallInput | undefined;
+  const model: ModelCallPort = { complete: async (input) => { received = input; return { text: "capture only", inputTokens: 1, outputTokens: 1 }; } };
+  const listRunnable = vi.fn(async () => {
+    if (mode === "unavailable") throw new Error("catalog unavailable");
+    return { items: [
+      { key: "research-to-brief", title: "研究到简报", version: 1, inputSchema: { type: "object" } },
+      { key: "unregistered-foreign-workflow", title: "OTHER_ROLE_WORKFLOW", version: 1, inputSchema: {} },
+    ] };
+  });
+  const start = vi.fn();
+  await executeQueuedRuns({ ...deps(store, model), workflowStarts: { start, listRunnable } }, { orgId: ORG });
+  expect(received?.system).toContain('"allowedIds":["W001"]');
+  expect(received?.system).not.toContain("OTHER_ROLE_WORKFLOW");
+  expect(received?.system).toContain(`"availability":"${mode === "catalog" ? "checked" : "unknown"}"`);
+  if (mode === "catalog") expect(received?.system).toContain('"workflowId":"W001","key":"research-to-brief","title":"研究到简报","version":1');
+  expect(listRunnable).toHaveBeenCalledWith(ORG, run.requesterUserId, run.agentId);
+  expect(start).not.toHaveBeenCalled();
+});
+
+
+it("read-only introductions omit persisted L2 summaries without writing or deleting them", async () => {
+  const persisted = { summary: "我的方向是佛学的冥想", summarizedThroughId: "old-message", summarizedThroughAt: "2026-10-02T00:00:00.000Z", version: 2 };
+  const store = fakeStore(baseRun({ inputText: "你是谁？", skillVersionIds: [] }), []);
+  const read = vi.fn(async () => persisted);
+  const write = vi.fn(async () => true);
+  const files = { search: vi.fn(async () => []) };
+  const toolTrace = { recent: vi.fn(async () => []) };
+  store.readThreadContextState = read;
+  store.upsertThreadContextState = write;
+  let received: ModelCallInput | undefined;
+  await executeQueuedRuns({ ...deps(store, { complete: async (input) => { received = input; return { text: "capture", inputTokens: 1, outputTokens: 1 }; } }), files, toolTrace }, { orgId: ORG });
+  expect(received?.history ?? []).toHaveLength(0);
+  expect(read).not.toHaveBeenCalled();
+  expect(write).not.toHaveBeenCalled();
+  expect(files.search).not.toHaveBeenCalled();
+  expect(toolTrace.recent).not.toHaveBeenCalled();
+  expect(persisted.summary).toBe("我的方向是佛学的冥想");
+});
+
+
+it.each(["D002", "D003", "D011", "D005"])("recognizes the exact acceptance introduction without treating mixed work as read-only: %s", (role) => {
+  const text = `验收 ${role}：请准确介绍你的角色背景、专业方法、可用 Skills 与 workflow、产物类型和权限边界。仅依据本角色当前配置，不引用其他对话记忆；没有的能力请明确说明。先不要执行任务或调用外部系统。`;
+  expect(isReadOnlyRoleIntroduction(text)).toBe(true);
+  expect(isReadOnlyRoleIntroduction(text.replace("专业方法", "专业方法并生成研究报告"))).toBe(false);
+  expect(isReadOnlyRoleIntroduction("请根据上次对话介绍你的角色背景")).toBe(false);
+});
+
+
+it.each(["[P1，反馈]", "[S1]", "[T1,internal]"])("explicit inline source boundaries %s exclude personal history while keeping task tools", async (source) => {
+  const text = `请仅使用以下合成资料分析并保存草稿。\n${source} 8人中6人找不到入口。`;
+  expect(isContextIndependentRequest(text)).toBe(true);
+  expect(isContextIndependentRequest(`${text} 请结合之前对话。`)).toBe(false);
+  const store = fakeStore(baseRun({ inputText: text, skillVersionIds: [] }), []);
+  const read = vi.fn(async () => [{ role: "user" as const, content: "用户的无关兴趣" }]);
+  store.readThreadHistory = read;
+  let received: ModelCallInput | undefined;
+  await executeQueuedRuns(deps(store, { complete: async (input) => { received = input; return { text: "capture", inputTokens: 1, outputTokens: 1 }; } }), { orgId: ORG });
+  expect(received?.history ?? []).toHaveLength(0);
+  expect(received?.excludedTools).toBeUndefined();
+  expect(read).not.toHaveBeenCalled();
+});
+
+it.each(["[S1", "[S1，反馈", "[S1，]", "[S]", "[1]", "S1", "正文里的[S1]"])("does not isolate context for malformed source marker %s", (source) => {
+  expect(isContextIndependentRequest(`请仅使用以下资料。\n${source} 8人。`)).toBe(false);
+});
+
+
+it("an attachment keeps history and task tools even when the text is a role question", async () => {
+  const store = fakeStore(baseRun({ inputText: "你是谁？", skillVersionIds: [], inputAttachments: [{ filename: "context.md", mime: "text/markdown", extractionStatus: "extracted", extractedExcerpt: "当前任务材料" }] }), []);
+  const read = vi.fn(async () => [{ role: "user" as const, content: "先前业务上下文" }]);
+  store.readThreadHistory = read;
+  let received: ModelCallInput | undefined;
+  await executeQueuedRuns(deps(store, { complete: async (input) => { received = input; return { text: "capture", inputTokens: 1, outputTokens: 1 }; } }), { orgId: ORG });
+  expect(read).toHaveBeenCalledOnce();
+  expect(received?.history).toContainEqual({ role: "user", content: "先前业务上下文" });
+  expect(received?.excludedTools).toBeUndefined();
+});
+
+
+it("an introduction explicitly referring to earlier conversation retains its context", async () => {
+  const text = "请介绍你的角色背景、参考我之前的对话说明适合我的帮助。先不要执行任务或调用外部系统。";
+  expect(isReadOnlyRoleIntroduction(text)).toBe(false);
+  expect(isContextIndependentRequest(text)).toBe(false);
+  expect(isContextIndependentRequest("请仅使用以下资料，不要参考之前对话。\n[P1，反馈] 8人。")).toBe(true);
+  const store = fakeStore(baseRun({ inputText: text, skillVersionIds: [] }), []);
+  const read = vi.fn(async () => [{ role: "user" as const, content: "先前业务上下文" }]);
+  store.readThreadHistory = read;
+  let received: ModelCallInput | undefined;
+  await executeQueuedRuns(deps(store, { complete: async (input) => { received = input; return { text: "capture", inputTokens: 1, outputTokens: 1 }; } }), { orgId: ORG });
+  expect(read).toHaveBeenCalledOnce();
+  expect(received?.history).toContainEqual({ role: "user", content: "先前业务上下文" });
+  expect(received?.excludedTools).toBeUndefined();
 });

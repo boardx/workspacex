@@ -1,0 +1,11 @@
+
+ RUN  v2.1.9 /private/tmp/wsx-digital-design-20261003/apps/api
+
+[db-isolation] selection is DB-free (tests/support/db-free-tests.ts); skipping database setup
+ ✓ tests/agent-runtime/execute-run-progress.test.ts (35 tests) 31ms
+
+ Test Files  1 passed (1)
+      Tests  35 passed (35)
+   Start at  13:11:45
+   Duration  3.05s (transform 1.63s, setup 16ms, collect 2.12s, tests 31ms, environment 0ms, prepare 76ms)
+

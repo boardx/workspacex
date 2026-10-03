@@ -1,0 +1,54 @@
+[stack-admission] load1=3.14 cores=10 perCore=0.31 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mur9wjtq-bb98d71c-431f8792f78a db=wsx_431f8792f78a813c833c compose=wsx-431f8792f78a813c833c pg=20794 redis=21794 api=24794 web=25794 sandbox=26794 model=27794 deep-agent=28794 asr=29794 vision=30794 loopback-sandbox=31794 mail=19794
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/research-5056-fixes/workspacex/apps/api
+
+[db-isolation] db=wsx_431f8792f78a813c833c capacity=100 current=6 required=32
+ ❯ tests/research/guided-report-quote-references.test.ts (18 tests | 2 failed) 9ms
+   × accepts one complete json code fence through the existing research JSON codec 3ms
+     → expected [ 'source:official/chunk:0', …(1) ] to deeply equal []
+   × accepts one complete  code fence through the existing research JSON codec 0ms
+     → expected [ 'source:official/chunk:0', …(1) ] to deeply equal []
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/research/guided-report-quote-references.test.ts > accepts one complete json code fence through the existing research JSON codec
+ FAIL  tests/research/guided-report-quote-references.test.ts > accepts one complete  code fence through the existing research JSON codec
+AssertionError: expected [ 'source:official/chunk:0', …(1) ] to deeply equal []
+
+- Expected
++ Received
+
+- Array []
++ Array [
++   "source:official/chunk:0",
++   "source:official/chunk:1",
++ ]
+
+ ❯ tests/research/guided-report-quote-references.test.ts:73:27
+     71|   const output = JSON.stringify({ evaluations: [evaluation(0, [match("…
+     72|   const result = collectChunkEvidence("```" + language + "\n" + output…
+     73|   expect(result.retryIds).toEqual([]);
+       |                           ^
+     74|   expect(result.valid.get(chunks[0]!.chunkId)?.[0]?.evidence.quote).to…
+     75| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 16 passed (18)
+   Start at  02:05:02
+   Duration  3.63s (transform 517ms, setup 4ms, collect 643ms, tests 9ms, environment 0ms, prepare 27ms)
+
+[db-isolation] db=wsx_431f8792f78a813c833c peak_connections=1
+undefined
+/Users/shenyangjun/.codex/worktrees/research-5056-fixes/workspacex/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/research/guided-report-quote-references.test.ts
+[timing] pnpm --filter api exec vitest run tests/research/guided-report-quote-references.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：4s
+  清理：0s
+  总计：4s

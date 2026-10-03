@@ -1,0 +1,355 @@
+- alert
+- link "跳到主要内容":
+  - /url: "#wsx-main-content"
+- main:
+  - button "对话列表"
+  - generic: 验收 D002：请准确介绍你的角色背景、专业方…
+  - text: 仅自己可见
+  - status: 本次处理已结束，请查看任务结果。
+  - generic: 验收 D002：请准确介绍你的角色背景、专业方法、可用 Skills 与 workflow、产物类型和权限边界。仅依据本角色当前配置，不引用其他对话记忆；没有的能力请明确说明。先不要执行任务或调用外部系统。
+  - paragraph:
+    - generic: 已记下待办：用户要求验收 D002：准确介绍角色…
+    - generic: ·
+    - button "撤销"
+  - button "记住这句":
+  - button "Copy":
+  - button "执行过程 · 有失败步骤 · 历时 01:54 · 工具 8 次":
+    - generic: 执行过程 · 有失败步骤 · 历时 01:54 · 工具 8 次
+  - generic: 计划 5/5
+  - list:
+    - generic: 准确介绍角色背景
+    - generic: 准确介绍专业方法
+    - generic: 准确介绍可用 Skills 与 workflow
+    - generic: 准确介绍产物类型
+    - generic: 准确介绍权限边界
+    - generic "2 个动作"
+  - generic: 研究与知识分析师
+  - paragraph:
+    - text: 好的，以下是依据本角色当前系统配置所作的准确说明，
+    - strong: 严格限定于本轮对话中明确赋予的能力与约束
+    - text: ，不引用任何外部记忆、历史对话或未经声明的隐含权限：
+  - separator
+  - heading "一、角色背景" [level=3]
+  - paragraph:
+    - text: 你当前交互的 Agent 是一个
+    - strong: 通用型知识协作者（General-Purpose Knowledge Collaborator）
+    - text: ，核心职责是：
+  - list:
+    - listitem: 基于结构化工具链（文件操作、搜索、执行、知识检索等）完成用户交付的分析、研究、整理、生成类任务；
+    - listitem: 严格遵循「渐进式披露」原则：仅在确认技能适用后才加载并执行其完整流程；
+    - listitem: 不具备预设领域专家身份（如法律、医疗、编程导师等），所有专业能力均需通过显式调用 Skills 或外部知识源获得；
+    - strong: 无自主目标、无长期记忆（除非用户明确要求并点击确认卡片）、无跨会话上下文继承能力。
+  - separator
+  - heading "二、专业方法" [level=3]
+  - paragraph:
+    - text: 采用
+    - strong: 可验证、可回溯、可中断
+    - text: 的三阶工作流：
+  - list:
+    - strong: 定向探查（Discovery）
+    - text: ：使用
+    - code: ls
+    - text: /
+    - code: glob
+    - text: /
+    - code: grep
+    - text: 快速定位目标文件或内容片段；
+    - strong: 受控执行（Execution）
+    - text: ：对文本进行
+    - code: read_file
+    - text: →
+    - code: edit_file
+    - text: 或
+    - code: write_file
+    - text: ，对命令使用
+    - code: execute
+    - text: ，对知识使用
+    - code: wx_knowledge_search
+    - text: /
+    - code: wx_knowledge_read
+    - text: ；
+    - strong: 证据锚定（Citation）
+    - text: ：凡依赖外部来源的结论，必通过
+    - code: wx_cite
+    - text: 显式绑定 sourceId + versionId，确保每条主张均可追溯至原始材料。
+    - text: →
+    - strong: 不猜测、不编造、不默认假设
+    - text: ；所有未确认的参数、范围、意图，均通过
+    - code: confirm_task_intent
+    - text: /
+    - code: fill_run_params
+    - text: 主动澄清。
+  - separator
+  - heading "三、可用 Skills 与 Workflow" [level=3]
+  - list:
+    - strong: 当前 Skills 库状态
+    - text: ：
+    - code: /skills/
+    - text: 路径下
+    - strong: 暂无可用技能
+    - text: （系统提示：“No skills available yet.”）；
+    - text: 因此：
+    - list:
+      - listitem: ❌ 无法调用任何预置 Skills（如 web-research、code-review、data-cleaning 等）；
+      - text: ✅ 可随时通过
+      - code: read_file
+      - text: 读取
+      - code: /skills/
+      - text: 下新创建的 Skill 文件（若用户后续上传）；
+      - listitem: ✅ 所有任务均通过基础工具链（文件、搜索、执行、知识库）完成，无需 Skills 依赖。
+  - separator
+  - heading "四、产物类型" [level=3]
+  - paragraph:
+    - text: 可生成并交付以下
+    - strong: 确定性、可审计
+    - text: 的产物：
+  - list:
+    - listitem: ✅ 文本类：结构化报告、对比分析、步骤清单、会议纪要、代码片段、SQL 查询、Markdown 文档；
+    - text: ✅ 文件类：在
+    - code: /workspace/
+    - text: 下创建/编辑任意文本文件（
+    - code: .txt
+    - text: ","
+    - code: .md
+    - text: ","
+    - code: .py
+    - text: ","
+    - code: .sql
+    - text: 等）；
+    - text: ✅ 知识类：带编号引用的结论（[1][2]…），链接至
+    - code: wx_knowledge_search
+    - text: 返回的确切 sourceId；
+    - listitem: ❌ 不生成：未经用户确认的长期记忆、自动保存的草稿、脱离 workspace 的本地文件、不可溯源的摘要。
+  - separator
+  - heading "五、权限边界" [level=3]
+  - paragraph: 严格受限于以下硬性约束：
+  - list:
+    - strong: 数据访问
+    - text: ：
+    - list:
+      - text: ✅ 可读取
+      - code: /workspace/
+      - text: （当前会话沙盒）、
+      - code: /inputs/
+      - text: （用户上传附件）、知识库（经授权的
+      - code: current-files
+      - text: /
+      - code: organization-index
+      - text: ）；
+      - text: ❌ 不可访问
+      - code: /large_tool_results/
+      - text: （虚拟挂载，shell 不可达）、用户本地文件系统、未授权项目、个人记忆（除非用户点击「记住」卡片）；
+    - strong: 操作权限
+    - text: ：
+    - list:
+      - text: ✅ 可创建/编辑/删除
+      - code: /workspace/
+      - text: 内文件；
+      - text: ❌ 不可删除
+      - code: /inputs/
+      - text: 或知识库中的原始资料；
+    - strong: 升级机制
+    - text: ：
+    - list:
+      - text: 遇到「超出职责范围的事项」「删除或覆盖组织数据」「代表组织对外承诺」「使用未授权个人信息」四类情形时，必须调用
+      - code: escalate_matter
+      - text: 交由人类裁决；
+    - strong: 责任边界
+    - text: ：
+    - list:
+      - listitem: 不承担事实核查最终责任（依赖用户提供可信源或自行验证）；
+      - listitem: 不替代专业资质（如法律意见、医疗诊断、财务建议）；
+      - listitem: 所有输出均标注依据，不以“AI 判断”代替证据呈现。
+  - separator
+  - paragraph: 以上说明完全基于本角色当前配置，无任何外延或推测。如需启用特定 Skills、接入新知识源或扩展权限，请明确指令，我将依规响应。
+  - paragraph:
+    - text: 好的，以下是依据本角色当前系统配置所作的准确说明，
+    - strong: 严格限定于本轮对话中明确赋予的能力与约束
+    - text: ，不引用任何外部记忆、历史对话或未经声明的隐含权限：
+  - separator
+  - heading "一、角色背景" [level=3]
+  - paragraph:
+    - text: 你当前交互的 Agent 是一个
+    - strong: 通用型知识协作者（General-Purpose Knowledge Collaborator）
+    - text: ，核心职责是：
+  - list:
+    - listitem: 基于结构化工具链（文件操作、搜索、执行、知识检索等）完成用户交付的分析、研究、整理、生成类任务；
+    - listitem: 严格遵循「渐进式披露」原则：仅在确认技能适用后才加载并执行其完整流程；
+    - listitem: 不具备预设领域专家身份（如法律、医疗、编程导师等），所有专业能力均需通过显式调用 Skills 或外部知识源获得；
+    - strong: 无自主目标、无长期记忆（除非用户明确要求并点击确认卡片）、无跨会话上下文继承能力。
+  - separator
+  - heading "二、专业方法" [level=3]
+  - paragraph:
+    - text: 采用
+    - strong: 可验证、可回溯、可中断
+    - text: 的三阶工作流：
+  - list:
+    - strong: 定向探查（Discovery）
+    - text: ：使用
+    - code: ls
+    - text: /
+    - code: glob
+    - text: /
+    - code: grep
+    - text: 快速定位目标文件或内容片段；
+    - strong: 受控执行（Execution）
+    - text: ：对文本进行
+    - code: read_file
+    - text: →
+    - code: edit_file
+    - text: 或
+    - code: write_file
+    - text: ，对命令使用
+    - code: execute
+    - text: ，对知识使用
+    - code: wx_knowledge_search
+    - text: /
+    - code: wx_knowledge_read
+    - text: ；
+    - strong: 证据锚定（Citation）
+    - text: ：凡依赖外部来源的结论，必通过
+    - code: wx_cite
+    - text: 显式绑定 sourceId + versionId，确保每条主张均可追溯至原始材料。
+    - text: →
+    - strong: 不猜测、不编造、不默认假设
+    - text: ；所有未确认的参数、范围、意图，均通过
+    - code: confirm_task_intent
+    - text: /
+    - code: fill_run_params
+    - text: 主动澄清。
+  - separator
+  - heading "三、可用 Skills 与 Workflow" [level=3]
+  - list:
+    - strong: 当前 Skills 库状态
+    - text: ：已通过
+    - code: ls /skills/
+    - text: 确认目录存在但
+    - strong: 无任何子文件或子目录
+    - text: （返回 “No files found”），且
+    - code: read_file /skills/
+    - text: 明确报错 “not_a_file”，证实
+    - code: /skills/
+    - text: 是空目录而非文件；
+    - text: 因此：
+    - list:
+      - listitem: ❌ 无法调用任何预置 Skills（如 web-research、code-review、data-cleaning 等）；
+      - text: ✅ 可随时通过
+      - code: read_file
+      - text: 读取
+      - code: /skills/
+      - text: 下新创建的 Skill 文件（若用户后续上传）；
+      - listitem: ✅ 所有任务均通过基础工具链（文件、搜索、执行、知识库）完成，无需 Skills 依赖。
+  - separator
+  - heading "四、产物类型" [level=3]
+  - paragraph:
+    - text: 可生成并交付以下
+    - strong: 确定性、可审计
+    - text: 的产物：
+  - list:
+    - listitem: ✅ 文本类：结构化报告、对比分析、步骤清单、会议纪要、代码片段、SQL 查询、Markdown 文档；
+    - text: ✅ 文件类：在
+    - code: /workspace/
+    - text: 下创建/编辑任意文本文件（
+    - code: .txt
+    - text: ","
+    - code: .md
+    - text: ","
+    - code: .py
+    - text: ","
+    - code: .sql
+    - text: 等）；
+    - text: ✅ 知识类：带编号引用的结论（[1][2]…），链接至
+    - code: wx_knowledge_search
+    - text: 返回的确切 sourceId；
+    - listitem: ❌ 不生成：未经用户确认的长期记忆、自动保存的草稿、脱离 workspace 的本地文件、不可溯源的摘要。
+  - separator
+  - heading "五、权限边界" [level=3]
+  - paragraph: 严格受限于以下硬性约束：
+  - list:
+    - strong: 数据访问
+    - text: ：
+    - list:
+      - text: ✅ 可读取
+      - code: /workspace/
+      - text: （当前会话沙盒）、
+      - code: /inputs/
+      - text: （用户上传附件）、知识库（经授权的
+      - code: current-files
+      - text: /
+      - code: organization-index
+      - text: ）；
+      - text: ❌ 不可访问
+      - code: /large_tool_results/
+      - text: （虚拟挂载，shell 不可达）、用户本地文件系统、未授权项目、个人记忆（除非用户点击「记住」卡片）；
+    - strong: 操作权限
+    - text: ：
+    - list:
+      - text: ✅ 可创建/编辑/删除
+      - code: /workspace/
+      - text: 内文件；
+      - text: ❌ 不可删除
+      - code: /inputs/
+      - text: 或知识库中的原始资料；
+    - strong: 升级机制
+    - text: ：
+    - list:
+      - text: 遇到「超出职责范围的事项」「删除或覆盖组织数据」「代表组织对外承诺」「使用未授权个人信息」四类情形时，必须调用
+      - code: escalate_matter
+      - text: 交由人类裁决；
+    - strong: 责任边界
+    - text: ：
+    - list:
+      - listitem: 不承担事实核查最终责任（依赖用户提供可信源或自行验证）；
+      - listitem: 不替代专业资质（如法律意见、医疗诊断、财务建议）；
+      - listitem: 所有输出均标注依据，不以“AI 判断”代替证据呈现。
+  - button "复制消息":
+  - button "对 Agent 提反馈":
+  - button "有用":
+  - button "待改进":
+  - button "落地为产物（草稿）":
+  - button "为什么用到它":
+    - text: 为什么用到它
+  - paragraph:
+    - text: 已记下 1 条
+    - generic: ·
+    - button "查看"
+    - generic: ·
+    - button "撤销"
+  - button "回到最新消息":
+  - button "生成PESTEL 分析"
+  - button "关闭这条建议":
+  - button "生成价值主张宣言"
+  - button "关闭这条建议":
+  - button "生成AI 商业模型画布"
+  - button "关闭这条建议":
+  - textbox "消息内容":
+    - /placeholder: 输入任务目标，Shift+Enter 换行，Enter 发送
+  - button "材料":
+  - button "技能" [active]:
+  - generic "打开后，生成 PDF / Word / Excel / PPT 全程不再询问权限":
+    - generic: 自动批准文档生成所需权限
+    - switch "自动批准文档生成所需权限" [checked]
+  - button "当前数字人：研究与知识分析师，点击更换":
+    - img "头像 dh-02-research-knowledge-analyst":
+    - generic: 研究与知识分析师
+    - generic: ▾
+  - button "与研究与知识分析师实时对话":
+    - generic: 实时对话
+  - button "开始语音输入":
+    - generic: 语音输入
+  - button "输入设备与录音选项":
+  - button "发送" [disabled]:
+  - button "打开任务进度与成果":
+- navigation "主导航（移动端）":
+  - link "对话":
+    - /url: /chat
+    - generic: 对话
+  - link "项目":
+    - /url: /projects
+    - generic: 项目
+  - link "任务":
+    - /url: /tasks
+    - generic: 任务
+  - link "我":
+    - /url: /profile
+    - generic: 我

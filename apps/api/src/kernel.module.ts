@@ -192,7 +192,7 @@ import { appConfig, diagnosticsReaderConfig } from "./infrastructure/db/pg-confi
 import { PgDatabase, pgHealthProbe } from "./infrastructure/db/pg-database";
 import { ConsoleLogger } from "./infrastructure/logging/console-logger";
 import { ERROR_LOG_PORT } from "./application/ports/error-log.port";
-import { DEBUG_TRACE_PORT } from "./application/ports/debug-trace.port";
+import { DEBUG_TRACE_PORT, type DebugTracePort } from "./application/ports/debug-trace.port";
 import { DebugRecorder, debugRecorderOptionsFromEnv } from "./application/diagnostics/debug-recorder";
 import { PgDebugEventStore } from "./infrastructure/diagnostics/pg-debug-event-store";
 import { DEBUG_REQUEST_RECORDER, DebugRequestRecorder } from "./interface/middleware/debug-request-recorder";
@@ -2828,7 +2828,7 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
     { provide: GUIDED_RUNTIME_STORE, useFactory: (db: DatabasePort) => new PgGuidedRuntimeStore(db), inject: [DATABASE_PORT] },
     { provide: GUIDED_SEARCH_PORT, useFactory: () => new GoogleGuidedSearch() },
     { provide: GUIDED_RUNTIME_SERVICE,
-      useFactory: (store: GuidedRuntimeStore, model: ModelCallPort, search: GuidedSearchPort, db: DatabasePort, identities: IdentityRepository, decisions: DecisionIdFactory) => {
+      useFactory: (store: GuidedRuntimeStore, model: ModelCallPort, search: GuidedSearchPort, db: DatabasePort, identities: IdentityRepository, decisions: DecisionIdFactory, debugTrace: DebugTracePort) => {
         const config = readModelProviderConfig();
         // Report streaming is a research capability, independent of chat's rollout flag.
         const configured = new ConfiguredModelProvider({ ...config, streamEnabled: true });
@@ -2838,9 +2838,9 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
             ? configured.completeStream!(input, onDelta)
             : model.completeStream ? model.completeStream(input, onDelta) : model.complete(input),
         };
-        return new GuidedRuntimeService(store, model, search, undefined, reportModel, new PgGuidedInternalSourceAccess(db, identities, decisions));
+        return new GuidedRuntimeService(store, model, search, undefined, reportModel, new PgGuidedInternalSourceAccess(db, identities, decisions), debugTrace);
       },
-      inject: [GUIDED_RUNTIME_STORE, MODEL_CALL_PORT, GUIDED_SEARCH_PORT, DATABASE_PORT, IDENTITY_REPOSITORY, DECISION_ID_FACTORY] },
+      inject: [GUIDED_RUNTIME_STORE, MODEL_CALL_PORT, GUIDED_SEARCH_PORT, DATABASE_PORT, IDENTITY_REPOSITORY, DECISION_ID_FACTORY, DEBUG_TRACE_PORT] },
     {
       provide: GUIDED_RESEARCH_SESSION_REPOSITORY,
       useFactory: (db: DatabasePort) => new PgGuidedResearchSessionRepository(db),

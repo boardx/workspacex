@@ -32,7 +32,18 @@ export function LiveBoard({ boardId, onSelectionChange }: { boardId: string; onS
   const presentationRef=useRef<WhiteboardPresentationState|null>(null),dispatchTail=useRef(Promise.resolve()),viewportTimer=useRef<ReturnType<typeof setTimeout>|null>(null),pendingViewport=useRef<{x:number;y:number;zoom:number}|null>(null);
   const roomId=search.get('room')??'default',proposalId=search.get('proposal'),deviceId=search.get('device');
   useEffect(()=>{let active=true;if(proposalId)void readAIProposal(boardId,proposalId).then(value=>{if(active)setProposal(value)}).catch(()=>{});return()=>{active=false};},[boardId,proposalId]);
-  useEffect(()=>{let active=true;const refresh=()=>void readPresentation(boardId,roomId).then(value=>{if(active)setPresentation(value)}).catch(()=>{});refresh();const timer=setInterval(refresh,2000);return()=>{active=false;clearInterval(timer)};},[boardId,roomId]);
+  useEffect(()=>{
+    const controller=new AbortController();let inFlight=false;
+    const refresh=async()=>{
+      if(controller.signal.aborted||inFlight)return;
+      inFlight=true;
+      try{const value=await readPresentation(boardId,roomId,controller.signal);if(!controller.signal.aborted)setPresentation(value);}
+      catch(error){if(!controller.signal.aborted&&!(error instanceof DOMException&&error.name==='AbortError'))setPresentation(null);}
+      finally{inFlight=false;}
+    };
+    void refresh();const timer=setInterval(()=>void refresh(),2000);
+    return()=>{clearInterval(timer);controller.abort();};
+  },[boardId,roomId]);
   useEffect(()=>{let active=true;if(!deviceId){setRoomReconnectToken(null);return;}const key=`board-room:${boardId}:${roomId}:${deviceId}`,reconnectToken=sessionStorage.getItem(key)??undefined;void joinBoardRoom(boardId,{roomId,deviceId,deviceKind:'meeting-display',...(reconnectToken?{reconnectToken}:{})}).then(identity=>{if(!active)return;sessionStorage.setItem(key,identity.reconnectToken);setRoomActorId(identity.actorId);setRoomReconnectToken(identity.reconnectToken)}).catch(()=>{if(active){setRoomActorId(null);setRoomReconnectToken(null)}});return()=>{active=false};},[boardId,roomId,deviceId]);
   useEffect(() => {
     let active = true; const document = createWhiteboardDocument(); let provider: WhiteboardProvider | undefined;

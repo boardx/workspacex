@@ -4,7 +4,7 @@
 
 当前 canonical provision 的顺序是 `migrate → bootstrap`。`migrate` 成功后，bootstrap 才首次执行 `scripts/provision-admin.ts`，此时才发现镜像入口、环境输入、schema、权限、存量管理员身份或 Agent seed 闭包不兼容，会留下“迁移已执行但发布回滚”的高成本失败。
 
-本 preflight 分两阶段把这些兼容性判断移到发布构建前和镜像 seal 后、prepare/activate 前。它对生产数据库只读，不创建账号、组织、成员、Agent 或版本，不修改密码，不取得 advisory write lock。
+构建前只检查源码/输入静态闭包；迁移后对目标数据库执行完整动态兼容性判断。它对生产数据库只读，不创建账号、组织、成员、Agent 或版本，不修改密码，不取得 advisory write lock。
 
 ## 运行边界
 
@@ -99,7 +99,7 @@
 }
 ```
 
-prebuild 机器结果的 `phase` 改为 `prebuild`，删除 `imageDigest`，并以 `sourceEntrypoint` 取代 `imageEntrypoint`。两次结果分别经脱敏后计算 SHA-256，分别作为聚合预检 `bootstrap.compatibility.evidenceSha256`。`ready=true` 还必须满足 stdout 恰好一个机器记录。prebuild 失败时 `buildStarted=false`；preactivate 失败时不得激活，且旧服务必须保持可用。
+prebuild 真实 `--static` 结果使用 `sourceEntrypoint`，无 imageDigest；readOnlyTransaction=false，schema/permission/agentSeedContract=false，stateClass=unknown。聚合 evidenceMode=source-static 只允许 build，preactivate 必须 database-dynamic 且全部动态检查通过。两次结果分别经脱敏后计算 SHA-256，分别作为聚合预检 `bootstrap.compatibility.evidenceSha256`。`ready=true` 还必须满足 stdout 恰好一个机器记录。prebuild 失败时 `buildStarted=false`；preactivate 失败时不得激活，且旧服务必须保持可用。
 
 ## 反证验证
 
@@ -115,3 +115,12 @@ prebuild 机器结果的 `phase` 改为 `prebuild`，删除 `imageDigest`，并�
 8. 在 stdout 前加一行 pnpm 噪声，机器协议门必须拒绝。
 
 生产只运行无写版本；上述破坏性反证全部在隔离测试数据库和测试镜像中执行。
+
+## 顺序事故（#5166）
+
+旧生产库缺候选迁移的新 Agent role 列导致提前检查阻止构建。prebuild source wrapper 只运行 --static；assembler/validator 禁止静态结果宣称 DB 成功或用于激活。动态缺列、权限、seed 和只读守卫反证保留。该修复不实现维护 lane，也不把 build-ready 当 release-ready。现有 verifier 从 exact app revision 加载 validator，无 operational override；要实际使用必须冻结包含修复的新候选并重新验收，不能将新验证器伪标旧 9b25。
+### Maintenance ordering boundary (#5221)
+
+The normal production-dynamic preactivate gate must not be weakened to work around an old schema. `runMaintenanceRelease` is a separate explicit coordinator that places immutable offline preparation before schema validation, then requires a release lock, real three-database recovery verifier and full-writer hold/drain before migration. Production dynamic and preactivate remain mandatory after migration and before activation. After any unknown/failure outcome actual hold presence and blocked-write readback are required before claiming writes held or requesting database recovery. Unknown resumption or hold clearing retains the lock for reconciliation; hold presence is not asserted without independent readback, never automatic restore or image-only rollback.
+
+The current installed maintenance admission deliberately rejects because there is no trusted production three-database recovery adapter. The isolated restore-fidelity engine is target-bound evidence, not a production recovery claim. Local injected tests prove sequencing only. See `docs/deployment/cn-maintenance-release.md`; do not mark this lane READY or execute fixtures in production.

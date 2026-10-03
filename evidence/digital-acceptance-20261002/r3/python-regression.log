@@ -1,0 +1,15 @@
+============================= test session starts ==============================
+platform darwin -- Python 3.12.14, pytest-9.1.1, pluggy-1.6.0
+rootdir: /private/tmp/wsx-digital-product-20261003/apps/deep-agent-service
+configfile: pyproject.toml
+plugins: langsmith-0.11.0, timeout-2.4.0, anyio-4.14.2
+timeout: 120.0s
+timeout method: thread
+timeout func_only: False
+collected 93 items
+
+tests/test_role_introduction_classification.py ........                  [  8%]
+tests/test_harness.py .................................................. [ 62%]
+...................................                                      [100%]
+
+============================== 93 passed in 7.56s ==============================

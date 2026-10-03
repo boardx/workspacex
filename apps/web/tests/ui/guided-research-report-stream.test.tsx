@@ -124,7 +124,7 @@ describe("research report stream UI", () => {
     render(<GuidedResearchLive sessionId={initial.sessionId} onBack={vi.fn()} />);
     fireEvent.click(await screen.findByRole("button", { name: "基于已有来源继续" }));
     fireEvent.click(await screen.findByRole("button", { name: "下一步：生成报告" }));
-    expect(executeResearchRuntime).toHaveBeenCalledWith(expect.objectContaining({ action: "complete", allowPartialResearch: true }), expect.any(Function), expect.any(AbortSignal));
+    expect(executeResearchRuntime).toHaveBeenCalledWith(expect.objectContaining({ action: "complete", allowPartialResearch: true }), expect.any(Function), expect.any(AbortSignal), expect.objectContaining({ sessionId: expect.any(String) }));
   });
   it("blocks report generation while searches are pending", async () => {
     vi.mocked(getResearchRuntime).mockResolvedValue({ ...initial, tasks: [{ ...initial.tasks[0]!, status: "pending" }] });
@@ -149,13 +149,14 @@ describe("research report stream UI", () => {
   });
 });
 
-it("polls lightweight progress, loads terminal state once and stops", async () => {
+it("merges terminal progress without reloading the full snapshot and stops", async () => {
   vi.mocked(getResearchRuntime).mockResolvedValueOnce(streaming()).mockResolvedValue({ ...initial, currentNode: "report", version: 8, errorCode: "RESEARCH_REPORT_QUALITY_REJECTED" });
   vi.mocked(getResearchRuntimeProgress).mockResolvedValue({ sessionId: initial.sessionId, version: 8, revision: 1, currentNode: "report", availableNodes: ["report"], busy: false, leaseUntil: null, errorCode: "RESEARCH_REPORT_QUALITY_REJECTED", completed: false, stream: null });
   render(<GuidedResearchLive sessionId={initial.sessionId} onBack={vi.fn()} />);
   await waitFor(() => expect(getResearchRuntime).toHaveBeenCalledTimes(1));
   await waitFor(() => expect(getResearchRuntimeProgress).toHaveBeenCalledTimes(1), { timeout: 3500 });
-  await waitFor(() => expect(getResearchRuntime).toHaveBeenCalledTimes(2));
+  await waitFor(() => expect(screen.getByRole("button", { name: "生成完整报告" })).toBeEnabled());
+  expect(getResearchRuntime).toHaveBeenCalledTimes(1);
   await new Promise((resolve) => setTimeout(resolve, 2200));
   expect(getResearchRuntimeProgress).toHaveBeenCalledTimes(1);
   expect(executeResearchRuntime).not.toHaveBeenCalled();

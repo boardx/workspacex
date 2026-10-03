@@ -2,6 +2,12 @@
 # Trusted root entrypoint that turns an exact main commit into one sealed release candidate.
 set -euo pipefail
 
+build_only=0
+if [[ ${1:-} == --build-only ]]; then
+  [[ $# -eq 5 ]] || { echo 'CN_BUILD_ONLY_ARGUMENTS' >&2; exit 2; }
+  tool_binding=$2; shift 2; build_only=1
+fi
+unset CN_BUILD_TOOL_BINDING CN_BUILD_TOOL_ROOT
 [[ $# -eq 3 && "$1" =~ ^[a-f0-9]{40}$ && "$2" =~ ^v?[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9]+([.-][a-zA-Z0-9]+)*)?$ && "$3" =~ ^[a-z0-9][a-z0-9._-]{0,127}$ ]] || {
   echo "usage: workspacex-cn-build-candidate <40-hex-revision> <semantic-release> <attempt-id>" >&2; exit 2;
 }
@@ -16,6 +22,10 @@ PUBLISHER=/usr/local/lib/workspacex-cn/publish-cn-release.sh
 PREFLIGHT_VERIFIER=/usr/local/lib/workspacex-cn/verify-cn-release-preflight.sh
 PREFLIGHT_COLLECTOR=/usr/local/lib/workspacex-cn/collect-cn-release-preflight.sh
 EVENTS_ROOT=/var/lib/workspacex-cn/release-events
+if [[ "$build_only" == 1 ]]; then
+  CN_BUILD_TOOL_ROOT=$(python3 /usr/local/lib/workspacex-cn/cn-build-tool-identity.py "$tool_binding" "$revision" "$release" "$attempt_id" prebuild) || exit 1
+  export CN_BUILD_TOOL_BINDING="$tool_binding" CN_BUILD_TOOL_ROOT
+fi
 
 fail(){ echo "CN_CANDIDATE_REJECTED: $1" >&2; exit 1; }
 [[ -f "$PUBLISH_ENV" && ! -L "$PUBLISH_ENV" && "$(stat -c '%U:%G:%a' "$PUBLISH_ENV")" == root:root:600 ]] || fail "publish environment is not protected"
@@ -63,11 +73,16 @@ fs.appendFileSync(path,`${JSON.stringify({schemaVersion:1,revision,stage,at:new 
 NODE
   chown root:root "$EVENTS_ROOT/$revision.jsonl"; chmod 0600 "$EVENTS_ROOT/$revision.jsonl"
 }
+if [[ "$build_only" == 1 ]]; then
+  source_cache=$(python3 /usr/local/lib/workspacex-cn/cn-build-tool-identity.py --source "$tool_binding" "$revision" "$release" "$attempt_id" prebuild) || exit 1
+  GIT_NO_LAZY_FETCH=1 git -C "$REPOSITORY_DIR" fetch --no-tags "$source_cache" refs/heads/candidate || fail "bound offline application fetch failed"
+else
 for attempt in 1 2 3 4 5; do
   git -C "$REPOSITORY_DIR" fetch --quiet origin main && break
   (( attempt < 5 )) || fail "main fetch failed"
   sleep "$attempt"
 done
+fi
 git -C "$REPOSITORY_DIR" cat-file -e "$revision^{commit}" 2>/dev/null || fail "revision is unavailable"
 git -C "$REPOSITORY_DIR" merge-base --is-ancestor "$revision" origin/main || fail "revision is not contained in origin/main"
 checkout_changed=1
@@ -115,11 +130,22 @@ rm -f "$credentials_file"
 unset token
 
 "$PUBLISHER" "$revision" "$release"
+if [[ "$build_only" == 0 ]]; then
 "$PREFLIGHT_COLLECTOR" preactivate "$revision" "$release" "$attempt_id" >/dev/null \
   || fail "preactivate evidence collection failed"
 "$PREFLIGHT_VERIFIER" preactivate "$revision" "$release" "$attempt_id" >/dev/null \
   || fail "preactivate receipt is missing or invalid"
+fi
 restore_checkout || fail "baseline checkout restoration failed"
 checkout_changed=0
 record_event candidate_sealed
+if [[ "$build_only" == 1 ]]; then
+  python3 /usr/local/lib/workspacex-cn/cn-build-tool-identity.py --receipt "$tool_binding" "$revision" "$release" "$attempt_id" prebuild \
+    "/etc/workspacex-cn/releases/$revision.json" "/etc/workspacex-cn/releases/$revision.sealed.json" \
+    "/var/lib/workspacex-cn/preflight-receipts/$revision/$attempt_id/prebuild.json" \
+    "/var/lib/workspacex-cn/preflight-receipts/$revision/$attempt_id/build-only.sealed.json" \
+    || fail "build-only sealed identity receipt rejected"
+  printf 'CN_RELEASE_ARTIFACTS_SEALED_BUILD_ONLY revision=%s release=%s ready=false\n' "$revision" "$release"
+  exit 0
+fi
 printf 'CN_RELEASE_CANDIDATE_READY revision=%s release=%s\n' "$revision" "$release"

@@ -10,6 +10,7 @@ export class InterviewReportDiagnostics {
   private readonly timings: Record<Stage, number> = { context: 0, model: 0, validation: 0, storage: 0 };
   private stage: Stage = "context";
   private reason: Reason | null = null;
+  private reasonStage: Stage | null = null;
   private modelCalls = 0;
   private outputCharacters = 0;
   private missing: readonly InterviewReportAnalysisGap[] = [];
@@ -20,17 +21,26 @@ export class InterviewReportDiagnostics {
     if (stage === "model") this.modelCalls += 1;
     let succeeded = false;
     try { const result = await operation(); succeeded = true; return result; }
-    catch (error) { if (stage === "storage") this.reason = "storage_error"; throw error; }
+    catch (error) {
+      if (stage === "storage") this.reason = "storage_error";
+      else if (stage === "context") this.reason = "context_error";
+      else if (stage === "model") this.reason = "provider_error";
+      this.reasonStage = stage;
+      throw error;
+    }
     finally {
       this.timings[stage] += performance.now() - start;
-      this.record(`interview.report_generation.${stage}`, "info", { stage, elapsedMs: performance.now() - start, succeeded });
+      this.record(`interview.report_generation.${stage}`, "info", { stage, elapsedMs: performance.now() - start, succeeded, modelCalls: this.modelCalls });
     }
   }
   output(response: ModelCallCompletion): void {
     this.outputCharacters = response.text.length;
+    this.missing = [];
+    this.reasonStage = null;
     this.reason = response.cancelled ? "cancelled" : response.paused ? "paused" : response.interrupted ? "interrupted" : response.truncated ? "truncated" : !response.text.trim() ? "empty_output" : null;
+    if (this.reason) this.reasonStage = "model";
   }
-  reject(reason: "invalid_format" | "quality_rejected", missing: readonly InterviewReportAnalysisGap[] = []): void { this.reason = reason; this.missing = missing; }
+  reject(reason: "invalid_format" | "quality_rejected", missing: readonly InterviewReportAnalysisGap[] = []): void { this.reason = reason; this.reasonStage = "validation"; this.missing = missing; }
   async run<T>(operation: () => Promise<T>): Promise<T> {
     try {
       const result = await operation();
@@ -44,7 +54,7 @@ export class InterviewReportDiagnostics {
   }
   private finish(reason: Reason, providerCode?: ModelCallError["code"]): void {
     this.record(`interview.report_generation.${reason === "completed" ? "completed" : "failed"}`, reason === "completed" ? "info" : "warn", {
-      reason, stage: this.stage, modelCalls: this.modelCalls, outputCharacters: this.outputCharacters,
+      reason, stage: reason === "completed" ? this.stage : this.reasonStage ?? this.stage, modelCalls: this.modelCalls, outputCharacters: this.outputCharacters,
       missing: this.missing, timings: { ...this.timings }, ...(providerCode ? { providerCode } : {}),
     }, performance.now() - this.started);
   }

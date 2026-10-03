@@ -15,9 +15,10 @@ peer 冲突、删除恢复 receipt 做验证；不是裸 Y.UndoManager 的无条
 
 ## 图片 vs 普通文件
 
-本节是旧资产候选的导航经验，`board-image-upload-dialog.tsx`、`board-file-upload.ts`、
-`whiteboard-file.ts` 和 `file-assets.ts` 在当前技能候选缺失。
-待 R07/R09 提供真实 PR/exact commit 再条件解析；不得按本节文字宣称上传链已交付。
+本节保留旧资产候选的导航经验；在已核验的技能来源 `e72ede09` tree 中，
+`board-image-upload-dialog.tsx`、`board-file-upload.ts`、`whiteboard-file.ts` 和 `file-assets.ts` 均存在。
+使用时按当前 Git tree 重新核验下述完整路径；存在不代表已合 main 或 R07/R09 已验收，
+仍需对应 PR/exact commit 与真实链路证据，不得按本节文字宣称上传链已交付。
 下述权限/生命周期结论也需针对对应来源重新读实现和证据。
 
 图片 UI：`apps/web/components/whiteboard/board-image-upload-dialog.tsx`；

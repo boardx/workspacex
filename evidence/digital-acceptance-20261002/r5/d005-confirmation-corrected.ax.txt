@@ -1,0 +1,5 @@
+Browser tab: 9, Title: "WorkspaceX", URL: "https://devapp.boardx.us/chat/thr-0de93e10-85b2-460b-ae78-d9a32f16ec42".
+The following is a diff from the previous accessibility tree with ~ and + representing changed and added elements, respectively. Removed elements are summarized by ID range.
+~			36 text entry area (settable) Description: 假设 2, Value: d005-internal-opportunity-brief.md 必须通过实际产物发布工具交付，正文可复制、可保存不等于正式产物。调用失败如实说明缺口。
+~			40 text entry area (settable) Description: 假设 3, Value: 若 start_workflow 实际可用则调用 W001（research-to-brief）观察角色服务端拒绝，禁止切换角色或扩权；若工具不存在，必须说明没有实际调用，不能把推断当作权限拒绝反证。
+The focused UI element is 40 text entry area (settable) Description: 假设 3, Value: 若 start_workflow 实际可用则调用 W001（research-to-brief）观察角色服务端拒绝，禁止切换角色或扩权；若工具不存在，必须说明没有实际调用，不能把推断当作权限拒绝反证。

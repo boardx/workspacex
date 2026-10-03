@@ -74,7 +74,7 @@ describe('survey report document',()=>{
   expect(screen.queryByText('核对具体经历')).not.toBeInTheDocument();
  });
  it('exports a genuine Word archive with every chapter',async()=>{
-  const blob=await buildSurveyReportWord({...report,sections:report.sections.map(s=>({...s,blocks:s.blocks.filter(b=>!['bar','radar','line'].includes(b.type))}))});
+  const blob=await buildSurveyReportWord({...report,sections:report.sections.map(s=>({...s,blocks:[...s.blocks.filter(b=>!['bar','radar','line'].includes(b.type)),...(s.id==='first'?[{...block('table'),id:'data-table'}]:[])]}))});
   expect(blob.size).toBeGreaterThan(1000);
   expect(blob.type).toContain('wordprocessingml');
   const bytes = Buffer.from(await new Promise<ArrayBuffer>((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(reader.result as ArrayBuffer);reader.onerror=()=>reject(reader.error);reader.readAsArrayBuffer(blob);}));
@@ -94,6 +94,23 @@ describe('survey report document',()=>{
   expect(xml).toContain('请改善检索体验');expect(xml).toContain('保留资料来源');expect(xml).toContain('首章');expect(xml).toContain('末章');expect(xml).toContain('样本不足');
   expect(xml).toContain('总答卷 9 · 待复核 2 · 已排除 1 · 纳入分析 8');expect(xml).toContain('仅正常质量答卷 · 实际样本量 8');
   expect(xml).toContain('&lt;script&gt;不能执行&lt;/script&gt;');expect(xml).toContain('w:type="page"');
+  const documentXml = new DOMParser().parseFromString(xml, 'application/xml');
+  const pageSize = documentXml.getElementsByTagName('w:pgSz')[0]!;
+  const margins = documentXml.getElementsByTagName('w:pgMar')[0]!;
+  const bodyWidth = Number(pageSize.getAttribute('w:w')) - Number(margins.getAttribute('w:left')) - Number(margins.getAttribute('w:right'));
+  const tables = Array.from(documentXml.getElementsByTagName('w:tbl'));
+  expect(tables).toHaveLength(2);
+  expect(tables.map(table => table.getElementsByTagName('w:gridCol').length).sort()).toEqual([3, 5]);
+  for (const table of tables) {
+    const tableWidth = table.getElementsByTagName('w:tblW')[0]!;
+    expect(tableWidth.getAttribute('w:type')).toBe('dxa');
+    expect(Number(tableWidth.getAttribute('w:w'))).toBe(bodyWidth);
+    const columns = Array.from(table.getElementsByTagName('w:gridCol')).map(column => Number(column.getAttribute('w:w')));
+    expect(columns.reduce((sum, width) => sum + width, 0)).toBe(bodyWidth);
+    expect(columns[0]).toBeGreaterThan(columns[1]!);
+    for (const width of columns) expect(width).toBeGreaterThanOrEqual(bodyWidth / 10);
+  }
+
  });
  it('blocks Word and PDF exports for reports below the anonymous sharing threshold',async()=>{
   const privateReport={...report,sampleSummary:{...report.sampleSummary!,included:7}};

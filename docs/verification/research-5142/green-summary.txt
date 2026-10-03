@@ -1,0 +1,10 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/research-5056-fixes/workspacex/apps/api
+
+ ✓ tests/research/guided-source-document-references.test.ts (11 tests) 7ms
+
+ Test Files  1 passed (1)
+      Tests  11 passed (11)
+   Start at  02:46:37
+   Duration  758ms (transform 436ms, setup 0ms, collect 660ms, tests 7ms, environment 0ms, prepare 24ms)
+
