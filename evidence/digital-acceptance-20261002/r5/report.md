@@ -40,3 +40,6 @@ Scores are conservative provisional online baselines, not post-fix deployed reac
 
 ## Additional live disclosure defect
 The deployed picker and empty state claim memory is restricted to this conversation and no cross-thread memory exists. This is contradicted by the real introductory contamination and the backend L1/L2/L3 retrieval paths. Current static UI cannot establish effective per-request retrieval scope; report the defect rather than treating that label as a privacy/permission proof. No new authority or memory setting is inferred.
+
+
+Main delivery convergence (2026-10-03): final PR5231 will target Main directly and contains reviewed R2/R3/R4/R5 deltas plus the R2 PostgreSQL SELECT semantic_label fix (original286a52789, preserved as e49829698). Latest Main833d84c00 was merged normally without conflicts (integration5a3afc5aba7c8bc3eb3da137706522f05f541537). Original PR5198/5215/5223 and source branches remain preserved until actual Main delivery; do not merge child PRs into non-Main branches. Earlier parent-first merge instructions are superseded. Final source review and CI must bind the new exact head; previous green SHA does not transfer. Main baseline changes to deployment files are inherited only, no deployment delta is introduced by this candidate. All acceptance scores/hard-gate failures remain unchanged.
