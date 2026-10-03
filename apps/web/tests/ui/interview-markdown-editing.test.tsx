@@ -618,7 +618,7 @@ it("preserves dirty expert selection when virtual persistence conflicts with a n
   expect(dirty).toHaveBeenLastCalledWith(true);
   fireEvent.click(screen.getByRole("button", { name: "添加虚拟专家" })); fillVirtualExpert();
   fireEvent.click(screen.getByRole("button", { name: "保存并添加专家" }));
-  await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("保存未完成"));
+  await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("专家已在其他位置更新"));
   expect(writes).toHaveLength(1);
   expect(writes[0]).toContain("#expert-persona-68ecb1289191bb24396f9bd4");
   expect(screen.getByRole("textbox", { name: "专家名称" })).toHaveValue(editableVirtualFields.name);
@@ -627,5 +627,6 @@ it("preserves dirty expert selection when virtual persistence conflicts with a n
   fireEvent.click(screen.getByRole("button", { name: "保存并添加专家" }));
   await waitFor(() => expect(writes).toHaveLength(2));
   expect(writeVersions).toEqual([1, 1]);
+  await waitFor(() => expect(screen.getByText(/专家已在其他位置更新/)).toBeVisible());
   expect(screen.getByRole("button", { name: "移除专家 张浩宇", hidden: true })).toBeInTheDocument();
 });
