@@ -1,0 +1,94 @@
+import { createHash } from "node:crypto";
+import { describe, expect, it } from "vitest";
+import type { interviewMarkdown } from "@repo/contracts";
+import { buildReportEvidenceIndex, validateReportEvidence } from "../../src/application/interview/workflow/interview-report-grounding";
+const hash = (s: string) => createHash("sha256").update(s).digest("hex");
+const raw = "服务端甲回答：支持电话。\n## [客服](#expert-b)\nQ2：反对电话。\nQ2：厨房孔位冲突。";
+const source: interviewMarkdown.InterviewMarkdownDocument = { documentId: "md-runs", version: 2, step: "runs", markdown: raw, contentHash: hash(raw), evidenceMode: "simulated", references: [], answerSpans: [{ taskKey: "rev-a/expert-a", expertId: "expert-a", start: 0, end: raw.length, contentHash: hash(raw) }] };
+describe("report evidence grounding", () => {
+ it("does not promote model headings to server task identities; retains counterevidence and duplicate Q numbers", () => {
+  const index = buildReportEvidenceIndex(source);
+  expect(new Set(index.map(x=>x.expertId))).toEqual(new Set(["expert-a"]));
+  expect(index.map(x=>x.quote).join("\n")).toBe(raw);
+  expect(index[0]).toMatchObject({ sourceHash: hash(raw), documentId: "md-runs", version: 2, taskKey: "rev-a/expert-a" });
+ });
+ it("indexes legacy prefix, inter-span gaps and suffix without assigning them to new server tasks", () => {
+  const prefix = "## [旧角色](#expert-legacy)\r\nQ2：反对电话，保留旧反例。🧪\r\n";
+  const first = "Q2：新任务支持电话。";
+  const gap = "\n旧记录补充：预算限制。\n";
+  const second = "Q2：第二任务反对统一渠道。";
+  const suffix = "\n旧尾部：无法形成共识。";
+  const body = prefix + first + gap + second + suffix;
+  const start2 = prefix.length + first.length + gap.length;
+  const document = {...source,markdown:body,contentHash:hash(body),answerSpans:[
+    {expertId:"a",taskKey:"rev/a",start:prefix.length,end:prefix.length+first.length,contentHash:hash(first)},
+    {expertId:"b",taskKey:"rev/b",start:start2,end:start2+second.length,contentHash:hash(second)},
+  ]};
+  const index = buildReportEvidenceIndex(document);
+  expect(index.map(entry=>entry.quote)).toEqual(["## [旧角色](#expert-legacy)","Q2：反对电话，保留旧反例。🧪",first,"旧记录补充：预算限制。",second,"旧尾部：无法形成共识。"]);
+  for (const entry of index) {
+    expect(body.slice(entry.start,entry.end)).toBe(entry.quote);
+    expect(entry.sourceHash).toBe(hash(body));
+    expect(entry.expertId).toBe(entry.quote===first?"a":entry.quote===second?"b":null);
+    expect(entry.taskKey).toBe(entry.quote===first?"rev/a":entry.quote===second?"rev/b":null);
+  }
+  const legacy = index.find(entry=>entry.quote.includes("保留旧反例"))!;
+  const cited = validateReportEvidence(`[${legacy.quote}](#${legacy.anchor})`,index);
+  expect(cited.ok).toBe(true);
+  expect(cited.references[0]?.locator).toMatchObject({quote:legacy.quote,expertId:null,taskKey:null});
+ });
+ it("rejects wrong attribution, fabricated quotes and document-only citations", () => {
+  const index = buildReportEvidenceIndex(source);
+  expect(validateReportEvidence("证据：[客服说支持电话](#answer-1)", index).ok).toBe(false);
+  expect(validateReportEvidence("证据：[支持电话。](#answer-999)", index).ok).toBe(false);
+  expect(validateReportEvidence("证据：[支持电话。](#source-1)", index).ok).toBe(false);
+ });
+ it("binds an exact quote to its unique position rather than a bare Q number", () => {
+  const result = validateReportEvidence("证据：[Q2：厨房孔位冲突。](#answer-4)", buildReportEvidenceIndex(source));
+  expect(result.ok).toBe(true);
+  expect(result.references[0]?.locator).toMatchObject({ start: raw.indexOf("Q2：厨房孔位冲突。"), end: raw.length, expertId: "expert-a", taskKey: "rev-a/expert-a", quote: "Q2：厨房孔位冲突。", sourceHash: hash(raw) });
+ });
+ it("fails closed for stale hashes, invalid spans and partial quotes without exact locators", () => {
+  expect(()=>buildReportEvidenceIndex({...source, contentHash: "a".repeat(64)})).toThrow();
+  expect(()=>buildReportEvidenceIndex({...source, answerSpans: [{...source.answerSpans![0]!, end: raw.length+1}]})).toThrow();
+  const repeated = "支持电话。支持电话。";
+  const index = buildReportEvidenceIndex({...source, markdown: repeated, contentHash: hash(repeated), answerSpans:[{...source.answerSpans![0]!,end:repeated.length,contentHash:hash(repeated)}]});
+  expect(validateReportEvidence("[支持电话。](#answer-1)",index).ok).toBe(false);
+ });
+ it("ignores citation-looking code and rejects mismatched attribution between distinct server tasks", () => {
+  const body = "支持电话。\n反对电话。";
+  const spans = [{taskKey:"rev/a",expertId:"a",start:0,end:5,contentHash:hash("支持电话。")},
+    {taskKey:"rev/b",expertId:"b",start:6,end:11,contentHash:hash("反对电话。")}];
+  const index = buildReportEvidenceIndex({...source,markdown:body,contentHash:hash(body),answerSpans:spans});
+  expect(validateReportEvidence("[支持电话。](#answer-2)",index).ok).toBe(false);
+  expect(validateReportEvidence("`[支持电话。](#answer-1)`",index).ok).toBe(false);
+  expect(validateReportEvidence("[反对电话。](#answer-2)",index).references[0]?.locator).toMatchObject({expertId:"b",taskKey:"rev/b"});
+  expect(validateReportEvidence("两位专家共同讨论电话：[支持电话。](#answer-1) 与 [反对电话。](#answer-2)",index).ok).toBe(true);
+  expect(validateReportEvidence("[支持电话。](#answer-1) 与 [反对电话。](#answer-2)\n\n两位专家一致支持电话。",index).ok).toBe(false);
+ });
+ it("rejects unsupported positive cross-role consensus but preserves uncertainty and counterclaims", () => {
+  const index = buildReportEvidenceIndex(source);
+  expect(validateReportEvidence("[服务端甲回答：支持电话。](#answer-1)\n\n两位专家一致支持电话。",index).ok).toBe(false);
+  expect(validateReportEvidence("[服务端甲回答：支持电话。](#answer-1)\n\n## 两位专家一致支持电话",index).ok).toBe(false);
+  expect(validateReportEvidence("[服务端甲回答：支持电话。](#answer-1)\n\n| 结论 |\n| --- |\n| 两位专家一致支持电话 |",index).ok).toBe(false);
+  expect(validateReportEvidence("[服务端甲回答：支持电话。](#answer-1)\n\n不能推断跨角色共识。",index).ok).toBe(true);
+  expect(validateReportEvidence("[服务端甲回答：支持电话。](#answer-1)\n\n不同角色并非一致。",index).ok).toBe(true);
+ });
+ it.each(["不构成", "未构成", "不足以形成", "不足以构成"])("preserves the explicit %s consensus boundary", (negation) => {
+  const report = `[服务端甲回答：支持电话。](#answer-1)\n\n上述材料来自单个服务端任务，${negation}跨角色共识；仅用于界面定位测试。`;
+  expect(validateReportEvidence(report,buildReportEvidenceIndex(source)).ok).toBe(true);
+ });
+ it("binds known explicit attribution to server metadata, including legacy and same-name ambiguity", () => {
+  const labels = {"expert-a":"教师","expert-b":"校长"};
+  const index = buildReportEvidenceIndex(source,labels);
+  expect(validateReportEvidence("校长指出：[服务端甲回答：支持电话。](#answer-1)",index,labels).ok).toBe(false);
+  expect(validateReportEvidence("教师指出：[服务端甲回答：支持电话。](#answer-1)",index,labels).ok).toBe(true);
+  expect(validateReportEvidence("教师Q2：[服务端甲回答：支持电话。](#answer-1)",buildReportEvidenceIndex({...source,answerSpans:undefined}),labels).ok).toBe(false);
+  expect(validateReportEvidence("教师指出：[服务端甲回答：支持电话。](#answer-1)",index,{"expert-a":"教师","expert-b":"教师"}).ok).toBe(false);
+ });
+ it("legacy content remains available but unassigned, and absent citations cannot pass", () => {
+  const index = buildReportEvidenceIndex({...source, answerSpans: undefined});
+  expect(index[0]).toMatchObject({ expertId:null, taskKey:null, quote:"服务端甲回答：支持电话。" });
+  expect(validateReportEvidence("跨角色共同支持电话，无需原文。",index).ok).toBe(false);
+ });
+});

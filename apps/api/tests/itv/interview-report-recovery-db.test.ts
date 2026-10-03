@@ -17,7 +17,7 @@ import { addOrgMember, ensureDatabase, migrateOnce, resetOrgs, seedOrg } from ".
 const ORG = toOrgId("org-report-recovery-5104"), ID = "itv-report-recovery-5104", REV = "rev-report-recovery-5104";
 const actorId = `${ORG}-owner`, input = { orgId: ORG, interviewId: ID, actorId };
 const invalid = "# 原始合成报告\r\n\r\n教师支持试点；校长反对。🧪 保留字节与意见，不含完整分析链。\r\n";
-const valid = "# 完整重写的合成报告\n\n跨回答综合：教师支持试点，校长相反意见强调成本，不能凭两段合成回答判定有效。\n决策影响：应优先验证低成本方案再决定投入。\n边界与反例：仅为虚拟角色模拟，证据不足，不代表真人意见。\n下一步验证建议：访谈五位真实教师并记录时间成本与反对案例。\n";
+const valid = "# 完整重写的合成报告\n\n证据：[支持低成本试点（合成）](#answer-1)；[相反意见：成本过高（合成）](#answer-2)。\n\n跨回答综合：教师支持试点，校长相反意见强调成本，不能凭两段合成回答判定有效。\n决策影响：应优先验证低成本方案再决定投入。\n边界与反例：仅为虚拟角色模拟，证据不足，不代表真人意见。\n下一步验证建议：访谈五位真实教师并记录时间成本与反对案例。\n";
 let db: PgDatabase, reader: PgInterviewMarkdownReader, store: PgInterviewMarkdownExecutionStore;
 async function snapshot() { return (await reader.readCurrent(ORG, ID))!; }
 async function rows() {
@@ -65,7 +65,9 @@ describe("#5104 real DB report quality recovery", () => {
     const sources = await db.withTenant(ORG, async s => (await s.query<{ artifact_id: string; version_number: number }>(`SELECT DISTINCT ON (step) artifact_id,version_number FROM digital_interview_artifact_versions WHERE org_id=$1 AND interview_id=$2 AND step<>'report' ORDER BY step,version_number DESC`, [ORG, ID])).rows);
     const references = sources.map((d, index) => ({ anchor: `source-${index + 1}`, documentId: d.artifact_id, version: d.version_number }));
     expect(documents[0]).toMatchObject({ markdown: invalid, content_hash: interviewMarkdownContentHash(invalid), status: "failed", evidence_mode: "simulated", controlled_references: references, version_number: 1 });
-    expect(documents[1]).toMatchObject({ markdown: valid, content_hash: interviewMarkdownContentHash(valid), status: "draft", evidence_mode: "simulated", controlled_references: references, version_number: 2 });
+    expect(documents[1]).toMatchObject({ markdown: valid, content_hash: interviewMarkdownContentHash(valid), status: "draft", evidence_mode: "simulated", version_number: 2 });
+    expect(documents[1]!.controlled_references).toEqual(expect.arrayContaining(references));
+    expect((documents[1]!.controlled_references as Array<{locator?:unknown}>).filter(r=>r.locator)).toHaveLength(2);
     expect(documents[1]!.markdown).not.toContain(invalid);
   });
   it("bounds a still-invalid rewrite at two calls and retains both failed documents without granting approval", async () => {
@@ -89,7 +91,7 @@ describe("#5104 real DB report quality recovery", () => {
   it("recovers a single expert synthetic study without inventing agreement or participant evidence", async () => {
     await seedCompletedStudy(true);
     expect((await snapshot()).execution?.tasks).toHaveLength(1);
-    const single = valid.replace("跨回答综合：教师支持试点，校长相反意见强调成本，不能凭两段合成回答判定有效。", "跨回答综合：同一合成专家两段回答共同指向时间成本约束，支持低成本试点但反对增加备课时间；不能推断多专家共识，证据不足。");
+    const single = valid.replace("证据：[支持低成本试点（合成）](#answer-1)；[相反意见：成本过高（合成）](#answer-2)。", "证据：[问题一回答：支持低成本试点（合成）。](#answer-1)；[问题二回答：备课时间增加时反对继续（合成）。](#answer-2)。").replace("跨回答综合：教师支持试点，校长相反意见强调成本，不能凭两段合成回答判定有效。", "跨回答综合：同一合成专家两段回答共同指向时间成本约束，支持低成本试点但反对增加备课时间；不能推断多专家共识，证据不足。");
     const singleInvalid = "# 单专家合成纪要\r\n问题一支持试点，问题二反对增加备课时间；无完整分析链。\r\n";
     const complete = vi.fn(async (): Promise<{ text: string }> => ({ text: complete.mock.calls.length === 1 ? singleInvalid : single }));
     const result = await generate(complete);

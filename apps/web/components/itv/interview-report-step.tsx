@@ -1,6 +1,7 @@
 "use client";
 import * as React from "react";
 import { interviewMarkdown } from "@repo/contracts";
+import { InterviewReportSources } from "./interview-report-sources";
 import { InterviewReportMarkdown } from "./interview-report-markdown";
 import { Button } from "@/components/ui/button";
 import { exportInterviewReportPdf, exportInterviewReportWord } from "@/lib/interview-report-export";
@@ -9,8 +10,9 @@ import { InterviewStepHeader } from "./interview-step-header";
 import { researchWorkspaceStyle } from "@/components/research-studio/research-workspace-style";
 
 /** The document is the sole body source; evidence remains server-controlled metadata. */
-export function InterviewReportStep({ document, expertsDocument, execution, legacySelectedExpertIds, legacyRuns, reportStatus, shareUrl, actions: extraActions }: {
+export function InterviewReportStep({ document, sourceDocuments = [], expertsDocument, execution, legacySelectedExpertIds, legacyRuns, reportStatus, shareUrl, actions: extraActions }: {
   readonly document: interviewMarkdown.InterviewMarkdownDocument;
+  readonly sourceDocuments?: readonly interviewMarkdown.InterviewMarkdownDocument[];
   readonly expertsDocument?: interviewMarkdown.InterviewMarkdownDocument;
   readonly execution?: InterviewMarkdownEnvelope["execution"];
   readonly legacySelectedExpertIds?: readonly string[];
@@ -70,6 +72,7 @@ export function InterviewReportStep({ document, expertsDocument, execution, lega
           <p>当前 Markdown 文档尚未关联批准记录；导出仅供研究审阅，不代表已批准结论。</p>
         </div>
         <InterviewReportMarkdown document={document} markdown={document.markdown} testId="itv-source-report-markdown" longForm />
+        <InterviewReportSources report={document} sources={sourceDocuments} experts={selectedExperts} />
         <details data-testid="itv-report-details" className="mt-8 border-t border-border pt-4 print:hidden">
         <summary className="cursor-pointer text-sm font-medium text-muted-foreground transition-colors hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring">材料统计与质量检查</summary>
         <section data-testid="itv-report-metrics" aria-label="已保存研究材料统计" className="mb-6">

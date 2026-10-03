@@ -3,7 +3,7 @@ import { ModelCallError, type ModelCallCompletion } from "../../agent-run/ports"
 import type { InterviewReportAnalysisGap } from "./digital-report-quality";
 
 type Stage = "context" | "model" | "validation" | "storage";
-type Reason = "completed" | "context_error" | "provider_error" | "empty_output" | "cancelled" | "paused" | "interrupted" | "truncated" | "invalid_format" | "quality_rejected" | "storage_error" | "unexpected_error";
+type Reason = "completed" | "context_error" | "provider_error" | "empty_output" | "cancelled" | "paused" | "interrupted" | "truncated" | "invalid_format" | "quality_rejected" | "grounding_rejected" | "storage_error" | "unexpected_error";
 /** Only controlled enums, counts and timings cross the diagnostic boundary. No bodies or error messages. */
 export class InterviewReportDiagnostics {
   private readonly started = performance.now();
@@ -40,7 +40,7 @@ export class InterviewReportDiagnostics {
     this.reason = response.cancelled ? "cancelled" : response.paused ? "paused" : response.interrupted ? "interrupted" : response.truncated ? "truncated" : !response.text.trim() ? "empty_output" : null;
     if (this.reason) this.reasonStage = "model";
   }
-  reject(reason: "invalid_format" | "quality_rejected", missing: readonly InterviewReportAnalysisGap[] = []): void { this.reason = reason; this.reasonStage = "validation"; this.missing = missing; }
+  reject(reason: "invalid_format" | "quality_rejected" | "grounding_rejected", missing: readonly InterviewReportAnalysisGap[] = []): void { this.reason = reason; this.reasonStage = "validation"; this.missing = missing; }
   async run<T>(operation: () => Promise<T>): Promise<T> {
     try {
       const result = await operation();
