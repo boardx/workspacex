@@ -62,6 +62,8 @@ issue #848（资产文件真实内容缺口）、#598（skill 双模型不收敛
 3. 交付：`verify --sprint` 门控；PR 描述里写清对上述契约的影响面。
 
 ## 踩坑与经验（append-only，最新在上）
+
+- 2026-10-04：Workflow 阶段输出读取引用不能冒充真实文件；W001 发布桥复用 materializeArtifact 的 Markdown+provenance 文件及回读 hash，审批语义与写能力需新 Workflow v2，旧发起人-only v1 不被覆盖（Refs #5185；digital-w001-publication）。尚未证明线上下载/恢复；分发关闭。
 - 2026-08-09：本 skill 曾与官方 `mod-canvas-diagram` 在画布域重叠（两份平行
   文档），已收窄范围完成收敛（出处：本次改动的 PR）。教训：建模块知识库前先查
   已有的 skill 清单（`project/PROJECT.md` 的模块清单），别按代码目录自行推演
