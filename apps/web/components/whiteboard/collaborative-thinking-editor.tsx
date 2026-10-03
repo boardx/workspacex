@@ -610,7 +610,8 @@ export function CollaborativeThinkingEditor({ organizeFitRequest, dockExtension,
       if (replaceContent(object!.id, next as CanonicalContentObject)) setStructuredDraft(null);
     } catch { setNotice("结构化字段不是有效 JSON，原内容未修改。"); }
   };
-  const selectionBounds = selected.length ? chromeObjects.filter(object => selected.includes(object.id)).map(object => canonicalSceneBounds(object.geometry)) : [];
+  const selectionConnectorPath = selected.length === 1 && selectedConnector ? connectorGesture.path ?? selectedConnectorPath : null;
+  const selectionBounds = selected.length ? chromeObjects.filter(object => selected.includes(object.id)).map(object => canonicalSceneBounds(selectionConnectorPath && object.id === selectedConnector?.id ? { ...selectionConnectorPath.bounds, rotation: 0 } : object.geometry)) : [];
   const selectionGeometry = selectionBounds.length ? {
     x: Math.min(...selectionBounds.map(bounds => bounds.left)),
     y: Math.min(...selectionBounds.map(bounds => bounds.top)),
