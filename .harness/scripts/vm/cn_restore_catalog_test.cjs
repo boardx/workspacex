@@ -40,5 +40,24 @@ const priorRaw=Buffer.from(JSON.stringify(priorSource));
 assert.doesNotThrow(()=>verifyCatalogReadback(priorRaw,{...item,sourceCatalog:{sha256:c.hash(priorRaw)}},productionTarget,expectedProduction));pass();
 assert.throws(()=>verifyCatalogReadback(priorRaw,{...item,sourceCatalog:{sha256:c.hash(priorRaw)}},productionTarget,{...expectedProduction,database:'foreign'}),/SOURCE_CATALOG_BINDING/);pass();
 const reversed=clone(p.target);for(const k of Object.keys(reversed.facts))reversed.facts[k].reverse();reversed.facts=c.canonical(reversed.facts);assert.equal(c.hash(JSON.stringify(reversed.facts)),p.target.catalogSha256);pass();
+// Borrowed restore transaction must remain open: no nested BEGIN or ROLLBACK.
+for(const fault of [null,'readonly','identity','state']){
+ const expected=b('target'),borrowed=mock(expected,{age:true});Object.assign(borrowed.connection.stream,{encrypted:true,authorized:true});const original=borrowed.query;
+ borrowed.query=async(sql,params)=>sql===c.identitySql?{rows:[{database:fault==='identity'?'foreign':expected.database,username:expected.username,readonly:fault==='readonly'?'on':'off',isolation:'repeatable read'}]}:original(sql,params);
+ if(fault){await assert.rejects(c.captureExistingRestoreTransaction(borrowed,expected,['app_rw','migration_admin'],()=>fault==='state'?'I':'T'));}
+ else{const result=await c.captureExistingRestoreTransaction(borrowed,expected,['app_rw','migration_admin'],()=> 'T');assert.equal(result.kind,'existing-restore-transaction-catalog');assert.equal(result.rollbackComplete,false);assert.deepEqual(result.facts,p.target.facts);const bytes=Buffer.from(JSON.stringify(result));assert.throws(()=>c.verifyCaptureArtifact(bytes,expected,c.hash(bytes),result.catalogSha256),/CAPTURE/);}
+ assert(!borrowed.calls.some(x=>/^(BEGIN|ROLLBACK|COMMIT)/.test(x.sql)));pass();
+}
+// Restore's precommit catalog verifier borrows the same transaction, never opens a Client.
+const {verifyCatalogOnExistingRestore}=require('./existing_session_restore.cjs');
+for(const drift of [false,true]){
+ const expected=b('target'),borrowed=mock(expected,{age:true});Object.assign(borrowed.connection.stream,{encrypted:true,authorized:true});const original=borrowed.query;
+ borrowed.query=async(sql,params)=>{if(sql===c.identitySql)return {rows:[{database:expected.database,username:expected.username,readonly:'off',isolation:'repeatable read'}]};const result=await original(sql,params);if(drift&&sql===c.QUERIES.columns)result.rows[0].type='integer';return result;};
+ const input={sourceRaw:Buffer.from(JSON.stringify(p.source)),sourceBinding:p.source.binding,sourceArtifactSha256:c.hash(Buffer.from(JSON.stringify(p.source))),sourceCatalogSha256:p.source.catalogSha256,targetBinding:expected,recoveryIdentity:{sourceRevision:'9b25bfa65662b96c0826fe67506b562ea46aa6d0',baselineRevision:'ba6343199f3c834d6a198f83d0c771614292c82b',attemptId:expected.attemptId},databaseMapping:{source:p.source.binding.database,target:expected.database},requiredRoles:['app_rw','migration_admin'],transactionStatus:()=> 'T'};
+ if(drift)await assert.rejects(verifyCatalogOnExistingRestore(borrowed,input),/MISMATCH/);else{const result=await verifyCatalogOnExistingRestore(borrowed,input);assert.equal(result.catalogEquivalent,true);assert.equal(result.rowDataVerified,false);assert.equal(result.productionMutationAuthorized,false);}
+ await assert.rejects(verifyCatalogOnExistingRestore(borrowed,{...input,recoveryIdentity:{...input.recoveryIdentity,attemptId:'foreign'}}),/RECOVERY_IDENTITY/);
+ if(!drift){const prior=clone(p.source);prior.binding.attemptId='prior-capture';prior.binding=c.binding(prior.binding);prior.bindingSha256=c.hash(JSON.stringify(prior.binding));const priorRaw=Buffer.from(JSON.stringify(prior));assert.equal((await verifyCatalogOnExistingRestore(borrowed,{...input,sourceRaw:priorRaw,sourceBinding:prior.binding,sourceArtifactSha256:c.hash(priorRaw)})).catalogEquivalent,true);}
+ assert(!borrowed.calls.some(x=>/^(BEGIN|ROLLBACK|COMMIT)/.test(x.sql)));pass();
+}
 console.log(`catalog fixed-query mock + ${tests} positive/fault assertions PASS; real DB execution NOT RUN; no row-data/READY proof`);
 })().catch(e=>{console.error(e.message);process.exitCode=1;});

@@ -59,7 +59,7 @@ async function restoreExistingSession({client,Query,identity,binding,transaction
  proof(transactionStatus()==='I'&&canonical(await identity())===canonical(binding),'RESTORE_EXISTING_SESSION_REQUIRED');
  const budget={bytes:0,limit:maxCopyBytes,hash:createHash('sha256')};const hash=createHash('sha256');let statements=0,committed=false,commitAttempted=false;
  try{
-  await client.query('BEGIN');proof(transactionStatus()==='T','RESTORE_TRANSACTION_REQUIRED');
+  await client.query('BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ');proof(transactionStatus()==='T','RESTORE_TRANSACTION_REQUIRED');
   for await(const operation of operations){
    proof(operation&&['sql','copy'].includes(operation.kind)&&Object.keys(operation).every(k=>['kind','sql','chunks'].includes(k)),'RESTORE_OPERATION_SCHEMA');
    const sql=boundedSql(operation.sql);await verifyOperation(operation);
@@ -87,4 +87,13 @@ async function restoreExistingSession({client,Query,identity,binding,transaction
   const failure=Error('RESTORE_EXISTING_SESSION_FAILED');failure.recovery={committed,commitAttempted,commitOutcomeUnknown:commitAttempted&&!committed,rollbackConfirmed,holdMustRemain:true};throw failure;
  }
 }
-module.exports={restoreExistingSession,copyOnExistingClient,boundedSql};
+async function verifyCatalogOnExistingRestore(client,{sourceRaw,sourceBinding,sourceArtifactSha256,sourceCatalogSha256,targetBinding,recoveryIdentity,databaseMapping,requiredRoles,transactionStatus}){
+ proof(recoveryIdentity?.sourceRevision==='9b25bfa65662b96c0826fe67506b562ea46aa6d0'&&recoveryIdentity?.baselineRevision==='ba6343199f3c834d6a198f83d0c771614292c82b'&&recoveryIdentity?.attemptId===targetBinding.attemptId,'RESTORE_CATALOG_RECOVERY_IDENTITY');
+ const catalog=require('./cn-production-recovery-catalog.cjs');
+ const source=catalog.verifyCaptureArtifact(sourceRaw,sourceBinding,sourceArtifactSha256,sourceCatalogSha256);
+ proof(databaseMapping?.source===sourceBinding.database&&databaseMapping?.target===targetBinding.database&&sourceBinding.side==='source'&&targetBinding.side==='target'&&sourceBinding.backupReceiptSha256===targetBinding.backupReceiptSha256,'RESTORE_CATALOG_PAIR_BINDING');
+ const target=await catalog.captureExistingRestoreTransaction(client,targetBinding,requiredRoles,transactionStatus);
+ proof(canonical(source.facts)===canonical(target.facts),'RESTORE_CATALOG_MISMATCH');
+ return {scope:'existing-restore-transaction-catalog-only',sourceCatalogSha256,targetCatalogSha256:target.catalogSha256,catalogEquivalent:true,rowDataVerified:false,transactionStillOpen:true,productionMutationAuthorized:false};
+}
+module.exports={restoreExistingSession,copyOnExistingClient,boundedSql,verifyCatalogOnExistingRestore};
