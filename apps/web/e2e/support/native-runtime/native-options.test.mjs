@@ -1,6 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {nativeAcceptanceOptions,assertTemporaryRuntimePaths} from './runtime-attestation.mjs';
+import {nativeRuntimePorts} from './native-runtime-ports.mjs';
 import {tmpdir} from 'node:os';
 import {join,resolve} from 'node:path';
 const plan={ports:{web:36317,api:36320,postgres:36321},sourceHashes:{}};
@@ -9,6 +10,9 @@ test('default native producer options preserve direct WebSocket and no storage a
 });
 test('proxy build binds only validated independent loopback port',()=>{
  assert.equal(nativeAcceptanceOptions({...plan,proxyWebSocketPort:36322}).webSocketUrl,'ws://127.0.0.1:36322');
+ const complete=nativeRuntimePorts({...nativeRuntimePorts(),proxyWebSocket:36322});
+ assert.equal(nativeAcceptanceOptions({...plan,ports:complete,proxyWebSocketPort:complete.proxyWebSocket}).webSocketUrl,'ws://127.0.0.1:36322');
+ assert.throws(()=>nativeAcceptanceOptions({...plan,ports:complete,proxyWebSocketPort:36323}));
  for(const port of [80,65536,'36322',36320,NaN])assert.throws(()=>nativeAcceptanceOptions({...plan,proxyWebSocketPort:port}));
 });
 test('storage proof requires explicit option and committed adapter closure',()=>{

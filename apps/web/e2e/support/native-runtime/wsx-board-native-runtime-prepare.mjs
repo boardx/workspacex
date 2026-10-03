@@ -6,6 +6,7 @@ import {randomUUID,randomBytes} from 'node:crypto';
 import {join,resolve} from 'node:path';
 import {pathToFileURL} from 'node:url';
 import {writeStartupFailure} from './native-startup-receipt.mjs';
+import {nativeRuntimePorts,assertNativePortsAvailable} from './native-runtime-ports.mjs';
 // Preparation only: no process, build or database is started by this file.
 let phase='BOOTSTRAP',data,sourceHead=null;
 try{
@@ -27,7 +28,17 @@ const {runtimeSourceHashes,committedRuntimeSourceHashes,nativeAcceptanceOptions}
 phase='SOURCE';
 assert.deepEqual(runtimeSourceHashes(root,source.sourceFiles),committedRuntimeSourceHashes(root,head,source.sourceFiles));
 const acceptanceInputs={...(argv.includes('--proxy-ws-port')?{proxyWebSocketPort:Number(arg('proxy-ws-port'))}:{}),...(argv.includes('--file-storage-attestation')?{fileStorageAttestation:true}:{})};
-nativeAcceptanceOptions({...acceptanceInputs,ports:{web:36317,api:36320,postgres:36321},sourceHashes:runtimeSourceHashes(root,source.sourceFiles)});
+for(const option of ['--port-map-json','--proxy-ws-port'])assert(argv.filter(value=>value===option).length<=1,'port options must not repeat');
+if(argv.includes('--port-map-json'))assert(typeof arg('port-map-json')==='string'&&arg('port-map-json').length<=4096,'bounded complete port JSON required');
+let suppliedPorts=argv.includes('--port-map-json')?JSON.parse(arg('port-map-json')):undefined;
+if(acceptanceInputs.proxyWebSocketPort!==undefined){
+  if(suppliedPorts?.proxyWebSocket!==undefined)assert.equal(suppliedPorts.proxyWebSocket,acceptanceInputs.proxyWebSocketPort,'proxy port options must agree');
+  suppliedPorts={...nativeRuntimePorts(suppliedPorts),proxyWebSocket:acceptanceInputs.proxyWebSocketPort};
+}
+const ports=nativeRuntimePorts(suppliedPorts);
+if(ports.proxyWebSocket!==undefined)acceptanceInputs.proxyWebSocketPort=ports.proxyWebSocket;
+nativeAcceptanceOptions({...acceptanceInputs,ports,sourceHashes:runtimeSourceHashes(root,source.sourceFiles)});
+await assertNativePortsAvailable(ports);
 phase='TOOLCHAIN';
 const toolRoot=argv.includes('--postgres-tool-root')?realpathSync(arg('postgres-tool-root')):'/private/tmp/wsx-postgresapp-2.9.6-tools/16',bin=join(toolRoot,'bin');
 for(const name of ['postgres','initdb','pg_ctl','psql','pg_isready','pg_config'])assert.match(execFileSync(join(bin,name),['--version'],{encoding:'utf8'}),/16\.15/);
@@ -36,7 +47,7 @@ phase='PLAN';
 const isolation=`r09-${randomUUID()}`,database=`wsx_r09_${randomUUID().replaceAll('-','')}`;
 const secrets={ownerPassword:randomBytes(32).toString('base64url'),appPassword:randomBytes(32).toString('base64url')};
 writeFileSync(join(data,'native-db-secrets.json'),JSON.stringify(secrets),{mode:0o600,flag:'wx'});
-const plan={root,head,data,toolRoot,bin,isolation,database,marker:randomUUID(),ports:{web:36317,api:36320,postgres:36321},prepared:true,ready:false,sourceHashes:runtimeSourceHashes(root,source.sourceFiles),phases:['initdb localhost-only with private owner password','owner create disposable database','normal API migrate CLI including vector extension','standard fullstack fixture seed with native PostgreSQL path','set strong private app_rw password and independently prove session_user/current_user','fresh .next-fullstack-e2e production build with official fullstack env and font mock','start API/Web with exact fresh marker and next start','strict runtime/chunks/source/role receipts','original R09 existing-runtime spec','owned fixture cleanup then own services stop']};
+const plan={root,head,data,toolRoot,bin,isolation,database,marker:randomUUID(),ports,prepared:true,ready:false,sourceHashes:runtimeSourceHashes(root,source.sourceFiles),phases:['initdb localhost-only with private owner password','owner create disposable database','normal API migrate CLI including vector extension','standard fullstack fixture seed with native PostgreSQL path','set strong private app_rw password and independently prove session_user/current_user','fresh .next-fullstack-e2e production build with official fullstack env and font mock','start API/Web with exact fresh marker and next start','strict runtime/chunks/source/role receipts','original R09 existing-runtime spec','owned fixture cleanup then own services stop']};
 Object.assign(plan,acceptanceInputs);
 writeFileSync(join(data,'native-runtime-plan.json'),JSON.stringify(plan,null,2),{mode:0o600,flag:'wx'});
 console.log(JSON.stringify({prepared:true,ready:false,root,head,toolVersion:'16.15',vectorVersion:'0.8.6',planPath:join(data,'native-runtime-plan.json')}));
