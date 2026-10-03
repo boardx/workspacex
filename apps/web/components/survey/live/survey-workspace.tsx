@@ -306,7 +306,7 @@ export function LiveSurveyWorkspace({
     if (surveyId !== "new") window.history.pushState(null, "", withProjectId(surveyPath(surveyId, next as SurveyDestination), projectId));
   };
   const projectedInSync = !!draft && !markdownNeedsApply;
-  const autosaveEligible = !!draft && !runtime?.publication && step === "design" && dirty &&
+  const autosaveEligible = !!draft && ((!runtime?.publication && step === "design") || step === "template") && dirty &&
     !busy && !error && !conflicted && projectedInSync && parseSurveyDesignMarkdown(markdown).ok;
   useSurveyAutosave(autosaveEligible ? JSON.stringify([runtime?.version, markdown, draft?.template]) : null,
     () => execute(async () => { await save(); }, "saving"));
