@@ -43,7 +43,7 @@ export function InterviewMarkdownWorkbench({ identity, step, reportPin }: { iden
   }
   const onContinue = (next: string) => navigate(`/itv/${encodeURIComponent(identity.interviewId)}/${next}`);
   async function revise() {
-    if (branching || !["intake", "analysis", "experts", "outline"].includes(step)) return;
+    if (branching || runningStep !== null || !["intake", "analysis", "experts", "outline"].includes(step)) return;
     if (!window.confirm("创建新修订将保留旧版本，并在新修订中重新确认当前及后续步骤。继续吗？")) return;
     setBranching(true); setError("");
     try {
@@ -58,7 +58,7 @@ export function InterviewMarkdownWorkbench({ identity, step, reportPin }: { iden
       <InterviewWorkbenchHeader name={identity.name} tags={identity.tags} steps={INTERVIEW_WORKBENCH_STEPS} activeStep={step} runningStep={runningStep} completedSteps={completed} status="Markdown 研究工作台" version={version} topic={null} onStepChange={onContinue} onReturnToList={() => navigate("/itv?tab=history")} />
       <main className={cn(researchWorkspaceStyle.main, "pb-8")}>
       {error && <p role="alert" className="mt-4 text-sm text-destructive">{error}</p>}
-      <InterviewRevisionAction.Provider value={completed.includes(step) && ["intake", "analysis", "experts", "outline"].includes(step) ? <Button variant="outline" disabled={branching} onClick={() => void revise()}>{branching ? "正在创建新修订…" : "创建新修订并修改"}</Button> : null}>
+      <InterviewRevisionAction.Provider value={completed.includes(step) && ["intake", "analysis", "experts", "outline"].includes(step) ? <Button variant="outline" disabled={branching || runningStep !== null} onClick={() => void revise()}>{branching ? "正在创建新修订…" : "创建新修订并修改"}</Button> : null}>
       <section key={`${step}:${branchEpoch}`} className="mt-4">
         {(step === "intake" || step === "analysis") && <InterviewMarkdownPlanningStep {...editing} step={step} onContinue={onContinue} />}
         {(step === "experts" || step === "outline") && <InterviewMarkdownEditingStep {...editing} step={step} onContinue={onContinue} />}
