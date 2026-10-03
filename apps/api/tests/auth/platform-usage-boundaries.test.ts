@@ -42,7 +42,7 @@ describe("#5261 metadata exemption enforced premises",()=>{
   const catalog={withoutTenant:async(fn:(s:unknown)=>unknown)=>fn({query})};
   const repo=new PgPlatformOrganizationRepository({} as never,catalog as never);
   await expect(repo.list({search:"",limit:25},"operator")).rejects.toMatchObject({reasonCode:"PLATFORM_CATALOG_UNAVAILABLE"});
-  expect(query).toHaveBeenCalledTimes(1);expect(query.mock.calls[0][0]).toContain("NOT r.rolsuper");
+  expect(query).toHaveBeenCalledTimes(1);expect(query.mock.calls[0]?.[0]).toContain("NOT r.rolsuper");
  });
  it("all target read/write paths reject excluded organization kinds",async()=>{
   const query=vi.fn(async(sql:string)=>({rows: sql.includes("kind='organization'")?[]:[{id:"local",name:"local",kind:"personal-local"}]}));

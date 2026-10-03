@@ -189,3 +189,5 @@ Remote `gates-runtime` passed on 2cd3d992f after tenant-scoping the platform acc
 The earlier 90/90 combined-suite report is withdrawn as lightweight evidence: independent review found its database counterproof has an automatic database initializer. It has been removed from the no-DB configuration; the counterproof stays in its existing remote database CI lane. UI fixtures remain 20/20. PostgreSQL execution remains remote-only. No production changes or browser screenshot evidence.
 
 Corrected no-database owner suite passes 63/63. UI wiring normal fact regeneration and verification pass, including `/usage`; regenerated chat use-case facts are generator-derived existing source imports, not hand-authored scope additions.
+
+Independent reviewer passed all 6 dynamic premise tests and accepted the three explicitly bounded adapter allowances. Normal pre-push caught a strict TypeScript optional mock-call access; fixed before retry, without bypassing hooks.
