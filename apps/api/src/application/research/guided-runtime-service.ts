@@ -373,6 +373,8 @@ export class GuidedRuntimeService {
     try { await this.executeSearchWithinBudget(state, persist, internalSources, budget, search); }
     catch (error) {
       if (budget.signal.aborted && error === budget.signal.reason) {
+        // Observe durable steering before classifying expiry; pause and write failures retain priority.
+        await persist();
         for (const task of state.tasks) if (task.status !== "succeeded") {
           task.status = "failed"; task.errorCode = "RESEARCH_SEARCH_TIME_BUDGET_EXCEEDED";
           for (const attempt of task.searchAttempts ?? []) if (attempt.status === "running") { attempt.status = "failed"; attempt.errorCode = task.errorCode; }

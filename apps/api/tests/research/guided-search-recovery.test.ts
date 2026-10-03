@@ -97,6 +97,40 @@ describe("bounded search query recovery", () => {
       expect(f.writes).toHaveLength(count);
     } finally { releases.forEach((release) => release()); await operation; vi.useRealTimers(); }
   });
+  it("preserves a concurrent durable pause when an in-flight search reaches the deadline", async () => {
+    vi.useFakeTimers();
+    let paused = false;
+    let durable = seed();
+    const writes: ResearchRuntime[] = [];
+    const store: GuidedRuntimeStore = {
+      read: async () => structuredClone(durable),
+      claim: async () => { durable.busy = true; return { state: structuredClone(durable), replay: false }; },
+      write: async (_actor, _request, next) => {
+        durable = structuredClone(next);
+        if (paused) durable.controlStatus = "paused";
+        writes.push(structuredClone(durable));
+        return structuredClone(durable);
+      },
+    };
+    let release!: () => void;
+    const search = vi.fn(async () => { await new Promise<void>((resolve) => { release = resolve; }); return [hit]; });
+    const service = new GuidedRuntimeService(store, { complete: async () => ({ text: "{}" }) }, { search }, { provider: "test", id: "test" });
+    const actor = { orgId: toOrgId("recovery-org"), userId: "owner", sessionId: session.sessionId };
+    const operation = service.execute(actor, session, { node: "research", action: "start", sessionId: session.sessionId, requestId: "pause-at-deadline", expectedVersion: 0 });
+    try {
+      await vi.advanceTimersByTimeAsync(1);
+      expect(search).toHaveBeenCalledOnce();
+      paused = true;
+      await vi.advanceTimersByTimeAsync(180000);
+      const result = await operation;
+      expect(result).toMatchObject({ controlStatus: "paused", busy: false, errorCode: null });
+      expect(durable).toMatchObject({ controlStatus: "paused", busy: false, errorCode: null });
+      const count = writes.length;
+      release(); await vi.advanceTimersByTimeAsync(1);
+      expect(writes).toHaveLength(count);
+      expect(durable.sources).toEqual([]);
+    } finally { release?.(); await operation; vi.useRealTimers(); }
+  });
   it("preserves a persistence error arriving at the deadline", async () => {
     vi.useFakeTimers(); const f = fixture();
     f.write.mockImplementationOnce(async () => { await new Promise((resolve) => setTimeout(resolve, 180001)); throw new Error("durable write failure"); });
