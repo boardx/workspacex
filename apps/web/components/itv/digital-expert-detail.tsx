@@ -23,8 +23,8 @@ export function DigitalExpertDetail({ expertId }: { expertId: string }) {
 
   if (!expert) {
     return (
-      <main className="flex flex-1 items-center justify-center p-10 text-sm text-muted-foreground">
-        <div className="space-y-4 text-center"><p>{published?.id === expertId ? "该专家不可用或无访问权限。" : "正在加载专家…"}</p><Link href="/itv?tab=experts" className="underline">返回专家列表</Link></div>
+      <main className="min-w-0 flex-1 bg-background text-sm text-muted-foreground">
+        <div className="mx-auto w-full max-w-5xl px-6 py-8 lg:px-10 lg:py-10"><Link href="/itv?tab=experts" className="inline-flex items-center gap-2"><ArrowLeft className="size-4" aria-hidden />返回专家列表</Link><p className="mt-6">{published?.id === expertId ? "该专家不可用或无访问权限。" : "正在加载专家…"}</p></div>
       </main>
     );
   }
