@@ -1,5 +1,6 @@
 import { test, expect } from "@playwright/test";
-import { ACCEPTANCE_DOC, expectAnchor, gapMessage, openChatEmptyState } from "./chat-task-workbench-fixture";
+import { ACCEPTANCE_DOC, expectAnchor, gapMessage, login, openChatEmptyState, warmUpCopilotRuntimeRoute } from "./chat-task-workbench-fixture";
+import { capturePaperMatrix } from "./support/paper-visual-evidence";
 
 /**
  * issue #2068 —— **TW-P0-1 任务型空状态**（判据见 `${ACCEPTANCE_DOC}` TW-P0-1 一节）。
@@ -18,6 +19,26 @@ import { ACCEPTANCE_DOC, expectAnchor, gapMessage, openChatEmptyState } from "./
  */
 
 test.setTimeout(180_000);
+
+test("PAPER：真实鉴权 Home 与 Chat 同视口明暗取证", async ({ page }) => {
+  test.setTimeout(300_000);
+  await page.emulateMedia({ colorScheme: "light", reducedMotion: "reduce" });
+  await warmUpCopilotRuntimeRoute(page);
+  const homeResponse = page.waitForResponse(response => response.request().method() === "GET"
+    && /\/organizations\/[^/]+\/home-config$/.test(new URL(response.url()).pathname), { timeout: 120_000 });
+  await login(page);
+  expect((await homeResponse).ok(), "Home must load its actual authorized API configuration").toBe(true);
+  await expect(page.getByTestId("home-screen")).toBeVisible();
+  await capturePaperMatrix(page, "home", "home-screen");
+  await page.goto("/chat");
+  await expect(page.getByTestId("copilotkit-v2-input")).toBeEnabled();
+  await expect(page.getByTestId("copilotkit-v2-empty")).toBeVisible();
+  await expect(page.getByTestId("chat-task-workbench-goal-headline")).toBeVisible();
+  const templates = page.locator('[data-testid^="chat-task-workbench-template-"]');
+  await expect(templates).toHaveCount(4);
+  for (const template of await templates.all()) await expect(template).toBeVisible();
+  await capturePaperMatrix(page, "chat-empty", "chat-task-workbench-composer");
+});
 
 test("TW-P0-1①：新对话中央是任务隐喻（目标 + 计划 + 确认），不是会话隐喻「开始新的对话」", async ({ page }) => {
   await openChatEmptyState(page);
