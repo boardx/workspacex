@@ -1,0 +1,16 @@
+[
+  {
+    "mode": "fixed-document",
+    "failed": true,
+    "reason": "ModelCallError",
+    "calls": 1,
+    "durationMs": 941545
+  },
+  {
+    "mode": "fixed-document",
+    "failed": true,
+    "reason": "MODEL_CALL_FAILED",
+    "calls": 1,
+    "durationMs": 985946
+  }
+]
