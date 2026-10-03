@@ -114,7 +114,7 @@ export function OfficialDigitalHumanPanel({ onEnabled }: { onEnabled: () => void
             {(offer.upgrades ?? []).map((role) => <label key={role.agentId} className="rounded-card border border-border p-3">
               <input type="checkbox" checked={selectedUpgrades.includes(role.agentId)} disabled={!offer.canEnable || enabling}
                 onChange={(event) => { setConfirmUpgrade(false); setSelectedUpgrades((items) => event.target.checked ? [...items,role.agentId] : items.filter((id)=>id!==role.agentId)); }} />
-              {role.name}：{role.currentVersion} → {role.targetVersion}；可用技能 {role.readySkillCount}，待验证技能 {role.pendingSkillCount}
+              {role.name}：{role.currentVersion === role.targetVersion ? `${role.targetVersion}（补齐已验证技能）` : `${role.currentVersion} → ${role.targetVersion}`}；可用技能 {role.readySkillCount}，待验证技能 {role.pendingSkillCount}
             </label>)}
             <p className="text-12 text-muted-foreground">待验证技能尚不能直接调用；升级不会增加数据访问或写入权限，也不会启用已停用角色。</p>
             {offer.canEnable ? <><label><input type="checkbox" checked={confirmUpgrade} disabled={enabling || selectedUpgrades.length===0} onChange={(e)=>setConfirmUpgrade(e.target.checked)} />确认仅升级所选角色的新对话背景与技能配置</label>

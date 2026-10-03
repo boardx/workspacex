@@ -1,0 +1,37 @@
+ ✓ tests/research/guided-report-chapters.test.ts (59 tests) 1747ms
+ ✓ tests/research/guided-runtime-persistence.test.ts (44 tests) 22180ms
+ ✓ tests/research/guided-source-relevance.test.ts (30 tests) 37ms
+ ✓ tests/research/guided-session-list-and-recovery.test.ts (10 tests) 5477ms
+ ✓ tests/research/guided-workflow-command.test.ts (4 tests) 3922ms
+ ✓ tests/research/guided-search-recovery.test.ts (24 tests) 48ms
+ ✓ tests/research/google-guided-search.test.ts (42 tests) 1078ms
+ ✓ tests/research/guided-plan-repair.test.ts (11 tests) 101ms
+ ✓ tests/research/guided-report-evidence-retry.test.ts (26 tests) 28ms
+ ✓ tests/research/guided-report-evidence.test.ts (14 tests) 28ms
+ ✓ tests/research/guided-research-runtime-e2e.test.ts (1 test) 4775ms
+ ✓ tests/research/guided-runtime-orchestration.test.ts (4 tests) 32ms
+ ✓ tests/research/conflict-resolution-audit.test.ts (18 tests) 3ms
+ ✓ tests/research/promote-three-gates.test.ts (17 tests) 6ms
+ ✓ tests/research/promote-partial-success.test.ts (11 tests) 5ms
+ ✓ tests/research/guided-session-human-checkpoints.test.ts (3 tests) 5597ms
+ ✓ tests/research/guided-source-documents.test.ts (8 tests) 25ms
+ ✓ tests/research/guided-research-trust.test.ts (10 tests) 7ms
+ ✓ tests/research/archive-keeps-references.test.ts (8 tests) 4ms
+ ✓ tests/research/run-low-confidence-not-filtered.test.ts (6 tests) 3ms
+ ✓ tests/research/guided-runtime-conversation.test.ts (6 tests) 23ms
+ ✓ tests/research/run-partial-routes-visible.test.ts (4 tests) 3ms
+ ✓ tests/research/guided-research-steering.test.ts (7 tests) 9ms
+ ✓ tests/research/guided-report-quote-references.test.ts (11 tests) 10ms
+ ✓ tests/research/plan-counts-null-not-zero.test.ts (11 tests) 7ms
+ ✓ tests/research/guided-report-stream.test.ts (4 tests) 6ms
+ ✓ tests/research/guided-report-history.test.ts (4 tests) 7ms
+ ✓ tests/research/guided-research-design.test.ts (6 tests) 2ms
+ ✓ tests/research/guided-runtime-progress.test.ts (4 tests) 8ms
+ ✓ tests/research/pg-guided-internal-source-access.test.ts (1 test) 1161ms
+ ✓ tests/research/guided-research-skill.test.ts (2 tests) 4ms
+ ✓ tests/research/guided-report-quality.test.ts (2 tests) 4ms
+ ✓ tests/research/guided-runtime-formal-validation.test.ts (4 tests) 4ms
+ ✓ tests/research/guided-report-recovery.test.ts (7 tests) 4ms
+ Test Files  34 passed (34)
+      Tests  423 passed (423)
+  总计：1m10s

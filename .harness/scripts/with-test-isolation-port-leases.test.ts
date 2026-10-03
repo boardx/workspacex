@@ -7,6 +7,29 @@ import { PORT_BASE } from "./lib/test-isolation";
 
 const ROOT = resolve(import.meta.dirname, "../..");
 
+function processExitedOrZombie(pid: number, readStat = (path: string) => readFileSync(path, "utf8")): boolean {
+  try {
+    return /\) Z /.test(readStat(`/proc/${pid}/stat`));
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return true;
+    throw error;
+  }
+}
+
+describe("proc exit observation", () => {
+  it("accepts a stat file that disappears before the read", () => {
+    expect(processExitedOrZombie(123, () => { throw Object.assign(new Error("gone"), { code: "ENOENT" }); })).toBe(true);
+  });
+  it("does not mistake an alive process for an exited process", () => {
+    expect(processExitedOrZombie(123, () => "123 (child) S 1 2 3")).toBe(false);
+    expect(processExitedOrZombie(123, () => "123 (child) Z 1 2 3")).toBe(true);
+  });
+  it("propagates non-ENOENT read failures", () => {
+    const denied = Object.assign(new Error("denied"), { code: "EACCES" });
+    expect(() => processExitedOrZombie(123, () => { throw denied; })).toThrow(denied);
+  });
+});
+
 async function run(options: {
   childExit?: number; cleanupExit?: number; signal?: "SIGTERM" | "SIGINT";
   missingCommand?: boolean; mismatch?: boolean; admissionError?: boolean; verifyError?: boolean; hardExit?: boolean;
@@ -162,7 +185,7 @@ it.each(["SIGKILL", "SIGTERM", "exit7"] as const)("#3128 %s cannot surrender a s
     writeFileSync(stop, "stop");
     await until(() => existsSync(done));
     // Death alone never proves all descendants are gone: keep the quarantine.
-    await until(() => !existsSync(`/proc/${child.pid}/stat`) || /\) Z /.test(readFileSync(`/proc/${child.pid}/stat`, "utf8")));
+    await until(() => processExitedOrZombie(child.pid));
     expect(await claim(child.port)).toBe(false);
     // Simulate explicit recovery of this test's own exact port only, after its
     // known child exited and a real bind proves there is no listener.

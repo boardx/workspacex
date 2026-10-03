@@ -26,13 +26,13 @@ function fixture(responses: unknown[]) {
   });
   const relevanceComplete = vi.fn(async (input: ModelCallInput) => {
     const context = JSON.parse(input.user);
-    return { text: JSON.stringify({ evaluations: context.chunks.map((chunk: { sourceId: string; chunkId: string; content: string; questionIds: string[] }) => ({ sourceId: chunk.sourceId, chunkId: chunk.chunkId, irrelevant: false, matches: chunk.questionIds.map((questionId) => ({ questionId, quote: chunk.content.slice(0, 500), insight: "Controlled relevant evidence", relevance: "direct" })) })) }) };
+    return { text: JSON.stringify({ evaluations: context.chunks.map((chunk: { sourceId: string; chunkId: string; content?: string; quoteOptions: { text: string; quoteRef: string }[]; questionIds: string[] }) => ({ sourceId: chunk.sourceId, chunkId: chunk.chunkId, irrelevant: false, matches: chunk.questionIds.map((questionId) => ({ questionId, quoteRef: chunk.quoteOptions[0]!.quoteRef, insight: "Controlled relevant evidence", relevance: "direct" })) })) }) };
   });
   const model = { complete: (input: ModelCallInput) => JSON.parse(input.user).researchStage === "source_relevance" ? relevanceComplete(input) : complete(input) };
   const search = vi.fn(async () => [{ title: "Official evidence", url: "https://example.org/policy", content: "Documented grid entry requirements" }]);
   const service = new GuidedRuntimeService(store, model, { search }, { provider: "test", id: "test" });
   const actor = { orgId: toOrgId("org"), userId: "owner", sessionId: session.sessionId };
-  const run = (action: "generate" | "start" = "generate") => service.execute(actor, session, { sessionId: session.sessionId, node: "research", action, requestId: action, expectedVersion: state.version });
+  const run = (action: "generate" | "start" = "generate", node: "research" | "outline" = "research") => service.execute(actor, session, { sessionId: session.sessionId, node, action, requestId: action, expectedVersion: state.version });
   return { complete, search, write, writes, run };
 }
 
@@ -48,6 +48,26 @@ function expectRepairContext(f: ReturnType<typeof fixture>) {
 }
 
 describe("bounded research plan repair", () => {
+  it.each(["research", "outline"] as const)("ends stalled %s generation within 55 seconds and ignores late output", async (node) => {
+    vi.useFakeTimers();
+    try {
+      const f = fixture([validPlan]);
+      let finish!: (result: { text: string }) => void;
+      f.complete.mockImplementationOnce(() => new Promise((resolve) => { finish = resolve; }));
+      let result: ResearchRuntime | undefined;
+      void f.run("generate", node).then((value) => { result = value; });
+      await vi.advanceTimersByTimeAsync(55_000);
+      expect(result).toBeDefined();
+      expect(result!.errorCode).toBe("RESEARCH_PLAN_TIME_BUDGET_EXCEEDED");
+      expect(result!.busy).toBe(false);
+      expect(result!.tasks).toEqual([]);
+      expect(f.complete.mock.calls[0]![0].signal?.aborted).toBe(true);
+      const writes = f.writes.length;
+      finish({ text: JSON.stringify(validPlan) });
+      await vi.advanceTimersByTimeAsync(1);
+      expect(f.writes).toHaveLength(writes);
+    } finally { vi.useRealTimers(); }
+  });
   it("repairs a missing required field and publishes only the complete validated plan", async () => {
     const invalid = { tasks: validPlan.tasks, overview: validPlan.overview };
     const f = fixture([invalid, validPlan]);
@@ -98,7 +118,7 @@ describe("bounded research plan repair", () => {
     expect(result.errorCode).toBe("RESEARCH_NODE_STATE_INVALID");
     expect(f.complete).toHaveBeenCalledTimes(2);
     expect(f.search).not.toHaveBeenCalled();
-    expect(result.tasks).toEqual([]); expect(result.sources).toEqual([]);
+    expect(result!.tasks).toEqual([]); expect(result.sources).toEqual([]);
     expect(f.writes.every((snapshot) => snapshot.tasks.length === 0)).toBe(true);
     expect(result.modelCalls.map((call) => call.status)).toEqual(["failed", "failed"]);
   });
@@ -109,7 +129,7 @@ describe("bounded research plan repair", () => {
     expect(result.errorCode).toBe("RESEARCH_WORKFLOW_UNAVAILABLE");
     expect(f.complete).toHaveBeenCalledTimes(1);
     expect(f.search).not.toHaveBeenCalled();
-    expect(result.tasks).toEqual([]);
+    expect(result!.tasks).toEqual([]);
   });
 
   it("does not retry a persistence failure even when it carries a validation-like reason code", async () => {
@@ -144,7 +164,7 @@ describe("bounded research plan repair", () => {
     expect(result.errorCode).toBe("RESEARCH_NODE_STATE_INVALID");
     expect(f.complete).toHaveBeenCalledTimes(1);
     expect(f.search).not.toHaveBeenCalled();
-    expect(result.tasks).toEqual([]);
+    expect(result!.tasks).toEqual([]);
   });
 
   it("bounds raw invalid output and validation details supplied to the repair", async () => {

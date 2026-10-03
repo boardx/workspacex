@@ -1,0 +1,17 @@
+{
+  "model": "qwen3.8-omni-flash-realtime",
+  "reason": "provider_error",
+  "events": [
+    "ws.open",
+    "session.created",
+    "session.updated",
+    "error",
+    "provider_error:invalid_request_error",
+    "detail:Error committing input audio buffer: buffer too small, or have no audio."
+  ],
+  "text": "",
+  "outputAudioBytes": 0,
+  "inputAudioBytes": 0,
+  "boundary": "Real vendor synthetic speech PCM input / real vendor audio output; no physical microphone or browser acceptance",
+  "at": "2026-10-02T15:52:15.040Z"
+}

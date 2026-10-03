@@ -7,7 +7,7 @@ import { ResearchChaptersWorkspace } from "@/components/research-studio/research
 import { researchReportDocument } from "@/lib/research-report-document";
 import { executeResearchRuntime, getResearchRuntime, getResearchRuntimeProgress } from "@/lib/guided-research-api";
 import { runtimeFixture } from "../guided-runtime-fixture";
-vi.mock("@/lib/guided-research-api", () => ({ getResearchRuntime: vi.fn(), executeResearchRuntime: vi.fn(), getResearchRuntimeProgress: vi.fn(async () => ({ busy: false })) }));
+vi.mock("@/lib/guided-research-api", async (original) => ({ ...await original<typeof import("@/lib/guided-research-api")>(), getResearchRuntime: vi.fn(), executeResearchRuntime: vi.fn(), getResearchRuntimeProgress: vi.fn() }));
 beforeEach(() => vi.resetAllMocks());
 afterEach(() => vi.useRealTimers());
 describe("reference research workflow", () => {
@@ -15,7 +15,8 @@ describe("reference research workflow", () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     const initial = runtimeFixture("directions");
     const saved = { ...initial, version: initial.version + 1, brief: { ...initial.brief, topic: "已持久化主题" }, directions: [], generatedNodes: ["brief" as const] };
-    vi.mocked(getResearchRuntime).mockResolvedValueOnce(initial).mockResolvedValue(saved);
+    vi.mocked(getResearchRuntime).mockResolvedValueOnce(initial);
+    vi.mocked(getResearchRuntimeProgress).mockResolvedValue({ type: "patch", sessionId: saved.sessionId, version: saved.version, revision: saved.revision, changes: saved, removed: [] });
     vi.mocked(executeResearchRuntime).mockImplementation(() => new Promise(() => undefined));
     render(<GuidedResearchLive sessionId={initial.sessionId} onBack={vi.fn()} />);
     fireEvent.change(await screen.findByRole("textbox", { name: "研究主题" }), { target: { value: "已持久化主题" } });
@@ -110,7 +111,7 @@ describe("reference research workflow", () => {
     const topic = await screen.findByRole("textbox", { name: "研究主题" });
     fireEvent.change(topic, { target: { value: "Revised European scope" } });
     expect(executeResearchRuntime).not.toHaveBeenCalled();
-    await waitFor(() => expect(executeResearchRuntime).toHaveBeenCalledWith(expect.objectContaining({ node: "brief", action: "save", draft: { node: "brief", value: { ...initial.brief, topic: "Revised European scope" } } })));
+    await waitFor(() => expect(vi.mocked(executeResearchRuntime).mock.calls.map(([input]) => input)).toContainEqual(expect.objectContaining({ node: "brief", action: "save", draft: { node: "brief", value: { ...initial.brief, topic: "Revised European scope" } } })));
     expect(await screen.findByDisplayValue("Revised European scope")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "下一步：研究计划" })).toBeEnabled();
     expect(screen.queryByRole("textbox", { name: "研究需求" })).not.toBeInTheDocument();
@@ -125,6 +126,16 @@ describe("reference research workflow", () => {
     expect(screen.getByTestId("research-selected-chapter")).not.toHaveTextContent("核查政策约束");
     expect(screen.getByRole("button", { name: "下一步：生成报告" })).toBeEnabled();
     expect(screen.getByRole("button", { name: "上一步" })).toBeEnabled();
+  });
+  it("explains a search budget stop and keeps sources and next actions available", async () => {
+    const initial = { ...runtimeFixture("research"), errorCode: "RESEARCH_SEARCH_TIME_BUDGET_EXCEEDED" };
+    vi.mocked(getResearchRuntime).mockResolvedValue(initial);
+    render(<GuidedResearchLive sessionId={initial.sessionId} onBack={vi.fn()} />);
+    expect(await screen.findByRole("alert")).toHaveTextContent("3 分钟上限");
+    expect(screen.getByRole("button", { name: "继续重试" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "确认并继续" })).toBeEnabled();
+    expect(screen.getByTestId("research-source-description-source1")).toHaveAttribute("href", initial.sources[0]!.url);
+    expect(executeResearchRuntime).not.toHaveBeenCalled();
   });
   it("shows only searched source descriptions while research is busy", async () => {
     const initial = runtimeFixture("research");
@@ -142,7 +153,8 @@ describe("reference research workflow", () => {
     vi.mocked(getResearchRuntimeProgress).mockResolvedValue({ busy: false } as Awaited<ReturnType<typeof getResearchRuntimeProgress>>);
     let finishPoll!: (state: typeof initial) => void;
     let emit!: NonNullable<Parameters<typeof executeResearchRuntime>[1]>;
-    vi.mocked(getResearchRuntime).mockResolvedValueOnce(initial).mockImplementationOnce(() => new Promise((resolve) => { finishPoll = resolve; }));
+    vi.mocked(getResearchRuntime).mockResolvedValueOnce(initial);
+    vi.mocked(getResearchRuntimeProgress).mockImplementationOnce(() => new Promise((resolve) => { finishPoll = (value) => resolve({ type: "patch", sessionId: value.sessionId, version: value.version, revision: value.revision, changes: value, removed: [] }); }));
     vi.mocked(executeResearchRuntime).mockImplementation((_input, callback) => { emit = callback!; return new Promise(() => undefined); });
     vi.useFakeTimers();
     await act(async () => { render(<GuidedResearchLive sessionId={initial.sessionId} onBack={vi.fn()} />); });
@@ -175,9 +187,11 @@ describe("reference research workflow", () => {
     expect(await screen.findByText("已经保存的章节")).toBeInTheDocument();
     expect(screen.queryByTestId("research-runtime-progress")).not.toBeInTheDocument();
     expect(screen.getByRole("alert")).toBeInTheDocument();
+    expect(screen.getByRole("alert")).not.toHaveTextContent("模型服务暂时不可用");
+    expect(screen.getByRole("alert")).toHaveTextContent("研究流程");
     fireEvent.click(screen.getByRole("button", { name: "生成完整报告" }));
     await waitFor(() => expect(executeResearchRuntime).toHaveBeenCalledTimes(1));
-    expect(executeResearchRuntime).toHaveBeenCalledWith(expect.objectContaining({ action: "retry", node: "report", expectedVersion: state.version }), expect.any(Function), expect.any(AbortSignal));
+    expect(executeResearchRuntime).toHaveBeenCalledWith(expect.objectContaining({ action: "retry", node: "report", expectedVersion: state.version }), expect.any(Function), expect.any(AbortSignal), expect.objectContaining({ sessionId: expect.any(String) }));
   });
   it("resumes checkpoint chapters after a server lease expires without an error code", async () => {
     const initial = runtimeFixture("report");
@@ -188,7 +202,7 @@ describe("reference research workflow", () => {
     expect(resume).toBeEnabled();
     expect(screen.getByText("重启前保存的章节")).toBeInTheDocument();
     fireEvent.click(resume);
-    expect(executeResearchRuntime).toHaveBeenCalledWith(expect.objectContaining({ action: "retry", node: "report", expectedVersion: state.version }), expect.any(Function), expect.any(AbortSignal));
+    expect(executeResearchRuntime).toHaveBeenCalledWith(expect.objectContaining({ action: "retry", node: "report", expectedVersion: state.version }), expect.any(Function), expect.any(AbortSignal), expect.objectContaining({ sessionId: expect.any(String) }));
     expect(screen.getByText("重启前保存的章节")).toBeInTheDocument();
   });
   it("still exposes full regeneration separately from checkpoint resume", async () => {
@@ -199,7 +213,7 @@ describe("reference research workflow", () => {
     const preview = await screen.findByTestId("research-report-preview");
     fireEvent.pointerDown(within(preview).getByRole("button", { name: "更多操作" }), { button: 0, ctrlKey: false });
     fireEvent.click(await screen.findByRole("menuitem", { name: "重新生成报告" }));
-    expect(executeResearchRuntime).toHaveBeenCalledWith(expect.objectContaining({ action: "generate", node: "report" }), expect.any(Function), expect.any(AbortSignal));
+    expect(executeResearchRuntime).toHaveBeenCalledWith(expect.objectContaining({ action: "generate", node: "report" }), expect.any(Function), expect.any(AbortSignal), expect.objectContaining({ sessionId: expect.any(String) }));
   });
   it("keeps a regeneration action when a failed stream has no renderable report content", async () => {
     const initial = runtimeFixture("report");
@@ -211,7 +225,7 @@ describe("reference research workflow", () => {
     expect(await screen.findByRole("button", { name: "生成完整报告" })).toBeInTheDocument();
     fireEvent.pointerDown(screen.getByRole("button", { name: "更多操作" }), { button: 0, ctrlKey: false });
     fireEvent.click(await screen.findByRole("menuitem", { name: "重新生成报告" }));
-    expect(executeResearchRuntime).toHaveBeenCalledWith(expect.objectContaining({ action: "generate", node: "report" }), expect.any(Function), expect.any(AbortSignal));
+    expect(executeResearchRuntime).toHaveBeenCalledWith(expect.objectContaining({ action: "generate", node: "report" }), expect.any(Function), expect.any(AbortSignal), expect.objectContaining({ sessionId: expect.any(String) }));
   });
   it("groups completed report actions under one menu beside the primary completion action", async () => {
     const initial = runtimeFixture("report");
@@ -229,6 +243,6 @@ describe("reference research workflow", () => {
     fireEvent.pointerDown(more, { button: 0, ctrlKey: false });
     expect(await screen.findByRole("menuitem", { name: "重新生成报告" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("menuitem", { name: "重新生成报告" }));
-    expect(executeResearchRuntime).toHaveBeenCalledWith(expect.objectContaining({ action: "generate", node: "report" }), expect.any(Function), expect.any(AbortSignal));
+    expect(executeResearchRuntime).toHaveBeenCalledWith(expect.objectContaining({ action: "generate", node: "report" }), expect.any(Function), expect.any(AbortSignal), expect.objectContaining({ sessionId: expect.any(String) }));
   });
 });

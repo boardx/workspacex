@@ -2,13 +2,13 @@ import { loadCommitPolicy } from "./lib/ci-check-policy.mjs";
 // pr-queue.ts — CLI：`pnpm harness pr-queue`（只读 PR 队列体检，#451）。
 //
 // 只做三件事：用 gh 取客观事实 → 交给 lib/pr-queue.ts 的纯函数判定 → 打印。
-// **不合并、不改 label、不评论**——所有写动作留给人（见 mergeAuthorization 注释与
-// loop-design-principles「破坏性动作永远在 loop 之外」）。
+// **不合并、不改 label、不评论**——授权规则见 coordinator-sop 铁律 12。
 //
 //   pnpm harness pr-queue                 # 全部 open PR 的状态
 //   pnpm harness pr-queue --pr 451        # 单个 PR
 //   pnpm harness pr-queue --json          # 机器可解析
 //   pnpm harness pr-queue --pr 451 --attended   # 顺带回答"人类在场时能不能合"
+//   pnpm harness pr-queue --auto-merge-authorized --json # 用户已明确授权自动合并
 //   pnpm harness pr-queue --post-merge 451      # 合并后收尾核验
 //
 // 退出码：有任何 PR 处于 MERGE_BLOCKED，或 --post-merge 有缺口 → 非 0（CI/loop 可消费）。
@@ -129,7 +129,7 @@ function render(results: Array<{ facts: PrFacts; result: PrClassification }>, ar
     const route = resolveMergeRoute({ state: result.state, mode, queueEnabled });
     log.info(`   合并授权：${route.allowed ? "允许" : "拒绝"}（路线 ${route.route}） — ${route.reason}`);
     if (route.allowed) {
-      log.info(`   人类执行：gh pr merge ${result.number} --squash --delete-branch`);
+      log.info(`   coord-main 执行：gh pr merge ${result.number} --squash --delete-branch --match-head-commit ${facts.headSha}`);
       // 队列启用时同一条命令是**入队**而不是立即合并——说清楚，免得把「已入队」读成「已合入」。
       if (route.route === "enqueue") log.info("   （合并队列已启用：这条命令是把 PR 加入队列，候选组跑完完整验证才会真正合入）");
     }

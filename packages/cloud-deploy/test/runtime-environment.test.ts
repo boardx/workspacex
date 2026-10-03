@@ -24,6 +24,7 @@ it("keeps Starter secrets stable and excludes owner/signing keys from unrelated 
   const first = await runtimeEnvironment(config, root, { WORKSPACEX_MODEL_KEY: "model-key" });
   expect(await runtimeEnvironment(config, root, { WORKSPACEX_MODEL_KEY: "model-key" })).toEqual(first);
   expect(first.api.WORKSPACEX_OBJECT_STORE).toBe("oss");
+  expect(first.api.KERNEL_MODEL_STREAM_ENABLED).toBe("1");
   expect(first.api.MIGRATION_DB_PASSWORD).toBeUndefined();
   expect(first.agent.NATIVE_SESSION_BINDING_KEY).toBeUndefined();
   expect(first.agent.MODEL_CREDENTIAL_KEY).toBeUndefined();
@@ -42,6 +43,7 @@ it("uses production referenced data with TLS and no local fallback", async () =>
     WORKSPACEX_MIGRATION: JSON.stringify({ host: "db.example.com", database: "workspacex", user: "owner", password: "migration-secure-password-123" }),
     WORKSPACEX_REDIS: JSON.stringify({ host: "redis.example.com", password, caFile: "/etc/workspacex/redis-ca.pem" }),
   });
+  expect(value.api.KERNEL_MODEL_STREAM_ENABLED).toBe("1");
   expect(value.api.PGHOST).toBe("db.example.com"); expect(value.api.PGSSLMODE).toBe("verify-full");
   expect(value.api.REDIS_TLS).toBe("true"); expect(value.api.MIGRATION_DB_PASSWORD).toBeUndefined();
   expect(value.api.REDIS_CA_FILE).toBe("/etc/workspacex/redis-ca.pem");

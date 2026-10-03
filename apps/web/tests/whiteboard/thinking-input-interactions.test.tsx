@@ -191,8 +191,19 @@ it("offers intelligent multiline paste and creates the chosen stickies in one op
 
 it("accepts dock drag payloads at the Fabric drop point and rejects every read-only creation path", () => {
   const writable = editor();
+  fireEvent.click(screen.getByTestId("board-add-sticky"));
+  const source = screen.getByTestId("board-sticky-circle");
+  fireEvent.dragStart(source, { dataTransfer: { setData: vi.fn(), types: ["application/x-workspacex-board-tool"] } });
+  const update = vi.fn();
+  writable.on("update", update);
   fireEvent.click(screen.getByTestId("mock-tool-drop"));
+  expect(readObjects(writable)).toHaveLength(1);
+  expect(update).toHaveBeenCalledTimes(1);
   expect(readObjects(writable)[0]?.geometry).toMatchObject({ x: 210, y: 230, width: 180, height: 180 });
+  fireEvent.dragEnd(source, { dataTransfer: { dropEffect: "copy" } });
+  fireEvent.click(screen.getByTestId("mock-canvas-click"));
+  expect(readObjects(writable)).toHaveLength(1);
+  expect(update).toHaveBeenCalledTimes(1);
   writable.destroy(); cleanup();
 
   const readonly = editor(true);
@@ -202,6 +213,24 @@ it("accepts dock drag payloads at the Fabric drop point and rejects every read-o
   expect(readObjects(readonly)).toEqual([]);
   expect(screen.getByTestId("board-add-sticky")).toBeDisabled();
   readonly.destroy();
+});
+
+it("does not create after cancelling an armed native tool drag until explicitly rearmed", () => {
+  const doc = editor();
+  const update = vi.fn();
+  doc.on("update", update);
+  fireEvent.click(screen.getByTestId("board-add-sticky"));
+  const source = screen.getByTestId("board-add-sticky");
+  fireEvent.dragStart(source, { dataTransfer: { setData: vi.fn(), types: ["application/x-workspacex-board-tool"] } });
+  fireEvent.dragEnd(source, { dataTransfer: { dropEffect: "none" } });
+  fireEvent.click(screen.getByTestId("mock-canvas-click"));
+  expect(readObjects(doc)).toEqual([]);
+  expect(update).not.toHaveBeenCalled();
+  fireEvent.click(source);
+  fireEvent.click(screen.getByTestId("mock-canvas-click"));
+  expect(readObjects(doc)).toHaveLength(1);
+  expect(update).toHaveBeenCalledTimes(1);
+  doc.destroy();
 });
 
 it("edits sticky appearance through canonical commands while preserving future extension fields", async () => {

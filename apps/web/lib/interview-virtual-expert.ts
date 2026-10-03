@@ -53,3 +53,11 @@ export function renderVirtualExpertSelection(fields: VirtualExpertFields): strin
     .replace(/^## /gmu, "### ")
     + "\n\n材料边界：模拟画像，仅用于模拟研究，不作为真人访谈证据。";
 }
+
+/** Read editable fields from one saved virtual-expert block without changing its anchor. */
+export function parseVirtualExpertSelection(name: string, markdown: string): VirtualExpertFields {
+  const body = markdown.replace(/^## \[[^\n]+\]\(#expert-[^\n]+\)\s*\n/u, "")
+    .replace(/\n\n材料边界：模拟画像，仅用于模拟研究，不作为真人访谈证据。\s*$/u, "")
+    .trim().replace(/^### /gmu, "## ");
+  return parseVirtualExpertProposal(`# ${name}\n\n${body}`);
+}

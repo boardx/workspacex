@@ -1,0 +1,13 @@
+
+ RUN  v2.1.9 /private/tmp/wsx-digital-acceptance-20261002/apps/api
+
+[db-isolation] selection is DB-free (tests/support/db-free-tests.ts); skipping database setup
+ ✓ tests/agent-runtime/execute-run-progress.test.ts (17 tests) 26ms
+ ✓ tests/agent/official-role-binding-refresh.test.ts (10 tests) 48ms
+ ✓ tests/agent-run/execute-run-thin-gateway.test.ts (6 tests) 5ms
+
+ Test Files  3 passed (3)
+      Tests  33 passed (33)
+   Start at  12:29:18
+   Duration  3.26s (transform 1.39s, setup 21ms, collect 2.22s, tests 79ms, environment 0ms, prepare 166ms)
+

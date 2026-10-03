@@ -59,8 +59,14 @@ work=$(mktemp -d /tmp/workspacex-cn-preflight.XXXXXX)
 cleanup() { rm -rf -- "$work"; }
 trap cleanup EXIT
 validator="$work/validate_preflight.py"
+if [[ -n ${CN_BUILD_TOOL_BINDING:-} ]]; then
+  tool_root=$(python3 /usr/local/lib/workspacex-cn/cn-build-tool-identity.py "$CN_BUILD_TOOL_BINDING" "$revision" "$release" "$attempt_id" "$phase") || exit 1
+  [[ "$tool_root" == "${CN_BUILD_TOOL_ROOT:-}" ]] || exit 1
+  cp "$tool_root/.agents/skills/workspacex-cn-release/scripts/validate_preflight.py" "$validator"
+else
 git -C "$REPOSITORY_DIR" show "$revision:.agents/skills/workspacex-cn-release/scripts/validate_preflight.py" >"$validator" \
   || fail "exact validator is unavailable"
+fi
 chmod 0500 "$validator"
 
 # The root-protected input is a probe template. Replace the lock assertion with

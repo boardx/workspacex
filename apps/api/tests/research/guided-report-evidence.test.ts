@@ -13,10 +13,10 @@ function auditFor(make: (context: any) => unknown): ReportAudit {
   return async (input, validate) => validate(JSON.stringify(make(JSON.parse(input.user))));
 }
 const evaluate = (context: any) => ({ evaluations: context.chunks.map((chunk: any) => ({ sourceId: chunk.sourceId, chunkId: chunk.chunkId, irrelevant: false,
-  matches: context.questions.map((question: any) => ({ questionId: question.id, quote: chunk.content.slice(0, 80), insight: "Interpretation must be checked against the quote.", relevance: "direct" })) })) });
+  matches: context.questions.map((question: any) => ({ questionId: question.id, quote: (chunk.content ?? chunk.quoteOptions[0].text).slice(0, 80), insight: "Interpretation must be checked against the quote.", relevance: "direct" })) })) });
 describe("verified report evidence coverage", () => {
   it("extracts independent batches with a bound and preserves deterministic evidence order", async () => {
-    const state = fixture(24);
+    const state = fixture(40);
     let active = 0, peak = 0;
     let release!: () => void;
     const slow = new Promise<void>((resolve) => { release = resolve; });
@@ -25,14 +25,14 @@ describe("verified report evidence coverage", () => {
     const operation = extractReportEvidence(state, config, async (input, validate) => {
       const context = JSON.parse(input.user);
       active++; peak = Math.max(peak, active);
-      if (context.batchIndex === 0) await slow;
-      if (context.batchIndex === 2) thirdStarted();
+      if (context.batchIndex === 3) thirdStarted();
+      if (context.batchIndex < 4) await slow;
       active--;
       return validate(JSON.stringify(evaluate(context)));
     });
     try {
       await Promise.race([third, new Promise((_, reject) => setTimeout(() => reject(new Error("serial evidence extraction")), 1000))]);
-      expect(peak).toBe(2);
+      expect(peak).toBe(4);
     } finally { release(); }
     const result = await operation;
     expect(result.matches.values().next().value?.map((item) => item.sourceId)).toEqual(state.sources.map((source) => source.id));
@@ -76,8 +76,8 @@ describe("verified report evidence coverage", () => {
     expect(canonicalEvidenceSources(state).map((source) => source.id)).toEqual(["s0"]);
     const batches: any[] = [];
     await extractReportEvidence(state, config, auditFor((context) => { batches.push(context); return evaluate(context); }));
-    expect(batches.flatMap((batch) => batch.chunks).reduce((sum, chunk) => sum + chunk.content.length, 0)).toBe(30000);
-    expect(batches.every((batch) => batch.chunks.length <= 8 && batch.chunks.reduce((sum: number, chunk: any) => sum + chunk.content.length, 0) <= 24000)).toBe(true);
+    expect(batches.flatMap((batch) => batch.chunks).reduce((sum, chunk) => sum + (chunk.content ?? chunk.quoteOptions.map((option: any) => option.text).join("")).length, 0)).toBe(30000);
+    expect(batches.every((batch) => batch.chunks.length <= 8 && batch.chunks.reduce((sum: number, chunk: any) => sum + (chunk.content ?? chunk.quoteOptions.map((option: any) => option.text).join("")).length, 0) <= 24000)).toBe(true);
     expect(batches.flatMap((batch) => batch.chunks).every((chunk) => chunk.contentKind === "search_excerpt")).toBe(true);
   });
   it("does not present context-only snippets as direct answers", async () => {
@@ -106,7 +106,7 @@ describe("verified report evidence coverage", () => {
     expect(result.matches.values().next().value).toHaveLength(1);
     expect(state.reportEvidenceWarnings ?? []).toEqual([]);
   });
-  it("does not leak earlier invalid attempt evidence into a repaired response", async () => {
+  it("retains only wholly valid chunks from the first attempt when failed chunks repair as irrelevant", async () => {
     const state = fixture(2); let calls = 0;
     const result = await extractReportEvidence(state, config, auditFor((context) => {
       calls++; const output = evaluate(context);
@@ -114,7 +114,8 @@ describe("verified report evidence coverage", () => {
       else for (const evaluation of output.evaluations) { evaluation.matches = []; evaluation.irrelevant = true; }
       return output;
     }));
-    expect(calls).toBe(2); expect([...result.matches.values()].flat()).toEqual([]);
+    expect(calls).toBe(2); expect([...result.matches.values()].flat()).toHaveLength(2);
+    expect([...result.matches.values()].flat().every((item) => item.sourceId === "s0" && !item.quote.includes("fabricated"))).toBe(true);
   });
   it("fails honestly when repair leaves no verified evidence", async () => {
     const state = fixture(1); let calls = 0;

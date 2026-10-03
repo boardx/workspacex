@@ -92,7 +92,9 @@ describe("CN complete preparation before production approval", () => {
   it("uses complete receipt verification, not an input-presence assertion", () => {
     expect(candidate).toContain("workspacex-cn-deploy --check-prepare-inputs");
     expect(candidate).not.toContain('git -C "${repository}" fetch');
-    expect(candidate).toContain("CN_RELEASE_NOT_READY_BASELINE_REPOSITORY");
+    const exporter = readFileSync(resolve(root, ".harness/scripts/vm/stage-cn-offline-source-cache.sh"), "utf8");
+    expect(candidate).toContain("workspacex-cn-export-source");
+    expect(exporter).toContain("CN_RELEASE_NOT_READY_BASELINE_REPOSITORY");
     expect(deploy).toContain("CN_RELEASE_PREPARE_INPUTS_PRESENT");
     expect(ready).not.toContain("--check-prepare-inputs");
     for (const gate of ["protected_file \"$prepare_receipt\"", "protected_file \"$fast_safe_receipt\"", "candidate configuration receipt rejected", "preactivate receipt is missing, changed, or expired", "prepared receipt, baseline, or manifest differs"]) {

@@ -285,7 +285,7 @@ describe("F168 guided research home live data", () => {
     expect(screen.getByTestId("research-step-topic")).toHaveAttribute("aria-current", "step");
     expect(screen.getByTestId("research-step-topic")).toHaveAttribute("aria-disabled", "true");
     await waitFor(() => expect(executeResearchRuntime).toHaveBeenCalledTimes(1));
-    expect(executeResearchRuntime).toHaveBeenCalledWith(expect.objectContaining({
+    expect(vi.mocked(executeResearchRuntime).mock.calls.map(([input]) => input)).toContainEqual(expect.objectContaining({
       sessionId: "grs-entry", node: "brief", action: "confirm", expectedVersion: 0,
       draft: { node: "brief", value: expect.objectContaining({ goal: "核对具体政策" }) },
     }));

@@ -1,0 +1,15 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /private/tmp/wsx-digital-design-20261003/apps/web
+
+ ✓ tests/lib/realtime-reconnect.test.ts (4 tests) 5ms
+ ✓ tests/ui/chat-realtime-voice-thread-lifecycle.test.ts (5 tests) 6ms
+ ✓ tests/ui/chat-role-skill-scope.test.tsx (12 tests) 247ms
+ ✓ tests/ui/realtime-voice-session.test.tsx (12 tests) 1346ms
+   ✓ RealtimeVoiceSession > connects with threadId + selected agent (no model/voice from the client) and walks the live states 309ms
+
+ Test Files  4 passed (4)
+      Tests  33 passed (33)
+   Start at  13:22:41
+   Duration  20.23s (transform 2.95s, setup 855ms, collect 5.36s, tests 1.60s, environment 32.43s, prepare 207ms)
+

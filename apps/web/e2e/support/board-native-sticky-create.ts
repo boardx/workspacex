@@ -34,7 +34,14 @@ export function observeNativeStickyWrites(page:Page,boardId:string){
 }
 
 /** Keyboard arms one creation; only native blank-canvas input creates content. */
-export async function createNativeSticky(page:Page,text:string,proof:{api:APIRequestContext;token:string;boardId:string;updates:()=>number}){
+type NativeCreationProof={api:APIRequestContext;token:string;boardId:string;updates:()=>number};
+export async function createNativeSticky(page:Page,text:string,proof:NativeCreationProof,options:{finishEditor?:boolean}={}){
+  return createNativeTextObject(page,text,proof,'sticky',options);
+}
+export async function createNativeText(page:Page,text:string,proof:NativeCreationProof,options:{finishEditor?:boolean}={}){
+  return createNativeTextObject(page,text,proof,'text',options);
+}
+async function createNativeTextObject(page:Page,text:string,proof:NativeCreationProof,kind:'sticky'|'text',options:{finishEditor?:boolean}){
   await expectBoardSynced(page,30_000);
   const before=await canonicalRows(page);
   const armedSnapshot=await canonicalBoardSnapshot(proof.api,proof.token,proof.boardId),armedHead=await boardHead(proof.api,proof.token,proof.boardId),armedUpdates=proof.updates();
@@ -43,24 +50,24 @@ export async function createNativeSticky(page:Page,text:string,proof:{api:APIReq
     // The multi-selection toolbar has no close button. Select one real outline
     // object to expose its inspector, then use the actual Cancel selection control.
     await selected.first().focus(); // Native focus exposes the sr-only outline.
-    await selected.first().click();
+    await selected.first().press('Enter');
     await expect(selected).toHaveCount(1);
-    // Editable outline objects open their editor; the compact inspector is hidden until it closes.
     const activeEditor=page.getByLabel('对象文字',{exact:true});
     if(await activeEditor.count()){
       await expect(activeEditor).toBeFocused();
       await activeEditor.press('Escape');
       await expect(activeEditor).toHaveCount(0);
     }
-    await page.getByRole('button',{name:'取消选择',exact:true}).click();
+    const cancelSelection=page.getByRole('button',{name:'取消选择',exact:true});
+    await cancelSelection.focus();await expect(cancelSelection).toBeFocused();await cancelSelection.press('Enter');
     await expect(selected).toHaveCount(0);
     expect(await canonicalRows(page)).toEqual(before);
     expect(await canonicalBoardSnapshot(proof.api,proof.token,proof.boardId)).toEqual(armedSnapshot);
     expect(await boardHead(proof.api,proof.token,proof.boardId)).toEqual(armedHead);expect(proof.updates()).toBe(armedUpdates);
   }
   await page.getByTestId('board-tool-select').focus();
-  await page.keyboard.press('n');
-  await expect(page.getByTestId('board-add-sticky')).toHaveAttribute('aria-pressed','true');
+  await page.keyboard.press(kind==='sticky'?'n':'t');
+  await expect(page.getByTestId(`board-add-${kind}`)).toHaveAttribute('aria-pressed','true');
   expect(await canonicalRows(page)).toEqual(before);
   expect(await canonicalBoardSnapshot(proof.api,proof.token,proof.boardId)).toEqual(armedSnapshot);
   expect(await boardHead(proof.api,proof.token,proof.boardId)).toEqual(armedHead);expect(proof.updates()).toBe(armedUpdates);
@@ -83,15 +90,15 @@ export async function createNativeSticky(page:Page,text:string,proof:{api:APIReq
     const chrome=Array.from(document.querySelectorAll('[data-board-chrome]')).map(node=>node.getBoundingClientRect()).filter(rect=>rect.width>0&&rect.height>0);
     const selection=occupied.filter((_,index)=>nodes[index]?.querySelector('[aria-pressed="true"]'));
     return {canvas:{x:box.x,y:box.y,width:box.width,height:box.height},viewport:{width:innerWidth,height:innerHeight},occupied,selection,
-      // Keep main's visible paper/header clearance, clipped for narrow reflow viewports.
-      paperMargin:Math.max(8,Math.min(Math.max(120,120*zoom),Math.min(box.width,innerWidth)/4,Math.min(box.height,innerHeight)/4)),chrome:chrome.map(r=>({x:r.x,y:r.y,width:r.width,height:r.height}))};
+      // This is viewport-visible clearance for native reflow placement, not proof of the full scaled paper footprint.
+      zoom,requestedPaperMargin:Math.max(120,120*zoom),paperMargin:Math.max(8,Math.min(Math.max(120,120*zoom),Math.min(box.width,innerWidth)/4,Math.min(box.height,innerHeight)/4)),chrome:chrome.map(r=>({x:r.x,y:r.y,width:r.width,height:r.height}))};
    },expectedCount);
    const candidates=await page.evaluate(nativeBlankCandidates,sample);
-   return page.getByTestId('board-fabric-surface').evaluate((host,points)=>{
+   return page.getByTestId('board-fabric-surface').evaluate((host,{points,geometry})=>{
     const canvas=host.querySelector('canvas.upper-canvas');
     for(const point of points)if(document.elementFromPoint(point.x,point.y)===canvas)return point;
-    throw new Error('NO_NATIVE_BLANK_POSITION');
-   },candidates);
+    throw new Error(`NO_NATIVE_BLANK_POSITION ${JSON.stringify({canvas:geometry.canvas,zoom:geometry.zoom,margin:geometry.paperMargin,requestedPaperMargin:geometry.requestedPaperMargin,candidateCenters:points.length,unobstructedCenters:0,chrome:geometry.chrome})}`);
+   },{points:candidates,geometry:sample});
   };
   const point=await blankPoint(before.length);
   expect(await canonicalRows(page)).toEqual(before);
@@ -100,13 +107,13 @@ export async function createNativeSticky(page:Page,text:string,proof:{api:APIReq
   await expectBoardSynced(page,30_000);
   await expect.poll(async()=> (await canonicalRows(page)).length).toBe(before.length+1);
   await expect(page.getByTestId('board-tool-select')).toHaveAttribute('aria-pressed','true');
-  await expect(page.getByTestId('board-add-sticky')).toHaveAttribute('aria-pressed','false');
+  await expect(page.getByTestId(`board-add-${kind}`)).toHaveAttribute('aria-pressed','false');
   const editor=page.getByLabel('对象文字',{exact:true});
   await expect(editor).toBeFocused();await editor.fill(text);await editor.press('Escape');
   await expect(editor).toHaveCount(0);
   const created=(await canonicalRows(page)).filter(row=>!before.some(old=>old.id===row.id));
   expect(created).toHaveLength(1);const note=created[0];if(!note)throw new Error('NATIVE_STICKY_NOT_CREATED');
-  expect(note).toMatchObject({kind:'sticky',text});
+  expect(note).toMatchObject({kind,text});
   expect((await canonicalRows(page)).filter(row=>row.id!==note.id)).toEqual(before);
   await expectBoardSynced(page,30_000);
   const snapshot=await canonicalBoardSnapshot(proof.api,proof.token,proof.boardId),head=await boardHead(proof.api,proof.token,proof.boardId),updates=proof.updates();
@@ -122,5 +129,12 @@ export async function createNativeSticky(page:Page,text:string,proof:{api:APIReq
   await expectBoardSynced(page,30_000);
   expect(await canonicalBoardSnapshot(proof.api,proof.token,proof.boardId)).toEqual(snapshot);
   expect(await boardHead(proof.api,proof.token,proof.boardId)).toEqual(head);expect(proof.updates()).toBe(updates);
+  if(options.finishEditor===false){
+    const outline=page.getByTestId('board-a11y-mirror').locator(`li[data-object-id="${note.id}"] button`);
+    await outline.focus();await outline.press('Enter');
+    await expect(editor).toBeFocused();await expect(editor).toHaveValue(text);
+    expect(await canonicalBoardSnapshot(proof.api,proof.token,proof.boardId)).toEqual(snapshot);
+    expect(await boardHead(proof.api,proof.token,proof.boardId)).toEqual(head);expect(proof.updates()).toBe(updates);
+  }
   return note;
 }

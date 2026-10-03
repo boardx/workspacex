@@ -5,6 +5,7 @@ import { interviewMarkdown } from "@repo/contracts";
 import { Button } from "@/components/ui/button";
 import { ExpertAvatar } from "./expert-avatar";
 import { InterviewReportMarkdown } from "./interview-report-markdown";
+import { interviewTranscriptDisplay } from "./interview-transcript-display";
 import { InterviewStepHeader } from "./interview-step-header";
 type RunMetadata = Readonly<{ expertId: string; displayName: string; status: "pending" | "running" | "completed" | "failed"; completedQuestions: number; totalQuestions: number }>;
 type InsightKind = "观点" | "发现" | "风险" | "追问";
@@ -49,6 +50,8 @@ export function InterviewRunsStep({ runs, document, pending, onGenerateReport, t
     block.links.some((link) => link.url === `#expert-${expert}`)
       ? [document!.markdown.slice(block.start, attributed[index + 1]?.start ?? document!.markdown.length)] : [],
   ).join("\n\n");
+  const displayMarkdown = summaryMarkdown ? interviewTranscriptDisplay(summaryMarkdown, document?.evidenceMode === "simulated", runs) : undefined;
+  const displayDocument = document && displayMarkdown ? { ...document, markdown: displayMarkdown } : undefined;
   const insights = document && projection ? savedInsights(document, projection).filter((item) => !expert || item.expertId === expert) : [];
   const total = runs.reduce((sum, run) => sum + run.totalQuestions, 0);
   const completed = runs.filter((run) => run.status === "completed").length;
@@ -66,15 +69,14 @@ export function InterviewRunsStep({ runs, document, pending, onGenerateReport, t
       <Button variant="primary" size="lg" disabled={!ready || pending} onClick={onGenerateReport}><FileText className="size-4" aria-hidden />{pending ? "正在生成报告…" : "生成报告"}<ArrowRight className="size-4" aria-hidden /></Button>
     </InterviewStepHeader>
     <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground"><span>{taskProgress ? `已完成专家 ${completed}/${runs.length}` : `已保存回答 ${answered}/${total}`}</span><div aria-label="专家任务状态" className="flex flex-wrap gap-2">{statusCounts.map(({ status, label, color }) => { const count = runs.filter((run) => run.status === status).length; return count ? <span key={status} className={`rounded-full px-2 py-1 ${color}`}>{label} {count}</span> : null; })}</div></div>
-    <div className="grid items-start gap-8 xl:grid-cols-[12rem_minmax(0,1fr)] xl:gap-x-10">
-<aside className="rounded-xl border border-border p-5"><h3 className="mb-4 font-semibold">专家进度（{runs.length}）</h3><div className="space-y-3">{runs.map((run) => { const selected = expert === run.expertId; return <button key={run.expertId} type="button" aria-current={selected ? "true" : undefined} onClick={() => setExpert(run.expertId)} className={`block w-full rounded-lg border p-4 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${selected ? "border-primary bg-primary/10 shadow-sm" : "border-border hover:border-primary/50 hover:bg-muted/40"}`}><div className="flex items-center gap-3"><ExpertAvatar expertId={run.expertId} displayName={run.displayName} /><h4 className="min-w-0 break-all font-medium">{run.displayName}</h4></div><p className="mt-2 text-sm text-muted-foreground">{run.status === "completed" ? "已完成" : run.status === "failed" ? "执行失败，已保存内容保留" : run.status === "pending" ? "等待访谈" : "进行中"}{taskProgress ? "" : ` · ${run.completedQuestions}/${run.totalQuestions}`}</p></button>; })}</div>{!runs.length && <p className="text-sm text-muted-foreground">暂无已登记访谈任务，不会显示示例进度。</p>}</aside>
+    <div className="grid items-start gap-8 lg:grid-cols-[15rem_minmax(0,1fr)] lg:gap-x-8">
+<aside className="rounded-xl border border-border p-3"><h3 className="mb-4 font-semibold">专家进度（{runs.length}）</h3><div className="space-y-3">{runs.map((run) => { const selected = expert === run.expertId; return <button key={run.expertId} type="button" aria-current={selected ? "true" : undefined} aria-pressed={selected} onClick={() => setExpert(selected ? null : run.expertId)} className={`block w-full rounded-lg border p-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${selected ? "border-primary bg-primary/10 shadow-sm" : "border-border hover:border-primary/50 hover:bg-muted/40"}`}><div className="flex items-start gap-3"><ExpertAvatar expertId={run.expertId} displayName={run.displayName} /><h4 className="min-w-0 flex-1 break-words [overflow-wrap:anywhere] font-medium">{run.displayName}</h4></div><p className="mt-2 text-sm text-muted-foreground">{run.status === "completed" ? "已完成" : run.status === "failed" ? "执行失败，已保存内容保留" : run.status === "pending" ? "等待访谈" : "进行中"}{taskProgress ? "" : ` · ${run.completedQuestions}/${run.totalQuestions}`}</p></button>; })}</div>{!runs.length && <p className="text-sm text-muted-foreground">暂无已登记访谈任务，不会显示示例进度。</p>}</aside>
       <section className="min-w-0 bg-card"><h3 className="text-lg font-semibold">访谈记录</h3>
-        <div role="tablist" aria-label="访谈摘要范围" className="mt-4 flex flex-wrap gap-2">
-          {[{ id: null, name: "全部（实时汇总）" }, ...runs.map((run) => ({ id: run.expertId, name: run.displayName }))].map((tab) => <button key={tab.id ?? "all"} type="button" role="tab" aria-selected={expert === tab.id} onClick={() => setExpert(tab.id)} className={`rounded-lg px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-ring ${expert === tab.id ? "bg-foreground text-background" : "bg-muted text-muted-foreground hover:text-foreground"}`}>{tab.name}</button>)}
-        </div>
-        <div role="tabpanel" className="mx-auto mt-6 max-w-[76ch] border-t border-border pt-6 text-base leading-8 [&_h1]:mb-5 [&_h1]:text-2xl [&_h2]:mb-4 [&_h2]:mt-8 [&_h2]:text-xl [&_h3]:mb-3 [&_h3]:mt-7 [&_h3]:text-lg [&_p]:my-3 [&_li]:my-2 [&_ul]:my-4" aria-label={expert ? `${runs.find((run) => run.expertId === expert)?.displayName ?? "专家"}访谈摘要` : "全部访谈摘要"}>
+        {document?.evidenceMode === "simulated" && <p className="mt-2 text-sm text-muted-foreground">模拟访谈 · 需真人验证</p>}
+        <p className="mt-2 text-sm text-muted-foreground">{expert ? "再次点击已选专家可查看全部记录。" : "点击左侧专家可查看对应记录。"}</p>
+        <div role="region" className="mt-4 w-full border-t border-border pt-6 text-base leading-8 [&_h1]:mb-5 [&_h1]:text-2xl [&_h2]:mb-4 [&_h2]:mt-8 [&_h2]:text-xl [&_h3]:mb-3 [&_h3]:mt-7 [&_h3]:text-lg [&_p]:my-3 [&_li]:my-2 [&_ul]:my-4" aria-label={expert ? `${runs.find((run) => run.expertId === expert)?.displayName ?? "专家"}访谈摘要` : "全部访谈摘要"}>
           {insights.length > 0 && <div data-testid="itv-saved-insights" className="mt-4 grid gap-3 xl:grid-cols-2">{(["观点", "发现", "风险", "追问"] as const).map((kind) => { const group = insights.filter((item) => item.kind === kind); return group.length ? <section key={kind} className="rounded-lg border border-border bg-muted/30 p-4"><h4 className="font-semibold">{insightTitles[kind]}（{group.reduce((sum, item) => sum + item.count, 0)}）</h4>{group.map((item) => <InterviewReportMarkdown key={item.headingId} markdown={item.markdown} testId={`itv-saved-insight-${item.headingId}`} />)}</section> : null; })}</div>}
-          {summaryMarkdown ? <InterviewReportMarkdown longForm document={expert ? undefined : document} markdown={summaryMarkdown} testId="itv-source-runs-markdown" /> : <p className="mt-4 text-sm text-muted-foreground">{expert ? "暂无归属于该专家的已保存回答。" : "暂无已保存的 Markdown 回答。"}</p>}
+          {displayMarkdown ? <InterviewReportMarkdown longForm document={displayDocument} markdown={displayMarkdown} testId="itv-source-runs-markdown" /> : <p className="mt-4 text-sm text-muted-foreground">{expert ? "暂无归属于该专家的已保存回答。" : "暂无已保存的 Markdown 回答。"}</p>}
         </div>
         </section>
     </div>
