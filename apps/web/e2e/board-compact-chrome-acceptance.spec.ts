@@ -2,7 +2,7 @@ import {randomUUID} from 'node:crypto';
 import {expect,test,type Page,type TestInfo} from '@playwright/test';
 import {FULLSTACK_E2E as F} from './fullstack-smoke-fixture';
 import {SESSION_TOKEN_STORAGE_KEY} from '../lib/api-client';
-import {connectByHandles} from './board-acceptance-support';
+import {connectByHandles,seedExistingFrame} from './board-acceptance-support';
 
 const referenceViewports=[{width:1024,height:900},{width:1536,height:1024},{width:1672,height:941}] as const;
 const dockOrder=['board-tool-select','board-tool-hand','board-add-sticky','board-add-text','board-add-shape','board-add-draw','board-add-image','board-add-more'] as const;
@@ -43,8 +43,26 @@ test('real thirty-note Board keeps compact chrome and intentional connection han
    const drawPanel=page.getByTestId('board-draw-tool-panel');await expect(drawPanel).toBeVisible();const drawBounds=(await drawPanel.boundingBox())!;
    expect(drawBounds.width).toBeLessThanOrEqual(640);expect(drawBounds.height).toBeGreaterThanOrEqual(110);expect(drawBounds.height).toBeLessThanOrEqual(180);expect(drawBounds.x).toBeGreaterThanOrEqual(16);expect(drawBounds.x+drawBounds.width).toBeLessThanOrEqual(width-16);expect(drawBounds.y+drawBounds.height).toBeLessThanOrEqual(dock.y-2);
    for(const id of ['board-draw-pen','board-draw-marker','board-draw-pencil','board-draw-highlighter','board-draw-eraser','board-draw-stroke-8','board-draw-color-custom'])await expect(page.getByTestId(id)).toBeVisible();
-   await expect(drawPanel.getByRole('button',{name:'Opacity 55%',exact:true})).toHaveCount(0);
+   await expect(page.locator('[data-testid^="board-draw-opacity-"]')).toHaveCount(0);
+   for(const choice of ['pen','marker','pencil','highlighter'])await expect(page.getByTestId(`board-draw-preview-${choice}`)).toBeVisible();
    await captureReference(page,info,`reference-draw-panel-${label}`);await page.getByTestId('board-draw-select').click();await expect(drawPanel).toBeHidden();
+
+   // R04 hides the new Frame palette; retain its historical geometry reference
+   // in evidence and exercise all stored Frame properties through the visible UI.
+   await info.attach('legacy-frame-palette-reference',{body:Buffer.from(JSON.stringify({reachable:false,reason:'R04 draft hides new Frame creation; design approval remains pending',width:[360,386],height:[340,410],viewportMargin:16,bottomGap:2})),contentType:'application/json'});
+   const existingFrame=await seedExistingFrame(page,100,100);
+   const frameOutline=page.getByTestId(`board-a11y-object-${existingFrame}`);
+   await frameOutline.focus();await frameOutline.press('Enter');
+   await expect(frameOutline).toHaveAttribute('aria-pressed','true');
+   await expect(page.getByTestId('board-a11y-selection-announcement')).toHaveText('已选择 1 个对象');
+   await page.getByTestId('board-inspector-expand').click();
+   const frameInspector=page.getByTestId('board-context-toolbar');
+   await expect(page.getByTestId('board-frame-size-presets')).toBeVisible();
+   const frameBounds=(await frameInspector.boundingBox())!;
+   expect(frameBounds.x).toBeGreaterThanOrEqual(16);expect(frameBounds.x+frameBounds.width).toBeLessThanOrEqual(width-16);
+   expect(frameBounds.y).toBeGreaterThanOrEqual(header.y+header.height);expect(frameBounds.y+frameBounds.height).toBeLessThanOrEqual(dock.y-2);
+   for(const name of ['区域标题','区域布局'])await expect(page.getByLabel(name,{exact:true})).toBeVisible();
+   await captureReference(page,info,`reference-existing-frame-inspector-${label}`);await page.getByTestId('board-inspector-close').click();
 
    await page.getByTestId('board-a11y-object-idea-1').evaluate((element:HTMLElement)=>element.click());
    await expect(page.getByTestId('board-context-toolbar')).toBeVisible();
@@ -65,6 +83,14 @@ test('real thirty-note Board keeps compact chrome and intentional connection han
   await page.screenshot({path:info.outputPath('reference-mobile-390.png')});
   await info.attach('reference-mobile-390',{path:info.outputPath('reference-mobile-390.png'),contentType:'image/png'});
   await page.keyboard.press('Escape');await page.setViewportSize({width:1536,height:1024});
+  // Hidden creation entries preserve selected-object handles and Escape dismissal.
+  await page.getByTestId('board-a11y-object-idea-1').evaluate((element:HTMLElement)=>element.click());
+  await expect(page.locator('[data-testid^="connector-handle-idea-1-"]')).toHaveCount(4);
+  await page.keyboard.press('Escape');
+  // Escape dismisses focused chrome; explicitly clear the selected object.
+  await page.getByRole('button', {name: '取消选择', exact: true}).click();
+  await expect(page.getByTestId('board-a11y-selection-announcement')).toHaveText('未选择对象');
+  await expect(page.locator('[data-testid^="connector-handle-"]')).toHaveCount(0);
   await expect(page.getByTestId('board-add-connector')).toHaveCount(0);
   expect(await connectByHandles(page, 'idea-0', 'idea-1')).toBe(1);
  }finally{const latest=await call('GET',`/whiteboards/${board.id}`);await call('PATCH',`/whiteboards/${board.id}`,{archived:true,expectedLifecycleRevision:latest.lifecycleRevision});}

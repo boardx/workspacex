@@ -273,3 +273,18 @@ export async function seedExistingFrame(page: Page, x: number, y: number, width 
   await expect(page.getByTestId('board-a11y-mirror').locator(`li[data-object-id="${id}"]`)).toBeVisible();
   return id;
 }
+
+/** Find a blank point from the real projected scenes; creation ignores object hits. */
+export async function clickBlankCanvas(page: Page) {
+  const surface=page.getByTestId('board-fabric-surface');
+  const point=await surface.evaluate(element=>{
+    const canvas=element.querySelector('canvas.upper-canvas');if(!canvas)throw new Error('Fabric interaction canvas missing');
+    const rect=canvas.getBoundingClientRect(),zoom=Number(element.getAttribute('data-viewport-zoom')),panX=Number(element.getAttribute('data-viewport-pan-x')),panY=Number(element.getAttribute('data-viewport-pan-y'));
+    const scenes=JSON.parse(element.getAttribute('data-object-scenes')??'[]') as Array<{left:number;top:number;width:number;height:number}>;
+    for(let y=100;y<Math.min(rect.height-180,420);y+=40)for(let x=40;x<rect.width-40;x+=40){
+      if(!scenes.some(scene=>x>=scene.left*zoom+panX-12&&x<=((scene.left+scene.width)*zoom+panX+12)&&y>=scene.top*zoom+panY-12&&y<=((scene.top+scene.height)*zoom+panY+12)))return{x,y};
+    }
+    throw new Error('No exposed blank canvas point available for actual placement');
+  });
+  await surface.locator('canvas.upper-canvas').click({position:point});
+}
