@@ -76,3 +76,40 @@ describe("bounded report quality recovery", () => {
   expect(snapshot.documents.find(d => d.step === "report")?.markdown).toBe(BAD);
  });
 });
+
+describe("canonical report observation", () => {
+ it("streams provider deltas and starts a fresh attempt for repair", async () => {
+  const events: any[] = []; let calls = 0; const streaming = deps();
+  streaming.model.completeStream = vi.fn(async (_request, onDelta) => {
+    const body = ++calls === 1 ? BAD : GOOD;
+    await onDelta(body.slice(0, 12));
+    expect(events.at(-1)).toEqual({ type: "delta", delta: body.slice(0, 12) });
+    expect(save).toHaveBeenCalledTimes(calls - 1);
+    await onDelta(body.slice(12)); return { text: body };
+  });
+  const result = await generateInterviewMarkdown(streaming, { ...input, onProgress: event => { events.push(event); } });
+  expect(complete).not.toHaveBeenCalled();
+  expect(events.filter(event => event.type === "attempt")).toEqual([{ type: "attempt", attempt: 1 }, { type: "attempt", attempt: 2 }]);
+  expect(events.filter(event => event.type === "delta")).toHaveLength(4);
+  expect(result.documents.find(d => d.step === "report")?.markdown).toBe(GOOD);
+ });
+ it("truncated streamed bytes remain a failed draft and reject generation", async () => {
+  const events: any[] = []; const streaming = deps();
+  streaming.model.completeStream = vi.fn(async (_request, onDelta) => { await onDelta("partial"); return { text: "partial", truncated: true }; });
+  await expect(generateInterviewMarkdown(streaming, { ...input, onProgress: event => { events.push(event); } })).rejects.toThrow("AI_GENERATION_UNAVAILABLE");
+  expect(save).toHaveBeenCalledTimes(1);
+  expect(snapshot.states.find(state => state.documentId === "md-report")?.status).toBe("failed");
+  expect(events.some(event => event.type === "completed")).toBe(false);
+ });
+ it("JSON generation keeps the non-streaming model lane even when provider supports streaming", async () => {
+  const streaming = deps(); streaming.model.completeStream = vi.fn(); complete.mockResolvedValue({ text: GOOD });
+  await generateInterviewMarkdown(streaming, input);
+  expect(complete).toHaveBeenCalledTimes(1); expect(streaming.model.completeStream).not.toHaveBeenCalled();
+ });
+ it("providers without streaming emit stages without invented deltas", async () => {
+  const events: any[] = []; complete.mockResolvedValue({ text: GOOD });
+  await generateInterviewMarkdown(deps(), { ...input, onProgress: event => { events.push(event); } });
+  expect(events.some(event => event.type === "delta")).toBe(false);
+  expect(events.map(event => event.stage).filter(Boolean)).toEqual(expect.arrayContaining(["context", "model", "validation", "storage"]));
+ });
+});

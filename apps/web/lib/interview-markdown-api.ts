@@ -61,3 +61,40 @@ export async function previewVirtualExpertMarkdown(interviewId: string, input: z
     method: "POST", body: interviewMarkdown.PreviewVirtualExpertMarkdown.parse(input),
   }));
 }
+
+/** Canonical report streaming: one request, real provider fragments, final saved source. */
+export async function streamInterviewMarkdownReport(interviewId: string, input: Versions,
+  onEvent: (event: interviewMarkdown.InterviewMarkdownReportStreamEvent) => void) {
+  const { apiUrl, getStoredSessionToken, ApiError } = await import("./api-client");
+  const token = getStoredSessionToken();
+  const response = await fetch(apiUrl(`${sourcePath(interviewId, "report")}/generate-stream`), {
+    method: "POST", credentials: "include",
+    headers: { Accept: "application/x-ndjson", "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+    body: JSON.stringify(interviewMarkdown.GenerateInterviewMarkdown.parse(input)),
+  });
+  if (!response.ok) throw new ApiError(response.status, null, null);
+  if (!response.body) throw new Error("REPORT_STREAM_UNAVAILABLE");
+  const reader = response.body.getReader(); const decoder = new TextDecoder();
+  let buffer = ""; let completed: InterviewMarkdownEnvelope | undefined;
+  function consume(line: string) {
+    if (!line.trim()) return;
+    const event = interviewMarkdown.InterviewMarkdownReportStreamEvent.parse(JSON.parse(line));
+    if (event.type === "completed") {
+      if (event.source.interviewId !== interviewId) throw new Error("REPORT_SOURCE_MISMATCH");
+      completed = event.source;
+    }
+    if (event.type === "failed") throw new ApiError(503, event.reasonCode, null);
+    onEvent(event);
+  }
+  try {
+    while (true) {
+      const { value, done } = await reader.read();
+      buffer += decoder.decode(value, { stream: !done });
+      let boundary: number;
+      while ((boundary = buffer.indexOf("\n")) !== -1) { consume(buffer.slice(0, boundary)); buffer = buffer.slice(boundary + 1); }
+      if (done) { consume(buffer); break; }
+    }
+  } finally { await reader.cancel().catch(() => {}); reader.releaseLock(); }
+  if (!completed) throw new Error("REPORT_STREAM_INTERRUPTED");
+  return completed;
+}

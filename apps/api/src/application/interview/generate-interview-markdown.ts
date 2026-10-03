@@ -22,6 +22,7 @@ export type GenerateMarkdownInput = {
   expectedVersion: number; expectedDocumentVersion: number;
   /** HTTP middleware trace; never accepted from the JSON request body. */
   traceId?: string;
+  onProgress?: (event: interviewMarkdown.InterviewMarkdownReportStreamEvent) => void | Promise<void>;
 };
 export interface InterviewMarkdownGenerator {
   generate(input: GenerateMarkdownInput): Promise<z.infer<typeof interviewMarkdown.InterviewMarkdownEnvelope>>;
@@ -123,6 +124,7 @@ export async function generateInterviewMarkdown(
 ) {
   const diagnostics = new InterviewReportDiagnostics(deps.debugTrace, input.traceId ?? "no-trace", input.step === "report");
   return diagnostics.run(async () => {
+  await input.onProgress?.({ type: "stage", stage: "context" });
   const snapshot = await diagnostics.measure("context", () => readInterviewMarkdown(deps, input));
   if (snapshot.version !== input.expectedVersion) throw new DigitalInterviewWorkflowError("CONCURRENT_MODIFICATION");
   if(input.step==="report" && snapshot.execution && snapshot.execution.status!=="completed") throw new DigitalInterviewWorkflowError("DIGITAL_INTERVIEW_STEP_INVALID");

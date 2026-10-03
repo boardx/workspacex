@@ -111,6 +111,16 @@ export const InterviewMarkdownEnvelope = z.object({
   execution: InterviewMarkdownExecution.nullable().default(null),
   review: InterviewMarkdownReportReview.nullable().default(null),
 }).strict();
+/** Request-local observation; completed is emitted only after authorized canonical storage/read. */
+export const InterviewMarkdownReportStreamEvent = z.discriminatedUnion("type", [
+  z.object({ type: z.literal("attempt"), attempt: z.number().int().positive() }).strict(),
+  z.object({ type: z.literal("stage"), stage: z.enum(["context", "model", "validation", "storage"]) }).strict(),
+  z.object({ type: z.literal("delta"), delta: z.string() }).strict(),
+  z.object({ type: z.literal("completed"), source: InterviewMarkdownEnvelope }).strict(),
+  z.object({ type: z.literal("failed"), reasonCode: z.string().min(1) }).strict(),
+]);
+export type InterviewMarkdownReportStreamEvent = z.infer<typeof InterviewMarkdownReportStreamEvent>;
+
 export const InterviewMarkdownAttachmentResult=z.object({source:InterviewMarkdownEnvelope,original:InterviewMarkdownOriginalAttachment}).strict();
 
 /** Read-only navigation/history projection; confirmation comes exclusively from metadata. */
