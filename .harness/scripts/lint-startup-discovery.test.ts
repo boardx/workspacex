@@ -33,7 +33,8 @@ import {
  */
 
 function git(args: string[]): string[] {
-  const out = execFileSync("git", args, { cwd: REPO_ROOT, encoding: "utf8" });
+  // Full tracked-file discovery can exceed Node's 1 MiB default; retain a finite cap.
+  const out = execFileSync("git", args, { cwd: REPO_ROOT, encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
   return out.split("\n").filter((l) => l.length > 0);
 }
 
