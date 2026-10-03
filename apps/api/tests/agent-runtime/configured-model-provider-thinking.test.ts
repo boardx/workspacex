@@ -150,6 +150,13 @@ describe("#2504 ConfiguredModelProvider 对已知混合思考 modelId + 百炼 e
     const p = provider({ streamEnabled: true, thinkingDisableModelIds: new Set([ALLOWED_MODEL_ID]), bailianExtensionsEnabled: true });
     await p.completeStream!({ modelProvider: PROVIDER, modelId: ALLOWED_MODEL_ID, system: "s", user: "u", thinkingMode: "off" }, async () => {});
     expect(lastBody?.enable_thinking).toBe(false);
+    expect(lastBody).not.toHaveProperty("reasoning_effort");
+  });
+  it("sends reasoning_effort only for independently supported Qwen3.8 models", async () => {
+    const modelId = "qwen3.8-max";
+    const p = provider({ streamEnabled: true, thinkingDisableModelIds: new Set([modelId]), bailianExtensionsEnabled: true });
+    await p.completeStream!({ modelProvider: PROVIDER, modelId, system: "s", user: "u", thinkingMode: "off" }, async () => {});
+    expect(lastBody?.enable_thinking).toBe(false);
     expect(lastBody?.reasoning_effort).toBe("none");
   });
   it.each([[false, ALLOWED_MODEL_ID], [true, OTHER_MODEL_ID]] as const)("does not send research thinking extensions to unsupported endpoint/model (%s, %s)", async (bailianExtensionsEnabled, modelId) => {

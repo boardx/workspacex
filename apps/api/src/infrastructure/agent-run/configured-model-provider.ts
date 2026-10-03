@@ -56,6 +56,10 @@ import type { ReportedUsage } from "../../application/agent-run/ports";
 import { readVisionModelIds, toImagePart, type WireContentPart } from "./model-vision-wire";
 import { isLoopbackBaseUrl } from "./loopback-provider-aliases";
 
+// Independently documented reasoning_effort=none capability; enable_thinking support is not sufficient.
+// https://www.alibabacloud.com/help/en/model-studio/qwen-api-via-openai-chat-completions
+const BAILIAN_REASONING_NONE_MODELS = new Set(["qwen3.8-max", "qwen3.8-max-0902", "qwen3.8-flash", "qwen3.8-2.4t-a95b", "qwen3.8-27b", "qwen3.8-omni-flash"]);
+
 export interface ConfiguredModelProviderConfig {
   /** The one provider name that runs may pin. Empty means: this deployment has none. */
   readonly provider: string;
@@ -507,7 +511,7 @@ export class ConfiguredModelProvider implements ModelCallPort {
             ? { enable_thinking: false }
             : {}),
           ...(this.config.maxOutputTokens === undefined ? {} : { max_tokens: this.config.maxOutputTokens }),
-          ...(input.thinkingMode === "off" && this.config.bailianExtensionsEnabled && this.config.thinkingDisableModelIds.has(input.modelId)
+          ...(input.thinkingMode === "off" && this.config.bailianExtensionsEnabled && this.config.thinkingDisableModelIds.has(input.modelId) && BAILIAN_REASONING_NONE_MODELS.has(input.modelId)
             ? { reasoning_effort: "none" }
             : this.config.reasoningEffort === undefined ? {} : { reasoning_effort: this.config.reasoningEffort }),
           ...(this.config.jsonSchemaEnabled && input.responseSchema
