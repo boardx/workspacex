@@ -25,6 +25,7 @@
  * ③ 后台测试（试跑）
  * ④ chat 里 `/` 调用
  */
+import { safeSkillImportFailure } from './support/skill-import-diagnostics';
 import { expect, test, type Page, type Response } from "@playwright/test";
 import { createNamedWorkbenchThread } from "./support/workbench-journey";
 import { FULLSTACK_E2E } from "./fullstack-smoke-fixture";
@@ -110,7 +111,9 @@ test("① skill 从 GitHub 目录 URL 导入：落进目录，内容确实来自
   ));
   await page.getByTestId("skill-url-import-confirm").click();
   const response = await importResponse;
-  expect(response.status(), "真实 GitHub 目录导入应当 2xx——若这里超时/4xx/5xx，先看是不是被 SSRF 门或 admin 门拦了").toBeLessThan(300);
+  const importStatus = response.status();
+  const failureBody: unknown = importStatus >= 300 ? await response.json().catch(() => null) : null;
+  expect(importStatus, safeSkillImportFailure(failureBody, importStatus)).toBeLessThan(300);
 
   const resultText = await page.getByTestId("skill-url-import-result").innerText();
   const fileCountMatch = /已导入 (\d+) 个文件/.exec(resultText);

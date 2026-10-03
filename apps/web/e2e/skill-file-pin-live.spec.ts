@@ -2,6 +2,7 @@
  * Requires an isolated local dev-mode stack; no route interception or model execution.
  * For deployment verification supply STUDIO_LOGIN_EMAIL/PASSWORD for a real account.
  */
+import { safeSkillImportFailure } from './support/skill-import-diagnostics';
 import { expect, test } from "@playwright/test";
 import { writeFile } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
@@ -33,7 +34,9 @@ test("real imported Skill survives multi-file save/reload and Agent pin restorat
   const importedResponse = page.waitForResponse(r => r.request().method() === "POST" && r.url().includes("/admin/skills/url-imports"));
   await page.getByTestId("skill-url-import-confirm").click();
   const importedHttp = await importedResponse;
-  expect(importedHttp.status()).toBe(201);
+  const importStatus = importedHttp.status();
+  const failureBody: unknown = importStatus >= 300 ? await importedHttp.json().catch(() => null) : null;
+  expect(importStatus, safeSkillImportFailure(failureBody, importStatus)).toBe(201);
   const imported = wave2Runtime.operations.importSkillFromUrl.out.parse(await importedHttp.json());
   expect(imported.filePaths.length).toBeGreaterThan(1);
   const skillId = imported.skillId;
