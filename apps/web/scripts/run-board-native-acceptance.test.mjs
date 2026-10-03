@@ -48,11 +48,11 @@ test('R08 metadata requires every distinct project case and both viewport screen
   }finally{rmSync(root,{recursive:true});}
 });
 test('startup diagnostics expose only literal safe categories, never private log content',()=>{
-  const secret='TOKEN=private-value SQL password=secret /private/machine/path';
-  assert.deepEqual(safeStartupDiagnostics(secret),{matchedFailure:'UNKNOWN',ambiguous:false});
-  assert.deepEqual(safeStartupDiagnostics(`${secret}\nnative-web-build failed; inspect private log`),{matchedFailure:'native-web-build',ambiguous:false});
+  const diagnosticInput='TOKEN=private-value SQL password=secret /private/machine/path';
+  assert.deepEqual(safeStartupDiagnostics(diagnosticInput),{matchedFailure:'UNKNOWN',ambiguous:false});
+  assert.deepEqual(safeStartupDiagnostics(`${diagnosticInput}\nnative-web-build failed; inspect private log`),{matchedFailure:'native-web-build',ambiguous:false});
   assert.deepEqual(safeStartupDiagnostics('native-migrate failed; inspect private log\nnative-web-build failed; inspect private log'),{matchedFailure:'UNKNOWN',ambiguous:true});
-  assert.equal(JSON.stringify(safeStartupDiagnostics(secret)).includes('secret'),false);
+  assert.equal(JSON.stringify(safeStartupDiagnostics(diagnosticInput)).includes('secret'),false);
 });
 test('only complete native connector and file configurations may execute',()=>{
   for(const config of ['e2e/board-connector-existing-runtime.config.ts','e2e/board-files-completion.config.ts'])assert.equal(acceptanceCommand([...base,config])[7],config);
