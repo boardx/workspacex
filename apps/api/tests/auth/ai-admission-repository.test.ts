@@ -20,7 +20,7 @@ beforeEach(async()=>{
 afterAll(async()=>{await resetOrgs(ORG,OTHER);await db.close();});
 describe("shared atomic admission foundation — isolated PostgreSQL",()=>{
  it("unreserved in-flight starts are unknown cost, including enterprise activation",async()=>{
-  await usage.startRequest(toOrgId(ORG),{requestId:"legacy-inflight",userId:USER,runId:null,modelProvider:"provider",modelId:"model",startedAt:new Date().toISOString()});
+  await usage.startRequest(toOrgId(ORG),{requestId:"legacy-inflight",userId:USER,runId:"legacy-running",executionAttemptId:null,projectId:null,modelProvider:"provider",modelId:"model",startedAt:new Date().toISOString()});
   expect((await admission.reserve(toOrgId(ORG),request("after-activation"))).decision).toBe("COST_LIMIT_UNCONFIGURED");
   await asApp(ORG,c=>c.query("UPDATE organization_plans SET plan='enterprise' WHERE org_id=$1",[ORG]));
   expect((await admission.reserve(toOrgId(ORG),request("enterprise-after-activation"))).decision).toBe("COST_LIMIT_UNCONFIGURED");

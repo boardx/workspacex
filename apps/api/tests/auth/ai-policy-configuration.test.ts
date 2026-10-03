@@ -98,7 +98,7 @@ describe("immutable per-user policy materialization",()=>{
 
 describe("durable reservation price snapshot",()=>{
  it("uses the immutable audited price version without consulting current policy",async()=>{
-  const query=vi.fn(async(sql:string)=>({rows:sql.includes("FROM ai_request_reservations")?[{user_id:"u",model_provider:"fixture-route",model_id:"fixture-runtime-model",currency:"CNY",price_version:"old-audit"}]:sql.includes("FROM organization_ai_policy_changes")?[{configuration:config}]:[]}));
+  const query=vi.fn(async(sql:string,_params:readonly unknown[]=[])=>({rows:sql.includes("FROM ai_request_reservations")?[{user_id:"u",model_provider:"fixture-route",model_id:"fixture-runtime-model",currency:"CNY",price_version:"old-audit"}]:sql.includes("FROM organization_ai_policy_changes")?[{configuration:config}]:[]}));
   const repo=new PgAiAdmissionRepository({withTenant:async(tenant:unknown,fn:(s:unknown)=>unknown)=>{expect(tenant).toBe(org);return fn({query});}} as never);
   expect(await repo.readReservedPrice(org,"request")).toMatchObject({userId:"u",priceVersion:"old-audit",price:config.prices[0]});
   expect(query.mock.calls.map(call=>call[0]).join("\n")).not.toContain("FROM organization_ai_policies ");
@@ -107,7 +107,7 @@ describe("durable reservation price snapshot",()=>{
  it("unknown, missing/ambiguous old audits and wrong currency never guess current or free price",async()=>{
   const reservation={user_id:"u",model_provider:"fixture-route",model_id:"fixture-runtime-model",currency:"USD",price_version:"old"};
   let rows:unknown[]=[];
-  const query=vi.fn(async(sql:string)=>({rows:sql.includes("FROM ai_request_reservations")?[reservation]:rows}));
+  const query=vi.fn(async(sql:string,_params:readonly unknown[]=[])=>({rows:sql.includes("FROM ai_request_reservations")?[reservation]:rows}));
   const repo=new PgAiAdmissionRepository({withTenant:async(_org:unknown,fn:(s:unknown)=>unknown)=>fn({query})} as never);
   await expect(repo.readReservedPrice(org,"r")).rejects.toThrow("AI_RESERVED_PRICE_SNAPSHOT_UNAVAILABLE");
   rows=[{configuration:config},{configuration:config}];await expect(repo.readReservedPrice(org,"r")).rejects.toThrow("AI_RESERVED_PRICE_SNAPSHOT_UNAVAILABLE");
