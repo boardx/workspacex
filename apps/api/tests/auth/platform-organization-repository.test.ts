@@ -14,9 +14,11 @@ let repo: PgPlatformOrganizationRepository;
 const catalog: DatabasePort = {
   withTenant: async () => { throw new Error("catalog must never access tenant tables"); },
   withoutTenant: async fn => asOwner(async c => {
+    await c.query("BEGIN");
     await c.query("SET LOCAL ROLE app_platform_org_catalog_ro");
     const session: TenantSession = { query: async <R>(sql: string, params?: readonly unknown[]) => ({ rows: (await c.query(sql, params ? [...params] : undefined)).rows as R[] }) };
-    return fn(session);
+    try{const result=await fn(session);await c.query("COMMIT");return result;}
+    catch(error){await c.query("ROLLBACK");throw error;}
   }), close: async () => {},
 };
 beforeAll(async () => {

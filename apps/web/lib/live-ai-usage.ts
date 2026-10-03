@@ -10,5 +10,5 @@ function path(orgId:string,platform:boolean,input:UsageQuery,calls:boolean){
  const operation=platform?(calls?C.operations.platformCalls:C.operations.platformSummary):(calls?C.operations.calls:C.operations.summary);
  return `${operation.path.replace(":orgId",encodeURIComponent(orgId))}?${query}`;
 }
-export const readAiUsage=(orgId:string,platform:boolean,input:UsageQuery)=>apiRequest<UsageSummary>(path(orgId,platform,input,false));
-export const readAiUsageCalls=(orgId:string,platform:boolean,input:UsageQuery)=>apiRequest<UsageCalls>(path(orgId,platform,input,true));
+export const readAiUsage=(orgId:string,platform:boolean,input:UsageQuery)=>apiRequest<unknown>(path(orgId,platform,input,false)).then(out=>C.Summary.parse(out));
+export const readAiUsageCalls=(orgId:string,platform:boolean,input:UsageQuery)=>apiRequest<unknown>(path(orgId,platform,input,true)).then(out=>C.Calls.parse(out));
