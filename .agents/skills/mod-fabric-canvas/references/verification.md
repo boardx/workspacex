@@ -112,6 +112,44 @@ held 零提交、release 一次提交、preview 清空与节点 geometry 恢复�
 完整源 SHA，旧截图继续属于旧来源。证据追加 commit 与应用源码测试 commit 分别记录；
 source-only review、组件通过和浏览器接受是不同证据层级。
 
+## Shape 缓存证据分层
+
+2026-10-03，PR #5169 的 exact source
+`8ae84fd715eb5018d5f79075f83f05a6c4a592bc`：实际生产构造器缓存支持测试先出现
+21 failed/9 passed；修订后的 32 个缓存测试与 6 个逻辑尺寸回归合计 38/38，另有
+Web TypeScript/lint 通过。这是当次测试范围的历史收据，不是未来版本的通过计数权威。
+入口为该 SHA 的
+[缓存支持测试](https://github.com/boardx/workspacex/blob/8ae84fd715eb5018d5f79075f83f05a6c4a592bc/apps/web/tests/ui/board-shape-cache-support.test.ts)。
+默认描边、非均匀缩放、更新/重建后逻辑尺寸、实际缓存平移与限制仍须保留反例。
+
+不要从 Node 的 Fabric 默认值推断浏览器缓存配置：本轮安装版本的 Node 入口覆盖缓存默认值，
+真实 Chromium 中实例的有效默认值则为开启。独立参考只消费 literal geometry/grid，
+不能把实际矩阵、缓存尺寸或观察到的误差反取为 expected。选中 controls 绘在 lower canvas
+时，held chrome 与 fresh 清选择后的描边测量要分开，并证明清选择没有 canonical/WS 写入。
+本轮独立 Chromium 旧来源的严格像素诊断仍有失败；不能降低像素阈值或借组件结果宣称
+PR #5169 产品像素、R01 原生矩阵或硬件触控板已经通过。
+
+截至本次回流实时查询，
+[PR #5155](https://github.com/boardx/workspacex/pull/5155) head
+`36f94473392a2a924d558c684fb236df7c38bb61` 与
+[PR #5169](https://github.com/boardx/workspacex/pull/5169) head 为上述 `8ae84f...`，
+均 OPEN/UNSTABLE；这些是 dated 状态，不是当前 main 或未来合并状态。使用前重新查询
+PR 与祖先关系，不能把维护候选或 source review 视作依赖已发布。
+
+## Linux CWD 身份诊断边界
+
+真实 run `37077851863` / job `111071628592` 的 merge producer
+`1e566d1a875a6af5f318de5d82c8267aa8eecf2c`，两个独立 suite 均在
+`STARTUP/IDENTITY_CWD` 失败：Web PID 存活，但 lsof CWD 查询退出 1、路径未取得；
+Playwright 尚未启动，不能归因成业务断言失败或记录业务用例通过。原安全收据还记录
+`cleanupCompleted: false` 与 owned-runtime-stop 失败，不能把启动失败视作资源已干净释放。
+Linux CWD 查询的窄修使用 exact PID 的 `/proc` 链接，macOS 保留 lsof；原 realpath、
+root/PID/listener 身份门不能削减。修订
+`0eff713c7180a96765e04ae0f85605e9a6357573` 的纯测试及标准发布门通过，不是该
+Linux consumer 的重新执行证据；本次回流时消费者尚未继承并重验修订。
+对应执行状态从 [issue #4880](https://github.com/boardx/workspacex/issues/4880) 的最新证据定位，
+保留启动失败收据，不以 manifest 字符串替代运行进程事实。
+
 ## 交付证据
 
 记录 exact source/commit、命令退出码、测试范围、浏览器数据回读、PNG/报告路径和未测边界。
