@@ -81,8 +81,9 @@ canonical，画布布局不应截断数据；最终长文本与窄屏验收仍�
 `use-sticky-font-revision.ts` 与 Surface font refresh 只失效投影度量；font loading 不产生
 canonical 写入，也不能重建 dirty draft 或丢 caret/selection。检查
 `apps/web/tests/ui/sticky-font-editor-state-independent.test.tsx` 与 `board-sticky-text-layout.test.ts`。
-上述 Sticky 新 helper/字体回归来自旧开发候选，不保证当前技能候选有这些文件；
-待对应 PR/exact commit 来源可用再解析，缺失不表示技能迁移已携带业务实现。
+上述 Sticky helper/字体回归保留旧开发候选来源；在已核验的技能来源 `e72ede09` tree 中，
+`fabric/sticky-text-layout.ts`、`use-sticky-font-revision.ts` 及上述两个字体回归文件均存在。
+使用时按当前 Git tree 重新核验路径；存在不代表已合 main、业务验收通过或技能迁移完成。
 
 ## Group 与 chrome
 
