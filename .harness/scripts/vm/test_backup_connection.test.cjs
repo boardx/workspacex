@@ -7,7 +7,7 @@ function fixture(){
  const binding={role:'migration_admin',peer:{database:'workspacex'}};
  const calls=[];
  session.binding=binding;session.db='workspacex';
- session.host={backup:{authorization:{notBefore:Date.now()/1000-10,expiresAt:Date.now()/1000+100}},statements:{workspacex:{begin:['BEGIN'],commit:['COMMIT'],rollback:['ROLLBACK'],grant:['GRANT SELECT ON TABLE public.t TO wsx_release_backup_ro'],close:['ALTER ROLE wsx_release_backup_ro NOLOGIN']}}};
+ session.host={backup:{authorization:{notBefore:Date.now()/1000-10,expiresAt:Date.now()/1000+600},timeoutSeconds:900},connection:{transport:Object.fromEntries(['workspacex','workspacex_agent','workspacex_memory'].map(d=>[d,{notBefore:Date.now()/1000-10}]))},statements:{workspacex:{begin:['BEGIN'],commit:['COMMIT'],rollback:['ROLLBACK'],grant:['GRANT SELECT ON TABLE public.t TO wsx_release_backup_ro'],close:['ALTER ROLE wsx_release_backup_ro NOLOGIN']}}};
  session.table={ledger:{sql:'SELECT name FROM public._kernel_migrations',params:[]}};
  session.control={identity:async()=>binding,client:{query:async(sql,params)=>{calls.push({sql,params});return {rows:[],fields:[]};}}};
  return {session,calls};
@@ -62,4 +62,27 @@ test('approval path full keys functions and PUBLIC TEMP scope are exact before c
   const s=new BackupConnection(()=>{connected=true;throw Error('unexpected connection');},()=>profile,p=>p===path?raw:approval);
   await assert.rejects(s.connect(path,hash,'workspacex'),/APPROVAL_(PATH|SCOPE)/);assert.equal(connected,false);
  }
+});
+
+test('watchdog deadline rejects grant and pending privilege commit before lease expiry',async()=>{
+ const f=fixture();f.session.pendingPrivilegeMutation=true;
+ for(const lane of Object.values(f.session.host.connection.transport))lane.notBefore=Date.now()/1000-181;
+ await assert.rejects(f.session.handle({sequence:1,operation:'mutation',action:'grant',statement:0}),/BUDGET_EXHAUSTED/);
+ await assert.rejects(f.session.handle({sequence:2,operation:'mutation',action:'commit',statement:0}),/EXPIRED_PRIVILEGE_COMMIT/);
+ assert.equal(f.calls.length,0);
+ await f.session.handle({sequence:3,operation:'mutation',action:'rollback',statement:0});
+});
+
+test('cleanup quiesces only exact producer admin PID/start/socket and confirms disappearance',async()=>{
+ const f=fixture();f.session.cleanupOnly=true;f.session.binding.pid=9;
+ f.session.host.backup.identity={attemptId:'fixture'};
+ const target={role:'migration_admin',peer:f.session.binding.peer,pid:42,backendStart:'2026-10-03T20:00:00Z',socket:{localAddress:'192.168.100.40',localPort:40000}};
+ f.session.control.client.query=async(sql,params)=>{f.calls.push({sql,params});return {rows:sql.startsWith('SELECT count')?[{remaining:0}]:[{terminated:true}]};};
+ const r=await f.session.handle({sequence:1,operation:'quiesce-owned-admin',target});
+ assert.deepEqual(r.rows,[{joined:true}]);assert.equal(f.calls.length,2);
+ assert.match(f.calls[0].sql,/pg_terminate_backend\(pid,10000\)/);assert.deepEqual(f.calls[0].params,[42,target.backendStart,'workspacex','wsx-maintenance-diagnostic-fixture',40000]);
+ for(const foreign of [{...target,pid:9},{...target,role:'app'},{...target,socket:{localAddress:'public',localPort:40000}}]){
+  await assert.rejects(f.session.handle({sequence:f.session.sequence+1,operation:'quiesce-owned-admin',target:foreign}));
+ }
+ assert.equal(f.calls.length,2);
 });

@@ -6,6 +6,7 @@ BackupLease cleanup must separately reconcile exact owned container/session IDs.
 """
 import os,signal,subprocess,threading,time,hashlib,stat,multiprocessing
 from cn_backup_package import require
+from host_transport import SAFE_ENV
 
 
 def bounded_observe(callback, pid, timeout):
@@ -48,10 +49,10 @@ def stream_ciphertext(producer_args,encrypt_args,credential_input,output_path,ob
   output=os.fdopen(fd,'wb')
   require(stat.S_ISREG(os.fstat(fd).st_mode),'BACKUP_CIPHERTEXT_FILE')
   producer=subprocess.Popen(producer_args,stdin=subprocess.PIPE,stdout=subprocess.PIPE,
-                            stderr=subprocess.DEVNULL,start_new_session=True)
+                            stderr=subprocess.DEVNULL,start_new_session=True,env=SAFE_ENV)
   children.append(producer)
   encrypt=subprocess.Popen(encrypt_args,stdin=subprocess.PIPE,stdout=subprocess.PIPE,
-                           stderr=subprocess.DEVNULL,start_new_session=True)
+                           stderr=subprocess.DEVNULL,start_new_session=True,env=SAFE_ENV)
   children.append(encrypt)
   def feed():
    try:producer.stdin.write(credential_input);producer.stdin.close()

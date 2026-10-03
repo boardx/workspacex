@@ -15,7 +15,7 @@ def freshness_budget(host,now=None):
   require(type(t['notBefore']) in (int,float) and type(t['expiresAt']) in (int,float),'BACKUP_HOST_TRANSPORT_TIME')
   require(t['notBefore']<=now and t['expiresAt']>=p['authorization']['expiresAt']+120,'BACKUP_HOST_TRANSPORT_RESERVE')
   deadlines.append(t['notBefore']+300)
- deadline=min(*deadlines,p['authorization']['expiresAt'],now+p['timeoutSeconds'])
+ deadline=min(*deadlines,p['authorization']['expiresAt'],p['authorization']['notBefore']+p['timeoutSeconds'])
  require(deadline-now>120,'BACKUP_HOST_FRESHNESS_RESERVE');return deadline-120
 
 class BackupHost:
@@ -197,7 +197,9 @@ class ObserverSource:
 
 def create_role_and_grants(self,plan,sql):
  require(plan==self.plan and sql==compile_role_sql(plan,self.scope) and self.clock()<self.deadline,'BACKUP_HOST_MUTATION_ADMISSION')
+ atomic_metadata(self.root/'parent-admin-sessions.json',{'identity':plan['identity'],'owner':self.owner,'sessions':{db:self.channels[db].binding for db in DATABASES}})
  self.watchdog.start()
+ require(self.clock()<self.deadline and self.watchdog.process.poll() is None,'BACKUP_HOST_WATCHDOG_BUDGET_EXHAUSTED')
  dispatch(self.channels[DATABASES[0]],plan,self.scope,self.authorization,'create')
  for db in DATABASES:dispatch(self.channels[db],plan,self.scope,self.authorization,'grant',database=db)
 

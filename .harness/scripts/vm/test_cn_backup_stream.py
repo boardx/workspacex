@@ -17,6 +17,12 @@ class Streams(unittest.TestCase):
                  'import sys;sys.stdout.buffer.write(b"encrypted:"+sys.stdin.buffer.read())')
   self.assertEqual(r['dumpBytes'],5);self.assertTrue(r['ownedProcessesJoined'])
 
+ def test_environment_injection_does_not_reach_owned_children(self):
+  from unittest.mock import patch
+  with patch.dict(os.environ,{'OPENSSL_CONF':'untrusted-config','PGPASSWORD':'untrusted-secret'}):
+   r=self.run_case('import os,sys,time;sys.stdin.buffer.read();time.sleep(.05);assert "OPENSSL_CONF" not in os.environ and "PGPASSWORD" not in os.environ;print("x")', 'import os,sys;assert "OPENSSL_CONF" not in os.environ and "PGPASSWORD" not in os.environ;print(sys.stdin.read())')
+   self.assertTrue(r['ownedProcessesJoined'])
+
  def test_nonzero_encryption_and_producer_reject(self):
   for producer,consumer in [('import sys,time;time.sleep(.05);sys.stdout.write("x");sys.exit(1)',
                             'import sys;sys.stdout.write(sys.stdin.read())'),

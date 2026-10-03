@@ -4,7 +4,7 @@
   "baseCommit": "64cc2b85053823a4c7461eb404b9f3a99c749a33",
   "applicationRevision": "9b25bfa65662b96c0826fe67506b562ea46aa6d0",
   "baselineRevision": "ba6343199f3c834d6a198f83d0c771614292c82b",
-  "sourceInventorySha256": "7defb229b1f580a5122b5cac7324b43c4d613ecafb0ae59d26e8873b072a7185",
+  "sourceInventorySha256": "b698b04e28daea12daa08d9c0e95a06eb616c496bbf6f8a27e0ed624d57dfd75",
   "sourceRows": [
     {
       "path": ".harness/scripts/build-cn-maintenance-controller.cjs",
@@ -23,8 +23,8 @@
     },
     {
       "path": ".harness/scripts/vm/backup_connection.cjs",
-      "sha256": "d3dbe372a0e7982e3e4b851a985f28f6d970fa697efe4c8d46c8e11f88eaa2c0",
-      "bytes": 12175
+      "sha256": "734369dbbc1ad38bcb883f540048a63c6c1f5345f374a47e4dc5b77e1337ac76",
+      "bytes": 14035
     },
     {
       "path": ".harness/scripts/vm/backup_profile_transport.cjs",
@@ -168,13 +168,13 @@
     },
     {
       "path": ".harness/scripts/vm/cn_backup_channel.py",
-      "sha256": "2ee863d0543fab37e544d7ead6ed2c29cca5ef30a4f0e2aba99f50d38230fdda",
-      "bytes": 7303
+      "sha256": "b7b57d0d1d03fa9dd3c9cd57d1dc00f10559becd5671b46b0ed10e33648d11de",
+      "bytes": 7665
     },
     {
       "path": ".harness/scripts/vm/cn_backup_host.py",
-      "sha256": "67c799f3491e259ea87ca28b8a56cd4507c36699c0210ef6474808489aa345f5",
-      "bytes": 21215
+      "sha256": "00cab6ceae70f52b045954664a9289c965a32e3fbee4b1ad8fabbd0ecf700061",
+      "bytes": 21529
     },
     {
       "path": ".harness/scripts/vm/cn_backup_package.py",
@@ -203,13 +203,13 @@
     },
     {
       "path": ".harness/scripts/vm/cn_backup_stream.py",
-      "sha256": "3ef538ef109f92fc977719d26798ce6409c8ea667c43d06c214eee99f6ddd716",
-      "bytes": 5846
+      "sha256": "abe3b05ece6282dc3fbc00b6ffa52ddfe3ec481bc354afa9144ae0bfcf09ec26",
+      "bytes": 5908
     },
     {
       "path": ".harness/scripts/vm/cn_backup_watchdog.py",
-      "sha256": "4bfac0995177e4b1328d82ca5a132776a0dd6827cf710eff1ef7b5c81cc8db35",
-      "bytes": 8598
+      "sha256": "61a4a46ccf41d4978aa464f4fba6efee4cd3320342b851058d42f017ad0571eb",
+      "bytes": 9530
     },
     {
       "path": ".harness/scripts/vm/cn_build_tool_identity_test.py",
@@ -468,8 +468,8 @@
     },
     {
       "path": ".harness/scripts/vm/test_backup_connection.test.cjs",
-      "sha256": "253e168331bb91fbc7c34422ee5e9ae3201ec166817a30b2a1657b0522755ba1",
-      "bytes": 4960
+      "sha256": "d60802f54740ba86a2e9d43075fd2e1fd7c33abe45adaf800257e383814fd20b",
+      "bytes": 6958
     },
     {
       "path": ".harness/scripts/vm/test_backup_profile_transport.test.cjs",
@@ -523,13 +523,13 @@
     },
     {
       "path": ".harness/scripts/vm/test_cn_backup_stream.py",
-      "sha256": "e9efe9580452423b31d71663d8d267b3e582552e670c0744a63474f726a390aa",
-      "bytes": 3104
+      "sha256": "004e2d65e1ff020f7fde4ad7b068580a36f9974bf4f1e80d32dceeb4afc817bd",
+      "bytes": 3636
     },
     {
       "path": ".harness/scripts/vm/test_cn_backup_watchdog.py",
-      "sha256": "52a5701b372b0677b25275a3e36253f0774a9070e33f10c005cf02dad512e59b",
-      "bytes": 4114
+      "sha256": "c9188a39a77340c9c9ab685764dffcbd3c38e160a2a5fc0211f70831d7104d56",
+      "bytes": 5256
     },
     {
       "path": ".harness/scripts/vm/test_control_connection.cjs",
@@ -623,8 +623,8 @@
     },
     {
       "path": "deploy/aliyun/cn-maintenance-source-handoff.md",
-      "sha256": "5b474698704999d2394d3e691fa4d313605213766a5041111b716e2f606b3b02",
-      "bytes": 21174
+      "sha256": "ac0c95fdddc01be666ed46e63ae468ee2681cf1e76fb2c334a810fec70dd5f28",
+      "bytes": 21802
     },
     {
       "path": "deploy/aliyun/cn-release-9b25-once-plan.md",
@@ -648,8 +648,8 @@
     },
     {
       "path": "deploy/aliyun/cn-release-backup-execution-package.md",
-      "sha256": "d0b3575a238de08a1acc65135d2cad1c833f878ca390eeef6ffd8df574bfc264",
-      "bytes": 7695
+      "sha256": "166da38ce1e2eab289b3407962602858f2e85d99531a578a8719acdd1045db32",
+      "bytes": 7972
     },
     {
       "path": "deploy/aliyun/cn-release-backup-public-acl-detail.json",

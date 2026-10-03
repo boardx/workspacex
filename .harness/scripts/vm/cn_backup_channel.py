@@ -65,13 +65,18 @@ class BackupChannel:
   finally:selector.close()
 
  def request(self,message):
-  require(not getattr(self,'cleanup_only',False) or message.get('operation')=='query' or message.get('action') in ('close','revoke','begin','commit','rollback'),'BACKUP_CLEANUP_ONLY_OPERATION')
+  require(not getattr(self,'cleanup_only',False) or message.get('operation')=='query' or message.get('action') in ('close','revoke','begin','commit','rollback') or message.get('operation')=='quiesce-owned-admin','BACKUP_CLEANUP_ONLY_OPERATION')
   require(self.process.poll() is None,'BACKUP_CHANNEL_PROCESS_EXITED');self.sequence+=1
   payload=dict(message,sequence=self.sequence)
   raw=(json.dumps(payload,separators=(',',':'))+'\n').encode();require(len(raw)<=65536,'BACKUP_CHANNEL_REQUEST_BOUND')
   self.process.stdin.write(raw);self.process.stdin.flush();reply=self.receive(15)
   require(reply.get('sequence')==self.sequence and reply.get('ok') is True and reply.get('connection')==self.binding,'BACKUP_CHANNEL_RESPONSE_IDENTITY')
   return reply
+
+ def quiesce_owned_admin(self,target):
+  require(getattr(self,'cleanup_only',False),'BACKUP_QUIESCE_CLEANUP_ONLY')
+  reply=self.request({'operation':'quiesce-owned-admin','target':target})
+  require(reply['rows']==[{'joined':True}],'BACKUP_QUIESCE_UNPROVEN');return True
 
  def verify_backup_transport(self,facts):
   require(not getattr(self,'cleanup_only',False),'BACKUP_CLEANUP_ONLY_OPERATION')
@@ -81,7 +86,9 @@ class BackupChannel:
  def cursor(self):return Cursor(self)
  def close(self):
   if not getattr(self,'process',None):return
-  if self.process.stdin:self.process.stdin.close()
+  if self.process.stdin:
+   try:self.process.stdin.close()
+   except BrokenPipeError:pass
   try:self.process.wait(timeout=2)
   except subprocess.TimeoutExpired:
    self.process.terminate()

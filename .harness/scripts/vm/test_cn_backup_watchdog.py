@@ -32,18 +32,31 @@ class WatchdogTests(unittest.TestCase):
    with patch.object(w,'capture',return_value={'role':[{}],'sessions':sessions}),patch.object(w,'dispatch'),patch.object(w,'owned_inventory',return_value=[]),patch.object(w,'permission_gaps',return_value=gaps):
     with self.assertRaises(RuntimeError):w.cleanup({}, {}, SimpleNamespace(allowed_public_temp=()),dict.fromkeys(w.DATABASES,object()),'b'*32)
  def serve_fixture(self,message,expired=False,journal_error=False):
-  host={'backup':{'authorization':{'expiresAt':1000},'timeoutSeconds':330},'connection':{'transport':{db:{'expiresAt':1000,'notBefore':100} for db in w.DATABASES}},'objectScope':{}}
+  host={'backup':{'authorization':{'notBefore':100,'expiresAt':1000},'timeoutSeconds':330},'connection':{'transport':{db:{'expiresAt':1000,'notBefore':100} for db in w.DATABASES}},'objectScope':{}}
   raw=json.dumps(host).encode();reference={'path':'/fixture','sha256':hashlib.sha256(raw).hexdigest()}
   channels=[]
   def channel(*args,**kwargs):
    c=SimpleNamespace(close=lambda:None);channels.append(c);return c
   cleanup=SimpleNamespace(calls=0)
   def cleaned(*args):cleanup.calls+=1;return {'kind':'owned-backup-cleanup-verified'}
-  with patch.object(w,'private',return_value=raw),patch.object(w,'validate'),patch.object(w,'protected_authorization',return_value=object()),patch.object(w,'BackupChannel',side_effect=channel),patch.object(w,'capture',return_value={'role':[]}),patch.object(w,'cleanup',side_effect=cleaned),patch.object(w.time,'time',side_effect=[100,100]+[1250]*20 if expired else None,return_value=100),patch.object(w.select,'select',return_value=([object()],[],[])),patch.object(w.sys,'stdin',SimpleNamespace(buffer=SimpleNamespace(fileno=lambda:123))),patch.object(w.os,'read',side_effect=[message,b'']),patch.object(w,'journal_event'),patch.object(w.sys,'stdout',io.StringIO()):
+  def event(plan,state):
+   if journal_error and state=='cleanup-intent':raise OSError('fixture audit full disk')
+  with patch.object(w,'private',return_value=raw),patch.object(w,'validate'),patch.object(w,'protected_authorization',return_value=object()),patch.object(w,'BackupChannel',side_effect=channel),patch.object(w,'capture',return_value={'role':[]}),patch.object(w,'cleanup',side_effect=cleaned),patch.object(w,'quiesce_parent_admin'),patch.object(w.time,'time',side_effect=[100,100]+[1250]*20 if expired else None,return_value=100),patch.object(w.select,'select',return_value=([object()],[],[])),patch.object(w.sys,'stdin',SimpleNamespace(buffer=SimpleNamespace(fileno=lambda:123))),patch.object(w.os,'read',side_effect=[message,b'']),patch.object(w,'journal_event',side_effect=event),patch.object(w.sys,'stdout',io.StringIO()):
    try:w.serve(reference)
    except (RuntimeError,OSError):
     if not journal_error and message in (b'',b'finish\n') or expired:raise
   return cleanup.calls
+ def test_parent_admin_binding_only_quiesces_exact_owned_sessions(self):
+  reference={'sha256':'a'*64};identity={'attemptId':'fixture'};calls=[]
+  proof={'identity':identity,'owner':w.owner_for(reference),'sessions':{db:{'role':'migration_admin','peer':{'database':db},'pid':i+50,'backendStart':'2026-10-03T20:00:00Z'} for i,db in enumerate(w.DATABASES)}}
+  channels={db:SimpleNamespace(quiesce_owned_admin=lambda target:calls.append(target) or True) for db in w.DATABASES}
+  with patch.object(w,'private',return_value=json.dumps(proof).encode()):w.quiesce_parent_admin({'outputRoot':'/fixture','identity':identity},reference,channels)
+  self.assertEqual(len(calls),3)
+  proof['owner']='foreign'
+  with patch.object(w,'private',return_value=json.dumps(proof).encode()):
+   with self.assertRaisesRegex(RuntimeError,'PARENT_BINDING'):w.quiesce_parent_admin({'outputRoot':'/fixture','identity':identity},reference,channels)
+  self.assertEqual(len(calls),3)
+
  def test_parent_eof_always_triggers_cleanup(self):self.assertEqual(self.serve_fixture(b''),1)
  def test_deadline_without_parent_message_triggers_cleanup(self):self.assertEqual(self.serve_fixture(b'',True),1)
  def test_partial_parent_frame_cannot_block_cleanup(self):self.assertEqual(self.serve_fixture(b'fin'),1)

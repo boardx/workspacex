@@ -16,6 +16,11 @@ function scramVerifier(password,salt=crypto.randomBytes(16)){
  const server=crypto.createHmac('sha256',salted).update('Server Key').digest('base64');
  return 'SCRAM-SHA-256$4096:'+salt.toString('base64')+'$'+stored+':'+server;
 }
+function privilegeDeadline(host){
+ const p=host.backup,lanes=Object.values(host.connection.transport);
+ need(lanes.length===3&&Number.isFinite(p.timeoutSeconds),'BACKUP_MUTATION_BUDGET_INPUT');
+ return Math.min(p.authorization.expiresAt,p.authorization.notBefore+p.timeoutSeconds,...lanes.map(a=>a.notBefore+300))-120;
+}
 class BackupConnection {
  constructor(factory,read=privateJson,readBytes=trustedBytes,controlFactory=(factory,loader)=>new ControlSession(factory,loader)){this.factory=factory;this.read=read;this.readBytes=readBytes;this.controlFactory=controlFactory;this.sequence=0;}
  async connect(planPath,planSha,db){
@@ -58,6 +63,18 @@ class BackupConnection {
   need(Number.isSafeInteger(m.sequence)&&m.sequence===++this.sequence,'BACKUP_SEQUENCE');
   if(!(m.operation==='mutation'&&m.action==='rollback'))need(JSON.stringify(await this.control.identity())===JSON.stringify(this.binding),'BACKUP_ADMIN_SESSION_DRIFT');
   let sql,params=[];
+  if(m.operation==='quiesce-owned-admin'){
+   need(this.cleanupOnly===true&&Object.keys(m).sort().join(',')==='operation,sequence,target','BACKUP_QUIESCE_AUTHORITY');
+   const t=m.target,p=this.host.backup,app='wsx-maintenance-diagnostic-'+p.identity.attemptId;
+   need(t.role==='migration_admin'&&same(t.peer,this.binding.peer)&&Number.isInteger(t.pid)&&t.pid>1&&t.pid!==this.binding.pid&&typeof t.backendStart==='string'&&Number.isInteger(t.socket.localPort)&&t.socket.localPort>0&&t.socket.localPort<=65535&&t.socket.localAddress==='192.168.100.40','BACKUP_QUIESCE_TARGET');
+   const params=[t.pid,t.backendStart,this.db,app,t.socket.localPort];
+   const scope="pid=$1 AND backend_start=$2::timestamptz AND datname=$3 AND usename='migration_admin' AND application_name=$4 AND client_addr='192.168.100.40'::inet AND client_port=$5";
+   const stopped=await this.control.client.query('SELECT pg_terminate_backend(pid,10000) terminated FROM pg_stat_activity WHERE '+scope,params);
+   need(stopped.rows.every(r=>r.terminated===true),'BACKUP_QUIESCE_TERMINATION_UNKNOWN');
+   const gone=await this.control.client.query('SELECT count(*)::int remaining FROM pg_stat_activity WHERE '+scope,params);
+   need(gone.rows.length===1&&gone.rows[0].remaining===0,'BACKUP_QUIESCE_SESSION_REMAINS');
+   return {sequence:m.sequence,ok:true,connection:this.binding,rows:[{joined:true}],fields:['joined']};
+  }
   if(m.operation==='verify-backup-transport'){
    need(Object.keys(m).sort().join(',')==='facts,operation,sequence','BACKUP_TRANSPORT_REQUEST');
    const f=m.facts,p=this.host.backup;
@@ -82,7 +99,8 @@ class BackupConnection {
    need(['create','grant','login','close','revoke','begin','commit','rollback'].includes(m.action),'BACKUP_MUTATION_ACTION');
    need(!this.cleanupOnly||['close','revoke','begin','commit','rollback'].includes(m.action),'BACKUP_CLEANUP_ONLY_OPERATION');
    // Cleanup can commit after expiry; an earlier privilege mutation cannot.
-   if(m.action==='commit'&&this.pendingPrivilegeMutation)need(a.notBefore<=now&&now<a.expiresAt,'BACKUP_EXPIRED_PRIVILEGE_COMMIT');
+   if(m.action==='commit'&&this.pendingPrivilegeMutation)need(a.notBefore<=now&&now<privilegeDeadline(h),'BACKUP_EXPIRED_PRIVILEGE_COMMIT');
+   if(['create','grant','login'].includes(m.action))need(now<privilegeDeadline(h),'BACKUP_MUTATION_BUDGET_EXHAUSTED');
    need(['close','revoke','begin','commit','rollback'].includes(m.action)||(a.notBefore<=now&&now<a.expiresAt),'BACKUP_LEASE_EXPIRED');
    if(m.action==='login'){
     need(typeof m.password==='string'&&m.password.length>=32&&m.password.length<=256,'BACKUP_PASSWORD_BOUND');
@@ -121,5 +139,5 @@ async function main(){
   }
  });process.stdin.on('end',()=>chain.finally(()=>session.close()));
 }
-module.exports={BackupConnection,literal,scramVerifier};
+module.exports={BackupConnection,literal,scramVerifier,privilegeDeadline};
 if(require.main===module)main().catch(()=>{process.stderr.write('BACKUP_CHANNEL_REJECTED\n');process.exitCode=1;});

@@ -56,6 +56,16 @@ def cleanup(plan,scope,authorization,channels,owner):
  return {'kind':'owned-backup-cleanup-verified','roleAbsent':not any(roles),'ownedContainersAbsent':True,'roleSessionsAbsent':True,'exactRevocationVerified':True}
 
 
+def quiesce_parent_admin(plan,reference,channels):
+ path=pathlib.Path(plan['outputRoot'])/'parent-admin-sessions.json'
+ proof=json.loads(private(path))
+ require(set(proof)=={'identity','owner','sessions'} and proof['identity']==plan['identity'] and proof['owner']==owner_for(reference) and set(proof['sessions'])==set(DATABASES),'BACKUP_WATCHDOG_PARENT_BINDING')
+ for db in DATABASES:
+  target=proof['sessions'][db]
+  require(target['role']=='migration_admin' and target['peer']['database']==db and type(target['pid']) is int and type(target['backendStart']) is str,'BACKUP_WATCHDOG_PARENT_SESSION')
+  require(channels[db].quiesce_owned_admin(target) is True,'BACKUP_WATCHDOG_PARENT_SESSION_NOT_JOINED')
+
+
 def journal_event(plan,event):
  path=pathlib.Path(plan['outputRoot'])/'watchdog-journal.jsonl'
  for parent in path.parents:
@@ -77,7 +87,7 @@ def serve(reference):
   # This process owns these new channels; none is inherited from the parent.
   journal_event(plan,'cleanup-owner-preopened')
   sys.stdout.write('{"kind":"backup-watchdog-ready"}\n');sys.stdout.flush()
-  deadline=min(plan['authorization']['expiresAt'],time.time()+plan['timeoutSeconds'],min(a['notBefore']+300 for a in host['connection']['transport'].values()))-120
+  deadline=min(plan['authorization']['expiresAt'],plan['authorization']['notBefore']+plan['timeoutSeconds'],min(a['notBefore']+300 for a in host['connection']['transport'].values()))-120
   require(time.time()<deadline,'BACKUP_WATCHDOG_START_BUDGET_EXHAUSTED')
   message=bytearray();protocol_failure=False
   try:
@@ -94,6 +104,9 @@ def serve(reference):
   journal_failure=False
   try:journal_event(plan,'cleanup-intent')
   except BaseException:journal_failure=True
+  # Join exact producer admin backends before final role scan: an in-flight
+  # COMMIT cannot materialize a role after this cleanup has reported success.
+  quiesce_parent_admin(plan,reference,channels)
   receipt=cleanup(plan,host['objectScope'],authorization,channels,owner_for(reference))
   journal_event(plan,'cleanup-verified')
   require(not journal_failure,'BACKUP_WATCHDOG_AUDIT_FAILURE')
@@ -114,7 +127,7 @@ class BackupWatchdog:
   raw=private(self.reference['path']);require(hashlib.sha256(raw).hexdigest()==self.reference['sha256'],'BACKUP_WATCHDOG_PLAN_PIN')
   host=json.loads(raw);profile=json.loads(private('/etc/workspacex-cn/trusted-tool-binding.json'))
   runtime=host['pythonRuntime'];executable=runtime['path'];helper='/usr/local/lib/workspacex-cn/cn_backup_watchdog.py'
-  require(re.fullmatch('/usr/bin/python3\.[0-9]+',executable) and hashlib.sha256(private(executable,0o755)).hexdigest()==runtime['sha256'] and profile['backupPythonRuntime']==runtime,'BACKUP_WATCHDOG_RUNTIME_PIN')
+  require(re.fullmatch(r'/usr/bin/python3\.[0-9]+',executable) and hashlib.sha256(private(executable,0o755)).hexdigest()==runtime['sha256'] and profile['backupPythonRuntime']==runtime,'BACKUP_WATCHDOG_RUNTIME_PIN')
   require(profile['backupHostPlan']==self.reference and hashlib.sha256(private(helper,0o700)).hexdigest()==profile['installedFilesSha256'][helper],'BACKUP_WATCHDOG_HELPER_PIN')
   runner='/usr/local/lib/workspacex-cn/cn_backup_run.py'
   require(hashlib.sha256(private(runner,0o700)).hexdigest()==profile['installedFilesSha256'][runner],'BACKUP_WATCHDOG_RUNNER_PIN')
