@@ -470,7 +470,13 @@
           "status": "EXACT_SOURCE_BLOB"
         }
       ],
-      "disposition": "PRODUCTION_EXPOSURE_HOLD_NOT_COMPLETE"
+      "disposition": "EXTERNAL_MAIN_MERGE_VERIFIED_NEW_HEAD_NOT_COVERED_BY_SNAPSHOT_REVIEW",
+      "snapshot_head": "fbc23e66d65a6d56d898133c2a745fd4413e33be",
+      "live_head": "368220f4a164cdcba2702ab1d2056b0a74fbb16c",
+      "live_state": "MERGED",
+      "main_merge": "ea9ec522a9d000a78e269eb88bfbcb520379d872",
+      "merged_at": "2026-10-03T10:23:44Z",
+      "approval_boundary": "Main merge does not prove human exposure signoff, native acceptance or production deployment."
     }
   ],
   "integration_branch": "codex/board-main-delivery-20261003"

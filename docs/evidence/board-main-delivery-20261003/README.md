@@ -42,8 +42,12 @@ improvements rather than blindly replacing newer code with old branch snapshots.
   `fff11111a51b8a8b4355b91ffb96bfe0178077cc2e207730801619e2ed309076`
   is connected to the reporter; only a fixed spec/code/project and finite numeric
   geometry are emitted. Failure rows and attachment restrictions remain intact.
-- #5145 production exposure remains HOLD. Geometry preservation is not human
-  design signoff; this iteration does not enable the production Connector entry.
+- #5145 was externally merged into main at 2026-10-03T10:23:44Z, head
+  `368220f4a164cdcba2702ab1d2056b0a74fbb16c`, merge
+  `ea9ec522a9d000a78e269eb88bfbcb520379d872`. The path table retains its
+  explicitly historical snapshot; it does not review the newer head. The main
+  merge does not prove human exposure signoff, full native acceptance or production
+  deployment. This draft predates that merge and must preserve it during integration.
 
 ## Original goals and verification boundaries
 
