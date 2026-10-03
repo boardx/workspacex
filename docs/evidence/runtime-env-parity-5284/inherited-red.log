@@ -1,0 +1,86 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/survey-report-echarts/packages/local-runtime
+
+ ❯ test/inherited-parity-env.test.ts (4 tests | 3 failed) 65ms
+   × local child environment parity > classifies isolated KG controls as unset and the design override as default-safe 3ms
+     → expected undefined to be 'must-stay-unset' // Object.is equality
+   × local child environment parity > does not inherit parent KG acceptance controls into run-to-completion children 22ms
+     → expected { fixture: '1', …(3) } to deeply equal { html: '0', ordinary: 'preserved' }
+   × local child environment parity > does not inherit parent KG acceptance controls into managed services 20ms
+     → expected { fixture: '1', …(3) } to deeply equal { html: '0', ordinary: 'preserved' }
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  test/inherited-parity-env.test.ts > local child environment parity > classifies isolated KG controls as unset and the design override as default-safe
+AssertionError: expected undefined to be 'must-stay-unset' // Object.is equality
+
+- Expected: 
+"must-stay-unset"
+
++ Received: 
+undefined
+
+ ❯ test/inherited-parity-env.test.ts:20:76
+     18| describe("local child environment parity", () => {
+     19|   it("classifies isolated KG controls as unset and the design override…
+     20|     for (const name of acceptanceControls) expect(parityIndex().get(na…
+       |                                                                            ^
+     21|     expect(parityIndex().get("DESIGN_HTML_PAGES")).toBe("default-ok");
+     22|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
+
+ FAIL  test/inherited-parity-env.test.ts > local child environment parity > does not inherit parent KG acceptance controls into run-to-completion children
+AssertionError: expected { fixture: '1', …(3) } to deeply equal { html: '0', ordinary: 'preserved' }
+
+- Expected
++ Received
+
+  Object {
++   "fixture": "1",
+    "html": "0",
++   "mode": "vector_only",
+    "ordinary": "preserved",
+  }
+
+ ❯ test/inherited-parity-env.test.ts:28:39
+     26|     const result = await runToCompletion(spec);
+     27|     expect(result.code).toBe(0);
+     28|     expect(JSON.parse(result.stdout)).toEqual(expected);
+       |                                       ^
+     29|   });
+     30| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/3]⎯
+
+ FAIL  test/inherited-parity-env.test.ts > local child environment parity > does not inherit parent KG acceptance controls into managed services
+AssertionError: expected { fixture: '1', …(3) } to deeply equal { html: '0', ordinary: 'preserved' }
+
+- Expected
++ Received
+
+  Object {
++   "fixture": "1",
+    "html": "0",
++   "mode": "vector_only",
+    "ordinary": "preserved",
+  }
+
+ ❯ test/inherited-parity-env.test.ts:37:97
+     35|     try {
+     36|       expect(await child.exited).toBe(0);
+     37|       expect(JSON.parse(lines.find(line => line.includes('{'))!.slice(…
+       |                                                                                                 ^
+     38|     } finally {
+     39|       await child.stop();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/3]⎯
+
+ Test Files  1 failed (1)
+      Tests  3 failed | 1 passed (4)
+   Start at  07:48:46
+   Duration  184ms (transform 25ms, setup 0ms, collect 29ms, tests 65ms, environment 0ms, prepare 25ms)
+
+undefined
+/Users/shenyangjun/.codex/worktrees/survey-report-echarts/packages/local-runtime:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run test/inherited-parity-env.test.ts
