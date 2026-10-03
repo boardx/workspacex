@@ -4,7 +4,7 @@
   "baseCommit": "64cc2b85053823a4c7461eb404b9f3a99c749a33",
   "applicationRevision": "9b25bfa65662b96c0826fe67506b562ea46aa6d0",
   "baselineRevision": "ba6343199f3c834d6a198f83d0c771614292c82b",
-  "sourceInventorySha256": "8b929167d3100a5645aebe70cf26f85dd84b3564ee48e605331c1634f4a48e76",
+  "sourceInventorySha256": "35d758fb25db51d5f0f2240994846293aab60344c16a9818e173d61ff56217b6",
   "sourceRows": [
     {
       "path": ".harness/scripts/build-cn-maintenance-controller.cjs",
@@ -328,8 +328,8 @@
     },
     {
       "path": ".harness/scripts/vm/host_transport.py",
-      "sha256": "e7385fb86d6f6f528eb37c46b029a0a7c4d90835cba99cc751422ce2ba57ad6e",
-      "bytes": 27799
+      "sha256": "6addcdc186cae60441c6a1e610999399184007266147fb6da0d85973c8f48e84",
+      "bytes": 27809
     },
     {
       "path": ".harness/scripts/vm/prepare-cn-tool-install.py",

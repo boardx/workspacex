@@ -276,7 +276,7 @@ def serve_reviewed_fence(source_path,source_sha):
      require(not unknown,'FENCE_UNKNOWN_STATE_RETAINED');adapter.verifyWritesBlocked(plan['identity'])
      connection=transport.diagnostic_connections['workspacex'];value=connection.query('run-drain')
      counts=aggregate_run_drain(value['rows']);adapter.verifyWritesBlocked(plan['identity'])
-     print(json.dumps({'sequence':sequence,'ok':True,'value':dict(counts,connection=connection.binding,observedAt=time.time(),identity=plan['identity'],holdGeneration=plan['holdGeneration'],writesHeld=True)}),flush=True);continue
+     print(json.dumps({'sequence':sequence,'ok':True,'value':dict(counts,connection=connection.binding,observedAt=time.time(),identity=plan['identity'],holdGeneration=transport.plan['holdGeneration'],writesHeld=True)}),flush=True);continue
     if request['operation']=='read-diagnostic-ledger':
      require(not unknown,'FENCE_UNKNOWN_STATE_RETAINED');adapter.verifyWritesBlocked(plan['identity'])
      connection=transport.diagnostic_connections['workspacex'];value=connection.query('migration-ledger');require(value['rowCount']==len(value['ledger']),'MIGRATION_LEDGER_COUNT')
