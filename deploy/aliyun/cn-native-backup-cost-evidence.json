@@ -558,5 +558,16 @@
       "public/cross-region networking",
       "unverified account tax/discount/minimum-hour rounding"
     ]
-  }
+  },
+  "supersedingAccountQuoteEvidence": "cn-native-clone-account-quote.json",
+  "currentAccountQuoteAvailable": true,
+  "currentQuoteHourlyCNY": [
+    0.337,
+    1.502
+  ],
+  "currentQuoteTwoToFourHourComputeStorageCNY": [
+    0.674,
+    6.008
+  ],
+  "previousQuoteErrorsWereParameterComponentMismatchNotAuthorizationDenial": true
 }

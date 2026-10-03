@@ -4,7 +4,7 @@
   "baseCommit": "64cc2b85053823a4c7461eb404b9f3a99c749a33",
   "applicationRevision": "9b25bfa65662b96c0826fe67506b562ea46aa6d0",
   "baselineRevision": "ba6343199f3c834d6a198f83d0c771614292c82b",
-  "sourceInventorySha256": "41accd97709b8087bc631e2c395c535ea39dbc55398cdf2c080b3ea288970154",
+  "sourceInventorySha256": "7738a8230c1b6a2fd3a4f4cd3af6669eb49e3071aa9c27dd76c3b18ae6cc11fc",
   "sourceRows": [
     {
       "path": ".harness/scripts/build-cn-maintenance-controller.cjs",
@@ -628,18 +628,33 @@
     },
     {
       "path": "deploy/aliyun/cn-maintenance-source-handoff.md",
-      "sha256": "52b5c01cdee9e0e2a275b1742a689881fb2de444232bad9efb1601d92bdbd4b9",
-      "bytes": 24265
+      "sha256": "16e4dbc9be7fb71ebc91f38c82677c522b9475a0e8edffbae0a0a5cab73cc088",
+      "bytes": 25482
     },
     {
       "path": "deploy/aliyun/cn-native-backup-cost-evidence.json",
-      "sha256": "a0dc60eced490219808d6c7c17eb863d7782b225386c2579b8352da80bd62c15",
-      "bytes": 20149
+      "sha256": "41f35b2b33ce86855fd2e855bc24ff713df89914cefd6d5c931bfb77fac20246",
+      "bytes": 20478
     },
     {
       "path": "deploy/aliyun/cn-native-backup-path-comparison.md",
-      "sha256": "d883dd7bd91126c534bdbedf0e6d44272eb80e2dc40f83eb74c62e76ac21276a",
-      "bytes": 7509
+      "sha256": "0b0ece1d952fa2099a0976925257f5ff4ff0ea75655a486a06432e95fcc19b52",
+      "bytes": 8510
+    },
+    {
+      "path": "deploy/aliyun/cn-native-clone-account-quote.json",
+      "sha256": "3f313aaa2115afe1d6c86c9375ef3d0c5754dd9dc1c7e8dc59b1eeb86bbba7ab",
+      "bytes": 6615
+    },
+    {
+      "path": "deploy/aliyun/cn-native-clone-execution-decision.md",
+      "sha256": "8c5da49825e782a7ee90ac1c297efd85974564f1d7708a1858aafcce6ec456d3",
+      "bytes": 9272
+    },
+    {
+      "path": "deploy/aliyun/cn-native-clone-review-proposal.json",
+      "sha256": "94ba65d0b4253d60ba93d3ab12e5b856056afe10e384dfb859d4dad6c90f15b2",
+      "bytes": 3580
     },
     {
       "path": "deploy/aliyun/cn-release-9b25-delta-decision.md",
