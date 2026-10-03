@@ -1,21 +1,11 @@
-# Survey collection start and end — #5192
+# 回收起止时间（#5192）
 
-The user confirmed immediate start by default, optional future opening and a deadline later than opening. Collection timing belongs to each immutable publication batch. Legacy publications without `startsAt` remain immediately available.
+开始时间可留空立即开始，截止时间可留空从开始起默认30天；日期必须有效且截止晚于开始和当前时间。开始和截止随发布批次冻结，历史批次不变，旧问卷没有开始字段仍立即开放。公开读取、提交、上传共用同一个服务端回收窗口判定；未开始409/SURVEY_NOT_STARTED，截止后拒绝。
 
-The command/publication contracts add optional `startsAt`. The service supplies immediate opening and a default deadline 30 days from the selected opening, validates the window, and freezes both dates in the publication and batch. The existing expiry argument remains compatible; the opening argument is additive.
+最终本地前端37文件357项、纯内存API5文件50项、真实HTTP18项通过；三个包类型与lint、init quick通过。独立审查发现历史批次视图会停止活跃批次时钟，已取得RED→GREEN并修复全部批次边界计时。仓库CI字段投影白名单缺少新增startsAt的失败已经206ead069修复，仍保持严格完整字段和隐私反证，最新CI继续验证。
 
-One shared contracts module defines valid ordering, the default duration and inclusive opening/exclusive closing. Public reads/submissions and attachment capabilities use this same boundary. Pending public access returns the registered `SURVEY_NOT_STARTED` conflict; the browser explains that collection has not started. No database columns or migration are needed because existing publication persistence is a JSON document.
+实际浏览器完整经过2026-10-03 12:07开放/12:10截止：坏日期可见错误；发布后等待开始且冻结日期刷新保留；公开链接开始前无表单，到点开放并成功收到一条合成答卷；管理页自动变为正在回收和已到截止时间，截止后公开页无表单、答卷仍保留。样本bb8acca2-5ba6-4731-b59e-0bdb4b33ca3f。截图和browser-acceptance.txt为证据。
 
-Initial publication and closed-batch republishing show both local date/time fields. Published dates remain visible after reload and historical batches remain unchanged. The owner clock updates every displayed batch at its next opening/closing boundary, including when a closed historical batch is selected.
+验收工具最初fill日期未触发原生change，另有跨版本输入暂停；这些中间结果未计通过。原生日期按键恢复正常状态与校验，完整真实窗口已验证，无需因此改产品。
 
-## Verification
-
-- New schedule behavior first failed: 10 failures, 1 legacy compatibility pass. An `openPublic` test-call typo was corrected; it is not counted as behavioral evidence.
-- Three new UI schedule cases first failed due to the absent start field.
-- Schedule service/contract suite: 12 passed. Broader API pure-memory suite: 5 files / 50 passed.
-- Actual Nest HTTP: attachment suite 12 passed; publishing/anonymity suite 6 passed on a separate test database.
-- Full survey frontend: 37 files / 356 passed before the final clock regression.
-- Independent review found a historical-view clock bug. The new counterexample failed against the selected-batch timer, then passed after watching all collecting batches. Final publishing suite: 21 passed.
-- Web, API and contracts typechecks, affected web ESLint, API lint and contracts lint: exit 0.
-
-Complete final frontend/baseline verification, exact SHA review, live browser and CI results will be recorded separately. No final acceptance or merge is claimed yet. This branch depends on #5196; its PR diff contains only #5192.
+PR #5197 依赖 #5196，尚未合入/上线，本会话不合并。完整私有日志及备份在/private/tmp/survey-5192。tracked txt为原始验证输出的脱敏节选。

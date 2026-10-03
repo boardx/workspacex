@@ -1,0 +1,11 @@
+# Actual browser acceptance, 2026-10-03 Asia/Shanghai
+
+Web25999 compiled from76c73abf1; API45716 has same runtime source. No browser-state injection/API shortcuts.
+
+Synthetic survey bb8acca2-5ba6-4731-b59e-0bdb4b33ca3f created in UI, one required multiline question. Native datetime input confirmed reverse dates display 截止时间必须晚于开始时间. Corrected to2026-10-03T12:07 through12:10; publication owner shows等待开始 and exact frozen dates. Reload retains both. Public link before opening says尚未开始回收 and contains no question form.
+
+At12:07, management page automatically changes to正在回收. Public page reload exposes multiline field and submit control. Synthetic answer 合成验收：预约开始后可以提交。 submitted12:08:24 and success message displayed. At12:10 management page automatically changes已到截止时间; publicreload shows closed/expired message with no form. Owner reload shows one included answer, dates retained. Exact millisecond and HTTP denial/upload boundaries are independently covered by tests.
+
+Screenshots scheduled-owner.png / public-before-start.png / public-after-start.png / public-after-deadline.png / owner-after-deadline.png in this private directory to be copied into tracked issue evidence.
+
+Earlier .fill() datetime values did not trigger native React change; initial synthetic ea8966... and7be7... were immediately published with default dates. No false browser pass was recorded. Origin-wide input pause also affected previously accepted25998, later recovered. Actual date typing/arrow events produced state transitions and the full above window. No product change made to accommodate the tool. These earlier samples retained.
