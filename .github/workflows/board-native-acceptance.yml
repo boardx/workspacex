@@ -24,7 +24,7 @@ jobs:
         with:
           node-version-file: .nvmrc
       - name: Verify native listener ownership fences
-        run: node --test apps/web/e2e/support/native-runtime/native-process-listeners.test.mjs apps/web/e2e/support/native-runtime/native-process-listeners-zombie.test.mjs
+        run: node --test apps/web/e2e/support/native-runtime/native-process-listeners.test.mjs apps/web/e2e/support/native-runtime/native-process-listeners-zombie.test.mjs apps/web/scripts/run-board-native-acceptance.test.mjs
       - name: Prepare owned private native paths
         run: |
           sudo install -d -m 1777 -o "$(id -u)" -g "$(id -g)" /private/tmp

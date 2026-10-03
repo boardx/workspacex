@@ -143,7 +143,7 @@ test('private reporter first failure exposes fixed categories and bounded ordina
   const config='e2e/board-files-completion.config.ts';
   const report=message=>({suites:[{title:'private token',specs:[{file:'/private/secret/board-files-boundaries.spec.ts',title:'user-private-title',tests:[{results:[{status:'failed',errors:[{message,stack:'private env URL password'}]}]}]}]}]});
   const actual=safeAcceptanceDiagnostics(config,report('Unreviewed runtime verifier cannot satisfy acceptance private token'));
-  assert.deepEqual(actual,{version:1,firstFailure:{phase:'CASE',caseIndex:0,resultStatus:'failed',errorCount:1,matchedFailure:'VERIFIER_PIN',ambiguous:false}});
+  assert.deepEqual(actual,{version:1,firstFailure:{phase:'CASE',caseIndex:0,resultStatus:'failed',errorCount:1,matchedFailure:'VERIFIER_PIN',ambiguous:false,sourceLocation:null}});
   for(const secret of ['private','token','password','URL','title','stack','secret'])assert.equal(JSON.stringify(actual).includes(secret),false);
   assert.equal(safeAcceptanceDiagnostics(config,report('user arbitrary private content')).firstFailure.matchedFailure,'UNKNOWN');
   assert.equal(safeAcceptanceDiagnostics(config,report("browserType.launch: Executable doesn't exist at /private/browser")).firstFailure.matchedFailure,'BROWSER_EXECUTABLE');
@@ -253,4 +253,24 @@ test('fixed listener probe stages survive end receipts without exposing causes o
  assert.equal(safeEndRuntimeFailure(error).nativeListenerFailure,undefined);assert.equal(reads,0);
  const accessor=new Error('private');Object.defineProperty(accessor,'cause',{get(){reads++;return cause;}});accessor.code='IDENTITY_LISTENER';
  assert.equal(safeEndRuntimeFailure(accessor).nativeListenerFailure,undefined);assert.equal(reads,0);
+});
+
+
+test('safe acceptance source location uses known source fields only, preserving definition provenance',async()=>{
+ const {safeAcceptanceDiagnostics}=await import('./run-board-native-acceptance.mjs');
+ const config='e2e/board-connector-existing-runtime.config.ts',file='board-connector-authority.spec.ts';
+ const inspect=(spec,error)=>safeAcceptanceDiagnostics(config,{suites:[{specs:[{...spec,tests:[{results:[{status:'failed',errors:[error]}]}]}]}]}).firstFailure;
+ assert.deepEqual(inspect({file,line:12},{location:{file,line:34},message:'expect(private)',stack:'private'}).sourceLocation,{source:'ASSERTION',file,line:34});
+ assert.deepEqual(inspect({file,line:12},{location:{file:'board-connector-history.spec.ts',line:34}}).sourceLocation,{source:'TEST_DEFINITION',file,line:12});
+ for(const line of [0,-1,1.5,Infinity,1000001,'34',null])assert.equal(inspect({file},{location:{file,line}}).sourceLocation,null);
+ for(const badFile of ['private.spec.ts',`/private/${file}`,`https://secret/${file}`,`${file} suffix`])assert.equal(inspect({file:badFile,line:12},{location:{file:badFile,line:34}}).sourceLocation,null);
+ const getter=()=>{throw new Error('private getter must not run');};
+ assert.equal(inspect({file},{location:Object.defineProperty({file},'line',{get:getter})}).sourceLocation,null);
+ assert.equal(inspect(Object.defineProperty({},'line',{get:getter}),{}).sourceLocation,null);
+ assert.equal(inspect({file},Object.defineProperty({},'location',{get:getter})).sourceLocation,null);
+ const accessorSpec=Object.defineProperty({tests:[{results:[{status:'failed',errors:[{}]}]}]},'file',{get:getter});
+ assert.equal(safeAcceptanceDiagnostics(config,{suites:[{specs:[accessorSpec]}]}).firstFailure.sourceLocation,null);
+ const output=inspect({file,line:12},{location:{file,line:34,url:'private',column:999,unknown:'secret'},stack:'private',message:'expect(private)'});
+ assert.equal(JSON.stringify(output).includes('private'),false);assert.equal(JSON.stringify(output).includes('secret'),false);
+ assert.equal(output.matchedFailure,'ASSERTION');assert.throws(()=>suiteResult(config,{}));
 });

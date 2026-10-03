@@ -71,6 +71,24 @@ export function safeAcceptanceDiagnostics(config,report,root=resolve(process.cwd
     return{matchedFailure:'UNKNOWN',ambiguous:false};
   };
   const result=(phase,caseIndex,status,errors)=>({phase,caseIndex,resultStatus:status,errorCount:Array.isArray(errors)?Math.min(errors.length,4096):0,...classify(errors?.[0],status)});
+  // Reporter JSON source fields only; never infer a location from stack/message.
+  const ownData=(object,key)=>object!==null&&typeof object==='object'?Object.getOwnPropertyDescriptor(object,key)?.value:undefined;
+  const sourceLocation=(spec,error)=>{
+    const file=ownData(spec,'file');
+    if(typeof file!=='string'||file.length>4096)return null;
+    const name=basename(file);
+    if(!definition.files.includes(name))return null;
+    const expected=resolve(root,'apps/web/e2e',name);
+    const validFile=value=>typeof value==='string'&&value.length<=4096&&
+      (value===name||value===`e2e/${name}`||value===`apps/web/e2e/${name}`||value===expected);
+    if(!validFile(file))return null;
+    const validLine=value=>Number.isSafeInteger(value)&&value>0&&value<=1000000;
+    const location=ownData(error,'location');
+    const errorFile=ownData(location,'file'),errorLine=ownData(location,'line');
+    if(validFile(errorFile)&&basename(errorFile)===name&&validLine(errorLine))return{source:'ASSERTION',file:name,line:errorLine};
+    const line=ownData(spec,'line');
+    return validLine(line)?{source:'TEST_DEFINITION',file:name,line}:null;
+  };
   let ordinal=0,first=null;
   const visit=suite=>{
     for(const spec of suite.specs??[])for(const test of spec.tests??[]){
@@ -78,8 +96,10 @@ export function safeAcceptanceDiagnostics(config,report,root=resolve(process.cwd
       if(first)continue;
       const failed=(test.results??[]).find(item=>['failed','timedOut','interrupted'].includes(item.status));
       if(failed){
-        const known=definition.files.includes(basename(spec.file??''))&&index<definition.count;
-        first=result('CASE',known?index:null,failed.status,failed.errors?.length?failed.errors:failed.error?[failed.error]:[]);
+        const specFile=ownData(spec,'file');
+        const known=typeof specFile==='string'&&specFile.length<=4096&&definition.files.includes(basename(specFile))&&index<definition.count;
+        const errors=failed.errors?.length?failed.errors:failed.error?[failed.error]:[];
+        first={...result('CASE',known?index:null,failed.status,errors),sourceLocation:known?sourceLocation(spec,errors[0]):null};
       }
     }
     for(const nested of suite.suites??[])visit(nested);
