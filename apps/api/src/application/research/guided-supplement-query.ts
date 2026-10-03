@@ -8,11 +8,26 @@ export function supplementQuery(...parts: string[]): string {
   const values = parts.map((part) => part.trim()).filter(Boolean);
   const limit = querySchema.maxLength!;
   let remaining = limit - Math.max(0, values.length - 1);
-  const bounded = values.map((part, index) => {
-    const allocation = Math.floor(remaining / (values.length - index));
-    const value = part.slice(0, allocation).trim();
-    remaining -= value.length;
-    return value;
-  });
+  const allocations = values.map(() => 0);
+  let pending = values.map((_, index) => index);
+  while (pending.length > 0) {
+    const share = Math.floor(remaining / pending.length);
+    const short = pending.filter((index) => values[index]!.length <= share);
+    if (short.length === 0) {
+      for (const index of pending) {
+        const allocation = Math.floor(remaining / pending.length);
+        allocations[index] = allocation;
+        remaining -= allocation;
+        pending = pending.filter((candidate) => candidate !== index);
+      }
+      break;
+    }
+    for (const index of short) {
+      allocations[index] = values[index]!.length;
+      remaining -= allocations[index]!;
+    }
+    pending = pending.filter((index) => !short.includes(index));
+  }
+  const bounded = values.map((part, index) => part.slice(0, allocations[index]).trim());
   return querySchema.parse(bounded.join(" "));
 }
