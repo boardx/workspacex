@@ -1,3 +1,4 @@
+import { withGuidedThinkingPolicy } from "./guided-thinking-policy";
 import { research as C } from "@repo/contracts";
 import type { z } from "zod";
 import type { GuidedResearchCheckpointGenerator } from "../../domain/research/guided-research-checkpoint-generator";
@@ -7,7 +8,7 @@ import { extractJson } from "./guided-structured-json";
 import { ResearchRuntimeError } from "./guided-runtime-ports";
 // Compatibility endpoints also call the model; no production endpoint returns deterministic templates.
 export class ModelGuidedResearchCheckpointGenerator implements GuidedResearchCheckpointGenerator {
-  constructor(private readonly model: ModelCallPort) {}
+  constructor(private readonly model: ModelCallPort) { this.model = withGuidedThinkingPolicy(model); }
   private async generate(node: "directions" | "outline", context: unknown, shape: string) {
     const config = guidedModelConfig();
     try {

@@ -43,7 +43,7 @@ export function interviewTranscriptDisplay(
     if (leadingMetadata && /^(?:[-*]\s+)?(?:\*\*)?(?:专家\s*ID|虚拟专家\s*ID|虚拟角色\s*ID|persona\s*(?:ID)?)(?:\*\*)?\s*[：:]\s*`?[a-zA-Z0-9_-]+`?[。.]?$/iu.test(text)) return [];
     if (!simulated) return [line];
     if (/^#{1,6}\s+(?:模拟访谈记录|模拟访谈|模拟访谈回答)\s*$/u.test(text)) return [];
-    const generatedHeader = text.match(/^#{1,6}\s+(?:访谈回答[：:]\s*.+[（(]((?:persona|virtual)-[a-zA-Z0-9_-]+)[）)]|.+[（(]((?:persona|virtual)-[a-zA-Z0-9_-]+)[）)]访谈记录)\s*$/u);
+    const generatedHeader = text.match(/^#{1,6}\s+(?:访谈回答[：:]\s*.+[（(]((?:persona|virtual)-[a-zA-Z0-9_-]+)[）)]|.+[（(]((?:persona|virtual)-[a-zA-Z0-9_-]+)[）)]\s*访谈记录)\s*$/u);
     if (generatedHeader && attributedExpert === (generatedHeader[1] ?? generatedHeader[2])) return [];
     const metadataText = text.replace(/^>\s*/u, "").replace(/\*\*/gu, "");
     if (leadingMetadata && (metadataText === "以下回答来自模型模拟，需真人验证。"

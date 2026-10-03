@@ -54,3 +54,7 @@ description: 用户研究计划、资料检索、来源证据和研究报告；�
 谁修改本模块，谁在 PR 中追加可验证经验；不删除旧条目，推翻时注明替代来源。
 
 - 2026-10-03：报告确认后的目的步骤需在外部读取前持久化并推送 snapshot；证据 timeline attempts 是跨批次调用计数，显示 completed/total 批次。生成报告复用已读取正文，不自动重试已失败网页；单调用限时由 `apps/api/src/application/research/guided-search-budget.ts` 的 `GUIDED_REPORT_MODEL_BUDGET_MS` 定义；限时与关闭回调共同防止迟到流写入（出处：issue #5243）。
+
+- 2026-10-03：report pause/resume 必须同时通过共享命令契约；同 execution version 的 SSE/轮询不能覆盖较新 planRevision 控制。检查点 basis 未变时续写复用来源准备；内部尝试/批次放在诊断，不作为产品提示。真实本地关闭深度思考后已有4章正文，但格式与质量仍需独立验收（出处：issue #5246）。
+
+- 2026-10-03：关闭深度思考需覆盖流式正文以及兼容 checkpoint direction/outline 接口；可信任务策略经 ModelCallInput 显式传递，provider 双维兼容门才转为厂商参数。真实 qwen3.8-max 方向16.1秒/大纲7.6秒/短正文首段0.52秒，不能代替完整报告质量验收（出处：issue #5249）。

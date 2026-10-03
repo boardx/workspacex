@@ -13,7 +13,7 @@ describe("continuous generation timeline", () => {
     render(<GuidedResearchReportTimeline state={{ ...base, busy: true, reportTimeline: [
       { id: "evidence", stage: "evidence", status: "running", attempts: 19, completed: 17, total: 18 },
     ] }} />);
-    expect(screen.getByTestId("research-report-timeline")).toHaveTextContent("17 / 18 批次");
+    expect(screen.getByTestId("research-report-timeline")).toHaveTextContent("整理进度 94%");
     expect(screen.queryByText("第 19 次尝试")).not.toBeInTheDocument();
   });
   it("combines chapter writing and review into one generation row with icon status", () => {
@@ -33,7 +33,7 @@ describe("continuous generation timeline", () => {
     ] }} />);
     expect(screen.getByTestId("research-report-timeline-step")).toHaveAttribute("aria-busy", "true");
   });
-  it.each([ ["pending", "等待生成"], ["completed", "生成完成"], ["running", "生成中"], ["retrying", "重试生成中"] ] as const)("exposes %s status to screen readers without visible status rows", (status, label) => {
+  it.each([ ["pending", "等待生成"], ["completed", "生成完成"], ["running", "生成中"], ["retrying", "生成中"] ] as const)("exposes %s status to screen readers without visible status rows", (status, label) => {
     render(<GuidedResearchReportTimeline state={{ ...base, busy: true, reportTimeline: [
       { id: "c", stage: "chapter", sectionId: "o1", status, attempts: 1 },
     ] }} />);
@@ -44,13 +44,21 @@ describe("continuous generation timeline", () => {
     render(<GuidedResearchLive sessionId={base.sessionId} onBack={vi.fn()} />);
     const timeline = await screen.findByTestId("research-report-timeline");
     expect(timeline).toHaveTextContent("存在证据缺口");
-    expect(timeline).toHaveTextContent("第 2 次尝试");
+    expect(timeline).not.toHaveTextContent(/次尝试|需要完善|批次/);
     expect(timeline.querySelectorAll("[aria-busy=true]")).toHaveLength(1);
     expect(timeline).not.toHaveTextContent("等待处理");
     expect(screen.queryByTestId("research-report-preview")).not.toBeInTheDocument();
     expect(screen.queryByTestId("research-runtime-progress")).not.toBeInTheDocument();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     expect(executeResearchRuntime).not.toHaveBeenCalled();
+  });
+  it("keeps meaningful uncertainty while hiding internal repair counters", () => {
+    render(<GuidedResearchReportTimeline state={{ ...base, busy: false, reportTimeline: [
+      { id: "c", stage: "chapter", sectionId: "o1", status: "completed", attempts: 4 },
+      { id: "r", stage: "review", sectionId: "o1", status: "warning", attempts: 2 },
+    ] }} />);
+    expect(screen.getByTestId("research-report-timeline")).not.toHaveTextContent(/次尝试|需要完善/);
+    expect(screen.getByTestId("research-report-timeline")).toHaveTextContent("部分内容待核实");
   });
   it("announces completion only after final validation and distinguishes interrupted execution", () => {
     const pending = [{ id: "v", stage: "validation" as const, status: "pending" as const, attempts: 0 }];
@@ -68,7 +76,7 @@ describe("continuous generation timeline", () => {
     vi.mocked(getResearchRuntime).mockResolvedValue(state);
     vi.mocked(executeResearchRuntime).mockResolvedValue({ ...state, busy: false, report: base.report });
     render(<GuidedResearchLive sessionId={base.sessionId} onBack={vi.fn()} />);
-    fireEvent.click(await screen.findByRole("button", { name: "生成完整报告" }));
+    fireEvent.click(await screen.findByRole("button", { name: "继续生成" }));
     await waitFor(() => expect(executeResearchRuntime).toHaveBeenCalledTimes(1));
     expect(vi.mocked(executeResearchRuntime).mock.calls[0]![0]).toMatchObject({ action: "retry", node: "report" });
     expect(await screen.findByTestId("research-report")).toBeInTheDocument();

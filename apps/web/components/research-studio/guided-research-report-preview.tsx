@@ -10,7 +10,7 @@ export function GuidedResearchReportPreview({ state, interrupted = false, moreAc
   const savedCount = state.reportSavedChapterCount ?? (state.reportCheckpoint ? saved.length : undefined);
   const sections = [...saved, ...preview.sections.filter((section) => !saved.some((chapter) => chapter.sectionId === section.sectionId))];
   const document = researchReportDocument({ ...preview, title: preview.title || state.brief.topic, sections }, state.sources, state.outline, { provisional: true, aliases: state.reportSourceAliases });
-  if (!preview.summary && !preview.introduction && !preview.conclusion && !sections.some((section) => section.body)) return <p role="status" className="rounded-xl border border-border bg-card p-5 text-12 text-muted-foreground" data-testid="research-report-preview-empty">{interrupted || state.errorCode ? "尚无报告正文，已保存进度可继续生成。" : "正在组织报告内容，正文返回后将实时显示。"}</p>;
+  if (!preview.summary && !preview.introduction && !preview.conclusion && !sections.some((section) => section.body)) return <p role="status" className="rounded-xl border border-border bg-card p-5 text-12 text-muted-foreground" data-testid="research-report-preview-empty">{state.controlStatus === "paused" ? "生成已暂停，已保存进度可继续生成。" : interrupted || state.errorCode ? "尚无报告正文，已保存进度可继续生成。" : "正在组织报告内容，正文返回后将实时显示。"}</p>;
   const failed = state.reportStream?.status === "failed" || interrupted || Boolean(state.errorCode && !state.busy);
   return <section className="space-y-5 rounded-xl border border-border bg-card p-5" data-testid="research-report-preview" aria-busy={!failed}>
     <p role="status" className="text-12 text-muted-foreground">{failed ? (state.reportCheckpoint ? "生成中断 · 以下为尚未完成的内容，已保存的章节可以继续生成。" : "生成中断 · 以下为尚未完成、未经引用校验的内容，请重新生成。") : "正在生成报告 · 正文实时更新，完成后校验引用并保存。"}</p>
