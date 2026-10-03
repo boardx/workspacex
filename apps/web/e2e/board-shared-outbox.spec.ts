@@ -3,24 +3,40 @@ import {writeFile} from 'node:fs/promises';
 import {expectBoardSynced} from './support/board-sync-status';
 import {CreateBoard} from '@repo/contracts/whiteboard';
 import {WHITEBOARD_SYNC} from '@repo/contracts/whiteboard-sync';
-import {expect,test,type Page,type CDPSession} from '@playwright/test';
+import {chromium,expect,test as baseTest,type Page,type CDPSession} from '@playwright/test';
+import {createOwnedLifecycleBrowser} from './support/board-owned-lifecycle-browser.mjs';
 import {FULLSTACK_E2E as F} from './fullstack-smoke-fixture';
 import {SESSION_TOKEN_STORAGE_KEY} from '../lib/api-client';
 import {createSpatialWsMetadataRecorder,spatialFrameMetadata} from './support/board-spatial-ws-metadata';
 import {sharedOutboxProof} from './support/board-shared-outbox-proof';
 
+// Ordinary Playwright pages enable focus emulation and remain visibly captured
+// when minimized. Own only this test's browser/default context so native hide
+// and freeze are genuine, while both tabs still share the same durable storage.
+const TEST_BUDGET_MS=180_000;
+const test=baseTest.extend<{ownedBrowser:Awaited<ReturnType<typeof createOwnedLifecycleBrowser>>}>({
+ ownedBrowser:async({},use)=>{
+  const owned=await createOwnedLifecycleBrowser(chromium,{testBudgetMs:TEST_BUDGET_MS,teardownBudgetMs:10_000});let primary:unknown,failed=false;
+  try{await use(owned);}catch(error){failed=true;primary=error;throw error;}
+  finally{try{await owned.close();}catch{const cleanup=new Error('OWNED_BROWSER_CLEANUP_FAILED');throw failed?new AggregateError([primary,cleanup],'PRIMARY_AND_OWNED_BROWSER_CLEANUP_FAILED'):cleanup;}}
+ },
+});
+
 // Separate from independent-browser collaboration: these tabs deliberately share IDB.
 // Eight real UI sticky creates + 16 UI text edits. 45s is a bounded drain SLA (~1.8s per unique
 // write, including fresh sync and duplicate receipt replay), not a retry-until-green.
 const DRAIN_SLA_MS=45_000;
-test('same-browser tabs drain a shared durable outbox without duplicate commits',async({page,request},info)=>{
+test('same-browser tabs drain a shared durable outbox without duplicate commits',async({request,ownedBrowser},info)=>{
  // Keep the suite-level 180s budget so fixture setup and cleanup cannot consume
  // the dedicated 45s drain SLA and then close the API context before archiving.
- test.setTimeout(180_000);
- page.setDefaultTimeout(15_000);
- page.setDefaultNavigationTimeout(15_000);
+ test.setTimeout(TEST_BUDGET_MS);
  const api=process.env.WHITEBOARD_API_URL??`http://127.0.0.1:${process.env.WORKSPACEX_API_PORT}`;
  if(!process.env.WHITEBOARD_API_URL&&!process.env.WORKSPACEX_API_PORT)throw new Error('Isolated API URL required');
+ if(!info.project.use.baseURL)throw new Error('Isolated web URL required');
+ const page=ownedBrowser.page;
+ const boardUrl=(path:string)=>new URL(path,info.project.use.baseURL).href;
+ page.setDefaultTimeout(15_000);
+ page.setDefaultNavigationTimeout(15_000);
  const metadata=createSpatialWsMetadataRecorder();metadata.observe(page,'original');
  const chunks:Array<{path:string;sha256:string;bytes:number}>=[],chunkReads:Array<Promise<void>>=[];
  page.on('response',response=>{const path=new URL(response.url()).pathname;if(path.startsWith('/_next/static/')&&path.endsWith('.js')&&response.status()===200)chunkReads.push(response.body().then(body=>{chunks.push({path,sha256:createHash('sha256').update(body).digest('hex'),bytes:body.length});}).catch(()=>undefined));});
@@ -85,7 +101,8 @@ test('same-browser tabs drain a shared durable outbox without duplicate commits'
  const objectRows=(tab:Page)=>tab.locator('[data-testid="board-a11y-mirror"] li[data-object-id]');
  const rows=(tab:Page)=>objectRows(tab).evaluateAll(elements=>elements.map(element=>{const item=element as HTMLElement;return{id:item.dataset.objectId,kind:item.dataset.objectKind,geometry:item.dataset.geometry,parentId:item.dataset.parentId,zIndex:item.dataset.zIndex,text:item.querySelector('button')?.textContent};}).sort((a,b)=>String(a.id).localeCompare(String(b.id))));
  try{
-  await page.goto('/login');await page.getByTestId('login-email').fill(F.adminEmail);await page.getByTestId('login-password').fill(F.adminPassword);await page.getByTestId('login-submit').click();await expect(page).toHaveURL(/\/home$/);mark('authenticated');
+  if(info.project.use.viewport)await page.setViewportSize(info.project.use.viewport);
+  await page.goto(boardUrl('/login'));await page.getByTestId('login-email').fill(F.adminEmail);await page.getByTestId('login-password').fill(F.adminPassword);await page.getByTestId('login-submit').click();await expect(page).toHaveURL(/\/home$/);mark('authenticated');
   token=(await page.evaluate(key=>localStorage.getItem(key),SESSION_TOKEN_STORAGE_KEY))!;
   const board=await call('POST','/whiteboards',CreateBoard.parse({requestId:randomUUID(),name:'Same-browser durable outbox'}));boardId=board.id;mark('board-created');
   // Keep one real server receipt unacknowledged in the original tab. The
@@ -103,7 +120,7 @@ test('same-browser tabs drain a shared durable outbox without duplicate commits'
     }else socket.send(message);
    });
   });
-  await page.goto(`/studio/board/${boardId}`);await expectBoardSynced(page);mark('board-opened');
+  await page.goto(boardUrl(`/studio/board/${boardId}`));await expectBoardSynced(page);mark('board-opened');
   const initial=await call('POST',`/whiteboards/${boardId}/checkpoints`,{requestId:randomUUID()});expect(initial.manifest.seq).toBe(0);mark('initial-checkpoint');
   const surface=page.getByTestId('board-fabric-surface');
   await surface.hover();await page.keyboard.down('ControlOrMeta');try{await page.mouse.wheel(0,100_000);}finally{await page.keyboard.up('ControlOrMeta');}await expect(page.getByTestId('board-zoom-value')).toHaveText('5%');
@@ -172,7 +189,7 @@ test('same-browser tabs drain a shared durable outbox without duplicate commits'
   ownerFrozen=true;await ownerLifecycle.send('Page.setWebLifecycleState',{state:'frozen'});
   await expect.poll(()=>lifecycleEvents.freeze,{timeout:remaining(),message:'Original page must emit a trusted native freeze event'}).toBe(1);
   evidence.ownerLifecycleControl='page-frozen';mark('original-tab-paused');
-  const testPeer=await page.context().newPage();peer=testPeer;testPeer.setDefaultTimeout(15_000);testPeer.setDefaultNavigationTimeout(15_000);metadata.observe(testPeer,'peer');await testPeer.goto(`/studio/board/${boardId}`);mark('peer-opened');
+  const testPeer=await page.context().newPage();peer=testPeer;if(info.project.use.viewport)await testPeer.setViewportSize(info.project.use.viewport);testPeer.setDefaultTimeout(15_000);testPeer.setDefaultNavigationTimeout(15_000);metadata.observe(testPeer,'peer');await testPeer.goto(boardUrl(`/studio/board/${boardId}`));mark('peer-opened');
   await expect.poll(()=>metadata.snapshot().events.some(event=>event.client==='peer'&&event.direction==='received'&&event.type==='sync'),{timeout:remaining(),message:'Peer must independently execute and receive authoritative sync while original page is frozen'}).toBe(true);
   await expect.poll(()=>{
    const id=ackGate.updateId;
@@ -204,6 +221,7 @@ test('same-browser tabs drain a shared durable outbox without duplicate commits'
   const afterReload=await call('POST',`/whiteboards/${boardId}/checkpoints`,{requestId:randomUUID()});expect(afterReload.manifest.seq).toBe(final.manifest.seq);
   expect(metadata.snapshot().dropped).toBe(0);expect(sharedOutboxProof(metadata.snapshot().events,initial.manifest.seq,afterReload.manifest.seq)).toEqual([]);
   await Promise.all(chunkReads);expect(chunks.some(chunk=>chunk.path.includes('/app/studio/board/'))).toBe(true);
+  ownedBrowser.assertLive();
   evidence.afterReloadSeq=afterReload.manifest.seq;evidence.objectIds=expected.map(row=>row.id);evidence.status='passed';
   await testPeer.close();peer=undefined;
  }catch(error){primaryFailed=true;primaryFailure=error;throw error;}finally{
