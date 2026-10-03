@@ -24,7 +24,7 @@ jobs:
         with:
           node-version-file: .nvmrc
       - name: Verify native listener ownership fences
-        run: node --test apps/web/e2e/support/native-runtime/native-process-listeners.test.mjs apps/web/e2e/support/native-runtime/native-process-listeners-zombie.test.mjs apps/web/scripts/run-board-native-acceptance.test.mjs
+        run: node --test apps/web/e2e/support/native-runtime/native-process-listeners.test.mjs apps/web/e2e/support/native-runtime/native-process-listeners-zombie.test.mjs
       - name: Prepare owned private native paths
         run: |
           sudo install -d -m 1777 -o "$(id -u)" -g "$(id -g)" /private/tmp
@@ -55,6 +55,9 @@ jobs:
           cd /private/tmp/wsx-native-r01
           pnpm install --frozen-lockfile
           pnpm --filter web exec playwright install --with-deps chromium
+      - name: Verify native acceptance receipts and safe diagnostics
+        working-directory: /private/tmp/wsx-native-r01
+        run: node --test apps/web/scripts/run-board-native-acceptance.test.mjs
       - name: Run complete native R01 acceptance
         working-directory: /private/tmp/wsx-native-r01
         run: node apps/web/scripts/run-board-native-acceptance.mjs -- pnpm --filter web exec playwright test --config e2e/board-r01-existing-runtime.config.ts
