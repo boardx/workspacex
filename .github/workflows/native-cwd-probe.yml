@@ -28,7 +28,7 @@ jobs:
         run: node --import tsx apps/web/scripts/probe-native-cwd.mjs
       - name: Preserve only the safe diagnostic receipt
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: native-cwd-probe-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/native-cwd-probe.json
