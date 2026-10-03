@@ -58,7 +58,7 @@ it('immediately previews the active Shape and retains Shape and Text choices', (
   render(<ControlledDock />);
   fireEvent.click(screen.getByTestId('board-add-shape'));
   fireEvent.click(screen.getByTestId('board-shape-circle'));
-  expect(screen.getByTestId('board-add-shape').querySelector('ellipse')).toBeTruthy();
+  expect(screen.getByTestId('board-add-shape').querySelector('circle')).toBeTruthy();
   fireEvent.click(screen.getByTestId('board-tool-select'));
   fireEvent.click(screen.getByTestId('board-add-shape'));
   expect(screen.getByTestId('board-shape-circle')).toHaveAttribute('aria-pressed', 'true');
