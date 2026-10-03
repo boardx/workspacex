@@ -254,9 +254,10 @@ describe("ConfiguredModelProvider.completeStream", () => {
 
   it("failed durable start prevents HTTP dispatch", async () => {
     const before = requests;
+    const denied = new Error("database unavailable");
     await expect(provider().completeStream!({ modelProvider: PROVIDER, modelId: "m1", system: "s", user: "u",
-      onProviderRequest: async () => { throw new Error("database unavailable"); },
-    }, async () => {})).rejects.toMatchObject({ code: "MODEL_CALL_FAILED" });
+      onProviderRequest: async () => { throw denied; },
+    }, async () => {})).rejects.toBe(denied);
     expect(requests).toBe(before);
   });
 

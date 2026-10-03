@@ -19,6 +19,16 @@ beforeEach(async()=>{
 });
 afterAll(async()=>{await resetOrgs(ORG,OTHER);await db.close();});
 describe("shared atomic admission foundation — isolated PostgreSQL",()=>{
+ it("one stable logical attempt slot cannot be paid twice by concurrent workers",async()=>{
+  const bounded={...request("logical-a"),logicalCallId:"stable-run-call",logicalAttempt:0,maximumAttempts:1,maximumTokens:1n,maximumCostMicros:1n};
+  const results=await Promise.all([admission.reserve(toOrgId(ORG),bounded),admission.reserve(toOrgId(ORG),{...bounded,requestId:"logical-b"})]);
+  expect(results.filter(result=>result.decision==="allowed")).toHaveLength(1);
+  expect(results.filter(result=>result.decision==="AI_ATTEMPT_LIMIT_REACHED")).toHaveLength(1);
+  const winner=results[0]?.decision==="allowed"?bounded:{...bounded,requestId:"logical-b"};
+  expect(await admission.reserve(toOrgId(ORG),winner)).toMatchObject({decision:"allowed",replay:true});
+  await expect(admission.reserve(toOrgId(ORG),{...winner,maximumAttempts:2})).rejects.toThrow("AI_RESERVATION_REPLAY_MISMATCH");
+  await expect(admission.reserve(toOrgId(ORG),{...bounded,requestId:"logical-c",maximumAttempts:2,logicalAttempt:1})).rejects.toThrow("AI_LOGICAL_CALL_POLICY_MISMATCH");
+ });
  it("two concurrent workers cannot sell the same remaining budget",async()=>{
   const results=await Promise.all([admission.reserve(toOrgId(ORG),request("reserve-a")),admission.reserve(toOrgId(ORG),request("reserve-b"))]);
   expect(results.filter(r=>r.decision==="allowed")).toHaveLength(1);

@@ -1,3 +1,5 @@
+import {preparePricedModelCall} from "../../src/application/agent-run/admit-priced-model-call";
+import {toOrgId} from "../../src/domain/org-id";
 /**
  * 迭代 12（design-delta `paged-generation-and-doc-export` §1.3）—— V43。
  *
@@ -15,7 +17,7 @@
  */
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import type { AddressInfo } from "node:net";
-import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { ConfiguredModelProvider, readModelProviderConfig } from "../../src/infrastructure/agent-run/configured-model-provider";
 
 const PROVIDER = "iter12-loopback";
@@ -76,4 +78,73 @@ describe("V43 KERNEL_MODEL_MAX_OUTPUT_TOKENS", () => {
     // 缺席 = "provider 没报告"，与"报告了没截断"是两件事；调用方按 `=== true` 判。
     expect(ok).not.toHaveProperty("truncated");
   });
+});
+
+describe("trusted per-request dispatch admission",()=>{
+ it("uses the smaller explicit/deployment ceiling in the exact admitted body",async()=>{
+  let requestId="";
+  await provider(100).complete({modelProvider:PROVIDER,modelId:"m",system:"s",user:"u",outputTokenLimit:200,
+   beforeProviderDispatch:async request=>{expect(lastBody).toBeNull();expect(request.outputTokenLimit).toBe(100);expect(JSON.parse(request.serializedBody).max_tokens).toBe(100);requestId=request.requestId;},
+   onProviderRequest:async event=>{expect(event.requestId).toBe(requestId);}});
+  expect(lastBody?.max_tokens).toBe(100);
+  lastBody=null;await provider().complete({modelProvider:PROVIDER,modelId:"m",system:"s",user:"u",outputTokenLimit:50});expect((lastBody as Record<string,unknown>|null)?.max_tokens).toBe(50);
+ });
+ it("rejects invalid caps and admission denial without HTTP or retryable transport wrapping",async()=>{
+  for(const outputTokenLimit of [0,-1,1.5,Infinity,2147483648]){
+   await expect(provider().complete({modelProvider:PROVIDER,modelId:"m",system:"s",user:"u",outputTokenLimit})).rejects.toThrow("INVALID_AI_OUTPUT_LIMIT");expect(lastBody).toBeNull();
+  }
+  const denied=new Error("AI_QUOTA_DENIED");
+  await expect(provider().complete({modelProvider:PROVIDER,modelId:"m",system:"s",user:"u",beforeProviderDispatch:async()=>{throw denied;}})).rejects.toBe(denied);
+  expect(lastBody).toBeNull();
+ });
+});
+
+describe("priced admission through actual HTTP adapter",()=>{
+ const setup=()=>{
+  const configuration={window:{start:"2026-10-01T00:00:00Z",end:"2026-11-01T00:00:00Z",timezone:"Etc/UTC"},ordinaryTokensPerUser:"1000",costMicrosPerUser:"1000",currency:"CNY",
+   prices:[{modelId:"formal",modelProvider:PROVIDER,runtimeModelId:"m",inputMicrosPerMillion:"1000000",outputMicrosPerMillion:"2000000",cachedInputMicrosPerMillion:"500000",maxInputTokens:10,maxOutputTokens:20}],fallbackModelIds:[],maxAttempts:1};
+  const policy={resolveBudgetPolicy:vi.fn().mockResolvedValue({decision:"configured",plan:"ordinary",configuration,priceVersion:"immutable-v1"})};
+  const admission={reserve:vi.fn().mockResolvedValue({decision:"allowed",replay:false}),settle:vi.fn().mockResolvedValue(undefined)};
+  const usage={startRequest:vi.fn().mockResolvedValue(undefined),record:vi.fn().mockResolvedValue(undefined)};
+  const currentCandidates=vi.fn().mockResolvedValue({pool:[{modelId:"formal",kind:"closed-api",shape:"single",status:"已启用",complianceAttrs:[],members:[],contextWindow:100,capabilityTags:[]}],bindings:[{modelId:"formal",modelProvider:PROVIDER,runtimeModelId:"m",capabilityTags:[],contextWindow:100,maxOutputTokens:20,outputCapSupported:true,billedOutputBoundVerified:true,accountingComplete:true}]});
+  const measure=vi.fn(async(request:{serializedBody:string})=>{expect(JSON.parse(request.serializedBody).messages).toHaveLength(2);return {modelProvider:PROVIDER,runtimeModelId:"m",tokens:2,implementation:"fixture-only-verified-bound",version:"1",source:"verified-upper-bound" as const};});
+  const subject={orgId:toOrgId("org-5261"),userId:"member",runId:"run",executionAttemptId:"attempt",projectId:null,threadId:null,agentId:null,callPurpose:"primary" as const,primaryModelId:"formal",logicalCallId:"trusted-logical-call",attempt:0,confidentiality:"non-confidential" as const,requiredCapabilities:[]};
+  return {subject,deps:{model:provider(),policy,admission,usage,currentCandidates,measure}};
+ };
+ it("reserves before transport and writes one unknown-cost receipt retaining its hold",async()=>{
+  const {subject,deps}=setup();deps.admission.reserve.mockImplementation(async()=>{expect(lastBody).toBeNull();return {decision:"allowed",replay:false};});
+  const bound=await preparePricedModelCall(subject,deps);const result=await provider().complete({...bound,system:"s",user:"u"});expect(result.text).toBe("hi");
+  expect(deps.admission.reserve).toHaveBeenCalledOnce();expect(deps.admission.reserve.mock.calls[0]).toEqual([subject.orgId,expect.objectContaining({maximumTokens:22n,maximumCostMicros:42n,modelId:"m",priceVersion:"immutable-v1"})]);
+  expect(deps.usage.record).toHaveBeenCalledOnce();expect(deps.usage.record.mock.calls[0]).toEqual([subject.orgId,expect.objectContaining({totalSource:"unknown",userId:"member",runId:"run"})]);
+  expect(deps.admission.settle).toHaveBeenCalledWith(subject.orgId,expect.any(String),{tokens:null,costMicros:null});
+ });
+ it("quota denial and reservation replay dispatch zero requests",async()=>{
+  for(const response of [{decision:"TOKEN_LIMIT_REACHED",replay:false},{decision:"allowed",replay:true}]){
+   const {subject,deps}=setup();deps.admission.reserve.mockResolvedValue(response);
+   const bound=await preparePricedModelCall(subject,deps);await expect(provider().complete({...bound,system:"s",user:"u"})).rejects.toThrow(response.replay?"AI_REQUEST_REPLAY_NO_DISPATCH":"TOKEN_LIMIT_REACHED");
+   expect(lastBody).toBeNull();expect(deps.usage.startRequest).not.toHaveBeenCalled();expect(deps.usage.record).not.toHaveBeenCalled();
+  }
+ });
+ it("ledger failure preserves paid response and never releases hold or repeats HTTP",async()=>{
+  const {subject,deps}=setup();deps.usage.record.mockRejectedValue(new Error("ledger down"));
+  const bound=await preparePricedModelCall(subject,deps);expect((await provider().complete({...bound,system:"s",user:"u"})).text).toBe("hi");
+  expect(deps.usage.startRequest).toHaveBeenCalledOnce();expect(deps.usage.record).toHaveBeenCalledOnce();expect(deps.admission.settle).not.toHaveBeenCalled();
+ });
+});
+
+// Known terminal pricing is exercised directly with immutable subject/price snapshot;
+// this does not claim provider-side tokenization or a deployed runtime composition.
+describe("priced terminal receipt snapshot",()=>{
+ it("uses reported cache subset exactly once, then settles only after the sole ledger write",async()=>{
+  const orgId=toOrgId("org-price");const order:string[]=[];
+  const configuration={window:{start:"2026-10-01T00:00:00Z",end:"2026-11-01T00:00:00Z",timezone:"Etc/UTC"},ordinaryTokensPerUser:"1000",costMicrosPerUser:"1000",currency:"CNY",prices:[{modelId:"formal",modelProvider:PROVIDER,runtimeModelId:"m",inputMicrosPerMillion:"1000000",outputMicrosPerMillion:"2000000",cachedInputMicrosPerMillion:"500000",maxInputTokens:10,maxOutputTokens:20}],fallbackModelIds:[],maxAttempts:1};
+  const record=vi.fn(async(..._args:unknown[])=>{order.push("ledger");});const settle=vi.fn(async()=>{order.push("settle");});
+  const binding={modelId:"formal",modelProvider:PROVIDER,runtimeModelId:"m",capabilityTags:[],contextWindow:100,maxOutputTokens:20,outputCapSupported:true,billedOutputBoundVerified:true,accountingComplete:true};
+  const bound=await preparePricedModelCall({orgId,userId:"u",runId:"r",executionAttemptId:"a",projectId:null,threadId:null,agentId:null,callPurpose:"script-retry",primaryModelId:"formal",logicalCallId:"trusted-logical-call",attempt:0,confidentiality:"non-confidential",requiredCapabilities:[]},{model:provider(),policy:{resolveBudgetPolicy:async()=>({decision:"configured",plan:"ordinary",configuration,priceVersion:"old-v1"})},admission:{reserve:async()=>({decision:"allowed",replay:false}),settle},usage:{startRequest:async()=>{},record},currentCandidates:async()=>({pool:[{modelId:"formal",kind:"closed-api",shape:"single",status:"已启用",complianceAttrs:[],members:[],contextWindow:100,capabilityTags:[]}],bindings:[binding]}),measure:async()=>({modelProvider:PROVIDER,runtimeModelId:"m",tokens:2,implementation:"fixture",version:"1",source:"provider-count"})});
+  await bound.beforeProviderDispatch!({requestId:"receipt",modelProvider:PROVIDER,modelId:"m",serializedBody:"fixture transient body",outputTokenLimit:20});
+  const startedAt="2026-10-04T00:00:00Z";await bound.onProviderRequest!({phase:"started",requestId:"receipt",startedAt});
+  await bound.onProviderRequest!({phase:"terminal",requestId:"receipt",startedAt,endedAt:"2026-10-04T00:00:01Z",outcome:"failed",usage:{total:5,prompt:2,completion:3,cacheInput:1,reasoningOutput:2}});
+  expect(record.mock.calls[0]).toEqual([orgId,expect.objectContaining({eventId:"receipt",costMicros:8n,currency:"CNY",priceVersion:"old-v1",tokensTotal:5,callPurpose:"script-retry",outcome:"failed"})]);
+  expect(settle).toHaveBeenCalledWith(orgId,"receipt",{tokens:5n,costMicros:8n});expect(order).toEqual(["ledger","settle"]);
+ });
 });

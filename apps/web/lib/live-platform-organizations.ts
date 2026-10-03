@@ -15,3 +15,9 @@ export function getPlatformOrganization(orgId: string): Promise<OrganizationDeta
 export function setPlatformOrganizationPlan(orgId: string, input: PlanInput): Promise<z.infer<typeof C.PlanState>> {
   return apiRequest(C.operations.setPlan.path.replace(":orgId", encodeURIComponent(orgId)), { method: "PATCH", body: input });
 }
+export type AiPolicyState=z.infer<typeof C.operations.getAiPolicy.out>;
+export type AiPolicyInput=z.infer<typeof C.operations.setAiPolicy.in>;
+export type AiCandidate=z.infer<typeof C.operations.getAiCandidates.out>[number];
+export const getPlatformAiPolicy=(orgId:string)=>apiRequest<unknown>(C.operations.getAiPolicy.path.replace(":orgId",encodeURIComponent(orgId))).then(value=>C.operations.getAiPolicy.out.parse(value));
+export const getPlatformAiCandidates=(orgId:string)=>apiRequest<unknown>(C.operations.getAiCandidates.path.replace(":orgId",encodeURIComponent(orgId))).then(value=>C.operations.getAiCandidates.out.parse(value));
+export const setPlatformAiPolicy=(orgId:string,input:AiPolicyInput)=>apiRequest<unknown>(C.operations.setAiPolicy.path.replace(":orgId",encodeURIComponent(orgId)),{method:"PATCH",body:input}).then(value=>C.operations.setAiPolicy.out.parse(value));

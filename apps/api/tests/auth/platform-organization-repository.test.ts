@@ -3,11 +3,15 @@ import { readFileSync } from "node:fs";
 import { addOrgMember, asApp, asOwner, ensureDatabase, migrateOnce, resetOrgs, seedOrg } from "../support/db";
 import { PgDatabase } from "../../src/infrastructure/db/pg-database";
 import { appConfig } from "../../src/infrastructure/db/pg-config";
+import { PgAiAdmissionRepository } from "../../src/infrastructure/auth/pg-ai-admission-repository";
 import { PgPlatformOrganizationRepository } from "../../src/infrastructure/system/pg-platform-organization-repository";
 import type { DatabasePort, TenantSession } from "../../src/application/ports/database.port";
 import { toOrgId } from "../../src/domain/org-id";
 
 const ORG="org-plan-5261", EMPTY="org-plan-5261-empty", LOCAL="org-plan-5261-local", ACTOR="operator-5261";
+const policyInput={expectedVersion:0,reason:"explicit fixture policy",configuration:{window:{start:"2026-10-01T00:00:00Z",end:"2026-11-01T00:00:00Z",timezone:"Etc/UTC"},
+ ordinaryTokensPerUser:"100",costMicrosPerUser:"10000",currency:"CNY",prices:[{modelId:"fixture-pool-id",modelProvider:"fixture-route",runtimeModelId:"fixture-runtime-model",
+ inputMicrosPerMillion:"10",outputMicrosPerMillion:"20",cachedInputMicrosPerMillion:"5",maxInputTokens:100,maxOutputTokens:200}],fallbackModelIds:[],maxAttempts:1}};
 let db: PgDatabase;
 let repo: PgPlatformOrganizationRepository;
 /** Isolated CI DB only: emulate the independently provisioned NOLOGIN group without credentials. */
@@ -37,6 +41,45 @@ beforeEach(async () => {
 });
 afterAll(async () => { await resetOrgs(ORG,EMPTY,LOCAL); await db?.close(); });
 describe("platform organization catalog and plan transactional boundary", () => {
+  it("materializes one immutable member window under concurrent workers and denies foreign members",async()=>{
+    const admission=new PgAiAdmissionRepository(db);
+    const dynamic={...policyInput,configuration:{...policyInput.configuration,window:{start:new Date(Date.now()-3600000).toISOString(),end:new Date(Date.now()+3600000).toISOString(),timezone:"Etc/UTC"}}};
+    await repo.setPlan(toOrgId(ORG),{plan:"ordinary",expectedVersion:0,reason:"test explicit plan"},ACTOR);
+    await repo.setAiPolicy(toOrgId(ORG),dynamic,ACTOR);
+    const responses=await Promise.all([admission.resolveBudgetPolicy(toOrgId(ORG),"member-5261"),admission.resolveBudgetPolicy(toOrgId(ORG),"member-5261")]);
+    expect(responses.every(result=>result.decision==="configured")).toBe(true);
+    expect((await asApp(ORG,c=>c.query("SELECT user_id,configured_by FROM ai_budget_windows WHERE org_id=$1",[ORG]))).rows).toEqual([{user_id:"member-5261",configured_by:ACTOR}]);
+    expect(await admission.resolveBudgetPolicy(toOrgId(ORG),"foreign-user")).toEqual({decision:"AI_SUBJECT_NOT_MEMBER"});
+    expect((await asApp(EMPTY,c=>c.query("SELECT user_id FROM ai_budget_windows WHERE org_id=$1",[ORG]))).rows).toEqual([]);
+    await expect(asApp(ORG,c=>c.query("UPDATE ai_budget_windows SET token_limit=999 WHERE org_id=$1",[ORG]))).rejects.toThrow();
+    await expect(asApp(ORG,c=>c.query("DELETE FROM ai_budget_windows WHERE org_id=$1",[ORG]))).rejects.toThrow();
+  });
+  it("serializes first policy configuration with one immutable snapshot and tenant-isolated audit",async()=>{
+    const results=await Promise.allSettled([repo.setAiPolicy(toOrgId(ORG),policyInput,ACTOR),repo.setAiPolicy(toOrgId(ORG),policyInput,ACTOR)]);
+    expect(results.filter(result=>result.status==="fulfilled")).toHaveLength(1);
+    const denied=results.find(result=>result.status==="rejected");expect(denied?.status==="rejected"&&denied.reason.reasonCode).toBe("AI_POLICY_VERSION_CONFLICT");
+    const stored=await repo.getAiPolicy(toOrgId(ORG),ACTOR);expect(stored).toMatchObject({version:1,configuration:policyInput.configuration,enforcement:"pending"});expect(stored.changes).toHaveLength(1);
+    await expect(asApp(ORG,c=>c.query("UPDATE organization_ai_policy_changes SET reason='rewrite' WHERE org_id=$1",[ORG]))).rejects.toThrow();
+    expect((await asApp(EMPTY,c=>c.query("SELECT version FROM organization_ai_policy_changes WHERE org_id=$1",[ORG]))).rows).toEqual([]);
+    await expect(repo.setAiPolicy(toOrgId(LOCAL),policyInput,ACTOR)).rejects.toMatchObject({reasonCode:"ORGANIZATION_NOT_FOUND"});
+  });
+  it("audit insertion failure rolls back the actual PostgreSQL policy mutation",async()=>{
+    const faultDb:DatabasePort={withTenant:(tenant,fn)=>db.withTenant(tenant,s=>fn({query:async<R>(sql:string,params?:readonly unknown[])=>{
+      if(sql.includes("INSERT INTO organization_ai_policy_changes"))throw new Error("injected audit failure");
+      return s.query<R>(sql,params);
+    }})),withoutTenant:fn=>db.withoutTenant(fn),close:async()=>{}};
+    await expect(new PgPlatformOrganizationRepository(faultDb,null).setAiPolicy(toOrgId(ORG),policyInput,ACTOR)).rejects.toThrow("injected audit failure");
+    expect((await asApp(ORG,c=>c.query("SELECT version FROM organization_ai_policies WHERE org_id=$1",[ORG]))).rows).toEqual([]);
+    expect((await asApp(ORG,c=>c.query("SELECT version FROM organization_ai_policy_changes WHERE org_id=$1",[ORG]))).rows).toEqual([]);
+  });
+  it("editing configuration cannot reset or overlap an established per-user budget",async()=>{
+    await repo.setAiPolicy(toOrgId(ORG),policyInput,ACTOR);
+    await asOwner(c=>c.query(`INSERT INTO ai_budget_windows(org_id,user_id,window_start,window_end,timezone,token_limit,cost_limit_micros,currency,price_version,configured_by)
+      VALUES($1,'fixture-user',$2,$3,'Etc/UTC',100,10000,'CNY','fixture-v1',$4)`,[ORG,policyInput.configuration.window.start,policyInput.configuration.window.end,ACTOR]));
+    await expect(repo.setAiPolicy(toOrgId(ORG),{...policyInput,expectedVersion:1},ACTOR)).rejects.toMatchObject({reasonCode:"AI_POLICY_WINDOW_LOCKED"});
+    expect((await repo.getAiPolicy(toOrgId(ORG),ACTOR)).version).toBe(1);
+    expect((await asApp(ORG,c=>c.query("SELECT token_limit::text,cost_limit_micros::text FROM ai_budget_windows WHERE org_id=$1",[ORG]))).rows).toEqual([{token_limit:"100",cost_limit_micros:"10000"}]);
+  });
   it("discovers a truly empty SaaS org and preserves local privacy", async () => {
     const out=await repo.list({search:"plan",limit:50},ACTOR);
     expect(out.organizations.some(o => o.orgId===EMPTY && o.memberCount===0 && o.plan.plan===null)).toBe(true);

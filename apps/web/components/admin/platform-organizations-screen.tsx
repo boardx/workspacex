@@ -2,6 +2,7 @@
 import * as React from "react";
 import { AiUsagePanel } from "./ai-usage-panel";
 import { AdminScreen } from "./admin-screen";
+import {AiPolicyPanel} from "./ai-policy-panel";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -96,6 +97,7 @@ export function PlatformOrganizationsScreen({ state }: { state: UiState }) {
         <label className="block" htmlFor="plan-change-reason">变更理由（写入审计记录）</label>
         <Input id="plan-change-reason" value={reason} maxLength={500} disabled={busy} onChange={e => setReason(e.target.value)} />
         <Button className="my-3" disabled={busy || !reason.trim()} onClick={() => void save()}>{busy ? "保存中…" : "保存套餐"}</Button>
+        <AiPolicyPanel key={`policy-${detail.organization.orgId}`} orgId={detail.organization.orgId}/>
         <AiUsagePanel key={detail.organization.orgId} orgId={detail.organization.orgId} platform/>
         <h3 className="font-semibold">最近变更</h3>
         {detail.changes.length === 0 ? <p>尚无套餐变更。</p> : <ul>{detail.changes.map(change => <li key={change.version} className="my-2 text-13">

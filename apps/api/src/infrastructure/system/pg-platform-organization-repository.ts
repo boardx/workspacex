@@ -3,6 +3,8 @@ import type { DatabasePort, TenantSession } from "../../application/ports/databa
 import { PlatformOrganizationError, type PlatformOrganizationRepository, type OrganizationListInput, type OrganizationList,
   type OrganizationDetail, type PlanInput, type PlanState } from "../../application/system/platform-organization-ports";
 import { PLATFORM_ORG_ID, toOrgId, type OrgId } from "../../domain/org-id";
+import {Configuration} from "@repo/contracts/ai-policy";
+import type {AiPolicyState,AiPolicyInput} from "../../application/system/platform-organization-ports";
 
 type Metadata = { id: string; name: string; kind: "organization" };
 type PlanRow = { plan: "ordinary" | "enterprise"; version: number; updated_at: Date; updated_by: string };
@@ -14,6 +16,48 @@ export class PgPlatformOrganizationRepository implements PlatformOrganizationRep
   constructor(private readonly db: DatabasePort, private readonly catalog: DatabasePort | null) {}
 
   async onModuleDestroy(): Promise<void> { await this.catalog?.close(); }
+
+  async getAiPolicy(orgId:OrgId,actorId:string):Promise<AiPolicyState>{
+    const result=await this.db.withTenant(orgId,async s=>{
+      const formal=await s.query("SELECT id FROM organizations WHERE id=$1 AND kind='organization'",[orgId]);
+      if(!formal.rows.length)throw new PlatformOrganizationError("ORGANIZATION_NOT_FOUND");
+      return this.readAiPolicy(s,orgId);
+    });
+    await this.auditAccess(actorId,"detail",orgId);
+    return result;
+  }
+
+  async setAiPolicy(orgId:OrgId,input:AiPolicyInput,actorId:string):Promise<AiPolicyState>{
+    const configuration=Configuration.parse(input.configuration);
+    return this.db.withTenant(orgId,async s=>{
+      // Same org lock as plan edits and admission: even first configuration is serialized.
+      const formal=await s.query("SELECT id FROM organizations WHERE id=$1 AND kind='organization' FOR UPDATE",[orgId]);
+      if(!formal.rows.length)throw new PlatformOrganizationError("ORGANIZATION_NOT_FOUND");
+      const prior=await this.readAiPolicy(s,orgId);
+      if(prior.version!==input.expectedVersion)throw new PlatformOrganizationError("AI_POLICY_VERSION_CONFLICT");
+      // Existing immutable windows are never reset by editing a template or price version.
+      const overlap=await s.query("SELECT 1 FROM ai_budget_windows WHERE org_id=$1 AND window_start<$3::timestamptz AND window_end>$2::timestamptz LIMIT 1",[orgId,configuration.window.start,configuration.window.end]);
+      if(overlap.rows.length)throw new PlatformOrganizationError("AI_POLICY_WINDOW_LOCKED");
+      const version=input.expectedVersion+1,priceVersion=`policy:${String(orgId)}:${version}`;
+      const encoded=JSON.stringify(configuration);
+      await s.query(`INSERT INTO organization_ai_policies(org_id,version,configuration,price_version,updated_by)
+        VALUES($1,$2,$3::jsonb,$4,$5) ON CONFLICT(org_id) DO UPDATE SET version=EXCLUDED.version,
+        configuration=EXCLUDED.configuration,price_version=EXCLUDED.price_version,updated_by=EXCLUDED.updated_by,updated_at=now()`,[orgId,version,encoded,priceVersion,actorId]);
+      await s.query(`INSERT INTO organization_ai_policy_changes(id,org_id,version,configuration,price_version,actor_id,reason)
+        VALUES($1,$2,$3,$4::jsonb,$5,$6,$7)`,[randomUUID(),orgId,version,encoded,priceVersion,actorId,input.reason]);
+      return this.readAiPolicy(s,orgId);
+    });
+  }
+
+  private async readAiPolicy(s:TenantSession,orgId:OrgId):Promise<AiPolicyState>{
+    const row=(await s.query<{version:number;configuration:unknown;price_version:string;updated_by:string;updated_at:Date}>(
+      "SELECT version,configuration,price_version,updated_by,updated_at FROM organization_ai_policies WHERE org_id=$1",[orgId])).rows[0];
+    const changes=await s.query<{version:number;actor_id:string;changed_at:Date;reason:string}>(
+      "SELECT version,actor_id,changed_at,reason FROM organization_ai_policy_changes WHERE org_id=$1 ORDER BY version DESC LIMIT 50",[orgId]);
+    return {version:row?.version??0,configuration:row?Configuration.parse(row.configuration):null,priceVersion:row?.price_version??null,
+      updatedAt:row?.updated_at.toISOString()??null,updatedBy:row?.updated_by??null,enforcement:"pending",
+      changes:changes.rows.map(change=>({version:change.version,actorId:change.actor_id,changedAt:change.changed_at.toISOString(),reason:change.reason}))};
+  }
 
   async list(input: OrganizationListInput, actorId: string): Promise<OrganizationList> {
     if (!this.catalog) throw new PlatformOrganizationError("PLATFORM_CATALOG_UNAVAILABLE");

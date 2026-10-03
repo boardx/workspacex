@@ -979,6 +979,15 @@ export interface ModelResponseSchema {
 }
 
 export interface ModelCallInput {
+  /** Trusted per-HTTP output ceiling. Concrete adapter combines it with the deployment ceiling. */
+  readonly outputTokenLimit?: number;
+  /** Admission sees the exact serialized provider body in memory, before any paid dispatch.
+   * Never persist/log this body: it can contain user content. A rejection propagates unchanged.
+   * Only adapters explicitly supporting this boundary may be admitted by a policy coordinator. */
+  readonly beforeProviderDispatch?: (request: {
+    readonly requestId: string; readonly modelProvider: string; readonly modelId: string;
+    readonly serializedBody: string; readonly outputTokenLimit: number | undefined;
+  }) => Promise<void>;
   /** Trusted task policy; adapter applies only to compatible hybrid models/endpoints. */
   readonly thinkingMode?: "off";
   /** Local transport cancellation only; never serialized or a claim of remote cessation. */
@@ -1319,8 +1328,12 @@ export interface ProviderRequestEvent {
 }
 
 export interface ModelCallPort {
+  /** Registered route names only; never endpoints, credentials or automatic candidates. */
+  registeredProviders?():readonly string[];
   /** True only for adapters reporting every actual dispatch through onProviderRequest. */
   supportsRequestAccounting?(modelProvider: string): boolean;
+  /** Exact serialized-body admission before each actual HTTP attempt; absent is unsupported. */
+  supportsDispatchAdmission?(modelProvider: string): boolean;
   supportsLiveInterjections?(modelProvider: string): boolean;
   /**
    * 数字人能力（决策 B）—— 这个 provider 名是否由 deep-agent 内核的 LLM 端点**同样**提供

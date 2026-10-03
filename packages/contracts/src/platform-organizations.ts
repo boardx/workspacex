@@ -3,8 +3,9 @@
  * Plan is independent of organization kind; missing plan is explicitly unconfigured.
  */
 import { z } from "zod";
+import * as A from "./ai-policy";
 export const Plan = z.enum(["ordinary", "enterprise"]);
-export const ErrorCode = z.enum(["NOT_PLATFORM_SUPERUSER", "ORGANIZATION_NOT_FOUND", "PLAN_VERSION_CONFLICT", "PLATFORM_CATALOG_UNAVAILABLE"]);
+export const ErrorCode = z.enum(["NOT_PLATFORM_SUPERUSER", "ORGANIZATION_NOT_FOUND", "PLAN_VERSION_CONFLICT", "PLATFORM_CATALOG_UNAVAILABLE", "AI_POLICY_VERSION_CONFLICT", "AI_POLICY_MODEL_UNAVAILABLE", "AI_POLICY_WINDOW_LOCKED"]);
 export const PlanState = z.object({
   plan: Plan.nullable(), version: z.number().int().nonnegative(),
   updatedAt: z.string().nullable(), updatedBy: z.string().nullable(),
@@ -20,6 +21,9 @@ const Query = z.object({
   limit: z.coerce.number().int().min(1).max(50).default(25),
 }).strict();
 export const operations = {
+  getAiPolicy:{method:"GET",path:"/platform/organizations/:orgId/ai-policy",in:z.object({orgId:z.string()}).strict(),out:A.State,err:ErrorCode.options},
+  setAiPolicy:{method:"PATCH",path:"/platform/organizations/:orgId/ai-policy",in:A.SetInput,out:A.State,err:ErrorCode.options},
+  getAiCandidates:{method:"GET",path:"/platform/organizations/:orgId/ai-policy/candidates",in:z.object({orgId:z.string()}).strict(),out:z.array(A.Candidate),err:ErrorCode.options},
   listOrganizations: { method: "GET", path: "/platform/organizations", in: Query,
     out: z.object({ organizations: z.array(OrganizationRow), nextCursor: z.string().nullable() }).strict(),
     err: ErrorCode.options },

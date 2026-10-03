@@ -28,8 +28,14 @@ export class RoutingModelCallPort implements ModelCallPort {
     private readonly kernelServedProviders: ReadonlySet<string> = new Set(),
   ) {}
 
+  registeredProviders():readonly string[]{return [...this.ports.keys()];}
+
   supportsRequestAccounting(modelProvider: string): boolean {
     return this.ports.get(modelProvider)?.supportsRequestAccounting?.(modelProvider) ?? false;
+  }
+
+  supportsDispatchAdmission(modelProvider: string): boolean {
+    return this.ports.get(modelProvider)?.supportsDispatchAdmission?.(modelProvider) ?? false;
   }
 
   servesViaKernelRuntime(modelProvider: string): boolean {

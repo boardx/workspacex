@@ -495,6 +495,7 @@ export class ConfiguredModelProvider implements ModelCallPort {
    * 字段，请求体与本次修复之前逐字节相同。
    */
   supportsRequestAccounting(modelProvider: string): boolean { return this.servesProvider(modelProvider); }
+  supportsDispatchAdmission(modelProvider: string): boolean { return this.servesProvider(modelProvider); }
 
   /** A transport start is emitted only after local preparation and before fetch. */
   private async accountRequest(
@@ -527,6 +528,12 @@ export class ConfiguredModelProvider implements ModelCallPort {
 
   private async postCompletions(input: ModelCallInput, stream: boolean): Promise<UndiciResponse> {
     const { baseUrl, apiKey, timeoutMs } = this.config;
+    if (input.outputTokenLimit !== undefined && (!Number.isSafeInteger(input.outputTokenLimit) || input.outputTokenLimit <= 0 || input.outputTokenLimit > 2147483647)) {
+      throw new Error("INVALID_AI_OUTPUT_LIMIT");
+    }
+    const outputTokenLimit = input.outputTokenLimit === undefined ? this.config.maxOutputTokens
+      : this.config.maxOutputTokens === undefined ? input.outputTokenLimit : Math.min(input.outputTokenLimit, this.config.maxOutputTokens);
+    let preparing = true;
     // AbortSignal 保留：它管的是整通调用的 wall-clock 上限，与 headersTimeout /
     // bodyTimeout（「多久没有新字节」）互补，不是同一件事，删掉任何一个都会留下缺口。
     const abort = new AbortController();
@@ -549,7 +556,7 @@ export class ConfiguredModelProvider implements ModelCallPort {
             && this.config.thinkingDisableModelIds.has(input.modelId)
             ? { enable_thinking: false }
             : {}),
-          ...(this.config.maxOutputTokens === undefined ? {} : { max_tokens: this.config.maxOutputTokens }),
+          ...(outputTokenLimit === undefined ? {} : { max_tokens: outputTokenLimit }),
           ...(input.thinkingMode === "off" && this.config.bailianExtensionsEnabled && this.config.thinkingDisableModelIds.has(input.modelId) && BAILIAN_REASONING_NONE_MODELS.has(input.modelId)
             ? { reasoning_effort: "none" }
             : this.config.reasoningEffort === undefined ? {} : { reasoning_effort: this.config.reasoningEffort }),
@@ -558,9 +565,14 @@ export class ConfiguredModelProvider implements ModelCallPort {
             : {}),
         }),
       };
-      await input.onProviderRequest?.({ phase: "started", requestId: randomUUID(), startedAt: new Date().toISOString() });
+      const requestId = randomUUID();
+      await input.beforeProviderDispatch?.({ requestId, modelProvider: input.modelProvider, modelId: input.modelId,
+        serializedBody: options.body, outputTokenLimit });
+      await input.onProviderRequest?.({ phase: "started", requestId, startedAt: new Date().toISOString() });
+      preparing = false;
       return await undiciFetch(`${baseUrl}/chat/completions`, options);
     } catch (err) {
+      if (preparing) throw err; // Safety/quota/ledger rejection cannot become a retryable transport failure.
       // 传输错误对象**只**被读一个枚举字段（见 `classifyTransportError`）。`message`
       // 一个字都不读：它常含主机、端口，有时是带凭据的 URL。枚举 token 进的是
       // `detail`，而 `detail` 只进服务端日志，从不进响应（见本文件头注）。
