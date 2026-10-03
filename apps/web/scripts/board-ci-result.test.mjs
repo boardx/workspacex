@@ -34,7 +34,7 @@ test('navigation geometry attachments survive a failed test and strip private ke
  const directory=mkdtempSync(join(tmpdir(),'board-navigation-reporter-')),old=process.env.PLAYWRIGHT_JSON_OUTPUT_FILE;
  try{
   process.env.PLAYWRIGHT_JSON_OUTPUT_FILE=join(directory,'result.json');
-  const reporter=new Reporter(),geometry={navigation:{x:1430,y:860,width:221,height:50,token:'SECRET'},offsetParent:{x:0,y:0,width:1667,height:941,clientWidth:1667},documentClientWidth:1667,innerWidth:1672,rootFontSize:16,positioningRight:16,url:'SECRET'};
+  const reporter=new Reporter(),geometry={navigation:{x:1430,y:860,width:221,height:50,token:'SECRET'},offsetParent:{x:0,y:0,width:1667,height:941,clientWidth:1667},documentClientWidth:1667,innerWidth:1672,rootFontSize:16,positioningRight:16,containingBlock:{x:0,y:0,width:1667,height:941,clientWidth:1667},main:{x:0,y:0,width:1672,height:941,clientWidth:1667,scrollWidth:1667,clientHeight:941,scrollHeight:946},url:'SECRET'};
   reporter.onTestEnd({id:'id',expectedStatus:'passed'},{status:'failed',retry:0,attachments:[{name:'navigation-layout-1672x941',contentType:'application/json',body:Buffer.from(JSON.stringify(geometry))},{name:'navigation-layout-SECRET',contentType:'application/json',body:Buffer.from('{}')}]});
   reporter.onEnd({status:'failed'});
   const report=JSON.parse(readFileSync(process.env.PLAYWRIGHT_JSON_OUTPUT_FILE)),attachments=report.suites[0].specs[0].tests[0].results[0].attachments;

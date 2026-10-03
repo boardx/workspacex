@@ -53,5 +53,5 @@ export default class BoardCiReporter{
 export function navigationGeometry(value){
  const number=(row,key)=>{if(typeof row?.[key]!=="number"||!Number.isFinite(row[key]))throw Error('INVALID_NAVIGATION_GEOMETRY');return row[key];};
  const rect=row=>Object.fromEntries(['x','y','width','height'].map(key=>[key,number(row,key)]));
- return {navigation:rect(value?.navigation),offsetParent:value?.offsetParent===null?null:{...rect(value?.offsetParent),clientWidth:number(value?.offsetParent,'clientWidth')},documentClientWidth:number(value,'documentClientWidth'),innerWidth:number(value,'innerWidth'),rootFontSize:number(value,'rootFontSize'),positioningRight:number(value,'positioningRight')};
+ return {navigation:rect(value?.navigation),offsetParent:value?.offsetParent===null?null:{...rect(value?.offsetParent),clientWidth:number(value?.offsetParent,'clientWidth')},documentClientWidth:number(value,'documentClientWidth'),innerWidth:number(value,'innerWidth'),rootFontSize:number(value,'rootFontSize'),positioningRight:number(value,'positioningRight'),containingBlock:{...rect(value?.containingBlock),clientWidth:number(value?.containingBlock,'clientWidth')},main:{...rect(value?.main),...Object.fromEntries(['clientWidth','scrollWidth','clientHeight','scrollHeight'].map(key=>[key,number(value?.main,key)]))}};
 }
