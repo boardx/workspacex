@@ -1,12 +1,18 @@
 import { createHash } from "node:crypto";
+import { copyFileSync, mkdirSync, writeFileSync } from "node:fs";
+import path from "node:path";
 import { expect, test, type Page, type TestInfo } from "@playwright/test";
 import { interviewMarkdown } from "@repo/contracts";
 import { MOCK_DIGITAL_EXPERTS, toDigitalExpertCatalogRow } from "../lib/mock/digital-expert-personas";
 
 async function captureRuntimeEvidence(page: Page, testInfo: TestInfo, name: string, fullPage = false): Promise<void> {
-  const path = testInfo.outputPath(name);
-  await page.screenshot({ path, fullPage });
-  await testInfo.attach(name, { path, contentType: "image/png" });
+  const screenshotPath = testInfo.outputPath(name);
+  await page.screenshot({ path: screenshotPath, fullPage });
+  await testInfo.attach(name, { path: screenshotPath, contentType: "image/png" });
+  if (process.env.INTERVIEW_REVIEW_EVIDENCE_DIR) {
+    mkdirSync(process.env.INTERVIEW_REVIEW_EVIDENCE_DIR, { recursive: true });
+    copyFileSync(screenshotPath, path.join(process.env.INTERVIEW_REVIEW_EVIDENCE_DIR, name));
+  }
 }
 
 const view = {
@@ -161,7 +167,7 @@ test("a maintained persona survives Markdown save, reload and explicit confirmat
   await expect(page).toHaveURL(/\/itv\/itv-quality-e2e\/outline$/u);
 });
 
-test("new setup opens the canonical intake route content and remains responsive", async ({ page }) => {
+test("new setup opens the canonical intake route content and remains responsive", async ({ page }, testInfo) => {
   await page.addInitScript(() => {
     localStorage.setItem("wsx.sessionToken", "e2e-token");
     localStorage.setItem("wsx.session", JSON.stringify({ version: 1, userId: "user-e2e", orgs: ["org-e2e"],
@@ -179,6 +185,10 @@ test("new setup opens the canonical intake route content and remains responsive"
   await expect(page.getByTestId("itv-workbench-step-intake")).toHaveAttribute("aria-current", "step");
   await expect(page.getByTestId("itv-research-brief")).toHaveCount(0);
 
+  const inputFrame = page.getByRole("textbox", { name: "研究需求 Markdown" }).locator("..");
+  await expect(inputFrame.getByRole("button", { name: "语音输入" })).toBeVisible();
+  await expect(inputFrame.getByRole("button", { name: /上传研究文件|导入文本文档/u })).toBeVisible();
+  await captureRuntimeEvidence(page, testInfo, "input-tools-inside-frame-desktop.png");
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(page.getByTestId("itv-markdown-intake")).toBeVisible();
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth);
@@ -241,7 +251,11 @@ test("virtual-expert model proposal stays unsaved until structured human review"
     body: JSON.stringify({ org: { id: "org-e2e", name: "E2E", kind: "organization", team: null, modelPolicy: "any" },
       orgRole: "lead", teamId: null, projectRole: null, groupId: null, displayName: "E2E User", avatarUrl: null }) }));
   await page.route("**/interviews/digital/itv-quality-e2e", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(view) }));
-  await mockCanonicalSource(page);
+  let current = source;
+  await page.route("**/interviews/digital/itv-quality-e2e/markdown", (route) => route.fulfill({ status: 200,
+    contentType: "application/json", body: JSON.stringify(current) }));
+  await page.route("**/interviews/digital/experts", (route) => route.fulfill({ status: 200,
+    contentType: "application/json", body: JSON.stringify({ items: [] }) }));
   let proposals = 0;
   let writes = 0;
   await page.route("**/interviews/digital/itv-quality-e2e/markdown/virtual-expert/preview", (route) => {
@@ -250,7 +264,22 @@ test("virtual-expert model proposal stays unsaved until structured human review"
     return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ markdown:
       "# 夜班护理顾问\n\n## 专业角色\n护理顾问\n\n## 专业领域\n护理管理\n\n## 研究关注\n交接流程\n\n## 观点风格\n审慎\n\n## 简介\n只基于已知材料模拟\n\n## 局限与材料边界\n不代表真人受访者" }) });
   });
-  await page.route("**/interviews/digital/itv-quality-e2e/markdown/experts", (route) => { writes++; return route.abort(); });
+  let savedId = "";
+  await page.route("**/interviews/digital/itv-quality-e2e/markdown/experts", (route) => {
+    writes++;
+    expect(route.request().method()).toBe("POST");
+    const input = route.request().postDataJSON() as { markdown: string; expectedVersion: number; expectedDocumentVersion: number };
+    expect(input.expectedVersion).toBe(current.version);
+    expect(input.expectedDocumentVersion).toBe(current.documents.find((doc) => doc.step === "experts")!.version);
+    const id = input.markdown.match(/#expert-(virtual-[^)]+)/u)?.[1];
+    expect(id).toBeTruthy();
+    if (savedId) expect(id).toBe(savedId);
+    savedId = id!;
+    current = interviewMarkdown.InterviewMarkdownEnvelope.parse({ ...current, version: current.version + 1,
+      documents: current.documents.map((doc) => doc.step === "experts" ? { ...doc, version: doc.version + 1,
+        markdown: input.markdown, contentHash: createHash("sha256").update(input.markdown).digest("hex") } : doc) });
+    return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(current) });
+  });
   await page.goto("/itv/itv-quality-e2e/experts", { waitUntil: "domcontentloaded" });
   await page.getByRole("button", { name: "添加虚拟专家" }).click();
   const dialog = page.getByRole("dialog", { name: "添加虚拟专家" });
@@ -262,7 +291,19 @@ test("virtual-expert model proposal stays unsaved until structured human review"
   await dialog.getByRole("checkbox", { name: "已审阅画像及模拟边界" }).check();
   await dialog.getByRole("button", { name: "保存并添加专家" }).click();
   await expect(page.getByRole("button", { name: "移除专家 夜班护理顾问" })).toBeVisible();
-  expect(writes).toBe(0);
+  expect(writes).toBe(1);
+  await expect(dialog).not.toBeVisible();
+  await page.reload();
+  await expect(page.getByRole("button", { name: "编辑专家 夜班护理顾问" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "修改夜班护理顾问头像" })).toBeEnabled();
+  await page.getByRole("button", { name: "编辑专家 夜班护理顾问" }).click();
+  const editing = page.getByRole("dialog", { name: "编辑虚拟专家" });
+  await editing.getByRole("textbox", { name: "专家名称" }).fill("夜班护理顾问（修订）");
+  await editing.getByRole("checkbox", { name: "已审阅画像及模拟边界" }).check();
+  await editing.getByRole("button", { name: "保存专家修改" }).click();
+  await expect(editing).not.toBeVisible();
+  expect(writes).toBe(2);
+  expect(current.documents.find((doc) => doc.step === "experts")!.markdown.split(`#expert-${savedId}`).length - 1).toBe(1);
 });
 
 test("a failed report keeps its partial content and exposes retry in a real browser", async ({ page }) => {
@@ -481,7 +522,10 @@ test("prototype journey keeps the list shell separate from all six full-screen s
       await expect(groups.getByRole("button", { name: auditExperts[4]!.displayName })).toHaveAttribute("aria-current", "true");
       await groups.getByRole("button", { name: expert.displayName }).click();
     }
-    if (step === "runs") await expect(page.getByTestId("itv-source-runs").getByRole("tab")).toHaveCount(6);
+    if (step === "runs") {
+      await expect(page.getByTestId("itv-source-runs").getByRole("tablist")).toHaveCount(0);
+      await expect(page.getByTestId("itv-source-runs").locator("aside").getByRole("button")).toHaveCount(5);
+    }
     if (step === "report") {
       await expect(page.getByRole("navigation", { name: "报告目录" }).getByRole("link")).toHaveCount(8);
       await expect(page.getByTestId("itv-source-report-evidence-boundary")).toBeVisible();
@@ -597,7 +641,7 @@ test("prototype journey keeps the list shell separate from all six full-screen s
 
 test("saved execution metadata and Markdown insights survive the direct route and reload", async ({ page }, testInfo) => {
   test.setTimeout(120_000);
-  const markdown = "# 模拟访谈摘要\n\n## [采购角色](#expert-purchase)\n\n### 关键观点\n\n- [采购审批经过两级](#question-q1)\n\n### 争议点与风险\n\n- 否决权人仍需真人核实。\n\n## [技术角色](#expert-tech)\n\n### 核心发现\n\n- 安全评审尚未完成。";
+  const markdown = "# 模拟访谈摘要\n\n## [采购角色](#expert-purchase)\n\n### 问题一：最近一次采购退回发生了什么？\n\n这是合成访谈回答，用于检查宽屏逐字稿呈现：采购申请在预算复核时退回，申请人需要重新补齐采购用途与审批记录。角色把这次经历解释为交接信息不足，但这个解释仍需要真人访谈和原始审批记录验证，不能作为因果定论。\n\n第二段合成回答保留具体行为：申请人先核对退回备注，再询问财务复核人员，最后补充两份材料；界面应完整保留这些文字与问题归属。\n\n### 关键观点\n\n- [采购审批经过两级](#question-q1)\n\n### 争议点与风险\n\n- 否决权人仍需真人核实。\n\n## [技术角色](#expert-tech)\n\n### 核心发现\n\n- 安全评审尚未完成。";
   const saved = interviewMarkdown.InterviewMarkdownEnvelope.parse({
     interviewId: view.interviewId, revisionId: view.revisionId, version: 7,
     documents: [
@@ -628,14 +672,171 @@ test("saved execution metadata and Markdown insights survive the direct route an
   await expect(page.getByRole("heading", { name: "关键观点（1）" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "争议点与风险（1）" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "核心发现（1）" })).toBeVisible();
-  await page.getByRole("tab", { name: "采购角色" }).click();
+  await expect(page.getByTestId("itv-source-runs").getByRole("tablist")).toHaveCount(0);
+  await page.getByTestId("itv-source-runs").locator("aside").getByRole("button", { name: /采购角色/u }).click();
   await expect(page.getByRole("heading", { name: "核心发现（1）" })).toHaveCount(0);
   await expect(page.getByRole("link", { name: "采购审批经过两级" }).first()).toHaveAttribute("href", "#question-q1");
   await page.reload();
   await expect(page.getByText(/^已完成专家 1\/2/u)).toBeVisible();
   await expect(page.getByRole("heading", { name: "核心发现（1）" })).toBeVisible();
-  await page.screenshot({ path: testInfo.outputPath("saved-runs-desktop.png"), fullPage: true });
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await expect(page.getByTestId("itv-source-runs")).toContainText("申请人先核对退回备注");
+  const geometry = await page.getByTestId("itv-source-runs").evaluate(element => {
+    const right = element.querySelector('[role="region"]')!;
+    const name = element.querySelector("aside h4")!;
+    const probe = document.createElement("span"); probe.textContent = "0".repeat(76); probe.style.font = getComputedStyle(right).font; document.body.append(probe);
+    const result = { rightWidth: right.getBoundingClientRect().width, chars76: probe.getBoundingClientRect().width,
+      nameWidth: name.getBoundingClientRect().width, wordBreak: getComputedStyle(name).wordBreak };
+    probe.remove(); return result;
+  });
+  expect(geometry.rightWidth).toBeGreaterThan(geometry.chars76);
+  expect(geometry.nameWidth).toBeGreaterThan(70);
+  expect(geometry.wordBreak).not.toBe("break-all");
+  await testInfo.attach("transcript-layout-geometry", { body: JSON.stringify(geometry), contentType: "application/json" });
+  await captureRuntimeEvidence(page, testInfo, "saved-runs-wide-transcript.png", true);
   await page.setViewportSize({ width: 390, height: 844 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
   await page.screenshot({ path: testInfo.outputPath("saved-runs-mobile.png"), fullPage: true });
+});
+
+/** UI stream contract only: synthetic NDJSON chunks, not external-model or DB evidence. */
+test("report stream exposes partial output before completion and survives stage navigation", async ({ page }, testInfo) => {
+  const answers = interviewMarkdown.InterviewMarkdownEnvelope.parse({ ...source, version: 9,
+    documents: [...source.documents, { documentId: "answers-browser-stream", step: "runs", version: 1,
+      markdown: "## [护理](#expert-nurse-7)\n\n已保存的合成回答。", contentHash: "a".repeat(64), evidenceMode: "simulated", references: [] }],
+    states: [...source.states, { documentId: "answers-browser-stream", status: "confirmed", failure: null }],
+    execution: { status: "completed", tasks: [{ expertId: "nurse-7", status: "completed", errorCode: null }] } });
+  await page.addInitScript(() => {
+    localStorage.setItem("wsx.sessionToken", "e2e-token");
+    localStorage.setItem("wsx.session", JSON.stringify({ version: 1, userId: "user-e2e", orgs: ["org-e2e"], currentOrgId: "org-e2e", expiresAt: "2099-01-01T00:00:00.000Z" }));
+    const original = window.fetch.bind(window);
+    let controller: ReadableStreamDefaultController<Uint8Array>;
+    let requests = 0;
+    Object.assign(window, { emitReportFixture: (event: unknown) => controller.enqueue(new TextEncoder().encode(`${JSON.stringify(event)}\n`)), closeReportFixture: () => controller.close(), reportFixtureRequests: () => requests });
+    window.fetch = async (input, init) => {
+      if (String(input).includes("/markdown/report/generate-stream")) {
+        requests++;
+        return new Response(new ReadableStream<Uint8Array>({ start(value) { controller = value; } }), { headers: { "Content-Type": "application/x-ndjson" } });
+      }
+      return original(input, init);
+    };
+  });
+  await page.route("**/identity/me**", route => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ org: { id: "org-e2e", name: "E2E", kind: "organization", team: null, modelPolicy: "any" }, orgRole: "lead", teamId: null, projectRole: null, groupId: null, displayName: "E2E User", avatarUrl: null }) }));
+  await page.route("**/interviews/digital/itv-quality-e2e", route => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ...view, currentStep: "runs" }) }));
+  await page.route("**/interviews/digital/itv-quality-e2e/markdown", route => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(answers) }));
+  await page.route("**/interviews/digital/itv-quality-e2e/markdown/initialize", route => route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify(answers) }));
+  await page.goto("/itv/itv-quality-e2e/runs");
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await expect(page.getByTestId("itv-source-runs")).toBeVisible();
+  const geometry = await page.getByTestId("itv-source-runs").evaluate(element => {
+    const right = element.querySelector('[role="region"]')!;
+    const name = element.querySelector("aside h4")!;
+    const probe = document.createElement("span"); probe.textContent = "0".repeat(76); probe.style.font = getComputedStyle(right).font; document.body.append(probe);
+    const result = { viewport: window.innerWidth, rightWidth: right.getBoundingClientRect().width,
+      chars76: probe.getBoundingClientRect().width, nameWidth: name.getBoundingClientRect().width, wordBreak: getComputedStyle(name).wordBreak };
+    probe.remove(); return result;
+  });
+  expect(geometry.rightWidth).toBeGreaterThan(geometry.chars76);
+  expect(geometry.nameWidth).toBeGreaterThan(70);
+  expect(geometry.wordBreak).not.toBe("break-all");
+  if (process.env.INTERVIEW_REVIEW_EVIDENCE_DIR) writeFileSync(path.join(process.env.INTERVIEW_REVIEW_EVIDENCE_DIR, "runs-desktop-geometry.json"), JSON.stringify(geometry, null, 2));
+  await page.getByRole("button", { name: "生成报告", exact: true }).click();
+  await expect(page).toHaveURL(/\/report$/u);
+  await expect(page.getByRole("list", { name: "报告生成进度" })).toBeVisible();
+  await page.evaluate(() => (window as unknown as { emitReportFixture: (event: unknown) => void }).emitReportFixture({ type: "delta", delta: "## 合成输出\n\n首段正在传输。" }));
+  await expect(page.getByTestId("itv-report-stream-markdown")).toContainText("首段正在传输");
+  await captureRuntimeEvidence(page, testInfo, "report-timeline-partial-before-completion.png");
+  await expect(page.getByRole("button", { name: "导出 Word" })).toHaveCount(0);
+  expect(await page.evaluate(() => (window as unknown as { reportFixtureRequests: () => number }).reportFixtureRequests())).toBe(1);
+  await page.evaluate(() => {
+    const fixture = window as unknown as { emitReportFixture: (event: unknown) => void };
+    fixture.emitReportFixture({ type: "attempt", attempt: 2 });
+    fixture.emitReportFixture({ type: "delta", delta: "## 新修订\n\n第二次完整正文。" });
+  });
+  await expect(page.getByTestId("itv-report-stream-markdown")).toContainText("第二次完整正文");
+  await expect(page.getByTestId("itv-report-stream-markdown")).not.toContainText("首段正在传输");
+  await page.evaluate((finalSource) => {
+    const fixture = window as unknown as { emitReportFixture: (event: unknown) => void; closeReportFixture: () => void };
+    fixture.emitReportFixture({ type: "completed", source: finalSource }); fixture.closeReportFixture();
+  }, { ...answers, version: 10,
+    documents: [...answers.documents, { documentId: "saved-browser-report", step: "report", version: 1,
+      markdown: "# 已保存报告\n\n第二次完整正文。", contentHash: createHash("sha256").update("# 已保存报告\n\n第二次完整正文。").digest("hex"), evidenceMode: "simulated", references: [] }],
+    states: [...answers.states, { documentId: "saved-browser-report", status: "draft", failure: null }] });
+  await expect(page.getByTestId("itv-report-generation")).toHaveCount(0);
+  await expect(page.getByTestId("itv-source-report-markdown")).toContainText("第二次完整正文");
+});
+/** Append to research-quality.spec.ts only after integration source is restored.
+ * UI contract: routed envelopes and deferred synthetic model response; no external LLM/DB claim.
+ */
+test("expert confirmation shows question generation then automatically starts saved questions once", async ({ page }, testInfo) => {
+  const expertId = "direct-start-expert";
+  const expertMarkdown = `# 专家选择\n\n## [合成护理专家](#expert-${expertId})\n\n仅供受控流程验证。`;
+  let current = interviewMarkdown.InterviewMarkdownEnvelope.parse({ ...source,
+    documents: source.documents.map(doc => doc.step === "experts" ? { ...doc, markdown: expertMarkdown,
+      contentHash: createHash("sha256").update(expertMarkdown).digest("hex") } : doc) });
+  let resolveGeneration!: () => void;
+  const generationGate = new Promise<void>(resolve => { resolveGeneration = resolve; });
+  let generationCalls = 0;
+  let outlineConfirmCalls = 0;
+  let starts = 0;
+  const sequence: string[] = [];
+  await page.addInitScript(() => {
+    localStorage.setItem("wsx.sessionToken", "e2e-token");
+    localStorage.setItem("wsx.session", JSON.stringify({ version: 1, userId: "user-e2e", orgs: ["org-e2e"], currentOrgId: "org-e2e", expiresAt: "2099-01-01T00:00:00.000Z" }));
+  });
+  await page.route("**/identity/me**", route => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ org: { id: "org-e2e", name: "E2E", kind: "organization", team: null, modelPolicy: "any" }, orgRole: "lead", teamId: null, projectRole: null, groupId: null, displayName: "E2E User", avatarUrl: null }) }));
+  await page.route("**/interviews/digital/itv-quality-e2e", route => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ...view, currentStep: "experts" }) }));
+  await page.route("**/interviews/digital/experts", route => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ items: [] }) }));
+  await page.route("**/interviews/digital/itv-quality-e2e/markdown", route => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(current) }));
+  await page.route("**/interviews/digital/itv-quality-e2e/markdown/experts/confirm", route => {
+    expect(route.request().postDataJSON()).toEqual({ expectedVersion: 4, expectedDocumentVersion: 1 });
+    sequence.push("experts-confirm");
+    current = interviewMarkdown.InterviewMarkdownEnvelope.parse({ ...current, version: 5,
+      states: current.states.map(state => state.documentId === "document-e2e-experts" ? { ...state, status: "confirmed" } : state) });
+    return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(current) });
+  });
+  await page.route("**/interviews/digital/itv-quality-e2e/markdown/outline/generate", async route => {
+    generationCalls++; sequence.push("outline-generate");
+    expect(route.request().postDataJSON()).toEqual({ expectedVersion: 5, expectedDocumentVersion: 0 });
+    await generationGate;
+    const markdown = `# 访谈问题\n\n## [合成护理专家](#expert-${expertId})\n\n1. 上次交接发生了什么？`;
+    current = interviewMarkdown.InterviewMarkdownEnvelope.parse({ ...current, version: 6,
+      documents: [...current.documents, { documentId: "direct-start-outline", step: "outline", version: 1, markdown,
+        contentHash: createHash("sha256").update(markdown).digest("hex"), evidenceMode: "simulated", references: [] }],
+      states: [...current.states, { documentId: "direct-start-outline", status: "draft", failure: null }] });
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(current) });
+  });
+  await page.route("**/interviews/digital/itv-quality-e2e/markdown/outline/confirm", route => {
+    outlineConfirmCalls++; sequence.push("outline-confirm");
+    expect(route.request().postDataJSON()).toEqual({ expectedVersion: 6, expectedDocumentVersion: 1 });
+    current = interviewMarkdown.InterviewMarkdownEnvelope.parse({ ...current, version: 7,
+      states: current.states.map(state => state.documentId === "direct-start-outline" ? { ...state, status: "confirmed" } : state) });
+    return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(current) });
+  });
+  await page.route("**/interviews/digital/itv-quality-e2e/markdown/execution", route => {
+    expect(route.request().postDataJSON()).toEqual({ expectedVersion: 7, action: "start" });
+    expect(current.states.find(state => state.documentId === "direct-start-outline")?.status).toBe("confirmed");
+    starts++; sequence.push("execution-start");
+    // A paused owned fixture avoids an automatic advance loop; start dispatch itself is asserted exactly.
+    current = interviewMarkdown.InterviewMarkdownEnvelope.parse({ ...current, version: 8,
+      execution: { status: "paused", tasks: [{ expertId, status: "pending", errorCode: null }] } });
+    return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(current) });
+  });
+  await page.goto("/itv/itv-quality-e2e/experts");
+  await page.getByRole("button", { name: "确认专家并生成问题" }).click();
+  await expect.poll(() => generationCalls).toBe(1);
+  await expect(page).toHaveURL(/\/outline$/u);
+  await expect(page.getByTestId("itv-workbench-step-outline")).toHaveAttribute("aria-current", "step");
+  // Confirm actual restored integration's loading selector/text before applying draft.
+  await expect(page.getByRole("status").filter({ hasText: "正在为 1 位专家生成问题" })).toBeVisible();
+  expect(outlineConfirmCalls).toBe(0); expect(starts).toBe(0);
+  await captureRuntimeEvidence(page, testInfo, "questions-generating-before-direct-start.png");
+  resolveGeneration();
+  await expect(page).toHaveURL(/\/runs$/u);
+  await expect.poll(() => starts).toBe(1);
+  expect(outlineConfirmCalls).toBe(1);
+  expect(sequence).toEqual(["experts-confirm", "outline-generate", "outline-confirm", "execution-start"]);
+  await page.reload();
+  await expect(page.getByTestId("itv-workbench-step-runs")).toHaveAttribute("aria-current", "step");
+  expect(starts).toBe(1);
 });

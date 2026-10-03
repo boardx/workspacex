@@ -123,6 +123,44 @@ export class DigitalInterviewController {
     } catch (error) { return this.translate(error); }
   }
 
+  @Post("/:interviewId/markdown/report/generate-stream")
+  async generateMarkdownReportStream(
+    @Req() req: unknown, @CurrentPrincipal() principal: Principal,
+    @Param("interviewId") interviewId: string, @Body() body: unknown,
+    @Res() response: Response,
+  ): Promise<void> {
+    assertPrincipal(principal);
+    const input = this.parse(interviewMarkdown.GenerateInterviewMarkdown, body);
+    if (!this.markdownGenerator) throw new ServiceUnavailableException();
+    // Authorize before opening a successful transport. Generation and storage recheck access.
+    if (!this.markdownReader) throw new ServiceUnavailableException();
+    try { await readInterviewMarkdown({ ...this.deps(), reader: this.markdownReader }, {
+      orgId: toOrgId(principal.orgId), viewerUserId: principal.userId, interviewId,
+    }); } catch (error) { this.translate(error); }
+    response.writeHead(200, {
+      "Content-Type": "application/x-ndjson; charset=utf-8", "Cache-Control": "no-cache, no-transform",
+      Connection: "keep-alive", "X-Accel-Buffering": "no",
+    });
+    const write = (event: interviewMarkdown.InterviewMarkdownReportStreamEvent): void => {
+      const parsed = interviewMarkdown.InterviewMarkdownReportStreamEvent.parse(event);
+      if (!response.writableEnded && !response.destroyed) response.write(`${JSON.stringify(parsed)}\n`);
+    };
+    try {
+      const source = await this.markdownGenerator.generate({ ...input, step: "report", traceId: traceIdOf(req),
+        orgId: toOrgId(principal.orgId), viewerUserId: principal.userId, interviewId, onProgress: write,
+      });
+      write({ type: "completed", source });
+    } catch (error) {
+      write({ type: "failed", reasonCode: error instanceof DigitalInterviewWorkflowError ? error.code
+        : error instanceof NoInterviewAccessError ? "NO_INTERVIEW_ACCESS"
+        : error instanceof DigitalInterviewConcurrentModificationError ? "CONCURRENT_MODIFICATION"
+        : error instanceof DigitalInterviewPermissionRevokedMidwayError ? "PERMISSION_REVOKED_MIDWAY"
+        : "AI_GENERATION_UNAVAILABLE" });
+    } finally {
+      if (!response.writableEnded && !response.destroyed) response.end();
+    }
+  }
+
   @Post("/:interviewId/markdown/:step/generate")
   async generateMarkdown(@Req() req: unknown, @CurrentPrincipal() principal: Principal, @Param("interviewId") interviewId: string, @Param("step") step: string, @Body() body: unknown) {
     assertPrincipal(principal);
