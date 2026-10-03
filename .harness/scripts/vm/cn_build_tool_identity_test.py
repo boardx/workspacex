@@ -101,6 +101,16 @@ class Identity(unittest.TestCase):
     if bad=='safe':m.trust_git_root(root,False,expected_uid=os.getuid(),boundary=temp)
     else:
      with self.assertRaises(ValueError):m.trust_git_root(root,False,expected_uid=os.getuid(),boundary=temp)
+ def test_real_fsmonitor_command_cannot_execute(self):
+  with tempfile.TemporaryDirectory(dir='/private/tmp') as temp:
+   root=pathlib.Path(temp)/'tool';marker=pathlib.Path(temp)/'executed';root.mkdir(mode=0o700)
+   subprocess.run(['git','init','-q',str(root)],check=True)
+   command='touch '+str(marker)
+   subprocess.run(['git','-C',str(root),'config','core.fsmonitor',command],check=True)
+   m.trust_git_root(root,False,expected_uid=os.getuid(),boundary=temp)
+   env={'PATH':'/usr/bin:/bin','HOME':'/nonexistent','GIT_CONFIG_NOSYSTEM':'1','GIT_CONFIG_GLOBAL':'/dev/null','GIT_NO_LAZY_FETCH':'1','GIT_NO_REPLACE_OBJECTS':'1','GIT_TERMINAL_PROMPT':'0'}
+   subprocess.run(['git',*m.GIT_OPTIONS,'-C',str(root),'status','--porcelain'],env=env,check=True,stdout=subprocess.PIPE)
+   self.assertFalse(marker.exists())
  def test_atomic_receipt_failed_write_leaves_no_partial_final(self):
   with tempfile.TemporaryDirectory(dir='/private/tmp') as temp:
    output=pathlib.Path(temp)/'receipt.json'
@@ -119,8 +129,39 @@ class Identity(unittest.TestCase):
    def st(path):
     value=real_lstat(path)
     return type('S',(),{'st_mode':value.st_mode & ~0o022,'st_uid':0,'st_dev':value.st_dev,'st_ino':value.st_ino})()
-   with patch.object(pathlib.Path,'lstat',st),self.assertRaises(FileExistsError):m.atomic_receipt(output,{'ready':False})
+   with patch.object(pathlib.Path,'lstat',st),self.assertRaises(ValueError):m.atomic_receipt(output,{'ready':False})
    self.assertEqual(output.read_bytes(),b'original');self.assertEqual(list(pathlib.Path(temp).glob('.build-only.*')),[])
+ def test_real_atomic_parent_failure_retry_and_cleanup_failure(self):
+  for kind in ('success','parent-failure','same-retry','cleanup-failure','readback-failure'):
+   with self.subTest(kind=kind),tempfile.TemporaryDirectory(dir='/private/tmp') as temp:
+    output=pathlib.Path(temp)/'receipt.json';result={'ready':False};raw=(json.dumps(result,sort_keys=True)+'\n').encode()
+    real_lstat=pathlib.Path.lstat;real_sync=os.fsync;real_unlink=pathlib.Path.unlink;calls=[0]
+    def st(path):
+     value=real_lstat(path)
+     return type('S',(),{'st_mode':value.st_mode & ~0o022,'st_uid':0,'st_dev':value.st_dev,'st_ino':value.st_ino})()
+    def read(path,mode=None):
+     self.assertEqual(__import__('stat').S_IMODE(real_lstat(path).st_mode),mode)
+     if kind=='readback-failure':raise ValueError('readback injected')
+     return pathlib.Path(path).read_bytes()
+    def sync(fd):
+     calls[0]+=1
+     if kind in ('parent-failure','cleanup-failure') and calls[0]==2:raise OSError('parent fsync injected')
+     return real_sync(fd)
+    def unlink(path,*args,**kwargs):
+     if kind=='cleanup-failure' and path==output:raise OSError('cleanup injected')
+     return real_unlink(path,*args,**kwargs)
+    if kind=='same-retry':output.write_bytes(raw);output.chmod(0o600)
+    with patch.object(pathlib.Path,'lstat',st),patch.object(m,'private_read',side_effect=read),patch.object(os,'fsync',side_effect=sync),patch.object(pathlib.Path,'unlink',unlink):
+     if kind in ('success','same-retry'):self.assertEqual(m.atomic_receipt(output,result),hashlib.sha256(raw).hexdigest())
+     elif kind=='readback-failure':
+      with self.assertRaisesRegex(ValueError,'readback injected'):m.atomic_receipt(output,result)
+     elif kind=='parent-failure':
+      with self.assertRaises(OSError):m.atomic_receipt(output,result)
+     else:
+      with self.assertRaisesRegex(ValueError,'RECEIPT_CLEANUP_UNPROVEN'):m.atomic_receipt(output,result)
+    self.assertEqual(output.exists(),kind not in ('parent-failure','readback-failure'))
+    if output.exists():self.assertEqual(output.read_bytes(),raw)
+    self.assertEqual(list(pathlib.Path(temp).glob('.build-only.*')),[])
  def test_exact_validator_rejects_stored_receipt_drift(self):
   from validate_preflight import validate
   _,_,_,prebuild=self.receipt_fixture();raw=json.dumps(prebuild).encode();stored=validate(prebuild)

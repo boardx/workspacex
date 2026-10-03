@@ -58,18 +58,39 @@ def atomic_receipt(output,result):
  output=pathlib.Path(output);parent=output.parent
  for d in (parent,*parent.parents):
   st=d.lstat();require(stat.S_ISDIR(st.st_mode) and st.st_uid==0 and not st.st_mode&0o022,'RECEIPT_PARENT_TRUST')
- raw=(json.dumps(result,sort_keys=True)+'\n').encode();temporary=parent/('.build-only.'+uuid.uuid4().hex+'.tmp')
- fd=os.open(temporary,os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW,0o600);identity=os.fstat(fd)
- try:
-  with os.fdopen(fd,'wb') as f:f.write(raw);f.flush();os.fsync(f.fileno())
-  os.link(temporary,output,follow_symlinks=False) # atomic EXCL, existing final is never replaced
+ raw=(json.dumps(result,sort_keys=True)+'\n').encode()
+ def sync_parent():
   directory=os.open(parent,os.O_RDONLY|os.O_DIRECTORY|os.O_NOFOLLOW)
   try:os.fsync(directory)
   finally:os.close(directory)
+ if os.path.lexists(output):
+  require(private_read(output,0o600)==raw,'RECEIPT_EXISTING_DIFFERENT')
+  sync_parent();return hashlib.sha256(raw).hexdigest()
+ temporary=parent/('.build-only.'+uuid.uuid4().hex+'.tmp')
+ fd=os.open(temporary,os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW,0o600);identity=os.fstat(fd);linked=False
+ try:
+  with os.fdopen(fd,'wb') as f:f.write(raw);f.flush();os.fsync(f.fileno())
+  try:os.link(temporary,output,follow_symlinks=False);linked=True
+  except FileExistsError:
+   require(private_read(output,0o600)==raw,'RECEIPT_EXISTING_DIFFERENT')
+  sync_parent()
+  temporary.unlink()
+  require(private_read(output,0o600)==raw,'RECEIPT_READBACK')
+ except BaseException:
+  if linked:
+   try:
+    st=output.lstat();require((st.st_dev,st.st_ino)==(identity.st_dev,identity.st_ino),'RECEIPT_FINAL_CHANGED')
+    output.unlink();sync_parent()
+    require(not os.path.lexists(output),'RECEIPT_FINAL_REMAINS')
+   except BaseException:
+    exists=os.path.lexists(output)
+    print('RECEIPT_CLEANUP_UNPROVEN finalExists='+str(exists).lower(),file=sys.stderr)
+    raise ValueError('RECEIPT_CLEANUP_UNPROVEN') from None
+  raise
  finally:
-  st=temporary.lstat()
-  if (st.st_dev,st.st_ino)==(identity.st_dev,identity.st_ino):temporary.unlink()
- require(private_read(output,0o600)==raw,'RECEIPT_READBACK')
+  if os.path.lexists(temporary):
+   st=temporary.lstat()
+   if (st.st_dev,st.st_ino)==(identity.st_dev,identity.st_ino):temporary.unlink()
  return hashlib.sha256(raw).hexdigest()
 def validate_identity(value,app,release,attempt,phase):
  require(phase=='prebuild','BUILD_ONLY_PHASE')
