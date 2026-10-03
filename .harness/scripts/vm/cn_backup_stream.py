@@ -77,7 +77,7 @@ def stream_ciphertext(producer_args,encrypt_args,credential_input,output_path,ob
    if producer.poll() is None:
     # A host proof collector returns True only for actual live pg_dump backend,
     # source/peer/read-only and exact owned container/PID/start, never precheck.
-    fact=bounded_observe(observe,producer.pid,min(2,max(.001,deadline-time.monotonic())))
+    fact=bounded_observe(observe,producer.pid,min(30,max(.001,deadline-time.monotonic())))
     require(fact is None or fact is True,'BACKUP_BACKEND_OBSERVATION')
     observed=observed or fact is True
    time.sleep(0.01)

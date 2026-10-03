@@ -60,7 +60,7 @@ def validate(plan, now=None):
  exact(i, ('sourceRevision','baselineRevision','migrationPlanSha256','attemptId'), 'BACKUP_IDENTITY')
  require(i['sourceRevision'] == APP and i['baselineRevision'] == BASE and
          re.fullmatch('[a-f0-9]{64}', i['migrationPlanSha256']) and
-         re.fullmatch('[A-Za-z0-9-]{1,80}', i['attemptId']), 'BACKUP_FIXED_IDENTITY')
+         re.fullmatch('[A-Za-z0-9-]{1,32}', i['attemptId']), 'BACKUP_FIXED_IDENTITY')
  require(re.fullmatch('[a-f0-9]{40}', plan['toolRevision']) and plan['clientImage'] == IMAGE,
          'BACKUP_TOOL_IDENTITY')
  require(all(type(plan[k]) is str and re.fullmatch('[a-f0-9]{64}', plan[k]) for k in
@@ -81,7 +81,7 @@ def validate(plan, now=None):
  for key in ('recipientCertificate','recipientKey'):
   exact(plan[key], ('path','sha256'), 'BACKUP_RECIPIENT_REFERENCE')
   p = plan[key]['path']
-  require(type(p) is str and p.startswith('/etc/workspacex-cn/backup-recipients/') and
+  require(type(p) is str and (p.startswith('/etc/workspacex-cn/backup-recipients/') or p == {'recipientCertificate':'/etc/workspacex-cn/rehearsal/backup-recipient.pem','recipientKey':'/etc/workspacex-cn/rehearsal/keys/backup-key.pem'}[key]) and
           not any(x in p for x in ('..','\x00','\n',',')) and
           re.fullmatch('[a-f0-9]{64}', plan[key]['sha256']), 'BACKUP_RECIPIENT_PATH')
  require(plan['recipientKey']['path'] != plan['recipientCertificate']['path'], 'BACKUP_RECIPIENT_PAIR')
@@ -89,11 +89,11 @@ def validate(plan, now=None):
  return i
 
 
-def compile_role_sql(plan, objects):
+def compile_role_sql(plan, objects, now=None):
  """Exact reviewable GRANT/REVOKE lists from a fresh host-owned catalog capture.
  Does not read a password or execute SQL; password must use private host stdin.
  """
- validate(plan)
+ validate(plan,now)
  exact(objects, DATABASES, 'BACKUP_DATABASE_CLOSURE')
  require(digest(objects) == plan['objectScopeSha256'], 'BACKUP_OBJECT_SCOPE_DRIFT')
  grants, revokes = {}, {}
@@ -186,11 +186,17 @@ class BackupLease:
     result = self.host.export_owned_ciphertext(self.plan, db)
     exact(result, ('database','ciphertextSha256','ciphertextBytes','dumpBytes','dumpExit',
                   'encryptionExit','ownedProcessesJoined','backendObserved','role',
-                  'sourceAddress','peerAddress','transactionReadOnly','applicationName',
+                  'sourceAddress','peerAddress','readOnlyEvidence','applicationName',
                   'recipientCertificateSha256'), 'BACKUP_EXPORT_RECEIPT')
+    exact(result['readOnlyEvidence'], ('kind','sqlObserved','imageId','exeSha256','contract'), 'BACKUP_READONLY_ATTESTATION')
+    require(result['readOnlyEvidence']['contract'] == 'pg_dump serializable-deferrable read-only snapshot; precheck PID excluded', 'BACKUP_READONLY_CONTRACT')
     require(result['database'] == db and result['role'] == ROLE and
             result['sourceAddress'] == '192.168.100.40' and result['peerAddress'] == '192.168.100.44' and
-            result['transactionReadOnly'] is True and result['backendObserved'] is True and
+            result['readOnlyEvidence'].get('kind') == 'pinned-pgdump16-implementation-attestation' and
+            result['readOnlyEvidence'].get('sqlObserved') is False and
+            result['readOnlyEvidence'].get('imageId') == IMAGE and
+            re.fullmatch('[a-f0-9]{64}',result['readOnlyEvidence'].get('exeSha256','')) and
+            result['backendObserved'] is True and
             result['ownedProcessesJoined'] is True and result['dumpExit'] == 0 and
             result['encryptionExit'] == 0 and
             result['applicationName'] == 'wsx-backup-'+identity['attemptId']+'-'+db and

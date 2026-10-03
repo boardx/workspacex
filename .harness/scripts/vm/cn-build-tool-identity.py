@@ -2,6 +2,21 @@
 """Explicit build-only tool binding; never authorizes prepare or activation."""
 import datetime,fcntl,hashlib,json,os,pathlib,re,stat,subprocess,sys,tempfile,uuid
 FILES={
+ '.harness/scripts/vm/cn_backup_package.py':'/usr/local/lib/workspacex-cn/cn_backup_package.py',
+ '.harness/scripts/vm/cn_backup_stream.py':'/usr/local/lib/workspacex-cn/cn_backup_stream.py',
+ '.harness/scripts/vm/cn_backup_sql.py':'/usr/local/lib/workspacex-cn/cn_backup_sql.py',
+ '.harness/scripts/vm/cn_backup_channel.py':'/usr/local/lib/workspacex-cn/cn_backup_channel.py',
+ '.harness/scripts/vm/cn_backup_host.py':'/usr/local/lib/workspacex-cn/cn_backup_host.py',
+ '.harness/scripts/vm/cn_backup_backend.py':'/usr/local/lib/workspacex-cn/cn_backup_backend.py',
+ '.harness/scripts/vm/cn_backup_profile.py':'/usr/local/lib/workspacex-cn/cn_backup_profile.py',
+ '.harness/scripts/vm/cn_backup_profile_host.py':'/usr/local/lib/workspacex-cn/cn_backup_profile_host.py',
+ '.harness/scripts/vm/cn_backup_watchdog.py':'/usr/local/lib/workspacex-cn/cn_backup_watchdog.py',
+ '.harness/scripts/vm/cn_backup_run.py':'/usr/local/lib/workspacex-cn/cn_backup_run.py',
+ '.harness/scripts/vm/backup_connection.cjs':'/usr/local/lib/workspacex-cn/backup_connection.cjs',
+ '.harness/scripts/vm/backup_profile_transport.cjs':'/usr/local/lib/workspacex-cn/backup_profile_transport.cjs',
+ '.harness/scripts/vm/cn-backup-fixed-queries.json':'/usr/local/lib/workspacex-cn/cn-backup-fixed-queries.json',
+ '.harness/scripts/vm/candidate_writer.py':'/usr/local/lib/workspacex-cn/candidate_writer.py',
+ '.harness/scripts/vm/candidate_backend_collector.py':'/usr/local/lib/workspacex-cn/candidate_backend_collector.py',
  '.harness/scripts/vm/cn-maintenance-migrator.cjs':'/usr/local/lib/workspacex-cn/cn-maintenance-migrator.cjs',
  '.harness/scripts/vm/cn-maintenance-drain.cjs':'/usr/local/lib/workspacex-cn/cn-maintenance-drain.cjs',
  '.harness/scripts/vm/cn-maintenance-canonical.cjs':'/usr/local/lib/workspacex-cn/cn-maintenance-canonical.cjs',

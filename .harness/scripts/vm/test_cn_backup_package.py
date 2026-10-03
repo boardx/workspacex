@@ -63,11 +63,14 @@ class BackupPackageTests(unittest.TestCase):
   def export(p,db):
    calls.append(db)
    if fault=='second-db' and db==DATABASES[1]:raise RuntimeError('second-db')
-   return {'database':db,'ciphertextSha256':'a'*64,'ciphertextBytes':100,'dumpBytes':80,
+   result = {'database':db,'ciphertextSha256':'a'*64,'ciphertextBytes':100,'dumpBytes':80,
      'dumpExit':0,'encryptionExit':0,'ownedProcessesJoined':True,'backendObserved':True,
      'role':ROLE,'sourceAddress':'192.168.100.40','peerAddress':'192.168.100.44',
-     'transactionReadOnly':True,'applicationName':'wsx-backup-backup-test-'+db,
+     'readOnlyEvidence':{'kind':'pinned-pgdump16-implementation-attestation','sqlObserved':False,'imageId':IMAGE,'exeSha256':'a'*64,'contract':'pg_dump serializable-deferrable read-only snapshot; precheck PID excluded'},'applicationName':'wsx-backup-backup-test-'+db,
      'recipientCertificateSha256':p['recipientCertificate']['sha256']}
+   if fault=='false-sql-readonly':result['readOnlyEvidence']['sqlObserved']=True
+   if fault=='wrong-pgdump-image':result['readOnlyEvidence']['imageId']='sha256:'+'0'*64
+   return result
   def cleanup(*args):
    calls.append('cleanup')
    return {'ownedProcessesJoined':fault!='cleanup','ownedContainersAbsent':True,
@@ -98,6 +101,17 @@ class BackupPackageTests(unittest.TestCase):
    with self.subTest(fault=fault):
     calls,events=self.run_case(fault);self.assertEqual(calls[-1],'cleanup')
     if fault=='second-db':self.assertNotIn(DATABASES[2],calls)
+
+ def test_false_other_backend_readonly_or_image_claim_aborts_and_cleans(self):
+  for fault in ('false-sql-readonly','wrong-pgdump-image'):
+   with self.subTest(fault=fault):
+    calls,_=self.run_case(fault);self.assertEqual(calls[-1],'cleanup')
+
+ def test_exact_existing_recipient_pair_is_accepted_but_paths_cannot_swap(self):
+  p,_=fixture();p['recipientCertificate']['path']='/etc/workspacex-cn/rehearsal/backup-recipient.pem';p['recipientKey']['path']='/etc/workspacex-cn/rehearsal/keys/backup-key.pem'
+  validate(p)
+  p['recipientKey']['path']=p['recipientCertificate']['path']
+  self.assertRaises(RuntimeError,validate,p)
 
  def test_foreign_role_not_modified(self):
   calls,events=self.run_case('existing-role');self.assertNotIn('create',calls);self.assertNotIn('cleanup',calls)

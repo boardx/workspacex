@@ -4,7 +4,7 @@
   "baseCommit": "64cc2b85053823a4c7461eb404b9f3a99c749a33",
   "applicationRevision": "9b25bfa65662b96c0826fe67506b562ea46aa6d0",
   "baselineRevision": "ba6343199f3c834d6a198f83d0c771614292c82b",
-  "sourceInventorySha256": "820a2a042146c7fdcc818d32c2dd9cfd570f3321ea8fdf8d47d6bb321c30ff01",
+  "sourceInventorySha256": "7defb229b1f580a5122b5cac7324b43c4d613ecafb0ae59d26e8873b072a7185",
   "sourceRows": [
     {
       "path": ".harness/scripts/build-cn-maintenance-controller.cjs",
@@ -18,8 +18,18 @@
     },
     {
       "path": ".harness/scripts/run-cn-maintenance-pure-tests.py",
-      "sha256": "f52c57bc9be8080d4e1cbbf5488c40a652bf26810dd8395b9e9160b9aed08b3d",
-      "bytes": 1578
+      "sha256": "bed2885af62fcef89a15466dad25a371fd1eca1d43a44dc3caae555d1927de4d",
+      "bytes": 1669
+    },
+    {
+      "path": ".harness/scripts/vm/backup_connection.cjs",
+      "sha256": "d3dbe372a0e7982e3e4b851a985f28f6d970fa697efe4c8d46c8e11f88eaa2c0",
+      "bytes": 12175
+    },
+    {
+      "path": ".harness/scripts/vm/backup_profile_transport.cjs",
+      "sha256": "b518023bf06d054b524cd64148c75ea581e9fe8ee33efe5afac2ae2b78ddf217",
+      "bytes": 3114
     },
     {
       "path": ".harness/scripts/vm/build-cn-release-candidate.sh",
@@ -37,9 +47,14 @@
       "bytes": 24208
     },
     {
+      "path": ".harness/scripts/vm/cn-backup-fixed-queries.json",
+      "sha256": "11031c9550b22d8dfc187c3af818303723eaf4f4cbf9422b248857487e26696c",
+      "bytes": 13944
+    },
+    {
       "path": ".harness/scripts/vm/cn-build-tool-identity.py",
-      "sha256": "b0e4e7d00c28e8c8bfcdd7437ccfd33ddba9e469864bd00efde33ff40590ab99",
-      "bytes": 23029
+      "sha256": "d9ad19610f11e3eaeadbc02ed10bfb8ea61e84fe55baa879f5ad94b195d5a8c8",
+      "bytes": 24524
     },
     {
       "path": ".harness/scripts/vm/cn-maintenance-activation-contract.md",
@@ -147,14 +162,54 @@
       "bytes": 28546
     },
     {
+      "path": ".harness/scripts/vm/cn_backup_backend.py",
+      "sha256": "70e78cc0f0b4c3bb3b1852352a0b8cab78fa93ef5f81c580ac924f2d46b4d371",
+      "bytes": 7027
+    },
+    {
+      "path": ".harness/scripts/vm/cn_backup_channel.py",
+      "sha256": "2ee863d0543fab37e544d7ead6ed2c29cca5ef30a4f0e2aba99f50d38230fdda",
+      "bytes": 7303
+    },
+    {
+      "path": ".harness/scripts/vm/cn_backup_host.py",
+      "sha256": "67c799f3491e259ea87ca28b8a56cd4507c36699c0210ef6474808489aa345f5",
+      "bytes": 21215
+    },
+    {
       "path": ".harness/scripts/vm/cn_backup_package.py",
-      "sha256": "d72bd9a318ae7a73aad34352fa9ab5a84b3785081a11a539979dbf1c3c33e019",
-      "bytes": 13122
+      "sha256": "8e0f2f540b3a075c137622965d5e9bcf4a333fbaf4f088d0dfbb7e89cd219072",
+      "bytes": 13867
+    },
+    {
+      "path": ".harness/scripts/vm/cn_backup_profile.py",
+      "sha256": "66260ae218c7301390f5eb023e248e5c0706eced9f4d635c514aaebf205da591",
+      "bytes": 8078
+    },
+    {
+      "path": ".harness/scripts/vm/cn_backup_profile_host.py",
+      "sha256": "cc5a5afc8f332e471bc0c40c0ff4e02ac3db160dd0aa99df0e34862a1e207b73",
+      "bytes": 3580
+    },
+    {
+      "path": ".harness/scripts/vm/cn_backup_run.py",
+      "sha256": "1b0ac0a996ae366f163f9896a26bc07daea13ce9f2cb29bbde356117ba372645",
+      "bytes": 3991
+    },
+    {
+      "path": ".harness/scripts/vm/cn_backup_sql.py",
+      "sha256": "0399ab0dedfc4685dea06255afab66f762bff7388f2ca4412216b35827ebd7c9",
+      "bytes": 29559
     },
     {
       "path": ".harness/scripts/vm/cn_backup_stream.py",
-      "sha256": "cfdb0239047db89f8a8b6418025b391a8ab3e18c66c952c21026d200665cd4a3",
-      "bytes": 5845
+      "sha256": "3ef538ef109f92fc977719d26798ce6409c8ea667c43d06c214eee99f6ddd716",
+      "bytes": 5846
+    },
+    {
+      "path": ".harness/scripts/vm/cn_backup_watchdog.py",
+      "sha256": "4bfac0995177e4b1328d82ca5a132776a0dd6827cf710eff1ef7b5c81cc8db35",
+      "bytes": 8598
     },
     {
       "path": ".harness/scripts/vm/cn_build_tool_identity_test.py",
@@ -313,8 +368,8 @@
     },
     {
       "path": ".harness/scripts/vm/control_connection.cjs",
-      "sha256": "50c6487594643602ffc3f135bf710be534143c827ae7469e1b183c9178c12dea",
-      "bytes": 25925
+      "sha256": "cc70d06c1e2a96fac5ae39a5850fe9a39ea31c75a42dc2d44f3bf53f76073eb6",
+      "bytes": 25952
     },
     {
       "path": ".harness/scripts/vm/control_connection.d.cts",
@@ -412,6 +467,16 @@
       "bytes": 11079
     },
     {
+      "path": ".harness/scripts/vm/test_backup_connection.test.cjs",
+      "sha256": "253e168331bb91fbc7c34422ee5e9ae3201ec166817a30b2a1657b0522755ba1",
+      "bytes": 4960
+    },
+    {
+      "path": ".harness/scripts/vm/test_backup_profile_transport.test.cjs",
+      "sha256": "44263a3d74899f690bcb3c3111711a9d0ad5b1d3e2cbcb6920e825f693f88dcd",
+      "bytes": 2733
+    },
+    {
       "path": ".harness/scripts/vm/test_candidate_backend_collector.py",
       "sha256": "befc0220a44fd53a896d38eadc2b1883e85399e8c11dc1548c71ce9fa2485643",
       "bytes": 6057
@@ -422,14 +487,49 @@
       "bytes": 17114
     },
     {
+      "path": ".harness/scripts/vm/test_cn_backup_backend.py",
+      "sha256": "d79e759a9d70ccdea9e2a0fe56a6137e374e297aba0d5c4f1fc3110ae915683f",
+      "bytes": 3945
+    },
+    {
+      "path": ".harness/scripts/vm/test_cn_backup_channel.py",
+      "sha256": "57ff6ceb27393e110a13146b727a20aad7af6f5f51d0cb6302b8b2a8e4ac9d01",
+      "bytes": 2644
+    },
+    {
+      "path": ".harness/scripts/vm/test_cn_backup_host.py",
+      "sha256": "d14203866cab3b73a5aef18f599789564581219a980ff463d5dc9496a38581e8",
+      "bytes": 10612
+    },
+    {
       "path": ".harness/scripts/vm/test_cn_backup_package.py",
-      "sha256": "f9e2430e400f4ba051100ef86c20be2a959c9562c79a9ae5b4f065d93873db49",
-      "bytes": 7628
+      "sha256": "8f0b7a6a4d7f2d49ba13bd2619bdff6cd0d8824d5924b37a2beb25e7198510ab",
+      "bytes": 8633
+    },
+    {
+      "path": ".harness/scripts/vm/test_cn_backup_profile.py",
+      "sha256": "05e180e3881dd58b941af1097dd6923a44446acf5b233023cfee19dd974071cd",
+      "bytes": 4936
+    },
+    {
+      "path": ".harness/scripts/vm/test_cn_backup_run.py",
+      "sha256": "f6659e26872dcdf218e05484abee82f47e07d97c82aef98794ec6cd1736ec3c2",
+      "bytes": 3061
+    },
+    {
+      "path": ".harness/scripts/vm/test_cn_backup_sql.py",
+      "sha256": "c6e3b4703a0a7536e40f3dffb4aae4d0feb1786668eb2a39d568b0fb422e8d06",
+      "bytes": 14319
     },
     {
       "path": ".harness/scripts/vm/test_cn_backup_stream.py",
       "sha256": "e9efe9580452423b31d71663d8d267b3e582552e670c0744a63474f726a390aa",
       "bytes": 3104
+    },
+    {
+      "path": ".harness/scripts/vm/test_cn_backup_watchdog.py",
+      "sha256": "52a5701b372b0677b25275a3e36253f0774a9070e33f10c005cf02dad512e59b",
+      "bytes": 4114
     },
     {
       "path": ".harness/scripts/vm/test_control_connection.cjs",
@@ -502,6 +602,16 @@
       "bytes": 12428
     },
     {
+      "path": "deploy/aliyun/cn-backup-acl-input-gap-evidence.json",
+      "sha256": "e171c40b2182a733cf553272f4679ab5dc7b98d9558c391592a43382eb5f87a3",
+      "bytes": 834
+    },
+    {
+      "path": "deploy/aliyun/cn-backup-existing-recipient-evidence.json",
+      "sha256": "bcb8a4a6b9d6f78172fbd4dd453a1d9647b7cadc43fcecc5cbcd383b4f52e9ed",
+      "bytes": 915
+    },
+    {
       "path": "deploy/aliyun/cn-maintenance-acceptance-decision.md",
       "sha256": "b88357d9c38a3a2d1fb4c58f0aab501ec127ab79587ee3d2371718bf3588148b",
       "bytes": 10941
@@ -513,8 +623,8 @@
     },
     {
       "path": "deploy/aliyun/cn-maintenance-source-handoff.md",
-      "sha256": "219d7d478b0d52580cef275addd5af758ec282baa4f4edaf0701990e4453e11e",
-      "bytes": 17818
+      "sha256": "5b474698704999d2394d3e691fa4d313605213766a5041111b716e2f606b3b02",
+      "bytes": 21174
     },
     {
       "path": "deploy/aliyun/cn-release-9b25-once-plan.md",
@@ -535,6 +645,11 @@
       "path": "deploy/aliyun/cn-release-backup-authority-preflight.json",
       "sha256": "edde4d30956c6cafad35ddaddfc04f348e77ef2d759a1972e878b81ef1ada268",
       "bytes": 3736
+    },
+    {
+      "path": "deploy/aliyun/cn-release-backup-execution-package.md",
+      "sha256": "d0b3575a238de08a1acc65135d2cad1c833f878ca390eeef6ffd8df574bfc264",
+      "bytes": 7695
     },
     {
       "path": "deploy/aliyun/cn-release-backup-public-acl-detail.json",
@@ -787,25 +902,29 @@
       "bytes": 708528
     }
   ],
-  "installedFileCount": 37,
+  "installedFileCount": 52,
   "sourceOnlyFileCount": 6,
   "newToolRevision": null,
   "ready": false,
   "remainingImplementation": [
     "full protected production A-route adapter and current-epoch snapshot/restore/acceptance producer remain incomplete",
-    "exact protected existingProductionTransport descriptor preparation and installation binding remain incomplete",
+    "actual protected backup profile binder exists; reviewed base-profile installation transaction must consume bound backup/runtime/transport profile",
     "candidate dynamic backend seal and readonly proc collector exist but fixed diagnostic registration, protected host binding, NAT and existing plaintext exception remain incomplete",
-    "backup lease and bounded ciphertext subprocess pipeline exist but protected host permission/backend/credential/cleanup adapter remains incomplete",
     "original backup role approval remains; limited PUBLIC TEMP/session/five-function capability delta is proposed but unapproved",
     "recipient certificate/private-key custody and verified recovery input package remain unfrozen",
     "held preactivate/candidate startup and true production acceptance remain incomplete"
   ],
   "remainingExecution": [
+    "expired existing certificate: exact reviewed renewal/replacement plus custody/retention/escrow/recovery records",
+    "existing migration_admin cannot read pg_authid password-null state: narrow verified metadata path required without global credential-catalog grant",
+    "PUBLIC postgres TEMP/CONNECT and template1 CONNECT exceed strict three-DB boundary; capability decision unresolved",
     "exact reviewed merged tool revision and fresh complete host/runtime inventory",
     "separate installation and isolated restore/data-transfer approval",
     "real isolated restore/writer drill",
     "six immutable images/seal/prepare",
     "production maintenance risk approval and public acceptance"
   ],
-  "sourceReviewReady": false
+  "sourceReviewReady": false,
+  "fileCountMeaning": "source target-map entries, not an installation receipt",
+  "backupSourceReviewReady": true
 }

@@ -148,5 +148,5 @@ async function main() {
  });
  process.stdin.on('end', () => { chain.finally(() => {if(!session.failed)return session.close();}); });
 }
-module.exports = { ControlSession, ID_SQL, READ_QUERIES, validateMigrationAuthorization, verifyFixedMigrationCheckout };
+module.exports = { ControlSession, ID_SQL, READ_QUERIES, validateMigrationAuthorization, verifyFixedMigrationCheckout, privateJson, trustedBytes };
 if (require.main === module) main().catch(() => { process.stderr.write('CONTROL_HELPER_REJECTED\n'); process.exitCode = 1; });
