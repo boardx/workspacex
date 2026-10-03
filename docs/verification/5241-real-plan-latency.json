@@ -1,0 +1,10 @@
+{
+  "phase": "completed",
+  "durationMs": 25855,
+  "model": "qwen3.8-max",
+  "errorCode": null,
+  "busy": false,
+  "chapters": 5,
+  "topic": "Node.js 运行时环境及基础 Web 服务器开发",
+  "noDatabaseWrites": true
+}
