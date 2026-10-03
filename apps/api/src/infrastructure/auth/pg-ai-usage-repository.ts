@@ -49,7 +49,7 @@ export class PgAiUsageRepository implements AiUsageRepository {
  });}
  async calls(orgId:OrgId,q:AiUsageQuery){return this.db.withTenant(orgId,async s=>{
   const {asOf,values}=await this.parameters(s,orgId,q);
-  const result=await s.query<Record<string,unknown>>(`SELECT id,user_id AS "userId",run_id AS "runId",project_id AS "projectId",
+  const result=await s.query<Record<string,unknown>>(`SELECT id,subtask_id AS "subtaskId",user_id AS "userId",run_id AS "runId",project_id AS "projectId",
    thread_id AS "threadId",agent_id AS "agentId",model_provider AS "modelProvider",model_id AS "modelId",
    to_char(occurred_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS "occurredAt",
    to_char(request_started_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS "startedAt",

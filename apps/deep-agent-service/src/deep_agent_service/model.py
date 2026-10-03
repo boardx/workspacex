@@ -69,6 +69,7 @@ import os
 from urllib.parse import urlsplit
 
 from langchain_openai import ChatOpenAI
+from deep_agent_service.model_request_accounting import model_http_clients
 
 DEFAULT_MODEL_ID = "qwen-plus"
 
@@ -201,5 +202,6 @@ def build_chat_model(model_id_override: str | None = None) -> ChatOpenAI:
         api_key=api_key,
         model=model_id,
         request_timeout=_model_request_timeout_seconds(),
+        **model_http_clients(),
         **({"extra_body": extra_body} if extra_body else {}),
     )

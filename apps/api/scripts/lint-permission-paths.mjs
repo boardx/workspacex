@@ -264,6 +264,10 @@ const ALLOWLIST = new Map([
     "Same-ledger metadata/usage only; no prompt/content or credential rows. Org member routes resolve scopeAiUsage before any query (members self only; admins own-org), platform routes share PlatformOperatorGuard and formal-org access audit. All reads are withTenant with the authorized org/user predicate, finite window and bounded groups/pages. ai-usage-scope and ai-usage-repository enforce negative roles/tenants and aggregate-detail parity; adding content fields invalidates this exemption.",
   ],
   [
+    "src/infrastructure/auth/pg-runtime-model-usage-repository.ts",
+    "#5261 private leased runtime receipt ownership. Reads only identity/lease metadata to decide append-only accounting, returns Promise<void>, never content or raw rows. Private service key and strict schema precede calls; tenant-scoped run/child lease and attempt predicates derive requester from author_id without body reads. tests/auth/runtime-model-usage.test.ts mechanically bounds tables/selected content and asserts denied ownership produces no INSERT, missing starts no attribution and late receipts preserve immutable owner. This source/mock evidence is not PG/RLS certification. Adding content, withoutTenant, raw-row returns or removing these tests invalidates this narrow exemption; no DB privileges are changed.",
+  ],
+  [
     "src/infrastructure/auth/pg-ai-admission-repository.ts",
     "AI admission uses identity/entitlement/accounting facts only to decide a trusted provider request; returns decision/replay, never raw budget/member/usage/content rows. Every query is withTenant and subject/window scoped. It is not registered or exposed to client input yet; trusted requester derivation is a runtime activation gate. Real negative/concurrency/replay tests in ai-admission-repository.test.ts must remain; adding content returns or withoutTenant invalidates this exemption.",
   ],

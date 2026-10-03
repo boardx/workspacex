@@ -23,7 +23,7 @@ export const Summary=z.object({asOf:Timestamp,start:Timestamp,end:Timestamp,time
  matrix:z.array(z.object({userId:z.string(),modelProvider:z.string(),modelId:z.string(),totalTokens:Tokens,callCount:Count}).strict()),
  projects:z.array(z.object({projectId:z.string().nullable(),totalTokens:Tokens,callCount:Count}).strict()),
 }).strict();
-export const Call=z.object({id:z.string(),userId:z.string(),runId:z.string().nullable(),projectId:z.string().nullable(),
+export const Call=z.object({id:z.string(),subtaskId:z.string().nullable().default(null),userId:z.string(),runId:z.string().nullable(),projectId:z.string().nullable(),
  threadId:z.string().nullable(),agentId:z.string().nullable(),modelProvider:z.string(),modelId:z.string(),
  occurredAt:Timestamp,startedAt:Timestamp.nullable(),endedAt:Timestamp.nullable(),executionAttemptId:z.string().nullable(),
  totalTokens:Tokens,inputTokens:Tokens.nullable(),outputTokens:Tokens.nullable(),

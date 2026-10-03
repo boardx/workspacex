@@ -751,8 +751,8 @@ async function executeClaimed(
       } else {
         const transcript = increment.toSummarize.map((m) => `${m.role}: ${m.content}`).join("\n");
         const priorSummary = persisted?.summary ?? "";
-        const completion = await meterModelCompletion(deps, orgId, run, "history-summary", (onProviderRequest) => deps.model.complete({
-          onProviderRequest,
+        const completion = await meterModelCompletion(deps, orgId, run, "history-summary", (onProviderRequest,usageContext) => deps.model.complete({
+          ...usageContext,onProviderRequest,
           modelProvider: run.modelProvider,
           modelId: run.modelId,
           system: "你是对话历史摘要器。下面可能包含「已有摘要」（更早对话已经压缩过的要点）和"
@@ -1299,8 +1299,8 @@ async function executeClaimed(
         objects: deps.objects,
         log: deps.log,
         regenerate: async (feedback) => {
-          const retry = await meterModelCompletion(deps, orgId, run, "script-retry", (onProviderRequest) => deps.model.complete({
-            onProviderRequest,
+          const retry = await meterModelCompletion(deps, orgId, run, "script-retry", (onProviderRequest,usageContext) => deps.model.complete({
+            ...usageContext,onProviderRequest,
             modelProvider: run.modelProvider,
             modelId: run.modelId,
             system,

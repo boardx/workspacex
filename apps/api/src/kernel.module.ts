@@ -601,6 +601,9 @@ import { PgRunRecovery } from "./infrastructure/agent-run/pg-run-recovery";
 import type { DefaultAgentResolver } from "./application/chat/message-command-ports";
 import { AgentArtifactController } from "./interface/controllers/agent-artifact.controller";
 import { PgInterjectionStore } from "./infrastructure/agent-run/pg-interjection-store";
+import {RUNTIME_MODEL_USAGE,type RuntimeModelUsagePort} from "./application/agent-run/runtime-model-usage";
+import {PgRuntimeModelUsageRepository} from "./infrastructure/auth/pg-runtime-model-usage-repository";
+import {RuntimeModelUsageController} from "./interface/controllers/runtime-model-usage.controller";
 import { RunInterjectionController } from "./interface/controllers/run-interjection.controller";
 // issue #3068 —— 「以后都允许」的查看/撤销（组织 admin 面），见该文件头注。
 import { ToolPermissionGrantController } from "./interface/controllers/tool-permission-grant.controller";
@@ -1267,6 +1270,7 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
     RecordingController,
     AgentRunController,
     RunInterjectionController,
+    RuntimeModelUsageController,
     ToolPermissionGrantController,
     WorkflowCapabilityGrantController,
     DocumentGenerationAutoApproveController,
@@ -2174,7 +2178,7 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
     },
     {
       provide: SUBTASK_RUN_EXECUTOR,
-      useFactory: (store: PgSubtaskRunStore, db: DatabasePort, model: ModelCallPort, logger: LoggerPort, engine: EngineRunController, contexts: StandardSubtaskContextResolver, outputs:NativeOutputStaging|null,runs:AgentRunStore,nativeSessions:NativeSessionOwner|null) => {
+      useFactory: (store: PgSubtaskRunStore, db: DatabasePort, model: ModelCallPort, logger: LoggerPort, engine: EngineRunController, contexts: StandardSubtaskContextResolver, outputs:NativeOutputStaging|null,runs:AgentRunStore,nativeSessions:NativeSessionOwner|null,usage:RuntimeModelUsagePort) => {
         const configured = readModelProviderConfig();
         const deadlines = new Map<string, number>([[DEEP_AGENT_PROVIDER_NAME, readDeepAgentProviderConfig().timeoutMs]]);
         // Reserved names resolve to their dedicated adapters, not the generic HTTP adapter.
@@ -2186,9 +2190,9 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
           // #2931: a file-producing subtask needs its OWN native session to reach
           // `wx_artifact_publish`. Absent (no sandbox socket) ⇒ `outputFiles` runs
           // fail closed rather than silently degrading to text-only.
-          nativeSessions??undefined);
+          nativeSessions??undefined,usage);
       },
-      inject: [SUBTASK_RUN_STORE, DATABASE_PORT, MODEL_CALL_PORT, LOGGER_PORT, ENGINE_RUN_CONTROLLER, SUBTASK_CONTEXT_RESOLVER,NATIVE_OUTPUT_STAGING,AGENT_RUN_STORE,NATIVE_SESSION_OWNER],
+      inject: [SUBTASK_RUN_STORE, DATABASE_PORT, MODEL_CALL_PORT, LOGGER_PORT, ENGINE_RUN_CONTROLLER, SUBTASK_CONTEXT_RESOLVER,NATIVE_OUTPUT_STAGING,AGENT_RUN_STORE,NATIVE_SESSION_OWNER,RUNTIME_MODEL_USAGE],
     },
     /**
      * F157 —— 独立注册一份 `PgAgentRunContextSnapshot`，供
@@ -2443,6 +2447,7 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
     { provide: INTERJECTION_CARRY_OVER_DELIVERY, useClass: AcceptMessageCarryOverDelivery },
     // F159. 计量的唯一写入实现。挂在执行器上而不是 provider 上：provider 只知道
     // 「这次返回了多少 token」，不知道这次调用属于哪个组织的哪个人——那是 run 才有的事实。
+    {provide:RUNTIME_MODEL_USAGE,useFactory:(db:DatabasePort,usage:TokenUsageMeterPort)=>new PgRuntimeModelUsageRepository(db,usage),inject:[DATABASE_PORT,TOKEN_USAGE_METER]},
     {
       provide: TOKEN_USAGE_METER,
       useFactory: (db: DatabasePort) => new PgTokenUsageRepository(db),

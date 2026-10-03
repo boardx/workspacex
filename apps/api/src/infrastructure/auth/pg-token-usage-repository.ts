@@ -49,7 +49,7 @@ export class PgTokenUsageRepository implements TokenUsageMeterPort {
       count(usage.tokensTotal),
       usage.promptTokens === null ? null : count(usage.promptTokens),
       usage.completionTokens === null ? null : count(usage.completionTokens), usage.outcome,
-      usage.totalSource ?? "legacy", usage.projectId ?? null, usage.threadId ?? null, usage.agentId ?? null, usage.callPurpose ?? null, usage.requestStartedAt ?? null, usage.requestEndedAt ?? null, usage.executionAttemptId ?? null, usage.costMicros?.toString() ?? null, usage.currency ?? null, usage.priceVersion ?? null, usage.cacheInputTokens == null ? null : count(usage.cacheInputTokens), usage.reasoningOutputTokens == null ? null : count(usage.reasoningOutputTokens)];
+      usage.totalSource ?? "legacy", usage.projectId ?? null, usage.threadId ?? null, usage.agentId ?? null, usage.callPurpose ?? null, usage.requestStartedAt ?? null, usage.requestEndedAt ?? null, usage.executionAttemptId ?? null, usage.costMicros?.toString() ?? null, usage.currency ?? null, usage.priceVersion ?? null, usage.cacheInputTokens == null ? null : count(usage.cacheInputTokens), usage.reasoningOutputTokens == null ? null : count(usage.reasoningOutputTokens), usage.subtaskId ?? null];
     for (let attempt = 0; attempt < 3; attempt += 1) {
       try {
         await this.db.withTenant(orgId, async (s) => {
@@ -57,8 +57,8 @@ export class PgTokenUsageRepository implements TokenUsageMeterPort {
             `INSERT INTO token_usage_events
            (id, org_id, user_id, run_id, model_provider, model_id,
             tokens_total, tokens_prompt, tokens_completion, outcome,
-            total_source, project_id, thread_id, agent_id, call_purpose, request_started_at, request_ended_at, execution_attempt_id, cost_micros, currency, price_version, tokens_cache_input, tokens_reasoning_output)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23)
+            total_source, project_id, thread_id, agent_id, call_purpose, request_started_at, request_ended_at, execution_attempt_id, cost_micros, currency, price_version, tokens_cache_input, tokens_reasoning_output, subtask_id)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24)
          ON CONFLICT (id) DO NOTHING`,
             params,
           );

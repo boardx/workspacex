@@ -1027,6 +1027,7 @@ export interface ModelCallInput {
   /** Trusted executor identity, never sourced from model tool arguments. */
   readonly executionAttemptId?: string;
   readonly executionLeaseEpoch?: number;
+  readonly usageCallPurpose?: "primary" | "history-summary" | "script-retry";
   readonly executionPermissionRequestId?: string;
   readonly modelProvider: string;
   readonly modelId: string;
@@ -1513,6 +1514,7 @@ export interface TokenUsageRecord {
   readonly callPurpose?: "primary" | "history-summary" | "script-retry";
   readonly userId: string;
   readonly runId: string | null;
+  readonly subtaskId?: string | null;
   readonly modelProvider: string;
   readonly modelId: string;
   /** 上游没报总数时是 0——总数是必填维度，缺失按 0 记而不是猜一个估值。 */
