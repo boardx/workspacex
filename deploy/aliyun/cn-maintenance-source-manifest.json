@@ -4,7 +4,7 @@
   "baseCommit": "64cc2b85053823a4c7461eb404b9f3a99c749a33",
   "applicationRevision": "9b25bfa65662b96c0826fe67506b562ea46aa6d0",
   "baselineRevision": "ba6343199f3c834d6a198f83d0c771614292c82b",
-  "sourceInventorySha256": "e8431ae4ac97496c27ad6c15f89c4660b512be87603cadcba9bcc4a63771e18a",
+  "sourceInventorySha256": "b870378c26db8b0f32d2fbd90507bc1a40346812a352c66c7b4ae8dab690433c",
   "sourceRows": [
     {
       "path": ".harness/scripts/build-cn-maintenance-controller.cjs",
@@ -308,13 +308,13 @@
     },
     {
       "path": ".harness/scripts/vm/existing_session_restore.cjs",
-      "sha256": "080ced6cdeb27602b2a57053b36b55951cdee4525281358b61661b24fb7a5585",
-      "bytes": 6528
+      "sha256": "14279d3d44b59fe6e9bd5729e0da1f3e31a644c5cfe2c0eb8f6131df5797d7a6",
+      "bytes": 7133
     },
     {
       "path": ".harness/scripts/vm/existing_session_restore_test.cjs",
-      "sha256": "d925c1846309dd0cfce7b72b3235575694eaad7a949175288958e1cb034434a5",
-      "bytes": 4540
+      "sha256": "7907fc6a11b2a19c1af1191987c8011197f7ebf42cc27c66715a2c5ad1a5ce25",
+      "bytes": 5738
     },
     {
       "path": ".harness/scripts/vm/fixed_probes.py",
@@ -433,8 +433,8 @@
     },
     {
       "path": "deploy/aliyun/cn-maintenance-source-handoff.md",
-      "sha256": "3795dd899b70f3703d76d9f4abe1a33feee21fdca2e223f65312253d601d3fbc",
-      "bytes": 7240
+      "sha256": "92902f73998ffd151f37706bde583b3773dc1bd817b711b9d3eb187c368cb909",
+      "bytes": 7928
     },
     {
       "path": "deploy/aliyun/cn-release-9b25-once-plan.md",

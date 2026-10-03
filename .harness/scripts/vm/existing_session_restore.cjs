@@ -17,26 +17,39 @@ function boundedSql(sql){
 }
 async function copyOnExistingClient(client,Query,sql,chunks,budget){
  proof(typeof Query==='function'&&client.connection&&typeof client.connection.sendCopyFromChunk==='function'&&typeof client.connection.endCopyFrom==='function'&&typeof client.connection.sendCopyFail==='function','RESTORE_COPY_RUNTIME');
- let readyResolve,readyReject,doneResolve,doneReject,copyStarted=false;
+ let readyResolve,readyReject,doneResolve,doneReject,copyStarted=false,finishing=false,terminal=false;
  const ready=new Promise((resolve,reject)=>{readyResolve=resolve;readyReject=reject;});
  const done=new Promise((resolve,reject)=>{doneResolve=resolve;doneReject=reject;});
- // Both promises have handlers even if server error precedes CopyInResponse.
  done.catch(()=>{});ready.catch(()=>{});
- const query=new Query({text:sql},(error,result)=>{if(error){readyReject(error);doneReject(error);}else {if(!copyStarted)readyReject(Error('RESTORE_COPY_RESPONSE'));doneResolve(result);}});
+ const interrupted=done.then(()=>{throw Error('RESTORE_COPY_ALREADY_COMPLETED');},error=>{throw error;});interrupted.catch(()=>{});
+ const query=new Query({text:sql},(error,result)=>{
+  terminal=true;
+  if(error){readyReject(error);doneReject(error);}
+  else if(!copyStarted||!finishing){const failure=Error('RESTORE_COPY_EARLY_DONE');readyReject(failure);doneReject(failure);}
+  else doneResolve(result);
+ });
  query.handleCopyInResponse=connection=>{if(connection!==client.connection){const e=Error('RESTORE_COPY_CONNECTION_CHANGED');readyReject(e);connection.sendCopyFail('restore binding rejected');return;}copyStarted=true;readyResolve();};
+ const iterator=chunks[Symbol.asyncIterator]();
  client.query(query);
  try{
   await ready;
-  for await(const chunk of chunks){
+  while(true){
+   proof(!terminal,'RESTORE_COPY_EARLY_DONE');
+   const item=await Promise.race([iterator.next(),interrupted]);
+   proof(!terminal,'RESTORE_COPY_EARLY_DONE');if(item.done)break;
+   const chunk=item.value;
    proof(Buffer.isBuffer(chunk)&&chunk.length>0&&chunk.length<=65536,'RESTORE_COPY_CHUNK_BOUND');
    budget.bytes+=chunk.length;proof(budget.bytes<=budget.limit,'RESTORE_COPY_TOTAL_BOUND');budget.hash.update(chunk);
    client.connection.sendCopyFromChunk(chunk);
+   proof(!terminal,'RESTORE_COPY_EARLY_DONE');
    // pg 8.22 sendCopyFromChunk does not return stream.write's boolean.
-   if(client.connection.stream?.writableNeedDrain)await Promise.race([once(client.connection.stream,'drain'),done.then(()=>{throw Error('RESTORE_COPY_EARLY_DONE');})]);
+   if(client.connection.stream?.writableNeedDrain)await Promise.race([once(client.connection.stream,'drain'),interrupted]);
   }
-  client.connection.endCopyFrom();await done;
+  finishing=true;client.connection.endCopyFrom();await done;
  }catch(error){
-  if(copyStarted){try{client.connection.sendCopyFail('restore source rejected');await done;}catch{}}
+  if(copyStarted&&!terminal){try{client.connection.sendCopyFail('restore source rejected');await done;}catch{}}
+  // Do not await iterator.return(): a pending source read can be blocked indefinitely.
+  // The host owns terminating and joining the decoder process on every rejection.
   throw error;
  }
 }

@@ -19,5 +19,13 @@ function fixture(fault){let status='I',copies=[],queries=[],copyQuery,identityCa
  const initial=fixture();initial.options.identity=async()=>({...binding,pid:42});await assert.rejects(restoreExistingSession(initial.options),/EXISTING_SESSION_REQUIRED/);assert.equal(initial.queries.length,0);count++;
  const commit=fixture('commit-ack');await assert.rejects(restoreExistingSession(commit.options),e=>e.recovery.commitOutcomeUnknown===true&&e.recovery.holdMustRemain===true);count++;
  for(const truncated of [false,true]){const streamed=fixture();async function* raw(){yield Buffer.from('CREATE TABLE public.t (name text,n int);\nCOPY public.t (name,n) FROM stdin;\none\t1\n'+(truncated?'':'\\.\n'));}streamed.options.operations=decodeSql(raw());if(truncated){await assert.rejects(restoreExistingSession(streamed.options),e=>e.recovery.holdMustRemain&&!e.recovery.committed);assert(!streamed.queries.includes('COMMIT'));}else{const result=await restoreExistingSession(streamed.options);assert.equal(result.copyBytes,6);assert.equal(result.statements,2);}count++;}
+ for(const timing of ['before-data','after-first','error-stalled-source']){
+  const f=fixture();let active,ends=0;const originalQuery=f.client.query,originalSend=f.client.connection.sendCopyFromChunk,originalEnd=f.client.connection.endCopyFrom;
+  f.client.query=q=>{if(q instanceof Query){active=q;if(timing==='before-data'){const originalResponse=q.handleCopyInResponse;q.handleCopyInResponse=c=>{originalResponse(c);q.callback(null,{rows:[]});};}}return originalQuery(q);};
+  f.client.connection.sendCopyFromChunk=chunk=>{originalSend(chunk);queueMicrotask(()=>active.callback(timing==='error-stalled-source'?Error('server stopped'):null,{rows:[]}));};
+  f.client.connection.endCopyFrom=()=>{ends++;originalEnd();};
+  if(timing==='error-stalled-source'){async function* stalled(){yield Buffer.from('one\t1\n');await new Promise(()=>{});}async function* ops(){yield {kind:'copy',sql:'COPY public.t FROM stdin;',chunks:stalled()};}f.options.operations=ops();}
+  await assert.rejects(restoreExistingSession(f.options),e=>e.recovery.holdMustRemain&&!e.recovery.committed);assert.equal(ends,0);assert.equal(f.copies.length,timing==='before-data'?0:1);assert(!f.queries.includes('COMMIT'));count++;
+ }
  console.log(`${count} existing-session restore assertions PASS; mock only; production adapter/decoder authorization/real PG NOT RUN`);
 })().catch(e=>{console.error(e);process.exitCode=1;});
