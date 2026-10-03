@@ -1,4 +1,4 @@
-import { GUIDED_PLAN_BUDGET_MS, SearchBudget } from "./guided-search-budget";
+import { GUIDED_PLAN_BUDGET_MS, GUIDED_REPORT_PREPARATION_BUDGET_MS, SearchBudget } from "./guided-search-budget";
 import { supplementQuery } from "./guided-supplement-query";
 import type { DebugTracePort } from "../ports/debug-trace.port";
 import { recordResearchFailure, type ResearchExecutionDiagnostic } from "./guided-runtime-diagnostics";
@@ -283,8 +283,11 @@ export class GuidedRuntimeService {
       appendActivity(state, "reading", "读取并验证已接受来源", "started");
       await persist();
       const allowPartial = Boolean(state.reportPartial);
-      await this.reviewSources(state, persist);
-      await this.readSourceDocuments(state, persist, { retryTransient: true });
+      const preparationBudget = new SearchBudget(GUIDED_REPORT_PREPARATION_BUDGET_MS, "RESEARCH_REPORT_PREPARATION_TIME_BUDGET_EXCEEDED");
+      try {
+        await this.reviewSources(state, persist, preparationBudget);
+        await this.readSourceDocuments(state, persist, { budget: preparationBudget });
+      } finally { preparationBudget.dispose(); }
       appendActivity(state, "reading", "来源读取与可用性验证完成", "succeeded");
       state.reportPartial = allowPartial;
       acceptPendingSources(state); this.requireResearchBasis(state, allowPartial);
@@ -318,10 +321,10 @@ export class GuidedRuntimeService {
     if (node === "report") appendActivity(state, "validating", "报告证据与发布条件验证完成", "succeeded");
     if (!state.generatedNodes.includes(node)) state.generatedNodes.push(node);
   }
-  private async readSourceDocuments(state: ResearchRuntime, persist: RuntimePersistence, options: { retryTransient?: boolean } = {}) {
+  private async readSourceDocuments(state: ResearchRuntime, persist: RuntimePersistence, options: { retryTransient?: boolean; budget?: SearchBudget } = {}) {
     if (!this.search.read) return;
     const accepted = state.sources.filter((source) => source.decision === "accepted");
-    await collectSourceDocuments(accepted, (url) => this.search.read!(url), persist, options);
+    await collectSourceDocuments(accepted, (url) => options.budget ? options.budget.run(() => this.search.read!(url, { signal: options.budget!.signal })) : this.search.read!(url), persist, { ...options, signal: options.budget?.signal });
     if (accepted.length && !accepted.some((source) => source.document)) throw new ResearchRuntimeError("RESEARCH_DOCUMENTS_UNREADABLE");
   }
   private async plan(state: ResearchRuntime, persist: RuntimePersistence, budget?: SearchBudget) {
@@ -703,8 +706,9 @@ export class GuidedRuntimeService {
       }
       const next = nodes[nodes.indexOf(node) + 1]!;
       state.currentNode = next; state.availableNodes = nodes.slice(0, nodes.indexOf(next) + 1);
-      // Persist the destination before external work so refresh and failures stay on that step.
+      // Persist and publish the destination before slow source reading or generation.
       await persist();
+      persist.observe({ type: "snapshot", state: structuredClone(state) });
       if (next === "research") await this.executeSearch(state, persist, internalSources);
       else await this.generate(state, next, persist);
       return;

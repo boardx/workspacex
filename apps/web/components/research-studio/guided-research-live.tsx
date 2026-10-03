@@ -54,6 +54,8 @@ function ProposalPreview({ draft }: { draft: Draft }) {
   return <p>建议保留 {draft.value.filter((item) => item.decision === "accepted").length} 个来源、排除 {draft.value.filter((item) => item.decision === "excluded").length} 个来源。</p>;
 }
 const errors: Record<string, string> = {
+  RESEARCH_REPORT_PREPARATION_TIME_BUDGET_EXCEEDED: "报告来源准备超时，已保存章节仍保留，请重试继续生成。",
+  RESEARCH_REPORT_MODEL_TIME_BUDGET_EXCEEDED: "报告模型响应超时，已保存章节仍保留，请重试继续生成。",
   RESEARCH_EVIDENCE_BUDGET_EXCEEDED: "大纲问题或来源内容超出本次分析容量，请精简后重试。",
   RESEARCH_REPORT_QUALITY_INSUFFICIENT: "报告修订后仍未通过证据与分析质量检查，请完善大纲或补充来源后重试。",
   RESEARCH_GRAPH_VERSION_CONFLICT: "研究内容已更新，本次操作未提交。请核对最新进度后继续。",

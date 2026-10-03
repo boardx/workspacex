@@ -9,6 +9,13 @@ vi.mock("@/lib/guided-research-api", () => ({ getResearchRuntime: vi.fn(), execu
 beforeEach(() => vi.resetAllMocks());
 const base = runtimeFixture("report");
 describe("continuous generation timeline", () => {
+  it("shows evidence batch progress instead of treating all model calls as retries", () => {
+    render(<GuidedResearchReportTimeline state={{ ...base, busy: true, reportTimeline: [
+      { id: "evidence", stage: "evidence", status: "running", attempts: 19, completed: 17, total: 18 },
+    ] }} />);
+    expect(screen.getByTestId("research-report-timeline")).toHaveTextContent("17 / 18 批次");
+    expect(screen.queryByText("第 19 次尝试")).not.toBeInTheDocument();
+  });
   it("combines chapter writing and review into one generation row with icon status", () => {
     render(<GuidedResearchReportTimeline state={{ ...base, busy: true, reportTimeline: [
       { id: "c", stage: "chapter", sectionId: "o1", status: "completed", attempts: 1 },
