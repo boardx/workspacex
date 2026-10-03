@@ -1,0 +1,67 @@
+name: deploy-home
+
+on:
+  pull_request:
+    paths: &home-paths
+      - 'apps/home/**'
+      - 'apps/web/public/workspacex-logo.png'
+      - 'apps/web/public/apple-icon.png'
+      - 'LICENSE'
+      - 'SECURITY.md'
+      - '.github/workflows/deploy-home.yml'
+      - '.nvmrc'
+  push:
+    branches: [main]
+    paths: *home-paths
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-home-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.sha }}
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+      - name: Static gates
+        run: node apps/home/scripts/check-all.mjs --static-only
+      - name: Deployment failure and rollback contracts
+        run: node --test apps/home/tests/pages-deploy.test.mjs
+
+  deploy:
+    needs: validate
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.sha }}
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+      - name: Package exact checked commit
+        run: node apps/home/scripts/package-pages.mjs "$RUNNER_TEMP/home-pages"
+      - name: Publish, verify public SHA and preserve rollback
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: node apps/home/scripts/deploy-pages.mjs "$RUNNER_TEMP/home-pages"
+      - name: Retain deployment and rollback evidence
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: home-deployment-${{ github.sha }}
+          path: pages-deploy-evidence/
+          if-no-files-found: ignore

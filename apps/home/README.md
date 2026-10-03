@@ -238,23 +238,51 @@ thirty-eight rounds because nobody compared them. `check-css.mjs` now requires
 a face for macOS/iOS, older macOS, Windows and Linux/Android, so the stack can
 no longer quietly lose a platform.
 
-## Before this goes live — two things to set
+## Production deployment
 
-Both are placeholders I could not resolve from the repository. They are wrong
-until someone who knows the answer changes them.
+The verified production domain is `https://www.boardx.us`, on the existing
+Cloudflare Pages Direct Upload project `workspacex-home` in BoardX Inc.
+`workspacex-home.pages.dev` remains its default domain; no DNS change is required.
+The project has no native Git connection. GitHub Actions can publish to this
+same project through Wrangler without migrating it.
 
-**1. The public domain.** Every absolute URL currently says
-`https://workspacex.boardx.us`. That domain is a guess. It appears in:
+`.github/workflows/deploy-home.yml` validates PRs but publishes only a push to
+`main` touching the home site, its two product-brand image inputs, LICENSE,
+SECURITY.md, the deployment workflow or the Node version. Non-main pushes and
+unrelated monorepo changes do not publish. Production runs are serialized;
+a new push never cancels an in-progress cutover.
 
-- `scripts/build-i18n.mjs` — the `SITE` constant. This is the only place it is
-  chosen: `sitemap.xml` and `robots.txt` are generated from it, and
-  `check-links.mjs` fails if `index.html`'s canonical, hreflang, `og:url` or
-  card images disagree with it.
-- `index.html` — the same absolute URLs, which the gate above holds to `SITE`.
+Static gates and the deployment failure/rollback contracts must pass first.
+The publisher checks out the event SHA, packages only runtime files, and adds
+`/.well-known/workspacex-release.json` with that exact commit. Wrangler uses
+`--project-name workspacex-home --branch main --commit-hash <event SHA>`.
+The source canonical, hreflang, social URLs, security.txt and generated sitemap
+use the verified www domain; a temporary deploy-time substitution is unnecessary.
 
-Change `SITE` in `build-i18n.mjs` and the same string in `index.html`, then run
-`node scripts/build-i18n.mjs`. Getting this wrong means canonical tags pointing
-at a domain that does not exist and social cards that never load.
+The existing Actions secret names are `CLOUDFLARE_ACCOUNT_ID` and
+`CLOUDFLARE_API_TOKEN`. The account ID must be BoardX Inc's
+`cc39c0447db8c730182cfd075fe91bf7`; the existing token needs Account / Cloudflare
+Pages / Edit for that account. No token values belong in source, logs or issues.
+If the existing secret is unavailable or lacks that scope, an authorized owner
+must set it through GitHub Settings → Secrets and variables → Actions. Do not
+copy a local env token through a new client or create wider permissions.
+
+Before publishing, the workflow checks the existing project name, main branch,
+www domain and successful current production deployment. It records the previous
+ID, then verifies routes, headers and the public release SHA at both the immutable
+deployment URL and custom domain. Verification failure stops the run and rolls
+back only its own cutover; another publisher's deployment is never reversed.
+No deployment is deleted. The run summary and retained `home-deployment-<SHA>`
+artifact hold new/previous IDs, deployment URL, timestamps and verification status.
+For manual recovery, choose the previous successful production deployment in the
+Pages Dashboard and use its rollback action.
+
+Official references: [Direct Upload with CI](https://developers.cloudflare.com/pages/how-to/use-direct-upload-with-continuous-integration/)
+and [Wrangler Pages commands](https://developers.cloudflare.com/workers/wrangler/commands/pages/).
+Merging this workflow is not proof that automation is working. Confirm a real
+main push, successful deploy job, matching Pages commit and public release marker.
+
+## Other launch configuration
 
 **2. The product link.** "Launch App" and "Launch Workspace" point at
 `https://devapp.boardx.us`, the only app host referenced anywhere in this
