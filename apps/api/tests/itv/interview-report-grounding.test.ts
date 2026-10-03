@@ -92,3 +92,9 @@ describe("report evidence grounding", () => {
   expect(validateReportEvidence("跨角色共同支持电话，无需原文。",index).ok).toBe(false);
  });
 });
+
+it.each(["教师和校长均表示", "教师、校长都认为", "教师与校长共同指出", "教师以及校长表示"])("rejects coordinated attribution without every named expert citation (%s)", (claim) => {
+ const labels = {"expert-a":"教师", "expert-b":"校长"};
+ const index = buildReportEvidenceIndex(source, labels);
+ expect(validateReportEvidence(`${claim}：[服务端甲回答：支持电话。](#answer-1)`, index, labels).ok).toBe(false);
+});

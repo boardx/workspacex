@@ -76,6 +76,9 @@ export function validateReportEvidence(markdown: string, index: readonly ReportE
   for (const entry of index) if (entry.expertLabel && entry.expertId) {
     const ids = labels.get(entry.expertLabel) ?? new Set<string>(); ids.add(entry.expertId); labels.set(entry.expertLabel,ids);
   }
+  const escapedLabels = [...labels.keys()].map(label => label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).sort((a,b) => b.length-a.length).join("|");
+  // Coordinated subjects share the predicate; every named expert needs their own citation.
+  const attribution = new RegExp(String.raw`^[：:\s]*(?:(?:和|与|及|以及|、)\s*(?:${escapedLabels})\s*)*(?:(?:均|都|共同|一致)\s*)?(?:(?:表示|指出|认为|回答|提到|说)|[（(]?(?:Q|问题|第)\s*\d+)`, "u");
   const consensus = /(?:两位|多位|两名|多名|两个|不同|多|两)(?:受访者|专家|角色|参与者).{0,24}(?:一致|共同|共识)|跨(?:角色|专家|受访者)(?:的)?(?:共识|共同|一致)/gu;
   for (const assertion of interviewMarkdown.parseInterviewReportAssertions(markdown)) {
     const citedExperts = new Set(assertion.links.flatMap(link => {
@@ -92,7 +95,7 @@ export function validateReportEvidence(markdown: string, index: readonly ReportE
     for (const [label,expertIds] of labels) {
       for (let offset = assertion.text.indexOf(label); offset >= 0; offset = assertion.text.indexOf(label, offset + label.length)) {
         const after = assertion.text.slice(offset + label.length);
-        if (/^[：:\s]*(?:(?:表示|指出|认为|回答|提到|说)|[（(]?(?:Q|问题|第)\s*\d+)/u.test(after) && (expertIds.size !== 1 || !citedExperts.has([...expertIds][0]!))) {
+        if (attribution.test(after) && (expertIds.size !== 1 || !citedExperts.has([...expertIds][0]!))) {
           return {ok:false,references:[],reason:"asserted_expert_not_bound_to_citation"};
         }
       }
