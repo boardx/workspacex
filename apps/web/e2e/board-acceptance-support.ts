@@ -174,7 +174,7 @@ export function gridValid(rows: CanonicalRow[], columns = 3, gap = 24) {
   return sorted.every((row, index) => Math.abs(row.geometry.x - (first.x + index % columns * (first.width + gap))) <= 1
     && Math.abs(row.geometry.y - (first.y + Math.floor(index / columns) * (first.height + gap))) <= 1);
 }
-export async function connectByHandles(page: Page, from: string, to: string) {
+export async function connectByHandles(page: Page, from: string, to: string, observe?: (evidence: unknown) => Promise<void>) {
   await page.keyboard.press('Escape'); await page.getByTestId('board-tool-select').click();
   await page.getByTestId('board-zoom-fit-board').click();
   const boardId = new URL(page.url()).pathname.split('/').at(-1)!;
@@ -228,14 +228,42 @@ export async function connectByHandles(page: Page, from: string, to: string) {
   const anchor = rotatedAnchorPoint(target, 'left');
   const surface = page.getByTestId('board-fabric-surface'), bounds = await surface.boundingBox(); expect(bounds).not.toBeNull();
   const zoom = Number(await surface.getAttribute('data-viewport-zoom'));
-  const destination = {x: bounds!.x + Number(await surface.getAttribute('data-viewport-pan-x')) + anchor.x * zoom,
-    y: bounds!.y + Number(await surface.getAttribute('data-viewport-pan-y')) + anchor.y * zoom};
+  const panX=Number(await surface.getAttribute('data-viewport-pan-x')),panY=Number(await surface.getAttribute('data-viewport-pan-y'));
+  const destination = {x: bounds!.x + panX + anchor.x * zoom, y: bounds!.y + panY + anchor.y * zoom};
   await page.mouse.move(sourceBounds!.x + sourceBounds!.width / 2, sourceBounds!.y + sourceBounds!.height / 2);
   await page.mouse.down();
+  let gestureFailure:unknown;const finalFailures:unknown[]=[];
+  try{
+  if(observe)await surface.evaluate(element=>{
+    const state:{point:{x:number;y:number}|null;listener:(event:PointerEvent)=>void}={point:null,listener:event=>{state.point={x:event.clientX,y:event.clientY};}};
+    (element as HTMLElement & {connectorDiagnostic?:typeof state}).connectorDiagnostic=state;
+    document.addEventListener('pointermove',state.listener,true);
+  });
   await page.mouse.move(destination.x, destination.y, {steps: 12});
+  if(observe){
+    const candidates=before.objects.filter(object=>object.kind!=='connector').flatMap(object=>(['top','right','bottom','left'] as const).map(side=>({id:object.id,kind:object.kind,side,point:rotatedAnchorPoint(object,side),excluded:object.id===from||Boolean(object.locked||object.hidden)})));
+    const evidence=await surface.evaluate((element,{source,destination,candidates,plannedViewport,targetAnchor})=>{
+      const state=(element as HTMLElement & {connectorDiagnostic?:{point:{x:number;y:number}|null;listener:(event:PointerEvent)=>void}}).connectorDiagnostic;
+      if(state){document.removeEventListener('pointermove',state.listener,true);delete (element as HTMLElement & {connectorDiagnostic?:unknown}).connectorDiagnostic;}
+      const rect=element.getBoundingClientRect(),host=element.closest('[data-testid="collaborative-editor"]')?.getBoundingClientRect();
+      const viewport={zoom:Number(element.getAttribute('data-viewport-zoom')),panX:Number(element.getAttribute('data-viewport-pan-x')),panY:Number(element.getAttribute('data-viewport-pan-y'))};
+      const point=state?.point??null,inverse=(box:DOMRect|undefined)=>point&&box?{x:(point.x-box.x-viewport.panX)/viewport.zoom,y:(point.y-box.y-viewport.panY)/viewport.zoom}:null;
+      const world=inverse(host),box=(value:DOMRect)=>({x:value.x,y:value.y,width:value.width,height:value.height});
+      return{source,destination,plannedViewport,targetAnchor,pointer:point,viewport,surface:box(rect),host:host?box(host):null,inverseSurface:inverse(rect),inverseHost:world,candidates:candidates.map(candidate=>({...candidate,distance:world?Math.hypot(candidate.point.x-world.x,candidate.point.y-world.y):null})),snapCue:document.querySelector('[data-testid="board-connector-snap-cue"]')?.getAttribute('data-target-id')??null};
+    },{source:{x:sourceBounds!.x+sourceBounds!.width/2,y:sourceBounds!.y+sourceBounds!.height/2},destination,candidates,plannedViewport:{zoom,panX,panY},targetAnchor:anchor});
+    await observe(evidence);
+  }
   await expect(page.getByTestId('board-connector-snap-cue')).toHaveAttribute('data-target-id', to);
   expect(await canonicalBoardSnapshot(page.request, token!, boardId)).toEqual(before);
-  await page.mouse.up();
+  }catch(error){gestureFailure=error;}finally{
+    if(observe)try{await surface.evaluate(element=>{
+      const state=(element as HTMLElement & {connectorDiagnostic?:{listener:(event:PointerEvent)=>void}}).connectorDiagnostic;
+      if(state){document.removeEventListener('pointermove',state.listener,true);delete (element as HTMLElement & {connectorDiagnostic?:unknown}).connectorDiagnostic;}
+    });}catch(error){finalFailures.push(error);}
+    try{await page.mouse.up();}catch(error){finalFailures.push(error);}
+  }
+  if(finalFailures.length)throw new AggregateError(gestureFailure?[gestureFailure,...finalFailures]:finalFailures,'Connector gesture finalization failed');
+  if(gestureFailure)throw gestureFailure;
   await expect.poll(async () => (await canonicalRows(page)).filter(row => row.kind === 'connector' && row.from === from && row.to === to).length).toBe(1);
   await expect(page.getByTestId('board-tool-select')).toHaveAttribute('aria-pressed', 'true');
   await expect.poll(() => boardHead(page.request, token!, boardId)).toEqual({epoch: before.revision.epoch, seq: before.revision.seq + 1});

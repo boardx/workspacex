@@ -18,6 +18,26 @@ test('raw errors and unknown projects never leak',()=>{
  const result=diagnostic({...spec,parent:{project:()=>({name:'secret'})}},{status:'timedOut',errors:[{message:'Test timeout of 600000ms exceeded; token secret'}]});
  assert.equal(result.reason,'TEST_TIMEOUT');assert.equal(JSON.stringify(result).includes('secret'),false);
 });
+test('outbox replay failure retains only fixed code and same-spec numeric locations',()=>{
+ const file='board-shared-outbox.spec.ts';
+ const result=diagnostic({...spec,location:{file:`/private/secret/${file}`,line:19},parent:{project:()=>({name:'board-api-ws-objectstore'})}},{status:'failed',errors:[{message:'Peer must replay the actual held-ACK receipt after its durable claim expires: token=secret https://private.invalid',location:{file:`/private/secret/${file}`,line:100,column:12},stack:'secret'}]});
+ assert.deepEqual(result,{spec:file,status:'failed',project:'board-api-ws-objectstore',testLine:19,reason:'PEER_HELD_ACK_REPLAY_FAILED',errorLine:100});
+});
+test('actual visual specs expose assertion or timeout codes without private error text',()=>{
+ for(const file of ['board-visual-accessibility-acceptance.spec.ts','board-compact-chrome-acceptance.spec.ts']){
+  const result=diagnostic({...spec,location:{file:`C:\\private\\secret\\${file}`,line:20}},{status:'failed',errors:[{message:'Error: expect(locator).toBeVisible() token=secret',location:{file:`C:\\private\\secret\\${file}`,line:68}}]});
+  assert.deepEqual(result,{spec:file,status:'failed',project:'chromium',testLine:20,reason:'ASSERTION_FAILED',errorLine:68});
+  const timeout=diagnostic({...spec,location:{file,line:20}},{status:'timedOut',errors:[{message:'Test timeout of 600000ms exceeded secret'}]});
+  assert.equal(timeout.reason,'TEST_TIMEOUT');assert.equal(JSON.stringify(timeout).includes('secret'),false);
+ }
+});
+test('external specs and foreign or invalid error locations cannot enter diagnostics',()=>{
+ for(const file of ['foreign.spec.ts','board-shared-outbox.spec.ts.secret','board-visual-accessibility-acceptance.spec.ts.bak'])assert.equal(diagnostic({...spec,location:{file,line:10}},{status:'failed',errors:[{message:'expect(secret)'}]}),null);
+ for(const location of [{file:'private.spec.ts',line:100},{file:'board-shared-outbox.spec.ts',line:Infinity},{file:'board-shared-outbox.spec.ts',line:-1},{file:'board-shared-outbox.spec.ts',line:'secret'}]){
+  const result=diagnostic({...spec,location:{file:'board-shared-outbox.spec.ts',line:19}},{status:'failed',errors:[{message:'expect(secret)',location}]});
+  assert.equal(result.errorLine,undefined);assert.equal(JSON.stringify(result).includes('secret'),false);
+ }
+});
 
 test('complete geometry is extracted before stack and source tail',()=>{
  const payload=JSON.stringify({canvas:{x:0,y:0,width:320,height:900},margin:120,unobstructedCenters:7,private:'quoted } brace { and escaped " slash \\'});

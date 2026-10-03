@@ -1,4 +1,5 @@
-const projects=new Set(['chromium','firefox','webkit']);
+const projects=new Set(['chromium','firefox','webkit','board-api-ws-objectstore']);
+const specs=new Set(['board-selection-layout.spec.ts','board-shared-outbox.spec.ts','board-visual-accessibility-acceptance.spec.ts','board-compact-chrome-acceptance.spec.ts']);
 const numeric=value=>typeof value==='number'&&Number.isFinite(value)?value:undefined;
 const rect=value=>Object.fromEntries(['x','y','width','height'].flatMap(key=>numeric(value?.[key])===undefined?[]:[[key,value[key]]]));
 function firstJsonObject(message,start){
@@ -22,7 +23,7 @@ function firstJsonObject(message,start){
 export function boardCiFailureDiagnostic(test,result){
  if(result.status==='passed'||result.status===test.expectedStatus)return null;
  const file=String(test.location?.file??'').replaceAll('\\','/').split('/').at(-1);
- if(file!=='board-selection-layout.spec.ts')return null;
+ if(!specs.has(file))return null;
  const project=test.parent?.project?.()?.name;
  const output={spec:file,status:['failed','timedOut','interrupted'].includes(result.status)?result.status:'unexpected'};
  if(projects.has(project))output.project=project;
@@ -30,6 +31,9 @@ export function boardCiFailureDiagnostic(test,result){
  output.reason='UNCLASSIFIED_TEST_FAILURE';
  for(const error of result.errors??[]){
   const message=typeof error?.message==='string'?error.message:'';
+  const errorFile=String(error?.location?.file??'').replaceAll('\\','/').split('/').at(-1);
+  if(errorFile===file&&Number.isSafeInteger(error.location.line)&&error.location.line>0&&output.errorLine===undefined)output.errorLine=error.location.line;
+  if(file==='board-shared-outbox.spec.ts'&&message.includes('Peer must replay the actual held-ACK receipt after its durable claim expires')){output.reason='PEER_HELD_ACK_REPLAY_FAILED';break;}
   if(message.includes('NO_NATIVE_BLANK_POSITION')){
    output.reason='NO_NATIVE_BLANK_POSITION';
    const start=message.indexOf('{',message.indexOf('NO_NATIVE_BLANK_POSITION'));

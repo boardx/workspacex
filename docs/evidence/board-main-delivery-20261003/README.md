@@ -47,7 +47,7 @@ improvements rather than blindly replacing newer code with old branch snapshots.
   `ea9ec522a9d000a78e269eb88bfbcb520379d872`. The path table retains its
   explicitly historical snapshot; it does not review the newer head. The main
   merge does not prove human exposure signoff, full native acceptance or production
-  deployment. This draft predates that merge and must preserve it during integration.
+  deployment. This iteration now ordinarily inherits that merge and preserves its entry exposure.
 
 ## Original goals and verification boundaries
 
@@ -57,7 +57,7 @@ It is historical evidence, not an authoritative current feature-state projection
 | Round / original goal | Source in this iteration | Actual verification / remaining blocker |
 | --- | --- | --- |
 | R01 navigation, transforms, eraser / #4858 | Committed R01 matrix, oracle and runtime binding | Raw FixedLayout cached-pixel oracle fails with tolerance 5 unchanged. Native eight-case matrix, original 14 Chrome pixel failures and hardware acceptance remain unresolved. |
-| R02 Connector capabilities / #4967 | Geometry/menu preservation from committed candidate | Original route/endpoint/label/width and cancellation acceptance not rerun. Production exposure/signoff is held. |
+| R02 Connector capabilities / #4967 | Geometry/menu preservation from committed candidate | Original route/endpoint/label/width and cancellation acceptance not rerun. Main entry exposure is inherited from #5145; human signoff and complete acceptance are not evidenced here. |
 | R03 Connector authority / #4968 | Current strong runtime authority and Connector fixture | Principal/tenant rejection, history/interchange and complete real suite not run. |
 | R04 one-shot tools / #4859 | #5201 driver/helper plus #5129 cancellation | Pure placement/cancellation tests pass. Real trusted creation/reflow, including 400%, is not run. |
 | R05 drawing / #4969 | Committed panel/resource/oracle closure | Resource/oracle pure tests pass. Earlier 20 component PNGs belong to an older SHA; no fresh LiveBoard D2/D3 acceptance here. |
