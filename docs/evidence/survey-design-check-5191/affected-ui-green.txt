@@ -1,0 +1,16 @@
+   ✓ live survey trusted publishing > checks the current design automatically and updates errors after editing 314ms
+ ✓ tests/ui/survey-live-workspace.test.tsx (33 tests) 18510ms
+   ✓ live survey workspace persistence > preserves existing tags in canonical Markdown when applying an AI proposal without tags 1583ms
+   ✓ live survey workspace persistence > automatically persists applied valid changes on an existing draft 1538ms
+   ✓ live survey workspace persistence > locks projected question edits until changed Markdown is applied 1714ms
+   ✓ live survey workspace persistence > preserves the local report template when keeping the local version after a conflict 3558ms
+   ✓ live survey workspace persistence > loads the conflicting remote version without discarding local Markdown 1823ms
+   ✓ live survey workspace persistence > retains unsaved inputs when saving fails and never shows a success notice 1786ms
+   ✓ live survey workspace persistence > shows a dedicated saving state while a manual save is pending 1787ms
+   ✓ live survey workspace persistence > accepts only the returned saved runtime, including its canonical title and version 3495ms
+
+ Test Files  4 passed (4)
+      Tests  77 passed (77)
+   Start at  09:44:44
+   Duration  20.24s (transform 750ms, setup 284ms, collect 2.95s, tests 20.14s, environment 963ms, prepare 198ms)
+

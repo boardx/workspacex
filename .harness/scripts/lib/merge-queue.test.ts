@@ -165,6 +165,9 @@ describe("④ 入队与直接合并必须分得清", () => {
   });
 
   it("反证：无人值守一律不授权——入队也是破坏性动作，不因为多了一层队列就放宽", () => {
+    expect(resolveMergeRoute({ state: "READY_TO_MERGE", mode: "authorized-unattended", queueEnabled: true })).toMatchObject({ route: "enqueue", allowed: true });
+    expect(resolveMergeRoute({ state: "READY_TO_MERGE", mode: "authorized-unattended", queueEnabled: false })).toMatchObject({ route: "direct", allowed: true });
+    expect(resolveMergeRoute({ state: "WAITING_CI", mode: "authorized-unattended", queueEnabled: true }).allowed).toBe(false);
     expect(resolveMergeRoute({ state: "READY_TO_MERGE", mode: "unattended", queueEnabled: true }).allowed).toBe(false);
     expect(resolveMergeRoute({ state: "WAITING_CI", mode: "attended", queueEnabled: true }).allowed).toBe(false);
   });

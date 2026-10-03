@@ -23,7 +23,7 @@ test('full checkout ancestry validation works without any remote access and reje
 });
 
 test('both workflows reuse checkout refs and never fetch origin after credentials cleanup', () => {
-  for (const name of ['prepare-cn-release', 'promote-cn-production']) {
+  for (const name of ['promote-cn-production']) {
     const source = readFileSync(`.github/workflows/${name}.yml`, 'utf8');
     assert.match(source, /fetch-depth: 0/);
     assert.match(source, /persist-credentials: false/);
@@ -33,3 +33,5 @@ test('both workflows reuse checkout refs and never fetch origin after credential
     assert.match(source, /GIT_NO_LAZY_FETCH=1/);
   }
 });
+
+test('prepare exports verified domestic cache instead of cross-border checkout or writer',()=>{const source=readFileSync('.github/workflows/prepare-cn-release.yml','utf8');assert.doesNotMatch(source,/actions\/checkout|git .*fetch/);assert.match(source,/workspacex-cn-export-source/);assert.match(source,/git merge-base --is-ancestor/);});

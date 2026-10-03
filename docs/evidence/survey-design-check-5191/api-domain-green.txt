@@ -1,0 +1,10 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/survey-report-echarts/apps/api
+
+ ✓ tests/survey/publish-gate-domain.test.ts (8 tests) 9ms
+
+ Test Files  1 passed (1)
+      Tests  8 passed (8)
+   Start at  09:42:13
+   Duration  146ms (transform 42ms, setup 0ms, collect 50ms, tests 9ms, environment 0ms, prepare 28ms)
+

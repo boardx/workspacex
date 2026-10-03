@@ -74,9 +74,8 @@ test("发布门控展示全部阻断，修复后显式进入回收且匿名方�
   });
   expect(created.status).toBe(201);
 
-  await page.goto(`/studio/survey/${created.data.id}/publish`);
-  await page.getByRole("button", { name: "检查发布条件" }).click();
-  await expect(page.getByText("发现 5 项发布阻断")).toBeVisible();
+  await page.goto(`/studio/survey/${created.data.id}`);
+  await expect(page.getByText("发现 5 项设计问题")).toBeVisible();
   await expect(page.getByText(/题目措辞可能带有诱导性/)).toBeVisible();
   await expect(page.getByText("题目配置不完整或无效")).toBeVisible();
   await expect(page.getByText(/选项题必须包含有效选项/)).toBeVisible();
@@ -90,8 +89,8 @@ test("发布门控展示全部阻断，修复后显式进入回收且匿名方�
   });
   expect(repaired.status).toBe(200);
   await page.reload();
-  await page.getByRole("button", { name: "检查发布条件" }).click();
-  await expect(page.getByText("发布准备已完成")).toBeVisible();
+  await expect(page.getByRole("region", { name: "设计检查" })).toHaveText("设计检查通过");
+  await page.getByRole("button", { name: "2. 发布回收" }).click();
   await page.getByRole("button", { name: "开始回收" }).click();
   await expect(page.getByText(/正在回收 · 0 份答卷/)).toBeVisible();
 

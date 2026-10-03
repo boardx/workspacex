@@ -4,7 +4,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Brush, ChevronUp, Hand, ImagePlus, MousePointer2, Type, MoreHorizontal } from "lucide-react";
 import {BoardStickyPicker} from "./board-sticky-picker";
 import {STICKY_COLOR_PRESETS} from "@repo/whiteboard-core";
-import { ShapeToolPreview } from "./board-tool-preview";
+import { StickyToolPreview, ShapeToolPreview } from "./board-tool-preview";
 import { BoardConnectorPicker } from "./board-connector-picker";
 import { ConnectorToolPreview } from "./board-connector-preview";
 import { validateTextAttributes } from "@repo/whiteboard-core";
@@ -59,6 +59,7 @@ const MORE: Array<{ contentType: BoardStructuredKind; label: string }> = [{ cont
 
 export function BoardBottomDock({ editing=false,connectorEnabled=false,stickyColor=STICKY_COLOR_PRESETS.yellow,onStickyColorChange,extension, activeTool, creationTool, readOnly, onToolChange, onCreationToolChange, onQuickCreate, onBulkSticky, onImageRequest }: BoardBottomDockProps) {
   const dockRef = useRef<HTMLElement>(null);
+  const toolDragActive = useRef(false);
   // React portals retain this component ancestry even though their DOM lives
   // outside nav. Do not unmount an extension before its portal receives a click
   // or before Dialog restores focus after Escape.
@@ -101,7 +102,16 @@ export function BoardBottomDock({ editing=false,connectorEnabled=false,stickyCol
     return () => { observer?.disconnect(); window.removeEventListener("resize", update); scroller?.removeEventListener("scroll", update); };
   }, [pickerOpen, pickerKind]);
   return (
-    <nav data-testid="board-creation-dock" data-board-chrome="dock" ref={dockRef} onPointerDownCapture={capturePortalEvent} onKeyDownCapture={capturePortalEvent} aria-label="白板工具" className={cn("absolute bottom-5 inset-x-4 z-30 mx-auto w-max max-w-[calc(100vw-2rem)]",editing&&"max-sm:hidden")}>
+    <nav data-testid="board-creation-dock" data-board-chrome="dock" ref={dockRef} onPointerDownCapture={capturePortalEvent} onKeyDownCapture={capturePortalEvent}
+      onDragStart={(event) => { toolDragActive.current = Boolean(dockRef.current?.contains(event.target as Node) && Array.from(event.dataTransfer.types ?? []).includes("application/x-workspacex-board-tool")); }}
+      onDragEnd={() => {
+        if (!toolDragActive.current) return;
+        toolDragActive.current = false;
+        setPickerOpen(false);
+        onCreationToolChange(null);
+        onToolChange("select");
+      }}
+      aria-label="白板工具" className={cn("absolute bottom-5 inset-x-4 z-30 mx-auto w-max max-w-[calc(100vw-2rem)]",editing&&"max-sm:hidden")}>
       {pickerOpen && (stickyOpen || textOpen || shapeOpen || contentOpen || connectorOpen) && (
         <div data-testid="board-tool-picker" data-picker-anchor={creationTool?.kind} style={{ position: "absolute", bottom: "100%", left: pickerPosition.left, width: pickerPosition.width, marginBottom: 16, maxHeight: "min(320px, calc(100dvh - 180px))" }} className="flex min-w-0 flex-wrap items-center justify-center gap-2 overflow-auto rounded-lg border border-border-subtle bg-card p-2 shadow-lg motion-safe:animate-in motion-safe:slide-in-from-bottom-2 motion-safe:fade-in">
           {stickyOpen ? <BoardStickyPicker color={stickyColor} variant={creationTool.variant} readOnly={readOnly} onColorChange={value=>onStickyColorChange?.(value)} onVariantChange={variant=>onCreationToolChange({kind:"sticky",variant})} onBulk={onBulkSticky}/> : textOpen ? TEXT_PRESETS.map(({ preset, label }) => (
@@ -113,7 +123,7 @@ export function BoardBottomDock({ editing=false,connectorEnabled=false,stickyCol
               disabled={readOnly}
               onClick={() => onCreationToolChange({ kind: "text", preset })} draggable={!readOnly} onDragStart={event=>event.dataTransfer.setData(BOARD_TOOL_DRAG_MIME,JSON.stringify({kind:"text",preset}))}
               className={cn("min-h-11 rounded-xl px-3 text-13 transition duration-fast motion-safe:hover:-translate-y-0.5 hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:bg-disabled disabled:text-disabled-foreground", creationTool.preset === preset && "bg-primary text-primary-foreground hover:bg-primary-hover hover:text-primary-foreground")}
-            ><span style={{fontSize:Math.max(12,Math.round(validateTextAttributes({preset}).fontSize*.75))}}>{label}</span></button>
+            ><span style={{fontSize:Math.max(12,Math.round(validateTextAttributes({preset}).fontSize*.75)),fontWeight:validateTextAttributes({preset}).bold?700:400}}>{label}</span></button>
           )) : shapeOpen ? SHAPES.map(({ variant, label }) => <button key={variant} type="button" data-testid={`board-shape-${variant}`} aria-pressed={creationTool.variant === variant} disabled={readOnly} onClick={() => onCreationToolChange({ kind: "shape", variant })} draggable={!readOnly} onDragStart={event=>event.dataTransfer.setData(BOARD_TOOL_DRAG_MIME,JSON.stringify({kind:"shape",variant}))} className={cn("flex min-h-11 items-center gap-2 rounded-xl px-3 text-13 transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring", creationTool.variant === variant && "bg-primary text-primary-foreground hover:bg-primary-hover hover:text-primary-foreground")}><ShapeToolPreview variant={variant}/><span>{label}</span></button>)
             : contentOpen ? <>{MORE.map(({ contentType, label }) => <button key={contentType} type="button" data-testid={`board-content-${contentType}`} aria-pressed={creationTool.contentType === contentType} disabled={readOnly} onClick={() => { setPickerOpen(true); const next = { kind: "content", contentType } as const; onCreationToolChange(next); onQuickCreate(next); }} className={cn("min-h-11 rounded-xl px-3 text-13 transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring", creationTool.contentType === contentType && "bg-primary text-primary-foreground hover:bg-primary-hover hover:text-primary-foreground")}>{label}</button>)}{extension}</>
               : connectorOpen ? <BoardConnectorPicker value={creationTool.connectorType} disabled={readOnly} onChange={connectorType=>onCreationToolChange({kind:"connector",connectorType})}/> : null}
@@ -124,9 +134,9 @@ export function BoardBottomDock({ editing=false,connectorEnabled=false,stickyCol
         <DockButton testId="board-tool-select" label="选择" shortcut="V" pressed={activeTool === "select" && !creationTool} onClick={() => { onCreationToolChange(null); onToolChange("select"); }}><MousePointer2 className="h-5 w-5" /></DockButton>
         <DockButton testId="board-tool-hand" label="移动画布" shortcut="H" pressed={activeTool === "hand"} onClick={() => { onCreationToolChange(null); onToolChange("hand"); }}><Hand className="h-5 w-5" /></DockButton>
         <span aria-hidden="true" className="mx-1 h-10 w-px bg-border" />
-        <DockButton testId="board-add-sticky" dragTool={{...(creationTool?.kind==="sticky"?creationTool:recent.current.sticky),color:stickyColor}} submenu label="便利贴" shortcut="N" pressed={stickyOpen} disabled={readOnly} onClick={() => { setPickerOpen(true); const next = stickyOpen ? creationTool : recent.current.sticky; onToolChange("select"); onCreationToolChange(next); }}><span data-sticky-variant={stickyPreviewVariant} aria-hidden="true" className="block h-6 w-6 shrink-0 rounded-sm border border-border/30 shadow-sm" style={{width:24,height:24,backgroundColor:stickyColor,borderRadius:stickyPreviewVariant==="circle"?"50%":2,clipPath:stickyPreviewVariant==="rectangle"?"inset(15% 0)":undefined}}/></DockButton>
+        <DockButton testId="board-add-sticky" dragTool={{...(creationTool?.kind==="sticky"?creationTool:recent.current.sticky),color:stickyColor}} submenu label="便利贴" shortcut="N" pressed={stickyOpen} disabled={readOnly} onClick={() => { setPickerOpen(true); const next = stickyOpen ? creationTool : recent.current.sticky; onToolChange("select"); onCreationToolChange(next); }}><StickyToolPreview variant={stickyPreviewVariant} color={stickyColor}/></DockButton>
         <DockButton testId="board-add-text" dragTool={creationTool?.kind==="text"?creationTool:recent.current.text} submenu label="文字" shortcut="T" pressed={textOpen} disabled={readOnly} onClick={() => { setPickerOpen(true); const next = textOpen ? creationTool : recent.current.text; onToolChange("select"); onCreationToolChange(next); }}><Type className="h-5 w-5" /></DockButton>
-        <DockButton testId="board-add-shape" dragTool={creationTool?.kind==="shape"?creationTool:recent.current.shape} submenu label="形状" shortcut="S" pressed={shapeOpen} disabled={readOnly} onClick={() => { setPickerOpen(true); const next = shapeOpen ? creationTool : recent.current.shape; onToolChange("select"); onCreationToolChange(next); }}><ShapeToolPreview variant={recent.current.shape.kind==="shape"?recent.current.shape.variant:"rounded-rectangle"}/></DockButton>
+        <DockButton testId="board-add-shape" dragTool={creationTool?.kind==="shape"?creationTool:recent.current.shape} submenu label="形状" shortcut="S" pressed={shapeOpen} disabled={readOnly} onClick={() => { setPickerOpen(true); const next = shapeOpen ? creationTool : recent.current.shape; onToolChange("select"); onCreationToolChange(next); }}><ShapeToolPreview variant={shapeOpen?creationTool.variant:recent.current.shape.kind==="shape"?recent.current.shape.variant:"rounded-rectangle"}/></DockButton>
         <DockButton testId="board-add-draw" submenu label="绘制" shortcut="P" pressed={drawOpen} disabled={readOnly} onClick={() => { setPickerOpen(false); onCreationToolChange(null); onToolChange("draw-pen"); }}><Brush className="h-5 w-5" /></DockButton>
         <DockButton testId="board-add-image" label="图片" shortcut="I" pressed={false} disabled={readOnly} onClick={onImageRequest}><ImagePlus className="h-5 w-5" /></DockButton>
         {connectorEnabled&&<DockButton testId="board-add-connector" submenu label="连接线" shortcut="" pressed={connectorOpen} disabled={readOnly} onClick={()=>{setPickerOpen(true);onToolChange("select");onCreationToolChange({kind:"connector",connectorType:connectorOpen?creationTool.connectorType:"straight"});}}><ConnectorToolPreview type={connectorOpen?creationTool.connectorType:"straight"}/></DockButton>}
@@ -139,6 +149,6 @@ export function BoardBottomDock({ editing=false,connectorEnabled=false,stickyCol
 
 function DockButton({ testId, label, shortcut, pressed, disabled, onClick, children, dragTool, submenu }: { dragTool?: Exclude<BoardCreationTool,null> & {color?:string}; submenu?: boolean; testId?: string; label: string; shortcut: string; pressed: boolean; disabled?: boolean; onClick: () => void; children: React.ReactNode }) {
   return <button type="button" draggable={Boolean(dragTool)&&!disabled} onDragStart={event=>{if(!dragTool||disabled)return;event.dataTransfer.setData(BOARD_TOOL_DRAG_MIME,JSON.stringify(dragTool));event.dataTransfer.effectAllowed="copy";}} data-testid={testId} title={shortcut ? `${label} (${shortcut})` : label} aria-label={shortcut ? `${label}，快捷键 ${shortcut}` : label} aria-pressed={pressed} disabled={disabled} onClick={onClick} style={{minHeight:56,minWidth:56,paddingInline:8}} className={cn("group flex shrink-0 flex-col items-center justify-center gap-1 rounded-xl text-11 transition-colors duration-fast hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:bg-disabled disabled:text-disabled-foreground", pressed && "bg-primary text-primary-foreground shadow-md hover:bg-primary-hover hover:text-primary-foreground")}>
-    <span style={{width:24,height:24}} className="relative grid shrink-0 place-items-center transition-transform motion-safe:group-hover:scale-110 [&>span]:!h-full [&>span]:!w-full [&>svg:not(.submenu)]:!h-full [&>svg:not(.submenu)]:!w-full">{children}{submenu?<ChevronUp data-testid={`${testId}-submenu`} aria-hidden className="submenu absolute -right-2 -top-1 h-3 w-3"/>:null}</span><span className="leading-none max-sm:sr-only">{label}</span>
+    <span style={{width:24,height:24}} className="relative grid shrink-0 place-items-center transition-transform motion-safe:group-hover:scale-110 [&>svg:not(.submenu)]:!h-full [&>svg:not(.submenu)]:!w-full">{children}{submenu?<ChevronUp data-testid={`${testId}-submenu`} aria-hidden className="submenu absolute -right-2 -top-1 h-3 w-3"/>:null}</span><span className="leading-none max-sm:sr-only">{label}</span>
   </button>;
 }
