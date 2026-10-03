@@ -4,7 +4,7 @@
   "baseCommit": "64cc2b85053823a4c7461eb404b9f3a99c749a33",
   "applicationRevision": "9b25bfa65662b96c0826fe67506b562ea46aa6d0",
   "baselineRevision": "ba6343199f3c834d6a198f83d0c771614292c82b",
-  "sourceInventorySha256": "35d758fb25db51d5f0f2240994846293aab60344c16a9818e173d61ff56217b6",
+  "sourceInventorySha256": "d40f9490c5f34b03101f5d5eb165ca36bfa4b718421740e49a5280632584ef59",
   "sourceRows": [
     {
       "path": ".harness/scripts/build-cn-maintenance-controller.cjs",
@@ -413,8 +413,8 @@
     },
     {
       "path": "deploy/aliyun/cn-maintenance-source-handoff.md",
-      "sha256": "059b950222252f117517d9f59899db525c04cfce063eff64cc91daab939d4825",
-      "bytes": 2528
+      "sha256": "78f703e97998b345467bfd3f505b85d8b772abcc18e84232617dfba481a07148",
+      "bytes": 3673
     },
     {
       "path": "deploy/aliyun/cn-tool-install-recovery.md",
@@ -628,7 +628,8 @@
   "ready": false,
   "remainingImplementation": [
     "maintenance acceptance ordering/writer-lane design and implementation (startup rejects before mutation)",
-    "prehold common-snapshot/full-object/retained full-catalog proof collectors and independent validators remain incomplete"
+    "prehold common-snapshot/full-object/retained full-catalog proof collectors and independent validators remain incomplete",
+    "held diagnostic preactivate consumer: legacy bootstrap collector is rejected before invocation"
   ],
   "remainingExecution": [
     "exact reviewed merged tool revision and fresh complete host/runtime inventory",
