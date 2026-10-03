@@ -116,10 +116,14 @@ export function refusedOutcome(code: AgentWorkflowStartRefusalCode, workflowId: 
 }
 
 export function startedOutcome(workflowId: string, started: Pick<StartInstanceResponse, "instanceId" | "status" | "definitionVersion">): AgentWorkflowStartOutcome {
+  const instancePath = `/workflows/runs/${encodeURIComponent(started.instanceId)}`;
   return {
     status: "started", workflowId, instanceId: started.instanceId, instanceStatus: started.status,
     definitionVersion: started.definitionVersion,
-    message: `已发起流程 ${workflowId}（实例 ${started.instanceId}），流程正在后台运行。`,
+    message: `已发起流程 ${workflowId}（实例 ${started.instanceId}）。这是工作流实例，发起时返回状态为 ${started.status}；` +
+      `当前进展、审批和产物请查看[流程详情](${instancePath})。` +
+      "该实例 ID 不是 Agent runId，不要把它传给 wx_run_status。" +
+      "不要重复发起；状态查询失败不代表该流程失败，也不能据此声称已完成或已有产物。",
   };
 }
 

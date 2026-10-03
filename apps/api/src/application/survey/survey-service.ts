@@ -1,3 +1,4 @@
+import { isSurveyCollectionWindowValid, SURVEY_COLLECTION_DEFAULT_DAYS, surveyCollectionAccessError } from "@repo/contracts/survey-collection-window";
 import { isDeepStrictEqual } from "node:util";
 import { browserProof, browserProofHash } from './browser-proof';
 import {
@@ -81,6 +82,8 @@ export class SurveyError extends Error {
       | "invalid_survey"
       | "closed"
       | "expired"
+      | "not_started"
+      | "invalid_collection_window"
       | "invalid_answers"
       | "submission_conflict"
       | "already_submitted"
@@ -361,11 +364,14 @@ export class SurveyService {
     orgId: OrgId,
     model: SurveyRuntime,
     expiresAt?: string,
+    startsAt?: string,
   ) {
-    const end = expiresAt
-      ? new Date(expiresAt)
-      : new Date(this.now().getTime() + 30 * 86400000);
-    if (end.getTime() <= this.now().getTime())
+    const now = this.now();
+    const start = startsAt ? new Date(startsAt) : now;
+    const end = expiresAt ? new Date(expiresAt) : new Date(start.getTime() + SURVEY_COLLECTION_DEFAULT_DAYS * 86400000);
+    if (!Number.isFinite(start.getTime()) || !Number.isFinite(end.getTime()) || !isSurveyCollectionWindowValid(start.toISOString(), end.toISOString()))
+      throw new SurveyError("invalid_collection_window");
+    if (end.getTime() <= now.getTime())
       throw new SurveyError("expired");
     const token = `${Buffer.from(JSON.stringify([orgId, model.id])).toString("base64url")}.${randomBytes(32).toString("base64url")}`;
     const publication: NonNullable<SurveyRuntime["publication"]> = {
@@ -373,6 +379,7 @@ export class SurveyService {
       status: "collecting",
       questions: structuredClone(model.questions),
       version: model.version,
+      startsAt: start.toISOString(),
       expiresAt: end.toISOString(),
       sourceSnapshot: model.source ? {
         documents: structuredClone(model.source.documents),
@@ -380,7 +387,7 @@ export class SurveyService {
         contentHash: model.source.contentHash,
       } : undefined,
     };
-    const batch = { ...publication, id: randomUUID(), createdAt: this.now().toISOString(), closedAt: null };
+    const batch = { ...publication, id: randomUUID(), createdAt: now.toISOString(), closedAt: null };
     model.collectionBatches = [...(model.collectionBatches ?? []), batch];
     model.activeCollectionBatchId = batch.id;
     model.publication = publication;
@@ -391,6 +398,7 @@ export class SurveyService {
     id: string,
     version: number,
     expiresAt?: string,
+    startsAt?: string,
   ) {
     return this.change(orgId, actor, id, version, (model) => {
       try {
@@ -408,7 +416,7 @@ export class SurveyService {
           throw new SurveyError("invalid_transition");
         throw error;
       }
-      this.startPublication(orgId, model, expiresAt);
+      this.startPublication(orgId, model, expiresAt, startsAt);
     });
   }
   publish(
@@ -417,6 +425,7 @@ export class SurveyService {
     id: string,
     version: number,
     expiresAt?: string,
+    startsAt?: string,
   ) {
     return this.change(orgId, actor, id, version, (m) => {
       if (m.publication) throw new SurveyError("closed");
@@ -432,7 +441,7 @@ export class SurveyService {
           throw new SurveyError("invalid_transition");
         throw error;
       }
-      this.startPublication(orgId, m, expiresAt);
+      this.startPublication(orgId, m, expiresAt, startsAt);
     });
   }
   close(orgId: OrgId, actor: string, id: string, version: number) {
@@ -450,13 +459,13 @@ export class SurveyService {
       m.collectionBatches = (m.collectionBatches ?? []).map((batch) => batch.id === m.activeCollectionBatchId ? { ...batch, status: "closed", closedAt } : batch);
     });
   }
-  republish(orgId: OrgId, actor: string, id: string, version: number, expiresAt?: string) {
+  republish(orgId: OrgId, actor: string, id: string, version: number, expiresAt?: string, startsAt?: string) {
     return this.change(orgId, actor, id, version, (model) => {
       try { model.status = transitionSurveyStatus(model.status, "republish"); }
       catch (error) { if (error instanceof InvalidSurveyTransitionError) throw new SurveyError("invalid_transition"); throw error; }
       const blockers = evaluateSurveyForPublish(model);
       if (blockers.length) throw new SurveyPublishBlockedError(blockers);
-      this.startPublication(orgId, model, expiresAt);
+      this.startPublication(orgId, model, expiresAt, startsAt);
     });
   }
   review(
@@ -593,9 +602,8 @@ export class SurveyService {
       : null);
     if (!p)
       throw new SurveyError("not_found");
-    if (p.status !== "collecting") throw new SurveyError("closed");
-    if (new Date(p.expiresAt).getTime() <= this.now().getTime())
-      throw new SurveyError("expired");
+    const accessError = surveyCollectionAccessError(p, this.now().getTime());
+    if (accessError) throw new SurveyError(accessError);
     return p;
   }
   publicGet(token: string) {
@@ -607,6 +615,7 @@ export class SurveyService {
         title: r.model.title,
         questions: p.questions,
         version: p.version,
+        startsAt: p.startsAt,
         expiresAt: p.expiresAt,
         ...this.collectionSettings(p),
       };
@@ -631,7 +640,7 @@ export class SurveyService {
         const browserHash=browserProofHash(r.browserProofKey,token,signedProof);
         alreadySubmitted=Object.values(r.receipts).some(receipt=>receipt.browserHash===browserHash);
       }
-      return {data:{id,title:p.sourceSnapshot?.compiled.title ?? r.model.title,questions:p.questions,version:p.version,expiresAt:p.expiresAt,...settings,alreadySubmitted},browserProof:signedProof};
+      return {data:{id,title:p.sourceSnapshot?.compiled.title ?? r.model.title,questions:p.questions,version:p.version,startsAt:p.startsAt,expiresAt:p.expiresAt,...settings,alreadySubmitted},browserProof:signedProof};
     });
   }
   submit(token: string, input: SurveySubmissionInput, proof?: string) {
