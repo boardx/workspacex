@@ -113,7 +113,7 @@ it('dismisses the actual selected-object inspector without a canonical write bef
   const host=view.getByTestId('hit-host'),canvas=host.querySelector('canvas.upper-canvas')!;
   Object.defineProperty(document,'elementFromPoint',{configurable:true,value:()=>view.queryByTestId('board-context-toolbar')?.querySelector('button')??canvas});
   expect(()=>nativeBlankHitPoint(host,{points:candidates,geometry,hitPolicy:diagnosticPolicy})).toThrow('NO_NATIVE_BLANK_POSITION');
-  const cancel=view.getByRole('button',{name:'取消选择',exact:true});cancel.focus();expect(cancel).toHaveFocus();fireEvent.click(cancel);
+  const cancel=view.getByRole('button',{name:/^取消选择$/});cancel.focus();expect(cancel).toHaveFocus();fireEvent.click(cancel);
   expect(view.queryByTestId('board-context-toolbar')).toBeNull();
   expect(nativeBlankHitPoint(host,{points:candidates,geometry,hitPolicy:diagnosticPolicy})).toEqual(candidates[0]);
   expect(readObjects(doc)).toEqual(before);expect(writes).not.toHaveBeenCalled();expect(geometry.paperMargin).toBe(80);
