@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://workspacex.boardx.us/sitemap.xml
+Sitemap: https://www.boardx.us/sitemap.xml

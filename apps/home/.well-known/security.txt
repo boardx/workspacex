@@ -2,5 +2,5 @@
 Contact: mailto:security@boardx.us
 Expires: 2027-09-22T00:00:00.000Z
 Preferred-Languages: en, zh-Hans
-Canonical: https://workspacex.boardx.us/.well-known/security.txt
-Policy: https://workspacex.boardx.us/privacy.html
+Canonical: https://www.boardx.us/.well-known/security.txt
+Policy: https://www.boardx.us/privacy.html
