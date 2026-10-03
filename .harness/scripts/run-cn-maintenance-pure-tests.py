@@ -1,0 +1,10 @@
+#!/usr/bin/env python3
+"""CI-visible pure fixture checks. No deployment, container or DB command."""
+import pathlib,subprocess,sys
+ROOT=pathlib.Path(__file__).resolve().parents[2]
+VM=ROOT/'.harness/scripts/vm'
+TESTS=['cn_tool_profile_test.py','cn_maintenance_host_launcher_test.py','cn_maintenance_recovery_evidence_verifier_test.py','cn_production_recovery_cli_test.py','cn_production_recovery_executor_test.py','cn_tool_install_transaction_test.py','prepare_cn_tool_install_test.py']
+for test in TESTS:
+ subprocess.run([sys.executable,'-B',str(VM/test)],cwd=ROOT,check=True,timeout=20)
+subprocess.run([sys.executable,'-B','-m','unittest','discover','-s',str(VM),'-p','test_*.py'],cwd=ROOT,check=True,timeout=20)
+subprocess.run(['node','--test',str(VM/'test_control_connection.cjs')],cwd=ROOT,check=True,timeout=20)

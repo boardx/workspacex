@@ -1,0 +1,6 @@
+{
+  "sourceCommit": "64cc2b85053823a4c7461eb404b9f3a99c749a33",
+  "sourcePath": ".harness/scripts/vm/collect-cn-release-preflight.sh",
+  "sha256": "c9bc6dcf2947aee7eae3a43f0cbb8446ab58302a7ac1d4bd57e94b645f26efb8",
+  "purpose": "Known merged build-only collector; comparison asserts operational changes preserved the exact dynamic probe block. Does not claim historical e75 object recovered."
+}

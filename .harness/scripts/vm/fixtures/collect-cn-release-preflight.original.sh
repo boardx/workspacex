@@ -3,14 +3,7 @@
 # one immutable attempt-scoped template for the lock-aware verifier.
 set -euo pipefail
 operational=0
-admission_flag=--operational
-source_admission_flag=--operational-source
-binding_family=operational-bindings
-if [[ ${1:-} == --operational ]]; then operational=1; shift
-elif [[ ${1:-} == --maintenance ]]; then
-  operational=1; admission_flag=--maintenance; source_admission_flag=--maintenance-source
-  binding_family=maintenance-bindings; shift
-fi
+if [[ ${1:-} == --operational ]]; then operational=1; shift; fi
 
 [[ $# -eq 4 && "$1" =~ ^(prebuild|preactivate)$ && "$2" =~ ^[a-f0-9]{40}$ &&
   "$3" =~ ^v?[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9]+([.-][a-zA-Z0-9]+)*)?$ &&
@@ -25,8 +18,8 @@ REPOSITORY_DIR=/opt/workspacex-cn/repository
 TOOL_SOURCE_DIR="$REPOSITORY_DIR"
 if [[ "$operational" == 1 ]]; then
   [[ "$phase" == preactivate && -z ${CN_BUILD_TOOL_BINDING:-} ]] || exit 1
-  operational_binding="/etc/workspacex-cn/$binding_family/$revision/$attempt_id/preactivate.json"
-  operational_root=$(python3 /usr/local/lib/workspacex-cn/cn-build-tool-identity.py "$admission_flag" "$operational_binding" "$revision" "$release" "$attempt_id" "$phase") || exit 1
+  operational_binding="/etc/workspacex-cn/operational-bindings/$revision/$attempt_id/preactivate.json"
+  operational_root=$(python3 /usr/local/lib/workspacex-cn/cn-build-tool-identity.py --operational "$operational_binding" "$revision" "$release" "$attempt_id" "$phase") || exit 1
   TOOL_SOURCE_DIR="$operational_root"
 elif [[ -n ${CN_BUILD_TOOL_BINDING:-} ]]; then
   TOOL_SOURCE_DIR=$(python3 /usr/local/lib/workspacex-cn/cn-build-tool-identity.py "$CN_BUILD_TOOL_BINDING" "$revision" "$release" "$attempt_id" "$phase") || exit 1
@@ -57,7 +50,7 @@ if flock -n 8; then flock -u 8; fail "canonical release lock is not held by this
   fail "repository is not the exact candidate"
 [[ -z "$(git -C "$REPOSITORY_DIR" status --porcelain)" ]] || fail "candidate repository is dirty"
 if [[ "$operational" == 1 ]]; then
-  SOURCE_MIRROR=$(python3 /usr/local/lib/workspacex-cn/cn-build-tool-identity.py "$source_admission_flag" "$operational_binding" "$revision" "$release" "$attempt_id" "$phase") || exit 1
+  SOURCE_MIRROR=$(python3 /usr/local/lib/workspacex-cn/cn-build-tool-identity.py --operational-source "$operational_binding" "$revision" "$release" "$attempt_id" "$phase") || exit 1
   source_ref=refs/heads/candidate
 elif [[ -n ${CN_BUILD_TOOL_BINDING:-} ]]; then
   SOURCE_MIRROR=$(python3 /usr/local/lib/workspacex-cn/cn-build-tool-identity.py --source "$CN_BUILD_TOOL_BINDING" "$revision" "$release" "$attempt_id" "$phase") || exit 1

@@ -1,6 +1,15 @@
 #!/usr/bin/env bash
 # Validate and persist one exact, root-protected CN release preflight receipt.
 set -euo pipefail
+operational=0
+admission_flag=--operational
+source_admission_flag=--operational-source
+binding_family=operational-bindings
+if [[ ${1:-} == --operational ]]; then operational=1; shift
+elif [[ ${1:-} == --maintenance ]]; then
+  operational=1; admission_flag=--maintenance; source_admission_flag=--maintenance-source
+  binding_family=maintenance-bindings; shift
+fi
 
 [[ $# -eq 4 && "$1" =~ ^(prebuild|preactivate)$ && "$2" =~ ^[a-f0-9]{40}$ && "$3" =~ ^v?[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9]+([.-][a-zA-Z0-9]+)*)?$ && "$4" =~ ^[a-z0-9][a-z0-9._-]{0,127}$ ]] || {
   echo "usage: verify-cn-release-preflight <prebuild|preactivate> <40-hex-revision> <semantic-release> <attempt-id>" >&2
@@ -59,7 +68,12 @@ work=$(mktemp -d /tmp/workspacex-cn-preflight.XXXXXX)
 cleanup() { rm -rf -- "$work"; }
 trap cleanup EXIT
 validator="$work/validate_preflight.py"
-if [[ -n ${CN_BUILD_TOOL_BINDING:-} ]]; then
+if [[ "$operational" == 1 ]]; then
+  [[ "$phase" == preactivate && -z ${CN_BUILD_TOOL_BINDING:-} ]] || exit 1
+  operational_binding="/etc/workspacex-cn/$binding_family/$revision/$attempt_id/preactivate.json"
+  operational_root=$(python3 /usr/local/lib/workspacex-cn/cn-build-tool-identity.py "$admission_flag" "$operational_binding" "$revision" "$release" "$attempt_id" "$phase") || exit 1
+  cp "$operational_root/.agents/skills/workspacex-cn-release/scripts/validate_preflight.py" "$validator"
+elif [[ -n ${CN_BUILD_TOOL_BINDING:-} ]]; then
   tool_root=$(python3 /usr/local/lib/workspacex-cn/cn-build-tool-identity.py "$CN_BUILD_TOOL_BINDING" "$revision" "$release" "$attempt_id" "$phase") || exit 1
   [[ "$tool_root" == "${CN_BUILD_TOOL_ROOT:-}" ]] || exit 1
   cp "$tool_root/.agents/skills/workspacex-cn-release/scripts/validate_preflight.py" "$validator"

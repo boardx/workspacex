@@ -2,15 +2,6 @@
 # Root-only aggregate collector. It performs live probes and atomically installs
 # one immutable attempt-scoped template for the lock-aware verifier.
 set -euo pipefail
-operational=0
-admission_flag=--operational
-source_admission_flag=--operational-source
-binding_family=operational-bindings
-if [[ ${1:-} == --operational ]]; then operational=1; shift
-elif [[ ${1:-} == --maintenance ]]; then
-  operational=1; admission_flag=--maintenance; source_admission_flag=--maintenance-source
-  binding_family=maintenance-bindings; shift
-fi
 
 [[ $# -eq 4 && "$1" =~ ^(prebuild|preactivate)$ && "$2" =~ ^[a-f0-9]{40}$ &&
   "$3" =~ ^v?[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9]+([.-][a-zA-Z0-9]+)*)?$ &&
@@ -23,12 +14,7 @@ phase=$1 revision=$2 release=$3 attempt_id=$4
 
 REPOSITORY_DIR=/opt/workspacex-cn/repository
 TOOL_SOURCE_DIR="$REPOSITORY_DIR"
-if [[ "$operational" == 1 ]]; then
-  [[ "$phase" == preactivate && -z ${CN_BUILD_TOOL_BINDING:-} ]] || exit 1
-  operational_binding="/etc/workspacex-cn/$binding_family/$revision/$attempt_id/preactivate.json"
-  operational_root=$(python3 /usr/local/lib/workspacex-cn/cn-build-tool-identity.py "$admission_flag" "$operational_binding" "$revision" "$release" "$attempt_id" "$phase") || exit 1
-  TOOL_SOURCE_DIR="$operational_root"
-elif [[ -n ${CN_BUILD_TOOL_BINDING:-} ]]; then
+if [[ -n ${CN_BUILD_TOOL_BINDING:-} ]]; then
   TOOL_SOURCE_DIR=$(python3 /usr/local/lib/workspacex-cn/cn-build-tool-identity.py "$CN_BUILD_TOOL_BINDING" "$revision" "$release" "$attempt_id" "$phase") || exit 1
   [[ "$TOOL_SOURCE_DIR" == "${CN_BUILD_TOOL_ROOT:-}" ]] || exit 1
 fi
@@ -56,10 +42,7 @@ if flock -n 8; then flock -u 8; fail "canonical release lock is not held by this
 [[ -d "$REPOSITORY_DIR/.git" && "$(git -C "$REPOSITORY_DIR" rev-parse HEAD)" == "$revision" ]] ||
   fail "repository is not the exact candidate"
 [[ -z "$(git -C "$REPOSITORY_DIR" status --porcelain)" ]] || fail "candidate repository is dirty"
-if [[ "$operational" == 1 ]]; then
-  SOURCE_MIRROR=$(python3 /usr/local/lib/workspacex-cn/cn-build-tool-identity.py "$source_admission_flag" "$operational_binding" "$revision" "$release" "$attempt_id" "$phase") || exit 1
-  source_ref=refs/heads/candidate
-elif [[ -n ${CN_BUILD_TOOL_BINDING:-} ]]; then
+if [[ -n ${CN_BUILD_TOOL_BINDING:-} ]]; then
   SOURCE_MIRROR=$(python3 /usr/local/lib/workspacex-cn/cn-build-tool-identity.py --source "$CN_BUILD_TOOL_BINDING" "$revision" "$release" "$attempt_id" "$phase") || exit 1
   source_ref=refs/heads/candidate
 else
@@ -124,9 +107,6 @@ active_compose=$(docker inspect --format '{{index .Config.Labels "com.docker.com
 baseline_runtime=${active_compose%/compose.json}
 baseline_sha=${baseline_runtime#"$RUNTIME_ROOT"/}
 [[ "$baseline_sha" =~ ^[a-f0-9]{40}$ ]] || fail "active baseline SHA is invalid"
-if [[ "$operational" == 1 ]]; then
-  [[ "$(node -e 'process.stdout.write(require(process.argv[1]).baselineRevision)' "$operational_binding")" == "$baseline_sha" ]] || fail "operational active baseline differs"
-fi
 baseline_secrets="$baseline_runtime/secrets"
 legacy_flag=()
 if [[ -e "$baseline_runtime/stable-secret-directory.ref" ]]; then
