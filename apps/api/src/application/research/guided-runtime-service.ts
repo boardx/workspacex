@@ -441,10 +441,10 @@ export class GuidedRuntimeService {
         }
     };
     const scopeOrder = [...state.outline].filter((section) => section.enabled).sort((a, b) => a.order - b.order).map((section) => section.id);
-    const groups = [...new Set([...scopeOrder, ...remaining.map((task) => task.sectionId)])].map((id) => remaining.filter((task) => task.sectionId === id)).filter((group) => group.length);
+    const groups = [...new Set([...scopeOrder, ...state.tasks.map((task) => task.sectionId)])].map((id) => state.tasks.filter((task) => task.sectionId === id)).filter((group) => group.length);
     for (const group of groups) {
     budget.check();
-    await boundedWork(group, 3, (task) => {
+    await boundedWork(group.filter((task) => remaining.includes(task)), 3, (task) => {
       const index = remaining.indexOf(task);
       const record = records[index];
       return record ? searchWithSourcePolicy(search, record.query, state.sourcePolicy) : Promise.resolve(null);

@@ -104,6 +104,16 @@ describe("bounded search query recovery", () => {
     try { await vi.advanceTimersByTimeAsync(180002); expect((await operation).errorCode).toBe("RESEARCH_WORKFLOW_UNAVAILABLE"); }
     finally { vi.useRealTimers(); }
   });
+  it("retries incomplete supplements without replaying a successful initial query", async () => {
+    const state = seed(); state.tasks[0]!.status = "succeeded";
+    state.errorCode = "RESEARCH_SEARCH_TIME_BUDGET_EXCEEDED";
+    state.tasks[0]!.searchAttempts = [{ query: original, status: "succeeded", errorCode: null }, { query: "partial supplement", status: "failed", errorCode: state.errorCode }];
+    state.sources = [{ ...hit, id: "prior", taskId: "task", decision: "accepted", retrievedAt: "now", document: { text: hit.content, url: hit.url, retrievedAt: "now", contentHash: "a".repeat(64), contentKind: "text", truncated: false } }];
+    const f = fixture(state, async () => ({ text: hit.content, contentKind: "text", truncated: false }));
+    await f.run("retry");
+    expect(f.search.mock.calls.length).toBeGreaterThan(0);
+    expect(f.search.mock.calls.some(([query]) => query === original)).toBe(false);
+  });
   it("executes confirmed scopes in order without overlapping different directions", async () => {
     const state = seed();
     state.outline.push({ id: "second", title: "第二方向", questions: ["第二方向证据？"], enabled: true, order: 1 });
