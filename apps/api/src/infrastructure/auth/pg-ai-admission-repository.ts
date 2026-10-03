@@ -1,11 +1,11 @@
 import type { DatabasePort } from "../../application/ports/database.port";
-import type { AiAdmissionPort, AiReservationInput,AiBudgetPolicyPort } from "../../application/agent-run/ai-admission-ports";
+import type { AiAdmissionPort, AiReservationInput,AiBudgetPolicyPort,AiReservedPricePort } from "../../application/agent-run/ai-admission-ports";
 import type { OrgId } from "../../domain/org-id";
 import { decideAiAdmission } from "../../domain/agent-run/ai-budget";
 import {Configuration} from "@repo/contracts/ai-policy";
 
 /** Shared PostgreSQL admission foundation, deliberately not composed into production yet. */
-export class PgAiAdmissionRepository implements AiAdmissionPort,AiBudgetPolicyPort {
+export class PgAiAdmissionRepository implements AiAdmissionPort,AiBudgetPolicyPort,AiReservedPricePort {
  constructor(private readonly db: DatabasePort) {}
  async resolveBudgetPolicy(orgId:OrgId,userId:string):ReturnType<AiBudgetPolicyPort["resolveBudgetPolicy"]>{
   if(!userId)throw new Error("INVALID_AI_SUBJECT");
@@ -81,7 +81,11 @@ export class PgAiAdmissionRepository implements AiAdmissionPort,AiBudgetPolicyPo
       COALESCE(sum(e.tokens_total) FILTER(WHERE e.total_source<>'unknown' AND NOT EXISTS(SELECT 1 FROM ai_request_reservations r WHERE r.id=e.id AND r.org_id=e.org_id AND r.state='held')),0)::text AS tokens,
       COALESCE(sum(e.cost_micros) FILTER(WHERE e.currency=$5 AND NOT EXISTS(SELECT 1 FROM ai_request_reservations r WHERE r.id=e.id AND r.org_id=e.org_id AND r.state='held')),0)::text AS cost,
       count(*) FILTER(WHERE e.total_source='unknown' AND NOT EXISTS(SELECT 1 FROM ai_request_reservations r WHERE r.id=e.id AND r.org_id=e.org_id AND r.state='held'))::text AS unknown_tokens,
-      count(*) FILTER(WHERE ((e.currency IS DISTINCT FROM $5 AND e.cost_micros IS NOT NULL) OR (e.cost_micros IS NULL AND NOT EXISTS(SELECT 1 FROM ai_request_reservations r WHERE r.id=e.id AND r.org_id=e.org_id AND r.state='held'))))::text AS unknown_cost
+      (count(*) FILTER(WHERE ((e.currency IS DISTINCT FROM $5 AND e.cost_micros IS NOT NULL) OR (e.cost_micros IS NULL AND NOT EXISTS(SELECT 1 FROM ai_request_reservations r WHERE r.id=e.id AND r.org_id=e.org_id AND r.state='held'))))
+       + (SELECT count(*) FROM model_request_starts pending WHERE pending.org_id=$1 AND pending.user_id=$2
+        AND pending.started_at>=$3 AND pending.started_at<$4
+        AND NOT EXISTS(SELECT 1 FROM token_usage_events terminal WHERE terminal.id=pending.id AND terminal.org_id=pending.org_id)
+        AND NOT EXISTS(SELECT 1 FROM ai_request_reservations reserved WHERE reserved.id=pending.id AND reserved.org_id=pending.org_id AND reserved.user_id=pending.user_id AND reserved.state='held')))::text AS unknown_cost
      FROM token_usage_events e WHERE e.org_id=$1 AND e.user_id=$2
       AND COALESCE(e.request_started_at,e.occurred_at)>=$3 AND COALESCE(e.request_started_at,e.occurred_at)<$4`,
      [orgId,input.userId,input.windowStart,input.windowEnd,input.currency]);
@@ -103,6 +107,22 @@ export class PgAiAdmissionRepository implements AiAdmissionPort,AiBudgetPolicyPo
     VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)`,[input.requestId,orgId,input.userId,input.windowStart,input.windowEnd,
      input.maximumTokens.toString(),input.maximumCostMicros.toString(),input.modelProvider,input.modelId,input.currency,input.priceVersion,input.logicalCallId??null,input.logicalAttempt??null,input.maximumAttempts??null]);
    return {decision,replay:false,reservationState:"held" as const};
+  });
+ }
+ async readReservedPrice(orgId:OrgId,requestId:string):ReturnType<AiReservedPricePort["readReservedPrice"]>{
+  return this.db.withTenant(orgId,async s=>{
+   const reservations=await s.query<{user_id:string;model_provider:string;model_id:string;currency:string;price_version:string}>(
+    "SELECT user_id,model_provider,model_id,currency,price_version FROM ai_request_reservations WHERE id=$1 AND org_id=$2",[requestId,orgId]);
+   const reservation=reservations.rows[0];if(!reservation)return null;
+   const snapshots=await s.query<{configuration:unknown}>(
+    "SELECT configuration FROM organization_ai_policy_changes WHERE org_id=$1 AND price_version=$2",[orgId,reservation.price_version]);
+   // Never fall back to current policy or a guessed/legacy price when the audit is absent/ambiguous.
+   if(snapshots.rows.length!==1)throw new Error("AI_RESERVED_PRICE_SNAPSHOT_UNAVAILABLE");
+   const configuration=Configuration.parse(snapshots.rows[0]!.configuration);
+   const matches=configuration.prices.filter(price=>price.modelProvider===reservation.model_provider&&price.runtimeModelId===reservation.model_id);
+   if(matches.length!==1||configuration.currency!==reservation.currency)throw new Error("AI_RESERVED_PRICE_SNAPSHOT_MISMATCH");
+   return {userId:reservation.user_id,modelProvider:reservation.model_provider,modelId:reservation.model_id,
+    currency:reservation.currency,priceVersion:reservation.price_version,price:matches[0]!};
   });
  }
  async settle(orgId:OrgId,requestId:string,usage:{readonly tokens:bigint|null;readonly costMicros:bigint|null}):Promise<void>{

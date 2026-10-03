@@ -27,3 +27,13 @@ export interface AiAdmissionPort {
   readonly tokens: bigint | null; readonly costMicros: bigint | null;
  }): Promise<void>;
 }
+
+export interface AiReservedPrice {
+ readonly userId:string;readonly modelProvider:string;readonly modelId:string;
+ readonly currency:string;readonly priceVersion:string;
+ readonly price:z.infer<typeof Configuration>["prices"][number];
+}
+export interface AiReservedPricePort {
+ /** Immutable reservation + audited policy version, independent of worker/current policy/lease. */
+ readReservedPrice(orgId:OrgId,requestId:string):Promise<AiReservedPrice|null>;
+}

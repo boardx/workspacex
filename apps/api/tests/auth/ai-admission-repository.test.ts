@@ -19,6 +19,26 @@ beforeEach(async()=>{
 });
 afterAll(async()=>{await resetOrgs(ORG,OTHER);await db.close();});
 describe("shared atomic admission foundation — isolated PostgreSQL",()=>{
+ it("unreserved in-flight starts are unknown cost, including enterprise activation",async()=>{
+  await usage.startRequest(toOrgId(ORG),{requestId:"legacy-inflight",userId:USER,runId:null,modelProvider:"provider",modelId:"model",startedAt:new Date().toISOString()});
+  expect((await admission.reserve(toOrgId(ORG),request("after-activation"))).decision).toBe("COST_LIMIT_UNCONFIGURED");
+  await asApp(ORG,c=>c.query("UPDATE organization_plans SET plan='enterprise' WHERE org_id=$1",[ORG]));
+  expect((await admission.reserve(toOrgId(ORG),request("enterprise-after-activation"))).decision).toBe("COST_LIMIT_UNCONFIGURED");
+ });
+ it("a different worker reads the immutable reserved price after current policy changes",async()=>{
+  const configuration={window:{start,end,timezone:"Etc/UTC"},ordinaryTokensPerUser:"10",costMicrosPerUser:"1000",currency:"CNY",
+   prices:[{modelId:"formal",modelProvider:"provider",runtimeModelId:"model",inputMicrosPerMillion:"100000000",outputMicrosPerMillion:"100000000",cachedInputMicrosPerMillion:"100000000",maxInputTokens:4,maxOutputTokens:2}],fallbackModelIds:[],maxAttempts:1};
+  await asApp(ORG,c=>c.query(`INSERT INTO organization_ai_policy_changes(id,org_id,version,configuration,price_version,actor_id,reason)
+   VALUES('audit-reserved-price',$1,1,$2::jsonb,'test-price-v1',$3,'isolated old-price fixture')`,[ORG,JSON.stringify(configuration),USER]));
+  await admission.reserve(toOrgId(ORG),request("price-cross-worker"));
+  const replacement={...configuration,prices:[{...configuration.prices[0]!,inputMicrosPerMillion:"999"}]};
+  await asApp(ORG,c=>c.query(`INSERT INTO organization_ai_policies(org_id,version,configuration,price_version,updated_by)
+   VALUES($1,2,$2::jsonb,'new-price',$3)`,[ORG,JSON.stringify(replacement),USER]));
+  const otherWorker=new PgAiAdmissionRepository(db);
+  expect(await otherWorker.readReservedPrice(toOrgId(ORG),"price-cross-worker")).toMatchObject({userId:USER,priceVersion:"test-price-v1",price:configuration.prices[0]});
+  expect(await otherWorker.readReservedPrice(toOrgId(OTHER),"price-cross-worker")).toBeNull();
+  await expect(asApp(ORG,c=>c.query("UPDATE organization_ai_policy_changes SET configuration=$1::jsonb WHERE id='audit-reserved-price'",[JSON.stringify(replacement)]))).rejects.toBeDefined();
+ });
  it("one stable logical attempt slot cannot be paid twice by concurrent workers",async()=>{
   const bounded={...request("logical-a"),logicalCallId:"stable-run-call",logicalAttempt:0,maximumAttempts:1,maximumTokens:1n,maximumCostMicros:1n};
   const results=await Promise.all([admission.reserve(toOrgId(ORG),bounded),admission.reserve(toOrgId(ORG),{...bounded,requestId:"logical-b"})]);

@@ -211,6 +211,25 @@ def prepare(request):
     return owner, journal, body
 
 
+def admission_enabled():
+    return os.environ.get("DEEP_AGENT_MODEL_ADMISSION_ENABLED") == "1"
+
+
+def admission_payload(request, owner, start):
+    try:
+        body = json.loads(request.content)
+        caps = [body[name] for name in ("max_tokens", "max_completion_tokens") if name in body]
+        if not caps or any(type(value) is not int or value <= 0 or value != caps[0] for value in caps):
+            raise ValueError()
+        serialized = request.content.decode("utf-8")
+    except Exception:
+        raise RuntimeUsageError("admission_output_cap_unverified") from None
+    # Stable across API/SDK worker retries and lease changes; identical intent is conservative replay.
+    # Hash only; no prompt or response is placed in durable identity metadata.
+    digest = sha256(request.content).hexdigest()
+    logical = json.dumps([owner["run_id"],start["callPurpose"],digest],separators=(",",":"))
+    return start | {"logicalCallId":logical,"serializedBody":serialized,"outputTokenLimit":caps[0]}
+
 def terminal(start: dict, parser: UsageParser, success: bool):
     parser.finish()
     return {k: start[k] for k in ("orgId", "attemptId", "leaseEpoch", "requestId")} | {"endedAt": now(), "outcome": "succeeded" if success else "failed", "usage": parser.usage}
@@ -309,6 +328,8 @@ class AccountingTransport(httpx.BaseTransport):
         self.inner = inner or httpx.HTTPTransport()
 
     def handle_request(self, request):
+        if admission_enabled() and not enabled():
+            raise RuntimeUsageError("admission_requires_accounting")
         if not enabled():
             if receipt_requested():
                 raise RuntimeUsageError("usage_runtime_capability_disabled")
@@ -321,7 +342,10 @@ class AccountingTransport(httpx.BaseTransport):
                 post(owner,run_id,"terminal",json.loads(payload)); journal.acknowledge(request_id)
             except RuntimeUsageError:
                 break
-        post(owner,owner["run_id"],"start",start)
+        if admission_enabled():
+            post(owner,owner["run_id"],"admit",admission_payload(request,owner,start))
+        else:
+            post(owner,owner["run_id"],"start",start)
         try:
             response = self.inner.handle_request(request)
         except BaseException:
@@ -339,6 +363,8 @@ class AsyncAccountingTransport(httpx.AsyncBaseTransport):
         self.inner = inner or httpx.AsyncHTTPTransport()
 
     async def handle_async_request(self, request):
+        if admission_enabled() and not enabled():
+            raise RuntimeUsageError("admission_requires_accounting")
         if not enabled():
             if receipt_requested():
                 raise RuntimeUsageError("usage_runtime_capability_disabled")
@@ -351,7 +377,10 @@ class AsyncAccountingTransport(httpx.AsyncBaseTransport):
                 await apost(owner,run_id,"terminal",json.loads(payload)); journal.acknowledge(request_id)
             except RuntimeUsageError:
                 break
-        await apost(owner,owner["run_id"],"start",start)
+        if admission_enabled():
+            await apost(owner,owner["run_id"],"admit",admission_payload(request,owner,start))
+        else:
+            await apost(owner,owner["run_id"],"start",start)
         try:
             response = await self.inner.handle_async_request(request)
         except BaseException:
@@ -374,6 +403,8 @@ def response_stream_empty():
 
 def model_http_clients():
     # Validate durable storage during construction; there is no temporary/default spool.
+    if admission_enabled() and not enabled():
+        raise RuntimeUsageError("admission_requires_accounting")
     if enabled():
         Journal(os.environ.get("DEEP_AGENT_USAGE_SPOOL_DIR", ""))
     return {"http_client":httpx.Client(transport=AccountingTransport(),follow_redirects=False),

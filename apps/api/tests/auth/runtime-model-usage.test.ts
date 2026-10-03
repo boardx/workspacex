@@ -12,7 +12,8 @@ afterEach(()=>vi.unstubAllEnvs());
 describe("runtime request trusted ownership",()=>{
  it("ownership exemption stays metadata-only and tenant-scoped with no row disclosure",()=>{
   const source=readFileSync(new URL("../../src/infrastructure/auth/pg-runtime-model-usage-repository.ts",import.meta.url),"utf8");
-  expect(source).not.toContain("withoutTenant");
+  expect(source).not.toMatch(/\.withoutTenant\s*\(/);
+  expect(source).toContain("withoutTenant:async()=>{throw new RuntimeUsageOwnershipDenied();}");
   const tables=[...source.matchAll(/\b(?:FROM|JOIN)\s+([a-z_]+)/gi)].map(match=>match[1]);
   for(const table of tables)expect(["model_request_starts","agent_runs","chat_threads","chat_messages","agent_run_steps","subtask_runs"]).toContain(table);
   expect(source).not.toMatch(/SELECT\s+\*|\b(?:m|t|r|p|c|s)\.(?:body|content|instructions|input_full_content|output_full_content)\b/i);
@@ -81,6 +82,31 @@ describe("runtime request trusted ownership",()=>{
   expect(query.mock.calls.at(-1)?.[0]).toContain("subtask_id IS NOT DISTINCT FROM $14");
   query.mockImplementation(async(sql:string)=>({rows:sql.includes("FROM agent_runs")?[owner]:[]}));
   await expect(repo.startRuntimeRequest(org,"run-A",start)).rejects.toThrow("RUNTIME_USAGE_OWNERSHIP_DENIED");
+ });
+
+ it("late private terminal uses reservation price and writes before settlement on a different worker",async()=>{
+  const row={user_id:"trusted-user",run_id:"run-A",subtask_id:null,execution_attempt_id:start.attemptId,execution_lease_epoch:"2",project_id:null,thread_id:"thread",agent_id:null,model_provider:"actual-provider",model_id:"actual-model",call_purpose:"primary",started_at:new Date(start.startedAt)};
+  const query=vi.fn().mockResolvedValue({rows:[row]}),order:string[]=[];
+  const price={modelId:"formal",modelProvider:"actual-provider",runtimeModelId:"actual-model",inputMicrosPerMillion:"1000000",outputMicrosPerMillion:"1000000",cachedInputMicrosPerMillion:"1000000",maxInputTokens:100,maxOutputTokens:100};
+  const snapshot={userId:"trusted-user",modelProvider:"actual-provider",modelId:"actual-model",currency:"CNY",priceVersion:"immutable-old",price};
+  const admission={readReservedPrice:vi.fn().mockResolvedValue(snapshot),reserve:vi.fn(),settle:vi.fn(async()=>{order.push("settle");})};
+  const record=vi.fn(async()=>{order.push("ledger");});
+  const repo=new PgRuntimeModelUsageRepository({withTenant:async(_org:unknown,fn:(s:unknown)=>unknown)=>fn({query})} as never,{record} as never,admission);
+  await repo.terminalRuntimeRequest(org,"run-A",terminal);
+  expect(order).toEqual(["ledger","settle"]);expect(record).toHaveBeenCalledWith(org,expect.objectContaining({costMicros:20n,priceVersion:"immutable-old",currency:"CNY"}));
+  expect(admission.settle).toHaveBeenCalledWith(org,requestId,{tokens:20n,costMicros:20n});
+  record.mockRejectedValueOnce(new Error("ledger unavailable"));admission.settle.mockClear();
+  await expect(repo.terminalRuntimeRequest(org,"run-A",terminal)).rejects.toThrow("ledger unavailable");expect(admission.settle).not.toHaveBeenCalled();
+  admission.readReservedPrice.mockResolvedValue({...snapshot,userId:"foreign"});
+  await expect(repo.terminalRuntimeRequest(org,"run-A",terminal)).rejects.toThrow("RUNTIME_USAGE_OWNERSHIP_DENIED");
+ });
+ it("disabled private admission and mismatched actual body cap never resolve ownership or write",async()=>{
+  const query=vi.fn(),db={withTenant:vi.fn(async(_org:unknown,fn:(s:unknown)=>unknown)=>fn({query}))};
+  const payload={...start,logicalCallId:"logical",serializedBody:JSON.stringify({model:start.modelId,max_tokens:100}),outputTokenLimit:10};
+  await expect(new PgRuntimeModelUsageRepository(db as never,{record:vi.fn()} as never).admitRuntimeRequest(org,"run-A",payload)).rejects.toThrow("RUNTIME_AI_ADMISSION_DISABLED");
+  const opts={dependencies:vi.fn(),primaryModelId:vi.fn(),facts:vi.fn()};
+  await expect(new PgRuntimeModelUsageRepository(db as never,{record:vi.fn()} as never,undefined,opts).admitRuntimeRequest(org,"run-A",payload)).rejects.toThrow("AI_DISPATCH_BINDING_MISMATCH");
+  expect(db.withTenant).not.toHaveBeenCalled();expect(opts.facts).not.toHaveBeenCalled();
  });
 
 });

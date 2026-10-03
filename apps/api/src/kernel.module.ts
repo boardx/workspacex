@@ -1,3 +1,4 @@
+import {PgAiAdmissionRepository} from "./infrastructure/auth/pg-ai-admission-repository";
 import { AiUsageController } from "./interface/controllers/ai-usage.controller";
 import { AI_USAGE_REPOSITORY } from "./application/auth/ai-usage-ports";
 import { PgAiUsageRepository } from "./infrastructure/auth/pg-ai-usage-repository";
@@ -2447,7 +2448,7 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
     { provide: INTERJECTION_CARRY_OVER_DELIVERY, useClass: AcceptMessageCarryOverDelivery },
     // F159. 计量的唯一写入实现。挂在执行器上而不是 provider 上：provider 只知道
     // 「这次返回了多少 token」，不知道这次调用属于哪个组织的哪个人——那是 run 才有的事实。
-    {provide:RUNTIME_MODEL_USAGE,useFactory:(db:DatabasePort,usage:TokenUsageMeterPort)=>new PgRuntimeModelUsageRepository(db,usage),inject:[DATABASE_PORT,TOKEN_USAGE_METER]},
+    {provide:RUNTIME_MODEL_USAGE,useFactory:(db:DatabasePort,usage:TokenUsageMeterPort)=>new PgRuntimeModelUsageRepository(db,usage,new PgAiAdmissionRepository(db)),inject:[DATABASE_PORT,TOKEN_USAGE_METER]},
     {
       provide: TOKEN_USAGE_METER,
       useFactory: (db: DatabasePort) => new PgTokenUsageRepository(db),

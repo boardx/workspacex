@@ -262,3 +262,63 @@ def test_spool_replay_identity_includes_receiver_and_run_not_only_payload(contex
     for other in [dict(OWNER,base_url="http://other.test"),dict(OWNER,run_id="other-run")]:
         with pytest.raises(a.RuntimeUsageError,match="replay_mismatch"):journal.save(other,body)
     assert len(journal.pending(OWNER))==1
+
+
+def test_private_admission_precedes_real_http_and_never_spools_body(context,monkeypatch):
+    calls,path=context
+    monkeypatch.setenv("DEEP_AGENT_MODEL_ADMISSION_ENABLED","1")
+    req=httpx.Request("POST","http://vendor.example.test/v1/chat/completions",json={"model":"fixture-model","max_tokens":10,"messages":[{"role":"user","content":"prompt-never-persist"}]})
+    def vendor(request):
+        assert calls[-1][1]=="admit"
+        assert calls[-1][2]["serializedBody"]==request.content.decode()
+        assert calls[-1][2]["outputTokenLimit"]==10
+        return response(b'{"usage":{"total_tokens":2,"prompt_tokens":1,"completion_tokens":1}}')
+    with httpx.Client(transport=a.AccountingTransport(httpx.MockTransport(vendor))) as client:
+        client.send(req)
+    assert [entry[1] for entry in calls]==["admit","terminal"]
+    assert "serializedBody" not in calls[-1][2]
+    start=calls[0][2]
+    other=dict(OWNER,lease_epoch=99,attempt_id="run-A:9")
+    assert a.admission_payload(req,other,start)["logicalCallId"]==start["logicalCallId"]
+    with sqlite3.connect(str(path / "model-usage.sqlite3")) as db:
+        assert db.execute("SELECT count(*) FROM pending").fetchone()[0]==0
+
+
+def test_admission_missing_output_bound_or_denial_sends_no_vendor_request(context,monkeypatch):
+    monkeypatch.setenv("DEEP_AGENT_MODEL_ADMISSION_ENABLED","1")
+    paid=[]
+    transport=a.AccountingTransport(httpx.MockTransport(lambda req:paid.append(req)))
+    with pytest.raises(a.RuntimeUsageError,match="admission_output_cap_unverified"):
+        transport.handle_request(request())
+    monkeypatch.setattr(a,"post",lambda *args:(_ for _ in ()).throw(a.RuntimeUsageError("denied")))
+    req=httpx.Request("POST","http://vendor.example.test/v1/chat/completions",json={"model":"fixture-model","max_tokens":10})
+    with pytest.raises(a.RuntimeUsageError):transport.handle_request(req)
+    assert paid==[]
+
+
+def test_async_private_admission_before_vendor(context,monkeypatch):
+    calls,_=context
+    monkeypatch.setenv("DEEP_AGENT_MODEL_ADMISSION_ENABLED","1")
+    async def callback(owner,run,phase,body):calls.append((run,phase,dict(body)))
+    monkeypatch.setattr(a,"apost",callback)
+    async def vendor(req):
+        assert calls[-1][1]=="admit"
+        return response(b'{"usage":{"total_tokens":2,"prompt_tokens":1,"completion_tokens":1}}')
+    async def run():
+        async with httpx.AsyncClient(transport=a.AsyncAccountingTransport(httpx.MockTransport(vendor))) as client:
+            await client.send(httpx.Request("POST","http://vendor.example.test/v1/chat/completions",json={"model":"fixture-model","max_completion_tokens":10}))
+    asyncio.run(run())
+    assert [entry[1] for entry in calls]==["admit","terminal"]
+
+
+def test_admission_model_builder_requires_explicit_existing_bound_and_disables_sdk_retry(context,monkeypatch):
+    from deep_agent_service.model import build_chat_model, DeepAgentModelConfigError
+    monkeypatch.setenv("DEEP_AGENT_MODEL_ADMISSION_ENABLED","1")
+    monkeypatch.setenv("KERNEL_MODEL_BASE_URL","http://vendor.example.test/v1")
+    monkeypatch.setenv("KERNEL_MODEL_API_KEY","fixture")
+    monkeypatch.delenv("KERNEL_MODEL_MAX_OUTPUT_TOKENS",raising=False)
+    with pytest.raises(DeepAgentModelConfigError,match="explicitly configured"):
+        build_chat_model("fixture-model")
+    monkeypatch.setenv("KERNEL_MODEL_MAX_OUTPUT_TOKENS","10")
+    model=build_chat_model("fixture-model")
+    assert model.max_tokens==10 and model.max_retries==0

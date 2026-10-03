@@ -1,6 +1,6 @@
 import {timingSafeEqual} from "node:crypto";
 import {Body,Controller,Headers,HttpCode,Inject,Param,Post,UnauthorizedException,BadRequestException,ForbiddenException} from "@nestjs/common";
-import {RuntimeModelRequestStart,RuntimeModelRequestTerminal} from "@repo/contracts/runtime-model-usage";
+import {RuntimeModelRequestStart,RuntimeModelRequestTerminal,RuntimeModelRequestAdmission} from "@repo/contracts/runtime-model-usage";
 import {RUNTIME_MODEL_USAGE,RuntimeUsageOwnershipDenied} from "../../application/agent-run/runtime-model-usage";
 import type {RuntimeModelUsagePort} from "../../application/agent-run/runtime-model-usage";
 import {toOrgId} from "../../domain/org-id";
@@ -11,6 +11,14 @@ export class RuntimeModelUsageController {
  private authenticate(key:string|undefined){
   const expected=Buffer.from((process.env.DEEP_AGENT_SERVICE_INTERNAL_KEY??"").trim()),actual=Buffer.from(key??"");
   if(!expected.length||expected.length!==actual.length||!timingSafeEqual(expected,actual))throw new UnauthorizedException();
+ }
+ @Public() @Post("/internal/agent-runs/:runId/model-requests/admit") @HttpCode(200)
+ async admit(@Headers("x-deep-agent-internal-key") key:string|undefined,@Param("runId") runId:string,@Body() body:unknown){
+  this.authenticate(key);const parsed=RuntimeModelRequestAdmission.safeParse(body);if(!parsed.success)throw new BadRequestException("invalid_admission_request");
+  const {orgId,...input}=parsed.data;
+  if(!this.usage.admitRuntimeRequest)throw new ForbiddenException("admission_unavailable");
+  try{await this.usage.admitRuntimeRequest(toOrgId(orgId),runId,input);}catch(error){if(error instanceof RuntimeUsageOwnershipDenied)throw new ForbiddenException("usage_ownership_denied");throw error;}
+  return {accepted:true};
  }
  @Public() @Post("/internal/agent-runs/:runId/model-requests/start") @HttpCode(200)
  async start(@Headers("x-deep-agent-internal-key") key:string|undefined,@Param("runId") runId:string,@Body() body:unknown){

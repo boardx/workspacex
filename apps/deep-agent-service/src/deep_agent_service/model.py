@@ -69,7 +69,7 @@ import os
 from urllib.parse import urlsplit
 
 from langchain_openai import ChatOpenAI
-from deep_agent_service.model_request_accounting import model_http_clients
+from deep_agent_service.model_request_accounting import model_http_clients, admission_enabled
 
 DEFAULT_MODEL_ID = "qwen-plus"
 
@@ -197,11 +197,20 @@ def build_chat_model(model_id_override: str | None = None) -> ChatOpenAI:
     if reasoning_effort:
         extra_body["reasoning_effort"] = reasoning_effort
 
+    admission_options = {}
+    if admission_enabled():
+        raw_bound = (os.environ.get("KERNEL_MODEL_MAX_OUTPUT_TOKENS") or "").strip()
+        if not raw_bound.isascii() or not raw_bound.isdecimal() or not 0 < int(raw_bound) <= 2147483647:
+            raise DeepAgentModelConfigError("KERNEL_MODEL_MAX_OUTPUT_TOKENS must be explicitly configured for admission")
+        # The existing deployment bound is never guessed; API policy can impose a smaller limit.
+        admission_options = {"max_retries": 0, "max_tokens": int(raw_bound)}
+
     return ChatOpenAI(
         base_url=base_url,
         api_key=api_key,
         model=model_id,
         request_timeout=_model_request_timeout_seconds(),
         **model_http_clients(),
+        **admission_options,
         **({"extra_body": extra_body} if extra_body else {}),
     )

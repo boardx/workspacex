@@ -3,15 +3,165 @@
   "issue": 5261,
   "productionEnforcement": false,
   "routes": [
-    {"id":"executor-configured-primary","status":"connected-injected","sources":["apps/api/src/infrastructure/agent-run/agent-run-executor.ts","apps/api/src/application/agent-run/runtime-profile-routing.ts","apps/api/src/application/agent-run/priced-run-model.ts","apps/api/src/infrastructure/agent-run/configured-model-provider.ts"],"tests":["apps/api/tests/agent-runtime/configured-model-provider-max-output.test.ts"],"remaining":["production DI wiring","authoritative task classification and concrete verified model registrations","remote integration after this head"]},
-    {"id":"executor-history-summary","status":"connected-injected","sources":["apps/api/src/application/agent-run/meter-model-completion.ts","apps/api/src/application/agent-run/priced-run-model.ts"],"tests":["apps/api/tests/agent-runtime/configured-model-provider-max-output.test.ts"],"remaining":["production DI wiring","deployed summary execution evidence"]},
-    {"id":"executor-script-regeneration","status":"connected-injected","sources":["apps/api/src/application/agent-run/meter-model-completion.ts","apps/api/src/application/agent-run/priced-run-model.ts"],"tests":["apps/api/tests/agent-runtime/configured-model-provider-max-output.test.ts"],"remaining":["production DI wiring","actual sandbox retry evidence"]},
-    {"id":"digital-agent-skills-workflow-python","status":"accounting-only","sources":["apps/api/src/infrastructure/agent-run/deep-agent-model-provider.ts","apps/deep-agent-service/src/deep_agent_service/model.py","apps/deep-agent-service/src/deep_agent_service/model_request_accounting.py"],"tests":["apps/deep-agent-service/tests/test_model_request_accounting.py"],"remaining":["private per-HTTP admission and stable logical attempt identity","verified deployed route/model bounds","deployed graph evidence"]},
-    {"id":"subtask-text-file","status":"accounting-only","sources":["apps/api/src/application/agent-run/runtime-model-usage.ts","apps/api/src/infrastructure/auth/pg-runtime-model-usage-repository.ts"],"tests":["apps/api/tests/auth/runtime-model-usage.test.ts","apps/api/tests/agent-runtime/subtask-tool-calls.test.ts"],"remaining":["child admission via same coordinator and ownership resolver","actual Python child graph admission"]},
-    {"id":"digital-interview-research","status":"not-connected","sources":["apps/api/src/infrastructure/agent-run/deep-research-model-provider.ts"],"tests":[],"remaining":["trusted requester/service attribution","per-HTTP ledger/admission"]},
-    {"id":"embedding-rerank-kg-background","status":"not-connected","sources":["apps/api/src/infrastructure/retrieval/langchain-rerank-client.ts","apps/deep-agent-service/src/deep_agent_service/retrieval_embeddings.py","apps/deep-agent-service/src/deep_agent_service/retrieval_rerank.py"],"tests":[],"remaining":["trusted initiating subject and actual request hooks","pricing unit and input bound verification"]},
-    {"id":"native-audio-image","status":"typed-blocked","sources":["apps/api/src/domain/agent-run/ai-billable-unit.ts","apps/api/src/infrastructure/agent-run/openai-image-provider.ts","apps/api/src/infrastructure/recording/configured-realtime-asr-provider.ts"],"tests":["apps/api/tests/auth/ai-native-unit.test.ts"],"remaining":["same-ledger native-unit storage/analytics and native-price snapshots","real native adapter receipt/admission/cap hooks; never convert native units to tokens"]},
-    {"id":"trial-local-model","status":"not-connected","sources":["apps/api/src/infrastructure/identity/http-local-model-runtime.ts"],"tests":[],"remaining":["explicit owned subject and per-request admission/accounting"]},
-    {"id":"terminal-crash-repair","status":"partial","sources":["apps/deep-agent-service/src/deep_agent_service/model_request_accounting.py","apps/deep-agent-service/src/deep_agent_service/http_app.py"],"tests":["apps/deep-agent-service/tests/test_model_request_accounting.py"],"remaining":["pre-durable-save crash gap","deployed worker/API convergence"]}
+    {
+      "id": "executor-configured-primary",
+      "status": "connected-injected",
+      "sources": [
+        "apps/api/src/infrastructure/agent-run/agent-run-executor.ts",
+        "apps/api/src/application/agent-run/runtime-profile-routing.ts",
+        "apps/api/src/application/agent-run/priced-run-model.ts",
+        "apps/api/src/infrastructure/agent-run/configured-model-provider.ts"
+      ],
+      "tests": [
+        "apps/api/tests/agent-runtime/configured-model-provider-max-output.test.ts"
+      ],
+      "remaining": [
+        "production DI wiring",
+        "authoritative task classification and concrete verified model registrations",
+        "remote integration after this head"
+      ]
+    },
+    {
+      "id": "executor-history-summary",
+      "status": "connected-injected",
+      "sources": [
+        "apps/api/src/application/agent-run/meter-model-completion.ts",
+        "apps/api/src/application/agent-run/priced-run-model.ts"
+      ],
+      "tests": [
+        "apps/api/tests/agent-runtime/configured-model-provider-max-output.test.ts"
+      ],
+      "remaining": [
+        "production DI wiring",
+        "deployed summary execution evidence"
+      ]
+    },
+    {
+      "id": "executor-script-regeneration",
+      "status": "connected-injected",
+      "sources": [
+        "apps/api/src/application/agent-run/meter-model-completion.ts",
+        "apps/api/src/application/agent-run/priced-run-model.ts"
+      ],
+      "tests": [
+        "apps/api/tests/agent-runtime/configured-model-provider-max-output.test.ts"
+      ],
+      "remaining": [
+        "production DI wiring",
+        "actual sandbox retry evidence"
+      ]
+    },
+    {
+      "id": "digital-agent-skills-workflow-python",
+      "status": "connected-injected",
+      "sources": [
+        "apps/api/src/infrastructure/agent-run/deep-agent-model-provider.ts",
+        "apps/deep-agent-service/src/deep_agent_service/model.py",
+        "apps/deep-agent-service/src/deep_agent_service/model_request_accounting.py",
+        "apps/api/src/infrastructure/auth/pg-ai-admission-repository.ts",
+        "apps/api/src/interface/controllers/runtime-model-usage.controller.ts"
+      ],
+      "tests": [
+        "apps/deep-agent-service/tests/test_model_request_accounting.py",
+        "apps/api/tests/auth/runtime-admission-composition.test.ts"
+      ],
+      "remaining": [
+        "production fourth-argument composition and concrete verified deployment model/input bounds",
+        "authoritative task facts; unknown fails closed",
+        "semantic logical operation identity (identical content currently conservative replay)",
+        "actual deployed graph/child and PG same-transaction evidence",
+        "authorized private child fallback beyond primary-only hard stop"
+      ]
+    },
+    {
+      "id": "subtask-text-file",
+      "status": "connected-injected",
+      "sources": [
+        "apps/api/src/application/agent-run/runtime-model-usage.ts",
+        "apps/api/src/infrastructure/auth/pg-runtime-model-usage-repository.ts",
+        "apps/api/src/infrastructure/auth/pg-ai-admission-repository.ts",
+        "apps/api/src/interface/controllers/runtime-model-usage.controller.ts"
+      ],
+      "tests": [
+        "apps/api/tests/auth/runtime-model-usage.test.ts",
+        "apps/api/tests/agent-runtime/subtask-tool-calls.test.ts",
+        "apps/api/tests/auth/runtime-admission-composition.test.ts"
+      ],
+      "remaining": [
+        "production fourth-argument composition and concrete verified deployment model/input bounds",
+        "authoritative task facts; unknown fails closed",
+        "semantic logical operation identity (identical content currently conservative replay)",
+        "actual deployed graph/child and PG same-transaction evidence",
+        "authorized private child fallback beyond primary-only hard stop"
+      ]
+    },
+    {
+      "id": "digital-interview-research",
+      "status": "not-connected",
+      "sources": [
+        "apps/api/src/infrastructure/agent-run/deep-research-model-provider.ts"
+      ],
+      "tests": [],
+      "remaining": [
+        "trusted requester/service attribution",
+        "per-HTTP ledger/admission"
+      ]
+    },
+    {
+      "id": "embedding-rerank-kg-background",
+      "status": "not-connected",
+      "sources": [
+        "apps/api/src/infrastructure/retrieval/langchain-rerank-client.ts",
+        "apps/deep-agent-service/src/deep_agent_service/retrieval_embeddings.py",
+        "apps/deep-agent-service/src/deep_agent_service/retrieval_rerank.py"
+      ],
+      "tests": [],
+      "remaining": [
+        "trusted initiating subject and actual request hooks",
+        "pricing unit and input bound verification"
+      ]
+    },
+    {
+      "id": "native-audio-image",
+      "status": "typed-blocked",
+      "sources": [
+        "apps/api/src/domain/agent-run/ai-billable-unit.ts",
+        "apps/api/src/infrastructure/agent-run/openai-image-provider.ts",
+        "apps/api/src/infrastructure/recording/configured-realtime-asr-provider.ts"
+      ],
+      "tests": [
+        "apps/api/tests/auth/ai-native-unit.test.ts"
+      ],
+      "remaining": [
+        "same-ledger native-unit storage/analytics and native-price snapshots",
+        "real native adapter receipt/admission/cap hooks; never convert native units to tokens"
+      ]
+    },
+    {
+      "id": "trial-local-model",
+      "status": "not-connected",
+      "sources": [
+        "apps/api/src/infrastructure/identity/http-local-model-runtime.ts"
+      ],
+      "tests": [],
+      "remaining": [
+        "explicit owned subject and per-request admission/accounting"
+      ]
+    },
+    {
+      "id": "terminal-crash-repair",
+      "status": "partial",
+      "sources": [
+        "apps/deep-agent-service/src/deep_agent_service/model_request_accounting.py",
+        "apps/deep-agent-service/src/deep_agent_service/http_app.py"
+      ],
+      "tests": [
+        "apps/deep-agent-service/tests/test_model_request_accounting.py"
+      ],
+      "remaining": [
+        "pre-durable-save crash gap",
+        "deployed worker/API convergence"
+      ]
+    }
   ]
 }
