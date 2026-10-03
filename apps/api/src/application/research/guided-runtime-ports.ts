@@ -15,8 +15,8 @@ export interface GuidedRuntimeStore {
   write(actor: RuntimeActor, requestId: string, state: ResearchRuntime, done: boolean): Promise<ResearchRuntime | void>;
 }
 export interface GuidedSearchPort {
-  search(query: string): Promise<readonly { title: string; url: string; content: string }[]>;
-  read?(url: string): Promise<{ text: string; contentKind: "html" | "pdf" | "text"; truncated: boolean }>;
+  search(query: string, options?: { signal?: AbortSignal }): Promise<readonly { title: string; url: string; content: string }[]>;
+  read?(url: string, options?: { signal?: AbortSignal }): Promise<{ text: string; contentKind: "html" | "pdf" | "text"; truncated: boolean }>;
 }
 export interface GuidedInternalSourceAccessPort {
   authorizedSourceIds(actor: RuntimeActor, requestedSourceIds: readonly string[]): Promise<readonly string[]>;

@@ -38,6 +38,128 @@ function fixture(initial = seed(), read?: GuidedSearchPort["read"]) {
 }
 
 describe("bounded search query recovery", () => {
+  it("finishes an unresponsive search at the shared three-minute budget and ignores late results", async () => {
+    vi.useFakeTimers();
+    const f = fixture();
+    let release!: () => void;
+    f.search.mockImplementation(async () => { await new Promise<void>((resolve) => { release = resolve; }); return [hit]; });
+    let result: ResearchRuntime | undefined;
+    const operation = f.run().then((value) => { result = value; return value; });
+    try {
+      await vi.advanceTimersByTimeAsync(180001);
+      expect(result).toBeDefined();
+      expect(result?.busy).toBe(false);
+      expect(result?.errorCode).toBe("RESEARCH_SEARCH_TIME_BUDGET_EXCEEDED");
+      expect(result?.tasks[0]?.status).toBe("failed");
+      const count = f.writes.length;
+      release(); await vi.advanceTimersByTimeAsync(1);
+      expect(f.writes).toHaveLength(count);
+      expect(result?.sources).toEqual([]);
+    } finally { release?.(); await operation; vi.useRealTimers(); }
+  });
+  it.each(["model", "read"])("ignores late %s responses after durable budget finalization", async (boundary) => {
+    vi.useFakeTimers();
+    const releases: Array<() => void> = [];
+    const wait = () => new Promise<void>((resolve) => { releases.push(resolve); });
+    const f = fixture(seed(), boundary === "read" ? async () => { await wait(); return { text: hit.content, contentKind: "text", truncated: false }; } : undefined);
+    f.search.mockResolvedValue([hit]);
+    if (boundary === "model") f.model.complete.mockImplementation(async () => { await wait(); return { text: "{}" }; });
+    let result: ResearchRuntime | undefined;
+    const operation = f.run().then((value) => { result = value; return value; });
+    try {
+      await vi.advanceTimersByTimeAsync(180001);
+      expect(result?.errorCode).toBe("RESEARCH_SEARCH_TIME_BUDGET_EXCEEDED");
+      expect(result?.busy).toBe(false);
+      expect(result?.tasks.some((task) => task.status === "running")).toBe(false);
+      expect(result?.tasks.some((task) => task.searchAttempts?.some((attempt) => attempt.status === "running"))).toBe(false);
+      const finalized = JSON.stringify(result), count = f.writes.length;
+      releases.forEach((release) => release()); await vi.advanceTimersByTimeAsync(1);
+      expect(JSON.stringify(result)).toBe(finalized);
+      expect(f.writes).toHaveLength(count);
+      expect(result?.sources.some((source) => source.document)).toBe(false);
+    } finally { releases.forEach((release) => release()); await operation; vi.useRealTimers(); }
+  });
+  it("stops dispatching a large queue at expiry while retaining fast successful evidence", async () => {
+    vi.useFakeTimers();
+    const state = seed(); state.tasks = Array.from({ length: 12 }, (_, index) => ({ ...state.tasks[0]!, id: `task-${index}`, query: `query-${index}` }));
+    const f = fixture(state); const releases: Array<() => void> = [];
+    f.search.mockImplementation(async (query) => { if (query !== "query-0") await new Promise<void>((resolve) => releases.push(resolve)); return [{ ...hit, url: `${hit.url}/${query}` }]; });
+    let result: ResearchRuntime | undefined;
+    const operation = f.run().then((value) => { result = value; return value; });
+    try {
+      await vi.advanceTimersByTimeAsync(180001);
+      expect(result?.errorCode).toBe("RESEARCH_SEARCH_TIME_BUDGET_EXCEEDED");
+      expect(f.search.mock.calls.length).toBeLessThanOrEqual(4);
+      expect(result?.tasks.filter((task) => task.searchAttempts?.length)).toHaveLength(4);
+      expect(result?.tasks[0]?.status).toBe("succeeded");
+      expect(result?.sources.some((source) => source.url.endsWith("/query-0"))).toBe(true);
+      const count = f.writes.length; releases.forEach((release) => release()); await vi.advanceTimersByTimeAsync(1);
+      expect(f.writes).toHaveLength(count);
+    } finally { releases.forEach((release) => release()); await operation; vi.useRealTimers(); }
+  });
+  it("preserves a concurrent durable pause when an in-flight search reaches the deadline", async () => {
+    vi.useFakeTimers();
+    let paused = false;
+    let durable = seed();
+    const writes: ResearchRuntime[] = [];
+    const store: GuidedRuntimeStore = {
+      read: async () => structuredClone(durable),
+      claim: async () => { durable.busy = true; return { state: structuredClone(durable), replay: false }; },
+      write: async (_actor, _request, next) => {
+        durable = structuredClone(next);
+        if (paused) durable.controlStatus = "paused";
+        writes.push(structuredClone(durable));
+        return structuredClone(durable);
+      },
+    };
+    let release!: () => void;
+    const search = vi.fn(async () => { await new Promise<void>((resolve) => { release = resolve; }); return [hit]; });
+    const service = new GuidedRuntimeService(store, { complete: async () => ({ text: "{}" }) }, { search }, { provider: "test", id: "test" });
+    const actor = { orgId: toOrgId("recovery-org"), userId: "owner", sessionId: session.sessionId };
+    const operation = service.execute(actor, session, { node: "research", action: "start", sessionId: session.sessionId, requestId: "pause-at-deadline", expectedVersion: 0 });
+    try {
+      await vi.advanceTimersByTimeAsync(1);
+      expect(search).toHaveBeenCalledOnce();
+      paused = true;
+      await vi.advanceTimersByTimeAsync(180000);
+      const result = await operation;
+      expect(result).toMatchObject({ controlStatus: "paused", busy: false, errorCode: null });
+      expect(durable).toMatchObject({ controlStatus: "paused", busy: false, errorCode: null });
+      const count = writes.length;
+      release(); await vi.advanceTimersByTimeAsync(1);
+      expect(writes).toHaveLength(count);
+      expect(durable.sources).toEqual([]);
+    } finally { release?.(); await operation; vi.useRealTimers(); }
+  });
+  it("preserves a persistence error arriving at the deadline", async () => {
+    vi.useFakeTimers(); const f = fixture();
+    f.write.mockImplementationOnce(async () => { await new Promise((resolve) => setTimeout(resolve, 180001)); throw new Error("durable write failure"); });
+    const operation = f.run();
+    try { await vi.advanceTimersByTimeAsync(180002); expect((await operation).errorCode).toBe("RESEARCH_WORKFLOW_UNAVAILABLE"); }
+    finally { vi.useRealTimers(); }
+  });
+  it("retries incomplete supplements without replaying a successful initial query", async () => {
+    const state = seed(); state.tasks[0]!.status = "succeeded";
+    state.errorCode = "RESEARCH_SEARCH_TIME_BUDGET_EXCEEDED";
+    state.tasks[0]!.searchAttempts = [{ query: original, status: "succeeded", errorCode: null }, { query: "partial supplement", status: "failed", errorCode: state.errorCode }];
+    state.sources = [{ ...hit, id: "prior", taskId: "task", decision: "accepted", retrievedAt: "now", document: { text: hit.content, url: hit.url, retrievedAt: "now", contentHash: "a".repeat(64), contentKind: "text", truncated: false } }];
+    const f = fixture(state, async () => ({ text: hit.content, contentKind: "text", truncated: false }));
+    await f.run("retry");
+    expect(f.search.mock.calls.length).toBeGreaterThan(0);
+    expect(f.search.mock.calls.some(([query]) => query === original)).toBe(false);
+  });
+  it("executes confirmed scopes in order without overlapping different directions", async () => {
+    const state = seed();
+    state.outline.push({ id: "second", title: "第二方向", questions: ["第二方向证据？"], enabled: true, order: 1 });
+    state.tasks = [{ ...state.tasks[0]!, id: "later", sectionId: "second", query: "second-query" }, { ...state.tasks[0]!, id: "first", query: "first-query" }];
+    const f = fixture(state);
+    let release!: () => void, started!: () => void;
+    const began = new Promise<void>((resolve) => { started = resolve; });
+    f.search.mockImplementation(async (query) => { if (query === "first-query") { started(); await new Promise<void>((resolve) => { release = resolve; }); } return [hit]; });
+    const operation = f.run();
+    try { await began; expect(f.search.mock.calls.map(([query]) => query)).toEqual(["first-query"]); }
+    finally { release?.(); await operation; }
+  });
   it("persists edited topic information without sending the user back to import", async () => {
     const state = seed();
     const f = fixture(state);
