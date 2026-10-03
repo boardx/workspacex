@@ -553,8 +553,8 @@ it.each(["D002", "D003", "D011", "D005"])("recognizes the exact acceptance intro
 });
 
 
-it("explicit inline source boundaries exclude personal history while keeping task tools", async () => {
-  const text = "请仅使用以下合成资料分析并保存草稿。\n[P1，反馈] 8人中6人找不到入口。";
+it.each(["[P1，反馈]", "[S1]", "[T1,internal]"])("explicit inline source boundaries %s exclude personal history while keeping task tools", async (source) => {
+  const text = `请仅使用以下合成资料分析并保存草稿。\n${source} 8人中6人找不到入口。`;
   expect(isContextIndependentRequest(text)).toBe(true);
   expect(isContextIndependentRequest(`${text} 请结合之前对话。`)).toBe(false);
   const store = fakeStore(baseRun({ inputText: text, skillVersionIds: [] }), []);
@@ -565,6 +565,10 @@ it("explicit inline source boundaries exclude personal history while keeping tas
   expect(received?.history ?? []).toHaveLength(0);
   expect(received?.excludedTools).toBeUndefined();
   expect(read).not.toHaveBeenCalled();
+});
+
+it.each(["[S1", "[S1，反馈", "[S1，]", "[S]", "[1]", "S1", "正文里的[S1]"])("does not isolate context for malformed source marker %s", (source) => {
+  expect(isContextIndependentRequest(`请仅使用以下资料。\n${source} 8人。`)).toBe(false);
 });
 
 

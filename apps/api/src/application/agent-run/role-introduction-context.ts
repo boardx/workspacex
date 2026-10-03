@@ -22,6 +22,6 @@ export function isReadOnlyRoleIntroduction(text: string): boolean {
 export function isContextIndependentRequest(text: string): boolean {
   if (isReadOnlyRoleIntroduction(text)) return true;
   return /仅使用以下(?:合成)?资料/.test(text)
-    && /^\[[A-Z]\d+[，,]/m.test(text)
+    && /^\[[A-Z]\d+(?:[，,][^\]\r\n]+)?\]/m.test(text)
     && !requestsConversationReference(text);
 }
