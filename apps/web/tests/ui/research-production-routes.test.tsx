@@ -9,7 +9,7 @@ import { research } from "@repo/contracts";
 
 const { push } = vi.hoisted(() => ({ push: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push }) }));
-vi.mock("@/components/research-studio/guided-research-live", () => ({ GuidedResearchLive: ({ sessionId, researchName, visualStage, initialNode, onBack }: { sessionId: string; researchName: string; visualStage: string; initialNode: string; onBack: () => void }) => <div data-testid="production-live" data-session={sessionId} data-name={researchName} data-stage={visualStage} data-node={initialNode}><button onClick={onBack}>返回列表</button></div> }));
+vi.mock("@/components/research-studio/guided-research-live", () => ({ GuidedResearchLive: ({ sessionId, researchName, visualStage, initialNode, onBack, onLoadRetry }: { sessionId: string; researchName: string; visualStage: string; initialNode: string; onBack: () => void; onLoadRetry?: () => void }) => <div data-testid="production-live" data-session={sessionId} data-name={researchName} data-stage={visualStage} data-node={initialNode}><button onClick={onBack}>返回列表</button><button onClick={onLoadRetry}>重试加载</button></div> }));
 vi.mock("@/lib/guided-research-api", () => ({ createGuidedResearchSession: vi.fn(), getResearchRuntime: vi.fn(), executeResearchRuntime: vi.fn(), confirmResearchBrief: vi.fn(), executeGuidedResearchNodeCommand: vi.fn(), getGuidedResearchSession: vi.fn(), runGuidedResearchSkillTurn: vi.fn() }));
 
 beforeEach(() => { vi.resetAllMocks(); vi.mocked(getGuidedResearchSession).mockResolvedValue({ title: "创建时的研究名称" } as never); sessionStorage.clear(); localStorage.clear(); });
@@ -163,4 +163,13 @@ it("preserves an over-limit requirement and prevents submission", () => {
   expect(screen.getByTestId("research-confirm-brief")).toBeDisabled();
   fireEvent.click(screen.getByTestId("research-confirm-brief"));
   expect(createGuidedResearchSession).not.toHaveBeenCalled();
+});
+
+it("retries failed metadata when runtime loading is retried", async () => {
+  vi.mocked(getGuidedResearchSession).mockRejectedValueOnce(new Error("temporary network error"));
+  render(<ResearchStageRoute sessionId="real-session" stage="chapters" />);
+  await waitFor(() => expect(getGuidedResearchSession).toHaveBeenCalledTimes(1));
+  fireEvent.click(screen.getByRole("button", { name: "重试加载" }));
+  await waitFor(() => expect(screen.getByTestId("production-live")).toHaveAttribute("data-name", "创建时的研究名称"));
+  expect(getGuidedResearchSession).toHaveBeenCalledTimes(2);
 });

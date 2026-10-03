@@ -152,10 +152,12 @@ describe("live research workspace", () => {
 describe("research request recovery", () => {
   it("retries initial loading without leaving the session", async () => {
     vi.mocked(getResearchRuntime).mockRejectedValueOnce(new Error("offline"));
-    render(<GuidedResearchLive sessionId="session-live" onBack={vi.fn()} />);
+    const onLoadRetry = vi.fn();
+    render(<GuidedResearchLive sessionId="session-live" onBack={vi.fn()} onLoadRetry={onLoadRetry} />);
     fireEvent.click(await screen.findByRole("button", { name: "重试加载" }));
     expect(await screen.findByDisplayValue("Storage")).toBeInTheDocument();
     expect(getResearchRuntime).toHaveBeenCalledTimes(2);
+    expect(onLoadRetry).toHaveBeenCalledOnce();
   });
   it("preserves the editor on conflict and lets the user resume against the latest version", async () => {
     const latest = { ...initial, version: 9, brief: { ...initial.brief, topic: "Collaborator topic" } };
