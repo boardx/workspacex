@@ -84,7 +84,8 @@ def validate_private_inputs(plan):
   require(type(item) is dict and set(item)==expected,'DATABASE_PLAN_SCHEMA')
   reference(item['ciphertext'],('bytes',));reference(item['sourceCatalog'])
   require(type(item['ciphertext']['bytes']) is int and item['ciphertext']['bytes']>0,'CMS_CIPHERTEXT_SIZE')
-  require(item['sourceCatalog']['sha256']==item['sourceCatalogSha256'] and digest(item['backupReceiptSha256']),'CATALOG_BACKUP_BINDING')
+  # File reference authenticates capture JSON bytes; this digest authenticates canonical facts.
+  require(digest(item['sourceCatalogSha256']) and digest(item['backupReceiptSha256']),'CATALOG_BACKUP_BINDING')
   require(type(item['serverVersionNum']) is int and 100000<=item['serverVersionNum']<310000,'SERVER_VERSION_SCHEMA')
   roles=item['completeClusterRoleNames'];require(type(roles) is list and roles and all(type(r) is str and r and '\x00' not in r for r in roles) and len(set(roles))==len(roles),'COMPLETE_ROLE_SCHEMA')
   require(type(item['dumpExitCode']) is int and type(item['encryptionExitCode']) is int,'BACKUP_EXIT_SCHEMA')
@@ -128,7 +129,7 @@ class Executor:
    for kind,db in [('restore-roles',None)]+[('restore-database',d) for d in DBS]:
     g=self.guard();self.journal.record('action-intent',action=kind,database=db,guardObservationSha256=g['observationSha256'])
     self.transport.apply(kind,db,self.plan)
-    self.protected.recheck();self.transport.require_lock();self.journal.record('action-response',action=kind,database=db)
+    self.guard();self.journal.record('action-response',action=kind,database=db)
    results={}
    for db in DBS:
     self.guard();self.journal.record('fidelity-intent',database=db)

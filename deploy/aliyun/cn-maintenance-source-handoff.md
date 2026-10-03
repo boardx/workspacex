@@ -19,3 +19,7 @@ The legacy held preactivate collector still starts bootstrap containers/new conn
 重连只读核对：工作树仍为原分支、00730db81、无未提交改动，进程筛查无本工作树发布/测试/推送进程。A 阶段设计补全 A0–A6、同 epoch 重验及 resume-intent 后新写入保护；设计不是执行器或生产批准，positive-proof 和 held-preactivate 消费者仍未实现。
 
 本次执行范围已收窄：见 cn-release-9b25-once-plan.md 与 exact Git-only inventory（393/255/新增138；fresh生产pending未知）。账本探测接口超时且接受状态未知，未重发；不以旧记录补当前PASS。CLI参数缺陷已修并加纯反证，catalog结构采集及同源比较补全；仍没有真实恢复/停写只读消费者/A执行器完整链路或生产批准。
+
+独审 comment5969611288 绑定旧 head0b6b32a29；两项问题在后续2a2e9e1f4仍存在，现于同一迭代补修。sourceCatalog.sha256 只绑定完整 capture JSON 文件，sourceCatalogSha256 只绑定 canonical facts；实际 capture JSON 正向 fixture 验两者不同，readback 分别复算并验源/目标事实。旧 backup capture attempt/peer 保留在被 artifact SHA 固化的 wrapper 中，不冒充本次 recovery attempt 或 common-epoch 证明。
+
+rolesSql 不再原样执行：capability 在任何 container/DB 操作前验证已绑定 writer plan，输入仅允许完整 fenced-role 集合的 ALTER ROLE quoted-name NOLOGIN，再生成固定 SQL；LOGIN/CREATE/GRANT/password/其它属性/元命令/过程/遗漏或重复拒绝。它只保持现有角色封锁，不实现通用 cluster role/成员/属性重建；确需这类重建时在 capability 拒绝，不能静默忽略或宣布恢复成功。每个 recovery action 后即时复验 guard。真实三库恢复和源码全链路独立 ACCEPT 仍未完成，既有入口拒绝保持。

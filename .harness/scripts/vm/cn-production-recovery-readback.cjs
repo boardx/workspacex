@@ -2,11 +2,25 @@
 // Root-private caller validates authorization/FD9/hold; this runner independently
 // reads the restored live database and original archive. Never prints rows/secrets.
 const fs=require('node:fs'),{spawn,spawnSync}=require('node:child_process');
-const {Client}=require('pg'),{Readable}=require('node:stream');
+const {Readable}=require('node:stream');
 const catalog=require('./cn-production-recovery-catalog.cjs');
-const fidelity=require('./cn-production-recovery-fidelity.cjs');
 const requireFact=(x,c)=>{if(!x)throw Error(c)};
+function verifyCatalogReadback(raw,item,captured,expected){
+ requireFact(Buffer.isBuffer(raw)&&catalog.hash(raw)===item.sourceCatalog.sha256,'SOURCE_CATALOG_ARTIFACT_HASH');
+ const sourceBinding=JSON.parse(raw.toString('utf8')).binding;
+ // Backup capture identity/peer may precede this recovery attempt. Its complete
+ // wrapper is pinned by artifact SHA; require the same source DB/instance/backup.
+ requireFact(sourceBinding?.side==='source'&&sourceBinding.database===expected.database&&sourceBinding.instanceId===expected.instanceId&&sourceBinding.backupReceiptSha256===expected.backupReceiptSha256,'SOURCE_CATALOG_BINDING');
+ const {facts}=catalog.verifyCaptureArtifact(raw,sourceBinding,item.sourceCatalog.sha256,item.sourceCatalogSha256);
+ // The target capture is produced here, not accepted from caller ready flags.
+ const targetRaw=Buffer.from(JSON.stringify(captured));
+ const target=catalog.verifyCaptureArtifact(targetRaw,expected,catalog.hash(targetRaw),item.sourceCatalogSha256);
+ requireFact(JSON.stringify(facts)===JSON.stringify(target.facts),'FULL_CATALOG_MISMATCH');
+ return {artifactSha256:item.sourceCatalog.sha256,catalogSha256:item.sourceCatalogSha256};
+}
 async function run(input){
+ const {Client}=require('pg');
+ const fidelity=require('./cn-production-recovery-fidelity.cjs');
  let archiveBytes=0;let header=Buffer.alloc(0),archive=fs.openSync('/run/wsx/backup.dump','wx',0o600),request;
  try {
   for await(const b of input){
@@ -22,8 +36,7 @@ async function run(input){
   const client=new Client({...secret,ssl:{rejectUnauthorized:true,ca:fs.readFileSync('/run/wsx/ca.pem','utf8')},connectionTimeoutMillis:5000,statement_timeout:300000});
   let captured,version;
   try {await client.connect();requireFact(client.connection.stream.authorized===true,'TLS_REQUIRED');const identity=(await client.query("SELECT current_setting('server_version_num') AS version, current_database() AS database,inet_server_addr()::text AS \"serverAddr\",inet_server_port() AS \"serverPort\",(SELECT system_identifier::text FROM pg_control_system()) AS \"systemIdentifier\"")).rows[0];version=Number(identity.version);const sqlPeer={database:identity.database,serverAddr:identity.serverAddr,serverPort:identity.serverPort,systemIdentifier:identity.systemIdentifier};requireFact(JSON.stringify(sqlPeer)===JSON.stringify(p.production.databasePeers[db]),'SQL_PROVIDER_PEER');requireFact(version===item.serverVersionNum,'SERVER_VERSION');const roles=(await client.query('SELECT rolname FROM pg_roles ORDER BY rolname')).rows.map(x=>x.rolname);requireFact(JSON.stringify(roles)===JSON.stringify([...item.completeClusterRoleNames].sort()),'COMPLETE_ROLE_CLOSURE');captured=await catalog.capture(client,expected,roles);}finally{await client.end();}
-  const source=JSON.parse(fs.readFileSync('/opt/wsx/source-catalog.json','utf8'));
-  requireFact(source.catalogSha256===item.sourceCatalogSha256&&captured.catalogSha256===item.sourceCatalogSha256&&JSON.stringify(catalog.canonical(source.facts))===JSON.stringify(captured.facts),'FULL_CATALOG_MISMATCH');
+  verifyCatalogReadback(fs.readFileSync('/opt/wsx/source-catalog.json'),item,captured,expected);
   const toc=spawnSync('pg_restore',['--list','/run/wsx/backup.dump'],{encoding:'utf8',stdio:['ignore','pipe','ignore'],maxBuffer:16*1024*1024});requireFact(toc.status===0,'TOC_READ');
   const req={schemaVersion:1,targetBindingVerified:true,targetRdsInstanceId:p.production.instanceId,productionRecoveryIdentity:p.identity,attemptId:p.identity.attemptId,database:db,targetSecret:secret,productionHostname:p.production.hostname,sslmode:'verify-full',caPem:fs.readFileSync('/run/wsx/ca.pem','utf8'),targetPeerAddressSha256:peer.peerAddressSha256,targetPeerPort:peer.port,toc:toc.stdout,backupReceiptSha256:item.backupReceiptSha256,ciphertextSha256:item.ciphertext.sha256};
   const dump=spawn('pg_restore',['--data-only','--file=-','/run/wsx/backup.dump'],{stdio:['ignore','pipe','ignore']});
@@ -34,4 +47,4 @@ async function run(input){
  } finally {if(archive!==undefined)fs.closeSync(archive);try{fs.unlinkSync('/run/wsx/backup.dump')}catch{}}
 }
 if(require.main===module)run(process.stdin).then(r=>process.stdout.write(JSON.stringify(r)+'\n')).catch(()=>{process.stderr.write('RECOVERY_READBACK_FAILED\n');process.exitCode=1});
-module.exports={run};
+module.exports={run,verifyCatalogReadback};

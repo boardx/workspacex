@@ -50,3 +50,7 @@ Canonical source iteration: draft PR #5247。策略 A 的同 epoch 与 resume-in
 resume-intent 前，只有当前备份覆盖全部修改面且持续停写被证明时，才可能按批准恢复流程保留迁移前已承诺数据。intent 后视为可能新增写入，失败应停止新增写入并保全数据，前向修复或另批数据保全恢复；旧备份覆盖不是无损回退。
 
 耗时不再给上线倒计时：镜像可与恢复准备并行，停写/当前备份/恢复重验/迁移/恢复 writer/public smoke 必须依序；实际恢复与迁移尚未计时，不能用文件数或历史 pipeline 时长推算停机窗口。
+
+## 独审后恢复输入边界补修
+
+完整 capture JSON 字节 SHA 与 canonical catalog facts SHA 分开绑定和验证，不能填同一个 digest 糊过运输/读回两侧。roles restore 只允许已封锁完整角色集合的 NOLOGIN 重申，不能执行原始 cluster role dump；其它角色属性/成员重建需求会在 capability 阶段拒绝，需具体审查和相应实现/批准。此修复保留封锁，不提供真实恢复完成或 common-epoch 证明。

@@ -35,6 +35,41 @@ def plan():
  p['writerTransport']={**ref('writerTransport'),'sourcePath':'.harness/scripts/vm/writer_transport.py'}
  return p
 
+class ClosedRoleRestoreTests(unittest.TestCase):
+ def binding(self):
+  from writer_fence import digest
+  p=plan();roles=['app'];writer={'identity':p['identity'],'diagnosticRole':'diag','databaseWriterRoles':{db:roles for db in DBS},'databasePeers':p['production']['databasePeers'],'closedAdmission':{'kind':'role-login-v1','login':{db:{'app':False} for db in DBS}},'originalAdmission':{'kind':'role-login-v1','login':{db:{'app':True} for db in DBS}}};p['writerPlanCanonicalSha256']=digest(writer)
+  return p,writer
+ def test_only_fixed_nologin_output(self):
+  from cn_production_recovery_transport import closed_role_restore_sql
+  p,w=self.binding();self.assertEqual(closed_role_restore_sql(b' alter role "app" WITH nologin; ',w,p),b'ALTER ROLE "app" NOLOGIN;\n')
+ def test_login_and_arbitrary_sql_cannot_reach_container(self):
+  from cn_production_recovery_transport import Transport
+  for raw in [b'ALTER ROLE "app" LOGIN;',b'ALTER ROLE "app" NOLOGIN; ALTER ROLE "app" LOGIN;',b'ALTER ROLE "app" SUPERUSER NOLOGIN;',b'CREATE ROLE "new" NOLOGIN;',b'GRANT "admin" TO "app";',b'SELECT 1;',b'\\i /tmp/roles.sql',b'/* LOGIN */ ALTER ROLE "app" NOLOGIN;',b'ALTER ROLE "app" NOLOGIN; DO $$ BEGIN END $$;',b'ALTER ROLE "foreign" NOLOGIN;',b'ALTER ROLE "app" NOLOGIN; ALTER ROLE "app" NOLOGIN;',b'']:
+   with self.subTest(sql=raw):
+    p,w=self.binding();p['rolesSql']['sha256']=hashlib.sha256(raw).hexdigest();writer_raw=json.dumps(w).encode();p['writerPlan']['sha256']=hashlib.sha256(writer_raw).hexdigest();case=self
+    class Protected:
+     def read(self,path,expected,*args,**kwargs):
+      value=writer_raw if path==p['writerPlan']['path'] else raw;case.assertEqual(hashlib.sha256(value).hexdigest(),expected);return value
+    t=Transport(Protected(),lambda:None);t.container=lambda *_:self.fail('unsafe input reached SQL transport')
+    with self.assertRaises(RuntimeError):t.apply('restore-roles',None,p)
+ def test_unsafe_role_input_rejected_in_capability_before_any_container(self):
+  from cn_production_recovery_transport import Transport
+  p,w=self.binding();case=self
+  class Protected:
+   def read(self,path,*args,**kwargs):return json.dumps(w).encode() if path==p['writerPlan']['path'] else b'ALTER ROLE "app" LOGIN;'
+   def bind_large(self,*args):case.fail('unsafe role SQL reached archive stage')
+  t=Transport(Protected(),lambda:None);t.container=lambda *_:self.fail('unsafe role input reached container');t.invoke=lambda *_:self.fail('unsafe role input reached command')
+  with self.assertRaisesRegex(RuntimeError,'ROLE_RESTORE_SQL_UNSUPPORTED'):t.capability(p)
+ def test_changed_writer_binding_rejected(self):
+  from cn_production_recovery_transport import closed_role_restore_sql
+  p,w=self.binding();p['writerPlanCanonicalSha256']='0'*64
+  with self.assertRaisesRegex(RuntimeError,'ROLE_RESTORE_WRITER_BINDING'):closed_role_restore_sql(b'ALTER ROLE "app" NOLOGIN;',w,p)
+ def test_closed_plan_cannot_contain_login(self):
+  from cn_production_recovery_transport import closed_role_restore_sql
+  p,w=self.binding();w['closedAdmission']['login']['workspacex']['app']=True
+  with self.assertRaisesRegex(RuntimeError,'CLOSED_WRITER_ROLE_LOGIN_ENABLED'):closed_role_restore_sql(b'ALTER ROLE "app" NOLOGIN;',w,p)
+
 class ValidationTests(unittest.TestCase):
  def test_exact_authorization(self):self.assertEqual(validate(plan(),now=100)['baselineRevision'],'b'*40)
  def test_expiry(self):
@@ -66,7 +101,10 @@ class PrivateSchemaTests(unittest.TestCase):
  def test_relative_secret_path_rejected(self):self.reject(lambda p:p['credential'].update(path='relative-secret'),'PRIVATE_REFERENCE_PATH')
  def test_parent_escape_rejected(self):self.reject(lambda p:p['recipientKey'].update(path='/etc/workspacex-cn/../key'),'PRIVATE_REFERENCE_PATH')
  def test_reference_extra_field_rejected(self):self.reject(lambda p:p['credential'].update(password='secret'),'PRIVATE_REFERENCE_SCHEMA')
- def test_source_catalog_digest_drift_rejected(self):self.reject(lambda p:p['databases']['workspacex']['sourceCatalog'].update(sha256='0'*64),'CATALOG_BACKUP_BINDING')
+ def test_distinct_artifact_and_facts_hashes_are_valid(self):
+  p=plan();p['databases']['workspacex']['sourceCatalog'].update(sha256='0'*64)
+  self.assertEqual(validate(p,now=100)['baselineRevision'],'b'*40)
+ def test_invalid_facts_digest_rejected(self):self.reject(lambda p:p['databases']['workspacex'].update(sourceCatalogSha256='bad'),'CATALOG_BACKUP_BINDING')
  def test_boolean_exit_code_rejected(self):self.reject(lambda p:p['databases']['workspacex'].update(dumpExitCode=False),'BACKUP_EXIT_SCHEMA')
  def test_role_omission_across_databases_rejected(self):self.reject(lambda p:p['databases']['workspacex'].update(completeClusterRoleNames=['app']),'CLUSTER_ROLE_CLOSURE')
  def test_unbounded_auth_time_rejected(self):self.reject(lambda p:p['authorization'].update(expiresAt=float('inf')),'AUTHORIZATION_TIME')

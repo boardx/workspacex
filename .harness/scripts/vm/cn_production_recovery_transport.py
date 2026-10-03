@@ -1,7 +1,31 @@
 """Real subprocess transport; credentials travel through stdin, errors are redacted."""
-import json,os,subprocess,hashlib,pathlib,threading,time
+import json,os,subprocess,hashlib,pathlib,threading,time,re
 from cn_production_recovery_executor import require,DBS,PRODUCTION
 from cn_production_recovery_stream import stream
+def closed_role_restore_sql(raw,writer_plan,plan):
+ """Admission-preserving subset only; never execute a supplied role dump.
+ Existing fenced roles may only be reasserted NOLOGIN. CREATE, LOGIN, grants,
+ passwords, other attributes, metacommands and procedural SQL are unsupported.
+ """
+ from writer_fence import validate_admission_plan,digest
+ validate_admission_plan(writer_plan)
+ require(writer_plan.get('identity')==plan['identity'] and digest(writer_plan)==plan['writerPlanCanonicalSha256'],'ROLE_RESTORE_WRITER_BINDING')
+ targets=set().union(*[set(writer_plan['databaseWriterRoles'][db]) for db in DBS])
+ require(all(targets<=set(item['completeClusterRoleNames']) for item in plan['databases'].values()),'ROLE_RESTORE_CLUSTER_SCOPE')
+ require(type(raw) is bytes and 0<len(raw)<=65536,'ROLE_RESTORE_INPUT_BOUND')
+ try:text=raw.decode('utf8')
+ except UnicodeError:raise RuntimeError('ROLE_RESTORE_SQL_UNSUPPORTED') from None
+ pattern=re.compile(r'\s*ALTER\s+ROLE\s+("(?:[^"\r\n\x00]|"")+")\s+(?:WITH\s+)?NOLOGIN\s*;',re.I)
+ offset=0;seen=set()
+ while text[offset:].strip():
+  match=pattern.match(text,offset);require(match is not None,'ROLE_RESTORE_SQL_UNSUPPORTED')
+  role=match[1][1:-1].replace('""','"')
+  require(role in targets and role not in seen,'ROLE_RESTORE_ROLE_SCOPE')
+  seen.add(role);offset=match.end()
+ require(seen==targets,'ROLE_RESTORE_ROLE_CLOSURE')
+ # Emit fixed statements; original SQL bytes never reach psql.
+ return ''.join('ALTER ROLE "'+role.replace('"','""')+'" NOLOGIN;\n' for role in sorted(targets)).encode()
+
 class Transport:
  def __init__(self,protected,lockcheck):self.protected=protected;self.lockcheck=lockcheck
  def require_lock(self):self.lockcheck()
@@ -15,6 +39,7 @@ class Transport:
  def capability(self,p):
   for name in ('writerTransport','writerPlan','recipientCertificate','recipientKey','rolesSql','credential','fidelityRunner','catalogModule','fidelityModule','caCertificate','productionIdentityProbe'):
    self.protected.read(p[name]['path'],p[name]['sha256'],private=name in ('recipientKey','credential','rolesSql','writerPlan'))
+  self.role_restore(p) # Validate the whole role input before any container/DB operation.
   for item in p['databases'].values():
    self.protected.bind_large(item['ciphertext']['path'],item['ciphertext']['sha256'],item['ciphertext']['bytes']);self.protected.read(item['sourceCatalog']['path'],item['sourceCatalog']['sha256'])
   image=json.loads(self.invoke(['/usr/bin/docker','image','inspect',p['clientImage']]))
@@ -68,9 +93,13 @@ PGHOST=${fields[0]};PGPORT=${fields[1]};PGUSER=${fields[2]};PGDATABASE=${fields[
   fd=os.open(a['path'],os.O_RDONLY|os.O_NOFOLLOW)
   try:return stream(['/usr/bin/openssl','cms','-decrypt','-binary','-inform','DER','-recip',p['recipientCertificate']['path'],'-inkey',p['recipientKey']['path']],args,prefix,producer_input=fd)
   finally:os.close(fd);self.protected.recheck()
+ def role_restore(self,p):
+  raw=self.protected.read(p['rolesSql']['path'],p['rolesSql']['sha256'],private=True)
+  writer=json.loads(self.protected.read(p['writerPlan']['path'],p['writerPlan']['sha256'],private=True))
+  return closed_role_restore_sql(raw,writer,p)
  def apply(self,kind,db,p):
   if kind=='restore-roles':
-   sql=self.protected.read(p['rolesSql']['path'],p['rolesSql']['sha256'],private=True)
+   sql=self.role_restore(p)
    self.container(p,'psql --no-password --set=ON_ERROR_STOP=1 --single-transaction --quiet >/dev/null',self.secret(p,'postgres')+sql)
   elif kind=='restore-database':
    require(db in DBS,'DATABASE_SCOPE')

@@ -15,6 +15,30 @@ const tampered=clone(p.target);tampered.sqlSha256='0'.repeat(64);assert.throws((
 const wrong=b('target');wrong.peerSha256='0'.repeat(64);await assert.rejects(c.capture(mock(wrong),wrong,['app_rw']),/TRANSPORT/);pass();
 for(const fault of ['identity','queryError','rollback']){const client=mock(b('target'),{[fault]:true});await assert.rejects(c.capture(client,b('target'),['app_rw','migration_admin']));assert(client.calls.some(x=>x.sql==='ROLLBACK'));pass();}
 const client=mock(b('source'));await c.capture(client,b('source'),['app_rw','migration_admin']);assert.equal(client.calls[0].sql,'BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY');assert.equal(client.calls.at(-1).sql,'ROLLBACK');assert(!JSON.stringify(p.source).includes('search_path=public'));pass();
+// Actual capture JSON wrapper has its own hash, different from canonical facts.
+const raw=Buffer.from(JSON.stringify(p.source,null,2)+'\n');
+const artifactHash=c.hash(raw);assert.notEqual(artifactHash,p.source.catalogSha256);
+assert.deepEqual(c.verifyCaptureArtifact(raw,p.expected.source,artifactHash,p.source.catalogSha256).facts,p.source.facts);pass();
+assert.throws(()=>c.verifyCaptureArtifact(raw,p.expected.source,p.source.catalogSha256,p.source.catalogSha256),/ARTIFACT_HASH/);pass();
+assert.throws(()=>c.verifyCaptureArtifact(raw,p.expected.source,artifactHash,artifactHash),/CAPTURE_HASH/);pass();
+assert.throws(()=>c.verifyCaptureArtifact(Buffer.concat([raw,Buffer.from(' ')]),p.expected.source,artifactHash,p.source.catalogSha256),/ARTIFACT_HASH/);pass();
+const {verifyCatalogReadback}=require('./cn-production-recovery-readback.cjs');
+// Production rollback restores to the same provider instance: isolate only source side.
+const productionTarget=clone(p.target);productionTarget.binding.instanceId=p.source.binding.instanceId;
+productionTarget.binding=c.binding(productionTarget.binding);productionTarget.bindingSha256=c.hash(JSON.stringify(productionTarget.binding));
+const expectedProduction=productionTarget.binding;
+const sourceProduction=clone(p.source);sourceProduction.binding.attemptId=expectedProduction.attemptId;sourceProduction.binding.database=expectedProduction.database;
+sourceProduction.binding=c.binding(sourceProduction.binding);sourceProduction.bindingSha256=c.hash(JSON.stringify(sourceProduction.binding));
+const productionRaw=Buffer.from(JSON.stringify(sourceProduction,null,2)+'\n');
+const item={sourceCatalog:{sha256:c.hash(productionRaw)},sourceCatalogSha256:sourceProduction.catalogSha256};
+assert.deepEqual(verifyCatalogReadback(productionRaw,item,productionTarget,expectedProduction),{artifactSha256:item.sourceCatalog.sha256,catalogSha256:item.sourceCatalogSha256});pass();
+assert.throws(()=>verifyCatalogReadback(productionRaw,{...item,sourceCatalog:{sha256:item.sourceCatalogSha256}},productionTarget,expectedProduction),/ARTIFACT_HASH/);pass();
+assert.throws(()=>verifyCatalogReadback(productionRaw,{...item,sourceCatalogSha256:item.sourceCatalog.sha256},productionTarget,expectedProduction),/CAPTURE_HASH/);pass();
+// Prior capture attempts are preserved in their artifact rather than relabelled.
+const priorSource=clone(sourceProduction);priorSource.binding.attemptId='prior-backup';priorSource.binding=c.binding(priorSource.binding);priorSource.bindingSha256=c.hash(JSON.stringify(priorSource.binding));
+const priorRaw=Buffer.from(JSON.stringify(priorSource));
+assert.doesNotThrow(()=>verifyCatalogReadback(priorRaw,{...item,sourceCatalog:{sha256:c.hash(priorRaw)}},productionTarget,expectedProduction));pass();
+assert.throws(()=>verifyCatalogReadback(priorRaw,{...item,sourceCatalog:{sha256:c.hash(priorRaw)}},productionTarget,{...expectedProduction,database:'foreign'}),/SOURCE_CATALOG_BINDING/);pass();
 const reversed=clone(p.target);for(const k of Object.keys(reversed.facts))reversed.facts[k].reverse();reversed.facts=c.canonical(reversed.facts);assert.equal(c.hash(JSON.stringify(reversed.facts)),p.target.catalogSha256);pass();
 console.log(`catalog fixed-query mock + ${tests} positive/fault assertions PASS; real DB execution NOT RUN; no row-data/READY proof`);
 })().catch(e=>{console.error(e.message);process.exitCode=1;});

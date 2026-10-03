@@ -2,7 +2,7 @@
 """Fixed installed CLI. Development checkout cannot authorize recovery."""
 import fcntl,json,os,pathlib,re,stat,sys
 ROOT=pathlib.Path('/usr/local/lib/workspacex-cn')
-FILES={'cn-production-rds-identity-probe.py':'cn-production-rds-identity-probe.py','cn_production_recovery_stream.py':'cn_production_recovery_stream.py','cn-production-recovery-executor.py':'cn-production-recovery-executor.py','cn_production_recovery_executor.py':'cn_production_recovery_executor.py','cn_production_recovery_transport.py':'cn_production_recovery_transport.py','recovery-readback.cjs':'cn-production-recovery-readback.cjs','cn-production-recovery-catalog.cjs':'cn-production-recovery-catalog.cjs','cn-production-recovery-fidelity.cjs':'cn-production-recovery-fidelity.cjs'}
+FILES={'writer_fence.py':'writer_fence.py','cn-production-rds-identity-probe.py':'cn-production-rds-identity-probe.py','cn_production_recovery_stream.py':'cn_production_recovery_stream.py','cn-production-recovery-executor.py':'cn-production-recovery-executor.py','cn_production_recovery_executor.py':'cn_production_recovery_executor.py','cn_production_recovery_transport.py':'cn_production_recovery_transport.py','recovery-readback.cjs':'cn-production-recovery-readback.cjs','cn-production-recovery-catalog.cjs':'cn-production-recovery-catalog.cjs','cn-production-recovery-fidelity.cjs':'cn-production-recovery-fidelity.cjs'}
 def bootstrap():
  # Validate installed Python sources before executing their import-time code.
  if os.geteuid()!=0 or os.getegid()!=0 or pathlib.Path(__file__).resolve()!=ROOT/'cn-production-recovery-executor.py':raise RuntimeError('INSTALLED_ROOT_ENTRYPOINT')
