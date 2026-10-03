@@ -33,7 +33,10 @@ export function researchReportDocument(report: ReportContent, sources: Source[],
     const framing = C.guidedResearchReportFraming(options.brief);
     const zh = C.guidedResearchReportFraming({ topic: "主题", goal: "", focus: "" });
     const en = C.guidedResearchReportFraming({ topic: "Topic", goal: "", focus: "" });
-    report = { ...report, title: framing.title };
+    report = { ...report, title: framing.title, sections: report.sections.map((section) => ({ ...section, body: section.body
+      .replaceAll(zh.gap + en.gap, framing.gap)
+      .replaceAll("待核实问题 / Unanswered question: ", framing.questionPrefix)
+      .replaceAll("…[问题摘录，余文省略 / remainder omitted]", framing.omitted) })) };
     for (const field of ["summary", "introduction", "conclusion"] as const) {
       if (report[field] === zh[field] + en[field]) report[field] = framing[field];
     }

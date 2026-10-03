@@ -869,6 +869,22 @@ describe("unverified chapter synthesis boundary (#5179)", () => {
     expect(f.state.completed).toBe(false);
     expect(f.state.reportQualityWarnings).toHaveLength(2);
   });
+  it.each(["中文研究", "English research"])("uses one language throughout evidence-free chapters and truncated questions (%s)", async (topic) => {
+    const f = runCase("empty");
+    const chinese = topic === "中文研究";
+    f.state.brief = { ...f.state.brief, topic, goal: "", focus: "" };
+    f.state.outline[0]!.title = chinese ? "证据缺口" : "Evidence gaps";
+    f.state.outline[0]!.questions = [chinese ? "问题" : "Question"];
+    (f.state.outline[0]! as any).subsections = Array.from({ length: 8 }, (_, i) => ({ id: `part-${i}`, title: chinese ? `待核实范围${i}` : `Unresolved scope ${i}`, questions: Array.from({ length: 4 }, (_, j) => `${i}/${j}: ${(chinese ? "问" : "Q").repeat(900)}`) }));
+    expect(C.GuidedResearchOutlineSection.safeParse(f.state.outline[0]).success).toBe(true);
+    const report = await f.run();
+    const gap = report.sections[0]!;
+    expect(gap.sourceIds).toEqual([]);
+    expect(gap.body).toContain(chinese ? "余文省略" : "remainder omitted");
+    expect(gap.body).toContain(chinese ? "待核实问题" : "Unanswered question");
+    expect(gap.body).not.toMatch(chinese ? /[a-z]/i : /\p{Script=Han}/u);
+    expect(f.state.completed).toBe(false);
+  });
   it("keeps evidence-free resume warnings and reuses later trusted chapters", async () => {
     const f = runCase("empty"); await f.run(); f.contexts.length = 0;
     const model: ModelCallPort = { complete: async (input) => {

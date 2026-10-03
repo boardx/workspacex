@@ -222,10 +222,10 @@ export async function generateReportChapters(state: ResearchRuntime, model: Mode
       let chapter: Chapter | undefined;
       if (!sources.length) {
         // Confirmed scope remains visible, but cannot supply citations or factual findings.
-        const safeScope = (text: string) => text.replace(/\[\[source:[\s\S]*?\]\]/g, "[citation marker removed]").replace(/\[\[source:/gi, "[citation marker removed: ").replace(/https?:\/\/\S+/gi, "[link removed]");
+        const safeScope = (text: string) => text.replace(/\[\[source:[\s\S]*?\]\]/g, reportFraming.citationRemoved).replace(/\[\[source:/gi, reportFraming.incompleteCitationRemoved).replace(/https?:\/\/\S+/gi, reportFraming.linkRemoved);
         const gap = reportFraming.gap;
-        const prefix = "待核实问题 / Unanswered question: ";
-        const omitted = "…[问题摘录，余文省略 / remainder omitted]";
+        const prefix = reportFraming.questionPrefix;
+        const omitted = reportFraming.omitted;
         const parts = subsectionPlan(section).map((part) => ({ title: safeScope(part.title), questions: part.questions.map(safeScope) }));
         const bodyLimit = C.GuidedResearchReport.shape.sections.element.shape.body.maxLength!;
         // Reserve every heading, question marker and gap explanation before excerpting.

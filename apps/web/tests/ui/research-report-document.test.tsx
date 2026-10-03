@@ -26,6 +26,10 @@ describe("research chapter document", () => {
     expect(document).toMatchObject({ title: framing.title, summary: framing.summary, introduction: framing.introduction, conclusion: framing.conclusion });
     expect(document.sections[0]!.body).toContain("Preserved evidence");
     expect(document.references).toHaveLength(1);
+    const gapReport = { ...original, sections: [{ sectionId: "o1", body: zh.gap + en.gap, sourceIds: [] }] };
+    expect(researchReportDocument(gapReport, sources, runtime.outline, { brief }).sections[0]!.body).toBe(framing.gap);
+    const longGap = { ...gapReport, sections: [{ sectionId: "o1", body: `待核实问题 / Unanswered question: Q…[问题摘录，余文省略 / remainder omitted]\n\n${zh.gap + en.gap}`, sourceIds: [] }] };
+    expect(researchReportDocument(longGap, sources, runtime.outline, { brief }).sections[0]!.body).toBe(`${framing.questionPrefix}Q${framing.omitted}\n\n${framing.gap}`);
     expect(original.title).toContain("Unverified research draft");
     const authored = { ...original, title: "My named report", summary: "Authored summary" };
     expect(researchReportDocument(authored, sources, runtime.outline, { brief })).toMatchObject({ title: authored.title, summary: authored.summary });
