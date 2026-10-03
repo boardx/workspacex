@@ -22,9 +22,9 @@ describe("guided research reference layout", () => {
   });
   it("explains when preset focus choices make the combined focus exceed the contract limit", () => {
     render(<ResearchTopicInformation brief={runtimeFixture().brief} disabled={false} onSave={vi.fn()} />);
-    fireEvent.change(screen.getByRole("textbox", { name: "其它" }), { target: { value: "甲".repeat(2000) } });
+    fireEvent.change(screen.getByRole("textbox", { name: "其它" }), { target: { value: "甲".repeat(40000) } });
     fireEvent.click(screen.getByRole("checkbox", { name: "市场增长质量" }));
-    expect(screen.getByRole("alert")).toHaveTextContent("重点关注总长度不能超过 2000 字");
+    expect(screen.getByRole("alert")).toHaveTextContent("重点关注总长度不能超过 40000 字");
     expect(screen.queryByRole("button", { name: "保存研究信息" })).not.toBeInTheDocument();
   });
   it("keeps editing inline instead of asking for manual save confirmation", () => {
