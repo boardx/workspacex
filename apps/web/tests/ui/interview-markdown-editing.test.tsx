@@ -400,3 +400,31 @@ it("persisted add refreshes the source and enables avatar editing without confir
   await waitFor(() => expect(screen.getByRole("button", { name: "编辑专家 林知远（虚拟）" })).toBeEnabled());
   expect(mutations[0]).toContain("/markdown/experts");
 });
+
+it("refreshes conflicted expert versions and retains dialog fields for an explicit retry", async () => {
+  vi.stubEnv("NEXT_PUBLIC_API_URL", "http://localhost:4100"); vi.stubEnv("NEXT_PUBLIC_API_PATH_PREFIX", "");
+  let version = 1; let doc = { ...source }; const bodies: { expectedVersion: number; expectedDocumentVersion: number; markdown: string }[] = [];
+  vi.stubGlobal("fetch", async (url: string, init: RequestInit) => {
+    if (url.endsWith("/digital/experts")) return new Response(JSON.stringify({ items: [] }));
+    if (init.method === "POST" && url.endsWith("/markdown/experts")) {
+      const body = JSON.parse(String(init.body)); bodies.push(body);
+      if (bodies.length === 1) {
+        version = 3; doc = { ...doc, version: 2, markdown: "# 专家\n\n## [并发保存专家](#expert-concurrent)\n\n专业角色：顾问" };
+        return new Response(JSON.stringify({ message: "conflict" }), { status: 409 });
+      }
+      doc = { ...doc, version: 3, markdown: body.markdown }; version = 4;
+    }
+    return new Response(JSON.stringify({ interviewId: "itv-conflict-expert", revisionId: "rev-conflict", version, documents: [doc], states: [{ documentId: doc.documentId, status: "draft", failure: null }] }));
+  });
+  render(<InterviewMarkdownEditingStep interviewId="itv-conflict-expert" step="experts" onVersionChange={vi.fn()} onDirtyChange={vi.fn()} onContinue={vi.fn()} />);
+  await waitFor(() => expect(screen.getByRole("button", { name: "添加虚拟专家" })).toBeEnabled());
+  fireEvent.click(screen.getByRole("button", { name: "添加虚拟专家" })); fillVirtualExpert();
+  fireEvent.click(screen.getByRole("button", { name: "保存并添加专家" }));
+  await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("保存未完成"));
+  expect(screen.getByRole("textbox", { name: "专家名称" })).toHaveValue(editableVirtualFields.name);
+  fireEvent.click(screen.getByRole("button", { name: "保存并添加专家" }));
+  await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+  expect(bodies[1]).toMatchObject({ expectedVersion: 3, expectedDocumentVersion: 2 });
+  expect(bodies[1]?.markdown).toContain("#expert-concurrent");
+  expect(bodies[1]?.markdown).toContain(editableVirtualFields.name);
+});
