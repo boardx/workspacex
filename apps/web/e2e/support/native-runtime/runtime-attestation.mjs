@@ -7,12 +7,8 @@ import {tmpdir} from 'node:os';
 import {identityOperation} from './native-startup-receipt.mjs';
 import {linuxRuntimeListeners} from './native-process-listeners.mjs';
 import {nativeRuntimePorts} from './native-runtime-ports.mjs';
-
-export function listRuntimeSourceFiles(root) {
-  const tracked=execFileSync('git',['ls-files','-z'],{cwd:root,encoding:'utf8'}).split('\0').filter(Boolean);
-  const rootFiles=['package.json','pnpm-lock.yaml','pnpm-workspace.yaml','turbo.json','.nvmrc','scripts/local-session/board-acceptance-runtime.mjs'];
-  return tracked.filter(path=>/^(apps\/(?:api|web)\/|packages\/)/.test(path)||rootFiles.includes(path)).sort();
-}
+import {listRuntimeSourceFiles} from '../../../../../scripts/local-session/board-runtime-source-files.mjs';
+export {listRuntimeSourceFiles};
 
 export function assertRuntimeSourceFiles(root,sourceFiles) {
   assert(Array.isArray(sourceFiles)&&sourceFiles.every(path=>typeof path==='string'),'runtime source files must be explicit paths');
