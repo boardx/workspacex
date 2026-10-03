@@ -1,8 +1,10 @@
 import {randomUUID} from 'node:crypto';
+import {writeFile} from 'node:fs/promises';
 import {expect,test,type Page,type TestInfo} from '@playwright/test';
 import {FULLSTACK_E2E as F} from './fullstack-smoke-fixture';
 import {SESSION_TOKEN_STORAGE_KEY} from '../lib/api-client';
 import {connectByHandles,seedExistingFrame} from './board-acceptance-support';
+import {verifyEditorConnectorEntry} from './support/board-editor-connector-entry';
 
 const referenceViewports=[{width:1024,height:900},{width:1536,height:1024},{width:1672,height:941}] as const;
 const dockOrder=['board-tool-select','board-tool-hand','board-add-sticky','board-add-text','board-add-shape','board-add-draw','board-add-image','board-add-more'] as const;
@@ -28,12 +30,17 @@ test('real thirty-note Board keeps compact chrome and intentional connection han
    const header=(await page.getByTestId('board-editor-header').boundingBox())!,navigation=(await page.getByTestId('board-navigation-controls').boundingBox())!,selection=(await page.getByTestId('board-selection-layout-toolbar').boundingBox())!;
    expect(header.height).toBeCloseTo(64,0);expect(header.width).toBeLessThanOrEqual(width);const dock=(await page.getByTestId('board-creation-dock').boundingBox())!;expect(selection.y+selection.height).toBeLessThan(dock.y);
    const headerLayout=await page.getByTestId('board-editor-header').evaluate(element=>{const bounds=element.getBoundingClientRect(),items=[...element.children].map(child=>child.getBoundingClientRect()).filter(rect=>rect.width>0&&rect.height>0).map(rect=>({left:rect.left,right:rect.right}));return{left:bounds.left,right:bounds.right,clientWidth:element.clientWidth,scrollWidth:element.scrollWidth,items};});expect(headerLayout.scrollWidth).toBeLessThanOrEqual(headerLayout.clientWidth);for(const item of headerLayout.items){expect(item.left).toBeGreaterThanOrEqual(headerLayout.left);expect(item.right).toBeLessThanOrEqual(headerLayout.right);}for(let index=1;index<headerLayout.items.length;index++)expect(headerLayout.items[index-1]!.right).toBeLessThanOrEqual(headerLayout.items[index]!.left+1);
+   const navigationLayout=await page.getByTestId('board-navigation-controls').evaluate(element=>{const rect=element.getBoundingClientRect(),parent=(element as HTMLElement).offsetParent,parentRect=parent?.getBoundingClientRect();const ancestors=[];let current:HTMLElement|null=element as HTMLElement;for(let depth=0;current&&depth<5;depth++,current=current.parentElement){const bounds=current.getBoundingClientRect(),style=getComputedStyle(current),offset=current.offsetParent,offsetBounds=offset?.getBoundingClientRect();ancestors.push({depth,bounds:{x:bounds.x,y:bounds.y,width:bounds.width,height:bounds.height},position:style.position,right:style.right,overflowX:style.overflowX,overflowY:style.overflowY,fontSize:style.fontSize,clientWidth:current.clientWidth,offsetWidth:current.offsetWidth,scrollWidth:current.scrollWidth,offsetParent:offsetBounds?{x:offsetBounds.x,y:offsetBounds.y,width:offsetBounds.width,height:offsetBounds.height}:null});}return{navigation:{x:rect.x,y:rect.y,width:rect.width,height:rect.height},offsetParent:parentRect?{x:parentRect.x,y:parentRect.y,width:parentRect.width,height:parentRect.height,clientWidth:parent!.clientWidth}:null,ancestors,documentClientWidth:document.documentElement.clientWidth,innerWidth:window.innerWidth,innerHeight:window.innerHeight};});
+   const navigationLayoutPath=info.outputPath(`navigation-layout-${label}.json`);await writeFile(navigationLayoutPath,JSON.stringify(navigationLayout,null,2),{flag:'wx',mode:0o600});
+   await info.attach(`navigation-layout-${label}`,{path:navigationLayoutPath,contentType:'application/json'});
    expect(navigation.x+navigation.width).toBeCloseTo(width-16,0);
    expect(dock.x).toBeGreaterThanOrEqual(16);expect(dock.x+dock.width).toBeLessThanOrEqual(width-16);
    if(width<1280)expect(navigation.y+navigation.height).toBeLessThanOrEqual(dock.y-2);else{expect(navigation.y+navigation.height).toBeCloseTo(height-20,0);expect(navigation.x).toBeGreaterThanOrEqual(dock.x+dock.width+16);}for(const id of ['board-overview-fit','board-zoom-menu','board-zoom-fit-board'])await expect(page.getByTestId(id)).toBeVisible();
    if(width===1024)await expect(page.getByTestId('board-editor-header').getByRole('button',{name:'开始演示',exact:true})).toHaveCount(0);
    const dockMetrics=await page.getByTestId('board-creation-dock').locator(':scope > div').last().evaluate(el=>({clientWidth:el.clientWidth,scrollWidth:el.scrollWidth}));expect(dockMetrics.scrollWidth).toBeLessThanOrEqual(dockMetrics.clientWidth);
-   await expect(page.getByTestId('board-add-connector')).toHaveCount(0);
+   await verifyEditorConnectorEntry(page,board.id,call,()=>captureReference(page,info,`reference-connector-picker-${label}`));
+   await page.keyboard.press('ControlOrMeta+a');await expect(page.getByTestId('board-selection-layout-toolbar')).toBeVisible();
+   await expect(page.locator('[data-testid^="connector-handle-"]')).toHaveCount(0);
    const toolBounds=await Promise.all(dockOrder.map(async id=>({id,box:(await page.getByTestId(id).boundingBox())!})));for(let index=1;index<toolBounds.length;index++)expect(toolBounds[index]!.box.x).toBeGreaterThan(toolBounds[index-1]!.box.x);
    await expect.poll(async()=>{const surface=page.getByTestId('board-fabric-surface'),view=await surface.evaluate(el=>({z:Number(el.getAttribute('data-viewport-zoom')),x:Number(el.getAttribute('data-viewport-pan-x')),y:Number(el.getAttribute('data-viewport-pan-y'))}));return 100*view.z+view.x>=31&&1300*view.z+view.x<=width-31&&100*view.z+view.y>=header.y+header.height+15&&896*view.z+view.y<=dock.y-11;}).toBe(true);
    await captureReference(page,info,`reference-shell-${label}`);
@@ -58,9 +65,14 @@ test('real thirty-note Board keeps compact chrome and intentional connection han
    await page.getByTestId('board-inspector-expand').click();
    const frameInspector=page.getByTestId('board-context-toolbar');
    await expect(page.getByTestId('board-frame-size-presets')).toBeVisible();
-   const frameBounds=(await frameInspector.boundingBox())!;
+   const frameLayout=await page.evaluate(()=>{
+    const bounds=(id:string)=>{const element=document.querySelector(`[data-testid="${id}"]`);if(!element)throw new Error(`Missing ${id}`);const rect=element.getBoundingClientRect();return{x:rect.x,y:rect.y,width:rect.width,height:rect.height};};
+    return{frame:bounds('board-context-toolbar'),header:bounds('board-editor-header'),dock:bounds('board-creation-dock')};
+   });
+   await info.attach(`frame-live-layout-${label}`,{body:Buffer.from(JSON.stringify({cachedHeader:header,cachedDock:dock,live:frameLayout})),contentType:'application/json'});
+   const frameBounds=frameLayout.frame;
    expect(frameBounds.x).toBeGreaterThanOrEqual(16);expect(frameBounds.x+frameBounds.width).toBeLessThanOrEqual(width-16);
-   expect(frameBounds.y).toBeGreaterThanOrEqual(header.y+header.height);expect(frameBounds.y+frameBounds.height).toBeLessThanOrEqual(dock.y-2);
+   expect(frameBounds.y).toBeGreaterThanOrEqual(frameLayout.header.y+frameLayout.header.height);expect(frameBounds.y+frameBounds.height).toBeLessThanOrEqual(frameLayout.dock.y-2);
    for(const name of ['区域标题','区域布局'])await expect(page.getByLabel(name,{exact:true})).toBeVisible();
    await captureReference(page,info,`reference-existing-frame-inspector-${label}`);await page.getByTestId('board-inspector-close').click();
 
@@ -83,7 +95,7 @@ test('real thirty-note Board keeps compact chrome and intentional connection han
   await page.screenshot({path:info.outputPath('reference-mobile-390.png')});
   await info.attach('reference-mobile-390',{path:info.outputPath('reference-mobile-390.png'),contentType:'image/png'});
   await page.keyboard.press('Escape');await page.setViewportSize({width:1536,height:1024});
-  // Hidden creation entries preserve selected-object handles and Escape dismissal.
+  // Approved creation entry preserves selected-object handles and Escape dismissal.
   await page.getByTestId('board-a11y-object-idea-1').evaluate((element:HTMLElement)=>element.click());
   await expect(page.locator('[data-testid^="connector-handle-idea-1-"]')).toHaveCount(4);
   await page.keyboard.press('Escape');
@@ -91,7 +103,7 @@ test('real thirty-note Board keeps compact chrome and intentional connection han
   await page.getByRole('button', {name: '取消选择', exact: true}).click();
   await expect(page.getByTestId('board-a11y-selection-announcement')).toHaveText('未选择对象');
   await expect(page.locator('[data-testid^="connector-handle-"]')).toHaveCount(0);
-  await expect(page.getByTestId('board-add-connector')).toHaveCount(0);
-  expect(await connectByHandles(page, 'idea-0', 'idea-1')).toBe(1);
+  await verifyEditorConnectorEntry(page,board.id,call,()=>captureReference(page,info,'reference-connector-after-dismissal'));
+  expect(await connectByHandles(page, 'idea-0', 'idea-1',async evidence=>{const path=info.outputPath('connector-snap-geometry.json');await writeFile(path,JSON.stringify(evidence,null,2),{flag:'wx',mode:0o600});await info.attach('connector-snap-geometry',{path,contentType:'application/json'});})).toBe(1);
  }finally{const latest=await call('GET',`/whiteboards/${board.id}`);await call('PATCH',`/whiteboards/${board.id}`,{archived:true,expectedLifecycleRevision:latest.lifecycleRevision});}
 });
