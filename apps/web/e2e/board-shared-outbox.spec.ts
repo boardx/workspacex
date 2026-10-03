@@ -15,8 +15,8 @@ import {sharedOutboxProof} from './support/board-shared-outbox-proof';
 // and freeze are genuine, while both tabs still share the same durable storage.
 const TEST_BUDGET_MS=180_000;
 const test=baseTest.extend<{ownedBrowser:Awaited<ReturnType<typeof createOwnedLifecycleBrowser>>}>({
- ownedBrowser:async({},use)=>{
-  const owned=await createOwnedLifecycleBrowser(chromium,{testBudgetMs:TEST_BUDGET_MS,teardownBudgetMs:10_000});let primary:unknown,failed=false;
+ ownedBrowser:async({},use,info)=>{
+  const owned=await createOwnedLifecycleBrowser(chromium,{testBudgetMs:TEST_BUDGET_MS,teardownBudgetMs:10_000,chromiumSandbox:info.project.use.launchOptions?.chromiumSandbox});let primary:unknown,failed=false;
   try{await use(owned);}catch(error){failed=true;primary=error;throw error;}
   finally{try{await owned.close();}catch{const cleanup=new Error('OWNED_BROWSER_CLEANUP_FAILED');throw failed?new AggregateError([primary,cleanup],'PRIMARY_AND_OWNED_BROWSER_CLEANUP_FAILED'):cleanup;}}
  },

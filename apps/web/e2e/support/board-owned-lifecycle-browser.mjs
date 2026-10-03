@@ -78,8 +78,15 @@ export async function connectOwnedDefaultContext(chromium,endpoint,version){
  }catch(error){try{await bounded(browser.close(),2000);}catch{}throw error;}
 }
 export function requireOwnedDeadline(expired){if(expired)fail('OWNED_BROWSER_DEADLINE_EXPIRED');}
-export async function createOwnedLifecycleBrowser(chromium,{testBudgetMs,teardownBudgetMs}){
+export function ownedShellArguments(directory,chromiumSandbox,platform=process.platform){
+ if(chromiumSandbox!==undefined&&typeof chromiumSandbox!=='boolean')fail('OWNED_BROWSER_SANDBOX_POLICY_INVALID');
+ // Match the installed Playwright runner's default Linux sandbox policy;
+ // an explicitly enabled sandbox remains enabled, even if the host rejects it.
+ return ['--headless','--remote-debugging-address=127.0.0.1','--remote-debugging-port=0',`--user-data-dir=${directory}`,'--disable-background-networking','--disable-component-update','--no-first-run','--no-default-browser-check',...(platform==='linux'&&chromiumSandbox!==true?['--no-sandbox']:[]),'about:blank'];
+}
+export async function createOwnedLifecycleBrowser(chromium,{testBudgetMs,teardownBudgetMs,chromiumSandbox}){
  if(!Number.isSafeInteger(testBudgetMs)||testBudgetMs<=0||!Number.isSafeInteger(teardownBudgetMs)||teardownBudgetMs<=0||teardownBudgetMs>10000)fail('OWNED_BROWSER_BUDGET_INVALID');
+ ownedShellArguments('',chromiumSandbox);
  // The public pnpm --filter web runner executes in the web package. Avoid
  // import.meta: Playwright transforms helpers imported by this CommonJS suite.
  const webDirectory=process.cwd(),projectPackage=join(webDirectory,'package.json');
@@ -105,7 +112,7 @@ export async function createOwnedLifecycleBrowser(chromium,{testBudgetMs,teardow
   if(errors.length)throw new Error(errors.join('+'));
  };
  try{
-  const child=spawn(executable,['--headless','--remote-debugging-address=127.0.0.1','--remote-debugging-port=0',`--user-data-dir=${directory}`,'--disable-background-networking','--disable-component-update','--no-first-run','--no-default-browser-check','about:blank'],{detached:true,stdio:['ignore','ignore','pipe']});
+  const child=spawn(executable,ownedShellArguments(directory,chromiumSandbox),{detached:true,stdio:['ignore','ignore','pipe']});
   observeOwnedChild(child,owner);
   stderrDecoder=createOwnedShellDecoder();
   child.stderr.on('data',chunk=>{stderrDecoder.push(chunk);shell=stderrDecoder.read();});

@@ -5,12 +5,22 @@ import {readFileSync} from 'node:fs';
 import {dirname,join} from 'node:path';
 import {execFileSync} from 'node:child_process';
 import {EventEmitter} from 'node:events';
-import {parseOwnedShellLocation,validateOwnedExecutable,releaseOwnedProcess,connectOwnedDefaultContext,requireOwnedDeadline,decodeOwnedShellFailure,ownedSetupDiagnostic,observeOwnedChild,createOwnedShellDecoder} from './board-owned-lifecycle-browser.mjs';
+import {parseOwnedShellLocation,validateOwnedExecutable,releaseOwnedProcess,connectOwnedDefaultContext,requireOwnedDeadline,decodeOwnedShellFailure,ownedSetupDiagnostic,observeOwnedChild,createOwnedShellDecoder,ownedShellArguments} from './board-owned-lifecycle-browser.mjs';
 const require=createRequire(import.meta.url);
 const pins=JSON.parse(readFileSync(join(dirname(require.resolve('playwright-core/package.json')),'browsers.json'),'utf8'));
 const pin=pins.browsers.find(value=>value.name==='chromium-headless-shell');
 const location=`/owned/chromium_headless_shell-${pin.revision}`;
 const output=`${pin.title} ${pin.browserVersion} (playwright ${pin.name} v${pin.revision})\n  Install location:    ${location}\n  Download url:        ignored`;
+test('Linux default and explicit false match existing runner sandbox policy',()=>{
+ for(const value of [undefined,false]){const args=ownedShellArguments('/owned/profile',value,'linux');assert.equal(args.filter(value=>value==='--no-sandbox').length,1);assert.ok(args.includes('--remote-debugging-address=127.0.0.1'));assert.equal(args.at(-1),'about:blank');assert.ok(!args.some(value=>value.includes('disable-web-security')));}
+});
+test('explicit sandbox true is never disabled and non-Linux launch stays unchanged',()=>{
+ assert.ok(!ownedShellArguments('/owned/profile',true,'linux').includes('--no-sandbox'));
+ for(const value of [undefined,false,true])assert.ok(!ownedShellArguments('/owned/profile',value,'darwin').includes('--no-sandbox'));
+});
+test('invalid sandbox setting fails rather than silently disabling protection',()=>{
+ for(const value of ['true','false',null,0,1,{},[]])assert.throws(()=>ownedShellArguments('/owned/profile',value,'linux'),/SANDBOX_POLICY_INVALID/);
+});
 test('setup diagnostic accepts only fixed codes and bounded numeric facts',()=>{
  assert.deepEqual(ownedSetupDiagnostic(new Error('OWNED_BROWSER_START_FAILED'),{stage:'endpoint',shell:'NONE',childExit:1,childClosed:1,groupGone:1,cleanupFailed:0}),{code:'OWNED_BROWSER_START_FAILED',stage:'endpoint',shell:'NONE',childExit:1,childClosed:1,groupGone:1,cleanupFailed:0});
  const safe=ownedSetupDiagnostic(new Error('secret https://private.invalid /private/profile'),{stage:'secret',shell:'private text',childExit:Infinity,childClosed:2,groupGone:-2,cleanupFailed:NaN});
