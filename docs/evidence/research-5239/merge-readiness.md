@@ -10,3 +10,5 @@ Change: give only fullstack-smoke 35 minutes of total wall-clock time. Preserve 
 Local verification: Ruby YAML parser accepted the workflow; its smoke timeout is 35; git diff --check passed. The restored managed worktree has no node_modules. This commit contains only workflow configuration and evidence documentation, qualifying for the session-closer skill's missing-dependency exception to pre-push. No runtime code bypass is involved.
 
 Next: exact commit review and latest-head CI, including an actual SUCCESS conclusion for fullstack-smoke; re-read GitHub merge readiness. Do not merge or deploy from this session. Final CI evidence belongs on PR #5240.
+
+The first CI attempt exposed one old runtime test asserting the exact 20-minute job value (2281 other control-plane tests passed). Update that assertion to require a finite budget between 30 and 45 minutes while retaining every command, evidence and credential-isolation assertion. Reinstall pinned dependencies and run this runtime suite plus ordinary pre-push checks for the test-source change; the pure-configuration exception above no longer applies to this follow-up.
