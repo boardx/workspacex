@@ -1,19 +1,15 @@
-# 当前交接边界
+# 当前执行检查点
 
-本会话仍在执行用户授权验收。隔离工作树/private/tmp/wsx-digital-acceptance-20261002，分支codex/digital-acceptance-r1。共享主目录有其他任务改动，禁止checkout/reset/stash。
+任务仍进行中；不标完成/9分。用户授权修复并合并绿PR，禁止部署；注册已明确豁免，不再索取worker/token。
 
-cn.local.env保留在共享主目录，只在进程内读，不复制入库。普通沙箱DNS失败，网络探针及GitHub用已授权沙箱外请求。协调身份按用户明确要求跳过。
+共享主目录 /Users/shenyanbin/Documents/workspacex 有其他任务改动，禁止checkout/reset/stash。私有cn.local.env仅进程内读，不复制/输出/提交。三云端补丁已从原session取得，仅导入三补丁，没有导入整个私有分支。
 
-原云端session已导出三补丁；交接包校验通过，原始补丁位于/private/tmp/wsx-voice-handoff。改动限语音配置、采音恢复、测试composition；API测试已适配当前main，无需导入整个私有分支。
+R2隔离树 /private/tmp/wsx-digital-acceptance-20261002，branch codex/digital-acceptance-r2，PR5198最新9ec3fdf78f635804fcb80abb48cdcc28cb80d014。本地33条及API类型/lint绿，独立reviewACCEPT，实际PG新CI待同用例成功。必须修红到绿、queue判定、exact-SHA merge。旧CI唯一约束及网关门限失败见r2/ci-repair.md。
 
-真实供应商probe事件与音频在evidence/digital-acceptance-20261002/r1。夹具为Qwen生成的实际语音，不能声称真人十轮通话通过。先前Cherry不支持与空say WAV失败均如实记录。
+R3隔离树 /private/tmp/wsx-digital-product-20261003，branch codex/digital-acceptance-r3，基于R2最新修复（R2合并后rebase到Main，以免R3 PR带重复diff）。issue5200；先完成独立exact-SHA review/PR/全绿/合并。修复介绍和显式资料范围隔离；专业文稿仍有失败，见r3/report.md和真实Qwen前后输出。线上D003草稿为测试者人工保存，未挂出处，不能冒充W029结果。
 
-临时PGlite/API/Web stack session在本轮验收结束须停止，数据/private/tmp/wsx-digital-r1-data，端口14310/14320/14325/14328；未启动Docker。浏览器线上基线需要保留至R2修复复验。
+后续R4 D011 → R5 D005基础内部及集成。主要硬门：0 ready官方Skills，需要真实验证可用的质量发布通道；W001生产图仅metadata，占位stage无正文；W029真实执行需模型正确触发且产出可审/可恢复；虚拟文件到原生artifact交付需修复；四角色切换清除不兼容Skills及权限反证需真实复验。不得用test fixture认证晋升线上候选Skills，不绕过审批。
 
-后续顺序：R1 PR绿后→R2 D002角色硬门与研究产物→R3 D003→R4 D011→R5 D005内部/集成/至少10轮真实麦克风双向交谈与P95。未部署的修复不能算DevApp通过。
+资源：R1端口14310/14320/14325/14328均释放，没有Docker；R3 Python环境 /private/tmp/wsx-r3-pyenv，uv锁未修改。无后台本地API/Web栈。浏览器原用户tab1保留；任务创建tabs4(admin)/5(W001拒绝)/6(D003)可作为后续复验上下文，不读取浏览器tokens。
 
-## Latest resource and CI state
-
-The temporary local voice stack was stopped; ports 14310/14320/14325/14328 are released. PR #5128 is draft to respect the user's no-auto-merge instruction. Its initial core-loop red exposed missing startup catalog initialization in the test composition; shared startup repair is under revalidation. R2 online D002 background/Skills failures are saved but not yet repaired or scored.
-
-2026-10-03: R1 merged (PR #5128, Main e4ce1c30cf6f0e4bdf5f15b514cb830d8924f6e3), all 24 non-skipped checks green; independent exact-SHA review accepted. User now authorizes fixing and merging green PRs; no deployments. R2 issue #5185, branch codex/digital-acceptance-r2, official binding-refresh and frozen workflow-context repair in progress. See r2/report.md for actual failed professional output and successful user-assisted artifact recovery. Do not promote fixture Skill verification to DevApp or claim local PostgreSQL/physical voice acceptance.
+语音：真实供应商文字/PCM双向probe仅连接能力证据，不是真人10轮。此前DevApp麦克风音量0，静音/挂断没有保存内容。待真人配合10轮与自然停顿/打断/静音/断连重试/保存/设备释放、P95≤2.5秒/500ms。没有数据则不填假通过。
