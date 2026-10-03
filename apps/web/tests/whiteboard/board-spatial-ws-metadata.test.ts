@@ -1,5 +1,6 @@
 import {expect,it,vi} from 'vitest';
-import {spatialFrameMetadata,createSpatialWsMetadataRecorder,nativeSocketErrorCode,installNativeSocketCloseObserver} from '../../e2e/support/board-spatial-ws-metadata';
+import {sharedOutboxProof} from '../../e2e/support/board-shared-outbox-proof';
+import {spatialFrameMetadata,createSpatialWsMetadataRecorder,nativeSocketErrorCode,nativeSocketMessageClass,installNativeSocketCloseObserver} from '../../e2e/support/board-spatial-ws-metadata';
 it('retains only bounded receipt metadata including UUID gesture identity',()=>{
  const updateId='00000000-0000-0000-0000-000000000001',gestureId='00000000-0000-0000-0000-000000000002';
  expect(spatialFrameMetadata(JSON.stringify({type:'ack',seq:7,updateId,gestureId,token:'not-retained',update:'not-retained',url:'not-retained',text:'not-retained'}))).toEqual({type:'ack',updateId,gestureId,seq:7});
@@ -58,7 +59,7 @@ it('CDP observations filter actual board sockets and remove only owned listeners
  handlers.get('Network.webSocketFrameError')!({requestId:'private-request',errorMessage:'private url net::ERR_CONNECTION_RESET'});
  handlers.get('Network.webSocketClosed')!({requestId:'private-request'});
  handlers.get('Network.webSocketFrameError')!({requestId:'foreign-request',errorMessage:'private'});stop();
- expect(off).toHaveLength(3);expect(recorder.snapshot().events.map(({elapsedMs,...event})=>event)).toEqual([{client:'original',socketOrdinal:1,direction:'cdp-socketerror',code:'ERR_CONNECTION_RESET'},{client:'original',socketOrdinal:1,direction:'cdp-close'}]);
+ expect(off).toHaveLength(3);expect(recorder.snapshot().events.map(({elapsedMs,...event})=>event)).toEqual([{client:'original',socketOrdinal:1,direction:'cdp-socketerror',code:'ERR_CONNECTION_RESET',messageClass:'UNKNOWN'},{client:'original',socketOrdinal:1,direction:'cdp-close'}]);
  expect(JSON.stringify(recorder.snapshot())).not.toContain('private');
 });
 
@@ -66,4 +67,35 @@ it('diagnostic removal attempts every owned listener before reporting a fixed cl
  const attempts:string[]=[],session={on:()=>undefined,off:(name:string)=>{attempts.push(name);if(name==='Network.webSocketCreated')throw new Error('private removal failure');}};
  const stop=createSpatialWsMetadataRecorder().observeCdp(session as never,'original');
  expect(stop).toThrow('SOCKET_DIAGNOSTIC_STOP_FAILED');expect(attempts).toEqual(['Network.webSocketCreated','Network.webSocketFrameError','Network.webSocketClosed']);
+});
+const fixedMessageClasses=[
+ ['Could not decode a text frame as UTF-8.','UTF8_DECODE_FAILED'],
+ ['Message size is too large.','MESSAGE_TOO_LARGE'],
+ ['Received unexpected continuation frame.','UNEXPECTED_CONTINUATION'],
+ ['Received start of new message but previous message is unfinished.','UNFINISHED_MESSAGE'],
+] as const;
+it('classifies only exact pinned reasons or actual empty strings without inferring a net error',()=>{
+ for(const [message,classification] of fixedMessageClasses){expect(nativeSocketMessageClass(message)).toBe(classification);expect(nativeSocketErrorCode(message)).toBe('UNKNOWN');}
+ expect(nativeSocketMessageClass('')).toBe('EMPTY');
+ for(const value of [null,undefined,{},new String(''),' ','ERR_FAILED','private credential https://private.invalid/path','x'.repeat(8193),...fixedMessageClasses.flatMap(([message])=>[message+' private','private '+message,message+'\n'])])expect(nativeSocketMessageClass(value)).toBe('UNKNOWN');
+ let reads=0;const accessor={get errorMessage(){reads++;return '';},toString(){reads++;return '';}};
+ expect(nativeSocketMessageClass(accessor)).toBe('UNKNOWN');expect(reads).toBe(0);
+});
+it('retains fixed CDP classes without changing native close metadata or the TRANSPORT_ERROR proof',()=>{
+ const handlers=new Map<string,(value:unknown)=>void>(),socketHandlers=new Map<string,()=>void>();
+ const recorder=createSpatialWsMetadataRecorder();
+ recorder.observe({on:(_name:string,listener:(socket:unknown)=>void)=>listener({url:()=> 'ws://localhost/whiteboards/owned/sync',on:(name:string,handler:()=>void)=>socketHandlers.set(name,handler)})} as never,'original');
+ const stop=recorder.observeCdp({on:(name:string,handler:(value:unknown)=>void)=>handlers.set(name,handler),off:()=>undefined} as never,'original');
+ handlers.get('Network.webSocketCreated')!({requestId:'owned',url:'ws://localhost/whiteboards/owned/sync'});
+ for(const [errorMessage] of fixedMessageClasses)handlers.get('Network.webSocketFrameError')!({requestId:'owned',errorMessage});
+ handlers.get('Network.webSocketFrameError')!({requestId:'owned',errorMessage:''});
+ handlers.get('Network.webSocketFrameError')!({requestId:'owned',errorMessage:'private credential https://private.invalid/path'});
+ let reads=0;handlers.get('Network.webSocketFrameError')!({requestId:'owned',get errorMessage(){reads++;return 'private';}});expect(reads).toBe(0);
+ recorder.nativeClose('original',{socketOrdinal:1,code:1006,wasClean:false});socketHandlers.get('socketerror')!();stop();
+ const events=recorder.snapshot().events;
+ expect(events.filter(event=>event.direction==='cdp-socketerror').map(({code,messageClass})=>({code,messageClass}))).toEqual([...fixedMessageClasses.map(([,messageClass])=>({code:'UNKNOWN',messageClass})),{code:'UNKNOWN',messageClass:'EMPTY'},{code:'UNKNOWN',messageClass:'UNKNOWN'},{code:'UNKNOWN',messageClass:'UNKNOWN'}]);
+ expect(events.find(event=>event.direction==='nativeclose')).toEqual({elapsedMs:expect.any(Number),client:'original',socketOrdinal:1,direction:'nativeclose',code:1006,wasClean:false});
+ expect(events.every(event=>!Object.hasOwn(event,'errorMessage')&&!Object.hasOwn(event,'url'))).toBe(true);expect(JSON.stringify(events)).not.toContain('private');
+ const valid=[{client:'original',direction:'sent',type:'update',updateId:'one'},{client:'peer',direction:'sent',type:'update',updateId:'one'},{client:'original',direction:'received',type:'ack',updateId:'one',seq:1},{client:'peer',direction:'received',type:'ack',updateId:'one',seq:1}];
+ expect(sharedOutboxProof(valid,0,1)).toEqual([]);expect(sharedOutboxProof([...valid,...events],0,1)).toEqual(['TRANSPORT_ERROR']);
 });

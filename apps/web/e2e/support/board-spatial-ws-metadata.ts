@@ -41,7 +41,7 @@ export function createSpatialWsMetadataRecorder() {
     observeCdp(session:CDPSession,client:'original'|'peer'){
       const sockets=new Map<string,number>();let ordinal=0;
       const created=(event:{requestId:string;url:string})=>{try{if(ordinal<10000&&typeof event.url==='string'&&event.url.length<=8192&&/\/whiteboards\/[^/]+\/sync$/.test(new URL(event.url).pathname))sockets.set(event.requestId,++ordinal);}catch{ /* Malformed diagnostic URLs cannot affect transport. */ }};
-      const failed=(event:{requestId:string;errorMessage:string})=>{const socketOrdinal=sockets.get(event.requestId);if(socketOrdinal)record({client,socketOrdinal,direction:'cdp-socketerror',code:nativeSocketErrorCode(event.errorMessage)});};
+      const failed=(event:{requestId:string;errorMessage:string})=>{const socketOrdinal=sockets.get(event.requestId);if(socketOrdinal){const message=Object.getOwnPropertyDescriptor(event,'errorMessage')?.value;record({client,socketOrdinal,direction:'cdp-socketerror',code:nativeSocketErrorCode(message),messageClass:nativeSocketMessageClass(message)});}};
       const closed=(event:{requestId:string})=>{const socketOrdinal=sockets.get(event.requestId);if(socketOrdinal)record({client,socketOrdinal,direction:'cdp-close'});};
       session.on('Network.webSocketCreated',created);session.on('Network.webSocketFrameError',failed);session.on('Network.webSocketClosed',closed);
       return()=>{const removals:Array<()=>void>=[()=>{session.off('Network.webSocketCreated',created);},()=>{session.off('Network.webSocketFrameError',failed);},()=>{session.off('Network.webSocketClosed',closed);}];let failure=false;for(const remove of removals)try{remove();}catch{failure=true;}if(failure)throw new Error('SOCKET_DIAGNOSTIC_STOP_FAILED');};
@@ -64,6 +64,19 @@ export function nativeSocketErrorCode(message:unknown){
  if(typeof message!=='string'||message.length>8192)return 'UNKNOWN';
  const matches=known.filter(code=>new RegExp(`(?:^|[^A-Z_])(?:net::)?${code}(?:$|[^A-Z_])`).test(message));
  return matches.length===1?matches[0]:'UNKNOWN';
+}
+/** Exact pinned Chromium 151 reasons only; this is not a numeric net-error attribution. */
+export function nativeSocketMessageClass(message:unknown){
+ if(typeof message!=='string'||message.length>8192)return 'UNKNOWN';
+ if(message==='')return 'EMPTY';
+ // Chromium 151.0.7922.34 websocket_channel_impl.cc / net/websockets/websocket_channel.cc.
+ switch(message){
+  case 'Could not decode a text frame as UTF-8.':return 'UTF8_DECODE_FAILED';
+  case 'Message size is too large.':return 'MESSAGE_TOO_LARGE';
+  case 'Received unexpected continuation frame.':return 'UNEXPECTED_CONTINUATION';
+  case 'Received start of new message but previous message is unfinished.':return 'UNFINISHED_MESSAGE';
+  default:return 'UNKNOWN';
+ }
 }
 /** Init-script observation only: native constructor, frames and close behavior remain untouched. */
 export function installNativeSocketCloseObserver({binding,stateKey}:{binding:string;stateKey:string}){
