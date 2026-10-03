@@ -226,3 +226,21 @@ test('end identity diagnostics never execute changing code or nested context acc
   assert.equal(safeEndRuntimeFailure(Object.assign(new Error('secret'),{code:'IDENTITY_LISTENER',identityListener:context})).identityListener,null);assert.equal(reads,0);
  }
 });
+
+test('fixed listener probe stages survive end receipts without exposing causes or accessors',async()=>{
+ const {safeEndRuntimeFailure}=await import('./run-board-native-acceptance.mjs');
+ const cause=Object.assign(new Error('private kernel path'),{nativeListenerFailure:{stage:'LIST_DESCRIPTORS',cause:'ENOENT'}});
+ const error=Object.assign(new Error('private wrapper',{cause}),{code:'IDENTITY_LISTENER'});
+ assert.deepEqual(safeEndRuntimeFailure(error).nativeListenerFailure,{stage:'LIST_DESCRIPTORS',cause:'ENOENT'});
+ for(const invalid of [{stage:'PRIVATE',cause:'ENOENT'},{stage:'LIST_DESCRIPTORS',cause:'PRIVATE'},{stage:'LIST_DESCRIPTORS',cause:'ENOENT',path:'/private'}]){
+  cause.nativeListenerFailure=invalid;assert.equal(safeEndRuntimeFailure(error).nativeListenerFailure,undefined);
+ }
+ for(const field of ['stage','cause']){
+  let reads=0;const details={stage:'LIST_DESCRIPTORS',cause:'ENOENT'};Object.defineProperty(details,field,{enumerable:true,get(){reads++;return 'private';}});
+  cause.nativeListenerFailure=details;assert.equal(safeEndRuntimeFailure(error).nativeListenerFailure,undefined);assert.equal(reads,0);
+ }
+ let reads=0;Object.defineProperty(cause,'nativeListenerFailure',{get(){reads++;return {stage:'LIST_DESCRIPTORS',cause:'ENOENT'};}});
+ assert.equal(safeEndRuntimeFailure(error).nativeListenerFailure,undefined);assert.equal(reads,0);
+ const accessor=new Error('private');Object.defineProperty(accessor,'cause',{get(){reads++;return cause;}});accessor.code='IDENTITY_LISTENER';
+ assert.equal(safeEndRuntimeFailure(accessor).nativeListenerFailure,undefined);assert.equal(reads,0);
+});

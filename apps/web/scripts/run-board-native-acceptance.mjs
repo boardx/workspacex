@@ -5,6 +5,7 @@ import {once} from 'node:events';
 import {join,resolve,basename,relative,isAbsolute} from 'node:path';
 import {pathToFileURL} from 'node:url';
 import {createHash,randomUUID} from 'node:crypto';
+import {parseNativeListenerFailure} from '../e2e/support/native-runtime/native-process-listeners.mjs';
 import {safeStartupCode,parseIdentityCwd,parseIdentityListener} from '../e2e/support/native-runtime/native-startup-receipt.mjs';
 
 const suites={
@@ -124,6 +125,10 @@ export function safeEndRuntimeFailure(error){
     for(const [name,descriptor] of Object.entries(descriptors))Object.defineProperty(snapshot,name,{value:descriptor.value,enumerable:true});
     output[key]=parse(snapshot);
   }catch{ /* Invalid context must never replace the original verification failure. */ }
+  if(['IDENTITY_LISTENER','IDENTITY_ANCESTRY'].includes(output.code))try{
+    const cause=ownData(error,'cause'),details=ownData(cause,'nativeListenerFailure');
+    if(details)output.nativeListenerFailure=parseNativeListenerFailure(details);
+  }catch{ /* Fixed probe context cannot expose private or changing values. */ }
   return output;
 }
 

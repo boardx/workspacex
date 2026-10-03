@@ -19,14 +19,14 @@ test('no socket, foreign socket, partial ownership and unrelated PID cannot pass
 test('permission failures retain actual cause and never substitute root or lsof',()=>{
   for(const operation of ['read','list','link','exec'])for(const code of ['EACCES','EPERM']){
     const error=Object.assign(new Error('private kernel cause'),{code}),deps=fixture();deps[operation]=()=>{throw error;};
-    assert.throws(()=>linuxRuntimeListeners(100,1234,deps),actual=>actual===error);
+    assert.throws(()=>linuxRuntimeListeners(100,1234,deps),actual=>actual.cause===error);
   }
   for(const pid of [0,-1,NaN,1.5,'100'])assert.throws(()=>linuxRuntimeListeners(pid,1234,fixture()));
   for(const port of [0,-1,65536,1.5,'1234'])assert.throws(()=>linuxRuntimeListeners(100,port,fixture()));
 });
 test('closed descriptor races cannot create ownership or hide a foreign listener',()=>{
   const deps=fixture();deps.link=()=>{throw Object.assign(new Error('closed fd'),{code:'ENOENT'});};
-  assert.throws(()=>linuxRuntimeListeners(100,1234,deps),/every kernel listener/);
+  assert.throws(()=>linuxRuntimeListeners(100,1234,deps),actual=>actual.nativeListenerFailure.stage==='ALL_LISTENERS_OWNED');
 });
 test('IPv6 listener inode requires the same exact owned descriptor proof',()=>{
   const deps=fixture();deps.read=path=>`header\n${path.endsWith('/tcp6')?row(1234,'77'):''}\n`;
@@ -37,5 +37,42 @@ test('all matching socket inodes may belong to distinct owned child processes',(
   assert.deepEqual(linuxRuntimeListeners(100,1234,deps),[101,102]);
 });
 test('cyclic foreign ancestry cannot acquire ownership of a listener',()=>{
-  assert.throws(()=>linuxRuntimeListeners(100,1234,fixture({parents:'100 1\n101 102\n102 101'})),/every kernel listener/);
+  assert.throws(()=>linuxRuntimeListeners(100,1234,fixture({parents:'100 1\n101 102\n102 101'})),actual=>actual.nativeListenerFailure.stage==='ALL_LISTENERS_OWNED');
+});
+
+test('exited snapshot descendants cannot invalidate live owned socket proof',()=>{
+ const deps=fixture({parents:'100 1\n101 100\n102 100'}),original=deps.list,probes=[];
+ deps.list=path=>{if(path==='/proc/102/fd')throw Object.assign(new Error('private exited child'),{code:'ENOENT'});return original(path);};
+ deps.kill=(pid,signal)=>{probes.push([pid,signal]);throw Object.assign(new Error('gone'),{code:'ESRCH'});};
+ assert.deepEqual(linuxRuntimeListeners(100,1234,deps),[101]);assert.deepEqual(probes,[[102,0]]);
+});
+test('missing live descriptors, managed root and inaccessible descendants remain blocked',()=>{
+ for(const candidate of [100,102])for(const code of ['ENOENT','EACCES','EPERM','PRIVATE']){
+  const deps=fixture({parents:'100 1\n101 100\n102 100'}),original=deps.list;let probes=0;
+  deps.list=path=>{if(path===`/proc/${candidate}/fd`)throw Object.assign(new Error('private path'),{code});return original(path);};
+  deps.kill=()=>{probes++;};
+  assert.throws(()=>linuxRuntimeListeners(100,1234,deps),error=>error.nativeListenerFailure.cause===(code==='PRIVATE'?'UNKNOWN':code));
+  assert.equal(probes,candidate!==100&&code==='ENOENT'?1:0);
+ }
+ for(const code of ['EPERM','EACCES','UNKNOWN']){
+  const deps=fixture({parents:'100 1\n101 100\n102 100'}),original=deps.list;
+  deps.list=path=>{if(path==='/proc/102/fd')throw Object.assign(new Error('private'),{code:'ENOENT'});return original(path);};
+  deps.kill=()=>{throw Object.assign(new Error('private probe'),{code});};
+  assert.throws(()=>linuxRuntimeListeners(100,1234,deps),error=>error.nativeListenerFailure.stage==='PROBE_EXITED_DESCENDANT');
+ }
+});
+test('gone owner cannot supply a required socket inode or hide partial ownership',()=>{
+ for(const rows of [[row(1234,'77')],[row(1234,'77'),row(1234,'88')]]){
+  const deps=fixture({rows,parents:'100 1\n101 100\n102 100',fds:{'100':[],'101':rows.length===2?['socket:[77]']:[]}}),original=deps.list;
+  deps.list=path=>{if(path==='/proc/102/fd')throw Object.assign(new Error('gone'),{code:'ENOENT'});return original(path);};
+  deps.kill=()=>{throw Object.assign(new Error('gone'),{code:'ESRCH'});};
+  assert.throws(()=>linuxRuntimeListeners(100,1234,deps),error=>error.nativeListenerFailure.stage==='ALL_LISTENERS_OWNED');
+ }
+});
+test('probe failure exports only a fixed stage and code while retaining original cause',()=>{
+ const deps=fixture(),original=Object.assign(new Error('private kernel path'),{code:'PRIVATE_CODE'});deps.read=()=>{throw original;};
+ assert.throws(()=>linuxRuntimeListeners(100,1234,deps),error=>{
+  assert.equal(error.cause,original);assert.deepEqual(error.nativeListenerFailure,{stage:'READ_SOCKET_TABLE',cause:'UNKNOWN'});
+  assert.ok(!JSON.stringify(error.nativeListenerFailure).includes('private'));return true;
+ });
 });
