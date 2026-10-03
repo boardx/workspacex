@@ -1075,10 +1075,16 @@ export const GuidedResearchRuntime = z.object({
 // Field fingerprints describe the client's in-memory snapshot, never authority.
 const GuidedResearchRuntimeMutable = GuidedResearchRuntime.omit({ sessionId: true, version: true, revision: true });
 export const GuidedResearchRuntimeKnownFields = z.record(GuidedResearchRuntimeMutable.keyof(), z.string().regex(/^[a-f0-9]{64}$/));
+const GuidedResearchSourceMetadata = GuidedResearchSource.pick({ id: true, taskId: true, taskIds: true, title: true, url: true,
+  retrievedAt: true, decision: true, presentation: true, documentError: true, addedByUser: true });
+const GuidedResearchSourceDelta = z.object({
+  cursor: z.string().regex(/^[a-f0-9]{64}$/), sources: z.array(GuidedResearchSourceMetadata).optional(),
+}).strict();
 export const GuidedResearchRuntimePatch = z.object({
   type: z.literal("patch"), sessionId: z.string(),
   version: z.number().int().nonnegative(), revision: z.number().int().positive(),
   changes: GuidedResearchRuntimeMutable.partial(),
+  research: GuidedResearchSourceDelta.optional(),
   removed: z.array(GuidedResearchRuntimeMutable.keyof()),
 }).strict();
 export const GuidedResearchRuntimeCommand = z.object({
@@ -1126,12 +1132,7 @@ export const GuidedResearchRuntimeProgress = GuidedResearchRuntime.pick({
 }).extend({
   // Derived from the durable checkpoint; chapter bodies stay out of progress.
   reportSavedChapterCount: z.number().int().nonnegative().optional(),
-  research: z.object({
-    cursor: z.string().regex(/^[a-f0-9]{64}$/),
-    tasks: z.array(GuidedResearchTask),
-    sources: z.array(GuidedResearchSource.pick({ id: true, taskId: true, taskIds: true, title: true, url: true,
-      retrievedAt: true, decision: true, presentation: true, documentError: true, addedByUser: true })).optional(),
-  }).strict().optional(),
+  research: GuidedResearchSourceDelta.extend({ tasks: z.array(GuidedResearchTask) }).optional(),
   stream: z.object({ requestId: z.string(), sequence: z.number().int().nonnegative(),
     offset: z.number().int().nonnegative(), delta: z.string().max(1048576),
     status: z.enum(["streaming", "failed"]),

@@ -22,3 +22,13 @@ it("keeps the requested baseline stream when an unchanged stream is omitted", ()
   const next = mergeResearchDelta(baseline, { ...patch, changes: { busy: true }, removed: [] });
   expect(next.reportStream?.sequence).toBe(1);
 });
+it("merges compact source metadata without losing cached source evidence", () => {
+  const previous = { ...state, sources: [{ id: "old", taskId: "task", title: "Old", url: "https://example.org/old", content: "cached evidence", retrievedAt: "now", decision: "accepted" as const }] };
+  const next = mergeResearchDelta(previous, { ...patch, changes: {}, removed: [], research: { cursor: "a".repeat(64), sources: [{ ...previous.sources[0]!, title: "Updated" }, { id: "new", taskId: "task", title: "New", url: "https://example.org/new", retrievedAt: "now", decision: "pending" }] } });
+  expect(next.sources.map((source) => source.content)).toEqual(["cached evidence", "New"]);
+  expect(next.sources[0]?.title).toBe("Updated");
+});
+
+it("preserves the display-only checkpoint count when switching from legacy progress to patches", () => {
+  expect(mergeResearchDelta({ ...state, reportSavedChapterCount: 2 }, patch).reportSavedChapterCount).toBe(2);
+});

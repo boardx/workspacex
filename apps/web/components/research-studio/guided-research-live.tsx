@@ -176,10 +176,10 @@ export function GuidedResearchLive({ sessionId, researchName, onBack, onLoadRetr
       inFlight = true;
       const epoch = responseEpoch.current; const ticket = ++pollIssued.current;
       const baseline = snapshotRef.current;
-      let incomingSourceCursor: string | undefined;
+      let incomingSourceCursor = sourceCursor.current;
       const read = baseline
         ? getResearchRuntimeProgress(sessionId, baseline.reportStream, sourceCursor.current, baseline).then(async (update) => {
-          incomingSourceCursor = "research" in update ? update.research?.cursor : undefined;
+          if ("research" in update && update.research) incomingSourceCursor = update.research.cursor;
           // The patch describes changes relative to this request, not a newer SSE snapshot.
           return mergeResearchProgress(baseline, update);
         }) : getResearchRuntime(sessionId);

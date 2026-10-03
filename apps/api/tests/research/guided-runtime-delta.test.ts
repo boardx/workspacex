@@ -68,6 +68,22 @@ it("keeps polling compact even when field fingerprints are supplied", async () =
   const cursor = "research" in first ? first.research?.cursor : undefined;
   expect(cursor).toBeTruthy();
   const unchanged = await controller.getRuntimeProgress({ userId: "u", orgId: "org" as never }, "s", { knownFields: JSON.stringify(fingerprints()), sourceCursor: cursor });
-  expect(unchanged).toMatchObject({ research: { cursor } });
+  expect(unchanged).not.toHaveProperty("research");
   expect("research" in unchanged && unchanged.research).not.toHaveProperty("sources");
+});
+
+it("keeps active research polling compact as large source bodies accumulate", async () => {
+  const { runtimePollingDelta } = await import("../../src/interface/controllers/guided-research-delta");
+  const source = { id: "source", taskId: "task", title: "Official source", url: "https://example.org/source", content: "BODY".repeat(7500), retrievedAt: "now", decision: "accepted" as const };
+  const growing = { ...state, currentNode: "research" as const, busy: true, sources: [source, { ...source, id: "new", url: "https://example.org/new" }] };
+  const patch = runtimePollingDelta(growing, fingerprints());
+  expect(patch.changes).not.toHaveProperty("sources");
+  expect(JSON.stringify(patch)).not.toContain("BODY");
+  expect(JSON.stringify(patch).length).toBeLessThan(2000);
+  expect(patch.research?.sources?.map((item) => item.id)).toEqual(["source", "new"]);
+  const unchanged = runtimePollingDelta(growing, fingerprints(), undefined, 0, undefined, patch.research?.cursor);
+  expect(unchanged).not.toHaveProperty("research");
+  const terminal = runtimePollingDelta({ ...growing, busy: false }, fingerprints());
+  expect(terminal.changes).not.toHaveProperty("sources");
+  expect(JSON.stringify(terminal)).not.toContain("BODY");
 });

@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { runtimeProgress } from "./guided-research-progress";
-import { fieldFingerprint, runtimeDelta, rememberRuntimeDelta } from "./guided-research-delta";
+import { fieldFingerprint, runtimeDelta, runtimePollingDelta, rememberRuntimeDelta } from "./guided-research-delta";
 import type { Response } from "express";
 import { GUIDED_RUNTIME_SERVICE, ResearchRuntimeError } from "../../application/research/guided-runtime-ports";
 import type { GuidedRuntimeService } from "../../application/research/guided-runtime-service";
@@ -56,6 +56,7 @@ export class GuidedResearchController {
     if (!input.success) throw new BadRequestException();
     const state = await this.getRuntime(principal, sessionId);
     // Polling keeps source bodies out of transport; command/SSE snapshots use field patches.
+    if (input.data.knownFields) return runtimePollingDelta(state!, input.data.knownFields, input.data.requestId, input.data.offset, input.data.digest, input.data.sourceCursor);
     return runtimeProgress(state!, input.data.requestId, input.data.offset, input.data.digest, input.data.sourceCursor);
   }
 
