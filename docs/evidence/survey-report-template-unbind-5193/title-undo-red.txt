@@ -1,0 +1,35 @@
+
+expected document not to contain element, found <button
+  class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-all duration-200 ease-in-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-8 px-3 text-13"
+>
+  撤销解绑
+</button> instead
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/ui/survey-template-actions.test.tsx > report template unbinding > does not offer undo that would overwrite a later report-title-only edit
+Error: expect(element).not.toBeInTheDocument()
+
+expected document not to contain element, found <button
+  class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-all duration-200 ease-in-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-8 px-3 text-13"
+>
+  撤销解绑
+</button> instead
+ ❯ tests/ui/survey-template-actions.test.tsx:384:64
+    382|     const edited = { ...cleared, template: { ...cleared.template, titl…
+    383|     rerender(<SurveyTemplateActions kind="report" draft={edited} onApp…
+    384|     expect(screen.queryByRole("button", { name: "撤销解绑" })).not.toB…
+       |                                                                ^
+    385|     expect(edited.template.title).toBe("解绑后自定义标题");
+    386|     expect(onApply).toHaveBeenCalledTimes(1);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 17 skipped (18)
+   Start at  12:01:56
+   Duration  1.72s (transform 516ms, setup 85ms, collect 837ms, tests 78ms, environment 509ms, prepare 86ms)
+
+undefined
+/Users/shenyangjun/.codex/worktrees/survey-report-echarts/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/ui/survey-template-actions.test.tsx -t report-title-only

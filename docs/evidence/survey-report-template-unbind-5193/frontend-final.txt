@@ -1,0 +1,35 @@
+ ✓ tests/ui/survey-import-page.test.tsx (2 tests) 519ms
+   ✓ creates a real draft only after the corrected Markdown proposal is applied 434ms
+ ✓ tests/ui/survey-markdown-editor.test.tsx (2 tests) 252ms
+ ✓ tests/ui/survey-app-shell.test.tsx (1 test) 19ms
+ ✓ tests/ui/survey-collection-settings.test.tsx (3 tests) 174ms
+ ✓ tests/survey/survey-mock-structure.test.ts (10 tests) 3ms
+ ✓ tests/ui/survey-share-code.test.tsx (1 test) 149ms
+ ✓ tests/ui/survey-runtime-client.test.ts (4 tests) 9ms
+ ✓ tests/survey/publish-readiness.test.ts (2 tests) 2ms
+ ✓ tests/ui/survey-template-editor-shell.test.tsx (2 tests) 197ms
+ ✓ tests/ui/survey-report-markdown.test.ts (2 tests) 2ms
+ ✓ tests/ui/survey-creation-draft.test.ts (3 tests) 3ms
+ ✓ tests/ui/survey-report-chart.test.ts (7 tests) 52ms
+ ✓ tests/ui/survey-template-reuse.test.ts (3 tests) 4ms
+ ✓ tests/ui/survey-workflow-model.test.ts (10 tests) 23ms
+ ✓ tests/ui/survey-builtin-templates.test.ts (5 tests) 122ms
+ ✓ tests/ui/survey-live-workspace.test.tsx (35 tests) 23621ms
+   ✓ live survey workspace persistence > saves before opening publish and stays in the designer when that save fails 718ms
+   ✓ live survey workspace persistence > keeps a single header publish action and moves template saving into more actions 436ms
+   ✓ live survey workspace persistence > preserves existing tags in canonical Markdown when applying an AI proposal without tags 1662ms
+   ✓ live survey workspace persistence > automatically persists applied valid changes on an existing draft 1589ms
+   ✓ live survey workspace persistence > locks projected question edits until changed Markdown is applied 1760ms
+   ✓ live survey workspace persistence > preserves the local report template when keeping the local version after a conflict 3577ms
+   ✓ live survey workspace persistence > loads the conflicting remote version without discarding local Markdown 1817ms
+   ✓ live survey workspace persistence > retains unsaved inputs when saving fails and never shows a success notice 1774ms
+   ✓ live survey workspace persistence > shows a dedicated saving state while a manual save is pending 1786ms
+   ✓ live survey workspace persistence > accepts only the returned saved runtime, including its canonical title and version 3483ms
+   ✓ report template unbinding persistence > clears local mapping blockers immediately and autosaves an optional empty report template that survives reload 1746ms
+   ✓ report template unbinding persistence > autosaves only report configuration on a published survey while preserving its questions, publication, batches and old report 1771ms
+
+ Test Files  37 passed (37)
+      Tests  364 passed (364)
+   Start at  12:03:09
+   Duration  26.91s (transform 3.23s, setup 5.51s, collect 24.59s, tests 49.54s, environment 19.39s, prepare 2.51s)
+

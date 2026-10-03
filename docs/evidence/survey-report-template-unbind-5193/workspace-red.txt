@@ -1,0 +1,35 @@
+-             "甲",
+-             "乙",
+-           ],
+-           "order": 1,
+-           "required": true,
+-           "title": "真实问题",
+-           "type": "single",
+-         },
+-       ],
+-       "tags": Array [
+-         "保留标签",
+-       ],
+-       "template": ObjectContaining {
+-         "sections": Array [],
+-       },
+-     },
+-     "method": "PUT",
+-   },
++   Object {},
+    Anything,
+  ]
+
+ ❯ tests/ui/survey-live-workspace.test.tsx:416:19
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 33 skipped (35)
+   Start at  10:38:14
+   Duration  5.67s (transform 648ms, setup 83ms, collect 1.29s, tests 3.61s, environment 488ms, prepare 46ms)
+
+undefined
+/Users/shenyangjun/.codex/worktrees/survey-report-echarts/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/ui/survey-live-workspace.test.tsx -t report template unbinding persistence

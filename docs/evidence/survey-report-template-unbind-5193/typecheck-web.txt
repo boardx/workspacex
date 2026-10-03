@@ -1,0 +1,4 @@
+
+> web@0.1.0 typecheck /Users/shenyangjun/.codex/worktrees/survey-report-echarts/apps/web
+> tsc --noEmit
+
