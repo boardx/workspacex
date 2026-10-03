@@ -578,3 +578,19 @@ it("an attachment keeps history and task tools even when the text is a role ques
   expect(received?.history).toContainEqual({ role: "user", content: "先前业务上下文" });
   expect(received?.excludedTools).toBeUndefined();
 });
+
+
+it("an introduction explicitly referring to earlier conversation retains its context", async () => {
+  const text = "请介绍你的角色背景、参考我之前的对话说明适合我的帮助。先不要执行任务或调用外部系统。";
+  expect(isReadOnlyRoleIntroduction(text)).toBe(false);
+  expect(isContextIndependentRequest(text)).toBe(false);
+  expect(isContextIndependentRequest("请仅使用以下资料，不要参考之前对话。\n[P1，反馈] 8人。")).toBe(true);
+  const store = fakeStore(baseRun({ inputText: text, skillVersionIds: [] }), []);
+  const read = vi.fn(async () => [{ role: "user" as const, content: "先前业务上下文" }]);
+  store.readThreadHistory = read;
+  let received: ModelCallInput | undefined;
+  await executeQueuedRuns(deps(store, { complete: async (input) => { received = input; return { text: "capture", inputTokens: 1, outputTokens: 1 }; } }), { orgId: ORG });
+  expect(read).toHaveBeenCalledOnce();
+  expect(received?.history).toContainEqual({ role: "user", content: "先前业务上下文" });
+  expect(received?.excludedTools).toBeUndefined();
+});
