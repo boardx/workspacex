@@ -51,6 +51,76 @@ beforeEach(() => {
 });
 
 describe("live survey trusted publishing", () => {
+  it("checks the current design automatically and updates errors after editing", async () => {
+    const invalid = runtime({ questions: [{ ...runtime().questions[0]!, options: [] }] });
+    client.request.mockResolvedValueOnce(invalid);
+    render(<LiveSurveyWorkspace surveyId="survey-1" initialStep="design" />);
+    const checks = await screen.findByRole("region", { name: "设计检查" });
+    expect(within(checks).getByText("选项题必须包含有效选项")).toBeInTheDocument();
+    expect(client.request).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByRole("button", { name: "定位并修复：为选项题补充可选择的答案" }));
+    fireEvent.click(screen.getByRole("button", { name: "添加选项" }));
+    fireEvent.click(screen.getByRole("button", { name: "添加选项" }));
+    fireEvent.click(screen.getByRole("button", { name: "编辑选项 2：新选项" }));
+    fireEvent.change(screen.getByRole("textbox", { name: "选项 2" }), { target: { value: "另一个答案" } });
+    await waitFor(() => {
+      const liveChecks = screen.getByRole("region", { name: "设计检查" });
+      expect(liveChecks).toHaveTextContent("设计检查通过");
+      expect(within(liveChecks).queryByText("选项题必须包含有效选项")).not.toBeInTheDocument();
+    });
+  });
+
+  it("publishes a saved valid draft directly without a separate prepare action", async () => {
+    client.request.mockResolvedValueOnce(runtime()).mockResolvedValueOnce(runtime({ status: "collecting", version: 5, publication: { token: "new-token", status: "collecting", version: 4, expiresAt: "2026-12-20T10:00:00.000Z", questions: runtime().questions } }));
+    render(<LiveSurveyWorkspace surveyId="survey-1" initialStep="publish" />);
+    const start = await screen.findByRole("button", { name: "开始回收" });
+    expect(screen.queryByRole("button", { name: "检查发布条件" })).not.toBeInTheDocument();
+    fireEvent.click(start);
+    await waitFor(() => expect(client.request).toHaveBeenLastCalledWith("/surveys/survey-1/publish", { method: "POST", body: { expectedVersion: 4 } }, expect.anything()));
+  });
+
+  it("starts a clean ready survey using the server ready status", async () => {
+    client.request.mockResolvedValueOnce(runtime({ status: "ready" })).mockResolvedValueOnce(runtime({ status: "collecting", version: 5, publication: { token: "ready-token", status: "collecting", version: 4, expiresAt: "2026-12-20T10:00:00.000Z", questions: runtime().questions } }));
+    render(<LiveSurveyWorkspace surveyId="survey-1" initialStep="publish" />);
+    fireEvent.click(await screen.findByRole("button", { name: "开始回收" }));
+    await waitFor(() => expect(client.request).toHaveBeenLastCalledWith("/surveys/survey-1/start-collection", { method: "POST", body: { expectedVersion: 4 } }, expect.anything()));
+  });
+
+  it("publishes the saved draft version after editing a ready survey", async () => {
+    const edited = runtime().questions[0]!;
+    client.request.mockResolvedValueOnce(runtime({ status: "ready" }))
+      .mockResolvedValueOnce(runtime({ status: "draft", version: 5, questions: [edited], template: { ...runtime().template, title: "修改后的报告标题" } }))
+      .mockResolvedValueOnce(runtime({ status: "collecting", version: 6, questions: [edited], publication: { token: "edited-token", status: "collecting", version: 5, expiresAt: "2026-12-20T10:00:00.000Z", questions: [edited] } }));
+    render(<LiveSurveyWorkspace surveyId="survey-1" initialStep="template" />);
+    fireEvent.change(await screen.findByRole("textbox", { name: "报告标题" }), { target: { value: "修改后的报告标题" } });
+    fireEvent.click(screen.getByRole("button", { name: /2\. 发布回收/ }));
+    expect(client.request).toHaveBeenCalledTimes(1);
+    fireEvent.click(await screen.findByRole("button", { name: "开始回收" }));
+    await waitFor(() => expect(client.request).toHaveBeenCalledWith("/surveys/survey-1/source", expect.objectContaining({ method: "PUT", body: expect.objectContaining({ expectedVersion: 4 }) }), expect.anything()));
+    await waitFor(() => expect(client.request).toHaveBeenLastCalledWith("/surveys/survey-1/publish", { method: "POST", body: { expectedVersion: 5 } }, expect.anything()));
+    expect(client.request).not.toHaveBeenCalledWith("/surveys/survey-1/start-collection", expect.anything(), expect.anything());
+  });
+
+  it("retains authoritative rejection diagnostics after a dirty template is saved", async () => {
+    const blockers: SurveyPublishBlocker[] = [{ code: "LOGIC_INVALID", side: "question", subjectId: "q1", missingFields: ["服务端发布规则已变化"] }];
+    client.request.mockResolvedValueOnce(runtime({ status: "ready" }))
+      .mockResolvedValueOnce(runtime({ status: "draft", version: 5, template: { ...runtime().template, title: "更新报告" } }))
+      .mockRejectedValueOnce(new client.BlockedError(blockers));
+    render(<LiveSurveyWorkspace surveyId="survey-1" initialStep="template" />);
+    fireEvent.change(await screen.findByRole("textbox", { name: "报告标题" }), { target: { value: "更新报告" } });
+    fireEvent.click(screen.getByRole("button", { name: /2\. 发布回收/ }));
+    fireEvent.click(await screen.findByRole("button", { name: "开始回收" }));
+    expect(await screen.findByText("服务端发布规则已变化")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /1\. 设计问卷/ })).toHaveAttribute("aria-current", "step");
+    expect(screen.getByRole("region", { name: "设计检查" })).toHaveTextContent("发现 1 项设计问题");
+    expect(client.request).toHaveBeenLastCalledWith("/surveys/survey-1/publish", { method: "POST", body: { expectedVersion: 5 } }, expect.anything());
+    fireEvent.click(screen.getByRole("button", { name: "定位并修复：修复条件显示或跳转规则" }));
+    fireEvent.click(screen.getByRole("button", { name: "编辑第 1 题：您愿意推荐我们吗？" }));
+    fireEvent.change(screen.getByRole("textbox", { name: "问题内容" }), { target: { value: "您愿意推荐此项服务吗？" } });
+    expect(screen.getByRole("region", { name: "设计检查" })).toHaveTextContent("设计检查通过");
+    expect(screen.queryByText("服务端发布规则已变化")).not.toBeInTheDocument();
+  });
+
   it("republishes a closed active batch with the current version", async () => {
     const closed = runtime({
       status: "closed",
@@ -126,10 +196,10 @@ describe("live survey trusted publishing", () => {
     expect(screen.getByText("正在加载问卷…")).toBeInTheDocument();
     expect(screen.queryByText("发布准备已完成")).not.toBeInTheDocument();
     resolve(runtime());
-    expect(await screen.findByRole("button", { name: "检查发布条件" })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "开始回收" })).toBeInTheDocument();
   });
 
-  it("renders every business blocker and never infers ready after a rejected prepare", async () => {
+  it("renders every server business blocker and returns rejected publication to design", async () => {
     const blockers: SurveyPublishBlocker[] = [
       { code: "QUESTIONS_EMPTY", side: "survey", subjectId: "survey-1", missingFields: ["questions"] },
       { code: "QUESTION_OPTIONS_EMPTY", side: "question", subjectId: "q-choice", missingFields: ["options"] },
@@ -139,8 +209,8 @@ describe("live survey trusted publishing", () => {
     ];
     client.request.mockResolvedValueOnce(runtime()).mockRejectedValueOnce(new client.BlockedError(blockers));
     render(<LiveSurveyWorkspace surveyId="survey-1" initialStep="publish" />);
-    fireEvent.click(await screen.findByRole("button", { name: "检查发布条件" }));
-    expect(await screen.findByText("发现 5 项发布阻断")).toBeInTheDocument();
+    fireEvent.click(await screen.findByRole("button", { name: "开始回收" }));
+    expect(await screen.findByText("发现 5 项设计问题")).toBeInTheDocument();
     expect(screen.getByText(/问卷至少需要一道题/)).toBeInTheDocument();
     expect(screen.getByText(/选项题必须包含有效选项/)).toBeInTheDocument();
     expect(screen.getByText(/报告章节尚未覆盖对应题目/)).toBeInTheDocument();
@@ -148,16 +218,16 @@ describe("live survey trusted publishing", () => {
     expect(screen.getByText(/条件显示或跳转规则无效/)).toBeInTheDocument();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     expect(screen.queryByText("发布准备已完成")).not.toBeInTheDocument();
-    expect(client.request).toHaveBeenLastCalledWith("/surveys/survey-1/prepare", { method: "POST", body: { expectedVersion: 4 } }, expect.anything());
+    expect(client.request).toHaveBeenLastCalledWith("/surveys/survey-1/publish", { method: "POST", body: { expectedVersion: 4 } }, expect.anything());
   });
 
   it("separates retryable system failures from business blockers", async () => {
     client.request.mockResolvedValueOnce(runtime()).mockRejectedValueOnce(new client.SystemError("服务暂时不可用，请重试。"));
     render(<LiveSurveyWorkspace surveyId="survey-1" initialStep="publish" />);
-    fireEvent.click(await screen.findByRole("button", { name: "检查发布条件" }));
+    fireEvent.click(await screen.findByRole("button", { name: "开始回收" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("服务暂时不可用");
-    expect(screen.getByRole("button", { name: "重试发布检查" })).toBeInTheDocument();
-    expect(screen.queryByText(/项发布阻断/)).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "重试发布" })).toBeInTheDocument();
+    expect(screen.queryByText(/项设计问题/)).not.toBeInTheDocument();
     expect(screen.queryByText("发布准备已完成")).not.toBeInTheDocument();
   });
 
@@ -168,26 +238,23 @@ describe("live survey trusted publishing", () => {
     ];
     client.request.mockResolvedValueOnce(runtime()).mockRejectedValueOnce(new client.BlockedError(blockers));
     render(<LiveSurveyWorkspace surveyId="survey-1" initialStep="publish" />);
-    fireEvent.click(await screen.findByRole("button", { name: "检查发布条件" }));
-    expect(await screen.findByTestId("survey-publish-readiness")).toHaveTextContent("质量评分 55 / 100");
-    expect(screen.getByTestId("survey-publish-readiness")).toHaveTextContent("预计完成率 75%");
+    fireEvent.click(await screen.findByRole("button", { name: "开始回收" }));
+    expect(await screen.findByTestId("survey-design-readiness")).toHaveTextContent("质量评分 55 / 100");
+    expect(screen.getByTestId("survey-design-readiness")).toHaveTextContent("预计完成率 75%");
     fireEvent.click(screen.getByRole("button", { name: "定位并修复：为选项题补充可选择的答案" }));
     expect(screen.getByRole("button", { name: /1\. 设计问卷/ })).toHaveAttribute("aria-current", "step");
   });
 
   it("shows configuration diagnostics and focuses the image question for repair", async () => {
-    const diagnostic = "Image choices require an image URL and alternative text";
-    const blockers: SurveyPublishBlocker[] = [{
-      code: "QUESTION_CONFIG_INVALID", side: "question", subjectId: "q-image",
-      missingFields: [diagnostic],
-    }];
+    const diagnostic = "请为每个图片选项配置图片和替代文字";
     client.request.mockResolvedValueOnce(runtime({ questions: [
       runtime().questions[0]!,
-      { id: "q-image", title: "Image question", type: "image_single", chapterId: "general", order: 2, required: true, options: ["A", "B"] },
-    ] })).mockRejectedValueOnce(new client.BlockedError(blockers));
-    render(<LiveSurveyWorkspace surveyId="survey-1" initialStep="publish" />);
-    fireEvent.click(await screen.findByRole("button", { name: "检查发布条件" }));
+      { id: "q-image", title: "Image question", type: "image_single", chapterId: "general", order: 2, required: true, options: ["A", "B"], config: { optionIds: ["a", "b"] } },
+    ] }));
+    render(<LiveSurveyWorkspace surveyId="survey-1" initialStep="design" />);
     expect(await screen.findByText(diagnostic)).toBeInTheDocument();
+    expect(client.request).toHaveBeenCalledTimes(1);
+    expect(client.request).not.toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ method: "POST" }), expect.anything());
     fireEvent.click(screen.getByRole("button", { name: "定位并修复：修复题目配置" }));
     expect(screen.getByRole("button", { name: "选择题目 2：Image question" })).toHaveAttribute("aria-current", "true");
   });
@@ -204,6 +271,7 @@ describe("live survey trusted publishing", () => {
     client.request
       .mockResolvedValueOnce(
         runtime({
+          template: { ...runtime().template, sections: [] },
           questions: [
             runtime().questions[0]!,
             { id: "q2", title: "补充原因", type: "short", chapterId: "general", order: 2, required: true, options: [] },
@@ -212,8 +280,10 @@ describe("live survey trusted publishing", () => {
       )
       .mockRejectedValueOnce(new client.BlockedError(blockers));
     render(<LiveSurveyWorkspace surveyId="survey-1" initialStep="publish" />);
-    fireEvent.click(await screen.findByRole("button", { name: "检查发布条件" }));
+    fireEvent.click(await screen.findByRole("button", { name: "开始回收" }));
     expect(await screen.findByText("显示条件只能引用前面有效的题目")).toBeInTheDocument();
+    expect(client.request).toHaveBeenLastCalledWith("/surveys/survey-1/publish", { method: "POST", body: { expectedVersion: 4 } }, expect.anything());
+    expect(screen.getByRole("button", { name: /1\. 设计问卷/ })).toHaveAttribute("aria-current", "step");
     fireEvent.click(screen.getByRole("button", { name: "定位并修复：修复条件显示或跳转规则" }));
     expect(screen.getByRole("button", { name: "选择题目 2：补充原因" })).toHaveAttribute("aria-current", "true");
   });
@@ -224,22 +294,23 @@ describe("live survey trusted publishing", () => {
     ];
     client.request.mockResolvedValueOnce(runtime()).mockRejectedValueOnce(new client.BlockedError(blockers));
     render(<LiveSurveyWorkspace surveyId="survey-1" initialStep="publish" />);
-    fireEvent.click(await screen.findByRole("button", { name: "检查发布条件" }));
+    fireEvent.click(await screen.findByRole("button", { name: "开始回收" }));
     fireEvent.click(await screen.findByRole("button", { name: "定位并修复：将题目映射到报告章节" }));
     expect(screen.getByRole("button", { name: "使用报告模板" })).toBeInTheDocument();
     expect(screen.getByTestId("survey-mapping-repair-target")).toHaveTextContent("您愿意推荐我们吗？");
   });
 
-  it("shows ready only after the parsed server response and exposes explicit next actions", async () => {
+  it("shows collection only after the parsed server publication response", async () => {
     let resolve!: (value: SurveyRuntime) => void;
     client.request.mockResolvedValueOnce(runtime()).mockReturnValueOnce(new Promise((done) => { resolve = done; }));
     render(<LiveSurveyWorkspace surveyId="survey-1" initialStep="publish" />);
-    fireEvent.click(await screen.findByRole("button", { name: "检查发布条件" }));
-    expect(screen.queryByText("发布准备已完成")).not.toBeInTheDocument();
-    resolve(runtime({ status: "ready", version: 5 }));
-    expect(await screen.findByText("发布准备已完成")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "返回编辑" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "开始回收" })).toBeInTheDocument();
-    await waitFor(() => expect(client.request).toHaveBeenLastCalledWith("/surveys/survey-1/prepare", { method: "POST", body: { expectedVersion: 4 } }, expect.anything()));
+    fireEvent.click(await screen.findByRole("button", { name: "开始回收" }));
+    expect(screen.queryByText("问卷正在回收中")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "停止回收" })).not.toBeInTheDocument();
+    resolve(runtime({ status: "collecting", version: 5, publication: { token: "server-token", status: "collecting", version: 4, expiresAt: "2026-12-20T10:00:00.000Z", questions: runtime().questions } }));
+    expect(await screen.findByText("问卷正在回收中")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "停止回收" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "开始回收" })).not.toBeInTheDocument();
+    expect(client.request).toHaveBeenLastCalledWith("/surveys/survey-1/publish", { method: "POST", body: { expectedVersion: 4 } }, expect.anything());
   });
 });

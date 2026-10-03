@@ -1,0 +1,16 @@
+   ✓ live survey workspace persistence > saves before opening publish and stays in the designer when that save fails 646ms
+   ✓ live survey workspace persistence > keeps a single header publish action and moves template saving into more actions 498ms
+   ✓ live survey workspace persistence > preserves existing tags in canonical Markdown when applying an AI proposal without tags 1669ms
+   ✓ live survey workspace persistence > automatically persists applied valid changes on an existing draft 1567ms
+   ✓ live survey workspace persistence > locks projected question edits until changed Markdown is applied 1718ms
+   ✓ live survey workspace persistence > preserves the local report template when keeping the local version after a conflict 3591ms
+   ✓ live survey workspace persistence > loads the conflicting remote version without discarding local Markdown 1818ms
+   ✓ live survey workspace persistence > retains unsaved inputs when saving fails and never shows a success notice 1769ms
+   ✓ live survey workspace persistence > shows a dedicated saving state while a manual save is pending 1786ms
+   ✓ live survey workspace persistence > accepts only the returned saved runtime, including its canonical title and version 3471ms
+
+ Test Files  37 passed (37)
+      Tests  353 passed (353)
+   Start at  09:45:22
+   Duration  22.60s (transform 2.87s, setup 4.66s, collect 21.63s, tests 42.67s, environment 16.21s, prepare 2.42s)
+
