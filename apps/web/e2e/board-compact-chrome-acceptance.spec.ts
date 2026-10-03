@@ -1,4 +1,5 @@
 import {randomUUID} from 'node:crypto';
+import {writeFile} from 'node:fs/promises';
 import {expect,test,type Page,type TestInfo} from '@playwright/test';
 import {FULLSTACK_E2E as F} from './fullstack-smoke-fixture';
 import {SESSION_TOKEN_STORAGE_KEY} from '../lib/api-client';
@@ -102,6 +103,6 @@ test('real thirty-note Board keeps compact chrome and intentional connection han
   await expect(page.getByTestId('board-a11y-selection-announcement')).toHaveText('未选择对象');
   await expect(page.locator('[data-testid^="connector-handle-"]')).toHaveCount(0);
   await verifyEditorConnectorEntry(page,board.id,call,()=>captureReference(page,info,'reference-connector-after-dismissal'));
-  expect(await connectByHandles(page, 'idea-0', 'idea-1')).toBe(1);
+  expect(await connectByHandles(page, 'idea-0', 'idea-1',async evidence=>{const path=info.outputPath('connector-snap-geometry.json');await writeFile(path,JSON.stringify(evidence,null,2),{flag:'wx',mode:0o600});await info.attach('connector-snap-geometry',{path,contentType:'application/json'});})).toBe(1);
  }finally{const latest=await call('GET',`/whiteboards/${board.id}`);await call('PATCH',`/whiteboards/${board.id}`,{archived:true,expectedLifecycleRevision:latest.lifecycleRevision});}
 });
