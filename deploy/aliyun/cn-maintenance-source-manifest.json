@@ -4,7 +4,7 @@
   "baseCommit": "64cc2b85053823a4c7461eb404b9f3a99c749a33",
   "applicationRevision": "9b25bfa65662b96c0826fe67506b562ea46aa6d0",
   "baselineRevision": "ba6343199f3c834d6a198f83d0c771614292c82b",
-  "sourceInventorySha256": "ea1e24aba25df16b3eb24829f3ecdb5be056f1f4ad9c9c430ba0e3a282a8f2f8",
+  "sourceInventorySha256": "acd2041da9772d3467f10df6a949ef46b0f6f4fe79462093a6b1ebe9a29439cb",
   "sourceRows": [
     {
       "path": ".harness/scripts/build-cn-maintenance-controller.cjs",
@@ -13,8 +13,8 @@
     },
     {
       "path": ".harness/scripts/run-cn-maintenance-pure-tests.py",
-      "sha256": "3a909df4eb097a48c66b8af97dcdf5c80b6e561a9f244c5feb98a8125eae9401",
-      "bytes": 1333
+      "sha256": "07091b63c4234cb09f38aa5af7c5215f5813497367d68f677c0d286936ce3c98",
+      "bytes": 1370
     },
     {
       "path": ".harness/scripts/vm/build-cn-release-candidate.sh",
@@ -33,13 +33,13 @@
     },
     {
       "path": ".harness/scripts/vm/cn-maintenance-activation-test.py",
-      "sha256": "4a194348ece46376b381b3d5211a8fed0b1f4798147e0d8f3ca298bf28d7967a",
-      "bytes": 4600
+      "sha256": "77efaa17354cdc98dbc885f19c2b3371082ff2e0e62be07aa1311aa321866403",
+      "bytes": 4627
     },
     {
       "path": ".harness/scripts/vm/cn-maintenance-activation.py",
-      "sha256": "82678987d6c0a9e170daf8206fd4a51b7e5e7de57ba5bdb1b5755b3b07bb70b7",
-      "bytes": 18255
+      "sha256": "acd10e3b975ed27ba746df7fdc91d4da9c9523fdffee4f7e595bedab17ce2f8f",
+      "bytes": 18245
     },
     {
       "path": ".harness/scripts/vm/cn-maintenance-browser-test.cjs",
@@ -73,8 +73,8 @@
     },
     {
       "path": ".harness/scripts/vm/cn-maintenance-host-controller.cjs",
-      "sha256": "ce11f36c9889c646c6bae3b4ebc7c451c43a55eedde9e11cb6f2db9e6e1080e1",
-      "bytes": 228674
+      "sha256": "7a73b640eb1a0e2802da84baa08b2c3c928fe303d18ba4ab3b39fb83713904fd",
+      "bytes": 229452
     },
     {
       "path": ".harness/scripts/vm/cn-maintenance-host-launcher.py",
@@ -93,8 +93,8 @@
     },
     {
       "path": ".harness/scripts/vm/cn-migration-snapshot-query.cjs",
-      "sha256": "132665ed57ac7d18790719d18620ae9f1b11eae2c06233892f42886e93121643",
-      "bytes": 187071
+      "sha256": "c1b4e4c4d3ebb9faf1478b310ea00f18f53442c3520b841ecf3d19f7786e480e",
+      "bytes": 188919
     },
     {
       "path": ".harness/scripts/vm/cn-production-bootstrap.test.ts",
@@ -288,8 +288,8 @@
     },
     {
       "path": ".harness/scripts/vm/control_connection.cjs",
-      "sha256": "9e9dcacec5d4aa4b3973f7033560da8e66dfe81c71ebb6498922cb7db339eb8e",
-      "bytes": 18978
+      "sha256": "6409dc0ca1f99a4060f59b73cd07c4fbb26c4e7837ef445720c4d84a07e04394",
+      "bytes": 21261
     },
     {
       "path": ".harness/scripts/vm/control_connection.d.cts",
@@ -298,8 +298,8 @@
     },
     {
       "path": ".harness/scripts/vm/control_connection.py",
-      "sha256": "ee64e3337ce6381e7716923714f0a34c839dfd433977bd0e6a71d50f358fbe75",
-      "bytes": 5619
+      "sha256": "0f111b27182c22d64f43e7125400f1b837d94f142bc55a02ec2267c902873b39",
+      "bytes": 7181
     },
     {
       "path": ".harness/scripts/vm/deploy-cn-production.sh",
@@ -343,13 +343,13 @@
     },
     {
       "path": ".harness/scripts/vm/host_transport.py",
-      "sha256": "6addcdc186cae60441c6a1e610999399184007266147fb6da0d85973c8f48e84",
-      "bytes": 27809
+      "sha256": "9965fa1d7bffd3ee47590fdcd5ac1a86cc660ebc451a6bc1902f08469fa7cb67",
+      "bytes": 32572
     },
     {
       "path": ".harness/scripts/vm/offline_restore_pipeline.cjs",
-      "sha256": "d141fe23da1ec1b9cdf220bdd7374731dba39f08e4c88454b41b88de4bf64839",
-      "bytes": 5313
+      "sha256": "038b99322c438b4efe866431008098d05f13102014383bc55280c15ead7c7efa",
+      "bytes": 5871
     },
     {
       "path": ".harness/scripts/vm/offline_restore_pipeline_test.cjs",
@@ -377,14 +377,24 @@
       "bytes": 1947
     },
     {
+      "path": ".harness/scripts/vm/retained_session_recovery.cjs",
+      "sha256": "7c48966a9da3dc02b112649478760548a8ee280bae507113cc0cbe1033ba055d",
+      "bytes": 16981
+    },
+    {
+      "path": ".harness/scripts/vm/retained_session_recovery_test.cjs",
+      "sha256": "c28d881c2aff4585f8720516867d2e8929dff5973f6eae45e2e0d475e7f9990f",
+      "bytes": 9960
+    },
+    {
       "path": ".harness/scripts/vm/test_control_connection.cjs",
-      "sha256": "5d014c95535998783ffb94cd0afdccbba734f8cb2b92dd40901d21b801979bf4",
-      "bytes": 8277
+      "sha256": "e568f162b6ba9a72c22e910ca889499c072d2b40efd2564e7eaa704e97ad48e5",
+      "bytes": 10806
     },
     {
       "path": ".harness/scripts/vm/test_control_connection.py",
-      "sha256": "76ae60ef47abd65d111e6695b337fd5ae36e7708cad6cdf5bfb051062c49ac39",
-      "bytes": 2868
+      "sha256": "fced8bf659dfe6cc43e99a81d304a9e8c69f9a9da1a4b8542ba7d8aad05c78f4",
+      "bytes": 2892
     },
     {
       "path": ".harness/scripts/vm/test_fixed_probes.py",
@@ -395,6 +405,11 @@
       "path": ".harness/scripts/vm/test_host_transport.py",
       "sha256": "e5549b0add8188709afcb8d8471647ebc3450ae08ca0781c25342dcb2fbcb9ca",
       "bytes": 4341
+    },
+    {
+      "path": ".harness/scripts/vm/test_retained_recovery_host.py",
+      "sha256": "d45d7773ffa0b0628c5beabef54711e03e61a57f4d4002d9f9e9da81aacad9b3",
+      "bytes": 4200
     },
     {
       "path": ".harness/scripts/vm/test_writer_fence.py",
@@ -483,8 +498,8 @@
     },
     {
       "path": "packages/cloud-deploy/src/cn-maintenance-host/activation_transport.ts",
-      "sha256": "f09d12a015bb1a1e6fbd73e36124ae04da102772dc38ab64d8211812d56afe6b",
-      "bytes": 9231
+      "sha256": "1f44c9ea2f67ac78da684268110242e6b36af3c90113bdf553e3668146c992f6",
+      "bytes": 9335
     },
     {
       "path": "packages/cloud-deploy/src/cn-maintenance-host/controller.ts",
@@ -573,13 +588,13 @@
     },
     {
       "path": "packages/cloud-deploy/src/cn-maintenance-host/production_consumers.ts",
-      "sha256": "2ebdc6771c2b1b1fad2bd6ee5fff0b5fd2ecb3b5a870b35313f85722250f021a",
-      "bytes": 7463
+      "sha256": "de962c768deff087a229af17d6ecefbd7fc08133a57b496344a599c2637752f8",
+      "bytes": 7537
     },
     {
       "path": "packages/cloud-deploy/src/cn-maintenance-host/production_consumers_test.ts",
-      "sha256": "f690d27b57d2a1aadbbcaa130abbdfb6bdda1cd3eebfa766b6fcce8c07778cee",
-      "bytes": 5181
+      "sha256": "4c3bb3652edd2d19c110dd38a01cdb4be123381477f3b4abe500ccc69b39ed70",
+      "bytes": 5252
     },
     {
       "path": "packages/cloud-deploy/src/cn-maintenance-host/production_factory.ts",
@@ -608,13 +623,13 @@
     },
     {
       "path": "packages/cloud-deploy/src/cn-maintenance-host/sealed_runtime.ts",
-      "sha256": "98a1cf10ffff043e30953c2ab3ca7a776c2d60896d3f38e733e6d3d0f855bb9c",
-      "bytes": 16073
+      "sha256": "9173fcb9823be79ec67b27735185ce158310135036d5f8b9d9b92ddfb48efe77",
+      "bytes": 17267
     },
     {
       "path": "packages/cloud-deploy/src/cn-maintenance-host/sealed_runtime_test.ts",
-      "sha256": "e78a65c1dc647e25b5abc6585dbdbdf67110fa6740225438fa83e07ba8eefb28",
-      "bytes": 18873
+      "sha256": "624e1093f128d9d4733d74622bd53f02e0f11a26e8d49c6793c37d588110945c",
+      "bytes": 21299
     },
     {
       "path": "packages/cloud-deploy/src/cn-maintenance-host/typed_operations.ts",

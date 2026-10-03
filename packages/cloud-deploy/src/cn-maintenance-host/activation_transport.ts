@@ -63,7 +63,7 @@ export interface MaintenanceActivationBindings {
 }
 /** Concrete installed-command consumer. The host helper itself must be delivered
  * in the exact tool closure; an ordinary deploy script is deliberately forbidden. */
-export function fixedMaintenanceActivationActions(binding:MaintenanceActivationBindings,run:CommandRunner=runFixedPython):ActivationActions {
+export function fixedMaintenanceActivationActions(binding:MaintenanceActivationBindings,run:CommandRunner=runFixedPython,recoverRetained?:(identity:MaintenanceIdentity,plan:{path:string;sha256:string})=>Promise<unknown>):ActivationActions {
  const identity=identitySchema.parse(binding.identity);
  if(!/^[a-f0-9]{40}$/.test(binding.toolRevision)||binding.activationCommand.path!=='/usr/local/lib/workspacex-cn/cn-maintenance-activation.py'||binding.recoveryCommand.path!=='/usr/local/lib/workspacex-cn/cn-production-recovery-executor.py')throw Error('MAINTENANCE_ACTIVATION_COMMAND_BINDING');
  for(const [plan,base,name] of [[binding.plan,'maintenance-activation','activation-plan.json'],[binding.recoveryPlan,'maintenance-recovery','recovery-plan.json']] as const)if(plan.path!==`/etc/workspacex-cn/${base}/${identity.sourceRevision}/${identity.attemptId}/${name}`||!hash.safeParse(plan.sha256).success)throw Error('MAINTENANCE_ACTIVATION_PLAN_BINDING');
@@ -81,11 +81,12 @@ export function fixedMaintenanceActivationActions(binding:MaintenanceActivationB
   verifyCanonical:async()=>z.object({status:z.literal('passed'),lockRetained:z.literal(true),passedStages:z.literal(8)}).strict().parse(await operation('verify-canonical')),
   runBrowserSmoke:async()=>z.object({login:z.literal(true),hello:z.literal(true),asr:z.literal(true),githubFeedbackRead:z.literal(true),skillTool:z.literal(true),pdfDownload:z.literal(true)}).strict().parse(await operation('browser-acceptance')),
   restoreBaseline:async()=>{
+   if(!recoverRetained)throw Error('PERSISTENT_RECOVERY_REQUIRED');
    // Exact private plan is reread/hash checked by the command, then the actual
    // production executor restores all three DBs before baseline runtime recovery.
    const pin=z.object({recoveryPlanSha256:hash}).strict().parse(await operation('verify-recovery-plan'));
    if(pin.recoveryPlanSha256!==binding.recoveryPlan.sha256)throw Error('RECOVERY_PLAN_DRIFT');
-   const r=z.object({schemaVersion:z.literal(1),kind:z.literal('production-recovery-completed'),identity:identitySchema,receiptSha256:hash,writesHeld:z.literal(true),ready:z.literal(false)}).strict().parse(JSON.parse((await run(binding.recoveryCommand,['--execute-production-recovery',binding.recoveryPlan.path])).stdout));
+   const r=z.object({schemaVersion:z.literal(1),kind:z.literal('production-recovery-completed'),identity:identitySchema,receiptSha256:hash,writesHeld:z.literal(true),ready:z.literal(false)}).strict().parse(await recoverRetained(identity,binding.recoveryPlan));
    if(!equal(r.identity,identity))throw Error('BASELINE_DATABASE_RECOVERY_IDENTITY');
    z.object({baselineRuntimeRecovered:z.literal(true),databaseRecoveryReceiptSha256:hash}).strict().superRefine((v,c)=>{if(v.databaseRecoveryReceiptSha256!==r.receiptSha256)c.addIssue({code:z.ZodIssueCode.custom,message:'RECOVERY_RECEIPT_BINDING'});}).parse(await operation('restore-baseline-runtime'));
   },

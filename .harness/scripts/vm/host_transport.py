@@ -235,6 +235,39 @@ def seal_runtime_plan(transport,source_path,source_sha,read_private=private,uid=
   os.close(directory)
  return value,{'sealedPlanPath':str(path),'sealedPlanSha256':hashlib.sha256(raw).hexdigest(),'runtimePlanSha256':digest(bound)}
 
+def recover_retained_databases(transport,adapter,journal,identity,reference,read_private=private):
+ """One existing actor and three existing clients. No external recovery CLI.
+ Every response is read back against the sealed source data and held barrier.
+ """
+ auth=transport.plan.get('recoveryAuthorization');require(type(auth) is dict and auth.get('identity')==identity,'RETAINED_RECOVERY_AUTHORITY')
+ expected={'path':auth['planPath'],'sha256':auth['planSha256']};require(reference==expected,'RETAINED_RECOVERY_PLAN_BINDING')
+ require(reference['path']=='/etc/workspacex-cn/maintenance-recovery/'+identity['sourceRevision']+'/'+identity['attemptId']+'/recovery-plan.json','RETAINED_RECOVERY_PATH')
+ require(identity['sourceRevision']=='9b25bfa65662b96c0826fe67506b562ea46aa6d0' and identity['baselineRevision']=='ba6343199f3c834d6a198f83d0c771614292c82b','RETAINED_RECOVERY_FROZEN_SOURCE')
+ raw=read_private(reference['path']);require(hashlib.sha256(raw).hexdigest()==reference['sha256'],'RETAINED_RECOVERY_PIN');p=json.loads(raw)
+ require(p['identity']==identity and p['toolRevision']==transport.plan['toolRevision'] and p['production']['instanceId']=='pgm-uf6rg214cp381l49' and p['production']['databasePeers']==transport.plan['databasePeers'] and set(p['databases'])==set(DATABASES),'RETAINED_RECOVERY_DATA_SCOPE')
+ a=p['authorization'];require(a['identity']==identity and a['productionInstanceId']==p['production']['instanceId'] and a['action']=='replace-three-production-databases-with-exact-baseline' and a['notBefore']<=time.time()<a['expiresAt'] and a['expiresAt']-a['notBefore']<=3600,'RETAINED_RECOVERY_DATA_AUTHORIZATION')
+ require(not journal.value.get('retainedRecoveryStarted'),'RETAINED_RECOVERY_REPLAY_REQUIRES_RECONCILIATION')
+ out=pathlib.Path(reference['path']).parent/'production-recovery-result.json';require(not out.exists() and not out.is_symlink(),'RETAINED_RECOVERY_RECEIPT_EXISTS')
+ parent=out.parent.lstat();require(stat.S_ISDIR(parent.st_mode) and parent.st_uid==0 and parent.st_gid==0 and stat.S_IMODE(parent.st_mode)==0o700,'RETAINED_RECOVERY_RECEIPT_PARENT')
+ adapter.verifyWritesBlocked(identity);journal.value['retainedRecoveryStarted']=True;journal.record('retained-recovery-intent',planSha256=reference['sha256'])
+ results={}
+ try:
+  for db in DATABASES:
+   adapter.verifyWritesBlocked(identity);require(hashlib.sha256(read_private(reference['path'])).hexdigest()==reference['sha256'],'RETAINED_RECOVERY_PLAN_DRIFT')
+   journal.record('retained-recovery-database-intent',database=db);r=transport.control_connections[db].recover_existing_session(identity);item=p['databases'][db]
+   require(r.get('database')==db and r.get('targetRdsInstanceId')=='pgm-uf6rg214cp381l49' and r.get('ciphertextSha256')==item['ciphertext']['sha256'] and r.get('backupReceiptSha256')==item['backupReceiptSha256'] and r.get('catalogSha256')==item['sourceCatalogSha256'] and all(r.get(k) is True for k in ('dataFidelityVerified','existingSession','precommitFidelityVerified','restoreCommitted','decoderJoined')) and r.get('ready') is False,'RETAINED_RECOVERY_ACTUAL_RESULT')
+   adapter.verifyWritesBlocked(identity);results[db]=r;journal.record('retained-recovery-database-response',database=db,resultSha256=digest(r))
+  value={'schemaVersion':1,'kind':'retained-session-production-recovery','identity':identity,'productionInstanceId':'pgm-uf6rg214cp381l49','databases':results,'writesHeld':True,'ready':False};receipt=json.dumps(value,sort_keys=True).encode();receipt_sha=hashlib.sha256(receipt).hexdigest()
+  journal.record('retained-recovery-receipt-intent',receiptSha256=receipt_sha)
+  fd=os.open(out,os.O_CREAT|os.O_EXCL|os.O_WRONLY|os.O_NOFOLLOW,0o600)
+  with os.fdopen(fd,'wb') as stream:stream.write(receipt);stream.flush();os.fsync(stream.fileno())
+  directory=os.open(out.parent,os.O_RDONLY|os.O_DIRECTORY)
+  try:os.fsync(directory)
+  finally:os.close(directory)
+  require(hashlib.sha256(read_private(str(out))).hexdigest()==receipt_sha,'RETAINED_RECOVERY_RECEIPT_READBACK');adapter.verifyWritesBlocked(identity);journal.record('retained-recovery-receipt-durable',receiptSha256=receipt_sha)
+  return {'schemaVersion':1,'kind':'production-recovery-completed','identity':identity,'receiptSha256':receipt_sha,'writesHeld':True,'ready':False}
+ except BaseException:journal.record('retained-recovery-outcome-unknown',holdDisposition='retain');raise
+
 def serve_reviewed_fence(source_path,source_sha):
  import sys
  from writer_fence import WriterFenceAdapter,Journal
@@ -261,6 +294,10 @@ def serve_reviewed_fence(source_path,source_sha):
     if request['operation']=='migrate-exact-plan':
      require(not unknown,'FENCE_UNKNOWN_STATE_RETAINED');adapter.verifyWritesBlocked(plan['identity']);mutated=True
      value=transport.control_connections['workspacex'].migrate_exact_plan(plan['identity']);adapter.verifyWritesBlocked(plan['identity']);migration_completed=True
+     print(json.dumps({'sequence':sequence,'ok':True,'value':value}),flush=True);continue
+    if request['operation']=='recover-retained-baseline':
+     require(not unknown and set(request)=={'sequence','identity','operation','recoveryPlan'},'FENCE_RECOVERY_REQUEST_BINDING');mutated=True
+     value=recover_retained_databases(transport,adapter,journal,plan['identity'],request['recoveryPlan'])
      print(json.dumps({'sequence':sequence,'ok':True,'value':value}),flush=True);continue
     if request['operation']=='record-migration-completion':
      require(not unknown and migration_completed,'MIGRATION_COMPLETION_BEFORE_EXACT_MIGRATION');adapter.verifyWritesBlocked(plan['identity'])

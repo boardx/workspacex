@@ -152,10 +152,11 @@ def operations(plan,action):
   # Independent protected result readback prevents container-only fallback.
   result_raw=private(plan['recoveryResult']['path']);result=json.loads(result_raw)
   require(result['identity']==plan['identity'] and result['productionInstanceId']=='pgm-uf6rg214cp381l49' and result['writesHeld'] is True and set(result['databases'])=={'workspacex','workspacex_agent','workspacex_memory'},'THREE_DB_RECOVERY_REQUIRED')
-  for db,fact in result['databases'].items():require(fact['database']==db and fact['targetRdsInstanceId']=='pgm-uf6rg214cp381l49' and fact['readOnly'] is True and fact['rollbackComplete'] is True and fact['dataFidelityVerified'] is True,'ACTUAL_DB_FIDELITY_REQUIRED')
-  compose=verify_compose(plan,'baselineCompose');invoke(plan,'docker',['compose','-p','workspacex-cn','-f',compose,'up','-d','--no-build','--pull','never',*sorted(SERVICES)])
-  replace(NGINX,plan['candidateNginx']['sha256'],private(plan['baselineNginx']['path'],plan['baselineNginx']['sha256']));invoke(plan,'nginx',['-t']);invoke(plan,'systemctl',['reload','nginx'])
-  return {'baselineRuntimeRecovered':True,'databaseRecoveryReceiptSha256':digest(result_raw)}
+  for db,fact in result['databases'].items():require(result.get('kind')=='retained-session-production-recovery' and fact['database']==db and fact['targetRdsInstanceId']=='pgm-uf6rg214cp381l49' and fact['existingSession'] is True and fact['precommitFidelityVerified'] is True and fact['restoreCommitted'] is True and fact['decoderJoined'] is True and fact['dataFidelityVerified'] is True,'ACTUAL_DB_FIDELITY_REQUIRED')
+  # Data recovery is not permission to restart a writer. This legacy operation
+  # must remain closed until the separately approved runtime/resume ordering is
+  # implemented; its compose up cannot run under the all-writer held barrier.
+  raise RuntimeError('BASELINE_WRITER_RESUME_APPROVAL_REQUIRED')
  if action=='restore-baseline-pointer':
   replace(FIXED,plan['candidateConfig']['sha256'],private(plan['baselineConfig']['path'],plan['baselineConfig']['sha256']));return {'baselinePointerRestored':True}
  raise RuntimeError('UNKNOWN_ACTIVATION_ACTION')

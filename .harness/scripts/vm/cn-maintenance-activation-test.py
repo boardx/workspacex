@@ -13,12 +13,13 @@ class Tests(unittest.TestCase):
   with patch.object(m,'private',return_value=json.dumps({'identity':{}}).encode()),patch.object(m,'invoke') as invoke:
    with self.assertRaises((KeyError,RuntimeError)):m.operations({'identity':{},'recoveryResult':{'path':'fixture'}},'restore-baseline-runtime')
    invoke.assert_not_called()
- def test_actual_three_database_readback_precedes_runtime_recovery(self):
+ def test_verified_three_database_recovery_does_not_authorize_writer_resume(self):
   p={'identity':{'attempt':'fixture'},'recoveryResult':{'path':'result'},'candidateNginx':{'sha256':'candidate'},'baselineNginx':{'path':'baseline','sha256':'baseline'}}
-  r={'identity':p['identity'],'productionInstanceId':'pgm-uf6rg214cp381l49','writesHeld':True,'databases':{d:{'database':d,'targetRdsInstanceId':'pgm-uf6rg214cp381l49','readOnly':True,'rollbackComplete':True,'dataFidelityVerified':True} for d in ['workspacex','workspacex_agent','workspacex_memory']}}
+  r={'kind':'retained-session-production-recovery','identity':p['identity'],'productionInstanceId':'pgm-uf6rg214cp381l49','writesHeld':True,'databases':{d:{'database':d,'targetRdsInstanceId':'pgm-uf6rg214cp381l49','existingSession':True,'precommitFidelityVerified':True,'restoreCommitted':True,'decoderJoined':True,'dataFidelityVerified':True} for d in ['workspacex','workspacex_agent','workspacex_memory']}}
   raw=json.dumps(r).encode()
   with patch.object(m,'private',side_effect=lambda path,*args:raw if path=='result' else b'nginx'),patch.object(m,'verify_compose',return_value='compose'),patch.object(m,'replace'),patch.object(m,'invoke',return_value=b'') as invoke:
-   out=m.operations(p,'restore-baseline-runtime');self.assertEqual(out['databaseRecoveryReceiptSha256'],hashlib.sha256(raw).hexdigest());self.assertIn('--pull',invoke.call_args_list[0].args[2]);self.assertIn('never',invoke.call_args_list[0].args[2])
+   with self.assertRaisesRegex(RuntimeError,'BASELINE_WRITER_RESUME_APPROVAL_REQUIRED'):m.operations(p,'restore-baseline-runtime')
+   invoke.assert_not_called()
  def test_canonical_uses_only_named_readonly_jobs_and_public_get_probe(self):
   app='9'*40;nginx=b'nginx';config=b'config';calls=[]
   p={'identity':{'sourceRevision':app},'compose':{'images':{s:'fixed@sha256:'+('1'*64) for s in m.SERVICES}},'candidateConfig':{'sha256':m.digest(config)},'candidateNginx':{'sha256':m.digest(nginx)},'browserPlan':{'path':'browser','sha256':'fixture'}}

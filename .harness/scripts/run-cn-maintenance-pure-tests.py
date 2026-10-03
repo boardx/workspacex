@@ -11,5 +11,5 @@ subprocess.run(['node','--test',str(VM/'test_control_connection.cjs')],cwd=ROOT,
 
 subprocess.run(['node','--test',str(VM/'cn-maintenance-drain-test.cjs')],cwd=ROOT,check=True,timeout=20)
 
-for test in ['cn-maintenance-browser-test.cjs','cn-maintenance-canonical-test.cjs','cn_restore_catalog_test.cjs','existing_session_restore_test.cjs','restore_sql_stream_test.cjs','existing_fidelity_session_test.cjs','offline_restore_pipeline_test.cjs']:
+for test in ['cn-maintenance-browser-test.cjs','cn-maintenance-canonical-test.cjs','cn_restore_catalog_test.cjs','existing_session_restore_test.cjs','restore_sql_stream_test.cjs','existing_fidelity_session_test.cjs','offline_restore_pipeline_test.cjs','retained_session_recovery_test.cjs']:
  subprocess.run(['node','--test',str(VM/test)],cwd=ROOT,check=True,timeout=20)
