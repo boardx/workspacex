@@ -119,3 +119,8 @@ prebuild 真实 `--static` 结果使用 `sourceEntrypoint`，无 imageDigest；r
 ## 顺序事故（#5166）
 
 旧生产库缺候选迁移的新 Agent role 列导致提前检查阻止构建。prebuild source wrapper 只运行 --static；assembler/validator 禁止静态结果宣称 DB 成功或用于激活。动态缺列、权限、seed 和只读守卫反证保留。该修复不实现维护 lane，也不把 build-ready 当 release-ready。现有 verifier 从 exact app revision 加载 validator，无 operational override；要实际使用必须冻结包含修复的新候选并重新验收，不能将新验证器伪标旧 9b25。
+### Maintenance ordering boundary (#5221)
+
+The normal production-dynamic preactivate gate must not be weakened to work around an old schema. `runMaintenanceRelease` is a separate explicit coordinator that places immutable offline preparation before schema validation, then requires a release lock, real three-database recovery verifier and full-writer hold/drain before migration. Production dynamic and preactivate remain mandatory after migration and before activation. Any unknown/failure outcome after the durable hold begins retains writes blocked and requires database recovery, never image-only rollback.
+
+The current installed maintenance admission deliberately rejects because there is no trusted production three-database recovery adapter. The isolated restore-fidelity engine is target-bound evidence, not a production recovery claim. Local injected tests prove sequencing only. See `docs/deployment/cn-maintenance-release.md`; do not mark this lane READY or execute fixtures in production.
