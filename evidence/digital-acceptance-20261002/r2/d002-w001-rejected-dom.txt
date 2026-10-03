@@ -1,0 +1,96 @@
+Browser tab: 5, Title: "WorkspaceX", URL: "https://devapp.boardx.us/workflows/runs/6ab3c865-f73f-43ac-9739-83a11108efbd".
+1 AXWebArea WorkspaceX, URL: devapp.boardx.us/workflows/runs/6ab3c865-f73f-43ac-9739-83a11108efbd
+	2 container
+		3 link Description: 跳到主要内容, Value: devapp.boardx.us/workflows/runs/6ab3c865-f73f-43ac-9739-83a11108efbd#wsx-main-content
+		4 container 主导航
+			5 pop up button (collapsed) Description: 组织菜单，当前：Workspace, Help: Workspace, ID: radix-:r0:, Secondary Actions: Expand
+			6 container
+				7 link Description: 首页, Value: devapp.boardx.us/home
+				8 link Description: 对话, Value: devapp.boardx.us/chat
+				9 link Description: 项目, Value: devapp.boardx.us/projects
+				10 link Description: 研究, Value: devapp.boardx.us/research
+				11 link Description: 访谈, Value: devapp.boardx.us/itv
+				12 link Description: 大脑, Value: devapp.boardx.us/brain
+				13 link Description: 任务, Value: devapp.boardx.us/tasks
+				14 link Description: 工作流, Value: devapp.boardx.us/workflows
+				15 link Description: 组织后台, Value: devapp.boardx.us/admin
+				16 link Description: 平台后台, Value: devapp.boardx.us/platform-admin
+			17 pop up button (collapsed) Description: 更多, ID: radix-:rb:, Secondary Actions: Expand
+			18 container
+				19 pop up button (collapsed) Description: 任务提醒，303 条未读, Secondary Actions: Expand
+					20 image
+					21 text 提醒
+				22 text 303  条未读
+			23 button 提交反馈
+			24 pop up button (collapsed) Description: 个人菜单, ID: radix-:rd:, Secondary Actions: Expand
+		25 text Workspace
+		26 text 管理员
+		27 splitter Description: 调整左栏宽度, Value: 272
+		28 button 收起左栏
+		29 container 工作流
+			30 text 工作流
+			31 link Description: 我的运行, Value: devapp.boardx.us/workflows/runs
+			32 link Description: 待我审批, Value: devapp.boardx.us/workflows/approvals
+			33 link Description: 运行看板, Value: devapp.boardx.us/workflows/board
+		34 container
+			35 heading 研究到简报, Value: 2
+				36 text 研究到简报
+			37 text 被拒
+			38 definition list
+				39 container 发起人
+					40 text 发起人
+				41 text usamshen（我）
+				42 container 开始时间
+					43 text 开始时间
+				44 text 2026-10-03 11:47
+				45 container 用时
+					46 text 用时
+				47 text 4 分 48 秒
+				48 container 目标
+					49 text 目标
+				50 text 团队协作工具是否应优先改善首次使用引导？
+			120 text 已被拒绝 ：审批被拒绝
+			51 content list 运行步骤
+				52 container workflow-stage-scope
+					53 text 1 . 范围与用途 已完成
+					54 content list
+						55 link Description: 查看范围与用途, Value: devapp.boardx.us/workflows/runs/6ab3c865-f73f-43ac-9739-83a11108efbd/result?output=65a3f6b0-1c21-4287-924b-85b45fe2f405
+				56 container workflow-stage-search
+					57 text 2 . 检索证据 已完成
+					58 content list
+						59 link Description: 查看检索证据, Value: devapp.boardx.us/workflows/runs/6ab3c865-f73f-43ac-9739-83a11108efbd/result?output=cbd434a3-d4b9-4063-8852-a3e363496756
+				60 container workflow-stage-synthesize
+					61 text 3 . 研究综合 已完成
+					62 content list
+						63 link Description: 查看研究综合, Value: devapp.boardx.us/workflows/runs/6ab3c865-f73f-43ac-9739-83a11108efbd/result?output=4543754c-fdfa-438e-ad3d-d7d4f8fb9f07
+				64 container workflow-stage-audit
+					65 text 4 . 证据评审 已完成
+					66 content list
+						67 link Description: 查看证据评审, Value: devapp.boardx.us/workflows/runs/6ab3c865-f73f-43ac-9739-83a11108efbd/result?output=a7db4d38-a418-461d-a8ff-a772d851af45
+				68 container workflow-stage-risk
+					69 text 5 . 风险评估 已完成
+					70 content list
+						71 link Description: 查看风险评估, Value: devapp.boardx.us/workflows/runs/6ab3c865-f73f-43ac-9739-83a11108efbd/result?output=9dfbb255-9a89-44d6-9885-b697332ff0d1
+				72 container workflow-stage-draft
+					73 text 6 . 起草简报 已完成
+					74 content list
+						75 link Description: 查看起草简报, Value: devapp.boardx.us/workflows/runs/6ab3c865-f73f-43ac-9739-83a11108efbd/result?output=04d926d8-39d7-453f-a22d-933ba1158e4e
+				76 container workflow-stage-citation_check
+					77 text 7 . 引用校验 已完成
+					78 content list
+						79 link Description: 查看引用校验, Value: devapp.boardx.us/workflows/runs/6ab3c865-f73f-43ac-9739-83a11108efbd/result?output=26cc7e07-97ac-40e7-8796-5970c1428bdc
+				80 container workflow-stage-review_brief
+					81 text 8 . 简报审阅 被拒
+					121 text 审批被拒绝
+				82 container workflow-stage-publish
+					83 text 9 . 发布 未开始
+				84 container workflow-stage-distribute
+					85 text 10 . 分发 未开始
+			116 button (disabled) 取消运行
+			117 content list 运行日志
+				122 container
+					123 text 审批已处理  · 简报审阅  · 审批被拒绝
+			118 button (collapsed) 技术详情, Secondary Actions: Expand
+				119 text 技术详情
+
+The focused UI element is 1 AXWebArea WorkspaceX, URL: devapp.boardx.us/workflows/runs/6ab3c865-f73f-43ac-9739-83a11108efbd
