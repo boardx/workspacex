@@ -125,8 +125,11 @@ export function InterviewMarkdownEditingStep({ interviewId, step, onVersionChang
         if (cause instanceof ApiError && cause.status === 409) {
           // Refresh CAS versions without discarding unsaved expert selections.
           // The dialog remains open for an explicit retry.
+          if (dirty.current) {
+            throw new Error("专家已在其他位置更新。当前选择和虚拟专家草稿已保留，请关闭弹窗并重新审阅并发修改后再保存。");
+          }
           const latest = receive(await loadInterviewMarkdown(interviewId));
-          if (!dirty.current) setMarkdown(latest.documents.find((item) => item.step === "experts")?.markdown ?? "");
+          setMarkdown(latest.documents.find((item) => item.step === "experts")?.markdown ?? "");
         }
         throw cause;
       } finally { setPending(false); }

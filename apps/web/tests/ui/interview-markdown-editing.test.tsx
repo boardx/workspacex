@@ -431,12 +431,13 @@ it("refreshes conflicted expert versions and retains dialog fields for an explic
 
 it("preserves dirty expert selection when virtual persistence conflicts with a newer source", async () => {
   vi.stubEnv("NEXT_PUBLIC_API_URL", "http://localhost:4100"); vi.stubEnv("NEXT_PUBLIC_API_PATH_PREFIX", "");
-  let version = 1; let doc = { ...source }; const writes: string[] = [];
+  let version = 1; let doc = { ...source }; const writes: string[] = []; const writeVersions: number[] = [];
   const dirty = vi.fn();
   vi.stubGlobal("fetch", async (url: string, init: RequestInit) => {
     if (url.endsWith("/digital/experts")) return new Response(JSON.stringify({ items: [] }));
     if (init.method === "POST" && url.endsWith("/markdown/experts")) {
       writes.push(JSON.parse(String(init.body)).markdown);
+      writeVersions.push(JSON.parse(String(init.body)).expectedVersion);
       version = 3; doc = { ...source, version: 2, markdown: "# 专家\n\n## [远端专家](#expert-remote)\n\n并发保存的模拟画像。" };
       return new Response(JSON.stringify({ message: "conflict" }), { status: 409 });
     }
@@ -456,4 +457,8 @@ it("preserves dirty expert selection when virtual persistence conflicts with a n
   expect(screen.getByRole("textbox", { name: "专家名称" })).toHaveValue(editableVirtualFields.name);
   expect(screen.getByRole("button", { name: "移除专家 张浩宇", hidden: true })).toBeInTheDocument();
   expect(dirty).toHaveBeenLastCalledWith(true);
+  fireEvent.click(screen.getByRole("button", { name: "保存并添加专家" }));
+  await waitFor(() => expect(writes).toHaveLength(2));
+  expect(writeVersions).toEqual([1, 1]);
+  expect(screen.getByRole("button", { name: "移除专家 张浩宇", hidden: true })).toBeInTheDocument();
 });
