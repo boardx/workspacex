@@ -41,6 +41,7 @@ export class WhiteboardProvider {
   private pending: WhiteboardPendingMessage[] = [];
   private readonly claimOwner=crypto.randomUUID();
   private draining=false;
+  private drainRequested=false;
   private readonly peerTimer:ReturnType<typeof setInterval>;
   private unsubscribeOutbox:(()=>void)|null=null;
   private reconcileQueued=false;
@@ -183,22 +184,33 @@ export class WhiteboardProvider {
     }
   }
   private async drainClaimed(){
-    if(this.draining||!this.ready||this.stopped||this.refreshingToken!==null||!this.token)return;
-    this.draining=true;const token=this.token,socket=this.socket;
+    if(this.draining){this.drainRequested=true;return;}
+    if(!this.ready||this.stopped||this.refreshingToken!==null||!this.token)return;
+    this.draining=true;this.drainRequested=false;const token=this.token,socket=this.socket,epoch=this.epoch;
+    let claimDenied=false;
     try{
       if(this.pending.some(item=>item.type==='restore-deletion'&&this.inFlight.has(item.updateId)))return;
-      for(const message of this.pending){
+      // ACKs splice pending while a durable claim awaits. Iterate a stable batch
+      // so removal of a predecessor cannot skip its causal successor.
+      for(const message of [...this.pending]){
         if(this.inFlight.size>=OUTBOUND_UPDATE_WINDOW)break;
+        if(this.isAcknowledged(message.updateId)||!this.pending.some(item=>item.updateId===message.updateId&&item.gestureId===message.gestureId))continue;
         if(this.inFlight.has(message.updateId))continue;
         if(!this.persisted.has(message.updateId))break;
         if(message.type==='restore-deletion'&&this.inFlight.size)return;
         const claimed=await this.outbox!.claim!(token,message.updateId,this.claimOwner,10000);
-        if(this.stopped||!this.ready||token!==this.token||socket!==this.socket||socket?.readyState!==WebSocket.OPEN)return;
-        if(!claimed)break;
+        if(this.stopped||!this.ready||this.refreshingToken!==null||token!==this.token||epoch!==this.epoch||socket!==this.socket||socket?.readyState!==WebSocket.OPEN)return;
+        if(!claimed){claimDenied=true;break;}
+        if(this.isAcknowledged(message.updateId)||this.inFlight.has(message.updateId)||!this.pending.some(item=>item.updateId===message.updateId&&item.gestureId===message.gestureId))continue;
         this.send(message);this.inFlight.add(message.updateId);
         if(message.type==='restore-deletion')return;
       }
-    }catch{this.block('OUTBOX_WRITE_FAILED',false);}finally{this.draining=false;}
+    }catch{this.block('OUTBOX_WRITE_FAILED',false);}finally{
+      this.draining=false;
+      // Persistence/reconciliation may request another batch during the await.
+      // A denied lease waits for the existing peer/reconcile wakeup, never spins.
+      if(this.drainRequested&&!claimDenied){this.drainRequested=false;this.drain();}
+    }
   }
   private schedulePresence() {
     if (this.presenceTimer || !this.latestPresence) return;

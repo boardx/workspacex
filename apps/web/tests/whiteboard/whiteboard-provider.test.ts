@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import * as Y from 'yjs';
-import { createWhiteboardDocument, executeCommands, readObjects, WhiteboardUndo } from '@repo/whiteboard-core';
-import { WhiteboardProvider, bytesToBase64, type WhiteboardConnectionState } from '@/lib/whiteboard-provider';
+import { createWhiteboardDocument, executeCommands, prepareWhiteboardUpdate, readObjects, WhiteboardUndo } from '@repo/whiteboard-core';
+import { WhiteboardProvider, bytesToBase64, base64ToBytes, type WhiteboardConnectionState } from '@/lib/whiteboard-provider';
 import type { WhiteboardDurableOutbox } from '@/lib/whiteboard-outbox';
 import {IndexedDbEncryptedWhiteboardOutbox} from '@/lib/whiteboard-outbox';
 import {IDBFactory} from 'fake-indexeddb';
@@ -32,6 +32,62 @@ class DeferredRebindOutbox extends DurableMemoryOutbox {
   finish(){this.release();}
   override async rebind(from:string,to:string){this.start();await this.gate;await super.rebind(from,to);}
 }
+class GatedClaimOutbox extends DurableMemoryOutbox {
+  calls:string[]=[];
+  notify:()=>void=()=>{};
+  subscribe(_token:string,listener:()=>void){this.notify=listener;return()=>{this.notify=()=>{};};}
+  gates=new Map<number,(claimed:boolean)=>void>();
+  async claim(_token:string,id:string){
+    this.calls.push(id);
+    return new Promise<boolean>(resolve=>this.gates.set(this.calls.length,resolve));
+  }
+  async releaseClaims(){}
+  release(index:number,claimed=true){const resolve=this.gates.get(index);expect(resolve).toBeDefined();resolve!(claimed);}
+}
+const flushClaims=async()=>{for(let index=0;index<60;index++)await Promise.resolve();};
+it('keeps real Yjs causal order when an ACK splices pending during the next claim',async()=>{
+  const doc=createWhiteboardDocument(),server=createWhiteboardDocument(),outbox=new GatedClaimOutbox();
+  const provider=new WhiteboardProvider(doc,'claim-order',()=>{},outbox);
+  try{
+    await flushClaims();const socket=Socket.sockets[0]!;sync(socket,server);
+    executeCommands(doc,[{type:'create',object:sticky('causal')}],'local');
+    for(let index=0;index<3;index++)executeCommands(doc,[{type:'text',id:'causal',index,deleteCount:0,insert:String(index)}],'local');
+    await flushClaims();const original=[...(outbox.updates.get('test-session')??[])];
+    outbox.release(1);await flushClaims();
+    const first=updates(socket)[0]!;socket.message({type:'ack',updateId:first.updateId,gestureId:first.gestureId,seq:1});
+    for(let index=2;index<=4;index++){outbox.release(index);await flushClaims();}
+    expect(updates(socket).map(item=>item.updateId)).toEqual(original.map(item=>item.updateId));
+    for(const frame of socket.sent.map(value=>JSON.parse(value)).filter(frame=>frame.type==='update'))Y.applyUpdate(server,prepareWhiteboardUpdate(server,base64ToBytes(frame.update)));
+    expect(readObjects(server)[0]?.text).toBe('012causal');
+  }finally{provider.close();doc.destroy();server.destroy();}
+});
+it.each([true,false])('drains a newly persisted batch after the active snapshot finishes (claim granted=%s)',async granted=>{
+  const doc=createWhiteboardDocument(),server=createWhiteboardDocument(),outbox=new GatedClaimOutbox(),provider=new WhiteboardProvider(doc,'new-batch',()=>{},outbox);
+  try{
+    await flushClaims();const socket=Socket.sockets[0]!;sync(socket,server);burst(doc,1);await flushClaims();
+    executeCommands(doc,[{type:'create',object:sticky('next-batch')}],'local');await flushClaims();
+    outbox.release(1);await flushClaims();expect(outbox.calls).toHaveLength(2);
+    outbox.release(2,granted);await flushClaims();expect(outbox.calls).toHaveLength(2);expect(updates(socket)).toHaveLength(granted?2:1);
+  }finally{provider.close();doc.destroy();server.destroy();}
+});
+it('does not resend a message removed by a shared durable ACK while its claim awaits',async()=>{
+  const doc=createWhiteboardDocument(),server=createWhiteboardDocument(),outbox=new GatedClaimOutbox();let state!:WhiteboardConnectionState;
+  const provider=new WhiteboardProvider(doc,'peer-acked-claim',value=>{state=value;},outbox);
+  try{
+    await flushClaims();const socket=Socket.sockets[0]!;sync(socket,server);burst(doc,1);await flushClaims();
+    const id=outbox.calls[0]!;await outbox.acknowledge('test-session',id);outbox.notify();await flushClaims();
+    expect(state.pending).toBe(0);outbox.release(1);await flushClaims();
+    expect(updates(socket)).toEqual([]);expect(state.lastAckReceipt).toBeNull();expect(state.lastAckSequence).toBeNull();expect(outbox.calls).toHaveLength(1);
+  }finally{provider.close();doc.destroy();server.destroy();}
+});
+it.each(['socket','epoch'] as const)('fences an outstanding claim after its %s changes',async scope=>{
+  const doc=createWhiteboardDocument(),server=createWhiteboardDocument(),outbox=new GatedClaimOutbox(),provider=new WhiteboardProvider(doc,'stale-claim',()=>{},outbox);
+  try{
+    await flushClaims();const old=Socket.sockets[0]!;sync(old,server);burst(doc,1);await flushClaims();
+    if(scope==='socket'){provider.retryNow();sync(Socket.sockets.at(-1)!,server);}else sync(old,server,2);
+    outbox.release(1);await flushClaims();expect(updates(old)).toEqual([]);
+  }finally{provider.close();doc.destroy();server.destroy();}
+});
 const sticky = (id: string) => ({ id, kind: 'sticky' as const, schemaVersion: 1 as const, geometry: { x: 0, y: 0, width: 180, height: 140, rotation: 0 }, text: id, style: {}, parentId: null, orderKey: '' });
 const messages = (socket: Socket) => socket.sent.map(value => JSON.parse(value) as { type: string; updateId?: string; gestureId?: string });
 const updates = (socket: Socket) => messages(socket).filter((value): value is { type: 'update'; updateId: string; gestureId: string } => value.type === 'update' && typeof value.updateId === 'string');
