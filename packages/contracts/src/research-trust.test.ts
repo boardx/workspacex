@@ -68,6 +68,16 @@ describe("guided research trust contracts", () => {
     expect(parsed.action).toBe("pause");
   });
 
+  it("allows report pause and resume with revision and idempotency protection", () => {
+    for (const action of ["pause", "resume"]) {
+      const command = { sessionId: "session-1", node: "report", action, requestId: "request-1", expectedVersion: 1, expectedRevision: 0, idempotencyKey: "control-1" };
+      expect(research.GuidedResearchRuntimeCommand.safeParse(command).success).toBe(true);
+      expect(research.GuidedResearchRuntimeCommand.safeParse({ ...command, expectedRevision: undefined }).success).toBe(false);
+      expect(research.GuidedResearchRuntimeCommand.safeParse({ ...command, idempotencyKey: undefined }).success).toBe(false);
+    }
+    expect(research.GuidedResearchRuntimeCommand.safeParse({ sessionId: "session-1", node: "report", action: "refine_source_policy", requestId: "request-1", expectedVersion: 1, expectedRevision: 0, idempotencyKey: "control-1", sourcePolicy: { mode: "open", domains: [], internalSourceIds: [], revision: 1 } }).success).toBe(false);
+  });
+
   it("allows scope confirmation on the outline before search starts", () => {
     const parsed = research.GuidedResearchRuntimeCommand.parse({
       sessionId: "session-1", node: "outline", action: "refine_scope", requestId: "scope-1",

@@ -1102,3 +1102,23 @@ it("finalizes stalled report source preparation after three minutes", async () =
     expect(result.errorCode).toBe("RESEARCH_REPORT_PREPARATION_TIME_BUDGET_EXCEEDED");
   } finally { vi.useRealTimers(); }
 });
+
+it("resumes an unchanged report basis without re-screening already prepared sources", async () => {
+  const f = fixture();
+  f.state.reportCheckpoint = { basis: reportBasis(f.state, config), chapters: [] };
+  const contexts: any[] = [];
+  const read = vi.fn(async () => { throw new Error("must reuse prepared report basis"); });
+  const store: GuidedRuntimeStore = { read: async () => f.state, claim: async () => ({ state: f.state, replay: false }), write: async () => {} };
+  const service = new GuidedRuntimeService(store, { complete: async (input) => {
+    const context = JSON.parse(input.user); contexts.push(context);
+    if (context.researchStage) throw new Error("already screened basis must not block report resume");
+    return { text: JSON.stringify(answer(context)) };
+  } }, { search: async () => [], read }, config);
+  const result = await service.execute({ sessionId: "s", orgId: "org", userId: "u" } as RuntimeActor,
+    { sessionId: "s", brief: f.state.brief, directions: { versions: [] }, outline: { versions: [] } } as any,
+    { sessionId: "s", node: "report", action: "retry", requestId: "resume-basis", expectedVersion: 4 });
+  expect(result.errorCode).toBeNull();
+  expect(result.report?.sections).toHaveLength(2);
+  expect(read).not.toHaveBeenCalled();
+  expect(contexts.every((c) => !c.researchStage)).toBe(true);
+});
