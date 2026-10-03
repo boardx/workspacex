@@ -233,6 +233,21 @@ export async function startCapture(deps: CaptureDeps = {}): Promise<CaptureHandl
     throw new LiveRecordingError(classifyMediaError(error));
   }
 
+  try {
+    // Socket/permission awaits can outlive the click's user activation.
+    // A suspended context never produces PCM despite a healthy voice session.
+    if (context.state !== "running") await context.resume();
+    if (context.state !== "running") throw new LiveRecordingError({
+      kind: "capture-failed",
+      message: "麦克风已授权，但音频采集仍未启动，请重试。",
+      cause: "audio-context-not-running",
+    });
+  } catch (error) {
+    stream.getTracks().forEach((track) => track.stop());
+    try { await context.close(); } catch { /* Preserve the startup failure. */ }
+    throw error instanceof LiveRecordingError ? error : new LiveRecordingError(classifyMediaError(error));
+  }
+
   const listeners: Array<(frame: Int16Array) => void> = [];
   const source = context.createMediaStreamSource(stream);
   const processor = context.createScriptProcessor(4096, 1, 1);
