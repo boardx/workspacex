@@ -55,6 +55,47 @@ it('already-open peer automatically reconciles persisted origin writes after ori
     await vi.waitFor(async()=>expect((await inspect.restore('test-session')).updates).toEqual([]));expect(peerState.pending).toBe(0);
   }finally{first.close();second.close();inspect.close();origin.destroy();peer.destroy();server.destroy();}
 });
+it.each(['current','replacement','reauthorized'] as const)('attributes a delayed original ACK only on its %s socket after shared durable peer drain',async socketScope=>{
+  vi.useRealTimers();vi.stubGlobal('indexedDB',new IDBFactory());vi.stubGlobal('crypto',webcrypto);
+  const a=new IndexedDbEncryptedWhiteboardOutbox('board-1'),b=new IndexedDbEncryptedWhiteboardOutbox('board-1'),inspect=new IndexedDbEncryptedWhiteboardOutbox('board-1');
+  const origin=createWhiteboardDocument(),peer=createWhiteboardDocument(),server=createWhiteboardDocument();
+  let originState!:WhiteboardConnectionState,peerState!:WhiteboardConnectionState;
+  const first=new WhiteboardProvider(origin,'board-1',state=>{originState=state;},a);
+  let second:WhiteboardProvider|undefined;
+  try{
+    await vi.waitFor(()=>expect(Socket.sockets).toHaveLength(1));const original=Socket.sockets[0]!;sync(original,server);
+    executeCommands(origin,[{type:'create',object:sticky('held-receipt')}],'local');
+    await vi.waitFor(()=>expect(updates(original)).toHaveLength(1));const sent=updates(original)[0]!;
+    // Model a suspended origin: no renewal mutates its real durable lease.
+    vi.spyOn(a,'claim').mockResolvedValue(true);
+    const now=Date.now();vi.spyOn(Date,'now').mockReturnValue(now+11000);
+    second=new WhiteboardProvider(peer,'board-1',state=>{peerState=state;},b);
+    await vi.waitFor(()=>expect(Socket.sockets).toHaveLength(2));const replay=Socket.sockets[1]!;sync(replay,server);
+    await vi.waitFor(()=>expect(updates(replay)).toHaveLength(1));expect(updates(replay)[0]).toEqual(sent);
+    replay.message({type:'ack',updateId:sent.updateId,gestureId:sent.gestureId,seq:1});
+    await vi.waitFor(async()=>expect((await inspect.restore('test-session')).updates).toEqual([]));expect(peerState.pending).toBe(0);
+    await vi.waitFor(()=>expect(originState.pending).toBe(0),{timeout:3500});
+    expect(originState.lastAckReceipt).toBeNull();expect(originState.lastAckSequence).toBeNull();
+    const deleteOrigin=vi.spyOn(a,'acknowledge');
+    if(socketScope==='reauthorized'){
+      sync(original,server,1,1);
+      original.message({type:'ack',updateId:sent.updateId,gestureId:sent.gestureId,seq:1});
+      expect(originState.reason).toBe('ACK_CONFLICT');expect(deleteOrigin).not.toHaveBeenCalled();return;
+    }
+    if(socketScope==='replacement'){
+      first.retryNow();await vi.waitFor(()=>expect(Socket.sockets).toHaveLength(3));const fresh=Socket.sockets[2]!;sync(fresh,server,1,1);
+      original.message({type:'ack',updateId:sent.updateId,gestureId:sent.gestureId,seq:1});
+      expect(originState.phase).toBe('online');expect(originState.lastAckReceipt).toBeNull();
+      fresh.message({type:'ack',updateId:sent.updateId,gestureId:sent.gestureId,seq:1});
+      expect(originState.reason).toBe('ACK_CONFLICT');expect(deleteOrigin).not.toHaveBeenCalled();return;
+    }
+    original.message({type:'ack',updateId:sent.updateId,gestureId:sent.gestureId,seq:1});
+    expect(originState.phase).toBe('online');expect(originState.lastAckReceipt).toEqual({updateId:sent.updateId,gestureId:sent.gestureId,seq:1});
+    expect(Socket.sockets.flatMap(updates)).toHaveLength(2);expect(deleteOrigin).not.toHaveBeenCalled();
+    original.message({type:'ack',updateId:sent.updateId,gestureId:crypto.randomUUID(),seq:1});
+    expect(originState.reason).toBe('ACK_CONFLICT');
+  }finally{first.close();second?.close();inspect.close();origin.destroy();peer.destroy();server.destroy();vi.restoreAllMocks();}
+});
 it('two independent IndexedDB peers submit each recovered update once and only durable ACK deletes it',async()=>{
   vi.useRealTimers();vi.stubGlobal('indexedDB',new IDBFactory());vi.stubGlobal('crypto',webcrypto);
   const seed=new IndexedDbEncryptedWhiteboardOutbox('board-1'),a=new IndexedDbEncryptedWhiteboardOutbox('board-1'),b=new IndexedDbEncryptedWhiteboardOutbox('board-1');

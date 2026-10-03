@@ -32,6 +32,9 @@ export class WhiteboardProvider {
   private persistenceTail: Promise<void> = Promise.resolve();
   private readonly outbox: WhiteboardDurableOutbox | null;
   private readonly acked = new Set<string>();
+  // Sent on the current authenticated socket, then removed by another tab’s durable ACK.
+  // This is attribution only; no server receipt is invented by reconciliation.
+  private readonly awaitingReceipt = new Set<string>();
   private readonly retryableClose = new WeakSet<WebSocket>();
   private inFlight = new Set<string>();
   private persisted = new Set<string>();
@@ -122,6 +125,10 @@ export class WhiteboardProvider {
     const unsaved=this.pending.filter(item=>!this.persisted.has(item.updateId)&&!this.isAcknowledged(item.updateId));
     const restoredIds=new Set(restored.updates.map(item=>item.updateId));
     const added=restored.updates.filter(item=>!this.persisted.has(item.updateId)&&!this.isAcknowledged(item.updateId));
+    for(const item of this.pending){
+      if(this.inFlight.has(item.updateId)&&!restoredIds.has(item.updateId))this.awaitingReceipt.add(`${item.updateId}:${item.gestureId}`);
+    }
+    while(this.awaitingReceipt.size>WHITEBOARD_SYNC.pendingUpdates)this.awaitingReceipt.delete(this.awaitingReceipt.values().next().value!);
     this.pending=[...restored.updates.filter(item=>!this.isAcknowledged(item.updateId)),...unsaved];
     this.persisted=restoredIds;
     for(const id of this.inFlight)if(!restoredIds.has(id))this.inFlight.delete(id);
@@ -217,6 +224,7 @@ export class WhiteboardProvider {
     if (this.stopped) return;
     if (typeof navigator !== 'undefined' && navigator.onLine === false) { this.publish({ phase: 'offline', reason: 'CONNECTION_LOST' }); return; }
     if (!this.token || getStoredSessionToken() !== this.token) { this.block('SESSION_CHANGED'); return; }
+    this.awaitingReceipt.clear();
     this.ready = false; this.inFlight.clear(); this.publish({ phase: this.epoch ? 'offline' : 'connecting', reason, retryAttempt: this.retry });
     const socket = new WebSocket(apiWebSocketUrl(WHITEBOARD_SYNC.path.replace(':boardId', encodeURIComponent(this.boardId))), [WHITEBOARD_SYNC.protocol, WHITEBOARD_SYNC.bearerSubprotocolPrefix + this.token]);
     this.socket = socket;
@@ -243,6 +251,7 @@ export class WhiteboardProvider {
           }).catch(()=>this.block('OUTBOX_REAUTHORIZATION_FAILED',false));return;
         }
         if (message.type === 'sync') {
+          this.awaitingReceipt.clear();
           if (this.epoch !== null && this.epoch !== message.epoch) { this.block('STALE_EPOCH'); return; }
           if (this.seq !== null && message.seq < this.seq) { this.block('STALE_SEQUENCE'); return; }
           // Fresh server authorization explicitly rejected this generation's writes.
@@ -273,6 +282,12 @@ export class WhiteboardProvider {
           const index = this.pending.findIndex(item => item.updateId === message.updateId);
           const receiptKey=`${message.updateId}:${message.gestureId}`;
           if (index < 0 || this.pending[index]?.gestureId!==message.gestureId) {
+            if(index<0&&this.awaitingReceipt.delete(receiptKey)){
+              this.acked.add(receiptKey);
+              while(this.acked.size>WHITEBOARD_SYNC.pendingUpdates)this.acked.delete(this.acked.values().next().value!);
+              this.publish({lastAckSequence:message.seq,lastAckReceipt:{updateId:message.updateId,gestureId:message.gestureId,seq:message.seq}});
+              return;
+            }
             if (this.acked.has(receiptKey)) { this.publish({ duplicateAcks: this.state.duplicateAcks + 1 }); return; }
             this.block('ACK_CONFLICT'); return;
           }
@@ -334,5 +349,5 @@ export class WhiteboardProvider {
     this.publish({ phase: 'blocked', role: 'viewer', peers: [], reason });
     if (persistRevocation && token && outbox) void outbox.revoke(token).finally(()=>outbox.close());
   }
-  close(closeOutbox = true) { if (typeof window !== 'undefined') { window.removeEventListener('offline', this.onOffline); window.removeEventListener('online', this.onOnline); } if (this.presenceTimer) clearTimeout(this.presenceTimer); this.stopped = true; this.ready = false; this.inFlight.clear(); if (this.timer) clearTimeout(this.timer); if (this.handshake) clearTimeout(this.handshake); clearInterval(this.sessionTimer);clearInterval(this.peerTimer);this.unsubscribeOutbox?.(); this.doc.off('update', this.onUpdate); this.socket?.close();void this.releaseClaims().catch(()=>undefined).finally(()=>{if(closeOutbox)this.outbox?.close();}); }
+  close(closeOutbox = true) { if (typeof window !== 'undefined') { window.removeEventListener('offline', this.onOffline); window.removeEventListener('online', this.onOnline); } if (this.presenceTimer) clearTimeout(this.presenceTimer); this.stopped = true; this.ready = false; this.inFlight.clear();this.awaitingReceipt.clear(); if (this.timer) clearTimeout(this.timer); if (this.handshake) clearTimeout(this.handshake); clearInterval(this.sessionTimer);clearInterval(this.peerTimer);this.unsubscribeOutbox?.(); this.doc.off('update', this.onUpdate); this.socket?.close();void this.releaseClaims().catch(()=>undefined).finally(()=>{if(closeOutbox)this.outbox?.close();}); }
 }
