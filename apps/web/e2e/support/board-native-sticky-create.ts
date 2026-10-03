@@ -1,3 +1,4 @@
+import diagnosticPolicy from '../../scripts/board-ci-diagnostic-policy.json';
 import {expect,type Page,type APIRequestContext} from '@playwright/test';
 import {canonicalRows,canonicalBoardSnapshot,boardHead} from '../board-acceptance-support';
 import {expectBoardSynced} from './board-sync-status';
@@ -94,11 +95,21 @@ async function createNativeTextObject(page:Page,text:string,proof:NativeCreation
       zoom,requestedPaperMargin:Math.max(120,120*zoom),paperMargin:Math.max(8,Math.min(Math.max(120,120*zoom),Math.min(box.width,innerWidth)/4,Math.min(box.height,innerHeight)/4)),chrome:chrome.map(r=>({x:r.x,y:r.y,width:r.width,height:r.height}))};
    },expectedCount);
    const candidates=await page.evaluate(nativeBlankCandidates,sample);
-   return page.getByTestId('board-fabric-surface').evaluate((host,{points,geometry})=>{
+   return page.getByTestId('board-fabric-surface').evaluate((host,{points,geometry,hitPolicy})=>{
     const canvas=host.querySelector('canvas.upper-canvas');
-    for(const point of points)if(document.elementFromPoint(point.x,point.y)===canvas)return point;
-    throw new Error(`NO_NATIVE_BLANK_POSITION ${JSON.stringify({canvas:geometry.canvas,zoom:geometry.zoom,margin:geometry.paperMargin,requestedPaperMargin:geometry.requestedPaperMargin,candidateCenters:points.length,unobstructedCenters:0,chrome:geometry.chrome})}`);
-   },{points:candidates,geometry:sample});
+    const controls=new Set(hitPolicy.hitControls);
+    const tags=new Set(hitPolicy.hitTags);
+    const hits=[];
+    for(const point of points){
+     const hit=document.elementFromPoint(point.x,point.y);
+     if(hit===canvas)return point;
+     if(hits.length<8){
+      const bounds=hit?.getBoundingClientRect();const closest=hit?.closest('[data-testid]')?.getAttribute('data-testid');
+      hits.push({tag:hit&&tags.has(hit.tagName.toUpperCase())?hit.tagName.toUpperCase():'OTHER',control:closest&&controls.has(closest)?closest:'OTHER',rect:bounds?{x:bounds.x,y:bounds.y,width:bounds.width,height:bounds.height}:null,isCanvas:hit instanceof HTMLCanvasElement});
+     }
+    }
+    throw new Error(`NO_NATIVE_BLANK_POSITION ${JSON.stringify({canvas:geometry.canvas,zoom:geometry.zoom,margin:geometry.paperMargin,requestedPaperMargin:geometry.requestedPaperMargin,candidateCenters:points.length,unobstructedCenters:0,chrome:geometry.chrome,hits})}`);
+   },{points:candidates,geometry:sample,hitPolicy:diagnosticPolicy});
   };
   const point=await blankPoint(before.length);
   expect(await canonicalRows(page)).toEqual(before);
@@ -111,6 +122,9 @@ async function createNativeTextObject(page:Page,text:string,proof:NativeCreation
   const editor=page.getByLabel('对象文字',{exact:true});
   await expect(editor).toBeFocused();await editor.fill(text);await editor.press('Escape');
   await expect(editor).toHaveCount(0);
+  // Escape flushes the real live edit, but the canonical mirror renders asynchronously.
+  // Keep the exact text and one-object contract; do not read a transient empty row.
+  await expect.poll(async()=> (await canonicalRows(page)).filter(row=>!before.some(old=>old.id===row.id)).map(row=>({kind:row.kind,text:row.text}))).toEqual([{kind,text}]);
   const created=(await canonicalRows(page)).filter(row=>!before.some(old=>old.id===row.id));
   expect(created).toHaveLength(1);const note=created[0];if(!note)throw new Error('NATIVE_STICKY_NOT_CREATED');
   expect(note).toMatchObject({kind,text});
