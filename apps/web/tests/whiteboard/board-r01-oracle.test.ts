@@ -1,10 +1,14 @@
-import {describe,it,expect} from 'vitest';
+import {describe,it,expect,vi} from 'vitest';
 import {Rect,Group,ActiveSelection} from 'fabric';
 import {mkdtemp,writeFile} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {BOARD_FABRIC_VISUAL} from '../../components/whiteboard/fabric/board-fabric-visual';
 import {sampleLiteralShapeStroke,assertAtomicRevision,assertEraseObjects,assertPoints,assertStrokePixels,assertTransparentPixels,drawingPointWorld,expandedDrawingGeometry,entityCorners,offsetAnchor,rotatePoint,transformGeometry,visualFrame} from '../../e2e/support/board-r01-oracle';
+
+// Product projection and the Node canvas must share one Fabric implementation.
+vi.mock('fabric',async()=>await import('fabric/node'));
+import {ShapeProjectionGroup} from '../../components/whiteboard/fabric/shape-projection-group';
 
 describe('independent R01 oracle rejects misleading geometry and partial transactions',()=>{
  const geometry={x:40,y:30,width:100,height:60,rotation:30},pivot={x:160,y:120};
@@ -16,7 +20,7 @@ describe('independent R01 oracle rejects misleading geometry and partial transac
   for(const zoom of [.5,2])for(const rotation of [17,-21]){
    const geometry={x:70.125,y:60.375,width:65,height:55,rotation},canvas=new fabric.StaticCanvas(undefined,{width:600,height:600,renderOnAddRemove:false});
    try{
-    const shape=new fabric.Rect({width:65,height:55,fill:'#2563EB',stroke:'#18181B',strokeWidth:1,strokeUniform:true,originX:'center',originY:'center'}),group=new fabric.Group([shape],{layoutManager:new fabric.LayoutManager(new fabric.FixedLayout()),width:65,height:55});group.set({left:geometry.x,top:geometry.y,angle:rotation,originX:'left',originY:'top'});canvas.add(group);canvas.setViewportTransform([zoom,0,0,zoom,20,20]);
+    const shape=new fabric.Rect({width:65,height:55,fill:'#2563EB',stroke:'#18181B',strokeWidth:1,strokeUniform:true,originX:'center',originY:'center'}),group=new ShapeProjectionGroup([shape],{layoutManager:new fabric.LayoutManager(new fabric.FixedLayout()),width:65,height:55});group.set({left:geometry.x,top:geometry.y,angle:rotation,originX:'left',originY:'top'});canvas.add(group);canvas.setViewportTransform([zoom,0,0,zoom,20,20]);
     const grid={sx:1,sy:1,zoom,panX:20,panY:20};
     for(const caching of ['default',true,false] as const){
      if(caching!=='default'){group.set('objectCaching',caching);shape.set('objectCaching',caching);}canvas.renderAll();assertPoints(group.getCoords(),entityCorners(geometry));
