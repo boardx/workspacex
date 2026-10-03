@@ -149,3 +149,9 @@ it("preserves substantive expert-suffixed headings and indented metadata example
   expect(display).not.toContain("### 访谈回答：角色（persona-x）");
   expect(display).not.toContain("### 角色（persona-x）访谈记录");
 });
+
+it("preserves a code fence immediately following a leading notice without a blank line", () => {
+  const markdown = "## [角色](#expert-persona-x)\n\n身份声明：本内容为基于模拟画像库生成的专家视角推演\n```md\n## 模拟访谈记录\n代码例子必须保留\n```";
+  const display = interviewTranscriptDisplay(markdown, true);
+  expect(display).toContain("```md\n## 模拟访谈记录\n代码例子必须保留\n```");
+});

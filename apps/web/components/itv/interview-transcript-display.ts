@@ -12,20 +12,21 @@ export function interviewTranscriptDisplay(
   let metadataParagraph = false;
   return markdown.split("\n").flatMap((line) => {
     if (/^(?: {4}|\t)/u.test(line)) return [line];
-    // A recognized notice may wrap across lines. Its paragraph ends at a
-    // blank line or the next heading; subsequent answer paragraphs stay visible.
-    if (metadataParagraph) {
-      if (line.trim() && !/^\s*#{1,6}\s/u.test(line)) return [];
-      metadataParagraph = false;
-    }
     const marker = line.match(/^\s*(`{3,}|~{3,})/u)?.[1];
     if (marker) {
+      metadataParagraph = false;
       leadingMetadata = false;
       if (!fence) fence = marker;
       else if (marker[0] === fence[0] && marker.length >= fence.length) fence = null;
       return [line];
     }
     if (fence) return [line];
+    // A recognized notice may wrap across lines. Its paragraph ends at a
+    // blank line or the next heading; subsequent answer paragraphs stay visible.
+    if (metadataParagraph) {
+      if (line.trim() && !/^\s*#{1,6}\s/u.test(line)) return [];
+      metadataParagraph = false;
+    }
     const text = line.trim();
     const wrapper = text.match(/^(#{1,6})\s+\[([^\]]+)\]\(#expert-([a-zA-Z0-9_-]+)\)$/u);
     if (wrapper) {
