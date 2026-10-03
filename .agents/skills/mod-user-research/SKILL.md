@@ -53,4 +53,4 @@ description: 用户研究计划、资料检索、来源证据和研究报告；�
 
 谁修改本模块，谁在 PR 中追加可验证经验；不删除旧条目，推翻时注明替代来源。
 
-- 2026-10-03：报告确认后的目的步骤需在外部读取前持久化并推送 snapshot；证据 timeline attempts 是跨批次调用计数，显示 completed/total 批次。生成报告复用已读取正文，不自动重试已失败网页；单调用90秒限时与关闭回调共同防止迟到流写入（出处：issue #5243）。
+- 2026-10-03：报告确认后的目的步骤需在外部读取前持久化并推送 snapshot；证据 timeline attempts 是跨批次调用计数，显示 completed/total 批次。生成报告复用已读取正文，不自动重试已失败网页；单调用限时由 `apps/api/src/application/research/guided-search-budget.ts` 的 `GUIDED_REPORT_MODEL_BUDGET_MS` 定义；限时与关闭回调共同防止迟到流写入（出处：issue #5243）。
