@@ -342,7 +342,7 @@ export function resolveMergeRoute(input: { state: PrQueueState; mode: CoordMode;
     route,
     allowed: true,
     reason: input.queueEnabled
-      ? "机械门禁全绿且人类在场：把 PR **加入合并队列**，由候选组跑完整验证后再合入——直接合并会跳过候选组验证"
+      ? `${auth.reason}；把 PR **加入合并队列**，由候选组跑完整验证后再合入——直接合并会跳过候选组验证`
       : auth.reason,
   };
 }
