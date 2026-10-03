@@ -1,0 +1,30 @@
+ ✓ tests/ui/guided-research-home-live.test.tsx (22 tests) 493ms
+ ✓ tests/ui/guided-research-reference-workflow.test.tsx (19 tests) 1463ms
+   ✓ reference research workflow > edits topic scope in the topic screen without losing the submitted brief 837ms
+ ✓ tests/ui/guided-research-live.test.tsx (17 tests) 606ms
+ ✓ tests/ui/guided-research-reference-layout.test.tsx (20 tests) 278ms
+ ✓ tests/ui/guided-research-flow.test.tsx (21 tests) 668ms
+ ✓ tests/ui/guided-research-step-transitions.test.tsx (13 tests) 622ms
+ ✓ tests/ui/guided-research-transition.test.tsx (14 tests) 443ms
+ ✓ tests/ui/guided-research-visual-contract.test.tsx (8 tests) 484ms
+ ✓ tests/ui/guided-research-report-stream.test.tsx (16 tests) 6770ms
+   ✓ polls lightweight progress, loads terminal state once and stops 4211ms
+   ✓ unlocks when progress is terminal even if the POST never closes 2040ms
+ ✓ tests/ui/guided-research-conversation-live.test.tsx (11 tests) 453ms
+ ✓ tests/ui/guided-research-trust-console.test.tsx (8 tests) 147ms
+ ✓ tests/ui/guided-research-skill-assistant.test.tsx (6 tests) 123ms
+ ✓ tests/ui/guided-research-search-recovery.test.tsx (6 tests) 83ms
+ ✓ tests/ui/guided-research-report-history.test.tsx (6 tests) 133ms
+ ✓ tests/ui/guided-research-report-timeline.test.tsx (11 tests) 182ms
+ ✓ tests/ui/guided-research-design-editor.test.tsx (6 tests) 255ms
+ ✓ tests/ui/guided-research-markdown-workspace.test.tsx (6 tests) 162ms
+ ✓ tests/ui/guided-research-sources.test.tsx (4 tests) 167ms
+ ✓ tests/ui/guided-research-checkpoints-live.test.tsx (3 tests) 310ms
+ ✓ tests/ui/guided-research-report-reading.test.tsx (3 tests) 408ms
+ ✓ tests/ui/guided-research-plan-editor.test.tsx (2 tests) 185ms
+ ✓ tests/ui/guided-research-quality-draft.test.tsx (2 tests) 39ms
+ ✓ tests/ui/guided-research-readable-sources.test.tsx (2 tests) 102ms
+ ✓ tests/ui/guided-research-readiness.test.tsx (3 tests) 21ms
+ Test Files  24 passed (24)
+      Tests  229 passed (229)
+   Duration  17.30s (transform 1.09s, setup 1.49s, collect 7.69s, tests 14.60s, environment 7.45s, prepare 622ms)

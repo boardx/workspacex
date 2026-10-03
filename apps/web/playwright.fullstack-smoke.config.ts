@@ -435,6 +435,15 @@ export default defineConfig({
       fullyParallel: false,
     },
     {
+      name: "board-image-ingress",
+      testMatch: ["board-image-ingress-acceptance.spec.ts"],
+      dependencies: ["official-role-workflow", "realtime-voice"],
+      workers: 1,
+      fullyParallel: false,
+      retries: 0,
+      timeout: 120_000,
+    },
+    {
       /**
        * 「agent/skill 从 GitHub 导入 → 文件浏览+编辑 → 后台测试 → chat `#` 调用」
        * 这条用户旅程的验收线**不能**并进上面的 `seeded`（尽管它同样要用种子里的组织
@@ -498,7 +507,7 @@ export default defineConfig({
       grepInvert: EMPTY_DB_TAG_RE,
       // Official imports must follow seeded empty-catalog checks and precede
       // later mutation journeys; dependency ordering also survives parallel CI.
-      dependencies: ["official-role-workflow", "realtime-voice"],
+      dependencies: ["official-role-workflow", "realtime-voice", "board-image-ingress"],
     },
     {
       // In the CI seeded-github-import dependency closure, after empty-catalog checks.

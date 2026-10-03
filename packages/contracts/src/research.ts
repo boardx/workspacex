@@ -1074,7 +1074,7 @@ export const GuidedResearchRuntime = z.object({
 }).strict();
 export const GuidedResearchRuntimeCommand = z.object({
   sessionId: z.string().min(1), node: ResearchNode,
-  action: z.enum(["save", "generate", "confirm", "start", "retry", "complete", "message", "apply", "add_source", "remove_source", "pause", "resume", "refine_scope", "refine_source_policy", "resolve_conflict"]),
+  action: z.enum(["save", "save_chapters", "generate", "confirm", "start", "retry", "complete", "message", "apply", "add_source", "remove_source", "pause", "resume", "refine_scope", "refine_source_policy", "resolve_conflict"]),
   requestId: z.string().min(1).max(200), expectedVersion: z.number().int().nonnegative(),
   expectedRevision: z.number().int().nonnegative().optional(), idempotencyKey: z.string().min(1).max(200).optional(),
   intent: GuidedResearchIntent.optional(), sourcePolicy: GuidedResearchSourcePolicy.optional(),
@@ -1091,7 +1091,7 @@ export const GuidedResearchRuntimeCommand = z.object({
   conflictResolutionAction: z.enum(["retain_uncertainty", "prefer_source"]).optional(),
   conflictResolution: z.string().trim().min(1).max(2000).optional(),
   allowPartialResearch: z.boolean().optional(),
-}).strict().refine((command) => command.allowPartialResearch === undefined || (command.node === "research" && ["confirm", "complete"].includes(command.action)), "partial research requires explicit research completion").refine((command) => !command.draft || command.node === command.draft.node, "draft must target the requested node")
+}).strict().refine((command) => command.action !== "save_chapters" || (command.node === "outline" && command.draft?.node === "outline" && !command.message && !command.proposalId), "chapter saves require an explicit outline draft").refine((command) => command.allowPartialResearch === undefined || (command.node === "research" && ["confirm", "complete"].includes(command.action)), "partial research requires explicit research completion").refine((command) => !command.draft || command.node === command.draft.node, "draft must target the requested node")
   .refine((command) => !["pause", "resume", "refine_scope", "refine_source_policy", "resolve_conflict"].includes(command.action)
     || ((command.action === "refine_scope" ? ["outline", "research"].includes(command.node) : command.node === "research")
       && command.expectedRevision !== undefined && Boolean(command.idempotencyKey)), "steering commands require an editable plan node, expected revision and idempotency key")
@@ -1114,6 +1114,8 @@ export const GuidedResearchRuntimeProgress = GuidedResearchRuntime.pick({
   planRevision: true, sourcePolicy: true, controlStatus: true, activity: true, coverage: true, conflicts: true,
   qualityScore: true, publicationReadiness: true,
 }).extend({
+  // Derived from the durable checkpoint; chapter bodies stay out of progress.
+  reportSavedChapterCount: z.number().int().nonnegative().optional(),
   research: z.object({
     cursor: z.string().regex(/^[a-f0-9]{64}$/),
     tasks: z.array(GuidedResearchTask),
