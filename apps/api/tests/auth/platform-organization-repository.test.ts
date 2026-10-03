@@ -28,7 +28,9 @@ beforeEach(async () => {
   await resetOrgs(ORG,EMPTY,LOCAL);
   await seedOrg({orgId:ORG,projectId:`${ORG}-project`});
   // Truly empty organization: no project, member, credential or account discovery path.
-  await asOwner(c => c.query("INSERT INTO organizations(id,name,kind) VALUES ($1,'plan empty','organization'),($2,'plan local','personal-local')",[EMPTY,LOCAL]));
+  await asOwner(c => c.query("INSERT INTO organizations(id,name,kind) VALUES ($1,'plan empty','organization')",[EMPTY]));
+  await seedOrg({orgId:LOCAL,projectId:`${LOCAL}-project`,kind:"personal-local",ownerUserId:"local-owner-5261"});
+  await addOrgMember(LOCAL,"local-owner-5261","admin",null);
   await addOrgMember(ORG,"member-5261","consultant",null);
 });
 afterAll(async () => { await resetOrgs(ORG,EMPTY,LOCAL); await db?.close(); });

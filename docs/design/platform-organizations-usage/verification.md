@@ -181,3 +181,11 @@ Admission review found row-lock permissions, held-receipt double counting and in
 ## Analytics source checkpoint
 
 Owner focused API 57/57 and UI fixtures 20/20 pass; API/web typecheck and lint pass. Independent source review checked query parameter/alias/authorization paths and bounded output, no confirmed blocker. Real PG report parity/filter/cursor/RLS tests are authored, not locally executed. Browser/live endpoint/screenshots remain unverified. asOf is a timestamp cutoff, not strict cross-request MVCC; late commits can change pages. Partial coverage and group truncation are explicit.
+
+## CI counterproof correction checkpoint
+
+Remote `gates-runtime` passed on 2cd3d992f after tenant-scoping the platform access audit. Remote test shard 8 exposed six invalid personal-local fixtures (missing required owner) and the metadata-adapter allowance ceiling. The fixture now supplies its owner; the ceiling documents exactly three new metadata adapters (catalog, admission, usage), with executable metadata/content/tenant/operator premises and companion PostgreSQL authorization/concurrency tests. No gate is skipped.
+
+The earlier 90/90 combined-suite report is withdrawn as lightweight evidence: independent review found its database counterproof has an automatic database initializer. It has been removed from the no-DB configuration; the counterproof stays in its existing remote database CI lane. UI fixtures remain 20/20. PostgreSQL execution remains remote-only. No production changes or browser screenshot evidence.
+
+Corrected no-database owner suite passes 63/63. UI wiring normal fact regeneration and verification pass, including `/usage`; regenerated chat use-case facts are generator-derived existing source imports, not hand-authored scope additions.

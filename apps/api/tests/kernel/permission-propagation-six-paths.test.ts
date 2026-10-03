@@ -1425,7 +1425,14 @@ describe("lint-permission-paths: counter-proof", () => {
     // Enforced by official-role-skill-resolver-guard and official-role-upgrade tests, including
     // cross-org/admin denial and immutable historic versions. Remove these two allowances
     // with either adapter or its guard; this does not authorize broader skill content reads.
-    expect(total - boundaryAudit.rules.length).toBeLessThanOrEqual(124);
+    // #5261 adds exactly three reviewed metadata/entitlement adapters (124 -> 127).
+    // Platform catalog uses a separate restricted role, formal-only queries and operator
+    // guard/audit. Admission returns only decisions from tenant/user/window facts, and is
+    // not activated. Usage disclosure resolves membership/self or platform operator first,
+    // returns strict metadata schemas and never content. platform-usage-boundaries.test.ts
+    // enforces these premises; real PG catalog/admission/usage tests cover tenant negatives,
+    // concurrency and immutable audits. Remove each allowance if its premise or test disappears.
+    expect(total - boundaryAudit.rules.length).toBeLessThanOrEqual(127);
 
     const src = readFileSync(
       fileURLToPath(new URL("../../scripts/lint-permission-paths.mjs", import.meta.url)),

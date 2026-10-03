@@ -84,6 +84,10 @@
         "agent-run/trial-run-agent"
       ]
     },
+    "AiUsageController": {
+      "useCases": [],
+      "note": "Read-only metadata analytics directly uses the tenant-scoped usage port after application membership/self-scope authorization; no mutation or content disclosure."
+    },
     "ApplyBlueprintController": {
       "useCases": [
         "templates/apply-blueprint"
@@ -217,6 +221,7 @@
     "ChatAttachmentController": {
       "useCases": [
         "chat/attachment-extraction-store",
+        "chat/cancel-pending-attachment",
         "chat/get-attachment-content",
         "chat/get-thread",
         "chat/list-thread-attachments",
@@ -275,6 +280,7 @@
         "agent-run/agui-file-events",
         "agent-run/decide-tool-permission",
         "agent-run/tool-permission-grants",
+        "chat/agent-skill-scope",
         "chat/generate-thread-title",
         "chat/list-thread-attachments",
         "chat/resolve-visibility",
@@ -3494,6 +3500,71 @@
         "apps/web/lib/mock/admin.ts",
         "apps/web/lib/mock/asset-governance.ts",
         "apps/web/lib/mock/canvas.ts"
+      ]
+    },
+    "/usage": {
+      "kind": "wired",
+      "screen": "apps/web/app/usage/page.tsx",
+      "adapters": [
+        "apps/web/lib/live-ai-usage.ts",
+        "apps/web/lib/live-asr-draft.ts",
+        "apps/web/lib/live-chat.ts",
+        "apps/web/lib/live-feedback.ts",
+        "apps/web/lib/live-identity.ts",
+        "apps/web/lib/live-org-admin.ts",
+        "apps/web/lib/live-platform-access.ts",
+        "apps/web/lib/live-projects.ts",
+        "apps/web/lib/live-recording.ts"
+      ],
+      "contracts": [
+        "agent-defaults",
+        "ai-usage",
+        "artifact",
+        "chat",
+        "chat-file-upload",
+        "chat-knowledge-graph",
+        "design-workbench",
+        "feedback-loop",
+        "identity",
+        "org-admin",
+        "plan-permissions",
+        "platform-members",
+        "project"
+      ],
+      "controllers": [
+        "AgentRunController",
+        "AiUsageController",
+        "ArtifactBindingController",
+        "ArtifactReferenceController",
+        "CapabilityController",
+        "ChatAttachmentController",
+        "ChatController",
+        "ChatFollowUpSuggestionsController",
+        "CheckinBoardController",
+        "CopilotkitAguiController",
+        "DesignWorkbenchController",
+        "DeviceSessionController",
+        "DocumentGenerationAutoApproveController",
+        "EvidenceWithdrawalController",
+        "FeedbackController",
+        "HomeProjectPreviewsController",
+        "IdentityController",
+        "KernelProbeController",
+        "KnowledgeConsolidationController",
+        "KnowledgeGraphController",
+        "KnowledgeShareController",
+        "LocalExportController",
+        "LocalOrgController",
+        "OrgAdminManagementController",
+        "OrgAdminScopeController",
+        "OrgInviteController",
+        "OrgInviteLinkController",
+        "PlatformAccessController",
+        "ProjectAiSettingsController",
+        "ProjectController",
+        "ProjectInviteController",
+        "PublicDesignShareController",
+        "ToolPermissionGrantController"
       ]
     },
     "/workflows": {
