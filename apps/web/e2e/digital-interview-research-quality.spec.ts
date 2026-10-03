@@ -641,12 +641,12 @@ test("prototype journey keeps the list shell separate from all six full-screen s
 
 test("saved execution metadata and Markdown insights survive the direct route and reload", async ({ page }, testInfo) => {
   test.setTimeout(120_000);
-  const markdown = "# 模拟访谈摘要\n\n## [采购角色](#expert-purchase)\n\n### 问题一：最近一次采购退回发生了什么？\n\n这是合成访谈回答，用于检查宽屏逐字稿呈现：采购申请在预算复核时退回，申请人需要重新补齐采购用途与审批记录。角色把这次经历解释为交接信息不足，但这个解释仍需要真人访谈和原始审批记录验证，不能作为因果定论。\n\n第二段合成回答保留具体行为：申请人先核对退回备注，再询问财务复核人员，最后补充两份材料；界面应完整保留这些文字与问题归属。\n\n### 关键观点\n\n- [采购审批经过两级](#question-q1)\n\n### 争议点与风险\n\n- 否决权人仍需真人核实。\n\n## [技术角色](#expert-tech)\n\n### 核心发现\n\n- 安全评审尚未完成。";
+  const markdown = "# 模拟访谈摘要\n\n## [采购角色（Technical Education UX Researcher）](#expert-purchase)\n\n### 问题一：最近一次采购退回发生了什么？\n\n这是合成访谈回答，用于检查宽屏逐字稿呈现：采购申请在预算复核时退回，申请人需要重新补齐采购用途与审批记录。角色把这次经历解释为交接信息不足，但这个解释仍需要真人访谈和原始审批记录验证，不能作为因果定论。\n\n第二段合成回答保留具体行为：申请人先核对退回备注，再询问财务复核人员，最后补充两份材料；界面应完整保留这些文字与问题归属。\n\n### 关键观点\n\n- [采购审批经过两级](#question-q1)\n\n### 争议点与风险\n\n- 否决权人仍需真人核实。\n\n## [技术角色](#expert-tech)\n\n### 核心发现\n\n- 安全评审尚未完成。";
   const saved = interviewMarkdown.InterviewMarkdownEnvelope.parse({
     interviewId: view.interviewId, revisionId: view.revisionId, version: 7,
     documents: [
       { documentId: "runs-experts", step: "experts", version: 1,
-        markdown: "# 专家\n\n## [采购角色](#expert-purchase)\n\n## [技术角色](#expert-tech)",
+        markdown: "# 专家\n\n## [采购角色（Technical Education UX Researcher）](#expert-purchase)\n\n## [技术角色](#expert-tech)",
         contentHash: "a".repeat(64), evidenceMode: "simulated", references: [] },
       { documentId: "runs-saved", step: "runs", version: 2, markdown,
         contentHash: createHash("sha256").update(markdown).digest("hex"), evidenceMode: "simulated", references: [] },
@@ -696,7 +696,7 @@ test("saved execution metadata and Markdown insights survive the direct route an
   await captureRuntimeEvidence(page, testInfo, "saved-runs-wide-transcript.png", true);
   await page.setViewportSize({ width: 390, height: 844 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
-  await page.screenshot({ path: testInfo.outputPath("saved-runs-mobile.png"), fullPage: true });
+  await captureRuntimeEvidence(page, testInfo, "saved-runs-mobile.png", true);
 });
 
 /** UI stream contract only: synthetic NDJSON chunks, not external-model or DB evidence. */

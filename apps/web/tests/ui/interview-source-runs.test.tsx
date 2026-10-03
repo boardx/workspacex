@@ -104,7 +104,7 @@ it("projects compact simulated records without changing the saved source", () =>
   expect(screen.queryByRole("tablist")).not.toBeInTheDocument();
   expect(screen.queryByRole("heading", { name: "模拟访谈记录" })).not.toBeInTheDocument();
   expect(screen.queryByText("专家 ID：persona-nurse")).not.toBeInTheDocument();
-  expect(screen.getByText("模拟访谈 · 需真人验证")).toBeVisible();
+  expect(screen.getByText("AI 模拟 · 需真人验证")).toBeVisible();
   expect(screen.getByText(/我们用 persona 方法分类/u)).toBeVisible();
   expect(screen.getByRole("link", { name: "来源" })).toHaveAttribute("href", "#question-q7");
   expect(screen.getByTestId("itv-source-runs-markdown").querySelector("script")).toBeNull();
@@ -154,4 +154,19 @@ it("preserves a code fence immediately following a leading notice without a blan
   const markdown = "## [角色](#expert-persona-x)\n\n身份声明：本内容为基于模拟画像库生成的专家视角推演\n```md\n## 模拟访谈记录\n代码例子必须保留\n```";
   const display = interviewTranscriptDisplay(markdown, true);
   expect(display).toContain("```md\n## 模拟访谈记录\n代码例子必须保留\n```");
+});
+
+it("separates bilingual expert names while retaining accessible full names", () => {
+  const displayName = "技术教育用户研究员（Technical Education UX Researcher）";
+  render(<InterviewRunsStep runs={[{expertId: "long-name", displayName, status: "completed", completedQuestions: 1, totalQuestions: 1}]} pending={false} onGenerateReport={vi.fn()} />);
+  expect(screen.getByRole("heading", {name: "技术教育用户研究员"})).toBeVisible();
+  expect(screen.getByText("Technical Education UX Researcher")).toBeVisible();
+  expect(screen.getByRole("button", {name: `${displayName} 已完成`})).toBeEnabled();
+});
+
+it("hides spaced provider transcript titles containing technical ids", () => {
+  const markdown = "## [角色](#expert-virtual-abc)\n\n# 角色（virtual-abc） 访谈记录\n\n### 问题一\n\n回答正文。";
+  const result = interviewTranscriptDisplay(markdown, true);
+  expect(result).not.toContain("# 角色（virtual-abc） 访谈记录");
+  expect(result).toContain("回答正文。");
 });
