@@ -279,7 +279,7 @@ export function LoginForm({ state, next }: { state: UiState; next?: string }) {
             type="button"
             onClick={() => window.location.assign("/auth/register")}
             data-testid="login-create-org"
-            className="font-medium text-brand-ink underline-offset-4 transition-all duration-200 hover:underline"
+            className="font-medium text-brand-ink underline-offset-4 transition-colors duration-base motion-reduce:transition-none hover:underline"
           >
             创建组织
           </button>
