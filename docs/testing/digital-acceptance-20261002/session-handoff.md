@@ -15,3 +15,6 @@ R4隔离树 /private/tmp/wsx-digital-design-20261003 branch codex/digital-accept
 语音：真实供应商文字/PCM双向probe仅连接能力证据，不是真人10轮。此前DevApp麦克风音量0，静音/挂断没有保存内容。待真人配合10轮与自然停顿/打断/静音/断连重试/保存/设备释放、P95≤2.5秒/500ms。没有数据则不填假通过。
 
 R4浏览器tabs7(D011)/8(W031等待审批)保留为继续复验上下文。无新增服务、Docker或部署。
+
+
+2026-10-03 R5：R4 PR5223 draft，最终4828fa89f；R5 issue5224，复用R4 checkout并切codex/digital-acceptance-r5（新建worktree因磁盘不足回滚）。闭合[S1]/[T1]来源过滤source f979e25a9独立ACCEPT，实际executor35/35、API typecheck通过；另33/33 scope/voice unit仅模拟管线。D005 W001真实服务端拒绝未建实例；首次服务退出，同例重试保留反证；人工草稿68行全文全刷新恢复，但自主正式产物0、错误2024日期、0 ready/14 pending Skills，暂7/10未通过。真实固定Qwen realtime十次同一音频fixture交换PCM，P95接收首包873ms，不是十轮自然真人交谈，也不是停顿到播放首音；打断延迟仍未测。其他角色暂5/5.75/4.75，均未达9且硬门失败。用户已授权修复PR并合并Main，不部署；逐父PR合入后保留子delta、重新review新SHA与CI，不并行争抢merge。证据evidence/digital-acceptance-20261002/r5/report.md。自身无运行服务/模型socket；R2闲置.next/cache534M仅登记未删除，不触碰他人/生产/DB。
