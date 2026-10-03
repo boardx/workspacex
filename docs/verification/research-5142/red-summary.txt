@@ -1,0 +1,16 @@
+     98|     };
+ ❯ src/application/research/guided-source-relevance.ts:107:48
+ ❯ tests/research/guided-source-document-references.test.ts:22:194
+ ❯ Module.screenResearchSources src/application/research/guided-source-relevance.ts:103:29
+ ❯ tests/research/guided-source-document-references.test.ts:67:12
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/5]⎯
+
+ Test Files  1 failed (1)
+      Tests  5 failed | 6 passed (11)
+   Start at  02:45:44
+   Duration  780ms (transform 450ms, setup 0ms, collect 680ms, tests 8ms, environment 0ms, prepare 26ms)
+
+undefined
+/Users/shenyangjun/.codex/worktrees/research-5056-fixes/workspacex/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run --config vitest.research-unit.config.ts tests/research/guided-source-document-references.test.ts
