@@ -23,7 +23,7 @@ const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const SITE = readFileSync(join(dirname(fileURLToPath(import.meta.url)), 'build-i18n.mjs'), 'utf8')
   .match(/^const SITE = '([^']+)';/m)[1];
 
-const PAGES = ['index.html', 'privacy.html', '404.html', 'zh/index.html', 'zh/privacy.html'];
+const PAGES = ['index.html', 'privacy.html', '404.html', 'zh/index.html', 'zh/privacy.html', 'manual/index.html'];
 
 const problems = [];
 let refs = 0;

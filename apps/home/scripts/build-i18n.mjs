@@ -229,6 +229,7 @@ const sitemap = () => {
   return `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
         xmlns:xhtml="http://www.w3.org/1999/xhtml">
+  <url><loc>${SITE}/manual/</loc><changefreq>monthly</changefreq><priority>0.6</priority></url>
 ${rows.map((r) => `  <url>
     <loc>${r.loc}</loc>
     <xhtml:link rel="alternate" hreflang="en" href="${SITE}${r.en}"/>

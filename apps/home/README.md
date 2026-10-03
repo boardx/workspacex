@@ -63,6 +63,7 @@ CHROMIUM_PATH=/path/to/chrome node scripts/check-all.mjs
 | `check-docs.mjs` | this README's tables disagreeing with the scripts on disk or the suites that run |
 | `check-all.mjs` | **a `check-*.mjs` that exists and nothing runs** |
 | `tests/browser.test.mjs` | axe violations, unreachable controls, layout breaking at any of 11 widths, the interactions, the no-JS path, the Chinese page, the pre-Safari-14 path, a selected state invisible in forced colors, a handler or observer accumulating across re-wires, a missing or unenforced security header |
+| `tests/manual.test.mjs` | missing homepage entry, broken manual anchors, overflow, WCAG violations, print controls visible in PDF, or missing no-JS content |
 | `tests/demo.test.mjs` | the scripted demo, both languages, driven like a visitor: fetched before the reader did anything, a scenario, step or claim missing, a withdrawn claim not struck through, a check open before anyone asked, "Doubt this" not quoting and lighting exactly the claim's sources, the withdrawn claim not opening by itself, a reader's decision to put it back not followed by every label on screen, a copied note missing the answer, the decision or the sample label, a sign-up button that says something different from the hero's, axe violations in the mounted demo, a double-started run, a touch target under 44×44 on a phone |
 | `tests/perf.test.mjs` | transfer, LCP, CLS or frame time over budget, in **both** languages |
 | `tests/webkit.test.mjs` | in **Safari's engine** (WebKit), both languages, on an iPhone and a Mac-sized window: a script error, a diagram not drawn, sideways scroll, content left invisible after scrolling, or a menu that does not open and close. Saves full-page screenshots to `test-results/webkit/`, which CI uploads. Skips itself where WebKit is not installed |
@@ -317,3 +318,25 @@ render-blocking requests on a high-latency link meant nothing painted for
 edits the source and have no reason to travel to a browser. It prints both
 sizes when it runs, which is the only place those numbers should live — the
 pair quoted here went 16% stale without anyone noticing.
+
+## User manual
+
+`manual/index.html` is the single Chinese content source for `/manual/` and
+browser-print PDF. Both homepages link to it; no English translation is claimed.
+`manual/style.css` and `manual/print.css` provide the responsive layout and A4
+print layout. `manual/manual.js` only invokes the browser print dialog.
+
+Content revision 0.1 (2026-10-03) is a first user-facing guide, not a claim that
+every product behavior passed runtime acceptance. The source draft references
+`docs/testing/user-test-manual.md`, `apps/web/app/{page,home/page}.tsx`,
+`docs/deployment/{LOCAL-DESKTOP,BOARD}.md`, and
+`packages/local-runtime/src/capabilities.ts`; its original snapshot was
+814dc05a36e1f2645b7528b9dacc0a344ec615ae. Runtime screenshots must record the
+actual deployment SHA, date and viewport before addition. No simulated
+screenshots or invented support address are included.
+
+The manual is included in Pages runtime packaging and the generated sitemap.
+HTML structure and link checks include the new source page. To export the same
+body, open `/manual/`, choose Print / Save as PDF, and select A4. Browser page
+numbering is an optional print setting. PDF files are derived deliverables;
+never maintain a separate PDF manuscript.
