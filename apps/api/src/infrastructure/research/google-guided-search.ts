@@ -15,7 +15,7 @@ export class GoogleGuidedSearch implements GuidedSearchPort {
     private readonly endpoint = process.env.KERNEL_GUIDED_SEARCH_URL ?? "https://www.web-search.boardx.us/",
   ) {}
 
-  async search(query: string) {
+  async search(query: string, options?: { signal?: AbortSignal }) {
     if (!this.endpoint.trim()) throw new ResearchRuntimeError("RESEARCH_SEARCH_NOT_CONFIGURED");
     try {
       const url = new URL(this.endpoint);
@@ -25,7 +25,7 @@ export class GoogleGuidedSearch implements GuidedSearchPort {
       url.searchParams.set("q", query);
       const response = await transientFetch(this.fetcher, url.href, {
         method: "GET", headers: { Accept: "application/json", "User-Agent": "boardx-research-agent" },
-        signal: AbortSignal.timeout(45000), redirect: "error",
+        signal: options?.signal ? AbortSignal.any([options.signal, AbortSignal.timeout(45000)]) : AbortSignal.timeout(45000), redirect: "error",
       });
       if (!response.ok) throw new ResearchRuntimeError("RESEARCH_SEARCH_UNAVAILABLE");
       const hits = C.GuidedResearchSearchProviderResponse.parse(await response.json()).results;
@@ -48,10 +48,10 @@ export class GoogleGuidedSearch implements GuidedSearchPort {
     }
   }
 
-  async read(url: string) {
+  async read(url: string, options?: { signal?: AbortSignal }) {
     try {
       let parsed = new URL(url);
-      const signal = AbortSignal.timeout(10000);
+      const signal = options?.signal ? AbortSignal.any([options.signal, AbortSignal.timeout(10000)]) : AbortSignal.timeout(10000);
       let response: Response;
       for (let hop = 0; ; hop++) {
         await assertPublicDocumentUrl(parsed, trustedLoopbackOrigin(this.endpoint));

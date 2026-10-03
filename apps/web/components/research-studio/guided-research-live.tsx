@@ -70,6 +70,7 @@ const errors: Record<string, string> = {
   RESEARCH_SEARCH_UNAVAILABLE: "检索服务暂时不可用，请重试。",
   RESEARCH_SEARCH_CONTENT_EMPTY: "检索结果缺少可用正文，请重试。",
   RESEARCH_EXECUTION_INTERRUPTED: "上次检索已中断，请重试。",
+  RESEARCH_SEARCH_TIME_BUDGET_EXCEEDED: "本轮资料研究已达到 3 分钟上限，已保存有效来源。可重试补充资料，或基于已有来源继续。",
   RESEARCH_SEARCH_PARTIAL_FAILURE: "部分检索失败，已保存成功结果。请重试失败任务。",
   RESEARCH_SOURCES_REQUIRED: "请先添加至少一个真实来源。",
   RESEARCH_SOURCE_URL_INVALID: "请输入有效的公开网页链接。",

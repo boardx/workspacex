@@ -9,10 +9,11 @@ function summarizeBody(text: string): string {
   return paragraphs.slice(0, 3).join("\n\n").slice(0, 2000).trim();
 }
 
-export async function collectSourceDocuments(sources: ResearchRuntime["sources"], read: NonNullable<GuidedSearchPort["read"]>, persist: () => Promise<void>, options: { retryTransient?: boolean } = {}) {
+export async function collectSourceDocuments(sources: ResearchRuntime["sources"], read: NonNullable<GuidedSearchPort["read"]>, persist: () => Promise<void>, options: { retryTransient?: boolean; signal?: AbortSignal } = {}) {
   const pending = sources.filter((source) => source.decision === "accepted" && !source.document
     && (!source.documentError || (options.retryTransient && source.documentError === "unavailable")));
   await boundedWork(pending, 3, (source) => read(source.url), async (source, result) => {
+      options.signal?.throwIfAborted();
       try {
         if (result.status === "rejected") throw result.reason;
         source.document = C.GuidedResearchDocument.parse({
@@ -27,5 +28,5 @@ export async function collectSourceDocuments(sources: ResearchRuntime["sources"]
         source.documentError = reason.includes("BLOCKED") ? "blocked" : reason.includes("UNSUPPORTED") ? "unsupported" : reason.includes("EMPTY") ? "empty" : reason.includes("TOO_LARGE") ? "too_large" : "unavailable";
       }
       await persist();
-  });
+  }, async () => { options.signal?.throwIfAborted(); });
 }

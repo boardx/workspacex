@@ -1,0 +1,11 @@
+# Ordered search with a shared three-minute budget
+
+Direct user request: research takes10–30minutes; execute planned directions serially and finish search in2–3minutes. Current task scope is confirmed outline section (no separate directionId); groups follow outline order. Each group completes initial bounded3 queries, recovery, readable documents and supplements before next group. Durable writes stay serialized. All plan/review/search/model/read/recovery/supplement external work shares180000ms budget with abort signals and pure-provider promise racing; providers ignoring cancellation cannot mutate finalized state.
+
+Expiry stops dispatch before task/attempt/model metadata writes, preserves successful sources, marks unfinished tasks/attempts failed, and returns explicit RESEARCH_SEARCH_TIME_BUDGET_EXCEEDED. UI explains retained evidence and supports retry/continue. Database writes are not hard wallclock bounded by the external budget. Persistence/pause errors take precedence over a concurrently expired clock. Original citation/relevance gates and attempt limits retained.
+
+TDD2fail24pass→36unitPASS (30recovery6orchestration): hanging provider, scope order, late search/model/read,12task queue cutoff with early success retained, deadline/persistence precedence. UI20PASS; API/web typecheck0. Research8files221PASS before final extra2cases (latest full suite rerun required). Logs /private/tmp/research-5213-{red,unit,research-unit,typecheck,ui,web-typecheck}.log.
+
+First real qwen3.7-plus publicW3C search:180020ms,12model/10search/3read calls,3accepted/readable sources,2initial tasks succeeded, supplement stopped by budget, busyfalse. Memory-only actual service, no production writes. That run preceded final per-group lifecycle/queue guards; final real rerun pending. Does not certify full coverage or report quality. Final raw directory /private/tmp/research-5213-real/ reused by rerun; use final terminal/call count and file timestamp provenance, not leftover old output files.
+
+Depends on query-persistence fix #5214/#5209; independent search-budget issue #5213. No main merge or deployment. Remaining report performance tracked separately #5211.
