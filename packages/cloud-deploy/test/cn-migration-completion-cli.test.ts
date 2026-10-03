@@ -23,7 +23,7 @@ describe('protected migration completion CLI', () => {
     fs.chmodSync(directory, 0o700); const path = join(directory, 'input.json');
     fs.writeFileSync(path, '{"fixture":true}', { mode: 0o600 });
     const fixture = { uid: process.getuid!(), gid: process.getgid!(), boundary: directory };
-    let spy: ReturnType<typeof vi.spyOn> | undefined;
+    let spy: { mockRestore(): void } | undefined;
     try {
       if (kind === 'mode') fs.chmodSync(path, 0o644);
       if (kind === 'parent-mode') fs.chmodSync(directory, 0o777);

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { productionActions, productionPrimitives, type ProductionBindings } from './production_factory';
 const identity = { sourceRevision: 'a'.repeat(40), baselineRevision: 'b'.repeat(40), migrationPlanSha256: 'c'.repeat(64), attemptId: 'one' };
 function fixture() {
- const op = { command: { path: '/usr/local/lib/workspacex-cn/action.py', sha256: 'd'.repeat(64) }, planPath: '/etc/workspacex-cn/maintenance/one.json', planSha256: 'e'.repeat(64) };
+ const op = { command: { path: '/usr/local/lib/workspacex-cn/cn-production-recovery-executor.py', sha256: 'd'.repeat(64) }, planPath: '/etc/workspacex-cn/maintenance-recovery/'+identity.sourceRevision+'/one/recovery-plan.json', planSha256: 'e'.repeat(64) };
  const binding = { identity, toolRevision: 'f'.repeat(40), recoveryPreflight: op, operations: Object.fromEntries(productionActions.map(name => [name, op])) } as ProductionBindings;
  const calls: string[][] = [];
  const run = async (_command: any, args: readonly string[]) => { calls.push([...args]); return { stdout: JSON.stringify(args[0] === '--preflight-capability' ? { schemaVersion: 1, kind: 'production-recovery-preflight', identity, toolRevision: binding.toolRevision, planSha256: op.planSha256, liveWritesHeldProven: false, ready: false } : { schemaVersion: 1, kind: 'maintenance-operation-completed', operation: args[1], identity, toolRevision: binding.toolRevision, planSha256: op.planSha256, ready: false }) }; };

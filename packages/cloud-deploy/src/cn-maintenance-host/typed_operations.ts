@@ -1,10 +1,12 @@
 import type { MaintenanceIdentity } from '../cn-maintenance-release';
 import type { ActivationActions } from '../cn-fast-safe-release';
 import { offlinePreparedAction, exactMigrationAction, preparedActivationAction, type ExactMigrationInputs, type ExactMigrationTransport } from './reused_actions';
+import { maintenanceOfflinePreparedAction, maintenanceActivationAction } from './activation_transport';
 import { productionDynamicActions } from './dynamic_gate';
 import type { CommandRunner, TrustedExecutable } from './fixed_transport';
 
 export interface ProtectedOperationInputs {
+  lane?: 'maintenance';
   preparedReceipt: unknown;
   preparedManifest: Buffer;
   verifyOfflineArtifacts: () => Promise<void>;
@@ -39,11 +41,11 @@ export async function bindTypedProductionOperations(value: Partial<ProtectedOper
   await input.assertProtectedInputs();
   const dynamic = productionDynamicActions(input.collector,input.preactivateVerifier,input.release,input.runBash,input.readValidatedReceipt);
   return {
-    prepareOffline: offlinePreparedAction(input.preparedReceipt,input.preparedManifest,input.verifyOfflineArtifacts),
+    prepareOffline: (input.lane === 'maintenance' ? maintenanceOfflinePreparedAction : offlinePreparedAction)(input.preparedReceipt,input.preparedManifest,input.verifyOfflineArtifacts),
     verifyThreeDatabaseRecovery: input.replayPreholdRecovery,
     migrateExactPlan: exactMigrationAction(input.migration,input.migrationTransport),
     ...dynamic,
-    activate: preparedActivationAction(input.preparedReceipt,input.activation),
+    activate: (input.lane === 'maintenance' ? maintenanceActivationAction : preparedActivationAction)(input.preparedReceipt,input.activation),
     verifyAcceptance: input.verifyCandidateAcceptance,
   };
 }

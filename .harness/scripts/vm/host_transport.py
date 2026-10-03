@@ -40,7 +40,14 @@ class HostTransport:
   require(proof['controlSessions']=={db:c.binding for db,c in self.control_connections.items()} and proof['diagnosticSessions']=={db:c.binding for db,c in self.diagnostic_connections.items()},'RUNTIME_ACTUAL_SESSION_BINDING')
   import copy
   bound=copy.deepcopy(self.plan);bound['runtimeSourcePlanSha256']=proof['sourcePlanSha256'];bound['controlSessions']=proof['controlSessions'];bound['diagnosticSessions']=proof['diagnosticSessions']
-  addresses={b['clientAddr'] for b in proof['diagnosticSessions'].values()};require(len(addresses)==1,'DIAGNOSTIC_CLIENT_ADDRESS_CLOSURE');bound['diagnosticClientAddress']=next(iter(addresses));self.plan=bound;return copy.deepcopy(bound)
+  addresses={b['clientAddr'] for b in proof['diagnosticSessions'].values()};require(len(addresses)==1,'DIAGNOSTIC_CLIENT_ADDRESS_CLOSURE');bound['diagnosticClientAddress']=next(iter(addresses))
+  helpers=[]
+  for connection in [*self.control_connections.values(),*self.diagnostic_connections.values()]:
+   value=proc_binding(connection.process.pid);value.pop('state');value['parentPid']=os.getpid();require(value['uid']==0 and value['exeSha256']==bound['controlRuntime']['nodeSha256'],'RUNTIME_HELPER_PROCESS_IDENTITY');helpers.append(value)
+  bound['runtimeHelperProcesses']=helpers
+  if bound.get('holdGenerationPolicy')=='bind-held-at-runtime':
+   held=self.read_hold();require(not hasattr(self,'startup_hold') or held==self.startup_hold,'RUNTIME_HOLD_GENERATION_DRIFT');require(held['state']=='held' and held['identity']==bound['identity'] and isinstance(held['generation'],str) and re.fullmatch('[a-f0-9]{32}',held['generation']),'RUNTIME_HELD_IDENTITY');bound['holdGeneration']=held['generation']
+  self.plan=bound;return copy.deepcopy(bound)
  def database_execute(self,db,sql,control=False):
   require(control is True,'DATABASE_WRITE_CONTROL_REQUIRED');self.require_lock()
   require(db in getattr(self,'control_connections',{}),'PERSISTENT_CONTROL_CONNECTION_REQUIRED')
@@ -189,9 +196,92 @@ class HostTransport:
    require(all(any(w['binding']==member for w in plan['writers']) for member in members),'UNCLASSIFIED_PROCESS_GROUP_MEMBER')
    os.killpg(b['processGroup'],signal.SIGSTOP if kind=='pause-writer' else signal.SIGCONT)
 
+def seal_runtime_plan(transport,source_path,source_sha,read_private=private,uid=0,boundary=None):
+ from writer_fence import digest
+ require(source_sha==transport.manifest_sha,'RUNTIME_SOURCE_RAW_PIN')
+ source=json.loads(read_private(source_path));require(source==transport.plan,'RUNTIME_SOURCE_CONTENT')
+ if source.get('holdGenerationPolicy')=='bind-held-at-runtime':
+  held=transport.read_hold();require(held['state']=='held' and held['identity']==source['identity'] and isinstance(held['generation'],str) and re.fullmatch('[a-f0-9]{32}',held['generation']),'RUNTIME_HELD_IDENTITY');transport.startup_hold=held
+ proof=transport.openBoth();bound=transport.bindRuntimeSessions(proof)
+ path=pathlib.Path(bound['runtimeSealPath']);expected='/var/lib/workspacex-cn/runtime/'+bound['identity']['attemptId']+'/sealed-writer-runtime.json'
+ require(str(path)==expected,'RUNTIME_SEAL_PATH')
+ for parent in path.parents:
+  st=parent.lstat();require(stat.S_ISDIR(st.st_mode) and st.st_uid==uid and not st.st_mode&0o022,'RUNTIME_SEAL_PARENT')
+  if boundary and parent==pathlib.Path(boundary):break
+ require(stat.S_IMODE(path.parent.stat().st_mode)==0o700,'RUNTIME_SEAL_PRIVATE_PARENT')
+ value={'schemaVersion':1,'kind':'sealed-maintenance-writer-runtime','identity':bound['identity'],'toolRevision':bound['toolRevision'],'sourcePlanPath':source_path,'sourcePlanSha256':source_sha,'sourcePlanCanonicalSha256':digest(source),'runtimePlanSha256':digest(bound),'runtimePlan':bound,'sessionsSha256':digest({'control':proof['controlSessions'],'diagnostic':proof['diagnosticSessions']}),'processIdentity':proc_binding(os.getpid()),'ready':False,'productionAvailabilityProven':False}
+ raw=(json.dumps(value,sort_keys=True,separators=(',',':'))+'\n').encode();directory=os.open(path.parent,os.O_RDONLY|os.O_DIRECTORY|os.O_NOFOLLOW)
+ name='.sealed-runtime-'+os.urandom(16).hex()
+ try:
+  fd=os.open(name,os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW,0o600,dir_fd=directory)
+  with os.fdopen(fd,'wb') as stream:stream.write(raw);stream.flush();os.fsync(stream.fileno())
+  # No replacement of an old attempt/seal: an ambiguous previous process is operator-owned.
+  os.link(name,path.name,src_dir_fd=directory,dst_dir_fd=directory,follow_symlinks=False);os.unlink(name,dir_fd=directory);os.fsync(directory)
+ finally:
+  try:os.unlink(name,dir_fd=directory)
+  except FileNotFoundError:pass
+  os.close(directory)
+ return value,{'sealedPlanPath':str(path),'sealedPlanSha256':hashlib.sha256(raw).hexdigest(),'runtimePlanSha256':digest(bound)}
+
+def serve_reviewed_fence(source_path,source_sha):
+ import sys
+ from writer_fence import WriterFenceAdapter,Journal
+ raw=private(source_path);require(hashlib.sha256(raw).hexdigest()==source_sha,'REVIEWED_PLAN_PIN');plan=json.loads(raw)
+ require(plan.get('schemaVersion')==1 and plan.get('mode')=='maintenance-all-writer-fence' and plan.get('productionActionsAuthorized') is True,'ACTION_PLAN_NOT_AUTHORIZED')
+ require(re.fullmatch('[a-zA-Z0-9-]{1,128}',plan['identity']['attemptId']),'ATTEMPT_IDENTITY')
+ transport=HostTransport(plan,source_sha,'apply-reviewed-all-writer-fence');transport.require_lock();transport.verify_capabilities(plan);unknown=False;mutated=False;migration_completed=False;journal=None
+ try:
+  sealed,receipt=seal_runtime_plan(transport,source_path,source_sha)
+  journal=Journal(transport.plan['journalDirectory'],plan['identity']);adapter=WriterFenceAdapter(plan['identity'],transport.plan,transport,journal)
+  print(json.dumps(dict(sequence=0,ok=True,kind='persistent-writer-runtime-started',identity=plan['identity'],toolRevision=plan['toolRevision'],processIdentity=sealed['processIdentity'],**receipt)),flush=True)
+  sequence=0
+  while True:
+   line=sys.stdin.buffer.readline(1048577)
+   if not line:
+    if unknown or (mutated and journal.value['state']!='writes-resumed'):
+     while True:time.sleep(60) # retain inherited FD9 and persistent helpers on unknown disconnect
+    break
+   try:
+    require(len(line)<=1048576 and line.endswith(b'\n'),'FENCE_REQUEST_LIMIT')
+    request=json.loads(line);require(request['sequence']==sequence+1 and request['identity']==plan['identity'],'FENCE_REQUEST_BINDING');sequence=request['sequence']
+    if request['operation']=='close-accepted':
+     require(not unknown and journal.value['state']=='writes-resumed','FENCE_CLOSE_NOT_ACCEPTED');print(json.dumps({'sequence':sequence,'ok':True,'closed':True}),flush=True);break
+    if request['operation']=='migrate-exact-plan':
+     require(not unknown,'FENCE_UNKNOWN_STATE_RETAINED');adapter.verifyWritesBlocked(plan['identity']);mutated=True
+     value=transport.control_connections['workspacex'].migrate_exact_plan(plan['identity']);adapter.verifyWritesBlocked(plan['identity']);migration_completed=True
+     print(json.dumps({'sequence':sequence,'ok':True,'value':value}),flush=True);continue
+    if request['operation']=='record-migration-completion':
+     require(not unknown and migration_completed,'MIGRATION_COMPLETION_BEFORE_EXACT_MIGRATION');adapter.verifyWritesBlocked(plan['identity'])
+     stage=request['stage'];receipt=request['receipt'];expected='/etc/workspacex-cn/migration-completion-inputs/'+plan['identity']['sourceRevision']+'/'+plan['identity']['attemptId']+'.completed.json'
+     require(stage in ('intent','durable') and set(receipt)=={'path','sha256'} and receipt['path']==expected and isinstance(receipt['sha256'],str) and re.fullmatch('[a-f0-9]{64}',receipt['sha256']),'MIGRATION_COMPLETION_RECEIPT_BINDING')
+     if stage=='intent':
+      require(journal.value.get('migrationCompletionIntent') in (None,receipt),'MIGRATION_COMPLETION_INTENT_DRIFT');journal.value['migrationCompletionIntent']=receipt
+     else:
+      require(journal.value.get('migrationCompletionIntent')==receipt,'MIGRATION_COMPLETION_INTENT_REQUIRED');require(hashlib.sha256(private(receipt['path'])).hexdigest()==receipt['sha256'],'MIGRATION_COMPLETION_DURABLE_PIN');journal.value['migrationCompletionReceipt']=receipt
+     journal.record('migration-completion-'+stage,receipt=receipt,holdGeneration=transport.plan['holdGeneration'],planSha256=digest(transport.plan))
+     print(json.dumps({'sequence':sequence,'ok':True,'value':{'identity':plan['identity'],'stage':stage,'receipt':receipt,'ready':False}}),flush=True);continue
+    if request['operation']=='read-diagnostic-ledger':
+     require(not unknown,'FENCE_UNKNOWN_STATE_RETAINED');adapter.verifyWritesBlocked(plan['identity'])
+     connection=transport.diagnostic_connections['workspacex'];value=connection.query('migration-ledger');require(value['rowCount']==len(value['ledger']),'MIGRATION_LEDGER_COUNT')
+     print(json.dumps({'sequence':sequence,'ok':True,'value':dict(value,connection=connection.binding,observedAt=time.time())}),flush=True);continue
+    callback=request['callback'];require(request['operation']=='callback' and callback in adapter.callbacks(),'FENCE_CALLBACK_AUTHORITY')
+    require(not unknown or callback=='recordWriteStateReconciliationRequired','FENCE_UNKNOWN_STATE_RETAINED')
+    if callback in ('blockAllWrites','resumeWrites'):mutated=True
+    result=adapter.callbacks()[callback](plan['identity']);value=result if result is not None else {'callback':callback,'identity':plan['identity'],'state':journal.value['state'],'ready':False,'productionAvailabilityProven':False}
+    print(json.dumps({'sequence':sequence,'ok':True,'value':value}),flush=True)
+   except BaseException:
+    unknown=mutated;print(json.dumps({'sequence':sequence,'ok':False,'code':'PERSISTENT_FENCE_REJECTED','holdDisposition':'retain'}),flush=True)
+ finally:
+  if not unknown:
+   transport.close_control_connections()
+   if journal:journal.close()
+
+
 def main():
  import sys
  from writer_fence import WriterFenceAdapter,Journal
+ if len(sys.argv)==4 and sys.argv[1]=='--serve-reviewed-fence':
+  serve_reviewed_fence(sys.argv[2],sys.argv[3]);return
  require(len(sys.argv)==5 and sys.argv[1]=='--apply-reviewed-fence','EXPLICIT_REVIEWED_PLAN_CALLBACK')
  raw=private(sys.argv[2]);require(hashlib.sha256(raw).hexdigest()==sys.argv[3],'REVIEWED_PLAN_PIN');plan=json.loads(raw)
  require(plan.get('schemaVersion')==1 and plan.get('mode')=='maintenance-all-writer-fence' and plan.get('productionActionsAuthorized') is True,'ACTION_PLAN_NOT_AUTHORIZED')

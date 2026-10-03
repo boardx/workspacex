@@ -36,9 +36,11 @@ export function verifyTrustedCompletionHelper() {
 export async function main(args = process.argv.slice(2)) {
   if (process.getuid?.() !== 0 || process.getgid?.() !== 0 || args.length !== 2 || !/^[a-f0-9]{40}$/.test(args[0]!) || !/^[A-Za-z0-9-]{1,128}$/.test(args[1]!)) throw new Error('MIGRATION_COMPLETION_ROOT_ARGUMENTS');
   const [source, attempt] = args;
-  const input = readProtectedCompletionInput(`/etc/workspacex-cn/migration-completion-inputs/${source}/${attempt}.json`);
-  const value = input.value as { snapshotInput: unknown; bindingInput: unknown; expected: MigrationCompletionExpected };
-  if (!value || value.expected?.sourceRevision !== source || value.expected?.attemptId !== attempt) throw new Error('MIGRATION_COMPLETION_CLI_IDENTITY');
+  const input = readProtectedCompletionInput(`/etc/workspacex-cn/migration-completion-inputs/${source}/${attempt}.completed.json`);
+  const value = input.value as { snapshotInput: unknown; bindingInput: unknown; expected: MigrationCompletionExpected; schemaVersion:number;kind:string;identity:{sourceRevision:string;attemptId:string};toolRevision:string;witness:unknown };
+  if (!value || value.schemaVersion!==1||value.kind!=='validated-migration-completion'||value.identity?.sourceRevision!==source||value.identity?.attemptId!==attempt||value.expected?.sourceRevision !== source || value.expected?.attemptId !== attempt) throw new Error('MIGRATION_COMPLETION_CLI_IDENTITY');
+  const profile=readProtectedCompletionInput('/etc/workspacex-cn/trusted-tool-binding.json').value as {toolRevision:string};
+  if(value.toolRevision!==profile.toolRevision)throw new Error('MIGRATION_COMPLETION_RECEIPT_TOOL');
   const helper = verifyTrustedCompletionHelper();
   const checkout = execFileSync('/usr/bin/python3', [helper, '--completion-checkout', source!, attempt!], {
     encoding: 'utf8', timeout: 60_000, maxBuffer: 4096,
@@ -50,6 +52,7 @@ export async function main(args = process.argv.slice(2)) {
   Object.assign(process.env, { GIT_CONFIG_NOSYSTEM: '1', GIT_CONFIG_GLOBAL: '/dev/null', GIT_NO_LAZY_FETCH: '1', GIT_NO_REPLACE_OBJECTS: '1', GIT_TERMINAL_PROMPT: '0',
     GIT_CONFIG_COUNT: '4', GIT_CONFIG_KEY_0: 'core.fsmonitor', GIT_CONFIG_VALUE_0: 'false', GIT_CONFIG_KEY_1: 'core.hooksPath', GIT_CONFIG_VALUE_1: '/dev/null', GIT_CONFIG_KEY_2: 'core.untrackedCache', GIT_CONFIG_VALUE_2: 'false', GIT_CONFIG_KEY_3: 'gc.auto', GIT_CONFIG_VALUE_3: '0' });
   const witness = await verifyMigrationCompletion(value.snapshotInput, value.bindingInput, checkout, value.expected);
+  if(JSON.stringify(witness)!==JSON.stringify(value.witness))throw new Error('MIGRATION_COMPLETION_RECEIPT_WITNESS');
   process.stdout.write(`CN_MIGRATION_COMPLETION_JSON=${JSON.stringify({ ...witness, protectedInputSha256: createHash('sha256').update(input.raw).digest('hex') })}\n`);
 }
 if (process.argv[1]?.endsWith('cn-migration-completion-cli.ts')) void main().catch(() => { process.stderr.write('CN_MIGRATION_COMPLETION_REJECTED\n'); process.exitCode = 1; });

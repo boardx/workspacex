@@ -2,6 +2,13 @@
 """Explicit build-only tool binding; never authorizes prepare or activation."""
 import datetime,fcntl,hashlib,json,os,pathlib,re,stat,subprocess,sys,tempfile,uuid
 FILES={
+ '.harness/scripts/vm/cn-maintenance-migrator.cjs':'/usr/local/lib/workspacex-cn/cn-maintenance-migrator.cjs',
+ '.harness/scripts/vm/cn-maintenance-drain.cjs':'/usr/local/lib/workspacex-cn/cn-maintenance-drain.cjs',
+ '.harness/scripts/vm/cn-maintenance-canonical.cjs':'/usr/local/lib/workspacex-cn/cn-maintenance-canonical.cjs',
+ '.harness/scripts/vm/cn-maintenance-browser.cjs':'/usr/local/lib/workspacex-cn/cn-maintenance-browser.cjs',
+ '.harness/scripts/vm/collect-cn-migration-snapshot.py':'/usr/local/lib/workspacex-cn/collect-cn-migration-snapshot.py',
+ '.harness/scripts/vm/cn-migration-snapshot-query.cjs':'/usr/local/lib/workspacex-cn/cn-migration-snapshot-query.cjs',
+ '.harness/scripts/vm/cn-maintenance-activation.py':'/usr/local/lib/workspacex-cn/cn-maintenance-activation.py',
  '.harness/scripts/vm/cn_object_inventory/source_audit.py':None,
  '.harness/scripts/vm/cn_object_inventory/runtime_audit.py':None,
  '.harness/scripts/vm/cn_object_inventory/inventory.py':None,

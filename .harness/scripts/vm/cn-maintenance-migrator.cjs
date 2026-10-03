@@ -1,4 +1,4 @@
-// Generated from packages/cloud-deploy/src/cn-maintenance-host/entry.ts. Source-bound tool artifact; READY=false.
+// Generated fixed 9b25 migrator using an existing sealed control session. READY=false.
 "use strict";
 var __create = Object.create;
 var __defProp = Object.defineProperty;
@@ -39,12 +39,12 @@ var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: tru
 var require_postgres_array = __commonJS({
   "../../../Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/postgres-array@2.0.0/node_modules/postgres-array/index.js"(exports2) {
     "use strict";
-    exports2.parse = function(source2, transform) {
-      return new ArrayParser(source2, transform).parse();
+    exports2.parse = function(source, transform) {
+      return new ArrayParser(source, transform).parse();
     };
     var ArrayParser = class _ArrayParser {
-      constructor(source2, transform) {
-        this.source = source2;
+      constructor(source, transform) {
+        this.source = source;
         this.transform = transform || identity;
         this.position = 0;
         this.entries = [];
@@ -134,10 +134,10 @@ var require_arrayParser = __commonJS({
   "../../../Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/pg-types@2.2.0/node_modules/pg-types/lib/arrayParser.js"(exports2, module2) {
     var array = require_postgres_array();
     module2.exports = {
-      create: function(source2, transform) {
+      create: function(source, transform) {
         return {
           parse: function() {
-            return array.parse(source2, transform);
+            return array.parse(source, transform);
           }
         };
       }
@@ -239,10 +239,10 @@ var require_mutable = __commonJS({
     var hasOwnProperty = Object.prototype.hasOwnProperty;
     function extend(target) {
       for (var i = 1; i < arguments.length; i++) {
-        var source2 = arguments[i];
-        for (var key in source2) {
-          if (hasOwnProperty.call(source2, key)) {
-            target[key] = source2[key];
+        var source = arguments[i];
+        for (var key in source) {
+          if (hasOwnProperty.call(source, key)) {
+            target[key] = source[key];
           }
         }
       }
@@ -261,7 +261,7 @@ var require_postgres_interval = __commonJS({
       if (!(this instanceof PostgresInterval)) {
         return new PostgresInterval(raw);
       }
-      extend(this, parse2(raw));
+      extend(this, parse(raw));
     }
     var properties = ["seconds", "minutes", "hours", "days", "months", "years"];
     PostgresInterval.prototype.toPostgres = function() {
@@ -322,7 +322,7 @@ var require_postgres_interval = __commonJS({
       var microseconds = fraction + "000000".slice(fraction.length);
       return parseInt(microseconds, 10) / 1e3;
     }
-    function parse2(interval) {
+    function parse(interval) {
       if (!interval) return {};
       var matches = INTERVAL.exec(interval);
       var isNegative = matches[8] === "-";
@@ -809,15 +809,15 @@ var require_binaryParsers = __commonJS({
           console.log("ERROR: ElementType not implemented: " + elementType2);
         }
       };
-      var parse2 = function(dimension, elementType2) {
+      var parse = function(dimension, elementType2) {
         var array = [];
         var i2;
         if (dimension.length > 1) {
-          var count2 = dimension.shift();
-          for (i2 = 0; i2 < count2; i2++) {
-            array[i2] = parse2(dimension, elementType2);
+          var count = dimension.shift();
+          for (i2 = 0; i2 < count; i2++) {
+            array[i2] = parse(dimension, elementType2);
           }
-          dimension.unshift(count2);
+          dimension.unshift(count);
         } else {
           for (i2 = 0; i2 < dimension[0]; i2++) {
             array[i2] = parseElement(elementType2);
@@ -825,7 +825,7 @@ var require_binaryParsers = __commonJS({
         }
         return array;
       };
-      return parse2(dims, elementType);
+      return parse(dims, elementType);
     };
     var parseText = function(value) {
       return value.toString("utf8");
@@ -1040,7 +1040,7 @@ var require_defaults = __commonJS({
 var require_utils = __commonJS({
   "../../../Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/pg@8.22.0/node_modules/pg/lib/utils.js"(exports2, module2) {
     "use strict";
-    var defaults3 = require_defaults();
+    var defaults2 = require_defaults();
     var { isDate } = require("util/types");
     function escapeElement(elementRepresentation) {
       const escaped = elementRepresentation.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
@@ -1081,7 +1081,7 @@ var require_utils = __commonJS({
           return Buffer.from(val.buffer, val.byteOffset, val.byteLength);
         }
         if (isDate(val)) {
-          if (defaults3.parseInputDatesAsUTC) {
+          if (defaults2.parseInputDatesAsUTC) {
             return dateToStringUTC(val);
           } else {
             return dateToString(val);
@@ -1192,7 +1192,7 @@ var require_utils2 = __commonJS({
       postgresMd5PasswordHash,
       randomBytes,
       deriveKey,
-      sha256: sha2563,
+      sha256,
       hashByName,
       hmacSha256,
       md5
@@ -1208,8 +1208,8 @@ var require_utils2 = __commonJS({
         return nodeCrypto.createHash("md5").update(string, "utf-8").digest("hex");
       } catch (e) {
         const data = typeof string === "string" ? textEncoder.encode(string) : string;
-        const hash6 = await subtleCrypto.digest("MD5", data);
-        return Array.from(new Uint8Array(hash6)).map((b) => b.toString(16).padStart(2, "0")).join("");
+        const hash2 = await subtleCrypto.digest("MD5", data);
+        return Array.from(new Uint8Array(hash2)).map((b) => b.toString(16).padStart(2, "0")).join("");
       }
     }
     async function postgresMd5PasswordHash(user, password, salt) {
@@ -1217,7 +1217,7 @@ var require_utils2 = __commonJS({
       const outer = await md5(Buffer.concat([Buffer.from(inner), salt]));
       return "md5" + outer;
     }
-    async function sha2563(text2) {
+    async function sha256(text2) {
       return await subtleCrypto.digest("SHA-256", text2);
     }
     async function hashByName(hashName, text2) {
@@ -1572,7 +1572,7 @@ var require_type_overrides = __commonJS({
 var require_pg_connection_string = __commonJS({
   "../../../Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/pg-connection-string@2.14.0/node_modules/pg-connection-string/index.js"(exports2, module2) {
     "use strict";
-    function parse2(str, options = {}) {
+    function parse(str, options = {}) {
       if (str.charAt(0) === "/") {
         const config2 = str.split(" ");
         return { host: config2[0], database: config2[1] };
@@ -1628,15 +1628,15 @@ var require_pg_connection_string = __commonJS({
       if (config.sslnegotiation === "direct" && config.ssl === void 0) {
         config.ssl = true;
       }
-      const fs2 = config.sslcert || config.sslkey || config.sslrootcert ? require("fs") : null;
+      const fs = config.sslcert || config.sslkey || config.sslrootcert ? require("fs") : null;
       if (config.sslcert) {
-        config.ssl.cert = fs2.readFileSync(config.sslcert).toString();
+        config.ssl.cert = fs.readFileSync(config.sslcert).toString();
       }
       if (config.sslkey) {
-        config.ssl.key = fs2.readFileSync(config.sslkey).toString();
+        config.ssl.key = fs.readFileSync(config.sslkey).toString();
       }
       if (config.sslrootcert) {
-        config.ssl.ca = fs2.readFileSync(config.sslrootcert).toString();
+        config.ssl.ca = fs.readFileSync(config.sslrootcert).toString();
       }
       if (options.useLibpqCompat && config.uselibpqcompat) {
         throw new Error("Both useLibpqCompat and uselibpqcompat are set. Please use only one of them.");
@@ -1734,7 +1734,7 @@ var require_pg_connection_string = __commonJS({
       return poolConfig;
     }
     function parseIntoClientConfig(str) {
-      return toClientConfig(parse2(str));
+      return toClientConfig(parse(str));
     }
     function deprecatedSslModeWarning(sslmode) {
       if (!deprecatedSslModeWarning.warned && typeof process !== "undefined" && process.emitWarning) {
@@ -1749,10 +1749,10 @@ To prepare for this change:
 See https://www.postgresql.org/docs/current/libpq-ssl.html for libpq SSL mode definitions.`);
       }
     }
-    module2.exports = parse2;
-    parse2.parse = parse2;
-    parse2.toClientConfig = toClientConfig;
-    parse2.parseIntoClientConfig = parseIntoClientConfig;
+    module2.exports = parse;
+    parse.parse = parse;
+    parse.toClientConfig = toClientConfig;
+    parse.parseIntoClientConfig = parseIntoClientConfig;
   }
 });
 
@@ -1761,8 +1761,8 @@ var require_connection_parameters = __commonJS({
   "../../../Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/pg@8.22.0/node_modules/pg/lib/connection-parameters.js"(exports2, module2) {
     "use strict";
     var dns = require("dns");
-    var defaults3 = require_defaults();
-    var parse2 = require_pg_connection_string().parse;
+    var defaults2 = require_defaults();
+    var parse = require_pg_connection_string().parse;
     var val = function(key, config, envVar) {
       if (config[key]) {
         return config[key];
@@ -1773,7 +1773,7 @@ var require_connection_parameters = __commonJS({
       } else {
         envVar = process.env[envVar];
       }
-      return envVar || defaults3[key];
+      return envVar || defaults2[key];
     };
     var readSSLConfigFromEnvironment = function() {
       switch (process.env.PGSSLMODE) {
@@ -1787,7 +1787,7 @@ var require_connection_parameters = __commonJS({
         case "no-verify":
           return { rejectUnauthorized: false };
       }
-      return defaults3.ssl;
+      return defaults2.ssl;
     };
     var quoteParamValue = function(value) {
       return "'" + ("" + value).replace(/\\/g, "\\\\").replace(/'/g, "\\'") + "'";
@@ -1800,9 +1800,9 @@ var require_connection_parameters = __commonJS({
     };
     var ConnectionParameters = class {
       constructor(config) {
-        config = typeof config === "string" ? parse2(config) : config || {};
+        config = typeof config === "string" ? parse(config) : config || {};
         if (config.connectionString) {
-          config = Object.assign({}, config, parse2(config.connectionString));
+          config = Object.assign({}, config, parse(config.connectionString));
         }
         this.user = val("user", config);
         this.database = val("database", config);
@@ -1948,50 +1948,50 @@ var require_result = __commonJS({
         }
       }
       _parseRowAsArray(rowData) {
-        const row2 = new Array(rowData.length);
+        const row = new Array(rowData.length);
         for (let i = 0, len = rowData.length; i < len; i++) {
           const rawValue = rowData[i];
           if (rawValue !== null) {
-            row2[i] = this._parsers[i](rawValue);
+            row[i] = this._parsers[i](rawValue);
           } else {
-            row2[i] = null;
+            row[i] = null;
           }
         }
-        return row2;
+        return row;
       }
       parseRow(rowData) {
-        const row2 = { ...this._prebuiltEmptyResultObject };
+        const row = { ...this._prebuiltEmptyResultObject };
         for (let i = 0, len = rowData.length; i < len; i++) {
           const rawValue = rowData[i];
           const field = this.fields[i].name;
           if (rawValue !== null) {
             const v = this.fields[i].format === "binary" ? Buffer.from(rawValue) : rawValue;
-            row2[field] = this._parsers[i](v);
+            row[field] = this._parsers[i](v);
           } else {
-            row2[field] = null;
+            row[field] = null;
           }
         }
-        return row2;
+        return row;
       }
-      addRow(row2) {
-        this.rows.push(row2);
+      addRow(row) {
+        this.rows.push(row);
       }
       addFields(fieldDescriptions) {
         this.fields = fieldDescriptions;
         if (this.fields.length) {
           this._parsers = new Array(fieldDescriptions.length);
         }
-        const row2 = /* @__PURE__ */ Object.create(null);
+        const row = /* @__PURE__ */ Object.create(null);
         for (let i = 0; i < fieldDescriptions.length; i++) {
           const desc = fieldDescriptions[i];
-          row2[desc.name] = null;
+          row[desc.name] = null;
           if (this._types) {
             this._parsers[i] = this._types.getTypeParser(desc.dataTypeID, desc.format || "text");
           } else {
             this._parsers[i] = types2.getTypeParser(desc.dataTypeID, desc.format || "text");
           }
         }
-        this._prebuiltEmptyResultObject = { ...row2 };
+        this._prebuiltEmptyResultObject = { ...row };
       }
     };
     module2.exports = Result2;
@@ -2062,19 +2062,19 @@ var require_query = __commonJS({
         this._accumulateRows = this.callback || !this.listeners("row").length;
       }
       handleDataRow(msg) {
-        let row2;
+        let row;
         if (this._canceledDueToError) {
           return;
         }
         try {
-          row2 = this._result.parseRow(msg.fields);
+          row = this._result.parseRow(msg.fields);
         } catch (err) {
           this._canceledDueToError = err;
           return;
         }
-        this.emit("row", row2, this._result);
+        this.emit("row", row, this._result);
         if (this._accumulateRows) {
-          this._result.addRow(row2);
+          this._result.addRow(row);
         }
       }
       handleCommandComplete(msg, connection) {
@@ -2317,11 +2317,11 @@ var require_messages = __commonJS({
     };
     exports2.BackendKeyDataMessage = BackendKeyDataMessage;
     var NotificationResponseMessage = class {
-      constructor(length, processId, channel, payload2) {
+      constructor(length, processId, channel, payload) {
         this.length = length;
         this.processId = processId;
         this.channel = channel;
-        this.payload = payload2;
+        this.payload = payload;
         this.name = "notification";
       }
     };
@@ -2516,7 +2516,7 @@ var require_serializer = __commonJS({
       );
     };
     var emptyArray = [];
-    var parse2 = (query2) => {
+    var parse = (query2) => {
       const name = query2.name || "";
       if (name.length > 63) {
         console.error("Warning! Postgres only supports 63 characters for query names.");
@@ -2671,7 +2671,7 @@ var require_serializer = __commonJS({
       sendSASLInitialResponseMessage,
       sendSCRAMClientFinalMessage,
       query,
-      parse: parse2,
+      parse,
       bind,
       execute,
       describe,
@@ -2929,8 +2929,8 @@ var require_parser = __commonJS({
     var parseNotificationMessage = (reader) => {
       const processId = reader.int32();
       const channel = reader.cstring();
-      const payload2 = reader.cstring();
-      return new messages_1.NotificationResponseMessage(LATEINIT_LENGTH, processId, channel, payload2);
+      const payload = reader.cstring();
+      return new messages_1.NotificationResponseMessage(LATEINIT_LENGTH, processId, channel, payload);
     };
     var parseRowDescriptionMessage = (reader) => {
       const fieldCount = reader.int16();
@@ -3060,7 +3060,7 @@ var require_dist = __commonJS({
     "use strict";
     Object.defineProperty(exports2, "__esModule", { value: true });
     exports2.DatabaseError = exports2.serialize = void 0;
-    exports2.parse = parse2;
+    exports2.parse = parse;
     var messages_1 = require_messages();
     Object.defineProperty(exports2, "DatabaseError", { enumerable: true, get: function() {
       return messages_1.DatabaseError;
@@ -3070,10 +3070,10 @@ var require_dist = __commonJS({
       return serializer_1.serialize;
     } });
     var parser_1 = require_parser();
-    function parse2(stream, callback) {
+    function parse(stream, callback) {
       const parser = new parser_1.Parser();
       stream.on("data", (buffer) => parser.parse(buffer, callback));
-      return new Promise((resolve2) => stream.on("end", () => resolve2()));
+      return new Promise((resolve) => stream.on("end", () => resolve()));
     }
   }
 });
@@ -3158,7 +3158,7 @@ var require_connection = __commonJS({
   "../../../Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/pg@8.22.0/node_modules/pg/lib/connection.js"(exports2, module2) {
     "use strict";
     var EventEmitter = require("events").EventEmitter;
-    var { parse: parse2, serialize } = require_dist();
+    var { parse, serialize } = require_dist();
     var stream = require_stream();
     var { getStream } = stream;
     var flushBuffer = serialize.flush();
@@ -3258,7 +3258,7 @@ var require_connection = __commonJS({
         self.emit("sslconnect");
       }
       attachListeners(stream2) {
-        parse2(stream2, (msg) => {
+        parse(stream2, (msg) => {
           const eventName = msg.name === "error" ? "errorMessage" : msg.name;
           if (this._emitMessage) {
             this.emit("message", msg);
@@ -3455,7 +3455,7 @@ var require_split2 = __commonJS({
 var require_helper = __commonJS({
   "../../../Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/pgpass@1.0.5/node_modules/pgpass/lib/helper.js"(exports2, module2) {
     "use strict";
-    var path2 = require("path");
+    var path = require("path");
     var Stream = require("stream").Stream;
     var split = require_split2();
     var util2 = require("util");
@@ -3494,7 +3494,7 @@ var require_helper = __commonJS({
     };
     module2.exports.getFileName = function(rawEnv) {
       var env = rawEnv || process.env;
-      var file = env.PGPASSFILE || (isWin ? path2.join(env.APPDATA || "./", "postgresql", "pgpass.conf") : path2.join(env.HOME || "./", ".pgpass"));
+      var file = env.PGPASSFILE || (isWin ? path.join(env.APPDATA || "./", "postgresql", "pgpass.conf") : path.join(env.HOME || "./", ".pgpass"));
       return file;
     };
     module2.exports.usePgPass = function(stats, fname) {
@@ -3626,16 +3626,16 @@ var require_helper = __commonJS({
 var require_lib = __commonJS({
   "../../../Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/pgpass@1.0.5/node_modules/pgpass/lib/index.js"(exports2, module2) {
     "use strict";
-    var path2 = require("path");
-    var fs2 = require("fs");
+    var path = require("path");
+    var fs = require("fs");
     var helper = require_helper();
     module2.exports = function(connInfo, cb) {
       var file = helper.getFileName();
-      fs2.stat(file, function(err, stat) {
+      fs.stat(file, function(err, stat) {
         if (err || !helper.usePgPass(stat, file)) {
           return cb(void 0);
         }
-        var st = fs2.createReadStream(file);
+        var st = fs.createReadStream(file);
         helper.getPassword(connInfo, st, cb);
       });
     };
@@ -3653,7 +3653,7 @@ var require_client = __commonJS({
     var TypeOverrides2 = require_type_overrides();
     var ConnectionParameters = require_connection_parameters();
     var Query2 = require_query();
-    var defaults3 = require_defaults();
+    var defaults2 = require_defaults();
     var Connection2 = require_connection();
     var crypto = require_utils2();
     var activeQueryDeprecationNotice = nodeUtils.deprecate(
@@ -3691,7 +3691,7 @@ var require_client = __commonJS({
       }
       return defaultValue;
     }
-    var Client2 = class extends EventEmitter {
+    var Client3 = class extends EventEmitter {
       constructor(config) {
         super();
         this.connectionParameters = new ConnectionParameters(config);
@@ -3731,7 +3731,7 @@ var require_client = __commonJS({
           encoding: this.connectionParameters.client_encoding || "utf8"
         });
         this._queryQueue = [];
-        this.binary = c.binary || defaults3.binary;
+        this.binary = c.binary || defaults2.binary;
         this.processID = null;
         this.secretKey = null;
         this.ssl = this.connectionParameters.ssl || false;
@@ -3833,12 +3833,12 @@ var require_client = __commonJS({
           this._connect(callback);
           return;
         }
-        return new this._Promise((resolve2, reject3) => {
+        return new this._Promise((resolve, reject) => {
           this._connect((error) => {
             if (error) {
-              reject3(error);
+              reject(error);
             } else {
-              resolve2(this);
+              resolve(this);
             }
           });
         });
@@ -4185,8 +4185,8 @@ var require_client = __commonJS({
         } else {
           query = new Query2(config, values, callback);
           if (!query.callback) {
-            result = new this._Promise((resolve2, reject3) => {
-              query.callback = (err, res) => err ? reject3(err) : resolve2(res);
+            result = new this._Promise((resolve, reject) => {
+              query.callback = (err, res) => err ? reject(err) : resolve(res);
             }).catch((err) => {
               Error.captureStackTrace(err);
               throw err;
@@ -4270,8 +4270,8 @@ var require_client = __commonJS({
         if (cb) {
           this.connection.once("end", cb);
         } else {
-          return new this._Promise((resolve2) => {
-            this.connection.once("end", resolve2);
+          return new this._Promise((resolve) => {
+            this.connection.once("end", resolve);
           });
         }
       }
@@ -4280,8 +4280,8 @@ var require_client = __commonJS({
         return this._queryQueue;
       }
     };
-    Client2.Query = Query2;
-    module2.exports = Client2;
+    Client3.Query = Query2;
+    module2.exports = Client3;
   }
 });
 
@@ -4320,9 +4320,9 @@ var require_pg_pool = __commonJS({
       const cb = function(err, client) {
         err ? rej(err) : res(client);
       };
-      const result = new Promise2(function(resolve2, reject3) {
-        res = resolve2;
-        rej = reject3;
+      const result = new Promise2(function(resolve, reject) {
+        res = resolve;
+        rej = reject;
       }).catch((err) => {
         Error.captureStackTrace(err);
         throw err;
@@ -4341,7 +4341,7 @@ var require_pg_pool = __commonJS({
       };
     }
     var Pool2 = class extends EventEmitter {
-      constructor(options, Client2) {
+      constructor(options, Client3) {
         super();
         this.options = Object.assign({}, options);
         if (options != null && "password" in options) {
@@ -4364,7 +4364,7 @@ var require_pg_pool = __commonJS({
         this.options.maxLifetimeSeconds = this.options.maxLifetimeSeconds || 0;
         this.log = this.options.log || function() {
         };
-        this.Client = this.options.Client || Client2 || require_lib2().Client;
+        this.Client = this.options.Client || Client3 || require_lib2().Client;
         this.Promise = this.options.Promise || global.Promise;
         if (typeof this.options.idleTimeoutMillis === "undefined") {
           this.options.idleTimeoutMillis = 1e4;
@@ -4382,7 +4382,7 @@ var require_pg_pool = __commonJS({
         if (typeof Promise2.try === "function") {
           return Promise2.try(f);
         }
-        return new Promise2((resolve2) => resolve2(f()));
+        return new Promise2((resolve) => resolve(f()));
       }
       _isFull() {
         return this._clients.length >= this.options.max;
@@ -4775,9 +4775,9 @@ var require_query2 = __commonJS({
     NativeQuery.prototype._getPromise = function() {
       if (this._promise) return this._promise;
       this._promise = new Promise(
-        function(resolve2, reject3) {
-          this._once("end", resolve2);
-          this._once("error", reject3);
+        function(resolve, reject) {
+          this._once("end", resolve);
+          this._once("error", reject);
         }.bind(this)
       );
       return this._promise;
@@ -4798,13 +4798,13 @@ var require_query2 = __commonJS({
         if (self._emitRowEvents) {
           if (results.length > 1) {
             rows.forEach((rowOfRows, i) => {
-              rowOfRows.forEach((row2) => {
-                self.emit("row", row2, results[i]);
+              rowOfRows.forEach((row) => {
+                self.emit("row", row, results[i]);
               });
             });
           } else {
-            rows.forEach(function(row2) {
-              self.emit("row", row2, results);
+            rows.forEach(function(row) {
+              self.emit("row", row, results);
             });
           }
         }
@@ -4872,7 +4872,7 @@ var require_client2 = __commonJS({
       },
       "Calling client.query() when the client is already executing a query is deprecated and will be removed in pg@9.0. Use async/await or an external async flow control mechanism instead."
     );
-    var Client2 = module2.exports = function(config) {
+    var Client3 = module2.exports = function(config) {
       EventEmitter.call(this);
       config = config || {};
       this._Promise = config.Promise || global.Promise;
@@ -4899,9 +4899,9 @@ var require_client2 = __commonJS({
       this.port = cp.port;
       this.namedQueries = {};
     };
-    Client2.Query = NativeQuery;
-    util2.inherits(Client2, EventEmitter);
-    Client2.prototype._errorAllQueries = function(err) {
+    Client3.Query = NativeQuery;
+    util2.inherits(Client3, EventEmitter);
+    Client3.prototype._errorAllQueries = function(err) {
       const enqueueError = (query) => {
         process.nextTick(() => {
           query.native = this.native;
@@ -4915,7 +4915,7 @@ var require_client2 = __commonJS({
       this._queryQueue.forEach(enqueueError);
       this._queryQueue.length = 0;
     };
-    Client2.prototype._connect = function(cb) {
+    Client3.prototype._connect = function(cb) {
       const self = this;
       if (this._connecting) {
         process.nextTick(() => cb(new Error("Client has already been connected. You cannot reuse a client.")));
@@ -4948,22 +4948,22 @@ var require_client2 = __commonJS({
         });
       });
     };
-    Client2.prototype.connect = function(callback) {
+    Client3.prototype.connect = function(callback) {
       if (callback) {
         this._connect(callback);
         return;
       }
-      return new this._Promise((resolve2, reject3) => {
+      return new this._Promise((resolve, reject) => {
         this._connect((error) => {
           if (error) {
-            reject3(error);
+            reject(error);
           } else {
-            resolve2(this);
+            resolve(this);
           }
         });
       });
     };
-    Client2.prototype.query = function(config, values, callback) {
+    Client3.prototype.query = function(config, values, callback) {
       let query;
       let result;
       let readTimeout;
@@ -4982,9 +4982,9 @@ var require_client2 = __commonJS({
         query = new NativeQuery(config, values, callback);
         if (!query.callback) {
           let resolveOut, rejectOut;
-          result = new this._Promise((resolve2, reject3) => {
-            resolveOut = resolve2;
-            rejectOut = reject3;
+          result = new this._Promise((resolve, reject) => {
+            resolveOut = resolve;
+            rejectOut = reject;
           }).catch((err) => {
             Error.captureStackTrace(err);
             throw err;
@@ -5035,7 +5035,7 @@ var require_client2 = __commonJS({
       this._pulseQueryQueue();
       return result;
     };
-    Client2.prototype.end = function(cb) {
+    Client3.prototype.end = function(cb) {
       const self = this;
       this._ending = true;
       if (this._connecting && !this._connected) {
@@ -5046,8 +5046,8 @@ var require_client2 = __commonJS({
       }
       let result;
       if (!cb) {
-        result = new this._Promise(function(resolve2, reject3) {
-          cb = (err) => err ? reject3(err) : resolve2();
+        result = new this._Promise(function(resolve, reject) {
+          cb = (err) => err ? reject(err) : resolve();
         });
       }
       this.native.end(function() {
@@ -5060,10 +5060,10 @@ var require_client2 = __commonJS({
       });
       return result;
     };
-    Client2.prototype._hasActiveQuery = function() {
+    Client3.prototype._hasActiveQuery = function() {
       return this._activeQuery && this._activeQuery.state !== "error" && this._activeQuery.state !== "end";
     };
-    Client2.prototype._pulseQueryQueue = function(initialConnection) {
+    Client3.prototype._pulseQueryQueue = function(initialConnection) {
       if (!this._connected) {
         return;
       }
@@ -5084,7 +5084,7 @@ var require_client2 = __commonJS({
         self._pulseQueryQueue();
       });
     };
-    Client2.prototype.cancel = function(query) {
+    Client3.prototype.cancel = function(query) {
       if (this._activeQuery === query) {
         this.native.cancel(function() {
         });
@@ -5092,20 +5092,20 @@ var require_client2 = __commonJS({
         this._queryQueue.splice(this._queryQueue.indexOf(query), 1);
       }
     };
-    Client2.prototype.ref = function() {
+    Client3.prototype.ref = function() {
     };
-    Client2.prototype.unref = function() {
+    Client3.prototype.unref = function() {
     };
-    Client2.prototype.setTypeParser = function(oid, format, parseFn) {
+    Client3.prototype.setTypeParser = function(oid, format, parseFn) {
       return this._types.setTypeParser(oid, format, parseFn);
     };
-    Client2.prototype.getTypeParser = function(oid, format) {
+    Client3.prototype.getTypeParser = function(oid, format) {
       return this._types.getTypeParser(oid, format);
     };
-    Client2.prototype.isConnected = function() {
+    Client3.prototype.isConnected = function() {
       return this._connected;
     };
-    Client2.prototype.getTransactionStatus = function() {
+    Client3.prototype.getTransactionStatus = function() {
       return this.native.getTransactionStatus();
     };
   }
@@ -5123,8 +5123,8 @@ var require_native = __commonJS({
 var require_lib2 = __commonJS({
   "../../../Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/pg@8.22.0/node_modules/pg/lib/index.js"(exports2, module2) {
     "use strict";
-    var Client2 = require_client();
-    var defaults3 = require_defaults();
+    var Client3 = require_client();
+    var defaults2 = require_defaults();
     var Connection2 = require_connection();
     var Result2 = require_result();
     var utils = require_utils();
@@ -5132,15 +5132,15 @@ var require_lib2 = __commonJS({
     var TypeOverrides2 = require_type_overrides();
     var { DatabaseError: DatabaseError2 } = require_dist();
     var { escapeIdentifier: escapeIdentifier2, escapeLiteral: escapeLiteral2 } = require_utils();
-    var poolFactory = (Client3) => {
+    var poolFactory = (Client4) => {
       return class BoundPool extends Pool2 {
         constructor(options) {
-          super(options, Client3);
+          super(options, Client4);
         }
       };
     };
     var PG = function(clientConstructor2) {
-      this.defaults = defaults3;
+      this.defaults = defaults2;
       this.Client = clientConstructor2;
       this.Query = this.Client.Query;
       this.Pool = poolFactory(this.Client);
@@ -5154,7 +5154,7 @@ var require_lib2 = __commonJS({
       this.Result = Result2;
       this.utils = utils;
     };
-    var clientConstructor = Client2;
+    var clientConstructor = Client3;
     var forceNative = false;
     try {
       forceNative = !!process.env.NODE_PG_FORCE_NATIVE;
@@ -5185,350 +5185,32 @@ var require_lib2 = __commonJS({
   }
 });
 
-// packages/cloud-deploy/src/cn-maintenance-host/entry.ts
-var entry_exports = {};
-__export(entry_exports, {
-  executeBoundEntry: () => executeBoundEntry,
-  main: () => main2,
-  parseEntryPlan: () => parseEntryPlan
+// packages/cloud-deploy/src/cn-maintenance-host/migration_library.ts
+var migration_library_exports = {};
+__export(migration_library_exports, {
+  migrateExistingSession: () => migrateExistingSession
 });
-module.exports = __toCommonJS(entry_exports);
-var import_node_crypto12 = require("node:crypto");
-var import_node_fs8 = require("node:fs");
+module.exports = __toCommonJS(migration_library_exports);
 
-// packages/cloud-deploy/src/cn-maintenance-host/fixed_transport.ts
-var import_node_child_process = require("node:child_process");
-var import_node_crypto = require("node:crypto");
+// packages/cloud-deploy/src/cn-maintenance-host/pinned-app-9b/migrator.ts
+var import_node_crypto2 = require("node:crypto");
 var import_node_fs = require("node:fs");
-var fail = (code) => {
-  throw new Error(code);
-};
-function protectedPrivateBytes(path2, expectedSha256) {
-  if (!path2.startsWith("/") || path2.split("/").includes("..")) fail("PRIVATE_PATH_INVALID");
-  const parts = path2.split("/").filter(Boolean);
-  for (let i = 1; i < parts.length; i++) {
-    const st = (0, import_node_fs.lstatSync)("/" + parts.slice(0, i).join("/"));
-    if (!st.isDirectory() || st.uid !== 0 || st.gid !== 0 || st.mode & 18) fail("PRIVATE_PARENT_UNTRUSTED");
-  }
-  const before = (0, import_node_fs.lstatSync)(path2), fd = (0, import_node_fs.openSync)(path2, import_node_fs.constants.O_RDONLY | import_node_fs.constants.O_NOFOLLOW);
-  try {
-    const st = (0, import_node_fs.fstatSync)(fd);
-    if (!st.isFile() || st.uid !== 0 || st.gid !== 0 || st.nlink !== 1 || (st.mode & 511) !== 384 || st.dev !== before.dev || st.ino !== before.ino || st.size > 1048576) fail("PRIVATE_FILE_UNTRUSTED");
-    const bytes = (0, import_node_fs.readFileSync)(fd), after = (0, import_node_fs.fstatSync)(fd);
-    if (expectedSha256 !== void 0 && (!/^[a-f0-9]{64}$/.test(expectedSha256) || (0, import_node_crypto.createHash)("sha256").update(bytes).digest("hex") !== expectedSha256)) fail("PRIVATE_FILE_HASH_MISMATCH");
-    if (st.size !== after.size || st.mtimeMs !== after.mtimeMs || st.ctimeMs !== after.ctimeMs) fail("PRIVATE_FILE_CHANGED");
-    return bytes;
-  } finally {
-    (0, import_node_fs.closeSync)(fd);
-  }
-}
-function protectedPrivateJson(path2, expectedSha256) {
-  const bytes = protectedPrivateBytes(path2, expectedSha256);
-  try {
-    return JSON.parse(bytes.toString("utf8"));
-  } catch {
-    fail("PRIVATE_JSON_INVALID");
-  }
-}
-function protectedExecutable(command2) {
-  if (!command2.path.startsWith("/") || command2.path.includes("..") || !/^[a-f0-9]{64}$/.test(command2.sha256)) fail("COMMAND_BINDING_INVALID");
-  const parts = command2.path.split("/").filter(Boolean);
-  for (let i = 1; i < parts.length; i++) {
-    const st = (0, import_node_fs.lstatSync)("/" + parts.slice(0, i).join("/"));
-    if (!st.isDirectory() || st.uid !== 0 || st.gid !== 0 || st.mode & 18) fail("COMMAND_PARENT_UNTRUSTED");
-  }
-  const before = (0, import_node_fs.lstatSync)(command2.path);
-  if (!before.isFile() || before.uid !== 0 || before.gid !== 0 || before.nlink !== 1 || (before.mode & 511) !== 448) fail("COMMAND_METADATA_UNTRUSTED");
-  const fd = (0, import_node_fs.openSync)(command2.path, import_node_fs.constants.O_RDONLY | import_node_fs.constants.O_NOFOLLOW);
-  try {
-    const after = (0, import_node_fs.fstatSync)(fd);
-    if (after.dev !== before.dev || after.ino !== before.ino || after.size !== before.size || after.mtimeMs !== before.mtimeMs) fail("COMMAND_CHANGED");
-    if ((0, import_node_crypto.createHash)("sha256").update((0, import_node_fs.readFileSync)(fd)).digest("hex") !== command2.sha256) fail("COMMAND_HASH_MISMATCH");
-    return fd;
-  } catch (error) {
-    (0, import_node_fs.closeSync)(fd);
-    throw error;
-  }
-}
-async function runFixed(command2, args, input, interpreter) {
-  if (process.platform !== "linux" || process.getuid?.() !== 0) fail("ROOT_LINUX_REQUIRED");
-  try {
-    (0, import_node_fs.fstatSync)(9);
-  } catch {
-    fail("INHERITED_FD9_REQUIRED");
-  }
-  const fd = protectedExecutable(command2);
-  let dependency;
-  try {
-    if (command2.writerFenceModule) dependency = protectedExecutable(command2.writerFenceModule);
-    return await new Promise((resolve2, reject3) => {
-      const bootstrap = "import sys,runpy,importlib.util,importlib.machinery; " + (dependency === void 0 ? "" : "s=importlib.util.spec_from_loader('writer_fence',importlib.machinery.SourceFileLoader('writer_fence','/proc/self/fd/11')); m=importlib.util.module_from_spec(s);sys.modules['writer_fence']=m;s.loader.exec_module(m); ") + "sys.argv=['/proc/self/fd/10']+sys.argv[1:];runpy.run_path('/proc/self/fd/10',run_name='__main__')";
-      const child = (0, import_node_child_process.spawn)(interpreter === "python" ? "/usr/bin/python3" : "/usr/bin/bash", interpreter === "python" ? ["-I", "-c", bootstrap, ...args] : ["/proc/self/fd/10", ...args], {
-        shell: false,
-        detached: true,
-        env: { PATH: "/usr/sbin:/usr/bin:/sbin:/bin", LANG: "C.UTF-8", PYTHONNOUSERSITE: "1" },
-        stdio: ["pipe", "pipe", "pipe", "ignore", "ignore", "ignore", "ignore", "ignore", "ignore", 9, fd, dependency === void 0 ? "ignore" : dependency]
-      });
-      let stdout = "", size = 0;
-      const killGroup = () => {
-        if (child.pid) {
-          try {
-            process.kill(-child.pid, "SIGKILL");
-          } catch {
-          }
-        }
-      };
-      const timer = setTimeout(killGroup, 3e5);
-      child.stdout.on("data", (chunk) => {
-        size += chunk.length;
-        if (size > 1048576) killGroup();
-        else stdout += chunk;
-      });
-      child.stderr.resume();
-      child.on("error", () => {
-        clearTimeout(timer);
-        reject3(new Error("FIXED_COMMAND_SPAWN_FAILED"));
-      });
-      child.on("close", (code) => {
-        clearTimeout(timer);
-        code === 0 && size <= 1048576 ? resolve2({ stdout }) : reject3(new Error("FIXED_COMMAND_FAILED"));
-      });
-      child.stdin.end(input === void 0 ? "" : JSON.stringify(input) + "\n");
-    });
-  } finally {
-    if (dependency !== void 0) (0, import_node_fs.closeSync)(dependency);
-    (0, import_node_fs.closeSync)(fd);
-  }
-}
-var runFixedPython = (command2, args, input) => runFixed(command2, args, input, "python");
-var runFixedBash = (command2, args, input) => runFixed(command2, args, input, "bash");
-async function inheritedFd9Lock() {
-  if (process.platform !== "linux" || process.getuid?.() !== 0) fail("ROOT_LINUX_REQUIRED");
-  const parent = (0, import_node_fs.lstatSync)("/var/lib/workspacex-cn/runtime");
-  if (!parent.isDirectory() || parent.uid !== 0 || parent.gid !== 0 || (parent.mode & 511) !== 448) fail("LOCK_PARENT_UNTRUSTED");
-  const actual = (0, import_node_fs.lstatSync)("/var/lib/workspacex-cn/runtime/release.lock");
-  const inherited = (0, import_node_fs.fstatSync)(9);
-  if (!actual.isFile() || actual.uid !== 0 || actual.gid !== 0 || actual.nlink !== 1 || (actual.mode & 511) !== 384 || actual.dev !== inherited.dev || actual.ino !== inherited.ino) fail("CANONICAL_FD9_REQUIRED");
-  const fdinfo = (0, import_node_fs.readFileSync)("/proc/self/fdinfo/9", "utf8");
-  if (!/^lock:\s+\d+:\s+FLOCK\s+ADVISORY\s+WRITE\s+/m.test(fdinfo)) fail("CANONICAL_FD9_LOCK_NOT_HELD");
-  let released = false;
-  return async () => {
-    if (released) fail("CANONICAL_FD9_ALREADY_RELEASED");
-    released = true;
-    (0, import_node_fs.closeSync)(9);
-  };
-}
+var import_node_path = require("node:path");
 
-// packages/cloud-deploy/src/cn-maintenance-release.ts
-var MaintenanceRecoveryRequired = class extends Error {
-  constructor() {
-    super("MAINTENANCE_DATABASE_RECOVERY_REQUIRED_WRITES_HELD");
-  }
-};
-var MaintenanceWriteStateUnknown = class extends Error {
-  constructor() {
-    super("MAINTENANCE_WRITE_STATE_RECONCILIATION_REQUIRED_LOCK_RETAINED");
-  }
-};
-async function runMaintenanceRelease(request, ops) {
-  if (request.maintenanceOptIn !== "stop-all-writes-and-require-database-recovery") throw new Error("MAINTENANCE_OPT_IN_REQUIRED");
-  if (!/^[a-f0-9]{40}$/.test(request.sourceRevision) || !/^[a-f0-9]{40}$/.test(request.baselineRevision) || !/^[a-f0-9]{64}$/.test(request.migrationPlanSha256) || !/^[a-zA-Z0-9-]{1,128}$/.test(request.attemptId)) throw new Error("MAINTENANCE_IDENTITY_INVALID");
-  const required = ["verifyThreeDatabaseRecovery", "persistMaintenanceHold", "verifyMaintenanceHoldPresent", "verifyMaintenanceHoldCleared", "blockAllWrites", "verifyAllWritersDrained", "migrateExactPlan", "verifyProductionDynamic", "verifyPreactivate", "activate", "verifyAcceptance", "resumeWrites", "verifyWritesResumed", "clearMaintenanceHold", "verifyWritesBlocked", "recordWriteStateReconciliationRequired", "recordDatabaseRecoveryRequired"];
-  for (const name of required) if (typeof ops[name] !== "function") throw new Error(`MAINTENANCE_CAPABILITY_MISSING:${name}`);
-  const identity = Object.freeze({ sourceRevision: request.sourceRevision, baselineRevision: request.baselineRevision, migrationPlanSha256: request.migrationPlanSha256, attemptId: request.attemptId });
-  const releaseLock = await ops.acquireReleaseLock(identity);
-  let holdAttempted = false;
-  let retainLock = false;
-  try {
-    await ops.prepareOffline(identity);
-    await ops.verifyThreeDatabaseRecovery(identity);
-    holdAttempted = true;
-    await ops.persistMaintenanceHold(identity);
-    await ops.verifyMaintenanceHoldPresent(identity);
-    await ops.blockAllWrites(identity);
-    await ops.verifyAllWritersDrained(identity);
-    await ops.migrateExactPlan(identity);
-    await ops.verifyProductionDynamic(identity);
-    await ops.verifyPreactivate(identity);
-    await ops.activate(identity);
-    await ops.verifyAcceptance(identity);
-    await ops.resumeWrites(identity);
-    await ops.verifyWritesResumed(identity);
-    await ops.clearMaintenanceHold(identity);
-    await ops.verifyMaintenanceHoldCleared(identity);
-    holdAttempted = false;
-  } catch (error) {
-    if (holdAttempted) {
-      try {
-        await ops.verifyMaintenanceHoldPresent(identity);
-        await ops.verifyWritesBlocked(identity);
-      } catch {
-        retainLock = true;
-        try {
-          await ops.recordWriteStateReconciliationRequired(identity);
-        } catch {
-        }
-        throw new MaintenanceWriteStateUnknown();
-      }
-      try {
-        await ops.recordDatabaseRecoveryRequired(identity);
-      } catch {
-      }
-      throw new MaintenanceRecoveryRequired();
-    }
-    throw error;
-  } finally {
-    try {
-      if (!retainLock) await releaseLock();
-    } catch {
-      if (holdAttempted) throw new MaintenanceRecoveryRequired();
-      throw new Error("MAINTENANCE_RELEASE_LOCK_CLEANUP_FAILED");
-    }
-  }
-}
-
-// packages/cloud-deploy/src/cn-maintenance-host/controller.ts
-var writerCallbacks = ["blockAllWrites", "verifyAllWritersDrained", "verifyWritesBlocked", "resumeWrites", "verifyWritesResumed", "recordWriteStateReconciliationRequired", "recordDatabaseRecoveryRequired"];
-function requireValue(ok, code) {
-  if (!ok) throw new Error(code);
-}
-function sameIdentity(a, b) {
-  if (!a || typeof a !== "object") return false;
-  const value = a;
-  return Object.keys(value).sort().join(",") === Object.keys(b).sort().join(",") && Object.entries(b).every(([key, v]) => value[key] === v);
-}
-function parseOne(stdout) {
-  try {
-    return JSON.parse(stdout);
-  } catch {
-    throw new Error("COMMAND_RESPONSE_INVALID");
-  }
-}
-function holdRecord(value, identity, state) {
-  requireValue(value && value.schemaVersion === 1 && value.state === state && sameIdentity(value.identity, identity) && /^[a-f0-9]{32}$/.test(value.generation) && /^[a-f0-9]{64}$/.test(value.sha256) && Number.isSafeInteger(value.device) && Number.isSafeInteger(value.inode), "HOLD_READBACK_INVALID");
-}
-async function runHostMaintenance(request, binding, primitives, run) {
-  requireValue(request.maintenanceOptIn === "stop-all-writes-and-require-database-recovery", "MAINTENANCE_OPT_IN_REQUIRED");
-  requireValue(/^[a-f0-9]{40}$/.test(request.sourceRevision) && /^[a-f0-9]{40}$/.test(request.baselineRevision) && /^[a-f0-9]{64}$/.test(request.migrationPlanSha256) && /^[a-zA-Z0-9-]{1,128}$/.test(request.attemptId), "MAINTENANCE_IDENTITY_INVALID");
-  requireValue(sameIdentity(binding.identity, { sourceRevision: request.sourceRevision, baselineRevision: request.baselineRevision, migrationPlanSha256: request.migrationPlanSha256, attemptId: request.attemptId }), "HOST_IDENTITY_MISMATCH");
-  requireValue(binding.writerPlanPath.startsWith("/") && /^[a-f0-9]{64}$/.test(binding.writerPlanSha256) && /^[a-f0-9]{64}$/.test(binding.writerPlanCanonicalSha256), "WRITER_PLAN_BINDING_INVALID");
-  await primitives.assertTrustedBinding(binding);
-  await primitives.verifyRecoveryExecutorCapability(binding.identity);
-  let originalHold;
-  let clearedHold;
-  const hold = async (action, input) => parseOne((await run(binding.hold, [action, "/var/lib/workspacex-cn/runtime"], input)).stdout);
-  const ops = {
-    acquireReleaseLock: primitives.acquireReleaseLock.bind(primitives),
-    prepareOffline: primitives.prepareOffline.bind(primitives),
-    verifyThreeDatabaseRecovery: primitives.verifyThreeDatabaseRecovery.bind(primitives),
-    migrateExactPlan: primitives.migrateExactPlan.bind(primitives),
-    verifyProductionDynamic: primitives.verifyProductionDynamic.bind(primitives),
-    verifyPreactivate: primitives.verifyPreactivate.bind(primitives),
-    activate: primitives.activate.bind(primitives),
-    verifyAcceptance: primitives.verifyAcceptance.bind(primitives),
-    persistMaintenanceHold: async (identity) => {
-      const value = await hold("create", identity);
-      holdRecord(value, identity, "held");
-      originalHold = value;
-    },
-    verifyMaintenanceHoldPresent: async (identity) => {
-      const value = await hold("read");
-      holdRecord(value, identity, "held");
-      if (originalHold) requireValue(JSON.stringify(value) === JSON.stringify(originalHold), "HOLD_GENERATION_CHANGED");
-      else originalHold = value;
-    },
-    clearMaintenanceHold: async (identity) => {
-      requireValue(originalHold, "HOLD_CAS_INPUT_MISSING");
-      const value = await hold("clear", originalHold);
-      holdRecord(value, identity, "cleared");
-      clearedHold = value;
-    },
-    verifyMaintenanceHoldCleared: async (identity) => {
-      const value = await hold("read");
-      holdRecord(value, identity, "cleared");
-      requireValue(clearedHold && JSON.stringify(value) === JSON.stringify(clearedHold), "HOLD_CLEAR_READBACK_CHANGED");
-    }
-  };
-  for (const callback of writerCallbacks) ops[callback] = async (identity) => {
-    const value = parseOne((await run(binding.writerFence, ["--apply-reviewed-fence", binding.writerPlanPath, binding.writerPlanSha256, callback])).stdout);
-    if (callback === "verifyAllWritersDrained" || callback === "verifyWritesBlocked") {
-      requireValue(value && value.schemaVersion === 1 && value.kind === "maintenance-writers-held" && value.ready === false && sameIdentity(value.identity, identity) && originalHold && value.holdGeneration === originalHold.generation && value.holdSha256 === originalHold.sha256 && value.planSha256 === binding.writerPlanCanonicalSha256 && typeof value.observedAt === "number" && Number.isFinite(value.observedAt) && Date.now() / 1e3 - value.observedAt >= 0 && Date.now() / 1e3 - value.observedAt <= 30 && value.host && typeof value.host.instanceId === "string" && typeof value.host.bootId === "string" && value.databasePeers && Object.keys(value.databasePeers).sort().join(",") === "workspacex,workspacex_agent,workspacex_memory" && ["holdSha256", "planSha256", "observationSha256", "databaseSessionsSha256"].every((key) => /^[a-f0-9]{64}$/.test(value[key])) && Array.isArray(value.families) && value.families.join(",") === "http,socket,queue,background,agent,checkpoint,memory,privileged", "WRITER_GUARD_RESPONSE_INVALID");
-    } else {
-      requireValue(value && value.callback === callback && sameIdentity(value.identity, identity) && value.ready === false && value.productionAvailabilityProven === false && typeof value.state === "string", "WRITER_RESPONSE_INVALID");
-    }
-    requireValue(sameIdentity(identity, binding.identity), "WRITER_IDENTITY_CHANGED");
-  };
-  await runMaintenanceRelease(request, ops);
-}
-async function runHostMaintenanceRetainingFd9(request, binding, primitives, run) {
-  try {
-    await runHostMaintenance(request, binding, primitives, run);
-  } catch (error) {
-    if (!(error instanceof MaintenanceWriteStateUnknown)) throw error;
-    process.stderr.write("MAINTENANCE_WRITE_STATE_RECONCILIATION_REQUIRED_LOCK_RETAINED\n");
-    await new Promise(() => {
-      setInterval(() => {
-      }, 6e4);
-    });
-  }
-}
-
-// packages/cloud-deploy/src/cn-maintenance-host/production_factory.ts
-var productionActions = ["prepareOffline", "verifyThreeDatabaseRecovery", "migrateExactPlan", "verifyProductionDynamic", "verifyPreactivate", "activate", "verifyAcceptance"];
-function productionPrimitives(binding, run, verifyInstalledProfile, inheritedLock) {
-  const identityEqual = (value) => !!value && typeof value === "object" && Object.keys(value).sort().join(",") === Object.keys(binding.identity).sort().join(",") && Object.entries(binding.identity).every(([key, expected]) => value[key] === expected);
-  const validate = () => {
-    if (!/^[a-f0-9]{40}$/.test(binding.toolRevision) || !identityEqual(binding.identity)) throw new Error("PRODUCTION_BINDING_INVALID");
-    if (Object.keys(binding.operations).sort().join(",") !== [...productionActions].sort().join(",")) throw new Error("PRODUCTION_OPERATION_SET_INVALID");
-    for (const op of [binding.recoveryPreflight, ...productionActions.map((k) => binding.operations[k])]) {
-      if (!op || !op.planPath.startsWith("/etc/workspacex-cn/") || op.planPath.split("/").includes("..") || !/^[a-f0-9]{64}$/.test(op.planSha256) || !op.command.path.startsWith("/usr/local/lib/workspacex-cn/") || !/^[a-f0-9]{64}$/.test(op.command.sha256)) throw new Error("PRODUCTION_OPERATION_BINDING_INVALID");
-    }
-  };
-  const invoke = async (name, op, identity) => {
-    if (!identityEqual(identity)) throw new Error("PRODUCTION_IDENTITY_CHANGED");
-    const response = await run(op.command, ["--maintenance-operation", name, op.planPath, op.planSha256]);
-    let value;
-    try {
-      value = JSON.parse(response.stdout);
-    } catch {
-      throw new Error("PRODUCTION_OPERATION_RESPONSE_INVALID");
-    }
-    if (!value || value.schemaVersion !== 1 || value.kind !== "maintenance-operation-completed" || value.operation !== name || !identityEqual(value.identity) || value.toolRevision !== binding.toolRevision || value.planSha256 !== op.planSha256 || value.ready !== false) throw new Error("PRODUCTION_OPERATION_RESPONSE_INVALID");
-  };
-  const startup = productionStartupPrimitives(binding, run, verifyInstalledProfile, inheritedLock);
-  const result = {
-    ...startup,
-    assertTrustedBinding: async (host) => {
-      validate();
-      await startup.assertTrustedBinding(host);
-    },
-    ...Object.fromEntries(productionActions.map((name) => [name, (identity) => invoke(name, binding.operations[name], identity)]))
-  };
-  return result;
-}
-function productionStartupPrimitives(binding, run, verifyInstalledProfile, inheritedLock) {
-  const same3 = (a) => !!a && typeof a === "object" && Object.keys(a).length === 4 && Object.entries(binding.identity).every(([k, v]) => a[k] === v);
-  return {
-    assertTrustedBinding: async (host) => {
-      if (!/^[a-f0-9]{40}$/.test(binding.toolRevision) || !same3(host.identity)) throw Error("PRODUCTION_BINDING_INVALID");
-      await verifyInstalledProfile(host, binding);
-    },
-    verifyRecoveryExecutorCapability: async (identity) => {
-      if (!same3(identity)) throw Error("PRODUCTION_IDENTITY_CHANGED");
-      const op = binding.recoveryPreflight;
-      if (op.command.path !== "/usr/local/lib/workspacex-cn/cn-production-recovery-executor.py" || !op.planPath.startsWith("/etc/workspacex-cn/maintenance-recovery/") || !/^[a-f0-9]{64}$/.test(op.planSha256)) throw Error("RECOVERY_PREFLIGHT_BINDING");
-      const result = await run(op.command, ["--preflight-capability", op.planPath]);
-      let v;
-      try {
-        v = JSON.parse(result.stdout);
-      } catch {
-        throw Error("RECOVERY_PREFLIGHT_INVALID");
-      }
-      if (v.schemaVersion !== 1 || v.kind !== "production-recovery-preflight" || !same3(v.identity) || v.toolRevision !== binding.toolRevision || v.planSha256 !== op.planSha256 || v.liveWritesHeldProven !== false || v.ready !== false) throw Error("RECOVERY_PREFLIGHT_INVALID");
-    },
-    acquireReleaseLock: inheritedLock
-  };
-}
+// ../../../Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/pg@8.22.0/node_modules/pg/esm/index.mjs
+var import_lib = __toESM(require_lib2(), 1);
+var Client = import_lib.default.Client;
+var Pool = import_lib.default.Pool;
+var Connection = import_lib.default.Connection;
+var types = import_lib.default.types;
+var Query = import_lib.default.Query;
+var DatabaseError = import_lib.default.DatabaseError;
+var escapeIdentifier = import_lib.default.escapeIdentifier;
+var escapeLiteral = import_lib.default.escapeLiteral;
+var Result = import_lib.default.Result;
+var TypeOverrides = import_lib.default.TypeOverrides;
+var defaults = import_lib.default.defaults;
+var esm_default = import_lib.default;
 
 // ../../../Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/zod@3.25.76/node_modules/zod/v3/external.js
 var external_exports = {};
@@ -5674,10 +5356,10 @@ var util;
       return obj[e];
     });
   };
-  util2.objectKeys = typeof Object.keys === "function" ? (obj) => Object.keys(obj) : (object2) => {
+  util2.objectKeys = typeof Object.keys === "function" ? (obj) => Object.keys(obj) : (object) => {
     const keys = [];
-    for (const key in object2) {
-      if (Object.prototype.hasOwnProperty.call(object2, key)) {
+    for (const key in object) {
+      if (Object.prototype.hasOwnProperty.call(object, key)) {
         keys.push(key);
       }
     }
@@ -5796,8 +5478,8 @@ var ZodIssueCode = util.arrayToEnum([
   "not_finite"
 ]);
 var quotelessJson = (obj) => {
-  const json2 = JSON.stringify(obj, null, 2);
-  return json2.replace(/"([^"]+)":/g, "$1:");
+  const json = JSON.stringify(obj, null, 2);
+  return json.replace(/"([^"]+)":/g, "$1:");
 };
 var ZodError = class _ZodError extends Error {
   get errors() {
@@ -6008,8 +5690,8 @@ function getErrorMap() {
 
 // ../../../Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/zod@3.25.76/node_modules/zod/v3/helpers/parseUtil.js
 var makeIssue = (params) => {
-  const { data, path: path2, errorMaps, issueData } = params;
-  const fullPath = [...path2, ...issueData.path || []];
+  const { data, path, errorMaps, issueData } = params;
+  const fullPath = [...path, ...issueData.path || []];
   const fullIssue = {
     ...issueData,
     path: fullPath
@@ -6125,11 +5807,11 @@ var errorUtil;
 
 // ../../../Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/zod@3.25.76/node_modules/zod/v3/types.js
 var ParseInputLazyPath = class {
-  constructor(parent, value, path2, key) {
+  constructor(parent, value, path, key) {
     this._cachedPath = [];
     this.parent = parent;
     this.data = value;
-    this._path = path2;
+    this._path = path;
     this._key = key;
   }
   get path() {
@@ -7862,9 +7544,9 @@ var ZodArray = class _ZodArray extends ZodType {
     return this.min(1, message);
   }
 };
-ZodArray.create = (schema2, params) => {
+ZodArray.create = (schema, params) => {
   return new ZodArray({
-    type: schema2,
+    type: schema,
     minLength: null,
     maxLength: null,
     exactLength: null,
@@ -7872,30 +7554,30 @@ ZodArray.create = (schema2, params) => {
     ...processCreateParams(params)
   });
 };
-function deepPartialify(schema2) {
-  if (schema2 instanceof ZodObject) {
+function deepPartialify(schema) {
+  if (schema instanceof ZodObject) {
     const newShape = {};
-    for (const key in schema2.shape) {
-      const fieldSchema = schema2.shape[key];
+    for (const key in schema.shape) {
+      const fieldSchema = schema.shape[key];
       newShape[key] = ZodOptional.create(deepPartialify(fieldSchema));
     }
     return new ZodObject({
-      ...schema2._def,
+      ...schema._def,
       shape: () => newShape
     });
-  } else if (schema2 instanceof ZodArray) {
+  } else if (schema instanceof ZodArray) {
     return new ZodArray({
-      ...schema2._def,
-      type: deepPartialify(schema2.element)
+      ...schema._def,
+      type: deepPartialify(schema.element)
     });
-  } else if (schema2 instanceof ZodOptional) {
-    return ZodOptional.create(deepPartialify(schema2.unwrap()));
-  } else if (schema2 instanceof ZodNullable) {
-    return ZodNullable.create(deepPartialify(schema2.unwrap()));
-  } else if (schema2 instanceof ZodTuple) {
-    return ZodTuple.create(schema2.items.map((item) => deepPartialify(item)));
+  } else if (schema instanceof ZodOptional) {
+    return ZodOptional.create(deepPartialify(schema.unwrap()));
+  } else if (schema instanceof ZodNullable) {
+    return ZodNullable.create(deepPartialify(schema.unwrap()));
+  } else if (schema instanceof ZodTuple) {
+    return ZodTuple.create(schema.items.map((item) => deepPartialify(item)));
   } else {
-    return schema2;
+    return schema;
   }
 }
 var ZodObject = class _ZodObject extends ZodType {
@@ -8111,8 +7793,8 @@ var ZodObject = class _ZodObject extends ZodType {
   //   }) as any;
   //   return merged;
   // }
-  setKey(key, schema2) {
-    return this.augment({ [key]: schema2 });
+  setKey(key, schema) {
+    return this.augment({ [key]: schema });
   }
   // merge<Incoming extends AnyZodObject>(
   //   merging: Incoming
@@ -8558,10 +8240,10 @@ var ZodTuple = class _ZodTuple extends ZodType {
       status.dirty();
     }
     const items = [...ctx.data].map((item, itemIndex) => {
-      const schema2 = this._def.items[itemIndex] || this._def.rest;
-      if (!schema2)
+      const schema = this._def.items[itemIndex] || this._def.rest;
+      if (!schema)
         return null;
-      return schema2._parse(new ParseInputLazyPath(ctx, item, ctx.path, itemIndex));
+      return schema._parse(new ParseInputLazyPath(ctx, item, ctx.path, itemIndex));
     }).filter((x) => !!x);
     if (ctx.common.async) {
       return Promise.all(items).then((results) => {
@@ -9075,9 +8757,9 @@ var ZodPromise = class extends ZodType {
     }));
   }
 };
-ZodPromise.create = (schema2, params) => {
+ZodPromise.create = (schema, params) => {
   return new ZodPromise({
-    type: schema2,
+    type: schema,
     typeName: ZodFirstPartyTypeKind.ZodPromise,
     ...processCreateParams(params)
   });
@@ -9205,17 +8887,17 @@ var ZodEffects = class extends ZodType {
     util.assertNever(effect);
   }
 };
-ZodEffects.create = (schema2, effect, params) => {
+ZodEffects.create = (schema, effect, params) => {
   return new ZodEffects({
-    schema: schema2,
+    schema,
     typeName: ZodFirstPartyTypeKind.ZodEffects,
     effect,
     ...processCreateParams(params)
   });
 };
-ZodEffects.createWithPreprocess = (preprocess, schema2, params) => {
+ZodEffects.createWithPreprocess = (preprocess, schema, params) => {
   return new ZodEffects({
-    schema: schema2,
+    schema,
     effect: { type: "preprocess", transform: preprocess },
     typeName: ZodFirstPartyTypeKind.ZodEffects,
     ...processCreateParams(params)
@@ -9571,133 +9253,6 @@ var coerce = {
 };
 var NEVER = INVALID;
 
-// packages/cloud-deploy/src/cn-maintenance-host/production_consumers.ts
-var import_node_fs7 = require("node:fs");
-
-// packages/cloud-deploy/src/cn-maintenance-host/migration_transport.ts
-var import_node_crypto7 = require("node:crypto");
-var import_node_fs4 = require("node:fs");
-var import_node_path3 = require("node:path");
-var import_node_crypto8 = require("node:crypto");
-
-// packages/cloud-deploy/src/cn-migration-plan.ts
-var import_node_crypto2 = require("node:crypto");
-var import_node_child_process2 = require("node:child_process");
-var import_node_fs2 = require("node:fs");
-var import_node_path = require("node:path");
-var import_node_url = require("node:url");
-var sha = /^[a-f0-9]{40}$/;
-var hash = /^[a-f0-9]{64}$/;
-var migrationHash = (value) => (0, import_node_crypto2.createHash)("sha256").update(value).digest("hex");
-var canonicalHash = (value) => migrationHash(JSON.stringify(value));
-var compare = (a, b) => a.name < b.name ? -1 : a.name > b.name ? 1 : 0;
-function classifyMigration(sql) {
-  const text2 = sql.replace(/--[^\n]*(?:\n|$)/g, " ").replace(/\/\*[\s\S]*?\*\//g, " ").trim();
-  if (/\b(?:DROP|TRUNCATE)\b|\bDELETE\s+FROM\b/i.test(text2) || /\bALTER\b[\s\S]*\bRENAME\b/i.test(text2)) return "destructive";
-  if (/\$|['"]|\/\*|\*\//.test(text2)) return "unknown";
-  const statements = text2.split(";").map((part) => part.trim()).filter(Boolean);
-  if (!statements.length) return "unknown";
-  const identifier2 = "[A-Za-z_][A-Za-z0-9_]*";
-  const type = "(?:smallint|integer|bigint|text|boolean|uuid|date|timestamp|timestamptz|jsonb|real|double precision)";
-  const column = `${identifier2}\\s+${type}(?:\\s+(?:NOT NULL|NULL|PRIMARY KEY|UNIQUE))*`;
-  const table = new RegExp(`^CREATE\\s+TABLE\\s+(?:IF\\s+NOT\\s+EXISTS\\s+)?${identifier2}\\s*\\(\\s*${column}(?:\\s*,\\s*${column})*\\s*\\)$`, "i");
-  const index = new RegExp(`^CREATE\\s+(?:UNIQUE\\s+)?INDEX\\s+(?:IF\\s+NOT\\s+EXISTS\\s+)?${identifier2}\\s+ON\\s+${identifier2}\\s*\\(\\s*${identifier2}(?:\\s*,\\s*${identifier2})*\\s*\\)$`, "i");
-  if (statements.every((statement) => table.test(statement) || index.test(statement))) return "additive";
-  if (statements.every((statement) => /^ALTER\s+TABLE\s+/i.test(statement))) return "contract";
-  return "unknown";
-}
-function compareMigrationInventory(input, files) {
-  const blockers = [];
-  if (!sha.test(input.targetSha) || !sha.test(input.baselineSha)) blockers.push("invalid_exact_sha");
-  const ledger = input.ledger.map(({ name, checksum }) => ({ name, checksum })).sort(compare);
-  const names = /* @__PURE__ */ new Set();
-  for (const entry of ledger) {
-    if (!entry.name.endsWith(".sql") || entry.name.includes("/") || entry.name.includes("\\") || !hash.test(entry.checksum)) blockers.push("invalid_ledger_entry");
-    if (names.has(entry.name)) blockers.push(`duplicate_ledger:${entry.name}`);
-    names.add(entry.name);
-  }
-  const sourceNames = /* @__PURE__ */ new Set();
-  let previous;
-  for (const file of files) {
-    if (sourceNames.has(file.name) || previous !== void 0 && previous >= file.name) blockers.push(`invalid_source_order:${file.name}`);
-    if (!hash.test(file.checksum) || migrationHash(file.sql) !== file.checksum) blockers.push(`source_checksum_mismatch:${file.name}`);
-    sourceNames.add(file.name);
-    previous = file.name;
-  }
-  const drift = [];
-  for (const applied of ledger) {
-    const source2 = files.find((file) => file.name === applied.name);
-    if (!source2) {
-      blockers.push(`applied_source_missing:${applied.name}`);
-      continue;
-    }
-    if (source2.checksum !== applied.checksum) {
-      const supplied = input.legacyDriftEvidence?.find((item) => item.name === applied.name);
-      const evidence = supplied && supplied.ledgerChecksum === applied.checksum && supplied.sourceChecksum === source2.checksum && supplied.baselineSourceChecksum === source2.checksum && supplied.runningImageSourceChecksum === source2.checksum && hash.test(supplied.evidenceSha256) ? {
-        name: supplied.name,
-        ledgerChecksum: supplied.ledgerChecksum,
-        sourceChecksum: supplied.sourceChecksum,
-        baselineSourceChecksum: supplied.baselineSourceChecksum,
-        runningImageSourceChecksum: supplied.runningImageSourceChecksum,
-        evidenceSha256: supplied.evidenceSha256
-      } : null;
-      drift.push({ name: applied.name, ledgerChecksum: applied.checksum, sourceChecksum: source2.checksum, evidence });
-      blockers.push(`applied_checksum_drift:${applied.name}`);
-      if (!evidence) blockers.push(`legacy_drift_evidence_missing:${applied.name}`);
-    }
-  }
-  const pending = files.filter((file) => !names.has(file.name)).map((file) => ({ name: file.name, checksum: file.checksum, risk: classifyMigration(file.sql) }));
-  for (const file of pending) if (file.risk !== "additive") blockers.push(`pending_${file.risk}:${file.name}`);
-  const lastApplied = ledger.at(-1)?.name;
-  for (const file of pending) if (lastApplied && file.name < lastApplied) blockers.push(`out_of_order_pending:${file.name}`);
-  if (input.snapshotEvidence && (input.snapshotEvidence.ledgerSha256 !== canonicalHash(ledger) || input.snapshotEvidence.independentSqlCount !== ledger.length)) blockers.push("snapshot_inventory_binding_mismatch");
-  const body = {
-    schemaVersion: 1,
-    targetSha: input.targetSha,
-    baselineSha: input.baselineSha,
-    baselineLedgerSha256: canonicalHash(ledger),
-    sourceInventorySha256: canonicalHash(files.map(({ name, checksum }) => ({ name, checksum }))),
-    pendingSha256: canonicalHash(pending.map(({ name, checksum }) => ({ name, checksum }))),
-    ...input.snapshotEvidence ? { snapshotEvidence: input.snapshotEvidence } : {},
-    ledger,
-    pending,
-    drift,
-    blockers: [...new Set(blockers)].sort(),
-    ready: blockers.length === 0,
-    scope: "read-only-plan",
-    productionMigrationAuthorized: false
-  };
-  return { ...body, planSha256: canonicalHash(body) };
-}
-async function generateMigrationPlan(checkout, input) {
-  const root = (0, import_node_fs2.realpathSync)((0, import_node_path.resolve)(checkout));
-  const git = (...args) => (0, import_node_child_process2.execFileSync)("git", ["-C", root, ...args], { encoding: "utf8" }).trim();
-  if (!sha.test(input.targetSha) || git("rev-parse", "HEAD") !== input.targetSha) throw new Error("target checkout SHA mismatch");
-  const migratorPath = "apps/api/src/infrastructure/db/migrator.ts";
-  const migrationPath = "apps/api/migrations";
-  if (git("status", "--porcelain", "--untracked-files=all", "--", migratorPath, migrationPath)) throw new Error("migration source is not frozen");
-  const authority = await import((0, import_node_url.pathToFileURL)((0, import_node_path.join)(root, migratorPath)).href);
-  if (typeof authority.migrationFiles !== "function") throw new Error("canonical migrationFiles authority missing");
-  const dir = (0, import_node_path.join)(root, migrationPath);
-  const files = authority.migrationFiles(dir).map((name) => {
-    const path2 = (0, import_node_path.join)(dir, name);
-    if (!(0, import_node_fs2.lstatSync)(path2).isFile() || (0, import_node_fs2.realpathSync)(path2) !== path2) throw new Error(`migration must be a regular tracked file: ${name}`);
-    const sql = (0, import_node_fs2.readFileSync)(path2, "utf8");
-    if (git("ls-files", "--error-unmatch", "--", `${migrationPath}/${name}`) !== `${migrationPath}/${name}` || migrationHash((0, import_node_child_process2.execFileSync)("git", ["-C", root, "show", `${input.targetSha}:${migrationPath}/${name}`])) !== migrationHash(sql)) throw new Error(`migration differs from target: ${name}`);
-    return { name, checksum: migrationHash(sql), sql };
-  });
-  return compareMigrationInventory(input, files);
-}
-
-// packages/cloud-deploy/src/cn-migration-snapshot.ts
-var import_node_crypto4 = require("node:crypto");
-var import_node_zlib = require("node:zlib");
-var import_node_util = require("node:util");
-
-// packages/cloud-deploy/src/cn-migration-source-identity.ts
-var import_node_crypto3 = require("node:crypto");
-var import_node_net = require("node:net");
-
 // packages/cloud-deploy/src/config.ts
 var RDS_TLS_EXCEPTION_KIND = "aliyun-postgresql-serverless-no-tls";
 var text = external_exports.string().min(1).max(512).regex(/^(?!.*REPLACE_WITH_)[^\s\u0000-\u001f]+$/);
@@ -9806,7 +9361,9 @@ var deploymentConfigSchema = deploymentInputSchema.superRefine((config, ctx) => 
 });
 
 // packages/cloud-deploy/src/cn-migration-source-identity.ts
-var hash2 = external_exports.string().regex(/^[a-f0-9]{64}$/);
+var import_node_crypto = require("node:crypto");
+var import_node_net = require("node:net");
+var hash = external_exports.string().regex(/^[a-f0-9]{64}$/);
 var id = external_exports.string().min(1).max(200).regex(/^[A-Za-z0-9_.:-]+$/);
 var port = external_exports.number().int().min(1).max(65535);
 var migrationSourceSchema = external_exports.object({
@@ -9815,14 +9372,14 @@ var migrationSourceSchema = external_exports.object({
   dbInstanceId: id,
   database: id,
   user: id,
-  endpointSha256: hash2,
-  serverAddressSha256: hash2.nullable(),
+  endpointSha256: hash,
+  serverAddressSha256: hash.nullable(),
   port: port.nullable(),
   identityLane: external_exports.enum(["sql-server-address", "aliyun-private-endpoint"]),
-  clientPeerAddressSha256: hash2,
+  clientPeerAddressSha256: hash,
   clientPeerPort: port,
-  configurationSha256: hash2,
-  providerEvidenceSha256: hash2,
+  configurationSha256: hash,
+  providerEvidenceSha256: hash,
   sslMode: external_exports.enum(["disable", "verify-full"]),
   clientEncrypted: external_exports.boolean(),
   clientTlsAuthorized: external_exports.boolean()
@@ -9832,8 +9389,8 @@ var exception = deploymentInputSchema.shape.environment.options[1].shape.rdsTlsE
 var sourceEvidenceSchema = external_exports.object({
   request: external_exports.object({ regionId: id, dbInstanceId: id }).strict(),
   configuration: external_exports.object({
-    sha256: hash2,
-    endpointSha256: hash2,
+    sha256: hash,
+    endpointSha256: hash,
     regionId: id,
     rdsInstanceId: id,
     host: external_exports.string().min(1).max(253).regex(/^[a-zA-Z0-9.-]+$/),
@@ -9863,7 +9420,7 @@ var sourceEvidenceSchema = external_exports.object({
     IPAddress: external_exports.string()
   }).passthrough()).min(1).max(32) }).passthrough() }).passthrough()
 }).strict();
-var identityHash = (v) => (0, import_node_crypto3.createHash)("sha256").update(v).digest("hex");
+var identityHash = (v) => (0, import_node_crypto.createHash)("sha256").update(v).digest("hex");
 function canonical(v) {
   if (Array.isArray(v)) return v.map(canonical);
   if (v !== null && typeof v === "object") return Object.fromEntries(Object.entries(v).sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0).map(([k, value]) => [k, canonical(value)]));
@@ -9884,284 +9441,22 @@ function inCidr(ip, cidr) {
 function privateAddress(ip) {
   return ["10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"].some((c) => inCidr(ip, c));
 }
-function verifyExternalSourceIdentity(source2, e) {
+function verifyExternalSourceIdentity(source, e) {
   const c = e.configuration, a = e.attributeResponse.Items.DBInstanceAttribute[0];
-  if (c.regionId !== e.request.regionId || c.rdsInstanceId !== e.request.dbInstanceId || source2.accountId !== e.stsResponse.AccountId || source2.regionId !== e.request.regionId || source2.dbInstanceId !== e.request.dbInstanceId || a.DBInstanceId !== source2.dbInstanceId || a.RegionId !== source2.regionId || a.ConnectionString !== c.host || Number(a.Port) !== c.port || source2.database !== c.database || source2.user !== c.user || source2.configurationSha256 !== c.sha256 || source2.sslMode !== c.sslMode || source2.endpointSha256 !== c.endpointSha256 || source2.endpointSha256 !== identityHash(`${c.host}:${c.port}`) || source2.providerEvidenceSha256 !== providerIdentityDigest(e)) return false;
+  if (c.regionId !== e.request.regionId || c.rdsInstanceId !== e.request.dbInstanceId || source.accountId !== e.stsResponse.AccountId || source.regionId !== e.request.regionId || source.dbInstanceId !== e.request.dbInstanceId || a.DBInstanceId !== source.dbInstanceId || a.RegionId !== source.regionId || a.ConnectionString !== c.host || Number(a.Port) !== c.port || source.database !== c.database || source.user !== c.user || source.configurationSha256 !== c.sha256 || source.sslMode !== c.sslMode || source.endpointSha256 !== c.endpointSha256 || source.endpointSha256 !== identityHash(`${c.host}:${c.port}`) || source.providerEvidenceSha256 !== providerIdentityDigest(e)) return false;
   const endpoints = e.netInfoResponse.DBInstanceNetInfos.DBInstanceNetInfo.filter((n2) => n2.IPType === "Private" && n2.ConnectionString === c.host && Number(n2.Port) === c.port && n2.VPCId === a.VpcId);
   if (endpoints.length !== 1) return false;
   const n = endpoints[0];
-  if (!privateAddress(n.IPAddress) || source2.clientPeerAddressSha256 !== identityHash(n.IPAddress) || source2.clientPeerPort !== c.port) return false;
+  if (!privateAddress(n.IPAddress) || source.clientPeerAddressSha256 !== identityHash(n.IPAddress) || source.clientPeerPort !== c.port) return false;
   if (c.sslMode === "disable") {
-    if (source2.clientEncrypted || source2.clientTlsAuthorized || !c.rdsTlsException || !c.rdsTlsException.allowedCidrs.length) return false;
-  } else if (!source2.clientEncrypted || !source2.clientTlsAuthorized) return false;
-  if (source2.identityLane === "aliyun-private-endpoint") return source2.serverAddressSha256 === null && source2.port === null;
-  return source2.serverAddressSha256 !== null && source2.port !== null;
+    if (source.clientEncrypted || source.clientTlsAuthorized || !c.rdsTlsException || !c.rdsTlsException.allowedCidrs.length) return false;
+  } else if (!source.clientEncrypted || !source.clientTlsAuthorized) return false;
+  if (source.identityLane === "aliyun-private-endpoint") return source.serverAddressSha256 === null && source.port === null;
+  return source.serverAddressSha256 !== null && source.port !== null;
 }
-
-// packages/cloud-deploy/src/cn-migration-snapshot.ts
-var hash3 = external_exports.string().regex(/^[a-f0-9]{64}$/);
-var id2 = external_exports.string().min(1).max(200).regex(/^[A-Za-z0-9_.:-]+$/);
-var utc = external_exports.string().datetime({ offset: false });
-var count = external_exports.number().int().nonnegative().max(1e5);
-var source = migrationSourceSchema;
-var migrationSnapshotBindingSchema = external_exports.object({
-  schemaVersion: external_exports.literal(2),
-  source,
-  sourceEvidence: sourceEvidenceSchema,
-  cloud: external_exports.object({ ecsInstanceId: id2, invokeId: id2, commandId: id2, querySha256: hash3 }).strict()
-}).strict();
-var envelope = external_exports.object({
-  schemaVersion: external_exports.literal(2),
-  kind: external_exports.literal("cn-readonly-migration-snapshot"),
-  capturedAt: utc,
-  source,
-  fullResponseBase64: external_exports.string().min(1),
-  fullResponseSha256: hash3
-}).strict();
-var row = external_exports.object({ name: external_exports.string().regex(/^[A-Za-z0-9][A-Za-z0-9_.-]*\.sql$/).max(255), checksum: hash3 }).strict();
-var payload = external_exports.object({
-  schemaVersion: external_exports.literal(2),
-  kind: external_exports.literal("cn-migration-ledger-output"),
-  querySha256: hash3,
-  readOnly: external_exports.literal(true),
-  transactionIsolation: external_exports.literal("repeatable read"),
-  source,
-  independentSqlCount: count,
-  ledger: external_exports.array(row).max(1e5),
-  ledgerSha256: hash3
-}).strict();
-var sha256 = (input) => (0, import_node_crypto4.createHash)("sha256").update(input).digest("hex");
-function migrationLedgerDigest(ledger) {
-  return sha256(JSON.stringify([...ledger].sort((a, b) => a.name < b.name ? -1 : a.name > b.name ? 1 : 0)));
-}
-var MigrationSnapshotError = class extends Error {
-  constructor(code) {
-    super(code);
-    this.code = code;
-    this.name = "MigrationSnapshotError";
-  }
-  code;
-};
-function fail2(code) {
-  throw new MigrationSnapshotError(code);
-}
-function parse(schema2, value) {
-  const result = schema2.safeParse(value);
-  if (!result.success) fail2("MIGRATION_SNAPSHOT_SCHEMA_INVALID");
-  return result.data;
-}
-function decode64(value, max) {
-  if (value.length > Math.ceil(max / 3) * 4 || !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(value)) fail2("MIGRATION_SNAPSHOT_ENCODING_INVALID");
-  const bytes = Buffer.from(value, "base64");
-  if (bytes.toString("base64") !== value || bytes.length > max) fail2("MIGRATION_SNAPSHOT_ENCODING_INVALID");
-  return bytes;
-}
-function json(bytes) {
-  try {
-    return JSON.parse(new import_node_util.TextDecoder("utf-8", { fatal: true }).decode(bytes));
-  } catch {
-    return fail2("MIGRATION_SNAPSHOT_RESPONSE_INVALID");
-  }
-}
-function object(value) {
-  if (typeof value !== "object" || value === null || Array.isArray(value)) fail2("MIGRATION_SNAPSHOT_RESPONSE_INVALID");
-  return value;
-}
-function validateMigrationSnapshot(value, expectedValue) {
-  const expected = parse(migrationSnapshotBindingSchema, expectedValue);
-  const input = parse(envelope, value);
-  if (!verifyExternalSourceIdentity(expected.source, expected.sourceEvidence)) fail2("MIGRATION_SNAPSHOT_EXTERNAL_IDENTITY_INVALID");
-  if (JSON.stringify(input.source) !== JSON.stringify(expected.source)) fail2("MIGRATION_SNAPSHOT_SOURCE_MISMATCH");
-  const bytes = decode64(input.fullResponseBase64, 2 * 1024 * 1024);
-  if (sha256(bytes) !== input.fullResponseSha256) fail2("MIGRATION_SNAPSHOT_RESPONSE_HASH_MISMATCH");
-  const response = object(json(bytes));
-  if (typeof response.RequestId !== "string" || !response.RequestId || response.NextToken !== void 0 && response.NextToken !== "") fail2("MIGRATION_SNAPSHOT_RESPONSE_PARTIAL");
-  const invocation = object(response.Invocation);
-  if (invocation.TotalCount !== 1 || invocation.NextToken !== void 0 && invocation.NextToken !== "") fail2("MIGRATION_SNAPSHOT_RESPONSE_PARTIAL");
-  const results = object(invocation.InvocationResults).InvocationResult;
-  if (!Array.isArray(results) || results.length !== 1) fail2("MIGRATION_SNAPSHOT_RESPONSE_PARTIAL");
-  const result = object(results[0]);
-  if (result.Dropped !== 0) fail2("MIGRATION_SNAPSHOT_OUTPUT_DROPPED");
-  if (result.ExitCode !== 0 || result.InvocationStatus !== "Success" || result.ErrorCode !== void 0 && result.ErrorCode !== "") fail2("MIGRATION_SNAPSHOT_COMMAND_FAILED");
-  if (result.InstanceId !== expected.cloud.ecsInstanceId || result.InvokeId !== expected.cloud.invokeId || result.CommandId !== expected.cloud.commandId) fail2("MIGRATION_SNAPSHOT_CLOUD_IDENTITY_MISMATCH");
-  if (!utc.safeParse(result.FinishedTime).success || typeof result.Output !== "string") fail2("MIGRATION_SNAPSHOT_RESPONSE_INVALID");
-  const finished = Date.parse(result.FinishedTime);
-  if (Date.parse(input.capturedAt) < finished) fail2("MIGRATION_SNAPSHOT_TIME_INVALID");
-  const prefix = "WSX_CN_MIGRATION_SNAPSHOT_V2=";
-  let output;
-  try {
-    output = new import_node_util.TextDecoder("utf-8", { fatal: true }).decode(decode64(result.Output, 24 * 1024));
-  } catch {
-    return fail2("MIGRATION_SNAPSHOT_ENCODING_INVALID");
-  }
-  if (!output.startsWith(prefix) || !/^WSX_CN_MIGRATION_SNAPSHOT_V2=[A-Za-z0-9+/]+={0,2}\n?$/.test(output)) fail2("MIGRATION_SNAPSHOT_OUTPUT_INVALID");
-  let decoded;
-  try {
-    decoded = json((0, import_node_zlib.gunzipSync)(decode64(output.slice(prefix.length).trimEnd(), 24 * 1024), { maxOutputLength: 8 * 1024 * 1024 }));
-  } catch {
-    return fail2("MIGRATION_SNAPSHOT_OUTPUT_INVALID");
-  }
-  const sql = parse(payload, decoded);
-  if (JSON.stringify(sql.source) !== JSON.stringify(expected.source) || sql.querySha256 !== expected.cloud.querySha256) fail2("MIGRATION_SNAPSHOT_SQL_IDENTITY_MISMATCH");
-  if (sql.independentSqlCount !== sql.ledger.length) fail2("MIGRATION_SNAPSHOT_COUNT_MISMATCH");
-  if (new Set(sql.ledger.map((item) => item.name)).size !== sql.ledger.length) fail2("MIGRATION_SNAPSHOT_DUPLICATE_NAME");
-  if (migrationLedgerDigest(sql.ledger) !== sql.ledgerSha256) fail2("MIGRATION_SNAPSHOT_LEDGER_HASH_MISMATCH");
-  return {
-    ledger: [...sql.ledger].sort((a, b) => a.name < b.name ? -1 : a.name > b.name ? 1 : 0),
-    sourceBindingSha256: sha256(JSON.stringify(expected)),
-    snapshotSha256: sha256(JSON.stringify(input)),
-    fullResponseSha256: input.fullResponseSha256,
-    ledgerSha256: sql.ledgerSha256,
-    independentSqlCount: sql.independentSqlCount,
-    capturedAt: input.capturedAt,
-    scope: "validated-private-read-only-snapshot"
-  };
-}
-
-// packages/cloud-deploy/src/image-reference.ts
-function canonicalDockerReference(reference) {
-  const at = reference.indexOf("@");
-  const name = at < 0 ? reference : reference.slice(0, at);
-  const digest2 = at < 0 ? "" : reference.slice(at);
-  const slash = name.indexOf("/");
-  if (slash < 0) return `docker.io/library/${name}${digest2}`;
-  const first = name.slice(0, slash);
-  if (first === "docker.io" || first === "index.docker.io") {
-    const path2 = name.slice(slash + 1);
-    return `docker.io/${path2.includes("/") ? path2 : `library/${path2}`}${digest2}`;
-  }
-  if (first.includes(".") || first.includes(":") || first === "localhost") return reference;
-  return `docker.io/${reference}`;
-}
-
-// packages/cloud-deploy/src/release.ts
-var digestImage = external_exports.string().max(512).regex(/^[a-z0-9][a-z0-9.-]*(?::[0-9]+)?\/[a-z0-9]+(?:[._/-][a-z0-9]+)*@sha256:[a-f0-9]{64}$/);
-var artifact = external_exports.object({ image: digestImage }).strict();
-var releaseManifestSchema = external_exports.object({
-  schemaVersion: external_exports.literal(1),
-  release: external_exports.string().regex(/^v?\d+\.\d+\.\d+(?:-[a-zA-Z0-9]+(?:[.-][a-zA-Z0-9]+)*)?$/),
-  sourceRevision: external_exports.string().regex(/^[a-f0-9]{40}$/),
-  platform: external_exports.enum(["linux/amd64", "linux/arm64"]),
-  images: external_exports.object({ web: artifact, api: artifact, agent: artifact, sandbox: artifact, postgres: artifact, redis: artifact }).strict()
-}).strict();
-function validateReleaseManifest(input) {
-  const result = releaseManifestSchema.safeParse(input);
-  if (!result.success) throw new Error(`INVALID_RELEASE_MANIFEST: ${[...new Set(result.error.issues.map((issue) => issue.path.join(".")))].join(", ")}`);
-  return result.data;
-}
-function requiredReleaseImages(manifest, profile) {
-  const services = ["web", "api", "agent", "sandbox"];
-  if (profile === "starter") services.push("postgres", "redis");
-  return services.map((service) => ({ service, image: manifest.images[service].image }));
-}
-async function verifyPrewarmedRelease(manifestInput, profile, execute) {
-  const manifest = validateReleaseManifest(manifestInput);
-  const checked = [];
-  for (const { service, image } of requiredReleaseImages(manifest, profile)) {
-    let raw;
-    try {
-      raw = JSON.parse(await execute(["docker", "image", "inspect", image]));
-    } catch {
-      throw new Error(`RELEASE_IMAGE_UNAVAILABLE: ${service}`);
-    }
-    const inspection = external_exports.array(external_exports.object({
-      Os: external_exports.string(),
-      Architecture: external_exports.string(),
-      RepoDigests: external_exports.array(external_exports.string()),
-      Config: external_exports.object({ Labels: external_exports.record(external_exports.string()).nullable().optional() })
-    })).length(1).safeParse(raw);
-    if (!inspection.success) throw new Error(`INVALID_IMAGE_INSPECTION: ${service}`);
-    const actual = inspection.data[0];
-    if (!actual.RepoDigests.map(canonicalDockerReference).includes(canonicalDockerReference(image))) throw new Error(`IMAGE_DIGEST_MISMATCH: ${service}`);
-    if (`${actual.Os}/${actual.Architecture}` !== manifest.platform) throw new Error(`IMAGE_PLATFORM_MISMATCH: ${service}`);
-    if (!["postgres", "redis"].includes(service) && actual.Config.Labels?.["org.opencontainers.image.revision"] !== manifest.sourceRevision) {
-      throw new Error(`IMAGE_REVISION_MISMATCH: ${service}`);
-    }
-    checked.push(service);
-  }
-  return { release: manifest.release, sourceRevision: manifest.sourceRevision, checked, cloudVerified: false };
-}
-
-// packages/cloud-deploy/src/cn-migration-completion.ts
-function reject(code) {
-  throw new Error(`MIGRATION_COMPLETION_${code}`);
-}
-async function verifyMigrationCompletion(snapshotInput, bindingInput, checkout, expected, now = /* @__PURE__ */ new Date(), ttlMs = 36e5) {
-  if (!releaseManifestSchema.shape.sourceRevision.safeParse(expected.sourceRevision).success || !releaseManifestSchema.shape.sourceRevision.safeParse(expected.baselineRevision).success || !releaseManifestSchema.shape.release.safeParse(expected.release).success || typeof expected.attemptId !== "string" || !/^[A-Za-z0-9-]{1,128}$/.test(expected.attemptId) || typeof expected.originalPlanSha256 !== "string" || !/^[a-f0-9]{64}$/.test(expected.originalPlanSha256)) reject("RELEASE_BINDING_INVALID");
-  if (!Number.isFinite(now.getTime()) || !Number.isSafeInteger(ttlMs) || ttlMs <= 0 || ttlMs > 36e5) reject("FRESHNESS_WINDOW_INVALID");
-  const binding = migrationSnapshotBindingSchema.parse(bindingInput);
-  const productionSource = migrationSourceSchema.parse(expected.productionSource);
-  if (JSON.stringify(binding.source) !== JSON.stringify(productionSource)) reject("PRODUCTION_TARGET_MISMATCH");
-  const snapshot = validateMigrationSnapshot(snapshotInput, binding);
-  const response = JSON.parse(Buffer.from(snapshotInput.fullResponseBase64, "base64").toString("utf8"));
-  const finishedAt = response.Invocation.InvocationResults.InvocationResult[0].FinishedTime;
-  for (const timestamp of [snapshot.capturedAt, finishedAt]) {
-    const observed = Date.parse(timestamp);
-    if (!Number.isFinite(observed) || observed > now.getTime() || now.getTime() - observed >= ttlMs) reject("SNAPSHOT_NOT_FRESH");
-  }
-  const original = expected.originalPlan;
-  if (!original || original.targetSha !== expected.sourceRevision || original.baselineSha !== expected.baselineRevision || original.planSha256 !== expected.originalPlanSha256 || original.drift.length !== 0) reject("ORIGINAL_PLAN_BINDING_INVALID");
-  const recomputed = await generateMigrationPlan(checkout, {
-    targetSha: expected.sourceRevision,
-    baselineSha: expected.baselineRevision,
-    ledger: original.ledger,
-    ...original.snapshotEvidence ? { snapshotEvidence: original.snapshotEvidence } : {}
-  });
-  if (recomputed.planSha256 !== expected.originalPlanSha256) reject("ORIGINAL_PLAN_CHANGED");
-  const after = await generateMigrationPlan(checkout, {
-    targetSha: expected.sourceRevision,
-    baselineSha: expected.baselineRevision,
-    ledger: snapshot.ledger,
-    snapshotEvidence: {
-      snapshotSha256: snapshot.snapshotSha256,
-      sourceBindingSha256: snapshot.sourceBindingSha256,
-      fullResponseSha256: snapshot.fullResponseSha256,
-      ledgerSha256: snapshot.ledgerSha256,
-      independentSqlCount: snapshot.independentSqlCount,
-      capturedAt: snapshot.capturedAt
-    }
-  });
-  if (after.sourceInventorySha256 !== recomputed.sourceInventorySha256 || after.pending.length !== 0 || after.drift.length !== 0 || after.blockers.length !== 0 || !after.ready) reject("LEDGER_INCOMPLETE_OR_DRIFTED");
-  return {
-    schemaVersion: 1,
-    scope: "validated-production-migration-completion",
-    sourceRevision: expected.sourceRevision,
-    baselineRevision: expected.baselineRevision,
-    attemptId: expected.attemptId,
-    release: expected.release,
-    originalPlanSha256: expected.originalPlanSha256,
-    completionPlanSha256: after.planSha256,
-    sourceInventorySha256: after.sourceInventorySha256,
-    sourceBindingSha256: snapshot.sourceBindingSha256,
-    snapshotSha256: snapshot.snapshotSha256,
-    fullResponseSha256: snapshot.fullResponseSha256,
-    ledgerSha256: snapshot.ledgerSha256,
-    appliedSqlCount: snapshot.independentSqlCount,
-    pendingCount: 0,
-    driftCount: 0,
-    unknownAppliedCount: 0,
-    capturedAt: snapshot.capturedAt,
-    providerFinishedAt: finishedAt,
-    expiresAt: new Date(Math.min(Date.parse(snapshot.capturedAt), Date.parse(finishedAt)) + ttlMs).toISOString(),
-    productionMutationAuthorized: false
-  };
-}
-
-// ../../../Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/pg@8.22.0/node_modules/pg/esm/index.mjs
-var import_lib = __toESM(require_lib2(), 1);
-var Client = import_lib.default.Client;
-var Pool = import_lib.default.Pool;
-var Connection = import_lib.default.Connection;
-var types = import_lib.default.types;
-var Query = import_lib.default.Query;
-var DatabaseError = import_lib.default.DatabaseError;
-var escapeIdentifier = import_lib.default.escapeIdentifier;
-var escapeLiteral = import_lib.default.escapeLiteral;
-var Result = import_lib.default.Result;
-var TypeOverrides = import_lib.default.TypeOverrides;
-var defaults = import_lib.default.defaults;
 
 // packages/cloud-deploy/src/cn-maintenance-host/pinned-app-9b/migration-pg.ts
+var active;
 var exceptionSchema = deploymentInputSchema.shape.environment.options[1].shape.rdsTlsException.unwrap();
 function ipv4Number(address) {
   if (!/^(?:\d{1,3}\.){3}\d{1,3}$/.test(address)) return;
@@ -10169,10 +9464,10 @@ function ipv4Number(address) {
   if (parts.some((p) => p > 255)) return;
   return parts.reduce((n, p) => n * 256 + p >>> 0, 0);
 }
-function approveExistingNoTls(source2, sourceEvidence, approved, localAddress) {
+function approveExistingNoTls(source, sourceEvidence, approved, localAddress) {
   const evidence = sourceEvidenceSchema.parse(sourceEvidence);
   const exception2 = exceptionSchema.parse(approved);
-  if (source2.sslMode !== "disable" || !verifyExternalSourceIdentity(source2, evidence) || JSON.stringify(exception2) !== JSON.stringify(evidence.configuration.rdsTlsException)) throw new Error("MIGRATION_NO_TLS_EXCEPTION_UNAPPROVED");
+  if (source.sslMode !== "disable" || !verifyExternalSourceIdentity(source, evidence) || JSON.stringify(exception2) !== JSON.stringify(evidence.configuration.rdsTlsException)) throw new Error("MIGRATION_NO_TLS_EXCEPTION_UNAPPROVED");
   if (localAddress !== void 0) {
     const address = ipv4Number(localAddress.replace(/^::ffff:/, ""));
     const permitted = address !== void 0 && exception2.allowedCidrs.some((cidr) => {
@@ -10195,1051 +9490,132 @@ function verifyMigrationPeer(expected, observed, options) {
     approveExistingNoTls(expected, options?.sourceEvidence, options?.approvedRdsTlsException, observed.localAddress);
   }
 }
-
-// packages/cloud-deploy/src/cn-fast-safe-release.ts
-var import_node_crypto5 = require("node:crypto");
-var sha2 = external_exports.string().regex(/^[a-f0-9]{40}$/);
-var sha2562 = external_exports.string().regex(/^[a-f0-9]{64}$/);
-var digest = external_exports.string().regex(/^sha256:[a-f0-9]{64}$/);
-var terminalCheck = external_exports.object({ status: external_exports.literal("passed"), evidenceSha256: sha2562 }).strict();
-var failureClass = external_exports.enum(["stale-test", "infrastructure", "product", "unknown"]);
-var waiverSchema = external_exports.object({
-  issueUrl: external_exports.string().url().regex(/^https:\/\/github\.com\/[^/]+\/[^/]+\/issues\/[1-9][0-9]*$/),
-  evidenceSha256: sha2562,
-  owner: external_exports.string().min(1).max(128).regex(/^[a-zA-Z0-9._-]+$/),
-  expiresAt: external_exports.string().datetime()
-}).strict();
-var releaseFailureSchema = external_exports.object({
-  check: external_exports.string().min(1).max(128).regex(/^[a-zA-Z0-9._-]+$/),
-  classification: failureClass,
-  waiver: waiverSchema.optional()
-}).strict();
-var durableConfigSchema = external_exports.object({
-  asrProfile: external_exports.literal(true),
-  platformSuperuserEmails: external_exports.literal(true),
-  githubIssueProfile: external_exports.literal(true),
-  copilotkitExactTimeoutSeconds: external_exports.number().int().min(3600).max(3600),
-  copilotkitPrefixTimeoutSeconds: external_exports.number().int().min(3600).max(3600)
-}).strict();
-var diffSchema = external_exports.object({
-  migrationRisk: external_exports.enum(["none", "compatible", "destructive"]),
-  pendingMigrationCount: external_exports.number().int().nonnegative(),
-  changedServices: external_exports.array(external_exports.enum(["web", "api", "agent", "sandbox"])).max(4)
-}).strict();
-var migrationCompatibilitySchema = external_exports.object({
-  baselineSourceRevision: sha2,
-  sourceRevision: sha2,
-  baselineSha256: sha2562,
-  planSha256: sha2562,
-  pendingSha256: sha2562,
-  scope: external_exports.literal("restored-baseline-runtime"),
-  sqlExecuted: external_exports.literal(true),
-  cleanupPassed: external_exports.literal(true),
-  oldRead: terminalCheck,
-  oldWrite: terminalCheck,
-  candidateRead: terminalCheck,
-  candidateWrite: terminalCheck
-}).strict();
-var imageSetSchema = external_exports.object({ web: digest, api: digest, agent: digest, sandbox: digest }).strict();
-var preparedCnReleaseSchema = external_exports.object({
-  schemaVersion: external_exports.literal(1),
-  status: external_exports.literal("prepared").default("prepared"),
-  sourceRevision: sha2,
-  baselineSha256: sha2562,
-  baselineSourceRevision: sha2.optional(),
-  migrationPlanSha256: sha2562.optional(),
-  pendingMigrationSha256: sha2562.optional(),
-  migrationCompatibility: migrationCompatibilitySchema.optional(),
-  release: external_exports.string().regex(/^v?\d+\.\d+\.\d+(?:-[a-zA-Z0-9]+(?:[.-][a-zA-Z0-9]+)*)?$/),
-  manifestSha256: sha2562,
-  images: imageSetSchema,
-  diff: diffSchema,
-  durableConfig: durableConfigSchema,
-  checks: external_exports.object({
-    sourceFrozen: terminalCheck,
-    imagesImmutable: terminalCheck,
-    canonicalConfigRendered: terminalCheck,
-    migrationAssessed: terminalCheck,
-    databaseBackup: terminalCheck,
-    shadowReadiness: terminalCheck,
-    shadowBusiness: terminalCheck
-  }).strict(),
-  failures: external_exports.array(releaseFailureSchema).max(128),
-  preparedAt: external_exports.string().datetime(),
-  expiresAt: external_exports.string().datetime()
-}).strict().superRefine((value, context) => {
-  const prepared = Date.parse(value.preparedAt), expires = Date.parse(value.expiresAt);
-  if (expires <= prepared || expires - prepared > 7 * 864e5) {
-    context.addIssue({ code: external_exports.ZodIssueCode.custom, path: ["expiresAt"], message: "INVALID_PREPARATION_WINDOW" });
-  }
-  if (value.diff.migrationRisk === "destructive") {
-    context.addIssue({ code: external_exports.ZodIssueCode.custom, path: ["diff", "migrationRisk"], message: "DESTRUCTIVE_MIGRATION_REQUIRES_MAINTENANCE_LANE" });
-  }
-  if (value.diff.migrationRisk === "none" && value.diff.pendingMigrationCount !== 0) {
-    context.addIssue({ code: external_exports.ZodIssueCode.custom, path: ["diff", "migrationRisk"], message: "NONEMPTY_PENDING_MIGRATIONS_REQUIRE_ASSESSMENT" });
-  }
-  if (value.diff.migrationRisk === "compatible") {
-    const proof = value.migrationCompatibility;
-    if (!proof || !value.baselineSourceRevision || !value.migrationPlanSha256 || !value.pendingMigrationSha256 || proof.sourceRevision !== value.sourceRevision || proof.baselineSourceRevision !== value.baselineSourceRevision || proof.baselineSha256 !== value.baselineSha256 || proof.planSha256 !== value.migrationPlanSha256 || proof.pendingSha256 !== value.pendingMigrationSha256 || value.checks.migrationAssessed.evidenceSha256 !== value.migrationPlanSha256) {
-      context.addIssue({ code: external_exports.ZodIssueCode.custom, path: ["migrationCompatibility"], message: "EXACT_OLD_NEW_MIGRATION_PROOF_REQUIRED" });
-    }
-  }
-  for (const [index, failure] of value.failures.entries()) {
-    if (failure.waiver && Date.parse(failure.waiver.expiresAt) > expires) {
-      context.addIssue({ code: external_exports.ZodIssueCode.custom, path: ["failures", index, "waiver", "expiresAt"], message: "WAIVER_OUTLIVES_PREPARATION" });
-    }
-  }
-});
-function validatePreparedCnRelease(input) {
-  const result = preparedCnReleaseSchema.safeParse(input);
-  if (!result.success) throw new Error("INVALID_PREPARED_CN_RELEASE");
-  return result.data;
-}
-function verifyPreparedReleaseManifest(receiptInput, manifestBytes) {
-  const receipt = validatePreparedCnRelease(receiptInput);
-  let manifest;
+async function withExistingMigrationPeer(existingClient, source, operation, options) {
+  if (active) throw new Error("MIGRATION_CONNECTION_CONTEXT_BUSY");
+  const value = migrationSourceSchema.parse(source);
+  if (value.sslMode === "disable") approveExistingNoTls(value, options?.sourceEvidence, options?.approvedRdsTlsException);
+  active = { existingClient, source: value, ...options };
   try {
-    manifest = validateReleaseManifest(JSON.parse(manifestBytes.toString("utf8")));
-  } catch {
-    throw new Error("PREPARED_MANIFEST_INVALID");
-  }
-  if (manifest.sourceRevision !== receipt.sourceRevision || (0, import_node_crypto5.createHash)("sha256").update(manifestBytes).digest("hex") !== receipt.manifestSha256) throw new Error("PREPARED_MANIFEST_MISMATCH");
-  for (const service of ["web", "api", "agent", "sandbox"]) {
-    if (manifest.images[service].image.split("@").at(-1) !== receipt.images[service]) throw new Error("PREPARED_IMAGE_MISMATCH");
-  }
-  return manifest;
-}
-function classifyReleaseFailures(failures, now = /* @__PURE__ */ new Date()) {
-  const blocked = [], waived = [];
-  for (const failure of failures) {
-    const eligible = failure.classification === "stale-test" || failure.classification === "infrastructure";
-    const validWaiver = eligible && failure.waiver && Date.parse(failure.waiver.expiresAt) > now.getTime();
-    (validWaiver ? waived : blocked).push(failure.check);
-  }
-  return { blocked, waived };
-}
-async function activatePreparedCnRelease(input, actions, options = {}) {
-  const receipt = validatePreparedCnRelease(input), now = options.now ?? /* @__PURE__ */ new Date(), deadlineMs = options.deadlineMs ?? 3e5;
-  if (!Number.isSafeInteger(deadlineMs) || deadlineMs <= 0 || deadlineMs > 3e5) throw new Error("INVALID_ACTIVATION_DEADLINE");
-  const started = performance.now();
-  const report = (status, code) => ({ status, code, durationMs: Math.round(performance.now() - started) });
-  if (Date.parse(receipt.expiresAt) <= now.getTime()) return report("blocked", "PREPARATION_EXPIRED");
-  if (classifyReleaseFailures(receipt.failures, now).blocked.length) return report("blocked", "PREPARATION_GATES_BLOCKED");
-  const controller = new AbortController(), timer = setTimeout(() => controller.abort(), deadlineMs);
-  let promoted = false;
-  const active = () => {
-    if (controller.signal.aborted || performance.now() - started >= deadlineMs) throw new Error("ACTIVATION_DEADLINE_EXCEEDED");
-  };
-  try {
-    if (await actions.readBaselineFingerprint() !== receipt.baselineSha256) return report("blocked", "BASELINE_CAS_MISMATCH");
-    const drain = await actions.drainRuns();
-    active();
-    if ([drain.queued, drain.running, drain.writebackPending].some((value) => !Number.isSafeInteger(value) || value !== 0)) return report("blocked", "RUN_DRAIN_INCOMPLETE");
-    await actions.promotePreparedPointer();
-    promoted = true;
-    active();
-    await actions.activateTraffic();
-    active();
-    const canonical3 = await actions.verifyCanonical();
-    active();
-    if (canonical3.status !== "passed" || canonical3.lockRetained || canonical3.passedStages !== 8) throw new Error("CANONICAL_GATE_FAILED");
-    const browser = await actions.runBrowserSmoke();
-    active();
-    if (!Object.values(browser).every((value) => value === true)) throw new Error("BROWSER_SMOKE_FAILED");
-    return report("passed", "ACTIVATED");
-  } catch (error) {
-    if (!promoted) return report("blocked", "ACTIVATION_PRECONDITION_FAILED");
-    const code = error instanceof Error && ["CANONICAL_GATE_FAILED", "BROWSER_SMOKE_FAILED"].includes(error.message) ? error.message : "ACTIVATION_FAILED";
-    try {
-      await actions.restoreBaseline();
-      await actions.restorePointer();
-      return report("rolled-back", code);
-    } catch {
-      return report("rollback-unproven", code);
-    }
+    return await operation();
   } finally {
-    clearTimeout(timer);
+    active = void 0;
   }
 }
-
-// packages/cloud-deploy/src/cn-maintenance-host/reused_actions.ts
-function offlinePreparedAction(receipt, manifestBytes, verifyOfflineArtifacts) {
-  return async (identity) => {
-    const prepared = validatePreparedCnRelease(receipt);
-    const manifest = verifyPreparedReleaseManifest(receipt, manifestBytes);
-    if (prepared.sourceRevision !== identity.sourceRevision || manifest.sourceRevision !== identity.sourceRevision) throw new Error("OFFLINE_APPLICATION_IDENTITY_MISMATCH");
-    await verifyOfflineArtifacts();
-  };
-}
-function exactMigrationAction(input, transport) {
-  return async (identity) => {
-    if (input.plan.targetSha !== identity.sourceRevision || input.plan.baselineSha !== identity.baselineRevision || input.expectedCompletion.originalPlanSha256 !== identity.migrationPlanSha256 || input.expectedCompletion.attemptId !== identity.attemptId || input.expectedCompletion.sourceRevision !== identity.sourceRevision || input.expectedCompletion.baselineRevision !== identity.baselineRevision) throw new Error("EXACT_MIGRATION_BINDING_MISMATCH");
-    if (!migrationSourceSchema.safeParse(input.expectedCompletion.productionSource).success) throw new Error("EXACT_MIGRATION_PRODUCTION_SOURCE_INVALID");
-    const recomputed = await generateMigrationPlan(input.checkout, input.plan);
-    const permitted = /* @__PURE__ */ new Set(["pending_contract", "pending_destructive"]);
-    if (recomputed.planSha256 !== identity.migrationPlanSha256 || recomputed.drift.length || recomputed.blockers.some((code) => !permitted.has(code))) throw new Error("EXACT_MIGRATION_PLAN_CHANGED_OR_UNSAFE");
-    if (!input.expectedCompletion.originalPlan || JSON.stringify(input.expectedCompletion.originalPlan) !== JSON.stringify(recomputed)) throw new Error("EXACT_MIGRATION_ORIGINAL_PLAN_CHANGED");
-    await transport.verifyLiveWriterBarrier();
-    const result = await transport.migrate();
-    if (JSON.stringify(result.applied) !== JSON.stringify(recomputed.pending.map((x) => x.name)) || JSON.stringify(result.skipped) !== JSON.stringify(recomputed.ledger.map((x) => x.name))) throw new Error("EXACT_MIGRATION_APPLIED_SET_MISMATCH");
-    await transport.verifyLiveWriterBarrier();
-    const after = await transport.readFreshCompletion();
-    await verifyMigrationCompletion(after.snapshot, after.binding, input.checkout, input.expectedCompletion);
-  };
-}
-function preparedActivationAction(receipt, actions) {
-  return async (identity) => {
-    const prepared = validatePreparedCnRelease(receipt);
-    if (prepared.sourceRevision !== identity.sourceRevision) throw new Error("ACTIVATION_IDENTITY_MISMATCH");
-    const report = await activatePreparedCnRelease(receipt, actions);
-    if (report.status !== "passed") throw new Error("MAINTENANCE_ACTIVATION_NOT_ACCEPTED");
-  };
-}
-
-// packages/cloud-deploy/src/cn-migration-completion-cli.ts
-var import_node_fs3 = __toESM(require("node:fs"), 1);
-var import_node_child_process3 = require("node:child_process");
-var import_node_path2 = require("node:path");
-var import_node_crypto6 = require("node:crypto");
-function readProtectedCompletionBytes(path2, mode = 384, fixture) {
-  const uid = fixture?.uid ?? 0, gid = fixture?.gid ?? 0;
-  for (let parent = (0, import_node_path2.dirname)(path2); ; parent = (0, import_node_path2.dirname)(parent)) {
-    const st = import_node_fs3.default.lstatSync(parent);
-    if (!st.isDirectory() || st.isSymbolicLink() || st.uid !== uid || st.gid !== gid || st.mode & 18) throw new Error("MIGRATION_COMPLETION_INPUT_PARENT");
-    if (parent === (fixture?.boundary ?? "/")) break;
+var Client2 = class {
+  client;
+  borrowed;
+  constructor(config) {
+    this.borrowed = !!active?.existingClient;
+    this.client = active?.existingClient ?? new esm_default.Client(config);
   }
-  const fd = import_node_fs3.default.openSync(path2, import_node_fs3.default.constants.O_RDONLY | import_node_fs3.default.constants.O_NOFOLLOW);
-  try {
-    const before = import_node_fs3.default.fstatSync(fd);
-    if (!before.isFile() || before.uid !== uid || before.gid !== gid || before.nlink !== 1 || (before.mode & 511) !== mode || before.size > 32 * 1024 * 1024) throw new Error("MIGRATION_COMPLETION_INPUT_FILE");
-    const raw = import_node_fs3.default.readFileSync(fd), after = import_node_fs3.default.fstatSync(fd), named = import_node_fs3.default.lstatSync(path2);
-    if (!named.isFile() || named.isSymbolicLink() || named.dev !== before.dev || named.ino !== before.ino || named.nlink !== 1 || named.uid !== uid || named.gid !== gid || (named.mode & 511) !== mode) throw new Error("MIGRATION_COMPLETION_INPUT_CHANGED");
-    if (before.dev !== after.dev || before.ino !== after.ino || before.size !== after.size || before.mtimeMs !== after.mtimeMs || before.ctimeMs !== after.ctimeMs) throw new Error("MIGRATION_COMPLETION_INPUT_CHANGED");
-    return raw;
-  } finally {
-    import_node_fs3.default.closeSync(fd);
-  }
-}
-function readProtectedCompletionInput(path2, fixture) {
-  const raw = readProtectedCompletionBytes(path2, 384, fixture);
-  return { raw, value: JSON.parse(raw.toString("utf8")) };
-}
-function verifyTrustedCompletionHelper() {
-  const helper = "/usr/local/lib/workspacex-cn/cn-build-tool-identity.py";
-  const profile = readProtectedCompletionInput("/etc/workspacex-cn/trusted-tool-binding.json").value;
-  const raw = readProtectedCompletionBytes(helper, 448);
-  if (!/^[a-f0-9]{40}$/.test(profile.toolRevision ?? "") || (0, import_node_crypto6.createHash)("sha256").update(raw).digest("hex") !== profile.filesSha256?.[".harness/scripts/vm/cn-build-tool-identity.py"]) throw new Error("MIGRATION_COMPLETION_HELPER_BINDING");
-  return helper;
-}
-async function main(args = process.argv.slice(2)) {
-  if (process.getuid?.() !== 0 || process.getgid?.() !== 0 || args.length !== 2 || !/^[a-f0-9]{40}$/.test(args[0]) || !/^[A-Za-z0-9-]{1,128}$/.test(args[1])) throw new Error("MIGRATION_COMPLETION_ROOT_ARGUMENTS");
-  const [source2, attempt] = args;
-  const input = readProtectedCompletionInput(`/etc/workspacex-cn/migration-completion-inputs/${source2}/${attempt}.completed.json`);
-  const value = input.value;
-  if (!value || value.schemaVersion !== 1 || value.kind !== "validated-migration-completion" || value.identity?.sourceRevision !== source2 || value.identity?.attemptId !== attempt || value.expected?.sourceRevision !== source2 || value.expected?.attemptId !== attempt) throw new Error("MIGRATION_COMPLETION_CLI_IDENTITY");
-  const profile = readProtectedCompletionInput("/etc/workspacex-cn/trusted-tool-binding.json").value;
-  if (value.toolRevision !== profile.toolRevision) throw new Error("MIGRATION_COMPLETION_RECEIPT_TOOL");
-  const helper = verifyTrustedCompletionHelper();
-  const checkout = (0, import_node_child_process3.execFileSync)("/usr/bin/python3", [helper, "--completion-checkout", source2, attempt], {
-    encoding: "utf8",
-    timeout: 6e4,
-    maxBuffer: 4096,
-    stdio: ["ignore", "pipe", "pipe", "ignore", "ignore", "ignore", "ignore", "ignore", "ignore", 9],
-    env: { PATH: "/usr/bin:/bin", HOME: "/nonexistent", GIT_CONFIG_NOSYSTEM: "1", GIT_CONFIG_GLOBAL: "/dev/null", GIT_NO_LAZY_FETCH: "1", GIT_NO_REPLACE_OBJECTS: "1", GIT_TERMINAL_PROMPT: "0" }
-  }).trim();
-  if (checkout !== `/var/lib/workspacex-cn/releases/${source2}`) throw new Error("MIGRATION_COMPLETION_CHECKOUT_BINDING");
-  for (const key of Object.keys(process.env)) if (key.startsWith("GIT_")) delete process.env[key];
-  Object.assign(process.env, {
-    GIT_CONFIG_NOSYSTEM: "1",
-    GIT_CONFIG_GLOBAL: "/dev/null",
-    GIT_NO_LAZY_FETCH: "1",
-    GIT_NO_REPLACE_OBJECTS: "1",
-    GIT_TERMINAL_PROMPT: "0",
-    GIT_CONFIG_COUNT: "4",
-    GIT_CONFIG_KEY_0: "core.fsmonitor",
-    GIT_CONFIG_VALUE_0: "false",
-    GIT_CONFIG_KEY_1: "core.hooksPath",
-    GIT_CONFIG_VALUE_1: "/dev/null",
-    GIT_CONFIG_KEY_2: "core.untrackedCache",
-    GIT_CONFIG_VALUE_2: "false",
-    GIT_CONFIG_KEY_3: "gc.auto",
-    GIT_CONFIG_VALUE_3: "0"
-  });
-  const witness = await verifyMigrationCompletion(value.snapshotInput, value.bindingInput, checkout, value.expected);
-  if (JSON.stringify(witness) !== JSON.stringify(value.witness)) throw new Error("MIGRATION_COMPLETION_RECEIPT_WITNESS");
-  process.stdout.write(`CN_MIGRATION_COMPLETION_JSON=${JSON.stringify({ ...witness, protectedInputSha256: (0, import_node_crypto6.createHash)("sha256").update(input.raw).digest("hex") })}
-`);
-}
-if (process.argv[1]?.endsWith("cn-migration-completion-cli.ts")) void main().catch(() => {
-  process.stderr.write("CN_MIGRATION_COMPLETION_REJECTED\n");
-  process.exitCode = 1;
-});
-
-// packages/cloud-deploy/src/cn-maintenance-host/migration_transport.ts
-var hex = external_exports.string().regex(/^[a-f0-9]{64}$/);
-var configSchema = external_exports.object({ host: external_exports.string().min(1).max(253), port: external_exports.number().int().min(1).max(65535), database: external_exports.literal("workspacex"), user: external_exports.string().min(1), password: external_exports.string().min(1), ssl: external_exports.union([external_exports.literal(false), external_exports.object({ rejectUnauthorized: external_exports.literal(true), ca: external_exports.string().min(1) }).strict()]), connectionTimeoutMillis: external_exports.number().int().min(1).max(3e5), statement_timeout: external_exports.number().int().min(1).max(3e5) }).strict();
-var defaults2 = { read: readProtectedCompletionBytes, runBash: runFixedPython, runWriter: void 0, verifyExecutable: (command2) => {
-  const fd = protectedExecutable(command2);
-  (0, import_node_fs4.closeSync)(fd);
-}, now: Date.now, verifyCompletion: verifyMigrationCompletion, persist: async (path2, bytes) => {
-  await inheritedFd9Lock();
-  publishMigrationReceipt(path2, bytes);
-} };
-function createMigrationTransport(inputs, binding, runWriter, lifecycle, fixture) {
-  if (!lifecycle || typeof lifecycle.migrateExactPlan !== "function" || typeof lifecycle.readDiagnosticLedger !== "function" || typeof lifecycle.recordMigrationCompletion !== "function") throw new Error("PERSISTENT_MIGRATION_LIFECYCLE_REQUIRED");
-  const runtime = { ...defaults2, runWriter, ...fixture };
-  const id3 = binding.identity;
-  const root = `/etc/workspacex-cn/maintenance-migration/${id3.sourceRevision}/${id3.attemptId}`;
-  if (id3.sourceRevision !== "9b25bfa65662b96c0826fe67506b562ea46aa6d0" || id3.baselineRevision !== "ba6343199f3c834d6a198f83d0c771614292c82b" || !/^[A-Za-z0-9-]{1,128}$/.test(id3.attemptId) || !hex.safeParse(id3.migrationPlanSha256).success || binding.configPath !== root + "/config.json" || binding.completionPath !== `/etc/workspacex-cn/migration-completion-inputs/${id3.sourceRevision}/${id3.attemptId}.json` || !/^[a-f0-9]{40}$/.test(binding.toolRevision) || !hex.safeParse(binding.configSha256).success || !hex.safeParse(binding.writerPlanCanonicalSha256).success || binding.collector.path !== "/usr/local/lib/workspacex-cn/collect-cn-migration-snapshot.py" || binding.writerFence.path !== "/usr/local/lib/workspacex-cn/host_transport.py" || !Number.isSafeInteger(binding.lockTimeoutMs) || binding.lockTimeoutMs < 1 || binding.lockTimeoutMs > 3e5) throw new Error("MIGRATION_HOST_BINDING_INVALID");
-  const source2 = migrationSourceSchema.parse(inputs.expectedCompletion.productionSource);
-  const ddlSource = migrationSourceSchema.parse(binding.ddlSource);
-  const ddlEvidence = sourceEvidenceSchema.parse(binding.ddlSourceEvidence);
-  if (!verifyExternalSourceIdentity(ddlSource, ddlEvidence) || ddlSource.user === source2.user || ["accountId", "regionId", "dbInstanceId", "database", "endpointSha256", "serverAddressSha256", "port", "identityLane", "clientPeerAddressSha256", "clientPeerPort", "sslMode", "clientEncrypted", "clientTlsAuthorized"].some((key) => ddlSource[key] !== source2[key])) throw new Error("MIGRATION_DDL_DIAGNOSTIC_TARGET_MISMATCH");
-  let startedAt;
-  let completed = false;
-  const config = () => {
-    const raw = runtime.read(binding.configPath);
-    if ((0, import_node_crypto7.createHash)("sha256").update(raw).digest("hex") !== binding.configSha256) throw new Error("MIGRATION_CONFIG_HASH_CHANGED");
-    const cfg = configSchema.parse(JSON.parse(raw.toString("utf8")));
-    if (ddlSource.database !== cfg.database || ddlSource.user !== cfg.user || ddlSource.endpointSha256 !== identityHash(`${cfg.host}:${cfg.port}`)) throw new Error("MIGRATION_CONNECTION_IDENTITY_MISMATCH");
-    const intended = JSON.parse(runtime.read(binding.completionPath).toString("utf8"));
-    const evidence = sourceEvidenceSchema.parse(intended.sourceEvidence);
-    if (!verifyExternalSourceIdentity(source2, evidence)) throw new Error("MIGRATION_EXTERNAL_SOURCE_UNVERIFIED");
-    if (ddlSource.sslMode === "verify-full") {
-      if (cfg.ssl === false || !ddlSource.clientEncrypted || !ddlSource.clientTlsAuthorized) throw new Error("MIGRATION_CONNECTION_TLS_MISMATCH");
-    } else {
-      if (cfg.ssl !== false) throw new Error("MIGRATION_CONNECTION_TLS_MISMATCH");
-      approveExistingNoTls(ddlSource, ddlEvidence, binding.approvedRdsTlsException);
-    }
-    return { cfg, evidence };
-  };
-  const diagnostic = async () => {
-    const report = await lifecycle.readDiagnosticLedger(id3);
-    const connection = report.connection;
-    const socket = connection?.socket;
-    if (!connection || !socket || !Array.isArray(report.ledger) || report.rowCount !== report.ledger.length || new Set(report.ledger.map((row2) => row2.name)).size !== report.ledger.length) throw new Error("MIGRATION_DIAGNOSTIC_PROTOCOL");
-    const intended = JSON.parse(runtime.read(binding.completionPath).toString("utf8"));
-    verifyMigrationPeer(source2, { database: connection.peer.database, user: connection.role, serverAddress: connection.peer.serverAddr, serverPort: connection.peer.serverPort, remoteAddress: socket.remoteAddress, remotePort: socket.remotePort, encrypted: socket.encrypted, authorized: socket.authorized, localAddress: socket.localAddress }, { sourceEvidence: intended.sourceEvidence, approvedRdsTlsException: binding.approvedRdsTlsException });
-    return report.ledger.map(({ name, checksum }) => ({ name, checksum })).sort((a, b) => a.name < b.name ? -1 : a.name > b.name ? 1 : 0);
-  };
-  const barrier = async () => {
-    const result = await runtime.runWriter(binding.writerFence, ["--apply-reviewed-fence", binding.writerPlanPath, binding.writerPlanSha256, "verifyWritesBlocked"]);
-    const fact = JSON.parse(result.stdout);
-    const now = runtime.now() / 1e3;
-    if (fact.schemaVersion !== 1 || fact.kind !== "maintenance-writers-held" || fact.ready !== false || !fact.identity || Object.entries(id3).some(([k, v]) => fact.identity[k] !== v) || Object.keys(fact.identity).length !== 4 || !hex.safeParse(fact.planSha256).success || fact.planSha256 !== binding.writerPlanCanonicalSha256 || typeof fact.observedAt !== "number" || fact.observedAt > now || now - fact.observedAt > 30 || !hex.safeParse(fact.databaseSessionsSha256).success || !Array.isArray(fact.families) || fact.families.join(",") !== "http,socket,queue,background,agent,checkpoint,memory,privileged") throw new Error("MIGRATION_LIVE_WRITER_BARRIER_INVALID");
-  };
-  return {
-    verifyLiveWriterBarrier: barrier,
-    migrate: async () => {
-      if (startedAt !== void 0) throw new Error("MIGRATION_REENTRY_FORBIDDEN");
-      runtime.verifyExecutable(binding.collector);
-      runtime.verifyExecutable(binding.writerFence);
-      const { cfg, evidence } = config();
-      const preflight = JSON.parse((await runtime.runBash(binding.collector, ["--preflight-completion", id3.sourceRevision, id3.attemptId, id3.migrationPlanSha256])).stdout);
-      if (preflight.schemaVersion !== 1 || preflight.kind !== "migration-collector-preflight" || preflight.ready !== false || preflight.toolRevision !== binding.toolRevision || !preflight.identity || Object.keys(preflight.identity).length !== 4 || Object.entries(id3).some(([k, v]) => preflight.identity[k] !== v) || !hex.safeParse(preflight.querySha256).success || preflight.querySha256 !== identityHash("/usr/bin/node /usr/local/lib/workspacex-cn/cn-migration-snapshot-query.cjs --readonly-ledger " + id3.sourceRevision + " " + id3.attemptId + "\n")) throw new Error("MIGRATION_COLLECTOR_PREFLIGHT_FAILED");
-      const before = await diagnostic();
-      if (JSON.stringify(before) !== JSON.stringify(inputs.plan.ledger)) throw new Error("MIGRATION_DIAGNOSTIC_BASELINE_LEDGER_CHANGED");
-      await barrier();
-      startedAt = runtime.now();
-      const result = await lifecycle.migrateExactPlan(id3);
-      await barrier();
-      completed = true;
-      return result;
-    },
-    readFreshCompletion: async () => {
-      if (!completed || startedAt === void 0) throw new Error("MIGRATION_COMPLETION_BEFORE_MIGRATION");
-      await barrier();
-      const liveLedger = await diagnostic();
-      const result = await runtime.runBash(binding.collector, ["--maintenance-completion", id3.sourceRevision, id3.attemptId, id3.migrationPlanSha256]);
-      const value = JSON.parse(result.stdout);
-      if (value.schemaVersion !== 1 || typeof value.providerResponseBase64 !== "string" || !hex.safeParse(value.providerResponseSha256).success) throw new Error("MIGRATION_PROVIDER_RESPONSE_INVALID");
-      const raw = Buffer.from(value.providerResponseBase64, "base64");
-      if (raw.toString("base64") !== value.providerResponseBase64 || (0, import_node_crypto7.createHash)("sha256").update(raw).digest("hex") !== value.providerResponseSha256) throw new Error("MIGRATION_PROVIDER_RESPONSE_INVALID");
-      const actual = JSON.parse(raw.toString("utf8"));
-      const finished = Date.parse(actual.Invocation?.InvocationResults?.InvocationResult?.[0]?.FinishedTime);
-      if (!Number.isFinite(finished) || finished < startedAt || finished > runtime.now()) throw new Error("MIGRATION_COMPLETION_NOT_FROM_THIS_EXECUTION");
-      const intended = JSON.parse(runtime.read(binding.completionPath).toString("utf8"));
-      if (JSON.stringify(intended.expected) !== JSON.stringify(inputs.expectedCompletion)) throw new Error("MIGRATION_COMPLETION_EXPECTED_CHANGED");
-      const snapshot = { schemaVersion: 2, kind: "cn-readonly-migration-snapshot", capturedAt: new Date(runtime.now()).toISOString(), source: source2, fullResponseBase64: value.providerResponseBase64, fullResponseSha256: value.providerResponseSha256 };
-      const sourceBinding = { schemaVersion: 2, source: source2, sourceEvidence: intended.sourceEvidence, cloud: value.cloud };
-      const validated = validateMigrationSnapshot(snapshot, sourceBinding);
-      if (JSON.stringify(validated.ledger) !== JSON.stringify(liveLedger)) throw new Error("MIGRATION_PROVIDER_DIAGNOSTIC_LEDGER_MISMATCH");
-      await barrier();
-      const witness = await runtime.verifyCompletion(snapshot, sourceBinding, inputs.checkout, inputs.expectedCompletion, new Date(runtime.now()));
-      const receiptPath = binding.completionPath.replace(/\.json$/, ".completed.json");
-      const bytes = Buffer.from(JSON.stringify({ schemaVersion: 1, kind: "validated-migration-completion", identity: id3, toolRevision: binding.toolRevision, snapshotInput: snapshot, bindingInput: sourceBinding, expected: inputs.expectedCompletion, witness }) + "\n");
-      const receipt = { path: receiptPath, sha256: (0, import_node_crypto7.createHash)("sha256").update(bytes).digest("hex") };
-      await lifecycle.recordMigrationCompletion(id3, "intent", receipt);
-      await runtime.persist(receiptPath, bytes);
-      await lifecycle.recordMigrationCompletion(id3, "durable", receipt);
-      await barrier();
-      return { snapshot, binding: sourceBinding };
-    }
-  };
-}
-function publishMigrationReceipt(path2, bytes, fixture) {
-  if (!fixture && !/^\/etc\/workspacex-cn\/migration-completion-inputs\/9b25bfa65662b96c0826fe67506b562ea46aa6d0\/[A-Za-z0-9-]{1,128}\.completed\.json$/.test(path2)) throw new Error("MIGRATION_RECEIPT_PATH");
-  if (bytes.length > 8 * 1024 * 1024) throw new Error("MIGRATION_RECEIPT_BOUND");
-  const uid = fixture?.uid ?? 0, gid = fixture?.gid ?? 0;
-  const parent = (0, import_node_path3.dirname)(path2);
-  for (let directory2 = parent; ; directory2 = (0, import_node_path3.dirname)(directory2)) {
-    const info = (0, import_node_fs4.lstatSync)(directory2);
-    if (!info.isDirectory() || info.uid !== uid || info.gid !== gid || info.mode & 18) throw new Error("MIGRATION_RECEIPT_PARENT");
-    if (directory2 === (fixture?.boundary ?? "/")) break;
-  }
-  const directory = (0, import_node_fs4.openSync)(parent, import_node_fs4.constants.O_RDONLY | import_node_fs4.constants.O_DIRECTORY | import_node_fs4.constants.O_NOFOLLOW);
-  const temporary = path2 + "." + process.pid + "." + (0, import_node_crypto8.randomUUID)() + ".tmp";
-  let published = false;
-  try {
-    const fd = (0, import_node_fs4.openSync)(temporary, import_node_fs4.constants.O_WRONLY | import_node_fs4.constants.O_CREAT | import_node_fs4.constants.O_EXCL | import_node_fs4.constants.O_NOFOLLOW, 384);
+  async connect() {
+    const expected = active;
+    if (!expected) throw new Error("MIGRATION_CONNECTION_CONTEXT_REQUIRED");
+    if (!this.borrowed) await this.client.connect();
     try {
-      const st2 = (0, import_node_fs4.fstatSync)(fd);
-      if (st2.uid !== uid || st2.gid !== gid || st2.nlink !== 1) throw new Error("MIGRATION_RECEIPT_OWNER");
-      (0, import_node_fs4.writeFileSync)(fd, bytes);
-      (0, import_node_fs4.fsyncSync)(fd);
-    } finally {
-      (0, import_node_fs4.closeSync)(fd);
+      const result = await this.client.query('SELECT current_database() AS database,current_user AS "user",inet_server_addr()::text AS "serverAddress",inet_server_port() AS "serverPort"');
+      const stream = this.client.connection?.stream;
+      if (result.rows.length !== 1 || !stream) throw new Error("MIGRATION_LIVE_DATABASE_PEER_MISSING");
+      verifyMigrationPeer(expected.source, { ...result.rows[0], remoteAddress: stream.remoteAddress, remotePort: stream.remotePort, encrypted: stream.encrypted === true, authorized: stream.authorized === true, localAddress: stream.localAddress }, expected);
+    } catch (error) {
+      if (!this.borrowed) await this.client.end();
+      throw error;
     }
-    (0, import_node_fs4.linkSync)(temporary, path2);
-    published = true;
-    (0, import_node_fs4.unlinkSync)(temporary);
-    (0, import_node_fs4.fsyncSync)(directory);
-    const st = (0, import_node_fs4.lstatSync)(path2);
-    if (!st.isFile() || st.uid !== uid || st.gid !== gid || st.nlink !== 1 || (st.mode & 511) !== 384) throw new Error("MIGRATION_RECEIPT_READBACK");
-  } catch (error) {
-    if (!published) {
-      try {
-        (0, import_node_fs4.unlinkSync)(temporary);
-      } catch {
+  }
+  query(sql, parameters) {
+    return this.client.query(sql, parameters);
+  }
+  async end() {
+    if (!this.borrowed) await this.client.end();
+  }
+};
+var migration_pg_default = { Client: Client2 };
+
+// packages/cloud-deploy/src/cn-maintenance-host/pinned-app-9b/migrator.ts
+var MIGRATIONS_DIR = "/var/lib/workspacex-cn/releases/9b25bfa65662b96c0826fe67506b562ea46aa6d0/apps/api/migrations";
+var VERSION_TABLE = `
+CREATE TABLE IF NOT EXISTS _kernel_migrations (
+  name       text PRIMARY KEY,
+  checksum   text NOT NULL,
+  applied_at timestamptz NOT NULL DEFAULT now()
+)`;
+var MIGRATION_LOCK_KEY = 8014530119003001;
+function migrationFiles(dir = MIGRATIONS_DIR) {
+  return (0, import_node_fs.readdirSync)(dir).filter((f) => f.endsWith(".sql")).sort();
+}
+async function migrate(cfg, opts = {}) {
+  const dir = opts.dir ?? MIGRATIONS_DIR;
+  const lockTimeoutMs = opts.lockTimeoutMs ?? 1e4;
+  if (!Number.isSafeInteger(lockTimeoutMs) || lockTimeoutMs <= 0 || lockTimeoutMs > 3e5) throw new Error("invalid migration lock timeout");
+  const client = new migration_pg_default.Client(cfg);
+  await client.connect();
+  const applied = [];
+  const skipped = [];
+  try {
+    await client.query("SELECT set_config('lock_timeout', $1, false)", [`${lockTimeoutMs}ms`]);
+    await client.query("SELECT pg_advisory_lock($1)", [MIGRATION_LOCK_KEY]);
+    {
+      const roles = await client.query(
+        "SELECT rolname, rolsuper OR rolbypassrls OR rolcreatedb OR rolcreaterole AS unsafe FROM pg_roles WHERE rolname IN ('app_rw','app_diag_ro')"
+      );
+      if (roles.rows.length !== 2 || roles.rows.some((role) => role.unsafe) || ["app_rw", "app_diag_ro"].includes(cfg.user)) {
+        throw new Error("cloud database roles must be provisioned before migration");
       }
     }
-    throw error;
-  } finally {
-    (0, import_node_fs4.closeSync)(directory);
-  }
-}
-
-// packages/cloud-deploy/src/cn-maintenance-host/activation_transport.ts
-var import_node_crypto9 = require("node:crypto");
-var hash4 = external_exports.string().regex(/^[a-f0-9]{64}$/);
-var identitySchema = external_exports.object({ sourceRevision: external_exports.string().regex(/^[a-f0-9]{40}$/), baselineRevision: external_exports.string().regex(/^[a-f0-9]{40}$/), migrationPlanSha256: hash4, attemptId: external_exports.string().regex(/^[A-Za-z0-9-]{1,128}$/) }).strict();
-var receiptSchema = external_exports.object({
-  prepared: preparedCnReleaseSchema.innerType(),
-  maintenance: external_exports.object({
-    identity: identitySchema,
-    toolRevision: external_exports.string().regex(/^[a-f0-9]{40}$/),
-    recoveryEvidenceSha256: hash4,
-    objectRecoveryEvidenceSha256: hash4,
-    writerPlanSha256: hash4,
-    migrationCompletionSha256: hash4,
-    authorization: external_exports.object({ identity: identitySchema, action: external_exports.literal("maintenance-destructive-activation"), notBefore: external_exports.string().datetime(), expiresAt: external_exports.string().datetime() }).strict()
-  }).strict()
-}).strict();
-var equal = (a, b) => Object.keys(a).length === 4 && ["sourceRevision", "baselineRevision", "migrationPlanSha256", "attemptId"].every((k) => a[k] === b[k]);
-function validateMaintenancePrepared(input, identity, now = /* @__PURE__ */ new Date()) {
-  const r = receiptSchema.parse(input), p = r.prepared, m = r.maintenance, a = m.authorization;
-  if (!equal(m.identity, identity) || !equal(a.identity, identity) || p.sourceRevision !== identity.sourceRevision || p.baselineSourceRevision !== identity.baselineRevision || p.migrationPlanSha256 !== identity.migrationPlanSha256 || p.checks.migrationAssessed.evidenceSha256 !== identity.migrationPlanSha256) throw Error("MAINTENANCE_PREPARED_IDENTITY_MISMATCH");
-  if (p.diff.migrationRisk !== "destructive" || p.diff.pendingMigrationCount < 1 || p.failures.length) throw Error("MAINTENANCE_RISK_ASSESSMENT_REQUIRED");
-  const start = Date.parse(p.preparedAt), end = Date.parse(p.expiresAt), before = Date.parse(a.notBefore), expires = Date.parse(a.expiresAt);
-  if (end <= start || end - start > 7 * 864e5 || now.getTime() < start || now.getTime() >= end || expires <= before || expires - before > 36e5 || now.getTime() < before || now.getTime() >= expires) throw Error("MAINTENANCE_AUTHORIZATION_EXPIRED");
-  return r;
-}
-function maintenanceOfflinePreparedAction(input, bytes, verifyOfflineArtifacts) {
-  return async (identity) => {
-    const { prepared: p } = validateMaintenancePrepared(input, identity);
-    const manifest = validateReleaseManifest(JSON.parse(bytes.toString("utf8")));
-    if (manifest.sourceRevision !== identity.sourceRevision || (0, import_node_crypto9.createHash)("sha256").update(bytes).digest("hex") !== p.manifestSha256) throw Error("MAINTENANCE_MANIFEST_MISMATCH");
-    for (const service of ["web", "api", "agent", "sandbox"]) if (manifest.images[service].image.split("@").at(-1) !== p.images[service]) throw Error("MAINTENANCE_IMAGE_MISMATCH");
-    await verifyOfflineArtifacts();
-  };
-}
-function maintenanceActivationAction(input, actions, now) {
-  return async (identity) => {
-    assertMaintenanceActivationCapability();
-    const { prepared: p } = validateMaintenancePrepared(input, identity, now?.());
-    if (await actions.readBaselineFingerprint() !== p.baselineSha256) throw Error("BASELINE_CAS_MISMATCH");
-    const drain = await actions.drainRuns();
-    if ([drain.queued, drain.running, drain.writebackPending].some((v) => !Number.isSafeInteger(v) || v !== 0)) throw Error("RUN_DRAIN_INCOMPLETE");
-    let promotionAttempted = false;
-    try {
-      promotionAttempted = true;
-      await actions.promotePreparedPointer();
-      await actions.activateTraffic();
-      const c = await actions.verifyCanonical();
-      if (c.status !== "passed" || c.lockRetained !== true || c.passedStages !== 8) throw Error("MAINTENANCE_CANONICAL_REJECTED");
-      const browser = await actions.runBrowserSmoke();
-      if (!["login", "hello", "asr", "githubFeedbackRead", "skillTool", "pdfDownload"].every((k) => browser[k] === true)) throw Error("MAINTENANCE_BROWSER_REJECTED");
-    } catch {
-      if (promotionAttempted) {
+    await client.query(VERSION_TABLE);
+    const done = new Set(
+      (await client.query("SELECT name FROM _kernel_migrations")).rows.map((r) => r.name)
+    );
+    for (const name of migrationFiles(dir)) {
+      if (done.has(name) && !opts.force) {
+        skipped.push(name);
+        continue;
+      }
+      const sql = (0, import_node_fs.readFileSync)((0, import_node_path.join)(dir, name), "utf8");
+      const checksum = (0, import_node_crypto2.createHash)("sha256").update(sql).digest("hex");
+      const TRANSIENT = /tuple concurrently updated|deadlock detected|concurrent update/i;
+      let attempt = 0;
+      for (; ; ) {
+        attempt += 1;
+        await client.query("BEGIN");
         try {
-          await actions.restoreBaseline();
-          await actions.restorePointer();
-        } catch {
-          throw Error("MAINTENANCE_ROLLBACK_UNPROVEN");
+          await client.query(sql);
+          await client.query(
+            `INSERT INTO _kernel_migrations (name, checksum) VALUES ($1, $2)
+               ON CONFLICT (name) DO UPDATE SET checksum = EXCLUDED.checksum`,
+            [name, checksum]
+          );
+          await client.query("COMMIT");
+          break;
+        } catch (e) {
+          await client.query("ROLLBACK");
+          const msg = e.message;
+          if (attempt < 5 && TRANSIENT.test(msg)) {
+            await new Promise((r) => setTimeout(r, 50 * attempt));
+            continue;
+          }
+          throw new Error(`migration ${name} failed: ${msg}`);
         }
       }
-      throw Error("MAINTENANCE_ACTIVATION_NOT_ACCEPTED");
+      applied.push(name);
     }
-  };
-}
-function assertMaintenanceActivationCapability() {
-  throw Error("MAINTENANCE_ACCEPTANCE_WRITER_LANE_NOT_IMPLEMENTED");
-}
-function fixedMaintenanceActivationActions(binding, run = runFixedPython) {
-  const identity = identitySchema.parse(binding.identity);
-  if (!/^[a-f0-9]{40}$/.test(binding.toolRevision) || binding.activationCommand.path !== "/usr/local/lib/workspacex-cn/cn-maintenance-activation.py" || binding.recoveryCommand.path !== "/usr/local/lib/workspacex-cn/cn-production-recovery-executor.py") throw Error("MAINTENANCE_ACTIVATION_COMMAND_BINDING");
-  for (const [plan, base, name] of [[binding.plan, "maintenance-activation", "activation-plan.json"], [binding.recoveryPlan, "maintenance-recovery", "recovery-plan.json"]]) if (plan.path !== `/etc/workspacex-cn/${base}/${identity.sourceRevision}/${identity.attemptId}/${name}` || !hash4.safeParse(plan.sha256).success) throw Error("MAINTENANCE_ACTIVATION_PLAN_BINDING");
-  async function operation(action) {
-    const raw = await run(binding.activationCommand, ["--maintenance-activation-operation", binding.plan.path, binding.plan.sha256, action]);
-    const r = external_exports.object({ schemaVersion: external_exports.literal(1), kind: external_exports.literal("maintenance-activation-operation"), identity: identitySchema, toolRevision: external_exports.string(), planSha256: hash4, action: external_exports.string(), writesHeld: external_exports.literal(true), result: external_exports.record(external_exports.unknown()) }).strict().parse(JSON.parse(raw.stdout));
-    if (!equal(r.identity, identity) || r.toolRevision !== binding.toolRevision || r.planSha256 !== binding.plan.sha256 || r.action !== action) throw Error("MAINTENANCE_ACTIVATION_RESPONSE_BINDING");
-    return r.result;
-  }
-  return {
-    readBaselineFingerprint: async () => external_exports.object({ baselineSha256: hash4 }).strict().parse(await operation("read-baseline-fingerprint")).baselineSha256,
-    drainRuns: async () => external_exports.object({ queued: external_exports.number().int().nonnegative(), running: external_exports.number().int().nonnegative(), writebackPending: external_exports.number().int().nonnegative() }).strict().parse(await operation("read-run-drain")),
-    promotePreparedPointer: async () => {
-      external_exports.object({ pointerPromoted: external_exports.literal(true) }).strict().parse(await operation("promote-prepared-pointer"));
-    },
-    activateTraffic: async () => {
-      external_exports.object({ trafficActivated: external_exports.literal(true) }).strict().parse(await operation("activate-traffic"));
-    },
-    verifyCanonical: async () => external_exports.object({ status: external_exports.literal("passed"), lockRetained: external_exports.literal(true), passedStages: external_exports.literal(8) }).strict().parse(await operation("verify-canonical")),
-    runBrowserSmoke: async () => external_exports.object({ login: external_exports.literal(true), hello: external_exports.literal(true), asr: external_exports.literal(true), githubFeedbackRead: external_exports.literal(true), skillTool: external_exports.literal(true), pdfDownload: external_exports.literal(true) }).strict().parse(await operation("browser-acceptance")),
-    restoreBaseline: async () => {
-      const pin = external_exports.object({ recoveryPlanSha256: hash4 }).strict().parse(await operation("verify-recovery-plan"));
-      if (pin.recoveryPlanSha256 !== binding.recoveryPlan.sha256) throw Error("RECOVERY_PLAN_DRIFT");
-      const r = external_exports.object({ schemaVersion: external_exports.literal(1), kind: external_exports.literal("production-recovery-completed"), identity: identitySchema, receiptSha256: hash4, writesHeld: external_exports.literal(true), ready: external_exports.literal(false) }).strict().parse(JSON.parse((await run(binding.recoveryCommand, ["--execute-production-recovery", binding.recoveryPlan.path])).stdout));
-      if (!equal(r.identity, identity)) throw Error("BASELINE_DATABASE_RECOVERY_IDENTITY");
-      external_exports.object({ baselineRuntimeRecovered: external_exports.literal(true), databaseRecoveryReceiptSha256: hash4 }).strict().superRefine((v, c) => {
-        if (v.databaseRecoveryReceiptSha256 !== r.receiptSha256) c.addIssue({ code: external_exports.ZodIssueCode.custom, message: "RECOVERY_RECEIPT_BINDING" });
-      }).parse(await operation("restore-baseline-runtime"));
-    },
-    restorePointer: async () => {
-      external_exports.object({ baselinePointerRestored: external_exports.literal(true) }).strict().parse(await operation("restore-baseline-pointer"));
-    }
-  };
-}
-
-// packages/cloud-deploy/src/cn-maintenance-host/recovery_audit.ts
-function preholdRecoveryArtifactAudit(verifier, toolRevision, evidenceSha256, run) {
-  if (verifier.path !== "/usr/local/lib/workspacex-cn/cn-maintenance-recovery-evidence-verifier.py" || !/^[a-f0-9]{40}$/.test(toolRevision) || !/^[a-f0-9]{64}$/.test(evidenceSha256)) throw new Error("PREHOLD_AUDIT_BINDING_INVALID");
-  return async (identity) => {
-    if (!/^[a-f0-9]{40}$/.test(identity.sourceRevision) || !/^[A-Za-z0-9-]{1,128}$/.test(identity.attemptId)) throw new Error("PREHOLD_AUDIT_IDENTITY_INVALID");
-    const path2 = `/etc/workspacex-cn/maintenance-evidence/${identity.sourceRevision}/${identity.attemptId}/recovery.json`;
-    const result = await run(verifier, ["--prehold-artifact-audit", path2]);
-    let value;
-    try {
-      value = JSON.parse(result.stdout);
-    } catch {
-      throw new Error("PREHOLD_AUDIT_RESPONSE_INVALID");
-    }
-    const same3 = value?.identity && Object.keys(value.identity).sort().join(",") === Object.keys(identity).sort().join(",") && Object.entries(identity).every(([key, expected]) => value.identity[key] === expected);
-    if (!value || value.schemaVersion !== 1 || value.kind !== "maintenance-recovery-artifact-audit" || !same3 || value.toolRevision !== toolRevision || value.evidenceSha256 !== evidenceSha256 || value.localArtifactEquivalent !== true || !Array.isArray(value.threeDatabases) || [...value.threeDatabases].sort().join(",") !== "workspacex,workspacex_agent,workspacex_memory" || value.ready !== false || value.productionRecoveryVerified !== false) throw new Error("PREHOLD_AUDIT_RESPONSE_INVALID");
-  };
-}
-
-// packages/cloud-deploy/src/cn-maintenance-host/dynamic_gate.ts
-var COLLECTOR = "/usr/local/lib/workspacex-cn/collect-cn-release-preflight.sh";
-var VERIFIER = "/usr/local/lib/workspacex-cn/verify-cn-release-preflight.sh";
-function readProductionValidatedReceipt(identity, release) {
-  if (!/^[a-f0-9]{40}$/.test(identity.sourceRevision) || !/^[a-zA-Z0-9-]{1,128}$/.test(identity.attemptId)) throw new Error("DYNAMIC_IDENTITY_INVALID");
-  const result = protectedPrivateJson(`/var/lib/workspacex-cn/preflight-receipts/${identity.sourceRevision}/${identity.attemptId}/preactivate.validated.json`);
-  const now = Date.now();
-  if (!result || result.schemaVersion !== 2 || result.phase !== "preactivate" || result.sourceSha !== identity.sourceRevision || result.baselineSha !== identity.baselineRevision || result.attemptId !== identity.attemptId || result.release !== release || result.ready !== true || result.buildStarted !== true || !Array.isArray(result.blockers) || result.blockers.length !== 0 || !/^[a-f0-9]{64}$/.test(result.receiptSha256) || !Number.isFinite(Date.parse(result.issuedAt)) || Date.parse(result.issuedAt) > now || !Number.isFinite(Date.parse(result.expiresAt)) || Date.parse(result.expiresAt) <= now) throw new Error("PROTECTED_PREACTIVATE_READBACK_INVALID");
-  return Promise.resolve();
-}
-function productionDynamicActions(collector, verifier, release, runBash, readValidatedReceipt) {
-  if (collector.path !== COLLECTOR || verifier.path !== VERIFIER) throw new Error("PREFLIGHT_COMMAND_AUTHORITY");
-  if (!/^v?[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9]+([.-][a-zA-Z0-9]+)*)?$/.test(release)) throw new Error("RELEASE_INVALID");
-  let collectedIdentity;
-  return {
-    verifyProductionDynamic: async (identity) => {
-      if (!/^[a-f0-9]{40}$/.test(identity.sourceRevision) || !/^[a-zA-Z0-9-]{1,128}$/.test(identity.attemptId)) throw new Error("DYNAMIC_IDENTITY_INVALID");
-      await runBash(collector, ["--maintenance", "preactivate", identity.sourceRevision, release, identity.attemptId]);
-      collectedIdentity = { ...identity };
-    },
-    verifyPreactivate: async (identity) => {
-      if (!collectedIdentity || JSON.stringify(collectedIdentity) !== JSON.stringify(identity)) throw new Error("DYNAMIC_GATE_NOT_COLLECTED");
-      await runBash(verifier, ["--maintenance", "preactivate", identity.sourceRevision, release, identity.attemptId]);
-      await readValidatedReceipt(identity, release);
-    }
-  };
-}
-
-// packages/cloud-deploy/src/cn-maintenance-host/sealed_runtime.ts
-var import_node_crypto10 = require("node:crypto");
-var import_node_child_process4 = require("node:child_process");
-var import_node_fs5 = require("node:fs");
-var databases = ["workspacex", "workspacex_agent", "workspacex_memory"];
-function requireProof(ok, code) {
-  if (!ok) throw new Error(code);
-}
-var asciiJson = (value) => JSON.stringify(value).replace(/[\u007f-\uffff]/g, (char) => "\\u" + char.charCodeAt(0).toString(16).padStart(4, "0"));
-function canonical2(value) {
-  if (Array.isArray(value)) return "[" + value.map(canonical2).join(",") + "]";
-  if (value && typeof value === "object") return "{" + Object.keys(value).sort().map((k) => asciiJson(k) + ":" + canonical2(value[k])).join(",") + "}";
-  return asciiJson(value);
-}
-var runtimeDigest = (value) => (0, import_node_crypto10.createHash)("sha256").update(canonical2(value)).digest("hex");
-var equal2 = (a, b) => canonical2(a) === canonical2(b);
-function parseProtectedRuntimePlan(value, expected) {
-  requireProof(/^[a-f0-9]{40}$/.test(expected.toolRevision) && expected.sourcePlan.runtimeSessionBootstrapAuthorized === true && expected.sourcePlan.productionActionsAuthorized === true && expected.sourcePlanPath.startsWith("/etc/workspacex-cn/") && !expected.sourcePlanPath.split("/").includes("..") && /^[a-f0-9]{64}$/.test(expected.sourcePlanSha256), "SEALED_RUNTIME_EXPECTED_BINDING");
-  requireProof(value && typeof value === "object", "SEALED_RUNTIME_SCHEMA");
-  const v = value;
-  requireProof(Object.keys(v).sort().join(",") === ["schemaVersion", "kind", "identity", "toolRevision", "sourcePlanPath", "sourcePlanSha256", "sourcePlanCanonicalSha256", "runtimePlanSha256", "runtimePlan", "sessionsSha256", "processIdentity", "ready", "productionAvailabilityProven"].sort().join(","), "SEALED_RUNTIME_SCHEMA");
-  requireProof(v.schemaVersion === 1 && v.kind === "sealed-maintenance-writer-runtime" && v.ready === false && v.productionAvailabilityProven === false, "SEALED_RUNTIME_SCHEMA");
-  requireProof(equal2(v.identity, expected.identity) && v.toolRevision === expected.toolRevision && v.sourcePlanPath === expected.sourcePlanPath && v.sourcePlanSha256 === expected.sourcePlanSha256, "SEALED_RUNTIME_SOURCE_BINDING");
-  requireProof(v.sourcePlanCanonicalSha256 === runtimeDigest(expected.sourcePlan) && v.runtimePlanSha256 === runtimeDigest(v.runtimePlan), "SEALED_RUNTIME_DIGEST");
-  const p = v.runtimePlan;
-  requireProof(p && equal2(p.identity, expected.identity) && p.toolRevision === expected.toolRevision && p.runtimeSourcePlanSha256 === v.sourcePlanCanonicalSha256, "SEALED_RUNTIME_PLAN_IDENTITY");
-  const source2 = { ...p };
-  for (const key of ["runtimeSourcePlanSha256", "controlSessions", "diagnosticSessions", "diagnosticClientAddress", "runtimeHelperProcesses"]) delete source2[key];
-  if (expected.sourcePlan.holdGenerationPolicy === "bind-held-at-runtime") {
-    requireProof(/^[a-f0-9]{32}$/.test(p.holdGeneration), "SEALED_RUNTIME_HOLD_GENERATION");
-    delete source2.holdGeneration;
-  }
-  const base = { ...expected.sourcePlan };
-  for (const key of ["runtimeSourcePlanSha256", "controlSessions", "diagnosticSessions", "diagnosticClientAddress", "runtimeHelperProcesses"]) delete base[key];
-  if (expected.sourcePlan.holdGenerationPolicy === "bind-held-at-runtime") delete base.holdGeneration;
-  requireProof(equal2(source2, base), "SEALED_RUNTIME_UNAPPROVED_CHANGE");
-  for (const mode of ["control", "diagnostic"]) {
-    const sessions = p[mode + "Sessions"];
-    requireProof(sessions && Object.keys(sessions).sort().join(",") === [...databases].sort().join(","), "SEALED_RUNTIME_DATABASE_SET");
-    for (const db of databases) {
-      const session = sessions[db];
-      requireProof(session && equal2(session.peer, expected.sourcePlan.databasePeers[db]) && session.tls?.ssl === true && Number.isSafeInteger(session.pid) && session.pid > 1 && typeof session.backendStart === "string" && session.backendStart.length > 0 && typeof session.clientAddr === "string", "SEALED_RUNTIME_SESSION_IDENTITY");
-      requireProof(mode === "diagnostic" ? session.role === expected.sourcePlan.diagnosticRole : expected.sourcePlan.databaseWriterRoles[db].includes(session.role), "SEALED_RUNTIME_SESSION_ROLE");
-      if (mode === "diagnostic") requireProof(session.clientAddr === p.diagnosticClientAddress, "SEALED_RUNTIME_DIAGNOSTIC_ADDRESS");
-    }
-  }
-  requireProof(v.sessionsSha256 === runtimeDigest({ control: p.controlSessions, diagnostic: p.diagnosticSessions }), "SEALED_RUNTIME_SESSION_DIGEST");
-  const process2 = v.processIdentity;
-  requireProof(process2?.kind === "process" && process2.uid === 0 && Number.isSafeInteger(process2.pid) && process2.pid > 1 && Number.isSafeInteger(process2.startTicks) && process2.startTicks > 0 && typeof process2.exe === "string" && process2.exe.startsWith("/") && /^[a-f0-9]{64}$/.test(process2.exeSha256), "SEALED_RUNTIME_PROCESS_IDENTITY");
-  const helpers = p.runtimeHelperProcesses;
-  requireProof(Array.isArray(helpers) && helpers.length === 6 && new Set(helpers.map((h) => h.pid)).size === 6, "SEALED_RUNTIME_HELPER_SET");
-  for (const helper of helpers) requireProof(helper.uid === 0 && helper.parentPid === process2.pid && helper.exe === expected.sourcePlan.controlRuntime.nodePath && helper.exeSha256 === expected.sourcePlan.controlRuntime.nodeSha256 && Number.isSafeInteger(helper.pid) && helper.pid > 1 && Number.isSafeInteger(helper.startTicks) && helper.startTicks > 0, "SEALED_RUNTIME_HELPER_IDENTITY");
-  return v;
-}
-function readProtectedRuntimePlan(path2, sha2563, expected) {
-  requireProof(path2 === `/var/lib/workspacex-cn/runtime/${expected.identity.attemptId}/sealed-writer-runtime.json` && /^[a-f0-9]{64}$/.test(sha2563), "SEALED_RUNTIME_PATH");
-  return parseProtectedRuntimePlan(protectedPrivateJson(path2, sha2563), expected);
-}
-function launch(spec) {
-  requireProof(process.platform === "linux" && process.getuid?.() === 0, "ROOT_LINUX_REQUIRED");
-  (0, import_node_fs5.fstatSync)(9);
-  const descriptors = [];
-  try {
-    descriptors.push(protectedExecutable(spec.host.writerFence));
-    for (const name of ["writer_fence", "control_connection", "fixed_probes"]) descriptors.push(protectedExecutable(spec.modules[name]));
-    const bootstrap = "import sys,importlib.util,importlib.machinery; " + ["writer_fence", "control_connection", "fixed_probes", "host_transport"].map((name, i) => {
-      const fd = name === "host_transport" ? 10 : 11 + i;
-      return `s=importlib.util.spec_from_loader('${name}',importlib.machinery.SourceFileLoader('${name}','/proc/self/fd/${fd}'));m=importlib.util.module_from_spec(s);sys.modules['${name}']=m;s.loader.exec_module(m);`;
-    }).join(" ") + " sys.modules['host_transport'].serve_reviewed_fence(sys.argv[1],sys.argv[2])";
-    const child = (0, import_node_child_process4.spawn)("/usr/bin/python3", ["-I", "-c", bootstrap, spec.sourcePlanPath, spec.sourcePlanSha256], { shell: false, detached: false, env: { PATH: "/usr/sbin:/usr/bin:/sbin:/bin", LC_ALL: "C" }, stdio: ["pipe", "pipe", "pipe", "ignore", "ignore", "ignore", "ignore", "ignore", "ignore", 9, ...descriptors] });
-    let buffer = Buffer.alloc(0), sequence = 0, retained = false, dead = false;
-    const pending = /* @__PURE__ */ new Map();
-    const rejectAll = () => {
-      dead = true;
-      for (const p of pending.values()) {
-        clearTimeout(p.timer);
-        p.reject(new Error("PERSISTENT_FENCE_CONNECTION_LOST"));
-      }
-      pending.clear();
-    };
-    const receive = (value) => {
-      const p = pending.get(value.sequence);
-      if (!p) {
-        rejectAll();
-        return;
-      }
-      pending.delete(value.sequence);
-      clearTimeout(p.timer);
-      value.ok === true ? p.resolve(value) : p.reject(new Error("PERSISTENT_FENCE_REJECTED"));
-    };
-    const wait = (n, timeoutMs = 3e5) => new Promise((resolve2, reject3) => {
-      const timer = setTimeout(() => {
-        pending.delete(n);
-        retained = true;
-        reject3(new Error("PERSISTENT_FENCE_DEADLINE_UNKNOWN"));
-      }, timeoutMs);
-      pending.set(n, { resolve: resolve2, reject: reject3, timer });
-    });
-    const start = wait(0);
-    child.stdout.on("data", (chunk) => {
-      buffer = Buffer.concat([buffer, chunk]);
-      if (buffer.length > 1048576) {
-        retained = true;
-        rejectAll();
-        return;
-      }
-      let index;
-      while ((index = buffer.indexOf(10)) !== -1) {
-        const line = buffer.subarray(0, index);
-        buffer = buffer.subarray(index + 1);
-        try {
-          receive(JSON.parse(line.toString("utf8")));
-        } catch {
-          retained = true;
-          rejectAll();
-        }
-      }
-    });
-    child.stderr.resume();
-    child.on("error", rejectAll);
-    child.on("exit", rejectAll);
-    return { started: async () => {
-      const reply = await start;
-      requireProof(reply.processIdentity?.pid === child.pid, "PERSISTENT_SERVER_PID_BINDING");
-      return reply;
-    }, request: (message) => {
-      requireProof(!dead && !retained, "PERSISTENT_FENCE_RETAINED_OR_LOST");
-      const n = ++sequence;
-      const response = wait(n, message.operation === "migrate-exact-plan" ? spec.sourcePlan.migrationAuthorization?.operationTimeoutMs : void 0);
-      child.stdin.write(JSON.stringify({ ...message, sequence: n }) + "\n");
-      return response;
-    }, retain: () => {
-      retained = true;
-    }, close: async () => {
-      requireProof(!retained, "PERSISTENT_FENCE_RETAINED");
-      child.stdin.end();
-      await new Promise((resolve2, reject3) => {
-        if (child.exitCode !== null) return child.exitCode === 0 ? resolve2() : reject3(new Error("PERSISTENT_FENCE_EXIT_FAILED"));
-        const timer = setTimeout(() => reject3(new Error("PERSISTENT_FENCE_CLOSE_DEADLINE")), 1e4);
-        child.once("exit", (code) => {
-          clearTimeout(timer);
-          code === 0 ? resolve2() : reject3(new Error("PERSISTENT_FENCE_EXIT_FAILED"));
-        });
-      });
-    } };
   } finally {
-    for (const fd of descriptors) (0, import_node_fs5.closeSync)(fd);
+    await client.query("SELECT pg_advisory_unlock($1)", [MIGRATION_LOCK_KEY]).catch(() => void 0);
+    await client.end();
   }
-}
-function createPersistentWriterLifecycle(spec) {
-  let driver, binding, sealedRecord, unknown = false, accepted = false, migrated = false;
-  return {
-    async start() {
-      requireProof(!driver, "PERSISTENT_WRITER_ALREADY_STARTED");
-      requireProof(spec.sourcePlanPath === spec.host.writerPlanPath && spec.sourcePlanSha256 === spec.host.writerPlanSha256 && equal2(spec.identity, spec.host.identity), "PERSISTENT_WRITER_SOURCE_BINDING");
-      driver = (spec.driverFactory ?? launch)(spec);
-      try {
-        const reply = await driver.started();
-        requireProof(reply.kind === "persistent-writer-runtime-started" && equal2(reply.identity, spec.identity) && reply.toolRevision === spec.toolRevision, "PERSISTENT_WRITER_START_PROTOCOL");
-        const sealed = (spec.readSeal ?? readProtectedRuntimePlan)(reply.sealedPlanPath, reply.sealedPlanSha256, spec);
-        requireProof(sealed.runtimePlanSha256 === reply.runtimePlanSha256 && equal2(sealed.processIdentity, reply.processIdentity), "PERSISTENT_WRITER_SEAL_BINDING");
-        sealedRecord = sealed;
-        binding = { ...spec.host, writerPlanPath: reply.sealedPlanPath, writerPlanSha256: reply.sealedPlanSha256, writerPlanCanonicalSha256: sealed.runtimePlanSha256 };
-        return binding;
-      } catch (error) {
-        unknown = true;
-        driver.retain();
-        throw error;
-      }
-    },
-    async invoke(callback, identity) {
-      requireProof(driver && binding && !unknown && writerCallbacks.includes(callback) && equal2(identity, spec.identity), "PERSISTENT_WRITER_CALLBACK_BINDING");
-      try {
-        const response = await driver.request({ operation: "callback", callback, identity });
-        if (callback === "verifyWritesResumed") {
-          requireProof(response.value?.callback === callback && response.value.state === "writes-resumed" && response.value.ready === false && response.value.productionAvailabilityProven === false && equal2(response.value.identity, spec.identity), "PERSISTENT_WRITER_ACCEPTED_READBACK");
-          accepted = true;
-        }
-        return { stdout: JSON.stringify(response.value) };
-      } catch (error) {
-        unknown = true;
-        driver.retain();
-        throw error;
-      }
-    },
-    async migrateExactPlan(identity) {
-      requireProof(driver && binding && !unknown && equal2(identity, spec.identity) && spec.sourcePlan.migrationAuthorization, "PERSISTENT_MIGRATION_AUTHORIZATION");
-      try {
-        const reply = await driver.request({ operation: "migrate-exact-plan", identity });
-        requireProof(Array.isArray(reply.value?.applied) && Array.isArray(reply.value?.skipped), "PERSISTENT_MIGRATION_RESULT");
-        migrated = true;
-        return reply.value;
-      } catch (error) {
-        unknown = true;
-        driver.retain();
-        throw error;
-      }
-    },
-    async recordMigrationCompletion(identity, stage, receipt) {
-      requireProof(driver && binding && !unknown && migrated && equal2(identity, spec.identity) && (stage === "intent" || stage === "durable") && receipt.path === `/etc/workspacex-cn/migration-completion-inputs/${identity.sourceRevision}/${identity.attemptId}.completed.json` && /^[a-f0-9]{64}$/.test(receipt.sha256), "PERSISTENT_MIGRATION_COMPLETION_BINDING");
-      try {
-        const reply = await driver.request({ operation: "record-migration-completion", identity, stage, receipt });
-        requireProof(reply.value?.stage === stage && reply.value.ready === false && equal2(reply.value.identity, identity) && equal2(reply.value.receipt, receipt), "PERSISTENT_MIGRATION_COMPLETION_READBACK");
-      } catch (error) {
-        unknown = true;
-        driver.retain();
-        throw error;
-      }
-    },
-    async readDiagnosticLedger(identity) {
-      requireProof(driver && binding && !unknown && equal2(identity, spec.identity), "PERSISTENT_DIAGNOSTIC_IDENTITY");
-      try {
-        const reply = await driver.request({ operation: "read-diagnostic-ledger", identity });
-        requireProof(Array.isArray(reply.value?.ledger) && reply.value.rowCount === reply.value.ledger.length && typeof reply.value.observedAt === "number" && sealedRecord && equal2(reply.value.connection, sealedRecord.runtimePlan.diagnosticSessions.workspacex), "PERSISTENT_DIAGNOSTIC_LEDGER");
-        return reply.value;
-      } catch (error) {
-        unknown = true;
-        driver.retain();
-        throw error;
-      }
-    },
-    async closeAfterAccepted() {
-      requireProof(driver && accepted && !unknown, "PERSISTENT_WRITER_CLOSE_NOT_ACCEPTED");
-      try {
-        const reply = await driver.request({ operation: "close-accepted", identity: spec.identity });
-        requireProof(reply.closed === true, "PERSISTENT_WRITER_CLOSE_READBACK");
-        await driver.close();
-      } catch (error) {
-        unknown = true;
-        driver.retain();
-        throw error;
-      }
-    },
-    retainUnknown() {
-      unknown = true;
-      driver?.retain();
-    }
-  };
+  return { applied, skipped };
 }
 
-// packages/cloud-deploy/src/cn-maintenance-host/offline_artifacts.ts
-var import_node_crypto11 = require("node:crypto");
-var import_node_fs6 = require("node:fs");
-var import_node_child_process5 = require("node:child_process");
-function localImageInspectionArgs(image) {
-  if (!/^[-a-zA-Z0-9._/:]+@sha256:[a-f0-9]{64}$/.test(image)) throw new Error("OFFLINE_IMAGE_REFERENCE");
-  return ["--config", "/etc/workspacex-cn/docker-offline", "--host", "unix:///run/docker.sock", "image", "inspect", image];
+// packages/cloud-deploy/src/cn-maintenance-host/migration_library.ts
+async function migrateExistingSession(client, cfg, source, sourceEvidence, approvedException, dir, lockTimeoutMs) {
+  const target = migrationSourceSchema.parse(source);
+  const evidence = sourceEvidenceSchema.parse(sourceEvidence);
+  if (dir !== "/var/lib/workspacex-cn/releases/9b25bfa65662b96c0826fe67506b562ea46aa6d0/apps/api/migrations" || !Number.isSafeInteger(lockTimeoutMs) || lockTimeoutMs < 1 || lockTimeoutMs > 3e5 || cfg.database !== target.database || cfg.user !== target.user || identityHash(cfg.host + ":" + cfg.port) !== target.endpointSha256 || !verifyExternalSourceIdentity(target, evidence)) throw new Error("EXISTING_MIGRATION_INPUT_BINDING");
+  if (target.sslMode === "verify-full" && (!cfg.ssl || cfg.ssl.rejectUnauthorized !== true)) throw new Error("EXISTING_MIGRATION_TLS_CONFIG");
+  if (target.sslMode === "disable" && cfg.ssl !== false) throw new Error("EXISTING_MIGRATION_TLS_CONFIG");
+  return withExistingMigrationPeer(client, target, () => migrate(cfg, { dir, lockTimeoutMs }), { sourceEvidence: evidence, approvedRdsTlsException: approvedException });
 }
-async function inspectLocalImage(runtime, image) {
-  if (process.platform !== "linux" || process.getuid?.() !== 0) throw new Error("ROOT_LINUX_REQUIRED");
-  if (runtime.path !== "/usr/bin/docker" || !/^[a-f0-9]{64}$/.test(runtime.sha256) || !/^[-a-zA-Z0-9._/:]+@sha256:[a-f0-9]{64}$/.test(image)) throw new Error("OFFLINE_DOCKER_BINDING");
-  for (const path2 of ["/usr", "/usr/bin", "/etc", "/etc/workspacex-cn", "/run"]) {
-    const s = (0, import_node_fs6.lstatSync)(path2);
-    if (!s.isDirectory() || s.uid !== 0 || s.gid !== 0 || s.mode & 18) throw new Error("OFFLINE_DOCKER_PARENT");
-  }
-  const config = (0, import_node_fs6.lstatSync)("/etc/workspacex-cn/docker-offline"), socket = (0, import_node_fs6.lstatSync)("/run/docker.sock");
-  if (!config.isDirectory() || config.uid !== 0 || config.gid !== 0 || (config.mode & 511) !== 448 || (0, import_node_fs6.readdirSync)("/etc/workspacex-cn/docker-offline").length !== 0 || !socket.isSocket() || socket.uid !== 0) throw new Error("OFFLINE_LOCAL_DAEMON_BINDING");
-  const before = (0, import_node_fs6.lstatSync)(runtime.path), fd = (0, import_node_fs6.openSync)(runtime.path, import_node_fs6.constants.O_RDONLY | import_node_fs6.constants.O_NOFOLLOW);
-  try {
-    const s = (0, import_node_fs6.fstatSync)(fd);
-    if (!s.isFile() || s.uid !== 0 || s.gid !== 0 || s.nlink !== 1 || (s.mode & 511) !== 493 || s.dev !== before.dev || s.ino !== before.ino || (0, import_node_crypto11.createHash)("sha256").update((0, import_node_fs6.readFileSync)(fd)).digest("hex") !== runtime.sha256) throw new Error("OFFLINE_DOCKER_RUNTIME");
-    return await new Promise((resolve2, reject3) => {
-      const c = (0, import_node_child_process5.spawn)("/proc/self/fd/10", [...localImageInspectionArgs(image)], { shell: false, env: { PATH: "/usr/bin:/bin", LANG: "C.UTF-8" }, stdio: ["ignore", "pipe", "pipe", "ignore", "ignore", "ignore", "ignore", "ignore", "ignore", "ignore", fd] });
-      let output = "", bytes = 0, timedOut = false;
-      const timer = setTimeout(() => {
-        timedOut = true;
-        c.kill("SIGKILL");
-      }, 3e4);
-      c.stdout.on("data", (b) => {
-        bytes += b.length;
-        if (bytes > 1048576) c.kill("SIGKILL");
-        else output += b;
-      });
-      c.stderr.resume();
-      c.on("error", () => {
-        clearTimeout(timer);
-        reject3(new Error("OFFLINE_DOCKER_SPAWN"));
-      });
-      c.on("close", (code) => {
-        clearTimeout(timer);
-        code === 0 && !timedOut && bytes <= 1048576 ? resolve2(output) : reject3(new Error("OFFLINE_DOCKER_INSPECT"));
-      });
-    });
-  } finally {
-    (0, import_node_fs6.closeSync)(fd);
-  }
-}
-function verifyOfflineManifest(identity, bytes, expectedSha256, runtime, inspect = inspectLocalImage) {
-  return async () => {
-    if (!/^[a-f0-9]{64}$/.test(expectedSha256) || (0, import_node_crypto11.createHash)("sha256").update(bytes).digest("hex") !== expectedSha256) throw new Error("OFFLINE_MANIFEST_HASH");
-    const manifest = validateReleaseManifest(JSON.parse(bytes.toString("utf8")));
-    if (manifest.sourceRevision !== identity.sourceRevision) throw new Error("OFFLINE_APPLICATION_IDENTITY");
-    await verifyPrewarmedRelease(manifest, "starter", async (argv) => {
-      if (argv.length !== 4 || argv[0] !== "docker" || argv[1] !== "image" || argv[2] !== "inspect" || !argv[3]) throw new Error("OFFLINE_INSPECT_ONLY");
-      return inspect(runtime, argv[3]);
-    });
-  };
-}
-
-// packages/cloud-deploy/src/cn-maintenance-host/production_consumers.ts
-var hash5 = external_exports.string().regex(/^[a-f0-9]{64}$/);
-var path = external_exports.string().startsWith("/etc/workspacex-cn/").refine((v) => !v.split("/").includes(".."));
-var ref = external_exports.object({ path, sha256: hash5 }).strict();
-var command = external_exports.object({ path: external_exports.string().startsWith("/usr/local/lib/workspacex-cn/"), sha256: hash5 }).strict();
-var schema = external_exports.object({ schemaVersion: external_exports.literal(1), identity: external_exports.object({ sourceRevision: external_exports.string(), baselineRevision: external_exports.string(), migrationPlanSha256: hash5, attemptId: external_exports.string() }).strict(), toolRevision: external_exports.string(), prepared: external_exports.object({ receipt: ref, manifest: ref }).strict(), migration: external_exports.object({ inputs: ref, binding: external_exports.unknown() }).strict(), activation: external_exports.unknown(), recoveryAudit: external_exports.object({ verifier: command, evidenceSha256: hash5 }).strict(), dockerRuntime: external_exports.object({ path: external_exports.literal("/usr/bin/docker"), sha256: hash5 }).strict(), dynamic: external_exports.object({ collector: command, verifier: command, release: external_exports.string() }).strict(), writerModules: external_exports.object({ writer_fence: command, fixed_probes: command, control_connection: command }).strict() }).strict();
-function same(a, b) {
-  return runtimeDigest(a) === runtimeDigest(b);
-}
-var actualRuntime = { assertActivationCapability: assertMaintenanceActivationCapability, acquireLock: inheritedFd9Lock, readJson: protectedPrivateJson, readBytes: protectedPrivateBytes, verifyExecutable: (c) => {
-  const fd = protectedExecutable(c);
-  (0, import_node_fs7.closeSync)(fd);
-}, lifecycle: createPersistentWriterLifecycle, migration: createMigrationTransport, activation: fixedMaintenanceActivationActions };
-async function createProductionConsumers(plan, profile, fixture) {
-  const io = { ...actualRuntime, ...fixture };
-  const v = schema.parse(io.readJson(plan.consumerInputsPath, plan.consumerInputsSha256));
-  if (!same(v.identity, plan.identity) || v.toolRevision !== plan.production.toolRevision) throw Error("CONSUMER_INPUT_IDENTITY");
-  io.assertActivationCapability();
-  const verify = (c) => {
-    if (profile.installedFilesSha256?.[c.path] !== c.sha256) throw Error("CONSUMER_PROFILE_BINDING");
-    io.verifyExecutable(c);
-  };
-  const migrationInputs = io.readJson(v.migration.inputs.path, v.migration.inputs.sha256);
-  const migrationBinding = v.migration.binding;
-  const activationBinding = v.activation;
-  if (!same(migrationBinding?.identity, plan.identity) || !same(activationBinding?.identity, plan.identity) || activationBinding.toolRevision !== v.toolRevision) throw Error("CONSUMER_OPERATION_IDENTITY");
-  const sourcePlan = io.readJson(plan.host.writerPlanPath, plan.host.writerPlanSha256);
-  const lifecycle = io.lifecycle({ identity: plan.identity, toolRevision: v.toolRevision, sourcePlanPath: plan.host.writerPlanPath, sourcePlanSha256: plan.host.writerPlanSha256, sourcePlan, host: plan.host, modules: v.writerModules });
-  const commands = [plan.host.writerFence, ...Object.values(v.writerModules), v.recoveryAudit.verifier, v.dynamic.collector, v.dynamic.verifier, migrationBinding.collector, migrationBinding.writerFence, activationBinding.activationCommand, activationBinding.recoveryCommand];
-  for (const c of commands) verify(c);
-  const host = { ...plan.host };
-  let started = false;
-  const boundMigration = { ...migrationBinding };
-  try {
-    const runWriter = async (c, args, input) => {
-      if (c.path !== host.writerFence.path) return runFixedPython(c, args, input);
-      const cb = args[3];
-      if (args[0] !== "--apply-reviewed-fence" || args[1] !== host.writerPlanPath || args[2] !== host.writerPlanSha256 || !writerCallbacks.includes(cb)) throw Error("PERSISTENT_WRITER_ROUTING");
-      if (!started) {
-        const sealed = await lifecycle.start();
-        Object.assign(host, sealed);
-        Object.assign(boundMigration, { writerPlanPath: host.writerPlanPath, writerPlanSha256: host.writerPlanSha256, writerPlanCanonicalSha256: host.writerPlanCanonicalSha256 });
-        started = true;
-      }
-      return lifecycle.invoke(cb, plan.identity);
-    };
-    const activation = io.activation(activationBinding);
-    const manifest = io.readBytes(v.prepared.manifest.path, v.prepared.manifest.sha256);
-    const inputs = {
-      lane: "maintenance",
-      preparedReceipt: io.readJson(v.prepared.receipt.path, v.prepared.receipt.sha256),
-      preparedManifest: manifest,
-      verifyOfflineArtifacts: verifyOfflineManifest(plan.identity, manifest, v.prepared.manifest.sha256, v.dockerRuntime),
-      migration: migrationInputs,
-      migrationTransport: io.migration(migrationInputs, boundMigration, runWriter, { migrateExactPlan: (identity) => lifecycle.migrateExactPlan(identity), readDiagnosticLedger: (identity) => lifecycle.readDiagnosticLedger(identity), recordMigrationCompletion: (identity, stage, receipt) => lifecycle.recordMigrationCompletion(identity, stage, receipt) }),
-      activation,
-      replayPreholdRecovery: preholdRecoveryArtifactAudit(v.recoveryAudit.verifier, v.toolRevision, v.recoveryAudit.evidenceSha256, runFixedPython),
-      verifyCandidateAcceptance: async (identity) => {
-        if (!same(identity, plan.identity)) throw Error("ACCEPTANCE_IDENTITY");
-        const c = await activation.verifyCanonical();
-        if (c.status !== "passed" || c.lockRetained !== true || c.passedStages !== 8) throw Error("CANDIDATE_CANONICAL_REJECTED");
-        const b = await activation.runBrowserSmoke();
-        if (Object.values(b).length !== 6 || Object.values(b).some((v2) => v2 !== true)) throw Error("CANDIDATE_BROWSER_REJECTED");
-      },
-      collector: v.dynamic.collector,
-      preactivateVerifier: v.dynamic.verifier,
-      readValidatedReceipt: readProductionValidatedReceipt,
-      runBash: runFixedBash,
-      release: v.dynamic.release,
-      assertProtectedInputs: async () => {
-        for (const c of commands) verify(c);
-      }
-    };
-    return { host, inputs, run: runWriter, acquireLock: async () => {
-      const release = await io.acquireLock();
-      return async () => {
-        if (started) await lifecycle.closeAfterAccepted();
-        await release();
-      };
-    }, retainUnknown: () => lifecycle.retainUnknown() };
-  } catch (error) {
-    lifecycle.retainUnknown();
-    throw error;
-  }
-}
-
-// packages/cloud-deploy/src/cn-maintenance-host/typed_operations.ts
-var activationMethods = ["readBaselineFingerprint", "drainRuns", "promotePreparedPointer", "activateTraffic", "verifyCanonical", "runBrowserSmoke", "restoreBaseline", "restorePointer"];
-async function bindTypedProductionOperations(value) {
-  const missing = [];
-  for (const key of ["verifyOfflineArtifacts", "replayPreholdRecovery", "verifyCandidateAcceptance", "readValidatedReceipt", "runBash", "assertProtectedInputs"]) if (typeof value[key] !== "function") missing.push(key);
-  if (!Buffer.isBuffer(value.preparedManifest) || value.preparedReceipt === void 0) missing.push("preparedArtifacts");
-  if (!value.migration) missing.push("migrationInputs");
-  for (const key of ["migrate", "readFreshCompletion", "verifyLiveWriterBarrier"]) if (typeof value.migrationTransport?.[key] !== "function") missing.push("migrationTransport." + key);
-  for (const key of activationMethods) if (typeof value.activation?.[key] !== "function") missing.push("activation." + key);
-  if (!value.collector || !value.preactivateVerifier || !value.release) missing.push("dynamicInputs");
-  if (missing.length) throw new Error("PROTECTED_OPERATIONS_MISSING:" + missing.sort().join(","));
-  const input = value;
-  await input.assertProtectedInputs();
-  const dynamic = productionDynamicActions(input.collector, input.preactivateVerifier, input.release, input.runBash, input.readValidatedReceipt);
-  return {
-    prepareOffline: (input.lane === "maintenance" ? maintenanceOfflinePreparedAction : offlinePreparedAction)(input.preparedReceipt, input.preparedManifest, input.verifyOfflineArtifacts),
-    verifyThreeDatabaseRecovery: input.replayPreholdRecovery,
-    migrateExactPlan: exactMigrationAction(input.migration, input.migrationTransport),
-    ...dynamic,
-    activate: (input.lane === "maintenance" ? maintenanceActivationAction : preparedActivationAction)(input.preparedReceipt, input.activation),
-    verifyAcceptance: input.verifyCandidateAcceptance
-  };
-}
-
-// packages/cloud-deploy/src/cn-maintenance-host/entry.ts
-function reject2(message) {
-  throw new Error(message);
-}
-function same2(a, b) {
-  return !!a && typeof a === "object" && Object.keys(a).sort().join(",") === Object.keys(b).sort().join(",") && Object.entries(b).every(([k, v]) => a[k] === v);
-}
-function parseEntryPlan(value) {
-  if (!value || typeof value !== "object") reject2("HOST_PLAN_SCHEMA");
-  const plan = value;
-  if (Object.keys(plan).sort().join(",") !== ["schemaVersion", "productionActionsAuthorized", "identity", "host", "production", "recoveryPlanPath", "recoveryPlanSha256", "consumerInputsPath", "consumerInputsSha256"].sort().join(",") || plan.schemaVersion !== 1 || plan.productionActionsAuthorized !== true) reject2("HOST_PLAN_SCHEMA");
-  const id3 = plan.identity;
-  if (!id3 || Object.keys(id3).sort().join(",") !== "attemptId,baselineRevision,migrationPlanSha256,sourceRevision" || !/^[a-f0-9]{40}$/.test(id3.sourceRevision) || !/^[a-f0-9]{40}$/.test(id3.baselineRevision) || !/^[a-f0-9]{64}$/.test(id3.migrationPlanSha256) || !/^[A-Za-z0-9-]{1,128}$/.test(id3.attemptId)) reject2("HOST_PLAN_IDENTITY");
-  if (!plan.host || !plan.production || !same2(plan.host.identity, id3) || !same2(plan.production.identity, id3)) reject2("HOST_PLAN_IDENTITY");
-  if (plan.recoveryPlanPath !== `/etc/workspacex-cn/maintenance-recovery/${id3.sourceRevision}/${id3.attemptId}/recovery-plan.json` || !/^[a-f0-9]{64}$/.test(plan.recoveryPlanSha256)) reject2("HOST_PLAN_RECOVERY_BINDING");
-  if (plan.production.recoveryPreflight?.planPath !== plan.recoveryPlanPath || plan.production.recoveryPreflight?.planSha256 !== plan.recoveryPlanSha256 || plan.production.recoveryPreflight?.command.path !== "/usr/local/lib/workspacex-cn/cn-production-recovery-executor.py") reject2("HOST_PLAN_RECOVERY_BINDING");
-  if (plan.consumerInputsPath !== `/etc/workspacex-cn/maintenance-host/${id3.sourceRevision}/${id3.attemptId}/consumer-inputs.json` || !/^[a-f0-9]{64}$/.test(plan.consumerInputsSha256)) reject2("HOST_CONSUMER_BINDING");
-  return plan;
-}
-async function executeBoundEntry(plan, inputs, verifyProfile, runtime) {
-  const actions = await bindTypedProductionOperations(inputs);
-  const primitives = (runtime ? productionStartupPrimitives : productionPrimitives)(plan.production, runFixedPython, verifyProfile, runtime?.acquireLock ?? inheritedFd9Lock);
-  Object.assign(primitives, actions);
-  await runHostMaintenanceRetainingFd9({ ...plan.identity, maintenanceOptIn: "stop-all-writes-and-require-database-recovery" }, plan.host, primitives, runtime?.run ?? runFixedPython);
-}
-async function main2(args) {
-  if (process.platform !== "linux" || process.getuid?.() !== 0) reject2("ROOT_LINUX_REQUIRED");
-  if (args.length !== 3 || args[0] !== "--run-reviewed-maintenance" || typeof args[1] !== "string" || typeof args[2] !== "string" || !/^\/etc\/workspacex-cn\//.test(args[1]) || !/^[a-f0-9]{64}$/.test(args[2])) reject2("HOST_ENTRY_USAGE");
-  const plan = parseEntryPlan(protectedPrivateJson(args[1], args[2]));
-  const profile = protectedPrivateJson("/etc/workspacex-cn/trusted-tool-binding.json");
-  if (profile.toolRevision !== plan.production.toolRevision) reject2("HOST_PROFILE_TOOL_REVISION");
-  const descriptor = profile.maintenanceHostController;
-  if (!descriptor || descriptor.toolRevision !== profile.toolRevision || profile.filesSha256?.[descriptor.sourcePath] !== descriptor.sha256 || descriptor.path !== process.argv[1] || !descriptor.path.endsWith(".cjs")) reject2("HOST_ENTRY_PROFILE_BINDING");
-  const fd = protectedExecutable(descriptor);
-  try {
-    if ((0, import_node_crypto12.createHash)("sha256").update((0, import_node_fs8.readFileSync)(fd)).digest("hex") !== descriptor.sha256) reject2("HOST_ENTRY_PROFILE_BINDING");
-  } finally {
-    (0, import_node_fs8.closeSync)(fd);
-  }
-  await inheritedFd9Lock();
-  const consumers = await createProductionConsumers(plan, profile);
-  try {
-    await executeBoundEntry({ ...plan, host: consumers.host }, consumers.inputs, async (host, binding) => {
-      const commands = [host.hold, host.writerFence, binding.recoveryPreflight.command];
-      for (const command2 of commands) {
-        const hash6 = profile.installedFilesSha256?.[command2.path];
-        if (hash6 !== command2.sha256) reject2("HOST_COMMAND_PROFILE_BINDING");
-        const fd2 = protectedExecutable(command2);
-        (0, import_node_fs8.closeSync)(fd2);
-      }
-    }, { run: consumers.run, acquireLock: consumers.acquireLock });
-  } catch (error) {
-    consumers.retainUnknown();
-    throw error;
-  }
-}
-if (process.argv[1]?.endsWith("cn-maintenance-host-controller.cjs")) main2(process.argv.slice(2)).catch((error) => {
-  const code = error instanceof Error ? error.message : "";
-  process.stderr.write(code.startsWith("PROTECTED_OPERATIONS_MISSING:") && /^[A-Za-z0-9_.,:]+$/.test(code) ? code + "\n" : "MAINTENANCE_HOST_ENTRY_REJECTED\n");
-  process.exitCode = 1;
-});
 // Annotate the CommonJS export names for ESM import in node:
 0 && (module.exports = {
-  executeBoundEntry,
-  main,
-  parseEntryPlan
+  migrateExistingSession
 });

@@ -6,7 +6,7 @@ export interface TrustedExecutable { path: string; sha256: string; writerFenceMo
 export interface CommandResult { stdout: string }
 export type CommandRunner = (command: TrustedExecutable, args: readonly string[], input?: unknown) => Promise<CommandResult>;
 const fail = (code: string): never => { throw new Error(code); };
-export function protectedPrivateJson(path: string, expectedSha256?: string): unknown {
+export function protectedPrivateBytes(path: string, expectedSha256?: string): Buffer {
   if (!path.startsWith('/') || path.split('/').includes('..')) fail('PRIVATE_PATH_INVALID');
   const parts = path.split('/').filter(Boolean);
   for (let i = 1; i < parts.length; i++) {
@@ -20,8 +20,11 @@ export function protectedPrivateJson(path: string, expectedSha256?: string): unk
     const bytes = readFileSync(fd), after = fstatSync(fd);
     if (expectedSha256 !== undefined && (!/^[a-f0-9]{64}$/.test(expectedSha256) || createHash('sha256').update(bytes).digest('hex') !== expectedSha256)) fail('PRIVATE_FILE_HASH_MISMATCH');
     if (st.size !== after.size || st.mtimeMs !== after.mtimeMs || st.ctimeMs !== after.ctimeMs) fail('PRIVATE_FILE_CHANGED');
-    try { return JSON.parse(bytes.toString('utf8')); } catch { fail('PRIVATE_JSON_INVALID'); }
+    return bytes;
   } finally { closeSync(fd); }
+}
+export function protectedPrivateJson(path: string, expectedSha256?: string): unknown {
+ const bytes=protectedPrivateBytes(path,expectedSha256);try{return JSON.parse(bytes.toString('utf8'));}catch{fail('PRIVATE_JSON_INVALID');}
 }
 /** Every parent is root-owned and unwritable to group/other. Symlinks and hardlinks
  * are rejected; the verified open descriptor is used as the interpreter input. */
