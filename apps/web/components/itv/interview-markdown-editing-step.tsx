@@ -4,7 +4,7 @@ import { interviewMarkdown } from "@repo/contracts";
 import { loadDigitalExperts, type DigitalExpertCatalogRow } from "@/lib/interview-api";
 import { initializeInterviewMarkdown, loadInterviewMarkdown, saveInterviewMarkdown, confirmInterviewMarkdown, generateInterviewMarkdown, previewVirtualExpertMarkdown,
   type InterviewMarkdownEnvelope, type InterviewMarkdownDocument } from "@/lib/interview-markdown-api";
-import { getInterviewGenerationSession, subscribeInterviewGeneration, runInterviewGeneration } from "@/lib/interview-generation-session";
+import { getInterviewGenerationSession, subscribeInterviewGeneration, runInterviewGeneration, clearInterviewGenerationSession } from "@/lib/interview-generation-session";
 import { ApiError } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import { InterviewExpertsStep } from "./interview-experts-step";
@@ -41,7 +41,10 @@ export function InterviewMarkdownEditingStep({ interviewId, step, onVersionChang
   const observedGeneration = React.useRef(false);
   const receive = React.useCallback((next: InterviewMarkdownEnvelope) => {
     if (next.interviewId !== interviewId || next.version < latestVersion.current) return next;
-    latestVersion.current = next.version; setSource(next); callbacks.current.onVersionChange(next.version); return next;
+    latestVersion.current = next.version; setSource(next); callbacks.current.onVersionChange(next.version);
+    const existing = getInterviewGenerationSession(interviewId);
+    if (existing && ((existing.revisionId && existing.revisionId !== next.revisionId) || (existing.status !== "running" && existing.source && next.version >= existing.source.version))) clearInterviewGenerationSession(interviewId, existing);
+    return next;
   }, [interviewId]);
   React.useEffect(() => {
     const controller = new AbortController();
@@ -128,16 +131,20 @@ export function InterviewMarkdownEditingStep({ interviewId, step, onVersionChang
   const immutable = savedStatus === "confirmed" || savedStatus === "completed";
   const document: InterviewMarkdownDocument = { ...(saved ?? { documentId: `unsaved-${step}`, step, version: 1, contentHash: "0".repeat(64), evidenceMode: "simulated" as const, references: [] }), markdown };
   React.useEffect(() => {
-    if (step !== "outline" || session?.step !== "outline" || (source && session.revisionId && session.revisionId !== source.revisionId)) return;
+    if (step !== "outline" || session?.step !== "outline") return;
+    if (source && session.revisionId && session.revisionId !== source.revisionId) {
+      observedGeneration.current = false; setGenerating(false); clearInterviewGenerationSession(interviewId, session); return;
+    }
     if (session.status === "failed" && source && session.revisionId === source.revisionId) { setError(generationUnavailableMessage("outline")); setRetryGenerationStep("outline"); }
     if (session.status === "running") { observedGeneration.current = true; setPending(true); setGenerating(true); }
     else if (observedGeneration.current) {
       observedGeneration.current = false;
       setPending(false); setGenerating(false);
-      if (session.source && session.source.version >= latestVersion.current) { receive(session.source); setMarkdown(session.source.documents.find(doc => doc.step === "outline")?.markdown ?? ""); }
+      if (session.source && !dirty.current && session.source.version >= latestVersion.current) { receive(session.source); setMarkdown(session.source.documents.find(doc => doc.step === "outline")?.markdown ?? ""); }
+      if (session.status === "completed") clearInterviewGenerationSession(interviewId, session);
       if (session.status === "failed") { setError(generationUnavailableMessage("outline")); setRetryGenerationStep("outline"); }
     }
-  }, [session, step, source, receive]);
+  }, [session, step, source, receive, interviewId]);
   const props = { document, pending: pending || immutable || sessionRunning,
     avatarContext: source?.revisionId ? { interviewId, revisionId: source.revisionId } : undefined,
     savedExpertIds: saved ? interviewMarkdown.projectInterviewMarkdownExperts(saved).map((expert) => expert.expertId) : [],

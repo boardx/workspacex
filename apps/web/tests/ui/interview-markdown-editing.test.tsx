@@ -502,3 +502,96 @@ it("refreshes conflicted expert versions and retains dialog fields for an explic
   expect(bodies[1]?.markdown).toContain("#expert-concurrent");
   expect(bodies[1]?.markdown).toContain(editableVirtualFields.name);
 });
+
+it.each(["new revision", "new saved version"])("does not replay completed questions over %s on the actual outline route", async (change) => {
+  vi.stubEnv("NEXT_PUBLIC_API_URL", "http://localhost:4100"); vi.stubEnv("NEXT_PUBLIC_API_PATH_PREFIX", "");
+  const id = `itv-session-${change}`;
+  const expert = { ...source, markdown: "## [护理专家](#expert-nurse)\n\n专业角色：护理" };
+  const outline = { ...source, documentId: "questions", step: "outline" as const, markdown: "## [护理专家](#expert-nurse)\n\n1. 旧生成问题？\n" };
+  const initial = { interviewId: id, revisionId: "revision-old", version: 1, documents: [expert], states: [{ documentId: expert.documentId, status: "draft", failure: null }] };
+  const generated = { ...initial, version: 3, documents: [expert, outline] };
+  const current = { ...generated, revisionId: change === "new revision" ? "revision-new" : "revision-old", version: 5, documents: [expert, { ...outline, version: 2, markdown: "## [护理专家](#expert-nurse)\n\n1. 当前已保存问题？\n" }] };
+  let canonical: typeof initial | typeof current = initial;
+  let releaseInitialize: (() => void) | undefined;
+  let finish!: (response: Response) => void;
+  let started = false;
+  vi.stubGlobal("fetch", async (url: string) => {
+    if (url.endsWith("/digital/experts")) return new Response(JSON.stringify({ items: [] }));
+    if (url.endsWith("/experts/confirm")) return new Response(JSON.stringify({ ...initial, version: 2, states: [{ documentId: expert.documentId, status: "confirmed", failure: null }] }));
+    if (url.endsWith("/outline/confirm")) return new Response(JSON.stringify({ ...generated, version: 4 }));
+    if (url.endsWith("/outline/generate")) { started = true; return new Promise<Response>(resolve => { finish = resolve; }); }
+    if (canonical === current) return new Promise<Response>(resolve => { releaseInitialize = () => resolve(new Response(JSON.stringify(current))); });
+    return new Response(JSON.stringify(canonical));
+  });
+  const versions = vi.fn();
+  function Route() {
+    const [route, setRoute] = React.useState<"experts" | "outline" | null>("experts");
+    return <><button onClick={() => setRoute(null)}>返回访谈首页</button><button onClick={() => setRoute("outline")}>返回问题页</button>{route && <InterviewMarkdownEditingStep key={route} interviewId={id} step={route} onVersionChange={versions} onDirtyChange={vi.fn()} onContinue={next => setRoute(next === "runs" ? null : next)} />}</>;
+  }
+  render(<Route />);
+  await waitFor(() => expect(screen.getByRole("button", { name: "确认专家并生成问题" })).toBeEnabled());
+  fireEvent.click(screen.getByRole("button", { name: "确认专家并生成问题" }));
+  await waitFor(() => expect(started).toBe(true));
+  fireEvent.click(screen.getByRole("button", { name: "返回访谈首页" }));
+  finish(new Response(JSON.stringify(generated)));
+  const { getInterviewGenerationSession } = await import("@/lib/interview-generation-session");
+  await waitFor(() => expect(versions).toHaveBeenCalledWith(4));
+  expect(getInterviewGenerationSession(id)).toBeNull();
+  canonical = current;
+  versions.mockClear();
+  fireEvent.click(screen.getByRole("button", { name: "返回问题页" }));
+  await waitFor(() => expect(releaseInitialize).toBeDefined());
+  expect(versions).not.toHaveBeenCalled();
+  expect(screen.queryByDisplayValue("旧生成问题？")).not.toBeInTheDocument();
+  releaseInitialize!();
+  await waitFor(() => expect(screen.getByRole("textbox", { name: "编辑问题 1" })).toHaveValue("当前已保存问题？"));
+  expect(versions.mock.calls.every(([version]) => version === 5)).toBe(true);
+  expect(getInterviewGenerationSession(id)).toBeNull();
+  expect(screen.queryByDisplayValue("旧生成问题？")).not.toBeInTheDocument();
+});
+
+it.each(["initialize first", "generate first"])("delivers questions across the real route with %s", async (ordering) => {
+  vi.stubEnv("NEXT_PUBLIC_API_URL", "http://localhost:4100"); vi.stubEnv("NEXT_PUBLIC_API_PATH_PREFIX", "");
+  const id = `itv-route-order-${ordering}`;
+  const expert = { ...source, markdown: "## [护理专家](#expert-nurse)\n\n专业角色：护理" };
+  const initial = { interviewId: id, revisionId: "revision-route", version: 1, documents: [expert], states: [{ documentId: expert.documentId, status: "draft", failure: null }] };
+  const confirmed = { ...initial, version: 2, states: [{ documentId: expert.documentId, status: "confirmed", failure: null }] };
+  const outline = { ...source, documentId: "route-questions", step: "outline" as const, markdown: "## [护理专家](#expert-nurse)\n\n1. 新生成问题？\n" };
+  const generated = { ...confirmed, version: 3, documents: [expert, outline], states: [...confirmed.states, { documentId: outline.documentId, status: "draft", failure: null }] };
+  let confirmedRequest = false, questionsConfirmed = false;
+  let finishRead!: (response: Response) => void, finishGeneration!: (response: Response) => void;
+  vi.stubGlobal("fetch", async (url: string) => {
+    if (url.endsWith("/digital/experts")) return new Response(JSON.stringify({ items: [] }));
+    if (url.endsWith("/experts/confirm")) { confirmedRequest = true; return new Response(JSON.stringify(confirmed)); }
+    if (url.endsWith("/outline/confirm")) { questionsConfirmed = true; return new Response(JSON.stringify({ ...generated, version: 4, states: generated.states.map(state => ({ ...state, status: "confirmed" })) })); }
+    if (questionsConfirmed) return new Response(JSON.stringify({ ...generated, version: 4, states: generated.states.map(state => ({ ...state, status: "confirmed" })) }));
+    if (url.endsWith("/outline/generate")) return new Promise<Response>(resolve => { finishGeneration = resolve; });
+    if (confirmedRequest) return new Promise<Response>(resolve => { finishRead = resolve; });
+    return new Response(JSON.stringify(initial));
+  });
+  const versions = vi.fn();
+  function Route() {
+    const [step, setStep] = React.useState<"experts" | "outline" | "runs">("experts");
+    return <><button onClick={() => setStep("outline")}>审阅问题页</button>{step === "runs" ? <div>访谈执行页</div> : <InterviewMarkdownEditingStep key={step} interviewId={id} step={step} onVersionChange={versions} onDirtyChange={vi.fn()} onContinue={setStep} />}</>;
+  }
+  render(<Route />);
+  await waitFor(() => expect(screen.getByRole("button", { name: "确认专家并生成问题" })).toBeEnabled());
+  fireEvent.click(screen.getByRole("button", { name: "确认专家并生成问题" }));
+  await waitFor(() => { expect(finishRead).toBeTypeOf("function"); expect(finishGeneration).toBeTypeOf("function"); });
+  if (ordering === "initialize first") {
+    finishRead(new Response(JSON.stringify(confirmed)));
+    await waitFor(() => expect(versions).toHaveBeenCalledWith(2));
+    finishGeneration(new Response(JSON.stringify(generated)));
+  } else {
+    finishGeneration(new Response(JSON.stringify(generated)));
+    await waitFor(() => expect(screen.getByText("访谈执行页")).toBeVisible());
+    finishRead(new Response(JSON.stringify(confirmed)));
+  }
+  await waitFor(() => expect(screen.getByText("访谈执行页")).toBeVisible());
+  fireEvent.click(screen.getByRole("button", { name: "审阅问题页" }));
+  await waitFor(() => expect(screen.getByRole("textbox", { name: "编辑问题 1" })).toHaveValue("新生成问题？"));
+  expect(screen.getByRole("button", { name: "确认问题并开始访谈" })).toBeDisabled();
+  expect(versions.mock.calls.at(-1)).toEqual([4]);
+  const { getInterviewGenerationSession } = await import("@/lib/interview-generation-session");
+  expect(getInterviewGenerationSession(id)).toBeNull();
+});
