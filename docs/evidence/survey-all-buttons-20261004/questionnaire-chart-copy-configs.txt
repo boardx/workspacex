@@ -1,0 +1,310 @@
+[
+  {
+    "checked": [
+      "1. 您加入当前团队多久了？"
+    ],
+    "numbers": [
+      {
+        "label": "最小分组样本",
+        "value": "5"
+      }
+    ],
+    "selects": [
+      {
+        "label": "统计口径",
+        "value": "distribution"
+      },
+      {
+        "label": "分组题目",
+        "value": ""
+      },
+      {
+        "label": "样本范围",
+        "value": "valid"
+      }
+    ],
+    "title": "您加入当前团队多久了？"
+  },
+  {
+    "checked": [
+      "2. 您主要采用哪种协作方式？"
+    ],
+    "numbers": [
+      {
+        "label": "最小分组样本",
+        "value": "5"
+      }
+    ],
+    "selects": [
+      {
+        "label": "统计口径",
+        "value": "distribution"
+      },
+      {
+        "label": "分组题目",
+        "value": ""
+      },
+      {
+        "label": "样本范围",
+        "value": "valid"
+      }
+    ],
+    "title": "您主要采用哪种协作方式？"
+  },
+  {
+    "checked": [],
+    "numbers": [],
+    "selects": [],
+    "title": "合成文字-真实答卷顺序验收"
+  },
+  {
+    "checked": [
+      "3. 我清楚团队当前最重要的目标。"
+    ],
+    "numbers": [
+      {
+        "label": "最小分组样本",
+        "value": "5"
+      }
+    ],
+    "selects": [
+      {
+        "label": "统计口径",
+        "value": "mean"
+      },
+      {
+        "label": "分组题目",
+        "value": ""
+      },
+      {
+        "label": "样本范围",
+        "value": "valid"
+      }
+    ],
+    "title": "合成指标-目标均值"
+  },
+  {
+    "checked": [
+      "3. 我清楚团队当前最重要的目标。",
+      "4. 我知道自己的工作如何支持团队目标。",
+      "5. 团队对任务优先级有一致理解。"
+    ],
+    "numbers": [
+      {
+        "label": "最小分组样本",
+        "value": "5"
+      }
+    ],
+    "selects": [
+      {
+        "label": "统计口径",
+        "value": "mean"
+      },
+      {
+        "label": "分组题目",
+        "value": ""
+      },
+      {
+        "label": "样本范围",
+        "value": "valid"
+      }
+    ],
+    "title": "合成雷达-三项均值"
+  },
+  {
+    "checked": [
+      "3. 我清楚团队当前最重要的目标。",
+      "4. 我知道自己的工作如何支持团队目标。",
+      "5. 团队对任务优先级有一致理解。"
+    ],
+    "numbers": [
+      {
+        "label": "最小分组样本",
+        "value": "5"
+      }
+    ],
+    "selects": [
+      {
+        "label": "统计口径",
+        "value": "mean"
+      },
+      {
+        "label": "分组题目",
+        "value": ""
+      },
+      {
+        "label": "样本范围",
+        "value": "valid"
+      }
+    ],
+    "title": "合成雷达-三项均值"
+  },
+  {
+    "checked": [
+      "1. 您加入当前团队多久了？"
+    ],
+    "numbers": [
+      {
+        "label": "最小分组样本",
+        "value": "5"
+      }
+    ],
+    "selects": [
+      {
+        "label": "统计口径",
+        "value": "distribution"
+      },
+      {
+        "label": "分组题目",
+        "value": ""
+      },
+      {
+        "label": "样本范围",
+        "value": "valid"
+      }
+    ],
+    "title": "合成数据表-团队时长"
+  },
+  {
+    "checked": [
+      "1. 您加入当前团队多久了？"
+    ],
+    "numbers": [
+      {
+        "label": "最小分组样本",
+        "value": "5"
+      }
+    ],
+    "selects": [
+      {
+        "label": "统计口径",
+        "value": "distribution"
+      },
+      {
+        "label": "分组题目",
+        "value": ""
+      },
+      {
+        "label": "样本范围",
+        "value": "valid"
+      }
+    ],
+    "title": "合成数据表-团队时长"
+  },
+  {
+    "checked": [
+      "3. 我清楚团队当前最重要的目标。"
+    ],
+    "numbers": [
+      {
+        "label": "最小分组样本",
+        "value": "5"
+      }
+    ],
+    "selects": [
+      {
+        "label": "统计口径",
+        "value": "mean"
+      },
+      {
+        "label": "分组题目",
+        "value": ""
+      },
+      {
+        "label": "样本范围",
+        "value": "valid"
+      }
+    ],
+    "title": "合成趋势-目标均值"
+  },
+  {
+    "checked": [
+      "3. 我清楚团队当前最重要的目标。"
+    ],
+    "numbers": [
+      {
+        "label": "最小分组样本",
+        "value": "5"
+      }
+    ],
+    "selects": [
+      {
+        "label": "统计口径",
+        "value": "mean"
+      },
+      {
+        "label": "分组题目",
+        "value": ""
+      },
+      {
+        "label": "样本范围",
+        "value": "valid"
+      }
+    ],
+    "title": "合成趋势-目标均值"
+  },
+  {
+    "checked": [
+      "3. 我清楚团队当前最重要的目标。",
+      "4. 我知道自己的工作如何支持团队目标。",
+      "5. 团队对任务优先级有一致理解。"
+    ],
+    "numbers": [
+      {
+        "label": "最小分组样本",
+        "value": "5"
+      },
+      {
+        "label": "目标值",
+        "value": "5"
+      }
+    ],
+    "selects": [
+      {
+        "label": "统计口径",
+        "value": "mean"
+      },
+      {
+        "label": "分组题目",
+        "value": ""
+      },
+      {
+        "label": "样本范围",
+        "value": "valid"
+      }
+    ],
+    "title": "合成差距-目标5"
+  },
+  {
+    "checked": [
+      "3. 我清楚团队当前最重要的目标。",
+      "4. 我知道自己的工作如何支持团队目标。",
+      "5. 团队对任务优先级有一致理解。"
+    ],
+    "numbers": [
+      {
+        "label": "最小分组样本",
+        "value": "5"
+      },
+      {
+        "label": "目标值",
+        "value": "5"
+      }
+    ],
+    "selects": [
+      {
+        "label": "统计口径",
+        "value": "mean"
+      },
+      {
+        "label": "分组题目",
+        "value": ""
+      },
+      {
+        "label": "样本范围",
+        "value": "valid"
+      }
+    ],
+    "title": "合成差距-目标5"
+  }
+]
