@@ -6,6 +6,7 @@ import {join} from 'node:path';
 import {pathToFileURL} from 'node:url';
 import {writeStartupFailure} from './native-startup-receipt.mjs';
 import {nativeRuntimePorts,localRuntimePorts,nativeProviderEnvironment,assertNativePortsAvailable} from './native-runtime-ports.mjs';
+import {createOwnedOneShots} from './native-owned-one-shot.mjs';
 let phase='BOOTSTRAP',data,sourceHead=null,stopRuntime=async()=>{},cwdChildState=()=>null;
 try{
 const [planPath]=process.argv.slice(2);assert(planPath,'Private prepared plan required');
@@ -23,7 +24,7 @@ phase='SOURCE';
 const sourceFiles=Object.keys(plan.sourceHashes);assertRuntimeSourceFiles(root,sourceFiles);assert.deepEqual(runtimeSourceHashes(root,sourceFiles),plan.sourceHashes);assert.deepEqual(plan.sourceHashes,committedRuntimeSourceHashes(root,head,sourceFiles));
 phase='IMPORT';
 const {resolveLocalConfig,apiEnv,webEnv,paths}=await load('packages/local-runtime/src/config.ts');
-const {startManaged,runToCompletion,waitForHttpOrExit}=await load('packages/local-runtime/src/processes.ts');
+const {startManaged,killTree,waitForHttpOrExit}=await load('packages/local-runtime/src/processes.ts');
 const {tsxLaunch,nextLaunch}=await load('packages/local-runtime/src/node-launch.ts');
 phase='PREFLIGHT';
 nativeRuntimePorts(ports);
@@ -36,13 +37,14 @@ mkdirSync(join(data,'native-pg-socket'),{mode:0o700});mkdirSync(paths.logs(confi
 const startedAt=new Date().toISOString(),manifestPath=join(data,'runtime-manifest.json');
 const manifest={webRoot:root,apiRoot:root,head,ports,sourceFiles,sourceHashes:plan.sourceHashes,webBase:`http://127.0.0.1:${ports.web}`,apiBase:`http://127.0.0.1:${ports.api}`,helperPid:process.pid,processes:[],ready:false,startedAt,nativeDatabase:{version:'16.15',vectorVersion:'0.8.6',name:database,port:ports.postgres},deploymentMarker:marker};
 const save=()=>writeFileSync(manifestPath,JSON.stringify(manifest,null,2),{mode:0o600});save();
-const children=[];let postgresRunning=false,stopping=false;
+const children=[];let postgresRunning=false,stopping=false,stopPromise;
+const oneShots=createOwnedOneShots({startManaged,killTree});
 cwdChildState=service=>{const managed=children.find(item=>item.name===`native-board-${service}`);assert(managed,'Owned identity child required');return{childExitCode:managed.child.exitCode,childSignal:managed.child.signalCode};};
 const nativeEnv={...process.env,...nativeProviderEnvironment(ports),PATH:`${bin}:${process.env.PATH??''}`,PGHOST:'127.0.0.1',PGPORT:String(ports.postgres),PGDATABASE:database,PGSSLMODE:'disable',APP_DB_USER:'app_rw',APP_DB_PASSWORD:secrets.appPassword,MIGRATION_DB_USER:'postgres',MIGRATION_DB_PASSWORD:secrets.ownerPassword,DIAG_DB_USER:'app_rw',DIAG_DB_PASSWORD:secrets.appPassword,WORKSPACEX_NATIVE_POSTGRES:'1',WORKSPACEX_DB:database,WORKSPACEX_ISOLATION_ID:isolation,WORKSPACEX_API_PORT:String(ports.api),WORKSPACEX_WEB_PORT:String(ports.web),COMPOSE_PROJECT_NAME:`unused-${isolation}`,BOARD_ACCEPTANCE_SHA:head,BOARD_ACCEPTANCE_RUNTIME_MARKER:marker,BOARD_ACCEPTANCE_RUNTIME_STARTED_AT:startedAt,WORKSPACEX_DEPLOYMENT_MARKER:marker,WORKSPACEX_EDITION:'cloud'};
-const stop=async()=>{if(stopping)return;stopping=true;const failures=[];for(const child of children.reverse())try{await child.stop();}catch(error){failures.push(error);}if(postgresRunning)try{execFileSync(join(bin,'pg_ctl'),['-D',pgData,'-m','fast','-w','stop'],{env:nativeEnv,stdio:'pipe'});postgresRunning=false;}catch(error){failures.push(error);}manifest.ready=false;try{save();}catch(error){failures.push(error);}if(failures.length)throw new AggregateError(failures,'Owned native runtime cleanup failed');};
+const stop=()=>{if(stopPromise)return stopPromise;stopping=true;stopPromise=(async()=>{const failures=[];try{await oneShots.stop();}catch(error){failures.push(error);}for(const child of [...children].reverse())try{await child.stop();}catch(error){failures.push(error);}if(postgresRunning)try{execFileSync(join(bin,'pg_ctl'),['-D',pgData,'-m','fast','-w','stop'],{env:nativeEnv,stdio:'pipe'});postgresRunning=false;}catch(error){failures.push(error);}manifest.ready=false;try{save();}catch(error){failures.push(error);}if(failures.length)throw new AggregateError(failures,'Owned native runtime cleanup failed');})();return stopPromise;};
 stopRuntime=stop;
-for(const signal of ['SIGTERM','SIGINT'])process.on(signal,()=>void stop().then(()=>process.exit(0)));
-const run=async(name,launch,cwd,env)=>{const result=await runToCompletion({name,command:launch.command,args:launch.args,cwd,env:{...env,...launch.env}});writeFileSync(join(data,`${name}.log`),`${result.stdout}\n${result.stderr}`,{mode:0o600});assert.equal(result.code,0,`${name} failed; inspect private log`);};
+for(const signal of ['SIGTERM','SIGINT'])process.on(signal,()=>void stop().then(()=>process.exit(0),()=>{console.error('OWNED_NATIVE_RUNTIME_STOP_FAILED');process.exit(1);}));
+const run=async(name,launch,cwd,env)=>{assert(!stopping,'OWNED_ONE_SHOT_ADMISSION_CLOSED');writeFileSync(join(data,`${name}.log`),'',{mode:0o600,flag:'wx'});const managed=oneShots.start({name,command:launch.command,args:launch.args,cwd,logDir:data,env:{...env,...launch.env}});const code=await managed.completed();assert(!stopping,'OWNED_ONE_SHOT_CANCELLED');assert.equal(code,0,`${name} failed; inspect private log`);};
 {
  phase='INITDB';
  execFileSync(join(bin,'initdb'),['-D',pgData,'-U','postgres','--pwfile',ownerPasswordFile,'--auth-host=scram-sha-256','--auth-local=scram-sha-256','--encoding=UTF8','--locale=C'],{env:nativeEnv,stdio:'pipe'});
