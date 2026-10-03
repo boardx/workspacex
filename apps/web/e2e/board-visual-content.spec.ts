@@ -88,7 +88,12 @@ test("Shape Draw Image and Tile share one canonical collaborative surface", asyn
   // Let Chromium encode the fixture so the test exercises a genuinely decodable PNG
   // instead of relying on a hand-copied base64 payload with uncertain chunk CRCs.
   const png = await page.screenshot({ clip: { x: 0, y: 0, width: 32, height: 32 } });
-  await page.getByTestId("board-image-input").setInputFiles({ name: "research.png", mimeType: "image/png", buffer: png });
+  await page.getByTestId("board-add-image").click();
+  await expect(page.getByTestId("board-image-upload-dialog")).toBeVisible();
+  const fileChooser = page.waitForEvent("filechooser");
+  await page.getByTestId("board-image-dropzone").click();
+  await (await fileChooser).setFiles({ name: "research.png", mimeType: "image/png", buffer: png });
+  await expect(page.getByTestId("board-image-upload-dialog")).not.toBeVisible();
   await expect(page.getByTestId("board-a11y-mirror").locator('[aria-description*="图片已验证"]')).toHaveCount(1, { timeout: 15_000 });
 
   await expect(outline).toHaveCount(4);

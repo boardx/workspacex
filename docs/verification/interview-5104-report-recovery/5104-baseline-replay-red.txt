@@ -1,0 +1,187 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/apps/api
+
+ ❯ tests/itv/interview-report-recovery.test.ts (7 tests | 6 failed) 169ms
+   × bounded report quality recovery > retains rejected bytes/hash as failed and repairs only once without concatenating reports 45ms
+     → AI_GENERATION_UNAVAILABLE
+   × bounded report quality recovery > two quality failures remain failed, never call a third time or report success 78ms
+     → promise resolved "{ interviewId: 'itv-recovery', …(6) }" instead of rejecting
+   × bounded report quality recovery > a failed current draft is rewritten completely and is never a confirmed source 12ms
+     → expected '# 未完成报告\n\n专家甲说要电话，专家乙说不要电话。保留相反意见原文。…' to be '# 探索性结论\n\n跨回答综合：两位专家意见相反，应分层验证而非多数表决…' // Object.is equality
+   × bounded report quality recovery > source changes after retaining the failure block further model work 13ms
+     → expected [Function] to throw error including 'CONCURRENT_MODIFICATION' but got 'AI_GENERATION_UNAVAILABLE'
+   × bounded report quality recovery > permission loss before repair remains the original error 12ms
+     → expected Error: AI_GENERATION_UNAVAILABLE { code: '…' } to be Error: PERMISSION_REVOKED_MIDWAY { code: '…' } // Object.is equality
+   × bounded report quality recovery > provider failure during repair retains the failed first version 3ms
+     → expected "spy" to be called 2 times, but got 1 times
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 6 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/itv/interview-report-recovery.test.ts > bounded report quality recovery > retains rejected bytes/hash as failed and repairs only once without concatenating reports
+Error: AI_GENERATION_UNAVAILABLE
+ ❯ tests/itv/.report-baseline-2304.ts:188:17
+    186|         if (!assessment.ok) {
+    187|           diagnostics.reject("quality_rejected", assessment.missing);
+    188|           throw new DigitalInterviewWorkflowError("AI_GENERATION_UNAVA…
+       |                 ^
+    189|         }
+    190|       }
+ ❯ InterviewReportDiagnostics.measure src/application/interview/workflow/interview-report-diagnostics.ts:22:32
+ ❯ tests/itv/.report-baseline-2304.ts:172:34
+ ❯ InterviewReportDiagnostics.run src/application/interview/workflow/interview-report-diagnostics.ts:42:22
+ ❯ tests/itv/interview-report-recovery.test.ts:34:18
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/6]⎯
+
+ FAIL  tests/itv/interview-report-recovery.test.ts > bounded report quality recovery > two quality failures remain failed, never call a third time or report success
+AssertionError: promise resolved "{ interviewId: 'itv-recovery', …(6) }" instead of rejecting
+
+- Expected
++ Received
+
+- [Error: rejected promise]
++ Object {
++   "documents": Array [
++     Object {
++       "contentHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
++       "documentId": "md-runs",
++       "evidenceMode": "simulated",
++       "markdown": "## [甲](#expert-a)
++ 反对电话。
++ ## [乙](#expert-b)
++ 支持电话。",
++       "references": Array [],
++       "step": "runs",
++       "version": 1,
++     },
++     Object {
++       "contentHash": "7aa1b4c561cf2a7f0b525f8d9bce97cd7771d4fa742069aea064910182940b5b",
++       "documentId": "md-report",
++       "evidenceMode": "simulated",
++       "markdown": "# 探索性结论
++
++ 跨回答综合：两位专家意见相反，应分层验证而非多数表决。
++ 决策影响：应优先验证客户偏好，暂缓统一渠道。
++ 边界与反例：仅模拟角色，不代表真人证据。
++ 建议行动：P0：用独立真人任务验证渠道假设，以完成时长和再次进线率为指标。",
++       "references": Array [
++         Object {
++           "anchor": "source-1",
++           "documentId": "md-runs",
++           "version": 1,
++         },
++       ],
++       "step": "report",
++       "version": 1,
++     },
++   ],
++   "execution": null,
++   "interviewId": "itv-recovery",
++   "review": null,
++   "revisionId": "rev-recovery",
++   "states": Array [
++     Object {
++       "documentId": "md-runs",
++       "failure": null,
++       "status": "completed",
++     },
++     Object {
++       "documentId": "md-report",
++       "failure": null,
++       "status": "draft",
++     },
++   ],
++   "version": 8,
++ }
+
+ ❯ tests/itv/interview-report-recovery.test.ts:44:55
+     42|  it("two quality failures remain failed, never call a third time or re…
+     43|   complete.mockResolvedValue({ text: BAD });
+     44|   await expect(generateInterviewMarkdown(deps(),input)).rejects.toThro…
+       |                                                       ^
+     45|   expect(complete).toHaveBeenCalledTimes(2); expect(save).toHaveBeenCa…
+     46|   expect(snapshot.states.find(s => s.documentId === "md-report")?.stat…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/6]⎯
+
+ FAIL  tests/itv/interview-report-recovery.test.ts > bounded report quality recovery > a failed current draft is rewritten completely and is never a confirmed source
+AssertionError: expected '# 未完成报告\n\n专家甲说要电话，专家乙说不要电话。保留相反意见原文。…' to be '# 探索性结论\n\n跨回答综合：两位专家意见相反，应分层验证而非多数表决…' // Object.is equality
+
+- Expected
++ Received
+
+- # 探索性结论
++ # 未完成报告
++
++ 专家甲说要电话，专家乙说不要电话。保留相反意见原文。# 探索性结论
+
+  跨回答综合：两位专家意见相反，应分层验证而非多数表决。
+  决策影响：应优先验证客户偏好，暂缓统一渠道。
+  边界与反例：仅模拟角色，不代表真人证据。
+  建议行动：P0：用独立真人任务验证渠道假设，以完成时长和再次进线率为指标。
+
+ ❯ tests/itv/interview-report-recovery.test.ts:56:69
+     54|   save.mockClear();complete.mockResolvedValue({ text: GOOD });
+     55|   const result = await generateInterviewMarkdown(deps(),{...input,expe…
+     56|   expect(result.documents.find(d => d.step === "report")?.markdown).to…
+       |                                                                     ^
+     57|   expect(complete.mock.calls[0]?.[0].user).toContain("未确认");
+     58|   expect(complete.mock.calls[0]?.[0].system).not.toContain("原样拼接");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/6]⎯
+
+ FAIL  tests/itv/interview-report-recovery.test.ts > bounded report quality recovery > source changes after retaining the failure block further model work
+AssertionError: expected [Function] to throw error including 'CONCURRENT_MODIFICATION' but got 'AI_GENERATION_UNAVAILABLE'
+
+Expected: "CONCURRENT_MODIFICATION"
+Received: "AI_GENERATION_UNAVAILABLE"
+
+ ❯ tests/itv/interview-report-recovery.test.ts:64:3
+     62|   read.mockImplementation(async () => { if (++count === 2) snapshot.ve…
+     63|   complete.mockResolvedValue({ text: BAD });
+     64|   await expect(generateInterviewMarkdown(deps(),input)).rejects.toThro…
+       |   ^
+     65|   expect(complete).toHaveBeenCalledTimes(1);
+     66|  });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/6]⎯
+
+ FAIL  tests/itv/interview-report-recovery.test.ts > bounded report quality recovery > permission loss before repair remains the original error
+AssertionError: expected Error: AI_GENERATION_UNAVAILABLE { code: '…' } to be Error: PERMISSION_REVOKED_MIDWAY { code: '…' } // Object.is equality
+
+- Expected
++ Received
+
+- [Error: PERMISSION_REVOKED_MIDWAY]
++ [Error: AI_GENERATION_UNAVAILABLE]
+
+ ❯ tests/itv/interview-report-recovery.test.ts:70:46
+     68|   const error = new DigitalInterviewWorkflowError("PERMISSION_REVOKED_…
+     69|   read.mockImplementationOnce(async () => structuredClone(snapshot)).m…
+     70|   complete.mockResolvedValue({ text: BAD }); await expect(generateInte…
+       |                                              ^
+     71|  });
+     72|  it("provider failure during repair retains the failed first version",…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/6]⎯
+
+ FAIL  tests/itv/interview-report-recovery.test.ts > bounded report quality recovery > provider failure during repair retains the failed first version
+AssertionError: expected "spy" to be called 2 times, but got 1 times
+ ❯ tests/itv/interview-report-recovery.test.ts:75:20
+     73|   complete.mockResolvedValueOnce({ text: BAD }).mockRejectedValueOnce(…
+     74|   await expect(generateInterviewMarkdown(deps(),input)).rejects.toThro…
+     75|   expect(complete).toHaveBeenCalledTimes(2);expect(save).toHaveBeenCal…
+       |                    ^
+     76|   expect(snapshot.documents.find(d => d.step === "report")?.markdown).…
+     77|  });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/6]⎯
+
+ Test Files  1 failed (1)
+      Tests  6 failed | 1 passed (7)
+   Start at  22:26:53
+   Duration  9.24s (transform 5.12s, setup 0ms, collect 8.31s, tests 169ms, environment 0ms, prepare 237ms)
+
+undefined
+/Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run --config /private/tmp/wsx-interview-5019-acceptance/recovery-baseline.config.mjs

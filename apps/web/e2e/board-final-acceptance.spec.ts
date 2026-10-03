@@ -1,3 +1,4 @@
+import {createSpatialWsMetadataRecorder} from "./support/board-spatial-ws-metadata";
 import {randomUUID} from 'node:crypto';
 import {expect} from '@playwright/test';
 import {test,assertJourneyReload} from './board-journey-evidence';
@@ -5,7 +6,6 @@ import type {WhiteboardCommand} from '@repo/whiteboard-core';
 import {FULLSTACK_E2E} from './fullstack-smoke-fixture';
 import {connectionGestureMetric} from '../scripts/board-connection-gesture-metric.mjs';
 import {createNativeSticky,createNativeText,observeNativeStickyWrites} from './support/board-native-sticky-create';
-import {createSpatialWsMetadataRecorder} from './support/board-spatial-ws-metadata';
 import {archiveAcceptanceBoard, boardApi, boardHead, boardLogin, canonicalRows,
   connectByHandles, connectorsBound, createAcceptanceBoard, createCommands, dragObject,
   gridValid, object, openBoard, operate, provenance, selectAll} from './board-acceptance-support';
@@ -118,7 +118,13 @@ test('Panel: drag 10 unparented objects inside, then move the whole container', 
       await test.info().attach('panel-failure-transport', {body: JSON.stringify({http, websocket: transport.snapshot(), denied: await page.getByTestId('denied').count()}), contentType: 'application/json'});
     } catch (diagnosticError) { throw new AggregateError([error, diagnosticError], 'Panel failure and diagnostic capture failed', {cause: error}); }
     throw error;
-  } finally { await archiveAcceptanceBoard(request, token, id); }
+  } finally {
+    // Archive safe routing/receipt metadata even when fail-closed removes the UI.
+    // This distinguishes server rejection from receipt conflicts without payloads.
+    try {
+      await test.info().attach('panel-transport-metadata',{body:JSON.stringify({...transport.snapshot(),ui:{phase:await page.evaluate(()=>document.querySelector('[data-testid="board-sync-status"]')?.getAttribute('data-sync-state')??null).catch(()=>null),failClosed:await page.getByRole('heading',{name:'无法继续访问白板',exact:true}).count()===1}}),contentType:'application/json'});
+    } finally { await archiveAcceptanceBoard(request, token, id); }
+  }
 });
 
 test('Diagram: A->B->C via one-drag connections remain attached after each shape moves', async ({page, request}) => {

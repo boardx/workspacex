@@ -1,0 +1,42 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/apps/web
+
+ ❯ tests/lib/interview-outline-order.test.ts (4 tests | 2 failed) 77ms
+   × retains two expert groups when swapping an unterminated final subtree ("\n") 49ms
+     → expected [ '#expert-b' ] to deeply equal [ '#expert-b', '#expert-a' ]
+   × retains two expert groups when swapping an unterminated final subtree ("\r\n") 12ms
+     → expected [ '#expert-b' ] to deeply equal [ '#expert-b', '#expert-a' ]
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/lib/interview-outline-order.test.ts > retains two expert groups when swapping an unterminated final subtree ("\n")
+ FAIL  tests/lib/interview-outline-order.test.ts > retains two expert groups when swapping an unterminated final subtree ("\r\n")
+AssertionError: expected [ '#expert-b' ] to deeply equal [ '#expert-b', '#expert-a' ]
+
+- Expected
++ Received
+
+  Array [
+    "#expert-b",
+-   "#expert-a",
+  ]
+
+ ❯ tests/lib/interview-outline-order.test.ts:13:65
+     11|     const moved = moveOutlineGroup(doc, headingId, direction)!;
+     12|     const projection = interviewMarkdown.parseInterviewMarkdown({ ...d…
+     13|     expect(projection.blocks.map(block => block.links[0]?.url)).toEqua…
+       |                                                                 ^
+     14|     expect(moved.slice(projection.blocks[0]!.contentStart, projection.…
+     15|     expect(moved.slice(projection.blocks[1]!.contentStart, projection.…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 2 passed (4)
+   Start at  20:57:49
+   Duration  4.41s (transform 1.85s, setup 463ms, collect 3.02s, tests 77ms, environment 0ms, prepare 112ms)
+
+undefined
+/Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/lib/interview-outline-order.test.ts --maxWorkers=1 --minWorkers=1
