@@ -5,13 +5,13 @@ const request: MaintenanceRequest = { sourceRevision: "9".repeat(40), baselineRe
 function fixture(fail?: string) {
   const calls: string[] = [];
   const step = (name: string) => async () => { calls.push(name); if(name===fail) throw new Error("local injected failure"); };
-  const ops: MaintenanceOperations = { prepareOffline: step("prepare"), acquireReleaseLock: async () => { calls.push("lock"); return step("unlock"); }, verifyThreeDatabaseRecovery: step("recovery"), persistMaintenanceHold: step("hold"), blockAllWrites: step("block"), verifyAllWritersDrained: step("drain"), migrateExactPlan: step("migrate"), verifyProductionDynamic: step("dynamic"), verifyPreactivate: step("preactivate"), activate: step("activate"), verifyAcceptance: step("acceptance"), resumeWrites: step("resume"), verifyWritesResumed: step("resumed-readback"), clearMaintenanceHold: step("clear-hold"), verifyWritesBlocked: step("blocked-readback"), recordWriteStateReconciliationRequired: step("reconcile-required"), recordDatabaseRecoveryRequired: step("restore-required") };
+  const ops: MaintenanceOperations = { prepareOffline: step("prepare"), acquireReleaseLock: async () => { calls.push("lock"); return step("unlock"); }, verifyThreeDatabaseRecovery: step("recovery"), persistMaintenanceHold: step("hold"), verifyMaintenanceHoldPresent: step("hold-present"), verifyMaintenanceHoldCleared: step("hold-cleared"), blockAllWrites: step("block"), verifyAllWritersDrained: step("drain"), migrateExactPlan: step("migrate"), verifyProductionDynamic: step("dynamic"), verifyPreactivate: step("preactivate"), activate: step("activate"), verifyAcceptance: step("acceptance"), resumeWrites: step("resume"), verifyWritesResumed: step("resumed-readback"), clearMaintenanceHold: step("clear-hold"), verifyWritesBlocked: step("blocked-readback"), recordWriteStateReconciliationRequired: step("reconcile-required"), recordDatabaseRecoveryRequired: step("restore-required") };
   return { calls, ops };
 }
 describe("maintenance ordering (local adapters, not live recovery evidence)", () => {
   it("holds release lock while preparing offline, migration precedes production dynamic, writes resume last", async () => {
     const f=fixture(); await runMaintenanceRelease(request,f.ops);
-    expect(f.calls).toEqual(["lock","prepare","recovery","hold","block","drain","migrate","dynamic","preactivate","activate","acceptance","resume","resumed-readback","clear-hold","unlock"]);
+    expect(f.calls).toEqual(["lock","prepare","recovery","hold","hold-present","block","drain","migrate","dynamic","preactivate","activate","acceptance","resume","resumed-readback","clear-hold","hold-cleared","unlock"]);
   });
   it("rejects implicit maintenance", async () => { const f=fixture(); await expect(runMaintenanceRelease({...request,maintenanceOptIn: undefined} as unknown as MaintenanceRequest,f.ops)).rejects.toThrow("OPT_IN"); expect(f.calls).toEqual([]); });
   it("rejects missing real recovery adapter before any preparation or writes", async () => { const f=fixture(); delete f.ops.verifyThreeDatabaseRecovery; await expect(runMaintenanceRelease(request,f.ops)).rejects.toThrow("CAPABILITY_MISSING:verifyThreeDatabaseRecovery"); expect(f.calls).toEqual([]); });
@@ -21,7 +21,7 @@ describe("maintenance ordering (local adapters, not live recovery evidence)", ()
     const f=fixture(failure); await expect(runMaintenanceRelease(request,f.ops)).rejects.toBeInstanceOf(MaintenanceRecoveryRequired);
     expect(f.calls.at(-2)).toBe("restore-required"); expect(f.calls.at(-1)).toBe("unlock");
     if(failure!=="resume") expect(f.calls).not.toContain("resume");
-    if(["hold","block","drain"].includes(failure)) expect(f.calls).not.toContain("migrate");
+    if(["hold","hold-present","block","drain"].includes(failure)) expect(f.calls).not.toContain("migrate");
   });
 });
 
@@ -44,4 +44,13 @@ it("unknown write resumption retains hold and lock and never claims writes held"
 it("independent resumed readback failure leaves durable hold untouched",async()=>{
  const f=fixture("resumed-readback"); f.ops.verifyWritesBlocked=async()=>{throw new Error("not proven blocked");};
  await expect(runMaintenanceRelease(request,f.ops)).rejects.toBeInstanceOf(MaintenanceWriteStateUnknown); expect(f.calls).not.toContain("clear-hold"); expect(f.calls).not.toContain("unlock");
+});
+
+it("clear committed remotely then response lost cannot claim the hold remains",async()=>{
+ const f=fixture(); let cleared=false; f.ops.clearMaintenanceHold=async()=>{f.calls.push("clear-hold");cleared=true;throw new Error("lost response");}; f.ops.verifyMaintenanceHoldPresent=async()=>{f.calls.push("hold-present");if(cleared)throw new Error("actual hold absent");};
+ await expect(runMaintenanceRelease(request,f.ops)).rejects.toBeInstanceOf(MaintenanceWriteStateUnknown); expect(f.calls).not.toContain("restore-required"); expect(f.calls).not.toContain("unlock"); expect(f.calls).toContain("reconcile-required");
+});
+it("clear acknowledgment without independent absent readback retains the lock",async()=>{
+ const f=fixture("hold-cleared"); f.ops.verifyMaintenanceHoldPresent=async()=>{if(f.calls.includes("clear-hold"))throw new Error("not proven present");};
+ await expect(runMaintenanceRelease(request,f.ops)).rejects.toBeInstanceOf(MaintenanceWriteStateUnknown); expect(f.calls).not.toContain("unlock"); expect(f.calls).not.toContain("restore-required");
 });
