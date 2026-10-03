@@ -284,7 +284,7 @@ export class GuidedRuntimeService {
       await persist();
       const allowPartial = Boolean(state.reportPartial);
       await this.reviewSources(state, persist);
-      await this.readSourceDocuments(state, persist, { retryTransient: true });
+      await this.readSourceDocuments(state, persist);
       appendActivity(state, "reading", "来源读取与可用性验证完成", "succeeded");
       state.reportPartial = allowPartial;
       acceptPendingSources(state); this.requireResearchBasis(state, allowPartial);
@@ -703,8 +703,9 @@ export class GuidedRuntimeService {
       }
       const next = nodes[nodes.indexOf(node) + 1]!;
       state.currentNode = next; state.availableNodes = nodes.slice(0, nodes.indexOf(next) + 1);
-      // Persist the destination before external work so refresh and failures stay on that step.
+      // Persist and publish the destination before slow source reading or generation.
       await persist();
+      persist.observe({ type: "snapshot", state: structuredClone(state) });
       if (next === "research") await this.executeSearch(state, persist, internalSources);
       else await this.generate(state, next, persist);
       return;

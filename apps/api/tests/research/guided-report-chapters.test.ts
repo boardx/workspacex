@@ -88,6 +88,50 @@ describe("report conversation regeneration", () => {
 });
 
 describe("chapter-based report generation", () => {
+  it("rejects callbacks retained by a failed stream attempt during retry", async () => {
+    const f = fixture();
+    let old: ((delta: string) => Promise<void>) | undefined;
+    let checked = false;
+    const model: ModelCallPort = {
+      complete: async (input) => ({ text: JSON.stringify(answer(JSON.parse(input.user))) }),
+      completeStream: async (input, emit) => {
+        const context = JSON.parse(input.user);
+        if (!old) { old = emit; throw new ModelCallError("MODEL_CALL_FAILED", "model provider responded with HTTP 503"); }
+        if (!checked) {
+          checked = true;
+          const writes = f.writes.length;
+          await expect(old("stale output")).rejects.toThrow("RESEARCH_EXECUTION_INTERRUPTED");
+          expect(f.writes.length).toBe(writes);
+        }
+        const text = JSON.stringify(answer(context));
+        await emit(text);
+        return { text };
+      },
+    };
+    await generateReportChapters(f.state, model, config, f.persist);
+    expect(checked).toBe(true);
+    expect(f.state.reportStream?.text).not.toContain("stale output");
+  });
+  it("bounds a stalled evidence provider and ignores late responses", async () => {
+    vi.useFakeTimers();
+    try {
+      const f = fixture();
+      let release!: (value: { text: string }) => void;
+      let signal: AbortSignal | undefined;
+      const operation = generateReportChapters(f.state, { complete: async (input) => {
+        signal = input.signal;
+        return new Promise((resolve) => { release = resolve; });
+      } }, config, f.persist);
+      const rejected = expect(operation).rejects.toThrow("RESEARCH_REPORT_MODEL_TIME_BUDGET_EXCEEDED");
+      await vi.advanceTimersByTimeAsync(90_000);
+      await rejected;
+      expect(signal?.aborted).toBe(true);
+      const writes = f.writes.length;
+      release({ text: "{}" });
+      await vi.advanceTimersByTimeAsync(1);
+      expect(f.writes.length).toBe(writes);
+    } finally { vi.useRealTimers(); }
+  });
   it("overlaps evidence calls while serializing durable writes and keeping progress monotonic", async () => {
     const f = fixture();
     f.state.sources = Array.from({ length: 24 }, (_, index) => ({ ...f.state.sources[index % 2]!, id: `source-${index}-${index % 2 ? "a" : "b"}`, url: `https://example.com/${index}` }));
@@ -106,7 +150,7 @@ describe("chapter-based report generation", () => {
       return { text: JSON.stringify(answer(context)) };
     } };
     const report = await generateReportChapters(f.state, model, config, persist);
-    expect(peak).toBe(2); expect(writePeak).toBe(1);
+    expect(peak).toBe(3); expect(writePeak).toBe(1);
     const progress = f.writes.filter((state) => state.progress?.stage === "organizing").map((state) => state.progress!.completed);
     expect(progress).toEqual([...progress].sort((a, b) => a - b));
     expect(Math.max(...progress)).toBe(3);
@@ -1024,4 +1068,21 @@ describe("unverified chapter synthesis boundary (#5179)", () => {
     for (const snapshot of f.writes) expect(snapshot.reportCheckpoint?.chapters.map((c) => c.sectionId)).toEqual(["0", "1", "2", "3", "4"].slice(0, snapshot.reportCheckpoint?.chapters.length ?? 0));
   });
 
+});
+
+it("publishes confirmed report destination before reading sources and does not retry failed documents", async () => {
+  const f = fixture();
+  f.state.currentNode = "research";
+  f.state.availableNodes = ["brief", "directions", "outline", "research"];
+  f.state.sources[1]!.documentError = "unavailable";
+  const read = vi.fn(async (url: string) => {
+    expect(f.events.some((event) => event.type === "snapshot" && event.state.currentNode === "report" && event.state.availableNodes.includes("report"))).toBe(true);
+    return { url, text: "Evidence for a", contentKind: "text" as const, truncated: false };
+  });
+  const store: GuidedRuntimeStore = { read: async () => f.state, claim: async () => ({ state: f.state, replay: false }), write: async () => {} };
+  const service = new GuidedRuntimeService(store, { complete: async (input) => ({ text: JSON.stringify(answer(JSON.parse(input.user))) }) }, { search: async () => [], read }, config);
+  await service.execute({ sessionId: "s", orgId: "org", userId: "u" } as RuntimeActor, { sessionId: "s", brief: f.state.brief, directions: { versions: [] }, outline: { versions: [] } } as any,
+    { sessionId: "s", node: "research", action: "complete", requestId: "advance", expectedVersion: 4 }, (event) => f.events.push(event));
+  expect(read).toHaveBeenCalledTimes(1);
+  expect(read).toHaveBeenCalledWith("https://example.com/a");
 });

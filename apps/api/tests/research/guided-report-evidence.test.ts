@@ -16,7 +16,7 @@ const evaluate = (context: any) => ({ evaluations: context.chunks.map((chunk: an
   matches: context.questions.map((question: any) => ({ questionId: question.id, quote: (chunk.content ?? chunk.quoteOptions[0].text).slice(0, 80), insight: "Interpretation must be checked against the quote.", relevance: "direct" })) })) });
 describe("verified report evidence coverage", () => {
   it("extracts independent batches with a bound and preserves deterministic evidence order", async () => {
-    const state = fixture(24);
+    const state = fixture(40);
     let active = 0, peak = 0;
     let release!: () => void;
     const slow = new Promise<void>((resolve) => { release = resolve; });
@@ -25,14 +25,14 @@ describe("verified report evidence coverage", () => {
     const operation = extractReportEvidence(state, config, async (input, validate) => {
       const context = JSON.parse(input.user);
       active++; peak = Math.max(peak, active);
-      if (context.batchIndex === 0) await slow;
-      if (context.batchIndex === 2) thirdStarted();
+      if (context.batchIndex === 3) thirdStarted();
+      if (context.batchIndex < 4) await slow;
       active--;
       return validate(JSON.stringify(evaluate(context)));
     });
     try {
       await Promise.race([third, new Promise((_, reject) => setTimeout(() => reject(new Error("serial evidence extraction")), 1000))]);
-      expect(peak).toBe(2);
+      expect(peak).toBe(4);
     } finally { release(); }
     const result = await operation;
     expect(result.matches.values().next().value?.map((item) => item.sourceId)).toEqual(state.sources.map((source) => source.id));
