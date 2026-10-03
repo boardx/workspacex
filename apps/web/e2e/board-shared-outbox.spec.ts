@@ -7,7 +7,7 @@ import {chromium,expect,test as baseTest,type Page,type CDPSession} from '@playw
 import {createOwnedLifecycleBrowser} from './support/board-owned-lifecycle-browser.mjs';
 import {FULLSTACK_E2E as F} from './fullstack-smoke-fixture';
 import {SESSION_TOKEN_STORAGE_KEY} from '../lib/api-client';
-import {createSpatialWsMetadataRecorder,spatialFrameMetadata} from './support/board-spatial-ws-metadata';
+import {createSpatialWsMetadataRecorder,spatialFrameMetadata,installNativeSocketCloseObserver} from './support/board-spatial-ws-metadata';
 import {sharedOutboxProof} from './support/board-shared-outbox-proof';
 
 // Ordinary Playwright pages enable focus emulation and remain visibly captured
@@ -38,6 +38,13 @@ test('same-browser tabs drain a shared durable outbox without duplicate commits'
  page.setDefaultTimeout(15_000);
  page.setDefaultNavigationTimeout(15_000);
  const metadata=createSpatialWsMetadataRecorder();metadata.observe(page,'original');
+ const socketBinding=`boardSocketClose${randomUUID().replaceAll('-','')}`,socketStateKey=socketBinding+'State';
+ await page.exposeBinding(socketBinding,(_source,value)=>metadata.nativeClose('original',value));
+ await page.addInitScript(installNativeSocketCloseObserver,{binding:socketBinding,stateKey:socketStateKey});
+ const socketSession=await page.context().newCDPSession(page),stopSocketObservation=metadata.observeCdp(socketSession,'original');
+ await socketSession.send('Network.enable');
+ let nextRouteSocketOrdinal=0;
+
  const chunks:Array<{path:string;sha256:string;bytes:number}>=[],chunkReads:Array<Promise<void>>=[];
  page.on('response',response=>{const path=new URL(response.url()).pathname;if(path.startsWith('/_next/static/')&&path.endsWith('.js')&&response.status()===200)chunkReads.push(response.body().then(body=>{chunks.push({path,sha256:createHash('sha256').update(body).digest('hex'),bytes:body.length});}).catch(()=>undefined));});
  const http:Array<{method:string;path:string;status:number}>=[];
@@ -94,7 +101,7 @@ test('same-browser tabs drain a shared durable outbox without duplicate commits'
   ownerWindowChanged=false;
  };
 
- const ackGate:{updateId:string|null;release:(()=>void)|null;heldAt:number|null;releasedAt:number|null}={updateId:null,release:null,heldAt:null,releasedAt:null};
+ const ackGate:{routeSocketOrdinal:number|null;releaseAlive:null;updateId:string|null;release:(()=>void)|null;heldAt:number|null;releasedAt:number|null}={routeSocketOrdinal:null,releaseAlive:null,updateId:null,release:null,heldAt:null,releasedAt:null};
  const call=async(method:string,path:string,data?:unknown)=>{const safePath=new URL(path,'http://diagnostic.invalid').pathname,index=http.push({method,path:safePath,status:0})-1;const response=await request.fetch(`${api}${path}`,{method,data,timeout:15_000,headers:{Authorization:`Bearer ${token}`}});const status=response.status();http[index]!.status=status;
   // Record only routing metadata, never credentials, request/response bodies or query strings.
   expect(response.ok(),`Board fixture HTTP ${method} ${safePath}: ${status}`).toBe(true);return response.json();};
@@ -110,12 +117,12 @@ test('same-browser tabs drain a shared durable outbox without duplicate commits'
   // the unmodified durable claim must expire before the peer replays that ID.
   // Every other frame is forwarded unchanged to the actual API.
   await page.routeWebSocket(url=>url.pathname===WHITEBOARD_SYNC.path.replace(':boardId',encodeURIComponent(boardId)),socket=>{
-   const server=socket.connectToServer();
+   const socketOrdinal=++nextRouteSocketOrdinal;const server=socket.connectToServer();
    socket.onMessage(message=>server.send(message));
    server.onMessage(message=>{
     const frame=spatialFrameMetadata(message);
     if(frame.type==='ack'&&frame.updateId&&ackGate.updateId===null){
-     ackGate.updateId=frame.updateId;ackGate.heldAt=performance.now();
+     ackGate.routeSocketOrdinal=socketOrdinal;ackGate.updateId=frame.updateId;ackGate.heldAt=performance.now();
      ackGate.release=()=>{ackGate.release=null;ackGate.releasedAt=performance.now();socket.send(message);};
     }else socket.send(message);
    });
@@ -152,7 +159,7 @@ test('same-browser tabs drain a shared durable outbox without duplicate commits'
   // A suspended original tab cannot renew its in-flight claim. Keep its actual
   // server ACK held, without editing durable records or shortening the lease.
   await expect.poll(()=>ackGate.updateId!==null&&ackGate.release!==null,{timeout:remaining(),message:'Actual contract route must capture one real server ACK'}).toBe(true);
-  evidence.ackGate={updateId:ackGate.updateId,held:true};
+  evidence.ackGate={updateId:ackGate.updateId,held:true,routeSocketOrdinal:ackGate.routeSocketOrdinal,releaseAlive:null};
   ownerLifecycle=await page.context().newCDPSession(page);
   await ownerLifecycle.send('Runtime.enable');
   await ownerLifecycle.send('Runtime.addBinding',{name:lifecycleBinding});
@@ -204,7 +211,7 @@ test('same-browser tabs drain a shared durable outbox without duplicate commits'
   await restoreOwnerWindow(remaining());
   await captureVisibility('after-active');
   evidence.ownerLifecycleEvents={...lifecycleEvents};
-  evidence.ackGate={updateId:ackGate.updateId,heldMs:ackGate.releasedAt!-ackGate.heldAt!};
+  evidence.ackGate={updateId:ackGate.updateId,routeSocketOrdinal:ackGate.routeSocketOrdinal,releaseAlive:null,heldMs:ackGate.releasedAt!-ackGate.heldAt!};
   await expectBoardSynced(page,remaining());await expectBoardSynced(testPeer,remaining());
   await expect.poll(()=>rows(testPeer),{timeout:remaining()}).toEqual(expected);expect(await rows(page)).toEqual(expected);
   mark('peer-converged');
@@ -238,6 +245,9 @@ test('same-browser tabs drain a shared durable outbox without duplicate commits'
   if(ownerFrozen)lifecycleCleanupErrors.push('listeners: OWNER_STILL_FROZEN_NOT_REMOVED');
   else try{if(ownerLifecycle){const removed=await ownerLifecycle.send('Runtime.evaluate',{expression:`for(const [type,listener] of Object.entries(globalThis[${JSON.stringify(lifecycleBinding+'Handlers')}]??{}))document.removeEventListener(type,listener);delete globalThis[${JSON.stringify(lifecycleBinding+'Handlers')}];delete globalThis[${JSON.stringify(lifecycleBinding+'Counts')}];delete globalThis[${JSON.stringify(lifecycleBinding+'Visibility')}];`});expect(removed.exceptionDetails,'Owned lifecycle observers must actually be removed').toBeUndefined();}}catch(error){lifecycleCleanupErrors.push(`listeners: ${String(error)}`);}
   try{await ownerLifecycle?.send('Runtime.removeBinding',{name:lifecycleBinding});}catch(error){lifecycleCleanupErrors.push(`binding: ${String(error)}`);}
+  if(ownerFrozen)lifecycleCleanupErrors.push('SOCKET_DIAGNOSTIC_OWNER_STILL_FROZEN');
+  else try{const removed=await socketSession.send('Runtime.evaluate',{expression:`(()=>{const state=globalThis[${JSON.stringify(socketStateKey)}];if(!state)return;for(const [socket,listener] of state.listeners)socket.removeEventListener('close',listener);if(globalThis.WebSocket===state.observer)globalThis.WebSocket=state.original;delete globalThis[${JSON.stringify(socketStateKey)}];})()`});expect(removed.exceptionDetails,'Owned socket observation must be removed').toBeUndefined();}catch{lifecycleCleanupErrors.push('SOCKET_DIAGNOSTIC_REMOVE_FAILED');}
+  try{stopSocketObservation();}catch{lifecycleCleanupErrors.push('SOCKET_DIAGNOSTIC_STOP_FAILED');}try{await socketSession.detach();}catch{lifecycleCleanupErrors.push('SOCKET_DIAGNOSTIC_DETACH_FAILED');}
   try{await ownerLifecycle?.detach();}catch(error){lifecycleCleanupErrors.push(`detach: ${String(error)}`);}
   evidence.lifecycleCleanupErrors=lifecycleCleanupErrors;evidence.ownerLifecycleEvents={...lifecycleEvents};
   try{await peer?.close();}catch(error){lifecycleCleanupErrors.push(`peer: ${String(error)}`);}

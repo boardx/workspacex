@@ -1,4 +1,4 @@
-import type { Page } from '@playwright/test';
+import type { Page,CDPSession } from '@playwright/test';
 
 const types = new Set(['hello', 'update', 'restore-deletion', 'awareness', 'sync', 'ack', 'error', 'recovery', 'presence']);
 /** Whitelist only transport metadata; never return payloads, credentials, URLs or error text. */
@@ -38,6 +38,50 @@ export function createSpatialWsMetadataRecorder() {
         socket.on('socketerror', () => record({ client, socketId, direction: 'socketerror' }));
       });
     },
+    observeCdp(session:CDPSession,client:'original'|'peer'){
+      const sockets=new Map<string,number>();let ordinal=0;
+      const created=(event:{requestId:string;url:string})=>{try{if(ordinal<10000&&typeof event.url==='string'&&event.url.length<=8192&&/\/whiteboards\/[^/]+\/sync$/.test(new URL(event.url).pathname))sockets.set(event.requestId,++ordinal);}catch{ /* Malformed diagnostic URLs cannot affect transport. */ }};
+      const failed=(event:{requestId:string;errorMessage:string})=>{const socketOrdinal=sockets.get(event.requestId);if(socketOrdinal)record({client,socketOrdinal,direction:'cdp-socketerror',code:nativeSocketErrorCode(event.errorMessage)});};
+      const closed=(event:{requestId:string})=>{const socketOrdinal=sockets.get(event.requestId);if(socketOrdinal)record({client,socketOrdinal,direction:'cdp-close'});};
+      session.on('Network.webSocketCreated',created);session.on('Network.webSocketFrameError',failed);session.on('Network.webSocketClosed',closed);
+      return()=>{const removals:Array<()=>void>=[()=>{session.off('Network.webSocketCreated',created);},()=>{session.off('Network.webSocketFrameError',failed);},()=>{session.off('Network.webSocketClosed',closed);}];let failure=false;for(const remove of removals)try{remove();}catch{failure=true;}if(failure)throw new Error('SOCKET_DIAGNOSTIC_STOP_FAILED');};
+    },
+    nativeClose(client:'original'|'peer',value:unknown){
+      if(!value||typeof value!=='object')return;
+      const descriptors=Object.getOwnPropertyDescriptors(value);
+      if(Object.keys(descriptors).sort().join(',')!=='code,socketOrdinal,wasClean'||Object.values(descriptors).some(d=>!Object.hasOwn(d,'value')))return;
+      const {socketOrdinal,code,wasClean}=Object.fromEntries(Object.entries(descriptors).map(([key,d])=>[key,d.value]));
+      if(!Number.isSafeInteger(socketOrdinal)||socketOrdinal<1||socketOrdinal>10000||!Number.isInteger(code)||code<0||code>65535||typeof wasClean!=='boolean')return;
+      record({client,socketOrdinal,direction:'nativeclose',code,wasClean});
+    },
     snapshot: () => ({ events, dropped }),
   };
+}
+
+/** Fixed classifications only; the browser error string is never retained. */
+export function nativeSocketErrorCode(message:unknown){
+ const known=['ERR_NETWORK_IO_SUSPENDED','ERR_CONNECTION_RESET','ERR_CONNECTION_CLOSED','ERR_ABORTED','ERR_FAILED','ERR_NETWORK_CHANGED','ERR_INTERNET_DISCONNECTED'];
+ if(typeof message!=='string'||message.length>8192)return 'UNKNOWN';
+ const matches=known.filter(code=>new RegExp(`(?:^|[^A-Z_])(?:net::)?${code}(?:$|[^A-Z_])`).test(message));
+ return matches.length===1?matches[0]:'UNKNOWN';
+}
+/** Init-script observation only: native constructor, frames and close behavior remain untouched. */
+export function installNativeSocketCloseObserver({binding,stateKey}:{binding:string;stateKey:string}){
+ const original=globalThis.WebSocket,sockets=new Map<number,WebSocket>(),listeners=new Map<WebSocket,EventListener>();let ordinal=0;
+ const observer=new Proxy(original,{construct(target,args,newTarget){
+  const socket=Reflect.construct(target,args,newTarget) as WebSocket;
+  try{if(ordinal<10000&&/\/whiteboards\/[^/]+\/sync$/.test(new URL(socket.url).pathname)){
+   const socketOrdinal=++ordinal;sockets.set(socketOrdinal,socket);
+   const listener:EventListener=raw=>{const event=raw as CloseEvent;
+    if(!event.isTrusted)return;
+    if(!Number.isInteger(event.code)||event.code<0||event.code>65535||typeof event.wasClean!=='boolean')return;
+    const notify=(globalThis as unknown as Record<string,(value:unknown)=>Promise<void>>)[binding];
+    if(typeof notify!=='function')return;
+    try{void notify({socketOrdinal,code:event.code,wasClean:event.wasClean}).catch(()=>undefined);}catch{ /* Observation cannot change native close behavior. */ }
+   };listeners.set(socket,listener);socket.addEventListener('close',listener);
+  }}catch{ /* Observation cannot change native constructor return or throw behavior. */ }
+  return socket;
+ }});
+ Object.defineProperty(globalThis,stateKey,{value:{sockets,listeners,original,observer},configurable:true});
+ globalThis.WebSocket=observer;
 }

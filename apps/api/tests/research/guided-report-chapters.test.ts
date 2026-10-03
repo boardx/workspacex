@@ -853,8 +853,37 @@ describe("unverified chapter synthesis boundary (#5179)", () => {
     expect(f.contexts.some((c) => c.reportStage.startsWith("synthesis"))).toBe(false);
     expect(report.summary + report.introduction + report.conclusion).not.toContain("UNSUPPORTED_SENTINEL");
     expect(report.summary).toContain("unverified");
+    expect(report.title).toBe("Policy — Research report");
+    expect(report.title + report.summary + report.introduction + report.conclusion).not.toMatch(/\p{Script=Han}/u);
     expect(f.state.reportQualityWarnings).toHaveLength(2);
     expect(f.state.report).toBeNull(); expect(f.state.completed).toBe(false);
+  });
+  it("names an unverified Chinese report after its topic without bilingual framing", async () => {
+    const f = runCase("all-warn");
+    f.state.brief.topic = "Node.js 运行时环境及基础 Web 服务器开发";
+    const report = await f.run();
+    expect(report.title).toBe("Node.js 运行时环境及基础 Web 服务器开发研究报告");
+    expect(report.summary).toContain("尚未通过核验");
+    expect(report.summary + report.introduction + report.conclusion).not.toMatch(/[a-z]/i);
+    expect(f.state.report).toBeNull();
+    expect(f.state.completed).toBe(false);
+    expect(f.state.reportQualityWarnings).toHaveLength(2);
+  });
+  it.each(["中文研究", "English research"])("uses one language throughout evidence-free chapters and truncated questions (%s)", async (topic) => {
+    const f = runCase("empty");
+    const chinese = topic === "中文研究";
+    f.state.brief = { ...f.state.brief, topic, goal: "", focus: "" };
+    f.state.outline[0]!.title = chinese ? "证据缺口" : "Evidence gaps";
+    f.state.outline[0]!.questions = [chinese ? "问题" : "Question"];
+    (f.state.outline[0]! as any).subsections = Array.from({ length: 8 }, (_, i) => ({ id: `part-${i}`, title: chinese ? `待核实范围${i}` : `Unresolved scope ${i}`, questions: Array.from({ length: 4 }, (_, j) => `${i}/${j}: ${(chinese ? "问" : "Q").repeat(900)}`) }));
+    expect(C.GuidedResearchOutlineSection.safeParse(f.state.outline[0]).success).toBe(true);
+    const report = await f.run();
+    const gap = report.sections[0]!;
+    expect(gap.sourceIds).toEqual([]);
+    expect(gap.body).toContain(chinese ? "余文省略" : "remainder omitted");
+    expect(gap.body).toContain(chinese ? "待核实问题" : "Unanswered question");
+    expect(gap.body).not.toMatch(chinese ? /[a-z]/i : /\p{Script=Han}/u);
+    expect(f.state.completed).toBe(false);
   });
   it("keeps evidence-free resume warnings and reuses later trusted chapters", async () => {
     const f = runCase("empty"); await f.run(); f.contexts.length = 0;
@@ -1121,4 +1150,20 @@ it("resumes an unchanged report basis without re-screening already prepared sour
   expect(result.report?.sections).toHaveLength(2);
   expect(read).not.toHaveBeenCalled();
   expect(contexts.every((c) => !c.researchStage)).toBe(true);
+});
+
+ it.each(["Investigar energía solar", "太陽光発電を調査", "태양광 발전 조사"])("preserves user language for chapter and synthesis prompts (%s)", async (topic) => {
+  const f = fixture(); f.state.brief = { ...f.state.brief, topic, goal: "", focus: "" };
+  const prompts: string[] = [];
+  const model: ModelCallPort = { complete: async (input) => {
+    const context = JSON.parse(input.user);
+    if (["chapter", "synthesis"].includes(context.reportStage)) prompts.push(input.system);
+    return { text: JSON.stringify(answer(context)) };
+  } };
+  await generateReportChapters(f.state, model, config, f.persist);
+  expect(prompts).toHaveLength(3);
+  for (const prompt of prompts) {
+    expect(prompt).toContain("Preserve the user's language");
+    expect(prompt).not.toMatch(/prose only in (Chinese|English)/);
+  }
 });

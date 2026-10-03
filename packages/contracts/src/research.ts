@@ -585,6 +585,7 @@ export const GuidedResearchStage = z.enum([
   "brief", "directions", "outline", "researching", "report", "failed",
 ]);
 
+export { guidedResearchReportFraming } from "./research-report-framing";
 export const GuidedResearchBrief = z.object({
   topic: z.string().trim().min(1).max(200),
   goal: z.string().trim().min(1).max(40000),
