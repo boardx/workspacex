@@ -1,0 +1,4 @@
+
+> @repo/api@0.0.0 typecheck /Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/apps/api
+> tsc --noEmit
+

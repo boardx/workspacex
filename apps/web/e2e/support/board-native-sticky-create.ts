@@ -3,14 +3,22 @@ import {canonicalRows,canonicalBoardSnapshot,boardHead} from '../board-acceptanc
 import {expectBoardSynced} from './board-sync-status';
 
 type NativeRect={x:number;y:number;width:number;height:number};
-export function nativeBlankCandidates(input:{canvas:NativeRect;viewport:{width:number;height:number};occupied:NativeRect[];chrome:NativeRect[]}){
-  const {canvas,viewport,occupied,chrome}=input;
-  const left=Math.max(0,canvas.x)+8,top=Math.max(0,canvas.y)+8;
-  const right=Math.min(viewport.width,canvas.x+canvas.width)-8,bottom=Math.min(viewport.height,canvas.y+canvas.height)-8;
+export function nativeBlankCandidates(input:{canvas:NativeRect;viewport:{width:number;height:number};occupied:NativeRect[];chrome:NativeRect[];selection?:NativeRect[];paperMargin?:number}){
+  const {canvas,viewport,occupied,chrome,selection=[]}=input;
+  // Fabric's ActiveSelection is a hit target even in gaps between its children.
+  const blocked=[...occupied];
+  if(selection.length>1){
+    const x=Math.min(...selection.map(r=>r.x)),y=Math.min(...selection.map(r=>r.y));
+    const right=Math.max(...selection.map(r=>r.x+r.width)),bottom=Math.max(...selection.map(r=>r.y+r.height));
+    blocked.push({x,y,width:right-x,height:bottom-y});
+  }
+  const margin=input.paperMargin??8;
+  const left=Math.max(0,canvas.x)+margin,top=Math.max(0,canvas.y)+margin;
+  const right=Math.min(viewport.width,canvas.x+canvas.width)-margin,bottom=Math.min(viewport.height,canvas.y+canvas.height)-margin;
   const points:Array<{x:number;y:number}>=[];
   for(let y=top;y<bottom;y+=16)for(let x=left;x<right;x+=16){
-    if(chrome.some(r=>x>=r.x&&x<=r.x+r.width&&y>=r.y&&y<=r.y+r.height))continue;
-    if(occupied.some(r=>x>=r.x-12&&x<=r.x+r.width+12&&y>=r.y-12&&y<=r.y+r.height+12))continue;
+    if(chrome.some(r=>x+margin>=r.x&&x-margin<=r.x+r.width&&y+margin>=r.y&&y-margin<=r.y+r.height))continue;
+    if(blocked.some(r=>x>=r.x-12&&x<=r.x+r.width+12&&y>=r.y-12&&y<=r.y+r.height+12))continue;
     points.push({x,y});
   }
   const center={x:(left+right)/2,y:(top+bottom)/2};
@@ -43,7 +51,8 @@ export async function createNativeSticky(page:Page,text:string,proof:{api:APIReq
     if(![box.x,box.y,box.width,box.height].every(Number.isFinite)||box.width<=0||box.height<=0)throw new Error('INVALID_NATIVE_CANVAS_BOUNDS');
     const zoom=Number(data.viewportZoom),panX=Number(data.viewportPanX),panY=Number(data.viewportPanY);
     if(![zoom,panX,panY].every(Number.isFinite)||zoom<=0)throw new Error('INVALID_NATIVE_VIEWPORT');
-    const occupied=Array.from(document.querySelectorAll('[data-testid="board-a11y-mirror"] li[data-geometry]')).map(node=>{
+    const nodes=Array.from(document.querySelectorAll('[data-testid="board-a11y-mirror"] li[data-geometry]'));
+    const occupied=nodes.map(node=>{
       const g=JSON.parse(node.getAttribute('data-geometry')!);
       if(![g.x,g.y,g.width,g.height,g.rotation].every(Number.isFinite)||g.width<=0||g.height<=0)throw new Error('INVALID_NATIVE_OBJECT_GEOMETRY');
       const angle=g.rotation*Math.PI/180,c=Math.abs(Math.cos(angle)),s=Math.abs(Math.sin(angle));
@@ -52,7 +61,10 @@ export async function createNativeSticky(page:Page,text:string,proof:{api:APIReq
     });
     if(occupied.length!==count)throw new Error('NATIVE_GEOMETRY_COUNT_MISMATCH');
     const chrome=Array.from(document.querySelectorAll('[data-board-chrome]')).map(node=>node.getBoundingClientRect()).filter(rect=>rect.width>0&&rect.height>0);
-    return {canvas:{x:box.x,y:box.y,width:box.width,height:box.height},viewport:{width:innerWidth,height:innerHeight},occupied,chrome:chrome.map(r=>({x:r.x,y:r.y,width:r.width,height:r.height}))};
+    const selection=occupied.filter((_,index)=>nodes[index]?.querySelector('[aria-pressed="true"]'));
+    return {canvas:{x:box.x,y:box.y,width:box.width,height:box.height},viewport:{width:innerWidth,height:innerHeight},occupied,selection,
+      // Keep main's visible paper/header clearance, clipped for narrow reflow viewports.
+      paperMargin:Math.max(8,Math.min(Math.max(120,120*zoom),Math.min(box.width,innerWidth)/4,Math.min(box.height,innerHeight)/4)),chrome:chrome.map(r=>({x:r.x,y:r.y,width:r.width,height:r.height}))};
    },expectedCount);
    const candidates=await page.evaluate(nativeBlankCandidates,sample);
    return page.getByTestId('board-fabric-surface').evaluate((host,points)=>{

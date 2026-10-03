@@ -1,0 +1,148 @@
+- alert
+- link "跳到主要内容":
+  - /url: "#wsx-main-content"
+- navigation "主导航":
+  - button "组织菜单，当前：org org-fullstack-7n-c31495b5-0d6c23f263b1":
+    - generic: o
+  - link "首页":
+    - /url: /home
+    - generic: 首页
+  - link "对话":
+    - /url: /chat
+    - generic: 对话
+  - link "项目":
+    - /url: /projects
+    - generic: 项目
+  - link "研究":
+    - /url: /research
+    - generic: 研究
+  - link "访谈":
+    - /url: /itv
+    - generic: 访谈
+  - link "大脑":
+    - /url: /brain
+    - generic: 大脑
+  - link "任务":
+    - /url: /tasks
+    - generic: 任务
+  - link "工作流":
+    - /url: /workflows
+    - generic: 工作流
+  - link "组织后台":
+    - /url: /admin
+    - generic: 组织后台
+  - button "更多":
+    - generic: 更多
+  - button "任务提醒，0 条未读":
+    - generic: 提醒
+  - generic: 0 条未读
+  - button "提交反馈":
+    - generic: 反馈
+  - button "个人菜单":
+    - generic: F
+- banner:
+  - generic: org org-fullstack-7n-c31495b5-0d6c23f263b1
+  - paragraph: 管理员
+  - paragraph: 不在具体项目里 · 引导师/组长/组员等项目内角色暂不适用
+- main:
+  - main:
+    - button "← 返回列表"
+    - textbox "问卷名称": CURRENT 真实样本全报告按钮
+    - paragraph: 已保存 · 2026/10/3 00:04:38
+    - button "更多操作"
+    - button "保存修改" [disabled]
+    - navigation "问卷工作流":
+      - button "1. 设计问卷":
+        - generic: "1"
+        - text: 设计问卷
+      - button "2. 发布回收":
+        - generic: "2"
+        - text: 发布回收
+      - button "3. 查看答卷":
+        - generic: "3"
+        - text: 查看答卷
+    - status: 报告已按最新答卷和报告模板重新生成
+    - heading "分析报告" [level=1]
+    - button "重新生成报告"
+    - button "导出 Markdown"
+    - button "导出 Word"
+    - button "导出 PDF"
+    - paragraph: 生成时间：2026/10/3 00:04:38
+    - generic "报告 Markdown"
+    - article:
+      - heading "PR5017 报告文件往返验收" [level=1]
+      - paragraph: 样本口径：总答卷 11 · 待复核 0 · 已排除 0 · 纳入分析 11
+      - status "探索性样本说明": 当前纳入 11 份答卷，结果适合作为探索性线索，置信度有限，不宜直接外推至全部目标人群。建议结合补充样本或访谈继续验证。
+      - heading "全部九种内容块验收" [level=2]
+      - heading "本章 3 项评分均为 3.09" [level=3]
+      - paragraph: “CURRENT 报告评分1”为 3.09（有效作答 11 份）；“CURRENT 报告评分1”为 3.09（有效作答 11 份）；“CURRENT 报告评分1”为 3.09（有效作答 11 份）。共同取值为 1、2、3、4、5。各题样本分别统计，不据此推断因果或组织整体水平。
+      - paragraph:
+        - strong: 建议验证：
+        - text: 结合各题的具体经历核对评分含义，再决定是否需要行动。
+      - heading "雷达图：均值解读" [level=3]
+      - paragraph: “CURRENT 报告评分1”的均值为 3.09。该项基于 11 份有效作答。 “CURRENT 报告评分2”的均值为 3.27。该项基于 11 份有效作答。 “CURRENT 报告评分3”的均值为 3.45。该项基于 11 份有效作答。
+      - paragraph:
+        - strong: 建议验证：
+        - text: 围绕“雷达图”补充具体经历和期望变化，再确定行动；未配置评价标准的数值不直接判定好坏，也不合并不同量纲。
+      - heading "差距矩阵：均值解读" [level=3]
+      - paragraph: “CURRENT 报告评分1”的均值为 3.09。该项基于 11 份有效作答。模板目标为 5，目标减当前值为 1.91。 “CURRENT 报告评分2”的均值为 3.27。该项基于 11 份有效作答。模板目标为 5，目标减当前值为 1.73。
+      - paragraph:
+        - strong: 建议验证：
+        - text: 围绕“差距矩阵”补充具体经历和期望变化，再确定行动；未配置评价标准的数值不直接判定好坏，也不合并不同量纲。
+      - heading "文字说明" [level=3]
+      - paragraph: PR5017 真人配置文字说明，保留此文本用于导出导入核对。
+      - paragraph: 说明文字-5017
+      - heading "指标卡" [level=3]
+      - paragraph: 样本策略：仅正常质量答卷 · 实际样本量 11
+      - term: CURRENT 报告评分1
+      - definition: "3.09"
+      - definition: 有效样本 11
+      - heading "数据表" [level=3]
+      - paragraph: 样本策略：仅正常质量答卷 · 实际样本量 11
+      - table:
+        - rowgroup:
+          - row "指标 数值 有效样本":
+            - columnheader "指标"
+            - columnheader "数值"
+            - columnheader "有效样本"
+        - rowgroup:
+          - row "CURRENT 报告评分1 3.09 11":
+            - cell "CURRENT 报告评分1"
+            - cell "3.09"
+            - cell "11"
+      - heading "柱状图" [level=3]
+      - paragraph: 样本策略：仅正常质量答卷 · 实际样本量 11
+      - img "这是一个图表，图表类型是柱状图。其数据是——CURRENT 报告评分1的数据是3.090909090909091，0。":
+      - heading "雷达图" [level=3]
+      - paragraph: 样本策略：仅正常质量答卷 · 实际样本量 11
+      - img "这是一个图表，图表类型是雷达图。其数据是——数据的数据是3.090909090909091，3.272727272727273，3.454545454545454。":
+      - heading "时间趋势" [level=3]
+      - paragraph: 样本策略：仅正常质量答卷 · 实际样本量 11
+      - img "这是一个图表，图表类型是折线图，表示CURRENT 报告评分1。其数据是——2026-10-02的数据是0，3.090909090909091。":
+      - heading "差距矩阵" [level=3]
+      - paragraph: 样本策略：仅正常质量答卷 · 实际样本量 11
+      - table:
+        - rowgroup:
+          - row "指标 数值 有效样本 目标 差距":
+            - columnheader "指标"
+            - columnheader "数值"
+            - columnheader "有效样本"
+            - columnheader "目标"
+            - columnheader "差距"
+        - rowgroup:
+          - row "CURRENT 报告评分1 3.09 11 5 1.91":
+            - cell "CURRENT 报告评分1"
+            - cell "3.09"
+            - cell "11"
+            - cell "5"
+            - cell "1.91"
+          - row "CURRENT 报告评分2 3.27 11 5 1.73":
+            - cell "CURRENT 报告评分2"
+            - cell "3.27"
+            - cell "11"
+            - cell "5"
+            - cell "1.73"
+      - heading "图片" [level=3]
+      - figure "PR5017 图注与替代说明":
+        - img "PR5017 图注与替代说明"
+        - generic: PR5017 图注与替代说明

@@ -1,0 +1,3 @@
+# Handoff
+
+Reuse this session worktree; do not create another. Branch codex/interview-report-quality-recovery depends on codex/interview-5099-report-diagnostics (#5101). Keep one issue/PR and ask parent for independent merge; do not self merge. Current report recovery is local controlled-model evidence only. Keep original acceptance record and failed traces untouched. The extra external diagnostic was rejected for unconfirmed data/destination authorization; do not retry until direct human authorization. Exports are excluded. Finish exact-SHA review, monitor CI, and preserve all original seven acceptance PRs without overwriting coordinator-updated remote heads.

@@ -12,6 +12,21 @@ describe('native Sticky click placement',()=>{
     const points=nativeBlankCandidates({canvas,viewport,occupied,chrome});
     expect(points.length).toBeGreaterThan(0);expect(points.every(p=>p.x>160&&p.y>376)).toBe(true);
   });
+  it('avoids the active multi-selection envelope including empty gaps',()=>{
+    const occupied=[{x:96,y:240,width:32,height:32},{x:224,y:480,width:32,height:32}];
+    const input={canvas,viewport,occupied,chrome:[]};
+    const unselected=nativeBlankCandidates(input);
+    expect(unselected.some(p=>p.x>=96&&p.x<=256&&p.y>=240&&p.y<=512)).toBe(true);
+    const selected=nativeBlankCandidates({...input,selection:occupied});
+    expect(selected.length).toBeGreaterThan(0);
+    expect(selected.every(p=>p.x<84||p.x>268||p.y<228||p.y>524)).toBe(true);
+    expect(nativeBlankCandidates({...input,selection:[occupied[0]!]})).toEqual(unselected);
+  });
+  it('keeps a visible paper footprint clear of the fixed header',()=>{
+    const points=nativeBlankCandidates({canvas,viewport,occupied:[],chrome:[{x:0,y:64,width:320,height:48}],paperMargin:80});
+    expect(points.length).toBeGreaterThan(0);
+    expect(points.every(p=>p.x>=80&&p.x<240&&p.y>192&&p.y<640)).toBe(true);
+  });
   it('cannot invent a blank point when chrome covers the entire real canvas',()=>{
     expect(nativeBlankCandidates({canvas,viewport,occupied:[],chrome:[canvas]})).toEqual([]);
   });
