@@ -430,8 +430,8 @@ it("does not replay a completed generation from an older revision", async () => 
   const current = { interviewId: "itv-new-revision", revisionId: "new-revision", version: 7, documents: [{ ...oldOutline, markdown: "## [新专家](#expert-new)\n\n1. 新修订问题？" }], states: [{ documentId: oldOutline.documentId, status: "draft", failure: null }] };
   vi.stubGlobal("fetch", async (url: string) => new Response(JSON.stringify(url.endsWith("/digital/experts") ? { items: [] } : current)));
   render(<InterviewMarkdownEditingStep interviewId="itv-new-revision" step="outline" onVersionChange={vi.fn()} onDirtyChange={vi.fn()} onContinue={vi.fn()} />);
-  expect(await screen.findByText("新修订问题？")).toBeVisible();
-  expect(screen.queryByText("旧问题？")).not.toBeInTheDocument();
+  expect(await screen.findByDisplayValue("新修订问题？")).toBeVisible();
+  expect(screen.queryByDisplayValue("旧问题？")).not.toBeInTheDocument();
 });
 
 it("does not let a delayed initial read clear newly generated questions", async () => {
@@ -444,8 +444,8 @@ it("does not let a delayed initial read clear newly generated questions", async 
   render(<InterviewMarkdownEditingStep interviewId="itv-read-race" step="outline" onVersionChange={vi.fn()} onDirtyChange={vi.fn()} onContinue={vi.fn()} />);
   await vi.waitFor(() => expect(finishRead).toBeTypeOf("function"));
   finishGeneration(generated); await request;
-  expect(await screen.findByText("新生成问题？")).toBeVisible();
+  expect(await screen.findByDisplayValue("新生成问题？")).toBeVisible();
   finishRead(new Response(JSON.stringify({ ...generated, version: 2, documents: [{ ...outline, markdown: "" }] })));
   await vi.waitFor(() => expect(screen.getByRole("button", { name: "确认问题并开始访谈" })).toBeEnabled());
-  expect(screen.getByText("新生成问题？")).toBeVisible();
+  expect(screen.getByDisplayValue("新生成问题？")).toBeVisible();
 });

@@ -39,10 +39,10 @@ export function InterviewMarkdownEditingStep({ interviewId, step, onVersionChang
   callbacks.current = { onVersionChange, onDirtyChange, onContinue };
   const latestVersion = React.useRef(0);
   const observedGeneration = React.useRef(false);
-  function receive(next: InterviewMarkdownEnvelope) {
+  const receive = React.useCallback((next: InterviewMarkdownEnvelope) => {
     if (next.interviewId !== interviewId || next.version < latestVersion.current) return next;
     latestVersion.current = next.version; setSource(next); callbacks.current.onVersionChange(next.version); return next;
-  }
+  }, [interviewId]);
   React.useEffect(() => {
     const controller = new AbortController();
     setPending(true); setError("");
@@ -54,7 +54,7 @@ export function InterviewMarkdownEditingStep({ interviewId, step, onVersionChang
     }).catch(() => { if (!controller.signal.aborted) setError("文档载入失败。请重试，不会用示例内容替代。"); })
       .finally(() => { if (!controller.signal.aborted) setPending(false); });
     return () => controller.abort();
-  }, [interviewId, step]);
+  }, [interviewId, step, receive]);
   React.useEffect(() => {
     let active = true;
     setDirectoryStatus("loading"); setDirectory([]);
@@ -124,9 +124,7 @@ export function InterviewMarkdownEditingStep({ interviewId, step, onVersionChang
       if (session.source && session.source.version >= latestVersion.current) { receive(session.source); setMarkdown(session.source.documents.find(doc => doc.step === "outline")?.markdown ?? ""); }
       if (session.status === "failed") { setError(generationUnavailableMessage("outline")); setRetryGenerationStep("outline"); }
     }
-  // Session changes, rather than render closures, deliver the in-flight request across routes.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [session, step]);
+  }, [session, step, source, receive]);
   const props = { document, pending: pending || immutable || sessionRunning,
     avatarContext: source?.revisionId ? { interviewId, revisionId: source.revisionId } : undefined,
     savedExpertIds: saved ? interviewMarkdown.projectInterviewMarkdownExperts(saved).map((expert) => expert.expertId) : [],
