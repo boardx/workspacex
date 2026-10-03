@@ -15,8 +15,8 @@ node scripts/check-all.mjs --static-only
 
 Outcome: **all 16 static checks passed**. Product logo/favicon reused from the original app; unchanged logo and favicon produced no Git diff. Four changed binaries and two language manifests are legitimate source-dependent output. No new ImageGen, no installation, no deployment. OG-zh and aurora actual pixels inspected.
 
-Base CSS SHA256: `7fc6d630f48539f3f2e350cd3ed4817bb13a94a318859233cafcd86fa6537a5f`.
-Generation fingerprints are in `assets/img/.sources.json`: OG `95b5d093820d5d51`, home-screen icon `812225ef875f4717`, aurora `386d32e4cb8e61f4`.
+Base CSS SHA256: `0b40a197194b94e39432e780b0990418ad55c486f31c9ed32038ab6f06cd14ae`.
+Generation fingerprints are in `assets/img/.sources.json`: OG `1da1b3cda28efabc`, home-screen icon `206b52bed07b7a52`, aurora `870d6d6f8e17401f`.
 
 An existing `apps/home/node_modules` symlink pointed at shared dependencies. One task-created dependency link briefly landed there; its exact target was verified and that link immediately removed. The independent worktree now has a private dependency directory. No shared tracked/staged code was changed. Temporary rendering servers/browser instances terminated normally.
 

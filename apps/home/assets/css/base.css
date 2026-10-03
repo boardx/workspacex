@@ -32,6 +32,8 @@
   --c-3-rgb:     240 42 168;   /* magenta */
   --c-1:         rgb(var(--c-1-rgb));
   --c-2:         rgb(var(--c-2-rgb));
+  /* Small brand text on raised dark surfaces; decorative pink stays unchanged. */
+  --brand-ink:   #ff73b0;
   --c-3:         rgb(var(--c-3-rgb));
   --grad:        linear-gradient(100deg, var(--c-1), var(--c-2) 52%, var(--c-3));
   /* Text placed ON the gradient. White fails AA over the orange stop (2.19:1);
