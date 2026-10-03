@@ -91,6 +91,11 @@ describe("no tenant table leaks the local organization to another tenant", () =>
       .toBeGreaterThan(8);
 
     for (const { table_name } of tables.rows) {
+      if(table_name === "platform_organization_access_events") {
+        // No application reader exists for operator access audits, including local rows.
+        await expect(asApp(REAL_ORG,c=>c.query(`SELECT * FROM ${table_name}`))).rejects.toMatchObject({code:"42501"});
+        continue;
+      }
       // `organizations` keys off `id`; everything else off `org_id`.
       const col = table_name === "organizations" ? "id" : "org_id";
       const n = await asApp(REAL_ORG, (c) =>

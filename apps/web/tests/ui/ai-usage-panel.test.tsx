@@ -11,7 +11,7 @@ const summary={asOf:"2026-10-03T00:00:00Z",start:"2026-10-01T00:00:00Z",end:"202
  members:[{userId:"member-a",totalTokens:"8",callCount:1}],models:[{modelProvider:"p",modelId:"m",totalTokens:"8",callCount:1}],
  matrix:[{userId:"member-a",modelProvider:"p",modelId:"m",totalTokens:"8",callCount:1}],projects:[{projectId:null,totalTokens:"8",callCount:1}]};
 const call={id:"receipt-a",userId:"member-a",runId:null,projectId:null,threadId:null,agentId:null,modelProvider:"p",modelId:"m",occurredAt:"2026-10-02T00:00:00.000001Z",
- startedAt:null,endedAt:null,executionAttemptId:null,totalTokens:"8",inputTokens:"5",outputTokens:"3",totalSource:"reported" as const,outcome:"succeeded" as const,callPurpose:null,costMicros:null,currency:null,priceVersion:null};
+ startedAt:null,endedAt:null,executionAttemptId:null,totalTokens:"8",inputTokens:"5",outputTokens:"3",totalSource:"reported" as const,outcome:"succeeded" as const,callPurpose:null,costMicros:null,currency:null,priceVersion:null,cacheInputTokens:null,reasoningOutputTokens:null};
 beforeEach(()=>{vi.clearAllMocks();vi.mocked(readAiUsage).mockResolvedValue(summary);vi.mocked(readAiUsageCalls).mockResolvedValue({asOf:summary.asOf,coverage:"partial",calls:[call],nextCursor:null});});
 describe("AI usage live endpoint projection (fixture, not live backend)",()=>{
  it("shows coverage/unknown price and drills member×model to same-ledger calls",async()=>{

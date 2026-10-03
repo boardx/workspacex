@@ -191,3 +191,9 @@ The earlier 90/90 combined-suite report is withdrawn as lightweight evidence: in
 Corrected no-database owner suite passes 63/63. UI wiring normal fact regeneration and verification pass, including `/usage`; regenerated chat use-case facts are generator-derived existing source imports, not hand-authored scope additions.
 
 Independent reviewer passed all 6 dynamic premise tests and accepted the three explicitly bounded adapter allowances. Normal pre-push caught a strict TypeScript optional mock-call access; fixed before retry, without bypassing hooks.
+
+## Subset and CI boundary fixes
+
+Configured stream loopback and ledger subset tests pass with total unchanged. API lightweight suite 65/65 and usage UI 3/3 pass before final shared helper extraction; current final checks pending. Reviewer independently passed writer 9/9, source review found no blocker and requested more cancellation/failed-response subset cases. Real database subset migration not locally executed. Remote prior analytics-head failures included generic table SELECT tests against the deliberately write-only access audit and the thin-gateway line guard; tests now assert SELECT denial instead of broadening grants, and accounting observers were extracted to a shared helper. These changes require remote rerun.
+
+Final subset review caught stale details across corrected stream frames; sanitize after stream and error merges now preserves valid totals, with a loopback counterexample. API focused suite 74/74 including thin-gateway passes; API/web typecheck and usage UI 3/3 pass. PG access-denial changes remain pending CI.

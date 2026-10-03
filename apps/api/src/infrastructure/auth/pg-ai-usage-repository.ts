@@ -55,6 +55,7 @@ export class PgAiUsageRepository implements AiUsageRepository {
    to_char(request_started_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS "startedAt",
    to_char(request_ended_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS "endedAt",execution_attempt_id AS "executionAttemptId",
    tokens_total::text AS "totalTokens",tokens_prompt::text AS "inputTokens",tokens_completion::text AS "outputTokens",
+   tokens_cache_input::text AS "cacheInputTokens",tokens_reasoning_output::text AS "reasoningOutputTokens",
    total_source AS "totalSource",outcome,call_purpose AS "callPurpose",cost_micros::text AS "costMicros",currency,price_version AS "priceVersion"
    FROM token_usage_events WHERE ${scoped} AND ${eventTime}>=$10::timestamptz AND ${eventTime}<$11::timestamptz
    AND $12::timestamptz IS NOT NULL AND $14::text IS NOT NULL

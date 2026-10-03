@@ -1283,6 +1283,8 @@ export interface ModelCallCompletion {
   readonly tokens?: number;
   readonly promptTokens?: number;
   readonly completionTokens?: number;
+  readonly cacheInputTokens?: number;
+  readonly reasoningOutputTokens?: number;
   /**
    * #1747 —— 除最终回复之外，这次调用途中产生的、**可能含可执行脚本块**的文本。
    *
@@ -1519,6 +1521,8 @@ export interface TokenUsageRecord {
   readonly promptTokens: number | null;
   /** null = 上游没报。 */
   readonly completionTokens: number | null;
+  readonly cacheInputTokens?: number | null;
+  readonly reasoningOutputTokens?: number | null;
   readonly outcome: "succeeded" | "failed";
 }
 
@@ -1530,6 +1534,9 @@ export interface ReportedUsage {
   readonly total?: number;
   readonly prompt?: number;
   readonly completion?: number;
+  /** Subsets of input/output; never add again to total. */
+  readonly cacheInput?: number;
+  readonly reasoningOutput?: number;
 }
 
 /**

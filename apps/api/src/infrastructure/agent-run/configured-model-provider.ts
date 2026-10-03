@@ -286,6 +286,8 @@ interface WireUsage {
   total_tokens?: unknown;
   prompt_tokens?: unknown;
   completion_tokens?: unknown;
+  prompt_tokens_details?: { cached_tokens?: unknown };
+  completion_tokens_details?: { reasoning_tokens?: unknown };
 }
 
 interface CompletionResponse {
@@ -301,16 +303,22 @@ interface CompletionChunk {
 
 /** 非负有限数才算「报了」；其它一律 `undefined`（没报），不在这一层造 0。 */
 function readCount(value: unknown): number | undefined {
-  return typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : undefined;
+  return typeof value === "number" && Number.isSafeInteger(value) && value >= 0 ? value : undefined;
 }
 
 /** 线上 `usage` → 端口的 `ReportedUsage`。三维各自可缺。 */
+function validUsageDetails(usage:ReportedUsage):ReportedUsage {
+  return {...usage,
+    cacheInput:usage.cacheInput!==undefined&&usage.prompt!==undefined&&usage.cacheInput>usage.prompt?undefined:usage.cacheInput,
+    reasoningOutput:usage.reasoningOutput!==undefined&&usage.completion!==undefined&&usage.reasoningOutput>usage.completion?undefined:usage.reasoningOutput};
+}
 function readUsage(usage: WireUsage | undefined): ReportedUsage {
-  return {
-    total: readCount(usage?.total_tokens),
-    prompt: readCount(usage?.prompt_tokens),
-    completion: readCount(usage?.completion_tokens),
-  };
+  const prompt=readCount(usage?.prompt_tokens),completion=readCount(usage?.completion_tokens);
+  const cacheInput=readCount(usage?.prompt_tokens_details?.cached_tokens),reasoningOutput=readCount(usage?.completion_tokens_details?.reasoning_tokens);
+  // A malformed detail must not erase otherwise valid billed totals.
+  return {total:readCount(usage?.total_tokens),prompt,completion,
+    cacheInput:cacheInput!==undefined && prompt!==undefined && cacheInput>prompt?undefined:cacheInput,
+    reasoningOutput:reasoningOutput!==undefined && completion!==undefined && reasoningOutput>completion?undefined:reasoningOutput};
 }
 
 /**
@@ -504,7 +512,7 @@ export class ConfiguredModelProvider implements ModelCallPort {
     } catch (error) { failed = true; failure = error; }
     if (started) {
       const usage = failed ? failure instanceof ModelCallError ? failure.usage : undefined
-        : { total: completion?.tokens, prompt: completion?.promptTokens, completion: completion?.completionTokens };
+        : { total: completion?.tokens, prompt: completion?.promptTokens, completion: completion?.completionTokens, cacheInput: completion?.cacheInputTokens, reasoningOutput: completion?.reasoningOutputTokens };
       // Accounting repair must never turn a successful response into a model retry.
       await input.onProviderRequest?.({ ...started, phase: "terminal", endedAt: new Date().toISOString(),
         outcome: failed ? "failed" : "succeeded", usage }).catch(() => {});
@@ -585,7 +593,7 @@ export class ConfiguredModelProvider implements ModelCallPort {
   private async completeImpl(input: ModelCallInput): Promise<
     // 迭代 12：`truncated` 进签名——这里之前是一个比 `ModelCallCompletion` 窄的内联字面量，
     // 端口上加了字段而这里不加，实现填了也传不出去（TS 会把它当多余属性）。
-    { readonly text: string; readonly finalMessageId?: string; readonly tokens?: number; readonly promptTokens?: number; readonly completionTokens?: number; readonly truncated?: boolean }
+    { readonly text: string; readonly finalMessageId?: string; readonly tokens?: number; readonly promptTokens?: number; readonly completionTokens?: number; readonly cacheInputTokens?: number; readonly reasoningOutputTokens?: number; readonly truncated?: boolean }
   > {
     const { provider, baseUrl, apiKey } = this.config;
     if (provider === "" || baseUrl === "" || apiKey === "") {
@@ -645,7 +653,7 @@ export class ConfiguredModelProvider implements ModelCallPort {
     // 迭代 12：`finish_reason === "length"` 是模型**自己说**没说完。此前上层只能靠
     // 「JSON 解析失败」反推截断——那把"输出不合语法"和"输出被切断"混成同一件事。
     const truncated = parsed.choices?.[0]?.finish_reason === "length";
-    return { text: content, tokens: usage.total, promptTokens: usage.prompt, completionTokens: usage.completion, ...(truncated ? { truncated: true } : {}) };
+    return { text: content, tokens: usage.total, promptTokens: usage.prompt, completionTokens: usage.completion, cacheInputTokens: usage.cacheInput, reasoningOutputTokens: usage.reasoningOutput, ...(truncated ? { truncated: true } : {}) };
   }
 
   /**
@@ -749,11 +757,12 @@ export class ConfiguredModelProvider implements ModelCallPort {
             // 流式的 usage 通常只在最后一帧出现；每帧覆盖式合并，缺的维度保留上一次的值，
             // 不用后来的 undefined 把已经报过的数抹掉。
             const framed = readUsage(chunk.usage);
-            usage = {
+            usage = validUsageDetails({
               total: framed.total ?? usage.total,
               prompt: framed.prompt ?? usage.prompt,
               completion: framed.completion ?? usage.completion,
-            };
+              cacheInput: framed.cacheInput ?? usage.cacheInput, reasoningOutput: framed.reasoningOutput ?? usage.reasoningOutput,
+            });
             const delta = chunk.choices?.[0]?.delta?.content;
             if (typeof delta === "string" && delta !== "") {
               text += delta;
@@ -763,10 +772,11 @@ export class ConfiguredModelProvider implements ModelCallPort {
         }
       }
     } catch (e) {
-      if (e instanceof ModelCallError) throw new ModelCallError(e.code, e.detail, {
+      if (e instanceof ModelCallError) throw new ModelCallError(e.code, e.detail, validUsageDetails({
         total: e.usage?.total ?? usage.total, prompt: e.usage?.prompt ?? usage.prompt,
         completion: e.usage?.completion ?? usage.completion,
-      });
+        cacheInput: e.usage?.cacheInput ?? usage.cacheInput, reasoningOutput: e.usage?.reasoningOutput ?? usage.reasoningOutput,
+      }));
       // 同 `postCompletions`：只取枚举 token，`message` 不读。
       throw new ModelCallError(
         "MODEL_CALL_FAILED",
@@ -775,6 +785,6 @@ export class ConfiguredModelProvider implements ModelCallPort {
       );
     }
 
-    return { text, finalMessageId, tokens: usage.total, promptTokens: usage.prompt, completionTokens: usage.completion };
+    return { text, finalMessageId, tokens: usage.total, promptTokens: usage.prompt, completionTokens: usage.completion, cacheInputTokens: usage.cacheInput, reasoningOutputTokens: usage.reasoningOutput };
   }
 }

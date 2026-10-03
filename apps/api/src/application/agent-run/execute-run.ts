@@ -80,7 +80,7 @@ import { maybeRunSkillScript, retryScriptSource, type ProducedFile } from "./run
 import { createSkillActivityGapWriter, createSkillActivityWriter, createToolProgressWriter } from "./skill-activity-writer";
 import { toolStallNotice, toolStallNoticeMs, type DeploymentEditionValue } from "@repo/contracts/deployment";
 import { meter } from "./meter-run-usage";
-import { meterModelCompletion } from "./meter-model-completion";
+import { meterModelCompletion, requestUsageObserver, completionUsage } from "./meter-model-completion";
 import { invokeKernel } from "./invoke-kernel";
 import { RUN_SCRIPT_PROTOCOL_PROMPT } from "../skill/run-script-with-retries";
 import { buildDeepAgentSkillCatalogBlock, selectCatalogSkills, skillCatalogModeFromEnv, buildSkillCatalogHint } from "./skill-catalog";
@@ -1080,17 +1080,7 @@ async function executeClaimed(
       {
         modelProvider: run.modelProvider, modelId: run.modelId, system, user: userText,
         threadId: run.threadId,
-        ...(requestAccounting ? { onProviderRequest: async (event: import("./ports").ProviderRequestEvent) => {
-          if (event.phase === "started") {
-            await deps.usage!.startRequest!(orgId, { requestId: event.requestId, startedAt: event.startedAt,
-              userId: run.requesterUserId, runId: run.runId, executionAttemptId,
-              projectId: run.projectId, threadId:run.threadId, agentId:run.agentId, callPurpose:"primary", modelProvider: run.modelProvider, modelId: run.modelId });
-          } else {
-            await meter(deps, orgId, run, event.usage ?? {}, event.outcome ?? "failed", "primary", {
-              eventId: event.requestId, requestStartedAt: event.startedAt, requestEndedAt: event.endedAt, executionAttemptId,
-            });
-          }
-        } } : {}),
+        ...(requestAccounting ? { onProviderRequest: requestUsageObserver(deps,orgId,run,"primary",executionAttemptId) } : {}),
         // issue #2664 -- 只有 deep-agent provider 读这两个字段，见 `ModelCallInput` 自己的文档。
         orgId: String(orgId), runId: run.runId,
         trustedMemoryScope: { orgId: String(orgId), userId: run.requesterUserId },
@@ -1187,11 +1177,8 @@ async function executeClaimed(
         logReleaseFailure: () => deps.log("native session release pending", { runId: run.runId }) } : undefined,
       () => { modelInvocationStarted = true; },
     );
-    // Record the provider envelope before cancellation/pause or downstream persistence.
-    // Internal provider requests still require their own attempt instrumentation.
-    if (!requestAccounting) await meter(deps, orgId, run, {
-      total: completion.tokens, prompt: completion.promptTokens, completion: completion.completionTokens,
-    }, completion.cancelled || (!completion.paused && completion.interrupted === undefined && completion.text.trim() === "") ? "failed" : "succeeded");
+    // Meter legacy envelopes before control return; attempt-capable ports already reported.
+    if (!requestAccounting) await meter(deps, orgId, run, completionUsage(completion), completion.cancelled || (!completion.paused && completion.interrupted === undefined && completion.text.trim() === "") ? "failed" : "succeeded");
     modelCompletionMetered = true;
     if (completion.cancelled) {
       if (!deps.runs.cancelAtCheckpoint) throw new ModelCallError("MODEL_CALL_FAILED", "cancel persistence unavailable");

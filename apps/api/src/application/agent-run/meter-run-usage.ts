@@ -30,6 +30,8 @@ export async function meter(
       tokensTotal: usage.total ?? 0,
       promptTokens: usage.prompt ?? null,
       completionTokens: usage.completion ?? null,
+      cacheInputTokens: usage.cacheInput ?? null,
+      reasoningOutputTokens: usage.reasoningOutput ?? null,
       outcome,
     });
   } catch (e) {

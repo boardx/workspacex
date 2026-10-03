@@ -78,6 +78,30 @@ afterEach(() => { nextFrames = []; nextStatus = 200; frameDelayMs = 0; nextLineE
 afterAll(async () => { await new Promise<void>((resolve) => server.close(() => resolve())); });
 
 describe("ConfiguredModelProvider.completeStream", () => {
+  it("preserves reported cache/reasoning subsets in stream and terminal receipt without double counting",async()=>{
+    nextFrames=[`data: ${JSON.stringify({choices:[{delta:{content:"ok"},finish_reason:"stop"}],usage:{total_tokens:120,prompt_tokens:100,completion_tokens:20,prompt_tokens_details:{cached_tokens:60},completion_tokens_details:{reasoning_tokens:10}}})}\n\n`,doneFrame()];
+    const seen:import("../../src/application/agent-run/ports").ProviderRequestEvent[]=[];
+    const result=await provider().completeStream!({modelProvider:PROVIDER,modelId:"loopback",system:"s",user:"u",onProviderRequest:async event=>{seen.push(event);}},async()=>{});
+    expect(result).toMatchObject({tokens:120,promptTokens:100,completionTokens:20,cacheInputTokens:60,reasoningOutputTokens:10});
+    expect(seen[1]?.usage).toMatchObject({total:120,prompt:100,completion:20,cacheInput:60,reasoningOutput:10});
+  });
+  it("retains subsets from an earlier usage frame when stream consumption fails",async()=>{
+    nextFrames=[`data: ${JSON.stringify({choices:[],usage:{total_tokens:120,prompt_tokens:100,completion_tokens:20,prompt_tokens_details:{cached_tokens:60},completion_tokens_details:{reasoning_tokens:10}}})}\n\n`,sseChunk("stop")];
+    const seen:import("../../src/application/agent-run/ports").ProviderRequestEvent[]=[];
+    await expect(provider().completeStream!({modelProvider:PROVIDER,modelId:"loopback",system:"s",user:"u",onProviderRequest:async event=>{seen.push(event);}},async()=>{throw new Error("consumer cancelled");})).rejects.toBeInstanceOf(ModelCallError);
+    expect(seen[1]).toMatchObject({outcome:"failed",usage:{total:120,cacheInput:60,reasoningOutput:10}});
+  });
+  it("isolates impossible provider subset details while preserving reported billed totals",async()=>{
+    nextFrames=[`data: ${JSON.stringify({choices:[{delta:{content:"ok"}}],usage:{total_tokens:3,prompt_tokens:2,completion_tokens:1,prompt_tokens_details:{cached_tokens:5},completion_tokens_details:{reasoning_tokens:4}}})}\n\n`,doneFrame()];
+    const result=await provider().completeStream!({modelProvider:PROVIDER,modelId:"loopback",system:"s",user:"u"},async()=>{});
+    expect(result).toMatchObject({tokens:3,promptTokens:2,completionTokens:1});
+    expect(result.cacheInputTokens).toBeUndefined();expect(result.reasoningOutputTokens).toBeUndefined();
+  });
+  it("isolates stale subset after a later frame corrects parent counts",async()=>{
+    nextFrames=[`data: ${JSON.stringify({choices:[],usage:{prompt_tokens:100,prompt_tokens_details:{cached_tokens:60}}})}\n\n`,`data: ${JSON.stringify({choices:[{delta:{content:"ok"}}],usage:{total_tokens:55,prompt_tokens:50,completion_tokens:5}})}\n\n`,doneFrame()];
+    const result=await provider().completeStream!({modelProvider:PROVIDER,modelId:"loopback",system:"s",user:"u"},async()=>{});
+    expect(result).toMatchObject({tokens:55,promptTokens:50,completionTokens:5});expect(result.cacheInputTokens).toBeUndefined();
+  });
   it("每个 delta 按到达顺序回调，最终文本是拼接结果，usage 取最后一次上报", async () => {
     nextFrames = [
       sseChunk("Hel"),

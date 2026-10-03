@@ -28,7 +28,7 @@ describe("token usage receipt boundary", () => {
     expect(query.mock.calls[0]?.[0]).toContain("ON CONFLICT (id) DO NOTHING");
     expect(query.mock.calls[0]?.[1]).toEqual([
       "receipt-1", org, "user-1", "run-1", "provider", "model", 120, 100, 20, "failed",
-      "reported", "project-1", "thread-1", "agent-1", null, null, null, null, null, null, null,
+      "reported", "project-1", "thread-1", "agent-1", null, null, null, null, null, null, null, null, null,
     ]);
   });
   it("generates distinct receipts for distinct attempts and keeps unknown distinct from zero", async () => {
@@ -55,4 +55,15 @@ describe("token usage receipt boundary", () => {
     await expect(new PgTokenUsageRepository(database(query)).record(org, { ...receipt, tokensTotal })).rejects.toThrow("invalid token usage count");
     expect(query).not.toHaveBeenCalled();
   });
+  it("stores cache/reasoning as subsets without increasing total and rejects impossible subsets",async()=>{
+    const query=vi.fn<TenantSession["query"]>().mockResolvedValue({rows:[]});
+    const repo=new PgTokenUsageRepository(database(query));
+    await repo.record(org,{...receipt,cacheInputTokens:60,reasoningOutputTokens:10});
+    expect(query.mock.calls[0]?.[1]?.slice(6,9)).toEqual([120,100,20]);
+    expect(query.mock.calls[0]?.[1]?.slice(21)).toEqual([60,10]);
+    await expect(repo.record(org,{...receipt,cacheInputTokens:101})).rejects.toThrow("invalid cache input subset");
+    await expect(repo.record(org,{...receipt,reasoningOutputTokens:21})).rejects.toThrow("invalid reasoning output subset");
+    expect(query).toHaveBeenCalledTimes(1);
+  });
+
 });

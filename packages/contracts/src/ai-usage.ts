@@ -27,6 +27,7 @@ export const Call=z.object({id:z.string(),userId:z.string(),runId:z.string().nul
  threadId:z.string().nullable(),agentId:z.string().nullable(),modelProvider:z.string(),modelId:z.string(),
  occurredAt:Timestamp,startedAt:Timestamp.nullable(),endedAt:Timestamp.nullable(),executionAttemptId:z.string().nullable(),
  totalTokens:Tokens,inputTokens:Tokens.nullable(),outputTokens:Tokens.nullable(),
+ cacheInputTokens:Tokens.nullable().default(null),reasoningOutputTokens:Tokens.nullable().default(null),
  totalSource:z.enum(["reported","unknown","legacy"]),outcome:z.enum(["succeeded","failed"]),callPurpose:z.string().nullable(),
  costMicros:Tokens.nullable(),currency:z.string().nullable(),priceVersion:z.string().nullable(),
 }).strict();
