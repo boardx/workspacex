@@ -282,6 +282,16 @@ export async function generateReportChapters(state: ResearchRuntime, model: Mode
       state.progress = { stage: "writing", completed: chapters.length, total: sections.length, sectionId: section.id };
       await persist(); await restoreApproved();
       frontIndex = index + 1;
+      const nextState = chapterStates.get(frontIndex);
+      const nextSection = sections[frontIndex];
+      if (nextState && nextSection) {
+        for (const local of nextState.reportTimeline ?? []) if (local.sectionId === nextSection.id) {
+          const target = state.reportTimeline?.find((item) => item.id === local.id);
+          if (target) Object.assign(target, local);
+        }
+        if (nextState.progress?.sectionId === nextSection.id) state.progress = { ...nextState.progress, completed: chapters.length };
+        await persistTimeline();
+      }
     }); } catch (error) {
       // orderedChapterWork has drained all started work before terminal state is exposed.
       const failedState = chapterStates.get(frontIndex);

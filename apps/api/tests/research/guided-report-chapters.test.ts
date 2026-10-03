@@ -943,6 +943,28 @@ describe("unverified chapter synthesis boundary (#5179)", () => {
     expect(f.writes.filter((s) => s.reportCheckpoint?.chapters.length).every((s) => s.reportCheckpoint!.chapters[0]!.sectionId === "b")).toBe(true);
   });
 
+  it("promotes the running prefetched chapter before its model call completes", async () => {
+    const f = fixture();
+    let release!: () => void;
+    let started!: () => void;
+    const gate = new Promise<void>((resolve) => { release = resolve; });
+    const backgroundStarted = new Promise<void>((resolve) => { started = resolve; });
+    const model: ModelCallPort = { complete: async (input) => {
+      const c = JSON.parse(input.user);
+      if (c.reportStage === "chapter" && c.section.id === "a") { started(); await gate; }
+      if (c.reportStage === "chapter" && c.section.id === "b") await backgroundStarted;
+      return { text: JSON.stringify(answer(c)) };
+    } };
+    const generating = generateReportChapters(f.state, model, config, f.persist);
+    try {
+      await backgroundStarted;
+      await expect.poll(() => f.writes.some((s) => s.reportCheckpoint?.chapters.length === 1)).toBe(true);
+      await expect.poll(() => f.writes.at(-1)?.reportTimeline?.find((item) => item.id === "chapter:a")?.status).toBe("running");
+      expect(f.writes.at(-1)?.progress).toMatchObject({ sectionId: "a", completed: 1 });
+      expect(f.state.reportCheckpoint?.chapters.map((chapter) => chapter.sectionId)).toEqual(["b"]);
+      expect(f.state.reportQualityWarnings).toEqual([]);
+    } finally { release(); await generating; }
+  });
   it("never publishes prefetched tokens or warnings before the preceding checkpoint", async () => {
     const f = fixture(); let release!: () => void; let ready!: () => void;
     const gate = new Promise<void>((resolve) => { release = resolve; }); const laterDone = new Promise<void>((resolve) => { ready = resolve; });
