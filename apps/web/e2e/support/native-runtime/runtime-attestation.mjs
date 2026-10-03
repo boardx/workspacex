@@ -5,6 +5,7 @@ import { readFileSync, realpathSync,existsSync,readlinkSync } from 'node:fs';
 import { join,resolve,relative,isAbsolute,dirname,basename } from 'node:path';
 import {tmpdir} from 'node:os';
 import {identityOperation} from './native-startup-receipt.mjs';
+import {linuxRuntimeListeners} from './native-process-listeners.mjs';
 
 export function listRuntimeSourceFiles(root) {
   const tracked=execFileSync('git',['ls-files','-z'],{cwd:root,encoding:'utf8'}).split('\0').filter(Boolean);
@@ -110,11 +111,12 @@ function verifyRuntimeIdentity({manifestPath,root,base,origin,sourceFiles}) {
     const identityListener={service:kind,pidAlive:null,commandExit:null,listenerCount:null,ancestryVerified:null,childExitCode:null,childSignal:null};
     identityOperation('IDENTITY_LISTENER',()=>{
     try{globalThis.process.kill(process.pid,0);identityListener.pidAlive=true;}catch(error){if(error.code==='ESRCH')identityListener.pidAlive=false;}
-    let output;
-    try{output=execFileSync('lsof',['-nP',`-iTCP:${port}`,'-sTCP:LISTEN','-t'],{encoding:'utf8'});identityListener.commandExit=0;}
-    catch(error){identityListener.commandExit=Number.isInteger(error.status)&&error.status>=-1&&error.status<=255?error.status:-1;throw error;}
-    const listeners=output.trim().split('\n').map(Number);
-    identityListener.listenerCount=output.trim()===''?0:listeners.length;
+    let listeners;
+    try{
+      if(globalThis.process.platform==='linux')listeners=linuxRuntimeListeners(process.pid,Number(port),{descendsFrom});
+      else{const output=execFileSync('lsof',['-nP',`-iTCP:${port}`,'-sTCP:LISTEN','-t'],{encoding:'utf8'});identityListener.commandExit=0;listeners=output.trim().split('\n').map(Number);}
+    }catch(error){if(globalThis.process.platform!=='linux')identityListener.commandExit=Number.isInteger(error.status)&&error.status>=-1&&error.status<=255?error.status:-1;throw error;}
+    identityListener.listenerCount=listeners.length;
     const parentOf=pid=>identityOperation('IDENTITY_ANCESTRY',()=>Number(execFileSync('ps',['-o','ppid=','-p',String(pid)],{encoding:'utf8'}).trim()),undefined,identityListener);
     identityListener.ancestryVerified=listeners.length>0&&listeners.every(pid=>descendsFrom(pid,process.pid,parentOf));
     assert(identityListener.ancestryVerified,`${kind} listener must belong to attested service process`);
