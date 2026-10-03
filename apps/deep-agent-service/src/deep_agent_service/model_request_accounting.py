@@ -48,7 +48,8 @@ def ownership() -> dict:
         raw = None
     if not isinstance(raw, dict):
         raise RuntimeUsageError("usage_ownership_unconfigured")
-    value = {k: raw.get(k) for k in ("base_url", "key", "org_id", "run_id", "attempt_id", "lease_epoch", "call_purpose")}
+    value = {k: raw.get(k) for k in ("base_url", "org_id", "run_id", "attempt_id", "lease_epoch", "call_purpose")}
+    value["key"] = os.environ.get("DEEP_AGENT_SERVICE_INTERNAL_KEY", "").strip()
     try:
         parsed = urlsplit(value["base_url"])
         if parsed.scheme not in ("http", "https") or not parsed.hostname or parsed.username or parsed.password or parsed.query or parsed.fragment:

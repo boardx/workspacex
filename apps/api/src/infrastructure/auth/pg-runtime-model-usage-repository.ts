@@ -45,6 +45,17 @@ export class PgRuntimeModelUsageRepository implements RuntimeModelUsagePort {
   const inserted=await s.query(`INSERT INTO model_request_starts(id,org_id,user_id,run_id,execution_attempt_id,project_id,model_provider,model_id,started_at,thread_id,agent_id,call_purpose,execution_lease_epoch,subtask_id)
    VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) ON CONFLICT(id) DO NOTHING RETURNING id`,
    [input.requestId,orgId,input.userId,input.runId,input.executionAttemptId,input.projectId,input.modelProvider,input.modelId,input.startedAt,input.threadId,input.agentId,input.callPurpose,input.executionLeaseEpoch,input.subtaskId??null]);
-  if(!inserted.rows.length)throw new RuntimeUsageOwnershipDenied();
+  if(!inserted.rows.length){
+   // A concurrent identical callback may have won after our first lookup. Verify the
+   // immutable row in this tenant before acknowledging; a foreign collision stays hidden.
+   const replay=await s.query(`SELECT id FROM model_request_starts WHERE id=$1 AND org_id=$2
+    AND user_id=$3 AND run_id=$4 AND execution_attempt_id=$5 AND project_id IS NOT DISTINCT FROM $6
+    AND model_provider=$7 AND model_id=$8 AND started_at=$9::timestamptz
+    AND thread_id IS NOT DISTINCT FROM $10 AND agent_id IS NOT DISTINCT FROM $11
+    AND call_purpose=$12 AND execution_lease_epoch=$13 AND subtask_id IS NOT DISTINCT FROM $14`,
+    [input.requestId,orgId,input.userId,input.runId,input.executionAttemptId,input.projectId,input.modelProvider,input.modelId,
+      input.startedAt,input.threadId,input.agentId,input.callPurpose,input.executionLeaseEpoch,input.subtaskId??null]);
+   if(!replay.rows.length)throw new RuntimeUsageOwnershipDenied();
+  }
  }
 }

@@ -62,4 +62,16 @@ describe("runtime request trusted ownership",()=>{
   await expect(repo.terminalRuntimeRequest(org,"root-A",{...terminal,attemptId:"child-A:1",leaseEpoch:3})).rejects.toThrow("RUNTIME_USAGE_OWNERSHIP_DENIED");
  });
 
+ it("concurrent identical start conflict is acknowledged only after full immutable tenant metadata matches",async()=>{
+  vi.stubEnv("KERNEL_MODEL_PROVIDER","configured-test");
+  const owner={user_id:"trusted-user",project_id:"project",thread_id:"thread",agent_id:"agent",root_run_id:"run-A",subtask_id:null};
+  const query=vi.fn().mockImplementation(async(sql:string)=>({rows:sql.includes("FROM agent_runs")?[owner]:sql.includes("SELECT id FROM model_request_starts")?[{id:requestId}]:[]}));
+  const repo=new PgRuntimeModelUsageRepository({withTenant:async(_org:unknown,fn:(s:unknown)=>unknown)=>fn({query})} as never,{record:vi.fn()} as never);
+  await repo.startRuntimeRequest(org,"run-A",start);
+  expect(query.mock.calls.at(-1)?.[0]).toContain("org_id=$2");
+  expect(query.mock.calls.at(-1)?.[0]).toContain("subtask_id IS NOT DISTINCT FROM $14");
+  query.mockImplementation(async(sql:string)=>({rows:sql.includes("FROM agent_runs")?[owner]:[]}));
+  await expect(repo.startRuntimeRequest(org,"run-A",start)).rejects.toThrow("RUNTIME_USAGE_OWNERSHIP_DENIED");
+ });
+
 });

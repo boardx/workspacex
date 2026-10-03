@@ -5,10 +5,12 @@ import httpx
 import pytest
 from deep_agent_service import model_request_accounting as a
 
+ORIGINAL_OWNERSHIP=a.ownership
 OWNER={"base_url":"http://api.example.test","key":"fixture-secret-must-not-persist","org_id":"org-A","run_id":"run-A","attempt_id":"run-A:1","lease_epoch":3}
 @pytest.fixture
 def context(monkeypatch,tmp_path):
     monkeypatch.setattr(a,"_durability_fault",False)
+    monkeypatch.setenv("DEEP_AGENT_SERVICE_INTERNAL_KEY",OWNER["key"])
     monkeypatch.setenv("DEEP_AGENT_REQUEST_ACCOUNTING_ENABLED","1")
     monkeypatch.setenv("DEEP_AGENT_USAGE_SPOOL_DIR",str(tmp_path))
     monkeypatch.setattr(a,"ownership",lambda:dict(OWNER))
@@ -135,3 +137,38 @@ def test_real_openai_sdk_retry_accounts_each_actual_attempt(context):
     assert len({x["requestId"] for x in terminals})==2
     assert [x["usage"]["total"] for x in terminals]==[4,7]
     assert [x["outcome"] for x in terminals]==["failed","succeeded"]
+
+
+@pytest.mark.parametrize("run_id,attempt_id,call_purpose",[("root-run","root-run:1","primary"),("child-run","child-run:1","primary"),("root-run","root-run:lease:3:history-summary","history-summary")])
+def test_real_langgraph_async_node_propagates_receipt_context(context,monkeypatch,run_id,attempt_id,call_purpose):
+    from typing import TypedDict
+    from langgraph.graph import StateGraph, START, END
+    from langchain_openai import ChatOpenAI
+    calls,path=context
+    monkeypatch.setattr(a,"ownership",ORIGINAL_OWNERSHIP)
+    async def callback(owner,run,phase,body):
+        assert owner["run_id"]==run_id and owner["attempt_id"]==attempt_id
+        calls.append((run,phase,dict(body)))
+    monkeypatch.setattr(a,"apost",callback)
+    class State(TypedDict):
+        result:str
+    async def vendor(req):
+        assert calls[-1][1]=="start"
+        class Bytes(httpx.AsyncByteStream):
+            async def __aiter__(self):
+                yield json.dumps({"id":"fixture","object":"chat.completion","created":1,"model":"fixture-model","choices":[{"index":0,"message":{"role":"assistant","content":"ok"},"finish_reason":"stop"}],"usage":{"total_tokens":7,"prompt_tokens":5,"completion_tokens":2}}).encode()
+        return httpx.Response(200,headers={"content-type":"application/json"},stream=Bytes())
+    async def execute():
+        async with httpx.AsyncClient(transport=a.AsyncAccountingTransport(httpx.MockTransport(vendor))) as client:
+            model=ChatOpenAI(api_key="fixture-key",base_url="http://vendor.example.test/v1",model="fixture-model",http_async_client=client,max_retries=0)
+            async def node(state):
+                result=await model.ainvoke("fixture")
+                return {"result":result.content}
+            graph=StateGraph(State);graph.add_node("model",node);graph.add_edge(START,"model");graph.add_edge("model",END)
+            cfg={"configurable":{"model_request_accounting":{**{k:v for k,v in OWNER.items() if k!="key"},"run_id":run_id,"attempt_id":attempt_id,"call_purpose":call_purpose}}}
+            assert (await graph.compile().ainvoke({"result":""},cfg))["result"]=="ok"
+    asyncio.run(execute())
+    assert [x[1] for x in calls]==["start","terminal"]
+    assert calls[0][2]["callPurpose"]==call_purpose
+    assert calls[1][2]["usage"]["total"]==7
+    assert a.Journal(str(path)).pending(OWNER)==[]

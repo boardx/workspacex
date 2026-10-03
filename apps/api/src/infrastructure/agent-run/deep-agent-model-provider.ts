@@ -610,7 +610,7 @@ export class DeepAgentModelProvider implements ModelCallPort {
   private requestAccountingConfig(input:ModelCallInput):Record<string,unknown>{
     if(!this.supportsRequestAccounting() || !input.onProviderRequest)return {};
     if(!input.orgId||!input.runId||!input.executionAttemptId||!input.executionLeaseEpoch)throw new ModelCallError("MODEL_CALL_FAILED","runtime_usage_ownership_unconfigured");
-    return {model_request_accounting:{base_url:this.config.subtaskCallbackBaseUrl,key:this.config.subtaskCallbackKey,
+    return {model_request_accounting:{base_url:this.config.subtaskCallbackBaseUrl,
       org_id:input.orgId,run_id:input.runId,attempt_id:input.executionAttemptId,lease_epoch:input.executionLeaseEpoch,call_purpose:input.usageCallPurpose??"primary"}};
   }
   private nativeConfig(input: ModelCallInput): Record<string, unknown> {
