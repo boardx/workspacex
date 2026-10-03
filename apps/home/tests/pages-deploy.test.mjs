@@ -10,17 +10,23 @@ const sha = 'a'.repeat(40);
 const env = { GITHUB_EVENT_NAME: 'push', GITHUB_REF: 'refs/heads/main', GITHUB_SHA: sha, CLOUDFLARE_ACCOUNT_ID: 'cc39c0447db8c730182cfd075fe91bf7', CLOUDFLARE_API_TOKEN: 'fixture-only' };
 const old = { id: 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', latest_stage: { status: 'success' } };
 const next = { id: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', url: 'https://new.workspacex-home.pages.dev', latest_stage: { status: 'success' }, deployment_trigger: { metadata: { commit_hash: sha } } };
-function fixture({ badDomain = false, smokeFails = false, wrongPublicSha = false, competingPublisher = false, sameShaPublisher = false, noOwnId = false, propagationDelay = false } = {}) {
+function fixture({ badDomain = false, smokeFails = false, wrongPublicSha = false, competingPublisher = false, sameShaPublisher = false, noOwnId = false, propagationDelay = false, lastMarkerReplacement = null } = {}) {
   let current = old;
   const calls = [], records = [];
   let releaseReads = 0;
   const fetchImpl = async (url, init) => {
     calls.push([url, init?.method]);
     if (url.endsWith('/rollback')) current = old;
-    if (url.includes('/workspacex-release.json')) return Response.json({ commit: wrongPublicSha || (propagationDelay && releaseReads++ < 2) ? 'b'.repeat(40) : sha });
+    if (url.includes('/workspacex-release.json')) {
+      releaseReads++;
+      if (releaseReads === 2 && lastMarkerReplacement) current = { ...next, ...lastMarkerReplacement };
+      return Response.json({ commit: wrongPublicSha || (propagationDelay && releaseReads <= 2) ? 'b'.repeat(40) : sha });
+    }
     return Response.json({ success: true, result: { name: 'workspacex-home', production_branch: 'main', domains: [badDomain ? 'other.example' : 'www.boardx.us'], canonical_deployment: current } });
   };
   const run = (command, args, options) => {
+    assert.equal(options.killSignal, 'SIGKILL');
+    assert.ok(options.timeout > 0 && options.timeout <= (command === 'npm' ? 300000 : 120000));
     if (command === 'npm') {
       if (!noOwnId) writeFileSync(options.env.WRANGLER_OUTPUT_FILE_PATH, JSON.stringify({ type: 'pages-deploy', version: 1, pages_project: 'workspacex-home', deployment_id: next.id, url: next.url }) + '\n');
       current = competingPublisher ? { ...next, deployment_trigger: { metadata: { commit_hash: 'c'.repeat(40) } } } : sameShaPublisher ? { ...next, id: 'cccccccc-cccc-cccc-cccc-cccccccccccc' } : next;
@@ -80,4 +86,39 @@ test('workflow permits production only for main push, validates first, retains e
 test('custom-domain propagation retries within a bounded budget before success', async () => {
   const f = fixture({ propagationDelay: true }); const result = await cutover({ env, ...f });
   assert.equal(result.status, 'verified'); assert.equal(f.calls.filter(([url]) => url.includes('/workspacex-release.json')).length, 4);
+});
+
+for (const replacement of [
+  { id: 'cccccccc-cccc-cccc-cccc-cccccccccccc' },
+  { deployment_trigger: { metadata: { commit_hash: 'c'.repeat(40) } } },
+  { latest_stage: { status: 'failure' } },
+]) test(`last marker concurrent production mutation cannot report verified: ${JSON.stringify(replacement)}`, async () => {
+  const f = fixture({ lastMarkerReplacement: replacement });
+  await assert.rejects(cutover({ env, ...f }), /changed after public verification/);
+  assert.ok(!f.records.some(r => r.status === 'verified'));
+  if (replacement.id || replacement.deployment_trigger) assert.ok(!f.calls.some(([url]) => url.endsWith('/rollback')));
+});
+test('shared verification deadline expires across origins and preserves rollback budget', async () => {
+  const f = fixture(); let clock = 0, markerReads = 0;
+  const fetchImpl = async (url, init) => {
+    const response = await f.fetchImpl(url, init);
+    if (url.includes('/workspacex-release.json')) { markerReads++; clock += 210001; }
+    return response;
+  };
+  await assert.rejects(cutover({ env, ...f, fetchImpl, now: () => clock }), /deadline exhausted/);
+  assert.equal(markerReads, 2);
+  assert.equal(f.records.at(-1).rollback, old.id);
+  assert.ok(!f.records.some(r => r.status === 'verified'));
+});
+
+test('synchronous subprocess receives remaining shared budget and hard termination', async () => {
+  const f = fixture(); let clock = 0; const timeouts = [];
+  const run = (command, args, options) => {
+    timeouts.push([command, options.timeout, options.killSignal]);
+    const result = f.run(command, args, options);
+    clock += command === 'npm' ? 350000 : 0;
+    return result;
+  };
+  await cutover({ env, ...f, run, now: () => clock });
+  assert.deepEqual(timeouts, [['npm', 300000, 'SIGKILL'], [process.execPath, 70000, 'SIGKILL']]);
 });
