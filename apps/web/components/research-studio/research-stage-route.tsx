@@ -13,9 +13,10 @@ export function ResearchStageRoute({ sessionId, stage }: { sessionId: string; st
   const router = useRouter();
   const cacheScope = getStoredSessionToken();
   const [metadata, setMetadata] = useState<{ sessionId: string; title: string; scope: string | null } | null>(null);
+  const [loadAttempt, setLoadAttempt] = useState(0);
   useEffect(() => {
     let active = true;
-    const name = readResearchMemory(sessionId, cacheScope)?.name;
+    const name = loadAttempt === 0 ? readResearchMemory(sessionId, cacheScope)?.name : undefined;
     (name ? Promise.resolve({ title: name }) : getGuidedResearchSession(sessionId)).then((session) => {
       if (active) {
         setMetadata({ sessionId, title: session.title, scope: cacheScope });
@@ -23,7 +24,7 @@ export function ResearchStageRoute({ sessionId, stage }: { sessionId: string; st
       }
     }).catch(() => { /* Runtime loading owns access and connection errors. */ });
     return () => { active = false; };
-  }, [sessionId, cacheScope]);
+  }, [sessionId, cacheScope, loadAttempt]);
   const researchName = metadata?.sessionId === sessionId && metadata.scope === cacheScope ? metadata.title : "研究";
-  return <GuidedResearchLive sessionId={sessionId} researchName={researchName} visualStage={stage} initialNode={RESEARCH_STAGE_NODES[stage]} onBack={() => router.push("/research")} />;
+  return <GuidedResearchLive sessionId={sessionId} researchName={researchName} onLoadRetry={() => setLoadAttempt((attempt) => attempt + 1)} visualStage={stage} initialNode={RESEARCH_STAGE_NODES[stage]} onBack={() => router.push("/research")} />;
 }

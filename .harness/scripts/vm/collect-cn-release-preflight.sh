@@ -13,6 +13,11 @@ set -euo pipefail
 phase=$1 revision=$2 release=$3 attempt_id=$4
 
 REPOSITORY_DIR=/opt/workspacex-cn/repository
+TOOL_SOURCE_DIR="$REPOSITORY_DIR"
+if [[ -n ${CN_BUILD_TOOL_BINDING:-} ]]; then
+  TOOL_SOURCE_DIR=$(python3 /usr/local/lib/workspacex-cn/cn-build-tool-identity.py "$CN_BUILD_TOOL_BINDING" "$revision" "$release" "$attempt_id" "$phase") || exit 1
+  [[ "$TOOL_SOURCE_DIR" == "${CN_BUILD_TOOL_ROOT:-}" ]] || exit 1
+fi
 SOURCE_MIRROR=/opt/workspacex-cn/release-origin-cache.git
 CONFIG_FILE="/etc/workspacex-cn/candidate-configs/$revision/$attempt_id/deployment.json"
 PUBLISH_ENV=/etc/workspacex-cn/publish.env
@@ -37,9 +42,15 @@ if flock -n 8; then flock -u 8; fail "canonical release lock is not held by this
 [[ -d "$REPOSITORY_DIR/.git" && "$(git -C "$REPOSITORY_DIR" rev-parse HEAD)" == "$revision" ]] ||
   fail "repository is not the exact candidate"
 [[ -z "$(git -C "$REPOSITORY_DIR" status --porcelain)" ]] || fail "candidate repository is dirty"
+if [[ -n ${CN_BUILD_TOOL_BINDING:-} ]]; then
+  SOURCE_MIRROR=$(python3 /usr/local/lib/workspacex-cn/cn-build-tool-identity.py --source "$CN_BUILD_TOOL_BINDING" "$revision" "$release" "$attempt_id" "$phase") || exit 1
+  source_ref=refs/heads/candidate
+else
+  source_ref=refs/heads/main
+fi
 [[ -d "$SOURCE_MIRROR" && ! -L "$SOURCE_MIRROR" &&
   "$(git -C "$SOURCE_MIRROR" rev-parse --is-bare-repository)" == true ]] || fail "domestic source mirror is unavailable"
-[[ "$(git -C "$SOURCE_MIRROR" rev-parse refs/heads/main)" == "$revision" ]] || fail "source mirror exact SHA differs"
+[[ "$(git -C "$SOURCE_MIRROR" rev-parse "$source_ref")" == "$revision" ]] || fail "source mirror exact SHA differs"
 [[ -z "$(find "$SOURCE_MIRROR/objects/pack" -maxdepth 1 -name '*.promisor' -print -quit)" ]] || fail "source mirror is partial"
 GIT_NO_LAZY_FETCH=1 git -C "$SOURCE_MIRROR" fsck --full --no-reflogs >/dev/null ||
   fail "source mirror object closure is incomplete"
@@ -76,7 +87,7 @@ process.stdout.write(String(refs.length));
 NODE
 ) || fail "secret reference serialization preflight failed"
 # Exclude the live caller ancestry; a canonical build/deploy parent is not an orphan.
-orphan_count=$(python3 "$REPOSITORY_DIR/.harness/scripts/vm/cn-release-orphans.py") || fail "orphan scan failed"
+orphan_count=$(python3 "$TOOL_SOURCE_DIR/.harness/scripts/vm/cn-release-orphans.py") || fail "orphan scan failed"
 [[ "$orphan_count" == 0 ]] || fail "orphan release processes are present"
 for pair in \
   ".harness/scripts/vm/build-cn-release-candidate.sh:/usr/local/bin/workspacex-cn-build-candidate" \
@@ -87,7 +98,7 @@ for pair in \
   ".harness/scripts/vm/cn-release-preflight-evidence.mjs:/usr/local/lib/workspacex-cn/cn-release-preflight-evidence.mjs" \
   ".harness/scripts/vm/cn-release-orphans.py:/usr/local/lib/workspacex-cn/cn-release-orphans.py" \
   ".harness/scripts/vm/cn-bootstrap-source-probe.mjs:/usr/local/lib/workspacex-cn/cn-bootstrap-source-probe.mjs"; do
-  source_path="$REPOSITORY_DIR/${pair%%:*}"; installed=${pair#*:}
+  source_path="$TOOL_SOURCE_DIR/${pair%%:*}"; installed=${pair#*:}
   [[ -f "$installed" && ! -L "$installed" ]] && cmp --silent "$source_path" "$installed" || fail "trusted entrypoint drift"
 done
 
@@ -212,7 +223,7 @@ fi
 
 bootstrap_out="$work/bootstrap.out"
 if [[ "$phase" == prebuild ]]; then
-  timeout 50s node "$REPOSITORY_DIR/.harness/scripts/vm/cn-bootstrap-source-probe.mjs" "$work/bootstrap.env" "$REPOSITORY_DIR" "$phase" "$revision" >"$bootstrap_out" || fail "bootstrap source compatibility failed"
+  timeout 50s node "$TOOL_SOURCE_DIR/.harness/scripts/vm/cn-bootstrap-source-probe.mjs" "$work/bootstrap.env" "$REPOSITORY_DIR" "$phase" "$revision" >"$bootstrap_out" || fail "bootstrap source compatibility failed"
 else
   api_image=$(node -e 'process.stdout.write(require(process.argv[1]).images.api.image)' "$manifest")
   api_digest=${api_image##*@}
@@ -238,7 +249,7 @@ rm -f "$work/bootstrap.env"
 output_dir="$INPUT_ROOT/$revision/$attempt_id"
 install -d -o root -g root -m 0700 "$INPUT_ROOT" "$INPUT_ROOT/$revision" "$output_dir"
 candidate="$work/$phase.json"
-node "$REPOSITORY_DIR/.harness/scripts/vm/cn-release-preflight-evidence.mjs" "$candidate" "$phase" "$attempt_id" "$revision" "$baseline_sha" "$release" "$secret_count" "$acr_ttl" "$browser_executable" "$manifest" "$prior" "$bootstrap_out" "$runtime_out" "$stable_out" "$managed_out" "$work/protocol.err"
+node "$TOOL_SOURCE_DIR/.harness/scripts/vm/cn-release-preflight-evidence.mjs" "$candidate" "$phase" "$attempt_id" "$revision" "$baseline_sha" "$release" "$secret_count" "$acr_ttl" "$browser_executable" "$manifest" "$prior" "$bootstrap_out" "$runtime_out" "$stable_out" "$managed_out" "$work/protocol.err"
 
 target="$output_dir/$phase.json"
 if [[ -e "$target" ]]; then private_root_file "$target"; cmp --silent "$candidate" "$target" || fail "attempt template differs";

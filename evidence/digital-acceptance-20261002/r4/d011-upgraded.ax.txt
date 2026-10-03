@@ -1,0 +1,24 @@
+Browser tab: 4, Title: "WorkspaceX", URL: "https://devapp.boardx.us/platform-admin/agent".
+1 AXWebArea WorkspaceX, URL: devapp.boardx.us/platform-admin/agent
+	2 container
+		3 container 官方数字人, ID: radix-:ri:
+			4 heading 官方数字人, Value: 2, ID: radix-:rj:
+				5 text 官方数字人
+			6 container 官方数字人
+				7 text 启用官方数字人时，会同时准备所需的技能与工作流。启用后可在首页推荐中添加。
+				10 text 所选官方数字人已升级。
+				11 text 本组织已启用全部官方数字人。
+				12 container 官方数字人升级
+					13 container
+						14 text 新版  1.6.0  增加角色工作背景、职责方法与技能绑定。请选择要升级的官方数字人；原有对话使用的版本会保留。
+					15 checkbox (settable, integer) Description: 高管与战略伙伴：1.5.0 → 1.6.0；可用技能 0，待验证技能 12, Value: 0
+					16 checkbox (settable, integer) Description: 销售代表：1.5.0 → 1.6.0；可用技能 0，待验证技能 14, Value: 0
+					17 checkbox (settable, integer) Description: 客户成功专员：1.5.0 → 1.6.0；可用技能 0，待验证技能 10, Value: 0
+					18 checkbox (settable, integer) Description: 项目与运营经理：1.5.0 → 1.6.0；可用技能 0，待验证技能 10, Value: 0
+					19 text 待验证技能尚不能直接调用；升级不会增加数据访问或写入权限，也不会启用已停用角色。
+					20 checkbox (disabled, settable, integer) Description: 确认仅升级所选角色的新对话背景与技能配置, Value: 0
+					21 button (disabled) 升级所选官方数字人
+					22 button 重新加载升级列表
+			9 button 关闭
+
+The focused UI element is 3 container 官方数字人, ID: radix-:ri:
