@@ -653,6 +653,9 @@ describe("report evidence debug recorder wiring", () => {
     expect(result.errorCode).toBeNull(); expect(result.report?.sections).toHaveLength(2);
     expect(events).toHaveLength(1); expect(events[0]).toMatchObject({ traceId: "diagnostic", kind: "research.report.evidence_attempt", level: "info", data: { sessionId: "s", attempt: 1, suppliedChunks: 2, validChunks: 2, retryChunks: 0, reasonCounts: {}, failed: false } });
     expect(events[0].durationMs).toBeGreaterThanOrEqual(0); expect(JSON.stringify(events)).not.toContain("Evidence for");
+  });
+});
+
 describe("audited partial coverage in report generation", () => {
   it("avoids chapter rewrite for verified partial gaps while preserving audited reviewing progress", async () => {
     const f = fixture(); f.state.outline = [f.state.outline[0]!];
