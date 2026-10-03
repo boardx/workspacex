@@ -119,7 +119,7 @@ it("only applies a real assistant proposal after explicit user adoption", async 
   expect(screen.getByRole("textbox", { name: "研究目标" })).toHaveValue("Suggested objective");
 });
 
-it.each([101, 123, 200, 2000])("creates research from a %i-character requirement using a contract-valid default title", async (length) => {
+it.each([101, 123, 200, 2000, 11540, 40000])("creates research from a %i-character requirement using a contract-valid default title", async (length) => {
   vi.mocked(createGuidedResearchSession).mockImplementation(async (input) => {
     research.operations.createGuidedResearchSession.in.parse(input);
     return { sessionId: "long-description" } as never;
@@ -149,8 +149,18 @@ it("bounds a default title derived from a prefilled topic while preserving the t
   expect(vi.mocked(createGuidedResearchSession).mock.calls[0]![0].brief?.topic).toBe(topic);
 });
 
- it("uses the persisted creation name rather than the research description on stage routes", async () => {
+it("uses the persisted creation name rather than the research description on stage routes", async () => {
   render(<ResearchStageRoute sessionId="named-session" stage="import" />);
   await waitFor(() => expect(screen.getByTestId("production-live")).toHaveAttribute("data-name", "创建时的研究名称"));
   expect(getGuidedResearchSession).toHaveBeenCalledWith("named-session");
+});
+
+it("preserves an over-limit requirement and prevents submission", () => {
+  const goal = "研".repeat(40001);
+  render(<ResearchIntake initialBrief={{ topic: "研究", goal, timeRange: "", region: "", focus: "" }} session={null} workflow={null} onSession={vi.fn()} onWorkflow={vi.fn()} onPending={vi.fn()} onNavigate={vi.fn()} renderAssistant={() => null} />);
+  expect(screen.getByRole("textbox", { name: "研究目标" })).toHaveValue(goal);
+  expect(screen.getByRole("alert")).toHaveTextContent("需求超过 40000 字");
+  expect(screen.getByTestId("research-confirm-brief")).toBeDisabled();
+  fireEvent.click(screen.getByTestId("research-confirm-brief"));
+  expect(createGuidedResearchSession).not.toHaveBeenCalled();
 });

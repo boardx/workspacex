@@ -587,10 +587,10 @@ export const GuidedResearchStage = z.enum([
 
 export const GuidedResearchBrief = z.object({
   topic: z.string().trim().min(1).max(200),
-  goal: z.string().trim().min(1).max(2000),
+  goal: z.string().trim().min(1).max(40000),
   timeRange: z.string().trim().max(200),
   region: z.string().trim().max(200),
-  focus: z.string().trim().max(2000),
+  focus: z.string().trim().max(40000),
 }).strict();
 
 const ResearchDetailItems = z.array(z.string().trim().min(1).max(1000)).max(12);
@@ -652,10 +652,10 @@ export const BriefNodeInputState = z.object({
   tags: z.array(z.string().trim().min(1).max(20)).max(5)
     .refine((tags) => new Set(tags).size === tags.length, "research tags must be unique"),
   topic: z.string().trim().min(1).max(200),
-  objective: z.string().trim().min(1).max(2000),
+  objective: GuidedResearchBrief.shape.goal,
   timeRange: z.string().trim().max(200),
   geography: z.string().trim().max(200),
-  focus: z.string().trim().max(2000),
+  focus: GuidedResearchBrief.shape.focus,
 }).strict();
 
 const uniqueIds = (ids: string[]) => new Set(ids).size === ids.length;

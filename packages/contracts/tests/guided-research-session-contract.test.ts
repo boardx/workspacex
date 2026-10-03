@@ -471,3 +471,15 @@ describe("bounded search recovery contracts", () => {
     expect(research.GuidedResearchRuntimeDraft.safeParse({ node: "research", value: [{ id: "source", decision: "accepted", searchAttempts: [] }] }).success).toBe(false);
   });
 });
+
+describe("long research requirements", () => {
+  it.each([11540, 40000])("accepts %i characters across brief and node submission", (length) => {
+    const brief = { topic: "公开研究", goal: "甲".repeat(length), focus: "乙".repeat(length), timeRange: "", region: "" };
+    expect(research.GuidedResearchBrief.safeParse(brief).success).toBe(true);
+    expect(research.BriefNodeInputState.safeParse({ name: "公开研究", tags: [], topic: brief.topic, objective: brief.goal, focus: brief.focus, timeRange: "", geography: "" }).success).toBe(true);
+  });
+  it("rejects 40001 characters without truncating accepted content", () => {
+    const brief = { topic: "公开研究", goal: "甲".repeat(40001), focus: "", timeRange: "", region: "" };
+    expect(research.GuidedResearchBrief.safeParse(brief).success).toBe(false);
+  });
+});
