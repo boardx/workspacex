@@ -100,6 +100,8 @@ export async function runtimeEnvironment(config: DeploymentConfig, secretDirecto
   const apiData = Object.fromEntries(Object.entries(data).filter(([key]) => !key.startsWith("MIGRATION_DB_") && !key.startsWith("AGENT_DB_") && !key.startsWith("MEMORY_DB_")));
   const sharedNative = { NATIVE_SESSION_SOCKET: "/run/sessions/skill-sandbox.sock", DEEP_AGENT_SERVICE_INTERNAL_KEY: secret["service-key"] };
   const api: Record<string, string> = { ...deploymentStorageEnvironment(config), ...apiData, ...model, ...asr, ...githubIssue, ...mail, ...platformSuperuser, ...sharedNative,
+    // API report generation consumes real provider deltas, as in local runtime.
+    KERNEL_MODEL_STREAM_ENABLED: "1",
     NODE_ENV: "production", PORT: "3200",
     // Verification-mail links and the default uptime probe target both derive from the public origin.
     APP_PUBLIC_URL: config.environment.publicUrl, MODEL_CREDENTIAL_KEY: secret["model-cipher"],
