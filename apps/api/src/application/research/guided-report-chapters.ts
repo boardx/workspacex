@@ -1,3 +1,4 @@
+import { SearchBudget, GUIDED_REPORT_MODEL_BUDGET_MS } from "./guided-search-budget";
 import { orderedChapterWork } from "./guided-report-chapter-work";
 import type { EvidenceAttemptDiagnostic } from "./guided-report-evidence-validation";
 import { initializeReportTimeline, updateReportTimeline, failActiveReportTimeline } from "./guided-report-timeline";
@@ -106,12 +107,18 @@ export async function generateReportChapters(state: ResearchRuntime, model: Mode
         if (activeState !== state && chapterPersistenceFailed) throw chapterPersistenceFailure;
         let seen = false; let callbackFailed = false; let callbackError: unknown;
         let result;
+        let attemptOpen = true;
+        const callBudget = new SearchBudget(GUIDED_REPORT_MODEL_BUDGET_MS, "RESEARCH_REPORT_MODEL_TIME_BUDGET_EXCEEDED", input.signal);
+        const boundedInput = { ...input, signal: callBudget.signal };
         try {
-          result = publish && model.completeStream ? await model.completeStream(input, async (delta) => {
+          result = await callBudget.run(() => publish && model.completeStream ? model.completeStream(boundedInput, async (delta) => {
+            if (!attemptOpen) throw new ResearchRuntimeError("RESEARCH_EXECUTION_INTERRUPTED");
+            callBudget.check();
             try { seen ||= Boolean(delta); await publish(delta); }
             catch (error) { callbackFailed = true; callbackError = error; throw error; }
-          }) : await model.complete(input);
+          }) : model.complete(boundedInput));
         } catch (error) {
+          attemptOpen = false;
           // Adapters can wrap observer/persistence errors as transport failures.
           if (callbackFailed) { chapterPersistenceFailed = true; chapterPersistenceFailure = callbackError; throw callbackError; }
           if (attempt || !recoverableReportProviderError(error)) throw error;
@@ -120,7 +127,7 @@ export async function generateReportChapters(state: ResearchRuntime, model: Mode
           if (publish) { await restore(); if (stage === "synthesizing") resetSynthesis?.(); }
           await new Promise((resolve) => setTimeout(resolve, 500));
           continue;
-        }
+        } finally { attemptOpen = false; callBudget.dispose(); }
         if (callbackFailed) throw callbackError;
         if (publish && !seen && live && visible()) { live = false; await resetStream?.(); }
         const parsed = validate(result.text); call.status = "succeeded";

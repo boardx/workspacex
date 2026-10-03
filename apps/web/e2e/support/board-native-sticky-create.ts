@@ -58,7 +58,8 @@ async function createNativeTextObject(page:Page,text:string,proof:NativeCreation
       await activeEditor.press('Escape');
       await expect(activeEditor).toHaveCount(0);
     }
-    await page.getByRole('button',{name:'取消选择',exact:true}).click();
+    const cancelSelection=page.getByRole('button',{name:'取消选择',exact:true});
+    await cancelSelection.focus();await expect(cancelSelection).toBeFocused();await cancelSelection.press('Enter');
     await expect(selected).toHaveCount(0);
     expect(await canonicalRows(page)).toEqual(before);
     expect(await canonicalBoardSnapshot(proof.api,proof.token,proof.boardId)).toEqual(armedSnapshot);
@@ -89,15 +90,15 @@ async function createNativeTextObject(page:Page,text:string,proof:NativeCreation
     const chrome=Array.from(document.querySelectorAll('[data-board-chrome]')).map(node=>node.getBoundingClientRect()).filter(rect=>rect.width>0&&rect.height>0);
     const selection=occupied.filter((_,index)=>nodes[index]?.querySelector('[aria-pressed="true"]'));
     return {canvas:{x:box.x,y:box.y,width:box.width,height:box.height},viewport:{width:innerWidth,height:innerHeight},occupied,selection,
-      // Keep main's visible paper/header clearance, clipped for narrow reflow viewports.
-      paperMargin:Math.max(8,Math.min(Math.max(120,120*zoom),Math.min(box.width,innerWidth)/4,Math.min(box.height,innerHeight)/4)),chrome:chrome.map(r=>({x:r.x,y:r.y,width:r.width,height:r.height}))};
+      // This is viewport-visible clearance for native reflow placement, not proof of the full scaled paper footprint.
+      zoom,requestedPaperMargin:Math.max(120,120*zoom),paperMargin:Math.max(8,Math.min(Math.max(120,120*zoom),Math.min(box.width,innerWidth)/4,Math.min(box.height,innerHeight)/4)),chrome:chrome.map(r=>({x:r.x,y:r.y,width:r.width,height:r.height}))};
    },expectedCount);
    const candidates=await page.evaluate(nativeBlankCandidates,sample);
-   return page.getByTestId('board-fabric-surface').evaluate((host,points)=>{
+   return page.getByTestId('board-fabric-surface').evaluate((host,{points,geometry})=>{
     const canvas=host.querySelector('canvas.upper-canvas');
     for(const point of points)if(document.elementFromPoint(point.x,point.y)===canvas)return point;
-    throw new Error('NO_NATIVE_BLANK_POSITION');
-   },candidates);
+    throw new Error(`NO_NATIVE_BLANK_POSITION ${JSON.stringify({canvas:geometry.canvas,zoom:geometry.zoom,margin:geometry.paperMargin,requestedPaperMargin:geometry.requestedPaperMargin,candidateCenters:points.length,unobstructedCenters:0,chrome:geometry.chrome})}`);
+   },{points:candidates,geometry:sample});
   };
   const point=await blankPoint(before.length);
   expect(await canonicalRows(page)).toEqual(before);

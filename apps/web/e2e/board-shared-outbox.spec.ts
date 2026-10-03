@@ -28,7 +28,9 @@ test('same-browser tabs drain a shared durable outbox without duplicate commits'
  const startedAt=performance.now();const milestones:Array<{name:string;elapsedMs:number}>=[];
  const mark=(name:string)=>milestones.push({name,elapsedMs:Math.round(performance.now()-startedAt)});
  let token='',boardId='',archived=false,peer:Page|undefined;const evidence:Record<string,unknown>={drainSlaMs:DRAIN_SLA_MS,http,milestones};
- let ownerLifecycle:CDPSession|undefined,ownerPaused=false;
+ let ownerLifecycle:CDPSession|undefined,ownerFrozen=false;
+ const lifecycleBinding=`boardOutboxLifecycle${randomUUID().replaceAll('-','')}`;
+ const lifecycleEvents={freeze:0,resume:0};
  const ackGate:{updateId:string|null;release:(()=>void)|null;heldAt:number|null;releasedAt:number|null}={updateId:null,release:null,heldAt:null,releasedAt:null};
  const call=async(method:string,path:string,data?:unknown)=>{const safePath=new URL(path,'http://diagnostic.invalid').pathname,index=http.push({method,path:safePath,status:0})-1;const response=await request.fetch(`${api}${path}`,{method,data,timeout:15_000,headers:{Authorization:`Bearer ${token}`}});const status=response.status();http[index]!.status=status;
   // Record only routing metadata, never credentials, request/response bodies or query strings.
@@ -40,7 +42,7 @@ test('same-browser tabs drain a shared durable outbox without duplicate commits'
   token=(await page.evaluate(key=>localStorage.getItem(key),SESSION_TOKEN_STORAGE_KEY))!;
   const board=await call('POST','/whiteboards',CreateBoard.parse({requestId:randomUUID(),name:'Same-browser durable outbox'}));boardId=board.id;mark('board-created');
   // Keep one real server receipt unacknowledged in the original tab. The
-  // original target is later debugger-paused so its lease-renewal timer stops;
+  // original target is later page-frozen so its lease-renewal timer stops;
   // the unmodified durable claim must expire before the peer replays that ID.
   // Every other frame is forwarded unchanged to the actual API.
   await page.routeWebSocket(url=>url.pathname===WHITEBOARD_SYNC.path.replace(':boardId',encodeURIComponent(boardId)),socket=>{
@@ -88,21 +90,34 @@ test('same-browser tabs drain a shared durable outbox without duplicate commits'
   await expect.poll(()=>ackGate.updateId!==null&&ackGate.release!==null,{timeout:remaining(),message:'Actual contract route must capture one real server ACK'}).toBe(true);
   evidence.ackGate={updateId:ackGate.updateId,held:true};
   ownerLifecycle=await page.context().newCDPSession(page);
-  ownerLifecycle.on('Debugger.paused',()=>{ownerPaused=true;});
-  ownerLifecycle.on('Debugger.resumed',()=>{ownerPaused=false;});
-  await ownerLifecycle.send('Debugger.enable');
-  await ownerLifecycle.send('Debugger.pause');
-  await expect.poll(()=>ownerPaused,{timeout:remaining(),message:'Original target must actually pause before peer admission'}).toBe(true);mark('original-tab-paused');
+  await ownerLifecycle.send('Runtime.enable');
+  await ownerLifecycle.send('Runtime.addBinding',{name:lifecycleBinding});
+  ownerLifecycle.on('Runtime.bindingCalled',event=>{
+   if(event.name!==lifecycleBinding)return;
+   try{const observed=JSON.parse(event.payload) as {type?:string;trusted?:boolean};
+    if(observed.trusted===true&&(observed.type==='freeze'||observed.type==='resume'))lifecycleEvents[observed.type]++;
+   }catch{/* Unknown payload is never lifecycle proof. */}
+  });
+  const installedLifecycle=await ownerLifecycle.send('Runtime.evaluate',{expression:`globalThis[${JSON.stringify(lifecycleBinding+'Handlers')}] = Object.fromEntries(['freeze','resume'].map(type=>{const listener=event=>globalThis[${JSON.stringify(lifecycleBinding)}](JSON.stringify({type:event.type,trusted:event.isTrusted}));document.addEventListener(type,listener);return [type,listener];}));`});
+  expect(installedLifecycle.exceptionDetails,'Owned lifecycle observers must actually install').toBeUndefined();
+  // Freeze only this page's lifecycle. Debugger.pause can stop sibling pages in
+  // the same renderer, making peer lease recovery impossible to exercise.
+  ownerFrozen=true;await ownerLifecycle.send('Page.setWebLifecycleState',{state:'frozen'});
+  await expect.poll(()=>lifecycleEvents.freeze,{timeout:remaining(),message:'Original page must emit a trusted native freeze event'}).toBe(1);
+  evidence.ownerLifecycleControl='page-frozen';mark('original-tab-paused');
   const testPeer=await page.context().newPage();peer=testPeer;testPeer.setDefaultTimeout(15_000);testPeer.setDefaultNavigationTimeout(15_000);metadata.observe(testPeer,'peer');await testPeer.goto(`/studio/board/${boardId}`);mark('peer-opened');
+  await expect.poll(()=>metadata.snapshot().events.some(event=>event.client==='peer'&&event.direction==='received'&&event.type==='sync'),{timeout:remaining(),message:'Peer must independently execute and receive authoritative sync while original page is frozen'}).toBe(true);
   await expect.poll(()=>{
    const id=ackGate.updateId;
    return id!==null&&metadata.snapshot().events.some(event=>event.client==='peer'&&event.direction==='sent'&&event.type==='update'&&event.updateId===id);
   },{timeout:remaining(),message:'Peer must replay the actual held-ACK receipt after its durable claim expires'}).toBe(true);
   // Request delivery of the captured receipt before resuming timers. Actual
   // delivery and lease fencing are verified by the real synced/receipt proof.
+  expect(lifecycleEvents.resume,'Original page must remain frozen until peer replay proof').toBe(0);
   expect(ackGate.release).not.toBeNull();ackGate.release!();mark('original-real-ack-released');
-  await ownerLifecycle.send('Debugger.resume');
-  await expect.poll(()=>!ownerPaused,{timeout:remaining(),message:'Original target must actually resume for ACK delivery'}).toBe(true);mark('original-tab-resumed');
+  await ownerLifecycle.send('Page.setWebLifecycleState',{state:'active'});
+  await expect.poll(()=>lifecycleEvents.resume,{timeout:remaining(),message:'Original page must emit a trusted native resume event'}).toBe(1);ownerFrozen=false;mark('original-tab-resumed');
+  evidence.ownerLifecycleEvents={...lifecycleEvents};
   evidence.ackGate={updateId:ackGate.updateId,heldMs:ackGate.releasedAt!-ackGate.heldAt!};
   await expectBoardSynced(page,remaining());await expectBoardSynced(testPeer,remaining());
   await expect.poll(()=>rows(testPeer),{timeout:remaining()}).toEqual(expected);expect(await rows(page)).toEqual(expected);
@@ -123,10 +138,12 @@ test('same-browser tabs drain a shared durable outbox without duplicate commits'
   await testPeer.close();peer=undefined;
  }finally{
   const lifecycleCleanupErrors:string[]=[];
-  try{if(ownerPaused)await ownerLifecycle?.send('Debugger.resume');}catch(error){lifecycleCleanupErrors.push(`restore: ${String(error)}`);}
+  try{if(ownerFrozen){await ownerLifecycle?.send('Page.setWebLifecycleState',{state:'active'});await expect.poll(()=>lifecycleEvents.resume,{timeout:5000,message:'Owned frozen page must actually resume during cleanup'}).toBe(1);ownerFrozen=false;}}catch(error){lifecycleCleanupErrors.push(`restore: ${String(error)}`);}
   try{ackGate.release?.();}catch(error){lifecycleCleanupErrors.push(`release: ${String(error)}`);}
+  try{if(ownerLifecycle){const removed=await ownerLifecycle.send('Runtime.evaluate',{expression:`for(const [type,listener] of Object.entries(globalThis[${JSON.stringify(lifecycleBinding+'Handlers')}]??{}))document.removeEventListener(type,listener);delete globalThis[${JSON.stringify(lifecycleBinding+'Handlers')}];`});expect(removed.exceptionDetails,'Owned lifecycle observers must actually be removed').toBeUndefined();}}catch(error){lifecycleCleanupErrors.push(`listeners: ${String(error)}`);}
+  try{await ownerLifecycle?.send('Runtime.removeBinding',{name:lifecycleBinding});}catch(error){lifecycleCleanupErrors.push(`binding: ${String(error)}`);}
   try{await ownerLifecycle?.detach();}catch(error){lifecycleCleanupErrors.push(`detach: ${String(error)}`);}
-  evidence.lifecycleCleanupErrors=lifecycleCleanupErrors;
+  evidence.lifecycleCleanupErrors=lifecycleCleanupErrors;evidence.ownerLifecycleEvents={...lifecycleEvents};
   await peer?.close().catch(()=>undefined);
   if(boardId&&token&&!archived){try{const board=await call('GET',`/whiteboards/${boardId}`);if(!board.archived){await call('PATCH',`/whiteboards/${boardId}`,{archived:true,expectedLifecycleRevision:board.lifecycleRevision});archived=true;}}catch(error){evidence.cleanupError=String(error);}}
   await Promise.all(chunkReads);evidence.browserChunks=chunks;

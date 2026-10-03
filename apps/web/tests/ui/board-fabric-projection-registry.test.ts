@@ -14,6 +14,8 @@ const fabricHarness = vi.hoisted(() => {
     scaleX = 1;
     scaleY = 1;
     angle = 0;
+    originX: "left" | "center" | "right" = "left";
+    originY: "top" | "center" | "bottom" = "top";
     selectable = true;
     evented = true;
 
@@ -29,7 +31,25 @@ const fabricHarness = vi.hoisted(() => {
     set(values: Record<string, unknown>) { Object.assign(this, values); return this; }
     setControlsVisibility() { return this; }
     setCoords() {}
-    getBoundingRect() { return { left: this.left, top: this.top, width: this.width * this.scaleX, height: this.height * this.scaleY }; }
+    calcTransformMatrix(): [number, number, number, number, number, number] {
+      const radians = this.angle * Math.PI / 180, cos = Math.cos(radians), sin = Math.sin(radians);
+      const offsetX = this.width * this.scaleX * (this.originX === "left" ? .5 : this.originX === "right" ? -.5 : 0);
+      const offsetY = this.height * this.scaleY * (this.originY === "top" ? .5 : this.originY === "bottom" ? -.5 : 0);
+      return [cos * this.scaleX, sin * this.scaleX, -sin * this.scaleY, cos * this.scaleY,
+        this.left + cos * offsetX - sin * offsetY, this.top + sin * offsetX + cos * offsetY];
+    }
+    getCoords() {
+      const [a, b, c, d, e, f] = this.calcTransformMatrix();
+      return [[-.5, -.5], [.5, -.5], [.5, .5], [-.5, .5]].map(([x, y]) => ({
+        x: a * x! * this.width + c * y! * this.height + e,
+        y: b * x! * this.width + d * y! * this.height + f,
+      }));
+    }
+    getBoundingRect() {
+      const corners = this.getCoords(), xs = corners.map(point => point.x), ys = corners.map(point => point.y);
+      const left = Math.min(...xs), top = Math.min(...ys);
+      return { left, top, width: Math.max(...xs) - left, height: Math.max(...ys) - top };
+    }
   }
   const state = {
     canvases: [] as Array<{
@@ -95,7 +115,8 @@ const { state: fabricState, MockFabricObject } = fabricHarness;
 class ResizeObserverMock { observe() {} disconnect() {} }
 vi.stubGlobal("ResizeObserver", ResizeObserverMock);
 
-import { BoardFabricSurface } from "@/components/whiteboard/fabric/board-fabric-surface";
+import { BoardFabricSurface, serializeFabricObjectScenes } from "@/components/whiteboard/fabric/board-fabric-surface";
+import type { FabricObject } from "fabric";
 import type { BoardFabricObject } from "@/components/whiteboard/fabric/board-fabric-object";
 
 const geometry = { x: 10, y: 20, width: 200, height: 140, rotation: 0 };
@@ -138,6 +159,32 @@ describe("Board Fabric incremental projection registry", () => {
     fabricState.canvases.length = 0;
     fabricState.created = 0;
     fabricState.failOnText.clear();
+  });
+
+  it("serializes a rotated, nonuniformly scaled scene with the correct origin and world frame", () => {
+    // Independent literal result: a 20x10 rectangle scales to 40x30, then
+    // rotates 90 degrees around its top-left input position (10,20).
+    const projected = new MockFabricObject(undefined, {
+      left: 10, top: 20, width: 20, height: 10, scaleX: 2, scaleY: 3, angle: 90,
+      originX: "left", originY: "top",
+    });
+    const [scene] = serializeFabricObjectScenes(new Map([["rotated", projected as unknown as FabricObject]]));
+    expect(scene?.id).toBe("rotated");
+    const expectedMatrix = [0, 2, -3, 0, -5, 40];
+    scene!.transformMatrix.forEach((value, index) => expect(value).toBeCloseTo(expectedMatrix[index]!, 10));
+    const expectedCorners = [{x:10,y:20},{x:10,y:60},{x:-20,y:60},{x:-20,y:20}];
+    scene!.worldCorners.forEach((point, index) => {
+      expect(point.x).toBeCloseTo(expectedCorners[index]!.x, 10);
+      expect(point.y).toBeCloseTo(expectedCorners[index]!.y, 10);
+    });
+    expect(scene!.left).toBeCloseTo(-20, 10); expect(scene!.top).toBeCloseTo(20, 10);
+    expect(scene!.width).toBeCloseTo(30, 10); expect(scene!.height).toBeCloseTo(40, 10);
+    projected.set({originX:"center",originY:"center",left:40,top:50,angle:-90});
+    const [centered] = serializeFabricObjectScenes(new Map([["rotated", projected as unknown as FabricObject]]));
+    const centeredMatrix = [0, -2, 3, 0, 40, 50];
+    centered!.transformMatrix.forEach((value, index) => expect(value).toBeCloseTo(centeredMatrix[index]!, 10));
+    expect(centered!.left).toBeCloseTo(25, 10); expect(centered!.top).toBeCloseTo(30, 10);
+    expect(centered!.width).toBeCloseTo(30, 10); expect(centered!.height).toBeCloseTo(40, 10);
   });
 
   it("patches by stable object id, adds and removes only the changed entries, and never reloads the canvas", () => {

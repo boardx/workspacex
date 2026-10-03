@@ -19,7 +19,7 @@
         {
           "path": "apps/web/e2e/support/board-native-sticky-create.ts",
           "source_blob": "35a7bf31b1eacd1a8d058cd8ab2c31fea486e21e",
-          "candidate_blob": "f7ba5eb2a884901edd60360de1c3d61db14b2b8f",
+          "candidate_blob": "84c5d55e3aebeb7302c0a28606395fd16d25e306",
           "status": "HUNK_UNION_OR_REVIEWED_MAIN_PRESERVATION"
         },
         {
@@ -64,7 +64,7 @@
         {
           "path": "apps/web/e2e/board-shared-outbox.spec.ts",
           "source_blob": "b69077aa7f80000951ad680fff8b5e32eeb3d3de",
-          "candidate_blob": "b69077aa7f80000951ad680fff8b5e32eeb3d3de",
+          "candidate_blob": "7f17b314025096b375a67c6141556cdc5cc85760",
           "status": "EXACT_SOURCE_BLOB"
         },
         {
@@ -172,7 +172,7 @@
         {
           "path": "apps/web/lib/whiteboard-provider.ts",
           "source_blob": "5baf75b949312fd40ef1cd93baf1478526e3fe7d",
-          "candidate_blob": "5baf75b949312fd40ef1cd93baf1478526e3fe7d",
+          "candidate_blob": "dd04b5bb923c6e0681d256364b8d273809c3d196",
           "status": "EXACT_SOURCE_BLOB"
         },
         {
@@ -202,7 +202,7 @@
         {
           "path": "apps/web/tests/whiteboard/whiteboard-provider.test.ts",
           "source_blob": "17180a20ceaa0b23cca3effeb1c5ed48bb526528",
-          "candidate_blob": "17180a20ceaa0b23cca3effeb1c5ed48bb526528",
+          "candidate_blob": "de0b4b6c302107aa3391379c37a645cf20c97bcd",
           "status": "EXACT_SOURCE_BLOB"
         }
       ],
@@ -322,7 +322,7 @@
         {
           "path": "apps/web/e2e/board-compact-chrome-acceptance.spec.ts",
           "source_blob": "a7ffd5f670c1eb4811777fb150f05e2d14a93306",
-          "candidate_blob": "a7ffd5f670c1eb4811777fb150f05e2d14a93306",
+          "candidate_blob": "22970b423c198880272151d69d38cb66e91752c0",
           "status": "EXACT_SOURCE_BLOB"
         },
         {
@@ -340,7 +340,7 @@
         {
           "path": "apps/web/e2e/support/board-native-sticky-create.ts",
           "source_blob": "4370fb875db6855dca021b66a24f032c3272bc67",
-          "candidate_blob": "f7ba5eb2a884901edd60360de1c3d61db14b2b8f",
+          "candidate_blob": "84c5d55e3aebeb7302c0a28606395fd16d25e306",
           "status": "HUNK_UNION_OR_REVIEWED_MAIN_PRESERVATION"
         },
         {
@@ -385,7 +385,7 @@
         {
           "path": "apps/web/e2e/support/board-native-sticky-create.ts",
           "source_blob": "da5f9fcfe8472e4159c0e5b743cda97a5dbe96a7",
-          "candidate_blob": "f7ba5eb2a884901edd60360de1c3d61db14b2b8f",
+          "candidate_blob": "84c5d55e3aebeb7302c0a28606395fd16d25e306",
           "status": "HUNK_UNION_OR_REVIEWED_MAIN_PRESERVATION"
         },
         {
@@ -406,31 +406,31 @@
         {
           "path": ".harness/scripts/with-test-isolation-port-leases.test.ts",
           "source_blob": "44598448edd9c68203d90bb8d9f459bbd94de837",
-          "candidate_blob": "698ab486e48dd2d5fc39628b0ffdddd2d91271d3",
+          "candidate_blob": "44598448edd9c68203d90bb8d9f459bbd94de837",
           "status": "HUNK_UNION_OR_REVIEWED_MAIN_PRESERVATION"
         },
         {
           "path": "apps/web/components/whiteboard/collaborative-thinking-editor.tsx",
           "source_blob": "8b7b9636652f3144aab2303d83e514e95d4ac47e",
-          "candidate_blob": "ab5e3d2590b288923fee9d2e1525688917187891",
+          "candidate_blob": "a0defee68ecc69cf987f67ba8951c95671b6ff16",
           "status": "HUNK_UNION_OR_REVIEWED_MAIN_PRESERVATION"
         },
         {
           "path": "apps/web/e2e/board-acceptance-support.ts",
           "source_blob": "cbaeb17c4284dfedf449a6bc83b80f9cd5eed38c",
-          "candidate_blob": "a51350dd8f1083b8a0ee5c119ae0c40a67fc59fa",
+          "candidate_blob": "24e693d7530bccc138bdfb971d6d1da1ca1a2a10",
           "status": "HUNK_UNION_OR_REVIEWED_MAIN_PRESERVATION"
         },
         {
           "path": "apps/web/e2e/board-compact-chrome-acceptance.spec.ts",
           "source_blob": "d422632beda8601cac7470a8e090435994e63dcd",
-          "candidate_blob": "a7ffd5f670c1eb4811777fb150f05e2d14a93306",
+          "candidate_blob": "22970b423c198880272151d69d38cb66e91752c0",
           "status": "HUNK_UNION_OR_REVIEWED_MAIN_PRESERVATION"
         },
         {
           "path": "apps/web/e2e/board-selection-layout.spec.ts",
           "source_blob": "2efc6350fdf6c16c90c5a8c4fb8fde225358aa2b",
-          "candidate_blob": "f6b68db03b7c4505e3e35e435bb7435d14c5b491",
+          "candidate_blob": "2efc6350fdf6c16c90c5a8c4fb8fde225358aa2b",
           "status": "HUNK_UNION_OR_REVIEWED_MAIN_PRESERVATION"
         },
         {
@@ -442,25 +442,25 @@
         {
           "path": "apps/web/e2e/support/board-editor-connector-entry.ts",
           "source_blob": "fecf7aa03b0ef7840556454010a418a56b5031c0",
-          "candidate_blob": null,
+          "candidate_blob": "fecf7aa03b0ef7840556454010a418a56b5031c0",
           "status": "ABSENT"
         },
         {
           "path": "apps/web/tests/whiteboard/board-content-tools.test.tsx",
           "source_blob": "a2b39388a446181f997abda9dde03ca030b3be0f",
-          "candidate_blob": "7805afd486666f699f702bd95582f38d82912e25",
+          "candidate_blob": "a2b39388a446181f997abda9dde03ca030b3be0f",
           "status": "HUNK_UNION_OR_REVIEWED_MAIN_PRESERVATION"
         },
         {
           "path": "apps/web/tests/whiteboard/board-production-connector-entry.node.test.mjs",
           "source_blob": "76f800b2b07cd070846bebe6c81c1ed1e7d70e79",
-          "candidate_blob": null,
+          "candidate_blob": "76f800b2b07cd070846bebe6c81c1ed1e7d70e79",
           "status": "ABSENT"
         },
         {
           "path": "apps/web/tests/whiteboard/board-production-connector-entry.test.tsx",
           "source_blob": "4562a376d024529bbda50c46b8a8fe1b889e5b47",
-          "candidate_blob": null,
+          "candidate_blob": "4562a376d024529bbda50c46b8a8fe1b889e5b47",
           "status": "ABSENT"
         },
         {
@@ -479,5 +479,6 @@
       "approval_boundary": "Main merge does not prove human exposure signoff, native acceptance or production deployment."
     }
   ],
-  "integration_branch": "codex/board-main-delivery-20261003"
+  "integration_branch": "codex/board-main-delivery-20261003",
+  "current_main_inherited": "492a9dc147d79f8c48833be8552964b6a916787f"
 }

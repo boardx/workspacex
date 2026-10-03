@@ -71,12 +71,12 @@ It is historical evidence, not an authoritative current feature-state projection
 
 All checks used the isolated integration tree. Official initialization ran with
 `RUN_INFRA=0 RUN_START_COMMAND=0`; dependencies were installed normally and normal
-Git hooks were preserved. No database, API, Web, Docker or browser was started.
+Git hooks were preserved. No database, API, Web, Docker or browser was started. Latest main `492a9dc147d79f8c48833be8552964b6a916787f` is ordinarily inherited.
 No protected data directory, service, migration or production setting was touched.
 
 - Web typecheck and the complete Web lint chain passed after sound mock typing
   and callback dependency corrections.
-- Final affected component/contract run: **268/269 passed, one failed**, no skipped
+- Initial delivery component/contract run: **268/269 passed, one failed**, no skipped
   or pending tests. Failure: `board-r01-oracle.test.ts`, raw FixedLayout cached
   stroke pixels versus the independent reference; original threshold unchanged.
 - The six earlier menu failures were resolved by measuring real portal content
@@ -88,3 +88,12 @@ No protected data directory, service, migration or production setting was touche
   the authority for its required checks and has not been claimed green.
 
 This is a source recovery draft, not an accepted ten-round iteration or a release.
+
+## Follow-up repairs within the same draft
+
+- Actual product ShapeProjectionGroup and raw Fabric cache both reproduced rotated bitmap resampling error; independent reference was unchanged. Unsafe backing transforms now render stroked shapes directly, while safe integer grids retain actual bitmap caching. The complete original request matrix, tolerance 5 and six negative variants remain. 21 pure tests pass; native 14 cases, clipped/isolated-cache fidelity and performance acceptance remain unverified.
+- Current-socket delayed original ACK attribution after a peer durable drain was first reproduced failing. Bounded exact updateId/gestureId attribution now accepts only the actual server receipt and rejects wrong/unknown/re-authorized receipts. 57 targeted provider/atomic tests pass; 45-second real peer recovery is still not claimed passed.
+- Three Fabric test substitutes were missing real matrix/corner methods required by the existing read-only serializer. Their geometry interfaces now use rotation, scale and origin; original performance/command assertions remain. Three files, 23 tests pass.
+- Layout preview locking incorrectly allowed N/T/S/P to arm creation and hide its toolbar. The mutationBlocked guard now prevents this while retaining H/V navigation. The old failure was reproduced; 29 targeted tests pass.
+- #5079 remains open and is repaired independently on its existing branch, head fcab14006b15580d8a65ff451ae60896261e457b. Both trees share the reviewed native Cancel-selection focus/Enter and geometry/diagnostic helper patch; no old branch is silently closed. 20 targeted tests and normal hooks pass; new three-browser CI is pending.
+- Original-page suspension uses target page lifecycle freeze/resume with trusted native events and independently executing peer sync/replay; no synthetic lifecycle events are used. Only source review/typechecks establish this wiring until real CI executes it. Full scaled-paper footprint is not certified by viewport-visible clearance.

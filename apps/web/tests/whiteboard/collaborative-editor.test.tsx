@@ -149,8 +149,18 @@ it('smart layout preview is zero-write, cancelable, applicable and conflict guar
   fireEvent.click(screen.getByRole('button',{name:'布局'}));
   expect(screen.getByTestId('board-layout-grid')).toBeDisabled();
   fireEvent.click(screen.getByTestId('fabric-transform-first'));
-  fireEvent.keyDown(window, { key: 'n' });
-  fireEvent.keyDown(window, { key: 't' });
+  for (const key of ['n', 't', 's', 'p']) {
+    fireEvent.keyDown(window, { key });
+    expect(screen.getByTestId('board-selection-layout-toolbar')).toBeVisible();
+    for (const kind of ['sticky', 'text', 'shape', 'draw']) expect(screen.getByTestId(`board-add-${kind}`)).toHaveAttribute('aria-pressed', 'false');
+    expect(readObjects(doc)).toEqual(before);
+  }
+  fireEvent.keyDown(window, { key: 'n', shiftKey: true });
+  expect(screen.queryByRole('dialog', {name: '批量创建便利贴'})).toBeNull();
+  fireEvent.keyDown(window, { key: 'h' });
+  expect(screen.getByTestId('board-tool-hand')).toHaveAttribute('aria-pressed', 'true');
+  fireEvent.keyDown(window, { key: 'v' });
+  expect(screen.getByTestId('board-tool-select')).toHaveAttribute('aria-pressed', 'true');
   expect(readObjects(doc)).toEqual(before);
   fireEvent.click(screen.getByTestId('board-layout-preview-cancel'));
   expect(readObjects(doc)).toEqual(before);
