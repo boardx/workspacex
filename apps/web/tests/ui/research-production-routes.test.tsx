@@ -4,15 +4,15 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { ResearchNewRoute } from "@/components/research-studio/research-new-route";
 import { ResearchIntake } from "@/components/research-studio/research-intake";
 import { ResearchStageRoute } from "@/components/research-studio/research-stage-route";
-import { createGuidedResearchSession, getResearchRuntime, runGuidedResearchSkillTurn } from "@/lib/guided-research-api";
+import { createGuidedResearchSession, getGuidedResearchSession, getResearchRuntime, runGuidedResearchSkillTurn } from "@/lib/guided-research-api";
 import { research } from "@repo/contracts";
 
 const { push } = vi.hoisted(() => ({ push: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push }) }));
-vi.mock("@/components/research-studio/guided-research-live", () => ({ GuidedResearchLive: ({ sessionId, visualStage, initialNode, onBack }: { sessionId: string; visualStage: string; initialNode: string; onBack: () => void }) => <div data-testid="production-live" data-session={sessionId} data-stage={visualStage} data-node={initialNode}><button onClick={onBack}>返回列表</button></div> }));
+vi.mock("@/components/research-studio/guided-research-live", () => ({ GuidedResearchLive: ({ sessionId, researchName, visualStage, initialNode, onBack }: { sessionId: string; researchName: string; visualStage: string; initialNode: string; onBack: () => void }) => <div data-testid="production-live" data-session={sessionId} data-name={researchName} data-stage={visualStage} data-node={initialNode}><button onClick={onBack}>返回列表</button></div> }));
 vi.mock("@/lib/guided-research-api", () => ({ createGuidedResearchSession: vi.fn(), getResearchRuntime: vi.fn(), executeResearchRuntime: vi.fn(), confirmResearchBrief: vi.fn(), executeGuidedResearchNodeCommand: vi.fn(), getGuidedResearchSession: vi.fn(), runGuidedResearchSkillTurn: vi.fn() }));
 
-beforeEach(() => { vi.resetAllMocks(); sessionStorage.clear(); localStorage.clear(); });
+beforeEach(() => { vi.resetAllMocks(); vi.mocked(getGuidedResearchSession).mockResolvedValue({ title: "创建时的研究名称" } as never); sessionStorage.clear(); localStorage.clear(); });
 
 it("imports a text file into the requirement while preserving existing input", async () => {
   render(<ResearchNewRoute />);
@@ -147,4 +147,10 @@ it("bounds a default title derived from a prefilled topic while preserving the t
   fireEvent.click(screen.getByTestId("research-confirm-brief"));
   await waitFor(() => expect(navigate).toHaveBeenCalledWith("directions", "prefilled-topic"));
   expect(vi.mocked(createGuidedResearchSession).mock.calls[0]![0].brief?.topic).toBe(topic);
+});
+
+ it("uses the persisted creation name rather than the research description on stage routes", async () => {
+  render(<ResearchStageRoute sessionId="named-session" stage="import" />);
+  await waitFor(() => expect(screen.getByTestId("production-live")).toHaveAttribute("data-name", "创建时的研究名称"));
+  expect(getGuidedResearchSession).toHaveBeenCalledWith("named-session");
 });
