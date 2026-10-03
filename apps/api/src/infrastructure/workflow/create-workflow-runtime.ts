@@ -30,6 +30,7 @@ import { DEMO_APPROVAL_WORKFLOW_DEFINITION, demoApprovalWorkflowGraph } from "./
 import { DEMO_WORKFLOW_DEFINITION, demoWorkflowGraph } from "./demo-workflow-graph";
 import { PgEffectCapabilityAuthority } from "./pg-effect-capability-authority";
 import { productWorkflowGraphs } from "./product-workflow-graphs";
+import { researchToBriefGraph } from "./research-to-brief-graph";
 import { problemToPrdGraph } from "./problem-to-prd-graph";
 import { PgWorkflowAccess } from "./pg-workflow-access";
 import { PgWorkflowDefinitionRepository } from "./pg-workflow-definition-repository";
@@ -145,6 +146,8 @@ export function createWorkflowRuntime(db: DatabasePort, pool: pg.Pool, opts: Wor
       notify: prdPublishedNotifier(opts.content.notifications),
     });
     graphs = [...graphs.filter((g) => g.graphRef !== prd.graphRef && g.graphRef !== "problem-to-prd:2"), prd, { ...prd, graphRef: "problem-to-prd:2" }];
+    const research = researchToBriefGraph({ skills: opts.content.skills, outputs, instances });
+    graphs = [...graphs.filter((g) => g.graphRef !== research.graphRef), research];
   }
   const registry = new WorkflowGraphRegistry(graphs, defaultCommandWorkflowGraphs());
   const capability = new PgEffectCapabilityAuthority(db);
