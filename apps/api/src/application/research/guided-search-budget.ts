@@ -1,9 +1,15 @@
 import { ResearchRuntimeError } from "./guided-runtime-ports";
 export const GUIDED_SEARCH_BUDGET_MS = 180_000;
+export const GUIDED_PLAN_BUDGET_MS = 55_000;
 export class SearchBudget {
   private readonly abort = new AbortController();
-  private readonly timer = setTimeout(() => this.abort.abort(new ResearchRuntimeError("RESEARCH_SEARCH_TIME_BUDGET_EXCEEDED")), GUIDED_SEARCH_BUDGET_MS);
-  get signal() { return this.abort.signal; }
+  private readonly timer: ReturnType<typeof setTimeout>;
+  private readonly combinedSignal: AbortSignal;
+  constructor(durationMs = GUIDED_SEARCH_BUDGET_MS, reasonCode = "RESEARCH_SEARCH_TIME_BUDGET_EXCEEDED", parent?: AbortSignal) {
+    this.combinedSignal = parent ? AbortSignal.any([this.abort.signal, parent]) : this.abort.signal;
+    this.timer = setTimeout(() => this.abort.abort(new ResearchRuntimeError(reasonCode)), durationMs);
+  }
+  get signal() { return this.combinedSignal; }
   check() { this.signal.throwIfAborted(); }
   dispose() { clearTimeout(this.timer); }
   async run<T>(work: () => Promise<T>): Promise<T> {
