@@ -14,9 +14,10 @@ TRUSTED_PUBLISH_BIN=${TRUSTED_PUBLISH_BIN:-/usr/local/lib/workspacex-cn/publish-
 TRUSTED_PREFLIGHT_BIN=${TRUSTED_PREFLIGHT_BIN:-/usr/local/lib/workspacex-cn/verify-cn-release-preflight.sh}
 TRUSTED_COLLECTOR_BIN=${TRUSTED_COLLECTOR_BIN:-/usr/local/lib/workspacex-cn/collect-cn-release-preflight.sh}
 TRUSTED_PROMOTION_BIN=${TRUSTED_PROMOTION_BIN:-/usr/local/bin/workspacex-cn-verify-promotion}
+TRUSTED_EXPORT_BIN=${TRUSTED_EXPORT_BIN:-/usr/local/bin/workspacex-cn-export-source}
 SUDOERS_FILE=${SUDOERS_FILE:-/etc/sudoers.d/workspacex-cn-deploy}
 
-[[ "$REPOSITORY_DIR" == /* && "$TRUSTED_DEPLOY_BIN" == /* && "$TRUSTED_CANDIDATE_BIN" == /* && "$TRUSTED_PUBLISH_BIN" == /* && "$TRUSTED_PREFLIGHT_BIN" == /* && "$TRUSTED_COLLECTOR_BIN" == /* && "$TRUSTED_PROMOTION_BIN" == /* && "$SUDOERS_FILE" == /* ]] || {
+[[ "$REPOSITORY_DIR" == /* && "$TRUSTED_DEPLOY_BIN" == /* && "$TRUSTED_CANDIDATE_BIN" == /* && "$TRUSTED_PUBLISH_BIN" == /* && "$TRUSTED_PREFLIGHT_BIN" == /* && "$TRUSTED_COLLECTOR_BIN" == /* && "$TRUSTED_PROMOTION_BIN" == /* && "$TRUSTED_EXPORT_BIN" == /* && "$SUDOERS_FILE" == /* ]] || {
   echo "CN_BOOTSTRAP_PATHS_MUST_BE_ABSOLUTE" >&2; exit 1;
 }
 [[ "$RUNNER_USER" =~ ^[a-z_][a-z0-9_-]{0,31}$ ]] || { echo "CN_BOOTSTRAP_INVALID_RUNNER_USER" >&2; exit 1; }
@@ -66,9 +67,17 @@ done
 install -o root -g root -m 0755 "$candidate_script" "$TRUSTED_CANDIDATE_BIN"
 install -o root -g root -m 0755 "$promotion_script" "$TRUSTED_PROMOTION_BIN"
 
+# Runner receives only the read-only export wrapper, never cache staging arguments.
+for helper in stage-cn-offline-source-cache.sh export-cn-domestic-source.sh; do
+  source="$REPOSITORY_DIR/.harness/scripts/vm/$helper"
+  [[ -f "$source" && ! -L "$source" ]] || exit 1
+  install -o root -g root -m 0755 "$source" "/usr/local/lib/workspacex-cn/$helper"
+done
+install -o root -g root -m 0755 "$REPOSITORY_DIR/.harness/scripts/vm/export-cn-domestic-source.sh" "$TRUSTED_EXPORT_BIN"
+
 sudoers_temp=$(mktemp)
 trap 'rm -f "$sudoers_temp"' EXIT
-printf '%s ALL=(root) NOPASSWD: %s *, %s *, %s *\n' "$RUNNER_USER" "$TRUSTED_DEPLOY_BIN" "$TRUSTED_CANDIDATE_BIN" "$TRUSTED_PROMOTION_BIN" > "$sudoers_temp"
+printf '%s ALL=(root) NOPASSWD: %s *, %s *, %s *, %s *\n' "$RUNNER_USER" "$TRUSTED_DEPLOY_BIN" "$TRUSTED_CANDIDATE_BIN" "$TRUSTED_PROMOTION_BIN" "$TRUSTED_EXPORT_BIN" > "$sudoers_temp"
 chmod 0440 "$sudoers_temp"
 visudo -cf "$sudoers_temp" >/dev/null
 install -o root -g root -m 0440 "$sudoers_temp" "$SUDOERS_FILE"
