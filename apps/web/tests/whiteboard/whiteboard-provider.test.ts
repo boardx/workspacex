@@ -3,6 +3,9 @@ import * as Y from 'yjs';
 import { createWhiteboardDocument, executeCommands, readObjects, WhiteboardUndo } from '@repo/whiteboard-core';
 import { WhiteboardProvider, bytesToBase64, type WhiteboardConnectionState } from '@/lib/whiteboard-provider';
 import type { WhiteboardDurableOutbox } from '@/lib/whiteboard-outbox';
+import {IndexedDbEncryptedWhiteboardOutbox} from '@/lib/whiteboard-outbox';
+import {IDBFactory} from 'fake-indexeddb';
+import {webcrypto} from 'node:crypto';
 const auth = vi.hoisted(() => ({ token: 'test-session' as string | null }));
 vi.mock('@/lib/api-client', () => ({ getStoredSessionToken: () => auth.token, apiWebSocketUrl: (path: string) => `ws://localhost${path}` }));
 class Socket {
@@ -34,6 +37,202 @@ const messages = (socket: Socket) => socket.sent.map(value => JSON.parse(value) 
 const updates = (socket: Socket) => messages(socket).filter((value): value is { type: 'update'; updateId: string; gestureId: string } => value.type === 'update' && typeof value.updateId === 'string');
 const sync = (socket: Socket, server: Y.Doc, epoch = 1, seq = 0) => socket.message({ type: 'sync', epoch, seq, update: bytesToBase64(Y.encodeStateAsUpdate(server)), role: 'editor', archived: false });
 const burst = (doc: Y.Doc, count: number) => { for (let index = 0; index < count; index++) executeCommands(doc, [{ type: 'create', object: sticky(`note-${index}`) }], 'local'); };
+it('already-open peer automatically reconciles persisted origin writes after origin closes without reload',async()=>{
+  vi.useRealTimers();vi.stubGlobal('indexedDB',new IDBFactory());vi.stubGlobal('crypto',webcrypto);
+  const a=new IndexedDbEncryptedWhiteboardOutbox('board-1'),b=new IndexedDbEncryptedWhiteboardOutbox('board-1'),inspect=new IndexedDbEncryptedWhiteboardOutbox('board-1');
+  const origin=createWhiteboardDocument(),peer=createWhiteboardDocument(),server=createWhiteboardDocument();let peerState!:WhiteboardConnectionState;
+  const first=new WhiteboardProvider(origin,'board-1',()=>{},a),second=new WhiteboardProvider(peer,'board-1',state=>{peerState=state;},b);
+  try{
+    await vi.waitFor(()=>expect(Socket.sockets).toHaveLength(2));const originSocket=Socket.sockets[0]!,peerSocket=Socket.sockets[1]!;
+    sync(originSocket,server);sync(peerSocket,server);originSocket.onclose?.({code:1006});
+    executeCommands(origin,[{type:'create',object:sticky('closed-origin-one')}],'local');executeCommands(origin,[{type:'create',object:sticky('closed-origin-two')}],'local');
+    await vi.waitFor(async()=>expect((await inspect.restore('test-session')).updates).toHaveLength(2));
+    expect(peerState.pending).toBe(0);expect(updates(peerSocket)).toEqual([]);first.close();
+    await vi.waitFor(()=>expect(updates(peerSocket)).toHaveLength(2),{timeout:3500});
+    expect(Socket.sockets).toHaveLength(2);expect(readObjects(peer).map(item=>item.id).sort()).toEqual(['closed-origin-one','closed-origin-two']);
+    const sent=updates(peerSocket);expect(new Set(sent.map(item=>item.updateId)).size).toBe(2);
+    for(const [index,item] of sent.entries())peerSocket.message({type:'ack',updateId:item.updateId,gestureId:item.gestureId,seq:index+1});
+    await vi.waitFor(async()=>expect((await inspect.restore('test-session')).updates).toEqual([]));expect(peerState.pending).toBe(0);
+  }finally{first.close();second.close();inspect.close();origin.destroy();peer.destroy();server.destroy();}
+});
+it('two independent IndexedDB peers submit each recovered update once and only durable ACK deletes it',async()=>{
+  vi.useRealTimers();vi.stubGlobal('indexedDB',new IDBFactory());vi.stubGlobal('crypto',webcrypto);
+  const seed=new IndexedDbEncryptedWhiteboardOutbox('board-1'),a=new IndexedDbEncryptedWhiteboardOutbox('board-1'),b=new IndexedDbEncryptedWhiteboardOutbox('board-1');
+  const source=createWhiteboardDocument(),firstDoc=createWhiteboardDocument(),secondDoc=createWhiteboardDocument(),server=createWhiteboardDocument();
+  const expected=[];
+  for(const id of ['first','second']){
+    const vector=Y.encodeStateVector(source);executeCommands(source,[{type:'create',object:sticky(id)}],'local');
+    const message={type:'update' as const,epoch:1,updateId:crypto.randomUUID(),gestureId:crypto.randomUUID(),update:bytesToBase64(Y.encodeStateAsUpdate(source,vector))};
+    expected.push(message);await seed.persist('test-session',message);
+  }
+  let firstState!:WhiteboardConnectionState,secondState!:WhiteboardConnectionState;
+  const first=new WhiteboardProvider(firstDoc,'board-1',state=>{firstState=state;},a),second=new WhiteboardProvider(secondDoc,'board-1',state=>{secondState=state;},b);
+  try{
+    await vi.waitFor(()=>expect(Socket.sockets).toHaveLength(2));for(const socket of Socket.sockets)sync(socket,server);
+    await vi.waitFor(()=>expect(Socket.sockets.flatMap(updates)).toHaveLength(2));
+    const sent=Socket.sockets.flatMap(updates);expect(sent.map(item=>item.updateId).sort()).toEqual(expected.map(item=>item.updateId).sort());
+    expect((await seed.restore('test-session')).updates).toHaveLength(2);
+    for(const [index,item] of sent.entries())Socket.sockets.find(socket=>updates(socket).some(value=>value.updateId===item.updateId))!.message({type:'ack',updateId:item.updateId,gestureId:item.gestureId,seq:index+1});
+    await vi.waitFor(async()=>expect((await seed.restore('test-session')).updates).toEqual([]));
+    first.retryNow();second.retryNow();await vi.waitFor(()=>expect(Socket.sockets).toHaveLength(4));
+    for(const socket of Socket.sockets.slice(2))sync(socket,server,1,2);
+    await vi.waitFor(()=>{expect(firstState.pending).toBe(0);expect(secondState.pending).toBe(0);});
+    expect(Socket.sockets.flatMap(updates)).toHaveLength(2);
+  }finally{first.close();second.close();seed.close();source.destroy();firstDoc.destroy();secondDoc.destroy();server.destroy();}
+});
+it('recovers another closed tab pending write in an already-open authenticated peer without peer reload',async()=>{
+  const outbox=new DurableMemoryOutbox(),origin=createWhiteboardDocument(),peer=createWhiteboardDocument(),server=createWhiteboardDocument();
+  let peerState!:WhiteboardConnectionState;
+  const first=new WhiteboardProvider(origin,'board-1',()=>{},outbox),second=new WhiteboardProvider(peer,'board-1',value=>{peerState=value;},outbox);
+  try{
+    await vi.advanceTimersByTimeAsync(0);
+    const originSocket=Socket.sockets[0]!,peerSocket=Socket.sockets[1]!;
+    sync(originSocket,server);sync(peerSocket,server);
+    originSocket.onclose?.({code:1006});
+    executeCommands(origin,[{type:'create',object:sticky('origin-pending')}],{gestureId:'origin-gesture'});
+    executeCommands(origin,[{type:'create',object:sticky('origin-second-pending')}],{gestureId:'origin-second-gesture'});
+    await vi.advanceTimersByTimeAsync(0);
+    const persisted=structuredClone(outbox.updates.get('test-session')!);
+    expect(persisted).toHaveLength(2);
+    expect(new Set(persisted.map(item=>item.updateId)).size).toBe(2);
+    expect(peerState.pending).toBe(0);expect(updates(peerSocket)).toEqual([]);
+    first.close();
+    second.retryNow();await vi.advanceTimersByTimeAsync(0);
+    const recovered=Socket.sockets.at(-1)!;sync(recovered,server);await vi.advanceTimersByTimeAsync(0);
+    expect(updates(recovered).map(item=>item.updateId).sort()).toEqual(persisted.map(item=>item.updateId).sort());
+    expect(peerState.pending).toBe(2);
+    for(const [index,item] of persisted.entries())recovered.message({type:'ack',updateId:item.updateId,gestureId:item.gestureId,seq:index+1});
+    await vi.advanceTimersByTimeAsync(0);
+    expect(peerState.pending).toBe(0);expect(outbox.updates.get('test-session')).toEqual([]);
+    second.retryNow();await vi.advanceTimersByTimeAsync(0);const after=Socket.sockets.at(-1)!;sync(after,server,1,2);
+    expect(updates(after)).toEqual([]);
+  }finally{first.close();second.close();origin.destroy();peer.destroy();server.destroy();}
+});
+it.each(['viewer','revoked','other-session'] as const)('never replays shared durable writes into %s scope',async scenario=>{
+  const outbox=new DurableMemoryOutbox(),doc=createWhiteboardDocument(),server=createWhiteboardDocument(),source=createWhiteboardDocument();
+  executeCommands(source,[{type:'create',object:sticky('protected-origin-write')}],'fixture');
+  const update={type:'update',epoch:1,updateId:crypto.randomUUID(),gestureId:crypto.randomUUID(),update:bytesToBase64(Y.encodeStateAsUpdate(source))};
+  await outbox.persist('test-session',update);
+  if(scenario==='revoked')outbox.revoked.add('test-session');
+  if(scenario==='other-session')auth.token='other-session';
+  const provider=new WhiteboardProvider(doc,'board-1',()=>{},outbox);
+  try{
+    await vi.advanceTimersByTimeAsync(0);const socket=Socket.sockets[0]!;
+    socket.message({type:'sync',epoch:1,seq:0,update:bytesToBase64(Y.encodeStateAsUpdate(server)),role:scenario==='viewer'?'viewer':'editor',archived:false});
+    await vi.advanceTimersByTimeAsync(0);
+    expect(updates(socket)).toEqual([]);expect(readObjects(doc)).toEqual([]);
+  }finally{provider.close();doc.destroy();server.destroy();source.destroy();}
+});
+it('a readonly live peer does not claim or render later durable writes, and close removes its listener',async()=>{
+  const outbox=new DurableMemoryOutbox(),claim=vi.fn(async()=>true),unsubscribe=vi.fn();let notify!:()=>void;
+  const subscribed=Object.assign(outbox,{claim,subscribe:(_token:string,listener:()=>void)=>{notify=listener;return unsubscribe;}});
+  const doc=createWhiteboardDocument(),source=createWhiteboardDocument(),server=createWhiteboardDocument();let state!:WhiteboardConnectionState;
+  const provider=new WhiteboardProvider(doc,'board-1',value=>{state=value;},subscribed);
+  try{
+    await vi.advanceTimersByTimeAsync(0);const socket=Socket.sockets[0]!;
+    socket.message({type:'sync',epoch:1,seq:0,update:bytesToBase64(Y.encodeStateAsUpdate(server)),role:'viewer',archived:false});
+    expect(state.phase).toBe('online');expect(state.role).toBe('viewer');
+    executeCommands(source,[{type:'create',object:sticky('inaccessible-pending')}],'local');
+    await outbox.persist('test-session',{type:'update',epoch:1,updateId:crypto.randomUUID(),gestureId:crypto.randomUUID(),update:bytesToBase64(Y.encodeStateAsUpdate(source))});
+    notify();await vi.advanceTimersByTimeAsync(2000);
+    expect(claim).not.toHaveBeenCalled();expect(updates(socket)).toEqual([]);expect(readObjects(doc)).toEqual([]);expect(state.pending).toBe(0);
+    provider.close();expect(unsubscribe).toHaveBeenCalledOnce();notify();await vi.advanceTimersByTimeAsync(4000);
+    expect(claim).not.toHaveBeenCalled();expect(Socket.sockets).toHaveLength(1);
+  }finally{provider.close();doc.destroy();source.destroy();server.destroy();}
+});
+it('offline cancels owned claims without deleting pending writes or allowing notification to send',async()=>{
+  const events=new EventTarget();vi.stubGlobal('window',events);
+  const outbox=new DurableMemoryOutbox(),claim=vi.fn(async()=>true),releaseClaims=vi.fn(async()=>{});let notify!:()=>void;
+  const subscribed=Object.assign(outbox,{claim,releaseClaims,subscribe:(_token:string,listener:()=>void)=>{notify=listener;return()=>{};}});
+  const doc=createWhiteboardDocument(),server=createWhiteboardDocument();const provider=new WhiteboardProvider(doc,'board-1',()=>{},subscribed);
+  try{
+    await vi.advanceTimersByTimeAsync(0);const socket=Socket.sockets[0]!;sync(socket,server);
+    executeCommands(doc,[{type:'create',object:sticky('offline-pending')}],'local');await vi.advanceTimersByTimeAsync(0);expect(updates(socket)).toHaveLength(1);
+    events.dispatchEvent(new Event('offline'));notify();await vi.advanceTimersByTimeAsync(4000);
+    expect(releaseClaims).toHaveBeenCalledOnce();expect(updates(socket)).toHaveLength(1);expect(outbox.updates.get('test-session')).toHaveLength(1);
+  }finally{provider.close();await vi.advanceTimersByTimeAsync(0);doc.destroy();server.destroy();}
+});
+it('lost lease fences the old socket and cannot delete a new owner claim through a late ACK',async()=>{
+  const outbox=new DurableMemoryOutbox(),claim=vi.fn(async()=>true),releaseClaims=vi.fn(async()=>{});
+  const durable=Object.assign(outbox,{claim,releaseClaims}),doc=createWhiteboardDocument(),server=createWhiteboardDocument();let state!:WhiteboardConnectionState;
+  const provider=new WhiteboardProvider(doc,'board-1',value=>{state=value;},durable);
+  try{
+    await vi.advanceTimersByTimeAsync(0);const old=Socket.sockets[0]!;sync(old,server);
+    executeCommands(doc,[{type:'create',object:sticky('lease-transfer')}],'local');await vi.advanceTimersByTimeAsync(0);
+    const sent=updates(old)[0]!;expect(updates(old)).toHaveLength(1);
+    claim.mockResolvedValue(false);await vi.advanceTimersByTimeAsync(2000);
+    expect(old.readyState).toBe(3);expect(Socket.sockets).toHaveLength(2);expect(state.reason).toBe('OUTBOX_CLAIM_LOST');
+    old.message({type:'ack',updateId:sent.updateId,gestureId:sent.gestureId,seq:1});await vi.advanceTimersByTimeAsync(0);
+    expect(outbox.updates.get('test-session')).toHaveLength(1);expect(releaseClaims).not.toHaveBeenCalled();
+    const fresh=Socket.sockets[1]!;sync(fresh,server);await vi.advanceTimersByTimeAsync(0);expect(updates(fresh)).toEqual([]);
+    await outbox.acknowledge('test-session',sent.updateId);await vi.advanceTimersByTimeAsync(2000);
+    expect(state.pending).toBe(0);expect(Socket.sockets.flatMap(updates)).toHaveLength(1);
+  }finally{provider.close();await vi.advanceTimersByTimeAsync(0);doc.destroy();server.destroy();}
+});
+it('late stale notification cannot resurrect an acknowledged receipt as pending or resend it',async()=>{
+  const outbox=new DurableMemoryOutbox();let notify!:()=>void;
+  const durable=Object.assign(outbox,{subscribe:(_token:string,listener:()=>void)=>{notify=listener;return()=>{};}});
+  const doc=createWhiteboardDocument(),server=createWhiteboardDocument();let state!:WhiteboardConnectionState;
+  const provider=new WhiteboardProvider(doc,'board-1',value=>{state=value;},durable);
+  try{
+    await vi.advanceTimersByTimeAsync(0);const socket=Socket.sockets[0]!;sync(socket,server);
+    executeCommands(doc,[{type:'create',object:sticky('acked-notify')}],'local');await vi.advanceTimersByTimeAsync(0);
+    const persisted=structuredClone(outbox.updates.get('test-session')!),sent=updates(socket)[0]!;
+    socket.message({type:'ack',updateId:sent.updateId,gestureId:sent.gestureId,seq:1});await vi.advanceTimersByTimeAsync(0);
+    expect(outbox.updates.get('test-session')).toEqual([]);
+    vi.spyOn(outbox,'restore').mockResolvedValue({revoked:false,updates:persisted});
+    notify();await vi.advanceTimersByTimeAsync(0);expect(state.pending).toBe(0);expect(updates(socket)).toHaveLength(1);expect(readObjects(doc)).toHaveLength(1);
+  }finally{provider.close();doc.destroy();server.destroy();}
+});
+it('coalesces notification bursts but reconciles a notification received during the current snapshot',async()=>{
+  const outbox=new DurableMemoryOutbox();let notify!:()=>void;
+  const durable=Object.assign(outbox,{subscribe:(_token:string,listener:()=>void)=>{notify=listener;return()=>{};}});
+  const doc=createWhiteboardDocument(),source=createWhiteboardDocument(),server=createWhiteboardDocument();let state!:WhiteboardConnectionState;
+  const provider=new WhiteboardProvider(doc,'board-1',value=>{state=value;},durable);
+  try{
+    await vi.advanceTimersByTimeAsync(0);const socket=Socket.sockets[0]!;sync(socket,server);
+    let release!:()=>void;const gate=new Promise<void>(resolve=>{release=resolve;}),restore=outbox.restore.bind(outbox);
+    const snapshots=vi.spyOn(outbox,'restore').mockImplementationOnce(async token=>{const captured=await restore(token);await gate;return captured;});
+    for(let index=0;index<20;index++)notify();await vi.advanceTimersByTimeAsync(0);expect(snapshots).toHaveBeenCalledTimes(1);
+    executeCommands(source,[{type:'create',object:sticky('during-snapshot')}],'local');
+    await outbox.persist('test-session',{type:'update',epoch:1,updateId:crypto.randomUUID(),gestureId:crypto.randomUUID(),update:bytesToBase64(Y.encodeStateAsUpdate(source))});
+    for(let index=0;index<20;index++)notify();release();await vi.advanceTimersByTimeAsync(0);
+    expect(snapshots).toHaveBeenCalledTimes(2);expect(state.pending).toBe(1);expect(updates(socket)).toHaveLength(1);expect(readObjects(doc).map(item=>item.id)).toEqual(['during-snapshot']);
+  }finally{provider.close();doc.destroy();source.destroy();server.destroy();}
+});
+it('socket disconnect and a failed reconnect preserve the same durable receipt until a real ACK',async()=>{
+  const outbox=new DurableMemoryOutbox(),doc=createWhiteboardDocument(),server=createWhiteboardDocument();let state!:WhiteboardConnectionState;
+  const provider=new WhiteboardProvider(doc,'board-1',value=>{state=value;},outbox);
+  try{
+    await vi.advanceTimersByTimeAsync(0);const first=Socket.sockets[0]!;sync(first,server);
+    executeCommands(doc,[{type:'create',object:sticky('disconnect-pending')}],'local');await vi.advanceTimersByTimeAsync(0);
+    const expected=structuredClone(outbox.updates.get('test-session')!),receipt=updates(first)[0]!;expect(expected).toHaveLength(1);
+    first.onclose?.({code:1006});expect(state.phase).toBe('offline');expect(state.pending).toBe(1);
+    await vi.advanceTimersByTimeAsync(500);const failed=Socket.sockets[1]!;failed.onclose?.({code:1006});
+    expect(state.phase).toBe('offline');expect(state.pending).toBe(1);expect(updates(failed)).toEqual([]);expect(outbox.updates.get('test-session')).toEqual(expected);
+    await vi.advanceTimersByTimeAsync(1000);const recovered=Socket.sockets[2]!;sync(recovered,server);await vi.advanceTimersByTimeAsync(0);
+    expect(updates(recovered)).toEqual([receipt]);expect(state.pending).toBe(1);expect(outbox.updates.get('test-session')).toEqual(expected);
+    recovered.message({type:'ack',updateId:receipt.updateId,gestureId:receipt.gestureId,seq:1});await vi.advanceTimersByTimeAsync(0);
+    expect(state.phase).toBe('online');expect(state.pending).toBe(0);expect(outbox.updates.get('test-session')).toEqual([]);expect(readObjects(doc).map(item=>item.id)).toEqual(['disconnect-pending']);
+  }finally{provider.close();doc.destroy();server.destroy();}
+});
+it.each(['unmount','revoke'] as const)('%s fences a late asynchronous sender before it can submit',async mode=>{
+  const outbox=new DurableMemoryOutbox();let release!:()=>void,start!:()=>void;
+  const gate=new Promise<void>(resolve=>{release=resolve;}),started=new Promise<void>(resolve=>{start=resolve;});
+  const claim=vi.fn(async()=>{start();await gate;return true;}),releaseClaims=vi.fn(async()=>{});
+  const durable=Object.assign(outbox,{claim,releaseClaims}),doc=createWhiteboardDocument(),server=createWhiteboardDocument();let state!:WhiteboardConnectionState;
+  const provider=new WhiteboardProvider(doc,'board-1',value=>{state=value;},durable);
+  try{
+    await vi.advanceTimersByTimeAsync(0);const socket=Socket.sockets[0]!;sync(socket,server);
+    executeCommands(doc,[{type:'create',object:sticky('late-sender')}],'local');await vi.advanceTimersByTimeAsync(0);await started;
+    if(mode==='unmount')provider.close();else socket.message({type:'recovery',disposition:'access-revoked',code:'ACCESS_REVOKED'});
+    release();await vi.advanceTimersByTimeAsync(0);
+    expect(updates(socket)).toEqual([]);expect(socket.readyState).toBe(3);expect(releaseClaims).toHaveBeenCalled();
+    if(mode==='revoke'){expect(state.phase).toBe('blocked');expect(state.role).toBe('viewer');expect(readObjects(doc)).toEqual([]);expect(outbox.updates.get('test-session')).toBeUndefined();}
+    else expect(outbox.updates.get('test-session')).toHaveLength(1);
+    await vi.advanceTimersByTimeAsync(10000);expect(Socket.sockets).toHaveLength(1);expect(updates(socket)).toEqual([]);
+  }finally{release();provider.close();await vi.advanceTimersByTimeAsync(0);doc.destroy();server.destroy();}
+});
 beforeEach(() => { vi.useFakeTimers(); Socket.sockets = []; auth.token = 'test-session'; vi.stubGlobal('WebSocket', Socket); });
 afterEach(() => { vi.unstubAllGlobals(); vi.useRealTimers(); });
 it('handshakes before writes, only ACK clears pending, and reconnect replays same updateId', () => {

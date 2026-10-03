@@ -1,5 +1,5 @@
 /** Receipt-only cross-tab idempotency proof; no payloads, credentials or URLs. */
-export function sharedOutboxProof(events:readonly Record<string,unknown>[],baselineSeq:number,finalSeq:number):string[]{
+export function sharedOutboxProof(events:readonly Record<string,unknown>[],baselineSeq:number,finalSeq:number,mode:'shared'|'distinct'='shared'):string[]{
  const faults:string[]=[],sent=new Map<string,Set<string>>(),acks=new Map<string,Set<number>>();
  for(const event of events){
   if(event.direction==='socketerror'||event.type==='error')faults.push('TRANSPORT_ERROR');
@@ -10,7 +10,8 @@ export function sharedOutboxProof(events:readonly Record<string,unknown>[],basel
    const seqs=acks.get(event.updateId)??new Set<number>();seqs.add(event.seq);acks.set(event.updateId,seqs);
   }
  }
- if(![...sent.values()].some(clients=>clients.has('original')&&clients.has('peer')))faults.push('NO_SHARED_REPLAY_OBSERVED');
+ if(mode==='shared'&&![...sent.values()].some(clients=>clients.has('original')&&clients.has('peer')))faults.push('NO_SHARED_REPLAY_OBSERVED');
+ if(mode==='distinct'&&[...sent.values()].some(clients=>clients.size!==1))faults.push('UNEXPECTED_SHARED_REPLAY');
  for(const [id,clients] of sent){
   if(acks.get(id)?.size!==1)faults.push('MISSING_OR_DIVERGENT_ACK');
   for(const client of clients)if(!events.some(event=>event.client===client&&event.direction==='received'&&event.type==='ack'&&event.updateId===id))faults.push('CLIENT_ACK_MISSING');

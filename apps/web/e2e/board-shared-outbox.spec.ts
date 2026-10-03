@@ -2,10 +2,11 @@ import {createHash,randomUUID} from 'node:crypto';
 import {writeFile} from 'node:fs/promises';
 import {expectBoardSynced} from './support/board-sync-status';
 import {CreateBoard} from '@repo/contracts/whiteboard';
-import {expect,test,type Page} from '@playwright/test';
+import {WHITEBOARD_SYNC} from '@repo/contracts/whiteboard-sync';
+import {expect,test,type Page,type CDPSession} from '@playwright/test';
 import {FULLSTACK_E2E as F} from './fullstack-smoke-fixture';
 import {SESSION_TOKEN_STORAGE_KEY} from '../lib/api-client';
-import {createSpatialWsMetadataRecorder} from './support/board-spatial-ws-metadata';
+import {createSpatialWsMetadataRecorder,spatialFrameMetadata} from './support/board-spatial-ws-metadata';
 import {sharedOutboxProof} from './support/board-shared-outbox-proof';
 
 // Separate from independent-browser collaboration: these tabs deliberately share IDB.
@@ -27,6 +28,8 @@ test('same-browser tabs drain a shared durable outbox without duplicate commits'
  const startedAt=performance.now();const milestones:Array<{name:string;elapsedMs:number}>=[];
  const mark=(name:string)=>milestones.push({name,elapsedMs:Math.round(performance.now()-startedAt)});
  let token='',boardId='',archived=false,peer:Page|undefined;const evidence:Record<string,unknown>={drainSlaMs:DRAIN_SLA_MS,http,milestones};
+ let ownerLifecycle:CDPSession|undefined,ownerPaused=false;
+ const ackGate:{updateId:string|null;release:(()=>void)|null;heldAt:number|null;releasedAt:number|null}={updateId:null,release:null,heldAt:null,releasedAt:null};
  const call=async(method:string,path:string,data?:unknown)=>{const safePath=new URL(path,'http://diagnostic.invalid').pathname,index=http.push({method,path:safePath,status:0})-1;const response=await request.fetch(`${api}${path}`,{method,data,timeout:15_000,headers:{Authorization:`Bearer ${token}`}});const status=response.status();http[index]!.status=status;
   // Record only routing metadata, never credentials, request/response bodies or query strings.
   expect(response.ok(),`Board fixture HTTP ${method} ${safePath}: ${status}`).toBe(true);return response.json();};
@@ -36,6 +39,21 @@ test('same-browser tabs drain a shared durable outbox without duplicate commits'
   await page.goto('/login');await page.getByTestId('login-email').fill(F.adminEmail);await page.getByTestId('login-password').fill(F.adminPassword);await page.getByTestId('login-submit').click();await expect(page).toHaveURL(/\/home$/);mark('authenticated');
   token=(await page.evaluate(key=>localStorage.getItem(key),SESSION_TOKEN_STORAGE_KEY))!;
   const board=await call('POST','/whiteboards',CreateBoard.parse({requestId:randomUUID(),name:'Same-browser durable outbox'}));boardId=board.id;mark('board-created');
+  // Keep one real server receipt unacknowledged in the original tab. The
+  // original target is later debugger-paused so its lease-renewal timer stops;
+  // the unmodified durable claim must expire before the peer replays that ID.
+  // Every other frame is forwarded unchanged to the actual API.
+  await page.routeWebSocket(url=>url.pathname===WHITEBOARD_SYNC.path.replace(':boardId',encodeURIComponent(boardId)),socket=>{
+   const server=socket.connectToServer();
+   socket.onMessage(message=>server.send(message));
+   server.onMessage(message=>{
+    const frame=spatialFrameMetadata(message);
+    if(frame.type==='ack'&&frame.updateId&&ackGate.updateId===null){
+     ackGate.updateId=frame.updateId;ackGate.heldAt=performance.now();
+     ackGate.release=()=>{ackGate.release=null;ackGate.releasedAt=performance.now();socket.send(message);};
+    }else socket.send(message);
+   });
+  });
   await page.goto(`/studio/board/${boardId}`);await expectBoardSynced(page);mark('board-opened');
   const initial=await call('POST',`/whiteboards/${boardId}/checkpoints`,{requestId:randomUUID()});expect(initial.manifest.seq).toBe(0);mark('initial-checkpoint');
   const surface=page.getByTestId('board-fabric-surface');
@@ -64,8 +82,28 @@ test('same-browser tabs drain a shared durable outbox without duplicate commits'
   mark('local-updates-queued');
   const expected=await rows(page);expect(expected).toHaveLength(8);expect(expected.every(row=>row.kind==='sticky')).toBe(true);expect(expected.map(row=>row.id)).toEqual([...createdIds].sort());expect(expected.every(row=>row.text?.includes('shared-tab-proof'))).toBe(true);
   const started=performance.now(),deadline=started+DRAIN_SLA_MS;
-  const testPeer=await page.context().newPage();peer=testPeer;testPeer.setDefaultTimeout(15_000);testPeer.setDefaultNavigationTimeout(15_000);metadata.observe(testPeer,'peer');await testPeer.goto(`/studio/board/${boardId}`);mark('peer-opened');
   const remaining=()=>Math.max(1,deadline-performance.now());
+  // A suspended original tab cannot renew its in-flight claim. Keep its actual
+  // server ACK held, without editing durable records or shortening the lease.
+  await expect.poll(()=>ackGate.updateId!==null&&ackGate.release!==null,{timeout:remaining(),message:'Actual contract route must capture one real server ACK'}).toBe(true);
+  evidence.ackGate={updateId:ackGate.updateId,held:true};
+  ownerLifecycle=await page.context().newCDPSession(page);
+  ownerLifecycle.on('Debugger.paused',()=>{ownerPaused=true;});
+  ownerLifecycle.on('Debugger.resumed',()=>{ownerPaused=false;});
+  await ownerLifecycle.send('Debugger.enable');
+  await ownerLifecycle.send('Debugger.pause');
+  await expect.poll(()=>ownerPaused,{timeout:remaining(),message:'Original target must actually pause before peer admission'}).toBe(true);mark('original-tab-paused');
+  const testPeer=await page.context().newPage();peer=testPeer;testPeer.setDefaultTimeout(15_000);testPeer.setDefaultNavigationTimeout(15_000);metadata.observe(testPeer,'peer');await testPeer.goto(`/studio/board/${boardId}`);mark('peer-opened');
+  await expect.poll(()=>{
+   const id=ackGate.updateId;
+   return id!==null&&metadata.snapshot().events.some(event=>event.client==='peer'&&event.direction==='sent'&&event.type==='update'&&event.updateId===id);
+  },{timeout:remaining(),message:'Peer must replay the actual held-ACK receipt after its durable claim expires'}).toBe(true);
+  // Request delivery of the captured receipt before resuming timers. Actual
+  // delivery and lease fencing are verified by the real synced/receipt proof.
+  expect(ackGate.release).not.toBeNull();ackGate.release!();mark('original-real-ack-released');
+  await ownerLifecycle.send('Debugger.resume');
+  await expect.poll(()=>!ownerPaused,{timeout:remaining(),message:'Original target must actually resume for ACK delivery'}).toBe(true);mark('original-tab-resumed');
+  evidence.ackGate={updateId:ackGate.updateId,heldMs:ackGate.releasedAt!-ackGate.heldAt!};
   await expectBoardSynced(page,remaining());await expectBoardSynced(testPeer,remaining());
   await expect.poll(()=>rows(testPeer),{timeout:remaining()}).toEqual(expected);expect(await rows(page)).toEqual(expected);
   mark('peer-converged');
@@ -84,11 +122,17 @@ test('same-browser tabs drain a shared durable outbox without duplicate commits'
   evidence.afterReloadSeq=afterReload.manifest.seq;evidence.objectIds=expected.map(row=>row.id);evidence.status='passed';
   await testPeer.close();peer=undefined;
  }finally{
+  const lifecycleCleanupErrors:string[]=[];
+  try{if(ownerPaused)await ownerLifecycle?.send('Debugger.resume');}catch(error){lifecycleCleanupErrors.push(`restore: ${String(error)}`);}
+  try{ackGate.release?.();}catch(error){lifecycleCleanupErrors.push(`release: ${String(error)}`);}
+  try{await ownerLifecycle?.detach();}catch(error){lifecycleCleanupErrors.push(`detach: ${String(error)}`);}
+  evidence.lifecycleCleanupErrors=lifecycleCleanupErrors;
   await peer?.close().catch(()=>undefined);
   if(boardId&&token&&!archived){try{const board=await call('GET',`/whiteboards/${boardId}`);if(!board.archived){await call('PATCH',`/whiteboards/${boardId}`,{archived:true,expectedLifecycleRevision:board.lifecycleRevision});archived=true;}}catch(error){evidence.cleanupError=String(error);}}
   await Promise.all(chunkReads);evidence.browserChunks=chunks;
   const evidencePath=info.outputPath('same-browser-outbox-evidence.json');
   await writeFile(evidencePath,JSON.stringify({...evidence,transport:metadata.snapshot()},null,2));
   await info.attach('same-browser-outbox-evidence',{path:evidencePath,contentType:'application/json'});
+  expect(lifecycleCleanupErrors,'Owned tab lifecycle cleanup must complete').toEqual([]);
  }
 });

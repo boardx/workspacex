@@ -12,6 +12,9 @@ const hex = (value: ArrayBuffer) => [...new Uint8Array(value)].map(item => item.
 const tokenHash = async (token: string) => hex(await crypto.subtle.digest("SHA-256", bytes(token)));
 
 export interface WhiteboardDurableOutbox {
+  subscribe?(token: string, listener: () => void): () => void;
+  claim?(token: string, updateId: string, owner: string, leaseMs: number): Promise<boolean>;
+  releaseClaims?(token: string, owner: string): Promise<void>;
   reauthorize?(token: string): Promise<void>;
   restore(token: string): Promise<{ revoked: boolean; updates: Update[] }>;
   persist(token: string, update: Update): Promise<void>;
@@ -54,7 +57,18 @@ export class IndexedDbEncryptedWhiteboardOutbox implements WhiteboardDurableOutb
   private readonly keys: WhiteboardOutboxKeyStore;
   private tail: Promise<void> = Promise.resolve();
   private readonly generations=new Map<string,string>();
+  private readonly channel: BroadcastChannel | null;
+  private readonly listeners=new Set<{token:string;listener:()=>void}>();
+  private closed=false;
   constructor(private readonly boardId: string) {
+    this.channel=typeof window!=='undefined'&&typeof BroadcastChannel!=='undefined'?new BroadcastChannel('workspacex-whiteboard-outbox'):null;
+    if(this.channel)this.channel.onmessage=event=>{
+      const value=event.data as {boardId?:unknown;generation?:unknown}|null;
+      if(!value||value.boardId!==this.boardId||typeof value.generation!=='string'||!/^[a-f0-9]{64}$/.test(value.generation))return;
+      for(const subscription of this.listeners)void this.generationHash(subscription.token).then(hash=>{
+        if(this.listeners.has(subscription)&&hash===value.generation)subscription.listener();
+      }).catch(()=>undefined);
+    };
     this.db = new Promise((resolve, reject) => {
       const open = indexedDB.open(DB_NAME, DB_VERSION);
       open.onupgradeneeded = () => {
@@ -90,6 +104,8 @@ export class IndexedDbEncryptedWhiteboardOutbox implements WhiteboardDurableOutb
     this.generations.set(base,next);
   });}
   private id(hash: string, updateId?: string) { return `${this.boardId}:${hash}${updateId ? `:${updateId}` : ""}`; }
+  subscribe(token:string,listener:()=>void){const entry={token,listener};this.listeners.add(entry);return()=>{this.listeners.delete(entry);};}
+  private notify(generation:string){if(!this.closed)this.channel?.postMessage({boardId:this.boardId,generation});}
   private async journal(db:IDBDatabase){return await request(db.transaction("rebinds").objectStore("rebinds").get(this.boardId)) as WhiteboardOutboxRebindJournal|undefined;}
   private async isRetired(db:IDBDatabase,hash:string){return Boolean(await request(db.transaction("tombstones").objectStore("tombstones").get(this.id(hash))));}
   private async finishRebind(db:IDBDatabase,journal:WhiteboardOutboxRebindJournal,token:string){
@@ -111,7 +127,7 @@ export class IndexedDbEncryptedWhiteboardOutbox implements WhiteboardDurableOutb
     try{await this.keys.assertMaterial(tx,material,journal);}catch(error){tx.abort();await done.catch(()=>undefined);throw error;}
     await commitWhiteboardOutboxRebind(rows,replacements,{
       put:row=>{store.put(row);},
-      delete:id=>{store.delete(id);},
+      delete:id=>{store.delete(id);tx.objectStore('meta').delete(`claim:${id}`);},
       retireSource:()=>{tombstones.put({id:this.id(journal.fromHash),boardId:this.boardId,tokenHash:journal.fromHash,revokedAt:Date.now()} satisfies Tombstone);},
       clearJournal:()=>{rebinds.delete(journal.id);},
       abort:()=>tx.abort(),
@@ -143,6 +159,32 @@ export class IndexedDbEncryptedWhiteboardOutbox implements WhiteboardDurableOutb
     return { revoked: false, updates };
   }
   restore(token:string){return this.exclusive(()=>this.restoreInternal(token));}
+  claim(token:string,updateId:string,owner:string,leaseMs:number){return this.exclusive(async()=>{
+    if(!owner||!Number.isFinite(leaseMs)||leaseMs<1000||leaseMs>30000)throw new Error('OUTBOX_INVALID_CLAIM');
+    const hash=await this.generationHash(token),base=await tokenHash(token),db=await this.db;
+    const tx=db.transaction(['meta','updates','tombstones','rebinds'],'readwrite'),done=transactionDone(tx);
+    const rowId=this.id(hash,updateId),key=`claim:${rowId}`;
+    const [row,retired,journal,claim,generation]=await Promise.all([
+      request(tx.objectStore('updates').get(rowId)),request(tx.objectStore('tombstones').get(this.id(hash))),
+      request(tx.objectStore('rebinds').get(this.boardId)) as Promise<WhiteboardOutboxRebindJournal|undefined>,
+      request(tx.objectStore('meta').get(key)) as Promise<{owner:string;expiresAt:number}|undefined>,
+      request(tx.objectStore('meta').get(`generation:${this.boardId}:${base}`)),
+    ]);
+    if((typeof generation==='string'?generation:base)!==hash||whiteboardOutboxTokenRevoked(journal??null,Boolean(retired),hash)){tx.abort();await done.catch(()=>undefined);throw new Error('OUTBOX_REVOKED');}
+    const now=Date.now(),acquired=Boolean(row)&&(!claim||claim.owner===owner||claim.expiresAt<=now);
+    if(acquired)tx.objectStore('meta').put({owner,expiresAt:now+leaseMs},key);
+    await done;return acquired;
+  });}
+  releaseClaims(token:string,owner:string){return this.exclusive(async()=>{
+    const hash=await this.generationHash(token),db=await this.db;
+    const tx=db.transaction(['meta','updates'],'readwrite'),done=transactionDone(tx);
+    const rows=await request(tx.objectStore('updates').index('board').getAll(this.boardId)) as CipherRow[];
+    for(const row of rows.filter(item=>item.tokenHash===hash)){
+      const key=`claim:${row.id}`,claim=await request(tx.objectStore('meta').get(key)) as {owner:string}|undefined;
+      if(claim?.owner===owner)tx.objectStore('meta').delete(key);
+    }
+    await done;
+  });}
   private async persistInternal(token: string, update: Update) {
     const hash = await this.generationHash(token), db = await this.db;
     const material=await this.keys.resolve(token,hash),key=material.key,iv=crypto.getRandomValues(new Uint8Array(12));
@@ -163,6 +205,7 @@ export class IndexedDbEncryptedWhiteboardOutbox implements WhiteboardDurableOutb
     tx.objectStore('meta').put(Math.max(typeof counter==='number'?counter:0,sequence),sequenceKey);
     tx.objectStore("updates").put({ id: rowId, boardId: this.boardId, tokenHash: hash, iv: iv.buffer, ciphertext, byteSize: plaintext.byteLength, createdAt: oldRow?.createdAt??Date.now(),sequence } satisfies CipherRow);
     await done;
+    this.notify(hash);
   }
   persist(token:string,update:Update){return this.exclusive(()=>this.persistInternal(token,update));}
   acknowledge(token: string, updateId: string) { return this.exclusive(async()=>{
@@ -171,12 +214,12 @@ export class IndexedDbEncryptedWhiteboardOutbox implements WhiteboardDurableOutb
     if(journal?.toHash===hash)await this.finishRebind(db,journal,token);
     // Re-check inside the deleting transaction: another tab may rebind after the
     // optimistic check above but before this acknowledgement starts.
-    const tx=db.transaction(["updates","tombstones","rebinds"],"readwrite"),done=transactionDone(tx);
+    const tx=db.transaction(["updates","tombstones","rebinds","meta"],"readwrite"),done=transactionDone(tx);
     const retiredRequest=request(tx.objectStore("tombstones").get(this.id(hash)));
     const currentRequest=request(tx.objectStore("rebinds").get(this.boardId)) as Promise<WhiteboardOutboxRebindJournal|undefined>;
     const [retiredRow,current]=await Promise.all([retiredRequest,currentRequest]),retired=Boolean(retiredRow);
     if(whiteboardOutboxTokenRevoked(current??null,retired,hash)){tx.abort();await done.catch(()=>undefined);throw new Error("OUTBOX_REVOKED");}
-    tx.objectStore("updates").delete(this.id(hash,updateId));await done;
+    tx.objectStore("updates").delete(this.id(hash,updateId));tx.objectStore('meta').delete(`claim:${this.id(hash,updateId)}`);await done;this.notify(hash);
   }); }
   rebind(fromToken: string, toToken: string) { return this.exclusive(async()=>{
     if(fromToken===toToken)return;
@@ -201,15 +244,15 @@ export class IndexedDbEncryptedWhiteboardOutbox implements WhiteboardDurableOutb
   revoke(token: string) { return this.exclusive(async()=>{
     const hash=await this.generationHash(token),db=await this.db;
     const rows=await request(db.transaction("updates").objectStore("updates").index("board").getAll(this.boardId)) as CipherRow[];
-    const tx=db.transaction(["updates","tombstones","rebinds"],"readwrite"),updates=tx.objectStore("updates");
-    for(const row of whiteboardOutboxRevokedRows(rows,hash)) updates.delete(row.id);
+    const tx=db.transaction(["updates","tombstones","rebinds","meta"],"readwrite"),updates=tx.objectStore("updates");
+    for(const row of whiteboardOutboxRevokedRows(rows,hash)){updates.delete(row.id);tx.objectStore('meta').delete(`claim:${row.id}`);}
     tx.objectStore("tombstones").put({id:this.id(hash),boardId:this.boardId,tokenHash:hash,revokedAt:Date.now()} satisfies Tombstone);
     const done=transactionDone(tx);
     const journal=await request(tx.objectStore("rebinds").get(this.boardId)) as WhiteboardOutboxRebindJournal|undefined;
     if(journal&&(journal.fromHash===hash||journal.toHash===hash))tx.objectStore("rebinds").delete(this.boardId);
-    await done;
+    await done;this.notify(hash);
   }); }
-  close() { void this.db.then(db=>db.close()); }
+  close() { this.closed=true;this.listeners.clear();this.channel?.close();void this.tail.finally(()=>this.db.then(db=>db.close())); }
 }
 
 export function createWhiteboardOutbox(boardId: string): WhiteboardDurableOutbox | null {

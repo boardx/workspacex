@@ -36,9 +36,29 @@ export class WhiteboardProvider {
   private inFlight = new Set<string>();
   private persisted = new Set<string>();
   private pending: WhiteboardPendingMessage[] = [];
+  private readonly claimOwner=crypto.randomUUID();
+  private draining=false;
+  private readonly peerTimer:ReturnType<typeof setInterval>;
+  private unsubscribeOutbox:(()=>void)|null=null;
+  private reconcileQueued=false;
+  private reconcileRequested=false;
   private state: WhiteboardConnectionState = { phase: 'connecting', pending: 0, role: 'viewer', archived: false, epoch: null, peers: [], reason: null, retryAttempt: 0, duplicateAcks: 0, lastAckSequence: null, lastAckReceipt:null };
   constructor(private doc: Y.Doc, private boardId: string, private onState: (state: WhiteboardConnectionState) => void, outbox?: WhiteboardDurableOutbox | null) {
     this.outbox = outbox === undefined ? createWhiteboardOutbox(boardId) : outbox;
+    this.subscribeOutbox();
+    this.peerTimer=setInterval(()=>{
+      if(this.stopped||!this.ready||this.refreshingToken!==null)return;
+      void this.queuePersistence(async()=>{
+        if(this.outbox?.claim&&this.token)for(const id of this.inFlight){
+          if(await this.outbox.claim(this.token,id,this.claimOwner,10000))continue;
+          // A suspended tab may lose its lease. Fence its old socket before any
+          // later ACK or send and require a new authoritative server handshake.
+          const socket=this.socket;this.socket=null;this.ready=false;this.inFlight.clear();socket?.close();
+          this.connect('OUTBOX_CLAIM_LOST');return;
+        }
+        await this.reconcileOutbox();
+      }).catch(()=>this.block('OUTBOX_WRITE_FAILED',false));
+    },2000);
     doc.on('update', this.onUpdate);
     if (typeof window !== 'undefined') { window.addEventListener('offline', this.onOffline); window.addEventListener('online', this.onOnline); }
     this.sessionTimer = setInterval(() => {
@@ -58,6 +78,7 @@ export class WhiteboardProvider {
       // Advance the persistence generation even if the page closed while the atomic
       // rebind was committing. Already queued writes must never recreate the old token.
       this.token=next;
+      this.subscribeOutbox();
       if(this.stopped)return;
       this.ready=false;this.socket?.close();this.connect('AUTH_REFRESH');
     }); }
@@ -72,6 +93,43 @@ export class WhiteboardProvider {
   private needsReauthorization=false;
   private pendingReauthorization:Promise<void>|null=null;
   private pendingPreviewNeedsReplay=false;
+  private isAcknowledged(updateId:string){
+    for(const receipt of this.acked)if(receipt.startsWith(`${updateId}:`))return true;
+    return false;
+  }
+  private requestPeerReconcile(){
+    if(this.stopped||!this.ready||this.refreshingToken!==null)return;
+    this.reconcileRequested=true;if(this.reconcileQueued)return;this.reconcileQueued=true;
+    void this.queuePersistence(async()=>{
+      this.reconcileRequested=false;await this.reconcileOutbox();
+    }).catch(()=>this.block('OUTBOX_CORRUPT',false)).finally(()=>{
+      this.reconcileQueued=false;if(this.reconcileRequested)this.requestPeerReconcile();
+    });
+  }
+  private subscribeOutbox(){
+    this.unsubscribeOutbox?.();this.unsubscribeOutbox=null;
+    if(this.token&&this.outbox?.subscribe)this.unsubscribeOutbox=this.outbox.subscribe(this.token,()=>{
+      this.requestPeerReconcile();
+    });
+  }
+  private async reconcileOutbox(){
+    const token=this.token;if(!this.outbox||!token||this.stopped)return;
+    const restored=await this.outbox.restore(token);
+    if(this.stopped||token!==this.token)return;
+    if(restored.revoked){this.block('SESSION_REVOKED');return;}
+    if(this.ready&&(!['owner','editor'].includes(this.state.role)||this.state.archived))return;
+    if(this.epoch!==null&&restored.updates.some(item=>item.epoch!==this.epoch)){this.block('STALE_EPOCH');return;}
+    const unsaved=this.pending.filter(item=>!this.persisted.has(item.updateId)&&!this.isAcknowledged(item.updateId));
+    const restoredIds=new Set(restored.updates.map(item=>item.updateId));
+    const added=restored.updates.filter(item=>!this.persisted.has(item.updateId)&&!this.isAcknowledged(item.updateId));
+    this.pending=[...restored.updates.filter(item=>!this.isAcknowledged(item.updateId)),...unsaved];
+    this.persisted=restoredIds;
+    for(const id of this.inFlight)if(!restoredIds.has(id))this.inFlight.delete(id);
+    if(this.ready){
+      for(const item of added){const value=item.type==='update'?item.update:item.inverseUpdate;if(value)Y.applyUpdate(this.doc,base64ToBytes(value),REMOTE);}
+    }else this.pendingPreviewNeedsReplay=this.pending.length>0;
+    this.publish({});this.drain();
+  }
   private async restoreOutbox(token: string) {
     try {
       const restored = await this.outbox!.restore(token);
@@ -97,7 +155,12 @@ export class WhiteboardProvider {
       .catch(() => this.block('OUTBOX_WRITE_FAILED', false));
   };
   private send(message: WhiteboardClientMessage) { if (this.socket?.readyState === WebSocket.OPEN) this.socket.send(JSON.stringify(message)); }
+  private releaseClaims(){
+    const token=this.token;if(!token||!this.outbox?.releaseClaims)return Promise.resolve();
+    return this.queuePersistence(()=>this.outbox!.releaseClaims!(token,this.claimOwner));
+  }
   private drain() {
+    if(this.outbox?.claim){void this.drainClaimed();return;}
     if (!this.ready || this.stopped || this.refreshingToken !== null) return;
     // A restore is an ordered server command: predecessor delete ACK first, and
     // no subsequent raw edit may overtake the authoritative restoration ACK.
@@ -111,6 +174,24 @@ export class WhiteboardProvider {
       this.send(message); this.inFlight.add(message.updateId);
       if(message.type==='restore-deletion')return;
     }
+  }
+  private async drainClaimed(){
+    if(this.draining||!this.ready||this.stopped||this.refreshingToken!==null||!this.token)return;
+    this.draining=true;const token=this.token,socket=this.socket;
+    try{
+      if(this.pending.some(item=>item.type==='restore-deletion'&&this.inFlight.has(item.updateId)))return;
+      for(const message of this.pending){
+        if(this.inFlight.size>=OUTBOUND_UPDATE_WINDOW)break;
+        if(this.inFlight.has(message.updateId))continue;
+        if(!this.persisted.has(message.updateId))break;
+        if(message.type==='restore-deletion'&&this.inFlight.size)return;
+        const claimed=await this.outbox!.claim!(token,message.updateId,this.claimOwner,10000);
+        if(this.stopped||!this.ready||token!==this.token||socket!==this.socket||socket?.readyState!==WebSocket.OPEN)return;
+        if(!claimed)break;
+        this.send(message);this.inFlight.add(message.updateId);
+        if(message.type==='restore-deletion')return;
+      }
+    }catch{this.block('OUTBOX_WRITE_FAILED',false);}finally{this.draining=false;}
   }
   private schedulePresence() {
     if (this.presenceTimer || !this.latestPresence) return;
@@ -127,6 +208,7 @@ export class WhiteboardProvider {
     // Browser offline mode does not reliably close an existing WebSocket.
     // Detach it before closing so a delayed close cannot schedule a stale retry.
     const socket = this.socket; this.socket = null; this.ready = false; this.inFlight.clear();
+    void this.releaseClaims().catch(()=>this.block('OUTBOX_WRITE_FAILED',false));
     this.publish({ phase: 'offline', peers: [], reason: 'CONNECTION_LOST' });
     socket?.close();
   };
@@ -229,6 +311,7 @@ export class WhiteboardProvider {
       if (this.stopped || this.socket !== socket) return;
       clearTimeout(handshake);cancelled=true;deferredMessages.length=0;deferredBytes=0;
       this.ready = false; this.inFlight.clear();
+      void this.releaseClaims().catch(()=>this.block('OUTBOX_WRITE_FAILED',false));
       if ([1008, 4001, 4003, 4401, 4403].includes(event.code) && !this.retryableClose.has(socket)) { this.block('ACCESS_DENIED'); return; }
       const delay = Math.min(15000, 500 * 2 ** Math.min(this.retry++, 5));
       this.publish({ phase: 'offline', peers: [], reason: this.state.reason ?? 'CONNECTION_LOST', retryAttempt: this.retry });
@@ -241,7 +324,7 @@ export class WhiteboardProvider {
     this.latestPresence = { type: 'awareness', pointer, cursor, selected: selected.slice(0,200), editingObjectId,viewport:collaboration?.viewport??null,presenting:collaboration?.presenting??false,followingActorId:collaboration?.followingActorId??null };
     this.schedulePresence();
   }
-  retryNow() { if (this.stopped || this.state.phase === 'blocked') return; if (this.timer) clearTimeout(this.timer); this.retry = 0; this.socket?.close(); this.connect('MANUAL_RETRY'); }
+  retryNow() { if (this.stopped || this.state.phase === 'blocked') return; if (this.timer) clearTimeout(this.timer); this.retry = 0; this.ready=false;this.socket?.close();if(this.outbox)void this.queuePersistence(async()=>{await this.reconcileOutbox();this.connect('MANUAL_RETRY');}).catch(()=>this.block('OUTBOX_CORRUPT',false));else this.connect('MANUAL_RETRY'); }
   private block(reason: string, persistRevocation = ['ACCESS_REVOKED','ACCESS_DENIED','SESSION_REVOKED'].includes(reason)) {
     if (this.stopped) return;
     const token=this.token,outbox=this.outbox;
@@ -251,5 +334,5 @@ export class WhiteboardProvider {
     this.publish({ phase: 'blocked', role: 'viewer', peers: [], reason });
     if (persistRevocation && token && outbox) void outbox.revoke(token).finally(()=>outbox.close());
   }
-  close(closeOutbox = true) { if (typeof window !== 'undefined') { window.removeEventListener('offline', this.onOffline); window.removeEventListener('online', this.onOnline); } if (this.presenceTimer) clearTimeout(this.presenceTimer); this.stopped = true; this.ready = false; this.inFlight.clear(); if (this.timer) clearTimeout(this.timer); if (this.handshake) clearTimeout(this.handshake); clearInterval(this.sessionTimer); this.doc.off('update', this.onUpdate); this.socket?.close(); if(closeOutbox)this.outbox?.close(); }
+  close(closeOutbox = true) { if (typeof window !== 'undefined') { window.removeEventListener('offline', this.onOffline); window.removeEventListener('online', this.onOnline); } if (this.presenceTimer) clearTimeout(this.presenceTimer); this.stopped = true; this.ready = false; this.inFlight.clear(); if (this.timer) clearTimeout(this.timer); if (this.handshake) clearTimeout(this.handshake); clearInterval(this.sessionTimer);clearInterval(this.peerTimer);this.unsubscribeOutbox?.(); this.doc.off('update', this.onUpdate); this.socket?.close();void this.releaseClaims().catch(()=>undefined).finally(()=>{if(closeOutbox)this.outbox?.close();}); }
 }

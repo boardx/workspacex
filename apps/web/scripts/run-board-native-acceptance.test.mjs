@@ -4,7 +4,7 @@ import {spawn} from 'node:child_process';
 import {mkdtempSync,mkdirSync,writeFileSync,readFileSync,rmSync} from 'node:fs';
 import {join} from 'node:path';
 import {resolveInvokedConfigs} from '../../../.harness/scripts/lint-spec-gate-coverage.mjs';
-import {acceptanceCommand,suiteResult,suitePresent,runtimeExitProof,runtimeSpawnState,screenshotProof,safeStartupDiagnostics,startupFailureProof,sameRuntimeProof} from './run-board-native-acceptance.mjs';
+import {acceptanceCommand,suiteDefinition,suiteResult,suitePresent,runtimeExitProof,runtimeSpawnState,screenshotProof,safeStartupDiagnostics,startupFailureProof,sameRuntimeProof} from './run-board-native-acceptance.mjs';
 import * as startupReceipts from '../e2e/support/native-runtime/native-startup-receipt.mjs';
 test('startup failure uses sole parser and rejects missing, malformed and foreign-source receipts',()=>{
   const head='a'.repeat(40);
@@ -45,6 +45,22 @@ test('R08 metadata requires every distinct project case and both viewport screen
     for(const mutate of [r=>r.suites[0].specs[0].tests.pop(),r=>r.suites[0].specs[0].tests[1].projectName='desktop',r=>r.stats.skipped=1]){const invalid=structuredClone(report);mutate(invalid);assert.throws(()=>suiteResult(config,invalid,root));}
     const images=metadata.projects.flatMap(project=>metadata.requiredScreenshotNames.map(name=>({originalName:`${name}-${project.viewport.width}.png`,width:project.viewport.width,height:900,bytes:100})));
     screenshotProof(config,images,root);assert.throws(()=>screenshotProof(config,images.slice(1),root));
+  }finally{rmSync(root,{recursive:true});}
+});
+test('real R08 screenshot metadata includes its 503 case and rejects unsafe basenames',()=>{
+  const config='e2e/board-peer-existing-runtime.config.ts';
+  const real=suiteDefinition(config);
+  assert.equal(real.count,4);assert.equal(real.screenshots.length,24);
+  assert(real.screenshots.includes('peer-real-503-recovered-390.png'));
+  assert(real.screenshots.includes('peer-real-503-recovered-1440.png'));
+  const root=mkdtempSync('/private/tmp/wsx-r08-basename-');
+  try{
+    const directory=join(root,'apps/web/e2e/support/r08');mkdirSync(directory,{recursive:true});
+    const metadata=JSON.parse(readFileSync('apps/web/e2e/support/r08/r08-native-suite.json','utf8'));
+    for(const name of ['../escaped','nested/file','name.png','','-leading','double--dash','UPPER','space name']){
+      writeFileSync(join(directory,'r08-native-suite.json'),JSON.stringify({...metadata,requiredScreenshotNames:[name]}));
+      assert.throws(()=>suiteDefinition(config,root));
+    }
   }finally{rmSync(root,{recursive:true});}
 });
 test('startup diagnostics expose only literal safe categories, never private log content',()=>{
