@@ -454,7 +454,7 @@ it("confirms generated questions and continues directly to interviewing after ex
   vi.stubEnv("NEXT_PUBLIC_API_URL", "http://localhost:4100"); vi.stubEnv("NEXT_PUBLIC_API_PATH_PREFIX", "");
   const expert = { ...source, markdown: "## [护理专家](#expert-nurse)\n\n专业角色：护理" };
   const outline = { ...source, documentId: "auto-questions", step: "outline" as const, markdown: "## [护理专家](#expert-nurse)\n\n1. 最近一次发生了什么？" };
-  let current = { interviewId: "itv-direct-start", revisionId: "rev-direct", version: 1, documents: [expert], states: [{ documentId: expert.documentId, status: "draft", failure: null }] };
+  let current: import("@/lib/interview-markdown-api").InterviewMarkdownEnvelope = { interviewId: "itv-direct-start", revisionId: "rev-direct", version: 1, documents: [expert], states: [{ documentId: expert.documentId, status: "draft", failure: null }], execution: null, review: null };
   const questionConfirmations: unknown[] = [];
   vi.stubGlobal("fetch", async (url: string, init: RequestInit = {}) => {
     if (url.endsWith("/digital/experts")) return new Response(JSON.stringify({ items: [] }));
