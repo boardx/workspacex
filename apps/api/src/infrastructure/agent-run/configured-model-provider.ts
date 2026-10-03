@@ -52,7 +52,7 @@ import type {
   ModelCallImage, ModelCallInput, ModelCallPort, ModelCallCompletion, ModelDeltaMetadata,
 } from "../../application/agent-run/ports";
 import { ModelCallError } from "../../application/agent-run/ports";
-import type { ReportedUsage } from "../../application/agent-run/ports";
+import type { ProviderRequestEvent, ReportedUsage } from "../../application/agent-run/ports";
 import { readVisionModelIds, toImagePart, type WireContentPart } from "./model-vision-wire";
 import { isLoopbackBaseUrl } from "./loopback-provider-aliases";
 
@@ -402,7 +402,7 @@ export class ConfiguredModelProvider implements ModelCallPort {
     this.config = config;
     this.loopbackAliases = isLoopbackBaseUrl(config.baseUrl) ? new Set(loopbackAliases) : new Set();
     this.completeStream = config.streamEnabled
-      ? (input, onDelta) => this.streamImpl(input, onDelta)
+      ? (input, onDelta) => this.accountRequest(input, bound => this.streamImpl(bound, onDelta))
       : undefined;
   }
 
@@ -486,6 +486,37 @@ export class ConfiguredModelProvider implements ModelCallPort {
    * 收到 `enable_thinking: false` 会被拒绝、不是被忽略。两维都不满足 ⇒ 完全不带这个
    * 字段，请求体与本次修复之前逐字节相同。
    */
+  supportsRequestAccounting(modelProvider: string): boolean { return this.servesProvider(modelProvider); }
+
+  /** A transport start is emitted only after local preparation and before fetch. */
+  private async accountRequest(
+    input: ModelCallInput, call: (bound: ModelCallInput) => Promise<ModelCallCompletion>,
+  ): Promise<ModelCallCompletion> {
+    let started: ProviderRequestEvent | undefined;
+    let completion: ModelCallCompletion | undefined;
+    let failure: unknown;
+    let failed = false;
+    try {
+      completion = await call({ ...input, onProviderRequest: async event => {
+        await input.onProviderRequest?.(event);
+        started = event;
+      } });
+    } catch (error) { failed = true; failure = error; }
+    if (started) {
+      const usage = failed ? failure instanceof ModelCallError ? failure.usage : undefined
+        : { total: completion?.tokens, prompt: completion?.promptTokens, completion: completion?.completionTokens };
+      // Accounting repair must never turn a successful response into a model retry.
+      await input.onProviderRequest?.({ ...started, phase: "terminal", endedAt: new Date().toISOString(),
+        outcome: failed ? "failed" : "succeeded", usage }).catch(() => {});
+    }
+    if (failed) throw failure;
+    return completion!;
+  }
+
+  async complete(input: ModelCallInput): Promise<ModelCallCompletion> {
+    return this.accountRequest(input, bound => this.completeImpl(bound));
+  }
+
   private async postCompletions(input: ModelCallInput, stream: boolean): Promise<UndiciResponse> {
     const { baseUrl, apiKey, timeoutMs } = this.config;
     // AbortSignal 保留：它管的是整通调用的 wall-clock 上限，与 headersTimeout /
@@ -493,7 +524,7 @@ export class ConfiguredModelProvider implements ModelCallPort {
     const abort = new AbortController();
     const timer = setTimeout(() => abort.abort(), timeoutMs + ABORT_GRACE_MS);
     try {
-      return await undiciFetch(`${baseUrl}/chat/completions`, {
+      const options = {
         method: "POST",
         signal: input.signal ? AbortSignal.any([abort.signal, input.signal]) : abort.signal,
         dispatcher: this.dispatcher(),
@@ -518,7 +549,9 @@ export class ConfiguredModelProvider implements ModelCallPort {
             ? { response_format: { type: "json_schema", json_schema: { name: input.responseSchema.name, schema: input.responseSchema.schema } } }
             : {}),
         }),
-      });
+      };
+      await input.onProviderRequest?.({ phase: "started", requestId: randomUUID(), startedAt: new Date().toISOString() });
+      return await undiciFetch(`${baseUrl}/chat/completions`, options);
     } catch (err) {
       // 传输错误对象**只**被读一个枚举字段（见 `classifyTransportError`）。`message`
       // 一个字都不读：它常含主机、端口，有时是带凭据的 URL。枚举 token 进的是
@@ -549,7 +582,7 @@ export class ConfiguredModelProvider implements ModelCallPort {
     return modelProvider === this.config.provider || this.loopbackAliases.has(modelProvider);
   }
 
-  async complete(input: ModelCallInput): Promise<
+  private async completeImpl(input: ModelCallInput): Promise<
     // 迭代 12：`truncated` 进签名——这里之前是一个比 `ModelCallCompletion` 窄的内联字面量，
     // 端口上加了字段而这里不加，实现填了也传不出去（TS 会把它当多余属性）。
     { readonly text: string; readonly finalMessageId?: string; readonly tokens?: number; readonly promptTokens?: number; readonly completionTokens?: number; readonly truncated?: boolean }

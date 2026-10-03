@@ -21,6 +21,7 @@ let server: Server;
 let base = "";
 let nextFrames: string[] = [];
 let nextStatus = 200;
+let requests = 0;
 let frameDelayMs = 0;
 /**
  * issue #2104 —— 帧分隔符的行尾。`"lf"` 是本套件历史上唯一说过的方言（`\n\n`）；
@@ -34,6 +35,7 @@ const eol = (): string => (nextLineEnding === "crlf" ? "\r\n" : "\n");
 
 async function startServer(): Promise<void> {
   server = createServer((_req: IncomingMessage, res: ServerResponse) => {
+    requests += 1;
     if (nextStatus !== 200) {
       res.writeHead(nextStatus, { "content-type": "application/json" });
       res.end(JSON.stringify({ error: "boom", usage: { total_tokens: 3, prompt_tokens: 3, completion_tokens: 0 } }));
@@ -208,6 +210,48 @@ describe("ConfiguredModelProvider.completeStream", () => {
       { modelProvider: PROVIDER, modelId: "m1", system: "s", user: "u" },
       async () => { throw new Error("consumer failed"); },
     )).rejects.toMatchObject({ usage: { total: 7 } });
+  });
+
+  it("persists start before HTTP and settles the same request identity", async () => {
+    nextFrames = [sseChunk("ok", { usage: 9 }), doneFrame()];
+    const seen: import("../../src/application/agent-run/ports").ProviderRequestEvent[] = [];
+    const before = requests;
+    await provider().completeStream!({ modelProvider: PROVIDER, modelId: "m1", system: "s", user: "u",
+      onProviderRequest: async event => {
+        if (event.phase === "started") expect(requests).toBe(before);
+        seen.push(event);
+      },
+    }, async () => {});
+    expect(requests).toBe(before + 1);
+    expect(seen.map(e => e.phase)).toEqual(["started", "terminal"]);
+    expect(seen[1]).toMatchObject({ requestId: seen[0]!.requestId, usage: { total: 9 }, outcome: "succeeded" });
+    expect(Date.parse(seen[1]!.endedAt!)).toBeGreaterThanOrEqual(Date.parse(seen[0]!.startedAt));
+  });
+
+  it("failed durable start prevents HTTP dispatch", async () => {
+    const before = requests;
+    await expect(provider().completeStream!({ modelProvider: PROVIDER, modelId: "m1", system: "s", user: "u",
+      onProviderRequest: async () => { throw new Error("database unavailable"); },
+    }, async () => {})).rejects.toMatchObject({ code: "MODEL_CALL_FAILED" });
+    expect(requests).toBe(before);
+  });
+
+  it("preflight rejection produces no request receipt", async () => {
+    const seen: unknown[] = [];
+    await expect(provider().complete({ modelProvider: "unconfigured", modelId: "m1", system: "s", user: "u",
+      onProviderRequest: async event => { seen.push(event); },
+    })).rejects.toMatchObject({ code: "MODEL_PROVIDER_NOT_CONFIGURED" });
+    expect(seen).toEqual([]);
+  });
+
+  it("terminal accounting failure does not retry model or discard completion", async () => {
+    nextFrames = [sseChunk("ok"), doneFrame()];
+    const before = requests;
+    const completion = await provider().completeStream!({ modelProvider: PROVIDER, modelId: "m1", system: "s", user: "u",
+      onProviderRequest: async event => { if (event.phase === "terminal") throw new Error("lost write"); },
+    }, async () => {});
+    expect(completion.text).toBe("ok");
+    expect(requests).toBe(before + 1);
   });
 
   it("run 钉的 provider 与部署配置的 provider 不一致：拒绝，不悄悄改用配置的那个", async () => {

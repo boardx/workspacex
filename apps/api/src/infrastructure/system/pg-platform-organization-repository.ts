@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import type { DatabasePort, TenantSession } from "../../application/ports/database.port";
 import { PlatformOrganizationError, type PlatformOrganizationRepository, type OrganizationListInput, type OrganizationList,
   type OrganizationDetail, type PlanInput, type PlanState } from "../../application/system/platform-organization-ports";
-import { toOrgId, type OrgId } from "../../domain/org-id";
+import { PLATFORM_ORG_ID, toOrgId, type OrgId } from "../../domain/org-id";
 
 type Metadata = { id: string; name: string; kind: "organization" };
 type PlanRow = { plan: "ordinary" | "enterprise"; version: number; updated_at: Date; updated_by: string };
@@ -88,7 +88,7 @@ export class PgPlatformOrganizationRepository implements PlatformOrganizationRep
   }
 
   private async auditAccess(actorId: string, action: "list" | "detail", orgId: OrgId | null): Promise<void> {
-    await this.db.withoutTenant(s => s.query(`INSERT INTO platform_organization_access_events (id,actor_id,action,target_org_id)
-      VALUES ($1,$2,$3,$4)`, [randomUUID(), actorId, action, orgId]));
+    await this.db.withTenant(toOrgId(PLATFORM_ORG_ID), s => s.query(`INSERT INTO platform_organization_access_events (id,org_id,actor_id,action,target_org_id)
+      VALUES ($1,$2,$3,$4,$5)`, [randomUUID(), PLATFORM_ORG_ID, actorId, action, orgId]));
   }
 }

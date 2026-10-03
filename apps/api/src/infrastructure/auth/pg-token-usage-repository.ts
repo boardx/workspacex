@@ -23,6 +23,16 @@ import type { TokenUsageMeterPort, TokenUsageRecord } from "../../application/ag
 export class PgTokenUsageRepository implements TokenUsageMeterPort {
   constructor(private readonly db: DatabasePort) {}
 
+  async startRequest(orgId: OrgId, input: Parameters<NonNullable<TokenUsageMeterPort["startRequest"]>>[1]): Promise<void> {
+    await this.db.withTenant(orgId, async s => {
+      await s.query(`INSERT INTO model_request_starts
+        (id,org_id,user_id,run_id,execution_attempt_id,project_id,model_provider,model_id,started_at)
+        VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) ON CONFLICT(id) DO NOTHING`,
+        [input.requestId, orgId, input.userId, input.runId, input.executionAttemptId,
+          input.projectId, input.modelProvider, input.modelId, input.startedAt]);
+    });
+  }
+
   async record(orgId: OrgId, usage: TokenUsageRecord): Promise<void> {
     const eventId = usage.eventId ?? randomUUID();
     // Validate before SQL: NaN/Infinity/unsafe integers must never become a ledger fact.
@@ -30,11 +40,14 @@ export class PgTokenUsageRepository implements TokenUsageMeterPort {
       if (!Number.isSafeInteger(value) || value < 0) throw new Error("invalid token usage count");
       return value;
     };
+    if (usage.costMicros !== undefined && (usage.costMicros < 0n || usage.costMicros > 9_223_372_036_854_775_807n
+      || !usage.currency || !usage.priceVersion)) throw new Error("invalid token usage price");
+    if (usage.costMicros === undefined && (usage.currency !== undefined || usage.priceVersion !== undefined)) throw new Error("incomplete token usage price");
     const params = [eventId, orgId, usage.userId, usage.runId, usage.modelProvider, usage.modelId,
       count(usage.tokensTotal),
       usage.promptTokens === null ? null : count(usage.promptTokens),
       usage.completionTokens === null ? null : count(usage.completionTokens), usage.outcome,
-      usage.totalSource ?? "legacy", usage.projectId ?? null, usage.threadId ?? null, usage.agentId ?? null, usage.callPurpose ?? null];
+      usage.totalSource ?? "legacy", usage.projectId ?? null, usage.threadId ?? null, usage.agentId ?? null, usage.callPurpose ?? null, usage.requestStartedAt ?? null, usage.requestEndedAt ?? null, usage.executionAttemptId ?? null, usage.costMicros?.toString() ?? null, usage.currency ?? null, usage.priceVersion ?? null];
     for (let attempt = 0; attempt < 3; attempt += 1) {
       try {
         await this.db.withTenant(orgId, async (s) => {
@@ -42,8 +55,8 @@ export class PgTokenUsageRepository implements TokenUsageMeterPort {
             `INSERT INTO token_usage_events
            (id, org_id, user_id, run_id, model_provider, model_id,
             tokens_total, tokens_prompt, tokens_completion, outcome,
-            total_source, project_id, thread_id, agent_id, call_purpose)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+            total_source, project_id, thread_id, agent_id, call_purpose, request_started_at, request_ended_at, execution_attempt_id, cost_micros, currency, price_version)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)
          ON CONFLICT (id) DO NOTHING`,
             params,
           );

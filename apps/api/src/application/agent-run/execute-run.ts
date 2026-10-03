@@ -751,7 +751,8 @@ async function executeClaimed(
       } else {
         const transcript = increment.toSummarize.map((m) => `${m.role}: ${m.content}`).join("\n");
         const priorSummary = persisted?.summary ?? "";
-        const completion = await meterModelCompletion(deps, orgId, run, "history-summary", () => deps.model.complete({
+        const completion = await meterModelCompletion(deps, orgId, run, "history-summary", (onProviderRequest) => deps.model.complete({
+          onProviderRequest,
           modelProvider: run.modelProvider,
           modelId: run.modelId,
           system: "你是对话历史摘要器。下面可能包含「已有摘要」（更早对话已经压缩过的要点）和"
@@ -759,7 +760,7 @@ async function executeClaimed(
             + "后续对话可能需要回指的事实与结论，不要复述客套，不要分点罗列「已有/新增」这个结构"
             + "本身。用中文，尽量短。",
           user: priorSummary === "" ? transcript : `已有摘要：\n${priorSummary}\n\n新增对话：\n${transcript}`,
-        }));
+        }), deps.model);
         const updated = completion.text.trim();
         if (updated === "") {
           // 模型给了空文本——当作这次没有可用的新摘要，退回已有的（若有）。
@@ -986,6 +987,7 @@ async function executeClaimed(
   // A completed provider envelope is counted once even when later run persistence fails.
   let modelInvocationStarted = false;
   let modelCompletionMetered = false;
+  const requestAccounting = Boolean(deps.usage?.startRequest && deps.model.supportsRequestAccounting?.(run.modelProvider));
 
   /**
    * #1747 —— provider 交上来的候选脚本来源（deep-agent 的 `call_skill` 工具结果正文）。
@@ -1078,6 +1080,17 @@ async function executeClaimed(
       {
         modelProvider: run.modelProvider, modelId: run.modelId, system, user: userText,
         threadId: run.threadId,
+        ...(requestAccounting ? { onProviderRequest: async (event: import("./ports").ProviderRequestEvent) => {
+          if (event.phase === "started") {
+            await deps.usage!.startRequest!(orgId, { requestId: event.requestId, startedAt: event.startedAt,
+              userId: run.requesterUserId, runId: run.runId, executionAttemptId,
+              projectId: run.projectId, modelProvider: run.modelProvider, modelId: run.modelId });
+          } else {
+            await meter(deps, orgId, run, event.usage ?? {}, event.outcome ?? "failed", "primary", {
+              eventId: event.requestId, requestStartedAt: event.startedAt, requestEndedAt: event.endedAt, executionAttemptId,
+            });
+          }
+        } } : {}),
         // issue #2664 -- 只有 deep-agent provider 读这两个字段，见 `ModelCallInput` 自己的文档。
         orgId: String(orgId), runId: run.runId,
         trustedMemoryScope: { orgId: String(orgId), userId: run.requesterUserId },
@@ -1176,7 +1189,7 @@ async function executeClaimed(
     );
     // Record the provider envelope before cancellation/pause or downstream persistence.
     // Internal provider requests still require their own attempt instrumentation.
-    await meter(deps, orgId, run, {
+    if (!requestAccounting) await meter(deps, orgId, run, {
       total: completion.tokens, prompt: completion.promptTokens, completion: completion.completionTokens,
     }, completion.cancelled || (!completion.paused && completion.interrupted === undefined && completion.text.trim() === "") ? "failed" : "succeeded");
     modelCompletionMetered = true;
@@ -1257,7 +1270,7 @@ async function executeClaimed(
      * prompt tokens 并把 usage 放在错误体里，provider 把它挂在 `ModelCallError.usage`
      * 上传过来——报了就如实记，没报才是 0。
      */
-    if (modelInvocationStarted && !modelCompletionMetered) {
+    if (modelInvocationStarted && !modelCompletionMetered && !requestAccounting) {
       await meter(deps, orgId, run, e instanceof ModelCallError ? (e.usage ?? {}) : {}, "failed");
     }
     await closeOpenToolCalls("failed");
@@ -1299,7 +1312,8 @@ async function executeClaimed(
         objects: deps.objects,
         log: deps.log,
         regenerate: async (feedback) => {
-          const retry = await meterModelCompletion(deps, orgId, run, "script-retry", () => deps.model.complete({
+          const retry = await meterModelCompletion(deps, orgId, run, "script-retry", (onProviderRequest) => deps.model.complete({
+            onProviderRequest,
             modelProvider: run.modelProvider,
             modelId: run.modelId,
             system,
@@ -1308,7 +1322,7 @@ async function executeClaimed(
             skills: toolSkills,
             ...(excludedTools === undefined ? {} : { excludedTools }),
             ...(scriptProtocol === undefined ? {} : { scriptProtocol }),
-          }));
+          }), deps.model);
           // 从这次 completion 里取"拿去解析脚本的那段文本"的规则（含 #1747 的候选来源
           // 与 issue #2893 的中断判定）只写在 `run-skill-script.ts` 一处——那里也是
           // 归类与文案的落点，规则与它的消费者分开放必然漂移。

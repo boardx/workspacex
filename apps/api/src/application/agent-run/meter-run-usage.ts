@@ -10,11 +10,13 @@ export async function meter(
   usage: ReportedUsage,
   outcome: "succeeded" | "failed",
   callPurpose: TokenUsageRecord["callPurpose"] = "primary",
+  request?: Pick<TokenUsageRecord, "eventId" | "requestStartedAt" | "requestEndedAt" | "executionAttemptId">,
 ): Promise<void> {
   if (!deps.usage) return;
   try {
     await deps.usage.record(orgId, {
       eventId: randomUUID(),
+      ...request,
       callPurpose,
       projectId: run.projectId,
       threadId: run.threadId,

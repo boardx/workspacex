@@ -1098,6 +1098,8 @@ export interface ModelCallInput {
    * 派发目标——见 `deep_agent_service/tools.py::spawn_async_task` 自己的降级说明）。
    */
   /** Trusted requester identity only; absent means no personal memory capability. */
+  /** Trusted accounting callback; adapters invoke immediately before real HTTP dispatch and at terminal. */
+  readonly onProviderRequest?: (event: ProviderRequestEvent) => Promise<void>;
   readonly trustedMemoryScope?: z.infer<typeof SC.TrustedMemoryScope>;
   readonly orgId?: string;
   readonly runId?: string;
@@ -1304,7 +1306,18 @@ export interface ModelCallCompletion {
   readonly truncated?: boolean;
 }
 
+export interface ProviderRequestEvent {
+  readonly requestId: string;
+  readonly startedAt: string;
+  readonly phase: "started" | "terminal";
+  readonly endedAt?: string;
+  readonly usage?: ReportedUsage;
+  readonly outcome?: "succeeded" | "failed";
+}
+
 export interface ModelCallPort {
+  /** True only for adapters reporting every actual dispatch through onProviderRequest. */
+  supportsRequestAccounting?(modelProvider: string): boolean;
   supportsLiveInterjections?(modelProvider: string): boolean;
   /**
    * 数字人能力（决策 B）—— 这个 provider 名是否由 deep-agent 内核的 LLM 端点**同样**提供
@@ -1482,6 +1495,13 @@ export interface AgentRunExecutorPort {
 export interface TokenUsageRecord {
   /** Unique receipt identity; reuse only when retrying this same accounting write. */
   readonly eventId?: string;
+  /** Explicit trusted priced amount; absence is unknown, never free. */
+  readonly costMicros?: bigint;
+  readonly currency?: string;
+  readonly priceVersion?: string;
+  readonly requestStartedAt?: string;
+  readonly requestEndedAt?: string;
+  readonly executionAttemptId?: string;
   /** Trusted execution context, never inferred from provider output or historical data. */
   readonly projectId?: string | null;
   readonly threadId?: string | null;
@@ -1490,7 +1510,7 @@ export interface TokenUsageRecord {
   readonly totalSource?: "reported" | "unknown";
   readonly callPurpose?: "primary" | "history-summary" | "script-retry";
   readonly userId: string;
-  readonly runId: string;
+  readonly runId: string | null;
   readonly modelProvider: string;
   readonly modelId: string;
   /** 上游没报总数时是 0——总数是必填维度，缺失按 0 记而不是猜一个估值。 */
@@ -1523,6 +1543,12 @@ export interface ReportedUsage {
  * 「有人在注释旁边真的写了一条 INSERT」这种最像真的情形。
  */
 export interface TokenUsageMeterPort {
+  /** Durable start marker before provider dispatch; failed starts must prevent dispatch. */
+  startRequest?(orgId: OrgId, input: {
+    readonly requestId: string; readonly userId: string; readonly runId: string;
+    readonly modelProvider: string; readonly modelId: string; readonly startedAt: string;
+    readonly executionAttemptId: string | null; readonly projectId: string | null;
+  }): Promise<void>;
   record(orgId: OrgId, usage: TokenUsageRecord): Promise<void>;
 }
 

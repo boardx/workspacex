@@ -71,6 +71,8 @@ describe("platform organization catalog and plan transactional boundary", () => 
     const log=await asOwner(c=>c.query("SELECT id FROM platform_organization_access_events WHERE actor_id=$1 AND action='list'",[ACTOR]));
     expect(log.rows.length).toBeGreaterThan(0);
     await expect(asApp(ORG,c=>c.query("SELECT * FROM platform_organization_access_events"))).rejects.toThrow();
+    await expect(asApp(ORG,c=>c.query(`INSERT INTO platform_organization_access_events(id,org_id,actor_id,action)
+      VALUES('forged-audit','org-platform',$1,'list')`,[ACTOR]))).rejects.toThrow();
   });
 });
 

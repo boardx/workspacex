@@ -171,3 +171,9 @@ Real PG replay/RLS tests and additive migration are authored, not executed. All-
 Focused API suite: 42/42 passed, including real loopback SSE transport (no external provider cost). UI fixture tests: 17/17 previously passed, current rerun pending. Independent source review confirmed literal search, formal-only catalog, fail-closed permissions and plan transaction structure. Its save/selection finding was fixed by disabling organization switching/search/refresh/pagination during save; failed detail state is explicit.
 
 Real PG catalog/RLS/concurrency/audit tests are authored for isolated CI only. No local DB, Docker, heavy build, production provisioning or screenshot capture occurred. Full accounting, reservations, bounded fallback and expanded analytics remain unfinished.
+
+## Request/admission checkpoint (in progress)
+
+Owner lightweight API suite passed 53/53 (real loopback HTTP with sandbox escalation, no external provider calls); API typecheck passes. Reviewer independently passed 32 tests; its 16 HTTP cases were not executed due sandbox listen EPERM, so independent full-suite success is not claimed. Reviewer confirmed request lifecycle source boundary; terminal recovery/all-provider coverage remains absent.
+
+Admission review found row-lock permissions, held-receipt double counting and incomplete settlement context; corrected using canonical advisory locks, one conservative hold and provider/model/window matching. Real PG admission and start-receipt tests are authored, not locally run. Existing isolated CI on f0a98af26 failed RLS audit for platform access table; corrected source is pending push/rerun. No production SQL, role provisioning, migrations or budget activation occurred.

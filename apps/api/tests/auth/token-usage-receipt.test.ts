@@ -28,7 +28,7 @@ describe("token usage receipt boundary", () => {
     expect(query.mock.calls[0]?.[0]).toContain("ON CONFLICT (id) DO NOTHING");
     expect(query.mock.calls[0]?.[1]).toEqual([
       "receipt-1", org, "user-1", "run-1", "provider", "model", 120, 100, 20, "failed",
-      "reported", "project-1", "thread-1", "agent-1", null,
+      "reported", "project-1", "thread-1", "agent-1", null, null, null, null, null, null, null,
     ]);
   });
   it("generates distinct receipts for distinct attempts and keeps unknown distinct from zero", async () => {

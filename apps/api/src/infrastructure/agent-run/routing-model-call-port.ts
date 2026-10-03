@@ -28,6 +28,10 @@ export class RoutingModelCallPort implements ModelCallPort {
     private readonly kernelServedProviders: ReadonlySet<string> = new Set(),
   ) {}
 
+  supportsRequestAccounting(modelProvider: string): boolean {
+    return this.ports.get(modelProvider)?.supportsRequestAccounting?.(modelProvider) ?? false;
+  }
+
   servesViaKernelRuntime(modelProvider: string): boolean {
     return this.kernelServedProviders.has(modelProvider) && this.ports.has(DEEP_AGENT_PROVIDER_NAME);
   }

@@ -84,6 +84,28 @@ afterAll(async () => {
   await db.close();
 });
 
+describe("durable actual-request start receipts", () => {
+  it("replays one immutable tenant start and correlates a terminal receipt", async () => {
+    const input = { requestId: "actual-request-f159", userId: ACTOR, runId: RUN,
+      executionAttemptId: "attempt-f159", projectId: PROJECT, modelProvider: "test-provider",
+      modelId: "test-model", startedAt: "2026-10-04T00:00:00Z" };
+    await repo.startRequest(toOrgId(ORG), input);
+    await repo.startRequest(toOrgId(ORG), input);
+    const starts = await asApp(ORG, c => c.query("SELECT id,user_id FROM model_request_starts"));
+    expect(starts.rows).toEqual([{ id: input.requestId, user_id: ACTOR }]);
+    expect((await asApp(OTHER_ORG, c => c.query("SELECT id FROM model_request_starts"))).rows).toEqual([]);
+    await expect(asApp(ORG, c => c.query("UPDATE model_request_starts SET user_id='other'"))).rejects.toThrow();
+    await expect(asOwner(c => c.query("DELETE FROM model_request_starts WHERE org_id=$1", [ORG]))).rejects.toThrow();
+    await repo.record(toOrgId(ORG), { eventId: input.requestId, userId: ACTOR, runId: RUN,
+      modelProvider: input.modelProvider, modelId: input.modelId, tokensTotal: 8,
+      promptTokens: 5, completionTokens: 3, totalSource: "reported", outcome: "succeeded",
+      requestStartedAt: input.startedAt, requestEndedAt: "2026-10-04T00:00:01Z", executionAttemptId: input.executionAttemptId });
+    const paired = await asApp(ORG, c => c.query(`SELECT s.id FROM model_request_starts s
+      JOIN token_usage_events e ON e.id=s.id AND e.org_id=s.org_id WHERE s.id=$1`, [input.requestId]));
+    expect(paired.rows).toHaveLength(1);
+  });
+});
+
 describe("F159 token_usage_events —— 账的落库行为", () => {
   it("写进去读得出来，大数按 bigint 保留（不被截断）", async () => {
     await write(12_345_678_901);

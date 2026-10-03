@@ -62,7 +62,7 @@ export function PlatformOrganizationsScreen({ state }: { state: UiState }) {
   return <AdminScreen state={state} moduleLabel="组织管理" title="组织与套餐" hideOrgIdentity liveBacked
     intro="管理所有正式组织，包括尚无成员的组织。本地组织与平台内部容器不在此管理。"
     emptyHint="没有匹配的组织" denialReason="仅平台运营可见" successMessage="套餐已保存">
-    <form className="flex gap-2" onSubmit={e => { e.preventDefault(); setCursor(undefined); setQuery(search); setRefresh(n => n + 1); }}>
+    <form className="flex gap-2" onSubmit={e => { e.preventDefault(); if (busy) return; setCursor(undefined); setQuery(search); setRefresh(n => n + 1); }}>
       <label className="sr-only" htmlFor="organization-search">搜索组织名称</label>
       <Input id="organization-search" value={search} maxLength={200} placeholder="搜索组织名称" onChange={e => setSearch(e.target.value)} />
       <Button type="submit" disabled={busy}>搜索</Button>

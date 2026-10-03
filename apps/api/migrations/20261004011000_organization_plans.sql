@@ -12,13 +12,13 @@ CREATE TABLE IF NOT EXISTS organization_plan_changes (
   reason text NOT NULL CHECK(length(reason) BETWEEN 1 AND 500), changed_at timestamptz NOT NULL DEFAULT now(),
   UNIQUE(org_id,version)
 );
--- Platform access audit is global, INSERT-only for app_rw. No prompt, query or member content.
+-- Platform audit belongs to the existing platform container; INSERT-only for app_rw.
 CREATE TABLE IF NOT EXISTS platform_organization_access_events (
-  id text PRIMARY KEY, actor_id text NOT NULL, action text NOT NULL CHECK(action IN ('list','detail')),
+  id text PRIMARY KEY, org_id text NOT NULL, actor_id text NOT NULL, action text NOT NULL CHECK(action IN ('list','detail')),
   target_org_id text NULL, occurred_at timestamptz NOT NULL DEFAULT now()
 );
 DO $$ DECLARE t text; BEGIN
-  FOREACH t IN ARRAY ARRAY['organization_plans','organization_plan_changes'] LOOP
+  FOREACH t IN ARRAY ARRAY['organization_plans','organization_plan_changes','platform_organization_access_events'] LOOP
     EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY',t);
     EXECUTE format('ALTER TABLE %I FORCE ROW LEVEL SECURITY',t);
     EXECUTE format('DROP POLICY IF EXISTS tenant_scope ON %I',t);

@@ -110,6 +110,32 @@ describe("F159 token 计量：模型调用是唯一产生用量事实的地方",
     })]);
   });
 
+  it("actual request receipts use trusted attribution and replace envelope accounting", async () => {
+    const usage = recordingMeter();
+    const startRequest = vi.fn(async () => {});
+    const model: ModelCallPort = { supportsRequestAccounting: () => true,
+      complete: async input => {
+        await input.onProviderRequest!({ phase: "started", requestId: "real-request-1", startedAt: "2026-10-04T00:00:00Z" });
+        await input.onProviderRequest!({ phase: "terminal", requestId: "real-request-1", startedAt: "2026-10-04T00:00:00Z",
+          endedAt: "2026-10-04T00:00:01Z", usage: { total: 23 }, outcome: "succeeded" });
+        return { text: "reply", tokens: 23 };
+      },
+    };
+    await executeQueuedRuns(deps(fakeStore(baseRun()), model, { ...usage, startRequest }), { orgId: ORG });
+    expect(startRequest).toHaveBeenCalledWith(ORG, expect.objectContaining({ requestId: "real-request-1", userId: "user-linke", runId: "run-1" }));
+    expect(usage.written).toHaveLength(1);
+    expect(usage.written[0]).toMatchObject({ eventId: "real-request-1", tokensTotal: 23, userId: "user-linke", requestEndedAt: "2026-10-04T00:00:01Z" });
+  });
+
+  it("request-capable preflight failure is not invented as a billed request", async () => {
+    const usage = recordingMeter();
+    const model: ModelCallPort = { supportsRequestAccounting: () => true,
+      complete: async () => { throw new ModelCallError("MODEL_PROVIDER_NOT_CONFIGURED", "preflight"); },
+    };
+    await executeQueuedRuns(deps(fakeStore(baseRun()), model, { ...usage, startRequest: async () => {} }), { orgId: ORG });
+    expect(usage.written).toEqual([]);
+  });
+
   it("上游报了 prompt/completion 拆分就如实记（OpenAI 兼容 usage 本来就带这两个字段）", async () => {
     const meter = recordingMeter();
     const model: ModelCallPort = {
