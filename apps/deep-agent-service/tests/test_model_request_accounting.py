@@ -172,3 +172,93 @@ def test_real_langgraph_async_node_propagates_receipt_context(context,monkeypatc
     assert calls[0][2]["callPurpose"]==call_purpose
     assert calls[1][2]["usage"]["total"]==7
     assert a.Journal(str(path)).pending(OWNER)==[]
+
+
+def test_idle_repair_reopens_spool_without_any_paid_model_dispatch(context, monkeypatch):
+    _, path = context
+    body = {"orgId":"org-A","attemptId":"run-A:1","leaseEpoch":3,"requestId":"idle-receipt","endedAt":a.now(),"outcome":"failed","usage":{"total":2}}
+    a.Journal(str(path)).save(OWNER, body)
+    delivered = []
+    async def send(owner, run, phase, payload):
+        delivered.append((run,phase,payload))
+    monkeypatch.setattr(a,"apost",send)
+    assert asyncio.run(a.replay_pending_batch(dict(OWNER),a.Journal(str(path)))) == 1
+    assert delivered == [("run-A","terminal",body)]
+    assert a.Journal(str(path)).pending(OWNER) == []
+
+
+def test_idle_repair_failure_or_foreign_receiver_never_acknowledges(context, monkeypatch):
+    _, path = context
+    body = {"orgId":"org-A","attemptId":"run-A:1","leaseEpoch":3,"requestId":"idle-retained","endedAt":a.now(),"outcome":"failed","usage":{}}
+    journal = a.Journal(str(path));journal.save(OWNER,body)
+    async def fail(*args):
+        raise a.RuntimeUsageError("outage")
+    monkeypatch.setattr(a,"apost",fail)
+    assert asyncio.run(a.replay_pending_batch(OWNER,journal)) == 0
+    assert asyncio.run(a.replay_pending_batch(dict(OWNER,base_url="http://foreign.test"),journal)) == 0
+    assert len(journal.pending(OWNER)) == 1
+
+
+def test_idle_configuration_requires_explicit_receiver_and_existing_internal_key(context,monkeypatch):
+    monkeypatch.setenv("DEEP_AGENT_USAGE_IDLE_REPLAY_ENABLED","1")
+    monkeypatch.delenv("DEEP_AGENT_USAGE_CALLBACK_BASE_URL",raising=False)
+    with pytest.raises(a.RuntimeUsageError,match="receiver_unconfigured"):
+        a.idle_replay_configuration()
+    for invalid in ["http://user:secret@api.test", "http://api.test?secret=x", "http://api.test#fragment", "relative"]:
+        monkeypatch.setenv("DEEP_AGENT_USAGE_CALLBACK_BASE_URL",invalid)
+        with pytest.raises(a.RuntimeUsageError):
+            a.idle_replay_configuration()
+    monkeypatch.setenv("DEEP_AGENT_USAGE_CALLBACK_BASE_URL",OWNER["base_url"])
+    owner,_ = a.idle_replay_configuration();assert owner == {"base_url":OWNER["base_url"],"key":OWNER["key"]}
+    monkeypatch.setenv("DEEP_AGENT_REQUEST_ACCOUNTING_ENABLED","0")
+    with pytest.raises(a.RuntimeUsageError,match="accounting_disabled"):
+        a.idle_replay_configuration()
+
+
+def test_idle_worker_cancel_keeps_pending_receipts(context,monkeypatch):
+    _,path=context;journal=a.Journal(str(path));journal.save(OWNER,{"requestId":"idle-cancelled","usage":{}})
+    entered=asyncio.Event()
+    async def wait_for_cancel(*args):
+        entered.set();await asyncio.Future()
+    monkeypatch.setattr(a,"apost",wait_for_cancel)
+    async def check():
+        task=asyncio.create_task(a.replay_pending_receipts(OWNER,journal))
+        await entered.wait();task.cancel()
+        with pytest.raises(asyncio.CancelledError):await task
+    asyncio.run(check());assert len(journal.pending(OWNER)) == 1
+
+
+def test_idle_poison_receipt_rotates_and_does_not_starve_valid_followers(context,monkeypatch):
+    _,path=context;journal=a.Journal(str(path))
+    journal.save(OWNER,{"requestId":"poison","usage":{}})
+    journal.save(OWNER,{"requestId":"valid","usage":{"total":1}})
+    delivered=[]
+    async def send(owner,run,phase,body):
+        if body["requestId"]=="poison":raise a.RuntimeUsageError("permanently rejected")
+        delivered.append(body["requestId"])
+    monkeypatch.setattr(a,"apost",send)
+    assert asyncio.run(a.replay_pending_batch(OWNER,journal))==1
+    assert delivered==["valid"]
+    assert [row[0] for row in a.Journal(str(path)).pending(OWNER)]==["poison"]
+
+
+def test_idle_twenty_poison_rows_cannot_starve_rows_beyond_batch_limit(context,monkeypatch):
+    _,path=context;journal=a.Journal(str(path))
+    for index in range(22):journal.save(OWNER,{"requestId":str(index),"usage":{}})
+    delivered=[]
+    async def send(owner,run,phase,body):
+        if int(body["requestId"])<20:raise a.RuntimeUsageError("permanently rejected")
+        delivered.append(body["requestId"])
+    monkeypatch.setattr(a,"apost",send)
+    assert asyncio.run(a.replay_pending_batch(OWNER,journal))==0
+    # Rotation survives reopening; the formerly invisible valid receipts now lead.
+    assert asyncio.run(a.replay_pending_batch(OWNER,a.Journal(str(path))))==2
+    assert delivered==["20","21"]
+
+
+def test_spool_replay_identity_includes_receiver_and_run_not_only_payload(context):
+    _,path=context;journal=a.Journal(str(path));body={"requestId":"same-id","usage":{}}
+    journal.save(OWNER,body);journal.save(OWNER,body)
+    for other in [dict(OWNER,base_url="http://other.test"),dict(OWNER,run_id="other-run")]:
+        with pytest.raises(a.RuntimeUsageError,match="replay_mismatch"):journal.save(other,body)
+    assert len(journal.pending(OWNER))==1

@@ -1226,6 +1226,8 @@ export class ModelCallError extends Error {
      * 都不进来——`detail` 那条「provider 的话到此为止」的纪律不因为这个字段松动。
      */
     readonly usage?: ReportedUsage,
+    /** Adapter-owned HTTP classification; absent means no automatic fallback. */
+    readonly retryDisposition?: "rate-limited" | "temporarily-unavailable",
   ) {
     super(code);
     this.name = "ModelCallError";

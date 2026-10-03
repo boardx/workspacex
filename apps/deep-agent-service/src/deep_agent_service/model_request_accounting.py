@@ -5,6 +5,7 @@ with SQLite FULL synchronization before callback delivery. Replay repairs accoun
 it never invokes a model. Deployment must supply a persistent spool directory explicitly.
 """
 from __future__ import annotations
+import asyncio
 from contextlib import contextmanager
 import json
 import logging
@@ -72,7 +73,9 @@ class Journal:
         root.mkdir(mode=0o700, parents=True, exist_ok=True)
         self.path = root / "model-usage.sqlite3"
         with self.connect() as db:
-            db.execute("CREATE TABLE IF NOT EXISTS pending(id TEXT PRIMARY KEY, receiver TEXT NOT NULL, run_id TEXT NOT NULL, payload TEXT NOT NULL)")
+            db.execute("CREATE TABLE IF NOT EXISTS pending(id TEXT PRIMARY KEY, receiver TEXT NOT NULL, run_id TEXT NOT NULL, payload TEXT NOT NULL, last_attempt_order INTEGER NOT NULL DEFAULT 0)")
+            if "last_attempt_order" not in {row[1] for row in db.execute("PRAGMA table_info(pending)")}:
+                db.execute("ALTER TABLE pending ADD COLUMN last_attempt_order INTEGER NOT NULL DEFAULT 0")
         self.path.chmod(0o600)
 
     @contextmanager
@@ -89,14 +92,21 @@ class Journal:
         # Only non-secret ownership and usage metadata; receiver is a fingerprint.
         payload = json.dumps(body, separators=(",", ":"))
         with self.connect() as db:
-            old = db.execute("SELECT payload FROM pending WHERE id=?", (body["requestId"],)).fetchone()
-            if old and old[0] != payload:
+            receiver = sha256(owner["base_url"].encode()).hexdigest()
+            old = db.execute("SELECT receiver,run_id,payload FROM pending WHERE id=?", (body["requestId"],)).fetchone()
+            if old and old != (receiver, owner["run_id"], payload):
                 raise RuntimeUsageError("usage_receipt_replay_mismatch")
-            db.execute("INSERT OR IGNORE INTO pending VALUES(?,?,?,?)", (body["requestId"], sha256(owner["base_url"].encode()).hexdigest(), owner["run_id"], payload))
+            db.execute("INSERT OR IGNORE INTO pending(id,receiver,run_id,payload) VALUES(?,?,?,?)", (body["requestId"], receiver, owner["run_id"], payload))
 
     def pending(self, owner: dict):
         with self.connect() as db:
-            return db.execute("SELECT id,run_id,payload FROM pending WHERE receiver=? ORDER BY rowid LIMIT 20", (sha256(owner["base_url"].encode()).hexdigest(),)).fetchall()
+            return db.execute("SELECT id,run_id,payload FROM pending WHERE receiver=? ORDER BY last_attempt_order,rowid LIMIT 20", (sha256(owner["base_url"].encode()).hexdigest(),)).fetchall()
+
+    def defer(self, request_id: str):
+        # Durable rotation prevents a permanently denied receipt starving later ones.
+        # SQLite serializes this metadata-only queue update across worker processes.
+        with self.connect() as db:
+            db.execute("UPDATE pending SET last_attempt_order=(SELECT COALESCE(MAX(last_attempt_order),0)+1 FROM pending) WHERE id=?", (request_id,))
 
     def acknowledge(self, request_id: str):
         with self.connect() as db:
@@ -368,3 +378,48 @@ def model_http_clients():
         Journal(os.environ.get("DEEP_AGENT_USAGE_SPOOL_DIR", ""))
     return {"http_client":httpx.Client(transport=AccountingTransport(),follow_redirects=False),
             "http_async_client":httpx.AsyncClient(transport=AsyncAccountingTransport(),follow_redirects=False)}
+
+
+def idle_replay_configuration():
+    """Explicit opt-in owner; no endpoint/key is recovered from persisted receipts."""
+    if os.environ.get("DEEP_AGENT_USAGE_IDLE_REPLAY_ENABLED") != "1":
+        return None
+    if not enabled():
+        raise RuntimeUsageError("usage_idle_replay_accounting_disabled")
+    base = os.environ.get("DEEP_AGENT_USAGE_CALLBACK_BASE_URL", "").strip().rstrip("/")
+    key = os.environ.get("DEEP_AGENT_SERVICE_INTERNAL_KEY", "").strip()
+    try:
+        parsed = urlsplit(base)
+        if parsed.scheme not in ("http", "https") or not parsed.hostname or parsed.username or parsed.password or parsed.query or parsed.fragment or not key:
+            raise ValueError()
+    except Exception:
+        raise RuntimeUsageError("usage_idle_replay_receiver_unconfigured") from None
+    return {"base_url": base, "key": key}, Journal(os.environ.get("DEEP_AGENT_USAGE_SPOOL_DIR", ""))
+
+
+async def replay_pending_batch(owner, journal):
+    """At most 20 metadata callbacks; never constructs/calls a model transport."""
+    delivered = 0
+    for request_id, run_id, payload in await asyncio.to_thread(journal.pending, owner):
+        try:
+            await asyncio.to_thread(journal.defer, request_id)
+            body = json.loads(payload)
+            await apost(owner, run_id, "terminal", body)
+            await asyncio.to_thread(journal.acknowledge, request_id)
+            delivered += 1
+        except Exception:
+            # Keep the original identity and receipt for a future bounded batch.
+            # No raw exception, key, endpoint or receipt body reaches logs.
+            _logger.warning("usage_idle_receipt_delivery_unconfirmed")
+            continue
+    return delivered
+
+
+async def replay_pending_receipts(owner, journal):
+    """Service-owned idle repair. Cancellation ends the worker without dropping pending rows."""
+    while True:
+        try:
+            await replay_pending_batch(owner, journal)
+        except Exception:
+            _logger.warning("usage_idle_receipt_spool_unavailable")
+        await asyncio.sleep(60)

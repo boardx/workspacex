@@ -645,6 +645,7 @@ export class ConfiguredModelProvider implements ModelCallPort {
         "MODEL_CALL_FAILED",
         `model provider responded with HTTP ${response.status}`,
         failedUsage,
+        response.status === 429 ? "rate-limited" : response.status === 503 ? "temporarily-unavailable" : undefined,
       );
     }
 
@@ -707,6 +708,7 @@ export class ConfiguredModelProvider implements ModelCallPort {
         "MODEL_CALL_FAILED",
         `model provider responded with HTTP ${response.status}`,
         failedUsage,
+        response.status === 429 ? "rate-limited" : response.status === 503 ? "temporarily-unavailable" : undefined,
       );
     }
     if (response.body === null) {

@@ -78,3 +78,5 @@ export async function preparePricedModelCall(subject:AiPricedCallSubject,deps:{
    await deps.admission.settle(subject.orgId,event.requestId,{tokens:total===null?null:BigInt(total),costMicros:cost});
   }};
 }
+
+export type AiPricedCallDependencies=Parameters<typeof preparePricedModelCall>[1];

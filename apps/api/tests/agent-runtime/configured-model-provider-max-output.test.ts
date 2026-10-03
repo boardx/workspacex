@@ -25,6 +25,7 @@ let server: Server;
 let base = "";
 let lastBody: Record<string, unknown> | null = null;
 let finishReason = "stop";
+let responseStatus = 200;
 
 beforeAll(async () => {
   server = createServer((req: IncomingMessage, res: ServerResponse) => {
@@ -32,14 +33,14 @@ beforeAll(async () => {
     req.on("data", (c: Buffer) => chunks.push(c));
     req.on("end", () => {
       lastBody = JSON.parse(Buffer.concat(chunks).toString("utf8"));
-      res.writeHead(200, { "content-type": "application/json" });
+      res.writeHead(responseStatus, { "content-type": "application/json" });
       res.end(JSON.stringify({ choices: [{ message: { content: "hi" }, finish_reason: finishReason }] }));
     });
   });
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
   base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
 });
-afterEach(() => { lastBody = null; finishReason = "stop"; });
+afterEach(() => { lastBody = null; finishReason = "stop"; responseStatus = 200; });
 afterAll(async () => { await new Promise<void>((resolve) => server.close(() => resolve())); });
 
 const provider = (maxOutputTokens?: number) =>
@@ -146,5 +147,13 @@ describe("priced terminal receipt snapshot",()=>{
   await bound.onProviderRequest!({phase:"terminal",requestId:"receipt",startedAt,endedAt:"2026-10-04T00:00:01Z",outcome:"failed",usage:{total:5,prompt:2,completion:3,cacheInput:1,reasoningOutput:2}});
   expect(record.mock.calls[0]).toEqual([orgId,expect.objectContaining({eventId:"receipt",costMicros:8n,currency:"CNY",priceVersion:"old-v1",tokensTotal:5,callPurpose:"script-retry",outcome:"failed"})]);
   expect(settle).toHaveBeenCalledWith(orgId,"receipt",{tokens:5n,costMicros:8n});expect(order).toEqual(["ledger","settle"]);
+ });
+});
+
+describe("trusted HTTP fallback classification",()=>{
+ it("only explicit 429/503 are retry dispositions; auth and ordinary errors are not",async()=>{
+  for(const [status,retryDisposition] of [[429,"rate-limited"],[503,"temporarily-unavailable"],[401,undefined],[400,undefined],[500,undefined]] as const){
+   responseStatus=status;await expect(provider().complete({modelProvider:PROVIDER,modelId:"m",system:"s",user:"u"})).rejects.toMatchObject({code:"MODEL_CALL_FAILED",retryDisposition});
+  }
  });
 });
