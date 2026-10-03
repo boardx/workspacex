@@ -139,3 +139,13 @@ it.each([
   expect(display).toContain(`先保留有意义的回答。\n\n${notice}`);
   expect(display).toContain("医生的回答。");
 });
+
+it("preserves substantive expert-suffixed headings and indented metadata examples", () => {
+  const markdown = "## [角色](#expert-persona-x)\n\n### 关键发现（persona-x）\n\n    专家 ID：persona-x\n\n\t专家 ID：persona-x\n\n### 访谈回答：角色（persona-x）\n\n### 角色（persona-x）访谈记录";
+  const display = interviewTranscriptDisplay(markdown, true);
+  expect(display).toContain("### 关键发现（persona-x）");
+  expect(display).toContain("    专家 ID：persona-x");
+  expect(display).toContain("\t专家 ID：persona-x");
+  expect(display).not.toContain("### 访谈回答：角色（persona-x）");
+  expect(display).not.toContain("### 角色（persona-x）访谈记录");
+});
