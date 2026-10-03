@@ -8,7 +8,7 @@ export function GuidedResearchReportHistory({ state }: { state: GuidedResearchRu
   const streamed = researchReportPreview(previous.text);
   const sections = [...previous.chapters, ...streamed.sections.filter((section) => !previous.chapters.some((saved) => saved.sectionId === section.sectionId))];
   const content = previous.report ?? previous.draft ?? { ...streamed, title: streamed.title || previous.title, sections };
-  const document = researchReportDocument(content, previous.sources, previous.outline, { provisional: !previous.report, aliases: previous.aliases });
+  const document = researchReportDocument(content, previous.sources, previous.outline, { provisional: !previous.report, aliases: previous.aliases, brief: { topic: previous.title, goal: "", focus: "", timeRange: "", region: "" } });
   const current = researchReportPreview(state.reportStream?.text ?? "");
   const currentHasContent = Boolean(state.report || state.reportDraft || state.reportCheckpoint?.chapters.length || current.summary || current.introduction || current.conclusion || current.sections.some((section) => section.body));
   const expired = Boolean(state.leaseUntil && Date.parse(state.leaseUntil) <= Date.now());

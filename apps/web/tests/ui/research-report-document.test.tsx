@@ -24,6 +24,13 @@ describe("research chapter document", () => {
     const document = researchReportDocument(original, sources, runtime.outline, { brief });
     const framing = C.guidedResearchReportFraming(brief);
     expect(document).toMatchObject({ title: framing.title, summary: framing.summary, introduction: framing.introduction, conclusion: framing.conclusion });
+    const { container } = render(<GuidedResearchReportDocument document={document} provisional />);
+    expect(within(container).getByRole("heading", { name: framing.headings.summary })).toBeInTheDocument();
+    expect(within(container).getByRole("heading", { name: framing.headings.introduction })).toBeInTheDocument();
+    expect(within(container).getByRole("heading", { name: framing.headings.contents })).toBeInTheDocument();
+    const markdown = researchReportMarkdown(document);
+    expect(markdown).toContain(`## ${framing.headings.summary}`);
+    expect(markdown).toContain(`## ${framing.headings.conclusion}`);
     expect(document.sections[0]!.body).toContain("Preserved evidence");
     expect(document.references).toHaveLength(1);
     const gapReport = { ...original, sections: [{ sectionId: "o1", body: zh.gap + en.gap, sourceIds: [] }] };

@@ -4,7 +4,7 @@ import type { GuidedResearchRuntime } from "./guided-research-api";
 type Source = GuidedResearchRuntime["sources"][number];
 export type ReportContent = { title: string; summary: string; introduction?: string; conclusion?: string; sections: { sectionId: string; body: string; sourceIds?: string[] }[] };
 export type ReportReference = { number: number; title: string; url: string };
-export type ReportDocument = { title: string; summary: string; introduction?: string; conclusion?: string; sections: { sectionId: string; title: string; body: string }[]; references: ReportReference[]; unresolvedReferences?: number };
+export type ReportDocument = { title: string; summary: string; introduction?: string; conclusion?: string; headings?: ReturnType<typeof C.guidedResearchReportFraming>["headings"]; sections: { sectionId: string; title: string; body: string }[]; references: ReportReference[]; unresolvedReferences?: number };
 // Citation-like examples inside inline/fenced code remain literal Markdown.
 function outsideCode(text: string, transform: (part: string) => string): string {
   const code = /^ {0,3}(`{3,}|~{3,})[^\n]*\n[\s\S]*?(?:^ {0,3}\1[ \t]*$|(?![\s\S]))|(`+)[^\n]*?\2/gm;
@@ -75,19 +75,21 @@ export function researchReportDocument(report: ReportContent, sources: Source[],
   const introduction = report.introduction ? content(report.introduction) : undefined;
   const sections = report.sections.map((section) => ({ sectionId: section.sectionId, title: outline.find((item) => item.id === section.sectionId)?.title ?? "研究章节", body: content(section.body, section.sourceIds) }));
   const conclusion = report.conclusion ? content(report.conclusion) : undefined;
-  return { title: report.title, summary, ...(introduction ? { introduction } : {}), ...(conclusion ? { conclusion } : {}), sections, references, ...(unresolvedReferences ? { unresolvedReferences } : {}) };
+  const headings = C.guidedResearchReportFraming(options.brief ?? { topic: report.title, goal: report.summary, focus: report.introduction ?? "" }).headings;
+  return { title: report.title, summary, headings, ...(introduction ? { introduction } : {}), ...(conclusion ? { conclusion } : {}), sections, references, ...(unresolvedReferences ? { unresolvedReferences } : {}) };
 }
 
 function escapeMarkdown(text: string): string { return text.replace(/[\\`*_[\]<>]/g, "\\$&").replace(/[\r\n]+/g, " "); }
 export function researchReportMarkdown(document: ReportDocument, _partial = false, _excludedEvidenceBatches = 0): string {
   const footnotes = (text: string) => outsideCode(text, (part) => part.replace(/\[(\d+)\]\(#research-reference-\1\)/g, (_match, number: string) => `[^${number}]`));
   const blocks = [`# ${escapeMarkdown(document.title)}`];
-  if (document.summary) blocks.push("## 执行摘要", footnotes(document.summary));
-  if (document.introduction) blocks.push("## 研究范围与方法", footnotes(document.introduction));
+  const headings = document.headings ?? C.guidedResearchReportFraming({ topic: document.title, goal: document.summary, focus: document.introduction ?? "" }).headings;
+  if (document.summary) blocks.push(`## ${headings.summary}`, footnotes(document.summary));
+  if (document.introduction) blocks.push(`## ${headings.introduction}`, footnotes(document.introduction));
   document.sections.forEach((section, index) => blocks.push(`## ${index + 1}. ${escapeMarkdown(section.title)}`, footnotes(section.body)));
-  if (document.conclusion) blocks.push("## 综合结论", footnotes(document.conclusion));
+  if (document.conclusion) blocks.push(`## ${headings.conclusion}`, footnotes(document.conclusion));
   if (document.references.length) {
-    blocks.push("## 参考来源");
+    blocks.push(`## ${headings.references}`);
     for (const reference of document.references) blocks.push(`[^${reference.number}]: [${escapeMarkdown(reference.title)}](<${reference.url.replace(/[<>]/g, encodeURIComponent)}>)`);
   }
   return `${blocks.join("\n\n")}\n`;

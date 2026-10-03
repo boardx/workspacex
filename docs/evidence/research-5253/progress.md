@@ -14,3 +14,5 @@ User directly requested topic-specific report naming and removal of duplicated b
 - No merge or deployment authorized/performed. Remote CI pending until PR creation.
 
 Independent review found bilingual question prefixes and truncation labels. Localized those and citation-removal placeholders; added valid 8-subsection/32-question long-plan Chinese/English cases, including body truncation and fail-closed status. Legacy reader also handles exact old question/gap labels.
+
+Report headings (summary, scope/methodology, conclusion, references and contents) now follow the same language in both reading view and Markdown/native document exports. Historical legacy drafts use their stored topic rather than the current edited brief. UI document/draft/reading/history: 20/20 passed. init.sh standard quick path passed; working tree clean after generated checks. No unrelated resource stacks were stopped.
