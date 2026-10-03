@@ -55,7 +55,9 @@ describe("Markdown task execution", () => {
     const index = buildReportEvidenceIndex(document);
     expect(index.find(item=>item.quote.includes("厨房孔位"))?.expertId).toBe("teacher");
     expect(index.find(item=>item.quote.includes("预算不足"))?.expertId).toBe("principal");
-    expect(new Set(index.map(item=>item.taskKey)).size).toBe(2);
+    expect(new Set(index.filter(item=>item.taskKey !== null).map(item=>item.taskKey))).toEqual(new Set([`${REV}/teacher`, `${REV}/principal`]));
+    expect(index.filter(item=>item.taskKey === null).length).toBeGreaterThan(0);
+    expect(index.filter(item=>item.taskKey === null).every(item=>item.expertId === null)).toBe(true);
     expect(document.evidenceMode).toBe("simulated");
   });
   it("previews an authorized virtual persona as unsaved Markdown and rejects stale versions", async () => {
