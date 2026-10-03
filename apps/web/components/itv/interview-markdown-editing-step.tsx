@@ -165,10 +165,10 @@ export function InterviewMarkdownEditingStep({ interviewId, step, onVersionChang
         setMarkdown(nextMarkdown); dirty.current = false; callbacks.current.onDirtyChange(false);
       } catch (cause) {
         if (cause instanceof ApiError && cause.status === 409) {
-          // Keep the dialog fields, but rebase its next explicit save on the
-          // current canonical selection and CAS versions, not the stale draft.
+          // Refresh CAS versions without discarding unsaved expert selections.
+          // The dialog remains open for an explicit retry.
           const latest = receive(await loadInterviewMarkdown(interviewId));
-          setMarkdown(latest.documents.find((item) => item.step === "experts")?.markdown ?? "");
+          if (!dirty.current) setMarkdown(latest.documents.find((item) => item.step === "experts")?.markdown ?? "");
         }
         throw cause;
       } finally { setPending(false); }

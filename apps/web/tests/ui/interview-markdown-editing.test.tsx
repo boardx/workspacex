@@ -595,3 +595,32 @@ it.each(["initialize first", "generate first"])("delivers questions across the r
   const { getInterviewGenerationSession } = await import("@/lib/interview-generation-session");
   expect(getInterviewGenerationSession(id)).toBeNull();
 });
+
+it("preserves dirty expert selection when virtual persistence conflicts with a newer source", async () => {
+  vi.stubEnv("NEXT_PUBLIC_API_URL", "http://localhost:4100"); vi.stubEnv("NEXT_PUBLIC_API_PATH_PREFIX", "");
+  let version = 1; let doc = { ...source }; const writes: string[] = [];
+  const dirty = vi.fn();
+  vi.stubGlobal("fetch", async (url: string, init: RequestInit) => {
+    if (url.endsWith("/digital/experts")) return new Response(JSON.stringify({ items: [] }));
+    if (init.method === "POST" && url.endsWith("/markdown/experts")) {
+      writes.push(JSON.parse(String(init.body)).markdown);
+      version = 3; doc = { ...source, version: 2, markdown: "# 专家\n\n## [远端专家](#expert-remote)\n\n并发保存的模拟画像。" };
+      return new Response(JSON.stringify({ message: "conflict" }), { status: 409 });
+    }
+    return new Response(JSON.stringify({ interviewId: "itv-dirty-conflict", revisionId: "rev-dirty-conflict", version,
+      documents: [doc], states: [{ documentId: doc.documentId, status: "draft", failure: null }] }));
+  });
+  render(<InterviewMarkdownEditingStep interviewId="itv-dirty-conflict" step="experts" onVersionChange={vi.fn()} onDirtyChange={dirty} onContinue={vi.fn()} />);
+  await waitFor(() => expect(screen.getByRole("button", { name: "添加画像 张浩宇" })).toBeEnabled());
+  fireEvent.click(screen.getByRole("button", { name: "添加画像 张浩宇" }));
+  expect(screen.getByRole("button", { name: "移除专家 张浩宇" })).toBeVisible();
+  expect(dirty).toHaveBeenLastCalledWith(true);
+  fireEvent.click(screen.getByRole("button", { name: "添加虚拟专家" })); fillVirtualExpert();
+  fireEvent.click(screen.getByRole("button", { name: "保存并添加专家" }));
+  await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("保存未完成"));
+  expect(writes).toHaveLength(1);
+  expect(writes[0]).toContain("#expert-persona-68ecb1289191bb24396f9bd4");
+  expect(screen.getByRole("textbox", { name: "专家名称" })).toHaveValue(editableVirtualFields.name);
+  expect(screen.getByRole("button", { name: "移除专家 张浩宇", hidden: true })).toBeInTheDocument();
+  expect(dirty).toHaveBeenLastCalledWith(true);
+});
