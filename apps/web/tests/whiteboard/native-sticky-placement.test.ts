@@ -1,5 +1,9 @@
 // @vitest-environment jsdom
-import {describe,it,expect} from 'vitest';
+import {describe,it,expect,vi} from 'vitest';
+import {createElement,useState} from 'react';
+import {render,fireEvent,cleanup} from '@testing-library/react';
+import {createWhiteboardDocument,executeCommands,readObjects} from '@repo/whiteboard-core';
+import {BoardSelectedObjectPanel} from '../../components/whiteboard/board-selected-object-panel';
 import diagnosticPolicy from '../../scripts/board-ci-diagnostic-policy.json';
 import {nativeBlankCandidates,nativeBlankHitPoint} from '../../e2e/support/board-native-sticky-create';
 
@@ -85,4 +89,43 @@ describe('bounded native hit attribution',()=>{
     const foreign=document.createElement('canvas');foreign.dataset.testid='board-tool-picker';
     const result=observe(foreign,host);expect(result.hits[0]).toMatchObject({control:'board-tool-picker',isCanvas:true});expect(result.unobstructedCenters).toBe(0);
   });
+});
+
+
+it('dismisses the actual selected-object inspector without a canonical write before the disarmed blank click',()=>{
+ const doc=createWhiteboardDocument();executeCommands(doc,[{type:'create',object:{id:'created-note',schemaVersion:1,kind:'sticky',geometry:{x:100,y:100,width:180,height:140,rotation:0},text:'created text',style:{},parentId:null,orderKey:'0'}}],'seed');
+ const before=readObjects(doc),writes=vi.fn();doc.on('update',writes);
+ const geometry={canvas:{x:0,y:0,width:320,height:720},zoom:0.23272727272727273,paperMargin:80,requestedPaperMargin:120,chrome:[]};
+ // A controlled DOM hit fixture tests the exact hit gate, not browser layout.
+ const candidates=nativeBlankCandidates({canvas:geometry.canvas,viewport:{width:320,height:720},occupied:[],chrome:[{x:0,y:0,width:320,height:64},{x:49,y:80,width:255,height:90},{x:64,y:446,width:192,height:194}],paperMargin:80});
+ expect(candidates.length).toBeGreaterThan(0);
+ function Fixture(){
+  const [editing,setEditing]=useState(true),[selected,setSelected]=useState(true);
+  return createElement('div',null,createElement('div',{'data-testid':'hit-host'},createElement('canvas',{className:'upper-canvas'})),
+   editing?createElement('textarea',{'aria-label':'对象文字',onKeyDown:(event:{key:string})=>{if(event.key==='Escape')setEditing(false);}}):null,
+   !editing&&selected?createElement(BoardSelectedObjectPanel,{title:'created text',typeLabel:'便利贴',object:before[0]!,readOnly:false,onClose:()=>setSelected(false),onGeometryChange:()=>{throw new Error('NO_GEOMETRY_WRITE_EXPECTED');},children:null}):null);
+ }
+ const descriptor=Object.getOwnPropertyDescriptor(document,'elementFromPoint');
+ const view=render(createElement(Fixture));
+ try{
+  fireEvent.keyDown(view.getByLabelText('对象文字'),{key:'Escape'});
+  expect(view.queryByLabelText('对象文字')).toBeNull();expect(view.getByTestId('board-context-toolbar')).toBeVisible();
+  const host=view.getByTestId('hit-host'),canvas=host.querySelector('canvas.upper-canvas')!;
+  Object.defineProperty(document,'elementFromPoint',{configurable:true,value:()=>view.queryByTestId('board-context-toolbar')?.querySelector('button')??canvas});
+  expect(()=>nativeBlankHitPoint(host,{points:candidates,geometry,hitPolicy:diagnosticPolicy})).toThrow('NO_NATIVE_BLANK_POSITION');
+  const cancel=view.getByRole('button',{name:'取消选择',exact:true});cancel.focus();expect(cancel).toHaveFocus();fireEvent.click(cancel);
+  expect(view.queryByTestId('board-context-toolbar')).toBeNull();
+  expect(nativeBlankHitPoint(host,{points:candidates,geometry,hitPolicy:diagnosticPolicy})).toEqual(candidates[0]);
+  expect(readObjects(doc)).toEqual(before);expect(writes).not.toHaveBeenCalled();expect(geometry.paperMargin).toBe(80);
+ }finally{if(descriptor)Object.defineProperty(document,'elementFromPoint',descriptor);else delete (document as unknown as Record<string,unknown>).elementFromPoint;cleanup();doc.destroy();}
+});
+it('keeps disarm proof before native cancel and all second-click document proofs',async()=>{
+ const {readFile}=await import('node:fs/promises');
+ const source=await readFile('e2e/support/board-native-sticky-create.ts','utf8');
+ const snapshot=source.indexOf('const snapshot=await canonicalBoardSnapshot');
+ const select=source.indexOf("getByTestId('board-tool-select')",snapshot),disarmed=source.indexOf("getByTestId(`board-add-${kind}`)",select);
+ const cancel=source.indexOf("cancelSelection.press('Enter')",disarmed),blank=source.indexOf('const nextPoint=await blankPoint',cancel);
+ expect(snapshot).toBeGreaterThan(0);expect(disarmed).toBeGreaterThan(select);expect(cancel).toBeGreaterThan(disarmed);expect(blank).toBeGreaterThan(cancel);
+ const between=source.slice(cancel,blank);for(const proof of ['canonicalRows(page)','canonicalBoardSnapshot(proof.api','boardHead(proof.api','proof.updates()'])expect(between).toContain(proof);
+ const after=source.slice(blank);for(const proof of ['canonicalRows(page)','canonicalBoardSnapshot(proof.api','boardHead(proof.api','proof.updates()'])expect(after).toContain(proof);
 });

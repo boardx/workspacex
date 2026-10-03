@@ -143,6 +143,19 @@ async function createNativeTextObject(page:Page,text:string,proof:NativeCreation
   expect((await canonicalRows(page)).filter(row=>row.id!==note.id)).toEqual(before);
   await expectBoardSynced(page,30_000);
   const snapshot=await canonicalBoardSnapshot(proof.api,proof.token,proof.boardId),head=await boardHead(proof.api,proof.token,proof.boardId),updates=proof.updates();
+  // Prove disarming before dismissing selection chrome. Native edit Escape
+  // keeps the created object selected; its inspector can cover every blank
+  // candidate at 400% text scaling, despite creation already being disarmed.
+  await expect(page.getByTestId('board-tool-select')).toHaveAttribute('aria-pressed','true');
+  await expect(page.getByTestId(`board-add-${kind}`)).toHaveAttribute('aria-pressed','false');
+  if(await selected.count()){
+    const cancelSelection=page.getByRole('button',{name:'取消选择',exact:true});
+    await cancelSelection.focus();await expect(cancelSelection).toBeFocused();await cancelSelection.press('Enter');
+    await expect(selected).toHaveCount(0);
+    expect(await canonicalRows(page)).toEqual([...before,note].sort((a,b)=>a.id.localeCompare(b.id)));
+    expect(await canonicalBoardSnapshot(proof.api,proof.token,proof.boardId)).toEqual(snapshot);
+    expect(await boardHead(proof.api,proof.token,proof.boardId)).toEqual(head);expect(proof.updates()).toBe(updates);
+  }
   // A second real click cannot repeat the disarmed creation.
   const nextPoint=await blankPoint(before.length+1);
   await page.mouse.click(nextPoint.x,nextPoint.y);
