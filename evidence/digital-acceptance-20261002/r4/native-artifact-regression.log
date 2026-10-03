@@ -1,0 +1,12 @@
+...........s...............                                              [100%]
+=============================== warnings summary ===============================
+../../../wsx-r3-pyenv/lib/python3.12/site-packages/trustcall/_base.py:46
+  /private/tmp/wsx-r3-pyenv/lib/python3.12/site-packages/trustcall/_base.py:46: LangGraphDeprecatedSinceV10: Importing Send from langgraph.constants is deprecated. Please use 'from langgraph.types import Send' instead. Deprecated in LangGraph V1.0 to be removed in V2.0.
+    from langgraph.constants import Send
+
+src/deep_agent_service/standard_sql.py:12
+  /private/tmp/wsx-digital-design-20261003/apps/deep-agent-service/src/deep_agent_service/standard_sql.py:12: DeprecationWarning: `langchain-community` is being sunset and is no longer actively maintained. See https://github.com/langchain-ai/langchain-community/issues/674 for details and migration guidance toward standalone integration packages.
+    from langchain_community.agent_toolkits.sql.toolkit import SQLDatabaseToolkit
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+26 passed, 1 skipped, 2 warnings in 3.43s
