@@ -128,3 +128,13 @@ it("preserves substantive statements and fenced examples in the display projecti
   expect(display).toContain("回答：身份声明：");
   expect(interviewTranscriptDisplay("# 模拟访谈记录\n\n以下回答来自模型模拟，需真人验证。", false)).toBe("# 模拟访谈记录\n\n以下回答来自模型模拟，需真人验证。");
 });
+
+it("preserves substantive expert-suffixed headings and indented metadata examples", () => {
+  const markdown = "## [角色](#expert-persona-x)\n\n### 关键发现（persona-x）\n\n    专家 ID：persona-x\n\n\t专家 ID：persona-x\n\n### 访谈回答：角色（persona-x）\n\n### 角色（persona-x）访谈记录";
+  const display = interviewTranscriptDisplay(markdown, true);
+  expect(display).toContain("### 关键发现（persona-x）");
+  expect(display).toContain("    专家 ID：persona-x");
+  expect(display).toContain("\t专家 ID：persona-x");
+  expect(display).not.toContain("### 访谈回答：角色（persona-x）");
+  expect(display).not.toContain("### 角色（persona-x）访谈记录");
+});
