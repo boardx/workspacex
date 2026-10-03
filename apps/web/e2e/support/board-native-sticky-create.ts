@@ -45,6 +45,13 @@ export async function createNativeSticky(page:Page,text:string,proof:{api:APIReq
     await selected.first().focus(); // Native focus exposes the sr-only outline.
     await selected.first().click();
     await expect(selected).toHaveCount(1);
+    // Editable outline objects open their editor; the compact inspector is hidden until it closes.
+    const activeEditor=page.getByLabel('对象文字',{exact:true});
+    if(await activeEditor.count()){
+      await expect(activeEditor).toBeFocused();
+      await activeEditor.press('Escape');
+      await expect(activeEditor).toHaveCount(0);
+    }
     await page.getByRole('button',{name:'取消选择',exact:true}).click();
     await expect(selected).toHaveCount(0);
     expect(await canonicalRows(page)).toEqual(before);
