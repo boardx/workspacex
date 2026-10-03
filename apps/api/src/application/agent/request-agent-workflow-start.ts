@@ -38,6 +38,11 @@ export const WORKFLOW_NOT_ALLOWED_CHAT_COPY = "该角色不能发起此流程";
 /** WF03 start 的调用面——生产实现就是 `WorkflowRuntimeService`（同一个 DI 单例）。 */
 export interface AgentWorkflowStartPort {
   start(orgId: string, userId: string, pathKey: string, body: unknown): Promise<StartInstanceResponse>;
+  /** Existing WF03 authorized catalog read, for model capability descriptions only. */
+  listRunnable?(orgId: string, userId: string, agentId: string): Promise<{ items: {
+    key: string; version: number; title: string; inputSchema: Record<string, unknown>;
+  }[] }>;
+
 }
 
 /** 该 run 钉住的 Agent 版本快照（只取 AG05 需要的字段）+ 请求人。 */

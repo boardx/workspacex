@@ -484,3 +484,27 @@ it.each(["你是谁？", "请分析附件中的战略计划"])("recalled first-p
   expect(store.failedWith).toBeNull();
   // Captured execution input is protocol evidence, not real-model role obedience.
 });
+
+
+it.each(["catalog", "unavailable"])("frozen workflow authority reaches the executor model without importing unauthorized catalog items: %s", async (mode) => {
+  const run = baseRun({ skillVersionIds: [], instructions: "你是研究与知识分析师（D002）" });
+  const store = fakeStore(run, []);
+  store.readRunWorkflowContext = async () => ({ agentId: run.agentId, agentVersionId: run.agentVersionId, requesterUserId: run.requesterUserId, workflowAllowlist: ["W001"] });
+  let received: ModelCallInput | undefined;
+  const model: ModelCallPort = { complete: async (input) => { received = input; return { text: "capture only", inputTokens: 1, outputTokens: 1 }; } };
+  const listRunnable = vi.fn(async () => {
+    if (mode === "unavailable") throw new Error("catalog unavailable");
+    return { items: [
+      { key: "W001", title: "研究到简报", version: 1, inputSchema: { type: "object" } },
+      { key: "W029", title: "OTHER_ROLE_WORKFLOW", version: 1, inputSchema: {} },
+    ] };
+  });
+  const start = vi.fn();
+  await executeQueuedRuns({ ...deps(store, model), workflowStarts: { start, listRunnable } }, { orgId: ORG });
+  expect(received?.system).toContain('"allowedIds":["W001"]');
+  expect(received?.system).not.toContain("OTHER_ROLE_WORKFLOW");
+  expect(received?.system).toContain(`"availability":"${mode === "catalog" ? "checked" : "unknown"}"`);
+  if (mode === "catalog") expect(received?.system).toContain('"key":"W001","title":"研究到简报","version":1');
+  expect(listRunnable).toHaveBeenCalledWith(ORG, run.requesterUserId, run.agentId);
+  expect(start).not.toHaveBeenCalled();
+});

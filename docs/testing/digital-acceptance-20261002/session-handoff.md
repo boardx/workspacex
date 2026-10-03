@@ -15,3 +15,5 @@ cn.local.env保留在共享主目录，只在进程内读，不复制入库。�
 ## Latest resource and CI state
 
 The temporary local voice stack was stopped; ports 14310/14320/14325/14328 are released. PR #5128 is draft to respect the user's no-auto-merge instruction. Its initial core-loop red exposed missing startup catalog initialization in the test composition; shared startup repair is under revalidation. R2 online D002 background/Skills failures are saved but not yet repaired or scored.
+
+2026-10-03: R1 merged (PR #5128, Main e4ce1c30cf6f0e4bdf5f15b514cb830d8924f6e3), all 24 non-skipped checks green; independent exact-SHA review accepted. User now authorizes fixing and merging green PRs; no deployments. R2 issue #5185, branch codex/digital-acceptance-r2, official binding-refresh and frozen workflow-context repair in progress. See r2/report.md for actual failed professional output and successful user-assisted artifact recovery. Do not promote fixture Skill verification to DevApp or claim local PostgreSQL/physical voice acceptance.

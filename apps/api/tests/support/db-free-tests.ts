@@ -38,6 +38,7 @@ export const DB_FREE_TEST_PREFIXES = [
   "tests/agent/agent-directory-repo-guard.test.ts",
   "tests/agent/list-agent-directory.test.ts",
   "tests/agent/official-role-authorship.test.ts",
+  "tests/agent/official-role-binding-refresh.test.ts",
   "tests/agent/official-role-skill-resolver-guard.test.ts",
   "tests/agent/role-draft-repo-guard.test.ts",
   "tests/agent/role-fields-tolerant-read.test.ts",

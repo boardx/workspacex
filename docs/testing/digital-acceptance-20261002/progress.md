@@ -6,10 +6,16 @@ R2研究：DevApp D002自称通用协作者、声称无Skills，背景硬门失�
 
 R3产品、R4设计、R5集成（含D005内部能力）：未开始。
 
-不部署、不自动合并。所有角色暂不评分为9分；无平均分补过。
+不部署；用户后续已授权修复 PR 并在全绿后合并 Main。所有角色暂不评分为9分；无平均分补过。
 
 ## R1 CI regression follow-up
 
 Rebased onto origin/main `7cc6d6a07`, incorporating the existing whiteboard keyboard-insert test repair. The first CI core-loop failure reached succeeded/exactly-once/refresh persistence, then lacked the script fence. The test-only API composition had skipped process-start platform Skill self-heal. It now calls shared `startApi` with only isolated endpoint/listen settings injected, retaining catalog initialization and retention/run recovery. API typecheck and voice unit tests (45/45) pass after the fix; full CI revalidation remains required. No assertion was removed.
 
 Online D002 baseline failed background and Skill availability: selector D002, response general-purpose knowledge collaborator, Skill picker available 0. Evidence in r2 remains baseline, not acceptance.
+
+## 2026-10-03 R1 merge / R2 follow-up
+
+User explicitly authorized repairing PR problems and merging to Main, superseding the earlier no-auto-merge request. R1 PR #5128 passed all 24 non-skipped checks and independent exact-SHA review, then merged to Main as `e4ce1c30cf6f0e4bdf5f15b514cb830d8924f6e3`; issue #5124 closed. No deployment action was performed.
+
+R2 issue #5185: only D002 upgraded through existing DevApp admin UI from 1.5.0 to 1.6.0. Correct identity restored, but Skills remain pending and real professional execution selected unauthorized W029. Added guarded same-pack additive verified-Skill refresh and frozen authorized workflow catalog context. API unit/context regression 30/30; real PostgreSQL tests await CI. Actual model brief had fabricated initial quotes, corrected second prose, wrong date/workflow number and missing governed provenance. User-assisted artifact draft open/save/full refresh/reopen passed. R2 report and screenshots remain failed/incomplete acceptance evidence, not 9/10 delivery.
