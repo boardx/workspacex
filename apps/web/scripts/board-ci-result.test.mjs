@@ -29,3 +29,19 @@ test('reporter persists only named evidence bodies, including AI API evidence, w
  const directory=mkdtempSync(join(tmpdir(),'board-reporter-')),old=process.env.PLAYWRIGHT_JSON_OUTPUT_FILE;
  try{process.env.PLAYWRIGHT_JSON_OUTPUT_FILE=join(directory,'result.json');const reporter=new Reporter(),bytes=Buffer.from('{"scenario":"durable-images"}'),ai=Buffer.from('{"kind":"board-ai-api"}');reporter.onTestEnd({id:'id',expectedStatus:'passed'},{status:'passed',retry:0,attachments:[{name:'storage-runtime.json',contentType:'application/json',body:bytes},{name:'ai-api-evidence',contentType:'application/json',body:ai},{name:'stdout',contentType:'text/plain',body:Buffer.from('SECRET')}]});reporter.onEnd({status:'passed'});const report=JSON.parse(readFileSync(process.env.PLAYWRIGHT_JSON_OUTPUT_FILE)),attachments=report.suites[0].specs[0].tests[0].results[0].attachments;assert.deepEqual(attachments.map(row=>row.name),['storage-runtime.json','ai-api-evidence']);assert.deepEqual(readFileSync(attachments[0].path),bytes);assert.deepEqual(readFileSync(attachments[1].path),ai);for(const attachment of attachments){assert.match(attachment.sha256,/^[a-f0-9]{64}$/);assert.equal(attachment.bytes,readFileSync(attachment.path).length);}}finally{if(old===undefined)delete process.env.PLAYWRIGHT_JSON_OUTPUT_FILE;else process.env.PLAYWRIGHT_JSON_OUTPUT_FILE=old;rmSync(directory,{recursive:true,force:true});}
 });
+
+test('navigation geometry attachments survive a failed test and strip private keys',()=>{
+ const directory=mkdtempSync(join(tmpdir(),'board-navigation-reporter-')),old=process.env.PLAYWRIGHT_JSON_OUTPUT_FILE;
+ try{
+  process.env.PLAYWRIGHT_JSON_OUTPUT_FILE=join(directory,'result.json');
+  const reporter=new Reporter(),geometry={navigation:{x:1430,y:860,width:221,height:50,token:'SECRET'},offsetParent:{x:0,y:0,width:1667,height:941,clientWidth:1667},documentClientWidth:1667,innerWidth:1672,rootFontSize:16,positioningRight:16,url:'SECRET'};
+  reporter.onTestEnd({id:'id',expectedStatus:'passed'},{status:'failed',retry:0,attachments:[{name:'navigation-layout-1672x941',contentType:'application/json',body:Buffer.from(JSON.stringify(geometry))},{name:'navigation-layout-SECRET',contentType:'application/json',body:Buffer.from('{}')}]});
+  reporter.onEnd({status:'failed'});
+  const report=JSON.parse(readFileSync(process.env.PLAYWRIGHT_JSON_OUTPUT_FILE)),attachments=report.suites[0].specs[0].tests[0].results[0].attachments;
+  assert.equal(attachments.length,1);const saved=readFileSync(attachments[0].path,'utf8');assert.ok(!saved.includes('SECRET'));assert.equal(JSON.parse(saved).navigation.x,1430);assert.throws(()=>assertBoardCiResults(report,1));
+ }finally{if(old===undefined)delete process.env.PLAYWRIGHT_JSON_OUTPUT_FILE;else process.env.PLAYWRIGHT_JSON_OUTPUT_FILE=old;rmSync(directory,{recursive:true,force:true});}
+});
+test('navigation geometry rejects nonnumeric and missing measurements',async()=>{
+ const {navigationGeometry}=await import('./board-ci-reporter.mjs');
+ assert.throws(()=>navigationGeometry({navigation:{x:'SECRET'}}));assert.throws(()=>navigationGeometry({}));
+});
