@@ -137,3 +137,11 @@
 | `.harness/scripts/vm/cn-release-orphans.py` | `/usr/local/lib/workspacex-cn/cn-release-orphans.py` | `13b0b12e66e0f4f0633dab717d77216c4a297e04383c808026243c2ccc9063c9` |
 | `.harness/scripts/vm/cn-bootstrap-source-probe.mjs` | `/usr/local/lib/workspacex-cn/cn-bootstrap-source-probe.mjs` | `5942445bb668b9be84919b3fef714a2b52b25db034582c97155eaccd8c8e6d2e` |
 | `.harness/scripts/vm/cn-build-tool-identity.py` | `/usr/local/lib/workspacex-cn/cn-build-tool-identity.py` | `d9ad19610f11e3eaeadbc02ed10bfb8ea61e84fe55baa879f5ad94b195d5a8c8` |
+
+## 新增实际只读 owner 核验（不授予可用性）
+
+2026-10-03T21:02:18Z invocation `t-sh06yykvo9rohz4` Success/exit0/Dropped0：[元数据回执](cn-backup-password-state-owner-evidence.json)。migration_admin OID16408 无 pg_authid 的 rolname/rolpassword SELECT；当前 workspacex 没有 body 引用 pg_authid 的 SECURITY DEFINER 函数。可读身份为 provider 管理角色 alicloud_rds_admin/replicator/aurora，以及 nologin pg_read_all_data；migration_admin 对它们均不能 SET ROLE。没有尝试登录这些身份或读取密码值；账号存在及 privilege 布尔值不能证明有获准可用的安装主体。不申请 pg_read_all_data membership，因其会扩大到全库读取且可能暴露认证 verifier。窄函数的 provider 管理安装路径仍是具体访问依赖，不能在源码内假装已存在。
+
+## 最新独审与方案选择纠正
+
+[#5247独审](https://github.com/boardx/workspacex/pull/5247#issuecomment-5973208084)的watchdog capture-before-containment反例未关闭，本地没有修复；前文整体已独审结论被本节明确撤回。用户问更好方案及成本仅授权只读调查，不批准证书/PUBLIC/安装/导出。本次优先[原生快照/PITR比较](cn-native-backup-path-comparison.md)，定制扩张停止。

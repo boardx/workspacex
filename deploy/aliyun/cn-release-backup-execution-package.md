@@ -32,3 +32,7 @@ This online backup produces three independent database snapshots. Its receipt ke
 ## Consolidated delta decision
 
 The Chinese [bounded delta decision package](cn-release-9b25-delta-decision.md) separates decidable certificate/PUBLIC policy from unresolved password-state proof, bound-profile installation and isolated-target inputs. It lists all 52 source-derived installation targets and recovery boundaries. It does not authorize execution or migration.
+
+## Superseding safety review and preferred-path investigation
+
+Review https://github.com/boardx/workspacex/pull/5247#issuecomment-5973208084 remains OPEN: watchdog cleanup calls complete three-database capture before NOLOGIN/owned-container cleanup; a capture error can skip those containment actions. No local fix exists. Earlier aggregate source-review-ready claims are superseded; backupSourceReviewReady=false. No backup lease or production execution occurred. New [native-backup/PITR actual-state and cost comparison](cn-native-backup-path-comparison.md) recommends investigating the existing provider backup restore rather than expanding bespoke helpers. The minimal password probe draft was preserved separately in /tmp/wsx-password-probe-unintegrated.patch; it is not installed, committed or used by production.

@@ -4,7 +4,7 @@
   "baseCommit": "64cc2b85053823a4c7461eb404b9f3a99c749a33",
   "applicationRevision": "9b25bfa65662b96c0826fe67506b562ea46aa6d0",
   "baselineRevision": "ba6343199f3c834d6a198f83d0c771614292c82b",
-  "sourceInventorySha256": "d6f1f9792b5aceb5c45947537e7b1f32ef82ddcb101fdfc291d5b777db6e1b4c",
+  "sourceInventorySha256": "41accd97709b8087bc631e2c395c535ea39dbc55398cdf2c080b3ea288970154",
   "sourceRows": [
     {
       "path": ".harness/scripts/build-cn-maintenance-controller.cjs",
@@ -612,6 +612,11 @@
       "bytes": 915
     },
     {
+      "path": "deploy/aliyun/cn-backup-password-state-owner-evidence.json",
+      "sha256": "019ab870a75b942bf9da1c2002c4e5e67034bbd10c513109396a73c5f260fd74",
+      "bytes": 1669
+    },
+    {
       "path": "deploy/aliyun/cn-maintenance-acceptance-decision.md",
       "sha256": "b88357d9c38a3a2d1fb4c58f0aab501ec127ab79587ee3d2371718bf3588148b",
       "bytes": 10941
@@ -623,13 +628,23 @@
     },
     {
       "path": "deploy/aliyun/cn-maintenance-source-handoff.md",
-      "sha256": "e2de74d989001d625c120a19607f9799890d4c13892b99d01d7b2cd350869405",
-      "bytes": 22964
+      "sha256": "52b5c01cdee9e0e2a275b1742a689881fb2de444232bad9efb1601d92bdbd4b9",
+      "bytes": 24265
+    },
+    {
+      "path": "deploy/aliyun/cn-native-backup-cost-evidence.json",
+      "sha256": "a0dc60eced490219808d6c7c17eb863d7782b225386c2579b8352da80bd62c15",
+      "bytes": 20149
+    },
+    {
+      "path": "deploy/aliyun/cn-native-backup-path-comparison.md",
+      "sha256": "d883dd7bd91126c534bdbedf0e6d44272eb80e2dc40f83eb74c62e76ac21276a",
+      "bytes": 7509
     },
     {
       "path": "deploy/aliyun/cn-release-9b25-delta-decision.md",
-      "sha256": "fa3851cac8026acc160ec8fbaaab65cbfa5b95e82a52ff8fc6347ba56443f10a",
-      "bytes": 22444
+      "sha256": "65648f4ae44ff0514dff3b262b7f41e8f2e6a9d9cc2fe981622643399c598adc",
+      "bytes": 23736
     },
     {
       "path": "deploy/aliyun/cn-release-9b25-once-plan.md",
@@ -653,8 +668,8 @@
     },
     {
       "path": "deploy/aliyun/cn-release-backup-execution-package.md",
-      "sha256": "1cf4d627d89a9987d431b8072f84829d6dc0d3869a27443a3a24fa04a7fc257a",
-      "bytes": 8347
+      "sha256": "2e531a9590832c2f510dd7581b1068820bdc05f139d8e3638e04422baa6bc265",
+      "bytes": 9168
     },
     {
       "path": "deploy/aliyun/cn-release-backup-public-acl-detail.json",
@@ -917,7 +932,8 @@
     "candidate dynamic backend seal and readonly proc collector exist but fixed diagnostic registration, protected host binding, NAT and existing plaintext exception remain incomplete",
     "original backup role approval remains; limited PUBLIC TEMP/session/five-function capability delta is proposed but unapproved",
     "recipient certificate/private-key custody and verified recovery input package remain unfrozen",
-    "held preactivate/candidate startup and true production acceptance remain incomplete"
+    "held preactivate/candidate startup and true production acceptance remain incomplete",
+    "OPEN review5973208084: watchdog complete catalog capture can fail before NOLOGIN/owned-container containment; no local fix; bespoke expansion paused for native-backup/PITR comparison"
   ],
   "remainingExecution": [
     "expired existing certificate: exact reviewed renewal/replacement plus custody/retention/escrow/recovery records",
@@ -931,5 +947,5 @@
   ],
   "sourceReviewReady": false,
   "fileCountMeaning": "source target-map entries, not an installation receipt",
-  "backupSourceReviewReady": true
+  "backupSourceReviewReady": false
 }
