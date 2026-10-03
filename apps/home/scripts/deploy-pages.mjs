@@ -3,13 +3,14 @@ import { appendFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFile
 import { join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import { pathToFileURL } from 'node:url';
+import { setTimeout as delay } from 'node:timers/promises';
 
 const PROJECT = 'workspacex-home';
 const ACCOUNT = 'cc39c0447db8c730182cfd075fe91bf7';
 const ORIGIN = 'https://www.boardx.us';
 const API = `https://api.cloudflare.com/client/v4/accounts/${ACCOUNT}/pages/projects/${PROJECT}`;
 
-export async function cutover({ env = process.env, fetchImpl = fetch, run = spawnSync, output, record = () => {} }) {
+export async function cutover({ env = process.env, fetchImpl = fetch, run = spawnSync, pause = delay, output, record = () => {} }) {
   if (env.GITHUB_EVENT_NAME !== 'push' || env.GITHUB_REF !== 'refs/heads/main') throw new Error('production requires a push to main');
   if (env.CLOUDFLARE_ACCOUNT_ID !== ACCOUNT || !env.CLOUDFLARE_API_TOKEN) throw new Error('configured Cloudflare identity missing or wrong account');
   if (!/^[a-f0-9]{40}$/.test(env.GITHUB_SHA ?? '')) throw new Error('exact commit SHA required');
@@ -48,8 +49,20 @@ export async function cutover({ env = process.env, fetchImpl = fetch, run = spaw
     const smoke = run(process.execPath, ['apps/home/scripts/live-check.mjs'], { env, stdio: 'inherit', timeout: 120000 });
     if (smoke.error || smoke.status !== 0) throw new Error('production route/header smoke failed');
     for (const origin of [current.url, ORIGIN]) {
-      const response = await fetchImpl(`${origin}/.well-known/workspacex-release.json`, { signal: AbortSignal.timeout(20000), cache: 'no-store' });
-      if (!response.ok || (await response.json()).commit !== env.GITHUB_SHA) throw new Error('public release SHA differs from deployed commit');
+      let verified = false;
+      // Pages cutover can precede custom-domain propagation. Bound the wait;
+      // recheck ownership before every retry so another publisher is not hidden.
+      for (let attempt = 0; attempt < 12; attempt++) {
+        const active = (await request()).canonical_deployment;
+        if (active?.id !== ownId) throw new Error('production deployment changed during public verification');
+        try {
+          const response = await fetchImpl(`${origin}/.well-known/workspacex-release.json?commit=${env.GITHUB_SHA}&attempt=${attempt}`, { signal: AbortSignal.timeout(10000), cache: 'no-store' });
+          verified = response.ok && (await response.json()).commit === env.GITHUB_SHA;
+        } catch { /* transient propagation/network failure; retry within budget */ }
+        if (verified) break;
+        if (attempt < 11) await pause(5000);
+      }
+      if (!verified) throw new Error('public release SHA differs from deployed commit after bounded propagation wait');
     }
     Object.assign(evidence, { status: 'verified', verified_at: new Date().toISOString() });
     record(evidence);

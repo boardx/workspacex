@@ -10,13 +10,14 @@ const sha = 'a'.repeat(40);
 const env = { GITHUB_EVENT_NAME: 'push', GITHUB_REF: 'refs/heads/main', GITHUB_SHA: sha, CLOUDFLARE_ACCOUNT_ID: 'cc39c0447db8c730182cfd075fe91bf7', CLOUDFLARE_API_TOKEN: 'fixture-only' };
 const old = { id: 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', latest_stage: { status: 'success' } };
 const next = { id: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', url: 'https://new.workspacex-home.pages.dev', latest_stage: { status: 'success' }, deployment_trigger: { metadata: { commit_hash: sha } } };
-function fixture({ badDomain = false, smokeFails = false, wrongPublicSha = false, competingPublisher = false, sameShaPublisher = false, noOwnId = false } = {}) {
+function fixture({ badDomain = false, smokeFails = false, wrongPublicSha = false, competingPublisher = false, sameShaPublisher = false, noOwnId = false, propagationDelay = false } = {}) {
   let current = old;
   const calls = [], records = [];
+  let releaseReads = 0;
   const fetchImpl = async (url, init) => {
     calls.push([url, init?.method]);
     if (url.endsWith('/rollback')) current = old;
-    if (url.endsWith('/workspacex-release.json')) return Response.json({ commit: wrongPublicSha ? 'b'.repeat(40) : sha });
+    if (url.includes('/workspacex-release.json')) return Response.json({ commit: wrongPublicSha || (propagationDelay && releaseReads++ < 2) ? 'b'.repeat(40) : sha });
     return Response.json({ success: true, result: { name: 'workspacex-home', production_branch: 'main', domains: [badDomain ? 'other.example' : 'www.boardx.us'], canonical_deployment: current } });
   };
   const run = (command, args, options) => {
@@ -27,7 +28,7 @@ function fixture({ badDomain = false, smokeFails = false, wrongPublicSha = false
     }
     return { status: smokeFails ? 1 : 0 };
   };
-  return { fetchImpl, run, output: '/fixture', record: r => records.push(structuredClone(r)), calls, records };
+  return { fetchImpl, run, pause: async () => {}, output: '/fixture', record: r => records.push(structuredClone(r)), calls, records };
 }
 
 test('PRs, non-main refs and wrong account never reach Cloudflare', async () => {
@@ -74,4 +75,9 @@ test('workflow permits production only for main push, validates first, retains e
   const triggers = path => paths.some(pattern => pattern.endsWith('/**') ? path.startsWith(pattern.slice(0, -2)) : path === pattern);
   for (const path of ['apps/home/index.html', 'apps/home/assets/js/main.js', 'apps/web/public/workspacex-logo.png', '.github/workflows/deploy-home.yml']) assert.ok(triggers(path), path);
   for (const path of ['apps/api/src/index.ts', 'apps/web/components/interview.tsx', 'docs/reports/notes.md', 'pnpm-lock.yaml']) assert.ok(!triggers(path), path);
+});
+
+test('custom-domain propagation retries within a bounded budget before success', async () => {
+  const f = fixture({ propagationDelay: true }); const result = await cutover({ env, ...f });
+  assert.equal(result.status, 'verified'); assert.equal(f.calls.filter(([url]) => url.includes('/workspacex-release.json')).length, 4);
 });
