@@ -38,7 +38,7 @@ async function imported(){
  const result=await response.json() as {agentIds:string[],versionIds:string[]};return {agentId:result.agentIds[0]!,expectedPublishedVersionId:result.versionIds[0]!};
 }
 const body=(selection:{agentId:string;expectedPublishedVersionId:string})=>({expectedOrgId:ORG,packVersion:buildOfficialAgentRolePack().packVersion,selections:[selection],idempotencyKey:randomUUID()});
-async function versions(){return asApp(ORG,async(s)=>(await s.query("SELECT id,instructions,instruction_digest,skill_version_ids,pending_skill_bindings FROM agent_versions WHERE org_id=$1 ORDER BY id",[ORG])).rows);}
+async function versions(){return asApp(ORG,async(s)=>(await s.query("SELECT id,semantic_label,instructions,instruction_digest,skill_version_ids,pending_skill_bindings FROM agent_versions WHERE org_id=$1 ORDER BY id",[ORG])).rows);}
 describe("official-role immutable selected upgrade: real PostgreSQL/HTTP",()=>{
  it("creates a new version, freezes pending refs honestly, preserves old version and disabled status, replays identical request",async()=>{
   const selection=await imported();const old=await versions();await asApp(ORG,s=>s.query("UPDATE agents SET status='disabled' WHERE org_id=$1 AND id=$2",[ORG,selection.agentId]));
