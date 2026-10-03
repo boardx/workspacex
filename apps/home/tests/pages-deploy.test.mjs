@@ -122,3 +122,21 @@ test('synchronous subprocess receives remaining shared budget and hard terminati
   await cutover({ env, ...f, run, now: () => clock });
   assert.deepEqual(timeouts, [['npm', 300000, 'SIGKILL'], [process.execPath, 70000, 'SIGKILL']]);
 });
+
+test('wall clock rollback cannot extend the production deadline or rollback reserve', async () => {
+  const original = Date.now;
+  let wall = original(), wallReads = 0;
+  Date.now = () => { wallReads++; return wall; };
+  try {
+    const f = fixture(); const timeouts = [];
+    const run = (command, args, options) => {
+      timeouts.push(options.timeout);
+      wall -= 3600000; // Simulate an NTP/system-clock correction during deploy.
+      return f.run(command, args, options);
+    };
+    const result = await cutover({ env, ...f, run });
+    assert.equal(result.status, 'verified');
+    assert.equal(wallReads, 0, 'elapsed deadline must never consult the wall clock');
+    assert.ok(timeouts[0] <= 300000 && timeouts[1] <= 120000);
+  } finally { Date.now = original; }
+});

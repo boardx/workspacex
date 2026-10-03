@@ -4,20 +4,21 @@ import { join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import { pathToFileURL } from 'node:url';
 import { setTimeout as delay } from 'node:timers/promises';
+import { performance } from 'node:perf_hooks';
 
 const PROJECT = 'workspacex-home';
 const ACCOUNT = 'cc39c0447db8c730182cfd075fe91bf7';
 const ORIGIN = 'https://www.boardx.us';
 const API = `https://api.cloudflare.com/client/v4/accounts/${ACCOUNT}/pages/projects/${PROJECT}`;
 
-export async function cutover({ env = process.env, fetchImpl = fetch, run = spawnSync, pause = delay, now = Date.now, output, record = () => {} }) {
+export async function cutover({ env = process.env, fetchImpl = fetch, run = spawnSync, pause = delay, now = () => performance.now(), output, record = () => {} }) {
   if (env.GITHUB_EVENT_NAME !== 'push' || env.GITHUB_REF !== 'refs/heads/main') throw new Error('production requires a push to main');
   if (env.CLOUDFLARE_ACCOUNT_ID !== ACCOUNT || !env.CLOUDFLARE_API_TOKEN) throw new Error('configured Cloudflare identity missing or wrong account');
   if (!/^[a-f0-9]{40}$/.test(env.GITHUB_SHA ?? '')) throw new Error('exact commit SHA required');
   // 420s forward work + at most 90s rollback leaves headroom in the 600s job.
   const deadline = now() + 420000;
   const remaining = cap => {
-    const budget = Math.min(cap, deadline - now());
+    const budget = Math.floor(Math.min(cap, deadline - now()));
     if (budget <= 0) throw new Error('production verification deadline exhausted');
     return budget;
   };
