@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { isSurveyCollectionWindowValid } from "./survey-collection-window";
 import {
   SurveyAnonymitySchema,
   SurveyPublishBlockerSchema,
@@ -93,12 +94,14 @@ export const SurveyResponseReviewInputSchema = SurveyVersionInputSchema.extend({
 });
 export const SurveyPrepareCommandSchema = SurveyVersionInputSchema;
 export const SurveyWithdrawCommandSchema = SurveyVersionInputSchema;
-export const SurveyStartCollectionCommandSchema =
-  SurveyVersionInputSchema;
 export const SurveyCloseCommandSchema = SurveyVersionInputSchema;
 export const SurveyPublishInputSchema = SurveyVersionInputSchema.extend({
+  startsAt: z.string().datetime().optional(),
   expiresAt: z.string().datetime().optional(),
+}).refine((value) => !value.startsAt || !value.expiresAt || isSurveyCollectionWindowValid(value.startsAt, value.expiresAt), {
+  message: "截止时间必须晚于开始时间", path: ["expiresAt"],
 });
+export const SurveyStartCollectionCommandSchema = SurveyPublishInputSchema;
 export const SurveySubmissionInputSchema = z.object({
   submissionId: z.string().min(8).max(128),
   uploadSessionToken: z.string().min(1).max(512).optional(),
@@ -119,6 +122,7 @@ export const SurveyPublicationSchema = z.object({
   status: z.enum(["collecting", "closed"]),
   questions: z.array(SurveyWorkflowQuestionSchema),
   version: z.number().int().positive(),
+  startsAt: z.string().datetime().optional(),
   expiresAt: z.string().datetime(),
   sourceSnapshot: z.object({
     documents: SurveySourceStateSchema.shape.documents,

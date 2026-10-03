@@ -392,7 +392,8 @@ describe("lint-permission-paths: counter-proof", () => {
     const token = model.publication!.token;
     const projection = await service.publicGet(token);
     expect(projection.questions).toEqual(draft.questions);
-    expect(Object.keys(projection).sort()).toEqual(["expiresAt", "id", "questions", "responseLimitScope", "successMessageMarkdown", "title", "version"]);
+    expect(Object.keys(projection).sort()).toEqual(["expiresAt", "id", "questions", "responseLimitScope", "startsAt", "successMessageMarkdown", "title", "version"]);
+    expect(projection.startsAt).toBe(model.publication!.startsAt);
     expect(projection.responseLimitScope).toBe('none');
     expect(projection.successMessageMarkdown).toBe('提交成功，感谢您的参与。');
     expect(JSON.stringify(projection)).not.toContain(SECRET);

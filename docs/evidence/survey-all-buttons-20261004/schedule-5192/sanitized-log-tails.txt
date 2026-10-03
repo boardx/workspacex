@@ -1,0 +1,122 @@
+## domain-red.log
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[10/10]⎯
+
+ Test Files  1 failed (1)
+      Tests  10 failed | 2 passed (12)
+   Start at  02:19:19
+   Duration  901ms (transform 467ms, setup 0ms, collect 769ms, tests 23ms, environment 0ms, prepare 31ms)
+
+undefined
+/Users/shenyangjun/.codex/worktrees/survey-report-echarts/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run --config /private/tmp/survey-all-buttons-20261004/schedule-domain.config.mts
+
+## ui-red.log
+    367|       expect(activeOption()).toHaveTextContent("正在回收");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/4]⎯
+
+ Test Files  1 failed (1)
+      Tests  4 failed | 17 skipped (21)
+   Start at  02:19:34
+   Duration  6.23s (transform 872ms, setup 162ms, collect 1.80s, tests 3.12s, environment 888ms, prepare 53ms)
+
+undefined
+/Users/shenyangjun/.codex/worktrees/survey-report-echarts/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/ui/survey-live-publishing.test.tsx -t selected collection start|invalid collection windows|new immutable schedule|active batch start and expiry
+
+## domain-green.log
+
+ ✓ tests/survey/survey-runtime.test.ts (14 tests) 132ms
+ ✓ tests/survey/survey-source-lifecycle.test.ts (10 tests) 23ms
+ ✓ tests/survey/publish-gate-domain.test.ts (8 tests) 11ms
+ ✓ tests/survey/survey-collection-schedule.test.ts (12 tests) 19ms
+ ✓ tests/survey/state-machine-four.test.ts (6 tests) 2ms
+
+ Test Files  5 passed (5)
+      Tests  50 passed (50)
+   Start at  02:22:16
+   Duration  2.39s (transform 686ms, setup 0ms, collect 1.59s, tests 187ms, environment 0ms, prepare 200ms)
+
+
+## frontend-green.log
+   ✓ live survey workspace persistence > locks projected question edits until changed Markdown is applied 1732ms
+   ✓ live survey workspace persistence > preserves the local report template when keeping the local version after a conflict 3577ms
+   ✓ live survey workspace persistence > loads the conflicting remote version without discarding local Markdown 1863ms
+   ✓ live survey workspace persistence > retains unsaved inputs when saving fails and never shows a success notice 1793ms
+   ✓ live survey workspace persistence > shows a dedicated saving state while a manual save is pending 1776ms
+   ✓ live survey workspace persistence > accepts only the returned saved runtime, including its canonical title and version 3494ms
+
+ Test Files  37 passed (37)
+      Tests  357 passed (357)
+   Start at  02:22:19
+   Duration  26.63s (transform 5.36s, setup 7.46s, collect 35.55s, tests 61.80s, environment 27.72s, prepare 6.12s)
+
+
+## http-db-green.log
+{"level":"error","msg":"http exception","traceId":"831d648b-c2be-4a61-8f99-77e06308f249","detail":{"name":"ConflictException","message":"Conflict Exception","stack":"ConflictException: Conflict Exception\n    at run (/Users/shenyangjun/.codex/worktrees/survey-report-echarts/apps/api/src/interface/controllers/survey.controller.ts:66:13)\n    at processTicksAndRejections (node:internal/process/task_queues:105:5)\n    at /Users/shenyangjun/.codex/worktrees/survey-report-echarts/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.1_a3d26af7595ce50c2a9025a1c3b3a22d/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /Users/shenyangjun/.codex/worktrees/survey-report-echarts/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.1_a3d26af7595ce50c2a9025a1c3b3a22d/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+{"level":"error","msg":"http exception","traceId":"51606026-1017-423d-a838-b3e4c869aa45","detail":{"name":"ConflictException","message":"Conflict Exception","stack":"ConflictException: Conflict Exception\n    at run (/Users/shenyangjun/.codex/worktrees/survey-report-echarts/apps/api/src/interface/controllers/survey.controller.ts:66:13)\n    at processTicksAndRejections (node:internal/process/task_queues:105:5)\n    at /Users/shenyangjun/.codex/worktrees/survey-report-echarts/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.1_a3d26af7595ce50c2a9025a1c3b3a22d/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /Users/shenyangjun/.codex/worktrees/survey-report-echarts/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.1_a3d26af7595ce50c2a9025a1c3b3a22d/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+{"level":"error","msg":"http exception","traceId":"a8a68600-ea5b-49bd-81bf-96addfaab209","detail":{"name":"NotFoundException","message":"Not Found","stack":"NotFoundException: Not Found\n    at run (/Users/shenyangjun/.codex/worktrees/survey-report-echarts/apps/api/src/interface/controllers/survey.controller.ts:57:39)\n    at processTicksAndRejections (node:internal/process/task_queues:105:5)\n    at /Users/shenyangjun/.codex/worktrees/survey-report-echarts/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.1_a3d26af7595ce50c2a9025a1c3b3a22d/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /Users/shenyangjun/.codex/worktrees/survey-report-echarts/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.1_a3d26af7595ce50c2a9025a1c3b3a22d/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+{"level":"error","msg":"http exception","traceId":"8040a269-80f7-4a91-9251-0bf1796ace07","detail":{"name":"NotFoundException","message":"Not Found","stack":"NotFoundException: Not Found\n    at run (/Users/shenyangjun/.codex/worktrees/survey-report-echarts/apps/api/src/interface/controllers/survey.controller.ts:57:39)\n    at processTicksAndRejections (node:internal/process/task_queues:105:5)\n    at /Users/shenyangjun/.codex/worktrees/survey-report-echarts/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.1_a3d26af7595ce50c2a9025a1c3b3a22d/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /Users/shenyangjun/.codex/worktrees/survey-report-echarts/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.1_a3d26af7595ce50c2a9025a1c3b3a22d/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+ ✓ tests/survey/anonymity-immutable.test.ts (3 tests) 1695ms
+
+ Test Files  4 passed (4)
+      Tests  48 passed (48)
+   Start at  02:23:46
+   Duration  24.49s (transform 3.10s, setup 12ms, collect 1.10s, tests 22.20s, environment 0ms, prepare 109ms)
+
+[db-isolation] db=wsx_12206c10884603680c38_schedule_http peak_connections=7
+
+## typecheck-web.log
+
+> web@0.1.0 typecheck /Users/shenyangjun/.codex/worktrees/survey-report-echarts/apps/web
+> tsc --noEmit
+
+
+## typecheck-api.log
+
+> @repo/api@0.0.0 typecheck /Users/shenyangjun/.codex/worktrees/survey-report-echarts/apps/api
+> tsc --noEmit
+
+
+## typecheck-contracts.log
+
+> @repo/contracts@0.0.0 typecheck /Users/shenyangjun/.codex/worktrees/survey-report-echarts/packages/contracts
+> tsc --noEmit
+
+
+## lint-web.log
+✔ No ESLint warnings or errors
+
+## lint-api.log
+· [debt] apps/web/components/tpl/designer-panels.tsx:710  second design-facet definition table spread over multiple lines (11 distinct keys)
+✅ lint-design-facet-single-source: the definition table has one source
+scanned=4929 violations=0 debt=8 keys=13 groups=5
+✅ design-facet catalog is in sync with the definition table
+✅ agenda tier catalog is in sync with the definition table
+✅ lint-skill-context-api-only: 78 个文件，skill 取数只经 Context API（I-25）
+scanned=78 violations=0
+✅ lint-naming-single-source: 0 处败选名（stepId / step_id / agenda_stage / stage.<action>）
+scanned-roots=4
+lint-work-skill-manifests: 89/89 个 Work Skill manifest 通过
+✅ lint-arch-deps: 1932 files, all dependencies point inward
+scanned=1932
+
+## lint-contracts.log
+✅ lint-contract-source: generated files match the contract, no hand-written copies (1294 contract types)
+scanned-dirs=apps/web/lib,apps/api/src
+
+## init-quick.log
+  Claude: /Users/shenyangjun/.codex/worktrees/survey-report-echarts/.claude/agents
+  Codex:  /Users/shenyangjun/.codex/worktrees/survey-report-echarts/.codex/agents
+==> 快速健康检查（关键依赖是否真的装上、真的能跑）
+   ✓ 关键依赖已安装且可执行
+==> 快速路径通过（跳过全仓验证）。需要完整证明时运行：./init.sh --full
+==> 初始化完成。应用层入口（本仓真实存在的三个面）：
+    • Web     apps/web            pnpm --filter web dev                  → http://localhost:3000
+    • API     apps/api            pnpm --filter @repo/api dev            → http://localhost:3200
+    • 网关    apps/coord-gateway  pnpm --filter @repo/coord-gateway dev  （wrangler dev --local）
+==> 启动 Web + API: pnpm turbo run dev --filter=web --filter=@repo/api
+    依赖服务（postgres/redis/minio）另起：RUN_INFRA=1 ./init.sh，或 pnpm --filter @repo/api dev:deps
+    取活从统一队列开始：pnpm harness readiness（见 AGENTS.md『开工流程』）

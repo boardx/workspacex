@@ -1,0 +1,28 @@
+## focused-green.log (exit0)
+   ✓ report template unbinding persistence > autosaves only report configuration on a published survey while preserving its questions, publication, batches and old report 1794ms
+   ✓ keeps ordinary report template title edits unsaved until explicit save 1713ms
+
+ Test Files  2 passed (2)
+      Tests  55 passed (55)
+   Start at  03:42:24
+   Duration  26.80s (transform 921ms, setup 289ms, collect 2.63s, tests 24.39s, environment 1.59s, prepare 124ms)
+
+
+## frontend-green.log (exit0)
+   ✓ report template unbinding persistence > autosaves only report configuration on a published survey while preserving its questions, publication, batches and old report 1795ms
+   ✓ keeps ordinary report template title edits unsaved until explicit save 1712ms
+
+ Test Files  37 passed (37)
+      Tests  366 passed (366)
+   Start at  03:42:59
+   Duration  29.35s (transform 3.55s, setup 6.20s, collect 27.96s, tests 54.94s, environment 23.23s, prepare 3.10s)
+
+
+## typecheck-web.log (exit0)
+
+> web@0.1.0 typecheck /Users/shenyangjun/.codex/worktrees/survey-report-echarts/apps/web
+> tsc --noEmit
+
+
+## lint-web.log (exit0)
+✔ No ESLint warnings or errors

@@ -7,6 +7,7 @@
  * single mechanical gate keeping the two languages in sync.
  */
 export default {
+  "footer.manual": "用户手册",
   /* ---- a11y & nav ------------------------------------------------------- */
   'a11y.skip': '跳到正文',
   'aria.home': 'WorkspaceX 首页',

@@ -21,6 +21,7 @@ export class SurveyAttachmentError extends Error {
     readonly code:
       | "not_found"
       | "closed"
+      | "not_started"
       | "invalid_attachment"
       | "limit_exceeded"
       | "invalid_file",

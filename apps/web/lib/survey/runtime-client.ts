@@ -48,6 +48,8 @@ export async function surveyRequest<T>(
   } catch (error) {
     if (error instanceof SurveySystemError) throw error;
     if (error instanceof ApiError) {
+      if (error.reasonCode === "SURVEY_NOT_STARTED") throw new SurveySystemError("问卷尚未开始回收，请在开始时间后再来填写。");
+      if (error.reasonCode === "SURVEY_COLLECTION_WINDOW_INVALID") throw new SurveySystemError("截止时间必须晚于开始时间，请检查回收时间。");
       if (error.status === 422 && error.reasonCode === "SURVEY_PUBLISH_BLOCKED") {
         const raw = error.raw as { blockers?: unknown } | null;
         const blockers = SurveyPublishBlockerSchema.array().safeParse(raw?.blockers);
