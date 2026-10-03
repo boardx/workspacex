@@ -15,3 +15,5 @@ Canonical draft PR: https://github.com/boardx/workspacex/pull/5247 . Normal push
 本轮没有连接数据库、启动服务/容器、恢复/解密/传输数据、安装生产工具、创建权限、迁移、停机或切流。原始 DevOps 与其他已取消会话未重启。所有源码 worker 已停写；后续只在本分支推进一个 direct-main draft PR，保持未 ready、不自动合并。
 
 The legacy held preactivate collector still starts bootstrap containers/new connections. Its consumer now rejects before invocation with MAINTENANCE_HELD_PREFLIGHT_CONSUMER_NOT_IMPLEMENTED. A real held diagnostic preactivate replacement remains source work. Recovery producer/validator/prehold positive closure remains incomplete, as explicitly described in cn-maintenance-recovery-collection-plan.md. No dummy positive receipt is used to clear either gate.
+
+重连只读核对：工作树仍为原分支、00730db81、无未提交改动，进程筛查无本工作树发布/测试/推送进程。A 阶段设计补全 A0–A6、同 epoch 重验及 resume-intent 后新写入保护；设计不是执行器或生产批准，positive-proof 和 held-preactivate 消费者仍未实现。

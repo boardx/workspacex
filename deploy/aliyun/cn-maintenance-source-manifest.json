@@ -4,7 +4,7 @@
   "baseCommit": "64cc2b85053823a4c7461eb404b9f3a99c749a33",
   "applicationRevision": "9b25bfa65662b96c0826fe67506b562ea46aa6d0",
   "baselineRevision": "ba6343199f3c834d6a198f83d0c771614292c82b",
-  "sourceInventorySha256": "70d5b35da2427d96fef1919a2c533b444e59136557b234920232335ce7ba1597",
+  "sourceInventorySha256": "839e3171ed93a22e685ac42f67011ed66af8ecb7afec1941ed01d43e909e8f26",
   "sourceRows": [
     {
       "path": ".harness/scripts/build-cn-maintenance-controller.cjs",
@@ -403,8 +403,8 @@
     },
     {
       "path": "deploy/aliyun/cn-maintenance-acceptance-decision.md",
-      "sha256": "50f3016041ea38ff59eff5b27ddd8fbb540b8a2a62c76cf958c513aacdbf6ba7",
-      "bytes": 7313
+      "sha256": "b88357d9c38a3a2d1fb4c58f0aab501ec127ab79587ee3d2371718bf3588148b",
+      "bytes": 10941
     },
     {
       "path": "deploy/aliyun/cn-maintenance-recovery-collection-plan.md",
@@ -413,8 +413,8 @@
     },
     {
       "path": "deploy/aliyun/cn-maintenance-source-handoff.md",
-      "sha256": "78f703e97998b345467bfd3f505b85d8b772abcc18e84232617dfba481a07148",
-      "bytes": 3673
+      "sha256": "d88b3e5625beaee274bf8f858727144193f1bc553b7d877687887a97e8501c3d",
+      "bytes": 3997
     },
     {
       "path": "deploy/aliyun/cn-tool-install-recovery.md",

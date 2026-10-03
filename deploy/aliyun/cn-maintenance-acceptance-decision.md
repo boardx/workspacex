@@ -46,4 +46,25 @@ An independent prior rehearsal proves recovery capability, not current rollback 
 
 The source cannot authorize B through a profile alone: pg-database.inTx sets caller-controlled app.current_org; credentials/login_attempts have no tenant RLS; validate-session touches Redis; OSS prefix concatenation does not constrain broad ECS credentials; Agent checkpointer setup can execute startup DDL; native sessions add socket/container writers. A production B lane needs actual immutable user/tenant role restrictions including global auth paths, scoped Redis ACL and OSS STS, no unapproved startup DDL, and exact API/Agent/sandbox/child-container leases. These require source capabilities plus individual runtime/permission approval and real negative validation. Do not silently relabel fixed 9b or claim all-writes-held while any acceptance writer exists.
 
-A is the smallest option preserving the frozen application: isolated three databases, scoped Redis/OSS and sandbox for six journeys; separate approved production resume and public acceptance. A/B has not been selected in this execution thread. Both options still require fresh same-epoch recovery artifacts before destructive migration.
+A is the smallest option preserving the frozen application: isolated three databases, scoped Redis/OSS and sandbox for six journeys; separate approved production resume and public acceptance. Parent coordination has selected A for candidate source design only; this is not approval to execute production maintenance. Both options still require fresh same-epoch recovery artifacts before destructive migration.
+
+
+## A 的精确阶段与失败边界（源码设计，尚未接入执行器）
+
+| 阶段 | 必须读取的事实与证据 | 失败边界 |
+| --- | --- | --- |
+| A0，停机前准备 | 固定 9b 六镜像与工具身份、审批范围、隔离资源配置、既往恢复能力演练；可提前完成，不冒充当前备份 | 不触碰生产；旧演练不授权 DDL |
+| A1，批准停写与排空 | 同一维护锁、全 DB/Redis/OSS/Agent/sandbox/子容器 writer 闭包、实际 drain、新 hold generation | 任一未知状态保留锁；未证实停写不得采集为一致备份 |
+| A2，当前 epoch 采集 | 三库备份与完整 catalog/ACL/RLS/序列/行证据、全部引用对象与版本/原始字节；记录实际采集区间和前后 fence | 不复用跨 epoch 历史备份；任一缺口禁止迁移 |
+| A3，隔离恢复和 9b 六流程 | 实际三库恢复、对象读取与独立一致性复核；隔离 Redis/OSS/账号/运行时，绑定 A2 artifact 哈希 | 生产持续同一停写 epoch；隔离 PASS 只证明候选，不是生产 PASS |
+| A4，生产迁移与停写读回 | 独立消费者验 A2/A3 后才执行 exact 迁移；同一 sealed 诊断会话验版本、ledger、角色与 drain | 此时尚无恢复写入意图；仅在当前备份完整覆盖全部修改面且持续 fence 被证实时，可按已批准恢复流程无损恢复 |
+| A5，单独批准恢复 writer | 先持久化 resume-intent，绑定当前锁/epoch、批准范围与服务顺序，再启动可能写入的 API/Agent 等 | 从 intent 起即假定可能产生新写入；命令超时/报错也不能退回“未写入”判断 |
+| A6，公网复验 | 实际生产 commit、健康、登录与六流程；保留维护锁至终态，绑定独立生产回执 | 失败立即按批准流程阻止新增写入、保全新数据；优先前向修复或另行批准数据保全恢复，禁止旧备份直接覆盖 |
+
+A1–A4 的完整证据必须属于同一连续停写 epoch。隔离环境可以预先准备，实际恢复和六流程必须使用 A2 当前备份重新执行；因此这部分占用停写时间。若中途释放生产 writer，则旧 epoch 作废，必须重新停写、采集和重验，除非另有已实现并批准的 WAL/PITR 与对象变更闭包追赶机制。
+
+“生产启动后只读验收”需要拆开：容器离线 create/inspect 与 sealed 数据库诊断可在停写阶段做；API/Agent 启动可能执行 DDL、会话或租约写入，不能仅因尚未切公网就算只读。普通 API 认证 GET 也不属于 A4。当前未实现安全的 held preactivate 替代消费者，保留拒绝入口。
+
+无损恢复不是旧镜像 rollback：仅 A5 intent 之前、全修改面已备份且连续封锁被证明时，当前 epoch 三库与对象恢复才可能保持迁移前已承诺数据。A5 之后的新写入无法由旧备份恢复；没有真实增量捕获/重放与冲突处理证据就不能承诺无损。任何恢复仍要求明确的目标、数据边界与批准，不由此文授予执行权限。
+
+工程评估：至少还有三个依赖工作包——实际采集与独立 positive-proof/prehold 消费者、sealed held-preactivate 消费者、A 阶段执行器与审批/恢复边界集成。当前只是候选阶段设计，未实现以上链路。缺少首个正向完整 fixture 与真实隔离恢复计时，不能给可信生产 ETA；下一估时点是正向链路纯测试通过并完成独立源码审阅，停写时长还需实际备份、三库恢复、对象闭包及六流程计时后给出。
