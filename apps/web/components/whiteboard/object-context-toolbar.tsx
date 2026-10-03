@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { BoardToolPopover } from "./board-tool-popover";
 import { BoardSelectedObjectPanel } from "./board-selected-object-panel";
+import { toBoardFabricObjects } from "./whiteboard-fabric-projection";
 
 export interface ObjectExperience {
   tags: string[];
@@ -52,7 +53,9 @@ const STICKY_SIZE_PRESETS = [{ id: "s", label: "S", width: 144, height: 144 }, {
 const OBJECT_LABELS: Record<WhiteboardObject["kind"], string> = { sticky: "便利贴", text: "文字", rectangle: "形状", ellipse: "形状", frame: "Frame", group: "组合", connector: "连接线", image: "图片", drawing: "绘图", extension: "对象" };
 
 export function ObjectContextToolbar({ editing=false,object, readOnly, objectActionsDisabled=readOnly, actorId, onStickyChange, onTextChange, onStyleChange, onExperienceChange, onGeometryChange, onClose, onViewText, onFutureAction, actions, onDuplicate, onDelete, panelRef, floatingStyle }: ObjectContextToolbarProps) {
-  const thinking = record(object.extensionData?.thinkingInput), sticky = record(thinking.sticky), text = record(thinking.text);
+  const thinking = record(object.extensionData?.thinkingInput), text = record(thinking.text);
+  const paper = object.kind === "sticky" ? toBoardFabricObjects([object])[0] : undefined;
+  const sticky = { ...record(thinking.sticky), color: paper?.style.fill, variant: paper?.sticky?.variant, sizing: paper?.sticky?.sizingMode };
   const experience = readObjectExperience(object);
   const [tagDraft, setTagDraft] = useState(""), [linkUrl, setLinkUrl] = useState(experience.linkPreview?.url ?? ""), [linkTitle, setLinkTitle] = useState(experience.linkPreview?.title ?? ""), [linkDescription, setLinkDescription] = useState(experience.linkPreview?.description ?? "");
   const [expandRequest, setExpandRequest] = useState(0);

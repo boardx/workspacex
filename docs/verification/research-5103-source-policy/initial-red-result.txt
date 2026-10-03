@@ -1,0 +1,20 @@
+     48|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/5]⎯
+
+ Test Files  1 failed (1)
+      Tests  5 failed | 2 passed (7)
+   Start at  22:29:45
+   Duration  14.76s (transform 3.83s, setup 52ms, collect 5.43s, tests 109ms, environment 0ms, prepare 317ms)
+
+[db-isolation] db=wsx_7336cd1e491f37b36b67 peak_connections=1
+undefined
+/Users/shenyangjun/.codex/worktrees/research-5056-fixes/workspacex/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/research/guided-report-source-policy.test.ts --maxWorkers=1 --minWorkers=1
+[timing] pnpm --filter @repo/api exec vitest run tests/research/guided-report-source-policy.test.ts --maxWorkers=1 --minWorkers=1
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：18s
+  清理：2s
+  总计：20s

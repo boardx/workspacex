@@ -1,0 +1,777 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/apps/web
+
+ ❯ tests/ui/interview-source-runs.test.tsx (9 tests | 1 failed) 726ms
+   × keeps provider top-level headings inside the attributed expert and repeated segments 55ms
+     → Unable to find an element with the text: 护理原始回答。. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"space-y-5"[39m
+      [33mdata-testid[39m=[32m"itv-source-runs"[39m
+    [36m>[39m
+      [36m<header[39m
+        [33mclass[39m=[32m"mb-5 flex min-w-0 flex-wrap items-center justify-between gap-3 print:hidden"[39m
+        [33mdata-testid[39m=[32m"itv-runs-report-action"[39m
+      [36m>[39m
+        [36m<h2[39m
+          [33mclass[39m=[32m"text-2xl font-bold tracking-tight"[39m
+        [36m>[39m
+          [0m访谈内容[0m
+        [36m</h2>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"ml-auto flex flex-wrap items-center justify-end gap-2"[39m
+          [33mdata-testid[39m=[32m"itv-step-actions"[39m
+        [36m>[39m
+          [36m<button[39m
+            [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-all duration-200 ease-in-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-primary text-primary-foreground hover:bg-primary-hover active:scale-[0.98] shadow-sm h-10 px-4 text-14"[39m
+          [36m>[39m
+            [36m<svg[39m
+              [33maria-hidden[39m=[32m"true"[39m
+              [33mclass[39m=[32m"lucide lucide-file-text size-4"[39m
+              [33mfill[39m=[32m"none"[39m
+              [33mheight[39m=[32m"24"[39m
+              [33mstroke[39m=[32m"currentColor"[39m
+              [33mstroke-linecap[39m=[32m"round"[39m
+              [33mstroke-linejoin[39m=[32m"round"[39m
+              [33mstroke-width[39m=[32m"2"[39m
+              [33mviewBox[39m=[32m"0 0 24 24"[39m
+              [33mwidth[39m=[32m"24"[39m
+              [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+            [36m>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"[39m
+              [36m/>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M14 2v4a2 2 0 0 0 2 2h4"[39m
+              [36m/>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M10 9H8"[39m
+              [36m/>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M16 13H8"[39m
+              [36m/>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M16 17H8"[39m
+              [36m/>[39m
+            [36m</svg>[39m
+            [0m生成报告[0m
+            [36m<svg[39m
+              [33maria-hidden[39m=[32m"true"[39m
+              [33mclass[39m=[32m"lucide lucide-arrow-right size-4"[39m
+              [33mfill[39m=[32m"none"[39m
+              [33mheight[39m=[32m"24"[39m
+              [33mstroke[39m=[32m"currentColor"[39m
+              [33mstroke-linecap[39m=[32m"round"[39m
+              [33mstroke-linejoin[39m=[32m"round"[39m
+              [33mstroke-width[39m=[32m"2"[39m
+              [33mviewBox[39m=[32m"0 0 24 24"[39m
+              [33mwidth[39m=[32m"24"[39m
+              [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+            [36m>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M5 12h14"[39m
+              [36m/>[39m
+              [36m<path[39m
+                [33md[39m=[32m"m12 5 7 7-7 7"[39m
+              [36m/>[39m
+            [36m</svg>[39m
+          [36m</button>[39m
+        [36m</div>[39m
+      [36m</header>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"flex flex-wrap items-center gap-3 text-sm text-muted-foreground"[39m
+      [36m>[39m
+        [36m<span>[39m
+          [0m已保存回答 2/2[0m
+        [36m</span>[39m
+        [36m<div[39m
+          [33maria-label[39m=[32m"专家任务状态"[39m
+          [33mclass[39m=[32m"flex flex-wrap gap-2"[39m
+        [36m>[39m
+          [36m<span[39m
+            [33mclass[39m=[32m"rounded-full px-2 py-1 bg-success/10 text-success"[39m
+          [36m>[39m
+            [0m已完成[0m
+            [0m [0m
+            [0m2[0m
+          [36m</span>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"grid items-start gap-8 xl:grid-cols-[12rem_minmax(0,1fr)] xl:gap-x-10"[39m
+      [36m>[39m
+        [36m<aside[39m
+          [33mclass[39m=[32m"rounded-xl border border-border p-5"[39m
+        [36m>[39m
+          [36m<h3[39m
+            [33mclass[39m=[32m"mb-4 font-semibold"[39m
+          [36m>[39m
+            [0m专家进度（[0m
+            [0m2[0m
+            [0m）[0m
+          [36m</h3>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"space-y-3"[39m
+          [36m>[39m
+            [36m<button[39m
+              [33maria-current[39m=[32m"true"[39m
+              [33mclass[39m=[32m"block w-full rounded-lg border p-4 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring border-primary bg-primary/10 shadow-sm"[39m
+              [33mtype[39m=[32m"button"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"flex items-center gap-3"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33maria-label[39m=[32m"护理角色的插画头像"[39m
+                  [33mclass[39m=[32m"inline-block size-11 shrink-0 overflow-hidden rounded-full text-foreground"[39m
+                  [33mdata-avatar-key[39m=[32m"person-7"[39m
+                  [33mrole[39m=[32m"img"[39m
+                [36m>[39m
+                  [36m<svg[39m
+                    [33maria-hidden[39m=[32m"true"[39m
+                    [33mclass[39m=[32m"size-full"[39m
+                    [33mfill[39m=[32m"none"[39m
+                    [33mviewBox[39m=[32m"0 0 64 64"[39m
+                  [36m>[39m
+                    [36m<circle[39m
+                      [33mcx[39m=[32m"32"[39m
+                      [33mcy[39m=[32m"32"[39m
+                      [33mfill[39m=[32m"currentColor"[39m
+                      [33mopacity[39m=[32m".08"[39m
+                      [33mr[39m=[32m"31"[39m
+                    [36m/>[39m
+                    [36m<path[39m
+                      [33md[39m=[32m"M9 61c1-14 9-21 23-21s22 7 23 21"[39m
+                      [33mfill[39m=[32m"currentColor"[39m
+                      [33mopacity[39m=[32m".22"[39m
+                    [36m/>[39m
+                    [36m<path[39m
+                      [33md[39m=[32m"M27 38v7l5 5 5-5v-7"[39m
+                      [33mfill[39m=[32m"currentColor"[39m
+                      [33mopacity[39m=[32m".12"[39m
+                    [36m/>[39m
+                    [36m<ellipse[39m
+                      [33mclass[39m=[32m"fill-background"[39m
+                      [33mcx[39m=[32m"32"[39m
+                      [33mcy[39m=[32m"28"[39m
+                      [33mrx[39m=[32m"13"[39m
+                      [33mry[39m=[32m"16"[39m
+                    [36m/>[39m
+                    [36m<ellipse[39m
+                      [33mcx[39m=[32m"32"[39m
+                      [33mcy[39m=[32m"28"[39m
+                      [33mfill[39m=[32m"currentColor"[39m
+                      [33mopacity[39m=[32m".12"[39m
+                      [33mrx[39m=[32m"13"[39m
+                      [33mry[39m=[32m"16"[39m
+                    [36m/>[39m
+                    [36m<path[39m
+                      [33md[39m=[32m"M18 25c-2-18 26-21 29-3l-3 7-3-12-17 5-4 8Z"[39m
+                      [33mfill[39m=[32m"currentColor"[39m
+                      [33mopacity[39m=[32m".8"[39m
+                    [36m/>[39m
+                    [36m<g[39m
+                      [33mstroke[39m=[32m"currentColor"[39m
+                      [33mstroke-linecap[39m=[32m"round"[39m
+                      [33mstroke-width[39m=[32m"1.6"[39m
+                    [36m>[39m
+                      [36m<path[39m
+                        [33md[39m=[32m"M26 28h1M37 28h1M29 36q3 2 6 0"[39m
+                      [36m/>[39m
+                      [36m<rect[39m
+                        [33mheight[39m=[32m"8"[39m
+                        [33mrx[39m=[32m"3"[39m
+                        [33mwidth[39m=[32m"9"[39m
+                        [33mx[39m=[32m"22"[39m
+                        [33my[39m=[32m"24"[39m
+                      [36m/>[39m
+                      [36m<rect[39m
+                        [33mheight[39m=[32m"8"[39m
+                        [33mrx[39m=[32m"3"[39m
+                        [33mwidth[39m=[32m"9"[39m
+                        [33mx[39m=[32m"33"[39m
+                        [33my[39m=[32m"24"[39m
+                      [36m/>[39m
+                      [36m<path[39m
+                        [33md[39m=[32m"M31 27h2"[39m
+                      [36m/>[39m
+                    [36m</g>[39m
+                  [36m</svg>[39m
+                [36m</span>[39m
+                [36m<h4[39m
+                  [33mclass[39m=[32m"min-w-0 break-all font-medium"[39m
+                [36m>[39m
+                  [0m护理角色[0m
+                [36m</h4>[39m
+              [36m</div>[39m
+              [36m<p[39m
+                [33mclass[39m=[32m"mt-2 text-sm text-muted-foreground"[39m
+              [36m>[39m
+                [0m已完成[0m
+                [0m · 1/1[0m
+              [36m</p>[39m
+            [36m</button>[39m
+            [36m<button[39m
+              [33mclass[39m=[32m"block w-full rounded-lg border p-4 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring border-border hover:border-primary/50 hover:bg-muted/40"[39m
+              [33mtype[39m=[32m"button"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"flex items-center gap-3"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33maria-label[39m=[32m"医生角色的插画头像"[39m
+                  [33mclass[39m=[32m"inline-block size-11 shrink-0 overflow-hidden rounded-full text-foreground"[39m
+                  [33mdata-avatar-key[39m=[32m"person-16"[39m
+                  [33mrole[39m=[32m"img"[39m
+                [36m>[39m
+                  [36m<svg[39m
+                    [33maria-hidden[39m=[32m"true"[39m
+                    [33mclass[39m=[32m"size-full"[39m
+                    [33mfill[39m=[32m"none"[39m
+                    [33mviewBox[39m=[32m"0 0 64 64"[39m
+                  [36m>[39m
+                    [36m<circle[39m
+                      [33mcx[39m=[32m"32"[39m
+                      [33mcy[39m=[32m"32"[39m
+                      [33mfill[39m=[32m"currentColor"[39m
+                      [33mopacity[39m=[32m".08"[39m
+                      [33mr[39m=[32m"31"[39m
+                    [36m/>[39m
+                    [36m<path[39m
+                      [33md[39m=[32m"M9 61c1-14 9-21 23-21s22 7 23 21"[39m
+                      [33mfill[39m=[32m"currentColor"[39m
+                      [33mopacity[39m=[32m".22"[39m
+                    [36m/>[39m
+                    [36m<path[39m
+                      [33md[39m=[32m"M27 38v7l5 5 5-5v-7"[39m
+                      [33mfill[39m=[32m"currentColor"[39m
+                      [33mopacity[39m=[32m".12"[39m
+                    [36m/>[39m
+                    [36m<path[39m
+                      [33md[39m=[32m"M15 24c0-18 34-18 34 0v24H15Z"[39m
+                      [33mfill[39m=[32m"currentColor"[39m
+                      [33mopacity[39m=[32m".65"[39m
+                    [36m/>[39m
+                    [36m<ellipse[39m
+                      [33mclass[39m=[32m"fill-background"[39m
+                      [33mcx[39m=[32m"32"[39m
+                      [33mcy[39m=[32m"28"[39m
+                      [33mrx[39m=[32m"13"[39m
+                      [33mry[39m=[32m"16"[39m
+                    [36m/>[39m
+                    [36m<ellipse[39m
+                      [33mcx[39m=[32m"32"[39m
+                      [33mcy[39m=[32m"28"[39m
+                      [33mfill[39m=[32m"currentColor"[39m
+                      [33mopacity[39m=[32m".12"[39m
+                      [33mrx[39m=[32m"13"[39m
+                      [33mry[39m=[32m"16"[39m
+                    [36m/>[39m
+                    [36m<path[39m
+                      [33md[39m=[32m"M17 26c0-18 30-18 30 0L34 14 19 32Z"[39m
+                      [33mfill[39m=[32m"currentColor"[39m
+                      [33mopacity[39m=[32m".8"[39m
+                    [36m/>[39m
+                    [36m<g[39m
+                      [33mstroke[39m=[32m"currentColor"[39m
+                      [33mstroke-linecap[39m=[32m"round"[39m
+                      [33mstroke-width[39m=[32m"1.6"[39m
+                    [36m>[39m
+                      [36m<path[39m
+                        [33md[39m=[32m"M26 28h1M37 28h1M29 36q3 2 6 0"[39m
+                      [36m/>[39m
+                      [36m<path[39m
+                        [33md[39m=[32m"M23 34q0 9 9 9t9-9M28 34h8"[39m
+                      [36m/>[39m
+                    [36m</g>[39m
+                  [36m</svg>[39m
+                [36m</span>[39m
+                [36m<h4[39m
+                  [33mclass[39m=[32m"min-w-0 break-all font-medium"[39m
+                [36m>[39m
+                  [0m医生角色[0m
+                [36m</h4>[39m
+              [36m</div>[39m
+              [36m<p[39m
+                [33mclass[39m=[32m"mt-2 text-sm text-muted-foreground"[39m
+              [36m>[39m
+                [0m已完成[0m
+                [0m · 1/1[0m
+              [36m</p>[39m
+            [36m</button>[39m
+          [36m</div>[39m
+        [36m</aside>[39m
+        [36m<section[39m
+          [33mclass[39m=[32m"min-w-0 bg-card"[39m
+        [36m>[39m
+          [36m<h3[39m
+            [33mclass[39m=[32m"text-lg font-semibold"[39m
+          [36m>[39m
+            [0m访谈记录[0m
+          [36m</h3>[39m
+          [36m<div[39m
+            [33maria-label[39m=[32m"访谈摘要范围"[39m
+            [33mclass[39m=[32m"mt-4 flex flex-wrap gap-2"[39m
+            [33mrole[39m=[32m"tablist"[39m
+          [36m>[39m
+            [36m<button[39m
+              [33maria-selected[39m=[32m"false"[39m
+              [33mclass[39m=[32m"rounded-lg px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-ring bg-muted text-muted-foreground hover:text-foreground"[39m
+              [33mrole[39m=[32m"tab"[39m
+              [33mtype[39m=[32m"button"[39m
+            [36m>[39m
+              [0m全部（实时汇总）[0m
+            [36m</button>[39m
+            [36m<button[39m
+              [33maria-selected[39m=[32m"true"[39m
+              [33mclass[39m=[32m"rounded-lg px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-ring bg-foreground text-background"[39m
+              [33mrole[39m=[32m"tab"[39m
+              [33mtype[39m=[32m"button"[39m
+            [36m>[39m
+              [0m护理角色[0m
+            [36m</button>[39m
+            [36m<button[39m
+              [33maria-selected[39m=[32m"false"[39m
+              [33mclass[39m=[32m"rounded-lg px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-ring bg-muted text-muted-foreground hover:text-foreground"[39m
+              [33mrole[39m=[32m"tab"[39m
+              [33mtype[39m=[32m"button"[39m
+            [36m>[39m
+              [0m医生角色[0m
+            [36m</button>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33maria-label[39m=[32m"护理角色访谈摘要"[39m
+            [33mclass[39m=[32m"mx-auto mt-6 max-w-[76ch] border-t border-border pt-6 text-base leading-8 [&_h1]:mb-5 [&_h1]:text-2xl [&_h2]:mb-4 [&_h2]:mt-8 [&_h2]:text-xl [&_h3]:mb-3 [&_h3]:mt-7 [&_h3]:text-lg [&_p]:my-3 [&_li]:my-2 [&_ul]:my-4"[39m
+            [33mrole[39m=[32m"tabpanel"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"chat-markdown mt-6 leading-7 text-card-foreground interview-report-markdown"[39m
+              [33mdata-testid[39m=[32m"itv-source-runs-markdown"[39m
+            [36m>[39m
+              [36m<h4[39m
+                [33mnode[39m=[32m"[object Object]"[39m
+              [36m>[39m
+                [36m<a[39m
+                  [33mhref[39m=[32m"#expert-nurse-7"[39m
+                [36m>[39m
+                  [0m护理角色[0m
+                [36m</a>[39m
+              [36m</h4>[39m
+              [0m
+[0m
+              [36m<h4[39m
+                [33mnode[39m=[32m"[object Object]"[39m
+              [36m>[39m
+                [36m<a[39m
+                  [33mhref[39m=[32m"#expert-nurse-7"[39m
+                [36m>[39m
+                  [0m护理角色[0m
+                [36m</a>[39m
+              [36m</h4>[39m
+            [36m</div>[39m
+          [36m</div>[39m
+        [36m</section>[39m
+      [36m</div>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/ui/interview-source-runs.test.tsx > keeps provider top-level headings inside the attributed expert and repeated segments
+TestingLibraryElementError: Unable to find an element with the text: 护理原始回答。. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"space-y-5"[39m
+      [33mdata-testid[39m=[32m"itv-source-runs"[39m
+    [36m>[39m
+      [36m<header[39m
+        [33mclass[39m=[32m"mb-5 flex min-w-0 flex-wrap items-center justify-between gap-3 print:hidden"[39m
+        [33mdata-testid[39m=[32m"itv-runs-report-action"[39m
+      [36m>[39m
+        [36m<h2[39m
+          [33mclass[39m=[32m"text-2xl font-bold tracking-tight"[39m
+        [36m>[39m
+          [0m访谈内容[0m
+        [36m</h2>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"ml-auto flex flex-wrap items-center justify-end gap-2"[39m
+          [33mdata-testid[39m=[32m"itv-step-actions"[39m
+        [36m>[39m
+          [36m<button[39m
+            [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-all duration-200 ease-in-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-primary text-primary-foreground hover:bg-primary-hover active:scale-[0.98] shadow-sm h-10 px-4 text-14"[39m
+          [36m>[39m
+            [36m<svg[39m
+              [33maria-hidden[39m=[32m"true"[39m
+              [33mclass[39m=[32m"lucide lucide-file-text size-4"[39m
+              [33mfill[39m=[32m"none"[39m
+              [33mheight[39m=[32m"24"[39m
+              [33mstroke[39m=[32m"currentColor"[39m
+              [33mstroke-linecap[39m=[32m"round"[39m
+              [33mstroke-linejoin[39m=[32m"round"[39m
+              [33mstroke-width[39m=[32m"2"[39m
+              [33mviewBox[39m=[32m"0 0 24 24"[39m
+              [33mwidth[39m=[32m"24"[39m
+              [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+            [36m>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"[39m
+              [36m/>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M14 2v4a2 2 0 0 0 2 2h4"[39m
+              [36m/>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M10 9H8"[39m
+              [36m/>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M16 13H8"[39m
+              [36m/>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M16 17H8"[39m
+              [36m/>[39m
+            [36m</svg>[39m
+            [0m生成报告[0m
+            [36m<svg[39m
+              [33maria-hidden[39m=[32m"true"[39m
+              [33mclass[39m=[32m"lucide lucide-arrow-right size-4"[39m
+              [33mfill[39m=[32m"none"[39m
+              [33mheight[39m=[32m"24"[39m
+              [33mstroke[39m=[32m"currentColor"[39m
+              [33mstroke-linecap[39m=[32m"round"[39m
+              [33mstroke-linejoin[39m=[32m"round"[39m
+              [33mstroke-width[39m=[32m"2"[39m
+              [33mviewBox[39m=[32m"0 0 24 24"[39m
+              [33mwidth[39m=[32m"24"[39m
+              [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+            [36m>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M5 12h14"[39m
+              [36m/>[39m
+              [36m<path[39m
+                [33md[39m=[32m"m12 5 7 7-7 7"[39m
+              [36m/>[39m
+            [36m</svg>[39m
+          [36m</button>[39m
+        [36m</div>[39m
+      [36m</header>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"flex flex-wrap items-center gap-3 text-sm text-muted-foreground"[39m
+      [36m>[39m
+        [36m<span>[39m
+          [0m已保存回答 2/2[0m
+        [36m</span>[39m
+        [36m<div[39m
+          [33maria-label[39m=[32m"专家任务状态"[39m
+          [33mclass[39m=[32m"flex flex-wrap gap-2"[39m
+        [36m>[39m
+          [36m<span[39m
+            [33mclass[39m=[32m"rounded-full px-2 py-1 bg-success/10 text-success"[39m
+          [36m>[39m
+            [0m已完成[0m
+            [0m [0m
+            [0m2[0m
+          [36m</span>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"grid items-start gap-8 xl:grid-cols-[12rem_minmax(0,1fr)] xl:gap-x-10"[39m
+      [36m>[39m
+        [36m<aside[39m
+          [33mclass[39m=[32m"rounded-xl border border-border p-5"[39m
+        [36m>[39m
+          [36m<h3[39m
+            [33mclass[39m=[32m"mb-4 font-semibold"[39m
+          [36m>[39m
+            [0m专家进度（[0m
+            [0m2[0m
+            [0m）[0m
+          [36m</h3>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"space-y-3"[39m
+          [36m>[39m
+            [36m<button[39m
+              [33maria-current[39m=[32m"true"[39m
+              [33mclass[39m=[32m"block w-full rounded-lg border p-4 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring border-primary bg-primary/10 shadow-sm"[39m
+              [33mtype[39m=[32m"button"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"flex items-center gap-3"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33maria-label[39m=[32m"护理角色的插画头像"[39m
+                  [33mclass[39m=[32m"inline-block size-11 shrink-0 overflow-hidden rounded-full text-foreground"[39m
+                  [33mdata-avatar-key[39m=[32m"person-7"[39m
+                  [33mrole[39m=[32m"img"[39m
+                [36m>[39m
+                  [36m<svg[39m
+                    [33maria-hidden[39m=[32m"true"[39m
+                    [33mclass[39m=[32m"size-full"[39m
+                    [33mfill[39m=[32m"none"[39m
+                    [33mviewBox[39m=[32m"0 0 64 64"[39m
+                  [36m>[39m
+                    [36m<circle[39m
+                      [33mcx[39m=[32m"32"[39m
+                      [33mcy[39m=[32m"32"[39m
+                      [33mfill[39m=[32m"currentColor"[39m
+                      [33mopacity[39m=[32m".08"[39m
+                      [33mr[39m=[32m"31"[39m
+                    [36m/>[39m
+                    [36m<path[39m
+                      [33md[39m=[32m"M9 61c1-14 9-21 23-21s22 7 23 21"[39m
+                      [33mfill[39m=[32m"currentColor"[39m
+                      [33mopacity[39m=[32m".22"[39m
+                    [36m/>[39m
+                    [36m<path[39m
+                      [33md[39m=[32m"M27 38v7l5 5 5-5v-7"[39m
+                      [33mfill[39m=[32m"currentColor"[39m
+                      [33mopacity[39m=[32m".12"[39m
+                    [36m/>[39m
+                    [36m<ellipse[39m
+                      [33mclass[39m=[32m"fill-background"[39m
+                      [33mcx[39m=[32m"32"[39m
+                      [33mcy[39m=[32m"28"[39m
+                      [33mrx[39m=[32m"13"[39m
+                      [33mry[39m=[32m"16"[39m
+                    [36m/>[39m
+                    [36m<ellipse[39m
+                      [33mcx[39m=[32m"32"[39m
+                      [33mcy[39m=[32m"28"[39m
+                      [33mfill[39m=[32m"currentColor"[39m
+                      [33mopacity[39m=[32m".12"[39m
+                      [33mrx[39m=[32m"13"[39m
+                      [33mry[39m=[32m"16"[39m
+                    [36m/>[39m
+                    [36m<path[39m
+                      [33md[39m=[32m"M18 25c-2-18 26-21 29-3l-3 7-3-12-17 5-4 8Z"[39m
+                      [33mfill[39m=[32m"currentColor"[39m
+                      [33mopacity[39m=[32m".8"[39m
+                    [36m/>[39m
+                    [36m<g[39m
+                      [33mstroke[39m=[32m"currentColor"[39m
+                      [33mstroke-linecap[39m=[32m"round"[39m
+                      [33mstroke-width[39m=[32m"1.6"[39m
+                    [36m>[39m
+                      [36m<path[39m
+                        [33md[39m=[32m"M26 28h1M37 28h1M29 36q3 2 6 0"[39m
+                      [36m/>[39m
+                      [36m<rect[39m
+                        [33mheight[39m=[32m"8"[39m
+                        [33mrx[39m=[32m"3"[39m
+                        [33mwidth[39m=[32m"9"[39m
+                        [33mx[39m=[32m"22"[39m
+                        [33my[39m=[32m"24"[39m
+                      [36m/>[39m
+                      [36m<rect[39m
+                        [33mheight[39m=[32m"8"[39m
+                        [33mrx[39m=[32m"3"[39m
+                        [33mwidth[39m=[32m"9"[39m
+                        [33mx[39m=[32m"33"[39m
+                        [33my[39m=[32m"24"[39m
+                      [36m/>[39m
+                      [36m<path[39m
+                        [33md[39m=[32m"M31 27h2"[39m
+                      [36m/>[39m
+                    [36m</g>[39m
+                  [36m</svg>[39m
+                [36m</span>[39m
+                [36m<h4[39m
+                  [33mclass[39m=[32m"min-w-0 break-all font-medium"[39m
+                [36m>[39m
+                  [0m护理角色[0m
+                [36m</h4>[39m
+              [36m</div>[39m
+              [36m<p[39m
+                [33mclass[39m=[32m"mt-2 text-sm text-muted-foreground"[39m
+              [36m>[39m
+                [0m已完成[0m
+                [0m · 1/1[0m
+              [36m</p>[39m
+            [36m</button>[39m
+            [36m<button[39m
+              [33mclass[39m=[32m"block w-full rounded-lg border p-4 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring border-border hover:border-primary/50 hover:bg-muted/40"[39m
+              [33mtype[39m=[32m"button"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"flex items-center gap-3"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33maria-label[39m=[32m"医生角色的插画头像"[39m
+                  [33mclass[39m=[32m"inline-block size-11 shrink-0 overflow-hidden rounded-full text-foreground"[39m
+                  [33mdata-avatar-key[39m=[32m"person-16"[39m
+                  [33mrole[39m=[32m"img"[39m
+                [36m>[39m
+                  [36m<svg[39m
+                    [33maria-hidden[39m=[32m"true"[39m
+                    [33mclass[39m=[32m"size-full"[39m
+                    [33mfill[39m=[32m"none"[39m
+                    [33mviewBox[39m=[32m"0 0 64 64"[39m
+                  [36m>[39m
+                    [36m<circle[39m
+                      [33mcx[39m=[32m"32"[39m
+                      [33mcy[39m=[32m"32"[39m
+                      [33mfill[39m=[32m"currentColor"[39m
+                      [33mopacity[39m=[32m".08"[39m
+                      [33mr[39m=[32m"31"[39m
+                    [36m/>[39m
+                    [36m<path[39m
+                      [33md[39m=[32m"M9 61c1-14 9-21 23-21s22 7 23 21"[39m
+                      [33mfill[39m=[32m"currentColor"[39m
+                      [33mopacity[39m=[32m".22"[39m
+                    [36m/>[39m
+                    [36m<path[39m
+                      [33md[39m=[32m"M27 38v7l5 5 5-5v-7"[39m
+                      [33mfill[39m=[32m"currentColor"[39m
+                      [33mopacity[39m=[32m".12"[39m
+                    [36m/>[39m
+                    [36m<path[39m
+                      [33md[39m=[32m"M15 24c0-18 34-18 34 0v24H15Z"[39m
+                      [33mfill[39m=[32m"currentColor"[39m
+                      [33mopacity[39m=[32m".65"[39m
+                    [36m/>[39m
+                    [36m<ellipse[39m
+                      [33mclass[39m=[32m"fill-background"[39m
+                      [33mcx[39m=[32m"32"[39m
+                      [33mcy[39m=[32m"28"[39m
+                      [33mrx[39m=[32m"13"[39m
+                      [33mry[39m=[32m"16"[39m
+                    [36m/>[39m
+                    [36m<ellipse[39m
+                      [33mcx[39m=[32m"32"[39m
+                      [33mcy[39m=[32m"28"[39m
+                      [33mfill[39m=[32m"currentColor"[39m
+                      [33mopacity[39m=[32m".12"[39m
+                      [33mrx[39m=[32m"13"[39m
+                      [33mry[39m=[32m"16"[39m
+                    [36m/>[39m
+                    [36m<path[39m
+                      [33md[39m=[32m"M17 26c0-18 30-18 30 0L34 14 19 32Z"[39m
+                      [33mfill[39m=[32m"currentColor"[39m
+                      [33mopacity[39m=[32m".8"[39m
+                    [36m/>[39m
+                    [36m<g[39m
+                      [33mstroke[39m=[32m"currentColor"[39m
+                      [33mstroke-linecap[39m=[32m"round"[39m
+                      [33mstroke-width[39m=[32m"1.6"[39m
+                    [36m>[39m
+                      [36m<path[39m
+                        [33md[39m=[32m"M26 28h1M37 28h1M29 36q3 2 6 0"[39m
+                      [36m/>[39m
+                      [36m<path[39m
+                        [33md[39m=[32m"M23 34q0 9 9 9t9-9M28 34h8"[39m
+                      [36m/>[39m
+                    [36m</g>[39m
+                  [36m</svg>[39m
+                [36m</span>[39m
+                [36m<h4[39m
+                  [33mclass[39m=[32m"min-w-0 break-all font-medium"[39m
+                [36m>[39m
+                  [0m医生角色[0m
+                [36m</h4>[39m
+              [36m</div>[39m
+              [36m<p[39m
+                [33mclass[39m=[32m"mt-2 text-sm text-muted-foreground"[39m
+              [36m>[39m
+                [0m已完成[0m
+                [0m · 1/1[0m
+              [36m</p>[39m
+            [36m</button>[39m
+          [36m</div>[39m
+        [36m</aside>[39m
+        [36m<section[39m
+          [33mclass[39m=[32m"min-w-0 bg-card"[39m
+        [36m>[39m
+          [36m<h3[39m
+            [33mclass[39m=[32m"text-lg font-semibold"[39m
+          [36m>[39m
+            [0m访谈记录[0m
+          [36m</h3>[39m
+          [36m<div[39m
+            [33maria-label[39m=[32m"访谈摘要范围"[39m
+            [33mclass[39m=[32m"mt-4 flex flex-wrap gap-2"[39m
+            [33mrole[39m=[32m"tablist"[39m
+          [36m>[39m
+            [36m<button[39m
+              [33maria-selected[39m=[32m"false"[39m
+              [33mclass[39m=[32m"rounded-lg px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-ring bg-muted text-muted-foreground hover:text-foreground"[39m
+              [33mrole[39m=[32m"tab"[39m
+              [33mtype[39m=[32m"button"[39m
+            [36m>[39m
+              [0m全部（实时汇总）[0m
+            [36m</button>[39m
+            [36m<button[39m
+              [33maria-selected[39m=[32m"true"[39m
+              [33mclass[39m=[32m"rounded-lg px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-ring bg-foreground text-background"[39m
+              [33mrole[39m=[32m"tab"[39m
+              [33mtype[39m=[32m"button"[39m
+            [36m>[39m
+              [0m护理角色[0m
+            [36m</button>[39m
+            [36m<button[39m
+              [33maria-selected[39m=[32m"false"[39m
+              [33mclass[39m=[32m"rounded-lg px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-ring bg-muted text-muted-foreground hover:text-foreground"[39m
+              [33mrole[39m=[32m"tab"[39m
+              [33mtype[39m=[32m"button"[39m
+            [36m>[39m
+              [0m医生角色[0m
+            [36m</button>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33maria-label[39m=[32m"护理角色访谈摘要"[39m
+            [33mclass[39m=[32m"mx-auto mt-6 max-w-[76ch] border-t border-border pt-6 text-base leading-8 [&_h1]:mb-5 [&_h1]:text-2xl [&_h2]:mb-4 [&_h2]:mt-8 [&_h2]:text-xl [&_h3]:mb-3 [&_h3]:mt-7 [&_h3]:text-lg [&_p]:my-3 [&_li]:my-2 [&_ul]:my-4"[39m
+            [33mrole[39m=[32m"tabpanel"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"chat-markdown mt-6 leading-7 text-card-foreground interview-report-markdown"[39m
+              [33mdata-testid[39m=[32m"itv-source-runs-markdown"[39m
+            [36m>[39m
+              [36m<h4[39m
+                [33mnode[39m=[32m"[object Object]"[39m
+              [36m>[39m
+                [36m<a[39m
+                  [33mhref[39m=[32m"#expert-nurse-7"[39m
+                [36m>[39m
+                  [0m护理角色[0m
+                [36m</a>[39m
+              [36m</h4>[39m
+              [0m
+[0m
+              [36m<h4[39m
+                [33mnode[39m=[32m"[object Object]"[39m
+              [36m>[39m
+                [36m<a[39m
+                  [33mhref[39m=[32m"#expert-nurse-7"[39m
+                [36m>[39m
+                  [0m护理角色[0m
+                [36m</a>[39m
+              [36m</h4>[39m
+            [36m</div>[39m
+          [36m</div>[39m
+        [36m</section>[39m
+      [36m</div>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ❯ Object.getElementError ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ tests/ui/interview-source-runs.test.tsx:92:17
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 8 passed (9)
+   Start at  19:42:03
+   Duration  6.24s (transform 1.44s, setup 310ms, collect 2.64s, tests 726ms, environment 1.75s, prepare 120ms)
+
+undefined
+/Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/ui/interview-source-runs.test.tsx --maxWorkers=1 --minWorkers=1

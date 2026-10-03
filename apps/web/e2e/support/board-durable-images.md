@@ -50,3 +50,37 @@ its required isolation environment variables. Run it through the repository’s
 normal isolation wrapper with apps/web as cwd; do not start a parallel hand-built
 stack. `--list` only collects; omitting `--list` starts the inherited fullstack
 services, so actual execution belongs to the coordinating session.
+
+The fresh fullstack configuration runs Chromium, Firefox and WebKit sequentially
+(`workers: 1`, `retries: 0`) against one inherited production build/API stack.
+This does not change the separate canonical board-storage CI Chromium project.
+Install the lockfile-resolved Web Playwright engines before this local acceptance:
+`pnpm --filter web exec playwright install chromium firefox webkit`.
+The real localhost HTTPS fixture trusts only its generated short-lived test
+certificate via the browser context; it preserves actual browser CORS enforcement
+and reports exact Origin/Range/status/byte counts. Node fixture tests alone do not
+prove browser CORS or application persistence. Delayed cancellation cases forward
+the real API upload, hold its actual response, and explicitly record a durable
+server asset if it completed before the client cancelled; client abort is not
+evidence that such an unreferenced asset was deleted.
+
+New HTTPS and cancellation groups live in `board-image-ingress-acceptance.spec.ts`
+and are selected only by this fresh local three-engine configuration. They do not
+change the canonical storage lane's original five cases or four runtime receipts.
+Shared browser helpers contain no test registrations, so importing them cannot
+secretly expand canonical lane counts.
+
+The supplemental ingress file also runs in the existing unconditional fullstack
+`seeded-github-import` dependency closure, as the separate `board-image-ingress`
+project (four cases, Chromium in CI). It reuses the existing stack/build/installers.
+The fresh local configuration additionally runs all three engines; those results
+are pending and must not be inferred from Chromium CI.
+
+The HTTPS fixture owns its short-lived localhost certificate. Its dedicated
+browser context trusts that certificate only within a boundary which denies every
+other HTTPS origin; the application and API remain the existing HTTP loopback stack.
+The receipt includes fixture origin, certificate SHA256, actual server requests,
+CORS failures and blocked-origin list (required empty). This proves browser CORS
+and Range processing, not public certificate-chain validity. No production TLS
+policy is changed. New helper/config and this trust boundary require independent
+source review before use as acceptance evidence.

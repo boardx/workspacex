@@ -1,0 +1,27 @@
++       },
++     ],
++     "supported": true,
++   },
++ }
+
+ ❯ tests/research/guided-report-quality.test.ts:53:25
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/8]⎯
+
+ Test Files  1 failed (1)
+      Tests  8 failed | 8 passed (16)
+   Start at  23:31:26
+   Duration  3.80s (transform 587ms, setup 5ms, collect 679ms, tests 11ms, environment 0ms, prepare 32ms)
+
+[db-isolation] db=wsx_248ad5192e8efd1c4cc8 peak_connections=1
+undefined
+/Users/shenyangjun/.codex/worktrees/research-5056-fixes/workspacex/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/research/guided-report-quality.test.ts --maxWorkers=1 --minWorkers=1
+[timing] pnpm --filter @repo/api exec vitest run tests/research/guided-report-quality.test.ts --maxWorkers=1 --minWorkers=1
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：4s
+  清理：0s
+  总计：5s

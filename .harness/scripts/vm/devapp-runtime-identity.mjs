@@ -8,6 +8,48 @@ const fail = code => { throw new Error(code); };
 const sha = /^[a-f0-9]{40}$/;
 const hash = bytes => createHash('sha256').update(bytes).digest('hex');
 const run = (bin,args) => execFileSync(bin,args,{encoding:'utf8',timeout:30000,maxBuffer:32*1024*1024,env:{...process.env,LC_ALL:'C',TZ:'UTC'}});
+export function publicMarkerEnvironment(build,source,app,digest) {
+ if(!sha.test(source??'')||!build||build.schemaVersion!==1||build.sourceSha!==source||build.appDir!==app||
+   !/^[a-f0-9]{64}$/.test(build.artifactSha256??'')||build.artifactSha256!==digest||
+   !Number.isFinite(Date.parse(build.observedAt??'')))fail('RUNTIME_PUBLIC_MARKER_BUILD');
+ return 'WORKSPACEX_DEPLOYMENT_MARKER='+source+'\n';
+}
+export function verifyPublicMarkerProcesses(identity,source,read=fs) {
+ if(!sha.test(source??'')||!identity.applicationProcesses?.length)fail('RUNTIME_PUBLIC_MARKER_PROCESS');
+ for(const process of identity.applicationProcesses) {
+  const markers=read.readFileSync('/proc/'+process.pid+'/environ').toString().split('\0').filter(value=>value.startsWith('WORKSPACEX_DEPLOYMENT_MARKER='));
+  if(markers.length!==1||markers[0]!=='WORKSPACEX_DEPLOYMENT_MARKER='+source)fail('RUNTIME_PUBLIC_MARKER_PROCESS');
+ }
+}
+export function installPublicMarker(base,dropDir,value,read=fs) {
+ const safeDirectory=dir=>{const s=read.lstatSync(dir);if(!s.isDirectory()||s.isSymbolicLink()||s.uid!==0||s.gid!==0||(s.mode&0o022))fail('RUNTIME_PUBLIC_MARKER_DIRECTORY');};
+ const checkParents=file=>{for(let p=path.dirname(file);p!=='/';p=path.dirname(p))safeDirectory(p);};
+ checkParents(base+'/public-runtime.env');checkParents(dropDir+'/50-workspacex-public-marker.conf');
+ safeDirectory(base);safeDirectory(dropDir);
+ const target=base+'/public-runtime.env',drop=dropDir+'/50-workspacex-public-marker.conf';
+ const snapshot=file=>{
+  if(!read.existsSync(file))return null;
+  const s=read.lstatSync(file);if(!s.isFile()||s.isSymbolicLink()||s.uid!==0||s.gid!==0||(s.mode&0o777)!==0o600)fail('RUNTIME_UNSAFE_RECEIPT');
+  return read.readFileSync(file);
+ };
+ const previous=new Map([[target,snapshot(target)],[drop,snapshot(drop)]]),temps=[],committed=[];
+ const stage=(file,bytes)=>{const tmp=path.dirname(file)+'/.public-marker-'+randomUUID();temps.push(tmp);read.writeFileSync(tmp,bytes,{mode:0o600,flag:'wx'});return tmp;};
+ let cause;
+ const errors=[];
+ try {
+  const envTmp=stage(target,value),dropTmp=stage(drop,'[Service]\nEnvironmentFile='+target+'\n');
+  read.renameSync(envTmp,target);committed.push(target);
+  read.renameSync(dropTmp,drop);committed.push(drop);
+ } catch(error) {
+  cause=error;
+  for(const file of committed.reverse())try {
+   const old=previous.get(file);if(old===null)read.unlinkSync(file);else read.renameSync(stage(file,old),file);
+  } catch(restoreError){errors.push(restoreError);}
+ } finally {
+  for(const tmp of temps)try{if(read.existsSync(tmp))read.unlinkSync(tmp);}catch(cleanupError){errors.push(cleanupError);}
+ }
+ if(cause||errors.length)throw new AggregateError([...(cause?[cause]:[]),...errors],'RUNTIME_PUBLIC_MARKER_TRANSACTION');
+}
 export function privateFile(file) {
  for(let p=path.dirname(file);p!=='/';p=path.dirname(p)) { const s=fs.lstatSync(p); if(!s.isDirectory()||s.isSymbolicLink()||s.uid!==0||s.gid!==0||(s.mode&0o022)) fail('RUNTIME_UNSAFE_PARENT'); }
  const s=fs.lstatSync(file); if(!s.isFile()||s.isSymbolicLink()||s.uid!==0||s.gid!==0||(s.mode&0o777)!==0o600)fail('RUNTIME_UNSAFE_RECEIPT');
@@ -123,6 +165,7 @@ export function collectMixedRuntime(receipt,source,provided={}) {
  for(const k of ['api','web']) {
   const before=receipt.systemd[k],actual=systemdIdentity(before.unit,before.cwd,ports.run,ports.fs);
   if(JSON.stringify(actual)!==JSON.stringify(before))fail('RUNTIME_PROCESS_DRIFT');
+  if(k==='web')verifyPublicMarkerProcesses(actual,source,ports.fs??fs);
   runtime[k]={...actual,running:true,sourceSha:source,artifactSha256:receipt.artifactSha256,startedAt:receipt.processStartedAt[k]};
  }
  for(const k of ['agent','sandbox']) {
@@ -153,10 +196,23 @@ function main() {
   const value={schemaVersion:1,sourceSha:source,appDir:app,artifactSha256:artifactDigest(app),observedAt:new Date().toISOString(),buildStartTicks:String(Math.floor(Number(fs.readFileSync('/proc/uptime','utf8').split(' ')[0])*Number(run('getconf',['CLK_TCK']).trim()))),bootId:fs.readFileSync('/proc/sys/kernel/random/boot_id','utf8').trim()};
   const p=base+'/build-'+source+'-'+randomUUID()+'.json';writeExclusive(p,value);console.log(p);return;
  }
+ if(kind==='publish-marker') {
+  verifySourceBytes(app,source);
+  const value=publicMarkerEnvironment(JSON.parse(privateFile(buildFile)),source,app,artifactDigest(app));
+  const dropDir='/etc/systemd/system/workspacex-web.service.d';
+  // Provision only a missing dedicated directory; validate every parent before live writes.
+  if(!fs.existsSync(dropDir)) {
+   const parent=fs.lstatSync(path.dirname(dropDir));if(!parent.isDirectory()||parent.isSymbolicLink()||parent.uid!==0||parent.gid!==0||(parent.mode&0o022))fail('RUNTIME_PUBLIC_MARKER_DIRECTORY');
+   fs.mkdirSync(dropDir,{mode:0o755});
+  }
+  installPublicMarker(base,dropDir,value);
+  console.log('DEVAPP_PUBLIC_MARKER_PREPARED');return;
+ }
  if(kind==='attest') {
   const b=JSON.parse(privateFile(buildFile));
   if(b.sourceSha!==source||b.appDir!==app||artifactDigest(app)!==b.artifactSha256)fail('RUNTIME_BUILD_DRIFT');
   const systemd={api:systemdIdentity('workspacex-api',app),web:systemdIdentity('workspacex-web',app+'/apps/web')};
+  verifyPublicMarkerProcesses(systemd.web,source);
   // /proc start ticks are monotonic; systemd exposes the start's real UTC for browser binding.
   assertStartedAfterBuild(b,systemd);
   const processStartedAt={};
