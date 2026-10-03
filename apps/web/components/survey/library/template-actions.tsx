@@ -57,6 +57,9 @@ export function SurveyTemplateActions({
   const [selected, setSelected] = React.useState("");
   const [bindings, setBindings] = React.useState<Record<string, string>>({});
   const [attempt, setAttempt] = React.useState(0);
+  const [unbound, setUnbound] = React.useState<{ previous: SurveyDraftInput["template"]; cleared: SurveyDraftInput["template"] } | null>(null);
+  const canUndoUnbind = !!unbound && draft.template.id === unbound.cleared.id &&
+    draft.template.title === unbound.cleared.title && draft.template.sections.length === 0;
   const builtins = React.useMemo(() => getBuiltinSurveyTemplates(kind), [kind]);
   const choices: (SurveyLibraryTemplate | BuiltinSurveyTemplate)[] = [
     ...builtins,
@@ -164,6 +167,7 @@ export function SurveyTemplateActions({
       )
         return;
       onApply(next);
+      setUnbound(null);
       setMode(null);
       setNotice("模板已应用，请保存问卷修改。");
     } catch (e) {
@@ -197,6 +201,23 @@ export function SurveyTemplateActions({
         >
           管理模板库
         </Link>}
+        {kind === "report" && !saveOnly && draft.template.sections.length > 0 && (
+          <Button variant="outline" disabled={disabled || busy || locked} onClick={() => {
+            if (disabled || busy || locked) return;
+            const cleared = { id: crypto.randomUUID(), title: draft.title, sections: [] };
+            setUnbound({ previous: structuredClone(draft.template), cleared });
+            onApply({ ...draft, template: cleared });
+            setNotice("已不使用报告模板，可撤销解绑。修改将自动保存。");
+          }}>不使用报告模板</Button>
+        )}
+        {kind === "report" && !saveOnly && canUndoUnbind && (
+          <Button variant="outline" disabled={disabled || busy || locked} onClick={() => {
+            if (disabled || busy || locked || !unbound) return;
+            onApply({ ...draft, template: structuredClone(unbound.previous) });
+            setUnbound(null);
+            setNotice("已恢复报告模板。修改将自动保存。");
+          }}>撤销解绑</Button>
+        )}
         {locked && !saveOnly && (
           <span className="text-12 text-muted-foreground">
             已发布题目不可替换，仍可保存为模板。

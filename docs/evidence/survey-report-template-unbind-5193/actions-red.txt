@@ -1,0 +1,35 @@
+          保存为
+          报告模板
+        </button>
+        <a
+          class="px-2 text-12 text-muted-foreground underline"
+          href="/studio/survey?tab=reports"
+        >
+          管理模板库
+        </a>
+      </div>
+    </section>
+  </div>
+</body>
+ ❯ Object.getElementError ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ tests/ui/survey-template-actions.test.tsx:382:28
+    380|     vi.spyOn(window, "confirm").mockReturnValue(true);
+    381|     const { rerender } = render(<SurveyTemplateActions kind="report" d…
+    382|     fireEvent.click(screen.getByRole("button", { name: "不使用报告模板…
+       |                            ^
+    383|     const cleared = onApply.mock.calls[0]![0] as SurveyDraftInput;
+    384|     rerender(<SurveyTemplateActions kind="report" draft={cleared} onAp…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/4]⎯
+
+ Test Files  1 failed (1)
+      Tests  4 failed | 12 passed (16)
+   Start at  10:35:50
+   Duration  1.95s (transform 488ms, setup 99ms, collect 832ms, tests 288ms, environment 560ms, prepare 42ms)
+
+undefined
+/Users/shenyangjun/.codex/worktrees/survey-report-echarts/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/ui/survey-template-actions.test.tsx

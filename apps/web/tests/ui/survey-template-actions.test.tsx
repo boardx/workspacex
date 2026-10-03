@@ -321,3 +321,96 @@ it("超限模板在客户端明确提示且不发送请求，输入保留", asyn
   expect(screen.getByLabelText("保存模板名称")).toHaveValue("当前问卷");
   expect(request).not.toHaveBeenCalled();
 });
+
+
+describe("report template unbinding", () => {
+  const boundDraft = (): SurveyDraftInput => ({ ...draft(), tags: ["原标签"], template: structuredClone(template("report").template) });
+  it("unbinds even an invalid mapping without deleting or mutating the library source", () => {
+    const current = boundDraft(), source = template("report"), snapshot = structuredClone(source), onApply = vi.fn();
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    render(<SurveyTemplateActions kind="report" draft={current} onApply={onApply} />);
+    fireEvent.click(screen.getByRole("button", { name: "不使用报告模板" }));
+    const cleared = onApply.mock.calls[0]![0] as SurveyDraftInput;
+    expect(cleared.template.sections).toEqual([]);
+    expect(cleared.template.id).not.toBe(current.template.id);
+    expect(cleared.questions).toEqual(current.questions);
+    expect(cleared.tags).toEqual(current.tags);
+    expect(current.template.sections).toHaveLength(1);
+    expect(source).toEqual(snapshot);
+    expect(request).not.toHaveBeenCalled();
+  });
+  it("undoes only the template and retains subsequent question and tag edits", () => {
+    const current = boundDraft(), onApply = vi.fn();
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    const { rerender } = render(<SurveyTemplateActions kind="report" draft={current} onApply={onApply} />);
+    fireEvent.click(screen.getByRole("button", { name: "不使用报告模板" }));
+    const cleared = onApply.mock.calls[0]![0] as SurveyDraftInput;
+    const later = { ...cleared, tags: ["后来标签"], questions: cleared.questions.map(q => ({ ...q, title: "后来编辑题目" })) };
+    rerender(<SurveyTemplateActions kind="report" draft={later} onApply={onApply} />);
+    fireEvent.click(screen.getByRole("button", { name: "撤销解绑" }));
+    const restored = onApply.mock.calls[1]![0] as SurveyDraftInput;
+    expect(restored.template).toEqual(current.template);
+    expect(restored.questions).toEqual(later.questions);
+    expect(restored.tags).toEqual(later.tags);
+    expect(request).not.toHaveBeenCalled();
+  });
+  it.each(["empty", "question", "saveOnly"] as const)("does not expose unbinding for %s actions", mode => {
+    render(<SurveyTemplateActions kind={mode === "question" ? "question" : "report"} draft={mode === "empty" ? draft() : boundDraft()} onApply={vi.fn()} saveOnly={mode === "saveOnly"} />);
+    expect(screen.queryByRole("button", { name: "不使用报告模板" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "撤销解绑" })).not.toBeInTheDocument();
+  });
+  it("blocks clear and undo while the parent is saving", () => {
+    const current = boundDraft(), onApply = vi.fn();
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    const { rerender } = render(<SurveyTemplateActions kind="report" draft={current} onApply={onApply} disabled />);
+    expect(screen.getByRole("button", { name: "不使用报告模板" })).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "不使用报告模板" }));
+    expect(onApply).not.toHaveBeenCalled();
+    rerender(<SurveyTemplateActions kind="report" draft={current} onApply={onApply} />);
+    fireEvent.click(screen.getByRole("button", { name: "不使用报告模板" }));
+    const cleared = onApply.mock.calls[0]![0] as SurveyDraftInput;
+    rerender(<SurveyTemplateActions kind="report" draft={cleared} onApply={onApply} disabled />);
+    expect(screen.getByRole("button", { name: "撤销解绑" })).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "撤销解绑" }));
+    expect(onApply).toHaveBeenCalledTimes(1);
+  });
+  it("does not offer undo that would overwrite a later report-title-only edit", () => {
+    const current = boundDraft(), onApply = vi.fn();
+    const { rerender } = render(<SurveyTemplateActions kind="report" draft={current} onApply={onApply} />);
+    fireEvent.click(screen.getByRole("button", { name: "不使用报告模板" }));
+    const cleared = onApply.mock.calls[0]![0] as SurveyDraftInput;
+    const edited = { ...cleared, template: { ...cleared.template, title: "解绑后自定义标题" } };
+    rerender(<SurveyTemplateActions kind="report" draft={edited} onApply={onApply} />);
+    expect(screen.queryByRole("button", { name: "撤销解绑" })).not.toBeInTheDocument();
+    expect(edited.template.title).toBe("解绑后自定义标题");
+    expect(onApply).toHaveBeenCalledTimes(1);
+  });
+  it("hides stale undo after the cleared template is edited", () => {
+    const current = boundDraft(), onApply = vi.fn();
+    const { rerender } = render(<SurveyTemplateActions kind="report" draft={current} onApply={onApply} />);
+    fireEvent.click(screen.getByRole("button", { name: "不使用报告模板" }));
+    const cleared = onApply.mock.calls[0]![0] as SurveyDraftInput;
+    const edited = { ...cleared, template: { ...cleared.template, sections: structuredClone(current.template.sections) } };
+    rerender(<SurveyTemplateActions kind="report" draft={edited} onApply={onApply} />);
+    expect(screen.queryByRole("button", { name: "撤销解绑" })).not.toBeInTheDocument();
+    expect(onApply).toHaveBeenCalledTimes(1);
+  });
+  it("discards old undo after another report template is applied", async () => {
+    const current = boundDraft(), onApply = vi.fn(), source = template("report");
+    request.mockResolvedValueOnce([source]);
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    const { rerender } = render(<SurveyTemplateActions kind="report" draft={current} onApply={onApply} />);
+    fireEvent.click(screen.getByRole("button", { name: "不使用报告模板" }));
+    const cleared = onApply.mock.calls[0]![0] as SurveyDraftInput;
+    rerender(<SurveyTemplateActions kind="report" draft={cleared} onApply={onApply} />);
+    expect(screen.getByRole("button", { name: "撤销解绑" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "使用报告模板" }));
+    fireEvent.change(await screen.findByLabelText("选择报告模板"), { target: { value: source.id } });
+    fireEvent.change(screen.getByLabelText("对应题目：参考满意度"), { target: { value: "destination-scale" } });
+    fireEvent.change(screen.getByLabelText("对应题目：参考部门"), { target: { value: "destination-group" } });
+    fireEvent.click(screen.getByRole("button", { name: "应用模板" }));
+    rerender(<SurveyTemplateActions kind="report" draft={onApply.mock.calls[1]![0] as SurveyDraftInput} onApply={onApply} />);
+    expect(screen.queryByRole("button", { name: "撤销解绑" })).not.toBeInTheDocument();
+    expect(request).toHaveBeenCalledTimes(1);
+  });
+});

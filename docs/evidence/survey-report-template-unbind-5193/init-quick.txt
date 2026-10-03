@@ -1,0 +1,35 @@
+✓ Codex:   /Users/shenyangjun/.codex/worktrees/survey-report-echarts/.codex/agents/quality-auditor.toml
+✓ Claude:  /Users/shenyangjun/.codex/worktrees/survey-report-echarts/.claude/agents/requirement-author.md
+✓ Codex:   /Users/shenyangjun/.codex/worktrees/survey-report-echarts/.codex/agents/requirement-author.toml
+✓ Claude:  /Users/shenyangjun/.codex/worktrees/survey-report-echarts/.claude/agents/rev-uiux.md
+✓ Codex:   /Users/shenyangjun/.codex/worktrees/survey-report-echarts/.codex/agents/rev-uiux.toml
+✓ Claude:  /Users/shenyangjun/.codex/worktrees/survey-report-echarts/.claude/agents/test-runner.md
+✓ Codex:   /Users/shenyangjun/.codex/worktrees/survey-report-echarts/.codex/agents/test-runner.toml
+✓ Claude:  /Users/shenyangjun/.codex/worktrees/survey-report-echarts/.claude/agents/ui-prototyper.md
+✓ Codex:   /Users/shenyangjun/.codex/worktrees/survey-report-echarts/.codex/agents/ui-prototyper.toml
+✓ Claude role: /Users/shenyangjun/.codex/worktrees/survey-report-echarts/.claude/agents/coord-architecture.md
+✓ Codex role:  /Users/shenyangjun/.codex/worktrees/survey-report-echarts/.codex/agents/coord-architecture.toml
+✓ Claude role: /Users/shenyangjun/.codex/worktrees/survey-report-echarts/.claude/agents/coord-main.md
+✓ Codex role:  /Users/shenyangjun/.codex/worktrees/survey-report-echarts/.codex/agents/coord-main.toml
+✓ Claude role: /Users/shenyangjun/.codex/worktrees/survey-report-echarts/.claude/agents/dev-ai-runtime.md
+✓ Codex role:  /Users/shenyangjun/.codex/worktrees/survey-report-echarts/.codex/agents/dev-ai-runtime.toml
+✓ Claude role: /Users/shenyangjun/.codex/worktrees/survey-report-echarts/.claude/agents/dev-chat-e2e.md
+✓ Codex role:  /Users/shenyangjun/.codex/worktrees/survey-report-echarts/.codex/agents/dev-chat-e2e.toml
+✓ Claude role: /Users/shenyangjun/.codex/worktrees/survey-report-echarts/.claude/agents/rev-e2e.md
+✓ Codex role:  /Users/shenyangjun/.codex/worktrees/survey-report-echarts/.codex/agents/rev-e2e.toml
+✓ Claude role: /Users/shenyangjun/.codex/worktrees/survey-report-echarts/.claude/agents/rev-feature.md
+✓ Codex role:  /Users/shenyangjun/.codex/worktrees/survey-report-echarts/.codex/agents/rev-feature.toml
+
+共生成 15 个 agent（每个 2 种格式）
+  Claude: /Users/shenyangjun/.codex/worktrees/survey-report-echarts/.claude/agents
+  Codex:  /Users/shenyangjun/.codex/worktrees/survey-report-echarts/.codex/agents
+==> 快速健康检查（关键依赖是否真的装上、真的能跑）
+   ✓ 关键依赖已安装且可执行
+==> 快速路径通过（跳过全仓验证）。需要完整证明时运行：./init.sh --full
+==> 初始化完成。应用层入口（本仓真实存在的三个面）：
+    • Web     apps/web            pnpm --filter web dev                  → http://localhost:3000
+    • API     apps/api            pnpm --filter @repo/api dev            → http://localhost:3200
+    • 网关    apps/coord-gateway  pnpm --filter @repo/coord-gateway dev  （wrangler dev --local）
+==> 启动 Web + API: pnpm turbo run dev --filter=web --filter=@repo/api
+    依赖服务（postgres/redis/minio）另起：RUN_INFRA=1 ./init.sh，或 pnpm --filter @repo/api dev:deps
+    取活从统一队列开始：pnpm harness readiness（见 AGENTS.md『开工流程』）
