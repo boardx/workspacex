@@ -1,3 +1,5 @@
+import {primaryFailure,acceptanceFailureSecrets} from './support/board-primary-failure';
+import {captureBoardLogin} from './support/board-login-capture.mjs';
 import {test,expect,type Page} from '@playwright/test';
 import {randomUUID} from 'node:crypto';
 import {writeFile,readFile} from 'node:fs/promises';
@@ -30,8 +32,8 @@ test('same-profile live peer recovers a closed origin without reload and ACKs ea
  const sourceSha=runtimeSourceIdentity(),context=origin.context(),peer=await context.newPage();
  const chunks=observeRuntimeChunks(peer),transport=createSpatialWsMetadataRecorder();transport.observe(origin,'original');transport.observe(peer,'peer');
  const title=`R08 closed origin ${randomUUID()}`,objectId=randomUUID(),observations:Array<Record<string,unknown>>=[];
- let token='',boardId='',failure:unknown,runtimeStarted=false,cleanupPending=false;
- const cleanupErrors:unknown[]=[];
+ let stage='setup',token='',boardId='',failure:unknown,runtimeStarted=false,cleanupPending=false;
+ const cleanupErrors:unknown[]=[],privateSecrets=acceptanceFailureSecrets(F);
  let ownedProxy:{proof:{listener:string};dispose:()=>Promise<void>}|undefined;
  let verifyProxySources:(()=>Promise<void>)|undefined;
  const proxyUrl=process.env.BOARD_SYNC_FAULT_PROXY_URL,controlSecret=process.env.BOARD_SYNC_FAULT_CONTROL_SECRET;
@@ -54,7 +56,7 @@ test('same-profile live peer recovers a closed origin without reload and ACKs ea
   expect(receipt.boardSha256).toBe(sha256(boardId));expect(receipt.complete).toBe(true);expect(receipt.dropped).toBe(0);
   return receipt;
  };
- const saveScreenshot=async(page:Page,label:string)=>{const name=`${label}-${page.viewportSize()!.width}`,path=info.outputPath(`${name}.png`);await page.screenshot({path});await info.attach(name,{path,contentType:'image/png'});};
+ const saveScreenshot=async(page:Page,label:string)=>{const name=`${label}-${page.viewportSize()!.width}`,path=info.outputPath(`${name}.png`);await page.screenshot({path,timeout:5000});await info.attach(name,{path,contentType:'image/png'});};
  const cloudProof=async(phase:'synced'|'offline',label:string)=>{
   const status=peer.getByTestId('board-sync-status'),icon=status.locator('svg'),viewport=peer.viewportSize();expect(viewport).not.toBeNull();
   await expect(status).toHaveAttribute('data-sync-phase',phase);await expect(icon).toHaveCount(1);await expect(icon).toBeVisible();
@@ -65,8 +67,11 @@ test('same-profile live peer recovers a closed origin without reload and ACKs ea
   await saveScreenshot(peer,label);
  };
  try{
-  const login=origin.waitForResponse(response=>new URL(response.url()).pathname==='/auth/login'&&response.request().method()==='POST');
-  token=await boardLogin(origin);const identity=await (await login).json();expect(identity.userId).toBe(F.userId);expect(identity.sessionToken===token).toBe(true);
+  stage='login-origin';
+  const login=await captureBoardLogin(origin,()=>boardLogin(origin));token=login.token;privateSecrets.push(token);
+  expect(login.status).toBe(200);expect(login.posts).toBe(1);expect(login.jsonParsed).toBe(true);
+  const identity=login.body as {userId:string;sessionToken:string};expect(identity.userId).toBe(F.userId);expect(identity.sessionToken===token).toBe(true);
+  stage='create-board';
   boardId=await createAcceptanceBoard(api,token,title);
   const bridgePath=process.env.BOARD_SYNC_FAULT_BRIDGE_PATH,bridgeHash=process.env.BOARD_SYNC_FAULT_BRIDGE_SHA,templatePath=process.env.BOARD_SYNC_FAULT_TEMPLATE_PATH;
   if(!bridgePath||!bridgeHash||!templatePath||sha256(await readFile(bridgePath))!==bridgeHash)throw new Error('Verified owned proxy bridge required');
@@ -76,7 +81,7 @@ test('same-profile live peer recovers a closed origin without reload and ACKs ea
   verifyProxySources=async()=>{for(const name of names){const expectedHash=expectedProxySources[name];if(typeof expectedHash!=='string'||!/^[a-f0-9]{64}$/.test(expectedHash)||sha256(await readFile(join(dirname(bridgePath),name)))!==expectedHash)throw new Error('Transport source changed');}};
   await verifyProxySources();
   const secondLogin=await api.post(`${apiOrigin()}/auth/login`,{data:{email:F.email,password:F.password}});expect(secondLogin.status()).toBe(200);
-  const secondSession=await secondLogin.json();expect(secondSession.userId).toBe(identity.userId);expect(typeof secondSession.sessionToken).toBe('string');expect(secondSession.sessionToken===token).toBe(false);
+  const secondSession=await secondLogin.json();if(typeof secondSession.sessionToken==='string')privateSecrets.push(secondSession.sessionToken);expect(secondSession.userId).toBe(identity.userId);expect(typeof secondSession.sessionToken).toBe('string');expect(secondSession.sessionToken===token).toBe(false);
   const bridge=await import(pathToFileURL(bridgePath).href);
   ownedProxy=await bridge.prepareOwnedProxy({templatePath,boardId,userId:identity.userId,title,tokens:[token,secondSession.sessionToken]});
   if(!ownedProxy)throw new Error('Owned proxy did not start');
@@ -85,13 +90,14 @@ test('same-profile live peer recovers a closed origin without reload and ACKs ea
   const initial=await boardHead(api,token,boardId);
   await boardApi(api,token,'POST',`/whiteboards/${boardId}/commands`,{requestId:randomUUID(),epoch:initial.epoch,commands:[{type:'create',object:{id:objectId,kind:'sticky',schemaVersion:1,geometry:{x:100,y:160,width:180,height:140,rotation:0},text:'Baseline',style:{},parentId:null,orderKey:''}}]});
   for(const page of [origin,peer]){
+   stage=page===origin?'initial-sync-origin':'initial-sync-peer';
    await page.goto(`/studio/board/${boardId}`);await expectBoardSynced(page);
    await expect(page.getByTestId('board-a11y-mirror').locator('li[data-object-id]')).toHaveCount(1);
   }
   expect(peer.context()).toBe(context);expect((await peer.evaluate(key=>localStorage.getItem(key),SESSION_TOKEN_STORAGE_KEY))===token).toBe(true);
   expect(actualProxyBindings.length).toBeGreaterThanOrEqual(2);expect(actualProxyBindings.every(Boolean)).toBe(true);
   const runtimeBefore=await verifyRuntimeIdentity(api,sourceSha,await chunks()),before=await canonicalBoardSnapshot(api,token,boardId);
-  runtimeStarted=true;
+  runtimeStarted=true;stage='offline-edits';
   await cloudProof('synced','cloud-initial');
   await context.setOffline(true);
   for(const page of [origin,peer])await expect(page.getByTestId('board-sync-status')).toHaveAttribute('data-sync-phase','offline');
@@ -111,7 +117,7 @@ test('same-profile live peer recovers a closed origin without reload and ACKs ea
   const expected=await canonicalRows(origin);expect(expected).toHaveLength(1);
   expect(transport.snapshot().events.filter(event=>event.client==='peer'&&event.direction==='sent'&&event.type==='update')).toEqual([]);
   await saveScreenshot(origin,'origin-offline-two-receipts');
-  await origin.close();expect(origin.isClosed()).toBe(true);expect(peer.isClosed()).toBe(false);expect(await durableIds(peer,boardId)).toEqual(pendingIds);
+  stage='origin-close-recovery';await origin.close();expect(origin.isClosed()).toBe(true);expect(peer.isClosed()).toBe(false);expect(await durableIds(peer,boardId)).toEqual(pendingIds);
   const started=performance.now(),remaining=()=>{const budget=45_000-(performance.now()-started);expect(budget).toBeGreaterThan(0);return budget;};
   await context.setOffline(false);
   // No reload, navigation, new page, or manual retry before peer convergence.
@@ -130,7 +136,7 @@ test('same-profile live peer recovers a closed origin without reload and ACKs ea
   await saveScreenshot(peer,'peer-recovered-without-reload');
   await cloudProof('synced','cloud-recovered');
   // This is a real upstream handshake fault, not a browser route or protocol mock.
-  const faultBefore=await canonicalBoardSnapshot(api,token,boardId),receiptBefore=await proxyReceipt();
+  stage='real-503-recovery';const faultBefore=await canonicalBoardSnapshot(api,token,boardId),receiptBefore=await proxyReceipt();
   expect(receiptBefore.deniedUpgradeCount).toBe(0);expect(receiptBefore.requests.filter(event=>event.event==='upgrade'&&event.status===101).length).toBeGreaterThanOrEqual(3);
   await context.setOffline(true);await proxyControl('drop');
   await expect(peer.getByTestId('board-sync-status')).toHaveAttribute('data-sync-phase','offline');
@@ -157,11 +163,12 @@ test('same-profile live peer recovers a closed origin without reload and ACKs ea
  }catch(error){
   failure=error;
   if(!peer.isClosed()){
-   try{await saveScreenshot(peer,'origin-close-failure');observations.push({phase:'failed',head:boardId&&token?await boardHead(api,token,boardId):null,syncLabel:await peer.getByTestId('board-sync-status').getAttribute('aria-label')});}
+   try{observations.push({phase:'failed',stage,syncLabel:await peer.evaluate(()=>document.querySelector('[data-testid="board-sync-status"]')?.getAttribute('aria-label')??null)});}catch(diagnosticError){cleanupErrors.push(diagnosticError);}
+   try{await saveScreenshot(peer,'origin-close-failure');}
    catch(diagnosticError){cleanupErrors.push(diagnosticError);}
   }
  }finally{
-  try{await proxyControl('restore');}catch(error){cleanupErrors.push(error);}
+  try{if(ownedProxy)await proxyControl('restore');}catch(error){cleanupErrors.push(error);}
   try{await context.setOffline(false);}catch(error){cleanupErrors.push(error);}
   if(boardId&&token)try{
    const owned=await (await boardApi(api,token,'GET',`/whiteboards/${boardId}`)).json();expect(owned.ownerId).toBe(F.userId);expect(owned.name).toBe(title);
@@ -174,9 +181,9 @@ test('same-profile live peer recovers a closed origin without reload and ACKs ea
   try{await peer.close();}catch(error){cleanupErrors.push(error);}
   if(ownedProxy)try{await ownedProxy.dispose();}catch(error){cleanupErrors.push(error);}
   if(verifyProxySources)try{await verifyProxySources();}catch(error){cleanupErrors.push(error);}
-  try{expect(actualProxyBindings.length).toBeGreaterThanOrEqual(2);expect(actualProxyBindings.every(Boolean)).toBe(true);}catch(error){cleanupErrors.push(error);}
+  try{if(runtimeStarted)expect(actualProxyBindings.length).toBeGreaterThanOrEqual(2);expect(actualProxyBindings.every(Boolean)).toBe(true);}catch(error){cleanupErrors.push(error);}
   if(runtimeStarted)try{observations.push({phase:'post-cleanup-runtime',proof:await verifyRuntimeIdentity(api,sourceSha,await chunks())});}catch(error){cleanupErrors.push(error);}
-  try{await writeFile(info.outputPath('origin-close-result.json'),JSON.stringify({sourceSha,status:failure||cleanupErrors.length?'failed':'functional-cases-passed',completed:!failure&&!cleanupErrors.length&&!cleanupPending,cleanupPending,viewport:info.project.use.viewport,observations,transport:transport.snapshot(),sameProfile:true,independentBrowserUsers:false,failedReconnect:observations.some(value=>value.phase==='real-503-recovery'),permissionLateWrites:'unit-only-not-browser-claimed'},null,2),{mode:0o600});}catch(error){cleanupErrors.push(error);}
+  try{await writeFile(info.outputPath('origin-close-result.json'),JSON.stringify({sourceSha,stage,primaryFailure:primaryFailure(failure,privateSecrets),secondaryErrors:cleanupErrors.map(error=>primaryFailure(error,privateSecrets)),status:failure||cleanupErrors.length?'failed':'functional-cases-passed',completed:!failure&&!cleanupErrors.length&&!cleanupPending,cleanupPending,viewport:info.project.use.viewport,observations,transport:transport.snapshot(),sameProfile:true,independentBrowserUsers:false,failedReconnect:observations.some(value=>value.phase==='real-503-recovery'),permissionLateWrites:'unit-only-not-browser-claimed'},null,2),{mode:0o600});}catch(error){cleanupErrors.push(error);}
  }
  if(failure||cleanupErrors.length)throw new AggregateError([...(failure?[failure]:[]),...cleanupErrors],'Origin-close acceptance or cleanup failed');
 });

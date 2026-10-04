@@ -97,3 +97,48 @@ This is a source recovery draft, not an accepted ten-round iteration or a releas
 - Layout preview locking incorrectly allowed N/T/S/P to arm creation and hide its toolbar. The mutationBlocked guard now prevents this while retaining H/V navigation. The old failure was reproduced; 29 targeted tests pass.
 - #5079 remains open and is repaired independently on its existing branch, head fcab14006b15580d8a65ff451ae60896261e457b. Both trees share the reviewed native Cancel-selection focus/Enter and geometry/diagnostic helper patch; no old branch is silently closed. 20 targeted tests and normal hooks pass; new three-browser CI is pending.
 - Original-page suspension uses target page lifecycle freeze/resume with trusted native events and independently executing peer sync/replay; no synthetic lifecycle events are used. Only source review/typechecks establish this wiring until real CI executes it. Full scaled-paper footprint is not certified by viewport-visible clearance.
+
+
+## Cloud continuation, 2026-10-04
+
+The cloud checkout fetched PR 5245 at `f529a4acc481ec2137b1d3d4dfe5af0a28642ccf`
+and main at `64a92bf6c795a080c36c79207799ceded8b1456d`. The unpushed Mac
+objects `9fb4c32de` and `5a301c` were not available (`git cat-file` failed);
+no Mac checkout was modified. Merge commit `7abed5ace` retains main's independent
+heavy batch workflow, including guards on the newly recovered R01/listener steps.
+
+Changes in this continuation:
+
+- C06 and origin-close read the real upstream login body before releasing the
+  response to the page's full navigation. The capture forwards the upstream
+  response, forbids redirect replay, requires exactly one browser POST, drains
+  in-flight handlers, and retains the original error before cleanup errors.
+- Files wait for the actual tile and durable head increment after upload 201,
+  before reading the committed snapshot. A delayed GET-content test demonstrates
+  that the existing upload implementation completes only after byte verification.
+- Private failure receipts preserve nested first errors, redact fixture passwords
+  and captured tokens, and record Sync stages. Blank-peer diagnostics use an
+  immediate DOM read and a bounded screenshot rather than waiting for a locator.
+- R01 pure fixture tests explicitly bind observation mode, independent of the
+  functional-mode CI environment. Pure test temp directories use the OS temp root.
+
+Actual verification in this cloud session:
+
+- `./init.sh`: exit 0 using pnpm 9.15.0 and writable `/tmp` cache paths.
+- Login capture/diagnostic/safe-export Node tests: 14 tests pass (6 capture cases).
+- Chromium loopback diagnostic: HTTP 200, actor/token match, exactly one upstream
+  POST, full navigation, and HttpOnly Set-Cookie preserved; exit 0. This is a
+  diagnostic fixture, not the product API/runtime or C06 functional acceptance.
+- Focused Files/drop/upload/first-failure Vitest tests: 5 files, 29 tests pass.
+- Native runner pure tests under `BOARD_OBSERVATION_MODE=functional`: 26 pass.
+- Main's heavy-batch tests: 22 pass. R08 proxy loopback tests: 13 pass.
+- Native listener ownership tests: 20 pass. Final web typecheck and targeted ESLint: exit 0.
+
+Remaining acceptance boundaries: the cloud environment has no exact PostgreSQL
+16.15/vector 0.8.6 toolchain, and `/private/tmp` could not be created because its
+parent is read-only. No complete signed native suite ran in this session. Sync's
+actual lifecycle failure stage remains unconfirmed pending native runtime logs.
+The literal quoted-download filename criterion stays strict and is not claimed
+passed. Native visual/hardware acceptance remains deferred. ABSENT is never a
+passing outcome. No merge, deployment, production permission change, or forced
+push is authorized by this continuation.

@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import {spawn} from 'node:child_process';
 import {mkdtempSync,mkdirSync,writeFileSync,readFileSync,rmSync} from 'node:fs';
 import {join} from 'node:path';
+import {tmpdir} from 'node:os';
 import {resolveInvokedConfigs} from '../../../.harness/scripts/lint-spec-gate-coverage.mjs';
 import {acceptanceCommand,suiteDefinition,suiteResult,suitePresent,runtimeExitProof,runtimeSpawnState,screenshotProof,safeStartupDiagnostics,startupFailureProof,sameRuntimeProof,r01ResultSummary,r01ReportReceipts} from './run-board-native-acceptance.mjs';
 import * as startupReceipts from '../e2e/support/native-runtime/native-startup-receipt.mjs';
@@ -35,7 +36,7 @@ test('R08 requires its metadata when any suite source exists, while whole absenc
   for(const partial of [[`apps/web/${config}`],['apps/web/e2e/board-sync-lifecycle.spec.ts'],['apps/web/e2e/support/r08/r08-native-adapter.mjs']])assert.throws(()=>suitePresent(config,partial));
 });
 test('R08 metadata requires every distinct project case and both viewport screenshot sets',()=>{
-  const root=mkdtempSync('/private/tmp/wsx-r08-registry-'),config='e2e/board-peer-existing-runtime.config.ts';
+  const root=mkdtempSync(join(tmpdir(),'wsx-r08-registry-')),config='e2e/board-peer-existing-runtime.config.ts';
   try{
     const directory=join(root,'apps/web/e2e/support/r08');mkdirSync(directory,{recursive:true});
     const metadata={config,files:['board-peer-origin-close.spec.ts','board-sync-lifecycle.spec.ts'],projects:[{name:'desktop',viewport:{width:1440}},{name:'mobile',viewport:{width:390}}],requiredScreenshotNames:['pending','acked']};
@@ -71,7 +72,7 @@ test('only wholly absent suite is ABSENT; partial config or orphan specs must fa
   for(const partial of [complete.slice(1),complete.slice(0,1),complete.slice(0,-1),complete.slice(1,2)])assert.throws(()=>suitePresent(config,partial));
 });
 test('actual coverage resolver recognizes all four unconditional literal CI configurations',()=>{
-  const root=mkdtempSync('/private/tmp/wsx-native-route-pure-');
+  const root=mkdtempSync(join(tmpdir(),'wsx-native-route-pure-'));
   try{
     mkdirSync(join(root,'.github/workflows'),{recursive:true});mkdirSync(join(root,'apps/web/e2e'),{recursive:true});
     writeFileSync(join(root,'apps/web/package.json'),JSON.stringify({name:'web',scripts:{}}));
@@ -94,16 +95,16 @@ test('R01 requires eight distinct signed title-project cases, not a repeated pas
 });
 test('R01 final projection never publishes private fields or treats preserved boards and hardware as completed',()=>{
  const definition=suiteDefinition('e2e/board-r01-existing-runtime.config.ts'),head='a'.repeat(40),proof={identity:{head},manifestHash:'1'.repeat(64),verifierHash:'2'.repeat(64),selectorHash:'3'.repeat(64)},receipts=definition.titles.flatMap(title=>definition.projects.map(project=>({source:head,testIdentity:{title,project},status:'functional-cases-passed',completed:false,cleanupPending:true,hardwareTrackpad:'unverified',observationMode:'all',visualEvidence:'executed-not-human-approved',screenshots:[{name:'bounded',sha256:'5'.repeat(64)}],boardId:'private-id',title:'private-title',beforeProof:structuredClone(proof),afterProof:structuredClone(proof)})));
- assert.deepEqual(r01ResultSummary(receipts,head),{observationMode:'all',visualEvidence:'executed-not-human-approved',visuallyAccepted:false,functionalCasesPassed:8,completed:false,cleanupPending:true,hardwareTrackpad:'unverified',requiredSuiteComplete:false});
- for(const values of [receipts.slice(1),receipts.map(()=>receipts[0]),receipts.map(value=>({...value,source:'b'.repeat(40)})),receipts.map(value=>({...value,status:'failed'})),receipts.map(value=>({...value,completed:true}))])assert.throws(()=>r01ResultSummary(values,head));
+ assert.deepEqual(r01ResultSummary(receipts,head,'all'),{observationMode:'all',visualEvidence:'executed-not-human-approved',visuallyAccepted:false,functionalCasesPassed:8,completed:false,cleanupPending:true,hardwareTrackpad:'unverified',requiredSuiteComplete:false});
+ for(const values of [receipts.slice(1),receipts.map(()=>receipts[0]),receipts.map(value=>({...value,source:'b'.repeat(40)})),receipts.map(value=>({...value,status:'failed'})),receipts.map(value=>({...value,completed:true}))])assert.throws(()=>r01ResultSummary(values,head,'all'));
  const functional=receipts.map(value=>({...value,observationMode:'functional',visualEvidence:'deferred-not-verified',screenshots:[]}));
  assert.equal(r01ResultSummary(functional,head,'functional').visualEvidence,'deferred-not-verified');
  for(const mutate of [r=>delete r[0].observationMode,r=>r[0].observationMode='unknown',r=>r[0].observationMode='all',r=>r[0].visualEvidence='passed',r=>r[0].screenshots=[{name:'fake',sha256:'5'.repeat(64)}]]){const invalid=structuredClone(functional);mutate(invalid);assert.throws(()=>r01ResultSummary(invalid,head,'functional'));}
  assert.throws(()=>r01ResultSummary(functional,head,'unknown'));assert.throws(()=>r01ResultSummary(receipts,head,'functional'));
- for(const mutate of [r=>delete r[0].beforeProof,r=>r[0].beforeProof.identity.head='b'.repeat(40),r=>r[0].afterProof.identity.head='b'.repeat(40),r=>r[0].afterProof.selectorHash='4'.repeat(64),r=>{r[0].beforeProof.verifierHash='bad';r[0].afterProof.verifierHash='bad';}]){const invalid=structuredClone(receipts);mutate(invalid);assert.throws(()=>r01ResultSummary(invalid,head));}
+ for(const mutate of [r=>delete r[0].beforeProof,r=>r[0].beforeProof.identity.head='b'.repeat(40),r=>r[0].afterProof.identity.head='b'.repeat(40),r=>r[0].afterProof.selectorHash='4'.repeat(64),r=>{r[0].beforeProof.verifierHash='bad';r[0].afterProof.verifierHash='bad';}]){const invalid=structuredClone(receipts);mutate(invalid);assert.throws(()=>r01ResultSummary(invalid,head,'all'));}
 });
 test('R01 receipts bind each real report result attachment, rejecting reused, foreign and missing paths',()=>{
- const directory=mkdtempSync('/private/tmp/wsx-r01-report-'),head='a'.repeat(40),definition=suiteDefinition('e2e/board-r01-existing-runtime.config.ts');
+ const directory=mkdtempSync(join(tmpdir(),'wsx-r01-report-')),head='a'.repeat(40),definition=suiteDefinition('e2e/board-r01-existing-runtime.config.ts');
  try{
   const specs=definition.titles.map((title,index)=>({title,tests:definition.projects.map((projectName,project)=>{const path=join(directory,`${index}-${project}`);mkdirSync(path);const receiptPath=join(path,'r01-result.json');writeFileSync(receiptPath,JSON.stringify({source:head,testIdentity:{title,project:projectName},screenshots:[]}));return{projectName,results:[{attachments:[{name:'r01-result',path:receiptPath}]}]};})})),report={suites:[{specs}]};
   assert.equal(r01ReportReceipts(report,directory,head).length,8);
@@ -136,7 +137,7 @@ test('real R08 screenshot metadata includes its 503 case and rejects unsafe base
   assert.equal(real.count,4);assert.equal(real.screenshots.length,24);
   assert(real.screenshots.includes('peer-real-503-recovered-390.png'));
   assert(real.screenshots.includes('peer-real-503-recovered-1440.png'));
-  const root=mkdtempSync('/private/tmp/wsx-r08-basename-');
+  const root=mkdtempSync(join(tmpdir(),'wsx-r08-basename-'));
   try{
     const directory=join(root,'apps/web/e2e/support/r08');mkdirSync(directory,{recursive:true});
     const metadata=JSON.parse(readFileSync('apps/web/e2e/support/r08/r08-native-suite.json','utf8'));

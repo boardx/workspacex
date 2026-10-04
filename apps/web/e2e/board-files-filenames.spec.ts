@@ -1,3 +1,4 @@
+import {primaryFailure,acceptanceFailureSecrets} from './support/board-primary-failure';
 import {test, expect} from '@playwright/test';
 import {createHash, randomUUID} from 'node:crypto';
 import {readFile} from 'node:fs/promises';
@@ -49,6 +50,7 @@ test('R09 real multipart original filename matrix and literal RFC5987 download h
     await info.attach('R09 filename server evidence', {body: JSON.stringify({observations, nativeDatabase, browserSavedFilenameVerified: false, originalQuotedBrowserDownloadCriterionSatisfied: false, requiredSuiteComplete: false}, null, 2), contentType: 'application/json'});
   } catch (error) { failures.push(error); }
   finally {
+    if(failures.length)try{await info.attach('R09 filename primary failures',{body:JSON.stringify(failures.map(error=>primaryFailure(error,acceptanceFailureSecrets(F,owner)))),contentType:'application/json'});}catch(error){failures.push(error);}
     try { await deleteOwnedConnectorFixture(request, owner, board, F.userId, name); } catch (error) { failures.push(error); }
     try { await verifyConnectorRuntimeManifest(beforeProof); } catch (error) { failures.push(error); }
   }
@@ -75,9 +77,11 @@ test('R09 native UI downloads retain literal filenames and bytes after refresh',
       finally { await transfer.dispose(); }
       const response = await uploaded; expect(response.status()).toBe(201);
       const metadata = WhiteboardFileMetadata.parse(await response.json()); expect(metadata.fileName).toBe(fileName);
+      await expect(page.getByTestId('board-a11y-mirror').locator('li[data-object-id]')).toHaveCount(1);
+      await expect(page.getByTestId('board-a11y-mirror').locator('li[data-object-id]')).toHaveAttribute('data-object-text', fileName);
       await expectBoardSynced(page);
+      await expect.poll(() => boardHead(request, owner, board)).toEqual({epoch: initial.epoch, seq: initial.seq + 1});
       const committed = await canonicalBoardSnapshot(request, owner, board);
-      expect(await boardHead(request, owner, board)).toEqual({epoch: initial.epoch, seq: initial.seq + 1});
       await page.reload(); await expectBoardSynced(page);
       const row = page.getByTestId('board-a11y-mirror').locator('li[data-object-id]');
       await expect(row).toHaveCount(1); await expect(row).toHaveAttribute('data-object-text', fileName);
@@ -87,7 +91,7 @@ test('R09 native UI downloads retain literal filenames and bytes after refresh',
       const saved = await readFile(path!); expect(saved).toEqual(bytes);
       expect(createHash('sha256').update(saved).digest('hex')).toBe(createHash('sha256').update(bytes).digest('hex'));
       expect(await canonicalBoardSnapshot(request, owner, board)).toEqual(committed);
-      expect(await boardHead(request, owner, board)).toEqual({epoch: initial.epoch, seq: initial.seq + 1});
+      await expect.poll(() => boardHead(request, owner, board)).toEqual({epoch: initial.epoch, seq: initial.seq + 1});
       await page.screenshot({path: info.outputPath(`R09-native-download-${observations.length}.png`), fullPage: true});
       observations.push({fileName, suggestedFilename: download.suggestedFilename(), literalNamePreserved: download.suggestedFilename() === fileName, bytesVerified: true, metadata});
       // The original criterion remains strict even when a platform sanitizes a name.
@@ -96,7 +100,7 @@ test('R09 native UI downloads retain literal filenames and bytes after refresh',
     finally { try { await deleteOwnedConnectorFixture(request, owner, board, F.userId, name); } catch (error) { failures.push(error); } }
   } } catch (error) { failures.push(error); }
   finally {
-    try { await info.attach('R09 native download evidence', {body: JSON.stringify({observations, nativeDatabase, syntheticUploadNotOsDrop: true, requiredSuiteComplete: false}, null, 2), contentType: 'application/json'}); } catch (error) { failures.push(error); }
+    try { await info.attach('R09 native download evidence', {body: JSON.stringify({observations, failures:failures.map(error=>primaryFailure(error,acceptanceFailureSecrets(F,owner))), nativeDatabase, syntheticUploadNotOsDrop: true, requiredSuiteComplete: false}, null, 2), contentType: 'application/json'}); } catch (error) { failures.push(error); }
     try { await verifyConnectorRuntimeManifest(beforeProof); } catch (error) { failures.push(error); }
   }
   if (failures.length) throw new AggregateError(failures, 'R09 literal native download criteria or owned cleanup failed');
