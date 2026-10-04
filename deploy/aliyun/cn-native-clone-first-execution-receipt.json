@@ -136,5 +136,25 @@
     "causeEstablished": false,
     "publicIncidentVerified": false,
     "statusPageReadLimit": "Official status page returned no readable status content; no absence-of-incident conclusion."
-  }
+  },
+  "threeHourReconciliation": {
+    "startedAt": "2026-10-04T00:35:43.905525+00:00",
+    "observedAt": "2026-10-04T00:35:45.276712+00:00",
+    "originalCheckAt": "2026-10-04T00:35:03.478961Z",
+    "ordersSuccess": true,
+    "allProductOrderCount": 0,
+    "ordersRequestId": "01A10456-9594-55A7-A957-8199E71D2C90",
+    "instancesRequestId": "01A10456-9568-5673-AA52-8EBEDEA69AC8",
+    "instances": [
+      {
+        "DBInstanceId": "pgm-uf6rg214cp381l49",
+        "DBInstanceDescription": "workspacex-cn-prod-postgresql",
+        "DBInstanceStatus": "Running",
+        "CreateTime": "2026-09-11T19:18:58Z"
+      }
+    ],
+    "furtherCreatePerformed": false,
+    "fourHourDeadlineUnchanged": "2026-10-04T01:35:03.478961Z"
+  },
+  "supportRoute": "cancelled-by-user-not-sent"
 }
