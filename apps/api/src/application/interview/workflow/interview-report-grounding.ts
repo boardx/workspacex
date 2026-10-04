@@ -126,7 +126,7 @@ export function validateReportEvidence(markdown: string, index: readonly ReportE
 function negatesConsensus(text: string, start: number, match: string): boolean {
   // A preceding clause or a contrast cannot negate the new positive assertion.
   const clause = text.slice(0, start + match.length).split(/[，,。！？；;\n]|但是|然而|不过|反而|仍然|但|(?<!冷)却/u).at(-1) ?? "";
-  const negatives = [...clause.matchAll(/不足以形成|不足以构成|不代表|不形成|不推断|不构成|未构成|不能|无法|不得|不应|未能|没有|不可|并非|并不|不(?!同)|未/gu)];
+  const negatives = [...clause.matchAll(/并无|绝非|不足以形成|不足以构成|不代表|不形成|不推断|不构成|未构成|不能|无法|不得|不应|未能|没有|不可|并非|并不|不(?!同)|未/gu)];
   if (negatives.length !== 1) return false; // Double denial cannot waive evidence.
   const negative = negatives[0]!;
   const tail = clause.slice(negative.index! + negative[0].length).trim();
@@ -134,5 +134,11 @@ function negatesConsensus(text: string, start: number, match: string): boolean {
   const predicate = String.raw`[“‘"'\s]*(?:跨(?:角色|专家|受访者)(?:的)?|(?:两位|多位|两名|多名|两个|不同|多|两)(?:受访者|专家|角色|参与者)(?:的)?)?(?:完全|基本|充分|高度)?(?:共识|共同|一致)`;
   const direct = new RegExp(String.raw`^(?:(?:判断|推断|形成|构成|证明|达成|存在|确认|断言|宣称|声称|代表|采信|作肯定)(?:为|成)?)?${predicate}$`, "u");
   const object = new RegExp(String.raw`^(?:将|把).+?(?:宣称|声称|判断|推断|认为|定义|断言)(?:为|成)?${predicate}$`, "u");
-  return direct.test(tail) || object.test(tail);
+  // A scoped denial of using this consensus as a basis needs the basis noun
+  // immediately after the matched predicate; an unrelated earlier denial cannot waive it.
+  const basis = new RegExp(String.raw`^作为(?:[^，,。！？；;\n]{1,40}(?:或|和|及|与))?${predicate}$`, "u");
+  const after = text.slice(start + match.length);
+  const basisDenied = basis.test(tail) && /^[”’"' \t]*的依据/u.test(after);
+  const merged = new RegExp(String.raw`^合并(?:宣称|声称|断言)(?:为|成)?${predicate}$`, "u");
+  return direct.test(tail) || object.test(tail) || basisDenied || merged.test(tail);
 }
