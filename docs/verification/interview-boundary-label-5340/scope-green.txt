@@ -1,0 +1,11 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/packages/contracts
+
+ ✓ tests/interview-evidence-single-source.test.ts (1 test) 1ms
+ ✓ tests/interview-markdown.test.ts (62 tests) 36ms
+
+ Test Files  2 passed (2)
+      Tests  63 passed (63)
+   Start at  02:59:42
+   Duration  312ms (transform 93ms, setup 0ms, collect 194ms, tests 38ms, environment 0ms, prepare 69ms)
+

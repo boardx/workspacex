@@ -54,7 +54,7 @@ const REPORT_DECISION_SIGNALS = [/决策影响(?:[：:]|[。.]|$)/mu, /(?:优先
 // reports from passing solely because they contain a generic “反例/边界” mention.
 const REPORT_BOUNDARY_SIGNALS = [
   /边界与反例(?:[：:。.]|$)/u,
-  /^\s*(?:边界(?:与反例)?|反例|反对证据|相反证据|负面案例)(?:[：:。.]|$)/mu,
+  /^\s*(?:边界(?:与反例)?|反例(?:与边界)?|反对证据|相反证据|负面案例)(?:[：:。.]|$)/mu,
   /^\s*(?:置信度|适用范围|样本边界|仍待验证|尚待验证|不能判断)(?:[：:。.]|$)/mu,
   /(?:置信度|适用范围|样本边界|仍待验证|尚待验证)(?:为|是|需|仍)/u,
 ];
@@ -219,10 +219,24 @@ const parser = unified().use(remarkParse).use(remarkGfm);
 type MarkdownNode = { type: string; value?: string; depth?: number; url?: string; position?: { start: { offset?: number }; end: { offset?: number } }; children?: MarkdownNode[] };
 
 /** Quality checks read visible prose, never code examples, HTML or link URLs. */
-function analysisNodeText(node: MarkdownNode): string {
+function analysisNodeText(node: MarkdownNode, following: readonly MarkdownNode[] = []): string {
   if (["html", "code", "inlineCode", "image"].includes(node.type)) return "";
   const separator = ["list", "listItem", "root", "blockquote"].includes(node.type) ? "\n" : "";
-  return node.value ?? node.children?.map(analysisNodeText).filter(Boolean).join(separator) ?? "";
+  const text = node.value ?? node.children?.map((child, index, children) => analysisNodeText(child, children.slice(index + 1))).filter(Boolean).join(separator) ?? "";
+  // A standalone label may introduce a separate prose paragraph in the same
+  // section. Stop at a heading or another label; quoted examples are not prose.
+  if (node.type === "paragraph" && /^\s*(?:边界(?:与反例)?|反例(?:与边界)?|反对证据|相反证据|负面案例)[：:。.]\s*$/u.test(text)) {
+    for (const next of following) {
+      if (next.type === "heading") break;
+      if (["blockquote", "html", "code", "image"].includes(next.type)) continue;
+      const prose = actionNodeText(next).trim();
+      if (/^\s*[^：:\n]{1,40}[：:]\s*$/u.test(plainText(next))) break;
+      if (/^\s*(?:下一步验证建议|建议行动|行动建议|验证计划|决策影响|跨回答综合|核心发现)[：:]/u.test(prose)) break;
+      if (prose) return text;
+    }
+    return "";
+  }
+  return text;
 }
 function reportAnalysisText(markdown: string): string {
   const nodes = (parser.parse(markdown) as MarkdownNode).children ?? [];
@@ -235,7 +249,7 @@ function reportAnalysisText(markdown: string): string {
       if (next.type !== "heading" && analysisNodeText(next).trim()) return true;
     }
     return false;
-  }).map(analysisNodeText).filter(Boolean).join("\n");
+  }).map(node => analysisNodeText(node, nodes.slice(nodes.indexOf(node) + 1))).filter(Boolean).join("\n");
 }
 
 function plainText(node: MarkdownNode): string {
