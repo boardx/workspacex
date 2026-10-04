@@ -1,0 +1,51 @@
+
+> @repo/api@0.0.0 test:interview-markdown-unit /Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/apps/api
+> vitest run --config vitest.interview-markdown-unit.config.ts
+
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/apps/api
+
+ ✓ tests/itv/interview-report-recovery.test.ts (24 tests) 72ms
+ ❯ tests/itv/interview-report-claim-boundaries.test.ts (133 tests | 3 failed) 62ms
+   × finite report claim boundaries > preserves a plan, scoped denial, question or conditional state: 当前采购并非暂停状态。 3ms
+     → expected false to be true // Object.is equality
+   × finite report claim boundaries > preserves a plan, scoped denial, question or conditional state: 当前采购不是搁置状态。 0ms
+     → expected false to be true // Object.is equality
+   × finite report claim boundaries > preserves a plan, scoped denial, question or conditional state: 不能声称当前采购已暂停。 0ms
+     → expected false to be true // Object.is equality
+ ✓ tests/itv/interview-report-grounding.test.ts (76 tests) 40ms
+ ✓ tests/itv/interview-report-diagnostics.test.ts (14 tests) 30ms
+ ✓ tests/itv/interview-markdown-report-stream-controller.test.ts (9 tests) 4ms
+ ✓ tests/itv/interview-model-markdown.test.ts (4 tests) 3ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/itv/interview-report-claim-boundaries.test.ts > finite report claim boundaries > preserves a plan, scoped denial, question or conditional state: 当前采购并非暂停状态。
+ FAIL  tests/itv/interview-report-claim-boundaries.test.ts > finite report claim boundaries > preserves a plan, scoped denial, question or conditional state: 当前采购不是搁置状态。
+ FAIL  tests/itv/interview-report-claim-boundaries.test.ts > finite report claim boundaries > preserves a plan, scoped denial, question or conditional state: 不能声称当前采购已暂停。
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ tests/itv/interview-report-claim-boundaries.test.ts:41:52
+     39|   "不能声称当前采购已暂停。",
+     40|  ])("preserves a plan, scoped denial, question or conditional state: %…
+     41|   expect(assessReportClaimBoundaries(claim,[]).ok).toBe(true);
+       |                                                    ^
+     42|  });
+     43|  it("preserves the same observed person, decision object and current t…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
+
+ Test Files  1 failed | 5 passed (6)
+      Tests  3 failed | 257 passed (260)
+   Start at  05:11:26
+   Duration  2.36s (transform 581ms, setup 0ms, collect 1.63s, tests 211ms, environment 0ms, prepare 127ms)
+
+/Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/apps/api:
+ ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  @repo/api@0.0.0 test:interview-markdown-unit: `vitest run --config vitest.interview-markdown-unit.config.ts`
+Exit status 1

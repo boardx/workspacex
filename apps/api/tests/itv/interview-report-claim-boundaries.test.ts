@@ -20,6 +20,8 @@ describe("finite report claim boundaries", () => {
   "不能确认预算；当前采购已暂停。",
   "不能否认当前采购已经搁置。",
   "不能不承认当前采购已经搁置。",
+  "不能不声称当前采购已暂停。",
+  "不能声称预算足够，但当前采购已暂停。",
  ])("does not establish a present decision state with a future plan: %s", claim => {
   const plan = "访谈五位采购用户，再决定投入。";
   expect(assessReportClaimBoundaries(`${claim}[${plan}](#answer-1)`,[evidence(plan)]).missing).toContain("unsupported_current_decision_state");
@@ -32,6 +34,9 @@ describe("finite report claim boundaries", () => {
   "若张采购者目前这笔咖啡机采购已暂停，可以先验证替代方案。",
   "当前采购可能暂缓，需核实实际状态。",
   "当前采购并未搁置。",
+  "当前采购并非暂停状态。",
+  "当前采购不是搁置状态。",
+  "不能声称当前采购已暂停。",
  ])("preserves a plan, scoped denial, question or conditional state: %s", claim => {
   expect(assessReportClaimBoundaries(claim,[]).ok).toBe(true);
  });

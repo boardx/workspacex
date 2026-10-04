@@ -72,10 +72,10 @@ const currentDecisionState = /(?:当前|目前|现在)[^，,:：。；;\n]{0,20}
 function qualifiedDecisionState(clause: string, start: number, end: number): boolean {
   const before = clause.slice(0,start).split(/[，,:：]/u).at(-1)!;
   const predicate = clause.slice(start,end);
-  if (/(?:是否|可能|或许|预计|将|拟|会|尚未|并未|并不|没有|未曾|从未)(?:已|已经|被|处于|将|会|\s)*(?:搁置|暂停|暂缓|中断)/u.test(predicate)
+  if (/(?:是否|可能|或许|预计|将|拟|会|尚未|并未|并不|并非|不是|没有|未曾|从未)(?:已|已经|被|处于|将|会|\s)*(?:搁置|暂停|暂缓|中断)/u.test(predicate)
     || /^\s*(?:吗|么|呢|[？?])/u.test(clause.slice(end))) return true;
   if (/不能不|不可不|不得不|否认|否定|而(?:要|应|是)|却/u.test(before)) return false;
-  return /(?:不能|不可|无法|不得|不应)(?:据此)?(?:断言|说明|表明|证明|确认|判断|认定)\s*$/u.test(before)
+  return /(?:不能|不可|无法|不得|不应)(?:据此)?(?:断言|声称|说明|表明|证明|确认|判断|认定)\s*$/u.test(before)
     || /不足以(?:说明|表明|证明|判断)\s*$/u.test(before)
     || /^\s*(?:若|如果|假如)[^，,:：]{0,24}$/u.test(before);
 }
