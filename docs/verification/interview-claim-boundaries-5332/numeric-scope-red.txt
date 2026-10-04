@@ -1,0 +1,36 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/apps/api
+
+ ❯ tests/itv/interview-report-claim-boundaries.test.ts (67 tests | 1 failed) 34ms
+   × finite report claim boundaries > retains grouped numbers as one count and binds the fictional suffix after that count 3ms
+     → expected true to be false // Object.is equality
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/itv/interview-report-claim-boundaries.test.ts > finite report claim boundaries > retains grouped numbers as one count and binds the fictional suffix after that count
+AssertionError: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ tests/itv/interview-report-claim-boundaries.test.ts:55:103
+     53|   it("retains grouped numbers as one count and binds the fictional suf…
+     54|     const quote = "本次检测不兼容项为1。";
+     55|     expect(assessReportClaimBoundaries(`本次检测不兼容项为1,000。[${qu…
+       |                                                                                                       ^
+     56|     expect(assessReportClaimBoundaries("本次检测不兼容项为1,000只是一…
+     57|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 66 passed (67)
+   Start at  23:50:40
+   Duration  741ms (transform 401ms, setup 0ms, collect 609ms, tests 34ms, environment 0ms, prepare 23ms)
+
+undefined
+/Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run --config vitest.interview-markdown-unit.config.ts tests/itv/interview-report-claim-boundaries.test.ts

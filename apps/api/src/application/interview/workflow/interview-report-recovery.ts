@@ -10,10 +10,17 @@ import type { GenerateMarkdownInput } from "../generate-interview-markdown";
 import { DigitalInterviewWorkflowError } from "./digital-interview-runtime.port";
 import { assessInterviewReportAnalysis, type InterviewReportAnalysisGap } from "./digital-report-quality";
 import type { InterviewReportDiagnostics } from "./interview-report-diagnostics";
+import { assessReportClaimBoundaries, type ReportClaimBoundaryGap } from "./interview-report-claim-boundaries";
 
 type Snapshot = z.infer<typeof interviewMarkdown.InterviewMarkdownEnvelope>;
+type ReportGap = InterviewReportAnalysisGap | ReportClaimBoundaryGap | "exact_source_grounding";
+function assessReport(markdown: string, evidenceIndex: readonly ReportEvidence[]) {
+  const analysis = assessInterviewReportAnalysis(markdown);
+  const claims = assessReportClaimBoundaries(markdown, evidenceIndex);
+  return {ok: analysis.ok && claims.ok, missing: [...analysis.missing, ...claims.missing]};
+}
 class RejectedReport extends Error {
-  constructor(readonly missing: readonly (InterviewReportAnalysisGap | "exact_source_grounding")[]) { super("REPORT_QUALITY_REJECTED"); }
+  constructor(readonly missing: readonly ReportGap[]) { super("REPORT_QUALITY_REJECTED"); }
 }
 
 /** A rejected body remains a failed version. A repair must pass the same quality gate and CAS. */
@@ -38,15 +45,20 @@ export async function generateReportWithRecovery(
   let expectedVersion = input.expectedVersion;
   let expectedDocumentVersion = input.expectedDocumentVersion;
   let rejected = options.retry?.markdown;
-  let missing: readonly (InterviewReportAnalysisGap | "exact_source_grounding")[] = rejected
-    ? [...assessInterviewReportAnalysis(rejected).missing, ...(validateReportEvidence(rejected, options.evidenceIndex, options.expertLabels).ok ? [] : ["exact_source_grounding" as const])] : [];
+  let missing: readonly ReportGap[] = rejected
+    ? [...assessReport(rejected, options.evidenceIndex).missing, ...(validateReportEvidence(rejected, options.evidenceIndex, options.expertLabels).ok ? [] : ["exact_source_grounding" as const])] : [];
   let savedRejection: ReportGenerationRejectedError | undefined;
   const saved = options.snapshot.documents.find(document => document.step === "report");
   if (saved?.markdown.trim()) {
-    const assessment = await measure("validation", () => assessInterviewReportAnalysis(saved.markdown));
+    const assessment = await measure("validation", () => assessReport(saved.markdown, options.evidenceIndex));
     const grounding = validateReportEvidence(saved.markdown, options.evidenceIndex, options.expertLabels);
-    if (!assessment.ok) savedRejection = new ReportGenerationRejectedError(rejectionCode(assessment.missing));
-    else if (!grounding.ok) savedRejection = new ReportGenerationRejectedError("REPORT_GROUNDING_REJECTED");
+    if (!assessment.ok) {
+      diagnostics.reject("quality_rejected", assessment.missing);
+      savedRejection = new ReportGenerationRejectedError(rejectionCode(assessment.missing));
+    } else if (!grounding.ok) {
+      diagnostics.reject("grounding_rejected");
+      savedRejection = new ReportGenerationRejectedError("REPORT_GROUNDING_REJECTED");
+    }
     if (assessment.ok && grounding.ok) {
       const sourcesUnchanged = references.every(reference => saved.references.some(previous =>
         previous.documentId === reference.documentId && previous.version === reference.version))
@@ -93,7 +105,7 @@ export async function generateReportWithRecovery(
         try { const value: unknown = JSON.parse(response.text); json ||= value !== null && typeof value === "object"; }
         catch { /* Preserve normal Markdown bytes. */ }
         if (json) { diagnostics.reject("invalid_format"); throw new DigitalInterviewWorkflowError("AI_GENERATION_UNAVAILABLE"); }
-        const assessment = assessInterviewReportAnalysis(response.text);
+        const assessment = assessReport(response.text, options.evidenceIndex);
         if (!assessment.ok) {
           diagnostics.reject("quality_rejected", assessment.missing);
           throw new RejectedReport(assessment.missing);
@@ -138,7 +150,7 @@ export async function generateReportWithRecovery(
   throw new DigitalInterviewWorkflowError("AI_GENERATION_UNAVAILABLE");
 }
 
-function rejectionCode(missing: readonly (InterviewReportAnalysisGap | "exact_source_grounding")[]) {
+function rejectionCode(missing: readonly ReportGap[]) {
   return missing.length === 1 && missing[0] === "verifiable_action" ? "REPORT_ACTION_VALIDATION_REJECTED" as const
     : missing.includes("exact_source_grounding") ? "REPORT_GROUNDING_REJECTED" as const : "REPORT_QUALITY_REJECTED" as const;
 }

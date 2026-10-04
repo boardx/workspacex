@@ -1,6 +1,7 @@
 import type { DebugTracePort } from "../../ports/debug-trace.port";
 import { ModelCallError, type ModelCallCompletion } from "../../agent-run/ports";
 import type { InterviewReportAnalysisGap } from "./digital-report-quality";
+import type { ReportClaimBoundaryGap } from "./interview-report-claim-boundaries";
 
 type Stage = "context" | "model" | "validation" | "storage";
 type Reason = "completed" | "context_error" | "provider_error" | "empty_output" | "cancelled" | "paused" | "interrupted" | "truncated" | "invalid_format" | "quality_rejected" | "grounding_rejected" | "storage_error" | "unexpected_error";
@@ -13,7 +14,7 @@ export class InterviewReportDiagnostics {
   private reasonStage: Stage | null = null;
   private modelCalls = 0;
   private outputCharacters = 0;
-  private missing: readonly InterviewReportAnalysisGap[] = [];
+  private missing: readonly (InterviewReportAnalysisGap | ReportClaimBoundaryGap)[] = [];
   constructor(private readonly trace: Pick<DebugTracePort, "record"> | undefined, private readonly traceId: string, private readonly enabled: boolean) {}
   async measure<T>(stage: Stage, operation: () => T | Promise<T>): Promise<T> {
     this.stage = stage;
@@ -40,7 +41,7 @@ export class InterviewReportDiagnostics {
     this.reason = response.cancelled ? "cancelled" : response.paused ? "paused" : response.interrupted ? "interrupted" : response.truncated ? "truncated" : !response.text.trim() ? "empty_output" : null;
     if (this.reason) this.reasonStage = "model";
   }
-  reject(reason: "invalid_format" | "quality_rejected" | "grounding_rejected", missing: readonly InterviewReportAnalysisGap[] = []): void { this.reason = reason; this.reasonStage = "validation"; this.missing = missing; }
+  reject(reason: "invalid_format" | "quality_rejected" | "grounding_rejected", missing: readonly (InterviewReportAnalysisGap | ReportClaimBoundaryGap)[] = []): void { this.reason = reason; this.reasonStage = "validation"; this.missing = missing; }
   async run<T>(operation: () => Promise<T>): Promise<T> {
     try {
       const result = await operation();
