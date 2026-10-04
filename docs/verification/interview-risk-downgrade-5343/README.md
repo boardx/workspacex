@@ -9,5 +9,6 @@ Controlled verification: `pnpm --filter @repo/api test:interview-markdown-unit`.
 - Original raw reports and unsafe controls: 8 failed, 267 passed (`red.txt`).
 - Conditional actual-check/question regression: 2 failed, 275 passed (`qualification-red.txt`).
 - Final: 277 passed (`green.txt`).
+- Independent review rejected the initial 5beede candidate for local `没有/尚未自动降低` false rejection. Regression: 2 failed, 279 passed (`negation-red.txt`); minimal single-negation fix with double-denial rejection controls: 281 passed (`negation-green.txt`). New exact-head review is required; initial candidate is superseded.
 
 No model call or private data access. Public source and raw bytes unchanged. This finite gate is not a general semantic validator; overall #5327 remains OPEN / semantic FAIL pending comprehensive acceptance.

@@ -20,6 +20,8 @@ describe("finite report claim boundaries", () => {
   "无固定柜体，所以空间风险已经消除。",
   "不能确认安装成本，但采用移动插座后物理风险必然降低。",
   "不能否认采用移动插座后供电风险自动降低。",
+  "采用移动插座后供电风险并非没有自动降低。",
+  "采用移动插座后供电风险不是尚未自动降低。",
  ])("does not treat a changed setup as verified risk reduction: %s", claim => {
   const quote = "另一个场景安装顺利，不能推断普遍发生。";
   expect(assessReportClaimBoundaries(`${claim}[${quote}](#answer-1)`,[evidence(quote)]).missing).toContain("unsupported_physical_risk_downgrade");
@@ -29,6 +31,8 @@ describe("finite report claim boundaries", () => {
   "无固定柜体仅可省略固定孔位检查，供电、承重与空间仍需检查。",
   "不能断言采用移动插座后供电风险自动降低。",
   "采用移动插座后物理风险并非自动降低。",
+  "采用移动插座后供电风险没有自动降低。",
+  "采用移动插座后供电风险尚未自动降低。",
   "移动插座可能减轻孔位冲突，但线缆与供电仍待验证。",
   "若移动插座经现场负荷检测确认供电风险已降低，才调整供电检查频率。",
   "采用移动插座后，供电风险已降低吗？需要现场验证。",
