@@ -25,3 +25,5 @@ Live：#5196/#5197/#5202及#5127已由其他会话合入；#5067 OPEN，未发�
 2026-10-04 最新快照：三项用户确认修复已合入main，尚未部署。#5277 fd654独立review与CI绿，等待主session集成。模板子集123={'PASS': 63, 'NOT_AVAILABLE': 7, 'NOT_STARTED': 50, 'BLOCKED': 3}；全558仍未完成，QR唯一排除。真实UI合成问卷a529a7ac-3740-4b4a-b46f-dfd085fbb775提交1份有效答卷，文字/KPI/数据表/雷达/趋势/差距预览和六项顺序Save→reload接受。基础quick第二轮仍因local-runtime parity遗漏DESIGN_HTML_PAGES、KG_EVAL_FIXTURE、KG_EVAL_RECALL_MODE失败，已单独派runtime核对/关联issue，不宣称基础绿。旧25704–25707及24704已按归属释放；活动25708/24705与唯一ownedDB保留验收。未知两manifest改动原样保护，不纳入证据提交。QA分支普通fast-forward至main5ef6699e8，无历史改写。
 
 2026-10-04 08:00 增量：模板123=85PASS/3BLOCKED/7NA/28NS，新增四类图表8move/4copy/4delete及6报告save/library/tab/savecopy均独立review接受，最终恢复原8block；新问卷save/close实测4项证据已写但review复用工具threadlimit，不抬PASS。基础独立#5284/#5285 exact02046focused16、canonical affectedquick7tasks绿色、独立reviewAccept、CI仍pending，不等同此前22包全quick绿。
+
+2026-10-04 主session独立接受0350/351/352，sourceSHA明确4c0017运行构建而非QAcommit，模板123=88PASS/3B/7NA/25NS。0353补同源URL/完整mainvisibletext不变、library17→17所有文本和href相同、重新打开恢复默认问卷名证据，待独立review不抬PASS。基础#5285 exact02046独立review/权威classifier三空全绿；首次DockerHub Redis拉取reset只重跑failed正常恢复，无skip/业务改动，未merge/deploy。

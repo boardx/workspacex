@@ -24,9 +24,9 @@ SV26-0341,PASS,4c0017fd2cb42102c53b89258162a16e58ea37ab,Actual report save name/
 SV26-0342,PASS,814dc05a36e1f2645b7528b9dacc0a344ec615ae,Actual dirty title shown; refresh click started; native confirm captured and dismissed,Dirty title retained and unsaved status shown after dismiss,
 SV26-0343,PASS,814dc05a36e1f2645b7528b9dacc0a344ec615ae,Actual dirty refresh native confirm captured and accepted; final load observed,Stored copy title restored; saved imported report title retained; disabled save confirms clean state,template-refresh-restored.png
 SV26-0344,NOT_STARTED,814dc05a36e1f2645b7528b9dacc0a344ec615ae,尚未真实执行：使用此模板,不沿用旧SHA或单测结果；等待UI恢复和相应前置条件,
-SV26-0350,NOT_STARTED,814dc05a36e1f2645b7528b9dacc0a344ec615ae,尚未真实执行：保存为问卷模板,不沿用旧SHA或单测结果；等待UI恢复和相应前置条件,
-SV26-0351,NOT_STARTED,814dc05a36e1f2645b7528b9dacc0a344ec615ae,尚未真实执行：保存模板名称,不沿用旧SHA或单测结果；等待UI恢复和相应前置条件,
-SV26-0352,NOT_STARTED,814dc05a36e1f2645b7528b9dacc0a344ec615ae,尚未真实执行：确认保存模板,不沿用旧SHA或单测结果；等待UI恢复和相应前置条件,
+SV26-0350,PASS,4c0017fd2cb42102c53b89258162a16e58ea37ab,Actual save questionnaire template/name/confirm; library→editor→sameURL reload,Main independent review ACCEPT actual23f816f9 20questions7chapters persisted; QA commit distinct from runtime source,question-save-library.txt;question-save-library.png
+SV26-0351,PASS,4c0017fd2cb42102c53b89258162a16e58ea37ab,Actual save questionnaire template/name/confirm; library→editor→sameURL reload,Main independent review ACCEPT actual23f816f9 20questions7chapters persisted; QA commit distinct from runtime source,question-save-library.txt;question-save-library.png
+SV26-0352,PASS,4c0017fd2cb42102c53b89258162a16e58ea37ab,Actual save questionnaire template/name/confirm; library→editor→sameURL reload,Main independent review ACCEPT actual23f816f9 20questions7chapters persisted; QA commit distinct from runtime source,question-save-library.txt;question-save-library.png
 SV26-0353,NOT_STARTED,814dc05a36e1f2645b7528b9dacc0a344ec615ae,尚未真实执行：模板弹窗关闭,不沿用旧SHA或单测结果；等待UI恢复和相应前置条件,
 SV26-0354,NOT_STARTED,814dc05a36e1f2645b7528b9dacc0a344ec615ae,尚未真实执行：模板加载错误重试,不沿用旧SHA或单测结果；等待UI恢复和相应前置条件,
 SV26-0355,PASS,814dc05a36e1f2645b7528b9dacc0a344ec615ae,Open report template chooser; select team template; map first question; close,Mapping select accepted; incomplete mapping kept apply disabled; closing preserved original template,
