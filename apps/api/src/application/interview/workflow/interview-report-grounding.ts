@@ -91,7 +91,9 @@ export function validateReportEvidence(markdown: string, index: readonly ReportE
   for (const assertion of interviewMarkdown.parseInterviewReportAssertions(markdown)) {
     // Finite observed overclaims: exact quotations do not establish population
     // frequency or inevitable purchasing causality. Keep raw candidate bytes.
-    for (const clause of assertion.text.split(/[，,。；;\n]|但是|然而|不过|反而|仍然|而|但|(?<!冷)却/u)) {
+    // Internal causal/additive conjunctions keep local denial scope; explicit
+    // affirmation after an additive conjunction starts a separate assertion.
+    for (const clause of assertion.text.split(/[，,。；;\n]|但是|然而|不过|反而|仍然|而且(?=事实上|实际|确实)|(?<!因|从|进|继)而(?!且)|但|(?<!冷)却/u)) {
       const overclaim = /最常见|必然(?:阻止|阻碍|导致|影响)(?:采购|购买)/u.exec(clause);
       if (!overclaim) continue;
       const before = clause.slice(0, overclaim.index);

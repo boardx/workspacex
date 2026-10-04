@@ -35,6 +35,15 @@ describe("report evidence grounding", () => {
   expect(validateReportEvidence(`[服务端甲回答：支持电话。](#answer-1)\n\n${claim}`,buildReportEvidenceIndex(source)).ok).toBe(true);
  });
  it.each([
+  "不能断言预算约束因而必然阻止购买。",
+  "不能断言安装问题从而必然影响采购。",
+  "不能断言安装问题进而必然影响采购。",
+  "不能断言安装问题继而必然影响采购。",
+  "不能断言安装问题既最常见而且必然阻止购买。",
+ ])("keeps denial scope across internal causal conjunctions: %s", claim => {
+  expect(validateReportEvidence(`[服务端甲回答：支持电话。](#answer-1)\n\n${claim}`,buildReportEvidenceIndex(source)).ok).toBe(true);
+ });
+ it.each([
   "不能凭空补充样本统计来断言预算约束必然阻止购买。",
   "不应编造统计来声称安装问题最常见。",
   "不得虚构样本统计来证明安装问题必然影响采购。",
@@ -56,6 +65,9 @@ describe("report evidence grounding", () => {
   "不能凭空补充样本统计来断言预算不会必然阻止购买。",
   "不能否认预算约束必然阻止购买。",
   "补充样本统计来断言预算约束必然阻止购买。",
+  "不能断言预算约束因而必然阻止购买，然而预算约束必然阻止购买。",
+  "不能断言安装问题最常见，而且必然阻止购买。",
+  "不能断言安装问题最常见而且事实上必然阻止购买。",
  ])("does not waive an affirmative strength claim with an unrelated prohibition: %s", claim => {
   expect(validateReportEvidence(`[服务端甲回答：支持电话。](#answer-1)\n\n${claim}`,buildReportEvidenceIndex(source)).reason).toBe("unsupported_evidence_strength");
  });
