@@ -93,11 +93,11 @@ const reducedPhysicalRisk = /(?:物理(?:冲突)?|供电|负荷|承重|线缆|�
 function qualifiedRiskReduction(clause: string, start: number, end: number): boolean {
   const before = clause.slice(0,start).split(/[，,:：]/u).at(-1)!;
   const predicate = clause.slice(start,end);
-  if (/(?:并非|不是)\s*(?:没有|尚未|并未|并不)/u.test(predicate)) return false;
+  if (/(?:并非|不是)\s*(?:没有|尚未|并未|并不|不会|未)/u.test(predicate)) return false;
   if (/^\s*(?:吗|么|呢|[？?])/u.test(clause.slice(end))) return true;
-  if (/(?:并非|不是|没有|尚未|并未|并不|不会|可能|是否)(?:自动|必然|已经|已)?(?:降级|降低|消除|消失)/u.test(predicate)) return true;
-  if (/不能不|不可不|不得不|否认|否定/u.test(before) || /(?:并非|不是)\s*(?:没有|尚未|并未|并不)\s*$/u.test(before)) return false;
-  return /(?:可能|或许|尚未|并未|没有|未能)\s*$/u.test(before)
+  if (/(?:并非|不是|没有|尚未|并未|并不|不会|可能|是否)(?:自动|必然|已经|已)?(?:得到)?(?:降级|降低|消除|消失)/u.test(predicate)) return true;
+  if (/不能不|不可不|不得不|否认|否定/u.test(before) || /(?:并非|不是)\s*(?:没有|尚未|并未|并不|不会|未)\s*$/u.test(before)) return false;
+  return /(?:可能|或许|并非|不是|并不|不会|尚未|并未|没有|未能|未)\s*$/u.test(before)
     || /^\s*(?:建议|拟|计划)(?:采用|改用)(?:移动(?:式)?(?:带线)?插座|移动电源|无固定柜体|免安装|桌面型)(?:以|来)?\s*$/u.test(before)
     || /(?:不能|不可|无法|不得|不应)(?:断言|声称|确认|认定)[^，,:：]{0,24}$/u.test(before)
     || /^\s*(?:若|如果|假如)[^，,:：]{0,24}(?:经|通过)[^，,:：]{0,16}(?:现场复核|负荷检测|安全检测|专项检测)确认[^，,:：]{0,12}$/u.test(before);

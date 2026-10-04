@@ -39,6 +39,10 @@ describe("finite report claim boundaries", () => {
   "不能否认采用移动插座后供电风险自动降低。",
   "采用移动插座后供电风险并非没有自动降低。",
   "采用移动插座后供电风险不是尚未自动降低。",
+  "采用移动插座后供电风险并非没有得到降低。",
+  "移动插座并非没有降低供电风险。",
+  "采用移动插座并非不会消除供电风险。",
+  "采用移动插座不是未降低供电风险。",
  ])("does not treat a changed setup as verified risk reduction: %s", claim => {
   const quote = "另一个场景安装顺利，不能推断普遍发生。";
   expect(assessReportClaimBoundaries(`${claim}[${quote}](#answer-1)`,[evidence(quote)]).missing).toContain("unsupported_physical_risk_downgrade");
@@ -50,6 +54,11 @@ describe("finite report claim boundaries", () => {
   "采用移动插座后物理风险并非自动降低。",
   "采用移动插座后供电风险没有自动降低。",
   "采用移动插座后供电风险尚未自动降低。",
+  "采用移动插座后供电风险没有得到降低。",
+  "移动插座并非降低供电风险。",
+  "采用移动插座并不降低供电风险。",
+  "采用移动插座不会消除供电风险。",
+  "采用移动插座未降低供电风险。",
   "移动插座可能减轻孔位冲突，但线缆与供电仍待验证。",
   "若移动插座经现场负荷检测确认供电风险已降低，才调整供电检查频率。",
   "采用移动插座后，供电风险已降低吗？需要现场验证。",
