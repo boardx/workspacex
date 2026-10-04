@@ -1,3 +1,4 @@
+import {fixedFilesFailure, type FilesFailurePhase} from './support/board-files-failure-diagnostic.mjs';
 import {test, expect} from '@playwright/test';
 import {createHash, randomUUID} from 'node:crypto';
 import {readFile} from 'node:fs/promises';
@@ -25,34 +26,52 @@ test('R09 real multipart original filename matrix and literal RFC5987 download h
   const nativeDatabase = await fileNativeDatabaseProof(F.orgId);
   const owner = await boardLogin(page), name = `R09 filename matrix ${randomUUID()}`;
   const board = await createAcceptanceBoard(request, owner, name), failures: unknown[] = [];
+  let phase: FilesFailurePhase = 'SETUP', ordinal = -1, primaryPhase: FilesFailurePhase = 'NO_PRIMARY_FAILURE', primaryOrdinal = -1, deleteFailures = 0, identityFailures = 0;
   try {
+    phase = 'HEAD_BEFORE';
     const initialHead = await boardHead(request, owner, board), observations = [];
     const assets = new Set<string>();
     for (const [fileName, encodedName] of filenames) {
+      ordinal++;
       const bytes = Buffer.from(`unique filename ${fileName} ${randomUUID()}`);
+      phase = 'UPLOAD';
       const response = await request.post(`${apiOrigin()}/whiteboards/${board}/files`, {
         headers: {authorization: `Bearer ${owner}`}, multipart: {fileName, file: {name: fileName, mimeType: 'text/plain', buffer: bytes}},
       });
+      phase = 'UPLOAD_STATUS';
       expect(response.status()).toBe(201);
+      phase = 'UPLOAD_SCHEMA';
       const metadata = WhiteboardFileMetadata.parse(await response.json());
+      phase = 'METADATA';
       expect(metadata.fileName).toBe(fileName); expect(metadata.byteSize).toBe(bytes.length);
+      phase = 'DIGEST';
       expect(metadata.contentDigest).toBe(`sha256:${createHash('sha256').update(bytes).digest('hex')}`);
+      phase = 'UNIQUE_ASSET';
       expect(assets.has(metadata.assetId)).toBe(false); assets.add(metadata.assetId);
+      phase = 'DOWNLOAD';
       const download = await request.get(`${apiOrigin()}/whiteboards/${board}/files/${metadata.assetId}/content`, {headers: {authorization: `Bearer ${owner}`}});
-      expect(download.status()).toBe(200); expect(await download.body()).toEqual(bytes);
+      phase = 'DOWNLOAD_STATUS';
+      expect(download.status()).toBe(200);
+      phase = 'DOWNLOAD_BYTES';
+      expect(await download.body()).toEqual(bytes);
+      phase = 'DOWNLOAD_HEADERS';
       expect(download.headers()).toMatchObject({'content-type': 'application/octet-stream', 'cache-control': 'private, no-store', 'x-content-type-options': 'nosniff', 'content-disposition': `attachment; filename*=UTF-8''${encodedName}`});
+      phase = 'STORED_METADATA';
       expect((await fileAssetRows(F.orgId, board)).find(row => row.asset_id === metadata.assetId)?.metadata).toEqual(metadata);
+      phase = 'HEAD_UNCHANGED';
       expect(await boardHead(request, owner, board)).toEqual(initialHead);
       observations.push({fileName, metadata, contentDisposition: download.headers()['content-disposition']});
     }
-    expect(await fileAssetRows(F.orgId, board)).toHaveLength(filenames.length);
-    await info.attach('R09 filename server evidence', {body: JSON.stringify({observations, nativeDatabase, browserSavedFilenameVerified: false, originalQuotedBrowserDownloadCriterionSatisfied: false, requiredSuiteComplete: false}, null, 2), contentType: 'application/json'});
-  } catch (error) { failures.push(error); }
+    phase = 'ROW_COUNT';
+      expect(await fileAssetRows(F.orgId, board)).toHaveLength(filenames.length);
+    phase = 'SERVER_EVIDENCE';
+      await info.attach('R09 filename server evidence', {body: JSON.stringify({observations, nativeDatabase, browserSavedFilenameVerified: false, originalQuotedBrowserDownloadCriterionSatisfied: false, requiredSuiteComplete: false}, null, 2), contentType: 'application/json'});
+  } catch (error) { primaryPhase = phase; primaryOrdinal = ordinal; failures.push(error); }
   finally {
-    try { await deleteOwnedConnectorFixture(request, owner, board, F.userId, name); } catch (error) { failures.push(error); }
-    try { await verifyConnectorRuntimeManifest(beforeProof); } catch (error) { failures.push(error); }
+    try { await deleteOwnedConnectorFixture(request, owner, board, F.userId, name); } catch (error) { deleteFailures++; failures.push(error); }
+    try { await verifyConnectorRuntimeManifest(beforeProof); } catch (error) { identityFailures++; failures.push(error); }
   }
-  if (failures.length) throw new AggregateError(failures, 'R09 filename acceptance or owned cleanup failed');
+  if (failures.length) throw new AggregateError(failures, fixedFilesFailure(primaryPhase, primaryOrdinal, deleteFailures, identityFailures));
 });
 
 test('R09 native UI downloads retain literal filenames and bytes after refresh', async ({page, request, baseURL}, info) => {

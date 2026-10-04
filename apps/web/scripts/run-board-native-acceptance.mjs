@@ -1,3 +1,4 @@
+import {parseFilesFailure} from '../e2e/support/board-files-failure-diagnostic.mjs';
 import {observationMode} from '../e2e/support/board-observation-categories.mjs';
 import {safeConnectorLoginExport} from './connector-login-safe-export.mjs';
 import assert from 'node:assert/strict';
@@ -117,6 +118,8 @@ export function safeAcceptanceDiagnostics(config,report,root=resolve(process.cwd
         const connectorMarkers={41:'C06_LOGIN_HTTP_OK',42:'C06_LOGIN_JSON_PARSE',43:'C06_LOGIN_JSON_SCHEMA',44:'C06_LOGIN_FIXTURE_ACTOR',45:'C06_LOGIN_SESSION_TOKEN'};
         const marker=location?.source==='ASSERTION'&&location.file==='board-connector-authority.spec.ts'?connectorMarkers[location.line]??null:null;
         first={...result('CASE',known?index:null,failed.status,errors,marker),sourceLocation:location};
+        const filesFailure = config === 'e2e/board-files-completion.config.ts' ? parseFilesFailure(ownData(errors[0], 'message'), location) : null;
+        if (filesFailure) first.filesFailure = filesFailure;
       }
     }
     for(const nested of suite.suites??[])visit(nested);

@@ -324,3 +324,23 @@ test('Connector fixed login markers preserve exact assertion identity without pr
  report.suites[0].specs[0].tests[0].results[0].errors=[hostile];
  assert.equal(safeAcceptanceDiagnostics('e2e/board-connector-existing-runtime.config.ts',report).firstFailure.matchedFailure,'UNKNOWN');
 });
+
+
+test('Files fixed phase diagnostics bind actual aggregate source and preserve failure gates',async()=>{
+ const {safeAcceptanceDiagnostics}=await import('./run-board-native-acceptance.mjs');
+ const {fixedFilesFailure,FILES_FAILURE_AGGREGATE_LINE}=await import('../e2e/support/board-files-failure-diagnostic.mjs');
+ const source=readFileSync(new URL('../e2e/board-files-filenames.spec.ts',import.meta.url),'utf8');
+ assert(source.split('\n')[FILES_FAILURE_AGGREGATE_LINE-1].includes('throw new AggregateError(failures, fixedFilesFailure('));
+ const config='e2e/board-files-completion.config.ts',file='board-files-filenames.spec.ts';
+ const inspectError=(error,specfile=file)=>{const failed={status:'failed',errors:[error]},test={results:[failed]},spec={file:specfile,line:23,tests:[test]},suite={specs:[spec]};return safeAcceptanceDiagnostics(config,{suites:[suite]}).firstFailure;};
+ const inspect=(message,line=FILES_FAILURE_AGGREGATE_LINE,specfile=file)=>inspectError({message,location:{file:specfile,line},stack:'PRIVATE'},specfile);
+ const message=fixedFilesFailure('DOWNLOAD_BYTES',3,1,0),output=inspect(message);
+ assert.deepEqual(output.filesFailure,{phase:'DOWNLOAD_BYTES',ordinal:3,deleteFailures:1,identityFailures:0});
+ assert.equal(output.resultStatus,'failed');assert.equal(output.errorCount,1);assert.equal(output.matchedFailure,'UNKNOWN');assert(!JSON.stringify(output).includes('PRIVATE'));
+ assert.throws(()=>suiteResult(config,{}));
+ for(const bad of [message+' PRIVATE',message+'\nPRIVATE',message.replace('DOWNLOAD_BYTES','PRIVATE'),message.replace('"ordinal":3','"ordinal":9999')])assert.equal(inspect(bad).filesFailure,undefined);
+ assert.equal(inspect(message,FILES_FAILURE_AGGREGATE_LINE+1).filesFailure,undefined);
+ assert.equal(inspect(message,FILES_FAILURE_AGGREGATE_LINE,'board-files-retry.spec.ts').filesFailure,undefined);
+ let reads=0;const error={location:{file,line:FILES_FAILURE_AGGREGATE_LINE}};Object.defineProperty(error,'message',{get(){reads++;throw Error('PRIVATE');}});
+ const result=inspectError(error);assert.equal(result.filesFailure,undefined);assert.equal(reads,0);
+});
