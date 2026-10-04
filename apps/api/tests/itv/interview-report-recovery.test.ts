@@ -39,6 +39,9 @@ describe("bounded report quality recovery", () => {
    expect(request.system).toContain("不同场景的成功与失败属于情境差异");
    expect(request.system).toContain("适用条件、反例或失效条件、具体验证方法");
    expect(request.system).toContain("按服务端任务与实际问答数量描述样本");
+   expect(request.system).toContain("每条推论就地写成立条件");
+   expect(request.system).toContain("安装时长差异不能单独证明购买决策因果");
+   expect(request.system).toContain("不显著不等于不存在影响");
   }
  });
  it("retains a structurally valid but misquoted candidate as failed and binds repaired exact locators", async () => {

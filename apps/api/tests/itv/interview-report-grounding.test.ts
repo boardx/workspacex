@@ -26,6 +26,17 @@ describe("report evidence grounding", () => {
   expect(examples.length).toBeGreaterThan(0);
   for (const example of examples) expect(validateReportEvidence(example,index).ok).toBe(true);
  });
+ it("describes distinct bound server tasks without treating them as verified human identities", () => {
+  const text = "支持电话。\n反对电话。";
+  const index = buildReportEvidenceIndex({...source,markdown:text,contentHash:hash(text),answerSpans:[
+   {taskKey:"revision/shared-a",expertId:"expert-a",start:0,end:5,contentHash:hash("支持电话。")},
+   {taskKey:"revision/shared-b",expertId:"expert-b",start:6,end:text.length,contentHash:hash("反对电话。")},
+  ]});
+  const context = reportEvidenceContext(index);
+  expect(context).toContain("服务端已绑定任务数：2；画像数：2");
+  expect(context).toContain("归属已绑定不等于真人身份已验证");
+  expect(context).toContain("revision不是任务");
+ });
  it("does not promote model headings to server task identities; retains counterevidence and duplicate Q numbers", () => {
   const index = buildReportEvidenceIndex(source);
   expect(new Set(index.map(x=>x.expertId))).toEqual(new Set(["expert-a"]));

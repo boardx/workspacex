@@ -1,0 +1,22 @@
+{
+  "interviewId": "itv-d3760bf1-eecd-4a3b-b331-75fdadca5b5a",
+  "httpStatus": 200,
+  "elapsedMs": 93697,
+  "terminal": "failed",
+  "reason": "REPORT_GROUNDING_REJECTED",
+  "reportVersion": 2,
+  "reportState": {
+    "documentId": "md-9a831793-b343-4866-9869-82f8029054d6",
+    "status": "failed",
+    "failure": {
+      "code": "REPORT_GROUNDING_REJECTED",
+      "retryable": true
+    }
+  },
+  "hash": "10864b57086740d4238c677dac66d6f4e460d3b06564838815f237702bb3bf79",
+  "rawHash": "10864b57086740d4238c677dac66d6f4e460d3b06564838815f237702bb3bf79",
+  "referenceCount": 5,
+  "integrationSha": "21a1fd317e43d494699f3e5b434c0cfa11ac223f",
+  "attemptCount": 2,
+  "deltaCount": 1365
+}
