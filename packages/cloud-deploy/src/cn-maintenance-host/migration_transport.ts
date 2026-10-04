@@ -3,6 +3,7 @@ import { closeSync,openSync,constants,lstatSync,fstatSync,writeFileSync,fsyncSyn
 import { dirname } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { verifyMigrationCompletion } from '../cn-migration-completion';
+import {readNativeCompletion} from './native_completion';
 import { validateMigrationSnapshot } from '../cn-migration-snapshot';
 import { z } from 'zod';
 import { verifyMigrationPeer, approveExistingNoTls } from './pinned-app-9b/migration-pg';
@@ -108,9 +109,9 @@ export function createMigrationTransport(inputs:ExactMigrationInputs,binding:Mig
    const snapshot={schemaVersion:2,kind:'cn-readonly-migration-snapshot',capturedAt:new Date(runtime.now()).toISOString(),source,fullResponseBase64:value.providerResponseBase64,fullResponseSha256:value.providerResponseSha256};
    const sourceBinding={schemaVersion:2,source,sourceEvidence:intended.sourceEvidence,cloud:value.cloud};const validated=validateMigrationSnapshot(snapshot,sourceBinding);if(JSON.stringify(validated.ledger)!==JSON.stringify(liveLedger))throw new Error('MIGRATION_PROVIDER_DIAGNOSTIC_LEDGER_MISMATCH');
    await barrier();
-   const witness=await runtime.verifyCompletion(snapshot,sourceBinding,inputs.checkout,inputs.expectedCompletion,new Date(runtime.now()));
+   const witness=readNativeCompletion(await runtime.verifyCompletion(snapshot,sourceBinding,inputs.checkout,inputs.expectedCompletion,new Date(runtime.now())),id,runtime.now());
    const receiptPath=binding.completionPath.replace(/\.json$/,'.completed.json');
-   const bytes=Buffer.from(JSON.stringify({schemaVersion:1,kind:'validated-migration-completion',identity:id,toolRevision:binding.toolRevision,snapshotInput:snapshot,bindingInput:sourceBinding,expected:inputs.expectedCompletion,witness})+'\n');
+   const bytes=Buffer.from(JSON.stringify(witness)+'\n');
    const receipt={path:receiptPath,sha256:createHash('sha256').update(bytes).digest('hex')};
    await lifecycle.recordMigrationCompletion(id,'intent',receipt);await runtime.persist(receiptPath,bytes);await lifecycle.recordMigrationCompletion(id,'durable',receipt);
    await barrier();return {snapshot,binding:sourceBinding};

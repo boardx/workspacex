@@ -36,6 +36,21 @@ def bounded_observe(callback, pid, timeout):
   require(not child.is_alive(),'BACKUP_OBSERVER_CLEANUP_UNPROVEN')
 
 
+def observe_owned_backend(callback, pid, timeout):
+ # Retained SQL clients are owned by this parent and cannot cross a fork.
+ # Only this compiled collector has bounded authority calls and proof writes;
+ # arbitrary callbacks retain the isolated process/deadline contract.
+ from retained_backend_observer import SourceOwnedParentObservation
+ if type(callback) is SourceOwnedParentObservation:
+  started=time.monotonic()
+  require(callback.pid==os.getpid(),'BACKUP_PARENT_OBSERVER_OWNER')
+  result=callback(pid)
+  require(time.monotonic()-started<=timeout,'BACKUP_PARENT_OBSERVER_TIMEOUT')
+  require(result is None or (result is True and callback.proof is not None and callback.receipts),'BACKUP_PARENT_OBSERVER_PROOF')
+  return result
+ return bounded_observe(callback,pid,timeout)
+
+
 def stream_ciphertext(producer_args,encrypt_args,credential_input,output_path,observe,
                       timeout_seconds=330,max_bytes=16*1024**3):
  require(type(credential_input) is bytes and len(credential_input)<=65536,
@@ -78,7 +93,7 @@ def stream_ciphertext(producer_args,encrypt_args,credential_input,output_path,ob
    if producer.poll() is None:
     # A host proof collector returns True only for actual live pg_dump backend,
     # source/peer/read-only and exact owned container/PID/start, never precheck.
-    fact=bounded_observe(observe,producer.pid,min(30,max(.001,deadline-time.monotonic())))
+    fact=observe_owned_backend(observe,producer.pid,min(30,max(.001,deadline-time.monotonic())))
     require(fact is None or fact is True,'BACKUP_BACKEND_OBSERVATION')
     observed=observed or fact is True
    time.sleep(0.01)

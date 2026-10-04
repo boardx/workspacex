@@ -15,7 +15,7 @@ class Connection:
         self.binding = dict(tls=dict(ssl=True), pid=11, role='diagnostic')
     def query(self, key):
         self.host.queries.append((self.db, key))
-        if key == 'migration-ledger': return dict(rowCount=0, ledger=[])
+        if key == 'migration-ledger': return dict(rowCount=len(self.host.ledger), ledger=copy.deepcopy(self.host.ledger))
         if key == 'run-drain': return dict(rows=[])
         if key == 'candidate-sessions':
             p=self.host.p
@@ -29,7 +29,7 @@ class Connection:
 
 class Host:
     def __init__(self,p):
-        self.p=p;self.running=False;self.login=copy.deepcopy(p['closedAdmission']);self.commands=[];self.sql=[];self.queries=[];self.fail_pause=False
+        self.p=p;self.running=False;self.baseline_stopped=False;self.login=copy.deepcopy(p['closedAdmission']);self.commands=[];self.sql=[];self.queries=[];self.fail_pause=False
         self.plan=dict(identity=p['identity'],host=p['host'],databasePeers=p['databasePeers'],automationUnits=p['automationUnits'],
                        databaseWriterRoles=p['fencedRoles'],writers=p['baselineWriters'],toolRevision='0'*40,
                        diagnosticSessions={db:dict(tls=dict(ssl=True),pid=11,role='diagnostic') for db in DATABASES})
@@ -40,7 +40,8 @@ class Host:
         result=[]
         for w in self.p['candidateWriters']+self.p['baselineWriters']:
             candidate=w in self.p['candidateWriters'];b=w['binding']
-            result.append(dict(Id=b['containerId'],Image=b['imageId'],Config=copy.deepcopy(b['_fixtureConfig']) if '_fixtureConfig' in b else configs[w['key']],State=dict(Running=True,Paused=not (candidate and self.running))))
+            stopped=not candidate and self.baseline_stopped
+            result.append(dict(Id=b['containerId'],Image=b['imageId'],Config=copy.deepcopy(b['_fixtureConfig']) if '_fixtureConfig' in b else configs[w['key']],State=dict(Running=not stopped,Paused=not stopped and not (candidate and self.running))))
         return result
     def observe(self,p):
         assert p==self.plan
@@ -50,6 +51,7 @@ class Host:
                     automationUnits={u:'masked' for u in self.p['automationUnits']},admission=copy.deepcopy(self.login))
     def run(self,args):
         self.commands.append(args)
+        if args[1]=='kill':self.baseline_stopped=True
         if args[1] in ('start','unpause'): self.running=True
         if args[1]=='pause':
             if self.fail_pause: raise RuntimeError('pause lost reply')
@@ -78,24 +80,48 @@ class Tests(unittest.TestCase):
             self.p['candidateSessions'][db]=[dict(pid=100+index,backendStart='2026-10-03T00:00:00Z',role='lane',transactionMode='idle',backendType='client backend',peerSha256=digest(self.p['databasePeers'][db]),writerKey='candidate',binding=copy.deepcopy(self.p['candidateWriters'][0]['binding']))]
             for h in self.p['heldSessions'][db]: h['peerSha256']=digest(self.p['databasePeers'][db])
         self.p['stagingIdentity'].update(artifactSha256=self.p['artifactSha256'],writersSha256=digest(self.p['candidateWriters']))
-        completed=dict(schemaVersion=1,kind='validated-migration-completion',identity=self.identity,toolRevision='0'*40)
+        from test_candidate_plan_producer import data_fixture
+        from candidate_completion_contract import ledger_sha
+        _,docs,*_=data_fixture();completed=copy.deepcopy(docs['completion']);ledger=copy.deepcopy(docs['liveLedger']['ledger'])
+        completed.update(sourceRevision=self.identity['sourceRevision'],baselineRevision=self.identity['baselineRevision'],attemptId=self.identity['attemptId'],originalPlanSha256=self.identity['migrationPlanSha256'])
         self.raw=json.dumps(completed).encode();path='/etc/workspacex-cn/migration-completion-inputs/'+self.identity['sourceRevision']+'/'+self.identity['attemptId']+'.completed.json'
         self.files[path]=self.raw;receipt=dict(path=path,sha256=hashlib.sha256(self.raw).hexdigest())
-        self.p['migrationCompletionSha256']=receipt['sha256'];self.p['migrationLedgerSha256']=digest([])
+        self.p['migrationCompletionSha256']=receipt['sha256'];self.p['migrationLedgerSha256']=ledger_sha(ledger)
         self.j.value['migrationCompletionIntent']=receipt;self.j.value['migrationCompletionReceipt']=receipt
         self.j.record('migration-completion-durable',receipt=receipt,holdGeneration=self.p['holdGeneration'])
         self.host=Host(self.p)
+        self.host.ledger=ledger
         self.t=CandidateHostTransport(self.host,self.p,self.j,dict(path='/etc/workspacex-cn/artifact.json',sha256=self.p['artifactSha256']),read_private=lambda p:self.files[p])
+        self.t.pointer_factory=lambda transport,binding:SimpleNamespace(promote_under_hold=lambda:None)
+        self.t.docker_runner=lambda args:self.host.run(['/usr/bin/docker',*args])
         self.t.read_host=lambda:self.p['host']
         self.t.collector.collect=lambda p,n:seal_fixture(p,n)
         self.probes=patch('candidate_host_transport.FixedProbes',Probes);self.probes.start();self.addCleanup(self.probes.stop)
     def test_existing_actor_full_candidate_resume_and_reblock(self):
         adapter=CandidateWriterAdapter(self.identity,self.p,self.t,self.j);adapter.resume_candidate(self.identity)
         self.assertTrue(self.host.running);self.assertIn('candidateResumeIntent',self.j.value)
-        self.assertEqual(self.host.commands,[['/usr/bin/docker','unpause','1'*64]])
+        self.assertEqual(self.host.commands,[['/usr/bin/docker','kill','--signal','KILL','3'*64],['/usr/bin/docker','unpause','1'*64]])
         self.assertTrue(any(q[1]=='candidate-sessions' for q in self.host.queries));self.assertTrue(any(q[1]=='migration-ledger' for q in self.host.queries))
         self.t.reblock_candidate(self.p);self.assertFalse(self.host.running);self.assertEqual(self.host.login,self.p['closedAdmission'])
-        self.assertFalse(any('3'*64 in c for c in self.host.commands))
+        self.assertFalse(any(c[1] in ('start','unpause') and '3'*64 in c for c in self.host.commands))
+    def test_pointer_failure_precedes_role_login_and_any_runtime_start(self):
+        def fail(transport,binding):raise RuntimeError('pointer CAS unknown')
+        self.t.pointer_factory=fail
+        adapter=CandidateWriterAdapter(self.identity,self.p,self.t,self.j)
+        with self.assertRaisesRegex(RuntimeError,'pointer CAS unknown'):adapter.resume_candidate(self.identity)
+        self.assertEqual(self.host.commands,[]);self.assertEqual(self.host.sql,[])
+        self.assertEqual(self.host.login,self.p['closedAdmission'])
+        with self.assertRaisesRegex(RuntimeError,'RETRY'):adapter.resume_candidate(self.identity)
+    def test_uncertain_baseline_port_release_never_starts_candidate_or_opens_roles(self):
+        def fail(args):
+            self.host.commands.append(['/usr/bin/docker',*args])
+            raise RuntimeError('baseline kill lost reply')
+        self.t.docker_runner=fail
+        adapter=CandidateWriterAdapter(self.identity,self.p,self.t,self.j)
+        with self.assertRaisesRegex(RuntimeError,'baseline kill lost reply'):adapter.resume_candidate(self.identity)
+        self.assertEqual(self.host.commands,[['/usr/bin/docker','kill','--signal','KILL','3'*64]])
+        self.assertEqual(self.host.sql,[]);self.assertFalse(self.host.running)
+        self.assertEqual(self.host.login,self.p['closedAdmission'])
     def test_missing_durable_completion_blocks_sql_and_candidate_start(self):
         self.j.value.pop('migrationCompletionReceipt')
         adapter=CandidateWriterAdapter(self.identity,self.p,self.t,self.j)
@@ -153,6 +179,8 @@ class Tests(unittest.TestCase):
         self.files[path]=raw
         actor=RetainedCandidateActor(self.host,self.j,dict(path=path,sha256=hashlib.sha256(raw).hexdigest()),read_private=lambda p:self.files[p])
         actor.transport.read_host=lambda:self.p['host']
+        actor.transport.pointer_factory=self.t.pointer_factory
+        actor.transport.docker_runner=self.t.docker_runner
         actor.transport.collector.collect=lambda p,n:seal_fixture(p,n)
         return actor
     def test_fixed_actor_returns_bound_protocol_and_rejects_unknown_operation(self):
@@ -214,6 +242,7 @@ class CancellationTests(unittest.TestCase):
     # Reuse local retained-host fixture; the existing adapter methods are mocked
     # only at the source-owned test seam. No host/client/runtime operations run.
     def cancellation(self):
+        self.host.ledger=[] # This fixture represents the independently sampled pre-DDL ledger.
         self.j.value['events']=[dict(state='writes-held')]
         self.j.value.pop('migrationCompletionIntent');self.j.value.pop('migrationCompletionReceipt')
         self.host.plan.update(holdGeneration=self.p['holdGeneration'],closedAdmission=copy.deepcopy(self.p['closedAdmission']),originalAdmission=copy.deepcopy(self.p['closedAdmission']),

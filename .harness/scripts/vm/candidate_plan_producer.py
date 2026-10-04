@@ -11,6 +11,7 @@ import pathlib
 import re
 import stat
 from candidate_writer import validate, APP, BASELINE
+from candidate_completion_contract import verify_completion
 from writer_fence import DATABASES, digest, require
 from current_held_epoch_evidence_producer import binding, produce as collect_epoch
 from isolated_conservation_plan import private_bytes, read_ref
@@ -38,7 +39,7 @@ def produce(inputs, transport=None, reader=private_bytes, large_reader=None, epo
         attempt=bound['identity']['attemptId']
         fixed_paths=dict(runtimeSeal=f'/var/lib/workspacex-cn/runtime/{attempt}/sealed-writer-runtime.json',
             completion=f'/etc/workspacex-cn/migration-completion-inputs/{APP}/{attempt}.completed.json',
-            epochManifest=f'/etc/workspacex-cn/maintenance-epoch/{APP}/{attempt}/epoch.json')
+            epochManifest=f'/etc/workspacex-cn/maintenance-evidence/{APP}/{attempt}/qualified-current-epoch/epoch.json')
         require(type(ref['path']) is str and '..' not in pathlib.Path(ref['path']).parts and
                 (ref['path']==fixed_paths[name] if name in fixed_paths else ref['path'].startswith('/etc/workspacex-cn/')),
                 'CANDIDATE_PRODUCER_REFERENCE_PATH')
@@ -120,9 +121,7 @@ def produce(inputs, transport=None, reader=private_bytes, large_reader=None, epo
                 peerSha256=digest(session['peer']),clientIdentity='maintenance-control' if mode=='control' else template['diagnosticClientIdentity']))
     completion = read('completion'); ledger = read('liveLedger'); stage = read('stageInspection'); artifact = read('artifact')
     for value in (ledger,stage,artifact):bound_record(value)
-    require(completion.get('schemaVersion') == 1 and completion.get('kind') == 'validated-migration-completion'
-            and completion.get('identity') == bound['identity'] and completion.get('toolRevision') == bound['toolRevision'],
-            'CANDIDATE_PRODUCER_COMPLETION_IDENTITY')
+    ledger_hash=verify_completion(completion,bound,ledger['ledger'])
     require(transport.observe_completion(copy.deepcopy(bound)) == dict(completion=refs['completion'],ledger=ledger),
             'CANDIDATE_PRODUCER_DURABLE_COMPLETION')
     require(ledger.get('kind') == 'retained-live-migration-ledger' and ledger['connection'] == sessions['diagnostic']['workspacex']
@@ -135,7 +134,8 @@ def produce(inputs, transport=None, reader=private_bytes, large_reader=None, epo
     indexed = {c['Id']:c for c in containers}
     for writer in template['candidateWriters'] + template['baselineWriters']:
         b = writer['binding']; live = indexed.get(b['containerId'])
-        require(live is not None and live['Image'] == b['imageId'] and digest(live['Config']) == b['configSha256']
+        require(live is not None and live['Image'] == b['imageId'] and
+                (live['configSha256'] if 'configSha256' in live else digest(live['Config'])) == b['configSha256']
                 and (live['State']['Running'] is False or live['State']['Paused'] is True),
                 'CANDIDATE_PRODUCER_STAGE_WRITER_BINDING')
         labels=live['Config'].get('Labels',{})
@@ -151,7 +151,7 @@ def produce(inputs, transport=None, reader=private_bytes, large_reader=None, epo
     require(hashlib.sha256(artifact_raw).hexdigest()==artifact_ref['sha256'],'CANDIDATE_PRODUCER_ARTIFACT_BYTES')
     plan=copy.deepcopy(template);plan.update(heldSessions=held,candidateSessions={db:[] for db in DATABASES},
         epoch=refs['epochManifest']['sha256'],holdGeneration=bound['holdGeneration'],migrationCompletionSha256=refs['completion']['sha256'],
-        migrationLedgerSha256=digest(sorted([dict(name=r['name'],checksum=r['checksum']) for r in ledger['ledger']],key=lambda r:r['name'])))
+        migrationLedgerSha256=ledger_hash)
     plan['stagingIdentity']=dict(identity=bound['identity'],sourceRevision=APP,baselineRevision=BASELINE,
         writersSha256=digest(plan['candidateWriters']),artifactSha256=plan['artifactSha256'],epoch=plan['epoch'])
     validate(plan,bound['identity'])

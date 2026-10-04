@@ -250,3 +250,164 @@ retained actor. Five additional negatives cover missing artifact, extra wrapper
 field, artifact hash mismatch, extra artifact field, and missing plan artifact
 hash; each prevents bind/resume and retains the post-migration recovery state.
 The factory suite now passes 21/21 with package TypeScript exit 0.
+
+`current_epoch_manifest_consumer.ts` now provides the source-bound qualification
+admission gate. It independently reads raw-hash protected collection/recovery/
+canonical/journey/object references, binds frozen APP/BASE, host, semantic epoch,
+held generation and isolated target, and invokes the exact hash-pinned existing
+`cn-maintenance-recovery-evidence-verifier.py --maintenance-evidence-replay`
+consumer. Collection remains `qualified:false` with its original kind. The
+verifier independently checks actual backup metadata and ciphertext, restore
+execution, catalogs, complete roles/ACLs, sequences, versions and row streams.
+Its source-owned `admission_result()` currently rejects unconditionally; the
+prehold path also unconditionally rejects artifact provenance qualification.
+The new gate therefore rejects even a mocked successful command returning
+`qualified:true`. It never publishes a qualified manifest or returns READY.
+The canonical/journey/object references are required inputs, **not** accepted
+boolean certificates and not substitutes for missing formal qualification
+consumers. Ten local tests exercise fixed invocation and fail-closed boundaries.
+
+Remaining implementation: source-owned common-held-epoch provenance, complete
+object recovery and formal six-journey qualification consumers must validate
+actual artifacts before a qualified publisher becomes reachable. Only then may
+it write database/object aggregate refs and the factory's
+`held-current-epoch-manifest` through an O_EXCL 0600, file-and-parent-fsync writer.
+That publisher is deliberately absent from this gate: an unreachable writer is
+not evidence that current sources can qualify an epoch. No production evidence
+was captured or replay restarted.
+
+Schema2 now has a separate real qualification validator:
+`.harness/scripts/vm/current_epoch_qualification.py`. This supersedes the
+schema1 gate's publisher limitation only for the new schema2 contract; the old
+recovery admission guards and old TS gate continue to reject. The validator:
+
+- Recomputes the original unqualified collection from its protected actual input
+  and source bytes; requires an externally approved source-policy reference.
+- Hashes the loaded verifier/module closure and all root-policy-approved
+  invocation source/executable/input/output bytes. Invocation records bind the
+  producer identity, PID/start, namespace IDs, start/end times, provider binding,
+  owned-child join and successful exit. Every nested proof/body/content reference
+  must be declared as a protected invocation input.
+- Executes the existing recovery `replay`, backup `permission_gaps`, conservation
+  `produce`, `verify_outer` and `verify_result` consumers. Permissions must match
+  the actual backup catalog. Three pinned pg_dump backend attestations use the
+  existing implementation-attestation contract with **sqlObserved:false**;
+  precheck PID and a claimed foreign-session read-only value cannot replace it.
+- Requires the same logical held epoch across the three backups, actual
+  ciphertext/metadata/fidelity equivalence, before/after drained observations and
+  a monotonic durable held interval journal with no reopening. Capture invocations
+  must fit entirely inside that held interval.
+- Compares source before/after and restored versioned object inventories, exact
+  scope and source-facts hashes, and actual restored content bytes. Verifies all
+  eight isolated stages and six formal journey request/response/body artifacts.
+- Writes three database aggregates, an object aggregate and the exact factory
+  epoch manifest only after all validation, using existing O_EXCL 0600 publication
+  with file and parent fsync. It returns `CurrentEpochEvidence`; the epoch SHA is
+  the actual manifest byte hash. The semantic epoch remains in aggregate binding.
+
+The new TS `consumeQualifiedCurrentEpochManifest` invokes only the fixed
+`--qualify-current-epoch` source command and independently rereads the manifest,
+three aggregates and object aggregate by raw hash. It does not accept READY or
+qualified booleans as substitute outputs. Sourcepolicy belongs to root authority,
+not the input plan. The standalone root profile entry is exactly
+`currentEpochQualification: {schemaVersion:2,sourcePath,sha256,input,sourcePolicy}`;
+refs in Python evidence carry `path,sha256,bytes`. Input and output locations are
+fixed under `/etc/workspacex-cn/maintenance-evidence/APP/attempt/`, with
+`qualification-input.json` and `qualified-current-epoch/` respectively.
+
+Source-only validation: 19 new Python qualifier tests, 70 combined underlying
+Python tests and 60 combined TypeScript factory/adapter/A-route/consumer tests
+pass. The complete positive uses disposable actual local files and approved
+mock invocation records, not production evidence. Actual retained backup capture,
+source-owned provenance recording, formal journey transport and installed
+hash-bound Python dependency bundle integration still must be supplied by root;
+missing actual records hard-reject. This does not restart the paused baseline
+replay or establish production qualification/readiness.
+
+The qualifier now imports `epoch_recovery` through root's fixed FD module finder;
+there is no production sibling-path fallback. `CURRENT_EPOCH_PYTHON_MODULES`
+strictly binds all 12 dependency names, installed paths and source-profile hashes,
+including the canonical-plan/input dependencies. The Python consumer verifies
+actual loaded FD bytes for that complete closure plus its own source. Four
+additional TS negatives reject missing/extra modules, changed hash and changed
+path before invocation.
+
+The qualifier source-policy closure now distinguishes required verifier imports
+from approved artifact producers. All 13 verifier sources remain mandatory and
+are checked against the actually loaded FD bytes. Additional producer sources
+are admitted only by a fixed reviewed filename allowlist: retained capture,
+backup host/backend observer, invocation receipt recorder, opened health and
+acceptance receipt producers, existing isolated capture/conservation/recovery
+engines and object inventory/restore sources. Extra files are read by protected
+raw SHA, never imported or executed by policy JSON; the CLI also requires every
+extra SHA to match the root source profile. An invocation must reference the
+exact source/executable of its approved producer and an actual source-policy pin.
+This permits true producer attribution rather than falsely naming the verifier.
+Five additional tests cover admitted actual producer bytes and rejection of an
+unlisted file, extra-source hash drift, missing producer pin and false attribution.
+
+`verify_existing_qualification(p, reader, externalSourcePolicyRef)` now repeats
+all qualification checks through the same private source path as `qualify`.
+Its fixed internal publication mode constructs the exact canonical expected
+bytes for the three database aggregates, object aggregate and epoch manifest;
+protected reads must match their expected path, byte length and raw SHA. It
+never invokes a caller writer, creates a missing output, overwrites a file or
+renames the output root. Final input/output stat-and-hash rechecks are retained.
+Ordinary `qualify` still exclusively publishes and rejects existing paths through
+O_EXCL. Seven new tests cover read-only success with unchanged bytes/inodes/mtime,
+input/policy/aggregate/epoch drift and absent output without reconstruction.
+The dedicated qualifier suite now has 31 passing tests.
+
+Actual installed code now has its own `QualificationCodeAuthority`, constructed
+from independently pinned root profile data. `qualify` and
+`verify_existing_qualification` accept the keyword `code_authority`; source-policy
+JSON cannot construct that authority. Only fixed approved installed source paths
+under `/usr/local/lib/workspacex-cn/` may be read at root-owned mode 0700, and the
+independently pinned resolved `/usr/bin/python3` runtime at mode 0755. Evidence
+still uses the unchanged attempt-scoped 0600 `ProtectedArtifacts`. Source refs in
+invocation inputs may use this code branch only when their exact path/hash is
+approved. Every code read checks parents, owner, mode, single link, O_NOFOLLOW,
+opened/named stat stability, actual byte hash and final recheck. Production rejects
+private-copy source/runtime self-authorization. Non-root disposable code fixtures
+have an explicit API-only owner/root override; root cannot request that override.
+
+Root profile capabilities now have exactly six fields:
+`schemaVersion, sourcePath, sha256, input, sourcePolicy, executablePins`, where
+`executablePins` independently maps the resolved Python runtime path to its SHA.
+The separate `preholdEpochQualification` entry admits only
+`--verify-prehold-epoch`, running full read-only `verify_existing_qualification`
+against an existing qualified archive. It may refer to an earlier attempt, with
+fixed APP/BASE and bound tool/source profile. Missing archive evidence rejects;
+this command never captures, republishes or falls back to current qualification.
+`currentEpochQualification` continues to admit only the exclusive publication
+command `--qualify-current-epoch` after a fresh held capture. The TS source
+consumer `consumePreholdEpochManifest` calls the fixed read-only command and
+independently rereads all persisted outputs. Earlier archive qualification cannot
+replace the current held epoch capture.
+
+Actual local FD-bundle testing now runs Python with `-I`, loads all 12 dependencies
+from open descriptors, verifies the separate 0700 code / 0755 runtime branch,
+publishes five qualified outputs and revalidates them without a path-import
+fallback. Additional tests cover symlinks, hardlinks, races, changed code, missing
+runtime pin, forbidden root fixture override, independent capability selection
+and missing prehold evidence. No production data acquisition or paused replay was
+executed.
+
+The fixed code-producer allowlist also admits
+`parent_source_invocation_receipt.py`. It is protected code input only; policy
+JSON never selects it for execution. The real retained parent recorder may attest
+its 12 actual production capture outputs; the qualifier still requires the exact
+full 32-invocation closure, including all 20 external actual producer outputs.
+Missing external records cannot be replaced by parent capture receipts. A new
+local test verifies the pinned recorder bytes are read without importing that
+producer from policy JSON.
+
+The runtime code-reader allowlist now includes the existing resolved
+`/usr/bin/node` path alongside the required resolved `/usr/bin/python3` path.
+Node requires its own independent `executablePins` SHA and the same root-owned
+0755, single-link, stable-FD/hash/final-recheck metadata rules. This authorizes
+runtime byte verification only, never JSON-selected execution. Unknown runtimes
+and private Node copies remain rejected. Five new tests read the actual system
+Node bytes through a disposable explicit code fixture, check its independent
+pin and metadata failures, and revalidate a mock Node invocation. They do not
+execute or claim completion of any external stage or journey producer.

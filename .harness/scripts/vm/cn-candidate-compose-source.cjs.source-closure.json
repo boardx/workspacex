@@ -1,0 +1,76 @@
+{
+  "schemaVersion": 1,
+  "sourceRevision": "9b25bfa65662b96c0826fe67506b562ea46aa6d0",
+  "compiler": {
+    "name": "esbuild",
+    "version": "0.24.2"
+  },
+  "sources": {
+    "packages/cloud-deploy/src/compose.ts": {
+      "gitBlob": "d9dc2c92e756009e1c8ce0f5bfcc97fb5344a982",
+      "sha256": "2e47dab3e28936cb69674fd2d3e25bbe82da9c3a7aca52c319ec873e74ff91d2"
+    },
+    "packages/cloud-deploy/src/config.ts": {
+      "gitBlob": "557e16d925acd1d564c05d3ed33cfcf1542947b8",
+      "sha256": "a41efb6d6e5c8d57709a90ca35ecd1c26dcb4cd05a2aa87326d9e4b1e51bcf7b"
+    },
+    "packages/cloud-deploy/src/storage-config.ts": {
+      "gitBlob": "648f2e64f8fba8bdeb6f3b10bd4a6c30a1239aa3",
+      "sha256": "4db96f231fefb40936962acca9753db9d19e31e51ece18392fca18dfc0ffa8b4"
+    },
+    "packages/cloud-deploy/src/release.ts": {
+      "gitBlob": "e3961929b341788378d8225c1433ea64039fdef8",
+      "sha256": "8ab5f75bb84e1fd1c2d0d6aed32ae7e89f13173ccf7d34988c9ffc4bb74cdc57"
+    },
+    "packages/cloud-deploy/src/image-reference.ts": {
+      "gitBlob": "ee0dc00425423728d820360869cf8401890d0ad0",
+      "sha256": "1cc57b5f8ca0c7bd7232dc70824634648a3250f4a8ecd3afdf7624e10beccaac"
+    },
+    "packages/cloud-deploy/src/runtime-bundle.ts": {
+      "gitBlob": "17cfea0b613b86a8c53edaa37d80ae6788ae6bbe",
+      "sha256": "04621b5ac257813ad389dee120c0d29fa4c2a67c855b1230f1c8322471070617"
+    },
+    "packages/cloud-deploy/src/cn-candidate-compose-source.ts": {
+      "sha256": "971f879f07ba18c18424024b1bf0d970b9ddbb3032a8047bfffa5833342449f1"
+    },
+    "packages/cloud-deploy/src/cn-candidate-compose-source-cli.ts": {
+      "sha256": "023996d42463de6eb680153576e4f2c0a009addea08bc0c43e80913a20a225e2"
+    },
+    ".harness/scripts/vm/build-cn-candidate-compose-source.mjs": {
+      "sha256": "c16ab59f7e689376d99c25754a4a0198b8286a2e8728b39026fc8e491646818d"
+    }
+  },
+  "dependencies": {
+    "node_modules/.pnpm/zod@3.25.76/node_modules/zod/v3/helpers/util.js": "906ef685e5853d496e293ee8f8a2bb8b1ed2d078a1bcdfedb2dfd61d75b6330c",
+    "node_modules/.pnpm/zod@3.25.76/node_modules/zod/v3/ZodError.js": "f5ac9e86b92e201d41e294d7aa35986a2aa28829e1bcc8ac25f7c8dce0674b99",
+    "node_modules/.pnpm/zod@3.25.76/node_modules/zod/v3/locales/en.js": "51a6dcc5d4bd52a64da127c012c6c963395c1d9a343ad75d4a8eca662fc8b205",
+    "node_modules/.pnpm/zod@3.25.76/node_modules/zod/v3/errors.js": "d40831f478288d76e82bbbcc3b7e95c8513b6e76471f2d49a37c979bc57d492d",
+    "node_modules/.pnpm/zod@3.25.76/node_modules/zod/v3/helpers/parseUtil.js": "b57484013bb360bac2e334d58fcd5f6cbfa63ffcc7d8ff3dbbb3380ca659b956",
+    "node_modules/.pnpm/zod@3.25.76/node_modules/zod/v3/helpers/typeAliases.js": "8e609bb71c20b858c77f0e9f90bb1319db8477b13f9f965f1a1e18524bf50881",
+    "node_modules/.pnpm/zod@3.25.76/node_modules/zod/v3/helpers/errorUtil.js": "68589c0cf44c8b4ad19b77418f53caad2cd1dbc8d714f526e1876ebdee4828c5",
+    "node_modules/.pnpm/zod@3.25.76/node_modules/zod/v3/types.js": "9763a2938f0e7f983363ef4bf6530e7583e3f2d54f8a4a6684efad58febc6e8e",
+    "node_modules/.pnpm/zod@3.25.76/node_modules/zod/v3/external.js": "5d26d2e47e2352def36f89a3e8bf8581da22b7f857e07ef3114cd52cf4813445",
+    "node_modules/.pnpm/zod@3.25.76/node_modules/zod/index.js": "6419c4ac0e637ff08463083e31886d10354f74cbcc4e584400b2b837e39ac881"
+  },
+  "lockfileSha256": "34ffcc7514d95ac1ea43aaef23b85c3fa0d33da73375cb64fb6083ffd0fe2c49",
+  "bundleSha256": "9c35b9aa575eebeeaba43f045e214f5ba3c84befeea7dec990637cf190ea6201",
+  "bundledInputs": [
+    "node_modules/.pnpm/zod@3.25.76/node_modules/zod/index.js",
+    "node_modules/.pnpm/zod@3.25.76/node_modules/zod/v3/ZodError.js",
+    "node_modules/.pnpm/zod@3.25.76/node_modules/zod/v3/errors.js",
+    "node_modules/.pnpm/zod@3.25.76/node_modules/zod/v3/external.js",
+    "node_modules/.pnpm/zod@3.25.76/node_modules/zod/v3/helpers/errorUtil.js",
+    "node_modules/.pnpm/zod@3.25.76/node_modules/zod/v3/helpers/parseUtil.js",
+    "node_modules/.pnpm/zod@3.25.76/node_modules/zod/v3/helpers/typeAliases.js",
+    "node_modules/.pnpm/zod@3.25.76/node_modules/zod/v3/helpers/util.js",
+    "node_modules/.pnpm/zod@3.25.76/node_modules/zod/v3/locales/en.js",
+    "node_modules/.pnpm/zod@3.25.76/node_modules/zod/v3/types.js",
+    "packages/cloud-deploy/src/cn-candidate-compose-source-cli.ts",
+    "packages/cloud-deploy/src/cn-candidate-compose-source.ts",
+    "packages/cloud-deploy/src/compose.ts",
+    "packages/cloud-deploy/src/config.ts",
+    "packages/cloud-deploy/src/image-reference.ts",
+    "packages/cloud-deploy/src/release.ts",
+    "packages/cloud-deploy/src/storage-config.ts"
+  ]
+}

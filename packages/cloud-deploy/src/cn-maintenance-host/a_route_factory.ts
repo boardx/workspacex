@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import {readNativeCompletion} from './native_completion';
 import type { MaintenanceIdentity } from '../cn-maintenance-release';
 import type { ARouteOperations } from './a_route';
 import { bindARouteHostOperations, type ARouteHostActions } from './a_route_adapter';
@@ -141,14 +142,14 @@ export async function createARouteFactory(input: ARouteFactoryInputs): Promise<A
    id(value);need(host&&!epoch,'A_ROUTE_FACTORY_EPOCH_REBIND');await verifyBlocked(identity);const generation=await heldGeneration();
    const produced=epochSchema.parse(await c.epoch.captureAndVerify(identity,host));
    need(same(produced.identity,identity)&&produced.toolRevision===toolRevision&&produced.holdGeneration===generation,'A_ROUTE_FACTORY_EPOCH_IDENTITY');
-   need(produced.epoch.path===`/etc/workspacex-cn/maintenance-epoch/${identity.sourceRevision}/${identity.attemptId}/epoch.json`,'A_ROUTE_FACTORY_EPOCH_PATH');
+   need(produced.epoch.path===`/etc/workspacex-cn/maintenance-evidence/${identity.sourceRevision}/${identity.attemptId}/qualified-current-epoch/epoch.json`,'A_ROUTE_FACTORY_EPOCH_PATH');
    const raw:any=await readEvidence(produced.epoch);
    const {epoch:_ref,kind:_kind,...contents}=produced;
    need(same(raw,{...contents,kind:'held-current-epoch-manifest'}),'A_ROUTE_FACTORY_EPOCH_FILE_BINDING');
    await verifyBlocked(identity);need(await heldGeneration()===generation,'A_ROUTE_FACTORY_EPOCH_HOLD_DRIFT');epoch=frozen(structuredClone(produced));
   },
   verifyCurrentEpochIsolatedCandidateAcceptance:async value=>{id(value);need(epoch,'A_ROUTE_FACTORY_EPOCH_MISSING');await c.epoch.verifyCurrentEpochIsolatedAcceptance(identity,epoch);need(await heldGeneration()===epoch.holdGeneration,'A_ROUTE_FACTORY_EPOCH_HOLD_DRIFT');epochAccepted=true;},
-  migrateExactPlan:async value=>{id(value);need(epoch&&epochAccepted&&!completion,'A_ROUTE_FACTORY_EPOCH_NOT_ACCEPTED');await verifyBlocked(identity);const v=completionSchema.parse(await c.migration.migrateExactPlan(identity,epoch));migrationBinding(v);const raw:any=await readEvidence(v.completion);need(raw?.schemaVersion===1&&raw.kind==='validated-migration-completion'&&same(raw.identity,identity)&&raw.toolRevision===toolRevision,'A_ROUTE_FACTORY_COMPLETION_FILE_BINDING');completion=frozen(structuredClone(v));},
+  migrateExactPlan:async value=>{id(value);need(epoch&&epochAccepted&&!completion,'A_ROUTE_FACTORY_EPOCH_NOT_ACCEPTED');await verifyBlocked(identity);const v=completionSchema.parse(await c.migration.migrateExactPlan(identity,epoch));migrationBinding(v);const raw:any=await readEvidence(v.completion);readNativeCompletion(raw,identity);completion=frozen(structuredClone(v));},
   verifyHeldCandidateReadback:async value=>{id(value);need(epoch&&completion,'A_ROUTE_FACTORY_COMPLETION_MISSING');await c.heldReadback.verify(identity,epoch,completion);await verifyBlocked(identity);},
   stageCandidateRuntime:async value=>{
    id(value);need(host&&epoch&&completion&&!candidate,'A_ROUTE_FACTORY_CANDIDATE_STAGE_ORDER');

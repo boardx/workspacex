@@ -42,7 +42,7 @@ root-owned protected ancestors and private 0700 parent, and creates 0600 bytes w
 O_EXCL/O_NOFOLLOW, file fsync and directory fsync. Existing output is never silently
 replaced; a retry needs explicit readback/reconciliation.
 
-Local evidence: eight producer tests and the candidate-series suite pass. Negative
+Local evidence: nine producer tests and the candidate-series suite pass. Negative
 coverage includes absent transport, added qualified flags, collection relabeling,
 wrong image/config/Compose identity, running candidate writers, session alias,
 unverified retained seal, artifact hash tampering, source-ref changes and late
@@ -63,3 +63,8 @@ missing manifest, wrong raw/proof hash, wrong generation and late byte drift all
 Runtime seals use the existing exact `/var/lib/workspacex-cn/runtime/{attempt}/sealed-writer-runtime.json`
 path; completion and epoch manifest use their existing exact `/etc/workspacex-cn/`
 paths. Foreign paths with otherwise valid data/hash are rejected before reading.
+
+Actual stage evidence uses sanitized inspection with `configSha256` over the full Docker
+Config and only Compose identity labels. The producer checks that hash against the
+exact writer binding and repeats the trusted source observation; Env contents never
+enter the output actor envelope.

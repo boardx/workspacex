@@ -53,7 +53,7 @@ class PersistentControlConnection:
    os.fstat(9);recovery_descriptors=(9,)
   self.process=(spawn or subprocess.Popen)([runtime['nodePath'],spec['path'],'--persistent-control-json'],stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,env=env,pass_fds=recovery_descriptors)
   try:
-   hello=self.request({'operation':'connect','toolRevision':plan.get('toolRevision'),'migrationAuthorization':plan.get('migrationAuthorization'),'recoveryAuthorization':plan.get('recoveryAuthorization'),'diagnosticRole':plan['diagnosticRole'],'roleTargets':plan['databaseWriterRoles'][db],'database':db,'mode':mode,'serviceFile':probe['serviceFile'],'caFile':probe['caFile'],'sslMode':'disable' if auth else 'verify-full',**({'connectionTransport':auth} if auth else {}),'applicationName':'wsx-maintenance-'+mode+'-'+plan['identity']['attemptId'],'identity':plan['identity']},bind=False)
+   hello=self.request({'operation':'connect','toolRevision':plan.get('toolRevision'),'migrationAuthorization':plan.get('migrationAuthorization'),'backupHostReference':plan.get('backupHostReference'),'recoveryAuthorization':plan.get('recoveryAuthorization'),'diagnosticRole':plan['diagnosticRole'],'roleTargets':plan['databaseWriterRoles'][db],'database':db,'mode':mode,'serviceFile':probe['serviceFile'],'caFile':probe['caFile'],'sslMode':'disable' if auth else 'verify-full',**({'connectionTransport':auth} if auth else {}),'applicationName':'wsx-maintenance-'+mode+'-'+plan['identity']['attemptId'],'identity':plan['identity']},bind=False)
    binding=hello['connection'];expected=plan['controlSessions' if mode=='control' else 'diagnosticSessions'][db] if not bootstrap else binding
    require(binding==expected and binding['peer']==plan['databasePeers'][db] and binding['tls']['ssl'] is (auth is None) and (binding['role'] in plan['databaseWriterRoles'][db] if mode=='control' else binding['role']==plan['diagnosticRole']) and type(binding['pid']) is int and binding['pid']>1,'CONTROL_CONNECTION_IDENTITY')
    if auth:
@@ -82,12 +82,33 @@ class PersistentControlConnection:
    if bind:require(value['connection']==self.binding,'CONTROL_CONNECTION_CHANGED')
    return value
   finally:selector.close()
+ def bind_retained_backup(self,host_reference):
+  require(self.mode=='control' and self.plan.get('backupHostReference')==host_reference,'RETAINED_BACKUP_REVIEWED_REFERENCE')
+  import re
+  require(type(host_reference) is dict and set(host_reference)=={'path','sha256'} and host_reference['path']=='/etc/workspacex-cn/maintenance-backup/'+self.plan['identity']['sourceRevision']+'/'+self.plan['identity']['attemptId']+'/host-plan.json' and re.fullmatch('[a-f0-9]{64}',host_reference['sha256']),'RETAINED_BACKUP_PRIVATE_REFERENCE')
+  runtime=self.plan['controlRuntime'];library='/usr/local/lib/workspacex-cn/retained_backup_helper.cjs'
+  extensions=runtime.get('sourceExtensions',{})
+  require(set(extensions)=={library,'/usr/local/lib/workspacex-cn/backup_connection.cjs'},'RETAINED_BACKUP_RUNTIME_MISSING')
+  for path,expected in runtime['files'].items():require(hashlib.sha256(self.read_private(path,0o644)).hexdigest()==expected,'RETAINED_BACKUP_RUNTIME_DRIFT')
+  for path,expected in extensions.items():require(hashlib.sha256(self.read_private(path,0o700)).hexdigest()==expected,'RETAINED_BACKUP_EXTENSION_DRIFT')
+  value=self.request({'operation':'bind-retained-backup','hostReference':host_reference})['value']
+  require(type(value) is dict and set(value)=={'protocol'},'RETAINED_BACKUP_NEGOTIATION')
+  self.retained_backup_protocol=value['protocol'];return self.retained_backup_protocol
  def verify_live_transport(self,provider):
   require(self.mode=='diagnostic' and type(provider) is dict and set(provider)=={'attribute','ssl','allowlist','network'},'LIVE_TRANSPORT_AUTHORITY')
   return self.request({'operation':'verify-live-transport','provider':provider})['value']
- def query(self,query_id):
-  require(self.mode=='diagnostic' and query_id in ('roles','sessions','migration-ledger','run-drain','candidate-sessions'),'DIAGNOSTIC_QUERY_AUTHORITY')
-  return self.request({'operation':'query','queryId':query_id})['value']
+ def query(self,query_id,params=None):
+  require(self.mode=='diagnostic' and query_id in ('roles','sessions','migration-ledger','run-drain','candidate-sessions','owned-release-runs','held-candidate-schema','held-candidate-permissions','held-candidate-seed'),'DIAGNOSTIC_QUERY_AUTHORITY')
+  message={'operation':'query','queryId':query_id}
+  if query_id=='owned-release-runs':
+   import re
+   require(type(params) is dict and set(params)=={'runIds'} and type(params['runIds']) is list and 1<=len(params['runIds'])<=128 and len(set(params['runIds']))==len(params['runIds']) and all(type(v) is str and re.fullmatch('[A-Za-z0-9_-]{1,128}',v) for v in params['runIds']),'OWNED_RUN_ID_SCOPE')
+   message['params']=params
+  elif query_id.startswith('held-candidate-'):
+   import re
+   require(type(params) is dict and set(params)=={'expectedReadbackSha256'} and type(params['expectedReadbackSha256']) is str and re.fullmatch('[a-f0-9]{64}',params['expectedReadbackSha256']),'HELD_READBACK_HASH_SCOPE');message['params']=params
+  else:require(params is None,'DIAGNOSTIC_QUERY_PARAMS_FORBIDDEN')
+  return self.request(message)['value']
  def migrate_exact_plan(self,identity):
   require(self.mode=='control' and identity==self.plan['identity'],'MIGRATION_EXISTING_SESSION_IDENTITY')
   auth=self.plan.get('migrationAuthorization');require(auth and auth.get('identity')==identity and type(auth.get('operationTimeoutMs')) is int and 10000<=auth['operationTimeoutMs']<=1800000,'MIGRATION_EXPLICIT_AUTHORIZATION')

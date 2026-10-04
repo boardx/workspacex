@@ -6,7 +6,7 @@ import type { MaintenanceIdentity } from '../cn-maintenance-release';
 const identity={sourceRevision:'9b25bfa65662b96c0826fe67506b562ea46aa6d0',baselineRevision:'ba6343199f3c834d6a198f83d0c771614292c82b',migrationPlanSha256:'a'.repeat(64),attemptId:'factory-local'};
 const generation='b'.repeat(32), revision='c'.repeat(40), h='d'.repeat(64);
 const request={...identity,maintenanceOptIn:'stop-all-writes-and-require-database-recovery' as const};
-const privateRoot=`/etc/workspacex-cn/maintenance-epoch/${identity.sourceRevision}/${identity.attemptId}`;
+const privateRoot=`/etc/workspacex-cn/maintenance-evidence/${identity.sourceRevision}/${identity.attemptId}/qualified-current-epoch`;
 const ref=(path:string)=>({path,sha256:h});
 function fixture(){
  const calls:string[]=[];let state='absent',g=generation;
@@ -44,7 +44,7 @@ function fixture(){
  };
  const input:ARouteFactoryInputs={binding,toolRevision:revision,installedFilesSha256:installed,consumers,
   run:async(_command,args)=>{calls.push('hold:'+args[0]);if(args[0]==='create')state='held';if(args[0]==='clear')state='cleared';return {stdout:JSON.stringify({schemaVersion:1,state,identity,generation:g,sha256:h,device:1,inode:2})};},
-  readEvidence:async reference=>{calls.push('evidence:read');if(reference.path===epoch.epoch.path){const {epoch:_ref,kind:_kind,...contents}=epoch;return {...structuredClone(contents),kind:'held-current-epoch-manifest'};}if(reference.path===completion.completion.path)return {schemaVersion:1,kind:'validated-migration-completion',identity,toolRevision:revision};if(reference.path===candidate.reference.path)return {schemaVersion:1,toolRevision:revision,plan:{identity,holdGeneration:generation,epoch:h,migrationCompletionSha256:h,artifactSha256:h},artifact:ref('/etc/workspacex-cn/candidate-artifact.json')};throw Error('missing local proof');},
+  readEvidence:async reference=>{calls.push('evidence:read');if(reference.path===epoch.epoch.path){const {epoch:_ref,kind:_kind,...contents}=epoch;return {...structuredClone(contents),kind:'held-current-epoch-manifest'};}if(reference.path===completion.completion.path)return {schemaVersion:1,scope:'validated-production-migration-completion',sourceRevision:identity.sourceRevision,baselineRevision:identity.baselineRevision,attemptId:identity.attemptId,release:'2026.10.3-cn.1',originalPlanSha256:identity.migrationPlanSha256,completionPlanSha256:h,sourceInventorySha256:h,sourceBindingSha256:h,snapshotSha256:h,fullResponseSha256:h,ledgerSha256:h,appliedSqlCount:1,pendingCount:0,driftCount:0,unknownAppliedCount:0,capturedAt:new Date().toISOString(),providerFinishedAt:new Date().toISOString(),expiresAt:new Date(Date.now()+3599000).toISOString(),productionMutationAuthorized:false};if(reference.path===candidate.reference.path)return {schemaVersion:1,toolRevision:revision,plan:{identity,holdGeneration:generation,epoch:h,migrationCompletionSha256:h,artifactSha256:h},artifact:ref('/etc/workspacex-cn/candidate-artifact.json')};throw Error('missing local proof');},
   acquireReleaseLock:async()=>{calls.push('lock');return async()=>{calls.push('unlock');};},assertInstalledSource:async()=>{calls.push('source:verify');},
  };
  return {input,calls,epoch,completion,candidate,setGeneration:(value:string)=>{g=value;}};

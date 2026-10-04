@@ -293,7 +293,7 @@ def serve_reviewed_fence(source_path,source_sha):
  raw=private(source_path);require(hashlib.sha256(raw).hexdigest()==source_sha,'REVIEWED_PLAN_PIN');plan=json.loads(raw)
  require(plan.get('schemaVersion')==1 and plan.get('mode')=='maintenance-all-writer-fence' and plan.get('productionActionsAuthorized') is True,'ACTION_PLAN_NOT_AUTHORIZED')
  require(re.fullmatch('[a-zA-Z0-9-]{1,128}',plan['identity']['attemptId']),'ATTEMPT_IDENTITY')
- transport=HostTransport(plan,source_sha,'apply-reviewed-all-writer-fence');transport.require_lock();transport.verify_capabilities(plan);unknown=False;mutated=False;migration_completed=False;journal=None;candidate_actor=None;baseline_cancel=None
+ transport=HostTransport(plan,source_sha,'apply-reviewed-all-writer-fence');transport.require_lock();transport.verify_capabilities(plan);unknown=False;mutated=False;migration_completed=False;journal=None;candidate_actor=None;baseline_cancel=None;source_operations=None
  try:
   sealed,receipt=seal_runtime_plan(transport,source_path,source_sha)
   journal=Journal(transport.plan['journalDirectory'],plan['identity']);adapter=WriterFenceAdapter(plan['identity'],transport.plan,transport,journal)
@@ -313,6 +313,15 @@ def serve_reviewed_fence(source_path,source_sha):
      if journal.value['state']!='writes-resumed':
       final_hold=transport.read_hold();require(final_hold['state']=='cleared' and final_hold['identity']==plan['identity'],'FENCE_FINAL_HOLD_NOT_CLEARED')
      print(json.dumps({'sequence':sequence,'ok':True,'closed':True}),flush=True);break
+    if request['operation']=='maintenance-source-operation':
+     require(not unknown and set(request)=={'sequence','identity','operation','action','input'},'SOURCE_OPERATION_REQUEST_BINDING')
+     from maintenance_source_operations import MaintenanceSourceOperations
+     if source_operations is None:source_operations=MaintenanceSourceOperations(transport,adapter,journal)
+     # Any lost response may follow a durable file or staging mutation. Retain
+     # the same actor and inherited lock; never reconnect or replay automatically.
+     mutated=True
+     value=source_operations.dispatch(request['action'],plan['identity'],request['input'],candidate_actor)
+     print(json.dumps({'sequence':sequence,'ok':True,'value':value}),flush=True);continue
     if request['operation']=='baseline-cancellation-operation':
      from candidate_host_transport import RetainedBaselineCancellation
      require(not unknown and set(request)=={'sequence','identity','operation','action'},'BASELINE_CANCEL_REQUEST_BINDING')

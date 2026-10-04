@@ -197,3 +197,21 @@ test('candidate reference binds exactly once after migration from protected late
  }
  f.spec.readCandidatePlan=protectedReader;await life.bindCandidateReference(f.spec.identity,reference);await assert.rejects(life.bindCandidateReference(f.spec.identity,reference),/LATE_BINDING/);assert.equal(reads,4);
 });
+
+test('source operations retain the same actor and never admit a caller command',async()=>{
+ const f=fixture();f.spec.sourceOperationModules={};const life=createPersistentWriterLifecycle(f.spec);await life.start();
+ const action='held-candidate-readback' as const;
+ const input={path:`/etc/workspacex-cn/maintenance-source-inputs/${f.spec.identity.sourceRevision}/${f.spec.identity.attemptId}/${action}.json`,sha256:'8'.repeat(64)};
+ f.driver.request=async msg=>{f.messages.push(msg);return {value:{schemaVersion:1,kind:'maintenance-source-operation',identity:f.spec.identity,toolRevision:f.spec.toolRevision,action,input,value:{facts:'local mock'},ready:false,productionAvailabilityProven:false}};};
+ assert.deepEqual(await life.sourceOperation(f.spec.identity,action,input),{facts:'local mock'});
+ await assert.rejects(life.sourceOperation(f.spec.identity,action,{...input,path:'/tmp/caller-command'}),/BINDING/);
+ await assert.rejects(life.closeAfterAccepted(),/NOT_ACCEPTED/);assert.equal(f.messages.length,1);assert.equal(f.counts().starts,1);
+});
+test('source-operation failed proof retains the actor and prevents retry and resume',async()=>{
+ const f=fixture();f.spec.sourceOperationModules={};const life=createPersistentWriterLifecycle(f.spec);await life.start();
+ const action='qualify-current-epoch' as const;const input={path:`/etc/workspacex-cn/maintenance-source-inputs/${f.spec.identity.sourceRevision}/${f.spec.identity.attemptId}/${action}.json`,sha256:'8'.repeat(64)};
+ f.driver.request=async()=>({value:{ready:true}});
+ await assert.rejects(life.sourceOperation(f.spec.identity,action,input),/READBACK/);
+ await assert.rejects(life.sourceOperation(f.spec.identity,action,input),/BINDING/);
+ await assert.rejects(life.invoke('resumeWrites',f.spec.identity),/BINDING/);assert.equal(f.counts().retains,1);assert.equal(f.counts().closes,0);
+});

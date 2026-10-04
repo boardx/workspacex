@@ -2,6 +2,8 @@ import copy
 import hashlib
 import json
 import unittest
+import datetime
+from candidate_completion_contract import ledger_sha
 from candidate_plan_producer import produce, write_candidate, BIND
 from candidate_writer import validate
 from current_held_epoch_evidence_producer import ECS
@@ -37,7 +39,14 @@ def data_fixture():
         objectRecovery=dict(path='/etc/workspacex-cn/object.json',sha256='b'*64),
         beforeHeldObservationSha256='c'*64,afterHeldObservationSha256='d'*64)
     docs=dict(template=template,epochInput=dict(**bound),epochCollection=collection,epochManifest=manifest,runtimeSeal=runtime,
-        completion=dict(schemaVersion=1,kind='validated-migration-completion',identity=identity,toolRevision=bound['toolRevision']),
+        completion=dict(schemaVersion=1,scope='validated-production-migration-completion',sourceRevision=identity['sourceRevision'],
+            baselineRevision=identity['baselineRevision'],attemptId=identity['attemptId'],originalPlanSha256=identity['migrationPlanSha256'],
+            release='2026.10.3-cn.1',completionPlanSha256='a'*64,sourceInventorySha256='b'*64,sourceBindingSha256='c'*64,
+            snapshotSha256='d'*64,fullResponseSha256='e'*64,ledgerSha256=ledger_sha([dict(name='001_test.sql',checksum='a'*64)]),
+            appliedSqlCount=1,pendingCount=0,driftCount=0,unknownAppliedCount=0,productionMutationAuthorized=False,
+            capturedAt=datetime.datetime.now(datetime.timezone.utc).isoformat().replace('+00:00','Z'),
+            providerFinishedAt=datetime.datetime.now(datetime.timezone.utc).isoformat().replace('+00:00','Z'),
+            expiresAt=(datetime.datetime.now(datetime.timezone.utc)+datetime.timedelta(minutes=59)).isoformat().replace('+00:00','Z')),
         liveLedger=dict(**bound,kind='retained-live-migration-ledger',connection=diagnostic['workspacex'],rowCount=1,
             ledger=[dict(name='001_test.sql',checksum='a'*64)]),stageInspection=stage,
         artifact=dict(**bound,kind='candidate-artifact-reference',artifact=dict(path='/etc/workspacex-cn/artifact.json',sha256=template['artifactSha256'])))
@@ -46,7 +55,7 @@ def data_fixture():
         raw=json.dumps(value,sort_keys=True).encode();path='/etc/workspacex-cn/input/'+name+'.json'
         if name=='runtimeSeal':path='/var/lib/workspacex-cn/runtime/'+identity['attemptId']+'/sealed-writer-runtime.json'
         if name=='completion':path='/etc/workspacex-cn/migration-completion-inputs/'+identity['sourceRevision']+'/'+identity['attemptId']+'.completed.json'
-        if name=='epochManifest':path='/etc/workspacex-cn/maintenance-epoch/'+identity['sourceRevision']+'/'+identity['attemptId']+'/epoch.json'
+        if name=='epochManifest':path='/etc/workspacex-cn/maintenance-evidence/'+identity['sourceRevision']+'/'+identity['attemptId']+'/qualified-current-epoch/epoch.json'
         refs[name]=dict(path=path,sha256=hashlib.sha256(raw).hexdigest());bytes_by_path[path]=raw
     bytes_by_path['/etc/workspacex-cn/artifact.json']=artifact_raw
     inputs=dict(**bound,refs=refs)
@@ -116,6 +125,18 @@ class Tests(unittest.TestCase):
             ref=inputs['refs'][changed];content=json.dumps(docs[changed],sort_keys=True).encode()
             raw[ref['path']]=content;ref['sha256']=hashlib.sha256(content).hexdigest()
             with self.assertRaises((RuntimeError,ValueError)):produce(inputs,transport,reader,epoch_producer=epoch)
+
+    def test_sanitized_stage_preserves_full_config_hash_without_secret_values(self):
+        from candidate_stage_actions import safe_inspection
+        inputs,docs,raw,reader,transport,epoch=data_fixture()
+        # Real stage module exposes only identity labels and a full-config digest.
+        stage=docs['stageInspection']
+        for container in stage['containers']:container['HostConfig']=dict(NetworkMode='fixture_default')
+        stage['containers']=safe_inspection(stage['containers'])
+        content=json.dumps(stage,sort_keys=True).encode();ref=inputs['refs']['stageInspection']
+        raw[ref['path']]=content;ref['sha256']=hashlib.sha256(content).hexdigest()
+        output=produce(inputs,transport,reader,epoch_producer=epoch)
+        self.assertEqual(output['plan']['candidateWriters'][0]['binding']['configSha256'],stage['containers'][0]['configSha256'])
 
     def test_native_runtime_completion_and_manifest_paths_are_exact(self):
         for name in ('runtimeSeal','completion','epochManifest'):

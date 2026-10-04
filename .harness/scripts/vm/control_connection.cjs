@@ -15,6 +15,26 @@ const ID_SQL = `SELECT json_build_object('peer',json_build_object('database',cur
 const READ_QUERIES = {"roles": "BEGIN TRANSACTION READ ONLY; SELECT json_build_object('peer',json_build_object('database',current_database(),'serverAddr',inet_server_addr()::text,'serverPort',inet_server_port(),'systemIdentifier',(SELECT system_identifier::text FROM pg_control_system())), 'currentRole',current_user,'selfPid',pg_backend_pid(),'tls',(SELECT json_build_object('ssl',ssl,'version',version,'cipher',cipher) FROM pg_stat_ssl WHERE pid=pg_backend_pid()),'roles',(SELECT json_agg(json_build_object('name',rolname,'login',rolcanlogin,'superuser',rolsuper,'createRole',rolcreaterole,'createDb',rolcreatedb,'replication',rolreplication,'bypassRls',rolbypassrls)) FROM pg_roles),'diagnosticPrivileges',json_build_object('databaseWrite',has_database_privilege(current_user,current_database(),'CREATE,TEMP'),'schemaWrite',EXISTS(SELECT 1 FROM pg_namespace WHERE nspname NOT LIKE 'pg_temp_%' AND has_schema_privilege(current_user,oid,'CREATE')),'tableWrite',EXISTS(SELECT 1 FROM pg_class c JOIN pg_namespace n ON c.relnamespace=n.oid WHERE c.relkind IN ('r','p','v','f','m') AND n.nspname NOT IN ('pg_catalog','information_schema') AND has_table_privilege(current_user,c.oid,'INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER')),'sequenceWrite',EXISTS(SELECT 1 FROM pg_class c WHERE c.relkind='S' AND has_sequence_privilege(current_user,c.oid,'USAGE,UPDATE')),'definerExecute',EXISTS(SELECT 1 FROM pg_proc p JOIN pg_namespace n ON p.pronamespace=n.oid WHERE p.prosecdef AND n.nspname NOT IN ('pg_catalog','information_schema') AND has_function_privilege(current_user,p.oid,'EXECUTE')),'privilegedMembership',EXISTS(SELECT 1 FROM pg_roles r WHERE (r.rolsuper OR r.rolcreaterole OR r.rolcreatedb OR r.rolreplication OR r.rolbypassrls OR r.rolname IN ('pg_write_server_files','pg_execute_server_program','pg_signal_backend')) AND pg_has_role(current_user,r.oid,'MEMBER')))); ROLLBACK;", "sessions": "BEGIN TRANSACTION READ ONLY; SELECT json_build_object('peer',json_build_object('database',current_database(),'serverAddr',inet_server_addr()::text,'serverPort',inet_server_port(),'systemIdentifier',(SELECT system_identifier::text FROM pg_control_system())), 'sessions',coalesce((SELECT json_agg(json_build_object('role',usename,'clientAddr',client_addr::text,'pid',pid,'backendStart',backend_start,'xactStart',xact_start,'backendType',backend_type,'applicationName',application_name,'state',state,'ssl',(SELECT ssl FROM pg_stat_ssl WHERE pid=pg_stat_activity.pid))) FROM pg_stat_activity WHERE datname=current_database()),'[]'::json), 'preparedTransactions',coalesce((SELECT json_agg(json_build_object('gid',gid,'owner',owner,'database',database)) FROM pg_prepared_xacts WHERE database=current_database()),'[]'::json)); ROLLBACK;"};
 const FIXED_APP='9b25bfa65662b96c0826fe67506b562ea46aa6d0';
 const FIXED_BASE='ba6343199f3c834d6a198f83d0c771614292c82b';
+function loadHeldCandidateContext(session){
+ const profile=JSON.parse(trustedBytes('/etc/workspacex-cn/trusted-tool-binding.json',0o600));
+ requireProof(profile.toolRevision===session.toolRevision&&profile.heldCandidateExpected,'HELD_SOURCE_PROFILE');
+ const compile=(file,imports)=>{
+  const path='/usr/local/lib/workspacex-cn/'+file,expected=profile.filesSha256?.['.harness/scripts/vm/'+file];
+  requireProof(/^[a-f0-9]{64}$/.test(expected),'HELD_INSTALLED_SOURCE_PIN');
+  const raw=trustedBytes(path,0o700);requireProof(sha(raw)===expected,'HELD_INSTALLED_SOURCE_DRIFT');
+  const Module=require('node:module'),m=new Module(path);m.filename=path;
+  m.require=name=>{if(Object.hasOwn(imports,name))return imports[name];if(name==='node:crypto')return crypto;throw Error('HELD_INSTALLED_IMPORT_FORBIDDEN');};
+  m._compile(raw.toString('utf8'),path);return m.exports;
+ };
+ const queries=compile('held_candidate_queries.cjs',{'./control_connection.cjs':{READ_QUERIES}});
+ const expected=compile('held_candidate_expected.cjs',{'./held_candidate_queries.cjs':queries});
+ requireProof(typeof queries.readHeldCandidate==='function'&&typeof expected.createQualifiedExpectedVerifier==='function','HELD_INSTALLED_EXPORTS');
+ const readProtected=ref=>{requireProof(ref&&Object.keys(ref).sort().join(',')==='path,sha256'&&ref.path.startsWith('/etc/workspacex-cn/')&&!ref.path.split('/').includes('..'),'HELD_PROTECTED_REF');const raw=trustedBytes(ref.path,0o600);requireProof(sha(raw)===ref.sha256,'HELD_PROTECTED_HASH');return raw;};
+ const expectedRef=profile.heldCandidateExpected.expected,data=JSON.parse(readProtected(expectedRef));
+ const binding=Object.fromEntries(['identity','toolRevision','host','epoch','holdGeneration'].map(k=>[k,data[k]]));
+ requireProof(canonical(binding.identity)===canonical(session.identityBinding)&&binding.toolRevision===session.toolRevision,'HELD_PROFILE_SESSION_IDENTITY');
+ return {read:queries.readHeldCandidate,context:{identity:session.identityBinding,connection:session.binding,binding,expectedReadbackRef:expectedRef,readPrivate:readProtected,verifyQualifiedExpected:expected.createQualifiedExpectedVerifier({profile,readProtected})}};
+}
 const MIGRATOR_LIBRARY='/usr/local/lib/workspacex-cn/cn-maintenance-migrator.cjs';
 const canonical=value=>Array.isArray(value)?'['+value.map(canonical).join(',')+']':value&&typeof value==='object'?'{'+Object.keys(value).sort().map(k=>JSON.stringify(k)+':'+canonical(value[k])).join(',')+'}':JSON.stringify(value);
 const sha=bytes=>crypto.createHash('sha256').update(bytes).digest('hex');
@@ -57,8 +77,17 @@ function verifyFixedMigrationCheckout(auth){
 READ_QUERIES['candidate-sessions']="BEGIN TRANSACTION READ ONLY;\nSELECT json_build_object('peer',json_build_object('database',current_database(),\n 'serverAddr',inet_server_addr()::text,'serverPort',inet_server_port(),\n 'systemIdentifier',(SELECT system_identifier::text FROM pg_control_system())),\n 'sessions',coalesce((SELECT json_agg(json_build_object('role',usename,\n 'clientAddr',client_addr::text,'clientPort',client_port,'pid',pid,\n 'backendStart',backend_start,'backendType',backend_type,'state',state,\n 'ssl',(SELECT ssl FROM pg_stat_ssl WHERE pid=pg_stat_activity.pid)))\n FROM pg_stat_activity WHERE datname=current_database()),'[]'::json),\n 'preparedTransactions',coalesce((SELECT json_agg(json_build_object('gid',gid,\n 'owner',owner,'database',database)) FROM pg_prepared_xacts\n WHERE database=current_database()),'[]'::json)); ROLLBACK;";
 READ_QUERIES['migration-ledger']='BEGIN TRANSACTION READ ONLY; SELECT json_build_object(\'ledger\',coalesce((SELECT json_agg(json_build_object(\'name\',name,\'checksum\',checksum,\'appliedAt\',applied_at) ORDER BY name) FROM public._kernel_migrations),\'[]\'::json),\'rowCount\',(SELECT count(*)::int FROM public._kernel_migrations)) AS snapshot; ROLLBACK;';
 READ_QUERIES['run-drain']="BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY; SELECT json_build_object('rows',coalesce((SELECT json_agg(x) FROM (SELECT status,count(*)::text AS count FROM public.agent_runs GROUP BY status) x),'[]'::json)) AS snapshot; ROLLBACK;";
+const RETAINED_BACKUP_HELPER='/usr/local/lib/workspacex-cn/retained_backup_helper.cjs';
+const backupCleanupRequest=message=>message?.operation==='retained-fixed-backup'&&message.request?.operation==='mutation'&&['close','revoke','begin','commit','rollback'].includes(message.request.action);
+function loadRetainedBackupExtension(session,ref){
+ requireProof(ref&&Object.keys(ref).sort().join(',')==='path,sha256'&&ref.path===`/etc/workspacex-cn/maintenance-backup/${session.identityBinding.sourceRevision}/${session.identityBinding.attemptId}/host-plan.json`&&/^[a-f0-9]{64}$/.test(ref.sha256),'RETAINED_BACKUP_HOST_REFERENCE');
+ const profile=JSON.parse(trustedBytes('/etc/workspacex-cn/trusted-tool-binding.json',0o600));
+ requireProof(profile.toolRevision===session.toolRevision&&canonical(profile.backupHostPlan)===canonical(ref),'RETAINED_BACKUP_SOURCE_PROFILE');
+ for(const path of [RETAINED_BACKUP_HELPER,'/usr/local/lib/workspacex-cn/backup_connection.cjs'])requireProof(sha(trustedBytes(path,0o700))===profile.installedFilesSha256?.[path],'RETAINED_BACKUP_MODULE_CLOSURE');
+ return require(RETAINED_BACKUP_HELPER).initializeRetained(session,ref);
+}
 class ControlSession {
- constructor(clientFactory, configLoader = privateJson, migrationLibraryLoader=loadFixedMigrator, checkoutVerifier=verifyFixedMigrationCheckout, recoveryLibraryLoader=loadRetainedRecovery, Query, transportLibraryLoader=loadFixedMigrator,transportConfigReader=trustedBytes) { this.recoveryLibraryLoader=recoveryLibraryLoader;this.transportLibraryLoader=transportLibraryLoader;this.transportConfigReader=transportConfigReader;this.migrationAdmissionReader=trustedBytes;this.Query=Query;this.migrationLibraryLoader=migrationLibraryLoader;this.checkoutVerifier=checkoutVerifier;this.factory = clientFactory; this.load = configLoader; this.client = null; this.binding = null; this.sequence = 0; this.failed = false; }
+ constructor(clientFactory, configLoader = privateJson, migrationLibraryLoader=loadFixedMigrator, checkoutVerifier=verifyFixedMigrationCheckout, recoveryLibraryLoader=loadRetainedRecovery, Query, transportLibraryLoader=loadFixedMigrator,transportConfigReader=trustedBytes) { this.recoveryLibraryLoader=recoveryLibraryLoader;this.transportLibraryLoader=transportLibraryLoader;this.transportConfigReader=transportConfigReader;this.migrationAdmissionReader=trustedBytes;this.Query=Query;this.migrationLibraryLoader=migrationLibraryLoader;this.checkoutVerifier=checkoutVerifier;this.retainedBackupLoader=loadRetainedBackupExtension;this.factory = clientFactory; this.load = configLoader; this.client = null; this.binding = null; this.sequence = 0; this.failed = false; }
  verifyTransportAuthority() {
   const a=this.connectionTransport,now=Date.now()/1000;requireProof(a.notBefore<=now&&now<a.expiresAt,'CONTROL_TRANSPORT_EXPIRED');
   const profile=JSON.parse(this.transportConfigReader('/etc/workspacex-cn/trusted-tool-binding.json',0o600)),frozen=profile.existingProductionTransport;
@@ -80,7 +109,7 @@ class ControlSession {
  return {...value,socket,...(transport?{transport}:{})};
  }
  async handle(message) {
-  requireProof(!this.failed && Number.isSafeInteger(message.sequence) && message.sequence === this.sequence + 1, 'CONTROL_SEQUENCE'); this.sequence = message.sequence;
+  requireProof((!this.failed||backupCleanupRequest(message)) && Number.isSafeInteger(message.sequence) && message.sequence === this.sequence + 1, 'CONTROL_SEQUENCE'); this.sequence = message.sequence;
   try {
    if (message.operation === 'connect') {
     requireProof(!this.client && ['verify-full','disable'].includes(message.sslMode) && typeof message.applicationName === 'string' && ['control','diagnostic'].includes(message.mode) && message.applicationName === 'wsx-maintenance-'+message.mode+'-' + message.identity.attemptId, 'CONTROL_CONNECT_AUTHORITY');
@@ -99,10 +128,22 @@ class ControlSession {
     if(message.sslMode==='disable'){requireProof(this.connectionTransport&&target.ssl===false,'CONTROL_NO_TLS_UNAPPROVED');ssl=false;}
     else{requireProof(target.ssl?.rejectUnauthorized===true&&target.ssl.caFile===message.caFile,'CONTROL_TLS_CONFIG');ssl={rejectUnauthorized:true,ca:fs.readFileSync(message.caFile)};}
     const options={...target,ssl,application_name:message.applicationName,connectionTimeoutMillis:10000,query_timeout:10000,statement_timeout:10000};
-    if(options.ssl)delete options.ssl.caFile; this.options=options;this.toolRevision=message.toolRevision;this.identityBinding=message.identity;this.migrationAuthorization=message.migrationAuthorization?structuredClone(message.migrationAuthorization):null;this.recoveryAuthorization=message.recoveryAuthorization?structuredClone(message.recoveryAuthorization):null;this.diagnosticRole=message.diagnosticRole;this.mode=message.mode; this.client = this.factory(this.transportEndpoint?{...options,host:this.transportEndpoint.privateAddress}:options);requireProof(typeof this.client.connection?.on==='function','CONTROL_TRANSACTION_STATE_REQUIRED');this.client.connection.on('readyForQuery',value=>{this.transactionStatus=value.status;}); this.client.on('error', () => { this.failed = true; }); await this.client.connect();
+    if(options.ssl)delete options.ssl.caFile; this.options=options;this.toolRevision=message.toolRevision;this.identityBinding=message.identity;this.migrationAuthorization=message.migrationAuthorization?structuredClone(message.migrationAuthorization):null;this.recoveryAuthorization=message.recoveryAuthorization?structuredClone(message.recoveryAuthorization):null;this.backupHostReference=message.backupHostReference?structuredClone(message.backupHostReference):null;this.diagnosticRole=message.diagnosticRole;this.mode=message.mode; this.client = this.factory(this.transportEndpoint?{...options,host:this.transportEndpoint.privateAddress}:options);requireProof(typeof this.client.connection?.on==='function','CONTROL_TRANSACTION_STATE_REQUIRED');this.client.connection.on('readyForQuery',value=>{this.transactionStatus=value.status;}); this.client.on('error', () => { this.failed = true; }); await this.client.connect();
     this.binding = await this.identity(); requireProof(this.binding.peer.database === message.database && this.binding.tls.ssl === (message.sslMode==='verify-full'), 'CONTROL_TLS_IDENTITY');
     if(this.mode==='control'){requireProof(Array.isArray(message.roleTargets)&&message.roleTargets.length>0,'CONTROL_ROLE_TARGETS');const proof=await this.client.query("SELECT ((SELECT rolsuper FROM pg_roles WHERE rolname=current_user) OR has_table_privilege(current_user,'pg_catalog.pg_authid','UPDATE')) AS catalog_lock_authority, ((SELECT rolsuper FROM pg_roles WHERE rolname=current_user) OR ((SELECT rolcreaterole FROM pg_roles WHERE rolname=current_user) AND NOT EXISTS(SELECT 1 FROM unnest($1::text[]) target(name) WHERE NOT EXISTS(SELECT 1 FROM pg_roles r JOIN pg_auth_members m ON m.roleid=r.oid JOIN pg_roles actor ON actor.oid=m.member WHERE r.rolname=target.name AND actor.rolname=current_user AND m.admin_option)))) AS alter_role_authority",[message.roleTargets]);requireProof(proof.rows.length===1,'CONTROL_CAPABILITY_PROTOCOL');this.capabilities={catalogLockAuthority:proof.rows[0].catalog_lock_authority,alterRoleAuthority:proof.rows[0].alter_role_authority};requireProof(this.capabilities.catalogLockAuthority===true&&this.capabilities.alterRoleAuthority===true,'CONTROL_ROLE_CAPABILITY');}
    } else {
+    if(message.operation==='bind-retained-backup'){
+     requireProof(Object.keys(message).sort().join(',')==='hostReference,operation,sequence'&&this.mode==='control'&&this.client&&this.transactionStatus==='I'&&!this.retainedBackup&&this.backupHostReference&&canonical(message.hostReference)===canonical(this.backupHostReference),'RETAINED_BACKUP_BIND_AUTHORITY');
+     const value=await this.retainedBackupLoader(this,this.backupHostReference);this.retainedBackup=value;
+     requireProof(canonical(value.binding)===canonical(this.binding),'RETAINED_BACKUP_SESSION_BINDING');
+     return {sequence:this.sequence,ok:true,connection:this.binding,value:{protocol:value.protocol}};
+    }
+    if(message.operation==='retained-fixed-backup'){
+     requireProof(Object.keys(message).sort().join(',')==='operation,protocol,request,sequence'&&this.mode==='control'&&this.retainedBackup,'RETAINED_BACKUP_PROTOCOL_AUTHORITY');
+     const reply=await this.retainedBackup.dispatch(message.protocol,message.request);
+     requireProof(canonical(reply.connection)===canonical(this.binding),'RETAINED_BACKUP_RESPONSE_SESSION');
+     return {...reply,sequence:this.sequence};
+    }
     if(message.operation==='recover-existing-session'){
      requireProof(Object.keys(message).sort().join(',')==='identity,operation,sequence'&&this.mode==='control'&&this.client&&this.recoveryAuthorization&&typeof this.Query==='function'&&!this.recoveryStarted&&this.transactionStatus==='I'&&canonical(message.identity)===canonical(this.identityBinding),'RECOVERY_EXISTING_SESSION_AUTHORITY');
      const library=this.recoveryLibraryLoader(this.recoveryAuthorization);library.validateAuthority(this.recoveryAuthorization,this.identityBinding,this.toolRevision);
@@ -131,7 +172,29 @@ class ControlSession {
      const proof={sslMode:value.sslMode,configurationSha256:value.configurationSha256,providerEvidenceSha256:value.providerEvidenceSha256};
      return {sequence:this.sequence,ok:true,connection:this.binding,value:{schemaVersion:1,kind:'existing-production-maintenance-transport-verified',identity:this.connectionTransport.identity,peer:this.binding.peer,endpoint:{address:value.privateAddress,port:value.port},observedAt:Date.now()/1000,proof}};
     }
+    if(message.operation==='query'&&message.queryId==='owned-release-runs'){
+     requireProof(Object.keys(message).sort().join(',')==='operation,params,queryId,sequence'&&this.mode==='diagnostic'&&this.client&&this.binding.peer.database==='workspacex'&&this.transactionStatus==='I','OWNED_RUN_READ_AUTHORITY');
+     const p=message.params,ids=p?.runIds;
+     requireProof(p&&Object.keys(p).join(',')==='runIds'&&Array.isArray(ids)&&ids.length>=1&&ids.length<=128&&new Set(ids).size===ids.length&&ids.every(id=>typeof id==='string'&&/^[A-Za-z0-9_-]{1,128}$/.test(id)),'OWNED_RUN_ID_SCOPE');
+     requireProof(canonical(await this.identity())===canonical(this.binding),'OWNED_RUN_CONNECTION_CHANGED');
+     let rows;
+     try{
+      await this.client.query('BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY');
+      await this.client.query("SET LOCAL statement_timeout='5000ms'");
+      const mode=await this.client.query("SELECT current_setting('transaction_read_only') AS readonly");
+      requireProof(mode.rows.length===1&&mode.rows[0].readonly==='on','OWNED_RUN_TRANSACTION_NOT_READONLY');
+      const result=await this.client.query('SELECT id,status FROM public.agent_runs WHERE id=ANY($1::text[]) ORDER BY id',[ids]);rows=result.rows;
+      requireProof(Array.isArray(rows)&&rows.length===ids.length&&rows.every(r=>Object.keys(r).sort().join(',')==='id,status'&&ids.includes(r.id)&&typeof r.status==='string')&&new Set(rows.map(r=>r.id)).size===ids.length,'OWNED_RUN_RESULT_SCOPE');
+     }finally{await this.client.query('ROLLBACK');}
+     requireProof(this.transactionStatus==='I'&&canonical(await this.identity())===canonical(this.binding),'OWNED_RUN_ROLLBACK_OR_CONNECTION_UNKNOWN');
+     return {sequence:this.sequence,ok:true,connection:this.binding,value:{rows,readOnly:true,rollbackComplete:true,observedAt:Date.now()/1000}};
+    }
     if (message.operation === 'query') {
+     if(['held-candidate-schema','held-candidate-permissions','held-candidate-seed'].includes(message.queryId)){
+      requireProof(Object.keys(message).sort().join(',')==='operation,params,queryId,sequence'&&this.mode==='diagnostic'&&this.client&&this.transactionStatus==='I','HELD_READBACK_AUTHORITY');
+      const bound=loadHeldCandidateContext(this),value=await bound.read(this,message.queryId,message.params,bound.context);
+      return {sequence:this.sequence,ok:true,connection:this.binding,value};
+     }
      requireProof(this.mode === 'diagnostic' && Object.hasOwn(READ_QUERIES,message.queryId),'DIAGNOSTIC_QUERY_AUTHORITY');
      requireProof(JSON.stringify(await this.identity()) === JSON.stringify(this.binding),'DIAGNOSTIC_CONNECTION_CHANGED');
      const result=await this.client.query(READ_QUERIES[message.queryId]);

@@ -19,7 +19,7 @@ from control_connection import verify_bound_transport
 
 
 class CandidateHostTransport:
-    def __init__(self, host, plan, journal, artifact, read_private=private, proc_root='/proc'):
+    def __init__(self, host, plan, journal, artifact, read_private=private, proc_root='/proc', *, pointer_factory=None, docker_runner=None):
         validate(plan, plan['identity'])
         require(host.plan['identity'] == plan['identity'] and host.plan['host'] == plan['host']
                 and host.plan['databasePeers'] == plan['databasePeers'], 'CANDIDATE_HOST_BINDING')
@@ -36,6 +36,24 @@ class CandidateHostTransport:
         self.proc = pathlib.Path(proc_root)
         self.collector = CandidateBackendCollector(self, proc_root)
         self.runtime_sessions = None
+        self.pointer_factory,self.docker_runner=pointer_factory,docker_runner
+
+    def _docker(self,args):
+        require(type(args) is list and args and args[0] in ('start','unpause','pause','kill'),'CANDIDATE_DOCKER_ACTION')
+        ids={w['binding']['containerId'] for w in self.plan['candidateWriters']+self.plan['baselineWriters']}
+        require(args[-1] in ids and (len(args)==2 or args[0]=='kill' and args[1:-1]==['--signal','KILL']),'CANDIDATE_DOCKER_OWNED_TARGET')
+        if self.docker_runner is not None:return self.docker_runner(args)
+        import compiled_maintenance_activation as source
+        profile=json.loads(source.private('/etc/workspacex-cn/trusted-tool-binding.json'))
+        descriptor=profile.get('candidateComposeEmitter',{})
+        require(profile['toolRevision']==self.host.plan['toolRevision'] and descriptor.get('dockerPath')=='/usr/bin/docker' and re.fullmatch('[a-f0-9]{64}',descriptor.get('dockerSha256','')),'CANDIDATE_DOCKER_SOURCE_PROFILE')
+        return source.invoke({'binaries':{'docker':{'path':descriptor['dockerPath'],'sha256':descriptor['dockerSha256']}}},'docker',args)
+
+    def promote_candidate_pointer(self):
+        from candidate_pointer_adapter import CandidatePointerAdapter
+        profile=json.loads(self.private('/etc/workspacex-cn/trusted-tool-binding.json')) if self.pointer_factory is None else None
+        binding=profile['candidatePointerPromotion']['binding'] if profile is not None else None
+        return (self.pointer_factory or CandidatePointerAdapter)(self,binding).promote_under_hold()
 
     def require_lock(self): self.host.require_lock()
     def read_hold(self):
@@ -114,9 +132,6 @@ class CandidateHostTransport:
                 'CANDIDATE_MIGRATION_DURABLE_RECEIPT_REQUIRED')
         raw = self.private(expected); require(hashlib.sha256(raw).hexdigest() == receipt['sha256'], 'CANDIDATE_COMPLETION_DRIFT')
         completed = json.loads(raw)
-        require(completed.get('schemaVersion') == 1 and completed.get('kind') == 'validated-migration-completion'
-                and completed.get('identity') == plan['identity'] and completed.get('toolRevision') == self.host.plan['toolRevision'],
-                'CANDIDATE_COMPLETION_IDENTITY')
         connection = self.host.diagnostic_connections['workspacex']
         require(connection.binding == self.host.plan['diagnosticSessions']['workspacex'], 'CANDIDATE_LEDGER_CONNECTION_DRIFT')
         verify_bound_transport(self.host.plan, 'workspacex', 'diagnostic', connection.binding)
@@ -124,10 +139,12 @@ class CandidateHostTransport:
         require(value['rowCount'] == len(value['ledger']) and len({r['name'] for r in value['ledger']}) == len(value['ledger']),
                 'CANDIDATE_LEDGER_PROTOCOL')
         ledger = sorted([dict(name=r['name'], checksum=r['checksum']) for r in value['ledger']], key=lambda r: r['name'])
-        require(digest(ledger) == plan['migrationLedgerSha256'], 'CANDIDATE_LEDGER_DRIFT')
+        from candidate_completion_contract import validate_completed
+        ledger_sha=validate_completed(completed,plan['identity'],ledger)
+        require(ledger_sha == plan['migrationLedgerSha256'], 'CANDIDATE_LEDGER_DRIFT')
         self._guard(plan); require(self.private(expected) == raw, 'CANDIDATE_COMPLETION_RACE')
         proof = dict(identity=plan['identity'], epoch=plan['epoch'], holdGeneration=plan['holdGeneration'],
-                     completionSha256=receipt['sha256'], ledgerSha256=digest(ledger), nonce=nonce,
+                     completionSha256=receipt['sha256'], ledgerSha256=ledger_sha, nonce=nonce,
                      observedAt=time.time(), source='durable-completion-and-live-diagnostic-ledger', databasePeers=plan['databasePeers'])
         proof['evidenceSha256'] = digest(dict(proof=proof, connection=connection.binding))
         return proof
@@ -207,10 +224,21 @@ class CandidateHostTransport:
         self._guard(plan); self.verify_staging(plan)
         require(self.journal.value.get('candidateResumeIntent', {}).get('planSha256') == digest(plan),
                 'CANDIDATE_DURABLE_RESUME_INTENT_REQUIRED')
+        self.promote_candidate_pointer()
+        # Paused baseline containers still own the native loopback ports. Kill
+        # only these exact held baseline identities; never unpause old app code.
+        for writer in plan['baselineWriters']:
+            if writer['binding']['service'] not in ('web','api'):continue
+            self._guard(plan);state=self._inventory(plan)[writer['key']]['state']
+            if state!='stopped':
+                self.journal.record('baseline-port-release-intent',binding=writer['binding'],holdDisposition='retain')
+                self._docker(['kill','--signal','KILL',writer['binding']['containerId']])
+                require(self._inventory(plan)[writer['key']]['state']=='stopped','BASELINE_PORT_RELEASE_UNKNOWN')
+                self.journal.record('baseline-port-release-readback',binding=writer['binding'],holdDisposition='retain')
         self._admission(plan, plan['candidateAdmission'])
         for writer in plan['candidateWriters']:
             self._guard(plan); state = self._inventory(plan)[writer['key']]['state']
-            if state != 'running': self.host.run(['/usr/bin/docker', 'unpause' if state == 'paused' else 'start', writer['binding']['containerId']])
+            if state != 'running': self._docker(['unpause' if state == 'paused' else 'start', writer['binding']['containerId']])
 
     def reblock_candidate(self, plan):
         self._guard(plan); errors = []
@@ -219,7 +247,7 @@ class CandidateHostTransport:
         for writer in plan['candidateWriters']:
             try:
                 self._guard(plan)
-                if self._inventory(plan)[writer['key']]['state'] == 'running': self.host.run(['/usr/bin/docker', 'pause', writer['binding']['containerId']])
+                if self._inventory(plan)[writer['key']]['state'] == 'running': self._docker(['pause',writer['binding']['containerId']])
             except BaseException as error: errors.append(error)
         for db in DATABASES:
             try:

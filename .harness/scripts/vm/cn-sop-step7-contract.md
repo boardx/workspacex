@@ -85,3 +85,52 @@ record required here. Bind that operation to both retained checks, but do not
 relabel it as `readHostEvidence` or use zero defaults. Source-owned host producer
 must collect the missing actual fields before production factory can bind this
 transport. Public reader implementation is complete; host producer is a blocker.
+
+## Fixed APP services and source-owned acceptance receipts
+
+`opened_service_health.py` runs a fixed read-only Docker exec Node probe inside
+the already identity-bound API container: web marker at service `web:3000`, local
+API `/healthz` at `127.0.0.1:3200`, agent `/healthz` at `agent:8000`, sandbox
+`/healthz` through `/run/sandbox/skill-sandbox.sock`. These routes exist in APP 9b;
+there is no Docker Health requirement, Running-to-healthy conversion, model run,
+new DB connection or Compose change. Actual responses generate service health
+evidence; missing endpoint/network/socket rejects. Each health HTTP request has
+a 5s timeout and 64KiB response bound.
+
+`acceptance_receipt_producer.cjs` wraps the existing real six-journey browser
+source and extracts the three actual finished SSE run IDs matched against the
+same persisted successful reads. It never accepts a supplied passed object.
+`canonical_acceptance_receipt.py` invokes existing eight-stage canonical source.
+Canonical read-only checks produce no runs: canonical IDs must be empty; browser
+IDs must be nonempty. `acceptance_receipt_store.py` is only protected fsync/hash
+storage, not an evidence verifier. Root must wire browser fixed launcher and
+receipt publishing into actual admission; the real source was not executed here.
+
+Raw local mock log: `/tmp/step7-source-tests.log`, UTC 2026-10-04T17:38:11.581002
+through 17:38:11.974682, HEAD c0ec7a078d7eb826c65de96e0279d485890499a5 plus
+uncommitted independent producer changes. Opened producer 4, services 3, browser
+extraction 2 and clear-unknown 2 tests passed. These are source/transport tests,
+not business acceptance. Root owns test-page screenshot and Library upload.
+
+## Candidate browser entry and fixed command authority
+
+candidate_browser_acceptance.py exports
+persist_candidate_browser_receipt(transport,data). Data is exact identity,
+browserPlan hashref and profile-bound nodeBinary. Existing retained transport
+identity/lock/guard is checked before and after. The entry reuses compiled
+maintenance activation protected/source/pinned Node helpers, checks actual
+Playwright closure, audio and Chromium, then executes profile-pinned
+acceptance_source_closure.cjs once. That closure compiles the real browser and
+receipt extractor; there is no second six-journey execution, legacy container
+layout, new DB client or supplied passed input. Strict result has three actual
+persisted SSE IDs, six journey proofs, same marker/identity and fresh timestamp.
+Only then does immutable protected receipt storage publish a FactoryRef.
+
+candidate_readonly_docker.py owns fixed health source and both readiness scripts
+plus network inspect. Canonical and opened services use its pinned binary FD
+invocation, actual socket/profile before-and-after checks and fixed offline socket
+configuration. Raw Docker exec is removed. Four helper, four browser entry, six
+canonical, four opened evidence and three health local mock tests passed; source
+Python compile passed. Dependency/source producer fixtures are explicitly mocked
+and prove wiring/failure handling, not real provider/business acceptance. Latest
+raw output with full HEAD and UTC range is appended to /tmp/step7-source-tests.log.

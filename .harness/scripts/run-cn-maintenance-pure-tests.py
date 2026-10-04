@@ -7,7 +7,9 @@ TESTS=['cn-maintenance-activation-test.py','collect_cn_migration_snapshot_test.p
 for test in TESTS:
  subprocess.run([sys.executable,'-B',str(VM/test)],cwd=ROOT,check=True,timeout=20)
 subprocess.run([sys.executable,'-B','-m','unittest','discover','-s',str(VM),'-p','test_*.py'],cwd=ROOT,check=True,timeout=20)
-subprocess.run(['node','--test',str(VM/'test_control_connection.cjs'),str(VM/'test_control_transport.cjs'),str(VM/'test_backup_connection.cjs'),str(VM/'test_backup_profile_transport.cjs')],cwd=ROOT,check=True,timeout=20)
+helper_tests=sorted(VM.glob('test_*.cjs'))+[
+ VM/'acceptance_receipt_producer_test.cjs',VM/'acceptance_source_closure_test.cjs']
+subprocess.run(['node','--test',*[str(p) for p in helper_tests]],cwd=ROOT,check=True,timeout=20)
 
 subprocess.run(['node','--test',str(VM/'cn-maintenance-drain-test.cjs')],cwd=ROOT,check=True,timeout=20)
 

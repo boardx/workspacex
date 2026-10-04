@@ -50,11 +50,13 @@ export async function runHostMaintenance(request: MaintenanceRequest, binding: H
   requireValue(binding.writerPlanPath.startsWith('/') && /^[a-f0-9]{64}$/.test(binding.writerPlanSha256) && /^[a-f0-9]{64}$/.test(binding.writerPlanCanonicalSha256), 'WRITER_PLAN_BINDING_INVALID');
   // Entire startup admission is before lock/hold/writer/DB/traffic mutations.
   await primitives.assertTrustedBinding(binding);
-  await primitives.verifyRecoveryExecutorCapability(binding.identity);
   if (primitives.aRoute) {
+    // Its source factory admits the readonly qualified prehold archive and
+    // fresh held capture. Do not route it through the legacy recovery launcher.
     await runARouteMaintenanceRelease(request, primitives.aRoute);
     return;
   }
+  await primitives.verifyRecoveryExecutorCapability(binding.identity);
   let originalHold: any;
   let clearedHold: any;
   const hold = async (action: string, input?: unknown) => parseOne((await run(binding.hold, [action, '/var/lib/workspacex-cn/runtime'], input)).stdout);
