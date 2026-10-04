@@ -1,6 +1,6 @@
 # 当前已验证
 
-用户三项确认修复已合入main：自动设计检查、回收开始/截止日期、解除报告模板绑定。未部署。返回列表PR #5277 exactfd654已独立review/CI绿，未自行合并。真实合成问卷a529a7ac-3740-4b4a-b46f-dfd085fbb775由公开UI提交1份有效答卷；报告预览/六个顺序操作在冻结Web4c0017fd2和兼容API5eff测试。模板子集123项：89PASS、3BLOCKED、7NOT_AVAILABLE、24NOT_STARTED。全558尚未完成，QR唯一排除，不迁移历史305行PASS。
+用户三项确认修复已合入main：自动设计检查、回收开始/截止日期、解除报告模板绑定。未部署。返回列表PR #5277 exactfd654已独立review/CI绿，未自行合并。真实合成问卷a529a7ac-3740-4b4a-b46f-dfd085fbb775由公开UI提交1份有效答卷；报告预览/六个顺序操作在冻结Web4c0017fd2和兼容API5eff测试。模板子集123项：91PASS、3BLOCKED、9NOT_AVAILABLE、20NOT_STARTED。全558尚未完成，QR唯一排除，不迁移历史305行PASS。
 
 证据已在cfe292984树中核对：template-ui-results.csv、foundation-boundary.md、return-list-5271/resource-cleanup.md（同目录）。CSV每行保留实际source_sha与动作边界。
 
@@ -10,7 +10,7 @@
 
 # 仍损坏或未验证
 
-基础quick仍因local-runtime parity漏分类三个现有环境变量退出1。主session授权runtime worker独立核对/关联基础issue/最小修复，不能弱化断言或混入SurveyPR。模板子集24项以及其余库存继续按真实浏览器验收；永久删除新对象未授权、PDF原生保存需人类交接、匿名政策#5067无新决定。项目范围返回/未保存AI提案离开未实际覆盖。
+基础quick仍因local-runtime parity漏分类三个现有环境变量退出1。主session授权runtime worker独立核对/关联基础issue/最小修复，不能弱化断言或混入SurveyPR。模板子集20项以及其余库存继续按真实浏览器验收；永久删除新对象未授权、PDF原生保存需人类交接、匿名政策#5067无新决定。项目范围返回/未保存AI提案离开未实际覆盖。
 
 # 下一步最佳动作
 
@@ -21,3 +21,5 @@
 主session已接受问卷保存0350/351/352，source4c0017；0353补证据question-close-preserved.txt/png等待review。基础PR5285最终权威classifier三空、独立review接受，尚未合并/部署。
 
 0353已主session独立接受，新增库创建/使用与空结果缺控件证据等待review，保持NS分母。
+
+0322/0326已独立接受，0329/0330缺控件NA保留分母。分页控件439–442及0344无使用按钮证据待独立review；PDF分页438仍未验证。
