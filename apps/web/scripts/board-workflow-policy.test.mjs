@@ -26,7 +26,7 @@ test('workflow invokes every mapped real producer and retains its lane directory
     assert.equal(typeof scripts[script],'string',script);
     assert.match(scripts[script],/run-board-ci-lane\.mjs/);
     assert.match(scripts[script],/playwright/);
-    assert.equal(workflow.match(new RegExp(`pnpm --filter web run ${script.replaceAll(':','\\:')}`,'g'))?.length,1,script);
+    assert.equal(workflow.match(new RegExp(`pnpm --filter web run ${script.replaceAll(':','\\:')}`,'g'))?.length,lane==='visual'?2:1,script);
     assert.ok(workflow.includes(`apps/web/test-results/board-ci/${lane}/`),lane);
   }
   assert.match(workflow,/WHITEBOARD_CAPTURED_VENDOR_MANIFEST: \$\{\{ vars\.WHITEBOARD_CAPTURED_VENDOR_MANIFEST \}\}/);
