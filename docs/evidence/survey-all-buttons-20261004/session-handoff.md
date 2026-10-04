@@ -1,31 +1,15 @@
 # 当前已验证
 
-用户三项确认修复已合入main：自动设计检查、回收开始/截止日期、解除报告模板绑定。未部署。返回列表PR #5277 exactfd654已独立review/CI绿，未自行合并。真实合成问卷a529a7ac-3740-4b4a-b46f-dfd085fbb775由公开UI提交1份有效答卷；报告预览/六个顺序操作在冻结Web4c0017fd2和兼容API5eff测试。模板子集123项：105PASS、3BLOCKED、10NOT_AVAILABLE、5NOT_STARTED。全558尚未完成，QR唯一排除，不迁移历史305行PASS。
-
-证据已在cfe292984树中核对：template-ui-results.csv、foundation-boundary.md、return-list-5271/resource-cleanup.md（同目录）。CSV每行保留实际source_sha与动作边界。
+三项用户确认修复已合入main，尚未部署。主session独立接受ef45bbccb最新main f687/API5eff四项解绑回归，新样本79d04a5d：0528、0529、0533、0535。parent15PASS；template123=105PASS/3BLOCKED/10NOT_AVAILABLE/5NOT_STARTED。全558未完成，QR唯一排除，无历史PASS迁移。实际动作与来源见两个results.csv。
 
 # 本轮改动
 
-仅将partial QA CSV/截图/操作记录提交到已有codex/survey-all-buttons-5051-20261004分支，普通fast-forward main5ef6699e8；产品PR分别独立。未知pnpm-lock.yaml/pnpm-workspace.yaml改动保护且不纳入提交，scoped stash备份仍保留。旧25704–25707及24704已精确释放。
+仅QA证据分支codex/survey-all-buttons-5051-20261004更新CSV/证据/交接。未知两个pnpm manifests原样保护，不纳入提交。ENOSPC仅清owned退休缓存；原PG为tmpfs，全局Docker恢复后丢失原库，经授权fullbackup恢复，全部5w8t文档与08:37备份一致，真实answer43233/268f发布状态保持。恢复证据frozen-unbind-runtime.md；私有备份及日志600原件保留，不上传认证资料。
 
 # 仍损坏或未验证
 
-基础quick仍因local-runtime parity漏分类三个现有环境变量退出1。主session授权runtime worker独立核对/关联基础issue/最小修复，不能弱化断言或混入SurveyPR。模板子集5项以及其余库存继续按真实浏览器验收；永久删除新对象未授权、PDF原生保存需人类交接、匿名政策#5067无新决定。项目范围返回/未保存AI提案离开未实际覆盖。
+完整558验收尚未完成。模板剩余0354/0358/0359/0364/0438；缺现有控件记NA保留分母，工具阻塞不判产品bug。永久删除新对象未授权，PDF原生保存需交接，匿名政策#5067未决。最新四项不覆盖替换、编辑title保留、发布快照等边界。基础parity PR5285权威CI绿且独立review接受，主session集成状态需live查询；不把affected quick绿称全22包quick绿。
 
 # 下一步最佳动作
 
-先查看template-ui-results.csv的NOT_STARTED和inventory.csv并逐项真实操作。保留合成样本，不用API造答卷。活动Web25708冻结4c0017，API24705冻结5eff、ownedPG20704与wsx-12206c10884603680c38为进行中QA保留；不动其他stack/用户25898。任何改代码前fetchmain，仅复用此WT；runtime基础修复一个issue一个PR，经独立review及quick绿后交主session，不自行merge/deploy。默认pnpm11不可用，命令使用/Users/shenyangjun/.npm-global/bin/pnpm9.15所在PATH。
-
-增量基础修复#5284由PR#5285交付，exact02046focused16及canonical affectedquick7tasks过、独立reviewAccept，CI仍等待；不是此前全22包quick全绿声明。问卷保存模板/关闭4项已有真实UI证据，但独立review复用工具达到threadlimit，暂保留NOT_STARTED而未宣称PASS。
-
-主session已接受问卷保存0350/351/352，source4c0017；0353补证据question-close-preserved.txt/png等待review。基础PR5285最终权威classifier三空、独立review接受，尚未合并/部署。
-
-0353已主session独立接受，新增库创建/使用与空结果缺控件证据等待review，保持NS分母。
-
-0322/0326已独立接受，0329/0330缺控件NA保留分母。分页控件439–442及0344无使用按钮证据待独立review；PDF分页438仍未验证。
-
-439–442分页普通控件已独立接受，仅visible types/count/order；0344缺editor使用按钮NA。图片5/柱状图5新增证据待review，仍NS；actual原8reportblocks恢复。
-
-图片0432–0436已主session独立接受，当前HTTPS48x48样本和普通操作；柱状图5项等待review，另5为加载错误重试两项、模板替换确认/取消两项、PDF分页。
-
-bar5及0517已主独立接受，实际4c/API5eff；全局解绑4项当前仍NS，4c缺实现不可混旧ac9。新f687冻结25709构建ENOSPC尚未Ready，runtime只清归属明确退休cache保留活动源/DB；恢复后再最新sourceUI回归。
+回收仅新增Web25709/PID32437并记录动态归属；保留Web25708/PID56810冻结4c、API24705/PID43447冻结5eff及ownedPG20704/Redis21704进行后续QA。Minio未启动。继续剩余真实UI验收，仅复用本WT，开发前fetchmain，不selfmerge/deploy，不新stack/loop，使用pnpm9.15 PATH。保留合成样本，不补造旧答案。

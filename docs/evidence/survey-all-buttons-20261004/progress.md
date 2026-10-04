@@ -37,3 +37,5 @@ Live：#5196/#5197/#5202及#5127已由其他会话合入；#5067 OPEN，未发�
 主session接受图片0432–0436当前HTTPS样本和控件链路，123=100PASS/3BLOCKED/10NA/10NS，截图准确为image-preview.png；不认证全部格式/失败URL/UUID/导出。柱状图5项仍待review；基础5285green仅交付待主验收/合并不宣称已集成。
 
 主session接受bar0408–0412，template123=105PASS/3BLOCKED/10NA/5NS；接受0517即时+30天默认，parent另11PASS。全库存未完成。main4项解绑不借旧ac9抬当前PASS：4c源码无unbind，fresh f687 SurveyAPI/contracts与5eff无差异，privatefreeze新25709build遭ENOSPC停在type阶段未Ready，仅清精确自己退休cache后重跑；现暂停DB写验收，不据环境身份失败登记产品bug。
+
+2026-10-04 主session独立ACCEPT ef45bbccb最新main f687/API5eff新样本79d04a5d四项0528/0529/0533/0535：坏映射解绑0章通过、undo7章原title/problem恢复、未点Save自动保存刷新0章且undo消失、generic warning清除后消失。parent15PASS，template105PASS/3B/10NA/5NS，全558未完成，不扩大替换/编辑title/发布快照edges。ENOSPC缓存归属清理后WebReady；全局Docker恢复导致ownedPG tmpfs丢失，经主授权08:37full备份恢复，全部5w8t JSON与备份一致，answer43233/268f保持。原PG/Redis/API24705恢复健康；仅回收新增25709，旧25708及数据服务为后续验收保留。

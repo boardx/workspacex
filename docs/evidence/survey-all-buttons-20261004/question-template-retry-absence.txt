@@ -1,0 +1,16 @@
+Source4c0017fd2cb42102c53b89258162a16e58ea37ab Web25708/API5eff. Actual design template menu save-only; saving dialog no load/use/retry. No new template saved. This does not test library loading retry.
+[
+  {
+    "stage": "question-menu",
+    "url": "http://127.0.0.1:25708/studio/survey/a529a7ac-3740-4b4a-b46f-dfd085fbb775/design",
+    "buttons": "保存为问卷模板"
+  },
+  {
+    "stage": "save-only-dialog",
+    "dom": "保存为问卷模板\n\n只保存题目和报告配置，不包含答卷或发布信息。\n\n模板名称\n保存到模板库",
+    "buttons": [
+      "保存到模板库",
+      ""
+    ]
+  }
+]
