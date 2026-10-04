@@ -7,6 +7,16 @@ import { interviewMarkdown } from "@repo/contracts";
 const evidence = (quote: string): ReportEvidence => ({ anchor: "answer-1", documentId: "runs", version: 1,
   sourceHash: "a".repeat(64), start: 0, end: quote.length, quote, expertId: "expert", taskKey: "task", evidenceMode: "simulated", expertLabel: "甲" });
 describe("finite report claim boundaries", () => {
+ it.each(["本次检测不兼容项是否为零？", "本次检测不兼容项为零吗？"])("does not use a question as an observed count: %s", quote => {
+  expect(assessReportClaimBoundaries(`本次检测不兼容项为零。[${quote}](#answer-1)`, [evidence(quote)]).missing).toContain("unsupported_executed_measurement");
+ });
+ it.each([["十二",12],["二十五",25],["一百零二",102],["一万二千三百四十五",12345]])("normalizes compound count %s", (chinese, numeric) => {
+  const quote = `本次检测不兼容项数量为${chinese}项。`;
+  expect(assessReportClaimBoundaries(`本次检测不兼容项数量为${numeric}项。[${quote}](#answer-1)`, [evidence(quote)]).ok).toBe(true);
+ });
+ it("keeps an explicit narrow hole exemption", () => {
+  expect(assessReportClaimBoundaries("免安装桌面型设备仍需现场检查供电、承重与空间，仅固定孔位此步骤无需。", []).ok).toBe(true);
+ });
   it("rejects all three actual failures even with valid unrelated exact quotations and conditional recommendations nearby", () => {
     const root = new URL("./fixtures/claim-boundaries-5332/", import.meta.url);
     const report = readFileSync(new URL("report.md", root), "utf8");

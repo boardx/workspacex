@@ -20,12 +20,24 @@ function qualified(clause: string, start: number, end: number): boolean {
     || /(?:若|如果|假如)(?:[^，,:：]{0,24})(?:检测|测量|检查)(?:结果)?(?:显示|发现|记录)?\s*$/u.test(before)
     || example;
 }
+function chineseCount(raw: string): number {
+  const digits: Record<string, number> = {零:0,〇:0,一:1,二:2,两:2,三:3,四:4,五:5,六:6,七:7,八:8,九:9};
+  if (!/[十百千万]/u.test(raw)) return Number([...raw].map(char => digits[char]).join(""));
+  const units: Record<string, number> = {十:10,百:100,千:1000,万:10000};
+  let total = 0, section = 0, digit = 0;
+  for (const char of raw) {
+    if (char in digits) digit = digits[char]!;
+    else if (char === "万") { total += (section + digit || 1) * 10000; section = 0; digit = 0; }
+    else { section += (digit || 1) * units[char]!; digit = 0; }
+  }
+  return total + section + digit;
+}
 function observations(text: string): Count[] {
   return clauses(text).flatMap(clause => [...clause.matchAll(count)].flatMap(match => {
-    if (!executed.test(clause) || qualified(clause,match.index!,match.index!+match[0].length)) return [];
+    if (/[？?]|是否|(?:吗|么|呢)\s*$/u.test(clause) || !executed.test(clause) || qualified(clause,match.index!,match.index!+match[0].length)) return [];
     const raw = match[1]!.toLowerCase().replaceAll(",", "");
     const small: Record<string,number> = {零:0,〇:0,一:1,二:2,两:2,三:3,四:4,五:5,六:6,七:7,八:8,九:9,十:10};
-    const numeric = small[raw] ?? Number(raw);
+    const numeric = small[raw] ?? (/^[零〇一二两三四五六七八九十百千万]+$/u.test(raw) ? chineseCount(raw) : Number(raw));
     return [{value: Number.isFinite(numeric) ? String(numeric) : raw, unit: match[2] === "%" ? "%" : "count"}];
   }));
 }
@@ -59,6 +71,7 @@ export function assessReportClaimBoundaries(markdown: string, index: readonly Re
       return outerNegative === innerNegative;
     });
     const referred = /(?:物理勘测|现场勘测|现场检查)/u.test(text) && /(?:插座|供电|承重|空间)/u.test(text)
+      && !/(?:仅|只)(?:[^，,。；]{0,8})(?:固定孔位|孔位|孔洞)(?:[^，,。；]{0,8})(?:此步骤|该步骤)/u.test(text)
       && /(?:免安装|桌面型)(?:.{0,40})(?:此步骤|该步骤|整个步骤)[，,\s]*(?:完全|全部|就|将)?(?:失效|无用|无需)/u.test(text);
     // A conditional device choice cannot waive all site/supply/load checks. Narrow hole checks remain allowed.
     if (whole || referred) missing.add("overbroad_physical_check_exemption");
