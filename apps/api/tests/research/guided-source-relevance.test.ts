@@ -1,3 +1,5 @@
+import { tasksFromConfirmedQuestions } from "../../src/application/research/guided-task-pipeline";
+import { reportQuestions } from "../../src/application/research/guided-report-evidence";
 import { describe, expect, it, vi } from "vitest";
 import { research as C } from "@repo/contracts";
 import * as relevanceModule from "../../src/application/research/guided-source-relevance";
@@ -516,4 +518,32 @@ describe("bounded source screening batch work", () => {
     } finally { parser.mockRestore(); vi.useRealTimers(); }
   });
 
+});
+
+it("rejects evidence that answers only a sibling of the task's confirmed question", async () => {
+  const state = runtime(); state.outline[0]!.questions = ["赛事收入来自哪里？", "玩家留存如何？"];
+  const questions = reportQuestions(state.outline);
+  state.tasks = tasksFromConfirmedQuestions(state);
+  const candidate = { ...direct, taskId: state.tasks[0]!.id };
+  const model = vi.fn(async (_system: string, input: unknown, validate: (value: unknown) => void) => {
+    const context = input as Input;
+    const output = evaluation(context);
+    output.evaluations[0]!.matches[0]!.questionId = questions[1]!.id;
+    validate(output); return output;
+  });
+  await expect(screenResearchSources(state, [candidate], model)).rejects.toMatchObject({ reasonCode: "RESEARCH_SOURCE_RELEVANCE_INVALID" });
+  expect(state.tasks.map(task => task.questionId)).toEqual(questions.map(question => question.id));
+  expect(model).toHaveBeenCalledTimes(2);
+});
+
+it("preserves question identity when task scheduling order differs from outline array order", async () => {
+  const state = runtime(); state.outline[0]!.order = 1;
+  state.outline.push({ id: "first", title: "优先章节", questions: ["优先问题？"], enabled: true, order: 0 });
+  const questions = reportQuestions(state.outline);
+  state.tasks = tasksFromConfirmedQuestions(state);
+  expect(state.tasks.map(task => task.sectionId)).toEqual(["first", "esports"]);
+  for (const task of state.tasks) expect(task.questionId).toBe(questions.find(question => question.sectionId === task.sectionId)!.id);
+  const sources = state.tasks.map((task, index) => ({ ...direct, id: `source-${index}`, taskId: task.id }));
+  const result = await screenResearchSources(state, sources, complete());
+  expect(result.map(source => source.id)).toEqual(sources.map(source => source.id));
 });

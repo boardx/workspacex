@@ -925,7 +925,7 @@ export const GuidedResearchSource = z.object({
 }).strict();
 export const GuidedResearchTask = z.object({
   title: GuidedResearchTaskDetails.title.optional(), objective: GuidedResearchTaskDetails.objective.optional(), deliverables: GuidedResearchTaskDetails.deliverables.optional(),
-  id: z.string().min(1), sectionId: z.string().min(1), query: z.string().trim().min(1).max(1000),
+  id: z.string().min(1), sectionId: z.string().min(1), questionId: z.string().min(1).optional(), query: z.string().trim().min(1).max(1000),
   status: z.enum(["pending", "running", "succeeded", "failed"]), attempts: z.number().int().nonnegative(),
   errorCode: z.string().nullable(),
   searchAttempts: z.array(z.object({ query: z.string().trim().min(1).max(1000),

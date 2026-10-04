@@ -636,3 +636,18 @@ describe("bounded search query recovery", () => {
     expect(result.errorCode).toBe("RESEARCH_SOURCES_REQUIRED");
   });
 });
+
+it("keeps a per-question task failed when every source answers only its sibling", async () => {
+  const state = seed(); state.tasks = []; state.generatedNodes = ["brief", "directions", "outline"];
+  state.outline[0]!.questions = ["A evidence?", "B evidence?"];
+  const f = fixture(state); f.search.mockResolvedValue([hit]);
+  f.model.complete.mockImplementation(async input => {
+    const output = JSON.parse(guidedResearchReply(input.system, input.user)!);
+    if (output.evaluations) for (const entry of output.evaluations) for (const match of entry.matches) match.questionId = "chapter:0/question:1";
+    return { text: JSON.stringify(output) };
+  });
+  const result = await f.run();
+  expect(result.tasks.find(task => task.questionId === "chapter:0/question:0")?.status).toBe("failed");
+  expect(result.tasks.find(task => task.questionId === "chapter:0/question:1")?.status).toBe("succeeded");
+  expect(result.sources.every(source => result.tasks.find(task => task.id === source.taskId)?.questionId === "chapter:0/question:1")).toBe(true);
+});

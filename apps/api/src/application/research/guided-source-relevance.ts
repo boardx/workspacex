@@ -41,7 +41,7 @@ export function sourceRelevanceBasis(state: ResearchRuntime, source: Source): st
   return createHash("sha256").update(JSON.stringify({ policy: 4, brief: state.brief,
     taskIds: sourceTaskIds(source).sort(),
     tasks: state.tasks.filter((task) => sourceTaskIds(source).includes(task.id))
-      .map(({ id, sectionId, query, title, objective, deliverables }) => ({ id, sectionId, query, title, objective, deliverables })).sort((a, b) => a.id.localeCompare(b.id)),
+      .map(({ id, sectionId, questionId, query, title, objective, deliverables }) => ({ id, sectionId, questionId, query, title, objective, deliverables })).sort((a, b) => a.id.localeCompare(b.id)),
     outline: state.outline.filter((section) => section.enabled),
     title: source.title, url: source.url, content: screeningContent(source) })).digest("hex");
 }
@@ -76,11 +76,13 @@ export async function screenResearchSources(state: ResearchRuntime, sources: Sou
     const content = screeningContent(source);
     for (const taskId of sourceTaskIds(source)) {
       const task = state.tasks.find((item) => item.id === taskId);
-      const scopedQuestions = questions.filter((question) => question.sectionId === task?.sectionId);
+      const scopedQuestions = questions.filter((question) => question.sectionId === task?.sectionId && (!task?.questionId || question.id === task.questionId));
+      // Exact per-question tasks never borrow a sibling question. Legacy chapter
+      // tasks retain their existing reassessment path.
       // Replacement/deleted chapter IDs do not invalidate retrieved facts.
       // Reassess them against current questions; exact quotes and relevance
       // validation still decide whether the original task's source is useful.
-      const questionIds = (scopedQuestions.length || !task ? scopedQuestions : questions).map((question) => question.id);
+      const questionIds = (scopedQuestions.length || !task || task.questionId ? scopedQuestions : questions).map((question) => question.id);
       if (!task || !questionIds.length) continue;
       for (let offset = 0; offset < content.length; offset += 6000) result.push({ sourceId: source.id, taskId, questionIds,
         chunkId: JSON.stringify([source.id, taskId, offset]), title: source.title.slice(0, 300), url: source.url, content: content.slice(offset, offset + 6000) });

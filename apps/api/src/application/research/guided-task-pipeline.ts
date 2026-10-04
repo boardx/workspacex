@@ -31,9 +31,12 @@ export function normalizedResearchUrl(value: string): string {
 /** The confirmed question remains in the outline and in the task objective;
  * derived provider query text alone has the existing 1000-character wire bound. */
 export function tasksFromConfirmedQuestions(state: ResearchRuntime): Task[] {
-  const sections = state.outline.filter(section => section.enabled).sort((a, b) => a.order - b.order);
-  return reportQuestions(sections).map(({ sectionId, question }) => C.GuidedResearchTask.parse({
-    id: randomUUID(), sectionId, title: sections.find(section => section.id === sectionId)!.title,
+  const sections = state.outline.filter(section => section.enabled);
+  const sectionOrder = new Map(sections.map(section => [section.id, section.order]));
+  // Derive question IDs from the same outline order used by evidence screening;
+  // scheduling order must not change the identity of a confirmed question.
+  return reportQuestions(sections).sort((a, b) => sectionOrder.get(a.sectionId)! - sectionOrder.get(b.sectionId)!).map(({ id: questionId, sectionId, question }) => C.GuidedResearchTask.parse({
+    id: randomUUID(), sectionId, questionId, title: sections.find(section => section.id === sectionId)!.title,
     objective: question.slice(0, 2000), query: supplementQuery(state.brief.topic, state.brief.region, question),
     status: "pending", attempts: 0, errorCode: null,
   }));
