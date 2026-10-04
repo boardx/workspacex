@@ -284,6 +284,24 @@ def test_private_admission_precedes_real_http_and_never_spools_body(context,monk
         assert db.execute("SELECT count(*) FROM pending").fetchone()[0]==0
 
 
+def test_private_identical_body_calls_keep_distinct_physical_admission_identity(context,monkeypatch):
+    calls,_=context
+    monkeypatch.setenv("DEEP_AGENT_MODEL_ADMISSION_ENABLED","1")
+    paid=[]
+    def vendor(req):
+        paid.append(req.content)
+        return response(b'{"usage":{"total_tokens":2,"prompt_tokens":1,"completion_tokens":1}}')
+    with httpx.Client(transport=a.AccountingTransport(httpx.MockTransport(vendor))) as client:
+        for _ in range(2):
+            client.send(httpx.Request("POST","http://vendor.example.test/v1/chat/completions",json={"model":"fixture-model","max_tokens":10}))
+    starts=[body for _,phase,body in calls if phase=="admit"]
+    assert len(paid)==2 and paid[0]==paid[1]
+    assert len(starts)==2 and starts[0]["requestId"]!=starts[1]["requestId"]
+    assert starts[0]["logicalCallId"]!=starts[1]["logicalCallId"]
+    req=httpx.Request("POST","http://vendor.example.test/v1/chat/completions",content=paid[0])
+    assert a.admission_payload(req,OWNER,starts[0])["logicalCallId"]==starts[0]["logicalCallId"]
+
+
 def test_admission_missing_output_bound_or_denial_sends_no_vendor_request(context,monkeypatch):
     monkeypatch.setenv("DEEP_AGENT_MODEL_ADMISSION_ENABLED","1")
     paid=[]

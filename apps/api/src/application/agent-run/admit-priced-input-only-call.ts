@@ -18,6 +18,7 @@ export interface InputOnlyAdmissionDependencies {
  * retried here; only an explicitly verified input-only mode can reserve a budget. */
 export async function admitPricedInputOnlyCall(subject:InputOnlyCallSubject,request:InputOnlyPreparedRequest,deps:InputOnlyAdmissionDependencies&{
  readonly policy:AiBudgetPolicyPort;readonly admission:AiAdmissionPort;
+ readonly onTokenWarning?:()=>Promise<void>;
 }){
  if(!subject.userId||!subject.logicalCallId)throw new Error('AI_TRUSTED_SUBJECT_MISSING');
  const budget=await deps.policy.resolveBudgetPolicy(subject.orgId,subject.userId);
@@ -36,6 +37,10 @@ export async function admitPricedInputOnlyCall(subject:InputOnlyCallSubject,requ
   ...(budget.configuration.tokenControls?{tokenPolicy:{primaryModelId:subject.primaryModelId,selectedModelId:decision.modelId,allowDegradation:false}}:{})});
  if(reservation.decision!=='allowed')throw new AiQuotaPolicyError(reservation.decision,reservation.degradeToModelId);
  if(reservation.replay)throw new Error('AI_REQUEST_REPLAY_NO_DISPATCH');
+ if(reservation.tokenWarning){
+  if(!deps.onTokenWarning)throw new Error('AI_WARNING_DELIVERY_UNAVAILABLE');
+  await deps.onTokenWarning();
+ }
  return decision;
 }
 /** Raw missing completion stays missing in the ledger. Verified input-only pricing

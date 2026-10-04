@@ -94,7 +94,7 @@ for(const child of [false,true])it(`private ${child?'child':'root'} admission se
  const f=wholeFixture(child),spy=vi.spyOn(whole,'produceWholeInputBinding'),runId=child?'child':'root';try{
   const repo=new PgRuntimeModelUsageRepository(f.db as never,f.usage as never,undefined,f.wiring.runtime);
   const serializedBody='{"model":"actual","max_tokens":5,"messages":[{"content":"raw-private"}],"tools":[{"name":"private-tool"}],"completeInput":true,"classification":"public"}';
-  const request={requestId:'ad05ca76-9ff5-459b-955f-73634b36ec23',attemptId:runId+':1',leaseEpoch:1,startedAt:new Date().toISOString(),modelId:'actual',callPurpose:'primary' as const,serializedBody,outputTokenLimit:5,logicalCallId:JSON.stringify([runId,'primary',createHash('sha256').update(serializedBody).digest('hex')])};
+  const request={requestId:'ad05ca76-9ff5-459b-955f-73634b36ec23',attemptId:runId+':1',leaseEpoch:1,startedAt:new Date().toISOString(),modelId:'actual',callPurpose:'primary' as const,serializedBody,outputTokenLimit:5,logicalCallId:JSON.stringify([runId,'primary','ad05ca76-9ff5-459b-955f-73634b36ec23',createHash('sha256').update(serializedBody).digest('hex')])};
   await expect(repo.admitRuntimeRequest(org,runId,request)).rejects.toThrow('AI_MODEL_UNAVAILABLE');
   expect(spy).toHaveBeenCalledWith(expect.objectContaining({rootRunId:'root',runId,attemptId:runId+':1',leaseEpoch:1,origin:'private-sdk-body'}),serializedBody,null,undefined,child?expect.any(Object):null);expect(f.vendors).toBe(0);expect(f.query.mock.calls.some(([sql])=>/INSERT INTO (ai_request_reservations|model_request_starts)/.test(sql))).toBe(false);
  }finally{spy.mockRestore();}
@@ -133,7 +133,7 @@ it('real child executor assembles its own attempt/context before private SDK adm
   const repo=new PgRuntimeModelUsageRepository(f.db as never,f.usage as never,undefined,f.wiring.runtime);
   const complete=vi.fn(async(call:import('../../src/application/agent-run/ports').ModelCallInput)=>{
    const serializedBody=JSON.stringify({model:call.modelId,max_tokens:5,messages:[{role:'system',content:call.system},{role:'user',content:call.user}],skills:call.skills});
-   await repo.admitRuntimeRequest(org,call.runId!,{requestId:'ad05ca76-9ff5-459b-955f-73634b36ec23',attemptId:call.executionAttemptId!,leaseEpoch:call.executionLeaseEpoch!,startedAt:new Date().toISOString(),modelId:call.modelId,callPurpose:'primary',serializedBody,outputTokenLimit:5,logicalCallId:JSON.stringify([call.runId,'primary',createHash('sha256').update(serializedBody).digest('hex')])});
+   await repo.admitRuntimeRequest(org,call.runId!,{requestId:'ad05ca76-9ff5-459b-955f-73634b36ec23',attemptId:call.executionAttemptId!,leaseEpoch:call.executionLeaseEpoch!,startedAt:new Date().toISOString(),modelId:call.modelId,callPurpose:'primary',serializedBody,outputTokenLimit:5,logicalCallId:JSON.stringify([call.runId,'primary','ad05ca76-9ff5-459b-955f-73634b36ec23',createHash('sha256').update(serializedBody).digest('hex')])});
    throw new Error('unexpected allowed vendor');
   });
   const executor=new SubtaskRunExecutor(store,{withTenant:async(_org:unknown,work:(s:unknown)=>unknown)=>work({query:async()=>({rows:[{instructions:'pinned parent instructions'}]})})} as never,{complete} as never,{error:vi.fn(),info:vi.fn(),warn:vi.fn()} as never,false,new Map([['route',1000]]));
@@ -187,7 +187,7 @@ it('private CP source/identity/model-pool readers share the caller tenant sessio
  try{
   const serializedBody=JSON.stringify({model:'actual',max_tokens:5,messages:[{role:'user',content:'entire selected source'}]});
   const repo=new PgRuntimeModelUsageRepository(f.db as never,f.usage as never,undefined,f.wiring.runtime);
-  await expect(repo.admitRuntimeRequest(org,'child',{requestId:'ad05ca76-9ff5-459b-955f-73634b36ec23',attemptId:'child:1',leaseEpoch:1,startedAt:new Date().toISOString(),modelId:'actual',callPurpose:'primary',serializedBody,outputTokenLimit:5,logicalCallId:JSON.stringify(['child','primary',createHash('sha256').update(serializedBody).digest('hex')])})).rejects.toThrow('AI_MODEL_UNAVAILABLE');
+  await expect(repo.admitRuntimeRequest(org,'child',{requestId:'ad05ca76-9ff5-459b-955f-73634b36ec23',attemptId:'child:1',leaseEpoch:1,startedAt:new Date().toISOString(),modelId:'actual',callPurpose:'primary',serializedBody,outputTokenLimit:5,logicalCallId:JSON.stringify(['child','primary','ad05ca76-9ff5-459b-955f-73634b36ec23',createHash('sha256').update(serializedBody).digest('hex')])})).rejects.toThrow('AI_MODEL_UNAVAILABLE');
   expect(f.query.mock.calls.some(([sql])=>sql.includes('FROM context_packs'))).toBe(true);expect(f.query.mock.calls.some(([sql])=>sql.includes('FROM segment_text'))).toBe(true);expect(f.query.mock.calls.some(([sql])=>sql.includes('SELECT org_role, team_id'))).toBe(true);expect(f.query.mock.calls.some(([sql])=>sql.includes('SELECT id, name, kind, model_policy'))).toBe(true);
   expect(spy.mock.calls[0]?.[2]?.sources[0]).toMatchObject({classification:'confidential',cannotAuthorizeNewDispatch:true});
   expect(spy.mock.results[0]?.value.components.every((component:whole.WholeInputManifest['components'][number])=>component.classification==='unknown')).toBe(true);

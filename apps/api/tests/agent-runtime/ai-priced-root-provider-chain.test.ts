@@ -3,6 +3,10 @@ import {createHash,randomUUID} from 'node:crypto';
 import {beforeAll,afterAll,it,expect} from 'vitest';
 import {withCommittedAiPolicyDecision} from '../../src/application/agent-run/committed-ai-policy-decision';
 import {AiQuotaPolicyError} from '../../src/application/agent-run/ai-quota-policy-error';
+import {executeQueuedRuns} from '../../src/application/agent-run/execute-run';
+import {writeBackPendingRuns} from '../../src/application/agent-run/writeback';
+import {PgAgentRunRepository} from '../../src/infrastructure/agent-run/pg-agent-run-repository';
+import type {RunAiAdmission} from '../../src/application/agent-run/priced-run-model';
 import {Configuration} from '@repo/contracts/ai-policy';
 import {executePricedModelCall,type AiModelSelection} from '../../src/application/agent-run/execute-priced-model-call';
 import {ConfiguredModelProvider} from '../../src/infrastructure/agent-run/configured-model-provider';
@@ -12,7 +16,7 @@ import {PgAiUsageRepository} from '../../src/infrastructure/auth/pg-ai-usage-rep
 import {PgDatabase} from '../../src/infrastructure/db/pg-database';
 import {appConfig} from '../../src/infrastructure/db/pg-config';
 import {toOrgId} from '../../src/domain/org-id';
-import {addChatThread} from '../support/chat-db';
+import {addChatThread,addChatMessage} from '../support/chat-db';
 import {seedAgentRun} from '../support/agent-run-db';
 import {ensureDatabase,migrateOnce,seedOrg,addOrgMember,asApp,resetOrgs} from '../support/db';
 /** Real HTTP/PG coordinator boundary, not executeQueuedRuns/lease acceptance.
@@ -245,4 +249,61 @@ it('outer scoped transaction commits only typed policy refusal audit and rolls b
   (SELECT count(*)::int FROM model_request_starts WHERE org_id=$1) AS starts,
   (SELECT count(*)::int FROM limit_events WHERE org_id=$1) AS events`,[f.org]))).rows).toEqual([{reservations:0,starts:0,events:1}]);
  expect(requests.slice(before)).toEqual([]);
+});
+
+async function enqueueActualRoot(f:Awaited<ReturnType<typeof fixture>>,agent:string,version:string){
+ const run=randomUUID(),message=randomUUID();
+ await addChatMessage({orgId:f.org,id:message,threadId:f.subject.threadId!,body:'ROOT_HTTP_INPUT',authorId:'caller'});
+ await asApp(f.org,c=>c.query(`INSERT INTO agent_runs(id,org_id,thread_id,input_message_id,agent_id,agent_version_id,
+  skill_version_ids,model_provider,model_id,status) VALUES($1,$2,$3,$4,$5,$6,'[]'::jsonb,'test-http','runtime-primary','queued')`,
+  [run,f.org,f.subject.threadId,message,agent,version]));
+ return run;
+}
+async function rootFixture(f:Awaited<ReturnType<typeof fixture>>){
+ const agent=randomUUID(),version=randomUUID(),instructions='ROOT_PINNED_INSTRUCTIONS';
+ await asApp(f.org,async c=>{
+  await c.query(`INSERT INTO agents(id,org_id,stable_name,name,status,creator_id,created_at,updated_at)
+   VALUES($1,$2,$1,'HTTP root test','enabled','caller',now(),now())`,[agent,f.org]);
+  await c.query(`INSERT INTO agent_versions(id,org_id,agent_id,semantic_label,instruction_digest,instructions,skill_version_ids,
+   model_provider,model_id,tool_policy,creator_id,created_at,published_at)
+   VALUES($1,$2,$3,'v1',$4,$5,'{}'::text[],'test-http','runtime-primary','[]'::jsonb,'caller',now(),now())`,
+   [version,f.org,agent,createHash('sha256').update(instructions).digest('hex'),instructions]);
+ });
+ const repo=new PgAgentRunRepository(db),clock={now:()=>new Date().toISOString(),newStepId:()=>randomUUID()};
+ const logs:Array<{message:string;detail:Record<string,unknown>}>=[];
+ // Unknown remains private under I-12. A self-hosted HTTP fixture can run;
+ // this does not manufacture a public classification for the assembled root input.
+ const admission:RunAiAdmission={primaryModelId:async()=> 'primary',facts:async()=>({confidentiality:'unknown',requiredCapabilities:[]}),
+  dependencies:()=>({...f.deps,currentCandidates:async()=>{
+   const candidates=await f.deps.currentCandidates();return {...candidates,pool:candidates.pool.map(row=>({...row,kind:'self-hosted' as const}))};
+  }}),selection:async(_org,_run,selection)=>f.deps.onModelSelection(selection)};
+ const deps={runs:repo,model,aiAdmission:admission,clock,log:(message:string,detail:Record<string,unknown>)=>{logs.push({message,detail});}};
+ return {agent,version,repo,deps,logs,enqueue:()=>enqueueActualRoot(f,agent,version)};
+}
+it('actual root claim/lease executor ordinary hard cap fails before HTTP or durable start',async()=>{
+ const f=await fixture('ordinary','100',false,'3'),root=await rootFixture(f),before=requests.length,run=await root.enqueue();
+ await executeQueuedRuns(root.deps,{orgId:f.org});
+ const state=await asApp(f.org,c=>c.query('SELECT status,lease_epoch FROM agent_runs WHERE org_id=$1 AND id=$2',[f.org,run]));
+ expect(state.rows,JSON.stringify(root.logs)).toEqual([{status:'failed',lease_epoch:1}]);
+ expect(requests.slice(before)).toEqual([]);
+ expect((await asApp(f.org,c=>c.query(`SELECT (SELECT count(*)::int FROM model_request_starts WHERE org_id=$1) AS starts,
+  (SELECT count(*)::int FROM ai_request_reservations WHERE org_id=$1) AS reservations`,[f.org]))).rows).toEqual([{starts:0,reservations:0}]);
+});
+it('actual enterprise root HTTP receipt carries lease/attempt attribution, writes chat, and next root hits finite cost',async()=>{
+ const f=await fixture('enterprise','9'),root=await rootFixture(f),before=requests.length,run=await root.enqueue();
+ await executeQueuedRuns(root.deps,{orgId:f.org});
+ expect((await asApp(f.org,c=>c.query('SELECT status,lease_epoch FROM agent_runs WHERE org_id=$1 AND id=$2',[f.org,run]))).rows,JSON.stringify(root.logs)).toEqual([{status:'writeback_pending',lease_epoch:1}]);
+ expect(requests.slice(before)).toEqual([expect.objectContaining({model:'runtime-primary',max_tokens:2})]);
+ expect(JSON.stringify(requests[before])).toContain('ROOT_PINNED_INSTRUCTIONS');
+ expect(JSON.stringify(requests[before])).toContain('ROOT_HTTP_INPUT');
+ await writeBackPendingRuns(root.deps,{orgId:f.org});
+ const answer=await asApp(f.org,c=>c.query('SELECT r.status,m.body FROM agent_runs r JOIN chat_messages m ON m.org_id=r.org_id AND m.agent_run_id=r.id WHERE r.org_id=$1 AND r.id=$2',[f.org,run]));
+ expect(answer.rows).toEqual([{status:'succeeded',body:'HTTP answer'}]);
+ const calls=await f.read.calls(f.org,{...f.query,runId:run});
+ expect(calls.calls).toHaveLength(1);expect(calls.calls[0]).toMatchObject({userId:'caller',agentId:root.agent,projectId:f.subject.projectId,threadId:f.subject.threadId,runId:run,executionAttemptId:`${run}:1`,totalTokens:'3',costMicros:'6',priceVersion:f.priceVersion});
+ expect((await asApp(f.org,c=>c.query('SELECT execution_lease_epoch FROM model_request_starts WHERE org_id=$1 AND run_id=$2',[f.org,run]))).rows).toEqual([{execution_lease_epoch:1}]);
+ const refused=await root.enqueue();await executeQueuedRuns(root.deps,{orgId:f.org});
+ expect((await asApp(f.org,c=>c.query('SELECT status,lease_epoch FROM agent_runs WHERE org_id=$1 AND id=$2',[f.org,refused]))).rows).toEqual([{status:'failed',lease_epoch:1}]);
+ expect(requests.slice(before)).toHaveLength(1);
+ expect((await asApp(f.org,c=>c.query('SELECT id FROM model_request_starts WHERE org_id=$1 AND run_id=$2',[f.org,refused]))).rows).toEqual([]);
 });

@@ -34,7 +34,7 @@ export function pricedRunModel(delegate:ModelCallPort,orgId:OrgId,run:ClaimedAge
   // never stored as identity. Repeated identical auxiliary intent conservatively denies replay.
   const suffix=callPurpose==="primary"?(run.permissionRequestId??"initial"):
    createHash("sha256").update(JSON.stringify([input.system,input.user,input.history??[],input.skills??[],input.scriptProtocol??null])).digest("hex");
-  const subject={orgId,userId:run.requesterUserId,runId:run.runId,executionAttemptId:input.executionAttemptId,
+  const subject={orgId,userId:run.requesterUserId,runId:run.runId,executionAttemptId:input.executionAttemptId,executionLeaseEpoch:lease.epoch,
    logicalCallId:JSON.stringify([run.runId,callPurpose,suffix]),projectId:run.projectId,threadId:run.threadId,agentId:run.agentId,
    callPurpose,primaryModelId:await admission.primaryModelId(orgId,run),...facts};
   return executePricedModelCall(subject,input,{...admission.dependencies(orgId,run),model:delegate,verifyDispatch:assertCurrentRunLease,

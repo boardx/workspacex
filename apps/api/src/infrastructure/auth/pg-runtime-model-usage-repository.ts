@@ -26,7 +26,7 @@ export class PgRuntimeModelUsageRepository implements RuntimeModelUsagePort {
     try{body=JSON.parse(input.serializedBody);if(!body||typeof body!=="object"||Array.isArray(body))throw new Error();}catch{throw new Error("AI_DISPATCH_BODY_INVALID");}
     const caps=[body.max_tokens,body.max_completion_tokens].filter(value=>value!==undefined);
     if(!Number.isSafeInteger(input.outputTokenLimit)||input.outputTokenLimit<=0||input.outputTokenLimit>2147483647||body.model!==input.modelId||!caps.length||caps.some(value=>!Number.isSafeInteger(value)||value!==input.outputTokenLimit))throw new Error("AI_DISPATCH_BINDING_MISMATCH");
-    const logicalCallId=JSON.stringify([runId,input.callPurpose,createHash("sha256").update(input.serializedBody).digest("hex")]);
+    const logicalCallId=JSON.stringify([runId,input.callPurpose,input.requestId,createHash("sha256").update(input.serializedBody).digest("hex")]);
     if(input.logicalCallId!==logicalCallId)throw new Error("AI_LOGICAL_CALL_IDENTITY_MISMATCH");
     await withCommittedAiPolicyDecision(this.db,orgId,async s=>{
       const owner=await resolveRuntimeModelOwner(s,orgId,runId,input.leaseEpoch,input.attemptId,input.callPurpose);
@@ -36,7 +36,7 @@ export class PgRuntimeModelUsageRepository implements RuntimeModelUsagePort {
         withoutTenant:async()=>{throw new RuntimeUsageOwnershipDenied();},close:async()=>{}};
       const budget=new PgAiAdmissionRepository(scoped),meter=new PgTokenUsageRepository(scoped);
       const facts=await configured.facts(orgId,owner,input.serializedBody,{runId,attemptId:input.attemptId,leaseEpoch:input.leaseEpoch},scoped),deps=configured.dependencies(orgId,scoped);
-      const prepared=await preparePricedModelCall({orgId,userId:owner.user_id,runId:owner.root_run_id,executionAttemptId:input.attemptId,
+      const prepared=await preparePricedModelCall({orgId,userId:owner.user_id,runId:owner.root_run_id,executionAttemptId:input.attemptId,executionLeaseEpoch:input.leaseEpoch,
         logicalCallId,attempt:0,projectId:owner.project_id,threadId:owner.thread_id,agentId:owner.agent_id,
         callPurpose:input.callPurpose,primaryModelId:await configured.primaryModelId(input.modelId),...facts},
         {...deps,policy:budget,admission:budget,usage:meter});

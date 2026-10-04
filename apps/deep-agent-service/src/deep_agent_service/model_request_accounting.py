@@ -493,10 +493,12 @@ def admission_payload(request, owner, start):
         serialized = request.content.decode("utf-8")
     except Exception:
         raise RuntimeUsageError("admission_output_cap_unverified") from None
-    # Stable across API/SDK worker retries and lease changes; identical intent is conservative replay.
+    # A physical request owns its admission identity. Separate equal-body calls are
+    # separate paid work; replaying this request keeps the same identity. SDK retries
+    # remain disabled here; a future retry coordinator must retain its own logical ID.
     # Hash only; no prompt or response is placed in durable identity metadata.
     digest = sha256(request.content).hexdigest()
-    logical = json.dumps([owner["run_id"],start["callPurpose"],digest],separators=(",",":"))
+    logical = json.dumps([owner["run_id"],start["callPurpose"],start["requestId"],digest],separators=(",",":"))
     return start | {"logicalCallId":logical,"serializedBody":serialized,"outputTokenLimit":caps[0]}
 
 def terminal(start: dict, parser: UsageParser, success: bool):

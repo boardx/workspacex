@@ -9,6 +9,7 @@ import type {ModelCallInput,ModelCallPort,TokenUsageMeterPort,TokenUsageRecord} 
 /** Trusted caller owns these identities; never construct this from client/model arguments. */
 export interface AiPricedCallSubject {
  readonly orgId:OrgId;readonly userId:string;readonly runId:string;readonly executionAttemptId:string;
+ readonly executionLeaseEpoch?:number;
  readonly projectId:string|null;readonly threadId:string|null;readonly agentId:string|null;
  readonly callPurpose:NonNullable<TokenUsageRecord["callPurpose"]>;
  readonly primaryModelId:string;readonly logicalCallId:string;readonly attempt:number;
@@ -54,7 +55,10 @@ export async function preparePricedModelCall(subject:AiPricedCallSubject,deps:{
     ...(configuration.tokenControls?{tokenPolicy:{primaryModelId:subject.primaryModelId,selectedModelId:price.modelId,allowDegradation:subject.confidentiality==="non-confidential"}}:{})});
    if(reservation.decision!=="allowed")throw new AiQuotaPolicyError(reservation.decision,reservation.degradeToModelId);
    if(reservation.replay)throw new Error("AI_REQUEST_REPLAY_NO_DISPATCH");
-   if(reservation.tokenWarning)await deps.onTokenWarning?.();
+   if(reservation.tokenWarning){
+    if(!deps.onTokenWarning)throw new Error("AI_WARNING_DELIVERY_UNAVAILABLE");
+    await deps.onTokenWarning();
+   }
    prepared.set(request.requestId,{decision});
   },
   onProviderRequest:async event=>{
@@ -62,7 +66,7 @@ export async function preparePricedModelCall(subject:AiPricedCallSubject,deps:{
    if(event.phase==="started"){
     if(state.startedAt&&state.startedAt!==event.startedAt)throw new Error("AI_START_REPLAY_MISMATCH");
     await startRequest(subject.orgId,{requestId:event.requestId,userId:subject.userId,runId:subject.runId,
-     executionAttemptId:subject.executionAttemptId,projectId:subject.projectId,threadId:subject.threadId,agentId:subject.agentId,
+     executionAttemptId:subject.executionAttemptId,executionLeaseEpoch:subject.executionLeaseEpoch,projectId:subject.projectId,threadId:subject.threadId,agentId:subject.agentId,
      callPurpose:subject.callPurpose,modelProvider:price.modelProvider,modelId:price.runtimeModelId,startedAt:event.startedAt});
     state.startedAt=event.startedAt;return;
    }

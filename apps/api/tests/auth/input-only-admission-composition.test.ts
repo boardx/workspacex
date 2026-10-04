@@ -9,7 +9,7 @@ import {toOrgId} from '../../src/domain/org-id';
 const org=toOrgId('input-only-org'),requestId='ab05ca76-9ff5-459b-955f-73634b36ec23';
 const config={window:{start:'2026-10-01T00:00:00Z',end:'2026-11-01T00:00:00Z',timezone:'Etc/UTC'},ordinaryTokensPerUser:'100',costMicrosPerUser:'100',currency:'CNY',prices:[{billingMode:'input-only' as const,modelId:'formal',modelProvider:'route',runtimeModelId:'actual',inputMicrosPerMillion:'1000000',cachedInputMicrosPerMillion:'1000000',maxInputTokens:10}],fallbackModelIds:[],maxAttempts:1};
 afterEach(()=>vi.unstubAllEnvs());
-function fixture(child=false,verified=true,confidentiality:'unknown'|'non-confidential'='non-confidential',tokenLimit='100',costLimit='100'){
+function fixture(child=false,verified=true,confidentiality:'unknown'|'non-confidential'='non-confidential',tokenLimit='100',costLimit='100',warning=false){
  const owner={user_id:'original-author',project_id:'project',thread_id:'thread',agent_id:'agent',root_run_id:'root',subtask_id:child?'child':null};
  const query=vi.fn(async(sql:string,args:unknown[])=>{
   if(sql.includes('FROM agent_runs'))return {rows:child?[]:[owner]};
@@ -17,10 +17,10 @@ function fixture(child=false,verified=true,confidentiality:'unknown'|'non-confid
   if(sql.includes('FROM organizations'))return {rows:[{id:org}]};
   if(sql.includes('FROM org_memberships'))return {rows:[{member:1}]};
   if(sql.includes('FROM organization_plans'))return {rows:[{plan:'ordinary'}]};
-  if(sql.includes('FROM organization_ai_policies'))return {rows:[{configuration:config,price_version:'audited',updated_by:'operator'}]};
+  if((sql.includes('FROM organization_ai_policies')||sql.includes('FROM organization_ai_policy_changes')))return {rows:[{configuration:warning?{...config,tokenControls:{quotaSource:'organization-template',warningAtTokens:'1',degradeAtTokens:null,memberOverrides:[]}}:config,price_version:'audited',updated_by:'operator'}]};
   if(sql.includes(' AS active'))return {rows:[{active:true}]};
   if(sql.includes('SELECT token_limit'))return {rows:[{token_limit:tokenLimit,cost_limit_micros:costLimit,currency:'CNY',price_version:'audited'}]};
-  if(sql.includes('FROM effective_token_usage()'))return {rows:[{tokens:'0',cost:'0',unknown_tokens:'0',unknown_cost:'0'}]};
+  if(sql.includes('FROM effective_token_usage()'))return {rows:[{tokens:warning?'1':'0',cost:'0',unknown_tokens:'0',unknown_cost:'0'}]};
   if(sql.includes('COALESCE(sum(GREATEST(r.maximum_tokens'))return {rows:[{tokens:'0',cost:'0'}]};
   if(sql.includes('INSERT INTO model_request_starts'))return {rows:[{id:args[0]}]};
   return {rows:[]};
@@ -39,6 +39,11 @@ for(const child of [false,true])it(`input-only ${child?'child':'root'} reserves 
  expect(f.query.mock.calls.indexOf(reserve)).toBeLessThan(f.query.mock.calls.indexOf(start));expect(reserve[1][5]).toBe('2');expect(reserve[1][6]).toBe('2');
  expect(start[1][2]).toBe('original-author');expect(start[1][3]).toBe('root');expect(start[1][13]).toBe(child?'child':null);
  expect(JSON.stringify(f.query.mock.calls.map(c=>c[1]))).not.toContain('encoding_format');
+});
+it('input-only warning without a delivery path refuses before durable start',async()=>{
+ const f=fixture(false,true,'non-confidential','100','100',true);
+ await expect(f.repo.admitRuntimeRequest(org,f.runId,f.input)).rejects.toThrow('AI_WARNING_DELIVERY_UNAVAILABLE');
+ expect(f.query.mock.calls.some(([sql])=>sql.includes('INSERT INTO model_request_starts'))).toBe(false);
 });
 it('unverified binding, unknown classification, token exhaustion and cost exhaustion cannot create a start',async()=>{
  for(const f of [fixture(false,false),fixture(false,true,'unknown'),fixture(false,true,'non-confidential','1'),fixture(false,true,'non-confidential','100','1')]){
