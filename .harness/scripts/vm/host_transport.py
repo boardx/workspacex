@@ -323,7 +323,8 @@ def serve_reviewed_fence(source_path,source_sha):
      print(json.dumps({'sequence':sequence,'ok':True,'value':value}),flush=True);continue
     if request['operation']=='candidate-operation':
      from candidate_host_transport import RetainedCandidateActor
-     require(not unknown and set(request)=={'sequence','identity','operation','candidatePlan','action'},'CANDIDATE_ACTOR_REQUEST_BINDING')
+     require(set(request)=={'sequence','identity','operation','candidatePlan','action'},'CANDIDATE_ACTOR_REQUEST_BINDING')
+     require(not unknown or request['action'] in ('block','rebind-held-epoch-for-reblock','verify-blocked'),'CANDIDATE_UNKNOWN_REOPEN_FORBIDDEN')
      reference=request['candidatePlan'];action=request['action'];require(action in RetainedCandidateActor.operations,'CANDIDATE_ACTOR_OPERATION_UNSUPPORTED')
      if candidate_actor is None:candidate_actor=RetainedCandidateActor(transport,journal,reference)
      require(candidate_actor.reference==reference,'CANDIDATE_ACTOR_REFERENCE_CHANGED')
@@ -364,7 +365,7 @@ def serve_reviewed_fence(source_path,source_sha):
     result=adapter.callbacks()[callback](plan['identity']);value=result if result is not None else {'callback':callback,'identity':plan['identity'],'state':journal.value['state'],'ready':False,'productionAvailabilityProven':False}
     print(json.dumps({'sequence':sequence,'ok':True,'value':value}),flush=True)
    except BaseException:
-    unknown=mutated;print(json.dumps({'sequence':sequence,'ok':False,'code':'PERSISTENT_FENCE_REJECTED','holdDisposition':'retain'}),flush=True)
+    unknown=unknown or mutated;print(json.dumps({'sequence':sequence,'ok':False,'code':'PERSISTENT_FENCE_REJECTED','holdDisposition':'retain'}),flush=True)
  finally:
   if not unknown:
    transport.close_control_connections()

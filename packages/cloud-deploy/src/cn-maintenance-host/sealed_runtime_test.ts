@@ -172,3 +172,28 @@ test('candidate response with foreign plan hash retains actor and cannot close',
  f.driver.request=async()=>({value:{schemaVersion:1,kind:'candidate-host-operation',identity:f.spec.identity,operation:'resume',planSha256:'0'.repeat(64),candidatePlanSha256:'c'.repeat(64),observationSha256:'d'.repeat(64),holdState:'held',ready:false,productionAvailabilityProven:false}});
  const runtime=createPersistentWriterLifecycle(f.spec);await runtime.start();await assert.rejects(runtime.candidateOperation(f.spec.identity,'resume'),/READBACK/);await assert.rejects(runtime.closeAfterAccepted(),/NOT_ACCEPTED/);assert.equal(f.counts().retains,1);
 });
+test('lost candidate observation permits only reblock channel and permanently prevents reopening or close',async()=>{
+ const f=fixture();const reference={path:`/etc/workspacex-cn/maintenance-candidate/${f.spec.identity.sourceRevision}/${f.spec.identity.attemptId}/candidate-plan.json`,sha256:'8'.repeat(64)};
+ f.spec.candidate={reference,modules:{candidate_writer:{path:'/trusted/candidate',sha256:'9'.repeat(64)},candidate_backend_collector:{path:'/trusted/collector',sha256:'a'.repeat(64)},candidate_host_transport:{path:'/trusted/transport',sha256:'b'.repeat(64)}}};
+ f.driver.request=async msg=>{f.messages.push(msg);if(msg.action==='observe-opened')throw Error('lost observe response');return {value:{schemaVersion:1,kind:'candidate-host-operation',identity:f.spec.identity,operation:msg.action,planSha256:reference.sha256,candidatePlanSha256:'c'.repeat(64),observationSha256:'d'.repeat(64),holdState:'held',ready:false,productionAvailabilityProven:false}};};
+ const life=createPersistentWriterLifecycle(f.spec);await life.start();await assert.rejects(life.candidateOperation(f.spec.identity,'observe-opened'));
+ for(const action of ['resume','verify-resumed','verify-staging','observe-opened'] as const)await assert.rejects(life.candidateOperation(f.spec.identity,action),/BINDING/);
+ for(const action of ['rebind-held-epoch-for-reblock','block','verify-blocked'] as const)await life.candidateOperation(f.spec.identity,action);
+ await assert.rejects(life.closeAfterAccepted(),/NOT_ACCEPTED/);await assert.rejects(life.invoke('resumeWrites',f.spec.identity),/BINDING/);
+ assert.deepEqual(f.messages.map(m=>m.action),['observe-opened','rebind-held-epoch-for-reblock','block','verify-blocked']);assert.equal(f.counts().closes,0);assert.equal(f.counts().retains,1);
+});
+test('candidate reference binds exactly once after migration from protected late producer output',async()=>{
+ const f=fixture();f.spec.sourcePlan.migrationAuthorization={operationTimeoutMs:10000};f.sealed.runtimePlan.migrationAuthorization=f.spec.sourcePlan.migrationAuthorization;f.spec.sourcePlan.holdGeneration='9'.repeat(32);f.sealed.runtimePlan.holdGeneration=f.spec.sourcePlan.holdGeneration;f.sealed.sourcePlanCanonicalSha256=runtimeDigest(f.spec.sourcePlan);f.sealed.runtimePlan.runtimeSourcePlanSha256=f.sealed.sourcePlanCanonicalSha256;f.sealed.runtimePlanSha256=runtimeDigest(f.sealed.runtimePlan);
+ f.spec.candidate={modules:{candidate_writer:{path:'/trusted/candidate',sha256:'9'.repeat(64)},candidate_backend_collector:{path:'/trusted/collector',sha256:'a'.repeat(64)},candidate_host_transport:{path:'/trusted/transport',sha256:'b'.repeat(64)}}};
+ const reference={path:`/etc/workspacex-cn/maintenance-candidate/${f.spec.identity.sourceRevision}/${f.spec.identity.attemptId}/candidate-plan.json`,sha256:'8'.repeat(64)};let reads=0;
+ f.spec.readCandidatePlan=(path,sha)=>{assert.deepEqual({path,sha256:sha},reference);reads++;return {schemaVersion:1,toolRevision:f.spec.toolRevision,artifact:{path:'/etc/workspacex-cn/artifact.json',sha256:'c'.repeat(64)},plan:{artifactSha256:'c'.repeat(64),identity:f.spec.identity,holdGeneration:f.spec.sourcePlan.holdGeneration,epoch:'a'.repeat(64),migrationCompletionSha256:'b'.repeat(64)}};};
+ f.driver.request=async()=>({value:{applied:[],skipped:[]}});
+ const life=createPersistentWriterLifecycle(f.spec);await life.start();await assert.rejects(life.bindCandidateReference(f.spec.identity,reference),/LATE_BINDING/);assert.equal(reads,0);
+ await life.migrateExactPlan(f.spec.identity);
+ const protectedReader=f.spec.readCandidatePlan!;
+ for(const mutate of [(v:any)=>{delete v.artifact;},(v:any)=>{v.extra=true;},(v:any)=>{v.artifact.sha256='d'.repeat(64);}]){
+  f.spec.readCandidatePlan=(path,sha)=>{const value=protectedReader(path,sha);mutate(value);return value;};
+  await assert.rejects(life.bindCandidateReference(f.spec.identity,reference),/LATE_PLAN/);
+ }
+ f.spec.readCandidatePlan=protectedReader;await life.bindCandidateReference(f.spec.identity,reference);await assert.rejects(life.bindCandidateReference(f.spec.identity,reference),/LATE_BINDING/);assert.equal(reads,4);
+});

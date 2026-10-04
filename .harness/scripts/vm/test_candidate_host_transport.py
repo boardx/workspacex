@@ -164,8 +164,19 @@ class Tests(unittest.TestCase):
         actor=self.actor();self.files[actor.reference['path']]+=b' '
         with self.assertRaisesRegex(RuntimeError,'INPUT_DRIFT'):actor.dispatch('resume',self.identity)
         self.assertEqual(self.host.commands,[])
+    def test_resume_requires_separate_durable_intent(self):
+        actor=self.actor()
+        with self.assertRaisesRegex(RuntimeError,'DURABLE_RESUME_INTENT_REQUIRED'):
+            actor.dispatch('resume',self.identity)
+        result=actor.dispatch('prepare-resume-intent',self.identity)
+        self.assertEqual(result['operation'],'prepare-resume-intent')
+        self.assertIn('candidateResumeIntent',actor.journal.value)
+        with self.assertRaisesRegex(RuntimeError,'RETRY_REQUIRES_RECONCILIATION'):
+            actor.dispatch('prepare-resume-intent',self.identity)
+        actor.dispatch('resume',self.identity)
+
     def test_new_hold_epoch_only_allows_block_and_never_reopen(self):
-        actor=self.actor();actor.dispatch('resume',self.identity)
+        actor=self.actor();actor.dispatch('prepare-resume-intent',self.identity);actor.dispatch('resume',self.identity)
         self.host.read_hold=lambda:dict(schemaVersion=1,state='held',generation='f'*32,identity=self.identity)
         original=copy.deepcopy(actor.adapter.plan)
         actor.dispatch('rebind-held-epoch-for-reblock',self.identity)
@@ -175,14 +186,14 @@ class Tests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError,'REBOUND_RESUME_FORBIDDEN'):actor.dispatch('resume',self.identity)
         self.assertTrue(any(e['state']=='candidate-rehold-block-intent' for e in self.j.value['events']))
     def test_rebind_journal_failure_permanently_disables_resume(self):
-        actor=self.actor();actor.dispatch('resume',self.identity)
+        actor=self.actor();actor.dispatch('prepare-resume-intent',self.identity);actor.dispatch('resume',self.identity)
         self.host.read_hold=lambda:dict(schemaVersion=1,state='held',generation='f'*32,identity=self.identity)
         self.j.record=lambda *args,**kw:(_ for _ in ()).throw(RuntimeError('journal failure'))
         with self.assertRaisesRegex(RuntimeError,'journal failure'):actor.dispatch('rebind-held-epoch-for-reblock',self.identity)
         self.assertTrue(actor.resume_disabled);self.assertIsNone(actor.reblock_plan)
         with self.assertRaisesRegex(RuntimeError,'REBOUND_RESUME_FORBIDDEN'):actor.dispatch('resume',self.identity)
     def test_open_observation_requires_real_cleared_collector(self):
-        actor=self.actor();actor.dispatch('resume',self.identity)
+        actor=self.actor();actor.dispatch('prepare-resume-intent',self.identity);actor.dispatch('resume',self.identity)
         self.host.read_hold=lambda:dict(schemaVersion=1,state='cleared',generation=self.p['holdGeneration'],identity=self.identity)
         actor.transport.collector.collect_opened=None
         with self.assertRaisesRegex(RuntimeError,'OPEN_COLLECTOR_NOT_IMPLEMENTED'):actor.dispatch('observe-opened',self.identity)

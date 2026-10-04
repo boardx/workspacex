@@ -139,6 +139,7 @@ class CandidateWriterAdapter:
         self.transport, self.journal = transport, journal
         self.runtime_sessions = None
         self.resume_unknown = False
+        self.resume_attempted = False
         require(identity['sourceRevision'] == APP and plan['baselineRevision'] == BASELINE,
                 'CANDIDATE_FROZEN_REVISION')
         require(plan['identity'] == identity and journal.value['identity'] == identity,
@@ -233,7 +234,7 @@ class CandidateWriterAdapter:
                         'CANDIDATE_FOREIGN_DATABASE_SESSION')
         return s
 
-    def resume_candidate(self, identity):
+    def prepare_resume_intent(self, identity):
         self._guard(identity)
         require(self.journal.value.get('candidateResumeIntent') is None,
                 'CANDIDATE_RETRY_REQUIRES_RECONCILIATION')
@@ -269,6 +270,42 @@ class CandidateWriterAdapter:
                   'epoch': self.plan['epoch'], 'migrationProofSha256': digest(proof)}
         self.journal.value['candidateResumeIntent'] = intent
         self.journal.record('candidate-resume-intent', intent=intent, holdDisposition='retain')
+        return copy.deepcopy(intent)
+
+    def resume_candidate(self, identity, require_prepared=False):
+        require(not self.resume_attempted, 'CANDIDATE_RETRY_REQUIRES_RECONCILIATION')
+        self._guard(identity)
+        if not require_prepared:
+            self.prepare_resume_intent(identity)
+        intent = self.journal.value.get('candidateResumeIntent')
+        require(type(intent) is dict and intent.get('identity') == identity and
+                intent.get('planSha256') == digest(self.plan) and intent.get('epoch') == self.plan['epoch'] and
+                any(e['state'] == 'candidate-resume-intent' for e in self.journal.value['events']) and
+                not any(e['state'] in ('candidate-resumed','candidate-resume-uncertain') for e in self.journal.value['events']),
+                'CANDIDATE_DURABLE_RESUME_INTENT_REQUIRED')
+        require(self.transport.verify_staging(copy.deepcopy(self.plan)) == intent['stagingIdentity'],
+                'CANDIDATE_STAGING_DRIFT')
+        self._observe()
+        nonce = secrets.token_hex(32)
+        # Host MUST read fsynced completion file and query the held diagnostic session;
+        # echoing the plan or consulting an intent event is not a valid implementation.
+        proof = self.transport.verify_completed_migration(copy.deepcopy(self.plan), nonce)
+        exact(proof, ('identity', 'epoch', 'holdGeneration', 'completionSha256',
+                     'ledgerSha256', 'observedAt', 'nonce', 'evidenceSha256',
+                     'source', 'databasePeers'), 'CANDIDATE_MIGRATION_PROOF_SCHEMA')
+        require(proof['identity'] == identity and proof['epoch'] == self.plan['epoch'] and
+                proof['holdGeneration'] == self.plan['holdGeneration'] and
+                proof['completionSha256'] == self.plan['migrationCompletionSha256'] and
+                proof['ledgerSha256'] == self.plan['migrationLedgerSha256'] and
+                proof['databasePeers'] == self.plan['databasePeers'] and
+                proof['nonce'] == nonce and sha(proof['evidenceSha256']) and
+                proof['source'] == 'durable-completion-and-live-diagnostic-ledger' and
+                type(proof['observedAt']) in (int, float) and
+                0 <= time.time() - proof['observedAt'] <= 30,
+                'CANDIDATE_MIGRATION_NOT_COMPLETED')
+        collector = getattr(self.transport, 'attest_candidate_backends', None)
+        require(callable(collector), 'CANDIDATE_BACKEND_COLLECTOR_NOT_IMPLEMENTED')
+        self.resume_attempted = True  # Sticky even if failure journaling cannot persist.
         try:
             self.transport.reopen_candidate(copy.deepcopy(self.plan))
             self._guard(identity)

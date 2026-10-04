@@ -159,3 +159,94 @@ acceptance receipt, migration intent despite unchanged ledger, live ledger drift
 prior image drift, failed durable resume journal, and partial resume response loss.
 All 47 Python tests across transport/writer/collector and all 17 current TS
 adapter/A-route tests passed, followed by the package TypeScript check (exit 0).
+
+## Typed A-route factory composition
+
+`a_route_factory.ts` adds `createARouteFactory(ARouteFactoryInputs)`, an explicit
+source-code composition seam. It does **not** connect the real production entry or
+supply missing producers. Every named consumer group needs exact identity/tool
+revision, a profile-bound source executable, nonempty hash-bound private input
+refs and an actual `assertCapability` implementation. Missing producer, candidate
+binder, public observation or retained lifecycle method rejects before lock/hold.
+Consumer implementations and bindings are snapshotted before admission I/O.
+
+Root integration inputs are:
+
+- `binding`: the original hash-bound HostBinding, `toolRevision`, and the current
+  trusted profile's `installedFilesSha256` (including the hold helper).
+- `run`: protected fixed command runner; `assertInstalledSource`: protected
+  executable closure verification; `readEvidence`: protectedPrivateJson using
+  **both** reference path and expected raw SHA.
+- `acquireReleaseLock`: inherited lock validator/release only. The factory owns
+  `lifecycle.closeAfterAccepted`; do not wrap a second lifecycle close around it.
+- compiled groups `offline`, `prehold`, `epoch`, `migration`, `heldReadback`,
+  `candidate`, `writer`, `public`, `disposition`. These are source-created functions,
+  not private JSON methods, command registries or readiness booleans.
+
+The `epoch.captureAndVerify` result points to a persisted epoch manifest. Its
+manifest contains all result fields except the self-referential `epoch` ref and
+uses kind `held-current-epoch-manifest`; independent reread/hash must match it.
+Three database refs plus object recovery are mandatory. A newly changed hold
+forces reconciliation rather than accepting a prior epoch. Epoch acceptance must
+complete before migration. Completion and sealed candidate plan are independently
+reread/hash bound; candidate input must contain the same epoch, hold generation,
+identity and completed migration hash. Candidate reference binds only after
+staging/sealing, exactly once, through the same lifecycle's
+`bindCandidateReference`. Resume requires the same retained actor's fixed
+`prepare-resume-intent` operation; no opaque candidate bind/persist callback is
+accepted. Host opened observations run before **and after** public samples.
+
+The factory uses legacy held writer proof only before candidate binding; after
+binding it uses candidate `verify-blocked`, retaining exact candidate/session
+closure. Recovery disposition is attempted before retaining the driver, and
+retention occurs even if the disposition journal itself fails.
+
+Still required in root's actual source assembly: epoch capture/isolated replay
+producer, held diagnostic readback, exact paused/stopped candidate stage/seal,
+actual stage/seal consumer using the implemented one-time late candidate binding
+and durable resume-intent lifecycle operations, real public identity/canonical/browser/observation transport, and safe
+close-only reblock/reconciliation channel after retained proof rejection. Every
+such source consumer must prove actual capability at admission; a callable
+placeholder that throws only after holding writes is not a completed integration.
+The existing schema1 production hard rejection remains intact until the strict
+schema2 factory route and all these actual consumers are present.
+
+Validation: `node --import tsx --test packages/cloud-deploy/src/cn-maintenance-host/a_route_factory_test.ts`
+passed 21/21; package TypeScript check exit 0. Tests include capability omission,
+boolean substitution, identity/profile mismatch, old epoch, hold drift, missing
+objects, unpersisted epoch receipt, different completion epoch, foreign candidate
+plan, illegal stage/resume order, composed opened observation failure with
+rehold/reblock, and implementation replacement during admission. Tests are local
+injected source consumers only; they cannot demonstrate production readiness.
+
+
+### Step-four collection versus qualified factory manifest
+
+The new step-four collector returns kind
+`current-held-epoch-evidence-collection`, a semantic `epoch` hash, flattened
+component `evidenceRefs`, and explicit `qualified:false` with
+`remainingTransport:retained-scoped-backup-transport-required`. It does not return
+the factory's `held-current-epoch-manifest` aggregate refs, nor prove the missing
+actual capture transport. Direct kind renaming or setting qualified is forbidden.
+
+A future source-owned manifest consumer must first use the real scoped-backup
+qualification transport, binding collection raw SHA, semantic epoch, exact held
+actor/host/generation and primary proof refs. It can then persist three database
+aggregate manifests, the object recovery manifest, and a qualified epoch manifest
+with actual independent before/after held observation hashes. The factory uses
+that qualified manifest's **raw SHA** to bind migration completion and candidate
+plan. The original collector's semantic epoch remains an explicit provenance link
+in the qualified producer inputs, rather than being confused with a file hash.
+Until that actual transport/consumer exists, the factory epoch consumer's
+`assertCapability` must reject before lock. Existing collection files remain
+unqualified; no actual replay or capture is resumed by this composition work.
+
+
+Factory candidate reread now requires exactly four envelope keys:
+`schemaVersion`, `toolRevision`, `plan`, `artifact`. The artifact has exactly
+`path` and `sha256`, a protected private path, and its SHA must equal the plan's
+required `artifactSha256`. Full native candidate-plan validation remains in the
+retained actor. Five additional negatives cover missing artifact, extra wrapper
+field, artifact hash mismatch, extra artifact field, and missing plan artifact
+hash; each prevents bind/resume and retains the post-migration recovery state.
+The factory suite now passes 21/21 with package TypeScript exit 0.

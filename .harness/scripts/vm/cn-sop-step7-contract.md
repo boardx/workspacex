@@ -53,3 +53,35 @@ regressions for clear committed with response/readback loss require candidate st
 attempt despite hold read failure and retained lock. Root owns the shared catch fix.
 Default production consumers still reject activation capability and do not supply
 `aRouteInputs`; adapter availability is not production transport readiness.
+
+## Source-owned public/host observation transport
+
+`public_observation_transport.ts` pins the exact APP 9b25/base ba63 maintenance
+release and the two fixed public endpoints. A compiled reader must stamp local
+observation times, enforce response bounds, disallow redirects/cache, and provide
+actual host evidence. Fresh identity-bound cleared hold CAS metadata, safe queue
+counts, nonempty unique successful owned runs and four actual healthy services
+are mandatory. Retained host/socket observation runs first and cannot be replaced
+by public samples. Derived zero failure counts follow these validated records;
+there is no plan boolean or zero-default admission. Marker maps to source through
+the reviewed binding; endpoints themselves do not establish a source revision.
+
+Five local Vitest tests pass; public/host readers remain compiled dependencies,
+not an assertion of available production transport. No network or model ran.
+
+## Fixed public JSON reader and remaining actual operations
+
+`fixed_public_json_reader.ts` implements fixed HTTPS public endpoint requests
+with no redirects/cache/credentials, bounded streamed UTF-8 JSON object responses,
+and a single fetch/body time budget with abort and stream cancellation. Three
+reader tests plus six public-observation tests pass using injected local Response
+objects. Observation now verifies retained host state before and after public
+samples; final retained failure rejects even when both public endpoints pass.
+
+An actual opened host evidence operation is still absent: existing
+`readRunDrain` requires `writesHeld=true`; `candidateOperation('observe-opened')`
+returns validated operation summary, not the actual queue/owned-runs/services
+record required here. Bind that operation to both retained checks, but do not
+relabel it as `readHostEvidence` or use zero defaults. Source-owned host producer
+must collect the missing actual fields before production factory can bind this
+transport. Public reader implementation is complete; host producer is a blocker.

@@ -80,3 +80,20 @@ UTC `2026-10-04T16:31:35Z` 汇总：cloud-deploy 52 files / 573 tests，29.05s�
 复用 step5/6/7 agents 独立复核，root 唯一修改共享接口。发现并修复：hold clear 已落盘但响应/readback 丢失时，hold reconciliation 失败不能阻止独立停止 candidate writers；两项真实 orchestration mock 负例由失败转通过，保留 reconciliation 与锁。collector 完整 conntrack 表允许无关 SYN_SENT/TIME_WAIT，候选仅处于这些状态仍因无法关联而 fail closed。公共验收拒绝不安全整数及缺 transport。
 
 生产 factory 缺口保持明确：provider→retained helper→collector→seal 已闭合，但 current epoch 恢复/隔离验收及 staging producer 尚未 source-owned 绑定到 aRouteInputs、candidate plan、completion/ledger/evidence hash；公共身份和 open 观察实际 transport 也未接入。不能将 currentEpochVerified=false 或 plan booleans 升格为合格证明，也不移除生产入口硬拒绝。
+
+## 4–7 并行源码收尾（前3冻结保持独立）
+
+前3 source-only review package 继续绑定 `987bc023660e4e03363d549c0376f55334cb5328`，其62/56闭包、tar和inventory hash不随本节更改。新增源码不伪装为已安装工具或 COMPLETE 包。
+
+已实现：独立 current held epoch 证据collection、late candidate plan producer（区分collection semantic epoch与manifest raw SHA）、严格 typed A-route factory、fixed public HTTPS JSON reader及retained/public/retained观察组合。lifecycle支持迁移后受保护candidate ref一次性绑定，真实retained driver及Python server unknown状态仅接受rebind/block/verify-blocked与reconciliation，拒绝resume和close；actor独立sticky resume-attempt闩防止journal损坏后重试。resume-intent独立持久化，resume前重新验证live completion/ledger、staging及held observation。wrapper admission与实际Python actor保持exact四字段及artifact引用hash绑定。
+
+本次并行独审仍明确以下真实接口未接，生产默认 `production_consumers` 的硬拒不移除：
+
+1. retained helper缺固定backup查询返回协议及parent-owned observer relay；现有BackupHost/fork observer/watchdog会另建admin，不符合现有六连接约束。新retained acquisition adapter在任何BackupLease/spawn前拒绝，不伪造join/credential-cleanup证据。
+2. collection保持qualified=false；factory消费的held-current-epoch-manifest仍需实际source-owned scoped acquisition、恢复fidelity/六旅程资格consumer产生，不能简单rename collection。candidate producer要求manifest raw SHA与collection semantic epoch分开绑定。
+3. source-owned candidate staging/container creation、held三库schema/permission/seed readback以及qualifiedprehold来源验收仍未装配到production factory。只有producer/callback接口完整不等于真实consumer完整。
+4. fixed public reader已实现，仅两个固定APP9b健康/marker GET；opened host证据尚缺owned acceptance run IDs/status和四服务health的真实fixed operation。held readRunDrain不能冒充opened观察，摘要/零默认值也不能冒充证据。
+
+本地mock已验证，真实采集/replay/SQL/安装/模型外发均未执行。后续应补上述实际source-owned协议及consumer并接严格schema2生产factory；legacy schema1继续拒绝activation。不得通过去除硬拒或使用plan boolean声称七步生产路径已贯通。
+
+并行最后独审另修复超时晚回执：只消费已过期且曾发出的 sequence，保持 retained/unknown；未发或重复回执继续断开。不让原操作晚到响应杀死已经限定权限的安全止写通道，也不由晚响应解除 unknown。

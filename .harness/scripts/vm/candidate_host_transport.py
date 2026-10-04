@@ -240,7 +240,7 @@ class CandidateHostTransport:
 
 class RetainedCandidateActor:
     """Fixed operation dispatcher bound to one immutable private candidate input."""
-    operations = ('verify-staging', 'resume', 'verify-resumed', 'block', 'observe-opened',
+    operations = ('prepare-resume-intent', 'verify-staging', 'resume', 'verify-resumed', 'block', 'observe-opened',
                   'rebind-held-epoch-for-reblock', 'verify-blocked')
 
     def __init__(self, host, journal, reference, read_private=private, proc_root='/proc'):
@@ -297,8 +297,9 @@ class RetainedCandidateActor:
             finally: self.transport.plan = original
         else:
             require(not self.resume_disabled, 'CANDIDATE_REBOUND_RESUME_FORBIDDEN')
-            if operation == 'verify-staging': observation = self.transport.verify_staging(self.adapter.plan)
-            elif operation == 'resume': observation = self.adapter.resume_candidate(identity)
+            if operation == 'prepare-resume-intent': self.adapter.prepare_resume_intent(identity)
+            elif operation == 'verify-staging': observation = self.transport.verify_staging(self.adapter.plan)
+            elif operation == 'resume': observation = self.adapter.resume_candidate(identity, require_prepared=True)
             elif operation == 'verify-resumed':
                 self.adapter._guard(identity)
                 require(self.adapter.runtime_sessions is not None and any(e['state'] == 'candidate-resumed'

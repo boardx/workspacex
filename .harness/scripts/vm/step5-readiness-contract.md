@@ -55,3 +55,9 @@ Only the source helper verified exact endpoint may match direct sockets or both 
 directions. The socket witness adds `endpointAuthority={address,port,configurationSha256,
 providerEvidenceSha256}` only for this case. Missing authority, wrong endpoint, stale or
 raced proof rejects; host and bridge SNAT tests cover these cases and seal tampering.
+
+Complete conntrack snapshots may contain unrelated SYN_SENT/TIME_WAIT entries; those
+cannot witness an established PostgreSQL backend and are ignored. Tests prove unrelated
+entries coexist with a valid mapping, while candidate mappings containing only those
+states fail the unique SNAT join. ESTABLISHED evidence still requires ASSURED and exact
+bidirectional tuples; malformed established rows fail closed.
