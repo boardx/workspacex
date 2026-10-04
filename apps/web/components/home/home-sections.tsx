@@ -20,9 +20,9 @@ const TILE =
 function SectionTitle({ children, href, hrefLabel }: { children: React.ReactNode; href?: string; hrefLabel?: string }) {
   return (
     <div className="flex items-baseline justify-between gap-2">
-      <h2 className="text-13 font-semibold text-card-foreground">{children}</h2>
+      <h2 className="text-16 font-semibold text-card-foreground">{children}</h2>
       {href !== undefined ? (
-        <Link href={href} className="text-11 text-muted-foreground transition-colors duration-fast hover:text-card-foreground">
+        <Link href={href} className="text-12 text-brand-ink transition-colors duration-fast hover:text-card-foreground">
           {hrefLabel ?? "查看全部"}
         </Link>
       ) : null}
@@ -225,7 +225,7 @@ export function RecentWorkSection({ work }: { work: ReturnType<typeof useHomeWor
   const anyContent = loads.some((l) => l.status === "ready" && l.items.length > 0);
   return (
     <section aria-label="继续你的工作" className="flex flex-col gap-4" data-testid="home-recent-work">
-      <h2 className="text-13 font-semibold text-card-foreground">继续你的工作</h2>
+      <h2 className="text-16 font-semibold text-card-foreground">继续你的工作</h2>
       <Group title="对话" href="/chat" load={work.threads} render={(t) => <ChatCard key={t.id} thread={t} />} />
       <Group title="项目" href="/projects" load={work.projects} render={(p) => <ProjectCard key={p.id} project={p} />} />
       <Group title="深度研究" href="/research" load={work.research} render={(r) => <ResearchCard key={r.sessionId} item={r} />} />

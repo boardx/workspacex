@@ -190,7 +190,7 @@
   font-family: var(--font-mono); font-size: var(--t-micro);
   color: var(--fg-faint); padding-top: var(--s-1);
 }
-.rail__item[aria-current="true"] .rail__num { color: var(--c-2); }
+.rail__item[aria-current="true"] .rail__num { color: var(--brand-ink); }
 .rail__text { display: block; }
 .rail__title { display: block; font-weight: 600; font-size: var(--t-md); }
 .rail__body { display: block; font-size: var(--t-small); color: var(--fg-dim); margin-top: 0.2rem; }
