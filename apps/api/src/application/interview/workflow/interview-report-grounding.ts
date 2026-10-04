@@ -113,6 +113,6 @@ function negatesConsensus(text: string, start: number, match: string): boolean {
   if (/否认|否定|排除/u.test(tail)) return false;
   const predicate = String.raw`[“‘"'\s]*(?:跨(?:角色|专家|受访者)(?:的)?|(?:两位|多位|两名|多名|两个|不同|多|两)(?:受访者|专家|角色|参与者)(?:的)?)?(?:共识|共同|一致)`;
   const direct = new RegExp(String.raw`^(?:(?:判断|推断|形成|构成|证明|达成|存在|确认|断言|宣称|声称|代表|采信|作肯定)(?:为|成)?)?${predicate}$`, "u");
-  const object = new RegExp(String.raw`^(?:将|把).+?(?:宣称|声称|判断|推断|认为|定义)(?:为|成)?${predicate}$`, "u");
+  const object = new RegExp(String.raw`^(?:将|把).+?(?:宣称|声称|判断|推断|认为|定义|断言)(?:为|成)?${predicate}$`, "u");
   return direct.test(tail) || object.test(tail);
 }
