@@ -31,3 +31,16 @@ Local trial source checkpoint: authenticated local membership/capability context
 
 
 ASR next verification boundary: default-off WS receipt subset implemented for four known server contexts, with same scoped owner/lifecycle transaction and no legacy double mirror. Await current-head remote PG exact-capture test; real recording lifecycle concurrency and deployed vendor units remain unverified. Next missing implementation is native unit admission/price/cap authority and durable cross-process terminal repair, not converting queued duration to Tokens. Other missing producers must have explicit original actor or authorized infrastructure spend owner; no synthesized run IDs or prices.
+
+
+Fixed next-source checklist after cosine propagation (no new scope):
+- Cosine query/candidate embedding: reuse existing RerankPort server-only reference through each EmbeddingPort invocation. Same existing SDK transport observes actual provider requests; service envelope is not a billed-call count. Missing/invalid/forged identity yields zero service HTTP; concurrent tenant test retains each reference. Default-off unchanged.
+- KG query embedding: user/thread authority exists, leased run/attempt/epoch not yet propagated to vector recall. Must derive from actual execution caller, not synthesize from thread/user.
+- Artifact ingestion embedding: index input has tenant/artifact version but no authorized spend actor/operation identity. Trace original ingestion responsibility and durable retry identity; do not forge an Agent run.
+- Warmup embedding: no authorized infrastructure spend owner/policy; keep missing until explicit trusted authority is available.
+- Whole-input facts: context-pack-ai-facts reads and validates exact input-hash/completeInput/owner/replay binding; runtime wiring/verified registry reject absent facts/registrations. Actual trusted whole-input binding producer plus verified serialized-body measurer/deployment registrations are still missing. A fixture resolver is not production facts; adding only configuration cannot close producer source gap.
+- Input-only admission: Python admission_payload requires a positive max_tokens/max_completion_tokens, so embeddings still fail before provider dispatch. Need explicit token input-only admission contract, measured serialized input, verified input bound, input-only price snapshot and reservation/settlement through existing coordinator. Do not invent output cap or enable production.
+- Native admission: current verified registry is Token-only; image/ASR refuse when quota enabled. Need trusted original-unit maximum/billing rules and price snapshots/reserve-settle support, including conservative unknown holds and actual vendor usage. Queued PCM estimate/unknown image count must never become an authoritative billed value. Local trial admission still pending.
+- Receipt repair: image/local/ASR instance-level stop on terminal outage is not durable cross-process repair. Continue existing durable accounting design without retrying model side effects.
+
+Source inventory remains7 audited actual dispatch points, receipt3full/4context-subset; whole-repository denominator unknown. Known retrieval producers now4 trusted-ref source routes/3 missing. Configuration activation and actual PG/provider/screenshots acceptance remain separate, draft unchanged.

@@ -89,16 +89,16 @@
     {
       "id": "cosine-query-embedding",
       "source": "apps/api/src/infrastructure/retrieval/embedding-cosine-rerank.ts",
-      "anchor": "this.embeddings.embed(query)",
-      "trustedRunReferencePropagationImplemented": false,
-      "acceptance": "source missing; do not invent owner/lease"
+      "anchor": "this.embeddings.embed(query, accounting)",
+      "trustedRunReferencePropagationImplemented": true,
+      "acceptance": "Existing RerankPort trusted run reference reaches LangChain private transport; mocked service HTTP units, not deployed vendor/PG. Input-only embedding admission remains missing."
     },
     {
       "id": "cosine-candidate-embedding",
       "source": "apps/api/src/infrastructure/retrieval/embedding-cosine-rerank.ts",
-      "anchor": "this.embeddings.embed(c.content)",
-      "trustedRunReferencePropagationImplemented": false,
-      "acceptance": "source missing; do not invent owner/lease"
+      "anchor": "this.embeddings.embed(c.content, accounting)",
+      "trustedRunReferencePropagationImplemented": true,
+      "acceptance": "Existing RerankPort trusted run reference reaches LangChain private transport; mocked service HTTP units, not deployed vendor/PG. Input-only embedding admission remains missing."
     },
     {
       "id": "service-warmup-embedding",
@@ -122,8 +122,8 @@
     "receiptHooksContextSubset": 4,
     "receiptHooksMissing": 0,
     "knownRetrievalProducerRoutes": 7,
-    "trustedRunReferenceRoutesImplemented": 2,
-    "trustedRunReferenceRoutesMissing": 5,
+    "trustedRunReferenceRoutesImplemented": 4,
+    "trustedRunReferenceRoutesMissing": 3,
     "opaqueExternalRoutes": 1
   }
 }
