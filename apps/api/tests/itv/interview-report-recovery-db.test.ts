@@ -19,7 +19,7 @@ import { addOrgMember, ensureDatabase, migrateOnce, resetOrgs, seedOrg } from ".
 const ORG = toOrgId("org-report-recovery-5104"), ID = "itv-report-recovery-5104", REV = "rev-report-recovery-5104";
 const actorId = `${ORG}-owner`, input = { orgId: ORG, interviewId: ID, actorId };
 const invalid = "# 原始合成报告\r\n\r\n教师支持试点；校长反对。🧪 保留字节与意见，不含完整分析链。\r\n";
-const validTemplate = "# 完整重写的合成报告\n\n证据：[支持低成本试点（合成）](#answer-1)；[相反意见：成本过高（合成）](#answer-2)。\n\n跨回答综合：教师支持试点，校长相反意见强调成本，不能凭两段合成回答判定有效。\n决策影响：应优先验证低成本方案再决定投入。\n边界与反例：仅为虚拟角色模拟，证据不足，不代表真人意见。\n下一步验证建议：访谈五位真实教师并记录时间成本与反对案例。\n";
+const validTemplate = "# 完整重写的合成报告\n\n证据：[支持低成本试点（合成）](#answer-1)；[相反意见：成本过高（合成）](#answer-2)。\n\n跨回答综合：教师支持试点，校长相反意见强调成本，不能凭两段合成回答判定有效。\n决策影响：应优先验证低成本方案再决定投入。\n边界与反例：仅为虚拟角色模拟，证据不足，不代表真人意见。\n下一步验证建议：独立访谈五位真实教师，测量备课任务完成时长并记录反对证据。\n";
 let db: PgDatabase, reader: PgInterviewMarkdownReader, store: PgInterviewMarkdownExecutionStore;
 async function snapshot() { return (await reader.readCurrent(ORG, ID))!; }
 async function rows() {
@@ -129,4 +129,48 @@ describe("#5104 real DB report quality recovery", () => {
     expect(await rows()).toMatchObject([{ markdown: invalid, status: "failed", evidence_mode: "simulated" }]);
     expect((await snapshot()).version).toBe(before.version + (scenario === "source_change" ? 2 : 1));
   });
+});
+
+describe("#5289 saved canonical report recovery", () => {
+ it("recovers numbered saved failure with identical bytes/hash, no model, and no duplicate version", async () => {
+  const markdown = await groundedReport(validTemplate.replace("下一步验证建议：独立访谈五位真实教师，测量备课任务完成时长并记录反对证据。", "## 6. 下一步验证建议（可执行行动）\n\n独立访谈五位用户，对比任务完成时长。"));
+  const before = await readInterviewMarkdown(dependencies(async () => ({text:"unused"})),{...input,viewerUserId:actorId});
+  const references = before.documents.filter(document => document.step !== "report").map((document,index) => ({anchor:`source-${index+1}`,documentId:document.documentId,version:document.version}));
+  await reader.saveDraft({...input,step:"report",expectedVersion:before.version,expectedDocumentVersion:0,markdown,references,failure:{code:"AI_GENERATION_UNAVAILABLE",retryable:true}});
+  const failed = await snapshot(); const complete = vi.fn(async () => ({text:"must never run"}));
+  const request = {...input,viewerUserId:actorId,step:"report" as const,expectedVersion:failed.version,expectedDocumentVersion:1};
+  const started = performance.now();
+  const recovered = await generateInterviewMarkdown({...dependencies(complete),modelProvider:"",modelId:""},request);
+  expect(complete).not.toHaveBeenCalled();
+  expect(await rows()).toMatchObject([{markdown,content_hash:interviewMarkdownContentHash(markdown),status:"failed",version_number:1},{markdown,content_hash:interviewMarkdownContentHash(markdown),status:"draft",version_number:2}]);
+  await generateInterviewMarkdown(dependencies(complete),{...request,expectedVersion:recovered.version,expectedDocumentVersion:2});
+  expect(await rows()).toHaveLength(2); expect(complete).not.toHaveBeenCalled();
+  console.info("#5289 synthetic recovery",{durationMs:Math.round(performance.now()-started),hash:interviewMarkdownContentHash(markdown),modelCalls:complete.mock.calls.length});
+ });
+ it("persists the specific action-only reason and keeps the rejected report unapproved", async () => {
+  const markdown = await groundedReport(validTemplate.replace("下一步验证建议：独立访谈五位真实教师，测量备课任务完成时长并记录反对证据。","").replace("决策影响：应优先验证低成本方案再决定投入。","决策影响：暂缓投入，因为证据不足。"));
+  const complete = vi.fn(async () => ({text:markdown}));
+  await expect(generate(complete)).rejects.toMatchObject({code:"AI_GENERATION_UNAVAILABLE",reasonCode:"REPORT_ACTION_VALIDATION_REJECTED"});
+  const current = await readInterviewMarkdown(dependencies(complete),{...input,viewerUserId:actorId});
+  expect(current.states.find(state => current.documents.find(document => document.step === "report")?.documentId === state.documentId)?.failure?.code).toBe("REPORT_ACTION_VALIDATION_REJECTED");
+  expect((await rows()).every(row=>row.status === "failed")).toBe(true);
+ });
+});
+
+describe("#5289 recovery CAS", () => {
+ it("rejects source/project changes during recovery storage without creating a success version", async () => {
+  const markdown = await groundedReport(validTemplate);
+  const before = await readInterviewMarkdown(dependencies(async () => ({text:"unused"})),{...input,viewerUserId:actorId});
+  const references = before.documents.map((document,index)=>({anchor:`source-${index+1}`,documentId:document.documentId,version:document.version}));
+  await reader.saveDraft({...input,step:"report",expectedVersion:before.version,expectedDocumentVersion:0,markdown,references,failure:{code:"REPORT_ACTION_VALIDATION_REJECTED",retryable:true}});
+  const failed = await snapshot(); const complete = vi.fn(async () => ({text:"must never run"}));
+  const save = reader.saveDraft.bind(reader);
+  vi.spyOn(reader,"saveDraft").mockImplementation(async value => {
+    await db.withTenant(ORG,async session => {await session.query(`UPDATE interview_sessions SET version=version+1 WHERE org_id=$1 AND id=$2`,[ORG,ID]);});
+    return save(value);
+  });
+  await expect(generateInterviewMarkdown(dependencies(complete),{...input,viewerUserId:actorId,step:"report",expectedVersion:failed.version,expectedDocumentVersion:1})).rejects.toThrow("CONCURRENT_MODIFICATION");
+  expect(complete).not.toHaveBeenCalled(); expect(await rows()).toMatchObject([{markdown,status:"failed",version_number:1}]);
+  expect(await rows()).toHaveLength(1);
+ });
 });

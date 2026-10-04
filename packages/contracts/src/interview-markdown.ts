@@ -74,24 +74,38 @@ export function assessInterviewReportAnalysis(markdown: string): InterviewReport
   if (!hasInterviewReportVerifiableAction(markdown)) missing.push("verifiable_action");
   return { ok: missing.length === 0, missing };
 }
+/** Normalize only explicit heading decorations; never rewrite the report itself. */
+function isVerifiableActionHeading(text: string): boolean {
+  const label = text.trim().replace(/^(?:\d+[.．、]|[一二三四五六七八九十百]+[、.．])\s*/u, "");
+  return /^(?:下一步验证建议|建议行动|行动建议|验证计划)(?:（[^（）()\r\n]{1,40}）|\([^（）()\r\n]{1,40}\))?[：:]?$/u.test(label);
+}
+
+/** Quoted examples cannot supply an action, including a P0 label inside a quote. */
+function actionNodeText(node: MarkdownNode): string {
+  if (["blockquote", "html", "code", "inlineCode", "image"].includes(node.type)) return "";
+  const separator = ["list", "listItem", "root"].includes(node.type) ? "\n" : "";
+  return node.value ?? node.children?.map(actionNodeText).filter(Boolean).join(separator) ?? "";
+}
+function hasConcreteVerifiableAction(line: string): boolean {
+  const action = line.trim();
+  return action.length >= 8 && !/^(?:不应|无需|不要|禁止|不必)/u.test(action)
+    && /(?:访谈|测试|验证|观察|测量|对比|监控|采集)/u.test(action)
+    && /(?:指标|信号|样本|用户|任务|假设|率|时长|次数|角色|证据)/u.test(action)
+    && /(?:对照组|实验组|三角|三方|独立|指标|信号|假设|[一二三四五六七八九十\d]+(?:次|起|位|人|天|周|月)|时长|率)/u.test(action);
+}
 export function hasInterviewReportVerifiableAction(markdown: string): boolean {
-  const text = reportAnalysisText(markdown);
-  if (reportHasAny(text, REPORT_ACTION_SIGNALS)) return true;
   const nodes = (parser.parse(markdown) as MarkdownNode).children ?? [];
+  // Inline labels use the same substantive check as section content, not a keyword shortcut.
+  if (nodes.filter(node => node.type !== "heading").flatMap(node => actionNodeText(node).split("\n"))
+    .some(line => reportHasAny(line, REPORT_ACTION_SIGNALS) && hasConcreteVerifiableAction(line))) return true;
   return nodes.some((node, index) => {
-    if (node.type !== "heading" || !/^(?:下一步验证建议|建议行动|行动建议|验证计划)[：:]?$/u.test(analysisNodeText(node).trim())) return false;
+    if (node.type !== "heading" || !isVerifiableActionHeading(analysisNodeText(node))) return false;
     const following: string[] = [];
     for (const next of nodes.slice(index + 1)) {
       if (next.type === "heading" && (next.depth ?? 0) <= (node.depth ?? 0)) break;
-      following.push(analysisNodeText(next));
+      following.push(actionNodeText(next));
     }
-    return following.join("\n").split("\n").some((line) => {
-      const action = line.trim();
-      return action.length >= 8 && !/^(?:不应|无需|不要|禁止|不必)/u.test(action)
-        && /(?:访谈|测试|验证|观察|测量|对比|监控|采集)/u.test(action)
-        && /(?:指标|信号|样本|用户|任务|假设|率|时长|次数|角色|证据)/u.test(action)
-        && /(?:对照组|实验组|三角|三方|独立|指标|信号|假设|[一二三四五六七八九十\d]+(?:次|起|位|人|天|周|月)|时长|率)/u.test(action);
-    });
+    return following.join("\n").split("\n").some(hasConcreteVerifiableAction);
   });
 }
 

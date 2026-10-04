@@ -138,7 +138,7 @@ export async function generateInterviewMarkdown(
     return status === "confirmed" || status === "completed" ? [{ document, status }] : [];
   });
   if (!sources.some(({ document }) => document.step === requiredSource[input.step])) throw new DigitalInterviewWorkflowError("DIGITAL_INTERVIEW_STEP_INVALID");
-  if (!deps.modelProvider || !deps.modelId) throw new DigitalInterviewWorkflowError("AI_GENERATION_UNAVAILABLE");
+  if (input.step !== "report" && (!deps.modelProvider || !deps.modelId)) throw new DigitalInterviewWorkflowError("AI_GENERATION_UNAVAILABLE");
   // Recovery text is not a confirmed source and cannot grant evidence or authority.
   // An outline is regenerated as a complete expert-indexed document; appending an old
   // fragment could reintroduce the legacy background/purpose format.

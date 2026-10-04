@@ -1,3 +1,4 @@
+import { ReportGenerationRejectedError } from "./interview-report-rejection";
 import { validateReportEvidence, type ReportEvidence } from "./interview-report-grounding";
 import type { z } from "zod";
 import { interviewMarkdown } from "@repo/contracts";
@@ -38,6 +39,30 @@ export async function generateReportWithRecovery(
   let rejected = options.retry?.markdown;
   let missing: readonly (InterviewReportAnalysisGap | "exact_source_grounding")[] = rejected
     ? [...assessInterviewReportAnalysis(rejected).missing, ...(validateReportEvidence(rejected, options.evidenceIndex, options.expertLabels).ok ? [] : ["exact_source_grounding" as const])] : [];
+  let savedRejection: ReportGenerationRejectedError | undefined;
+  const saved = options.snapshot.documents.find(document => document.step === "report");
+  if (saved?.markdown.trim()) {
+    const assessment = await measure("validation", () => assessInterviewReportAnalysis(saved.markdown));
+    const grounding = validateReportEvidence(saved.markdown, options.evidenceIndex, options.expertLabels);
+    if (!assessment.ok) savedRejection = new ReportGenerationRejectedError(rejectionCode(assessment.missing));
+    else if (!grounding.ok) savedRejection = new ReportGenerationRejectedError("REPORT_GROUNDING_REJECTED");
+    if (assessment.ok && grounding.ok) {
+      const sourcesUnchanged = references.every(reference => saved.references.some(previous =>
+        previous.documentId === reference.documentId && previous.version === reference.version))
+        && saved.references.every(previous => references.some(reference => reference.documentId === previous.documentId && reference.version === previous.version));
+      const hashesUnchanged = saved.references.every(reference => !reference.locator || options.evidenceIndex.some(evidence =>
+        evidence.documentId === reference.documentId && evidence.version === reference.version && evidence.sourceHash === reference.locator!.sourceHash));
+      if (!sourcesUnchanged || !hashesUnchanged) throw new DigitalInterviewWorkflowError("CONCURRENT_MODIFICATION");
+      if (!options.retry) return options.snapshot;
+      // Storage reauthorizes and applies the same source/project CAS as generation.
+      await measure("storage", () => deps.reader.saveDraft({
+        ...input, step: "report", actorId: input.viewerUserId, expectedVersion, expectedDocumentVersion,
+        markdown: saved.markdown, references: [...references, ...grounding.references],
+      }));
+      return measure("storage", () => readInterviewMarkdown(deps, input));
+    }
+  }
+  if (!deps.modelProvider || !deps.modelId) throw savedRejection ?? new DigitalInterviewWorkflowError("AI_GENERATION_UNAVAILABLE");
   // An existing failed version already has a retained candidate: make one repair, never loop.
   const maxCalls = options.retry ? 1 : 2;
   for (let attempt = 0; attempt < maxCalls; attempt += 1) {
@@ -80,9 +105,9 @@ export async function generateReportWithRecovery(
       if (!(error instanceof RejectedReport)) throw error;
       await measure("storage", () => deps.reader.saveDraft({
         ...input, step: "report", actorId: input.viewerUserId, expectedVersion, expectedDocumentVersion,
-        markdown: response.text, references, failure: { code: "AI_GENERATION_UNAVAILABLE", retryable: true },
+        markdown: response.text, references, failure: { code: rejectionCode(error.missing), retryable: true },
       }));
-      if (attempt + 1 >= maxCalls) throw new DigitalInterviewWorkflowError("AI_GENERATION_UNAVAILABLE");
+      if (attempt + 1 >= maxCalls) throw new ReportGenerationRejectedError(rejectionCode(error.missing));
       // This read reauthorizes the actor; exact versions/bytes prevent an edited candidate or
       // new source revision being silently carried into a second model request.
       const current = await measure("context", async () => {
@@ -109,4 +134,9 @@ export async function generateReportWithRecovery(
     return measure("storage", () => readInterviewMarkdown(deps, input));
   }
   throw new DigitalInterviewWorkflowError("AI_GENERATION_UNAVAILABLE");
+}
+
+function rejectionCode(missing: readonly (InterviewReportAnalysisGap | "exact_source_grounding")[]) {
+  return missing.length === 1 && missing[0] === "verifiable_action" ? "REPORT_ACTION_VALIDATION_REJECTED" as const
+    : missing.includes("exact_source_grounding") ? "REPORT_GROUNDING_REJECTED" as const : "REPORT_QUALITY_REJECTED" as const;
 }

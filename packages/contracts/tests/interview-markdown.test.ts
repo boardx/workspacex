@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { InterviewMarkdownDocument, PreviewVirtualExpertMarkdown, parseInterviewMarkdown, assessInterviewReportAnalysis } from "../src/interview-markdown";
+import { InterviewMarkdownDocument, PreviewVirtualExpertMarkdown, parseInterviewMarkdown, assessInterviewReportAnalysis, hasInterviewReportVerifiableAction } from "../src/interview-markdown";
 import { DigitalInterviewArtifact } from "../src/interview";
 
 const markdown = "# 教育研究\r\n\r\n## 核心发现\r\n\r\n| 用户 | 观点 |\r\n| --- | --- |\r\n| 学生 | 保留 **自主性** |\r\n\r\n```md\r\n## 不是章节\r\n```\r\n";
@@ -127,5 +127,22 @@ describe("formatted report quality", () => {
     const report = "## 跨回答综合\n\n共同模式：信息对齐失效。\n\n决策影响：暂缓扩展功能，因为需要证据。\n\n## 下一步验证建议\n\n建议优化产品。\n\n```md\n边界与反例：仍待验证。\nP0：验证真实任务完成时长。\n```";
     expect(assessInterviewReportAnalysis(report).missing).toContain("boundary_or_counterevidence");
     expect(assessInterviewReportAnalysis(report).missing).toContain("verifiable_action");
+  });
+});
+
+
+describe("numbered verifiable action headings (#5289)", () => {
+  const action = "独立访谈五位用户，对比三方证据并验证任务完成时长。";
+  it.each(["6. 下一步验证建议", "六、下一步验证建议", "6. 下一步验证建议（可执行行动）", "六、验证计划(可验证行动)", "行动建议（可执行行动）："])("accepts a concrete action under %s without changing report bytes", (heading) => {
+    const report = `## ${heading}\n\n${action}`;
+    expect(hasInterviewReportVerifiableAction(report)).toBe(true);
+    expect(assessInterviewReportAnalysis(report).missing).not.toContain("verifiable_action");
+    expect(report).toContain(heading);
+  });
+  it.each(["建议优化产品。", "访谈用户。", "测试三次。", "P0：建议优化流程。", "建议行动：建议优化产品流程。", "> 独立访谈五位用户，对比三方证据并验证任务完成时长。", "> P0：独立访谈五位用户，对比三方证据并验证任务完成时长。", "```md\nP0：独立访谈五位用户，对比三方证据并验证任务完成时长。\n```"])("does not let a numbered title or quoted labels manufacture action: %s", (body) => {
+    expect(hasInterviewReportVerifiableAction(`## 6. 下一步验证建议（可执行行动）\n\n${body}`)).toBe(false);
+  });
+  it.each(["6. 下一步验证建议与后续研究", "六、下一步验证建议（可执行行动", "讨论下一步验证建议", "下一步验证建议（可执行行动）与其他事项"])("does not expand the section scope to %s", (heading) => {
+    expect(hasInterviewReportVerifiableAction(`## ${heading}\n\n${action}`)).toBe(false);
   });
 });
