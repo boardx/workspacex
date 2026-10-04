@@ -3,13 +3,16 @@ import type { GuidedResearchRuntime } from "./guided-research-api";
 
 export const DEFAULT_RESEARCH_NAME = "新建研究";
 
-export function guidedResearchHeading(state: Pick<GuidedResearchRuntime, "brief" | "generatedNodes">, researchName?: string): string {
-  const explicitName = researchName?.trim();
-  const goal = state.brief.goal.trim();
+// Only known automatic signatures are candidates; unrelated names remain explicit.
+export function isAutomaticResearchName(goal: string, researchName?: string): boolean {
+  const name = researchName?.trim();
+  const trimmedGoal = goal.trim();
   const nameLimit = research.GuidedResearchMetadata.shape.title.maxLength!;
-  // Previous intake persisted this exact metadata-limited prefix of a long goal.
-  // Other names remain explicit; no general text-length heuristic is used.
-  const legacyAutomaticName = goal.length > nameLimit && explicitName === goal.slice(0, nameLimit).trim();
-  if (explicitName && explicitName !== DEFAULT_RESEARCH_NAME && !legacyAutomaticName) return explicitName;
+  return !name || name === DEFAULT_RESEARCH_NAME ||
+    (trimmedGoal.length > nameLimit && name === trimmedGoal.slice(0, nameLimit).trim());
+}
+
+export function guidedResearchHeading(state: Pick<GuidedResearchRuntime, "brief" | "generatedNodes">, researchName?: string): string {
+  if (!isAutomaticResearchName(state.brief.goal, researchName)) return researchName!.trim();
   return state.generatedNodes.includes("brief") ? state.brief.topic.trim() || DEFAULT_RESEARCH_NAME : DEFAULT_RESEARCH_NAME;
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { DEFAULT_RESEARCH_NAME, guidedResearchHeading } from "@/lib/guided-research-heading";
+import { DEFAULT_RESEARCH_NAME, guidedResearchHeading, isAutomaticResearchName } from "@/lib/guided-research-heading";
 import { tagInputLimits, research as researchTagContract } from "@repo/contracts";
 
 import * as React from "react";
@@ -374,16 +374,18 @@ function ResearchHome({ onNavigate }: { onNavigate: (step: GuidedResearchStep, s
     setLoadFailed(false);
     listGuidedResearchSessions().then(result => {
       if (!active) return;
-      setHistory(result.items);
-      for (const item of result.items) {
-        if (item.title.trim() !== DEFAULT_RESEARCH_NAME) continue;
+      const items = result.items.map(item => isAutomaticResearchName(item.brief.goal, item.title)
+        ? { ...item, title: DEFAULT_RESEARCH_NAME } : item);
+      setHistory(items);
+      for (const item of items) {
+        if (!isAutomaticResearchName(item.brief.goal, item.title)) continue;
         // Resolve the same saved title as the workspace without overwriting metadata,
         // tags, or concurrent user naming. A failed read leaves the card usable.
         void getResearchRuntime(item.sessionId).then(runtime => {
-          if (!active) return;
+          if (!active || runtime.sessionId !== item.sessionId) return;
           const title = guidedResearchHeading(runtime, item.title);
-          setHistory(current => current?.map(entry => entry.sessionId === item.sessionId && entry.title === item.title ? { ...entry, title } : entry) ?? current);
-        }).catch(() => { /* Keep metadata as the fallback when runtime is unavailable. */ });
+          setHistory(current => current?.map(entry => entry === item ? { ...entry, title } : entry) ?? current);
+        }).catch(() => { /* Keep the concise fallback when runtime is unavailable. */ });
       }
     })
       .catch(() => { if (active) setLoadFailed(true); });
