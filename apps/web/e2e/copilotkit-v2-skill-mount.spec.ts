@@ -1,5 +1,6 @@
 import { test, expect, type Page } from "@playwright/test";
 import { CHAT_READ_E2E } from "./chat-read-fixture";
+import { selectWorkbenchAgent } from "./support/workbench-run-evidence";
 
 /**
  * issue #2020（差距清单第 3 项）→ #2514（2026-09-02 服务端裁决）—— `/chat` 的 Skill
@@ -94,6 +95,7 @@ test("#2514：不挂任何 skill，已启用 skill 的正文已进第一轮 run 
   await login(page);
   await warmUpThreadRoute(page);
   await page.goto("/chat");
+  await selectWorkbenchAgent(page, CHAT_READ_E2E.deepAgentId);
 
   /* ═══════════ ① 新对话还没有线程：入口如实占位，不渲染假挂载面板 ═══════════ */
   await expect(page.getByTestId("chat-skill-mount")).toBeDisabled();
