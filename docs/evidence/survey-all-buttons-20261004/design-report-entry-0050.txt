@@ -1,0 +1,74 @@
+Before URL: http://127.0.0.1:25708/studio/survey/a529a7ac-3740-4b4a-b46f-dfd085fbb775/design
+
+Visible More menu button: 分析报告（可选）; existing a529 published 20 questions
+
+After URL: http://127.0.0.1:25708/studio/survey/a529a7ac-3740-4b4a-b46f-dfd085fbb775/report
+
+- alert
+- link "跳到主要内容":
+  - /url: "#wsx-main-content"
+- navigation "主导航":
+  - button "组织菜单，当前：org org-fullstack-5e-986ac146-12206c108846":
+    - generic: o
+  - link "首页":
+    - /url: /home
+    - generic: 首页
+  - link "对话":
+    - /url: /chat
+    - generic: 对话
+  - link "项目":
+    - /url: /projects
+    - generic: 项目
+  - link "研究":
+    - /url: /research
+    - generic: 研究
+  - link "访谈":
+    - /url: /itv
+    - generic: 访谈
+  - link "大脑":
+    - /url: /brain
+    - generic: 大脑
+  - link "任务":
+    - /url: /tasks
+    - generic: 任务
+  - link "工作流":
+    - /url: /workflows
+    - generic: 工作流
+  - link "组织后台":
+    - /url: /admin
+    - generic: 组织后台
+  - button "更多":
+    - generic: 更多
+  - button "任务提醒，0 条未读":
+    - generic: 提醒
+  - generic: 0 条未读
+  - button "提交反馈":
+    - generic: 反馈
+  - button "个人菜单":
+    - generic: F
+- banner:
+  - generic: org org-fullstack-5e-986ac146-12206c108846
+  - paragraph: 管理员
+  - paragraph: 不在具体项目里 · 引导师/组长/组员等项目内角色暂不适用
+- main:
+  - main:
+    - button "← 返回列表"
+    - textbox "问卷名称": 合成验收20261004-报告真实答卷
+    - paragraph: 已保存 · 2026/10/4 08:31:56
+    - button "更多操作"
+    - button "保存修改" [disabled]
+    - navigation "问卷工作流":
+      - button "1. 设计问卷":
+        - generic: "1"
+        - text: 设计问卷
+      - button "2. 发布回收":
+        - generic: "2"
+        - text: 发布回收
+      - button "3. 查看答卷":
+        - generic: "3"
+        - text: 查看答卷
+    - heading "分析报告" [level=1]
+    - button "生成报告"
+    - paragraph: 分析报告是可选项，不影响发布和回收。可以使用默认报告模板，也可以按需设计模板。
+
+Boundary: did not click Generate report; no model/provider request and no product write. Web4c/API5eff.
