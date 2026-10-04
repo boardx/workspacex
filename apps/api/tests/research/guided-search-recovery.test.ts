@@ -1,3 +1,6 @@
+import { createHash } from "node:crypto";
+import { executeTaskPipeline } from "../../src/application/research/guided-task-pipeline";
+import { SearchBudget } from "../../src/application/research/guided-search-budget";
 import { describe, expect, it, vi } from "vitest";
 import { research as C } from "@repo/contracts";
 import { GuidedRuntimeService, initialRuntime } from "../../src/application/research/guided-runtime-service";
@@ -38,6 +41,311 @@ function fixture(initial = seed(), read?: GuidedSearchPort["read"]) {
 }
 
 describe("bounded search query recovery", () => {
+  it.each(["none", "failed", "success"].flatMap(readMode => [false, true].map(reverse => ({ readMode, reverse }))))(
+    "binds same-URL task approvals to the actual stored bytes ($readMode, reverse=$reverse)", async ({ readMode, reverse }) => {
+      const state = seed(); state.outline[0]!.questions = ["A evidence?", "B evidence?"];
+      state.tasks = ["A", "B"].map(name => ({ ...state.tasks[0]!, id: name, query: `query-${name}`, objective: `${name} evidence?` }));
+      const body = "A-only evidence is verified.\n\nB-only evidence is verified.";
+      const read = readMode === "none" ? undefined : async () => {
+        if (readMode === "failed") throw new ResearchRuntimeError("RESEARCH_DOCUMENT_UNAVAILABLE");
+        return { text: body, contentKind: "text" as const, truncated: false };
+      };
+      const f = fixture(state, read);
+      const first = reverse ? "B" : "A";
+      f.search.mockImplementation(async query => {
+        const name = query === "query-A" ? "A" : "B";
+        if (name !== first) await new Promise(resolve => setTimeout(resolve, 2));
+        return [{ ...hit, content: `${name}-only evidence is verified.` }];
+      });
+      const approvals: Array<{ taskId: string; quote: string }> = [];
+      f.model.complete.mockImplementation(async input => {
+        const context = JSON.parse(input.user);
+        if (context.researchStage === "search_recovery") return { text: JSON.stringify({ queries: ["retry-B"] }) };
+        if (context.chunks.some((chunk: { taskId: string }) => chunk.taskId === first)) await new Promise(resolve => setTimeout(resolve, 8));
+        return { text: JSON.stringify({ evaluations: context.chunks.map((chunk: { sourceId: string; chunkId: string; taskId: string; questionIds: string[]; quoteOptions: { quoteRef: string; text: string }[] }) => {
+          const quote = chunk.quoteOptions.find(option => option.text.includes(`${chunk.taskId}-only`));
+          if (quote) approvals.push({ taskId: chunk.taskId, quote: quote.text });
+          const question = context.questions.find((question: { id: string; question: string }) => chunk.questionIds.includes(question.id) && question.question === `${chunk.taskId} evidence?`);
+          return { sourceId: chunk.sourceId, chunkId: chunk.chunkId, irrelevant: !quote,
+            matches: quote ? [{ questionId: question.id, quoteRef: quote.quoteRef, insight: "Task-specific controlled evidence.", relevance: "direct" }] : [] };
+        }) }) };
+      });
+      const result = await f.run();
+      const stored = result.sources[0]!;
+      expect(result.sources).toHaveLength(1);
+      const storedBytes = stored.document?.text ?? stored.content;
+      for (const taskId of stored.taskIds!) {
+        const quotes = approvals.filter(approval => approval.taskId === taskId);
+        expect(quotes.length).toBeGreaterThan(0);
+        expect(quotes.every(approval => storedBytes.includes(approval.quote))).toBe(true);
+      }
+      if (readMode === "success") {
+        expect(result.tasks.every(task => task.status === "succeeded")).toBe(true);
+        expect(new Set(stored.taskIds)).toEqual(new Set(["A", "B"]));
+        expect(stored.document?.contentHash).toBe(createHash("sha256").update(body).digest("hex"));
+      } else {
+        expect(result.errorCode).toBe("RESEARCH_SEARCH_PARTIAL_FAILURE");
+        expect(stored.taskIds).toEqual([first]);
+        expect(result.tasks.find(task => task.id !== first)?.status).toBe("failed");
+        if (readMode === "failed") expect(stored.documentError).toBe("unavailable");
+        const approvedBeforeRetry = approvals.filter(approval => approval.taskId === first).length;
+        const retried = await f.run("retry");
+        expect(retried.sources[0]?.content).toBe(stored.content);
+        expect(retried.sources[0]?.taskIds).toEqual([first]);
+        expect(retried.tasks.find(task => task.id === first)?.status).toBe("succeeded");
+        expect(retried.tasks.find(task => task.id !== first)?.status).toBe("failed");
+        expect(approvals.filter(approval => approval.taskId === first)).toHaveLength(approvedBeforeRetry);
+      }
+    });
+
+  it.each(["A", "B"])("does not erase stored A evidence when a later successful read supports only %s", async documentTask => {
+    const state = seed(); state.outline[0]!.questions = ["A evidence?", "B evidence?"];
+    state.tasks = ["A", "B"].map(name => ({ ...state.tasks[0]!, id: name, query: `query-${name}`, objective: `${name} evidence?` }));
+    let reads = 0;
+    const read = async () => {
+      if (++reads === 1) throw new ResearchRuntimeError("RESEARCH_DOCUMENT_UNAVAILABLE");
+      return { text: `${documentTask}-only evidence is verified.`, contentKind: "text" as const, truncated: false };
+    };
+    const f = fixture(state, read);
+    f.search.mockImplementation(async query => [{ ...hit, content: `${query === "query-A" ? "A" : "B"}-only evidence is verified.` }]);
+    f.model.complete.mockImplementation(async input => {
+      const context = JSON.parse(input.user);
+      if (context.researchStage === "search_recovery") return { text: JSON.stringify({ queries: ["retry"] }) };
+      return { text: JSON.stringify({ evaluations: context.chunks.map((chunk: { sourceId: string; chunkId: string; taskId: string; questionIds: string[]; quoteOptions: { quoteRef: string; text: string }[] }) => {
+        const quote = chunk.quoteOptions.find(option => option.text.includes(`${chunk.taskId}-only`));
+        const question = context.questions.find((question: { id: string; question: string }) => chunk.questionIds.includes(question.id) && question.question === `${chunk.taskId} evidence?`);
+        return { sourceId: chunk.sourceId, chunkId: chunk.chunkId, irrelevant: !quote,
+          matches: quote ? [{ questionId: question.id, quoteRef: quote.quoteRef, insight: "Task-specific controlled evidence.", relevance: "direct" }] : [] };
+      }) }) };
+    });
+    const result = await f.run();
+    expect(result.tasks.map(task => task.status)).toEqual(["succeeded", "failed"]);
+    expect(result.sources[0]?.content).toBe("A-only evidence is verified.");
+    expect(result.sources[0]?.taskIds).toEqual(["A"]);
+    expect(result.sources[0]?.document?.text ?? result.sources[0]?.content).toBe("A-only evidence is verified.");
+    const basis = result.sources[0]!.relevanceBasis;
+    const retried = await f.run("retry");
+    expect(retried.tasks.map(task => task.status)).toEqual(["succeeded", "failed"]);
+    expect(retried.sources[0]?.taskIds).toEqual(["A"]);
+    expect(retried.sources[0]?.document?.text ?? retried.sources[0]?.content).toBe("A-only evidence is verified.");
+    expect(retried.sources[0]?.relevanceBasis).toBe(basis);
+  });
+  it("locks duplicate and overlapping URL sets in a stable order without self-locking", async () => {
+    const state = seed(); state.tasks = ["A", "B"].map(name => ({ ...state.tasks[0]!, id: name, query: name }));
+    const f = fixture(state);
+    f.search.mockImplementation(async query => {
+      const urls = query === "A" ? ["https://example.org/one", "https://example.org/two", "https://example.org/one#duplicate"] : ["https://example.org/two", "https://example.org/one"];
+      return urls.map(url => ({ ...hit, url }));
+    });
+    const result = await f.run();
+    expect(result.errorCode).toBeNull(); expect(result.sources).toHaveLength(2);
+    expect(result.sources.every(source => new Set(source.taskIds).size === 2)).toBe(true);
+    expect(f.model.complete).toHaveBeenCalledTimes(2);
+  });
+  it("cancels a same-URL waiter before model admission and drains its aborted holder", async () => {
+    const state = seed(); state.tasks = ["A", "B", "C"].map(name => ({ ...state.tasks[0]!, id: name, query: name }));
+    const f = fixture(state); f.search.mockImplementation(async query => [{ ...hit, url: query === "C" ? `${hit.url}/different` : hit.url }]);
+    let release!: () => void, started!: () => void, holderSignal: AbortSignal | undefined, lateReads = 0, settled = false;
+    const began = new Promise<void>(resolve => { started = resolve; });
+    f.model.complete.mockImplementation(async input => {
+      const context = JSON.parse(input.user);
+      if (context.chunks.some((chunk: { taskId: string }) => chunk.taskId === "A")) {
+        holderSignal = (input as { signal?: AbortSignal }).signal;
+        started(); await new Promise<void>(resolve => { release = resolve; });
+        return { get text() { lateReads++; return guidedResearchReply(input.system, input.user)!; } };
+      }
+      await began; return { text: guidedResearchReply(input.system, input.user)! };
+    });
+    const originalWrite = f.write.getMockImplementation()!;
+    const failure = new ResearchRuntimeError("RESEARCH_PERSISTENCE_FAILED");
+    f.write.mockImplementation(async (actor, request, next) => {
+      if (next.busy && next.sources.some(source => source.taskId === "C")) throw failure;
+      await originalWrite(actor, request, next);
+    });
+    const operation = f.run().then(result => { settled = true; return result; });
+    try {
+      await began; await new Promise(resolve => setTimeout(resolve, 10));
+      expect(settled).toBe(false); expect(holderSignal?.aborted).toBe(true);
+      release(); const result = await operation;
+      expect(result.errorCode).toBe(failure.reasonCode); expect(lateReads).toBe(0);
+      expect(f.model.complete).toHaveBeenCalledTimes(2);
+      expect(f.model.complete.mock.calls.some(([input]) => JSON.parse(input.user).chunks.some((chunk: { taskId: string }) => chunk.taskId === "B"))).toBe(false);
+      expect(result.sources.some(source => source.taskIds?.includes("B"))).toBe(false);
+      const count = f.write.mock.calls.length; await Promise.resolve(); expect(f.write).toHaveBeenCalledTimes(count);
+    } finally { release?.(); await operation; }
+  });
+  it("retains the original fatal error even if optional performance diagnostics fail", async () => {
+    const failure = new Error("durable write failed");
+    const budget = new SearchBudget();
+    const complete = vi.fn(async () => null);
+    const persist = Object.assign(async () => { throw failure; }, { requestId: "test", observe: () => {} });
+    try {
+      await expect(executeTaskPipeline(seed(), persist, { search: async () => [] }, budget, complete,
+        () => { throw new Error("diagnostics unavailable"); })).rejects.toBe(failure);
+      expect(complete).not.toHaveBeenCalled();
+    } finally { budget.dispose(); }
+  });
+
+  it("completes 22 task-local searches with global task/model/read caps and serial durable writes", async () => {
+    vi.useFakeTimers();
+    const state = seed(); state.tasks = Array.from({ length: 22 }, (_, index) => ({ ...state.tasks[0]!, id: `task-${index}`, query: `query-${index}` }));
+    let models = 0, peakModels = 0, reads = 0, peakReads = 0, writing = 0, peakWrites = 0;
+    const delay = (ms: number) => new Promise<void>(resolve => setTimeout(resolve, ms));
+    const f = fixture(state, async () => { peakReads = Math.max(peakReads, ++reads); await delay(5); reads--; return { text: hit.content, contentKind: "text", truncated: false }; });
+    f.search.mockImplementation(async query => { await delay(5); return Array.from({ length: 3 }, (_, index) => ({ ...hit, url: `${hit.url}/${query}/${index}` })); });
+    f.model.complete.mockImplementation(async input => {
+      peakModels = Math.max(peakModels, ++models); await delay(20); models--;
+      return { text: guidedResearchReply(input.system, input.user)! };
+    });
+    const originalWrite = f.write.getMockImplementation()!;
+    f.write.mockImplementation(async (actor, request, next) => { peakWrites = Math.max(peakWrites, ++writing); await delay(1); await originalWrite(actor, request, next); writing--; });
+    const start = Date.now(); let terminalAt = start; let result: ResearchRuntime | undefined;
+    const operation = f.run().then(value => { result = value; terminalAt = Date.now(); });
+    try {
+      await vi.advanceTimersByTimeAsync(1000); await operation;
+      expect(result?.errorCode).toBeNull();
+      expect(result?.tasks.filter(task => task.status === "succeeded")).toHaveLength(22);
+      expect(result?.sources).toHaveLength(66);
+      expect(result?.sources.every(source => source.document && source.taskIds?.length === 1)).toBe(true);
+      expect(f.search).toHaveBeenCalledTimes(22); expect(f.model.complete).toHaveBeenCalledTimes(22);
+      expect(peakModels).toBe(2); expect(peakReads).toBe(3); expect(peakWrites).toBe(1);
+      expect(Math.max(...f.writes.map(snapshot => snapshot.tasks.filter(task => task.status === "running").length))).toBeLessThanOrEqual(3);
+      expect(f.writes.some(snapshot => snapshot.sources.length && snapshot.tasks.some(task => task.status === "running"))).toBe(true);
+      expect(terminalAt - start).toBeLessThan(22 * 30); // Equal mocked work; no online performance claim.
+    } finally { await vi.runAllTimersAsync(); await operation; vi.useRealTimers(); }
+  });
+  it("reuses a successful URL read while retaining independent task relevance", async () => {
+    const state = seed(); state.tasks = Array.from({ length: 3 }, (_, index) => ({ ...state.tasks[0]!, id: `task-${index}`, query: `query-${index}` }));
+    const read = vi.fn(async () => ({ text: hit.content, contentKind: "text" as const, truncated: false }));
+    const f = fixture(state, read); f.search.mockResolvedValue([hit]);
+    const result = await f.run();
+    expect(read).toHaveBeenCalledTimes(1);
+    expect(result.sources).toHaveLength(1);
+    expect(new Set(result.sources[0]!.taskIds)).toEqual(new Set(state.tasks.map(task => task.id)));
+    const scopedCalls = f.model.complete.mock.calls.map(([input]) => JSON.parse(input.user)).filter(context => context.researchStage === "source_relevance");
+    expect(scopedCalls).toHaveLength(3);
+    expect(scopedCalls.every(context => new Set(context.chunks.map((chunk: { taskId: string }) => chunk.taskId)).size === 1)).toBe(true);
+  });
+  it("drains a late valid partner after a fatal merge write without parsing or publishing it", async () => {
+    const state = seed(); state.tasks = Array.from({ length: 6 }, (_, index) => ({ ...state.tasks[0]!, id: `task-${index}`, query: `query-${index}` }));
+    const f = fixture(state); f.search.mockImplementation(async query => [{ ...hit, url: `${hit.url}/${query}` }]);
+    let release!: () => void, partner!: () => void, lateBodyReads = 0, settled = false;
+    let partnerSignal: AbortSignal | undefined;
+    const began = new Promise<void>(resolve => { partner = resolve; });
+    f.model.complete.mockImplementation(async input => {
+      const context = JSON.parse(input.user);
+      if (context.chunks.some((chunk: { taskId: string }) => chunk.taskId === "task-1")) {
+        partnerSignal = (input as { signal?: AbortSignal }).signal;
+        partner(); await new Promise<void>(resolve => { release = resolve; });
+        return { get text() { lateBodyReads++; return guidedResearchReply(input.system, input.user)!; } };
+      }
+      await began; return { text: guidedResearchReply(input.system, input.user)! };
+    });
+    const originalWrite = f.write.getMockImplementation()!;
+    const failure = new ResearchRuntimeError("RESEARCH_PERSISTENCE_FAILED");
+    f.write.mockImplementation(async (actor, request, next) => {
+      if (next.busy && next.tasks[0]?.status === "succeeded") throw failure;
+      await originalWrite(actor, request, next);
+    });
+    const operation = f.run().then(value => { settled = true; return value; });
+    try {
+      await began; await new Promise(resolve => setTimeout(resolve, 10));
+      expect(settled).toBe(false); expect(partnerSignal?.aborted).toBe(true);
+      expect(f.search.mock.calls.length).toBeLessThanOrEqual(3);
+      release(); const result = await operation;
+      expect(result.errorCode).toBe(failure.reasonCode); expect(lateBodyReads).toBe(0);
+      expect(result.tasks.some(task => task.status === "running")).toBe(false);
+      expect(result.tasks.some(task => task.searchAttempts?.some(record => record.status === "running"))).toBe(false);
+      expect(result.modelCalls.find(call => call.id === result.modelCalls[1]?.id)?.status).toBe("failed");
+      const writes = f.write.mock.calls.length; await Promise.resolve(); expect(f.write).toHaveBeenCalledTimes(writes);
+      expect(result.sources.some(source => source.taskId === "task-1")).toBe(false);
+    } finally { release?.(); await operation; }
+  });
+  it("caps overlapping multi-batch task screening globally rather than multiplying local batch limits", async () => {
+    vi.useFakeTimers();
+    const state = seed(); state.tasks = Array.from({ length: 3 }, (_, index) => ({ ...state.tasks[0]!, id: `task-${index}`, query: `query-${index}` }));
+    const f = fixture(state); let active = 0, peak = 0;
+    f.search.mockImplementation(async query => Array.from({ length: 9 }, (_, index) => ({ ...hit, url: `${hit.url}/${query}/${index}` })));
+    f.model.complete.mockImplementation(async input => {
+      peak = Math.max(peak, ++active); await new Promise(resolve => setTimeout(resolve, 5)); active--;
+      return { text: guidedResearchReply(input.system, input.user)! };
+    });
+    const operation = f.run();
+    try {
+      await vi.advanceTimersByTimeAsync(100);
+      const result = await operation;
+      expect(result.errorCode).toBeNull(); expect(result.sources).toHaveLength(27);
+      expect(f.model.complete).toHaveBeenCalledTimes(6); expect(peak).toBe(2);
+    } finally { await vi.runAllTimersAsync(); await operation; vi.useRealTimers(); }
+  });
+  it("isolates an ordinary task provider failure without discarding successful siblings", async () => {
+    const state = seed(); state.tasks = Array.from({ length: 3 }, (_, index) => ({ ...state.tasks[0]!, id: `task-${index}`, query: `query-${index}` }));
+    const f = fixture(state); f.search.mockImplementation(async query => [{ ...hit, url: `${hit.url}/${query}` }]);
+    f.model.complete.mockImplementation(async input => {
+      const context = JSON.parse(input.user);
+      if (context.chunks.some((chunk: { taskId: string }) => chunk.taskId === "task-0")) throw new Error("provider failed");
+      return { text: guidedResearchReply(input.system, input.user)! };
+    });
+    const result = await f.run();
+    expect(result.errorCode).toBe("RESEARCH_SEARCH_PARTIAL_FAILURE");
+    expect(result.tasks.map(task => task.status)).toEqual(["failed", "succeeded", "succeeded"]);
+    expect(result.sources).toHaveLength(2); expect(f.model.complete).toHaveBeenCalledTimes(3);
+  });
+  it("does not invoke a provider when serial attempt persistence fails", async () => {
+    const state = seed(); state.tasks = Array.from({ length: 3 }, (_, index) => ({ ...state.tasks[0]!, id: `task-${index}`, query: `query-${index}` }));
+    const f = fixture(state); f.search.mockResolvedValue([hit]);
+    const originalWrite = f.write.getMockImplementation()!;
+    f.write.mockImplementation(async (actor, request, next) => {
+      if (next.busy && next.modelCalls.length) throw new ResearchRuntimeError("RESEARCH_PERSISTENCE_FAILED");
+      await originalWrite(actor, request, next);
+    });
+    const result = await f.run();
+    expect(result.errorCode).toBe("RESEARCH_PERSISTENCE_FAILED");
+    expect(f.model.complete).not.toHaveBeenCalled();
+    expect(result.modelCalls).toHaveLength(1); expect(result.modelCalls[0]?.status).toBe("failed");
+  });
+  it("does not cache failed URL reads across a later independent task attempt", async () => {
+    const state = seed(); state.tasks = Array.from({ length: 4 }, (_, index) => ({ ...state.tasks[0]!, id: `task-${index}`, query: `query-${index}` }));
+    let calls = 0;
+    const read = vi.fn(async () => { if (++calls === 1) throw new ResearchRuntimeError("RESEARCH_DOCUMENT_UNAVAILABLE"); return { text: hit.content, contentKind: "text" as const, truncated: false }; });
+    const f = fixture(state, read); f.search.mockResolvedValue([hit]);
+    const result = await f.run();
+    expect(result.errorCode).toBeNull(); expect(read).toHaveBeenCalledTimes(2);
+    expect(result.sources[0]?.document).toBeDefined(); expect(result.sources[0]?.documentError).toBeUndefined();
+    expect(new Set(result.sources[0]?.taskIds)).toEqual(new Set(state.tasks.map(task => task.id)));
+  });
+  it("persists fast task evidence without waiting for a sibling screening model", async () => {
+    const state = seed();
+    state.tasks = Array.from({ length: 3 }, (_, index) => ({ ...state.tasks[0]!, id: `task-${index}`, query: `query-${index}` }));
+    const f = fixture(state);
+    f.search.mockImplementation(async query => [{ ...hit, url: `${hit.url}/${query}` }]);
+    let release!: () => void, started!: () => void;
+    const began = new Promise<void>(resolve => { started = resolve; });
+    f.model.complete.mockImplementation(async input => {
+      const context = JSON.parse(input.user);
+      if (context.researchStage === "source_relevance" && context.chunks.some((chunk: { taskId: string }) => chunk.taskId === "task-0")) {
+        started(); await new Promise<void>(resolve => { release = resolve; });
+      }
+      return { text: guidedResearchReply(input.system, input.user)! };
+    });
+    const operation = f.run();
+    try {
+      await began;
+      await new Promise(resolve => setTimeout(resolve, 20));
+      expect(f.writes.some(snapshot => snapshot.tasks[1]?.status === "succeeded" && snapshot.tasks[0]?.status === "running")).toBe(true);
+      expect(f.writes.some(snapshot => snapshot.sources.some(source => source.taskId === "task-1"))).toBe(true);
+    } finally { release?.(); await operation; }
+  });
+  it("maps confirmed questions directly into executable tasks without an extra planning model", async () => {
+    const state = seed(); state.tasks = []; state.generatedNodes = ["brief", "directions", "outline"];
+    state.outline[0]!.questions = ["国际版如何本地化？", "国际版上线时间？"];
+    const f = fixture(state); f.search.mockResolvedValue([hit]);
+    const result = await f.run();
+    expect(result.tasks).toHaveLength(2);
+    expect(result.tasks.every(task => task.sectionId === "market" && task.status === "succeeded")).toBe(true);
+    expect(f.model.complete.mock.calls.every(([input]) => JSON.parse(input.user).researchStage === "source_relevance")).toBe(true);
+  });
+
   it("finishes an unresponsive search at the shared three-minute budget and ignores late results", async () => {
     vi.useFakeTimers();
     const f = fixture();
@@ -148,7 +456,7 @@ describe("bounded search query recovery", () => {
     expect(f.search.mock.calls.length).toBeGreaterThan(0);
     expect(f.search.mock.calls.some(([query]) => query === original)).toBe(false);
   });
-  it("executes confirmed scopes in order without overlapping different directions", async () => {
+  it("dispatches confirmed scopes in order with bounded overlapping directions", async () => {
     const state = seed();
     state.outline.push({ id: "second", title: "第二方向", questions: ["第二方向证据？"], enabled: true, order: 1 });
     state.tasks = [{ ...state.tasks[0]!, id: "later", sectionId: "second", query: "second-query" }, { ...state.tasks[0]!, id: "first", query: "first-query" }];
@@ -157,7 +465,12 @@ describe("bounded search query recovery", () => {
     const began = new Promise<void>((resolve) => { started = resolve; });
     f.search.mockImplementation(async (query) => { if (query === "first-query") { started(); await new Promise<void>((resolve) => { release = resolve; }); } return [hit]; });
     const operation = f.run();
-    try { await began; expect(f.search.mock.calls.map(([query]) => query)).toEqual(["first-query"]); }
+    try {
+      await began;
+      await new Promise(resolve => setTimeout(resolve, 10));
+      expect(f.search.mock.calls.map(([query]) => query)).toEqual(["first-query", "second-query"]);
+      expect(f.writes.some(snapshot => snapshot.tasks[0]?.status === "succeeded" && snapshot.tasks[1]?.status === "running")).toBe(true);
+    }
     finally { release?.(); await operation; }
   });
   it("persists edited topic information without sending the user back to import", async () => {
