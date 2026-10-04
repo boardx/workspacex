@@ -7,6 +7,7 @@ import {requiredBoardAcceptanceLanes} from './board-acceptance-matrix.mjs';
 
 const root=resolve(import.meta.dirname,'../../..');
 const workflow=readFileSync(resolve(root,'.github/workflows/board-acceptance.yml'),'utf8');
+const independent=readFileSync(resolve(root,'.github/workflows/board-native-acceptance.yml'),'utf8');
 const scripts=JSON.parse(readFileSync(resolve(root,'apps/web/package.json'),'utf8')).scripts;
 const laneRunner=readFileSync(resolve(root,'apps/web/scripts/run-board-ci-lane.mjs'),'utf8');
 
@@ -20,14 +21,18 @@ test('nine isolated workflow jobs cover every canonical Board lane exactly once'
   assert.deepEqual(boardCiLaneMap.performance,['performance-1k','performance-5k','performance-10k']);
 });
 
-test('workflow invokes every mapped real producer and retains its lane directory',()=>{
+test('quick and independent workflows invoke every mapped real producer and retain its lane directory',()=>{
+  assert.ok(!workflow.includes('  meeting-room:\n'));
+  assert.ok(independent.includes('  meeting-room:\n'));
   for(const lane of boardCiLanes){
     const script=`ci:board:${lane}`;
     assert.equal(typeof scripts[script],'string',script);
     assert.match(scripts[script],/run-board-ci-lane\.mjs/);
     assert.match(scripts[script],/playwright/);
-    assert.equal(workflow.match(new RegExp(`pnpm --filter web run ${script.replaceAll(':','\\:')}`,'g'))?.length,lane==='visual'?2:1,script);
-    assert.ok(workflow.includes(`apps/web/test-results/board-ci/${lane}/`),lane);
+    assert.equal((workflow+'\n'+independent).match(new RegExp(`pnpm --filter web run ${script.replaceAll(':','\\:')}`,'g'))?.length,lane==='visual'?2:1,script);
+    const source=lane==='meeting-room'?independent:workflow;
+    assert.ok(source.includes(`pnpm --filter web run ${script}`),script);
+    assert.ok(source.includes(`apps/web/test-results/board-ci/${lane}/`),lane);
   }
   assert.match(workflow,/WHITEBOARD_CAPTURED_VENDOR_MANIFEST: \$\{\{ vars\.WHITEBOARD_CAPTURED_VENDOR_MANIFEST \}\}/);
 });

@@ -236,7 +236,7 @@ export function classifyChecks(checks: RequiredCheck[], policy: CheckPolicy = CU
   const changes: string[] = [];
   const waitingCi: string[] = [];
   const advisories: string[] = [];
-  const deferred = policy.version >= 3 ? new Set(policy.deferredChecks ?? []) : new Set<string>();
+  const deferred = [3, 4].includes(policy.version) ? new Set(policy.deferredChecks ?? []) : new Set<string>();
   const independent = new Set(policy.version === 4 ? policy.independentChecks ?? [] : []);
   const required = new Set<string>(policy.requiredChecks);
   for (const name of independent) if (!validIndependentCheck(name, policy)) blocked.push(`invalid independent check ${name}`);
