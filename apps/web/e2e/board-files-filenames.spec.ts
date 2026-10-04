@@ -94,6 +94,19 @@ test('R09 native UI downloads retain literal filenames and bytes after refresh',
       finally { await transfer.dispose(); }
       const response = await uploaded; expect(response.status()).toBe(201);
       const metadata = WhiteboardFileMetadata.parse(await response.json()); expect(metadata.fileName).toBe(fileName);
+      const {readContentObject} = await import('@repo/whiteboard-core');
+      // Upload HTTP success precedes verified download bytes and the canvas create command.
+      await expect.poll(async () => {
+        const snapshot = await canonicalBoardSnapshot(request, owner, board);
+        return {
+          head: await boardHead(request, owner, board),
+          files: snapshot.objects.map(object => {
+            const content = readContentObject(object);
+            return content?.type === 'tile' && content.tileType === 'file'
+              ? Object.fromEntries(content.fields.map(field => [field.key, field.value])) : null;
+          }),
+        };
+      }).toEqual({head: {epoch: initial.epoch, seq: initial.seq + 1}, files: [Object.fromEntries(Object.entries(metadata).map(([key, value]) => [key, String(value)]))]});
       await expectBoardSynced(page);
       const committed = await canonicalBoardSnapshot(request, owner, board);
       expect(await boardHead(request, owner, board)).toEqual({epoch: initial.epoch, seq: initial.seq + 1});
