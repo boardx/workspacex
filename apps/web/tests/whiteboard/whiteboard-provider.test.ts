@@ -7,6 +7,7 @@ import type { WhiteboardDurableOutbox } from '@/lib/whiteboard-outbox';
 import {IndexedDbEncryptedWhiteboardOutbox} from '@/lib/whiteboard-outbox';
 import {IDBFactory} from 'fake-indexeddb';
 import {webcrypto} from 'node:crypto';
+import {setInterval as nativeSetInterval,clearInterval as nativeClearInterval} from 'node:timers';
 const auth = vi.hoisted(() => ({ token: 'test-session' as string | null }));
 vi.mock('@/lib/api-client', () => ({ getStoredSessionToken: () => auth.token, apiWebSocketUrl: (path: string) => `ws://localhost${path}` }));
 class Socket {
@@ -925,4 +926,48 @@ it('rechecks the shared window when receipt replay fills it during an awaited du
     const actuallySent=updates(fresh)[0]!;fresh.message({type:'ack',updateId:actuallySent.updateId,gestureId:actuallySent.gestureId,seq:1});await flushClaims();
     expect(outbox.calls).toHaveLength(10);outbox.release(10);await flushClaims();expect(updates(fresh)).toHaveLength(9);
   }finally{provider.close();doc.destroy();server.destroy();}
+});
+
+it.each(['ack-first','reconcile-first','renew-first'] as const)('orders a real peer durable ACK against original %s recovery without faking claim success',async order=>{
+  vi.useRealTimers();vi.stubGlobal('indexedDB',new IDBFactory());vi.stubGlobal('crypto',webcrypto);vi.stubGlobal('window',new EventTarget());
+  const timerCallbacks:Array<()=>void>=[];
+  // Real timers can be absent after a preceding mock restore. Define the fixture's
+  // actual interval pair explicitly; only owner/peer renewal delivery is controlled.
+  vi.stubGlobal('setInterval',((callback:()=>void,ms?:number,...args:unknown[])=>{
+    if(ms===2000){timerCallbacks.push(callback);return nativeSetInterval(callback,2147483647);}
+    return nativeSetInterval(callback,ms,...args);
+  }) as typeof setInterval);
+  vi.stubGlobal('clearInterval',nativeClearInterval);
+  const a=new IndexedDbEncryptedWhiteboardOutbox('board-1'),b=new IndexedDbEncryptedWhiteboardOutbox('board-1'),inspect=new IndexedDbEncryptedWhiteboardOutbox('board-1');
+  const realSubscribe=a.subscribe.bind(a);let reconcile=()=>{};
+  vi.spyOn(a,'subscribe').mockImplementation((token,listener)=>{reconcile=listener;return realSubscribe(token,()=>{/* Owner wakeups remain queued until the selected recovery order. */});});
+  const origin=createWhiteboardDocument(),peer=createWhiteboardDocument(),server=createWhiteboardDocument(),accepted:unknown[]=[];
+  let state!:WhiteboardConnectionState;
+  const first=new WhiteboardProvider(origin,'board-1',value=>{state=value;},a,receipt=>{accepted.push(receipt);});let second:WhiteboardProvider|undefined;
+  try{
+    await vi.waitFor(()=>expect(Socket.sockets).toHaveLength(1));const original=Socket.sockets[0]!;sync(original,server);
+    executeCommands(origin,[{type:'create',object:sticky('resume-order')}],'local');await vi.waitFor(()=>expect(updates(original)).toHaveLength(1));const sent=structuredClone(updates(original)[0]!);
+    const now=Date.now();vi.spyOn(Date,'now').mockReturnValue(now+11000);
+    second=new WhiteboardProvider(peer,'board-1',()=>{},b);await vi.waitFor(()=>expect(Socket.sockets).toHaveLength(2));const replay=Socket.sockets[1]!;sync(replay,server);
+    await vi.waitFor(()=>expect(updates(replay)).toHaveLength(1));expect(updates(replay)[0]).toEqual(sent);Y.applyUpdate(server,base64ToBytes(sent.update));
+    replay.message({type:'ack',updateId:sent.updateId,gestureId:sent.gestureId,seq:1});await vi.waitFor(async()=>expect((await inspect.restore('test-session')).updates).toEqual([]));
+    expect(accepted).toEqual([]);expect(state.pending).toBe(1);
+    if(order==='reconcile-first'){
+      reconcile();await vi.waitFor(()=>expect(state.pending).toBe(0));expect(Socket.sockets).toHaveLength(2);
+    }
+    if(order==='renew-first'){
+      // Invoke the real periodic renewal against the actual deleted IDB row.
+      // No mocked claim result, socket error or identity transition is injected.
+      timerCallbacks[0]!();await vi.waitFor(()=>expect(Socket.sockets).toHaveLength(3));const fresh=Socket.sockets[2]!;
+      original.message({type:'ack',updateId:sent.updateId,gestureId:sent.gestureId,seq:1});expect(accepted).toEqual([]);
+      fresh.onopen?.();fresh.message({type:'recovery',code:'RESUME_OK',disposition:'resumed',epoch:1,seq:1});sync(fresh,server,1,1);
+      reconcile();await vi.waitFor(()=>expect(updates(fresh)).toHaveLength(1));expect(updates(fresh)[0]).toEqual(sent);
+      const actuallyResent=updates(fresh)[0]!;fresh.message({type:'ack',updateId:actuallyResent.updateId,gestureId:actuallyResent.gestureId,seq:1});
+      await vi.waitFor(()=>expect(accepted).toHaveLength(1));expect(accepted[0]).toMatchObject({socketGeneration:2,updateId:sent.updateId,gestureId:sent.gestureId,seq:1});
+    }else{
+      original.message({type:'ack',updateId:sent.updateId,gestureId:sent.gestureId,seq:1});await vi.waitFor(()=>expect(accepted).toHaveLength(1));
+      expect(accepted[0]).toMatchObject({socketGeneration:1,updateId:sent.updateId,gestureId:sent.gestureId,seq:1});expect(Socket.sockets).toHaveLength(2);
+    }
+    expect(state.phase).toBe('online');expect(state.lastAckReceipt).toEqual({updateId:sent.updateId,gestureId:sent.gestureId,seq:1});expect((await inspect.restore('test-session')).updates).toEqual([]);
+  }finally{first.close();second?.close();inspect.close();origin.destroy();peer.destroy();server.destroy();vi.restoreAllMocks();}
 });
