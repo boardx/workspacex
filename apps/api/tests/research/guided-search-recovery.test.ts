@@ -515,25 +515,129 @@ describe("bounded search query recovery", () => {
       expect(f.writes.some((snapshot) => snapshot.tasks[1]!.status === "succeeded" && snapshot.tasks[0]!.status === "running")).toBe(true);
     } finally { release(); await operation; }
   });
+
+  it("starts task recovery before a blocked sibling primary finishes, while free workers admit later primaries", async () => {
+    const state = seed();
+    state.tasks = Array.from({ length: 5 }, (_, index) => ({ ...state.tasks[0]!, id: `immediate-${index}`, query: `primary-${index}` }));
+    const f = fixture(state);
+    let release!: () => void;
+    const blocked = new Promise<void>(resolve => { release = resolve; });
+    let primaryStarted!: () => void;
+    const began = new Promise<void>(resolve => { primaryStarted = resolve; });
+    f.search.mockImplementation(async query => {
+      if (query === "primary-0") return [];
+      if (query === "primary-1") { primaryStarted(); await blocked; }
+      return [{ ...hit, url: `${hit.url}/${encodeURIComponent(query)}` }];
+    });
+    const operation = f.run();
+    try {
+      await began; await new Promise(resolve => setTimeout(resolve, 20));
+      expect(f.search.mock.calls.some(([query]) => query === short)).toBe(true);
+      expect(f.search.mock.calls.some(([query]) => query === "primary-4")).toBe(true);
+      const recovery = f.writes.find(snapshot => snapshot.tasks[0]!.status === "succeeded");
+      expect(recovery?.tasks[1]!.status).toBe("running");
+      expect(recovery?.tasks[0]!.searchAttempts?.map(attempt => attempt.status)).toEqual(["failed", "succeeded"]);
+    } finally { release(); await operation; }
+    const result = f.writes.at(-1)!;
+    expect(result.tasks.every(task => task.status === "succeeded" && task.attempts === 1)).toBe(true);
+    expect(result.tasks.every(task => (task.searchAttempts?.length ?? 0) <= C.GUIDED_RESEARCH_SEARCH_ATTEMPT_LIMIT)).toBe(true);
+    const count = f.search.mock.calls.length;
+    await f.run("retry"); expect(f.search).toHaveBeenCalledTimes(count);
+  });
   it("does not hold completed sibling results behind a slow recovery query", async () => {
     const state = seed();
     state.tasks = Array.from({ length: 4 }, (_, index) => ({ ...state.tasks[0]!, id: `task-${index}`, query: `query-${index}` }));
     const f = fixture(state);
     let release!: () => void;
     const slow = new Promise<void>((resolve) => { release = resolve; });
-    let recoveryStarted!: () => void;
+    let recoveryStarted!: () => void, laterStarted!: () => void;
     const recovery = new Promise<void>((resolve) => { recoveryStarted = resolve; });
+    const later = new Promise<void>(resolve => { laterStarted = resolve; });
     f.search.mockImplementation(async (query) => {
       if (query === "query-0") return [];
       if (query === short) { recoveryStarted(); await slow; }
+      if (query === "query-3") laterStarted();
       return [{ ...hit, url: `${hit.url}/${encodeURIComponent(query)}` }];
     });
     const operation = f.run();
     try {
       await recovery;
+      await Promise.race([later, new Promise((_, reject) => setTimeout(() => reject(new Error("recovery held a free task worker")), 1000))]);
       expect(f.search.mock.calls.some(([query]) => query === "query-3")).toBe(true);
       expect(f.writes.some((snapshot) => snapshot.tasks[1]!.status === "succeeded")).toBe(true);
     } finally { release(); await operation; }
+  });
+
+
+  it("isolates an immediate recovery provider failure and retains an independently successful sibling", async () => {
+    const state = seed(); state.tasks.push({ ...state.tasks[0]!, id: "sibling", query: "sibling-query" });
+    const f = fixture(state); f.search.mockImplementation(async query => query === original ? [] : [hit]);
+    f.model.complete.mockImplementation(async input => {
+      if (JSON.parse(input.user).researchStage === "search_recovery") throw new Error("controlled recovery provider failure");
+      return { text: guidedResearchReply(input.system, input.user)! };
+    });
+    const result = await f.run();
+    expect(result.errorCode).toBe("RESEARCH_SEARCH_PARTIAL_FAILURE");
+    expect(result.tasks.map(task => task.status)).toEqual(["failed", "succeeded"]);
+    expect(result.tasks[0]!.errorCode).toBe("RESEARCH_WORKFLOW_UNAVAILABLE"); // Existing completeJson provider-error mapping is preserved.
+    expect(result.tasks[0]!.searchAttempts).toHaveLength(1);
+    expect(result.sources).toHaveLength(1); expect(result.sources[0]!.taskId).toBe("sibling");
+    expect(f.search.mock.calls.map(([query]) => query)).toEqual([original, "sibling-query"]);
+  });
+  it("lets immediate recovery wait for a shared URL holder without deadlocking or inventing task evidence", async () => {
+    const state = seed(); state.tasks.push({ ...state.tasks[0]!, id: "holder", query: "holder-query" });
+    const f = fixture(state); let release!: () => void;
+    const held = new Promise<void>(resolve => { release = resolve; });
+    let started!: () => void; const began = new Promise<void>(resolve => { started = resolve; });
+    f.search.mockImplementation(async query => query === original ? [] : [hit]);
+    f.model.complete.mockImplementation(async input => {
+      const context = JSON.parse(input.user);
+      if (context.researchStage === "search_recovery") return { text: JSON.stringify({ queries: [short] }) };
+      if (context.chunks[0].taskId === "holder") { started(); await held; }
+      return { text: guidedResearchReply(input.system, input.user)! };
+    });
+    const operation = f.run();
+    try {
+      await began; await new Promise(resolve => setTimeout(resolve, 20));
+      expect(f.search.mock.calls.some(([query]) => query === short)).toBe(true);
+    } finally { release(); await operation; }
+    const result = await operation;
+    expect(result.tasks.map(task => task.status)).toEqual(["succeeded", "succeeded"]);
+    expect(result.sources).toHaveLength(1); expect(new Set(result.sources[0]!.taskIds)).toEqual(new Set(["task", "holder"]));
+    expect(result.sources[0]!.content).toBe(hit.content);
+    expect(result.tasks[0]!.searchAttempts?.map(attempt => attempt.status)).toEqual(["failed", "succeeded"]);
+  });
+  it("stops and drains an issued immediate recovery after fatal persistence without parsing its late query or launching it", async () => {
+    const state = seed(); state.tasks.push({ ...state.tasks[0]!, id: "successful", query: "successful-query" });
+    const f = fixture(state); f.search.mockImplementation(async query => query === original ? [] : [hit]);
+    let release!: () => void, started!: () => void, lateReads = 0, settled = false;
+    let recoverySignal: AbortSignal | undefined;
+    const began = new Promise<void>(resolve => { started = resolve; });
+    f.model.complete.mockImplementation(async input => {
+      if (JSON.parse(input.user).researchStage === "search_recovery") {
+        recoverySignal = (input as { signal?: AbortSignal }).signal; started();
+        await new Promise<void>(resolve => { release = resolve; });
+        return { get text() { lateReads++; return JSON.stringify({ queries: [short, second] }); } };
+      }
+      await began; return { text: guidedResearchReply(input.system, input.user)! };
+    });
+    const write = f.write.getMockImplementation()!, failure = new ResearchRuntimeError("RESEARCH_PERSISTENCE_FAILED");
+    f.write.mockImplementation(async (actor, request, next) => {
+      if (next.busy && next.tasks[1]!.status === "succeeded") throw failure;
+      await write(actor, request, next);
+    });
+    const operation = f.run().then(value => { settled = true; return value; });
+    try {
+      await began; await new Promise(resolve => setTimeout(resolve, 20));
+      expect(settled).toBe(false); expect(recoverySignal?.aborted).toBe(true);
+      expect(f.search.mock.calls.map(([query]) => query)).toEqual([original, "successful-query"]);
+      release(); const result = await operation;
+      expect(result.errorCode).toBe(failure.reasonCode); expect(lateReads).toBe(0);
+      expect(result.tasks[0]!.searchAttempts).toHaveLength(1);
+      expect(result.modelCalls).toHaveLength(2);
+      expect(result.modelCalls.map(call => call.status)).toContain("failed");
+      const writes = f.writes.length; await Promise.resolve(); expect(f.writes).toHaveLength(writes);
+    } finally { release?.(); await operation; }
   });
   it("persists readable source bodies and summaries during research, before report generation", async () => {
     const read = vi.fn(async () => ({ text: hit.content, contentKind: "html" as const, truncated: false }));

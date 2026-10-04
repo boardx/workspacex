@@ -214,7 +214,6 @@ export async function executeTaskPipeline(state: ResearchRuntime, persist: Runti
   };
   const sectionOrder = new Map(state.outline.map(section => [section.id, section.order]));
   const ordered = [...state.tasks].sort((a, b) => (sectionOrder.get(a.sectionId) ?? Infinity) - (sectionOrder.get(b.sectionId) ?? Infinity));
-  const recoveries: Task[] = [];
   const work = async (task: Task) => {
     if (task.status === "succeeded") return;
     const previousError = task.searchAttempts?.at(-1)?.errorCode ?? task.errorCode;
@@ -224,7 +223,9 @@ export async function executeTaskPipeline(state: ResearchRuntime, persist: Runti
       errorCode = await attempt(task, task.searchAttempts!.at(-1)?.query ?? task.query, true);
     }
     if (!isRecoverableSearchFailure(errorCode) || task.searchAttempts!.length >= C.GUIDED_RESEARCH_SEARCH_ATTEMPT_LIMIT) return;
-    recoveries.push(task);
+    // Keep bounded recovery inside this task worker: unrelated slow primaries
+    // must not hold every failed task behind an execution-wide barrier.
+    await recover(task);
   };
   const recover = async (task: Task) => {
     let queries: string[];
@@ -257,7 +258,6 @@ export async function executeTaskPipeline(state: ResearchRuntime, persist: Runti
       } finally { release(); }
     });
     await workers(ordered, work);
-    await workers(recoveries, recover);
     // Keep the existing bounded chapter-gap supplements. They share the same
     // provider/read limits and cannot replace a task failure with apparent success.
     if (search.read) await workers(state.outline.filter(section => section.enabled).sort((a, b) => a.order - b.order), async section => {
