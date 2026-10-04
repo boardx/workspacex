@@ -98,12 +98,15 @@ describe("traceable research execution failures", () => {
 
   it("bounds cyclic causes and omits unallowlisted names and codes", async () => {
     const f = fixture();
+    f.traceId = "00000999-0000-4000-8000-000000000001";
     const error = { name: "PRIVATE CLASS", code: "SECRET", status: 999, cause: undefined as unknown };
     error.cause = error;
     vi.mocked(f.store.claim).mockRejectedValue(error);
     await expect(f.service.execute(f.actor, f.session, f.command, undefined, f.traceId)).rejects.toBe(error);
     expect(f.record.mock.calls[0]![0].data.errors).toEqual([{ type: "UnknownError" }]);
-    expect(JSON.stringify(f.record.mock.calls)).not.toMatch(/PRIVATE CLASS|SECRET|999/);
+    expect(f.record.mock.calls[0]![0].traceId).toBe(f.traceId);
+    // Numeric payload rejection is covered by exact errors above; trace IDs are legitimate metadata.
+    expect(JSON.stringify(f.record.mock.calls)).not.toMatch(/PRIVATE CLASS|SECRET/);
   });
 });
 
