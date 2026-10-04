@@ -1426,7 +1426,21 @@ describe("lint-permission-paths: counter-proof", () => {
     // Enforced by official-role-skill-resolver-guard and official-role-upgrade tests, including
     // cross-org/admin denial and immutable historic versions. Remove these two allowances
     // with either adapter or its guard; this does not authorize broader skill content reads.
-    expect(total - boundaryAudit.rules.length).toBeLessThanOrEqual(124);
+    // #5261 adds exactly three reviewed metadata/entitlement adapters (124 -> 127).
+    // Platform catalog uses a separate restricted role, formal-only queries and operator
+    // guard/audit. Admission returns only decisions from tenant/user/window facts, and is
+    // not activated. Usage disclosure resolves membership/self or platform operator first,
+    // returns strict metadata schemas and never content. platform-usage-boundaries.test.ts
+    // enforces these premises; real PG catalog/admission/usage tests cover tenant negatives,
+    // concurrency and immutable audits. Remove each allowance if its premise or test disappears.
+    // #5261 runtime receipt ownership adds ONE independently reviewed metadata adapter
+    // (127 -> 128), not a content read or a database grant. A private service key and
+    // strict input schema precede lease/attempt ownership decisions. The adapter returns
+    // void and reads only identity/lease columns, deriving author_id without message body.
+    // runtime-model-usage.test.ts bounds tables, tenant SQL and no-content/no-raw-row
+    // premises, and denies missing/stale ownership before append. Real PG/RLS remains
+    // an activation gate; remove this single increment with the adapter or premise tests.
+    expect(total - boundaryAudit.rules.length).toBeLessThanOrEqual(128);
 
     const src = readFileSync(
       fileURLToPath(new URL("../../scripts/lint-permission-paths.mjs", import.meta.url)),

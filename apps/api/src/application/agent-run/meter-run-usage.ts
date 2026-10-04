@@ -1,5 +1,6 @@
+import { randomUUID } from "node:crypto";
 import type { OrgId } from "../../domain/org-id";
-import type { ClaimedAgentRun, ReportedUsage, TokenUsageMeterPort } from "./ports";
+import type { ClaimedAgentRun, ReportedUsage, TokenUsageMeterPort, TokenUsageRecord } from "./ports";
 
 /** Meter provider-reported usage without turning an accounting failure into a second model call. */
 export async function meter(
@@ -8,10 +9,19 @@ export async function meter(
   run: ClaimedAgentRun,
   usage: ReportedUsage,
   outcome: "succeeded" | "failed",
+  callPurpose: TokenUsageRecord["callPurpose"] = "primary",
+  request?: Pick<TokenUsageRecord, "eventId" | "requestStartedAt" | "requestEndedAt" | "executionAttemptId">,
 ): Promise<void> {
   if (!deps.usage) return;
   try {
     await deps.usage.record(orgId, {
+      eventId: randomUUID(),
+      ...request,
+      callPurpose,
+      projectId: run.projectId,
+      threadId: run.threadId,
+      agentId: run.agentId,
+      totalSource: usage.total === undefined ? "unknown" : "reported",
       userId: run.requesterUserId,
       runId: run.runId,
       modelProvider: run.modelProvider,
@@ -20,6 +30,8 @@ export async function meter(
       tokensTotal: usage.total ?? 0,
       promptTokens: usage.prompt ?? null,
       completionTokens: usage.completion ?? null,
+      cacheInputTokens: usage.cacheInput ?? null,
+      reasoningOutputTokens: usage.reasoningOutput ?? null,
       outcome,
     });
   } catch (e) {

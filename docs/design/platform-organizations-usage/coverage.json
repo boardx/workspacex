@@ -1,0 +1,356 @@
+{
+  "version": 1,
+  "issue": 5261,
+  "productionEnforcement": false,
+  "routes": [
+    {
+      "id": "executor-configured-primary",
+      "status": "connected-injected",
+      "sources": [
+        "apps/api/src/infrastructure/agent-run/agent-run-executor.ts",
+        "apps/api/src/application/agent-run/runtime-profile-routing.ts",
+        "apps/api/src/application/agent-run/priced-run-model.ts",
+        "apps/api/src/infrastructure/agent-run/configured-model-provider.ts",
+        "apps/api/src/infrastructure/agent-run/ai-runtime-wiring.ts",
+        "apps/api/src/application/agent-run/context-pack-ai-facts.ts"
+      ],
+      "tests": [
+        "apps/api/tests/agent-runtime/configured-model-provider-max-output.test.ts",
+        "apps/api/tests/auth/ai-context-runtime-wiring.test.ts"
+      ],
+      "remaining": [
+        "Trusted whole-input Context Pack binding producer is not implemented; missing binding remains unknown.",
+        "Explicit finite spend policy and ordinary per-user amount/window/timezone; no defaults enabled.",
+        "Verified exact physical model registration, input/output bounds and pricing unit/rate.",
+        "Isolated PostgreSQL/tenant integration for the new batch.",
+        "Actual deployed provider/cancellation/retry evidence for this family.",
+        "New operator catalog/policy browser screenshots and permission-negative flow."
+      ],
+      "sourceMissing": [
+        "Trusted whole-input Context Pack binding producer is not implemented; missing binding remains unknown."
+      ],
+      "configurationMissing": [
+        "Explicit finite spend policy and ordinary per-user amount/window/timezone; no defaults enabled.",
+        "Verified exact physical model registration, input/output bounds and pricing unit/rate."
+      ],
+      "acceptanceMissing": [
+        "Isolated PostgreSQL/tenant integration for the new batch.",
+        "Actual deployed provider/cancellation/retry evidence for this family.",
+        "New operator catalog/policy browser screenshots and permission-negative flow."
+      ]
+    },
+    {
+      "id": "executor-history-summary",
+      "status": "connected-injected",
+      "sources": [
+        "apps/api/src/application/agent-run/meter-model-completion.ts",
+        "apps/api/src/application/agent-run/priced-run-model.ts",
+        "apps/api/src/infrastructure/agent-run/ai-runtime-wiring.ts",
+        "apps/api/src/application/agent-run/context-pack-ai-facts.ts"
+      ],
+      "tests": [
+        "apps/api/tests/agent-runtime/configured-model-provider-max-output.test.ts",
+        "apps/api/tests/auth/ai-context-runtime-wiring.test.ts"
+      ],
+      "remaining": [
+        "Trusted whole-input Context Pack binding producer is not implemented; missing binding remains unknown.",
+        "Distinct semantic identity for repeated identical auxiliary operations.",
+        "Explicit finite spend policy and ordinary per-user amount/window/timezone; no defaults enabled.",
+        "Verified exact physical model registration, input/output bounds and pricing unit/rate.",
+        "Isolated PostgreSQL/tenant integration for the new batch.",
+        "Actual deployed provider/cancellation/retry evidence for this family."
+      ],
+      "sourceMissing": [
+        "Trusted whole-input Context Pack binding producer is not implemented; missing binding remains unknown.",
+        "Distinct semantic identity for repeated identical auxiliary operations."
+      ],
+      "configurationMissing": [
+        "Explicit finite spend policy and ordinary per-user amount/window/timezone; no defaults enabled.",
+        "Verified exact physical model registration, input/output bounds and pricing unit/rate."
+      ],
+      "acceptanceMissing": [
+        "Isolated PostgreSQL/tenant integration for the new batch.",
+        "Actual deployed provider/cancellation/retry evidence for this family."
+      ]
+    },
+    {
+      "id": "executor-script-regeneration",
+      "status": "connected-injected",
+      "sources": [
+        "apps/api/src/application/agent-run/meter-model-completion.ts",
+        "apps/api/src/application/agent-run/priced-run-model.ts",
+        "apps/api/src/infrastructure/agent-run/ai-runtime-wiring.ts",
+        "apps/api/src/application/agent-run/context-pack-ai-facts.ts"
+      ],
+      "tests": [
+        "apps/api/tests/agent-runtime/configured-model-provider-max-output.test.ts",
+        "apps/api/tests/auth/ai-context-runtime-wiring.test.ts"
+      ],
+      "remaining": [
+        "Trusted whole-input Context Pack binding producer is not implemented; missing binding remains unknown.",
+        "Distinct semantic identity for repeated identical auxiliary operations.",
+        "Explicit finite spend policy and ordinary per-user amount/window/timezone; no defaults enabled.",
+        "Verified exact physical model registration, input/output bounds and pricing unit/rate.",
+        "Isolated PostgreSQL/tenant integration for the new batch.",
+        "Actual deployed provider/cancellation/retry evidence for this family."
+      ],
+      "sourceMissing": [
+        "Trusted whole-input Context Pack binding producer is not implemented; missing binding remains unknown.",
+        "Distinct semantic identity for repeated identical auxiliary operations."
+      ],
+      "configurationMissing": [
+        "Explicit finite spend policy and ordinary per-user amount/window/timezone; no defaults enabled.",
+        "Verified exact physical model registration, input/output bounds and pricing unit/rate."
+      ],
+      "acceptanceMissing": [
+        "Isolated PostgreSQL/tenant integration for the new batch.",
+        "Actual deployed provider/cancellation/retry evidence for this family."
+      ]
+    },
+    {
+      "id": "digital-agent-skills-workflow-python",
+      "status": "connected-injected",
+      "sources": [
+        "apps/api/src/infrastructure/agent-run/deep-agent-model-provider.ts",
+        "apps/deep-agent-service/src/deep_agent_service/model.py",
+        "apps/deep-agent-service/src/deep_agent_service/model_request_accounting.py",
+        "apps/api/src/infrastructure/auth/pg-ai-admission-repository.ts",
+        "apps/api/src/interface/controllers/runtime-model-usage.controller.ts",
+        "apps/api/src/infrastructure/agent-run/ai-runtime-wiring.ts",
+        "apps/api/src/application/agent-run/context-pack-ai-facts.ts"
+      ],
+      "tests": [
+        "apps/deep-agent-service/tests/test_model_request_accounting.py",
+        "apps/api/tests/auth/runtime-admission-composition.test.ts",
+        "apps/api/tests/auth/ai-context-runtime-wiring.test.ts"
+      ],
+      "remaining": [
+        "Trusted whole-input Context Pack binding producer is not implemented; missing binding remains unknown.",
+        "Native gateway routing must delegate to the private per-HTTP admission protocol without pinned-provider mismatch.",
+        "Semantic logical operation identity and authorized private fallback beyond primary-only hard stop.",
+        "Explicit finite spend policy and ordinary per-user amount/window/timezone; no defaults enabled.",
+        "Verified exact physical model registration, input/output bounds and pricing unit/rate.",
+        "Isolated PostgreSQL/tenant integration for the new batch.",
+        "Actual deployed provider/cancellation/retry evidence for this family."
+      ],
+      "sourceMissing": [
+        "Trusted whole-input Context Pack binding producer is not implemented; missing binding remains unknown.",
+        "Native gateway routing must delegate to the private per-HTTP admission protocol without pinned-provider mismatch.",
+        "Semantic logical operation identity and authorized private fallback beyond primary-only hard stop."
+      ],
+      "configurationMissing": [
+        "Explicit finite spend policy and ordinary per-user amount/window/timezone; no defaults enabled.",
+        "Verified exact physical model registration, input/output bounds and pricing unit/rate."
+      ],
+      "acceptanceMissing": [
+        "Isolated PostgreSQL/tenant integration for the new batch.",
+        "Actual deployed provider/cancellation/retry evidence for this family."
+      ]
+    },
+    {
+      "id": "subtask-text-file",
+      "status": "connected-injected",
+      "sources": [
+        "apps/api/src/application/agent-run/runtime-model-usage.ts",
+        "apps/api/src/infrastructure/auth/pg-runtime-model-usage-repository.ts",
+        "apps/api/src/infrastructure/auth/pg-ai-admission-repository.ts",
+        "apps/api/src/interface/controllers/runtime-model-usage.controller.ts",
+        "apps/api/src/infrastructure/agent-run/ai-runtime-wiring.ts",
+        "apps/api/src/application/agent-run/context-pack-ai-facts.ts"
+      ],
+      "tests": [
+        "apps/api/tests/auth/runtime-model-usage.test.ts",
+        "apps/api/tests/agent-runtime/subtask-tool-calls.test.ts",
+        "apps/api/tests/auth/runtime-admission-composition.test.ts",
+        "apps/api/tests/auth/ai-context-runtime-wiring.test.ts"
+      ],
+      "remaining": [
+        "Trusted whole-input Context Pack binding producer is not implemented; missing binding remains unknown.",
+        "Semantic logical operation identity and authorized private fallback beyond primary-only hard stop.",
+        "Explicit finite spend policy and ordinary per-user amount/window/timezone; no defaults enabled.",
+        "Verified exact physical model registration, input/output bounds and pricing unit/rate.",
+        "Isolated PostgreSQL/tenant integration for the new batch.",
+        "Actual deployed provider/cancellation/retry evidence for this family.",
+        "Prove existing durable-child contract: own running epoch/attempt and parent cancellation, including cancellation/tenant negative cases; parent running/active lease is not a required business gate."
+      ],
+      "sourceMissing": [
+        "Trusted whole-input Context Pack binding producer is not implemented; missing binding remains unknown.",
+        "Semantic logical operation identity and authorized private fallback beyond primary-only hard stop."
+      ],
+      "configurationMissing": [
+        "Explicit finite spend policy and ordinary per-user amount/window/timezone; no defaults enabled.",
+        "Verified exact physical model registration, input/output bounds and pricing unit/rate."
+      ],
+      "acceptanceMissing": [
+        "Isolated PostgreSQL/tenant integration for the new batch.",
+        "Actual deployed provider/cancellation/retry evidence for this family.",
+        "Prove existing durable-child contract: own running epoch/attempt and parent cancellation, including cancellation/tenant negative cases; parent running/active lease is not a required business gate."
+      ]
+    },
+    {
+      "id": "digital-interview-research",
+      "status": "not-connected",
+      "sources": [
+        "apps/api/src/infrastructure/agent-run/deep-research-model-provider.ts"
+      ],
+      "tests": [],
+      "remaining": [
+        "Trusted original requester attribution and actual per-HTTP admission/ledger hooks.",
+        "Explicit finite spend policy and ordinary per-user amount/window/timezone; no defaults enabled.",
+        "Verified exact physical model registration, input/output bounds and pricing unit/rate.",
+        "Isolated PostgreSQL/tenant integration for the new batch.",
+        "Actual deployed provider/cancellation/retry evidence for this family."
+      ],
+      "sourceMissing": [
+        "Trusted original requester attribution and actual per-HTTP admission/ledger hooks."
+      ],
+      "configurationMissing": [
+        "Explicit finite spend policy and ordinary per-user amount/window/timezone; no defaults enabled.",
+        "Verified exact physical model registration, input/output bounds and pricing unit/rate."
+      ],
+      "acceptanceMissing": [
+        "Isolated PostgreSQL/tenant integration for the new batch.",
+        "Actual deployed provider/cancellation/retry evidence for this family."
+      ]
+    },
+    {
+      "id": "embedding-rerank-kg-background",
+      "status": "partial-run-retrieval-default-off",
+      "sources": [
+        "apps/api/src/infrastructure/retrieval/langchain-rerank-client.ts",
+        "apps/deep-agent-service/src/deep_agent_service/retrieval_embeddings.py",
+        "apps/deep-agent-service/src/deep_agent_service/retrieval_rerank.py",
+        "apps/api/src/infrastructure/retrieval/langchain-embedding-client.ts",
+        "packages/contracts/src/retrieval-accounting.ts"
+      ],
+      "tests": [
+        "apps/api/tests/auth/retrieval-accounting-forwarding.test.ts",
+        "apps/deep-agent-service/tests/test_retrieval_request_accounting.py",
+        "apps/api/tests/agent-runtime/organization-hybrid-retrieval.test.ts"
+      ],
+      "remaining": [
+        "Trusted initiating subject for KG, artifact ingestion, cosine query/candidate and service warmup producers; five known paths remain unconnected.",
+        "Verified input-only embedding admission capability; absent mode denies actual dispatch rather than inventing zero output.",
+        "Explicit finite spend policy and ordinary per-user amount/window/timezone; no defaults enabled.",
+        "Verified exact physical model registration, input/output bounds and pricing unit/rate.",
+        "Isolated PostgreSQL/tenant integration for the new batch.",
+        "Actual deployed provider/cancellation/retry evidence for this family."
+      ],
+      "sourceMissing": [
+        "Trusted initiating subject for KG, artifact ingestion, cosine query/candidate and service warmup producers; five known paths remain unconnected.",
+        "Verified input-only embedding admission capability; absent mode denies actual dispatch rather than inventing zero output."
+      ],
+      "configurationMissing": [
+        "Explicit finite spend policy and ordinary per-user amount/window/timezone; no defaults enabled.",
+        "Verified exact physical model registration, input/output bounds and pricing unit/rate."
+      ],
+      "acceptanceMissing": [
+        "Isolated PostgreSQL/tenant integration for the new batch.",
+        "Actual deployed provider/cancellation/retry evidence for this family."
+      ]
+    },
+    {
+      "id": "native-audio-image",
+      "status": "partial-ledger-default-off",
+      "sources": [
+        "apps/api/src/domain/agent-run/ai-billable-unit.ts",
+        "apps/api/src/infrastructure/agent-run/openai-image-provider.ts",
+        "apps/api/src/infrastructure/recording/configured-realtime-asr-provider.ts",
+        "apps/api/src/infrastructure/auth/pg-token-usage-repository.ts",
+        "apps/api/src/infrastructure/recording/pg-realtime-asr-repository.ts",
+        "apps/api/src/infrastructure/auth/pg-image-request-accounting.ts",
+        "apps/api/src/infrastructure/auth/pg-asr-request-accounting.ts"
+      ],
+      "tests": [
+        "apps/api/tests/auth/ai-native-unit.test.ts",
+        "apps/api/tests/auth/ai-native-ledger.test.ts",
+        "apps/api/tests/auth/ai-usage-repository.test.ts",
+        "apps/api/tests/auth/image-request-accounting.test.ts",
+        "apps/api/tests/auth/asr-request-accounting.test.ts"
+      ],
+      "remaining": [
+        "Native price snapshots/admission/cap hooks and actual audio/Bailian image provider receipts; OpenAI receipt is trusted-standard-tool subset only.",
+        "ASR actual WS start/terminal is default-off for four known trusted server contexts; vendor-reported units, native admission and durable cross-process repair remain missing.",
+        "Explicit finite spend policy and ordinary per-user amount/window/timezone; no defaults enabled.",
+        "Verified exact physical model registration, input/output bounds and pricing unit/rate.",
+        "Isolated PostgreSQL/tenant integration for the new batch.",
+        "Actual deployed provider/cancellation/retry evidence for this family."
+      ],
+      "sourceMissing": [
+        "Native price snapshots/admission/cap hooks and actual audio/Bailian image provider receipts; OpenAI receipt is trusted-standard-tool subset only.",
+        "ASR actual WS start/terminal is default-off for four known trusted server contexts; vendor-reported units, native admission and durable cross-process repair remain missing."
+      ],
+      "configurationMissing": [
+        "Explicit finite spend policy and ordinary per-user amount/window/timezone; no defaults enabled.",
+        "Verified exact physical model registration, input/output bounds and pricing unit/rate."
+      ],
+      "acceptanceMissing": [
+        "Isolated PostgreSQL/tenant integration for the new batch.",
+        "Actual deployed provider/cancellation/retry evidence for this family."
+      ]
+    },
+    {
+      "id": "trial-local-model",
+      "status": "partial-trusted-trial-default-off",
+      "sources": [
+        "apps/api/src/infrastructure/identity/http-local-model-runtime.ts",
+        "apps/api/src/infrastructure/auth/pg-local-request-accounting.ts",
+        "apps/api/src/application/identity/invoke-local-model.ts"
+      ],
+      "tests": [
+        "apps/api/tests/auth/local-request-accounting.test.ts",
+        "apps/api/tests/kernel/http-local-model-runtime.test.ts",
+        "apps/api/tests/kernel/local-org-zero-egress.test.ts"
+      ],
+      "remaining": [
+        "Verified local model admission/bounds and durable cross-process terminal repair; trusted trial receipt source is connected.",
+        "Explicit finite spend policy and ordinary per-user amount/window/timezone; no defaults enabled.",
+        "Verified exact physical model registration, input/output bounds and pricing unit/rate.",
+        "Isolated PostgreSQL/tenant integration for the new batch.",
+        "Actual deployed provider/cancellation/retry evidence for this family."
+      ],
+      "sourceMissing": [
+        "Verified local model admission/bounds and durable cross-process terminal repair; trusted trial receipt source is connected."
+      ],
+      "configurationMissing": [
+        "Explicit finite spend policy and ordinary per-user amount/window/timezone; no defaults enabled.",
+        "Verified exact physical model registration, input/output bounds and pricing unit/rate."
+      ],
+      "acceptanceMissing": [
+        "Isolated PostgreSQL/tenant integration for the new batch.",
+        "Actual deployed provider/cancellation/retry evidence for this family."
+      ]
+    },
+    {
+      "id": "terminal-crash-repair",
+      "status": "partial",
+      "sources": [
+        "apps/deep-agent-service/src/deep_agent_service/model_request_accounting.py",
+        "apps/deep-agent-service/src/deep_agent_service/http_app.py"
+      ],
+      "tests": [
+        "apps/deep-agent-service/tests/test_model_request_accounting.py"
+      ],
+      "remaining": [
+        "Pre-durable-save crash gap and restart-persistent spool fault handling.",
+        "Isolated PostgreSQL/tenant integration for the new batch.",
+        "Actual deployed provider/cancellation/retry evidence for this family."
+      ],
+      "sourceMissing": [
+        "Pre-durable-save crash gap and restart-persistent spool fault handling."
+      ],
+      "configurationMissing": [],
+      "acceptanceMissing": [
+        "Isolated PostgreSQL/tenant integration for the new batch.",
+        "Actual deployed provider/cancellation/retry evidence for this family."
+      ]
+    }
+  ],
+  "inventoryGranularity": "10 grouped call families; not an exhaustive count of vendor HTTP call sites",
+  "gapFamilyCounts": {
+    "sourceMissing": 10,
+    "configurationMissing": 9,
+    "acceptanceMissing": 10
+  },
+  "dispatchInventory": "docs/design/platform-organizations-usage/dispatch-inventory.json"
+}

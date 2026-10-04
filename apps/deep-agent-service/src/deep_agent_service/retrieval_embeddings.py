@@ -7,6 +7,7 @@ import os
 import time
 from pathlib import Path
 import httpx
+from .model_request_accounting import AsyncAccountingTransport, retrieval_accounting_scope, admission_enabled
 from jsonschema import Draft7Validator, ValidationError
 from langchain_openai import OpenAIEmbeddings
 from starlette.applications import Starlette
@@ -74,30 +75,32 @@ def _provider_client():
     global _CLIENT,_CLIENT_LOOP
     loop=asyncio.get_running_loop()
     if _CLIENT is None or _CLIENT.is_closed or _CLIENT_LOOP is not loop:
-        _CLIENT=httpx.AsyncClient(transport=_BoundedTransport(),headers={'accept-encoding':'identity'},timeout=_L['deadlineMs']/1000,follow_redirects=False,trust_env=False)
+        _CLIENT=httpx.AsyncClient(transport=AsyncAccountingTransport(_BoundedTransport(),scoped_only=True),headers={'accept-encoding':'identity'},timeout=_L['deadlineMs']/1000,follow_redirects=False,trust_env=False)
         _CLIENT_LOOP=loop
     return _CLIENT
 
-async def embed_texts(texts):
-    # Reuse the deployment model connection. Never accept provider configuration from input.
-    base=os.environ.get('KERNEL_MODEL_BASE_URL','')
-    key=os.environ.get('KERNEL_MODEL_API_KEY','')
-    model=os.environ.get('KERNEL_EMBEDDING_MODEL_ID','')
-    revision=os.environ.get('KERNEL_EMBEDDING_MODEL_VERSION','')
-    if not all((base,key,model,revision)):
-        raise RetrievalEmbeddingUnavailable('embedding_not_configured')
-    global _last_provider_use
-    _last_provider_use=time.monotonic()
-    try:
-        provider=OpenAIEmbeddings(model=model,api_key=key,base_url=base,max_retries=0,check_embedding_ctx_length=False,chunk_size=_PROVIDER_BATCH,http_async_client=_provider_client())
-        vectors=await provider.aembed_documents(texts)
-        output={'model':model,'modelVersion':revision,'vectors':vectors}
-        Draft7Validator(_SCHEMA['output']).validate(output)
-        if len(vectors)!=len(texts) or len({len(v) for v in vectors})!=1 or any(not math.isfinite(x) for v in vectors for x in v):
-            raise ValueError('invalid embedding')
-        return output
-    except Exception:
-        raise RetrievalEmbeddingUnavailable('embedding_unavailable') from None
+async def embed_texts(texts, accounting=None):
+    with retrieval_accounting_scope(accounting,"retrieval-embedding"):
+        # Reuse the deployment model connection. Never accept provider configuration from input.
+        base=os.environ.get('KERNEL_MODEL_BASE_URL','')
+        key=os.environ.get('KERNEL_MODEL_API_KEY','')
+        model=os.environ.get('KERNEL_EMBEDDING_MODEL_ID','')
+        revision=os.environ.get('KERNEL_EMBEDDING_MODEL_VERSION','')
+        if not all((base,key,model,revision)):
+            raise RetrievalEmbeddingUnavailable('embedding_not_configured')
+        global _last_provider_use
+        _last_provider_use=time.monotonic()
+        try:
+            provider=OpenAIEmbeddings(model=model,api_key=key,base_url=base,max_retries=0,check_embedding_ctx_length=False,chunk_size=_PROVIDER_BATCH,http_async_client=_provider_client())
+            vectors=await provider.aembed_documents(texts)
+            output={'model':model,'modelVersion':revision,'vectors':vectors}
+            Draft7Validator(_SCHEMA['output']).validate(output)
+            if len(vectors)!=len(texts) or len({len(v) for v in vectors})!=1 or any(not math.isfinite(x) for v in vectors for x in v):
+                raise ValueError('invalid embedding')
+            return output
+        except Exception:
+            raise RetrievalEmbeddingUnavailable('embedding_unavailable') from None
+
 
 def embeddings_configured():
     return all(os.environ.get(k,'') for k in ('KERNEL_MODEL_BASE_URL','KERNEL_MODEL_API_KEY','KERNEL_EMBEDDING_MODEL_ID','KERNEL_EMBEDDING_MODEL_VERSION'))
@@ -133,7 +136,7 @@ async def embedding_endpoint(request:Request):
             Draft7Validator(_SCHEMA['input']).validate(data)
             if any(len(text.encode('utf-8'))>_L['maxTextBytes'] for text in data['texts']):
                 return JSONResponse({'error':'invalid_embedding_input'},status_code=400)
-            result=await embed_texts(data['texts'])
+            result=await embed_texts(data['texts'],data['accounting']) if 'accounting' in data else await embed_texts(data['texts'])
             encoded=json.dumps(result,separators=(',',':'),allow_nan=False).encode()
             if len(encoded)>_L['maxResponseBytes']:
                 raise RetrievalEmbeddingUnavailable('embedding_unavailable')

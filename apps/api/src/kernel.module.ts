@@ -1,3 +1,17 @@
+import {ArtifactEmbeddingUsageController} from "./interface/controllers/artifact-embedding-usage.controller";
+import {ARTIFACT_EMBEDDING_USAGE} from "./application/retrieval/artifact-embedding-accounting";
+import {PgArtifactEmbeddingAccounting} from "./infrastructure/retrieval/pg-artifact-embedding-accounting";
+import {AI_QUOTA_RUNTIME_CONFIGURATION,AI_QUOTA_RUNTIME_WIRING,createAiQuotaRuntimeWiring,type AiQuotaRuntimeConfiguration,type AiQuotaRuntimeWiring} from "./infrastructure/agent-run/ai-runtime-wiring";
+import type {DynamicModule} from "@nestjs/common";
+import type {ModelPoolRepository} from "./application/model/ports";
+import {PgAiAdmissionRepository} from "./infrastructure/auth/pg-ai-admission-repository";
+import { AiUsageController } from "./interface/controllers/ai-usage.controller";
+import { AI_USAGE_REPOSITORY } from "./application/auth/ai-usage-ports";
+import { PgAiUsageRepository } from "./infrastructure/auth/pg-ai-usage-repository";
+import { PlatformOrganizationController } from "./interface/controllers/platform-organization.controller";
+import { PLATFORM_ORGANIZATION_REPOSITORY } from "./application/system/platform-organization-ports";
+import { PgPlatformOrganizationRepository } from "./infrastructure/system/pg-platform-organization-repository";
+import { platformOrgCatalogConfig } from "./infrastructure/db/pg-config";
 import { OFFICIAL_ROLE_UPGRADE_REPOSITORY } from "./application/agent-import/upgrade-official-roles";
 import { PgOfficialRoleUpgradeRepository } from "./infrastructure/agent/pg-official-role-upgrade-repository";
 import { OfficialRoleUpgradeController } from "./interface/controllers/official-role-upgrade.controller";
@@ -99,6 +113,7 @@ import { DefaultStandardAudioService } from "./infrastructure/agent-run/standard
 import { StandardAudioController } from "./interface/controllers/standard-audio.controller";
 import { McpCredentialExecutionBroker, mcpCredentialBrokerFromEnv } from "./infrastructure/mcp/mcp-credential-execution-broker";
 import { STANDARD_IMAGE_SERVICE } from "./application/agent-run/standard-image-tools";
+import {PgImageRequestAccounting} from "./infrastructure/auth/pg-image-request-accounting";
 import { DefaultStandardImageService } from "./infrastructure/agent-run/standard-image-service";
 import { StandardImageController } from "./interface/controllers/standard-image.controller";
 import { createGeneratedImageDownloader } from "./infrastructure/agent-run/generated-image-downloader";
@@ -257,7 +272,8 @@ import { IdentityController } from "./interface/controllers/identity.controller"
 import { LocalOrgController } from "./interface/controllers/local-org.controller";
 import { EGRESS_GUARD, EGRESS_LEDGER, EXPORT_TRANSPORT, LOCAL_MODEL_RUNTIME } from "./application/identity/local-org-ports";
 import { ProcessEgressGuard, ProcessEgressLedger } from "./infrastructure/egress/local-egress-guard";
-import { HttpLocalModelRuntime } from "./infrastructure/identity/http-local-model-runtime";
+import {PgLocalRequestAccounting} from "./infrastructure/auth/pg-local-request-accounting";
+import { HttpLocalModelRuntime,localRuntimeEndpoint,localRuntimeModelId } from "./infrastructure/identity/http-local-model-runtime";
 // F17: 隐私承诺的唯一豁口。
 import { LocalExportController } from "./interface/controllers/local-export.controller";
 import { LOCAL_EXPORT_REPOSITORY } from "./application/identity/local-export-ports";
@@ -594,6 +610,9 @@ import { PgRunRecovery } from "./infrastructure/agent-run/pg-run-recovery";
 import type { DefaultAgentResolver } from "./application/chat/message-command-ports";
 import { AgentArtifactController } from "./interface/controllers/agent-artifact.controller";
 import { PgInterjectionStore } from "./infrastructure/agent-run/pg-interjection-store";
+import {RUNTIME_MODEL_USAGE,type RuntimeModelUsagePort} from "./application/agent-run/runtime-model-usage";
+import {PgRuntimeModelUsageRepository} from "./infrastructure/auth/pg-runtime-model-usage-repository";
+import {RuntimeModelUsageController} from "./interface/controllers/runtime-model-usage.controller";
 import { RunInterjectionController } from "./interface/controllers/run-interjection.controller";
 // issue #3068 —— 「以后都允许」的查看/撤销（组织 admin 面），见该文件头注。
 import { ToolPermissionGrantController } from "./interface/controllers/tool-permission-grant.controller";
@@ -1157,6 +1176,7 @@ import {
 } from "./infrastructure/recording/pg-recording-repository";
 import { EnvTranscriptionPolicyProvider } from "./infrastructure/recording/env-transcription-policy";
 import { ASR_PROVIDER, type AsrProviderPort } from "./application/recording/asr-ports";
+import {PgAsrRequestAccounting} from "./infrastructure/auth/pg-asr-request-accounting";
 import { ConfiguredRealtimeAsrProvider } from "./infrastructure/recording/configured-realtime-asr-provider";
 import { RecordingController } from "./interface/controllers/recording.controller";
 import pgModule from "pg";
@@ -1175,7 +1195,7 @@ import type { IdGenerator as RecordingIdGenerator } from "./application/recordin
 import { PERSONAL_TRANSCRIPTION_REPOSITORY } from "./application/recording/personal-transcription-ports";
 import { PgPersonalTranscriptionRepository } from "./infrastructure/recording/pg-personal-transcription-repository";
 import { ASR_USAGE_METER, REALTIME_ASR_TICKET_STORE } from "./application/recording/personal-realtime-asr";
-import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/recording/pg-realtime-asr-repository";
+import { configuredAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/recording/pg-realtime-asr-repository";
 
 const BOARD_AGENT_API_ACCEPTANCE = boardAgentApiAcceptanceEnabled();
 const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRepository');
@@ -1238,6 +1258,8 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
   HomeProjectPreviewsController,
     PlatformAccessController,
     PlatformMemberController,
+    PlatformOrganizationController,
+    AiUsageController,
     FilesBrowserController, FilesDeletionController,
     FilesDeliveryController,
     ArtifactFileVersionsController,
@@ -1258,6 +1280,7 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
     RecordingController,
     AgentRunController,
     RunInterjectionController,
+    RuntimeModelUsageController, ArtifactEmbeddingUsageController,
     ToolPermissionGrantController,
     WorkflowCapabilityGrantController,
     DocumentGenerationAutoApproveController,
@@ -1420,7 +1443,7 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
     { provide: EGRESS_GUARD, useFactory: () => new ProcessEgressGuard() },
     // E4: what the user sees as 「本次启动出网 N 次」 -- read from the same patched chokepoint.
     { provide: EGRESS_LEDGER, useFactory: () => new ProcessEgressLedger(readDeploymentEdition()) },
-    { provide: LOCAL_MODEL_RUNTIME, useFactory: () => new HttpLocalModelRuntime() },
+    { provide: LOCAL_MODEL_RUNTIME, useFactory: (repo:IdentityRepository,meter:TokenUsageMeterPort) => new HttpLocalModelRuntime(localRuntimeEndpoint(),localRuntimeModelId(),process.env.KERNEL_LOCAL_REQUEST_ACCOUNTING_ENABLED==="1"?new PgLocalRequestAccounting(repo,meter):undefined,process.env.KERNEL_AI_PRODUCT_QUOTA_ENABLED==="1"),inject:[IDENTITY_REPOSITORY,TOKEN_USAGE_METER] },
     {
       provide: IDENTITY_REPOSITORY,
       useFactory: (db: DatabasePort) => new PgIdentityRepository(db),
@@ -1850,6 +1873,7 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
         process.env.KERNEL_RERANK_MODE === "embedding" && embeddings ? new EmbeddingCosineRerank(embeddings) : langChainRerankClientFromEnv(),
       inject: [EMBEDDING_PORT],
     },
+    {provide:ARTIFACT_EMBEDDING_USAGE,useFactory:(db:DatabasePort)=>new PgArtifactEmbeddingAccounting(db),inject:[DATABASE_PORT]},
     {
       provide: ARTIFACT_INDEX_PRODUCER,
       useFactory: (db: DatabasePort, objects: ObjectStore, embeddings: EmbeddingPort | null) =>
@@ -2165,7 +2189,7 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
     },
     {
       provide: SUBTASK_RUN_EXECUTOR,
-      useFactory: (store: PgSubtaskRunStore, db: DatabasePort, model: ModelCallPort, logger: LoggerPort, engine: EngineRunController, contexts: StandardSubtaskContextResolver, outputs:NativeOutputStaging|null,runs:AgentRunStore,nativeSessions:NativeSessionOwner|null) => {
+      useFactory: (store: PgSubtaskRunStore, db: DatabasePort, model: ModelCallPort, logger: LoggerPort, engine: EngineRunController, contexts: StandardSubtaskContextResolver, outputs:NativeOutputStaging|null,runs:AgentRunStore,nativeSessions:NativeSessionOwner|null,usage:RuntimeModelUsagePort) => {
         const configured = readModelProviderConfig();
         const deadlines = new Map<string, number>([[DEEP_AGENT_PROVIDER_NAME, readDeepAgentProviderConfig().timeoutMs]]);
         // Reserved names resolve to their dedicated adapters, not the generic HTTP adapter.
@@ -2177,9 +2201,9 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
           // #2931: a file-producing subtask needs its OWN native session to reach
           // `wx_artifact_publish`. Absent (no sandbox socket) ⇒ `outputFiles` runs
           // fail closed rather than silently degrading to text-only.
-          nativeSessions??undefined);
+          nativeSessions??undefined,usage);
       },
-      inject: [SUBTASK_RUN_STORE, DATABASE_PORT, MODEL_CALL_PORT, LOGGER_PORT, ENGINE_RUN_CONTROLLER, SUBTASK_CONTEXT_RESOLVER,NATIVE_OUTPUT_STAGING,AGENT_RUN_STORE,NATIVE_SESSION_OWNER],
+      inject: [SUBTASK_RUN_STORE, DATABASE_PORT, MODEL_CALL_PORT, LOGGER_PORT, ENGINE_RUN_CONTROLLER, SUBTASK_CONTEXT_RESOLVER,NATIVE_OUTPUT_STAGING,AGENT_RUN_STORE,NATIVE_SESSION_OWNER,RUNTIME_MODEL_USAGE],
     },
     /**
      * F157 —— 独立注册一份 `PgAgentRunContextSnapshot`，供
@@ -2362,6 +2386,7 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
         firstValue: FirstValueRecorder,
         embeddings: EmbeddingPort | null,
         workflows: WorkflowRuntimeService,
+        aiWiring: AiQuotaRuntimeWiring|null,
       ) =>
         new AgentRunExecutor(
           runs, model, logger, process.env.KERNEL_AGENT_RUN_AUTOSTART !== "0", usage,
@@ -2409,7 +2434,7 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
           carryOver,
           // Phase 18 F08：会话知识召回（uc-18-2），同上面每一个一样由合成期决定。
           // S9（#4366）：向量通道用部署已有的 EMBEDDING_PORT（F10 检索同一个）；没配置 ⇒ null，通道未启用。
-          new PgKnowledgeRecall(db, embeddings),
+          new PgKnowledgeRecall(db, embeddings,process.env.KERNEL_RETRIEVAL_REQUEST_ACCOUNTING_ENABLED==="1"),
           // Phase 18 F17：对话里「记住 / 忘掉」只开确认卡（uc-18-6 A / B），同上。
           new PgMemoryCard(db),
           // E3：回答引用写进 `chat_citations`（走既有 PgChatRepository 的租户内写口）+ 价值时刻。
@@ -2420,13 +2445,14 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
           workflows,
           // AG07：Agent 经 `request_handoff` 请求转交——登记待发起人确认的 handoff 行（与 HTTP 面同一个存储实现）。
           new PgAgentHandoffStore(db),
+          aiWiring?.run,
         ),
       inject: [
         AGENT_RUN_STORE, MODEL_CALL_PORT, LOGGER_PORT, TOKEN_USAGE_METER, DATABASE_PORT,
         IDENTITY_REPOSITORY, CANVAS_TEMPLATE_REPOSITORY, DECISION_ID_FACTORY, OBJECT_STORE,
         SKILL_SANDBOX_PORT, RUN_EVENT_BUS, TOOL_PERMISSION_GRANT_STORE,
         INTERJECTION_STORE, ARTIFACT_CONTINUATION_READER, NATIVE_SESSION_OWNER, NATIVE_OUTPUT_STAGING,
-        INTERJECTION_CARRY_OVER_DELIVERY, FIRST_VALUE_RECORDER, EMBEDDING_PORT, WORKFLOW_RUNTIME_SERVICE,
+        INTERJECTION_CARRY_OVER_DELIVERY, FIRST_VALUE_RECORDER, EMBEDDING_PORT, WORKFLOW_RUNTIME_SERVICE, AI_QUOTA_RUNTIME_WIRING,
       ],
     },
     // issue #3405 —— 带入投递的唯一实现。走 chat 受理的唯一入口 `acceptHumanMessage`，
@@ -2434,6 +2460,11 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
     { provide: INTERJECTION_CARRY_OVER_DELIVERY, useClass: AcceptMessageCarryOverDelivery },
     // F159. 计量的唯一写入实现。挂在执行器上而不是 provider 上：provider 只知道
     // 「这次返回了多少 token」，不知道这次调用属于哪个组织的哪个人——那是 run 才有的事实。
+    {provide:AI_QUOTA_RUNTIME_CONFIGURATION,useValue:null},
+    {provide:AI_QUOTA_RUNTIME_WIRING,useFactory:(configuration:AiQuotaRuntimeConfiguration|null,db:DatabasePort,identity:IdentityRepository,pool:ModelPoolRepository,model:ModelCallPort,usage:TokenUsageMeterPort)=>
+      createAiQuotaRuntimeWiring(process.env.KERNEL_AI_PRODUCT_QUOTA_ENABLED==="1",configuration,{db,identity,pool,model,usage}),
+      inject:[AI_QUOTA_RUNTIME_CONFIGURATION,DATABASE_PORT,IDENTITY_REPOSITORY,MODEL_POOL_REPOSITORY,MODEL_CALL_PORT,TOKEN_USAGE_METER]},
+    {provide:RUNTIME_MODEL_USAGE,useFactory:(db:DatabasePort,usage:TokenUsageMeterPort,wiring:AiQuotaRuntimeWiring|null)=>new PgRuntimeModelUsageRepository(db,usage,new PgAiAdmissionRepository(db),wiring?.runtime),inject:[DATABASE_PORT,TOKEN_USAGE_METER,AI_QUOTA_RUNTIME_WIRING]},
     {
       provide: TOKEN_USAGE_METER,
       useFactory: (db: DatabasePort) => new PgTokenUsageRepository(db),
@@ -2496,7 +2527,7 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
         if (!owner || !socketPath || !provider.isConfigured() || !provider.modelRef) return null;
         return new DefaultStandardAudioService(owner, new PgNativeRunInputs(db, objects, {repo, ids, chat}),
           bound => ({...createNativeDraftSession({socketPath, ...bound}), execute: createNativeDocumentSession({socketPath, ...bound}).execute}),
-          authority, repo, objects, provider);
+          authority, repo, objects, provider,process.env.KERNEL_ASR_REQUEST_ACCOUNTING_ENABLED==="1");
       },
       inject: [DATABASE_PORT, NATIVE_SESSION_OWNER, TOOL_EXECUTION_AUTHORITY, IDENTITY_REPOSITORY,
         DECISION_ID_FACTORY, CHAT_REPOSITORY, OBJECT_STORE, ASR_PROVIDER],
@@ -2505,11 +2536,12 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
       provide: STANDARD_IMAGE_SERVICE,
       useFactory: (db: DatabasePort, owner: NativeSessionOwner | null, authority: ToolExecutionAuthority,
         repo: IdentityRepository, ids: DecisionIdFactory, chat: ChatRepository, objects: ObjectStore) => {
-        const socketPath=process.env.NATIVE_SESSION_SOCKET, selected=selectImageProvider();
+        const requestAccounting=process.env.KERNEL_IMAGE_REQUEST_ACCOUNTING_ENABLED==="1";
+        const socketPath=process.env.NATIVE_SESSION_SOCKET, selected=selectImageProvider(process.env,requestAccounting?new PgImageRequestAccounting(db):undefined);
         if (!owner || !socketPath || !selected) return null;
         return new DefaultStandardImageService(owner,new PgNativeRunInputs(db,objects,{repo,ids,chat}),
           bound => ({...createNativeDraftSession({socketPath,...bound}),execute:createNativeDocumentSession({socketPath,...bound}).execute}),
-          authority,repo,objects,selected.provider,createGeneratedImageDownloader());
+          authority,repo,objects,selected.provider,createGeneratedImageDownloader(),requestAccounting);
       },
       inject: [DATABASE_PORT,NATIVE_SESSION_OWNER,TOOL_EXECUTION_AUTHORITY,IDENTITY_REPOSITORY,
         DECISION_ID_FACTORY,CHAT_REPOSITORY,OBJECT_STORE],
@@ -2944,6 +2976,12 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
       inject: [DATABASE_PORT],
     },
     // member-role-management delta：平台级名册只读端口；改角色复用上面的 ORG_MEMBER_REPOSITORY。
+    { provide: AI_USAGE_REPOSITORY, useFactory:(db:DatabasePort)=>new PgAiUsageRepository(db), inject:[DATABASE_PORT] },
+    {
+      provide: PLATFORM_ORGANIZATION_REPOSITORY,
+      useFactory: (db: DatabasePort) => { const cfg = platformOrgCatalogConfig(); return new PgPlatformOrganizationRepository(db, cfg ? new PgDatabase(cfg) : null); },
+      inject: [DATABASE_PORT],
+    },
     {
       provide: PLATFORM_MEMBER_REPOSITORY,
       useFactory: (db: DatabasePort) => new PgPlatformMemberRepository(db),
@@ -3286,12 +3324,12 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
       inject: [DATABASE_PORT],
     },
     { provide: REALTIME_ASR_TICKET_STORE, useFactory: (db: DatabasePort) => new PgRealtimeAsrTicketStore(db), inject: [DATABASE_PORT] },
-    { provide: ASR_USAGE_METER, useFactory: (db: DatabasePort) => new PgAsrUsageMeter(db), inject: [DATABASE_PORT] },
+    { provide: ASR_USAGE_METER, useFactory: (db: DatabasePort) => configuredAsrUsageMeter(db,process.env), inject: [DATABASE_PORT] },
     // #466: the realtime ASR upstream. ONE adapter, selected explicitly by
     // `KERNEL_ASR_PROVIDER`; unconfigured means `ASR_NOT_CONFIGURED` reaches the browser,
     // never a silent fallback to some other provider. See the adapter's header for why
     // that is a structural property here and not a promise.
-    { provide: ASR_PROVIDER, useFactory: () => new ConfiguredRealtimeAsrProvider() },
+    { provide: ASR_PROVIDER, useFactory: (db:DatabasePort,policies:RetentionPolicyRepository,ids:RecordingIdGenerator) => new ConfiguredRealtimeAsrProvider(undefined,process.env.KERNEL_ASR_REQUEST_ACCOUNTING_ENABLED==="1"?new PgAsrRequestAccounting(db,scoped=>({identities:new PgIdentityRepository(scoped),recording:new PgRecordingUnitOfWork(scoped,policies,ids)})):undefined,process.env.KERNEL_AI_PRODUCT_QUOTA_ENABLED==="1"),inject:[DATABASE_PORT,RETENTION_POLICY_REPOSITORY,RECORDING_ID_GENERATOR] },
     // #459: declarative-contract Skills. The provider hands out a *factory* -- the scoped
     // repository cannot be constructed without a tenant, so there is no "untenanted skill
     // repository" object for a forgetful caller to reach for.
@@ -3645,4 +3683,9 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
     { provide: APP_FILTER, useClass: AllExceptionsFilter },
   ],
 })
-export class KernelModule {}
+export class KernelModule {
+  /** Optional trusted deployment composition; the environment enforcement flag remains off by default. */
+  static withAiQuotaRuntime(configuration:AiQuotaRuntimeConfiguration):DynamicModule{
+    return {module:KernelModule,providers:[{provide:AI_QUOTA_RUNTIME_CONFIGURATION,useValue:configuration}]};
+  }
+}

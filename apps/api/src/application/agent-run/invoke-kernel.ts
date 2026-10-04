@@ -37,6 +37,7 @@ export async function invokeKernel(
   onProgress: (event: ModelCallProgressEvent) => Promise<void>,
   onDelta: (delta: string, metadata?: ModelDeltaMetadata) => Promise<void>,
   native?: { owner: NativeSessionOwner; logReleaseFailure: () => void },
+  onInvocationStart?: () => void,
 ): Promise<ModelCallCompletion> {
   await assertCurrentRunLease();
   const bound = native ? await bindNativeInvocation(native.owner, input) : undefined;
@@ -53,15 +54,18 @@ export async function invokeKernel(
   const wantsProgress = completeWithProgress !== undefined
     && (model.supportsProgress ? model.supportsProgress(input.modelProvider) : true);
   if (wantsProgress && completeWithProgress) {
+    onInvocationStart?.();
     const completion = await completeWithProgress(input, onProgress, onDelta);
     retainSession = Boolean(completion.interrupted || completion.paused);
     return completion;
   }
   if (model.completeStream) {
+    onInvocationStart?.();
     const completion = await model.completeStream(input, onDelta);
     retainSession = Boolean(completion.interrupted || completion.paused);
     return completion;
   }
+  onInvocationStart?.();
   const completion = await model.complete(input);
   retainSession = Boolean(completion.interrupted || completion.paused);
   return completion;

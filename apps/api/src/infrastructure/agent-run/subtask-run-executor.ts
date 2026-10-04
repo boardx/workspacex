@@ -1,3 +1,4 @@
+import {runtimeUsageObserver,type RuntimeModelUsagePort} from "../../application/agent-run/runtime-model-usage";
 import { structuredErrorLog } from "../../application/ports/logger.port";
 import { randomUUID } from "node:crypto";
 import type {SubtaskContextResolver} from '../../application/agent-run/standard-subtask-tools';
@@ -27,7 +28,8 @@ export class SubtaskRunExecutor {
     private readonly contexts?:SubtaskContextResolver,
     private readonly outputs?:Pick<NativeOutputStaging,'listFiles'>,
     private readonly pins?:Pick<AgentRunStore,'readPinnedSkills'>,
-    private readonly native?:NativeSessionOwner) {}
+    private readonly native?:NativeSessionOwner,
+    private readonly usage?:RuntimeModelUsagePort) {}
 
   private async stopRemote(orgId:OrgId,state:SubtaskExecutionState):Promise<void>{
     if(!state.remoteRunId||state.remoteThreadId!==deriveRemoteThreadId(state.run.id)||!this.engine){
@@ -130,6 +132,9 @@ export class SubtaskRunExecutor {
         modelId:run.snapshot.modelId,system:parent.instructions,
         user:executionContext?`${run.description}\n\nContext:\n${executionContext}`:run.description,
         history:[],skills,orgId:String(orgId),signal:local.signal,
+        runId:run.id,executionAttemptId:this.attemptOrThrow(before),executionLeaseEpoch:before.leaseEpoch,
+        ...(this.usage&&this.model.supportsRequestAccounting?.(run.snapshot.modelProvider)
+          ?{onProviderRequest:runtimeUsageObserver(this.usage,orgId,run.id,this.attemptOrThrow(before),before.leaseEpoch,run.snapshot.modelId)}:{}),
         ...(run.snapshot.modelProvider==='deep-agent'?{threadId:run.id,onRemoteRunStarted}:{}),
       };
       // A file-producing subtask must reach the SAME native staging endpoint the main run

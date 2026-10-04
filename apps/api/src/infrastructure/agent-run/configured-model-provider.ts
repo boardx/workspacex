@@ -52,7 +52,7 @@ import type {
   ModelCallImage, ModelCallInput, ModelCallPort, ModelCallCompletion, ModelDeltaMetadata,
 } from "../../application/agent-run/ports";
 import { ModelCallError } from "../../application/agent-run/ports";
-import type { ReportedUsage } from "../../application/agent-run/ports";
+import type { ProviderRequestEvent, ReportedUsage } from "../../application/agent-run/ports";
 import { readVisionModelIds, toImagePart, type WireContentPart } from "./model-vision-wire";
 import { isLoopbackBaseUrl } from "./loopback-provider-aliases";
 
@@ -286,6 +286,8 @@ interface WireUsage {
   total_tokens?: unknown;
   prompt_tokens?: unknown;
   completion_tokens?: unknown;
+  prompt_tokens_details?: { cached_tokens?: unknown };
+  completion_tokens_details?: { reasoning_tokens?: unknown };
 }
 
 interface CompletionResponse {
@@ -301,16 +303,22 @@ interface CompletionChunk {
 
 /** 非负有限数才算「报了」；其它一律 `undefined`（没报），不在这一层造 0。 */
 function readCount(value: unknown): number | undefined {
-  return typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : undefined;
+  return typeof value === "number" && Number.isSafeInteger(value) && value >= 0 ? value : undefined;
 }
 
 /** 线上 `usage` → 端口的 `ReportedUsage`。三维各自可缺。 */
+function validUsageDetails(usage:ReportedUsage):ReportedUsage {
+  return {...usage,
+    cacheInput:usage.cacheInput!==undefined&&usage.prompt!==undefined&&usage.cacheInput>usage.prompt?undefined:usage.cacheInput,
+    reasoningOutput:usage.reasoningOutput!==undefined&&usage.completion!==undefined&&usage.reasoningOutput>usage.completion?undefined:usage.reasoningOutput};
+}
 function readUsage(usage: WireUsage | undefined): ReportedUsage {
-  return {
-    total: readCount(usage?.total_tokens),
-    prompt: readCount(usage?.prompt_tokens),
-    completion: readCount(usage?.completion_tokens),
-  };
+  const prompt=readCount(usage?.prompt_tokens),completion=readCount(usage?.completion_tokens);
+  const cacheInput=readCount(usage?.prompt_tokens_details?.cached_tokens),reasoningOutput=readCount(usage?.completion_tokens_details?.reasoning_tokens);
+  // A malformed detail must not erase otherwise valid billed totals.
+  return {total:readCount(usage?.total_tokens),prompt,completion,
+    cacheInput:cacheInput!==undefined && prompt!==undefined && cacheInput>prompt?undefined:cacheInput,
+    reasoningOutput:reasoningOutput!==undefined && completion!==undefined && reasoningOutput>completion?undefined:reasoningOutput};
 }
 
 /**
@@ -402,7 +410,7 @@ export class ConfiguredModelProvider implements ModelCallPort {
     this.config = config;
     this.loopbackAliases = isLoopbackBaseUrl(config.baseUrl) ? new Set(loopbackAliases) : new Set();
     this.completeStream = config.streamEnabled
-      ? (input, onDelta) => this.streamImpl(input, onDelta)
+      ? (input, onDelta) => this.accountRequest(input, bound => this.streamImpl(bound, onDelta))
       : undefined;
   }
 
@@ -486,14 +494,52 @@ export class ConfiguredModelProvider implements ModelCallPort {
    * 收到 `enable_thinking: false` 会被拒绝、不是被忽略。两维都不满足 ⇒ 完全不带这个
    * 字段，请求体与本次修复之前逐字节相同。
    */
+  supportsRequestAccounting(modelProvider: string): boolean { return this.servesProvider(modelProvider); }
+  supportsDispatchAdmission(modelProvider: string): boolean { return this.servesProvider(modelProvider); }
+
+  /** A transport start is emitted only after local preparation and before fetch. */
+  private async accountRequest(
+    input: ModelCallInput, call: (bound: ModelCallInput) => Promise<ModelCallCompletion>,
+  ): Promise<ModelCallCompletion> {
+    let started: ProviderRequestEvent | undefined;
+    let completion: ModelCallCompletion | undefined;
+    let failure: unknown;
+    let failed = false;
+    try {
+      completion = await call({ ...input, onProviderRequest: async event => {
+        await input.onProviderRequest?.(event);
+        started = event;
+      } });
+    } catch (error) { failed = true; failure = error; }
+    if (started) {
+      const usage = failed ? failure instanceof ModelCallError ? failure.usage : undefined
+        : { total: completion?.tokens, prompt: completion?.promptTokens, completion: completion?.completionTokens, cacheInput: completion?.cacheInputTokens, reasoningOutput: completion?.reasoningOutputTokens };
+      // Accounting repair must never turn a successful response into a model retry.
+      await input.onProviderRequest?.({ ...started, phase: "terminal", endedAt: new Date().toISOString(),
+        outcome: failed ? "failed" : "succeeded", usage }).catch(() => {});
+    }
+    if (failed) throw failure;
+    return completion!;
+  }
+
+  async complete(input: ModelCallInput): Promise<ModelCallCompletion> {
+    return this.accountRequest(input, bound => this.completeImpl(bound));
+  }
+
   private async postCompletions(input: ModelCallInput, stream: boolean): Promise<UndiciResponse> {
     const { baseUrl, apiKey, timeoutMs } = this.config;
+    if (input.outputTokenLimit !== undefined && (!Number.isSafeInteger(input.outputTokenLimit) || input.outputTokenLimit <= 0 || input.outputTokenLimit > 2147483647)) {
+      throw new Error("INVALID_AI_OUTPUT_LIMIT");
+    }
+    const outputTokenLimit = input.outputTokenLimit === undefined ? this.config.maxOutputTokens
+      : this.config.maxOutputTokens === undefined ? input.outputTokenLimit : Math.min(input.outputTokenLimit, this.config.maxOutputTokens);
+    let preparing = true;
     // AbortSignal 保留：它管的是整通调用的 wall-clock 上限，与 headersTimeout /
     // bodyTimeout（「多久没有新字节」）互补，不是同一件事，删掉任何一个都会留下缺口。
     const abort = new AbortController();
     const timer = setTimeout(() => abort.abort(), timeoutMs + ABORT_GRACE_MS);
     try {
-      return await undiciFetch(`${baseUrl}/chat/completions`, {
+      const options = {
         method: "POST",
         signal: input.signal ? AbortSignal.any([abort.signal, input.signal]) : abort.signal,
         dispatcher: this.dispatcher(),
@@ -510,7 +556,7 @@ export class ConfiguredModelProvider implements ModelCallPort {
             && this.config.thinkingDisableModelIds.has(input.modelId)
             ? { enable_thinking: false }
             : {}),
-          ...(this.config.maxOutputTokens === undefined ? {} : { max_tokens: this.config.maxOutputTokens }),
+          ...(outputTokenLimit === undefined ? {} : { max_tokens: outputTokenLimit }),
           ...(input.thinkingMode === "off" && this.config.bailianExtensionsEnabled && this.config.thinkingDisableModelIds.has(input.modelId) && BAILIAN_REASONING_NONE_MODELS.has(input.modelId)
             ? { reasoning_effort: "none" }
             : this.config.reasoningEffort === undefined ? {} : { reasoning_effort: this.config.reasoningEffort }),
@@ -518,8 +564,15 @@ export class ConfiguredModelProvider implements ModelCallPort {
             ? { response_format: { type: "json_schema", json_schema: { name: input.responseSchema.name, schema: input.responseSchema.schema } } }
             : {}),
         }),
-      });
+      };
+      const requestId = randomUUID();
+      await input.beforeProviderDispatch?.({ requestId, modelProvider: input.modelProvider, modelId: input.modelId,
+        serializedBody: options.body, outputTokenLimit });
+      await input.onProviderRequest?.({ phase: "started", requestId, startedAt: new Date().toISOString() });
+      preparing = false;
+      return await undiciFetch(`${baseUrl}/chat/completions`, options);
     } catch (err) {
+      if (preparing) throw err; // Safety/quota/ledger rejection cannot become a retryable transport failure.
       // 传输错误对象**只**被读一个枚举字段（见 `classifyTransportError`）。`message`
       // 一个字都不读：它常含主机、端口，有时是带凭据的 URL。枚举 token 进的是
       // `detail`，而 `detail` 只进服务端日志，从不进响应（见本文件头注）。
@@ -549,10 +602,10 @@ export class ConfiguredModelProvider implements ModelCallPort {
     return modelProvider === this.config.provider || this.loopbackAliases.has(modelProvider);
   }
 
-  async complete(input: ModelCallInput): Promise<
+  private async completeImpl(input: ModelCallInput): Promise<
     // 迭代 12：`truncated` 进签名——这里之前是一个比 `ModelCallCompletion` 窄的内联字面量，
     // 端口上加了字段而这里不加，实现填了也传不出去（TS 会把它当多余属性）。
-    { readonly text: string; readonly finalMessageId?: string; readonly tokens?: number; readonly promptTokens?: number; readonly completionTokens?: number; readonly truncated?: boolean }
+    { readonly text: string; readonly finalMessageId?: string; readonly tokens?: number; readonly promptTokens?: number; readonly completionTokens?: number; readonly cacheInputTokens?: number; readonly reasoningOutputTokens?: number; readonly truncated?: boolean }
   > {
     const { provider, baseUrl, apiKey } = this.config;
     if (provider === "" || baseUrl === "" || apiKey === "") {
@@ -592,6 +645,7 @@ export class ConfiguredModelProvider implements ModelCallPort {
         "MODEL_CALL_FAILED",
         `model provider responded with HTTP ${response.status}`,
         failedUsage,
+        response.status === 429 ? "rate-limited" : response.status === 503 ? "temporarily-unavailable" : undefined,
       );
     }
 
@@ -604,7 +658,7 @@ export class ConfiguredModelProvider implements ModelCallPort {
     const message = parsed.choices?.[0]?.message;
     const content = message?.content;
     if (typeof content !== "string" || content.trim() === "") {
-      throw new ModelCallError("MODEL_CALL_FAILED", "model provider returned no content");
+      throw new ModelCallError("MODEL_CALL_FAILED", "model provider returned no content", readUsage(parsed.usage));
     }
     // Read straight off the wire response, never computed. Absent or non-numeric ⇒
     // `undefined` (the port's "not reported" state) -- not `0` invented at this layer.
@@ -612,7 +666,7 @@ export class ConfiguredModelProvider implements ModelCallPort {
     // 迭代 12：`finish_reason === "length"` 是模型**自己说**没说完。此前上层只能靠
     // 「JSON 解析失败」反推截断——那把"输出不合语法"和"输出被切断"混成同一件事。
     const truncated = parsed.choices?.[0]?.finish_reason === "length";
-    return { text: content, tokens: usage.total, promptTokens: usage.prompt, completionTokens: usage.completion, ...(truncated ? { truncated: true } : {}) };
+    return { text: content, tokens: usage.total, promptTokens: usage.prompt, completionTokens: usage.completion, cacheInputTokens: usage.cacheInput, reasoningOutputTokens: usage.reasoningOutput, ...(truncated ? { truncated: true } : {}) };
   }
 
   /**
@@ -647,9 +701,14 @@ export class ConfiguredModelProvider implements ModelCallPort {
     const response = await this.postCompletions(input, true);
 
     if (!response.ok) {
+      let failedUsage: ReportedUsage | undefined;
+      try { failedUsage = readUsage(((await response.json()) as CompletionResponse).usage); }
+      catch { failedUsage = undefined; }
       throw new ModelCallError(
         "MODEL_CALL_FAILED",
         `model provider responded with HTTP ${response.status}`,
+        failedUsage,
+        response.status === 429 ? "rate-limited" : response.status === 503 ? "temporarily-unavailable" : undefined,
       );
     }
     if (response.body === null) {
@@ -709,31 +768,37 @@ export class ConfiguredModelProvider implements ModelCallPort {
               // here one bad frame among dozens is not that same signal, so it is skipped.
               continue;
             }
+            // 流式的 usage 通常只在最后一帧出现；每帧覆盖式合并，缺的维度保留上一次的值，
+            // 不用后来的 undefined 把已经报过的数抹掉。
+            const framed = readUsage(chunk.usage);
+            usage = validUsageDetails({
+              total: framed.total ?? usage.total,
+              prompt: framed.prompt ?? usage.prompt,
+              completion: framed.completion ?? usage.completion,
+              cacheInput: framed.cacheInput ?? usage.cacheInput, reasoningOutput: framed.reasoningOutput ?? usage.reasoningOutput,
+            });
             const delta = chunk.choices?.[0]?.delta?.content;
             if (typeof delta === "string" && delta !== "") {
               text += delta;
               await onDelta(delta, { messageId: finalMessageId });
             }
-            // 流式的 usage 通常只在最后一帧出现；每帧覆盖式合并，缺的维度保留上一次的值，
-            // 不用后来的 undefined 把已经报过的数抹掉。
-            const framed = readUsage(chunk.usage);
-            usage = {
-              total: framed.total ?? usage.total,
-              prompt: framed.prompt ?? usage.prompt,
-              completion: framed.completion ?? usage.completion,
-            };
           }
         }
       }
     } catch (e) {
-      if (e instanceof ModelCallError) throw e;
+      if (e instanceof ModelCallError) throw new ModelCallError(e.code, e.detail, validUsageDetails({
+        total: e.usage?.total ?? usage.total, prompt: e.usage?.prompt ?? usage.prompt,
+        completion: e.usage?.completion ?? usage.completion,
+        cacheInput: e.usage?.cacheInput ?? usage.cacheInput, reasoningOutput: e.usage?.reasoningOutput ?? usage.reasoningOutput,
+      }));
       // 同 `postCompletions`：只取枚举 token，`message` 不读。
       throw new ModelCallError(
         "MODEL_CALL_FAILED",
         `model provider stream transport failure (${classifyTransportError(e)})`,
+        usage,
       );
     }
 
-    return { text, finalMessageId, tokens: usage.total, promptTokens: usage.prompt, completionTokens: usage.completion };
+    return { text, finalMessageId, tokens: usage.total, promptTokens: usage.prompt, completionTokens: usage.completion, cacheInputTokens: usage.cacheInput, reasoningOutputTokens: usage.reasoningOutput };
   }
 }

@@ -52,7 +52,7 @@ export interface LocalModelDeps {
  * The order is not cosmetic: answering LOCAL_ORG_ONLY to a non-member would confirm the kind
  * of an organization they have no relationship with.
  */
-async function requireLocalMembership(
+export async function requireLocalMembership(
   repo: IdentityRepository,
   userId: string,
   orgId: OrgId,
@@ -136,7 +136,7 @@ export async function invokeLocalModel(
     if (!probe.available) {
       throw new LocalRuntimeUnavailableError(probe.detail, LOCAL_RUNTIME_STARTUP_HINT);
     }
-    const output = await deps.runtime.complete(input.prompt);
+    const output = await deps.runtime.complete(input.prompt,{orgId:input.orgId,userId:input.userId,capabilityId:input.capabilityId});
     return { capabilityId: input.capabilityId, endpoint: deps.runtime.endpoint, output };
   });
 }

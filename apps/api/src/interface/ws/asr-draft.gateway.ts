@@ -1,3 +1,4 @@
+import {toOrgId} from "../../domain/org-id";
 /**
  * issue #726 —— `WS /chat/asr-draft`。composer 麦克风按钮的语音转录，**不落库**。
  *
@@ -79,14 +80,14 @@ export function attachAsrDraftGateway(server: Server, deps: AsrDraftGatewayDeps)
       }
       if (principal === null) return refuseHandshake(socket, 401, "Unauthorized");
 
-      wss.handleUpgrade(request, socket, head, (ws) => serve(ws, deps));
+      wss.handleUpgrade(request, socket, head, (ws) => serve(ws, deps, {userId:principal.userId,orgId:toOrgId(principal.orgId)}));
     })().catch(() => refuseHandshake(socket, 500, "Internal Server Error"));
   });
 
   return wss;
 }
 
-function serve(ws: WebSocket, deps: AsrDraftGatewayDeps): void {
+function serve(ws: WebSocket, deps: AsrDraftGatewayDeps,principal:{userId:string;orgId:ReturnType<typeof toOrgId>}): void {
   const send = (frame: ServerFrame) => {
     if (ws.readyState !== ws.OPEN) return;
     ws.send(JSON.stringify(C.streamOperations.streamAsrDraft.server.parse(frame)));
@@ -130,7 +131,7 @@ function serve(ws: WebSocket, deps: AsrDraftGatewayDeps): void {
         onFinal: (t) => { if (t.text.trim() !== "") send({ type: "asr.final", text: t.text }); },
         onError: (reason, detail) => fail(asErrorReason(reason), detail),
         onClosed: () => { /* 收尾由 asr.finish 驱动 */ },
-      }, C.streamOperations.streamAsrDraft.audio).then((session) => {
+      }, C.streamOperations.streamAsrDraft.audio,{accountingContext:{kind:'draft',...principal}}).then((session) => {
         for (const buffered of pendingAudio ?? []) session.pushAudio(buffered);
         pendingAudio = null;
         pendingBytes = 0;

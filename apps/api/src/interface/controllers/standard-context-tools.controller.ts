@@ -27,7 +27,7 @@ export class StandardContextToolsController {
   if(!userId||!locator)throw new ForbiddenException('standard_context_denied');
   const visible=await resolveVisibility({repo:this.identity,ids:this.decisions,chat:this.chat},{orgId,userId,...locator});
   if(visible.kind!=='allow')throw new ForbiddenException('standard_context_denied');
-  const actor={orgId,userId,...locator};
+  const actor={orgId,userId,...locator,...(process.env.KERNEL_RETRIEVAL_REQUEST_ACCOUNTING_ENABLED==="1"?{modelRequestAccounting:{orgId:String(orgId),runId,attemptId:input.attemptId,leaseEpoch:input.leaseEpoch}}:{})};
   try{switch(input.toolName){
    case 'wx_project_list':return await this.service.projects(actor,input.toolArgs);
    case 'wx_project_read':return await this.service.project(actor,input.toolArgs);

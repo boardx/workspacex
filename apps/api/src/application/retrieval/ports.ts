@@ -117,10 +117,12 @@ export interface ClaimChannelResult {
  * the right shape for what V12 measures: the recall comparison holds the embedding constant
  * across both arms, so the model cancels out and what is measured is the permission filter.
  */
+export type {RetrievalAccountingContext,EmbeddingAccountingContext} from "@repo/contracts/retrieval-accounting";
+import type {RetrievalAccountingContext,EmbeddingAccountingContext} from "@repo/contracts/retrieval-accounting";
 export interface EmbeddingPort {
   readonly model: string;
   readonly modelVersion: string;
-  embed(text: string): Promise<readonly number[]>;
+  embed(text: string, accounting?:EmbeddingAccountingContext): Promise<readonly number[]>;
 }
 
 /**
@@ -131,7 +133,7 @@ export interface EmbeddingPort {
  * reranker is a discard decision with no `omissions[]` entry behind it (I-2).
  */
 export interface RerankPort {
-  rerank(query: string, candidates: readonly { id: string; content: string }[]): Promise<readonly string[]>;
+  rerank(query: string, candidates: readonly { id: string; content: string }[], accounting?:RetrievalAccountingContext): Promise<readonly string[]>;
 }
 
 export interface SegmentRetriever {

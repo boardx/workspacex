@@ -16,6 +16,7 @@
  */
 import { BailianImageProvider, readBailianImageProviderConfig } from "./bailian-image-provider";
 import { OpenAiImageProvider, readOpenAiImageProviderConfig } from "./openai-image-provider";
+import type {ImageRequestAccounting} from "../../application/agent-run/image-request-accounting";
 import type { ImageGenerator } from "../../application/agent-run/standard-image-tools";
 import { DEPLOYMENT_EDITION_ENV, capabilityAvailability, parseDeploymentEdition } from "@repo/contracts/deployment";
 
@@ -26,7 +27,7 @@ export interface SelectedImageProvider {
   readonly provider: ImageGenerator;
 }
 
-export function selectImageProvider(env: NodeJS.ProcessEnv = process.env): SelectedImageProvider | null {
+export function selectImageProvider(env: NodeJS.ProcessEnv = process.env,accounting?:ImageRequestAccounting): SelectedImageProvider | null {
   /*
    * 2026-09-22 —— 本地版**一家都不选**，而且这条判断必须在读 key 之前。
    *
@@ -58,8 +59,9 @@ export function selectImageProvider(env: NodeJS.ProcessEnv = process.env): Selec
   const openaiReady = openai.apiKey.trim() !== "";
   const requested = (env.KERNEL_IMAGE_PROVIDER ?? "").trim().toLowerCase();
 
-  const makeOpenAi = (): SelectedImageProvider => ({ choice: "openai", provider: new OpenAiImageProvider(openai) });
+  const makeOpenAi = (): SelectedImageProvider => ({ choice: "openai", provider: new OpenAiImageProvider(openai,accounting,env.KERNEL_AI_PRODUCT_QUOTA_ENABLED==="1") });
   const makeBailian = (): SelectedImageProvider => {
+    if(accounting||env.KERNEL_AI_PRODUCT_QUOTA_ENABLED==="1")throw new Error("BAILIAN_IMAGE_ACCOUNTING_NOT_IMPLEMENTED");
     const p = new BailianImageProvider(bailian);
     // `BailianImageProvider` 同时是 `ModelCallPort`（图片生成 agent 走那条），这里只
     // 取它的 `generateImage`，`modelRef` 用配置里的模型名——与改动前 `kernel.module.ts`

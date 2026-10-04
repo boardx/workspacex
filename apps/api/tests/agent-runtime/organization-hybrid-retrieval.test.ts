@@ -17,6 +17,7 @@ import {toOrgId} from '../../src/domain/org-id';
 const org=toOrgId('hybrid-'+randomUUID()),foreign=toOrgId('foreign-'+randomUUID()),project='p-'+org,model='model-'+org;
 const actor={orgId:org,userId:'alice',threadId:'trusted',projectId:null};
 let db:PgDatabase,server:Server,source:OrganizationContextSource;
+let accountingReferences:unknown[]=[];
 let seen:string[]=[];let mode:'normal'|'foreign-id'|'failure'|'revoke'='normal';
 const query='workshop evidence';
 beforeAll(async()=>{
@@ -32,6 +33,7 @@ beforeAll(async()=>{
  await indexSegment({orgId:foreign,segmentId:'foreign-'+org,artifactId:'a-foreign-'+org,content:query+' SECRET',layer:'org',sourceType:'file'});
  await addClaim({orgId:org,id:'claim-'+org,statement:query+' hidden statement',status:'contested',supporting:['public-'+org],contradicting:['member-'+org]});
  server=createServer(async(req,res)=>{let body='';for await(const chunk of req)body+=chunk;
+  accountingReferences.push(JSON.parse(body).accounting);
   if(req.url==='/internal/retrieval/embeddings'){res.setHeader('content-type','application/json');res.end(JSON.stringify({model,modelVersion:'1',vectors:[[1,0]]}));return;}
   const data=JSON.parse(body) as {candidates:{id:string;content:string}[]};
   seen=data.candidates.map(c=>c.content);expect(req.headers['x-deep-agent-internal-key']).toBe('trusted-secret');
@@ -65,7 +67,7 @@ it('unresolved graph plan explicitly fails before any external call and default 
 });
 it('production createApp bridge uses configured hybrid providers and claimed human identity',async()=>{
  const address=server.address();if(!address||typeof address==='string')throw new Error('address');
- const env={KERNEL_AGENT_RUN_AUTOSTART:'0',KERNEL_QUIET:'1',DEEP_AGENT_SERVICE_INTERNAL_KEY:'trusted-secret',KERNEL_DEEP_AGENT_BASE_URL:`http://127.0.0.1:${address.port}`,KERNEL_EMBEDDING_MODEL_ID:model,KERNEL_EMBEDDING_MODEL_VERSION:'1',KERNEL_RERANK_MODEL_ID:'rank',KERNEL_RERANK_MODEL_VERSION:'1'};
+ const env={KERNEL_RETRIEVAL_REQUEST_ACCOUNTING_ENABLED:'1',KERNEL_AGENT_RUN_AUTOSTART:'0',KERNEL_QUIET:'1',DEEP_AGENT_SERVICE_INTERNAL_KEY:'trusted-secret',KERNEL_DEEP_AGENT_BASE_URL:`http://127.0.0.1:${address.port}`,KERNEL_EMBEDDING_MODEL_ID:model,KERNEL_EMBEDDING_MODEL_VERSION:'1',KERNEL_RERANK_MODEL_ID:'rank',KERNEL_RERANK_MODEL_VERSION:'1'};
  const previous=Object.fromEntries(Object.keys(env).map(k=>[k,process.env[k]]));Object.assign(process.env,env);
  const thread=randomUUID(),message=randomUUID(),run=randomUUID();
  await addChatThread({orgId:org,id:thread,projectId:null,visibilityScope:'private',createdBy:'bob'});
@@ -81,8 +83,14 @@ it('production createApp bridge uses configured hybrid providers and claimed hum
   await app.listen(0,'127.0.0.1');
   const awaitBase=await app.getUrl();
   const invoke=(extra:Record<string,unknown>={})=>fetch(`${awaitBase}/internal/agent-runs/${run}/standard-context/invoke`,{method:'POST',headers:{'content-type':'application/json','x-deep-agent-internal-key':'trusted-secret'},body:JSON.stringify({orgId:org,attemptId:run+':0',leaseEpoch:1,toolCallId:randomUUID(),toolName:'wx_knowledge_search',toolArgs:{query,scope:'organization-hybrid',queryTask:'research'},...extra})});
+  accountingReferences=[];
   const response=await invoke();expect(response.status).toBe(200);const output=KnowledgeSearchOutput.parse(await response.json());
   expect(output.scopeMode).toBe('organization-index-hybrid');expect(output.items.map(x=>x.sourceId)).toEqual(['segment:public-'+org]);expect(seen).toEqual([query+' public']);
+  expect(accountingReferences).toHaveLength(2);
+  for(const reference of accountingReferences)expect(reference).toEqual({orgId:org,runId:run,attemptId:run+':0',leaseEpoch:1});
+  const beforeRejected=accountingReferences.length;
+  expect((await invoke({toolArgs:{query,scope:'organization-hybrid',accounting:{userId:'intruder'}}})).status).toBe(400);
+  expect(accountingReferences.length).toBe(beforeRejected);
   expect((await invoke({orgId:foreign})).status).toBe(403);expect((await invoke({leaseEpoch:2})).status).toBe(403);
  }finally{await app.close();for(const[k,v]of Object.entries(previous)){if(v===undefined)delete process.env[k];else process.env[k]=v;}}
 });

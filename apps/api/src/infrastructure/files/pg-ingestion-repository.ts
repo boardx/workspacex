@@ -31,6 +31,11 @@ import type {
 export class PgIngestionRepository implements IngestionOutboxRepository, IngestionHistoryRepository {
   constructor(private readonly db: DatabasePort) {}
 
+  /** Existing worker metadata fence; lock remains held on a supplied scoped transaction. */
+  async lockAccountingClaim(orgId:OrgId,versionId:string,jobId:string,attempt:number):Promise<boolean>{
+    return this.db.withTenant(orgId,async s=>(await s.query("SELECT id FROM ingestion_outbox WHERE org_id=$1 AND artifact_version_id=$2 AND id::text=$3 AND attempts=$4 AND step='INDEXED' AND status='processing' AND locked_at>now()-($5||' milliseconds')::interval FOR SHARE",[orgId,versionId,jobId,attempt,INGESTION_LEASE_MS])).rows.length===1);
+  }
+
   async enqueue(job: NewIngestionOutboxJob): Promise<void> {
     await this.db.withTenant(job.orgId, (s) =>
       s.query(

@@ -18,7 +18,7 @@ export class OrganizationHybridRetrieval {
   if(planChannels(task,analyzeQuery(input.query)).some(p=>p.channel==='graph'))throw new Error('hybrid_graph_seeds_unavailable');
   const outcome=await retrieveCandidates({...this.identity,...this.runtime,
    discloseChannel:(rows,path)=>this.index.discloseChannel(actor,rows,input.projectId,path)},
-   {orgId:actor.orgId,userId:actor.userId,projectId:input.projectId??null,task,query:input.query,timeRange:null,limit:L.maxResults,evidencePolicyRaw:'primary-only'});
+   {modelRequestAccounting:actor.modelRequestAccounting,orgId:actor.orgId,userId:actor.userId,projectId:input.projectId??null,task,query:input.query,timeRange:null,limit:L.maxResults,evidencePolicyRaw:'primary-only'});
   const candidates=[];
   for(const ranked of outcome.ranked){
    const current=await this.index.read(actor,ranked.row.segmentId,input.projectId);

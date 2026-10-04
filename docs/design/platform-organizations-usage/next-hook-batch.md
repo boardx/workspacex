@@ -1,0 +1,46 @@
+# Next bounded source batch
+
+Current frozen remote head: `529488455c095a10483ed02848a6bab2e1fd8dd6`. Its backend/harness CI completed success; retrieval remote head4d4afffd4 also completed backend/harness success. Default-off composition and original-unit ledger exist; this does not imply all provider calls are admitted or measured.
+
+## Durable child acceptance, preserving current contract
+
+`PgSubtaskRunStore.claimQueued` creates an independently running child epoch/attempt; it does not require the original parent to hold a running lease. `PgParentRunControlReader` likewise validates child authority and the parent cancellation flag. Private model ownership must preserve this contract, not add a parent-running/active-lease business gate. Acceptance must prove: own running child and exact epoch/attempt accepted; wrong epoch/attempt, child cancellation, parent cancellation and foreign tenant rejected. A new real-PG ownership test is authored in the existing durable queue suite; not executed locally and not part of frozen529 CI. No production behavior changed.
+
+## Actual missing provider hooks, ordered work
+
+1. Retrieval query embedding and listwise rerank (now source-connected for trusted standard-tool runs, default-off; the following explains the original gap): `retrieve-candidates.ts` already has the authorized tenant/principal, but `EmbeddingPort.embed(text)` and `RerankPort.rerank(query,candidates)` discard that authority. Carry a trusted subject/operation context from the server use case, through the private service request, to each actual httpx vendor dispatch. Reuse the sole ledger/admission protocol rather than count the TS service envelope as vendor usage. Preserve permission filtering before rerank and reject unknown ownership when enforcement is on. Need explicit embedding input-only output bound/accounting support; do not pretend chat max_tokens covers embedding.
+2. KG query embedding: `PgKnowledgeRecall.vectorNeighbors` has tenant/user but similarly drops them at `.embed(query)`. Same context path and per-HTTP hook; ensure empty candidates/cancellation are not counted as paid when no provider dispatch happened. Existing implementation can dispatch before candidates finish, so an empty eventual set can still be a real paid call.
+3. Ingestion embedding: `IndexArtifactVersion.index` carries org/artifactVersion only. Derive the immutable initiating author/service authority from the actual producer metadata, not the worker identity or an arbitrary org member. Repeated segments and batches require distinct stable operation IDs and per-HTTP receipts; Python OpenAIEmbeddings splits into batches of10.
+4. Embedding cosine rerank: real calls occur for the query and each candidate (`embedding-cosine-rerank.ts`). One outer rerank receipt is insufficient. Preserve per-call identity through concurrent candidate promises and account actual vendor requests only.
+5. Embedding warm-up: `keep_provider_connection_warm` dispatches `embed_texts(['ping'])` after60seconds idle (checks every15seconds). This is infrastructure spend with no original human requester, not an ordinary-user default. Needs an explicit trusted service spend owner/policy before enforcement; do not assign a random member, silently ignore paid requests or turn off an existing production latency feature in this PR. Inventory/accounting must include it.
+6. Native image/ASR, external research and local-model trial follow their actual adapters and ownership ports. Keep original units, actual provider receipts and finite safety/spend authorization. The successful-ASR estimate bridge is not provider admission or full failure/cancel coverage.
+
+Configuration still required: ordinary per-user amount/window/timezone, finite spend currency/limits, verified exact physical model registration and bounds, rate/unit versions. These are not substitutes for missing hook or ownership source. The warm-up service spend owner is an additional exact business decision discovered from the actual call path.
+
+## Acceptance for each connected path
+
+Real vendor-transport loopback tests must prove reserve-before-dispatch, trusted tenant/user/service identity, exact reported/unknown usage, cancellation/failed/retry receipts, replay identity and no extra envelope receipt. Isolated CI PostgreSQL then proves concurrency, immutable holds/prices and RLS negatives. Deployed vendor/graph proof and new operator UI screenshots remain separate; lightweight mock tests cannot certify them.
+
+Coverage remains10 grouped families: sourceMissing10, configurationMissing9, acceptanceMissing10. Counts classify families, not exhaustive HTTP call sites. The parent-lease assumption has moved to acceptance of existing child semantics; no business gate was added to clear a table cell.
+
+
+Image source checkpoint: OpenAI Images has optional trusted standard-tool start/terminal actual-fetch accounting. Native quantity remains unknown; missing vendor Token fields remain unknown. Image success is preserved on terminal ledger failure and subsequent dispatches stop in that instance, with an explicit sanitized warning and unmatched durable start. Cross-process repair is still absent. Native admission and other image adapters remain missing; quota mode rejects before actual OpenAI dispatch. No production flag activation.
+
+
+Local trial source checkpoint: authenticated local membership/capability context now reaches actual Ollama POST start/terminal. Probe remains excluded, no synthetic Agent run, total/cost unknown unless originally reported. Migration190 nullable-start PG tests await next-head remote CI. Owner218 no-DB cases and independent local8 passed; local admission and cross-process reconciliation remain missing. Sole audited unhooked transport point is ASR WebSocket; additional retrieval producers/opaque research/Bailian are still listed outside that narrow seven-point denominator.
+
+
+ASR next verification boundary: default-off WS receipt subset implemented for four known server contexts, with same scoped owner/lifecycle transaction and no legacy double mirror. Await current-head remote PG exact-capture test; real recording lifecycle concurrency and deployed vendor units remain unverified. Next missing implementation is native unit admission/price/cap authority and durable cross-process terminal repair, not converting queued duration to Tokens. Other missing producers must have explicit original actor or authorized infrastructure spend owner; no synthesized run IDs or prices.
+
+
+Fixed next-source checklist after cosine propagation (no new scope):
+- Cosine query/candidate embedding: reuse existing RerankPort server-only reference through each EmbeddingPort invocation. Same existing SDK transport observes actual provider requests; service envelope is not a billed-call count. Missing/invalid/forged identity yields zero service HTTP; concurrent tenant test retains each reference. Default-off unchanged.
+- KG query embedding: user/thread authority exists, leased run/attempt/epoch not yet propagated to vector recall. Must derive from actual execution caller, not synthesize from thread/user.
+- Artifact ingestion embedding: index input has tenant/artifact version but no authorized spend actor/operation identity. Trace original ingestion responsibility and durable retry identity; do not forge an Agent run.
+- Warmup embedding: no authorized infrastructure spend owner/policy; keep missing until explicit trusted authority is available.
+- Whole-input facts: context-pack-ai-facts reads and validates exact input-hash/completeInput/owner/replay binding; runtime wiring/verified registry reject absent facts/registrations. Actual trusted whole-input binding producer plus verified serialized-body measurer/deployment registrations are still missing. A fixture resolver is not production facts; adding only configuration cannot close producer source gap.
+- Input-only admission: Python admission_payload requires a positive max_tokens/max_completion_tokens, so embeddings still fail before provider dispatch. Need explicit token input-only admission contract, measured serialized input, verified input bound, input-only price snapshot and reservation/settlement through existing coordinator. Do not invent output cap or enable production.
+- Native admission: current verified registry is Token-only; image/ASR refuse when quota enabled. Need trusted original-unit maximum/billing rules and price snapshots/reserve-settle support, including conservative unknown holds and actual vendor usage. Queued PCM estimate/unknown image count must never become an authoritative billed value. Local trial admission still pending.
+- Receipt repair: image/local/ASR instance-level stop on terminal outage is not durable cross-process repair. Continue existing durable accounting design without retrying model side effects.
+
+Source inventory remains7 audited actual dispatch points, receipt3full/4context-subset; whole-repository denominator unknown. Known retrieval producers now4 trusted-ref source routes/3 missing. Configuration activation and actual PG/provider/screenshots acceptance remain separate, draft unchanged.

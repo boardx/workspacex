@@ -36,6 +36,37 @@
           "additionalProperties": false
         },
         "maxItems": 100
+      },
+      "accounting": {
+        "type": "object",
+        "properties": {
+          "orgId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "runId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "attemptId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 300
+          },
+          "leaseEpoch": {
+            "type": "integer",
+            "exclusiveMinimum": 0
+          }
+        },
+        "required": [
+          "orgId",
+          "runId",
+          "attemptId",
+          "leaseEpoch"
+        ],
+        "additionalProperties": false
       }
     },
     "required": [

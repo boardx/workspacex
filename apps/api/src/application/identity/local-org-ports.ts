@@ -24,7 +24,7 @@ export interface LocalModelRuntime {
    * ⚠ It must NOT return a canned string on failure: a plausible-looking answer produced
    * without a model is worse than an error, because nothing downstream can tell.
    */
-  complete(prompt: string): Promise<string>;
+  complete(prompt: string,accountingContext?:import("./local-request-accounting").LocalModelAccountingContext): Promise<string>;
 }
 
 export const LOCAL_MODEL_RUNTIME = Symbol("LocalModelRuntime");

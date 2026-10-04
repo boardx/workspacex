@@ -1,3 +1,4 @@
+import type {RunAiAdmission} from "./priced-run-model";
 import { assertFrozenAgentSkillScope } from "./frozen-agent-skill-scope";
 import { requesterMemoryHistory } from "./requester-memory-context";
 import { turnKnowledgeContext, type TurnKnowledgeDeps } from "../knowledge-graph/recall-knowledge";
@@ -80,6 +81,7 @@ import { maybeRunSkillScript, retryScriptSource, type ProducedFile } from "./run
 import { createSkillActivityGapWriter, createSkillActivityWriter, createToolProgressWriter } from "./skill-activity-writer";
 import { toolStallNotice, toolStallNoticeMs, type DeploymentEditionValue } from "@repo/contracts/deployment";
 import { meter } from "./meter-run-usage";
+import { meterModelCompletion, requestUsageObserver, completionUsage } from "./meter-model-completion";
 import { invokeKernel } from "./invoke-kernel";
 import { RUN_SCRIPT_PROTOCOL_PROMPT } from "../skill/run-script-with-retries";
 import { buildDeepAgentSkillCatalogBlock, selectCatalogSkills, skillCatalogModeFromEnv, buildSkillCatalogHint } from "./skill-catalog";
@@ -287,11 +289,9 @@ export interface ExecuteAgentRunDeps extends TurnKnowledgeDeps {
   readonly artifactContinuations?: ArtifactContinuationReader;
   readonly runs: AgentRunStore;
   readonly model: ModelCallPort;
-  /**
-   * F159 计量。**可选**：只有真正产生计费事实的执行路径接它（`trial-run-agent` 一类
-   * 不接，试跑不算进任何人的月度额度）。写失败不 fail run，理由见 `meter()` 的注释。
-   */
+  /** Legacy metering; enforced admission owns only actual dispatch receipts. */
   readonly usage?: TokenUsageMeterPort;
+  readonly aiAdmission?:RunAiAdmission;
   readonly clock: AgentRunClock;
   /**
    * F155 L3 —— 文件式检索（design delta `context-engine-l3-file-based`，人类 2026-08-14 签核）。
@@ -750,7 +750,8 @@ async function executeClaimed(
       } else {
         const transcript = increment.toSummarize.map((m) => `${m.role}: ${m.content}`).join("\n");
         const priorSummary = persisted?.summary ?? "";
-        const completion = await deps.model.complete({
+        const completion = await meterModelCompletion(deps, orgId, run, "history-summary", (onProviderRequest,usageContext) => deps.model.complete({
+          ...usageContext,onProviderRequest,
           modelProvider: run.modelProvider,
           modelId: run.modelId,
           system: "你是对话历史摘要器。下面可能包含「已有摘要」（更早对话已经压缩过的要点）和"
@@ -758,7 +759,7 @@ async function executeClaimed(
             + "后续对话可能需要回指的事实与结论，不要复述客套，不要分点罗列「已有/新增」这个结构"
             + "本身。用中文，尽量短。",
           user: priorSummary === "" ? transcript : `已有摘要：\n${priorSummary}\n\n新增对话：\n${transcript}`,
-        });
+        }), deps.model);
         const updated = completion.text.trim();
         if (updated === "") {
           // 模型给了空文本——当作这次没有可用的新摘要，退回已有的（若有）。
@@ -919,7 +920,7 @@ async function executeClaimed(
 
   // Phase 18 F08 / F17 —— 会话记忆（uc-18-2）与「记住 / 忘掉」卡片说明（uc-18-6），放在 history 最前；
   // 读不到 / 开不了卡只记日志，绝不 fail run（降级纪律见 recall-knowledge.ts turnKnowledgeContext）。
-  const notes = useConversationContext && deps.knowledge ? await turnKnowledgeContext(deps.knowledge, deps.memoryCards, { orgId, run }, deps.log, deps.memoryChange) : [];
+  const notes = useConversationContext && deps.knowledge ? await turnKnowledgeContext(deps.knowledge, deps.memoryCards, { orgId, run, accounting: run.leaseEpoch===undefined?undefined:{orgId:String(orgId),runId:run.runId,attemptId:`${run.runId}:${stepSeqBase}`,leaseEpoch:run.leaseEpoch} }, deps.log, deps.memoryChange) : [];
   history = [...requesterMemoryHistory(notes), ...history];
 
   // V9-b 前置 A（#970）：把附件元数据折进模型可见的 content——历史每轮 + 当前触发消息。
@@ -982,15 +983,11 @@ async function executeClaimed(
   /* ── step: model_called -- exactly one FINAL answer, whatever it took to reach it ── */
   const modelStartedAt = deps.clock.now();
   let text: string;
-  /**
-   * F159 —— provider 报回来的 token 数。三条分支（completeWithProgress / completeStream /
-   * complete）都可能给，也都可能不给（`tokens` 是可选字段）；没给就是 `undefined`，
-   * 落库时记 0 而不是估一个数——估出来的数会被当成账。
-   */
-  let reportedTokens: number | undefined;
-  /** F159 —— 上游若报了 prompt/completion 拆分就带上；没报是 undefined（不是 0）。 */
-  let reportedPrompt: number | undefined;
-  let reportedCompletion: number | undefined;
+  // A completed provider envelope is counted once even when later run persistence fails.
+  let modelInvocationStarted = false;
+  let modelCompletionMetered = false;
+  const requestAccounting = Boolean(deps.usage?.startRequest && deps.model.supportsRequestAccounting?.(run.modelProvider));
+
   /**
    * #1747 —— provider 交上来的候选脚本来源（deep-agent 的 `call_skill` 工具结果正文）。
    * 恒为数组，缺席时是空的——空数组喂给 `maybeRunSkillScript` 与不传逐字等价。
@@ -1082,6 +1079,7 @@ async function executeClaimed(
       {
         modelProvider: run.modelProvider, modelId: run.modelId, system, user: userText,
         threadId: run.threadId,
+        ...(requestAccounting ? { onProviderRequest: requestUsageObserver(deps,orgId,run,"primary",executionAttemptId) } : {}),
         // issue #2664 -- 只有 deep-agent provider 读这两个字段，见 `ModelCallInput` 自己的文档。
         orgId: String(orgId), runId: run.runId,
         trustedMemoryScope: { orgId: String(orgId), userId: run.requesterUserId },
@@ -1176,7 +1174,11 @@ async function executeClaimed(
       },
       isDeepAgentRun && deps.nativeSessions ? { owner: deps.nativeSessions,
         logReleaseFailure: () => deps.log("native session release pending", { runId: run.runId }) } : undefined,
+      () => { modelInvocationStarted = true; },
     );
+    // Meter legacy envelopes before control return; attempt-capable ports already reported.
+    if (!requestAccounting) await meter(deps, orgId, run, completionUsage(completion), completion.cancelled || (!completion.paused && completion.interrupted === undefined && completion.text.trim() === "") ? "failed" : "succeeded");
+    modelCompletionMetered = true;
     if (completion.cancelled) {
       if (!deps.runs.cancelAtCheckpoint) throw new ModelCallError("MODEL_CALL_FAILED", "cancel persistence unavailable");
       await closeOpenToolCalls("cancelled");
@@ -1203,9 +1205,6 @@ async function executeClaimed(
     }
     if (completion.finalMessageId) await deps.runs.appendExecutionEvent?.(orgId, run.runId, { kind: "final_message", attemptId: executionAttemptId, messageId: `${executionAttemptId}:${completion.finalMessageId}` });
     text = completion.text;
-    reportedTokens = completion.tokens;
-    reportedPrompt = completion.promptTokens;
-    reportedCompletion = completion.completionTokens;
     // #1747：缺席 ⇒ 空数组 ⇒ 下面的判据退化成改动前那一条（只看 `text`）。
     scriptCandidates = completion.scriptCandidates ?? [];
   } catch (e) {
@@ -1257,7 +1256,9 @@ async function executeClaimed(
      * prompt tokens 并把 usage 放在错误体里，provider 把它挂在 `ModelCallError.usage`
      * 上传过来——报了就如实记，没报才是 0。
      */
-    await meter(deps, orgId, run, e instanceof ModelCallError ? (e.usage ?? {}) : {}, "failed");
+    if (modelInvocationStarted && !modelCompletionMetered && !requestAccounting) {
+      await meter(deps, orgId, run, e instanceof ModelCallError ? (e.usage ?? {}) : {}, "failed");
+    }
     await closeOpenToolCalls("failed");
     await deps.runs.failRun(orgId, run.runId, code, reason);
     publishStatusChange(deps, orgId, run.runId, "failed");
@@ -1271,9 +1272,6 @@ async function executeClaimed(
     // `getRunTranscript` 审计接口回放。
     inputFullContent: system, outputFullContent: text,
   });
-  await meter(deps, orgId, run, {
-    total: reportedTokens, prompt: reportedPrompt, completion: reportedCompletion,
-  }, "succeeded");
 
   /*
    * ── #1624：模型写了脚本就真的跑它 ──
@@ -1300,7 +1298,8 @@ async function executeClaimed(
         objects: deps.objects,
         log: deps.log,
         regenerate: async (feedback) => {
-          const retry = await deps.model.complete({
+          const retry = await meterModelCompletion(deps, orgId, run, "script-retry", (onProviderRequest,usageContext) => deps.model.complete({
+            ...usageContext,onProviderRequest,
             modelProvider: run.modelProvider,
             modelId: run.modelId,
             system,
@@ -1309,7 +1308,7 @@ async function executeClaimed(
             skills: toolSkills,
             ...(excludedTools === undefined ? {} : { excludedTools }),
             ...(scriptProtocol === undefined ? {} : { scriptProtocol }),
-          });
+          }), deps.model);
           // 从这次 completion 里取"拿去解析脚本的那段文本"的规则（含 #1747 的候选来源
           // 与 issue #2893 的中断判定）只写在 `run-skill-script.ts` 一处——那里也是
           // 归类与文案的落点，规则与它的消费者分开放必然漂移。

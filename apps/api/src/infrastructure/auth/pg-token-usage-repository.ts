@@ -1,3 +1,4 @@
+import {AI_NATIVE_UNITS} from "../../domain/agent-run/ai-billable-unit";
 /**
  * F159 —— `token_usage_events` 的唯一写入实现。
  *
@@ -11,12 +12,9 @@
  * ⇒ `tests/auth/token-usage-single-write-path.test.ts` 扫描 `apps/api/src` 全部源码，
  *   断言那条 INSERT 的字面量只出现在本文件里。这段注释不做门控，那个测试做。
  *
- * ## 为什么不做重试
- *
- * 写失败时调用方（`execute-run.ts` 的 `meter()`）记一行错误日志然后放行——这次调用的
- * 用量就永久少记了。具名缺口 `GAP-USAGE-WRITE-RETRY`。之所以现在不修：重试队列要么
- * 落库（那就是另一张需要签核的表），要么在内存里（进程一重启就丢，比不重试更假）。
- * 与其做一个看起来在兜底、实际兜不住的东西，不如让缺口带名字、可被查。
+ * Bounded retries reuse the receipt id, so a lost commit acknowledgement cannot double
+ * count. Exhausted retries still surface the existing metering failure signal. This is
+ * not a durable outbox: process crashes and sustained database outages remain gaps.
  */
 import { randomUUID } from "node:crypto";
 import type { DatabasePort } from "../../application/ports/database.port";
@@ -26,28 +24,62 @@ import type { TokenUsageMeterPort, TokenUsageRecord } from "../../application/ag
 export class PgTokenUsageRepository implements TokenUsageMeterPort {
   constructor(private readonly db: DatabasePort) {}
 
-  async record(orgId: OrgId, usage: TokenUsageRecord): Promise<void> {
-    await this.db.withTenant(orgId, async (s) => {
-      await s.query(
-        `INSERT INTO token_usage_events
-           (id, org_id, user_id, run_id, model_provider, model_id,
-            tokens_total, tokens_prompt, tokens_completion, outcome)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
-        [
-          randomUUID(),
-          orgId,
-          usage.userId,
-          usage.runId,
-          usage.modelProvider,
-          usage.modelId,
-          // ⚠ 不再按 outcome 归零（coord-main 裁决②修正）：失败的调用上游也可能真的
-          // 计了 prompt tokens。这里只做「非负整数」的归一，不替上游决定它该报多少。
-          Math.max(0, Math.trunc(usage.tokensTotal)),
-          usage.promptTokens === null ? null : Math.max(0, Math.trunc(usage.promptTokens)),
-          usage.completionTokens === null ? null : Math.max(0, Math.trunc(usage.completionTokens)),
-          usage.outcome,
-        ],
-      );
+  async startRequest(orgId: OrgId, input: Parameters<NonNullable<TokenUsageMeterPort["startRequest"]>>[1]): Promise<void> {
+    await this.db.withTenant(orgId, async s => {
+      await s.query(`INSERT INTO model_request_starts
+        (id,org_id,user_id,run_id,execution_attempt_id,project_id,model_provider,model_id,started_at,thread_id,agent_id,call_purpose,execution_lease_epoch,subtask_id,artifact_operation_id)
+        VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15) ON CONFLICT(id) DO NOTHING`,
+        [input.requestId, orgId, input.userId, input.runId, input.executionAttemptId,
+          input.projectId, input.modelProvider, input.modelId, input.startedAt, input.threadId ?? null, input.agentId ?? null, input.callPurpose ?? null,input.executionLeaseEpoch??null,input.subtaskId??null,input.artifactOperationId??null]);
     });
+  }
+
+  async record(orgId: OrgId, usage: TokenUsageRecord): Promise<void> {
+    const eventId = usage.eventId ?? randomUUID();
+    // Validate before SQL: NaN/Infinity/unsafe integers must never become a ledger fact.
+    const count = (value: number): number => {
+      if (!Number.isSafeInteger(value) || value < 0) throw new Error("invalid token usage count");
+      return value;
+    };
+    if (usage.costMicros !== undefined && (usage.costMicros < 0n || usage.costMicros > 9_223_372_036_854_775_807n
+      || !usage.currency || !usage.priceVersion)) throw new Error("invalid token usage price");
+    if (usage.costMicros === undefined && (usage.currency !== undefined || usage.priceVersion !== undefined)) throw new Error("incomplete token usage price");
+    if (usage.cacheInputTokens != null && usage.promptTokens != null && usage.cacheInputTokens > usage.promptTokens) throw new Error("invalid cache input subset");
+    if (usage.reasoningOutputTokens != null && usage.completionTokens != null && usage.reasoningOutputTokens > usage.completionTokens) throw new Error("invalid reasoning output subset");
+    const native=usage.nativeUsage;
+    if(native){
+      if(!AI_NATIVE_UNITS.includes(native.unit)||!["reported","estimated","unknown"].includes(native.source)
+        ||(native.quantity!==null&&(native.quantity<0n||native.quantity>9_223_372_036_854_775_807n))
+        ||(native.source==="unknown"?native.quantity!==null:native.quantity===null)
+        ||!["reported","unknown","not-applicable"].includes(usage.totalSource??"")
+        ||(usage.totalSource==="not-applicable"&&(usage.tokensTotal!==0||usage.promptTokens!==null||usage.completionTokens!==null||usage.cacheInputTokens!=null||usage.reasoningOutputTokens!=null))
+        ||(native.source!=="reported"&&usage.totalSource!=="reported"&&usage.costMicros!==undefined))throw new Error("invalid native usage dimension");
+    }else if(usage.totalSource==="not-applicable")throw new Error("native usage dimension missing");
+    const params = [eventId, orgId, usage.userId, usage.runId, usage.modelProvider, usage.modelId,
+      count(usage.tokensTotal),
+      usage.promptTokens === null ? null : count(usage.promptTokens),
+      usage.completionTokens === null ? null : count(usage.completionTokens), usage.outcome,
+      usage.totalSource ?? "legacy", usage.projectId ?? null, usage.threadId ?? null, usage.agentId ?? null, usage.callPurpose ?? null, usage.requestStartedAt ?? null, usage.requestEndedAt ?? null, usage.executionAttemptId ?? null, usage.costMicros?.toString() ?? null, usage.currency ?? null, usage.priceVersion ?? null, usage.cacheInputTokens == null ? null : count(usage.cacheInputTokens), usage.reasoningOutputTokens == null ? null : count(usage.reasoningOutputTokens), usage.subtaskId ?? null,native?.unit??null,native?.quantity?.toString()??null,native?.source??null];
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      try {
+        await this.db.withTenant(orgId, async (s) => {
+          await s.query(
+            `INSERT INTO token_usage_events
+           (id, org_id, user_id, run_id, model_provider, model_id,
+            tokens_total, tokens_prompt, tokens_completion, outcome,
+            total_source, project_id, thread_id, agent_id, call_purpose, request_started_at, request_ended_at, execution_attempt_id, cost_micros, currency, price_version, tokens_cache_input, tokens_reasoning_output, subtask_id, native_unit, native_quantity, native_source)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27)
+         ON CONFLICT (id) DO NOTHING`,
+            params,
+          );
+        });
+        return;
+      } catch (error) {
+        // Retry only transient PG/connection errors; missing migrations and permissions
+        // must fail immediately. Each attempt opens a fresh tenant transaction.
+        const code = typeof error === "object" && error !== null && "code" in error ? String(error.code) : "";
+        if (attempt === 2 || !["40001", "40P01", "08006", "08003", "ECONNRESET", "ETIMEDOUT"].includes(code)) throw error;
+      }
+    }
   }
 }

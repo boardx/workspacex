@@ -84,6 +84,47 @@ afterAll(async () => {
   await db.close();
 });
 
+describe("durable actual-request start receipts", () => {
+  it("replays one immutable tenant start and correlates a terminal receipt", async () => {
+    const input = { requestId: "actual-request-f159", userId: ACTOR, runId: RUN,
+      executionAttemptId: "attempt-f159", projectId: PROJECT, modelProvider: "test-provider",
+      modelId: "test-model", startedAt: "2026-10-04T00:00:00Z" };
+    await repo.startRequest(toOrgId(ORG), input);
+    await repo.startRequest(toOrgId(ORG), input);
+    const starts = await asApp(ORG, c => c.query("SELECT id,user_id FROM model_request_starts"));
+    expect(starts.rows).toEqual([{ id: input.requestId, user_id: ACTOR }]);
+    expect((await asApp(OTHER_ORG, c => c.query("SELECT id FROM model_request_starts"))).rows).toEqual([]);
+    await expect(asApp(ORG, c => c.query("UPDATE model_request_starts SET user_id='other'"))).rejects.toThrow();
+    await expect(asOwner(c => c.query("DELETE FROM model_request_starts WHERE org_id=$1", [ORG]))).rejects.toThrow();
+    await repo.record(toOrgId(ORG), { eventId: input.requestId, userId: ACTOR, runId: RUN,
+      modelProvider: input.modelProvider, modelId: input.modelId, tokensTotal: 8,
+      promptTokens: 5, completionTokens: 3, totalSource: "reported", outcome: "succeeded",
+      requestStartedAt: input.startedAt, requestEndedAt: "2026-10-04T00:00:01Z", executionAttemptId: input.executionAttemptId });
+    const paired = await asApp(ORG, c => c.query(`SELECT s.id FROM model_request_starts s
+      JOIN token_usage_events e ON e.id=s.id AND e.org_id=s.org_id WHERE s.id=$1`, [input.requestId]));
+    expect(paired.rows).toHaveLength(1);
+  });
+});
+
+describe("artifact embedding operation migration", () => {
+  const operationId="a6a64fb9-0a62-4dba-8f0d-f2abc45b0d79";
+  it("keeps operation metadata tenant isolated and immutable, with a real non-run start", async () => {
+    await asApp(ORG,c=>c.query(`INSERT INTO artifact_embedding_operations
+      (id,org_id,user_id,artifact_id,artifact_version_id,content_hash)
+      VALUES($1,$2,$3,'artifact','version','hash')`,[operationId,ORG,ACTOR]));
+    expect((await asApp(OTHER_ORG,c=>c.query("SELECT id FROM artifact_embedding_operations WHERE id=$1",[operationId]))).rows).toEqual([]);
+    await expect(asApp(ORG,c=>c.query("UPDATE artifact_embedding_operations SET user_id='forged' WHERE id=$1",[operationId]))).rejects.toThrow();
+    await expect(asOwner(c=>c.query("DELETE FROM artifact_embedding_operations WHERE id=$1",[operationId]))).rejects.toThrow(/append-only/i);
+    const input={requestId:'artifact-real-start',userId:ACTOR,runId:null,executionAttemptId:null,projectId:PROJECT,modelProvider:'test-provider',modelId:'test-embedding',startedAt:'2026-10-04T00:00:00Z',callPurpose:'retrieval-embedding' as const,artifactOperationId:operationId};
+    await repo.startRequest(toOrgId(ORG),input);
+    const rows=(await asApp(ORG,c=>c.query("SELECT run_id,execution_attempt_id,artifact_operation_id FROM model_request_starts WHERE id=$1",[input.requestId]))).rows;
+    expect(rows).toEqual([{run_id:null,execution_attempt_id:null,artifact_operation_id:operationId}]);
+    await expect(repo.startRequest(toOrgId(OTHER_ORG),{...input,requestId:'foreign-artifact-start'})).rejects.toThrow();
+    await expect(repo.startRequest(toOrgId(ORG),{...input,requestId:'missing-op-start',artifactOperationId:undefined})).rejects.toThrow();
+    await expect(repo.startRequest(toOrgId(ORG),{...input,requestId:'fake-run-start',runId:RUN,executionAttemptId:'fake'})).rejects.toThrow();
+  });
+});
+
 describe("F159 token_usage_events —— 账的落库行为", () => {
   it("写进去读得出来，大数按 bigint 保留（不被截断）", async () => {
     await write(12_345_678_901);
@@ -177,5 +218,33 @@ describe("F159 token_usage_events —— 账的落库行为", () => {
         [ORG, ACTOR],
       )),
     ).rejects.toThrow();
+  });
+});
+
+
+describe("receipt context and replay (requires migrated PostgreSQL)", () => {
+  it("replays a receipt once and retains trustworthy context plus reported-zero quality", async () => {
+    const receipt = {
+      eventId: "evt-replayed", userId: ACTOR, runId: RUN, modelProvider: "test-provider", modelId: "test-model",
+      tokensTotal: 0, promptTokens: 0, completionTokens: 0, outcome: "succeeded" as const,
+      totalSource: "reported" as const, projectId: PROJECT, threadId: THREAD, agentId: "agent-f159", callPurpose: "primary" as const,
+    };
+    await repo.record(toOrgId(ORG), receipt);
+    await repo.record(toOrgId(ORG), receipt);
+    const rows = await asApp(ORG, c => c.query(
+      "SELECT id, total_source, project_id, thread_id, agent_id, call_purpose FROM token_usage_events WHERE org_id=$1", [ORG],
+    ).then(r => r.rows));
+    expect(rows).toEqual([{
+      id: "evt-replayed", total_source: "reported", project_id: PROJECT, thread_id: THREAD,
+      agent_id: "agent-f159", call_purpose: "primary",
+    }]);
+    expect(await asApp(OTHER_ORG, c => c.query("SELECT id FROM token_usage_events").then(r => r.rowCount))).toBe(0);
+  });
+  it("does not infer historical total source or project attribution", async () => {
+    await write(0);
+    const rows = await asApp(ORG, c => c.query(
+      "SELECT total_source, project_id, thread_id, agent_id FROM token_usage_events WHERE org_id=$1", [ORG],
+    ).then(r => r.rows));
+    expect(rows).toEqual([{ total_source: "legacy", project_id: null, thread_id: null, agent_id: null }]);
   });
 });
