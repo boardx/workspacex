@@ -80,6 +80,8 @@ export type ClaimOutcome =
  * 有附件、能诚实说「我看到你传了 X（image/png），但还读不了它的内容」，而不是矢口否认。
  */
 export interface HistoryAttachmentMeta {
+  /** Repository-issued original attachment row identity; absent for legacy metadata. */
+  readonly attachmentId?: string;
   readonly filename: string;
   readonly mime: string;
   /**

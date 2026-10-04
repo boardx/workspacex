@@ -59,7 +59,7 @@ export class PgArtifactEmbeddingAccounting implements ArtifactEmbeddingAccountin
    const budget=new PgAiAdmissionRepository(db);
    const decision=await admitPricedInputOnlyCall({orgId,userId:op.user_id,logicalCallId,attempt:0,
     primaryModelId:await configured.primaryModelId(input.modelId),confidentiality:'non-confidential',requiredCapabilities:['embedding']},
-    {...input,modelProvider:configured.provider},{...configured.dependencies(orgId),policy:budget,admission:budget});
+    {...input,modelProvider:configured.provider},{...configured.dependencies(orgId,db),policy:budget,admission:budget});
    await new PgTokenUsageRepository(db).startRequest(orgId,{...input,userId:op.user_id,runId:null,executionAttemptId:null,
     projectId:op.project_id,modelProvider:decision.modelProvider,modelId:decision.runtimeModelId,artifactOperationId:op.id,callPurpose:'retrieval-embedding'});
    const stored=await db.withTenant(orgId,s=>resolveArtifactRequestStart(s,orgId,input.requestId));

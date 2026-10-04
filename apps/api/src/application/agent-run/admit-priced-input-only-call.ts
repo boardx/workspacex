@@ -1,3 +1,4 @@
+import type {DatabasePort} from "../ports/database.port";
 import {createHash} from 'node:crypto';
 import type {OrgId} from '../../domain/org-id';
 import {prepareInputOnlyAiAttempt,priceInputOnlyTokens,type AiInputOnlyPrice,type VerifiedInputOnlyBound,type VerifiedInputOnlyBinding} from '../../domain/agent-run/ai-input-only-attempt';
@@ -48,5 +49,5 @@ export function inputOnlyReceiptCost(price:AiInputOnlyPrice,usage:{total?:number
 export interface InputOnlyRuntimeAdmissionOptions {
  readonly provider:string;
  readonly primaryModelId:(modelId:string)=>Promise<string>;
- readonly dependencies:(orgId:OrgId)=>InputOnlyAdmissionDependencies;
+ readonly dependencies:(orgId:OrgId,scopedDb?:DatabasePort)=>InputOnlyAdmissionDependencies;
 }

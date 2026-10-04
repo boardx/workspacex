@@ -22,7 +22,7 @@ export async function readContextPackAiFacts(input:{orgId:OrgId;userId:string;ru
  if(!binding||binding.inputSha256!==hash)return unknown;
  if("kind" in binding){
   if(!input.wholeInputSubject||input.wholeInputSubject.orgId!==input.orgId||input.wholeInputSubject.userId!==input.userId||input.wholeInputSubject.runId!==input.runId||!matchesWholeInputBinding(binding,input.wholeInputSubject,input.serializedInput))return unknown;
-  // All current producer components lack authoritative classification lineage.
+  // Selected fragment facts cannot classify the rest of the actual envelope.
   return unknown;
  }
  if(!binding.completeInput)return unknown;

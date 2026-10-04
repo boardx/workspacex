@@ -1,3 +1,4 @@
+import {inheritRootAssembly} from "./root-input-source-provenance";
 import { bindNativeInvocation } from "./native-invocation";
 import type { NativeSessionOwner } from "./native-session-owner";
 import { assertCurrentRunLease } from "./run-lease";
@@ -41,7 +42,7 @@ export async function invokeKernel(
 ): Promise<ModelCallCompletion> {
   await assertCurrentRunLease();
   const bound = native ? await bindNativeInvocation(native.owner, input) : undefined;
-  if (bound) input = bound.input;
+  if (bound) { inheritRootAssembly(input,bound.input); input = bound.input; }
   let retainSession = false;
   try {
   // `supportsProgress`, when the port implements it (today: only `RoutingModelCallPort`),

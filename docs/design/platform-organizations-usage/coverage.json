@@ -19,7 +19,7 @@
         "apps/api/tests/auth/ai-context-runtime-wiring.test.ts"
       ],
       "remaining": [
-        "Trusted whole-input Context Pack binding producer is not implemented; missing binding remains unknown.",
+        "Actual whole-input metadata binding is wired; authoritative source classification and final root/child assembler source mapping remain incomplete.",
         "Explicit finite spend policy and ordinary per-user amount/window/timezone; no defaults enabled.",
         "Verified exact physical model registration, input/output bounds and pricing unit/rate.",
         "Isolated PostgreSQL/tenant integration for the new batch.",
@@ -27,7 +27,7 @@
         "New operator catalog/policy browser screenshots and permission-negative flow."
       ],
       "sourceMissing": [
-        "Trusted whole-input Context Pack binding producer is not implemented; missing binding remains unknown."
+        "Actual whole-input metadata binding is wired; authoritative source classification and final root/child assembler source mapping remain incomplete."
       ],
       "configurationMissing": [
         "Explicit finite spend policy and ordinary per-user amount/window/timezone; no defaults enabled.",
@@ -53,7 +53,7 @@
         "apps/api/tests/auth/ai-context-runtime-wiring.test.ts"
       ],
       "remaining": [
-        "Trusted whole-input Context Pack binding producer is not implemented; missing binding remains unknown.",
+        "Actual whole-input metadata binding is wired; authoritative source classification and final root/child assembler source mapping remain incomplete.",
         "Distinct semantic identity for repeated identical auxiliary operations.",
         "Explicit finite spend policy and ordinary per-user amount/window/timezone; no defaults enabled.",
         "Verified exact physical model registration, input/output bounds and pricing unit/rate.",
@@ -61,7 +61,7 @@
         "Actual deployed provider/cancellation/retry evidence for this family."
       ],
       "sourceMissing": [
-        "Trusted whole-input Context Pack binding producer is not implemented; missing binding remains unknown.",
+        "Actual whole-input metadata binding is wired; authoritative source classification and final root/child assembler source mapping remain incomplete.",
         "Distinct semantic identity for repeated identical auxiliary operations."
       ],
       "configurationMissing": [
@@ -87,7 +87,7 @@
         "apps/api/tests/auth/ai-context-runtime-wiring.test.ts"
       ],
       "remaining": [
-        "Trusted whole-input Context Pack binding producer is not implemented; missing binding remains unknown.",
+        "Actual whole-input metadata binding is wired; authoritative source classification and final root/child assembler source mapping remain incomplete.",
         "Distinct semantic identity for repeated identical auxiliary operations.",
         "Explicit finite spend policy and ordinary per-user amount/window/timezone; no defaults enabled.",
         "Verified exact physical model registration, input/output bounds and pricing unit/rate.",
@@ -95,7 +95,7 @@
         "Actual deployed provider/cancellation/retry evidence for this family."
       ],
       "sourceMissing": [
-        "Trusted whole-input Context Pack binding producer is not implemented; missing binding remains unknown.",
+        "Actual whole-input metadata binding is wired; authoritative source classification and final root/child assembler source mapping remain incomplete.",
         "Distinct semantic identity for repeated identical auxiliary operations."
       ],
       "configurationMissing": [
@@ -125,7 +125,7 @@
         "apps/api/tests/auth/ai-context-runtime-wiring.test.ts"
       ],
       "remaining": [
-        "Trusted whole-input Context Pack binding producer is not implemented; missing binding remains unknown.",
+        "Actual whole-input metadata binding is wired; authoritative source classification and final root/child assembler source mapping remain incomplete.",
         "Native gateway routing must delegate to the private per-HTTP admission protocol without pinned-provider mismatch.",
         "Semantic logical operation identity and authorized private fallback beyond primary-only hard stop.",
         "Explicit finite spend policy and ordinary per-user amount/window/timezone; no defaults enabled.",
@@ -134,7 +134,7 @@
         "Actual deployed provider/cancellation/retry evidence for this family."
       ],
       "sourceMissing": [
-        "Trusted whole-input Context Pack binding producer is not implemented; missing binding remains unknown.",
+        "Actual whole-input metadata binding is wired; authoritative source classification and final root/child assembler source mapping remain incomplete.",
         "Native gateway routing must delegate to the private per-HTTP admission protocol without pinned-provider mismatch.",
         "Semantic logical operation identity and authorized private fallback beyond primary-only hard stop."
       ],
@@ -165,7 +165,7 @@
         "apps/api/tests/auth/ai-context-runtime-wiring.test.ts"
       ],
       "remaining": [
-        "Trusted whole-input Context Pack binding producer is not implemented; missing binding remains unknown.",
+        "Actual whole-input metadata binding is wired; authoritative source classification and final root/child assembler source mapping remain incomplete.",
         "Semantic logical operation identity and authorized private fallback beyond primary-only hard stop.",
         "Explicit finite spend policy and ordinary per-user amount/window/timezone; no defaults enabled.",
         "Verified exact physical model registration, input/output bounds and pricing unit/rate.",
@@ -174,7 +174,7 @@
         "Prove existing durable-child contract: own running epoch/attempt and parent cancellation, including cancellation/tenant negative cases; parent running/active lease is not a required business gate."
       ],
       "sourceMissing": [
-        "Trusted whole-input Context Pack binding producer is not implemented; missing binding remains unknown.",
+        "Actual whole-input metadata binding is wired; authoritative source classification and final root/child assembler source mapping remain incomplete.",
         "Semantic logical operation identity and authorized private fallback beyond primary-only hard stop."
       ],
       "configurationMissing": [
@@ -358,5 +358,231 @@
     "configurationMissing": 9,
     "acceptanceMissing": 10
   },
-  "dispatchInventory": "docs/design/platform-organizations-usage/dispatch-inventory.json"
+  "dispatchInventory": "docs/design/platform-organizations-usage/dispatch-inventory.json",
+  "localIterationChecklist": {
+    "ownerMeaning": "Named agent responsible for implementation/verification; no claim of whole-repository coverage.",
+    "remoteHead": "ebf9f749057528c8a7156b3b5883c77ed54ba636",
+    "items": [
+      {
+        "id": "catalog-plans-audit",
+        "owner": "/root",
+        "status": "remote-implemented",
+        "terminal": "Formal empty organizations, operator permission/search/pagination/detail, audited separate plans; no deletion."
+      },
+      {
+        "id": "ordinary-enterprise-admission",
+        "owner": "/root",
+        "status": "remote-implemented",
+        "terminal": "Per-original-user token reservation; enterprise token exemption retains finite safety/spend. Default-off."
+      },
+      {
+        "id": "root-history-source-binding",
+        "owner": "/root/ledger_review",
+        "status": "local-verified",
+        "terminal": "Actual root assembler original message IDs/hash -> exact final history component hashes."
+      },
+      {
+        "id": "root-attachment-source-binding",
+        "owner": "/root/ledger_review",
+        "status": "local-verified",
+        "terminal": "Existing repository attachment row ID/message ID -> exact notice/metadata final component hash."
+      },
+      {
+        "id": "root-skill-source-binding",
+        "owner": "/root/ledger_review",
+        "status": "local-verified",
+        "terminal": "Pinned skill version/content hash -> final system/structured skill hashes."
+      },
+      {
+        "id": "root-summary-source-binding",
+        "owner": "/root/ledger_review",
+        "status": "local-verified",
+        "terminal": "Used persisted summary version/cursor or generated summary original inputs -> exact final component hashes."
+      },
+      {
+        "id": "root-history-classification",
+        "owner": "/root",
+        "status": "source-missing",
+        "terminal": "Authoritative original message and historical material classification producer; no C_CHAT_7 guess."
+      },
+      {
+        "id": "root-attachment-classification",
+        "owner": "/root",
+        "status": "source-missing",
+        "terminal": "Authoritative standalone chat attachment classification; visibility/filename is insufficient."
+      },
+      {
+        "id": "root-skill-classification",
+        "owner": "/root",
+        "status": "source-missing",
+        "terminal": "Authoritative pinned instructions/skill classification, including trusted package extensions."
+      },
+      {
+        "id": "root-summary-classification",
+        "owner": "/root",
+        "status": "source-missing",
+        "terminal": "Persisted/generated summaries preserve classification of every original source; no declassification by compression."
+      },
+      {
+        "id": "child-source-classification",
+        "owner": "/root",
+        "status": "source-missing",
+        "terminal": "Child own assembler provenance/classification then exact private SDK transformed input."
+      },
+      {
+        "id": "private-tools-source-classification",
+        "owner": "/root",
+        "status": "source-missing",
+        "terminal": "Actual SDK graph/history/tool middleware maintains exact transformed source lineage."
+      },
+      {
+        "id": "artifact-text-classification",
+        "owner": "/root",
+        "status": "remote-implemented",
+        "terminal": "Current authorized non-confidential original artifact segment hashes match entire actual embedding text bodies."
+      },
+      {
+        "id": "artifact-tokenized-proof",
+        "owner": "/root",
+        "status": "source-missing",
+        "terminal": "Trusted tokenizer/transformation proof for token arrays; unknown transformed inputs remain denied."
+      },
+      {
+        "id": "warmup-spend-owner",
+        "owner": "/root",
+        "status": "decision-and-source-missing",
+        "terminal": "Explicit authorized service spend owner/policy, actual warmup admission and receipts."
+      },
+      {
+        "id": "image-native-admission",
+        "owner": "/root",
+        "status": "source-missing",
+        "terminal": "Original verified native units/caps and immutable prices/shared finite-cost admission; Bailian actual hooks."
+      },
+      {
+        "id": "asr-native-admission",
+        "owner": "/root",
+        "status": "source-missing",
+        "terminal": "Verified billed units/caps, lifecycle-preserving pre-dispatch admission and settlement; no estimated Tokens."
+      },
+      {
+        "id": "ollama-local-admission",
+        "owner": "/root",
+        "status": "source-missing",
+        "terminal": "Authenticated original local counter bounds and finite-cost admission."
+      },
+      {
+        "id": "research-actual-dispatch",
+        "owner": "/root",
+        "status": "source-missing",
+        "terminal": "Account actual external graph vendor dispatch, not graph envelope."
+      },
+      {
+        "id": "semantic-retry-authority",
+        "owner": "/root",
+        "status": "source-missing",
+        "terminal": "Cross-worker business-intent identity/retry authority; preserve legitimate repeated-body batches."
+      },
+      {
+        "id": "python-unmatched-start-repair",
+        "owner": "/root",
+        "status": "source-missing",
+        "terminal": "ACK-to-intent crash and total metadata storage failure reconciliation; no guessed vendor retry."
+      },
+      {
+        "id": "native-crash-repair",
+        "owner": "/root",
+        "status": "source-missing",
+        "terminal": "Image/ASR/local durable cross-process repair beyond existing instance fault blocks."
+      },
+      {
+        "id": "ordinary-production-config",
+        "owner": "/root",
+        "status": "decision-missing",
+        "terminal": "User-specified per-user amount/window/timezone. No default quota activation."
+      },
+      {
+        "id": "finite-spend-production-config",
+        "owner": "/root",
+        "status": "decision-missing",
+        "terminal": "User-authorized finite currency/amount and immutable rates; enterprise is not unlimited supplier spend."
+      },
+      {
+        "id": "verified-deployment-bindings",
+        "owner": "/root",
+        "status": "deployment-evidence-missing",
+        "terminal": "Verified exact physical model implementation/version/unit bounds and body measurement registrations."
+      },
+      {
+        "id": "operator-authenticated-screenshots",
+        "owner": "/root",
+        "status": "environment-missing",
+        "terminal": "Existing isolated PR environment and normal operator session; preserve404 evidence, no new grants."
+      },
+      {
+        "id": "deployed-call-acceptance",
+        "owner": "/root",
+        "status": "deployment-evidence-missing",
+        "terminal": "Actual deployed cancellation/retry/provider counters and receipt filesystem acceptance."
+      },
+      {
+        "id": "cp-selected-source-lineage",
+        "owner": "/root/ledger_review",
+        "status": "local-verified",
+        "terminal": "Selected replay/current union exact component source metadata; historical evidence cannot authorize new dispatch."
+      },
+      {
+        "id": "root-guidance-source-binding",
+        "owner": "/root",
+        "status": "source-missing",
+        "terminal": "Canvas/template guidance source coordinates and classifications survive final system assembly."
+      },
+      {
+        "id": "root-l3-file-source-binding",
+        "owner": "/root",
+        "status": "source-missing",
+        "terminal": "Actual file-retrieval hits retain source coordinates through windowing and final history field."
+      },
+      {
+        "id": "root-tool-trace-source-binding",
+        "owner": "/root",
+        "status": "source-missing",
+        "terminal": "Actual tool-step arguments/results retain original run/step and source classifications."
+      },
+      {
+        "id": "root-kg-memory-source-binding",
+        "owner": "/root",
+        "status": "source-missing",
+        "terminal": "Actual knowledge/memory notes retain selected source identities and classification through history injection."
+      },
+      {
+        "id": "root-vision-source-binding",
+        "owner": "/root",
+        "status": "source-missing",
+        "terminal": "Selected original image attachment identities/byte hashes bind exact final image payload and notices."
+      },
+      {
+        "id": "root-interjection-source-binding",
+        "owner": "/root",
+        "status": "source-missing",
+        "terminal": "Consumed interjection source identity/classification binds actual edited input."
+      },
+      {
+        "id": "root-resume-source-binding",
+        "owner": "/root",
+        "status": "source-missing",
+        "terminal": "Original decision/edited action input identity/classification binds actual resumed request."
+      },
+      {
+        "id": "root-continuation-source-binding",
+        "owner": "/root",
+        "status": "source-missing",
+        "terminal": "Authorized artifact continuation source identity/classification binds final user instruction."
+      }
+    ],
+    "counts": {
+      "implemented": 8,
+      "remainingMinimum": 28
+    }
+  }
 }

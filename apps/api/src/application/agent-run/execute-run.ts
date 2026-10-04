@@ -1,9 +1,10 @@
+import {assembleAttachmentContext,assembleSummaryHistory,bindAssembledRootInput,type SummarySourceSnapshot} from "./root-source-assembly";
+import {rootSourceHash} from "./root-input-source-provenance";
 import type {RunAiAdmission} from "./priced-run-model";
 import { assertFrozenAgentSkillScope } from "./frozen-agent-skill-scope";
 import { requesterMemoryHistory } from "./requester-memory-context";
 import { turnKnowledgeContext, type TurnKnowledgeDeps } from "../knowledge-graph/recall-knowledge";
 import { appendEscalationPolicyContext, appendPlanLedgerContext } from "./system-context-injections";
-import { withAttachmentNotice } from "./attachment-notice";
 export { withAttachmentNotice } from "./attachment-notice";
 import { dependenciesForRuntimeProfile } from "./runtime-profile-routing";
 import { appendRoleCapabilityContext } from "./workflow-capability-context";
@@ -715,6 +716,7 @@ async function executeClaimed(
    */
   const useConversationContext = run.inputAttachments.length > 0 || !isContextIndependentRequest(run.inputText);
   let history: readonly ThreadHistoryMessage[] = [];
+  const summarySource:SummarySourceSnapshot={message:null,evidence:null};
   // F157：读取历史时 L2 悲观为 degraded；明确隔离本轮上下文时零注入且不改持久状态。
   let l1MessageCount = 0;
   // F190 §1②：L1 已保留消息的 id 集合，供工具轨迹去重判定用（该 run 的写回消息若仍在这个
@@ -744,6 +746,7 @@ async function executeClaimed(
       if (increment.toSummarize.length === 0) {
         // 没有新增区间——直接复用已有摘要，本轮零模型调用（V2：不重读全史重算）。
         l2Summary = persisted && persisted.summary.length > 0 ? persisted.summary : null;
+        if(deps.aiAdmission&&persisted&&l2Summary!==null)summarySource.evidence={source:{kind:"persisted-summary",threadId:run.threadId,version:persisted.version,coveredCursor:persisted.summarizedThroughId,coveredAt:persisted.summarizedThroughAt},sourceSha256:rootSourceHash(persisted.summary)};
         // F157：这次没有新增摘要工作，生效边界就是持久状态里已有的那个（从未摘要过则 null）。
         l2CoveredThroughId = persisted?.summarizedThroughId ?? null;
         l2Status = "ok";
@@ -764,10 +767,12 @@ async function executeClaimed(
         if (updated === "") {
           // 模型给了空文本——当作这次没有可用的新摘要，退回已有的（若有）。
           l2Summary = persisted && persisted.summary.length > 0 ? persisted.summary : null;
+        if(deps.aiAdmission&&persisted&&l2Summary!==null)summarySource.evidence={source:{kind:"persisted-summary",threadId:run.threadId,version:persisted.version,coveredCursor:persisted.summarizedThroughId,coveredAt:persisted.summarizedThroughAt},sourceSha256:rootSourceHash(persisted.summary)};
           l2CoveredThroughId = persisted?.summarizedThroughId ?? null; // F157：边界未推进。
           l2Status = "ok";
         } else {
           l2Summary = updated;
+          if(deps.aiAdmission)summarySource.evidence={source:{kind:"generated-summary",threadId:run.threadId,messageIds:increment.toSummarize.flatMap(message=>message.id?[message.id]:[]),priorSummarySha256:rootSourceHash(priorSummary),transcriptSha256:rootSourceHash(transcript),priorSummaryVersion:persisted?.version??null,priorCoveredCursor:persisted?.summarizedThroughId??null},sourceSha256:rootSourceHash(updated)};
           const wrote = await deps.runs.upsertThreadContextState(orgId, run.threadId, {
             summary: updated,
             summarizedThroughId: increment.advanceCursorTo,
@@ -796,9 +801,7 @@ async function executeClaimed(
       // 降级之后不敢再声称一个可能已经过时/不可信的边界。
     }
 
-    history = l2Summary === null
-      ? l1
-      : [{ role: "assistant", content: `[早前对话摘要] ${l2Summary}` }, ...l1];
+    history=assembleSummaryHistory(l1,l2Summary,summarySource);
   } catch (e) {
     deps.log("agent run thread history read failed, continuing without it", {
       runId: run.runId,
@@ -923,12 +926,10 @@ async function executeClaimed(
   const notes = useConversationContext && deps.knowledge ? await turnKnowledgeContext(deps.knowledge, deps.memoryCards, { orgId, run, accounting: run.leaseEpoch===undefined?undefined:{orgId:String(orgId),runId:run.runId,attemptId:`${run.runId}:${stepSeqBase}`,leaseEpoch:run.leaseEpoch} }, deps.log, deps.memoryChange) : [];
   history = [...requesterMemoryHistory(notes), ...history];
 
-  // V9-b 前置 A（#970）：把附件元数据折进模型可见的 content——历史每轮 + 当前触发消息。
-  // 触发消息（run.inputText）的附件走 run.inputAttachments（它不在 history 里，单独带，
-  // 见 ClaimedAgentRun 注释），否则「刚传完就问」这条最常见路径恰好看不到附件。
-  history = history.map((m) => ({ role: m.role, content: withAttachmentNotice(m.content, m.attachments) }));
+  const attachmentContext=assembleAttachmentContext(run,history);
+  history=attachmentContext.history;
   const artifactContinuation = await deps.artifactContinuations?.prepare(orgId, run.runId);
-  let userText = withAttachmentNotice(run.inputText, run.inputAttachments) + (artifactContinuation ? `\n\n${artifactContinuation.instruction}` : "");
+  let userText = attachmentContext.user + (artifactContinuation ? `\n\n${artifactContinuation.instruction}` : "");
 
   /*
    * P2（#1561）—— 图像通道：把本轮触发消息挂的图片按可见性规则取出、定界，交给支持视觉的
@@ -1076,7 +1077,7 @@ async function executeClaimed(
     // for every provider before this feature).
     const completion = await invokeKernel(
       deps.model,
-      {
+      bindAssembledRootInput({
         modelProvider: run.modelProvider, modelId: run.modelId, system, user: userText,
         threadId: run.threadId,
         ...(requestAccounting ? { onProviderRequest: requestUsageObserver(deps,orgId,run,"primary",executionAttemptId) } : {}),
@@ -1129,7 +1130,7 @@ async function executeClaimed(
         ...(deps.planLedger ? {
           onRemoteRunStarted: (remoteRunId: string, remoteThreadId?: string) => deps.planLedger!.recordRemoteRunId(orgId, run.runId, remoteRunId, remoteThreadId),
         } : {}),
-      },
+      }, {orgId,userId:run.requesterUserId,rootRunId:run.runId,runId:run.runId,attemptId:executionAttemptId,leaseEpoch:currentRunLease()?.epoch??0,origin:"root-model-input"}, run,attachmentContext.sourceHistory,summarySource,Boolean(deps.aiAdmission)),
       async (event) => {
         const stepStartedAt = deps.clock.now();
         const status: RunStepStatus = event.phase === "in_progress" ? "in_progress" : event.ok === false ? "failed" : "succeeded";

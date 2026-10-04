@@ -11,9 +11,9 @@ import {PgAiAdmissionRepository} from "./pg-ai-admission-repository";
 import {PgTokenUsageRepository} from "./pg-token-usage-repository";
 export interface RuntimeAiAdmissionOptions {
  readonly inputOnly?:InputOnlyRuntimeAdmissionOptions;
- readonly dependencies:(orgId:OrgId)=>Pick<AiPricedCallDependencies,"model"|"currentCandidates"|"measure">;
+ readonly dependencies:(orgId:OrgId,scopedDb?:DatabasePort)=>Pick<AiPricedCallDependencies,"model"|"currentCandidates"|"measure">;
  readonly primaryModelId:(modelId:string)=>Promise<string>;
- readonly facts:(orgId:OrgId,owner:RuntimeModelOwner,serializedInput:string,identity:{readonly runId:string;readonly attemptId:string;readonly leaseEpoch:number})=>Promise<{confidentiality:"confidential"|"non-confidential"|"unknown";requiredCapabilities:readonly string[]}>;
+ readonly facts:(orgId:OrgId,owner:RuntimeModelOwner,serializedInput:string,identity:{readonly runId:string;readonly attemptId:string;readonly leaseEpoch:number},scopedDb?:DatabasePort)=>Promise<{confidentiality:"confidential"|"non-confidential"|"unknown";requiredCapabilities:readonly string[]}>;
 }
 export class PgRuntimeModelUsageRepository implements RuntimeModelUsagePort {
  constructor(private readonly db:DatabasePort,private readonly usage:TokenUsageMeterPort,private readonly admission?:(AiAdmissionPort&AiReservedPricePort),private readonly runtimeAdmission?:RuntimeAiAdmissionOptions){}
@@ -34,7 +34,7 @@ export class PgRuntimeModelUsageRepository implements RuntimeModelUsagePort {
       const scoped:DatabasePort={withTenant:async(tenant,work)=>{if(tenant!==orgId)throw new RuntimeUsageOwnershipDenied();return work(s);},
         withoutTenant:async()=>{throw new RuntimeUsageOwnershipDenied();},close:async()=>{}};
       const budget=new PgAiAdmissionRepository(scoped),meter=new PgTokenUsageRepository(scoped);
-      const facts=await configured.facts(orgId,owner,input.serializedBody,{runId,attemptId:input.attemptId,leaseEpoch:input.leaseEpoch}),deps=configured.dependencies(orgId);
+      const facts=await configured.facts(orgId,owner,input.serializedBody,{runId,attemptId:input.attemptId,leaseEpoch:input.leaseEpoch},scoped),deps=configured.dependencies(orgId,scoped);
       const prepared=await preparePricedModelCall({orgId,userId:owner.user_id,runId:owner.root_run_id,executionAttemptId:input.attemptId,
         logicalCallId,attempt:0,projectId:owner.project_id,threadId:owner.thread_id,agentId:owner.agent_id,
         callPurpose:input.callPurpose,primaryModelId:await configured.primaryModelId(input.modelId),...facts},
@@ -58,10 +58,10 @@ export class PgRuntimeModelUsageRepository implements RuntimeModelUsagePort {
       if(!owner)throw new RuntimeUsageOwnershipDenied();
       const scoped:DatabasePort={withTenant:async(tenant,work)=>{if(tenant!==orgId)throw new RuntimeUsageOwnershipDenied();return work(s);},withoutTenant:async()=>{throw new RuntimeUsageOwnershipDenied();},close:async()=>{}};
       const budget=new PgAiAdmissionRepository(scoped);
-      const facts=await this.runtimeAdmission!.facts(orgId,owner,input.serializedBody,{runId,attemptId:input.attemptId,leaseEpoch:input.leaseEpoch});
+      const facts=await this.runtimeAdmission!.facts(orgId,owner,input.serializedBody,{runId,attemptId:input.attemptId,leaseEpoch:input.leaseEpoch},scoped);
       const decision=await admitPricedInputOnlyCall({orgId,userId:owner.user_id,logicalCallId,attempt:0,
        primaryModelId:await configured.primaryModelId(input.modelId),...facts},
-       {...input,modelProvider:configured.provider},{...configured.dependencies(orgId),policy:budget,admission:budget});
+       {...input,modelProvider:configured.provider},{...configured.dependencies(orgId,scoped),policy:budget,admission:budget});
       await this.insertStart(s,orgId,{requestId:input.requestId,userId:owner.user_id,runId:owner.root_run_id,subtaskId:owner.subtask_id,
        executionAttemptId:input.attemptId,executionLeaseEpoch:input.leaseEpoch,projectId:owner.project_id,threadId:owner.thread_id,
        agentId:owner.agent_id,callPurpose:input.callPurpose,modelProvider:decision.modelProvider,modelId:decision.runtimeModelId,startedAt:input.startedAt});

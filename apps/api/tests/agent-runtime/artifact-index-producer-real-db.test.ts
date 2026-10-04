@@ -218,6 +218,23 @@ it('real input-only artifact admission serializes per-user budgets and keeps unk
   const first=await accounting.open({orgId:quotaOrg,artifactVersionId:file.versionId},batch),second=await accounting.open({orgId:quotaOrg,artifactVersionId:file.versionId},batch);
   const serializedBody=JSON.stringify({model:'fixture-embed',input:[batch.segments[0]!.content]}),requestPath='/v1/embeddings';
   const request=(operationId:string)=>{const requestId=randomUUID();return {billingMode:'input-only' as const,requestId,modelId:'fixture-embed',startedAt:new Date().toISOString(),serializedBody,requestPath,logicalCallId:JSON.stringify([operationId,'retrieval-embedding',requestId,createHash('sha256').update(serializedBody).digest('hex'),requestPath])};};
+  // Actual source proof precedes quota/reservation: valid operation authority alone
+  // cannot classify unrelated or transformed model inputs as non-confidential.
+  const expectedHashes=batch.segments.map(segment=>createHash('sha256').update(segment.content).digest('hex'));
+  expect((await asApp(quotaOrg,c=>c.query('SELECT input_hashes FROM artifact_embedding_operations WHERE id=$1',[first.operationId]))).rows).toEqual([{input_hashes:expectedHashes}]);
+  for(const body of [JSON.stringify({model:'fixture-embed',input:['unrelated private content']}),JSON.stringify({model:'fixture-embed',input:[[23,45]]}),JSON.stringify({model:'fixture-embed',input:[batch.segments[0]!.content],private:'extra source'})]){
+   const denied={...request(first.operationId),serializedBody:body};denied.logicalCallId=JSON.stringify([first.operationId,'retrieval-embedding',denied.requestId,createHash('sha256').update(body).digest('hex'),requestPath]);
+   await expect(accounting.admit(quotaOrg,first.operationId,denied)).rejects.toThrow('AI_ARTIFACT_WHOLE_INPUT_UNPROVEN');
+   expect((await asApp(quotaOrg,c=>c.query('SELECT id FROM ai_request_reservations WHERE id=$1',[denied.requestId]))).rows).toEqual([]);
+   expect((await asApp(quotaOrg,c=>c.query('SELECT id FROM model_request_starts WHERE id=$1',[denied.requestId]))).rows).toEqual([]);
+  }
+  const legacyId=randomUUID();
+  await asApp(quotaOrg,c=>c.query('INSERT INTO artifact_embedding_operations(id,org_id,user_id,artifact_id,artifact_version_id,project_id,content_hash,ingestion_job_id,ingestion_attempt) SELECT $1,org_id,user_id,artifact_id,artifact_version_id,project_id,content_hash,ingestion_job_id,ingestion_attempt FROM artifact_embedding_operations WHERE id=$2',[legacyId,first.operationId]));
+  await expect(accounting.admit(quotaOrg,legacyId,request(legacyId))).rejects.toThrow('AI_ARTIFACT_WHOLE_INPUT_UNPROVEN');
+  expect((await asApp(quotaOrg,c=>c.query('SELECT id FROM ai_request_reservations WHERE org_id=$1',[quotaOrg]))).rows).toEqual([]);
+  expect((await asApp(quotaOrg,c=>c.query('SELECT id FROM model_request_starts WHERE org_id=$1',[quotaOrg]))).rows).toEqual([]);
+  await expect(asApp(quotaOrg,c=>c.query('UPDATE artifact_embedding_operations SET input_hashes=$2::jsonb WHERE id=$1',[first.operationId,'[]']))).rejects.toThrow();
+  expect((await asApp(quotaOrg,c=>c.query('SELECT input_hashes FROM artifact_embedding_operations WHERE id=$1',[first.operationId]))).rows).toEqual([{input_hashes:expectedHashes}]);
   const a=request(first.operationId),b=request(second.operationId),results=await Promise.allSettled([accounting.admit(quotaOrg,first.operationId,a),accounting.admit(quotaOrg,second.operationId,b)]);
   expect(results.filter(r=>r.status==='fulfilled')).toHaveLength(1);expect(results.filter(r=>r.status==='rejected')).toHaveLength(1);
   const winner=results[0]!.status==='fulfilled'?{ref:first,request:a}:{ref:second,request:b};
