@@ -14,7 +14,7 @@ export function exportConnectorLoginDiagnostics(report,artifacts,head){
    cases++;if(attachments.length===0)throw Object.assign(new Error('C06_NOT_AVAILABLE'),{code:'C06_NOT_AVAILABLE'});assert(attachments.length<=5,'C06_EXCESS_RECEIPT');
    for(const item of attachments){assert.equal(item.contentType,'application/json');assert.equal(typeof item.path,'string');
     const path=realpathSync(item.path),inside=relative(directory,path);assert(inside&&!inside.startsWith('..')&&!isAbsolute(inside),'C06_FOREIGN_PATH');
-    assert.match(basename(path),/^c06-login-[0-4]\.json$/);assert(!seen.has(path),'C06_DUPLICATE_RECEIPT');seen.add(path);
+    assert.match(basename(path),/^c06-login-fixed-diagnostic-[a-f0-9]{40}\.json$/,'C06_RECEIPT_BASENAME');assert.equal(basename(path.slice(0,path.lastIndexOf('/'))),'attachments','C06_RECEIPT_DIRECTORY');assert(!seen.has(path),'C06_DUPLICATE_RECEIPT');seen.add(path);
     const stat=statSync(path);assert(stat.isFile()&&stat.size>0&&stat.size<=4096,'C06_RECEIPT_SIZE');
     const row=JSON.parse(readFileSync(path,'utf8'));assert(JSON.stringify(Object.keys(row).sort())===JSON.stringify(keys),'C06_RECEIPT_FIELDS');assert.equal(row.stage,'C06_LOGIN');assert.equal(row.sourceHead,head,'C06_FOREIGN_SOURCE');assert.equal(row.version,1);
     assert(row.httpStatus===null||Number.isInteger(row.httpStatus)&&row.httpStatus>=100&&row.httpStatus<=599);
@@ -30,5 +30,5 @@ export function exportConnectorLoginDiagnostics(report,artifacts,head){
 
 export function safeConnectorLoginExport(report,artifacts,head){
  try{return {status:'EXPORTED',...exportConnectorLoginDiagnostics(report,artifacts,head)};}
- catch(error){return {version:1,stage:'C06_LOGIN',sourceHead:/^[a-f0-9]{40}$/.test(head)?head:null,status:error?.code==='C06_NOT_AVAILABLE'?'NOT_AVAILABLE':'EXPORT_INVALID',diagnostics:[]};}
+ catch(error){const message=Object.getOwnPropertyDescriptor(error??{},'message')?.value;const firstLine=typeof message==='string'?message.split('\n',1)[0]:null;const reasons=['C06_NOT_AVAILABLE','C06_REPORT_TOO_LARGE','C06_FOREIGN_CASE','C06_EXCESS_RECEIPT','C06_FOREIGN_PATH','C06_RECEIPT_BASENAME','C06_RECEIPT_DIRECTORY','C06_DUPLICATE_RECEIPT','C06_RECEIPT_SIZE','C06_RECEIPT_FIELDS','C06_FOREIGN_SOURCE','C06_CASE_CARDINALITY'];const reasonCode=reasons.includes(firstLine)?firstLine:'C06_EXPORT_UNKNOWN';return {reasonCode,version:1,stage:'C06_LOGIN',sourceHead:/^[a-f0-9]{40}$/.test(head)?head:null,status:Object.getOwnPropertyDescriptor(error??{},'code')?.value==='C06_NOT_AVAILABLE'?'NOT_AVAILABLE':'EXPORT_INVALID',diagnostics:[]};}
 }
