@@ -63,6 +63,8 @@ issue #848（资产文件真实内容缺口）、#598（skill 双模型不收敛
 
 ## 踩坑与经验（append-only，最新在上）
 
+- 2026-10-04：资料索引计量以不可变 artifact-index operation 绑定真实版本发布者或已鉴权重建者、hash 与 active job attempt；不伪造 Agent run。请求 ID 冲突需全局事务锁和写后归属核验，mock 必须模拟 ON CONFLICT 不覆盖与 RLS 可见性。Refs #5261 / PR #5269；真实 PG 验收在 CI，配额准入仍默认关闭。
+
 - 2026-10-04：Workflow 阶段输出读取引用不能冒充真实文件；W001 发布桥复用 materializeArtifact 的 Markdown+provenance 文件及回读 hash，审批语义与写能力需新 Workflow v2，旧发起人-only v1 不被覆盖（Refs #5185；digital-w001-publication）。尚未证明线上下载/恢复；分发关闭。
 - 2026-08-09：本 skill 曾与官方 `mod-canvas-diagram` 在画布域重叠（两份平行
   文档），已收窄范围完成收敛（出处：本次改动的 PR）。教训：建模块知识库前先查

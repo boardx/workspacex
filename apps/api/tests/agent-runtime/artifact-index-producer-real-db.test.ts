@@ -1,3 +1,5 @@
+import {PgArtifactEmbeddingAccounting} from '../../src/infrastructure/retrieval/pg-artifact-embedding-accounting';
+import {ArtifactEmbeddingOwnershipDenied} from '../../src/application/retrieval/artifact-embedding-accounting';
 import {execFile} from 'node:child_process';
 import {promisify} from 'node:util';
 import {fileURLToPath} from 'node:url';
@@ -5,7 +7,7 @@ import {randomUUID} from 'node:crypto';
 import {mkdtemp,rm,writeFile} from 'node:fs/promises';
 import {join} from 'node:path';
 import {tmpdir} from 'node:os';
-import {beforeAll,afterAll,it,expect} from 'vitest';
+import {beforeAll,afterAll,it,expect,vi} from 'vitest';
 import {seedOrg,addOrgMember,addProjectMember,asApp,ensureDatabase,migrateOnce,resetOrgs} from '../support/db';
 import {registerEmbeddingModel} from '../../src/infrastructure/retrieval/register-embedding-model';
 import {PgDatabase} from '../../src/infrastructure/db/pg-database';
@@ -137,4 +139,55 @@ it('structural review refuses unknown version and missing real derived bytes',as
  const derived=(await artifacts.listDerived(org,file.artifactId)).find(d=>d.derivedFrom===file.versionId)!;
  expect(derived.objectStorageKey).not.toBeNull();await rm(resolveObjectPath(root,derived.objectStorageKey!));
  await expect(gate.needsReview({orgId:org,artifactVersionId:file.versionId})).rejects.toThrow('artifact_review_unavailable');
+});
+
+
+it('real artifact accounting serializes conflicting starts and preserves the original owner after revocation',async()=>{
+ vi.stubEnv('KERNEL_RETRIEVAL_REQUEST_ACCOUNTING_ENABLED','1');vi.stubEnv('KERNEL_AI_PRODUCT_QUOTA_ENABLED','0');vi.stubEnv('KERNEL_MODEL_PROVIDER','pg-accounting-provider');vi.stubEnv('KERNEL_EMBEDDING_MODEL_ID','pg-embedding');
+ let membershipRemoved=false;
+ try{
+  const file=await upload('ACCOUNTINGRACENEEDLE original source');
+  const {replayIngestionRun}=await import('../../src/application/files/ingestion-worker');
+  for(let i=0;i<7;i++){const tick=await replayIngestionRun({outbox,artifacts,store:objects,ids,indexer},org,file.versionId,'accounting-fixture');if(!tick.claimed)break;}
+  expect(await outbox.findByVersion(org,file.versionId)).toBeNull();
+  const batch=await indexSource.load({orgId:org,artifactVersionId:file.versionId}),accounting=new PgArtifactEmbeddingAccounting(db);
+  const first=await accounting.open({orgId:org,artifactVersionId:file.versionId,requestedBy:'publisher'},batch);
+  const second=await accounting.open({orgId:org,artifactVersionId:file.versionId,requestedBy:'publisher'},batch);
+  const request={requestId:randomUUID(),modelId:'pg-embedding',startedAt:new Date().toISOString()};
+  const results=await Promise.allSettled([accounting.start(org,first.operationId,request),accounting.start(org,second.operationId,request)]);
+  expect(results.filter(r=>r.status==='fulfilled')).toHaveLength(1);expect(results.filter(r=>r.status==='rejected')).toHaveLength(1);
+  const winner=results[0]!.status==='fulfilled'?first:second;
+  expect((await asApp(org,c=>c.query('SELECT user_id,run_id,execution_attempt_id,artifact_operation_id FROM model_request_starts WHERE id=$1',[request.requestId]))).rows).toEqual([{user_id:'publisher',run_id:null,execution_attempt_id:null,artifact_operation_id:winner.operationId}]);
+  await asApp(org,c=>c.query('DELETE FROM project_memberships WHERE org_id=$1 AND project_id=$2 AND user_id=$3',[org,project,'publisher']));membershipRemoved=true;
+  await expect(accounting.start(org,winner.operationId,{...request,requestId:randomUUID()})).rejects.toBeInstanceOf(ArtifactEmbeddingOwnershipDenied);
+  await accounting.terminal(org,winner.operationId,{requestId:request.requestId,endedAt:new Date().toISOString(),outcome:'failed',usage:{prompt:4,total:4}});
+  expect((await asApp(org,c=>c.query('SELECT user_id,run_id,tokens_prompt,tokens_total FROM token_usage_events WHERE id=$1',[request.requestId]))).rows).toEqual([{user_id:'publisher',run_id:null,tokens_prompt:'4',tokens_total:'4'}]);
+ }finally{try{if(membershipRemoved)await addProjectMember(org,project,'publisher','member',null);}finally{vi.unstubAllEnvs();}}
+});
+
+it('valid foreign artifact operation cannot acknowledge a globally colliding hidden request ID',async()=>{
+ vi.stubEnv('KERNEL_RETRIEVAL_REQUEST_ACCOUNTING_ENABLED','1');vi.stubEnv('KERNEL_AI_PRODUCT_QUOTA_ENABLED','0');vi.stubEnv('KERNEL_MODEL_PROVIDER','pg-accounting-provider');vi.stubEnv('KERNEL_EMBEDDING_MODEL_ID','pg-embedding');
+ const foreign=toOrgId('foreign-accounting-'+randomUUID()),foreignProject='project-'+foreign;
+ try{
+  const file=await upload('ACCOUNTINGCOLLISIONNEEDLE original');
+  const {replayIngestionRun}=await import('../../src/application/files/ingestion-worker');
+  for(let i=0;i<7;i++){const tick=await replayIngestionRun({outbox,artifacts,store:objects,ids,indexer},org,file.versionId,'collision-worker');if(!tick.claimed)break;}
+  expect(await outbox.findByVersion(org,file.versionId)).toBeNull();
+  const accounting=new PgArtifactEmbeddingAccounting(db),batch=await indexSource.load({orgId:org,artifactVersionId:file.versionId});
+  const original=await accounting.open({orgId:org,artifactVersionId:file.versionId},batch);
+  const request={requestId:randomUUID(),modelId:'pg-embedding',startedAt:new Date().toISOString()};await accounting.start(org,original.operationId,request);
+  await seedOrg({orgId:foreign,projectId:foreignProject});await addOrgMember(foreign,'foreign-publisher','consultant',null);await addProjectMember(foreign,foreignProject,'foreign-publisher','member',null);
+  const result=await uploadArtifact({store:objects,repo:artifacts,ids,quarantine:new PgQuarantineRepository(db),alerts:{raise:async()=>{}}},{orgId:foreign,projectId:foreignProject,agendaSegmentId:null,confidential:false,actorId:'foreign-publisher',files:[{filename:'foreign.txt',bytes:Buffer.from('FOREIGNACCOUNTING original')}]});
+  const foreignFile=result.files[0]!;if(foreignFile.status!=='accepted')throw new Error('foreign upload rejected');
+  for(let i=0;i<7;i++){const tick=await runIngestionWorkerTick({outbox,artifacts,store:objects,ids,indexer},foreign,'foreign-worker');if(!tick.claimed)break;}
+  expect(await outbox.findByVersion(foreign,foreignFile.versionId)).toBeNull();
+  const foreignBatch=await indexSource.load({orgId:foreign,artifactVersionId:foreignFile.versionId});
+  const other=await accounting.open({orgId:foreign,artifactVersionId:foreignFile.versionId},foreignBatch);
+  // Distinct ID proves the foreign operation is valid; the denial below is a global
+  // start collision behind RLS, rather than a nonexistent or unauthorized source.
+  await accounting.start(foreign,other.operationId,{...request,requestId:randomUUID()});
+  await expect(accounting.start(foreign,other.operationId,request)).rejects.toBeInstanceOf(ArtifactEmbeddingOwnershipDenied);
+  expect((await asApp(foreign,c=>c.query('SELECT id FROM model_request_starts WHERE id=$1',[request.requestId]))).rows).toEqual([]);
+  expect((await asApp(org,c=>c.query('SELECT user_id,artifact_operation_id FROM model_request_starts WHERE id=$1',[request.requestId]))).rows).toEqual([{user_id:'publisher',artifact_operation_id:original.operationId}]);
+ }finally{try{await resetOrgs(foreign);}finally{vi.unstubAllEnvs();}}
 });
