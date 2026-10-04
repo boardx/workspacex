@@ -7,7 +7,6 @@ import type { DigitalInterviewWorkflowView } from "@/lib/interview-api";
 import { Button } from "@/components/ui/button";
 import { InterviewRunsStep } from "./interview-runs-step";
 import { InterviewReportStep } from "./interview-report-step";
-import { InterviewSourceReportReview } from "./interview-source-report-review";
 import { getInterviewGenerationSession, subscribeInterviewGeneration, runInterviewGeneration } from "@/lib/interview-generation-session";
 import { InterviewReportGeneration } from "./interview-report-generation";
 import { InterviewStepHeader } from "./interview-step-header";
@@ -166,6 +165,5 @@ export function InterviewMarkdownResultsStep({ interviewId, step, runs, legacySe
       {execution?.status === "paused" && <Button variant="primary" disabled={pending} onClick={() => void execute("resume")}>继续访谈</Button>}
       {execution?.status === "failed" && <Button variant="primary" disabled={pending} onClick={() => void execute("retry")}>重试未完成专家</Button>}
     </>} /> : document ? <InterviewReportStep actions={reportRetry} document={document} sourceDocuments={source?.documents ?? []} expertsDocument={experts} execution={execution} legacySelectedExpertIds={legacySelectedExpertIds} legacyRuns={runs} reportStatus={state?.status} shareUrl={`/itv/${encodeURIComponent(interviewId)}/report?documentId=${encodeURIComponent(document.documentId)}&version=${document.version}`} /> : <><InterviewStepHeader title="研究报告">{reportRetry}</InterviewStepHeader><p className="text-sm text-muted-foreground">暂无已保存的报告 Markdown，请先完成访谈。</p></>}
-    {step === "report" && source && document && <InterviewSourceReportReview source={source} onSaved={receive} />}
   </div>;
 }
