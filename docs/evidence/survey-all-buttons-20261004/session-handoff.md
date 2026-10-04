@@ -15,3 +15,5 @@
 回收仅新增Web25709/PID32437并记录动态归属；保留Web25708/PID56810冻结4c、API24705/PID43447冻结5eff及ownedPG20704/Redis21704进行后续QA。Minio未启动。继续剩余真实UI验收，仅复用本WT，开发前fetchmain，不selfmerge/deploy，不新stack/loop，使用pnpm9.15 PATH。保留合成样本，不补造旧答案。
 
 主session独立接受0354为NOT_AVAILABLE：仅design问卷模板saveOnly入口无use/load/retry，不覆盖library/report；template123=105PASS/3BLOCKED/11NOT_AVAILABLE/4NOT_STARTED，parent15PASS。0364报告实际加载失败→retry恢复证据65daedc0f待review，仍NS。
+
+主session独立接受0364受控故障恢复，template123=106PASS/3B/11NA/3NS，parent15PASS。剩余0358/359当前IAB正常Apply走到替换结果，getJsDialog为空未显式native确认/取消，不将两分支冒称均测试；证据template-replacement-current-tool.txt/result.png，独立新draft f6c2c63c保留。当前nativeChrome AX可读已解除历史locked边界，但现研究活动页，等主协调独占后输入；PDF438仍未验证。

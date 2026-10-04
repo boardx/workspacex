@@ -41,3 +41,5 @@ Live：#5196/#5197/#5202及#5127已由其他会话合入；#5067 OPEN，未发�
 2026-10-04 主session独立ACCEPT ef45bbccb最新main f687/API5eff新样本79d04a5d四项0528/0529/0533/0535：坏映射解绑0章通过、undo7章原title/problem恢复、未点Save自动保存刷新0章且undo消失、generic warning清除后消失。parent15PASS，template105PASS/3B/10NA/5NS，全558未完成，不扩大替换/编辑title/发布快照edges。ENOSPC缓存归属清理后WebReady；全局Docker恢复导致ownedPG tmpfs丢失，经主授权08:37full备份恢复，全部5w8t JSON与备份一致，answer43233/268f保持。原PG/Redis/API24705恢复健康；仅回收新增25709，旧25708及数据服务为后续验收保留。
 
 主session独立接受0354为NOT_AVAILABLE：仅design问卷模板saveOnly入口无use/load/retry，不覆盖library/report；template123=105PASS/3BLOCKED/11NOT_AVAILABLE/4NOT_STARTED，parent15PASS。0364报告实际加载失败→retry恢复证据65daedc0f待review，仍NS。
+
+主session独立接受0364受控故障恢复，template123=106PASS/3B/11NA/3NS，parent15PASS。剩余0358/359当前IAB正常Apply走到替换结果，getJsDialog为空未显式native确认/取消，不将两分支冒称均测试；证据template-replacement-current-tool.txt/result.png，独立新draft f6c2c63c保留。当前nativeChrome AX可读已解除历史locked边界，但现研究活动页，等主协调独占后输入；PDF438仍未验证。
