@@ -1,0 +1,75 @@
+ActualWeb4c0017fd2cb42102c53b89258162a16e58ea37ab/API5eff. New synthetic blank Survey7a977284-0baa-4b12-9966-3536e5942058 normalUI Next; no answers/publication/deletion. Existing cases0020/0005/0006/0007 pendingreview only.
+[
+  {
+    "stage": "ready-create",
+    "dom": "新建问卷\n\n先填写名称与标签，再选择创建方式。报告模板为可选项。\n\n问卷名称\n标签\n1/5\n合成验收20261004\n×\n已选 1 个标签\n选择创建方式\n空白创建\n\n直接进入设计问卷\n\nAI 导入创建\n\n先导入内容并校对 Markdown，再进入设计\n\n从模板创建\n\n使用现有问卷模板，直接进入设计\n\n取消\n下一步"
+  },
+  {
+    "stage": "created-blank",
+    "url": "http://127.0.0.1:25708/studio/survey/7a977284-0baa-4b12-9966-3536e5942058/design",
+    "dom": "- alert\n- link \"跳到主要内容\":\n  - /url: \"#wsx-main-content\"\n- banner:\n  - button \"组织菜单，当前：org org-fullstack-5e-986ac146-12206c108846\":\n    - generic: o\n  - button \"提交反馈\":\n  - generic: org org-fullstack-5e-986ac146-12206c108846\n  - paragraph: 管理员\n- main:\n  - main:\n    - button \"← 返回列表\"\n    - textbox \"问卷名称\": 合成验收20261004-空白与标签\n    - paragraph: 已保存 · 2026/10/4 09:34:07\n    - button \"更多操作\"\n    - button \"发布回收\"\n    - navigation \"问卷工作流\":\n      - button \"1. 设计问卷\":\n        - generic: \"1\"\n        - text: 设计问卷\n      - button \"2. 发布回收\":\n        - generic: \"2\"\n        - text: 发布回收\n      - button \"3. 查看答卷\":\n        - generic: \"3\"\n        - text: 查看答卷\n    - region \"设计检查\":\n      - heading \"发现 1 项设计问题\" [level=2]\n      - paragraph: 质量评分 未知\n      - paragraph: 预计填写时间 未知\n      - paragraph: 预计完成率 未知\n      - list:\n        - strong: 问卷至少需要一道题\n        - text: 问卷\n        - button \"定位并修复：添加至少一道可回答的问题\": 定位并修复\n    - paragraph: 选择题型，配置题目，再用实时预览试填。\n    - button \"试填问卷\"\n    - button \"撤销最近修改\" [disabled]:\n      - text: 撤销\n    - button \"重做最近修改\" [disabled]:\n      - text: 重做\n    - button \"打开题目大纲\"\n    - button \"打开题目设置\"\n    - complementary \"实时预览\":\n      - region \"问卷设计画布\":\n        - heading \"问卷设计画布\" [level=2]\n        - button \"桌面预览\" [pressed]\n        - button \"平板预览\"\n        - button \"手机预览\"\n        - region \"问卷封面\":\n          - heading \"合成验收20261004-空白与标签\" [level=2]\n- navigation \"主导航（移动端）\":\n  - link \"对话\":\n    - /url: /chat\n    - generic: 对话\n  - link \"项目\":\n    - /url: /projects\n    - generic: 项目\n  - link \"任务\":\n    - /url: /tasks\n    - generic: 任务\n  - link \"我\":\n    - /url: /profile\n    - generic: 我"
+  },
+  {
+    "stage": "reload-created",
+    "url": "http://127.0.0.1:25708/studio/survey/7a977284-0baa-4b12-9966-3536e5942058/design",
+    "title": "合成验收20261004-空白与标签",
+    "check": "发现 1 项设计问题\n\n质量评分 未知\n\n预计填写时间 未知\n\n预计完成率 未知\n\n问卷至少需要一道题问卷定位并修复"
+  },
+  {
+    "stage": "tag-select",
+    "pressed": "true",
+    "cards": [
+      {
+        "href": "/studio/survey/7a977284-0baa-4b12-9966-3536e5942058",
+        "title": "合成验收20261004-空白与标签"
+      }
+    ]
+  },
+  {
+    "stage": "tag-deselect",
+    "pressed": "false",
+    "before": [
+      "/studio/survey/101e9a36-3fb3-4e50-baa7-28e5ed56f4bb",
+      "/studio/survey/268f5a71-2510-4881-bf27-f8db642add81",
+      "/studio/survey/79d04a5d-8a17-46ac-b413-f9b030804cc9",
+      "/studio/survey/7a977284-0baa-4b12-9966-3536e5942058",
+      "/studio/survey/93750492-a585-4c08-9b01-ceb66960c2fd",
+      "/studio/survey/a529a7ac-3740-4b4a-b46f-dfd085fbb775",
+      "/studio/survey/ae22d556-ba5a-45c3-bd67-05f06431481a",
+      "/studio/survey/f6c2c63c-f157-49f2-bb3b-7ca36333f274"
+    ],
+    "after": [
+      "/studio/survey/101e9a36-3fb3-4e50-baa7-28e5ed56f4bb",
+      "/studio/survey/268f5a71-2510-4881-bf27-f8db642add81",
+      "/studio/survey/79d04a5d-8a17-46ac-b413-f9b030804cc9",
+      "/studio/survey/7a977284-0baa-4b12-9966-3536e5942058",
+      "/studio/survey/93750492-a585-4c08-9b01-ceb66960c2fd",
+      "/studio/survey/a529a7ac-3740-4b4a-b46f-dfd085fbb775",
+      "/studio/survey/ae22d556-ba5a-45c3-bd67-05f06431481a",
+      "/studio/survey/f6c2c63c-f157-49f2-bb3b-7ca36333f274"
+    ]
+  },
+  {
+    "stage": "no-results-filtered",
+    "dom": "全部标签\n合成验收20261004\n1\n共 8 个问卷\n\n报告模板（可选）\n\n为该问卷设计报告模板\n去创建报告模板\n\n没有符合筛选条件的问卷\n\n清除筛选"
+  },
+  {
+    "stage": "clear-filter",
+    "search": "",
+    "allTagsPressed": "true",
+    "cards": [
+      "/studio/survey/101e9a36-3fb3-4e50-baa7-28e5ed56f4bb",
+      "/studio/survey/268f5a71-2510-4881-bf27-f8db642add81",
+      "/studio/survey/79d04a5d-8a17-46ac-b413-f9b030804cc9",
+      "/studio/survey/7a977284-0baa-4b12-9966-3536e5942058",
+      "/studio/survey/93750492-a585-4c08-9b01-ceb66960c2fd",
+      "/studio/survey/a529a7ac-3740-4b4a-b46f-dfd085fbb775",
+      "/studio/survey/ae22d556-ba5a-45c3-bd67-05f06431481a",
+      "/studio/survey/f6c2c63c-f157-49f2-bb3b-7ca36333f274"
+    ]
+  },
+  {
+    "stage": "library-reload-tag-persists",
+    "card": "合成验收20261004-空白与标签\n\n0 个题目 · 0 份答卷（有效 0）\n\n草稿\n添加问题、发布问卷并收集真实反馈。\n合成验收20261004\n最近更新：2026/10/4 09:34:07\n继续设计\n查看答卷"
+  }
+]
