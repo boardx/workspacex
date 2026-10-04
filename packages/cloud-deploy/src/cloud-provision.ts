@@ -1,3 +1,4 @@
+import { assertPostMigrationBootstrap } from "./bootstrap-proof";
 import { randomUUID } from "node:crypto";
 import { lstat, readFile, chown, unlink } from "node:fs/promises";
 import { join, resolve } from "node:path";
@@ -173,6 +174,13 @@ export async function provisionCloud(configInput: unknown, releaseInput: unknown
       await job("prepare", env().memoryMigration, context, "agent");
     },
     bootstrap: async context => {
+      if (config.environment.profile === "production") {
+        const proof = await job("scripts/provision-admin-compatibility.ts", { ...env().bootstrap,
+          CN_BOOTSTRAP_PHASE: "preactivate", CN_BOOTSTRAP_SOURCE_SHA: manifest.sourceRevision,
+          CN_BOOTSTRAP_IMAGE_DIGEST: manifest.images.api.image.split("@")[1]!,
+        }, context);
+        assertPostMigrationBootstrap(proof, manifest.sourceRevision, manifest.images.api.image.split("@")[1]!);
+      }
       const result = z.object({ ok: z.literal(true), userId: z.string().min(1), orgId: z.string().min(1), defaultAgentId: z.string().min(1) }).parse(JSON.parse(await job("scripts/provision-admin.ts", env().bootstrap, context)));
       admin = result;
     },

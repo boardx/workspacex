@@ -50,25 +50,25 @@ it("switches to the saved generated topic and rejects a late lower-revision snap
   expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(/^模型保存的简洁题名$/);
 });
 
-it.each([100])("does not treat an old %s-character requirement-derived metadata name as explicit", async length => {
+it.each([100])("preserves an ambiguous %s-character goal-prefix name before generation", async length => {
   const state = { ...runtimeFixture("directions"), generatedNodes: [], brief: { ...runtimeFixture().brief, goal, topic: goal.slice(0, 200) } };
   vi.mocked(getResearchRuntime).mockResolvedValue(state);
   render(<GuidedResearchLive sessionId={state.sessionId} researchName={goal.slice(0, length)} onBack={vi.fn()} />);
-  expect(await screen.findByRole("heading", { level: 1 })).toHaveTextContent(/^新建研究$/);
+  expect(await screen.findByRole("heading", { level: 1 })).toHaveTextContent(goal.slice(0, length));
 });
-it.each([100])("restores the saved generated topic despite an old %s-character automatic name", async length => {
+it.each([100])("preserves an ambiguous %s-character goal-prefix name after generation", async length => {
   const state = { ...runtimeFixture("directions"), brief: { ...runtimeFixture().brief, goal, topic: "模型保存的简洁题名" } };
   vi.mocked(getResearchRuntime).mockResolvedValue(state);
   render(<GuidedResearchLive sessionId={state.sessionId} researchName={goal.slice(0, length)} onBack={vi.fn()} />);
-  expect(await screen.findByRole("heading", { level: 1 })).toHaveTextContent(/^模型保存的简洁题名$/);
+  expect(await screen.findByRole("heading", { level: 1 })).toHaveTextContent(goal.slice(0, length));
 });
 
-it("recognizes the automatic metadata prefix when the goal is between title and topic limits", async () => {
+it("preserves a goal-prefix name before generation without guessing provenance", async () => {
   const goal = "公开合成中等需求。".repeat(17);
   const state = { ...runtimeFixture("directions"), generatedNodes: [], brief: { ...runtimeFixture().brief, goal, topic: goal } };
   vi.mocked(getResearchRuntime).mockResolvedValue(state);
   render(<GuidedResearchLive sessionId={state.sessionId} researchName={goal.slice(0, 100)} onBack={vi.fn()} />);
-  expect(await screen.findByRole("heading", { level: 1 })).toHaveTextContent(/^新建研究$/);
+  expect(await screen.findByRole("heading", { level: 1 })).toHaveTextContent(goal.slice(0, 100));
 });
 it("preserves independent newer stream sequences without rolling back the saved heading", async () => {
   const state = { ...runtimeFixture("report"), report: null };

@@ -1,16 +1,45 @@
-name: Native Board Acceptance
+name: Board independent heavy acceptance
 on:
-  pull_request:
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      fresh_run:
+        description: Force a new measurement of the same main SHA
+        type: boolean
+        default: false
 permissions:
   contents: read
+  actions: read
 concurrency:
-  group: board-native-acceptance-${{ github.ref }}
+  group: board-heavy-main
   cancel-in-progress: false
 jobs:
+  batch:
+    runs-on: ubuntu-latest
+    outputs:
+      sha: ${{ steps.snapshot.outputs.sha }}
+      run: ${{ steps.snapshot.outputs.run }}
+      native: ${{ steps.snapshot.outputs.native }}
+      meeting: ${{ steps.snapshot.outputs.meeting }}
+    steps:
+      - uses: actions/checkout@v5
+        with: {fetch-depth: 0, ref: "${{ github.sha }}"}
+      - id: snapshot
+        name: Freeze admitted main and coverage; inspect exact batch evidence
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CI_FRESH_RUN: ${{ inputs.fresh_run }}
+        run: node .harness/scripts/board-heavy-batch.mjs
+      - name: Retain immutable batch manifest
+        uses: actions/upload-artifact@v6
+        with:
+          name: board-heavy-batch-${{ github.run_id }}-${{ github.run_attempt }}
+          path: board-heavy-batch.json
+          if-no-files-found: error
+          retention-days: 14
   native-board:
+    needs: batch
     runs-on: ubuntu-latest
     timeout-minutes: 120
     env:
@@ -19,20 +48,26 @@ jobs:
       # Functional R01 remains required; manual replay retains every visual assertion.
       BOARD_OBSERVATION_MODE: ${{ github.event_name == 'workflow_dispatch' && 'all' || 'functional' }}
     steps:
-      - uses: actions/checkout@v5
-        with: {fetch-depth: 0}
-      - uses: pnpm/action-setup@v4.4.0
-      - uses: actions/setup-node@v5
+      - if: needs.batch.outputs.run == 'true'
+        uses: actions/checkout@v5
+        with: {fetch-depth: 0, ref: "${{ needs.batch.outputs.sha }}"}
+      - if: needs.batch.outputs.run == 'true'
+        uses: pnpm/action-setup@v4.4.0
+      - if: needs.batch.outputs.run == 'true'
+        uses: actions/setup-node@v5
         with:
           node-version-file: .nvmrc
       - name: Verify native listener ownership fences
+        if: needs.batch.outputs.run == 'true'
         run: node --test apps/web/e2e/support/native-runtime/native-process-listeners.test.mjs apps/web/e2e/support/native-runtime/native-process-listeners-zombie.test.mjs
       - name: Prepare owned private native paths
+        if: needs.batch.outputs.run == 'true'
         run: |
           sudo install -d -m 1777 -o "$(id -u)" -g "$(id -g)" /private/tmp
           sudo apt-get update
           sudo apt-get install -y build-essential bison flex libreadline-dev zlib1g-dev libssl-dev libicu-dev lsof
       - name: Build exact native PostgreSQL and vector extension
+        if: needs.batch.outputs.run == 'true'
         run: |
           mkdir /private/tmp/wsx-native-tool-source
           cd /private/tmp/wsx-native-tool-source
@@ -51,6 +86,7 @@ jobs:
           make PG_CONFIG="$NATIVE_POSTGRES_TOOL_ROOT/bin/pg_config" -j2
           make PG_CONFIG="$NATIVE_POSTGRES_TOOL_ROOT/bin/pg_config" install
       - name: Create exact R01 source checkout
+        if: needs.batch.outputs.run == 'true'
         run: |
           git clone --no-hardlinks "$GITHUB_WORKSPACE" /private/tmp/wsx-native-r01
           git -C /private/tmp/wsx-native-r01 checkout --detach "$(git rev-parse HEAD)"
@@ -58,13 +94,15 @@ jobs:
           pnpm install --frozen-lockfile
           pnpm --filter web exec playwright install --with-deps chromium
       - name: Verify native acceptance receipts and safe diagnostics
+        if: needs.batch.outputs.run == 'true'
         working-directory: /private/tmp/wsx-native-r01
         run: node --test apps/web/scripts/run-board-native-acceptance.test.mjs
       - name: Run complete native R01 acceptance
+        if: needs.batch.outputs.run == 'true'
         working-directory: /private/tmp/wsx-native-r01
         run: node apps/web/scripts/run-board-native-acceptance.mjs -- pnpm --filter web exec playwright test --config e2e/board-r01-existing-runtime.config.ts
       - name: Create exact connector source checkout
-        if: always()
+        if: needs.batch.outputs.run == 'true'
         run: |
           git clone --no-hardlinks "$GITHUB_WORKSPACE" /private/tmp/wsx-native-connectors
           git -C /private/tmp/wsx-native-connectors checkout --detach "$(git rev-parse HEAD)"
@@ -72,11 +110,11 @@ jobs:
           pnpm install --frozen-lockfile
           pnpm --filter web exec playwright install --with-deps chromium
       - name: Run complete native connector acceptance
-        if: always()
+        if: needs.batch.outputs.run == 'true'
         working-directory: /private/tmp/wsx-native-connectors
         run: node apps/web/scripts/run-board-native-acceptance.mjs -- pnpm --filter web exec playwright test --config e2e/board-connector-existing-runtime.config.ts
       - name: Create exact ordinary-file source checkout
-        if: always()
+        if: always() && needs.batch.outputs.run == 'true'
         run: |
           git clone --no-hardlinks "$GITHUB_WORKSPACE" /private/tmp/wsx-native-files
           git -C /private/tmp/wsx-native-files checkout --detach "$(git rev-parse HEAD)"
@@ -84,11 +122,11 @@ jobs:
           pnpm install --frozen-lockfile
           pnpm --filter web exec playwright install --with-deps chromium
       - name: Run complete native ordinary-file acceptance
-        if: always()
+        if: always() && needs.batch.outputs.run == 'true'
         working-directory: /private/tmp/wsx-native-files
         run: node apps/web/scripts/run-board-native-acceptance.mjs -- pnpm --filter web exec playwright test --config e2e/board-files-completion.config.ts
       - name: Create exact sync lifecycle source checkout
-        if: always()
+        if: always() && needs.batch.outputs.run == 'true'
         run: |
           git clone --no-hardlinks "$GITHUB_WORKSPACE" /private/tmp/wsx-native-sync
           git -C /private/tmp/wsx-native-sync checkout --detach "$(git rev-parse HEAD)"
@@ -96,13 +134,55 @@ jobs:
           pnpm install --frozen-lockfile
           pnpm --filter web exec playwright install --with-deps chromium
       - name: Run complete native sync lifecycle acceptance
-        if: always()
+        if: always() && needs.batch.outputs.run == 'true'
         working-directory: /private/tmp/wsx-native-sync
         run: node apps/web/scripts/run-board-native-acceptance.mjs -- pnpm --filter web exec playwright test --config e2e/board-peer-existing-runtime.config.ts
       - name: Retain bounded statistics and screenshots without private runtime credentials
-        if: always()
+        if: always() && needs.batch.outputs.run == 'true'
         uses: actions/upload-artifact@v6
         with:
           name: board-native-acceptance-${{ github.run_id }}-${{ github.run_attempt }}
           path: /private/tmp/wsx-native-public-evidence/
           if-no-files-found: error
+      - name: Preserve original native verdict without rerunning
+        if: always() && needs.batch.outputs.run == 'false'
+        env:
+          ORIGINAL_RESULT: ${{ needs.batch.outputs.native }}
+        run: test "$ORIGINAL_RESULT" = success
+  meeting-room:
+    needs: batch
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    steps:
+      - if: needs.batch.outputs.run == 'true'
+        uses: actions/checkout@v5
+        with: {fetch-depth: 0, ref: "${{ needs.batch.outputs.sha }}"}
+      - if: needs.batch.outputs.run == 'true'
+        uses: pnpm/action-setup@v4.4.0
+      - if: needs.batch.outputs.run == 'true'
+        uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - if: needs.batch.outputs.run == 'true'
+        run: pnpm install --frozen-lockfile
+      - if: needs.batch.outputs.run == 'true'
+        run: pnpm --filter web exec playwright install --with-deps chromium
+      - name: Run real isolated meeting-room and verify its evidence
+        if: needs.batch.outputs.run == 'true'
+        env:
+          TMPDIR: ${{ runner.temp }}
+        run: pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter web run ci:board:meeting-room
+      - name: Retain evidence without signing credentials
+        if: always() && needs.batch.outputs.run == 'true'
+        uses: actions/upload-artifact@v6
+        with:
+          name: board-meeting-room-${{ github.run_id }}-${{ github.run_attempt }}
+          path: apps/web/test-results/board-ci/meeting-room/
+          if-no-files-found: error
+          retention-days: 14
+      - name: Preserve original meeting verdict without rerunning
+        if: always() && needs.batch.outputs.run == 'false'
+        env:
+          ORIGINAL_RESULT: ${{ needs.batch.outputs.meeting }}
+        run: test "$ORIGINAL_RESULT" = success

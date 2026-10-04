@@ -1,6 +1,5 @@
 "use client";
 
-import { DEFAULT_RESEARCH_NAME, guidedResearchHeading } from "@/lib/guided-research-heading";
 import { tagInputLimits, research as researchTagContract } from "@repo/contracts";
 
 import * as React from "react";
@@ -375,16 +374,6 @@ function ResearchHome({ onNavigate }: { onNavigate: (step: GuidedResearchStep, s
     listGuidedResearchSessions().then(result => {
       if (!active) return;
       setHistory(result.items);
-      for (const item of result.items) {
-        if (item.title.trim() !== DEFAULT_RESEARCH_NAME) continue;
-        // Resolve the same saved title as the workspace without overwriting metadata,
-        // tags, or concurrent user naming. A failed read leaves the card usable.
-        void getResearchRuntime(item.sessionId).then(runtime => {
-          if (!active) return;
-          const title = guidedResearchHeading(runtime, item.title);
-          setHistory(current => current?.map(entry => entry.sessionId === item.sessionId && entry.title === item.title ? { ...entry, title } : entry) ?? current);
-        }).catch(() => { /* Keep metadata as the fallback when runtime is unavailable. */ });
-      }
     })
       .catch(() => { if (active) setLoadFailed(true); });
     return () => { active = false; };
