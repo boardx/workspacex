@@ -54,6 +54,7 @@ async function editedChapter() {
 it("keeps unsaved chapter edits through collapse and reopening", async () => {
   const details = await editedChapter();
   details.open = false; fireEvent(details, new Event("toggle"));
+  expect(screen.getByDisplayValue("编辑后的章节")).toBeInTheDocument();
   details.open = true; fireEvent(details, new Event("toggle"));
   expect(await screen.findByRole("textbox", {name:"章节标题"})).toHaveValue("编辑后的章节");
   expect(screen.getByRole("button", {name:"保存章节结构"})).toBeEnabled();
@@ -69,4 +70,17 @@ it("regenerates from the unlocked server node after saving chapters", async () =
   fireEvent.click(screen.getByTestId("research-report-primary-action"));
   await waitFor(() => expect(execute).toHaveBeenCalledTimes(2));
   expect(execute.mock.calls[1]?.[0]).toMatchObject({node:"research",action:"generate_report"});
+});
+
+it("stops showing search loading once the composite server starts report writing", async () => {
+  read.mockResolvedValue(runtimeFixture("outline"));
+  execute.mockImplementation((_input, onEvent) => {
+    onEvent({ type: "snapshot", state: { ...runtimeFixture("report"), version: 5, busy: true, completed: false, report: null, executionGoal: "report", leaseUntil: "2099-01-01T00:00:00Z" } });
+    return new Promise(() => undefined);
+  });
+  render(<GuidedResearchLive sessionId="grs-live" onBack={vi.fn()} />);
+  fireEvent.click(await screen.findByRole("button", { name: /^生成报告$/ }));
+  await screen.findByTestId("research-execution-timeline");
+  expect(screen.queryByText("正在获取资料")).not.toBeInTheDocument();
+  expect(screen.getByTestId("research-execution-timeline")).toHaveTextContent("正在执行研究计划");
 });

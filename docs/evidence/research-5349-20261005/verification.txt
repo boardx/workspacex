@@ -1,0 +1,6 @@
+API cwd apps/api: vitest run --config vitest.research-unit.config.ts (15 files/406 PASS, exit0; API unchanged in final web delta).
+Web cwd apps/web: vitest run tests/ui/guided-research*.test* tests/ui/research-production-routes.test.tsx (37 files/360 PASS, exit0).
+Web cwd apps/web: tsc --noEmit (exit0); scoped eslint changed live/UI transition/E2E files (exit0).
+Root: pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter web exec playwright test e2e/guided-research-runtime.spec.ts --config playwright.fullstack-smoke.config.ts --project=seeded --workers=1 (1 PASS, exit0).
+Root: init.sh quick bootstrap (exit0); regular git pre-push affected typecheck/lint (exit0 at first push; required again after final commit).
+All owned test-isolation compose stacks were automatically released. Browser viewport reset, owned local Next34363/fixture34364/tab released. No merge/deploy performed.

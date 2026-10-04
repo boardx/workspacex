@@ -1,5 +1,5 @@
 import * as React from "react";
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { GuidedResearchLive } from "@/components/research-studio/guided-research-live";
 import { executeResearchRuntime, getResearchRuntime, getResearchRuntimeProgress, type GuidedResearchRuntime } from "@/lib/guided-research-api";
@@ -11,14 +11,24 @@ describe("confirm and generate the next research step", () => {
     ["brief", "outline"], ["directions", "outline"],
     ["outline", "research"],
   ] as const)("%s immediately shows %s loading and waits for generated content", async (from, to) => {
-    const before = runtimeFixture(from);
+    const before = from === "outline" ? {...runtimeFixture(from),tasks:[],sources:[]} : runtimeFixture(from);
     const generated = { ...runtimeFixture(to), version: 5 };
     let confirm!: (state: GuidedResearchRuntime) => void;
+    let emit: Parameters<typeof executeResearchRuntime>[1];
     vi.mocked(getResearchRuntime).mockResolvedValue(before);
-    vi.mocked(executeResearchRuntime).mockImplementationOnce(() => new Promise(resolve => { confirm = resolve; }));
+    vi.mocked(executeResearchRuntime).mockImplementationOnce((_input, callback) => { emit = callback; return new Promise(resolve => { confirm = resolve; }); });
     render(<GuidedResearchLive sessionId={before.sessionId} onBack={vi.fn()} />);
     fireEvent.click(await screen.findByRole("button", { name: from === "directions" ? "生成研究计划" : from === "outline" ? "生成报告" : "确认并继续" }));
-    expect(screen.getByTestId("research-step-loading")).toBeInTheDocument();
+    if (from === "outline") {
+      const destination = within(screen.getByRole("navigation", {name:"研究步骤"})).getByRole("button", {name:/生成报告/});
+      expect(destination).toHaveAttribute("aria-current", "step");
+      expect(destination).toHaveAttribute("aria-busy", "true");
+      expect(screen.getByTestId("execution-search")).toHaveTextContent("待执行");
+      expect(screen.queryByTestId("research-step-loading")).not.toBeInTheDocument();
+      await act(async () => emit!({type:"snapshot",state:{...generated,busy:true,leaseUntil:"2099-01-01T00:00:00Z",executionGoal:"report",tasks:generated.tasks.map(task=>({...task,status:"running" as const})),sources:[]}}));
+      expect(screen.getByTestId("research-step-loading")).toHaveTextContent("正在获取资料");
+      expect(screen.getByTestId("execution-search")).toHaveTextContent("执行中");
+    } else expect(screen.getByTestId("research-step-loading")).toBeInTheDocument();
     expect(executeResearchRuntime).toHaveBeenCalledTimes(1);
     expect(vi.mocked(executeResearchRuntime).mock.calls[0]?.[0]).toEqual(expect.objectContaining({ node: from, action: from === "outline" ? "generate_report" : "prepare_plan" }));
     await act(async () => { confirm(generated); });

@@ -106,11 +106,23 @@ describe("step-aligned research transitions", () => {
     ["directions", "生成研究计划", "plan", "正在生成研究计划"],
     ["outline", "生成报告", "report", "正在获取资料"],
   ] as const)("moves %s to its destination before generation finishes", async (node, action, stage, loading) => {
-    vi.mocked(getResearchRuntime).mockResolvedValue(runtimeFixture(node));
-    vi.mocked(executeResearchRuntime).mockImplementation(() => new Promise(() => undefined));
+    vi.mocked(getResearchRuntime).mockResolvedValue(node === "outline" ? {...runtimeFixture(node),tasks:[],sources:[]} : runtimeFixture(node));
+    let emit: Parameters<typeof executeResearchRuntime>[1];
+    vi.mocked(executeResearchRuntime).mockImplementation((_input, callback) => {emit=callback;return new Promise(() => undefined);});
     render(<GuidedResearchLive sessionId="grs-live" onBack={vi.fn()} />);
     fireEvent.click(await screen.findByRole("button", { name: action }));
-    expect(await screen.findByTestId("research-step-loading")).toHaveTextContent(loading);
+    if (node === "outline") {
+      const destination = within(screen.getByRole("navigation", {name:"研究步骤"})).getByRole("button", {name:/生成报告/});
+      expect(destination).toHaveAttribute("aria-current", "step");
+      expect(destination).toHaveAttribute("aria-busy", "true");
+      expect(screen.getByTestId("execution-search")).toHaveTextContent("待执行");
+      expect(screen.queryByTestId("research-step-loading")).not.toBeInTheDocument();
+      const researching = runtimeFixture("research");
+      await act(async()=>emit!({type:"snapshot",state:{...researching,version:5,busy:true,leaseUntil:"2099-01-01T00:00:00Z",executionGoal:"report",tasks:researching.tasks.map(task=>({...task,status:"running" as const})),sources:[]}}));
+      expect(screen.getByTestId("research-step-loading")).toHaveTextContent(loading);
+      expect(screen.getByTestId("execution-search")).toHaveTextContent("执行中");
+    } else expect(await screen.findByTestId("research-step-loading")).toHaveTextContent(loading);
+    expect(executeResearchRuntime).toHaveBeenCalledTimes(1);
     await waitFor(() => expect(window.location.pathname).toBe(`/research/grs-live/${stage}`));
     expect(screen.queryByTestId("research-runtime-progress")).not.toBeInTheDocument();
     if (stage === "report") expect(screen.queryByTestId("guided-research-plan-panel")).not.toBeInTheDocument();
