@@ -91,13 +91,13 @@ export function validateReportEvidence(markdown: string, index: readonly ReportE
   for (const assertion of interviewMarkdown.parseInterviewReportAssertions(markdown)) {
     // Finite observed overclaims: exact quotations do not establish population
     // frequency or inevitable purchasing causality. Keep raw candidate bytes.
-    for (const clause of assertion.text.split(/[，,。；;\n]|但是|然而|不过|但/u)) {
+    for (const clause of assertion.text.split(/[，,。；;\n]|但是|然而|不过|反而|仍然|而|但|(?<!冷)却/u)) {
       const overclaim = /最常见|必然(?:阻止|阻碍|导致|影响)(?:采购|购买)/u.exec(clause);
       if (!overclaim) continue;
       const before = clause.slice(0, overclaim.index);
       // A direct prohibition on inventing statistics also scopes the following
       // assertion, but not a contrast or unrelated earlier disclaimer.
-      const qualified = /(?:不能|不可|无法|不应|不得)(?:凭空)?(?:补充|编造|虚构)(?:样本)?统计来(?:断言|声称|认为|证明|说)(?![^，,。；;]*(?:而(?:要|应|是)|却))[^，,。；;]{0,16}$/u.test(before)
+      const qualified = /(?:不能|不可|无法|不应|不得)(?:凭空)?(?:补充|编造|虚构)(?:样本)?统计来(?:断言|声称|认为|证明|说)[^，,。；;]{0,16}$/u.test(before)
         || /(?:不能|不可|无法|不应|不得)(?:断言|声称|认为|证明|说)[^，,。；;]{0,16}$/u.test(before)
         || /(?:不能|不可|无法|不应|不得)\s*$/u.test(before)
         || /^\s*(?:若|如果|假如)[^，,。；;]*$/u.test(before);
