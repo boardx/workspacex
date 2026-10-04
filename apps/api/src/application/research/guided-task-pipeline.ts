@@ -1,3 +1,4 @@
+import { fairTaskWork } from "./guided-task-work";
 import { createHash, randomUUID } from "node:crypto";
 import { research as C } from "@repo/contracts";
 import { reportQuestions } from "./guided-report-evidence";
@@ -215,17 +216,14 @@ export async function executeTaskPipeline(state: ResearchRuntime, persist: Runti
   const sectionOrder = new Map(state.outline.map(section => [section.id, section.order]));
   const ordered = [...state.tasks].sort((a, b) => (sectionOrder.get(a.sectionId) ?? Infinity) - (sectionOrder.get(b.sectionId) ?? Infinity));
   const work = async (task: Task) => {
-    if (task.status === "succeeded") return;
+    if (task.status === "succeeded") return false;
     const previousError = task.searchAttempts?.at(-1)?.errorCode ?? task.errorCode;
     await commit(async () => { task.attempts++; task.searchAttempts ??= []; await save(); });
     let errorCode = previousError;
     if (task.searchAttempts!.length < C.GUIDED_RESEARCH_SEARCH_ATTEMPT_LIMIT && !(task.searchAttempts!.length && isRecoverableSearchFailure(previousError))) {
       errorCode = await attempt(task, task.searchAttempts!.at(-1)?.query ?? task.query, true);
     }
-    if (!isRecoverableSearchFailure(errorCode) || task.searchAttempts!.length >= C.GUIDED_RESEARCH_SEARCH_ATTEMPT_LIMIT) return;
-    // Keep bounded recovery inside this task worker: unrelated slow primaries
-    // must not hold every failed task behind an execution-wide barrier.
-    await recover(task);
+    return isRecoverableSearchFailure(errorCode) && task.searchAttempts!.length < C.GUIDED_RESEARCH_SEARCH_ATTEMPT_LIMIT;
   };
   const recover = async (task: Task) => {
     let queries: string[];
@@ -257,7 +255,7 @@ export async function executeTaskPipeline(state: ResearchRuntime, persist: Runti
         await commit(async () => { merge(reviewed); await save(); });
       } finally { release(); }
     });
-    await workers(ordered, work);
+    await fairTaskWork(ordered, TASK_WORKERS, work, recover, check, stop);
     // Keep the existing bounded chapter-gap supplements. They share the same
     // provider/read limits and cannot replace a task failure with apparent success.
     if (search.read) await workers(state.outline.filter(section => section.enabled).sort((a, b) => a.order - b.order), async section => {
