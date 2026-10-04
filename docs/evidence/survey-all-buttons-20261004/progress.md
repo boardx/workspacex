@@ -43,3 +43,5 @@ Live：#5196/#5197/#5202及#5127已由其他会话合入；#5067 OPEN，未发�
 主session独立接受0354为NOT_AVAILABLE：仅design问卷模板saveOnly入口无use/load/retry，不覆盖library/report；template123=105PASS/3BLOCKED/11NOT_AVAILABLE/4NOT_STARTED，parent15PASS。0364报告实际加载失败→retry恢复证据65daedc0f待review，仍NS。
 
 主session独立接受0364受控故障恢复，template123=106PASS/3B/11NA/3NS，parent15PASS。剩余0358/359当前IAB正常Apply走到替换结果，getJsDialog为空未显式native确认/取消，不将两分支冒称均测试；证据template-replacement-current-tool.txt/result.png，独立新draft f6c2c63c保留。当前nativeChrome AX可读已解除历史locked边界，但现研究活动页，等主协调独占后输入；PDF438仍未验证。
+
+当前Chrome原生确认能力重新核验：主协调三会话释放后自有新tab1270035700，正常Applyclick虽Input.dispatchMouseEvent超时但getJsDialog返回confirm；尝试native显示自有tab遭user changed app，重新AX显示他人研究tab，立即停止原生input。随后正规dismiss返回No dialog is showing，无可认证取消/确认；仅自有Chrometab已关闭，窗口回报主释放。native-confirm-current-boundary.txt记录具体错误，0358/359不抬PASS；PDF438未触发，当前需再协调无人共享/人类handoff后完成，不再沿用历史锁屏/权限缺失说法。

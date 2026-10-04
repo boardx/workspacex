@@ -1,0 +1,24 @@
+ActualWeb4c/API5eff. Main coordinated temporary Chrome window; fresh agent tab only. Existing synthetic draftf6c,20 mapped q,selected saved personalreport. No confirm injection, no other tab mutation. Native user-input interruption caused stop; PDF438 not attempted.
+[
+  {
+    "stage": "apply-click",
+    "result": "Input.dispatchMouseEvent timeout1977ms; actual confirm subsequently found"
+  },
+  {
+    "stage": "getJsDialog",
+    "type": "confirm"
+  },
+  {
+    "stage": "dismiss-error",
+    "error": "CDP -32602 No dialog is showing; no cancel certification"
+  },
+  {
+    "stage": "native-input-boundary",
+    "error": "User changed Chrome before own tab click; reread showed other research tab. Native input stopped."
+  },
+  {
+    "stage": "current-owned-tab",
+    "url": "http://127.0.0.1:25708/studio/survey/f6c2c63c-f157-49f2-bb3b-7ca36333f274/template",
+    "dom": "全地表达不同观点。\"\n      - option \"7. 需要帮助时，能及时获得同事支持。\"\n      - option \"8. 团队能坦诚讨论错误并改进。\"\n      - option \"9. 重要信息会及时同步给相关成员。\"\n      - option \"11. 我有足够连续时间完成专注工作。\"\n      - option \"12. 会议与日常沟通的投入是合理的。\"\n      - option \"13. 我具备完成工作所需的工具和资源。\"\n      - option \"14. 我能获得具体且有帮助的反馈。\"\n      - option \"15. 团队给予我学习和尝试的机会。\" [selected]\n      - option \"16. 我的贡献得到公平认可。\"\n    - text: 我的贡献得到公平认可。\n    - combobox \"对应题目：我的贡献得到公平认可。\":\n      - option \"请选择当前问卷题目\"\n      - option \"3. 我清楚团队当前最重要的目标。\"\n      - option \"4. 我知道自己的工作如何支持团队目标。\"\n      - option \"5. 团队对任务优先级有一致理解。\"\n      - option \"6. 我可以在团队中安全地表达不同观点。\"\n      - option \"7. 需要帮助时，能及时获得同事支持。\"\n      - option \"8. 团队能坦诚讨论错误并改进。\"\n      - option \"9. 重要信息会及时同步给相关成员。\"\n      - option \"11. 我有足够连续时间完成专注工作。\"\n      - option \"12. 会议与日常沟通的投入是合理的。\"\n      - option \"13. 我具备完成工作所需的工具和资源。\"\n      - option \"14. 我能获得具体且有帮助的反馈。\"\n      - option \"15. 团队给予我学习和尝试的机会。\"\n      - option \"16. 我的贡献得到公平认可。\" [selected]\n    - text: 您向同事推荐加入本团队的可能性有多大？\n    - combobox \"对应题目：您向同事推荐加入本团队的可能性有多大？\":\n      - option \"请选择当前问卷题目\"\n      - option \"17. 您向同事推荐加入本团队的可能性有多大？\" [selected]\n    - text: 哪些方面最需要改善？\n    - combobox \"对应题目：哪些方面最需要改善？\":\n      - option \"请选择当前问卷题目\"\n      - option \"18. 哪些方面最需要改善？\" [selected]\n    - text: 请按改善优先级排序。\n    - combobox \"对应题目：请按改善优先级排序。\":\n      - option \"请选择当前问卷题目\"\n      - option \"19. 请按改善优先级排序。\" [selected]\n    - text: 您希望团队保持或改变什么？\n    - combobox \"对应题目：您希望团队保持或改变什么？\":\n      - option \"请选择当前问卷题目\"\n      - option \"20. 您希望团队保持或改变什么？\" [selected]\n  - button \"应用模板\" [active]\n  - button \"关闭\":"
+  }
+]
