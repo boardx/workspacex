@@ -26,7 +26,7 @@ export function ossCredentialSource(config: OssRuntimeConfig, env: NodeJS.Proces
   };
 }
 
-export async function createOssSdkClient(config: OssRuntimeConfig, env: NodeJS.ProcessEnv): Promise<OssClientPort> {
+export async function createRawOssSdkClient(config: OssRuntimeConfig, env: NodeJS.ProcessEnv): Promise<OSS> {
   const source = ossCredentialSource(config, env);
   const credentials = await source();
   const sdk = new OSS({
@@ -34,7 +34,11 @@ export async function createOssSdkClient(config: OssRuntimeConfig, env: NodeJS.P
     secure: true, authorizationV4: true, timeout: 10_000,
     refreshSTSToken: source, refreshSTSTokenInterval: 0,
   });
-  return wrapOssSdk(sdk);
+  return sdk;
+}
+
+export async function createOssSdkClient(config: OssRuntimeConfig, env: NodeJS.ProcessEnv): Promise<OssClientPort> {
+  return wrapOssSdk(await createRawOssSdkClient(config, env));
 }
 
 /** Narrow typed bridge, also used by the actual SDK-over-HTTP contract tests. */

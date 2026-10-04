@@ -1,0 +1,308 @@
+{
+  "schemaVersion": 1,
+  "owner": "controller_wiring",
+  "target": {
+    "ecsInstanceId": "i-uf6ga92ewloganobbln6",
+    "regionId": "cn-shanghai",
+    "applicationRevision": "9b25bfa65662b96c0826fe67506b562ea46aa6d0",
+    "baselineRevision": "ba6343199f3c834d6a198f83d0c771614292c82b"
+  },
+  "updatedAt": "2026-10-04T01:01:03Z",
+  "mode": "bounded-readonly-artifact-inventory",
+  "productionModified": false,
+  "buildStarted": false,
+  "productionReady": false,
+  "invocations": [
+    {
+      "InvokeId": "t-sh06yz60o0ub30g",
+      "CommandId": "c-sh06yz60o0fboxs",
+      "InstanceId": "i-uf6ga92ewloganobbln6",
+      "InvocationStatus": "Success",
+      "ExitCode": 0,
+      "Dropped": 0,
+      "StartTime": "2026-10-04T00:59:16Z",
+      "FinishedTime": "2026-10-04T00:59:17Z"
+    },
+    {
+      "InvokeId": "t-sh06yz66co0bzeo",
+      "CommandId": "c-sh06yz66cnlclc0",
+      "InstanceId": "i-uf6ga92ewloganobbln6",
+      "InvocationStatus": "Success",
+      "ExitCode": 0,
+      "Dropped": 0,
+      "StartTime": "2026-10-04T01:01:02Z",
+      "FinishedTime": "2026-10-04T01:01:03Z"
+    }
+  ],
+  "fileChecks": [
+    {
+      "bytes": 160438422,
+      "gid": 0,
+      "links": 1,
+      "mode": "0o600",
+      "path": "/var/lib/workspacex-cn/rehearsal/source-download-9b25-8b9e1a98/candidate.bundle",
+      "present": true,
+      "regular": true,
+      "sha256": "8b9e1a988e4d0e1a159f673137851c76c01f90142cdc1c3654b51207b291d87a",
+      "stable": true,
+      "symlink": false,
+      "uid": 0
+    },
+    {
+      "path": "/tmp/wsx-approved-source-export.WqsKCD/source.bundle",
+      "present": false
+    },
+    {
+      "path": "/etc/workspacex-cn/releases/9b25bfa65662b96c0826fe67506b562ea46aa6d0.json",
+      "present": false
+    },
+    {
+      "path": "/etc/workspacex-cn/releases/9b25bfa65662b96c0826fe67506b562ea46aa6d0.sealed.json",
+      "present": false
+    },
+    {
+      "bytes": 216,
+      "gid": 0,
+      "links": 1,
+      "mode": "0o600",
+      "path": "/etc/workspacex-cn/preparations/9b25bfa65662b96c0826fe67506b562ea46aa6d0.json",
+      "present": true,
+      "regular": true,
+      "sha256": "c8d9b9b592e8d34778df159ef6e1ebef691fac96d3a53edbfe9be022573de7c6",
+      "stable": true,
+      "symlink": false,
+      "uid": 0
+    },
+    {
+      "path": "/var/lib/workspacex-cn/runtime/9b25bfa65662b96c0826fe67506b562ea46aa6d0/prepare-receipt.json",
+      "present": false
+    },
+    {
+      "path": "/var/lib/workspacex-cn/runtime/9b25bfa65662b96c0826fe67506b562ea46aa6d0/fast-safe-release.json",
+      "present": false
+    },
+    {
+      "bytes": 1798,
+      "gid": 0,
+      "links": 1,
+      "mode": "0o600",
+      "path": "/etc/workspacex-cn/candidate-configs/9b25bfa65662b96c0826fe67506b562ea46aa6d0/cn9b25-depswarm-20261002t181129z-a72d31/baseline.json",
+      "present": true,
+      "regular": true,
+      "sha256": "76a7f158cf939504439d6d4b08bf1ce990e6f2ab262017ff9f462799b8f7c4e0",
+      "stable": true,
+      "symlink": false,
+      "uid": 0
+    },
+    {
+      "bytes": 2150,
+      "gid": 0,
+      "links": 1,
+      "mode": "0o600",
+      "path": "/etc/workspacex-cn/candidate-configs/9b25bfa65662b96c0826fe67506b562ea46aa6d0/cn9b25-depswarm-20261002t181129z-a72d31/deployment.json",
+      "present": true,
+      "regular": true,
+      "sha256": "a4d6226d419c15d52adb0d500087acb2617a0c45eadf3c08b317d26f4ba84e13",
+      "stable": true,
+      "symlink": false,
+      "uid": 0
+    },
+    {
+      "bytes": 1798,
+      "gid": 0,
+      "links": 1,
+      "mode": "0o600",
+      "path": "/etc/workspacex-cn/candidate-configs/9b25bfa65662b96c0826fe67506b562ea46aa6d0/cn9b25-pin-20261002t183331z-b42c91/baseline.json",
+      "present": true,
+      "regular": true,
+      "sha256": "76a7f158cf939504439d6d4b08bf1ce990e6f2ab262017ff9f462799b8f7c4e0",
+      "stable": true,
+      "symlink": false,
+      "uid": 0
+    },
+    {
+      "bytes": 2150,
+      "gid": 0,
+      "links": 1,
+      "mode": "0o600",
+      "path": "/etc/workspacex-cn/candidate-configs/9b25bfa65662b96c0826fe67506b562ea46aa6d0/cn9b25-pin-20261002t183331z-b42c91/deployment.json",
+      "present": true,
+      "regular": true,
+      "sha256": "a4d6226d419c15d52adb0d500087acb2617a0c45eadf3c08b317d26f4ba84e13",
+      "stable": true,
+      "symlink": false,
+      "uid": 0
+    }
+  ],
+  "attemptRootChecks": [
+    "ATTEMPT_ROOT /etc/workspacex-cn/candidate-configs/9b25bfa65662b96c0826fe67506b562ea46aa6d0 entries 2",
+    "ATTEMPT_ROOT /var/lib/workspacex-cn/preflight-receipts/9b25bfa65662b96c0826fe67506b562ea46aa6d0 absent"
+  ],
+  "imageReferenceChecks": [
+    {
+      "service": "web",
+      "imageReference": "workspacex-cn-prod-registry-vpc.cn-shanghai.cr.aliyuncs.com/workspacex-prod/web:9b25bfa65662b96c0826fe67506b562ea46aa6d0",
+      "localInspectExitCode": 1,
+      "localReferenceAvailable": false,
+      "registryQueried": false,
+      "registryAvailability": "unknown",
+      "productionRuntimeApplication": true
+    },
+    {
+      "service": "api",
+      "imageReference": "workspacex-cn-prod-registry-vpc.cn-shanghai.cr.aliyuncs.com/workspacex-prod/api:9b25bfa65662b96c0826fe67506b562ea46aa6d0",
+      "localInspectExitCode": 1,
+      "localReferenceAvailable": false,
+      "registryQueried": false,
+      "registryAvailability": "unknown",
+      "productionRuntimeApplication": true
+    },
+    {
+      "service": "agent",
+      "imageReference": "workspacex-cn-prod-registry-vpc.cn-shanghai.cr.aliyuncs.com/workspacex-prod/deep-agent:9b25bfa65662b96c0826fe67506b562ea46aa6d0",
+      "localInspectExitCode": 1,
+      "localReferenceAvailable": false,
+      "registryQueried": false,
+      "registryAvailability": "unknown",
+      "productionRuntimeApplication": true
+    },
+    {
+      "service": "sandbox",
+      "imageReference": "workspacex-cn-prod-registry-vpc.cn-shanghai.cr.aliyuncs.com/workspacex-prod/skill-sandbox:9b25bfa65662b96c0826fe67506b562ea46aa6d0",
+      "localInspectExitCode": 1,
+      "localReferenceAvailable": false,
+      "registryQueried": false,
+      "registryAvailability": "unknown",
+      "productionRuntimeApplication": true
+    },
+    {
+      "service": "postgres",
+      "imageReference": "workspacex-cn-prod-registry-vpc.cn-shanghai.cr.aliyuncs.com/workspacex-prod/postgres-age:9b25bfa65662b96c0826fe67506b562ea46aa6d0",
+      "localInspectExitCode": 1,
+      "localReferenceAvailable": false,
+      "registryQueried": false,
+      "registryAvailability": "unknown",
+      "productionRuntimeApplication": false
+    }
+  ],
+  "redis": {
+    "localInspectPerformed": false,
+    "reason": "immutable reference unavailable because fixed candidate manifest absent",
+    "registryQueried": false
+  },
+  "existingExactRevisionLocalImages": [
+    {
+      "imageId": "sha256:4eb603ba9bf62e2094b938cc914a76b97085ec893fc0000a05b1733b824f9e43",
+      "repoTags": [
+        "workspacex-isolation-local/api:wsx-isolation-ownerfix-1dd2bbeb76004dd4a335cc19178015c1"
+      ],
+      "repoDigests": [
+        "workspacex-isolation-local/api@sha256:4eb603ba9bf62e2094b938cc914a76b97085ec893fc0000a05b1733b824f9e43"
+      ],
+      "os": "linux",
+      "architecture": "amd64",
+      "ociSourceRevision": "9b25bfa65662b96c0826fe67506b562ea46aa6d0",
+      "scope": "existing local isolation API image metadata only",
+      "registryPublicationVerified": false,
+      "formalReleaseArtifactVerified": false
+    },
+    {
+      "imageId": "sha256:e31f4cd6280df00623ff6394b7bd76ef73fd023c193cdf1360bc0eb79c2ec782",
+      "repoTags": [
+        "workspacex-isolation-local/api:wsx-isolation-api-3aae202a867e4eafad51d17de94386dd"
+      ],
+      "repoDigests": [
+        "workspacex-isolation-local/api@sha256:e31f4cd6280df00623ff6394b7bd76ef73fd023c193cdf1360bc0eb79c2ec782"
+      ],
+      "os": "linux",
+      "architecture": "amd64",
+      "ociSourceRevision": "9b25bfa65662b96c0826fe67506b562ea46aa6d0",
+      "scope": "existing local isolation API image metadata only",
+      "registryPublicationVerified": false,
+      "formalReleaseArtifactVerified": false
+    }
+  ],
+  "denominators": {
+    "fixedFilesChecked": 11,
+    "fixedFilesPresent": 6,
+    "productionApplicationReferencesChecked": 4,
+    "productionApplicationExactReferencesAvailable": 0,
+    "auxiliaryPostgresAgeReferenceChecked": 1,
+    "auxiliaryPostgresAgeExactReferenceAvailable": 0,
+    "existingLocalIsolationApiImagesFound": 2,
+    "formalManifestSchemaImageSlots": 6
+  },
+  "sourceReuse": {
+    "originalOfflineBundleCurrentHashMatchesHistoricalCompleteGitProof": true,
+    "originalOfflineBundleSha256": "8b9e1a988e4d0e1a159f673137851c76c01f90142cdc1c3654b51207b291d87a",
+    "originalOfflineBundleBytes": 160438422,
+    "domesticTemporaryExportCurrentlyAbsent": true,
+    "domesticExportHistoricalReceiptDeclaredTemporaryArtifactsRemoved": true,
+    "newExportPerformed": false
+  },
+  "configurationChecks": {
+    "scope": "metadata/hash only; no configuration/environment values disclosed",
+    "baselineHash": "76a7f158cf939504439d6d4b08bf1ce990e6f2ab262017ff9f462799b8f7c4e0",
+    "candidateHash": "a4d6226d419c15d52adb0d500087acb2617a0c45eadf3c08b317d26f4ba84e13",
+    "attempts": 2,
+    "semanticContinuityVerified": false
+  },
+  "blockers": [
+    "Fixed candidate manifest and seal absent",
+    "Valid prepare-receipt and fast-safe-release receipt absent",
+    "Exact candidate preflight receipt root absent",
+    "Five exact publisher image references absent in local cache; registry status remains unknown",
+    "Existing two local isolation API images do not prove formal registry artifacts or remaining application images"
+  ],
+  "timingEstimate": {
+    "inventoryComplete": true,
+    "remainingArtifactWorkIfAlreadyPublishedMinutes": [
+      10,
+      25
+    ],
+    "remainingArtifactWorkIfBuildRequiredMinutes": [
+      35,
+      90
+    ],
+    "scope": "rough operational estimate, not production completion guarantee; recovery/migration/business acceptance separate",
+    "externalWaiting": [
+      "exact tool approval and installation readiness",
+      "runner and ACR availability",
+      "recovery and production action approval"
+    ]
+  },
+  "evidence": {
+    "inventory.sh": {
+      "path": "/tmp/wsx-9b-artifact-readonly/inventory.sh",
+      "sha256": "ee6a2880359f02599787ec57b946b577e6cc8aa1e00f8e3797ddeb10a21f15eb"
+    },
+    "invoke.json": {
+      "path": "/tmp/wsx-9b-artifact-readonly/invoke.json",
+      "sha256": "0ce9eb48a65ba84f578e908cfa3ad4784e29c14c4ef5934542cb4f09e4468b69"
+    },
+    "result.json": {
+      "path": "/tmp/wsx-9b-artifact-readonly/result.json",
+      "sha256": "6c2b88ab2006dd39ff3018b3ad9e4dee2d51c2ce148b5f241c2485b2058deeb9"
+    },
+    "output.txt": {
+      "path": "/tmp/wsx-9b-artifact-readonly/output.txt",
+      "sha256": "106022843370bf26b152e3d68356804f1b6e672bfd248886287003efa1bc682c"
+    },
+    "labels.sh": {
+      "path": "/tmp/wsx-9b-artifact-readonly/labels.sh",
+      "sha256": "813f73ef0914d3e1cbf9a60c332cca1829ef95aaeaf40b41d8dba8b82af1463a"
+    },
+    "labels-invoke.json": {
+      "path": "/tmp/wsx-9b-artifact-readonly/labels-invoke.json",
+      "sha256": "1cf6699f08837368195968b74ec66b5ce2327365228a0d1a6ab152cb5f7f66b3"
+    },
+    "labels-result.json": {
+      "path": "/tmp/wsx-9b-artifact-readonly/labels-result.json",
+      "sha256": "694ce8f93e68d48c1a56431086537413cea9240c2c5e9668acdcfd47b82b36c6"
+    },
+    "labels-output.txt": {
+      "path": "/tmp/wsx-9b-artifact-readonly/labels-output.txt",
+      "sha256": "1226ad5e058c2a50aa4c938eff4f1498cb1d2f7de799d2cc7413b07765bf0803"
+    }
+  }
+}

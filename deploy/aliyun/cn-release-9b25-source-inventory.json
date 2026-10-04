@@ -1,0 +1,2486 @@
+{
+  "sourceRevision": "9b25bfa65662b96c0826fe67506b562ea46aa6d0",
+  "baselineRevision": "ba6343199f3c834d6a198f83d0c771614292c82b",
+  "scope": "exact-git-source-inventory-only",
+  "actualPendingUnknown": true,
+  "sourceCount": 393,
+  "baselineSourceCount": 255,
+  "addedCount": 138,
+  "changed": [],
+  "removed": [],
+  "rows": [
+    {
+      "name": "0001-kernel-roles.sql",
+      "checksum": "7359be8b1ea487dce65512c9df126882fb897b43ebfb0eb49ef7a57d4cde410f",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "0002-rls-probe.sql",
+      "checksum": "b523242a5c3d570def3447f5349cf87968b07f6597d7acc8a2939cfbcc51aaaf",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "0003-identity.sql",
+      "checksum": "8ae225116b3f9bc6576e53665b3f597c2769e31c2921d6a69f7e0245e6652b03",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "0004-f02-tenant-isolation-audit.sql",
+      "checksum": "26ad21aea8d4d00144bb5e7ada9e694d9cadad1fe50a8055953316e500622f27",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "0005-f03-admin-boundary.sql",
+      "checksum": "9b41a7e8aa9d9cdbb222c1693152e9b2010ad31da8dacc66e592f944e8beb45a",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "0006-f04-artifact-model.sql",
+      "checksum": "c435a137e151b18bb8987364c9dcf3ce3657d4b9e173fb4bf2751597f8f48a2a",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "0007-f05-snapshot-immutability.sql",
+      "checksum": "e4509a79fdeda6a8c2865cebe6b065e3304e86e100fd099acddd72d52df9d0ce",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "0008-f06-binding-modes.sql",
+      "checksum": "1c62a19500d2ce4747a536a6ad7b70e803cb1e7e1d77dd14a74589ecbf7e7726",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "0008-f15-capability-listings.sql",
+      "checksum": "0347e2fd86dd6b8518a1b21e2660b76ddd2bbbae41c8a18efba4218839ed3536",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "0009-f10-retrieval-index.sql",
+      "checksum": "f4ac9d62159cd64ee6143ccf5eb58921e13d36c1d7dabce1a7544e9fe34afbcc",
+      "addedSinceBaseline": false,
+      "reviewTokens": [
+        "update-token",
+        "create-extension"
+      ]
+    },
+    {
+      "name": "0010-auth-credentials-sessions.sql",
+      "checksum": "739cb292e9fd9f301bde60cc192c886635603fc5cc343212c5f1ffadfb341350",
+      "addedSinceBaseline": false,
+      "reviewTokens": [
+        "update-token"
+      ]
+    },
+    {
+      "name": "0011-f19-auth-registration.sql",
+      "checksum": "16a05abbacac02964b9b48a213347daaa4ebda9fd0df4698b34d90462136f720",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "0012-f07-downstream-references.sql",
+      "checksum": "ccba43bd62e9085ee3504110cb712a6294a2740cdc2ef628a1caddb79c679ca8",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "0013-f08-provenance-audit.sql",
+      "checksum": "3a9f76bc48058d12d3ed27f741e9789a6964aa87faffeb2d560dbb3f0705ffa4",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "0014-f22-org-lifecycle.sql",
+      "checksum": "08bfad7826c8d7cf92f328256b3d90bc356b29f898ac966d27df3876c3f6ab4a",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "0015-f16-personal-local-org.sql",
+      "checksum": "828858decfc073eef35afd374f24c8fe92f01aac7196ee6d6db70ba007f74548",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "0016-f13-context-pack-persistence.sql",
+      "checksum": "3de1f247dae06119b25348e05ac994600824d9508830c77cc35d7bfa80ce9dcf",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "0017-f17-local-export.sql",
+      "checksum": "e9b7d9f4b73a4de8670ba9d0c85803a938832c62d81e64817f29fb4fc0c26405",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "0018-f116-project-supertype-subtypes.sql",
+      "checksum": "92b24006609170d73773076406772dabc6b41ee5e1fa36e3be9ad788dc6a2fc3",
+      "addedSinceBaseline": false,
+      "reviewTokens": [
+        "update-token"
+      ]
+    },
+    {
+      "name": "0019-f48-model-pool.sql",
+      "checksum": "61b2195f5cd64f524c17901a2e9a75bac88d7a0d822af454e22cdb1824b75bda",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "0020-f80-interview-scope.sql",
+      "checksum": "745c1038b18581edaad834272eba57c7bc7497050369349c48d14c70dc9bf8b3",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "0021-f108-chat-visibility.sql",
+      "checksum": "ab06f1c567cd61885f794669d130c3289640ce1f679f45e4182c2b7c3f7630ad",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "0022-f10-org-member-invites.sql",
+      "checksum": "7b8f097081ecbe4967ef7f0f80bb6857bf8ca5e02690fb608884c436f4e7b1fa",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "0023-f31-files-browser.sql",
+      "checksum": "1f1fff9409bc2650dde31ddf840938c88d28c8b6a5e4f0cfc7f1b08ebaa55ca0",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "0025-f15-project-invite-links.sql",
+      "checksum": "ac88f1f5eef6ee9209e263e53aa21e5cdd5512aa5354e723fe834f4e7eadaa5c",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "0026-f117-create-project-idempotency.sql",
+      "checksum": "e683814174f4e7bdd578211b3093e8072d5840448792298a0a838a90eaa67ebb",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "0027-f32-download-grants.sql",
+      "checksum": "8f8b5f930905f52e20d95dbefeac82cc59fcd709e79fbdf308cbe7ea4d5aaa00",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "0029-f109-thread-list.sql",
+      "checksum": "47cb46f01c1dd9389d68217398db000fa9d6282246e91d20fd01f9000006ed53",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "0030-f81-interview-step-attachments.sql",
+      "checksum": "a955715acdeec6bf5384a8741f1c7b5f10fabd7a7f625d80aedacd237187b1dd",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "0031-f49-admission-tests.sql",
+      "checksum": "3a6d16142e217257e83c3aad877e9bccfe44e6fcc827a0a5710ce9b6cdbf20b1",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "0032-f110-ai-team-panel.sql",
+      "checksum": "859f7fd11c90c33b99157e1d235efa34fce826c4a7000abde65c69cc318b3785",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "0033-f34-files-terminal-states.sql",
+      "checksum": "e557bcec9a4a1f1127a16bf8f36dc621be21b3d3d906bf180b8f1070e4e9c786",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260731085758_f11_admin_invite_dual_review.sql",
+      "checksum": "dbef60b9c1717a1f9b8c13bfc5ca4482d0a5349f70e6b2171eec674016dd5cb1",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260731085808_f118_agenda_segments_table.sql",
+      "checksum": "df67990d3fb0ead472fcb4ec56dee59f72b7e859b55ddf7283571d77597b6ce9",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260731090052_f16_revoke_access_timing.sql",
+      "checksum": "98b77c1cb145267a6c1f99fa2f1a9cd68ce9987acaf85199c6103f76d3cae7b8",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260731090952_f12_group_link_auto_enroll.sql",
+      "checksum": "444dad1337b095332eb94e2e710f54bba10d916d31d8a4bbd19fbb97a5e5344e",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260731153640_f73_recording_file_first.sql",
+      "checksum": "5d3b607f4617005df4eec74150cb3364025b92bb30ef7cfa25d69fb0ed19818c",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260731153916_f13_guestless_entry_edge_cases.sql",
+      "checksum": "f6bb2f327e426adbaf35446090f6f89978e042e3b2e5015cb16e9b1ca84cee86",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260731160433_f74_speaker_assignment_backfill.sql",
+      "checksum": "026b4d6096546bb01462cd8c4c5f422dd13b527f87fba9bdf5297035f6ff1c7c",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260731161729_f121_agenda_segment_naming.sql",
+      "checksum": "7823db8f3c33d51c4c05dc541970d7ec1b723ae020f25de396565b765244c906",
+      "addedSinceBaseline": false,
+      "reviewTokens": [
+        "rename-table"
+      ]
+    },
+    {
+      "name": "20260731165010_f72_pii_masking_phone_encryption.sql",
+      "checksum": "6b8664d839f12b7b50d668f056b32cfd28c892b785e5516219d44d388ac8f4f7",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260731165140_f14_interviewee_phone_withdrawal.sql",
+      "checksum": "787e52041922ead3481862e6b37f8b990c26218e3488b18a3b1b4ba272cd1c4c",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260731170006_f115_preset_conversation_distribution.sql",
+      "checksum": "ec8419a0c4af3151494376d8269878598602dc83b9fff83f4ae3b271a54b797e",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260731170746_f111_chat_citations.sql",
+      "checksum": "a01c82ae26becfe8ab6ab30fefc4f3435b79aa24a780fbef226793e1841d19fb",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260731203510_f33_files_export_jobs.sql",
+      "checksum": "aa9f5b8f13aeb70fad48cfedfc9b4314b273878eeebca977256cb9db55517df2",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260801000000_f35_upload_security.sql",
+      "checksum": "ba63bef1b699ffb2895eef538978b9ff9fb411e261f7c17a22ecca0722c9e47b",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260801000000_f97_interview_subjects.sql",
+      "checksum": "d46cb3b536ed5c0f4f1e72eadbfffdc8c0e6811de95cbfe898392321bcebb872",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260801103000_f82_interview_templates.sql",
+      "checksum": "3b1b09a8bed30d7c1e38358e27e19d8c028128f923785e80ef3fa88bfa7d82f4",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260801120000_f124_project_archive_readonly.sql",
+      "checksum": "488549a68d3ccc364c2e8e124efd3cfb0bb269e6b1decff9276caf4f1ae2bacb",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260801120500_f44_version_list_and_derived.sql",
+      "checksum": "adffd2262942a61b493cb4cce0171d3b7bce0ab69a8c6054176739af2e38880c",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260801130000_f36_ingestion_outbox.sql",
+      "checksum": "90a25ef0ed803427ba17108cc1b6cfa89c3b779d09e3245f16d78ebc9af3885d",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260801140000_f98_contact_reveal_audit.sql",
+      "checksum": "337c5f29c08689649366618b5e932f24c23162059db6ee2458fecc9fe56fa563",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260801150000_f112_approval_gate.sql",
+      "checksum": "5c486254e649e97b089a7ca81c55ac1dfa5d610ce5b921b68f8d91e19215666b",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260801150000_f83_template_extraction_drafts.sql",
+      "checksum": "7473c6cf5376142cd5b8d0a933c8e288d736e163ff5c8ba3218f7f8afc616895",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260801180000_f84_interview_outline_wizard.sql",
+      "checksum": "77884fec1d6f4a205af6e33c8990060a8bde96f9a04e79ca3618da3331dc44d4",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260801190000_f114_chat_artifact_landings.sql",
+      "checksum": "c36b858115c96b7a1f3d8b9dcd59f2107dc4396b0b24fdd88ec54711f25ed9e6",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260801190000_f128_non_workshop_member_tables.sql",
+      "checksum": "74f18c52e0ef84c0b40f62b2cd7488abfb74b62da1fb7f2325f5030a2fa356b4",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260801190000_f37_idempotent_ingest_and_adapters.sql",
+      "checksum": "c9bf44dabeddb9fba62f1bfced69f458c01c09a30b29a257893be1c5e2152d0d",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260801190000_f93_segment_speaker_subject.sql",
+      "checksum": "8e9a7e5ffd503589e40370f344874d148398e02e48bca19de704e40fdcc15cb7",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260801200000_f127_temporary_grants_table.sql",
+      "checksum": "f058abb147b8aa9ff5c5e1ff708aacec9e37f8f113ae8282b9065cd0e9c01d9d",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260801210000_f45_deletion_cascade.sql",
+      "checksum": "102f6bd2e5d04919c96944775906fc4215d8098ec45184569afa501378d81cda",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260801220000_f39_review_pending_provenance.sql",
+      "checksum": "07d3ea6ec608e564f0791557a59c818c28e73399241b070c2544e417e5015a72",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260801230000_f137_publish_asset_audit.sql",
+      "checksum": "d6c77a52fc891e0c97f35fe202196b433c3e27cdb85013ca0ffe5e56f4f2ca3c",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260802000000_f46_trash_queue_legalhold_retention.sql",
+      "checksum": "c4b4dd6078d3aeb1a5aecc988405355e19f8aaeb3388298f0dc0c55aa8db921b",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260802050000_i342_project_archive_coverage_fix.sql",
+      "checksum": "e7ffb4e761f5ab9dc661229956195bee959610840b4f6fa988576ceaa2b77858",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260803000000_f86_consent_token_pg.sql",
+      "checksum": "8321e24305063c4792b78b79df88d29b0af6635fc0e9d79344b131eabae4d211",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260804030000_i411_email_verification_outbox.sql",
+      "checksum": "b5dfae5cbb6ce97e1ac449e1dc701ace7acf7c3965196771ae89f05d2211804f",
+      "addedSinceBaseline": false,
+      "reviewTokens": [
+        "drop-table"
+      ]
+    },
+    {
+      "name": "20260804030100_i411_superseded_challenges.sql",
+      "checksum": "4ea4d000887413343093dfceb8a693b3270aeda3a70ded24f5eb7a197f2970c4",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260804030200_i411_resend_issuance_kind.sql",
+      "checksum": "cf69e29fcfd4fc8cd426695d8612d5c151f7b1cbc2676a9a2902332351ac36ef",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260804031000_wave2_skill_starter_import.sql",
+      "checksum": "35eff0cd71f1658e12226e3c896c4efe63b6e6c51fab994a9d7857818486653b",
+      "addedSinceBaseline": false,
+      "reviewTokens": [
+        "update-token"
+      ]
+    },
+    {
+      "name": "20260804060000_wave2_chat_message_acceptance.sql",
+      "checksum": "4fe7accea1d6322ef4b4dfe4f822ab156565fa8ed5eef60117e1b51374f3ab18",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260804090000_auth_bootstrap_once.sql",
+      "checksum": "766a5975624efbe440307a973c3c1869fbd60dfa933f769eca52c3df1773504d",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260804150000_wave2_agent_starter_import.sql",
+      "checksum": "4486ec30b4366728f86a802a66d99c3b6f925cb80987020ab67cb71ad5593ee5",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260805030000_canvas_template_registry.sql",
+      "checksum": "204f731c6df4ecf76b3baefdd124875ace7915f2f233b363b44ea133b6692a3a",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260805100000_i465_recording_capture_persistence.sql",
+      "checksum": "ea67faa34a1a8a2a048d7e451987ab53d1ac46bf6e0a6c8602ceae0328f8516c",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260805110000_wave2_agent_run_execution.sql",
+      "checksum": "53fc1ed52cc036ce2e2e6c2e7d01a65b5ef5552aebbf96a71276f9006c1798e9",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260805140000_i459_skill_declarative_contract_store.sql",
+      "checksum": "2813da3476eb7e8b5fca34a08cd710ee23d672bffc8cb081e687e73952acd965",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260805150000_i413_chat_writeback.sql",
+      "checksum": "9fc0808d8b47c84ed1f2e3b5c4118ac2ae852647dd943f814836aa2f3f4ded39",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260805170000_i467_thread_skill_mounts.sql",
+      "checksum": "77ce93e499cf347adf4f366f55c7566007e307422b77455ba6e5a0ab725a489c",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260805190000_i519_agent_run_retry.sql",
+      "checksum": "8aceb951201698bb9da693c47c2da6d26ab659fa6ed98637c5fb7b95487a8c3d",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260805200000_i533_recording_consent_attribution.sql",
+      "checksum": "0001ae4bf9bb0a08b4b1d895dff5e77da9e41f07b7666dfdb6414102ba7ce190",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260805200000_i552_skill_review_gates.sql",
+      "checksum": "feaa21a2371db9013b2450c08b4d3ac8333725a02b6fad5f01b7c639b6a0939f",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260806040000_i595_skill_url_import.sql",
+      "checksum": "df6324ec0e344c8388110fc7db118c3a9cee00e7390ad6fc3459a61d71d4c288",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260806100000_i594_personal_threads.sql",
+      "checksum": "60ef57bb4d14082c2f7a2ad5f6f148c95a358595b5ef2bc750f2a2c2fb9e11b6",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260807000000_i619_agent_roster_capability_convergence.sql",
+      "checksum": "4af98f044fb081bf5b887b47058f3e31ddcf6cb5aa3418153a55c59d9720fbe4",
+      "addedSinceBaseline": false,
+      "reviewTokens": [
+        "update-token"
+      ]
+    },
+    {
+      "name": "20260807030000_i617_create_agent.sql",
+      "checksum": "c55f593eaf8b90e1eec00e29bcc406b3284969cc9c088a67bf87647cc1b9d2dd",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260808120000_i654_agent_run_deltas.sql",
+      "checksum": "cc6f139c364f6864705ac56aad41988dccd8a5490b4700f0a6df220c6becce91",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260808130000_i725_tool_calling_loop.sql",
+      "checksum": "854f449373abdcae5419f2217e249a5b59b2d76b3b065962671bfe1028569983",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260808140000_i731_tool_call_planning_note.sql",
+      "checksum": "be3bd7536f6f74635b7e2a25cb7665f26a4f9cc4c9bb2b3228dcf3674fc69008",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260809060000_i363_org_profile_membership.sql",
+      "checksum": "54b52e1a2202d2920ec419d1413c4ad52c27b115c125a6055538034f62ae37f4",
+      "addedSinceBaseline": false,
+      "reviewTokens": [
+        "update-token"
+      ]
+    },
+    {
+      "name": "20260809100000_i638_i639_avatar_password_activity_teams.sql",
+      "checksum": "331192965f5c01dacb12be53058b59e750b8f97995ca036a6a878523eeee3e5b",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260809150000_i638_activity_log_provenance.sql",
+      "checksum": "e93a76acb5eeec59d9719a2fb8ab9e6f34be9230200a6f773ed6f795e36ac481",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260811000000_i660_agent_instructions.sql",
+      "checksum": "8bb2c1802951db1c7bd24bfb1b8c5efbb11110807ab7dba93b5914ecdbff2d3f",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260811040000_devapp_seat_quota_default.sql",
+      "checksum": "4634f5a41cc171e6ca79991dda1fe8a93c3286fc1ff2317f173a5b913442e459",
+      "addedSinceBaseline": false,
+      "reviewTokens": [
+        "update-token"
+      ]
+    },
+    {
+      "name": "20260811060000_i946_chat_message_attachments.sql",
+      "checksum": "a2503ca5dd356c042b31a6e2fe622168ce5d6aceff4204f3096c65a5494aaeba",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260812000000_f164_personal_realtime_transcriptions.sql",
+      "checksum": "99b74ff27e592b6d7f20e8e9a841d6fafa6e73a18a40abbf873591bfff876e90",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260812030000_f159_token_usage_events.sql",
+      "checksum": "4c20f02725ad0ac405b29e3b30b93af0c137837a4fa8de5c9ffc4da83366e861",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260812040000_f160_member_token_quota.sql",
+      "checksum": "0ba6c191753521f2d3e02add21a26430afd92574e9c6ff9cfba389aa78bd7d01",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260812040000_f166_personal_realtime_asr.sql",
+      "checksum": "d986b807fd247aa9316c458864a1b87c64a43df7ba5debe25b857cfc46c3fc13",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260812050000_f162_limit_rules.sql",
+      "checksum": "7b757947b26907854681de501ce003fbc539f948b6cfd9583b11d97eab0962e2",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260812090000_f01_digital_interview_foundation.sql",
+      "checksum": "f3866c17308aad0d62c28627acf447e3eea66752f54c8d7b3a5095359495ddec",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260812100000_f153_attachment_extraction.sql",
+      "checksum": "8ded19f88984417e74d41c64615e474edd43989652bdda64de7e9bd161f110b8",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260812110000_f02_digital_expert_profiles.sql",
+      "checksum": "1b2ed2048e2486f0b73397faeb2bd5ad830fe5df91aac2201022bb6861dbaadd",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260812110000_f168_guided_research_sessions.sql",
+      "checksum": "d52ce8787250c6546c3274fd3bc1ea22f85d34a3e4ff353bc78bbfe1e5101060",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260812113000_f167_personal_transcription_content.sql",
+      "checksum": "4e43516ea49a581c7b4929b32bfb767e5dcde071bcffe6c6ce812fba2c141af5",
+      "addedSinceBaseline": false,
+      "reviewTokens": [
+        "delete-token"
+      ]
+    },
+    {
+      "name": "20260812130000_f03_quick_digital_interviews.sql",
+      "checksum": "2f20796b75611f82a16ce56b1c1aae2d3395c4bcdbdd90565b463e5ab56f7e75",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260812140000_f154_thread_context_state.sql",
+      "checksum": "ba7a076982cee13f1e563e5c2d3cb4194c798d949038e718bb7c4352488de221",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260812170000_f167_resumable_personal_transcriptions.sql",
+      "checksum": "c9079f2af253b43f8bdb7dd7405755f828a5a037451b1b8311c3f41e0933c1a3",
+      "addedSinceBaseline": false,
+      "reviewTokens": [
+        "update-token"
+      ]
+    },
+    {
+      "name": "20260812180000_f02_de_profile_trigger_requires_agent_row.sql",
+      "checksum": "bd12de80b5de9c400c1a63e41ffb54f956c7ca9db52c2264140dcea4d3a31d16",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260813040000_f175_blueprints.sql",
+      "checksum": "86f83a7797ef2ba95e1d6c9f9161272eb2445088e271f1788f1cd4f8251e602b",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260813100000_f169_guided_research_checkpoints.sql",
+      "checksum": "410eefae836113ad698c0581ab113fa35cbe6a309a1bd50db4dfa5a00e249c8c",
+      "addedSinceBaseline": false,
+      "reviewTokens": [
+        "update-token"
+      ]
+    },
+    {
+      "name": "20260813100000_shared_org_invite_links.sql",
+      "checksum": "c340478189b8b682d09ecbfc3ab3383ad52e1ea8627b72cf9e63e6b41ecbf3a7",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260813110000_f174_design_facet_item_revision.sql",
+      "checksum": "1633e9457fefa9555f40a384f3a2fe762883d4947001f01140804a065760d854",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260814010000_f177_blueprint_revision.sql",
+      "checksum": "3306e2749c3c2777bb8712d7192ff18f419c7ec58f4db006029e96e1405e4e80",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260814020000_f177_personal_transcription_management.sql",
+      "checksum": "240398817670565f108c4c4ad80a0324facda2447f3e8948555b265965eb7213",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260814080000_f179_blueprint_versions_and_bindings.sql",
+      "checksum": "9d97ac9161c6699a43e33441e10e11ab4f087398622330457aad42b3d47e50f5",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260814083000_f180_guided_research_name_tags.sql",
+      "checksum": "cabd7b4d740dfb5e7dbfa94261b56c2eafb022654cbb10aaecc2c6c321928c4e",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260814090000_g5_skill_contract_tags.sql",
+      "checksum": "e32d2d0f25ba7b2255f2280a2b4734887eaa7c7449549530e3a7b9b75896535b",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260814120000_f155_file_retrieval_fts.sql",
+      "checksum": "959b18bc593478903f5266cf62246f3fe835549e1e4a4adaa8a69474c0d45457",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260814120000_f176_message_ratings.sql",
+      "checksum": "49e5de50a439160d334334525966f115998004d70fd70dbb6fc6832a64d806fb",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260814163000_f180_guided_research_status.sql",
+      "checksum": "564ca51ca2a12555c0796d425c6e878d4b0924c563c2c9450dfae03303ada0eb",
+      "addedSinceBaseline": false,
+      "reviewTokens": [
+        "update-token"
+      ]
+    },
+    {
+      "name": "20260815100000_f157_agent_run_context_snapshots.sql",
+      "checksum": "718a71391ca95d0c68a35d35f0390e9fd17b748a89bd794e5079e59cfab42c05",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260815110000_f156_l3_retrieval_scope.sql",
+      "checksum": "ca1a00e81236dc72e422c2fc10bd5a146e5eae2bd7eabf2586d58d252499b5e6",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260815120000_f04_digital_interview_workflow.sql",
+      "checksum": "a8a0319f8951a4bf4bd0512b20d78df13ecfe511e54f94b79852c3c4e31451ed",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260815140000_fb2_product_feedback.sql",
+      "checksum": "4587c2a05d2486bfe7eff4c7699fe78adca4cd92cbd0755cccfca28b488c95dd",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260816000000_f185_project_tags.sql",
+      "checksum": "bee166535930d36133fb45a3486c5a63b3eda1bbe6b32a53f356b20600f1f032",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260816010000_f190_tool_trace_context.sql",
+      "checksum": "428db2b9e245dc36d61d6d6473f34931ac63959ac983837bf3125b01b75cc5f1",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260816010000_f195_guided_research_graph_foundation.sql",
+      "checksum": "2b5766abb5db902a3a76037abbe4d1b812edc9c3509646ad30e483a0ae5ea272",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260816120000_i1415_agent_url_import.sql",
+      "checksum": "9d3b7b5a9298f888035bd4fed8f2cda374811a8b34dfe4cc10e50ac3849b5840",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260816130000_f950_project_prep_topic_grouping.sql",
+      "checksum": "e793248099055c0f931017c3edc6912cc0f0cd59338f36758e9df5e7619dae60",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260817090000_f960_interview_subjects_table.sql",
+      "checksum": "4d32d147a9736ad4b3d190a92d3e18c5cc591ece09414cdbd27f6452ef118a9c",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260818090000_i1534_thread_skill_mounts_wave2_fk.sql",
+      "checksum": "cef5f290cf2b088e0966f37c2fb55cbcb371605f7dcfebdd2f4bee18573a0f58",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260818090000_i1561_vision_input_context_snapshot.sql",
+      "checksum": "0c24cb8af1a7538df5596bc6083bdc7e11009887697fa1314a00b8662d70912f",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260818090000_uc73_canvas_instances.sql",
+      "checksum": "3513d98c8c621ee377594346d99bb85ca5f6ceb2b7e6868f5b3808c0d2f26ced",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260818150000_uc73_sticky_revisions.sql",
+      "checksum": "8136f6fba955d151917a1b65584dfdd34b280e70f8cd01c8a1b4f2b70da9358d",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260819120000_f962_skill_trial_runs_async.sql",
+      "checksum": "151a0663a484292c26a560df89763f05f805f1632ff924a74aece51a35af9ac0",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260820090000_f01_insight_write_path.sql",
+      "checksum": "4ae0af82862cf5a9b62884fd1429fcf38090999c112191917f9109a31495ae5b",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260820090000_i1624_agent_run_output_files.sql",
+      "checksum": "fd7455f1017285c8713fee117a565baf608e0783e9c280569cb1ff036596cff0",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260820160000_f04_theme_organize_revert.sql",
+      "checksum": "eb39816b2f577c04f5aa40696383b839344ca8c4f49eb14daa65765f95137efd",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260821090000_f26_workflow_orchestration.sql",
+      "checksum": "edb2149bf966ca78340c02e2aba4b9b53dadad626216dbbf608f54d8be1bfad7",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260821090000_i1667_apply_blueprint_infra.sql",
+      "checksum": "daca3a7f058628ca09024f2a14a0fdcc4402fcbe9fc99c90a349d34a919f229c",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260821091500_i1667_blueprint_pending_changes.sql",
+      "checksum": "1ac51e517d3f7cd530ba7a78201147f5f2e56cc9157d26d39ca1d3a373475677",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260821180000_i1705_agent_role_label.sql",
+      "checksum": "a6b76356953ea5c96ba753782c43ee0356dfa1e709abe8b514484447745dee99",
+      "addedSinceBaseline": false,
+      "reviewTokens": [
+        "update-token"
+      ]
+    },
+    {
+      "name": "20260822090000_i1667_blueprint_bindings_update_grant.sql",
+      "checksum": "ee2f13974c823fd72d4c6c5d31e188071d7066866a2962290ca40aa154a69120",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260822120000_da07b_hitl_awaiting_approval.sql",
+      "checksum": "b4cdabfc07a6bdf17dd1770fe6e8a35785bcaa3a7850d54fda27b596258e4d85",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260822130000_i1787_fix_orphan_agent_runs_trigger.sql",
+      "checksum": "267f033a0f6e8de39f32a8bf81ffd88403101b39af17497ca5a16314bf802dba",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260822200000_da07b_fix_transition_trigger_wiring.sql",
+      "checksum": "55ac8e20ee06db0a5fadd06dae7609b61bb78eef381a8b6401cb9c6682996b88",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260823100000_ux9d4_hitl_edit_decision.sql",
+      "checksum": "a59de4534dd9460e03b68a371e538cc0032f84309369710f11fe5436fbb55c79",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260824000000_i742_tool_call_in_progress.sql",
+      "checksum": "21347ce22d95d636e162eb3bd754fb4f31254583de590c0e7a5e19c9d7a64b13",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260824090000_i1928_mcp_server_persistence.sql",
+      "checksum": "333530d684bab9276dfb6d4a074698b7938155d829614d7a426fcf02ec98ae29",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260825000000_canvas_template_tags.sql",
+      "checksum": "d9a9b7b19e44af4bc7f6ead8df80ff52f33ad3a760d6b5b5e1f79a35d6093031",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260826120000_platform_canvas_template_library.sql",
+      "checksum": "cd262a944a88df8994bddd971e6e2fc9a607d9e925886b9b5211c10f9aa02788",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260826140000_canvas_template_title_footer.sql",
+      "checksum": "dd0f90725d34d8fa0a7818d46ab72db0c2b8cc537f7fd32e9f597274c92652b5",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260826150000_f972_plan_control_ledger.sql",
+      "checksum": "20a2e965050137710c015c86aff6b9de6f156a0656aabac177b843554c0ae8d5",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260826160000_canvas_template_prompt_text.sql",
+      "checksum": "7f7c9a33651c1542761db3422bc4a1d56fecb483adeb2887738d078aec93e0cf",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260827030000_f976_plan_control_run_control.sql",
+      "checksum": "975b6149209628b0181876f0262689830c3ec306400bb3549240880481f28af8",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260827120000_canvas_template_layout_source.sql",
+      "checksum": "1e771b30c856d7aa5cfaf7afdc3eddcff04a63731c061b83d253ae725eb28290",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260827130000_canvas_template_paper_size.sql",
+      "checksum": "63d43016b050dd5a786e4f3cdf4262b5394d28d7ec0a9114958a825f7d223d7e",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260827200000_platform_owned_skills.sql",
+      "checksum": "cc2ba7e411257674703c48fbac35f3cbc3c9cca8c5ce031b59a023c0b74f7900",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260829010000_thread_skill_mounts_active_skill_version_uniq.sql",
+      "checksum": "83e1fb039bd99c069bcd19efccb44544ca0ef23690f1c778249c3f8097609def",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260829030000_generated_interview_experts.sql",
+      "checksum": "41511b7e791735eba0a44bc28204f327fec0f2064937c5e37224395dc467173b",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260829110000_unified_interview_expert_profiles.sql",
+      "checksum": "59fea0d82a201aa1fceb35ff3bfa60ca1804fec9389dc5f7c3334720a6a93780",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260829150000_complete_interview_expert_personas.sql",
+      "checksum": "238c5c011a14fc1f94e6a916381a1c6ad4eb03b60ab90520bc80cca7f9d59c18",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260830120000_fb2_feedback_github_issue.sql",
+      "checksum": "e2f1d5758f4fe727d94da4f4fe23000c1a22537e1702f42ccdc27a91b3cd1db6",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260830193000_f05_digital_interview_expert_runs.sql",
+      "checksum": "a71d60e549b10b0177191135d4d34f1022fe76543b5f3fb186a074bd46cfd0e2",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260831010000_fb2_feedback_github_issue_claim.sql",
+      "checksum": "07f5eb94db36458a00e71f30fac27691439be3042e1e8c053102da5a7a11e17b",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260831120000_f01_board_task_status.sql",
+      "checksum": "7f71526e2d6f63eb3c905cf9b83840a5e3fe0ab1b5d1fcaaeaefe891cf5dc17e",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260831130000_f02_f06_board_task_fields.sql",
+      "checksum": "b47ea654f7a364bd801e972d40097c8f7641c2e51a90910b0b2885179bc2fd21",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260901024515_error_logs.sql",
+      "checksum": "e7ff7150adcdfe6c7c389dd00a88eb7d2b7338f3a865479a9964b91891984642",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260901100000_f06_digital_interview_reports.sql",
+      "checksum": "8d8f46377732ffe75b9392af0ed8847f2300066d8ae96d8eef5422fad265d630",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260902012105_error_logs_admin_read_grant.sql",
+      "checksum": "409c91c276e4f38228c33c8ebc271a8313fb672d2b16c483c1fb82cd089f8b0a",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260902100000_f06_streaming_report_recovery.sql",
+      "checksum": "b3e27cf7a2be2f94a726190d09aa3db47fa2d9d303015f6d1130f99a38dac340",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260902110613_fb2_feedback_status_event_notification.sql",
+      "checksum": "495c7f6c8e253ef48b70d23ea722ec8ee0ede40217ef47df1c587434fd04a809",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260902120000_fb5_feedback_attachments.sql",
+      "checksum": "465049089d5d68798b4a3c01ebe9b61d30a08925f3525c7d68b0a3dbda31d0c8",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260902130000_fb2_feedback_status_event_notified_patch.sql",
+      "checksum": "dddebc659f6931d9c35866cc944105f612d91a74407addf6c6869379298d7364",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260902140000_fb2_feedback_status_event_notify_settle_once.sql",
+      "checksum": "52277f8fb538c2298a66972e1fbee6b1bab32fdd40c7c193ae086844d0a8a790",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260902150000_fb2_feedback_status_event_notified_true_requires_snapshot.sql",
+      "checksum": "cd8cf1b890afc7feca656f50fe30895b1dd9f7d6eb627425c135695cd3936e27",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260902160000_error_logs_ai_summary.sql",
+      "checksum": "7341d3f953bfd2aee4506aea6a55744438dfee72d705d1929c23f4db18d61fff",
+      "addedSinceBaseline": false,
+      "reviewTokens": [
+        "update-token"
+      ]
+    },
+    {
+      "name": "20260903120000_error_logs_lifecycle_tags.sql",
+      "checksum": "995cb0dc07a8c12bb744598f3e5c6b6cb78189da7de1dbf0c9daef4479d8366a",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260903120000_platform_admins.sql",
+      "checksum": "d686e85d513c58c53a732615cb64cc6087c6db8d92cec1a0a65ce505e20e3fa7",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260903130000_fb2_feedback_github_issue_poll_definer.sql",
+      "checksum": "27aff4d6480f6f3893db157850650888e66dcbcc567a1a35fc62ff49450729d1",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260903161538_f109_thread_pinned.sql",
+      "checksum": "d8a7f693c0535b0cceb6bbde9283702416b1a7f1a553ffb16f2990b22cc6f2ab",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260904120000_service_uptime_checks.sql",
+      "checksum": "fb33f6825d9a06a2e7aee2226a2a73e58c476bf0dadb85d26bea3db608ce4b6c",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260904130000_uc178_feedback_structured.sql",
+      "checksum": "fb61e77079e312a7e0a778cad591ebe0dc59d858828d1e097995397f598871c7",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260904130100_uc178_feedback_drafts.sql",
+      "checksum": "2920d2f3957445fd89fac0a54fc7363f116c359af7b24d6b4ae207b027497db3",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260904140000_error_logs_status_events.sql",
+      "checksum": "7f76e786ae1b446172bb59987c2005d1ed323a15ee5a0313b00d493808e19ed1",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260904150000_i2667_agent_run_disable_task_auto_classify.sql",
+      "checksum": "8037b157ceef8c02155bd64fef97f8ce3bf63bf3b1119e3a0f42fbec1235ef51",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260904150000_uc178_design_workbench.sql",
+      "checksum": "54ff233dd50fd1509281c688c5894adced4e9e221f52941bac753e9abed66f03",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260904160000_uc178_b44_deepen_feedback_uniq.sql",
+      "checksum": "eb2809fbb432cdd2792fa8629fb2bdcaa22e750284a13856c0d76b8fd040999d",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260904170000_f01_kernel_unavailable_error_code.sql",
+      "checksum": "7f5f9cb9e13731de0f305fa161b68e69d7ac3ff5ad8be0c296f3e63720deabed",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260905000000_f09_agent_artifacts.sql",
+      "checksum": "dca78875fbbc655bb3e438b20ca34bd0d9ff01f03d408b320386b4e548e2c8f4",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260905090000_fb_feedback_archive_status.sql",
+      "checksum": "74ee0942b67511cf66a0a127d8a732b6c8452663b0e1557b5636b7bf8f3f3752",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260905110000_f05_agent_run_attempts.sql",
+      "checksum": "02baa55b8af7ac46213f9a82095b00f05e6c93d816ffd4322ec1e62f8fd03b98",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260905110000_f15_transcript_full_content.sql",
+      "checksum": "0cd0a2ef32e85e18c3a38cdfaf31b6c4a6d46a7b70cd1164574bfcf6a664ae54",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260905120000_f06_tool_permission_tiering.sql",
+      "checksum": "fc3adf0acd9a731d68cb83282414d455af8a67dea5000f9b7f0c5454ca779c2c",
+      "addedSinceBaseline": false,
+      "reviewTokens": [
+        "disable-trigger",
+        "update-token"
+      ]
+    },
+    {
+      "name": "20260905120000_guided_research_runtime.sql",
+      "checksum": "b0bc953f2bebd6730b6856ae284c14567b0fc6efd33fbaf0a5978141acb18ab5",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260905130000_uc178_b52_design_chat_source.sql",
+      "checksum": "f33ed545216c811c3f2dd50defd4719cc6ca5526e7d901d1f414fdbcf6e62c48",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260905180000_design_project_github_issue.sql",
+      "checksum": "06b8e7522cf7e8657d4dbf2fd02de47ee25da4673ce0ba8c2baf9ae4af468947",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260906120000_inbox_board_order.sql",
+      "checksum": "a2bf8ca215276ef5e2e6380923bc7b9118b1a55edbfc12643da097c0027b8a8b",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260906130000_canvas_template_recommend_after.sql",
+      "checksum": "031fd433c16edbf5f43d7f3b187b081b76e0ca27cb0a76cf74524344031e8c36",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260906150000_agent_runs_heartbeat_run_interrupted.sql",
+      "checksum": "c91567adcc8f9a66115513c79a7057c18c742bb92efa1481a94f9c69be60f009",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260906160000_uc178_b53_design_prototype.sql",
+      "checksum": "a91be0f8ff7c0213b0a94e4a11d292232d999914fd22799ee97572443f6fcd17",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260906170000_uc178_b53_prototype_versions.sql",
+      "checksum": "e26345db271d56b758452e86f08343fad67e70b729cb147f619f60315b1359a5",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260906180000_uc178_b53_frame_notes.sql",
+      "checksum": "e582e5d764a31641c66c0de2672096021d6b80209b49e083a3af6a8d449a0a5d",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260907010000_standard_subtask_runs.sql",
+      "checksum": "43d1aa0611a352c96463bf646758c1c3e4ebd453a83e1c322ede17bd2a122063",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260907010000_workbench_execution_journal.sql",
+      "checksum": "77848b78311a79e1fb88e04a1c1a994602aa0d5a6fb8044f63b255554bb3b35d",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260907011000_workbench_interjections.sql",
+      "checksum": "5554174b188547ca0d2c8193f9af6dd3124624a8ac13588fb9fa3d8e25efa1df",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260907012000_workbench_checkpoint_paused_state.sql",
+      "checksum": "2bf2eb82e7fb7903b0ccde0a0ba9f1cb9675eccdbf30ac9905048b4eb709f311",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260907013000_workbench_artifact_continuations.sql",
+      "checksum": "2d0cacc0f798a4af5283a9b5ef262c0911e7e33473bee58771f475dcaac74fe8",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260907014000_workbench_status_journal.sql",
+      "checksum": "2b491a9cd58eb70e9390a2ebb938747d7cdfb94180149b6c577349370099c6d3",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260907015000_workbench_safe_cancel.sql",
+      "checksum": "376baf6e2a6c82a911ebfdb12864bb4addc992bd0a1b6590d947c4ffd0d99ac3",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260907016000_workbench_permission_identity.sql",
+      "checksum": "c13188c43392515c21882bc7cc2997fd94b33717470f24ea83d2ce6b5469eb30",
+      "addedSinceBaseline": false,
+      "reviewTokens": [
+        "update-token"
+      ]
+    },
+    {
+      "name": "20260907017000_workbench_interrupt_projection.sql",
+      "checksum": "0925d3595529d97b053e6aa711eeef5a116323cc3a2aedb2e4a4bc066d27b27d",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260907018000_thread_message_queue.sql",
+      "checksum": "1413c32b8287ead0209f0aa2326a99119c7899ea78a6179625604ae0be48c1a8",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260907019000_agent_run_recovery_lease.sql",
+      "checksum": "70b816cfcf1d7f6a4314f23da463ee6e7f190330723f408170a97d3ae13e7961",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260907020000_interjection_public_events.sql",
+      "checksum": "a261b498ffba4352cacb8a4bc4db9cfb0dc2a3952ddb807898e604a52aa86ded",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260907020000_standard_mcp_tool_schema.sql",
+      "checksum": "db7055bfcc9f74c6d7bf259d0f80295066efe990f08332e23377549f3861a754",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260907021000_tool_approval_execution_identity.sql",
+      "checksum": "c57b918ea2fc5719827533c91b4459f8c83730394f23da04b14f5bab0a35ed25",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260907022000_uc178_iter11_screens_single_column.sql",
+      "checksum": "37596536129062250266319b753f9541dcee98495350438dc14ab8c0d77ba795",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260907120000_i3068_standing_grant_revocation.sql",
+      "checksum": "3a4cf72849960b21199acc7138664c074e5bb32b68826231f67ba3a81f91a57d",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260908010000_subtask_pending_cancel.sql",
+      "checksum": "d6dc90c0ae9cbd69fc560f86d109fed0d415305b9534601846b185955a3f9676",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260908030000_native_session_bindings.sql",
+      "checksum": "71ac66b315467b9c66db8ccea8862f69393a85e248111a6545716d0259d965b0",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260908030100_native_output_staging.sql",
+      "checksum": "00548128aebb5d16324980314796f11614925c4536ef016a8039fbc33551a2ac",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260908150000_uc178_iter13_ref_images.sql",
+      "checksum": "e21ea1e9907a52246ccbeb5b14ed197d12e28c14f79f70a54f0d9bf2f570d343",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260909030000_native_session_inputs.sql",
+      "checksum": "ffef583fe61413fb851eebb560c4789e27a752f79eaadbf2c88755db7ff2582f",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260909040000_mcp_execution_snapshots.sql",
+      "checksum": "25e75d3115262670888096d00a8b22a43e71167c16284e43e1a88ce3408ba4ac",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260909050000_standard_schedules.sql",
+      "checksum": "8259a64ac745df8e557446de366dbdc5a64859fb1a96e25385ce6e9f7dfa6c24",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260909060000_mcp_isolation_requests.sql",
+      "checksum": "2f0c01067ea56fa6216a3056922a2b6fe5eb820311802a3eccb1b4912e8a272b",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260909070000_mcp_credential_execution.sql",
+      "checksum": "e4134ebae0b7a885d8292b09ea96f552e051f21650e202369ccfd4e1cb2bed7f",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260909100000_subtask_running_cancel.sql",
+      "checksum": "c7010fe1bea9f2d962140f620b140f0e1b9fd37753382ce3b1aa8b2022482593",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260909120000_schedule_notification_receipts.sql",
+      "checksum": "2e1213574fa316a27616064660692105b73a0298e0fe1e4334f7c9429dfa02a9",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260909123000_w10_browser_execution_receipts.sql",
+      "checksum": "d66e0759c992f033299a232d3923943c4cecfdfd6bf24332c6ece985453542d9",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260909124500_w10_browser_receipt_postcheck.sql",
+      "checksum": "c7951ceb26861d94f529f917704f6ba9add5e6e25e912aaba42c40b12367cdec",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260909150000_download_grant_source_kind.sql",
+      "checksum": "b78dded3fe547937246c78f6106ecc499ea5857bbf87cc5a315aa7fc0f4170c2",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260910010000_subtask_artifact_handoff.sql",
+      "checksum": "ca00b248175e2b3dcbc5b54612b295c6291023fa58d88c9d8e552696961feb26",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260910020000_subtask_execution_attempt.sql",
+      "checksum": "d4af9d69f6c985333b9ed1edf24a20dfea0de4854c894b26e38e6113a0bc813f",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260910030000_skill_stable_name_conformance.sql",
+      "checksum": "7d82b76e75ef0417965cd402bb81ee37fb4a420cb80e2a83a57c01e54ee6e270",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260910040000_debug_events.sql",
+      "checksum": "28d86b0eddac5eb63bc7b96bf25f26a28a906bcb0948a5c19aa3099c1fb09268",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260910040000_inbox_item_tags.sql",
+      "checksum": "e5506e6d1218ad30f665eff1d7279cd49183a906174813062e36483c90fba1c5",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260910040000_user_notifications.sql",
+      "checksum": "ce25ac9e0c75550db3139a427fe37cd86b812ec5164de873791fd1c3fac483ba",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260910110000_studio_research_home_archive.sql",
+      "checksum": "670219fe4466a93cbf1db35a5aa533b760cafd1fd57ba10f26c52ccf7d58dc57",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260910111000_studio_interview_optional_tags.sql",
+      "checksum": "96e003adc91c4f31c45ee294d5c7ea83e33d3386195af77be8448eed8f00ad90",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260910120000_canvas_template_grid_density.sql",
+      "checksum": "7816f1db65a30327c29752f98292979220bdb122fbce7bdc72c14d4a8a0abed1",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260911010000_subtask_tool_calls.sql",
+      "checksum": "a98e6c67c3b056351ca945a1c7b82e1347ef5b3725e8fc798f2c4a2348a467fb",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260911020000_agent_run_failure_reason.sql",
+      "checksum": "c49c08c275cac516138b4f560d9dc4bb35667fb644caebaaabbaa3b8a3871884",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260911030000_subtask_cancel_terminal_state.sql",
+      "checksum": "7d833682df3194bf2275e6fc4ca83083e120637c648859843e308907bddf2b7c",
+      "addedSinceBaseline": false,
+      "reviewTokens": [
+        "update-token"
+      ]
+    },
+    {
+      "name": "20260911040000_agent_run_permission_decision_history.sql",
+      "checksum": "e9871da67c9944af20dbe09a58764fc76e4e137a89e59131aabc5f14cc9fd63b",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260911050000_agent_run_resolved_approvals.sql",
+      "checksum": "27eae48709cf6f8091f98c4be09ab5d93837c81502709f98347a20deecfd466e",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260911050000_user_notifications_actionable.sql",
+      "checksum": "fd31579f8afc2047014f7fa3af8922d77e7003f479ebe5450b5eacf0c44a855d",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260911060000_design_chat_source_system.sql",
+      "checksum": "0094bd26efe6f84a8865cfaebeed410398f6abf585c819128072551d883cc8a6",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260911060000_interjection_carry_over.sql",
+      "checksum": "142dd934038a394e4c098a1249a46d6ec3725a5e697b797093c3c6d04e6f3556",
+      "addedSinceBaseline": false,
+      "reviewTokens": [
+        "update-token"
+      ]
+    },
+    {
+      "name": "20260911070000_agent_run_tool_call_unresolved_reason.sql",
+      "checksum": "36bbebb760551a707408bd51e6ea563edc69d67881c783d928cc7bbe236fb8d0",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260911120000_authorized_tool_call_requeue.sql",
+      "checksum": "8991ef53059d2f9962e83c4635513d5dd7c225c8d992d978a810b3259d137a05",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260911130000_stale_queued_agent_run_discovery.sql",
+      "checksum": "e631c631eee7487f173fd4b9d0ae8d2910b3035ec2e958a76e49a4702f2b580a",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260911140000_document_generation_grant_scope.sql",
+      "checksum": "31c01ddc1244fd6efc2d4ac38fad413d8d971a876d571805ecc1c95d35b10efb",
+      "addedSinceBaseline": false,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260915020000_feedback_draft_tags.sql",
+      "checksum": "626660b3436be339555d7a19392e41b7f082a31b28b0b9ae5a3fa917400a9206",
+      "addedSinceBaseline": true,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260916030000_thread_title_session_summary.sql",
+      "checksum": "e853b2df009e0b8e05516a8345648331e67f5ab5cdb1d49e2ef73c6a3a1a4338",
+      "addedSinceBaseline": true,
+      "reviewTokens": [
+        "update-token"
+      ]
+    },
+    {
+      "name": "20260919224000_digital_report_durable_snapshot.sql",
+      "checksum": "06f5d226c74ac4765d44c8e85565e9b1c6b3abdbbe668dfad761b4c7eeada5fe",
+      "addedSinceBaseline": true,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260920010000_survey_workspaces.sql",
+      "checksum": "c3ec14ce52b7fcc1086456eb846264243ce941394f0200b7c4b97f6f43559ab5",
+      "addedSinceBaseline": true,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260921010000_survey_library_templates.sql",
+      "checksum": "585521a0860a7410e681c4b5e70687b453f9fec1a5dd9ca4799e97da34fd7990",
+      "addedSinceBaseline": true,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260921110000_survey_attachments.sql",
+      "checksum": "073b2e1698271a02903217090cc83dbaca995311dc4059a078f0cf21701f90ca",
+      "addedSinceBaseline": true,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260921120000_browser_unconfirmed_reason.sql",
+      "checksum": "f3a34def8ef566ec0810cf44dabd147ccf46293e0228fe92b16a43e5d3d681cc",
+      "addedSinceBaseline": true,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260921140000_canvas_segment_skill_bindings.sql",
+      "checksum": "1606adf1492c69746bf44f18f0b592f0c593978e4d40509ece04463e2e151e79",
+      "addedSinceBaseline": true,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260922010000_drop_research_workflow_sessions.sql",
+      "checksum": "1849a36ef60c6a648b1460876bdb2f7e1d5476511829659e2885a798ac7c2699",
+      "addedSinceBaseline": true,
+      "reviewTokens": [
+        "drop-table"
+      ]
+    },
+    {
+      "name": "20260922090000_design_project_accent.sql",
+      "checksum": "5e9b2da5db374a3870cd518723c4bb8a8b90b6588bb3965ce4753fc9eb37bb22",
+      "addedSinceBaseline": true,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260922120000_design_project_share.sql",
+      "checksum": "01e56f06fbae3787707f7fb65233b9aa6e83769bedcdc75c0b8ddad4b30b911b",
+      "addedSinceBaseline": true,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260923160000_design_project_tokens.sql",
+      "checksum": "05940ec0668ba6d5f6f1b5d0f31015a37fe97f72f4a1cbec5bfcd7bc673c42c1",
+      "addedSinceBaseline": true,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260924000100_whiteboard_resources.sql",
+      "checksum": "b9dd65de7ba7d679f4c979c00f2874923c4e6e66ba0f057114dda6e087789a1e",
+      "addedSinceBaseline": true,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260924000200_whiteboard_collaboration.sql",
+      "checksum": "063b79218053f179e56da2a18ec1f37998e931214d2bffe624a8a651c9f61a0d",
+      "addedSinceBaseline": true,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260924100000_design_project_comments.sql",
+      "checksum": "7b59f9bdf1d446c7bcba021bb876c5d083d3a743ce2e4da6c4f53a992f92d457",
+      "addedSinceBaseline": true,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260924120000_digital_interview_research_quality.sql",
+      "checksum": "f6613f1636da2d7f21b85d33c22eeb6288e5db2c51289a0e5d3678424adab3ca",
+      "addedSinceBaseline": true,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260924140000_design_project_comment_replies.sql",
+      "checksum": "7d6b7744e918c5ecbec1a22c2bdccad00f23d82a0804bd684988845d67a95fe6",
+      "addedSinceBaseline": true,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260924170000_kg_f01_age_extension.sql",
+      "checksum": "846e424f7b6fb4f413d4dbcdb0bb0e4649f1a3fd8836ba7bf01d8ceb0175f9ed",
+      "addedSinceBaseline": true,
+      "reviewTokens": [
+        "create-extension"
+      ]
+    },
+    {
+      "name": "20260924180000_kg_f02_ontology_canonical.sql",
+      "checksum": "b1174f5ceab96ebedc1eefb8b8f7639d4f265124333c65da461fa1146c426e08",
+      "addedSinceBaseline": true,
+      "reviewTokens": [
+        "truncate",
+        "delete-token"
+      ]
+    },
+    {
+      "name": "20260924190000_kg_f03_executor.sql",
+      "checksum": "f674fa4cbaefbf01ec9ed3fcbc1da45a387deb58065c19e478d1e54da65523f6",
+      "addedSinceBaseline": true,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260924200000_kg_f04_age_projection.sql",
+      "checksum": "7e72ec925c21ebc4777eb751ec423782b30380955af80c5b86f3a9b1330bef5a",
+      "addedSinceBaseline": true,
+      "reviewTokens": [
+        "delete-token",
+        "update-token"
+      ]
+    },
+    {
+      "name": "20260924210000_kg_f06_extraction.sql",
+      "checksum": "d4e4ed4a1a20f6ef06f0a6ad83b640f722e227c9dd9bfa77fd2582526a31cfd4",
+      "addedSinceBaseline": true,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260924220000_d12_ontology_dev_process_projection.sql",
+      "checksum": "63776a05117dbb1f46589d6501ad77e0be2eebc48f11c3f748bb058919fb482d",
+      "addedSinceBaseline": true,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260924220000_kg_f10_human_actions.sql",
+      "checksum": "852e14318a0e87d05ca5e6a05926e59948ed4ba8f9a1205ff31ba59232e0f932",
+      "addedSinceBaseline": true,
+      "reviewTokens": [
+        "update-token"
+      ]
+    },
+    {
+      "name": "20260924230000_instance_telemetry_state.sql",
+      "checksum": "504da0c93b93537305e6ed10bd5e42fe9e4b8bd50cb7be3b3837cc140bfe88cc",
+      "addedSinceBaseline": true,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260924230000_kg_f08_graph_recall.sql",
+      "checksum": "28fb27e40c39621474233f796d4f35d9d1864348203ce8aa82b99f1b566ffb9d",
+      "addedSinceBaseline": true,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260924240000_d4_d11_ontology_nodes_projection.sql",
+      "checksum": "fed5d634c8eab405475aac00b87498b605017c3948308d13cb7ea4355dbcd85e",
+      "addedSinceBaseline": true,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260924240000_kg_f11_promote_personal.sql",
+      "checksum": "5493cbed1a05a27e638d5757624dc2e9bad783c65bbf439ea843d525a8dfe877",
+      "addedSinceBaseline": true,
+      "reviewTokens": [
+        "update-token"
+      ]
+    },
+    {
+      "name": "20260924250000_crm_contacts.sql",
+      "checksum": "9aed7d673ec7078cf626d154e69b08c24a78a86dcdfe5c18686e5abe339c6216",
+      "addedSinceBaseline": true,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260924250000_kg_f07_invalidation.sql",
+      "checksum": "89e46de3bb9b0855ddd1d0ea81e25bdad35e5f04d2a20a97a1b9bb2a361d6df1",
+      "addedSinceBaseline": true,
+      "reviewTokens": [
+        "delete-token"
+      ]
+    },
+    {
+      "name": "20260924260000_first_value_facts.sql",
+      "checksum": "28dbae111ee4998b2aa8057c683b912c63e74c7ff3489316a9abfbf59fda10b6",
+      "addedSinceBaseline": true,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260924260000_kg_f13_turn_recalls.sql",
+      "checksum": "0938466f51e4d341c569295752674cbb1a44e5a57e88fd2f2db86a695b2369b2",
+      "addedSinceBaseline": true,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260924270000_kg_f05_hnsw_vector_index.sql",
+      "checksum": "c47d8cb7604f988e565119209e394f2fddc75aeade776a6acd6d7e6ed0205175",
+      "addedSinceBaseline": true,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260924270000_telemetry_benchmark_counts.sql",
+      "checksum": "1a7b3d2f72b2a6985ff786896769232820a332a9d3e243a5dfaa4bc58e3f4ee6",
+      "addedSinceBaseline": true,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260924290000_kg_f16_conflict_prompts.sql",
+      "checksum": "167cbfef1f8ee5812772b6056b44d8ea46930643e4a51f74dce6b2024f93c9c4",
+      "addedSinceBaseline": true,
+      "reviewTokens": [
+        "delete-token",
+        "update-token"
+      ]
+    },
+    {
+      "name": "20260924300000_kg_f17_memory_cards.sql",
+      "checksum": "4ca6580f52e1fa0fa7a6ecbc071a4412dcfb71153c377d3bba25630742b1beed",
+      "addedSinceBaseline": true,
+      "reviewTokens": [
+        "update-token"
+      ]
+    },
+    {
+      "name": "20260925090000_digital_interview_report_evidence.sql",
+      "checksum": "fd4cca39652436f63f831fbf52b69ca9d3188fe83ec7966a4634fba132350888",
+      "addedSinceBaseline": true,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260925100000_kg_f15_graph_neighbors_anchored.sql",
+      "checksum": "ada0611396487de40f527ba0f23eee34dbc3bfdedc718ee66fefe65f1af008c1",
+      "addedSinceBaseline": true,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260925110000_kg_org_extraction_settings.sql",
+      "checksum": "702d0725d900c19ac3887e8d2e1449da3ddd582ef6fe6fc056b9894cc5903596",
+      "addedSinceBaseline": true,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260925120000_kg_deployment_extraction_toggle.sql",
+      "checksum": "92ff3cf730a7be790bb11e6f2b782f3d1755761c03bdbf223e0e289cb78ba956",
+      "addedSinceBaseline": true,
+      "reviewTokens": [
+        "update-token"
+      ]
+    },
+    {
+      "name": "20260925130000_whiteboard_trusted_collaboration.sql",
+      "checksum": "aac125e82cd9ade06a33473e368517e711a498d15ed479735c7d1b405a247416",
+      "addedSinceBaseline": true,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260925140000_whiteboard_commenter_world_anchor.sql",
+      "checksum": "46bf87126548c0029dbfa041f0f4dc83c0a89e09a61a2058a95c50ac5429a633",
+      "addedSinceBaseline": true,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260926090000_digital_interview_artifact_versions.sql",
+      "checksum": "9af0951a0f40262ce0392091b908d658982c4ce8b1721813b91819ed01050b0b",
+      "addedSinceBaseline": true,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260926090000_i4227_agent_run_cited_sources.sql",
+      "checksum": "156d4cb526346c26cf84da1388766b7b97b7755f15551f592e994056b5139e85",
+      "addedSinceBaseline": true,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260926100000_kg_org_extraction_default_on.sql",
+      "checksum": "eaa6fdaca4d6bc1d5e4fb50669cb9c1b0f9a98bb146981134d24764b2d15a892",
+      "addedSinceBaseline": true,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260926100000_telemetry_queue_depth.sql",
+      "checksum": "4d278e69802f76cf5e162c3ab02db2469af900d416b218b3c2d627a7292ab461",
+      "addedSinceBaseline": true,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260926110000_telemetry_usage_counts.sql",
+      "checksum": "a19d2d330cebb50355ec984086c00fc211c0847b0736c32894629cd1e3b24949",
+      "addedSinceBaseline": true,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260926120000_i4245_sample_projects.sql",
+      "checksum": "10b9a7d70f7f63e7b8390a5c194d6c0320161797bc9bbc3ac801e6c5a5e3548b",
+      "addedSinceBaseline": true,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260926120000_kg_i4175_graph_neighbors_hub.sql",
+      "checksum": "7e6c1df25c7d0c73d9db94a99c24091ca5fceff8663786f96c6b25570ef3e7a4",
+      "addedSinceBaseline": true,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260926120000_purge_decommissioned_haichuanghui_agents.sql",
+      "checksum": "91f3efbee8c67473daa6d304ab99eaff9549abda83cb5f99e3e4326f3a82bd5b",
+      "addedSinceBaseline": true,
+      "reviewTokens": [
+        "delete-token",
+        "disable-trigger"
+      ]
+    },
+    {
+      "name": "20260926130000_kg_i4270_age_edge_dedupe.sql",
+      "checksum": "4fe10164b51cbc0b9c373ec62a4780c3df839ffb2d267b82f8a7a530f7e86459",
+      "addedSinceBaseline": true,
+      "reviewTokens": [
+        "delete-token"
+      ]
+    },
+    {
+      "name": "20260926130000_whiteboard_library_management.sql",
+      "checksum": "c168d41514b122d749b8d5e1e506dc1130ac9ab9c825be557dc698cf166e7742",
+      "addedSinceBaseline": true,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260926131000_kg_i4283_auto_personal_decision.sql",
+      "checksum": "f274733bfff278d313ae4a2ec98fbce581ec8d47ff4c2b0ed30def7334083b03",
+      "addedSinceBaseline": true,
+      "reviewTokens": [
+        "delete-token",
+        "update-token"
+      ]
+    },
+    {
+      "name": "20260926140000_kg_i4290_decision_supersede.sql",
+      "checksum": "b01fa9ae64f8a951d1ccd5c8840502fcf085f5c3c6de1469ad412a6bb52e7c75",
+      "addedSinceBaseline": true,
+      "reviewTokens": [
+        "update-token"
+      ]
+    },
+    {
+      "name": "20260926160000_whiteboard_object_manifests.sql",
+      "checksum": "38cc20522fa03703ef54db164d305eda29b8efee80b5ae2b6313b757deb87ad5",
+      "addedSinceBaseline": true,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260926161000_whiteboard_imports.sql",
+      "checksum": "e2d96d977cf780a1779bad1ddad45a00d444e5e9a319af16e5ea9e409a435964",
+      "addedSinceBaseline": true,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260926162000_whiteboard_recovery_metadata.sql",
+      "checksum": "c2a52aa05594ba82ce4bc1c651999e37bf1a99e2720aad406fac6e66caa392bd",
+      "addedSinceBaseline": true,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260926162100_whiteboard_checkpoint_storage_bridge.sql",
+      "checksum": "d22a3f58212c70c32487d5f878e6ccd90a0e149d9886ed184f5e77bd4ff4380f",
+      "addedSinceBaseline": true,
+      "reviewTokens": [
+        "update-token"
+      ]
+    },
+    {
+      "name": "20260926163000_whiteboard_operation_api.sql",
+      "checksum": "79cf428bcf67d0c16d22f414568be7c772a849075c393a2e35b2de8f442ce7e2",
+      "addedSinceBaseline": true,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260927100000_kg_f07_active_sources_only.sql",
+      "checksum": "61c494cd804661231aef7ef7da3067a0145c5c671ef1915abce8a2be106bb926",
+      "addedSinceBaseline": true,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260927110000_whiteboard_object_gc.sql",
+      "checksum": "08b9ba04754e4b5ab92e7af5d4126f7a8bba9afcb827a6612077981cb105797d",
+      "addedSinceBaseline": true,
+      "reviewTokens": [
+        "update-token"
+      ]
+    },
+    {
+      "name": "20260927113000_whiteboard_exports.sql",
+      "checksum": "154b7b812b9e987a1f3e7019f02c7bdb64a9c0d9b28ab307e1c678fdc1b0f827",
+      "addedSinceBaseline": true,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260927120000_kg_r7_project_scope.sql",
+      "checksum": "c29ddb1c780936861bafe27e82c14e34a6ef6694c36340a510df4653d99f8cab",
+      "addedSinceBaseline": true,
+      "reviewTokens": [
+        "update-token"
+      ]
+    },
+    {
+      "name": "20260927120000_whiteboard_api_rate_limits.sql",
+      "checksum": "59f0b370cc65e3de556f8dc77214465d68ebc6e20a98e01016e6a3cb73126b81",
+      "addedSinceBaseline": true,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260927123000_whiteboard_image_assets.sql",
+      "checksum": "f051269fab0f887ebb641d5b7a6296c4d73aee3df35ed9147da749719ae5333a",
+      "addedSinceBaseline": true,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260927130000_r5_thread_visibility_provenance.sql",
+      "checksum": "db54cf15549e8777d58d87a4eeb7bdf48b4469e40a5aa78ccfc74636cb53325d",
+      "addedSinceBaseline": true,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260927150000_b2_project_resource_links.sql",
+      "checksum": "9aad7e7208a4dde5ef3f158770df0641a2fa3916b85836ba4a5ecf6de6ff3489",
+      "addedSinceBaseline": true,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260927160000_kg_b2_org_scope.sql",
+      "checksum": "5dd4c96639b0305e70065a6983e632b3783bb999a07f8eb5442bb451a234b6ba",
+      "addedSinceBaseline": true,
+      "reviewTokens": [
+        "update-token"
+      ]
+    },
+    {
+      "name": "20260927170000_b2_project_ai_settings.sql",
+      "checksum": "84ff40915f7fa8add1bec27713a2444896be88430e567da5f9ef7f3e7c58076c",
+      "addedSinceBaseline": true,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260927180000_interview_markdown_source.sql",
+      "checksum": "d8626745068a10fa504b11b5439dd49f740e89b972657c2f6bd3e4ebaffff3f9",
+      "addedSinceBaseline": true,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260927180000_whiteboard_runtime_pin_lock.sql",
+      "checksum": "34ec12b7407fd49697b88d97a964ce98e8f61774a4c6ebb58c3ebcd6b978768b",
+      "addedSinceBaseline": true,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260927200000_kg_s9_claim_embeddings.sql",
+      "checksum": "98793e977526f616b7cb6d806eab468e744b5f49042a5640e028f4b45c9ffd7d",
+      "addedSinceBaseline": true,
+      "reviewTokens": [
+        "delete-token"
+      ]
+    },
+    {
+      "name": "20260927205000_whiteboard_comment_bodies.sql",
+      "checksum": "ee2fcf83c157eac3b7fe77a0f19602c9fdca45b015f106836c8894d89928a975",
+      "addedSinceBaseline": true,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260927210000_whiteboard_backups.sql",
+      "checksum": "7d661baab7b6099cee41c520e871b7dd61fc698f4b9daa645272ab804166d4bb",
+      "addedSinceBaseline": true,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260927220000_whiteboard_deletion_receipts.sql",
+      "checksum": "110bf68fa4a7db7a05e84a71bda04d85b6c2120872eebe0f28f428d918c1ebb5",
+      "addedSinceBaseline": true,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260927230000_whiteboard_update_backfill.sql",
+      "checksum": "a41d996ab5fcd2f787f637eaaeab41545b1fc181f0610d9e79b0daab7bc810d2",
+      "addedSinceBaseline": true,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260927233000_whiteboard_event_epoch_cursor.sql",
+      "checksum": "4eeb4af6996810c1f376769974be82d78b226037771cde0469ab76c2088b4611",
+      "addedSinceBaseline": true,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260927234000_whiteboard_operation_undo.sql",
+      "checksum": "889f1b673849caa93c59271cc7355a7810377380af9a4b4952d78ed15f7bc244",
+      "addedSinceBaseline": true,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260927300000_kg_i4344_agent_remember_card.sql",
+      "checksum": "9bffd593de01591de239b6af67e31662d5d945231bbb05e1b5fa93b3639ee6bd",
+      "addedSinceBaseline": true,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260927310000_kg_i4343_goal_preference_kind.sql",
+      "checksum": "d80620f99aa8e50cb0f639a85a38a116231f483c83a23eafe7c76fbc714ec394",
+      "addedSinceBaseline": true,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260928000100_whiteboard_portable_imports.sql",
+      "checksum": "58e37820555687e523ebbbf22793ac25c7d5dce489fdbf54afd4e1b7af48da17",
+      "addedSinceBaseline": true,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260928000500_whiteboard_artifact_layout_variants.sql",
+      "checksum": "97c3275359497659b29141d3e43e33c1632a7d50d5d927d83320839031941b16",
+      "addedSinceBaseline": true,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260928003000_whiteboard_proposal_bodies.sql",
+      "checksum": "50bf1c5c2a0027a113691bfeb7b762379ae967e1dba740f23a62ea97e1483581",
+      "addedSinceBaseline": true,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260928010000_expert_avatar_preferences.sql",
+      "checksum": "ae9126ee78bcf8025388f690bd0b9cee3836002c88e905e1918f2d2a4c01c769",
+      "addedSinceBaseline": true,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260928010000_whiteboard_backup_maintenance.sql",
+      "checksum": "4ea64ee999311d1240e09dca3bc9c78f21845c5e9478eb3401dc552957fb972b",
+      "addedSinceBaseline": true,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260928011000_interview_expert_avatar_preferences.sql",
+      "checksum": "061ef40fa5db610b7938e61b70d676c53cb58bad9d14f328ba405e530eca9eb9",
+      "addedSinceBaseline": true,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260928012000_interview_markdown_report_reviews.sql",
+      "checksum": "7661f8165466fe79043e988a1118541b526d058f432fc7378f7753842aa7dae8",
+      "addedSinceBaseline": true,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260928100000_b3_project_evidence.sql",
+      "checksum": "6ff676f2754f8af1a3c45fb12608c80252aaca7c215eeb9865e00225204675d6",
+      "addedSinceBaseline": true,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260928110000_kg_b3_adopt_decision.sql",
+      "checksum": "a2e0b21ec7c29833b06b97698b2e910ad5eacc8dd43fb573cba1029e78923999",
+      "addedSinceBaseline": true,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260928120000_interview_markdown_execution.sql",
+      "checksum": "8c7e52f93662b7d6866cccc4924ec23a40f5a981a119a80dbe89124c38cd96f0",
+      "addedSinceBaseline": true,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260928150000_interview_markdown_attachments.sql",
+      "checksum": "d672c814e665a4f1cc379a66bdbfdff1c8e070e701ae57e6a7cc4ab7a23e3716",
+      "addedSinceBaseline": true,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260928160000_kg_i4352_message_extraction_outcome.sql",
+      "checksum": "092f4550a29614d70f4b7ab4e7f0af38e292ff25d58d01994bc7a8f901bb8fec",
+      "addedSinceBaseline": true,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260928161000_kg_i4361_manage_memory_in_chat.sql",
+      "checksum": "ee4ffaa1bb1cd32cac14467ceba796c9ff3e139b79c68290e3ca32bc15b6214f",
+      "addedSinceBaseline": true,
+      "reviewTokens": [
+        "update-token"
+      ]
+    },
+    {
+      "name": "20260928170000_kg_s6_time_dimension.sql",
+      "checksum": "69f3c08a576d4cb7d868d0eb5520898a901c23f7945b3e02aaecd0ffad710082",
+      "addedSinceBaseline": true,
+      "reviewTokens": [
+        "update-token"
+      ]
+    },
+    {
+      "name": "20260928180000_kg_s8_consolidation_slo.sql",
+      "checksum": "184d57c6b8428396b24e0e95cc869318f06207a157599d6953cbba899e64bf61",
+      "addedSinceBaseline": true,
+      "reviewTokens": [
+        "delete-token",
+        "update-token"
+      ]
+    },
+    {
+      "name": "20260928190000_kg_s7_citation_corrections.sql",
+      "checksum": "4ad0846680566729f68a0540f86ae97b47b6321d5f25cf2e578c90349d35d27c",
+      "addedSinceBaseline": true,
+      "reviewTokens": [
+        "update-token"
+      ]
+    },
+    {
+      "name": "20260928200000_kg_s10_share_personal_to_project.sql",
+      "checksum": "1072f54e7c8a9b5ef7e6ded812cf6b0a0dbe85108c20173afbc5cc2942559c67",
+      "addedSinceBaseline": true,
+      "reviewTokens": [
+        "update-token"
+      ]
+    },
+    {
+      "name": "20260928210000_kg_b3_t2_project_evidence_anchor.sql",
+      "checksum": "5bd23fec6674b351f701ca4ebf11e9d76fc224cc435e2ec1c16f3f0cdb8c69e6",
+      "addedSinceBaseline": true,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260928210000_kg_s5_profile_goal_links_briefing.sql",
+      "checksum": "2e035fcab9aa111e8af75dceb555acf04fe1874f08dd4a2b7585867434e90837",
+      "addedSinceBaseline": true,
+      "reviewTokens": [
+        "update-token"
+      ]
+    },
+    {
+      "name": "20260928220000_kg_s7_f4_expire_valid_to.sql",
+      "checksum": "e010f0f49074de8c780058a1af332e35014d4f8258a16aa341ea42f7bee19ccb",
+      "addedSinceBaseline": true,
+      "reviewTokens": [
+        "update-token"
+      ]
+    },
+    {
+      "name": "20260928230000_ag01_agent_role_frozen_fields.sql",
+      "checksum": "8197fc60d1c6fc7ea0e2fe4ea8787042fa17c1d55a19c6eda73d617bd715354a",
+      "addedSinceBaseline": true,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260928230000_ws02_skill_catalog_entries.sql",
+      "checksum": "75540f4288241a4d467fe37edff72ecc3af5beb4a533c9789e0067763f7400a2",
+      "addedSinceBaseline": true,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260928240000_ag02_starter_pack_tool_policy_categories.sql",
+      "checksum": "95e110926e36bc674e6402ea095f73cbfae24c4613ab2f38d3a70abf4eedc4d0",
+      "addedSinceBaseline": true,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260929000000_ws03_skill_catalog_channel_events.sql",
+      "checksum": "4d4a59e74c2aeced20e6d7a0f06480516394ace1612e16abb9f84ae0c10c1ffb",
+      "addedSinceBaseline": true,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260929010000_wf01_workflow_definitions_instances.sql",
+      "checksum": "d3bff47e59fdf64cb79d9ccdc741f741bb3dd688c9c1fe96cf8baa4c85f63831",
+      "addedSinceBaseline": true,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260929010000_ws04_org_tool_capability_grants.sql",
+      "checksum": "52495a5e00de328cb67f1dcb1f747c77654f9d8650c32f918fa17897f9096018",
+      "addedSinceBaseline": true,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260929020000_wf02_workflow_receipts_leases_checkpoints.sql",
+      "checksum": "feeac77a5b15b101e9f53e28108919e0a72abedd817eecedf8b8724a99bece5b",
+      "addedSinceBaseline": true,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260929030000_wf03_workflow_events_stage_outputs.sql",
+      "checksum": "9c1da4cae820f05ef63a91580303094a6f73acb2650eb58d3b273f3f2e105bbf",
+      "addedSinceBaseline": true,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260929040000_wf03_workflow_expired_lease_scan.sql",
+      "checksum": "959ca3af6398c15baccdefada11021dd85a48cbc6c37aa43ae4c3046c1744116",
+      "addedSinceBaseline": true,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260929050000_ev04_skill_gate_records.sql",
+      "checksum": "5f7bac6daa2643e5122d9c244d4eca431e11aa7addc8890429350c78ecb13005",
+      "addedSinceBaseline": true,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260929050000_pw_w1_general_project_kind.sql",
+      "checksum": "3c3b658e18c1db3a7adec82532c5e73c457ad8e96a3bee4f838db0a7534a7d0f",
+      "addedSinceBaseline": true,
+      "reviewTokens": [
+        "drop-table",
+        "rename-table",
+        "update-token"
+      ]
+    },
+    {
+      "name": "20260929050000_wf04_effect_gateway.sql",
+      "checksum": "c0b18312a1a3a010771a503aee73821fb909f220fbfb7ce9f0ce71bba9dee5fc",
+      "addedSinceBaseline": true,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260929060000_wf06_workflow_triggers.sql",
+      "checksum": "cce63b8abc2ba6a79682b6a5b977790d6ae57ddde57f6f56d2f1514f3ffa31ee",
+      "addedSinceBaseline": true,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260929070000_wf05_workflow_human_gate.sql",
+      "checksum": "c7d7b5914ae29fd1d6dba8ebf9191282bff91a041417904b1bcff51f587caa4a",
+      "addedSinceBaseline": true,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260929070000_wf07_guided_research_workflow_runtime.sql",
+      "checksum": "0b14f1439b3831c0b596a4510ebb6aeca93284aed44bf047131a1bb448ce6683",
+      "addedSinceBaseline": true,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260929110000_pw_w2_project_workspace_links.sql",
+      "checksum": "66b08c89510514715fb4670653841ef7671fc89dff3be0d40942c9d15d249ee7",
+      "addedSinceBaseline": true,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260929110100_pw_w2_adopt_decision_general.sql",
+      "checksum": "172b5c3e6efae2e2536aa82d2ce07aa82522c06aa70cdb1a24cdb6eb3c36f2f6",
+      "addedSinceBaseline": true,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260929120000_home_org_home_config.sql",
+      "checksum": "3e2fbf9438484462ddac1319d7820db21f9420d19f7d3b436dc6197f11ee3754",
+      "addedSinceBaseline": true,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260929140000_ag05_tool_result_requeue.sql",
+      "checksum": "ec8efa6d0ea03ad700a1532954969d6bb6654fd05ab05d99ba0b303c48bde5b7",
+      "addedSinceBaseline": true,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260929150000_dh_portrait_avatars.sql",
+      "checksum": "25679c6f642d8b46d34f56f7cbeef19d9c43eb79dd4cceec80a547c1b104d0fb",
+      "addedSinceBaseline": true,
+      "reviewTokens": [
+        "disable-trigger"
+      ]
+    },
+    {
+      "name": "20260929160000_agent_tags.sql",
+      "checksum": "f91f4b3f742d7d355f1790b80c857cbac7fdc382287242fe55cf3d6ade6589e4",
+      "addedSinceBaseline": true,
+      "reviewTokens": [
+        "disable-trigger"
+      ]
+    },
+    {
+      "name": "20260930090000_home_config_v2.sql",
+      "checksum": "e2990f464106a80ce4cafa5650966649be67a34c9804db99b3fc839f97532aa2",
+      "addedSinceBaseline": true,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260930120000_ag07_agent_handoffs.sql",
+      "checksum": "ce2f9a944a33ed9b001d6683634ee723c99e67302f7495668508064749bd61f4",
+      "addedSinceBaseline": true,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260930120000_wf_capability_grants_admin.sql",
+      "checksum": "4b589a6d52c484e40de25602f20f2f6570c8e2c44402974f6e7a41cf6c21a0b8",
+      "addedSinceBaseline": true,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260930121000_ag07_official_role_delegation.sql",
+      "checksum": "90f35ab028c04b8de9cf44f648dfc9a605732ee9a9ccf57f72948f86729801e7",
+      "addedSinceBaseline": true,
+      "reviewTokens": [
+        "disable-trigger"
+      ]
+    },
+    {
+      "name": "20260930123000_dh_official_names_zh.sql",
+      "checksum": "454df65781cf9f6adf4a2fafc147ac314b8da1c5d719097d095f68c3751a1010",
+      "addedSinceBaseline": true,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260930124000_ag06_official_escalation_rules.sql",
+      "checksum": "3b4a4425866565f5b983e782959f1fa7cdb12ab1dd89ee4640279f5d3852ddbc",
+      "addedSinceBaseline": true,
+      "reviewTokens": [
+        "disable-trigger"
+      ]
+    },
+    {
+      "name": "20260930130000_agent_role_category_batch2.sql",
+      "checksum": "c473581a1f28ee189470b67239985d807534a17ff39448dfdb8d938c210f7b1f",
+      "addedSinceBaseline": true,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260930130000_project_invitations.sql",
+      "checksum": "af5e324c645789ad1cf22fa4d3df6706028a432a11b20f8e9040fbbdbdb5ceb6",
+      "addedSinceBaseline": true,
+      "reviewTokens": []
+    },
+    {
+      "name": "20260930141000_rp_b2_official_role_pack_1_5_0.sql",
+      "checksum": "fc2be35f043862571556ebf835c19de70c11f89505ce9d550dd2c78f039a030c",
+      "addedSinceBaseline": true,
+      "reviewTokens": [
+        "disable-trigger"
+      ]
+    },
+    {
+      "name": "20261001073000_home_theme_colors.sql",
+      "checksum": "69d891ca8f7e534197d0033b060ed873c79cd2a8e1b3ef69196fabda26caa5a3",
+      "addedSinceBaseline": true,
+      "reviewTokens": []
+    },
+    {
+      "name": "20261001090000_kg_share_general_projects.sql",
+      "checksum": "04baced14d6be2b79ed89fff7388e61ef69f645eae77aa7d039fd88200303aa2",
+      "addedSinceBaseline": true,
+      "reviewTokens": []
+    },
+    {
+      "name": "20261001090100_kg_recall_degraded_channels.sql",
+      "checksum": "53dba4982c18e87d0a742b612b2438fb043f2f71d94742580c04973a4c18b389",
+      "addedSinceBaseline": true,
+      "reviewTokens": []
+    },
+    {
+      "name": "20261001090200_kg_general_share_provenance.sql",
+      "checksum": "e845274f907755571fd59d5da3b82a948876319dcfd6400c8caba6b1f9228cc5",
+      "addedSinceBaseline": true,
+      "reviewTokens": []
+    },
+    {
+      "name": "20261001094500_official_role_pending_skill_bindings.sql",
+      "checksum": "22e9da184ee08fecc83df8d1c364b5f5035f76d41ca2a54916cea2e58d70d522",
+      "addedSinceBaseline": true,
+      "reviewTokens": []
+    },
+    {
+      "name": "20261001095000_agent_run_skill_scope.sql",
+      "checksum": "38861dea461c59dcaedba76444fa6dac0137608716311f4c14c445cb6be72bf4",
+      "addedSinceBaseline": true,
+      "reviewTokens": []
+    },
+    {
+      "name": "20261001160000_canvas_template_audit.sql",
+      "checksum": "f1eb2a4fc137ee6c5d4c06b6992e46898d8e779e6dd5bfa473f1704b2864f867",
+      "addedSinceBaseline": true,
+      "reviewTokens": []
+    },
+    {
+      "name": "20261001170000_pending_attachment_cancellation.sql",
+      "checksum": "15d7ac7bffdf0d3b69dae53e050e868d088781c2f8e0512cf135666de027434b",
+      "addedSinceBaseline": true,
+      "reviewTokens": []
+    }
+  ],
+  "tokenLimit": "Tokens in function definitions are not proof of migration-time execution or affected row counts."
+}

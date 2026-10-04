@@ -30,7 +30,7 @@ const missing = (error: unknown) => failureCode(error) === "NoSuchKey";
 const validSegments = (value: string) => value.length > 0 && !/[\\\u0000-\u001f\u007f]/.test(value)
   && value.split("/").every((part) => part !== "" && part !== "." && part !== "..");
 
-function namespace(prefix: string) {
+export function namespace(prefix: string) {
   const normalized = prefix.endsWith("/") ? prefix.slice(0, -1) : prefix;
   if (!/^[a-zA-Z0-9_-]+(?:\/[a-zA-Z0-9_-]+)*$/.test(normalized)) throw unavailable();
   return (key: string) => {

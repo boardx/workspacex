@@ -1,0 +1,126 @@
+{
+  "schemaVersion": 1,
+  "scope": "approved-backup-identity-catalog-acl-readonly",
+  "productionEcsInstanceId": "i-uf6ga92ewloganobbln6",
+  "productionRdsInstanceId": "pgm-uf6rg214cp381l49",
+  "invokeId": "t-sh06yy72rt49iww",
+  "commandId": "c-sh06yy72rswrtvk",
+  "submissionRequestId": "01A10305-7B4C-57BB-A23A-611EC7831633",
+  "resultRequestId": "01A10306-AB71-525A-9216-80111868DA00",
+  "startTime": "2026-10-03T18:27:34Z",
+  "finishedTime": "2026-10-03T18:27:35Z",
+  "invocationStatus": "Success",
+  "exitCode": 0,
+  "dropped": 0,
+  "result": {
+    "kind": "approved-backup-identity-readonly-preflight",
+    "roleToCreate": "wsx_release_backup_ro",
+    "observedAt": "2026-10-03T18:27:34.677Z",
+    "databases": {
+      "workspacex": {
+        "roles": [
+          {
+            "rolname": "migration_admin",
+            "rolsuper": false,
+            "rolcreaterole": true,
+            "rolcreatedb": true,
+            "rolreplication": true,
+            "rolbypassrls": true,
+            "rolcanlogin": true
+          }
+        ],
+        "objectCount": 238,
+        "schemaCount": 3,
+        "sequenceCount": 12,
+        "rlsTableCount": 212,
+        "scopeSha256": "33cbd811bee8d15f2cdf731c1e9af3dbfad125a1b5ca67da624f916e1f12424d",
+        "actorMissingTableGrant": 0,
+        "actorMissingSchemaGrant": 0,
+        "actorMissingSequenceGrant": 0,
+        "publicRisk": {
+          "database": [
+            "TEMPORARY"
+          ],
+          "schemaCreate": 0,
+          "tableWrite": 1,
+          "definerExecute": 5
+        },
+        "actorDatabaseGrant": {
+          "actor_grant_connect": true,
+          "large_objects_exist": false
+        }
+      },
+      "workspacex_agent": {
+        "roles": [
+          {
+            "rolname": "migration_admin",
+            "rolsuper": false,
+            "rolcreaterole": true,
+            "rolcreatedb": true,
+            "rolreplication": true,
+            "rolbypassrls": true,
+            "rolcanlogin": true
+          }
+        ],
+        "objectCount": 7,
+        "schemaCount": 1,
+        "sequenceCount": 1,
+        "rlsTableCount": 0,
+        "scopeSha256": "5719dc1bff4f0368bd16c3f662e80622fb6a3e04f3daa8dde5b0e08579ac7df9",
+        "actorMissingTableGrant": 0,
+        "actorMissingSchemaGrant": 0,
+        "actorMissingSequenceGrant": 0,
+        "publicRisk": {
+          "database": [
+            "TEMPORARY"
+          ],
+          "schemaCreate": 0,
+          "tableWrite": 1,
+          "definerExecute": 0
+        },
+        "actorDatabaseGrant": {
+          "actor_grant_connect": true,
+          "large_objects_exist": false
+        }
+      },
+      "workspacex_memory": {
+        "roles": [
+          {
+            "rolname": "migration_admin",
+            "rolsuper": false,
+            "rolcreaterole": true,
+            "rolcreatedb": true,
+            "rolreplication": true,
+            "rolbypassrls": true,
+            "rolcanlogin": true
+          }
+        ],
+        "objectCount": 2,
+        "schemaCount": 2,
+        "sequenceCount": 0,
+        "rlsTableCount": 0,
+        "scopeSha256": "c4996b9d25803881f3cb29429d8066c41104db99497f2a1b9af56c1d8eb85ec1",
+        "actorMissingTableGrant": 0,
+        "actorMissingSchemaGrant": 0,
+        "actorMissingSequenceGrant": 0,
+        "publicRisk": {
+          "database": [
+            "TEMPORARY"
+          ],
+          "schemaCreate": 0,
+          "tableWrite": 1,
+          "definerExecute": 0
+        },
+        "actorDatabaseGrant": {
+          "actor_grant_connect": true,
+          "large_objects_exist": false
+        }
+      }
+    },
+    "existingMigrationCredentialInApi": false
+  },
+  "businessRowsRead": false,
+  "roleCreated": false,
+  "grantsChanged": false,
+  "credentialCreated": false
+}

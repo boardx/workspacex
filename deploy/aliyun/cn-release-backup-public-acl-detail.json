@@ -1,0 +1,106 @@
+{
+  "schemaVersion": 1,
+  "scope": "approved-backup-identity-catalog-acl-readonly",
+  "productionEcsInstanceId": "i-uf6ga92ewloganobbln6",
+  "productionRdsInstanceId": "pgm-uf6rg214cp381l49",
+  "invokeId": "t-sh06yy7gpqarym8",
+  "commandId": "c-sh06yy7gpptao74",
+  "submissionRequestId": "01A10309-7553-51DD-AB16-473D4E2B8BF1",
+  "resultRequestId": "01A1030A-75AF-5BC7-ADFB-FA62E8F57AF4",
+  "startTime": "2026-10-03T18:31:55Z",
+  "finishedTime": "2026-10-03T18:31:55Z",
+  "invocationStatus": "Success",
+  "exitCode": 0,
+  "dropped": 0,
+  "result": {
+    "kind": "approved-backup-public-acl-readonly-detail",
+    "roleToCreate": "wsx_release_backup_ro",
+    "observedAt": "2026-10-03T18:31:55.173Z",
+    "databases": {
+      "workspacex": {
+        "publicObjects": [
+          {
+            "schema_name": "pg_catalog",
+            "object_name": "pg_settings",
+            "relkind": "v",
+            "privilege_type": "UPDATE"
+          }
+        ],
+        "publicDefinerFunctions": [
+          {
+            "schema_name": "public",
+            "function_name": "kernel_org_is_writable",
+            "oid": "17456",
+            "prokind": "f",
+            "return_type": "boolean",
+            "provolatile": "s",
+            "definition_md5": "b1c39ac39b4500dd81ed382e66f4b82d"
+          },
+          {
+            "schema_name": "public",
+            "function_name": "kernel_project_is_writable",
+            "oid": "22519",
+            "prokind": "f",
+            "return_type": "boolean",
+            "provolatile": "s",
+            "definition_md5": "d20a55d2850310d79f76717078a7cb23"
+          },
+          {
+            "schema_name": "public",
+            "function_name": "kernel_stale_queued_agent_run_orgs",
+            "oid": "66993",
+            "prokind": "f",
+            "return_type": "text",
+            "provolatile": "v",
+            "definition_md5": "7e3fc82c89f62dacfa08420ec6efeac8"
+          },
+          {
+            "schema_name": "public",
+            "function_name": "kernel_user_org_ids",
+            "oid": "17363",
+            "prokind": "f",
+            "return_type": "record",
+            "provolatile": "s",
+            "definition_md5": "558344cbe68b2cb345d88702fee09a51"
+          },
+          {
+            "schema_name": "public",
+            "function_name": "wave2_skill_file_insert_before_publish",
+            "oid": "25380",
+            "prokind": "f",
+            "return_type": "trigger",
+            "provolatile": "v",
+            "definition_md5": "37f99d2d95b972925d403803b6059631"
+          }
+        ]
+      },
+      "workspacex_agent": {
+        "publicObjects": [
+          {
+            "schema_name": "pg_catalog",
+            "object_name": "pg_settings",
+            "relkind": "v",
+            "privilege_type": "UPDATE"
+          }
+        ],
+        "publicDefinerFunctions": []
+      },
+      "workspacex_memory": {
+        "publicObjects": [
+          {
+            "schema_name": "pg_catalog",
+            "object_name": "pg_settings",
+            "relkind": "v",
+            "privilege_type": "UPDATE"
+          }
+        ],
+        "publicDefinerFunctions": []
+      }
+    },
+    "existingMigrationCredentialInApi": false
+  },
+  "businessRowsRead": false,
+  "roleCreated": false,
+  "grantsChanged": false,
+  "credentialCreated": false
+}

@@ -1,0 +1,69 @@
+{
+  "schemaVersion": 1,
+  "kind": "native-clone-review-proposal-not-execution-authority",
+  "authorizedToExecute": false,
+  "productionChangesPerformed": false,
+  "appSha": "9b25bfa65662b96c0826fe67506b562ea46aa6d0",
+  "baselineSha": "ba6343199f3c834d6a198f83d0c771614292c82b",
+  "attemptId": "native-9b25-s3184466733-first",
+  "action": "CloneDBInstance",
+  "sourceInstanceId": "pgm-uf6rg214cp381l49",
+  "request": {
+    "DBInstanceId": "pgm-uf6rg214cp381l49",
+    "BackupId": "3184466733",
+    "BackupType": "FullBackup",
+    "RegionId": "cn-shanghai",
+    "PayType": "Serverless",
+    "DBInstanceClass": "pg.n2.serverless.2c",
+    "DBInstanceStorage": 100,
+    "DBInstanceStorageType": "general_essd",
+    "InstanceNetworkType": "VPC",
+    "VPCId": "vpc-uf6e7vt902oid0p1mwd6q",
+    "VSwitchId": "vsw-uf6rqwne9b3cp48diptx1,vsw-uf6epcojpvdltooni86u8",
+    "ZoneId": "cn-shanghai-e",
+    "ZoneIdSlave1": "cn-shanghai-g",
+    "ServerlessConfig": {
+      "MinCapacity": 0.5,
+      "MaxCapacity": 4
+    },
+    "IoAccelerationEnabled": "0",
+    "BurstingEnabled": false,
+    "DBInstanceDescription": "workspacex-cn-native-9b25-rehearsal-3184466733",
+    "DeletionProtection": true,
+    "ClientToken": "wsx-native-9b25-s3184466733-first"
+  },
+  "requestChoices": {
+    "Category": "omitted; inherit source serverless_standard",
+    "DbNames": "omitted; full-instance clone, not partial database/table restore",
+    "RestoreTime": "omitted; fixed approved snapshot, no moving timestamp",
+    "AutoPause": "omitted; API documents MySQL only",
+    "SwitchForce": "omitted; API documents MySQL only",
+    "AutoPay": "requires budget approval before this create API; AutoPay=false is not readonly and is not used as quote"
+  },
+  "window": {
+    "maximumHoursFromCreateRequest": 4,
+    "budgetCNYRequested": 15,
+    "noAutoExtension": true,
+    "budgetIsGuaranteedProviderHardCap": false,
+    "expiryAction": "stop only owned probes; retain target and request immediate release/retention decision; no automatic DeleteDBInstance",
+    "ongoingChargesIfRetained": true
+  },
+  "targetInstanceId": null,
+  "targetEndpoint": null,
+  "actualRestoreValidated": false,
+  "networkPolicyApplied": false,
+  "quoteEvidence": "cn-native-clone-account-quote.json",
+  "preCreateBlockers": [
+    "user exact one-clone/budget15/target-only private-network permission not yet received",
+    "current caller Clone permission not proven without mutating action; no speculative IAM grant",
+    "exact target whitelist change requires separately explicit approval in same decision; source SG/whitelist unchanged",
+    "fresh pre-create backup available/price/max capacity/storage/explicit fee coverage and release lock owner required"
+  ],
+  "preConnectBlockers": [
+    "target identity must be unique response of this exact ClientToken/request; default deny whitelist and no public endpoint must be actually observed",
+    "target source credential handling and canonical transport binding must be exact target-specific; do not reuse original-production exception by pretending source ID unchanged",
+    "RO driver must pin target and reject original source IP/endpoint/instance; no app writers or arbitrary SQL",
+    "existing VPC is not an egress-isolated network; whole-app egress isolation not implemented; no candidate apps/schedulers/outbound integrations until independent exact plan"
+  ],
+  "approvalBoundary": "one clone + target-only private network admission + bound readonly inspection only; no production restore/migration/write fence/traffic/key/role/paid extra resources; no automatic release"
+}

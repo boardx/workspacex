@@ -1,0 +1,44 @@
+import { beforeAll, afterAll, describe, it, expect } from "vitest";
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { execFileSync } from "node:child_process";
+import { generateMigrationPlan, migrationHash } from "../src/cn-migration-plan";
+import { verifyMigrationCompletion, type MigrationCompletionExpected } from "../src/cn-migration-completion";
+import { fixture, binding } from "./cn-migration-snapshot.fixture";
+const sql="CREATE TABLE IF NOT EXISTS fixture (id integer);";
+const files=[{name:"0001_fixture.sql",checksum:migrationHash(sql)},{name:"0002_fixture.sql",checksum:migrationHash(sql)}];
+const now=new Date("2026-09-30T18:01:00Z");
+let root:string;let expected:MigrationCompletionExpected;
+beforeAll(async()=>{
+ root=mkdtempSync(join(tmpdir(),"completion-local-"));mkdirSync(join(root,"apps/api/src/infrastructure/db"),{recursive:true});mkdirSync(join(root,"apps/api/migrations"),{recursive:true});
+ writeFileSync(join(root,"package.json"),'{"type":"module"}');
+ writeFileSync(join(root,"apps/api/src/infrastructure/db/migrator.ts"),'import { readdirSync } from "node:fs"; export const migrationFiles=(dir:string)=>readdirSync(dir).filter(name=>name.endsWith(".sql")).sort();');
+ for(const f of files)writeFileSync(join(root,"apps/api/migrations",f.name),sql);
+ const git=(...args:string[])=>execFileSync("git",["-C",root,...args],{encoding:"utf8"}).trim();git("init","--quiet");git("add",".");git("-c","user.name=Local Test","-c","user.email=local@example.invalid","-c","core.hooksPath=/dev/null","commit","--quiet","-m","fixture");
+ const sourceRevision=git("rev-parse","HEAD"),baselineRevision="b".repeat(40);
+ const originalPlan=await generateMigrationPlan(root,{targetSha:sourceRevision,baselineSha:baselineRevision,ledger:[files[0]!]});
+ expected={sourceRevision,baselineRevision,originalPlan,originalPlanSha256:originalPlan.planSha256,release:"2026.10.3-cn.test",attemptId:"synthetic-completion",productionSource:binding.source};
+});
+afterAll(()=>rmSync(root,{recursive:true,force:true}));
+const verify=(f=fixture(files),e=expected,date=now)=>verifyMigrationCompletion(f.snapshot,binding,root,e,date);
+describe("fact-only completion with synthetic provider fixture (not live production evidence)",()=>{
+ it("reuses whole-provider validation and frozen inventory, binding original plan and release",async()=>{
+  const witness=await verify();expect(witness.appliedSqlCount).toBe(2);expect(witness.pendingCount).toBe(0);expect(witness.originalPlanSha256).toBe(expected.originalPlanSha256);expect(witness.attemptId).toBe(expected.attemptId);expect(witness.release).toBe(expected.release);expect(witness.productionMutationAuthorized).toBe(false);expect(witness).not.toHaveProperty("ready");expect(witness).not.toHaveProperty("restoreVerified");
+ });
+ it("missing source SQL stays pending",async()=>{await expect(verify(fixture([files[0]!]))).rejects.toThrow("LEDGER_INCOMPLETE");});
+ it("checksum drift rejects",async()=>{await expect(verify(fixture([{...files[0]!,checksum:"f".repeat(64)},files[1]!]))).rejects.toThrow("LEDGER_INCOMPLETE");});
+ it("unknown applied SQL rejects",async()=>{await expect(verify(fixture([...files,{name:"unknown.sql",checksum:"f".repeat(64)}]))).rejects.toThrow("LEDGER_INCOMPLETE");});
+ it("provider output dropped rejects through existing verifier",async()=>{const f=fixture(files);f.result.Dropped=1;f.sealResponse();await expect(verify(f)).rejects.toThrow("OUTPUT_DROPPED");});
+ it("stale capture rejects",async()=>{await expect(verify(fixture(files),expected,new Date("2026-09-30T20:00:00Z"))).rejects.toThrow("NOT_FRESH");});
+ it("provider completion exactly at TTL rejects expired witness",async()=>{const f=fixture(files);const finished=Date.parse(f.result.FinishedTime);await expect(verify(f,expected,new Date(finished+3_600_000))).rejects.toThrow("NOT_FRESH");});
+ it("capture exactly at TTL rejects expired witness",async()=>{const f=fixture(files);f.result.FinishedTime=f.snapshot.capturedAt;f.sealResponse();await expect(verify(f,expected,new Date(Date.parse(f.snapshot.capturedAt)+3_600_000))).rejects.toThrow("NOT_FRESH");});
+ it("future capture rejects",async()=>{const f=fixture(files);f.snapshot.capturedAt="2026-09-30T18:02:00Z";await expect(verify(f)).rejects.toThrow("NOT_FRESH");});
+ it("fresh recapture cannot disguise stale provider completion",async()=>{const f=fixture(files);f.result.FinishedTime="2026-09-30T16:00:00Z";f.sealResponse();await expect(verify(f)).rejects.toThrow("NOT_FRESH");});
+ it("wrong production target binding rejects",async()=>{await expect(verify(fixture(files),{...expected,productionSource:{...binding.source,dbInstanceId:"wrong"}})).rejects.toThrow("TARGET_MISMATCH");});
+ it.each(["baselineRevision","sourceRevision"] as const)("wrong original plan %s rejects",async(key)=>{await expect(verify(fixture(files),{...expected,[key]:"c".repeat(40)})).rejects.toThrow("PLAN_BINDING");});
+ it("recomputed original plan rejects fabricated original ledger",async()=>{const fake={...expected.originalPlan,ledger:[]};await expect(verify(fixture(files),{...expected,originalPlan:fake})).rejects.toThrow("ORIGINAL_PLAN_CHANGED");});
+ it("rejects build-only static probe, not a full provider snapshot",async()=>{await expect(verifyMigrationCompletion({ready:true,evidenceMode:"source-static"},binding,root,expected,now)).rejects.toThrow("SNAPSHOT_SCHEMA");});
+ it("source connection mismatch rejects via authoritative identity validator",async()=>{const f=fixture(files);f.sql.source.database="wrong";f.seal();await expect(verify(f)).rejects.toThrow("SQL_IDENTITY");});
+ it("TTL cannot be extended past one hour",async()=>{await expect(verifyMigrationCompletion(fixture(files).snapshot,binding,root,expected,now,3_600_001)).rejects.toThrow("WINDOW_INVALID");});
+});

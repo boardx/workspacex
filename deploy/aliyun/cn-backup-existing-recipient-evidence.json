@@ -1,0 +1,28 @@
+{
+  "scope": "readonly-existing-certificate-public-pair-and-metadata",
+  "certificate": {
+    "path": "/etc/workspacex-cn/rehearsal/backup-recipient.pem",
+    "uid": 0,
+    "mode": "0o600",
+    "bytes": 1537,
+    "sha256": "187a5ca17f52f796e330c3f570978cee8ec99e6d819b686046b677abc02c1099"
+  },
+  "key": {
+    "path": "/etc/workspacex-cn/rehearsal/keys/backup-key.pem",
+    "uid": 0,
+    "mode": "0o600",
+    "bytes": 2484,
+    "sha256": "92d03251a8634835119672b10eb8d2af86287d405de08fb62270f4447c399507"
+  },
+  "publicKeySha256": "22d79453dc797c7b97d46cb298d73c95e6924c18ca6adf2733b3f352be009421",
+  "pairMatches": true,
+  "validForNextHour": false,
+  "certificateDates": [
+    "notBefore=Oct  1 05:46:41 2026 GMT",
+    "notAfter=Oct  3 05:46:41 2026 GMT"
+  ],
+  "noPrivateBytesExported": true,
+  "invocationId": "t-sh06yyezdwiuuio",
+  "observedAt": "2026-10-03T19:56:12Z",
+  "productionChangesPerformed": false
+}

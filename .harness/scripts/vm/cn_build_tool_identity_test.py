@@ -101,6 +101,24 @@ class Identity(unittest.TestCase):
     if bad=='safe':m.trust_git_root(root,False,expected_uid=os.getuid(),boundary=temp)
     else:
      with self.assertRaises(ValueError):m.trust_git_root(root,False,expected_uid=os.getuid(),boundary=temp)
+ def test_real_completion_checkout_rejects_unsafe_source_and_git_metadata(self):
+  for bad in ('safe','blob','source-symlink','hardlink','gitfile','include','filter','writable-config'):
+   with self.subTest(bad=bad),tempfile.TemporaryDirectory(dir=pathlib.Path(tempfile.gettempdir()).resolve()) as temp:
+    root=pathlib.Path(temp)/'checkout';root.mkdir(mode=0o700);source=root/'migrator.ts';source.write_text('export const migrations=[];');source.chmod(0o600)
+    subprocess.run(['git','init','-q',str(root)],check=True);subprocess.run(['git','-C',str(root),'add','.'],check=True);subprocess.run(['git','-C',str(root),'-c','user.name=Fixture','-c','user.email=fixture@example.test','commit','-qm','fixture'],check=True)
+    app=subprocess.check_output(['git','-C',str(root),'rev-parse','HEAD']).decode().strip()
+    if bad=='blob':source.write_text('throw Error();')
+    if bad=='source-symlink':source.unlink();source.symlink_to('/etc/passwd')
+    if bad=='hardlink':os.link(source,pathlib.Path(temp)/'external')
+    if bad=='gitfile':
+     import shutil
+     shutil.rmtree(root/'.git');(root/'.git').write_text('gitdir: /external')
+    if bad in ('include','filter'):
+     with (root/'.git/config').open('a') as f:f.write('\n['+bad+']\n path=/external\n')
+    if bad=='writable-config':(root/'.git/config').chmod(0o666)
+    if bad=='safe':self.assertEqual(m.verify_completion_checkout(root,app,os.getuid(),temp),str(root))
+    else:
+     with self.assertRaises((ValueError,OSError)):m.verify_completion_checkout(root,app,os.getuid(),temp)
  def test_real_fsmonitor_command_cannot_execute(self):
   with tempfile.TemporaryDirectory(dir=pathlib.Path(tempfile.gettempdir()).resolve()) as temp:
    root=pathlib.Path(temp)/'tool';marker=pathlib.Path(temp)/'executed';root.mkdir(mode=0o700)
