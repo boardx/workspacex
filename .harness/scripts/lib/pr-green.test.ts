@@ -206,3 +206,12 @@ it('retains deferred state in history without retroactively changing v2', () => 
  expect(judge([pr({policy:old,runs:[...greenRuns(),failed]})]).kind).toBe('violation');
  expect(judge([pr({policy:old})])).toEqual({kind:'ok',pr:100});
 });
+
+it.each(['native-board','meeting-room'])('historical policy governs independent %s failure without false PASS', name => {
+ const failed=run(name,'FAILURE',-5);
+ const current=judge([pr({runs:[...greenRuns(),failed]})]);
+ expect(current).toMatchObject({kind:'ok'});
+ if(current.kind==='ok')expect(current.advisories?.join('\n')).toContain(`INDEPENDENT_REVALIDATION: ${name} status=COMPLETED conclusion=FAILURE`);
+ const old={...CURRENT_POLICY,version:3,independentChecks:undefined};
+ expect(judge([pr({runs:[...greenRuns(),failed],policy:old})]).kind).toBe('violation');
+});

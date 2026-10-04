@@ -87,3 +87,39 @@ describe('v3 exact screenshot-only deferral', () => {
   expect(()=>parsePolicy({...v3,requiredChecks:[...v3.requiredChecks,'visual-deferred']})).toThrow();
  });
 });
+
+
+describe('v4 exact independent heavy revalidation', () => {
+ const green = CURRENT_POLICY.requiredChecks.map(name => ({name,status:'COMPLETED',conclusion:'SUCCESS'}));
+ it.each(['native-board','meeting-room'])('keeps %s failure as independent evidence without acceptance PASS', name => {
+  const result=classifyChecks([...green,{name,status:'COMPLETED',conclusion:'FAILURE'}]);
+  expect(result.changes).toEqual([]);expect(result.blocked).toEqual([]);expect(result.waitingCi).toEqual([]);
+  expect(result.advisories.join('\n')).toContain(`INDEPENDENT_REVALIDATION: ${name} status=COMPLETED conclusion=FAILURE`);
+  expect(result.advisories.join('\n')).toContain('never counted as PR acceptance PASS');
+ });
+ it.each(['native-board','meeting-room'])('preserves pre-v4 %s failures as blocking', name => {
+  const old={...CURRENT_POLICY,version:3,independentChecks:undefined};
+  expect(classifyChecks([...green,{name,status:'COMPLETED',conclusion:'FAILURE'}],old).changes).not.toEqual([]);
+ });
+ it.each(['journeys','security','board-ui-functional','r01','connector','files','sync','native-board-extra','meeting-room-extra'])('keeps %s functional failures blocking', name => {
+  expect(classifyChecks([...green,{name,status:'COMPLETED',conclusion:'FAILURE'}]).changes).not.toEqual([]);
+  expect(()=>parsePolicy({...CURRENT_POLICY,independentChecks:[name]})).toThrow();
+  expect(classifyChecks([...green,{name,status:'COMPLETED',conclusion:'FAILURE'}],{...CURRENT_POLICY,independentChecks:[name]}).blocked).not.toEqual([]);
+ });
+ it.each(['native-board','meeting-room'])('rejects %s required/aggregate overlap and visual category forgery', name => {
+  expect(()=>parsePolicy({...CURRENT_POLICY,requiredChecks:[...CURRENT_POLICY.requiredChecks,name]})).toThrow();
+  expect(()=>parsePolicy({...CURRENT_POLICY,aggregates:{'backend-required':[...CURRENT_POLICY.aggregates['backend-required'],name]}})).toThrow();
+  expect(()=>parsePolicy({...CURRENT_POLICY,deferredChecks:[name]})).toThrow();
+ });
+ it.each([{status:'UNKNOWN',conclusion:null},{status:'COMPLETED',conclusion:'UNKNOWN'},{status:'IN_PROGRESS',conclusion:'SUCCESS'},{status:'COMPLETED',conclusion:null}])('blocks inconsistent independent facts %o', check => {
+  expect(classifyChecks([...green,{name:'native-board',...check}]).blocked).not.toEqual([]);
+ });
+ it('keeps nonrequired pending nonblocking, but missing required still waiting and required skipped blocked', () => {
+  expect(classifyChecks([...green,{name:'security',status:'IN_PROGRESS',conclusion:null}]).waitingCi).toEqual([]);
+  expect(classifyChecks(green.slice(1)).waitingCi).not.toEqual([]);
+  expect(classifyChecks(green.map(c=>({...c,conclusion:'SKIPPED'}))).blocked).toHaveLength(5);
+ });
+ it('preserves visual-deferred observations under v4', () => {
+  expect(classifyChecks([...green,{name:'visual-deferred',status:'COMPLETED',conclusion:'FAILURE'}]).advisories.join('\n')).toContain('DEFERRED: visual-deferred');
+ });
+});
