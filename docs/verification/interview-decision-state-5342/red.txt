@@ -1,0 +1,81 @@
+
+> @repo/api@0.0.0 test:interview-markdown-unit /Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/apps/api
+> vitest run --config vitest.interview-markdown-unit.config.ts
+
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/apps/api
+
+ ✓ tests/itv/interview-report-recovery.test.ts (24 tests) 77ms
+ ❯ tests/itv/interview-report-claim-boundaries.test.ts (118 tests | 8 failed) 66ms
+   × finite report claim boundaries > rejects preserved public attempt 1's future-plan to current-state inference 21ms
+     → expected [ 'unqualified_defect_exclusion' ] to include 'unsupported_current_decision_state'
+   × finite report claim boundaries > rejects preserved public attempt 2's future-plan to current-state inference 8ms
+     → expected [ 'unqualified_defect_exclusion' ] to include 'unsupported_current_decision_state'
+   × finite report claim boundaries > does not establish a present decision state with a future plan: 再决定投入表明当前采购处于搁置状态。 1ms
+     → expected [] to include 'unsupported_current_decision_state'
+   × finite report claim boundaries > does not establish a present decision state with a future plan: 不能确认预算，但当前采购已暂停。 0ms
+     → expected [] to include 'unsupported_current_decision_state'
+   × finite report claim boundaries > does not establish a present decision state with a future plan: 不能确认预算；当前采购已暂停。 0ms
+     → expected [] to include 'unsupported_current_decision_state'
+   × finite report claim boundaries > does not establish a present decision state with a future plan: 不能否认当前采购已经搁置。 0ms
+     → expected [] to include 'unsupported_current_decision_state'
+   × finite report claim boundaries > does not establish a present decision state with a future plan: 不能不承认当前采购已经搁置。 0ms
+     → expected [] to include 'unsupported_current_decision_state'
+   × finite report claim boundaries > preserves the same observed person, decision object and current time window 0ms
+     → expected [] to include 'unsupported_current_decision_state'
+ ✓ tests/itv/interview-report-grounding.test.ts (76 tests) 43ms
+ ✓ tests/itv/interview-report-diagnostics.test.ts (14 tests) 32ms
+ ✓ tests/itv/interview-markdown-report-stream-controller.test.ts (9 tests) 5ms
+ ✓ tests/itv/interview-model-markdown.test.ts (4 tests) 3ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 8 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/itv/interview-report-claim-boundaries.test.ts > finite report claim boundaries > rejects preserved public attempt 1's future-plan to current-state inference
+ FAIL  tests/itv/interview-report-claim-boundaries.test.ts > finite report claim boundaries > rejects preserved public attempt 2's future-plan to current-state inference
+AssertionError: expected [ 'unqualified_defect_exclusion' ] to include 'unsupported_current_decision_state'
+ ❯ tests/itv/interview-report-claim-boundaries.test.ts:15:58
+     13|   const saved = JSON.parse(readFileSync(new URL("source.json", root), …
+     14|   const index = buildReportEvidenceIndex(saved.documents.find((d: {ste…
+     15|   expect(assessReportClaimBoundaries(raw,index).missing).toContain("un…
+       |                                                          ^
+     16|  });
+     17|  it.each([
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/8]⎯
+
+ FAIL  tests/itv/interview-report-claim-boundaries.test.ts > finite report claim boundaries > does not establish a present decision state with a future plan: 再决定投入表明当前采购处于搁置状态。
+ FAIL  tests/itv/interview-report-claim-boundaries.test.ts > finite report claim boundaries > does not establish a present decision state with a future plan: 不能确认预算，但当前采购已暂停。
+ FAIL  tests/itv/interview-report-claim-boundaries.test.ts > finite report claim boundaries > does not establish a present decision state with a future plan: 不能确认预算；当前采购已暂停。
+ FAIL  tests/itv/interview-report-claim-boundaries.test.ts > finite report claim boundaries > does not establish a present decision state with a future plan: 不能否认当前采购已经搁置。
+ FAIL  tests/itv/interview-report-claim-boundaries.test.ts > finite report claim boundaries > does not establish a present decision state with a future plan: 不能不承认当前采购已经搁置。
+AssertionError: expected [] to include 'unsupported_current_decision_state'
+ ❯ tests/itv/interview-report-claim-boundaries.test.ts:25:96
+     23|  ])("does not establish a present decision state with a future plan: %…
+     24|   const plan = "访谈五位采购用户，再决定投入。";
+     25|   expect(assessReportClaimBoundaries(`${claim}[${plan}](#answer-1)`,[e…
+       |                                                                                                ^
+     26|  });
+     27|  it.each([
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/8]⎯
+
+ FAIL  tests/itv/interview-report-claim-boundaries.test.ts > finite report claim boundaries > preserves the same observed person, decision object and current time window
+AssertionError: expected [] to include 'unsupported_current_decision_state'
+ ❯ tests/itv/interview-report-claim-boundaries.test.ts:41:100
+     39|   expect(assessReportClaimBoundaries(`${quote}[${quote}](#answer-1)`,[…
+     40|   for (const claim of ["李采购者目前这笔咖啡机采购已暂停。", "张采购者…
+     41|     expect(assessReportClaimBoundaries(`${claim}[${quote}](#answer-1)`…
+       |                                                                                                    ^
+     42|   const past = "张采购者去年这笔咖啡机采购已暂停。";
+     43|   expect(assessReportClaimBoundaries(`${quote}[${past}](#answer-1)`,[e…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/8]⎯
+
+ Test Files  1 failed | 5 passed (6)
+      Tests  8 failed | 237 passed (245)
+   Start at  04:51:25
+   Duration  2.83s (transform 702ms, setup 0ms, collect 2.02s, tests 225ms, environment 0ms, prepare 147ms)
+
+/Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/apps/api:
+ ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  @repo/api@0.0.0 test:interview-markdown-unit: `vitest run --config vitest.interview-markdown-unit.config.ts`
+Exit status 1

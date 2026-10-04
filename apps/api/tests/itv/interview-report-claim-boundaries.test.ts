@@ -7,6 +7,44 @@ import { interviewMarkdown } from "@repo/contracts";
 const evidence = (quote: string): ReportEvidence => ({ anchor: "answer-1", documentId: "runs", version: 1,
   sourceHash: "a".repeat(64), start: 0, end: quote.length, quote, expertId: "expert", taskKey: "task", evidenceMode: "simulated", expertLabel: "甲" });
 describe("finite report claim boundaries", () => {
+ it.each([1,2])("rejects preserved public attempt %s's future-plan to current-state inference", attempt => {
+  const root = new URL("./fixtures/defect-exclusion-5341/", import.meta.url);
+  const raw = readFileSync(new URL(`attempt-${attempt}.md`, root), "utf8");
+  const saved = JSON.parse(readFileSync(new URL("source.json", root), "utf8"));
+  const index = buildReportEvidenceIndex(saved.documents.find((d: {step:string}) => d.step === "runs"));
+  expect(assessReportClaimBoundaries(raw,index).missing).toContain("unsupported_current_decision_state");
+ });
+ it.each([
+  "再决定投入表明当前采购处于搁置状态。",
+  "不能确认预算，但当前采购已暂停。",
+  "不能确认预算；当前采购已暂停。",
+  "不能否认当前采购已经搁置。",
+  "不能不承认当前采购已经搁置。",
+ ])("does not establish a present decision state with a future plan: %s", claim => {
+  const plan = "访谈五位采购用户，再决定投入。";
+  expect(assessReportClaimBoundaries(`${claim}[${plan}](#answer-1)`,[evidence(plan)]).missing).toContain("unsupported_current_decision_state");
+ });
+ it.each([
+  "未来访谈五位用户，再决定投入。",
+  "不能据此断言当前采购已经搁置。",
+  "无法判断当前采购是否暂停。",
+  "若当前采购已暂停，可以先验证替代方案。",
+  "若张采购者目前这笔咖啡机采购已暂停，可以先验证替代方案。",
+  "当前采购可能暂缓，需核实实际状态。",
+  "当前采购并未搁置。",
+ ])("preserves a plan, scoped denial, question or conditional state: %s", claim => {
+  expect(assessReportClaimBoundaries(claim,[]).ok).toBe(true);
+ });
+ it("preserves the same observed person, decision object and current time window", () => {
+  const quote = "张采购者目前这笔咖啡机采购已暂停。";
+  expect(assessReportClaimBoundaries(`${quote}[${quote}](#answer-1)`,[evidence(quote)]).ok).toBe(true);
+  for (const claim of ["李采购者目前这笔咖啡机采购已暂停。", "张采购者目前这笔饮水机采购已暂停。"])
+    expect(assessReportClaimBoundaries(`${claim}[${quote}](#answer-1)`,[evidence(quote)]).missing).toContain("unsupported_current_decision_state");
+  const past = "张采购者去年这笔咖啡机采购已暂停。";
+  expect(assessReportClaimBoundaries(`${quote}[${past}](#answer-1)`,[evidence(past)]).missing).toContain("unsupported_current_decision_state");
+  expect(assessReportClaimBoundaries(`${quote}[${quote}](#answer-1)`,[{...evidence(quote),taskKey:null}]).missing).toContain("unsupported_current_decision_state");
+  expect(assessReportClaimBoundaries(`原话：[${quote}](#answer-1)`,[evidence(quote)]).ok).toBe(true);
+ });
  it.each([1,2])("rejects the preserved public attempt %s's unsupported defect exclusion", attempt => {
   const root = new URL("./fixtures/defect-exclusion-5341/", import.meta.url);
   const raw = readFileSync(new URL(`attempt-${attempt}.md`, root), "utf8");
