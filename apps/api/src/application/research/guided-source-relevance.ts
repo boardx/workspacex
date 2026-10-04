@@ -1,6 +1,6 @@
 import { evidenceWireChunk, materializeQuoteReferences, quoteReferenceMatchSchema } from "./guided-report-quote-references";
 import { createHash } from "node:crypto";
-import { research as C } from "@repo/contracts";
+import { sourceRelevanceOutputSchema as sourceOutput, type SourceRelevanceSemanticCode, type SourceRelevanceIssueCode } from "./guided-source-relevance-protocol";
 import { zodToJsonSchema } from "zod-to-json-schema";
 import { extractJson } from "./guided-structured-json";
 import { reportQuestions } from "./guided-report-evidence";
@@ -9,12 +9,12 @@ import { ResearchRuntimeError, type ResearchRuntime } from "./guided-runtime-por
 type Source = ResearchRuntime["sources"][number];
 type Complete = (system: string, context: unknown, validate: (value: unknown) => void) => Promise<unknown>;
 type Chunk = { sourceId: string; chunkId: string; taskId: string; questionIds: string[]; title: string; url: string; content: string };
-type OutputIssue = { path: (string | number)[]; code: string; message: string };
+type OutputIssue = { path: (string | number)[]; code: SourceRelevanceIssueCode; message: string };
 class InvalidRelevanceOutput extends ResearchRuntimeError {
   readonly issues: OutputIssue[];
   constructor(issues: OutputIssue[], readonly rawOutput?: string) {
     super("RESEARCH_SOURCE_RELEVANCE_INVALID");
-    this.issues = issues.slice(0, 16).map((issue) => ({ code: issue.code.slice(0, 64),
+    this.issues = issues.slice(0, 16).map((issue) => ({ code: issue.code,
       path: issue.path.slice(0, 6).map((part) => typeof part === "string" ? part.slice(0, 64) : part),
       message: issue.message.slice(0, 320) }));
   }
@@ -27,7 +27,6 @@ export function parseSourceRelevanceJson(text: string): unknown {
     throw new InvalidRelevanceOutput([{ path: [], code: "invalid_json", message: "Return one complete valid JSON object matching the supplied schema, without commentary." }], text.slice(0, 24000));
   }
 }
-const sourceOutput = C.GuidedResearchEvidenceModelOutput.extend({ evaluations: C.GuidedResearchEvidenceModelOutput.shape.evaluations.element.extend({ presentation: C.GuidedResearchSourcePresentation.optional() }).array().min(1).max(8) });
 const wireSchema = zodToJsonSchema(sourceOutput, { $refStrategy: "none" }) as { properties: { evaluations: { items: { properties: { matches: { items: unknown } } } } } };
 wireSchema.properties.evaluations.items.properties.matches.items = zodToJsonSchema(quoteReferenceMatchSchema, { $refStrategy: "none" });
 const schema = JSON.stringify(wireSchema);
@@ -95,7 +94,7 @@ export async function screenResearchSources(state: ResearchRuntime, sources: Sou
       const parsed = sourceOutput.safeParse(normalized);
       if (!parsed.success) throw new InvalidRelevanceOutput(parsed.error.issues.slice(0, 32).map(({ path, code, message }) => ({ path, code, message })));
       const issues: OutputIssue[] = [];
-      const add = (path: (string | number)[], code: string, message: string) => { if (issues.length < 32) issues.push({ path, code, message }); };
+      const add = (path: (string | number)[], code: SourceRelevanceSemanticCode, message: string) => { if (issues.length < 32) issues.push({ path, code, message }); };
       if (parsed.data.evaluations.length !== batch.length) add(["evaluations"], "count", `Expected exactly ${batch.length} evaluations.`);
       const seen = new Set<string>();
       for (const [index, entry] of parsed.data.evaluations.entries()) {
