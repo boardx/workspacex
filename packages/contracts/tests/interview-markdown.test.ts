@@ -116,6 +116,9 @@ describe("formatted report quality", () => {
     expect(assessInterviewReportAnalysis(report).missing).not.toContain("boundary_or_counterevidence");
   });
   it.each([
+    "反例与边界：",
+    "- **反例与边界**：   ",
+    "反例与边界：\n\n## 下一步验证建议\n\n访谈五位用户，对比安装时长与购买决策。",
     "## 反例与边界\n\n## 下一步验证建议\n\n访谈五位用户，对比安装时长与购买决策。",
     "## 反例与边界\n\n```md\n另一个场景安装顺利。\n```",
     "```md\n反例与边界：另一个场景安装顺利。\n```",

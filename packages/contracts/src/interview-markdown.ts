@@ -222,7 +222,10 @@ type MarkdownNode = { type: string; value?: string; depth?: number; url?: string
 function analysisNodeText(node: MarkdownNode): string {
   if (["html", "code", "inlineCode", "image"].includes(node.type)) return "";
   const separator = ["list", "listItem", "root", "blockquote"].includes(node.type) ? "\n" : "";
-  return node.value ?? node.children?.map(analysisNodeText).filter(Boolean).join(separator) ?? "";
+  const text = node.value ?? node.children?.map(analysisNodeText).filter(Boolean).join(separator) ?? "";
+  // Inline labels need their own prose; later sections cannot fill an empty label.
+  if (node.type === "paragraph" && /^\s*(?:边界(?:与反例)?|反例(?:与边界)?|反对证据|相反证据|负面案例)[：:。.]\s*$/u.test(text)) return "";
+  return text;
 }
 function reportAnalysisText(markdown: string): string {
   const nodes = (parser.parse(markdown) as MarkdownNode).children ?? [];
