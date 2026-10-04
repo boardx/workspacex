@@ -160,7 +160,7 @@ export function InterviewMarkdownResultsStep({ interviewId, step, runs, legacySe
   return <div>
     {step === "report" && generatingReport && session && document && <InterviewReportGeneration session={session} />}
     {error && <div role="alert" className="mb-4 rounded-lg border border-destructive/20 p-4 text-sm text-destructive"><p>{error}</p><Button variant="outline" className="mt-3" disabled={pending} onClick={() => void loadInterviewMarkdown(interviewId).then((next) => { receive(next); setError(""); }).catch(() => setError("载入失败，请稍后重试。"))}>重新载入状态</Button></div>}
-    {state?.status === "failed" && !error && <p role="alert" className="mb-4 text-sm text-destructive">{interviewReportFailureMessage(state.failure?.code)}</p>}
+    {state?.status === "failed" && !error && <p role="alert" className="mb-4 text-sm text-destructive">{interviewReportFailureMessage(state.failure?.code)}已保存内容不代表完整报告。</p>}
     {step === "runs" ? <InterviewRunsStep runs={sourceRuns} taskProgress={Boolean(execution)} document={document} pending={pending} onGenerateReport={() => void generateReport()} actions={<>
       {!execution && <Button variant="primary" disabled={pending || !source} onClick={() => void execute("start")}>开始模拟访谈</Button>}
       {execution?.status === "running" && <Button variant="outline" onClick={() => void execute("pause")}>暂停后续访谈</Button>}

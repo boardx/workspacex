@@ -142,6 +142,7 @@ export const ContactRevealPurpose = z.enum(["booking", "follow-up", "compliance"
  *   响应体必须**逐字节不可区分**（uc-6-0/E3 的枚举探测面）。
  */
 export const InterviewError = z.enum([
+  "INTERVIEW_CONTRACT_UPGRADE_REQUIRED",
   /** 无权 **或** 不存在。两者不可区分是**安全属性**不是文案疏漏 */
   "NO_INTERVIEW_ACCESS",
   /** 切换器里出现无权范围 ⇒ 该档位**不显示**（服务端过滤，不返回全量再前端过滤） */
