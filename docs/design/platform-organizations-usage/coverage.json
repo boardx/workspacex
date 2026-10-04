@@ -289,20 +289,26 @@
     },
     {
       "id": "trial-local-model",
-      "status": "not-connected",
+      "status": "partial-trusted-trial-default-off",
       "sources": [
-        "apps/api/src/infrastructure/identity/http-local-model-runtime.ts"
+        "apps/api/src/infrastructure/identity/http-local-model-runtime.ts",
+        "apps/api/src/infrastructure/auth/pg-local-request-accounting.ts",
+        "apps/api/src/application/identity/invoke-local-model.ts"
       ],
-      "tests": [],
+      "tests": [
+        "apps/api/tests/auth/local-request-accounting.test.ts",
+        "apps/api/tests/kernel/http-local-model-runtime.test.ts",
+        "apps/api/tests/kernel/local-org-zero-egress.test.ts"
+      ],
       "remaining": [
-        "Trusted original subject and per-request admission/accounting.",
+        "Verified local model admission/bounds and durable cross-process terminal repair; trusted trial receipt source is connected.",
         "Explicit finite spend policy and ordinary per-user amount/window/timezone; no defaults enabled.",
         "Verified exact physical model registration, input/output bounds and pricing unit/rate.",
         "Isolated PostgreSQL/tenant integration for the new batch.",
         "Actual deployed provider/cancellation/retry evidence for this family."
       ],
       "sourceMissing": [
-        "Trusted original subject and per-request admission/accounting."
+        "Verified local model admission/bounds and durable cross-process terminal repair; trusted trial receipt source is connected."
       ],
       "configurationMissing": [
         "Explicit finite spend policy and ordinary per-user amount/window/timezone; no defaults enabled.",

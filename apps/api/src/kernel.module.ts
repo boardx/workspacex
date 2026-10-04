@@ -269,7 +269,8 @@ import { IdentityController } from "./interface/controllers/identity.controller"
 import { LocalOrgController } from "./interface/controllers/local-org.controller";
 import { EGRESS_GUARD, EGRESS_LEDGER, EXPORT_TRANSPORT, LOCAL_MODEL_RUNTIME } from "./application/identity/local-org-ports";
 import { ProcessEgressGuard, ProcessEgressLedger } from "./infrastructure/egress/local-egress-guard";
-import { HttpLocalModelRuntime } from "./infrastructure/identity/http-local-model-runtime";
+import {PgLocalRequestAccounting} from "./infrastructure/auth/pg-local-request-accounting";
+import { HttpLocalModelRuntime,localRuntimeEndpoint,localRuntimeModelId } from "./infrastructure/identity/http-local-model-runtime";
 // F17: 隐私承诺的唯一豁口。
 import { LocalExportController } from "./interface/controllers/local-export.controller";
 import { LOCAL_EXPORT_REPOSITORY } from "./application/identity/local-export-ports";
@@ -1438,7 +1439,7 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
     { provide: EGRESS_GUARD, useFactory: () => new ProcessEgressGuard() },
     // E4: what the user sees as 「本次启动出网 N 次」 -- read from the same patched chokepoint.
     { provide: EGRESS_LEDGER, useFactory: () => new ProcessEgressLedger(readDeploymentEdition()) },
-    { provide: LOCAL_MODEL_RUNTIME, useFactory: () => new HttpLocalModelRuntime() },
+    { provide: LOCAL_MODEL_RUNTIME, useFactory: (repo:IdentityRepository,meter:TokenUsageMeterPort) => new HttpLocalModelRuntime(localRuntimeEndpoint(),localRuntimeModelId(),process.env.KERNEL_LOCAL_REQUEST_ACCOUNTING_ENABLED==="1"?new PgLocalRequestAccounting(repo,meter):undefined,process.env.KERNEL_AI_PRODUCT_QUOTA_ENABLED==="1"),inject:[IDENTITY_REPOSITORY,TOKEN_USAGE_METER] },
     {
       provide: IDENTITY_REPOSITORY,
       useFactory: (db: DatabasePort) => new PgIdentityRepository(db),

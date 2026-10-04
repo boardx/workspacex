@@ -1,6 +1,6 @@
 # Next bounded source batch
 
-Current frozen remote head: `529488455c095a10483ed02848a6bab2e1fd8dd6`. Its backend/harness CI completed success; current retrieval remote head4d4afffd4 has its own pending CI. Default-off composition and original-unit ledger exist; this does not imply all provider calls are admitted or measured.
+Current frozen remote head: `529488455c095a10483ed02848a6bab2e1fd8dd6`. Its backend/harness CI completed success; retrieval remote head4d4afffd4 also completed backend/harness success. Default-off composition and original-unit ledger exist; this does not imply all provider calls are admitted or measured.
 
 ## Durable child acceptance, preserving current contract
 
@@ -25,3 +25,6 @@ Coverage remains10 grouped families: sourceMissing10, configurationMissing9, acc
 
 
 Image source checkpoint: OpenAI Images has optional trusted standard-tool start/terminal actual-fetch accounting. Native quantity remains unknown; missing vendor Token fields remain unknown. Image success is preserved on terminal ledger failure and subsequent dispatches stop in that instance, with an explicit sanitized warning and unmatched durable start. Cross-process repair is still absent. Native admission and other image adapters remain missing; quota mode rejects before actual OpenAI dispatch. No production flag activation.
+
+
+Local trial source checkpoint: authenticated local membership/capability context now reaches actual Ollama POST start/terminal. Probe remains excluded, no synthetic Agent run, total/cost unknown unless originally reported. Migration190 nullable-start PG tests await next-head remote CI. Owner218 no-DB cases and independent local8 passed; local admission and cross-process reconciliation remain missing. Sole audited unhooked transport point is ASR WebSocket; additional retrieval producers/opaque research/Bailian are still listed outside that narrow seven-point denominator.

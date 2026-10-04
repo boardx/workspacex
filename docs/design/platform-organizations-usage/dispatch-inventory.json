@@ -51,8 +51,9 @@
       "id": "local-generate-http",
       "source": "apps/api/src/infrastructure/identity/http-local-model-runtime.ts",
       "anchor": "const req = http.request",
-      "receiptHook": "missing",
-      "admissionHook": "missing"
+      "receiptHook": "context-subset",
+      "admissionHook": "missing; quota mode denies before start/inference",
+      "acceptance": "Authenticated checked personal-local trial only, localhost/mock-ledger units; nullable run-start PG acceptance pending."
     }
   ],
   "retrievalProducerRoutes": [
@@ -117,8 +118,8 @@
   "counts": {
     "auditedConcreteDispatchPoints": 7,
     "receiptHooksImplemented": 3,
-    "receiptHooksContextSubset": 2,
-    "receiptHooksMissing": 2,
+    "receiptHooksContextSubset": 3,
+    "receiptHooksMissing": 1,
     "knownRetrievalProducerRoutes": 7,
     "trustedRunReferenceRoutesImplemented": 2,
     "trustedRunReferenceRoutesMissing": 5,

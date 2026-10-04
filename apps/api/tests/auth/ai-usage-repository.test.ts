@@ -71,4 +71,15 @@ describe("same ledger reports — isolated PostgreSQL",()=>{
   await expect(asApp(ORG,c=>c.query("UPDATE token_usage_events SET native_quantity=99 WHERE id='immutable-native'"))).rejects.toThrow();
  });
 
+ it("non-run local trials keep null Agent identity, append-only starts and tenant scope",async()=>{
+  await usage.startRequest(toOrgId(ORG),{requestId:"local-trial-http",userId:"alice",runId:null,projectId:null,executionAttemptId:null,modelProvider:"ollama-local",modelId:"actual-local",callPurpose:"local-trial",startedAt:new Date(now).toISOString()});
+  const row=(await asApp(ORG,c=>c.query("SELECT run_id,execution_attempt_id,execution_lease_epoch,subtask_id,call_purpose FROM model_request_starts WHERE id='local-trial-http'"))).rows[0];
+  expect(row).toEqual({run_id:null,execution_attempt_id:null,execution_lease_epoch:null,subtask_id:null,call_purpose:"local-trial"});
+  expect((await asApp(OTHER,c=>c.query("SELECT id FROM model_request_starts WHERE id='local-trial-http'"))).rows).toEqual([]);
+  await expect(asApp(ORG,c=>c.query("UPDATE model_request_starts SET user_id='bob' WHERE id='local-trial-http'"))).rejects.toThrow();
+ });
+ it("non-run starts cannot erase existing Agent identity requirements or use NULL purpose",async()=>{
+  for(const purpose of ["primary",null])await expect(asApp(ORG,c=>c.query("INSERT INTO model_request_starts(id,org_id,user_id,run_id,model_provider,model_id,started_at,call_purpose) VALUES($1,$2,'alice',NULL,'p','m',now(),$3)",["invalid-non-run:"+String(purpose),ORG,purpose]))).rejects.toThrow();
+ });
+
 });
