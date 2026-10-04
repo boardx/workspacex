@@ -25,6 +25,6 @@ export function ResearchStageRoute({ sessionId, stage }: { sessionId: string; st
     }).catch(() => { /* Runtime loading owns access and connection errors. */ });
     return () => { active = false; };
   }, [sessionId, cacheScope, loadAttempt]);
-  const researchName = metadata?.sessionId === sessionId && metadata.scope === cacheScope ? metadata.title : "研究";
+  const researchName = metadata?.sessionId === sessionId && metadata.scope === cacheScope ? metadata.title : undefined;
   return <GuidedResearchLive sessionId={sessionId} researchName={researchName} onLoadRetry={() => setLoadAttempt((attempt) => attempt + 1)} visualStage={stage} initialNode={RESEARCH_STAGE_NODES[stage]} onBack={() => router.push("/research")} />;
 }

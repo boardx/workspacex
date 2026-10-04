@@ -439,3 +439,13 @@ it("returns a URL-opened report to history without reopening the stale session p
   await waitFor(() => expect(getResearchRuntime).toHaveBeenLastCalledWith("grs-next"));
   expect(await screen.findByTestId("research-report-document")).toBeInTheDocument();
 });
+
+it("shows and searches the canonical generated topic for default-named list entries", async () => {
+  const item = { ...createdSession("generated-name"), title: "新建研究" };
+  listGuidedResearchSessions.mockResolvedValue({ items: [item] });
+  getResearchRuntime.mockResolvedValue({ ...runtimeFixture("directions", item.sessionId), brief: { ...runtimeFixture().brief, topic: "已生成的独特主题" } });
+  render(<GuidedResearchFlow step="home" onStepChange={vi.fn()} />);
+  expect(await screen.findByText("已生成的独特主题")).toBeInTheDocument();
+  fireEvent.change(screen.getByTestId("research-history-search"), { target: { value: "独特主题" } });
+  expect(screen.getByTestId("research-history-generated-name")).toBeInTheDocument();
+});
