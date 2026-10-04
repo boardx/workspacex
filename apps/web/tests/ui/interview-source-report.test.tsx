@@ -51,5 +51,17 @@ it("keeps report version and hash in the PDF print root without adding screen cl
   const version = screen.getByTestId("itv-report-print-version");
   expect(version.closest("#itv-source-report-print")).not.toBeNull();
   expect(version).toHaveClass("hidden", "print:block");
-  expect(version).toHaveTextContent(`报告版本 7 · SHA256 ${"b".repeat(64)}`);
+  expect(version).toHaveTextContent(`文档版本 7 · SHA256 ${"b".repeat(64)}`);
+});
+
+
+it.each(["simulated", "participant"] as const)("retains export disclosures inside the print root (%s)", (evidenceMode) => {
+  render(<InterviewReportStep document={{ documentId: "print-provenance", step: "report", version: 7, contentHash: "b".repeat(64), evidenceMode, references: [], markdown: "# 原文报告" }} />);
+  const root = document.getElementById("itv-source-report-print")!;
+  expect(root.textContent).toContain("文档版本 7");
+  expect(root.textContent).toContain("b".repeat(64));
+  expect(root.textContent).toContain("不代表已批准结论");
+  if (evidenceMode === "simulated") expect(root.textContent).toContain("不代表真实用户证据");
+  else expect(root.textContent).not.toContain("不代表真实用户证据");
+  expect(screen.getByTestId("itv-report-print-provenance")).toHaveClass("hidden", "print:block");
 });

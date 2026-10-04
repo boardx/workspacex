@@ -48,7 +48,11 @@ export function InterviewReportStep({ document, sourceDocuments = [], expertsDoc
     <div className={researchWorkspaceStyle.report}>
       <nav aria-label="报告目录" className="min-w-0 border-b border-border pb-5 print:hidden xl:sticky xl:top-52 xl:max-h-[calc(100dvh-14rem)] xl:overflow-y-auto xl:border-b-0 xl:border-r xl:pr-5"><div className="mb-4 flex items-center justify-between gap-2"><h3 className="text-sm font-semibold">目录</h3><Button variant="ghost" size="sm" className="xl:hidden" aria-expanded={tocExpanded} aria-controls="itv-report-toc" onClick={() => setTocExpanded((value) => !value)}>{tocExpanded ? "收起目录" : "展开目录"}</Button></div><ol id="itv-report-toc" className={`space-y-2 ${tocExpanded ? "block" : "hidden"} xl:block`}>{projection.headings.map((heading) => <li key={heading.id}><a className="block break-words text-xs leading-relaxed text-muted-foreground transition-colors hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring" href={`#${heading.id}`}>{heading.text}</a></li>)}</ol></nav>
       <article id="itv-source-report-print" className="min-w-0">
-        <p data-testid="itv-report-print-version" className="hidden print:block mb-4 break-all text-sm">报告版本 {document.version} · SHA256 {document.contentHash}</p>
+        <p data-testid="itv-report-print-version" className="hidden print:block mb-4 break-all text-sm">文档版本 {document.version} · SHA256 {document.contentHash}</p>
+        <div data-testid="itv-report-print-provenance" className="hidden print:block mb-4 text-sm">
+          {document.evidenceMode === "simulated" && <p>本报告基于 AI 模拟访谈，不代表真实用户证据，需真人验证。</p>}
+          <p>该文档版本尚未关联审批记录，不代表已批准结论。</p>
+        </div>
         <InterviewReportMarkdown document={document} markdown={document.markdown} testId="itv-source-report-markdown" longForm />
         <InterviewReportSources report={document} sources={sourceDocuments} experts={selectedExperts} />
 
