@@ -216,7 +216,7 @@ it('real input-only artifact admission serializes per-user budgets and keeps unk
   const accounting=new PgArtifactEmbeddingAccounting(db,{provider:'fixture-route',primaryModelId:id=>registry.formalModelId('fixture-route',id),dependencies:()=>({currentCandidates:()=>registry.currentCandidates(pool as never,String(quotaOrg)),measure:request=>registry.measure(request)})});
   const batch=await indexSource.load({orgId:quotaOrg,artifactVersionId:file.versionId});
   const first=await accounting.open({orgId:quotaOrg,artifactVersionId:file.versionId},batch),second=await accounting.open({orgId:quotaOrg,artifactVersionId:file.versionId},batch);
-  const serializedBody=JSON.stringify({model:'fixture-embed',input:[[23,45]]}),requestPath='/v1/embeddings';
+  const serializedBody=JSON.stringify({model:'fixture-embed',input:[batch.segments[0]!.content]}),requestPath='/v1/embeddings';
   const request=(operationId:string)=>{const requestId=randomUUID();return {billingMode:'input-only' as const,requestId,modelId:'fixture-embed',startedAt:new Date().toISOString(),serializedBody,requestPath,logicalCallId:JSON.stringify([operationId,'retrieval-embedding',requestId,createHash('sha256').update(serializedBody).digest('hex'),requestPath])};};
   const a=request(first.operationId),b=request(second.operationId),results=await Promise.allSettled([accounting.admit(quotaOrg,first.operationId,a),accounting.admit(quotaOrg,second.operationId,b)]);
   expect(results.filter(r=>r.status==='fulfilled')).toHaveLength(1);expect(results.filter(r=>r.status==='rejected')).toHaveLength(1);

@@ -33,7 +33,7 @@ function fixture(inputOnly=false){
   if(sql.includes('JOIN artifacts'))return {rows:[{artifact_id:'a1',project_id:null,ingestion_status:active?'INDEXED':'READY',confidential:false}]};
   if(sql.includes('FROM artifact_versions'))return {rows:[{id:'v1',artifact_id:'a1',version_number:1,object_storage_key:'private-source',content_hash:hash,mime:'text/plain',size_bytes:'3',pinned_by:'publisher',pinned_at:stamp,context_pack_id:null}]};
   if(sql.includes('FROM ingestion_outbox')){expect(sql).toContain('FOR SHARE');return {rows:active?[{id:'job'}]:[]};}
-  if(sql.includes('INSERT INTO artifact_embedding_operations')){ops.set(String(args[0]),{id:args[0],org_id:args[1],user_id:args[2],artifact_id:args[3],artifact_version_id:args[4],project_id:args[5],content_hash:args[6],ingestion_job_id:args[7],ingestion_attempt:args[8]});return {rows:[]};}
+  if(sql.includes('INSERT INTO artifact_embedding_operations')){ops.set(String(args[0]),{id:args[0],org_id:args[1],user_id:args[2],artifact_id:args[3],artifact_version_id:args[4],project_id:args[5],content_hash:args[6],ingestion_job_id:args[7],ingestion_attempt:args[8],input_hashes:JSON.parse(String(args[9]))});return {rows:[]};}
   if(sql.includes('FROM artifact_embedding_operations'))return {rows:ops.get(String(args[1]))?.org_id===args[0]?[ops.get(String(args[1]))]:[]};
   if(sql.includes('FROM model_request_starts'))return {rows:starts.get(String(args[1]))?.org_id===args[0]?[starts.get(String(args[1]))]:[]};
   if(sql.includes('INTO model_request_starts')){expect(sql).toMatch(/ON CONFLICT\s*\(id\) DO NOTHING/);if(!starts.has(String(args[0])))starts.set(String(args[0]),{org_id:args[1],user_id:args[2],project_id:args[5],artifact_operation_id:args[14],model_provider:args[6],model_id:args[7],started_at:new Date(String(args[8]))});return {rows:[]};}
@@ -105,7 +105,7 @@ it('concurrent conflicting operation request IDs and cross-tenant collisions can
 
 for(const reported of [true,false])it(`artifact input-only admission reserves on one connection and ${reported?'settles original input receipt':'retains missing-usage hold'}`,async()=>{
  const f=fixture(true),ref=await f.accounting.open(f.input,batch);vi.stubEnv('KERNEL_AI_PRODUCT_QUOTA_ENABLED','1');
- const serializedBody=JSON.stringify({model:'actual-model',input:[[23,45]],encoding_format:'base64'}),requestPath='/v1/embeddings';
+ const serializedBody=JSON.stringify({model:'actual-model',input:['one'],encoding_format:'base64'}),requestPath='/v1/embeddings';
  const logicalCallId=JSON.stringify([ref.operationId,'retrieval-embedding',f.start.requestId,createHash('sha256').update(serializedBody).digest('hex'),requestPath]);
  const before=f.connections;await f.accounting.admit(org,ref.operationId,{...f.start,billingMode:'input-only',serializedBody,requestPath,logicalCallId});
  expect(f.connections-before).toBe(1);
@@ -122,11 +122,21 @@ for(const reported of [true,false])it(`artifact input-only admission reserves on
 
 it('distinct identical-body HTTPs share an artifact operation without sharing a reservation; physical replay cannot dispatch',async()=>{
  const f=fixture(true),ref=await f.accounting.open(f.input,batch);vi.stubEnv('KERNEL_AI_PRODUCT_QUOTA_ENABLED','1');
- const serializedBody=JSON.stringify({model:'actual-model',input:[[23,45]]}),requestPath='/v1/embeddings';
+ const serializedBody=JSON.stringify({model:'actual-model',input:['one']}),requestPath='/v1/embeddings';
  const make=(requestId:string)=>({...f.start,requestId,billingMode:'input-only' as const,serializedBody,requestPath,logicalCallId:JSON.stringify([ref.operationId,'retrieval-embedding',requestId,createHash('sha256').update(serializedBody).digest('hex'),requestPath])});
  const first=make(f.start.requestId),second=make('1577fe85-acb4-49e6-b3d7-8371f8bba127');
  await f.accounting.admit(org,ref.operationId,first);await f.accounting.admit(org,ref.operationId,second);
  expect(f.starts.size).toBe(2);expect(f.reservations.size).toBe(2);
  await expect(f.accounting.admit(org,ref.operationId,first)).rejects.toThrow('AI_REQUEST_REPLAY_NO_DISPATCH');expect(f.starts.size).toBe(2);expect(f.reservations.size).toBe(2);
  expect([...f.reservations.values()].map(row=>row.logical_call_id)).toEqual([first.logicalCallId,second.logicalCallId]);
+});
+
+it('artifact authority alone cannot classify unrelated or piggybacked request contents',async()=>{
+ const f=fixture(true),ref=await f.accounting.open(f.input,batch);vi.stubEnv('KERNEL_AI_PRODUCT_QUOTA_ENABLED','1');
+ for(const body of [{model:'actual-model',input:['unrelated-private-prompt']},{model:'actual-model',input:['one'],extra:'private'},{model:'actual-model',input:[[23,45]]}]){
+  const serializedBody=JSON.stringify(body),requestPath='/v1/embeddings',requestId=f.start.requestId;
+  await expect(f.accounting.admit(org,ref.operationId,{...f.start,billingMode:'input-only',serializedBody,requestPath,logicalCallId:JSON.stringify([ref.operationId,'retrieval-embedding',requestId,createHash('sha256').update(serializedBody).digest('hex'),requestPath])})).rejects.toThrow('AI_ARTIFACT_WHOLE_INPUT_UNPROVEN');
+ }
+ expect(f.reservations.size).toBe(0);expect(f.starts.size).toBe(0);
+ expect(f.query.mock.calls.some(([sql])=>sql.includes('organization_ai_policies'))).toBe(false);
 });

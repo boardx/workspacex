@@ -1,3 +1,4 @@
+import {artifactEmbeddingInputHash,artifactEmbeddingInputMatchesSource} from '../../application/retrieval/artifact-embedding-input-proof';
 import {createHash} from 'node:crypto';
 import {admitPricedInputOnlyCall,inputOnlyReceiptCost,type InputOnlyRuntimeAdmissionOptions} from '../../application/agent-run/admit-priced-input-only-call';
 import {PgAiAdmissionRepository} from '../auth/pg-ai-admission-repository';
@@ -14,7 +15,7 @@ import {PgIdentityRepository} from '../identity/pg-identity-repository';
 import {PgIngestionRepository} from '../files/pg-ingestion-repository';
 import {PgTokenUsageRepository} from '../auth/pg-token-usage-repository';
 import {PgArtifactIndexTargets} from './pg-artifact-index-targets';
-interface Operation {id:string;user_id:string;artifact_id:string;artifact_version_id:string;project_id:string|null;content_hash:string;ingestion_job_id:string|null;ingestion_attempt:number|null;}
+interface Operation {id:string;user_id:string;artifact_id:string;artifact_version_id:string;project_id:string|null;content_hash:string;ingestion_job_id:string|null;ingestion_attempt:number|null;input_hashes:readonly string[];}
 /** Opaque operation only; each SDK HTTP rechecks stored actor and current artifact/job authority. */
 export class PgArtifactEmbeddingAccounting implements ArtifactEmbeddingAccounting,ArtifactEmbeddingUsagePort {
  constructor(private readonly db:DatabasePort,private readonly inputOnly?:InputOnlyRuntimeAdmissionOptions){}
@@ -34,12 +35,12 @@ export class PgArtifactEmbeddingAccounting implements ArtifactEmbeddingAccountin
  }
  async open(input:ArtifactIndexInput,batch:ArtifactIndexBatch){
   if(input.artifactVersionId!==batch.artifactVersionId||!batch.publisherUserId||!batch.externalEmbeddingAllowed||batch.requiresReview)throw new ArtifactEmbeddingOwnershipDenied();
-  const op:Operation={id:randomUUID(),user_id:input.requestedBy??batch.publisherUserId,artifact_id:batch.artifactId,artifact_version_id:batch.artifactVersionId,project_id:batch.projectId,content_hash:batch.contentHash,ingestion_job_id:input.ingestionClaim?.jobId??null,ingestion_attempt:input.ingestionClaim?.attempt??null};
-  await this.scoped(input.orgId,async db=>{await this.authorized(db,input.orgId,op);await db.withTenant(input.orgId,s=>s.query('INSERT INTO artifact_embedding_operations(id,org_id,user_id,artifact_id,artifact_version_id,project_id,content_hash,ingestion_job_id,ingestion_attempt) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)',[op.id,input.orgId,op.user_id,op.artifact_id,op.artifact_version_id,op.project_id,op.content_hash,op.ingestion_job_id,op.ingestion_attempt]));});
+  const op:Operation={id:randomUUID(),user_id:input.requestedBy??batch.publisherUserId,artifact_id:batch.artifactId,artifact_version_id:batch.artifactVersionId,project_id:batch.projectId,content_hash:batch.contentHash,ingestion_job_id:input.ingestionClaim?.jobId??null,ingestion_attempt:input.ingestionClaim?.attempt??null,input_hashes:batch.segments.map(segment=>artifactEmbeddingInputHash(segment.content))};
+  await this.scoped(input.orgId,async db=>{await this.authorized(db,input.orgId,op);await db.withTenant(input.orgId,s=>s.query('INSERT INTO artifact_embedding_operations(id,org_id,user_id,artifact_id,artifact_version_id,project_id,content_hash,ingestion_job_id,ingestion_attempt,input_hashes) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::jsonb)',[op.id,input.orgId,op.user_id,op.artifact_id,op.artifact_version_id,op.project_id,op.content_hash,op.ingestion_job_id,op.ingestion_attempt,JSON.stringify(op.input_hashes)]));});
   return {kind:'artifact-index' as const,orgId:String(input.orgId),operationId:op.id};
  }
  private async find(db:DatabasePort,orgId:OrgId,operationId:string){
-  const op=await db.withTenant(orgId,async s=>(await s.query<Operation>('SELECT id,user_id,artifact_id,artifact_version_id,project_id,content_hash,ingestion_job_id,ingestion_attempt FROM artifact_embedding_operations WHERE org_id=$1 AND id=$2',[orgId,operationId])).rows[0]);
+  const op=await db.withTenant(orgId,async s=>(await s.query<Operation>('SELECT id,user_id,artifact_id,artifact_version_id,project_id,content_hash,ingestion_job_id,ingestion_attempt,input_hashes FROM artifact_embedding_operations WHERE org_id=$1 AND id=$2',[orgId,operationId])).rows[0]);
   if(!op)throw new ArtifactEmbeddingOwnershipDenied();
   // Metadata needed to derive the actor accompanies a guarded artifact operation, no source content.
   const result=await disclose({repo:new PgIdentityRepository(db),ids:{next:()=>randomUUID()}},{orgId,userId:op.user_id,projectId:op.project_id??undefined,action:'content.indexFile',path:'retrieval',items:[guard({kind:'artifact',id:op.artifact_id},op)]});
@@ -54,6 +55,7 @@ export class PgArtifactEmbeddingAccounting implements ArtifactEmbeddingAccountin
   await this.scoped(orgId,async db=>{
    await db.withTenant(orgId,s=>s.query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))",["artifact-model-request:"+input.requestId]));
    const op=await this.find(db,orgId,operationId);await this.authorized(db,orgId,op);
+   if(!artifactEmbeddingInputMatchesSource(input.serializedBody,op.input_hashes??[]))throw new Error('AI_ARTIFACT_WHOLE_INPUT_UNPROVEN');
    const budget=new PgAiAdmissionRepository(db);
    const decision=await admitPricedInputOnlyCall({orgId,userId:op.user_id,logicalCallId,attempt:0,
     primaryModelId:await configured.primaryModelId(input.modelId),confidentiality:'non-confidential',requiredCapabilities:['embedding']},

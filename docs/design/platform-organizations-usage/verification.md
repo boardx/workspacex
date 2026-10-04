@@ -333,3 +333,11 @@ Input-only logical identity now includes its physical request UUID, preserving d
 Remote committed1de3579ff backend37177742879 and harness37177742887 completed success before the next source batch push; Python/board/native/skills/selfhost also passed. No CI cancellation or duplicate run.
 
 The async premature-release regression was removed before commit. New async save-failure negatives run recovery inside the still-active callback and require no unknown receipt, covering both normal callback completion and CancelledError; only the final callback/ack finally releases the lock. Independent root final Python four-file suite80/80 passed; owner related61/61. Earlier59/78 is not evidence for this newly discovered race. Independent approved-localhost existing Bailian bounds9/9 passed; its first sandbox EPERM/timeouts are retained as environment failure, not passing source evidence. All source reviews and tests remain separate from next-head CI/live production acceptance.
+
+
+### Whole-input producer and artifact source-proof batch (2026-10-04 05:26 UTC)
+
+- Root actual executeQueuedRuns and actual SubtaskRunExecutor composition now reach metadata-only whole-input producer; private runtime passes original root/child identity plus its exact own attempt/epoch. All source components remain unknown. No production model registration or all-public classification is claimed.
+- Artifact actual extraction stores immutable text hashes; canonical embedding body must contain only complete original segment strings before policy/reservation. Historical empty proofs, foreign text, transformed/tokenized inputs and unknown request fields refuse admission. Migration authored only; not run locally.
+- Root usage unit suite 369/369 across50 files, typecheck exit0, full API lint exit0. Initial sandbox-only ASR loopback timeout and tsx IPC EPERM were not successes; identical commands rerun with approved localhost/IPC access passed without timeout or guard changes. Independent review23/23 plus actual installed SDK MockTransport Unicode compact-JSON compatibility.
+- Parent frozen remote67fc450 backend37178748768 and harness37178748720 both success before next push. Next-head PG proof and operator screenshots remain separate; no local DB/Docker/services/heavy build/provider calls.

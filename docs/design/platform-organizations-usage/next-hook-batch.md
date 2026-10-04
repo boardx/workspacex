@@ -45,3 +45,25 @@ ASR next verification boundary: default-off WS receipt subset implemented for fo
 - Acceptance: current-head CI, newly authored real PG input-only case, production filesystem/deployment proof, actual provider cancel/retry counters and authenticated operator screenshots remain separate. No local DB/Docker/heavy build or production configuration change.
 
 Static inventory:7 audited actual dispatch primitives, receipt3full/4context subset; seven known retrieval producer references6connected/1missing. Whole-repository actual dispatch denominator remains unknown. All production flags remain off.
+
+
+## 2026-10-04 whole-input next batch: finite entrypoint backlog
+
+Remote `67fc450ff7ab75a70f3ee6892ba2ed6199fb920e` is green: backend37178748768 and harness37178748720. This includes the authored input-only real-PG case; no local database was started. The following uncommitted source is separate from that remote proof.
+
+Actual root assembler and child/private SDK admission now issue metadata-only whole-envelope bindings with original subject/attempt/epoch and exact byte hash. Every component currently remains unknown: enumeration is closed at these boundaries, classification is not. A legacy Context Pack completeInput flag no longer classifies the full request as public. Artifact embedding separately requires canonical request text hashes to match the immutable source-operation segment hashes before policy/reservation; legacy operations and tokenized/transformed SDK input remain unproven. No feature flag was enabled.
+
+| Concrete entrypoint | Implementation owner | Remaining source work | Verifiable terminal |
+| --- | --- | --- | --- |
+| execute-run.ts history mapping and finalModelCallInput | API agent-run | Capture original history/message, user, attachment, pinned instructions/skills, summaries/KG and tool lineage before transformations; preserve authoritative sensitivity through assembly | Real assembler tests: one confidential/unknown component prevents remote dispatch; all source-classified public components permit exact registered request only; foreign/hash/attempt negatives |
+| subtask-run-executor.ts and private SDK graph/tool middleware | API agent-run + Python runtime | Preserve child's own immutable input lineage; derive transformed final SDK-body classification from actual components, never a root JSON or body claim | Actual child executor and intercepted final SDK HTTP demonstrate own attempt/epoch, every added tool/history field, zero reserve/vendor on unknown |
+| IndexArtifactVersion -> embed_texts actual batches | Retrieval + Python embeddings | Text hashes now bound; add trusted tokenizer/transformation proof for SDK token arrays and exact batch lineage | Transport batch split/repeated text tests and isolated PG wrong-source/legacy/no-reserve negatives; unknown transformed input refuses dispatch |
+| keep_provider_connection_warm | Retrieval service | Trusted service spend owner and immutable finite service policy | Idle warmup actual HTTP reserves/receipts under authorized service subject; missing owner denies before vendor |
+| OpenAI image actual fetch; Bailian direct generateImage | Native provider adapters | Verified original unit bounds, immutable native prices/shared finite-cost admission; Bailian actual start/terminal hook | Real transport cancel/fail/unknown receipts, enterprise finite cost exhaustion and no second dispatch after receipt fault |
+| ASR WebSocket four server contexts | Audio + usage | Verified billed-unit/cap source and pre-dispatch native admission; cross-process durable terminal repair | Capture lifecycle race/current owner tests; provider usage remains separate from queued PCM estimate; cancel/reconnect exact once |
+| Authenticated Ollama local trial POST | Local adapter + usage | Original counter-bound source/admission and crash reconciliation | Authenticated actual POST start/terminal, probes excluded, unknown hold and failed/cancel/restart cases |
+| deep-research external graph complete | Research adapter | Account actual remote vendor dispatches with trusted original owner; graph envelope is insufficient | Intercept actual vendor requests or maintain explicit opt-in denial; default-off behavior unchanged |
+| Python receipt spool and native receipts | Runtime reliability | ACK-to-intent unmatched-start reconciliation, total-storage failure behavior, native cross-process durable repair | Process-death/inode/concurrent repair tests plus deployed filesystem acceptance; no inferred vendor retry |
+| Operator organizations/policy UI | Platform admin | Authenticated live screenshot walkthrough, empty-org/search/pagination/policy audit verification | Screenshots from actual operator session; no fixture presented as deployed proof |
+
+Business/deployment owner decisions remain separate: ordinary per-user amount, window and timezone; finite safety/spend currency and limits; warmup service owner; verified physical model/unit registrations and deployment measurements. Local default-off implementation and negative tests do not depend on selecting these values. No production SQL, prices, quotas, grants, deployment or merge are authorized here.
