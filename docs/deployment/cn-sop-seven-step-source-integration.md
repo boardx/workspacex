@@ -36,4 +36,4 @@ completion 统一落盘现有 21 字段 `validated-production-migration-completi
 
 真实主机仍需新鲜 90-target inventory、旧文件原字节/metadata 和恢复载荷、root profile 提案及 main ancestry，才能生成 installer COMPLETE review。已有 Mac read-only 55-target inventory 不能当作新增目标的事实。`postgres-age` 仓库缺失仍待独立授权；不能以 pgvector 替代 AGE 应用镜像。baseline255 已暂停且无合格替代，prehold 会如实拒绝缺失 archive；不得自行恢复 replay。真实 32-kind epoch/source policy、provider receipts、对象版本与隔离/旅程证据仍待实际批准和执行。
 
-本地测试与截图只证明源码/mock 行为，不是业务浏览器验收或生产可用性证明。Library 已取得官方 upload session，但实际 signed URL 传输当前持续 network error、尚未 finalize；未产生可交付的 library_file_id，保存本地原日志与页面截图。
+本地测试与截图只证明源码/mock 行为，不是业务浏览器验收或生产可用性证明。Library 已取得官方 upload session，但实际 signed URL PUT 传输返回 Forbidden、尚未 finalize；未产生可交付的 library_file_id，保存本地原日志与页面截图。
