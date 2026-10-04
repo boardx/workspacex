@@ -1,0 +1,52 @@
+[
+  {
+    "path": "11-retrieval-state.json.summary.json",
+    "bytes": 83,
+    "sha256": "f3713c29ade80ac1eaea9238166403ee1a94ff98520e1ca03eada09b0d039fb1"
+  },
+  {
+    "path": "14-source-runtime.json.summary.json",
+    "bytes": 83,
+    "sha256": "f3713c29ade80ac1eaea9238166403ee1a94ff98520e1ca03eada09b0d039fb1"
+  },
+  {
+    "path": "28-lightweight-progress.json",
+    "bytes": 409,
+    "sha256": "0126eb4f5dbdac279cb722bdb79093e5d305a7735416dd5c5ceff01830274f29"
+  },
+  {
+    "path": "30-saved-count-before-refresh.png",
+    "bytes": 73387,
+    "sha256": "0fe0bab66839bbe9712c1b0c9100ce7be738e02cda14d66a175d89b919c8c056"
+  },
+  {
+    "path": "35-final-runtime.jsonl.summary.json",
+    "bytes": 133,
+    "sha256": "91d3c5df236e3b6c8256f24fc6a7d86c3865b5a08c3438bc2a385bddf098269f"
+  },
+  {
+    "path": "36-final-quality.json",
+    "bytes": 5845,
+    "sha256": "d38f8a1daf39c41af348599596f85621e29aa66f581ab158301117abda4d24bf"
+  },
+  {
+    "path": "38-cleanup.txt",
+    "bytes": 262,
+    "sha256": "0592960106aa3bf7620e653d8e626e5c7465a6bf8614c2f8e4ff630d49ed3a38"
+  },
+  {
+    "path": "README.md",
+    "bytes": 1916,
+    "sha256": "2df469e16a38a2db04f1cf4175195eafc4a86180cc5b35cb00a013e0a1ad34f3"
+  },
+  {
+    "path": "acceptance.md",
+    "bytes": 1756,
+    "sha256": "fa734db162946bbcd35195dc708fdaa15829ea0b6ee53c9a595ee0891e58e621"
+  },
+  {
+    "path": "original-manifest.json",
+    "bytes": 11512,
+    "sha256": "5f3d40eb001192d2b7d97a2e612d306e0003bb270a4f1e3e1f238e9cc8f04953"
+  }
+]
