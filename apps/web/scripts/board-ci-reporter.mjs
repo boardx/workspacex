@@ -1,3 +1,4 @@
+import {boardLifecycleDiagnostic} from './board-lifecycle-diagnostics.mjs';
 import {boardSoakDiagnostics} from './board-soak-diagnostics.mjs';
 import {boardCiFailureDiagnostic} from './board-ci-failure-diagnostics.mjs';
 import {writeFileSync,readFileSync,mkdirSync} from 'node:fs';
@@ -18,7 +19,7 @@ export function boardCiErrorReason(error){
 }
 export default class BoardCiReporter{
  tests=new Map();errors=[];firstFailure=null;
- onStdOut(chunk){for(const phase of boardSoakDiagnostics(chunk,'',0).phases)process.stdout.write(`BOARD_SOAK_PHASE ${phase}\n`);}
+ onStdOut(chunk,test){for(const phase of boardSoakDiagnostics(chunk,'',0).phases)process.stdout.write(`BOARD_SOAK_PHASE ${phase}\n`);for(const sample of boardLifecycleDiagnostic(chunk,test))process.stdout.write(`BOARD_LIFECYCLE_VISIBILITY ${JSON.stringify(sample)}\n`);}
  onTestEnd(test,result){
   if(!this.firstFailure){
    const diagnostic=boardCiFailureDiagnostic(test,result);

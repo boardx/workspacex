@@ -1,4 +1,5 @@
 'use client';
+import {createWhiteboardReceiptObserver} from '../../lib/whiteboard-provider-observer';
 import type {BoardOrganizeFitRequest} from './use-board-organize-fit';
 import {BoardOrganizeControls} from './board-organize-controls';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -50,7 +51,7 @@ export function LiveBoard({ boardId, onSelectionChange }: { boardId: string; onS
     setOrganizeFitRequest(null); setDoc(null); setBoard(null); setFailed(false); setState(initial); setAIUndo(readBoardUndoReceipt(boardId)); setSelectedIds([]); setProposal(null); setProposalError('');setImportOpen(false);setFollowSuppressed(false);
     void getBoard(boardId).then(resource => {
       if (!active) return; setBoard(resource); setDoc(document);
-      provider = new WhiteboardProvider(document, boardId, value => { if (active) setState(value); });
+      provider = new WhiteboardProvider(document, boardId, value => { if (active) setState(value); },undefined,createWhiteboardReceiptObserver());
       providerRef.current = provider;
     }).catch(() => { if (active) setFailed(true); });
     return () => { active = false; provider?.close(); if(providerRef.current===provider)providerRef.current=null; document.destroy(); };

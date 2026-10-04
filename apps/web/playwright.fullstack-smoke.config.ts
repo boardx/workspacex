@@ -842,6 +842,7 @@ export default defineConfig({
         // switch makes the trust-console browser contract reachable in the production-mode
         // build exercised by fullstack smoke.
         FULLSTACK_E2E_PREVIEWS: "1",
+        FULLSTACK_E2E_BOARD_RECEIPTS: "1",
         NEXT_DIST_DIR: ".next-fullstack-e2e",
         /**
          * #951 —— 让 `next build` 的 `next/font/google` 完全不联网（hermetic）。

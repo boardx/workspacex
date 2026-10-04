@@ -66,8 +66,9 @@ description: >
 ## 踩坑与经验
 
 2026-10-01 本地源码审计沉淀见 [pitfalls](references/pitfalls.md)。这不是 merged/CI 全绿声明。
-references 中本轮新 helper/测试/验收脚本是未合入分支入口；按对应 issue 和当前 git 树确认。
-main 缺失这些文件时，不推断功能已交付，也不凭文档重建第二套算法。
+references 中 helper/测试/验收脚本按对应 issue 和当前 git 树确认，不一概视作未合入分支。
+正式 native 验收导航见 [验收执行入口](references/verification.md#formal-native-acceptance)。
+源码存在或启动门通过不证明业务已验收；缺失时不凭文档重建第二套算法。
 技能任务来源：[issue #4880](https://github.com/boardx/workspacex/issues/4880)。
 十轮证据账见 [候选与缺口审计](../../../docs/design/fabric-board-evidence-audit.md)；
 它记录证据范围，不代替业务 feature 状态、GitHub 当前检查或 main 祖先关系。

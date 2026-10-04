@@ -23,6 +23,8 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version-file: .nvmrc
+      - name: Verify native listener ownership fences
+        run: node --test apps/web/e2e/support/native-runtime/native-process-listeners.test.mjs apps/web/e2e/support/native-runtime/native-process-listeners-zombie.test.mjs
       - name: Prepare owned private native paths
         run: |
           sudo install -d -m 1777 -o "$(id -u)" -g "$(id -g)" /private/tmp
@@ -46,7 +48,21 @@ jobs:
           cd pgvector-0.8.6
           make PG_CONFIG="$NATIVE_POSTGRES_TOOL_ROOT/bin/pg_config" -j2
           make PG_CONFIG="$NATIVE_POSTGRES_TOOL_ROOT/bin/pg_config" install
+      - name: Create exact R01 source checkout
+        run: |
+          git clone --no-hardlinks "$GITHUB_WORKSPACE" /private/tmp/wsx-native-r01
+          git -C /private/tmp/wsx-native-r01 checkout --detach "$(git rev-parse HEAD)"
+          cd /private/tmp/wsx-native-r01
+          pnpm install --frozen-lockfile
+          pnpm --filter web exec playwright install --with-deps chromium
+      - name: Verify native acceptance receipts and safe diagnostics
+        working-directory: /private/tmp/wsx-native-r01
+        run: node --test apps/web/scripts/run-board-native-acceptance.test.mjs
+      - name: Run complete native R01 acceptance
+        working-directory: /private/tmp/wsx-native-r01
+        run: node apps/web/scripts/run-board-native-acceptance.mjs -- pnpm --filter web exec playwright test --config e2e/board-r01-existing-runtime.config.ts
       - name: Create exact connector source checkout
+        if: always()
         run: |
           git clone --no-hardlinks "$GITHUB_WORKSPACE" /private/tmp/wsx-native-connectors
           git -C /private/tmp/wsx-native-connectors checkout --detach "$(git rev-parse HEAD)"
@@ -54,6 +70,7 @@ jobs:
           pnpm install --frozen-lockfile
           pnpm --filter web exec playwright install --with-deps chromium
       - name: Run complete native connector acceptance
+        if: always()
         working-directory: /private/tmp/wsx-native-connectors
         run: node apps/web/scripts/run-board-native-acceptance.mjs -- pnpm --filter web exec playwright test --config e2e/board-connector-existing-runtime.config.ts
       - name: Create exact ordinary-file source checkout

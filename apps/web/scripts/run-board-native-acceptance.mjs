@@ -1,12 +1,15 @@
 import assert from 'node:assert/strict';
-import {readFileSync,writeFileSync,mkdirSync,existsSync,rmSync,openSync,closeSync,readdirSync,copyFileSync} from 'node:fs';
+import {readFileSync,writeFileSync,mkdirSync,existsSync,rmSync,openSync,closeSync,readdirSync,copyFileSync,realpathSync} from 'node:fs';
 import {execFileSync,spawn} from 'node:child_process';
 import {once} from 'node:events';
-import {join,resolve,basename} from 'node:path';
+import {join,resolve,basename,relative,isAbsolute} from 'node:path';
 import {pathToFileURL} from 'node:url';
 import {createHash,randomUUID} from 'node:crypto';
+import {parseNativeListenerFailure} from '../e2e/support/native-runtime/native-process-listeners.mjs';
+import {safeStartupCode,parseIdentityCwd,parseIdentityListener} from '../e2e/support/native-runtime/native-startup-receipt.mjs';
 
 const suites={
+  'e2e/board-r01-existing-runtime.config.ts':{count:8,files:['board-r01-native-matrix.spec.ts'],projects:['r01-native-1440','r01-native-390'],titles:['N01-N02 auxiliary pan held release cancellation and Select pointer wheel preserve the document','N05 transformed multi drawing erase preserves image Sticky Shape and locked ink in one durable history transaction',... [.5,2].map(zoom=>`N03-N04 native Sticky Shape Drawing multi transform at zoom ${zoom} and nonzero pan preserves atomic history`)]},
   'e2e/board-connector-existing-runtime.config.ts':{count:7,files:['board-connector-authority.spec.ts','board-connector-copy-defaults.spec.ts','board-connector-history.spec.ts','board-connector-independent-process.spec.ts','board-connector-interchange.spec.ts']},
   'e2e/board-files-completion.config.ts':{count:6,files:['board-files-boundaries.spec.ts','board-files-filenames.spec.ts','board-files-placement.spec.ts','board-files-retry.spec.ts']},
   'e2e/board-peer-existing-runtime.config.ts':{metadata:'apps/web/e2e/support/r08/r08-native-suite.json'},
@@ -23,7 +26,7 @@ export function suiteDefinition(config,root=resolve(process.cwd())){
   assert(metadata.projects.every(project=>typeof project.name==='string'&&project.name.length>0));
   assert(Array.isArray(metadata.requiredScreenshotNames)&&metadata.requiredScreenshotNames.length>0);
   assert.equal(new Set(metadata.requiredScreenshotNames).size,metadata.requiredScreenshotNames.length);
-  assert(metadata.requiredScreenshotNames.every(name=>/^[a-z-]+$/.test(name)));
+  assert(metadata.requiredScreenshotNames.every(name=>/^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/.test(name)));
   return{files:metadata.files,projects:metadata.projects.map(project=>project.name),screenshots:metadata.projects.flatMap(project=>metadata.requiredScreenshotNames.map(name=>`${name}-${project.viewport.width}.png`)),count:metadata.files.length*metadata.projects.length};
 }
 
@@ -36,14 +39,89 @@ export function acceptanceCommand(args){
 }
 
 export function suiteResult(config,report,root=resolve(process.cwd())){
-  const {files,projects,count:expected}=suiteDefinition(config,root),seen=new Set(),pairs=[];let count=0;
-  const visit=suite=>{for(const spec of suite.specs??[]){seen.add(basename(spec.file));assert.equal(spec.ok,true);for(const test of spec.tests??[]){count++;if(projects)pairs.push(`${basename(spec.file)}:${test.projectName}`);assert.equal(test.status,'expected');assert.equal(test.results.length,1);assert.equal(test.results[0].status,'passed');}}for(const nested of suite.suites??[])visit(nested);};
+  const {files,projects,titles,count:expected}=suiteDefinition(config,root),seen=new Set(),pairs=[];let count=0;
+  const visit=suite=>{for(const spec of suite.specs??[]){seen.add(basename(spec.file));assert.equal(spec.ok,true);for(const test of spec.tests??[]){count++;if(projects)pairs.push(`${basename(spec.file)}:${titles?`${spec.title}:`:''}${test.projectName}`);assert.equal(test.status,'expected');assert.equal(test.results.length,1);assert.equal(test.results[0].status,'passed');}}for(const nested of suite.suites??[])visit(nested);};
   for(const suite of report.suites??[])visit(suite);
   assert.deepEqual([...seen].sort(),[...files].sort());assert.equal(count,expected);
-  if(projects)assert.deepEqual(pairs.sort(),files.flatMap(file=>projects.map(project=>`${file}:${project}`)).sort());
+  if(projects)assert.deepEqual(pairs.sort(),files.flatMap(file=>titles?titles.flatMap(title=>projects.map(project=>`${file}:${title}:${project}`)):projects.map(project=>`${file}:${project}`)).sort());
   assert.equal(report.errors?.length??0,0);assert.equal(report.stats?.expected,expected);
   for(const key of ['unexpected','flaky','skipped'])assert.equal(report.stats?.[key],0);
   return{expected,unexpected:0,flaky:0,skipped:0};
+}
+
+// Classify the first private reporter failure with fixed public categories only.
+// A matched signature is a diagnostic hint, never an acceptance proof.
+export function safeAcceptanceDiagnostics(config,report,root=resolve(process.cwd())){
+  const definition=suiteDefinition(config,root);
+  const signatures={
+    MANIFEST_INPUTS:['Explicit source-bound runtime manifest and verifier are mandatory'],
+    VERIFIER_PIN:['Unreviewed runtime verifier cannot satisfy acceptance','Verifier changed while checking runtime'],
+    MANIFEST_SOURCE:['Runtime producer must attest readiness','Exact runtime source must be explicitly requested','Runtime startup attestation changed during acceptance','Case startup manifest changed','Case runtime process/source identity changed','Startup manifest changed while checking runtime'],
+    BROWSER_EXECUTABLE:["Executable doesn't exist at",'browserType.launch:'],
+  };
+  const classify=(error,status,connectorMarker=null)=>{
+    let descriptor;try{descriptor=error!==null&&typeof error==='object'?Object.getOwnPropertyDescriptor(error,'message'):undefined;}catch{}
+    const message=descriptor&&'value' in descriptor&&typeof descriptor.value==='string'?descriptor.value:'';
+    if(message.length<=8192){
+      const lines=message.split(/\r?\n/);
+      const exact=/^(?:Error: )?C06_LOGIN_(?:HTTP_OK|FIXTURE_ACTOR|SESSION_TOKEN)$/;
+      const markers=lines.filter(line=>exact.test(line)).map(line=>line.replace(/^Error: /,''));
+      if(markers.length>0){
+        const first=exact.test(lines[0])?lines[0].replace(/^Error: /,''):null;
+        return markers.length===1&&first===connectorMarker
+          ?{matchedFailure:'ASSERTION',ambiguous:false,assertionId:first}
+          :{matchedFailure:'UNKNOWN',ambiguous:markers.length>1};
+      }
+    }
+    const matches=Object.entries(signatures).filter(([,values])=>values.some(value=>message.includes(value))).map(([key])=>key);
+    if(matches.length>0)return{matchedFailure:matches.length===1?matches[0]:'UNKNOWN',ambiguous:matches.length>1};
+    const identityCodes=['IDENTITY_SOURCE','IDENTITY_CWD','IDENTITY_LISTENER','IDENTITY_ANCESTRY'];
+    const code=Object.getOwnPropertyDescriptor(error??{},'code')?.value;
+    if(identityCodes.includes(code)||identityCodes.includes(message))return{matchedFailure:identityCodes.includes(code)?code:message,ambiguous:false};
+    if(status==='timedOut'||error?.name==='TimeoutError')return{matchedFailure:'TIMEOUT',ambiguous:false};
+    if(error?.code==='ERR_ASSERTION'||message.includes('expect('))return{matchedFailure:'ASSERTION',ambiguous:false};
+    return{matchedFailure:'UNKNOWN',ambiguous:false};
+  };
+  const result=(phase,caseIndex,status,errors,connectorMarker=null)=>({phase,caseIndex,resultStatus:status,errorCount:Array.isArray(errors)?Math.min(errors.length,4096):0,...classify(errors?.[0],status,connectorMarker)});
+  // Reporter JSON source fields only; never infer a location from stack/message.
+  const ownData=(object,key)=>object!==null&&typeof object==='object'?Object.getOwnPropertyDescriptor(object,key)?.value:undefined;
+  const sourceLocation=(spec,error)=>{
+    const file=ownData(spec,'file');
+    if(typeof file!=='string'||file.length>4096)return null;
+    const name=basename(file);
+    if(!definition.files.includes(name))return null;
+    const expected=resolve(root,'apps/web/e2e',name);
+    const validFile=value=>typeof value==='string'&&value.length<=4096&&
+      (value===name||value===`e2e/${name}`||value===`apps/web/e2e/${name}`||value===expected);
+    if(!validFile(file))return null;
+    const validLine=value=>Number.isSafeInteger(value)&&value>0&&value<=1000000;
+    const location=ownData(error,'location');
+    const errorFile=ownData(location,'file'),errorLine=ownData(location,'line');
+    if(validFile(errorFile)&&basename(errorFile)===name&&validLine(errorLine))return{source:'ASSERTION',file:name,line:errorLine};
+    const line=ownData(spec,'line');
+    return validLine(line)?{source:'TEST_DEFINITION',file:name,line}:null;
+  };
+  let ordinal=0,first=null;
+  const visit=suite=>{
+    for(const spec of suite.specs??[])for(const test of spec.tests??[]){
+      const index=ordinal++;
+      if(first)continue;
+      const failed=(test.results??[]).find(item=>['failed','timedOut','interrupted'].includes(item.status));
+      if(failed){
+        const specFile=ownData(spec,'file');
+        const known=typeof specFile==='string'&&specFile.length<=4096&&definition.files.includes(basename(specFile))&&index<definition.count;
+        const errors=failed.errors?.length?failed.errors:failed.error?[failed.error]:[];
+        const location=known?sourceLocation(spec,errors[0]):null;
+        const connectorMarkers={34:'C06_LOGIN_HTTP_OK',36:'C06_LOGIN_FIXTURE_ACTOR',37:'C06_LOGIN_SESSION_TOKEN'};
+        const marker=location?.source==='ASSERTION'&&location.file==='board-connector-authority.spec.ts'?connectorMarkers[location.line]??null:null;
+        first={...result('CASE',known?index:null,failed.status,errors,marker),sourceLocation:location};
+      }
+    }
+    for(const nested of suite.suites??[])visit(nested);
+  };
+  for(const suite of report.suites??[])visit(suite);
+  if(!first&&report.errors?.length)first=result('REPORT',null,null,report.errors);
+  return{version:1,firstFailure:first};
 }
 
 export function suitePresent(config,tracked,root=resolve(process.cwd())){
@@ -60,6 +138,35 @@ export function suitePresent(config,tracked,root=resolve(process.cwd())){
 export function runtimeExitProof(code,signal,wasAlive){assert.equal(wasAlive,true,'Runtime exited before owned stop');assert.equal(signal,null);assert.equal(code,0);}
 export function runtimeSpawnState(child){const state={failed:false};child.on('error',()=>{state.failed=true;});return state;}
 export function sameRuntimeProof(before,after){assert.deepEqual(after,before);}
+
+// Fixed categories and bounded identity facts only. A verification exception
+// does not prove that the manifest or source bytes actually changed.
+export function safeEndRuntimeFailure(error){
+  const ownData=(object,key)=>{
+    if(!object||typeof object!=='object')return undefined;
+    const descriptor=Object.getOwnPropertyDescriptor(object,key);
+    return descriptor&&Object.hasOwn(descriptor,'value')?descriptor.value:undefined;
+  };
+  let code;
+  try{code=ownData(error,'code');}catch{ /* Hostile descriptors cannot escape diagnostics. */ }
+  const output={code:safeStartupCode({code}),identityCwd:null,identityListener:null};
+  for(const [key,parse] of [['identityCwd',parseIdentityCwd],['identityListener',parseIdentityListener]])try{
+    const value=ownData(error,key);
+    if(!value||typeof value!=='object'||Array.isArray(value))continue;
+    const descriptors=Object.getOwnPropertyDescriptors(value),snapshot={};
+    // Validate a stable data-only snapshot. Parsers may read fields repeatedly;
+    // accessor values must never run or change between validation and copying.
+    if(Object.values(descriptors).some(descriptor=>!Object.hasOwn(descriptor,'value')))continue;
+    for(const [name,descriptor] of Object.entries(descriptors))Object.defineProperty(snapshot,name,{value:descriptor.value,enumerable:true});
+    output[key]=parse(snapshot);
+  }catch{ /* Invalid context must never replace the original verification failure. */ }
+  if(['IDENTITY_LISTENER','IDENTITY_ANCESTRY'].includes(output.code))try{
+    const cause=ownData(error,'cause'),details=ownData(cause,'nativeListenerFailure');
+    if(details)output.nativeListenerFailure=parseNativeListenerFailure(details);
+  }catch{ /* Fixed probe context cannot expose private or changing values. */ }
+  return output;
+}
+
 
 export function safeStartupDiagnostics(log){
   const known=['native-migrate','native-fullstack-seed','native-web-build'];
@@ -78,6 +185,21 @@ export function screenshotProof(config,screenshots,root=resolve(process.cwd())){
   assert(screenshots.length>0);assert(screenshots.some(item=>item.width===1440));assert(screenshots.some(item=>item.width===390));
   if(config.includes('files'))for(const name of ['R09-placement-1440.png','R09-reloaded-1440.png','R09-placement-390.png','R09-reloaded-390.png','R09-real-backend-503.png','R09-real-backend-retry-refreshed.png',...Array.from({length:7},(_,index)=>`R09-native-download-${index}.png`)])assert(screenshots.some(item=>item.originalName===name),`Missing required screenshot: ${name}`);
   if(config.includes('peer'))for(const name of suiteDefinition(config,root).screenshots)assert(screenshots.some(item=>item.originalName===name),`Missing required screenshot: ${name}`);
+  if(config.includes('r01'))for(const width of [1440,390])for(const name of [...['middle','right'].flatMap(button=>['release','escape','pointercancel','blur'].map(finish=>`${button}-${finish}-held`)),...['Control','Meta'].flatMap(modifier=>[`pointer-zoom-${modifier}`,`pointer-zoom-out-${modifier}`]),'multi-erase-held','multi-erase-protected','multi-erase-refreshed',...['move','rotate','scale'].flatMap(gesture=>[`multi-${gesture}-cancel-held`,`multi-${gesture}-commit-held`,`multi-${gesture}-canceled`,`multi-${gesture}-refreshed`])])assert.equal(screenshots.filter(item=>item.originalName===`${name}-${width}.png`).length,name.startsWith('multi-')&&!name.startsWith('multi-erase-')?2:1,`Missing or duplicate required screenshot: ${name}-${width}.png`);
+}
+
+export function r01ResultSummary(results,head){
+  assert.equal(results.length,8,'Every R01 case requires its final receipt');
+  const definition=suiteDefinition('e2e/board-r01-existing-runtime.config.ts'),pairs=[];
+  for(const result of results){assert.equal(result.source,head);assert.equal(result.beforeProof?.identity?.head,head);assert.equal(result.afterProof?.identity?.head,head);assert.deepEqual(result.afterProof,result.beforeProof);for(const key of ['manifestHash','verifierHash','selectorHash'])assert.match(result.beforeProof[key],/^[a-f0-9]{64}$/);assert.equal(result.status,'functional-cases-passed');assert.equal(result.completed,false);assert.equal(typeof result.cleanupPending,'boolean');assert.equal(result.hardwareTrackpad,'unverified');pairs.push(`${result.testIdentity.title}:${result.testIdentity.project}`);}
+  assert.deepEqual(pairs.sort(),definition.titles.flatMap(title=>definition.projects.map(project=>`${title}:${project}`)).sort());
+  return{functionalCasesPassed:8,completed:false,cleanupPending:results.some(result=>result.cleanupPending),hardwareTrackpad:'unverified',requiredSuiteComplete:false};
+}
+
+export function r01ReportReceipts(report,artifacts,head){
+ const directory=realpathSync(artifacts),receipts=[],paths=new Set();
+ const visit=suite=>{for(const spec of suite.specs??[])for(const test of spec.tests??[])for(const result of test.results??[]){const attachments=(result.attachments??[]).filter(item=>item.name==='r01-result');assert.equal(attachments.length,1);const path=realpathSync(attachments[0].path),inside=relative(directory,path);assert(inside&&!inside.startsWith('..')&&!isAbsolute(inside),'Foreign R01 receipt path');assert.equal(basename(path),'r01-result.json');assert(!paths.has(path),'Duplicate R01 receipt path');paths.add(path);const receipt=JSON.parse(readFileSync(path,'utf8'));assert.deepEqual(receipt.testIdentity,{title:spec.title,project:test.projectName});assert.equal(receipt.source,head);receipts.push(receipt);}for(const nested of suite.suites??[])visit(nested);};
+ visit(report);return receipts;
 }
 
 export async function run(args=process.argv.slice(2)){
@@ -88,7 +210,7 @@ export async function run(args=process.argv.slice(2)){
   const head=execFileSync('git',['rev-parse','HEAD'],{cwd:root,encoding:'utf8'}).trim();
   const support=join(root,'apps/web/e2e/support/native-runtime');
   const authority=await import(pathToFileURL(join(support,'runtime-attestation.mjs')).href);
-  const isPeer=command[7].includes('peer'),privateRoot=join('/private/tmp',`wsx-native-ci-${randomUUID()}`),safeRoot=join(publicRoot,isPeer?'sync':command[7].includes('files')?'files':'connectors');
+  const isPeer=command[7].includes('peer'),isR01=command[7].includes('r01'),privateRoot=join('/private/tmp',`wsx-native-ci-${randomUUID()}`),safeRoot=join(publicRoot,isR01?'r01':isPeer?'sync':command[7].includes('files')?'files':'connectors');
   assert(!existsSync(privateRoot)&&!existsSync(safeRoot));mkdirSync(safeRoot,{recursive:true,mode:0o700});
   const sourceFiles=authority.listRuntimeSourceFiles(root);
   if(!suitePresent(command[7],sourceFiles)){
@@ -101,6 +223,7 @@ export async function run(args=process.argv.slice(2)){
   const privateLog=join(privateRoot,'execution.log'),fd=openSync(privateLog,'wx',0o600);
   let runtime,runtimeState,exitCode=null,failureReason=null,cleanupCompleted=false,runtimeExit=null,phase='PREPARE',adapter,adapterState,runtimeBefore;
   const cleanupFailures=[];
+  let endRuntimeFailure=null,adapterEndRuntimeFailure=null;
   const execute=async(executable,args,environment=process.env)=>{
     const child=spawn(executable,args,{cwd:root,env:environment,stdio:['ignore',fd,fd]});
     const [code,signal]=await once(child,'exit');assert.equal(signal,null);assert.equal(code,0);
@@ -124,21 +247,23 @@ export async function run(args=process.argv.slice(2)){
     if(adapter){const adapterRoot=join(data,'r08-acceptance');mkdirSync(adapterRoot,{mode:0o700});adapterState=await adapter.prepareEnvironment({root,privateRoot:adapterRoot,planPath:join(data,'native-runtime-plan.json'),manifestPath});assert.equal(adapterState.proxyPort,36322);}
     phase='ACCEPTANCE';
     const report=join(privateRoot,'playwright-report.json');
-    const env={...process.env,...environment,...adapterState?.environment,BOARD_CONNECTOR_WEB_URL:manifest.webBase,BOARD_CONNECTOR_RUNTIME_MANIFEST:manifestPath,BOARD_CONNECTOR_RUNTIME_VERIFIER:join(support,'runtime-attestation.mjs'),BOARD_FILES_REPORT_PATH:report,PLAYWRIGHT_JSON_OUTPUT_NAME:report};
+    const env={...process.env,...environment,...adapterState?.environment,BOARD_CONNECTOR_WEB_URL:manifest.webBase,BOARD_CONNECTOR_RUNTIME_MANIFEST:manifestPath,BOARD_CONNECTOR_RUNTIME_VERIFIER:join(support,'runtime-attestation.mjs'),...(isR01?{BOARD_R01_WEB_URL:manifest.webBase,BOARD_R01_OUTPUT_DIR:join(privateRoot,'artifacts'),BOARD_ACCEPTANCE_SHA:head}:{}),BOARD_FILES_REPORT_PATH:report,PLAYWRIGHT_JSON_OUTPUT_NAME:report};
     const test=spawn(command[0],[...command.slice(1),'--reporter=json','--output',join(privateRoot,'artifacts')],{cwd:root,env,stdio:['ignore',fd,fd]});
     const [code,signal]=await once(test,'exit');exitCode=code;assert.equal(signal,null);assert.equal(typeof code,'number');
     if(code!==0)failureReason='ACCEPTANCE_FAILED';
     const parsed=JSON.parse(readFileSync(report,'utf8'));
+    writeFileSync(join(safeRoot,'acceptance-diagnostics.json'),JSON.stringify({sourceHead:head,...safeAcceptanceDiagnostics(command[7],parsed,root)},null,2),{mode:0o600,flag:'wx'});
     const statistics=Object.fromEntries(['expected','unexpected','flaky','skipped'].map(key=>[key,Number.isInteger(parsed.stats?.[key])?parsed.stats[key]:null]));
     writeFileSync(join(safeRoot,'statistics.json'),JSON.stringify({sourceHead:head,stats:statistics,errors:parsed.errors?.length??0,exitCode,requiredSuiteComplete:false},null,2),{mode:0o600,flag:'wx'});
     const screenshots=[];
     function collect(directory){if(!existsSync(directory))return;for(const entry of readdirSync(directory,{withFileTypes:true})){const path=join(directory,entry.name);if(entry.isDirectory())collect(path);else if(entry.isFile()&&entry.name.endsWith('.png')){const bytes=readFileSync(path),name=`${screenshots.length}-${entry.name}`;assert(bytes.length>24);assert.equal(bytes.subarray(0,8).toString('hex'),'89504e470d0a1a0a');copyFileSync(path,join(safeRoot,name));screenshots.push({name,originalName:entry.name,width:bytes.readUInt32BE(16),height:bytes.readUInt32BE(20),bytes:bytes.length,sha256:createHash('sha256').update(bytes).digest('hex')});}}}
     collect(join(privateRoot,'artifacts'));writeFileSync(join(safeRoot,'screenshots.json'),JSON.stringify(screenshots,null,2),{mode:0o600,flag:'wx'});
     suiteResult(command[7],parsed);screenshotProof(command[7],screenshots);
+    if(isR01){const summary=r01ResultSummary(r01ReportReceipts(parsed,join(privateRoot,'artifacts'),head),head);writeFileSync(join(safeRoot,'r01-summary.json'),JSON.stringify(summary,null,2),{mode:0o600,flag:'wx'});assert.equal(summary.cleanupPending,false,'R01 owned boards remain preserved pending authorized cleanup');}
   }catch{failureReason=failureReason??'NATIVE_RUN_FAILED';}
   finally{
-    if(adapterState)try{await adapterState.verifyEnd();}catch{cleanupFailures.push('R08_END_RUNTIME_PROOF_FAILED');}
-    if(runtimeBefore)try{sameRuntimeProof(runtimeBefore.before,runtimeBefore.proof());}catch{cleanupFailures.push('END_RUNTIME_IDENTITY_CHANGED');}
+    if(adapterState)try{await adapterState.verifyEnd();}catch(error){adapterEndRuntimeFailure=safeEndRuntimeFailure(error);cleanupFailures.push('R08_END_RUNTIME_PROOF_FAILED');}
+    if(runtimeBefore)try{sameRuntimeProof(runtimeBefore.before,runtimeBefore.proof());}catch(error){endRuntimeFailure=safeEndRuntimeFailure(error);cleanupFailures.push('END_RUNTIME_IDENTITY_CHANGED');}
     try{
       if(runtime){
         assert.equal(runtimeState.failed,false,'Owned runtime spawn failed');
@@ -164,7 +289,7 @@ export async function run(args=process.argv.slice(2)){
       const diagnostics=await import(pathToFileURL(join(support,'native-startup-receipt.mjs')).href);
       startupFailure=startupFailureProof(diagnostics,data,head);
     }catch{startupFailure=null;cleanupFailures.push('STARTUP_FAILURE_RECEIPT_INVALID');cleanupCompleted=false;failureReason=failureReason??'STARTUP_FAILURE_RECEIPT_INVALID';}
-    writeFileSync(join(safeRoot,'receipt.json'),JSON.stringify({sourceHead:head,phase,startupDiagnostics,startupFailure,exitCode,runtimeExit,failureReason,cleanupCompleted,cleanupFailures,privateEvidenceRetained:true,requiredSuiteComplete:false,visuallyAccepted:false},null,2),{mode:0o600,flag:'wx'});
+    writeFileSync(join(safeRoot,'receipt.json'),JSON.stringify({sourceHead:head,phase,startupDiagnostics,startupFailure,exitCode,runtimeExit,failureReason,cleanupCompleted,cleanupFailures,endRuntimeFailure,adapterEndRuntimeFailure,privateEvidenceRetained:true,requiredSuiteComplete:false,visuallyAccepted:false},null,2),{mode:0o600,flag:'wx'});
   }
   if(failureReason)throw new Error(failureReason);
 }
