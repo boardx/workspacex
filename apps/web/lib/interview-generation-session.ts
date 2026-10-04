@@ -10,6 +10,7 @@ export type InterviewGenerationSession = Readonly<{
   error?: unknown;
   stage?: "context" | "model" | "validation" | "storage";
   markdown?: string;
+  previousCandidateMarkdown?: string;
   attempt?: number;
 }>;
 const sessions = new Map<string, InterviewGenerationSession>();

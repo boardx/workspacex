@@ -13,7 +13,7 @@ export function InterviewReportGeneration({ session }: { session: InterviewGener
         {order < index ? <Check className="size-4" aria-hidden /> : order === index ? <Loader2 className="size-4 animate-spin" aria-hidden /> : <span className="text-muted-foreground">{order + 1}</span>}{label}
       </li>)}
     </ol>
-    <p role="status" className="mb-4 text-sm text-muted-foreground">{session.attempt && session.attempt > 1 ? "正在完善报告分析，以下为本次修订。" : "正在生成报告，内容将持续显示。"}当前内容尚未完成，保存后可导出。</p>
-    {session.markdown ? <InterviewReportMarkdown markdown={session.markdown} longForm testId="itv-report-stream-markdown" /> : <p className="py-10 text-sm text-muted-foreground">正在准备报告…</p>}
+    <p role="status" className="mb-4 text-sm text-muted-foreground">{session.attempt && session.attempt > 1 ? "正在修订报告，新内容将随输出更新。" : "正在生成报告，内容将持续显示。"}当前内容尚未完成，保存后可导出。</p>
+    {session.markdown ? <InterviewReportMarkdown markdown={session.markdown} longForm testId="itv-report-stream-markdown" /> : session.previousCandidateMarkdown ? <div><p className="mb-3 text-sm text-muted-foreground">前次候选保留，正在生成修订内容。</p><InterviewReportMarkdown markdown={session.previousCandidateMarkdown} longForm testId="itv-report-previous-candidate" /></div> : <p className="py-10 text-sm text-muted-foreground">正在准备报告…</p>}
   </section>;
 }
