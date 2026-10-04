@@ -14,7 +14,7 @@ class InvalidRelevanceOutput extends ResearchRuntimeError {
   readonly issues: OutputIssue[];
   constructor(issues: OutputIssue[], readonly rawOutput?: string) {
     super("RESEARCH_SOURCE_RELEVANCE_INVALID");
-    this.issues = issues.slice(0, 16).map((issue) => ({ code: issue.code.slice(0, 64),
+    this.issues = issues.slice(0, 16).map((issue) => ({ code: issue.code,
       path: issue.path.slice(0, 6).map((part) => typeof part === "string" ? part.slice(0, 64) : part),
       message: issue.message.slice(0, 320) }));
   }
