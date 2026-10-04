@@ -5,6 +5,9 @@
  * writes a dedicated tenant, and the browser still reads every value through the real
  * login, identity and Chat HTTP controllers.
  */
+import { agentDefaults } from "@repo/contracts";
+import { PgSkillStarterImportRepository } from "../src/infrastructure/skill/pg-skill-starter-import-repository";
+import { importChatReadPdfFixture } from "./chat-read-pdf-fixture-import";
 import { BcryptPasswordHasher } from "../src/infrastructure/auth/bcrypt-password-hasher";
 import {
   addOrgMember,
@@ -82,7 +85,7 @@ const AGENT_MODEL_ID = required("CHAT_E2E_AGENT_MODEL_ID");
  * 字符串，必须逐字等于 `DEEP_AGENT_PROVIDER_NAME`。
  */
 const DEEP_AGENT_ID = required("CHAT_E2E_DEEP_AGENT_ID");
-const DEEP_AGENT_VERSION_ID = `${DEEP_AGENT_ID}-version-1`;
+const DEEP_AGENT_VERSION_ID = `${DEEP_AGENT_ID}-version-2`;
 const DEEP_AGENT_MODEL_PROVIDER = required("CHAT_E2E_DEEP_AGENT_MODEL_PROVIDER");
 const DEEP_AGENT_MODEL_ID = required("CHAT_E2E_DEEP_AGENT_MODEL_ID");
 const DEEP_AGENT_DISPLAY_NAME = required("CHAT_E2E_DEEP_AGENT_DISPLAY_NAME");
@@ -188,6 +191,8 @@ await asOwner(async (client) => {
 
 await seedOrg({ orgId: ORG_ID, projectId: PROJECT_ID, groupNames: ["readers"] });
 await addOrgMember(ORG_ID, USER_ID, "lead", null);
+const CANVAS_TEMPLATE_ADMIN_ID = `${USER_ID}-canvas-admin`;
+await addOrgMember(ORG_ID, CANVAS_TEMPLATE_ADMIN_ID, "admin", null);
 await addProjectMember(ORG_ID, PROJECT_ID, USER_ID, "facilitator", null);
 
 /**
@@ -297,6 +302,72 @@ for (let index = 1; index <= 51; index += 1) {
   });
 }
 
+{
+  const { createHash } = await import("node:crypto");
+  const versionId = `${MOUNTABLE_SKILL_ID}-v1`;
+  const skillBody = [
+    `# ${MOUNTABLE_SKILL_NAME}`,
+    "",
+    "把讨论拆成 MECE 的假设树：先列互斥穷尽的顶层分支，再逐层拆到可验证的假设。",
+    "",
+    `${MOUNTABLE_SKILL_SENTINEL}`,
+  ].join("\n");
+  const bodyDigest = createHash("sha256").update(skillBody).digest("hex");
+  await asApp(ORG_ID, async (client) => {
+    await client.query(
+      `INSERT INTO skills (id, org_id, stable_name, name, status, creator_id, created_at, updated_at)
+       VALUES ($1,$2,$3,$4,'enabled',$5,now(),now())
+       ON CONFLICT (id) DO NOTHING`,
+      [MOUNTABLE_SKILL_ID, ORG_ID, MOUNTABLE_SKILL_STABLE_NAME, MOUNTABLE_SKILL_NAME, USER_ID],
+    );
+    // `published = true` 是硬条件：`loadMountableRow` 的 wave2 分支只挑**已发布**版本
+    // 作为 `currentVersionId`（挂载把它钉进 `ThreadSkillMount.versionId`），而
+    // `readPinnedSkills` 的 WHERE 里也带着 `v.published`。种成 false，挂载会
+    // `SKILL_NOT_ENABLED`，而不是让这条用例莫名其妙地红在别处。
+    // ⚠ 先 draft、后 publish、正文在中间：`wave2_skill_version_starts_draft` 触发器
+    //   逐字拒绝直接插 `published = true`（「Skill versions must be assembled as
+    //   drafts before publish」），`skill_versions_immutable_trg` 又让已发布的版本
+    //   与它的文件不可再改。⇒ 顺序是产品写路径本来的顺序，不是种子在绕路。
+    await client.query(
+      `INSERT INTO skill_versions
+         (id, org_id, skill_id, semantic_label, content_digest, manifest,
+          creator_id, created_at, published)
+       VALUES ($1,$2,$3,'1.0.0',$4,'{}'::jsonb,$5,now(),false)
+       ON CONFLICT (id) DO NOTHING`,
+      [versionId, ORG_ID, MOUNTABLE_SKILL_ID, bodyDigest, USER_ID],
+    );
+    // `path='SKILL.md'` 同样是硬条件（`readPinnedSkills` 的 WHERE 逐字要求它）：
+    // 换个文件名，run 会以 `SKILL_VERSION_UNAVAILABLE` 失败——诚实的红，不是静默降级。
+    await client.query(
+      `INSERT INTO skill_version_files (org_id, version_id, path, content, media_type, digest)
+       VALUES ($1,$2,'SKILL.md',$3,'text/markdown',$4)
+       ON CONFLICT (version_id, path) DO NOTHING`,
+      [ORG_ID, versionId, Buffer.from(skillBody, "utf8"), bodyDigest],
+    );
+    // 正文落好之后才发布，且**必须**走 `wave2_publish_skill_version`：`app_rw` 对
+    // `skill_versions` 根本没有 UPDATE 权限（迁移 `20260804031000` :245），发布是
+    // 一条 SECURITY DEFINER 的单一用途通道，它自己还会校验「恰好一个根 SKILL.md」。
+    // 种子走的就是产品导入路径走的那一条，不是绕过它。
+    const published = await client.query<{ published: boolean }>(
+      "SELECT published FROM skill_versions WHERE id = $1 AND org_id = $2",
+      [versionId, ORG_ID],
+    );
+    // 重跑种子时该行已发布 ⇒ 跳过（那个函数对非草稿会抛「not a publishable draft」，
+    // 那是不可变性在正常工作，不该由种子去撞它）。
+    if (published.rows[0]?.published === false) {
+      await client.query("SELECT wave2_publish_skill_version($1, $2)", [ORG_ID, versionId]);
+    }
+  });
+}
+
+const pdfFixtureDb = new PgDatabase(appConfig());
+let pdfFixtureVersionId: string;
+try {
+  const receipt = await importChatReadPdfFixture({ identities: new PgIdentityRepository(pdfFixtureDb), imports: new PgSkillStarterImportRepository(pdfFixtureDb) }, { orgId: toOrgId(ORG_ID), actorId: CANVAS_TEMPLATE_ADMIN_ID }, pdfFixtureDb);
+  pdfFixtureVersionId = receipt.versionId;
+} finally { await pdfFixtureDb.close(); }
+const deepFixturePins = [`${MOUNTABLE_SKILL_ID}-v1`, pdfFixtureVersionId];
+
 await asApp(ORG_ID, async (client) => {
   await client.query("DELETE FROM chat_wave2_fixture.agent_versions WHERE org_id=$1", [ORG_ID]);
   await client.query("DELETE FROM chat_wave2_fixture.agents WHERE org_id=$1", [ORG_ID]);
@@ -340,9 +411,9 @@ await asApp(ORG_ID, async (client) => {
   const AGENT_ROLE_LABEL = "引导协作助手";
   await client.query(
     `INSERT INTO agents (id,org_id,stable_name,name,status,creator_id,created_at,updated_at,role_label,role_label_needs_confirmation)
-     VALUES ($1,$2,$1,$3,'enabled',$4,now(),now(),$5,false)
+     VALUES ($1,$2,$6,$3,'enabled',$4,now(),now(),$5,false)
      ON CONFLICT (id) DO UPDATE SET status='enabled', name=$3, role_label=$5, role_label_needs_confirmation=false`,
-    [AGENT_ID, ORG_ID, AGENT_NAME, USER_ID, AGENT_ROLE_LABEL],
+    [AGENT_ID, ORG_ID, AGENT_NAME, USER_ID, AGENT_ROLE_LABEL, agentDefaults.DEFAULT_AGENT_STABLE_NAME],
   );
   await client.query(
     `INSERT INTO agent_versions
@@ -358,9 +429,9 @@ await asApp(ORG_ID, async (client) => {
     [AGENT_VERSION_ID, AGENT_ID, ORG_ID],
   );
   await client.query(
-    `INSERT INTO chat_wave2_fixture.agents (id,org_id,status,published_version_id)
-     VALUES ($1,$2,'enabled',$3)`,
-    [AGENT_ID, ORG_ID, AGENT_VERSION_ID],
+    `INSERT INTO chat_wave2_fixture.agents (id,org_id,status,published_version_id,stable_name)
+     VALUES ($1,$2,'enabled',$3,$4)`,
+    [AGENT_ID, ORG_ID, AGENT_VERSION_ID, agentDefaults.DEFAULT_AGENT_STABLE_NAME],
   );
   await client.query(
     `INSERT INTO chat_wave2_fixture.agent_versions
@@ -429,10 +500,10 @@ await asApp(ORG_ID, async (client) => {
     `INSERT INTO agent_versions
        (id,org_id,agent_id,semantic_label,instruction_digest,instructions,
         skill_version_ids,model_provider,model_id,tool_policy,creator_id,created_at,published_at)
-     VALUES ($1,$2,$3,'1.0.0',$4,$5,'{}'::text[],$6,$7,'[]'::jsonb,$8,now(),now())
+     VALUES ($1,$2,$3,'1.0.0',$4,$5,$9::text[],$6,$7,'[]'::jsonb,$8,now(),now())
      ON CONFLICT (id) DO NOTHING`,
     [DEEP_AGENT_VERSION_ID, ORG_ID, DEEP_AGENT_ID, deepAgentInstructionDigest, deepAgentInstructions,
-      DEEP_AGENT_MODEL_PROVIDER, DEEP_AGENT_MODEL_ID, USER_ID],
+      DEEP_AGENT_MODEL_PROVIDER, DEEP_AGENT_MODEL_ID, USER_ID, deepFixturePins],
   );
   await client.query(
     "UPDATE agents SET published_version_id = $1 WHERE id = $2 AND org_id = $3",
@@ -446,10 +517,10 @@ await asApp(ORG_ID, async (client) => {
   await client.query(
     `INSERT INTO chat_wave2_fixture.agent_versions
        (id,org_id,agent_id,skill_version_ids,model_provider,model_id,instructions,published_at)
-     VALUES ($1,$2,$3,'[]'::jsonb,$4,$5,$6,now())`,
+     VALUES ($1,$2,$3,$7::jsonb,$4,$5,$6,now())`,
     [
       DEEP_AGENT_VERSION_ID, ORG_ID, DEEP_AGENT_ID, DEEP_AGENT_MODEL_PROVIDER, DEEP_AGENT_MODEL_ID,
-      deepAgentInstructions,
+      deepAgentInstructions, JSON.stringify(deepFixturePins),
     ],
   );
 });
@@ -539,63 +610,6 @@ await asApp(ORG_ID, async (client) => {
  * 唯一依据——`readPinnedSkills` 读回这份正文 → `buildSystemPrompt` 拼进 system prompt
  * → 确定性上游在自己收到的 system 里看到它才回显。链上任何一环断掉，哨兵就不会出现。
  */
-{
-  const { createHash } = await import("node:crypto");
-  const versionId = `${MOUNTABLE_SKILL_ID}-v1`;
-  const skillBody = [
-    `# ${MOUNTABLE_SKILL_NAME}`,
-    "",
-    "把讨论拆成 MECE 的假设树：先列互斥穷尽的顶层分支，再逐层拆到可验证的假设。",
-    "",
-    `${MOUNTABLE_SKILL_SENTINEL}`,
-  ].join("\n");
-  const bodyDigest = createHash("sha256").update(skillBody).digest("hex");
-  await asApp(ORG_ID, async (client) => {
-    await client.query(
-      `INSERT INTO skills (id, org_id, stable_name, name, status, creator_id, created_at, updated_at)
-       VALUES ($1,$2,$3,$4,'enabled',$5,now(),now())
-       ON CONFLICT (id) DO NOTHING`,
-      [MOUNTABLE_SKILL_ID, ORG_ID, MOUNTABLE_SKILL_STABLE_NAME, MOUNTABLE_SKILL_NAME, USER_ID],
-    );
-    // `published = true` 是硬条件：`loadMountableRow` 的 wave2 分支只挑**已发布**版本
-    // 作为 `currentVersionId`（挂载把它钉进 `ThreadSkillMount.versionId`），而
-    // `readPinnedSkills` 的 WHERE 里也带着 `v.published`。种成 false，挂载会
-    // `SKILL_NOT_ENABLED`，而不是让这条用例莫名其妙地红在别处。
-    // ⚠ 先 draft、后 publish、正文在中间：`wave2_skill_version_starts_draft` 触发器
-    //   逐字拒绝直接插 `published = true`（「Skill versions must be assembled as
-    //   drafts before publish」），`skill_versions_immutable_trg` 又让已发布的版本
-    //   与它的文件不可再改。⇒ 顺序是产品写路径本来的顺序，不是种子在绕路。
-    await client.query(
-      `INSERT INTO skill_versions
-         (id, org_id, skill_id, semantic_label, content_digest, manifest,
-          creator_id, created_at, published)
-       VALUES ($1,$2,$3,'1.0.0',$4,'{}'::jsonb,$5,now(),false)
-       ON CONFLICT (id) DO NOTHING`,
-      [versionId, ORG_ID, MOUNTABLE_SKILL_ID, bodyDigest, USER_ID],
-    );
-    // `path='SKILL.md'` 同样是硬条件（`readPinnedSkills` 的 WHERE 逐字要求它）：
-    // 换个文件名，run 会以 `SKILL_VERSION_UNAVAILABLE` 失败——诚实的红，不是静默降级。
-    await client.query(
-      `INSERT INTO skill_version_files (org_id, version_id, path, content, media_type, digest)
-       VALUES ($1,$2,'SKILL.md',$3,'text/markdown',$4)
-       ON CONFLICT (version_id, path) DO NOTHING`,
-      [ORG_ID, versionId, Buffer.from(skillBody, "utf8"), bodyDigest],
-    );
-    // 正文落好之后才发布，且**必须**走 `wave2_publish_skill_version`：`app_rw` 对
-    // `skill_versions` 根本没有 UPDATE 权限（迁移 `20260804031000` :245），发布是
-    // 一条 SECURITY DEFINER 的单一用途通道，它自己还会校验「恰好一个根 SKILL.md」。
-    // 种子走的就是产品导入路径走的那一条，不是绕过它。
-    const published = await client.query<{ published: boolean }>(
-      "SELECT published FROM skill_versions WHERE id = $1 AND org_id = $2",
-      [versionId, ORG_ID],
-    );
-    // 重跑种子时该行已发布 ⇒ 跳过（那个函数对非草稿会抛「not a publishable draft」，
-    // 那是不可变性在正常工作，不该由种子去撞它）。
-    if (published.rows[0]?.published === false) {
-      await client.query("SELECT wave2_publish_skill_version($1, $2)", [ORG_ID, versionId]);
-    }
-  });
-}
 
 /**
  * #1310 ② / #1324 —— F155 L3 文件检索的**素材**：一份已抽出正文的聊天附件。
@@ -749,8 +763,7 @@ for (let index = 1; index <= 30; index += 1) {
  * 与 `backfill-canvas-builtin-templates.ts` 「找不到 admin 就抛错」不同的是——这里既然
  * 是从零建组织，直接现造一个即可，不必去库里现查。
  */
-const CANVAS_TEMPLATE_ADMIN_ID = `${USER_ID}-canvas-admin`;
-await addOrgMember(ORG_ID, CANVAS_TEMPLATE_ADMIN_ID, "admin", null);
+
 await asOwner(async (client) => {
   await client.query(
     `INSERT INTO credentials (user_id, email, display_name, password_hash, email_verified_at)

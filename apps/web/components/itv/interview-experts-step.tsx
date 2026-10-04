@@ -40,14 +40,13 @@ export function InterviewExpertsStep({ document, directory, directoryStatus = "r
   const [fields, setFields] = React.useState<VirtualExpertFields>(emptyVirtualExpert);
   const [suggestPending, setSuggestPending] = React.useState(false);
   const [suggestError, setSuggestError] = React.useState("");
-  const [reviewed, setReviewed] = React.useState(false);
   const [editingId, setEditingId] = React.useState<string | null>(null);
   const [savingExpert, setSavingExpert] = React.useState(false);
   const readyToSave = (() => { try { renderVirtualExpertMarkdown(fields); return true; } catch { return false; } })();
-  function editField(field: keyof VirtualExpertFields, value: string) { setFields((current) => ({ ...current, [field]: value })); setReviewed(false); }
+  function editField(field: keyof VirtualExpertFields, value: string) { setFields((current) => ({ ...current, [field]: value })); }
   async function suggestVirtual() {
     if (!onSuggestVirtual || !description.trim() || suggestPending) return;
-    setSuggestPending(true); setSuggestError(""); setReviewed(false);
+    setSuggestPending(true); setSuggestError("");
     try { setFields(parseVirtualExpertProposal(await onSuggestVirtual(description.trim()))); }
     catch { setSuggestError("专家画像建议未完成或格式无效；已保留手动输入，请重试或自行填写。"); }
     finally { setSuggestPending(false); }
@@ -60,11 +59,11 @@ export function InterviewExpertsStep({ document, directory, directoryStatus = "r
   function editExpert(entry: (typeof selected)[number]) {
     try {
       setFields(parseVirtualExpertSelection(entry.name, document.markdown.slice(entry.block.start, entry.block.end)));
-      setEditingId(entry.id); setDescription(""); setSuggestError(""); setReviewed(false); setOpen(true);
+      setEditingId(entry.id); setDescription(""); setSuggestError(""); setOpen(true);
     } catch { setSuggestError("此画像无法自动拆分编辑，请保留原文并重新添加完整画像。"); }
   }
   async function saveExpert() {
-    if (savingExpert || pending || !reviewed || !readyToSave) return;
+    if (savingExpert || pending || !readyToSave) return;
     const id = editingId ?? `virtual-${crypto.randomUUID()}`;
     const replacement = `## [${text(fields.name)}](#expert-${id})\n\n${renderVirtualExpertSelection(fields)}\n`;
     const existing = editingId ? selected.find(entry => entry.id === editingId) : undefined;
@@ -78,7 +77,7 @@ export function InterviewExpertsStep({ document, directory, directoryStatus = "r
       setOpen(false);
     } catch (cause) { setSuggestError(cause instanceof Error && cause.message === "EXPERT_DRAFT_CONFLICT"
       ? "专家已在其他位置更新。当前选择和画像已保留，请取消并重新审阅并发修改后再保存。"
-      : "保存未完成，已保留画像和审阅状态，请重试。"); }
+      : "保存未完成，已保留画像，请重试。"); }
     finally { setSavingExpert(false); }
   }
   const normalizedQuery = query.trim().toLocaleLowerCase();
@@ -98,7 +97,7 @@ export function InterviewExpertsStep({ document, directory, directoryStatus = "r
     onChange(raw.slice(0, first.start) + raw.slice(second.start, second.end) + raw.slice(first.end, second.start) + raw.slice(first.start, first.end) + raw.slice(second.end));
   }
   return <div data-testid="itv-markdown-experts">
-    <InterviewStepHeader title="选择专家"><Button variant="outline" disabled={pending} onClick={() => { setEditingId(null); setDescription(""); setFields(emptyVirtualExpert()); setSuggestError(""); setReviewed(false); setOpen(true); }}>添加虚拟专家</Button><Button variant="primary" disabled={pending || !selected.length} onClick={onConfirm}>确认专家并生成问题</Button></InterviewStepHeader>
+    <InterviewStepHeader title="选择专家"><Button variant="outline" disabled={pending} onClick={() => { setEditingId(null); setDescription(""); setFields(emptyVirtualExpert()); setSuggestError(""); setOpen(true); }}>添加虚拟专家</Button><Button variant="primary" disabled={pending || !selected.length} onClick={onConfirm}>确认专家并生成问题</Button></InterviewStepHeader>
     <div className="mt-6 grid items-start gap-5 lg:grid-cols-[minmax(0,2fr)_minmax(300px,1fr)]">
       <section className="rounded-xl border border-border p-5"><h3 className="text-xl font-semibold">专家库</h3>
         <div className="mt-4 flex flex-wrap gap-3"><label className="flex min-w-48 flex-1 items-center gap-2 rounded-lg border border-input px-3"><Search className="size-4" aria-hidden /><input aria-label="搜索专家" value={query} onChange={(event) => { setQuery(event.target.value); setPage(1); }} placeholder="姓名、角色或专业领域" className="w-full bg-transparent py-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring" /></label><select aria-label="专家领域" value={domain} onChange={(event) => { setDomain(event.target.value); setPage(1); }} className="rounded-lg border border-input bg-background px-3 text-sm"><option value="">全部领域</option>{domains.map((value) => <option key={value}>{value}</option>)}</select></div>
@@ -112,7 +111,7 @@ export function InterviewExpertsStep({ document, directory, directoryStatus = "r
     {showRecoveryContext && document.markdown.trim() ? <section data-testid="itv-expert-draft-context" className="mt-4 rounded-lg border border-border bg-muted/20 px-4 py-3 text-sm text-muted-foreground"><h3 className="font-semibold text-foreground">生成中断：已保存的未确认画像</h3><p className="mt-1">请核对完整草稿及材料边界，再保存或继续生成；解析出的专家名称不代表全文已完成。</p><pre className="mt-3 max-h-80 overflow-auto whitespace-pre-wrap break-words rounded-md bg-background p-3 font-mono text-xs leading-6">{document.markdown}</pre></section> : !selected.length && document.markdown.trim() ? <p data-testid="itv-expert-draft-context" className="mt-4 rounded-lg border border-border bg-muted/20 px-4 py-3 text-sm text-muted-foreground">已保存的画像草稿：{document.markdown.slice(0, 160)}</p> : null}
     {suggestError && !open && <p role="alert" className="mt-3 text-sm text-destructive">{suggestError}</p>}
     <Dialog open={open} onOpenChange={(value) => { if (!savingExpert) setOpen(value); }}><DialogContent className="max-h-[90vh] max-w-5xl overflow-y-auto p-6">
-      <div className="flex items-center gap-4"><ExpertAvatar expertId="virtual-preview" displayName={fields.name || "虚拟专家"} /><div><DialogTitle className="text-2xl">{editingId ? "编辑虚拟专家" : "添加虚拟专家"}</DialogTitle><DialogDescription className="mt-1 text-sm leading-6">可以手动填写，或先让 AI 提出可编辑的建议；只有人工审阅并保存后才写入访谈 Markdown。</DialogDescription></div></div>
+      <div className="flex items-center gap-4"><ExpertAvatar expertId="virtual-preview" displayName={fields.name || "虚拟专家"} /><div><DialogTitle className="text-2xl">{editingId ? "编辑虚拟专家" : "添加虚拟专家"}</DialogTitle><DialogDescription className="mt-1 text-sm leading-6">描述需要的专家，生成画像后可继续编辑。</DialogDescription></div></div>
       <div className="mt-5 grid items-start gap-5 lg:grid-cols-[minmax(0,1.6fr)_minmax(280px,1fr)]">
         <section className="space-y-4 rounded-xl border border-border p-5">
           <h3 className="text-lg font-semibold">1 · 描述并编辑专家画像</h3>
@@ -121,7 +120,6 @@ export function InterviewExpertsStep({ document, directory, directoryStatus = "r
           {suggestError && <p role="alert" className="text-sm text-destructive">{suggestError}</p>}
           {([ ["name", "专家名称"], ["role", "专业角色"], ["domains", "专业领域"], ["focus", "研究关注"], ["style", "观点风格"], ["bio", "简介"], ["limits", "局限与材料边界"] ] as const).map(([field, label]) => <label key={field} className="block text-sm font-medium">{label}<textarea aria-label={label} disabled={pending || savingExpert || suggestPending} value={fields[field]} onChange={(event) => editField(field, event.target.value)} rows={field === "bio" || field === "limits" ? 3 : 1} className="mt-2 w-full rounded-lg border border-input bg-background p-3 font-normal leading-6" /></label>)}
           <p className="text-xs leading-5 text-muted-foreground">AI 只提供未保存的建议；模拟专家意见不计作独立真人证据。</p>
-          <label className="flex items-start gap-2 text-sm"><input type="checkbox" checked={reviewed} onChange={(event) => setReviewed(event.target.checked)} className="mt-1" />已审阅画像及模拟边界</label>
         </section>
         <aside data-testid="itv-virtual-expert-preview-card" className="rounded-xl border border-border bg-muted/20 p-5">
           <h3 className="text-lg font-semibold">2 · 专家预览</h3>
@@ -130,7 +128,7 @@ export function InterviewExpertsStep({ document, directory, directoryStatus = "r
           <p className="mt-5 border-t border-border pt-4 text-xs leading-5 text-muted-foreground">虚拟专家由当前研究的已知材料约束，不代表真实受访者或新的独立证据。</p>
         </aside>
       </div>
-      <div className="mt-4 flex justify-end gap-2"><Button variant="outline" disabled={savingExpert} onClick={() => setOpen(false)}>取消</Button><Button variant="primary" disabled={pending || savingExpert || suggestPending || !reviewed || !readyToSave} onClick={() => void saveExpert()}>{savingExpert ? "保存中…" : editingId ? "保存专家修改" : "保存并添加专家"}</Button></div>
+      <div className="mt-4 flex justify-end gap-2"><Button variant="outline" disabled={savingExpert} onClick={() => setOpen(false)}>取消</Button><Button variant="primary" disabled={pending || savingExpert || suggestPending || !readyToSave} onClick={() => void saveExpert()}>{savingExpert ? "保存中…" : editingId ? "保存专家修改" : "保存并添加专家"}</Button></div>
     </DialogContent></Dialog>
   </div>;
 }

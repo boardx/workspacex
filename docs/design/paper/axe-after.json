@@ -1,0 +1,39 @@
+[
+  {
+    "path": "/",
+    "violations": [],
+    "activeNumber": [
+      {
+        "text": "01",
+        "foreground": "rgb(255, 115, 176)",
+        "parentBackground": "rgba(242, 240, 237, 0.06)"
+      }
+    ]
+  },
+  {
+    "path": "/zh/",
+    "violations": [],
+    "activeNumber": [
+      {
+        "text": "01",
+        "foreground": "rgb(255, 115, 176)",
+        "parentBackground": "rgba(242, 240, 237, 0.06)"
+      }
+    ]
+  },
+  {
+    "path": "/privacy.html",
+    "violations": [],
+    "activeNumber": []
+  },
+  {
+    "path": "/zh/privacy.html",
+    "violations": [],
+    "activeNumber": []
+  },
+  {
+    "path": "/404.html",
+    "violations": [],
+    "activeNumber": []
+  }
+]

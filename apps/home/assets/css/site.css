@@ -65,26 +65,28 @@
 /* base.css */
 :root {
 
-  --bg:          #08070b;
-  --bg-sink:     #050408;
-  --surface:     rgba(255, 255, 255, 0.035);
-  --surface-2:   rgba(255, 255, 255, 0.06);
-  --hairline:    rgba(255, 255, 255, 0.09);
-  --hairline-2:  rgba(255, 255, 255, 0.16);
+  --bg: #181716;
+  --bg-sink: #121110;
+  --surface: rgba(242, 240, 237, 0.035);
+  --surface-2: rgba(242, 240, 237, 0.06);
+  --hairline: rgba(242, 240, 237, 0.09);
+  --hairline-2: rgba(242, 240, 237, 0.16);
 
 
-  --fg:          #f6f4f9;
-  --fg-soft:     #b9b3c6;
-  --fg-dim:      #8b8499;
-  --fg-faint:    #837d93;
+  --fg: #f2f0ed;
+  --fg-soft: #d2cec7;
+  --fg-dim: #b8b4ad;
+  --fg-faint: #a7a198;
 
 
 
-  --c-1-rgb:     255 148 69;
-  --c-2-rgb:     255 63 127;
+  --c-1-rgb: 246 158 70;
+  --c-2-rgb: 255 10 124;
   --c-3-rgb:     240 42 168;
   --c-1:         rgb(var(--c-1-rgb));
   --c-2:         rgb(var(--c-2-rgb));
+
+  --brand-ink:   #ff73b0;
   --c-3:         rgb(var(--c-3-rgb));
   --grad:        linear-gradient(100deg, var(--c-1), var(--c-2) 52%, var(--c-3));
 
@@ -755,7 +757,7 @@ p, .lead, .keyline { hanging-punctuation: first last; }
   font-family: var(--font-mono); font-size: var(--t-micro);
   color: var(--fg-faint); padding-top: var(--s-1);
 }
-.rail__item[aria-current="true"] .rail__num { color: var(--c-2); }
+.rail__item[aria-current="true"] .rail__num { color: var(--brand-ink); }
 .rail__text { display: block; }
 .rail__title { display: block; font-weight: 600; font-size: var(--t-md); }
 .rail__body { display: block; font-size: var(--t-small); color: var(--fg-dim); margin-top: 0.2rem; }

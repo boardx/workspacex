@@ -16,7 +16,7 @@ function source(phase = "prebuild", invalid = false) {
 }
 function bootstrap(phase: string) {
   const dynamic = phase === "preactivate";
-  return { schemaVersion: 1, sourceSha: sha, phase, ...(dynamic ? { imageDigest: digest } : {}), ready: true, readOnlyTransaction: dynamic, productionWriteStatements: 0, stateClass: dynamic ? "empty" : "unknown", checks: { [dynamic ? "imageEntrypoint" : "sourceEntrypoint"]: true, inputContract: true, schemaContract: dynamic, permissionContract: dynamic, agentSeedContract: dynamic }, blockers: [] };
+  return { schemaVersion: 1, sourceSha: sha, phase, ...(dynamic ? { imageDigest: digest } : { baselineCompatibility: { baselineSha: baseline, migrationPlanSha256: "d".repeat(64), baselineSchemaSha256: "f".repeat(64), readOnlyTransaction: true, productionWriteStatements: 0, baselineLedgerContract: true, baselineSchemaContract: true, baselinePermissionContract: true, candidateSchemaContract: false, buildAdmissionOnly: true } }), ready: true, readOnlyTransaction: dynamic, productionWriteStatements: 0, stateClass: dynamic ? "empty" : "unknown", checks: { [dynamic ? "imageEntrypoint" : "sourceEntrypoint"]: true, inputContract: true, schemaContract: dynamic, permissionContract: dynamic, agentSeedContract: dynamic, ...(dynamic ? { migrationLedgerContract: true } : {}) }, blockers: [] };
 }
 function assemble(phase: string, value: ReturnType<typeof bootstrap>) {
   const path = dir();

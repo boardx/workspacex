@@ -4,6 +4,12 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      acceptance_category:
+        description: Existing manual acceptance lanes or deferred screenshot capture
+        type: choice
+        options: [existing-manual-lanes, visual-deferred]
+        default: existing-manual-lanes
 permissions:
   contents: read
 concurrency:
@@ -75,7 +81,7 @@ jobs:
           path: apps/web/test-results/board-ci/security/
           if-no-files-found: error
           retention-days: 14
-  visual:
+  board-ui-functional:
     needs: scope
     if: needs.scope.outputs.board == 'true'
     runs-on: ubuntu-latest
@@ -89,16 +95,50 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - name: Verify screenshot-only category and evidence contracts
+        run: node --import tsx --test apps/web/e2e/support/board-observation-categories.test.mjs apps/web/scripts/board-observation-policy.test.mjs apps/web/scripts/board-workflow-policy.test.mjs apps/web/scripts/board-ci-category-mapping.test.mjs
       - run: pnpm --filter web exec playwright install --with-deps chromium firefox webkit
-      - name: Run real isolated visual and verify its evidence
+      - name: Run all Board UI functionality without pixel capture and verify its evidence
         env:
+          BOARD_OBSERVATION_MODE: functional
           TMPDIR: ${{ runner.temp }}
         run: pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter web run ci:board:visual
       - name: Retain evidence without signing credentials
         if: always()
         uses: actions/upload-artifact@v6
         with:
-          name: board-visual-${{ github.run_id }}-${{ github.run_attempt }}
+          name: board-ui-functional-${{ github.run_id }}-${{ github.run_attempt }}
+          path: apps/web/test-results/board-ci/visual/
+          if-no-files-found: error
+          retention-days: 14
+  visual-deferred:
+    # Only screenshot capture is outside this iteration; all UI assertions also
+    # execute in the blocking board-ui-functional job above.
+    if: github.event_name == 'workflow_dispatch' && inputs.acceptance_category == 'visual-deferred'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v5
+        with: {fetch-depth: 0}
+      - uses: pnpm/action-setup@v4.4.0
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Verify screenshot-only category and evidence contracts
+        run: node --import tsx --test apps/web/e2e/support/board-observation-categories.test.mjs apps/web/scripts/board-observation-policy.test.mjs apps/web/scripts/board-workflow-policy.test.mjs apps/web/scripts/board-ci-category-mapping.test.mjs
+      - run: pnpm --filter web exec playwright install --with-deps chromium firefox webkit
+      - name: Run real isolated visual and verify its evidence
+        env:
+          BOARD_OBSERVATION_MODE: all
+          TMPDIR: ${{ runner.temp }}
+        run: pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter web run ci:board:visual
+      - name: Retain evidence without signing credentials
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: board-visual-deferred-${{ github.run_id }}-${{ github.run_attempt }}
           path: apps/web/test-results/board-ci/visual/
           if-no-files-found: error
           retention-days: 14
@@ -158,7 +198,7 @@ jobs:
           retention-days: 14
   import-captured:
     # Deferred to #4707 until a real Miro/Mural export manifest is configured.
-    if: github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'workflow_dispatch' && inputs.acceptance_category != 'visual-deferred'
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
@@ -214,7 +254,7 @@ jobs:
   performance:
     # Deferred to #4704 while the implementation-only Board slice merges.
     # Keep the unchanged producer available for a manual acceptance run.
-    if: github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'workflow_dispatch' && inputs.acceptance_category != 'visual-deferred'
     runs-on: ubuntu-latest
     timeout-minutes: 120
     steps:
@@ -242,7 +282,7 @@ jobs:
   collaboration-50:
     # Deferred from PR/main CI by the requestor on 2026-09-29; run this
     # unchanged 50-client, 30-minute lane explicitly with workflow_dispatch.
-    if: github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'workflow_dispatch' && inputs.acceptance_category != 'visual-deferred'
     runs-on: ubuntu-latest
     timeout-minutes: 75
     steps:
@@ -265,32 +305,5 @@ jobs:
         with:
           name: board-collaboration-50-${{ github.run_id }}-${{ github.run_attempt }}
           path: apps/web/test-results/board-ci/collaboration-50/
-          if-no-files-found: error
-          retention-days: 14
-  meeting-room:
-    needs: scope
-    if: needs.scope.outputs.board == 'true'
-    runs-on: ubuntu-latest
-    timeout-minutes: 75
-    steps:
-      - uses: actions/checkout@v5
-        with: {fetch-depth: 0}
-      - uses: pnpm/action-setup@v4.4.0
-      - uses: actions/setup-node@v5
-        with:
-          node-version-file: .nvmrc
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm --filter web exec playwright install --with-deps chromium
-      - name: Run real isolated meeting-room and verify its evidence
-        env:
-          TMPDIR: ${{ runner.temp }}
-        run: pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter web run ci:board:meeting-room
-      - name: Retain evidence without signing credentials
-        if: always()
-        uses: actions/upload-artifact@v6
-        with:
-          name: board-meeting-room-${{ github.run_id }}-${{ github.run_attempt }}
-          path: apps/web/test-results/board-ci/meeting-room/
           if-no-files-found: error
           retention-days: 14

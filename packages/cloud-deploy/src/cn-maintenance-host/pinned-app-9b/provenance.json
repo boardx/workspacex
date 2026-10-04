@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "files": [
+    {
+      "sourceGit": "9b25bfa65662b96c0826fe67506b562ea46aa6d0",
+      "sourcePath": "apps/api/src/infrastructure/db/migrator.ts",
+      "sourceSha256": "11a973d8637363355b72484ddb3a8e5c6565153c69660f238431f0a4518c2341",
+      "targetPath": "packages/cloud-deploy/src/cn-maintenance-host/pinned-app-9b/migrator.ts",
+      "targetSha256": "0ee032f5f5d0eee66dfdd85d21b8f7b1c8e2e972d04af3c4d64ed9cd95c27a7e",
+      "patch": "fixed default directory for CJS; static pg wrapper verifies actual SQL/socket/TLS identity before writes; production role preflight unconditional"
+    },
+    {
+      "sourceGit": "9b25bfa65662b96c0826fe67506b562ea46aa6d0",
+      "sourcePath": "apps/api/src/infrastructure/db/pg-config.ts",
+      "sourceSha256": "ffa052dd6482ad8861d67a13aa8fc06c73d4d9c7c00a52c32d4641c48420f683",
+      "targetPath": "packages/cloud-deploy/src/cn-maintenance-host/pinned-app-9b/pg-config.ts",
+      "targetSha256": "abcef3bb67e1f5b6e453afcfde3cd8d5e3da2735baac526db2fdf69fe3aba824",
+      "patch": "local canonical RDS constant import; ssl type supports false only via strict existing exception verification in maintenance transport"
+    }
+  ]
+}

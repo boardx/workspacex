@@ -1,3 +1,4 @@
+import { research } from "@repo/contracts";
 import type { DatabasePort } from "../../application/ports/database.port";
 import {
   InvalidGuidedResearchCollaboratorError,
@@ -18,6 +19,8 @@ import { guard } from "../../application/security/permission-filter";
 interface Row {
   id: string;
   title: string;
+  runtime_topic?: string | null;
+  runtime_brief_generated?: boolean;
   tags: string[];
   brief: GuidedResearchBrief;
   brief_version: number;
@@ -45,7 +48,9 @@ const COLLABORATOR_PROJECTION = `EXISTS (
 function project(row: Row): GuidedResearchSession {
   return {
     sessionId: row.id,
-    title: row.title,
+    title: row.runtime_brief_generated === undefined ? row.title : research.guidedResearchHeading({
+      brief: { topic: row.runtime_topic ?? "" }, generatedNodes: row.runtime_brief_generated ? ["brief"] : [],
+    }, row.title),
     tags: row.tags,
     brief: row.brief,
     briefVersion: row.brief_version,
@@ -173,7 +178,11 @@ export class PgGuidedResearchSessionRepository implements GuidedResearchSessionR
   async listVisible(orgId: OrgId, viewerUserId: string): Promise<readonly GuardedGuidedResearchSession[]> {
     return this.db.withTenant(orgId, async (session) => {
       const result = await session.query<Row>(
-        `SELECT ${COLUMNS}, ${COLLABORATOR_PROJECTION} FROM guided_research_sessions g
+        `SELECT ${COLUMNS}, ${COLLABORATOR_PROJECTION},
+            r.state->'brief'->>'topic' AS runtime_topic,
+            COALESCE(r.state->'generatedNodes' ? 'brief', false) AS runtime_brief_generated
+          FROM guided_research_sessions g
+          LEFT JOIN guided_research_runtime r ON r.org_id = g.org_id AND r.session_id = g.id
           WHERE g.org_id = $1 AND g.archived_at IS NULL
             AND (g.owner_user_id = $2 OR ${COLLABORATOR_PROJECTION.replace(" AS is_collaborator", "")})
           ORDER BY g.updated_at DESC, g.id DESC`,

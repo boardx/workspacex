@@ -1586,7 +1586,7 @@ export function ChatLiveMessagePanel({
       {/* issue #2285（D10 前半）—— 进行中态行内卡，紧挨在 composer 上方，与
           `aboveComposer`（转录中卡）叠成参照图那两张堆叠的卡片。 */}
       {runObservation ? <AgentRunStatus observation={runObservation} onViewProgress={scrollToLatest} /> : null}
-      <div className="border-t border-border p-3" data-testid="chat-composer">
+      <div className="border-t border-border-subtle px-4 py-4 sm:px-6" data-testid="chat-composer">
         {archived ? (
           <p className="mb-2 text-12 text-muted-foreground" data-testid="chat-composer-archived">
             该对话已归档，只能读取，不能创建消息或运行。
@@ -1698,7 +1698,7 @@ export function ChatLiveMessagePanel({
           （对标 Codex，拖到消息列表区域也生效），这里只保留附件预览条本身。
           border 不再随 dragActive 变化——高亮反馈交给面板级的 ChatFullSurfaceDropOverlay。
         */}
-        <div className="relative rounded-2xl border border-border-subtle bg-card p-1.5 shadow-sm">
+        <div className="relative rounded-container border border-input bg-card p-2 focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2 focus-within:ring-offset-background">
           {archived ? null : <ChatAttachmentList ctl={attach} disabled={submitting} />}
           <Textarea
             ref={composerRef}

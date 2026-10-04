@@ -130,8 +130,8 @@ export function reconstructMergeTimeChecks(runs: CheckRunObservation[], mergedAt
 
 export type PrGreenVerdict =
   | { kind: "not-applicable"; reason: string }
-  | { kind: "ok"; pr: number }
-  | { kind: "violation"; reasons: string[] }
+  | { kind: "ok"; pr: number; advisories?: string[] }
+  | { kind: "violation"; reasons: string[]; advisories?: string[] }
   /** 数据不足以重建合入时刻（例如 merged 却没有 mergedAt）——调用方按 strict 级别处理，不当绿 */
   | { kind: "unknown"; reason: string };
 
@@ -154,6 +154,7 @@ export function judgeClosingPrGreen(input: {
     };
   }
   const reasons: string[] = [];
+  const advisories: string[] = [];
   for (const pr of merged) {
     if (!pr.mergedAt || Number.isNaN(Date.parse(pr.mergedAt))) {
       return { kind: "unknown", reason: `PR #${pr.number} 标记为已合入却没有 mergedAt，无法重建合入时刻的 check` };
@@ -166,8 +167,9 @@ export function judgeClosingPrGreen(input: {
       if (evidenceFailure) return { kind: "unknown", reason: `PR #${pr.number}：${evidenceFailure}` };
     }
     const gaps = classifyChecks(reconstructMergeTimeChecks(pr.runs, pr.mergedAt), pr.policy);
+    for (const advisory of gaps.advisories) advisories.push(`PR #${pr.number}@${pr.headSha.slice(0, 8)}: ${advisory}`);
     for (const r of [...gaps.blocked, ...gaps.changes, ...gaps.waitingCi]) reasons.push(`PR #${pr.number}@${pr.headSha.slice(0, 8)}（合入于 ${pr.mergedAt}）：${r}`);
   }
-  if (reasons.length > 0) return { kind: "violation", reasons };
-  return { kind: "ok", pr: merged[0]!.number };
+  if (reasons.length > 0) return { kind: "violation", reasons, ...(advisories.length ? { advisories } : {}) };
+  return { kind: "ok", pr: merged[0]!.number, ...(advisories.length ? { advisories } : {}) };
 }
