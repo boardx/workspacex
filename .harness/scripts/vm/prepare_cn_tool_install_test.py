@@ -1,0 +1,163 @@
+import importlib.util,pathlib,tempfile,subprocess,json,hashlib,unittest,os,datetime
+from unittest.mock import patch
+D=pathlib.Path(__file__).parent
+s=importlib.util.spec_from_file_location('producer',D/'prepare-cn-tool-install.py');m=importlib.util.module_from_spec(s);s.loader.exec_module(m)
+class Producer(unittest.TestCase):
+ def fixture(self,p):
+  repo=p/'repo';repo.mkdir();subprocess.run(['git','init','-q',str(repo)],check=True)
+  source='.harness/scripts/vm/cn-build-tool-identity.py';dest=repo/source;dest.parent.mkdir(parents=True);dest.write_text("FILES={'"+source+"':'/usr/local/bin/fixture'}\ndef validate_identity(value,tool):\n return value.get('toolRoot')=='/opt/workspacex-cn/release-tools/'+tool\n")
+  def git(*args):return subprocess.check_output(['git','-C',str(repo),*args],stderr=subprocess.DEVNULL).decode().strip()
+  git('add','.');git('-c','user.name=Fixture','-c','user.email=fixture@example.test','commit','-qm','fixture');head=git('rev-parse','HEAD')
+  inv=p/'inventory.json';value={'schemaVersion':1,'observedAt':'2026-10-03T00:00:00Z','sourceInvocation':'untrusted-fixture','files':{source:{'target':'/usr/local/bin/fixture','present':True,'uid':0,'gid':0,'links':1,'regular':True,'symlink':False,'mode':'0755','sha256':'a'*64}}};inv.write_text(json.dumps(value));return repo,head,inv,value
+ def test_review_only_package_and_readback(self):
+  with tempfile.TemporaryDirectory(dir=pathlib.Path(tempfile.gettempdir()).resolve()) as d:
+   p=pathlib.Path(d);repo,h,inv,v=self.fixture(p);out=p/'out';r=m.produce(repo,h,h,h,inv,out)
+   self.assertFalse(r['ready']);self.assertFalse(r['installationAuthorized']);self.assertFalse(r['installerImplemented']);self.assertEqual(r['inventoryTrust'],'untrustedInput')
+   self.assertEqual(r,json.loads((out/'manifest.json').read_text()));self.assertEqual((out/'COMPLETE').read_text().strip(),hashlib.sha256((out/'manifest.json').read_bytes()).hexdigest())
+   for source,row in r['files'].items():self.assertEqual(hashlib.sha256((out/'payload'/source).read_bytes()).hexdigest(),row['newSha256'])
+   self.assertEqual(r['toolRoot'],'/opt/workspacex-cn/release-tools/'+h)
+   self.assertEqual(r['trustedGitClosure']['fsckExitCode'],0)
+   self.assertEqual(r['trustedGitClosure']['toolRevision'],h)
+   self.assertEqual(r['trustedGitClosure']['entries'][0]['sha256'],next(iter(r['files'].values()))['newSha256'])
+   self.assertEqual(r['profileEntries'],[])
+   self.assertIn('ROOT_PROFILE_OLD_INVENTORY_MISSING',r['installationBlockers'])
+   with self.assertRaises(ValueError):m.produce(repo,h,h,h,inv,out)
+ def test_missing_inventory_wrong_target_symlink_hardlink(self):
+  for bad in ('missing','target','mode','symlink','hardlink'):
+   with self.subTest(bad=bad),tempfile.TemporaryDirectory(dir=pathlib.Path(tempfile.gettempdir()).resolve()) as d:
+    p=pathlib.Path(d);repo,h,inv,v=self.fixture(p);source=next(iter(v['files']))
+    if bad=='missing':v['files']={}
+    if bad=='target':v['files'][source]['target']='/etc/passwd'
+    if bad=='mode':v['files'][source]['mode']='0777'
+    inv.write_text(json.dumps(v))
+    if bad=='symlink':other=p/'other';inv.rename(other);inv.symlink_to(other)
+    if bad=='hardlink':os.link(inv,p/'alias')
+    with self.assertRaises((ValueError,OSError)):m.produce(repo,h,h,h,inv,p/'out')
+ def test_new_absent_files_have_no_fabricated_old_identity(self):
+  for bad in ('valid','hash','mode'):
+   with self.subTest(bad=bad),tempfile.TemporaryDirectory(dir=pathlib.Path(tempfile.gettempdir()).resolve()) as d:
+    p=pathlib.Path(d);repo,h,inv,v=self.fixture(p);row=next(iter(v['files'].values()));row.update(present=False,sha256=None,mode=None,uid=None,gid=None,links=None)
+    if bad=='hash':row['sha256']='a'*64
+    if bad=='mode':row['mode']='0700'
+    inv.write_text(json.dumps(v))
+    if bad=='valid':
+     r=m.produce(repo,h,h,h,inv,p/'out');newrow=next(iter(r['files'].values()));self.assertFalse(newrow['oldPresent']);self.assertIsNone(newrow['oldSha256'])
+    else:
+     with self.assertRaises(ValueError):m.produce(repo,h,h,h,inv,p/'out')
+ def test_unsafe_output_parent_and_duplicate_target(self):
+  with tempfile.TemporaryDirectory(dir=pathlib.Path(tempfile.gettempdir()).resolve()) as d:
+   p=pathlib.Path(d);repo,h,inv,v=self.fixture(p);bad=p/'writable';bad.mkdir();bad.chmod(0o777)
+   with self.assertRaises(ValueError):m.produce(repo,h,h,h,inv,bad/'out')
+  with self.assertRaises(ValueError):m.allowlist(b"FILES={'a':'/usr/local/bin/x','b':'/usr/local/bin/x'}")
+  self.assertEqual(m.allowlist(b"FILES={'a':None,'b':'/usr/local/bin/x'}")['a'],None)
+ def test_unmerged_local_ancestry(self):
+  with tempfile.TemporaryDirectory(dir=pathlib.Path(tempfile.gettempdir()).resolve()) as d:
+   p=pathlib.Path(d);repo,h,inv,v=self.fixture(p);(repo/'new').write_text('x');subprocess.run(['git','-C',str(repo),'add','.'],check=True);subprocess.run(['git','-C',str(repo),'-c','user.name=Fixture','-c','user.email=fixture@example.test','commit','-qm','new'],check=True);new=m.git(repo,'rev-parse','HEAD').decode().strip()
+   with self.assertRaises(subprocess.CalledProcessError):m.produce(repo,new,h,h,inv,p/'out')
+ def test_allowlist_unsafe_sources_and_targets(self):
+  for source,target in [('../x','/usr/local/bin/x'),('/x','/usr/local/bin/x'),('x','/etc/x'),('x','/usr/local/../etc/x')]:
+   with self.assertRaises(ValueError):m.allowlist(('FILES='+repr({source:target})).encode())
+ def test_untrusted_metadata_rejected_before_any_git(self):
+  for bad,code in [('gitfile','GIT_DIRECTORY_REQUIRED'),('alternate','GIT_EXTERNAL_OR_PARTIAL'),('promisor','GIT_PROMISOR'),('include','GIT_CONFIG_EXECUTION'),('filter','GIT_CONFIG_EXECUTION'),('writable','GIT_MEMBER_TRUST'),('hardlink','GIT_MEMBER_HARDLINK'),('symlink','GIT_MEMBER_TRUST')]:
+   with self.subTest(bad=bad),tempfile.TemporaryDirectory(dir=pathlib.Path(tempfile.gettempdir()).resolve()) as d:
+    p=pathlib.Path(d);repo,h,inv,v=self.fixture(p);gd=repo/'.git'
+    if bad=='gitfile':gd.rename(repo/'metadata');gd.write_text('gitdir: metadata\n')
+    if bad=='alternate':(gd/'objects/info/alternates').write_text('/tmp/foreign\n')
+    if bad=='promisor':(gd/'objects/info/fixture.promisor').write_text('')
+    if bad in ('include','filter'):
+     with (gd/'config').open('a') as f:f.write('\n['+bad+']\n path=/tmp/foreign\n')
+    if bad=='writable':(gd/'HEAD').chmod(0o666)
+    if bad=='hardlink':os.link(gd/'HEAD',p/'alias')
+    if bad=='symlink':(gd/'HEAD').rename(p/'head');(gd/'HEAD').symlink_to(p/'head')
+    with patch.object(m.subprocess,'check_output') as call:
+     with self.assertRaisesRegex(ValueError,code):m.produce(repo,h,h,h,inv,p/'out')
+     call.assert_not_called()
+ def test_missing_object_cannot_claim_fsck(self):
+  with tempfile.TemporaryDirectory(dir=pathlib.Path(tempfile.gettempdir()).resolve()) as d:
+   p=pathlib.Path(d);repo,h,inv,v=self.fixture(p)
+   blob=m.git(repo,'rev-parse',h+':.harness/scripts/vm/cn-build-tool-identity.py').decode().strip()
+   (repo/'.git/objects'/blob[:2]/blob[2:]).unlink()
+   with self.assertRaises(subprocess.CalledProcessError):m.produce(repo,h,h,h,inv,p/'out')
+   self.assertFalse((p/'out').exists())
+ def test_root_contract_must_come_from_actual_source(self):
+  with self.assertRaisesRegex(ValueError,'TOOL_ROOT_CONTRACT_REQUIRED'):m.tool_root_contract('FILES={}', 'a'*40)
+ def test_git_process_count_does_not_grow_with_blob_count(self):
+  counts=[]
+  for extra in (0,40):
+   with tempfile.TemporaryDirectory(dir=pathlib.Path(tempfile.gettempdir()).resolve()) as d:
+    p=pathlib.Path(d);repo,h,inv,v=self.fixture(p)
+    if extra:
+     for n in range(extra):(repo/('blob-'+str(n))).write_bytes(bytes([n])*8192)
+     m.git(repo,'add','.');m.git(repo,'-c','user.name=Fixture','-c','user.email=fixture@example.test','commit','-qm','more')
+     h=m.git(repo,'rev-parse','HEAD').decode().strip()
+    with patch.object(m,'trusted_local_git',wraps=m.trusted_local_git) as trust,patch.object(m,'execute_git',wraps=m.execute_git) as calls,patch.object(m.subprocess,'Popen',wraps=m.subprocess.Popen) as processes:
+     result=m.produce(repo,h,h,h,inv,p/'out')
+     self.assertEqual(trust.call_count,2)
+     self.assertEqual(len(result['trustedGitClosure']['entries']),extra+1)
+     batch=[call for call in processes.call_args_list if '--batch' in call.args[0]]
+     self.assertEqual(len(batch),1)
+     counts.append((calls.call_count,processes.call_count))
+  self.assertEqual(counts[0],counts[1]);self.assertLessEqual(counts[1][1],10)
+ def test_metadata_drift_after_batch_prevents_package(self):
+  with tempfile.TemporaryDirectory(dir=pathlib.Path(tempfile.gettempdir()).resolve()) as d:
+   p=pathlib.Path(d);repo,h,inv,v=self.fixture(p);original=m.tree_closure
+   def drift(*args):
+    value=original(*args)
+    with (repo/'.git/config').open('a') as f:f.write('\n[fixture]\n drift=true\n')
+    return value
+   with patch.object(m,'tree_closure',side_effect=drift):
+    with self.assertRaisesRegex(ValueError,'GIT_METADATA_CHANGED'):m.produce(repo,h,h,h,inv,p/'out')
+   self.assertFalse((p/'out').exists())
+ def test_profile_create_proposal_derives_consumer_path_and_binds_absence(self):
+  source='.harness/scripts/vm/cn_maintenance_hold.py'
+  raw=b"from pathlib import Path\ndef check():\n profile=Path('/etc/fixture/profile.json')\n return read(profile,0o600)\n"
+  rows={source:{'newSha256':hashlib.sha256(raw).hexdigest()}}
+  absent={'present':False,'regular':False,'symlink':False,'sha256':None,'mode':None,'uid':None,'gid':None,'links':None}
+  inv={'profiles':{'/etc/fixture/profile.json':absent},'readOnly':True,'ready':False,'observedAt':'fixture-time','sourceInvocation':'fixture-provider'}
+  invraw=json.dumps(inv).encode();r=m.profile_transaction('a'*40,rows,{source:raw},inv,invraw)
+  self.assertEqual(r['target'],'/etc/fixture/profile.json');self.assertEqual(r['mode'],'0600')
+  self.assertEqual(r['previousInventorySha256'],hashlib.sha256(invraw).hexdigest())
+  self.assertEqual(r['content']['filesSha256'],{source:rows[source]['newSha256']})
+  self.assertFalse(r['providerSuccessIndependentlyVerified']);self.assertFalse(r['installationAuthorized']);self.assertFalse(r['ready'])
+  for key,value in [('present',True),('sha256','f'*64),('symlink',True)]:
+   changed=json.loads(json.dumps(inv));changed['profiles'][r['target']][key]=value
+   with self.assertRaisesRegex(ValueError,'PROFILE_OLD_ABSENCE_REQUIRED'):m.profile_transaction('a'*40,rows,{source:raw},changed,json.dumps(changed).encode())
+ def test_profile_without_exact_consumer_contract_is_rejected(self):
+  source='.harness/scripts/vm/cn_maintenance_hold.py';rows={source:{'newSha256':'a'*64}}
+  with self.assertRaisesRegex(ValueError,'PROFILE_CONSUMER_CONTRACT'):m.profile_transaction('a'*40,rows,{source:b'profile="guessed"'}, {},b'{}')
+ def receipt_fixture(self):
+  expected={'region':'fixture-region','instanceId':'fixture-instance','sourceInvocation':'fixture-invocation','commandId':'fixture-command'}
+  inv={'schemaVersion':1,'sourceInvocation':expected['sourceInvocation'],'observedAt':'2026-10-03T08:47:21.351070+00:00','readOnly':True,'ready':False,'profiles':{},'files':{}}
+  raw=json.dumps(inv).encode();remote=dict(inv);remote.pop('sourceInvocation')
+  receipt={'schemaVersion':1,**expected,'invocationStatus':'Success','exitCode':0,'dropped':0,'startTime':'2026-10-03T08:47:21Z','finishTime':None,'outputSha256':hashlib.sha256((json.dumps(remote,sort_keys=True)+'\n').encode()).hexdigest(),'inventoryObservedAt':inv['observedAt'],'localInventorySha256':hashlib.sha256(raw).hexdigest(),'readOnly':True,'productionModified':False,'ready':False}
+  return raw,receipt,expected,datetime.datetime.fromisoformat('2026-10-03T08:48:00+00:00')
+ def test_provider_receipt_checks_actual_bytes_target_and_time(self):
+  raw,receipt,expected,now=self.receipt_fixture();encoded=json.dumps(receipt).encode();binding=m.verify_inventory_receipt(raw,encoded,expected,now)
+  self.assertEqual(binding['receiptSha256'],hashlib.sha256(encoded).hexdigest());self.assertIsNone(binding['finishTime'])
+  for field,value,code in [('instanceId','foreign','PROVIDER_TARGET_BINDING'),('region','foreign','PROVIDER_TARGET_BINDING'),('sourceInvocation','foreign','PROVIDER_TARGET_BINDING'),('commandId','foreign','PROVIDER_TARGET_BINDING'),('invocationStatus','Running','PROVIDER_TERMINAL_SUCCESS'),('exitCode',1,'PROVIDER_TERMINAL_SUCCESS'),('exitCode',False,'PROVIDER_TERMINAL_SUCCESS'),('dropped',1,'PROVIDER_TERMINAL_SUCCESS'),('localInventorySha256','f'*64,'PROVIDER_LOCAL_BYTES'),('outputSha256','f'*64,'PROVIDER_OUTPUT_BYTES'),('inventoryObservedAt','other','PROVIDER_OBSERVATION_BINDING'),('productionModified',True,'PROVIDER_READ_ONLY')]:
+   with self.subTest(field=field):
+    changed=dict(receipt);changed[field]=value
+    with self.assertRaisesRegex(ValueError,code):m.verify_inventory_receipt(raw,json.dumps(changed).encode(),expected,now)
+  for date in ['2026-10-03T08:47:20+00:00','2026-10-03T09:47:21+00:00']:
+   with self.assertRaisesRegex(ValueError,'PROVIDER_NOT_FRESH'):m.verify_inventory_receipt(raw,encoded,expected,datetime.datetime.fromisoformat(date))
+ def test_receipt_must_not_self_supply_expected_target(self):
+  raw,receipt,expected,now=self.receipt_fixture()
+  with self.assertRaisesRegex(ValueError,'PROVIDER_EXPECTED_BINDING'):m.verify_inventory_receipt(raw,json.dumps(receipt).encode(),None,now)
+ def test_package_contains_pinned_evidence_and_profile_transaction(self):
+  with tempfile.TemporaryDirectory(dir=pathlib.Path(tempfile.gettempdir()).resolve()) as d:
+   p=pathlib.Path(d);repo,h,inv,old=self.fixture(p)
+   identity='.harness/scripts/vm/cn-build-tool-identity.py';hold='.harness/scripts/vm/cn_maintenance_hold.py'
+   source=repo/identity;s=source.read_text();s=s.replace("FILES={", "FILES={'"+hold+"':'/usr/local/lib/fixture-hold.py',");source.write_text(s)
+   (repo/hold).write_text("from pathlib import Path\ndef consumer():\n profile=Path('/etc/fixture/profile.json')\n return read(profile,0o600)\n")
+   m.git(repo,'add','.');m.git(repo,'-c','user.name=Fixture','-c','user.email=fixture@example.test','commit','-qm','profile')
+   h=m.git(repo,'rev-parse','HEAD').decode().strip();raw,receipt,expected,now=self.receipt_fixture();value=json.loads(raw)
+   value['files']=old['files'];value['files'][hold]={'target':'/usr/local/lib/fixture-hold.py','present':False,'sha256':None,'mode':None,'uid':None,'gid':None,'links':None}
+   value['profiles']={'/etc/fixture/profile.json':{'present':False,'regular':False,'symlink':False,'sha256':None,'mode':None,'uid':None,'gid':None,'links':None}}
+   raw=json.dumps(value).encode();inv.write_bytes(raw);receipt['localInventorySha256']=hashlib.sha256(raw).hexdigest();remote=dict(value);remote.pop('sourceInvocation');receipt['outputSha256']=hashlib.sha256((json.dumps(remote,sort_keys=True)+'\n').encode()).hexdigest()
+   receipt_path=p/'receipt.json';receipt_raw=json.dumps(receipt).encode();receipt_path.write_bytes(receipt_raw)
+   result=m.produce(repo,h,h,h,inv,p/'out',receipt_path,expected,now);profile=result['profileTransactionsV1'][0];e=result['inventoryEvidenceV1']
+   self.assertEqual(profile['content']['toolRevision'],h);self.assertEqual(profile['inventoryEvidenceRef'],'inventoryEvidenceV1')
+   self.assertEqual(pathlib.Path(e['inventoryPath']).read_bytes(),raw);self.assertEqual(pathlib.Path(e['providerReceiptPath']).read_bytes(),receipt_raw)
+   self.assertEqual(e['expected'],expected);self.assertEqual(result['profileEntries'],[]);self.assertFalse(result['ready'])
+   self.assertNotIn('PROVIDER_RECEIPT_BINDING_MISSING',result['installationBlockers']);self.assertIn('TOOL_ROOT_GIT_ARTIFACT_NOT_PACKAGED',result['installationBlockers'])
+if __name__=='__main__':unittest.main()

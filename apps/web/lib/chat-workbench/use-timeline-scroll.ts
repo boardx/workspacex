@@ -2,7 +2,7 @@
 import * as React from "react";
 import { isScrolledNearBottom } from "@/lib/copilotkit-v2-scroll";
 import { MESSAGE_FOCUS_EVENT } from "@/lib/chat-message-focus";
-export function useTimelineScroll(messages: unknown) {
+export function useTimelineScroll(messages: unknown, followContent = true) {
   /**
    * issue #2071 —— 消息区没有"跳到最新"手段：新消息到达时不自动贴底，长线程往上翻阅
    * 后也没有回到底部的入口，只能手动拖滚动条。做法对齐 Slack/Discord/ChatGPT 的常见
@@ -188,21 +188,34 @@ export function useTimelineScroll(messages: unknown) {
     return () => el.removeEventListener(MESSAGE_FOCUS_EVENT, release);
   }, [clearProgrammaticScroll]);
 
+  // The opening prompt is not a message timeline. Initialize it at the top
+  // once when entering that branch; subsequent user scrolling remains free.
+  // A first message resumes the existing following semantics below.
+  React.useEffect(() => {
+    if (followContent) return;
+    clearProgrammaticScroll();
+    upwardScrollIntentRef.current = false;
+    isAtBottomRef.current = true;
+    setIsAtBottom(true);
+    const el = messagesContainerRef.current;
+    if (el !== null && typeof el.scrollTo === "function") el.scrollTo({ top: 0, behavior: "auto" });
+  }, [followContent, clearProgrammaticScroll]);
+
   // 贴底时新消息/流式增量到达自动跟随；一旦用户往上翻（`isAtBottom` 变 false），
   // 这个 effect 直接不跑，不打断阅读——与 Slack/Discord 同一条纪律。
   React.useEffect(() => {
     // #3145：`isAtBottomRef` 是同步真相，`isAtBottom` 只是触发重跑的依赖——这一拍读到的
     // state 可能还是用户滚轮之前的旧值（见该 ref 的头注）。
-    if (!isAtBottom || !isAtBottomRef.current) return;
+    if (!followContent || !isAtBottom || !isAtBottomRef.current) return;
     const el = messagesContainerRef.current;
     if (el === null || typeof el.scrollTo !== "function") return;
     setProgrammaticScroll();
     el.scrollTo({ top: el.scrollHeight, behavior: "auto" });
-  }, [messages, isAtBottom, setProgrammaticScroll]);
+  }, [messages, isAtBottom, setProgrammaticScroll, followContent]);
 
   // 见上方 ③：贴底态下内容长高（惰性渲染的图表、加载完的图片）也要跟住。
   React.useEffect(() => {
-    if (!isAtBottom) return;
+    if (!followContent || !isAtBottom) return;
     const content = messagesContentRef.current;
     const el = messagesContainerRef.current;
     if (content === null || el === null || typeof ResizeObserver === "undefined") return;
@@ -216,7 +229,7 @@ export function useTimelineScroll(messages: unknown) {
     });
     ro.observe(content);
     return () => ro.disconnect();
-  }, [isAtBottom, setProgrammaticScroll]);
+  }, [isAtBottom, setProgrammaticScroll, followContent]);
 
   // `Cmd/Ctrl+End` 跳到最新——只认组合键，不拦截输入框里普通 `End`（移到行尾）。
   React.useEffect(() => {

@@ -115,8 +115,8 @@ describe("F02 第 3 组 UI：访谈 Studio 首屏", () => {
 
     expect(screen.getByTestId("itv-home-page")).toHaveClass("max-w-screen-2xl", "px-5", "py-6");
     const card = await screen.findByTestId("itv-history-card-itv-1");
-    // 2026-09-30：卡片统一成标准 ResourceCard（项目卡片版式）：rounded-card + hover 抬升 + 整格等高
-    expect(card).toHaveClass("rounded-card", "hover:shadow-md", "h-full");
+    // PAPER 标准 ResourceCard：圆角、悬停边框反馈、整格等高，保留真实操作入口。
+    expect(card).toHaveClass("rounded-card", "hover:border-input", "h-full");
     // 标签芯片是标准项目卡片的胶囊样式（与 `/projects` 卡片一致）
     expect(within(card).getByText("采购决策")).toHaveClass("rounded-full", "text-10");
   });

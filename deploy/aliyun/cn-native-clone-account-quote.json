@@ -1,0 +1,213 @@
+{
+  "scope": "readonly-account-native-clone-quote",
+  "recordedAt": "2026-10-03T21:24:37.758991+00:00",
+  "resourceCreated": false,
+  "orderCreated": false,
+  "request": {
+    "RegionId": "cn-shanghai",
+    "Engine": "PostgreSQL",
+    "EngineVersion": "16.0",
+    "DBInstanceClass": "pg.n2.serverless.2c",
+    "DBInstanceStorage": 100,
+    "DBInstanceStorageType": "general_essd",
+    "Quantity": 1,
+    "PayType": "Postpaid",
+    "CommodityCode": "rds_serverless_public_cn",
+    "OrderType": "BUY",
+    "ZoneId": "cn-shanghai-e",
+    "ServerlessConfig": {
+      "MinCapacity": 0.5,
+      "MaxCapacity": 4
+    }
+  },
+  "response": {
+    "RequestId": "01A1039F-1F6D-5C56-ACCC-E00599E26966",
+    "Currency": "CNY",
+    "TradeMinRCUAmount": 0.337,
+    "TradeMaxRCUAmount": 1.502,
+    "PriceInfoOriginalPrice": 1.006,
+    "PriceInfoTradePrice": 0.503,
+    "ServerlessPrice": {
+      "TotalOriginalMaxAmount": 300.4,
+      "TradeMinRCUAmount": 33.65,
+      "RCUDiscountMaxAmount": 133.2,
+      "StorageOriginalAmount": 34.0,
+      "TotalOriginalMinAmount": 67.3,
+      "RCUDiscountMinAmount": 16.65,
+      "RCUOriginalMaxAmount": 266.4,
+      "RCUOriginalMinAmount": 33.3,
+      "TradeMaxRCUAmount": 150.2,
+      "storageDiscountAmount": 17.0
+    },
+    "Rules": {
+      "Rule": [
+        {
+          "Name": "开通云数据库RDS Serverless版实例享5折优惠",
+          "RuleId": 20797498
+        }
+      ]
+    }
+  },
+  "rawResponseSha256": "0d3a744899c6dba295ce57512b504c5aa8fc0cc8c1b07509e856f8aa7fc62f6f",
+  "rawResponseLocalPath": "/tmp/wsx-native-DescribePrice-official-parameters.json",
+  "unitsNote": "Use top-level CNY hourly range; nested unit scaling is not an independent quote. Do not multiply node count or apply discount again.",
+  "taxIncludedVerified": false,
+  "minimumBillingRoundingVerified": false,
+  "availableClasses": {
+    "DBInstanceClasses": [
+      {
+        "DBInstanceClass": "pg.n2.serverless.2c",
+        "DBInstanceStorageRange": {
+          "MinValue": 20,
+          "MaxValue": 64000,
+          "Step": 5
+        }
+      }
+    ],
+    "RequestId": "01A1039F-14A0-55D7-840D-E20FC7C708B3"
+  },
+  "sourceSideEffectMetadata": {
+    "scope": "readonly-native-clone-side-effect-inventory",
+    "observedAt": "2026-10-03T21:17:27.564Z",
+    "databases": {
+      "workspacex": {
+        "extensions": [
+          {
+            "extname": "plpgsql",
+            "extversion": "1.0"
+          },
+          {
+            "extname": "vector",
+            "extversion": "0.8.0.2"
+          }
+        ],
+        "database": "workspacex",
+        "server_address": null,
+        "server_port": null,
+        "foreign_server_count": 0,
+        "can_read_subscription_enabled": true,
+        "cron_job_table_present": false,
+        "enabledSubscriptions": 0,
+        "activeCronJobs": null
+      },
+      "workspacex_agent": {
+        "extensions": [
+          {
+            "extname": "plpgsql",
+            "extversion": "1.0"
+          }
+        ],
+        "database": "workspacex_agent",
+        "server_address": null,
+        "server_port": null,
+        "foreign_server_count": 0,
+        "can_read_subscription_enabled": true,
+        "cron_job_table_present": false,
+        "enabledSubscriptions": 0,
+        "activeCronJobs": null
+      },
+      "workspacex_memory": {
+        "extensions": [
+          {
+            "extname": "plpgsql",
+            "extversion": "1.0"
+          }
+        ],
+        "database": "workspacex_memory",
+        "server_address": null,
+        "server_port": null,
+        "foreign_server_count": 0,
+        "can_read_subscription_enabled": true,
+        "cron_job_table_present": false,
+        "enabledSubscriptions": 0,
+        "activeCronJobs": null
+      }
+    },
+    "businessRowsRead": false,
+    "productionChangesPerformed": false,
+    "invocationId": "t-sh06yym8bx9cfsw",
+    "commandId": "c-sh06yym8bwpd91c",
+    "status": "Success",
+    "exitCode": 0,
+    "dropped": 0
+  },
+  "existingVSwitches": {
+    "TotalCount": 3,
+    "PageSize": 10,
+    "RequestId": "01A103A4-73E2-554B-BACF-760A418D0D32",
+    "PageNumber": 1,
+    "VSwitches": {
+      "VSwitch": [
+        {
+          "Status": "Available",
+          "IsDefault": false,
+          "Description": "",
+          "ResourceGroupId": "rg-aek6krukghp2p4a",
+          "ZoneId": "cn-shanghai-b",
+          "NetworkAclId": "",
+          "AvailableIpAddressCount": 251,
+          "VSwitchId": "vsw-uf6xudg8e2sx17q0l7cb2",
+          "CidrBlock": "192.168.102.0/24",
+          "RouteTable": {
+            "RouteTableId": "vtb-uf6fb84twryw5kccvphok",
+            "RouteTableType": "System"
+          },
+          "VpcId": "vpc-uf6e7vt902oid0p1mwd6q",
+          "OwnerId": 1177216024653153,
+          "CreationTime": "2026-09-11T19:29:37Z",
+          "VSwitchName": "workspacex-cn-prod-c",
+          "Ipv6CidrBlock": "",
+          "ShareType": ""
+        },
+        {
+          "Status": "Available",
+          "IsDefault": false,
+          "Description": "",
+          "ResourceGroupId": "rg-aek6krukghp2p4a",
+          "ZoneId": "cn-shanghai-g",
+          "NetworkAclId": "",
+          "AvailableIpAddressCount": 251,
+          "VSwitchId": "vsw-uf6epcojpvdltooni86u8",
+          "CidrBlock": "192.168.101.0/24",
+          "RouteTable": {
+            "RouteTableId": "vtb-uf6fb84twryw5kccvphok",
+            "RouteTableType": "System"
+          },
+          "VpcId": "vpc-uf6e7vt902oid0p1mwd6q",
+          "OwnerId": 1177216024653153,
+          "CreationTime": "2026-09-11T18:45:18Z",
+          "VSwitchName": "workspacex-cn-prod-b",
+          "Ipv6CidrBlock": "",
+          "ShareType": ""
+        },
+        {
+          "Status": "Available",
+          "IsDefault": false,
+          "Description": "",
+          "ResourceGroupId": "rg-aek6krukghp2p4a",
+          "ZoneId": "cn-shanghai-e",
+          "NetworkAclId": "",
+          "AvailableIpAddressCount": 246,
+          "VSwitchId": "vsw-uf6rqwne9b3cp48diptx1",
+          "CidrBlock": "192.168.100.0/24",
+          "RouteTable": {
+            "RouteTableId": "vtb-uf6fb84twryw5kccvphok",
+            "RouteTableType": "System"
+          },
+          "VpcId": "vpc-uf6e7vt902oid0p1mwd6q",
+          "OwnerId": 1177216024653153,
+          "CreationTime": "2026-09-11T18:45:18Z",
+          "VSwitchName": "workspacex-cn-prod-a",
+          "Ipv6CidrBlock": "",
+          "ShareType": ""
+        }
+      ]
+    }
+  },
+  "latestRecoveryWindow": {
+    "RecoveryEndTime": "2026-10-03T21:21:09Z",
+    "RecoveryBeginTime": "2026-09-27T19:45:46Z",
+    "RequestId": "01A103A4-6B1C-5844-9CEB-95EA2EC6A88A",
+    "DBInstanceId": "pgm-uf6rg214cp381l49"
+  }
+}

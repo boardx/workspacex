@@ -40,7 +40,7 @@ describe("ResourceCard", () => {
     expect(within(card).getByRole("button", { name: "进入项目" })).toBeTruthy();
     // 标签是胶囊芯片
     expect(within(screen.getByTestId("rc-tags")).getByText("战略")).toHaveClass("rounded-full", "text-10");
-    expect(card).toHaveClass("rounded-card", "hover:shadow-md");
+    expect(card).toHaveClass("rounded-card", "hover:border-input");
   });
 
   it("R6 标题层级：默认 h3；页面 h1 之下直接是卡片列表时 headingLevel=2 渲染 h2（不跳级）", () => {
