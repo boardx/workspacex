@@ -229,7 +229,7 @@
         "apps/api/tests/agent-runtime/organization-hybrid-retrieval.test.ts"
       ],
       "remaining": [
-        "Trusted initiating subject for KG, artifact ingestion, cosine query/candidate and service warmup producers; five known paths remain unconnected.",
+        "Trusted infrastructure spend owner for service warmup remains unconnected. KG, artifact indexing and cosine references are source-connected; real PG composition remains pending.",
         "Verified input-only embedding admission capability; absent mode denies actual dispatch rather than inventing zero output.",
         "Explicit finite spend policy and ordinary per-user amount/window/timezone; no defaults enabled.",
         "Verified exact physical model registration, input/output bounds and pricing unit/rate.",
@@ -237,7 +237,7 @@
         "Actual deployed provider/cancellation/retry evidence for this family."
       ],
       "sourceMissing": [
-        "Trusted initiating subject for KG, artifact ingestion, cosine query/candidate and service warmup producers; five known paths remain unconnected.",
+        "Trusted infrastructure spend owner for service warmup remains unconnected. KG, artifact indexing and cosine references are source-connected; real PG composition remains pending.",
         "Verified input-only embedding admission capability; absent mode denies actual dispatch rather than inventing zero output."
       ],
       "configurationMissing": [
@@ -332,12 +332,12 @@
         "apps/deep-agent-service/tests/test_model_request_accounting.py"
       ],
       "remaining": [
-        "Pre-durable-save crash gap and restart-persistent spool fault handling.",
+        "Pre-durable-save crash gap, already-admitted concurrent calls and restart persistence under complete storage failure. A separately fsynced fault marker now closes new dispatch after restart when storage commits it; callback repair remains available.",
         "Isolated PostgreSQL/tenant integration for the new batch.",
         "Actual deployed provider/cancellation/retry evidence for this family."
       ],
       "sourceMissing": [
-        "Pre-durable-save crash gap and restart-persistent spool fault handling."
+        "Pre-durable-save crash gap, already-admitted concurrent calls and restart persistence under complete storage failure. A separately fsynced fault marker now closes new dispatch after restart when storage commits it; callback repair remains available."
       ],
       "configurationMissing": [],
       "acceptanceMissing": [

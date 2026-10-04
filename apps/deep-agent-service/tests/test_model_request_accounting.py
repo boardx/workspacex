@@ -374,3 +374,51 @@ def test_artifact_receipt_restart_replays_original_subject_kind_without_model(co
     assert asyncio.run(a.replay_pending_batch(OWNER,a.Journal(str(path))))==1
     assert delivered==['http://api.example.test/internal/artifact-index/'+owner['operation_id']+'/model-requests/terminal']
     assert journal.pending(OWNER)==[]
+
+
+def test_fault_marker_survives_restarted_state_and_blocks_both_transports(context,monkeypatch):
+    calls,path=context;paid=[]
+    monkeypatch.setattr(a.Journal,"save",lambda *args:(_ for _ in ()).throw(sqlite3.OperationalError("disk full")))
+    with httpx.Client(transport=a.AccountingTransport(httpx.MockTransport(lambda req:(paid.append(req),response(b'{"usage":{"total_tokens":7}}'))[1]))) as client:
+        assert client.send(request()).json()["usage"]["total_tokens"]==7
+    assert (path/"receipt-durability-fault").read_text()=="usage_receipt_durability_fault\n"
+    assert (path/"receipt-durability-fault").stat().st_mode & 0o777 == 0o600
+    monkeypatch.setattr(a,"_durability_fault",False)
+    before=list(calls)
+    with httpx.Client(transport=a.AccountingTransport(httpx.MockTransport(lambda req:paid.append(req)))) as client:
+        with pytest.raises(a.RuntimeUsageError,match="durability_fault"):client.send(request())
+    async def run():
+        async with httpx.AsyncClient(transport=a.AsyncAccountingTransport(httpx.MockTransport(lambda req:paid.append(req)))) as client:
+            with pytest.raises(a.RuntimeUsageError,match="durability_fault"):await client.send(request())
+    asyncio.run(run());assert len(paid)==1;assert calls==before
+
+
+def test_fault_marker_keeps_callback_only_repair_available(context,monkeypatch):
+    async def acknowledge(*args):pass
+    monkeypatch.setattr(a,"apost",acknowledge)
+    _,path=context;journal=a.Journal(str(path));journal.save(OWNER,{"requestId":"repair-with-fault","usage":{}});journal.persist_fault()
+    assert asyncio.run(a.replay_pending_batch(OWNER,journal))==1
+    assert journal.pending(OWNER)==[]
+    with pytest.raises(a.RuntimeUsageError,match="durability_fault"):journal.assert_dispatch_allowed()
+
+
+def test_existing_marker_is_synced_and_never_follows_symlink(context,monkeypatch):
+    _,path=context;journal=a.Journal(str(path));journal.persist_fault()
+    fsync=a.os.fsync;calls=[]
+    monkeypatch.setattr(a.os,"fsync",lambda fd:(calls.append(fd),fsync(fd))[1])
+    journal.persist_fault();assert len(calls)==2
+    journal.fault_path.unlink();target=path/"unrelated";target.write_text("unchanged")
+    journal.fault_path.symlink_to(target)
+    with pytest.raises(OSError):journal.persist_fault()
+    assert target.read_text()=="unchanged"
+    with pytest.raises(a.RuntimeUsageError,match="durability_fault"):journal.assert_dispatch_allowed()
+
+
+def test_marker_storage_failure_is_bounded_and_keeps_current_process_closed(context,monkeypatch,caplog):
+    _,path=context;journal=a.Journal(str(path))
+    monkeypatch.setattr(journal,"persist_fault",lambda:(_ for _ in ()).throw(OSError("secret-do-not-log")))
+    a.mark_durability_fault(journal)
+    assert a._durability_fault is True
+    assert "usage_receipt_fault_marker_unconfirmed" in caplog.text
+    assert "secret-do-not-log" not in caplog.text
+    assert not journal.fault_path.exists() # no unsupported restart-persistence claim

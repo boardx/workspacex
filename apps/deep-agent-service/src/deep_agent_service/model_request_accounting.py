@@ -12,6 +12,7 @@ import json
 import logging
 import os
 import sqlite3
+import stat
 import uuid
 from datetime import datetime, timezone
 from hashlib import sha256
@@ -25,9 +26,13 @@ _durability_fault = False
 _logger = logging.getLogger(__name__)
 
 
-def mark_durability_fault():
+def mark_durability_fault(journal):
     global _durability_fault
     _durability_fault = True
+    try:
+        journal.persist_fault()
+    except Exception:
+        _logger.error("usage_receipt_fault_marker_unconfirmed")
     _logger.error("usage_receipt_durability_fault")
 
 
@@ -130,6 +135,7 @@ class Journal:
             raise RuntimeUsageError("usage_persistent_spool_unconfigured")
         root.mkdir(mode=0o700, parents=True, exist_ok=True)
         self.path = root / "model-usage.sqlite3"
+        self.fault_path = root / "receipt-durability-fault"
         with self.connect() as db:
             db.execute("CREATE TABLE IF NOT EXISTS pending(id TEXT PRIMARY KEY, receiver TEXT NOT NULL, run_id TEXT NOT NULL, payload TEXT NOT NULL, last_attempt_order INTEGER NOT NULL DEFAULT 0)")
             if "last_attempt_order" not in {row[1] for row in db.execute("PRAGMA table_info(pending)")}:
@@ -137,6 +143,37 @@ class Journal:
             if "subject_kind" not in {row[1] for row in db.execute("PRAGMA table_info(pending)")}:
                 db.execute("ALTER TABLE pending ADD COLUMN subject_kind TEXT NOT NULL DEFAULT 'agent-run'")
         self.path.chmod(0o600)
+
+    def persist_fault(self):
+        # Independent constant-only file; never persist content, identity or secrets.
+        flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0)
+        try:
+            fd = os.open(self.fault_path, flags, 0o600)
+        except FileExistsError:
+            fd = os.open(self.fault_path, os.O_RDONLY | os.O_NONBLOCK | getattr(os, "O_NOFOLLOW", 0))
+            created = False
+        else:
+            created = True
+        try:
+            if not stat.S_ISREG(os.fstat(fd).st_mode):
+                raise RuntimeUsageError("usage_receipt_fault_marker_invalid")
+            if created:
+                os.write(fd, b"usage_receipt_durability_fault\n")
+            # Existence, even an empty file, is the closed-state signal. Sync an
+            # existing marker too; a creator race does not confirm persistence.
+            os.fsync(fd)
+        finally:
+            os.close(fd)
+        directory_fd = os.open(self.path.parent, os.O_RDONLY)
+        try:
+            os.fsync(directory_fd)
+        finally:
+            os.close(directory_fd)
+
+    def assert_dispatch_allowed(self):
+        # No auto-clear. Callback-only repair remains available.
+        if os.path.lexists(self.fault_path):
+            raise RuntimeUsageError("usage_receipt_durability_fault")
 
     @contextmanager
     def connect(self):
@@ -261,6 +298,7 @@ class UsageParser:
 def prepare(request):
     owner = ownership()
     journal = Journal(os.environ.get("DEEP_AGENT_USAGE_SPOOL_DIR", ""))
+    journal.assert_dispatch_allowed()
     try:
         model = json.loads(request.content).get("model")
         if not isinstance(model, str) or not model or len(model) > 200:
@@ -314,7 +352,7 @@ class AccountedSyncStream(httpx.SyncByteStream):
             self.journal.save(self.owner,body)
             persisted = True
         except Exception:
-            mark_durability_fault()  # stop future dispatch, preserve this provider result
+            mark_durability_fault(self.journal)  # stop future dispatch, preserve this provider result
         try:
             post(self.owner,subject_id(self.owner),"terminal",body)
             if persisted:
@@ -322,7 +360,7 @@ class AccountedSyncStream(httpx.SyncByteStream):
         except RuntimeUsageError:
             pass  # persisted when possible; original start remains visible otherwise
         except Exception:
-            mark_durability_fault()
+            mark_durability_fault(self.journal)
 
     def __iter__(self):
         try:
@@ -354,7 +392,7 @@ class AccountedAsyncStream(httpx.AsyncByteStream):
             self.journal.save(self.owner,body)
             persisted = True
         except Exception:
-            mark_durability_fault()
+            mark_durability_fault(self.journal)
         try:
             await apost(self.owner,subject_id(self.owner),"terminal",body)
             if persisted:
@@ -362,7 +400,7 @@ class AccountedAsyncStream(httpx.AsyncByteStream):
         except RuntimeUsageError:
             pass
         except Exception:
-            mark_durability_fault()
+            mark_durability_fault(self.journal)
 
     async def __aiter__(self):
         try:
