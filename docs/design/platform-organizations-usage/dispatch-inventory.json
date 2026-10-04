@@ -63,42 +63,42 @@
       "source": "apps/api/src/application/retrieval/retrieve-candidates.ts",
       "anchor": "await deps.embeddings.embed(input.query",
       "trustedRunReferencePropagationImplemented": true,
-      "acceptance": "SDK transport unit tests; pending real PG composition Input-only private admission/SDK batch units pass; no live binding or complete-input proof. Same-body logical-call identity remains conservative and requires producer semantics."
+      "acceptance": "SDK transport unit tests; pending real PG composition Input-only private admission/SDK batch units pass; no live binding or complete-input proof. Distinct identical-body HTTP batches use independent physical UUIDs; callback replay rejects dispatch. Cross-worker business semantic dedup remains unimplemented."
     },
     {
       "id": "retrieval-listwise-rerank",
       "source": "apps/api/src/application/retrieval/retrieve-candidates.ts",
       "anchor": "const rerankedIds = await deps.rerank",
       "trustedRunReferencePropagationImplemented": true,
-      "acceptance": "SDK transport unit tests; pending real PG composition Input-only private admission/SDK batch units pass; no live binding or complete-input proof. Same-body logical-call identity remains conservative and requires producer semantics."
+      "acceptance": "SDK transport unit tests; pending real PG composition Input-only private admission/SDK batch units pass; no live binding or complete-input proof. Distinct identical-body HTTP batches use independent physical UUIDs; callback replay rejects dispatch. Cross-worker business semantic dedup remains unimplemented."
     },
     {
       "id": "kg-query-embedding",
       "source": "apps/api/src/infrastructure/knowledge-graph/pg-knowledge-recall.ts",
       "anchor": "this.embeddings.embed(query,this.requestAccounting?accounting:undefined)",
       "trustedRunReferencePropagationImplemented": true,
-      "acceptance": "Exact server run attempt/lease reference; private service HTTP units and tenant negatives. Real PG composition and deployed input-only admission remain pending. Input-only private admission/SDK batch units pass; no live binding or complete-input proof. Same-body logical-call identity remains conservative and requires producer semantics."
+      "acceptance": "Exact server run attempt/lease reference; private service HTTP units and tenant negatives. Real PG composition and deployed input-only admission remain pending. Input-only private admission/SDK batch units pass; no live binding or complete-input proof. Distinct identical-body HTTP batches use independent physical UUIDs; callback replay rejects dispatch. Cross-worker business semantic dedup remains unimplemented."
     },
     {
       "id": "artifact-segment-embedding",
       "source": "apps/api/src/application/retrieval/index-artifact-version.ts",
       "anchor": "this.embeddings.embed(...params)",
       "trustedRunReferencePropagationImplemented": true,
-      "acceptance": "Trusted opaque artifact-index operation, original publisher or authenticated reindex actor, current source/ACL/job check; no fabricated Agent run. Mocked service and SQLite restart tests; real PG acceptance and deployed input-only acceptance pending. Input-only private admission/SDK batch units pass; no live binding or complete-input proof. Same-body logical-call identity remains conservative and requires producer semantics."
+      "acceptance": "Trusted opaque artifact-index operation, original publisher or authenticated reindex actor, current source/ACL/job check; no fabricated Agent run. Mocked service and SQLite restart tests; real PG acceptance and deployed input-only acceptance pending. Input-only private admission/SDK batch units pass; no live binding or complete-input proof. Distinct identical-body HTTP batches use independent physical UUIDs; callback replay rejects dispatch. Cross-worker business semantic dedup remains unimplemented."
     },
     {
       "id": "cosine-query-embedding",
       "source": "apps/api/src/infrastructure/retrieval/embedding-cosine-rerank.ts",
       "anchor": "this.embeddings.embed(query, accounting)",
       "trustedRunReferencePropagationImplemented": true,
-      "acceptance": "Existing RerankPort trusted run reference reaches LangChain private transport; mocked service HTTP units, not deployed vendor/PG. Deployed input-only embedding acceptance remains missing. Input-only private admission/SDK batch units pass; no live binding or complete-input proof. Same-body logical-call identity remains conservative and requires producer semantics."
+      "acceptance": "Existing RerankPort trusted run reference reaches LangChain private transport; mocked service HTTP units, not deployed vendor/PG. Deployed input-only embedding acceptance remains missing. Input-only private admission/SDK batch units pass; no live binding or complete-input proof. Distinct identical-body HTTP batches use independent physical UUIDs; callback replay rejects dispatch. Cross-worker business semantic dedup remains unimplemented."
     },
     {
       "id": "cosine-candidate-embedding",
       "source": "apps/api/src/infrastructure/retrieval/embedding-cosine-rerank.ts",
       "anchor": "this.embeddings.embed(c.content, accounting)",
       "trustedRunReferencePropagationImplemented": true,
-      "acceptance": "Existing RerankPort trusted run reference reaches LangChain private transport; mocked service HTTP units, not deployed vendor/PG. Deployed input-only embedding acceptance remains missing. Input-only private admission/SDK batch units pass; no live binding or complete-input proof. Same-body logical-call identity remains conservative and requires producer semantics."
+      "acceptance": "Existing RerankPort trusted run reference reaches LangChain private transport; mocked service HTTP units, not deployed vendor/PG. Deployed input-only embedding acceptance remains missing. Input-only private admission/SDK batch units pass; no live binding or complete-input proof. Distinct identical-body HTTP batches use independent physical UUIDs; callback replay rejects dispatch. Cross-worker business semantic dedup remains unimplemented."
     },
     {
       "id": "service-warmup-embedding",
@@ -113,7 +113,7 @@
       "id": "external-research-graph",
       "source": "apps/api/src/infrastructure/agent-run/deep-research-model-provider.ts",
       "actualVendorDispatchPointCount": null,
-      "remaining": "Remote LangGraph envelope is not the actual provider dispatch; underlying graph call inventory/ownership/hooks still missing."
+      "remaining": "Remote LangGraph envelope is not the actual provider dispatch; underlying graph call inventory/ownership/hooks still missing. Opt-in quota mode now refuses this direct adapter before graph thread creation; refusal is not accounting coverage."
     }
   ],
   "counts": {

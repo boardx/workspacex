@@ -3,7 +3,8 @@ import {ArtifactEmbeddingOwnershipDenied} from '../../src/application/retrieval/
 import {execFile} from 'node:child_process';
 import {promisify} from 'node:util';
 import {fileURLToPath} from 'node:url';
-import {randomUUID} from 'node:crypto';
+import {randomUUID,createHash} from 'node:crypto';
+import {VerifiedInputOnlyBoundRegistry} from '../../src/application/agent-run/verified-input-only-bound-registry';
 import {mkdtemp,rm,writeFile} from 'node:fs/promises';
 import {join} from 'node:path';
 import {tmpdir} from 'node:os';
@@ -190,4 +191,53 @@ it('valid foreign artifact operation cannot acknowledge a globally colliding hid
   expect((await asApp(foreign,c=>c.query('SELECT id FROM model_request_starts WHERE id=$1',[request.requestId]))).rows).toEqual([]);
   expect((await asApp(org,c=>c.query('SELECT user_id,artifact_operation_id FROM model_request_starts WHERE id=$1',[request.requestId]))).rows).toEqual([{user_id:'publisher',artifact_operation_id:original.operationId}]);
  }finally{try{await resetOrgs(foreign);}finally{vi.unstubAllEnvs();}}
+});
+
+it('real input-only artifact admission serializes per-user budgets and keeps unknown holds and immutable prices',async()=>{
+ const quotaOrg=toOrgId('input-only-artifact-'+randomUUID()),quotaProject='project-'+quotaOrg;
+ vi.stubEnv('KERNEL_RETRIEVAL_REQUEST_ACCOUNTING_ENABLED','1');vi.stubEnv('KERNEL_AI_PRODUCT_QUOTA_ENABLED','1');
+ try{
+  await seedOrg({orgId:quotaOrg,projectId:quotaProject});await addOrgMember(quotaOrg,'quota-publisher','consultant',null);await addProjectMember(quotaOrg,quotaProject,'quota-publisher','member',null);
+  const uploaded=await uploadArtifact({store:objects,repo:artifacts,ids,quarantine:new PgQuarantineRepository(db),alerts:{raise:async()=>{}}},{orgId:quotaOrg,projectId:quotaProject,agendaSegmentId:null,confidential:false,actorId:'quota-publisher',files:[{filename:'quota.txt',bytes:Buffer.from('INPUTONLY real source')}]});
+  const file=uploaded.files[0]!;if(file.status!=='accepted')throw new Error('quota upload rejected');
+  const {replayIngestionRun}=await import('../../src/application/files/ingestion-worker');
+  for(let i=0;i<7;i++){const tick=await replayIngestionRun({outbox,artifacts,store:objects,ids,indexer},quotaOrg,file.versionId,'input-only-worker');if(!tick.claimed)break;}
+  expect(await outbox.findByVersion(quotaOrg,file.versionId)).toBeNull();
+  const window={start:new Date(Date.now()-60000).toISOString(),end:new Date(Date.now()+3600000).toISOString(),timezone:'Etc/UTC'};
+  const configuration={window,ordinaryTokensPerUser:'2',costMicrosPerUser:'4',currency:'CNY',prices:[{billingMode:'input-only' as const,modelId:'fixture-formal',modelProvider:'fixture-route',runtimeModelId:'fixture-embed',inputMicrosPerMillion:'1000000',cachedInputMicrosPerMillion:'1000000',maxInputTokens:10}],fallbackModelIds:[],maxAttempts:1};
+  const priceVersion='input-price-'+randomUUID();
+  await asApp(quotaOrg,async c=>{
+   await c.query("INSERT INTO organization_plans(org_id,plan,version,updated_by) VALUES($1,'ordinary',1,$2)",[quotaOrg,'quota-publisher']);
+   await c.query('INSERT INTO organization_ai_policy_changes(id,org_id,version,configuration,price_version,actor_id,reason) VALUES($1,$2,1,$3::jsonb,$4,$5,$6)',[randomUUID(),quotaOrg,JSON.stringify(configuration),priceVersion,'quota-publisher','isolated input-only acceptance fixture']);
+   await c.query('INSERT INTO organization_ai_policies(org_id,version,configuration,price_version,updated_by) VALUES($1,1,$2::jsonb,$3,$4)',[quotaOrg,JSON.stringify(configuration),priceVersion,'quota-publisher']);
+  });
+  const registry=new VerifiedInputOnlyBoundRegistry([{binding:{billingMode:'input-only',modelId:'fixture-formal',modelProvider:'fixture-route',runtimeModelId:'fixture-embed',contextWindow:100,capabilityTags:['embedding'],noBilledOutputVerified:true,accountingComplete:true},requestPath:'/v1/embeddings',implementation:'test-measurer',version:'1',artifactSha256:'a'.repeat(64),source:'verified-upper-bound',verifyDeploymentBinding:async()=>true,measureSerializedBody:async()=>2}]);
+  const pool={listForOrg:async()=>[{row:{modelId:'fixture-formal',kind:'closed-api',shape:'single',status:'已启用',complianceAttrs:[],members:[],contextWindow:100,capabilityTags:['embedding']}}]};
+  const accounting=new PgArtifactEmbeddingAccounting(db,{provider:'fixture-route',primaryModelId:id=>registry.formalModelId('fixture-route',id),dependencies:()=>({currentCandidates:()=>registry.currentCandidates(pool as never,String(quotaOrg)),measure:request=>registry.measure(request)})});
+  const batch=await indexSource.load({orgId:quotaOrg,artifactVersionId:file.versionId});
+  const first=await accounting.open({orgId:quotaOrg,artifactVersionId:file.versionId},batch),second=await accounting.open({orgId:quotaOrg,artifactVersionId:file.versionId},batch);
+  const serializedBody=JSON.stringify({model:'fixture-embed',input:[[23,45]]}),requestPath='/v1/embeddings';
+  const request=(operationId:string)=>{const requestId=randomUUID();return {billingMode:'input-only' as const,requestId,modelId:'fixture-embed',startedAt:new Date().toISOString(),serializedBody,requestPath,logicalCallId:JSON.stringify([operationId,'retrieval-embedding',requestId,createHash('sha256').update(serializedBody).digest('hex'),requestPath])};};
+  const a=request(first.operationId),b=request(second.operationId),results=await Promise.allSettled([accounting.admit(quotaOrg,first.operationId,a),accounting.admit(quotaOrg,second.operationId,b)]);
+  expect(results.filter(r=>r.status==='fulfilled')).toHaveLength(1);expect(results.filter(r=>r.status==='rejected')).toHaveLength(1);
+  const winner=results[0]!.status==='fulfilled'?{ref:first,request:a}:{ref:second,request:b};
+  const starts=await asApp(quotaOrg,c=>c.query('SELECT id,user_id,run_id,execution_attempt_id FROM model_request_starts WHERE org_id=$1',[quotaOrg]));expect(starts.rows).toEqual([{id:winner.request.requestId,user_id:'quota-publisher',run_id:null,execution_attempt_id:null}]);
+  await accounting.terminal(quotaOrg,winner.ref.operationId,{requestId:winner.request.requestId,endedAt:new Date().toISOString(),outcome:'failed',usage:{}});
+  const third=await accounting.open({orgId:quotaOrg,artifactVersionId:file.versionId},batch);await expect(accounting.admit(quotaOrg,third.operationId,request(third.operationId))).rejects.toThrow();
+  expect((await asApp(quotaOrg,c=>c.query('SELECT state FROM ai_request_reservations WHERE id=$1',[winner.request.requestId]))).rows).toEqual([{state:'held'}]);
+  // Entitlement exemption does not rewrite the user's original finite cost window.
+  await asApp(quotaOrg,c=>c.query("UPDATE organization_plans SET plan='enterprise' WHERE org_id=$1",[quotaOrg]));
+  const enterprise=await accounting.open({orgId:quotaOrg,artifactVersionId:file.versionId},batch),paid=request(enterprise.operationId);await accounting.admit(quotaOrg,enterprise.operationId,paid);
+  const excess=await accounting.open({orgId:quotaOrg,artifactVersionId:file.versionId},batch),denied=request(excess.operationId);await expect(accounting.admit(quotaOrg,excess.operationId,denied)).rejects.toThrow('COST_LIMIT_REACHED');
+  expect((await asApp(quotaOrg,c=>c.query('SELECT id FROM model_request_starts WHERE id=$1',[denied.requestId]))).rows).toEqual([]);
+  expect((await asApp(quotaOrg,c=>c.query('SELECT id FROM ai_request_reservations WHERE id=$1',[denied.requestId]))).rows).toEqual([]);
+  expect((await asApp(quotaOrg,c=>c.query('SELECT token_limit,cost_limit_micros FROM ai_budget_windows WHERE org_id=$1',[quotaOrg]))).rows).toEqual([{token_limit:'2',cost_limit_micros:'4'}]);
+  const replacement={...configuration,prices:configuration.prices.map(price=>({...price,inputMicrosPerMillion:'2000000',cachedInputMicrosPerMillion:'2000000'}))};
+  // Adversarial current-row fixture: public audited configuration normally rejects overlapping reset.
+  await asApp(quotaOrg,c=>c.query('UPDATE organization_ai_policies SET configuration=$2::jsonb WHERE org_id=$1',[quotaOrg,JSON.stringify(replacement)]));
+  await accounting.terminal(quotaOrg,enterprise.operationId,{requestId:paid.requestId,endedAt:new Date().toISOString(),outcome:'succeeded',usage:{prompt:2,total:2}});
+  expect((await asApp(quotaOrg,c=>c.query('SELECT tokens_total,tokens_prompt,tokens_completion,cost_micros,currency,price_version,user_id FROM token_usage_events WHERE id=$1',[paid.requestId]))).rows).toEqual([{tokens_total:'2',tokens_prompt:'2',tokens_completion:null,cost_micros:'2',currency:'CNY',price_version:priceVersion,user_id:'quota-publisher'}]);
+  expect((await asApp(quotaOrg,c=>c.query('SELECT state,settled_tokens,settled_cost_micros FROM ai_request_reservations WHERE id=$1',[paid.requestId]))).rows).toEqual([{state:'settled',settled_tokens:'2',settled_cost_micros:'2'}]);
+  expect((await asApp(org,c=>c.query('SELECT id FROM token_usage_events WHERE id=$1',[paid.requestId]))).rows).toEqual([]);
+ }finally{try{await resetOrgs(quotaOrg);}finally{vi.unstubAllEnvs();}}
 });

@@ -9,6 +9,7 @@ import asyncio
 from contextlib import contextmanager
 from contextvars import ContextVar
 import json
+import fcntl
 import logging
 import os
 import sqlite3
@@ -134,7 +135,17 @@ class Journal:
         if not directory or not root.is_absolute():
             raise RuntimeUsageError("usage_persistent_spool_unconfigured")
         root.mkdir(mode=0o700, parents=True, exist_ok=True)
+        root_info = root.lstat()
+        if not stat.S_ISDIR(root_info.st_mode) or root_info.st_uid != os.getuid() or root_info.st_mode & 0o077:
+            raise RuntimeUsageError("usage_persistent_spool_permissions_invalid")
         self.path = root / "model-usage.sqlite3"
+        spool_fd = os.open(self.path, os.O_RDWR | os.O_CREAT | getattr(os, "O_NOFOLLOW", 0) | os.O_NONBLOCK, 0o600)
+        try:
+            spool_info = os.fstat(spool_fd)
+            if not stat.S_ISREG(spool_info.st_mode) or spool_info.st_uid != os.getuid() or spool_info.st_mode & 0o077:
+                raise RuntimeUsageError("usage_persistent_spool_permissions_invalid")
+        finally:
+            os.close(spool_fd)
         self.fault_path = root / "receipt-durability-fault"
         with self.connect() as db:
             db.execute("CREATE TABLE IF NOT EXISTS pending(id TEXT PRIMARY KEY, receiver TEXT NOT NULL, run_id TEXT NOT NULL, payload TEXT NOT NULL, last_attempt_order INTEGER NOT NULL DEFAULT 0)")
@@ -142,6 +153,10 @@ class Journal:
                 db.execute("ALTER TABLE pending ADD COLUMN last_attempt_order INTEGER NOT NULL DEFAULT 0")
             if "subject_kind" not in {row[1] for row in db.execute("PRAGMA table_info(pending)")}:
                 db.execute("ALTER TABLE pending ADD COLUMN subject_kind TEXT NOT NULL DEFAULT 'agent-run'")
+            db.execute("CREATE TABLE IF NOT EXISTS inflight(id TEXT PRIMARY KEY, receiver TEXT NOT NULL, subject_id TEXT NOT NULL, subject_kind TEXT NOT NULL, start TEXT NOT NULL, last_attempt_order INTEGER NOT NULL DEFAULT 0)")
+            if "last_attempt_order" not in {row[1] for row in db.execute("PRAGMA table_info(inflight)")}:
+                db.execute("ALTER TABLE inflight ADD COLUMN last_attempt_order INTEGER NOT NULL DEFAULT 0")
+            db.execute("CREATE TABLE IF NOT EXISTS lock_candidates(id TEXT PRIMARY KEY, last_attempt_order INTEGER NOT NULL DEFAULT 0)")
         self.path.chmod(0o600)
 
     def persist_fault(self):
@@ -194,6 +209,112 @@ class Journal:
             if old and old != (receiver, subject_id(owner), payload, owner.get("subject_kind") or "agent-run"):
                 raise RuntimeUsageError("usage_receipt_replay_mismatch")
             db.execute("INSERT OR IGNORE INTO pending(id,receiver,run_id,payload,subject_kind) VALUES(?,?,?,?,?)", (body["requestId"], receiver, subject_id(owner), payload, owner.get("subject_kind") or "agent-run"))
+            db.execute("DELETE FROM inflight WHERE id=? AND receiver=?", (body["requestId"], receiver))
+
+    def request_lock(self, request_id):
+        # Every opener checks the locked inode against the current path, so a
+        # concurrent GC unlink before flock cannot authorize a detached inode.
+        # Candidates permit bounded metadata-only reclamation, never a TTL decision.
+        if str(uuid.UUID(request_id)) != request_id:
+            raise RuntimeUsageError("usage_request_identity_invalid")
+        path = self.path.parent / ("inflight-" + request_id + ".lock")
+        with self.connect() as db:
+            db.execute("INSERT OR IGNORE INTO lock_candidates(id) VALUES(?)", (request_id,))
+        fd = os.open(path, os.O_RDWR | os.O_CREAT | os.O_NONBLOCK | getattr(os, "O_NOFOLLOW", 0), 0o600)
+        try:
+            info = os.fstat(fd)
+            if not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid() or info.st_mode & 0o077:
+                raise RuntimeUsageError("usage_inflight_lock_invalid")
+            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            current = path.lstat()
+            if not stat.S_ISREG(current.st_mode) or (info.st_dev, info.st_ino) != (current.st_dev, current.st_ino):
+                raise RuntimeUsageError("usage_inflight_lock_inode_changed")
+            # GC may have removed the candidate before this open. Re-register while
+            # holding the verified current inode so its next scan cannot unlink it.
+            with self.connect() as db:
+                db.execute("INSERT OR IGNORE INTO lock_candidates(id) VALUES(?)", (request_id,))
+            os.fsync(fd)
+            directory = os.open(self.path.parent, os.O_RDONLY)
+            try:
+                os.fsync(directory)
+            finally:
+                os.close(directory)
+            return fd
+        except BaseException:
+            os.close(fd)
+            raise
+
+    def begin(self, owner, start):
+        fd = self.request_lock(start["requestId"])
+        try:
+            # Explicit projection: no request body, callback address/key or model content.
+            metadata = {k:start[k] for k in ("orgId", "requestId", "attemptId", "leaseEpoch", "startedAt") if k in start}
+            with self.connect() as db:
+                db.execute("INSERT INTO inflight(id,receiver,subject_id,subject_kind,start) VALUES(?,?,?,?,?)",
+                           (start["requestId"], sha256(owner["base_url"].encode()).hexdigest(), subject_id(owner), owner.get("subject_kind") or "agent-run", json.dumps(metadata, separators=(",", ":"))))
+            return fd
+        except BaseException:
+            os.close(fd)
+            raise
+
+    def recover_inflight(self, owner):
+        receiver = sha256(owner["base_url"].encode()).hexdigest()
+        with self.connect() as db:
+            rows = db.execute("SELECT id FROM inflight WHERE receiver=? ORDER BY last_attempt_order,rowid LIMIT 20", (receiver,)).fetchall()
+        for (request_id,) in rows:
+            with self.connect() as db:
+                db.execute("UPDATE inflight SET last_attempt_order=(SELECT COALESCE(MAX(last_attempt_order),0)+1 FROM inflight) WHERE id=?", (request_id,))
+            try:
+                fd = self.request_lock(request_id)
+            except BlockingIOError:
+                continue  # Live stream owns the inode; no age/TTL inference.
+            try:
+                with self.connect() as db:
+                    row = db.execute("SELECT subject_id,subject_kind,start FROM inflight WHERE id=? AND receiver=?", (request_id, receiver)).fetchone()
+                    if not row:
+                        continue
+                    start = json.loads(row[2])
+                    body = {k:start[k] for k in ("orgId", "requestId", "attemptId", "leaseEpoch") if k in start}
+                    body.update(endedAt=now(), outcome="failed", usage={})
+                    # An actual durable terminal always wins, even after a crash.
+                    db.execute("INSERT OR IGNORE INTO pending(id,receiver,run_id,payload,subject_kind) VALUES(?,?,?,?,?)", (request_id, receiver, row[0], json.dumps(body, separators=(",", ":")), row[1]))
+                    db.execute("DELETE FROM inflight WHERE id=? AND receiver=?", (request_id, receiver))
+            finally:
+                os.close(fd)
+
+    def collect_locks(self):
+        # Bounded durable rotation: active locks cannot starve later completed ones.
+        with self.connect() as db:
+            candidates = db.execute("SELECT id FROM lock_candidates ORDER BY last_attempt_order,rowid LIMIT 20").fetchall()
+        removed = 0
+        for (request_id,) in candidates:
+            with self.connect() as db:
+                db.execute("UPDATE lock_candidates SET last_attempt_order=(SELECT COALESCE(MAX(last_attempt_order),0)+1 FROM lock_candidates) WHERE id=?", (request_id,))
+            try:
+                fd = self.request_lock(request_id)
+            except (BlockingIOError, FileNotFoundError):
+                continue
+            try:
+                with self.connect() as db:
+                    # Take SQLite's writer lock before both rechecks and unlink.
+                    db.execute("UPDATE lock_candidates SET last_attempt_order=last_attempt_order WHERE id=?", (request_id,))
+                    if db.execute("SELECT 1 FROM inflight WHERE id=? UNION ALL SELECT 1 FROM pending WHERE id=?", (request_id, request_id)).fetchone():
+                        continue
+                    path = self.path.parent / ("inflight-" + request_id + ".lock")
+                    current, locked = path.lstat(), os.fstat(fd)
+                    if not stat.S_ISREG(current.st_mode) or (current.st_dev, current.st_ino) != (locked.st_dev, locked.st_ino):
+                        raise RuntimeUsageError("usage_inflight_lock_inode_changed")
+                    path.unlink()
+                    directory = os.open(self.path.parent, os.O_RDONLY)
+                    try:
+                        os.fsync(directory)
+                    finally:
+                        os.close(directory)
+                    db.execute("DELETE FROM lock_candidates WHERE id=?", (request_id,))
+                    removed += 1
+            finally:
+                os.close(fd)
+        return removed
 
     def pending(self, owner: dict):
         with self.connect() as db:
@@ -327,7 +448,7 @@ def admission_payload(request, owner, start):
         except Exception:
             raise RuntimeUsageError("admission_input_only_binding_unverified") from None
         digest = sha256(request.content).hexdigest()
-        logical = json.dumps([subject_id(owner), "retrieval-embedding", digest, request.url.path], separators=(",", ":"))
+        logical = json.dumps([subject_id(owner), "retrieval-embedding", start["requestId"], digest, request.url.path], separators=(",", ":"))
         return start | {"billingMode":"input-only", "requestPath":request.url.path, "logicalCallId":logical, "serializedBody":serialized}
     if owner.get("subject_kind") == "artifact-index":
         raise RuntimeUsageError("artifact_embedding_admission_unimplemented")
@@ -351,9 +472,10 @@ def terminal(start: dict, parser: UsageParser, success: bool):
 
 
 class AccountedSyncStream(httpx.SyncByteStream):
-    def __init__(self, stream, owner, journal, start, content_type, success):
+    def __init__(self, stream, owner, journal, start, content_type, success, intent_lock=None):
         self.stream,self.owner,self.journal,self.start = stream,owner,journal,start
         self.parser = UsageParser(content_type); self.success = success; self.done = False
+        self.intent_lock = intent_lock
 
     def finish(self, success):
         if self.done:
@@ -374,6 +496,13 @@ class AccountedSyncStream(httpx.SyncByteStream):
             pass  # persisted when possible; original start remains visible otherwise
         except Exception:
             mark_durability_fault(self.journal)
+        finally:
+            if self.intent_lock is not None:
+                os.close(self.intent_lock); self.intent_lock = None
+            try:
+                self.journal.collect_locks()
+            except Exception:
+                _logger.warning("usage_receipt_lock_cleanup_unavailable")
 
     def __iter__(self):
         try:
@@ -391,9 +520,10 @@ class AccountedSyncStream(httpx.SyncByteStream):
 
 
 class AccountedAsyncStream(httpx.AsyncByteStream):
-    def __init__(self, stream, owner, journal, start, content_type, success):
+    def __init__(self, stream, owner, journal, start, content_type, success, intent_lock=None):
         self.stream,self.owner,self.journal,self.start = stream,owner,journal,start
         self.parser = UsageParser(content_type); self.success = success; self.done = False
+        self.intent_lock = intent_lock
 
     async def finish(self, success):
         if self.done:
@@ -414,6 +544,13 @@ class AccountedAsyncStream(httpx.AsyncByteStream):
             pass
         except Exception:
             mark_durability_fault(self.journal)
+        finally:
+            if self.intent_lock is not None:
+                os.close(self.intent_lock); self.intent_lock = None
+            try:
+                self.journal.collect_locks()
+            except Exception:
+                _logger.warning("usage_receipt_lock_cleanup_unavailable")
 
     async def __aiter__(self):
         try:
@@ -463,12 +600,13 @@ class AccountingTransport(httpx.BaseTransport):
             post(owner,subject_id(owner),"admit",admission_payload(request,owner,start))
         else:
             post(owner,subject_id(owner),"start",start)
+        intent_lock = journal.begin(owner,start)
         try:
             response = self.inner.handle_request(request)
         except BaseException:
-            stream = AccountedSyncStream(httpx.ByteStream(b""),owner,journal,start,"application/json",False)
+            stream = AccountedSyncStream(httpx.ByteStream(b""),owner,journal,start,"application/json",False,intent_lock)
             stream.finish(False); raise
-        response.stream = AccountedSyncStream(response.stream,owner,journal,start,response.headers.get("content-type", ""),response.is_success)
+        response.stream = AccountedSyncStream(response.stream,owner,journal,start,response.headers.get("content-type", ""),response.is_success,intent_lock)
         return response
 
     def close(self):
@@ -501,12 +639,13 @@ class AsyncAccountingTransport(httpx.AsyncBaseTransport):
             await apost(owner,subject_id(owner),"admit",admission_payload(request,owner,start))
         else:
             await apost(owner,subject_id(owner),"start",start)
+        intent_lock = journal.begin(owner,start)
         try:
             response = await self.inner.handle_async_request(request)
         except BaseException:
-            stream = AccountedAsyncStream(response_stream_empty(),owner,journal,start,"application/json",False)
+            stream = AccountedAsyncStream(response_stream_empty(),owner,journal,start,"application/json",False,intent_lock)
             await stream.finish(False); raise
-        response.stream = AccountedAsyncStream(response.stream,owner,journal,start,response.headers.get("content-type", ""),response.is_success)
+        response.stream = AccountedAsyncStream(response.stream,owner,journal,start,response.headers.get("content-type", ""),response.is_success,intent_lock)
         return response
 
     async def aclose(self):
@@ -551,6 +690,7 @@ def idle_replay_configuration():
 async def replay_pending_batch(owner, journal):
     """At most 20 metadata callbacks; never constructs/calls a model transport."""
     delivered = 0
+    await asyncio.to_thread(journal.recover_inflight, owner)
     for request_id, run_id, payload, kind in await asyncio.to_thread(journal.pending, owner):
         try:
             await asyncio.to_thread(journal.defer, request_id)
@@ -563,6 +703,7 @@ async def replay_pending_batch(owner, journal):
             # No raw exception, key, endpoint or receipt body reaches logs.
             _logger.warning("usage_idle_receipt_delivery_unconfirmed")
             continue
+    await asyncio.to_thread(journal.collect_locks)
     return delivered
 
 

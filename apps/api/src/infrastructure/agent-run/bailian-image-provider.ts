@@ -105,6 +105,7 @@ export class BailianImageProvider implements ModelCallPort {
 
   /** Structured result for the standard image tool; persistence remains the existing artifact path. */
   async generateImage(prompt: string, callerSignal?: AbortSignal): Promise<GeneratedImage> {
+    if(process.env.KERNEL_AI_PRODUCT_QUOTA_ENABLED==='1')throw new ModelCallError('MODEL_PROVIDER_NOT_CONFIGURED','AI_NATIVE_DISPATCH_ADMISSION_UNSUPPORTED');
     const {apiKey,modelId,baseUrl}=this.config;
     if (!apiKey) throw new ModelCallError("MODEL_PROVIDER_NOT_CONFIGURED", "image provider is not configured");
     if (!prompt.trim() || prompt.length > 16_384) throw new ModelCallError("MODEL_CALL_FAILED", "image prompt is invalid");

@@ -236,7 +236,7 @@
       ],
       "remaining": [
         "Trusted infrastructure spend owner for service warmup remains unconnected. KG, artifact indexing and cosine references are source-connected; real PG composition remains pending.",
-        "Stable trusted producer logical-call identity for distinct same-body calls/retries remains missing; current input-only admission fails closed on a reused slot. Complete-input binding producer and real deployment measurer/registrations remain missing.",
+        "Cross-worker business-level semantic dedup/retry authority and complete-input binding producer remain missing. Input-only max_retries=0 uses distinct actual HTTP request UUIDs/body/path and physical replay denies dispatch; real deployment body measurer/registrations are missing.",
         "Explicit finite spend policy and ordinary per-user amount/window/timezone; no defaults enabled.",
         "Verified exact physical model registration, input/output bounds and pricing unit/rate.",
         "Isolated PostgreSQL/tenant integration for the new batch.",
@@ -244,7 +244,7 @@
       ],
       "sourceMissing": [
         "Trusted infrastructure spend owner for service warmup remains unconnected. KG, artifact indexing and cosine references are source-connected; real PG composition remains pending.",
-        "Stable trusted producer logical-call identity for distinct same-body calls/retries remains missing; current input-only admission fails closed on a reused slot. Complete-input binding producer and real deployment measurer/registrations remain missing."
+        "Cross-worker business-level semantic dedup/retry authority and complete-input binding producer remain missing. Input-only max_retries=0 uses distinct actual HTTP request UUIDs/body/path and physical replay denies dispatch; real deployment body measurer/registrations are missing."
       ],
       "configurationMissing": [
         "Explicit finite spend policy and ordinary per-user amount/window/timezone; no defaults enabled.",
@@ -338,12 +338,12 @@
         "apps/deep-agent-service/tests/test_model_request_accounting.py"
       ],
       "remaining": [
-        "Pre-durable-save crash gap, already-admitted concurrent calls and restart persistence under complete storage failure. A separately fsynced fault marker now closes new dispatch after restart when storage commits it; callback repair remains available.",
+        "ACK-to-intent crash leaves an undispatched unmatched start; already-passed concurrent checks and complete storage failure remain open. Pre-vendor metadata intent/flock and bounded lock GC are source-implemented; actual production filesystem acceptance and legacy unregistered lock cleanup remain open.",
         "Isolated PostgreSQL/tenant integration for the new batch.",
         "Actual deployed provider/cancellation/retry evidence for this family."
       ],
       "sourceMissing": [
-        "Pre-durable-save crash gap, already-admitted concurrent calls and restart persistence under complete storage failure. A separately fsynced fault marker now closes new dispatch after restart when storage commits it; callback repair remains available."
+        "ACK-to-intent crash leaves an undispatched unmatched start; already-passed concurrent checks and complete storage failure remain open. Pre-vendor metadata intent/flock and bounded lock GC are source-implemented; actual production filesystem acceptance and legacy unregistered lock cleanup remain open."
       ],
       "configurationMissing": [],
       "acceptanceMissing": [

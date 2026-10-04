@@ -428,3 +428,212 @@ def test_marker_storage_failure_is_bounded_and_keeps_current_process_closed(cont
     assert "usage_receipt_fault_marker_unconfirmed" in caplog.text
     assert "secret-do-not-log" not in caplog.text
     assert not journal.fault_path.exists() # no unsupported restart-persistence claim
+
+def inflight_start():
+    import uuid
+    return {'orgId':'org-A','attemptId':'run-A:1','leaseEpoch':3,'requestId':str(uuid.uuid4()),'startedAt':a.now()}
+
+def test_inflight_active_lock_unknown_recovery_and_receiver_isolation(context):
+    calls,path=context;journal=a.Journal(str(path));start=inflight_start()
+    fd=journal.begin(OWNER,start)
+    try:
+        journal.recover_inflight(OWNER)
+        assert journal.pending(OWNER)==[]
+    finally:
+        a.os.close(fd)
+    journal.recover_inflight(OWNER|{'base_url':'http://foreign.example.test'})
+    assert journal.pending(OWNER)==[]
+    journal.recover_inflight(OWNER)
+    rows=journal.pending(OWNER);assert len(rows)==1
+    body=json.loads(rows[0][2]);assert body['usage']=={} and body['outcome']=='failed'
+    assert body['attemptId']==start['attemptId'] and body['leaseEpoch']==3
+    assert OWNER['key'] not in rows[0][2] and OWNER['base_url'] not in rows[0][2]
+    journal.recover_inflight(OWNER);assert journal.pending(OWNER)==rows
+
+def test_inflight_actual_terminal_wins_and_intent_contains_only_metadata(context):
+    calls,path=context;journal=a.Journal(str(path));start=inflight_start()|{'serializedBody':'private-prompt','key':'private-key','modelId':'private-model'}
+    fd=journal.begin(OWNER,start)
+    with journal.connect() as db:
+        value=db.execute('SELECT start FROM inflight').fetchone()[0]
+    assert 'private-' not in value and 'http' not in value
+    body={k:start[k] for k in ('orgId','requestId','attemptId','leaseEpoch')}|{'endedAt':a.now(),'outcome':'succeeded','usage':{'total':3,'prompt':2,'completion':1}}
+    journal.save(OWNER,body);a.os.close(fd);journal.recover_inflight(OWNER)
+    assert json.loads(journal.pending(OWNER)[0][2])==body
+    with journal.connect() as db:assert db.execute('SELECT count(*) FROM inflight').fetchone()[0]==0
+
+def test_inflight_persistence_failure_prevents_vendor_dispatch(context,monkeypatch):
+    calls,path=context;paid=[]
+    monkeypatch.setattr(a.Journal,'begin',lambda *args:(_ for _ in ()).throw(OSError('disk unavailable')))
+    with httpx.Client(transport=a.AccountingTransport(httpx.MockTransport(lambda req:paid.append(req)))) as client:
+        with pytest.raises(OSError):client.send(request())
+    assert paid==[] and [c[1] for c in calls]==['start']
+
+def test_inflight_real_process_exit_releases_lock_and_repairs_without_vendor(context):
+    import subprocess,sys,os
+    calls,path=context;start=inflight_start()
+    script='''import json,os,sys\nfrom deep_agent_service.model_request_accounting import Journal\nj=Journal(sys.argv[1]);j.begin(json.loads(sys.argv[2]),json.loads(sys.argv[3]));os._exit(17)'''
+    result=subprocess.run([sys.executable,'-c',script,str(path),json.dumps(OWNER),json.dumps(start)],env=os.environ.copy(),timeout=10)
+    assert result.returncode==17
+    journal=a.Journal(str(path));journal.recover_inflight(OWNER)
+    body=json.loads(journal.pending(OWNER)[0][2]);assert body['requestId']==start['requestId'] and body['usage']=={}
+    assert calls==[]
+
+def test_inflight_symlink_lock_fails_without_following(context):
+    calls,path=context;start=inflight_start();target=path/'target';target.write_text('untouched')
+    (path/('inflight-'+start['requestId']+'.lock')).symlink_to(target)
+    with pytest.raises(OSError):a.Journal(str(path)).begin(OWNER,start)
+    assert target.read_text()=='untouched'
+
+def test_inflight_twenty_active_intents_do_not_starve_abandoned_after_restart(context):
+    calls,path=context;journal=a.Journal(str(path));locks=[journal.begin(OWNER,inflight_start()) for _ in range(20)]
+    abandoned=inflight_start();fd=journal.begin(OWNER,abandoned);a.os.close(fd)
+    try:
+        journal.recover_inflight(OWNER);assert journal.pending(OWNER)==[]
+        a.Journal(str(path)).recover_inflight(OWNER)
+        assert json.loads(journal.pending(OWNER)[0][2])['requestId']==abandoned['requestId']
+    finally:
+        for fd in locks:a.os.close(fd)
+
+def test_async_inflight_persistence_failure_zero_vendor(context,monkeypatch):
+    calls,path=context;paid=[]
+    async def callback(owner,run,phase,body):calls.append((run,phase,body))
+    async def vendor(req):paid.append(req);return response(b'{}')
+    monkeypatch.setattr(a,'apost',callback)
+    monkeypatch.setattr(a.Journal,'begin',lambda *args:(_ for _ in ()).throw(OSError('unavailable')))
+    async def run():
+        async with httpx.AsyncClient(transport=a.AsyncAccountingTransport(httpx.MockTransport(vendor))) as client:
+            with pytest.raises(OSError):await client.send(request())
+    asyncio.run(run());assert paid==[] and [c[1] for c in calls]==['start']
+
+def test_inflight_idle_replays_unknown_metadata_without_vendor(context,monkeypatch):
+    calls,path=context;journal=a.Journal(str(path));start=inflight_start();fd=journal.begin(OWNER,start);a.os.close(fd)
+    async def callback(owner,run,phase,body):calls.append((run,phase,dict(body)))
+    monkeypatch.setattr(a,'apost',callback)
+    assert asyncio.run(a.replay_pending_batch(OWNER,journal))==1
+    assert calls==[('run-A','terminal',{'orgId':'org-A','requestId':start['requestId'],'attemptId':'run-A:1','leaseEpoch':3,'endedAt':calls[0][2]['endedAt'],'outcome':'failed','usage':{}})]
+    assert journal.pending(OWNER)==[]
+
+def test_inflight_async_dispatch_cancel_durably_clears_intent(context,monkeypatch):
+    calls,path=context
+    async def callback(owner,run,phase,body):calls.append((run,phase,dict(body)))
+    async def vendor(req):raise asyncio.CancelledError()
+    monkeypatch.setattr(a,'apost',callback)
+    async def run():
+        async with httpx.AsyncClient(transport=a.AsyncAccountingTransport(httpx.MockTransport(vendor))) as client:
+            with pytest.raises(asyncio.CancelledError):await client.send(request())
+    asyncio.run(run())
+    assert [c[1] for c in calls]==['start','terminal'] and calls[-1][2]['usage']=={}
+    journal=a.Journal(str(path))
+    with journal.connect() as db:assert db.execute('SELECT count(*) FROM inflight').fetchone()[0]==0
+    journal.recover_inflight(OWNER);assert journal.pending(OWNER)==[]
+
+def test_inflight_spool_symlink_and_permissive_directory_rejected(context):
+    calls,path=context;directory=path/'insecure';directory.mkdir(mode=0o755)
+    with pytest.raises(a.RuntimeUsageError):a.Journal(str(directory))
+    safe=path/'safe';safe.mkdir(mode=0o700);target=path/'secret';target.write_text('untouched');(safe/'model-usage.sqlite3').symlink_to(target)
+    with pytest.raises(OSError):a.Journal(str(safe))
+    assert target.read_text()=='untouched'
+
+def test_inflight_save_failure_keeps_lock_through_original_callback(context,monkeypatch):
+    calls,path=context;journal=a.Journal(str(path));start=inflight_start();fd=journal.begin(OWNER,start)
+    def fail(*args):raise OSError('save unavailable')
+    def callback(owner,run,phase,body):
+        journal.recover_inflight(owner)
+        assert journal.pending(owner)==[]  # Unknown repair cannot race this live terminal.
+        calls.append((run,phase,body))
+    monkeypatch.setattr(a.Journal,'save',fail);monkeypatch.setattr(a,'post',callback)
+    stream=a.AccountedSyncStream(httpx.ByteStream(b''),OWNER,journal,start,'application/json',True,fd)
+    stream.parser.usage={'total':3,'prompt':2,'completion':1};stream.finish(True)
+    assert calls[-1][2]['usage']=={'total':3,'prompt':2,'completion':1}
+    journal.recover_inflight(OWNER);assert json.loads(journal.pending(OWNER)[0][2])['usage']=={}
+
+def test_gc_real_process_unlink_between_producer_open_and_flock_zero_vendor(context,monkeypatch):
+    import subprocess,sys,os
+    calls,path=context;paid=[];original=a.fcntl.flock;once=False
+    def paused(fd,operation):
+        nonlocal once
+        if not once:
+            once=True
+            code='from deep_agent_service.model_request_accounting import Journal;import sys;assert Journal(sys.argv[1]).collect_locks()==1'
+            child=subprocess.run([sys.executable,'-c',code,str(path)],env=os.environ.copy(),timeout=10)
+            assert child.returncode==0
+        return original(fd,operation)
+    monkeypatch.setattr(a.fcntl,'flock',paused)
+    with httpx.Client(transport=a.AccountingTransport(httpx.MockTransport(lambda req:paid.append(req)))) as client:
+        with pytest.raises(FileNotFoundError):client.send(request())
+    assert once and paid==[] and [c[1] for c in calls]==['start']
+    with a.Journal(str(path)).connect() as db:assert db.execute('SELECT count(*) FROM inflight').fetchone()[0]==0
+
+def test_gc_bounded_rotation_preserves_live_and_pending_then_collects_completed(context):
+    calls,path=context;journal=a.Journal(str(path));starts=[inflight_start() for _ in range(20)];locks=[journal.begin(OWNER,start) for start in starts]
+    completed=inflight_start();fd=journal.request_lock(completed['requestId']);a.os.close(fd)
+    pending=inflight_start();fd=journal.begin(OWNER,pending)
+    body={k:pending[k] for k in ('orgId','requestId','attemptId','leaseEpoch')}|{'endedAt':a.now(),'outcome':'failed','usage':{}}
+    journal.save(OWNER,body);a.os.close(fd)
+    try:
+        assert journal.collect_locks()==0
+        assert a.Journal(str(path)).collect_locks()==1
+        assert not (path/('inflight-'+completed['requestId']+'.lock')).exists()
+        assert (path/('inflight-'+pending['requestId']+'.lock')).exists()
+        journal.recover_inflight(OWNER);assert len(journal.pending(OWNER))==1
+        for start in starts:assert (path/('inflight-'+start['requestId']+'.lock')).exists()
+        journal.acknowledge(pending['requestId']);journal.collect_locks();journal.collect_locks()
+        assert not (path/('inflight-'+pending['requestId']+'.lock')).exists()
+    finally:
+        for fd in locks:a.os.close(fd)
+
+def test_gc_changed_inode_fails_lock_acquisition_without_intent(context,monkeypatch):
+    calls,path=context;journal=a.Journal(str(path));start=inflight_start();original=a.fcntl.flock
+    def replace(fd,operation):
+        original(fd,operation)
+        target=path/('inflight-'+start['requestId']+'.lock');target.unlink();target.touch(mode=0o600)
+    monkeypatch.setattr(a.fcntl,'flock',replace)
+    with pytest.raises(a.RuntimeUsageError,match='inode_changed'):journal.begin(OWNER,start)
+    with journal.connect() as db:assert db.execute('SELECT count(*) FROM inflight').fetchone()[0]==0
+
+@pytest.mark.parametrize('asynchronous',[False,True])
+def test_terminal_ack_collects_locks_without_idle_flag(context,monkeypatch,asynchronous):
+    calls,path=context;monkeypatch.setenv('DEEP_AGENT_USAGE_IDLE_REPLAY_ENABLED','0')
+    data=json.dumps({'usage':{'total_tokens':3,'prompt_tokens':2,'completion_tokens':1}}).encode()
+    async def callback(owner,run,phase,body):calls.append((run,phase,body))
+    async def run():
+        monkeypatch.setattr(a,'apost',callback)
+        async with httpx.AsyncClient(transport=a.AsyncAccountingTransport(httpx.MockTransport(lambda req:response(data)))) as client:
+            result=await client.send(request());assert result.json()['usage']['total_tokens']==3
+    if asynchronous:asyncio.run(run())
+    else:
+        with httpx.Client(transport=a.AccountingTransport(httpx.MockTransport(lambda req:response(data)))) as client:
+            result=client.send(request());assert result.json()['usage']['total_tokens']==3
+    journal=a.Journal(str(path))
+    with journal.connect() as db:
+        for table in ('lock_candidates','inflight','pending'):assert db.execute('SELECT count(*) FROM '+table).fetchone()[0]==0
+    assert list(path.glob('inflight-*.lock'))==[]
+
+def test_terminal_cleanup_failure_preserves_result_and_sanitizes(context,monkeypatch,caplog):
+    calls,path=context
+    monkeypatch.setattr(a.Journal,'collect_locks',lambda self:(_ for _ in ()).throw(OSError('private-cleanup-secret')))
+    with httpx.Client(transport=a.AccountingTransport(httpx.MockTransport(lambda req:response(b'{"result":"preserved"}')))) as client:
+        assert client.send(request()).json()=={'result':'preserved'}
+    assert 'private-cleanup-secret' not in caplog.text and 'usage_receipt_lock_cleanup_unavailable' in caplog.text
+
+@pytest.mark.parametrize('cancel_callback',[False,True])
+def test_async_save_failure_keeps_lock_until_callback_even_when_cancelled(context,monkeypatch,cancel_callback):
+    calls,path=context;journal=a.Journal(str(path));start=inflight_start();fd=journal.begin(OWNER,start)
+    monkeypatch.setattr(a.Journal,'save',lambda *args:(_ for _ in ()).throw(OSError('unavailable')))
+    async def callback(owner,run,phase,body):
+        await asyncio.to_thread(journal.recover_inflight,owner)
+        assert journal.pending(owner)==[]
+        calls.append((run,phase,body))
+        if cancel_callback:raise asyncio.CancelledError()
+    monkeypatch.setattr(a,'apost',callback)
+    async def run():
+        stream=a.AccountedAsyncStream(a.response_stream_empty(),OWNER,journal,start,'application/json',True,fd)
+        stream.parser.usage={'total':3,'prompt':2,'completion':1}
+        if cancel_callback:
+            with pytest.raises(asyncio.CancelledError):await stream.finish(True)
+        else:await stream.finish(True)
+        assert stream.intent_lock is None
+        await asyncio.to_thread(journal.recover_inflight,OWNER)
+    asyncio.run(run())
+    assert calls[-1][2]['usage']=={'total':3,'prompt':2,'completion':1}
+    assert json.loads(journal.pending(OWNER)[0][2])['usage']=={}

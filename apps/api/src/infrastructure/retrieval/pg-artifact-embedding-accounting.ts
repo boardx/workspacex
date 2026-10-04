@@ -49,7 +49,7 @@ export class PgArtifactEmbeddingAccounting implements ArtifactEmbeddingAccountin
   if(process.env.KERNEL_RETRIEVAL_REQUEST_ACCOUNTING_ENABLED!=='1'||process.env.KERNEL_AI_PRODUCT_QUOTA_ENABLED!=='1'||!this.inputOnly)throw new Error('AI_INPUT_ONLY_ADMISSION_UNCONFIGURED');
   const configured=this.inputOnly;
   const digest=createHash('sha256').update(input.serializedBody).digest('hex');
-  const logicalCallId=JSON.stringify([operationId,'retrieval-embedding',digest,input.requestPath]);
+  const logicalCallId=JSON.stringify([operationId,'retrieval-embedding',input.requestId,digest,input.requestPath]);
   if(input.logicalCallId!==logicalCallId)throw new ArtifactEmbeddingOwnershipDenied();
   await this.scoped(orgId,async db=>{
    await db.withTenant(orgId,s=>s.query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))",["artifact-model-request:"+input.requestId]));

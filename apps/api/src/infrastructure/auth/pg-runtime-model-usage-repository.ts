@@ -51,7 +51,7 @@ export class PgRuntimeModelUsageRepository implements RuntimeModelUsagePort {
   private async admitInputOnlyRuntimeRequest(orgId:OrgId,runId:string,input:Extract<Parameters<NonNullable<RuntimeModelUsagePort["admitRuntimeRequest"]>>[2],{billingMode:"input-only"}>):Promise<void>{
     const configured=this.runtimeAdmission?.inputOnly;if(!configured)throw new Error("AI_INPUT_ONLY_ADMISSION_UNCONFIGURED");
     const digest=createHash("sha256").update(input.serializedBody).digest("hex");
-    const logicalCallId=JSON.stringify([runId,input.callPurpose,digest,input.requestPath]);
+    const logicalCallId=JSON.stringify([runId,input.callPurpose,input.requestId,digest,input.requestPath]);
     if(input.logicalCallId!==logicalCallId)throw new Error("AI_LOGICAL_CALL_IDENTITY_MISMATCH");
     await this.db.withTenant(orgId,async s=>{
       const owner=await resolveRuntimeModelOwner(s,orgId,runId,input.leaseEpoch,input.attemptId,input.callPurpose);

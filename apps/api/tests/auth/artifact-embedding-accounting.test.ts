@@ -106,7 +106,7 @@ it('concurrent conflicting operation request IDs and cross-tenant collisions can
 for(const reported of [true,false])it(`artifact input-only admission reserves on one connection and ${reported?'settles original input receipt':'retains missing-usage hold'}`,async()=>{
  const f=fixture(true),ref=await f.accounting.open(f.input,batch);vi.stubEnv('KERNEL_AI_PRODUCT_QUOTA_ENABLED','1');
  const serializedBody=JSON.stringify({model:'actual-model',input:[[23,45]],encoding_format:'base64'}),requestPath='/v1/embeddings';
- const logicalCallId=JSON.stringify([ref.operationId,'retrieval-embedding',createHash('sha256').update(serializedBody).digest('hex'),requestPath]);
+ const logicalCallId=JSON.stringify([ref.operationId,'retrieval-embedding',f.start.requestId,createHash('sha256').update(serializedBody).digest('hex'),requestPath]);
  const before=f.connections;await f.accounting.admit(org,ref.operationId,{...f.start,billingMode:'input-only',serializedBody,requestPath,logicalCallId});
  expect(f.connections-before).toBe(1);
  const reserve=f.query.mock.calls.find(([sql])=>sql.includes('INSERT INTO ai_request_reservations'))!,start=f.query.mock.calls.find(([sql])=>sql.includes('INTO model_request_starts'))!;
@@ -118,4 +118,15 @@ for(const reported of [true,false])it(`artifact input-only admission reserves on
  const receipt=f.query.mock.calls.find(([sql])=>sql.includes('INTO token_usage_events'))!;expect(receipt[1][8]).toBeNull();expect(receipt[1][2]).toBe('publisher');
  expect(f.reservations.get(f.start.requestId)?.state).toBe(reported?'settled':'held');
  if(reported){expect(receipt[1][18]).toBe('2');expect(receipt[1][20]).toBe('immutable');}else expect(receipt[1][18]).toBeNull();
+});
+
+it('distinct identical-body HTTPs share an artifact operation without sharing a reservation; physical replay cannot dispatch',async()=>{
+ const f=fixture(true),ref=await f.accounting.open(f.input,batch);vi.stubEnv('KERNEL_AI_PRODUCT_QUOTA_ENABLED','1');
+ const serializedBody=JSON.stringify({model:'actual-model',input:[[23,45]]}),requestPath='/v1/embeddings';
+ const make=(requestId:string)=>({...f.start,requestId,billingMode:'input-only' as const,serializedBody,requestPath,logicalCallId:JSON.stringify([ref.operationId,'retrieval-embedding',requestId,createHash('sha256').update(serializedBody).digest('hex'),requestPath])});
+ const first=make(f.start.requestId),second=make('1577fe85-acb4-49e6-b3d7-8371f8bba127');
+ await f.accounting.admit(org,ref.operationId,first);await f.accounting.admit(org,ref.operationId,second);
+ expect(f.starts.size).toBe(2);expect(f.reservations.size).toBe(2);
+ await expect(f.accounting.admit(org,ref.operationId,first)).rejects.toThrow('AI_REQUEST_REPLAY_NO_DISPATCH');expect(f.starts.size).toBe(2);expect(f.reservations.size).toBe(2);
+ expect([...f.reservations.values()].map(row=>row.logical_call_id)).toEqual([first.logicalCallId,second.logicalCallId]);
 });
