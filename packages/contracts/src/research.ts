@@ -585,6 +585,7 @@ export const GuidedResearchStage = z.enum([
   "brief", "directions", "outline", "researching", "report", "failed",
 ]);
 
+export { guidedResearchReportFraming } from "./research-report-framing";
 export const GuidedResearchBrief = z.object({
   topic: z.string().trim().min(1).max(200),
   goal: z.string().trim().min(1).max(40000),
@@ -1072,10 +1073,26 @@ export const GuidedResearchRuntime = z.object({
   proposal: z.object({ id: z.string(), version: z.number().int(), draft: GuidedResearchRuntimeDraft, action: z.enum(["save", "generate", "start", "retry", "confirm", "complete"]).optional() }).strict().nullable(),
   modelCalls: z.array(z.object({ id: z.string(), node: ResearchNode, modelId: z.string(), status: z.enum(["succeeded", "failed"]), createdAt: z.string() }).strict()),
 }).strict();
+// Field fingerprints describe the client's in-memory snapshot, never authority.
+const GuidedResearchRuntimeMutable = GuidedResearchRuntime.omit({ sessionId: true, version: true, revision: true });
+export const GuidedResearchRuntimeKnownFields = z.record(GuidedResearchRuntimeMutable.keyof(), z.string().regex(/^[a-f0-9]{64}$/));
+const GuidedResearchSourceMetadata = GuidedResearchSource.pick({ id: true, taskId: true, taskIds: true, title: true, url: true,
+  retrievedAt: true, decision: true, presentation: true, documentError: true, addedByUser: true });
+const GuidedResearchSourceDelta = z.object({
+  cursor: z.string().regex(/^[a-f0-9]{64}$/), sources: z.array(GuidedResearchSourceMetadata).optional(),
+}).strict();
+export const GuidedResearchRuntimePatch = z.object({
+  type: z.literal("patch"), sessionId: z.string(),
+  version: z.number().int().nonnegative(), revision: z.number().int().positive(),
+  changes: GuidedResearchRuntimeMutable.partial(),
+  research: GuidedResearchSourceDelta.optional(),
+  removed: z.array(GuidedResearchRuntimeMutable.keyof()),
+}).strict();
 export const GuidedResearchRuntimeCommand = z.object({
   sessionId: z.string().min(1), node: ResearchNode,
   action: z.enum(["save", "save_chapters", "generate", "confirm", "start", "retry", "complete", "message", "apply", "add_source", "remove_source", "pause", "resume", "refine_scope", "refine_source_policy", "resolve_conflict"]),
   requestId: z.string().min(1).max(200), expectedVersion: z.number().int().nonnegative(),
+  knownFields: GuidedResearchRuntimeKnownFields.optional(),
   expectedRevision: z.number().int().nonnegative().optional(), idempotencyKey: z.string().min(1).max(200).optional(),
   intent: GuidedResearchIntent.optional(), sourcePolicy: GuidedResearchSourcePolicy.optional(),
   draft: GuidedResearchRuntimeDraft.optional(), message: z.string().trim().min(1).max(10000).optional(),
@@ -1093,7 +1110,7 @@ export const GuidedResearchRuntimeCommand = z.object({
   allowPartialResearch: z.boolean().optional(),
 }).strict().refine((command) => command.action !== "save_chapters" || (command.node === "outline" && command.draft?.node === "outline" && !command.message && !command.proposalId), "chapter saves require an explicit outline draft").refine((command) => command.allowPartialResearch === undefined || (command.node === "research" && ["confirm", "complete"].includes(command.action)), "partial research requires explicit research completion").refine((command) => !command.draft || command.node === command.draft.node, "draft must target the requested node")
   .refine((command) => !["pause", "resume", "refine_scope", "refine_source_policy", "resolve_conflict"].includes(command.action)
-    || ((command.action === "refine_scope" ? ["outline", "research"].includes(command.node) : command.node === "research")
+    || ((command.action === "refine_scope" ? ["outline", "research"].includes(command.node) : ["pause", "resume"].includes(command.action) ? ["research", "report"].includes(command.node) : command.node === "research")
       && command.expectedRevision !== undefined && Boolean(command.idempotencyKey)), "steering commands require an editable plan node, expected revision and idempotency key")
   .refine((command) => command.action !== "refine_source_policy" || Boolean(command.sourcePolicy), "source policy refinement requires a source policy")
   .refine((command) => command.action !== "resolve_conflict" || (command.node === "research" && Boolean(command.conflictId) && Boolean(command.conflictResolutionAction) && Boolean(command.conflictResolution)
@@ -1116,12 +1133,7 @@ export const GuidedResearchRuntimeProgress = GuidedResearchRuntime.pick({
 }).extend({
   // Derived from the durable checkpoint; chapter bodies stay out of progress.
   reportSavedChapterCount: z.number().int().nonnegative().optional(),
-  research: z.object({
-    cursor: z.string().regex(/^[a-f0-9]{64}$/),
-    tasks: z.array(GuidedResearchTask),
-    sources: z.array(GuidedResearchSource.pick({ id: true, taskId: true, taskIds: true, title: true, url: true,
-      retrievedAt: true, decision: true, presentation: true, documentError: true, addedByUser: true })).optional(),
-  }).strict().optional(),
+  research: GuidedResearchSourceDelta.extend({ tasks: z.array(GuidedResearchTask) }).optional(),
   stream: z.object({ requestId: z.string(), sequence: z.number().int().nonnegative(),
     offset: z.number().int().nonnegative(), delta: z.string().max(1048576),
     status: z.enum(["streaming", "failed"]),
@@ -1129,6 +1141,8 @@ export const GuidedResearchRuntimeProgress = GuidedResearchRuntime.pick({
 }).strict();
 
 export const GuidedResearchRuntimeStreamEvent = z.discriminatedUnion("type", [
+  z.object({ type: z.literal("patch"), state: GuidedResearchRuntimePatch }).strict(),
+  z.object({ type: z.literal("result_patch"), state: GuidedResearchRuntimePatch }).strict(),
   z.object({ type: z.literal("snapshot"), state: GuidedResearchRuntime }).strict(),
   z.object({ type: z.literal("progress"), state: GuidedResearchRuntimeProgress }).strict(),
   z.object({ type: z.literal("report_delta"), sessionId: z.string(), requestId: z.string(), version: z.number().int().nonnegative(), sequence: z.number().int().positive(), delta: z.string().max(1048576) }).strict(),
@@ -1139,8 +1153,8 @@ export const GuidedResearchRuntimeStreamEvent = z.discriminatedUnion("type", [
 export const operations = {
   getGuidedResearchRuntimeProgress: {
     method: "GET", path: "/research/guided-sessions/:sessionId/runtime/progress",
-    in: z.object({ sessionId: z.string().min(1), requestId: z.string().max(200).optional(), digest: z.string().regex(/^[a-f0-9]{64}$/).optional(), sourceCursor: z.string().regex(/^[a-f0-9]{64}$/).optional(), offset: z.coerce.number().int().min(0).max(1048576).optional() }).strict(),
-    out: GuidedResearchRuntimeProgress, err: ["RESEARCH_NOT_FOUND", "RESEARCH_WORKFLOW_UNAVAILABLE"] as const,
+    in: z.object({ sessionId: z.string().min(1), requestId: z.string().max(200).optional(), digest: z.string().regex(/^[a-f0-9]{64}$/).optional(), sourceCursor: z.string().regex(/^[a-f0-9]{64}$/).optional(), offset: z.coerce.number().int().min(0).max(1048576).optional(), knownFields: z.string().max(8192).transform((value, ctx) => { try { return JSON.parse(value); } catch { ctx.addIssue({ code: "custom", message: "Invalid field fingerprints" }); return z.NEVER; } }).pipe(GuidedResearchRuntimeKnownFields).optional() }).strict(),
+    out: z.union([GuidedResearchRuntimePatch, GuidedResearchRuntimeProgress]), err: ["RESEARCH_NOT_FOUND", "RESEARCH_WORKFLOW_UNAVAILABLE"] as const,
   },
   streamGuidedResearchRuntime: {
     method: "POST", path: "/research/guided-sessions/:sessionId/runtime/commands/stream",
@@ -1153,7 +1167,7 @@ export const operations = {
   },
   executeGuidedResearchRuntime: {
     method: "POST", path: "/research/guided-sessions/:sessionId/runtime/commands",
-    in: GuidedResearchRuntimeCommand, out: GuidedResearchRuntime, err: guidedWorkflowErrors,
+    in: GuidedResearchRuntimeCommand, out: z.union([GuidedResearchRuntimePatch, GuidedResearchRuntime]), err: guidedWorkflowErrors,
   },
   runGuidedResearchSkillTurn: {
     method: "POST",

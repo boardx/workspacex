@@ -1,20 +1,20 @@
 import { evidenceWireChunk, materializeQuoteReferences, quoteReferenceMatchSchema } from "./guided-report-quote-references";
 import { createHash } from "node:crypto";
-import { research as C } from "@repo/contracts";
+import { sourceRelevanceOutputSchema as sourceOutput, type SourceRelevanceSemanticCode, type SourceRelevanceIssueCode } from "./guided-source-relevance-protocol";
 import { zodToJsonSchema } from "zod-to-json-schema";
 import { extractJson } from "./guided-structured-json";
 import { reportQuestions } from "./guided-report-evidence";
 import { ResearchRuntimeError, type ResearchRuntime } from "./guided-runtime-ports";
 
 type Source = ResearchRuntime["sources"][number];
-type Complete = (system: string, context: unknown, validate: (value: unknown) => void) => Promise<unknown>;
+type Complete = (system: string, context: unknown, validate: (value: unknown) => void, check?: () => void) => Promise<unknown>;
 type Chunk = { sourceId: string; chunkId: string; taskId: string; questionIds: string[]; title: string; url: string; content: string };
-type OutputIssue = { path: (string | number)[]; code: string; message: string };
+type OutputIssue = { path: (string | number)[]; code: SourceRelevanceIssueCode; message: string };
 class InvalidRelevanceOutput extends ResearchRuntimeError {
   readonly issues: OutputIssue[];
   constructor(issues: OutputIssue[], readonly rawOutput?: string) {
     super("RESEARCH_SOURCE_RELEVANCE_INVALID");
-    this.issues = issues.slice(0, 16).map((issue) => ({ code: issue.code.slice(0, 64),
+    this.issues = issues.slice(0, 16).map((issue) => ({ code: issue.code,
       path: issue.path.slice(0, 6).map((part) => typeof part === "string" ? part.slice(0, 64) : part),
       message: issue.message.slice(0, 320) }));
   }
@@ -27,7 +27,6 @@ export function parseSourceRelevanceJson(text: string): unknown {
     throw new InvalidRelevanceOutput([{ path: [], code: "invalid_json", message: "Return one complete valid JSON object matching the supplied schema, without commentary." }], text.slice(0, 24000));
   }
 }
-const sourceOutput = C.GuidedResearchEvidenceModelOutput.extend({ evaluations: C.GuidedResearchEvidenceModelOutput.shape.evaluations.element.extend({ presentation: C.GuidedResearchSourcePresentation.optional() }).array().min(1).max(8) });
 const wireSchema = zodToJsonSchema(sourceOutput, { $refStrategy: "none" }) as { properties: { evaluations: { items: { properties: { matches: { items: unknown } } } } } };
 wireSchema.properties.evaluations.items.properties.matches.items = zodToJsonSchema(quoteReferenceMatchSchema, { $refStrategy: "none" });
 const schema = JSON.stringify(wireSchema);
@@ -45,6 +44,25 @@ export function sourceRelevanceBasis(state: ResearchRuntime, source: Source): st
       .map(({ id, sectionId, query, title, objective, deliverables }) => ({ id, sectionId, query, title, objective, deliverables })).sort((a, b) => a.id.localeCompare(b.id)),
     outline: state.outline.filter((section) => section.enabled),
     title: source.title, url: source.url, content: screeningContent(source) })).digest("hex");
+}
+
+/** Two local calculations; failures stop dispatch/repair and drain every callback.
+ * Results remain private until all batches validate, then merge in input order. */
+async function screeningBatchWork<T, R>(items: readonly T[], compute: (item: T, check: () => void) => Promise<R>): Promise<R[]> {
+  const results: R[] = new Array(items.length);
+  let cursor = 0, stopped = false;
+  let failure: unknown;
+  const check = () => { if (stopped) throw failure; };
+  const worker = async () => {
+    while (!stopped && cursor < items.length) {
+      const index = cursor++;
+      try { results[index] = await compute(items[index]!, check); }
+      catch (error) { if (!stopped) { stopped = true; failure = error; } }
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(2, items.length) }, worker));
+  check();
+  return results;
 }
 
 /** No state mutation: publish only after every batch is validated. User exclusions
@@ -80,9 +98,7 @@ export async function screenResearchSources(state: ResearchRuntime, sources: Sou
     }
     batch.push(chunk); batchSize += chunk.content.length;
   }
-  const presentations = new Map<string, NonNullable<Source["presentation"]>>();
-  const accepted = new Map<string, Set<string>>();
-  for (const batch of batches) {
+  const evaluated = await screeningBatchWork(batches, async (batch, check) => {
     const parse = (value: unknown) => {
       // Resolve only exact source/chunk identities before the authoritative schema.
       const normalized = value && typeof value === "object" && "evaluations" in value && Array.isArray(value.evaluations)
@@ -95,7 +111,7 @@ export async function screenResearchSources(state: ResearchRuntime, sources: Sou
       const parsed = sourceOutput.safeParse(normalized);
       if (!parsed.success) throw new InvalidRelevanceOutput(parsed.error.issues.slice(0, 32).map(({ path, code, message }) => ({ path, code, message })));
       const issues: OutputIssue[] = [];
-      const add = (path: (string | number)[], code: string, message: string) => { if (issues.length < 32) issues.push({ path, code, message }); };
+      const add = (path: (string | number)[], code: SourceRelevanceSemanticCode, message: string) => { if (issues.length < 32) issues.push({ path, code, message }); };
       if (parsed.data.evaluations.length !== batch.length) add(["evaluations"], "count", `Expected exactly ${batch.length} evaluations.`);
       const seen = new Set<string>();
       for (const [index, entry] of parsed.data.evaluations.entries()) {
@@ -118,25 +134,34 @@ export async function screenResearchSources(state: ResearchRuntime, sources: Sou
     let previousOutput: unknown;
     let repairIssues: OutputIssue[] = [];
     for (let attempt = 0; attempt < 2; attempt++) {
+      check();
       try {
         const value = await complete(instruction, { researchStage: "source_relevance", brief: state.brief,
           questions: questions.filter((question) => batch.some((chunk) => chunk.questionIds.includes(question.id))),
           tasks: state.tasks.filter((task) => batch.some((chunk) => chunk.taskId === task.id)), chunks: batch.map(evidenceWireChunk),
           ...(attempt ? { repair: { issues: repairIssues, previousOutput: (JSON.stringify(previousOutput) ?? "null").slice(0, 24000), instruction: "Use exact chunk/source/question IDs; evaluate each chunk once; select same-chunk quoteOptions references; irrelevant must agree with matches." } } : {}) },
-        (output) => { previousOutput = output; parse(output); });
-        for (const entry of parse(value).evaluations) if (!entry.irrelevant) {
-          if (entry.presentation && !presentations.has(entry.sourceId)) presentations.set(entry.sourceId, entry.presentation);
-          const taskId = batch.find((chunk) => chunk.chunkId === entry.chunkId)!.taskId;
-          const taskIds = accepted.get(entry.sourceId) ?? new Set<string>();
-          taskIds.add(taskId); accepted.set(entry.sourceId, taskIds);
-        }
-        break;
+        (output) => { previousOutput = output; parse(output); }, check);
+        const evaluations = parse(value).evaluations;
+        check();
+        return evaluations;
       } catch (error) {
         // Provider/persistence failures must never be retried as malformed output.
         if (!(error instanceof InvalidRelevanceOutput) || attempt === 1) throw error;
+        check();
         repairIssues = error.issues;
         if (error.rawOutput !== undefined) previousOutput = error.rawOutput;
       }
+    }
+    throw new ResearchRuntimeError("RESEARCH_SOURCE_RELEVANCE_INVALID");
+  });
+  const presentations = new Map<string, NonNullable<Source["presentation"]>>();
+  const accepted = new Map<string, Set<string>>();
+  for (const [index, evaluations] of evaluated.entries()) {
+    for (const entry of evaluations) if (!entry.irrelevant) {
+      if (entry.presentation && !presentations.has(entry.sourceId)) presentations.set(entry.sourceId, entry.presentation);
+      const taskId = batches[index]!.find((chunk) => chunk.chunkId === entry.chunkId)!.taskId;
+      const taskIds = accepted.get(entry.sourceId) ?? new Set<string>();
+      taskIds.add(taskId); accepted.set(entry.sourceId, taskIds);
     }
   }
   const reviewed = new Set(candidates.map((source) => source.id));

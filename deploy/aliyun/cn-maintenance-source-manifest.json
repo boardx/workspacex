@@ -4,7 +4,7 @@
   "baseCommit": "64cc2b85053823a4c7461eb404b9f3a99c749a33",
   "applicationRevision": "9b25bfa65662b96c0826fe67506b562ea46aa6d0",
   "baselineRevision": "ba6343199f3c834d6a198f83d0c771614292c82b",
-  "sourceInventorySha256": "9078c8b42b9dfecb242995f896d1ecf2256c0b1d8aa7ce0a73860eb37de552dd",
+  "sourceInventorySha256": "635b84c7fe63f999dd73aa9b2321f4ee1ce14de25e07533dea774a4f9a850043",
   "sourceRows": [
     {
       "path": ".harness/scripts/build-cn-maintenance-controller.cjs",
@@ -13,8 +13,8 @@
     },
     {
       "path": ".harness/scripts/lint-startup-discovery.test.ts",
-      "sha256": "6f1c3767695253451fd32e16cc2e1958ced897b9b9923346a8f7f247974fc74b",
-      "bytes": 5660
+      "sha256": "63625ae259379223ed352df230f627dcaf556c68bb4062557fe3ee040e6484a8",
+      "bytes": 5500
     },
     {
       "path": ".harness/scripts/run-cn-maintenance-pure-tests.py",
@@ -628,8 +628,8 @@
     },
     {
       "path": "deploy/aliyun/cn-maintenance-source-handoff.md",
-      "sha256": "22ffdd7aa76ff786bcc96152b7a80b73117808cd1f63a1157c362d85851f369c",
-      "bytes": 27855
+      "sha256": "606cc9de6312b6cb1b933bb4bc5cc70a66190fdc484735c3fc171647d968e78c",
+      "bytes": 29370
     },
     {
       "path": "deploy/aliyun/cn-native-backup-cost-evidence.json",
@@ -653,8 +653,8 @@
     },
     {
       "path": "deploy/aliyun/cn-native-clone-first-execution-receipt.json",
-      "sha256": "577d97a50a6b5d45ee6d71a97cb6be5f0ce7df5659dc435dc2e69d463539108e",
-      "bytes": 6041
+      "sha256": "e13a9fae803082b4b7e887df72864666e06f2ec59faf05013524c5060ac6b359",
+      "bytes": 6813
     },
     {
       "path": "deploy/aliyun/cn-native-clone-provider-diagnosis.md",
@@ -943,8 +943,8 @@
     },
     {
       "path": "pnpm-lock.yaml",
-      "sha256": "d74151a6e7f087647cea7f20b62ec6e07df3dde243fb8b47f8d119dc445d2776",
-      "bytes": 708528
+      "sha256": "34ffcc7514d95ac1ea43aaef23b85c3fa0d33da73375cb64fb6083ffd0fe2c49",
+      "bytes": 708657
     }
   ],
   "installedFileCount": 52,

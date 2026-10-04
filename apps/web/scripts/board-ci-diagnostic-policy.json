@@ -1,0 +1,24 @@
+{
+  "hitTags": [
+    "CANVAS",
+    "BUTTON",
+    "TEXTAREA",
+    "DIV",
+    "SECTION",
+    "SPAN",
+    "SVG",
+    "OTHER"
+  ],
+  "hitControls": [
+    "board-live-surface",
+    "board-fabric-surface",
+    "board-a11y-mirror",
+    "board-navigation-controls",
+    "board-tool-picker",
+    "board-creation-dock",
+    "board-context-toolbar",
+    "collaborative-editor",
+    "board-tool-popover",
+    "OTHER"
+  ]
+}

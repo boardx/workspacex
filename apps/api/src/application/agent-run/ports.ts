@@ -979,6 +979,8 @@ export interface ModelResponseSchema {
 }
 
 export interface ModelCallInput {
+  /** Trusted task policy; adapter applies only to compatible hybrid models/endpoints. */
+  readonly thinkingMode?: "off";
   /** Local transport cancellation only; never serialized or a claim of remote cessation. */
   readonly signal?: AbortSignal;
   /**

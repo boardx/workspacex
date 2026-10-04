@@ -59,6 +59,33 @@ const MORE: Array<{ contentType: BoardStructuredKind; label: string }> = [{ cont
 
 export function BoardBottomDock({ editing=false,connectorEnabled=false,stickyColor=STICKY_COLOR_PRESETS.yellow,onStickyColorChange,extension, activeTool, creationTool, readOnly, onToolChange, onCreationToolChange, onQuickCreate, onBulkSticky, onImageRequest }: BoardBottomDockProps) {
   const dockRef = useRef<HTMLElement>(null);
+  const heldToolPointer = useRef<number | null>(null);
+  useEffect(() => { if (readOnly) heldToolPointer.current = null; }, [readOnly]);
+  const startToolPointer = (event: React.PointerEvent<HTMLElement>) => {
+    capturePortalEvent(event);
+    const source = event.target instanceof Element ? event.target.closest('[data-board-create-tool]') : null;
+    heldToolPointer.current = !readOnly && source && dockRef.current?.contains(source)
+      && ['sticky', 'text', 'shape'].includes(source.getAttribute('data-board-create-tool') ?? '')
+      ? event.pointerId : null;
+  };
+  const finishToolPointer = (event: React.PointerEvent<HTMLElement>) => {
+    if (heldToolPointer.current === event.pointerId) heldToolPointer.current = null;
+  };
+  const cancelToolPointer = (event: React.PointerEvent<HTMLElement>) => {
+    if (readOnly || heldToolPointer.current !== event.pointerId || !dockRef.current?.contains(event.target as Node)) return;
+    if (event.type === 'lostpointercapture' && event.buttons === 0) return;
+    heldToolPointer.current = null;
+    setPickerOpen(false);
+    onCreationToolChange(null);
+    onToolChange('select');
+  };
+  const transferToolPointerToDrag = (event: React.DragEvent<HTMLElement>) => {
+    const source = event.target instanceof Element ? event.target.closest('[data-board-create-tool]') : null;
+    if (source && dockRef.current?.contains(source) && Array.from(event.dataTransfer.types ?? []).includes('application/x-workspacex-board-tool')) {
+      // Native HTML drag owns this gesture and may emit pointercancel on takeover.
+      heldToolPointer.current = null;
+    }
+  };
   const toolDragActive = useRef(false);
   // React portals retain this component ancestry even though their DOM lives
   // outside nav. Do not unmount an extension before its portal receives a click
@@ -69,6 +96,9 @@ export function BoardBottomDock({ editing=false,connectorEnabled=false,stickyCol
   };
   useEffect(() => { const closeOutside = (event: PointerEvent) => { if (!portalEvents.current.has(event) && !dockRef.current?.contains(event.target as Node)) setPickerOpen(false); }; window.addEventListener("pointerdown", closeOutside); return () => window.removeEventListener("pointerdown", closeOutside); }, []);
   const [pickerOpen, setPickerOpen] = useState(false);
+  // A cleared one-shot mode ends its explicit dock menu. Shortcut arming must
+  // not revive the previous menu merely because the same tool is selected.
+  useEffect(() => { if (creationTool === null) setPickerOpen(false); }, [creationTool]);
   const recent = useRef({sticky:{kind:"sticky",variant:"square"} as Exclude<BoardCreationTool,null>,text:{kind:"text",preset:"body"} as Exclude<BoardCreationTool,null>,shape:{kind:"shape",variant:"rounded-rectangle"} as Exclude<BoardCreationTool,null>});
   useEffect(()=>{if(creationTool?.kind==="sticky"||creationTool?.kind==="text"||creationTool?.kind==="shape")recent.current[creationTool.kind]=creationTool;},[creationTool]);
   useEffect(() => { const close = (event: KeyboardEvent) => { if (event.key === "Escape" && !portalEvents.current.has(event)) setPickerOpen(false); }; window.addEventListener("keydown", close); return () => window.removeEventListener("keydown", close); }, []);
@@ -102,8 +132,8 @@ export function BoardBottomDock({ editing=false,connectorEnabled=false,stickyCol
     return () => { observer?.disconnect(); window.removeEventListener("resize", update); scroller?.removeEventListener("scroll", update); };
   }, [pickerOpen, pickerKind]);
   return (
-    <nav data-testid="board-creation-dock" data-board-chrome="dock" ref={dockRef} onPointerDownCapture={capturePortalEvent} onKeyDownCapture={capturePortalEvent}
-      onDragStart={(event) => { toolDragActive.current = Boolean(dockRef.current?.contains(event.target as Node) && Array.from(event.dataTransfer.types ?? []).includes("application/x-workspacex-board-tool")); }}
+    <nav data-testid="board-creation-dock" data-board-chrome="dock" ref={dockRef} onPointerDownCapture={startToolPointer} onPointerUpCapture={finishToolPointer} onPointerCancel={cancelToolPointer} onLostPointerCapture={cancelToolPointer} onKeyDownCapture={capturePortalEvent}
+      onDragStart={(event) => { transferToolPointerToDrag(event); toolDragActive.current = Boolean(dockRef.current?.contains(event.target as Node) && Array.from(event.dataTransfer.types ?? []).includes("application/x-workspacex-board-tool")); }}
       onDragEnd={() => {
         if (!toolDragActive.current) return;
         toolDragActive.current = false;
@@ -113,18 +143,19 @@ export function BoardBottomDock({ editing=false,connectorEnabled=false,stickyCol
       }}
       aria-label="白板工具" className={cn("absolute bottom-5 inset-x-4 z-30 mx-auto w-max max-w-[calc(100vw-2rem)]",editing&&"max-sm:hidden")}>
       {pickerOpen && (stickyOpen || textOpen || shapeOpen || contentOpen || connectorOpen) && (
-        <div data-testid="board-tool-picker" data-picker-anchor={creationTool?.kind} style={{ position: "absolute", bottom: "100%", left: pickerPosition.left, width: pickerPosition.width, marginBottom: 16, maxHeight: "min(320px, calc(100dvh - 180px))" }} className="flex min-w-0 flex-wrap items-center justify-center gap-2 overflow-auto rounded-lg border border-border-subtle bg-card p-2 shadow-lg motion-safe:animate-in motion-safe:slide-in-from-bottom-2 motion-safe:fade-in">
+        <div data-testid="board-tool-picker" data-board-chrome="tool-picker" data-picker-anchor={creationTool?.kind} style={{ position: "absolute", bottom: "100%", left: pickerPosition.left, width: pickerPosition.width, marginBottom: 16, maxHeight: "min(320px, calc(100dvh - 180px))" }} className="flex min-w-0 flex-wrap items-center justify-center gap-2 overflow-auto rounded-lg border border-border-subtle bg-card p-2 shadow-lg motion-safe:animate-in motion-safe:slide-in-from-bottom-2 motion-safe:fade-in">
           {stickyOpen ? <BoardStickyPicker color={stickyColor} variant={creationTool.variant} readOnly={readOnly} onColorChange={value=>onStickyColorChange?.(value)} onVariantChange={variant=>onCreationToolChange({kind:"sticky",variant})} onBulk={onBulkSticky}/> : textOpen ? TEXT_PRESETS.map(({ preset, label }) => (
             <button
               key={preset}
               type="button"
               data-testid={`board-text-${preset}`}
+              data-board-create-tool="text"
               aria-pressed={creationTool.preset === preset}
               disabled={readOnly}
               onClick={() => onCreationToolChange({ kind: "text", preset })} draggable={!readOnly} onDragStart={event=>event.dataTransfer.setData(BOARD_TOOL_DRAG_MIME,JSON.stringify({kind:"text",preset}))}
               className={cn("min-h-11 rounded-xl px-3 text-13 transition duration-fast motion-safe:hover:-translate-y-0.5 hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:bg-disabled disabled:text-disabled-foreground", creationTool.preset === preset && "bg-primary text-primary-foreground hover:bg-primary-hover hover:text-primary-foreground")}
             ><span style={{fontSize:Math.max(12,Math.round(validateTextAttributes({preset}).fontSize*.75)),fontWeight:validateTextAttributes({preset}).bold?700:400}}>{label}</span></button>
-          )) : shapeOpen ? SHAPES.map(({ variant, label }) => <button key={variant} type="button" data-testid={`board-shape-${variant}`} aria-pressed={creationTool.variant === variant} disabled={readOnly} onClick={() => onCreationToolChange({ kind: "shape", variant })} draggable={!readOnly} onDragStart={event=>event.dataTransfer.setData(BOARD_TOOL_DRAG_MIME,JSON.stringify({kind:"shape",variant}))} className={cn("flex min-h-11 items-center gap-2 rounded-xl px-3 text-13 transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring", creationTool.variant === variant && "bg-primary text-primary-foreground hover:bg-primary-hover hover:text-primary-foreground")}><ShapeToolPreview variant={variant}/><span>{label}</span></button>)
+          )) : shapeOpen ? SHAPES.map(({ variant, label }) => <button key={variant} type="button" data-testid={`board-shape-${variant}`} data-board-create-tool="shape" aria-pressed={creationTool.variant === variant} disabled={readOnly} onClick={() => onCreationToolChange({ kind: "shape", variant })} draggable={!readOnly} onDragStart={event=>event.dataTransfer.setData(BOARD_TOOL_DRAG_MIME,JSON.stringify({kind:"shape",variant}))} className={cn("flex min-h-11 items-center gap-2 rounded-xl px-3 text-13 transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring", creationTool.variant === variant && "bg-primary text-primary-foreground hover:bg-primary-hover hover:text-primary-foreground")}><ShapeToolPreview variant={variant}/><span>{label}</span></button>)
             : contentOpen ? <>{MORE.map(({ contentType, label }) => <button key={contentType} type="button" data-testid={`board-content-${contentType}`} aria-pressed={creationTool.contentType === contentType} disabled={readOnly} onClick={() => { setPickerOpen(true); const next = { kind: "content", contentType } as const; onCreationToolChange(next); onQuickCreate(next); }} className={cn("min-h-11 rounded-xl px-3 text-13 transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring", creationTool.contentType === contentType && "bg-primary text-primary-foreground hover:bg-primary-hover hover:text-primary-foreground")}>{label}</button>)}{extension}</>
               : connectorOpen ? <BoardConnectorPicker value={creationTool.connectorType} disabled={readOnly} onChange={connectorType=>onCreationToolChange({kind:"connector",connectorType})}/> : null}
 
@@ -148,7 +179,7 @@ export function BoardBottomDock({ editing=false,connectorEnabled=false,stickyCol
 }
 
 function DockButton({ testId, label, shortcut, pressed, disabled, onClick, children, dragTool, submenu }: { dragTool?: Exclude<BoardCreationTool,null> & {color?:string}; submenu?: boolean; testId?: string; label: string; shortcut: string; pressed: boolean; disabled?: boolean; onClick: () => void; children: React.ReactNode }) {
-  return <button type="button" draggable={Boolean(dragTool)&&!disabled} onDragStart={event=>{if(!dragTool||disabled)return;event.dataTransfer.setData(BOARD_TOOL_DRAG_MIME,JSON.stringify(dragTool));event.dataTransfer.effectAllowed="copy";}} data-testid={testId} title={shortcut ? `${label} (${shortcut})` : label} aria-label={shortcut ? `${label}，快捷键 ${shortcut}` : label} aria-pressed={pressed} disabled={disabled} onClick={onClick} style={{minHeight:56,minWidth:56,paddingInline:8}} className={cn("group flex shrink-0 flex-col items-center justify-center gap-1 rounded-xl text-11 transition-colors duration-fast hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:bg-disabled disabled:text-disabled-foreground", pressed && "bg-primary text-primary-foreground shadow-md hover:bg-primary-hover hover:text-primary-foreground")}>
+  return <button type="button" draggable={Boolean(dragTool)&&!disabled} onDragStart={event=>{if(!dragTool||disabled)return;event.dataTransfer.setData(BOARD_TOOL_DRAG_MIME,JSON.stringify(dragTool));event.dataTransfer.effectAllowed="copy";}} data-testid={testId} data-board-create-tool={dragTool?.kind} title={shortcut ? `${label} (${shortcut})` : label} aria-label={shortcut ? `${label}，快捷键 ${shortcut}` : label} aria-pressed={pressed} disabled={disabled} onClick={onClick} style={{minHeight:56,minWidth:56,paddingInline:8}} className={cn("group flex shrink-0 flex-col items-center justify-center gap-1 rounded-xl text-11 transition-colors duration-fast hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:bg-disabled disabled:text-disabled-foreground", pressed && "bg-primary text-primary-foreground shadow-md hover:bg-primary-hover hover:text-primary-foreground")}>
     <span style={{width:24,height:24}} className="relative grid shrink-0 place-items-center transition-transform motion-safe:group-hover:scale-110 [&>svg:not(.submenu)]:!h-full [&>svg:not(.submenu)]:!w-full">{children}{submenu?<ChevronUp data-testid={`${testId}-submenu`} aria-hidden className="submenu absolute -right-2 -top-1 h-3 w-3"/>:null}</span><span className="leading-none max-sm:sr-only">{label}</span>
   </button>;
 }

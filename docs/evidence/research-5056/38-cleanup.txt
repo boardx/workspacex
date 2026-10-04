@@ -1,0 +1,10 @@
+Owned stack: wsx-21f8237bf23f1737706f
+Wrapper exit: 0
+Cleanup duration: 2s
+Compose containers: none
+Compose volumes: none
+API 24139: closed
+Web 25139: closed
+IAB owned tabs: closed
+Offline injection: restored
+Other stacks and current user Chrome page: untouched

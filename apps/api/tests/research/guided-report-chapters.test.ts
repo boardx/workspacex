@@ -88,6 +88,50 @@ describe("report conversation regeneration", () => {
 });
 
 describe("chapter-based report generation", () => {
+  it("rejects callbacks retained by a failed stream attempt during retry", async () => {
+    const f = fixture();
+    let old: ((delta: string) => Promise<void>) | undefined;
+    let checked = false;
+    const model: ModelCallPort = {
+      complete: async (input) => ({ text: JSON.stringify(answer(JSON.parse(input.user))) }),
+      completeStream: async (input, emit) => {
+        const context = JSON.parse(input.user);
+        if (!old) { old = emit; throw new ModelCallError("MODEL_CALL_FAILED", "model provider responded with HTTP 503"); }
+        if (!checked) {
+          checked = true;
+          const writes = f.writes.length;
+          await expect(old("stale output")).rejects.toThrow("RESEARCH_EXECUTION_INTERRUPTED");
+          expect(f.writes.length).toBe(writes);
+        }
+        const text = JSON.stringify(answer(context));
+        await emit(text);
+        return { text };
+      },
+    };
+    await generateReportChapters(f.state, model, config, f.persist);
+    expect(checked).toBe(true);
+    expect(f.state.reportStream?.text).not.toContain("stale output");
+  });
+  it("bounds a stalled evidence provider and ignores late responses", async () => {
+    vi.useFakeTimers();
+    try {
+      const f = fixture();
+      let release!: (value: { text: string }) => void;
+      let signal: AbortSignal | undefined;
+      const operation = generateReportChapters(f.state, { complete: async (input) => {
+        signal = input.signal;
+        return new Promise((resolve) => { release = resolve; });
+      } }, config, f.persist);
+      const rejected = expect(operation).rejects.toThrow("RESEARCH_REPORT_MODEL_TIME_BUDGET_EXCEEDED");
+      await vi.advanceTimersByTimeAsync(90_000);
+      await rejected;
+      expect(signal?.aborted).toBe(true);
+      const writes = f.writes.length;
+      release({ text: "{}" });
+      await vi.advanceTimersByTimeAsync(1);
+      expect(f.writes.length).toBe(writes);
+    } finally { vi.useRealTimers(); }
+  });
   it("overlaps evidence calls while serializing durable writes and keeping progress monotonic", async () => {
     const f = fixture();
     f.state.sources = Array.from({ length: 24 }, (_, index) => ({ ...f.state.sources[index % 2]!, id: `source-${index}-${index % 2 ? "a" : "b"}`, url: `https://example.com/${index}` }));
@@ -106,7 +150,7 @@ describe("chapter-based report generation", () => {
       return { text: JSON.stringify(answer(context)) };
     } };
     const report = await generateReportChapters(f.state, model, config, persist);
-    expect(peak).toBe(2); expect(writePeak).toBe(1);
+    expect(peak).toBe(3); expect(writePeak).toBe(1);
     const progress = f.writes.filter((state) => state.progress?.stage === "organizing").map((state) => state.progress!.completed);
     expect(progress).toEqual([...progress].sort((a, b) => a - b));
     expect(Math.max(...progress)).toBe(3);
@@ -809,8 +853,37 @@ describe("unverified chapter synthesis boundary (#5179)", () => {
     expect(f.contexts.some((c) => c.reportStage.startsWith("synthesis"))).toBe(false);
     expect(report.summary + report.introduction + report.conclusion).not.toContain("UNSUPPORTED_SENTINEL");
     expect(report.summary).toContain("unverified");
+    expect(report.title).toBe("Policy — Research report");
+    expect(report.title + report.summary + report.introduction + report.conclusion).not.toMatch(/\p{Script=Han}/u);
     expect(f.state.reportQualityWarnings).toHaveLength(2);
     expect(f.state.report).toBeNull(); expect(f.state.completed).toBe(false);
+  });
+  it("names an unverified Chinese report after its topic without bilingual framing", async () => {
+    const f = runCase("all-warn");
+    f.state.brief.topic = "Node.js 运行时环境及基础 Web 服务器开发";
+    const report = await f.run();
+    expect(report.title).toBe("Node.js 运行时环境及基础 Web 服务器开发研究报告");
+    expect(report.summary).toContain("尚未通过核验");
+    expect(report.summary + report.introduction + report.conclusion).not.toMatch(/[a-z]/i);
+    expect(f.state.report).toBeNull();
+    expect(f.state.completed).toBe(false);
+    expect(f.state.reportQualityWarnings).toHaveLength(2);
+  });
+  it.each(["中文研究", "English research"])("uses one language throughout evidence-free chapters and truncated questions (%s)", async (topic) => {
+    const f = runCase("empty");
+    const chinese = topic === "中文研究";
+    f.state.brief = { ...f.state.brief, topic, goal: "", focus: "" };
+    f.state.outline[0]!.title = chinese ? "证据缺口" : "Evidence gaps";
+    f.state.outline[0]!.questions = [chinese ? "问题" : "Question"];
+    (f.state.outline[0]! as any).subsections = Array.from({ length: 8 }, (_, i) => ({ id: `part-${i}`, title: chinese ? `待核实范围${i}` : `Unresolved scope ${i}`, questions: Array.from({ length: 4 }, (_, j) => `${i}/${j}: ${(chinese ? "问" : "Q").repeat(900)}`) }));
+    expect(C.GuidedResearchOutlineSection.safeParse(f.state.outline[0]).success).toBe(true);
+    const report = await f.run();
+    const gap = report.sections[0]!;
+    expect(gap.sourceIds).toEqual([]);
+    expect(gap.body).toContain(chinese ? "余文省略" : "remainder omitted");
+    expect(gap.body).toContain(chinese ? "待核实问题" : "Unanswered question");
+    expect(gap.body).not.toMatch(chinese ? /[a-z]/i : /\p{Script=Han}/u);
+    expect(f.state.completed).toBe(false);
   });
   it("keeps evidence-free resume warnings and reuses later trusted chapters", async () => {
     const f = runCase("empty"); await f.run(); f.contexts.length = 0;
@@ -1024,4 +1097,73 @@ describe("unverified chapter synthesis boundary (#5179)", () => {
     for (const snapshot of f.writes) expect(snapshot.reportCheckpoint?.chapters.map((c) => c.sectionId)).toEqual(["0", "1", "2", "3", "4"].slice(0, snapshot.reportCheckpoint?.chapters.length ?? 0));
   });
 
+});
+
+it("publishes confirmed report destination before reading sources and does not retry failed documents", async () => {
+  const f = fixture();
+  f.state.currentNode = "research";
+  f.state.availableNodes = ["brief", "directions", "outline", "research"];
+  f.state.sources[1]!.documentError = "unavailable";
+  const read = vi.fn(async (url: string) => {
+    expect(f.events.some((event) => event.type === "snapshot" && event.state.currentNode === "report" && event.state.availableNodes.includes("report"))).toBe(true);
+    return { url, text: "Evidence for a", contentKind: "text" as const, truncated: false };
+  });
+  const store: GuidedRuntimeStore = { read: async () => f.state, claim: async () => ({ state: f.state, replay: false }), write: async () => {} };
+  const service = new GuidedRuntimeService(store, { complete: async (input) => ({ text: JSON.stringify(answer(JSON.parse(input.user))) }) }, { search: async () => [], read }, config);
+  await service.execute({ sessionId: "s", orgId: "org", userId: "u" } as RuntimeActor, { sessionId: "s", brief: f.state.brief, directions: { versions: [] }, outline: { versions: [] } } as any,
+    { sessionId: "s", node: "research", action: "complete", requestId: "advance", expectedVersion: 4 }, (event) => f.events.push(event));
+  expect(read).toHaveBeenCalledTimes(1);
+  expect(read).toHaveBeenCalledWith("https://example.com/a", { signal: expect.any(AbortSignal) });
+});
+
+it("finalizes stalled report source preparation after three minutes", async () => {
+  vi.useFakeTimers();
+  try {
+    const f = fixture();
+    const store: GuidedRuntimeStore = { read: async () => f.state, claim: async () => ({ state: f.state, replay: false }), write: async () => {} };
+    const service = new GuidedRuntimeService(store, { complete: async () => new Promise(() => {}) }, { search: async () => [] }, config);
+    const operation = service.execute({ sessionId: "s", orgId: "org", userId: "u" } as RuntimeActor,
+      { sessionId: "s", brief: f.state.brief, directions: { versions: [] }, outline: { versions: [] } } as any,
+      { sessionId: "s", node: "report", action: "generate", requestId: "deadline", expectedVersion: 4 });
+    await vi.advanceTimersByTimeAsync(180_000);
+    const result = await operation;
+    expect(result.busy).toBe(false);
+    expect(result.errorCode).toBe("RESEARCH_REPORT_PREPARATION_TIME_BUDGET_EXCEEDED");
+  } finally { vi.useRealTimers(); }
+});
+
+it("resumes an unchanged report basis without re-screening already prepared sources", async () => {
+  const f = fixture();
+  f.state.reportCheckpoint = { basis: reportBasis(f.state, config), chapters: [] };
+  const contexts: any[] = [];
+  const read = vi.fn(async () => { throw new Error("must reuse prepared report basis"); });
+  const store: GuidedRuntimeStore = { read: async () => f.state, claim: async () => ({ state: f.state, replay: false }), write: async () => {} };
+  const service = new GuidedRuntimeService(store, { complete: async (input) => {
+    const context = JSON.parse(input.user); contexts.push(context);
+    if (context.researchStage) throw new Error("already screened basis must not block report resume");
+    return { text: JSON.stringify(answer(context)) };
+  } }, { search: async () => [], read }, config);
+  const result = await service.execute({ sessionId: "s", orgId: "org", userId: "u" } as RuntimeActor,
+    { sessionId: "s", brief: f.state.brief, directions: { versions: [] }, outline: { versions: [] } } as any,
+    { sessionId: "s", node: "report", action: "retry", requestId: "resume-basis", expectedVersion: 4 });
+  expect(result.errorCode).toBeNull();
+  expect(result.report?.sections).toHaveLength(2);
+  expect(read).not.toHaveBeenCalled();
+  expect(contexts.every((c) => !c.researchStage)).toBe(true);
+});
+
+ it.each(["Investigar energía solar", "太陽光発電を調査", "태양광 발전 조사"])("preserves user language for chapter and synthesis prompts (%s)", async (topic) => {
+  const f = fixture(); f.state.brief = { ...f.state.brief, topic, goal: "", focus: "" };
+  const prompts: string[] = [];
+  const model: ModelCallPort = { complete: async (input) => {
+    const context = JSON.parse(input.user);
+    if (["chapter", "synthesis"].includes(context.reportStage)) prompts.push(input.system);
+    return { text: JSON.stringify(answer(context)) };
+  } };
+  await generateReportChapters(f.state, model, config, f.persist);
+  expect(prompts).toHaveLength(3);
+  for (const prompt of prompts) {
+    expect(prompt).toContain("Preserve the user's language");
+    expect(prompt).not.toMatch(/prose only in (Chinese|English)/);
+  }
 });

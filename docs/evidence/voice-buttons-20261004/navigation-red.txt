@@ -1,0 +1,64 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/coord-voice-f175-transcription-management/apps/web
+
+ ❯ tests/ui/rec-review-navigation.test.tsx (4 tests | 4 failed) 127ms
+   × project transcription review navigation > keeps interview context when opening speaker review 83ms
+     → expected null to be 'project' // Object.is equality
+   × project transcription review navigation > keeps workshop context when opening speaker review 19ms
+     → expected null to be 'project' // Object.is equality
+   × project transcription review navigation > keeps thread context when opening speaker review 14ms
+     → expected null to be 'project' // Object.is equality
+   × project transcription review navigation > keeps project context from quote annotation too 11ms
+     → expected null to be 'project' // Object.is equality
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 4 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/ui/rec-review-navigation.test.tsx > project transcription review navigation > keeps interview context when opening speaker review
+ FAIL  tests/ui/rec-review-navigation.test.tsx > project transcription review navigation > keeps workshop context when opening speaker review
+ FAIL  tests/ui/rec-review-navigation.test.tsx > project transcription review navigation > keeps thread context when opening speaker review
+AssertionError: expected null to be 'project' // Object.is equality
+
+- Expected: 
+"project"
+
++ Received: 
+null
+
+ ❯ tests/ui/rec-review-navigation.test.tsx:22:46
+     20|       expect(target.searchParams.get("screen")).toBe("assign");
+     21|       for (const key of ["mode", "carrier", "as", "org", "projectId", …
+     22|         expect(target.searchParams.get(key)).toBe(new URLSearchParams(…
+       |                                              ^
+     23|       }
+     24|     }
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/4]⎯
+
+ FAIL  tests/ui/rec-review-navigation.test.tsx > project transcription review navigation > keeps project context from quote annotation too
+AssertionError: expected null to be 'project' // Object.is equality
+
+- Expected: 
+"project"
+
++ Received: 
+null
+
+ ❯ tests/ui/rec-review-navigation.test.tsx:35:47
+     33|       const target = new URL(link.getAttribute("href")!, "http://local…
+     34|       expect(target.searchParams.get("screen")).toBe("assign");
+     35|       expect(target.searchParams.get("mode")).toBe("project");
+       |                                               ^
+     36|       expect(target.searchParams.get("carrier")).toBe("workshop");
+     37|       expect(target.searchParams.get("as")).toBe("groupLead");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/4]⎯
+
+ Test Files  1 failed (1)
+      Tests  4 failed (4)
+   Start at  02:18:32
+   Duration  1.79s (transform 510ms, setup 114ms, collect 790ms, tests 127ms, environment 475ms, prepare 126ms)
+
+undefined
+/Users/shenyangjun/boardx/workspacex/.worktrees/coord-voice-f175-transcription-management/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/ui/rec-review-navigation.test.tsx

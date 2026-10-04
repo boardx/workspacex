@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Toggle } from "@/components/ui/toggle";
 import { cn } from "@/lib/utils";
+import { useRecScreenHref } from "./use-rec-screen-href";
 import {
   SESSION, TRACKS, TRACK_STATUS_LABEL, TRANSCRIPT, reviewCount, isQuotable,
   speakerDisplay, PII_LABEL, isReadOnlyRec, canWriteRec,
@@ -199,6 +200,7 @@ function SegmentRow({
   selected: boolean;
   onSeek: () => void;
 }) {
+  const reviewHref = useRecScreenHref("assign");
   const isOverlap = seg.status === "pending-manual";
   const isLowConf = seg.status === "low-confidence";
   const isPartial = seg.status === "partial";
@@ -265,7 +267,7 @@ function SegmentRow({
                 {isOverlap ? "系统不自动归属，未拆分前不可指派给单一说话人、不可抽为引述。" : "文字可能识别错，校对前不可抽为引述。"}
               </span>
               <Button asChild size="xs" variant="outline" data-testid={`rec-goto-review-${seg.id}`}>
-                <a href="?screen=assign">去校对 →</a>
+                <a href={reviewHref}>去校对 →</a>
               </Button>
             </div>
           ) : (

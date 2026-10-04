@@ -9,6 +9,9 @@ export function validateRuntimeBinding(identity,sha,context){
  if(context&&(identity?.deploymentMarker!==context.runtimeMarker||identity?.runStartedAt!==context.startedAt||!(build<=Date.parse(context.endedAt))))failures.push('RUNTIME_RUN_BINDING');
  return failures;
 }
+export function validateNativeCreationEvidence(report){
+ return report.input?.some(input=>input.kind==='keyboard-armed-single-creation'&&input.count===2)&&report.canonical?.objects?.length?[]:['REAL_OBJECT_INPUT_REQUIRED'];
+}
 async function image(ref){const bytes=await readFile(ref.path);if(createHash('sha256').update(bytes).digest('hex')!==ref.sha256||bytes.subarray(0,8).toString('hex')!=='89504e470d0a1a0a')throw new Error('SCREENSHOT_HASH_OR_FORMAT');}
 export async function validateBoardObservationArtifact(report,lane,sha,context,key=process.env.BOARD_ACCEPTANCE_LEDGER_KEY){
  const failures=[];let pending=[];
@@ -36,7 +39,7 @@ export async function validateBoardObservationArtifact(report,lane,sha,context,k
     if(capture.measurement?.editorReachable===false)failures.push('EDITOR_TEXT_OCCLUDED');
    }
    if(r.axeResults?.length!==3||r.axeResults.some(a=>!Array.isArray(a.violations)||a.violations.some(v=>['serious','critical'].includes(v.impact)))||!r.counterproof?.includes('button-name'))failures.push('ACCESSIBILITY_AUDIT');
-   if(!r.input?.some(i=>i.kind==='keyboard-continuous-creation'&&i.count===2)||!r.canonical?.objects?.length)failures.push('REAL_OBJECT_INPUT_REQUIRED');
+   failures.push(...validateNativeCreationEvidence(r));
   }
   pending=lane==='visual'?['independent-human-visual-score']:['native-browser-200-400-zoom','real-screenreader-output','physical-touch-and-pressure-pen'];
  }

@@ -1,6 +1,7 @@
 import * as React from "react";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
+import { interviewTranscriptDisplay } from "@/components/itv/interview-transcript-display";
 import { InterviewRunsStep } from "@/components/itv/interview-runs-step";
 afterEach(cleanup);
 it("keeps report actions above the saved transcript without a second progress hero", () => {
@@ -14,16 +15,16 @@ it("queued experts are not presented as actively interviewing", () => {
   expect(screen.getByText("等待访谈 · 0/1")).toBeVisible();
   expect(screen.queryByText("进行中 · 0/1")).not.toBeInTheDocument();
 });
-it("expert summary tabs filter by stable attribution while keeping question links", () => {
+it("expert cards filter by stable attribution while keeping question links", () => {
   render(<InterviewRunsStep runs={[
     { expertId: "nurse-7", displayName: "护理角色", status: "completed", completedQuestions: 1, totalQuestions: 1 },
     { expertId: "doctor-8", displayName: "医生角色", status: "running", completedQuestions: 0, totalQuestions: 1 },
   ]} document={{ documentId: "runs-2", step: "runs", version: 1, contentHash: "b".repeat(64), evidenceMode: "simulated", references: [], markdown: "# 访谈汇总\n\n## [护理角色](#expert-nurse-7)\n\n交接记录需要复核。[追问](#question-q7)\n\n## [医生角色](#expert-doctor-8)\n\n急诊分诊尚未回答。" }} pending={false} onGenerateReport={vi.fn()} />);
-  fireEvent.click(screen.getByRole("tab", { name: "护理角色" }));
+  fireEvent.click(screen.getByRole("button", { name: /护理角色/u }));
   expect(screen.getByText(/交接记录需要复核/)).toBeVisible();
   expect(screen.queryByText("急诊分诊尚未回答。")).not.toBeInTheDocument();
   expect(screen.getByRole("link", { name: "追问" })).toHaveAttribute("href", "#question-q7");
-  fireEvent.click(screen.getByRole("tab", { name: "全部（实时汇总）" }));
+  fireEvent.click(screen.getByRole("button", { name: /护理角色/u }));
   expect(screen.getByText("急诊分诊尚未回答。")).toBeVisible();
 });
 it("left expert cards select the matching summary without requiring the top tabs", () => {
@@ -68,7 +69,7 @@ it("only projects saved Markdown insight sections and preserves source attributi
   expect(screen.getByRole("heading", { name: "核心发现（1）" })).toBeVisible();
   expect(screen.queryByRole("heading", { name: /后续追问/u })).not.toBeInTheDocument();
   expect(screen.getAllByRole("link", { name: "采购审批至少经过两级" })[0]).toHaveAttribute("href", "#question-q1");
-  fireEvent.click(screen.getByRole("tab", { name: "采购专家" }));
+  fireEvent.click(screen.getByRole("button", { name: /采购专家/u }));
   expect(screen.getByRole("heading", { name: "关键观点（1）" })).toBeVisible();
   expect(screen.queryByRole("heading", { name: "核心发现（1）" })).not.toBeInTheDocument();
 });
@@ -88,10 +89,98 @@ it("keeps provider top-level headings inside the attributed expert and repeated 
     { expertId: "nurse-7", displayName: "护理角色", status: "completed", completedQuestions: 1, totalQuestions: 1 },
     { expertId: "doctor-8", displayName: "医生角色", status: "completed", completedQuestions: 1, totalQuestions: 1 },
   ]} document={{ documentId: "runs-provider-headings", step: "runs", version: 1, contentHash: "f".repeat(64), evidenceMode: "simulated", references: [], markdown }} pending={false} onGenerateReport={vi.fn()} />);
-  fireEvent.click(screen.getByRole("tab", { name: "护理角色" }));
+  fireEvent.click(screen.getByRole("button", { name: /护理角色/u }));
   expect(screen.getByText("护理原始回答。")).toBeVisible();
   expect(screen.getByText("护理续答。")).toBeVisible();
   expect(screen.queryByText("医生原始回答。")).not.toBeInTheDocument();
   expect(screen.getByRole("heading", { name: "关键观点（1）" })).toBeVisible();
   expect(screen.queryByRole("heading", { name: "核心发现（1）" })).not.toBeInTheDocument();
+});
+
+it("projects compact simulated records without changing the saved source", () => {
+  const markdown = "# 模拟访谈记录\n\n以下回答来自模型模拟，需真人验证。\n\n## [护理角色](#expert-persona-nurse)\n\n# 模拟访谈记录\n\n专家 ID：persona-nurse\n\n## 问题\n\n交接如何复核？\n\n## 回答\n\n我们用 persona 方法分类，保留这句实质回答。[来源](#question-q7)\n\n<script>alert('unsafe')</script>";
+  const document = { documentId: "compact", step: "runs" as const, version: 1, contentHash: "a".repeat(64), evidenceMode: "simulated" as const, references: [], markdown };
+  render(<InterviewRunsStep runs={[{ expertId: "persona-nurse", displayName: "护理角色", status: "completed", completedQuestions: 1, totalQuestions: 1 }]} document={document} pending={false} onGenerateReport={vi.fn()} />);
+  expect(screen.queryByRole("tablist")).not.toBeInTheDocument();
+  expect(screen.queryByRole("heading", { name: "模拟访谈记录" })).not.toBeInTheDocument();
+  expect(screen.queryByText("专家 ID：persona-nurse")).not.toBeInTheDocument();
+  expect(screen.queryByText("AI 模拟 · 需真人验证")).not.toBeInTheDocument();
+  expect(screen.getByText(/我们用 persona 方法分类/u)).toBeVisible();
+  expect(screen.getByRole("link", { name: "来源" })).toHaveAttribute("href", "#question-q7");
+  expect(screen.getByTestId("itv-source-runs-markdown").querySelector("script")).toBeNull();
+  expect(document.markdown).toBe(markdown);
+});
+
+it.each(["persona-68ecb1285cee2aeada7537e9", "virtual-095b8b15-8a25-454e-ad94-a83828ed2ef6"])("uses readable expert attribution and hides only technical record headers (%s)", (id) => {
+  const markdown = `## [${id}](#expert-${id})\n\n${id.startsWith("virtual-") ? `# 王志远（${id}）访谈记录` : `# 访谈回答：王志远（${id}）`}\n\n身份声明：本内容为基于模拟画像库生成的专家视角推演，需真人验证。\n\n问题：[上线时如何使用 ${id}？](#question-q7)\n\n回答：保留 ${id} 作为回答中的参照。`;
+  render(<InterviewRunsStep runs={[{ expertId: id, displayName: "王志远", status: "completed", completedQuestions: 1, totalQuestions: 1 }]} document={{ documentId: "technical", step: "runs", version: 1, contentHash: "c".repeat(64), evidenceMode: "simulated", references: [], markdown }} pending={false} onGenerateReport={vi.fn()} />);
+  expect(screen.getByRole("heading", { name: "王志远", level: 2 })).toBeVisible();
+  expect(screen.queryByRole("heading", { name: /访谈回答/u })).not.toBeInTheDocument();
+  expect(screen.queryByText(/^身份声明：/u)).not.toBeInTheDocument();
+  expect(screen.getByText(`回答：保留 ${id} 作为回答中的参照。`)).toBeVisible();
+  expect(screen.getByRole("link", { name: `上线时如何使用 ${id}？` })).toHaveAttribute("href", "#question-q7");
+});
+
+it("preserves substantive statements and fenced examples in the display projection", () => {
+  const markdown = "# 模拟访谈记录\n\n~~~markdown\n# 模拟访谈记录\n专家 ID：persona-example\n~~~\n\n回答：身份声明：本内容为基于模拟画像库生成的专家视角推演，是我们讨论的风险。";
+  const display = interviewTranscriptDisplay(markdown, true);
+  expect(display).toContain("~~~markdown\n# 模拟访谈记录\n专家 ID：persona-example\n~~~");
+  expect(display).toContain("回答：身份声明：");
+  expect(interviewTranscriptDisplay("# 模拟访谈记录\n\n以下回答来自模型模拟，需真人验证。", false)).toBe("# 模拟访谈记录\n\n以下回答来自模型模拟，需真人验证。");
+});
+it.each([
+  "> **身份声明**：本内容为基于模拟画像库生成的专家视角推演，需真人验证。",
+  "**声明**：以下所有回答均基于提供的模拟研究计划与材料生成的定性推演，需真人验证。",
+  "> **身份声明**：本内容为基于模拟画像库生成的专家视角推演，\n> 需真人验证。",
+])("only hides formatted boilerplate in leading metadata (%s)", (notice) => {
+  const markdown = `## [护理角色](#expert-nurse)\n\n${notice}\n\n### 回答\n\n先保留有意义的回答。\n\n${notice}\n\n## [医生角色](#expert-doctor)\n\n${notice}\n\n### 回答\n\n医生的回答。`;
+  const display = interviewTranscriptDisplay(markdown, true);
+  expect(display.split(notice)).toHaveLength(2);
+  expect(display).toContain(`先保留有意义的回答。\n\n${notice}`);
+  expect(display).toContain("医生的回答。");
+});
+
+it("preserves substantive expert-suffixed headings and indented metadata examples", () => {
+  const markdown = "## [角色](#expert-persona-x)\n\n### 关键发现（persona-x）\n\n    专家 ID：persona-x\n\n\t专家 ID：persona-x\n\n### 访谈回答：角色（persona-x）\n\n### 角色（persona-x）访谈记录";
+  const display = interviewTranscriptDisplay(markdown, true);
+  expect(display).toContain("### 关键发现（persona-x）");
+  expect(display).toContain("    专家 ID：persona-x");
+  expect(display).toContain("\t专家 ID：persona-x");
+  expect(display).not.toContain("### 访谈回答：角色（persona-x）");
+  expect(display).not.toContain("### 角色（persona-x）访谈记录");
+});
+
+it("preserves a code fence immediately following a leading notice without a blank line", () => {
+  const markdown = "## [角色](#expert-persona-x)\n\n身份声明：本内容为基于模拟画像库生成的专家视角推演\n```md\n## 模拟访谈记录\n代码例子必须保留\n```";
+  const display = interviewTranscriptDisplay(markdown, true);
+  expect(display).toContain("```md\n## 模拟访谈记录\n代码例子必须保留\n```");
+});
+
+it("separates bilingual expert names while retaining accessible full names", () => {
+  const displayName = "技术教育用户研究员（Technical Education UX Researcher）";
+  render(<InterviewRunsStep runs={[{expertId: "long-name", displayName, status: "completed", completedQuestions: 1, totalQuestions: 1}]} pending={false} onGenerateReport={vi.fn()} />);
+  expect(screen.getByRole("heading", {name: "技术教育用户研究员"})).toBeVisible();
+  expect(screen.getByText("Technical Education UX Researcher")).toBeVisible();
+  expect(screen.getByRole("button", {name: `${displayName} 已完成`})).toBeEnabled();
+});
+
+it("hides spaced provider transcript titles containing technical ids", () => {
+  const markdown = "## [角色](#expert-virtual-abc)\n\n# 角色（virtual-abc） 访谈记录\n\n### 问题一\n\n回答正文。";
+  const result = interviewTranscriptDisplay(markdown, true);
+  expect(result).not.toContain("# 角色（virtual-abc） 访谈记录");
+  expect(result).toContain("回答正文。");
+});
+
+
+it.each(["simulated", "participant", "mixed"] as const)("keeps evidence metadata and source links without repeated reading notices (%s)", (evidenceMode) => {
+  const markdown = "## [护理角色](#expert-nurse)\n\n已保存回答。[来源](#question-q7)";
+  const document = { documentId: "disclosure", step: "runs" as const, version: 1, contentHash: "a".repeat(64), evidenceMode, references: [], markdown };
+  render(<InterviewRunsStep runs={[{ expertId: "nurse", displayName: "护理角色", status: "completed", completedQuestions: 1, totalQuestions: 1 }]} document={document} pending={false} onGenerateReport={vi.fn()} />);
+  const notice = "AI 模拟访谈，内容需真人验证。";
+  expect(screen.queryByText(notice)).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: /护理角色/u }));
+  expect(screen.queryByText(notice)).not.toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "来源" })).toHaveAttribute("href", "#question-q7");
+  expect(document.markdown).toBe(markdown);
+  expect(document.evidenceMode).toBe(evidenceMode);
 });

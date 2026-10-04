@@ -60,12 +60,10 @@ export const LOCAL_ENV_PARITY: readonly ParityGroup[] = [
       // 同一份实体文档目录），默认值本来就对——不是本地缺口。
       "WORKFLOW_DEFINITIONS_ROOT",
       // main 上后合入、此前漏归档的变量（#4549 实时数字人 / KG S8 / 问卷 / workflow SSE）：
-      // 数字人 OMNI_REALTIME_* 与 DASHSCOPE_API_KEY 都回退到 config.ts 已供给的 KERNEL_ASR_* /
-      // KERNEL_MODEL_BASE_URL，模型/音色有内置默认；问卷模型回退 KERNEL_MODEL_ID；其余是带默认值的
+      // 数字人剩余音色/转录配置有内置默认；问卷模型回退 KERNEL_MODEL_ID；其余是带默认值的
       // 间隔/开关/SLO 阈值——默认值就是本地要的答案。
-      "KERNEL_OMNI_REALTIME_API_KEY", "KERNEL_OMNI_REALTIME_BASE_URL", "KERNEL_OMNI_REALTIME_MODEL",
       "KERNEL_OMNI_REALTIME_VOICE", "KERNEL_OMNI_REALTIME_VOICE_MAP", "KERNEL_OMNI_REALTIME_TRANSCRIPTION_MODEL",
-      "DASHSCOPE_API_KEY", "KERNEL_SURVEY_MODEL_ID",
+      "KERNEL_SURVEY_MODEL_ID",
       "KERNEL_WORKFLOW_SSE_REPLAY_WINDOW", "KG_CONSOLIDATION_INTERVAL_MS", "KG_CONSOLIDATION_WORKER",
       "KG_EXTRACTION_GATE_MODEL", "KG_EXTRACTION_SLO_FAILURE_RATE", "KG_EXTRACTION_SLO_P95_MS",
       "KG_EXTRACTION_SLO_STUCK_LEASES",
@@ -87,6 +85,8 @@ export const LOCAL_ENV_PARITY: readonly ParityGroup[] = [
       "WHITEBOARD_CURSOR_SECRET",
       "KERNEL_DEEP_AGENT_POLL_INTERVAL_MS",
       "KERNEL_DESIGN_CHAT_TIMEOUT_MS", "KERNEL_KEEP_LOGS",
+      // 默认走完整 HTML 页面；仅显式 0 回到组件树，本地无需重复配置默认值。
+      "DESIGN_HTML_PAGES",
       "KERNEL_MODEL_MAX_OUTPUT_TOKENS", "KERNEL_MODEL_TIMEOUT_MS",
       "KERNEL_STANDARD_SCHEDULER", // 云端同样不开（仓库里没有任何部署设它）
       "PGSTATEMENT_TIMEOUT_MS", "STANDARD_SQL_BINDINGS",
@@ -155,6 +155,13 @@ export const LOCAL_ENV_PARITY: readonly ParityGroup[] = [
       // 本地版设了就等于给真实用户留了测试后门。
       "BOARD_AGENT_API_ACCEPTANCE", "WORKSPACEX_ISOLATION_ID", "KERNEL_LOOPBACK_PROVIDER_ALIASES",
     ],
+  },
+  {
+    status: "must-stay-unset",
+    reason:
+      "KG 回忆消融只供显式隔离的验收进程使用：要求 KG_EVAL_FIXTURE=1 且数据库为 wsx_kg_。" +
+      "本地用户服务不能继承父进程的验收开关；不设时沿用正常回忆策略。专用 seed runner 仍可显式传入。",
+    names: ["KG_EVAL_FIXTURE", "KG_EVAL_RECALL_MODE"],
   },
 ];
 

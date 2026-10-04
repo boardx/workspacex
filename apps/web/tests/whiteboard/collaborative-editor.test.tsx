@@ -238,7 +238,12 @@ it.each(['ctrlKey','metaKey'] as const)('selects Board objects from dock focus w
  executeCommands(doc,[0,1,2].map(i=>({type:'create' as const,object:{id:`select-${i}`,schemaVersion:1 as const,kind:'sticky' as const,geometry:{x:i*200,y:0,width:180,height:140,rotation:0},text:`note ${i}`,style:{},parentId:null,orderKey:String(i)}})),'seed');
  render(<CollaborativeEditor boardId="board-test" clientId="client-test" doc={doc} readOnly={false} title="白板" status="已连接"/>);
  const updates=vi.fn();doc.on('update',updates);
+ // Board panning belongs to its viewport; focusing chrome must not scroll the
+ // root frame. This mounted policy check does not simulate browser geometry.
+ expect(screen.getByTestId('collaborative-editor')).toHaveClass('overflow-clip');
+ expect(screen.getByTestId('collaborative-editor')).not.toHaveClass('overflow-hidden','overflow-auto');
  const dock=screen.getByTestId('board-tool-select');dock.focus();
+ expect(dock).toHaveFocus();
  expect(fireEvent.keyDown(dock,{key:'a',[modifier]:true})).toBe(false);
  expect(JSON.parse(screen.getByTestId('mock-selected').textContent!)).toEqual(['select-0','select-1','select-2']);
  expect(updates).not.toHaveBeenCalled();doc.destroy();
@@ -266,7 +271,7 @@ it('commenter can start another discussion on an already commented object while 
  commentHarness.threads=[{id:'existing',objectId:'commented-note',status:'open',revision:1,comments:[{id:'c',authorId:'other',body:'Existing discussion',mentions:[],deletedAt:null}]}];
  const props={boardId:'board-test',clientId:'commenter',doc,readOnly:true,role:'commenter' as const,title:'Board',status:'online'};
  const view=render(<CollaborativeEditor {...props}/>);fireEvent.click(screen.getByTestId('fabric-select-all'));fireEvent.click(screen.getByRole('button',{name:'评论'}));
- expect(screen.getByTestId('board-comments-panel')).toHaveClass('max-h-[calc(100%-7rem)]');
+ expect(screen.getByTestId('board-comments-panel')).toHaveClass('max-h-[calc(100%-7rem)]','overflow-auto');
  await screen.findByText(/Existing discussion/);fireEvent.change(screen.getByLabelText('评论内容'),{target:{value:'Another discussion'}});
  const memberSearch=screen.getByRole('combobox',{name:'提及成员'});await waitFor(()=>expect(memberSearch).toBeEnabled());fireEvent.change(memberSearch,{target:{value:'李四'}});fireEvent.keyDown(memberSearch,{key:'Enter'});expect(screen.getByRole('button',{name:'移除提及 李四'})).toBeTruthy();
  expect(screen.getByRole('button',{name:'发布评论'})).toBeEnabled();expect(screen.getByTestId('board-add-sticky')).toBeDisabled();

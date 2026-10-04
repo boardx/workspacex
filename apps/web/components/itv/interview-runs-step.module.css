@@ -1,0 +1,43 @@
+.transcript :global(.chat-markdown) {
+  margin-top: 0;
+  width: 100%;
+  max-width: none;
+  overflow-wrap: break-word;
+}
+.transcript :global(.chat-markdown.interview-report-markdown) h1,
+.transcript :global(.chat-markdown.interview-report-markdown) h2 {
+  @apply text-lg;
+  margin: 1.75rem 0 0.75rem;
+  font-weight: 600;
+  line-height: 1.6;
+}
+.transcript :global(.chat-markdown.interview-report-markdown) h3 {
+  @apply text-lg;
+  margin: 1.75rem 0 0.75rem;
+  font-weight: 600;
+  line-height: 1.7;
+}
+.transcript :global(.chat-markdown.interview-report-markdown) > :first-child {
+  margin-top: 0;
+}
+.transcript :global(.chat-markdown.interview-report-markdown) p,
+.transcript :global(.chat-markdown.interview-report-markdown) li,
+.transcript :global(.chat-markdown.interview-report-markdown) blockquote {
+  @apply text-base;
+  line-height: 1.9;
+}
+.transcript :global(.chat-markdown.interview-report-markdown) p {
+  margin: 0.75rem 0;
+}
+.transcript :global(.chat-markdown.interview-report-markdown) h1 a,
+.transcript :global(.chat-markdown.interview-report-markdown) h2 a {
+  color: inherit;
+  text-decoration: none;
+}
+.transcript :global(.chat-markdown.interview-report-markdown) hr {
+  margin: 1.5rem 0;
+}
+.transcript :global(.chat-markdown.interview-report-markdown) pre {
+  overflow-x: auto;
+  overflow-wrap: normal;
+}

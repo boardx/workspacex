@@ -1,6 +1,8 @@
 import { research } from "@repo/contracts";
-import { apiRequest } from "./api-client";
+import { apiRequest, getStoredSessionToken } from "./api-client";
+import { writeResearchMemory } from "./guided-research-memory";
 import { streamResearchCommand, type ResearchStreamEvent } from "./guided-research-stream";
+import { mergeResearchDelta, researchFieldFingerprints, type RuntimePatch } from "./guided-research-delta";
 import type { z } from "zod";
 
 export type GuidedResearchSession = z.infer<typeof research.GuidedResearchSession>;
@@ -119,21 +121,33 @@ export async function getResearchRuntime(sessionId: string): Promise<GuidedResea
   const op = research.operations.getGuidedResearchRuntime;
   return research.GuidedResearchRuntime.parse(await apiRequest(op.path.replace(":sessionId", encodeURIComponent(sessionId)), { method: op.method }));
 }
-export async function executeResearchRuntime(input: GuidedResearchRuntimeCommand, onEvent?: (event: ResearchStreamEvent) => void, signal?: AbortSignal): Promise<GuidedResearchRuntime> {
-  if (onEvent) return streamResearchCommand(input, onEvent, signal);
+export async function executeResearchRuntime(input: GuidedResearchRuntimeCommand, onEvent?: (event: ResearchStreamEvent) => void, signal?: AbortSignal, baseline?: GuidedResearchRuntime): Promise<GuidedResearchRuntime> {
+  if (baseline && baseline.sessionId !== input.sessionId) throw new Error("Research baseline belongs to another session");
+  if (onEvent) return streamResearchCommand(input, onEvent, signal, baseline);
   const op = research.operations.executeGuidedResearchRuntime;
-  return research.GuidedResearchRuntime.parse(await apiRequest(op.path.replace(":sessionId", encodeURIComponent(input.sessionId)), { method: op.method, body: input }));
+  const body = baseline ? { ...input, knownFields: await researchFieldFingerprints(baseline) } : input;
+  const result = op.out.parse(await apiRequest(op.path.replace(":sessionId", encodeURIComponent(input.sessionId)), { method: op.method, body }));
+  if ("type" in result && result.type === "patch") {
+    if (!baseline) throw new Error("Research patch requires a snapshot");
+    return mergeResearchDelta(baseline, result);
+  }
+  return research.GuidedResearchRuntime.parse(result);
 }
 
 export type ResearchRuntimeProgress = z.infer<typeof research.GuidedResearchRuntimeProgress>;
-export async function getResearchRuntimeProgress(sessionId: string, stream?: GuidedResearchRuntime["reportStream"], sourceCursor?: string): Promise<ResearchRuntimeProgress> {
+export async function getResearchRuntimeProgress(sessionId: string, stream?: GuidedResearchRuntime["reportStream"], sourceCursor?: string, baseline?: GuidedResearchRuntime): Promise<ResearchRuntimeProgress | RuntimePatch> {
   const op = research.operations.getGuidedResearchRuntimeProgress;
   const digest = stream ? Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(stream.text)))).map((byte) => byte.toString(16).padStart(2, "0")).join("") : "";
   const query = new URLSearchParams(stream ? { requestId: stream.requestId, offset: String(stream.text.length), digest } : {});
   if (sourceCursor) query.set("sourceCursor", sourceCursor);
+  if (baseline) {
+    if (baseline.sessionId !== sessionId) throw new Error("Research baseline belongs to another session");
+    query.set("knownFields", JSON.stringify(await researchFieldFingerprints(baseline)));
+  }
   return op.out.parse(await apiRequest(`${op.path.replace(":sessionId", encodeURIComponent(sessionId))}?${query}`));
 }
-export function mergeResearchProgress(current: GuidedResearchRuntime, update: ResearchRuntimeProgress): GuidedResearchRuntime {
+export function mergeResearchProgress(current: GuidedResearchRuntime, update: ResearchRuntimeProgress | RuntimePatch): GuidedResearchRuntime {
+  if ("type" in update) return mergeResearchDelta(current, update);
   if (current.sessionId !== update.sessionId || update.version < current.version || (update.version === current.version && !current.busy && update.busy)) return current;
   // Polling and SSE may race. Reject the whole stale projection, not only its
   // text delta, so durable metadata such as saved chapter count cannot rewind.
@@ -174,7 +188,10 @@ export function mergeResearchProgress(current: GuidedResearchRuntime, update: Re
 export async function updateGuidedResearchMetadata(sessionId: string, input: { title: string; tags: string[] }): Promise<GuidedResearchSession> {
   const op = research.operations.updateGuidedResearchMetadata;
   const { sessionId: id, ...body } = op.in.parse({ ...input, sessionId });
-  return op.out.parse(await apiRequest(op.path.replace(":sessionId", encodeURIComponent(id)), { method: op.method, body }));
+  const scope = getStoredSessionToken();
+  const session = op.out.parse(await apiRequest(op.path.replace(":sessionId", encodeURIComponent(id)), { method: op.method, body }));
+  writeResearchMemory(id, { name: session.title }, scope);
+  return session;
 }
 
 export async function deleteGuidedResearchSession(sessionId: string): Promise<{ archived: true }> {

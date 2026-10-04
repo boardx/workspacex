@@ -34,6 +34,7 @@ type SourceRow = {
   markdown: string; content_hash: string | null;
   evidence_mode: Document["evidenceMode"];
   controlled_references: Document["references"];
+  answer_spans: Document["answerSpans"];
 };
 export function interviewMarkdownContentHash(markdown: string): string {
   return createHash("sha256").update(markdown, "utf8").digest("hex");
@@ -44,7 +45,7 @@ export async function readInterviewMarkdownDocuments(
   session: TenantSession, orgId: OrgId, interviewId: string, revisionId: string,
 ): Promise<{ documents: Guarded<Document[]>; versions: Array<Pick<Document, "step" | "version">> }> {
   const result = await session.query<SourceRow>(
-    `SELECT DISTINCT ON (step) artifact_id,step,version_number,markdown,content_hash,evidence_mode,controlled_references
+    `SELECT DISTINCT ON (step) artifact_id,step,version_number,markdown,content_hash,evidence_mode,controlled_references,answer_spans
        FROM digital_interview_artifact_versions
       WHERE org_id=$1 AND interview_id=$2 AND revision_id=$3 AND content_source IS NOT NULL
       ORDER BY step,version_number DESC`, [orgId, interviewId, revisionId],
@@ -54,7 +55,7 @@ export async function readInterviewMarkdownDocuments(
     return interviewMarkdown.InterviewMarkdownDocument.parse({
       documentId: row.artifact_id, step: row.step, version: row.version_number,
       markdown: row.markdown, contentHash: row.content_hash,
-      evidenceMode: row.evidence_mode, references: row.controlled_references,
+      evidenceMode: row.evidence_mode, references: row.controlled_references, answerSpans: row.answer_spans ?? [],
     });
   });
   return {
@@ -67,6 +68,7 @@ export async function appendInterviewMarkdownDocument(session: TenantSession, in
   orgId: OrgId; interviewId: string; revisionId: string; step: Document["step"];
   title: string; markdown: string; evidenceMode: Document["evidenceMode"];
   references: Document["references"]; expectedVersion: number;
+  answerSpans?: Document["answerSpans"];
   source?: "legacy-migration-v1" | "markdown-v1";
   status?: Artifact["status"];
   failure?: Artifact["failure"];
@@ -86,7 +88,7 @@ export async function appendInterviewMarkdownDocument(session: TenantSession, in
   const document = interviewMarkdown.InterviewMarkdownDocument.parse({
     documentId: `md-${randomUUID()}`, step: input.step, version: input.expectedVersion + 1,
     markdown: input.markdown, contentHash: interviewMarkdownContentHash(input.markdown),
-    evidenceMode: input.evidenceMode, references: input.references,
+    evidenceMode: input.evidenceMode, references: input.references, answerSpans: input.answerSpans ?? [],
   });
   if (!input.title.trim() || !input.markdown.trim()) throw new Error("MARKDOWN_DOCUMENT_EMPTY");
   const artifact = interview.DigitalInterviewArtifact.parse({
@@ -98,12 +100,12 @@ export async function appendInterviewMarkdownDocument(session: TenantSession, in
   await session.query(
     `INSERT INTO digital_interview_artifact_versions
       (org_id,artifact_id,interview_id,revision_id,step,version_number,title,markdown,status,evidence_mode,
-       content_hash,controlled_references,content_source,failure)
-     VALUES($1,$2,$3,$4,$5,$6,$7,$8,$13,$9,$10,$11::jsonb,$12,$14::jsonb)`,
+       content_hash,controlled_references,content_source,failure,answer_spans)
+     VALUES($1,$2,$3,$4,$5,$6,$7,$8,$13,$9,$10,$11::jsonb,$12,$14::jsonb,$15::jsonb)`,
     [input.orgId, document.documentId, input.interviewId, input.revisionId, document.step,
       document.version, input.title, document.markdown, document.evidenceMode,
       document.contentHash, JSON.stringify(document.references), input.source ?? "markdown-v1",
-      artifact.status, JSON.stringify(artifact.failure)],
+      artifact.status, JSON.stringify(artifact.failure), JSON.stringify(document.answerSpans ?? [])],
   );
   return document;
 }

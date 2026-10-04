@@ -1,0 +1,88 @@
+- alert
+- link "跳到主要内容":
+  - /url: "#wsx-main-content"
+- navigation "主导航":
+  - button "组织菜单，当前：org org-fullstack-5e-986ac146-12206c108846":
+    - generic: o
+  - link "首页":
+    - /url: /home
+    - generic: 首页
+  - link "对话":
+    - /url: /chat
+    - generic: 对话
+  - link "项目":
+    - /url: /projects
+    - generic: 项目
+  - link "研究":
+    - /url: /research
+    - generic: 研究
+  - link "访谈":
+    - /url: /itv
+    - generic: 访谈
+  - link "大脑":
+    - /url: /brain
+    - generic: 大脑
+  - link "任务":
+    - /url: /tasks
+    - generic: 任务
+  - link "工作流":
+    - /url: /workflows
+    - generic: 工作流
+  - link "组织后台":
+    - /url: /admin
+    - generic: 组织后台
+  - button "更多":
+    - generic: 更多
+  - button "任务提醒，0 条未读":
+    - generic: 提醒
+  - generic: 0 条未读
+  - button "提交反馈":
+    - generic: 反馈
+  - button "个人菜单":
+    - generic: F
+- banner:
+  - generic: org org-fullstack-5e-986ac146-12206c108846
+  - paragraph: 管理员
+  - paragraph: 不在具体项目里 · 引导师/组长/组员等项目内角色暂不适用
+- main:
+  - main:
+    - button "← 返回列表"
+    - textbox "问卷名称": 合成验收20261004-空白设计
+    - paragraph: 已保存 · 2026/10/4 02:21:39
+    - button "更多操作"
+    - button "保存修改" [disabled]
+    - navigation "问卷工作流":
+      - button "1. 设计问卷":
+        - generic: "1"
+        - text: 设计问卷
+      - button "2. 发布回收" [active]:
+        - generic: "2"
+        - text: 发布回收
+      - button "3. 查看答卷":
+        - generic: "3"
+        - text: 查看答卷
+    - status: 修改已保存
+    - heading "发布与回收" [level=1]
+    - paragraph: 设置回收状态与时间，发布后分享链接并查看真实答卷。
+    - region "问卷回收状态":
+      - paragraph: 回收设置
+      - heading "问卷尚未开始回收" [level=2]
+      - paragraph: 设置回收时间后开始回收。开始回收后题目与匿名方式固定。
+    - heading "回收设置" [level=2]
+    - paragraph: 设计阶段自动检查问卷。设置截止时间后即可开始回收。
+    - text: 截止时间（默认 30 天）
+    - textbox "截止时间"
+    - button "返回编辑"
+    - button "开始回收"
+    - complementary "回收设置面板":
+      - text: 匿名填写
+      - checkbox "匿名填写" [checked]
+      - paragraph: 关闭后可收集填写者信息；发布后不可更改。
+      - region "限答与成功页设置":
+        - heading "回收设置" [level=2]
+        - checkbox "同一浏览器限答一次"
+        - text: 同一浏览器限答一次
+        - paragraph: 保持匿名；清除 Cookie 或更换浏览器、设备后可再次填写，不保证跨设备唯一。
+        - text: 成功页 Markdown
+        - textbox "成功页 Markdown": 提交成功，感谢您的参与。
+        - generic "预览成功页"

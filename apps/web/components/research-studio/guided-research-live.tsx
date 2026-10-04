@@ -1,7 +1,8 @@
 "use client";
 import { GuidedResearchReportTimeline } from "./guided-research-report-timeline";
 import * as React from "react";
-import { ApiError } from "@/lib/api-client";
+import { ApiError, getStoredSessionToken } from "@/lib/api-client";
+import { readResearchMemory, writeResearchMemory } from "@/lib/guided-research-memory";
 import { research as C } from "@repo/contracts";
 import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -35,9 +36,16 @@ import { GuidedResearchPlanEditor } from "./guided-research-plan-editor";
 import { toGuidedResearchVisualStage, type GuidedResearchVisualStage } from "@/lib/guided-research-six-step";
 import { getResearchRuntime, getResearchRuntimeProgress, mergeResearchProgress, executeResearchRuntime, type GuidedResearchRuntime as Runtime, type GuidedResearchRuntimeCommand as Command, type GuidedResearchRuntimeDraft as Draft } from "@/lib/guided-research-api";
 function newestSnapshot(incoming: Runtime, current: Runtime | null): Runtime {
-  if (current?.sessionId === incoming.sessionId && current.version === incoming.version && current.reportStream && incoming.busy && (!incoming.reportStream || (current.reportStream.requestId === incoming.reportStream.requestId && current.reportStream.sequence > incoming.reportStream.sequence))) return current;
-  return current && current.sessionId === incoming.sessionId && (current.version > incoming.version || (current.version === incoming.version && !current.busy && incoming.busy)) ? current : incoming;
+  if (!current || current.sessionId !== incoming.sessionId) return incoming;
+  if (current.version > incoming.version || (current.version === incoming.version && !current.busy && incoming.busy)) return current;
+  if (current.version !== incoming.version) return incoming;
+  const newerControl = (current.planRevision ?? 0) > (incoming.planRevision ?? 0);
+  const newerStream = current.reportStream && incoming.busy && (!incoming.reportStream || (current.reportStream.requestId === incoming.reportStream.requestId && current.reportStream.sequence > incoming.reportStream.sequence));
+  if (newerStream) return (incoming.planRevision ?? 0) > (current.planRevision ?? 0)
+    ? { ...current, planRevision: incoming.planRevision, controlStatus: incoming.controlStatus, activity: incoming.activity } : current;
+  return newerControl ? { ...incoming, planRevision: current.planRevision, controlStatus: current.controlStatus, activity: current.activity } : incoming;
 }
+
 function draftOf(state: Runtime, node: Command["node"]): Draft | null {
   if (!state.busy && !state.errorCode && state.proposal?.version === state.version && state.proposal.draft.node === node) return state.proposal.draft;
   if (node === "brief") return { node, value: state.brief };
@@ -53,13 +61,16 @@ function ProposalPreview({ draft }: { draft: Draft }) {
   return <p>建议保留 {draft.value.filter((item) => item.decision === "accepted").length} 个来源、排除 {draft.value.filter((item) => item.decision === "excluded").length} 个来源。</p>;
 }
 const errors: Record<string, string> = {
+  RESEARCH_REPORT_PREPARATION_TIME_BUDGET_EXCEEDED: "报告来源准备超时，已保存章节仍保留，请重试继续生成。",
+  RESEARCH_REPORT_MODEL_TIME_BUDGET_EXCEEDED: "报告模型响应超时，已保存章节仍保留，请重试继续生成。",
   RESEARCH_EVIDENCE_BUDGET_EXCEEDED: "大纲问题或来源内容超出本次分析容量，请精简后重试。",
   RESEARCH_REPORT_QUALITY_INSUFFICIENT: "报告修订后仍未通过证据与分析质量检查，请完善大纲或补充来源后重试。",
   RESEARCH_GRAPH_VERSION_CONFLICT: "研究内容已更新，本次操作未提交。请核对最新进度后继续。",
   RESEARCH_REVISION_CONFLICT: "研究边界已在其他页面更新，请核对最新版本后重试。",
   RESEARCH_SOURCE_ACCESS_DENIED: "所选内部资料不在当前授权范围内。",
   RESEARCH_WORKFLOW_PAUSED: "研究已暂停，请继续后再执行检索。",
-  RESEARCH_WORKFLOW_UNAVAILABLE: "模型服务暂时不可用，请稍后重试；持续失败请联系管理员检查模型配置。",
+  RESEARCH_PLAN_TIME_BUDGET_EXCEEDED: "计划生成超过本轮时间上限，已停止等待。请重试，或编辑已有计划后继续。",
+  RESEARCH_WORKFLOW_UNAVAILABLE: "研究流程暂时无法完成，请稍后重试；持续失败请联系管理员排查。",
   RESEARCH_NODE_MISMATCH: "研究步骤已变化，请查看最新进度后继续。",
   RESEARCH_IDEMPOTENCY_REPLAY_MISMATCH: "请求状态发生冲突，请核对最新进度后重新操作。",
   RESEARCH_WORKFLOW_BUSY: "研究正在处理中，请稍候。",
@@ -70,6 +81,7 @@ const errors: Record<string, string> = {
   RESEARCH_SEARCH_UNAVAILABLE: "检索服务暂时不可用，请重试。",
   RESEARCH_SEARCH_CONTENT_EMPTY: "检索结果缺少可用正文，请重试。",
   RESEARCH_EXECUTION_INTERRUPTED: "上次检索已中断，请重试。",
+  RESEARCH_SEARCH_TIME_BUDGET_EXCEEDED: "本轮资料研究已达到 3 分钟上限，已保存有效来源。可重试补充资料，或基于已有来源继续。",
   RESEARCH_SEARCH_PARTIAL_FAILURE: "部分检索失败，已保存成功结果。请重试失败任务。",
   RESEARCH_SOURCES_REQUIRED: "请先添加至少一个真实来源。",
   RESEARCH_SOURCE_URL_INVALID: "请输入有效的公开网页链接。",
@@ -91,6 +103,7 @@ function requestError(error: unknown): string {
 }
 type Recovery = { draft: Draft | null; node: Command["node"]; synchronized: boolean };
 export function GuidedResearchLive({ sessionId, researchName, onBack, onLoadRetry, initialNode, visualStage: routeStage }: { sessionId: string; researchName?: string; onBack: () => void; onLoadRetry?: () => void; initialNode?: Command["node"]; visualStage?: GuidedResearchVisualStage }) {
+  const cacheScope = getStoredSessionToken();
   const [chaptersOpen, setChaptersOpen] = React.useState(routeStage === "chapters");
   const [state, setState] = React.useState<Runtime | null>(null);
   const [node, setNode] = React.useState<Command["node"]>("brief");
@@ -121,6 +134,8 @@ export function GuidedResearchLive({ sessionId, researchName, onBack, onLoadRetr
   const pollAccepted = React.useRef(0);
   const sourceCursor = React.useRef<string | undefined>(undefined);
   const sessionGeneration = React.useRef(0);
+  const [reportControlPending, setReportControlPending] = React.useState(false);
+  const reportControlLock = React.useRef(false);
   const streamController = React.useRef<AbortController | null>(null);
   const bootstrapStarted = React.useRef(false);
   const sessionRef = React.useRef(sessionId);
@@ -148,7 +163,8 @@ export function GuidedResearchLive({ sessionId, researchName, onBack, onLoadRetr
     bootstrapStarted.current = false; browsingRef.current = false; setBrowsing(false);
     sourceCursor.current = undefined;
     setState(null); setDraft(null); setMessage(""); setError(null); setPending(false); setPendingNode(null); setLoadingNode(null); setReportMarkdownOpen(false); updateRecovery(null);
-    getResearchRuntime(sessionId).then((next) => {
+    const cached = loadAttempt === 0 ? readResearchMemory(sessionId, cacheScope)?.runtime : undefined;
+    (cached ? getResearchRuntimeProgress(sessionId, cached.reportStream, undefined, cached).then((update) => mergeResearchProgress(cached, update)) : getResearchRuntime(sessionId)).then((next) => {
       if (!active) return;
       const startingTopic = initialNode === "directions" && next.version === 0 && !next.legacyCheckpoint && !next.errorCode;
       const preparingChapters = routeStage === "chapters" && next.availableNodes.includes("research");
@@ -158,7 +174,10 @@ export function GuidedResearchLive({ sessionId, researchName, onBack, onLoadRetr
       snapshotRef.current = next; setState(next); setNode(target); setDraft(draftOf(next, target));
     }).catch((cause: unknown) => { if (active) setError(requestError(cause)); });
     return () => { active = false; sessionGeneration.current += 1; streamController.current?.abort(); };
-  }, [sessionId, initialNode, routeStage, loadAttempt]);
+  }, [sessionId, initialNode, routeStage, loadAttempt, cacheScope]);
+  React.useEffect(() => {
+    if (state?.sessionId === sessionId && snapshotRef.current === state) writeResearchMemory(sessionId, { runtime: state }, cacheScope);
+  }, [state, sessionId, cacheScope]);
   const expired = Boolean(state?.leaseUntil && Date.parse(state.leaseUntil) <= Date.now());
   React.useEffect(() => {
     if ((!pending && (!state?.busy || expired)) || (!state?.busy && (state?.version ?? -1) >= commandVersion.current && pending)) return;
@@ -170,17 +189,19 @@ export function GuidedResearchLive({ sessionId, researchName, onBack, onLoadRetr
       inFlight = true;
       const epoch = responseEpoch.current; const ticket = ++pollIssued.current;
       const baseline = snapshotRef.current;
-      let incomingSourceCursor: string | undefined;
-      const read = baseline && ["report", "research"].includes(baseline.currentNode)
-        ? getResearchRuntimeProgress(sessionId, baseline.reportStream, sourceCursor.current).then(async (update) => {
-          if (!update.busy) return getResearchRuntime(sessionId);
-          incomingSourceCursor = update.research?.cursor;
-          return mergeResearchProgress(snapshotRef.current ?? baseline, update);
+      let incomingSourceCursor = sourceCursor.current;
+      const read = baseline
+        ? getResearchRuntimeProgress(sessionId, baseline.reportStream, sourceCursor.current, baseline).then(async (update) => {
+          if ("research" in update && update.research) incomingSourceCursor = update.research.cursor;
+          // The patch describes changes relative to this request, not a newer SSE snapshot.
+          return mergeResearchProgress(baseline, update);
         }) : getResearchRuntime(sessionId);
       read.then((next) => {
         const current = snapshotRef.current;
         if (!active || epoch !== responseEpoch.current || ticket < pollAccepted.current || next.version < minimumVersion || (current && (next.version < current.version || (next.version === current.version && !current.busy && next.busy)))) return;
-        if (newestSnapshot(next, current) !== next) return;
+        const accepted = newestSnapshot(next, current);
+        if (accepted === current) return;
+        next = accepted;
         pollAccepted.current = ticket; snapshotRef.current = next;
         sourceCursor.current = incomingSourceCursor;
         setState(next);
@@ -222,10 +243,10 @@ export function GuidedResearchLive({ sessionId, researchName, onBack, onLoadRetr
     topicSaveCompletion.current = resolveSaved;
     responseEpoch.current += 1; setPending(true); commandVersion.current = state.version + 1;
     try {
-      const next = await Promise.race([durableResult, executeResearchRuntime({ sessionId, node: "brief", action: "save", draft: { node: "brief", value }, requestId: crypto.randomUUID(), expectedVersion: state.version })]);
+      const next = await Promise.race([durableResult, executeResearchRuntime({ sessionId, node: "brief", action: "save", draft: { node: "brief", value }, requestId: crypto.randomUUID(), expectedVersion: state.version }, undefined, undefined, state)]);
       if (sessionGeneration.current !== generation) return false;
       snapshotRef.current = next; setState(next); setDraft(draftOf(next, "directions")); setError(null);
-      return !next.errorCode && JSON.stringify(next.brief) === JSON.stringify(value);
+      return !next.errorCode && Object.entries(value).every(([key, field]) => next.brief[key as keyof Runtime["brief"]] === field);
     } catch {
       // Synchronize an ambiguous write before permitting a new explicit save.
       try {
@@ -237,7 +258,7 @@ export function GuidedResearchLive({ sessionId, researchName, onBack, onLoadRetr
           if (sessionGeneration.current !== generation) return false;
         }
         snapshotRef.current = latest; setState(latest); setDraft(draftOf(latest, "directions"));
-        return !latest.busy && JSON.stringify(latest.brief) === JSON.stringify(value);
+        return !latest.busy && Object.entries(value).every(([key, field]) => latest.brief[key as keyof Runtime["brief"]] === field);
       } catch { return false; }
     } finally { if (topicSaveCompletion.current === resolveSaved) topicSaveCompletion.current = null; if (sessionGeneration.current === generation) setPending(false); }
   }
@@ -248,6 +269,26 @@ export function GuidedResearchLive({ sessionId, researchName, onBack, onLoadRetr
     bootstrapStarted.current = true;
     void run("confirm", { node: "brief", draft: { node: "brief", value: state.brief } });
   });
+  async function steerReport(action: "pause" | "resume") {
+    const baseline = snapshotRef.current;
+    if (!baseline || reportControlLock.current) return false;
+    reportControlLock.current = true; setReportControlPending(true);
+    const generation = sessionGeneration.current;
+    try {
+      const received = await executeResearchRuntime({ sessionId, node: "report", action,
+        requestId: crypto.randomUUID(), expectedVersion: baseline.version,
+        expectedRevision: baseline.planRevision ?? 0, idempotencyKey: crypto.randomUUID() });
+      if (sessionRef.current !== sessionId || sessionGeneration.current !== generation) return false;
+      const current = snapshotRef.current;
+      if (!current || current.version !== received.version) return false;
+      const next = (current.planRevision ?? 0) > (received.planRevision ?? 0) ? current : {
+        ...current, planRevision: received.planRevision, controlStatus: received.controlStatus, activity: received.activity,
+      };
+      snapshotRef.current = next; setState(next); setError(null);
+      return next.controlStatus === (action === "pause" ? "paused" : "running");
+    } catch (cause) { if (sessionRef.current === sessionId) setError(requestError(cause)); return false; }
+    finally { reportControlLock.current = false; setReportControlPending(false); }
+  }
   async function run(action: Command["action"], extra: Partial<Command> = {}) {
     if (!state || busy) return;
     browsingRef.current = false; setBrowsing(false);
@@ -290,7 +331,7 @@ export function GuidedResearchLive({ sessionId, researchName, onBack, onLoadRetr
           const next = { ...current, reportStream: { ...previous, sequence: event.sequence, text: previous.text + event.delta } };
           snapshotRef.current = next; setState(next);
         }
-      }, controller!.signal) : await executeResearchRuntime(input);
+      }, controller!.signal, recoveryState) : await executeResearchRuntime(input, undefined, undefined, recoveryState);
       if (!isCurrent()) return;
       // Confirmation and following generation share a durable server request.
       // Never dispatch a second command from a response or a recovered snapshot.
@@ -361,12 +402,12 @@ export function GuidedResearchLive({ sessionId, researchName, onBack, onLoadRetr
   const executingNode = loadingNode ?? (pending ? pendingNode : null) ?? state.currentNode;
   const waiting = Boolean(loadingNode || (!pending && state.busy && !expired)) && !recovery && !topicSaveCompletion.current && viewedNode === executingNode && !chaptersOpen;
   const readingReport = reportVisible && !waiting && Boolean(displayReport || state.reportDraft);
-  const resumeReport = Boolean(state.errorCode || expired || state.reportDraft);
+  const resumeReport = Boolean(state.errorCode || expired || state.reportDraft || state.controlStatus === "paused");
   const streamPreview = researchReportPreview(state.reportStream?.text ?? "");
   const hasRenderableReportPreview = Boolean(streamPreview.summary || streamPreview.introduction || streamPreview.conclusion || streamPreview.sections.some((section) => section.body) || state.reportCheckpoint?.chapters.some((chapter) => chapter.body));
   const showReportRecoveryActions = !waiting && !readingReport && resumeReport && !hasRenderableReportPreview;
   const reportPrimaryAction = !waiting && (resumeReport
-    ? <Button variant="primary" disabled={busy} data-testid="research-report-primary-action" onClick={() => void run("retry")}>生成完整报告</Button>
+    ? <Button variant="primary" disabled={busy} data-testid="research-report-primary-action" onClick={() => void (async () => { if (state.controlStatus === "paused" && !await steerReport("resume")) return; await run("retry"); })()}>继续生成</Button>
     : state.report && !state.completed
       ? <Button variant="primary" disabled={busy || Boolean(proposal)} data-testid="research-report-primary-action" onClick={() => void run("complete", { draft: { node: "report", value: displayReport! } })}>完成研究</Button>
       : !state.report
@@ -411,7 +452,12 @@ export function GuidedResearchLive({ sessionId, researchName, onBack, onLoadRetr
     proposal={proposal} proposalEdited={proposalEdited} onApply={() => void run("apply", { proposalId: proposal?.id })}
     preview={proposal ? <ProposalPreview draft={proposal.draft} /> : null} />;
   const shellAssistant = chaptersOpen ? null : conversation;
-return <GuidedResearchSixStepShell researchName={researchName ?? state.brief.topic} hasUnsavedChanges={Boolean(message.trim()) || topicInformationDirty || chaptersDirty || markdownDirty || Boolean(draft && JSON.stringify(draft) !== JSON.stringify(draftOf(state, node)))} sessionId={sessionId} current={chaptersOpen && (browsing || !loadingNode) ? "chapters" : visualStage.current} running={processing ? toGuidedResearchVisualStage({ currentNode: executingNode, availableNodes: state.availableNodes }).current : undefined} completed={state.completed} completedStages={completedStages} available={visualStage.available} onBack={onBack} onNavigate={navigateVisual} onHistoryNavigate={restoreVisualRoute} assistant={shellAssistant} assistantOpen={reportAssistantOpen} onAssistantOpenChange={setReportAssistantOpen} main={<div className="max-w-none space-y-4" data-layout="signed-desktop" data-testid={`research-flow-${node === "research" ? "search" : node}`}>
+return <GuidedResearchSixStepShell researchName={state.brief.topic.trim() || researchName} hasUnsavedChanges={Boolean(message.trim()) || topicInformationDirty || chaptersDirty || markdownDirty || Boolean(draft && JSON.stringify(draft) !== JSON.stringify(draftOf(state, node)))} sessionId={sessionId} current={chaptersOpen && (browsing || !loadingNode) ? "chapters" : visualStage.current} running={processing ? toGuidedResearchVisualStage({ currentNode: executingNode, availableNodes: state.availableNodes }).current : undefined} completed={state.completed} completedStages={completedStages} available={visualStage.available} onBack={onBack} onNavigate={navigateVisual} onHistoryNavigate={restoreVisualRoute} assistant={shellAssistant} assistantOpen={reportAssistantOpen} onAssistantOpenChange={setReportAssistantOpen} main={<div className="max-w-none space-y-4" data-layout="signed-desktop" data-testid={`research-flow-${node === "research" ? "search" : node}`}>
+    {reportVisible && <div className="flex flex-wrap justify-end gap-3" data-testid="research-report-execution-controls">
+      {processing && state.controlStatus !== "paused" && <Button variant="outline" disabled={reportControlPending} onClick={() => void steerReport("pause")}>暂停生成</Button>}
+      {processing && state.controlStatus === "paused" && <span role="status">正在暂停，已保存章节会保留。</span>}
+      {!processing && (state.reportCheckpoint || state.report || state.reportDraft) && <Button variant="outline" disabled={busy || reportControlPending} onClick={() => void (async () => { if (state.controlStatus === "paused" && !await steerReport("resume")) return; await run("generate"); })()}>从头重新生成</Button>}
+    </div>}
     <GuidedResearchStepLayout>
       <div className="space-y-5">
         {proposal && !waiting && <p role="status" className="rounded-lg border border-primary/30 bg-muted/30 px-4 py-3 text-12" data-testid="research-conversation-draft">右侧已同步对话生成的「{labels[node]}」待应用内容，尚未应用。你可以继续在左侧提出修改，核对后请先在左侧应用建议，再确认并继续。{proposalEdited && " 右侧另有手动修改，请继续对话形成新建议后应用。"}</p>}
@@ -431,8 +477,8 @@ return <GuidedResearchSixStepShell researchName={researchName ?? state.brief.top
         {reportVisible && !processing && !readingReport && <GuidedResearchEvidenceWarning state={state} />}
         {waiting && viewedNode === "research" && <p role="status" data-testid="research-step-loading" aria-live="polite" className="flex items-center gap-2 text-muted-foreground"><Loader2 className="size-4 animate-spin" aria-hidden />正在获取资料</p>}
         {reportVisible && !displayReport && <GuidedResearchQualityDraft state={state} actions={reportPrimaryAction} moreActions={reportAssistantMenuAction} onRegenerate={() => void run("generate")} />}
-        {reportVisible && !state.report && !state.reportDraft && (state.reportStream || (!state.report && state.reportCheckpoint)) && <GuidedResearchReportPreview state={state} interrupted={expired} moreActions={showReportRecoveryActions ? undefined : reportAssistantMenuAction} onRegenerate={() => void run("generate")} />}
-        {reportVisible && !readingReport && <GuidedResearchReportTimeline state={state} interrupted={expired} />}
+        {reportVisible && !state.report && !state.reportDraft && (state.reportStream || (!state.report && state.reportCheckpoint)) && <GuidedResearchReportPreview state={state} interrupted={expired || state.controlStatus === "paused"} moreActions={showReportRecoveryActions ? undefined : reportAssistantMenuAction} onRegenerate={() => void run("generate")} />}
+        {reportVisible && !readingReport && <GuidedResearchReportTimeline state={state} interrupted={expired || state.controlStatus === "paused"} />}
         {waiting && viewedNode !== "research" ? (reportVisible && (state.reportTimeline?.length || state.reportStream || (!state.report && state.reportCheckpoint)) ? null : <ResearchLoading node={viewedNode} />) : <>
         {pending && chaptersOpen && <p role="status">正在准备报告章节…</p>}
         {viewedNode === "brief" && briefDocument && <GuidedResearchEntryPanel disabled={busy || Boolean(proposal) || !validDraft} onContinue={() => void run("confirm", { ...(draft ? { draft } : {}) })} brief={<><Textarea aria-label="研究需求" placeholder="请描述你的研究需求：研究目标、研究区域、时间范围、重点关注和关键问题。" className="min-h-48 resize-y p-3 text-sm leading-relaxed" maxLength={C.GuidedResearchBrief.shape.goal.maxLength!} disabled={busy} value={draft?.node === "brief" ? draft.value.goal : ""} onChange={(event) => { if (draft?.node === "brief") setDraft({ ...draft, value: { ...draft.value, goal: event.target.value } }); }} /><p className="text-right text-xs text-muted-foreground">{draft?.node === "brief" ? draft.value.goal.length : 0} / {C.GuidedResearchBrief.shape.goal.maxLength!}</p></>} />}

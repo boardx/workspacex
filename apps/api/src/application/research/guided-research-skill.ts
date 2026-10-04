@@ -1,3 +1,4 @@
+import { withGuidedThinkingPolicy } from "./guided-thinking-policy";
 import { research as C } from "@repo/contracts";
 import type { z } from "zod";
 import { ModelCallError, type ModelCallPort } from "../agent-run/ports";
@@ -24,7 +25,7 @@ export class ModelGuidedResearchSkill implements GuidedResearchSkill {
     private readonly model: ModelCallPort,
     private readonly modelProvider = guidedModelConfig().provider,
     private readonly modelId = guidedModelConfig().id,
-  ) {}
+  ) { this.model = withGuidedThinkingPolicy(model); }
 
   async turn(input: SkillTurnInput): Promise<SkillTurnOutput> {
     let completion: { readonly text: string };

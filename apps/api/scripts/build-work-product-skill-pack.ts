@@ -54,7 +54,7 @@ import {
 } from "../src/domain/skill/work-skill-manifest";
 
 export const PACK_ID = "work-product";
-export const PACK_VERSION = "1.0.0";
+export const PACK_VERSION = "1.1.0";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, "../../..");

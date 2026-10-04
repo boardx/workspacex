@@ -1,4 +1,5 @@
 import {boardSoakDiagnostics} from './board-soak-diagnostics.mjs';
+import {boardCiFailureDiagnostic} from './board-ci-failure-diagnostics.mjs';
 import {writeFileSync,readFileSync,mkdirSync} from 'node:fs';
 import {dirname,join} from 'node:path';
 import {createHash} from 'node:crypto';
@@ -16,9 +17,13 @@ export function boardCiErrorReason(error){
  return'UNCLASSIFIED_PLAYWRIGHT_ERROR';
 }
 export default class BoardCiReporter{
- tests=new Map();errors=[];
+ tests=new Map();errors=[];firstFailure=null;
  onStdOut(chunk){for(const phase of boardSoakDiagnostics(chunk,'',0).phases)process.stdout.write(`BOARD_SOAK_PHASE ${phase}\n`);}
  onTestEnd(test,result){
+  if(!this.firstFailure){
+   const diagnostic=boardCiFailureDiagnostic(test,result);
+   if(diagnostic){this.firstFailure=diagnostic;process.stderr.write(`[board-ci] TEST_FAILURE ${JSON.stringify(diagnostic)}\n`);}
+  }
   const row=this.tests.get(test.id)??{expectedStatus:test.expectedStatus,status:'unexpected',results:[]};
   const attachments=[];
   for(const attachment of result.attachments??[]){
@@ -42,6 +47,6 @@ export default class BoardCiReporter{
  onEnd(result){
   if(result.status!=='passed')this.errors.push({code:'PLAYWRIGHT_NOT_PASSED'});
   if(!process.env.PLAYWRIGHT_JSON_OUTPUT_FILE)throw Error('CI_RESULT_PATH_REQUIRED');
-  writeFileSync(process.env.PLAYWRIGHT_JSON_OUTPUT_FILE,JSON.stringify({errors:this.errors,suites:[{specs:[{tests:[...this.tests.values()]}]}]})+'\n',{mode:0o600});
+  writeFileSync(process.env.PLAYWRIGHT_JSON_OUTPUT_FILE,JSON.stringify({errors:this.errors,firstFailure:this.firstFailure,suites:[{specs:[{tests:[...this.tests.values()]}]}]})+'\n',{mode:0o600});
  }
 }

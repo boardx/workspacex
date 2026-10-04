@@ -1,3 +1,6 @@
+import { researchPublicationDefinition } from "../../domain/work-content/research-publication-definition";
+import { publishResearchBrief } from "../../application/work-content/research-brief-publication";
+import type { MaterializeDeps } from "../../application/artifact/materialize-artifact";
 /**
  * WF03 —— Workflow 运行时的生产合成：PG 端口 + 代码图注册表（含演示 Workflow）+ 唯一 checkpointer 工厂。
  * CT06：给了 `content`（Skill 执行器 + 通知中心）时，W029 的占位图换成真正接线的 Problem-to-PRD 图
@@ -30,6 +33,7 @@ import { DEMO_APPROVAL_WORKFLOW_DEFINITION, demoApprovalWorkflowGraph } from "./
 import { DEMO_WORKFLOW_DEFINITION, demoWorkflowGraph } from "./demo-workflow-graph";
 import { PgEffectCapabilityAuthority } from "./pg-effect-capability-authority";
 import { productWorkflowGraphs } from "./product-workflow-graphs";
+import { researchToBriefGraph } from "./research-to-brief-graph";
 import { problemToPrdGraph } from "./problem-to-prd-graph";
 import { PgWorkflowAccess } from "./pg-workflow-access";
 import { PgWorkflowDefinitionRepository } from "./pg-workflow-definition-repository";
@@ -70,6 +74,7 @@ export function builtInWorkflowDefinitions(): WorkflowDefinitionVersionInput[] {
     ...PRODUCT_LINE_WORKFLOWS.map(toRuntimeDefinition),
     problemToPrdTriggerV2Definition(),
     ...RESEARCH_WORKFLOW_DEFINITIONS.map(toResearchRuntimeDefinition),
+    researchPublicationDefinition(),
   ];
 }
 
@@ -80,6 +85,8 @@ export function defaultWorkflowGraphs(): LinearWorkflowGraph[] {
     ...productWorkflowGraphs(),
     { ...productWorkflowGraphs().find((graph) => graph.graphRef === "problem-to-prd:1")!, graphRef: "problem-to-prd:2" },
     ...RESEARCH_WORKFLOW_DEFINITIONS.map(toLinearGraph),
+    { graphRef: "research-to-brief:2", stages: researchPublicationDefinition().stages.map(stage => ({ stageId: stage.stageId,
+      work: async () => { throw new Error("W001_PUBLICATION_NOT_CONFIGURED"); } })) },
   ];
 }
 
@@ -102,7 +109,7 @@ export interface WorkflowRuntimeOptions {
   /** WF04：按能力分类注册的只读对账实现（E1）；未注册的分类崩溃恢复时一律 unresolved。 */
   effectReconcilers?: Record<string, EffectReconcilePort>;
   /** CT06：内容线执行接线（缺省 = 只注册 CT05 的占位图，Skill 不执行、不发布）。 */
-  content?: { skills: ContentSkillRunnerPort; notifications: NotificationPublisher };
+  content?: { skills: ContentSkillRunnerPort; notifications: NotificationPublisher; materialization?: MaterializeDeps };
   /**
    * CT09：W011「线索到合格」写回段的租户侧端口（租户 CRM / 站内通知 / 审批人资格）。给了才合成
    * `leadWriteBack`，并把 `crm.write` 的只读对账注册进网关（runInstance 通用恢复路径同样可用）。
@@ -145,6 +152,13 @@ export function createWorkflowRuntime(db: DatabasePort, pool: pg.Pool, opts: Wor
       notify: prdPublishedNotifier(opts.content.notifications),
     });
     graphs = [...graphs.filter((g) => g.graphRef !== prd.graphRef && g.graphRef !== "problem-to-prd:2"), prd, { ...prd, graphRef: "problem-to-prd:2" }];
+    const research = researchToBriefGraph({ skills: opts.content.skills, outputs, instances });
+    graphs = [...graphs.filter((g) => g.graphRef !== research.graphRef), research];
+    const publication = researchToBriefGraph({ skills: opts.content.skills, outputs, instances,
+      ...(opts.content.materialization ? { effects: () => effectGateway,
+        publishArtifact: async (args) => ({ ...await publishResearchBrief(opts.content!.materialization!, args) }) } : {}),
+    }, 2);
+    graphs = [...graphs.filter((g) => g.graphRef !== publication.graphRef), publication];
   }
   const registry = new WorkflowGraphRegistry(graphs, defaultCommandWorkflowGraphs());
   const capability = new PgEffectCapabilityAuthority(db);

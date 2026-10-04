@@ -1,4 +1,3 @@
-import {clickBlankCanvas} from "./board-acceptance-support";
 import AxeBuilder from '@axe-core/playwright';
 import {expect,test} from '@playwright/test';
 import {writeFile} from 'node:fs/promises';
@@ -7,11 +6,13 @@ import {canonicalSnapshot} from './board-performance-support';
 import {observeRuntimeChunks,runtimeSourceIdentity,verifyRuntimeIdentity} from './board-runtime-evidence';
 import {boardImagePngFixture} from './support/board-image-fixture';
 import {captureVisual,visualViewports,sha256} from './support/board-visual-measurements';
+import {createNativeSticky,observeNativeStickyWrites} from './support/board-native-sticky-create';
 
 // Browser observations are engineering evidence, never a subjective nine-point score.
 test('visual and accessibility real object states, input and negative controls',async({page,request,browser,browserName},info)=>{
   const sha=runtimeSourceIdentity(),finishChunks=observeRuntimeChunks(page),token=await boardLogin(page);
   const boardId=await createAcceptanceBoard(request,token,`Visual accessibility ${browserName}`);
+  const updates=observeNativeStickyWrites(page,boardId),creationProof={api:request,token,boardId,updates};
   const captures:Awaited<ReturnType<typeof captureVisual>>[]=[],axeResults:unknown[]=[],input:unknown[]=[];
   let complete=false;
   try {
@@ -21,17 +22,15 @@ test('visual and accessibility real object states, input and negative controls',
     await openBoard(page,boardId,0);
     for(const viewport of visualViewports){await page.setViewportSize(viewport);captures.push(await captureVisual(page,info,`empty-${viewport.width}`));}
     // Keyboard path must create canonical content and retain editable focus.
-    await page.getByTestId('board-tool-select').focus();await page.keyboard.press('n');await clickBlankCanvas(page);
-    await expect(page.getByLabel('对象文字',{exact:true})).toBeFocused();
     const longText='用户不知道如何开始使用产品，需要清晰的下一步。'.repeat(18);
-    await page.getByLabel('对象文字',{exact:true}).fill(longText);await page.keyboard.press('Tab');
+    await createNativeSticky(page,longText,creationProof,{finishEditor:false});await page.keyboard.press('Tab');
     await expect(page.getByLabel('对象文字',{exact:true})).toBeFocused();await page.keyboard.type('Keyboard second idea');await page.keyboard.press('Escape');
     await expect.poll(async()=> (await canonicalRows(page)).length).toBe(2);
     // The outline is a local Yjs projection. Wait for the server acknowledgement
     // before reading head and issuing a CAS operation, otherwise an in-flight
     // browser update can advance the revision between those two API requests.
     await expect(page.getByTestId('board-sync-status')).toHaveAttribute('aria-label',BOARD_SYNCED_STATUS);
-    input.push({kind:'keyboard-continuous-creation',count:2,objects:await canonicalRows(page)});
+    input.push({kind:'keyboard-armed-single-creation',count:2,objects:await canonicalRows(page)});
     const values=[object('visual-text','text',100,400,'研究标题与说明',280,96),object('visual-shape','rectangle',460,400,'Shape',200,140),
       {...object('visual-panel','frame',800,120,'Panel',400,420),extensionData:{spatial:{version:1,mode:'freeform',autoExpand:true,clipContent:false,padding:24,gap:24,columns:3,flowDirection:'horizontal'}}},
       {...object('visual-tile','extension',850,240,'研究资料',220,150),extensionData:{contentObject:{version:1,type:'tile',tileType:'document',title:'研究资料',description:'访谈证据',icon:null,coverAssetId:null,fields:[],tags:['research'],link:null,status:null,actions:[]}}},
@@ -50,9 +49,28 @@ test('visual and accessibility real object states, input and negative controls',
       await page.setViewportSize(viewport);await page.getByTestId('board-zoom-fit-board').click();
       captures.push(await captureVisual(page,info,`mixed-${viewport.width}`));
       for(const row of rows){
+        const beforeConnectorSelection=row.id==='visual-connector'?await canonicalSnapshot(request,token,boardId):null;
         const outline=page.getByTestId('board-a11y-mirror').locator(`li[data-object-id="${row.id}"] button`);
         await outline.focus();await page.keyboard.press('Enter');
         await expect(page.getByTestId('board-a11y-selection-announcement')).toContainText('1');
+        if(row.id==='visual-connector'){
+          const layout=()=>page.evaluate(()=>{
+            const bounds=(id:string)=>{const element=document.querySelector(`[data-testid="${id}"]`);if(!element)throw new Error(`Missing ${id}`);const rect=element.getBoundingClientRect();return{x:rect.x,y:rect.y,width:rect.width,height:rect.height};};
+            const from=bounds('board-connector-handle-from'),to=bounds('board-connector-handle-to'),menu=bounds('board-context-toolbar');
+            const controls=Array.from(document.querySelectorAll('[data-testid^="board-connector-handle-"][data-handle-kind]')).map(element=>{const rect=element.getBoundingClientRect();return{kind:element.getAttribute('data-handle-kind'),x:rect.x,y:rect.y,width:rect.width,height:rect.height};}).filter(rect=>rect.width>0&&rect.height>0);
+            if(!controls.some(control=>control.kind==='from')||!controls.some(control=>control.kind==='to'))throw new Error('Visible Connector endpoint controls are required');
+            const path={x:(from.x+from.width/2+to.x+to.width/2)/2,y:Math.min(from.y+from.height/2,to.y+to.height/2)};
+            return{menu,path,controls,maxGap:path.y-Math.min(...controls.map(rect=>rect.y))+16};
+          });
+          await info.attach(`connector-menu-before-assert-${viewport.width}`,{body:Buffer.from(JSON.stringify(await layout())),contentType:'application/json'});
+          await expect.poll(async()=>{const {menu,path}=await layout();return path.y-menu.y-menu.height;}).toBeGreaterThanOrEqual(0);
+          await expect.poll(async()=>{const {menu,controls}=await layout();return Math.min(...controls.map(control=>control.y))-menu.y-menu.height;}).toBeGreaterThanOrEqual(0);
+          await expect.poll(async()=>{const {menu,path,maxGap}=await layout();return path.y-menu.y-menu.height-maxGap;}).toBeLessThanOrEqual(0);
+          const measured=await layout();
+          expect(Math.abs(measured.menu.x+measured.menu.width/2-measured.path.x)).toBeLessThanOrEqual(measured.menu.width/2+16);
+          await info.attach(`connector-menu-layout-${viewport.width}`,{body:Buffer.from(JSON.stringify(measured)),contentType:'application/json'});
+          expect(await canonicalSnapshot(request,token,boardId)).toEqual(beforeConnectorSelection);
+        }
         captures.push(await captureVisual(page,info,`${row.kind}-${row.id}-${viewport.width}`));
         if(row.id==='visual-shape'){
           if(await page.getByLabel('对象文字',{exact:true}).isVisible())await page.keyboard.press('Escape');
@@ -73,8 +91,7 @@ test('visual and accessibility real object states, input and negative controls',
       // Equivalent reflow + text scaling, explicitly not native browser zoom evidence.
       await page.setViewportSize({width:Math.round(1280/scale),height:720});
       await page.addStyleTag({content:`html {font-size:${16*scale}px !important} textarea,input,button {font-size:${14*scale}px !important}`});
-      await page.getByTestId('board-tool-select').focus();await page.keyboard.press('n');await clickBlankCanvas(page);
-      await expect(page.getByLabel('对象文字',{exact:true})).toBeFocused();await page.getByLabel('对象文字',{exact:true}).fill(`Reflow ${scale*100}%`);
+      await createNativeSticky(page,`Reflow ${scale*100}%`,creationProof,{finishEditor:false});
       const fontSize=await page.getByLabel('对象文字',{exact:true}).evaluate(element=>parseFloat(getComputedStyle(element).fontSize));expect(fontSize).toBeGreaterThanOrEqual(14*scale);
       captures.push(await captureVisual(page,info,`reflow-text-${scale*100}`,false));await page.keyboard.press('Escape');
     }

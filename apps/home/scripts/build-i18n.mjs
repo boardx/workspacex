@@ -32,7 +32,7 @@ const CHECK = process.argv.includes('--check');
    generated from it, and check-links.mjs fails if index.html's absolute URLs
    disagree. The README used to document that it lived in four places, which
    is documenting a defect instead of removing it. */
-const SITE = 'https://workspacex.boardx.us';
+const SITE = 'https://www.boardx.us';
 /* Every page that has a Chinese twin. `path` is the URL the Chinese version
    lives at, which is what canonical, hreflang and og:url have to say. */
 const PAGES = [
@@ -229,6 +229,7 @@ const sitemap = () => {
   return `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
         xmlns:xhtml="http://www.w3.org/1999/xhtml">
+  <url><loc>${SITE}/manual/</loc><changefreq>monthly</changefreq><priority>0.6</priority></url>
 ${rows.map((r) => `  <url>
     <loc>${r.loc}</loc>
     <xhtml:link rel="alternate" hreflang="en" href="${SITE}${r.en}"/>

@@ -1,6 +1,6 @@
 import { GUIDED_RUNTIME_SERVICE } from "../../src/application/research/guided-runtime-ports";
 import type { NestExpressApplication } from "@nestjs/platform-express";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { research as C } from "@repo/contracts";
 import { PgDatabase } from "../../src/infrastructure/db/pg-database";
@@ -102,6 +102,30 @@ async function run(action: RuntimeCommand["action"], extra: Partial<RuntimeComma
 }
 async function reachResearch() { for (const node of ["brief", "directions", "outline"] as const) { expect(state.currentNode).toBe(node); await run("confirm"); expect(state.errorCode).toBeNull(); } }
 describe("durable research runtime with real PostgreSQL and controlled provider doubles", () => {
+  it("uses full state for restoration and changed fields for commands and polling", async () => {
+    const path = `${base}/research/guided-sessions/${actor.sessionId}/runtime`;
+    const headers = { "content-type": "application/json", "x-kernel-test-principal": `${userId}:${orgId}` };
+    const restored = C.GuidedResearchRuntime.parse(await (await fetch(path, { headers })).json());
+    const knownFields = Object.fromEntries(C.GuidedResearchRuntimeKnownFields.keySchema.options.map((key) => [key, createHash("sha256").update(JSON.stringify(restored[key]) ?? "undefined").digest("hex")]));
+    const unchanged = await fetch(`${path}/progress?${new URLSearchParams({ knownFields: JSON.stringify(knownFields) })}`, { headers });
+    expect(unchanged.status).toBe(200);
+    const unchangedPatch = C.GuidedResearchRuntimePatch.parse(await unchanged.json());
+    expect(unchangedPatch.changes).toEqual({});
+    const command = { sessionId: actor.sessionId, node: "brief", action: "save", requestId: randomUUID(), expectedVersion: restored.version, draft: { node: "brief", value: { ...restored.brief, goal: "Updated scope" } } };
+    const saved = await fetch(`${path}/commands`, { method: "POST", headers, body: JSON.stringify({ ...command, knownFields }) });
+    expect(saved.status).toBe(201);
+    const patch = C.GuidedResearchRuntimePatch.parse(await saved.json());
+    expect(patch.changes.brief?.goal).toBe("Updated scope");
+    expect(patch.changes).not.toHaveProperty("sources");
+    expect(patch.changes).not.toHaveProperty("outline");
+    const replay = await fetch(`${path}/commands`, { method: "POST", headers, body: JSON.stringify({ ...command, knownFields: {} }) });
+    expect(replay.status).toBe(201);
+    const refreshed = C.GuidedResearchRuntime.parse(await (await fetch(path, { headers })).json());
+    expect(refreshed.brief.goal).toBe("Updated scope");
+    expect(refreshed.version).toBe(patch.version);
+    console.info(`research-delta-bytes snapshot=${Buffer.byteLength(JSON.stringify(refreshed))} unchanged=${Buffer.byteLength(JSON.stringify(unchangedPatch))} command=${Buffer.byteLength(JSON.stringify(patch))}`);
+  });
+
   it("persists empty-query recovery and continues to a real report without replaying successful searches", async () => {
     recoverEmptySearch = true;
     await reachResearch();
@@ -551,6 +575,39 @@ describe("durable research runtime with real PostgreSQL and controlled provider 
 });
 
 describe("report streaming and explicit partial evidence", () => {
+  it.each(["state_read", "claim", "final_persistence"] as const)("binds a rejected %s stream to its HTTP trace without exposing the raw exception", async (phase) => {
+    await reachResearch();
+    const original = await service.get(actor, session);
+    const pg = new PgGuidedRuntimeStore(db);
+    const error = Object.assign(new Error("PRIVATE RESEARCH BODY postgres://SECRET"), { code: "23505" });
+    const record = vi.fn();
+    const runtime = new GuidedRuntimeService({
+      read: async (...args) => { if (phase === "state_read") throw error; return pg.read(...args); },
+      claim: async (...args) => { if (phase === "claim") throw error; return pg.claim(...args); },
+      write: async (...args) => { if (phase === "final_persistence" && args[3]) throw error; return pg.write(...args); },
+    }, model, search, { provider: "test", id: "test-model" }, model, undefined,
+    { record } as unknown as import("../../src/application/ports/debug-trace.port").DebugTracePort);
+    const routeService = app.get<GuidedRuntimeService>(GUIDED_RUNTIME_SERVICE);
+    const spy = vi.spyOn(routeService, "execute").mockImplementation((...args) => runtime.execute(...args));
+    const command = { sessionId: actor.sessionId, node: "research", action: "resume", requestId: randomUUID(), expectedVersion: original.version, expectedRevision: original.planRevision ?? 0, idempotencyKey: randomUUID() };
+    try {
+      const response = await fetch(`${base}/research/guided-sessions/${actor.sessionId}/runtime/commands/stream`, {
+        method: "POST", headers: { "content-type": "application/json", "x-kernel-test-principal": `${userId}:${orgId}` }, body: JSON.stringify(command),
+      });
+      expect(response.headers.get("content-type")).toContain("text/event-stream");
+      const text = await response.text();
+      expect(text).toContain('"type":"error","reasonCode":"RESEARCH_WORKFLOW_UNAVAILABLE"');
+      expect(text).not.toMatch(/PRIVATE RESEARCH BODY|SECRET|23505|postgres:/);
+      const traceId = response.headers.get("x-trace-id");
+      expect(traceId).toMatch(/^[a-f0-9-]{36}$/);
+      expect(record).toHaveBeenCalledWith(expect.objectContaining({ traceId, kind: "research.runtime.failed", data: expect.objectContaining({ phase, requestId: command.requestId }) }));
+      expect(JSON.stringify(record.mock.calls)).not.toMatch(/PRIVATE RESEARCH BODY|SECRET|postgres:/);
+      const retained = await pg.read(actor, initialRuntime(session));
+      expect(retained.sources).toEqual(original.sources);
+      expect(retained.reportCheckpoint).toEqual(original.reportCheckpoint);
+    } finally { spy.mockRestore(); }
+  });
+
   it("persists the first provider delta before completion and survives observer disconnect/replay", async () => {
     await reachResearch();
     let release!: () => void;
