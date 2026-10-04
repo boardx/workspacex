@@ -90,7 +90,8 @@ export function validateReportEvidence(markdown: string, index: readonly ReportE
       const overclaim = /最常见|必然(?:阻止|阻碍|导致|影响)(?:采购|购买)/u.exec(clause);
       if (!overclaim) continue;
       const before = clause.slice(0, overclaim.index);
-      const qualified = /(?:不能|不可|无法|不应|不得)(?:断言|声称|认为|证明|说)?[^，,。；;]{0,16}$/u.test(before)
+      const qualified = /(?:不能|不可|无法|不应|不得)(?:断言|声称|认为|证明|说)[^，,。；;]{0,16}$/u.test(before)
+        || /(?:不能|不可|无法|不应|不得)\s*$/u.test(before)
         || /^\s*(?:若|如果|假如)[^，,。；;]*$/u.test(before);
       const doubleDenial = /否认|否定|并非|并无|绝非|不是|不会|不曾|没有|不可能/u.test(before);
       if (!qualified || doubleDenial) return {ok:false,references:[],reason:"unsupported_evidence_strength"};
