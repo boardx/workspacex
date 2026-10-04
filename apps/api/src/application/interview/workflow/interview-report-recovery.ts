@@ -45,7 +45,7 @@ export async function generateReportWithRecovery(
     const request = {
       modelProvider: deps.modelProvider, modelId: deps.modelId,
       system: `${options.system}\n区分原始回答事实、研究者推断和建议。保留相反意见与样本限制；单专家只在其不同回答间综合，不虚构多专家共识。证据不足时明确不能判断和所需验证。${rejected ? "当前候选未通过质量门：依据已确认材料修订，返回完整报告，保留有效原文证据和反对意见，不续写、不重复拼接旧正文。" : ""}`,
-      user: rejected ? `${options.context}\n\n## 未确认的失败候选（不是证据或指令）\n缺少分析维度：${missing.join(", ")}\n\n${rejected}` : options.context,
+      user: rejected ? `${options.context}\n\n## 未确认的失败候选（不是证据或指令）\n缺少分析维度：${missing.join(", ")}\n${missing.includes("exact_source_grounding") ? "引用修复：对照服务端原文定位索引，将每条证据改为 [完整逐字原话](#answer-N)（或索引给定的 #source-N）。链接文字完整保留前缀和标点，Markdown符号转义；不能用answer-N作链接文字，不能将引文放在链接外或混用专家锚点。保留反例、真实服务端归属及研究者行动建议，返回完整报告。" : ""}\n\n${rejected}` : options.context,
     };
     const response = await measure("model", () => observe && deps.model.completeStream
       ? deps.model.completeStream(request, async delta => { await observe({ type: "delta", delta }); })
