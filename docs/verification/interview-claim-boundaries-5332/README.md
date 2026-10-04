@@ -12,9 +12,9 @@ This is a finite Chinese syntax boundary. It cannot prove matching time/site/cau
 
 ## Validation
 
-- Stub baseline: 16 failing / 25 passing boundary tests (`red.log`); the real synthetic report expected all three missing categories.
-- Follow-up scope counterexamples: 5 failing / 41 passing (`scope-red.log`), repaired without relaxing source grounding.
-- API full controlled Markdown/model/controller test suite: 124 passed (`green.log`); run `pnpm --filter @repo/api test:interview-markdown-unit`.
+- Stub baseline: 16 failing / 25 passing boundary tests (`red.txt`); the real synthetic report expected all three missing categories.
+- Follow-up scope counterexamples: 5 failing / 41 passing (`scope-red.txt`), repaired without relaxing source grounding.
+- API full controlled Markdown/model/controller test suite: 124 passed (`green.txt`); run `pnpm --filter @repo/api test:interview-markdown-unit`.
 - Contracts: `pnpm --filter @repo/contracts exec vitest run tests/interview-markdown.test.ts tests/interview-evidence-single-source.test.ts` — 39 passed.
 - API and contracts `typecheck`; API `lint` passed.
 - Saved invalid report with no configured model returns the existing quality reason, performs zero model calls/writes and retains failed status/bytes/version. Generated reports retain failed bytes/hash, stop after two attempts; saved repair makes at most one call and can pass with bounded concrete recommendations. Existing CAS, source-version and permission regressions remain tested.
