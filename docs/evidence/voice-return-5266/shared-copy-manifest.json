@@ -3,160 +3,176 @@
     "source": "annotation-review-fixed.png",
     "sha256": "45c2aa08614804e2886d71bbd57d4faa10e9ee2ae3f931610b6392f25e4c5d5f",
     "bytes": 83379,
-    "png_dimensions": [
-      65536,
-      4292542531
+    "canonical": "docs/evidence/voice-buttons-20261004/annotation-review-fixed.png",
+    "image_dimensions": [
+      1280,
+      720
     ],
-    "canonical": "docs/evidence/voice-buttons-20261004/annotation-review-fixed.png"
+    "image_format": "jpeg"
   },
   {
     "source": "back-desktop-before.png",
     "sha256": "dc00da885e1ee90c394ef4860d429c1af8227923d6ab6d29fe28c74aacaae0ea",
     "bytes": 38051,
-    "png_dimensions": [
-      65536,
-      4292542531
+    "canonical": "docs/evidence/voice-return-5266/desktop-detail.png",
+    "image_dimensions": [
+      1440,
+      900
     ],
-    "canonical": "docs/evidence/voice-return-5266/desktop-detail.png"
+    "image_format": "jpeg"
   },
   {
     "source": "back-desktop-detail-observed.png",
     "sha256": "dc00da885e1ee90c394ef4860d429c1af8227923d6ab6d29fe28c74aacaae0ea",
     "bytes": 38051,
-    "png_dimensions": [
-      65536,
-      4292542531
+    "canonical": "docs/evidence/voice-return-5266/desktop-detail.png",
+    "image_dimensions": [
+      1440,
+      900
     ],
-    "canonical": "docs/evidence/voice-return-5266/desktop-detail.png"
+    "image_format": "jpeg"
   },
   {
     "source": "back-desktop-list-confirmed.png",
     "sha256": "30573811ad24dd056b13d2a9766fde12a8e3b9db263e1bea9578eab0936f0b53",
     "bytes": 36816,
-    "png_dimensions": [
-      65536,
-      4292542531
+    "canonical": "docs/evidence/voice-return-5266/desktop-list.png",
+    "image_dimensions": [
+      1440,
+      900
     ],
-    "canonical": "docs/evidence/voice-return-5266/desktop-list.png"
+    "image_format": "jpeg"
   },
   {
     "source": "back-desktop-list.png",
     "sha256": "dc00da885e1ee90c394ef4860d429c1af8227923d6ab6d29fe28c74aacaae0ea",
     "bytes": 38051,
-    "png_dimensions": [
-      65536,
-      4292542531
+    "canonical": "docs/evidence/voice-return-5266/desktop-detail.png",
+    "image_dimensions": [
+      1440,
+      900
     ],
-    "canonical": "docs/evidence/voice-return-5266/desktop-detail.png"
+    "image_format": "jpeg"
   },
   {
     "source": "back-mobile-before.png",
     "sha256": "ed95d52c86462c109a11f26e1bb673293e17829ef3775246e8455b586d17bbe4",
     "bytes": 36811,
-    "png_dimensions": [
-      65536,
-      4292542531
+    "canonical": "docs/evidence/voice-return-5266/viewport-attempt-history.png",
+    "image_dimensions": [
+      1440,
+      900
     ],
-    "canonical": "docs/evidence/voice-return-5266/viewport-attempt-history.png"
+    "image_format": "jpeg"
   },
   {
     "source": "back-mobile-detail-observed.png",
     "sha256": "dc00da885e1ee90c394ef4860d429c1af8227923d6ab6d29fe28c74aacaae0ea",
     "bytes": 38051,
-    "png_dimensions": [
-      65536,
-      4292542531
+    "canonical": "docs/evidence/voice-return-5266/desktop-detail.png",
+    "image_dimensions": [
+      1440,
+      900
     ],
-    "canonical": "docs/evidence/voice-return-5266/desktop-detail.png"
+    "image_format": "jpeg"
   },
   {
     "source": "back-mobile-list-confirmed.png",
     "sha256": "30573811ad24dd056b13d2a9766fde12a8e3b9db263e1bea9578eab0936f0b53",
     "bytes": 36816,
-    "png_dimensions": [
-      65536,
-      4292542531
+    "canonical": "docs/evidence/voice-return-5266/desktop-list.png",
+    "image_dimensions": [
+      1440,
+      900
     ],
-    "canonical": "docs/evidence/voice-return-5266/desktop-list.png"
+    "image_format": "jpeg"
   },
   {
     "source": "copy-fulltext.png",
     "sha256": "03fd5a6f31e8194461c197ca34775ba1452ae835b91a22d8fe3dace3436f2ef0",
     "bytes": 27475,
-    "png_dimensions": [
-      65536,
-      4292542531
+    "canonical": "docs/evidence/voice-buttons-20261004/copy-fulltext.png",
+    "image_dimensions": [
+      748,
+      918
     ],
-    "canonical": "docs/evidence/voice-buttons-20261004/copy-fulltext.png"
+    "image_format": "jpeg"
   },
   {
     "source": "create-cancel-preserves-count.png",
     "sha256": "0d79eedd5dca8d68abad2c830fb5867e0b88350e2eb9948a85b7ca4869742887",
     "bytes": 32375,
-    "png_dimensions": [
-      65536,
-      4292542531
+    "canonical": "docs/evidence/voice-buttons-20261004/create-cancel-preserves-count.png",
+    "image_dimensions": [
+      748,
+      918
     ],
-    "canonical": "docs/evidence/voice-buttons-20261004/create-cancel-preserves-count.png"
+    "image_format": "jpeg"
   },
   {
     "source": "delete-confirmation.png",
     "sha256": "b4cdd0a7ad906a23c60f793d2d107d7b5bf8848406cde7cfad0d684e4728ec40",
     "bytes": 25387,
-    "png_dimensions": [
-      65536,
-      4292542531
+    "canonical": "docs/evidence/voice-buttons-20261004/delete-confirmation.png",
+    "image_dimensions": [
+      1280,
+      720
     ],
-    "canonical": "docs/evidence/voice-buttons-20261004/delete-confirmation.png"
+    "image_format": "jpeg"
   },
   {
     "source": "history-metadata.png",
     "sha256": "b7b9dac668e8af16e371f45a8aac902ca42baf38fb621c550543c2905e47f5dc",
     "bytes": 35243,
-    "png_dimensions": [
-      65536,
-      4292542531
+    "canonical": "docs/evidence/voice-buttons-20261004/history-metadata.png",
+    "image_dimensions": [
+      1280,
+      720
     ],
-    "canonical": "docs/evidence/voice-buttons-20261004/history-metadata.png"
+    "image_format": "jpeg"
   },
   {
     "source": "persisted-content.png",
     "sha256": "ccbc4cf78eca074515ae6c9b6d4a6fd8c6f51771a819b9b61ba7b2cce154ed24",
     "bytes": 33634,
-    "png_dimensions": [
-      65536,
-      4292542531
+    "canonical": "docs/evidence/voice-buttons-20261004/persisted-content.png",
+    "image_dimensions": [
+      1280,
+      720
     ],
-    "canonical": "docs/evidence/voice-buttons-20261004/persisted-content.png"
+    "image_format": "jpeg"
   },
   {
     "source": "project-live-before-review.png",
     "sha256": "7ab9abca9d6d795ee8029850234f6ceb284ecc5bd6045c827243f3fde99559fe",
     "bytes": 75290,
-    "png_dimensions": [
-      65536,
-      4292542531
+    "canonical": "docs/evidence/voice-buttons-20261004/project-live-before-review.png",
+    "image_dimensions": [
+      1280,
+      720
     ],
-    "canonical": "docs/evidence/voice-buttons-20261004/project-live-before-review.png"
+    "image_format": "jpeg"
   },
   {
     "source": "project-review-fixed.png",
     "sha256": "bd160d12fb4729d47bcc007dd0056a290e6d5335068b6cf2e9791aaa979de858",
     "bytes": 84997,
-    "png_dimensions": [
-      65536,
-      4292542531
+    "canonical": "docs/evidence/voice-buttons-20261004/project-review-fixed.png",
+    "image_dimensions": [
+      1280,
+      720
     ],
-    "canonical": "docs/evidence/voice-buttons-20261004/project-review-fixed.png"
+    "image_format": "jpeg"
   },
   {
     "source": "project-review-wrong-history.png",
     "sha256": "ad180a019b4ff81c6f25b56becc9c31e826dd50b2c18d1dc3dc8de57577ff4d7",
     "bytes": 32643,
-    "png_dimensions": [
-      65536,
-      4292542531
+    "canonical": "docs/evidence/voice-buttons-20261004/project-review-wrong-history.png",
+    "image_dimensions": [
+      1280,
+      720
     ],
-    "canonical": "docs/evidence/voice-buttons-20261004/project-review-wrong-history.png"
+    "image_format": "jpeg"
   }
 ]
