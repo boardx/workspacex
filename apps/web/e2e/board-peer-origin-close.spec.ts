@@ -30,7 +30,8 @@ test('same-profile live peer recovers a closed origin without reload and ACKs ea
  const sourceSha=runtimeSourceIdentity(),context=origin.context(),peer=await context.newPage();
  const chunks=observeRuntimeChunks(peer),transport=createSpatialWsMetadataRecorder();transport.observe(origin,'original');transport.observe(peer,'peer');
  const title=`R08 closed origin ${randomUUID()}`,objectId=randomUUID(),observations:Array<Record<string,unknown>>=[];
- let token='',boardId='',failure:unknown,runtimeStarted=false,cleanupPending=false;
+ let token='',boardId='',failure:unknown,failureCaptured=false,runtimeStarted=false,cleanupPending=false;
+ let failureStage='SETUP';
  const cleanupErrors:unknown[]=[];
  let ownedProxy:{proof:{listener:string};dispose:()=>Promise<void>}|undefined;
  let verifyProxySources:(()=>Promise<void>)|undefined;
@@ -54,7 +55,7 @@ test('same-profile live peer recovers a closed origin without reload and ACKs ea
   expect(receipt.boardSha256).toBe(sha256(boardId));expect(receipt.complete).toBe(true);expect(receipt.dropped).toBe(0);
   return receipt;
  };
- const saveScreenshot=async(page:Page,label:string)=>{const name=`${label}-${page.viewportSize()!.width}`,path=info.outputPath(`${name}.png`);await page.screenshot({path});await info.attach(name,{path,contentType:'image/png'});};
+ const saveScreenshot=async(page:Page,label:string,timeout?:number)=>{const name=`${label}-${page.viewportSize()!.width}`,path=info.outputPath(`${name}.png`);await page.screenshot({path,timeout});await info.attach(name,{path,contentType:'image/png'});};
  const cloudProof=async(phase:'synced'|'offline',label:string)=>{
   const status=peer.getByTestId('board-sync-status'),icon=status.locator('svg'),viewport=peer.viewportSize();expect(viewport).not.toBeNull();
   await expect(status).toHaveAttribute('data-sync-phase',phase);await expect(icon).toHaveCount(1);await expect(icon).toBeVisible();
@@ -85,7 +86,7 @@ test('same-profile live peer recovers a closed origin without reload and ACKs ea
   const initial=await boardHead(api,token,boardId);
   await boardApi(api,token,'POST',`/whiteboards/${boardId}/commands`,{requestId:randomUUID(),epoch:initial.epoch,commands:[{type:'create',object:{id:objectId,kind:'sticky',schemaVersion:1,geometry:{x:100,y:160,width:180,height:140,rotation:0},text:'Baseline',style:{},parentId:null,orderKey:''}}]});
   for(const page of [origin,peer]){
-   await page.goto(`/studio/board/${boardId}`);await expectBoardSynced(page);
+   failureStage=page===origin?'INITIAL_ORIGIN_SYNC':'INITIAL_PEER_SYNC';await page.goto(`/studio/board/${boardId}`);await expectBoardSynced(page);
    await expect(page.getByTestId('board-a11y-mirror').locator('li[data-object-id]')).toHaveCount(1);
   }
   expect(peer.context()).toBe(context);expect((await peer.evaluate(key=>localStorage.getItem(key),SESSION_TOKEN_STORAGE_KEY))===token).toBe(true);
@@ -115,7 +116,7 @@ test('same-profile live peer recovers a closed origin without reload and ACKs ea
   const started=performance.now(),remaining=()=>{const budget=45_000-(performance.now()-started);expect(budget).toBeGreaterThan(0);return budget;};
   await context.setOffline(false);
   // No reload, navigation, new page, or manual retry before peer convergence.
-  await expect.poll(()=>canonicalRows(peer),{timeout:remaining()}).toEqual(expected);await expectBoardSynced(peer,remaining());
+  failureStage='TAKEOVER_ROWS';await expect.poll(()=>canonicalRows(peer),{timeout:remaining()}).toEqual(expected);failureStage='TAKEOVER_SYNC';await expectBoardSynced(peer,remaining());
   const after=await canonicalBoardSnapshot(api,token,boardId);expect(after.revision).toEqual({epoch:before.revision.epoch,seq:before.revision.seq+2});
   expect(after.objects).toEqual(before.objects.map(object=>({...object,text:'Closed origin final'})));
   const metadata=transport.snapshot();expect(metadata.dropped).toBe(0);
@@ -139,8 +140,8 @@ test('same-profile live peer recovers a closed origin without reload and ACKs ea
   await expect(faultEditor).toHaveCount(0);await expect.poll(()=>durableIds(peer,boardId)).toHaveLength(1);
   const faultIds=await durableIds(peer,boardId);expect(await canonicalBoardSnapshot(api,token,boardId)).toEqual(faultBefore);
   await proxyControl('deny-once');const faultStarted=performance.now();await context.setOffline(false);
-  await expect.poll(async()=>(await proxyReceipt()).deniedUpgradeCount,{timeout:45_000}).toBe(1);
-  await expectBoardSynced(peer,45_000-(performance.now()-faultStarted));
+  failureStage='REAL503_DENIAL';await expect.poll(async()=>(await proxyReceipt()).deniedUpgradeCount,{timeout:45_000}).toBe(1);
+  failureStage='REAL503_SYNC';await expectBoardSynced(peer,45_000-(performance.now()-faultStarted));
   await expect.poll(()=>durableIds(peer,boardId),{timeout:45_000-(performance.now()-faultStarted)}).toEqual([]);
   const faultAfter=await canonicalBoardSnapshot(api,token,boardId),faultReceipt=await proxyReceipt();
   expect(faultAfter.revision).toEqual({epoch:faultBefore.revision.epoch,seq:faultBefore.revision.seq+1});
@@ -151,17 +152,18 @@ test('same-profile live peer recovers a closed origin without reload and ACKs ea
   expect(performance.now()-faultStarted).toBeLessThanOrEqual(45_000);
   await saveScreenshot(peer,'peer-real-503-recovered');
   observations.push({phase:'real-503-recovery',before:faultBefore.revision,after:faultAfter.revision,receipt:faultReceipt,elapsedMs:performance.now()-faultStarted});
-  await peer.reload();await expectBoardSynced(peer);expect(await canonicalBoardSnapshot(api,token,boardId)).toEqual(faultAfter);expect(await durableIds(peer,boardId)).toEqual([]);
+  failureStage='RELOAD_SYNC';await peer.reload();await expectBoardSynced(peer);expect(await canonicalBoardSnapshot(api,token,boardId)).toEqual(faultAfter);expect(await durableIds(peer,boardId)).toEqual([]);
   await saveScreenshot(peer,'peer-reload-persisted');
   observations.push({phase:'runtime-end',runtimeBefore,runtimeAfter:await verifyRuntimeIdentity(api,sourceSha,await chunks())});
  }catch(error){
-  failure=error;
+  failure=error;failureCaptured=true;
+  observations.push({phase:'failed-checkpoint',failureStage,runtimeStarted,proxyStarted:Boolean(ownedProxy)});
   if(!peer.isClosed()){
-   try{await saveScreenshot(peer,'origin-close-failure');observations.push({phase:'failed',head:boardId&&token?await boardHead(api,token,boardId):null,syncLabel:await peer.getByTestId('board-sync-status').getAttribute('aria-label')});}
+   try{await saveScreenshot(peer,'origin-close-failure',500);observations.push({phase:'failed',runtimeStarted,proxyStarted:Boolean(ownedProxy)});}
    catch(diagnosticError){cleanupErrors.push(diagnosticError);}
   }
  }finally{
-  try{await proxyControl('restore');}catch(error){cleanupErrors.push(error);}
+  if(ownedProxy)try{await proxyControl('restore');}catch(error){cleanupErrors.push(error);}
   try{await context.setOffline(false);}catch(error){cleanupErrors.push(error);}
   if(boardId&&token)try{
    const owned=await (await boardApi(api,token,'GET',`/whiteboards/${boardId}`)).json();expect(owned.ownerId).toBe(F.userId);expect(owned.name).toBe(title);
@@ -174,9 +176,9 @@ test('same-profile live peer recovers a closed origin without reload and ACKs ea
   try{await peer.close();}catch(error){cleanupErrors.push(error);}
   if(ownedProxy)try{await ownedProxy.dispose();}catch(error){cleanupErrors.push(error);}
   if(verifyProxySources)try{await verifyProxySources();}catch(error){cleanupErrors.push(error);}
-  try{expect(actualProxyBindings.length).toBeGreaterThanOrEqual(2);expect(actualProxyBindings.every(Boolean)).toBe(true);}catch(error){cleanupErrors.push(error);}
+  if(runtimeStarted)try{expect(actualProxyBindings.length).toBeGreaterThanOrEqual(2);expect(actualProxyBindings.every(Boolean)).toBe(true);}catch(error){cleanupErrors.push(error);}
   if(runtimeStarted)try{observations.push({phase:'post-cleanup-runtime',proof:await verifyRuntimeIdentity(api,sourceSha,await chunks())});}catch(error){cleanupErrors.push(error);}
-  try{await writeFile(info.outputPath('origin-close-result.json'),JSON.stringify({sourceSha,status:failure||cleanupErrors.length?'failed':'functional-cases-passed',completed:!failure&&!cleanupErrors.length&&!cleanupPending,cleanupPending,viewport:info.project.use.viewport,observations,transport:transport.snapshot(),sameProfile:true,independentBrowserUsers:false,failedReconnect:observations.some(value=>value.phase==='real-503-recovery'),permissionLateWrites:'unit-only-not-browser-claimed'},null,2),{mode:0o600});}catch(error){cleanupErrors.push(error);}
+  try{await writeFile(info.outputPath('origin-close-result.json'),JSON.stringify({sourceSha,status:failureCaptured||cleanupErrors.length?'failed':'functional-cases-passed',completed:!failureCaptured&&!cleanupErrors.length&&!cleanupPending,cleanupPending,viewport:info.project.use.viewport,observations,transport:transport.snapshot(),sameProfile:true,independentBrowserUsers:false,failedReconnect:observations.some(value=>value.phase==='real-503-recovery'),permissionLateWrites:'unit-only-not-browser-claimed'},null,2),{mode:0o600});}catch(error){cleanupErrors.push(error);}
  }
- if(failure||cleanupErrors.length)throw new AggregateError([...(failure?[failure]:[]),...cleanupErrors],'Origin-close acceptance or cleanup failed');
+ if(failureCaptured||cleanupErrors.length)throw new AggregateError([...(failureCaptured?[failure]:[]),...cleanupErrors],'Origin-close acceptance or cleanup failed');
 });
