@@ -1,0 +1,62 @@
+{
+  "quality": {
+    "ok": false,
+    "missing": [
+      "boundary_or_counterevidence"
+    ]
+  },
+  "boundaries": {
+    "ok": false,
+    "missing": [
+      "unsupported_executed_measurement"
+    ]
+  },
+  "grounding": {
+    "ok": false,
+    "reason": "unsupported_cross_expert_consensus",
+    "exactReferenceCount": 0
+  },
+  "scope": "exact quotes and finite claim syntax only; independent semantic review required",
+  "attempts": [
+    {
+      "attempt": 1,
+      "quality": {
+        "ok": false,
+        "missing": [
+          "boundary_or_counterevidence"
+        ]
+      },
+      "boundaries": {
+        "ok": false,
+        "missing": [
+          "unsupported_executed_measurement"
+        ]
+      },
+      "grounding": {
+        "ok": false,
+        "reason": "unsupported_cross_expert_consensus",
+        "exactReferenceCount": 0
+      }
+    },
+    {
+      "attempt": 2,
+      "quality": {
+        "ok": false,
+        "missing": [
+          "boundary_or_counterevidence"
+        ]
+      },
+      "boundaries": {
+        "ok": false,
+        "missing": [
+          "unsupported_executed_measurement"
+        ]
+      },
+      "grounding": {
+        "ok": false,
+        "reason": "unsupported_cross_expert_consensus",
+        "exactReferenceCount": 0
+      }
+    }
+  ]
+}

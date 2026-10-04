@@ -1,0 +1,56 @@
+{
+  "interviewId": "itv-f53b961c-b66d-4840-b3b7-658597f3f45f",
+  "httpStatus": 200,
+  "elapsedMs": 65333,
+  "attempts": 2,
+  "attemptTimings": [
+    {
+      "attempt": 1,
+      "startedElapsedMs": 164,
+      "endedElapsedMs": 35284,
+      "wallMs": 35120
+    },
+    {
+      "attempt": 2,
+      "startedElapsedMs": 35284,
+      "endedElapsedMs": 65268,
+      "wallMs": 29984
+    }
+  ],
+  "deltaCount": 1192,
+  "checkpointSummary": [
+    {
+      "beforeAttempt": 2,
+      "streamHash": "63b3cab722eb3bf65265c61a87152c9e857a5636757e591df3d1247f3d563630",
+      "storedHash": "63b3cab722eb3bf65265c61a87152c9e857a5636757e591df3d1247f3d563630",
+      "rawHash": "63b3cab722eb3bf65265c61a87152c9e857a5636757e591df3d1247f3d563630",
+      "bytesEqual": true,
+      "version": 5,
+      "reportVersion": 1,
+      "state": {
+        "documentId": "md-287dacba-cb16-4a47-ae17-d439859aa583",
+        "status": "failed",
+        "failure": {
+          "code": "REPORT_QUALITY_REJECTED",
+          "retryable": true
+        }
+      }
+    }
+  ],
+  "streamHash": "9de08f57258a2b8915c502a8c3dadbb724d9e2d83ad8f544e0a188ea0b1d0543",
+  "streamBytesEqual": true,
+  "terminal": "failed",
+  "reason": "REPORT_QUALITY_REJECTED",
+  "reportVersion": 2,
+  "reportState": {
+    "documentId": "md-d2525992-23f1-4c4b-9102-19843945b5c4",
+    "status": "failed",
+    "failure": {
+      "code": "REPORT_QUALITY_REJECTED",
+      "retryable": true
+    }
+  },
+  "hash": "9de08f57258a2b8915c502a8c3dadbb724d9e2d83ad8f544e0a188ea0b1d0543",
+  "rawHash": "9de08f57258a2b8915c502a8c3dadbb724d9e2d83ad8f544e0a188ea0b1d0543",
+  "referenceCount": 5
+}
