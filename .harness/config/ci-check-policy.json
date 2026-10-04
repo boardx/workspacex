@@ -1,5 +1,5 @@
 {
-  "version": 3,
+  "version": 4,
   "requiredChecks": [
     "verify-control-plane",
     "verify-affected",
@@ -24,5 +24,9 @@
   ],
   "deferredChecks": [
     "visual-deferred"
+  ],
+  "independentChecks": [
+    "native-board",
+    "meeting-room"
   ]
 }
