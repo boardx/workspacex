@@ -130,6 +130,9 @@ test("#2514：不挂任何 skill，已启用 skill 的正文已进第一轮 run 
 
   /* ═══════════ ⑤ 再发一条：幂等——哨兵照样出现，run 没有因为重复而失败 ═══════════ */
   const afterText = "挂载后取证：第二条消息";
+  // A rendered reply can precede the terminal lifecycle event. This case requires
+  // two independent turns, rather than an interjection into the first run.
+  await expect(page.getByTestId("copilotkit-v2-running-indicator")).toHaveCount(0, { timeout: 30_000 });
   await page.getByTestId("copilotkit-v2-input").fill(afterText);
   await page.getByTestId("copilotkit-v2-send").click();
   await expect(messages).toContainText(`根据查询结果回答你："${afterText}"`, { timeout: 60_000 });
