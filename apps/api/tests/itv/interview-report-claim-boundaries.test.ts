@@ -7,6 +7,22 @@ import { interviewMarkdown } from "@repo/contracts";
 const evidence = (quote: string): ReportEvidence => ({ anchor: "answer-1", documentId: "runs", version: 1,
   sourceHash: "a".repeat(64), start: 0, end: quote.length, quote, expertId: "expert", taskKey: "task", evidenceMode: "simulated", expertLabel: "甲" });
 describe("finite report claim boundaries", () => {
+ it.each(["这笔采购处于暂停状态。", "这笔购买处于中断状态。"])("rejects unsupported present-state copula: %s", claim => {
+  expect(assessReportClaimBoundaries(claim,[]).missing).toContain("unsupported_current_decision_state");
+ });
+ it.each(["建议提前确认预算，避免当前采购暂停。", "为防止目前采购流程中断，应先确认库存。"])("preserves prevention rather than asserting its outcome: %s", claim => {
+  expect(assessReportClaimBoundaries(claim,[]).ok).toBe(true);
+ });
+ it.each(["根据访谈，张采购者目前这笔咖啡机采购已暂停。", "原文显示：张采购者目前这笔咖啡机采购已暂停。", "张采购者表示：目前这笔咖啡机采购已暂停。"])("matches attributed state without changing identity: %s", claim => {
+  const quote = "张采购者目前这笔咖啡机采购已暂停。";
+  expect(assessReportClaimBoundaries(`${claim}[${quote}](#answer-1)`,[evidence(quote)]).ok).toBe(true);
+  expect(assessReportClaimBoundaries(`${claim.replace("张采购者","李采购者")}[${quote}](#answer-1)`,[evidence(quote)]).missing).toContain("unsupported_current_decision_state");
+ });
+ it("does not turn a source hypothetical suffix into an observed state", () => {
+  const claim = "张采购者目前这笔咖啡机采购已暂停。";
+  const quote = "张采购者目前这笔咖啡机采购已暂停只是一个假设。";
+  expect(assessReportClaimBoundaries(`${claim}[${quote}](#answer-1)`,[evidence(quote)]).missing).toContain("unsupported_current_decision_state");
+ });
  it.each([1,2])("rejects preserved public attempt %s's future-plan to current-state inference", attempt => {
   const root = new URL("./fixtures/defect-exclusion-5341/", import.meta.url);
   const raw = readFileSync(new URL(`attempt-${attempt}.md`, root), "utf8");

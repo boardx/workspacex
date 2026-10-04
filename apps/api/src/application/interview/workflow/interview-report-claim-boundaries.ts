@@ -68,7 +68,7 @@ function scopedObservedExclusion(clause: string, quote: string, start: number, e
   return !!observed && start >= observed.index && end <= observed.index + observed[0].length
     && clauses(quote).some(source => source.trim() === clause.trim());
 }
-const currentDecisionState = /(?:当前|目前|现在)[^，,:：。；;\n]{0,20}?(?:采购|购买|投入)[^，,:：。；;\n]{0,12}?(?:搁置|暂停|暂缓|中断)(?:状态)?|(?:采购|购买|投入)(?:决策|计划|流程)?[^，,:：。；;\n]{0,12}?(?:已经|已|仍|正在)[^，,:：。；;\n]{0,6}?(?:搁置|暂停|暂缓|中断)(?:状态)?/gu;
+const currentDecisionState = /(?:当前|目前|现在)[^，,:：。；;\n]{0,20}?(?:采购|购买|投入)[^，,:：。；;\n]{0,12}?(?:搁置|暂停|暂缓|中断)(?:状态)?|(?:采购|购买|投入)(?:决策|计划|流程)?[^，,:：。；;\n]{0,12}?(?:已经|已|仍|正在|处于)[^，,:：。；;\n]{0,6}?(?:搁置|暂停|暂缓|中断)(?:状态)?/gu;
 function qualifiedDecisionState(clause: string, start: number, end: number): boolean {
   const before = clause.slice(0,start).split(/[，,:：]/u).at(-1)!;
   const predicate = clause.slice(start,end);
@@ -78,9 +78,18 @@ function qualifiedDecisionState(clause: string, start: number, end: number): boo
   if (/不能不|不可不|不得不|否认|否定|而(?:要|应|是)|却/u.test(before)) return false;
   return /(?:不能|不可|无法|不得|不应)(?:据此)?(?:断言|声称|说明|表明|证明|确认|判断|认定)\s*$/u.test(before)
     || /不足以(?:说明|表明|证明|判断)\s*$/u.test(before)
+    || /(?:避免|防止)\s*$/u.test(before)
     || /^\s*(?:若|如果|假如)[^，,:：]{0,24}$/u.test(before);
 }
-const decisionClause = (text: string) => text.trim().replace(/^(?:证据事实|已知事实|原文记录)[：:]\s*/u, "");
+function decisionProposition(clause: string): string {
+  // Remove neutral attribution outside the proposition, retaining speaker identity,
+  // decision object, time and predicate. Do not reduce support to the state verb.
+  // Keep trailing qualifications: a source hypothetical must not prove a present fact.
+  return clause.trim()
+    .replace(/^(?:根据|依据)(?:访谈|原文|记录|证据)[，,：:]\s*/u, "")
+    .replace(/^(?:证据事实|已知事实|原文记录|(?:原文|访谈|记录|证据)(?:显示|表明|记载))[：:]\s*/u, "")
+    .replace(/^([^，,:：]{1,24})(?:表示|称|说道)[：:]\s*/u, "$1");
+}
 export function assessReportClaimBoundaries(markdown: string, index: readonly ReportEvidence[]): {ok: boolean; missing: readonly ReportClaimBoundaryGap[]} {
   const missing = new Set<ReportClaimBoundaryGap>();
   const sourceByAnchor = new Map(index.map(entry => [`#${entry.anchor}`,entry]));
@@ -112,9 +121,9 @@ export function assessReportClaimBoundaries(markdown: string, index: readonly Re
           if (!entry?.expertId || !entry.taskKey || entry.quote !== link.text) return false;
           // Preserve person/object/time together. Plans or observations from another
           // paragraph, person, decision or past window do not establish this state.
-          return clauses(entry.quote).some(source => decisionClause(source) === decisionClause(clause)
-            && [...source.matchAll(currentDecisionState)].some(match =>
-              !qualifiedDecisionState(source,match.index!,match.index!+match[0].length)));
+          return clauses(entry.quote).some(source => [...source.matchAll(currentDecisionState)].some(match =>
+            !qualifiedDecisionState(source,match.index!,match.index!+match[0].length)
+            && decisionProposition(source) === decisionProposition(clause)));
         });
         if (!observed) missing.add("unsupported_current_decision_state");
       }
