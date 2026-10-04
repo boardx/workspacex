@@ -1,0 +1,80 @@
+
+> @repo/api@0.0.0 test:interview-markdown-unit /Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/apps/api
+> vitest run --config vitest.interview-markdown-unit.config.ts
+
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/apps/api
+
+ ✓ tests/itv/interview-report-recovery.test.ts (24 tests) 71ms
+ ❯ tests/itv/interview-report-claim-boundaries.test.ts (154 tests | 9 failed) 67ms
+   × finite report claim boundaries > does not establish a present decision state with a future plan: 不能避免当前采购暂停。 3ms
+     → expected [] to include 'unsupported_current_decision_state'
+   × finite report claim boundaries > does not establish a present decision state with a future plan: 无法避免当前采购暂停。 0ms
+     → expected [] to include 'unsupported_current_decision_state'
+   × finite report claim boundaries > does not establish a present decision state with a future plan: 不能防止当前采购搁置。 0ms
+     → expected [] to include 'unsupported_current_decision_state'
+   × finite report claim boundaries > does not establish a present decision state with a future plan: 无法防止当前采购搁置。 0ms
+     → expected [] to include 'unsupported_current_decision_state'
+   × finite report claim boundaries > does not establish a present decision state with a future plan: 不能防止目前采购流程中断。 0ms
+     → expected [] to include 'unsupported_current_decision_state'
+   × finite report claim boundaries > does not establish a present decision state with a future plan: 未能避免当前采购暂停。 0ms
+     → expected [] to include 'unsupported_current_decision_state'
+   × finite report claim boundaries > preserves a plan, scoped denial, question or conditional state: 不能断言张采购者目前这笔咖啡机采购已暂停。 1ms
+     → expected false to be true // Object.is equality
+   × finite report claim boundaries > preserves a plan, scoped denial, question or conditional state: 无法确认张采购者目前这笔咖啡机采购已暂停。 0ms
+     → expected false to be true // Object.is equality
+   × finite report claim boundaries > preserves a plan, scoped denial, question or conditional state: 避免张采购者目前这笔咖啡机采购已暂停。 0ms
+     → expected false to be true // Object.is equality
+ ✓ tests/itv/interview-report-grounding.test.ts (76 tests) 41ms
+ ✓ tests/itv/interview-report-diagnostics.test.ts (14 tests) 30ms
+ ✓ tests/itv/interview-markdown-report-stream-controller.test.ts (9 tests) 4ms
+ ✓ tests/itv/interview-model-markdown.test.ts (4 tests) 3ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 9 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/itv/interview-report-claim-boundaries.test.ts > finite report claim boundaries > does not establish a present decision state with a future plan: 不能避免当前采购暂停。
+ FAIL  tests/itv/interview-report-claim-boundaries.test.ts > finite report claim boundaries > does not establish a present decision state with a future plan: 无法避免当前采购暂停。
+ FAIL  tests/itv/interview-report-claim-boundaries.test.ts > finite report claim boundaries > does not establish a present decision state with a future plan: 不能防止当前采购搁置。
+ FAIL  tests/itv/interview-report-claim-boundaries.test.ts > finite report claim boundaries > does not establish a present decision state with a future plan: 无法防止当前采购搁置。
+ FAIL  tests/itv/interview-report-claim-boundaries.test.ts > finite report claim boundaries > does not establish a present decision state with a future plan: 不能防止目前采购流程中断。
+ FAIL  tests/itv/interview-report-claim-boundaries.test.ts > finite report claim boundaries > does not establish a present decision state with a future plan: 未能避免当前采购暂停。
+AssertionError: expected [] to include 'unsupported_current_decision_state'
+ ❯ tests/itv/interview-report-claim-boundaries.test.ts:53:96
+     51|  ])("does not establish a present decision state with a future plan: %…
+     52|   const plan = "访谈五位采购用户，再决定投入。";
+     53|   expect(assessReportClaimBoundaries(`${claim}[${plan}](#answer-1)`,[e…
+       |                                                                                                ^
+     54|  });
+     55|  it.each([
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/9]⎯
+
+ FAIL  tests/itv/interview-report-claim-boundaries.test.ts > finite report claim boundaries > preserves a plan, scoped denial, question or conditional state: 不能断言张采购者目前这笔咖啡机采购已暂停。
+ FAIL  tests/itv/interview-report-claim-boundaries.test.ts > finite report claim boundaries > preserves a plan, scoped denial, question or conditional state: 无法确认张采购者目前这笔咖啡机采购已暂停。
+ FAIL  tests/itv/interview-report-claim-boundaries.test.ts > finite report claim boundaries > preserves a plan, scoped denial, question or conditional state: 避免张采购者目前这笔咖啡机采购已暂停。
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ tests/itv/interview-report-claim-boundaries.test.ts:70:52
+     68|   "避免张采购者目前这笔咖啡机采购已暂停。",
+     69|  ])("preserves a plan, scoped denial, question or conditional state: %…
+     70|   expect(assessReportClaimBoundaries(claim,[]).ok).toBe(true);
+       |                                                    ^
+     71|  });
+     72|  it("preserves the same observed person, decision object and current t…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/9]⎯
+
+ Test Files  1 failed | 5 passed (6)
+      Tests  9 failed | 272 passed (281)
+   Start at  05:52:19
+   Duration  2.38s (transform 583ms, setup 0ms, collect 1.64s, tests 216ms, environment 0ms, prepare 127ms)
+
+/Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/apps/api:
+ ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  @repo/api@0.0.0 test:interview-markdown-unit: `vitest run --config vitest.interview-markdown-unit.config.ts`
+Exit status 1

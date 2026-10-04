@@ -68,7 +68,13 @@ function scopedObservedExclusion(clause: string, quote: string, start: number, e
   return !!observed && start >= observed.index && end <= observed.index + observed[0].length
     && clauses(quote).some(source => source.trim() === clause.trim());
 }
-const currentDecisionState = /(?:当前|目前|现在)[^，,:：。；;\n]{0,20}?(?:采购|购买|投入)[^，,:：。；;\n]{0,12}?(?:搁置|暂停|暂缓|中断)(?:状态)?|(?:采购|购买|投入)(?:决策|计划|流程)?[^，,:：。；;\n]{0,12}?(?:已经|已|仍|正在|处于)[^，,:：。；;\n]{0,6}?(?:搁置|暂停|暂缓|中断)(?:状态)?/gu;
+const currentDecisionState = /(?:当前|目前|现在)[^，,:：。；;\n]{0,20}?(?:采购|购买|投入)[^，,:：。；;\n]{0,12}?(?:搁置|暂停|暂缓|中断)(?:状态)?|(?:采购(?!者)|购买|投入)(?:决策|计划|流程)?[^，,:：。；;\n]{0,12}?(?:已经|已|仍|正在|处于)[^，,:：。；;\n]{0,6}?(?:搁置|暂停|暂缓|中断)(?:状态)?/gu;
+// A bounded named role may intervene before its own state predicate. This does
+// not exempt a budget proposition, unrelated clause or arbitrary preceding text.
+const decisionSubject = String.raw`(?:[\p{L}·]{0,4}(?:采购者|受访者|用户|专家|研究员|经理|负责人))?`;
+const decisionProhibition = new RegExp(String.raw`(?:不能|不可|无法|不得|不应)(?:据此)?(?:断言|声称|说明|表明|证明|确认|判断|认定)${decisionSubject}\s*$`, "u");
+const deniedPrevention = new RegExp(String.raw`(?:不能|无法|不可|未能|没有|并未|不得|不应)(?:避免|防止)${decisionSubject}\s*$`, "u");
+const decisionPrevention = new RegExp(String.raw`(?:避免|防止)${decisionSubject}\s*$`, "u");
 function qualifiedDecisionState(clause: string, start: number, end: number): boolean {
   const before = clause.slice(0,start).split(/[，,:：]/u).at(-1)!;
   const predicate = clause.slice(start,end);
@@ -76,9 +82,10 @@ function qualifiedDecisionState(clause: string, start: number, end: number): boo
   if (!doubleDenial && (/(?:是否|可能|或许|预计|将|拟|会|尚未|并未|并不|并非|不是|没有|未曾|从未)(?:已|已经|被|处于|将|会|\s)*(?:搁置|暂停|暂缓|中断)/u.test(predicate)
     || /^\s*(?:吗|么|呢|[？?])/u.test(clause.slice(end)))) return true;
   if (/不能不|不可不|不得不|否认|否定|而(?:要|应|是)|却/u.test(before)) return false;
-  return /(?:不能|不可|无法|不得|不应)(?:据此)?(?:断言|声称|说明|表明|证明|确认|判断|认定)\s*$/u.test(before)
+  if (deniedPrevention.test(before)) return false;
+  return decisionProhibition.test(before)
     || /不足以(?:说明|表明|证明|判断)\s*$/u.test(before)
-    || /(?:避免|防止)\s*$/u.test(before)
+    || decisionPrevention.test(before)
     || /^\s*(?:若|如果|假如)[^，,:：]{0,24}$/u.test(before);
 }
 const changedSetup = /移动(?:式)?(?:带线)?插座|移动电源|无固定柜体|免安装|桌面型/u;
