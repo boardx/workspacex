@@ -11,10 +11,12 @@ import {validateBoardObservationArtifact,validateRuntimeBinding} from './board-o
 import {validateBoardSoakArtifact} from './board-soak-policy.mjs';
 import {boardPerformancePolicy,validateBoardPerformanceArtifact} from './board-performance-policy.mjs';
 import {validateApiWsObjectstoreCiEvidence,validateCapturedVendorCiEvidence} from './board-integrated-ci-policy.mjs';
+import {observationMode,observationArtifactKinds} from '../e2e/support/board-observation-categories.mjs';
 import {canonicalLanesForBoardCiLane} from './board-ci-lane-map.mjs';
 const root=resolve(import.meta.dirname,'../../..'),lane=process.argv[2],separator=process.argv.indexOf('--'),command=process.argv.slice(separator+1);
 const counts={journeys:6,security:1,visual:4,storage:5,import:1,'api-ws-objectstore':4,performance:3,'collaboration-50':1,'meeting-room':1};
 if(!Object.hasOwn(counts,lane)||separator!==3||!command.length||!process.env.WORKSPACEX_ISOLATION_ID)throw Error('ISOLATED_CI_LANE_REQUIRED');
+const mode=lane==='visual'?observationMode():undefined;
 const git=(...args)=>execFileSync('git',args,{cwd:root,encoding:'utf8'}).trim(),sha=git('rev-parse','HEAD');
 if(git('status','--porcelain','--untracked-files=all'))throw Error('DIRTY_WORKTREE');
 // This per-run key is private to the producer and verifier. It is never persisted
@@ -28,7 +30,7 @@ const prerequisites=lane==='import'&&!process.env.WHITEBOARD_CAPTURED_VENDOR_MAN
 const result=prerequisites.length?{status:1}:spawnSync(command[0],[...command.slice(1),'--output',output,'--reporter='+join(root,'apps/web/scripts/board-ci-reporter.mjs'),'--trace=off'],{cwd:root,stdio:lane==='collaboration-50'?'pipe':'inherit',encoding:'utf8',maxBuffer:64*1024*1024,env:{...process.env,BOARD_ACCEPTANCE_SHA:sha,BOARD_ACCEPTANCE_RUNTIME_MARKER:context.runtimeMarker,BOARD_ACCEPTANCE_RUNTIME_STARTED_AT:context.startedAt,BOARD_SOAK_REPORT_PATH:reportPath,PLAYWRIGHT_JSON_OUTPUT_FILE:jsonPath,...(lane==='import'?{BOARD_CAPTURED_VENDOR_ACCEPTANCE:'1'}:{}),...(key?{BOARD_ACCEPTANCE_LEDGER_KEY:key}:{})}});
 if(lane==='collaboration-50'){discardUnclassifiedSoakFiles(output);writeFileSync(join(directory,'startup-diagnostics.json'),JSON.stringify(boardSoakDiagnostics(result.stdout,result.stderr,result.status))+'\n',{mode:0o600});}
 context.endedAt=new Date().toISOString();
-const summary={version:1,kind:'board-integrated-lane',lane,canonicalLanes:[...canonicalLanesForBoardCiLane(lane)],sha,...context,status:'failed',approved:false,score:null,counterproof:false,runtimeIdentity:null,failures:[],pending:[]};
+const summary={version:1,kind:'board-integrated-lane',lane,canonicalLanes:mode==='functional'?['accessibility']:[...canonicalLanesForBoardCiLane(lane)],...(mode?{observationMode:mode,visualEvidence:mode==='functional'?'deferred-not-verified':'executed-not-human-approved'}:{}),sha,...context,status:'failed',approved:false,score:null,counterproof:false,runtimeIdentity:null,failures:[],pending:[]};
 try{
  if(prerequisites.length)throw Error(prerequisites[0]);
  if(result.status!==0){
@@ -44,8 +46,8 @@ try{
  if(lane==='journeys')checks=[await validateJourneyArtifact({version:1,kind:'board-journey-bundle',reports:read('journey-result.json')},sha,context)];
  else if(lane==='security')checks=[validateSecurityArtifact(single('security-result.json'),sha,context)];
  else if(lane==='visual'){
-  const report={version:1,kind:'board-visual-accessibility-bundle',reports:read('visual-accessibility.json')};
-  checks=[await validateBoardObservationArtifact(report,'visual',sha,context),await validateBoardObservationArtifact(report,'accessibility',sha,context)];
+  const report={version:1,kind:observationArtifactKinds(mode).bundle,reports:read('visual-accessibility.json')};
+  checks=[await validateBoardObservationArtifact(report,'visual',sha,context,undefined,mode),await validateBoardObservationArtifact(report,'accessibility',sha,context,undefined,mode)];
  }else if(lane==='meeting-room')checks=[await validateBoardObservationArtifact(single('meeting-room-ledger.json'),lane,sha,context,key)];
  else if(lane==='collaboration-50'){
   const report=JSON.parse(readFileSync(reportPath,'utf8'));checks=[await validateBoardSoakArtifact(report,sha,key),{valid:true,failures:validateRuntimeBinding(report.runtimeIdentity,sha,context)}];

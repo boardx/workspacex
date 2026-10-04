@@ -163,13 +163,13 @@ describe("#451 PR 队列状态机", () => {
     expect(got.blockers).toEqual([]);
     // 关键：标签**单独**就满足独立 approve，不再产生"缺原生 APPROVE 背书"的结论。
     // 改判据之前这里会是 "[已暂停，仅记录] verdict label ... 没有锚定当前 head ..."。
-    expect(got.advisories).toEqual([]);
+    expect(got.advisories).toEqual([expect.stringContaining("DEFERRED_NOT_RUN: visual-deferred")]);
   });
 
   it("反证（#1441）：review:e2e-ok 同样能单独满足，不只 feature-ok 一种 OK 档", () => {
     const got = classifyPr({ ...greenFacts(), verdictLabels: ["review:e2e-ok"], formalReviews: [] });
     expect(got.state).toBe("READY_TO_MERGE");
-    expect(got.advisories).toEqual([]);
+    expect(got.advisories).toEqual([expect.stringContaining("DEFERRED_NOT_RUN: visual-deferred")]);
   });
 
   it("反证（#1441）：标签路径不做 head 漂移检查——已知的弱化点，用例钉住而不是意外发现", () => {
@@ -183,7 +183,7 @@ describe("#451 PR 队列状态机", () => {
       formalReviews: [{ author: "rev-feature", state: "APPROVED", commit: OLD }],
     });
     expect(got.state).toBe("READY_TO_MERGE");
-    expect(got.advisories).toEqual([]);
+    expect(got.advisories).toEqual([expect.stringContaining("DEFERRED_NOT_RUN: visual-deferred")]);
   });
 
   it("反证（#1441）：两条路都不满足时，判断逻辑仍然算出来——暂停只是不拦人，不是不算", () => {
@@ -529,4 +529,11 @@ describe("#451 文档与代码共用同一份状态枚举", () => {
     expect(sop).toContain("pnpm harness pr-queue");
     expect(sop).toContain(".harness/scripts/lib/pr-queue.ts");
   });
+});
+
+
+it('surfaces the manual visual deferral through PR classification', () => {
+ const result=classifyPr(greenFacts());
+ expect(result.state).toBe('READY_TO_MERGE');
+ expect(result.advisories.join('\n')).toContain('DEFERRED_NOT_RUN: visual-deferred');
 });
