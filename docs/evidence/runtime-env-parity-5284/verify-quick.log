@@ -1,0 +1,143 @@
+
+> agentic-harness-template@ verify:quick /Users/shenyangjun/.codex/worktrees/survey-report-echarts
+> pnpm exec tsx .harness/scripts/verify-quick.ts
+
+[verify:quick] base=6c251df959d0ab498494ed35e9fde4c34c2b8837（相对 origin/main 的改动面，turbo --affected）
+[stack-admission] load1=4.85 cores=10 perCore=0.48 running=1/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mut1opmd-a1fcf84a-e1f18398fa31 db=wsx_e1f18398fa31cea78f68 compose=wsx-e1f18398fa31cea78f68 pg=20464 redis=21464 api=24464 web=25464 sandbox=26464 model=27464 deep-agent=28464 asr=29464 vision=30464 loopback-sandbox=31464 mail=19464
+• turbo 2.10.5
+
+   • Packages in scope: //, @repo/desktop, @repo/local-runtime
+   • Running typecheck, lint, test in 3 packages
+   • Remote caching disabled, using shared worktree cache
+
+@repo/local-runtime:test: cache miss, executing 2c9449dbd903b07c
+@repo/local-runtime:lint: cache miss, executing ff2bf8797363ed0b
+@repo/local-runtime:typecheck: cache miss, executing 035bb3a87aa57016
+@repo/local-runtime:build: cache miss, executing 26e64e794c331d6e
+@repo/local-runtime:typecheck: 
+@repo/local-runtime:typecheck: > @repo/local-runtime@0.1.0 typecheck /Users/shenyangjun/.codex/worktrees/survey-report-echarts/packages/local-runtime
+@repo/local-runtime:typecheck: > tsc --noEmit
+@repo/local-runtime:typecheck: 
+@repo/local-runtime:build: 
+@repo/local-runtime:build: > @repo/local-runtime@0.1.0 build /Users/shenyangjun/.codex/worktrees/survey-report-echarts/packages/local-runtime
+@repo/local-runtime:build: > tsc --noEmit
+@repo/local-runtime:build: 
+@repo/local-runtime:test: 
+@repo/local-runtime:test: > @repo/local-runtime@0.1.0 test /Users/shenyangjun/.codex/worktrees/survey-report-echarts/packages/local-runtime
+@repo/local-runtime:test: > vitest run
+@repo/local-runtime:test: 
+@repo/local-runtime:lint: 
+@repo/local-runtime:lint: > @repo/local-runtime@0.1.0 lint /Users/shenyangjun/.codex/worktrees/survey-report-echarts/packages/local-runtime
+@repo/local-runtime:lint: > echo 'lint: ok'
+@repo/local-runtime:lint: 
+@repo/local-runtime:lint: lint: ok
+@repo/local-runtime:test: 
+@repo/local-runtime:test:  RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/survey-report-echarts/packages/local-runtime
+@repo/local-runtime:test: 
+@repo/local-runtime:test:  ✓ test/update-apply-rollback.test.ts (10 tests) 99ms
+@repo/local-runtime:test:  ✓ test/model-import.test.ts (15 tests) 84ms
+@repo/local-runtime:test:  ✓ test/update-package.test.ts (17 tests) 14ms
+@repo/desktop:lint: cache miss, executing a375e3a5ee726957
+@repo/desktop:typecheck: cache miss, executing 7d351536e87c6933
+@repo/desktop:test: cache miss, executing a12dc9bc1a6d5000
+@repo/desktop:lint: 
+@repo/desktop:lint: > @repo/desktop@0.3.0 lint /Users/shenyangjun/.codex/worktrees/survey-report-echarts/apps/desktop
+@repo/desktop:lint: > echo 'lint: ok'
+@repo/desktop:lint: 
+@repo/desktop:test: 
+@repo/desktop:test: > @repo/desktop@0.3.0 test /Users/shenyangjun/.codex/worktrees/survey-report-echarts/apps/desktop
+@repo/desktop:test: > vitest run --passWithNoTests
+@repo/desktop:test: 
+@repo/desktop:typecheck: 
+@repo/desktop:typecheck: > @repo/desktop@0.3.0 typecheck /Users/shenyangjun/.codex/worktrees/survey-report-echarts/apps/desktop
+@repo/desktop:typecheck: > tsc --noEmit
+@repo/desktop:typecheck: 
+@repo/desktop:lint: lint: ok
+@repo/desktop:test: 
+@repo/desktop:test:  RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/survey-report-echarts/apps/desktop
+@repo/desktop:test: 
+@repo/desktop:test:  ✓ test/update-wiring.test.ts (9 tests) 6ms
+@repo/desktop:test:  ✓ test/startup-progress.test.ts (6 tests) 2ms
+@repo/desktop:test:  ✓ test/packaging-builds-web.test.ts (4 tests) 2ms
+@repo/desktop:test:  ✓ test/shutdown-notice.test.ts (5 tests) 2ms
+@repo/desktop:test:  ✓ test/welcome.test.ts (4 tests) 2ms
+@repo/desktop:test: 
+@repo/desktop:test:  Test Files  5 passed (5)
+@repo/desktop:test:       Tests  28 passed (28)
+@repo/desktop:test:    Start at  07:50:35
+@repo/desktop:test:    Duration  376ms (transform 82ms, setup 0ms, collect 144ms, tests 14ms, environment 1ms, prepare 413ms)
+@repo/desktop:test: 
+@repo/local-runtime:test:  ✓ test/pglite-queue-ownership.test.ts (6 tests) 3948ms
+@repo/local-runtime:test:    ✓ SessionAwareQueryQueue ownership across an extended-protocol exchange > keeps the unnamed portal alive when another client's Query is queued between Bind and Execute (psycopg shape) 1075ms
+@repo/local-runtime:test:    ✓ SessionAwareQueryQueue ownership across an extended-protocol exchange > releases the backend after Sync so the other client is not starved 602ms
+@repo/local-runtime:test:    ✓ SessionAwareQueryQueue ReadyForQuery detection on chunked output > releases the backend promptly after a large result set that PGlite streams in several chunks 815ms
+@repo/local-runtime:test:    ✓ SessionAwareQueryQueue and Terminate > releases the backend when a client sends Terminate (pg-pool reaping an idle connection) 498ms
+@repo/local-runtime:test:    ✓ SessionAwareQueryQueue and Flush > a lone Flush after a completed exchange does not hold the backend (psycopg after COMMIT) 477ms
+@repo/local-runtime:test:    ✓ SessionAwareQueryQueue and Flush > a Flush in the middle of an extended exchange still keeps ownership until Sync 479ms
+@repo/local-runtime:test:  ✓ test/migrations-apply-on-pglite.test.ts (3 tests) 14825ms
+@repo/local-runtime:test:    ✓ 全新安装的数据库 > **全部迁移在 PGlite 上从零跑通**，一条都不少 14747ms
+@repo/local-runtime:test:  ✓ test/config.test.ts (7 tests) 7ms
+@repo/local-runtime:test:  ✓ test/pglite-server.test.ts (3 tests) 2951ms
+@repo/local-runtime:test:    ✓ pglite two-phase server > owner phase migrates, app phase serves as app_rw with RLS and pooled connections 1809ms
+@repo/local-runtime:test:    ✓ known deviation: the login role is ignored > serves as app_rw while session_user stays postgres 994ms
+@repo/local-runtime:test:  ✓ test/model-probe-is-deferred.test.ts (9 tests) 2ms
+@repo/local-runtime:test:  ✓ test/restore.test.ts (8 tests) 30ms
+@repo/local-runtime:test:  ✓ test/backup.test.ts (15 tests) 38ms
+@repo/local-runtime:test:  ✓ test/startup-failure.test.ts (9 tests) 3ms
+@repo/local-runtime:test:  ✓ test/releasable.test.ts (13 tests) 3ms
+@repo/local-runtime:test:  ✓ test/model-choice.test.ts (6 tests) 2ms
+@repo/local-runtime:test:  ✓ test/deferred-readiness.test.ts (7 tests) 9ms
+@repo/local-runtime:test:  ✓ test/crash-recovery.test.ts (1 test) 4982ms
+@repo/local-runtime:test:    ✓ 硬杀之后数据还在 > 写到一半被 kill -9：库能重新打开，已提交的行一条不少 4981ms
+@repo/local-runtime:test:  ✓ test/processes.test.ts (4 tests) 595ms
+@repo/local-runtime:test:    ✓ waitForHttpOrExit > returns when the child does come up 511ms
+@repo/local-runtime:test:  ✓ test/backup-restore-roundtrip.test.ts (1 test) 2635ms
+@repo/local-runtime:test:    ✓ 备份到恢复的真库往返 > 在 A 机器上备份，在 B 机器上读回来——行数一条不差 2635ms
+@repo/local-runtime:test:  ✓ test/pull-progress.test.ts (11 tests) 10ms
+@repo/local-runtime:test:  ✓ test/no-egress-endpoints.test.ts (3 tests) 3ms
+@repo/local-runtime:test:  ✓ test/capabilities.test.ts (5 tests) 11ms
+@repo/local-runtime:test:  ✓ test/model-memory-budget.test.ts (15 tests) 3ms
+@repo/local-runtime:test:  ✓ test/supervisor.test.ts (5 tests) 2334ms
+@repo/local-runtime:test:    ✓ 有人盯着的子进程 > 被杀掉之后真的会被拉起来，而且换了一个新进程 557ms
+@repo/local-runtime:test:    ✓ 有人盯着的子进程 > 一直起不来就停手，并给出说人话的说明 603ms
+@repo/local-runtime:test:    ✓ 有人盯着的子进程 > 崩溃现场写进日志——只说「退出了」是不可行动的 605ms
+@repo/local-runtime:test:    ✓ 有人盯着的子进程 > 我们自己停它的时候不当成崩溃，也不去重启 409ms
+@repo/local-runtime:test:  ✓ test/parity.test.ts (5 tests) 357ms
+@repo/local-runtime:test:  ✓ test/deployment-edition-env.test.ts (4 tests) 2ms
+@repo/local-runtime:test:  ✓ test/no-set-role.test.ts (3 tests) 206ms
+@repo/local-runtime:test:  ✓ test/pull-list-derives-from-selection.test.ts (4 tests) 1ms
+@repo/local-runtime:test:  ✓ test/supervisor-policy.test.ts (8 tests) 3ms
+@repo/local-runtime:test:  ✓ test/child-ledger.test.ts (4 tests) 239ms
+@repo/local-runtime:test:  ✓ test/model-preflight.test.ts (4 tests) 68ms
+@repo/local-runtime:test:  ✓ test/deep-agent-launch.test.ts (4 tests) 5ms
+@repo/local-runtime:test:  ✓ test/web-build.test.ts (4 tests) 5ms
+@repo/local-runtime:test:  ✓ test/model-bundle.test.ts (3 tests) 9ms
+@repo/local-runtime:test:  ✓ test/thinking-off-is-configured.test.ts (3 tests) 3ms
+@repo/local-runtime:test:  ✓ test/internal-ports.test.ts (6 tests) 2ms
+@repo/local-runtime:test:  ✓ test/inherited-parity-env.test.ts (4 tests) 65ms
+@repo/local-runtime:test:  ✓ test/pglite-queue.test.ts (2 tests) 2ms
+@repo/local-runtime:test:  ✓ test/ollama-version.test.ts (2 tests) 2ms
+@repo/local-runtime:test:  ✓ test/data-dir-advice.test.ts (9 tests) 2ms
+@repo/local-runtime:test:  ✓ test/node-launch.test.ts (2 tests) 2ms
+@repo/local-runtime:test:  ✓ test/seeds.test.ts (3 tests) 1ms
+@repo/local-runtime:test: 
+@repo/local-runtime:test:  Test Files  40 passed (40)
+@repo/local-runtime:test:       Tests  247 passed (247)
+@repo/local-runtime:test:    Start at  07:50:33
+@repo/local-runtime:test:    Duration  38.29s (transform 261ms, setup 0ms, collect 721ms, tests 33.56s, environment 4ms, prepare 1.18s)
+@repo/local-runtime:test: 
+
+ Tasks:    7 successful, 7 total
+Cached:    0 cached, 7 total
+  Time:    39.541s 
+
+ WARNING  no output files found for task @repo/local-runtime#build. Please check your `outputs` key in `turbo.json`
+[timing] pnpm turbo run typecheck lint test --affected
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：40s
+  清理：0s
+  总计：40s

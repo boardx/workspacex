@@ -9,6 +9,46 @@ const source: InterviewMarkdownEnvelope = { interviewId: "itv-execution-7", revi
 const active: InterviewMarkdownEnvelope = { ...source, version: 3, execution: { status: "running", tasks: [{ expertId: "nurse-7", status: "completed", errorCode: null }, { expertId: "doctor-8", status: "running", errorCode: null }] } };
 beforeEach(() => { Object.values(api).forEach((mock) => mock.mockReset()); api.initializeInterviewMarkdown.mockResolvedValue(source); api.loadInterviewMarkdown.mockResolvedValue({ ...source, version: 9 }); });
 afterEach(() => { cleanup(); vi.useRealTimers(); });
+function savedReport(id: string): InterviewMarkdownEnvelope {
+  return { ...source, interviewId: id, version: 12, documents: [{ documentId: "report-saved", step: "report", version: 2, markdown: "# 合成报告\n\n已持久化的正文与反例。", contentHash: "b".repeat(64), evidenceMode: "simulated", references: [] }], states: [{ documentId: "report-saved", status: "completed", failure: null }] };
+}
+it("keeps the previous saved report visible during a new streaming attempt", async () => {
+  const { runInterviewGeneration } = await import("@/lib/interview-generation-session");
+  const id = "itv-report-retry-visible";
+  const saved = savedReport(id);
+  let finish!: (value: InterviewMarkdownEnvelope) => void;
+  const request = runInterviewGeneration(id, "report", update => {
+    update({ markdown: "本次未保存输出" });
+    return new Promise(resolve => { finish = resolve; });
+  }, { revisionId: source.revisionId, version: 12 });
+  api.initializeInterviewMarkdown.mockResolvedValue(saved);
+  render(<InterviewMarkdownResultsStep interviewId={id} step="report" runs={[]} onVersionChange={vi.fn()} onReport={vi.fn()} />);
+  expect(await screen.findByTestId("itv-source-report-markdown")).toHaveTextContent("已持久化的正文与反例");
+  expect(screen.getByTestId("itv-report-stream-markdown")).toHaveTextContent("本次未保存输出");
+  await act(async () => { finish(saved); await request; });
+});
+it("receives completion even when generation finished before report source loaded", async () => {
+  const { runInterviewGeneration } = await import("@/lib/interview-generation-session");
+  const id = "itv-terminal-before-mount";
+  const saved = savedReport(id);
+  await runInterviewGeneration(id, "report", async () => saved, { revisionId: source.revisionId, version: 2 });
+  api.initializeInterviewMarkdown.mockResolvedValue({ ...source, interviewId: id });
+  render(<InterviewMarkdownResultsStep interviewId={id} step="report" runs={[]} onVersionChange={vi.fn()} onReport={vi.fn()} />);
+  expect(await screen.findByTestId("itv-source-report-markdown")).toHaveTextContent("已持久化的正文与反例");
+});
+it("reconciles a failed remounted report request against durable source without manual refresh", async () => {
+  const { runInterviewGeneration } = await import("@/lib/interview-generation-session");
+  const id = "itv-failed-remount";
+  let fail!: (cause: Error) => void;
+  const request = runInterviewGeneration(id, "report", async () => new Promise<InterviewMarkdownEnvelope>((_resolve, reject) => { fail = reject; }), { revisionId: source.revisionId, version: 2 }).catch(() => {});
+  api.initializeInterviewMarkdown.mockResolvedValue({ ...source, interviewId: id });
+  api.loadInterviewMarkdown.mockResolvedValue(savedReport(id));
+  render(<InterviewMarkdownResultsStep interviewId={id} step="report" runs={[]} onVersionChange={vi.fn()} onReport={vi.fn()} />);
+  expect(await screen.findByTestId("itv-report-generation")).toBeVisible();
+  await act(async () => { fail(new Error("REPORT_STREAM_INTERRUPTED")); await request; });
+  expect(await screen.findByTestId("itv-source-report-markdown")).toHaveTextContent("已持久化的正文与反例");
+  expect(screen.getByRole("alert")).toHaveTextContent("报告");
+});
 const renderResults = () => render(<InterviewMarkdownResultsStep interviewId="itv-execution-7" step="runs" runs={[]} onVersionChange={vi.fn()} onReport={vi.fn()} />);
 it("keeps durable interviewing highlighted on runs while viewing report", async () => {
   api.initializeInterviewMarkdown.mockResolvedValue(active);

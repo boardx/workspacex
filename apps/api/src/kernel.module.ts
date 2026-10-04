@@ -343,7 +343,7 @@ import { SkillFileEditController } from "./interface/controllers/skill-file-edit
 import { ProvenanceController } from "./interface/controllers/provenance.controller";
 import { ArtifactBindingController } from "./interface/controllers/artifact-binding.controller";
 import { ArtifactReferenceController } from "./interface/controllers/artifact-reference.controller";
-import { ARTIFACT_REPOSITORY, ID_FACTORY } from "./application/artifact/ports";
+import { ARTIFACT_REPOSITORY, ID_FACTORY, type ArtifactRepository, type IdFactory } from "./application/artifact/ports";
 import { BINDING_REPOSITORY } from "./application/artifact/binding-ports";
 import { DOWNSTREAM_REFERENCE_REPOSITORY } from "./application/artifact/reference-ports";
 import { PgArtifactRepository } from "./infrastructure/artifact/pg-artifact-repository";
@@ -1338,12 +1338,12 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
     { provide: DATABASE_PORT, useFactory: () => new PgDatabase(appConfig()) },
     // WF03：Workflow 运行时（start/cancel/resume/SSE + 进程内 worker）；checkpoint 走唯一工厂与独立共享池。
     {
-      provide: WORKFLOW_RUNTIME_SERVICE, inject: [DATABASE_PORT, LOGGER_PORT, MODEL_CALL_PORT, NOTIFICATION_CENTER],
-      useFactory: (db: DatabasePort, logger: LoggerPort, model: ModelCallPort, notifications: NotificationPublisher) => createProductionWorkflowRuntime(db, () => new pgModule.Pool({ ...appConfig(), max: 3 }), {
+      provide: WORKFLOW_RUNTIME_SERVICE, inject: [DATABASE_PORT, LOGGER_PORT, MODEL_CALL_PORT, NOTIFICATION_CENTER, OBJECT_STORE, ARTIFACT_REPOSITORY, ID_FACTORY],
+      useFactory: (db: DatabasePort, logger: LoggerPort, model: ModelCallPort, notifications: NotificationPublisher, store: ObjectStore, repo: ArtifactRepository, ids: IdFactory) => createProductionWorkflowRuntime(db, () => new pgModule.Pool({ ...appConfig(), max: 3 }), {
         // CT06：Skill 版本从本组织 Work Skill 目录解析；内容线 Skill 以发起 Agent 固定版本的模型执行，
         // PRD 经 effect-gateway 发布并通知发起人（W029）。
         skills: new PgSkillCatalogVersionResolver(db),
-        content: { skills: new ModelContentSkillRunner(model, new PgWorkflowAccess(db), new PgContentSkillInstructions(db)), notifications },
+        content: { skills: new ModelContentSkillRunner(model, new PgWorkflowAccess(db), new PgContentSkillInstructions(db)), notifications, materialization: { store, repo, ids } },
         onRunError: (instanceId, err) => logger.error("workflow.run_failed", { traceId: `workflow:${instanceId}`, instanceId, err }),
         // 阶段业务失败（含重试）落日志：只带 name/code/reason 与 failureKind，不带 message / 模型原文。
         onStageFailure: (f) => logger.error(f.final ? "workflow.stage_failed" : "workflow.stage_retried", {

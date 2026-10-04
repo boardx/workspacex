@@ -1,6 +1,6 @@
 ---
 name: problem-framing
-version: 1.0.0
+version: 1.1.0
 capability_id: WX-WORK-S064
 metadata:
   work:
@@ -56,3 +56,9 @@ metadata:
 - required：无
 - optional：knowledge.read, sandbox.exec
 - 完整依赖与授权边界见实体文档对应章节。
+
+## 固定版本执行方法
+
+执行[专业方法与真实性检查](references/method.md)。该引用为本版本包内正文，不依赖运行环境访问仓库文档。
+
+方法来源及版本变更见[来源记录](references/upstream.md)。只有包与角色/Workflow 的服务端审核、发布和固定版本回执完成后，才可声称 verified 或实际启用；本源文件不授予权限。

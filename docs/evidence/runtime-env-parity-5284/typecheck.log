@@ -1,0 +1,4 @@
+
+> @repo/local-runtime@0.1.0 typecheck /Users/shenyangjun/.codex/worktrees/survey-report-echarts/packages/local-runtime
+> tsc --noEmit
+
