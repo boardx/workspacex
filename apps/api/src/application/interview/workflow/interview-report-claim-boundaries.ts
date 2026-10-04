@@ -47,6 +47,22 @@ function observations(text: string): Count[] {
     return [{value: Number.isFinite(numeric) ? String(numeric) : raw, unit: match[2] === "%" ? "%" : "count"}];
   }));
 }
+const defectExclusion = /(?:安装风险|安装问题|产品)(?:.{0,16}?)(?:不是|并非|没有|不存在|不含)(?:.{0,8}?)(?:产品固有缺陷|产品缺陷|固有缺陷|缺陷|产品问题)|(?:而非|并非|不是|没有|不存在|不含|排除(?:了)?)(?:[^，,:：]{0,16}?)(?:固有缺陷|设计缺陷|产品缺陷)/gu;
+function qualifiedDefectExclusion(clause: string, start: number, end: number): boolean {
+  const before = clause.slice(0,start).split(/[，,:：]/u).at(-1)!;
+  if (/否认|否定|不是(?!说)|并非|不会|不可能/u.test(before)) return false;
+  return qualified(clause,start,end)
+    || /(?:不能|不可|无法|不应|不宜|不得)(?:断言|声称|认为|说明|证明|认定)?[^，,:：]{0,16}$/u.test(before)
+    || /^\s*(?:若|如果|假如)[^，,:：]{0,64}$/u.test(before);
+}
+function scopedObservedExclusion(clause: string, quote: string, start: number, end: number): boolean {
+  // A finite observed-method form, not a truth certificate. Preserve the same
+  // inspected component, method and result; never extrapolate to the whole product.
+  const inspected = /^\s*(?:本次|此次)对(该[^，,:：]{1,24}?(?:模块|部件|接口|回路))(?:拆机检测|故障复现排查|逐项检测|专项检测)(?:已)?(?:确认|查明)\1(?:不存在|没有)(?:[^，,:：]{0,8})(?:设计缺陷|固有缺陷)/u;
+  const observed = inspected.exec(clause);
+  return !!observed && start >= observed.index && end <= observed.index + observed[0].length
+    && clauses(quote).some(source => source.trim() === clause.trim());
+}
 export function assessReportClaimBoundaries(markdown: string, index: readonly ReportEvidence[]): {ok: boolean; missing: readonly ReportClaimBoundaryGap[]} {
   const missing = new Set<ReportClaimBoundaryGap>();
   const sourceByAnchor = new Map(index.map(entry => [`#${entry.anchor}`,entry]));
@@ -60,9 +76,15 @@ export function assessReportClaimBoundaries(markdown: string, index: readonly Re
     if (claims.some(claim => !supported.some(source => source.value === claim.value && source.unit === claim.unit)))
       missing.add("unsupported_executed_measurement");
     for (const clause of clauses(assertion.text)) {
-      const exclusion = /(?:安装风险|安装问题|产品)(?:.{0,16}?)(?:不是|并非|没有|不存在|不含)(?:.{0,8}?)(?:产品固有缺陷|产品缺陷|固有缺陷|缺陷|产品问题)/u.exec(clause);
-      if (exclusion && !qualified(clause,exclusion.index,exclusion.index+exclusion[0].length))
-        missing.add("unqualified_defect_exclusion");
+      for (const exclusion of clause.matchAll(defectExclusion)) {
+        const boundProof = assertion.links.some(link => {
+          const entry = sourceByAnchor.get(link.url);
+          return entry?.expertId && entry.taskKey && entry.quote === link.text
+            && scopedObservedExclusion(clause,entry.quote,exclusion.index!,exclusion.index!+exclusion[0].length);
+        });
+        if (!qualifiedDefectExclusion(clause,exclusion.index!,exclusion.index!+exclusion[0].length) && !boundProof)
+          missing.add("unqualified_defect_exclusion");
+      }
     }
     const text = assertion.text.normalize("NFKC");
     const denial = /(?:(?:不能|不可|无法|不得)(?:说|断言|声称|认为)|不是说)(?:[^，,:：]{0,24})$/u;
