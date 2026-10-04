@@ -14,6 +14,10 @@ describe("finite report claim boundaries", () => {
   const quote = `本次检测不兼容项数量为${chinese}项。`;
   expect(assessReportClaimBoundaries(`本次检测不兼容项数量为${numeric}项。[${quote}](#answer-1)`, [evidence(quote)]).ok).toBe(true);
  });
+ it("does not treat a grouped numeric question as evidence", () => {
+  const quote = "本次检测不兼容项是否为1,000项";
+  expect(assessReportClaimBoundaries(`本次检测不兼容项为1000项。[${quote}](#answer-1)`, [evidence(quote)]).missing).toContain("unsupported_executed_measurement");
+ });
  it("keeps an explicit narrow hole exemption", () => {
   expect(assessReportClaimBoundaries("免安装桌面型设备仍需现场检查供电、承重与空间，仅固定孔位此步骤无需。", []).ok).toBe(true);
  });
