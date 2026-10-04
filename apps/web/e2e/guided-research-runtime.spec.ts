@@ -155,8 +155,10 @@ test("research persists all five model-backed steps through the real UI, API and
   expect(runtimeResponse.ok()).toBeTruthy();
   const runtime = await runtimeResponse.json();
   expect(runtime.modelCalls.filter((call: { node: string }) => call.node === "report")).toHaveLength(runtime.outline.filter((section: { enabled: boolean }) => section.enabled).length * 2 + 3);
-  expect(runtime.researchPlan.optimizedQuestion).toBe("哪些并网政策证据支持进入决策？");
-  expect(runtime.tasks[0]).toMatchObject({ objective: "比较官方并网政策与实际执行", deliverables: ["政策依据和执行限制"] });
+  expect(runtime.researchPlan).toBeNull();
+  const questions = runtime.outline.filter((section: { enabled: boolean }) => section.enabled).flatMap((section: { questions: string[]; subsections: { questions: string[] }[] }) => [...new Set([...section.questions, ...(section.subsections ?? []).flatMap(subsection => subsection.questions)])]);
+  expect(runtime.tasks.map((task: { objective: string }) => task.objective)).toEqual(questions.map((question: string) => question.slice(0, 2000)));
+  expect(new Set(runtime.tasks.map((task: { questionId: string }) => task.questionId)).size).toBe(questions.length);
   expect(runtime.reportSourceAliases.length).toBeGreaterThan(0);
   expect(runtime.reportCheckpoint.chapters).toHaveLength(runtime.outline.filter((section: { enabled: boolean }) => section.enabled).length);
   expect(runtime.report.sections.every((section: { sourceIds: string[] }) => section.sourceIds.every((id) => runtime.sources.some((source: { id: string }) => source.id === id)))).toBe(true);
