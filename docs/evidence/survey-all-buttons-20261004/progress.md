@@ -33,3 +33,5 @@ Live：#5196/#5197/#5202及#5127已由其他会话合入；#5067 OPEN，未发�
 主session接受0322/0326正常库创建/内置使用，0329/0330缺控件记NA，123=91PASS/3BLOCKED/9NA/20NS。0344两个模板编辑器无使用按钮DOM观察待review；分页439–442正常copy/move/delete动作及save/reload记录待review，delete两次工具timeout均随后DOM实际变更证实，未盲重复点击、未据timeout判bug；最终原8块刷新恢复。438打印分页未验证仍NS，不能拿区块按钮操作当PDF分页证据。
 
 主session独立接受439–442分页正常控件持久化，仅type/count/order而非UUID，PDF438未测；0344无editor使用按钮NA保留分母。123=95PASS/3BLOCKED/10NA/15NS。图片5项与柱状图5项新增完整实际configure/preview/copy/move/delete/save/reload证据等待review，仍NS。原a529report8blocks刷新恢复。
+
+主session接受图片0432–0436当前HTTPS样本和控件链路，123=100PASS/3BLOCKED/10NA/10NS，截图准确为image-preview.png；不认证全部格式/失败URL/UUID/导出。柱状图5项仍待review；基础5285green仅交付待主验收/合并不宣称已集成。
