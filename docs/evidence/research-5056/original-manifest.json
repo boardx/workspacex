@@ -237,7 +237,7 @@
     "path": "acceptance.md",
     "bytes": 9109,
     "sha256": "f0c0b82df301ca6d38dd2d199bbaffe2e4e4b12d007e680ced0f15e8a70b9c0b",
-    "retained": true
+    "retained": false
   },
   {
     "path": "import-demand.txt",
