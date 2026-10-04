@@ -45,5 +45,11 @@ keep unknown writer state locked. Never interpret rejection as rollback proof.
 ## Local evidence
 
 `pnpm exec vitest run packages/cloud-deploy/src/cn-maintenance-host/public_acceptance.test.ts --maxWorkers=1 --minWorkers=1`
-passed 5 tests, exit 0 (2026-10-04 UTC). All transports were local mocks; no browser,
+passed 6 tests, exit 0 (2026-10-04 UTC). All transports were local mocks; no browser,
 model request, image build/push, production SQL, host installation or switch ran.
+
+Final review added `public_acceptance_clear_unknown_test.ts`: two local A-route
+regressions for clear committed with response/readback loss require candidate stop
+attempt despite hold read failure and retained lock. Root owns the shared catch fix.
+Default production consumers still reject activation capability and do not supply
+`aRouteInputs`; adapter availability is not production transport readiness.

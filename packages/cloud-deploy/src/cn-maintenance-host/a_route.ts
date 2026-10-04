@@ -61,11 +61,18 @@ export async function runARouteMaintenanceRelease(request: MaintenanceRequest, o
   if(!holdIntent)throw error;
   retainLock=true;
   try{
-   // Post-open failure must create a new durable hold before reblocking.
-   if(holdCleared)await ops.persistMaintenanceHold(identity);
-   await ops.verifyMaintenanceHoldPresent(identity);
-   if(resumeIntent)await ops.blockCandidateWriters(identity);
-   await ops.verifyWritesBlocked(identity);
+   // A lost clear reply can leave the hold cleared. Hold reconciliation must
+   // never prevent an independent attempt to stop resumed candidate writers.
+   let recoveryUnknown=false;
+   try{
+    if(holdCleared)await ops.persistMaintenanceHold(identity);
+    await ops.verifyMaintenanceHoldPresent(identity);
+   }catch{recoveryUnknown=true;}
+   try{
+    if(resumeIntent)await ops.blockCandidateWriters(identity);
+    await ops.verifyWritesBlocked(identity);
+   }catch{recoveryUnknown=true;}
+   if(recoveryUnknown)throw Error('A_ROUTE_RECOVERY_STATE_UNKNOWN');
   }catch{
    try{await ops.recordReconciliationRequired(identity);}catch{/* retain lock */}
    throw new MaintenanceWriteStateUnknown();

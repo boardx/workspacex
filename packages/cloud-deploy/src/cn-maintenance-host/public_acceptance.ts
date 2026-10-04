@@ -5,7 +5,7 @@ const hash = z.string().regex(/^[a-f0-9]{64}$/);
 const identitySchema = z.object({ sourceRevision: z.string().regex(/^[a-f0-9]{40}$/), baselineRevision: z.string().regex(/^[a-f0-9]{40}$/), migrationPlanSha256: hash, attemptId: z.string().regex(/^[A-Za-z0-9-]{1,128}$/) }).strict();
 const browserSchema = z.object({ login: z.literal(true), hello: z.literal(true), asr: z.literal(true), githubFeedbackRead: z.literal(true), skillTool: z.literal(true), pdfDownload: z.literal(true) }).strict();
 const markerSchema = z.object({ sourceRevision: z.string(), deploymentMarker: z.string().min(1), trustworthy: z.literal(true) }).strict();
-const observationSchema = z.object({ identity: identitySchema, deploymentMarker: z.string(), holdPresent: z.literal(false), queued: z.number().int().nonnegative(), running: z.number().int().nonnegative(), writebackPending: z.number().int().nonnegative(), failedOwnedRuns: z.literal(0), unhealthyServices: z.literal(0) }).strict();
+const observationSchema = z.object({ identity: identitySchema, deploymentMarker: z.string(), holdPresent: z.literal(false), queued: z.number().int().nonnegative().safe(), running: z.number().int().nonnegative().safe(), writebackPending: z.number().int().nonnegative().safe(), failedOwnedRuns: z.literal(0), unhealthyServices: z.literal(0) }).strict();
 export interface PublicAcceptanceTransport {
  /** Independent reads; writes/promotions belong to the step-six host adapter. */
  readPublicIdentity(): Promise<unknown>;
@@ -27,6 +27,7 @@ export function bindPublicAcceptance(binding: PublicAcceptanceBinding, transport
  const marker = binding.deploymentMarker;
  if (typeof marker !== 'string' || !marker || !Number.isSafeInteger(binding.observationSamples) || binding.observationSamples < 2 || binding.observationSamples > 60 || !Number.isSafeInteger(binding.maximumOutstandingRuns) || binding.maximumOutstandingRuns < 0) throw Error('PUBLIC_ACCEPTANCE_POLICY_INVALID');
  const samples = binding.observationSamples, maximum = binding.maximumOutstandingRuns;
+ for (const name of ['readPublicIdentity', 'verifyCanonical', 'runBrowserSmoke', 'readObservation'] as const) if (typeof transport?.[name] !== 'function') throw Error('PUBLIC_ACCEPTANCE_TRANSPORT_MISSING:' + name);
  // Snapshot implementations before the first external read.
  const readIdentity = transport.readPublicIdentity.bind(transport), canonical = transport.verifyCanonical.bind(transport), browser = transport.runBrowserSmoke.bind(transport), observe = transport.readObservation.bind(transport);
  const same = (value: MaintenanceIdentity) => JSON.stringify(identitySchema.parse(value)) === JSON.stringify(identity);

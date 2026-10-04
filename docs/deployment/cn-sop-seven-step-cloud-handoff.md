@@ -74,3 +74,9 @@ UTC `2026-10-04T16:31:35Z` 汇总：cloud-deploy 52 files / 573 tests，29.05s�
 只读独立审阅未发现新增严重安全绕过，同时明确：`production_consumers.actualRuntime.assertActivationCapability` 仍硬拒，真实 `main` 不供应 `aRouteInputs`。这是具体尚未完成的生产源码总装，不是可用收据，也不因这轮本地测试而自动解除。Draft PR 保持该边界；后续需继续实现完整source-owned factory和当前epoch producer运输，并在真实qualified证据/独立授权齐备后另行现场验收。
 
 原61 source/55 installed targets闭包增加唯一 `candidate_host_transport.py` 后为62/56（6 source-only）。最终 `cn-sop-seven-step-source-closure.json` 由exact Git commit字节生成；所有target及hash在该文件，raw文件hash在GitHub draft交付回执。它不包含主机旧库存、backup/rollback payload、provider/profile实际值或COMPLETE安装包，因此不是现场可安装包；禁止把它称作完成的正式安装冻结。
+
+## 独立最终 review 收尾
+
+复用 step5/6/7 agents 独立复核，root 唯一修改共享接口。发现并修复：hold clear 已落盘但响应/readback 丢失时，hold reconciliation 失败不能阻止独立停止 candidate writers；两项真实 orchestration mock 负例由失败转通过，保留 reconciliation 与锁。collector 完整 conntrack 表允许无关 SYN_SENT/TIME_WAIT，候选仅处于这些状态仍因无法关联而 fail closed。公共验收拒绝不安全整数及缺 transport。
+
+生产 factory 缺口保持明确：provider→retained helper→collector→seal 已闭合，但 current epoch 恢复/隔离验收及 staging producer 尚未 source-owned 绑定到 aRouteInputs、candidate plan、completion/ledger/evidence hash；公共身份和 open 观察实际 transport 也未接入。不能将 currentEpochVerified=false 或 plan booleans 升格为合格证明，也不移除生产入口硬拒绝。

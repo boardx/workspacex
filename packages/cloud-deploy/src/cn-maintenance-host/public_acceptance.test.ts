@@ -45,3 +45,10 @@ it('rejects caller identity before any evidence reads and repeated acceptance re
  await ops.verifyPublicAcceptance(identity); await ops.verifyPublicAcceptance(identity);
  expect(f.calls.filter(c => c === 'browser')).toHaveLength(2);
 });
+
+it('rejects unsafe observation counts and missing compiled transport', async () => {
+ const f = fixture(), original = f.transport.readObservation;
+ f.transport.readObservation = async () => ({ ...await original() as object, running: Number.MAX_SAFE_INTEGER + 1 });
+ await expect(bindPublicAcceptance(f.binding, f.transport).observeOpenedCandidate(identity)).rejects.toThrow();
+ expect(() => bindPublicAcceptance(f.binding, { ...f.transport, readObservation: undefined } as any)).toThrow('PUBLIC_ACCEPTANCE_TRANSPORT_MISSING:readObservation');
+});

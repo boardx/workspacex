@@ -45,10 +45,13 @@ def proc_fixture(root, container):
 class Tests(unittest.TestCase):
     def test_conntrack_snapshot_parser_preserves_both_tuples(self):
         raw='ipv4 2 tcp 6 431999 ESTABLISHED src=10.0.0.2 dst=10.0.0.1 sport=43210 dport=5432 src=10.0.0.1 dst=192.168.100.40 sport=5432 dport=50000 [ASSURED] mark=0 use=1\n'
+        self.assertEqual(conntrack_rows(raw.replace('ESTABLISHED','SYN_SENT')),[])
+        self.assertEqual(conntrack_rows(raw.replace('ESTABLISHED','TIME_WAIT')),[])
+        self.assertEqual(conntrack_rows(raw+raw.replace('ESTABLISHED','SYN_SENT')),conntrack_rows(raw))
         result=conntrack_rows(raw)
         self.assertEqual(result[0]['original']['srcPort'],43210)
         self.assertEqual(result[0]['reply']['dstAddr'],'192.168.100.40')
-        for bad in (raw.replace('[ASSURED]',''),raw.replace('ESTABLISHED','SYN_SENT'),raw.replace('dport=50000','dport=0'),raw+' tcp ESTABLISHED [ASSURED]'):
+        for bad in (raw.replace('[ASSURED]',''),raw.replace('dport=50000','dport=0'),raw+' tcp ESTABLISHED [ASSURED]'):
             with self.assertRaises(RuntimeError):conntrack_rows(bad)
 
     def test_actual_proc_parsers_join_backend_and_container(self):
@@ -90,7 +93,7 @@ class Tests(unittest.TestCase):
             self.assertEqual(proof['sessions'][DATABASES[0]][0]['pid'],42)
 
     def test_bridge_snat_live_conntrack_join_and_failures(self):
-        for variant in ('valid','duplicate','missing','wrong-original','wrong-reply','race','seal-original','seal-reply','seal-port','seal-namespace'):
+        for variant in ('valid','duplicate','missing','wrong-original','wrong-reply','race','candidate-syn','candidate-timewait','seal-original','seal-reply','seal-port','seal-namespace'):
             i,p,j,t=fixture();source=Source(p)
             source.inventory[0]['HostConfig']['NetworkMode']='project_default'
             source.rows[DATABASES[0]]['sessions'][-1]['clientAddr']='192.168.100.40'
@@ -102,6 +105,9 @@ class Tests(unittest.TestCase):
             if variant=='missing':entries=[]
             if variant=='wrong-original':mapping['original']['srcPort']=43211
             if variant=='wrong-reply':mapping['reply']['dstPort']=50001
+            if variant in ('candidate-syn','candidate-timewait'):
+                state='SYN_SENT' if variant=='candidate-syn' else 'TIME_WAIT'
+                entries=conntrack_rows('ipv4 2 tcp 6 30 '+state+' src=10.0.0.2 dst=10.0.0.1 sport=43210 dport=5432 src=10.0.0.1 dst=192.168.100.40 sport=5432 dport=50000 [ASSURED]')
             calls=[0]
             def conntrack():
                 calls[0]+=1

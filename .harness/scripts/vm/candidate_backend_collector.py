@@ -57,8 +57,11 @@ def conntrack_rows(raw):
         fields = line.split()
         if 'tcp' not in fields:
             continue
-        require('ESTABLISHED' in fields and '[ASSURED]' in fields,
-                'COLLECTOR_CONNTRACK_TCP_STATE')
+        # Unrelated connection handshakes/teardown cannot witness an established
+        # PostgreSQL backend. Missing candidate mapping still fails the unique join.
+        if 'ESTABLISHED' not in fields:
+            continue
+        require('[ASSURED]' in fields, 'COLLECTOR_CONNTRACK_TCP_STATE')
         values = {key: re.findall(r'(?:^|\s)' + key + r'=([^\s]+)', line)
                   for key in ('src', 'dst', 'sport', 'dport')}
         require(all(len(v) == 2 for v in values.values()), 'COLLECTOR_CONNTRACK_SCHEMA')
