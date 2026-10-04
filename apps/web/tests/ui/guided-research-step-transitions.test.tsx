@@ -128,6 +128,21 @@ describe("step-aligned research transitions", () => {
     if (stage === "report") expect(screen.queryByTestId("guided-research-plan-panel")).not.toBeInTheDocument();
   });
 
+  it("returns to the pending plan before its outline becomes available", async () => {
+    const state = { ...runtimeFixture("brief"), generatedNodes: [] };
+    vi.mocked(getResearchRuntime).mockResolvedValue(state);
+    vi.mocked(executeResearchRuntime).mockImplementation(() => new Promise(() => undefined));
+    render(<GuidedResearchLive sessionId="grs-live" onBack={vi.fn()} />);
+    fireEvent.click(await screen.findByRole("button", { name: "确认并继续" }));
+    await screen.findByTestId("research-step-loading");
+    fireEvent.click(screen.getByRole("button", { name: /确认研究内容/ }));
+    await screen.findByRole("textbox", { name: "研究需求" });
+    fireEvent.click(screen.getByRole("button", { name: /研究计划/ }));
+    expect(await screen.findByTestId("research-step-loading")).toHaveTextContent("正在生成研究计划");
+    expect(window.location.pathname).toBe("/research/grs-live/plan");
+    expect(executeResearchRuntime).toHaveBeenCalledTimes(1);
+  });
+
   it("follows the server-owned destination on refresh rather than an older import URL", async () => {
     vi.mocked(getResearchRuntime).mockResolvedValue({ ...runtimeFixture("outline"), busy: true, leaseUntil: "2099-01-01T00:00:00Z" });
     render(<GuidedResearchLive sessionId="grs-live" initialNode="brief" visualStage="import" onBack={vi.fn()} />);

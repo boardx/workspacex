@@ -35,6 +35,11 @@ import { parseGuidedResearchMarkdown, serializeGuidedResearchMarkdown } from "@/
 import { GuidedResearchPlanEditor } from "./guided-research-plan-editor";
 import { canonicalResearchStage, toGuidedResearchVisualStage, type GuidedResearchVisualStage } from "@/lib/guided-research-six-step";
 import { getResearchRuntime, getResearchRuntimeProgress, mergeResearchProgress, executeResearchRuntime, type GuidedResearchRuntime as Runtime, type GuidedResearchRuntimeCommand as Command, type GuidedResearchRuntimeDraft as Draft } from "@/lib/guided-research-api";
+function visualDestination(stage: GuidedResearchVisualStage, availableNodes: Runtime["availableNodes"], loadingNode: Runtime["currentNode"] | null): Runtime["currentNode"] {
+  const screen = canonicalResearchStage(stage);
+  if (loadingNode && toGuidedResearchVisualStage({ currentNode: loadingNode, availableNodes }).current === screen) return loadingNode;
+  return screen === "import" ? "brief" : screen === "plan" ? availableNodes.includes("outline") ? "outline" : "directions" : availableNodes.includes("report") ? "report" : "research";
+}
 function newestSnapshot(incoming: Runtime, current: Runtime | null): Runtime {
   if (!current || current.sessionId !== incoming.sessionId) return incoming;
   if (current.version > incoming.version || (current.version === incoming.version && !current.busy && incoming.busy)) return current;
@@ -164,8 +169,7 @@ export function GuidedResearchLive({ sessionId, researchName, onBack, onLoadRetr
   }, [viewedNode, loadingNode, browsing, chaptersOpen, sessionId, state]);
   const restoreVisualRoute = (stage: GuidedResearchVisualStage) => {
     const snapshot = snapshotRef.current;
-    const screen = canonicalResearchStage(stage);
-    const target = screen === "import" ? "brief" : screen === "plan" ? snapshot?.availableNodes.includes("outline") ? "outline" : "directions" : snapshot?.availableNodes.includes("report") ? "report" : "research";
+    const target = visualDestination(stage, snapshot?.availableNodes ?? [], loadingNode);
     if (!snapshot || !(snapshot.availableNodes.includes(target) || target === loadingNode || stage === "chapters" && snapshot.availableNodes.includes("research"))) return;
     browsingRef.current = true; setBrowsing(true);
     setChaptersOpen(false);
@@ -461,8 +465,7 @@ export function GuidedResearchLive({ sessionId, researchName, onBack, onLoadRetr
   if (state.availableNodes.includes("research")) completedStages.push("plan");
   if (!processing && !state.errorCode && state.completed && state.report) completedStages.push("report");
   const navigateVisual = (stage: GuidedResearchVisualStage) => {
-    const screen = canonicalResearchStage(stage);
-    const next = screen === "import" ? "brief" : screen === "plan" ? state.availableNodes.includes("outline") ? "outline" : "directions" : state.availableNodes.includes("report") ? "report" : "research";
+    const next = visualDestination(stage, state.availableNodes, loadingNode);
     if ((state.availableNodes.includes(next) || next === loadingNode || stage === "chapters" && state.availableNodes.includes("research"))) {
       setChaptersOpen(false);
       navigate(next);
