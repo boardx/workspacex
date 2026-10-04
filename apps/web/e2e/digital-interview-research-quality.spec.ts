@@ -373,7 +373,7 @@ test("report displays saved Markdown without duplicate statistics or review pane
   await page.route("**/interviews/digital/itv-quality-e2e", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ...view, status: "completed", currentStep: "report" }) }));
   await page.route("**/interviews/digital/itv-quality-e2e/markdown", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(reportSource) }));
   await page.goto("/itv/itv-quality-e2e/report", { waitUntil: "domcontentloaded" });
-  await expect(page.getByTestId("itv-report-details")).toHaveCount(0);
+  await expect(page.getByTestId("itv-report-details")).toHaveCount(0); // testid-gate: absent duplicate report details intentionally removed; assert they stay absent
   await expect(page.getByTestId("itv-source-report-markdown")).toContainText("正文建议未列为条目。");
   await page.setViewportSize({ width: 390, height: 844 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth)).toBe(false);

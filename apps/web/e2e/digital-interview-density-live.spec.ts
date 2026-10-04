@@ -58,7 +58,7 @@ test("six populated interviews and a long Markdown report survive a real API/DB 
   await expect(page.getByTestId("shell-rail")).toBeVisible();
   for (const id of interviewIds) await expect(page.getByTestId(`itv-history-card-${id}`)).toBeVisible();
   await page.goto(`/itv/${interviewId}/report`);
-  await expect(page.getByTestId("itv-report-details")).toHaveCount(0);
+  await expect(page.getByTestId("itv-report-details")).toHaveCount(0); // testid-gate: absent duplicate report details intentionally removed; assert they stay absent
   await expect(page.getByTestId("itv-source-report-markdown")).toContainText("模拟观点须由真人访谈验证");
   await expect(page.getByRole("navigation", { name: "报告目录" }).getByRole("link")).toHaveCount(8);
   await page.reload();
