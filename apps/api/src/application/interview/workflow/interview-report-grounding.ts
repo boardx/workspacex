@@ -125,7 +125,7 @@ export function validateReportEvidence(markdown: string, index: readonly ReportE
 /** Only a scoped denial of this predicate removes a consensus assertion. */
 function negatesConsensus(text: string, start: number, match: string): boolean {
   // A preceding clause or a contrast cannot negate the new positive assertion.
-  const clause = text.slice(0, start + match.length).split(/[，,。！？；;\n]|但是|然而|不过|反而|仍然|但|(?<!冷)却/u).at(-1) ?? "";
+  const clause = text.slice(0, start + match.length).split(/[，,。！？；;\n]|但是|然而|不过|反而|仍然|而(?:要|应|是)|但|(?<!冷)却/u).at(-1) ?? "";
   const negatives = [...clause.matchAll(/并无|绝非|不足以形成|不足以构成|不代表|不形成|不推断|不构成|未构成|不能|无法|不得|不应|未能|没有|不可|并非|并不|不(?!同)|未/gu)];
   if (negatives.length !== 1) return false; // Double denial cannot waive evidence.
   const negative = negatives[0]!;
