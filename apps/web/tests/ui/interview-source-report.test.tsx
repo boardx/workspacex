@@ -45,3 +45,11 @@ it("shows the saved report directly without duplicate notices, stats or review",
   expect(screen.queryByText("报告人工复核")).not.toBeInTheDocument();
   expect(markdown).toBe("# 研究报告\n\n## 发现\n\n原文模拟边界与证据仍保留。");
 });
+
+it("keeps report version and hash in the PDF print root without adding screen clutter", () => {
+  render(<InterviewReportStep document={{ documentId: "print-version", step: "report", version: 7, contentHash: "b".repeat(64), evidenceMode: "simulated", references: [], markdown: "# 原文" }} />);
+  const version = screen.getByTestId("itv-report-print-version");
+  expect(version.closest("#itv-source-report-print")).not.toBeNull();
+  expect(version).toHaveClass("hidden", "print:block");
+  expect(version).toHaveTextContent(`报告版本 7 · SHA256 ${"b".repeat(64)}`);
+});
