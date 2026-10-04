@@ -98,6 +98,26 @@ describe("report evidence grounding", () => {
   const report = `[服务端甲回答：支持电话。](#answer-1)\n\n上述材料来自单个服务端任务，${negation}跨角色共识；仅用于界面定位测试。`;
   expect(validateReportEvidence(report,buildReportEvidenceIndex(source)).ok).toBe(true);
  });
+ it.each([
+  "不能将这两个模拟角色的观点宣称为‘跨角色共识’。",
+  "不能将两个分别关注预算限制以及具体安装任务的模拟角色的观点宣称为跨角色共识。",
+  "本节不作肯定跨角色共识断言。",
+  "不应将单个角色的证言断言为跨角色共识。",
+  "不能将这些观点断言为跨角色共识。",
+ ])("preserves scoped negative consensus across long subjects: %s", (claim) => {
+  expect(validateReportEvidence(`[服务端甲回答：支持电话。](#answer-1)\n\n${claim}`,buildReportEvidenceIndex(source)).ok).toBe(true);
+ });
+ it.each([
+  "不能推断以前的结论，但两位专家一致支持电话。",
+  "没有预算支持，然而跨角色共识已经形成。",
+  "不能否认两位专家一致支持电话。",
+  "并非没有跨角色共识。",
+  "不能不形成跨角色共识。",
+  "无法排除跨角色共识。",
+  "两位专家共同支持电话。",
+ ])("does not waive positive, contrast or double-negative claims: %s", (claim) => {
+  expect(validateReportEvidence(`[服务端甲回答：支持电话。](#answer-1)\n\n${claim}`,buildReportEvidenceIndex(source)).ok).toBe(false);
+ });
  it("binds known explicit attribution to server metadata, including legacy and same-name ambiguity", () => {
   const labels = {"expert-a":"教师","expert-b":"校长"};
   const index = buildReportEvidenceIndex(source,labels);

@@ -92,9 +92,7 @@ export function validateReportEvidence(markdown: string, index: readonly ReportE
     }));
 
     for (const match of assertion.text.matchAll(consensus)) {
-      const prefix = assertion.text.slice(Math.max(0,match.index!-16),match.index!);
-      if (/(?:不能|无法|不得|不应|未能|没有|不代表|不可|不形成|不推断|不构成|未构成|不足以形成|不足以构成).{0,8}$/u.test(prefix) ||
-          /(?:并非|并不|不|未|没有|不能|无法|存在分歧).{0,8}(?:一致|共同|共识)/u.test(match[0])) continue;
+      if (negatesConsensus(assertion.text, match.index!, match[0])) continue;
       if (citedExperts.size < 2) return {ok:false,references:[],reason:"unsupported_cross_expert_consensus"};
     }
     for (const [label,expertIds] of labels) {
@@ -107,4 +105,19 @@ export function validateReportEvidence(markdown: string, index: readonly ReportE
     }
   }
   return {ok:true,references,reason:"exact_quotes_only_not_semantic_approval"};
+}
+
+/** Only a scoped denial of this predicate removes a consensus assertion. */
+function negatesConsensus(text: string, start: number, match: string): boolean {
+  // A preceding clause or a contrast cannot negate the new positive assertion.
+  const clause = text.slice(0, start + match.length).split(/[，,。！？；;\n]|但是|然而|不过|反而|仍然|但|却/u).at(-1) ?? "";
+  const negatives = [...clause.matchAll(/不足以形成|不足以构成|不代表|不形成|不推断|不构成|未构成|不能|无法|不得|不应|未能|没有|不可|并非|并不|不(?!同)|未/gu)];
+  if (negatives.length !== 1) return false; // Double denial cannot waive evidence.
+  const negative = negatives[0]!;
+  const tail = clause.slice(negative.index! + negative[0].length).trim();
+  if (/否认|否定|排除/u.test(tail)) return false;
+  const predicate = String.raw`[“‘"'\s]*(?:跨(?:角色|专家|受访者)(?:的)?|(?:两位|多位|两名|多名|两个|不同|多|两)(?:受访者|专家|角色|参与者)(?:的)?)?(?:共识|共同|一致)`;
+  const direct = new RegExp(String.raw`^(?:(?:判断|推断|形成|构成|证明|达成|存在|确认|断言|宣称|声称|代表|采信|作肯定)(?:为|成)?)?${predicate}$`, "u");
+  const object = new RegExp(String.raw`^(?:将|把).+?(?:宣称|声称|判断|推断|认为|定义|断言)(?:为|成)?${predicate}$`, "u");
+  return direct.test(tail) || object.test(tail);
 }
