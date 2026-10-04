@@ -2,6 +2,9 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { parse } from 'yaml';
 import { coverageFromLog, completeBatchVerdicts, findExactBatch, HEAVY_LANES } from './board-heavy-batch.mjs';
+import { NATIVE_RECEIPTS } from './lib/board-native-receipts.mjs';
+const evidence=()=>Object.fromEntries(Object.entries(NATIVE_RECEIPTS).map(([lane,suite])=>[lane,{schemaVersion:1,sourceHead:'a'.repeat(40),suiteConfig:suite.config,status:'PASSED',actualRuntimeExecution:true,requiredSuiteComplete:true,phase:'ACCEPTANCE',errors:0,exitCode:0,failureReason:null,cleanupCompleted:true,cleanupFailures:[],runtimeExit:{code:0,signal:null,wasAlive:true},statistics:{expected:suite.expected,unexpected:0,flaky:0,skipped:0}}]));
+const readNativeEvidence=async()=>evidence();
 const sha='a'.repeat(40), other='b'.repeat(40);
 const source={id:10,run_attempt:1,workflow_id:7,head_branch:'main',head_sha:sha,run_started_at:'2026-10-04T09:00:00Z',event:'push',html_url:'https://github.com/o/r/actions/runs/10'};
 const jobs=Object.entries(HEAVY_LANES).map(([name,spec])=>({name,status:'completed',conclusion:'success',steps:[...spec.execute,spec.upload].map(name=>({name,status:'completed',conclusion:'success'}))}));
@@ -15,12 +18,26 @@ function apiFor(overrides:Record<string,unknown>={}){
  '/actions/runs/10/jobs?filter=latest&per_page=100&page=1':{total_count:jobs.length,jobs},...overrides};
  return async(path:string)=>{if(!(path in data))throw new Error(`Unexpected ${path}`);return data[path];};
 }
-const lookup=(overrides:Record<string,unknown>={},batch=manifest)=>findExactBatch({api:apiFor(overrides),readManifest:async()=>batch,sha,runId:20});
+const lookup=(overrides:Record<string,unknown>={},batch=manifest)=>findExactBatch({readNativeEvidence,api:apiFor(overrides),readManifest:async()=>batch,sha,runId:20});
 describe('heavy batch immutable evidence',()=>{
  it('records merge/squash PR coverage and unassociated commits explicitly',()=>{
   expect(coverageFromLog(`${sha} Squash subject (#123)\n${other} Merge pull request #124 from o/branch\n${sha} initial`)).toEqual([{sha,pullRequest:123},{sha:other,pullRequest:124},{sha,pullRequest:null}]);
  });
  it('reuses only exact SHA complete original batch',async()=>{expect(await lookup()).toMatchObject({runId:10,verdicts:{'native-board':'success','meeting-room':'success'}});});
+ it.each(['ABSENT','not-executed','incomplete','wrong-sha','missing','unreadable'])('does not reuse green job with %s native receipt',async kind=>{
+  const receipts=evidence();
+  if(kind==='ABSENT')receipts.connectors.status='ABSENT';
+  if(kind==='not-executed')receipts.files.actualRuntimeExecution=false;
+  if(kind==='incomplete')receipts.sync.requiredSuiteComplete=false;
+  if(kind==='wrong-sha')receipts.files.sourceHead=other;
+  if(kind==='missing')delete receipts.sync;
+  expect(await findExactBatch({api:apiFor(),readManifest:async()=>manifest,readNativeEvidence:async()=>{if(kind==='unreadable')throw new Error('403');return receipts;},sha,runId:20})).toBeNull();
+ });
+ it.each(['success','failure'])('retains actual FAILED receipt when job metadata is %s',async conclusion=>{
+  const receipts=evidence();Object.assign(receipts.files,{status:'FAILED',requiredSuiteComplete:false,failureReason:'ACCEPTANCE_FAILED',exitCode:1});
+  const failed=structuredClone(jobs);failed[0].conclusion=conclusion;failed[0].steps[0].conclusion=conclusion;
+  expect(await findExactBatch({api:apiFor({'/actions/runs/10/jobs?filter=latest&per_page=100&page=1':{total_count:2,jobs:failed}}),readManifest:async()=>manifest,readNativeEvidence:async()=>receipts,sha,runId:20})).toMatchObject({verdicts:{'native-board':'failure'}});
+ });
  it('never uses a different SHA or reuses an observation',async()=>{
   await expect(lookup({}, {...manifest,sha:other})).rejects.toThrow('manifest identity');
   expect(await lookup({}, {...manifest,source:{runId:9}})).toBeNull();
@@ -50,7 +67,7 @@ describe('heavy batch immutable evidence',()=>{
    '/actions/runs/15/artifacts?per_page=100&page=1':{total_count:1,artifacts:[{id:51,name:'board-heavy-batch-15-1',expired:false}]},
    '/actions/runs/15/jobs?filter=latest&per_page=100&page=1':{total_count:0,jobs:[]},
   };
-  expect(await findExactBatch({api:apiFor(data),readManifest:async()=>({...manifest,runId:15}),sha,runId:20})).toBeNull();
+  expect(await findExactBatch({readNativeEvidence,api:apiFor(data),readManifest:async()=>({...manifest,runId:15}),sha,runId:20})).toBeNull();
  });
  it.each(['failure','incomplete'])('old run ID with a newer %s attempt invalidates a newer-ID old green',async result=>{
   const oldRerun={...source,run_attempt:2};
@@ -64,7 +81,7 @@ describe('heavy batch immutable evidence',()=>{
    '/actions/runs/10/artifacts?per_page=100&page=1':{total_count:rerunArtifacts.length,artifacts:rerunArtifacts},
    '/actions/runs/10/jobs?filter=latest&per_page=100&page=1':{total_count:result==='failure'?2:0,jobs:result==='failure'?rerunJobs:[]},
   };
-  const got=await findExactBatch({api:apiFor(data),readManifest:async()=>({...manifest,runAttempt:2}),sha,runId:20});
+  const got=await findExactBatch({readNativeEvidence,api:apiFor(data),readManifest:async()=>({...manifest,runAttempt:2}),sha,runId:20});
   if(result==='incomplete')expect(got).toBeNull();else expect(got).toMatchObject({runId:10,verdicts:{'native-board':'failure'}});
  });
  it('finds a late old-ID failed rerun beyond the first history page for the exact SHA',async()=>{
@@ -79,11 +96,11 @@ describe('heavy batch immutable evidence',()=>{
    '/actions/runs/10/artifacts?per_page=100&page=1':{total_count:rerunArtifacts.length,artifacts:rerunArtifacts},
    '/actions/runs/10/jobs?filter=latest&per_page=100&page=1':{total_count:2,jobs:failed},
   };
-  expect(await findExactBatch({api:apiFor(data),readManifest:async()=>({...manifest,runAttempt:2}),sha,runId:20})).toMatchObject({runId:10,verdicts:{'meeting-room':'failure'}});
+  expect(await findExactBatch({readNativeEvidence,api:apiFor(data),readManifest:async()=>({...manifest,runAttempt:2}),sha,runId:20})).toMatchObject({runId:10,verdicts:{'meeting-room':'failure'}});
  });
  it('bounded incomplete same-SHA history cannot authorize reuse',async()=>{
   const api=async(path:string)=>path==='/actions/runs/20'?{workflow_id:7}:{total_count:1001,workflow_runs:Array.from({length:100},()=>source)};
-  await expect(findExactBatch({api,readManifest:async()=>manifest,sha,runId:20})).rejects.toThrow('Incomplete batch history');
+  await expect(findExactBatch({readNativeEvidence,api,readManifest:async()=>manifest,sha,runId:20})).rejects.toThrow('Incomplete batch history');
  });
  it('never falls back to older green when newest manifest is absent or expired',async()=>{
   const newer={...source,id:15,run_started_at:'2026-10-04T09:01:00Z'};
@@ -103,7 +120,7 @@ describe('heavy batch immutable evidence',()=>{
  });
  it('expired evidence means fresh measurement; unreadable API fails closed',async()=>{
   expect(completeBatchVerdicts(jobs,artifacts.map(a=>({...a,expired:true})),source)).toBeNull();
-  await expect(findExactBatch({api:async()=>{throw new Error('403');},sha,runId:20})).rejects.toThrow('403');
+  await expect(findExactBatch({readNativeEvidence,api:async()=>{throw new Error('403');},sha,runId:20})).rejects.toThrow('403');
  });
 });
 describe('existing Board workflow admission and verdict preservation',()=>{
