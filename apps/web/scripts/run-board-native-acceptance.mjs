@@ -1,7 +1,7 @@
 import {observationMode} from '../e2e/support/board-observation-categories.mjs';
 import {safeConnectorLoginExport} from './connector-login-safe-export.mjs';
 import assert from 'node:assert/strict';
-import {readFileSync,writeFileSync,mkdirSync,existsSync,rmSync,openSync,closeSync,readdirSync,copyFileSync,realpathSync,statSync} from 'node:fs';
+import {readFileSync,writeFileSync,mkdirSync,existsSync,rmSync,openSync,closeSync,readdirSync,copyFileSync,realpathSync,statSync,fstatSync,readSync} from 'node:fs';
 import {execFileSync,spawn} from 'node:child_process';
 import {once} from 'node:events';
 import {join,resolve,basename,relative,isAbsolute} from 'node:path';
@@ -52,6 +52,22 @@ export function suiteResult(config,report,root=resolve(process.cwd())){
 
 // Classify the first private reporter failure with fixed public categories only.
 // A matched signature is a diagnostic hint, never an acceptance proof.
+const connectorMarkerPattern=/^\s*expect\([^;\r\n]*,'(C06_LOGIN_(?:HTTP_OK|SINGLE_POST|JSON_PARSE|JSON_SCHEMA|FIXTURE_ACTOR|SESSION_TOKEN))'\)\.toBe\((?:200|1|true)\);\s*$/;
+function connectorMarkerAt(root,location){
+  if(location?.source!=='ASSERTION'||location.file!=='board-connector-authority.spec.ts')return null;
+  let fd;
+  try{
+    const path=resolve(root,'apps/web/e2e/board-connector-authority.spec.ts');
+    if(realpathSync(path)!==path)return null;
+    fd=openSync(path,'r');const size=fstatSync(fd).size;
+    if(size<=0||size>512*1024)return null;
+    const bytes=Buffer.alloc(size);if(readSync(fd,bytes,0,size,0)!==size)return null;
+    const line=bytes.toString('utf8').split(/\r?\n/)[location.line-1];
+    if(typeof line!=='string'||line.length>2048)return null;
+    if((line.match(/C06_LOGIN_(?:HTTP_OK|SINGLE_POST|JSON_PARSE|JSON_SCHEMA|FIXTURE_ACTOR|SESSION_TOKEN)/g)??[]).length!==1)return null;
+    return connectorMarkerPattern.exec(line)?.[1]??null;
+  }catch{return null;}finally{if(fd!==undefined)try{closeSync(fd);}catch{ /* Diagnostic reads cannot replace a primary failure. */ }}
+}
 export function safeAcceptanceDiagnostics(config,report,root=resolve(process.cwd())){
   const definition=suiteDefinition(config,root);
   const signatures={
@@ -65,7 +81,7 @@ export function safeAcceptanceDiagnostics(config,report,root=resolve(process.cwd
     const message=descriptor&&'value' in descriptor&&typeof descriptor.value==='string'?descriptor.value:'';
     if(message.length<=8192){
       const lines=message.split(/\r?\n/);
-      const exact=/^(?:Error: )?C06_LOGIN_(?:HTTP_OK|JSON_PARSE|JSON_SCHEMA|FIXTURE_ACTOR|SESSION_TOKEN)$/;
+      const exact=/^(?:Error: )?C06_LOGIN_(?:HTTP_OK|SINGLE_POST|JSON_PARSE|JSON_SCHEMA|FIXTURE_ACTOR|SESSION_TOKEN)$/;
       const markers=lines.filter(line=>exact.test(line)).map(line=>line.replace(/^Error: /,''));
       if(markers.length>0){
         const first=exact.test(lines[0])?lines[0].replace(/^Error: /,''):null;
@@ -113,8 +129,7 @@ export function safeAcceptanceDiagnostics(config,report,root=resolve(process.cwd
         const known=typeof specFile==='string'&&specFile.length<=4096&&definition.files.includes(basename(specFile))&&index<definition.count;
         const errors=failed.errors?.length?failed.errors:failed.error?[failed.error]:[];
         const location=known?sourceLocation(spec,errors[0]):null;
-        const connectorMarkers={41:'C06_LOGIN_HTTP_OK',42:'C06_LOGIN_JSON_PARSE',43:'C06_LOGIN_JSON_SCHEMA',44:'C06_LOGIN_FIXTURE_ACTOR',45:'C06_LOGIN_SESSION_TOKEN'};
-        const marker=location?.source==='ASSERTION'&&location.file==='board-connector-authority.spec.ts'?connectorMarkers[location.line]??null:null;
+        const marker=connectorMarkerAt(root,location);
         first={...result('CASE',known?index:null,failed.status,errors,marker),sourceLocation:location};
       }
     }

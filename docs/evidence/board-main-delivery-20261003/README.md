@@ -190,3 +190,20 @@ permission denial. Installation requires environment administrator support; no
 runner path was substituted and no permission workaround attempted. The locked
 Chromium download fixture also returned `_quoted_.txt` for `"quoted".txt` with
 verified bytes. The strict filename criterion remains unchanged and unpassed.
+
+
+### C06 diagnostic source-line regression
+
+A real-source test disproved the old fixed line-number classifier (exit 1): login
+assertions had moved and the single-POST assertion was missing from its registry.
+The bounded diagnostic reader now checks the actual verified authority assertion
+line against six fixed markers, including SINGLE_POST. Missing/oversized source,
+comments, ordinary strings and wrong locations fail closed to UNKNOWN. It never
+executes or exports source code. Real-source and moved-source regressions plus
+runner/login/export tests pass 38/38; this improves failure attribution only and
+does not attest C06 functional acceptance.
+
+The locked Chromium Blob+anchor download diagnostic also reproduces both quoted
+and `star*.txt` filename normalization with identical bytes. This matches the
+product's download mechanism; changing the API header cannot satisfy the strict
+native suggestedFilename criterion. No contract or assertion was relaxed.

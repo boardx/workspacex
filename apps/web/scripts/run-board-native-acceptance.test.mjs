@@ -288,8 +288,13 @@ test('safe acceptance source location uses known source fields only, preserving 
 
 test('Connector fixed login markers preserve exact assertion identity without private operands',async()=>{
  const {safeAcceptanceDiagnostics}=await import('./run-board-native-acceptance.mjs');
- const inspect=(message,file='board-connector-authority.spec.ts',line=41)=>safeAcceptanceDiagnostics('e2e/board-connector-existing-runtime.config.ts',{suites:[{specs:[{file,line:19,tests:[{results:[{status:'failed',errors:[{message,location:{file,line},stack:'PRIVATE'}]}]}]}]}]}).firstFailure;
- for(const [line,marker] of [[41,'C06_LOGIN_HTTP_OK'],[42,'C06_LOGIN_JSON_PARSE'],[43,'C06_LOGIN_JSON_SCHEMA'],[44,'C06_LOGIN_FIXTURE_ACTOR'],[45,'C06_LOGIN_SESSION_TOKEN']]){
+ const sourceLines=readFileSync(new URL('../e2e/board-connector-authority.spec.ts',import.meta.url),'utf8').split(/\r?\n/);
+ const markers=['C06_LOGIN_HTTP_OK','C06_LOGIN_SINGLE_POST','C06_LOGIN_JSON_PARSE','C06_LOGIN_JSON_SCHEMA','C06_LOGIN_FIXTURE_ACTOR','C06_LOGIN_SESSION_TOKEN'];
+ const markerLines=markers.map(marker=>[sourceLines.findIndex(line=>line.includes(`'${marker}'`))+1,marker]);
+ assert(markerLines.every(([line])=>line>0));
+ const httpLine=markerLines[0][0];
+ const inspect=(message,file='board-connector-authority.spec.ts',line=httpLine)=>safeAcceptanceDiagnostics('e2e/board-connector-existing-runtime.config.ts',{suites:[{specs:[{file,line:19,tests:[{results:[{status:'failed',errors:[{message,location:{file,line},stack:'PRIVATE'}]}]}]}]}]}).firstFailure;
+ for(const [line,marker] of markerLines){
   const output=inspect(`Error: ${marker}\nExpected: PRIVATE_ACTOR\nReceived: PRIVATE_TOKEN`,undefined,line);
   assert.equal(output.assertionId,marker);assert.equal(output.matchedFailure,'ASSERTION');assert.equal(output.ambiguous,false);assert(!JSON.stringify(output).includes('PRIVATE'));
  }
@@ -299,12 +304,30 @@ test('Connector fixed login markers preserve exact assertion identity without pr
  assert.equal(inspect('C06_LOGIN_HTTP_OK','board-connector-history.spec.ts').assertionId,undefined);
  for(const line of [undefined,19,35,38])assert.equal(inspect('C06_LOGIN_SESSION_TOKEN',undefined,line).matchedFailure,'UNKNOWN');
  assert.equal(inspect('Expected: PRIVATE\nC06_LOGIN_HTTP_OK').matchedFailure,'UNKNOWN');
- assert.equal(inspect('C06_LOGIN_SESSION_TOKEN',undefined,41).matchedFailure,'UNKNOWN');
+ assert.equal(inspect('C06_LOGIN_SESSION_TOKEN',undefined,httpLine).matchedFailure,'UNKNOWN');
  let reads=0;const report={suites:[{specs:[{file:'board-connector-authority.spec.ts',line:19,tests:[{results:[{status:'failed',errors:[Object.defineProperty({},'message',{get(){reads++;return 'C06_LOGIN_HTTP_OK';}})]}]}]}]}]};
  assert.equal(safeAcceptanceDiagnostics('e2e/board-connector-existing-runtime.config.ts',report).firstFailure.assertionId,undefined);assert.equal(reads,0);
  const hostile=new Proxy({},{getOwnPropertyDescriptor(target,key){if(key==='message')throw new Error('PRIVATE');return Reflect.getOwnPropertyDescriptor(target,key);}});
  report.suites[0].specs[0].tests[0].results[0].errors=[hostile];
  assert.equal(safeAcceptanceDiagnostics('e2e/board-connector-existing-runtime.config.ts',report).firstFailure.matchedFailure,'UNKNOWN');
+});
+
+test('login marker follows moved source assertions and fails closed on missing or unsafe source',async()=>{
+ const {safeAcceptanceDiagnostics}=await import('./run-board-native-acceptance.mjs');
+ const root=mkdtempSync(join(tmpdir(),'wsx-c06-marker-')),file='board-connector-authority.spec.ts',directory=join(root,'apps/web/e2e'),path=join(directory,file);
+ const inspect=(line=21)=>safeAcceptanceDiagnostics('e2e/board-connector-existing-runtime.config.ts',{suites:[{specs:[{file,line:1,tests:[{results:[{status:'failed',errors:[{message:'C06_LOGIN_SINGLE_POST',location:{file,line}}]}]}]}]}]},root).firstFailure;
+ try{
+  assert.equal(inspect().matchedFailure,'UNKNOWN');
+  mkdirSync(directory,{recursive:true});
+  const assertion="expect(posts,'C06_LOGIN_SINGLE_POST').toBe(1);";
+  writeFileSync(path,'\n'.repeat(20)+assertion+'\n');
+  assert.equal(inspect().assertionId,'C06_LOGIN_SINGLE_POST');
+  assert.equal(inspect(20).matchedFailure,'UNKNOWN');
+  for(const line of ['// '+assertion,`const text="${assertion}";`,assertion+' // private', assertion+assertion, "expect('C06_LOGIN_HTTP_OK','C06_LOGIN_SINGLE_POST').toBe(1);", ' '.repeat(2049)+assertion]){
+   writeFileSync(path,'\n'.repeat(20)+line+'\n');assert.equal(inspect().matchedFailure,'UNKNOWN');
+  }
+  writeFileSync(path,'x'.repeat(512*1024+1));assert.equal(inspect().matchedFailure,'UNKNOWN');
+ }finally{rmSync(root,{recursive:true});}
 });
 
 test('absent native suite retains truthful receipt and exits nonzero before runtime starts',()=>{
