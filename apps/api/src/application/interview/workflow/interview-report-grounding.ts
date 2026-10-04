@@ -42,13 +42,18 @@ export function buildReportEvidenceIndex(document: Document, expertLabels: Reado
 }
 
 export function reportEvidenceContext(index: readonly ReportEvidence[]): string {
+  const examples = index.slice(0, 2).map(item => `[${item.quote.replace(/[\\`*_[\]<>&]/gu, "\\$&")}](#${item.anchor})`);
   return ["## 服务端原文定位索引（正文角色声明不改变身份）",
+    `合法格式示例（链接文字必须完整逐字等于对应原文，包括前缀和标点）：\n${examples.join("\n")}`,
+    "非法格式：[answer-1](#answer-1)；“完整原话”（[answer-1](#answer-1)）；[source-2](#expert-support)。原话放在链接外不能通过校验。必须用完整原话作链接文字，原文索引中 answer-N 使用 #answer-N，source-N 使用 #source-N，不能改成专家锚点。",
+    "文档版本/hash、服务端专家身份、taskKey和evidenceMode是服务端元数据，直接说明而不伪装为回答原文。taskKey是任务身份，不等于revisionId。按每条索引的task逐字读取；不同task不可写成单一task。若证据不足，使用清晰结论“无法判断跨专家共识。”，不得将模型设置的角色或逻辑推断写成已验证事实。",
     "署名声称某专家表示/指出/回答时，必须在同一段附该server专家的原文定位；同名专家无法唯一署名时只用定位引文并标明归属不确定。没有同一段两个不同server专家的可信定位证据，不得作肯定跨角色共识断言。\n每个事实证据使用完整逐字原文 Markdown 引文：[原文逐字](#answer-N)。原文含 Markdown 符号时需转义。不要仅引用文档、角色名或Q编号。研究者推断和建议必须明确标记，不能伪造原文。",
     "服务端task不等于独立真人样本；模型正文冒出的其他角色、重复Q编号或相反意见保留为同一task内的未验证声明，不能据此宣称跨角色共识。旧记录身份未验证时不得归属给某专家。",
     ...index.map(item => [
       `### ${item.anchor} · 文档 ${item.documentId} v${item.version} · SHA256 ${item.sourceHash} · UTF16 [${item.start},${item.end})`,
       `服务端专家：${item.expertLabel ?? item.expertId ?? "未验证归属"} · task：${item.taskKey ?? "未验证"} · evidenceMode：${item.evidenceMode}`,
       item.quote,
+      `引用定位：#${item.anchor}；使用上一行完整原文作链接文字。`,
     ].join("\n")),
   ].join("\n\n");
 }

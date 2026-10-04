@@ -35,6 +35,8 @@ describe("bounded report quality recovery", () => {
   const result = await generateInterviewMarkdown(deps(),input);
   expect(save.mock.calls[0]?.[0]).toMatchObject({markdown:wrong,failure:{code:"REPORT_GROUNDING_REJECTED",retryable:true}});
   expect(complete.mock.calls[1]?.[0].user).toContain("exact_source_grounding");
+  expect(complete.mock.calls[1]?.[0].user).toContain("引用修复：对照服务端原文定位索引");
+  expect(complete.mock.calls[1]?.[0].user).toContain("不能用answer-N作链接文字");
   const refs = result.documents.find(d=>d.step==="report")!.references.filter(r=>r.locator);
   expect(refs).toHaveLength(2);
   const runs = result.documents.find(d=>d.step==="runs")!;

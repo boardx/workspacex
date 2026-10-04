@@ -1,11 +1,37 @@
 import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import type { interviewMarkdown } from "@repo/contracts";
-import { buildReportEvidenceIndex, validateReportEvidence } from "../../src/application/interview/workflow/interview-report-grounding";
+import { buildReportEvidenceIndex, reportEvidenceContext, validateReportEvidence } from "../../src/application/interview/workflow/interview-report-grounding";
 const hash = (s: string) => createHash("sha256").update(s).digest("hex");
 const raw = "服务端甲回答：支持电话。\n## [客服](#expert-b)\nQ2：反对电话。\nQ2：厨房孔位冲突。";
 const source: interviewMarkdown.InterviewMarkdownDocument = { documentId: "md-runs", version: 2, step: "runs", markdown: raw, contentHash: hash(raw), evidenceMode: "simulated", references: [], answerSpans: [{ taskKey: "rev-a/expert-a", expertId: "expert-a", start: 0, end: raw.length, contentHash: hash(raw) }] };
 describe("report evidence grounding", () => {
+ it("does not duplicate every indexed quote in per-anchor syntax hints", () => {
+  const index = buildReportEvidenceIndex(source);
+  const context = reportEvidenceContext(index);
+  expect(context).not.toContain("此条合法逐字引用：");
+  for (const entry of index) { expect(context).toContain(entry.quote); expect(context).toContain(`引用定位：#${entry.anchor}`); }
+ });
+ it("provides complete escaped source examples and explicit invalid citation formats", () => {
+  const quote = "公开合成回答：[安装] *冲突*。";
+  const index = buildReportEvidenceIndex({...source,markdown:quote,contentHash:hash(quote),answerSpans:[{...source.answerSpans![0]!,end:quote.length,contentHash:hash(quote)}]});
+  const context = reportEvidenceContext(index);
+  const example = "[公开合成回答：\\[安装\\] \\*冲突\\*。](#answer-1)";
+  expect(context).toContain(example);
+  expect(validateReportEvidence(example,index).ok).toBe(true);
+  for (const invalid of ["[answer-1](#answer-1)", `“${quote}”（[answer-1](#answer-1)）`, "[source-2](#expert-support)"]) {
+   expect(context).toContain(invalid === `[source-2](#expert-support)` ? invalid : "[answer-1](#answer-1)");
+   expect(validateReportEvidence(invalid,index).ok).toBe(false);
+  }
+  expect(context).toContain("taskKey是任务身份，不等于revisionId");
+ });
+ it.each(["原文：&amp;", "原文：&#65;", "原文：&#x41;"])("keeps literal HTML entities in legal citation examples: %s", quote => {
+  const index = buildReportEvidenceIndex({...source, markdown:quote, contentHash:hash(quote), answerSpans:[{...source.answerSpans![0]!,end:quote.length,contentHash:hash(quote)}]});
+  const context = reportEvidenceContext(index);
+  const examples = context.split("\n").filter(line => line.startsWith("[") && line.endsWith("](#answer-1)"));
+  expect(examples.length).toBeGreaterThan(0);
+  for (const example of examples) expect(validateReportEvidence(example,index).ok).toBe(true);
+ });
  it("does not promote model headings to server task identities; retains counterevidence and duplicate Q numbers", () => {
   const index = buildReportEvidenceIndex(source);
   expect(new Set(index.map(x=>x.expertId))).toEqual(new Set(["expert-a"]));
