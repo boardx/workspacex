@@ -1,0 +1,48 @@
+
+> @repo/api@0.0.0 test:interview-markdown-unit /Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/apps/api
+> vitest run --config vitest.interview-markdown-unit.config.ts
+
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/apps/api
+
+ ❯ tests/itv/interview-report-claim-boundaries.test.ts (150 tests | 2 failed) 73ms
+   × finite report claim boundaries > preserves pending risk hypotheses and narrow hole-check advice: 若移动插座经现场负荷检测确认供电风险已降低，才调整供电检查频率。 3ms
+     → expected false to be true // Object.is equality
+   × finite report claim boundaries > preserves pending risk hypotheses and narrow hole-check advice: 采用移动插座后，供电风险已降低吗？需要现场验证。 0ms
+     → expected false to be true // Object.is equality
+ ✓ tests/itv/interview-report-recovery.test.ts (24 tests) 72ms
+ ✓ tests/itv/interview-report-grounding.test.ts (76 tests) 41ms
+ ✓ tests/itv/interview-report-diagnostics.test.ts (14 tests) 30ms
+ ✓ tests/itv/interview-markdown-report-stream-controller.test.ts (9 tests) 4ms
+ ✓ tests/itv/interview-model-markdown.test.ts (4 tests) 3ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/itv/interview-report-claim-boundaries.test.ts > finite report claim boundaries > preserves pending risk hypotheses and narrow hole-check advice: 若移动插座经现场负荷检测确认供电风险已降低，才调整供电检查频率。
+ FAIL  tests/itv/interview-report-claim-boundaries.test.ts > finite report claim boundaries > preserves pending risk hypotheses and narrow hole-check advice: 采用移动插座后，供电风险已降低吗？需要现场验证。
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ tests/itv/interview-report-claim-boundaries.test.ts:36:52
+     34|   "采用移动插座后，供电风险已降低吗？需要现场验证。",
+     35|  ])("preserves pending risk hypotheses and narrow hole-check advice: %…
+     36|   expect(assessReportClaimBoundaries(claim,[]).ok).toBe(true);
+       |                                                    ^
+     37|  });
+     38|  it("keeps recorded narrow checks separate from other risks and setup …
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ Test Files  1 failed | 5 passed (6)
+      Tests  2 failed | 275 passed (277)
+   Start at  05:41:00
+   Duration  2.43s (transform 598ms, setup 0ms, collect 1.68s, tests 223ms, environment 0ms, prepare 131ms)
+
+/Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/apps/api:
+ ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  @repo/api@0.0.0 test:interview-markdown-unit: `vitest run --config vitest.interview-markdown-unit.config.ts`
+Exit status 1

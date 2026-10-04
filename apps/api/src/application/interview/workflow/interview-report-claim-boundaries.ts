@@ -1,6 +1,6 @@
 import { interviewMarkdown } from "@repo/contracts";
 import type { ReportEvidence } from "./interview-report-grounding";
-export type ReportClaimBoundaryGap = "unsupported_executed_measurement" | "unqualified_defect_exclusion" | "overbroad_physical_check_exemption" | "unsupported_current_decision_state";
+export type ReportClaimBoundaryGap = "unsupported_executed_measurement" | "unqualified_defect_exclusion" | "overbroad_physical_check_exemption" | "unsupported_current_decision_state" | "unsupported_physical_risk_downgrade";
 type Count = {value: string; unit: string};
 // This is a finite syntax boundary for observed counterexamples, NOT a semantic truth validator.
 // Never mutate candidate bytes, infer source identity, or treat arbitrary nearby quotes as support.
@@ -81,6 +81,23 @@ function qualifiedDecisionState(clause: string, start: number, end: number): boo
     || /^\s*(?:若|如果|假如)[^，,:：]{0,24}$/u.test(before);
 }
 const decisionClause = (text: string) => text.trim().replace(/^(?:证据事实|已知事实|原文记录)[：:]\s*/u, "");
+const changedSetup = /移动(?:式)?(?:带线)?插座|移动电源|无固定柜体|免安装|桌面型/u;
+const reducedPhysicalRisk = /(?:物理(?:冲突)?|供电|负荷|承重|线缆|空间|固定孔位(?:冲突)?)风险[^，,:：]{0,12}?(?:自动|必然|已经|已)(?:降级|降低|消除|消失)/gu;
+function qualifiedRiskReduction(clause: string, start: number, end: number): boolean {
+  const before = clause.slice(0,start).split(/[，,:：]/u).at(-1)!;
+  const predicate = clause.slice(start,end);
+  if (/(?:并非|不是)\s*(?:没有|并未|并不)/u.test(predicate)) return false;
+  if (/^\s*(?:吗|么|呢|[？?])/u.test(clause.slice(end))) return true;
+  if (/(?:并非|不是|并未|并不|不会|可能|是否)(?:自动|必然|已经|已)?(?:降级|降低|消除|消失)/u.test(predicate)) return true;
+  if (/不能不|不可不|不得不|否认|否定/u.test(before)) return false;
+  return /(?:不能|不可|无法|不得|不应)(?:断言|声称|确认|认定)[^，,:：]{0,24}$/u.test(before)
+    || /^\s*(?:若|如果|假如)[^，,:：]{0,24}(?:经|通过)[^，,:：]{0,16}(?:现场复核|负荷检测|安全检测|专项检测)确认[^，,:：]{0,12}$/u.test(before);
+}
+function scopedRecordedRisk(clause: string, quote: string, start: number, end: number): boolean {
+  const observed = /本次对该[^，,:：]{0,12}固定孔位的现场复核确认该固定孔位冲突风险已降低/u.exec(clause);
+  return !!observed && start >= observed.index && end <= observed.index + observed[0].length
+    && clauses(quote).some(source => source.trim() === observed[0]);
+}
 export function assessReportClaimBoundaries(markdown: string, index: readonly ReportEvidence[]): {ok: boolean; missing: readonly ReportClaimBoundaryGap[]} {
   const missing = new Set<ReportClaimBoundaryGap>();
   const sourceByAnchor = new Map(index.map(entry => [`#${entry.anchor}`,entry]));
@@ -120,6 +137,19 @@ export function assessReportClaimBoundaries(markdown: string, index: readonly Re
       }
     }
     const text = assertion.text.normalize("NFKC");
+    if (changedSetup.test(text)) {
+      for (const clause of clauses(text)) {
+        for (const risk of clause.matchAll(reducedPhysicalRisk)) {
+          if (qualifiedRiskReduction(clause,risk.index!,risk.index!+risk[0].length)) continue;
+          const observed = assertion.links.some(link => {
+            const entry = sourceByAnchor.get(link.url);
+            return !!entry?.expertId && !!entry.taskKey && entry.quote === link.text
+              && scopedRecordedRisk(clause,entry.quote,risk.index!,risk.index!+risk[0].length);
+          });
+          if (!observed) missing.add("unsupported_physical_risk_downgrade");
+        }
+      }
+    }
     const denial = /(?:(?:不能|不可|无法|不得)(?:说|断言|声称|认为)|不是说)(?:[^，,:：]{0,24})$/u;
     const whole = clauses(text).some(clause => {
       const match = /(?:整套|全部|整个)(?:.{0,12})(?:物理勘测|现场勘测|现场检查)(?:.{0,12})(?:无用|失效|不必要|无需)/u.exec(clause);
