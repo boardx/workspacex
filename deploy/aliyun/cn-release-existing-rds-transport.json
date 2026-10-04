@@ -1,0 +1,170 @@
+{
+  "attribute": {
+    "RequestId": "01A102DB-AF41-577D-90DE-0CD10737033A",
+    "Items": {
+      "DBInstanceAttribute": [
+        {
+          "DBInstanceMemory": 2048,
+          "ResourceGroupId": "rg-aek6krukghp2p4a",
+          "MasterZone": "cn-shanghai-e",
+          "Port": "5432",
+          "LatestKernelVersion": "rds_postgres_1600_20260830",
+          "ConsoleVersion": "2",
+          "DBInstanceType": "Primary",
+          "InstanceNetworkType": "VPC",
+          "DBInstanceClassType": "x",
+          "DrReplicaInfo": {},
+          "AutoUpgradeMinorVersion": "Auto",
+          "DBInstanceId": "pgm-uf6rg214cp381l49",
+          "DBInstanceStorage": 100,
+          "InstructionSetArch": "x86",
+          "LockReason": "",
+          "AvailabilityValue": "100.0%",
+          "DBInstanceDescription": "workspacex-cn-prod-postgresql",
+          "Engine": "PostgreSQL",
+          "IoAccelerationEnabled": "0",
+          "IPType": "IPv4",
+          "MaxIOMBPS": 0,
+          "DBInstanceDiskUsed": 4130340864,
+          "EngineVersion": "16.0",
+          "DBInstanceStatus": "Running",
+          "MaxConnections": 2400,
+          "DBInstanceClass": "pg.n2.serverless.2c",
+          "AccountMaxQuantity": 99999,
+          "VSwitchId": "vsw-uf6rqwne9b3cp48diptx1",
+          "TipsLevel": 1,
+          "DeletionProtection": true,
+          "LockMode": "Unlock",
+          "PayType": "SERVERLESS",
+          "DBClusterNodes": {
+            "DBClusterNode": []
+          },
+          "SupportCreateSuperAccount": "Yes",
+          "InsId": 1,
+          "ComputeBurstEnabled": false,
+          "SupportCompression": false,
+          "VpcId": "vpc-uf6e7vt902oid0p1mwd6q",
+          "CurrentKernelVersion": "rds_postgres_1600_20260830",
+          "TempUpgradeTimeEnd": "2126-09-13 00:00:00",
+          "TempUpgradeTimeStart": "2026-10-09 00:00:00",
+          "ConnectionMode": "physical",
+          "CreationTime": "2026-09-11T19:18:58Z",
+          "VpcCloudInstanceId": "mr-nasnsm63gd9ffnf6t6-20260912031854",
+          "ProxyType": 2,
+          "ConnectionString": "pgm-uf6rg214cp381l49.rwlb.rds.aliyuncs.com",
+          "ExpireTime": "",
+          "AdvancedFeatures": "LinkedServer,DistributeTransaction",
+          "DBMaxQuantity": 99999,
+          "WarmStandbyInfo": {},
+          "Category": "serverless_standard",
+          "kindCode": "18",
+          "DBInstanceNetType": "Intranet",
+          "SuperPermissionMode": "",
+          "DedicatedHostGroupId": "",
+          "DBInstanceCPU": "1",
+          "CompressionMode": "off",
+          "OriginConfiguration": "{\"KindCode\":\"18\"}",
+          "SecurityIPList": "192.168.100.40",
+          "ReadOnlyDBInstanceIds": {
+            "ReadOnlyDBInstanceId": []
+          },
+          "SecurityIPMode": "normal",
+          "CompressionRatio": 1.0,
+          "MaintainTime": "18:00Z-22:00Z",
+          "ColdDataEnabled": false,
+          "DispenseMode": "MultiAVZDispenseMode",
+          "BurstingEnabled": true,
+          "ZoneId": "cn-shanghai-e",
+          "DBInstanceStorageType": "general_essd",
+          "AccountType": "Mix",
+          "MaxIOPS": 7550,
+          "SupportUpgradeAccountType": "Yes",
+          "SlaveZones": {
+            "SlaveZone": [
+              {
+                "ZoneId": "cn-shanghai-g"
+              }
+            ]
+          },
+          "Extra": {
+            "DBInstanceIds": {
+              "DBInstanceId": []
+            }
+          },
+          "ServerlessConfig": {
+            "SwitchForce": false,
+            "ScaleMin": 0.5,
+            "ScaleMax": 4.0,
+            "AutoPause": false
+          },
+          "BabelfishConfig": {},
+          "CanTempUpgrade": true,
+          "RegionId": "cn-shanghai",
+          "Tips": "ok"
+        }
+      ]
+    }
+  },
+  "network": {
+    "RequestId": "01A102DB-B348-5F26-A4AA-42AC29577DD4",
+    "DBInstanceNetInfos": {
+      "DBInstanceNetInfo": [
+        {
+          "IPType": "Private",
+          "VPCId": "vpc-uf6e7vt902oid0p1mwd6q",
+          "Port": "5432",
+          "VSwitchId": "vsw-uf6rqwne9b3cp48diptx1",
+          "Upgradeable": "Disabled",
+          "ConnectionString": "pgm-uf6rg214cp381l49.rwlb.rds.aliyuncs.com",
+          "IPAddress": "192.168.100.44",
+          "SecurityIPGroups": {
+            "securityIPGroup": []
+          },
+          "DBInstanceWeights": {
+            "DBInstanceWeight": []
+          },
+          "ConnectionStringType": "Normal"
+        }
+      ]
+    },
+    "SecurityIPMode": "normal",
+    "InstanceNetworkType": "VPC"
+  },
+  "ssl": {
+    "RequestId": "01A102DB-B515-5228-8DA6-7A40E7B414DE",
+    "SSLExpireTime": "",
+    "SSLEnabled": "off",
+    "RequireUpdateReason": "",
+    "ConnectionString": ""
+  },
+  "allowlist": {
+    "RequestId": "01A102DB-B6C3-5691-AF3B-B04C6A9CA921",
+    "Items": {
+      "DBInstanceIPArray": [
+        {
+          "DBInstanceIPArrayAttribute": "",
+          "SecurityIPType": "IPv4",
+          "SecurityIPList": "192.168.100.40",
+          "WhitelistNetworkType": "MIX",
+          "DBInstanceIPArrayName": "default"
+        },
+        {
+          "DBInstanceIPArrayAttribute": "hidden",
+          "SecurityIPType": "IPv4",
+          "SecurityIPList": "100.104.143.192/26,100.104.164.0/24,100.104.194.0/26",
+          "WhitelistNetworkType": "MIX",
+          "DBInstanceIPArrayName": "hdm_security_ips"
+        },
+        {
+          "DBInstanceIPArrayAttribute": "hidden",
+          "SecurityIPType": "IPv4",
+          "SecurityIPList": "192.168.100.42,192.168.100.43",
+          "WhitelistNetworkType": "MIX",
+          "DBInstanceIPArrayName": "maxscale"
+        }
+      ]
+    }
+  },
+  "scope": "existing-serverless-private-endpoint-readonly",
+  "productionWritesPerformed": false
+}

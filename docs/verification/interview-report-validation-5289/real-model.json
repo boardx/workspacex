@@ -1,0 +1,33 @@
+{
+  "interviewId": "itv-5e8ed88b-c670-4f50-a1cd-825783ca80c6",
+  "httpStatus": 200,
+  "elapsedMs": 82023,
+  "terminal": "failed",
+  "reason": "REPORT_GROUNDING_REJECTED",
+  "reportVersion": 2,
+  "reportState": {
+    "status": "failed",
+    "failure": {
+      "code": "REPORT_GROUNDING_REJECTED",
+      "retryable": true
+    }
+  },
+  "hash": "5be88f29a788988c9a336497b857446eabe327b8d784a42fc9fc049aca38ac9e",
+  "rawHash": "5be88f29a788988c9a336497b857446eabe327b8d784a42fc9fc049aca38ac9e",
+  "referenceCount": 5,
+  "eventCounts": {
+    "attempt": 2,
+    "delta": 1221,
+    "stage": 8,
+    "failed": 1
+  },
+  "quality": {
+    "ok": true,
+    "missing": []
+  },
+  "grounding": {
+    "ok": false,
+    "reason": "invalid_answer_quote_or_locator",
+    "exactReferenceCount": 0
+  }
+}

@@ -37,7 +37,7 @@ export function HomeView({
   const work = useHomeWork(orgId, showRecent || showTasks);
   const tasks = useHomeTasks(work.projects, showTasks);
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-5 px-4 py-5 sm:px-6" style={homeThemeStyle(c.themeColors)} data-testid="home-screen">
+    <div className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-4 py-8 sm:px-8 lg:px-12 lg:py-10" style={homeThemeStyle(c.themeColors)} data-testid="home-screen">
       <HomeBanner
         orgId={orgId}
         title={c.title}

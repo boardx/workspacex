@@ -1,3 +1,4 @@
+import { runARouteMaintenanceRelease, type ARouteOperations } from './cn-maintenance-host/a_route';
 /** Separate maintenance coordinator. No production adapter is supplied by this
  * module: missing real restore/writer controls must fail closed, never fall back
  * to the normal provision entry point or an image rollback. */
@@ -11,6 +12,8 @@ export interface MaintenanceRequest extends MaintenanceIdentity {
   maintenanceOptIn: "stop-all-writes-and-require-database-recovery";
 }
 export interface MaintenanceOperations {
+  /** Source-owned A adapter only; never selected by a private-plan ready flag. */
+  aRoute?: ARouteOperations;
   prepareOffline(identity: MaintenanceIdentity): Promise<void>;
   acquireReleaseLock(identity: MaintenanceIdentity): Promise<() => Promise<void>>;
   /** Must replay hash-bound three-database restore-fidelity proofs and verify a
@@ -42,6 +45,7 @@ export class MaintenanceWriteStateUnknown extends Error {
   constructor() { super("MAINTENANCE_WRITE_STATE_RECONCILIATION_REQUIRED_LOCK_RETAINED"); }
 }
 export async function runMaintenanceRelease(request: MaintenanceRequest, ops: MaintenanceOperations): Promise<void> {
+  if (ops.aRoute) return runARouteMaintenanceRelease(request, ops.aRoute);
   if (request.maintenanceOptIn !== "stop-all-writes-and-require-database-recovery") throw new Error("MAINTENANCE_OPT_IN_REQUIRED");
   if (!/^[a-f0-9]{40}$/.test(request.sourceRevision) || !/^[a-f0-9]{40}$/.test(request.baselineRevision) ||
       !/^[a-f0-9]{64}$/.test(request.migrationPlanSha256) || !/^[a-zA-Z0-9-]{1,128}$/.test(request.attemptId)) throw new Error("MAINTENANCE_IDENTITY_INVALID");

@@ -848,6 +848,15 @@ const guidedWorkflowErrors = [
   "RESEARCH_SOURCE_RELEVANCE_INVALID",
 ] as const;
 
+export const DEFAULT_RESEARCH_NAME = "新建研究";
+
+/** Names with unknown historical provenance remain explicit; never infer origin from goal text. */
+export function guidedResearchHeading(state: { brief: { topic: string }; generatedNodes: readonly string[] }, name?: string): string {
+  const explicit = name?.trim();
+  if (explicit && explicit !== DEFAULT_RESEARCH_NAME) return explicit;
+  return state.generatedNodes.includes("brief") ? state.brief.topic.trim() || DEFAULT_RESEARCH_NAME : DEFAULT_RESEARCH_NAME;
+}
+
 export const GuidedResearchMetadata = z.object({
   title: z.string().trim().min(1).max(100),
   tags: z.array(z.string().trim().min(1).max(20)).max(5)
@@ -925,7 +934,7 @@ export const GuidedResearchSource = z.object({
 }).strict();
 export const GuidedResearchTask = z.object({
   title: GuidedResearchTaskDetails.title.optional(), objective: GuidedResearchTaskDetails.objective.optional(), deliverables: GuidedResearchTaskDetails.deliverables.optional(),
-  id: z.string().min(1), sectionId: z.string().min(1), query: z.string().trim().min(1).max(1000),
+  id: z.string().min(1), sectionId: z.string().min(1), questionId: z.string().min(1).optional(), query: z.string().trim().min(1).max(1000),
   status: z.enum(["pending", "running", "succeeded", "failed"]), attempts: z.number().int().nonnegative(),
   errorCode: z.string().nullable(),
   searchAttempts: z.array(z.object({ query: z.string().trim().min(1).max(1000),

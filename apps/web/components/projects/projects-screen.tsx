@@ -117,9 +117,9 @@ export function ProjectsScreen() {
 
 
   return (
-    <div className="mx-auto flex w-full max-w-3xl flex-col gap-5 p-6" data-testid="projects-screen">
+    <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 py-8 sm:px-8 lg:px-12 lg:py-10" data-testid="projects-screen">
       <header className="flex flex-col gap-1.5">
-        <h1 className="text-24 font-semibold tracking-tight">项目</h1>
+        <h1 className="text-30 font-semibold leading-tight tracking-tight">项目</h1>
         <p className="text-13 text-muted-foreground">
           将对话、白板、研究与产出收在同一处团队工作空间。
         </p>
@@ -161,8 +161,8 @@ export function ProjectsScreen() {
             </Button>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <div className="relative">
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
+          <div className="relative min-w-0 flex-1 sm:flex-none">
             <Search aria-hidden className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
             <Input
               value={query}
@@ -170,7 +170,7 @@ export function ProjectsScreen() {
               placeholder={searchPlaceholder("项目")}
               aria-label="搜索项目"
               data-testid="projects-search"
-              className="h-8 w-56 pl-7"
+              className="h-9 w-full pl-7 sm:w-56"
             />
           </div>
           <Button variant="primary" size="sm" data-testid="projects-new" onClick={openCreate}>

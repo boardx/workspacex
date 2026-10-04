@@ -1,3 +1,4 @@
+import { adaptiveSourceEvidenceWork, sourceEvidenceTerms, sourceScreenBatches, SOURCE_SCREEN_CHUNK_CHARS, type SourceEvidenceChunk } from "./guided-source-evidence-work";
 import { evidenceWireChunk, materializeQuoteReferences, quoteReferenceMatchSchema } from "./guided-report-quote-references";
 import { createHash } from "node:crypto";
 import { sourceRelevanceOutputSchema as sourceOutput, type SourceRelevanceSemanticCode, type SourceRelevanceIssueCode } from "./guided-source-relevance-protocol";
@@ -7,8 +8,8 @@ import { reportQuestions } from "./guided-report-evidence";
 import { ResearchRuntimeError, type ResearchRuntime } from "./guided-runtime-ports";
 
 type Source = ResearchRuntime["sources"][number];
-type Complete = (system: string, context: unknown, validate: (value: unknown) => void) => Promise<unknown>;
-type Chunk = { sourceId: string; chunkId: string; taskId: string; questionIds: string[]; title: string; url: string; content: string };
+type Complete = (system: string, context: unknown, validate: (value: unknown) => void, check?: () => void) => Promise<unknown>;
+type Chunk = SourceEvidenceChunk;
 type OutputIssue = { path: (string | number)[]; code: SourceRelevanceIssueCode; message: string };
 class InvalidRelevanceOutput extends ResearchRuntimeError {
   readonly issues: OutputIssue[];
@@ -41,14 +42,38 @@ export function sourceRelevanceBasis(state: ResearchRuntime, source: Source): st
   return createHash("sha256").update(JSON.stringify({ policy: 4, brief: state.brief,
     taskIds: sourceTaskIds(source).sort(),
     tasks: state.tasks.filter((task) => sourceTaskIds(source).includes(task.id))
-      .map(({ id, sectionId, query, title, objective, deliverables }) => ({ id, sectionId, query, title, objective, deliverables })).sort((a, b) => a.id.localeCompare(b.id)),
+      .map(({ id, sectionId, questionId, query, title, objective, deliverables }) => ({ id, sectionId, questionId, query, title, objective, deliverables })).sort((a, b) => a.id.localeCompare(b.id)),
     outline: state.outline.filter((section) => section.enabled),
     title: source.title, url: source.url, content: screeningContent(source) })).digest("hex");
 }
 
+/** Two local calculations; failures stop dispatch/repair and drain every callback.
+ * Results remain private until all batches validate, then merge in input order. */
+async function screeningBatchWork<T, R>(items: readonly T[], compute: (item: T, check: () => void) => Promise<R>): Promise<R[]> {
+  const results: R[] = new Array(items.length);
+  let cursor = 0, stopped = false;
+  let failure: unknown;
+  const check = () => { if (stopped) throw failure; };
+  const worker = async () => {
+    while (!stopped && cursor < items.length) {
+      const index = cursor++;
+      try { results[index] = await compute(items[index]!, check); }
+      catch (error) { if (!stopped) { stopped = true; failure = error; } }
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(2, items.length) }, worker));
+  check();
+  return results;
+}
+
 /** No state mutation: publish only after every batch is validated. User exclusions
  * and explicitly added URLs retain their intent; reports still vet their evidence. */
-export async function screenResearchSources(state: ResearchRuntime, sources: Source[], complete: Complete): Promise<Source[]> {
+/** Source/task relevance admission is existential: one strictly validated match
+ * admits that scope. It does not certify answers to every question, completeness,
+ * or absence of contradictory omitted material. Report evidence/quality gates
+ * remain independent; adaptive scheduling must never write question coverage. */
+export async function screenResearchSources(state: ResearchRuntime, sources: Source[], complete: Complete, options: { adaptive?: boolean; signal?: AbortSignal } = {}): Promise<Source[]> {
+  options.signal?.throwIfAborted();
   const candidates = sources.filter((source) => source.decision !== "excluded" && !source.addedByUser && source.relevanceBasis !== sourceRelevanceBasis(state, source));
   if (!candidates.length) return sources;
   const questions = reportQuestions(state.outline.filter((section) => section.enabled));
@@ -57,31 +82,24 @@ export async function screenResearchSources(state: ResearchRuntime, sources: Sou
     const content = screeningContent(source);
     for (const taskId of sourceTaskIds(source)) {
       const task = state.tasks.find((item) => item.id === taskId);
-      const scopedQuestions = questions.filter((question) => question.sectionId === task?.sectionId);
+      const scopedQuestions = questions.filter((question) => question.sectionId === task?.sectionId && (!task?.questionId || question.id === task.questionId));
+      // Exact per-question tasks never borrow a sibling question. Legacy chapter
+      // tasks retain their existing reassessment path.
       // Replacement/deleted chapter IDs do not invalidate retrieved facts.
       // Reassess them against current questions; exact quotes and relevance
       // validation still decide whether the original task's source is useful.
-      const questionIds = (scopedQuestions.length || !task ? scopedQuestions : questions).map((question) => question.id);
+      const questionIds = (scopedQuestions.length || !task || task.questionId ? scopedQuestions : questions).map((question) => question.id);
       if (!task || !questionIds.length) continue;
-      for (let offset = 0; offset < content.length; offset += 6000) result.push({ sourceId: source.id, taskId, questionIds,
-        chunkId: JSON.stringify([source.id, taskId, offset]), title: source.title.slice(0, 300), url: source.url, content: content.slice(offset, offset + 6000) });
+      for (let offset = 0; offset < content.length; offset += SOURCE_SCREEN_CHUNK_CHARS) result.push({ sourceId: source.id, taskId, questionIds,
+        chunkId: JSON.stringify([source.id, taskId, offset]), title: source.title.slice(0, 300), url: source.url, content: content.slice(offset, offset + SOURCE_SCREEN_CHUNK_CHARS) });
     }
     return result;
   });
   // Bound both source text and evaluations without wasting calls on short excerpts.
   if (chunks.length > 512) throw new ResearchRuntimeError("RESEARCH_EVIDENCE_BUDGET_EXCEEDED");
-  const batches: Chunk[][] = [];
-  let batchSize = 0;
-  for (const chunk of chunks) {
-    let batch = batches.at(-1);
-    if (!batch || batch.length === 8 || batchSize + chunk.content.length > 24000) {
-      batch = []; batches.push(batch); batchSize = 0;
-    }
-    batch.push(chunk); batchSize += chunk.content.length;
-  }
-  const presentations = new Map<string, NonNullable<Source["presentation"]>>();
-  const accepted = new Map<string, Set<string>>();
-  for (const batch of batches) {
+  const batches: Chunk[][] = options.adaptive ? [] : sourceScreenBatches(chunks);
+  const evaluate = async (batch: Chunk[], checkBatch: () => void) => {
+    const check = () => { options.signal?.throwIfAborted(); checkBatch(); };
     const parse = (value: unknown) => {
       // Resolve only exact source/chunk identities before the authoritative schema.
       const normalized = value && typeof value === "object" && "evaluations" in value && Array.isArray(value.evaluations)
@@ -117,25 +135,49 @@ export async function screenResearchSources(state: ResearchRuntime, sources: Sou
     let previousOutput: unknown;
     let repairIssues: OutputIssue[] = [];
     for (let attempt = 0; attempt < 2; attempt++) {
+      check();
       try {
         const value = await complete(instruction, { researchStage: "source_relevance", brief: state.brief,
           questions: questions.filter((question) => batch.some((chunk) => chunk.questionIds.includes(question.id))),
           tasks: state.tasks.filter((task) => batch.some((chunk) => chunk.taskId === task.id)), chunks: batch.map(evidenceWireChunk),
           ...(attempt ? { repair: { issues: repairIssues, previousOutput: (JSON.stringify(previousOutput) ?? "null").slice(0, 24000), instruction: "Use exact chunk/source/question IDs; evaluate each chunk once; select same-chunk quoteOptions references; irrelevant must agree with matches." } } : {}) },
-        (output) => { previousOutput = output; parse(output); });
-        for (const entry of parse(value).evaluations) if (!entry.irrelevant) {
-          if (entry.presentation && !presentations.has(entry.sourceId)) presentations.set(entry.sourceId, entry.presentation);
-          const taskId = batch.find((chunk) => chunk.chunkId === entry.chunkId)!.taskId;
-          const taskIds = accepted.get(entry.sourceId) ?? new Set<string>();
-          taskIds.add(taskId); accepted.set(entry.sourceId, taskIds);
-        }
-        break;
+        (output) => { previousOutput = output; parse(output); }, check);
+        check();
+        const evaluations = parse(value).evaluations;
+        check();
+        return evaluations;
       } catch (error) {
         // Provider/persistence failures must never be retried as malformed output.
         if (!(error instanceof InvalidRelevanceOutput) || attempt === 1) throw error;
+        check();
         repairIssues = error.issues;
         if (error.rawOutput !== undefined) previousOutput = error.rawOutput;
       }
+    }
+    throw new ResearchRuntimeError("RESEARCH_SOURCE_RELEVANCE_INVALID");
+  };
+  let evaluated: Array<Awaited<ReturnType<typeof evaluate>>>;
+  if (options.adaptive) {
+    const terms = new Map(state.tasks.map(task => [task.id, sourceEvidenceTerms([
+      { text: task.objective ?? "", weight: 3 }, { text: task.query, weight: 2 },
+      ...questions.filter(question => chunks.some(chunk => chunk.taskId === task.id && chunk.questionIds.includes(question.id))).map(question => ({ text: question.question, weight: 1 })),
+    ])]));
+    const work = adaptiveSourceEvidenceWork(chunks, terms);
+    evaluated = [];
+    for (let batch = work.next(); batch; batch = work.next()) {
+      const value = await evaluate(batch, () => {});
+      batches.push(batch); evaluated.push(value);
+      work.approve(batch, value.filter(entry => !entry.irrelevant && entry.matches.length > 0).map(entry => entry.chunkId));
+    }
+  } else evaluated = await screeningBatchWork(batches, evaluate);
+  const presentations = new Map<string, NonNullable<Source["presentation"]>>();
+  const accepted = new Map<string, Set<string>>();
+  for (const [index, evaluations] of evaluated.entries()) {
+    for (const entry of evaluations) if (!entry.irrelevant) {
+      if (entry.presentation && !presentations.has(entry.sourceId)) presentations.set(entry.sourceId, entry.presentation);
+      const taskId = batches[index]!.find((chunk) => chunk.chunkId === entry.chunkId)!.taskId;
+      const taskIds = accepted.get(entry.sourceId) ?? new Set<string>();
+      taskIds.add(taskId); accepted.set(entry.sourceId, taskIds);
     }
   }
   const reviewed = new Set(candidates.map((source) => source.id));

@@ -82,6 +82,8 @@ export function homeThemeStyle(colors?: ThemeColors | null): CSSProperties {
     const token = key === "error" ? "destructive" : key;
     variables[`--${token}`] = hsl(color);
     variables[`--${token}-foreground`] = readableTextOn(color) === "light" ? "0 0% 100%" : "240 6% 8.4%";
+    // Keep the destructive hover inside the organization palette too.
+    if (token === "destructive") variables["--destructive-hover"] = hsl(color);
   });
   if (/^#[0-9a-f]{6}$/i.test(colors.primary)) {
     variables["--ring"] = hsl(colors.primary);

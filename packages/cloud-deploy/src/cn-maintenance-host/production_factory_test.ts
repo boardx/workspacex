@@ -1,0 +1,16 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { productionActions, productionPrimitives, type ProductionBindings } from './production_factory';
+const identity = { sourceRevision: 'a'.repeat(40), baselineRevision: 'b'.repeat(40), migrationPlanSha256: 'c'.repeat(64), attemptId: 'one' };
+function fixture() {
+ const op = { command: { path: '/usr/local/lib/workspacex-cn/cn-production-recovery-executor.py', sha256: 'd'.repeat(64) }, planPath: '/etc/workspacex-cn/maintenance-recovery/'+identity.sourceRevision+'/one/recovery-plan.json', planSha256: 'e'.repeat(64) };
+ const binding = { identity, toolRevision: 'f'.repeat(40), recoveryPreflight: op, operations: Object.fromEntries(productionActions.map(name => [name, op])) } as ProductionBindings;
+ const calls: string[][] = [];
+ const run = async (_command: any, args: readonly string[]) => { calls.push([...args]); return { stdout: JSON.stringify(args[0] === '--preflight-capability' ? { schemaVersion: 1, kind: 'production-recovery-preflight', identity, toolRevision: binding.toolRevision, planSha256: op.planSha256, liveWritesHeldProven: false, ready: false } : { schemaVersion: 1, kind: 'maintenance-operation-completed', operation: args[1], identity, toolRevision: binding.toolRevision, planSha256: op.planSha256, ready: false }) }; };
+ return { binding, calls, run, host: { identity } as any };
+}
+test('exact preflight and all seven protected action interfaces dispatch', async () => { const f=fixture();const p=productionPrimitives(f.binding,f.run,async()=>{},async()=>async()=>{});await p.assertTrustedBinding(f.host);await p.verifyRecoveryExecutorCapability(identity);for(const name of productionActions)await p[name](identity);assert.equal(f.calls.length,8);assert.deepEqual(f.calls[0],['--preflight-capability',f.binding.recoveryPreflight.planPath]);assert.deepEqual(f.calls[1],['--maintenance-operation','prepareOffline',f.binding.operations.prepareOffline.planPath,f.binding.operations.prepareOffline.planSha256]); });
+test('missing action fails admission before profile or commands', async()=>{const f=fixture();delete (f.binding.operations as any).activate;let profile=false;const p=productionPrimitives(f.binding,f.run,async()=>{profile=true;},async()=>async()=>{});await assert.rejects(p.assertTrustedBinding(f.host),/OPERATION_SET_INVALID/);assert.equal(profile,false);assert.equal(f.calls.length,0);});
+test('boolean receipt cannot authorize preflight',async()=>{const f=fixture();const p=productionPrimitives(f.binding,async()=>({stdout:'true'}),async()=>{},async()=>async()=>{});await assert.rejects(p.verifyRecoveryExecutorCapability(identity),/PREFLIGHT_INVALID/);});
+test('changed identity aborts before subprocess',async()=>{const f=fixture();const p=productionPrimitives(f.binding,f.run,async()=>{},async()=>async()=>{});await assert.rejects(p.activate({...identity,attemptId:'other'}),/IDENTITY_CHANGED/);assert.equal(f.calls.length,0);});
+test('wrong plan binding cannot satisfy callback',async()=>{const f=fixture();const p=productionPrimitives(f.binding,async()=>({stdout:JSON.stringify({schemaVersion:1,kind:'maintenance-operation-completed',operation:'activate',identity,toolRevision:f.binding.toolRevision,planSha256:'0'.repeat(64),ready:false})}),async()=>{},async()=>async()=>{});await assert.rejects(p.activate(identity),/RESPONSE_INVALID/);});

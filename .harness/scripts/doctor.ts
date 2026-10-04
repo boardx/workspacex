@@ -1097,6 +1097,7 @@ function checkClosingPrGreen(
     findings.push({ level, phase: phaseId, msg: `${f.id}：${v.reason}——完成定义第 7 条无法判定，不当绿` });
     return;
   }
+  if (v.kind === "ok" || v.kind === "violation") for (const advisory of v.advisories ?? []) log.info(`${f.id}: ${advisory}`);
   if (v.kind !== "violation") return;
   findings.push({
     level,

@@ -7,10 +7,10 @@ import type { DigitalInterviewWorkflowView } from "@/lib/interview-api";
 import { Button } from "@/components/ui/button";
 import { InterviewRunsStep } from "./interview-runs-step";
 import { InterviewReportStep } from "./interview-report-step";
-import { InterviewSourceReportReview } from "./interview-source-report-review";
 import { getInterviewGenerationSession, subscribeInterviewGeneration, runInterviewGeneration } from "@/lib/interview-generation-session";
 import { InterviewReportGeneration } from "./interview-report-generation";
 import { InterviewStepHeader } from "./interview-step-header";
+import { interviewReportFailureMessage } from "@/lib/interview-report-failure";
 
 export function InterviewMarkdownResultsStep({ interviewId, step, runs, legacySelectedExpertIds, onVersionChange, onReport, reportPin, onBusyChange, onRunningStepChange }: {
   readonly interviewId: string; readonly step: "runs" | "report";
@@ -104,7 +104,7 @@ export function InterviewMarkdownResultsStep({ interviewId, step, runs, legacySe
     // transport can still follow a successful save, so reconcile durable state
     // here rather than relying on the old route's catch handler or a refresh.
     const controller = new AbortController();
-    setError("报告请求未完成，请重试或重新载入。");
+    setError(interviewReportFailureMessage(session.error instanceof ApiError ? session.error.reasonCode : null));
     void loadInterviewMarkdown(interviewId, controller.signal).then(next => {
       if (!controller.signal.aborted && next.revisionId === session.revisionId) receive(next);
     }).catch(() => { /* Preserve the current saved document and actual failure. */ });
@@ -146,10 +146,10 @@ export function InterviewMarkdownResultsStep({ interviewId, step, runs, legacySe
     }, { revisionId: source.revisionId, version: source.version });
     callbacks.current.onReport();
     try { const next = await request; if (mounted.current) receive(next); }
-    catch {
+    catch (cause) {
       if (mounted.current) {
         try { receive(await loadInterviewMarkdown(interviewId)); } catch { /* Retain saved source. */ }
-        setError("报告生成未完成，已保存文档保留。请重试；已确认版本不会被覆盖。");
+        setError(interviewReportFailureMessage(cause instanceof ApiError ? cause.reasonCode : null));
       }
     } finally { if (mounted.current) setPending(false); }
   }
@@ -159,13 +159,12 @@ export function InterviewMarkdownResultsStep({ interviewId, step, runs, legacySe
   return <div>
     {step === "report" && generatingReport && session && document && <InterviewReportGeneration session={session} />}
     {error && <div role="alert" className="mb-4 rounded-lg border border-destructive/20 p-4 text-sm text-destructive"><p>{error}</p><Button variant="outline" className="mt-3" disabled={pending} onClick={() => void loadInterviewMarkdown(interviewId).then((next) => { receive(next); setError(""); }).catch(() => setError("载入失败，请稍后重试。"))}>重新载入状态</Button></div>}
-    {state?.status === "failed" && <p role="alert" className="mb-4 text-sm text-destructive">本次生成未完成，以下为已保存内容，不代表完整报告。</p>}
+    {state?.status === "failed" && !error && <p role="alert" className="mb-4 text-sm text-destructive">{interviewReportFailureMessage(state.failure?.code)}已保存内容不代表完整报告。</p>}
     {step === "runs" ? <InterviewRunsStep runs={sourceRuns} taskProgress={Boolean(execution)} document={document} pending={pending} onGenerateReport={() => void generateReport()} actions={<>
       {!execution && <Button variant="primary" disabled={pending || !source} onClick={() => void execute("start")}>开始模拟访谈</Button>}
       {execution?.status === "running" && <Button variant="outline" onClick={() => void execute("pause")}>暂停后续访谈</Button>}
       {execution?.status === "paused" && <Button variant="primary" disabled={pending} onClick={() => void execute("resume")}>继续访谈</Button>}
       {execution?.status === "failed" && <Button variant="primary" disabled={pending} onClick={() => void execute("retry")}>重试未完成专家</Button>}
     </>} /> : document ? <InterviewReportStep actions={reportRetry} document={document} sourceDocuments={source?.documents ?? []} expertsDocument={experts} execution={execution} legacySelectedExpertIds={legacySelectedExpertIds} legacyRuns={runs} reportStatus={state?.status} shareUrl={`/itv/${encodeURIComponent(interviewId)}/report?documentId=${encodeURIComponent(document.documentId)}&version=${document.version}`} /> : <><InterviewStepHeader title="研究报告">{reportRetry}</InterviewStepHeader><p className="text-sm text-muted-foreground">暂无已保存的报告 Markdown，请先完成访谈。</p></>}
-    {step === "report" && source && document && <InterviewSourceReportReview source={source} onSaved={receive} />}
   </div>;
 }

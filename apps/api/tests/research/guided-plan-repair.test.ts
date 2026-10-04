@@ -87,6 +87,7 @@ describe("bounded research plan repair", () => {
   it.each(["unknown", "missing"] as const)("repairs %s section coverage without relaxing the confirmed outline", async (kind) => {
     const invalid = { ...validPlan, tasks: kind === "missing" ? validPlan.tasks.slice(0, 1) : validPlan.tasks.map((task, index) => index ? { ...task, sectionId: "invented" } : task) };
     const f = fixture([invalid, validPlan]);
+    await f.run("generate");
     const result = await f.run("start");
     expect(result.errorCode).toBeNull();
     expect(f.complete).toHaveBeenCalledTimes(2);
@@ -114,7 +115,7 @@ describe("bounded research plan repair", () => {
 
   it("stops after two invalid responses without searching or persisting partial tasks", async () => {
     const f = fixture([{ overview: "Incomplete" }]);
-    const result = await f.run("start");
+    const result = await f.run("generate");
     expect(result.errorCode).toBe("RESEARCH_NODE_STATE_INVALID");
     expect(f.complete).toHaveBeenCalledTimes(2);
     expect(f.search).not.toHaveBeenCalled();
@@ -125,7 +126,7 @@ describe("bounded research plan repair", () => {
 
   it("does not treat a provider exception as a response validation failure", async () => {
     const f = fixture([new Error("provider unavailable"), validPlan]);
-    const result = await f.run("start");
+    const result = await f.run("generate");
     expect(result.errorCode).toBe("RESEARCH_WORKFLOW_UNAVAILABLE");
     expect(f.complete).toHaveBeenCalledTimes(1);
     expect(f.search).not.toHaveBeenCalled();
@@ -139,7 +140,7 @@ describe("bounded research plan repair", () => {
       if (!done && state.tasks.length > 0) throw new ResearchRuntimeError("RESEARCH_NODE_STATE_INVALID");
       return original(actor, request, state, done);
     });
-    const result = await f.run("start");
+    const result = await f.run("generate");
     expect(result.errorCode).toBe("RESEARCH_NODE_STATE_INVALID");
     expect(f.complete).toHaveBeenCalledTimes(1);
     expect(f.search).not.toHaveBeenCalled();
@@ -147,7 +148,7 @@ describe("bounded research plan repair", () => {
 
   it("does not repair a provider exception that uses the same reason code as validation", async () => {
     const f = fixture([new ResearchRuntimeError("RESEARCH_NODE_STATE_INVALID"), validPlan]);
-    const result = await f.run("start");
+    const result = await f.run("generate");
     expect(result.errorCode).toBe("RESEARCH_NODE_STATE_INVALID");
     expect(f.complete).toHaveBeenCalledTimes(1);
     expect(f.search).not.toHaveBeenCalled();
@@ -160,7 +161,7 @@ describe("bounded research plan repair", () => {
       if (!done && state.modelCalls.length === 2) throw new ResearchRuntimeError("RESEARCH_NODE_STATE_INVALID");
       return original(actor, request, state, done);
     });
-    const result = await f.run("start");
+    const result = await f.run("generate");
     expect(result.errorCode).toBe("RESEARCH_NODE_STATE_INVALID");
     expect(f.complete).toHaveBeenCalledTimes(1);
     expect(f.search).not.toHaveBeenCalled();

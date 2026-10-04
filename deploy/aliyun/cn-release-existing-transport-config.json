@@ -1,0 +1,59 @@
+{
+  "provider": {
+    "RequestId": "01A102DF-BA03-557C-9F6C-4E089295A180",
+    "Invocation": {
+      "InvocationResults": {
+        "InvocationResult": [
+          {
+            "OssOutputDelivery": "",
+            "OssOutputErrorInfo": "",
+            "OssOutputErrorCode": "",
+            "ExitCode": 0,
+            "FinishedTime": "2026-10-03T17:44:03Z",
+            "OssOutputUri": "",
+            "OssOutputStatus": "",
+            "ContainerId": "",
+            "ContainerName": "",
+            "Output": "eyJraW5kIjogImV4aXN0aW5nLXByb2R1Y3Rpb24tdHJhbnNwb3J0LWNvbmZpZ3VyYXRpb24tcmVhZG9ubHkiLCAib2JzZXJ2ZWRBdCI6ICIyMDI2LTEwLTAzVDE3OjQ0OjAyLjk2NTYyMSswMDowMCIsICJjb25maWd1cmF0aW9uU2hhMjU2IjogIjc2YTdmMTU4Y2Y5Mzk1MDQ0MzlkNmQ0YjA4YmYxY2U5OTBlNmYyYWIyNjIwMTdmZjlmNDYyNzk5YjhmN2M0ZTAiLCAicHJvZmlsZSI6ICJwcm9kdWN0aW9uIiwgImVjc0luc3RhbmNlSWQiOiAiaS11ZjZnYTkyZXdsb2dhbm9iYmxuNiIsICJyZHNJbnN0YW5jZUlkIjogInBnbS11ZjZyZzIxNGNwMzgxbDQ5IiwgInJkc1Rsc0V4Y2VwdGlvbiI6IHsiYWxsb3dlZENpZHJzIjogWyIxOTIuMTY4LjEwMC40MC8zMiJdLCAia2luZCI6ICJhbGl5dW4tcG9zdGdyZXNxbC1zZXJ2ZXJsZXNzLW5vLXRscyJ9fQo=",
+            "InvokeId": "t-sh06yy36zv2wnb4",
+            "Tags": {
+              "Tag": []
+            },
+            "StopTime": "",
+            "Dropped": 0,
+            "InvocationStatus": "Success",
+            "InstanceId": "i-uf6ga92ewloganobbln6",
+            "ErrorInfo": "",
+            "StartTime": "2026-10-03T17:44:03Z",
+            "Repeats": 1,
+            "InvokeRecordStatus": "Finished",
+            "Username": "root",
+            "Launcher": "",
+            "CommandId": "c-sh06yy36zuvey9s",
+            "ErrorCode": "",
+            "TerminationMode": "Process"
+          }
+        ]
+      },
+      "TotalCount": 1,
+      "NextToken": "",
+      "PageSize": 10,
+      "PageNumber": 1
+    }
+  },
+  "decoded": {
+    "kind": "existing-production-transport-configuration-readonly",
+    "observedAt": "2026-10-03T17:44:02.965621+00:00",
+    "configurationSha256": "76a7f158cf939504439d6d4b08bf1ce990e6f2ab262017ff9f462799b8f7c4e0",
+    "profile": "production",
+    "ecsInstanceId": "i-uf6ga92ewloganobbln6",
+    "rdsInstanceId": "pgm-uf6rg214cp381l49",
+    "rdsTlsException": {
+      "allowedCidrs": [
+        "192.168.100.40/32"
+      ],
+      "kind": "aliyun-postgresql-serverless-no-tls"
+    }
+  },
+  "productionWritesPerformed": false
+}

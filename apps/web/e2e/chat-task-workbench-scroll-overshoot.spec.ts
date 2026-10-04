@@ -3,6 +3,7 @@ import { resolve } from "node:path";
 import { test, expect, type Page } from "@playwright/test";
 import { CHAT_READ_E2E } from "./chat-read-fixture";
 import { openChatEmptyState, openFreshThread, sendAndSettle } from "./chat-task-workbench-fixture";
+import { capturePaperMatrix } from "./support/paper-visual-evidence";
 
 /**
  * issue #2857 —— 消息区可以滚过底部进入大片空白（devapp 2026-09-06 人类实测）。
@@ -101,6 +102,9 @@ test("#2857：落定的长线程滚到底停在最后一条消息，不进入空
   const afterWheel = await measure(page);
   await page.screenshot({ path: resolve(OUT, "settled-after-wheel.png") });
   expect(afterWheel.mainScrollTop, "外层 main 不应被滚轮推动").toBe(0);
+  // Keep every original 1848px geometry assertion above; add matching PAPER
+  // viewports only after that regression gate has completed.
+  await capturePaperMatrix(page, "chat-long-scroll", "chat-task-workbench-composer", true);
 });
 
 test("#2857：deep agent 运行中，绝对定位后代不把外层 main 撑成第二条滚动轴", async ({ page }) => {

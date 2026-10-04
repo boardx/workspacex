@@ -36,6 +36,11 @@ install -d -o root -g root -m 0700 "$RUNTIME_ROOT" "$EVENTS_ROOT"
 exec 9>"$RUNTIME_ROOT/release.lock"
 chown root:root "$RUNTIME_ROOT/release.lock"; chmod 0600 "$RUNTIME_ROOT/release.lock"
 flock -n 9 || fail "another release operation is active"
+# Maintenance admission runs under the canonical release lock before mutations.
+MAINTENANCE_HOLD_HELPER=/usr/local/lib/workspacex-cn/cn_maintenance_hold.py
+[[ -f "$MAINTENANCE_HOLD_HELPER" && ! -L "$MAINTENANCE_HOLD_HELPER" && "$(stat -c '%u:%g:%a:%h' "$MAINTENANCE_HOLD_HELPER")" == 0:0:700:1 ]] || fail "trusted maintenance hold helper unavailable"
+python3 "$MAINTENANCE_HOLD_HELPER" admit "$RUNTIME_ROOT" >/dev/null || fail "maintenance hold blocks ordinary release"
+
 baseline_head=$(git -C "$REPOSITORY_DIR" rev-parse HEAD)
 baseline_ref=$(git -C "$REPOSITORY_DIR" symbolic-ref -q HEAD || true)
 [[ -z "$(git -C "$REPOSITORY_DIR" status --porcelain)" ]] || fail "release checkout is dirty before build"

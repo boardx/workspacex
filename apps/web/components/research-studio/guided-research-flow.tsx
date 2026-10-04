@@ -1,4 +1,5 @@
 "use client";
+
 import { tagInputLimits, research as researchTagContract } from "@repo/contracts";
 
 import * as React from "react";
@@ -370,7 +371,10 @@ function ResearchHome({ onNavigate }: { onNavigate: (step: GuidedResearchStep, s
   React.useEffect(() => {
     let active = true;
     setLoadFailed(false);
-    listGuidedResearchSessions().then(result => { if (active) setHistory(result.items); })
+    listGuidedResearchSessions().then(result => {
+      if (!active) return;
+      setHistory(result.items);
+    })
       .catch(() => { if (active) setLoadFailed(true); });
     return () => { active = false; };
   }, [revision]);

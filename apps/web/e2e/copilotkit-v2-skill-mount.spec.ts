@@ -1,5 +1,6 @@
 import { test, expect, type Page } from "@playwright/test";
 import { CHAT_READ_E2E } from "./chat-read-fixture";
+import { selectWorkbenchAgent } from "./support/workbench-run-evidence";
 
 /**
  * issue #2020（差距清单第 3 项）→ #2514（2026-09-02 服务端裁决）—— `/chat` 的 Skill
@@ -94,6 +95,7 @@ test("#2514：不挂任何 skill，已启用 skill 的正文已进第一轮 run 
   await login(page);
   await warmUpThreadRoute(page);
   await page.goto("/chat");
+  await selectWorkbenchAgent(page, CHAT_READ_E2E.deepAgentId);
 
   /* ═══════════ ① 新对话还没有线程：入口如实占位，不渲染假挂载面板 ═══════════ */
   await expect(page.getByTestId("chat-skill-mount")).toBeDisabled();
@@ -128,6 +130,9 @@ test("#2514：不挂任何 skill，已启用 skill 的正文已进第一轮 run 
 
   /* ═══════════ ⑤ 再发一条：幂等——哨兵照样出现，run 没有因为重复而失败 ═══════════ */
   const afterText = "挂载后取证：第二条消息";
+  // A rendered reply can precede the terminal lifecycle event. This case requires
+  // two independent turns, rather than an interjection into the first run.
+  await expect(page.getByTestId("copilotkit-v2-running-indicator")).toHaveCount(0, { timeout: 30_000 });
   await page.getByTestId("copilotkit-v2-input").fill(afterText);
   await page.getByTestId("copilotkit-v2-send").click();
   await expect(messages).toContainText(`根据查询结果回答你："${afterText}"`, { timeout: 60_000 });

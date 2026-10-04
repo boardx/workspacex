@@ -22,6 +22,7 @@ export function guardBootstrapReadOnly(client: ReadOnlyClient): ReadOnlyClient {
 export type BootstrapPhase = "prebuild" | "preactivate";
 export interface BootstrapProbeInput {
   sourceSha: string; phase: BootstrapPhase; imageDigest?: string;
+  migrationInventory?: ReadonlyArray<{ name: string; checksum: string }>;
   email: string; password: string; displayName: string; orgName: string;
 }
 export interface BootstrapCompatibilityResult {
@@ -89,6 +90,17 @@ export async function probeBootstrapCompatibility(client: ReadOnlyClient, input:
     }
     result.readOnlyTransaction = true;
     await client.query("SET LOCAL statement_timeout = '5000ms'");
+    if (input.phase === "preactivate") {
+      const expected = input.migrationInventory;
+      const ledger = await client.query("SELECT name,checksum FROM public._kernel_migrations ORDER BY name COLLATE \"C\"");
+      const actual = new Map(ledger.rows.map(row => [row.name, row.checksum]));
+      if (!expected?.length || actual.size !== ledger.rows.length || actual.size !== expected.length
+        || new Set(expected.map(row => row.name)).size !== expected.length
+        || expected.some(row => !/^[a-f0-9]{64}$/.test(row.checksum) || actual.get(row.name) !== row.checksum)) {
+        fail(result, "BOOTSTRAP_DB_SCHEMA_INCOMPATIBLE"); return result;
+      }
+      result.checks.migrationLedgerContract = true;
+    }
     for (const [name, requirement] of Object.entries(BOOTSTRAP_RELATIONS)) {
       const r = await client.query("SELECT column_name FROM information_schema.columns WHERE table_schema='public' AND table_name=$1", [name]);
       const found = new Set(r.rows.map(row => row.column_name));

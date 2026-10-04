@@ -1,0 +1,156 @@
+{
+  "actor": {
+    "params": [],
+    "sql": "SELECT r.oid oid,current_user name,session_user session_user,r.rolsuper superuser,r.rolcreaterole create_role,r.rolbypassrls bypass_rls,r.rolinherit inherit,r.rolcreatedb create_db FROM pg_roles r WHERE r.rolname=current_user"
+  },
+  "actorDatabases": {
+    "params": [],
+    "sql": "SELECT d.datname name,pg_get_userbyid(d.datdba) owner,has_database_privilege(current_user,d.oid,'CONNECT') connect,has_database_privilege(current_user,d.oid,'CONNECT WITH GRANT OPTION') connect_grantable FROM pg_database d ORDER BY d.datname"
+  },
+  "actorMemberships": {
+    "params": [],
+    "sql": "SELECT pg_get_userbyid(m.roleid) role,pg_get_userbyid(m.member) member,m.admin_option,to_jsonb(m)->>'inherit_option' inherit_option,to_jsonb(m)->>'set_option' set_option FROM pg_auth_members m WHERE m.member=(SELECT oid FROM pg_roles WHERE rolname=current_user) ORDER BY m.roleid"
+  },
+  "actorRelations": {
+    "params": [],
+    "sql": "SELECT n.nspname schema,c.relname name,pg_get_userbyid(c.relowner) owner,has_table_privilege(current_user,c.oid,'SELECT') readable,has_table_privilege(current_user,c.oid,'SELECT WITH GRANT OPTION') select_grantable FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE c.relkind IN ('r','p','v','m','f') AND n.nspname<>'information_schema' AND n.nspname !~ '^pg_' ORDER BY n.nspname,c.relname"
+  },
+  "actorSchemas": {
+    "params": [],
+    "sql": "SELECT n.nspname name,pg_get_userbyid(n.nspowner) owner,has_schema_privilege(current_user,n.oid,'USAGE') usage,has_schema_privilege(current_user,n.oid,'USAGE WITH GRANT OPTION') usage_grantable FROM pg_namespace n WHERE n.nspname<>'information_schema' AND n.nspname !~ '^pg_' ORDER BY n.nspname"
+  },
+  "actorSequences": {
+    "params": [],
+    "sql": "SELECT n.nspname schema,c.relname name,pg_get_userbyid(c.relowner) owner,has_sequence_privilege(current_user,c.oid,'SELECT') readable,has_sequence_privilege(current_user,c.oid,'SELECT WITH GRANT OPTION') select_grantable FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE c.relkind='S' AND n.nspname<>'information_schema' AND n.nspname !~ '^pg_' ORDER BY n.nspname,c.relname"
+  },
+  "backup-sessions": {
+    "params": [],
+    "sql": "BEGIN TRANSACTION READ ONLY;\nSELECT json_build_object('peer',json_build_object('database',current_database(),\n 'serverAddr',inet_server_addr()::text,'serverPort',inet_server_port(),\n 'systemIdentifier',(SELECT system_identifier::text FROM pg_control_system())),\n 'sessions',coalesce((SELECT json_agg(json_build_object('role',usename,\n 'clientAddr',client_addr::text,'clientPort',client_port,'pid',pid,\n 'backendStart',backend_start,'backendType',backend_type,'applicationName',application_name,'state',state,\n 'ssl',(SELECT ssl FROM pg_stat_ssl WHERE pid=pg_stat_activity.pid)))\n FROM pg_stat_activity WHERE datname=current_database() AND usename='wsx_release_backup_ro'),'[]'::json),\n 'preparedTransactions',coalesce((SELECT json_agg(json_build_object('gid',gid,\n 'owner',owner,'database',database)) FROM pg_prepared_xacts\n WHERE database=current_database()),'[]'::json)); ROLLBACK;"
+  },
+  "begin-readonly": {
+    "params": [],
+    "sql": "BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY"
+  },
+  "bootstrapRole": {
+    "params": [],
+    "sql": "SELECT oid,rolname name,rolsuper superuser FROM pg_roles WHERE oid=10"
+  },
+  "columnACLs": {
+    "params": [],
+    "sql": "SELECT n.nspname schema,c.relname name,a.attname column,a.attacl::text acl,pg_get_userbyid(x.grantee) grantee,x.grantee=0 public,x.privilege_type privilege,x.is_grantable grantable,pg_get_userbyid(x.grantor) grantor FROM pg_attribute a JOIN pg_class c ON c.oid=a.attrelid JOIN pg_namespace n ON n.oid=c.relnamespace CROSS JOIN LATERAL aclexplode(a.attacl) x WHERE a.attnum>0 AND NOT a.attisdropped AND n.nspname<>'information_schema' AND n.nspname !~ '^pg_' ORDER BY n.nspname,c.relname,a.attnum,x.grantee,x.privilege_type"
+  },
+  "databases": {
+    "params": [
+      "wsx_release_backup_ro",
+      "wsx_release_backup_ro",
+      "wsx_release_backup_ro",
+      "wsx_release_backup_ro",
+      "wsx_release_backup_ro",
+      "wsx_release_backup_ro"
+    ],
+    "sql": "SELECT d.datname name,pg_get_userbyid(d.datdba) owner,d.datallowconn allow_connections,CASE WHEN EXISTS(SELECT 1 FROM pg_roles WHERE rolname=$1) THEN has_database_privilege($2,d.oid,'CONNECT') END connect,CASE WHEN EXISTS(SELECT 1 FROM pg_roles WHERE rolname=$3) THEN has_database_privilege($4,d.oid,'TEMP') END temp,CASE WHEN EXISTS(SELECT 1 FROM pg_roles WHERE rolname=$5) THEN has_database_privilege($6,d.oid,'CREATE') END create,EXISTS(SELECT 1 FROM aclexplode(COALESCE(d.datacl,acldefault('d',d.datdba))) a WHERE a.grantee=0 AND a.privilege_type='TEMPORARY') public_temp,EXISTS(SELECT 1 FROM aclexplode(COALESCE(d.datacl,acldefault('d',d.datdba))) a WHERE a.grantee=0 AND a.privilege_type='CONNECT') public_connect FROM pg_database d ORDER BY d.datname"
+  },
+  "effectiveColumns": {
+    "params": [
+      "wsx_release_backup_ro",
+      "wsx_release_backup_ro",
+      "wsx_release_backup_ro",
+      "wsx_release_backup_ro"
+    ],
+    "sql": "SELECT n.nspname schema,c.relname name,a.attname column,has_column_privilege($1,c.oid,a.attnum,'SELECT') readable,has_column_privilege($2,c.oid,a.attnum,'INSERT,UPDATE,REFERENCES') writable,has_column_privilege($3,c.oid,a.attnum,'SELECT WITH GRANT OPTION,INSERT WITH GRANT OPTION,UPDATE WITH GRANT OPTION,REFERENCES WITH GRANT OPTION') grantable FROM pg_attribute a JOIN pg_class c ON c.oid=a.attrelid JOIN pg_namespace n ON n.oid=c.relnamespace WHERE a.attnum>0 AND NOT a.attisdropped AND c.relkind IN ('r','p','v','m','f') AND n.nspname<>'information_schema' AND n.nspname !~ '^pg_' AND EXISTS(SELECT 1 FROM pg_roles WHERE rolname=$4) ORDER BY n.nspname,c.relname,a.attnum"
+  },
+  "effectiveFunctions": {
+    "params": [
+      "wsx_release_backup_ro",
+      "wsx_release_backup_ro",
+      "wsx_release_backup_ro"
+    ],
+    "sql": "SELECT p.oid::regprocedure::text signature,n.nspname schema,p.proname name,p.prosecdef security_definer,p.provolatile volatility,l.lanname language,l.lanpltrusted language_trusted,has_function_privilege($1,p.oid,'EXECUTE') executable,has_function_privilege($2,p.oid,'EXECUTE WITH GRANT OPTION') grantable,pg_get_userbyid(p.proowner) owner FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace JOIN pg_language l ON l.oid=p.prolang WHERE (n.nspname<>'information_schema' AND n.nspname !~ '^pg_' OR p.prosecdef OR p.proname IN ('lo_create','lo_creat','lo_import','lo_unlink','lo_put','lowrite')) AND EXISTS(SELECT 1 FROM pg_roles WHERE rolname=$3) ORDER BY p.oid::regprocedure::text"
+  },
+  "effectiveRelations": {
+    "params": [
+      "wsx_release_backup_ro",
+      "wsx_release_backup_ro",
+      "wsx_release_backup_ro",
+      "wsx_release_backup_ro",
+      "wsx_release_backup_ro"
+    ],
+    "sql": "SELECT n.nspname schema,c.relname name,c.relkind kind,pg_get_userbyid(c.relowner) owner,has_table_privilege($1,c.oid,'SELECT') readable,(has_table_privilege($2,c.oid,'INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER') OR has_any_column_privilege($3,c.oid,'INSERT,UPDATE,REFERENCES')) writable,has_table_privilege($4,c.oid,'SELECT WITH GRANT OPTION') grantable FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE c.relkind IN ('r','p','v','m','f') AND n.nspname<>'information_schema' AND n.nspname !~ '^pg_' AND EXISTS(SELECT 1 FROM pg_roles WHERE rolname=$5) ORDER BY n.nspname,c.relname"
+  },
+  "effectiveSchemas": {
+    "params": [
+      "wsx_release_backup_ro",
+      "wsx_release_backup_ro",
+      "wsx_release_backup_ro"
+    ],
+    "sql": "SELECT n.nspname name,pg_get_userbyid(n.nspowner) owner,has_schema_privilege($1,n.oid,'USAGE') usage,has_schema_privilege($2,n.oid,'CREATE') create FROM pg_namespace n WHERE n.nspname<>'information_schema' AND n.nspname !~ '^pg_' AND EXISTS(SELECT 1 FROM pg_roles WHERE rolname=$3) ORDER BY n.nspname"
+  },
+  "effectiveSequences": {
+    "params": [
+      "wsx_release_backup_ro",
+      "wsx_release_backup_ro",
+      "wsx_release_backup_ro",
+      "wsx_release_backup_ro"
+    ],
+    "sql": "SELECT n.nspname schema,c.relname name,pg_get_userbyid(c.relowner) owner,has_sequence_privilege($1,c.oid,'SELECT') readable,has_sequence_privilege($2,c.oid,'USAGE,UPDATE') writable,has_sequence_privilege($3,c.oid,'SELECT WITH GRANT OPTION') grantable FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE c.relkind='S' AND n.nspname<>'information_schema' AND n.nspname !~ '^pg_' AND EXISTS(SELECT 1 FROM pg_roles WHERE rolname=$4) ORDER BY n.nspname,c.relname"
+  },
+  "explicitGrants": {
+    "params": [
+      "wsx_release_backup_ro",
+      "wsx_release_backup_ro",
+      "wsx_release_backup_ro",
+      "wsx_release_backup_ro",
+      "wsx_release_backup_ro"
+    ],
+    "sql": "SELECT 'database' kind,'' schema,d.datname name,a.privilege_type privilege,a.is_grantable grantable,pg_get_userbyid(a.grantor) grantor FROM pg_database d CROSS JOIN LATERAL aclexplode(COALESCE(d.datacl,acldefault('d',d.datdba))) a WHERE a.grantee=(SELECT oid FROM pg_roles WHERE rolname=$1) UNION ALL SELECT 'schema','',n.nspname,a.privilege_type,a.is_grantable,pg_get_userbyid(a.grantor) FROM pg_namespace n CROSS JOIN LATERAL aclexplode(COALESCE(n.nspacl,acldefault('n',n.nspowner))) a WHERE a.grantee=(SELECT oid FROM pg_roles WHERE rolname=$2) UNION ALL SELECT CASE WHEN c.relkind='S' THEN 'sequence' ELSE 'table' END,n.nspname,c.relname,a.privilege_type,a.is_grantable,pg_get_userbyid(a.grantor) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace CROSS JOIN LATERAL aclexplode(COALESCE(c.relacl,acldefault(CASE WHEN c.relkind='S' THEN 's'::\"char\" ELSE 'r'::\"char\" END,c.relowner))) a WHERE a.grantee=(SELECT oid FROM pg_roles WHERE rolname=$3) UNION ALL SELECT 'function',n.nspname,p.oid::regprocedure::text,a.privilege_type,a.is_grantable,pg_get_userbyid(a.grantor) FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace CROSS JOIN LATERAL aclexplode(COALESCE(p.proacl,acldefault('f',p.proowner))) a WHERE a.grantee=(SELECT oid FROM pg_roles WHERE rolname=$4) UNION ALL SELECT 'column',n.nspname,c.relname||'.'||a.attname,x.privilege_type,x.is_grantable,pg_get_userbyid(x.grantor) FROM pg_attribute a JOIN pg_class c ON c.oid=a.attrelid JOIN pg_namespace n ON n.oid=c.relnamespace CROSS JOIN LATERAL aclexplode(a.attacl) x WHERE a.attnum>0 AND NOT a.attisdropped AND x.grantee=(SELECT oid FROM pg_roles WHERE rolname=$5)"
+  },
+  "functions": {
+    "params": [],
+    "sql": "SELECT p.oid::regprocedure::text signature,n.nspname schema,p.proname name,p.prokind kind,p.prosecdef security_definer,pg_get_userbyid(p.proowner) owner,p.provolatile volatility,l.lanname language,l.lanpltrusted language_trusted,p.proconfig,p.prosrc body,pg_get_function_identity_arguments(p.oid) arguments,COALESCE(p.proacl,acldefault('f',p.proowner))::text acl,EXISTS(SELECT 1 FROM aclexplode(COALESCE(p.proacl,acldefault('f',p.proowner))) a WHERE a.grantee=0 AND a.privilege_type='EXECUTE') public_execute,EXISTS(SELECT 1 FROM aclexplode(COALESCE(p.proacl,acldefault('f',p.proowner))) a WHERE a.grantee=0 AND a.is_grantable) public_grantable,COALESCE((SELECT json_agg(json_build_object('grantor',pg_get_userbyid(a.grantor),'privilege',a.privilege_type,'grantable',a.is_grantable) ORDER BY a.grantor,a.privilege_type) FROM aclexplode(COALESCE(p.proacl,acldefault('f',p.proowner))) a WHERE a.grantee=0),'[]'::json) public_acl FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace JOIN pg_language l ON l.oid=p.prolang WHERE n.nspname<>'information_schema' AND n.nspname !~ '^pg_' ORDER BY p.oid::regprocedure::text"
+  },
+  "identity": {
+    "params": [],
+    "sql": "SELECT current_database() database,current_setting('transaction_read_only') readonly,current_setting('transaction_isolation') isolation"
+  },
+  "largeObjects": {
+    "params": [],
+    "sql": "SELECT oid,pg_get_userbyid(lomowner) owner,lomacl::text acl FROM pg_largeobject_metadata ORDER BY oid"
+  },
+  "memberships": {
+    "params": [
+      "wsx_release_backup_ro",
+      "wsx_release_backup_ro"
+    ],
+    "sql": "SELECT roleid role_oid,member member_oid,grantor grantor_oid,pg_get_userbyid(roleid) role,pg_get_userbyid(member) member,pg_get_userbyid(grantor) grantor,admin_option,to_jsonb(m)->>'inherit_option' inherit_option,to_jsonb(m)->>'set_option' set_option FROM pg_auth_members m WHERE roleid=(SELECT oid FROM pg_roles WHERE rolname=$1) OR member=(SELECT oid FROM pg_roles WHERE rolname=$2)"
+  },
+  "password": {
+    "params": [
+      "wsx_release_backup_ro"
+    ],
+    "sql": "SELECT rolname name,rolpassword IS NULL password_null FROM pg_authid WHERE rolname=$1"
+  },
+  "relations": {
+    "params": [],
+    "sql": "SELECT n.nspname schema,c.relname name,c.relkind kind,pg_get_userbyid(c.relowner) owner,c.relacl::text acl,c.relrowsecurity rls,c.relforcerowsecurity force_rls FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname<>'information_schema' AND n.nspname !~ '^pg_' AND c.relkind IN ('r','p','v','m','S','f') ORDER BY n.nspname,c.relname"
+  },
+  "role": {
+    "params": [
+      "wsx_release_backup_ro"
+    ],
+    "sql": "SELECT oid,rolname name,rolsuper superuser,rolinherit inherit,rolcreaterole create_role,rolcreatedb create_db,rolcanlogin login,rolreplication replication,rolbypassrls bypass_rls,rolconnlimit connection_limit,rolvaliduntil::text valid_until,rolconfig FROM pg_roles WHERE rolname=$1"
+  },
+  "rollback-readonly": {
+    "params": [],
+    "sql": "ROLLBACK"
+  },
+  "schemas": {
+    "params": [],
+    "sql": "SELECT n.nspname name,pg_get_userbyid(n.nspowner) owner,n.nspacl::text acl FROM pg_namespace n WHERE n.nspname<>'information_schema' AND n.nspname !~ '^pg_' ORDER BY n.nspname"
+  },
+  "sessions": {
+    "params": [
+      "wsx_release_backup_ro"
+    ],
+    "sql": "SELECT pid,backend_start::text backend_start,application_name,state FROM pg_stat_activity WHERE usename=$1 ORDER BY pid"
+  }
+}

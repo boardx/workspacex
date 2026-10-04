@@ -145,7 +145,7 @@ export function LoginForm({ state, next }: { state: UiState; next?: string }) {
   }
 
   const form = (
-    <div className="flex flex-col gap-4" data-testid="login-form">
+    <div className="flex flex-col gap-5" data-testid="login-form">
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="login-email">工作邮箱</Label>
         <Input
@@ -165,7 +165,7 @@ export function LoginForm({ state, next }: { state: UiState; next?: string }) {
             type="button"
             onClick={() => setForgot(true)}
             data-testid="login-forgot-link"
-            className="text-12 text-primary underline-offset-4 transition-colors duration-base hover:underline"
+            className="text-12 text-brand-ink underline-offset-4 transition-colors duration-base hover:underline"
           >
             忘记密码？
           </button>
@@ -279,7 +279,7 @@ export function LoginForm({ state, next }: { state: UiState; next?: string }) {
             type="button"
             onClick={() => window.location.assign("/auth/register")}
             data-testid="login-create-org"
-            className="font-medium text-primary underline-offset-4 transition-all duration-200 hover:underline"
+            className="font-medium text-brand-ink underline-offset-4 transition-colors duration-base motion-reduce:transition-none hover:underline"
           >
             创建组织
           </button>

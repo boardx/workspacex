@@ -1,0 +1,132 @@
+{
+  "schemaVersion": 1,
+  "scope": "readonly-five-public-definer-exact-baseline-body-comparison",
+  "invokeId": "t-sh06yy8j45krda8",
+  "commandId": "c-sh06yy8j455rz7k",
+  "requestId": "01A10315-21A0-599F-97B1-264173518A95",
+  "invocationStatus": "Success",
+  "exitCode": 0,
+  "dropped": 0,
+  "startTime": "2026-10-03T18:43:52Z",
+  "finishedTime": "2026-10-03T18:43:53Z",
+  "observedAt": "2026-10-03T18:43:52.607Z",
+  "baselineRevision": "ba6343199f3c834d6a198f83d0c771614292c82b",
+  "functions": [
+    {
+      "oid": "17456",
+      "schema_name": "public",
+      "function_name": "kernel_org_is_writable",
+      "prosecdef": true,
+      "prokind": "f",
+      "provolatile": "s",
+      "proconfig": [
+        "search_path=public, pg_temp"
+      ],
+      "return_type": "boolean",
+      "language": "sql",
+      "owner": "migration_admin",
+      "prosrcSha256": "164ddbcd0df077e661bc939c9d1de2807fdbe131ade3aa2f5e0647ab76d9bfdd",
+      "baselineRevision": "ba6343199f3c834d6a198f83d0c771614292c82b",
+      "baselinePath": "apps/api/migrations/0014-f22-org-lifecycle.sql",
+      "bodyMatchesExactBaseline": true,
+      "body": "\n  SELECT COALESCE((SELECT o.status = 'active' FROM organizations o WHERE o.id = p_org), true);\n"
+    },
+    {
+      "oid": "22519",
+      "schema_name": "public",
+      "function_name": "kernel_project_is_writable",
+      "prosecdef": true,
+      "prokind": "f",
+      "provolatile": "s",
+      "proconfig": [
+        "search_path=public, pg_temp"
+      ],
+      "return_type": "boolean",
+      "language": "sql",
+      "owner": "migration_admin",
+      "prosrcSha256": "63c05c19c1dcf7b2a0a37e524d208f423d1f0887de996dbdb11b836996816e1b",
+      "baselineRevision": "ba6343199f3c834d6a198f83d0c771614292c82b",
+      "baselinePath": "apps/api/migrations/20260801120000_f124_project_archive_readonly.sql",
+      "bodyMatchesExactBaseline": true,
+      "body": "\n  SELECT COALESCE((SELECT p.status <> 'archived' FROM projects p WHERE p.id = p_project), true);\n"
+    },
+    {
+      "oid": "66993",
+      "schema_name": "public",
+      "function_name": "kernel_stale_queued_agent_run_orgs",
+      "prosecdef": true,
+      "prokind": "f",
+      "provolatile": "v",
+      "proconfig": [
+        "search_path=public, pg_temp"
+      ],
+      "return_type": "text",
+      "language": "sql",
+      "owner": "migration_admin",
+      "prosrcSha256": "2e74ce8664072dc14b0c53ba3f11d0c7678b1ec5578dc45d99e22ebfa16c1ba2",
+      "baselineRevision": "ba6343199f3c834d6a198f83d0c771614292c82b",
+      "baselinePath": "apps/api/migrations/20260911130000_stale_queued_agent_run_discovery.sql",
+      "bodyMatchesExactBaseline": true,
+      "body": "\n  SELECT DISTINCT r.org_id FROM agent_runs r\n  WHERE r.status='queued' AND coalesce(r.lease_expires_at,\n    coalesce(r.heartbeat_at,r.started_at)+(threshold_ms||' milliseconds')::interval)<now()\n  LIMIT 100\n"
+    },
+    {
+      "oid": "17363",
+      "schema_name": "public",
+      "function_name": "kernel_user_org_ids",
+      "prosecdef": true,
+      "prokind": "f",
+      "provolatile": "s",
+      "proconfig": [
+        "search_path=public, pg_temp"
+      ],
+      "return_type": "record",
+      "language": "sql",
+      "owner": "migration_admin",
+      "prosrcSha256": "cee2ff04af48344945369a525212c859e20c300a3d8b05155c5537c3e62bbad0",
+      "baselineRevision": "ba6343199f3c834d6a198f83d0c771614292c82b",
+      "baselinePath": "apps/api/migrations/0010-auth-credentials-sessions.sql",
+      "bodyMatchesExactBaseline": true,
+      "body": "\n  SELECT m.org_id, m.org_role\n    FROM org_memberships m\n   WHERE m.user_id = p_user_id;\n"
+    },
+    {
+      "oid": "25380",
+      "schema_name": "public",
+      "function_name": "wave2_skill_file_insert_before_publish",
+      "prosecdef": true,
+      "prokind": "f",
+      "provolatile": "v",
+      "proconfig": [
+        "search_path=public, pg_temp"
+      ],
+      "return_type": "trigger",
+      "language": "plpgsql",
+      "owner": "migration_admin",
+      "prosrcSha256": "5615f8e6cfed1c4b9296dc7d8973ceaa4c6d6c7f9a62678039754461cad64a7d",
+      "baselineRevision": "ba6343199f3c834d6a198f83d0c771614292c82b",
+      "baselinePath": "apps/api/migrations/20260804031000_wave2_skill_starter_import.sql",
+      "bodyMatchesExactBaseline": true,
+      "body": "\nDECLARE parent_published boolean;\nBEGIN\n  -- This trigger is SECURITY DEFINER solely so it can take the same row lock as\n  -- the one-purpose publish function. Reject a forged tenant before the definer\n  -- query can observe any version outside the caller's RLS scope.\n  IF NEW.org_id IS DISTINCT FROM current_setting('app.current_org', true) THEN\n    RAISE EXCEPTION 'Skill file tenant does not match current tenant';\n  END IF;\n  SELECT published INTO parent_published\n    FROM skill_versions\n   WHERE id = NEW.version_id AND org_id = NEW.org_id\n   FOR UPDATE;\n  IF parent_published IS DISTINCT FROM false THEN\n    RAISE EXCEPTION 'published Skill versions and files are immutable';\n  END IF;\n  RETURN NEW;\nEND;\n"
+    }
+  ],
+  "executionInputMetadata": {
+    "kind": "backup-existing-execution-input-metadata-readonly",
+    "configurationSha256": "76a7f158cf939504439d6d4b08bf1ce990e6f2ab262017ff9f462799b8f7c4e0",
+    "pgDumpAtFixedPath": false,
+    "opensslAtFixedPath": true,
+    "migrationSecretRefScheme": "file",
+    "migrationCredentialMetadata": {
+      "available": true,
+      "fields": [
+        "database",
+        "host",
+        "port",
+        "user"
+      ],
+      "user": "migration_admin",
+      "regularRootPrivate": true
+    }
+  },
+  "functionsInvoked": false,
+  "businessRowsRead": false,
+  "productionMutation": false
+}

@@ -1,0 +1,573 @@
+{
+  "scope": "readonly-native-rds-backup-cost-investigation",
+  "recordedAt": "2026-10-03T21:10:02.955220+00:00",
+  "region": "cn-shanghai",
+  "instanceId": "pgm-uf6rg214cp381l49",
+  "productionChangesPerformed": false,
+  "billableResourcesCreated": false,
+  "results": {
+    "DescribeBackups": {
+      "TotalRecordCount": 7,
+      "PageRecordCount": 7,
+      "TotalEcsSnapshotSize": "9397338112",
+      "RequestId": "01A10394-D3F4-527F-A74C-3F153189DEE3",
+      "PageNumber": 1,
+      "Items": {
+        "Backup": [
+          {
+            "BackupMode": "Automated",
+            "BackupId": 3184466733,
+            "Encryption": "{}",
+            "BackupDBNames": "",
+            "DBInstanceId": "pgm-uf6rg214cp381l49",
+            "Checksum": "",
+            "BackupType": "FullBackup",
+            "Engine": "PostgreSQL",
+            "BackupMethod": "Snapshot",
+            "EngineVersion": "16.0",
+            "BackupInitiator": "System",
+            "BackupIntranetDownloadURL": "",
+            "StorageClass": "0",
+            "BackupSize": 107374182400,
+            "IsAvail": 1,
+            "HostInstanceID": 54226615,
+            "StoreStatus": "Disabled",
+            "BackupDownloadURL": "",
+            "BackupEndTime": "2026-10-03T19:44:53Z",
+            "BackupStartTime": "2026-10-03T19:41:16Z",
+            "ConsistentTime": "1791056476",
+            "MetaStatus": "OK",
+            "BackupScale": "DBInstance",
+            "BackupLocation": "OSS",
+            "BackupStatus": "Success"
+          },
+          {
+            "BackupMode": "Automated",
+            "BackupId": 3183209775,
+            "Encryption": "{}",
+            "BackupDBNames": "",
+            "DBInstanceId": "pgm-uf6rg214cp381l49",
+            "Checksum": "",
+            "BackupType": "FullBackup",
+            "Engine": "PostgreSQL",
+            "BackupMethod": "Snapshot",
+            "EngineVersion": "16.0",
+            "BackupInitiator": "System",
+            "BackupIntranetDownloadURL": "",
+            "StorageClass": "0",
+            "BackupSize": 107374182400,
+            "IsAvail": 1,
+            "HostInstanceID": 54226615,
+            "StoreStatus": "Disabled",
+            "BackupDownloadURL": "",
+            "BackupEndTime": "2026-10-02T19:45:06Z",
+            "BackupStartTime": "2026-10-02T19:41:29Z",
+            "ConsistentTime": "1790970089",
+            "MetaStatus": "OK",
+            "BackupScale": "DBInstance",
+            "BackupLocation": "OSS",
+            "BackupStatus": "Success"
+          },
+          {
+            "BackupMode": "Automated",
+            "BackupId": 3181923077,
+            "Encryption": "{}",
+            "BackupDBNames": "",
+            "DBInstanceId": "pgm-uf6rg214cp381l49",
+            "Checksum": "",
+            "BackupType": "FullBackup",
+            "Engine": "PostgreSQL",
+            "BackupMethod": "Snapshot",
+            "EngineVersion": "16.0",
+            "BackupInitiator": "System",
+            "BackupIntranetDownloadURL": "",
+            "StorageClass": "0",
+            "BackupSize": 107374182400,
+            "IsAvail": 1,
+            "HostInstanceID": 54226615,
+            "StoreStatus": "Disabled",
+            "BackupDownloadURL": "",
+            "BackupEndTime": "2026-10-01T19:46:03Z",
+            "BackupStartTime": "2026-10-01T19:41:25Z",
+            "ConsistentTime": "1790883685",
+            "MetaStatus": "OK",
+            "BackupScale": "DBInstance",
+            "BackupLocation": "OSS",
+            "BackupStatus": "Success"
+          },
+          {
+            "BackupMode": "Automated",
+            "BackupId": 3180625877,
+            "Encryption": "{}",
+            "BackupDBNames": "",
+            "DBInstanceId": "pgm-uf6rg214cp381l49",
+            "Checksum": "",
+            "BackupType": "FullBackup",
+            "Engine": "PostgreSQL",
+            "BackupMethod": "Snapshot",
+            "EngineVersion": "16.0",
+            "BackupInitiator": "System",
+            "BackupIntranetDownloadURL": "",
+            "StorageClass": "0",
+            "BackupSize": 107374182400,
+            "IsAvail": 1,
+            "HostInstanceID": 54226615,
+            "StoreStatus": "Disabled",
+            "BackupDownloadURL": "",
+            "BackupEndTime": "2026-09-30T19:47:10Z",
+            "BackupStartTime": "2026-09-30T19:41:33Z",
+            "ConsistentTime": "1790797293",
+            "MetaStatus": "OK",
+            "BackupScale": "DBInstance",
+            "BackupLocation": "OSS",
+            "BackupStatus": "Success"
+          },
+          {
+            "BackupMode": "Automated",
+            "BackupId": 3179326591,
+            "Encryption": "{}",
+            "BackupDBNames": "",
+            "DBInstanceId": "pgm-uf6rg214cp381l49",
+            "Checksum": "",
+            "BackupType": "FullBackup",
+            "Engine": "PostgreSQL",
+            "BackupMethod": "Snapshot",
+            "EngineVersion": "16.0",
+            "BackupInitiator": "System",
+            "BackupIntranetDownloadURL": "",
+            "StorageClass": "0",
+            "BackupSize": 107374182400,
+            "IsAvail": 1,
+            "HostInstanceID": 54226615,
+            "StoreStatus": "Disabled",
+            "BackupDownloadURL": "",
+            "BackupEndTime": "2026-09-29T19:46:48Z",
+            "BackupStartTime": "2026-09-29T19:41:10Z",
+            "ConsistentTime": "1790710870",
+            "MetaStatus": "OK",
+            "BackupScale": "DBInstance",
+            "BackupLocation": "OSS",
+            "BackupStatus": "Success"
+          },
+          {
+            "BackupMode": "Automated",
+            "BackupId": 3178035583,
+            "Encryption": "{}",
+            "BackupDBNames": "",
+            "DBInstanceId": "pgm-uf6rg214cp381l49",
+            "Checksum": "",
+            "BackupType": "FullBackup",
+            "Engine": "PostgreSQL",
+            "BackupMethod": "Snapshot",
+            "EngineVersion": "16.0",
+            "BackupInitiator": "System",
+            "BackupIntranetDownloadURL": "",
+            "StorageClass": "0",
+            "BackupSize": 107374182400,
+            "IsAvail": 1,
+            "HostInstanceID": 54226615,
+            "StoreStatus": "Disabled",
+            "BackupDownloadURL": "",
+            "BackupEndTime": "2026-09-28T19:48:40Z",
+            "BackupStartTime": "2026-09-28T19:41:03Z",
+            "ConsistentTime": "1790624463",
+            "MetaStatus": "OK",
+            "BackupScale": "DBInstance",
+            "BackupLocation": "OSS",
+            "BackupStatus": "Success"
+          },
+          {
+            "BackupMode": "Automated",
+            "BackupId": 3176729359,
+            "Encryption": "{}",
+            "BackupDBNames": "",
+            "DBInstanceId": "pgm-uf6rg214cp381l49",
+            "Checksum": "",
+            "BackupType": "FullBackup",
+            "Engine": "PostgreSQL",
+            "BackupMethod": "Snapshot",
+            "EngineVersion": "16.0",
+            "BackupInitiator": "System",
+            "BackupIntranetDownloadURL": "",
+            "StorageClass": "0",
+            "BackupSize": 107374182400,
+            "IsAvail": 1,
+            "HostInstanceID": 54226615,
+            "StoreStatus": "Disabled",
+            "BackupDownloadURL": "",
+            "BackupEndTime": "2026-09-27T19:45:46Z",
+            "BackupStartTime": "2026-09-27T19:41:09Z",
+            "ConsistentTime": "1790538069",
+            "MetaStatus": "OK",
+            "BackupScale": "DBInstance",
+            "BackupLocation": "OSS",
+            "BackupStatus": "Success"
+          }
+        ]
+      },
+      "TotalBackupSize": "751619276800"
+    },
+    "DescribeBackupPolicy": {
+      "EnableIncrementDataBackup": false,
+      "Category": "Standard",
+      "ArchiveBackupRetentionPeriod": 0,
+      "ReleasedKeepPolicy": "None",
+      "PreferredNextBackupTime": "2026-10-04T19:41Z",
+      "DuplicationLocation": {
+        "Sotrage": "OSS",
+        "Location": {
+          "Endpoint": "",
+          "Bucket": ""
+        }
+      },
+      "ArchiveBackupKeepCount": 1,
+      "PreferredBackupPeriod": "Monday,Tuesday,Wednesday,Thursday,Friday,Saturday,Sunday",
+      "LogBackupRetentionPeriod": "7",
+      "LogBackupLocalRetentionNumber": 60,
+      "SupportReleasedKeep": 0,
+      "DuplicationContent": "",
+      "BackupMethod": "Snapshot",
+      "Duplication": "",
+      "RequestId": "01A10394-D3F9-575A-B6A6-373A4B4710CC",
+      "ArchiveBackupKeepPolicy": "ByMonth",
+      "PreferredBackupTime": "19:00Z-20:00Z",
+      "LocalLogRetentionHours": "0",
+      "HighSpaceUsageProtection": "Enable",
+      "CompressType": "1",
+      "LogBackupFrequency": "",
+      "AdvancedBackupPolicyEnabled": false,
+      "BackupLog": "Enable",
+      "EnableBackupLog": "1",
+      "LocalLogRetentionSpace": "30",
+      "BackupRetentionPeriod": 7,
+      "SupportModifyBackupPriority": false,
+      "BackupInterval": "-1"
+    },
+    "DescribeDBInstanceAttribute": {
+      "RequestId": "01A10394-D3AC-51DB-986F-9E9D8A90434D",
+      "Items": {
+        "DBInstanceAttribute": [
+          {
+            "DBInstanceMemory": 2048,
+            "ResourceGroupId": "rg-aek6krukghp2p4a",
+            "MasterZone": "cn-shanghai-e",
+            "Port": "5432",
+            "LatestKernelVersion": "rds_postgres_1600_20260830",
+            "ConsoleVersion": "2",
+            "DBInstanceType": "Primary",
+            "InstanceNetworkType": "VPC",
+            "DBInstanceClassType": "x",
+            "DrReplicaInfo": {},
+            "AutoUpgradeMinorVersion": "Auto",
+            "DBInstanceId": "pgm-uf6rg214cp381l49",
+            "DBInstanceStorage": 100,
+            "InstructionSetArch": "x86",
+            "LockReason": "",
+            "AvailabilityValue": "100.0%",
+            "DBInstanceDescription": "workspacex-cn-prod-postgresql",
+            "Engine": "PostgreSQL",
+            "IoAccelerationEnabled": "0",
+            "IPType": "IPv4",
+            "MaxIOMBPS": 0,
+            "DBInstanceDiskUsed": 4131389440,
+            "EngineVersion": "16.0",
+            "DBInstanceStatus": "Running",
+            "MaxConnections": 2400,
+            "DBInstanceClass": "pg.n2.serverless.2c",
+            "AccountMaxQuantity": 99999,
+            "VSwitchId": "vsw-uf6rqwne9b3cp48diptx1",
+            "TipsLevel": 1,
+            "DeletionProtection": true,
+            "LockMode": "Unlock",
+            "PayType": "SERVERLESS",
+            "DBClusterNodes": {
+              "DBClusterNode": []
+            },
+            "SupportCreateSuperAccount": "Yes",
+            "InsId": 1,
+            "ComputeBurstEnabled": false,
+            "SupportCompression": false,
+            "VpcId": "vpc-uf6e7vt902oid0p1mwd6q",
+            "CurrentKernelVersion": "rds_postgres_1600_20260830",
+            "TempUpgradeTimeEnd": "2126-09-13 00:00:00",
+            "TempUpgradeTimeStart": "2026-10-09 00:00:00",
+            "ConnectionMode": "physical",
+            "CreationTime": "2026-09-11T19:18:58Z",
+            "VpcCloudInstanceId": "mr-nasnsm63gd9ffnf6t6-20260912031854",
+            "ProxyType": 2,
+            "ConnectionString": "pgm-uf6rg214cp381l49.rwlb.rds.aliyuncs.com",
+            "ExpireTime": "",
+            "AdvancedFeatures": "LinkedServer,DistributeTransaction",
+            "DBMaxQuantity": 99999,
+            "WarmStandbyInfo": {},
+            "Category": "serverless_standard",
+            "kindCode": "18",
+            "DBInstanceNetType": "Intranet",
+            "SuperPermissionMode": "",
+            "DedicatedHostGroupId": "",
+            "DBInstanceCPU": "1",
+            "CompressionMode": "off",
+            "OriginConfiguration": "{\"KindCode\":\"18\"}",
+            "SecurityIPList": "192.168.100.40",
+            "ReadOnlyDBInstanceIds": {
+              "ReadOnlyDBInstanceId": []
+            },
+            "SecurityIPMode": "normal",
+            "CompressionRatio": 1.0,
+            "MaintainTime": "18:00Z-22:00Z",
+            "ColdDataEnabled": false,
+            "DispenseMode": "MultiAVZDispenseMode",
+            "BurstingEnabled": true,
+            "ZoneId": "cn-shanghai-e",
+            "DBInstanceStorageType": "general_essd",
+            "AccountType": "Mix",
+            "MaxIOPS": 7550,
+            "SupportUpgradeAccountType": "Yes",
+            "SlaveZones": {
+              "SlaveZone": [
+                {
+                  "ZoneId": "cn-shanghai-g"
+                }
+              ]
+            },
+            "Extra": {
+              "DBInstanceIds": {
+                "DBInstanceId": []
+              }
+            },
+            "ServerlessConfig": {
+              "SwitchForce": false,
+              "ScaleMin": 0.5,
+              "ScaleMax": 4.0,
+              "AutoPause": false
+            },
+            "BabelfishConfig": {},
+            "CanTempUpgrade": true,
+            "RegionId": "cn-shanghai",
+            "Tips": "ok"
+          }
+        ]
+      }
+    },
+    "DescribeLocalAvailableRecoveryTime": {
+      "RecoveryEndTime": "2026-10-03T21:05:27Z",
+      "RecoveryBeginTime": "2026-09-27T19:45:46Z",
+      "RequestId": "01A10396-0C0B-593D-9F3F-9DF54DD873D4",
+      "DBInstanceId": "pgm-uf6rg214cp381l49"
+    },
+    "DescribeBackupDatabase": {
+      "RequestId": "01A10396-0C0F-5840-BA0D-9649A509B8D5",
+      "DatabaseNames": "[]"
+    },
+    "DescribeResourceUsage": {
+      "PaidBackupSize": 0,
+      "BackupEcsSnapshotSize": "9397338112",
+      "RequestId": "01A10396-0C04-5F3D-AA99-3EB60A5F831B",
+      "BackupSize": 41392465408,
+      "ArchiveBackupSize": 0,
+      "ColdBackupSize": -1,
+      "BackupOssLogSize": "31995127296",
+      "LogSize": 2363490304,
+      "DBInstanceId": "pgm-uf6rg214cp381l49",
+      "BackupDataSize": 9397338112,
+      "DataSize": 1767899136,
+      "BackupLogSize": 31995127296,
+      "BackupOssDataSize": "0",
+      "SQLSize": -1,
+      "DiskUsed": 4131389440,
+      "Engine": "PostgreSQL"
+    },
+    "DescribeDBInstances": {
+      "TotalRecordCount": 1,
+      "PageRecordCount": 1,
+      "NextToken": "",
+      "RequestId": "01A10396-0C05-5B07-BA91-16C9949564D3",
+      "PageNumber": 1,
+      "Items": {
+        "DBInstance": [
+          {
+            "DBInstanceMemory": 2048,
+            "ResourceGroupId": "rg-aek6krukghp2p4a",
+            "DBInstanceNetType": "Intranet",
+            "IsAnalyticIns": false,
+            "DBInstanceType": "Primary",
+            "MutriORsignle": false,
+            "InstanceNetworkType": "VPC",
+            "DBInstanceId": "pgm-uf6rg214cp381l49",
+            "ReadOnlyDBInstanceIds": {
+              "ReadOnlyDBInstanceId": []
+            },
+            "LockReason": "",
+            "DBInstanceDescription": "workspacex-cn-prod-postgresql",
+            "Engine": "PostgreSQL",
+            "EngineVersion": "16.0",
+            "DBInstanceStatus": "Running",
+            "ZoneId": "cn-shanghai-e",
+            "DBInstanceClass": "pg.n2.serverless.2c",
+            "CreateTime": "2026-09-11T19:18:58Z",
+            "VSwitchId": "vsw-uf6rqwne9b3cp48diptx1",
+            "TipsLevel": 0,
+            "DeletionProtection": true,
+            "LockMode": "Unlock",
+            "PayType": "SERVERLESS",
+            "IsAnalyticReadOnlyIns": false,
+            "DBInstanceStorageType": "general_essd",
+            "InsId": 1,
+            "VpcId": "vpc-uf6e7vt902oid0p1mwd6q",
+            "ConnectionMode": "physical",
+            "VpcCloudInstanceId": "mr-nasnsm63gd9ffnf6t6-20260912031854",
+            "RegionId": "cn-shanghai",
+            "ConnectionString": "pgm-uf6rg214cp381l49.rwlb.rds.aliyuncs.com",
+            "ExpireTime": ""
+          }
+        ]
+      }
+    },
+    "DescribeDatabases": {
+      "Databases": {
+        "Database": [
+          {
+            "ConnLimit": -1,
+            "CharacterSetName": "UTF8",
+            "Tablespace": "pg_default",
+            "DBDescription": "",
+            "Collate": "C",
+            "DBStatus": "Running",
+            "DuckDBEnabled": false,
+            "TotalCount": 3,
+            "DBInstanceId": "pgm-uf6rg214cp381l49",
+            "DBName": "workspacex",
+            "Ctype": "en_US.utf8",
+            "Engine": "PostgreSQL",
+            "Accounts": {
+              "AccountPrivilegeInfo": [
+                {
+                  "Account": "migration_owner",
+                  "AccountPrivilege": "ALL"
+                }
+              ]
+            }
+          },
+          {
+            "ConnLimit": -1,
+            "CharacterSetName": "UTF8",
+            "Tablespace": "pg_default",
+            "DBDescription": "",
+            "Collate": "C",
+            "DBStatus": "Running",
+            "DuckDBEnabled": false,
+            "TotalCount": 3,
+            "DBInstanceId": "pgm-uf6rg214cp381l49",
+            "DBName": "workspacex_agent",
+            "Ctype": "en_US.utf8",
+            "Engine": "PostgreSQL",
+            "Accounts": {
+              "AccountPrivilegeInfo": [
+                {
+                  "Account": "graph_owner",
+                  "AccountPrivilege": "ALL"
+                }
+              ]
+            }
+          },
+          {
+            "ConnLimit": -1,
+            "CharacterSetName": "UTF8",
+            "Tablespace": "pg_default",
+            "DBDescription": "",
+            "Collate": "C",
+            "DBStatus": "Running",
+            "DuckDBEnabled": false,
+            "TotalCount": 3,
+            "DBInstanceId": "pgm-uf6rg214cp381l49",
+            "DBName": "workspacex_memory",
+            "Ctype": "en_US.utf8",
+            "Engine": "PostgreSQL",
+            "Accounts": {
+              "AccountPrivilegeInfo": [
+                {
+                  "Account": "memory_owner",
+                  "AccountPrivilege": "ALL"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "RequestId": "01A10397-D171-5694-AC6E-79DCAC0A3B95"
+    }
+  },
+  "quoteAttempt": {
+    "message": "The request not refer to the correct order sale component. please contact customer service.",
+    "error_code": "InvalidSaleComponentFault",
+    "status_code": 403,
+    "request_id": "01A10398-6528-57C8-9467-A5CC212D9CA9",
+    "recovery": {
+      "action": "diagnose_error_code",
+      "command": "aliyun openapiexplorer GetErrorCodeSolutions --errorCode 'InvalidSaleComponentFault' --product Rds --acceptLanguage en-US --region cn-hangzhou",
+      "hint": "Look up diagnostic solutions for error code InvalidSaleComponentFault."
+    }
+  },
+  "availableClassAttempt": {
+    "message": "No class found",
+    "error_code": "InvalidCondition.NotFound",
+    "status_code": 404,
+    "request_id": "01A10398-514E-5184-BBF1-31DC6FA3D071",
+    "recovery": {
+      "action": "diagnose_error_code",
+      "command": "aliyun openapiexplorer GetErrorCodeSolutions --errorCode 'InvalidCondition.NotFound' --product Rds --acceptLanguage en-US --region cn-hangzhou",
+      "hint": "Look up diagnostic solutions for error code InvalidCondition.NotFound."
+    }
+  },
+  "officialSources": {
+    "restore": "https://help.aliyun.com/zh/rds/apsaradb-rds-for-postgresql/restore-data-of-an-apsaradb-rds-for-postgresql-instance",
+    "price": "https://help.aliyun.com/zh/rds/apsaradb-rds-for-postgresql/pricing-of-serverless-apsaradb-rds-for-sql-server-instances",
+    "backupPrice": "https://help.aliyun.com/zh/rds/apsaradb-rds-for-postgresql/billable-items-and-pricing-for-the-backup-storage-of-an-apsaradb-rds-for-postgresql-instance",
+    "release": "https://help.aliyun.com/zh/rds/apsaradb-rds-for-postgresql/release-or-unsubscribe-from-an-apsaradb-rds-for-postgresql-instance"
+  },
+  "publicPriceScenario": {
+    "currency": "CNY",
+    "accountQuoteAvailable": false,
+    "taxIncludedVerified": false,
+    "sourceSameCategoryAssumption": true,
+    "nodes": 2,
+    "storageGBPerNode": 100,
+    "RCUPerNodeRange": [
+      0.5,
+      4
+    ],
+    "hoursRange": [
+      2,
+      4
+    ],
+    "RCUPricePerHour": 0.333,
+    "storagePricePerGBHour": 0.0017,
+    "hourlyComputeStorageRange": [
+      0.673,
+      3.004
+    ],
+    "totalComputeStorageRange": [
+      1.346,
+      12.016
+    ],
+    "actualRestoreDurationMeasured": false,
+    "excluded": [
+      "incremental source load",
+      "new app/ECS/Redis/storage resources",
+      "backup overage",
+      "public/cross-region networking",
+      "unverified account tax/discount/minimum-hour rounding"
+    ]
+  },
+  "supersedingAccountQuoteEvidence": "cn-native-clone-account-quote.json",
+  "currentAccountQuoteAvailable": true,
+  "currentQuoteHourlyCNY": [
+    0.337,
+    1.502
+  ],
+  "currentQuoteTwoToFourHourComputeStorageCNY": [
+    0.674,
+    6.008
+  ],
+  "previousQuoteErrorsWereParameterComponentMismatchNotAuthorizationDenial": true
+}

@@ -59,7 +59,7 @@ install -d -o root -g root -m 0755 "$(dirname "$TRUSTED_PUBLISH_BIN")"
 install -o root -g root -m 0755 "$publisher_script" "$TRUSTED_PUBLISH_BIN"
 install -o root -g root -m 0755 "$preflight_script" "$TRUSTED_PREFLIGHT_BIN"
 install -o root -g root -m 0755 "$collector_script" "$TRUSTED_COLLECTOR_BIN"
-for helper in cn-release-preflight-evidence.mjs cn-release-orphans.py cn-bootstrap-source-probe.mjs cn-controlled-evidence.mjs devapp-runtime-identity.mjs; do
+for helper in cn-bootstrap-baseline.cjs cn-bootstrap-baseline-source.mjs cn-baseline-schema-contract.cjs cn-release-preflight-evidence.mjs cn-release-orphans.py cn-bootstrap-source-probe.mjs cn-controlled-evidence.mjs devapp-runtime-identity.mjs; do
   source="$REPOSITORY_DIR/.harness/scripts/vm/$helper"
   [[ -f "$source" && ! -L "$source" ]] || { echo "CN_BOOTSTRAP_COLLECTOR_HELPER_MISSING" >&2; exit 1; }
   install -o root -g root -m 0755 "$source" "/usr/local/lib/workspacex-cn/$helper"
