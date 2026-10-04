@@ -11,3 +11,7 @@ Manual content reading confirms summary, installation and budget findings with e
 A prior public candidate was recovered in 330ms without model generation, preserving its raw hash; that older text still had a single-task interpretation limitation and is not claimed semantically approved.
 
 Browser evidence limits: the new repository-only fixture's interview view returned 404 in IAB, so this is an API/model/storage result, not a real browser pass. The separately recorded controlled browser regression proves repair/failure/refresh rendering. Original private devapp action failure and deployed SHA remain unknown because formal browser access was blocked by header policy. No bypass was used.
+
+## Independent evidence/content review
+
+Reviewer accepted the recorded evidence boundaries on docs SHA f7df371ec9a99e1922e0d477564f6d4123053c19, not semantic approval. Manual review identified unsupported generalizations: “极高的沉没成本风险”, “最常见的硬性阻力”, “向下兼容阻力通常更小”; ordering procurement before budget approval and asserting either factor necessarily prevents purchase should be treated as hypotheses/suggestions. “每个维度仅基于单一问答回合” is inaccurate for installation, which cites both a question and counterexample. Raw output is preserved, not silently corrected or approved. The authenticated completed envelope's runs/report documents, source spans, version hashes and references are attached in source-documents.json for independent reconstruction.
