@@ -8,19 +8,54 @@ const types = new Set(["Error", "TypeError", "SyntaxError", "RangeError", "ZodEr
 const reasonCodes = new Set<string>(research.operations.streamGuidedResearchRuntime.err);
 const codes = new Set<string>([...wave2Runtime.AgentRunError.options, "23505", "23503", "23514", "40001", "40P01", "53300", "57P01", "08000", "08006", "ECONNRESET", "ETIMEDOUT", "EAI_AGAIN", "ENOTFOUND", "ABORT_ERR"]);
 
+// These are protocol categories, never arbitrary provider or Zod messages/keys.
+const relevanceIssueCodes = new Set(["invalid_json", "invalid_type", "invalid_enum_value", "too_small", "too_big", "unrecognized_keys",
+  "count", "unknown_chunk", "duplicate_chunk", "contradiction", "task_question", "verbatim_quote", "missing_chunk"]);
+const evaluationFields = new Set(["sourceId", "chunkId", "irrelevant", "matches", "presentation"]);
+const matchFields = new Set(["questionId", "quote", "quoteRef", "insight", "relevance"]);
+type SafeValidationIssue = { code: string; path?: (string | number)[] };
+function safeRelevancePath(value: unknown): (string | number)[] | undefined {
+  if (!Array.isArray(value) || value.length > 6) return undefined;
+  if (!value.length) return [];
+  if (value[0] !== "evaluations") return undefined;
+  const index = (part: unknown) => typeof part === "number" && Number.isInteger(part) && part >= 0 && part <= 255;
+  if (value.length === 1) return ["evaluations"];
+  if (!index(value[1])) return undefined;
+  if (value.length === 2) return ["evaluations", value[1]];
+  if (!evaluationFields.has(value[2])) return undefined;
+  if (value.length === 3) return value.slice();
+  if (value[2] === "presentation" && value.length === 4 && (value[3] === "title" || value[3] === "summary")) return value.slice();
+  if (value[2] !== "matches" || !index(value[3])) return undefined;
+  if (value.length === 4 || (value.length === 5 && matchFields.has(value[4]))) return value.slice();
+  return undefined;
+}
+function safeRelevanceIssues(error: unknown): SafeValidationIssue[] {
+  if (!(error instanceof ResearchRuntimeError) || error.reasonCode !== "RESEARCH_SOURCE_RELEVANCE_INVALID") return [];
+  const issues = (error as ResearchRuntimeError & { issues?: unknown }).issues;
+  if (!Array.isArray(issues)) return [];
+  return issues.slice(0, 16).flatMap((issue: unknown) => {
+    if (!issue || typeof issue !== "object") return [];
+    const item = issue as { code?: unknown; path?: unknown };
+    if (typeof item.code !== "string" || !relevanceIssueCodes.has(item.code)) return [];
+    const path = safeRelevancePath(item.path);
+    return [{ code: item.code, ...(path !== undefined ? { path } : {}) }];
+  });
+}
+
 /** Never record messages, stack traces, inputs, provider bodies or database detail.
- * An allowlisted category/code and operation phase are enough to locate failures
- * without turning the debug recorder into a copy of the user's research material.
+ * Only allowlisted categories/codes, structural validation paths and operation phase
+ * locate failures without turning the debug recorder into a copy of the user's research material.
  */
 function safeErrors(error: unknown) {
-  const result: { type: string; code?: string; reasonCode?: string; status?: number }[] = [];
+  const result: { type: string; code?: string; reasonCode?: string; status?: number; issues?: SafeValidationIssue[] }[] = [];
   const seen = new Set<unknown>();
   for (let current = error; current && typeof current === "object" && result.length < 3 && !seen.has(current);) {
     seen.add(current);
     const item = current as { name?: unknown; code?: unknown; status?: unknown; statusCode?: unknown; cause?: unknown };
     const type = current instanceof ResearchRuntimeError ? "ResearchRuntimeError" : typeof item.name === "string" && types.has(item.name) ? item.name : "UnknownError";
     const status = item.status ?? item.statusCode;
-    result.push({ type, ...(current instanceof ResearchRuntimeError && reasonCodes.has(current.reasonCode) ? { reasonCode: current.reasonCode } : {}), ...(typeof item.code === "string" && codes.has(item.code) ? { code: item.code } : {}),
+    const issues = safeRelevanceIssues(current);
+    result.push({ type, ...(issues.length ? { issues } : {}), ...(current instanceof ResearchRuntimeError && reasonCodes.has(current.reasonCode) ? { reasonCode: current.reasonCode } : {}), ...(typeof item.code === "string" && codes.has(item.code) ? { code: item.code } : {}),
       ...(typeof status === "number" && Number.isInteger(status) && status >= 100 && status <= 599 ? { status } : {}) });
     current = item.cause;
   }
