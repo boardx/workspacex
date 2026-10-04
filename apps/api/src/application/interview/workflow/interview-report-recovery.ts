@@ -1,3 +1,4 @@
+import { isDeepStrictEqual } from "node:util";
 import { ReportGenerationRejectedError } from "./interview-report-rejection";
 import { validateReportEvidence, type ReportEvidence } from "./interview-report-grounding";
 import type { z } from "zod";
@@ -53,11 +54,12 @@ export async function generateReportWithRecovery(
       const hashesUnchanged = saved.references.every(reference => !reference.locator || options.evidenceIndex.some(evidence =>
         evidence.documentId === reference.documentId && evidence.version === reference.version && evidence.sourceHash === reference.locator!.sourceHash));
       if (!sourcesUnchanged || !hashesUnchanged) throw new DigitalInterviewWorkflowError("CONCURRENT_MODIFICATION");
-      if (!options.retry) return options.snapshot;
+      const groundedReferences = [...references, ...grounding.references];
+      if (!options.retry && isDeepStrictEqual(saved.references, groundedReferences)) return options.snapshot;
       // Storage reauthorizes and applies the same source/project CAS as generation.
       await measure("storage", () => deps.reader.saveDraft({
         ...input, step: "report", actorId: input.viewerUserId, expectedVersion, expectedDocumentVersion,
-        markdown: saved.markdown, references: [...references, ...grounding.references],
+        markdown: saved.markdown, references: groundedReferences,
       }));
       return measure("storage", () => readInterviewMarkdown(deps, input));
     }

@@ -2,7 +2,7 @@ import { z } from "zod";
 import { unified } from "unified";
 import remarkParse from "remark-parse";
 import remarkGfm from "remark-gfm";
-import { DigitalInterviewArtifact, DigitalInterviewArtifactStep } from "./interview";
+import { DigitalInterviewArtifact, DigitalInterviewArtifactStep, InterviewError, operations } from "./interview";
 import { InterviewMarkdownReportReview } from "./interview-markdown-report-review";
 
 /** Offsets use JavaScript UTF-16 code units into the preserved runs Markdown. */
@@ -142,12 +142,18 @@ export const InterviewMarkdownEnvelope = z.object({
   review: InterviewMarkdownReportReview.nullable().default(null),
 }).strict();
 /** Request-local observation; completed is emitted only after authorized canonical storage/read. */
+export const InterviewReportRejectionCode = z.enum(["REPORT_ACTION_VALIDATION_REJECTED", "REPORT_QUALITY_REJECTED", "REPORT_GROUNDING_REJECTED"]);
+export type InterviewReportRejectionCode = z.infer<typeof InterviewReportRejectionCode>;
+
+const interviewOperationErrors = Object.values(operations).flatMap(operation => [...operation.err]);
+export const InterviewMarkdownReportFailureCode = z.enum([...InterviewError.options, ...InterviewReportRejectionCode.options, ...interviewOperationErrors]);
+
 export const InterviewMarkdownReportStreamEvent = z.discriminatedUnion("type", [
   z.object({ type: z.literal("attempt"), attempt: z.number().int().positive() }).strict(),
   z.object({ type: z.literal("stage"), stage: z.enum(["context", "model", "validation", "storage"]) }).strict(),
   z.object({ type: z.literal("delta"), delta: z.string() }).strict(),
   z.object({ type: z.literal("completed"), source: InterviewMarkdownEnvelope }).strict(),
-  z.object({ type: z.literal("failed"), reasonCode: z.string().min(1) }).strict(),
+  z.object({ type: z.literal("failed"), reasonCode: InterviewMarkdownReportFailureCode }).strict(),
 ]);
 export type InterviewMarkdownReportStreamEvent = z.infer<typeof InterviewMarkdownReportStreamEvent>;
 

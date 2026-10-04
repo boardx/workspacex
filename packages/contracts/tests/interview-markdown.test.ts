@@ -150,3 +150,10 @@ describe("numbered verifiable action headings (#5289)", () => {
     expect(hasInterviewReportVerifiableAction(`## ${heading}\n\n${action}`)).toBe(false);
   });
 });
+
+
+it("rejects arbitrary report stream failure strings at the public boundary", async () => {
+  const { InterviewMarkdownReportStreamEvent } = await import("../src/interview-markdown");
+  expect(InterviewMarkdownReportStreamEvent.safeParse({ type: "failed", reasonCode: "PRIVATE_PROVIDER_SECRET" }).success).toBe(false);
+  expect(InterviewMarkdownReportStreamEvent.safeParse({ type: "failed", reasonCode: "AI_GENERATION_UNAVAILABLE" }).success).toBe(true);
+});

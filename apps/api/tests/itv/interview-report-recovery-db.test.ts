@@ -174,3 +174,27 @@ describe("#5289 recovery CAS", () => {
   expect(await rows()).toHaveLength(1);
  });
 });
+
+
+it("refreshes edited draft references durably without rewriting report bytes or calling a model", async () => {
+  const markdown = await groundedReport(validTemplate);
+  const complete = vi.fn(async () => ({ text: markdown }));
+  const generated = await generate(complete);
+  const report = generated.documents.find(document => document.step === "report")!;
+  const edited = markdown.replace(/\[支持低成本试点（合成）\]\(#answer-\d+\)/u, "支持低成本试点（合成）");
+  expect(edited).not.toBe(markdown);
+  await reader.saveDraft({ ...input, step: "report", expectedVersion: generated.version, expectedDocumentVersion: report.version, markdown: edited, references: report.references });
+  const before = await snapshot(); complete.mockClear();
+  const refreshed = await generateInterviewMarkdown(dependencies(complete), { ...input, viewerUserId: actorId, step: "report", expectedVersion: before.version, expectedDocumentVersion: report.version + 1 });
+  const current = refreshed.documents.find(document => document.step === "report")!;
+  expect(complete).not.toHaveBeenCalled();
+  expect(current.markdown).toBe(edited);
+  expect(current.contentHash).toBe(interviewMarkdownContentHash(edited));
+  expect(current.references.filter(reference => reference.locator)).toHaveLength(1);
+  expect(current.references.find(reference => reference.locator)?.locator?.quote).toBe("相反意见：成本过高（合成）");
+  const saved = (await rows()).at(-1)!;
+  expect(saved).toMatchObject({ markdown: edited, content_hash: interviewMarkdownContentHash(edited), status: "draft", version_number: report.version + 2 });
+  expect(saved.controlled_references).toEqual(current.references);
+  await generateInterviewMarkdown(dependencies(complete), { ...input, viewerUserId: actorId, step: "report", expectedVersion: refreshed.version, expectedDocumentVersion: current.version });
+  expect(await rows()).toHaveLength(3);
+});

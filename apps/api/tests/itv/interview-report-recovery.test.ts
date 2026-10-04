@@ -180,3 +180,23 @@ describe("failed candidate still requires exact grounding", () => {
   expect(complete).not.toHaveBeenCalled(); expect(save).not.toHaveBeenCalled(); expect(snapshot.states.at(-1)?.status).toBe("failed");
  });
 });
+
+
+it("refreshes grounded locators on an edited draft without calling the model or changing bytes", async () => {
+  complete.mockResolvedValue({ text: GOOD });
+  await generateInterviewMarkdown(deps(), input);
+  const report = snapshot.documents.find(d => d.step === "report")!;
+  const edited = GOOD.replace("[反对电话。](#answer-2) 与 ", "");
+  await save({ expectedVersion: snapshot.version, expectedDocumentVersion: report.version, markdown: edited, references: report.references });
+  save.mockClear(); complete.mockClear();
+  const request = { ...input, expectedVersion: snapshot.version, expectedDocumentVersion: snapshot.documents.find(d => d.step === "report")!.version };
+  const refreshed = await generateInterviewMarkdown(deps(), request);
+  const current = refreshed.documents.find(d => d.step === "report")!;
+  expect(save).toHaveBeenCalledTimes(1);
+  expect(complete).not.toHaveBeenCalled();
+  expect(current.markdown).toBe(edited);
+  expect(current.contentHash).toBe(createHash("sha256").update(edited).digest("hex"));
+  expect(current.references.filter(r => r.locator).map(r => r.anchor)).toEqual(["answer-4"]);
+  await generateInterviewMarkdown(deps(), { ...input, expectedVersion: refreshed.version, expectedDocumentVersion: current.version });
+  expect(save).toHaveBeenCalledTimes(1);
+});

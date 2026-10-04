@@ -1,5 +1,6 @@
+import { interviewMarkdown } from "@repo/contracts";
 import { DigitalInterviewWorkflowError } from "./digital-interview-runtime.port";
-export const REPORT_REJECTION_CODES = ["REPORT_ACTION_VALIDATION_REJECTED", "REPORT_QUALITY_REJECTED", "REPORT_GROUNDING_REJECTED"] as const;
+export const REPORT_REJECTION_CODES = interviewMarkdown.InterviewReportRejectionCode.options;
 export type ReportRejectionCode = typeof REPORT_REJECTION_CODES[number];
 export class ReportGenerationRejectedError extends DigitalInterviewWorkflowError {
   constructor(readonly reasonCode: ReportRejectionCode) { super("AI_GENERATION_UNAVAILABLE"); }
