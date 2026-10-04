@@ -4,6 +4,7 @@ import { execFileSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { nativeReceiptVerdict, NATIVE_RECEIPTS } from './lib/board-native-receipts.mjs';
 
 export const HEAVY_LANES = {
   'native-board': {
@@ -52,7 +53,7 @@ async function pages(api, path, key) {
   }
   throw new Error('Incomplete batch history; request a fresh run');
 }
-export async function findExactBatch({ api, readManifest, sha, runId }) {
+export async function findExactBatch({ api, readManifest, readNativeEvidence, sha, runId }) {
   const own = await api(`/actions/runs/${runId}`);
   if (!Number.isInteger(own.workflow_id)) throw new Error('Missing workflow identity');
   const runs = await pages(api, `/actions/workflows/${own.workflow_id}/runs?head_sha=${sha}`, 'workflow_runs');
@@ -84,6 +85,12 @@ export async function findExactBatch({ api, readManifest, sha, runId }) {
     const verdicts = completeBatchVerdicts(jobs, artifacts, run);
     // The newest actual attempt invalidates older green results, even if incomplete.
     if (!verdicts) return null;
+    const nativeArtifact = artifacts.find(item => item.name === `${HEAVY_LANES['native-board'].artifact}${run.id}-${run.run_attempt}` && item.expired === false);
+    // Artifact existence and green steps do not prove actual suite execution.
+    try {
+      if (nativeReceiptVerdict(await readNativeEvidence(nativeArtifact), sha) === 'failure') verdicts['native-board'] = 'failure';
+    }
+    catch { return null; } // Never fall back to an older green observation.
     return { url: run.html_url, runId: run.id, verdicts };
   }
   return null;
@@ -106,17 +113,22 @@ async function main() {
     return response;
   };
   const api = async path => (await request(path)).json();
-  const readManifest = async artifact => {
+  const readArtifact = async (artifact, names) => {
     const dir = mkdtempSync(join(tmpdir(), 'board-heavy-'));
     try {
       const file = join(dir, 'manifest.zip');
       writeFileSync(file, Buffer.from(await (await request(`/actions/artifacts/${artifact.id}/zip`)).arrayBuffer()));
-      return JSON.parse(execFileSync('unzip', ['-p', file, 'board-heavy-batch.json'], { encoding: 'utf8', maxBuffer: 8 * 1024 * 1024 }));
+      return Object.fromEntries(names.map(name => [name, JSON.parse(execFileSync('unzip', ['-p', file, name], { encoding: 'utf8', maxBuffer: 8 * 1024 * 1024 }))]));
     } finally { rmSync(dir, { recursive: true }); }
+  };
+  const readManifest = async artifact => (await readArtifact(artifact, ['board-heavy-batch.json']))['board-heavy-batch.json'];
+  const readNativeEvidence = async artifact => {
+    const files = await readArtifact(artifact, Object.keys(NATIVE_RECEIPTS).map(lane => `${lane}/receipt.json`));
+    return Object.fromEntries(Object.keys(NATIVE_RECEIPTS).map(lane => [lane, files[`${lane}/receipt.json`]]));
   };
   const runId = Number(process.env.GITHUB_RUN_ID), runAttempt = Number(process.env.GITHUB_RUN_ATTEMPT);
   if (!Number.isSafeInteger(runId) || runId < 1 || !Number.isSafeInteger(runAttempt) || runAttempt < 1) throw new Error('Missing run identity');
-  const source = process.env.CI_FRESH_RUN === 'true' || runAttempt > 1 ? null : await findExactBatch({ api, readManifest, sha, runId });
+  const source = process.env.CI_FRESH_RUN === 'true' || runAttempt > 1 ? null : await findExactBatch({ api, readManifest, readNativeEvidence, sha, runId });
   const manifest = { schemaVersion: 1, sha, runId, runAttempt, coverageBasis: 'all first-parent main commits; PR numbers from merge/squash commit subjects; null denotes an unassociated commit', coverage, source };
   writeFileSync('board-heavy-batch.json', JSON.stringify(manifest, null, 2) + '\n');
   appendFileSync(process.env.GITHUB_OUTPUT, `sha=${sha}\nrun=${source ? 'false' : 'true'}\nnative=${source?.verdicts['native-board'] ?? ''}\nmeeting=${source?.verdicts['meeting-room'] ?? ''}\n`);

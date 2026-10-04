@@ -6,11 +6,7 @@ import {join,resolve,basename} from 'node:path';
 import {pathToFileURL} from 'node:url';
 import {createHash,randomUUID} from 'node:crypto';
 
-const suites={
-  'e2e/board-connector-existing-runtime.config.ts':{count:7,files:['board-connector-authority.spec.ts','board-connector-copy-defaults.spec.ts','board-connector-history.spec.ts','board-connector-independent-process.spec.ts','board-connector-interchange.spec.ts']},
-  'e2e/board-files-completion.config.ts':{count:6,files:['board-files-boundaries.spec.ts','board-files-filenames.spec.ts','board-files-placement.spec.ts','board-files-retry.spec.ts']},
-  'e2e/board-peer-existing-runtime.config.ts':{metadata:'apps/web/e2e/support/r08/r08-native-suite.json'},
-};
+import {NATIVE_SUITE_DEFINITIONS as suites} from '../../../.harness/scripts/lib/board-native-receipts.mjs';
 
 export function suiteDefinition(config,root=resolve(process.cwd())){
   const descriptor=suites[config];assert(descriptor);
@@ -24,7 +20,7 @@ export function suiteDefinition(config,root=resolve(process.cwd())){
   assert(Array.isArray(metadata.requiredScreenshotNames)&&metadata.requiredScreenshotNames.length>0);
   assert.equal(new Set(metadata.requiredScreenshotNames).size,metadata.requiredScreenshotNames.length);
   assert(metadata.requiredScreenshotNames.every(name=>/^[a-z-]+$/.test(name)));
-  return{files:metadata.files,projects:metadata.projects.map(project=>project.name),screenshots:metadata.projects.flatMap(project=>metadata.requiredScreenshotNames.map(name=>`${name}-${project.viewport.width}.png`)),count:metadata.files.length*metadata.projects.length};
+  return{files:metadata.files,projects:metadata.projects.map(project=>project.name),screenshots:metadata.projects.flatMap(project=>metadata.requiredScreenshotNames.map(name=>`${name}-${project.viewport.width}.png`)),count:descriptor.count};
 }
 
 export function acceptanceCommand(args){
@@ -92,14 +88,14 @@ export async function run(args=process.argv.slice(2)){
   assert(!existsSync(privateRoot)&&!existsSync(safeRoot));mkdirSync(safeRoot,{recursive:true,mode:0o700});
   const sourceFiles=authority.listRuntimeSourceFiles(root);
   if(!suitePresent(command[7],sourceFiles)){
-    writeFileSync(join(safeRoot,'receipt.json'),JSON.stringify({sourceHead:head,status:'ABSENT',existingSpecsSkipped:0,actualRuntimeExecution:false,requiredSuiteComplete:false},null,2),{mode:0o600,flag:'wx'});return;
+    writeFileSync(join(safeRoot,'receipt.json'),JSON.stringify({sourceHead:head,status:'ABSENT',existingSpecsSkipped:0,actualRuntimeExecution:false,requiredSuiteComplete:false},null,2),{mode:0o600,flag:'wx'});throw new Error('NATIVE_SUITE_ABSENT');
   }
   mkdirSync(privateRoot,{mode:0o700});
   const data=join(privateRoot,'data'),manifestInput=join(privateRoot,'source-manifest.json');
   writeFileSync(manifestInput,JSON.stringify({root,head,sourceFiles}),{mode:0o600,flag:'wx'});
   const build=join(root,'apps/web/.next-fullstack-e2e');assert(!existsSync(build),'Owned fresh production build required');
   const privateLog=join(privateRoot,'execution.log'),fd=openSync(privateLog,'wx',0o600);
-  let runtime,runtimeState,exitCode=null,failureReason=null,cleanupCompleted=false,runtimeExit=null,phase='PREPARE',adapter,adapterState,runtimeBefore;
+  let runtime,runtimeState,exitCode=null,failureReason=null,cleanupCompleted=false,runtimeExit=null,phase='PREPARE',adapter,adapterState,runtimeBefore,actualRuntimeExecution=false,requiredSuiteComplete=false,statistics=null,reportErrors=null;
   const cleanupFailures=[];
   const execute=async(executable,args,environment=process.env)=>{
     const child=spawn(executable,args,{cwd:root,env:environment,stdio:['ignore',fd,fd]});
@@ -126,15 +122,16 @@ export async function run(args=process.argv.slice(2)){
     const report=join(privateRoot,'playwright-report.json');
     const env={...process.env,...environment,...adapterState?.environment,BOARD_CONNECTOR_WEB_URL:manifest.webBase,BOARD_CONNECTOR_RUNTIME_MANIFEST:manifestPath,BOARD_CONNECTOR_RUNTIME_VERIFIER:join(support,'runtime-attestation.mjs'),BOARD_FILES_REPORT_PATH:report,PLAYWRIGHT_JSON_OUTPUT_NAME:report};
     const test=spawn(command[0],[...command.slice(1),'--reporter=json','--output',join(privateRoot,'artifacts')],{cwd:root,env,stdio:['ignore',fd,fd]});
-    const [code,signal]=await once(test,'exit');exitCode=code;assert.equal(signal,null);assert.equal(typeof code,'number');
+    const [code,signal]=await once(test,'exit');actualRuntimeExecution=true;exitCode=code;assert.equal(signal,null);assert.equal(typeof code,'number');
     if(code!==0)failureReason='ACCEPTANCE_FAILED';
     const parsed=JSON.parse(readFileSync(report,'utf8'));
-    const statistics=Object.fromEntries(['expected','unexpected','flaky','skipped'].map(key=>[key,Number.isInteger(parsed.stats?.[key])?parsed.stats[key]:null]));
-    writeFileSync(join(safeRoot,'statistics.json'),JSON.stringify({sourceHead:head,stats:statistics,errors:parsed.errors?.length??0,exitCode,requiredSuiteComplete:false},null,2),{mode:0o600,flag:'wx'});
+    reportErrors=parsed.errors?.length??0;
+    statistics=Object.fromEntries(['expected','unexpected','flaky','skipped'].map(key=>[key,Number.isInteger(parsed.stats?.[key])?parsed.stats[key]:null]));
+
     const screenshots=[];
     function collect(directory){if(!existsSync(directory))return;for(const entry of readdirSync(directory,{withFileTypes:true})){const path=join(directory,entry.name);if(entry.isDirectory())collect(path);else if(entry.isFile()&&entry.name.endsWith('.png')){const bytes=readFileSync(path),name=`${screenshots.length}-${entry.name}`;assert(bytes.length>24);assert.equal(bytes.subarray(0,8).toString('hex'),'89504e470d0a1a0a');copyFileSync(path,join(safeRoot,name));screenshots.push({name,originalName:entry.name,width:bytes.readUInt32BE(16),height:bytes.readUInt32BE(20),bytes:bytes.length,sha256:createHash('sha256').update(bytes).digest('hex')});}}}
     collect(join(privateRoot,'artifacts'));writeFileSync(join(safeRoot,'screenshots.json'),JSON.stringify(screenshots,null,2),{mode:0o600,flag:'wx'});
-    suiteResult(command[7],parsed);screenshotProof(command[7],screenshots);
+    suiteResult(command[7],parsed);screenshotProof(command[7],screenshots);requiredSuiteComplete=true;
   }catch{failureReason=failureReason??'NATIVE_RUN_FAILED';}
   finally{
     if(adapterState)try{await adapterState.verifyEnd();}catch{cleanupFailures.push('R08_END_RUNTIME_PROOF_FAILED');}
@@ -164,7 +161,8 @@ export async function run(args=process.argv.slice(2)){
       const diagnostics=await import(pathToFileURL(join(support,'native-startup-receipt.mjs')).href);
       startupFailure=startupFailureProof(diagnostics,data,head);
     }catch{startupFailure=null;cleanupFailures.push('STARTUP_FAILURE_RECEIPT_INVALID');cleanupCompleted=false;failureReason=failureReason??'STARTUP_FAILURE_RECEIPT_INVALID';}
-    writeFileSync(join(safeRoot,'receipt.json'),JSON.stringify({sourceHead:head,phase,startupDiagnostics,startupFailure,exitCode,runtimeExit,failureReason,cleanupCompleted,cleanupFailures,privateEvidenceRetained:true,requiredSuiteComplete:false,visuallyAccepted:false},null,2),{mode:0o600,flag:'wx'});
+    if(statistics)writeFileSync(join(safeRoot,'statistics.json'),JSON.stringify({sourceHead:head,stats:statistics,errors:reportErrors,exitCode,requiredSuiteComplete:requiredSuiteComplete&&!failureReason},null,2),{mode:0o600,flag:'wx'});
+    writeFileSync(join(safeRoot,'receipt.json'),JSON.stringify({schemaVersion:1,suiteConfig:command[7],sourceHead:head,status:failureReason?'FAILED':'PASSED',actualRuntimeExecution,statistics,errors:reportErrors,phase,startupDiagnostics,startupFailure,exitCode,runtimeExit,failureReason,cleanupCompleted,cleanupFailures,privateEvidenceRetained:true,requiredSuiteComplete:requiredSuiteComplete&&!failureReason,visuallyAccepted:false},null,2),{mode:0o600,flag:'wx'});
   }
   if(failureReason)throw new Error(failureReason);
 }
