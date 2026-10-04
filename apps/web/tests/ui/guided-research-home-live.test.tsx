@@ -252,6 +252,16 @@ describe("F168 guided research home live data", () => {
     expect(onStepChange).toHaveBeenCalledWith("report", "grs-report-active");
   });
 
+  it("creates a concise default title without deriving it from a long requirement", async () => {
+    createGuidedResearchSession.mockResolvedValueOnce(createdSession("grs-concise"));
+    const goal = "公开合成长需求。".repeat(5000);
+    render(<GuidedResearchFlow step="brief" onStepChange={vi.fn()} />);
+    fireEvent.change(screen.getByTestId("research-brief-topic"), { target: { value: "" } });
+    fireEvent.change(screen.getByTestId("research-brief-goal"), { target: { value: goal } });
+    fireEvent.click(screen.getByTestId("research-confirm-brief"));
+    await waitFor(() => expect(createGuidedResearchSession).toHaveBeenCalledTimes(1));
+    expect(createGuidedResearchSession).toHaveBeenCalledWith(expect.objectContaining({ title: "新建研究", brief: expect.objectContaining({ topic: "新建研究", goal }) }));
+  });
   it("creates a persisted session before entering directions", async () => {
     createGuidedResearchSession.mockResolvedValueOnce(createdSession("grs-new"));
     const onStepChange = vi.fn();

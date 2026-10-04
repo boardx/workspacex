@@ -14,10 +14,13 @@ const initial: GuidedResearchRuntime = {
 beforeEach(() => { vi.resetAllMocks(); vi.mocked(getResearchRuntime).mockResolvedValue(structuredClone(initial)); });
 afterEach(() => vi.useRealTimers());
 describe("live research workspace", () => {
-  it("uses the current research topic instead of stale imported session text in the header", async () => {
-    render(<GuidedResearchLive sessionId="session-live" researchName="Long imported source paragraph" onBack={vi.fn()} />);
+  it("uses the saved generated topic instead of a known automatic imported name", async () => {
+    const goal = "公开合成长需求。".repeat(100);
+    vi.mocked(getResearchRuntime).mockResolvedValue({ ...initial, generatedNodes: ["brief"], brief: { ...initial.brief, goal } });
+    const automaticName = goal.slice(0, 100);
+    render(<GuidedResearchLive sessionId="session-live" researchName={automaticName} onBack={vi.fn()} />);
     expect(await screen.findByRole("heading", { name: "Storage", level: 1 })).toBeInTheDocument();
-    expect(screen.queryByRole("heading", { name: "Long imported source paragraph" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: automaticName })).not.toBeInTheDocument();
   });
   it("shows a readable reason for each failed search without restoring plan cards", async () => {
     const state = runtimeFixture("research");
