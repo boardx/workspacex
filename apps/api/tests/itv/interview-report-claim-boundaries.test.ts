@@ -21,6 +21,10 @@ describe("finite report claim boundaries", () => {
     "本次检测：不兼容项数量为0e0。", "本次检测的不兼容项数量为一。",
     "假设采购条件满足，但不兼容项在本次检测中为零。",
     "尚未检测，不过本次检测不兼容项为零。",
+    "前述只是虚构例子，实际本次检测不兼容项为零。",
+    "前述只是一个假想例子，但实际本次检测不兼容项为零。",
+    "不兼容项在本次检测中为零，这里的虚构例子指的是预算为零。",
+    "例如，本次检测不兼容项为零。", "例如，实际本次检测不兼容项为零。", "例如不兼容项在本次检测中为零。",
   ])("rejects executed count without matching evidence: %s", text => {
     expect(assessReportClaimBoundaries(text, []).missing).toContain("unsupported_executed_measurement");
   });
@@ -29,6 +33,8 @@ describe("finite report claim boundaries", () => {
     "如果未来检测结果显示不兼容项为零，可考虑试点。", "若未来的现场检测发现不兼容项为零，可考虑试点。",
     "不兼容项为零不能作为通用安全证明。", "计划测量不兼容项数量，以零作为待验证目标。",
     "例如，不兼容项在本次检测中为零只是一个虚构例子。", "本次问卷零人回答；预算为零。",
+    "在虚构例子中，本次检测不兼容项为零。",
+    "若未来检测结果显示不兼容项为零，可考虑试点，仍需核对供电。",
     "服务端绑定任务数为2，画像数为2。", "安装风险尚不能排除产品固有缺陷。",
     "不能断言安装风险不是产品固有缺陷。", "不是说产品没有缺陷。",
     "若免安装桌面型设备仅免固定孔位检查，供电、承重与空间仍需核对。",
@@ -41,9 +47,14 @@ describe("finite report claim boundaries", () => {
   ])("allows bounded or unrelated prose without imposing a writing template: %s", text => {
     expect(assessReportClaimBoundaries(text, []).ok).toBe(true);
   });
-  it.each(["零", "０", "0.0", "0e0", "一", "1", "１", "1.5", "１．５", "10%", "１０％"])("accepts exact source observation with matching object/status/value %s", value => {
+  it.each(["零", "０", "0.0", "0e0", "一", "1", "１", "1.5", "１．５", "10%", "１０％", "1,000", "１，０００"])("accepts exact source observation with matching object/status/value %s", value => {
     const quote = `本次检测发现不兼容项数量为${value}。`;
     expect(assessReportClaimBoundaries(`${quote} [${quote}](#answer-1)`, [evidence(quote)]).ok).toBe(true);
+  });
+  it("retains grouped numbers as one count and binds the fictional suffix after that count", () => {
+    const quote = "本次检测不兼容项为1。";
+    expect(assessReportClaimBoundaries(`本次检测不兼容项为1,000。[${quote}](#answer-1)`, [evidence(quote)]).ok).toBe(false);
+    expect(assessReportClaimBoundaries("本次检测不兼容项为1,000只是一个虚构例子。", []).ok).toBe(true);
   });
   it("does not waive measurement with arbitrary valid quote, wrong count, hypothetical source or unbound quote", () => {
     for (const quote of ["另一个场景安装顺利。", "本次检测不兼容项为一。", "若未来检测不兼容项为零，可试点。"])

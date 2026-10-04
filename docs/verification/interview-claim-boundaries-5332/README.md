@@ -22,3 +22,9 @@ This is a finite Chinese syntax boundary. It cannot prove matching time/site/cau
 - Local gate benchmark on the 3,481-character retained report: 200 measured iterations after 10 warmups, zero model calls; initial median 1.41ms / p95 1.96ms (`benchmark.json`). This is local validation overhead, not end-to-end generation latency.
 
 Original private report rejection reason and deployed SHA remain UNKNOWN. The previous real synthetic output was mechanically accepted but independently failed semantic review; this change rejects its three finite counterexamples. A new real semantic trial is not run or claimed.
+
+## Main independent review follow-up
+
+The previous head `55f76aa1d64165fdd54acf386e4b17691441ae6a` is superseded and NOT accepted: an unrelated fictional example wrongly qualified a later executed count. Added the exact counterexample, genuine local hypothetical counts, unrelated trailing examples, conditions/negations, and grouped numeric tokens. `example-red.txt` records 3 failing / 61 passing before the fix; `numeric-scope-red.txt` records 1 failing / 66 passing for grouped value support.
+
+Example qualification now binds an immediate explicit fictional setup or the target claim's own fictional suffix. “例如” alone never proves a measurement hypothetical. Numeric tokens such as 1,000 are consumed before checking a following qualifier; no whole-sentence comma split is used. New full controlled suite output is in `example-green.txt`. Main independent re-review of the new exact SHA is required before any real model trial. No model requests were made for this follow-up.

@@ -1,1 +1,1 @@
-Implementation of finite quality gate and unified saved/new/recovery validation is complete locally. Independent review and normal PR checks pending. Overall #5327 stays OPEN; no model retry.
+Main independent review rejected old55f on fictional-example scope. Reproduced RED and implemented scoped example qualification/grouped-number regression fix, new controlled tests green. New exact review and normal CI pending. Overall #5327 OPEN; no model request.
