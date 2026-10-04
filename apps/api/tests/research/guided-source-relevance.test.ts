@@ -575,7 +575,7 @@ describe("pipeline-only adaptive source evidence", () => {
     const texts = Array.from({ length: 10 }, () => "Unrelated filler paragraph."); texts[9] = "FINAL_POSITIVE is supported by this actual excerpt.";
     const long = document(texts), model = controlled(chunk => chunkText(chunk).includes("FINAL_POSITIVE"));
     const result = await screenResearchSources(runtime(), [long], model, { adaptive: true });
-    expect(model).toHaveBeenCalledTimes(3); expect(result).toHaveLength(1);
+    expect(model).toHaveBeenCalledTimes(4); expect(result).toHaveLength(1);
     const last = (model.mock.calls.at(-1)![1] as Input).chunks.find(chunk => chunkText(chunk).includes("FINAL_POSITIVE"))!;
     expect(JSON.parse(last.chunkId)[2]).toBe(54000); expect(long.document.text.includes(last.quoteOptions[0]!.text)).toBe(true);
   });
@@ -618,7 +618,7 @@ describe("pipeline-only adaptive source evidence", () => {
       try { return await base(...args); } finally { active--; }
     });
     expect(await screenResearchSources(runtime(), [long], model, { adaptive: true })).toEqual([]);
-    expect(model).toHaveBeenCalledTimes(3); expect(peak).toBe(1);
+    expect(model).toHaveBeenCalledTimes(4); expect(peak).toBe(1);
   });
   it.each([false, true])("keeps exact-quote repair bounded to two attempts (permanent=%s)", async permanent => {
     const long = document([direct.content, ...Array.from({ length: 9 }, () => "Unrelated filler paragraph.")]);
@@ -678,7 +678,7 @@ describe("pipeline-only adaptive source evidence", () => {
     expect(changed.document.contentHash).not.toBe(approved[0]!.document!.contentHash);
     const none = controlled(() => false);
     expect(await screenResearchSources(state, [changed], none, { adaptive: true })).toEqual([]);
-    expect(none).toHaveBeenCalledTimes(3);
+    expect(none).toHaveBeenCalledTimes(4);
     expect(none.mock.calls.flatMap(call => (call[1] as Input).chunks)).toHaveLength(10);
     expect(approved[0]!.document).toEqual(long.document);
   });
@@ -708,5 +708,33 @@ describe("pipeline-only adaptive source evidence", () => {
     expect(evidence[1]).toMatchObject({ gap: true, evidence: [] });
   });
 
+
+  it("probes one highest-ranked original chunk before expanding a negative scope to two then four", async () => {
+    const texts = Array.from({ length: 10 }, () => "Unrelated filler paragraph."); texts[7] = direct.content;
+    const long = document(texts), positive = controlled(chunk => chunkText(chunk).includes("KPL"));
+    await screenResearchSources(runtime(), [long], positive, { adaptive: true });
+    expect((positive.mock.calls[0]![1] as Input).chunks).toHaveLength(1);
+    expect(JSON.parse((positive.mock.calls[0]![1] as Input).chunks[0]!.chunkId)[2]).toBe(42000);
+    const none = controlled(() => false);
+    expect(await screenResearchSources(runtime(), [long], none, { adaptive: true })).toEqual([]);
+    const batches = none.mock.calls.map(call => (call[1] as Input).chunks);
+    expect(batches.map(batch => batch.length)).toEqual([1, 2, 4, 3]);
+    expect(new Set(batches.flat().map(chunk => chunk.chunkId)).size).toBe(10);
+    expect(batches.every(batch => batch.length <= 8 && batch.reduce((n, chunk) => n + long.document.text.slice(JSON.parse(chunk.chunkId)[2], JSON.parse(chunk.chunkId)[2] + 6000).length, 0) <= 24000)).toBe(true);
+  });
+
+  it("keeps first probes fair across more scopes than fit a batch and scans negative scopes without duplicates", async () => {
+    const sources = Array.from({ length: 6 }, (_, index) => ({ ...document([direct.content, ...Array.from({ length: 9 }, () => "Unrelated filler paragraph.")]), id: `scope-${index}` }));
+    const model = controlled(chunk => chunk.sourceId !== "scope-5" && chunkText(chunk).includes("KPL"));
+    const result = await screenResearchSources(runtime(), sources, model, { adaptive: true });
+    expect(result.map(source => source.id)).toEqual(sources.slice(0, 5).map(source => source.id));
+    const batches = model.mock.calls.map(call => (call[1] as Input).chunks);
+    expect(batches[0]!.map(chunk => chunk.sourceId)).toEqual(["scope-0", "scope-1", "scope-2", "scope-3"]);
+    expect(batches[1]!.slice(0, 2).map(chunk => chunk.sourceId)).toEqual(["scope-4", "scope-5"]);
+    for (const source of sources.slice(0, 5)) expect(batches.flat().filter(chunk => chunk.sourceId === source.id)).toHaveLength(1);
+    const negative = batches.flat().filter(chunk => chunk.sourceId === "scope-5");
+    expect(negative).toHaveLength(10); expect(new Set(negative.map(chunk => chunk.chunkId)).size).toBe(10);
+    expect(sources[5]).not.toHaveProperty("relevanceBasis");
+  });
 
 });

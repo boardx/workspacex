@@ -35,7 +35,9 @@ export function sourceScreenBatches(chunks: readonly SourceEvidenceChunk[]): Sou
   return batches;
 }
 
-/** One next batch at a time, fair across source/task scopes. Only the caller's
+/** One next batch at a time, fair across source/task scopes. Probe one ranked
+ * chunk first, then grow a fully negative probe to two and the full-size window.
+ * Only the caller's
  * strictly validated positive chunk IDs can stop that exact scope's remainder. */
 export function adaptiveSourceEvidenceWork(chunks: readonly SourceEvidenceChunk[], terms: ReadonlyMap<string, readonly Term[]>) {
   const key = (chunk: SourceEvidenceChunk) => JSON.stringify([chunk.sourceId, chunk.taskId]);
@@ -46,28 +48,37 @@ export function adaptiveSourceEvidenceWork(chunks: readonly SourceEvidenceChunk[
     const queue = queues.get(key(chunk)) ?? [];
     queue.push({ chunk, score, index }); queues.set(key(chunk), queue);
   }
-  const scopes = [...queues].map(([scope, queue]) => ({ scope, queue: queue.sort((a, b) => b.score - a.score || a.index - b.index), cursor: 0 }));
+  const scopes = [...queues].map(([scope, queue]) => ({ scope, queue: queue.sort((a, b) => b.score - a.score || a.index - b.index), cursor: 0, probeLimit: 1 }));
   const positive = new Set<string>();
   let cursor = 0;
   return {
     next(): SourceEvidenceChunk[] | null {
       const batch: SourceEvidenceChunk[] = []; let size = 0;
+      const supplied = new Map<string, number>();
       while (batch.length < SOURCE_SCREEN_BATCH_CHUNKS) {
         let found = false;
         for (let scanned = 0; scanned < scopes.length; scanned++) {
           const scope = scopes[cursor++ % scopes.length]!;
           const item = scope.queue[scope.cursor];
-          if (positive.has(scope.scope) || !item || size + item.chunk.content.length > SOURCE_SCREEN_BATCH_CHARS) continue;
-          batch.push(item.chunk); size += item.chunk.content.length; scope.cursor++; found = true; break;
+          if (positive.has(scope.scope) || !item || (supplied.get(scope.scope) ?? 0) >= scope.probeLimit
+            || size + item.chunk.content.length > SOURCE_SCREEN_BATCH_CHARS) continue;
+          batch.push(item.chunk); size += item.chunk.content.length; scope.cursor++;
+          supplied.set(scope.scope, (supplied.get(scope.scope) ?? 0) + 1); found = true; break;
         }
         if (!found) break;
       }
       return batch.length ? batch : null;
     },
     approve(batch: readonly SourceEvidenceChunk[], chunkIds: readonly string[]) {
+      // Expand only scopes whose current probe completed without a positive.
+      // A first positive avoids sending the rest of that source/task material.
       for (const id of chunkIds) {
         const chunk = batch.find(item => item.chunkId === id);
         if (chunk) positive.add(key(chunk));
+      }
+      for (const scope of scopes) {
+        const count = batch.filter(chunk => key(chunk) === scope.scope).length;
+        if (!positive.has(scope.scope) && count >= scope.probeLimit) scope.probeLimit = Math.min(Math.floor(SOURCE_SCREEN_BATCH_CHARS / SOURCE_SCREEN_CHUNK_CHARS), scope.probeLimit * 2);
       }
     },
   };
