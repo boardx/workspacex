@@ -1,0 +1,7 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {assertPostMigrationBootstrap as verify} from '../src/bootstrap-proof.ts';
+const source='a'.repeat(40),image='sha256:'+'b'.repeat(64);
+const proof=()=>({schemaVersion:1,phase:'preactivate',sourceSha:source,imageDigest:image,ready:true,readOnlyTransaction:true,productionWriteStatements:0,stateClass:'matching-existing',blockers:[],checks:{imageEntrypoint:true,inputContract:true,schemaContract:true,permissionContract:true,agentSeedContract:true,migrationLedgerContract:true}});
+const record=p=>'CN_BOOTSTRAP_COMPAT_JSON='+JSON.stringify(p)+'\n';
+test('complete migrated candidate proof accepted',()=>verify(record(proof()),source,image));
+for(const [name,change] of [['missing migration checksum',p=>p.checks.migrationLedgerContract=false],['missing candidate column',p=>p.checks.schemaContract=false],['missing permission',p=>p.checks.permissionContract=false],['source static',p=>p.readOnlyTransaction=false],['wrong source',p=>p.sourceSha='c'.repeat(40)],['wrong image',p=>p.imageDigest='sha256:'+'c'.repeat(64)],['build-only',p=>p.buildAdmissionOnly=true],['baseline relabel',p=>p.baselineCompatibility={}],['blocker',p=>p.blockers=['missing field']]])test(`refuse ${name} before bootstrap/start`,()=>{const p=proof();change(p);assert.throws(()=>verify(record(p),source,image),/UNPROVEN/);});
+test('extra log records rejected',()=>assert.throws(()=>verify(record(proof())+'noise\n',source,image)));

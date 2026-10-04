@@ -1,0 +1,21 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {createHash} from 'node:crypto';
+import {execFileSync} from 'node:child_process';
+import {mkdtempSync,readFileSync,rmSync} from 'node:fs';
+import {tmpdir} from 'node:os';
+import path from 'node:path';
+import {validatePlan,serializePlan,verifySource,assertSourceTagTriggersSafe,register} from './source-release.mjs';
+const p=()=>({schemaVersion:1,kind:'source-release-plan',status:'source-planned',release:'2026.10.4-cn.1',sourceTag:'source/2026.10.4-cn.1',sourceRevision:'9b25bfa65662b96c0826fe67506b562ea46aa6d0',baselineRevision:'ba6343199f3c834d6a198f83d0c771614292c82b',frozenMainRevision:'21689e614a2857b2779fd0d9eb118ac117836ed6',environment:'cn-production',scope:['#5097'],dataPolicy:'maintenance-required'});
+const safe=[['backend.yml','on:\n  push:\n    branches: [main]\n    tags: ["v*"]\n  pull_request:\njobs:\n  x: {}'],['prepare.yml','on:\n  workflow_run:\n    workflows: [backend-gates]\n    types: [completed]\njobs:\n  x: {}']];
+test('strict source plan and deterministic bytes',()=>assert.equal(serializePlan(p()),serializePlan(validatePlan(p()))));
+for(const [label,change] of [['moving SHA',x=>x.sourceRevision='main'],['prepared claim',x=>x.status='cn-prepared'],['OCI disguise',x=>x.kind='release-manifest'],['v tag',x=>x.sourceTag='v2026.10.4'],['unknown permission',x=>x.deploy=true],['missing scope',x=>x.scope=[]],['duplicate scope',x=>x.scope.push(x.scope[0])],['unknown policy',x=>x.dataPolicy='ignore'],['same baseline',x=>x.baselineRevision=x.sourceRevision]])test(`reject ${label}`,()=>{const x=p();change(x);assert.throws(()=>validatePlan(x));});
+test('frozen SHA ancestor check uses no moving ref',()=>{const calls=[];verifySource(p(),a=>calls.push(a));assert.deepEqual(calls.at(-1),['merge-base','--is-ancestor',p().sourceRevision,p().frozenMainRevision]);assert.equal(calls.flat().includes('origin/main'),false);});
+test('branch and v-only tag chains do not match source tag',()=>assertSourceTagTriggersSafe(safe));
+for(const body of ['on:\n  release:\n    types: [published]\njobs:', 'on:\n  create:\njobs:', 'on:\n  push:\njobs:', 'on:\n  push:\n    tags: ["*"]\njobs:', 'on: [push]\njobs:', 'on:\n  push:\n    tags:\n      - source/**\njobs:'])test(`reject unsafe trigger ${body}`,()=>assert.throws(()=>assertSourceTagTriggersSafe([['x.yml',body]])));
+test('new registration is annotated exact-SHA tag and draft, with no update calls',()=>{const writes=[];const api=(method,url,data)=>{if(method==='GET')return null;writes.push([method,url,data]);return url==='git/tags'?{sha:'d'.repeat(40)}:{html_url:'https://github.com/boardx/workspacex/releases/tag/source/test'};};const result=register(p(),api,safe,safe);assert.equal(result.cnPrepared,false);assert.equal(writes[0][2].object,p().sourceRevision);assert.equal(writes[1][2].ref,`refs/tags/${p().sourceTag}`);assert.equal(writes[2][2].draft,true);assert.equal(writes.some(x=>x[0]==='PATCH'||x[0]==='DELETE'),false);});
+test('conflicting existing tag stops before writes',()=>{let writes=0;assert.throws(()=>register(p(),(method)=>{if(method!=='GET')writes++;return {object:{type:'commit',sha:'f'.repeat(40)}};},safe,safe),/TAG_ALREADY_DIFFERENT/);assert.equal(writes,0);});
+test('different existing Release is never edited',()=>{let writes=0;const x=p();assert.throws(()=>register(x,(m,u)=>{if(m!=='GET')writes++;return u==='git/ref/tags/'+x.sourceTag?{object:{type:'tag',sha:'d'.repeat(40)}}:u.startsWith('git/')?{object:{type:'commit',sha:x.sourceRevision},message:`Source release ${x.release}\nplan-sha256=${createHash('sha256').update(serializePlan(x)).digest('hex')}`}:{body:'different',draft:true,target_commitish:x.sourceRevision,prerelease:true};},safe,safe),/RELEASE_ALREADY_DIFFERENT/);assert.equal(writes,0);});
+
+test('four space event cannot escape audit',()=>assert.throws(()=>assertSourceTagTriggersSafe([['x.yml','on:\n    create:\njobs:']])));
+test('unsafe tagged source rejected even with safe live main',()=>{let writes=0;assert.throws(()=>register(p(),()=>{writes++;},safe,[['old.yml','on:\n  create:\njobs:']]));assert.equal(writes,0);});

@@ -7,13 +7,14 @@ import { DEEP_RESEARCH_AGENT_TEMPLATE } from "../../src/infrastructure/agent/pg-
 import { IMAGE_GEN_AGENT_TEMPLATE } from "../../src/infrastructure/agent/pg-image-gen-agent-repository";
 
 const input: BootstrapProbeInput = { sourceSha: "a".repeat(40), phase: "prebuild", email: "admin@example.test", password: "A-valid-Password-123!", displayName: "Administrator", orgName: "Production" };
-type Options = { guard?: string; missingColumn?: boolean; missingConstraint?: boolean; permission?: boolean; markers?: number; credentials?: number; duplicateAgent?: boolean; existingAgent?: boolean; wrongProvider?: boolean; rollbackFailure?: boolean; sequencePermission?: boolean };
+type Options = { guard?: string; missingColumn?: boolean; missingConstraint?: boolean; permission?: boolean; markers?: number; credentials?: number; duplicateAgent?: boolean; existingAgent?: boolean; wrongProvider?: boolean; rollbackFailure?: boolean; sequencePermission?: boolean; migrationChecksum?: string; missingMigration?: boolean };
 function fake(options: Options = {}): ReadOnlyClient & { statements: string[] } {
   const statements: string[] = [];
   return { statements, async query(sql, args = []) {
     statements.push(sql);
     if (sql === "ROLLBACK" && options.rollbackFailure) throw new Error("SECRET DSN should never be output");
     if (sql.startsWith("SHOW")) return { rows: [{ transaction_read_only: options.guard ?? "on" }] };
+    if (sql.includes("public._kernel_migrations")) return { rows: options.missingMigration ? [] : [{ name: "fixture.sql", checksum: options.migrationChecksum ?? "d".repeat(64) }] };
     if (sql.includes("information_schema")) {
       const r = BOOTSTRAP_RELATIONS[args[0] as keyof typeof BOOTSTRAP_RELATIONS];
       return { rows: r.columns.slice(options.missingColumn ? 1 : 0).map(column_name => ({ column_name })) };
@@ -127,4 +128,22 @@ it("keeps the privileged deployment audit outside every HTTP interface import", 
     const source = await readFile(file, "utf8");
     expect(source).not.toMatch(/bootstrap-compatibility|provision-admin-compatibility/);
   }
+});
+
+describe("post-migration candidate ledger", () => {
+  const candidate: BootstrapProbeInput = { ...input, phase: "preactivate", imageDigest: `sha256:${"a".repeat(64)}`,
+    migrationInventory: [{ name: "fixture.sql", checksum: "d".repeat(64) }] };
+  it("accepts complete image inventory before candidate schema proof", async () => {
+    const result = await probeBootstrapCompatibility(fake(), candidate, async () => true);
+    expect(result.ready).toBe(true); expect(result.checks.migrationLedgerContract).toBe(true);
+  });
+  it.each([{ missingMigration: true }, { migrationChecksum: "f".repeat(64) }])("rejects missing or changed migration after migration for %j", async options => {
+    const db = fake(options); const result = await probeBootstrapCompatibility(db, candidate, async () => true);
+    expect(result.ready).toBe(false); expect(result.blockers).toContain("BOOTSTRAP_DB_SCHEMA_INCOMPATIBLE");
+    expect(db.statements.at(-1)).toBe("ROLLBACK");
+  });
+  it("refuses a candidate without its canonical image inventory", async () => {
+    const result = await probeBootstrapCompatibility(fake(), { ...candidate, migrationInventory: undefined }, async () => true);
+    expect(result.ready).toBe(false);
+  });
 });
