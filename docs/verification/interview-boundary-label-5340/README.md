@@ -15,3 +15,7 @@ Structure ok is NOT exact quotation/finite claim/semantic approval. Overall publ
 Independent review rejected 2264b9a because it discarded valid standalone labels with substantive prose in the following paragraph. Five regression cases failed before this correction (plain/bold labels in either order and a separated list-item paragraph). The AST now reads sibling prose only until the next heading or standalone label. Code, quotations and other list items cannot fill an empty label. Four additional negative controls and all earlier empty-label controls pass.
 
 Validation: contracts 61/61, controlled API six files 192/192, contracts `tsc --noEmit` exit 0. Logs: paragraph-red.txt, paragraph-green.txt, paragraph-api-green.txt. This changes only structural assessment; original report Markdown and its semantic review failures remain unchanged. Independent review and CI are pending at commit time.
+
+### Reviewer counterexamples after ce7678602
+
+Readonly review rejected ce7678602: an action label with inline body could fill the preceding boundary label; a list containing only a blockquote could also fill it. Both direct counterexamples were added (RED 2). Following prose now uses the existing recursively quote-excluding visible-prose extractor, and explicit action/decision/synthesis labels stop lookahead even with inline body. Contracts 63/63 and API 192/192 pass; contracts typecheck exits 0. Logs scope-red.txt, scope-green.txt, scope-api-green.txt. New exact review and CI remain required; earlier acceptance is not reused.

@@ -229,8 +229,9 @@ function analysisNodeText(node: MarkdownNode, following: readonly MarkdownNode[]
     for (const next of following) {
       if (next.type === "heading") break;
       if (["blockquote", "html", "code", "image"].includes(next.type)) continue;
-      const prose = analysisNodeText(next).trim();
+      const prose = actionNodeText(next).trim();
       if (/^\s*[^：:\n]{1,40}[：:]\s*$/u.test(plainText(next))) break;
+      if (/^\s*(?:下一步验证建议|建议行动|行动建议|验证计划|决策影响|跨回答综合|核心发现)[：:]/u.test(prose)) break;
       if (prose) return text;
     }
     return "";

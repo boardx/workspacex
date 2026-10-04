@@ -1,0 +1,52 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/packages/contracts
+
+ ✓ tests/interview-evidence-single-source.test.ts (1 test) 1ms
+ ❯ tests/interview-markdown.test.ts (62 tests | 2 failed) 37ms
+   × formatted report quality > does not borrow code, quotation or another section for an empty label: 反例与边界：
+
+- > 另一个场景安装顺利。 3ms
+     → expected [ 'cross_answer_synthesis', …(2) ] to include 'boundary_or_counterevidence'
+   × formatted report quality > does not borrow code, quotation or another section for an empty label: 反例与边界：
+
+下一步验证建议：访谈五位用户，对比安装时长。 1ms
+     → expected [ 'cross_answer_synthesis', …(1) ] to include 'boundary_or_counterevidence'
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/interview-markdown.test.ts > formatted report quality > does not borrow code, quotation or another section for an empty label: 反例与边界：
+
+- > 另一个场景安装顺利。
+AssertionError: expected [ 'cross_answer_synthesis', …(2) ] to include 'boundary_or_counterevidence'
+ ❯ tests/interview-markdown.test.ts:135:59
+    133|     "- **反例与边界**：\n- 访谈五位用户，对比安装时长。",
+    134|   ])("does not borrow code, quotation or another section for an empty …
+    135|     expect(assessInterviewReportAnalysis(report).missing).toContain("b…
+       |                                                           ^
+    136|   });
+    137|   it.each([
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  tests/interview-markdown.test.ts > formatted report quality > does not borrow code, quotation or another section for an empty label: 反例与边界：
+
+下一步验证建议：访谈五位用户，对比安装时长。
+AssertionError: expected [ 'cross_answer_synthesis', …(1) ] to include 'boundary_or_counterevidence'
+ ❯ tests/interview-markdown.test.ts:135:59
+    133|     "- **反例与边界**：\n- 访谈五位用户，对比安装时长。",
+    134|   ])("does not borrow code, quotation or another section for an empty …
+    135|     expect(assessInterviewReportAnalysis(report).missing).toContain("b…
+       |                                                           ^
+    136|   });
+    137|   it.each([
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+ Test Files  1 failed | 1 passed (2)
+      Tests  2 failed | 61 passed (63)
+   Start at  02:59:29
+   Duration  393ms (transform 151ms, setup 0ms, collect 283ms, tests 38ms, environment 0ms, prepare 87ms)
+
+undefined
+/Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/packages/contracts:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/interview-markdown.test.ts tests/interview-evidence-single-source.test.ts

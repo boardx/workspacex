@@ -127,6 +127,8 @@ describe("formatted report quality", () => {
   it.each([
     "反例与边界：\n\n```md\n另一个场景安装顺利。\n```",
     "反例与边界：\n\n> 另一个场景安装顺利。",
+    "反例与边界：\n\n- > 另一个场景安装顺利。",
+    "反例与边界：\n\n下一步验证建议：访谈五位用户，对比安装时长。",
     "反例与边界：\n\n**下一步验证建议**：\n\n访谈五位用户，对比安装时长。",
     "- **反例与边界**：\n- 访谈五位用户，对比安装时长。",
   ])("does not borrow code, quotation or another section for an empty label: %s", (report) => {
