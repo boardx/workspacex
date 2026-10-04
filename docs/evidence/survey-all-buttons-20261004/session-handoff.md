@@ -25,3 +25,5 @@
 主独立ACCEPT ee2e019a0列表11项0001/2/3/4/8/9/11/12/13/18/19，parent26PASS/template106PASS，全558132PASS/3B/11NA/411NS/1QR排除。0010首题DOMdisabled=true+真实disabled属性补证，0016/17独立marker名后close/cancel前后及reload全7卡name/href相同，list-controls-supplement.txt待独立review仍NS。
 
 主独立接受0010/0016/0017限定入口disabled与关闭取消不新增，parent29PASS/template106PASS，全558135PASS/3B/11NA/408NS/1QR排除。新增既有0020空白创建+0005/6/7标签选择取消清除筛选普通UI证据blank-create-tags.txt/png待review，仍NS；新ownedSurvey7a977284-0baa-4b12-9966-3536e5942058零题零答卷draft保留，未发布/删除。Chrome无输入。
+
+主独立ACCEPT5b5e44302新增0020/0005/0006/0007限定空白创建/标签流，parent33PASS/template106PASS，全558139PASS/3B/11NA/404NS/1QR。新5项header0043/46/47/49/51实际IAB证据design-header-current.txt/renamed-list.png待review仍NS；7a977名称已修改autosave→normal menuRefresh同ID/name→designReport0章→cleanReturnList同card/tag，无model/publication/answer。Chrome无输入。
