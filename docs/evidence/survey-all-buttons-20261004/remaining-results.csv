@@ -26,7 +26,6 @@ SV26-0042,03-import,/studio/survey/new/import,应用到问卷,真实provider提�
 SV26-0044,04-workspace,/studio/survey/{surveyId}/design,返回列表：dirty→取消,导航与保存状态正确；失败保留输入；成功必须刷新读取持久化；题目锁定按实际状态,NOT_STARTED,,No accepted execution result recorded,,,NORMAL
 SV26-0045,04-workspace,/studio/survey/{surveyId}/design,返回列表：dirty→确认,导航与保存状态正确；失败保留输入；成功必须刷新读取持久化；题目锁定按实际状态,NOT_STARTED,,No accepted execution result recorded,,,NORMAL
 SV26-0048,04-workspace,/studio/survey/{surveyId}/design,保存为问卷模板,导航与保存状态正确；失败保留输入；成功必须刷新读取持久化；题目锁定按实际状态,NOT_STARTED,,No accepted execution result recorded,,,NORMAL
-SV26-0050,04-workspace,/studio/survey/{surveyId}/design,分析报告（可选）,导航与保存状态正确；失败保留输入；成功必须刷新读取持久化；题目锁定按实际状态,NOT_STARTED,,No accepted execution result recorded,,,NORMAL
 SV26-0052,04-workspace,/studio/survey/{surveyId}/design,刷新：dirty→取消,导航与保存状态正确；失败保留输入；成功必须刷新读取持久化；题目锁定按实际状态,NOT_STARTED,,No accepted execution result recorded,,,NORMAL
 SV26-0053,04-workspace,/studio/survey/{surveyId}/design,刷新：dirty→确认,导航与保存状态正确；失败保留输入；成功必须刷新读取持久化；题目锁定按实际状态,NOT_STARTED,,No accepted execution result recorded,,,NORMAL
 SV26-0054,04-workspace,/studio/survey/{surveyId}/design,发布回收,导航与保存状态正确；失败保留输入；成功必须刷新读取持久化；题目锁定按实际状态,NOT_STARTED,,No accepted execution result recorded,,,NORMAL
