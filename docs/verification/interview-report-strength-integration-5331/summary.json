@@ -1,0 +1,18 @@
+{
+  "interviewId": "itv-a3415b28-4962-424a-9550-f076d65efcc2",
+  "httpStatus": 200,
+  "elapsedMs": 48652,
+  "terminal": "completed",
+  "reportVersion": 1,
+  "reportState": {
+    "documentId": "md-6f47cc03-b145-46a6-bb12-60e2ea592a69",
+    "status": "draft",
+    "failure": null
+  },
+  "hash": "53a1b1aba3295a8bb37c19c3117b6c9f8871a7b28000f724908a17db058726f4",
+  "rawHash": "53a1b1aba3295a8bb37c19c3117b6c9f8871a7b28000f724908a17db058726f4",
+  "referenceCount": 10,
+  "integrationSha": "947817a9667f1deca76a3612128e215d33b30096",
+  "attemptCount": 1,
+  "deltaCount": 586
+}
