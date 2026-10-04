@@ -219,12 +219,22 @@ const parser = unified().use(remarkParse).use(remarkGfm);
 type MarkdownNode = { type: string; value?: string; depth?: number; url?: string; position?: { start: { offset?: number }; end: { offset?: number } }; children?: MarkdownNode[] };
 
 /** Quality checks read visible prose, never code examples, HTML or link URLs. */
-function analysisNodeText(node: MarkdownNode): string {
+function analysisNodeText(node: MarkdownNode, following: readonly MarkdownNode[] = []): string {
   if (["html", "code", "inlineCode", "image"].includes(node.type)) return "";
   const separator = ["list", "listItem", "root", "blockquote"].includes(node.type) ? "\n" : "";
-  const text = node.value ?? node.children?.map(analysisNodeText).filter(Boolean).join(separator) ?? "";
-  // Inline labels need their own prose; later sections cannot fill an empty label.
-  if (node.type === "paragraph" && /^\s*(?:边界(?:与反例)?|反例(?:与边界)?|反对证据|相反证据|负面案例)[：:。.]\s*$/u.test(text)) return "";
+  const text = node.value ?? node.children?.map((child, index, children) => analysisNodeText(child, children.slice(index + 1))).filter(Boolean).join(separator) ?? "";
+  // A standalone label may introduce a separate prose paragraph in the same
+  // section. Stop at a heading or another label; quoted examples are not prose.
+  if (node.type === "paragraph" && /^\s*(?:边界(?:与反例)?|反例(?:与边界)?|反对证据|相反证据|负面案例)[：:。.]\s*$/u.test(text)) {
+    for (const next of following) {
+      if (next.type === "heading") break;
+      if (["blockquote", "html", "code", "image"].includes(next.type)) continue;
+      const prose = analysisNodeText(next).trim();
+      if (/^\s*[^：:\n]{1,40}[：:]\s*$/u.test(plainText(next))) break;
+      if (prose) return text;
+    }
+    return "";
+  }
   return text;
 }
 function reportAnalysisText(markdown: string): string {
@@ -238,7 +248,7 @@ function reportAnalysisText(markdown: string): string {
       if (next.type !== "heading" && analysisNodeText(next).trim()) return true;
     }
     return false;
-  }).map(analysisNodeText).filter(Boolean).join("\n");
+  }).map(node => analysisNodeText(node, nodes.slice(nodes.indexOf(node) + 1))).filter(Boolean).join("\n");
 }
 
 function plainText(node: MarkdownNode): string {

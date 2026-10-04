@@ -1,0 +1,62 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/packages/contracts
+
+ ✓ tests/interview-evidence-single-source.test.ts (1 test) 1ms
+ ❯ tests/interview-markdown.test.ts (60 tests | 5 failed) 41ms
+   × formatted report quality > accepts boundary prose in a separate paragraph within its section: 反例与边界：
+
+另一个场景安装顺利，不能推断普遍发生。 3ms
+     → expected [ 'cross_answer_synthesis', …(3) ] to not include 'boundary_or_counterevidence'
+   × formatted report quality > accepts boundary prose in a separate paragraph within its section: **反例与边界**：
+
+另一个场景安装顺利，不能推断普遍发生。 1ms
+     → expected [ 'cross_answer_synthesis', …(3) ] to not include 'boundary_or_counterevidence'
+   × formatted report quality > accepts boundary prose in a separate paragraph within its section: 边界与反例：
+
+另一个场景安装顺利，不能推断普遍发生。 0ms
+     → expected [ 'cross_answer_synthesis', …(3) ] to not include 'boundary_or_counterevidence'
+   × formatted report quality > accepts boundary prose in a separate paragraph within its section: **边界与反例**：
+
+另一个场景安装顺利，不能推断普遍发生。 3ms
+     → expected [ 'cross_answer_synthesis', …(3) ] to not include 'boundary_or_counterevidence'
+   × formatted report quality > accepts boundary prose in a separate paragraph within its section: - **反例与边界**：
+
+  另一个场景安装顺利，不能推断普遍发生。 1ms
+     → expected [ 'cross_answer_synthesis', …(3) ] to not include 'boundary_or_counterevidence'
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 5 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/interview-markdown.test.ts > formatted report quality > accepts boundary prose in a separate paragraph within its section: 反例与边界：
+
+另一个场景安装顺利，不能推断普遍发生。
+ FAIL  tests/interview-markdown.test.ts > formatted report quality > accepts boundary prose in a separate paragraph within its section: **反例与边界**：
+
+另一个场景安装顺利，不能推断普遍发生。
+ FAIL  tests/interview-markdown.test.ts > formatted report quality > accepts boundary prose in a separate paragraph within its section: 边界与反例：
+
+另一个场景安装顺利，不能推断普遍发生。
+ FAIL  tests/interview-markdown.test.ts > formatted report quality > accepts boundary prose in a separate paragraph within its section: **边界与反例**：
+
+另一个场景安装顺利，不能推断普遍发生。
+ FAIL  tests/interview-markdown.test.ts > formatted report quality > accepts boundary prose in a separate paragraph within its section: - **反例与边界**：
+
+  另一个场景安装顺利，不能推断普遍发生。
+AssertionError: expected [ 'cross_answer_synthesis', …(3) ] to not include 'boundary_or_counterevidence'
+ ❯ tests/interview-markdown.test.ts:125:63
+    123|     "- **反例与边界**：\n\n  另一个场景安装顺利，不能推断普遍发生。",
+    124|   ])("accepts boundary prose in a separate paragraph within its sectio…
+    125|     expect(assessInterviewReportAnalysis(report).missing).not.toContai…
+       |                                                               ^
+    126|   });
+    127|   it.each([
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/5]⎯
+
+ Test Files  1 failed | 1 passed (2)
+      Tests  5 failed | 56 passed (61)
+   Start at  02:03:28
+   Duration  429ms (transform 179ms, setup 0ms, collect 314ms, tests 42ms, environment 0ms, prepare 83ms)
+
+undefined
+/Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/packages/contracts:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/interview-markdown.test.ts tests/interview-evidence-single-source.test.ts

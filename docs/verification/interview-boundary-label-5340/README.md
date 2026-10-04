@@ -9,3 +9,9 @@ Four labels (plain/bold list/heading/CRLF heading) RED4/45→GREEN49; six contro
 Offline assessment of BOTH complete original raw attempts now returns analysis ok/missing[] with byte hashes63b3cab722eb3bf65265c61a87152c9e857a5636757e591df3d1247f3d563630 and9de08f57258a2b8915c502a8c3dadbb724d9e2d83ad8f544e0a188ea0b1d0543 unchanged. `public-analysis.json` is new offline structure assessment, not the original85ec generation/validation result. No original evidence overwritten or new model/storage API called.
 
 Structure ok is NOT exact quotation/finite claim/semantic approval. Overall public semantic FAIL with #5341/#5342/#5343, #5327 OPEN, original private cause UNKNOWN; other finite parser issues #5338/#5339/#5346 separate. No merges/deploys/new models.
+
+## Separate paragraph correction after 2264b9a
+
+Independent review rejected 2264b9a because it discarded valid standalone labels with substantive prose in the following paragraph. Five regression cases failed before this correction (plain/bold labels in either order and a separated list-item paragraph). The AST now reads sibling prose only until the next heading or standalone label. Code, quotations and other list items cannot fill an empty label. Four additional negative controls and all earlier empty-label controls pass.
+
+Validation: contracts 61/61, controlled API six files 192/192, contracts `tsc --noEmit` exit 0. Logs: paragraph-red.txt, paragraph-green.txt, paragraph-api-green.txt. This changes only structural assessment; original report Markdown and its semantic review failures remain unchanged. Independent review and CI are pending at commit time.

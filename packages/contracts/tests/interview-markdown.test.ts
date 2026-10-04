@@ -116,6 +116,23 @@ describe("formatted report quality", () => {
     expect(assessInterviewReportAnalysis(report).missing).not.toContain("boundary_or_counterevidence");
   });
   it.each([
+    "反例与边界：\n\n另一个场景安装顺利，不能推断普遍发生。",
+    "**反例与边界**：\n\n另一个场景安装顺利，不能推断普遍发生。",
+    "边界与反例：\n\n另一个场景安装顺利，不能推断普遍发生。",
+    "**边界与反例**：\n\n另一个场景安装顺利，不能推断普遍发生。",
+    "- **反例与边界**：\n\n  另一个场景安装顺利，不能推断普遍发生。",
+  ])("accepts boundary prose in a separate paragraph within its section: %s", (report) => {
+    expect(assessInterviewReportAnalysis(report).missing).not.toContain("boundary_or_counterevidence");
+  });
+  it.each([
+    "反例与边界：\n\n```md\n另一个场景安装顺利。\n```",
+    "反例与边界：\n\n> 另一个场景安装顺利。",
+    "反例与边界：\n\n**下一步验证建议**：\n\n访谈五位用户，对比安装时长。",
+    "- **反例与边界**：\n- 访谈五位用户，对比安装时长。",
+  ])("does not borrow code, quotation or another section for an empty label: %s", (report) => {
+    expect(assessInterviewReportAnalysis(report).missing).toContain("boundary_or_counterevidence");
+  });
+  it.each([
     "反例与边界：",
     "- **反例与边界**：   ",
     "反例与边界：\n\n## 下一步验证建议\n\n访谈五位用户，对比安装时长与购买决策。",
