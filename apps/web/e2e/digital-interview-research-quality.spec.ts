@@ -222,7 +222,7 @@ test("the six-stage workbench restores a direct stage route and updates it from 
   await expect(page.getByTestId("itv-workbench-step-analysis")).toHaveAttribute("aria-current", "step");
 
   await expect(page.getByTestId("itv-analysis-workbench")).toContainText("研究目标");
-  await expect(page.getByTestId("itv-analysis-workbench")).toContainText("文档版本 1");
+  await expect(page.getByTestId("itv-analysis-workbench").getByRole("button", { name: "选择专家", exact: true })).toBeEnabled();
   await expect(page.getByRole("article").filter({ has: page.getByRole("heading", { name: "研究目标", exact: true }) })).toContainText("识别最终采购否决权及决策角色。");
   await expect(page.getByTestId("itv-analysis-suggestion-section-3")).toContainText("先验证采购流程假设，再审阅专家意见。");
   await page.getByTestId("itv-workbench-step-experts").click();
