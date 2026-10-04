@@ -10,5 +10,6 @@ Validation: `pnpm --filter @repo/api test:interview-markdown-unit`.
 - Named conditional regression: 1 failed, 245 passed (`condition-red.txt`).
 - Final verification with updated parent: 255 passed (`green.txt`). The additional 9 tests belong to the updated parent.
 - Independent review rejected the initial candidate for ordinary negations and prohibitions. Regression: 3 failed, 257 passed (`negation-red.txt`); finite negation/prohibition fix: 260 passed (`negation-green.txt`). Double denial and affirmative contrast controls remain rejected. The initial review is superseded by a new exact-head review.
+- Main independent review subsequently found inner negative predicates borrowing an outer denial (`并非没有暂停` / `不是没有搁置`). Regression: 2 failed, 260 passed (`double-red.txt`); exclude these double denials from the single-negation exemption, retaining scoped prohibitions and conditional hypotheses: 262 passed (`double-green.txt`). Prior 116468 acceptance is withdrawn pending new exact review and CI.
 
 No model calls or private interview reads occurred. Original public inputs and raw reports were not rewritten. Overall #5327 semantic acceptance remains failed pending the remaining risk-downgrade fix and comprehensive acceptance; these controlled tests do not establish model output quality.
