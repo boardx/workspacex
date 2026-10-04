@@ -102,13 +102,13 @@ test("research persists the confirmed-question pipeline through the real UI, API
   await page.getByText(/^查看研究资料 ·/).click();
   const sourceWorkspace = page.getByTestId("guided-research-source-workspace");
   await expect(sourceWorkspace).toHaveAttribute("data-reference-layout", "research-sources");
-  await expect(page.getByTestId("guided-research-source-chapters")).toHaveCount(0);
+  await expect(page.getByTestId("guided-research-source-chapters")).toHaveCount(0); // testid-gate: absent 章节编辑移至报告工作区，资料区不得重复呈现。
   const sourceLink = page.getByTestId("guided-research-source-evidence").locator('a[href$="/research-evidence"]');
   await expect(sourceLink).toBeVisible();
   await expect(sourceLink).toHaveAttribute("href", /\/research-evidence$/);
   await expect(sourceLink).toHaveAttribute("title", /\S/);
   await expect(page.getByRole("link", { name: /vehicle-inventory$/ })).toHaveCount(0);
-  await expect(page.getByTestId("guided-research-source-activity")).toHaveCount(0);
+  await expect(page.getByTestId("guided-research-source-activity")).toHaveCount(0); // testid-gate: absent 资料区不呈现旧活动卡，原缺席断言保留。
   await expect(page.getByTestId("research-search-summary")).toHaveCount(0);
   await expect(page.getByRole("button", { name: "添加来源" })).toHaveCount(0);
   await page.setViewportSize({ width: 390, height: 844 });
