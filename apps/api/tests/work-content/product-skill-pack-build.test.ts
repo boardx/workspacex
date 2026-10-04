@@ -77,6 +77,23 @@ describe("CT04 · 产品线 Skill 包作者化与导入（work-product starter-p
     expect(new Set(stableIds).size).toBe(EXPECTED_STABLE_IDS.length);
   });
 
+  it("S064 1.1.0 ships a closed local method graph without altering published 1.0.0", () => {
+    const pack = buildWorkProductPack();
+    const current = pack.skills.find(skill => skill.name === "S064")!;
+    expect(current.semanticVersion).toBe("1.1.0");
+    const entry = Buffer.from(current.files.find(file => file.path === "SKILL.md")!.contentBase64, "base64").toString("utf8");
+    const targets = [...entry.matchAll(/\]\((references\/[^)]+\.md)\)/g)].map(match => match[1]);
+    expect(targets.sort()).toEqual(["references/method.md", "references/upstream.md"]);
+    for (const target of targets) expect(current.files.some(file => file.path === target)).toBe(true);
+    const old = verifySkillStarterPack(JSON.parse(readFileSync(resolve(DEFAULT_ROOT, "../starter-packs/work-product/1.0.0.json"), "utf8")), { packId: PACK_ID, packVersion: "1.0.0" });
+    const previous = old.skills.find(skill => skill.name === "S064")!;
+    expect(previous.semanticVersion).toBe("1.0.0");
+    expect(previous.files.map(file => file.path)).toEqual(["SKILL.md"]);
+    for (const skill of pack.skills.filter(skill => skill.name !== "S064")) {
+      expect(skill).toEqual(old.skills.find(previousSkill => previousSkill.name === skill.name));
+    }
+  });
+
   it("每个文件的 digest 都是其字节内容的 sha256（每份构建产物独立核验，不信任脚本自称）", () => {
     const pack = buildWorkProductPack();
     for (const skill of pack.skills) {

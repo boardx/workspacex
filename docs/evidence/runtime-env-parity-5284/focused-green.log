@@ -1,0 +1,14 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/survey-report-echarts/packages/local-runtime
+
+ ✓ test/processes.test.ts (4 tests) 602ms
+   ✓ waitForHttpOrExit > returns when the child does come up 522ms
+ ✓ test/no-egress-endpoints.test.ts (3 tests) 3ms
+ ✓ test/parity.test.ts (5 tests) 339ms
+ ✓ test/inherited-parity-env.test.ts (4 tests) 60ms
+
+ Test Files  4 passed (4)
+      Tests  16 passed (16)
+   Start at  07:49:58
+   Duration  1.43s (transform 46ms, setup 0ms, collect 70ms, tests 1.00s, environment 0ms, prepare 102ms)
+

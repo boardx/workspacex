@@ -7,6 +7,7 @@ import { createWriteStream, mkdirSync } from "node:fs";
 import net from "node:net";
 import { platform } from "node:os";
 import { join } from "node:path";
+import { parityIndex } from "./parity";
 
 export interface SpawnSpec {
   readonly name: string;
@@ -236,8 +237,9 @@ export function portInUse(port: number, host = "127.0.0.1"): Promise<boolean> {
 /** Inherit PATH/HOME etc., but never leak the parent's cloud model / DB configuration into a child. */
 function baseEnv(): Record<string, string> {
   const out: Record<string, string> = {};
+  const parity = parityIndex();
   for (const [k, v] of Object.entries(process.env)) {
-    if (v === undefined) continue;
+    if (v === undefined || parity.get(k) === "must-stay-unset") continue;
     if (/^(KERNEL_|PG|REDIS_|OSS_|S3_|WORKSPACEX_|MODEL_|DEEP_AGENT_|NEXT_PUBLIC_)/.test(k)) continue;
     out[k] = v;
   }
