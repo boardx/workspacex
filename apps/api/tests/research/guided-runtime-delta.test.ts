@@ -121,9 +121,10 @@ it("omits large saved source/report/history bodies while preserving authoritativ
     qualityScore: { citationCoverage: null, authority: null, recency: null, crossValidation: null, openGapCount: 1, overall: null, explanations: ["OLD_METADATA"] },
     publicationReadiness: { status: "limited", blockers: ["OLD_METADATA"], warnings: [] } });
   const patch = C.GuidedResearchRuntimePatch.parse(await outlineResponse(next));
-  expect(JSON.stringify(patch)).not.toMatch(/SAVED_REPORT_BODY|SAVED_SOURCE_BODY|PREVIOUS_BODY|历史内容|OLD_METADATA/);
+  for (const key of ["coverage", "claimEvidence", "conflicts", "qualityScore", "publicationReadiness"] as const) expect(patch.changes[key]).toEqual(next[key]);
+  expect(JSON.stringify(patch)).not.toMatch(/SAVED_REPORT_BODY|SAVED_SOURCE_BODY|PREVIOUS_BODY|历史内容/);
   expect(patch.changes).toMatchObject({ busy: true, leaseUntil: "future", errorCode: "RESEARCH_NODE_STATE_INVALID", controlStatus: "paused", planRevision: 3 });
-  for (const key of ["sources", "report", "reportDraft", "reportCheckpoint", "reportPrevious", "reportTimeline", "reportPartial", "reportSourceAliases", "reportQualityWarnings", "reportEvidenceWarnings", "qualityScore", "publicationReadiness"]) { expect(patch.changes).not.toHaveProperty(key); expect(patch.removed).not.toContain(key); }
+  for (const key of ["sources", "report", "reportDraft", "reportCheckpoint", "reportPrevious", "reportTimeline", "reportPartial", "reportSourceAliases", "reportQualityWarnings", "reportEvidenceWarnings"]) { expect(patch.changes).not.toHaveProperty(key); expect(patch.removed).not.toContain(key); }
 });
 
 it("explicitly clears actual downstream resets, including absent previous reports, even with matching cache hints", async () => {
