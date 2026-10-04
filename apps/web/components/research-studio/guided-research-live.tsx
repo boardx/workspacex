@@ -1,4 +1,5 @@
 "use client";
+import { guidedResearchHeading } from "@/lib/guided-research-heading";
 import { GuidedResearchReportTimeline } from "./guided-research-report-timeline";
 import * as React from "react";
 import { ApiError, getStoredSessionToken } from "@/lib/api-client";
@@ -39,6 +40,13 @@ function newestSnapshot(incoming: Runtime, current: Runtime | null): Runtime {
   if (!current || current.sessionId !== incoming.sessionId) return incoming;
   if (current.version > incoming.version || (current.version === incoming.version && !current.busy && incoming.busy)) return current;
   if (current.version !== incoming.version) return incoming;
+  if (current.revision > incoming.revision) {
+    const stream = incoming.reportStream; const previous = current.reportStream;
+    // Stream sequence advances independently of persisted metadata revision.
+    return current.busy && incoming.busy && stream?.status === "streaming" && previous?.status === "streaming"
+      && stream.requestId === previous.requestId && stream.sequence > previous.sequence
+      ? { ...current, reportStream: stream } : current;
+  }
   const newerControl = (current.planRevision ?? 0) > (incoming.planRevision ?? 0);
   const newerStream = current.reportStream && incoming.busy && (!incoming.reportStream || (current.reportStream.requestId === incoming.reportStream.requestId && current.reportStream.sequence > incoming.reportStream.sequence));
   if (newerStream) return (incoming.planRevision ?? 0) > (current.planRevision ?? 0)
@@ -496,7 +504,7 @@ export function GuidedResearchLive({ sessionId, researchName, onBack, onLoadRetr
     proposal={proposal} proposalEdited={proposalEdited} onApply={() => void run("apply", { proposalId: proposal?.id })}
     preview={proposal ? <ProposalPreview draft={proposal.draft} /> : null} />;
   const shellAssistant = chaptersOpen ? null : conversation;
-return <GuidedResearchSixStepShell researchName={state.brief.topic.trim() || researchName} hasUnsavedChanges={Boolean(message.trim()) || topicInformationDirty || chaptersDirty || markdownDirty || Boolean(draft && JSON.stringify(draft) !== JSON.stringify(draftOf(state, node)))} sessionId={sessionId} current={chaptersOpen && (browsing || !loadingNode) ? "chapters" : visualStage.current} running={processing ? toGuidedResearchVisualStage({ currentNode: executingNode, availableNodes: state.availableNodes }).current : undefined} completed={state.completed} completedStages={completedStages} available={visualStage.available} onBack={onBack} onNavigate={navigateVisual} onHistoryNavigate={restoreVisualRoute} assistant={shellAssistant} assistantOpen={reportAssistantOpen} onAssistantOpenChange={setReportAssistantOpen} main={<div className="max-w-none space-y-4" data-layout="signed-desktop" data-testid={`research-flow-${node === "research" ? "search" : node}`}>
+return <GuidedResearchSixStepShell researchName={guidedResearchHeading(state, researchName)} hasUnsavedChanges={Boolean(message.trim()) || topicInformationDirty || chaptersDirty || markdownDirty || Boolean(draft && JSON.stringify(draft) !== JSON.stringify(draftOf(state, node)))} sessionId={sessionId} current={chaptersOpen && (browsing || !loadingNode) ? "chapters" : visualStage.current} running={processing ? toGuidedResearchVisualStage({ currentNode: executingNode, availableNodes: state.availableNodes }).current : undefined} completed={state.completed} completedStages={completedStages} available={visualStage.available} onBack={onBack} onNavigate={navigateVisual} onHistoryNavigate={restoreVisualRoute} assistant={shellAssistant} assistantOpen={reportAssistantOpen} onAssistantOpenChange={setReportAssistantOpen} main={<div className="max-w-none space-y-4" data-layout="signed-desktop" data-testid={`research-flow-${node === "research" ? "search" : node}`}>
     {reportVisible && <div className="flex flex-wrap justify-end gap-3" data-testid="research-report-execution-controls">
       {processing && state.controlStatus !== "paused" && <Button variant="outline" disabled={reportControlPending} onClick={() => void steerReport("pause")}>暂停生成</Button>}
       {processing && state.controlStatus === "paused" && <span role="status">正在暂停，已保存章节会保留。</span>}
