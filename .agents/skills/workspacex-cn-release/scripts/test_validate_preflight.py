@@ -42,6 +42,7 @@ def fixture(phase: str = "prebuild") -> dict:
     }
     checks["database.drain_read_access"]["metadata"] = {"role": "app_diag_ro", "canReadAgentRuns": True}
     checks["bootstrap.compatibility"]["metadata"] = {"evidenceMode": "source-static", "readOnlyTransaction": False, "productionWriteStatements": 0, "sourceEntrypoint": True, "inputContract": True, "schemaContract": False, "permissionContract": False, "stateClass": "unknown", "agentSeedContract": False, "exactlyOneMachineRecord": True}
+    checks["bootstrap.compatibility"]["metadata"].update(baselineSha="e" * 40, migrationPlanSha256="d" * 64, baselineSchemaSha256="f" * 64, baselineLedgerContract=True, baselineSchemaContract=True, baselinePermissionContract=True, candidateSchemaContract=False, buildAdmissionOnly=True)
     checks["secrets.stable_continuity"]["metadata"] = {"requiredCount": 12, "matchedCount": 12, "missingKeyIds": [], "rotatedKeyIds": [], "consumerDriftIds": [], "stableDirectory": True, "baselineReadable": True, "candidateWillReuse": True, "noMutation": True}
     checks["build.affected_services"]["metadata"] = {"diffComputed": True, "baselineSha": "e" * 40, "sourceSha": SHA, "services": ["api", "web"]}
     checks["deploy.trusted_copy"]["metadata"] = {"hashesMatch": True, "checkedEntrypoints": 4}
@@ -50,7 +51,9 @@ def fixture(phase: str = "prebuild") -> dict:
         checks["config.release_manifest"]["metadata"].update(kind="sealed-images", imageDigests=IMAGE_DIGESTS.copy())
         boot = checks["bootstrap.compatibility"]["metadata"]
         boot.pop("sourceEntrypoint")
-        boot.update(imageEntrypoint=True, evidenceMode="database-dynamic", readOnlyTransaction=True, schemaContract=True, permissionContract=True, agentSeedContract=True, stateClass="matching-existing")
+        for key in ("baselineSha", "migrationPlanSha256", "baselineSchemaSha256", "baselineLedgerContract", "baselineSchemaContract", "baselinePermissionContract", "candidateSchemaContract", "buildAdmissionOnly"):
+            boot.pop(key)
+        boot.update(imageEntrypoint=True, evidenceMode="database-dynamic", readOnlyTransaction=True, schemaContract=True, migrationLedgerContract=True, permissionContract=True, agentSeedContract=True, stateClass="matching-existing")
         checks["build.target_images"] = {
             "status": "passed",
             "evidenceSha256": "d" * 64,
