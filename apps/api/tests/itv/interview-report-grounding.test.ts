@@ -84,6 +84,8 @@ describe("report evidence grounding", () => {
   "本节不作肯定跨角色共识断言。",
   "不应将单个角色的证言断言为跨角色共识。",
   "不能将这些观点断言为跨角色共识。",
+  "两位专家并非完全一致。", "两位专家不完全一致。", "两位专家未达成完全一致。",
+  "不能将冷却定义为跨角色共识。",
  ])("preserves scoped negative consensus across long subjects: %s", (claim) => {
   expect(validateReportEvidence(`[服务端甲回答：支持电话。](#answer-1)\n\n${claim}`,buildReportEvidenceIndex(source)).ok).toBe(true);
  });
@@ -94,6 +96,7 @@ describe("report evidence grounding", () => {
   "并非没有跨角色共识。",
   "不能不形成跨角色共识。",
   "无法排除跨角色共识。",
+  "团队否认不能将两个分别关注预算限制以及具体安装任务的模拟角色观点宣称为跨角色共识。",
   "两位专家共同支持电话。",
  ])("does not waive positive, contrast or double-negative claims: %s", (claim) => {
   expect(validateReportEvidence(`[服务端甲回答：支持电话。](#answer-1)\n\n${claim}`,buildReportEvidenceIndex(source)).ok).toBe(false);
