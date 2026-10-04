@@ -53,7 +53,7 @@ export function reportEvidenceContext(index: readonly ReportEvidence[]): string 
       `### ${item.anchor} · 文档 ${item.documentId} v${item.version} · SHA256 ${item.sourceHash} · UTF16 [${item.start},${item.end})`,
       `服务端专家：${item.expertLabel ?? item.expertId ?? "未验证归属"} · task：${item.taskKey ?? "未验证"} · evidenceMode：${item.evidenceMode}`,
       item.quote,
-      `此条合法逐字引用：[${item.quote.replace(/[\\`*_[\]<>&]/gu, "\\$&")}](#${item.anchor})`,
+      `引用定位：#${item.anchor}；使用上一行完整原文作链接文字。`,
     ].join("\n")),
   ].join("\n\n");
 }

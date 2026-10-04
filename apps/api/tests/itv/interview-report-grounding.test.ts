@@ -6,6 +6,12 @@ const hash = (s: string) => createHash("sha256").update(s).digest("hex");
 const raw = "服务端甲回答：支持电话。\n## [客服](#expert-b)\nQ2：反对电话。\nQ2：厨房孔位冲突。";
 const source: interviewMarkdown.InterviewMarkdownDocument = { documentId: "md-runs", version: 2, step: "runs", markdown: raw, contentHash: hash(raw), evidenceMode: "simulated", references: [], answerSpans: [{ taskKey: "rev-a/expert-a", expertId: "expert-a", start: 0, end: raw.length, contentHash: hash(raw) }] };
 describe("report evidence grounding", () => {
+ it("does not duplicate every indexed quote in per-anchor syntax hints", () => {
+  const index = buildReportEvidenceIndex(source);
+  const context = reportEvidenceContext(index);
+  expect(context).not.toContain("此条合法逐字引用：");
+  for (const entry of index) { expect(context).toContain(entry.quote); expect(context).toContain(`引用定位：#${entry.anchor}`); }
+ });
  it("provides complete escaped source examples and explicit invalid citation formats", () => {
   const quote = "公开合成回答：[安装] *冲突*。";
   const index = buildReportEvidenceIndex({...source,markdown:quote,contentHash:hash(quote),answerSpans:[{...source.answerSpans![0]!,end:quote.length,contentHash:hash(quote)}]});
