@@ -35,3 +35,5 @@ Live：#5196/#5197/#5202及#5127已由其他会话合入；#5067 OPEN，未发�
 主session独立接受439–442分页正常控件持久化，仅type/count/order而非UUID，PDF438未测；0344无editor使用按钮NA保留分母。123=95PASS/3BLOCKED/10NA/15NS。图片5项与柱状图5项新增完整实际configure/preview/copy/move/delete/save/reload证据等待review，仍NS。原a529report8blocks刷新恢复。
 
 主session接受图片0432–0436当前HTTPS样本和控件链路，123=100PASS/3BLOCKED/10NA/10NS，截图准确为image-preview.png；不认证全部格式/失败URL/UUID/导出。柱状图5项仍待review；基础5285green仅交付待主验收/合并不宣称已集成。
+
+主session接受bar0408–0412，template123=105PASS/3BLOCKED/10NA/5NS；接受0517即时+30天默认，parent另11PASS。全库存未完成。main4项解绑不借旧ac9抬当前PASS：4c源码无unbind，fresh f687 SurveyAPI/contracts与5eff无差异，privatefreeze新25709build遭ENOSPC停在type阶段未Ready，仅清精确自己退休cache后重跑；现暂停DB写验收，不据环境身份失败登记产品bug。
