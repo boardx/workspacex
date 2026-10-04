@@ -323,6 +323,33 @@ describe("terminal stream recovery", () => {
     expect(screen.getByRole("alert")).toBeInTheDocument();
     expect(executeResearchRuntime).toHaveBeenCalledTimes(1);
   });
+  it.each(["failed", "hanging"])("synchronizes a retained message draft on terminal progress after %s recovery", async (mode) => {
+    const recovery = mode === "hanging" ? new Promise<Runtime>(() => {}) : Promise.reject(new Error("offline"));
+    recovery.catch(() => undefined);
+    vi.mocked(getResearchRuntime).mockResolvedValueOnce({ ...idleReport, report: { title: "旧报告", summary: "旧摘要", sections: [] } }).mockReturnValue(recovery);
+    vi.mocked(getResearchRuntimeProgress).mockRejectedValue(new Error("offline"));
+    vi.mocked(executeResearchRuntime).mockImplementation(async (input, callback) => {
+      callback?.({ type: "snapshot", state: streaming(input.requestId) });
+      throw new ApiError(409, "RESEARCH_WORKFLOW_UNAVAILABLE", null);
+    });
+    render(<GuidedResearchLive sessionId={initial.sessionId} onBack={vi.fn()} />);
+    await act(async () => {});
+    fireEvent.pointerDown(screen.getByRole("button", { name: "更多操作" }), { button: 0, ctrlKey: false });
+    await act(async () => {});
+    fireEvent.click(screen.getByRole("menuitem", { name: "修改报告" }));
+    fireEvent.change(screen.getByRole("textbox", { name: "研究对话" }), { target: { value: "保留我的报告修改" } });
+    fireEvent.click(screen.getByRole("button", { name: "发送研究消息" }));
+    await act(async () => {});
+    expect(screen.getByRole("button", { name: "继续编辑保留的内容" })).toBeDisabled();
+    vi.mocked(getResearchRuntimeProgress).mockResolvedValue(progressOf({ ...streaming(), busy: false, leaseUntil: null, errorCode: "RESEARCH_WORKFLOW_UNAVAILABLE" }));
+    await act(async () => { await vi.advanceTimersByTimeAsync(2001); });
+    expect(screen.getByRole("button", { name: "继续编辑保留的内容" })).toBeEnabled();
+    expect(screen.getByTestId("research-recovery")).toHaveTextContent("已读取最新研究进度");
+    fireEvent.click(screen.getByRole("button", { name: "继续编辑保留的内容" }));
+    expect(screen.queryByTestId("research-recovery")).not.toBeInTheDocument();
+    expect(screen.getByTestId("research-report-document")).toHaveTextContent("旧报告");
+    expect(executeResearchRuntime).toHaveBeenCalledTimes(1);
+  });
   it("cancels recovery reads on unmount", async () => {
     vi.mocked(getResearchRuntime).mockResolvedValueOnce(idleReport).mockReturnValue(new Promise(() => {}));
     vi.mocked(executeResearchRuntime).mockRejectedValue(new ApiError(409, "RESEARCH_WORKFLOW_UNAVAILABLE", null));

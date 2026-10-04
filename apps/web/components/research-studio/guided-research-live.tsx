@@ -227,9 +227,11 @@ export function GuidedResearchLive({ sessionId, researchName, onBack, onLoadRetr
         pollAccepted.current = ticket; snapshotRef.current = next;
         sourceCursor.current = incomingSourceCursor;
         setState(next);
-        if (!next.busy && recoveryRef.current && !recoveryRef.current.draft) {
+        if (!next.busy && recoveryRef.current) {
           recoveryController.current?.abort();
-          updateRecovery(null);
+          const retained = recoveryRef.current;
+          updateRecovery(retained.draft ? { ...retained, synchronized: true } : null);
+          setPending(false); setLoadingNode(null);
           if (next.errorCode) setError(errors[next.errorCode] ?? "处理失败，已保存当前进度，请重试。");
         }
         if (!next.busy && pending) {
