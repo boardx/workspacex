@@ -117,9 +117,9 @@ export type GuidedResearchRuntime = z.infer<typeof research.GuidedResearchRuntim
 };
 export type GuidedResearchRuntimeCommand = z.infer<typeof research.GuidedResearchRuntimeCommand>;
 export type GuidedResearchRuntimeDraft = z.infer<typeof research.GuidedResearchRuntimeDraft>;
-export async function getResearchRuntime(sessionId: string): Promise<GuidedResearchRuntime> {
+export async function getResearchRuntime(sessionId: string, signal?: AbortSignal): Promise<GuidedResearchRuntime> {
   const op = research.operations.getGuidedResearchRuntime;
-  return research.GuidedResearchRuntime.parse(await apiRequest(op.path.replace(":sessionId", encodeURIComponent(sessionId)), { method: op.method }));
+  return research.GuidedResearchRuntime.parse(await apiRequest(op.path.replace(":sessionId", encodeURIComponent(sessionId)), { method: op.method, signal }));
 }
 export async function executeResearchRuntime(input: GuidedResearchRuntimeCommand, onEvent?: (event: ResearchStreamEvent) => void, signal?: AbortSignal, baseline?: GuidedResearchRuntime): Promise<GuidedResearchRuntime> {
   if (baseline && baseline.sessionId !== input.sessionId) throw new Error("Research baseline belongs to another session");
