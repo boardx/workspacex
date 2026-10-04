@@ -106,6 +106,25 @@ describe("durable actual-request start receipts", () => {
   });
 });
 
+describe("artifact embedding operation migration", () => {
+  const operationId="a6a64fb9-0a62-4dba-8f0d-f2abc45b0d79";
+  it("keeps operation metadata tenant isolated and immutable, with a real non-run start", async () => {
+    await asApp(ORG,c=>c.query(`INSERT INTO artifact_embedding_operations
+      (id,org_id,user_id,artifact_id,artifact_version_id,content_hash)
+      VALUES($1,$2,$3,'artifact','version','hash')`,[operationId,ORG,ACTOR]));
+    expect((await asApp(OTHER_ORG,c=>c.query("SELECT id FROM artifact_embedding_operations WHERE id=$1",[operationId]))).rows).toEqual([]);
+    await expect(asApp(ORG,c=>c.query("UPDATE artifact_embedding_operations SET user_id='forged' WHERE id=$1",[operationId]))).rejects.toThrow();
+    await expect(asOwner(c=>c.query("DELETE FROM artifact_embedding_operations WHERE id=$1",[operationId]))).rejects.toThrow(/append-only/i);
+    const input={requestId:'artifact-real-start',userId:ACTOR,runId:null,executionAttemptId:null,projectId:PROJECT,modelProvider:'test-provider',modelId:'test-embedding',startedAt:'2026-10-04T00:00:00Z',callPurpose:'retrieval-embedding' as const,artifactOperationId:operationId};
+    await repo.startRequest(toOrgId(ORG),input);
+    const rows=(await asApp(ORG,c=>c.query("SELECT run_id,execution_attempt_id,artifact_operation_id FROM model_request_starts WHERE id=$1",[input.requestId]))).rows;
+    expect(rows).toEqual([{run_id:null,execution_attempt_id:null,artifact_operation_id:operationId}]);
+    await expect(repo.startRequest(toOrgId(OTHER_ORG),{...input,requestId:'foreign-artifact-start'})).rejects.toThrow();
+    await expect(repo.startRequest(toOrgId(ORG),{...input,requestId:'missing-op-start',artifactOperationId:undefined})).rejects.toThrow();
+    await expect(repo.startRequest(toOrgId(ORG),{...input,requestId:'fake-run-start',runId:RUN,executionAttemptId:'fake'})).rejects.toThrow();
+  });
+});
+
 describe("F159 token_usage_events —— 账的落库行为", () => {
   it("写进去读得出来，大数按 bigint 保留（不被截断）", async () => {
     await write(12_345_678_901);

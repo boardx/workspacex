@@ -117,12 +117,12 @@ export interface ClaimChannelResult {
  * the right shape for what V12 measures: the recall comparison holds the embedding constant
  * across both arms, so the model cancels out and what is measured is the permission filter.
  */
-export type {RetrievalAccountingContext} from "@repo/contracts/retrieval-accounting";
-import type {RetrievalAccountingContext} from "@repo/contracts/retrieval-accounting";
+export type {RetrievalAccountingContext,EmbeddingAccountingContext} from "@repo/contracts/retrieval-accounting";
+import type {RetrievalAccountingContext,EmbeddingAccountingContext} from "@repo/contracts/retrieval-accounting";
 export interface EmbeddingPort {
   readonly model: string;
   readonly modelVersion: string;
-  embed(text: string, accounting?:RetrievalAccountingContext): Promise<readonly number[]>;
+  embed(text: string, accounting?:EmbeddingAccountingContext): Promise<readonly number[]>;
 }
 
 /**

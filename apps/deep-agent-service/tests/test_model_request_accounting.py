@@ -322,3 +322,55 @@ def test_admission_model_builder_requires_explicit_existing_bound_and_disables_s
     monkeypatch.setenv("KERNEL_MODEL_MAX_OUTPUT_TOKENS","10")
     model=build_chat_model("fixture-model")
     assert model.max_tokens==10 and model.max_retries==0
+
+
+def test_artifact_actual_transport_has_opaque_subject_no_agent_identity_and_start_before_http(monkeypatch,tmp_path):
+    monkeypatch.setattr(a,"_durability_fault",False)
+    for k,v in {"DEEP_AGENT_SERVICE_INTERNAL_KEY":"private","DEEP_AGENT_REQUEST_ACCOUNTING_ENABLED":"1","DEEP_AGENT_RETRIEVAL_REQUEST_ACCOUNTING_ENABLED":"1","DEEP_AGENT_USAGE_CALLBACK_BASE_URL":"http://api.example.test","DEEP_AGENT_USAGE_SPOOL_DIR":str(tmp_path)}.items():monkeypatch.setenv(k,v)
+    monkeypatch.delenv("DEEP_AGENT_MODEL_ADMISSION_ENABLED",raising=False)
+    ref={"kind":"artifact-index","orgId":"org-A","operationId":"84f45cd6-e5b7-432b-b8d6-70a377f01ddd"}
+    callbacks=[];paid=[]
+    async def send(owner,subject,phase,body):callbacks.append((a.callback_url(owner,subject,phase),dict(body)))
+    monkeypatch.setattr(a,"apost",send)
+    def vendor(req):
+        assert callbacks[-1][0].endswith('/start')
+        paid.append(req)
+        return response(json.dumps({"data":[],"usage":{"prompt_tokens":4,"total_tokens":4}}).encode())
+    async def check():
+        with a.retrieval_accounting_scope(ref,"retrieval-embedding"):
+            async with httpx.AsyncClient(transport=a.AsyncAccountingTransport(httpx.MockTransport(vendor))) as client:
+                await client.post('http://vendor.example.test/v1/embeddings',json={"model":"fixture-model","input":["transient"]})
+    asyncio.run(check())
+    assert len(paid)==1 and len(callbacks)==2
+    assert all('/internal/artifact-index/'+ref['operationId']+'/model-requests/' in url for url,_ in callbacks)
+    assert set(callbacks[0][1])=={'orgId','requestId','startedAt','modelId'}
+    assert callbacks[1][1]['usage']=={'total':4,'prompt':4}
+    assert not {'runId','attemptId','leaseEpoch','userId'} & set(callbacks[1][1])
+
+
+def test_artifact_accounting_rejects_asserted_actor_wrong_purpose_and_admission_before_vendor(monkeypatch,tmp_path):
+    monkeypatch.setattr(a,"_durability_fault",False)
+    for k,v in {"DEEP_AGENT_SERVICE_INTERNAL_KEY":"private","DEEP_AGENT_REQUEST_ACCOUNTING_ENABLED":"1","DEEP_AGENT_RETRIEVAL_REQUEST_ACCOUNTING_ENABLED":"1","DEEP_AGENT_USAGE_CALLBACK_BASE_URL":"http://api.example.test","DEEP_AGENT_USAGE_SPOOL_DIR":str(tmp_path)}.items():monkeypatch.setenv(k,v)
+    ref={"kind":"artifact-index","orgId":"org-A","operationId":"84f45cd6-e5b7-432b-b8d6-70a377f01ddd"}
+    for bad,purpose in [(ref|{'userId':'forged'},'retrieval-embedding'),(ref,'retrieval-rerank')]:
+        with pytest.raises(a.RuntimeUsageError):
+            with a.retrieval_accounting_scope(bad,purpose):pytest.fail('must deny scope')
+    monkeypatch.setenv('DEEP_AGENT_MODEL_ADMISSION_ENABLED','1')
+    paid=[]
+    async def check():
+        with a.retrieval_accounting_scope(ref,'retrieval-embedding'):
+            async with httpx.AsyncClient(transport=a.AsyncAccountingTransport(httpx.MockTransport(lambda r:paid.append(r)))) as client:
+                with pytest.raises(a.RuntimeUsageError,match='artifact_embedding_admission_unimplemented'):
+                    await client.post('http://vendor.example.test/v1/embeddings',json={'model':'fixture-model','input':['transient']})
+    asyncio.run(check());assert paid==[]
+
+
+def test_artifact_receipt_restart_replays_original_subject_kind_without_model(context,monkeypatch):
+    _,path=context;owner={**OWNER,'subject_kind':'artifact-index','operation_id':'84f45cd6-e5b7-432b-b8d6-70a377f01ddd'}
+    journal=a.Journal(str(path));journal.save(owner,{'requestId':'artifact-terminal','orgId':'org-A','usage':{}})
+    delivered=[]
+    async def send(replay_owner,subject,phase,body):delivered.append(a.callback_url(replay_owner,subject,phase))
+    monkeypatch.setattr(a,'apost',send)
+    assert asyncio.run(a.replay_pending_batch(OWNER,a.Journal(str(path))))==1
+    assert delivered==['http://api.example.test/internal/artifact-index/'+owner['operation_id']+'/model-requests/terminal']
+    assert journal.pending(OWNER)==[]

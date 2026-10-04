@@ -22,35 +22,63 @@
         "maxItems": 32
       },
       "accounting": {
-        "type": "object",
-        "properties": {
-          "orgId": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 200
+        "anyOf": [
+          {
+            "type": "object",
+            "properties": {
+              "orgId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200
+              },
+              "runId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200
+              },
+              "attemptId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 300
+              },
+              "leaseEpoch": {
+                "type": "integer",
+                "exclusiveMinimum": 0
+              }
+            },
+            "required": [
+              "orgId",
+              "runId",
+              "attemptId",
+              "leaseEpoch"
+            ],
+            "additionalProperties": false
           },
-          "runId": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 200
-          },
-          "attemptId": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 300
-          },
-          "leaseEpoch": {
-            "type": "integer",
-            "exclusiveMinimum": 0
+          {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "artifact-index"
+              },
+              "orgId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200
+              },
+              "operationId": {
+                "type": "string",
+                "format": "uuid"
+              }
+            },
+            "required": [
+              "kind",
+              "orgId",
+              "operationId"
+            ],
+            "additionalProperties": false
           }
-        },
-        "required": [
-          "orgId",
-          "runId",
-          "attemptId",
-          "leaseEpoch"
-        ],
-        "additionalProperties": false
+        ]
       }
     },
     "required": [

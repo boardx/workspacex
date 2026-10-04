@@ -20,14 +20,14 @@ export class ArtifactIndexingService {
    const target=await this.authorize(orgId,userId,artifactVersionId);
    if(target.status==='REVIEW_PENDING')return result('review_pending');
    if(target.status==='READY'){
-    if(step===0)await this.producer.index({orgId,artifactVersionId});
+    if(step===0)await this.producer.index({orgId,artifactVersionId,requestedBy:userId});
     const latest=await this.authorize(orgId,userId,artifactVersionId);
     return result(latest.status==='READY'?'ready':latest.status==='REVIEW_PENDING'?'review_pending':'busy');
    }
    const pending=await this.worker.outbox.findByVersion(orgId,artifactVersionId);
    if(!pending)return result('failed');
    if(pending.step==='REVIEW_PENDING')return result('review_pending');
-   const attempted=await replayIngestionRun(this.worker,orgId,artifactVersionId,'user-index',this.review,true);
+   const attempted=await replayIngestionRun(this.worker,orgId,artifactVersionId,'user-index',this.review,true,userId);
    if(!attempted.claimed)return result('busy');
    const next=await this.worker.outbox.findByVersion(orgId,artifactVersionId);
    if(next?.id===pending.id)return result('failed');

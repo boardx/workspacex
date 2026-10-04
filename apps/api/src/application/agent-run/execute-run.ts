@@ -920,7 +920,7 @@ async function executeClaimed(
 
   // Phase 18 F08 / F17 —— 会话记忆（uc-18-2）与「记住 / 忘掉」卡片说明（uc-18-6），放在 history 最前；
   // 读不到 / 开不了卡只记日志，绝不 fail run（降级纪律见 recall-knowledge.ts turnKnowledgeContext）。
-  const notes = useConversationContext && deps.knowledge ? await turnKnowledgeContext(deps.knowledge, deps.memoryCards, { orgId, run }, deps.log, deps.memoryChange) : [];
+  const notes = useConversationContext && deps.knowledge ? await turnKnowledgeContext(deps.knowledge, deps.memoryCards, { orgId, run, accounting: run.leaseEpoch===undefined?undefined:{orgId:String(orgId),runId:run.runId,attemptId:`${run.runId}:${stepSeqBase}`,leaseEpoch:run.leaseEpoch} }, deps.log, deps.memoryChange) : [];
   history = [...requesterMemoryHistory(notes), ...history];
 
   // V9-b 前置 A（#970）：把附件元数据折进模型可见的 content——历史每轮 + 当前触发消息。

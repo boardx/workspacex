@@ -75,16 +75,16 @@
     {
       "id": "kg-query-embedding",
       "source": "apps/api/src/infrastructure/knowledge-graph/pg-knowledge-recall.ts",
-      "anchor": "this.embeddings.embed(query)",
-      "trustedRunReferencePropagationImplemented": false,
-      "acceptance": "source missing; do not invent owner/lease"
+      "anchor": "this.embeddings.embed(query,this.requestAccounting?accounting:undefined)",
+      "trustedRunReferencePropagationImplemented": true,
+      "acceptance": "Exact server run attempt/lease reference; private service HTTP units and tenant negatives. Real PG composition and input-only admission remain pending."
     },
     {
       "id": "artifact-segment-embedding",
       "source": "apps/api/src/application/retrieval/index-artifact-version.ts",
-      "anchor": "this.embeddings.embed(segment.content)",
-      "trustedRunReferencePropagationImplemented": false,
-      "acceptance": "source missing; do not invent owner/lease"
+      "anchor": "this.embeddings.embed(...params)",
+      "trustedRunReferencePropagationImplemented": true,
+      "acceptance": "Trusted opaque artifact-index operation, original publisher or authenticated reindex actor, current source/ACL/job check; no fabricated Agent run. Mocked service and SQLite restart tests; real PG acceptance and input-only admission pending."
     },
     {
       "id": "cosine-query-embedding",
@@ -122,8 +122,8 @@
     "receiptHooksContextSubset": 4,
     "receiptHooksMissing": 0,
     "knownRetrievalProducerRoutes": 7,
-    "trustedRunReferenceRoutesImplemented": 4,
-    "trustedRunReferenceRoutesMissing": 3,
+    "trustedRunReferenceRoutesImplemented": 6,
+    "trustedRunReferenceRoutesMissing": 1,
     "opaqueExternalRoutes": 1
   }
 }

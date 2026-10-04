@@ -1,5 +1,5 @@
 import {z} from 'zod';
-import {RetrievalAccountingContext} from './retrieval-accounting';
+import {EmbeddingAccountingContext} from './retrieval-accounting';
 /**
  * Infrastructure-only protocol: no model/tool-selectable provider or credentials.
  *
@@ -10,5 +10,5 @@ import {RetrievalAccountingContext} from './retrieval-accounting';
  * `apps/api/tests/retrieval/kg-hnsw-permission-recall.test.ts` pins the two together.
  */
 export const RETRIEVAL_EMBEDDING_LIMITS={maxArtifactBytes:4194304,maxSegments:256,maxTextBytes:32768,maxBatch:32,maxRequestBytes:1048576,maxResponseBytes:4194304,maxDimensions:2000,deadlineMs:30000} as const;
-export const RetrievalEmbeddingRequest=z.object({texts:z.array(z.string().min(1)).min(1).max(RETRIEVAL_EMBEDDING_LIMITS.maxBatch),accounting:RetrievalAccountingContext.optional()}).strict();
+export const RetrievalEmbeddingRequest=z.object({texts:z.array(z.string().min(1)).min(1).max(RETRIEVAL_EMBEDDING_LIMITS.maxBatch),accounting:EmbeddingAccountingContext.optional()}).strict();
 export const RetrievalEmbeddingResponse=z.object({model:z.string().min(1).max(256),modelVersion:z.string().min(1).max(256),vectors:z.array(z.array(z.number().finite()).min(1).max(RETRIEVAL_EMBEDDING_LIMITS.maxDimensions)).min(1).max(RETRIEVAL_EMBEDDING_LIMITS.maxBatch)}).strict();

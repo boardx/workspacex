@@ -47,7 +47,7 @@ it('trusted ownership is rederived before start and terminal uses captured origi
  query.mockImplementation(async()=>({rows:[]}));await receipt.terminal({endedAt:new Date().toISOString(),outcome:'failed',usage:{}});
  const start=query.mock.calls.find(c=>c[0].includes('INTO model_request_starts')) as unknown as [string,unknown[]];
  const write=query.mock.calls.find(c=>c[0].includes('INTO token_usage_events')) as unknown as [string,unknown[]];
- expect(start[1][2]).toBe('original');expect(start[1].slice(12)).toEqual([1,null]);expect(write[1][2]).toBe('original');expect(write[1][0]).toBe('unique-http');expect(write[1].slice(24)).toEqual(['image',null,'unknown']);
+ expect(start[1][2]).toBe('original');expect(start[1].slice(12)).toEqual([1,null,null]);expect(write[1][2]).toBe('original');expect(write[1][0]).toBe('unique-http');expect(write[1].slice(24)).toEqual(['image',null,'unknown']);
 });
 
 it('terminal write failure preserves the already-paid image, blocks later HTTP, never retries model',async()=>{

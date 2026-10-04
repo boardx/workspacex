@@ -1,3 +1,6 @@
+import {ArtifactEmbeddingUsageController} from "./interface/controllers/artifact-embedding-usage.controller";
+import {ARTIFACT_EMBEDDING_USAGE} from "./application/retrieval/artifact-embedding-accounting";
+import {PgArtifactEmbeddingAccounting} from "./infrastructure/retrieval/pg-artifact-embedding-accounting";
 import {AI_QUOTA_RUNTIME_CONFIGURATION,AI_QUOTA_RUNTIME_WIRING,createAiQuotaRuntimeWiring,type AiQuotaRuntimeConfiguration,type AiQuotaRuntimeWiring} from "./infrastructure/agent-run/ai-runtime-wiring";
 import type {DynamicModule} from "@nestjs/common";
 import type {ModelPoolRepository} from "./application/model/ports";
@@ -1277,7 +1280,7 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
     RecordingController,
     AgentRunController,
     RunInterjectionController,
-    RuntimeModelUsageController,
+    RuntimeModelUsageController, ArtifactEmbeddingUsageController,
     ToolPermissionGrantController,
     WorkflowCapabilityGrantController,
     DocumentGenerationAutoApproveController,
@@ -1870,6 +1873,7 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
         process.env.KERNEL_RERANK_MODE === "embedding" && embeddings ? new EmbeddingCosineRerank(embeddings) : langChainRerankClientFromEnv(),
       inject: [EMBEDDING_PORT],
     },
+    {provide:ARTIFACT_EMBEDDING_USAGE,useFactory:(db:DatabasePort)=>new PgArtifactEmbeddingAccounting(db),inject:[DATABASE_PORT]},
     {
       provide: ARTIFACT_INDEX_PRODUCER,
       useFactory: (db: DatabasePort, objects: ObjectStore, embeddings: EmbeddingPort | null) =>
@@ -2430,7 +2434,7 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
           carryOver,
           // Phase 18 F08：会话知识召回（uc-18-2），同上面每一个一样由合成期决定。
           // S9（#4366）：向量通道用部署已有的 EMBEDDING_PORT（F10 检索同一个）；没配置 ⇒ null，通道未启用。
-          new PgKnowledgeRecall(db, embeddings),
+          new PgKnowledgeRecall(db, embeddings,process.env.KERNEL_RETRIEVAL_REQUEST_ACCOUNTING_ENABLED==="1"),
           // Phase 18 F17：对话里「记住 / 忘掉」只开确认卡（uc-18-6 A / B），同上。
           new PgMemoryCard(db),
           // E3：回答引用写进 `chat_citations`（走既有 PgChatRepository 的租户内写口）+ 价值时刻。

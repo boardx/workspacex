@@ -125,3 +125,10 @@ export async function resolveRuntimeModelOwner(s:TenantSession,orgId:OrgId,runId
       return {user_id:owner.user_id,project_id:owner.project_id,thread_id:owner.thread_id,
         agent_id:owner.agent_id,root_run_id:owner.root_run_id,subtask_id:owner.subtask_id};
 }
+
+/** Private transaction-bound start identity; explicit projection, never a SQL row or content. */
+export async function resolveArtifactRequestStart(s:TenantSession,orgId:OrgId,requestId:string){
+ const result=await s.query<{user_id:string;project_id:string|null;artifact_operation_id:string;model_provider:string;model_id:string;started_at:Date}>(
+  "SELECT user_id,project_id,artifact_operation_id,model_provider,model_id,started_at FROM model_request_starts WHERE org_id=$1 AND id=$2 AND run_id IS NULL AND call_purpose='retrieval-embedding' AND artifact_operation_id IS NOT NULL",[orgId,requestId]);
+ const row=result.rows[0];return row?{user_id:row.user_id,project_id:row.project_id,artifact_operation_id:row.artifact_operation_id,model_provider:row.model_provider,model_id:row.model_id,started_at:row.started_at}:undefined;
+}

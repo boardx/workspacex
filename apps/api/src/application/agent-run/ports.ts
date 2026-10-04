@@ -1572,7 +1572,7 @@ export interface TokenUsageMeterPort {
   /** Durable start marker before provider dispatch; failed starts must prevent dispatch. */
   startRequest?(orgId: OrgId, input: {
     readonly requestId: string; readonly userId: string; readonly runId: string|null;
-    readonly executionLeaseEpoch?:number; readonly subtaskId?:string|null;
+    readonly executionLeaseEpoch?:number; readonly artifactOperationId?:string; readonly subtaskId?:string|null;
     readonly modelProvider: string; readonly modelId: string; readonly startedAt: string;
     readonly executionAttemptId: string | null; readonly projectId: string | null;
     readonly threadId?: string | null; readonly agentId?: string | null; readonly callPurpose?: TokenUsageRecord["callPurpose"];

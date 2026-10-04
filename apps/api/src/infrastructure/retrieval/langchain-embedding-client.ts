@@ -1,4 +1,4 @@
-import {RetrievalAccountingContext} from "@repo/contracts/retrieval-accounting";
+import {EmbeddingAccountingContext} from "@repo/contracts/retrieval-accounting";
 import {RETRIEVAL_EMBEDDING_LIMITS as L,RetrievalEmbeddingRequest,RetrievalEmbeddingResponse} from '@repo/contracts/retrieval-embedding';
 import type {EmbeddingPort} from '../../application/retrieval/ports';
 /** Trusted service configuration only. Provider credentials remain in the Python service. */
@@ -11,7 +11,7 @@ export class LangChainEmbeddingClient implements EmbeddingPort {
   if(!['http:','https:'].includes(url.protocol)||url.username||url.password||url.search||url.hash||!config.internalKey||!config.model||!config.modelVersion)throw new Error('embedding_configuration_invalid');
   this.#url=config.baseUrl.replace(/\/$/,'')+'/internal/retrieval/embeddings';this.#key=config.internalKey;this.model=config.model;this.modelVersion=config.modelVersion;
  }
- async embed(text:string,accounting?:RetrievalAccountingContext):Promise<readonly number[]>{
+ async embed(text:string,accounting?:EmbeddingAccountingContext):Promise<readonly number[]>{
   if(Buffer.byteLength(text)>L.maxTextBytes)throw new Error('embedding_input_too_large');
   const body=JSON.stringify(RetrievalEmbeddingRequest.parse({texts:[text],...this.accounting(accounting)}));
   const abort=new AbortController(),timer=setTimeout(()=>abort.abort(),L.deadlineMs);timer.unref();
@@ -25,12 +25,12 @@ export class LangChainEmbeddingClient implements EmbeddingPort {
    return output.vectors[0]!;
   }catch{throw new Error('embedding_unavailable');}finally{clearTimeout(timer);}
  }
- private accounting(value:RetrievalAccountingContext|undefined){
+ private accounting(value:EmbeddingAccountingContext|undefined){
   const enabled=process.env.KERNEL_RETRIEVAL_REQUEST_ACCOUNTING_ENABLED==="1";
   if(process.env.KERNEL_AI_PRODUCT_QUOTA_ENABLED==="1"&&!enabled)throw new Error("retrieval_accounting_required");
   if(!enabled){if(value)throw new Error("retrieval_accounting_runtime_disabled");return {};}
   if(!value)throw new Error("retrieval_accounting_owner_required");
-  return {accounting:RetrievalAccountingContext.parse(value)};
+  return {accounting:EmbeddingAccountingContext.parse(value)};
  }
 
 }
