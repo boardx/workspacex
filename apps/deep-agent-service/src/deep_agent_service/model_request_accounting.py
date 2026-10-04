@@ -316,6 +316,19 @@ def admission_enabled():
 
 
 def admission_payload(request, owner, start):
+    if owner.get("call_purpose") == "retrieval-embedding":
+        try:
+            body = json.loads(request.content)
+            if not isinstance(body, dict) or not request.url.path.endswith("/embeddings") or not body.get("input"):
+                raise ValueError()
+            if any(name in body for name in ("max_tokens", "max_completion_tokens", "messages", "tools")):
+                raise ValueError()
+            serialized = request.content.decode("utf-8")
+        except Exception:
+            raise RuntimeUsageError("admission_input_only_binding_unverified") from None
+        digest = sha256(request.content).hexdigest()
+        logical = json.dumps([subject_id(owner), "retrieval-embedding", digest, request.url.path], separators=(",", ":"))
+        return start | {"billingMode":"input-only", "requestPath":request.url.path, "logicalCallId":logical, "serializedBody":serialized}
     if owner.get("subject_kind") == "artifact-index":
         raise RuntimeUsageError("artifact_embedding_admission_unimplemented")
     try:

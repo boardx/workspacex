@@ -1,3 +1,4 @@
+import {admitPricedInputOnlyCall,inputOnlyReceiptCost,type InputOnlyRuntimeAdmissionOptions} from '../../application/agent-run/admit-priced-input-only-call';
 import {createHash} from "node:crypto";
 import type {DatabasePort,TenantSession} from "../../application/ports/database.port";
 import type {OrgId} from "../../domain/org-id";
@@ -9,6 +10,7 @@ import {preparePricedModelCall,type AiPricedCallDependencies} from "../../applic
 import {PgAiAdmissionRepository} from "./pg-ai-admission-repository";
 import {PgTokenUsageRepository} from "./pg-token-usage-repository";
 export interface RuntimeAiAdmissionOptions {
+ readonly inputOnly?:InputOnlyRuntimeAdmissionOptions;
  readonly dependencies:(orgId:OrgId)=>Pick<AiPricedCallDependencies,"model"|"currentCandidates"|"measure">;
  readonly primaryModelId:(modelId:string)=>Promise<string>;
  readonly facts:(orgId:OrgId,owner:RuntimeModelOwner,serializedInput:string)=>Promise<{confidentiality:"confidential"|"non-confidential"|"unknown";requiredCapabilities:readonly string[]}>;
@@ -17,6 +19,7 @@ export class PgRuntimeModelUsageRepository implements RuntimeModelUsagePort {
  constructor(private readonly db:DatabasePort,private readonly usage:TokenUsageMeterPort,private readonly admission?:(AiAdmissionPort&AiReservedPricePort),private readonly runtimeAdmission?:RuntimeAiAdmissionOptions){}
   async admitRuntimeRequest(orgId:OrgId,runId:string,input:Parameters<NonNullable<RuntimeModelUsagePort["admitRuntimeRequest"]>>[2]):Promise<void>{
     if(!this.runtimeAdmission)throw new Error("RUNTIME_AI_ADMISSION_DISABLED");
+    if("billingMode" in input)return this.admitInputOnlyRuntimeRequest(orgId,runId,input);
     const configured=this.runtimeAdmission;
     let body:Record<string,unknown>;
     try{body=JSON.parse(input.serializedBody);if(!body||typeof body!=="object"||Array.isArray(body))throw new Error();}catch{throw new Error("AI_DISPATCH_BODY_INVALID");}
@@ -45,6 +48,25 @@ export class PgRuntimeModelUsageRepository implements RuntimeModelUsagePort {
         agentId:owner.agent_id,callPurpose:input.callPurpose,modelProvider:prepared.modelProvider,modelId:input.modelId,startedAt:input.startedAt});
     });
   }
+  private async admitInputOnlyRuntimeRequest(orgId:OrgId,runId:string,input:Extract<Parameters<NonNullable<RuntimeModelUsagePort["admitRuntimeRequest"]>>[2],{billingMode:"input-only"}>):Promise<void>{
+    const configured=this.runtimeAdmission?.inputOnly;if(!configured)throw new Error("AI_INPUT_ONLY_ADMISSION_UNCONFIGURED");
+    const digest=createHash("sha256").update(input.serializedBody).digest("hex");
+    const logicalCallId=JSON.stringify([runId,input.callPurpose,digest,input.requestPath]);
+    if(input.logicalCallId!==logicalCallId)throw new Error("AI_LOGICAL_CALL_IDENTITY_MISMATCH");
+    await this.db.withTenant(orgId,async s=>{
+      const owner=await resolveRuntimeModelOwner(s,orgId,runId,input.leaseEpoch,input.attemptId,input.callPurpose);
+      if(!owner)throw new RuntimeUsageOwnershipDenied();
+      const scoped:DatabasePort={withTenant:async(tenant,work)=>{if(tenant!==orgId)throw new RuntimeUsageOwnershipDenied();return work(s);},withoutTenant:async()=>{throw new RuntimeUsageOwnershipDenied();},close:async()=>{}};
+      const budget=new PgAiAdmissionRepository(scoped);
+      const facts=await this.runtimeAdmission!.facts(orgId,owner,input.serializedBody);
+      const decision=await admitPricedInputOnlyCall({orgId,userId:owner.user_id,logicalCallId,attempt:0,
+       primaryModelId:await configured.primaryModelId(input.modelId),...facts},
+       {...input,modelProvider:configured.provider},{...configured.dependencies(orgId),policy:budget,admission:budget});
+      await this.insertStart(s,orgId,{requestId:input.requestId,userId:owner.user_id,runId:owner.root_run_id,subtaskId:owner.subtask_id,
+       executionAttemptId:input.attemptId,executionLeaseEpoch:input.leaseEpoch,projectId:owner.project_id,threadId:owner.thread_id,
+       agentId:owner.agent_id,callPurpose:input.callPurpose,modelProvider:decision.modelProvider,modelId:decision.runtimeModelId,startedAt:input.startedAt});
+    });
+  }
   async startRuntimeRequest(orgId:OrgId,runId:string,input:Parameters<RuntimeModelUsagePort["startRuntimeRequest"]>[2]):Promise<void>{
     if(this.runtimeAdmission)throw new Error("RUNTIME_AI_ADMISSION_REQUIRED");
     const provider=(process.env.KERNEL_MODEL_PROVIDER??"").trim();if(!provider)throw new Error("RUNTIME_USAGE_PROVIDER_UNCONFIGURED");
@@ -66,12 +88,12 @@ export class PgRuntimeModelUsageRepository implements RuntimeModelUsagePort {
       "SELECT user_id,run_id,subtask_id,execution_attempt_id,execution_lease_epoch,project_id,thread_id,agent_id,model_provider,model_id,call_purpose,started_at FROM model_request_starts WHERE id=$1",[input.requestId])).rows[0]);
     if(!row||(row.subtask_id??row.run_id)!==runId||row.execution_attempt_id!==input.attemptId||Number(row.execution_lease_epoch)!==input.leaseEpoch||Date.parse(input.endedAt)<row.started_at.getTime())throw new RuntimeUsageOwnershipDenied();
     const snapshot=await this.admission?.readReservedPrice(orgId,input.requestId);
-    if(snapshot&&(snapshot.userId!==row.user_id||snapshot.modelProvider!==row.model_provider||snapshot.modelId!==row.model_id))throw new RuntimeUsageOwnershipDenied();
+    if(snapshot&&(snapshot.userId!==row.user_id||snapshot.modelProvider!==row.model_provider||snapshot.modelId!==row.model_id||("billingMode" in snapshot.price)&&row.call_purpose!=="retrieval-embedding"))throw new RuntimeUsageOwnershipDenied();
     const {total,prompt,completion,cacheInput,reasoningOutput}=input.usage;
-    const complete=snapshot&&total!==undefined&&prompt!==undefined&&completion!==undefined&&BigInt(prompt)+BigInt(completion)===BigInt(total)
+    const complete=snapshot&&("outputMicrosPerMillion" in snapshot.price)&&total!==undefined&&prompt!==undefined&&completion!==undefined&&BigInt(prompt)+BigInt(completion)===BigInt(total)
      &&(cacheInput===undefined?snapshot.price.cachedInputMicrosPerMillion===snapshot.price.inputMicrosPerMillion:cacheInput<=prompt)
      &&(reasoningOutput===undefined||reasoningOutput<=completion);
-    const cost=complete?priceAiTokens({version:snapshot.priceVersion,currency:snapshot.currency,inputMicrosPerMillion:BigInt(snapshot.price.inputMicrosPerMillion),outputMicrosPerMillion:BigInt(snapshot.price.outputMicrosPerMillion),cachedInputMicrosPerMillion:BigInt(snapshot.price.cachedInputMicrosPerMillion)},{input:BigInt(prompt!),output:BigInt(completion!),...(cacheInput===undefined?{}:{cachedInput:BigInt(cacheInput)})}):null;
+    const cost=snapshot&&("billingMode" in snapshot.price)?inputOnlyReceiptCost({version:snapshot.priceVersion,currency:snapshot.currency,inputMicrosPerMillion:BigInt(snapshot.price.inputMicrosPerMillion),cachedInputMicrosPerMillion:BigInt(snapshot.price.cachedInputMicrosPerMillion)},input.usage):complete&&("outputMicrosPerMillion" in snapshot!.price)?priceAiTokens({version:snapshot.priceVersion,currency:snapshot.currency,inputMicrosPerMillion:BigInt(snapshot.price.inputMicrosPerMillion),outputMicrosPerMillion:BigInt(snapshot.price.outputMicrosPerMillion),cachedInputMicrosPerMillion:BigInt(snapshot.price.cachedInputMicrosPerMillion)},{input:BigInt(prompt!),output:BigInt(completion!),...(cacheInput===undefined?{}:{cachedInput:BigInt(cacheInput)})}):null;
     await this.usage.record(orgId,{eventId:input.requestId,userId:row.user_id,runId:row.run_id,subtaskId:row.subtask_id,executionAttemptId:row.execution_attempt_id,
       projectId:row.project_id,threadId:row.thread_id,agentId:row.agent_id,callPurpose:row.call_purpose as NonNullable<import("../../application/agent-run/ports").TokenUsageRecord["callPurpose"]>,modelProvider:row.model_provider,modelId:row.model_id,
       requestStartedAt:row.started_at.toISOString(),requestEndedAt:input.endedAt,totalSource:input.usage.total===undefined?"unknown":"reported",

@@ -88,6 +88,8 @@ def test_ack_denial_prevents_real_vendor_and_concurrent_contexts_do_not_leak(wir
 
 def test_embedding_admission_without_verified_input_only_mode_is_safe_hard_stop(wired,monkeypatch):
     _,paid,_=wired;monkeypatch.setenv("DEEP_AGENT_MODEL_ADMISSION_ENABLED","1")
+    async def deny(*args):raise accounting.RuntimeUsageError("input_only_admission_unconfigured")
+    monkeypatch.setattr(accounting,"apost",deny)
     with pytest.raises(embeddings.RetrievalEmbeddingUnavailable):asyncio.run(embeddings.embed_texts(["source"],REF))
     assert paid==[]
 
@@ -136,4 +138,25 @@ def test_cancel_and_callback_outage_keep_durable_terminal_and_restore_context(wi
     pending=accounting.Journal(str(path)).pending({"base_url":"http://api.example.test"})
     assert len(pending)==1 and json.loads(pending[0][2])["outcome"]=="failed"
     assert "private-source" not in json.dumps(pending) and "fixture-secret" not in json.dumps(pending)
+    assert accounting._scoped_owner.get() is None
+
+
+@pytest.mark.parametrize('artifact',[False,True])
+def test_actual_embedding_sdk_input_only_admission_is_per_batch_without_chat_caps(wired,monkeypatch,artifact):
+    callbacks,paid,_=wired;monkeypatch.setenv("DEEP_AGENT_MODEL_ADMISSION_ENABLED","1")
+    ref={'kind':'artifact-index','orgId':'org-A','operationId':'84f45cd6-e5b7-432b-b8d6-70a377f01ddd'} if artifact else REF
+    result=asyncio.run(embeddings.embed_texts(['transient-source']*11,ref))
+    assert len(result['vectors'])==11 and len(paid)==2
+    admits=[c for c in callbacks if c[2]=='admit'];terminals=[c for c in callbacks if c[2]=='terminal']
+    assert len(admits)==len(terminals)==2
+    assert len({c[3]['requestId'] for c in admits})==2
+    for callback,vendor in zip(admits,paid):
+        body=callback[3]
+        assert body['billingMode']=='input-only' and body['requestPath']=='/v1/embeddings'
+        assert json.loads(body['serializedBody'])==vendor[1]
+        assert not {'outputTokenLimit','max_tokens','max_completion_tokens'} & set(body)
+        if artifact:assert not {'runId','attemptId','leaseEpoch','userId'} & set(body)
+    assert sum(c[3]['usage']['total'] for c in terminals)==11
+    assert all('completion' not in c[3]['usage'] for c in terminals)
+    assert all('serializedBody' not in c[3] for c in terminals)
     assert accounting._scoped_owner.get() is None

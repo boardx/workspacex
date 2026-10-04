@@ -356,13 +356,19 @@ def test_artifact_accounting_rejects_asserted_actor_wrong_purpose_and_admission_
         with pytest.raises(a.RuntimeUsageError):
             with a.retrieval_accounting_scope(bad,purpose):pytest.fail('must deny scope')
     monkeypatch.setenv('DEEP_AGENT_MODEL_ADMISSION_ENABLED','1')
-    paid=[]
+    paid=[];attempted=[]
+    async def deny(owner,subject,phase,body):
+        attempted.append((phase,dict(body)))
+        raise a.RuntimeUsageError('input_only_admission_unconfigured')
+    monkeypatch.setattr(a,'apost',deny)
     async def check():
         with a.retrieval_accounting_scope(ref,'retrieval-embedding'):
             async with httpx.AsyncClient(transport=a.AsyncAccountingTransport(httpx.MockTransport(lambda r:paid.append(r)))) as client:
-                with pytest.raises(a.RuntimeUsageError,match='artifact_embedding_admission_unimplemented'):
+                with pytest.raises(a.RuntimeUsageError,match='input_only_admission_unconfigured'):
                     await client.post('http://vendor.example.test/v1/embeddings',json={'model':'fixture-model','input':['transient']})
     asyncio.run(check());assert paid==[]
+    assert attempted[0][0]=='admit' and attempted[0][1]['billingMode']=='input-only'
+    assert 'outputTokenLimit' not in attempted[0][1] and 'attemptId' not in attempted[0][1]
 
 
 def test_artifact_receipt_restart_replays_original_subject_kind_without_model(context,monkeypatch):

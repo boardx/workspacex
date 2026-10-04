@@ -4,12 +4,19 @@ export const Micros = z.string().regex(/^(0|[1-9]\d{0,18})$/).refine(value=>/^(0
 const Timezone=z.string().max(100).refine(value=>{try{new Intl.DateTimeFormat("en",{timeZone:value});return true;}catch{return false;}},"invalid timezone");
 export const Window=z.object({start:z.string().datetime({offset:true}),end:z.string().datetime({offset:true}),timezone:Timezone}).strict()
  .refine(value=>Date.parse(value.end)>Date.parse(value.start)&&Date.parse(value.end)-Date.parse(value.start)<=366*86400000,"invalid window");
-export const ModelPrice=z.object({modelId:z.string().min(1).max(200),modelProvider:z.string().min(1).max(100),
+export const ChatModelPrice=z.object({modelId:z.string().min(1).max(200),modelProvider:z.string().min(1).max(100),
  /** Pool IDs and provider API model identifiers are different; never infer from a display name. */
  runtimeModelId:z.string().min(1).max(200),
  inputMicrosPerMillion:Micros,outputMicrosPerMillion:Micros,cachedInputMicrosPerMillion:Micros,
  maxInputTokens:z.number().int().positive().max(2147483647),maxOutputTokens:z.number().int().positive().max(2147483647),
 }).strict();
+/** Input-only is explicit: output caps/rates are not applicable, never guessed as zero. */
+export const InputOnlyModelPrice=z.object({billingMode:z.literal("input-only"),modelId:z.string().min(1).max(200),
+ modelProvider:z.string().min(1).max(100),runtimeModelId:z.string().min(1).max(200),
+ inputMicrosPerMillion:Micros,cachedInputMicrosPerMillion:Micros,
+ maxInputTokens:z.number().int().positive().max(2147483647),
+}).strict();
+export const ModelPrice=z.union([ChatModelPrice,InputOnlyModelPrice]);
 export const Configuration=z.object({window:Window,ordinaryTokensPerUser:Micros.nullable(),costMicrosPerUser:Micros,
  currency:z.string().regex(/^[A-Z]{3}$/),prices:z.array(ModelPrice).min(1).max(50),
  /** Empty means no fallback. Attempts include the primary; SDK retry admission is separate. */

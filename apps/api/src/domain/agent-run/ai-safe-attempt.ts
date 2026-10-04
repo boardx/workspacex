@@ -34,7 +34,7 @@ export function prepareAiAttempt(input:{configuration:z.infer<typeof Configurati
  const id=ordered[input.attempt];if(!id)return {decision:"AI_ATTEMPTS_EXHAUSTED"};
  const eligible=selectableModels(input.pool,input.confidentiality==="confidential"?"confidential":null);
  const candidate=input.pool.find(row=>row.modelId===id&&eligible.some(item=>item.modelId===id)),policy=config.prices.find(row=>row.modelId===id);
- if(!candidate||candidate.shape!=="single"||!policy)return {decision:"AI_MODEL_UNAVAILABLE"};
+ if(!candidate||candidate.shape!=="single"||!policy||!("maxOutputTokens" in policy))return {decision:"AI_MODEL_UNAVAILABLE"};
  const binding=input.bindings.find(row=>row.modelId===id&&row.modelProvider===policy.modelProvider&&row.runtimeModelId===policy.runtimeModelId);
  if(!binding||!binding.accountingComplete||!binding.outputCapSupported||!binding.billedOutputBoundVerified
   ||!Number.isSafeInteger(binding.contextWindow)||!Number.isSafeInteger(binding.maxOutputTokens)

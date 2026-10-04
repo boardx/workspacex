@@ -1,3 +1,5 @@
+import {VerifiedInputOnlyBoundRegistry,type InputOnlyModelBoundRegistration} from '../../application/agent-run/verified-input-only-bound-registry';
+import type {InputOnlyRuntimeAdmissionOptions} from '../../application/agent-run/admit-priced-input-only-call';
 import type {OrgId} from "../../domain/org-id";
 import type {DatabasePort} from "../../application/ports/database.port";
 import type {IdentityRepository} from "../../application/identity/ports";
@@ -16,6 +18,7 @@ import {IdentityModelConstraint} from "../context-pack/identity-model-constraint
  * no public config endpoint, dynamic code loader, guessed price/model/count or public default.
  */
 export interface AiQuotaRuntimeConfiguration {
+ readonly inputOnlyModelBounds?:readonly InputOnlyModelBoundRegistration[];
  readonly modelBounds:readonly ModelBoundRegistration[];
  readonly contextBindings:AiContextPackBindingPort;
  readonly privateRuntimeProvider:string;
@@ -23,7 +26,7 @@ export interface AiQuotaRuntimeConfiguration {
 }
 export const AI_QUOTA_RUNTIME_CONFIGURATION=Symbol("AiQuotaRuntimeConfiguration");
 export const AI_QUOTA_RUNTIME_WIRING=Symbol("AiQuotaRuntimeWiring");
-export interface AiQuotaRuntimeWiring {readonly run:RunAiAdmission;readonly runtime:RuntimeAiAdmissionOptions;}
+export interface AiQuotaRuntimeWiring {readonly run:RunAiAdmission;readonly runtime:RuntimeAiAdmissionOptions;readonly inputOnly?:InputOnlyRuntimeAdmissionOptions;}
 export function createAiQuotaRuntimeWiring(enabled:boolean,configuration:AiQuotaRuntimeConfiguration|null,deps:{
  readonly db:DatabasePort;readonly identity:IdentityRepository;readonly pool:ModelPoolRepository;
  readonly model:ModelCallPort;readonly usage:TokenUsageMeterPort;
@@ -32,16 +35,20 @@ export function createAiQuotaRuntimeWiring(enabled:boolean,configuration:AiQuota
  if(!configuration?.modelBounds.length||!configuration.privateRuntimeProvider||!configuration.contextBindings||!configuration.selection)
   throw new Error("AI_RUNTIME_REQUIRED_CONFIGURATION_MISSING");
  const registry=new VerifiedModelBoundRegistry(deps.model,configuration.modelBounds),budget=new PgAiAdmissionRepository(deps.db);
+ const inputRegistry=new VerifiedInputOnlyBoundRegistry(configuration.inputOnlyModelBounds??[]);
+ const inputOnly:InputOnlyRuntimeAdmissionOptions={provider:configuration.privateRuntimeProvider,
+  primaryModelId:modelId=>inputRegistry.formalModelId(configuration.privateRuntimeProvider,modelId),
+  dependencies:orgId=>({currentCandidates:()=>inputRegistry.currentCandidates(deps.pool,String(orgId)),measure:inputRegistry.measure.bind(inputRegistry)})};
  const facts=async(orgId:OrgId,userId:string,runId:string,serializedInput:string)=>{
   const constraints=new IdentityModelConstraint(deps.identity);
   return readContextPackAiFacts({orgId,userId,runId,serializedInput},{bindings:configuration.contextBindings,
    store:new PgContextPackStore(deps.db,orgId,constraints,userId),constraints});
  };
  const boundaries=(orgId:OrgId)=>({model:deps.model,currentCandidates:()=>registry.currentCandidates(deps.pool,String(orgId)),measure:registry.measure.bind(registry)});
- return {run:{primaryModelId:(_org,run)=>registry.formalModelId(run.modelProvider,run.modelId),
+ return {inputOnly,run:{primaryModelId:(_org,run)=>registry.formalModelId(run.modelProvider,run.modelId),
   facts:(orgId,run,input)=>facts(orgId,run.requesterUserId,run.runId,JSON.stringify(input)),
   dependencies:orgId=>({...boundaries(orgId),policy:budget,admission:budget,usage:deps.usage}),
   selection:(orgId,run,selection)=>configuration.selection(orgId,run.runId,selection)},
-  runtime:{primaryModelId:modelId=>registry.formalModelId(configuration.privateRuntimeProvider,modelId),dependencies:boundaries,
+  runtime:{inputOnly,primaryModelId:modelId=>registry.formalModelId(configuration.privateRuntimeProvider,modelId),dependencies:boundaries,
    facts:(orgId,owner,serializedInput)=>facts(orgId,owner.user_id,owner.root_run_id,serializedInput)}};
 }

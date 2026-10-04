@@ -1873,7 +1873,7 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
         process.env.KERNEL_RERANK_MODE === "embedding" && embeddings ? new EmbeddingCosineRerank(embeddings) : langChainRerankClientFromEnv(),
       inject: [EMBEDDING_PORT],
     },
-    {provide:ARTIFACT_EMBEDDING_USAGE,useFactory:(db:DatabasePort)=>new PgArtifactEmbeddingAccounting(db),inject:[DATABASE_PORT]},
+    {provide:ARTIFACT_EMBEDDING_USAGE,useFactory:(db:DatabasePort,wiring:AiQuotaRuntimeWiring|null)=>new PgArtifactEmbeddingAccounting(db,wiring?.inputOnly),inject:[DATABASE_PORT,AI_QUOTA_RUNTIME_WIRING]},
     {
       provide: ARTIFACT_INDEX_PRODUCER,
       useFactory: (db: DatabasePort, objects: ObjectStore, embeddings: EmbeddingPort | null) =>

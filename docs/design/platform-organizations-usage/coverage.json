@@ -221,16 +221,22 @@
         "apps/deep-agent-service/src/deep_agent_service/retrieval_embeddings.py",
         "apps/deep-agent-service/src/deep_agent_service/retrieval_rerank.py",
         "apps/api/src/infrastructure/retrieval/langchain-embedding-client.ts",
-        "packages/contracts/src/retrieval-accounting.ts"
+        "packages/contracts/src/retrieval-accounting.ts",
+        "apps/api/src/application/agent-run/admit-priced-input-only-call.ts",
+        "apps/api/src/application/agent-run/verified-input-only-bound-registry.ts",
+        "apps/api/src/infrastructure/retrieval/pg-artifact-embedding-accounting.ts"
       ],
       "tests": [
         "apps/api/tests/auth/retrieval-accounting-forwarding.test.ts",
         "apps/deep-agent-service/tests/test_retrieval_request_accounting.py",
-        "apps/api/tests/agent-runtime/organization-hybrid-retrieval.test.ts"
+        "apps/api/tests/agent-runtime/organization-hybrid-retrieval.test.ts",
+        "apps/api/tests/auth/ai-input-only-bound.test.ts",
+        "apps/api/tests/auth/input-only-admission-composition.test.ts",
+        "apps/api/tests/auth/artifact-embedding-accounting.test.ts"
       ],
       "remaining": [
         "Trusted infrastructure spend owner for service warmup remains unconnected. KG, artifact indexing and cosine references are source-connected; real PG composition remains pending.",
-        "Verified input-only embedding admission capability; absent mode denies actual dispatch rather than inventing zero output.",
+        "Stable trusted producer logical-call identity for distinct same-body calls/retries remains missing; current input-only admission fails closed on a reused slot. Complete-input binding producer and real deployment measurer/registrations remain missing.",
         "Explicit finite spend policy and ordinary per-user amount/window/timezone; no defaults enabled.",
         "Verified exact physical model registration, input/output bounds and pricing unit/rate.",
         "Isolated PostgreSQL/tenant integration for the new batch.",
@@ -238,7 +244,7 @@
       ],
       "sourceMissing": [
         "Trusted infrastructure spend owner for service warmup remains unconnected. KG, artifact indexing and cosine references are source-connected; real PG composition remains pending.",
-        "Verified input-only embedding admission capability; absent mode denies actual dispatch rather than inventing zero output."
+        "Stable trusted producer logical-call identity for distinct same-body calls/retries remains missing; current input-only admission fails closed on a reused slot. Complete-input binding producer and real deployment measurer/registrations remain missing."
       ],
       "configurationMissing": [
         "Explicit finite spend policy and ordinary per-user amount/window/timezone; no defaults enabled.",

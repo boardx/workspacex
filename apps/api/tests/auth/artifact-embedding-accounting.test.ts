@@ -1,4 +1,6 @@
 import {afterEach,it,expect,vi} from 'vitest';
+import {createHash} from 'node:crypto';
+import {VerifiedInputOnlyBoundRegistry} from '../../src/application/agent-run/verified-input-only-bound-registry';
 import {resolveArtifactRequestStart} from '../../src/infrastructure/auth/pg-runtime-model-usage-repository';
 import {PgArtifactEmbeddingAccounting} from '../../src/infrastructure/retrieval/pg-artifact-embedding-accounting';
 import {ArtifactEmbeddingOwnershipDenied} from '../../src/application/retrieval/artifact-embedding-accounting';
@@ -8,10 +10,24 @@ import {toOrgId} from '../../src/domain/org-id';
 const org=toOrgId('artifact-org'),stamp=new Date('2026-10-04T03:00:00Z'),hash='a'.repeat(64);
 const batch={publisherUserId:'publisher',artifactVersionId:'v1',artifactId:'a1',projectId:null,externalEmbeddingAllowed:true,requiresReview:false,contentHash:hash,segments:[{segmentId:'s1',content:'one'},{segmentId:'s2',content:'two'}]};
 afterEach(()=>{vi.unstubAllEnvs();vi.unstubAllGlobals();});
-function fixture(){
+function fixture(inputOnly=false){
  vi.stubEnv('KERNEL_RETRIEVAL_REQUEST_ACCOUNTING_ENABLED','1');vi.stubEnv('KERNEL_AI_PRODUCT_QUOTA_ENABLED','0');vi.stubEnv('KERNEL_MODEL_PROVIDER','actual-provider');vi.stubEnv('KERNEL_EMBEDDING_MODEL_ID','actual-model');
- const ops=new Map<string,Record<string,unknown>>(),starts=new Map<string,Record<string,unknown>>();let active=true,member=true,connections=0;
+ const ops=new Map<string,Record<string,unknown>>(),starts=new Map<string,Record<string,unknown>>(),reservations=new Map<string,Record<string,unknown>>(),receipts=new Map<string,Record<string,unknown>>();
+ const configuration={window:{start:'2026-10-01T00:00:00Z',end:'2026-11-01T00:00:00Z',timezone:'Etc/UTC'},ordinaryTokensPerUser:'100',costMicrosPerUser:'100',currency:'CNY',prices:[{billingMode:'input-only',modelId:'formal',modelProvider:'actual-provider',runtimeModelId:'actual-model',inputMicrosPerMillion:'1000000',cachedInputMicrosPerMillion:'1000000',maxInputTokens:10}],fallbackModelIds:[],maxAttempts:1};let active=true,member=true,connections=0;
  const query=vi.fn(async(sql:string,args:unknown[])=>{
+  if(sql.includes('FROM organizations'))return {rows:[{id:org}]};
+  if(sql.includes('FROM organization_plans'))return {rows:[{plan:'ordinary'}]};
+  if(sql.includes('FROM organization_ai_policy_changes'))return {rows:[{configuration}]};
+  if(sql.includes('FROM organization_ai_policies'))return {rows:[{configuration,price_version:'immutable',updated_by:'operator'}]};
+  if(sql.includes(' AS active'))return {rows:[{active:true}]};
+  if(sql.includes('SELECT token_limit'))return {rows:[{token_limit:'100',cost_limit_micros:'100',currency:'CNY',price_version:'immutable'}]};
+  if(sql.includes('FROM token_usage_events')&&sql.includes('AS unknown_tokens'))return {rows:[{tokens:'0',cost:'0',unknown_tokens:'0',unknown_cost:'0'}]};
+  if(sql.includes('COALESCE(sum(GREATEST(r.maximum_tokens'))return {rows:[{tokens:'0',cost:'0'}]};
+  if(sql.includes('INSERT INTO ai_request_reservations')){reservations.set(String(args[0]),{user_id:args[2],window_start:new Date(String(args[3])),window_end:new Date(String(args[4])),maximum_tokens:args[5],maximum_cost_micros:args[6],model_provider:args[7],model_id:args[8],currency:args[9],price_version:args[10],logical_call_id:args[11],logical_attempt:args[12],maximum_attempts:args[13],state:'held'});return {rows:[]};}
+  if(sql.includes('FROM ai_request_reservations')){if(sql.includes('logical_call_id=$3'))return {rows:[...reservations.values()].filter(r=>r.logical_call_id===args[2])};const r=reservations.get(String(args[0]));return {rows:r?[r]:[]};}
+  if(sql.includes('UPDATE ai_request_reservations')){Object.assign(reservations.get(String(args[0]))!,{state:'settled',settled_tokens:args[1],settled_cost_micros:args[2]});return {rows:[]};}
+  if(sql.includes('INTO token_usage_events')){if(!receipts.has(String(args[0])))receipts.set(String(args[0]),{user_id:args[2],model_provider:args[4],model_id:args[5],tokens_total:args[6],total_source:args[10],request_time:new Date(String(args[15])),cost_micros:args[18],currency:args[19],price_version:args[20]});return {rows:[]};}
+  if(sql.includes('FROM token_usage_events'))return {rows:receipts.has(String(args[0]))?[receipts.get(String(args[0]))]:[]};
   if(sql.includes('FROM org_memberships'))return {rows:member?[{org_role:'admin',team_id:null}]:[]};
   if(sql.includes('FROM acl_bindings'))return {rows:[]};
   if(sql.includes('JOIN artifacts'))return {rows:[{artifact_id:'a1',project_id:null,ingestion_status:active?'INDEXED':'READY',confidential:false}]};
@@ -25,9 +41,10 @@ function fixture(){
  });
  const locks=new Map<string,Promise<void>>();
  const db={withTenant:async(_org:unknown,work:(s:unknown)=>unknown)=>{
-  connections++;const releases:Array<()=>void>=[];
+  connections++;const releases:Array<()=>void>=[],heldKeys=new Set<string>();
   const transactionQuery=async(sql:string,args:unknown[])=>{
-   if(sql.includes('pg_advisory_xact_lock')){
+   if(sql.includes('pg_advisory_xact_lock')&&!heldKeys.has(String(args[0]))){
+    heldKeys.add(String(args[0]));
     const key=String(args[0]),previous=locks.get(key)??Promise.resolve();
     let release!:()=>void;const held=new Promise<void>(resolve=>{release=resolve;});
     locks.set(key,previous.then(()=>held));await previous;releases.push(release);
@@ -36,8 +53,11 @@ function fixture(){
   };
   try{return await work({query:transactionQuery});}finally{for(const release of releases)release();}
  }};
- const accounting=new PgArtifactEmbeddingAccounting(db as never),input={orgId:org,artifactVersionId:'v1',ingestionClaim:{jobId:'job',attempt:2}},start={requestId:'84f45cd6-e5b7-432b-b8d6-70a377f01ddd',modelId:'actual-model',startedAt:stamp.toISOString()};
- return {accounting,input,start,query,ops,starts,get connections(){return connections;},setActive:(v:boolean)=>active=v,setMember:(v:boolean)=>member=v};
+ const registry=new VerifiedInputOnlyBoundRegistry([{binding:{billingMode:'input-only',modelId:'formal',modelProvider:'actual-provider',runtimeModelId:'actual-model',contextWindow:100,capabilityTags:['embedding'],noBilledOutputVerified:true,accountingComplete:true},requestPath:'/v1/embeddings',implementation:'test-proof',version:'1',artifactSha256:hash,source:'verified-upper-bound',verifyDeploymentBinding:async()=>true,measureSerializedBody:async()=>2}]);
+ const pool={listForOrg:async()=>[{row:{modelId:'formal',kind:'closed-api',shape:'single',status:'已启用',complianceAttrs:[],members:[],contextWindow:100,capabilityTags:['embedding']}}]};
+ const admission=inputOnly?{provider:'actual-provider',primaryModelId:(id:string)=>registry.formalModelId('actual-provider',id),dependencies:()=>({currentCandidates:()=>registry.currentCandidates(pool as never,String(org)),measure:(request:Parameters<VerifiedInputOnlyBoundRegistry['measure']>[0])=>registry.measure(request)})}:undefined;
+ const accounting=new PgArtifactEmbeddingAccounting(db as never,admission),input={orgId:org,artifactVersionId:'v1',ingestionClaim:{jobId:'job',attempt:2}},start={requestId:'84f45cd6-e5b7-432b-b8d6-70a377f01ddd',modelId:'actual-model',startedAt:stamp.toISOString()};
+ return {accounting,input,start,query,ops,starts,reservations,receipts,get connections(){return connections;},setActive:(v:boolean)=>active=v,setMember:(v:boolean)=>member=v};
 }
 it('durable opaque operation reaches every segment service HTTP without actor/run claims',async()=>{
  const f=fixture(),fetch=vi.fn(async(_url:string,init:RequestInit)=>{expect(f.ops.size).toBe(1);return new Response(JSON.stringify({model:'actual-model',modelVersion:'v',vectors:[[1,0]]}),{headers:{'content-type':'application/json'}});});vi.stubGlobal('fetch',fetch);
@@ -81,4 +101,21 @@ it('concurrent conflicting operation request IDs and cross-tenant collisions can
  await expect(f.accounting.start(foreign,foreignOperation.operationId,f.start)).rejects.toBeInstanceOf(ArtifactEmbeddingOwnershipDenied);
  expect(f.query.mock.calls.some(([sql,args])=>sql.includes('INTO model_request_starts')&&args[1]===foreign)).toBe(true);
  expect(f.starts.get(f.start.requestId)).toEqual(stored);expect(f.starts.size).toBe(1);
+});
+
+for(const reported of [true,false])it(`artifact input-only admission reserves on one connection and ${reported?'settles original input receipt':'retains missing-usage hold'}`,async()=>{
+ const f=fixture(true),ref=await f.accounting.open(f.input,batch);vi.stubEnv('KERNEL_AI_PRODUCT_QUOTA_ENABLED','1');
+ const serializedBody=JSON.stringify({model:'actual-model',input:[[23,45]],encoding_format:'base64'}),requestPath='/v1/embeddings';
+ const logicalCallId=JSON.stringify([ref.operationId,'retrieval-embedding',createHash('sha256').update(serializedBody).digest('hex'),requestPath]);
+ const before=f.connections;await f.accounting.admit(org,ref.operationId,{...f.start,billingMode:'input-only',serializedBody,requestPath,logicalCallId});
+ expect(f.connections-before).toBe(1);
+ const reserve=f.query.mock.calls.find(([sql])=>sql.includes('INSERT INTO ai_request_reservations'))!,start=f.query.mock.calls.find(([sql])=>sql.includes('INTO model_request_starts'))!;
+ expect(f.query.mock.calls.indexOf(reserve)).toBeLessThan(f.query.mock.calls.indexOf(start));expect(reserve[1][5]).toBe('2');expect(reserve[1][6]).toBe('2');
+ expect(start[1][2]).toBe('publisher');expect(start[1][3]).toBeNull();expect(start[1][14]).toBe(ref.operationId);
+ expect(JSON.stringify(f.query.mock.calls.map(c=>c[1]))).not.toContain('encoding_format');
+ f.setMember(false);f.setActive(false);
+ await f.accounting.terminal(org,ref.operationId,{requestId:f.start.requestId,endedAt:new Date(stamp.getTime()+1).toISOString(),outcome:'failed',usage:reported?{prompt:2,total:2}:{}});
+ const receipt=f.query.mock.calls.find(([sql])=>sql.includes('INTO token_usage_events'))!;expect(receipt[1][8]).toBeNull();expect(receipt[1][2]).toBe('publisher');
+ expect(f.reservations.get(f.start.requestId)?.state).toBe(reported?'settled':'held');
+ if(reported){expect(receipt[1][18]).toBe('2');expect(receipt[1][20]).toBe('immutable');}else expect(receipt[1][18]).toBeNull();
 });

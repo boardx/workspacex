@@ -23,7 +23,7 @@ export async function validateAiPolicyModels(pool:ModelPoolRepository,orgId:stri
  const candidates=await aiPolicyCandidates(pool,orgId,providers),byId=new Map(candidates.map(row=>[row.modelId,row]));
  for(const price of input.prices){
   const model=byId.get(price.modelId);
-  if(!model||!providers.includes(price.modelProvider)||price.maxInputTokens+price.maxOutputTokens>model.contextWindow)throw new PlatformOrganizationError("AI_POLICY_MODEL_UNAVAILABLE");
+  if(!model||!providers.includes(price.modelProvider)||price.maxInputTokens+("maxOutputTokens" in price?price.maxOutputTokens:0)>model.contextWindow)throw new PlatformOrganizationError("AI_POLICY_MODEL_UNAVAILABLE");
  }
  // An approved config is still pending: runtime must recheck routing, purpose, tokenizer
  // and real output cap support before reserving or invoking a candidate.

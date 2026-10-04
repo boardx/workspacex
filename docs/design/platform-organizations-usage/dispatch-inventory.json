@@ -30,7 +30,7 @@
       "source": "apps/deep-agent-service/src/deep_agent_service/retrieval_embeddings.py",
       "anchor": "response=await self.transport.handle_async_request(request)",
       "receiptHook": "context-subset",
-      "admissionHook": "rerank-subset; embedding input-only mode missing"
+      "admissionHook": "input-only embedding and existing rerank source-connected; verified deployment/configuration and complete-input producer missing"
     },
     {
       "id": "image-http",
@@ -63,42 +63,42 @@
       "source": "apps/api/src/application/retrieval/retrieve-candidates.ts",
       "anchor": "await deps.embeddings.embed(input.query",
       "trustedRunReferencePropagationImplemented": true,
-      "acceptance": "SDK transport unit tests; pending real PG composition"
+      "acceptance": "SDK transport unit tests; pending real PG composition Input-only private admission/SDK batch units pass; no live binding or complete-input proof. Same-body logical-call identity remains conservative and requires producer semantics."
     },
     {
       "id": "retrieval-listwise-rerank",
       "source": "apps/api/src/application/retrieval/retrieve-candidates.ts",
       "anchor": "const rerankedIds = await deps.rerank",
       "trustedRunReferencePropagationImplemented": true,
-      "acceptance": "SDK transport unit tests; pending real PG composition"
+      "acceptance": "SDK transport unit tests; pending real PG composition Input-only private admission/SDK batch units pass; no live binding or complete-input proof. Same-body logical-call identity remains conservative and requires producer semantics."
     },
     {
       "id": "kg-query-embedding",
       "source": "apps/api/src/infrastructure/knowledge-graph/pg-knowledge-recall.ts",
       "anchor": "this.embeddings.embed(query,this.requestAccounting?accounting:undefined)",
       "trustedRunReferencePropagationImplemented": true,
-      "acceptance": "Exact server run attempt/lease reference; private service HTTP units and tenant negatives. Real PG composition and input-only admission remain pending."
+      "acceptance": "Exact server run attempt/lease reference; private service HTTP units and tenant negatives. Real PG composition and deployed input-only admission remain pending. Input-only private admission/SDK batch units pass; no live binding or complete-input proof. Same-body logical-call identity remains conservative and requires producer semantics."
     },
     {
       "id": "artifact-segment-embedding",
       "source": "apps/api/src/application/retrieval/index-artifact-version.ts",
       "anchor": "this.embeddings.embed(...params)",
       "trustedRunReferencePropagationImplemented": true,
-      "acceptance": "Trusted opaque artifact-index operation, original publisher or authenticated reindex actor, current source/ACL/job check; no fabricated Agent run. Mocked service and SQLite restart tests; real PG acceptance and input-only admission pending."
+      "acceptance": "Trusted opaque artifact-index operation, original publisher or authenticated reindex actor, current source/ACL/job check; no fabricated Agent run. Mocked service and SQLite restart tests; real PG acceptance and deployed input-only acceptance pending. Input-only private admission/SDK batch units pass; no live binding or complete-input proof. Same-body logical-call identity remains conservative and requires producer semantics."
     },
     {
       "id": "cosine-query-embedding",
       "source": "apps/api/src/infrastructure/retrieval/embedding-cosine-rerank.ts",
       "anchor": "this.embeddings.embed(query, accounting)",
       "trustedRunReferencePropagationImplemented": true,
-      "acceptance": "Existing RerankPort trusted run reference reaches LangChain private transport; mocked service HTTP units, not deployed vendor/PG. Input-only embedding admission remains missing."
+      "acceptance": "Existing RerankPort trusted run reference reaches LangChain private transport; mocked service HTTP units, not deployed vendor/PG. Deployed input-only embedding acceptance remains missing. Input-only private admission/SDK batch units pass; no live binding or complete-input proof. Same-body logical-call identity remains conservative and requires producer semantics."
     },
     {
       "id": "cosine-candidate-embedding",
       "source": "apps/api/src/infrastructure/retrieval/embedding-cosine-rerank.ts",
       "anchor": "this.embeddings.embed(c.content, accounting)",
       "trustedRunReferencePropagationImplemented": true,
-      "acceptance": "Existing RerankPort trusted run reference reaches LangChain private transport; mocked service HTTP units, not deployed vendor/PG. Input-only embedding admission remains missing."
+      "acceptance": "Existing RerankPort trusted run reference reaches LangChain private transport; mocked service HTTP units, not deployed vendor/PG. Deployed input-only embedding acceptance remains missing. Input-only private admission/SDK batch units pass; no live binding or complete-input proof. Same-body logical-call identity remains conservative and requires producer semantics."
     },
     {
       "id": "service-warmup-embedding",

@@ -1,8 +1,9 @@
 import type {z} from "zod";
 import type {RuntimeModelRequestStart,RuntimeModelRequestTerminal,RuntimeModelRequestAdmission} from "@repo/contracts/runtime-model-usage";
 import type {OrgId} from "../../domain/org-id";
+type WithoutOrg<T>=T extends unknown?Omit<T,"orgId">:never;
 export interface RuntimeModelUsagePort {
- admitRuntimeRequest?(orgId:OrgId,runId:string,input:Omit<z.infer<typeof RuntimeModelRequestAdmission>,"orgId">):Promise<void>;
+ admitRuntimeRequest?(orgId:OrgId,runId:string,input:WithoutOrg<z.infer<typeof RuntimeModelRequestAdmission>>):Promise<void>;
  startRuntimeRequest(orgId:OrgId,runId:string,input:Omit<z.infer<typeof RuntimeModelRequestStart>,"orgId">):Promise<void>;
  terminalRuntimeRequest(orgId:OrgId,runId:string,input:Omit<z.infer<typeof RuntimeModelRequestTerminal>,"orgId">):Promise<void>;
 }

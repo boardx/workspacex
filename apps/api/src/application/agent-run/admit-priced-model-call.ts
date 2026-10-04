@@ -30,7 +30,7 @@ export async function preparePricedModelCall(subject:AiPricedCallSubject,deps:{
  const ids=[subject.primaryModelId,...configuration.fallbackModelIds.filter(id=>id!==subject.primaryModelId)];
  if(!Number.isSafeInteger(subject.attempt)||subject.attempt<0||subject.attempt>=configuration.maxAttempts)throw new Error("AI_ATTEMPTS_EXHAUSTED");
  const price=configuration.prices.find(p=>p.modelId===ids[subject.attempt]);
- if(!price)throw new Error("AI_MODEL_UNAVAILABLE");
+ if(!price||!("maxOutputTokens" in price))throw new Error("AI_MODEL_UNAVAILABLE");
  if(!deps.model.supportsDispatchAdmission?.(price.modelProvider)||!deps.model.supportsRequestAccounting?.(price.modelProvider))throw new Error("AI_DISPATCH_BOUNDARY_UNAVAILABLE");
  const prepared=new Map<string,{decision:Extract<ReturnType<typeof prepareAiAttempt>,{decision:"allowed"}>;startedAt?:string}>();
  return {modelProvider:price.modelProvider,modelId:price.runtimeModelId,outputTokenLimit:price.maxOutputTokens,
