@@ -29,6 +29,14 @@ beforeEach(() => {
  });
 });
 describe("bounded report quality recovery", () => {
+ it("rejects exact-quote overclaims before saving and uses the existing bounded repair", async () => {
+  const wrong = `${GOOD}\n\n安装问题最常见且必然阻止采购。`;
+  complete.mockResolvedValueOnce({text:wrong}).mockResolvedValueOnce({text:GOOD});
+  await generateInterviewMarkdown(deps(),input);
+  expect(complete).toHaveBeenCalledTimes(2);
+  expect(save.mock.calls[0]![0]).toMatchObject({markdown:wrong, failure:{code:"REPORT_GROUNDING_REJECTED",retryable:true}});
+  expect(snapshot.documents.find(document => document.step === "report")?.markdown).toBe(GOOD);
+ });
  it("requires evidence strength and conditional recommendations on every bounded attempt", async () => {
   complete.mockResolvedValueOnce({text:BAD}).mockResolvedValueOnce({text:GOOD});
   await generateInterviewMarkdown(deps(),input);

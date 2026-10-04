@@ -84,6 +84,17 @@ export function validateReportEvidence(markdown: string, index: readonly ReportE
   const attribution = new RegExp(String.raw`^[：:\s]*(?:(?:和|与|及|以及|、)\s*(?:${escapedLabels})\s*)*(?:(?:均|都|共同|一致)\s*)?(?:(?:表示|指出|认为|回答|提到|说)|[（(]?(?:Q|问题|第)\s*\d+)`, "u");
   const consensus = /(?:两位|多位|两名|多名|两个|不同|多|两)(?:受访者|专家|角色|参与者).{0,24}(?:一致|共同|共识)|跨(?:角色|专家|受访者)(?:的)?(?:共识|共同|一致)/gu;
   for (const assertion of interviewMarkdown.parseInterviewReportAssertions(markdown)) {
+    // Finite observed overclaims: exact quotations do not establish population
+    // frequency or inevitable purchasing causality. Keep raw candidate bytes.
+    for (const clause of assertion.text.split(/[，,。；;\n]|但是|然而|不过|但/u)) {
+      const overclaim = /最常见|必然(?:阻止|阻碍|导致|影响)(?:采购|购买)/u.exec(clause);
+      if (!overclaim) continue;
+      const before = clause.slice(0, overclaim.index);
+      const qualified = /(?:不能|不可|无法|不应|不得)(?:断言|声称|认为|证明|说)?[^，,。；;]{0,16}$/u.test(before)
+        || /^\s*(?:若|如果|假如)[^，,。；;]*$/u.test(before);
+      const doubleDenial = /否认|否定|并非|并无|绝非/u.test(before);
+      if (!qualified || doubleDenial) return {ok:false,references:[],reason:"unsupported_evidence_strength"};
+    }
     const citedExperts = new Set(assertion.links.flatMap(link => {
       const entry = index.find(item => link.url === `#${item.anchor}`);
       return entry?.expertId && entry.taskKey ? [entry.expertId] : [];
