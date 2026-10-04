@@ -131,23 +131,23 @@ describe("durable research runtime with real PostgreSQL and controlled provider 
     await reachResearch();
     const reloaded = await service.get(actor, session);
     expect(reloaded.errorCode).toBeNull();
-    expect(reloaded.tasks).toHaveLength(1);
-    expect(reloaded.tasks[0]).toMatchObject({ query: "European grid storage policy official", status: "succeeded", searchAttempts: [
-      { query: "European grid storage policy official", status: "failed" },
+    expect(reloaded.tasks).toHaveLength(4);
+    for (const task of reloaded.tasks) expect(task).toMatchObject({ status: "succeeded", questionId: expect.any(String), searchAttempts: [
+      { query: task.query, status: "failed" },
       { query: recoveryQuery, status: "succeeded" },
     ] });
-    expect(searchCalls).toBe(2);
+    expect(searchCalls).toBe(8);
     state = reloaded;
     await run("start");
     expect(state.errorCode).toBeNull();
-    expect(searchCalls).toBe(2);
+    expect(searchCalls).toBe(8);
     await run("complete");
     expect(state.errorCode).toBeNull();
     expect(state.report).not.toBeNull();
     const reportReloaded = await service.get(actor, session);
     expect(reportReloaded.report).toEqual(state.report);
-    expect(reportReloaded.tasks[0]?.query).toBe("European grid storage policy official");
-    expect(reportReloaded.tasks[0]?.searchAttempts).toEqual(reloaded.tasks[0]?.searchAttempts);
+    expect(reportReloaded.tasks.map(task => task.query)).toEqual(reloaded.tasks.map(task => task.query));
+    expect(reportReloaded.tasks.map(task => task.searchAttempts)).toEqual(reloaded.tasks.map(task => task.searchAttempts));
   });
 
   it("persists relevance filtering of new search results without accepting unrelated inventory", async () => {
@@ -274,7 +274,7 @@ describe("durable research runtime with real PostgreSQL and controlled provider 
     expect(C.GuidedResearchRuntime.parse(await saved.json()).version).toBe(state.version + 1);
     const invalid = await fetch(`${path}/commands`, { method: "POST", headers, body: JSON.stringify({ ...command, node: "report" }) }); expect(invalid.status).toBe(400);
   });
-  it("recovers a running attempt persisted by finalization after one transient progress write failure", async () => {
+  it("recovers an issued attempt finalized as failed after one transient progress write failure", async () => {
     await reachResearch();
     const unfinished = structuredClone(state);
     const succeeded = unfinished.tasks[0]!;
@@ -298,7 +298,7 @@ describe("durable research runtime with real PostgreSQL and controlled provider 
     expect(failed.errorCode).toBe("RESEARCH_WORKFLOW_UNAVAILABLE");
     state = await service.get(actor, session);
     expect(state.busy).toBe(false);
-    expect(state.tasks.find((task) => task.id === "interrupted-progress-task")?.searchAttempts?.some((attempt) => attempt.status === "running")).toBe(true);
+    expect(state.tasks.find((task) => task.id === "interrupted-progress-task")?.searchAttempts).toEqual([{ query: "European grid policy progress", status: "failed", errorCode: "RESEARCH_SEARCH_UNAVAILABLE" }]);
     expect(searchCalls).toBe(previousSearchCalls);
     await run("retry");
     expect(state.errorCode).toBeNull();
@@ -306,7 +306,7 @@ describe("durable research runtime with real PostgreSQL and controlled provider 
     const reloaded = await service.get(actor, session);
     expect(reloaded.tasks.find((task) => task.id === succeeded.id)).toMatchObject({ status: "succeeded", attempts: succeeded.attempts });
     expect(reloaded.tasks.find((task) => task.id === "interrupted-progress-task")?.searchAttempts).toEqual([
-      { query: "European grid policy progress", status: "failed", errorCode: "RESEARCH_EXECUTION_INTERRUPTED" },
+      { query: "European grid policy progress", status: "failed", errorCode: "RESEARCH_SEARCH_UNAVAILABLE" },
       { query: "European grid policy progress", status: "succeeded", errorCode: null },
     ]);
     expect(reloaded.tasks.flatMap((task) => task.searchAttempts ?? []).some((attempt) => attempt.status === "running")).toBe(false);
@@ -366,7 +366,7 @@ describe("durable research runtime with real PostgreSQL and controlled provider 
     await expect(store.write(actor, firstCommand.requestId, first.state, true)).rejects.toMatchObject({ reasonCode: "RESEARCH_GRAPH_VERSION_CONFLICT" });
     expect((await service.get(actor, session)).version).toBe(second.state.version);
   });
-  it("calls a model for every step, persists sources and reports, and recovers in another service instance", async () => {
+  it("skips redundant planning, persists sources and reports, and recovers in another service instance", async () => {
     await reachResearch();
     expect(state.tasks[0]?.status).toBe("succeeded");
     const sourceId = state.sources[0]!.id;
@@ -374,7 +374,8 @@ describe("durable research runtime with real PostgreSQL and controlled provider 
     const reviewed = { ...state.report!, summary: "Reviewed evidence summary" };
     await run("complete", { draft: { node: "report", value: reviewed } });
     expect(state.report).toEqual(reviewed);
-    expect(state.errorCode).toBeNull(); expect(state.completed).toBe(true); expect(calls).toEqual([...C.ResearchNode.options, "report", "report", "report"]);
+    expect(state.errorCode).toBeNull(); expect(state.completed).toBe(true); expect(calls).toEqual(["brief", "directions", "outline", "report", "report", "report", "report"]);
+    expect(state.researchPlan).toBeNull();
     const restored = await new GuidedRuntimeService(new PgGuidedRuntimeStore(db), model, search).get(actor, session);
     expect(restored).toEqual(state); expect(restored.report!.sections[0]!.sourceIds).toEqual([sourceId]);
   });
@@ -469,7 +470,7 @@ describe("durable research runtime with real PostgreSQL and controlled provider 
     await run("add_source", { sourceUrl: source.url + "#section" });
     expect(state.sources).toHaveLength(1); expect(state.sources[0]!.decision).toBe("accepted"); expect(searchCalls).toBe(before);
     await run("add_source", { sourceUrl: source.url });
-    expect(state.sources).toHaveLength(1); expect(state.tasks).toHaveLength(1);
+    expect(state.sources).toHaveLength(1); expect(state.tasks).toHaveLength(4);
     expect((await service.get(actor, session)).sources).toEqual(state.sources);
   });
   it("adds only matching retrieved URL evidence with succeeded provenance and idempotent replay", async () => {
@@ -545,8 +546,8 @@ describe("durable research runtime with real PostgreSQL and controlled provider 
   });
   it("persists failed searches and retries without fabricating sources", async () => {
     failSearch = true; await run("confirm"); await run("confirm"); await run("confirm");
-    expect(state.errorCode).toBe("RESEARCH_SEARCH_PARTIAL_FAILURE"); expect(state.sources).toEqual([]); expect(state.tasks[0]?.status).toBe("failed");
-    failSearch = false; await run("retry"); expect(state.errorCode).toBeNull(); expect(state.tasks[0]?.attempts).toBe(2); expect(searchCalls).toBe(2);
+    expect(state.errorCode).toBe("RESEARCH_SEARCH_PARTIAL_FAILURE"); expect(state.sources).toEqual([]); expect(state.tasks).toHaveLength(4); expect(state.tasks.every(task => task.status === "failed")).toBe(true);
+    failSearch = false; await run("retry"); expect(state.errorCode).toBeNull(); expect(state.tasks.every(task => task.status === "succeeded" && task.attempts === 2)).toBe(true); expect(searchCalls).toBe(8);
   });
   it("rejects nonexistent sources, unknown citations and cross-node drafts", async () => {
     await reachResearch(); await run("start");
