@@ -1,0 +1,334 @@
+Before URL: http://127.0.0.1:25708/studio/survey/7a977284-0baa-4b12-9966-3536e5942058/design
+
+- alert
+- link "跳到主要内容":
+  - /url: "#wsx-main-content"
+- navigation "主导航":
+  - button "组织菜单，当前：org org-fullstack-5e-986ac146-12206c108846":
+    - generic: o
+  - link "首页":
+    - /url: /home
+    - generic: 首页
+  - link "对话":
+    - /url: /chat
+    - generic: 对话
+  - link "项目":
+    - /url: /projects
+    - generic: 项目
+  - link "研究":
+    - /url: /research
+    - generic: 研究
+  - link "访谈":
+    - /url: /itv
+    - generic: 访谈
+  - link "大脑":
+    - /url: /brain
+    - generic: 大脑
+  - link "任务":
+    - /url: /tasks
+    - generic: 任务
+  - link "工作流":
+    - /url: /workflows
+    - generic: 工作流
+  - link "组织后台":
+    - /url: /admin
+    - generic: 组织后台
+  - button "更多":
+    - generic: 更多
+  - button "任务提醒，0 条未读":
+    - generic: 提醒
+  - generic: 0 条未读
+  - button "提交反馈":
+    - generic: 反馈
+  - button "个人菜单":
+    - generic: F
+- banner:
+  - generic: org org-fullstack-5e-986ac146-12206c108846
+  - paragraph: 管理员
+  - paragraph: 不在具体项目里 · 引导师/组长/组员等项目内角色暂不适用
+- main:
+  - main:
+    - button "← 返回列表"
+    - textbox "问卷名称": 合成验收20261004-空白与标签-名称已修改
+    - paragraph: 已保存 · 2026/10/4 09:40:15
+    - button "更多操作"
+    - button "发布回收"
+    - navigation "问卷工作流":
+      - button "1. 设计问卷":
+        - generic: "1"
+        - text: 设计问卷
+      - button "2. 发布回收":
+        - generic: "2"
+        - text: 发布回收
+      - button "3. 查看答卷":
+        - generic: "3"
+        - text: 查看答卷
+    - region "设计检查":
+      - heading "发现 1 项设计问题" [level=2]
+      - paragraph: 质量评分 未知
+      - paragraph: 预计填写时间 未知
+      - paragraph: 预计完成率 未知
+      - list:
+        - strong: 问卷至少需要一道题
+        - text: 问卷
+        - button "定位并修复：添加至少一道可回答的问题": 定位并修复
+    - paragraph: 选择题型，配置题目，再用实时预览试填。
+    - button "试填问卷"
+    - button "撤销最近修改" [disabled]:
+      - text: 撤销
+    - button "重做最近修改" [disabled]:
+      - text: 重做
+    - complementary "题目大纲":
+      - region "题型工具箱":
+        - heading "题型工具箱" [level=2]
+        - button "新增题目"
+        - heading "选择" [level=3]
+        - button "单选":
+          - text: 单选
+        - button "多选":
+          - text: 多选
+        - button "下拉选择":
+          - text: 下拉选择
+        - button "图片单选":
+          - text: 图片单选
+        - button "图片多选":
+          - text: 图片多选
+        - heading "输入" [level=3]
+        - button "单行文本":
+          - text: 单行文本
+        - button "多行文本":
+          - text: 多行文本
+        - button "多项填空":
+          - text: 多项填空
+        - button "数字":
+          - text: 数字
+        - button "日期":
+          - text: 日期
+        - button "时间":
+          - text: 时间
+        - button "日期时间":
+          - text: 日期时间
+        - button "邮箱":
+          - text: 邮箱
+        - button "手机":
+          - text: 手机
+        - button "地址":
+          - text: 地址
+        - button "级联选择":
+          - text: 级联选择
+        - heading "评分" [level=3]
+        - button "量表":
+          - text: 量表
+        - button "星级评分":
+          - text: 星级评分
+        - button "NPS":
+          - text: NPS
+        - button "滑块":
+          - text: 滑块
+        - heading "矩阵" [level=3]
+        - button "矩阵单选":
+          - text: 矩阵单选
+        - button "矩阵多选":
+          - text: 矩阵多选
+        - button "矩阵量表":
+          - text: 矩阵量表
+        - button "矩阵填空":
+          - text: 矩阵填空
+        - button "矩阵下拉":
+          - text: 矩阵下拉
+        - heading "比较" [level=3]
+        - button "排序":
+          - text: 排序
+        - button "比重分配":
+          - text: 比重分配
+        - heading "材料" [level=3]
+        - button "文件上传":
+          - text: 文件上传
+        - button "签名":
+          - text: 签名
+        - heading "页面元素" [level=3]
+        - button "说明文字/图片":
+          - text: 说明文字/图片
+        - button "分节与分页":
+          - text: 分节与分页
+      - heading "题目大纲" [level=2]
+      - paragraph: 题目目录 · 0
+      - searchbox "搜索题目"
+      - list
+    - region "题目设置":
+      - paragraph: 添加第一道题目，开始设计问卷。
+    - complementary "实时预览":
+      - region "问卷设计画布":
+        - heading "问卷设计画布" [level=2]
+        - button "桌面预览" [pressed]
+        - button "平板预览"
+        - button "手机预览"
+        - region "问卷封面":
+          - heading "合成验收20261004-空白与标签-名称已修改" [level=2]
+
+After URL: http://127.0.0.1:25708/studio/survey
+
+- alert
+- link "跳到主要内容":
+  - /url: "#wsx-main-content"
+- navigation "主导航":
+  - button "组织菜单，当前：org org-fullstack-5e-986ac146-12206c108846":
+    - generic: o
+  - link "首页":
+    - /url: /home
+    - generic: 首页
+  - link "对话":
+    - /url: /chat
+    - generic: 对话
+  - link "项目":
+    - /url: /projects
+    - generic: 项目
+  - link "研究":
+    - /url: /research
+    - generic: 研究
+  - link "访谈":
+    - /url: /itv
+    - generic: 访谈
+  - link "大脑":
+    - /url: /brain
+    - generic: 大脑
+  - link "任务":
+    - /url: /tasks
+    - generic: 任务
+  - link "工作流":
+    - /url: /workflows
+    - generic: 工作流
+  - link "组织后台":
+    - /url: /admin
+    - generic: 组织后台
+  - button "更多":
+    - generic: 更多
+  - button "任务提醒，0 条未读":
+    - generic: 提醒
+  - generic: 0 条未读
+  - button "提交反馈":
+    - generic: 反馈
+  - button "个人菜单":
+    - generic: F
+- banner:
+  - generic: org org-fullstack-5e-986ac146-12206c108846
+  - paragraph: 管理员
+- main:
+  - main:
+    - heading "问卷" [level=1]
+    - textbox "搜索问卷":
+      - /placeholder: 搜索问卷名称或标签
+    - button "新建问卷":
+      - text: 新建问卷
+    - navigation "问卷二级导航":
+      - link "我的问卷":
+        - /url: /studio/survey
+        - text: 我的问卷
+      - link "问卷模板":
+        - /url: /studio/survey?tab=modules
+        - text: 问卷模板
+      - link "报告模板":
+        - /url: /studio/survey?tab=reports
+        - text: 报告模板
+    - region "我的问卷列表":
+      - group "按标签筛选问卷":
+        - button "全部标签" [pressed]
+        - button "合成验收20261004 1":
+          - text: 合成验收20261004
+          - generic: "1"
+      - generic: 共 8 个问卷
+      - article:
+        - heading "合成验收20261004-空白与标签-名称已修改" [level=3]:
+          - link "合成验收20261004-空白与标签-名称已修改":
+            - /url: /studio/survey/7a977284-0baa-4b12-9966-3536e5942058
+        - paragraph: 0 个题目 · 0 份答卷（有效 0）
+        - generic: 草稿
+        - button "更多操作：合成验收20261004-空白与标签-名称已修改":
+        - generic: 添加问题、发布问卷并收集真实反馈。
+        - generic: 合成验收20261004
+        - text: 最近更新：2026/10/4 09:40:15
+        - button "继续设计"
+        - button "查看答卷"
+      - article:
+        - heading "合成验收20261004-替换确认能力" [level=3]:
+          - link "合成验收20261004-替换确认能力":
+            - /url: /studio/survey/f6c2c63c-f157-49f2-bb3b-7ca36333f274
+        - paragraph: 20 个题目 · 0 份答卷（有效 0）
+        - generic: 草稿
+        - button "更多操作：合成验收20261004-替换确认能力":
+        - generic: 包含“您加入当前团队多久了？”等问题，邀请目标受访者分享真实反馈。
+        - text: 最近更新：2026/10/4 09:17:21
+        - button "继续设计"
+        - button "查看答卷"
+      - article:
+        - heading "合成验收20261004-主线解绑-f687" [level=3]:
+          - link "合成验收20261004-主线解绑-f687":
+            - /url: /studio/survey/79d04a5d-8a17-46ac-b413-f9b030804cc9
+        - paragraph: 21 个题目 · 0 份答卷（有效 0）
+        - generic: 草稿
+        - button "更多操作：合成验收20261004-主线解绑-f687":
+        - generic: 包含“您加入当前团队多久了？”等问题，邀请目标受访者分享真实反馈。
+        - text: 最近更新：2026/10/4 09:05:12
+        - button "继续设计"
+        - button "查看答卷"
+      - article:
+        - heading "团队协作健康度调查" [level=3]:
+          - link "团队协作健康度调查":
+            - /url: /studio/survey/268f5a71-2510-4881-bf27-f8db642add81
+        - paragraph: 20 个题目 · 0 份答卷（有效 0）
+        - generic: 发布中
+        - button "更多操作：团队协作健康度调查":
+        - generic: 包含“您加入当前团队多久了？”等问题，邀请目标受访者分享真实反馈。
+        - text: 最近更新：2026/10/4 08:35:48
+        - button "继续编辑"
+        - button "查看答卷"
+      - article:
+        - heading "合成验收20261004-报告真实答卷" [level=3]:
+          - link "合成验收20261004-报告真实答卷":
+            - /url: /studio/survey/a529a7ac-3740-4b4a-b46f-dfd085fbb775
+        - paragraph: 20 个题目 · 1 份答卷（有效 1）
+        - generic: 发布中
+        - button "更多操作：合成验收20261004-报告真实答卷":
+        - generic: 包含“您加入当前团队多久了？”等问题，邀请目标受访者分享真实反馈。
+        - text: 最近更新：2026/10/4 08:31:56
+        - button "继续编辑"
+        - button "查看答卷"
+      - article:
+        - heading "合成验收20261004-解绑保存边界-ac9" [level=3]:
+          - link "合成验收20261004-解绑保存边界-ac9":
+            - /url: /studio/survey/93750492-a585-4c08-9b01-ceb66960c2fd
+        - paragraph: 21 个题目 · 0 份答卷（有效 0）
+        - generic: 草稿
+        - button "更多操作：合成验收20261004-解绑保存边界-ac9":
+        - generic: 包含“您加入当前团队多久了？”等问题，邀请目标受访者分享真实反馈。
+        - text: 最近更新：2026/10/4 04:15:36
+        - button "继续设计"
+        - button "查看答卷"
+      - article:
+        - heading "合成验收20261004-模板子验收-解绑反证" [level=3]:
+          - link "合成验收20261004-模板子验收-解绑反证":
+            - /url: /studio/survey/ae22d556-ba5a-45c3-bd67-05f06431481a
+        - paragraph: 21 个题目 · 0 份答卷（有效 0）
+        - generic: 草稿
+        - button "更多操作：合成验收20261004-模板子验收-解绑反证":
+        - generic: 包含“您加入当前团队多久了？”等问题，邀请目标受访者分享真实反馈。
+        - text: 最近更新：2026/10/4 03:35:31
+        - button "继续设计"
+        - button "查看答卷"
+      - article:
+        - heading "合成验收20261004-空白设计" [level=3]:
+          - link "合成验收20261004-空白设计":
+            - /url: /studio/survey/101e9a36-3fb3-4e50-baa7-28e5ed56f4bb
+        - paragraph: 1 个题目 · 1 份答卷（有效 1）
+        - generic: 发布中
+        - button "更多操作：合成验收20261004-空白设计":
+        - generic: 包含“多行文本”等问题，邀请目标受访者分享真实反馈。
+        - text: 最近更新：2026/10/4 02:41:13
+        - button "继续编辑"
+        - button "查看答卷"
+      - complementary:
+        - paragraph: 报告模板（可选）
+        - heading "为该问卷设计报告模板" [level=2]
+        - link "去创建报告模板":
+          - /url: /studio/survey?tab=reports
+          - text: 去创建报告模板
