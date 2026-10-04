@@ -1,3 +1,4 @@
+import { adaptiveSourceEvidenceWork, sourceEvidenceTerms, sourceScreenBatches, SOURCE_SCREEN_CHUNK_CHARS, type SourceEvidenceChunk } from "./guided-source-evidence-work";
 import { evidenceWireChunk, materializeQuoteReferences, quoteReferenceMatchSchema } from "./guided-report-quote-references";
 import { createHash } from "node:crypto";
 import { sourceRelevanceOutputSchema as sourceOutput, type SourceRelevanceSemanticCode, type SourceRelevanceIssueCode } from "./guided-source-relevance-protocol";
@@ -8,7 +9,7 @@ import { ResearchRuntimeError, type ResearchRuntime } from "./guided-runtime-por
 
 type Source = ResearchRuntime["sources"][number];
 type Complete = (system: string, context: unknown, validate: (value: unknown) => void, check?: () => void) => Promise<unknown>;
-type Chunk = { sourceId: string; chunkId: string; taskId: string; questionIds: string[]; title: string; url: string; content: string };
+type Chunk = SourceEvidenceChunk;
 type OutputIssue = { path: (string | number)[]; code: SourceRelevanceIssueCode; message: string };
 class InvalidRelevanceOutput extends ResearchRuntimeError {
   readonly issues: OutputIssue[];
@@ -67,7 +68,12 @@ async function screeningBatchWork<T, R>(items: readonly T[], compute: (item: T, 
 
 /** No state mutation: publish only after every batch is validated. User exclusions
  * and explicitly added URLs retain their intent; reports still vet their evidence. */
-export async function screenResearchSources(state: ResearchRuntime, sources: Source[], complete: Complete): Promise<Source[]> {
+/** Source/task relevance admission is existential: one strictly validated match
+ * admits that scope. It does not certify answers to every question, completeness,
+ * or absence of contradictory omitted material. Report evidence/quality gates
+ * remain independent; adaptive scheduling must never write question coverage. */
+export async function screenResearchSources(state: ResearchRuntime, sources: Source[], complete: Complete, options: { adaptive?: boolean; signal?: AbortSignal } = {}): Promise<Source[]> {
+  options.signal?.throwIfAborted();
   const candidates = sources.filter((source) => source.decision !== "excluded" && !source.addedByUser && source.relevanceBasis !== sourceRelevanceBasis(state, source));
   if (!candidates.length) return sources;
   const questions = reportQuestions(state.outline.filter((section) => section.enabled));
@@ -84,23 +90,16 @@ export async function screenResearchSources(state: ResearchRuntime, sources: Sou
       // validation still decide whether the original task's source is useful.
       const questionIds = (scopedQuestions.length || !task || task.questionId ? scopedQuestions : questions).map((question) => question.id);
       if (!task || !questionIds.length) continue;
-      for (let offset = 0; offset < content.length; offset += 6000) result.push({ sourceId: source.id, taskId, questionIds,
-        chunkId: JSON.stringify([source.id, taskId, offset]), title: source.title.slice(0, 300), url: source.url, content: content.slice(offset, offset + 6000) });
+      for (let offset = 0; offset < content.length; offset += SOURCE_SCREEN_CHUNK_CHARS) result.push({ sourceId: source.id, taskId, questionIds,
+        chunkId: JSON.stringify([source.id, taskId, offset]), title: source.title.slice(0, 300), url: source.url, content: content.slice(offset, offset + SOURCE_SCREEN_CHUNK_CHARS) });
     }
     return result;
   });
   // Bound both source text and evaluations without wasting calls on short excerpts.
   if (chunks.length > 512) throw new ResearchRuntimeError("RESEARCH_EVIDENCE_BUDGET_EXCEEDED");
-  const batches: Chunk[][] = [];
-  let batchSize = 0;
-  for (const chunk of chunks) {
-    let batch = batches.at(-1);
-    if (!batch || batch.length === 8 || batchSize + chunk.content.length > 24000) {
-      batch = []; batches.push(batch); batchSize = 0;
-    }
-    batch.push(chunk); batchSize += chunk.content.length;
-  }
-  const evaluated = await screeningBatchWork(batches, async (batch, check) => {
+  const batches: Chunk[][] = options.adaptive ? [] : sourceScreenBatches(chunks);
+  const evaluate = async (batch: Chunk[], checkBatch: () => void) => {
+    const check = () => { options.signal?.throwIfAborted(); checkBatch(); };
     const parse = (value: unknown) => {
       // Resolve only exact source/chunk identities before the authoritative schema.
       const normalized = value && typeof value === "object" && "evaluations" in value && Array.isArray(value.evaluations)
@@ -143,6 +142,7 @@ export async function screenResearchSources(state: ResearchRuntime, sources: Sou
           tasks: state.tasks.filter((task) => batch.some((chunk) => chunk.taskId === task.id)), chunks: batch.map(evidenceWireChunk),
           ...(attempt ? { repair: { issues: repairIssues, previousOutput: (JSON.stringify(previousOutput) ?? "null").slice(0, 24000), instruction: "Use exact chunk/source/question IDs; evaluate each chunk once; select same-chunk quoteOptions references; irrelevant must agree with matches." } } : {}) },
         (output) => { previousOutput = output; parse(output); }, check);
+        check();
         const evaluations = parse(value).evaluations;
         check();
         return evaluations;
@@ -155,7 +155,21 @@ export async function screenResearchSources(state: ResearchRuntime, sources: Sou
       }
     }
     throw new ResearchRuntimeError("RESEARCH_SOURCE_RELEVANCE_INVALID");
-  });
+  };
+  let evaluated: Array<Awaited<ReturnType<typeof evaluate>>>;
+  if (options.adaptive) {
+    const terms = new Map(state.tasks.map(task => [task.id, sourceEvidenceTerms([
+      { text: task.objective ?? "", weight: 3 }, { text: task.query, weight: 2 },
+      ...questions.filter(question => chunks.some(chunk => chunk.taskId === task.id && chunk.questionIds.includes(question.id))).map(question => ({ text: question.question, weight: 1 })),
+    ])]));
+    const work = adaptiveSourceEvidenceWork(chunks, terms);
+    evaluated = [];
+    for (let batch = work.next(); batch; batch = work.next()) {
+      const value = await evaluate(batch, () => {});
+      batches.push(batch); evaluated.push(value);
+      work.approve(batch, value.filter(entry => !entry.irrelevant && entry.matches.length > 0).map(entry => entry.chunkId));
+    }
+  } else evaluated = await screeningBatchWork(batches, evaluate);
   const presentations = new Map<string, NonNullable<Source["presentation"]>>();
   const accepted = new Map<string, Set<string>>();
   for (const [index, evaluations] of evaluated.entries()) {

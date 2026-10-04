@@ -155,7 +155,7 @@ export async function executeTaskPipeline(state: ResearchRuntime, persist: Runti
       source.addedByUser = false;
       delete source.presentation;
     }
-    const screened = await screenResearchSources(state, candidates, model(true)); check();
+    const screened = await screenResearchSources(state, candidates, model(true), { adaptive: true, signal }); check();
     const denied = upgraded.filter(source => {
       const retained = screened.find(item => item.id === source.id);
       const required = [...sourceTaskIds(previous.get(source.id)!), ...(task ? [task.id] : [])];
@@ -170,7 +170,7 @@ export async function executeTaskPipeline(state: ResearchRuntime, persist: Runti
       return task && !sourceTaskIds(stored).includes(task.id)
         ? { ...stored, taskId: task.id, taskIds: [task.id], addedByUser: false } : stored;
     });
-    const retained = task ? await screenResearchSources(state, fallback, model(true)) : fallback;
+    const retained = task ? await screenResearchSources(state, fallback, model(true), { adaptive: true, signal }) : fallback;
     check();
     return [...screened.filter(source => !denied.some(item => item.id === source.id)), ...retained];
   };
