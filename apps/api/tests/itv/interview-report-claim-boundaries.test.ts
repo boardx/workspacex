@@ -7,6 +7,23 @@ import { interviewMarkdown } from "@repo/contracts";
 const evidence = (quote: string): ReportEvidence => ({ anchor: "answer-1", documentId: "runs", version: 1,
   sourceHash: "a".repeat(64), start: 0, end: quote.length, quote, expertId: "expert", taskKey: "task", evidenceMode: "simulated", expertLabel: "甲" });
 describe("finite report claim boundaries", () => {
+ it.each(["采用移动插座，因此供电风险降低。", "改用移动插座消除了线缆风险。", "移动插座并非没有降低供电风险。", "供电风险已得到降低，采用移动插座。"])("rejects unmarked definite risk reduction: %s", claim => {
+  expect(assessReportClaimBoundaries(claim,[]).missing).toContain("unsupported_physical_risk_downgrade");
+ });
+ it("activates the gate from exact bound setup evidence without promoting its quote", () => {
+  const quote = "受访者建议采用移动插座。";
+  expect(assessReportClaimBoundaries(`[${quote}](#answer-1) 因此供电风险已降低。`,[evidence(quote)]).missing).toContain("unsupported_physical_risk_downgrade");
+  expect(assessReportClaimBoundaries(`[${quote}](#answer-1) 供电风险尚待验证。`,[evidence(quote)]).ok).toBe(true);
+ });
+ it.each(["供电回路的现场负荷检测确认供电风险已降低", "承重结构的专项检测确认承重风险已降低", "线缆路径的安全检测确认线缆风险已降低"])("accepts exact site/object/method risk evidence: %s", result => {
+  const quote = `本次对该办公区${result}。`;
+  const claim = `采用移动插座，${quote}`;
+  expect(assessReportClaimBoundaries(`${claim}[${quote}](#answer-1)`,[evidence(quote)]).ok).toBe(true);
+  expect(assessReportClaimBoundaries(`${claim.replace("办公区","会议室")}[${quote}](#answer-1)`,[evidence(quote)]).missing).toContain("unsupported_physical_risk_downgrade");
+ });
+ it.each(["移动插座可能降低供电风险。", "建议采用移动插座降低供电风险。", "移动插座尚未消除线缆风险。"])("preserves scoped modal reverse risk predicates: %s", claim => {
+  expect(assessReportClaimBoundaries(claim,[]).ok).toBe(true);
+ });
  it.each([1,2])("rejects preserved public attempt %s's automatic physical-risk downgrade", attempt => {
   const root = new URL("./fixtures/defect-exclusion-5341/", import.meta.url);
   const raw = readFileSync(new URL(`attempt-${attempt}.md`, root), "utf8");
