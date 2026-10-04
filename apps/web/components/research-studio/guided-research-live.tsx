@@ -1,5 +1,6 @@
 "use client";
 import { guidedResearchHeading } from "@/lib/guided-research-heading";
+import { ResearchRuntimeHydrationError } from "@/lib/guided-research-hydration";
 import { GuidedResearchReportTimeline } from "./guided-research-report-timeline";
 import * as React from "react";
 import { ApiError, getStoredSessionToken } from "@/lib/api-client";
@@ -100,6 +101,7 @@ const errors: Record<string, string> = {
   RESEARCH_MODEL_GENERATION_REQUIRED: "本步骤尚未完成模型处理，请重试。",
 };
 function requestError(error: unknown): string {
+  if (error instanceof ResearchRuntimeHydrationError) return "已保存当前进度，暂时无法获取完整内容，请同步后继续。";
   if (error instanceof ApiError) {
     if (error.status === 401) return "登录已过期，请重新登录后继续。";
     if (error.status === 403) return "你暂时没有访问此研究的权限，请联系研究负责人。";
@@ -390,6 +392,11 @@ export function GuidedResearchLive({ sessionId, researchName, onBack, onLoadRetr
       if (!isCurrent()) return;
       // Capture the submitted editor before a recovery read or polling can replace it.
       const localDraft = recoveryDraft && (action === "message" || JSON.stringify(recoveryDraft) !== JSON.stringify(draftOf(recoveryState, requestNode))) ? recoveryDraft : null;
+      if (cause instanceof ResearchRuntimeHydrationError && cause.snapshot.sessionId === sessionId) {
+        const acknowledged = newestSnapshot(cause.snapshot, snapshotRef.current);
+        responseEpoch.current += 1; snapshotRef.current = acknowledged; setState(acknowledged);
+        if (!localDraft && !browsingRef.current) setDraft(draftOf(acknowledged, requestNode));
+      }
       if (!browsingRef.current) setNode(requestNode);
       updateRecovery({ draft: localDraft, node: requestNode, synchronized: false });
       if (localDraft && !browsingRef.current) setDraft(localDraft);

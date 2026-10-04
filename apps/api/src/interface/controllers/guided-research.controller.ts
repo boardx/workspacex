@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { runtimeProgress } from "./guided-research-progress";
 import type { Request, Response } from "express";
 import { traceIdOf } from "../middleware/trace";
-import { fieldFingerprint, runtimeDelta, runtimePollingDelta, rememberRuntimeDelta } from "./guided-research-delta";
+import { fieldFingerprint, runtimeDelta, runtimePollingDelta, rememberRuntimeDelta, runtimePlanStagePatch } from "./guided-research-delta";
 import { GUIDED_RUNTIME_SERVICE, ResearchRuntimeError } from "../../application/research/guided-runtime-ports";
 import type { GuidedRuntimeService } from "../../application/research/guided-runtime-service";
 import { BadRequestException, Body, ConflictException, Controller, Delete, Get, Inject, NotFoundException, Param, Post, Put, Query, Req, Res, ServiceUnavailableException } from "@nestjs/common";
@@ -70,7 +70,7 @@ export class GuidedResearchController {
     const { knownFields, ...command } = input.data;
     try {
       const state = await this.runtime.execute({ orgId: principal.orgId, userId: principal.userId, sessionId }, session, command, undefined, traceIdOf(request));
-      return knownFields ? runtimeDelta(state, knownFields) : state;
+      return command.node === "outline" ? runtimePlanStagePatch(state) : knownFields ? runtimeDelta(state, knownFields) : state;
     }
     catch (error) { this.runtimeError(error); }
   }
