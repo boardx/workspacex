@@ -1,0 +1,51 @@
+
+> @repo/api@0.0.0 test:interview-markdown-unit /Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/apps/api
+> vitest run --config vitest.interview-markdown-unit.config.ts
+
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/apps/api
+
+ ✓ tests/itv/interview-report-recovery.test.ts (24 tests) 75ms
+ ❯ tests/itv/interview-report-grounding.test.ts (73 tests | 3 failed) 46ms
+   × report evidence grounding > preserves a scoped denial of fabricated consensus: 不能把这2个任务说成只有单一问答，也不能将多个回答虚构为多专家共识。 9ms
+     → expected false to be true // Object.is equality
+   × report evidence grounding > preserves a scoped denial of fabricated consensus: 不应把单个回答虚构成两位专家的共识。 2ms
+     → expected false to be true // Object.is equality
+   × report evidence grounding > preserves a scoped denial of fabricated consensus: 不得将不同场景的回答虚构为跨角色共识。 1ms
+     → expected false to be true // Object.is equality
+ ✓ tests/itv/interview-report-claim-boundaries.test.ts (78 tests) 33ms
+ ✓ tests/itv/interview-report-diagnostics.test.ts (14 tests) 31ms
+ ✓ tests/itv/interview-markdown-report-stream-controller.test.ts (9 tests) 5ms
+ ✓ tests/itv/interview-model-markdown.test.ts (4 tests) 3ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/itv/interview-report-grounding.test.ts > report evidence grounding > preserves a scoped denial of fabricated consensus: 不能把这2个任务说成只有单一问答，也不能将多个回答虚构为多专家共识。
+ FAIL  tests/itv/interview-report-grounding.test.ts > report evidence grounding > preserves a scoped denial of fabricated consensus: 不应把单个回答虚构成两位专家的共识。
+ FAIL  tests/itv/interview-report-grounding.test.ts > report evidence grounding > preserves a scoped denial of fabricated consensus: 不得将不同场景的回答虚构为跨角色共识。
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ tests/itv/interview-report-grounding.test.ts:14:112
+     12|   "不得将不同场景的回答虚构为跨角色共识。",
+     13|  ])("preserves a scoped denial of fabricated consensus: %s", claim => {
+     14|   expect(validateReportEvidence(`[服务端甲回答：支持电话。](#answer-1)…
+       |                                                                                                                ^
+     15|  });
+     16|  it.each([
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
+
+ Test Files  1 failed | 5 passed (6)
+      Tests  3 failed | 199 passed (202)
+   Start at  01:10:05
+   Duration  2.74s (transform 683ms, setup 0ms, collect 1.96s, tests 192ms, environment 0ms, prepare 147ms)
+
+/Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/apps/api:
+ ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  @repo/api@0.0.0 test:interview-markdown-unit: `vitest run --config vitest.interview-markdown-unit.config.ts`
+Exit status 1
