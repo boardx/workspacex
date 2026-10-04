@@ -27,7 +27,9 @@ describe("safe per-attempt caps and authorized bounded fallback",()=>{
    expect(prepareAiAttempt({...base,bindings:[{...binding("primary"),...patch}]})).toEqual({decision:"AI_MODEL_CAPABILITY_UNVERIFIED"});
  });
  it("unknown confidentiality and closed-api fallback cannot leak confidential input",()=>{
-  expect(prepareAiAttempt({...base,confidentiality:"unknown"})).toEqual({decision:"AI_CONFIDENTIALITY_UNKNOWN"});
+  expect(prepareAiAttempt({...base,confidentiality:"unknown"})).toMatchObject({decision:"allowed",modelId:"primary"});
+  expect(prepareAiAttempt({...base,confidentiality:"unknown",pool:[{...row("primary"),kind:"closed-api"}]})).toEqual({decision:"AI_MODEL_UNAVAILABLE"});
+  expect(prepareAiAttempt({...base,confidentiality:"unknown",attempt:1,measuredInput:measured("fallback")})).toEqual({decision:"AI_MODEL_UNAVAILABLE"});
   expect(prepareAiAttempt({...base,confidentiality:"confidential",attempt:1,pool:[row("primary"),{...row("fallback"),kind:"closed-api"}],measuredInput:measured("fallback")})).toEqual({decision:"AI_MODEL_UNAVAILABLE"});
  });
  it("missing/malformed/too-large input bounds and unrepresentable monetary holds fail closed",()=>{

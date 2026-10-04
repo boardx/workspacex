@@ -1,6 +1,6 @@
 import type {z} from "zod";
 import type {Configuration,InputOnlyModelPrice} from "@repo/contracts/ai-policy";
-import {selectableModels} from "../model/selectable";
+import {decideModelRoute,resolveContainsConfidential} from "../model/route-call";
 import type {AiPoolCandidate,VerifiedInputBound} from "./ai-safe-attempt";
 
 export interface VerifiedInputOnlyBinding {
@@ -28,12 +28,14 @@ export function prepareInputOnlyAiAttempt(input:{configuration:z.infer<typeof Co
  pool:readonly AiPoolCandidate[];bindings:readonly VerifiedInputOnlyBinding[];measuredInput:VerifiedInputOnlyBound|null;
  serializedBodySha256:string}):AllowedInputOnlyAttempt|{decision:Denied}{
  const config=input.configuration;if(!config||!input.priceVersion)return {decision:"AI_POLICY_UNCONFIGURED"};
- if(input.confidentiality==="unknown")return {decision:"AI_CONFIDENTIALITY_UNKNOWN"};
  if(!Number.isSafeInteger(input.attempt)||input.attempt<0||input.attempt>=config.maxAttempts)return {decision:"AI_ATTEMPTS_EXHAUSTED"};
  const id=[input.primaryModelId,...config.fallbackModelIds.filter(id=>id!==input.primaryModelId)][input.attempt];
  if(!id)return {decision:"AI_ATTEMPTS_EXHAUSTED"};
- const eligible=selectableModels(input.pool,input.confidentiality==="confidential"?"confidential":null);
- const candidate=input.pool.find(row=>row.modelId===id&&eligible.some(row=>row.modelId===id));
+ const signal=input.confidentiality==="non-confidential"?false:input.confidentiality==="confidential"?true:"unknown";
+ // I-12 treats unknown as confidential; I-21 forbids quota degradation in that lane.
+ if(input.attempt>0&&resolveContainsConfidential(signal))return {decision:"AI_MODEL_UNAVAILABLE"};
+ const route=decideModelRoute({pool:input.pool,requestedModelId:id,confidentiality:signal});
+ const candidate=input.pool.find(row=>row.modelId===id&&route.ok&&route.selectedModelId===id);
  const policy=config.prices.find(row=>row.modelId===id);
  if(!candidate||candidate.shape!=="single"||!policy||!("billingMode" in policy)||policy.billingMode!=="input-only")return {decision:"AI_MODEL_UNAVAILABLE"};
  const binding=input.bindings.find(row=>row.modelId===id&&row.modelProvider===policy.modelProvider&&row.runtimeModelId===policy.runtimeModelId);

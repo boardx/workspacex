@@ -40,7 +40,7 @@ it('holds only maximum input Tokens and highest cache price against ordinary per
  const state={plan:'ordinary' as const,tokenLimit:12n,costLimitMicros:24n,usedTokens:0n,heldTokens:0n,usedCostMicros:0n,heldCostMicros:0n};expect(decideAiAdmission(state,result.maximumTokens,result.maximumCostMicros)).toBe('allowed');expect(decideAiAdmission({...state,heldTokens:1n},result.maximumTokens,result.maximumCostMicros)).toBe('TOKEN_LIMIT_REACHED');
 });
 it('rejects unknown confidentiality, authorization/capability drift, hashes, wrong mode and bounds',()=>{
- const base=input();expect(prepareInputOnlyAiAttempt({...base,confidentiality:'unknown'}).decision).toBe('AI_CONFIDENTIALITY_UNKNOWN');expect(prepareInputOnlyAiAttempt({...base,confidentiality:'confidential'}).decision).toBe('AI_MODEL_UNAVAILABLE');
+ const base=input();expect(prepareInputOnlyAiAttempt({...base,confidentiality:'unknown'}).decision).toBe('AI_MODEL_UNAVAILABLE');expect(prepareInputOnlyAiAttempt({...base,confidentiality:'confidential'}).decision).toBe('AI_MODEL_UNAVAILABLE');
  expect(prepareInputOnlyAiAttempt({...base,requiredCapabilities:['missing']}).decision).toBe('AI_MODEL_CAPABILITY_UNVERIFIED');expect(prepareInputOnlyAiAttempt({...base,pool:[{...base.pool[0]!,capabilityTags:[]}]}).decision).toBe('AI_MODEL_CAPABILITY_UNVERIFIED');
  expect(prepareInputOnlyAiAttempt({...base,bindings:[{...binding,noBilledOutputVerified:false}]}).decision).toBe('AI_MODEL_CAPABILITY_UNVERIFIED');expect(prepareInputOnlyAiAttempt({...base,serializedBodySha256:'b'.repeat(64)}).decision).toBe('AI_INPUT_BOUND_UNVERIFIED');
  expect(prepareInputOnlyAiAttempt({...base,measuredInput:{...base.measuredInput,tokens:21}}).decision).toBe('AI_INPUT_LIMIT_REACHED');expect(prepareInputOnlyAiAttempt({...base,attempt:1}).decision).toBe('AI_ATTEMPTS_EXHAUSTED');
@@ -62,4 +62,11 @@ it('rejects unrepresentable hold and missing/mismatched measurement provenance',
  expect(prepareInputOnlyAiAttempt({...base,measuredInput:{...base.measuredInput,modelProvider:'foreign'}}).decision).toBe('AI_INPUT_BOUND_UNVERIFIED');
  const huge={...base,configuration:{...base.configuration,prices:[{...policy,maxInputTokens:2147483647,inputMicrosPerMillion:'9223372036854775807'}]},pool:[{...base.pool[0]!,contextWindow:2147483647}],bindings:[{...binding,contextWindow:2147483647}],measuredInput:{...base.measuredInput,tokens:2147483647}};
  expect(prepareInputOnlyAiAttempt(huge).decision).toBe('AI_MAXIMUM_COST_UNREPRESENTABLE');
+});
+
+it('unknown input-only content reuses self-hosted routing and retains exact-body bounds',()=>{
+ const base=input(),local={...base,confidentiality:'unknown' as const,pool:[{...base.pool[0]!,kind:'self-hosted' as const}]};
+ expect(prepareInputOnlyAiAttempt(local)).toMatchObject({decision:'allowed',maximumTokens:12n,maximumCostMicros:24n});
+ expect(prepareInputOnlyAiAttempt({...local,serializedBodySha256:'b'.repeat(64)}).decision).toBe('AI_INPUT_BOUND_UNVERIFIED');
+ expect(prepareInputOnlyAiAttempt({...local,bindings:[{...binding,accountingComplete:false}]}).decision).toBe('AI_MODEL_CAPABILITY_UNVERIFIED');
 });

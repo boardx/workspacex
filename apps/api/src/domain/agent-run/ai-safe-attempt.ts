@@ -1,6 +1,7 @@
 import type {z} from "zod";
 import type {Configuration} from "@repo/contracts/ai-policy";
-import {selectableModels,type SelectableCandidateRow} from "../model/selectable";
+import type {SelectableCandidateRow} from "../model/selectable";
+import {decideModelRoute,resolveContainsConfidential} from "../model/route-call";
 import {priceAiTokens,type AiPrice} from "./ai-budget";
 
 export interface VerifiedAiBinding {
@@ -28,12 +29,14 @@ export function prepareAiAttempt(input:{configuration:z.infer<typeof Configurati
  measuredInput:VerifiedInputBound|null}):Allowed|{decision:Exclude<Decision,"allowed">}{
  const config=input.configuration;
  if(!config||!input.priceVersion)return {decision:"AI_POLICY_UNCONFIGURED"};
- if(input.confidentiality==="unknown")return {decision:"AI_CONFIDENTIALITY_UNKNOWN"};
  if(!Number.isSafeInteger(input.attempt)||input.attempt<0||input.attempt>=config.maxAttempts)return {decision:"AI_ATTEMPTS_EXHAUSTED"};
  const ordered=[input.primaryModelId,...config.fallbackModelIds.filter(id=>id!==input.primaryModelId)];
  const id=ordered[input.attempt];if(!id)return {decision:"AI_ATTEMPTS_EXHAUSTED"};
- const eligible=selectableModels(input.pool,input.confidentiality==="confidential"?"confidential":null);
- const candidate=input.pool.find(row=>row.modelId===id&&eligible.some(item=>item.modelId===id)),policy=config.prices.find(row=>row.modelId===id);
+ const signal=input.confidentiality==="non-confidential"?false:input.confidentiality==="confidential"?true:"unknown";
+ // I-12 treats unknown as confidential; I-21 forbids quota degradation in that lane.
+ if(input.attempt>0&&resolveContainsConfidential(signal))return {decision:"AI_MODEL_UNAVAILABLE"};
+ const route=decideModelRoute({pool:input.pool,requestedModelId:id,confidentiality:signal});
+ const candidate=input.pool.find(row=>row.modelId===id&&route.ok&&route.selectedModelId===id),policy=config.prices.find(row=>row.modelId===id);
  if(!candidate||candidate.shape!=="single"||!policy||!("maxOutputTokens" in policy))return {decision:"AI_MODEL_UNAVAILABLE"};
  const binding=input.bindings.find(row=>row.modelId===id&&row.modelProvider===policy.modelProvider&&row.runtimeModelId===policy.runtimeModelId);
  if(!binding||!binding.accountingComplete||!binding.outputCapSupported||!binding.billedOutputBoundVerified
