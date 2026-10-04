@@ -37,6 +37,7 @@ test('same-profile live peer recovers a closed origin without reload and ACKs ea
  let ownedProxy:{proof:{listener:string};dispose:()=>Promise<void>}|undefined;
  let verifyProxySources:(()=>Promise<void>)|undefined;
  const proxyUrl=process.env.BOARD_SYNC_FAULT_PROXY_URL,controlSecret=process.env.BOARD_SYNC_FAULT_CONTROL_SECRET;
+ if(typeof controlSecret==='string')privateSecrets.push(controlSecret);
  if(!proxyUrl||!controlSecret||controlSecret.length<32)throw new Error('Explicit private scoped transport fixture required');
  const proxyOrigin=new URL(proxyUrl);
  if(proxyOrigin.hostname!=='127.0.0.1'||proxyOrigin.protocol!=='http:'||proxyOrigin.pathname!=='/'||proxyOrigin.search||proxyOrigin.hash||proxyOrigin.username||proxyOrigin.password)throw new Error('Invalid isolated proxy origin');

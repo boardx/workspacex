@@ -47,3 +47,11 @@ it('redacts login fill secrets and tokens throughout nested errors and stacks', 
   for (const secret of secrets) expect(receipt).not.toContain(secret);
   expect(receipt).toContain('[REDACTED]');
 });
+
+it('redacts the owned fault proxy control header in a network failure diagnostic', () => {
+  const secret = 'private-fault-control-secret';
+  const error = new AggregateError([new Error(`apiRequestContext.post failed\n x-board-fault-control: ${secret}`)], 'proxy restore failed');
+  const receipt = JSON.stringify(primaryFailure(error,[secret]));
+  expect(receipt).not.toContain(secret);
+  expect(receipt).toContain('x-board-fault-control: [REDACTED]');
+});

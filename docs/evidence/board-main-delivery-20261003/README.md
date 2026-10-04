@@ -142,3 +142,26 @@ The literal quoted-download filename criterion stays strict and is not claimed
 passed. Native visual/hardware acceptance remains deferred. ABSENT is never a
 passing outcome. No merge, deployment, production permission change, or forced
 push is authorized by this continuation.
+
+
+### Continued independent review and diagnostics
+
+An independent implementation review initially blocked on missing redaction of
+`BOARD_SYNC_FAULT_CONTROL_SECRET` in the new private error receipts. The follow-up
+adds the secret to both Sync diagnostic redaction sets immediately after reading
+it, with a real error-header regression test. Five failure-diagnostic tests pass;
+independent review of this correction reports implementation PASS, while formal
+functional acceptance remains BLOCK.
+
+A real Chromium 151.0.7922.173 loopback download with
+`attachment; filename*=UTF-8''%22quoted%22.txt` returned suggested filename
+`_quoted_.txt` with identical bytes. This disproves the literal filename criterion
+for that browser fixture, not a product-runtime test. The strict acceptance
+assertion remains unchanged; changing its contract requires an explicit decision.
+
+Native environment inventory: all PostgreSQL executables and vector extension
+are absent, as are bison/flex and readline/ICU headers. gcc/make/curl/lsof/Chromium
+are available. The sole formal producer hardcodes `/private/tmp`; lower-level
+prepare/start accept OS temp roots but are diagnostic entry points, not a passing
+replacement for the complete signed suite. No existing attested runtime or runner
+environment was found. No filesystem permission restriction was bypassed.

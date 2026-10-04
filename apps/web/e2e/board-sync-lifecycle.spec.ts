@@ -28,6 +28,7 @@ test('S01-S03 independent processes and users prove pending ACK, offline converg
  const privateSecrets=acceptanceFailureSecrets(F);
  const title=`R08 closed origin lifecycle ${randomUUID()}`;let cleanupPending=false;
  const proxyUrl=process.env.BOARD_SYNC_FAULT_PROXY_URL,secret=process.env.BOARD_SYNC_FAULT_CONTROL_SECRET;
+ if(typeof secret==='string')privateSecrets.push(secret);
  const bridgePath=process.env.BOARD_SYNC_FAULT_BRIDGE_PATH,templatePath=process.env.BOARD_SYNC_FAULT_TEMPLATE_PATH;
  let expectedSources:Record<string,string>|null=null;
  const names=['wsx-r08-owned-proxy-bridge.mjs','wsx-r08-fault-proxy.mjs','wsx-r08-proxy-policy.mjs'];
