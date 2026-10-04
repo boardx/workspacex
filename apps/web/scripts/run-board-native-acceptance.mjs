@@ -59,8 +59,20 @@ export function safeAcceptanceDiagnostics(config,report,root=resolve(process.cwd
     MANIFEST_SOURCE:['Runtime producer must attest readiness','Exact runtime source must be explicitly requested','Runtime startup attestation changed during acceptance','Case startup manifest changed','Case runtime process/source identity changed','Startup manifest changed while checking runtime'],
     BROWSER_EXECUTABLE:["Executable doesn't exist at",'browserType.launch:'],
   };
-  const classify=(error,status)=>{
-    const message=typeof error?.message==='string'?error.message:'';
+  const classify=(error,status,connectorMarker=null)=>{
+    let descriptor;try{descriptor=error!==null&&typeof error==='object'?Object.getOwnPropertyDescriptor(error,'message'):undefined;}catch{}
+    const message=descriptor&&'value' in descriptor&&typeof descriptor.value==='string'?descriptor.value:'';
+    if(message.length<=8192){
+      const lines=message.split(/\r?\n/);
+      const exact=/^(?:Error: )?C06_LOGIN_(?:HTTP_OK|FIXTURE_ACTOR|SESSION_TOKEN)$/;
+      const markers=lines.filter(line=>exact.test(line)).map(line=>line.replace(/^Error: /,''));
+      if(markers.length>0){
+        const first=exact.test(lines[0])?lines[0].replace(/^Error: /,''):null;
+        return markers.length===1&&first===connectorMarker
+          ?{matchedFailure:'ASSERTION',ambiguous:false,assertionId:first}
+          :{matchedFailure:'UNKNOWN',ambiguous:markers.length>1};
+      }
+    }
     const matches=Object.entries(signatures).filter(([,values])=>values.some(value=>message.includes(value))).map(([key])=>key);
     if(matches.length>0)return{matchedFailure:matches.length===1?matches[0]:'UNKNOWN',ambiguous:matches.length>1};
     const identityCodes=['IDENTITY_SOURCE','IDENTITY_CWD','IDENTITY_LISTENER','IDENTITY_ANCESTRY'];
@@ -70,7 +82,7 @@ export function safeAcceptanceDiagnostics(config,report,root=resolve(process.cwd
     if(error?.code==='ERR_ASSERTION'||message.includes('expect('))return{matchedFailure:'ASSERTION',ambiguous:false};
     return{matchedFailure:'UNKNOWN',ambiguous:false};
   };
-  const result=(phase,caseIndex,status,errors)=>({phase,caseIndex,resultStatus:status,errorCount:Array.isArray(errors)?Math.min(errors.length,4096):0,...classify(errors?.[0],status)});
+  const result=(phase,caseIndex,status,errors,connectorMarker=null)=>({phase,caseIndex,resultStatus:status,errorCount:Array.isArray(errors)?Math.min(errors.length,4096):0,...classify(errors?.[0],status,connectorMarker)});
   // Reporter JSON source fields only; never infer a location from stack/message.
   const ownData=(object,key)=>object!==null&&typeof object==='object'?Object.getOwnPropertyDescriptor(object,key)?.value:undefined;
   const sourceLocation=(spec,error)=>{
@@ -99,7 +111,10 @@ export function safeAcceptanceDiagnostics(config,report,root=resolve(process.cwd
         const specFile=ownData(spec,'file');
         const known=typeof specFile==='string'&&specFile.length<=4096&&definition.files.includes(basename(specFile))&&index<definition.count;
         const errors=failed.errors?.length?failed.errors:failed.error?[failed.error]:[];
-        first={...result('CASE',known?index:null,failed.status,errors),sourceLocation:known?sourceLocation(spec,errors[0]):null};
+        const location=known?sourceLocation(spec,errors[0]):null;
+        const connectorMarkers={34:'C06_LOGIN_HTTP_OK',36:'C06_LOGIN_FIXTURE_ACTOR',37:'C06_LOGIN_SESSION_TOKEN'};
+        const marker=location?.source==='ASSERTION'&&location.file==='board-connector-authority.spec.ts'?connectorMarkers[location.line]??null:null;
+        first={...result('CASE',known?index:null,failed.status,errors,marker),sourceLocation:location};
       }
     }
     for(const nested of suite.suites??[])visit(nested);

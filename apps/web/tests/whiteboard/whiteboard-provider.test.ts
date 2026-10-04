@@ -1,3 +1,4 @@
+import {WHITEBOARD_SYNC, type WhiteboardClientMessage} from '@repo/contracts/whiteboard-sync';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import * as Y from 'yjs';
 import { createWhiteboardDocument, executeCommands, prepareWhiteboardUpdate, readObjects, WhiteboardUndo } from '@repo/whiteboard-core';
@@ -89,8 +90,8 @@ it.each(['socket','epoch'] as const)('fences an outstanding claim after its %s c
   }finally{provider.close();doc.destroy();server.destroy();}
 });
 const sticky = (id: string) => ({ id, kind: 'sticky' as const, schemaVersion: 1 as const, geometry: { x: 0, y: 0, width: 180, height: 140, rotation: 0 }, text: id, style: {}, parentId: null, orderKey: '' });
-const messages = (socket: Socket) => socket.sent.map(value => JSON.parse(value) as { type: string; updateId?: string; gestureId?: string });
-const updates = (socket: Socket) => messages(socket).filter((value): value is { type: 'update'; updateId: string; gestureId: string } => value.type === 'update' && typeof value.updateId === 'string');
+const messages = (socket: Socket) => socket.sent.map(value => JSON.parse(value) as { type: string; updateId?: string; gestureId?: string; update?: unknown });
+const updates = (socket: Socket) => messages(socket).filter((value): value is Extract<WhiteboardClientMessage, {type: 'update'}> => value.type === 'update' && typeof value.updateId === 'string' && typeof value.gestureId === 'string' && typeof value.update === 'string');
 const sync = (socket: Socket, server: Y.Doc, epoch = 1, seq = 0) => socket.message({ type: 'sync', epoch, seq, update: bytesToBase64(Y.encodeStateAsUpdate(server)), role: 'editor', archived: false });
 const burst = (doc: Y.Doc, count: number) => { for (let index = 0; index < count; index++) executeCommands(doc, [{ type: 'create', object: sticky(`note-${index}`) }], 'local'); };
 // Real IDB/BroadcastChannel remain active; only delivery of peer wakeups is controlled.
@@ -755,4 +756,173 @@ it('private observer cannot turn mismatched gesture ACK into an accepted receipt
  const doc=createWhiteboardDocument(),server=createWhiteboardDocument(),observe=vi.fn();let state:WhiteboardConnectionState|undefined;
  const provider=new WhiteboardProvider(doc,'observer-guard',value=>{state=value;},null,observe);
  try{const socket=Socket.sockets[0]!;sync(socket,server);executeCommands(doc,[{type:'create',object:sticky('guard-observer')}],'local');const frame=updates(socket)[0]!;socket.message({type:'ack',updateId:frame.updateId,gestureId:crypto.randomUUID(),seq:1});expect(observe).not.toHaveBeenCalled();expect(state?.phase).toBe('blocked');expect(state?.reason).toBe('ACK_CONFLICT');}finally{provider.close();doc.destroy();server.destroy();}
+});
+
+it('resends its exact sent intent after peer durable ACK and original1006 before accepting its own replacement receipt',async()=>{
+  vi.useRealTimers();vi.stubGlobal('indexedDB',new IDBFactory());vi.stubGlobal('crypto',webcrypto);
+  const a=new IndexedDbEncryptedWhiteboardOutbox('board-1'),b=new IndexedDbEncryptedWhiteboardOutbox('board-1'),inspect=new IndexedDbEncryptedWhiteboardOutbox('board-1');
+  const origin=createWhiteboardDocument(),peer=createWhiteboardDocument(),server=createWhiteboardDocument();
+  let originState!:WhiteboardConnectionState,peerState!:WhiteboardConnectionState;
+  const accepted:Array<{providerInstance:string;socketGeneration:number;updateId:string;gestureId:string;seq:number}>=[];
+  const first=new WhiteboardProvider(origin,'board-1',state=>{originState=state;},a,receipt=>{accepted.push(receipt);});
+  let second:WhiteboardProvider|undefined;
+  try{
+    await vi.waitFor(()=>expect(Socket.sockets).toHaveLength(1));const original=Socket.sockets[0]!;sync(original,server);
+    executeCommands(origin,[{type:'create',object:sticky('own-receipt-reconnect')}],'local');
+    await vi.waitFor(()=>expect(updates(original)).toHaveLength(1));const sent=structuredClone(updates(original)[0]!);
+    // As in the existing real-IDB suspension fixture: allow the peer to acquire
+    // the expired original lease without altering the durable row or lease length.
+    const suspendedRenewal=vi.spyOn(a,'claim').mockResolvedValue(true);
+    const now=Date.now();vi.spyOn(Date,'now').mockReturnValue(now+11000);
+    second=new WhiteboardProvider(peer,'board-1',state=>{peerState=state;},b);
+    await vi.waitFor(()=>expect(Socket.sockets).toHaveLength(2));const peerSocket=Socket.sockets[1]!;sync(peerSocket,server);
+    await vi.waitFor(()=>expect(updates(peerSocket)).toHaveLength(1));expect(updates(peerSocket)[0]).toEqual(sent);
+    // A durability ACK is supplied only for a request actually sent by the peer.
+    Y.applyUpdate(server,base64ToBytes(sent.update));
+    peerSocket.message({type:'ack',updateId:sent.updateId,gestureId:sent.gestureId,seq:1});
+    await vi.waitFor(async()=>expect((await inspect.restore('test-session')).updates).toEqual([]));expect(peerState.pending).toBe(0);
+    await vi.waitFor(()=>expect(originState.pending).toBe(0),{timeout:3500});
+    expect(originState.lastAckReceipt).toBeNull();expect(accepted).toEqual([]);
+    suspendedRenewal.mockRestore();
+    original.onclose?.({code:1006});
+    await vi.waitFor(()=>expect(Socket.sockets).toHaveLength(3));const fresh=Socket.sockets[2]!;
+    fresh.onopen?.();expect(JSON.parse(fresh.sent[0]!)).toMatchObject({type:'hello',resume:{epoch:1,seq:0}});
+    fresh.message({type:'recovery',code:'RESUME_OK',disposition:'resumed',epoch:1,seq:1});sync(fresh,server,1,1);
+    expect(originState.phase).toBe('online');expect(accepted).toEqual([]);
+    // This fails on0465: the peer's shared deletion left no replayable original intent.
+    // No unsolicited replacement ACK is injected to bypass that missing request.
+    await vi.waitFor(()=>expect(updates(fresh)).toHaveLength(1),{timeout:1000});
+    const resent=updates(fresh)[0]!;expect(resent).toEqual(sent);
+    expect(resent.updateId).toBe(sent.updateId);expect(resent.gestureId).toBe(sent.gestureId);expect(resent.update).toBe(sent.update);
+    // The server fixture returns the prior sequence only after exact replay is observed.
+    // It performs no second document application or durability commit.
+    fresh.message({type:'ack',updateId:resent.updateId,gestureId:resent.gestureId,seq:1});
+    await vi.waitFor(()=>expect(accepted).toHaveLength(1));
+    expect(accepted[0]).toMatchObject({socketGeneration:2,updateId:sent.updateId,gestureId:sent.gestureId,seq:1});
+    expect(originState.lastAckReceipt).toEqual({updateId:sent.updateId,gestureId:sent.gestureId,seq:1});
+    expect(readObjects(server).map(item=>item.id)).toEqual(['own-receipt-reconnect']);
+    expect((await inspect.restore('test-session')).updates).toEqual([]);
+  }finally{first.close();second?.close();inspect.close();origin.destroy();peer.destroy();server.destroy();vi.restoreAllMocks();}
+});
+
+// Guard matrix uses the existing controllable provider/outbox fixture; the main
+// causal replay test above retains the real encrypted IndexedDB implementation.
+it.each(['token-change','unsolicited-current','revoke','viewer','archive','stale-epoch','close'] as const)('clears raw receipt replay memory at the %s boundary',async boundary=>{
+  const doc=createWhiteboardDocument(),server=createWhiteboardDocument(),outbox=new DurableMemoryOutbox(),observe=vi.fn();let state!:WhiteboardConnectionState;
+  const provider=new WhiteboardProvider(doc,'receipt-boundary',value=>{state=value;},outbox,observe);
+  try{
+    await flushClaims();const old=Socket.sockets[0]!;sync(old,server);
+    executeCommands(doc,[{type:'create',object:sticky('receipt-boundary')}],'local');await flushClaims();const original=updates(old)[0]!;
+    await outbox.acknowledge('test-session',original.updateId);await vi.advanceTimersByTimeAsync(2000);await flushClaims();expect(state.pending).toBe(0);expect(observe).not.toHaveBeenCalled();
+    if(boundary==='token-change'){
+      auth.token='new-session';await vi.advanceTimersByTimeAsync(1000);await flushClaims();
+      const fresh=Socket.sockets.at(-1)!;expect(fresh).not.toBe(old);sync(fresh,server);await vi.advanceTimersByTimeAsync(0);expect(updates(fresh)).toEqual([]);
+    }else if(boundary==='unsolicited-current'){
+      provider.retryNow();await flushClaims();const fresh=Socket.sockets.at(-1)!;sync(fresh,server,1,1);
+      // Repeated sync clears old current-socket eligibility. Without an actual
+      // scheduled resend, even this formerly owned receipt remains unsolicited.
+      fresh.message({type:'ack',updateId:original.updateId,gestureId:original.gestureId,seq:1});
+      expect(state.reason).toBe('ACK_CONFLICT');await vi.advanceTimersByTimeAsync(0);expect(updates(fresh)).toEqual([]);
+    }else if(boundary==='revoke'){
+      await outbox.revoke('test-session');await vi.advanceTimersByTimeAsync(2000);expect(state.reason).toBe('SESSION_REVOKED');provider.retryNow();expect(Socket.sockets).toHaveLength(1);
+    }else if(boundary==='close'){
+      provider.close();await vi.advanceTimersByTimeAsync(2000);expect(Socket.sockets).toHaveLength(1);
+    }else{
+      old.onclose?.({code:1006});await vi.advanceTimersByTimeAsync(500);const fresh=Socket.sockets.at(-1)!;
+      if(boundary==='stale-epoch')sync(fresh,server,2,1);
+      else fresh.message({type:'sync',epoch:1,seq:1,update:bytesToBase64(Y.encodeStateAsUpdate(server)),role:boundary==='viewer'?'viewer':'editor',archived:boundary==='archive'});
+      await vi.advanceTimersByTimeAsync(0);expect(updates(fresh)).toEqual([]);if(boundary==='stale-epoch')expect(state.reason).toBe('STALE_EPOCH');
+    }
+    expect(observe).not.toHaveBeenCalled();
+  }finally{provider.close();doc.destroy();server.destroy();}
+});
+it('failed current-socket receipt resend cannot establish acceptance eligibility',async()=>{
+  const doc=createWhiteboardDocument(),server=createWhiteboardDocument(),outbox=new DurableMemoryOutbox(),observe=vi.fn();let state!:WhiteboardConnectionState;
+  const provider=new WhiteboardProvider(doc,'receipt-send-failure',value=>{state=value;},outbox,observe);
+  try{
+    await flushClaims();const old=Socket.sockets[0]!;sync(old,server);executeCommands(doc,[{type:'create',object:sticky('send-failure')}],'local');await flushClaims();const original=updates(old)[0]!;
+    await outbox.acknowledge('test-session',original.updateId);await vi.advanceTimersByTimeAsync(2000);await flushClaims();expect(state.pending).toBe(0);
+    old.onclose?.({code:1006});await vi.advanceTimersByTimeAsync(500);const fresh=Socket.sockets.at(-1)!;sync(fresh,server,1,1);
+    vi.spyOn(fresh,'send').mockImplementation(()=>{throw new Error('private transport write failure');});await vi.advanceTimersByTimeAsync(0);
+    expect(state.phase).toBe('blocked');expect(state.reason).toBe('OUTBOX_WRITE_FAILED');expect(observe).not.toHaveBeenCalled();expect(updates(fresh)).toEqual([]);
+    fresh.message({type:'ack',updateId:original.updateId,gestureId:original.gestureId,seq:1});expect(observe).not.toHaveBeenCalled();
+  }finally{provider.close();doc.destroy();server.destroy();vi.restoreAllMocks();}
+});
+
+it('bounds the deduplicated union of eight receipt debts and unsent pending updates',async()=>{
+  const doc=createWhiteboardDocument(),server=createWhiteboardDocument(),outbox=new DurableMemoryOutbox();let state!:WhiteboardConnectionState;
+  const provider=new WhiteboardProvider(doc,'receipt-count-bound',value=>{state=value;},outbox);
+  try{
+    await flushClaims();const socket=Socket.sockets[0]!;sync(socket,server);
+    for(let index=0;index<8;index++){
+      executeCommands(doc,[{type:'create',object:sticky('bounded-receipt-'+index)}],'local');await flushClaims();
+      await outbox.acknowledge('test-session',updates(socket).at(-1)!.updateId);await vi.advanceTimersByTimeAsync(2000);await flushClaims();expect(state.pending).toBe(0);
+    }
+    for(let index=8;index<WHITEBOARD_SYNC.pendingUpdates;index++)executeCommands(doc,[{type:'create',object:sticky('unsent-'+index)}],'local');
+    await flushClaims();expect(state.phase).not.toBe('blocked');expect(state.pending).toBe(WHITEBOARD_SYNC.pendingUpdates-8);expect(updates(socket)).toHaveLength(8);
+    executeCommands(doc,[{type:'create',object:sticky('over-union-bound')}],'local');await flushClaims();
+    expect(state.phase).toBe('blocked');expect(state.reason).toBe('PENDING_LIMIT');expect(updates(socket)).toHaveLength(8);
+  }finally{provider.close();doc.destroy();server.destroy();}
+});
+
+it.each([false,true])('shares the eight outstanding slots between receipt replay and new pending (claim=%s)',async claimed=>{
+  class NotifyingOutbox extends DurableMemoryOutbox {
+    notify:()=>void=()=>{};
+    subscribe(_token:string,listener:()=>void){this.notify=listener;return()=>{this.notify=()=>{};};}
+  }
+  class ClaimableOutbox extends NotifyingOutbox {
+    async claim(token:string,id:string){return(this.updates.get(token)??[]).some(item=>item.updateId===id);}
+    async releaseClaims(){}
+  }
+  const doc=createWhiteboardDocument(),server=createWhiteboardDocument(),outbox=claimed?new ClaimableOutbox():new NotifyingOutbox();let state!:WhiteboardConnectionState;
+  const provider=new WhiteboardProvider(doc,'receipt-window',value=>{state=value;},outbox);
+  try{
+    await flushClaims();const old=Socket.sockets[0]!;sync(old,server);
+    for(let index=0;index<8;index++){
+      executeCommands(doc,[{type:'create',object:sticky('window-'+index)}],'local');await flushClaims();
+      expect(updates(old)).toHaveLength(index+1);await outbox.acknowledge('test-session',updates(old).at(-1)!.updateId);outbox.notify();await flushClaims();expect(outbox.updates.get('test-session')).toEqual([]);
+    }
+    old.onclose?.({code:1006});await vi.advanceTimersByTimeAsync(500);const fresh=Socket.sockets.at(-1)!;sync(fresh,server,1,8);await vi.advanceTimersByTimeAsync(0);await flushClaims();
+    expect(updates(fresh).map(item=>item.updateId)).toEqual(updates(old).map(item=>item.updateId));
+    executeCommands(doc,[{type:'create',object:sticky('next-window')}],'local');await flushClaims();expect(state.pending).toBe(1);expect(updates(fresh)).toHaveLength(8);
+    const actuallySent=updates(fresh)[0]!;fresh.message({type:'ack',updateId:actuallySent.updateId,gestureId:actuallySent.gestureId,seq:1});await flushClaims();await vi.advanceTimersByTimeAsync(0);
+    expect(updates(fresh)).toHaveLength(9);expect(updates(fresh)[8]!.updateId).not.toBe(actuallySent.updateId);
+  }finally{provider.close();doc.destroy();server.destroy();}
+});
+
+it('uses actual UTF8 frame bytes for the combined debt and pending limit',async()=>{
+  const doc=createWhiteboardDocument(),server=createWhiteboardDocument(),outbox=new DurableMemoryOutbox();let state!:WhiteboardConnectionState;
+  const provider=new WhiteboardProvider(doc,'receipt-byte-bound',value=>{state=value;},outbox);
+  try{
+    await flushClaims();const socket=Socket.sockets[0]!;sync(socket,server);
+    // This transport-budget fixture deliberately uses real Yjs Unicode updates,
+    // without claiming that the opaque map is a server-valid board command.
+    doc.getMap('budget-fixture').set('first','界'.repeat(1100000));await flushClaims();
+    const first=updates(socket)[0]!;const bytes=new TextEncoder().encode(socket.sent.find(frame=>JSON.parse(frame).updateId===first.updateId)!).byteLength;
+    expect(bytes).toBeLessThan(WHITEBOARD_SYNC.pendingBytes);expect(bytes*2).toBeGreaterThan(WHITEBOARD_SYNC.pendingBytes);
+    await outbox.acknowledge('test-session',first.updateId);await vi.advanceTimersByTimeAsync(2000);await flushClaims();expect(state.pending).toBe(0);
+    doc.getMap('budget-fixture').set('second','界'.repeat(1100000));await flushClaims();
+    expect(state.phase).toBe('blocked');expect(state.reason).toBe('PENDING_LIMIT');expect(updates(socket)).toHaveLength(1);
+  }finally{provider.close();doc.destroy();server.destroy();}
+});
+
+it('rechecks the shared window when receipt replay fills it during an awaited durable claim',async()=>{
+  const doc=createWhiteboardDocument(),server=createWhiteboardDocument(),outbox=new GatedClaimOutbox();
+  const provider=new WhiteboardProvider(doc,'receipt-claim-race',()=>{},outbox);
+  try{
+    await flushClaims();const old=Socket.sockets[0]!;sync(old,server);
+    for(let index=0;index<8;index++){
+      executeCommands(doc,[{type:'create',object:sticky('race-'+index)}],'local');await flushClaims();
+      outbox.release(index+1);await flushClaims();
+      expect(updates(old)).toHaveLength(index+1);await outbox.acknowledge('test-session',updates(old).at(-1)!.updateId);outbox.notify();await flushClaims();expect(outbox.updates.get('test-session')).toEqual([]);
+    }
+    old.onclose?.({code:1006});await vi.advanceTimersByTimeAsync(500);const fresh=Socket.sockets.at(-1)!;sync(fresh,server,1,8);
+    executeCommands(doc,[{type:'create',object:sticky('race-new-pending')}],'local');await flushClaims();
+    expect(outbox.calls).toHaveLength(9);expect(updates(fresh)).toHaveLength(0);
+    // The actual claim is unresolved; the independent replay task sends all eight.
+    await vi.advanceTimersByTimeAsync(0);expect(updates(fresh)).toHaveLength(8);
+    outbox.release(9);await flushClaims();expect(updates(fresh)).toHaveLength(8);
+    const actuallySent=updates(fresh)[0]!;fresh.message({type:'ack',updateId:actuallySent.updateId,gestureId:actuallySent.gestureId,seq:1});await flushClaims();
+    expect(outbox.calls).toHaveLength(10);outbox.release(10);await flushClaims();expect(updates(fresh)).toHaveLength(9);
+  }finally{provider.close();doc.destroy();server.destroy();}
 });

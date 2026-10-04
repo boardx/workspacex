@@ -274,3 +274,25 @@ test('safe acceptance source location uses known source fields only, preserving 
  assert.equal(JSON.stringify(output).includes('private'),false);assert.equal(JSON.stringify(output).includes('secret'),false);
  assert.equal(output.matchedFailure,'ASSERTION');assert.throws(()=>suiteResult(config,{}));
 });
+
+
+test('Connector fixed login markers preserve exact assertion identity without private operands',async()=>{
+ const {safeAcceptanceDiagnostics}=await import('./run-board-native-acceptance.mjs');
+ const inspect=(message,file='board-connector-authority.spec.ts',line=34)=>safeAcceptanceDiagnostics('e2e/board-connector-existing-runtime.config.ts',{suites:[{specs:[{file,line:19,tests:[{results:[{status:'failed',errors:[{message,location:{file,line},stack:'PRIVATE'}]}]}]}]}]}).firstFailure;
+ for(const [line,marker] of [[34,'C06_LOGIN_HTTP_OK'],[36,'C06_LOGIN_FIXTURE_ACTOR'],[37,'C06_LOGIN_SESSION_TOKEN']]){
+  const output=inspect(`Error: ${marker}\nExpected: PRIVATE_ACTOR\nReceived: PRIVATE_TOKEN`,undefined,line);
+  assert.equal(output.assertionId,marker);assert.equal(output.matchedFailure,'ASSERTION');assert.equal(output.ambiguous,false);assert(!JSON.stringify(output).includes('PRIVATE'));
+ }
+ assert.equal(inspect('C06_LOGIN_HTTP_OK\nC06_LOGIN_SESSION_TOKEN').ambiguous,true);
+ assert.equal(inspect('C06_LOGIN_HTTP_OK\nC06_LOGIN_SESSION_TOKEN').assertionId,undefined);
+ for(const value of ['PRIVATE C06_LOGIN_HTTP_OK','C06_LOGIN_HTTP_OK PRIVATE','C06_LOGIN_UNKNOWN','x'.repeat(8193)+'\nC06_LOGIN_HTTP_OK'])assert.equal(inspect(value).assertionId,undefined);
+ assert.equal(inspect('C06_LOGIN_HTTP_OK','board-connector-history.spec.ts').assertionId,undefined);
+ for(const line of [undefined,19,35,38])assert.equal(inspect('C06_LOGIN_SESSION_TOKEN',undefined,line).matchedFailure,'UNKNOWN');
+ assert.equal(inspect('Expected: PRIVATE\nC06_LOGIN_HTTP_OK').matchedFailure,'UNKNOWN');
+ assert.equal(inspect('C06_LOGIN_SESSION_TOKEN',undefined,34).matchedFailure,'UNKNOWN');
+ let reads=0;const report={suites:[{specs:[{file:'board-connector-authority.spec.ts',line:19,tests:[{results:[{status:'failed',errors:[Object.defineProperty({},'message',{get(){reads++;return 'C06_LOGIN_HTTP_OK';}})]}]}]}]}]};
+ assert.equal(safeAcceptanceDiagnostics('e2e/board-connector-existing-runtime.config.ts',report).firstFailure.assertionId,undefined);assert.equal(reads,0);
+ const hostile=new Proxy({},{getOwnPropertyDescriptor(target,key){if(key==='message')throw new Error('PRIVATE');return Reflect.getOwnPropertyDescriptor(target,key);}});
+ report.suites[0].specs[0].tests[0].results[0].errors=[hostile];
+ assert.equal(safeAcceptanceDiagnostics('e2e/board-connector-existing-runtime.config.ts',report).firstFailure.matchedFailure,'UNKNOWN');
+});

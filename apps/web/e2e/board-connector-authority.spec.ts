@@ -30,7 +30,12 @@ test('C06 valid Connector permissions and held gesture authority lifecycle',asyn
   [editor,viewer,commenter,outsider]=pages as [Page,Page,Page,Page];const chunks=[owner,...pages].map(observeRuntimeChunks);transport.observe(editor,'original',()=>identities.get(editor)!);transport.observe(owner,'peer',()=>identities.get(owner)!);
   const login=async(page:Page,email:string,password:string,userId:string)=>{
    const response=page.waitForResponse(response=>new URL(response.url()).pathname.endsWith('/auth/login')&&response.request().method()==='POST');
-   const token=await boardLogin(page,email,password),authenticated=await response;expect(authenticated.ok()).toBe(true);const body=await authenticated.json();expect(body.userId).toBe(userId);expect(body.sessionToken).toBe(token);identities.set(page,body.userId);return token;
+   const token=await boardLogin(page,email,password),authenticated=await response;
+   expect(authenticated.ok(),'C06_LOGIN_HTTP_OK').toBe(true);
+   const body=await authenticated.json();
+   expect(body.userId,'C06_LOGIN_FIXTURE_ACTOR').toBe(userId);
+   expect(body.sessionToken,'C06_LOGIN_SESSION_TOKEN').toBe(token);
+   identities.set(page,body.userId);return token;
   };
   ownerToken=await login(owner,F.email,F.password,F.userId);const editorToken=await login(editor,F.adminEmail,F.adminPassword,F.adminUserId),viewerToken=await login(viewer,F.leadEmail,F.leadPassword,F.leadUserId),commenterToken=await login(commenter,F.memberEmail,F.memberPassword,F.memberUserId),outsiderToken=await login(outsider,foreign.email,foreign.password,foreign.userId);expect(new Set(identities.values()).size).toBe(5);
   const fresh=async(name:string)=>{
