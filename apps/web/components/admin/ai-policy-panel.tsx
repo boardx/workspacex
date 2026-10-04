@@ -1,14 +1,12 @@
 "use client";
 import * as React from "react";
 import {Configuration} from "@repo/contracts/ai-policy";
-import type {z} from "zod";
 import {Button} from "@/components/ui/button";
 import {Input} from "@/components/ui/input";
 import {ApiError} from "@/lib/api-client";
 import {getPlatformAiPolicy,getPlatformAiCandidates,setPlatformAiPolicy,type AiPolicyState,type AiCandidate} from "@/lib/live-platform-organizations";
-type Price=z.infer<typeof Configuration>["prices"][number];
-type PriceDraft={modelId:string}&Record<Exclude<keyof Price,"modelId">,string>;
-const emptyPrice=(modelId:string):PriceDraft=>({modelId,modelProvider:"",runtimeModelId:"",inputMicrosPerMillion:"",outputMicrosPerMillion:"",cachedInputMicrosPerMillion:"",maxInputTokens:"",maxOutputTokens:""});
+type PriceDraft={modelId:string;billingMode:"input-output"|"input-only";modelProvider:string;runtimeModelId:string;inputMicrosPerMillion:string;outputMicrosPerMillion:string;cachedInputMicrosPerMillion:string;maxInputTokens:string;maxOutputTokens:string;};
+const emptyPrice=(modelId:string):PriceDraft=>({modelId,billingMode:"input-output",modelProvider:"",runtimeModelId:"",inputMicrosPerMillion:"",outputMicrosPerMillion:"",cachedInputMicrosPerMillion:"",maxInputTokens:"",maxOutputTokens:""});
 function errorText(error:unknown){
  if(error instanceof ApiError){
   if(error.status===403)return "仅平台运营人员可以配置额度。";
@@ -35,13 +33,13 @@ export function AiPolicyPanel({orgId}:{orgId:string}){
    const config=policy.configuration;
    setStart(config?.window.start??"");setEnd(config?.window.end??"");setTimezone(config?.window.timezone??"");
    setTokens(config?.ordinaryTokensPerUser??"");setCost(config?.costMicrosPerUser??"");setCurrency(config?.currency??"");
-   setPrices(config?.prices.map(row=>Object.fromEntries(Object.entries(row).map(([key,value])=>[key,String(value)])) as PriceDraft)??[]);
+   setPrices(config?.prices.map(row=>({...emptyPrice(row.modelId),...Object.fromEntries(Object.entries(row).map(([key,value])=>[key,String(value)]))}) as PriceDraft)??[]);
    setFallback(config?.fallbackModelIds??[]);setAttempts(config?String(config.maxAttempts):"");
   }).catch(cause=>{if(active)setError(errorText(cause));});
   return ()=>{active=false;};
  },[orgId,refresh]);
  const parsed=Configuration.safeParse({window:{start,end,timezone},ordinaryTokensPerUser:tokens||null,costMicrosPerUser:cost,currency,
-  prices:prices.map(row=>({...row,maxInputTokens:Number(row.maxInputTokens),maxOutputTokens:Number(row.maxOutputTokens)})),fallbackModelIds:fallback,maxAttempts:Number(attempts)});
+  prices:prices.map(({billingMode,outputMicrosPerMillion,maxOutputTokens,...row})=>billingMode==="input-only"?{...row,billingMode,maxInputTokens:Number(row.maxInputTokens)}:{...row,outputMicrosPerMillion,maxInputTokens:Number(row.maxInputTokens),maxOutputTokens:Number(maxOutputTokens)}),fallbackModelIds:fallback,maxAttempts:Number(attempts)});
  async function save(){
   if(!state||!parsed.success||!reason.trim()||busy)return;setBusy(true);setError(null);setSaved(false);
   const ownerOrg=orgId,ownerGeneration=generation.current;
@@ -76,10 +74,14 @@ export function AiPolicyPanel({orgId}:{orgId:string}){
     }}/>{model.displayName} · {model.contextWindow} Token
    </label>)}
    {prices.map(row=><fieldset key={row.modelId} className="space-y-2 rounded border p-3"><legend>{candidates.find(model=>model.modelId===row.modelId)?.displayName??row.modelId}</legend>
+    <label htmlFor={`billing-${row.modelId}`}>计费方式<select id={`billing-${row.modelId}`} className="block rounded border bg-background p-2" disabled={busy} value={row.billingMode} onChange={event=>setPrices(rows=>rows.map(item=>item.modelId===row.modelId?{...item,billingMode:event.target.value as PriceDraft["billingMode"]}:item))}>
+     <option value="input-output">输入与输出 Token</option><option value="input-only">仅输入 Token</option>
+    </select></label>
+    {row.billingMode==="input-only"&&<p className="text-13 text-muted-foreground">仅输入计费需验证供应商实际计量；保存此配置不会启用模型调用。</p>}
     <div className="grid gap-2 md:grid-cols-3">{([
      ["runtimeModelId","供应商实际模型标识（需验证，不从名称推断）"],["inputMicrosPerMillion","输入价格（微货币/百万 Token）"],["outputMicrosPerMillion","输出价格（微货币/百万 Token）"],
      ["cachedInputMicrosPerMillion","缓存输入价格（微货币/百万 Token）"],["maxInputTokens","单次输入安全上限（Token）"],["maxOutputTokens","单次输出安全上限（Token）"],
-    ] as const).map(([key,label])=>field(`price-${row.modelId}-${key}`,label,row[key],value=>setPrices(rows=>rows.map(item=>item.modelId===row.modelId?{...item,[key]:value}:item))))}
+    ] as const).filter(([key])=>row.billingMode!=="input-only"||(key!=="outputMicrosPerMillion"&&key!=="maxOutputTokens")).map(([key,label])=>field(`price-${row.modelId}-${key}`,label,row[key],value=>setPrices(rows=>rows.map(item=>item.modelId===row.modelId?{...item,[key]:value}:item))))}
      <label htmlFor={`provider-${row.modelId}`}>已注册模型路由<select id={`provider-${row.modelId}`} className="block rounded border bg-background p-2" disabled={busy} value={row.modelProvider} onChange={event=>setPrices(rows=>rows.map(item=>item.modelId===row.modelId?{...item,modelProvider:event.target.value}:item))}>
       <option value="">请选择</option>{candidates.find(model=>model.modelId===row.modelId)?.modelProviders.map(provider=><option key={provider} value={provider}>{provider}</option>)}
      </select></label></div>

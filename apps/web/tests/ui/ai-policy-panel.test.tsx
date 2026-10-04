@@ -50,4 +50,16 @@ describe("explicit AI policy configuration",()=>{
   await act(async()=>{if(outcome==="success")resolve({...configured,version:2});else reject(new Error("A failed"));});
   expect(screen.getByText(/配置：未配置/)).toBeInTheDocument();expect(screen.queryByText(/配置已保存/)).not.toBeInTheDocument();expect(screen.queryByRole("alert")).not.toBeInTheDocument();
  });
+ it("loads and saves input-only policy without adding output prices or a zero cap",async()=>{
+  const price={billingMode:"input-only",modelId:"embedding",modelProvider:"fixture-route",runtimeModelId:"embed-actual",inputMicrosPerMillion:"10",cachedInputMicrosPerMillion:"5",maxInputTokens:100};
+  const configuration={window:{start:"2026-10-01T00:00:00Z",end:"2026-11-01T00:00:00Z",timezone:"Etc/UTC"},ordinaryTokensPerUser:"100",costMicrosPerUser:"10000",currency:"CNY",prices:[price],fallbackModelIds:[],maxAttempts:1};
+  mocks.policy.mockResolvedValue({...state,version:3,configuration});mocks.candidates.mockResolvedValue([]);mocks.save.mockImplementation(async(_org,input)=>({...state,version:4,configuration:input.configuration}));
+  render(<AiPolicyPanel orgId="formal"/>);await screen.findByText(/已配置 · 版本 3/);
+  expect(screen.getByLabelText("计费方式")).toHaveValue("input-only");
+  expect(screen.queryByLabelText("输出价格（微货币/百万 Token）")).not.toBeInTheDocument();expect(screen.queryByLabelText("单次输出安全上限（Token）")).not.toBeInTheDocument();
+  fireEvent.change(screen.getByLabelText("变更理由（写入审计）"),{target:{value:"input-only audited"}});fireEvent.click(screen.getByRole("button",{name:"保存额度配置"}));
+  await waitFor(()=>expect(mocks.save).toHaveBeenCalledWith("formal",expect.objectContaining({expectedVersion:3,configuration:expect.objectContaining({prices:[price]})})));
+  expect(mocks.save.mock.calls[0]![1].configuration.prices[0]).not.toHaveProperty("maxOutputTokens");expect(mocks.save.mock.calls[0]![1].configuration.prices[0]).not.toHaveProperty("outputMicrosPerMillion");
+ });
+
 });
