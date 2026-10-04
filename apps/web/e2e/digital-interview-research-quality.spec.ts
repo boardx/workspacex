@@ -816,3 +816,80 @@ test("expert confirmation shows question generation then automatically starts sa
   await expect(page.getByTestId("itv-workbench-step-runs")).toHaveAttribute("aria-current", "step");
   expect(starts).toBe(1);
 });
+
+test("report repair retains saved candidate through failure and refresh", async ({ page }, testInfo) => {
+  const answers = interviewMarkdown.InterviewMarkdownEnvelope.parse({ ...source, version: 9,
+    documents: [...source.documents, { documentId: "answers-browser-stream", step: "runs", version: 1,
+      markdown: "## [护理](#expert-nurse-7)\n\n已保存的合成回答。", contentHash: "a".repeat(64), evidenceMode: "simulated", references: [] }],
+    states: [...source.states, { documentId: "answers-browser-stream", status: "confirmed", failure: null }],
+    execution: { status: "completed", tasks: [{ expertId: "nurse-7", status: "completed", errorCode: null }] } });
+  await page.addInitScript(() => {
+    localStorage.setItem("wsx.sessionToken", "e2e-token");
+    localStorage.setItem("wsx.session", JSON.stringify({ version: 1, userId: "user-e2e", orgs: ["org-e2e"], currentOrgId: "org-e2e", expiresAt: "2099-01-01T00:00:00.000Z" }));
+    const original = window.fetch.bind(window);
+    let controller: ReadableStreamDefaultController<Uint8Array>;
+    let requests = 0;
+    Object.assign(window, { emitReportFixture: (event: unknown) => controller.enqueue(new TextEncoder().encode(`${JSON.stringify(event)}\n`)), closeReportFixture: () => controller.close(), reportFixtureRequests: () => requests });
+    window.fetch = async (input, init) => {
+      if (String(input).includes("/markdown/report/generate-stream")) {
+        requests++;
+        return new Response(new ReadableStream<Uint8Array>({ start(value) { controller = value; } }), { headers: { "Content-Type": "application/x-ndjson" } });
+      }
+      return original(input, init);
+    };
+  });
+  await page.route("**/identity/me**", route => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ org: { id: "org-e2e", name: "E2E", kind: "organization", team: null, modelPolicy: "any" }, orgRole: "lead", teamId: null, projectRole: null, groupId: null, displayName: "E2E User", avatarUrl: null }) }));
+  await page.route("**/interviews/digital/itv-quality-e2e", route => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ...view, currentStep: "runs" }) }));
+  let current = answers;
+  await page.route("**/interviews/digital/itv-quality-e2e/markdown", route => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(current) }));
+  await page.route("**/interviews/digital/itv-quality-e2e/markdown/initialize", route => route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify(answers) }));
+  await page.goto("/itv/itv-quality-e2e/runs");
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await expect(page.getByTestId("itv-source-runs")).toBeVisible();
+  const geometry = await page.getByTestId("itv-source-runs").evaluate(element => {
+    const right = element.querySelector('[role="region"]')!;
+    const name = element.querySelector("aside h4")!;
+    const probe = document.createElement("span"); probe.textContent = "0".repeat(76); probe.style.font = getComputedStyle(right).font; document.body.append(probe);
+    const result = { viewport: window.innerWidth, rightWidth: right.getBoundingClientRect().width,
+      chars76: probe.getBoundingClientRect().width, nameWidth: name.getBoundingClientRect().width, wordBreak: getComputedStyle(name).wordBreak };
+    probe.remove(); return result;
+  });
+  expect(geometry.rightWidth).toBeGreaterThan(geometry.chars76);
+  expect(geometry.nameWidth).toBeGreaterThan(70);
+  expect(geometry.wordBreak).not.toBe("break-all");
+  if (process.env.INTERVIEW_REVIEW_EVIDENCE_DIR) writeFileSync(path.join(process.env.INTERVIEW_REVIEW_EVIDENCE_DIR, "runs-desktop-geometry.json"), JSON.stringify(geometry, null, 2));
+  await page.getByRole("button", { name: "生成报告", exact: true }).click();
+  await expect(page).toHaveURL(/\/report$/u);
+  await expect(page.getByRole("list", { name: "报告生成进度" })).toBeVisible();
+  await page.evaluate(() => (window as unknown as { emitReportFixture: (event: unknown) => void }).emitReportFixture({ type: "delta", delta: "## 合成输出\n\n首段正在传输。" }));
+  await expect(page.getByTestId("itv-report-stream-markdown")).toContainText("首段正在传输");
+  await captureRuntimeEvidence(page, testInfo, "report-timeline-partial-before-completion.png");
+  await expect(page.getByRole("button", { name: "导出 Word" })).toHaveCount(0);
+  expect(await page.evaluate(() => (window as unknown as { reportFixtureRequests: () => number }).reportFixtureRequests())).toBe(1);
+  const candidate = "# 合成输出\n\n首段正在传输。";
+  const candidateHash = createHash("sha256").update(candidate).digest("hex");
+  current = interviewMarkdown.InterviewMarkdownEnvelope.parse({ ...answers, version: 10,
+    documents: [...answers.documents, { documentId: "saved-browser-report", step: "report", version: 1,
+      markdown: candidate, contentHash: candidateHash, evidenceMode: "simulated", references: [] }],
+    states: [...answers.states, { documentId: "saved-browser-report", status: "failed", failure: { code: "REPORT_ACTION_VALIDATION_REJECTED", retryable: true } }] });
+  await page.evaluate(() => (window as unknown as { emitReportFixture: (event: unknown) => void }).emitReportFixture({ type: "attempt", attempt: 2 }));
+  await expect(page.getByTestId("itv-source-report-markdown")).toContainText("首段正在传输");
+  await expect(page.getByText("正在准备报告…", { exact: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "继续生成报告", exact: true })).toHaveCount(0);
+  await captureRuntimeEvidence(page, testInfo, "report-repair-saved-candidate.png");
+  await page.evaluate(() => (window as unknown as { emitReportFixture: (event: unknown) => void }).emitReportFixture({ type: "delta", delta: "## 新修订\n\n第二次独立正文。" }));
+  await expect(page.getByTestId("itv-report-stream-markdown")).toContainText("第二次独立正文");
+  await expect(page.getByTestId("itv-report-stream-markdown")).not.toContainText("首段正在传输");
+  await page.evaluate(() => {
+    const fixture = window as unknown as { emitReportFixture: (event: unknown) => void; closeReportFixture: () => void };
+    fixture.emitReportFixture({ type: "failed", reasonCode: "REPORT_ACTION_VALIDATION_REJECTED" }); fixture.closeReportFixture();
+  });
+  await expect(page.getByTestId("itv-report-generation")).toHaveCount(0);
+  await expect(page.getByTestId("itv-source-report-markdown")).toContainText("首段正在传输");
+  await expect(page.getByText("行动建议未通过校验，请重试。", { exact: true })).toBeVisible();
+  await captureRuntimeEvidence(page, testInfo, "report-repair-failed-retained.png");
+  await page.reload();
+  await expect(page.getByTestId("itv-source-report-markdown")).toContainText("首段正在传输");
+  expect(current.documents.find(item => item.step === "report")?.contentHash).toBe(candidateHash);
+  await captureRuntimeEvidence(page, testInfo, "report-repair-refresh-retained.png");
+});
