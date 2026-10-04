@@ -46,6 +46,27 @@ class WatchdogTests(unittest.TestCase):
   for sessions,gaps in ([{'pid':99}],[]),([],['write-permission']):
    with patch.object(w,'capture',return_value={'role':[{}],'sessions':sessions}),patch.object(w,'dispatch'),patch.object(w,'owned_inventory',return_value=[]),patch.object(w,'permission_gaps',return_value=gaps):
     with self.assertRaises(RuntimeError):w.cleanup({}, {}, SimpleNamespace(allowed_public_temp=()),dict.fromkeys(w.DATABASES,object()),'b'*32)
+ def test_parent_quiesce_failure_still_contains_without_verified_receipt(self):
+  for close_fails in (False,True):
+   with self.subTest(close_fails=close_fails):
+    host={'backup':{'authorization':{'notBefore':100,'expiresAt':1000},'timeoutSeconds':330},'connection':{'transport':{db:{'notBefore':100} for db in w.DATABASES}},'objectScope':{}}
+    raw=json.dumps(host).encode();reference={'path':'/fixture','sha256':hashlib.sha256(raw).hexdigest()}
+    events=[];journal=[];closed=[];inventory_calls=[0];stdout=io.StringIO()
+    def channel(reference,db,**kwargs):
+     self.assertTrue(kwargs['cleanup_only'])
+     return SimpleNamespace(close=lambda:closed.append(db))
+    def inventory(owner):
+     self.assertEqual(owner,w.owner_for(reference));inventory_calls[0]+=1
+     return [{'Id':'a'*64}] if inventory_calls[0]<=2 else []
+    def dispatch(*args,**kwargs):
+     events.append(('dispatch',args[4]))
+     if close_fails:raise RuntimeError('fixture close failed')
+    with patch.object(w,'private',return_value=raw),patch.object(w,'validate'),patch.object(w,'protected_authorization',return_value=SimpleNamespace(allowed_public_temp=())),patch.object(w,'BackupChannel',side_effect=channel),patch.object(w,'capture',return_value={'role':[],'sessions':[]}),patch.object(w,'dispatch',side_effect=dispatch),patch.object(w,'owned_inventory',side_effect=inventory),patch.object(w,'docker',side_effect=lambda args:events.append(('docker',args))),patch.object(w,'quiesce_parent_admin',side_effect=RuntimeError('fixture parent not joined')),patch.object(w.time,'time',return_value=100),patch.object(w.select,'select',return_value=([object()],[],[])),patch.object(w.sys,'stdin',SimpleNamespace(buffer=SimpleNamespace(fileno=lambda:123))),patch.object(w.os,'read',return_value=b''),patch.object(w,'journal_event',side_effect=lambda plan,state:journal.append(state)),patch.object(w.sys,'stdout',stdout):
+     with self.assertRaisesRegex(RuntimeError,'PARENT_ADMIN_LATE_COMMIT_UNKNOWN'):w.serve(reference)
+    self.assertEqual(events,[('dispatch','close'),('docker',['rm','--force','a'*64])])
+    self.assertEqual(journal,['cleanup-owner-preopened','cleanup-intent'])
+    self.assertEqual(stdout.getvalue(),'{"kind":"backup-watchdog-ready"}\n')
+    self.assertEqual(closed,list(w.DATABASES))
  def serve_fixture(self,message,expired=False,journal_error=False):
   host={'backup':{'authorization':{'notBefore':100,'expiresAt':1000},'timeoutSeconds':330},'connection':{'transport':{db:{'expiresAt':1000,'notBefore':100} for db in w.DATABASES}},'objectScope':{}}
   raw=json.dumps(host).encode();reference={'path':'/fixture','sha256':hashlib.sha256(raw).hexdigest()}

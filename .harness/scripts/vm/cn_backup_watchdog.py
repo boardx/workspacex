@@ -35,7 +35,8 @@ def owned_inventory(owner):
  return result
 
 
-def cleanup(plan,scope,authorization,channels,owner):
+def cleanup(plan,scope,authorization,channels,owner,*,parent_admin_quiesced=True):
+ require(type(parent_admin_quiesced) is bool,'BACKUP_WATCHDOG_PARENT_QUIESCE_STATE')
  roles=None;containment_unknown=False
  try:
   facts={db:capture(channels[db],db) for db in DATABASES}
@@ -46,7 +47,7 @@ def cleanup(plan,scope,authorization,channels,owner):
   # Unknown role state remains a failure even if NOLOGIN succeeds.
   containment_unknown=True
  try:
-  if roles is None or any(roles):dispatch(channels[DATABASES[0]],plan,scope,authorization,'close')
+  if roles is None or any(roles) or not parent_admin_quiesced:dispatch(channels[DATABASES[0]],plan,scope,authorization,'close')
  except BaseException:containment_unknown=True
  # Attempt exactly owned container containment even when capture/NOLOGIN failed.
  for container in owned_inventory(owner):
@@ -55,6 +56,9 @@ def cleanup(plan,scope,authorization,channels,owner):
   require(any(c['Id']==identifier for c in owned_inventory(owner)),'BACKUP_WATCHDOG_CONTAINER_CHANGED')
   docker(['rm','--force',identifier])
  require(owned_inventory(owner)==[],'BACKUP_WATCHDOG_CONTAINERS_REMAIN')
+ # Even an absent role can appear later if the producer's transaction was not
+ # joined. Containment is best effort only; never issue a verified receipt.
+ require(parent_admin_quiesced,'BACKUP_WATCHDOG_PARENT_ADMIN_LATE_COMMIT_UNKNOWN')
  require(not containment_unknown,'BACKUP_WATCHDOG_CONTAINMENT_UNKNOWN')
  facts={db:capture(channels[db],db) for db in DATABASES}
  require(all(f['sessions']==[] for f in facts.values()),'BACKUP_WATCHDOG_ROLE_SESSIONS_REMAIN')
@@ -115,7 +119,11 @@ def serve(reference):
   except BaseException:journal_failure=True
   # Join exact producer admin backends before final role scan: an in-flight
   # COMMIT cannot materialize a role after this cleanup has reported success.
-  quiesce_parent_admin(plan,reference,channels)
+  try:quiesce_parent_admin(plan,reference,channels)
+  except BaseException:
+   cleanup(plan,host['objectScope'],authorization,channels,owner_for(reference),parent_admin_quiesced=False)
+   # Defensive fail-closed even if a future cleanup implementation returns.
+   raise RuntimeError('BACKUP_WATCHDOG_PARENT_ADMIN_LATE_COMMIT_UNKNOWN')
   receipt=cleanup(plan,host['objectScope'],authorization,channels,owner_for(reference))
   journal_event(plan,'cleanup-verified')
   require(not journal_failure,'BACKUP_WATCHDOG_AUDIT_FAILURE')
