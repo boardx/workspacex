@@ -1,3 +1,5 @@
+import {categoryEnabled,observationMode} from './support/board-observation-categories.mjs';
+const visualHeavy=()=>categoryEnabled('pixel-comparison');
 import {test,expect,type Page,type TestInfo,type APIRequestContext} from '@playwright/test';
 import {randomUUID,createHash} from 'node:crypto';
 import {writeFile,readFile} from 'node:fs/promises';
@@ -21,7 +23,7 @@ async function viewport(page:Page){
  expect(z).toBeGreaterThan(0);expect([z,x,y].every(Number.isFinite)).toBe(true);return {z,x,y,box};
 }
 async function topCanvas(page:Page,point:{x:number;y:number}){expect(await page.evaluate(point=>document.elementFromPoint(point.x,point.y)?.matches('canvas.upper-canvas')??false,point)).toBe(true);}
-async function capture(page:Page,info:TestInfo,name:string){const path=info.outputPath(`${name}-${page.viewportSize()!.width}.png`);await page.screenshot({path});await info.attach(name,{path,contentType:'image/png'});}
+async function capture(page:Page,info:TestInfo,name:string){if(!visualHeavy())return;const path=info.outputPath(`${name}-${page.viewportSize()!.width}.png`);await page.screenshot({path});await info.attach(name,{path,contentType:'image/png'});}
 async function rgba(page:Page,point:{x:number;y:number},size=3){
  return page.getByTestId('board-fabric-surface').locator('canvas.lower-canvas').evaluate((element,{point,size})=>{
   const canvas=element as HTMLCanvasElement,box=canvas.getBoundingClientRect(),context=canvas.getContext('2d');if(!context)throw new Error('R01_PIXELS_REQUIRED');
@@ -55,7 +57,7 @@ async function withBoard(page:Page,api:APIRequestContext,info:TestInfo,run:(bind
   const errors:unknown[]=[];
   let owned=false;if(boardId&&token)try{const board=await(await boardApi(api,token,'GET',`/whiteboards/${boardId}`)).json();expect(board.ownerId).toBe(F.userId);expect(board.name).toBe(title);owned=true;}catch(error){errors.push(error);}
   try{afterProof=await verify?.();expect(afterProof).toEqual(beforeProof);}catch(error){errors.push(error);}
-  try{const screenshots=await Promise.all(info.attachments.filter(item=>item.contentType==='image/png'&&item.path).map(async item=>({name:item.name,sha256:createHash('sha256').update(await readFile(item.path!)).digest('hex')})));const path=info.outputPath('r01-result.json');await writeFile(path,JSON.stringify({source,testIdentity:{title:info.title,project:info.project.name},serverActor,beforeProof,afterProof,screenshots,status:failure||errors.length?'failed':'functional-cases-passed',completed:false,cleanupPending:owned,boardId:owned?boardId:null,title:owned?title:null,hardwareTrackpad:'unverified',cancellationEvidence:'browser-dispatched pointercancel and blur; trusted mouse pan and release',transport:transport.snapshot()}),{mode:0o600});await info.attach('r01-result',{path,contentType:'application/json'});}catch(error){errors.push(error);}
+  try{const screenshots=await Promise.all(info.attachments.filter(item=>item.contentType==='image/png'&&item.path).map(async item=>({name:item.name,sha256:createHash('sha256').update(await readFile(item.path!)).digest('hex')})));const path=info.outputPath('r01-result.json');await writeFile(path,JSON.stringify({source,testIdentity:{title:info.title,project:info.project.name},serverActor,beforeProof,afterProof,screenshots,observationMode:observationMode(),visualEvidence:visualHeavy()?'executed-not-human-approved':'deferred-not-verified',status:failure||errors.length?'failed':'functional-cases-passed',completed:false,cleanupPending:owned,boardId:owned?boardId:null,title:owned?title:null,hardwareTrackpad:'unverified',cancellationEvidence:'browser-dispatched pointercancel and blur; trusted mouse pan and release',transport:transport.snapshot()}),{mode:0o600});await info.attach('r01-result',{path,contentType:'application/json'});}catch(error){errors.push(error);}
   if(errors.length)throw new AggregateError(failure?[failure,...errors]:errors,'R01_FINAL_PROOF_FAILED');
  }
 }
@@ -67,12 +69,12 @@ test('N01-N02 auxiliary pan held release cancellation and Select pointer wheel p
  const unchanged=async()=>{expect(await canonicalBoardSnapshot(api,token,boardId)).toEqual(before);expect(transport.snapshot().events.filter(event=>event.direction==='sent'&&event.type==='update')).toEqual([]);await expect(page.getByTestId('board-a11y-selection-announcement')).toHaveText('未选择对象');};
  for(const button of ['middle','right'] as const)for(const finish of ['release','escape','pointercancel','blur'] as const){
   const v=await viewport(page),start={x:Math.round(v.box.x+30),y:Math.round(v.box.y+70)},delta={x:24,y:18};await topCanvas(page,start);
-  const center={x:v.box.x+v.x+160*v.z,y:v.box.y+v.y+160*v.z},literalFill=await rgba(page,center);
-  expect(literalFill.filter((value,index)=>index%4===1&&value===197).length).toBeGreaterThan(0);
+  const center={x:v.box.x+v.x+160*v.z,y:v.box.y+v.y+160*v.z},literalFill=visualHeavy()?await rgba(page,center):null;
+  if(literalFill)expect(literalFill.filter((value,index)=>index%4===1&&value===197).length).toBeGreaterThan(0);
   const movedEdge={x:v.box.x+v.x+200*v.z+delta.x/2,y:center.y+delta.y/2};
-  const outside=await rgba(page,movedEdge);expect(outside.filter((value,index)=>index%4===3&&value!==0)).toEqual([]);
+  if(visualHeavy()){const outside=await rgba(page,movedEdge);expect(outside.filter((value,index)=>index%4===3&&value!==0)).toEqual([]);}
   await page.mouse.move(start.x,start.y);await page.mouse.down({button});await page.mouse.move(start.x+delta.x,start.y+delta.y,{steps:8});await settled(page);
-  expect(await rgba(page,movedEdge)).toEqual(literalFill);await unchanged();await capture(page,info,`${button}-${finish}-held`);
+  if(visualHeavy())expect(await rgba(page,movedEdge)).toEqual(literalFill);await unchanged();await capture(page,info,`${button}-${finish}-held`);
   if(finish==='escape')await page.keyboard.press('Escape');
   if(finish==='pointercancel')await page.getByTestId('board-fabric-surface').locator('canvas.upper-canvas').dispatchEvent('pointercancel',{pointerId:1,pointerType:'mouse',isPrimary:true});
   if(finish==='blur')await page.evaluate(()=>window.dispatchEvent(new Event('blur')));
@@ -123,11 +125,11 @@ test('N05 transformed multi drawing erase preserves image Sticky Shape and locke
   const point=entityPoint(geometry,{x:(middle.x-minX)*geometry.width/(maxX-minX),y:(middle.y-minY)*geometry.height/(maxY-minY)}),normal=rotatePoint({x:0,y:30},{x:0,y:0},geometry.rotation+Math.atan2(geometry.height,geometry.width)*180/Math.PI);
   return {point,guard:{x:point.x+normal.x,y:point.y+normal.y}};
  });
- const ink=await Promise.all(sites.map(site=>rgba(page,screen(site.point),11))),guards=await Promise.all(sites.map(site=>rgba(page,screen(site.guard),11)));
- for(let index=0;index<3;index++)assertStrokePixels(ink[index]!,[guards[index]!],[24,24,27]);
+ const ink=visualHeavy()?await Promise.all(sites.map(site=>rgba(page,screen(site.point),11))):[],guards=visualHeavy()?await Promise.all(sites.map(site=>rgba(page,screen(site.guard),11))):[];
+ if(visualHeavy())for(let index=0;index<3;index++)assertStrokePixels(ink[index]!,[guards[index]!],[24,24,27]);
  const protectedSites=[{x:95,y:367},{x:185,y:367},{x:200,y:377},{x:290,y:367}];
- await expect.poll(()=>rgba(page,screen(protectedSites[1]!))).toEqual(Array.from({length:9},()=>[231,29,73,255]).flat());
- const protectedPixels=await Promise.all(protectedSites.map(point=>rgba(page,screen(point))));
+ if(visualHeavy())await expect.poll(()=>rgba(page,screen(protectedSites[1]!))).toEqual(Array.from({length:9},()=>[231,29,73,255]).flat());
+ const protectedPixels=visualHeavy()?await Promise.all(protectedSites.map(point=>rgba(page,screen(point)))):[];
  await page.getByTestId('board-add-draw').click();await page.getByTestId('board-draw-eraser').click();
  const route=[sites[0]!.point,sites[1]!.point,sites[2]!.point,...protectedSites],start=screen(route[0]!);
  // Observe trusted native inputs only; no Fabric state is read or changed.
@@ -167,9 +169,9 @@ test('N05 transformed multi drawing erase preserves image Sticky Shape and locke
   for(const input of worldInputs)expect(Math.min(...maskWorld.map(actual=>Math.hypot(input.x-actual.x,input.y-actual.y)))).toBeLessThanOrEqual(.01);
  }
  await page.getByTestId('board-draw-select').click();await clearSelection();
- const erasedInk=await Promise.all(sites.map(site=>rgba(page,screen(site.point),11)));
- for(let index=0;index<2;index++){assertStrokePixels(erasedInk[index]!,[guards[index]!],[24,24,27],true);assertTransparentPixels(erasedInk[index]!);}
- expect(erasedInk[2]).toEqual(ink[2]);expect(await Promise.all(protectedSites.map(point=>rgba(page,screen(point))))).toEqual(protectedPixels);await capture(page,info,'multi-erase-protected');
+ const erasedInk=visualHeavy()?await Promise.all(sites.map(site=>rgba(page,screen(site.point),11))):[];
+ if(visualHeavy())for(let index=0;index<2;index++){assertStrokePixels(erasedInk[index]!,[guards[index]!],[24,24,27],true);assertTransparentPixels(erasedInk[index]!);}
+ if(visualHeavy()){expect(erasedInk[2]).toEqual(ink[2]);expect(await Promise.all(protectedSites.map(point=>rgba(page,screen(point))))).toEqual(protectedPixels);}await capture(page,info,'multi-erase-protected');
  const assertHistoryReceipt=async(start:number,beforeRevision:typeof erased.revision,expected:typeof erased,previousUpdateId:string)=>{
   const historyEvents=()=>transport.snapshot().events.slice(start),historyUpdates=()=>historyEvents().filter(event=>event.direction==='sent'&&event.type==='update');
   await expect.poll(()=>historyUpdates().length).toBe(1);const update=historyUpdates()[0]!;
@@ -182,16 +184,16 @@ test('N05 transformed multi drawing erase preserves image Sticky Shape and locke
  };
  const undoStart=transport.snapshot().events.length;await page.keyboard.press('ControlOrMeta+z');await expect.poll(async()=>(await canonicalBoardSnapshot(api,token,boardId)).objects).toEqual(baseline.objects);
  const undone=await canonicalBoardSnapshot(api,token,boardId);assertAtomicRevision(erased.revision,undone.revision,1);const undoUpdateId=await assertHistoryReceipt(undoStart,erased.revision,undone,eraseUpdateId);
- await clearSelection();expect(await Promise.all(sites.map(site=>rgba(page,screen(site.point),11)))).toEqual(ink);await assertHistoryReceipt(undoStart,erased.revision,undone,eraseUpdateId);
+ await clearSelection();if(visualHeavy())expect(await Promise.all(sites.map(site=>rgba(page,screen(site.point),11)))).toEqual(ink);await assertHistoryReceipt(undoStart,erased.revision,undone,eraseUpdateId);
  const redoStart=transport.snapshot().events.length;await page.keyboard.press('ControlOrMeta+Shift+z');await expect.poll(async()=>(await canonicalBoardSnapshot(api,token,boardId)).objects).toEqual(erased.objects);
  const redone=await canonicalBoardSnapshot(api,token,boardId);assertAtomicRevision(undone.revision,redone.revision,1);assertAtomicRevision(erased.revision,redone.revision,2);await assertHistoryReceipt(redoStart,undone.revision,redone,undoUpdateId);
- await clearSelection();expect(await Promise.all(sites.map(site=>rgba(page,screen(site.point),11)))).toEqual(erasedInk);await assertHistoryReceipt(redoStart,undone.revision,redone,undoUpdateId);
+ await clearSelection();if(visualHeavy())expect(await Promise.all(sites.map(site=>rgba(page,screen(site.point),11)))).toEqual(erasedInk);await assertHistoryReceipt(redoStart,undone.revision,redone,undoUpdateId);
  await page.getByTestId('board-add-draw').click();await page.getByTestId('board-draw-eraser').click();const emptyStart=transport.snapshot().events.length,empty=screen({x:20,y:30});await topCanvas(page,empty);await page.mouse.move(empty.x,empty.y);await page.mouse.down();await page.mouse.move(empty.x+10,empty.y+5);await page.mouse.up();expect(await canonicalBoardSnapshot(api,token,boardId)).toEqual(redone);await settled(page);await expectBoardSynced(page);expect(await canonicalBoardSnapshot(api,token,boardId)).toEqual(redone);expect(transport.snapshot().events.slice(emptyStart).filter(event=>event.direction==='sent'&&event.type==='update')).toEqual([]);
  await page.reload();await expectBoardSynced(page);await expect(page.getByTestId('board-a11y-mirror').locator('li[data-object-id]')).toHaveCount(6);expect(await canonicalBoardSnapshot(api,token,boardId)).toEqual(redone);await clearSelection();
  const refreshed=await viewport(page),refreshScreen=(point:{x:number;y:number})=>({x:refreshed.box.x+refreshed.x+point.x*refreshed.z,y:refreshed.box.y+refreshed.y+point.y*refreshed.z});
- for(let index=0;index<2;index++)assertTransparentPixels(await rgba(page,refreshScreen(sites[index]!.point),11));
- assertStrokePixels(await rgba(page,refreshScreen(sites[2]!.point),11),[await rgba(page,refreshScreen(sites[2]!.guard),11)],[24,24,27]);
- expect(await Promise.all(protectedSites.map(point=>rgba(page,refreshScreen(point))))).toEqual(protectedPixels);await capture(page,info,'multi-erase-refreshed');
+ if(visualHeavy())for(let index=0;index<2;index++)assertTransparentPixels(await rgba(page,refreshScreen(sites[index]!.point),11));
+ if(visualHeavy())assertStrokePixels(await rgba(page,refreshScreen(sites[2]!.point),11),[await rgba(page,refreshScreen(sites[2]!.guard),11)],[24,24,27]);
+ if(visualHeavy())expect(await Promise.all(protectedSites.map(point=>rgba(page,refreshScreen(point))))).toEqual(protectedPixels);await capture(page,info,'multi-erase-refreshed');
 }));
 
 for(const matrixZoom of [.5,2])test(`N03-N04 native Sticky Shape Drawing multi transform at zoom ${matrixZoom} and nonzero pan preserves atomic history`,async({page,request:api},info)=>withBoard(page,api,info,async({token,boardId,transport})=>{
@@ -232,7 +234,7 @@ for(const matrixZoom of [.5,2])test(`N03-N04 native Sticky Shape Drawing multi t
    const corners=expected.flatMap(value=>entityCorners(value.geometry)),xs=corners.map(point=>point.x),ys=corners.map(point=>point.y),geometry={x:Math.min(...xs),y:Math.min(...ys),width:Math.max(...xs)-Math.min(...xs),height:Math.max(...ys)-Math.min(...ys)};
    const position=boardToolbarPosition(geometry,{zoom:v.z,panX:v.x,panY:v.y,fitRequest:0},observed.frame,observed.size,observed.chrome);assertPoints([observed.position],[{x:Number(position.left),y:Number(position.top)}],2);
   };
-  const verifyEntityPixels=async(project:(point:{x:number;y:number})=>{x:number;y:number},view=v,held=true)=>{
+  const verifyEntityPixels=async(project:(point:{x:number;y:number})=>{x:number;y:number},view=v,held=true)=>{if(!visualHeavy())return;
    for(const value of expected){const color=value.id===a.id?[34,197,94]:value.id===b.id?[37,99,235]:[220,38,38];
     for(const fraction of [.3,.5,.7]){const pixels=await rgba(page,project(entityPoint(value.geometry,{x:value.geometry.width*fraction,y:value.geometry.height*(value.id===drawing.id?fraction:.5)})));for(let index=0;index<pixels.length;index+=4){expect(pixels.slice(index,index+3)).toEqual(color);expect(pixels[index+3]).toBe(255);}}
     const guard=await rgba(page,project(entityPoint(value.geometry,{x:value.geometry.width/2,y:-7})));expect(guard.filter((_,index)=>index%4===3)).toEqual([0,0,0,0,0,0,0,0,0]);
@@ -251,11 +253,13 @@ for(const matrixZoom of [.5,2])test(`N03-N04 native Sticky Shape Drawing multi t
    for(const value of expected){
     const projected=actual.find(item=>item.id===value.id)!;expect(projected).toBeTruthy();expect(projected.transformMatrix).toHaveLength(6);expect(projected.transformMatrix.every(Number.isFinite)).toBe(true);
     const predicted=entityCorners(value.geometry);assertPoints(projected.worldCorners,predicted,.01);assertPoints(projected.worldCorners.map(screen),predicted.map(screen),2);
+    if(visualHeavy()){
     const center=screen(entityPoint(value.geometry,{x:value.geometry.width/2,y:value.geometry.height/2})),pixels=await rgba(page,center),color=value.id===a.id?[34,197,94]:value.id===b.id?[37,99,235]:[220,38,38];
     expect(pixels.filter((pixel,index)=>index%4===0&&color.every((channel,offset)=>Math.abs(pixels[index+offset]!-channel)<=2)).length).toBeGreaterThan(0);
+    }
    }
    const from=offsetAnchor(expected[0]!.geometry,'right',fromOffset),to=offsetAnchor(expected[1]!.geometry,'left',toOffset);
-   for(const fraction of [.23,.37,.63]){const pixels=await rgba(page,screen({x:from.x+(to.x-from.x)*fraction,y:from.y+(to.y-from.y)*fraction}));expect(pixels.filter((value,index)=>index%4===0&&Math.abs(value-24)<=2&&Math.abs(pixels[index+1]!-24)<=2&&Math.abs(pixels[index+2]!-27)<=2&&pixels[index+3]!>0).length).toBeGreaterThan(0);}
+   if(visualHeavy())for(const fraction of [.23,.37,.63]){const pixels=await rgba(page,screen({x:from.x+(to.x-from.x)*fraction,y:from.y+(to.y-from.y)*fraction}));expect(pixels.filter((value,index)=>index%4===0&&Math.abs(value-24)<=2&&Math.abs(pixels[index+1]!-24)<=2&&Math.abs(pixels[index+2]!-27)<=2&&pixels[index+3]!>0).length).toBeGreaterThan(0);}
    await verifyEntityPixels(screen);
    await verifyLiveMenu();
    expect(await canonicalBoardSnapshot(api,token,boardId)).toEqual(before);expect(updates()).toEqual([]);await capture(page,info,`multi-${gesture}-${outcome}-held`);

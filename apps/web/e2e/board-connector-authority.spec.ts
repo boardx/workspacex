@@ -1,3 +1,4 @@
+import {connectorLoginDiagnostic} from './support/connector-login-diagnostic.mjs';
 import {test,expect,type Page,type BrowserContext} from '@playwright/test';
 import {randomUUID} from 'node:crypto';
 import {writeFile} from 'node:fs/promises';
@@ -31,11 +32,18 @@ test('C06 valid Connector permissions and held gesture authority lifecycle',asyn
   const login=async(page:Page,email:string,password:string,userId:string)=>{
    const response=page.waitForResponse(response=>new URL(response.url()).pathname.endsWith('/auth/login')&&response.request().method()==='POST');
    const token=await boardLogin(page,email,password),authenticated=await response;
+   let body:unknown,jsonParsed=false;
+   try{body=await authenticated.json();jsonParsed=true;}catch{/* Never retain or print response text. */}
+   const diagnostic=connectorLoginDiagnostic(authenticated.status(),body,userId,token,jsonParsed);
+   const diagnosticPath=info.outputPath(`c06-login-${identities.size}.json`);
+   await writeFile(diagnosticPath,JSON.stringify({stage:'C06_LOGIN',sourceHead:source,...diagnostic}),{mode:0o600,flag:'wx'});
+   await info.attach('c06-login-fixed-diagnostic',{path:diagnosticPath,contentType:'application/json'});
    expect(authenticated.ok(),'C06_LOGIN_HTTP_OK').toBe(true);
-   const body=await authenticated.json();
-   expect(body.userId,'C06_LOGIN_FIXTURE_ACTOR').toBe(userId);
-   expect(body.sessionToken,'C06_LOGIN_SESSION_TOKEN').toBe(token);
-   identities.set(page,body.userId);return token;
+   expect(diagnostic.jsonParsed,'C06_LOGIN_JSON_PARSE').toBe(true);
+   expect(diagnostic.objectSchema&&diagnostic.actorString&&diagnostic.tokenString,'C06_LOGIN_JSON_SCHEMA').toBe(true);
+   expect(diagnostic.actorMatches,'C06_LOGIN_FIXTURE_ACTOR').toBe(true);
+   expect(diagnostic.tokenMatches,'C06_LOGIN_SESSION_TOKEN').toBe(true);
+   identities.set(page,userId);return token;
   };
   ownerToken=await login(owner,F.email,F.password,F.userId);const editorToken=await login(editor,F.adminEmail,F.adminPassword,F.adminUserId),viewerToken=await login(viewer,F.leadEmail,F.leadPassword,F.leadUserId),commenterToken=await login(commenter,F.memberEmail,F.memberPassword,F.memberUserId),outsiderToken=await login(outsider,foreign.email,foreign.password,foreign.userId);expect(new Set(identities.values()).size).toBe(5);
   const fresh=async(name:string)=>{

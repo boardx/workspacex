@@ -1,3 +1,4 @@
+import {createHash} from 'node:crypto';
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {spawn} from 'node:child_process';
@@ -92,16 +93,24 @@ test('R01 requires eight distinct signed title-project cases, not a repeated pas
  screenshotProof(config,images);assert.throws(()=>screenshotProof(config,images.slice(1)));assert.throws(()=>screenshotProof(config,[...images,images[0]]));assert.throws(()=>screenshotProof(config,images.filter((image,index)=>!(image.originalName==='multi-scale-refreshed-390.png'&&index===images.length-1))));
 });
 test('R01 final projection never publishes private fields or treats preserved boards and hardware as completed',()=>{
- const definition=suiteDefinition('e2e/board-r01-existing-runtime.config.ts'),head='a'.repeat(40),proof={identity:{head},manifestHash:'1'.repeat(64),verifierHash:'2'.repeat(64),selectorHash:'3'.repeat(64)},receipts=definition.titles.flatMap(title=>definition.projects.map(project=>({source:head,testIdentity:{title,project},status:'functional-cases-passed',completed:false,cleanupPending:true,hardwareTrackpad:'unverified',boardId:'private-id',title:'private-title',beforeProof:structuredClone(proof),afterProof:structuredClone(proof)})));
- assert.deepEqual(r01ResultSummary(receipts,head),{functionalCasesPassed:8,completed:false,cleanupPending:true,hardwareTrackpad:'unverified',requiredSuiteComplete:false});
+ const definition=suiteDefinition('e2e/board-r01-existing-runtime.config.ts'),head='a'.repeat(40),proof={identity:{head},manifestHash:'1'.repeat(64),verifierHash:'2'.repeat(64),selectorHash:'3'.repeat(64)},receipts=definition.titles.flatMap(title=>definition.projects.map(project=>({source:head,testIdentity:{title,project},status:'functional-cases-passed',completed:false,cleanupPending:true,hardwareTrackpad:'unverified',observationMode:'all',visualEvidence:'executed-not-human-approved',screenshots:[{name:'bounded',sha256:'5'.repeat(64)}],boardId:'private-id',title:'private-title',beforeProof:structuredClone(proof),afterProof:structuredClone(proof)})));
+ assert.deepEqual(r01ResultSummary(receipts,head),{observationMode:'all',visualEvidence:'executed-not-human-approved',visuallyAccepted:false,functionalCasesPassed:8,completed:false,cleanupPending:true,hardwareTrackpad:'unverified',requiredSuiteComplete:false});
  for(const values of [receipts.slice(1),receipts.map(()=>receipts[0]),receipts.map(value=>({...value,source:'b'.repeat(40)})),receipts.map(value=>({...value,status:'failed'})),receipts.map(value=>({...value,completed:true}))])assert.throws(()=>r01ResultSummary(values,head));
+ const functional=receipts.map(value=>({...value,observationMode:'functional',visualEvidence:'deferred-not-verified',screenshots:[]}));
+ assert.equal(r01ResultSummary(functional,head,'functional').visualEvidence,'deferred-not-verified');
+ for(const mutate of [r=>delete r[0].observationMode,r=>r[0].observationMode='unknown',r=>r[0].observationMode='all',r=>r[0].visualEvidence='passed',r=>r[0].screenshots=[{name:'fake',sha256:'5'.repeat(64)}]]){const invalid=structuredClone(functional);mutate(invalid);assert.throws(()=>r01ResultSummary(invalid,head,'functional'));}
+ assert.throws(()=>r01ResultSummary(functional,head,'unknown'));assert.throws(()=>r01ResultSummary(receipts,head,'functional'));
  for(const mutate of [r=>delete r[0].beforeProof,r=>r[0].beforeProof.identity.head='b'.repeat(40),r=>r[0].afterProof.identity.head='b'.repeat(40),r=>r[0].afterProof.selectorHash='4'.repeat(64),r=>{r[0].beforeProof.verifierHash='bad';r[0].afterProof.verifierHash='bad';}]){const invalid=structuredClone(receipts);mutate(invalid);assert.throws(()=>r01ResultSummary(invalid,head));}
 });
 test('R01 receipts bind each real report result attachment, rejecting reused, foreign and missing paths',()=>{
  const directory=mkdtempSync('/private/tmp/wsx-r01-report-'),head='a'.repeat(40),definition=suiteDefinition('e2e/board-r01-existing-runtime.config.ts');
  try{
-  const specs=definition.titles.map((title,index)=>({title,tests:definition.projects.map((projectName,project)=>{const path=join(directory,`${index}-${project}`);mkdirSync(path);const receiptPath=join(path,'r01-result.json');writeFileSync(receiptPath,JSON.stringify({source:head,testIdentity:{title,project:projectName}}));return{projectName,results:[{attachments:[{name:'r01-result',path:receiptPath}]}]};})})),report={suites:[{specs}]};
+  const specs=definition.titles.map((title,index)=>({title,tests:definition.projects.map((projectName,project)=>{const path=join(directory,`${index}-${project}`);mkdirSync(path);const receiptPath=join(path,'r01-result.json');writeFileSync(receiptPath,JSON.stringify({source:head,testIdentity:{title,project:projectName},screenshots:[]}));return{projectName,results:[{attachments:[{name:'r01-result',path:receiptPath}]}]};})})),report={suites:[{specs}]};
   assert.equal(r01ReportReceipts(report,directory,head).length,8);
+  const first=report.suites[0].specs[0].tests[0].results[0],receiptPath=first.attachments[0].path,screenshotPath=join(directory,'owned.png'),bytes=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jFncAAAAASUVORK5CYII=','base64');
+  const receipt=JSON.parse(readFileSync(receiptPath,'utf8'));writeFileSync(screenshotPath,bytes);first.attachments.push({name:'bounded',contentType:'image/png',path:screenshotPath});receipt.screenshots=[{name:'bounded',sha256:createHash('sha256').update(bytes).digest('hex')}];writeFileSync(receiptPath,JSON.stringify(receipt));assert.equal(r01ReportReceipts(report,directory,head).length,8);
+  writeFileSync(screenshotPath,Buffer.concat([bytes,Buffer.from('changed')]));assert.throws(()=>r01ReportReceipts(report,directory,head));writeFileSync(screenshotPath,bytes);
+
   for(const mutate of [r=>r.suites[0].specs[0].tests[0].results[0].attachments=[],r=>r.suites[0].specs[1].tests[0].results[0].attachments=r.suites[0].specs[0].tests[0].results[0].attachments,r=>r.suites[0].specs[0].tests[0].results[0].attachments[0].path='/etc/hosts',r=>r.suites[0].specs[0].tests[0].projectName='foreign']){const invalid=structuredClone(report);mutate(invalid);assert.throws(()=>r01ReportReceipts(invalid,directory,head));}
   assert.throws(()=>r01ReportReceipts(report,directory,'b'.repeat(40)));
  }finally{rmSync(directory,{recursive:true});}
@@ -278,8 +287,8 @@ test('safe acceptance source location uses known source fields only, preserving 
 
 test('Connector fixed login markers preserve exact assertion identity without private operands',async()=>{
  const {safeAcceptanceDiagnostics}=await import('./run-board-native-acceptance.mjs');
- const inspect=(message,file='board-connector-authority.spec.ts',line=34)=>safeAcceptanceDiagnostics('e2e/board-connector-existing-runtime.config.ts',{suites:[{specs:[{file,line:19,tests:[{results:[{status:'failed',errors:[{message,location:{file,line},stack:'PRIVATE'}]}]}]}]}]}).firstFailure;
- for(const [line,marker] of [[34,'C06_LOGIN_HTTP_OK'],[36,'C06_LOGIN_FIXTURE_ACTOR'],[37,'C06_LOGIN_SESSION_TOKEN']]){
+ const inspect=(message,file='board-connector-authority.spec.ts',line=41)=>safeAcceptanceDiagnostics('e2e/board-connector-existing-runtime.config.ts',{suites:[{specs:[{file,line:19,tests:[{results:[{status:'failed',errors:[{message,location:{file,line},stack:'PRIVATE'}]}]}]}]}]}).firstFailure;
+ for(const [line,marker] of [[41,'C06_LOGIN_HTTP_OK'],[42,'C06_LOGIN_JSON_PARSE'],[43,'C06_LOGIN_JSON_SCHEMA'],[44,'C06_LOGIN_FIXTURE_ACTOR'],[45,'C06_LOGIN_SESSION_TOKEN']]){
   const output=inspect(`Error: ${marker}\nExpected: PRIVATE_ACTOR\nReceived: PRIVATE_TOKEN`,undefined,line);
   assert.equal(output.assertionId,marker);assert.equal(output.matchedFailure,'ASSERTION');assert.equal(output.ambiguous,false);assert(!JSON.stringify(output).includes('PRIVATE'));
  }
@@ -289,7 +298,7 @@ test('Connector fixed login markers preserve exact assertion identity without pr
  assert.equal(inspect('C06_LOGIN_HTTP_OK','board-connector-history.spec.ts').assertionId,undefined);
  for(const line of [undefined,19,35,38])assert.equal(inspect('C06_LOGIN_SESSION_TOKEN',undefined,line).matchedFailure,'UNKNOWN');
  assert.equal(inspect('Expected: PRIVATE\nC06_LOGIN_HTTP_OK').matchedFailure,'UNKNOWN');
- assert.equal(inspect('C06_LOGIN_SESSION_TOKEN',undefined,34).matchedFailure,'UNKNOWN');
+ assert.equal(inspect('C06_LOGIN_SESSION_TOKEN',undefined,41).matchedFailure,'UNKNOWN');
  let reads=0;const report={suites:[{specs:[{file:'board-connector-authority.spec.ts',line:19,tests:[{results:[{status:'failed',errors:[Object.defineProperty({},'message',{get(){reads++;return 'C06_LOGIN_HTTP_OK';}})]}]}]}]}]};
  assert.equal(safeAcceptanceDiagnostics('e2e/board-connector-existing-runtime.config.ts',report).firstFailure.assertionId,undefined);assert.equal(reads,0);
  const hostile=new Proxy({},{getOwnPropertyDescriptor(target,key){if(key==='message')throw new Error('PRIVATE');return Reflect.getOwnPropertyDescriptor(target,key);}});

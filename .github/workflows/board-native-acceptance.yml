@@ -16,6 +16,8 @@ jobs:
     env:
       NATIVE_POSTGRES_TOOL_ROOT: /private/tmp/wsx-pg16.15
       BOARD_NATIVE_EVIDENCE: /private/tmp/wsx-native-public-evidence
+      # Functional R01 remains required; manual replay retains every visual assertion.
+      BOARD_OBSERVATION_MODE: ${{ github.event_name == 'workflow_dispatch' && 'all' || 'functional' }}
     steps:
       - uses: actions/checkout@v5
         with: {fetch-depth: 0}
