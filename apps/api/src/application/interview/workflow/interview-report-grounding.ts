@@ -114,5 +114,11 @@ function negatesConsensus(text: string, start: number, match: string): boolean {
   const predicate = String.raw`[“‘"'\s]*(?:跨(?:角色|专家|受访者)(?:的)?|(?:两位|多位|两名|多名|两个|不同|多|两)(?:受访者|专家|角色|参与者)(?:的)?)?(?:共识|共同|一致)`;
   const direct = new RegExp(String.raw`^(?:(?:判断|推断|形成|构成|证明|达成|存在|确认|断言|宣称|声称|代表|采信|作肯定)(?:为|成)?)?${predicate}$`, "u");
   const object = new RegExp(String.raw`^(?:将|把).+?(?:宣称|声称|判断|推断|认为|定义|断言)(?:为|成)?${predicate}$`, "u");
-  return direct.test(tail) || object.test(tail);
+  // A scoped denial of using this consensus as a basis needs the basis noun
+  // immediately after the matched predicate; an unrelated earlier denial cannot waive it.
+  const basis = new RegExp(String.raw`^作为(?:[^，,。！？；;\n]{1,40}(?:或|和|及|与))?${predicate}$`, "u");
+  const after = text.slice(start + match.length);
+  const basisDenied = basis.test(tail) && /^[”’"' \t]*的依据/u.test(after);
+  const merged = new RegExp(String.raw`^合并(?:宣称|声称|断言)(?:为|成)?${predicate}$`, "u");
+  return direct.test(tail) || object.test(tail) || basisDenied || merged.test(tail);
 }
