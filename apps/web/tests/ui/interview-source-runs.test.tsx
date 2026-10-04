@@ -170,3 +170,18 @@ it("hides spaced provider transcript titles containing technical ids", () => {
   expect(result).not.toContain("# 角色（virtual-abc） 访谈记录");
   expect(result).toContain("回答正文。");
 });
+
+
+it.each(["simulated", "participant", "mixed"] as const)("discloses evidence mode in the header after expert selection (%s)", (evidenceMode) => {
+  const markdown = "## [护理角色](#expert-nurse)\n\n已保存回答。[来源](#question-q7)";
+  const document = { documentId: "disclosure", step: "runs" as const, version: 1, contentHash: "a".repeat(64), evidenceMode, references: [], markdown };
+  render(<InterviewRunsStep runs={[{ expertId: "nurse", displayName: "护理角色", status: "completed", completedQuestions: 1, totalQuestions: 1 }]} document={document} pending={false} onGenerateReport={vi.fn()} />);
+  const notice = "AI 模拟访谈，内容需真人验证。";
+  if (evidenceMode === "simulated") expect(screen.getByText(notice)).toBeVisible();
+  else expect(screen.queryByText(notice)).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: /护理角色/u }));
+  if (evidenceMode === "simulated") expect(screen.getAllByText(notice)).toHaveLength(1);
+  else expect(screen.queryByText(notice)).not.toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "来源" })).toHaveAttribute("href", "#question-q7");
+  expect(document.markdown).toBe(markdown);
+});

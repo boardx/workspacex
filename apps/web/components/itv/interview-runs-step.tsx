@@ -93,6 +93,7 @@ export function InterviewRunsStep({ runs, document, pending, onGenerateReport, t
       <section className="min-w-0 overflow-hidden lg:border-l lg:border-border">
         <header className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-5 py-4 sm:px-8">
           <h3 className="text-base font-semibold">访谈记录</h3>
+          {document?.evidenceMode === "simulated" && <p className="text-sm text-muted-foreground">AI 模拟访谈，内容需真人验证。</p>}
         </header>
         <div role="region" className={`${styles.transcript} px-5 py-6 sm:px-8 sm:py-7`} aria-label={expert ? `${runs.find((run) => run.expertId === expert)?.displayName ?? "专家"}访谈摘要` : "全部访谈摘要"}>
           {insights.length > 0 && <div data-testid="itv-saved-insights" className="mb-7 grid gap-4 border-b border-border pb-6 xl:grid-cols-2">{(["观点", "发现", "风险", "追问"] as const).map((kind) => { const group = insights.filter((item) => item.kind === kind); return group.length ? <section key={kind} className="min-w-0 border-l-2 border-border pl-4"><h4 className="font-semibold">{insightTitles[kind]}（{group.reduce((sum, item) => sum + item.count, 0)}）</h4>{group.map((item) => <InterviewReportMarkdown key={item.headingId} markdown={item.markdown} testId={`itv-saved-insight-${item.headingId}`} />)}</section> : null; })}</div>}
