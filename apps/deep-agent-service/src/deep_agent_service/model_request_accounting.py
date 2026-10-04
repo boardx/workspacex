@@ -7,6 +7,7 @@ it never invokes a model. Deployment must supply a persistent spool directory ex
 from __future__ import annotations
 import asyncio
 from contextlib import contextmanager
+from contextvars import ContextVar
 import json
 import logging
 import os
@@ -19,6 +20,7 @@ from urllib.parse import quote, urlsplit
 import httpx
 
 
+_scoped_owner = ContextVar("model_request_accounting_owner", default=None)
 _durability_fault = False
 _logger = logging.getLogger(__name__)
 
@@ -42,11 +44,13 @@ def now() -> str:
 
 
 def ownership() -> dict:
+    raw = _scoped_owner.get()
     try:
         from langgraph.config import get_config
-        raw = (get_config().get("configurable") or {}).get("model_request_accounting")
+        if raw is None:
+            raw = (get_config().get("configurable") or {}).get("model_request_accounting")
     except Exception:
-        raw = None
+        pass
     if not isinstance(raw, dict):
         raise RuntimeUsageError("usage_ownership_unconfigured")
     value = {k: raw.get(k) for k in ("base_url", "org_id", "run_id", "attempt_id", "lease_epoch", "call_purpose")}
@@ -63,6 +67,41 @@ def ownership() -> dict:
         raise RuntimeUsageError("usage_ownership_invalid") from None
     value["base_url"] = value["base_url"].rstrip("/")
     return value
+
+
+@contextmanager
+def retrieval_accounting_scope(reference, purpose):
+    """Private service-key request reference, revalidated by the API before every vendor HTTP.
+
+    No requester/project/provider/secret can be asserted here. Callback location/key are
+    deployment-only. ContextVar isolation avoids cross-request or pooled-client ownership leaks.
+    """
+    requested = os.environ.get("DEEP_AGENT_RETRIEVAL_REQUEST_ACCOUNTING_ENABLED") == "1"
+    if not requested:
+        if reference is not None or admission_enabled():
+            raise RuntimeUsageError("retrieval_accounting_required")
+        yield
+        return
+    if not enabled():
+        raise RuntimeUsageError("admission_requires_accounting")
+    if purpose not in ("retrieval-embedding", "retrieval-rerank"):
+        raise RuntimeUsageError("usage_ownership_invalid")
+    if reference is None:
+        # Actual graph-scoped calls may reuse their existing immutable leased identity.
+        raw = ownership()
+    else:
+        if not isinstance(reference, dict) or set(reference) != {"orgId", "runId", "attemptId", "leaseEpoch"}:
+            raise RuntimeUsageError("usage_ownership_invalid")
+        raw = {"base_url":os.environ.get("DEEP_AGENT_USAGE_CALLBACK_BASE_URL", ""),
+               "org_id":reference["orgId"], "run_id":reference["runId"],
+               "attempt_id":reference["attemptId"], "lease_epoch":reference["leaseEpoch"]}
+    raw = {k:raw.get(k) for k in ("base_url", "org_id", "run_id", "attempt_id", "lease_epoch")} | {"call_purpose":purpose}
+    token = _scoped_owner.set(raw)
+    try:
+        ownership()  # Validate before constructing any model/client.
+        yield
+    finally:
+        _scoped_owner.reset(token)
 
 
 class Journal:
@@ -316,6 +355,8 @@ class AccountedAsyncStream(httpx.AsyncByteStream):
 
 
 def receipt_requested():
+    if _scoped_owner.get() is not None:
+        return True
     try:
         from langgraph.config import get_config
         return "model_request_accounting" in (get_config().get("configurable") or {})
@@ -359,10 +400,13 @@ class AccountingTransport(httpx.BaseTransport):
 
 
 class AsyncAccountingTransport(httpx.AsyncBaseTransport):
-    def __init__(self, inner=None):
+    def __init__(self, inner=None, *, scoped_only=False):
         self.inner = inner or httpx.AsyncHTTPTransport()
+        self.scoped_only = scoped_only
 
     async def handle_async_request(self, request):
+        if self.scoped_only and _scoped_owner.get() is None:
+            return await self.inner.handle_async_request(request)
         if admission_enabled() and not enabled():
             raise RuntimeUsageError("admission_requires_accounting")
         if not enabled():

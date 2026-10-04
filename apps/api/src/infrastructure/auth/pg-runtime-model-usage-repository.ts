@@ -73,7 +73,7 @@ export class PgRuntimeModelUsageRepository implements RuntimeModelUsagePort {
      &&(reasoningOutput===undefined||reasoningOutput<=completion);
     const cost=complete?priceAiTokens({version:snapshot.priceVersion,currency:snapshot.currency,inputMicrosPerMillion:BigInt(snapshot.price.inputMicrosPerMillion),outputMicrosPerMillion:BigInt(snapshot.price.outputMicrosPerMillion),cachedInputMicrosPerMillion:BigInt(snapshot.price.cachedInputMicrosPerMillion)},{input:BigInt(prompt!),output:BigInt(completion!),...(cacheInput===undefined?{}:{cachedInput:BigInt(cacheInput)})}):null;
     await this.usage.record(orgId,{eventId:input.requestId,userId:row.user_id,runId:row.run_id,subtaskId:row.subtask_id,executionAttemptId:row.execution_attempt_id,
-      projectId:row.project_id,threadId:row.thread_id,agentId:row.agent_id,callPurpose:row.call_purpose as "primary"|"history-summary"|"script-retry",modelProvider:row.model_provider,modelId:row.model_id,
+      projectId:row.project_id,threadId:row.thread_id,agentId:row.agent_id,callPurpose:row.call_purpose as NonNullable<import("../../application/agent-run/ports").TokenUsageRecord["callPurpose"]>,modelProvider:row.model_provider,modelId:row.model_id,
       requestStartedAt:row.started_at.toISOString(),requestEndedAt:input.endedAt,totalSource:input.usage.total===undefined?"unknown":"reported",
       tokensTotal:input.usage.total??0,promptTokens:input.usage.prompt??null,completionTokens:input.usage.completion??null,
       cacheInputTokens:cacheInput!==undefined&&prompt!==undefined&&cacheInput<=prompt?cacheInput:null,reasoningOutputTokens:reasoningOutput!==undefined&&completion!==undefined&&reasoningOutput<=completion?reasoningOutput:null,

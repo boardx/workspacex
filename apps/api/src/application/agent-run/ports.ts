@@ -1036,7 +1036,7 @@ export interface ModelCallInput {
   /** Trusted executor identity, never sourced from model tool arguments. */
   readonly executionAttemptId?: string;
   readonly executionLeaseEpoch?: number;
-  readonly usageCallPurpose?: "primary" | "history-summary" | "script-retry";
+  readonly usageCallPurpose?: "primary" | "history-summary" | "script-retry" | "retrieval-embedding" | "retrieval-rerank";
   readonly executionPermissionRequestId?: string;
   readonly modelProvider: string;
   readonly modelId: string;
@@ -1528,7 +1528,7 @@ export interface TokenUsageRecord {
   readonly totalSource?: "reported" | "unknown" | "not-applicable";
   /** Native dimensions never masquerade as reported zero tokens. */
   readonly nativeUsage?:{readonly unit:import("../../domain/agent-run/ai-billable-unit").AiNativeUnit;readonly quantity:bigint|null;readonly source:"reported"|"estimated"|"unknown"};
-  readonly callPurpose?: "primary" | "history-summary" | "script-retry";
+  readonly callPurpose?: "primary" | "history-summary" | "script-retry" | "retrieval-embedding" | "retrieval-rerank";
   readonly userId: string;
   readonly runId: string | null;
   readonly subtaskId?: string | null;

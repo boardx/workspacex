@@ -167,16 +167,15 @@
       "remaining": [
         "Trusted whole-input Context Pack binding producer is not implemented; missing binding remains unknown.",
         "Semantic logical operation identity and authorized private fallback beyond primary-only hard stop.",
-        "Child authority does not yet prove parent running/active lease.",
         "Explicit finite spend policy and ordinary per-user amount/window/timezone; no defaults enabled.",
         "Verified exact physical model registration, input/output bounds and pricing unit/rate.",
         "Isolated PostgreSQL/tenant integration for the new batch.",
-        "Actual deployed provider/cancellation/retry evidence for this family."
+        "Actual deployed provider/cancellation/retry evidence for this family.",
+        "Prove existing durable-child contract: own running epoch/attempt and parent cancellation, including cancellation/tenant negative cases; parent running/active lease is not a required business gate."
       ],
       "sourceMissing": [
         "Trusted whole-input Context Pack binding producer is not implemented; missing binding remains unknown.",
-        "Semantic logical operation identity and authorized private fallback beyond primary-only hard stop.",
-        "Child authority does not yet prove parent running/active lease."
+        "Semantic logical operation identity and authorized private fallback beyond primary-only hard stop."
       ],
       "configurationMissing": [
         "Explicit finite spend policy and ordinary per-user amount/window/timezone; no defaults enabled.",
@@ -184,7 +183,8 @@
       ],
       "acceptanceMissing": [
         "Isolated PostgreSQL/tenant integration for the new batch.",
-        "Actual deployed provider/cancellation/retry evidence for this family."
+        "Actual deployed provider/cancellation/retry evidence for this family.",
+        "Prove existing durable-child contract: own running epoch/attempt and parent cancellation, including cancellation/tenant negative cases; parent running/active lease is not a required business gate."
       ]
     },
     {
@@ -215,22 +215,30 @@
     },
     {
       "id": "embedding-rerank-kg-background",
-      "status": "not-connected",
+      "status": "partial-run-retrieval-default-off",
       "sources": [
         "apps/api/src/infrastructure/retrieval/langchain-rerank-client.ts",
         "apps/deep-agent-service/src/deep_agent_service/retrieval_embeddings.py",
-        "apps/deep-agent-service/src/deep_agent_service/retrieval_rerank.py"
+        "apps/deep-agent-service/src/deep_agent_service/retrieval_rerank.py",
+        "apps/api/src/infrastructure/retrieval/langchain-embedding-client.ts",
+        "packages/contracts/src/retrieval-accounting.ts"
       ],
-      "tests": [],
+      "tests": [
+        "apps/api/tests/auth/retrieval-accounting-forwarding.test.ts",
+        "apps/deep-agent-service/tests/test_retrieval_request_accounting.py",
+        "apps/api/tests/agent-runtime/organization-hybrid-retrieval.test.ts"
+      ],
       "remaining": [
-        "Trusted initiating subject and actual per-HTTP admission/ledger hooks for every background producer.",
+        "Trusted initiating subject for KG, artifact ingestion, cosine query/candidate and service warmup producers; five known paths remain unconnected.",
+        "Verified input-only embedding admission capability; absent mode denies actual dispatch rather than inventing zero output.",
         "Explicit finite spend policy and ordinary per-user amount/window/timezone; no defaults enabled.",
         "Verified exact physical model registration, input/output bounds and pricing unit/rate.",
         "Isolated PostgreSQL/tenant integration for the new batch.",
         "Actual deployed provider/cancellation/retry evidence for this family."
       ],
       "sourceMissing": [
-        "Trusted initiating subject and actual per-HTTP admission/ledger hooks for every background producer."
+        "Trusted initiating subject for KG, artifact ingestion, cosine query/candidate and service warmup producers; five known paths remain unconnected.",
+        "Verified input-only embedding admission capability; absent mode denies actual dispatch rather than inventing zero output."
       ],
       "configurationMissing": [
         "Explicit finite spend policy and ordinary per-user amount/window/timezone; no defaults enabled.",
@@ -333,5 +341,6 @@
     "sourceMissing": 10,
     "configurationMissing": 9,
     "acceptanceMissing": 10
-  }
+  },
+  "dispatchInventory": "docs/design/platform-organizations-usage/dispatch-inventory.json"
 }

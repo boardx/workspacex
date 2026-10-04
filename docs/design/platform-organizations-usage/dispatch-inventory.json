@@ -1,0 +1,126 @@
+{
+  "version": 1,
+  "scope": "Audited concrete vendor/local-inference dispatch primitives and seven known retrieval producer routes. Static source points, not runtime paid-call count or exhaustive whole-repository inventory. SDK batch/retry multiplicity is measured per actual HTTP, not counted as extra static points.",
+  "productionEnforcement": false,
+  "completeRepositoryDispatchPointTotal": null,
+  "dispatchPoints": [
+    {
+      "id": "configured-http",
+      "source": "apps/api/src/infrastructure/agent-run/configured-model-provider.ts",
+      "anchor": "return await undiciFetch",
+      "receiptHook": "implemented",
+      "admissionHook": "implemented"
+    },
+    {
+      "id": "python-sync-http",
+      "source": "apps/deep-agent-service/src/deep_agent_service/model_request_accounting.py",
+      "anchor": "    def handle_request(self, request):",
+      "receiptHook": "implemented",
+      "admissionHook": "implemented"
+    },
+    {
+      "id": "python-async-http",
+      "source": "apps/deep-agent-service/src/deep_agent_service/model_request_accounting.py",
+      "anchor": "    async def handle_async_request(self, request):",
+      "receiptHook": "implemented",
+      "admissionHook": "implemented"
+    },
+    {
+      "id": "retrieval-http",
+      "source": "apps/deep-agent-service/src/deep_agent_service/retrieval_embeddings.py",
+      "anchor": "response=await self.transport.handle_async_request(request)",
+      "receiptHook": "context-subset",
+      "admissionHook": "rerank-subset; embedding input-only mode missing"
+    },
+    {
+      "id": "image-http",
+      "source": "apps/api/src/infrastructure/agent-run/openai-image-provider.ts",
+      "anchor": "response = await fetch",
+      "receiptHook": "missing",
+      "admissionHook": "missing"
+    },
+    {
+      "id": "asr-websocket",
+      "source": "apps/api/src/infrastructure/recording/configured-realtime-asr-provider.ts",
+      "anchor": "const socket = new WebSocket",
+      "receiptHook": "missing",
+      "admissionHook": "missing"
+    },
+    {
+      "id": "local-generate-http",
+      "source": "apps/api/src/infrastructure/identity/http-local-model-runtime.ts",
+      "anchor": "const req = http.request",
+      "receiptHook": "missing",
+      "admissionHook": "missing"
+    }
+  ],
+  "retrievalProducerRoutes": [
+    {
+      "id": "retrieval-query-embedding",
+      "source": "apps/api/src/application/retrieval/retrieve-candidates.ts",
+      "anchor": "await deps.embeddings.embed(input.query",
+      "trustedRunReferencePropagationImplemented": true,
+      "acceptance": "SDK transport unit tests; pending real PG composition"
+    },
+    {
+      "id": "retrieval-listwise-rerank",
+      "source": "apps/api/src/application/retrieval/retrieve-candidates.ts",
+      "anchor": "const rerankedIds = await deps.rerank",
+      "trustedRunReferencePropagationImplemented": true,
+      "acceptance": "SDK transport unit tests; pending real PG composition"
+    },
+    {
+      "id": "kg-query-embedding",
+      "source": "apps/api/src/infrastructure/knowledge-graph/pg-knowledge-recall.ts",
+      "anchor": "this.embeddings.embed(query)",
+      "trustedRunReferencePropagationImplemented": false,
+      "acceptance": "source missing; do not invent owner/lease"
+    },
+    {
+      "id": "artifact-segment-embedding",
+      "source": "apps/api/src/application/retrieval/index-artifact-version.ts",
+      "anchor": "this.embeddings.embed(segment.content)",
+      "trustedRunReferencePropagationImplemented": false,
+      "acceptance": "source missing; do not invent owner/lease"
+    },
+    {
+      "id": "cosine-query-embedding",
+      "source": "apps/api/src/infrastructure/retrieval/embedding-cosine-rerank.ts",
+      "anchor": "this.embeddings.embed(query)",
+      "trustedRunReferencePropagationImplemented": false,
+      "acceptance": "source missing; do not invent owner/lease"
+    },
+    {
+      "id": "cosine-candidate-embedding",
+      "source": "apps/api/src/infrastructure/retrieval/embedding-cosine-rerank.ts",
+      "anchor": "this.embeddings.embed(c.content)",
+      "trustedRunReferencePropagationImplemented": false,
+      "acceptance": "source missing; do not invent owner/lease"
+    },
+    {
+      "id": "service-warmup-embedding",
+      "source": "apps/deep-agent-service/src/deep_agent_service/retrieval_embeddings.py",
+      "anchor": "await embed_texts(['ping'])",
+      "trustedRunReferencePropagationImplemented": false,
+      "acceptance": "source missing; do not invent owner/lease"
+    }
+  ],
+  "opaqueExternalRoutes": [
+    {
+      "id": "external-research-graph",
+      "source": "apps/api/src/infrastructure/agent-run/deep-research-model-provider.ts",
+      "actualVendorDispatchPointCount": null,
+      "remaining": "Remote LangGraph envelope is not the actual provider dispatch; underlying graph call inventory/ownership/hooks still missing."
+    }
+  ],
+  "counts": {
+    "auditedConcreteDispatchPoints": 7,
+    "receiptHooksImplemented": 3,
+    "receiptHooksContextSubset": 1,
+    "receiptHooksMissing": 3,
+    "knownRetrievalProducerRoutes": 7,
+    "trustedRunReferenceRoutesImplemented": 2,
+    "trustedRunReferenceRoutesMissing": 5,
+    "opaqueExternalRoutes": 1
+  }
+}
