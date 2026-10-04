@@ -6,7 +6,7 @@ type Count = {value: string; unit: string};
 // Never mutate candidate bytes, infer source identity, or treat arbitrary nearby quotes as support.
 const executed = /(?:本次|此次|这次|已(?:经)?)(?:.{0,16})(?:检测|测量|检查|发现|记录)|(?:检测|测量|检查)(?:.{0,8})(?:结果|发现)/u;
 const count = /不兼容项(?:数量|数)?[^。；\n]{0,24}?(?<!不|非)(?:为|是|发现(?:了)?|记录(?:了)?|:)[：:\s]*([+-]?(?:(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?(?:e[+-]?\d+)?|[零〇一二两三四五六七八九十百千万]+))\s*(%|项|个)?/giu;
-const clauses = (text: string) => text.normalize("NFKC").split(/[。；\n]|(?:但是|但|不过|然而|却)/u).filter(Boolean);
+const clauses = (text: string) => text.normalize("NFKC").split(/[。；;\n]|(?:但是|但|不过|然而|却)/u).filter(Boolean);
 function qualified(clause: string, start: number, end: number): boolean {
   const prefix = clause.slice(0,start);
   const before = prefix.split(/[，,：:]/u).at(-1)!;
@@ -32,10 +32,15 @@ function chineseCount(raw: string): number {
   }
   return total + section + digit;
 }
+function conditionalMeasurement(proposition: string): boolean {
+  // The condition must immediately qualify this count relation. An unrelated
+  // conditional object (e.g. budget) or another clause cannot waive a measurement.
+  return /^不兼容项(?:数量|数)?(?:在(?:本次|此次|这次)(?:检测|测量|检查)(?:中|时))?\s*(?:若|如果|假如)\s*(?:为|是|发现(?:了)?|记录(?:了)?|:)/u.test(proposition);
+}
 function observations(text: string): Count[] {
   return clauses(text).flatMap(clause => [...clause.matchAll(count)].flatMap(match => {
     const proposition = clause.slice(0, match.index!).split(/[，,]/u).at(-1)! + match[0] + clause.slice(match.index! + match[0].length).split(/[，,]/u)[0]!;
-    if (/[？?]|是否|(?:吗|么|呢)\s*$/u.test(proposition) || !executed.test(clause) || qualified(clause,match.index!,match.index!+match[0].length)) return [];
+    if (/[？?]|是否|(?:吗|么|呢)\s*$/u.test(proposition) || !executed.test(clause) || conditionalMeasurement(match[0]) || qualified(clause,match.index!,match.index!+match[0].length)) return [];
     const raw = match[1]!.toLowerCase().replaceAll(",", "");
     const small: Record<string,number> = {零:0,〇:0,一:1,二:2,两:2,三:3,四:4,五:5,六:6,七:7,八:8,九:9,十:10};
     const numeric = small[raw] ?? (/^[零〇一二两三四五六七八九十百千万]+$/u.test(raw) ? chineseCount(raw) : Number(raw));
