@@ -1,0 +1,41 @@
+
+> @repo/api@0.0.0 test:interview-markdown-unit /Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/apps/api
+> vitest run --config vitest.interview-markdown-unit.config.ts
+
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/apps/api
+
+ ✓ tests/itv/interview-report-recovery.test.ts (22 tests) 71ms
+ ✓ tests/itv/interview-report-grounding.test.ts (39 tests) 29ms
+ ❯ tests/itv/interview-report-claim-boundaries.test.ts (88 tests | 2 failed) 38ms
+   × finite report claim boundaries > ends measurement conditional scope at semicolon ； 3ms
+     → expected [] to include 'unsupported_executed_measurement'
+   × finite report claim boundaries > ends measurement conditional scope at semicolon ; 1ms
+     → expected [] to include 'unsupported_executed_measurement'
+ ✓ tests/itv/interview-report-diagnostics.test.ts (14 tests) 30ms
+ ✓ tests/itv/interview-markdown-report-stream-controller.test.ts (9 tests) 5ms
+ ✓ tests/itv/interview-model-markdown.test.ts (4 tests) 3ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/itv/interview-report-claim-boundaries.test.ts > finite report claim boundaries > ends measurement conditional scope at semicolon ；
+ FAIL  tests/itv/interview-report-claim-boundaries.test.ts > finite report claim boundaries > ends measurement conditional scope at semicolon ;
+AssertionError: expected [] to include 'unsupported_executed_measurement'
+ ❯ tests/itv/interview-report-claim-boundaries.test.ts:27:57
+     25|  it.each(["；", ";"])("ends measurement conditional scope at semicolon…
+     26|   const text = `本次检测不兼容项若为零${separator}本次检测不兼容项为零…
+     27|   expect(assessReportClaimBoundaries(text, []).missing).toContain("uns…
+       |                                                         ^
+     28|  });
+     29|  it("does not use a conditional source count as an executed observatio…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ Test Files  1 failed | 5 passed (6)
+      Tests  2 failed | 174 passed (176)
+   Start at  00:46:18
+   Duration  2.60s (transform 665ms, setup 0ms, collect 1.87s, tests 175ms, environment 0ms, prepare 140ms)
+
+/Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/apps/api:
+ ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  @repo/api@0.0.0 test:interview-markdown-unit: `vitest run --config vitest.interview-markdown-unit.config.ts`
+Exit status 1

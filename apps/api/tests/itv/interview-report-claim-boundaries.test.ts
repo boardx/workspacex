@@ -7,6 +7,30 @@ import { interviewMarkdown } from "@repo/contracts";
 const evidence = (quote: string): ReportEvidence => ({ anchor: "answer-1", documentId: "runs", version: 1,
   sourceHash: "a".repeat(64), start: 0, end: quote.length, quote, expertId: "expert", taskKey: "task", evidenceMode: "simulated", expertLabel: "甲" });
 describe("finite report claim boundaries", () => {
+ it.each([
+  "不兼容项在本次检测中若为零，只支持本次检测未发现该冲突，不能推翻一般安装风险。",
+  "本次检测不兼容项若为零，可考虑试点。",
+  "不兼容项数量在此次检查中如果为1,000项，仍需评估误差。",
+  "本次测量不兼容项数假如是十二项，需要进一步核查。",
+ ])("keeps a condition immediately within the measured proposition: %s", text => {
+  expect(assessReportClaimBoundaries(text, []).ok).toBe(true);
+ });
+ it.each([
+  "本次检测不兼容项为零，若预算允许，可继续采购。",
+  "本次检测不兼容项在预算若为零时为零。",
+  "本次检测不兼容项若需复查，但本次实际测量不兼容项为零。",
+ ])("does not waive an observation with another condition: %s", text => {
+  expect(assessReportClaimBoundaries(text, []).missing).toContain("unsupported_executed_measurement");
+ });
+ it.each(["；", ";"])("ends measurement conditional scope at semicolon %s", separator => {
+  const text = `本次检测不兼容项若为零${separator}本次检测不兼容项为零。`;
+  expect(assessReportClaimBoundaries(text, []).missing).toContain("unsupported_executed_measurement");
+ });
+ it("does not use a conditional source count as an executed observation", () => {
+  const quote = "不兼容项在本次检测中若为零，只支持本次检测未发现该冲突。";
+  expect(assessReportClaimBoundaries(`本次检测不兼容项为零。[${quote}](#answer-1)`, [evidence(quote)]).missing).toContain("unsupported_executed_measurement");
+ });
+
  it.each(["本次检测不兼容项是否为零？", "本次检测不兼容项为零吗？"])("does not use a question as an observed count: %s", quote => {
   expect(assessReportClaimBoundaries(`本次检测不兼容项为零。[${quote}](#answer-1)`, [evidence(quote)]).missing).toContain("unsupported_executed_measurement");
  });
