@@ -118,6 +118,9 @@ it("omits large saved source/report/history bodies while preserving authoritativ
     reportTimeline: [{ id: "old-step", stage: "evidence", status: "failed", attempts: 1 }], reportPartial: true,
     reportSourceAliases: [{ alias: "s1", sourceId: "source" }], reportQualityWarnings: [{ sectionId: "o", issues: ["OLD_METADATA"] }],
     reportEvidenceWarnings: [{ batchIndex: 0, sourceIds: ["source"], questionIds: ["q"], reason: "invalid_model_evidence" }],
+    coverage: [{sectionId:"o",questionId:"new-question",status:"weak",evidenceIds:["e"],reasons:["partial"]}],
+    claimEvidence: [{claimId:"claim",evidenceId:"e",quote:"bounded excerpt",sourceId:"source",retrievedAt:"now",confidence:"low",traceIds:[]}],
+    conflicts: [{id:"conflict",claimIds:["a","b"],sourceIds:["source","other"],severity:"moderate",status:"open",resolution:null}],
     qualityScore: { citationCoverage: null, authority: null, recency: null, crossValidation: null, openGapCount: 1, overall: null, explanations: ["OLD_METADATA"] },
     publicationReadiness: { status: "limited", blockers: ["OLD_METADATA"], warnings: [] } });
   const patch = C.GuidedResearchRuntimePatch.parse(await outlineResponse(next));
