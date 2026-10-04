@@ -6,7 +6,7 @@ type Count = {value: string; unit: string};
 // Never mutate candidate bytes, infer source identity, or treat arbitrary nearby quotes as support.
 const executed = /(?:本次|此次|这次|已(?:经)?)(?:.{0,16})(?:检测|测量|检查|发现|记录)|(?:检测|测量|检查)(?:.{0,8})(?:结果|发现)/u;
 const count = /不兼容项(?:数量|数)?[^。；\n]{0,24}?(?<!不|非)(?:为|是|发现(?:了)?|记录(?:了)?|:)[：:\s]*([+-]?(?:(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?(?:e[+-]?\d+)?|[零〇一二两三四五六七八九十百千万]+))\s*(%|项|个)?/giu;
-const clauses = (text: string) => text.normalize("NFKC").split(/[。；\n]|(?:但是|但|不过|然而|却)/u).filter(Boolean);
+const clauses = (text: string) => text.normalize("NFKC").split(/[。；;\n]|(?:但是|但|不过|然而|却)/u).filter(Boolean);
 function qualified(clause: string, start: number, end: number): boolean {
   const prefix = clause.slice(0,start);
   const before = prefix.split(/[，,：:]/u).at(-1)!;

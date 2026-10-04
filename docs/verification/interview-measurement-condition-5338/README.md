@@ -7,3 +7,5 @@ Added eight meaningful controls: four direct same-count conditions, three unrela
 Only exact count-subject + optional current measurement context + immediate 若/如果/假如 + count relation qualifies. The same observer is used for asserted and source counts, so a hypothetical source value is not evidence for an executed result. No global conditional disclaimer exemption, candidate rewrite, provider retry, API/schema/state/hash/version changes.
 
 This repairs a finite syntax false positive only. Public report semantic FAIL, #5327 remains OPEN, #5339/#5340 separate. Does not approve unsupported defect exclusions/current procurement state/risk downgrade; original private cause UNKNOWN. No additional real model calls or deploy/merge.
+
+Independent review REJECTed initial `9df835ec1`: NFKC converts Chinese semicolon to ASCII, but finite clause splitting omitted ASCII `;`, causing “本次检测不兼容项若为零；本次检测不兼容项为零。” to waive the second actual count. Added Chinese/ASCII semicolon regressions: RED2/174. Include ASCII semicolon in clause boundaries: GREEN176. Conditional scope ends at either form; real second observation remains rejected. Initial GREEN174 is superseded for final head.

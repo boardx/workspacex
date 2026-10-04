@@ -22,6 +22,10 @@ describe("finite report claim boundaries", () => {
  ])("does not waive an observation with another condition: %s", text => {
   expect(assessReportClaimBoundaries(text, []).missing).toContain("unsupported_executed_measurement");
  });
+ it.each(["；", ";"])("ends measurement conditional scope at semicolon %s", separator => {
+  const text = `本次检测不兼容项若为零${separator}本次检测不兼容项为零。`;
+  expect(assessReportClaimBoundaries(text, []).missing).toContain("unsupported_executed_measurement");
+ });
  it("does not use a conditional source count as an executed observation", () => {
   const quote = "不兼容项在本次检测中若为零，只支持本次检测未发现该冲突。";
   expect(assessReportClaimBoundaries(`本次检测不兼容项为零。[${quote}](#answer-1)`, [evidence(quote)]).missing).toContain("unsupported_executed_measurement");
