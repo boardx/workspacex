@@ -1,3 +1,6 @@
+import { z } from "zod";
+import { sourceRelevanceOutputSchema, sourceRelevanceSemanticCodes } from "../../src/application/research/guided-source-relevance-protocol";
+import { quoteReferenceMatchSchema } from "../../src/application/research/guided-report-quote-references";
 import { randomUUID } from "node:crypto";
 import { describe, expect, it, vi } from "vitest";
 import { research as C } from "@repo/contracts";
@@ -111,6 +114,25 @@ describe("safe source relevance validation diagnostics", () => {
     recordResearchFailure({ record: f.record } as unknown as DebugTracePort, { phase: "perform", traceId: f.traceId }, f.actor, f.command, error);
     return f.record.mock.calls[0]![0].data.errors[0];
   }
+  it("records all protocol codes and all schema-derived fields without messages or values", () => {
+    const evaluation = sourceRelevanceOutputSchema.shape.evaluations.element;
+    const paths = [
+      ...Object.keys(evaluation.shape).map((key) => ["evaluations", 0, key]),
+      ...new Set([...Object.keys(evaluation.shape.matches.element.shape), ...Object.keys(quoteReferenceMatchSchema.shape)]).values(),
+    ];
+    const fieldPaths = paths.map((path) => typeof path === "string" ? ["evaluations", 0, "matches", 0, path] : path);
+    fieldPaths.push(...Object.keys(C.GuidedResearchSourcePresentation.shape).map((key) => ["evaluations", 0, "presentation", key]));
+    for (const path of fieldPaths) {
+      expect(record(Object.assign(new ResearchRuntimeError("RESEARCH_SOURCE_RELEVANCE_INVALID"), {
+        issues: [{ code: "invalid_type", path, message: "PRIVATE_SECRET", value: "PRIVATE_SECRET" }],
+      })).issues).toEqual([{ code: "invalid_type", path }]);
+    }
+    for (const code of [...Object.values(z.ZodIssueCode), ...sourceRelevanceSemanticCodes]) {
+      expect(record(Object.assign(new ResearchRuntimeError("RESEARCH_SOURCE_RELEVANCE_INVALID"), {
+        issues: [{ code, path: [], message: "PRIVATE_SECRET" }],
+      })).issues).toEqual([{ code, path: [] }]);
+    }
+  });
   it("records real screening repair exhaustion from service.perform while preserving sources and terminal semantics", async () => {
     const f = fixture();
     f.state.currentNode = "research";

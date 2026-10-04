@@ -1,3 +1,4 @@
+import { sourceRelevanceIssueCodes as relevanceIssueCodes, sourceRelevanceEvaluationFields as evaluationFields, sourceRelevanceMatchFields as matchFields, sourceRelevancePresentationFields as presentationFields } from "./guided-source-relevance-protocol";
 import type { DebugTracePort } from "../ports/debug-trace.port";
 import { research, wave2Runtime } from "@repo/contracts";
 import { ResearchRuntimeError, type RuntimeActor, type RuntimeCommand } from "./guided-runtime-ports";
@@ -9,10 +10,6 @@ const reasonCodes = new Set<string>(research.operations.streamGuidedResearchRunt
 const codes = new Set<string>([...wave2Runtime.AgentRunError.options, "23505", "23503", "23514", "40001", "40P01", "53300", "57P01", "08000", "08006", "ECONNRESET", "ETIMEDOUT", "EAI_AGAIN", "ENOTFOUND", "ABORT_ERR"]);
 
 // These are protocol categories, never arbitrary provider or Zod messages/keys.
-const relevanceIssueCodes = new Set(["invalid_json", "invalid_type", "invalid_enum_value", "too_small", "too_big", "unrecognized_keys",
-  "count", "unknown_chunk", "duplicate_chunk", "contradiction", "task_question", "verbatim_quote", "missing_chunk"]);
-const evaluationFields = new Set(["sourceId", "chunkId", "irrelevant", "matches", "presentation"]);
-const matchFields = new Set(["questionId", "quote", "quoteRef", "insight", "relevance"]);
 type SafeValidationIssue = { code: string; path?: (string | number)[] };
 function safeRelevancePath(value: unknown): (string | number)[] | undefined {
   if (!Array.isArray(value) || value.length > 6) return undefined;
@@ -24,7 +21,7 @@ function safeRelevancePath(value: unknown): (string | number)[] | undefined {
   if (value.length === 2) return ["evaluations", value[1]];
   if (!evaluationFields.has(value[2])) return undefined;
   if (value.length === 3) return value.slice();
-  if (value[2] === "presentation" && value.length === 4 && (value[3] === "title" || value[3] === "summary")) return value.slice();
+  if (value[2] === "presentation" && value.length === 4 && presentationFields.has(value[3])) return value.slice();
   if (value[2] !== "matches" || !index(value[3])) return undefined;
   if (value.length === 4 || (value.length === 5 && matchFields.has(value[4]))) return value.slice();
   return undefined;
