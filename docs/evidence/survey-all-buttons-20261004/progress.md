@@ -47,3 +47,5 @@ Live：#5196/#5197/#5202及#5127已由其他会话合入；#5067 OPEN，未发�
 当前Chrome原生确认能力重新核验：主协调三会话释放后自有新tab1270035700，正常Applyclick虽Input.dispatchMouseEvent超时但getJsDialog返回confirm；尝试native显示自有tab遭user changed app，重新AX显示他人研究tab，立即停止原生input。随后正规dismiss返回No dialog is showing，无可认证取消/确认；仅自有Chrometab已关闭，窗口回报主释放。native-confirm-current-boundary.txt记录具体错误，0358/359不抬PASS；PDF438未触发，当前需再协调无人共享/人类handoff后完成，不再沿用历史锁屏/权限缺失说法。
 
 完整558派生视图新增：运行reconcile-results.py从冻结inventory和两个overlay重建execution-results.csv及remaining-results.csv，不改变baseline或继承旧PASS。全558=121PASS/3BLOCKED/11NA/422NOT_STARTED/1EXCLUDED_QR；subset123=106P/3B/11NA/3NS，parent15P无重复。remaining-template-steps.md列0358/359/0438及0331/332/368确切正常步骤/工具与动作确认边界，匿名0460/461仍保留5067需决策边界未抬状态。当前25708/login及24705/healthz均200为进行中QA保留，nativeChrome已释放；未知manifest外部变化不纳入本次提交。
+
+主独立ACCEPT ee2e019a0列表11项0001/2/3/4/8/9/11/12/13/18/19，parent26PASS/template106PASS，全558132PASS/3B/11NA/411NS/1QR排除。0010首题DOMdisabled=true+真实disabled属性补证，0016/17独立marker名后close/cancel前后及reload全7卡name/href相同，list-controls-supplement.txt待独立review仍NS。

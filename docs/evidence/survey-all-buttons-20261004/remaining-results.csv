@@ -1,23 +1,12 @@
 id,batch,route,control,expected,status,actual_source_sha,result,evidence,overlay_file,boundary
-SV26-0001,01-library,/studio/survey,我的问卷,导航/筛选范围正确；对象身份不变；不意外保存或删除,NOT_STARTED,,No accepted execution result recorded,,,NORMAL
-SV26-0002,01-library,/studio/survey,问卷模板,导航/筛选范围正确；对象身份不变；不意外保存或删除,NOT_STARTED,,No accepted execution result recorded,,,NORMAL
-SV26-0003,01-library,/studio/survey,报告模板,导航/筛选范围正确；对象身份不变；不意外保存或删除,NOT_STARTED,,No accepted execution result recorded,,,NORMAL
-SV26-0004,01-library,/studio/survey,搜索问卷,导航/筛选范围正确；对象身份不变；不意外保存或删除,NOT_STARTED,,No accepted execution result recorded,,,NORMAL
 SV26-0005,01-library,/studio/survey,标签筛选：选中,导航/筛选范围正确；对象身份不变；不意外保存或删除,NOT_STARTED,,No accepted execution result recorded,,,NORMAL
 SV26-0006,01-library,/studio/survey,标签筛选：取消,导航/筛选范围正确；对象身份不变；不意外保存或删除,NOT_STARTED,,No accepted execution result recorded,,,NORMAL
 SV26-0007,01-library,/studio/survey,清除筛选,导航/筛选范围正确；对象身份不变；不意外保存或删除,NOT_STARTED,,No accepted execution result recorded,,,NORMAL
-SV26-0008,01-library,/studio/survey,卡片标题,导航/筛选范围正确；对象身份不变；不意外保存或删除,NOT_STARTED,,No accepted execution result recorded,,,NORMAL
-SV26-0009,01-library,/studio/survey,继续设计,导航/筛选范围正确；对象身份不变；不意外保存或删除,NOT_STARTED,,No accepted execution result recorded,,,NORMAL
 SV26-0010,01-library,/studio/survey,继续编辑,导航/筛选范围正确；对象身份不变；不意外保存或删除,NOT_STARTED,,No accepted execution result recorded,,,NORMAL
-SV26-0011,01-library,/studio/survey,查看答卷,导航/筛选范围正确；对象身份不变；不意外保存或删除,NOT_STARTED,,No accepted execution result recorded,,,NORMAL
-SV26-0012,01-library,/studio/survey,更多操作：问卷,导航/筛选范围正确；对象身份不变；不意外保存或删除,NOT_STARTED,,No accepted execution result recorded,,,NORMAL
-SV26-0013,01-library,/studio/survey,新建问卷,导航/筛选范围正确；对象身份不变；不意外保存或删除,NOT_STARTED,,No accepted execution result recorded,,,NORMAL
 SV26-0014,01-library,/studio/survey,删除问卷→取消,取消无删除,NOT_STARTED,,No accepted execution result recorded,,,NORMAL
 SV26-0015,01-library,/studio/survey,删除问卷→确认,仅删除本对象；列表刷新及关联访问拒绝,NOT_STARTED,,No accepted execution result recorded,,,NEEDS_ACTION_TIME_CONFIRMATION
 SV26-0016,02-create,/studio/survey,弹窗关闭X,禁用/可用状态正确；成功仅创建一个对象；取消不创建；pending不锁住其他创建方式,NOT_STARTED,,No accepted execution result recorded,,,NORMAL
 SV26-0017,02-create,/studio/survey,取消,禁用/可用状态正确；成功仅创建一个对象；取消不创建；pending不锁住其他创建方式,NOT_STARTED,,No accepted execution result recorded,,,NORMAL
-SV26-0018,02-create,/studio/survey,问卷名称：空白,禁用/可用状态正确；成功仅创建一个对象；取消不创建；pending不锁住其他创建方式,NOT_STARTED,,No accepted execution result recorded,,,NORMAL
-SV26-0019,02-create,/studio/survey,问卷名称：有效,禁用/可用状态正确；成功仅创建一个对象；取消不创建；pending不锁住其他创建方式,NOT_STARTED,,No accepted execution result recorded,,,NORMAL
 SV26-0020,02-create,/studio/survey,空白创建→下一步,禁用/可用状态正确；成功仅创建一个对象；取消不创建；pending不锁住其他创建方式,NOT_STARTED,,No accepted execution result recorded,,,NORMAL
 SV26-0021,02-create,/studio/survey,AI 导入创建→下一步,禁用/可用状态正确；成功仅创建一个对象；取消不创建；pending不锁住其他创建方式,NOT_STARTED,,No accepted execution result recorded,,,NORMAL
 SV26-0022,02-create,/studio/survey,从模板创建→选择内置→下一步,禁用/可用状态正确；成功仅创建一个对象；取消不创建；pending不锁住其他创建方式,NOT_STARTED,,No accepted execution result recorded,,,NORMAL

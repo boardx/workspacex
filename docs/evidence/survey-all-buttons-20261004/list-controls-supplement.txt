@@ -1,0 +1,210 @@
+ActualWeb4c0017fd2cb42102c53b89258162a16e58ea37ab/API5eff. Current separate ordinaryUI executions; no create submit/no deletion. Close and Cancel each used distinct synthetic marker name then compared all seven card name/href pairs before/after/reload.
+[
+  {
+    "case": "0016",
+    "before": [
+      {
+        "href": "/studio/survey/101e9a36-3fb3-4e50-baa7-28e5ed56f4bb",
+        "name": "合成验收20261004-空白设计"
+      },
+      {
+        "href": "/studio/survey/268f5a71-2510-4881-bf27-f8db642add81",
+        "name": "团队协作健康度调查"
+      },
+      {
+        "href": "/studio/survey/79d04a5d-8a17-46ac-b413-f9b030804cc9",
+        "name": "合成验收20261004-主线解绑-f687"
+      },
+      {
+        "href": "/studio/survey/93750492-a585-4c08-9b01-ceb66960c2fd",
+        "name": "合成验收20261004-解绑保存边界-ac9"
+      },
+      {
+        "href": "/studio/survey/a529a7ac-3740-4b4a-b46f-dfd085fbb775",
+        "name": "合成验收20261004-报告真实答卷"
+      },
+      {
+        "href": "/studio/survey/ae22d556-ba5a-45c3-bd67-05f06431481a",
+        "name": "合成验收20261004-模板子验收-解绑反证"
+      },
+      {
+        "href": "/studio/survey/f6c2c63c-f157-49f2-bb3b-7ca36333f274",
+        "name": "合成验收20261004-替换确认能力"
+      }
+    ],
+    "after": [
+      {
+        "href": "/studio/survey/101e9a36-3fb3-4e50-baa7-28e5ed56f4bb",
+        "name": "合成验收20261004-空白设计"
+      },
+      {
+        "href": "/studio/survey/268f5a71-2510-4881-bf27-f8db642add81",
+        "name": "团队协作健康度调查"
+      },
+      {
+        "href": "/studio/survey/79d04a5d-8a17-46ac-b413-f9b030804cc9",
+        "name": "合成验收20261004-主线解绑-f687"
+      },
+      {
+        "href": "/studio/survey/93750492-a585-4c08-9b01-ceb66960c2fd",
+        "name": "合成验收20261004-解绑保存边界-ac9"
+      },
+      {
+        "href": "/studio/survey/a529a7ac-3740-4b4a-b46f-dfd085fbb775",
+        "name": "合成验收20261004-报告真实答卷"
+      },
+      {
+        "href": "/studio/survey/ae22d556-ba5a-45c3-bd67-05f06431481a",
+        "name": "合成验收20261004-模板子验收-解绑反证"
+      },
+      {
+        "href": "/studio/survey/f6c2c63c-f157-49f2-bb3b-7ca36333f274",
+        "name": "合成验收20261004-替换确认能力"
+      }
+    ],
+    "identical": true,
+    "dialogs": 0
+  },
+  {
+    "case": "0016-reload",
+    "cards": [
+      {
+        "href": "/studio/survey/101e9a36-3fb3-4e50-baa7-28e5ed56f4bb",
+        "name": "合成验收20261004-空白设计"
+      },
+      {
+        "href": "/studio/survey/268f5a71-2510-4881-bf27-f8db642add81",
+        "name": "团队协作健康度调查"
+      },
+      {
+        "href": "/studio/survey/79d04a5d-8a17-46ac-b413-f9b030804cc9",
+        "name": "合成验收20261004-主线解绑-f687"
+      },
+      {
+        "href": "/studio/survey/93750492-a585-4c08-9b01-ceb66960c2fd",
+        "name": "合成验收20261004-解绑保存边界-ac9"
+      },
+      {
+        "href": "/studio/survey/a529a7ac-3740-4b4a-b46f-dfd085fbb775",
+        "name": "合成验收20261004-报告真实答卷"
+      },
+      {
+        "href": "/studio/survey/ae22d556-ba5a-45c3-bd67-05f06431481a",
+        "name": "合成验收20261004-模板子验收-解绑反证"
+      },
+      {
+        "href": "/studio/survey/f6c2c63c-f157-49f2-bb3b-7ca36333f274",
+        "name": "合成验收20261004-替换确认能力"
+      }
+    ]
+  },
+  {
+    "case": "0017",
+    "before": [
+      {
+        "href": "/studio/survey/101e9a36-3fb3-4e50-baa7-28e5ed56f4bb",
+        "name": "合成验收20261004-空白设计"
+      },
+      {
+        "href": "/studio/survey/268f5a71-2510-4881-bf27-f8db642add81",
+        "name": "团队协作健康度调查"
+      },
+      {
+        "href": "/studio/survey/79d04a5d-8a17-46ac-b413-f9b030804cc9",
+        "name": "合成验收20261004-主线解绑-f687"
+      },
+      {
+        "href": "/studio/survey/93750492-a585-4c08-9b01-ceb66960c2fd",
+        "name": "合成验收20261004-解绑保存边界-ac9"
+      },
+      {
+        "href": "/studio/survey/a529a7ac-3740-4b4a-b46f-dfd085fbb775",
+        "name": "合成验收20261004-报告真实答卷"
+      },
+      {
+        "href": "/studio/survey/ae22d556-ba5a-45c3-bd67-05f06431481a",
+        "name": "合成验收20261004-模板子验收-解绑反证"
+      },
+      {
+        "href": "/studio/survey/f6c2c63c-f157-49f2-bb3b-7ca36333f274",
+        "name": "合成验收20261004-替换确认能力"
+      }
+    ],
+    "after": [
+      {
+        "href": "/studio/survey/101e9a36-3fb3-4e50-baa7-28e5ed56f4bb",
+        "name": "合成验收20261004-空白设计"
+      },
+      {
+        "href": "/studio/survey/268f5a71-2510-4881-bf27-f8db642add81",
+        "name": "团队协作健康度调查"
+      },
+      {
+        "href": "/studio/survey/79d04a5d-8a17-46ac-b413-f9b030804cc9",
+        "name": "合成验收20261004-主线解绑-f687"
+      },
+      {
+        "href": "/studio/survey/93750492-a585-4c08-9b01-ceb66960c2fd",
+        "name": "合成验收20261004-解绑保存边界-ac9"
+      },
+      {
+        "href": "/studio/survey/a529a7ac-3740-4b4a-b46f-dfd085fbb775",
+        "name": "合成验收20261004-报告真实答卷"
+      },
+      {
+        "href": "/studio/survey/ae22d556-ba5a-45c3-bd67-05f06431481a",
+        "name": "合成验收20261004-模板子验收-解绑反证"
+      },
+      {
+        "href": "/studio/survey/f6c2c63c-f157-49f2-bb3b-7ca36333f274",
+        "name": "合成验收20261004-替换确认能力"
+      }
+    ],
+    "identical": true,
+    "dialogs": 0
+  },
+  {
+    "case": "0017-reload",
+    "cards": [
+      {
+        "href": "/studio/survey/101e9a36-3fb3-4e50-baa7-28e5ed56f4bb",
+        "name": "合成验收20261004-空白设计"
+      },
+      {
+        "href": "/studio/survey/268f5a71-2510-4881-bf27-f8db642add81",
+        "name": "团队协作健康度调查"
+      },
+      {
+        "href": "/studio/survey/79d04a5d-8a17-46ac-b413-f9b030804cc9",
+        "name": "合成验收20261004-主线解绑-f687"
+      },
+      {
+        "href": "/studio/survey/93750492-a585-4c08-9b01-ceb66960c2fd",
+        "name": "合成验收20261004-解绑保存边界-ac9"
+      },
+      {
+        "href": "/studio/survey/a529a7ac-3740-4b4a-b46f-dfd085fbb775",
+        "name": "合成验收20261004-报告真实答卷"
+      },
+      {
+        "href": "/studio/survey/ae22d556-ba5a-45c3-bd67-05f06431481a",
+        "name": "合成验收20261004-模板子验收-解绑反证"
+      },
+      {
+        "href": "/studio/survey/f6c2c63c-f157-49f2-bb3b-7ca36333f274",
+        "name": "合成验收20261004-替换确认能力"
+      }
+    ]
+  },
+  {
+    "case": "0010",
+    "url": "http://127.0.0.1:25708/studio/survey/a529a7ac-3740-4b4a-b46f-dfd085fbb775/design",
+    "firstQuestion": {
+      "disabled": true,
+      "hasDisabledAttribute": true,
+      "label": "编辑第 1 题：您加入当前团队多久了？",
+      "text": "您加入当前团队多久了？"
+    },
+    "dom": "- alert\n- link \"跳到主要内容\":\n  - /url: \"#wsx-main-content\"\n- banner:\n  - button \"组织菜单，当前：org org-fullstack-5e-986ac146-12206c108846\":\n    - generic: o\n  - button \"提交反馈\":\n  - generic: org org-fullstack-5e-986ac146-12206c108846\n  - paragraph: 管理员\n- main:\n  - main:\n    - button \"← 返回列表\"\n    - textbox \"问卷名称\": 合成验收20261004-报告真实答卷\n    - paragraph: 已保存 · 2026/10/4 08:31:56\n    - button \"更多操作\"\n    - button \"发布回收\"\n    - navigation \"问卷工作流\":\n      - button \"1. 设计问卷\":\n        - generic: \"1\"\n        - text: 设计问卷\n      - button \"2. 发布回收\":\n        - generic: \"2\"\n        - text: 发布回收\n      - button \"3. 查看答卷\":\n        - generic: \"3\"\n        - text: 查看答卷\n    - region \"设计检查\": 设计检查通过\n    - paragraph: 选择题型，配置题目，再用实时预览试填。\n    - button \"打开题目大纲\"\n    - button \"打开题目设置\"\n    - complementary \"实时预览\":\n      - region \"问卷设计画布\":\n        - heading \"问卷设计画布\" [level=2]\n        - button \"桌面预览\" [pressed]\n        - button \"平板预览\"\n        - button \"手机预览\"\n        - region \"问卷封面\":\n          - heading \"合成验收20261004-报告真实答卷\" [level=2]\n        - heading \"基本情况\" [level=3]\n        - generic: 2 题\n        - generic: \"*\"\n        - generic: \"01\"\n        - button \"编辑第 1 题：您加入当前团队多久了？\" [disabled]: 您加入当前团队多久了？\n        - group \"编辑第 1 题\":\n          - button \"题目说明\" [disabled]: 围绕目标共识、心理安全、工作负荷、沟通与成长评估团队体验，不用于评价个人绩效。\n          - heading \"选项\" [level=3]\n          - button \"编辑选项 1：不足3个月\" [disabled]: 不足3个月\n          - button \"编辑选项 2：3–12个月\" [disabled]: 3–12个月\n          - button \"编辑选项 3：1–3年\" [disabled]: 1–3年\n          - button \"编辑选项 4：3年以上\" [disabled]: 3年以上\n          - button \"添加选项\" [disabled]\n          - generic \"批量粘贴选项\"\n        - generic: \"*\"\n        - generic: \"02\"\n        - button \"编辑第 2 题：您主要采用哪种协作方式？\" [disabled]: 您主要采用哪种协作方式？\n        - group \"编辑第 2 题\":\n          - button \"题目说明\" [disabled]: 添加题目说明\n          - heading \"选项\" [level=3]\n          - button \"编辑选项 1：现场办公\" [disabled]: 现场办公\n          - button \"编辑选项 2：远程办公\" [disabled]: 远程办公\n          - button \"编辑选项 3：混合办公\" [disabled]: 混合办公\n          - button \"添加选项\" [disabled]\n          - generic \"批量粘贴选项\"\n        - heading \"目标共识\" [level=3]\n        - generic: 3 题\n        - generic: \"*\"\n        - generic: \"03\"\n        - button \"编辑第 3 题：我清楚团队当前最重要的目标。\" [disabled]: 我清楚团队当前最重要的目标。\n        - button \"题目说明\" [disabled]: 添加题目说明\n        - group \"我清楚团队当前最重要的目标。 *\":\n          - generic: 我清楚团队当前最重要的目标。 *\n          - radio \"1\"\n          - generic: \"1\"\n          - radio \"2\"\n          - generic: \"2\"\n          - radio \"3\"\n          - generic: \"3\"\n          - radio \"4\"\n          - generic: \"4\"\n          - radio \"5\"\n          - generic: \"5\"\n        - generic: \"*\"\n        - generic: \"04\"\n        - button \"编辑第 4 题：我知道自己的工作如何支持团队目标。\" [disabled]: 我知道自己的工作如何支持团队目标。\n        - button \"题目说明\" [disabled]: 添加题目说明\n        - group \"我知道自己的工作如何支持团队目标。 *\":\n          - generic: 我知道自己的工作如何支持团队目标。 *\n          - rad"
+  }
+]
