@@ -1,0 +1,390 @@
+{
+  "applicationRevision": "9b25bfa65662b96c0826fe67506b562ea46aa6d0",
+  "baselineRevision": "ba6343199f3c834d6a198f83d0c771614292c82b",
+  "closureSha256": "9abb6aac9bc9bf1302af65838d89de47d2461ea87c15949bd7855647cd7f79ee",
+  "files": [
+    {
+      "bytes": 21473,
+      "sha256": "420aa667d437f31a4861f132c658ccbfc2002d23376fe62deb7cb425a5fcfe18",
+      "source": ".agents/skills/workspacex-cn-release/scripts/validate_preflight.py",
+      "target": null
+    },
+    {
+      "bytes": 14035,
+      "sha256": "734369dbbc1ad38bcb883f540048a63c6c1f5345f374a47e4dc5b77e1337ac76",
+      "source": ".harness/scripts/vm/backup_connection.cjs",
+      "target": "/usr/local/lib/workspacex-cn/backup_connection.cjs"
+    },
+    {
+      "bytes": 3114,
+      "sha256": "b518023bf06d054b524cd64148c75ea581e9fe8ee33efe5afac2ae2b78ddf217",
+      "source": ".harness/scripts/vm/backup_profile_transport.cjs",
+      "target": "/usr/local/lib/workspacex-cn/backup_profile_transport.cjs"
+    },
+    {
+      "bytes": 8879,
+      "sha256": "90aa367dbc312e3b588e5b0a2a1dc733b5257d66a24f6e2a7ac30c5e26c3a853",
+      "source": ".harness/scripts/vm/build-cn-release-candidate.sh",
+      "target": "/usr/local/bin/workspacex-cn-build-candidate"
+    },
+    {
+      "bytes": 19381,
+      "sha256": "f489a021f8b3c63b12c4776fb9553ede8c9cfd6684c2316e845c640cf0f1f6ab",
+      "source": ".harness/scripts/vm/candidate_backend_collector.py",
+      "target": "/usr/local/lib/workspacex-cn/candidate_backend_collector.py"
+    },
+    {
+      "bytes": 30413,
+      "sha256": "0e124f646606d899076d212108d59f5f3d7a448722c0aa1ae7663be64acf6365",
+      "source": ".harness/scripts/vm/candidate_host_transport.py",
+      "target": "/usr/local/lib/workspacex-cn/candidate_host_transport.py"
+    },
+    {
+      "bytes": 26936,
+      "sha256": "27c4772d2ae8517fc04a5a2c6189e033f7680b7cead57c8acb352fe2606f13f5",
+      "source": ".harness/scripts/vm/candidate_writer.py",
+      "target": "/usr/local/lib/workspacex-cn/candidate_writer.py"
+    },
+    {
+      "bytes": 13944,
+      "sha256": "11031c9550b22d8dfc187c3af818303723eaf4f4cbf9422b248857487e26696c",
+      "source": ".harness/scripts/vm/cn-backup-fixed-queries.json",
+      "target": "/usr/local/lib/workspacex-cn/cn-backup-fixed-queries.json"
+    },
+    {
+      "bytes": 7245,
+      "sha256": "b934914b3dbf62a2ade74e25c5fc601b6b26dc34b0b18baaab8b62ce65b49a19",
+      "source": ".harness/scripts/vm/cn-baseline-schema-contract.cjs",
+      "target": "/usr/local/lib/workspacex-cn/cn-baseline-schema-contract.cjs"
+    },
+    {
+      "bytes": 2995,
+      "sha256": "89d3bea994730f263c1a6c5a8f322383b21dc65b0c27275673584d04cd38f030",
+      "source": ".harness/scripts/vm/cn-bootstrap-baseline-source.mjs",
+      "target": "/usr/local/lib/workspacex-cn/cn-bootstrap-baseline-source.mjs"
+    },
+    {
+      "bytes": 6022,
+      "sha256": "7b311a66a1380639f4110c677604d1e3edaabae5dfa013725632b24939207622",
+      "source": ".harness/scripts/vm/cn-bootstrap-baseline.cjs",
+      "target": "/usr/local/lib/workspacex-cn/cn-bootstrap-baseline.cjs"
+    },
+    {
+      "bytes": 1404,
+      "sha256": "5942445bb668b9be84919b3fef714a2b52b25db034582c97155eaccd8c8e6d2e",
+      "source": ".harness/scripts/vm/cn-bootstrap-source-probe.mjs",
+      "target": "/usr/local/lib/workspacex-cn/cn-bootstrap-source-probe.mjs"
+    },
+    {
+      "bytes": 25209,
+      "sha256": "c93902fd445c19aed87e253c5a45f68c6c5c1eff38e563109358a79abdcb7c27",
+      "source": ".harness/scripts/vm/cn-build-tool-identity.py",
+      "target": "/usr/local/lib/workspacex-cn/cn-build-tool-identity.py"
+    },
+    {
+      "bytes": 18245,
+      "sha256": "acd10e3b975ed27ba746df7fdc91d4da9c9523fdffee4f7e595bedab17ce2f8f",
+      "source": ".harness/scripts/vm/cn-maintenance-activation.py",
+      "target": "/usr/local/lib/workspacex-cn/cn-maintenance-activation.py"
+    },
+    {
+      "bytes": 7833,
+      "sha256": "3aa186d48cc524703e14088cc5aeab5604b80c27482a167f523118715b2342e6",
+      "source": ".harness/scripts/vm/cn-maintenance-browser.cjs",
+      "target": "/usr/local/lib/workspacex-cn/cn-maintenance-browser.cjs"
+    },
+    {
+      "bytes": 1071,
+      "sha256": "e92707868ced09c36c81b934a11c8c929846c47e6c0404735ec40a7280cfe84d",
+      "source": ".harness/scripts/vm/cn-maintenance-canonical.cjs",
+      "target": "/usr/local/lib/workspacex-cn/cn-maintenance-canonical.cjs"
+    },
+    {
+      "bytes": 2035,
+      "sha256": "00fe4e4ba036377d55ce47ea313f6dbd84fedb1ac8877c54744fb01614fd228b",
+      "source": ".harness/scripts/vm/cn-maintenance-drain.cjs",
+      "target": "/usr/local/lib/workspacex-cn/cn-maintenance-drain.cjs"
+    },
+    {
+      "bytes": 246724,
+      "sha256": "9c7c11218e9dad99ca1d4684f3d2716eaf327df7e2b81a2efba248cb8e616845",
+      "source": ".harness/scripts/vm/cn-maintenance-host-controller.cjs",
+      "target": "/usr/local/lib/workspacex-cn/cn-maintenance-host-controller.cjs"
+    },
+    {
+      "bytes": 6247,
+      "sha256": "172156e8d366f8aae24dcd011ad5a0356ddb0cfe17fa88241536c2a8767afbd5",
+      "source": ".harness/scripts/vm/cn-maintenance-host-launcher.py",
+      "target": "/usr/local/lib/workspacex-cn/cn-maintenance-host-launcher.py"
+    },
+    {
+      "bytes": 161559,
+      "sha256": "69f417b4795badc085980c456934042747af227bf1d9a1e406f695809205df11",
+      "source": ".harness/scripts/vm/cn-maintenance-migrator.cjs",
+      "target": "/usr/local/lib/workspacex-cn/cn-maintenance-migrator.cjs"
+    },
+    {
+      "bytes": 25416,
+      "sha256": "764977535f73115aeebee5950272ae11c93b6583a387d66ae4c6145c7c4754d6",
+      "source": ".harness/scripts/vm/cn-maintenance-recovery-evidence-verifier.py",
+      "target": "/usr/local/lib/workspacex-cn/cn-maintenance-recovery-evidence-verifier.py"
+    },
+    {
+      "bytes": 196019,
+      "sha256": "54a19094fc665a6d4a12ffec8753076da919d98da28cba8179f5f89074d7af11",
+      "source": ".harness/scripts/vm/cn-migration-snapshot-query.cjs",
+      "target": "/usr/local/lib/workspacex-cn/cn-migration-snapshot-query.cjs"
+    },
+    {
+      "bytes": 1336,
+      "sha256": "ad8cf6a5fd521df4bfb91d7fceeb1fea2ef7de127e1e9778eac05a8fc54970ab",
+      "source": ".harness/scripts/vm/cn-production-rds-identity-probe.py",
+      "target": "/usr/local/lib/workspacex-cn/cn-production-rds-identity-probe.py"
+    },
+    {
+      "bytes": 17973,
+      "sha256": "5e7c86740531ba675f886aaacc793e5f69445160411644ead81b3a082fb9363d",
+      "source": ".harness/scripts/vm/cn-production-recovery-catalog.cjs",
+      "target": "/usr/local/lib/workspacex-cn/cn-production-recovery-catalog.cjs"
+    },
+    {
+      "bytes": 6623,
+      "sha256": "d14967835d30b5d902ffc3a39f1d79fdd4a276171fb50587b029a345dc14e27a",
+      "source": ".harness/scripts/vm/cn-production-recovery-executor.py",
+      "target": "/usr/local/lib/workspacex-cn/cn-production-recovery-executor.py"
+    },
+    {
+      "bytes": 15004,
+      "sha256": "f8936775460d233871e5453c20deb32f7740f690c152a95bc152ce345e745afd",
+      "source": ".harness/scripts/vm/cn-production-recovery-fidelity.cjs",
+      "target": "/usr/local/lib/workspacex-cn/cn-production-recovery-fidelity.cjs"
+    },
+    {
+      "bytes": 6170,
+      "sha256": "5aa60385c7d7bfed6fb489d9de9cc9571b6592f4b694ad36024d28fb89260681",
+      "source": ".harness/scripts/vm/cn-production-recovery-readback.cjs",
+      "target": "/usr/local/lib/workspacex-cn/cn-production-recovery-readback.cjs"
+    },
+    {
+      "bytes": 1209,
+      "sha256": "13b0b12e66e0f4f0633dab717d77216c4a297e04383c808026243c2ccc9063c9",
+      "source": ".harness/scripts/vm/cn-release-orphans.py",
+      "target": "/usr/local/lib/workspacex-cn/cn-release-orphans.py"
+    },
+    {
+      "bytes": 8243,
+      "sha256": "136365ca99ac546835e72dd6bb4d99ae36d0f0c732dcfc5ce05dcdbd50233307",
+      "source": ".harness/scripts/vm/cn-release-preflight-evidence.mjs",
+      "target": "/usr/local/lib/workspacex-cn/cn-release-preflight-evidence.mjs"
+    },
+    {
+      "bytes": 28546,
+      "sha256": "0940fbf37b13029ca05a2b165b18b411ff980b461d2630eb03e3db3139e8a47b",
+      "source": ".harness/scripts/vm/cn-tool-install-transaction.py",
+      "target": "/usr/local/lib/workspacex-cn/cn-tool-install-transaction.py"
+    },
+    {
+      "bytes": 7027,
+      "sha256": "70e78cc0f0b4c3bb3b1852352a0b8cab78fa93ef5f81c580ac924f2d46b4d371",
+      "source": ".harness/scripts/vm/cn_backup_backend.py",
+      "target": "/usr/local/lib/workspacex-cn/cn_backup_backend.py"
+    },
+    {
+      "bytes": 7665,
+      "sha256": "b7b57d0d1d03fa9dd3c9cd57d1dc00f10559becd5671b46b0ed10e33648d11de",
+      "source": ".harness/scripts/vm/cn_backup_channel.py",
+      "target": "/usr/local/lib/workspacex-cn/cn_backup_channel.py"
+    },
+    {
+      "bytes": 21529,
+      "sha256": "00cab6ceae70f52b045954664a9289c965a32e3fbee4b1ad8fabbd0ecf700061",
+      "source": ".harness/scripts/vm/cn_backup_host.py",
+      "target": "/usr/local/lib/workspacex-cn/cn_backup_host.py"
+    },
+    {
+      "bytes": 13867,
+      "sha256": "8e0f2f540b3a075c137622965d5e9bcf4a333fbaf4f088d0dfbb7e89cd219072",
+      "source": ".harness/scripts/vm/cn_backup_package.py",
+      "target": "/usr/local/lib/workspacex-cn/cn_backup_package.py"
+    },
+    {
+      "bytes": 8078,
+      "sha256": "66260ae218c7301390f5eb023e248e5c0706eced9f4d635c514aaebf205da591",
+      "source": ".harness/scripts/vm/cn_backup_profile.py",
+      "target": "/usr/local/lib/workspacex-cn/cn_backup_profile.py"
+    },
+    {
+      "bytes": 3580,
+      "sha256": "cc5a5afc8f332e471bc0c40c0ff4e02ac3db160dd0aa99df0e34862a1e207b73",
+      "source": ".harness/scripts/vm/cn_backup_profile_host.py",
+      "target": "/usr/local/lib/workspacex-cn/cn_backup_profile_host.py"
+    },
+    {
+      "bytes": 3991,
+      "sha256": "1b0ac0a996ae366f163f9896a26bc07daea13ce9f2cb29bbde356117ba372645",
+      "source": ".harness/scripts/vm/cn_backup_run.py",
+      "target": "/usr/local/lib/workspacex-cn/cn_backup_run.py"
+    },
+    {
+      "bytes": 29559,
+      "sha256": "0399ab0dedfc4685dea06255afab66f762bff7388f2ca4412216b35827ebd7c9",
+      "source": ".harness/scripts/vm/cn_backup_sql.py",
+      "target": "/usr/local/lib/workspacex-cn/cn_backup_sql.py"
+    },
+    {
+      "bytes": 5908,
+      "sha256": "abe3b05ece6282dc3fbc00b6ffa52ddfe3ec481bc354afa9144ae0bfcf09ec26",
+      "source": ".harness/scripts/vm/cn_backup_stream.py",
+      "target": "/usr/local/lib/workspacex-cn/cn_backup_stream.py"
+    },
+    {
+      "bytes": 10585,
+      "sha256": "224fd5e7a516cbd16fad062897e65a3bc731a0010117912e779b598f9bb1d4e5",
+      "source": ".harness/scripts/vm/cn_backup_watchdog.py",
+      "target": "/usr/local/lib/workspacex-cn/cn_backup_watchdog.py"
+    },
+    {
+      "bytes": 8128,
+      "sha256": "b66d92d3fadcecd09d770cda29b18f2d6feb37d05aff184cb56f9452489943fb",
+      "source": ".harness/scripts/vm/cn_maintenance_admission.py",
+      "target": "/usr/local/lib/workspacex-cn/cn_maintenance_admission.py"
+    },
+    {
+      "bytes": 10473,
+      "sha256": "322e1d8342c787a282fe4a41093e3a9925d4c0ca20010b68f824e83b2691a230",
+      "source": ".harness/scripts/vm/cn_maintenance_hold.py",
+      "target": "/usr/local/lib/workspacex-cn/cn_maintenance_hold.py"
+    },
+    {
+      "bytes": 13419,
+      "sha256": "e432956aad7955c00198fc31302938aeca87a9f73cdcc2b08105bcc9b3cb0950",
+      "source": ".harness/scripts/vm/cn_object_inventory/inventory.py",
+      "target": null
+    },
+    {
+      "bytes": 10436,
+      "sha256": "fd506933ee0b42663edce8602821540cbe5bdfdc6a509b5b550fd38d23f93e2d",
+      "source": ".harness/scripts/vm/cn_object_inventory/runtime_audit.py",
+      "target": null
+    },
+    {
+      "bytes": 2375,
+      "sha256": "f87e828817e60158939f1b711aeab2caad67a24412ebbe0dbf6fea15cb39153b",
+      "source": ".harness/scripts/vm/cn_object_inventory/source_audit.py",
+      "target": null
+    },
+    {
+      "bytes": 12674,
+      "sha256": "f69f1dc549fa0650feb7df02448f03385a7d0db9b82f6e7912c864dd8cbe1b3d",
+      "source": ".harness/scripts/vm/cn_production_recovery_executor.py",
+      "target": "/usr/local/lib/workspacex-cn/cn_production_recovery_executor.py"
+    },
+    {
+      "bytes": 2296,
+      "sha256": "cf481dfeba75f8ccf25486c458716d8d6f8d767e0a94221bf5bebf09d742543f",
+      "source": ".harness/scripts/vm/cn_production_recovery_stream.py",
+      "target": "/usr/local/lib/workspacex-cn/cn_production_recovery_stream.py"
+    },
+    {
+      "bytes": 9587,
+      "sha256": "88d4d5f55f06b2049dfe77bff591ffa81e868106e6b9dea089d113c74a858260",
+      "source": ".harness/scripts/vm/cn_production_recovery_transport.py",
+      "target": "/usr/local/lib/workspacex-cn/cn_production_recovery_transport.py"
+    },
+    {
+      "bytes": 3105,
+      "sha256": "17daffbd18092381a833082530affcf68f912b7119892230cfb069da90fc5dac",
+      "source": ".harness/scripts/vm/cn_tool_profile.py",
+      "target": "/usr/local/lib/workspacex-cn/cn_tool_profile.py"
+    },
+    {
+      "bytes": 7935,
+      "sha256": "9d3a5a84820bab7967f68f3fc19a93607bfa370069410bd0301d233456076844",
+      "source": ".harness/scripts/vm/collect-cn-migration-snapshot.py",
+      "target": "/usr/local/lib/workspacex-cn/collect-cn-migration-snapshot.py"
+    },
+    {
+      "bytes": 26231,
+      "sha256": "de78bfad3bd493581d0000ad0e1932a621c121c3b870894948faaf591cc0806f",
+      "source": ".harness/scripts/vm/collect-cn-release-preflight.sh",
+      "target": "/usr/local/lib/workspacex-cn/collect-cn-release-preflight.sh"
+    },
+    {
+      "bytes": 29800,
+      "sha256": "7634fcf11be6314aa76199f40a61555471cbe4ccc0847949cb089dd5cd1b493c",
+      "source": ".harness/scripts/vm/control_connection.cjs",
+      "target": "/usr/local/lib/workspacex-cn/control_connection.cjs"
+    },
+    {
+      "bytes": 10909,
+      "sha256": "dfdcbff18f76e52b4c8b098c1951a1b956bab9c55621205107e1fbcb4e3d3d6d",
+      "source": ".harness/scripts/vm/control_connection.py",
+      "target": "/usr/local/lib/workspacex-cn/control_connection.py"
+    },
+    {
+      "bytes": 24725,
+      "sha256": "a5d9bc982e7f8cf2838dbf9f70ed341cbb772b0a4297817d8ed7440c2c648f7d",
+      "source": ".harness/scripts/vm/deploy-cn-production.sh",
+      "target": "/usr/local/bin/workspacex-cn-deploy"
+    },
+    {
+      "bytes": 12153,
+      "sha256": "a670b78924663f6e9cb9ac049cb32194dabc302f547f318fc10ff8d74357f5ff",
+      "source": ".harness/scripts/vm/fixed_probes.py",
+      "target": "/usr/local/lib/workspacex-cn/fixed_probes.py"
+    },
+    {
+      "bytes": 36591,
+      "sha256": "962bb61e85da77b6769dbe97530fa186417da217240875077bf3042efb1da7d9",
+      "source": ".harness/scripts/vm/host_transport.py",
+      "target": "/usr/local/lib/workspacex-cn/host_transport.py"
+    },
+    {
+      "bytes": 19373,
+      "sha256": "3e23a85ed47ccdffdf3b9ee4b7822b8571df66875341258d7c220be0a9595495",
+      "source": ".harness/scripts/vm/prepare-cn-tool-install.py",
+      "target": "/usr/local/lib/workspacex-cn/prepare-cn-tool-install.py"
+    },
+    {
+      "bytes": 11311,
+      "sha256": "c12b99d613bf9833e422af9a1cfe7960839b9da777b89360ab8620e6af7949b6",
+      "source": ".harness/scripts/vm/publish-cn-release.sh",
+      "target": "/usr/local/lib/workspacex-cn/publish-cn-release.sh"
+    },
+    {
+      "bytes": 6917,
+      "sha256": "02b56898d7ddc4fe1e4294402b4514a687947d3ace823afa2031206d25745bc9",
+      "source": ".harness/scripts/vm/verify-cn-release-preflight.sh",
+      "target": "/usr/local/lib/workspacex-cn/verify-cn-release-preflight.sh"
+    },
+    {
+      "bytes": 14033,
+      "sha256": "ee8313c17a88c175b87c5569e805ad8cba7e10652edaa47710b23072495b18e5",
+      "source": ".harness/scripts/vm/writer_fence.py",
+      "target": "/usr/local/lib/workspacex-cn/writer_fence.py"
+    },
+    {
+      "bytes": 5784,
+      "sha256": "0bc85cce471b6a829ca8891544bce3a6e8b4c26c5810f4d7aed94f5266e02cc4",
+      "source": "packages/cloud-deploy/src/cn-migration-completion-cli.ts",
+      "target": null
+    },
+    {
+      "bytes": 5436,
+      "sha256": "4266e0dab435f36befcf309be0dbfd50f0f2c62d176ce968a71b918acf03b1c6",
+      "source": "packages/cloud-deploy/src/cn-migration-completion.ts",
+      "target": null
+    }
+  ],
+  "installationAuthorized": false,
+  "installed": false,
+  "kind": "review-only-cn-sop-source-closure",
+  "productionActivated": false,
+  "ready": false,
+  "release": "2026.10.3-cn.1",
+  "schemaVersion": 1,
+  "sourceCommit": "8abf2fe295d818032f9ecfb09f442f739549815f",
+  "sourceCount": 62,
+  "sourceOnlyCount": 6,
+  "targetCount": 56
+}
