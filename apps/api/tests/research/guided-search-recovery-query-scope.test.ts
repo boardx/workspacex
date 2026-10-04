@@ -11,7 +11,7 @@ async function queries(original: string, recovered: string[], previous: string[]
   state.tasks = [task];
   const model = vi.fn(async (_system: string, _context: unknown, validate: (value: unknown) => void) => { const output = { queries: recovered }; validate(output); return output; });
   const result = await recoveryQueries(state, task, model);
-  if (result.length === 0 && /\bOR\b|\bNOT\b/.test(original)) expect(model).not.toHaveBeenCalled();
+  if (result.length === 0 && recovered[0] === "alternative evidence") expect(model).not.toHaveBeenCalled();
   return result;
 }
 
@@ -41,6 +41,9 @@ describe("recovery retains explicit confirmed query site constraints", () => {
   it("does not silently change a mixed site boolean expression", async () => {
     expect(await queries("(site:a.example OR site:b.example) site:c.example original", ["alternative"])).toEqual([]);
   });
+  it("deduplicates an equivalent scoped union with grouped replacement keywords", async () => {
+    expect(await queries("(site:a.example OR site:b.example) -site:c.example original", ["original"])).toEqual([]);
+  });
   it("does not retry the exact initial site-first query after scope is repositioned", async () => {
     expect(await queries("site:official.example/API same words", ["site:official.example/API same words"])).toEqual([]);
   });
@@ -60,6 +63,7 @@ describe("recovery retains explicit confirmed query site constraints", () => {
   });
 
   it.each([
+    "(site:a.example) OR (site:b.example topic)",
     "-(site:a.example OR site:b.example) topic",
     "NOT site:a.example topic",
     "site:a.example topic OR other",

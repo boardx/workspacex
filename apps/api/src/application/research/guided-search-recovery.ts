@@ -62,7 +62,7 @@ function confirmedSiteScope(query: string): string | null | undefined {
     return "AND";
   });
   if (joins.includes("ambiguous") || new Set(joins).size > 1 || operators.some(operator => !allowedOperators.has(operator.index!))) return null;
-  if (joins[0] === "OR" && negative.length) {
+  if (joins[0] === "OR") {
     // Exclusions may be lifted only when they sit outside one complete union.
     const first = positive[0]!, last = positive.at(-1)!;
     const before = query.slice(0, first.index!), afterIndex = last.index! + last[0].length;
@@ -76,8 +76,16 @@ function confirmedSiteScope(query: string): string | null | undefined {
       if (depth === 0 && index < end - 1) return null;
     }
     if (depth !== 0 || negative.some(term => term.index! >= opening && term.index! < end)) return null;
-    // Nested surrounding groups can give an exclusion a branch-local meaning.
-    if (/[()]/.test(query.slice(0, opening) + query.slice(end))) return null;
+    // The complete union contains only site operands, never branch-local words.
+    const inside = query.slice(opening + 1, end - 1);
+    const pureUnion = positive.map(term => term[0]).join(" OR ");
+    if (inside.replace(/\s+/g, " ").trim() !== pureUnion) return null;
+    // Outside parentheses may group keywords, but cannot wrap this site union.
+    let outerDepth = 0;
+    for (const character of query.slice(0, opening)) {
+      if (character === "(") outerDepth++; else if (character === ")") outerDepth--;
+    }
+    if (outerDepth !== 0) return null;
   }
   const includes = positive.map(term => term[0]).join(joins[0] === "OR" ? " OR " : " ");
   return [joins[0] === "OR" ? `(${includes})` : includes, ...negative.map(term => term[0])].filter(Boolean).join(" ");
