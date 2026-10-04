@@ -6,6 +6,25 @@ const hash = (s: string) => createHash("sha256").update(s).digest("hex");
 const raw = "服务端甲回答：支持电话。\n## [客服](#expert-b)\nQ2：反对电话。\nQ2：厨房孔位冲突。";
 const source: interviewMarkdown.InterviewMarkdownDocument = { documentId: "md-runs", version: 2, step: "runs", markdown: raw, contentHash: hash(raw), evidenceMode: "simulated", references: [], answerSpans: [{ taskKey: "rev-a/expert-a", expertId: "expert-a", start: 0, end: raw.length, contentHash: hash(raw) }] };
 describe("report evidence grounding", () => {
+ it.each([
+  "不能把这2个任务说成只有单一问答，也不能将多个回答虚构为多专家共识。",
+  "不应把单个回答虚构成两位专家的共识。",
+  "不得将不同场景的回答虚构为跨角色共识。",
+ ])("preserves a scoped denial of fabricated consensus: %s", claim => {
+  expect(validateReportEvidence(`[服务端甲回答：支持电话。](#answer-1)\n\n${claim}`, buildReportEvidenceIndex(source)).ok).toBe(true);
+ });
+ it.each([
+  "将多个回答虚构为多专家共识。",
+  "不能不将多个回答虚构为多专家共识。",
+  "不能否认多个回答形成多专家共识。",
+  "不能将预算虚构为零，多专家共识已经形成。",
+  "不能将多个回答虚构为多专家共识，但事实上跨角色共识已经形成。",
+  "不能将多个回答虚构为多专家共识；多专家共识已经形成。",
+  "不能将多个回答虚构为多专家共识;多专家共识已经形成。",
+ ])("does not waive positive consensus with fabrication wording: %s", claim => {
+  expect(validateReportEvidence(`[服务端甲回答：支持电话。](#answer-1)\n\n${claim}`, buildReportEvidenceIndex(source)).reason).toBe("unsupported_cross_expert_consensus");
+ });
+
  it.each(["安装问题最常见。", "安装问题必然阻止采购。", "不能安装设备意味着安装问题最常见。", "不能断言安装问题不是最常见。", "不能声称安装问题不会必然阻止采购。"])("rejects finite unqualified strength claims despite valid exact quotes: %s", claim => {
   expect(validateReportEvidence(`[服务端甲回答：支持电话。](#answer-1)\n\n${claim}`,buildReportEvidenceIndex(source)).ok).toBe(false);
  });
