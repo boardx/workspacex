@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { randomUUID } from "node:crypto";
 import { FULLSTACK_E2E } from "./fullstack-smoke-fixture";
-test("research persists all five model-backed steps through the real UI, API and PostgreSQL", async ({ page }, testInfo) => {
+test("research persists the confirmed-question pipeline through the real UI, API and PostgreSQL", async ({ page }, testInfo) => {
   test.setTimeout(180000);
   const researchName = `研究全链路验证 ${randomUUID()}`;
   await page.goto("/login");
@@ -173,7 +173,8 @@ test("research persists all five model-backed steps through the real UI, API and
   expect(runtime.coverage.every((item: { status: string }) => item.status === "answered")).toBe(true);
   expect(runtime.claimEvidence.length).toBeGreaterThan(0);
   expect(runtime.publicationReadiness.status).toBe("ready");
-  expect(runtime.activity.map((item: { stage: string }) => item.stage)).toEqual(expect.arrayContaining(["planning", "searching", "reading", "writing", "validating"]));
+  expect(runtime.activity.map((item: { stage: string }) => item.stage)).toEqual(expect.arrayContaining(["searching", "reading", "writing", "validating"]));
+  expect(runtime.activity.map((item: { stage: string }) => item.stage)).not.toContain("planning");
   expect(runtime.reportTimeline.map((step: { stage: string }) => step.stage)).toEqual(["evidence", "chapter", "review", "chapter", "review", "synthesis", "validation"]);
   expect(runtime.reportTimeline.every((step: { status: string }) => step.status === "completed")).toBe(true);
   expect(runtime.reportTimeline.find((step: { stage: string }) => step.stage === "evidence").attempts).toBe(2);
