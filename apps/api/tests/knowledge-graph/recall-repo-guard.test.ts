@@ -126,10 +126,10 @@ describe("F08 会话记忆召回读取的豁免前提", () => {
     expect(callersOf(/(?<!function )turnKnowledgeContext\(/)).toEqual(["src/application/agent-run/execute-run.ts"]);
     const exec = readFileSync(join(API, "src/application/agent-run/execute-run.ts"), "utf8");
     // #4361：第五个参数是「改主意」的端口（执行器 / 取代 / 自动记入），读身份与会话仍只取自 run
-    expect(exec).toMatch(/turnKnowledgeContext\(deps\.knowledge, deps\.memoryCards, \{ orgId, run \}, deps\.log, deps\.memoryChange\)/);
+    expect(exec).toMatch(/turnKnowledgeContext\(deps\.knowledge, deps\.memoryCards, \{ orgId, run, accounting: run\.leaseEpoch===undefined\?undefined:\{orgId:String\(orgId\),runId:run\.runId,attemptId:`\$\{run\.runId\}:\$\{stepSeqBase\}`,leaseEpoch:run\.leaseEpoch\} \}, deps\.log, deps\.memoryChange\)/);
     const rk = strip(readFileSync(join(API, "src/application/knowledge-graph/recall-knowledge.ts"), "utf8"));
     // issue #4360：画像摘要只进个人对话——「是不是个人对话」同样只取自 run（run.projectId）。
-    expect(rk).toMatch(/knowledgeMemoryFor\(knowledge, \{ orgId, userId: run\.requesterUserId, threadId: run\.threadId, query: run\.inputText, runId: run\.runId, personalThread: run\.projectId === null \|\| run\.projectId === "" \}, log\)/);
+    expect(rk).toMatch(/knowledgeMemoryFor\(knowledge, \{ orgId, userId: run\.requesterUserId, threadId: run\.threadId, query: run\.inputText, runId: run\.runId, accounting: input\.accounting, personalThread: run\.projectId === null \|\| run\.projectId === "" \}, log\)/);
     expect(rk).toMatch(/memoryCardFor\(knowledge, cards, \{\s*orgId, userId: run\.requesterUserId, threadId: run\.threadId, runId: run\.runId, messageId: run\.inputMessageId, text: run\.inputText,\s*\}, log, change\)/);
     // memoryCardFor 读候选集只拿 id 去开卡：卡上的内容由 kg_open_memory_card 在数据库里按会话 / 本人个人空间复核后才写
     expect(rk).toMatch(/const \{ claims \} = await knowledge\.candidates\(input\.orgId, input\.userId, input\.threadId\);/);
@@ -168,7 +168,7 @@ describe("F08 会话记忆召回读取的豁免前提", () => {
     expect(code).toMatch(/async vectorNeighbors\([\s\S]*?return this\.db\.withTenant\(orgId, async \(s\) => \{\s*await s\.query\("SELECT set_config\('app\.current_user_id', \$1, true\)", \[userId\]\);/);
     expect(code).toMatch(/`SELECT oe\.target_id AS id, 1 - \(\$\{order\}\) AS similarity FROM object_embeddings oe\s+WHERE oe\.org_id = \$1 AND oe\.target_kind = 'claim' AND oe\.model = \$2 AND oe\.model_version = \$3\s+AND oe\.target_id = ANY\(\$5::text\[\]\)\s+ORDER BY \$\{order\} LIMIT \$6`,\s*\[orgId, model\.model, model\.modelVersion, vec, claimIds, limit\],/);
     // 候选 id 只能来自调用方给的那一份（数组或还在读的候选集）；为空 ⇒ 一条都不查
-    expect(code).toMatch(/const \[claimIds, q\] = await Promise\.all\(\[candidateIds, this\.embeddings\.embed\(query\)\]\);\s*if \(claimIds\.length === 0\) return \[\];/);
+    expect(code).toMatch(/const \[claimIds, q\] = await Promise\.all\(\[candidateIds, this\.embeddings\.embed\(query,this\.requestAccounting\?accounting:undefined\)\]\);\s*if \(claimIds\.length === 0\) return \[\];/);
     // recall-knowledge.ts 交进来的候选 id 就是同一轮 candidates 的结果
     const rk = strip(readFileSync(join(API, "src/application/knowledge-graph/recall-knowledge.ts"), "utf8"));
     // issue #4363（S6）：只可能再**收窄**（过期 / 不做了的不交给向量通道），不能换成别的来源
