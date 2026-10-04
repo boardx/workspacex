@@ -445,7 +445,7 @@ it("returns a URL-opened report to history without reopening the stale session p
 });
 
 it("shows and searches the canonical generated topic for default-named list entries", async () => {
-  const item = { ...createdSession("generated-name"), title: "新建研究" };
+  const item = { ...createdSession("generated-name"), title: "已生成的独特主题" };
   listGuidedResearchSessions.mockResolvedValue({ items: [item] });
   getResearchRuntime.mockResolvedValue({ ...runtimeFixture("directions", item.sessionId), brief: { ...runtimeFixture().brief, topic: "已生成的独特主题" } });
   render(<GuidedResearchFlow step="home" onStepChange={vi.fn()} />);
@@ -458,66 +458,29 @@ const legacyGoal = "公开合成需求。".repeat(30);
 function legacyListItem(id: string) {
   return { ...createdSession(id), title: legacyGoal.slice(0, 100), brief: { ...createdSession(id).brief, goal: legacyGoal } };
 }
-it.each([true, false])("hydrates exact legacy automatic list names with generated authority (%s)", async generated => {
-  const item = legacyListItem("legacy-name");
-  listGuidedResearchSessions.mockResolvedValue({ items: [item] });
-  getResearchRuntime.mockResolvedValue({ ...runtimeFixture("directions", item.sessionId), generatedNodes: generated ? ["brief"] : [], brief: { ...item.brief, topic: "保存的简洁列表主题" } });
+it("keeps ambiguous historical names and renders default metadata fallback without hydration", async () => {
+  const legacy = legacyListItem("legacy-name");
+  const fallback = { ...createdSession("fallback"), title: "新建研究" };
+  listGuidedResearchSessions.mockResolvedValue({ items: [legacy, fallback] });
   render(<GuidedResearchFlow step="home" />);
-  await waitFor(() => expect(screen.getByTestId("research-history-legacy-name")).toHaveTextContent(generated ? "保存的简洁列表主题" : "新建研究"));
-  await waitFor(() => expect(getResearchRuntime).toHaveBeenCalledTimes(1));
-  expect(screen.queryByText(item.title)).not.toBeInTheDocument();
-  if (generated) {
-    fireEvent.change(screen.getByTestId("research-history-search"), { target: { value: "简洁列表主题" } });
-    expect(screen.getByTestId("research-history-legacy-name")).toBeInTheDocument();
-  }
-});
-it("keeps legacy candidates concise while hydration is pending and after failure", async () => {
-  const item = legacyListItem("failed-name");
-  listGuidedResearchSessions.mockResolvedValue({ items: [item] });
-  let reject!: (error: Error) => void;
-  getResearchRuntime.mockImplementation(() => new Promise((_resolve, fail) => { reject = fail; }));
-  render(<GuidedResearchFlow step="home" />);
-  expect(await screen.findByTestId("research-history-failed-name")).toHaveTextContent("新建研究");
-  expect(screen.queryByText(item.title)).not.toBeInTheDocument();
-  await act(async () => reject(new Error("offline")));
-  expect(screen.getByTestId("research-history-failed-name")).toHaveTextContent("新建研究");
-});
-it("does not hydrate independently named entries even when the name fills the metadata limit", async () => {
-  const item = { ...legacyListItem("explicit-name"), title: "明确命名".repeat(25) };
-  listGuidedResearchSessions.mockResolvedValue({ items: [item] });
-  render(<GuidedResearchFlow step="home" />);
-  expect(await screen.findByText(item.title)).toBeInTheDocument();
+  expect(await screen.findByText(legacy.title)).toBeInTheDocument();
+  expect(screen.getByTestId("research-history-fallback")).toHaveTextContent("新建研究");
   expect(getResearchRuntime).not.toHaveBeenCalled();
 });
-it("rejects a candidate runtime from a different session", async () => {
-  const item = { ...createdSession("wrong-runtime"), title: "新建研究" };
-  listGuidedResearchSessions.mockResolvedValue({ items: [item] });
-  getResearchRuntime.mockResolvedValue({ ...runtimeFixture("directions", "other-session"), brief: { ...item.brief, topic: "错误会话主题" } });
-  render(<GuidedResearchFlow step="home" />);
-  await waitFor(() => expect(getResearchRuntime).toHaveBeenCalledTimes(1));
-  expect(screen.getByTestId("research-history-wrong-runtime")).toHaveTextContent("新建研究");
-  expect(screen.queryByText("错误会话主题")).not.toBeInTheDocument();
-});
-it("ignores candidate hydration after the home list unmounts", async () => {
-  const item = { ...createdSession("late-runtime"), title: "新建研究" };
-  listGuidedResearchSessions.mockResolvedValue({ items: [item] });
-  let resolve!: (value: ReturnType<typeof runtimeFixture>) => void;
-  getResearchRuntime.mockImplementation(() => new Promise(done => { resolve = done; }));
+it("ignores a projected list response after unmount", async () => {
+  let resolve!: (value: { items: ReturnType<typeof createdSession>[] }) => void;
+  listGuidedResearchSessions.mockImplementation(() => new Promise(done => { resolve = done; }));
   const view = render(<GuidedResearchFlow step="home" />);
-  await waitFor(() => expect(getResearchRuntime).toHaveBeenCalledTimes(1));
   view.unmount();
-  await act(async () => resolve({ ...runtimeFixture("directions", item.sessionId), brief: { ...item.brief, topic: "迟到标题" } }));
+  await act(async () => resolve({ items: [{ ...createdSession("late"), title: "迟到标题" }] }));
   expect(screen.queryByText("迟到标题")).not.toBeInTheDocument();
+  expect(getResearchRuntime).not.toHaveBeenCalled();
 });
-
-it("does not let an older list hydration override a newly saved explicit name", async () => {
-  const item = { ...createdSession("renamed-runtime"), title: "新建研究" };
+it("keeps a newly saved explicit name after refreshing the projected list", async () => {
+  const item = { ...createdSession("renamed-runtime"), title: "旧生成名称" };
   listGuidedResearchSessions.mockResolvedValueOnce({ items: [item] }).mockResolvedValue({ items: [{ ...item, title: "新显式名称" }] });
-  let resolve!: (value: ReturnType<typeof runtimeFixture>) => void;
-  getResearchRuntime.mockImplementation(() => new Promise(done => { resolve = done; }));
   render(<GuidedResearchFlow step="home" />);
-  await waitFor(() => expect(getResearchRuntime).toHaveBeenCalledTimes(1));
-  const trigger = screen.getByTestId("research-history-actions-renamed-runtime");
+  const trigger = await screen.findByTestId("research-history-actions-renamed-runtime");
   fireEvent.pointerDown(trigger, { button: 0, ctrlKey: false });
   fireEvent.pointerUp(trigger, { button: 0, ctrlKey: false });
   fireEvent.click(trigger);
@@ -525,8 +488,22 @@ it("does not let an older list hydration override a newly saved explicit name", 
   fireEvent.change(screen.getByTestId("research-edit-name"), { target: { value: "新显式名称" } });
   fireEvent.click(screen.getByTestId("research-edit-submit"));
   expect(await screen.findByText("新显式名称")).toBeInTheDocument();
-  await act(async () => resolve({ ...runtimeFixture("directions", item.sessionId), brief: { ...item.brief, topic: "旧生成名称" } }));
   expect(screen.getByTestId("research-history-renamed-runtime")).toHaveTextContent("新显式名称");
   expect(screen.queryByText("旧生成名称")).not.toBeInTheDocument();
-  expect(getResearchRuntime).toHaveBeenCalledTimes(1);
+  expect(getResearchRuntime).not.toHaveBeenCalled();
+});
+
+it("preserves explicitly renamed goal-prefix titles and makes no per-card runtime requests", async () => {
+  const item = legacyListItem("explicit-prefix");
+  listGuidedResearchSessions.mockResolvedValue({ items: [item] });
+  render(<GuidedResearchFlow step="home" />);
+  expect(await screen.findByText(item.title)).toBeInTheDocument();
+  expect(getResearchRuntime).not.toHaveBeenCalled();
+});
+it("renders projected default-name topics without full runtime fan-out", async () => {
+  const items = Array.from({ length: 50 }, (_, i) => ({ ...createdSession(`projected-${i}`), title: `保存的主题${i}` }));
+  listGuidedResearchSessions.mockResolvedValue({ items });
+  render(<GuidedResearchFlow step="home" />);
+  expect(await screen.findByText("保存的主题49")).toBeInTheDocument();
+  expect(getResearchRuntime).not.toHaveBeenCalled();
 });

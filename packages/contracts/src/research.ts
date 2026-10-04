@@ -848,6 +848,15 @@ const guidedWorkflowErrors = [
   "RESEARCH_SOURCE_RELEVANCE_INVALID",
 ] as const;
 
+export const DEFAULT_RESEARCH_NAME = "新建研究";
+
+/** Names with unknown historical provenance remain explicit; never infer origin from goal text. */
+export function guidedResearchHeading(state: { brief: { topic: string }; generatedNodes: readonly string[] }, name?: string): string {
+  const explicit = name?.trim();
+  if (explicit && explicit !== DEFAULT_RESEARCH_NAME) return explicit;
+  return state.generatedNodes.includes("brief") ? state.brief.topic.trim() || DEFAULT_RESEARCH_NAME : DEFAULT_RESEARCH_NAME;
+}
+
 export const GuidedResearchMetadata = z.object({
   title: z.string().trim().min(1).max(100),
   tags: z.array(z.string().trim().min(1).max(20)).max(5)
