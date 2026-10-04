@@ -177,6 +177,58 @@ it("keeps report timeline and real deltas visible across a route remount", async
   expect(api.streamInterviewMarkdownReport).toHaveBeenCalledTimes(1);
 });
 
+it("retains the first saved candidate during bounded repair and reconciles failure before refresh", async () => {
+  const id = "itv-repair-saved-retention";
+  const answers = { ...source, interviewId: id, version: 9,
+    documents: [{ documentId: "repair-answers", step: "runs" as const, version: 1, markdown: "已保存原文。", contentHash: "a".repeat(64), evidenceMode: "simulated" as const, references: [] }],
+    states: [{ documentId: "repair-answers", status: "confirmed" as const, failure: null }],
+    execution: { status: "completed" as const, tasks: [{ expertId: "expert-repair", status: "completed" as const, errorCode: null }] } };
+  const saved = { ...savedReport(id), revisionId: answers.revisionId, version: 10, states: [{ documentId: "report-saved", status: "failed" as const, failure: { code: "REPORT_ACTION_VALIDATION_REJECTED", retryable: true } }] };
+  api.initializeInterviewMarkdown.mockResolvedValue(answers); api.loadInterviewMarkdown.mockResolvedValue(answers);
+  let emit!: (event: { type: string; stage?: string; delta?: string; attempt?: number }) => void;
+  let fail!: (error: Error) => void;
+  api.streamInterviewMarkdownReport.mockImplementation((_id, _versions, callback) => { emit = callback; return new Promise((_resolve,reject) => { fail = reject; }); });
+  const runs = render(<InterviewMarkdownResultsStep interviewId={id} step="runs" runs={[]} onVersionChange={vi.fn()} onReport={vi.fn()} />);
+  fireEvent.click(await screen.findByRole("button", { name: "生成报告" }));
+  await waitFor(() => expect(emit).toBeTypeOf("function")); runs.unmount();
+  const report = render(<InterviewMarkdownResultsStep interviewId={id} step="report" runs={[]} onVersionChange={vi.fn()} onReport={vi.fn()} />);
+  await screen.findByTestId("itv-report-generation");
+  await act(async () => { emit({type:"delta",delta:"# 第一轮候选\n\n已持久化的正文与反例。"}); });
+  api.loadInterviewMarkdown.mockResolvedValue(saved);
+  await act(async () => { emit({type:"attempt",attempt:2}); emit({type:"stage",stage:"model"}); });
+  expect(screen.queryByText("正在准备报告…")).not.toBeInTheDocument();
+  expect(await screen.findByTestId("itv-source-report-markdown")).toHaveTextContent("已持久化的正文与反例");
+  expect(screen.queryByRole("button", { name: "继续生成报告" })).not.toBeInTheDocument();
+  await act(async () => { fail(new Error("controlled failure")); });
+  await waitFor(() => expect(screen.queryByTestId("itv-report-generation")).not.toBeInTheDocument());
+  expect(screen.getByTestId("itv-source-report-markdown")).toHaveTextContent("已持久化的正文与反例");
+  report.unmount(); api.initializeInterviewMarkdown.mockResolvedValue(saved);
+  render(<InterviewMarkdownResultsStep interviewId={id} step="report" runs={[]} onVersionChange={vi.fn()} onReport={vi.fn()} />);
+  expect(await screen.findByTestId("itv-source-report-markdown")).toHaveTextContent("已持久化的正文与反例");
+  expect(saved.documents[0]!.contentHash).toBe("b".repeat(64));
+});
+
+it.each(["older-version", "conflicting-hash", "missing-document"])("rejects late repair snapshots with %s", async (mismatch) => {
+  const { runInterviewGeneration } = await import("@/lib/interview-generation-session");
+  const id = `itv-repair-late-snapshot-${mismatch}`;
+  const current = savedReport(id);
+  let finish!: (value: InterviewMarkdownEnvelope) => void;
+  let reply!: (value: InterviewMarkdownEnvelope) => void;
+  const request = runInterviewGeneration(id, "report", update => {
+    update({ attempt: 2, markdown: "本次独立修订流。" });
+    return new Promise(resolve => { finish = resolve; });
+  }, { revisionId: current.revisionId, version: current.version });
+  api.initializeInterviewMarkdown.mockResolvedValue(current);
+  api.loadInterviewMarkdown.mockImplementation(() => new Promise(resolve => { reply = resolve; }));
+  render(<InterviewMarkdownResultsStep interviewId={id} step="report" runs={[]} onVersionChange={vi.fn()} onReport={vi.fn()} />);
+  expect(await screen.findByTestId("itv-source-report-markdown")).toHaveTextContent("已持久化的正文与反例");
+  await waitFor(() => expect(reply).toBeTypeOf("function"));
+  const mismatched = { ...current, version: current.version + 1, documents: mismatch === "missing-document" ? [] : [{ ...current.documents[0]!, version: mismatch === "older-version" ? 1 : 2, markdown: "过期候选不能替代用户已保存修改。", contentHash: "c".repeat(64) }] };
+  await act(async () => { reply(mismatched); });
+  expect(screen.getByTestId("itv-source-report-markdown")).toHaveTextContent("已持久化的正文与反例");
+  await act(async () => { finish(current); await request; });
+});
+
 it("does not show old revision report deltas or accept its later completion", async () => {
   const { runInterviewGeneration } = await import("@/lib/interview-generation-session");
   let finish!: (value: InterviewMarkdownEnvelope) => void;
