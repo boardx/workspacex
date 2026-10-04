@@ -18,6 +18,21 @@ class WatchdogTests(unittest.TestCase):
   self.assertEqual(events[0],('dispatch','close'))
   self.assertEqual(events[1],('docker',['rm','--force','a'*64]))
   self.assertTrue(r['exactRevocationVerified'])
+ def test_capture_or_close_failure_still_contains_owned_container(self):
+  for failed_step in ('capture','close'):
+   with self.subTest(failed_step=failed_step):
+    events=[];calls=[0]
+    def inventory(owner):
+     calls[0]+=1
+     return [{'Id':'a'*64}] if calls[0]<=2 else []
+    def dispatch(*args,**kwargs):
+     events.append(('dispatch',args[4]))
+     if failed_step=='close':raise RuntimeError('fixture close failure')
+    capture_error=RuntimeError('fixture catalog failure') if failed_step=='capture' else None
+    with patch.object(w,'capture',return_value={'role':[{}],'sessions':[]},side_effect=capture_error),patch.object(w,'dispatch',side_effect=dispatch),patch.object(w,'owned_inventory',side_effect=inventory),patch.object(w,'docker',side_effect=lambda args:events.append(('docker',args))):
+     with self.assertRaisesRegex(RuntimeError,'CONTAINMENT_UNKNOWN'):
+      w.cleanup({}, {}, SimpleNamespace(allowed_public_temp=()),dict.fromkeys(w.DATABASES,object()),'b'*32)
+    self.assertEqual(events,[('dispatch','close'),('docker',['rm','--force','a'*64])])
  def test_foreign_image_never_authorizes_removal(self):
   identifier='a'*64;owner='b'*32;calls=[]
   def docker(args):

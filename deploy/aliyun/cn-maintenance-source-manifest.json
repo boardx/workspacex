@@ -4,7 +4,7 @@
   "baseCommit": "64cc2b85053823a4c7461eb404b9f3a99c749a33",
   "applicationRevision": "9b25bfa65662b96c0826fe67506b562ea46aa6d0",
   "baselineRevision": "ba6343199f3c834d6a198f83d0c771614292c82b",
-  "sourceInventorySha256": "a120a7ca91786be89f0e5b6d10b39be92633d7ac3b800601312eb1a65795cea8",
+  "sourceInventorySha256": "2c4e4aedfe0d82a926379944a7817b4d5e63149ffd816498210387f90cdb353c",
   "sourceRows": [
     {
       "path": ".harness/scripts/build-cn-maintenance-controller.cjs",
@@ -18,8 +18,8 @@
     },
     {
       "path": ".harness/scripts/run-cn-maintenance-pure-tests.py",
-      "sha256": "bed2885af62fcef89a15466dad25a371fd1eca1d43a44dc3caae555d1927de4d",
-      "bytes": 1669
+      "sha256": "1f7641d982a2352912ea7e1edd3537a7b93524376a30b76417ed23c2be36ea19",
+      "bytes": 1659
     },
     {
       "path": ".harness/scripts/vm/backup_connection.cjs",
@@ -208,8 +208,8 @@
     },
     {
       "path": ".harness/scripts/vm/cn_backup_watchdog.py",
-      "sha256": "61a4a46ccf41d4978aa464f4fba6efee4cd3320342b851058d42f017ad0571eb",
-      "bytes": 9530
+      "sha256": "05afcbb20a3c7928f5bc00bec2a756841b3e445a57de95992f0fe770129a383b",
+      "bytes": 9918
     },
     {
       "path": ".harness/scripts/vm/cn_build_tool_identity_test.py",
@@ -467,12 +467,12 @@
       "bytes": 11079
     },
     {
-      "path": ".harness/scripts/vm/test_backup_connection.test.cjs",
+      "path": ".harness/scripts/vm/test_backup_connection.cjs",
       "sha256": "d60802f54740ba86a2e9d43075fd2e1fd7c33abe45adaf800257e383814fd20b",
       "bytes": 6958
     },
     {
-      "path": ".harness/scripts/vm/test_backup_profile_transport.test.cjs",
+      "path": ".harness/scripts/vm/test_backup_profile_transport.cjs",
       "sha256": "44263a3d74899f690bcb3c3111711a9d0ad5b1d3e2cbcb6920e825f693f88dcd",
       "bytes": 2733
     },
@@ -528,8 +528,8 @@
     },
     {
       "path": ".harness/scripts/vm/test_cn_backup_watchdog.py",
-      "sha256": "c9188a39a77340c9c9ab685764dffcbd3c38e160a2a5fc0211f70831d7104d56",
-      "bytes": 5256
+      "sha256": "85e8b4a07eb41fd1858763bb6a06ec4a2fa722149e98be865d66df9e4cd169a9",
+      "bytes": 6330
     },
     {
       "path": ".harness/scripts/vm/test_control_connection.cjs",
@@ -628,8 +628,8 @@
     },
     {
       "path": "deploy/aliyun/cn-maintenance-source-handoff.md",
-      "sha256": "c877132680712bf9719bded1f6415e71ea11d8b779cb303bc3cb43e61a992e31",
-      "bytes": 26345
+      "sha256": "22ffdd7aa76ff786bcc96152b7a80b73117808cd1f63a1157c362d85851f369c",
+      "bytes": 27855
     },
     {
       "path": "deploy/aliyun/cn-native-backup-cost-evidence.json",
@@ -958,7 +958,7 @@
     "original backup role approval remains; limited PUBLIC TEMP/session/five-function capability delta is proposed but unapproved",
     "recipient certificate/private-key custody and verified recovery input package remain unfrozen",
     "held preactivate/candidate startup and true production acceptance remain incomplete",
-    "OPEN review5973208084: watchdog complete catalog capture can fail before NOLOGIN/owned-container containment; no local fix; bespoke expansion paused for native-backup/PITR comparison"
+    "Source fix for review5973208084 now attempts fixed-role close and owned-container containment despite capture/close failure; independent review and CI remain pending; no production installation"
   ],
   "remainingExecution": [
     "expired existing certificate: exact reviewed renewal/replacement plus custody/retention/escrow/recovery records",
