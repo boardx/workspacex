@@ -6,6 +6,23 @@ const hash = (s: string) => createHash("sha256").update(s).digest("hex");
 const raw = "服务端甲回答：支持电话。\n## [客服](#expert-b)\nQ2：反对电话。\nQ2：厨房孔位冲突。";
 const source: interviewMarkdown.InterviewMarkdownDocument = { documentId: "md-runs", version: 2, step: "runs", markdown: raw, contentHash: hash(raw), evidenceMode: "simulated", references: [], answerSpans: [{ taskKey: "rev-a/expert-a", expertId: "expert-a", start: 0, end: raw.length, contentHash: hash(raw) }] };
 describe("report evidence grounding", () => {
+ it.each(["安装问题最常见。", "安装问题必然阻止采购。", "不能安装设备意味着安装问题最常见。", "不能断言安装问题不是最常见。", "不能声称安装问题不会必然阻止采购。"])("rejects finite unqualified strength claims despite valid exact quotes: %s", claim => {
+  expect(validateReportEvidence(`[服务端甲回答：支持电话。](#answer-1)\n\n${claim}`,buildReportEvidenceIndex(source)).ok).toBe(false);
+ });
+ it.each(["不能断言安装问题最常见。", "不能声称安装问题必然阻止采购。", "若安装问题必然阻止采购，应重新验证这一假设。"])("preserves scoped qualifications: %s", claim => {
+  expect(validateReportEvidence(`[服务端甲回答：支持电话。](#answer-1)\n\n${claim}`,buildReportEvidenceIndex(source)).ok).toBe(true);
+ });
+ it("describes distinct bound server tasks without treating them as verified human identities", () => {
+  const text = "支持电话。\n反对电话。";
+  const index = buildReportEvidenceIndex({...source,markdown:text,contentHash:hash(text),answerSpans:[
+   {taskKey:"revision/shared-a",expertId:"expert-a",start:0,end:5,contentHash:hash("支持电话。")},
+   {taskKey:"revision/shared-b",expertId:"expert-b",start:6,end:text.length,contentHash:hash("反对电话。")},
+  ]});
+  const context = reportEvidenceContext(index);
+  expect(context).toContain("服务端已绑定任务数：2；画像数：2");
+  expect(context).toContain("归属已绑定不等于真人身份已验证");
+  expect(context).toContain("revision不是任务");
+ });
  it("does not duplicate every indexed quote in per-anchor syntax hints", () => {
   const index = buildReportEvidenceIndex(source);
   const context = reportEvidenceContext(index);
