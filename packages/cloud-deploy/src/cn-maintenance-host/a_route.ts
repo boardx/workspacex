@@ -22,6 +22,7 @@ export interface ARouteOperations {
  resumeExactCandidateWriters(identity: MaintenanceIdentity): Promise<void>;
  verifyCandidateWritersResumed(identity: MaintenanceIdentity): Promise<void>;
  verifyPublicAcceptance(identity: MaintenanceIdentity): Promise<void>;
+ observeOpenedCandidate(identity: MaintenanceIdentity): Promise<void>;
  blockCandidateWriters(identity: MaintenanceIdentity): Promise<void>;
  /** Fresh no-DDL proof and unchanged baseline identity, never a cached prior. */
  verifyNoMigrationCommitted(identity: MaintenanceIdentity): Promise<void>;
@@ -33,10 +34,10 @@ export interface ARouteOperations {
 }
 export async function runARouteMaintenanceRelease(request: MaintenanceRequest, ops: ARouteOperations): Promise<void> {
  if(request.maintenanceOptIn!=='stop-all-writes-and-require-database-recovery'||!/^[a-f0-9]{40}$/.test(request.sourceRevision)||!/^[a-f0-9]{40}$/.test(request.baselineRevision)||!/^[a-f0-9]{64}$/.test(request.migrationPlanSha256)||!/^[A-Za-z0-9-]{1,128}$/.test(request.attemptId))throw Error('A_ROUTE_IDENTITY_INVALID');
- for(const name of ['acquireReleaseLock','prepareOffline','verifyPreholdRecoveryCapability','verifyIsolatedCandidateAcceptance','persistMaintenanceHold','verifyMaintenanceHoldPresent','blockAllWrites','verifyWritesBlocked','captureAndVerifyCurrentEpochRecovery','verifyCurrentEpochIsolatedCandidateAcceptance','migrateExactPlan','verifyHeldCandidateReadback','stageCandidateRuntime','verifyCandidateRuntimeIdentity','persistCandidateResumeIntent','resumeExactCandidateWriters','verifyCandidateWritersResumed','verifyPublicAcceptance','blockCandidateWriters','verifyNoMigrationCommitted','resumeUnchangedBaselineCancellation','verifyBaselineCancellation','clearAndVerifyMaintenanceHold','recordRecoveryRequired','recordReconciliationRequired'] as const)if(typeof ops[name]!=='function')throw Error('A_ROUTE_CAPABILITY_MISSING:'+name);
+ for(const name of ['acquireReleaseLock','prepareOffline','verifyPreholdRecoveryCapability','verifyIsolatedCandidateAcceptance','persistMaintenanceHold','verifyMaintenanceHoldPresent','blockAllWrites','verifyWritesBlocked','captureAndVerifyCurrentEpochRecovery','verifyCurrentEpochIsolatedCandidateAcceptance','migrateExactPlan','verifyHeldCandidateReadback','stageCandidateRuntime','verifyCandidateRuntimeIdentity','persistCandidateResumeIntent','resumeExactCandidateWriters','verifyCandidateWritersResumed','verifyPublicAcceptance','observeOpenedCandidate','blockCandidateWriters','verifyNoMigrationCommitted','resumeUnchangedBaselineCancellation','verifyBaselineCancellation','clearAndVerifyMaintenanceHold','recordRecoveryRequired','recordReconciliationRequired'] as const)if(typeof ops[name]!=='function')throw Error('A_ROUTE_CAPABILITY_MISSING:'+name);
  const identity=Object.freeze({sourceRevision:request.sourceRevision,baselineRevision:request.baselineRevision,migrationPlanSha256:request.migrationPlanSha256,attemptId:request.attemptId});
  const release=await ops.acquireReleaseLock(identity);
- let holdIntent=false,migrationIntent=false,resumeIntent=false,retainLock=false;
+ let holdIntent=false,migrationIntent=false,resumeIntent=false,retainLock=false,holdCleared=false;
  try{
   await ops.prepareOffline(identity);
   await ops.verifyPreholdRecoveryCapability(identity);
@@ -54,11 +55,14 @@ export async function runARouteMaintenanceRelease(request: MaintenanceRequest, o
   resumeIntent=true;await ops.persistCandidateResumeIntent(identity);
   await ops.resumeExactCandidateWriters(identity);await ops.verifyCandidateWritersResumed(identity);
   await ops.verifyPublicAcceptance(identity);
-  await ops.clearAndVerifyMaintenanceHold(identity);holdIntent=false;
+  await ops.clearAndVerifyMaintenanceHold(identity);holdCleared=true;
+  await ops.observeOpenedCandidate(identity);holdIntent=false;
  }catch(error){
   if(!holdIntent)throw error;
   retainLock=true;
   try{
+   // Post-open failure must create a new durable hold before reblocking.
+   if(holdCleared)await ops.persistMaintenanceHold(identity);
    await ops.verifyMaintenanceHoldPresent(identity);
    if(resumeIntent)await ops.blockCandidateWriters(identity);
    await ops.verifyWritesBlocked(identity);

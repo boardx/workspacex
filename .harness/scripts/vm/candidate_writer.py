@@ -340,10 +340,12 @@ def verify_candidate_backend_seal(plan, nonce, proof):
                 'CANDIDATE_SOCKET_WITNESS_CLOSURE')
         seen = set()
         for witness in witnesses:
+            endpoint_fields = ('endpointAuthority',) if 'endpointAuthority' in witness else ()
+            network_fields = ('networkNamespace', 'conntrack') if 'networkNamespace' in witness or 'conntrack' in witness else ()
             exact(witness, ('pid', 'backendStart', 'writerKey', 'containerId', 'imageId',
                             'configSha256', 'processPid', 'processStart', 'cgroupContainerId',
                             'socketInode', 'localAddr', 'localPort', 'remoteAddr', 'remotePort',
-                            'pgClientAddr', 'pgClientPort', 'peerSha256'),
+                            'pgClientAddr', 'pgClientPort', 'peerSha256') + network_fields + endpoint_fields,
                   'CANDIDATE_SOCKET_WITNESS_SCHEMA')
             key = (witness['pid'], witness['backendStart'])
             require(key not in seen, 'CANDIDATE_SOCKET_WITNESS_DUPLICATE')
@@ -353,6 +355,19 @@ def verify_candidate_backend_seal(plan, nonce, proof):
             session = matches[0]
             binding = session['binding']
             peer = plan['databasePeers'][db]
+            remote_address, remote_port = peer['serverAddr'], peer['serverPort']
+            if remote_address is None:
+                require(endpoint_fields, 'CANDIDATE_PRIVATE_ENDPOINT_AUTHORITY_REQUIRED')
+                authority = witness['endpointAuthority']
+                exact(authority, ('address','port','configurationSha256','providerEvidenceSha256'), 'CANDIDATE_PRIVATE_ENDPOINT_SCHEMA')
+                import ipaddress
+                require(type(authority['address']) is str and ipaddress.ip_address(authority['address']).version == 4 and
+                        ipaddress.ip_address(authority['address']).is_private and type(authority['port']) is int and
+                        authority['port'] == remote_port and all(sha(authority[k]) for k in ('configurationSha256','providerEvidenceSha256')),
+                        'CANDIDATE_PRIVATE_ENDPOINT_BINDING')
+                remote_address = authority['address']
+            else:
+                require(not endpoint_fields, 'CANDIDATE_UNEXPECTED_ENDPOINT_AUTHORITY')
             require(witness['writerKey'] == session['writerKey'] and
                     witness['containerId'] == witness['cgroupContainerId'] == binding['containerId'] and
                     witness['imageId'] == binding['imageId'] and
@@ -362,10 +377,29 @@ def verify_candidate_backend_seal(plan, nonce, proof):
                     type(witness['processStart']) is str and witness['processStart'] and
                     type(witness['socketInode']) is int and witness['socketInode'] > 0 and
                     type(witness['localAddr']) is str and witness['localAddr'] and
-                    witness['localAddr'] == witness['pgClientAddr'] and
                     type(witness['localPort']) is int and 0 < witness['localPort'] < 65536 and
-                    witness['localPort'] == witness['pgClientPort'] and
-                    witness['remoteAddr'] == peer['serverAddr'] and
-                    type(witness['remotePort']) is int and witness['remotePort'] == peer['serverPort'],
+                    witness['remoteAddr'] == remote_address and
+                    type(witness['remotePort']) is int and witness['remotePort'] == remote_port,
                     'CANDIDATE_SOCKET_OWNER_NOT_PROVEN')
+            direct = witness['localAddr'] == witness['pgClientAddr'] and witness['localPort'] == witness['pgClientPort']
+            conntrack = witness.get('conntrack')
+            if network_fields:
+                require(type(witness['networkNamespace']) is str and
+                        re.fullmatch(r'net:\[[0-9]+\]', witness['networkNamespace']),
+                        'CANDIDATE_NETWORK_NAMESPACE_INVALID')
+            if conntrack is None:
+                require(direct, 'CANDIDATE_NAT_WITNESS_REQUIRED')
+            else:
+                require(network_fields, 'CANDIDATE_NAT_NAMESPACE_REQUIRED')
+                exact(conntrack, ('original', 'reply'), 'CANDIDATE_CONNTRACK_SCHEMA')
+                for value in conntrack.values():
+                    exact(value, ('srcAddr', 'srcPort', 'dstAddr', 'dstPort'), 'CANDIDATE_CONNTRACK_TUPLE_SCHEMA')
+                    require(all(type(value[k]) is str and value[k] for k in ('srcAddr', 'dstAddr')) and
+                            all(type(value[k]) is int and 0 < value[k] < 65536 for k in ('srcPort', 'dstPort')),
+                            'CANDIDATE_CONNTRACK_TUPLE_INVALID')
+                require(conntrack['original'] == dict(srcAddr=witness['localAddr'], srcPort=witness['localPort'],
+                            dstAddr=remote_address, dstPort=remote_port) and
+                        conntrack['reply'] == dict(srcAddr=remote_address, srcPort=remote_port,
+                            dstAddr=witness['pgClientAddr'], dstPort=witness['pgClientPort']),
+                        'CANDIDATE_CONNTRACK_BINDING')
     return copy.deepcopy(proof['sessions'])

@@ -1,5 +1,6 @@
 // Local staging import. Canonical mapping must retain this single existing state machine.
-import { runMaintenanceRelease, MaintenanceWriteStateUnknown, type MaintenanceIdentity, type MaintenanceRequest, type MaintenanceOperations } from '../cn-maintenance-release';
+import { runMaintenanceRelease, MaintenanceWriteStateUnknown, MaintenanceRecoveryRequired, type MaintenanceIdentity, type MaintenanceRequest, type MaintenanceOperations } from '../cn-maintenance-release';
+import { runARouteMaintenanceRelease, type ARouteOperations } from './a_route';
 import { type CommandRunner, type TrustedExecutable } from './fixed_transport';
 
 export const writerCallbacks = ['blockAllWrites', 'verifyAllWritersDrained', 'verifyWritesBlocked', 'resumeWrites', 'verifyWritesResumed', 'recordWriteStateReconciliationRequired', 'recordDatabaseRecoveryRequired'] as const;
@@ -15,6 +16,8 @@ export interface HostBinding {
 /** Functions supplied by hash-bound root-private adapters, never receipt booleans.
  * Recovery must demonstrate its executable capability before acquiring the lock. */
 export interface HostPrimitives {
+  /** Source-owned A-route capabilities are admitted before any host mutation. */
+  aRoute?: ARouteOperations;
   assertTrustedBinding(binding: HostBinding): Promise<void>;
   verifyRecoveryExecutorCapability(identity: MaintenanceIdentity): Promise<void>;
   acquireReleaseLock(identity: MaintenanceIdentity): Promise<() => Promise<void>>;
@@ -48,6 +51,10 @@ export async function runHostMaintenance(request: MaintenanceRequest, binding: H
   // Entire startup admission is before lock/hold/writer/DB/traffic mutations.
   await primitives.assertTrustedBinding(binding);
   await primitives.verifyRecoveryExecutorCapability(binding.identity);
+  if (primitives.aRoute) {
+    await runARouteMaintenanceRelease(request, primitives.aRoute);
+    return;
+  }
   let originalHold: any;
   let clearedHold: any;
   const hold = async (action: string, input?: unknown) => parseOne((await run(binding.hold, [action, '/var/lib/workspacex-cn/runtime'], input)).stdout);
@@ -103,8 +110,8 @@ export async function runHostMaintenance(request: MaintenanceRequest, binding: H
 export async function runHostMaintenanceRetainingFd9(request: MaintenanceRequest, binding: HostBinding, primitives: HostPrimitives, run: CommandRunner): Promise<void> {
   try { await runHostMaintenance(request, binding, primitives, run); }
   catch (error) {
-    if (!(error instanceof MaintenanceWriteStateUnknown)) throw error;
-    process.stderr.write('MAINTENANCE_WRITE_STATE_RECONCILIATION_REQUIRED_LOCK_RETAINED\n');
+    if (!(error instanceof MaintenanceWriteStateUnknown) && !(error instanceof MaintenanceRecoveryRequired)) throw error;
+    process.stderr.write(error instanceof MaintenanceRecoveryRequired ? 'MAINTENANCE_DATABASE_RECOVERY_REQUIRED_LOCK_RETAINED\n' : 'MAINTENANCE_WRITE_STATE_RECONCILIATION_REQUIRED_LOCK_RETAINED\n');
     await new Promise<void>(() => { setInterval(() => {}, 60000); });
   }
 }

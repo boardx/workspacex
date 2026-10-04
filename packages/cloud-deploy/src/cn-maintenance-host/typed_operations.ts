@@ -1,3 +1,4 @@
+import { bindARouteHostOperations, type ARouteAdapterInputs } from './a_route_adapter';
 import type { MaintenanceIdentity } from '../cn-maintenance-release';
 import type { ActivationActions } from '../cn-fast-safe-release';
 import { offlinePreparedAction, exactMigrationAction, preparedActivationAction, type ExactMigrationInputs, type ExactMigrationTransport } from './reused_actions';
@@ -7,6 +8,8 @@ import type { CommandRunner, TrustedExecutable } from './fixed_transport';
 
 export interface ProtectedOperationInputs {
   lane?: 'maintenance';
+  /** Compiled adapters only; not a private-plan operation registry. */
+  aRouteInputs?: ARouteAdapterInputs;
   preparedReceipt: unknown;
   preparedManifest: Buffer;
   verifyOfflineArtifacts: () => Promise<void>;
@@ -29,6 +32,7 @@ const activationMethods = ['readBaselineFingerprint','drainRuns','promotePrepare
 /** Called by startup admission before lock acquisition, accumulating missing
  * implementations so users see a bounded plan instead of one failure at a time. */
 export async function bindTypedProductionOperations(value: Partial<ProtectedOperationInputs>) {
+  if (value.aRouteInputs) return { aRoute: await bindARouteHostOperations(value.aRouteInputs) };
   const missing: string[] = [];
   for (const key of ['verifyOfflineArtifacts','replayPreholdRecovery','verifyCandidateAcceptance','readValidatedReceipt','runBash','assertProtectedInputs'] as const) if (typeof value[key] !== 'function') missing.push(key);
   if (!Buffer.isBuffer(value.preparedManifest) || value.preparedReceipt === undefined) missing.push('preparedArtifacts');

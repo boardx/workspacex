@@ -125,8 +125,8 @@ function governance(repo,snapshot,identity) {
  const v={promotion:gh(`${prefix}/environments/production-cn-promotion`),promotionPolicies:pages(`${prefix}/environments/production-cn-promotion/deployment-branch-policies`,'branch_policies'),activation:gh(`${prefix}/environments/production-cn`),activationPolicies:pages(`${prefix}/environments/production-cn/deployment-branch-policies`,'branch_policies'),tagRules:rules};if(snapshot.governance)validateLiveGovernance(snapshot.governance.governance,v);else validateTagGovernance(v);return issuer.id;
 }
 export function frozenTagBinding(binding) {
- const {releaseSourceSha,attemptId,receiptSha256,governanceReceiptSha256,mainSourceEvidenceSha256,manifestSha256,baselineSha256,images,devappEvidenceSha256,devappWorkflowRunId}=binding;
- return {schemaVersion:1,releaseSourceSha,attemptId,receiptSha256,governanceReceiptSha256,mainSourceEvidenceSha256,manifestSha256,baselineSha256,images,devappEvidenceSha256,devappWorkflowRunId};
+ const {releaseSourceSha,expectedMainCnSha,attemptId,receiptSha256,governanceReceiptSha256,mainSourceEvidenceSha256,manifestSha256,baselineSha256,images,devappEvidenceSha256,devappWorkflowRunId}=binding;
+ return {schemaVersion:1,releaseSourceSha,expectedMainCnSha,attemptId,receiptSha256,governanceReceiptSha256,mainSourceEvidenceSha256,manifestSha256,baselineSha256,images,devappEvidenceSha256,devappWorkflowRunId};
 }
 export function validateFrozenTag(tagObject,tag,binding) {
  if(tagObject.tag!==tag||tagObject.object?.type!=='commit'||tagObject.object?.sha!==binding.releaseSourceSha||tagObject.message!==JSON.stringify(frozenTagBinding(binding)))fail('FROZEN_RELEASE_TAG_CHANGED');

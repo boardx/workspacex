@@ -102,6 +102,25 @@ class HostTransport:
   value=json.loads(self.run(args,input_raw=None if observation is None else json.dumps(observation,sort_keys=True).encode()))
   if observation is not None:require(value['observationSha256']==digest(observation),'PROBE_OBSERVATION_BINDING')
   require(value['identity']==self.plan['identity'],'PROBE_IDENTITY');return value
+ def read_candidate_transport_evidence(self,db):
+  # Explicit source-owned read-only provider capability in the reviewed profile.
+  # No ambient profile, caller-selected command, IAM mutation or new DB client.
+  self.require_lock();require(db in DATABASES and db in self.diagnostic_connections,'CANDIDATE_DIAGNOSTIC_REQUIRED')
+  profile=json.loads(private('/etc/workspacex-cn/trusted-tool-binding.json'))
+  cli=profile.get('candidateProviderReadOnly',{})
+  require(set(cli)=={'path','sha256','region','ramRoleName'} and cli['path']=='/usr/bin/aliyun' and cli['region']=='cn-shanghai' and re.fullmatch('[A-Za-z0-9_.-]{1,64}',cli['ramRoleName']) and re.fullmatch('[a-f0-9]{64}',cli['sha256']),'CANDIDATE_PROVIDER_PROFILE_REQUIRED')
+  fd=os.open(cli['path'],os.O_RDONLY|os.O_NOFOLLOW)
+  try:
+   st=os.fstat(fd);require(stat.S_ISREG(st.st_mode) and st.st_uid==0 and st.st_gid==0 and st.st_nlink==1 and stat.S_IMODE(st.st_mode)==0o755,'CANDIDATE_PROVIDER_BINARY_TRUST')
+   with os.fdopen(os.dup(fd),'rb') as stream:require(hashlib.sha256(stream.read()).hexdigest()==cli['sha256'],'CANDIDATE_PROVIDER_BINARY_PIN')
+   responses={}
+   for key,action in [('attribute','DescribeDBInstanceAttribute'),('ssl','DescribeDBInstanceSSL'),('allowlist','DescribeDBInstanceIPArrayList'),('network','DescribeDBInstanceNetInfo')]:
+    self.require_lock()
+    result=subprocess.run(['/proc/self/fd/'+str(fd),'rds',action,'--DBInstanceId','pgm-uf6rg214cp381l49','--region','cn-shanghai','--mode','EcsRamRole','--ram-role-name',cli['ramRoleName']],env=SAFE_ENV,stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,timeout=30,pass_fds=(9,fd))
+    require(result.returncode==0 and len(result.stdout)<=1024*1024,'CANDIDATE_PROVIDER_READ_REJECTED');responses[key]=json.loads(result.stdout)
+   evidence=self.diagnostic_connections[db].verify_live_transport(responses)
+   require(evidence['identity']==self.plan['identity'] and evidence['peer']==self.plan['databasePeers'][db],'CANDIDATE_PROVIDER_BINDING');return evidence
+  finally:os.close(fd)
  def docker_inventory(self):
   ids=self.run(['/usr/bin/docker','ps','--all','--no-trunc','--quiet']).decode().split()
   require(all(re.fullmatch('[a-f0-9]{64}',i) for i in ids),'DOCKER_IDS')
@@ -274,7 +293,7 @@ def serve_reviewed_fence(source_path,source_sha):
  raw=private(source_path);require(hashlib.sha256(raw).hexdigest()==source_sha,'REVIEWED_PLAN_PIN');plan=json.loads(raw)
  require(plan.get('schemaVersion')==1 and plan.get('mode')=='maintenance-all-writer-fence' and plan.get('productionActionsAuthorized') is True,'ACTION_PLAN_NOT_AUTHORIZED')
  require(re.fullmatch('[a-zA-Z0-9-]{1,128}',plan['identity']['attemptId']),'ATTEMPT_IDENTITY')
- transport=HostTransport(plan,source_sha,'apply-reviewed-all-writer-fence');transport.require_lock();transport.verify_capabilities(plan);unknown=False;mutated=False;migration_completed=False;journal=None
+ transport=HostTransport(plan,source_sha,'apply-reviewed-all-writer-fence');transport.require_lock();transport.verify_capabilities(plan);unknown=False;mutated=False;migration_completed=False;journal=None;candidate_actor=None;baseline_cancel=None
  try:
   sealed,receipt=seal_runtime_plan(transport,source_path,source_sha)
   journal=Journal(transport.plan['journalDirectory'],plan['identity']);adapter=WriterFenceAdapter(plan['identity'],transport.plan,transport,journal)
@@ -290,9 +309,30 @@ def serve_reviewed_fence(source_path,source_sha):
     require(len(line)<=1048576 and line.endswith(b'\n'),'FENCE_REQUEST_LIMIT')
     request=json.loads(line);require(request['sequence']==sequence+1 and request['identity']==plan['identity'],'FENCE_REQUEST_BINDING');sequence=request['sequence']
     if request['operation']=='close-accepted':
-     require(not unknown and journal.value['state']=='writes-resumed','FENCE_CLOSE_NOT_ACCEPTED');print(json.dumps({'sequence':sequence,'ok':True,'closed':True}),flush=True);break
+     require(not unknown and journal.value['state'] in ('writes-resumed','candidate-opened-observed','baseline-cancel-resumed'),'FENCE_CLOSE_NOT_ACCEPTED')
+     if journal.value['state']!='writes-resumed':
+      final_hold=transport.read_hold();require(final_hold['state']=='cleared' and final_hold['identity']==plan['identity'],'FENCE_FINAL_HOLD_NOT_CLEARED')
+     print(json.dumps({'sequence':sequence,'ok':True,'closed':True}),flush=True);break
+    if request['operation']=='baseline-cancellation-operation':
+     from candidate_host_transport import RetainedBaselineCancellation
+     require(not unknown and set(request)=={'sequence','identity','operation','action'},'BASELINE_CANCEL_REQUEST_BINDING')
+     action=request['action'];require(action in RetainedBaselineCancellation.operations,'BASELINE_CANCEL_OPERATION_UNSUPPORTED')
+     if baseline_cancel is None:baseline_cancel=RetainedBaselineCancellation(transport,adapter,journal)
+     if action=='resume-baseline':mutated=True
+     value=baseline_cancel.dispatch(action,plan['identity'])
+     print(json.dumps({'sequence':sequence,'ok':True,'value':value}),flush=True);continue
+    if request['operation']=='candidate-operation':
+     from candidate_host_transport import RetainedCandidateActor
+     require(not unknown and set(request)=={'sequence','identity','operation','candidatePlan','action'},'CANDIDATE_ACTOR_REQUEST_BINDING')
+     reference=request['candidatePlan'];action=request['action'];require(action in RetainedCandidateActor.operations,'CANDIDATE_ACTOR_OPERATION_UNSUPPORTED')
+     if candidate_actor is None:candidate_actor=RetainedCandidateActor(transport,journal,reference)
+     require(candidate_actor.reference==reference,'CANDIDATE_ACTOR_REFERENCE_CHANGED')
+     if action in ('resume','block','rebind-held-epoch-for-reblock'):mutated=True
+     value=candidate_actor.dispatch(action,plan['identity'])
+     print(json.dumps({'sequence':sequence,'ok':True,'value':value}),flush=True);continue
     if request['operation']=='migrate-exact-plan':
      require(not unknown,'FENCE_UNKNOWN_STATE_RETAINED');adapter.verifyWritesBlocked(plan['identity']);mutated=True
+     journal.record('migration-intent',identity=plan['identity'],migrationPlanSha256=plan['identity']['migrationPlanSha256'],holdGeneration=transport.plan['holdGeneration'])
      value=transport.control_connections['workspacex'].migrate_exact_plan(plan['identity']);adapter.verifyWritesBlocked(plan['identity']);migration_completed=True
      print(json.dumps({'sequence':sequence,'ok':True,'value':value}),flush=True);continue
     if request['operation']=='recover-retained-baseline':

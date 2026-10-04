@@ -82,8 +82,11 @@ class PersistentControlConnection:
    if bind:require(value['connection']==self.binding,'CONTROL_CONNECTION_CHANGED')
    return value
   finally:selector.close()
+ def verify_live_transport(self,provider):
+  require(self.mode=='diagnostic' and type(provider) is dict and set(provider)=={'attribute','ssl','allowlist','network'},'LIVE_TRANSPORT_AUTHORITY')
+  return self.request({'operation':'verify-live-transport','provider':provider})['value']
  def query(self,query_id):
-  require(self.mode=='diagnostic' and query_id in ('roles','sessions','migration-ledger','run-drain'),'DIAGNOSTIC_QUERY_AUTHORITY')
+  require(self.mode=='diagnostic' and query_id in ('roles','sessions','migration-ledger','run-drain','candidate-sessions'),'DIAGNOSTIC_QUERY_AUTHORITY')
   return self.request({'operation':'query','queryId':query_id})['value']
  def migrate_exact_plan(self,identity):
   require(self.mode=='control' and identity==self.plan['identity'],'MIGRATION_EXISTING_SESSION_IDENTITY')

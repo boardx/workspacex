@@ -25,7 +25,7 @@ function fixture(compatible = true, cleanRuntime = false) {
  const pr={number:1,merged:true,merged_at:'2026-10-01T00:02:00Z',merge_commit_sha:source,base:{ref:'main',repo:{full_name:repo}},head:{sha:source,repo:{full_name:repo}}};
  const mainAdmission={sourceCommit,associatedPrs:[pr],mainContainsSource:true,mergeTree:sourceCommit.tree.sha,mergeParentPolicy:policy,sourcePolicy:policy,prChecks:checks,prStatuses:[],sourceChecks:checks,sourceStatuses:[],deploymentWorkflow,sourceShardPolicy,sourceShardHelperSha256};
  const mainSourceEvidenceSha256=createHash('sha256').update(JSON.stringify(validateMainSourceAdmission(source,repo,mainAdmission))).digest('hex');
- const binding={releaseSourceSha:source,attemptId:attempt,receiptSha256:hex,governanceReceiptSha256:hex,mainSourceEvidenceSha256,manifestSha256:hex,baselineSha256:hex,images:snapshot.images,devappEvidenceSha256:hex,devappWorkflowRunId:55};
+ const binding={releaseSourceSha:source,expectedMainCnSha:baseline,attemptId:attempt,receiptSha256:hex,governanceReceiptSha256:hex,mainSourceEvidenceSha256,manifestSha256:hex,baselineSha256:hex,images:snapshot.images,devappEvidenceSha256:hex,devappWorkflowRunId:55};
  git('tag','-a',tag,'-m',JSON.stringify(frozenTagBinding(binding)),source);const tagSha=git('rev-parse','refs/tags/'+tag);
  const env=(review:boolean)=>({id:review?10:11,updated_at:'2026-10-01T00:00:00Z',protection_rules:review?[{type:'required_reviewers',reviewers:[{type:'User',reviewer:{id:1}}]}]:[],deployment_branch_policy:{custom_branch_policies:true,protected_branches:false}});
  const pattern={ref_name:{include:['refs/tags/cn-prepared-*'],exclude:[]}};

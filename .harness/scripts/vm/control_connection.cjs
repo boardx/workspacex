@@ -54,6 +54,7 @@ function verifyFixedMigrationCheckout(auth){
  const actual=fs.readdirSync(path.join(root,'apps/api/migrations')).filter(n=>n.endsWith('.sql')).sort();requireProof(canonical(actual)===canonical(auth.sourceInventory.map(r=>r.name)),'MIGRATION_SQL_FILE_SET');
  for(const row of auth.sourceInventory)requireProof(sha(trustedBytes(path.join(root,'apps/api/migrations',row.name),0o644))===row.checksum,'MIGRATION_SQL_PIN');
 }
+READ_QUERIES['candidate-sessions']="BEGIN TRANSACTION READ ONLY;\nSELECT json_build_object('peer',json_build_object('database',current_database(),\n 'serverAddr',inet_server_addr()::text,'serverPort',inet_server_port(),\n 'systemIdentifier',(SELECT system_identifier::text FROM pg_control_system())),\n 'sessions',coalesce((SELECT json_agg(json_build_object('role',usename,\n 'clientAddr',client_addr::text,'clientPort',client_port,'pid',pid,\n 'backendStart',backend_start,'backendType',backend_type,'state',state,\n 'ssl',(SELECT ssl FROM pg_stat_ssl WHERE pid=pg_stat_activity.pid)))\n FROM pg_stat_activity WHERE datname=current_database()),'[]'::json),\n 'preparedTransactions',coalesce((SELECT json_agg(json_build_object('gid',gid,\n 'owner',owner,'database',database)) FROM pg_prepared_xacts\n WHERE database=current_database()),'[]'::json)); ROLLBACK;";
 READ_QUERIES['migration-ledger']='BEGIN TRANSACTION READ ONLY; SELECT json_build_object(\'ledger\',coalesce((SELECT json_agg(json_build_object(\'name\',name,\'checksum\',checksum,\'appliedAt\',applied_at) ORDER BY name) FROM public._kernel_migrations),\'[]\'::json),\'rowCount\',(SELECT count(*)::int FROM public._kernel_migrations)) AS snapshot; ROLLBACK;';
 READ_QUERIES['run-drain']="BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY; SELECT json_build_object('rows',coalesce((SELECT json_agg(x) FROM (SELECT status,count(*)::text AS count FROM public.agent_runs GROUP BY status) x),'[]'::json)) AS snapshot; ROLLBACK;";
 class ControlSession {
@@ -120,6 +121,15 @@ class ControlSession {
      const value=await library.migrateExistingSession(this.client,this.options,auth.migrationSource,auth.sourceEvidence,auth.approvedRdsTlsException,auth.checkout+'/apps/api/migrations',auth.lockTimeoutMs);
      requireProof(canonical(await this.identity())===canonical(this.binding)&&canonical(value.applied)===canonical(auth.pending.map(r=>r.name))&&canonical(value.skipped)===canonical(auth.baselineLedger.map(r=>r.name)),'MIGRATION_RESULT_BINDING');
      return {sequence:this.sequence,ok:true,connection:this.binding,value};
+    }
+    if(message.operation==='verify-live-transport'){
+     requireProof(this.mode==='diagnostic'&&this.connectionTransport&&Object.keys(message).sort().join(',')==='operation,provider,sequence','LIVE_TRANSPORT_AUTHORITY');
+     requireProof(canonical(await this.identity())===canonical(this.binding),'LIVE_TRANSPORT_CONNECTION_CHANGED');
+     const value=this.transportLibrary.verifyFreshMaintenanceProviderTransport(this.connectionTransport,message.provider);
+     requireProof(canonical(await this.identity())===canonical(this.binding),'LIVE_TRANSPORT_CONNECTION_CHANGED');
+     requireProof(value.sslMode==='disable'&&value.instanceId==='pgm-uf6rg214cp381l49','LIVE_TRANSPORT_EXCEPTION_REQUIRED');
+     const proof={sslMode:value.sslMode,configurationSha256:value.configurationSha256,providerEvidenceSha256:value.providerEvidenceSha256};
+     return {sequence:this.sequence,ok:true,connection:this.binding,value:{schemaVersion:1,kind:'existing-production-maintenance-transport-verified',identity:this.connectionTransport.identity,peer:this.binding.peer,endpoint:{address:value.privateAddress,port:value.port},observedAt:Date.now()/1000,proof}};
     }
     if (message.operation === 'query') {
      requireProof(this.mode === 'diagnostic' && Object.hasOwn(READ_QUERIES,message.queryId),'DIAGNOSTIC_QUERY_AUTHORITY');

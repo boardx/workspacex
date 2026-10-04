@@ -15,6 +15,7 @@ FILES={
  '.harness/scripts/vm/backup_connection.cjs':'/usr/local/lib/workspacex-cn/backup_connection.cjs',
  '.harness/scripts/vm/backup_profile_transport.cjs':'/usr/local/lib/workspacex-cn/backup_profile_transport.cjs',
  '.harness/scripts/vm/cn-backup-fixed-queries.json':'/usr/local/lib/workspacex-cn/cn-backup-fixed-queries.json',
+ '.harness/scripts/vm/candidate_host_transport.py':'/usr/local/lib/workspacex-cn/candidate_host_transport.py',
  '.harness/scripts/vm/candidate_writer.py':'/usr/local/lib/workspacex-cn/candidate_writer.py',
  '.harness/scripts/vm/candidate_backend_collector.py':'/usr/local/lib/workspacex-cn/candidate_backend_collector.py',
  '.harness/scripts/vm/cn-maintenance-migrator.cjs':'/usr/local/lib/workspacex-cn/cn-maintenance-migrator.cjs',

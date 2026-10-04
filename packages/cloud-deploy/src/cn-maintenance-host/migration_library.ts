@@ -33,3 +33,21 @@ export function verifyExistingMaintenanceTransport(input:ExistingMaintenanceTran
  verifyMigrationPeer(source,observed,{sourceEvidence:evidence,approvedRdsTlsException:input.approvedRdsTlsException});
  return {sslMode:source.sslMode,configurationSha256:source.configurationSha256,providerEvidenceSha256:source.providerEvidenceSha256};
 }
+
+/** Fresh read-only provider responses reuse the existing serverless exception
+ * verifier. The retained helper independently verifies its pinned source/socket
+ * authority before calling this; no response boolean creates an exception. */
+export function verifyFreshMaintenanceProviderTransport(input: ExistingMaintenanceTransportInput, live: {attribute:unknown;ssl:unknown;allowlist:unknown;network:unknown}) {
+ approveExistingMaintenanceTransportInputs(input);
+ const source=migrationSourceSchema.parse(input.source),prior=sourceEvidenceSchema.parse(input.sourceEvidence);
+ const checks=verifyRdsTransportPreflight({region:source.regionId,rdsInstanceId:source.dbInstanceId,postgresHost:prior.configuration.host,rdsTlsException:prior.configuration.rdsTlsException},{attribute:live.attribute,ssl:live.ssl,allowlist:live.allowlist});
+ if(checks.some(c=>!c.passed))throw Error('MAINTENANCE_FRESH_PROVIDER_TRANSPORT_REJECTED');
+ const attribute=(live.attribute as any)?.Items?.DBInstanceAttribute;
+ const nets=(live.network as any)?.DBInstanceNetInfos?.DBInstanceNetInfo;
+ const pinned=prior.netInfoResponse.DBInstanceNetInfos.DBInstanceNetInfo.filter(e=>e.IPType==='Private'&&e.ConnectionString===prior.configuration.host&&Number(e.Port)===prior.configuration.port);
+ if(!Array.isArray(attribute)||attribute.length!==1||!Array.isArray(nets)||pinned.length!==1)throw Error('MAINTENANCE_FRESH_PROVIDER_NETWORK_REJECTED');
+ const matches=nets.filter((e:any)=>e.IPType==='Private'&&e.ConnectionString===prior.configuration.host&&Number(e.Port)===prior.configuration.port&&e.VPCId===attribute[0].VpcId&&e.IPAddress===pinned[0]!.IPAddress);
+ if(matches.length!==1)throw Error('MAINTENANCE_FRESH_PROVIDER_NETWORK_REJECTED');
+ const verified={instanceId:source.dbInstanceId,privateAddress:matches[0].IPAddress,port:Number(matches[0].Port),sslMode:source.sslMode,configurationSha256:source.configurationSha256,checks};
+ return {...verified,providerEvidenceSha256:identityHash(JSON.stringify(verified))};
+}
