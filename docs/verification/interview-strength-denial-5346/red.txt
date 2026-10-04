@@ -1,0 +1,51 @@
+
+> @repo/api@0.0.0 test:interview-markdown-unit /Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/apps/api
+> vitest run --config vitest.interview-markdown-unit.config.ts
+
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/apps/api
+
+ ✓ tests/itv/interview-report-recovery.test.ts (24 tests) 71ms
+ ❯ tests/itv/interview-report-grounding.test.ts (89 tests | 3 failed) 50ms
+   × report evidence grounding > preserves a direct prohibition on fabricating statistical support: 不能凭空补充样本统计来断言预算约束必然阻止购买。 4ms
+     → expected false to be true // Object.is equality
+   × report evidence grounding > preserves a direct prohibition on fabricating statistical support: 不应编造统计来声称安装问题最常见。 1ms
+     → expected false to be true // Object.is equality
+   × report evidence grounding > preserves a direct prohibition on fabricating statistical support: 不得虚构样本统计来证明安装问题必然影响采购。 1ms
+     → expected false to be true // Object.is equality
+ ✓ tests/itv/interview-report-claim-boundaries.test.ts (88 tests) 34ms
+ ✓ tests/itv/interview-report-diagnostics.test.ts (14 tests) 33ms
+ ✓ tests/itv/interview-markdown-report-stream-controller.test.ts (9 tests) 5ms
+ ✓ tests/itv/interview-model-markdown.test.ts (4 tests) 3ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/itv/interview-report-grounding.test.ts > report evidence grounding > preserves a direct prohibition on fabricating statistical support: 不能凭空补充样本统计来断言预算约束必然阻止购买。
+ FAIL  tests/itv/interview-report-grounding.test.ts > report evidence grounding > preserves a direct prohibition on fabricating statistical support: 不应编造统计来声称安装问题最常见。
+ FAIL  tests/itv/interview-report-grounding.test.ts > report evidence grounding > preserves a direct prohibition on fabricating statistical support: 不得虚构样本统计来证明安装问题必然影响采购。
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ tests/itv/interview-report-grounding.test.ts:42:111
+     40|   "不得虚构样本统计来证明安装问题必然影响采购。",
+     41|  ])("preserves a direct prohibition on fabricating statistical support…
+     42|   expect(validateReportEvidence(`[服务端甲回答：支持电话。](#answer-1)…
+       |                                                                                                               ^
+     43|  });
+     44|  it.each([
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
+
+ Test Files  1 failed | 5 passed (6)
+      Tests  3 failed | 225 passed (228)
+   Start at  03:42:45
+   Duration  2.73s (transform 664ms, setup 0ms, collect 1.98s, tests 195ms, environment 0ms, prepare 137ms)
+
+/Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/apps/api:
+ ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  @repo/api@0.0.0 test:interview-markdown-unit: `vitest run --config vitest.interview-markdown-unit.config.ts`
+Exit status 1

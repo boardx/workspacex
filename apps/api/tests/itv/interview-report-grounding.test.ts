@@ -34,6 +34,27 @@ describe("report evidence grounding", () => {
  it.each(["不能断言安装问题最常见。", "不能声称安装问题必然阻止采购。", "若安装问题必然阻止采购，应重新验证这一假设。"])("preserves scoped qualifications: %s", claim => {
   expect(validateReportEvidence(`[服务端甲回答：支持电话。](#answer-1)\n\n${claim}`,buildReportEvidenceIndex(source)).ok).toBe(true);
  });
+ it.each([
+  "不能凭空补充样本统计来断言预算约束必然阻止购买。",
+  "不应编造统计来声称安装问题最常见。",
+  "不得虚构样本统计来证明安装问题必然影响采购。",
+ ])("preserves a direct prohibition on fabricating statistical support: %s", claim => {
+  expect(validateReportEvidence(`[服务端甲回答：支持电话。](#answer-1)\n\n${claim}`,buildReportEvidenceIndex(source)).ok).toBe(true);
+ });
+ it.each([
+  "不能凭空补充样本统计，预算约束必然阻止购买。",
+  "不能凭空补充样本统计；预算约束必然阻止购买。",
+  "不能凭空补充样本统计;预算约束必然阻止购买。",
+  "不能凭空补充样本统计来断言预算，但预算约束必然阻止购买。",
+  "不能凭空补充样本统计来断言预算而要说预算必然阻止购买。",
+  "不能凭空补充样本统计来断言预算却认为预算必然阻止购买。",
+  "不能不凭空补充样本统计来断言预算约束必然阻止购买。",
+  "不能凭空补充样本统计来断言预算不会必然阻止购买。",
+  "不能否认预算约束必然阻止购买。",
+  "补充样本统计来断言预算约束必然阻止购买。",
+ ])("does not waive an affirmative strength claim with an unrelated prohibition: %s", claim => {
+  expect(validateReportEvidence(`[服务端甲回答：支持电话。](#answer-1)\n\n${claim}`,buildReportEvidenceIndex(source)).reason).toBe("unsupported_evidence_strength");
+ });
  it("describes distinct bound server tasks without treating them as verified human identities", () => {
   const text = "支持电话。\n反对电话。";
   const index = buildReportEvidenceIndex({...source,markdown:text,contentHash:hash(text),answerSpans:[
