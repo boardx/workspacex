@@ -43,9 +43,10 @@
     {
       "id": "asr-websocket",
       "source": "apps/api/src/infrastructure/recording/configured-realtime-asr-provider.ts",
-      "anchor": "const socket = new WebSocket",
-      "receiptHook": "missing",
-      "admissionHook": "missing"
+      "anchor": "socket = new WebSocket",
+      "receiptHook": "context-subset",
+      "admissionHook": "missing; product quota enabled denies before start/WebSocket",
+      "acceptance": "Four known trusted server producer contexts; localhost WS and scoped-repository units. Exact personal capture PG test not executed for current ASR head. Transport PCM duration is estimated, not vendor accepted/billed units; crash repair missing."
     },
     {
       "id": "local-generate-http",
@@ -118,8 +119,8 @@
   "counts": {
     "auditedConcreteDispatchPoints": 7,
     "receiptHooksImplemented": 3,
-    "receiptHooksContextSubset": 3,
-    "receiptHooksMissing": 1,
+    "receiptHooksContextSubset": 4,
+    "receiptHooksMissing": 0,
     "knownRetrievalProducerRoutes": 7,
     "trustedRunReferenceRoutesImplemented": 2,
     "trustedRunReferenceRoutesMissing": 5,

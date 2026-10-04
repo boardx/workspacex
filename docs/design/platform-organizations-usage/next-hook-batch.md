@@ -28,3 +28,6 @@ Image source checkpoint: OpenAI Images has optional trusted standard-tool start/
 
 
 Local trial source checkpoint: authenticated local membership/capability context now reaches actual Ollama POST start/terminal. Probe remains excluded, no synthetic Agent run, total/cost unknown unless originally reported. Migration190 nullable-start PG tests await next-head remote CI. Owner218 no-DB cases and independent local8 passed; local admission and cross-process reconciliation remain missing. Sole audited unhooked transport point is ASR WebSocket; additional retrieval producers/opaque research/Bailian are still listed outside that narrow seven-point denominator.
+
+
+ASR next verification boundary: default-off WS receipt subset implemented for four known server contexts, with same scoped owner/lifecycle transaction and no legacy double mirror. Await current-head remote PG exact-capture test; real recording lifecycle concurrency and deployed vendor units remain unverified. Next missing implementation is native unit admission/price/cap authority and durable cross-process terminal repair, not converting queued duration to Tokens. Other missing producers must have explicit original actor or authorized infrastructure spend owner; no synthesized run IDs or prices.

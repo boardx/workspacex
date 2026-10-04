@@ -1,6 +1,6 @@
 import {describe,it,expect,vi} from "vitest";
 import {PgTokenUsageRepository} from "../../src/infrastructure/auth/pg-token-usage-repository";
-import {PgAsrUsageMeter} from "../../src/infrastructure/recording/pg-realtime-asr-repository";
+import {PgAsrUsageMeter,configuredAsrUsageMeter} from "../../src/infrastructure/recording/pg-realtime-asr-repository";
 import {toOrgId} from "../../src/domain/org-id";
 import type {TokenUsageRecord} from "../../src/application/agent-run/ports";
 const org=toOrgId("native-org");
@@ -31,4 +31,13 @@ describe("native dimensions in the single immutable AI ledger",()=>{
   const query=vi.fn().mockResolvedValue({rows:[]});await expect(new PgAsrUsageMeter(db(query) as never,"route").record({providerTaskId:"foreign",orgId:org,ownerUserId:"owner",captureId:"capture",model:"m",durationSeconds:1})).rejects.toThrow("ASR_USAGE_REPLAY_MISMATCH");
   expect(query.mock.calls.some(call=>call[0].includes("INTO token_usage_events"))).toBe(false);
  });
+ it("actual-WS accounting disables only legacy ledger mirror and preserves legacy usage event",async()=>{
+  for(const actual of ["1",undefined]){
+   const query=vi.fn().mockImplementation(async(sql:string)=>({rows:sql.includes("INTO realtime_asr_usage_events")?[{provider_task_id:"task"}]:[]}));
+   await configuredAsrUsageMeter(db(query) as never,{KERNEL_NATIVE_USAGE_LEDGER_ENABLED:"1",KERNEL_ASR_REQUEST_ACCOUNTING_ENABLED:actual,KERNEL_ASR_PROVIDER:"configured",KERNEL_ASR_MODEL:"model"}).record({providerTaskId:"task",orgId:org,ownerUserId:"owner",captureId:"capture",model:"model",durationSeconds:2});
+   expect(query.mock.calls.filter(c=>c[0].includes("INTO realtime_asr_usage_events"))).toHaveLength(1);
+   expect(query.mock.calls.filter(c=>c[0].includes("INTO token_usage_events"))).toHaveLength(actual==="1"?0:1);
+  }
+ });
+
 });

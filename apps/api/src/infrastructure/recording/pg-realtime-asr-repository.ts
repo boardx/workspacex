@@ -54,3 +54,11 @@ export class PgAsrUsageMeter implements AsrUsageMeter {
     return r.rows.length===1;
   });}
 }
+
+/** Keep the legacy event while avoiding a second sole-ledger receipt per actual WS. */
+export function configuredAsrUsageMeter(db:DatabasePort,env:Readonly<Record<string,string|undefined>>):AsrUsageMeter {
+  const mirror=env.KERNEL_NATIVE_USAGE_LEDGER_ENABLED==="1"&&env.KERNEL_ASR_REQUEST_ACCOUNTING_ENABLED!=="1";
+  const provider=(env.KERNEL_ASR_PROVIDER??"").trim();
+  if(mirror&&(!provider||!(env.KERNEL_ASR_MODEL??"").trim()))throw new Error("NATIVE_ASR_LEDGER_BINDING_UNCONFIGURED");
+  return new PgAsrUsageMeter(db,mirror?provider:undefined);
+}

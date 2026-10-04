@@ -1173,6 +1173,7 @@ import {
 } from "./infrastructure/recording/pg-recording-repository";
 import { EnvTranscriptionPolicyProvider } from "./infrastructure/recording/env-transcription-policy";
 import { ASR_PROVIDER, type AsrProviderPort } from "./application/recording/asr-ports";
+import {PgAsrRequestAccounting} from "./infrastructure/auth/pg-asr-request-accounting";
 import { ConfiguredRealtimeAsrProvider } from "./infrastructure/recording/configured-realtime-asr-provider";
 import { RecordingController } from "./interface/controllers/recording.controller";
 import pgModule from "pg";
@@ -1191,7 +1192,7 @@ import type { IdGenerator as RecordingIdGenerator } from "./application/recordin
 import { PERSONAL_TRANSCRIPTION_REPOSITORY } from "./application/recording/personal-transcription-ports";
 import { PgPersonalTranscriptionRepository } from "./infrastructure/recording/pg-personal-transcription-repository";
 import { ASR_USAGE_METER, REALTIME_ASR_TICKET_STORE } from "./application/recording/personal-realtime-asr";
-import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/recording/pg-realtime-asr-repository";
+import { configuredAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/recording/pg-realtime-asr-repository";
 
 const BOARD_AGENT_API_ACCEPTANCE = boardAgentApiAcceptanceEnabled();
 const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRepository');
@@ -2522,7 +2523,7 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
         if (!owner || !socketPath || !provider.isConfigured() || !provider.modelRef) return null;
         return new DefaultStandardAudioService(owner, new PgNativeRunInputs(db, objects, {repo, ids, chat}),
           bound => ({...createNativeDraftSession({socketPath, ...bound}), execute: createNativeDocumentSession({socketPath, ...bound}).execute}),
-          authority, repo, objects, provider);
+          authority, repo, objects, provider,process.env.KERNEL_ASR_REQUEST_ACCOUNTING_ENABLED==="1");
       },
       inject: [DATABASE_PORT, NATIVE_SESSION_OWNER, TOOL_EXECUTION_AUTHORITY, IDENTITY_REPOSITORY,
         DECISION_ID_FACTORY, CHAT_REPOSITORY, OBJECT_STORE, ASR_PROVIDER],
@@ -3319,17 +3320,12 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
       inject: [DATABASE_PORT],
     },
     { provide: REALTIME_ASR_TICKET_STORE, useFactory: (db: DatabasePort) => new PgRealtimeAsrTicketStore(db), inject: [DATABASE_PORT] },
-    { provide: ASR_USAGE_METER, useFactory: (db: DatabasePort) => {
-      const enabled=process.env.KERNEL_NATIVE_USAGE_LEDGER_ENABLED==="1";
-      const provider=(process.env.KERNEL_ASR_PROVIDER??"").trim();
-      if(enabled&&(!provider||!(process.env.KERNEL_ASR_MODEL??"").trim()))throw new Error("NATIVE_ASR_LEDGER_BINDING_UNCONFIGURED");
-      return new PgAsrUsageMeter(db,enabled?provider:undefined);
-    }, inject: [DATABASE_PORT] },
+    { provide: ASR_USAGE_METER, useFactory: (db: DatabasePort) => configuredAsrUsageMeter(db,process.env), inject: [DATABASE_PORT] },
     // #466: the realtime ASR upstream. ONE adapter, selected explicitly by
     // `KERNEL_ASR_PROVIDER`; unconfigured means `ASR_NOT_CONFIGURED` reaches the browser,
     // never a silent fallback to some other provider. See the adapter's header for why
     // that is a structural property here and not a promise.
-    { provide: ASR_PROVIDER, useFactory: () => new ConfiguredRealtimeAsrProvider() },
+    { provide: ASR_PROVIDER, useFactory: (db:DatabasePort,policies:RetentionPolicyRepository,ids:RecordingIdGenerator) => new ConfiguredRealtimeAsrProvider(undefined,process.env.KERNEL_ASR_REQUEST_ACCOUNTING_ENABLED==="1"?new PgAsrRequestAccounting(db,scoped=>({identities:new PgIdentityRepository(scoped),recording:new PgRecordingUnitOfWork(scoped,policies,ids)})):undefined,process.env.KERNEL_AI_PRODUCT_QUOTA_ENABLED==="1"),inject:[DATABASE_PORT,RETENTION_POLICY_REPOSITORY,RECORDING_ID_GENERATOR] },
     // #459: declarative-contract Skills. The provider hands out a *factory* -- the scoped
     // repository cannot be constructed without a tenant, so there is no "untenanted skill
     // repository" object for a forgetful caller to reach for.

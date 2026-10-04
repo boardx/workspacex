@@ -258,17 +258,19 @@
         "apps/api/src/infrastructure/recording/configured-realtime-asr-provider.ts",
         "apps/api/src/infrastructure/auth/pg-token-usage-repository.ts",
         "apps/api/src/infrastructure/recording/pg-realtime-asr-repository.ts",
-        "apps/api/src/infrastructure/auth/pg-image-request-accounting.ts"
+        "apps/api/src/infrastructure/auth/pg-image-request-accounting.ts",
+        "apps/api/src/infrastructure/auth/pg-asr-request-accounting.ts"
       ],
       "tests": [
         "apps/api/tests/auth/ai-native-unit.test.ts",
         "apps/api/tests/auth/ai-native-ledger.test.ts",
         "apps/api/tests/auth/ai-usage-repository.test.ts",
-        "apps/api/tests/auth/image-request-accounting.test.ts"
+        "apps/api/tests/auth/image-request-accounting.test.ts",
+        "apps/api/tests/auth/asr-request-accounting.test.ts"
       ],
       "remaining": [
         "Native price snapshots/admission/cap hooks and actual audio/Bailian image provider receipts; OpenAI receipt is trusted-standard-tool subset only.",
-        "ASR bridge currently records successful accepted-PCM duration only; failed/cancelled/start paths missing.",
+        "ASR actual WS start/terminal is default-off for four known trusted server contexts; vendor-reported units, native admission and durable cross-process repair remain missing.",
         "Explicit finite spend policy and ordinary per-user amount/window/timezone; no defaults enabled.",
         "Verified exact physical model registration, input/output bounds and pricing unit/rate.",
         "Isolated PostgreSQL/tenant integration for the new batch.",
@@ -276,7 +278,7 @@
       ],
       "sourceMissing": [
         "Native price snapshots/admission/cap hooks and actual audio/Bailian image provider receipts; OpenAI receipt is trusted-standard-tool subset only.",
-        "ASR bridge currently records successful accepted-PCM duration only; failed/cancelled/start paths missing."
+        "ASR actual WS start/terminal is default-off for four known trusted server contexts; vendor-reported units, native admission and durable cross-process repair remain missing."
       ],
       "configurationMissing": [
         "Explicit finite spend policy and ordinary per-user amount/window/timezone; no defaults enabled.",

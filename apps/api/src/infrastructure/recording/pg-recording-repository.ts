@@ -146,9 +146,9 @@ interface RequestScope {
 }
 
 function sessionStore(s: TenantSession, orgId: OrgId, scope: RequestScope): SessionLifecycleStore {
-  const read = async (sessionId: string): Promise<RecordingSessionLifecycleState | undefined> => {
+  const read = async (sessionId: string, locked = false): Promise<RecordingSessionLifecycleState | undefined> => {
     const r = await s.query<SessionRow>(
-      `SELECT ${SESSION_COLUMNS} FROM recording_sessions WHERE id = $1 AND org_id = $2`,
+      `SELECT ${SESSION_COLUMNS} FROM recording_sessions WHERE id = $1 AND org_id = $2${locked ? " FOR SHARE" : ""}`,
       [sessionId, orgId],
     );
     const row = r.rows[0];
@@ -160,6 +160,7 @@ function sessionStore(s: TenantSession, orgId: OrgId, scope: RequestScope): Sess
       return read(sessionId);
     },
     lifecycleSession: read,
+    lockedLifecycleSession: (sessionId) => read(sessionId, true),
     async liveSessionFor(sourceRefId: string): Promise<string | undefined> {
       const r = await s.query<{ id: string }>(
         `SELECT id FROM recording_sessions

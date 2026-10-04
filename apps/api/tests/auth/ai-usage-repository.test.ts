@@ -3,6 +3,8 @@ import {aiUsage as C} from "@repo/contracts";
 import {ensureDatabase,migrateOnce,resetOrgs,seedOrg,asApp} from "../support/db";
 import {PgDatabase} from "../../src/infrastructure/db/pg-database";
 import {appConfig} from "../../src/infrastructure/db/pg-config";
+import {PgAsrRequestAccounting} from '../../src/infrastructure/auth/pg-asr-request-accounting';
+import {PgPersonalTranscriptionRepository} from '../../src/infrastructure/recording/pg-personal-transcription-repository';
 import {PgAiUsageRepository} from "../../src/infrastructure/auth/pg-ai-usage-repository";
 import {PgTokenUsageRepository} from "../../src/infrastructure/auth/pg-token-usage-repository";
 import {toOrgId} from "../../src/domain/org-id";
@@ -80,6 +82,21 @@ describe("same ledger reports — isolated PostgreSQL",()=>{
  });
  it("non-run starts cannot erase existing Agent identity requirements or use NULL purpose",async()=>{
   for(const purpose of ["primary",null])await expect(asApp(ORG,c=>c.query("INSERT INTO model_request_starts(id,org_id,user_id,run_id,model_provider,model_id,started_at,call_purpose) VALUES($1,$2,'alice',NULL,'p','m',now(),$3)",["invalid-non-run:"+String(purpose),ORG,purpose]))).rejects.toThrow();
+ });
+
+ // Authored for existing isolated remote PG CI; never run in the release-priority local workspace.
+ it("ASR personal receipt retains exact active capture owner, null run, tenant fence and terminal idempotence",async()=>{
+  const personal=new PgPersonalTranscriptionRepository(db),accounting=new PgAsrRequestAccounting(db),orgId=toOrgId(ORG);
+  const capture={orgId,ownerUserId:"alice",transcriptionId:"asr-personal",captureId:"asr-capture"};
+  await personal.create({...capture,name:"ASR fixture",tags:[]});await personal.startCapture({...capture,trackId:"asr-track"});
+  const input={requestId:"asr-actual-ws",modelProvider:"fixture-asr",modelId:"actual",startedAt:new Date(now).toISOString()};
+  for(const bad of [{...capture,orgId:toOrgId(OTHER)},{...capture,ownerUserId:"bob"},{...capture,captureId:"wrong-capture"}])await expect(accounting.start({kind:"personal-capture",...bad},input)).rejects.toThrow("ASR_ACCOUNTING_OWNER_DENIED");
+  const receipt=await accounting.start({kind:"personal-capture",...capture},input);
+  const terminal={endedAt:new Date(now+1).toISOString(),outcome:"failed" as const,queuedDurationMs:50n};await receipt.terminal(terminal);await receipt.terminal(terminal);
+  const rows=(await asApp(ORG,c=>c.query("SELECT user_id,run_id,total_source,native_unit,native_quantity::text,native_source FROM token_usage_events WHERE id=$1",[input.requestId]))).rows;
+  expect(rows).toEqual([{user_id:"alice",run_id:null,total_source:"unknown",native_unit:"millisecond",native_quantity:"50",native_source:"estimated"}]);
+  expect((await asApp(OTHER,c=>c.query("SELECT id FROM token_usage_events WHERE id=$1",[input.requestId]))).rows).toEqual([]);
+  await personal.finishCapture({...capture,durationMs:50});await expect(accounting.start({kind:"personal-capture",...capture},{...input,requestId:"ended-asr"})).rejects.toThrow("ASR_ACCOUNTING_OWNER_DENIED");
  });
 
 });
