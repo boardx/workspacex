@@ -97,12 +97,12 @@ def trust_git_root(root,bare,expected_uid=0,boundary=None):
  require(not re.search(rb'^\s*\[(?:include(?:if)?|filter)[\s\]]',config,re.M|re.I),'GIT_CONFIG_INCLUDE')
  return gitdir
 GIT_OPTIONS=['-c','core.fsmonitor=false','-c','core.hooksPath=/dev/null','-c','core.untrackedCache=false','-c','gc.auto=0']
-def validate_full_prebuild(validator,prebuild_raw,validated_raw):
+def validate_full_prebuild(validator,prebuild_raw,validated_raw,artifact_only=False):
  # Execute the exact already hash-bound tool validator, not a second gate implementation.
  namespace={'__name__':'reviewed_preflight_validator','__file__':str(validator)}
  exec(compile(private_read(validator).decode(),str(validator),'exec'),namespace)
  result=namespace['validate'](json.loads(prebuild_raw));stored=json.loads(validated_raw)
- require(result==stored and result.get('schemaVersion')==2 and result.get('phase')=='prebuild' and result.get('ready') is True and result.get('blockers')==[],'FULL_PREBUILD_VALIDATION')
+ require(result==stored and result.get('schemaVersion')==2 and result.get('phase')==('artifact-build' if artifact_only else 'prebuild') and result.get('ready') is True and result.get('blockers')==[],'FULL_PREBUILD_VALIDATION')
  return result
 
 def atomic_receipt(output,result):
@@ -206,7 +206,7 @@ def sealed_receipt(binding,manifest_raw,seal_raw,prebuild_raw,inspect,validate_p
  require(seal.get('schemaVersion')==1 and seal.get('status')=='sealed' and seal.get('sourceRevision')==app and seal.get('manifestSha256')==hashlib.sha256(manifest_raw).hexdigest(),'SEAL_BINDING')
  full=validate_prebuild(prebuild_raw)
  require(full.get('ready') is True and full.get('blockers')==[] and full.get('schemaVersion')==2,'FULL_PREBUILD_VALIDATION')
- require(full.get('phase')=='prebuild' and full.get('sourceSha')==app and full.get('release')==binding['release'] and full.get('attemptId')==binding['attemptId'],'PREBUILD_IDENTITY')
+ require(full.get('phase')=='artifact-build' and full.get('sourceSha')==app and full.get('release')==binding['release'] and full.get('attemptId')==binding['attemptId'],'PREBUILD_IDENTITY')
  require(set(manifest.get('images',{}))=={'web','api','agent','sandbox','postgres','redis'},'SEALED_SERVICE_CLOSURE')
  digests={}
  for service,artifact in manifest['images'].items():
@@ -278,9 +278,10 @@ def main():
    else:raise ValueError('CANONICAL_LOCK_NOT_HELD')
   finally:os.close(fd)
   manifest,seal,prebuild,output=args[5:]
-  validated=str(pathlib.Path(prebuild).with_name('prebuild.validated.json'))
+  require(prebuild=='/var/lib/workspacex-cn/preflight-receipts/'+app+'/'+attempt+'/artifact-build.json','ARTIFACT_RECEIPT_FIXED_PATH')
+  validated=str(pathlib.Path(prebuild).with_name('artifact-build.validated.json'))
   prebuild_raw=private_read(prebuild,0o600);validated_raw=private_read(validated,0o600)
-  def validate_bound(raw):return validate_full_prebuild(pathlib.Path(root)/'.agents/skills/workspacex-cn-release/scripts/validate_preflight.py',raw,validated_raw)
+  def validate_bound(raw):return validate_full_prebuild(pathlib.Path(root)/'.agents/skills/workspacex-cn-release/scripts/validate_preflight.py',raw,validated_raw,artifact_only=True)
   def inspect(image):return subprocess.check_output(['docker','buildx','imagetools','inspect',image],stderr=subprocess.DEVNULL,timeout=30).decode()
   result=sealed_receipt(value,private_read(manifest),private_read(seal),prebuild_raw,inspect,validate_bound)
   result['toolBindingSha256']=hashlib.sha256(private_read(path,0o600)).hexdigest()

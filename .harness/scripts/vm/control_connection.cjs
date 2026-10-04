@@ -24,6 +24,13 @@ function trustedBytes(path,mode){
  let parent=require('node:path').dirname(path);while(true){const s=fs.lstatSync(parent);requireProof(s.isDirectory()&&!s.isSymbolicLink()&&s.uid===0&&s.gid===0&&!(s.mode&0o022),'MIGRATION_PARENT_TRUST');if(parent==='/')break;parent=require('node:path').dirname(parent);}
  const fd=fs.openSync(path,fs.constants.O_RDONLY|fs.constants.O_NOFOLLOW);try{const current=fs.fstatSync(fd);requireProof(current.ino===st.ino&&current.dev===st.dev&&current.size===st.size&&current.mtimeMs===st.mtimeMs,'MIGRATION_FILE_CHANGED');return fs.readFileSync(fd);}finally{fs.closeSync(fd);}
 }
+function verifyFullBaselineAdmission(identity,read=trustedBytes,now=Date.now()){
+ const root='/var/lib/workspacex-cn/preflight-receipts/'+identity.sourceRevision+'/'+identity.attemptId;
+ const evidence=JSON.parse(read(root+'/prebuild.json',0o600)),validated=JSON.parse(read(root+'/prebuild.validated.json',0o600));
+ const b=evidence.checks?.['bootstrap.compatibility'],proof=b?.metadata;
+ const issued=Date.parse(evidence.issuedAt),expires=Date.parse(evidence.expiresAt);
+ requireProof(evidence.schemaVersion===2&&evidence.phase==='prebuild'&&evidence.buildStarted===false&&evidence.sourceSha===identity.sourceRevision&&evidence.baselineSha===identity.baselineRevision&&evidence.attemptId===identity.attemptId&&Number.isFinite(issued)&&Number.isFinite(expires)&&issued<=now&&expires>now&&expires-issued>0&&expires-issued<=3600000&&validated.schemaVersion===2&&validated.phase==='prebuild'&&validated.ready===true&&Array.isArray(validated.blockers)&&validated.blockers.length===0&&validated.receiptSha256===sha(canonical(evidence))&&['sourceSha','baselineSha','attemptId','release','issuedAt','expiresAt'].every(k=>validated[k]===evidence[k])&&b?.status==='passed'&&/^[a-f0-9]{64}$/.test(b.evidenceSha256??'')&&proof?.evidenceMode==='source-static'&&proof.baselineSha===identity.baselineRevision&&proof.migrationPlanSha256===identity.migrationPlanSha256&&/^[a-f0-9]{64}$/.test(proof.baselineSchemaSha256??'')&&proof.baselineLedgerContract===true&&proof.baselineSchemaContract===true&&proof.baselinePermissionContract===true&&proof.candidateSchemaContract===false&&proof.buildAdmissionOnly===true&&proof.productionWriteStatements===0,'MIGRATION_BASELINE_ADMISSION_INVALID');
+}
 function loadFixedMigrator(auth){requireProof(sha(trustedBytes(MIGRATOR_LIBRARY,0o700))===auth.librarySha256,'MIGRATION_LIBRARY_PIN');const library=require(MIGRATOR_LIBRARY);requireProof(typeof library.migrateExistingSession==='function','MIGRATION_LIBRARY_EXPORT');return library;}
 function loadRetainedRecovery(auth){const target=process.env.WSX_TRUSTED_RECOVERY_MODULE;requireProof(typeof target==='string'&&target.endsWith('/retained_session_recovery.cjs')&&sha(trustedBytes(target,0o644))===auth.librarySha256,'RECOVERY_LIBRARY_PIN');const library=require(target);requireProof(typeof library.recoverExistingSession==='function'&&typeof library.validateAuthority==='function','RECOVERY_LIBRARY_EXPORT');return library;}
 function validateMigrationAuthorization(auth,identity){
@@ -50,7 +57,7 @@ function verifyFixedMigrationCheckout(auth){
 READ_QUERIES['migration-ledger']='BEGIN TRANSACTION READ ONLY; SELECT json_build_object(\'ledger\',coalesce((SELECT json_agg(json_build_object(\'name\',name,\'checksum\',checksum,\'appliedAt\',applied_at) ORDER BY name) FROM public._kernel_migrations),\'[]\'::json),\'rowCount\',(SELECT count(*)::int FROM public._kernel_migrations)) AS snapshot; ROLLBACK;';
 READ_QUERIES['run-drain']="BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY; SELECT json_build_object('rows',coalesce((SELECT json_agg(x) FROM (SELECT status,count(*)::text AS count FROM public.agent_runs GROUP BY status) x),'[]'::json)) AS snapshot; ROLLBACK;";
 class ControlSession {
- constructor(clientFactory, configLoader = privateJson, migrationLibraryLoader=loadFixedMigrator, checkoutVerifier=verifyFixedMigrationCheckout, recoveryLibraryLoader=loadRetainedRecovery, Query, transportLibraryLoader=loadFixedMigrator,transportConfigReader=trustedBytes) { this.recoveryLibraryLoader=recoveryLibraryLoader;this.transportLibraryLoader=transportLibraryLoader;this.transportConfigReader=transportConfigReader;this.Query=Query;this.migrationLibraryLoader=migrationLibraryLoader;this.checkoutVerifier=checkoutVerifier;this.factory = clientFactory; this.load = configLoader; this.client = null; this.binding = null; this.sequence = 0; this.failed = false; }
+ constructor(clientFactory, configLoader = privateJson, migrationLibraryLoader=loadFixedMigrator, checkoutVerifier=verifyFixedMigrationCheckout, recoveryLibraryLoader=loadRetainedRecovery, Query, transportLibraryLoader=loadFixedMigrator,transportConfigReader=trustedBytes) { this.recoveryLibraryLoader=recoveryLibraryLoader;this.transportLibraryLoader=transportLibraryLoader;this.transportConfigReader=transportConfigReader;this.migrationAdmissionReader=trustedBytes;this.Query=Query;this.migrationLibraryLoader=migrationLibraryLoader;this.checkoutVerifier=checkoutVerifier;this.factory = clientFactory; this.load = configLoader; this.client = null; this.binding = null; this.sequence = 0; this.failed = false; }
  verifyTransportAuthority() {
   const a=this.connectionTransport,now=Date.now()/1000;requireProof(a.notBefore<=now&&now<a.expiresAt,'CONTROL_TRANSPORT_EXPIRED');
   const profile=JSON.parse(this.transportConfigReader('/etc/workspacex-cn/trusted-tool-binding.json',0o600)),frozen=profile.existingProductionTransport;
@@ -108,6 +115,7 @@ class ControlSession {
      requireProof(this.transactionStatus==='I','MIGRATION_CONTROL_TRANSACTION_NOT_IDLE');const auth=validateMigrationAuthorization(this.migrationAuthorization,this.identityBinding);requireProof(auth.toolRevision===this.toolRevision,'MIGRATION_TOOL_BINDING');requireProof(canonical(message.identity)===canonical(this.identityBinding),'MIGRATION_CALL_IDENTITY');this.checkoutVerifier(auth);
      requireProof(canonical(await this.identity())===canonical(this.binding),'MIGRATION_CONNECTION_CHANGED');
      const ledger=await this.client.query('SELECT name,checksum FROM public._kernel_migrations ORDER BY name');requireProof(canonical(ledger.rows)===canonical(auth.baselineLedger),'MIGRATION_BASELINE_LEDGER_DRIFT');
+     verifyFullBaselineAdmission(this.identityBinding,this.migrationAdmissionReader);
      const library=this.migrationLibraryLoader(auth);this.migrationStarted=true;
      const value=await library.migrateExistingSession(this.client,this.options,auth.migrationSource,auth.sourceEvidence,auth.approvedRdsTlsException,auth.checkout+'/apps/api/migrations',auth.lockTimeoutMs);
      requireProof(canonical(await this.identity())===canonical(this.binding)&&canonical(value.applied)===canonical(auth.pending.map(r=>r.name))&&canonical(value.skipped)===canonical(auth.baselineLedger.map(r=>r.name)),'MIGRATION_RESULT_BINDING');
@@ -148,5 +156,5 @@ async function main() {
  });
  process.stdin.on('end', () => { chain.finally(() => {if(!session.failed)return session.close();}); });
 }
-module.exports = { ControlSession, ID_SQL, READ_QUERIES, validateMigrationAuthorization, verifyFixedMigrationCheckout, privateJson, trustedBytes };
+module.exports = { verifyFullBaselineAdmission, ControlSession, ID_SQL, READ_QUERIES, validateMigrationAuthorization, verifyFixedMigrationCheckout, privateJson, trustedBytes };
 if (require.main === module) main().catch(() => { process.stderr.write('CONTROL_HELPER_REJECTED\n'); process.exitCode = 1; });

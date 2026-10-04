@@ -28,19 +28,22 @@ const readRecord=(path,prefix)=>{
 };
 const bootstrap=readRecord(bootstrapPath,"CN_BOOTSTRAP_COMPAT_JSON=");
 const b=bootstrap.value;
-if(b.schemaVersion!==1||b.sourceSha!==sourceSha||b.phase!==phase||b.ready!==true||b.productionWriteStatements!==0||!Array.isArray(b.blockers)||b.blockers.length)throw Error("BOOTSTRAP_COMPATIBILITY_UNPROVEN");
+if(b.schemaVersion!==1||b.sourceSha!==sourceSha||b.phase!==(phase==="artifact-build"?"prebuild":phase)||b.ready!==true||b.productionWriteStatements!==0||!Array.isArray(b.blockers)||b.blockers.length)throw Error("BOOTSTRAP_COMPATIBILITY_UNPROVEN");
 // Static source proof cannot claim database compatibility; dynamic image proof remains mandatory.
-if(phase==="prebuild"){
+if(phase!=="preactivate"){
+  if(phase==="prebuild"){
   const proof=b.baselineCompatibility;
   if(!proof||proof.baselineSha!==baselineSha||!/^[a-f0-9]{64}$/.test(proof.migrationPlanSha256??'')||proof.readOnlyTransaction!==true||proof.productionWriteStatements!==0||!/^[a-f0-9]{64}$/.test(proof.baselineSchemaSha256??'')||proof.baselineLedgerContract!==true||proof.baselineSchemaContract!==true||proof.baselinePermissionContract!==true||proof.candidateSchemaContract!==false||proof.buildAdmissionOnly!==true)throw Error("BOOTSTRAP_BASELINE_PLAN_UNPROVEN");
+  }
   if(b.imageDigest!==undefined||b.checks?.imageEntrypoint!==undefined||b.checks?.sourceEntrypoint!==true||b.checks?.inputContract!==true||b.readOnlyTransaction!==false||b.stateClass!=="unknown"||["schemaContract","permissionContract","agentSeedContract"].some(key=>b.checks?.[key]!==false))throw Error("BOOTSTRAP_SOURCE_STATIC_UNPROVEN");
 }else if(phase==="preactivate"){
   if(b.readOnlyTransaction!==true||b.checks?.sourceEntrypoint!==undefined||b.checks?.imageEntrypoint!==true||b.checks?.inputContract!==true||!["empty","matching-existing"].includes(b.stateClass)||["schemaContract","permissionContract","agentSeedContract","migrationLedgerContract"].some(key=>b.checks?.[key]!==true))throw Error("BOOTSTRAP_DYNAMIC_COMPATIBILITY_UNPROVEN");
   if(b.imageDigest!==JSON.parse(fs.readFileSync(manifestPath,"utf8")).images.api.image.split("@")[1])throw Error("BOOTSTRAP_IMAGE_IDENTITY_DIFFERS");
 }else throw Error("BOOTSTRAP_PHASE_INVALID");
 checks["bootstrap.compatibility"]={status:"passed",evidenceSha256:digest(bootstrap.raw),metadata:{
-  evidenceMode:phase==="prebuild"?"source-static":"database-dynamic",readOnlyTransaction:b.readOnlyTransaction,productionWriteStatements:b.productionWriteStatements,...b.checks,
+  evidenceMode:phase!=="preactivate"?"source-static":"database-dynamic",readOnlyTransaction:b.readOnlyTransaction,productionWriteStatements:b.productionWriteStatements,...b.checks,
   stateClass:b.stateClass,exactlyOneMachineRecord:true,emailSha256:b.adminEmailSha256,
+  ...(phase==="artifact-build"?{candidateSchemaContract:false,buildAdmissionOnly:true}:{}),
   ...(phase==="prebuild"?{baselineSha:b.baselineCompatibility.baselineSha,migrationPlanSha256:b.baselineCompatibility.migrationPlanSha256,baselineSchemaSha256:b.baselineCompatibility.baselineSchemaSha256,baselineLedgerContract:true,baselineSchemaContract:true,baselinePermissionContract:true,candidateSchemaContract:false,buildAdmissionOnly:true}:{}),
 }};
 for(const [key,path,prefix] of [["config.durable_profiles",runtimePath,"CN_RUNTIME_ENVIRONMENT_PREFLIGHT_JSON="],["secrets.stable_continuity",stablePath,"CN_STABLE_SECRET_PREFLIGHT "],["cloud.managed_data_permissions",managedPath,"CN_MANAGED_DATA_PREFLIGHT_JSON="]]){

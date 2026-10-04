@@ -12,16 +12,21 @@ SHA = "a" * 40
 BASE = "b" * 40
 
 class CollectorIntegration(unittest.TestCase):
-    def invoke(self, phase="prebuild", bad=None):
+    def invoke(self, phase="artifact-build", bad=None):
         with tempfile.TemporaryDirectory() as temporary:
             directory=Path(temporary)
             manifest={"images":{s:{"image":"registry/repo@sha256:"+str(i)*64} for i,s in enumerate(["api","web","agent","sandbox"],1)}}
             (directory/"manifest").write_text(json.dumps(manifest))
-            boot={"sourceSha":SHA,"phase":phase,"ready":True,"readOnlyTransaction":True,"productionWriteStatements":0,"stateClass":"matching-existing","checks":{("sourceEntrypoint" if phase=="prebuild" else "imageEntrypoint"):True,"inputContract":True,"schemaContract":True,"permissionContract":True,"agentSeedContract":True},"blockers":[],"adminEmailSha256":"c"*64}
+            boot={"schemaVersion":1,"sourceSha":SHA,"phase":"prebuild" if phase=="artifact-build" else phase,"ready":True,"readOnlyTransaction":True,"productionWriteStatements":0,"stateClass":"matching-existing","checks":{("sourceEntrypoint" if phase!="preactivate" else "imageEntrypoint"):True,"inputContract":True,"schemaContract":True,"permissionContract":True,"agentSeedContract":True},"blockers":[],"adminEmailSha256":"c"*64}
+            if phase!="preactivate":
+                boot.update(readOnlyTransaction=False,stateClass="unknown")
+                boot["checks"].update(schemaContract=False,permissionContract=False,agentSeedContract=False)
+            if phase=="prebuild":
+                boot["baselineCompatibility"]={"baselineSha":BASE,"migrationPlanSha256":"d"*64,"baselineSchemaSha256":"e"*64,"readOnlyTransaction":True,"productionWriteStatements":0,"baselineLedgerContract":True,"baselineSchemaContract":True,"baselinePermissionContract":True,"candidateSchemaContract":False,"buildAdmissionOnly":True}
             if phase=="preactivate": boot["imageDigest"]="sha256:"+"1"*64
             if bad=="identity":boot["sourceSha"]=BASE
             if bad=="schema":boot["ready"]=False;boot["checks"]["schemaContract"]=False;boot["blockers"]=["BOOTSTRAP_DB_SCHEMA_INCOMPATIBLE"]
-            if bad=="static":boot["readOnlyTransaction"]=False
+            if bad=="static":boot["readOnlyTransaction"]=True
             records={"bootstrap":"CN_BOOTSTRAP_COMPAT_JSON="+json.dumps(boot),"runtime":"CN_RUNTIME_ENVIRONMENT_PREFLIGHT_JSON="+json.dumps({"ready":True}),"stable":"CN_STABLE_SECRET_PREFLIGHT "+json.dumps({"ready":True}),"managed":"CN_MANAGED_DATA_PREFLIGHT_JSON="+json.dumps({"passed":True})}
             for name,record in records.items():(directory/name).write_text(("noise\n" if bad=="noise" and name=="bootstrap" else "")+record+"\n")
             (directory/"protocol").write_text("STABLE_SECRET_DIRECTORY_DRIFT\n")
@@ -37,6 +42,10 @@ class CollectorIntegration(unittest.TestCase):
         status,result=self.invoke()
         self.assertEqual(status,0)
         self.assertTrue(result["ready"])
+
+    def test_full_prebuild_retains_baseline_admission(self):
+        status,result=self.invoke(phase="prebuild")
+        self.assertEqual(status,0);self.assertTrue(result["ready"])
 
     def test_unknown_schema_static_only_identity_and_noisy_stdout_fail(self):
         for bad in ["schema","static","identity","noise"]:

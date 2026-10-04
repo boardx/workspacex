@@ -46,3 +46,7 @@ python3 .agents/skills/workspacex-cn-release/scripts/validate_preflight.py prefl
 ## 经验回流
 
 同一失败签名第一次出现后，修复 PR 必须同时添加一个能在发布前复现它的 probe/反证测试，并更新本 Skill 的事故表。重复出现同一签名即视为 SOP 缺陷，先修门控再继续常规发布。
+
+## Artifact-only build (#5319)
+
+The trusted fixed-candidate build-only lane uses a separate `artifact-build` receipt and stops after sealing. Full baseline admission remains mandatory before migration and activation. See the single [stage-boundary contract](references/preflight-contract.md#artifact-only-stage-boundary-5319) for the exact producer/consumer protocol.

@@ -146,7 +146,7 @@ def validate(value: object, now: datetime | None = None) -> dict:
     need(isinstance(value, dict), "root must be an object")
     need(value.get("schemaVersion") == 2, "schemaVersion must be 2")
     phase = value.get("phase")
-    need(isinstance(phase, str) and phase in {"prebuild", "preactivate"}, "phase must be prebuild or preactivate")
+    need(isinstance(phase, str) and phase in {"prebuild", "artifact-build", "preactivate"}, "phase must be prebuild or preactivate")
     need(isinstance(value.get("attemptId"), str) and ATTEMPT_ID.fullmatch(value["attemptId"]) is not None, "attemptId must be a path-safe lowercase identifier")
     for field in ("sourceSha", "baselineSha"):
         need(isinstance(value.get(field), str) and HEX40.fullmatch(value[field]) is not None, f"{field} must be 40 lowercase hex")
@@ -159,7 +159,7 @@ def validate(value: object, now: datetime | None = None) -> dict:
     need(issued <= current + timedelta(minutes=5), "receipt issued in the future")
     need(issued <= current < expires, "receipt is expired or not yet valid")
     need(timedelta(seconds=0) < expires - issued <= timedelta(hours=1), "receipt TTL must be at most one hour")
-    if phase == "prebuild":
+    if phase != "preactivate":
         need("prebuildEvidence" not in value and "prebuildReceiptSha256" not in value, "prebuild cannot contain prior receipt evidence")
     else:
         prior = value.get("prebuildEvidence")
@@ -232,7 +232,7 @@ def validate(value: object, now: datetime | None = None) -> dict:
     if_passed("runtime.no_orphans", orphans.get("scanPassed") is True and orphans.get("count") == 0, "orphan release process scan must pass with count zero")
     identity = safe_metadata(checks, "config.release_manifest", {"sourceSha", "release", "kind", "imageDigest", "imageDigests"})
     identity_ok = identity.get("sourceSha") == value["sourceSha"] and identity.get("release") == value["release"]
-    if phase == "prebuild":
+    if phase != "preactivate":
         identity_ok = identity_ok and identity.get("kind") == "source-plan" and "imageDigest" not in identity and "imageDigests" not in identity
     else:
         target_metadata = safe_metadata(checks, "build.target_images", {"services"})
@@ -302,21 +302,23 @@ def validate(value: object, now: datetime | None = None) -> dict:
     need(set(bootstrap) <= BOOTSTRAP_SAFE_METADATA_KEYS, "bootstrap.compatibility.metadata contains a non-redacted key")
     common_bootstrap_ok = (
         bootstrap.get("productionWriteStatements") == 0
-        and bootstrap.get("sourceEntrypoint" if phase == "prebuild" else "imageEntrypoint") is True
+        and bootstrap.get("sourceEntrypoint" if phase != "preactivate" else "imageEntrypoint") is True
         and bootstrap.get("inputContract") is True
         and bootstrap.get("exactlyOneMachineRecord") is True
     )
-    if phase == "prebuild":
-        bootstrap_ok = (common_bootstrap_ok
-            and bootstrap.get("evidenceMode") == "source-static"
+    if phase != "preactivate":
+        baseline_ok = (phase == "artifact-build" and not any(key in bootstrap for key in ("baselineSha", "migrationPlanSha256", "baselineSchemaSha256", "baselineLedgerContract", "baselineSchemaContract", "baselinePermissionContract"))) or (
+            phase == "prebuild"
             and bootstrap.get("baselineSha") == value.get("baselineSha")
             and isinstance(bootstrap.get("migrationPlanSha256"), str)
-            and HEX64.fullmatch(bootstrap.get("migrationPlanSha256")) is not None
+            and HEX64.fullmatch(bootstrap["migrationPlanSha256"]) is not None
             and bootstrap.get("baselineLedgerContract") is True
             and bootstrap.get("baselineSchemaContract") is True
             and isinstance(bootstrap.get("baselineSchemaSha256"), str)
-            and HEX64.fullmatch(bootstrap.get("baselineSchemaSha256")) is not None
-            and bootstrap.get("baselinePermissionContract") is True
+            and HEX64.fullmatch(bootstrap["baselineSchemaSha256"]) is not None
+            and bootstrap.get("baselinePermissionContract") is True)
+        bootstrap_ok = (common_bootstrap_ok and baseline_ok
+            and bootstrap.get("evidenceMode") == "source-static"
             and bootstrap.get("candidateSchemaContract") is False
             and bootstrap.get("buildAdmissionOnly") is True
             and bootstrap.get("readOnlyTransaction") is False
@@ -331,7 +333,7 @@ def validate(value: object, now: datetime | None = None) -> dict:
             and bootstrap.get("stateClass") in {"empty", "matching-existing"}
             and all(bootstrap.get(key) is True for key in ("schemaContract", "permissionContract", "agentSeedContract", "migrationLedgerContract")))
     if_passed("bootstrap.compatibility", bootstrap_ok, "bootstrap evidence does not prove the required phase")
-    if phase == "prebuild":
+    if phase != "preactivate":
         need("imageEntrypoint" not in bootstrap, "prebuild must not claim a target image entrypoint")
     else:
         need("sourceEntrypoint" not in bootstrap, "preactivate must use the built image entrypoint")

@@ -38,6 +38,16 @@ interface Runtime { read(path:string):Buffer; runBash:CommandRunner; runWriter:C
 const defaults: Runtime={read:readProtectedCompletionBytes,runBash:runFixedPython,runWriter:undefined as never,verifyExecutable:command=>{const fd=protectedExecutable(command);closeSync(fd);},now:Date.now,verifyCompletion:verifyMigrationCompletion,persist:async(path,bytes)=>{await inheritedFd9Lock();publishMigrationReceipt(path,bytes);}};
 /** Production callers supply runWriter = runFixedPython, not plan-selected JS.
  * fixture overrides are local test API; the installed entry never deserializes them. */
+/** Consume only immutable, root-protected FULL prebuild evidence before DDL.
+ * Artifact-build receipts are stored separately and never grant migration. */
+export function verifyBaselineMigrationAdmission(raw:Buffer,validatedRaw:Buffer,id:MaintenanceIdentity,now:number):void {
+ const evidence=JSON.parse(raw.toString('utf8')),validated=JSON.parse(validatedRaw.toString('utf8'));
+ const canonical=(v:any):string=>Array.isArray(v)?'['+v.map(canonical).join(',')+']':v&&typeof v==='object'?'{'+Object.keys(v).sort().map(k=>JSON.stringify(k)+':'+canonical(v[k])).join(',')+'}':JSON.stringify(v);
+ const hash=createHash('sha256').update(canonical(evidence)).digest('hex');
+ const issued=Date.parse(evidence.issuedAt),expires=Date.parse(evidence.expiresAt);
+ const b=evidence.checks?.['bootstrap.compatibility'];const proof=b?.metadata;
+ if(evidence.schemaVersion!==2||evidence.phase!=='prebuild'||evidence.buildStarted!==false||evidence.sourceSha!==id.sourceRevision||evidence.baselineSha!==id.baselineRevision||evidence.attemptId!==id.attemptId||!Number.isFinite(issued)||!Number.isFinite(expires)||issued>now||expires<=now||expires-issued<=0||expires-issued>3600000||validated.schemaVersion!==2||validated.phase!=='prebuild'||validated.ready!==true||!Array.isArray(validated.blockers)||validated.blockers.length||validated.receiptSha256!==hash||['sourceSha','baselineSha','attemptId','release','issuedAt','expiresAt'].some(k=>validated[k]!==evidence[k])||b?.status!=='passed'||!hex.safeParse(b?.evidenceSha256).success||proof?.evidenceMode!=='source-static'||proof?.baselineSha!==id.baselineRevision||proof?.migrationPlanSha256!==id.migrationPlanSha256||!hex.safeParse(proof?.baselineSchemaSha256).success||proof?.baselineLedgerContract!==true||proof?.baselineSchemaContract!==true||proof?.baselinePermissionContract!==true||proof?.candidateSchemaContract!==false||proof?.buildAdmissionOnly!==true||proof?.productionWriteStatements!==0)throw Error('MIGRATION_BASELINE_ADMISSION_INVALID');
+}
 export function createMigrationTransport(inputs:ExactMigrationInputs,binding:MigrationHostBinding,runWriter:CommandRunner,lifecycle:PersistentMigrationLifecycle,fixture?:Partial<Runtime>):ExactMigrationTransport {
  if(!lifecycle||typeof lifecycle.migrateExactPlan!=='function'||typeof lifecycle.readDiagnosticLedger!=='function'||typeof lifecycle.recordMigrationCompletion!=='function')throw new Error('PERSISTENT_MIGRATION_LIFECYCLE_REQUIRED');
  const runtime={...defaults,runWriter,...fixture};
@@ -80,6 +90,8 @@ export function createMigrationTransport(inputs:ExactMigrationInputs,binding:Mig
    const preflight=JSON.parse((await runtime.runBash(binding.collector,['--preflight-completion',id.sourceRevision,id.attemptId,id.migrationPlanSha256])).stdout);
    if(preflight.schemaVersion!==1||preflight.kind!=='migration-collector-preflight'||preflight.ready!==false||preflight.toolRevision!==binding.toolRevision||!preflight.identity||Object.keys(preflight.identity).length!==4||Object.entries(id).some(([k,v])=>preflight.identity[k]!==v)||!hex.safeParse(preflight.querySha256).success||preflight.querySha256!==identityHash('/usr/bin/node /usr/local/lib/workspacex-cn/cn-migration-snapshot-query.cjs --readonly-ledger '+id.sourceRevision+' '+id.attemptId+'\n'))throw new Error('MIGRATION_COLLECTOR_PREFLIGHT_FAILED');
    const before=await diagnostic();if(JSON.stringify(before)!==JSON.stringify(inputs.plan.ledger))throw new Error('MIGRATION_DIAGNOSTIC_BASELINE_LEDGER_CHANGED');
+   const admissionRoot=`/var/lib/workspacex-cn/preflight-receipts/${id.sourceRevision}/${id.attemptId}`;
+   verifyBaselineMigrationAdmission(runtime.read(admissionRoot+'/prebuild.json'),runtime.read(admissionRoot+'/prebuild.validated.json'),id,runtime.now());
    await barrier();startedAt=runtime.now();
    const result=await lifecycle.migrateExactPlan(id);
    await barrier();completed=true;return result;
