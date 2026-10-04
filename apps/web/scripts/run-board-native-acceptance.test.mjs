@@ -94,13 +94,32 @@ test('R01 requires eight distinct signed title-project cases, not a repeated pas
 });
 test('R01 final projection never publishes private fields or treats preserved boards and hardware as completed',()=>{
  const definition=suiteDefinition('e2e/board-r01-existing-runtime.config.ts'),head='a'.repeat(40),proof={identity:{head},manifestHash:'1'.repeat(64),verifierHash:'2'.repeat(64),selectorHash:'3'.repeat(64)},receipts=definition.titles.flatMap(title=>definition.projects.map(project=>({source:head,testIdentity:{title,project},status:'functional-cases-passed',completed:false,cleanupPending:true,hardwareTrackpad:'unverified',observationMode:'all',visualEvidence:'executed-not-human-approved',screenshots:[{name:'bounded',sha256:'5'.repeat(64)}],boardId:'private-id',title:'private-title',beforeProof:structuredClone(proof),afterProof:structuredClone(proof)})));
- assert.deepEqual(r01ResultSummary(receipts,head),{observationMode:'all',visualEvidence:'executed-not-human-approved',visuallyAccepted:false,functionalCasesPassed:8,completed:false,cleanupPending:true,hardwareTrackpad:'unverified',requiredSuiteComplete:false});
- for(const values of [receipts.slice(1),receipts.map(()=>receipts[0]),receipts.map(value=>({...value,source:'b'.repeat(40)})),receipts.map(value=>({...value,status:'failed'})),receipts.map(value=>({...value,completed:true}))])assert.throws(()=>r01ResultSummary(values,head));
+ assert.deepEqual(r01ResultSummary(receipts,head,'all'),{observationMode:'all',visualEvidence:'executed-not-human-approved',visuallyAccepted:false,functionalCasesPassed:8,completed:false,cleanupPending:true,hardwareTrackpad:'unverified',requiredSuiteComplete:false});
+ for(const values of [receipts.slice(1),receipts.map(()=>receipts[0]),receipts.map(value=>({...value,source:'b'.repeat(40)})),receipts.map(value=>({...value,status:'failed'})),receipts.map(value=>({...value,completed:true}))])assert.throws(()=>r01ResultSummary(values,head,'all'));
  const functional=receipts.map(value=>({...value,observationMode:'functional',visualEvidence:'deferred-not-verified',screenshots:[]}));
  assert.equal(r01ResultSummary(functional,head,'functional').visualEvidence,'deferred-not-verified');
+ // The workflow sets this exact variable: implicit mode must bind the receipt,
+ // while explicit fixture mode remains independent of the invoking lane.
+ const previousMode=process.env.BOARD_OBSERVATION_MODE;
+ try{
+  for(const [mode,matching,foreign] of [['all',receipts,functional],['functional',functional,receipts]]){
+   process.env.BOARD_OBSERVATION_MODE=mode;
+   assert.equal(r01ResultSummary(matching,head).observationMode,mode);
+   assert.throws(()=>r01ResultSummary(foreign,head),/R01_RECEIPT_MODE/);
+   const mixed=structuredClone(matching);mixed[0]=structuredClone(foreign[0]);
+   assert.throws(()=>r01ResultSummary(mixed,head),/R01_RECEIPT_MODE/);
+   assert.equal(r01ResultSummary(receipts,head,'all').observationMode,'all');
+  }
+  process.env.BOARD_OBSERVATION_MODE='unknown';
+  assert.throws(()=>r01ResultSummary(receipts,head),/INVALID_BOARD_OBSERVATION_MODE/);
+ }finally{
+  if(previousMode===undefined)delete process.env.BOARD_OBSERVATION_MODE;
+  else process.env.BOARD_OBSERVATION_MODE=previousMode;
+ }
+
  for(const mutate of [r=>delete r[0].observationMode,r=>r[0].observationMode='unknown',r=>r[0].observationMode='all',r=>r[0].visualEvidence='passed',r=>r[0].screenshots=[{name:'fake',sha256:'5'.repeat(64)}]]){const invalid=structuredClone(functional);mutate(invalid);assert.throws(()=>r01ResultSummary(invalid,head,'functional'));}
  assert.throws(()=>r01ResultSummary(functional,head,'unknown'));assert.throws(()=>r01ResultSummary(receipts,head,'functional'));
- for(const mutate of [r=>delete r[0].beforeProof,r=>r[0].beforeProof.identity.head='b'.repeat(40),r=>r[0].afterProof.identity.head='b'.repeat(40),r=>r[0].afterProof.selectorHash='4'.repeat(64),r=>{r[0].beforeProof.verifierHash='bad';r[0].afterProof.verifierHash='bad';}]){const invalid=structuredClone(receipts);mutate(invalid);assert.throws(()=>r01ResultSummary(invalid,head));}
+ for(const mutate of [r=>delete r[0].beforeProof,r=>r[0].beforeProof.identity.head='b'.repeat(40),r=>r[0].afterProof.identity.head='b'.repeat(40),r=>r[0].afterProof.selectorHash='4'.repeat(64),r=>{r[0].beforeProof.verifierHash='bad';r[0].afterProof.verifierHash='bad';}]){const invalid=structuredClone(receipts);mutate(invalid);assert.throws(()=>r01ResultSummary(invalid,head,'all'));}
 });
 test('R01 receipts bind each real report result attachment, rejecting reused, foreign and missing paths',()=>{
  const directory=mkdtempSync('/private/tmp/wsx-r01-report-'),head='a'.repeat(40),definition=suiteDefinition('e2e/board-r01-existing-runtime.config.ts');
