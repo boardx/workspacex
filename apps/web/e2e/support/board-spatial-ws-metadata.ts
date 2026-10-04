@@ -84,6 +84,8 @@ export function nativeSocketMessageClass(message:unknown){
  if(message==='')return 'EMPTY';
  // Chromium 151.0.7922.34 websocket_channel_impl.cc / net/websockets/websocket_channel.cc.
  switch(message){
+  // dom_websocket.cc ContextLifecycleStateChanged(kFrozen), pinned Chromium151.
+  case 'Page entered Back-Forward Cache.':return 'PAGE_FROZEN_BFCACHE';
   case 'Could not decode a text frame as UTF-8.':return 'UTF8_DECODE_FAILED';
   case 'Message size is too large.':return 'MESSAGE_TOO_LARGE';
   case 'Received unexpected continuation frame.':return 'UNEXPECTED_CONTINUATION';

@@ -72,6 +72,7 @@ it('diagnostic removal attempts every owned listener before reporting a fixed cl
  expect(stop).toThrow('SOCKET_DIAGNOSTIC_STOP_FAILED');expect(attempts).toEqual(['Network.webSocketCreated','Network.webSocketFrameError','Network.webSocketClosed']);
 });
 const fixedMessageClasses=[
+ ['Page entered Back-Forward Cache.','PAGE_FROZEN_BFCACHE'],
  ['Could not decode a text frame as UTF-8.','UTF8_DECODE_FAILED'],
  ['Message size is too large.','MESSAGE_TOO_LARGE'],
  ['Received unexpected continuation frame.','UNEXPECTED_CONTINUATION'],
