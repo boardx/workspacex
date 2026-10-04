@@ -40,3 +40,33 @@ it("keeps a failed historical topic on the plan step until explicit retry", asyn
   expect(execute).not.toHaveBeenCalled();
   expect(window.location.pathname).toBe("/research/grs-live/plan");
 });
+
+async function editedChapter() {
+  read.mockResolvedValue(runtimeFixture("report"));
+  render(<GuidedResearchLive sessionId="grs-live" initialNode="report" visualStage="report" onBack={vi.fn()} />);
+  const summary = await screen.findByText("调整报告章节");
+  const details = summary.closest("details")!;
+  details.open = true; fireEvent(details, new Event("toggle"));
+  const input = await screen.findByRole("textbox", {name:"章节标题"});
+  fireEvent.change(input, {target:{value:"编辑后的章节"}});
+  return details;
+}
+it("keeps unsaved chapter edits through collapse and reopening", async () => {
+  const details = await editedChapter();
+  details.open = false; fireEvent(details, new Event("toggle"));
+  details.open = true; fireEvent(details, new Event("toggle"));
+  expect(await screen.findByRole("textbox", {name:"章节标题"})).toHaveValue("编辑后的章节");
+  expect(screen.getByRole("button", {name:"保存章节结构"})).toBeEnabled();
+  expect(execute).not.toHaveBeenCalled();
+});
+it("regenerates from the unlocked server node after saving chapters", async () => {
+  const next = {...runtimeFixture("research"), version:5};
+  execute.mockResolvedValueOnce(next).mockResolvedValueOnce(runtimeFixture("report"));
+  await editedChapter();
+  fireEvent.click(screen.getByRole("button", {name:"保存章节结构"}));
+  await waitFor(() => expect(execute).toHaveBeenCalledTimes(1));
+  await waitFor(() => expect(screen.getByTestId("research-report-primary-action")).toBeEnabled());
+  fireEvent.click(screen.getByTestId("research-report-primary-action"));
+  await waitFor(() => expect(execute).toHaveBeenCalledTimes(2));
+  expect(execute.mock.calls[1]?.[0]).toMatchObject({node:"research",action:"generate_report"});
+});
