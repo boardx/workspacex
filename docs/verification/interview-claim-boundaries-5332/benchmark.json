@@ -1,0 +1,12 @@
+{
+  "modelCalls": 0,
+  "iterations": 200,
+  "characters": 3481,
+  "medianMs": 1.4087499999999409,
+  "p95Ms": 1.956875000000025,
+  "missing": [
+    "unsupported_executed_measurement",
+    "unqualified_defect_exclusion",
+    "overbroad_physical_check_exemption"
+  ]
+}
