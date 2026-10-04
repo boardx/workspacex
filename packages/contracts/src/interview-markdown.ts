@@ -83,6 +83,7 @@ function isVerifiableActionHeading(text: string): boolean {
 /** Quoted examples cannot supply an action, including a P0 label inside a quote. */
 function actionNodeText(node: MarkdownNode): string {
   if (["blockquote", "html", "code", "inlineCode", "image"].includes(node.type)) return "";
+  if (node.type == "link" && /^#(?:answer-|source-)/u.test(node.url ?? "")) return "";
   const separator = ["list", "listItem", "root"].includes(node.type) ? "\n" : "";
   return node.value ?? node.children?.map(actionNodeText).filter(Boolean).join(separator) ?? "";
 }

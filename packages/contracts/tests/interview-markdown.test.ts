@@ -142,6 +142,10 @@ describe("numbered verifiable action headings (#5289)", () => {
   it.each(["建议优化产品。", "访谈用户。", "测试三次。", "P0：建议优化流程。", "建议行动：建议优化产品流程。", "> 独立访谈五位用户，对比三方证据并验证任务完成时长。", "> P0：独立访谈五位用户，对比三方证据并验证任务完成时长。", "```md\nP0：独立访谈五位用户，对比三方证据并验证任务完成时长。\n```"])("does not let a numbered title or quoted labels manufacture action: %s", (body) => {
     expect(hasInterviewReportVerifiableAction(`## 6. 下一步验证建议（可执行行动）\n\n${body}`)).toBe(false);
   });
+  it.each(["answer-1", "source-1"])("does not count controlled %s evidence links as researcher actions", (anchor) => {
+    expect(hasInterviewReportVerifiableAction(`## 6. 下一步验证建议\n\n[${action}](#${anchor})`)).toBe(false);
+    expect(hasInterviewReportVerifiableAction(`## 6. 下一步验证建议\n\n[${action}](#${anchor})\n\n${action}`)).toBe(true);
+  });
   it.each(["6. 下一步验证建议与后续研究", "六、下一步验证建议（可执行行动", "讨论下一步验证建议", "下一步验证建议（可执行行动）与其他事项"])("does not expand the section scope to %s", (heading) => {
     expect(hasInterviewReportVerifiableAction(`## ${heading}\n\n${action}`)).toBe(false);
   });
