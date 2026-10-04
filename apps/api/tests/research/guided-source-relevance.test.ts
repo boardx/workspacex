@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { research as C } from "@repo/contracts";
+import * as relevanceModule from "../../src/application/research/guided-source-relevance";
 import { screenResearchSources } from "../../src/application/research/guided-source-relevance";
 import { GuidedRuntimeService, initialRuntime } from "../../src/application/research/guided-runtime-service";
 import { ResearchRuntimeError, type ResearchRuntime, type GuidedRuntimeStore } from "../../src/application/research/guided-runtime-ports";
@@ -261,7 +262,7 @@ describe("actionable source output repair", () => {
     expect(result.sources).toHaveLength(43);
     expect(result.sources.every((item) => item.relevanceBasis)).toBe(true);
     expect(f.search).not.toHaveBeenCalled();
-    const repair = JSON.parse(f.model.complete.mock.calls[1]![0].user).repair;
+    const repair = f.model.complete.mock.calls.map(([input]) => JSON.parse(input.user).repair).find(Boolean);
     expect(repair.previousOutput).toBeTruthy();
     if (kind === "json") expect(repair.issues).toContainEqual(expect.objectContaining({ code: "invalid_json" }));
     if (kind === "schema") expect(repair.issues).toContainEqual(expect.objectContaining({ path: ["evaluations", 0, "matches"] }));
@@ -298,7 +299,7 @@ describe("actionable source output repair", () => {
     f.model.complete.mockImplementationOnce(async () => ({ text: JSON.stringify({ ["x".repeat(50000)]: true }) }));
     const result = await f.run();
     expect(result.errorCode).toBeNull();
-    const repair = JSON.parse(f.model.complete.mock.calls[1]![0].user).repair;
+    const repair = f.model.complete.mock.calls.map(([input]) => JSON.parse(input.user).repair).find(Boolean);
     expect(JSON.stringify(repair.issues).length).toBeLessThan(16000);
     expect(repair.issues.every((issue: { message: string }) => issue.message.length <= 320)).toBe(true);
     expect(repair.previousOutput.length).toBeLessThanOrEqual(24000);
@@ -340,4 +341,179 @@ it("reevaluates retrieved facts against replacement chapter questions instead of
   expect(input.chunks.every((chunk) => chunk.questionIds.length > 0)).toBe(true);
   expect(input.questions.every((question) => question.sectionId === "replacement")).toBe(true);
   expect(result[0]!.content).toBe(direct.content);
+});
+
+
+describe("bounded source screening batch work", () => {
+  const batches = () => Array.from({ length: 4 }, (_, i) => source(`batch-${i}`, String(i).repeat(24000)));
+  it("computes the same four batches with peak two and two waves of fixed work", async () => {
+    vi.useFakeTimers();
+    try {
+      let active = 0, peak = 0, calls = 0;
+      const model = async (_system: string, input: unknown, validate: (value: unknown) => void) => {
+        calls++; active++; peak = Math.max(peak, active);
+        await new Promise((resolve) => setTimeout(resolve, 40));
+        const value = evaluation(input as Input); validate(value); active--; return value;
+      };
+      const start = Date.now();
+      const operation = screenResearchSources(runtime(), batches(), model);
+      await vi.runAllTimersAsync();
+      const concurrent = await operation;
+      expect(concurrent).toHaveLength(4);
+      expect(calls).toBe(4); expect(peak).toBe(2); expect(Date.now() - start).toBe(80);
+      // Equal-work serial provider control: same four inputs, validator and outputs.
+      active = 0; peak = 0; calls = 0;
+      let lane = Promise.resolve(); const serialStart = Date.now();
+      const serialOperation = screenResearchSources(runtime(), batches(), (system, input, validate) => {
+        const next = lane.then(() => model(system, input, validate));
+        lane = next.then(() => undefined); return next;
+      });
+      await vi.runAllTimersAsync();
+      expect(await serialOperation).toEqual(concurrent);
+      expect(calls).toBe(4); expect(peak).toBe(1); expect(Date.now() - serialStart).toBe(160);
+    } finally { vi.useRealTimers(); }
+  });
+  it("merges reverse completions in original batch order including shared-source task identities and presentation", async () => {
+    vi.useFakeTimers();
+    try {
+      const state = runtime(); state.tasks.push({ ...state.tasks[0]!, id: "task2" });
+      const shared = { ...source("shared", "x".repeat(24000)), taskIds: ["task", "task2"] };
+      const result = screenResearchSources(state, [shared], async (_system, input, validate) => {
+        const batch = input as Input; const first = batch.chunks[0]!.taskId === "task";
+        await new Promise(resolve => setTimeout(resolve, first ? 40 : 10));
+        const value = { evaluations: evaluation(batch).evaluations.map(entry => ({ ...entry, presentation: { title: first ? "first" : "second", summary: "valid summary" } })) };
+        validate(value); return value;
+      });
+      await vi.runAllTimersAsync();
+      expect((await result)[0]).toMatchObject({ taskId: "task", taskIds: ["task", "task2"], presentation: { title: "first" } });
+    } finally { vi.useRealTimers(); }
+  });
+  it("stops dispatch and partner repair on terminal failure, drains the active callback and preserves error identity", async () => {
+    vi.useFakeTimers();
+    try {
+      const failure = new Error("original transport failure");
+      const sources = batches(); const before = structuredClone(sources); let calls = 0, active = 0;
+      const operation = screenResearchSources(runtime(), sources, async (_system, input, validate) => {
+        const index = calls++; active++;
+        await new Promise(resolve => setTimeout(resolve, index === 0 ? 10 : 40));
+        active--;
+        if (index === 0) throw failure;
+        validate({}); return {};
+      });
+      const settled = operation.then(() => ({ error: null }), error => ({ error }));
+      await vi.advanceTimersByTimeAsync(10);
+      expect(active).toBe(1);
+      let returned = false; void settled.then(() => { returned = true; }); await Promise.resolve(); expect(returned).toBe(false);
+      await vi.runAllTimersAsync();
+      expect((await settled).error).toBe(failure); expect(calls).toBe(2); expect(active).toBe(0); expect(sources).toEqual(before);
+    } finally { vi.useRealTimers(); }
+  });
+  it("serializes service attempt admission writes while two source models are in flight", async () => {
+    vi.useFakeTimers();
+    try {
+      const state = runtime(); state.sources = batches(); state.tasks[0]!.status = "succeeded";
+      let writing = 0, peakWrites = 0, active = 0, peakModels = 0; const snapshots: ResearchRuntime[] = [];
+      const store: GuidedRuntimeStore = { read: async () => structuredClone(state), claim: async () => ({ state: structuredClone(state), replay: false }), write: async (_actor, _id, value) => {
+        writing++; peakWrites = Math.max(peakWrites, writing); await new Promise(resolve => setTimeout(resolve, 5)); snapshots.push(structuredClone(value)); writing--;
+      } };
+      const model = { complete: async (input: { user: string }) => {
+        const context = JSON.parse(input.user); if (context.researchStage !== "source_relevance") throw new Error("stop after screening");
+        active++; peakModels = Math.max(peakModels, active); await new Promise(resolve => setTimeout(resolve, 40)); active--;
+        return { text: JSON.stringify(evaluation(context)) };
+      } };
+      const service = new GuidedRuntimeService(store, model, { search: async () => [] }, { provider: "test", id: "test" });
+      const operation = service.execute({ sessionId: session.sessionId, orgId: toOrgId("org"), userId: "user" }, session,
+        { sessionId: session.sessionId, requestId: "concurrent", node: "research", action: "complete", expectedVersion: 0 });
+      await vi.runAllTimersAsync(); await operation;
+      expect(peakWrites).toBe(1); expect(peakModels).toBe(2); expect(active).toBe(0);
+      expect(snapshots.some(snapshot => snapshot.modelCalls.length >= 2)).toBe(true);
+    } finally { vi.useRealTimers(); }
+  });
+  it("does not repair a slow malformed first batch after its partner fatally fails", async () => {
+    vi.useFakeTimers();
+    try {
+      const failure = new Error("partner fatal"); let calls = 0;
+      const operation = screenResearchSources(runtime(), batches(), async (_system, _input, validate) => {
+        const index = calls++; await new Promise(resolve => setTimeout(resolve, index === 0 ? 40 : 10));
+        if (index === 1) throw failure;
+        validate({}); return {};
+      });
+      const outcome = operation.catch(error => error); await vi.runAllTimersAsync();
+      expect(await outcome).toBe(failure); expect(calls).toBe(2);
+    } finally { vi.useRealTimers(); }
+  });
+  it("does not start either provider when serialized pre-call persistence fails", async () => {
+    const state = runtime(); state.sources = batches(); state.tasks[0]!.status = "succeeded";
+    const failure = new Error("attempt persistence failed"); let writes = 0;
+    const model = { complete: vi.fn(async () => ({ text: "{}" })) };
+    const store: GuidedRuntimeStore = { read: async () => structuredClone(state), claim: async () => ({ state: structuredClone(state), replay: false }),
+      write: async () => { if (++writes === 1) throw failure; } };
+    const service = new GuidedRuntimeService(store, model, { search: async () => [] }, { provider: "test", id: "test" });
+    const result = await service.execute({ sessionId: session.sessionId, orgId: toOrgId("org"), userId: "user" }, session,
+      { sessionId: session.sessionId, requestId: "write-failure", node: "research", action: "complete", expectedVersion: 0 });
+    expect(result.errorCode).toBe("RESEARCH_WORKFLOW_UNAVAILABLE"); expect(model.complete).not.toHaveBeenCalled();
+    expect(result.sources).toEqual(state.sources); expect(result.modelCalls).toHaveLength(1);
+  });
+  it("shares the existing report budget, stops queued calls, and ignores late pure provider results", async () => {
+    vi.useFakeTimers();
+    try {
+      const state = runtime(); state.currentNode = "report"; state.availableNodes.push("report"); state.sources = batches(); state.tasks[0]!.status = "succeeded";
+      const late: (() => void)[] = []; const signals: AbortSignal[] = [];
+      const model = { complete: vi.fn(async (input: { user: string; signal?: AbortSignal }) => {
+        signals.push(input.signal!); const context = JSON.parse(input.user);
+        return new Promise<{ text: string }>(resolve => late.push(() => resolve({ text: JSON.stringify(evaluation(context)) })));
+      }) };
+      const snapshots: ResearchRuntime[] = [];
+      const store: GuidedRuntimeStore = { read: async () => structuredClone(state), claim: async () => ({ state: structuredClone(state), replay: false }), write: async (_actor, _id, value) => { snapshots.push(structuredClone(value)); } };
+      const service = new GuidedRuntimeService(store, model, { search: async () => [] }, { provider: "test", id: "test" });
+      const operation = service.execute({ sessionId: session.sessionId, orgId: toOrgId("org"), userId: "user" }, session,
+        { sessionId: session.sessionId, requestId: "budget", node: "report", action: "generate", expectedVersion: 0 });
+      await vi.advanceTimersByTimeAsync(180000); const result = await operation;
+      expect(result.errorCode).toBe("RESEARCH_REPORT_PREPARATION_TIME_BUDGET_EXCEEDED"); expect(result.busy).toBe(false);
+      expect(model.complete).toHaveBeenCalledTimes(2); expect(signals.every(signal => signal.aborted)).toBe(true);
+      const writes = snapshots.length, before = structuredClone(result); late.forEach(resolve => resolve()); await vi.runAllTimersAsync();
+      expect(snapshots).toHaveLength(writes); expect(result).toEqual(before); expect(result.sources).toEqual(state.sources);
+    } finally { vi.useRealTimers(); }
+  });
+  it("does not dispatch a provider after the budget expires while admission persistence is pending", async () => {
+    vi.useFakeTimers();
+    try {
+      const state = runtime(); state.currentNode = "report"; state.availableNodes.push("report"); state.sources = batches(); state.tasks[0]!.status = "succeeded";
+      let writes = 0;
+      const store: GuidedRuntimeStore = { read: async () => structuredClone(state), claim: async () => ({ state: structuredClone(state), replay: false }), write: async () => { if (++writes === 2) await new Promise(resolve => setTimeout(resolve, 200000)); } };
+      const model = { complete: vi.fn(async () => ({ text: "{}" })) };
+      const service = new GuidedRuntimeService(store, model, { search: async () => [] }, { provider: "test", id: "test" });
+      const operation = service.execute({ sessionId: session.sessionId, orgId: toOrgId("org"), userId: "user" }, session,
+        { sessionId: session.sessionId, requestId: "admission-budget", node: "report", action: "generate", expectedVersion: 0 });
+      await vi.runAllTimersAsync(); const result = await operation;
+      expect(result.errorCode).toBe("RESEARCH_REPORT_PREPARATION_TIME_BUDGET_EXCEEDED"); expect(model.complete).not.toHaveBeenCalled();
+      expect(result.modelCalls).toHaveLength(1); const savedWrites = writes; await vi.runAllTimersAsync(); expect(writes).toBe(savedWrites);
+    } finally { vi.useRealTimers(); }
+  });
+
+  it("does not parse or mark a late valid provider success after its partner terminally fails", async () => {
+    vi.useFakeTimers();
+    const parser = vi.spyOn(relevanceModule, "parseSourceRelevanceJson");
+    try {
+      const state = runtime(); state.sources = batches(); state.tasks[0]!.status = "succeeded";
+      let calls = 0;
+      const model = { complete: async (input: { user: string }) => {
+        const index = calls++; await new Promise(resolve => setTimeout(resolve, index === 0 ? 10 : 40));
+        if (index === 0) throw new ResearchRuntimeError("RESEARCH_SEARCH_UNAVAILABLE");
+        return { text: JSON.stringify(evaluation(JSON.parse(input.user))) };
+      } };
+      const snapshots: ResearchRuntime[] = [];
+      const store: GuidedRuntimeStore = { read: async () => structuredClone(state), claim: async () => ({ state: structuredClone(state), replay: false }),
+        write: async (_actor, _id, value) => { snapshots.push(structuredClone(value)); } };
+      const service = new GuidedRuntimeService(store, model, { search: async () => [] }, { provider: "test", id: "test" });
+      const operation = service.execute({ sessionId: session.sessionId, orgId: toOrgId("org"), userId: "user" }, session,
+        { sessionId: session.sessionId, requestId: "late-valid", node: "research", action: "complete", expectedVersion: 0 });
+      await vi.runAllTimersAsync(); const result = await operation;
+      expect(result.errorCode).toBe("RESEARCH_SEARCH_UNAVAILABLE"); expect(calls).toBe(2);
+      expect(parser).not.toHaveBeenCalled();
+      expect(result.modelCalls.map(call => call.status)).toEqual(["failed", "failed"]);
+      expect(result.sources).toEqual(state.sources); const writes = snapshots.length; await vi.runAllTimersAsync(); expect(snapshots).toHaveLength(writes);
+    } finally { parser.mockRestore(); vi.useRealTimers(); }
+  });
+
 });

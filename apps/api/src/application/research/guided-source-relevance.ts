@@ -7,7 +7,7 @@ import { reportQuestions } from "./guided-report-evidence";
 import { ResearchRuntimeError, type ResearchRuntime } from "./guided-runtime-ports";
 
 type Source = ResearchRuntime["sources"][number];
-type Complete = (system: string, context: unknown, validate: (value: unknown) => void) => Promise<unknown>;
+type Complete = (system: string, context: unknown, validate: (value: unknown) => void, check?: () => void) => Promise<unknown>;
 type Chunk = { sourceId: string; chunkId: string; taskId: string; questionIds: string[]; title: string; url: string; content: string };
 type OutputIssue = { path: (string | number)[]; code: string; message: string };
 class InvalidRelevanceOutput extends ResearchRuntimeError {
@@ -47,6 +47,25 @@ export function sourceRelevanceBasis(state: ResearchRuntime, source: Source): st
     title: source.title, url: source.url, content: screeningContent(source) })).digest("hex");
 }
 
+/** Two local calculations; failures stop dispatch/repair and drain every callback.
+ * Results remain private until all batches validate, then merge in input order. */
+async function screeningBatchWork<T, R>(items: readonly T[], compute: (item: T, check: () => void) => Promise<R>): Promise<R[]> {
+  const results: R[] = new Array(items.length);
+  let cursor = 0, stopped = false;
+  let failure: unknown;
+  const check = () => { if (stopped) throw failure; };
+  const worker = async () => {
+    while (!stopped && cursor < items.length) {
+      const index = cursor++;
+      try { results[index] = await compute(items[index]!, check); }
+      catch (error) { if (!stopped) { stopped = true; failure = error; } }
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(2, items.length) }, worker));
+  check();
+  return results;
+}
+
 /** No state mutation: publish only after every batch is validated. User exclusions
  * and explicitly added URLs retain their intent; reports still vet their evidence. */
 export async function screenResearchSources(state: ResearchRuntime, sources: Source[], complete: Complete): Promise<Source[]> {
@@ -80,9 +99,7 @@ export async function screenResearchSources(state: ResearchRuntime, sources: Sou
     }
     batch.push(chunk); batchSize += chunk.content.length;
   }
-  const presentations = new Map<string, NonNullable<Source["presentation"]>>();
-  const accepted = new Map<string, Set<string>>();
-  for (const batch of batches) {
+  const evaluated = await screeningBatchWork(batches, async (batch, check) => {
     const parse = (value: unknown) => {
       // Resolve only exact source/chunk identities before the authoritative schema.
       const normalized = value && typeof value === "object" && "evaluations" in value && Array.isArray(value.evaluations)
@@ -118,25 +135,34 @@ export async function screenResearchSources(state: ResearchRuntime, sources: Sou
     let previousOutput: unknown;
     let repairIssues: OutputIssue[] = [];
     for (let attempt = 0; attempt < 2; attempt++) {
+      check();
       try {
         const value = await complete(instruction, { researchStage: "source_relevance", brief: state.brief,
           questions: questions.filter((question) => batch.some((chunk) => chunk.questionIds.includes(question.id))),
           tasks: state.tasks.filter((task) => batch.some((chunk) => chunk.taskId === task.id)), chunks: batch.map(evidenceWireChunk),
           ...(attempt ? { repair: { issues: repairIssues, previousOutput: (JSON.stringify(previousOutput) ?? "null").slice(0, 24000), instruction: "Use exact chunk/source/question IDs; evaluate each chunk once; select same-chunk quoteOptions references; irrelevant must agree with matches." } } : {}) },
-        (output) => { previousOutput = output; parse(output); });
-        for (const entry of parse(value).evaluations) if (!entry.irrelevant) {
-          if (entry.presentation && !presentations.has(entry.sourceId)) presentations.set(entry.sourceId, entry.presentation);
-          const taskId = batch.find((chunk) => chunk.chunkId === entry.chunkId)!.taskId;
-          const taskIds = accepted.get(entry.sourceId) ?? new Set<string>();
-          taskIds.add(taskId); accepted.set(entry.sourceId, taskIds);
-        }
-        break;
+        (output) => { previousOutput = output; parse(output); }, check);
+        const evaluations = parse(value).evaluations;
+        check();
+        return evaluations;
       } catch (error) {
         // Provider/persistence failures must never be retried as malformed output.
         if (!(error instanceof InvalidRelevanceOutput) || attempt === 1) throw error;
+        check();
         repairIssues = error.issues;
         if (error.rawOutput !== undefined) previousOutput = error.rawOutput;
       }
+    }
+    throw new ResearchRuntimeError("RESEARCH_SOURCE_RELEVANCE_INVALID");
+  });
+  const presentations = new Map<string, NonNullable<Source["presentation"]>>();
+  const accepted = new Map<string, Set<string>>();
+  for (const [index, evaluations] of evaluated.entries()) {
+    for (const entry of evaluations) if (!entry.irrelevant) {
+      if (entry.presentation && !presentations.has(entry.sourceId)) presentations.set(entry.sourceId, entry.presentation);
+      const taskId = batches[index]!.find((chunk) => chunk.chunkId === entry.chunkId)!.taskId;
+      const taskIds = accepted.get(entry.sourceId) ?? new Set<string>();
+      taskIds.add(taskId); accepted.set(entry.sourceId, taskIds);
     }
   }
   const reviewed = new Set(candidates.map((source) => source.id));
