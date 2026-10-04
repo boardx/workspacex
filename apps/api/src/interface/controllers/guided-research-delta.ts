@@ -40,3 +40,23 @@ export function runtimePollingDelta(state: ResearchRuntime, known: z.infer<typeo
     ...(sourceCursor !== research.cursor ? { research: { cursor: research.cursor, sources: research.sources } } : {}),
   });
 }
+
+/** Ordinary plan commands publish stage artifacts and small authoritative controls.
+ * Large retained downstream values stay in the client's baseline; only actual
+ * resets are sent. GET remains the complete hydration/recovery authority. */
+export function runtimePlanStagePatch(state: ResearchRuntime) {
+  const stage = new Set<string>(["directions", "outline", "researchPlan", "currentNode", "availableNodes", "generatedNodes",
+    "busy", "leaseUntil", "errorCode", "completed", "progress", "proposal", "planRevision", "controlStatus", "sourcePolicy",
+    "coverage", "claimEvidence", "conflicts", "qualityScore", "publicationReadiness"]);
+  const privateHistory = new Set<string>(["brief", "messages", "modelCalls"]);
+  const changes: Record<string, unknown> = {};
+  const removed: string[] = [];
+  for (const key of C.GuidedResearchRuntimeKnownFields.keySchema.options) {
+    if (privateHistory.has(key)) continue;
+    const value = state[key];
+    if (value === undefined) removed.push(key);
+    else if (stage.has(key) || value === null || value === false || (Array.isArray(value) && value.length === 0)) changes[key] = value;
+  }
+  return C.GuidedResearchRuntimePatch.parse({ type: "patch", sessionId: state.sessionId,
+    version: state.version, revision: state.revision, changes, removed });
+}

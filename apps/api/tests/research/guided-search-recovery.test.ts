@@ -1,3 +1,4 @@
+import { fairTaskWork } from "../../src/application/research/guided-task-work";
 import { createHash } from "node:crypto";
 import { executeTaskPipeline } from "../../src/application/research/guided-task-pipeline";
 import { SearchBudget } from "../../src/application/research/guided-search-budget";
@@ -143,12 +144,13 @@ describe("bounded search query recovery", () => {
     expect(f.model.complete).toHaveBeenCalledTimes(2);
   });
   it("cancels a same-URL waiter before model admission and drains its aborted holder", async () => {
-    const state = seed(); state.tasks = ["A", "B", "C"].map(name => ({ ...state.tasks[0]!, id: name, query: name }));
-    const f = fixture(state); f.search.mockImplementation(async query => [{ ...hit, url: query === "C" ? `${hit.url}/different` : hit.url }]);
+    const state = seed(); state.tasks = ["C", "A", "B"].map(name => ({ ...state.tasks[0]!, id: name, query: name }));
+    const f = fixture(state); f.search.mockImplementation(async query => query === "C" ? [] : [{ ...hit, url: query === short ? `${hit.url}/different` : hit.url }]);
     let release!: () => void, started!: () => void, holderSignal: AbortSignal | undefined, lateReads = 0, settled = false;
     const began = new Promise<void>(resolve => { started = resolve; });
     f.model.complete.mockImplementation(async input => {
       const context = JSON.parse(input.user);
+      if (context.researchStage === "search_recovery") return { text: JSON.stringify({ queries: [short] }) };
       if (context.chunks.some((chunk: { taskId: string }) => chunk.taskId === "A")) {
         holderSignal = (input as { signal?: AbortSignal }).signal;
         started(); await new Promise<void>(resolve => { release = resolve; });
@@ -168,8 +170,8 @@ describe("bounded search query recovery", () => {
       expect(settled).toBe(false); expect(holderSignal?.aborted).toBe(true);
       release(); const result = await operation;
       expect(result.errorCode).toBe(failure.reasonCode); expect(lateReads).toBe(0);
-      expect(f.model.complete).toHaveBeenCalledTimes(2);
-      expect(f.model.complete.mock.calls.some(([input]) => JSON.parse(input.user).chunks.some((chunk: { taskId: string }) => chunk.taskId === "B"))).toBe(false);
+      expect(f.model.complete).toHaveBeenCalledTimes(3);
+      expect(f.model.complete.mock.calls.some(([input]) => JSON.parse(input.user).chunks?.some((chunk: { taskId: string }) => chunk.taskId === "B"))).toBe(false);
       expect(result.sources.some(source => source.taskIds?.includes("B"))).toBe(false);
       const count = f.write.mock.calls.length; await Promise.resolve(); expect(f.write).toHaveBeenCalledTimes(count);
     } finally { release?.(); await operation; }
@@ -398,7 +400,7 @@ describe("bounded search query recovery", () => {
       await vi.advanceTimersByTimeAsync(180001);
       expect(result?.errorCode).toBe("RESEARCH_SEARCH_TIME_BUDGET_EXCEEDED");
       expect(f.search.mock.calls.length).toBeLessThanOrEqual(4);
-      expect(result?.tasks.filter((task) => task.searchAttempts?.length)).toHaveLength(4);
+      expect(result?.tasks.filter((task) => task.searchAttempts?.length).map(task => task.query)).toEqual(["query-0", "query-1", "query-2"]);
       expect(result?.tasks[0]?.status).toBe("succeeded");
       expect(result?.sources.some((source) => source.url.endsWith("/query-0"))).toBe(true);
       const count = f.writes.length; releases.forEach((release) => release()); await vi.advanceTimersByTimeAsync(1);
@@ -516,6 +518,34 @@ describe("bounded search query recovery", () => {
     } finally { release(); await operation; }
   });
 
+
+  it("keeps remaining primaries moving while two long multi-attempt recoveries compete for task slots", async () => {
+    const state = seed(); state.tasks = Array.from({ length: 6 }, (_, index) => ({ ...state.tasks[0]!, id: `fair-${index}`, query: `fair-primary-${index}` }));
+    const f = fixture(state); let releasePrimary!: () => void, releaseRecovery!: () => void, primaryStarted!: () => void;
+    const primary = new Promise<void>(resolve => { releasePrimary = resolve; });
+    const recovery = new Promise<void>(resolve => { releaseRecovery = resolve; });
+    const began = new Promise<void>(resolve => { primaryStarted = resolve; });
+    f.search.mockImplementation(async query => {
+      if (["fair-primary-0", "fair-primary-1"].includes(query) || query.endsWith("-one")) return [];
+      if (query === "fair-primary-2") { primaryStarted(); await primary; }
+      if (query.endsWith("-two")) await recovery;
+      return [{ ...hit, url: `${hit.url}/${encodeURIComponent(query)}` }];
+    });
+    f.model.complete.mockImplementation(async input => {
+      const context = JSON.parse(input.user);
+      if (context.researchStage === "search_recovery") return { text: JSON.stringify({ queries: [`recover-${context.task.id}-one`, `recover-${context.task.id}-two`] }) };
+      return { text: guidedResearchReply(input.system, input.user)! };
+    });
+    const operation = f.run();
+    try {
+      await began; await new Promise(resolve => setTimeout(resolve, 20));
+      expect(f.search.mock.calls.some(([query]) => query === "fair-primary-5")).toBe(true);
+      expect(f.search.mock.calls.some(([query]) => query === "recover-fair-0-two")).toBe(true);
+    } finally { releasePrimary(); releaseRecovery(); await operation; }
+    const result = await operation;
+    expect(result.tasks.every(task => task.status === "succeeded" && task.attempts === 1)).toBe(true);
+    expect(result.tasks.slice(0, 2).every(task => task.searchAttempts?.length === 3 && task.searchAttempts.length <= C.GUIDED_RESEARCH_SEARCH_ATTEMPT_LIMIT)).toBe(true);
+  });
   it("starts task recovery before a blocked sibling primary finishes, while free workers admit later primaries", async () => {
     const state = seed();
     state.tasks = Array.from({ length: 5 }, (_, index) => ({ ...state.tasks[0]!, id: `immediate-${index}`, query: `primary-${index}` }));
@@ -754,4 +784,47 @@ it("keeps a per-question task failed when every source answers only its sibling"
   expect(result.tasks.find(task => task.questionId === "chapter:0/question:0")?.status).toBe("failed");
   expect(result.tasks.find(task => task.questionId === "chapter:0/question:1")?.status).toBe("succeeded");
   expect(result.sources.every(source => result.tasks.find(task => task.id === source.taskId)?.questionId === "chapter:0/question:1")).toBe(true);
+});
+
+
+describe("fair local primary/recovery task queues", () => {
+  it("reserves recovery progress during primary work, then borrows three slots only after the producer drains", async () => {
+    let releasePrimary!: () => void, releaseRecovery!: () => void, early!: () => void, borrowed!: () => void;
+    const primaryGate = new Promise<void>(resolve => { releasePrimary = resolve; });
+    const recoveryGate = new Promise<void>(resolve => { releaseRecovery = resolve; });
+    const first = new Promise<void>(resolve => { early = resolve; });
+    const three = new Promise<void>(resolve => { borrowed = resolve; });
+    let primaryActive = 0, recoveryActive = 0, primaryPeak = 0, totalPeak = 0;
+    const starts: number[] = [];
+    const operation = fairTaskWork([0, 1, 2, 3], 3, async item => {
+      primaryPeak = Math.max(primaryPeak, ++primaryActive); totalPeak = Math.max(totalPeak, primaryActive + recoveryActive);
+      try { if (item >= 2) await primaryGate; return true; } finally { primaryActive--; }
+    }, async item => {
+      starts.push(item); recoveryActive++; totalPeak = Math.max(totalPeak, primaryActive + recoveryActive);
+      if (recoveryActive === 1) early(); if (recoveryActive === 3) borrowed();
+      try { await recoveryGate; } finally { recoveryActive--; }
+    }, () => {}, () => {});
+    try {
+      await first; expect(primaryActive).toBe(2); expect(recoveryActive).toBe(1);
+      releasePrimary(); await three;
+      expect(primaryActive).toBe(0); expect(recoveryActive).toBe(3); expect(starts).toEqual([0, 1, 2]);
+    } finally { releasePrimary(); releaseRecovery(); await operation; }
+    expect(primaryPeak).toBe(2); expect(totalPeak).toBe(3); expect(starts).toEqual([0, 1, 2, 3]);
+  });
+  it("preserves the first fatal error, stops queue dispatch, and drains issued primaries before rejecting", async () => {
+    let release!: () => void, failed!: () => void, stopped: unknown, settled = false;
+    const gate = new Promise<void>(resolve => { release = resolve; });
+    const began = new Promise<void>(resolve => { failed = resolve; });
+    const failure = new Error("first queue failure"), starts: number[] = [];
+    const operation = fairTaskWork([0, 1, 2, 3, 4], 3, async item => {
+      starts.push(item); if (!item) return true; await gate; if (stopped) throw new Error("later partner failure"); return false;
+    }, async () => { failed(); throw failure; }, () => { if (stopped) throw stopped; }, error => { stopped = error; })
+      .then(() => { settled = true; }, error => { settled = true; return error; });
+    try {
+      await began; await new Promise(resolve => setTimeout(resolve, 2));
+      expect(stopped).toBe(failure); expect(settled).toBe(false); expect(starts).toEqual([0, 1, 2]);
+      release(); expect(await operation).toBe(failure);
+      const dispatched = [...starts]; await Promise.resolve(); expect(starts).toEqual(dispatched);
+    } finally { release(); await operation; }
+  });
 });

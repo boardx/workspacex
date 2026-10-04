@@ -1,7 +1,7 @@
 import {createHash} from 'node:crypto';
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {spawn} from 'node:child_process';
+import {spawn,spawnSync,execFileSync} from 'node:child_process';
 import {mkdtempSync,mkdirSync,writeFileSync,readFileSync,rmSync} from 'node:fs';
 import {join} from 'node:path';
 import {tmpdir} from 'node:os';
@@ -305,4 +305,18 @@ test('Connector fixed login markers preserve exact assertion identity without pr
  const hostile=new Proxy({},{getOwnPropertyDescriptor(target,key){if(key==='message')throw new Error('PRIVATE');return Reflect.getOwnPropertyDescriptor(target,key);}});
  report.suites[0].specs[0].tests[0].results[0].errors=[hostile];
  assert.equal(safeAcceptanceDiagnostics('e2e/board-connector-existing-runtime.config.ts',report).firstFailure.matchedFailure,'UNKNOWN');
+});
+
+test('absent native suite retains truthful receipt and exits nonzero before runtime starts',()=>{
+  const root=mkdtempSync(join(tmpdir(),'wsx-native-absent-')),evidence=mkdtempSync(join(tmpdir(),'wsx-native-receipts-'));
+  try {
+    const support=join(root,'apps/web/e2e/support/native-runtime');mkdirSync(support,{recursive:true});
+    writeFileSync(join(support,'runtime-attestation.mjs'),'export const listRuntimeSourceFiles=()=>[];');
+    execFileSync('git',['init','--quiet'],{cwd:root});execFileSync('git',['add','.'],{cwd:root});
+    execFileSync('git',['-c','user.name=Test','-c','user.email=test@example.invalid','commit','--quiet','-m','fixture'],{cwd:root});
+    const head=execFileSync('git',['rev-parse','HEAD'],{cwd:root,encoding:'utf8'}).trim();
+    const result=spawnSync(process.execPath,[new URL('./run-board-native-acceptance.mjs',import.meta.url).pathname,...base,'e2e/board-files-completion.config.ts'],{cwd:root,env:{...process.env,NATIVE_POSTGRES_TOOL_ROOT:'/unused',BOARD_NATIVE_EVIDENCE:evidence},encoding:'utf8'});
+    assert.notEqual(result.status,0);assert.match(result.stderr,/NATIVE_SUITE_ABSENT/);
+    assert.deepEqual(JSON.parse(readFileSync(join(evidence,'files/receipt.json'),'utf8')),{sourceHead:head,status:'ABSENT',existingSpecsSkipped:0,actualRuntimeExecution:false,requiredSuiteComplete:false});
+  } finally {rmSync(root,{recursive:true});rmSync(evidence,{recursive:true});}
 });

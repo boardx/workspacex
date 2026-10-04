@@ -165,3 +165,28 @@ are available. The sole formal producer hardcodes `/private/tmp`; lower-level
 prepare/start accept OS temp roots but are diagnostic entry points, not a passing
 replacement for the complete signed suite. No existing attested runtime or runner
 environment was found. No filesystem permission restriction was bypassed.
+
+
+### Main receipt-gate integration (2026-10-04)
+
+Merged main `ea1576a6aa4bddaa688ef7e3f6c19089e9703439` after #5335.
+Resolved only the native runner/test conflicts: connectors/files/sync use the
+shared suite authority and versioned exact-source receipts; R01 retains its own
+signed matrix and functional-only visual deferral. Statistics are assigned to
+the final receipt state, and suite completion is set only after all required
+proofs pass. ABSENT now exits nonzero. The R08 basename fence still accepts its
+real `503` screenshot names while rejecting unsafe names. The independent
+heavy-batch remeasurement/reuse gate and workflow receipt verifier remain intact.
+
+Actual focused regression: native/login/safe-export Node tests 37 passed,
+receipt/heavy-batch Vitest tests 31 passed. These are unit/loopback checks, not
+complete product native acceptance. Exact pushed-head CI is tracked in the PR.
+
+Official Node 22.23.3 and locked Chromium 151.0.7922.34 were installed in owned
+cloud temp storage; PG16.15/vector0.8.6 source hashes matched the workflow pins.
+Default PG configure failed because ICU development libraries are absent.
+Escalated `/private/tmp` creation exited 1 and apt update exited 100 with Unix
+permission denial. Installation requires environment administrator support; no
+runner path was substituted and no permission workaround attempted. The locked
+Chromium download fixture also returned `_quoted_.txt` for `"quoted".txt` with
+verified bytes. The strict filename criterion remains unchanged and unpassed.

@@ -137,6 +137,11 @@ jobs:
         if: always() && needs.batch.outputs.run == 'true'
         working-directory: /private/tmp/wsx-native-sync
         run: node apps/web/scripts/run-board-native-acceptance.mjs -- pnpm --filter web exec playwright test --config e2e/board-peer-existing-runtime.config.ts
+      - name: Verify complete native receipts match frozen source
+        if: always() && needs.batch.outputs.run == 'true'
+        env:
+          EXPECTED_SHA: ${{ needs.batch.outputs.sha }}
+        run: node .harness/scripts/lib/board-native-receipts.mjs "$BOARD_NATIVE_EVIDENCE" "$EXPECTED_SHA"
       - name: Retain bounded statistics and screenshots without private runtime credentials
         if: always() && needs.batch.outputs.run == 'true'
         uses: actions/upload-artifact@v6

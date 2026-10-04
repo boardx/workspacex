@@ -1,8 +1,10 @@
 import { research } from "@repo/contracts";
-import { apiRequest, getStoredSessionToken } from "./api-client";
+import { ApiError, apiRequest, getStoredSessionToken } from "./api-client";
 import { writeResearchMemory } from "./guided-research-memory";
 import { streamResearchCommand, type ResearchStreamEvent } from "./guided-research-stream";
 import { mergeResearchDelta, researchFieldFingerprints, type RuntimePatch } from "./guided-research-delta";
+import { ResearchRuntimeHydrationError } from "./guided-research-hydration";
+export { ResearchRuntimeHydrationError } from "./guided-research-hydration";
 import type { z } from "zod";
 
 export type GuidedResearchSession = z.infer<typeof research.GuidedResearchSession>;
@@ -128,8 +130,29 @@ export async function executeResearchRuntime(input: GuidedResearchRuntimeCommand
   const body = baseline ? { ...input, knownFields: await researchFieldFingerprints(baseline) } : input;
   const result = op.out.parse(await apiRequest(op.path.replace(":sessionId", encodeURIComponent(input.sessionId)), { method: op.method, body }));
   if ("type" in result && result.type === "patch") {
-    if (!baseline) throw new Error("Research patch requires a snapshot");
-    return mergeResearchDelta(baseline, result);
+    if (result.sessionId !== input.sessionId) throw new ApiError(502, "RESEARCH_STATE_SESSION_MISMATCH", null);
+    const merged = baseline ? mergeResearchDelta(baseline, result) : undefined;
+    // A stage response omits bodies. Refresh when the operation produced message
+    // history, archived visible report content, or entered actual source research.
+    // Otherwise ordinary plan edits can keep their complete local baseline.
+    const hadReportContent = Boolean(baseline?.report || baseline?.reportDraft || baseline?.reportCheckpoint?.chapters.length || baseline?.reportStream?.text);
+    const reportCleared = hadReportContent && merged && !merged.report && !merged.reportDraft && !merged.reportCheckpoint?.chapters.length && !merged.reportStream?.text;
+    const planNeedsHydration = input.node === "outline" && merged && (
+      (input.action === "message" && !merged.errorCode) || reportCleared ||
+      (merged.currentNode === "research" && input.action !== "save_chapters"));
+    if (merged && (merged === baseline || !planNeedsHydration)) return merged;
+    try {
+      const hydrated = await getResearchRuntime(input.sessionId, signal);
+      signal?.throwIfAborted();
+      if (hydrated.sessionId !== input.sessionId) throw new ApiError(502, "RESEARCH_STATE_SESSION_MISMATCH", null);
+      if (hydrated.version < result.version || (hydrated.version === result.version && hydrated.revision < result.revision)) {
+        throw new ApiError(502, "RESEARCH_GRAPH_VERSION_CONFLICT", null);
+      }
+      return hydrated;
+    } catch (error) {
+      if (merged) throw new ResearchRuntimeHydrationError(merged, error);
+      throw error;
+    }
   }
   return research.GuidedResearchRuntime.parse(result);
 }
