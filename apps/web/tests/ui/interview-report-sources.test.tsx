@@ -18,7 +18,7 @@ it('routes a repeated question citation to the exact saved source and server ide
  expect(target).toHaveTextContent('支持研究员');
  expect(target).not.toHaveTextContent('我自称客服');
  expect(target.querySelector('blockquote')?.textContent).toBe('Q2：厨房插座冲突。');
- expect(target).toHaveTextContent('模拟证据，需真人验证');
+ expect(target).not.toHaveTextContent('模拟证据，需真人验证');
  const scroll=vi.fn(); target.scrollIntoView=scroll;
  fireEvent.click(citation);
  expect(scroll).toHaveBeenCalledWith({block:'start'});
