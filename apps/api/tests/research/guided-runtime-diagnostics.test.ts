@@ -187,7 +187,7 @@ describe("safe source relevance validation diagnostics", () => {
   it("bounds issue count and path depth, ignoring malformed entries and unrelated errors", () => {
     const issues = Array.from({ length: 100 }, () => ({ code: "count", path: ["evaluations"], message: "PRIVATE_SECRET" }));
     const error = Object.assign(new ResearchRuntimeError("RESEARCH_SOURCE_RELEVANCE_INVALID"), { issues });
-    expect(record(error).issues).toHaveLength(16);
+    expect(record(error).issues.length).toBe(16);
     expect(record(Object.assign(new Error("PRIVATE_SECRET"), { issues }))).not.toHaveProperty("issues");
     expect(record(Object.assign(new ResearchRuntimeError("RESEARCH_SOURCE_RELEVANCE_INVALID"), { issues: [null, "PRIVATE_SECRET", { code: "count", path: Array(7).fill("evaluations") }] })).issues).toEqual([{ code: "count" }]);
   });
