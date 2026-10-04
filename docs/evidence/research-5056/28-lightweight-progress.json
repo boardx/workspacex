@@ -1,0 +1,23 @@
+{
+  "responseBytes": 2854,
+  "keys": [
+    "sessionId",
+    "version",
+    "revision",
+    "currentNode",
+    "availableNodes",
+    "busy",
+    "leaseUntil",
+    "errorCode",
+    "completed",
+    "progress",
+    "reportTimeline",
+    "reportPartial",
+    "reportSourceAliases",
+    "reportQualityWarnings",
+    "stream"
+  ],
+  "hasDocumentBody": false,
+  "observedPath": "/runtime/progress",
+  "status": 200
+}
