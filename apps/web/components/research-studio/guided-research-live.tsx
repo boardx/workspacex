@@ -101,6 +101,7 @@ function requestError(error: unknown): string {
   }
   return "暂时无法连接研究服务，请检查网络后重试。";
 }
+const RECOVERY_READ_TIMEOUT_MS = 10_000;
 type Recovery = { draft: Draft | null; node: Command["node"]; synchronized: boolean };
 export function GuidedResearchLive({ sessionId, researchName, onBack, onLoadRetry, initialNode, visualStage: routeStage }: { sessionId: string; researchName?: string; onBack: () => void; onLoadRetry?: () => void; initialNode?: Command["node"]; visualStage?: GuidedResearchVisualStage }) {
   const cacheScope = getStoredSessionToken();
@@ -136,6 +137,10 @@ export function GuidedResearchLive({ sessionId, researchName, onBack, onLoadRetr
   const sessionGeneration = React.useRef(0);
   const [reportControlPending, setReportControlPending] = React.useState(false);
   const reportControlLock = React.useRef(false);
+  const recoveryRead = React.useRef(recoverProgress);
+  recoveryRead.current = recoverProgress;
+  const recoveryController = React.useRef<AbortController | null>(null);
+  const [, setLeaseClock] = React.useState(0);
   const streamController = React.useRef<AbortController | null>(null);
   const bootstrapStarted = React.useRef(false);
   const sessionRef = React.useRef(sessionId);
@@ -173,14 +178,31 @@ export function GuidedResearchLive({ sessionId, researchName, onBack, onLoadRetr
       setChaptersOpen(preparingChapters && !executing);
       snapshotRef.current = next; setState(next); setNode(target); setDraft(draftOf(next, target));
     }).catch((cause: unknown) => { if (active) setError(requestError(cause)); });
-    return () => { active = false; sessionGeneration.current += 1; streamController.current?.abort(); };
+    return () => { active = false; sessionGeneration.current += 1; streamController.current?.abort(); recoveryController.current?.abort(); };
   }, [sessionId, initialNode, routeStage, loadAttempt, cacheScope]);
   React.useEffect(() => {
     if (state?.sessionId === sessionId && snapshotRef.current === state) writeResearchMemory(sessionId, { runtime: state }, cacheScope);
   }, [state, sessionId, cacheScope]);
+  // The clock tick makes lease expiry observable even when every poll fails.
+  React.useEffect(() => {
+    if (!state?.busy || !state.leaseUntil) return;
+    let timer: number;
+    const deadline = Date.parse(state.leaseUntil);
+    // A successful read of an already expired lease permits the existing retry claim.
+    if (!Number.isFinite(deadline) || deadline <= Date.now()) return;
+    const checkLease = () => {
+      const remaining = deadline - Date.now();
+      if (remaining > 0) { timer = window.setTimeout(checkLease, Math.min(remaining, 2_147_483_647)); return; }
+      setLeaseClock((clock) => clock + 1);
+      updateRecovery({ draft: recoveryRef.current?.draft ?? null, node: nodeRef.current, synchronized: false });
+      void recoveryRead.current(sessionId);
+    };
+    timer = window.setTimeout(checkLease, Math.max(0, Math.min(deadline - Date.now(), 2_147_483_647)));
+    return () => window.clearTimeout(timer);
+  }, [state?.busy, state?.leaseUntil, sessionId]);
   const expired = Boolean(state?.leaseUntil && Date.parse(state.leaseUntil) <= Date.now());
   React.useEffect(() => {
-    if ((!pending && (!state?.busy || expired)) || (!state?.busy && (state?.version ?? -1) >= commandVersion.current && pending)) return;
+    if ((!pending && (!state?.busy || (expired && !recovery))) || (!state?.busy && (state?.version ?? -1) >= commandVersion.current && pending)) return;
     let active = true;
     const minimumVersion = pending ? commandVersion.current : 0;
     let inFlight = false;
@@ -205,6 +227,11 @@ export function GuidedResearchLive({ sessionId, researchName, onBack, onLoadRetr
         pollAccepted.current = ticket; snapshotRef.current = next;
         sourceCursor.current = incomingSourceCursor;
         setState(next);
+        if (!next.busy && recoveryRef.current && !recoveryRef.current.draft) {
+          recoveryController.current?.abort();
+          updateRecovery(null);
+          if (next.errorCode) setError(errors[next.errorCode] ?? "处理失败，已保存当前进度，请重试。");
+        }
         if (!next.busy && pending) {
           // Durable terminal state wins even when the POST connection never closes.
           if (topicSaveCompletion.current) { topicSaveCompletion.current(next); topicSaveCompletion.current = null; }
@@ -232,7 +259,7 @@ export function GuidedResearchLive({ sessionId, researchName, onBack, onLoadRetr
       }).catch(() => { /* Retry this read without replaying the command. */ }).finally(() => { inFlight = false; });
     }, 2000);
     return () => { active = false; window.clearInterval(timer); };
-  }, [pending, state?.busy, state?.version, expired, sessionId]);
+  }, [pending, state?.busy, state?.version, expired, recovery, sessionId]);
   const processing = pending || Boolean(state?.busy && !expired);
   const busy = processing || Boolean(recovery);
   async function saveTopic(value: Runtime["brief"]) {
@@ -356,26 +383,41 @@ export function GuidedResearchLive({ sessionId, researchName, onBack, onLoadRetr
       updateRecovery({ draft: localDraft, node: requestNode, synchronized: false });
       if (localDraft && !browsingRef.current) setDraft(localDraft);
       setError(requestError(cause));
+      setPending(false); setLoadingNode(null);
       await recoverProgress(sessionId);
     } finally { if (isCurrent()) { messageDraft.current = null; streamController.current = null; setPending(false); setLoadingNode(null); } }
   }
   async function recoverProgress(targetSession: string) {
     const generation = sessionGeneration.current;
+    recoveryController.current?.abort();
+    const controller = new AbortController(); recoveryController.current = controller;
+    let timer: ReturnType<typeof setTimeout> | undefined;
     try {
-      const received = await getResearchRuntime(targetSession);
+      const timeout = new Promise<never>((_resolve, reject) => {
+        timer = setTimeout(() => { controller.abort(); reject(new Error("Research recovery read timed out")); }, RECOVERY_READ_TIMEOUT_MS);
+        controller.signal.addEventListener("abort", () => reject(new Error("Research recovery read cancelled")), { once: true });
+      });
+      const received = await Promise.race([getResearchRuntime(targetSession, controller.signal), timeout]);
+      if (controller.signal.aborted) return;
+      if (received.leaseUntil !== null && !Number.isFinite(Date.parse(received.leaseUntil))) throw new Error("Invalid research execution lease");
       if (sessionRef.current !== targetSession || generation !== sessionGeneration.current) return;
       const latest = newestSnapshot(received, snapshotRef.current);
       responseEpoch.current += 1; snapshotRef.current = latest; setState(latest);
       const previous = recoveryRef.current;
       if (previous?.draft) updateRecovery({ ...previous, synchronized: true });
-      else if (previous) {
+      else if (previous && latest.busy && (!latest.leaseUntil || Date.parse(latest.leaseUntil) > Date.now())) {
+        updateRecovery({ ...previous, synchronized: true });
+      } else if (previous) {
         // There is no competing local edit to resolve. Restore the saved step
         // directly without another confirmation or replaying the failed command.
         const target = browsingRef.current ? nodeRef.current : latest.currentNode;
         setNode(target); setDraft(draftOf(latest, target)); updateRecovery(null);
-        if (latest.busy && latest.leaseUntil && Date.parse(latest.leaseUntil) > Date.now()) setError(null);
       }
     } catch { /* Keep the editor and the explicit recovery action until a read succeeds. */ }
+    finally {
+      clearTimeout(timer);
+      if (recoveryController.current === controller) recoveryController.current = null;
+    }
   }
   function finishRecovery(keepLocal: boolean) {
     if (!state || !recovery?.synchronized || processing) return;
@@ -462,7 +504,7 @@ return <GuidedResearchSixStepShell researchName={state.brief.topic.trim() || res
       <div className="space-y-5">
         {proposal && !waiting && <p role="status" className="rounded-lg border border-primary/30 bg-muted/30 px-4 py-3 text-12" data-testid="research-conversation-draft">右侧已同步对话生成的「{labels[node]}」待应用内容，尚未应用。你可以继续在左侧提出修改，核对后请先在左侧应用建议，再确认并继续。{proposalEdited && " 右侧另有手动修改，请继续对话形成新建议后应用。"}</p>}
     {recovery && <details className="rounded-lg border border-border bg-muted/30 px-4 py-3 text-12" data-testid="research-recovery"><summary className="cursor-pointer font-medium">需要核对研究进度{recovery.draft ? " · 待应用内容已保留" : ""}</summary><div className="mt-3 space-y-3">
-      <p role="status" className="text-12">{recovery.synchronized ? "已读取最新研究进度。请核对后继续，系统不会自动重复提交。" : "尚未确认最新研究进度，请先重新连接。"}{recovery.draft && " 你的未提交待应用内容已保留在当前页面。"}</p>
+      <p role="status" className="text-12">{recovery.synchronized ? processing ? "服务端仍在处理，正在核对执行状态，系统不会重复提交。" : "已读取最新研究进度。请核对后继续，系统不会自动重复提交。" : "尚未确认最新研究进度，请先重新连接。"}{recovery.draft && " 你的未提交待应用内容已保留在当前页面。"}</p>
       {recovery.draft && <details className="text-12"><summary>查看保留的待应用内容</summary><ProposalPreview draft={recovery.draft} /></details>}
       {latestRecoveryDraft && <details className="text-12"><summary>查看服务端最新内容</summary><ProposalPreview draft={latestRecoveryDraft} /></details>}
       <div className="flex flex-wrap gap-2">
@@ -473,7 +515,7 @@ return <GuidedResearchSixStepShell researchName={state.brief.topic.trim() || res
     </div></details>}
     {(error || (node === state.currentNode && state.errorCode)) && <p role="alert" className="text-12 text-destructive">{error ?? errors[state.errorCode!] ?? "上次处理失败，请重试。"}</p>}
     {!readingReport && node !== "research" && state.legacyCheckpoint && <details className="rounded-lg border border-border bg-muted/30 px-4 py-3 text-12 text-muted-foreground"><summary>历史记录已保留 · 查看迁移说明</summary><p className="mt-2">原会话状态：{state.legacyCheckpoint.status === "completed" ? "已完成" : "进行中"}。原方向与大纲已导入；旧版检索和报告没有可验证的来源记录，需要重新检索后生成报告。</p><p>原研究主题：{state.legacyCheckpoint.brief.topic}</p><ul>{state.legacyCheckpoint.directions.versions.at(-1)?.items.map((item) => <li key={item.id}>{item.title}：{item.description}</li>)}</ul><ul>{state.legacyCheckpoint.outline.versions.at(-1)?.items.map((item) => <li key={item.id}>{item.title}：{item.questions.join("；")}</li>)}</ul></details>}
-    {expired && !error && !state.errorCode && <p role="alert" className="text-12 text-destructive">上次执行已中断。已保存的结果仍可用，请重试。</p>}
+    {expired && !recovery && !error && !state.errorCode && <p role="alert" className="text-12 text-destructive">上次执行已中断。已保存的结果仍可用，请重试。</p>}
         {reportVisible && !processing && !readingReport && <GuidedResearchEvidenceWarning state={state} />}
         {waiting && viewedNode === "research" && <p role="status" data-testid="research-step-loading" aria-live="polite" className="flex items-center gap-2 text-muted-foreground"><Loader2 className="size-4 animate-spin" aria-hidden />正在获取资料</p>}
         {reportVisible && !displayReport && <GuidedResearchQualityDraft state={state} actions={reportPrimaryAction} moreActions={reportAssistantMenuAction} onRegenerate={() => void run("generate")} />}

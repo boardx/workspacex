@@ -15,6 +15,7 @@ describe("step-aligned research transitions", () => {
     let finish!: (value: typeof state) => void;
     vi.mocked(getResearchRuntime).mockResolvedValue(state);
     vi.mocked(executeResearchRuntime).mockImplementation(() => new Promise((resolve) => { finish = resolve; }));
+    vi.mocked(getResearchRuntimeProgress).mockRejectedValue(new Error("progress unavailable"));
     render(<GuidedResearchLive sessionId="grs-live" onBack={vi.fn()} />);
     fireEvent.click(await screen.findByRole("button", { name: "更新资料" }));
     await screen.findByTestId("research-step-loading");
