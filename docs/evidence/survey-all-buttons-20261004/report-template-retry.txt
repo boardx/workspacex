@@ -1,0 +1,19 @@
+Source4c0017fd2cb42102c53b89258162a16e58ea37ab Web25708/API5eff. Authorized controlled request block only in fresh agent tab for *surveys/templates?kind=report; removed urls=[] BEFORE clicking retry. Network blocking restored; no template applied/saved.
+[
+  {
+    "stage": "blocked-request-error",
+    "url": "http://127.0.0.1:25708/studio/survey/a529a7ac-3740-4b4a-b46f-dfd085fbb775/template",
+    "dom": "使用报告模板\n\n应用后保存为当前问卷的独立副本，不改变原模板。\n\n请求未完成，请检查网络后重试。\n\n重试加载\n选择报告模板\n请选择模板\n企业数字协作成熟度诊断模板\n团队协作健康度调查模板\n客户项目复盘问卷模板\n员工数字工具满意度模板\n会议反馈调查模板\n组织知识治理评估模板\n应用模板"
+  },
+  {
+    "stage": "retry-loaded",
+    "dom": "使用报告模板\n\n应用后保存为当前问卷的独立副本，不改变原模板。\n\n选择报告模板\n请选择模板\n企业数字协作成熟度诊断模板\n团队协作健康度调查模板\n客户项目复盘问卷模板\n员工数字工具满意度模板\n会议反馈调查模板\n组织知识治理评估模板\n合成验收20261004-报告保存副本 副本\n合成验收20261004-报告保存副本\n应用模板",
+    "retryCount": 0,
+    "errorCount": 0
+  },
+  {
+    "stage": "close-source-preserved",
+    "sections": "报告章节 · 7\n\n1. 基本情况\n8 个内容块\n2. 目标共识\n3 个内容块\n3. 沟通与信任\n4 个内容块\n4. 工作体验\n4 个内容块\n5. 成长支持\n3 个内容块\n6. 整体感受\n1 个内容块\n7. 改进建议\n3 个内容块\n新增章节",
+    "saveDisabled": true
+  }
+]
