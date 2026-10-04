@@ -1,7 +1,7 @@
 {
   "applicationRevision": "9b25bfa65662b96c0826fe67506b562ea46aa6d0",
   "baselineRevision": "ba6343199f3c834d6a198f83d0c771614292c82b",
-  "closureSha256": "9abb6aac9bc9bf1302af65838d89de47d2461ea87c15949bd7855647cd7f79ee",
+  "closureSha256": "2fa671733d3807967bf3a9995116b54515d6f93ea51128adaa0981c7e930f1de",
   "files": [
     {
       "bytes": 21473,
@@ -28,8 +28,8 @@
       "target": "/usr/local/bin/workspacex-cn-build-candidate"
     },
     {
-      "bytes": 19381,
-      "sha256": "f489a021f8b3c63b12c4776fb9553ede8c9cfd6684c2316e845c640cf0f1f6ab",
+      "bytes": 19564,
+      "sha256": "fdad72dee52321096e872bd3f1701dfa9a8e498f859c73432b827cb267057613",
       "source": ".harness/scripts/vm/candidate_backend_collector.py",
       "target": "/usr/local/lib/workspacex-cn/candidate_backend_collector.py"
     },
@@ -106,8 +106,8 @@
       "target": "/usr/local/lib/workspacex-cn/cn-maintenance-drain.cjs"
     },
     {
-      "bytes": 246724,
-      "sha256": "9c7c11218e9dad99ca1d4684f3d2716eaf327df7e2b81a2efba248cb8e616845",
+      "bytes": 247011,
+      "sha256": "c6746bc41bc0a5bcdb95c170eb2219bcf132d743c50775f7cc79174d3b50b6f3",
       "source": ".harness/scripts/vm/cn-maintenance-host-controller.cjs",
       "target": "/usr/local/lib/workspacex-cn/cn-maintenance-host-controller.cjs"
     },
@@ -383,7 +383,7 @@
   "ready": false,
   "release": "2026.10.3-cn.1",
   "schemaVersion": 1,
-  "sourceCommit": "8abf2fe295d818032f9ecfb09f442f739549815f",
+  "sourceCommit": "987bc023660e4e03363d549c0376f55334cb5328",
   "sourceCount": 62,
   "sourceOnlyCount": 6,
   "targetCount": 56
