@@ -23,6 +23,32 @@ describe("report evidence grounding", () => {
   expect(context).toContain("归属已绑定不等于真人身份已验证");
   expect(context).toContain("revision不是任务");
  });
+ it("does not duplicate every indexed quote in per-anchor syntax hints", () => {
+  const index = buildReportEvidenceIndex(source);
+  const context = reportEvidenceContext(index);
+  expect(context).not.toContain("此条合法逐字引用：");
+  for (const entry of index) { expect(context).toContain(entry.quote); expect(context).toContain(`引用定位：#${entry.anchor}`); }
+ });
+ it("provides complete escaped source examples and explicit invalid citation formats", () => {
+  const quote = "公开合成回答：[安装] *冲突*。";
+  const index = buildReportEvidenceIndex({...source,markdown:quote,contentHash:hash(quote),answerSpans:[{...source.answerSpans![0]!,end:quote.length,contentHash:hash(quote)}]});
+  const context = reportEvidenceContext(index);
+  const example = "[公开合成回答：\\[安装\\] \\*冲突\\*。](#answer-1)";
+  expect(context).toContain(example);
+  expect(validateReportEvidence(example,index).ok).toBe(true);
+  for (const invalid of ["[answer-1](#answer-1)", `“${quote}”（[answer-1](#answer-1)）`, "[source-2](#expert-support)"]) {
+   expect(context).toContain(invalid === `[source-2](#expert-support)` ? invalid : "[answer-1](#answer-1)");
+   expect(validateReportEvidence(invalid,index).ok).toBe(false);
+  }
+  expect(context).toContain("taskKey是任务身份，不等于revisionId");
+ });
+ it.each(["原文：&amp;", "原文：&#65;", "原文：&#x41;"])("keeps literal HTML entities in legal citation examples: %s", quote => {
+  const index = buildReportEvidenceIndex({...source, markdown:quote, contentHash:hash(quote), answerSpans:[{...source.answerSpans![0]!,end:quote.length,contentHash:hash(quote)}]});
+  const context = reportEvidenceContext(index);
+  const examples = context.split("\n").filter(line => line.startsWith("[") && line.endsWith("](#answer-1)"));
+  expect(examples.length).toBeGreaterThan(0);
+  for (const example of examples) expect(validateReportEvidence(example,index).ok).toBe(true);
+ });
  it("does not promote model headings to server task identities; retains counterevidence and duplicate Q numbers", () => {
   const index = buildReportEvidenceIndex(source);
   expect(new Set(index.map(x=>x.expertId))).toEqual(new Set(["expert-a"]));
@@ -94,6 +120,29 @@ describe("report evidence grounding", () => {
  it.each(["不构成", "未构成", "不足以形成", "不足以构成"])("preserves the explicit %s consensus boundary", (negation) => {
   const report = `[服务端甲回答：支持电话。](#answer-1)\n\n上述材料来自单个服务端任务，${negation}跨角色共识；仅用于界面定位测试。`;
   expect(validateReportEvidence(report,buildReportEvidenceIndex(source)).ok).toBe(true);
+ });
+ it.each([
+  "不能将这两个模拟角色的观点宣称为‘跨角色共识’。",
+  "不能将两个分别关注预算限制以及具体安装任务的模拟角色的观点宣称为跨角色共识。",
+  "本节不作肯定跨角色共识断言。",
+  "不应将单个角色的证言断言为跨角色共识。",
+  "不能将这些观点断言为跨角色共识。",
+  "两位专家并非完全一致。", "两位专家不完全一致。", "两位专家未达成完全一致。",
+  "不能将冷却定义为跨角色共识。",
+ ])("preserves scoped negative consensus across long subjects: %s", (claim) => {
+  expect(validateReportEvidence(`[服务端甲回答：支持电话。](#answer-1)\n\n${claim}`,buildReportEvidenceIndex(source)).ok).toBe(true);
+ });
+ it.each([
+  "不能推断以前的结论，但两位专家一致支持电话。",
+  "没有预算支持，然而跨角色共识已经形成。",
+  "不能否认两位专家一致支持电话。",
+  "并非没有跨角色共识。",
+  "不能不形成跨角色共识。",
+  "无法排除跨角色共识。",
+  "团队否认不能将两个分别关注预算限制以及具体安装任务的模拟角色观点宣称为跨角色共识。",
+  "两位专家共同支持电话。",
+ ])("does not waive positive, contrast or double-negative claims: %s", (claim) => {
+  expect(validateReportEvidence(`[服务端甲回答：支持电话。](#answer-1)\n\n${claim}`,buildReportEvidenceIndex(source)).ok).toBe(false);
  });
  it("binds known explicit attribution to server metadata, including legacy and same-name ambiguity", () => {
   const labels = {"expert-a":"教师","expert-b":"校长"};
