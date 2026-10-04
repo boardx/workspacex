@@ -1,0 +1,66 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/apps/api
+
+ ❯ tests/itv/interview-report-claim-boundaries.test.ts (46 tests | 5 failed) 32ms
+   × finite report claim boundaries > allows bounded or unrelated prose without imposing a writing template: 不能断言整套物理勘测完全无用。 3ms
+     → expected false to be true // Object.is equality
+   × finite report claim boundaries > allows bounded or unrelated prose without imposing a writing template: 整套物理勘测并非完全无用。 0ms
+     → expected false to be true // Object.is equality
+   × finite report claim boundaries > allows bounded or unrelated prose without imposing a writing template: 若采购免安装桌面型咖啡机，此步骤并非失效，仍需物理勘测核对供电、承重。 0ms
+     → expected false to be true // Object.is equality
+   × finite report claim boundaries > rejects unqualified exclusion or whole-check exemption: 如果想要推进采购，不兼容项在本次检测中为零。 0ms
+     → expected true to be false // Object.is equality
+   × finite report claim boundaries > rejects unqualified exclusion or whole-check exemption: 不能忽略证据，安装风险不是产品固有缺陷。 0ms
+     → expected true to be false // Object.is equality
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 5 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/itv/interview-report-claim-boundaries.test.ts > finite report claim boundaries > allows bounded or unrelated prose without imposing a writing template: 不能断言整套物理勘测完全无用。
+ FAIL  tests/itv/interview-report-claim-boundaries.test.ts > finite report claim boundaries > allows bounded or unrelated prose without imposing a writing template: 整套物理勘测并非完全无用。
+ FAIL  tests/itv/interview-report-claim-boundaries.test.ts > finite report claim boundaries > allows bounded or unrelated prose without imposing a writing template: 若采购免安装桌面型咖啡机，此步骤并非失效，仍需物理勘测核对供电、承重。
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ tests/itv/interview-report-claim-boundaries.test.ts:38:54
+     36|     "`不兼容项在本次检测中为零。`\n\n```text\n安装风险不是产品固有缺陷…
+     37|   ])("allows bounded or unrelated prose without imposing a writing tem…
+     38|     expect(assessReportClaimBoundaries(text, []).ok).toBe(true);
+       |                                                      ^
+     39|   });
+     40|   it.each(["零", "０", "0.0", "0e0", "一", "1", "１", "1.5", "１．５",…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/5]⎯
+
+ FAIL  tests/itv/interview-report-claim-boundaries.test.ts > finite report claim boundaries > rejects unqualified exclusion or whole-check exemption: 如果想要推进采购，不兼容项在本次检测中为零。
+ FAIL  tests/itv/interview-report-claim-boundaries.test.ts > finite report claim boundaries > rejects unqualified exclusion or whole-check exemption: 不能忽略证据，安装风险不是产品固有缺陷。
+AssertionError: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ tests/itv/interview-report-claim-boundaries.test.ts:60:125
+     58|     "免安装桌面型咖啡机使整套物理勘测完全无用。", "供电仍需检查，不过…
+     59|     "| 步骤 | 反例 |\n|---|---|\n| 核对插座、承重与柜体孔位的物理勘测 …
+     60|   ])("rejects unqualified exclusion or whole-check exemption: %s", tex…
+       |                                                                                                                             ^
+     61|   it("does not turn a statement quoted by a participant into a verifie…
+     62|     const quote = "安装风险不是产品固有缺陷。";
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/5]⎯
+
+ Test Files  1 failed (1)
+      Tests  5 failed | 41 passed (46)
+   Start at  23:23:44
+   Duration  744ms (transform 392ms, setup 0ms, collect 604ms, tests 32ms, environment 0ms, prepare 29ms)
+
+undefined
+/Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run --config vitest.interview-markdown-unit.config.ts tests/itv/interview-report-claim-boundaries.test.ts

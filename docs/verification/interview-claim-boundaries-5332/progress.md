@@ -1,0 +1,1 @@
+Main independent review rejected old55f on fictional-example scope. Reproduced RED and implemented scoped example qualification/grouped-number regression fix, new controlled tests green. New exact review and normal CI pending. Overall #5327 OPEN; no model request.

@@ -309,21 +309,21 @@ export function parseInterviewEvidenceLinks(markdown: string): ReadonlyArray<{ t
   return links;
 }
 
-/** Visible assertion prose excludes quoted links and code; paragraph scope binds attribution. */
-export function parseInterviewReportAssertions(markdown: string): ReadonlyArray<{text:string;links:ReadonlyArray<{text:string;url:string}>}> {
+/** Visible prose excludes links/code. Default cell scope binds attribution; row grouping is quality-only. */
+export function parseInterviewReportAssertions(markdown: string, options: {groupTableRows?: boolean} = {}): ReadonlyArray<{text:string;links:ReadonlyArray<{text:string;url:string}>}> {
   const assertions: Array<{text:string;links:Array<{text:string;url:string}>}> = [];
   function prose(node:MarkdownNode):string {
     if (["link","code","inlineCode","html","image"].includes(node.type)) return "";
     return node.value ?? node.children?.map(prose).join("") ?? "";
   }
   function visit(node:MarkdownNode):void {
-    if (["paragraph", "heading", "tableCell"].includes(node.type)) {
+    if (["paragraph", "heading", options.groupTableRows ? "tableRow" : "tableCell"].includes(node.type)) {
       const links:Array<{text:string;url:string}>=[];
       function collect(child:MarkdownNode):void {
         if(child.type==="link"&&child.url) links.push({text:plainText(child),url:child.url});
         child.children?.forEach(collect);
       }
-      collect(node); assertions.push({text:prose(node),links});
+      collect(node); assertions.push({text:node.type === "tableRow" ? node.children?.map(prose).join("：") ?? "" : prose(node),links});
     } else node.children?.forEach(visit);
   }
   visit(parser.parse(markdown) as MarkdownNode);

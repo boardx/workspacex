@@ -1,0 +1,1 @@
+Owned worktree reused, no new worktree/automation/model request. Own local 15460/15470/15475 stacks are stopped. Main thread owns merge/deployment and private original incident acceptance. Do not regenerate private reports or infer deployment SHA from healthz. Gate is finite, never general semantic acceptance.
