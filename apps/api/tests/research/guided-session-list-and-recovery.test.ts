@@ -382,3 +382,34 @@ describe("F168 guided research session list and recovery", () => {
     expect(afterStaleBrief.brief.topic).toBe("回访后更新的主题");
   });
 });
+
+it("projects generated list titles in one tenant read while preserving explicit goal-prefix renames", async () => {
+  const longBrief = { ...brief, goal: "合法人工名称".repeat(30) };
+  const created = C.GuidedResearchSession.parse(await (await fetch(`${base}/research/guided-sessions`, {
+    method: "POST", headers: auth(OWNER), body: JSON.stringify({ title: "新建研究", tags: ["保持标签"], idempotencyKey: "projected-title", collaboratorUserIds: [COLLABORATOR], brief: longBrief }),
+  })).json());
+  const actor = { orgId: toOrgId(ORG), userId: OWNER, sessionId: created.sessionId };
+  const topic = "保存的简洁列表主题";
+  await new PgGuidedRuntimeStore(db).read(actor, { ...initialRuntime(created), generatedNodes: ["brief"], brief: { ...longBrief, topic } });
+  const runtimeReads = vi.spyOn(PgGuidedRuntimeStore.prototype, "read");
+  for (const user of [OWNER, COLLABORATOR]) {
+    const response = await fetch(`${base}/research/guided-sessions`, { headers: auth(user) });
+    expect(response.status).toBe(200);
+    expect(C.operations.listGuidedResearchSessions.out.parse(await response.json()).items).toMatchObject([{ title: topic, tags: ["保持标签"] }]);
+  }
+  for (const headers of [auth(SAME_ORG_OTHER), auth(OWNER, OTHER_ORG)]) {
+    expect(await (await fetch(`${base}/research/guided-sessions`, { headers })).json()).toEqual({ items: [] });
+  }
+  expect(runtimeReads).not.toHaveBeenCalled();
+  const originalMetadata = await db.withTenant(actor.orgId, tx => tx.query<{ title: string }>("SELECT title FROM guided_research_sessions WHERE id=$1", [created.sessionId]));
+  expect(originalMetadata.rows[0]!.title).toBe("新建研究");
+  runtimeReads.mockRestore();
+  const explicit = longBrief.goal.slice(0, 100);
+  const renamed = await fetch(`${base}/research/guided-sessions/${created.sessionId}/metadata`, {
+    method: "PUT", headers: auth(OWNER), body: JSON.stringify({ title: explicit, tags: ["保持标签"] }),
+  });
+  expect(renamed.status).toBe(200);
+  expect(C.operations.listGuidedResearchSessions.out.parse(await (await fetch(`${base}/research/guided-sessions`, { headers: auth(OWNER) })).json()).items).toMatchObject([{ title: explicit, tags: ["保持标签"] }]);
+  const persisted = await db.withTenant(actor.orgId, tx => tx.query<{ title: string }>("SELECT title FROM guided_research_sessions WHERE id=$1", [created.sessionId]));
+  expect(persisted.rows[0]!.title).toBe(explicit);
+});
