@@ -1,4 +1,4 @@
-import test from 'node:test';import assert from 'node:assert/strict';import {assertPostMigrationBootstrap as verify} from '../src/bootstrap-proof.ts';
+import {test} from 'vitest';import assert from 'node:assert/strict';import {assertPostMigrationBootstrap as verify} from '../src/bootstrap-proof.ts';
 const source='a'.repeat(40),image='sha256:'+'b'.repeat(64);
 const proof=()=>({schemaVersion:1,phase:'preactivate',sourceSha:source,imageDigest:image,ready:true,readOnlyTransaction:true,productionWriteStatements:0,stateClass:'matching-existing',blockers:[],checks:{imageEntrypoint:true,inputContract:true,schemaContract:true,permissionContract:true,agentSeedContract:true,migrationLedgerContract:true}});
 const record=p=>'CN_BOOTSTRAP_COMPAT_JSON='+JSON.stringify(p)+'\n';

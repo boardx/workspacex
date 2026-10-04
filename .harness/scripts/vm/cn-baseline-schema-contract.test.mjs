@@ -1,5 +1,8 @@
 'use strict';
-const test=require('node:test'),assert=require('node:assert/strict');
+import {test} from 'vitest';
+import {createRequire} from 'node:module';
+const require=createRequire(import.meta.url);
+const assert=require('node:assert/strict');
 const {capture,compare,compareInTransaction,queries}=require('./cn-baseline-schema-contract.cjs');
 const identity={baselineSha:'b'.repeat(40),sourceInventorySha256:'a'.repeat(64)};
 const catalog={columns:[{table_name:'agents',column_name:'id',type:'text',not_null:true,default_expression:null}],constraints:[{table_name:'agents',name:'agents_pkey',type:'p',validated:true,definition:'PRIMARY KEY (id)'}],privileges:[{table_name:'agents',column_name:'id',role:'app_rw',privilege:'SELECT',allowed:true}],roles:['app_diag_ro','app_rw'].map(rolname=>({rolname,rolsuper:false,rolbypassrls:false,rolcreatedb:false,rolcreaterole:false}))};

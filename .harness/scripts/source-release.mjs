@@ -51,8 +51,8 @@ export function verifySource(p,execute=git){
  for(const revision of [p.sourceRevision,p.baselineRevision,p.frozenMainRevision])execute(['cat-file','-e',`${revision}^{commit}`]);
  execute(['merge-base','--is-ancestor',p.sourceRevision,p.frozenMainRevision]);
 }
-export function register(p,api,workflows,sourceWorkflows){
- verifySource(p);assertSourceTagTriggersSafe(workflows);assertSourceTagTriggersSafe(sourceWorkflows);
+export function register(p,api,workflows,sourceWorkflows,execute=git){
+ verifySource(p,execute);assertSourceTagTriggersSafe(workflows);assertSourceTagTriggersSafe(sourceWorkflows);
  const bytes=serializePlan(p),fingerprint=hash(bytes);
  // GET tag refs returns annotated object or commit; always resolve to the exact source SHA.
  let ref=api('GET',`git/ref/tags/${p.sourceTag}`,undefined,true);

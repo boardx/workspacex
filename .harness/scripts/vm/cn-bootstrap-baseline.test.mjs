@@ -1,4 +1,7 @@
-const test=require('node:test'),assert=require('node:assert/strict'),crypto=require('node:crypto');
+import {test} from 'vitest';
+import {createRequire} from 'node:module';
+const require=createRequire(import.meta.url);
+const assert=require('node:assert/strict'),crypto=require('node:crypto');
 const {verifyPlan,probe}=require('./cn-bootstrap-baseline.cjs');
 const h=x=>crypto.createHash('sha256').update(x).digest('hex'),j=x=>h(JSON.stringify(x));
 const source='a'.repeat(40),baseline='b'.repeat(40),now=Date.now(),old=Buffer.from('CREATE TABLE agents(id text);'),next=Buffer.from('CREATE TABLE candidate_fields(answer_spans jsonb);');

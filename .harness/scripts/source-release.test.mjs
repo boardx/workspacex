@@ -1,11 +1,12 @@
-import test from 'node:test';
+import {test} from 'vitest';
 import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
 import {execFileSync} from 'node:child_process';
 import {mkdtempSync,readFileSync,rmSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import path from 'node:path';
-import {validatePlan,serializePlan,verifySource,assertSourceTagTriggersSafe,register} from './source-release.mjs';
+import {validatePlan,serializePlan,verifySource,assertSourceTagTriggersSafe,register as registerSource} from './source-release.mjs';
+const register=(...args)=>registerSource(...args,()=>{});
 const p=()=>({schemaVersion:1,kind:'source-release-plan',status:'source-planned',release:'2026.10.4-cn.1',sourceTag:'source/2026.10.4-cn.1',sourceRevision:'9b25bfa65662b96c0826fe67506b562ea46aa6d0',baselineRevision:'ba6343199f3c834d6a198f83d0c771614292c82b',frozenMainRevision:'21689e614a2857b2779fd0d9eb118ac117836ed6',environment:'cn-production',scope:['#5097'],dataPolicy:'maintenance-required'});
 const safe=[['backend.yml','on:\n  push:\n    branches: [main]\n    tags: ["v*"]\n  pull_request:\njobs:\n  x: {}'],['prepare.yml','on:\n  workflow_run:\n    workflows: [backend-gates]\n    types: [completed]\njobs:\n  x: {}']];
 test('strict source plan and deterministic bytes',()=>assert.equal(serializePlan(p()),serializePlan(validatePlan(p()))));
@@ -19,3 +20,18 @@ test('different existing Release is never edited',()=>{let writes=0;const x=p();
 
 test('four space event cannot escape audit',()=>assert.throws(()=>assertSourceTagTriggersSafe([['x.yml','on:\n    create:\njobs:']])));
 test('unsafe tagged source rejected even with safe live main',()=>{let writes=0;assert.throws(()=>register(p(),()=>{writes++;},safe,[['old.yml','on:\n  create:\njobs:']]));assert.equal(writes,0);});
+
+
+test('real isolated Git history admits frozen ancestor and refuses unrelated or missing commits',()=>{
+ const dir=mkdtempSync(path.join(tmpdir(),'source-release-git-'));
+ const run=args=>execFileSync('git',['-C',dir,...args],{encoding:'utf8',stdio:['ignore','pipe','pipe']}).trim();
+ const commit=message=>run(['-c','user.name=Release Test','-c','user.email=release-test@example.invalid','commit','--allow-empty','-m',message]);
+ try{
+  run(['init','--quiet']);commit('baseline');const baseline=run(['rev-parse','HEAD']);commit('source');const source=run(['rev-parse','HEAD']);
+  const plan={...p(),sourceRevision:source,baselineRevision:baseline,frozenMainRevision:source};
+  verifySource(plan,run);
+  run(['checkout','--orphan','unrelated']);commit('unrelated');const unrelated=run(['rev-parse','HEAD']);
+  assert.throws(()=>verifySource({...plan,frozenMainRevision:unrelated},run));
+  assert.throws(()=>verifySource({...plan,sourceRevision:'e'.repeat(40)},run));
+ }finally{rmSync(dir,{recursive:true,force:true});}
+});

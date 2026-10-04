@@ -1,4 +1,4 @@
-import test from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs';import os from 'node:os';import path from 'node:path';import {spawnSync} from 'node:child_process';
+import {test} from 'vitest';import assert from 'node:assert/strict';import fs from 'node:fs';import os from 'node:os';import path from 'node:path';import {spawnSync} from 'node:child_process';
 const source='a'.repeat(40),baseline='b'.repeat(40),digest='sha256:'+'c'.repeat(64);
 function run(phase,change=()=>{}){
  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'phase-consumer-'));
