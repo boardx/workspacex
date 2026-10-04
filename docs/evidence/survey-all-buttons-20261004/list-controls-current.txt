@@ -1,0 +1,66 @@
+Actualsource4c0017fd2cb42102c53b89258162a16e58ea37ab Web25708/API5eff after backup restoration. Ordinary IAB controls; no new Survey created by modal test/no Delete invoked. Observations pending independent review for0001/2/3/4/8/9/10/11/12/13/16/17/18/19.
+[
+  {
+    "stage": "return-list",
+    "url": "http://127.0.0.1:25708/studio/survey",
+    "dom": "- alert\n- link \"跳到主要内容\":\n  - /url: \"#wsx-main-content\"\n- banner:\n  - button \"组织菜单，当前：org org-fullstack-5e-986ac146-12206c108846\":\n    - generic: o\n  - button \"提交反馈\":\n  - generic: org org-fullstack-5e-986ac146-12206c108846\n  - paragraph: 管理员\n- main:\n  - main:\n    - heading \"问卷\" [level=1]\n    - textbox \"搜索问卷\":\n      - /placeholder: 搜索问卷名称或标签\n    - button \"新建问卷\":\n      - text: 新建问卷\n    - navigation \"问卷二级导航\":\n      - link \"我的问卷\":\n        - /url: /studio/survey\n        - text: 我的问卷\n      - link \"问卷模板\":\n        - /url: /studio/survey?tab=modules\n        - text: 问卷模板\n      - link \"报告模板\":\n        - /url: /studio/survey?tab=reports\n        - text: 报告模板\n    - region \"我的问卷列表\":\n      - generic: 共 7 个问卷\n      - article:\n        - heading \"合成验收20261004-替换确认能力\" [level=3]:\n          - link \"合成验收20261004-替换确认能力\":\n            - /url: /studio/survey/f6c2c63c-f157-49f2-bb3b-7ca36333f274\n        - paragraph: 20 个题目 · 0 份答卷（有效 0）\n        - generic: 草稿\n        - button \"更多操作：合成验收20261004-替换确认能力\":\n        - generic: 包含“您加入当前团队多久了？”等问题，邀请目标受访者分享真实反馈。\n        - text: 最近更新：2026/10/4 09:17:21\n        - button \"继续设计\"\n        - button \"查看答卷\"\n      - article:\n        - heading \"合成验收20261004-主线解绑-f687\" [level=3]:\n          - link \"合成验收20261004-主线解绑-f687\":\n            - /url: /studio/survey/79d04a5d-8a17-46ac-b413-f9b030804cc9\n        - paragraph: 21 个题目 · 0 份答卷（有效 0）\n        - generic: 草稿\n        - button \"更多操作：合成验收20261004-主线解绑-f687\":\n        - generic: 包含“您加入当前团队多久了？”等问题，邀请目标受访者分享真实反馈。\n        - text: 最近更新：2026/10/4 09:05:12\n        - button \"继续设计\"\n        - button \"查看答卷\"\n      - article:\n        - heading \"团队协作健康度调查\" [level=3]:\n          - link \"团队协作健康度调查\":\n            - /url: /studio/survey/268f5a71-2510-4881-bf27-f8db642add81\n        - paragraph: 20 个题目 · 0 份答卷（有效 0）\n        - generic: 发布中\n        - button \"更多操作：团队协作健康度调查\":\n        - generic: 包含“您加入当前团队多久了？”等问题，邀请目标受访者分享真实反馈。\n        - text: 最近更新：2026/10/4 08:35:48\n        - button \"继续编辑\"\n        - button \"查看答卷\"\n      - article:\n        - heading \"合成验收20261004-报告真实答卷\" [level=3]:\n          - link \"合成验收20261004-报告真实答卷\":\n            - /url: /studio/survey/a529a7ac-3740-4b4a-b46f-dfd085fbb775\n        - paragraph: 20 个题目 · 1 份答卷（有效 1）\n        - generic: 发布中\n        - button \"更多操作：合成验收20261004-报告真实答卷\":\n        - generic: 包含“您加入当前团队多久了？”等问题，邀请目标受访者分享真实反馈。\n        - text: 最近更新：2026/10/4 08:31:56\n        - button \"继续编辑\"\n        - button \"查看答卷\"\n      - article:\n        - heading \"合成验收20261004-解绑保存边界-ac9\" [level=3]:\n          - link \"合成验收20261004-解绑保存边界-ac9\":\n            - /url: /studio/survey/93750492-a585-4c08-9b01-ceb66960c2fd\n        - paragraph: 21 个题目 · 0 份答卷（有效 0）\n        - generic: 草稿\n        - button \"更多操作：合成验收20261004-解绑保存边界-ac9\":\n        - generic: 包含“您加入当前团队多久了？”等问题，邀请目标受访者分享真实反馈。\n        - text: 最近更新：2026/10/4 04:15:36\n        - button \"继续设计\"\n        - button \"查看答卷\"\n      - article:\n        - heading \"合成验收20261004-模板子验收-解绑反证\" [level=3]:\n          - link \"合成验收20261004-模板子验收-解绑反证\":\n            - /url: /studio/survey/ae22d556-ba5a-45c3-bd67-05f06431481a\n        - paragraph: 21 个题目 · 0 份答卷（有效 0）\n        - generic: 草稿\n        - button \"更多操作：合成验收20261004-模板子验收-解绑反证\":\n        - generic: 包含“您加入当前团队多久了？”等问题，邀请目标受访者分享真实反馈。\n        - text: 最近更新：2026/10/4 03:35:31\n        - button \"继续设计\"\n        - button \"查看答卷\"\n      - article:\n        - heading \"合成验收20261004-空白设计\" [level=3]:\n          - link \"合成验收20261004-空白设计\":\n            - /url: /studio/survey/101e9a36-3fb3-4e50-baa7-28e5ed56f4bb\n        - paragraph: 1 个题目 · 1 份答卷（有效 1）\n        - generic: 发布中\n        - button \"更多操作：合成验收20261004-空白设计\":\n        - generic: 包含“多行文本”等问题，邀请目标受访者分享真实反馈。\n        - text: 最近更新：2026/10/4 02:41:13\n        - button \"继续编辑\"\n        - button \"查看答卷\"\n      - complementary:\n        - paragraph: 报告模板（可选）\n        - heading \"为该问卷设计报告模板\" [level=2]\n        - link \"去创建报告模板\":\n          - /url: /studio/survey?tab=reports\n          - text: 去创建报告模板\n- navigation \"主导航（移动端）\":\n  - link \"对话\":\n    - /url: /chat\n    - generic: 对话\n  - link \"项目\":\n    - /url: /projects\n    - generic: 项目\n  - link \"任务\":\n    - /url: /tasks\n    - generic: 任务\n  - link \"我\":\n    - /url: /profile\n    - generic: 我"
+  },
+  {
+    "stage": "question-template-tab",
+    "url": "http://127.0.0.1:25708/studio/survey?tab=modules",
+    "heading": "问卷模板"
+  },
+  {
+    "stage": "report-template-tab",
+    "url": "http://127.0.0.1:25708/studio/survey?tab=reports",
+    "heading": "报告模板"
+  },
+  {
+    "stage": "search-single",
+    "articles": 1,
+    "dom": "共 7 个问卷\n合成验收20261004-报告真实答卷\n\n20 个题目 · 1 份答卷（有效 1）\n\n发布中\n包含“您加入当前团队多久了？”等问题，邀请目标受访者分享真实反馈。\n最近更新：2026/10/4 08:31:56\n继续编辑\n查看答卷\n\n报告模板（可选）\n\n为该问卷设计报告模板\n去创建报告模板"
+  },
+  {
+    "stage": "card-title-open",
+    "url": "http://127.0.0.1:25708/studio/survey/a529a7ac-3740-4b4a-b46f-dfd085fbb775/design",
+    "title": "合成验收20261004-报告真实答卷"
+  },
+  {
+    "stage": "continue-edit-published",
+    "url": "http://127.0.0.1:25708/studio/survey/a529a7ac-3740-4b4a-b46f-dfd085fbb775/design",
+    "lockedCount": false
+  },
+  {
+    "stage": "continue-design-draft",
+    "url": "http://127.0.0.1:25708/studio/survey/f6c2c63c-f157-49f2-bb3b-7ca36333f274/design",
+    "dom": "- alert\n- link \"跳到主要内容\":\n  - /url: \"#wsx-main-content\"\n- banner:\n  - button \"组织菜单，当前：org org-fullstack-5e-986ac146-12206c108846\":\n    - generic: o\n  - button \"提交反馈\":\n  - generic: org org-fullstack-5e-986ac146-12206c108846\n  - paragraph: 管理员\n- main:\n  - main:\n    - button \"← 返回列表\"\n    - textbox \"问卷名称\": 合成验收20261004-替换确认能力\n    - paragraph: 已保存 · 2026/10/4 09:17:21\n    - button \"更多操作\"\n    - button \"发布回收\"\n    - navigation \"问卷工作流\":\n      - button \"1. 设计问卷\":\n        - generic: \"1\"\n        - text: 设计问卷\n      - button \"2. 发布回收\":\n        - generic: \"2\"\n        - text: 发布回收\n      - button \"3. 查看答卷\":\n        - generic: \"3\"\n        - text: 查看答卷\n    - region \"设计检查\": 设计检查通过\n    - paragraph: 选择题型，配置题目，再用实时预览试填。\n    - button \"试填问卷\"\n    - button \"撤销最近修改\" [disabled]:\n      - text: 撤销\n    - button \"重做最近修改\" [disabled]:\n      - text: 重做\n    - button \"打开题目大纲\"\n    - button \"打开题目设置\"\n    - complementary \"实时预览\":\n      - region \"问卷设计画布\":\n        - heading \"问卷设计画布\" [level=2]\n        - button \"桌面预览\" [pressed]\n        - button \"平板预览\"\n        - button \"手机预览\"\n        - region \"问卷封面\":\n          - heading \"合成验收20261004-替换确认能力\" [level=2]\n        - heading \"基本情况\" [level=3]\n        - generic: 2 题\n        - generic: \"*\"\n        - generic: \"01\"\n        - button \"编辑第 1 题：您加入当前团队多久了？\": 您加入当前团队多久了？\n        - group \"编辑第 1"
+  },
+  {
+    "stage": "list-view-response",
+    "url": "http://127.0.0.1:25708/studio/survey/a529a7ac-3740-4b4a-b46f-dfd085fbb775/responses",
+    "dom": "1 份答卷\n\n全部 1\n有效 1\n待复核 0\n已排除分析 0\n导出 Markdown\n\t编号\t提交时间\t用时\t质量\t操作\n\t43233e54-13a\t2026/10/4 04:36:13\t33 秒\t有效\t查看完整答卷\n\n已选择 0 项\n\n上一页\n1 / 1\n下一页"
+  },
+  {
+    "stage": "list-more-menu",
+    "dom": "删除问卷"
+  },
+  {
+    "stage": "new-dialog-blank",
+    "dom": "新建问卷\n\n先填写名称与标签，再选择创建方式。报告模板为可选项。\n\n问卷名称\n标签\n0/5\n输入即搜索已有标签，回车新建一个\n选择创建方式\n空白创建\n\n直接进入设计问卷\n\nAI 导入创建\n\n先导入内容并校对 Markdown，再进入设计\n\n从模板创建\n\n使用现有问卷模板，直接进入设计\n\n取消\n下一步",
+    "nextEnabled": false
+  },
+  {
+    "stage": "new-dialog-valid",
+    "nextEnabled": true
+  },
+  {
+    "stage": "close-X",
+    "dialogs": 0,
+    "articles": 7
+  },
+  {
+    "stage": "cancel",
+    "dialogs": 0,
+    "articles": 7
+  }
+]
