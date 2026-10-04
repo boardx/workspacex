@@ -104,7 +104,7 @@ it("projects compact simulated records without changing the saved source", () =>
   expect(screen.queryByRole("tablist")).not.toBeInTheDocument();
   expect(screen.queryByRole("heading", { name: "模拟访谈记录" })).not.toBeInTheDocument();
   expect(screen.queryByText("专家 ID：persona-nurse")).not.toBeInTheDocument();
-  expect(screen.getByText("AI 模拟 · 需真人验证")).toBeVisible();
+  expect(screen.queryByText("AI 模拟 · 需真人验证")).not.toBeInTheDocument();
   expect(screen.getByText(/我们用 persona 方法分类/u)).toBeVisible();
   expect(screen.getByRole("link", { name: "来源" })).toHaveAttribute("href", "#question-q7");
   expect(screen.getByTestId("itv-source-runs-markdown").querySelector("script")).toBeNull();
@@ -169,4 +169,18 @@ it("hides spaced provider transcript titles containing technical ids", () => {
   const result = interviewTranscriptDisplay(markdown, true);
   expect(result).not.toContain("# 角色（virtual-abc） 访谈记录");
   expect(result).toContain("回答正文。");
+});
+
+
+it.each(["simulated", "participant", "mixed"] as const)("keeps evidence metadata and source links without repeated reading notices (%s)", (evidenceMode) => {
+  const markdown = "## [护理角色](#expert-nurse)\n\n已保存回答。[来源](#question-q7)";
+  const document = { documentId: "disclosure", step: "runs" as const, version: 1, contentHash: "a".repeat(64), evidenceMode, references: [], markdown };
+  render(<InterviewRunsStep runs={[{ expertId: "nurse", displayName: "护理角色", status: "completed", completedQuestions: 1, totalQuestions: 1 }]} document={document} pending={false} onGenerateReport={vi.fn()} />);
+  const notice = "AI 模拟访谈，内容需真人验证。";
+  expect(screen.queryByText(notice)).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: /护理角色/u }));
+  expect(screen.queryByText(notice)).not.toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "来源" })).toHaveAttribute("href", "#question-q7");
+  expect(document.markdown).toBe(markdown);
+  expect(document.evidenceMode).toBe(evidenceMode);
 });

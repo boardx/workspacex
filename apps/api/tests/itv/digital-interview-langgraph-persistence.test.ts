@@ -673,7 +673,7 @@ describe("F04 PostgresSaver and exactly-once business persistence", () => {
           "## 分角色深度分析\n该专家重视长期教练梯队。",
           "## 跨角色主题分析\n培养、赛事与跟踪需要形成闭环。",
           "## 分歧与共识\n当前样本只有一位专家，尚不能判断跨角色共识。",
-          "## 行动建议\nP0 建立教练培养与跟踪机制。",
+          "## 行动建议\nP0：独立访谈五位基层教练，对比训练任务完成时长并记录反对证据。",
           "## 研究局限与后续验证\n需要真人访谈验证优先级。",
         ].map((markdown) => `${JSON.stringify({ type: "section", markdown })}\n`);
         const source = JSON.parse(input.user) as { experts: Array<{ expertId: string; answers: Array<{ questionId: string }> }> };
@@ -745,7 +745,7 @@ describe("F04 PostgresSaver and exactly-once business persistence", () => {
           { type: "meta", title: "江西足球协同发展决策研究", executiveSummary: "已有回答显示青训、赛事和资金机制需要一体化验证。" },
           { type: "section", markdown: reportAttempts === 1
             ? "专家依次介绍了基层训练、赛事衔接和长期资金的现状。"
-            : "跨回答综合显示基层训练、赛事衔接和长期资金构成共同模式。决策影响：应优先验证赛事与青训的衔接方案。边界与反例：当前只有数字专家模拟样本，仍待真人访谈验证。" },
+            : "跨回答综合显示基层训练、赛事衔接和长期资金构成共同模式。决策影响：应优先验证赛事与青训的衔接方案。边界与反例：当前只有数字专家模拟样本，仍待真人访谈验证。\n\n建议行动：独立访谈五位基层教练，对比训练任务完成时长并记录反对证据。" },
         ];
         const text = events.map((event) => JSON.stringify(event)).join("\n");
         await onDelta(text);

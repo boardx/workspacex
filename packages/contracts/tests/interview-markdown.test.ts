@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { InterviewMarkdownDocument, PreviewVirtualExpertMarkdown, parseInterviewMarkdown, assessInterviewReportAnalysis } from "../src/interview-markdown";
+import { InterviewMarkdownDocument, PreviewVirtualExpertMarkdown, parseInterviewMarkdown, assessInterviewReportAnalysis, hasInterviewReportVerifiableAction } from "../src/interview-markdown";
 import { DigitalInterviewArtifact } from "../src/interview";
 
 const markdown = "# 教育研究\r\n\r\n## 核心发现\r\n\r\n| 用户 | 观点 |\r\n| --- | --- |\r\n| 学生 | 保留 **自主性** |\r\n\r\n```md\r\n## 不是章节\r\n```\r\n";
@@ -128,4 +128,32 @@ describe("formatted report quality", () => {
     expect(assessInterviewReportAnalysis(report).missing).toContain("boundary_or_counterevidence");
     expect(assessInterviewReportAnalysis(report).missing).toContain("verifiable_action");
   });
+});
+
+
+describe("numbered verifiable action headings (#5289)", () => {
+  const action = "独立访谈五位用户，对比三方证据并验证任务完成时长。";
+  it.each(["6. 下一步验证建议", "六、下一步验证建议", "6. 下一步验证建议（可执行行动）", "六、验证计划(可验证行动)", "行动建议（可执行行动）："])("accepts a concrete action under %s without changing report bytes", (heading) => {
+    const report = `## ${heading}\n\n${action}`;
+    expect(hasInterviewReportVerifiableAction(report)).toBe(true);
+    expect(assessInterviewReportAnalysis(report).missing).not.toContain("verifiable_action");
+    expect(report).toContain(heading);
+  });
+  it.each(["建议优化产品。", "访谈用户。", "测试三次。", "P0：建议优化流程。", "建议行动：建议优化产品流程。", "> 独立访谈五位用户，对比三方证据并验证任务完成时长。", "> P0：独立访谈五位用户，对比三方证据并验证任务完成时长。", "```md\nP0：独立访谈五位用户，对比三方证据并验证任务完成时长。\n```"])("does not let a numbered title or quoted labels manufacture action: %s", (body) => {
+    expect(hasInterviewReportVerifiableAction(`## 6. 下一步验证建议（可执行行动）\n\n${body}`)).toBe(false);
+  });
+  it.each(["answer-1", "source-1"])("does not count controlled %s evidence links as researcher actions", (anchor) => {
+    expect(hasInterviewReportVerifiableAction(`## 6. 下一步验证建议\n\n[${action}](#${anchor})`)).toBe(false);
+    expect(hasInterviewReportVerifiableAction(`## 6. 下一步验证建议\n\n[${action}](#${anchor})\n\n${action}`)).toBe(true);
+  });
+  it.each(["6. 下一步验证建议与后续研究", "六、下一步验证建议（可执行行动", "讨论下一步验证建议", "下一步验证建议（可执行行动）与其他事项"])("does not expand the section scope to %s", (heading) => {
+    expect(hasInterviewReportVerifiableAction(`## ${heading}\n\n${action}`)).toBe(false);
+  });
+});
+
+
+it("rejects arbitrary report stream failure strings at the public boundary", async () => {
+  const { InterviewMarkdownReportStreamEvent } = await import("../src/interview-markdown");
+  expect(InterviewMarkdownReportStreamEvent.safeParse({ type: "failed", reasonCode: "PRIVATE_PROVIDER_SECRET" }).success).toBe(false);
+  expect(InterviewMarkdownReportStreamEvent.safeParse({ type: "failed", reasonCode: "AI_GENERATION_UNAVAILABLE" }).success).toBe(true);
 });

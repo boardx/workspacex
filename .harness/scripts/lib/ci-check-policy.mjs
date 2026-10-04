@@ -6,11 +6,15 @@ export const POLICY_PATH = '.harness/config/ci-check-policy.json';
 export const LEGACY_POLICY = Object.freeze({ version: 1, requiredChecks: ['verify-control-plane', 'verify-affected', 'verify-full-compile'], aggregates: {}, allowedMergeMethods: ['merge', 'squash', 'rebase'] });
 const names = value => Array.isArray(value) && value.length > 0 && value.every(x => typeof x === 'string' && /^[a-z][a-z0-9-]*$/.test(x)) && new Set(value).size === value.length;
 export function parsePolicy(value) {
-  if (value?.version !== 2 || !names(value.requiredChecks) || !value.aggregates || typeof value.aggregates !== 'object' || Array.isArray(value.aggregates)) throw new Error('Invalid CI check policy');
+  if (![2, 3].includes(value?.version) || !names(value.requiredChecks) || !value.aggregates || typeof value.aggregates !== 'object' || Array.isArray(value.aggregates)) throw new Error('Invalid CI check policy');
   for (const [name, dependencies] of Object.entries(value.aggregates)) {
     if (!value.requiredChecks.includes(name) || !names(dependencies) || dependencies.includes(name)) throw new Error('Invalid aggregate policy');
   }
   if (JSON.stringify(value.allowedMergeMethods) !== JSON.stringify(['merge', 'squash'])) throw new Error('Versioned policy requires unambiguous merge or squash history');
+  if (value.version === 2 && Object.hasOwn(value, 'deferredChecks')) throw new Error('Deferred checks require v3');
+  if (value.version === 3) {
+    if (!names(value.deferredChecks) || value.deferredChecks.some(name => name !== 'visual-deferred' || value.requiredChecks.includes(name) || Object.values(value.aggregates).some(deps => deps.includes(name)))) throw new Error('Invalid deferred visual policy');
+  }
   return value;
 }
 export const CURRENT_POLICY = parsePolicy(JSON.parse(readFileSync(new URL('../../config/ci-check-policy.json', import.meta.url), 'utf8')));

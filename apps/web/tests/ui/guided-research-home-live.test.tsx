@@ -231,7 +231,7 @@ describe("F168 guided research home live data", () => {
 
     const page = screen.getByTestId("research-home-page");
     expect(page).toHaveClass("max-w-screen-2xl", "px-5", "py-6");
-    expect(await screen.findByTestId("research-history-grs-style")).toHaveClass("rounded-card", "hover:shadow-md", "h-full");
+    expect(await screen.findByTestId("research-history-grs-style")).toHaveClass("rounded-card", "hover:border-input", "h-full");
   });
 
   it("keeps an active report-stage session resumable until its persisted status is completed", async () => {
@@ -252,6 +252,16 @@ describe("F168 guided research home live data", () => {
     expect(onStepChange).toHaveBeenCalledWith("report", "grs-report-active");
   });
 
+  it("creates a concise default title without deriving it from a long requirement", async () => {
+    createGuidedResearchSession.mockResolvedValueOnce(createdSession("grs-concise"));
+    const goal = "公开合成长需求。".repeat(5000);
+    render(<GuidedResearchFlow step="brief" onStepChange={vi.fn()} />);
+    fireEvent.change(screen.getByTestId("research-brief-topic"), { target: { value: "" } });
+    fireEvent.change(screen.getByTestId("research-brief-goal"), { target: { value: goal } });
+    fireEvent.click(screen.getByTestId("research-confirm-brief"));
+    await waitFor(() => expect(createGuidedResearchSession).toHaveBeenCalledTimes(1));
+    expect(createGuidedResearchSession).toHaveBeenCalledWith(expect.objectContaining({ title: "新建研究", brief: expect.objectContaining({ topic: "新建研究", goal }) }));
+  });
   it("creates a persisted session before entering directions", async () => {
     createGuidedResearchSession.mockResolvedValueOnce(createdSession("grs-new"));
     const onStepChange = vi.fn();
@@ -428,4 +438,14 @@ it("returns a URL-opened report to history without reopening the stale session p
   view.rerender(<GuidedResearchFlow step="home" sessionId="grs-next" />);
   await waitFor(() => expect(getResearchRuntime).toHaveBeenLastCalledWith("grs-next"));
   expect(await screen.findByTestId("research-report-document")).toBeInTheDocument();
+});
+
+it("shows and searches the canonical generated topic for default-named list entries", async () => {
+  const item = { ...createdSession("generated-name"), title: "新建研究" };
+  listGuidedResearchSessions.mockResolvedValue({ items: [item] });
+  getResearchRuntime.mockResolvedValue({ ...runtimeFixture("directions", item.sessionId), brief: { ...runtimeFixture().brief, topic: "已生成的独特主题" } });
+  render(<GuidedResearchFlow step="home" onStepChange={vi.fn()} />);
+  expect(await screen.findByText("已生成的独特主题")).toBeInTheDocument();
+  fireEvent.change(screen.getByTestId("research-history-search"), { target: { value: "独特主题" } });
+  expect(screen.getByTestId("research-history-generated-name")).toBeInTheDocument();
 });

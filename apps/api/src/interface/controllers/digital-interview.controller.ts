@@ -1,3 +1,4 @@
+import { reportRejectionReason } from "../../application/interview/workflow/interview-report-rejection";
 import { traceIdOf } from "../middleware/trace";
 import { updateDigitalInterviewMetadata, deleteDigitalInterview } from "../../application/interview/manage-digital-interview";
 import { BadRequestException, Body, ConflictException, Controller, Delete, Patch, Get, Inject, Optional, NotFoundException, Param, Post, Query, Req, Res, ServiceUnavailableException } from "@nestjs/common";
@@ -151,11 +152,11 @@ export class DigitalInterviewController {
       });
       write({ type: "completed", source });
     } catch (error) {
-      write({ type: "failed", reasonCode: error instanceof DigitalInterviewWorkflowError ? error.code
+      write({ type: "failed", reasonCode: reportRejectionReason(error) ?? (error instanceof DigitalInterviewWorkflowError ? error.code
         : error instanceof NoInterviewAccessError ? "NO_INTERVIEW_ACCESS"
         : error instanceof DigitalInterviewConcurrentModificationError ? "CONCURRENT_MODIFICATION"
         : error instanceof DigitalInterviewPermissionRevokedMidwayError ? "PERMISSION_REVOKED_MIDWAY"
-        : "AI_GENERATION_UNAVAILABLE" });
+        : "AI_GENERATION_UNAVAILABLE") });
     } finally {
       if (!response.writableEnded && !response.destroyed) response.end();
     }
@@ -518,7 +519,7 @@ export class DigitalInterviewController {
   private translate(error:unknown):never {
     if(error instanceof DigitalInterviewWorkflowError) {
       if(error.code === "NO_INTERVIEW_ACCESS") throw new NotFoundException();
-      if(error.code === "DEPENDENCY_UNAVAILABLE" || error.code === "AI_GENERATION_UNAVAILABLE") throw new ServiceUnavailableException({reasonCode:error.code});
+      if(error.code === "DEPENDENCY_UNAVAILABLE" || error.code === "AI_GENERATION_UNAVAILABLE") throw new ServiceUnavailableException({reasonCode:reportRejectionReason(error) ?? error.code});
       if(error.code === "DIGITAL_INTERVIEW_INPUT_INVALID") throw new BadRequestException({reasonCode:error.code});
       throw new ConflictException({reasonCode:error.code});
     }

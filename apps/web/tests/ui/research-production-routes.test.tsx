@@ -38,7 +38,7 @@ it("lets a visual embedding own confirmation without creating persisted research
   render(<ResearchIntake session={null} workflow={null} onSession={vi.fn()} onWorkflow={vi.fn()} onPending={vi.fn()} onNavigate={vi.fn()} renderAssistant={() => null} onConfirmBrief={confirm} />);
   fireEvent.change(screen.getByRole("textbox", { name: "研究目标" }), { target: { value: "视觉样本需求" } });
   fireEvent.click(screen.getByTestId("research-confirm-brief"));
-  expect(confirm).toHaveBeenCalledWith(expect.objectContaining({ topic: "视觉样本需求", goal: "视觉样本需求" }));
+  expect(confirm).toHaveBeenCalledWith(expect.objectContaining({ topic: "新建研究", goal: "视觉样本需求" }));
   expect(createGuidedResearchSession).not.toHaveBeenCalled();
   expect(runGuidedResearchSkillTurn).not.toHaveBeenCalled();
 });
@@ -85,7 +85,7 @@ it("preserves the creation key on failure and resumes the actual server node", a
   await waitFor(() => expect(push).toHaveBeenCalledWith("/research/created-session/topic"));
   const [first, second] = vi.mocked(createGuidedResearchSession).mock.calls;
   expect(second?.[0].idempotencyKey).toBe(first?.[0].idempotencyKey);
-  expect(second?.[0]).toMatchObject({ title: "User topic", brief: { topic: "User topic", goal: "User objective" } });
+  expect(second?.[0]).toMatchObject({ title: "新建研究", brief: { topic: "User topic", goal: "User objective" } });
 });
 
 it("accepts the prototype's single description without requiring a hidden topic field", async () => {
@@ -98,7 +98,7 @@ it("accepts the prototype's single description without requiring a hidden topic 
   fireEvent.click(screen.getByTestId("research-confirm-brief"));
   await waitFor(() => expect(push).toHaveBeenCalledWith("/research/description-session/topic"));
   expect(vi.mocked(createGuidedResearchSession).mock.calls[0]?.[0]).toMatchObject({
-    title: description, brief: { topic: description, goal: description },
+    title: "新建研究", brief: { topic: "新建研究", goal: description },
   });
 });
 
@@ -132,7 +132,7 @@ it.each([101, 123, 200, 2000, 11540, 40000])("creates research from a %i-charact
   await waitFor(() => expect(push).toHaveBeenCalledWith("/research/long-description/topic"));
   const input = vi.mocked(createGuidedResearchSession).mock.calls[0]![0];
   expect(input.brief?.goal).toBe(description);
-  expect(input.title).toBe(description.slice(0, research.GuidedResearchMetadata.shape.title.maxLength!));
+  expect(input.title).toBe("新建研究");
 });
 
 it("bounds a default title derived from a prefilled topic while preserving the topic", async () => {
@@ -172,4 +172,11 @@ it("retries failed metadata when runtime loading is retried", async () => {
   fireEvent.click(screen.getByRole("button", { name: "重试加载" }));
   await waitFor(() => expect(screen.getByTestId("production-live")).toHaveAttribute("data-name", "创建时的研究名称"));
   expect(getGuidedResearchSession).toHaveBeenCalledTimes(2);
+});
+
+it("does not supply a placeholder title when stage metadata fails", async () => {
+  vi.mocked(getGuidedResearchSession).mockRejectedValue(new Error("offline"));
+  render(<ResearchStageRoute sessionId="metadata-offline" stage="import" />);
+  await waitFor(() => expect(getGuidedResearchSession).toHaveBeenCalled());
+  expect(screen.getByTestId("production-live")).not.toHaveAttribute("data-name");
 });

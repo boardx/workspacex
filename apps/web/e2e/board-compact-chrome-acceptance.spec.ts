@@ -1,3 +1,4 @@
+import {categoryEnabled} from './support/board-observation-categories.mjs';
 import {randomUUID} from 'node:crypto';
 import {writeFile} from 'node:fs/promises';
 import {expect,test,type Page,type TestInfo} from '@playwright/test';
@@ -9,7 +10,7 @@ import {verifyEditorConnectorEntry} from './support/board-editor-connector-entry
 
 const referenceViewports=[{width:1024,height:900},{width:1536,height:1024},{width:1672,height:941}] as const;
 const dockOrder=['board-tool-select','board-tool-hand','board-add-sticky','board-add-text','board-add-shape','board-add-draw','board-add-image','board-add-more'] as const;
-async function captureReference(page:Page,info:TestInfo,name:string){const path=info.outputPath(`${name}.png`);await page.screenshot({path,fullPage:false});await info.attach(name,{path,contentType:'image/png'});}
+async function captureReference(page:Page,info:TestInfo,name:string){if(!categoryEnabled('screenshot'))return;const path=info.outputPath(`${name}.png`);await page.screenshot({path,fullPage:false});await info.attach(name,{path,contentType:'image/png'});}
 const separated=(a:{x:number;y:number;width:number;height:number},b:{x:number;y:number;width:number;height:number})=>a.x+a.width<=b.x+1||b.x+b.width<=a.x+1||a.y+a.height<=b.y+1||b.y+b.height<=a.y+1;
 
 test('real thirty-note Board keeps compact chrome and intentional connection handles',async({page,request},info)=>{
@@ -108,8 +109,7 @@ test('real thirty-note Board keeps compact chrome and intentional connection han
   }
   await page.getByRole('button',{name:'更多白板操作',exact:true}).click();
   await expect(page.getByRole('region',{name:'在线成员',exact:true})).toBeVisible();
-  await page.screenshot({path:info.outputPath('reference-mobile-390.png')});
-  await info.attach('reference-mobile-390',{path:info.outputPath('reference-mobile-390.png'),contentType:'image/png'});
+  await captureReference(page,info,'reference-mobile-390');
   await page.keyboard.press('Escape');await page.setViewportSize({width:1536,height:1024});
   // Hidden creation entries do not remove selected-object connection handles.
   const before=await canonicalBoardSnapshot(request,token!,board.id);

@@ -1,5 +1,7 @@
 import { test, expect } from "@playwright/test";
-import { ACCEPTANCE_DOC, expectAnchor, gapMessage, openChatEmptyState } from "./chat-task-workbench-fixture";
+import { ACCEPTANCE_DOC, expectAnchor, gapMessage, login, openChatEmptyState, warmUpCopilotRuntimeRoute } from "./chat-task-workbench-fixture";
+import { capturePaperMatrix } from "./support/paper-visual-evidence";
+import { mountPaperEmptyScrollFixture } from "./support/paper-empty-scroll-browser-fixture";
 
 /**
  * issue #2068 —— **TW-P0-1 任务型空状态**（判据见 `${ACCEPTANCE_DOC}` TW-P0-1 一节）。
@@ -18,6 +20,26 @@ import { ACCEPTANCE_DOC, expectAnchor, gapMessage, openChatEmptyState } from "./
  */
 
 test.setTimeout(180_000);
+
+test("PAPER：真实鉴权 Home 与 Chat 同视口明暗取证", async ({ page }) => {
+  test.setTimeout(300_000);
+  await page.emulateMedia({ colorScheme: "light", reducedMotion: "reduce" });
+  await warmUpCopilotRuntimeRoute(page);
+  const homeResponse = page.waitForResponse(response => response.request().method() === "GET"
+    && /\/organizations\/[^/]+\/home-config$/.test(new URL(response.url()).pathname), { timeout: 120_000 });
+  await login(page);
+  expect((await homeResponse).ok(), "Home must load its actual authorized API configuration").toBe(true);
+  await expect(page.getByTestId("home-screen")).toBeVisible();
+  await capturePaperMatrix(page, "home", "home-screen");
+  await page.goto("/chat");
+  await expect(page.getByTestId("copilotkit-v2-input")).toBeEnabled();
+  await expect(page.getByTestId("copilotkit-v2-empty")).toBeVisible();
+  await expect(page.getByTestId("chat-task-workbench-goal-headline")).toBeVisible();
+  const templates = page.locator('[data-testid^="chat-task-workbench-template-"]');
+  await expect(templates).toHaveCount(4);
+  for (const template of await templates.all()) await expect(template).toBeVisible();
+  await capturePaperMatrix(page, "chat-empty", "chat-task-workbench-composer");
+});
 
 test("TW-P0-1①：新对话中央是任务隐喻（目标 + 计划 + 确认），不是会话隐喻「开始新的对话」", async ({ page }) => {
   await openChatEmptyState(page);
@@ -138,4 +160,67 @@ test("TW-P0-1④：空状态在滚动区内垂直居中，不贴着顶部留一�
       + `偏差 ${delta}px 超过容差 ${tolerance}px（贴顶/贴底的回归）`,
     ),
   ).toBeLessThanOrEqual(tolerance);
+});
+
+// Local React/browser proof of the captured 375px failure height chain.
+// These execute actual production code without API; authenticated matrix above remains required.
+test("PAPER-layout: empty opening stays at top through content ResizeObserver", async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 812 });
+  await mountPaperEmptyScrollFixture(page);
+  const pane = page.getByTestId("copilotkit-v2-messages");
+  await expect.poll(() => pane.evaluate(el => el.scrollTop)).toBe(0);
+  const frame = (await pane.boundingBox())!;
+  for (const target of await page.locator('[data-testid="chat-task-workbench-goal-headline"],[data-testid^="chat-task-workbench-template-"]').all()) {
+    const box = (await target.boundingBox())!;
+    expect(box.y).toBeGreaterThanOrEqual(frame.y);
+    expect(box.y + box.height).toBeLessThanOrEqual(frame.y + frame.height);
+  }
+  await page.screenshot({ path: test.info().outputPath("local-component-opening.png") });
+  const before = await pane.evaluate(el => el.scrollHeight);
+  await page.locator("#empty-grow").click();
+  await expect.poll(() => pane.evaluate(el => el.scrollHeight)).toBeGreaterThan(before);
+  await expect.poll(() => pane.evaluate(el => el.scrollTop)).toBe(0);
+});
+
+test("PAPER-layout: first message, restore, clear and new thread retain scrolling semantics", async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 812 });
+  await mountPaperEmptyScrollFixture(page);
+  const pane = page.getByTestId("copilotkit-v2-messages");
+  const gap = () => pane.evaluate(el => el.scrollHeight - el.clientHeight - el.scrollTop);
+  await page.locator("#first").click();
+  await expect.poll(gap).toBeLessThanOrEqual(2);
+  await page.locator("#delta").click();
+  await expect.poll(gap).toBeLessThanOrEqual(2);
+  await page.locator("#resize").click();
+  await expect.poll(gap).toBeLessThanOrEqual(2);
+  await page.locator("#clear").click();
+  await expect.poll(() => pane.evaluate(el => el.scrollTop)).toBe(0);
+  await page.locator("#restore").click();
+  await expect.poll(gap).toBeLessThanOrEqual(2);
+  await page.locator("#new").click();
+  await expect.poll(() => pane.evaluate(el => el.scrollTop)).toBe(0);
+  await expect(page.getByTestId("chat-task-workbench-goal-headline")).toBeVisible();
+  expect(Number(await page.locator("#renders").innerText())).toBeLessThan(40);
+});
+
+test("PAPER-layout: nonempty upward reading resists stream and resize until jump", async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 812 });
+  await mountPaperEmptyScrollFixture(page);
+  const pane = page.getByTestId("copilotkit-v2-messages");
+  await page.locator("#restore").click();
+  await expect.poll(() => pane.evaluate(el => el.scrollTop)).toBeGreaterThan(500);
+  await pane.hover();
+  await page.mouse.wheel(0, -10000);
+  await expect.poll(() => pane.evaluate(el => el.scrollTop)).toBeLessThan(2);
+  await expect(page.locator("#following")).toHaveText("false");
+  const y = (await page.locator("#reading-anchor").boundingBox())!.y;
+  await page.locator("#delta").click();
+  await page.locator("#resize").click();
+  await expect.poll(async () => Math.abs((await page.locator("#reading-anchor").boundingBox())!.y - y)).toBeLessThan(2);
+  await expect(page.locator("#following")).toHaveText("false");
+  await page.locator("#jump").click();
+  await expect.poll(() => pane.evaluate(el => el.scrollHeight - el.clientHeight - el.scrollTop)).toBeLessThanOrEqual(2);
+  await page.locator("#delta").click();
+  await expect.poll(() => pane.evaluate(el => el.scrollHeight - el.clientHeight - el.scrollTop)).toBeLessThanOrEqual(2);
+  expect(Number(await page.locator("#renders").innerText())).toBeLessThan(40);
 });

@@ -5,8 +5,8 @@
   "lang": "zh-Hans",
   "start_url": "/zh/",
   "display": "standalone",
-  "background_color": "#08070b",
-  "theme_color": "#08070b",
+  "background_color": "#181716",
+  "theme_color": "#181716",
   "icons": [
     {
       "src": "img/favicon.png",

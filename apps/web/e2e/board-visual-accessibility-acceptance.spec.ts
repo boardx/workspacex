@@ -1,3 +1,4 @@
+import {categoryEnabled,observationMode,observationArtifactKinds} from './support/board-observation-categories.mjs';
 import AxeBuilder from '@axe-core/playwright';
 import {expect,test} from '@playwright/test';
 import {writeFile} from 'node:fs/promises';
@@ -18,7 +19,8 @@ test('visual and accessibility real object states, input and negative controls',
   try {
     await page.goto('/studio/board');
     await expect(page.getByText(`Visual accessibility ${browserName}`,{exact:true})).toBeVisible();
-    const browse=await page.screenshot();const browsePath=info.outputPath('browse.png');await writeFile(browsePath,browse);
+    let browse:{path:string;sha256:string}|null=null;
+    if(categoryEnabled('screenshot')){const bytes=await page.screenshot(),path=info.outputPath('browse.png');await writeFile(path,bytes);browse={path,sha256:sha256(bytes)};}
     await openBoard(page,boardId,0);
     for(const viewport of visualViewports){await page.setViewportSize(viewport);captures.push(await captureVisual(page,info,`empty-${viewport.width}`));}
     // Keyboard path must create canonical content and retain editable focus.
@@ -140,8 +142,8 @@ test('visual and accessibility real object states, input and negative controls',
       }finally{await touchContext.close();}
     }
     const runtimeIdentity=await verifyRuntimeIdentity(request,sha,await finishChunks());
-    await writeFile(info.outputPath('visual-accessibility.json'),JSON.stringify({version:1,kind:'board-visual-accessibility',browserName,sha,runtimeIdentity,
-      status:info.errors.length?'failed-not-acceptance':'engineering-observations-pending-human',boardId,browse:{path:browsePath,sha256:sha256(browse)},captures,axeResults,input,canonical:await canonicalSnapshot(request,token,boardId),
+    await writeFile(info.outputPath('visual-accessibility.json'),JSON.stringify({version:1,kind:observationArtifactKinds().report,observationMode:observationMode(),browserName,sha,runtimeIdentity,
+      status:info.errors.length?'failed-not-acceptance':'engineering-observations-pending-human',boardId,browse,captures,axeResults,input,canonical:await canonicalSnapshot(request,token,boardId),
       counterproof:counterproof.violations.map(v=>v.id),approved:false,score:null,pending:['independent-human-visual-score','native-browser-200-400-zoom','real-screenreader-output','physical-touch-and-pressure-pen','cdp-touch-object-drag-issue-4717']},null,2));complete=true;
   }finally{if(!complete)await writeFile(info.outputPath('visual-accessibility-partial.json'),JSON.stringify({status:'failed-not-acceptance',sha,captures,axeResults,input},null,2));await archiveAcceptanceBoard(request,token,boardId);}
 });

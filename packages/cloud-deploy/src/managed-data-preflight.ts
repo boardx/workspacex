@@ -14,6 +14,8 @@ const Expected = z.object({ region: z.string().regex(/^(?:[a-z]{2}(?:-[a-z]+)+-\
   }).strict().optional(),
 });
 export type ManagedDataExpected = z.infer<typeof Expected>;
+type RdsExpected = Pick<ManagedDataExpected,'region'|'rdsInstanceId'|'postgresHost'|'rdsTlsException'>;
+const RdsTransportExpected=Expected.pick({region:true,rdsInstanceId:true,postgresHost:true,rdsTlsException:true}).strict();
 export interface CloudReadOptions { timeoutMs: number; signal?: AbortSignal }
 /** Must return raw JSON stdout; stderr and provider payloads never reach the report. */
 export type AliyunReadExecutor = (args: readonly string[], options: CloudReadOptions) => Promise<string>;
@@ -34,7 +36,7 @@ function one(raw: unknown, container: string): Record<string, unknown> | undefin
   const entry = record.safeParse(inner.data.DBInstanceAttribute[0]);
   return entry.success ? entry.data : undefined;
 }
-function rdsReason(raw: unknown, expected: ManagedDataExpected): string {
+function rdsReason(raw: unknown, expected: RdsExpected): string {
   const rds = one(raw, "Items");
   if (!rds) return "rds_response_unrecognized";
   if (rds.DBInstanceId !== expected.rdsInstanceId || rds.RegionId !== expected.region) return "rds_resource_mismatch";
@@ -59,7 +61,7 @@ function backupReason(raw: unknown, expected: ManagedDataExpected): string {
   if (typeof result.data.PreferredBackupPeriod !== "string" || !result.data.PreferredBackupPeriod.split(",").every(day => ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"].includes(day))) return "backup_schedule_unproven";
   return "verified";
 }
-function rdsTlsReason(raw: unknown, expected: ManagedDataExpected): string {
+function rdsTlsReason(raw: unknown, expected: RdsExpected): string {
   const result = record.safeParse(raw);
   if (!result.success) return "rds_tls_response_unrecognized";
   if (expected.rdsTlsException) {
@@ -70,7 +72,7 @@ function rdsTlsReason(raw: unknown, expected: ManagedDataExpected): string {
   if (result.data.ConnectionString !== expected.postgresHost) return "rds_tls_endpoint_mismatch";
   return "verified";
 }
-function rdsNetworkReason(raw: unknown, expected: ManagedDataExpected): string {
+function rdsNetworkReason(raw: unknown, expected: RdsExpected): string {
   if (!expected.rdsTlsException) return "verified";
   const outer = record.safeParse(raw), expectedCidrs = [...new Set(expected.rdsTlsException.allowedCidrs)].sort();
   if (!outer.success) return "rds_whitelist_response_unrecognized";
@@ -140,4 +142,15 @@ export async function verifyManagedDataPreflight(input: ManagedDataExpected, run
     return { id: request.id, passed: ["verified", "serverless_tls_exception_verified", "serverless_tls_exception_network_verified"].includes(reason), reason };
   }));
   return { passed: checks.every(check => check.passed), scope: "managed-data-control-plane", checks };
+}
+
+/** Reuse the existing production RDS transport contract for sealed maintenance
+ * consumers. This only inspects supplied protected provider evidence, no I/O. */
+export function verifyRdsTransportPreflight(input:RdsExpected,evidence:{attribute:unknown;ssl:unknown;allowlist:unknown}):ManagedDataCheck[]{
+ const expected=RdsTransportExpected.parse(input);
+ return [
+  {id:'rds',reason:rdsReason(evidence.attribute,expected)},
+  {id:'rds-tls',reason:rdsTlsReason(evidence.ssl,expected)},
+  {id:'rds-network',reason:rdsNetworkReason(evidence.allowlist,expected)},
+ ].map(check=>({...check,passed:['verified','serverless_tls_exception_verified','serverless_tls_exception_network_verified'].includes(check.reason)})) as ManagedDataCheck[];
 }

@@ -99,7 +99,7 @@ export function TaskWorkbenchEmptyState({
   return (
     <div
       data-testid="copilotkit-v2-empty"
-      className="flex h-full flex-col items-center justify-center gap-6 py-12 text-center"
+      className="flex min-h-full flex-col items-center justify-center gap-4 px-4 py-4 text-center sm:px-6"
     >
       {/*
         两级视觉层次（大标题 + 小字说明），对齐参照图。`data-testid` 挂在外层
@@ -108,20 +108,20 @@ export function TaskWorkbenchEmptyState({
         同一个文本节点，拆分展示不影响这条判据。文案本身一字未改。
       */}
       <div className="flex flex-col items-center gap-2" data-testid="chat-task-workbench-goal-headline">
-        <p className="max-w-md text-20 font-semibold tracking-tight text-card-foreground">今天，想完成什么？</p>
-        <p className="max-w-sm text-12 leading-relaxed text-muted-foreground">
+        <p className="max-w-xl text-24 sm:text-30 font-semibold tracking-tight text-card-foreground">今天，想完成什么？</p>
+        <p className="max-w-lg text-14 leading-relaxed text-muted-foreground">
           描述目标，Agent 会先提出计划，得到确认后再执行。也可以拖入文件作为这轮对话的附件，或点麦克风语音输入。
         </p>
       </div>
       {briefing}
-      <div className="grid w-full max-w-lg grid-cols-1 gap-3 sm:grid-cols-2">
+      <div className="grid w-full max-w-xl grid-cols-2 gap-x-3">
         {TASK_WORKBENCH_TEMPLATES.map((template) => (
           <button
             key={template.id}
             type="button"
             data-testid={template.id}
             onClick={() => onUseTemplate(template.goal)}
-            className="flex items-center gap-3 rounded-card border border-border-subtle bg-card px-3.5 py-3 text-left text-12 leading-relaxed text-card-foreground shadow-sm transition-colors duration-fast hover:border-primary/50 hover:bg-muted hover:shadow-md active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="flex items-center gap-2 border-b border-border-subtle bg-card px-2 py-2 text-left text-13 leading-relaxed text-card-foreground transition-colors duration-fast hover:bg-muted active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             <span
               aria-hidden="true"

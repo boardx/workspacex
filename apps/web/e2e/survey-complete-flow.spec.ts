@@ -14,13 +14,13 @@ test("题目原位编辑后真实保存并在刷新后恢复显示", async ({ pa
   const titleButton = canvas.getByRole("button", { name: "编辑第 1 题：会议名称" });
   await expect(titleButton).toBeVisible();
   await expect(canvas.getByRole("textbox", { name: "问题内容", exact: true })).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "单选", exact: true })).not.toHaveCSS("background-color", "rgb(20, 20, 23)");
+  await expect(page.getByRole("button", { name: "单选", exact: true })).not.toHaveCSS("background-color", "rgb(32, 31, 29)");
   for (const area of [page.getByRole("navigation", { name: "问卷工作流" }), page.getByTestId("survey-designer-outline"), page.getByTestId("survey-designer-settings")]) {
     for (const button of await area.getByRole("button").all()) {
-      await expect(button).not.toHaveCSS("background-color", "rgb(20, 20, 23)");
+      await expect(button).not.toHaveCSS("background-color", "rgb(32, 31, 29)");
     }
   }
-  await expect(page.getByRole("button", { name: "试填问卷", exact: true })).not.toHaveCSS("background-color", "rgb(20, 20, 23)");
+  await expect(page.getByRole("button", { name: "试填问卷", exact: true })).not.toHaveCSS("background-color", "rgb(32, 31, 29)");
   const number = titleButton.locator("..").locator("span").last();
   const numberBounds = await number.boundingBox();
   const titleBounds = await titleButton.boundingBox();
@@ -161,8 +161,8 @@ test("用户可从模板完整走通创建、发布、答题、查看答卷和�
   const publishAction=page.locator('header').getByRole('button',{name:'发布回收',exact:true});
   await expect(publishAction).toBeEnabled();
   const colors=await publishAction.evaluate(element=>({background:getComputedStyle(element).backgroundColor,color:getComputedStyle(element).color}));
-  // primary = hsl(240 6% 8.4%), converted to rounded sRGB channels.
-  expect(colors).toEqual({background:'rgb(20, 20, 23)',color:'rgb(255, 255, 255)'});
+  // PAPER primary = hsl(30 6% 12%), converted to rounded sRGB channels.
+  expect(colors).toEqual({background:'rgb(32, 31, 29)',color:'rgb(255, 255, 255)'});
   await expect(page.locator('[data-survey-inline-edit]').first()).toHaveCSS('background-color','rgba(0, 0, 0, 0)');
   const autosaved=page.waitForResponse(response=>response.url().endsWith('/source')&&response.request().method()==='PUT');
   await page.getByLabel('问卷名称').fill('会议反馈自动保存');

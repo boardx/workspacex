@@ -1518,8 +1518,12 @@ export function CopilotKitV2PanelBody({
     { text: string; attachments: readonly ChatAttachment[]; clientMessageId: string } | null
   >(null);
 
+  // Use the same empty-branch decision for layout and automatic following.
+  // Loading, running and supplied stream blocks retain timeline behavior.
+  const streamSlots = useChatStreamSlots();
+  const isEmptyThread = !historyLoading && projectedMessages.length === 0 && !agent.isRunning && !streamSlots.lead && !streamSlots.tail && !streamSlots.emptyState;
   const { messagesContainerRef, messagesContentRef, isAtBottom, handleMessagesScroll,
-    handleUserScrollIntent, scrollMessagesToBottom, prefersReducedMotion } = useTimelineScroll(projectedMessages);
+    handleUserScrollIntent, scrollMessagesToBottom, prefersReducedMotion } = useTimelineScroll(projectedMessages, !isEmptyThread);
 
   const sendIsBlocked = !canWrite || archived || runIsRunning || attach.hasUploading;
 
@@ -1865,10 +1869,6 @@ export function CopilotKitV2PanelBody({
       };
     });
 
-  // 见下面 `copilotkit-v2-messages` 滚动容器 className 处的头注：与三态分支
-  // （`historyLoading` / 空态 / 消息列表）判断的是同一件事，这里只是给 className
-  // 也需要用到的这一份判断起个名字，不是新开一套判定。
-  const streamSlots = useChatStreamSlots();
   const seededDraftKey = React.useRef<string | null>(null);
   const draftSeed = streamSlots.draftSeed ?? null;
   React.useEffect(() => {
@@ -1876,7 +1876,6 @@ export function CopilotKitV2PanelBody({
     seededDraftKey.current = draftSeed.key;
     if (inputDraftRef.current.trim() === "") setInputDraft(draftSeed.text);
   }, [draftSeed, historyLoading, projectedMessages.length, setInputDraft]);
-  const isEmptyThread = !historyLoading && projectedMessages.length === 0 && !agent.isRunning && !streamSlots.lead && !streamSlots.tail && !streamSlots.emptyState;
 
   return (
     <div className="flex h-full min-h-0 w-full gap-3">

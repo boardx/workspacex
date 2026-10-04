@@ -195,7 +195,7 @@ it("adds a maintained persona as a stable Markdown-only simulated expert", () =>
   expect(screen.queryByText("审阅与编辑专家画像 Markdown")).not.toBeInTheDocument();
   expect(screen.queryByRole("textbox", { name: "专家文档 Markdown" })).not.toBeInTheDocument();
 });
-it("virtual expert requires a Markdown preview and explicit review before adding", () => {
+it("virtual expert can be explicitly saved once all fields are complete", () => {
   const change = vi.fn();
   render(<InterviewExpertsStep document={source} directory={[]} pending={false} onChange={change} onSave={vi.fn()} onConfirm={vi.fn()} onGenerate={vi.fn()} />);
   fireEvent.click(screen.getByRole("button", { name: "添加虚拟专家" }));
@@ -204,18 +204,16 @@ it("virtual expert requires a Markdown preview and explicit review before adding
   }
   expect(screen.getByTestId("itv-virtual-expert-preview-card")).toHaveTextContent("夜班护理角色");
   expect(screen.getByTestId("itv-virtual-expert-preview-card")).toHaveTextContent("擅长交接班；不代表真实受访者。");
-  expect(screen.getByRole("button", { name: "保存并添加专家" })).toBeDisabled();
-  fireEvent.click(screen.getByRole("checkbox", { name: "已审阅画像及模拟边界" }));
+  expect(screen.getByRole("button", { name: "保存并添加专家" })).toBeEnabled();
   fireEvent.change(screen.getByRole("textbox", { name: "观点风格" }), { target: { value: "严谨" } });
-  expect(screen.getByRole("button", { name: "保存并添加专家" })).toBeDisabled();
-  fireEvent.click(screen.getByRole("checkbox", { name: "已审阅画像及模拟边界" }));
+  expect(screen.getByRole("button", { name: "保存并添加专家" })).toBeEnabled();
   fireEvent.click(screen.getByRole("button", { name: "保存并添加专家" }));
   expect(change).toHaveBeenCalledWith(expect.stringContaining("擅长交接班；不代表真实受访者。"));
   expect(change.mock.calls[0]![0]).toContain("#expert-virtual-");
   expect(change.mock.calls[0]![0]).toContain("### 专业角色");
   expect(interviewMarkdown.parseInterviewMarkdown({ ...source, markdown: change.mock.calls[0]![0] }).blocks.filter((block) => block.links.some((link) => link.url.startsWith("#expert-virtual-")))).toHaveLength(1);
 });
-it("keeps AI virtual-expert proposals unsaved until human review and selection", async () => {
+it("keeps AI virtual-expert proposals unsaved until explicit save", async () => {
   const change = vi.fn();
   const suggest = vi.fn().mockResolvedValue("# 夜班护理角色\n\n## 专业角色\n护士长\n\n## 专业领域\n护理管理\n\n## 研究关注\n夜班交接班\n\n## 观点风格\n审慎务实\n\n## 简介\n基于已知材料模拟\n\n## 局限与材料边界\n不代表真实受访者");
   render(<InterviewExpertsStep document={source} directory={[]} pending={false} onChange={change} onSave={vi.fn()} onConfirm={vi.fn()} onGenerate={vi.fn()} onSuggestVirtual={suggest} />);
@@ -224,8 +222,7 @@ it("keeps AI virtual-expert proposals unsaved until human review and selection",
   fireEvent.click(screen.getByRole("button", { name: "AI 生成专家画像" }));
   await vi.waitFor(() => expect(screen.getByRole("textbox", { name: "专家名称" })).toHaveValue("夜班护理角色"));
   expect(change).not.toHaveBeenCalled();
-  expect(screen.getByRole("button", { name: "保存并添加专家" })).toBeDisabled();
-  fireEvent.click(screen.getByRole("checkbox", { name: "已审阅画像及模拟边界" }));
+  expect(screen.getByRole("button", { name: "保存并添加专家" })).toBeEnabled();
   fireEvent.click(screen.getByRole("button", { name: "保存并添加专家" }));
   expect(change).toHaveBeenCalledTimes(1);
 });
@@ -350,7 +347,6 @@ function fillVirtualExpert() {
   for (const [field, label] of [["name", "专家名称"], ["role", "专业角色"], ["domains", "专业领域"], ["focus", "研究关注"], ["style", "观点风格"], ["bio", "简介"], ["limits", "局限与材料边界"]] as const) {
     fireEvent.change(screen.getByRole("textbox", { name: label }), { target: { value: editableVirtualFields[field] } });
   }
-  fireEvent.click(screen.getByRole("checkbox", { name: "已审阅画像及模拟边界" }));
 }
 it("awaits expert persistence before closing the dialog and keeps fields when saving fails", async () => {
   let rejectSave!: (error: Error) => void;
@@ -374,7 +370,6 @@ it("edits a saved virtual expert without replacing its stable ID and clears save
   fireEvent.click(screen.getByRole("button", { name: "编辑专家 林知远（虚拟）" }));
   expect(screen.getByRole("textbox", { name: "专业角色" })).toHaveValue(editableVirtualFields.role);
   fireEvent.change(screen.getByRole("textbox", { name: "专家名称" }), { target: { value: "陈书宁（虚拟）" } });
-  fireEvent.click(screen.getByRole("checkbox", { name: "已审阅画像及模拟边界" }));
   fireEvent.click(screen.getByRole("button", { name: "保存专家修改" }));
   await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
   const saved = persist.mock.calls[0]![0] as string;

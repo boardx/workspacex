@@ -57,3 +57,33 @@ describe('backend aggregate and ruleset use the same policy', () => {
     expect(() => rulesetPlan({...existing, rules: [{type: 'required_status_checks'}]}, 15368)).toThrow();
   });
 });
+
+
+describe('v3 exact screenshot-only deferral', () => {
+ const v3 = { ...CURRENT_POLICY, version: 3, deferredChecks: ['visual-deferred'] };
+ const green = v3.requiredChecks.map(name => ({name,status:'COMPLETED',conclusion:'SUCCESS'}));
+ it('makes manual not-run visible and propagates no acceptance success', () => {
+  const result=classifyChecks(green,v3);
+  expect(result.blocked).toEqual([]);expect(result.changes).toEqual([]);expect(result.waitingCi).toEqual([]);
+  expect(result.advisories).toEqual([expect.stringContaining('DEFERRED_NOT_RUN: visual-deferred')]);
+ });
+ it.each(['SUCCESS','FAILURE','CANCELLED','TIMED_OUT','SKIPPED','NEUTRAL'])('retains %s as deferred observation, never PASS', conclusion => {
+  const result=classifyChecks([...green,{name:'visual-deferred',status:'COMPLETED',conclusion}],v3);
+  expect(result.blocked).toEqual([]);expect(result.changes).toEqual([]);
+  expect(result.advisories).toEqual([expect.stringContaining(`conclusion=${conclusion}`)]);
+  expect(result.advisories[0]).toContain('never counted as PASS');
+ });
+ it.each([{status:'UNKNOWN',conclusion:null},{status:'COMPLETED',conclusion:'UNKNOWN'},{status:'IN_PROGRESS',conclusion:'SUCCESS'}])('blocks unknown/inconsistent deferred facts %o', check => {
+  expect(classifyChecks([...green,{name:'visual-deferred',...check}],v3).blocked).not.toEqual([]);
+ });
+ it.each(['visual','board-ui-functional','r01','connector','files','sync','visual-deferred-extra'])('keeps %s failures blocking', name => {
+  expect(classifyChecks([...green,{name,status:'COMPLETED',conclusion:'FAILURE'}],v3).changes).not.toEqual([]);
+ });
+ it('does not exempt historical v2 or permit required/native policy forgery', () => {
+  const v2={...CURRENT_POLICY,version:2,deferredChecks:undefined};
+  expect(classifyChecks([...green,{name:'visual-deferred',status:'COMPLETED',conclusion:'FAILURE'}],v2).changes).not.toEqual([]);
+  expect(()=>parsePolicy({...CURRENT_POLICY,version:2,deferredChecks:['visual-deferred']})).toThrow();
+  expect(()=>parsePolicy({...v3,deferredChecks:['r01']})).toThrow();
+  expect(()=>parsePolicy({...v3,requiredChecks:[...v3.requiredChecks,'visual-deferred']})).toThrow();
+ });
+});

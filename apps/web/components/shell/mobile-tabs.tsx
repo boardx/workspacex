@@ -37,7 +37,7 @@ export function MobileTabs() {
             aria-current={active ? "page" : undefined}
             className={cn(
               "flex flex-1 flex-col items-center justify-center gap-0.5 transition-all duration-200",
-              active ? "text-primary" : "text-muted-foreground hover:text-background-foreground",
+              active ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:text-background-foreground",
             )}
           >
             <Icon aria-hidden className="h-5 w-5" />
