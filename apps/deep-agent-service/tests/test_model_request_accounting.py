@@ -577,7 +577,7 @@ def test_gc_bounded_rotation_preserves_live_and_pending_then_collects_completed(
         assert (path/('inflight-'+pending['requestId']+'.lock')).exists()
         journal.recover_inflight(OWNER);assert len(journal.pending(OWNER))==1
         for start in starts:assert (path/('inflight-'+start['requestId']+'.lock')).exists()
-        journal.acknowledge(pending['requestId']);journal.collect_locks();journal.collect_locks()
+        journal.acknowledge(pending['requestId'],journal.pending(OWNER)[0][2]);journal.collect_locks();journal.collect_locks()
         assert not (path/('inflight-'+pending['requestId']+'.lock')).exists()
     finally:
         for fd in locks:a.os.close(fd)
@@ -637,3 +637,64 @@ def test_async_save_failure_keeps_lock_until_callback_even_when_cancelled(contex
     asyncio.run(run())
     assert calls[-1][2]['usage']=={'total':3,'prompt':2,'completion':1}
     assert json.loads(journal.pending(OWNER)[0][2])['usage']=={}
+
+
+def test_late_pending_receipt_enrichment_and_stale_ack(context):
+    _, path=context;journal=a.Journal(str(path))
+    original={"requestId":"late-physical","orgId":"org-A","attemptId":"run-A:1","leaseEpoch":3,"endedAt":"original-end","outcome":"failed","usage":{}}
+    old=journal.save(OWNER,original)
+    journal.save(OWNER,original | {"endedAt":"later-end","outcome":"succeeded","usage":{"prompt":0}})
+    latest=journal.save(OWNER,original | {"usage":{"total":2,"completion":2}})
+    merged=original | {"usage":{"prompt":0,"total":2,"completion":2}}
+    assert json.loads(latest)==merged
+    journal.acknowledge(original["requestId"],old)
+    assert json.loads(a.Journal(str(path)).pending(OWNER)[0][2])==merged
+    with pytest.raises(a.RuntimeUsageError,match="replay_mismatch"):
+        journal.save(OWNER,original | {"usage":{"prompt":1}})
+    assert journal.pending(OWNER)[0][2]==latest
+    journal.acknowledge(original["requestId"],latest)
+    assert journal.pending(OWNER)==[]
+
+
+def test_concurrent_late_receipt_dimensions_merge_and_conflicts_reject(context):
+    from concurrent.futures import ThreadPoolExecutor
+    _,path=context;journal=a.Journal(str(path));original={"requestId":"late-concurrent","usage":{}}
+    journal.save(OWNER,original)
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        futures=[executor.submit(journal.save,OWNER,original | {"usage":usage}) for usage in ({"prompt":3},{"completion":2})]
+        for future in futures:future.result()
+    assert json.loads(journal.pending(OWNER)[0][2])["usage"]=={"prompt":3,"completion":2}
+    journal.save(OWNER,original | {"usage":{"total":5}})
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        futures=[executor.submit(journal.save,OWNER,{"requestId":"conflicting-late","usage":{"total":n}}) for n in (1,2)]
+        results=[]
+        for future in futures:
+            try:future.result();results.append("accepted")
+            except a.RuntimeUsageError:results.append("rejected")
+    assert sorted(results)==["accepted","rejected"]
+
+
+def test_late_receipt_refuses_foreign_receiver_subject_and_changed_identity(context):
+    _,path=context;journal=a.Journal(str(path))
+    original={"requestId":"late-owner","orgId":"org-A","attemptId":"run-A:1","usage":{}}
+    payload=journal.save(OWNER,original)
+    for owner,body in ((OWNER | {"base_url":"http://foreign.example.test"},original),(OWNER | {"run_id":"different"},original),(OWNER,original | {"orgId":"foreign"}),(OWNER,original | {"attemptId":"other"})):
+        with pytest.raises(a.RuntimeUsageError,match="replay_mismatch"):journal.save(owner,body | {"usage":{"total":1}})
+    assert journal.pending(OWNER)[0][2]==payload
+
+
+def test_idle_old_delivery_ack_preserves_late_enrichment(context,monkeypatch):
+    _,path=context;journal=a.Journal(str(path));body={"requestId":"idle-late","usage":{}}
+    journal.save(OWNER,body);delivered=[]
+    async def deliver(owner,run,phase,payload):
+        delivered.append(dict(payload))
+        journal.save(OWNER,payload | {"usage":{"total":7}})
+    monkeypatch.setattr(a,"apost",deliver)
+    assert asyncio.run(a.replay_pending_batch(OWNER,journal))==1
+    assert delivered==[body]
+    assert json.loads(journal.pending(OWNER)[0][2])["usage"]=={"total":7}
+    async def acknowledge(owner,run,phase,payload):delivered.append(dict(payload))
+    monkeypatch.setattr(a,"apost",acknowledge)
+    assert asyncio.run(a.replay_pending_batch(OWNER,journal))==1
+    assert delivered[-1]["usage"]=={"total":7}
+    assert journal.pending(OWNER)==[]

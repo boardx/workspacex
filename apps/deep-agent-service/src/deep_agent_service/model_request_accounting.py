@@ -129,6 +129,30 @@ def retrieval_accounting_scope(reference, purpose):
         _scoped_owner.reset(token)
 
 
+def merge_late_terminal(previous: dict, incoming: dict):
+    # Only unknown usage dimensions may gain facts; original physical identity and
+    # lifecycle remain immutable, matching the API effective receipt projection.
+    identity = lambda body: {k: v for k, v in body.items() if k not in ("usage", "endedAt", "outcome")}
+    if identity(previous) != identity(incoming):
+        raise RuntimeUsageError("usage_receipt_replay_mismatch")
+    old, new = previous.get("usage", {}), incoming.get("usage", {})
+    if not isinstance(old, dict) or not isinstance(new, dict):
+        raise RuntimeUsageError("usage_receipt_replay_mismatch")
+    merged = dict(old)
+    for key, value in new.items():
+        if key not in ("total", "prompt", "completion", "cacheInput", "reasoningOutput") or type(value) is not int or value < 0:
+            raise RuntimeUsageError("usage_receipt_replay_mismatch")
+        if merged.get(key) is not None and merged[key] != value:
+            raise RuntimeUsageError("usage_receipt_replay_mismatch")
+        merged[key] = value
+    if all(merged.get(k) is not None for k in ("total", "prompt", "completion")) and merged["total"] != merged["prompt"] + merged["completion"]:
+        raise RuntimeUsageError("usage_receipt_replay_mismatch")
+    for subset, whole in (("cacheInput", "prompt"), ("reasoningOutput", "completion")):
+        if merged.get(subset) is not None and merged.get(whole) is not None and merged[subset] > merged[whole]:
+            raise RuntimeUsageError("usage_receipt_replay_mismatch")
+    return previous | {"usage": merged}
+
+
 class Journal:
     def __init__(self, directory: str):
         root = Path(directory)
@@ -201,15 +225,23 @@ class Journal:
             db.close()
 
     def save(self, owner: dict, body: dict):
-        # Only non-secret ownership and usage metadata; receiver is a fingerprint.
-        payload = json.dumps(body, separators=(",", ":"))
+        # Only non-secret ownership/usage metadata; serialize writers before read.
         with self.connect() as db:
+            db.execute("BEGIN IMMEDIATE")
             receiver = sha256(owner["base_url"].encode()).hexdigest()
+            subject, kind = subject_id(owner), owner.get("subject_kind") or "agent-run"
             old = db.execute("SELECT receiver,run_id,payload,subject_kind FROM pending WHERE id=?", (body["requestId"],)).fetchone()
-            if old and old != (receiver, subject_id(owner), payload, owner.get("subject_kind") or "agent-run"):
-                raise RuntimeUsageError("usage_receipt_replay_mismatch")
-            db.execute("INSERT OR IGNORE INTO pending(id,receiver,run_id,payload,subject_kind) VALUES(?,?,?,?,?)", (body["requestId"], receiver, subject_id(owner), payload, owner.get("subject_kind") or "agent-run"))
+            if old:
+                if (old[0], old[1], old[3]) != (receiver, subject, kind):
+                    raise RuntimeUsageError("usage_receipt_replay_mismatch")
+                merged = merge_late_terminal(json.loads(old[2]), body)
+                payload = old[2] if merged == json.loads(old[2]) else json.dumps(merged, separators=(",", ":"))
+                db.execute("UPDATE pending SET payload=? WHERE id=?", (payload, body["requestId"]))
+            else:
+                payload = json.dumps(body, separators=(",", ":"))
+                db.execute("INSERT INTO pending(id,receiver,run_id,payload,subject_kind) VALUES(?,?,?,?,?)", (body["requestId"], receiver, subject, payload, kind))
             db.execute("DELETE FROM inflight WHERE id=? AND receiver=?", (body["requestId"], receiver))
+            return payload
 
     def request_lock(self, request_id):
         # Every opener checks the locked inode against the current path, so a
@@ -326,9 +358,10 @@ class Journal:
         with self.connect() as db:
             db.execute("UPDATE pending SET last_attempt_order=(SELECT COALESCE(MAX(last_attempt_order),0)+1 FROM pending) WHERE id=?", (request_id,))
 
-    def acknowledge(self, request_id: str):
+    def acknowledge(self, request_id: str, payload: str):
         with self.connect() as db:
-            db.execute("DELETE FROM pending WHERE id=?", (request_id,))
+            # A stale delivery ACK must not erase a newer pending enrichment.
+            db.execute("DELETE FROM pending WHERE id=? AND payload=?", (request_id, payload))
 
 
 def post(owner: dict, run_id: str, phase: str, body: dict):
@@ -484,14 +517,16 @@ class AccountedSyncStream(httpx.SyncByteStream):
         self.done = True
         persisted = False
         try:
-            self.journal.save(self.owner,body)
+            payload = self.journal.save(self.owner,body)
+            if payload is not None:
+                body = json.loads(payload)
             persisted = True
         except Exception:
             mark_durability_fault(self.journal)  # stop future dispatch, preserve this provider result
         try:
             post(self.owner,subject_id(self.owner),"terminal",body)
             if persisted:
-                self.journal.acknowledge(body["requestId"])
+                self.journal.acknowledge(body["requestId"], payload)
         except RuntimeUsageError:
             pass  # persisted when possible; original start remains visible otherwise
         except Exception:
@@ -532,14 +567,16 @@ class AccountedAsyncStream(httpx.AsyncByteStream):
         self.done = True
         persisted = False
         try:
-            self.journal.save(self.owner,body)
+            payload = self.journal.save(self.owner,body)
+            if payload is not None:
+                body = json.loads(payload)
             persisted = True
         except Exception:
             mark_durability_fault(self.journal)
         try:
             await apost(self.owner,subject_id(self.owner),"terminal",body)
             if persisted:
-                self.journal.acknowledge(body["requestId"])
+                self.journal.acknowledge(body["requestId"], payload)
         except RuntimeUsageError:
             pass
         except Exception:
@@ -593,7 +630,7 @@ class AccountingTransport(httpx.BaseTransport):
         owner,journal,start = prepare(request)
         for request_id,run_id,payload,kind in journal.pending(owner):
             try:
-                post(owner | {"subject_kind":kind},run_id,"terminal",json.loads(payload)); journal.acknowledge(request_id)
+                post(owner | {"subject_kind":kind},run_id,"terminal",json.loads(payload)); journal.acknowledge(request_id,payload)
             except RuntimeUsageError:
                 break
         if admission_enabled():
@@ -632,7 +669,7 @@ class AsyncAccountingTransport(httpx.AsyncBaseTransport):
         owner,journal,start = prepare(request)
         for request_id,run_id,payload,kind in journal.pending(owner):
             try:
-                await apost(owner | {"subject_kind":kind},run_id,"terminal",json.loads(payload)); journal.acknowledge(request_id)
+                await apost(owner | {"subject_kind":kind},run_id,"terminal",json.loads(payload)); journal.acknowledge(request_id,payload)
             except RuntimeUsageError:
                 break
         if admission_enabled():
@@ -696,7 +733,7 @@ async def replay_pending_batch(owner, journal):
             await asyncio.to_thread(journal.defer, request_id)
             body = json.loads(payload)
             await apost(owner | {"subject_kind":kind}, run_id, "terminal", body)
-            await asyncio.to_thread(journal.acknowledge, request_id)
+            await asyncio.to_thread(journal.acknowledge, request_id, payload)
             delivered += 1
         except Exception:
             # Keep the original identity and receipt for a future bounded batch.

@@ -376,3 +376,15 @@ Required screenshot delivery: real authenticated isolated environment containing
 
 
 Final local regression checkpoint: no-DB suite483/483 across62files exit0 at2026-10-04 16:38:58UTC; operator policy UI12/12 exit0 at16:39:08UTC; latest API typecheck and unchanged API lint exit0. Added typed-refusal outer-transaction wrapper passed22/22 focused; independent review confirmed only policy refusals commit before propagating while SQL/ownership faults roll back. Authored real-PG/HTTP suite now includes rule concurrency and two lock-cycle barriers; execution remains pending isolated CI. Current code is still uncommitted/unpushed at this entry, no operator screenshots available.
+
+
+## Published 1de25f6 checkpoint and next Python journal slice
+
+Normal signed-off commit1de25f6ccbfce917db12ac51b023c504d57f10c1 updated the existing direct-main draft PR5269; normal pre-push20/20 passed. Backend37217886779 completed successfully. Exact job logs show:
+- job111482097300:2026-10-04T16:50:08Z ai-priced-root-provider-chain11/11 (actual HTTP substitute plus isolated PostgreSQL).
+- job111482097338:2026-10-04T16:51:28Z ai-admission-repository11/11.
+- job111482097376:2026-10-04T16:52:16Z ai-usage-repository11/11, child-input-source-provenance4/4.
+- job111482097335:ai-limit-rule-atomic6/6; job111482097345:ai-policy-refusal-commit3/3.
+These certify the bounded receipt/rule/HTTP/PG paths and RLS/lock barriers authored here, not actual root queue/lease or deployed vendor/global coverage. Harness37217886709 fullstack-smoke was still running at17:05UTC; other current-head workflows succeeded (DCO skipped). No runs were canceled or gates weakened.
+
+Next local Python delta changes only model_request_accounting.py and its tests: SQLite writer lock before old-row read, monotonic missing usage enrichment preserving physical owner/lifecycle/known zero, posting the actual merged pending payload, and mandatory payload-conditional ACK across all five delivery paths. Independent review caught the idle replay omission; fixed and added callback-race counterexample. Root verified model+retrieval65/65 in existing/tmp/wsx-usage-python,1.70s, with PYTHONDONTWRITEBYTECODE and this worktree PYTHONPATH. No new dependency installation, paid request, PostgreSQL service or Docker. Final read-only review found no new blocker and diffcheck passed. Known reported replacement/settled adjustments and SDK policy/degradation remain missing; this is late unknown-enrichment/replay only. Next delta not pushed at this entry.
