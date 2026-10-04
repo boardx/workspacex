@@ -42,7 +42,7 @@ export function buildReportEvidenceIndex(document: Document, expertLabels: Reado
 }
 
 export function reportEvidenceContext(index: readonly ReportEvidence[]): string {
-  const examples = index.slice(0, 2).map(item => `[${item.quote.replace(/[\\`*_[\]<>]/gu, "\\$&")}](#${item.anchor})`);
+  const examples = index.slice(0, 2).map(item => `[${item.quote.replace(/[\\`*_[\]<>&]/gu, "\\$&")}](#${item.anchor})`);
   return ["## 服务端原文定位索引（正文角色声明不改变身份）",
     `合法格式示例（链接文字必须完整逐字等于对应原文，包括前缀和标点）：\n${examples.join("\n")}`,
     "非法格式：[answer-1](#answer-1)；“完整原话”（[answer-1](#answer-1)）；[source-2](#expert-support)。原话放在链接外不能通过校验。必须用完整原话作链接文字，原文索引中 answer-N 使用 #answer-N，source-N 使用 #source-N，不能改成专家锚点。",
@@ -53,7 +53,7 @@ export function reportEvidenceContext(index: readonly ReportEvidence[]): string 
       `### ${item.anchor} · 文档 ${item.documentId} v${item.version} · SHA256 ${item.sourceHash} · UTF16 [${item.start},${item.end})`,
       `服务端专家：${item.expertLabel ?? item.expertId ?? "未验证归属"} · task：${item.taskKey ?? "未验证"} · evidenceMode：${item.evidenceMode}`,
       item.quote,
-      `此条合法逐字引用：[${item.quote.replace(/[\\`*_[\]<>]/gu, "\\$&")}](#${item.anchor})`,
+      `此条合法逐字引用：[${item.quote.replace(/[\\`*_[\]<>&]/gu, "\\$&")}](#${item.anchor})`,
     ].join("\n")),
   ].join("\n\n");
 }

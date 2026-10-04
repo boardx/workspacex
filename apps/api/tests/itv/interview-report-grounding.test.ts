@@ -19,6 +19,13 @@ describe("report evidence grounding", () => {
   }
   expect(context).toContain("taskKey是任务身份，不等于revisionId");
  });
+ it.each(["原文：&amp;", "原文：&#65;", "原文：&#x41;"])("keeps literal HTML entities in legal citation examples: %s", quote => {
+  const index = buildReportEvidenceIndex({...source, markdown:quote, contentHash:hash(quote), answerSpans:[{...source.answerSpans![0]!,end:quote.length,contentHash:hash(quote)}]});
+  const context = reportEvidenceContext(index);
+  const examples = context.split("\n").filter(line => line.startsWith("[") && line.endsWith("](#answer-1)"));
+  expect(examples.length).toBeGreaterThan(0);
+  for (const example of examples) expect(validateReportEvidence(example,index).ok).toBe(true);
+ });
  it("does not promote model headings to server task identities; retains counterevidence and duplicate Q numbers", () => {
   const index = buildReportEvidenceIndex(source);
   expect(new Set(index.map(x=>x.expertId))).toEqual(new Set(["expert-a"]));
