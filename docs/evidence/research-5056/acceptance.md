@@ -77,5 +77,3 @@ flowchart LR
 已保存最终运行时、请求与质量状态 `35-final-runtime.jsonl`、`36-final-quality.json`。只对实时核对父子关系后的本会话 launcher 子树发 SIGTERM（`37-cleanup-processes.json`）；包装器退出码 0，清理约 2 秒。本次 `wsx-21f8237bf23f1737706f` 容器已不存在，API 24139/Web 25139 已关闭，专属 volume 清理另见 `38-cleanup.txt`。三个本次 IAB 标签页已关闭，断网注入已恢复在线；未操作用户当前 Chrome 页面、问卷栈或共享开发库。
 
 验收 issue #5056 保持打开，未标 passing。后续先修复 #5057 与 #5068，再按新 exact SHA 复验；另需实际执行失败任务重试、章节编辑操作、确认来源治理 UI 路径，并在具备中文字体的工具里检查 Word。正式报告必须真实通过质量门后再补完成证据。
-
-
