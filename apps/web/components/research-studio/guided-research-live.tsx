@@ -343,10 +343,10 @@ export function GuidedResearchLive({ sessionId, researchName, onBack, onLoadRetr
     responseEpoch.current += 1; commandVersion.current = state.version + 1; setPending(true); setError(null);
     try {
       const input = { sessionId, node: requestNode, action, requestId: crypto.randomUUID(), expectedVersion: state.version, ...extra };
-      const streamsReport = following === "report" || (requestNode === "report" && (approvedAction === "generate" || approvedAction === "retry" || action === "message"));
-      const controller = streamsReport ? new AbortController() : null;
+      const streamsCommand = following === "outline" || following === "report" || (requestNode === "report" && (approvedAction === "generate" || approvedAction === "retry" || action === "message"));
+      const controller = streamsCommand ? new AbortController() : null;
       streamController.current = controller;
-      const received = streamsReport ? await executeResearchRuntime(input, (event) => {
+      const received = streamsCommand ? await executeResearchRuntime(input, (event) => {
         if (!isCurrent()) return;
         const current = snapshotRef.current;
         if (event.type === "progress") {
@@ -355,6 +355,7 @@ export function GuidedResearchLive({ sessionId, researchName, onBack, onLoadRetr
           snapshotRef.current = next; setState(next);
         } else if (event.type === "snapshot") {
           if (event.state.sessionId !== sessionId || event.state.version < input.expectedVersion + 1) return;
+          if (following === "outline" && current && event.state.version === current.version && event.state.revision < current.revision) return;
           const next = newestSnapshot(event.state, current);
           responseEpoch.current += 1;
           snapshotRef.current = next; setState(next);
