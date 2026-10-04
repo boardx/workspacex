@@ -218,13 +218,13 @@ test('same-browser tabs drain a shared durable outbox without duplicate commits'
    const id=ackGate.updateId;
    return id!==null&&metadata.snapshot().events.some(event=>event.client==='peer'&&event.direction==='sent'&&event.type==='update'&&event.updateId===id);
   },{timeout:remaining(),message:'Peer must replay the actual held-ACK receipt after its durable claim expires'}).toBe(true);
-  // Request delivery of the captured receipt before resuming timers. Actual
-  // delivery and lease fencing are verified by the real synced/receipt proof.
+  // Route delivery evaluates the target JS realm. Resume the real target first;
+  // the captured server receipt must still satisfy the unchanged own-ACK proof.
   expect(debuggerEvents.resumed,'Original target must remain paused until peer replay proof').toBe(0);
-  expect(ackGate.release).not.toBeNull();ackGate.release!();mark('original-real-ack-released');
   await ownerLifecycle.send('Debugger.resume');
   await expect.poll(()=>debuggerEvents.resumed,{timeout:remaining(),message:'Original target must actually report Debugger.resumed'}).toBe(1);ownerPaused=false;mark('original-tab-resumed');
   expect(lifecycleEvents).toEqual({freeze:0,resume:0});evidence.ownerDebuggerEvents={...debuggerEvents};
+  expect(ackGate.release).not.toBeNull();ackGate.release!();mark('original-real-ack-released');
   await restoreOwnerWindow(remaining());
   await captureVisibility('after-resume');
   evidence.ownerLifecycleEvents={...lifecycleEvents};
