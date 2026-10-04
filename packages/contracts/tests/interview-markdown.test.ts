@@ -107,6 +107,25 @@ describe("访谈 Markdown 正文单源", () => {
 
 
 describe("formatted report quality", () => {
+  it.each([
+    "反例与边界：同一任务另一个场景安装顺利，不能推断普遍发生。",
+    "- **反例与边界**：\n  同一任务另一个场景安装顺利，不能推断普遍发生。",
+    "## 反例与边界\n\n同一任务另一个场景安装顺利，不能推断普遍发生。",
+    "### 反例与边界\r\n\r\n另一个场景安装顺利，不能推断普遍发生。",
+  ])("recognizes the equivalent counterexample-first boundary label: %s", (report) => {
+    expect(assessInterviewReportAnalysis(report).missing).not.toContain("boundary_or_counterevidence");
+  });
+  it.each([
+    "## 反例与边界\n\n## 下一步验证建议\n\n访谈五位用户，对比安装时长与购买决策。",
+    "## 反例与边界\n\n```md\n另一个场景安装顺利。\n```",
+    "```md\n反例与边界：另一个场景安装顺利。\n```",
+    "`反例与边界：另一个场景安装顺利。`",
+    "这次访谈只偶然提到反例与边界：没有给出相关分析。",
+    "[来源](https://example.invalid/反例与边界:)",
+  ])("does not let an empty or incidental counterexample label supply analysis: %s", (report) => {
+    expect(assessInterviewReportAnalysis(report).missing).toContain("boundary_or_counterevidence");
+  });
+
   it.each(["测试用户。", "不应测试用户。"])("rejects empty analysis sections and generic action: %s", (action) => {
     const report = `## 跨回答综合\n\n## 决策影响\n\n## 边界与反例\n\n## 下一步验证建议\n\n${action}`;
     expect(assessInterviewReportAnalysis(report).ok).toBe(false);
