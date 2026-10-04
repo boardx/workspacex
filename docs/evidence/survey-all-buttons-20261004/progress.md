@@ -53,3 +53,5 @@ Live：#5196/#5197/#5202及#5127已由其他会话合入；#5067 OPEN，未发�
 主独立接受0010/0016/0017限定入口disabled与关闭取消不新增，parent29PASS/template106PASS，全558135PASS/3B/11NA/408NS/1QR排除。新增既有0020空白创建+0005/6/7标签选择取消清除筛选普通UI证据blank-create-tags.txt/png待review，仍NS；新ownedSurvey7a977284-0baa-4b12-9966-3536e5942058零题零答卷draft保留，未发布/删除。Chrome无输入。
 
 主独立ACCEPT5b5e44302新增0020/0005/0006/0007限定空白创建/标签流，parent33PASS/template106PASS，全558139PASS/3B/11NA/404NS/1QR。新5项header0043/46/47/49/51实际IAB证据design-header-current.txt/renamed-list.png待review仍NS；7a977名称已修改autosave→normal menuRefresh同ID/name→designReport0章→cleanReturnList同card/tag，无model/publication/answer。Chrome无输入。
+
+原QA服务最小恢复：动态Web41267:25708 cwd privatefreeze-web-4c0017fd，原2079artifact hash全相同，仅nextstart无build；API41239:24705 exactprivate5eff原配置，sourcebytes零差异。login/health/同源proxy200，a529原20题7章first8与43233有效答卷保留，7a977/f6c只读可见。resumed-runtime-evidence.md及runtime-restored-ui.txt/answer.png留证，不新增PASS。原PG/Redishealthy不restart，不DB迁移/seed/role改，不研究库创建。CUA REPL旧bindings/tab7不存在，新ownedIABtab1正常读取，保留handoff；Chrome未输入。研究独立DBguard仍待定义，private配置不上传。
