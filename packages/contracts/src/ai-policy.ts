@@ -4,6 +4,13 @@ export const Micros = z.string().regex(/^(0|[1-9]\d{0,18})$/).refine(value=>/^(0
 const Timezone=z.string().max(100).refine(value=>{try{new Intl.DateTimeFormat("en",{timeZone:value});return true;}catch{return false;}},"invalid timezone");
 export const Window=z.object({start:z.string().datetime({offset:true}),end:z.string().datetime({offset:true}),timezone:Timezone}).strict()
  .refine(value=>Date.parse(value.end)>Date.parse(value.start)&&Date.parse(value.end)-Date.parse(value.start)<=366*86400000,"invalid window");
+/** Compatibility boundary for the existing member quota authority. */
+export function isUtcCalendarMonthWindow(window:z.infer<typeof Window>):boolean {
+ const start=new Date(window.start),end=new Date(window.end);
+ return ["Etc/UTC","UTC"].includes(window.timezone)&&start.getUTCDate()===1
+  &&start.getUTCHours()===0&&start.getUTCMinutes()===0&&start.getUTCSeconds()===0&&start.getUTCMilliseconds()===0
+  &&end.getTime()===Date.UTC(start.getUTCFullYear(),start.getUTCMonth()+1,1);
+}
 export const ChatModelPrice=z.object({modelId:z.string().min(1).max(200),modelProvider:z.string().min(1).max(100),
  /** Pool IDs and provider API model identifiers are different; never infer from a display name. */
  runtimeModelId:z.string().min(1).max(200),
@@ -17,11 +24,27 @@ export const InputOnlyModelPrice=z.object({billingMode:z.literal("input-only"),m
  maxInputTokens:z.number().int().positive().max(2147483647),
 }).strict();
 export const ModelPrice=z.union([ChatModelPrice,InputOnlyModelPrice]);
-export const Configuration=z.object({window:Window,ordinaryTokensPerUser:Micros.nullable(),costMicrosPerUser:Micros,
+/** Optional controls preserve legacy configurations without enabling inferred thresholds. */
+export const TokenControls=z.object({
+ enforceLimitRules:z.boolean().optional(),
+ quotaSource:z.enum(["organization-template","member-monthly-utc"]),
+ warningAtTokens:Micros.nullable(),degradeAtTokens:Micros.nullable(),
+ memberOverrides:z.array(z.object({userId:z.string().min(1).max(200),tokens:Micros}).strict()).max(500),
+}).strict().superRefine((value,ctx)=>{
+ if(new Set(value.memberOverrides.map(row=>row.userId)).size!==value.memberOverrides.length)
+  ctx.addIssue({code:z.ZodIssueCode.custom,message:"duplicate member quota override"});
+ if(value.quotaSource==="member-monthly-utc"&&value.memberOverrides.length)
+  ctx.addIssue({code:z.ZodIssueCode.custom,message:"member quota authority cannot have template overrides"});
+ if(value.warningAtTokens!==null&&value.degradeAtTokens!==null&&BigInt(value.warningAtTokens)>BigInt(value.degradeAtTokens))
+  ctx.addIssue({code:z.ZodIssueCode.custom,message:"warning exceeds degradation threshold"});
+});
+export const Configuration=z.object({tokenControls:TokenControls.optional(),window:Window,ordinaryTokensPerUser:Micros.nullable(),costMicrosPerUser:Micros,
  currency:z.string().regex(/^[A-Z]{3}$/),prices:z.array(ModelPrice).min(1).max(50),
  /** Empty means no fallback. Attempts include the primary; SDK retry admission is separate. */
  fallbackModelIds:z.array(z.string().min(1).max(200)).max(4),maxAttempts:z.number().int().min(1).max(5),
 }).strict().superRefine((value,ctx)=>{
+ if(value.tokenControls?.quotaSource==="member-monthly-utc"&&!isUtcCalendarMonthWindow(value.window))
+  ctx.addIssue({code:z.ZodIssueCode.custom,message:"member quota requires a complete UTC calendar month"});
  const ids=value.prices.map(row=>row.modelId);
  const bindings=value.prices.map(row=>JSON.stringify([row.modelProvider,row.runtimeModelId]));
  if(new Set(ids).size!==ids.length||new Set(value.fallbackModelIds).size!==value.fallbackModelIds.length

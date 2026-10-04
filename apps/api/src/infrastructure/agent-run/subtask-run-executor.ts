@@ -1,3 +1,4 @@
+import {assembleChildSourceInput,inheritChildSourceInput} from "../../application/agent-run/child-input-source-provenance";
 import {runtimeUsageObserver,type RuntimeModelUsagePort} from "../../application/agent-run/runtime-model-usage";
 import { structuredErrorLog } from "../../application/ports/logger.port";
 import { randomUUID } from "node:crypto";
@@ -29,7 +30,8 @@ export class SubtaskRunExecutor {
     private readonly outputs?:Pick<NativeOutputStaging,'listFiles'>,
     private readonly pins?:Pick<AgentRunStore,'readPinnedSkills'>,
     private readonly native?:NativeSessionOwner,
-    private readonly usage?:RuntimeModelUsagePort) {}
+    private readonly usage?:RuntimeModelUsagePort,
+    private readonly sourceEvidenceEnabled=false) {}
 
   private async stopRemote(orgId:OrgId,state:SubtaskExecutionState):Promise<void>{
     if(!state.remoteRunId||state.remoteThreadId!==deriveRemoteThreadId(state.run.id)||!this.engine){
@@ -71,13 +73,7 @@ export class SubtaskRunExecutor {
     return state.executionAttemptId;
   }
   private async execute(orgId:OrgId,run:SubtaskRun):Promise<string|{text:string;files:readonly import('../../application/agent-run/ports').RunOutputFile[]}>{
-    const parent = await this.db.withTenant(orgId, async (s) => {
-      const r = await s.query<{ instructions: string }>(
-        `SELECT v.instructions FROM agent_runs r
-         JOIN agent_versions v ON v.id=$3 AND v.org_id=r.org_id AND v.agent_id=r.agent_id
-         WHERE r.org_id=$1 AND r.id=$2 AND v.published_at IS NOT NULL`, [orgId,run.parentRunId,run.snapshot.agentVersionId]);
-      return r.rows[0];
-    });
+    const parent=await readPublishedSubtaskInstructions(this.db,orgId,run);
     if (!parent) throw new Error("subtask_parent_snapshot_unavailable");
     const timeout = this.executionTimeouts.get(run.snapshot.modelProvider);
     if (timeout === undefined || !Number.isFinite(timeout) || timeout <= 0
@@ -128,7 +124,7 @@ export class SubtaskRunExecutor {
         const state=await this.store.readExecution(orgId,run.id);
         if(state?.run.cancellation){await this.stopRemote(orgId,state);local.abort();}
       };
-      const base={modelProvider:run.snapshot.modelProvider,
+      const base=assembleChildSourceInput({modelProvider:run.snapshot.modelProvider,
         modelId:run.snapshot.modelId,system:parent.instructions,
         user:executionContext?`${run.description}\n\nContext:\n${executionContext}`:run.description,
         history:[],skills,orgId:String(orgId),signal:local.signal,
@@ -136,7 +132,7 @@ export class SubtaskRunExecutor {
         ...(this.usage&&this.model.supportsRequestAccounting?.(run.snapshot.modelProvider)
           ?{onProviderRequest:runtimeUsageObserver(this.usage,orgId,run.id,this.attemptOrThrow(before),before.leaseEpoch,run.snapshot.modelId)}:{}),
         ...(run.snapshot.modelProvider==='deep-agent'?{threadId:run.id,onRemoteRunStarted}:{}),
-      };
+      },orgId,run,before,parent.instructions,executionContext,skills,this.sourceEvidenceEnabled);
       // A file-producing subtask must reach the SAME native staging endpoint the main run
       // uses, under its OWN (run, attempt, lease) identity -- `text-only` cannot publish at
       // all. It is not a widening: `PgParentRunControlReader` resolves a subtask id to
@@ -148,6 +144,7 @@ export class SubtaskRunExecutor {
         : undefined;
       let completion;
       const modelInput=bound?bound.input:{...base,executionMode:"text-only" as const};
+      inheritChildSourceInput(base,modelInput);
       try{
         // issue #3100 D6 —— 子任务此前只走 `complete()`，于是"用了哪些工具"这件事在整条
         // 链路上根本没有被观察过（前端只能写死占位文案）。这里改走 provider 已有的
@@ -205,4 +202,22 @@ export class SubtaskRunExecutor {
         err: error instanceof Error ? error.message : "claim_failed" });
     });
   }
+}
+
+/** Existing published-parent snapshot read, shared with same-session private source replay. */
+export class PublishedSubtaskInstructionReader {
+ constructor(private readonly db:DatabasePort){}
+ read(orgId:OrgId,run:SubtaskRun):Promise<{instructions:string}|undefined>{
+  return this.db.withTenant(orgId, async (s) => {
+      const r = await s.query<{ instructions: string }>(
+        `SELECT v.instructions FROM agent_runs r
+         JOIN agent_versions v ON v.id=$3 AND v.org_id=r.org_id AND v.agent_id=r.agent_id
+         WHERE r.org_id=$1 AND r.id=$2 AND v.published_at IS NOT NULL`, [orgId,run.parentRunId,run.snapshot.agentVersionId]);
+      return r.rows[0];
+    });
+}
+}
+
+export function readPublishedSubtaskInstructions(db:DatabasePort,orgId:OrgId,run:SubtaskRun):Promise<{instructions:string}|undefined>{
+ return new PublishedSubtaskInstructionReader(db).read(orgId,run);
 }

@@ -27,7 +27,7 @@ export class PgAiUsageRepository implements AiUsageRepository {
  async summary(orgId:OrgId,q:AiUsageQuery){return this.db.withTenant(orgId,async s=>{
   const {asOf,values}=await this.parameters(s,orgId,q);
   const result=await s.query<{result:unknown}>(`WITH base AS MATERIALIZED (SELECT *,${eventTime} AS event_time
-    FROM token_usage_events WHERE ${scoped} AND ${eventTime}>=$12::timestamptz AND ${eventTime}<$11::timestamptz),
+    FROM effective_token_usage($13::timestamptz) WHERE ${scoped} AND ${eventTime}>=$12::timestamptz AND ${eventTime}<$11::timestamptz),
    period_current AS MATERIALIZED(SELECT * FROM base WHERE event_time>=$10::timestamptz),
    period_previous AS MATERIALIZED(SELECT * FROM base WHERE event_time<$10::timestamptz),
    members AS(SELECT user_id,COALESCE(sum(tokens_total),0) AS tokens,count(*) AS calls FROM period_current GROUP BY user_id),
@@ -36,7 +36,7 @@ export class PgAiUsageRepository implements AiUsageRepository {
    projects AS(SELECT project_id,COALESCE(sum(tokens_total),0) AS tokens,count(*) AS calls FROM period_current GROUP BY project_id),
    trend AS(SELECT (event_time AT TIME ZONE $14)::date AS day,COALESCE(sum(tokens_total),0) AS tokens,count(*) AS calls FROM period_current GROUP BY day)
    SELECT jsonb_build_object('dispatchIntents',(SELECT count(*) FROM model_request_starts WHERE ${scoped} AND started_at>=$10::timestamptz AND started_at<$11::timestamptz),
-    'unsettledDispatchIntents',(SELECT count(*) FROM model_request_starts s WHERE ${scoped} AND started_at>=$10::timestamptz AND started_at<$11::timestamptz AND NOT EXISTS(SELECT 1 FROM token_usage_events e WHERE e.id=s.id AND e.org_id=s.org_id AND e.occurred_at<=$13::timestamptz)),
+    'unsettledDispatchIntents',(SELECT count(*) FROM model_request_starts s WHERE ${scoped} AND started_at>=$10::timestamptz AND started_at<$11::timestamptz AND NOT EXISTS(SELECT 1 FROM effective_token_usage($13::timestamptz) e WHERE e.id=s.id AND e.org_id=s.org_id AND e.occurred_at<=$13::timestamptz)),
     'nativeUnits',COALESCE((SELECT jsonb_agg(jsonb_build_object('unit',native_unit,'reportedQuantity',reported_quantity::text,'estimatedQuantity',estimated_quantity::text,'reportedCalls',reported_calls,'estimatedCalls',estimated_calls,'unknownCalls',unknown_calls) ORDER BY native_unit)
      FROM(SELECT native_unit,COALESCE(sum(native_quantity) FILTER(WHERE native_source='reported'),0) AS reported_quantity,
       COALESCE(sum(native_quantity) FILTER(WHERE native_source='estimated'),0) AS estimated_quantity,
@@ -63,7 +63,7 @@ export class PgAiUsageRepository implements AiUsageRepository {
    tokens_cache_input::text AS "cacheInputTokens",tokens_reasoning_output::text AS "reasoningOutputTokens",
    CASE WHEN native_unit IS NULL THEN NULL ELSE jsonb_build_object('unit',native_unit,'quantity',native_quantity::text,'source',native_source) END AS "nativeUsage",
    total_source AS "totalSource",outcome,call_purpose AS "callPurpose",cost_micros::text AS "costMicros",currency,price_version AS "priceVersion"
-   FROM token_usage_events WHERE ${scoped} AND ${eventTime}>=$10::timestamptz AND ${eventTime}<$11::timestamptz
+   FROM effective_token_usage($13::timestamptz) WHERE ${scoped} AND ${eventTime}>=$10::timestamptz AND ${eventTime}<$11::timestamptz
    AND $12::timestamptz IS NOT NULL AND $14::text IS NOT NULL
    AND ($15::timestamptz IS NULL OR (occurred_at,id)<($15::timestamptz,$16::text))
    ORDER BY occurred_at DESC,id DESC LIMIT $17`,[...values,q.cursorTime??null,q.cursorId??null,q.limit+1]);

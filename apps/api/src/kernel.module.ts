@@ -2201,7 +2201,7 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
           // #2931: a file-producing subtask needs its OWN native session to reach
           // `wx_artifact_publish`. Absent (no sandbox socket) ⇒ `outputFiles` runs
           // fail closed rather than silently degrading to text-only.
-          nativeSessions??undefined,usage);
+          nativeSessions??undefined,usage,process.env.KERNEL_AI_PRODUCT_QUOTA_ENABLED === "1");
       },
       inject: [SUBTASK_RUN_STORE, DATABASE_PORT, MODEL_CALL_PORT, LOGGER_PORT, ENGINE_RUN_CONTROLLER, SUBTASK_CONTEXT_RESOLVER,NATIVE_OUTPUT_STAGING,AGENT_RUN_STORE,NATIVE_SESSION_OWNER,RUNTIME_MODEL_USAGE],
     },

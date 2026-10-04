@@ -1,3 +1,5 @@
+import {readPrivateChildSources} from "./private-child-source-reader";
+import type {ChildSdkEvidence} from "../../application/agent-run/child-input-source-provenance";
 import {readRootAssembly,type RootAssemblyEvidence} from "../../application/agent-run/root-input-source-provenance";
 import {PgModelPoolRepository} from "../model/pg-model-pool-repository";
 import {PgIdentityRepository} from "../identity/pg-identity-repository";
@@ -45,13 +47,13 @@ export function createAiQuotaRuntimeWiring(enabled:boolean,configuration:AiQuota
  const inputOnly:InputOnlyRuntimeAdmissionOptions={provider:configuration.privateRuntimeProvider,
   primaryModelId:modelId=>inputRegistry.formalModelId(configuration.privateRuntimeProvider,modelId),
   dependencies:(orgId,scopedDb)=>({currentCandidates:()=>inputRegistry.currentCandidates(scopedDb?new PgModelPoolRepository(scopedDb):deps.pool,String(orgId)),measure:inputRegistry.measure.bind(inputRegistry)})};
- const facts=async(subject:WholeInputSubject,serializedInput:string,scopedDb?:DatabasePort,assemblyEvidence?:RootAssemblyEvidence|null)=>{
+ const facts=async(subject:WholeInputSubject,serializedInput:string,scopedDb?:DatabasePort,assemblyEvidence?:RootAssemblyEvidence|null,childEvidence?:ChildSdkEvidence|null)=>{
   const {orgId,userId,runId}=subject;
   const db=scopedDb??deps.db;
   const constraints=new IdentityModelConstraint(scopedDb?new PgIdentityRepository(scopedDb):deps.identity);
   const store=new PgContextPackStore(db,orgId,constraints,userId);
   const lineage=configuration.contextBindings?await readSelectedContextSourceLineage({orgId,userId,runId,serializedInput},{bindings:configuration.contextBindings,store,constraints}):null;
-  const manifest=produceWholeInputBinding(subject,serializedInput,lineage,assemblyEvidence);
+  const manifest=produceWholeInputBinding(subject,serializedInput,lineage,assemblyEvidence,childEvidence);
   return readContextPackAiFacts({orgId,userId,runId,serializedInput,wholeInputSubject:subject},{bindings:{resolve:async()=>{
     // Optional recorded-selected source evidence was consumed above. It cannot grant dispatch ACL.
     return manifest;
@@ -64,8 +66,9 @@ export function createAiQuotaRuntimeWiring(enabled:boolean,configuration:AiQuota
   dependencies:orgId=>({...boundaries(orgId),policy:budget,admission:budget,usage:deps.usage}),
   selection:(orgId,run,selection)=>configuration.selection(orgId,run.runId,selection)},
   runtime:{inputOnly,primaryModelId:modelId=>registry.formalModelId(configuration.privateRuntimeProvider,modelId),dependencies:boundaries,
-   facts:(orgId,owner,serializedInput,identity,scopedDb)=>{
+   facts:async(orgId,owner,serializedInput,identity,scopedDb)=>{
     if(identity.runId!==(owner.subtask_id??owner.root_run_id))throw new Error("AI_WHOLE_INPUT_SUBJECT_INVALID");
-    return facts({orgId,userId:owner.user_id,rootRunId:owner.root_run_id,runId:identity.runId,attemptId:identity.attemptId,leaseEpoch:identity.leaseEpoch,origin:"private-sdk-body"},serializedInput,scopedDb);
+    const childEvidence=owner.subtask_id?await readPrivateChildSources(scopedDb??deps.db,{orgId,userId:owner.user_id,rootRunId:owner.root_run_id,runId:identity.runId,attemptId:identity.attemptId,leaseEpoch:identity.leaseEpoch},serializedInput):null;
+    return facts({orgId,userId:owner.user_id,rootRunId:owner.root_run_id,runId:identity.runId,attemptId:identity.attemptId,leaseEpoch:identity.leaseEpoch,origin:"private-sdk-body"},serializedInput,scopedDb,undefined,childEvidence);
    }}};
 }

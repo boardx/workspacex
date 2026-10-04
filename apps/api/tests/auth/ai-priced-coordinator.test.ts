@@ -1,3 +1,4 @@
+import {AiQuotaPolicyError} from "../../src/application/agent-run/ai-quota-policy-error";
 import {createHash} from "node:crypto";
 import {describe,it,expect,vi} from "vitest";
 import {executePricedModelCall} from "../../src/application/agent-run/execute-priced-model-call";
@@ -58,7 +59,7 @@ describe("one bounded authorized logical model call",()=>{
  it("quota denial, unknown confidentiality and initial cancellation send zero requests",async()=>{
   const denied=fixture();denied.deps.admission.reserve.mockResolvedValue({decision:"TOKEN_LIMIT_REACHED",replay:false});
   await expect(executePricedModelCall(denied.subject,{system:"s",user:"u"},denied.deps)).rejects.toThrow("TOKEN_LIMIT_REACHED");expect(denied.calls).toEqual([]);
-  const unknown=fixture();await expect(executePricedModelCall({...unknown.subject,confidentiality:"unknown"},{system:"s",user:"u"},unknown.deps)).rejects.toThrow("AI_CONFIDENTIALITY_UNKNOWN");expect(unknown.calls).toEqual([]);
+  const unknown=fixture();await expect(executePricedModelCall({...unknown.subject,confidentiality:"unknown"},{system:"s",user:"u"},unknown.deps)).rejects.toThrow("AI_MODEL_UNAVAILABLE");expect(unknown.calls).toEqual([]);
   const cancelled=fixture();const abort=new AbortController();abort.abort();await expect(executePricedModelCall(cancelled.subject,{system:"s",user:"u",signal:abort.signal},cancelled.deps)).rejects.toThrow("AI_CALL_CANCELLED");expect(cancelled.calls).toEqual([]);expect(cancelled.deps.policy.resolveBudgetPolicy).not.toHaveBeenCalled();
  });
  it("preserves progress events and never retries after observed progress",async()=>{
@@ -76,4 +77,92 @@ describe("one bounded authorized logical model call",()=>{
   const delta=vi.fn(async()=>{});await expect(executePricedModelCall(streaming.subject,{system:"s",user:"u"},streaming.deps,delta)).rejects.toBeInstanceOf(ModelCallError);expect(delta).toHaveBeenCalledOnce();expect(streaming.deps.model.completeStream).toBeDefined();expect(streaming.deps.admission.reserve).not.toHaveBeenCalled();
   const cancelled=fixture();const abort=new AbortController();cancelled.deps.usage.record.mockImplementation(async()=>{abort.abort();});await expect(executePricedModelCall(cancelled.subject,{system:"s",user:"u",signal:abort.signal},cancelled.deps)).rejects.toBeInstanceOf(ModelCallError);expect(cancelled.calls).toHaveLength(1);
  });
+});
+
+async function quotaFixture(cheaper=true){
+ const f=fixture();f.setError(undefined);
+ const budget=await f.deps.policy.resolveBudgetPolicy();
+ Object.assign(budget.configuration,{tokenControls:{quotaSource:"organization-template",warningAtTokens:"50",degradeAtTokens:"80",memberOverrides:[]}});
+ if(cheaper){const fallback=budget.configuration.prices.find((price:{modelId:string})=>price.modelId==="fallback")!;fallback.inputMicrosPerMillion="500000";fallback.outputMicrosPerMillion="500000";fallback.cachedInputMicrosPerMillion="500000";}
+ return f;
+}
+describe("atomic product Token threshold coordination",()=>{
+ it("denies primary before vendor and dispatches exactly one approved cheaper model",async()=>{
+  const f=await quotaFixture();
+  f.deps.admission.reserve.mockResolvedValueOnce({decision:"AI_TOKEN_DEGRADE_REQUIRED",replay:false}).mockResolvedValueOnce({decision:"allowed",replay:false});
+  const selections:string[]=[];
+  const result=await executePricedModelCall(f.subject,{system:"s",user:"u"},{...f.deps,onModelSelection:async selected=>{selections.push(selected.modelId);}});
+  expect(result.aiSelection).toMatchObject({modelId:"fallback",logicalAttempt:1,fallbackUsed:true});
+  expect(f.calls).toEqual(["vendor-fallback"]);expect(selections).toEqual(["primary","fallback"]);
+  expect(f.deps.usage.startRequest).toHaveBeenCalledOnce();expect(f.deps.usage.record).toHaveBeenCalledOnce();expect(f.deps.admission.settle).toHaveBeenCalledOnce();
+  expect(f.deps.admission.reserve.mock.calls.map(([,request])=>request.tokenPolicy)).toEqual([
+   {primaryModelId:"primary",selectedModelId:"primary",allowDegradation:true},
+   {primaryModelId:"primary",selectedModelId:"fallback",allowDegradation:true},
+  ]);
+ });
+ it("absolute Token/cost hard stops never request a cheaper paid fallback",async()=>{
+  for(const decision of ["TOKEN_LIMIT_REACHED","COST_LIMIT_REACHED"]){
+   const f=await quotaFixture();f.deps.admission.reserve.mockResolvedValue({decision,replay:false});
+   await expect(executePricedModelCall(f.subject,{system:"s",user:"u"},f.deps)).rejects.toBeInstanceOf(AiQuotaPolicyError);
+   expect(f.calls).toEqual([]);expect(f.deps.admission.reserve).toHaveBeenCalledOnce();expect(f.deps.usage.startRequest).not.toHaveBeenCalled();
+  }
+ });
+ it("equal or more expensive approved fallback cannot satisfy a quota degradation",async()=>{
+  for(const expensive of [false,true]){
+   const f=await quotaFixture(false),budget=await f.deps.policy.resolveBudgetPolicy();
+   if(expensive)budget.configuration.prices[1]!.outputMicrosPerMillion="2000000";
+   f.deps.admission.reserve.mockResolvedValue({decision:"AI_TOKEN_DEGRADE_REQUIRED",replay:false});
+   await expect(executePricedModelCall(f.subject,{system:"s",user:"u"},f.deps)).rejects.toThrow("AI_ATTEMPTS_EXHAUSTED");
+   expect(f.calls).toEqual([]);expect(f.deps.admission.reserve).toHaveBeenCalledOnce();expect(f.deps.usage.record).not.toHaveBeenCalled();
+  }
+ });
+ it("unknown and confidential inputs keep the local primary and never quota downgrade",async()=>{
+  for(const confidentiality of ["unknown","confidential"] as const){
+   const f=await quotaFixture(),current=await f.deps.currentCandidates();current.pool.forEach((row:{kind:string})=>{row.kind="self-hosted";});
+   f.deps.admission.reserve.mockResolvedValue({decision:"AI_TOKEN_DEGRADE_REQUIRED",replay:false});
+   await expect(executePricedModelCall({...f.subject,confidentiality},{system:"s",user:"u"},f.deps)).rejects.toBeInstanceOf(AiQuotaPolicyError);
+   expect(f.calls).toEqual([]);expect(f.deps.admission.reserve).toHaveBeenCalledOnce();
+   expect(f.deps.admission.reserve.mock.calls[0]?.[1].tokenPolicy).toEqual({primaryModelId:"primary",selectedModelId:"primary",allowDegradation:false});
+  }
+ });
+ it("warning is disclosed after reservation and before vendor; warning failure does not downgrade",async()=>{
+  const f=await quotaFixture();f.deps.admission.reserve.mockResolvedValue({decision:"allowed",replay:false,tokenWarning:true} as never);
+  const warning=vi.fn(async()=>{expect(f.calls).toEqual([]);expect(f.deps.admission.reserve).toHaveBeenCalledOnce();});
+  await executePricedModelCall(f.subject,{system:"s",user:"u"},{...f.deps,onTokenWarning:warning});expect(warning).toHaveBeenCalledOnce();expect(f.calls).toEqual(["vendor-primary"]);
+  const failed=await quotaFixture();failed.deps.admission.reserve.mockResolvedValue({decision:"allowed",replay:false,tokenWarning:true} as never);
+  const error=new Error("warning delivery failed");await expect(executePricedModelCall(failed.subject,{system:"s",user:"u"},{...failed.deps,onTokenWarning:async()=>{throw error;}})).rejects.toBe(error);
+  expect(failed.calls).toEqual([]);expect(failed.deps.admission.reserve).toHaveBeenCalledOnce();
+ });
+ it("successful fallback preserves paid output if terminal ledger fails and never adds another attempt",async()=>{
+  const f=await quotaFixture();f.deps.admission.reserve.mockResolvedValueOnce({decision:"AI_TOKEN_DEGRADE_REQUIRED",replay:false}).mockResolvedValueOnce({decision:"allowed",replay:false});
+  f.deps.usage.record.mockRejectedValue(new Error("terminal ledger failed"));
+  expect(await executePricedModelCall(f.subject,{system:"s",user:"u"},f.deps)).toMatchObject({text:"ok"});
+  expect(f.calls).toEqual(["vendor-fallback"]);expect(f.deps.admission.reserve).toHaveBeenCalledTimes(2);expect(f.deps.admission.settle).not.toHaveBeenCalled();
+ });
+ it("typed threshold error after actual primary dispatch cannot authorize a quota fallback",async()=>{
+  const f=await quotaFixture();f.setError(new AiQuotaPolicyError("AI_TOKEN_DEGRADE_REQUIRED"));
+  await expect(executePricedModelCall(f.subject,{system:"s",user:"u"},f.deps)).rejects.toBeInstanceOf(AiQuotaPolicyError);
+  expect(f.calls).toEqual(["vendor-primary"]);expect(f.deps.admission.reserve).toHaveBeenCalledOnce();
+ });
+});
+
+it("selection channel publishes token warning before paid dispatch without duplicate hook delivery",async()=>{
+ const f=await quotaFixture();f.deps.admission.reserve.mockResolvedValue({decision:"allowed",replay:false,tokenWarning:true} as never);
+ const notices:(string|undefined)[]=[];
+ await executePricedModelCall(f.subject,{system:"s",user:"u"},{...f.deps,onModelSelection:async selection=>{
+  notices.push(selection.notice);expect(f.calls).toEqual([]);expect(f.deps.usage.startRequest).not.toHaveBeenCalled();
+  if(selection.notice==="token-warning")expect(f.deps.admission.reserve).toHaveBeenCalledOnce();
+ }});
+ expect(notices).toEqual([undefined,"token-warning"]);expect(f.calls).toEqual(["vendor-primary"]);
+ const both=await quotaFixture();both.deps.admission.reserve.mockResolvedValue({decision:"allowed",replay:false,tokenWarning:true} as never);
+ const hook=vi.fn(async()=>{expect(both.calls).toEqual([]);}),selection=vi.fn(async()=>{});
+ await executePricedModelCall(both.subject,{system:"s",user:"u"},{...both.deps,onTokenWarning:hook,onModelSelection:selection});
+ expect(hook).toHaveBeenCalledOnce();expect(selection).toHaveBeenCalledOnce();
+});
+it("missing both warning channels sends zero paid requests and preserves the conservative hold",async()=>{
+ const missing=await quotaFixture();missing.deps.admission.reserve.mockResolvedValue({decision:"allowed",replay:false,tokenWarning:true} as never);
+ await expect(executePricedModelCall(missing.subject,{system:"s",user:"u"},missing.deps)).rejects.toThrow("AI_WARNING_DELIVERY_UNAVAILABLE");
+ expect(missing.calls).toEqual([]);expect(missing.deps.usage.startRequest).not.toHaveBeenCalled();expect(missing.deps.usage.record).not.toHaveBeenCalled();
+ // Admission already reserved a conservative hold; this test does not claim orphan-hold repair.
+ expect(missing.deps.admission.reserve).toHaveBeenCalledOnce();expect(missing.deps.admission.settle).not.toHaveBeenCalled();
 });

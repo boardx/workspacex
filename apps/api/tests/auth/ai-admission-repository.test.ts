@@ -95,3 +95,49 @@ describe("shared atomic admission foundation — isolated PostgreSQL",()=>{
   expect((await admission.reserve(toOrgId(ORG),request("reserve-a"))).decision).toBe("COST_LIMIT_UNCONFIGURED");
  });
 });
+
+// Source-only: the isolated PostgreSQL CI shard must execute this contract.
+it("unknown late receipt becomes one old-price settlement without resetting the immutable budget",async()=>{
+ const configuration={window:{start,end,timezone:"Etc/UTC"},ordinaryTokensPerUser:"10",costMicrosPerUser:"1000",currency:"CNY",
+  prices:[{modelId:"formal",modelProvider:"provider",runtimeModelId:"model",inputMicrosPerMillion:"100000000",outputMicrosPerMillion:"100000000",cachedInputMicrosPerMillion:"100000000",maxInputTokens:4,maxOutputTokens:2}],fallbackModelIds:[],maxAttempts:1};
+ await asApp(ORG,c=>c.query(`INSERT INTO organization_ai_policy_changes(id,org_id,version,configuration,price_version,actor_id,reason)
+  VALUES('late-old-price-audit',$1,1,$2::jsonb,'test-price-v1',$3,'isolated enrichment old-price fixture')`,[ORG,JSON.stringify(configuration),USER]));
+ const held=request("late-held-physical");expect(await admission.reserve(toOrgId(ORG),held)).toMatchObject({decision:"allowed",replay:false});
+ const base={eventId:held.requestId,userId:USER,runId:null,modelProvider:"provider",modelId:"model",outcome:"failed" as const,
+  requestStartedAt:new Date().toISOString(),requestEndedAt:new Date().toISOString()};
+ const unknown={...base,tokensTotal:0,promptTokens:null,completionTokens:null,totalSource:"unknown" as const};
+ await usage.record(toOrgId(ORG),unknown);
+ const original=(await asApp(ORG,c=>c.query("SELECT * FROM token_usage_events WHERE id=$1",[held.requestId]))).rows[0];
+ await admission.settle(toOrgId(ORG),held.requestId,{tokens:null,costMicros:null});
+ await usage.record(toOrgId(ORG),{...unknown,promptTokens:3});
+ await admission.settle(toOrgId(ORG),held.requestId,{tokens:null,costMicros:null});
+ expect((await asApp(ORG,c=>c.query("SELECT state,settled_tokens FROM ai_request_reservations WHERE id=$1",[held.requestId]))).rows[0]).toEqual({state:"held",settled_tokens:null});
+ expect((await admission.reserve(toOrgId(ORG),request("blocked-by-unknown-hold"))).decision).toBe("TOKEN_LIMIT_REACHED");
+ // Adversarial current-policy fixture: production configuration rejects overlapping windows.
+ const current={...configuration,prices:[{...configuration.prices[0]!,inputMicrosPerMillion:"900000000",outputMicrosPerMillion:"900000000"}]};
+ await asApp(ORG,c=>c.query(`INSERT INTO organization_ai_policies(org_id,version,configuration,price_version,updated_by)
+  VALUES($1,2,$2::jsonb,'later-current-price',$3)`,[ORG,JSON.stringify(current),USER]));
+ const worker=new PgAiAdmissionRepository(db),snapshot=await worker.readReservedPrice(toOrgId(ORG),held.requestId);
+ expect(snapshot).toMatchObject({priceVersion:"test-price-v1",price:configuration.prices[0]});
+ if(!snapshot||!("outputMicrosPerMillion" in snapshot.price))throw new Error("expected immutable chat-price fixture");
+ const {priceAiTokens}=await import("../../src/domain/agent-run/ai-budget");
+ const cost=priceAiTokens({version:snapshot.priceVersion,currency:snapshot.currency,inputMicrosPerMillion:BigInt(snapshot.price.inputMicrosPerMillion),
+  outputMicrosPerMillion:BigInt(snapshot.price.outputMicrosPerMillion),cachedInputMicrosPerMillion:BigInt(snapshot.price.cachedInputMicrosPerMillion)},{input:3n,output:2n});
+ expect(cost).toBe(500n);
+ const reported={...base,tokensTotal:5,promptTokens:3,completionTokens:2,totalSource:"reported" as const,costMicros:cost,currency:snapshot.currency,priceVersion:snapshot.priceVersion};
+ await usage.record(toOrgId(ORG),reported);await usage.record(toOrgId(ORG),reported);
+ await worker.settle(toOrgId(ORG),held.requestId,{tokens:5n,costMicros:cost});
+ const settled=(await asApp(ORG,c=>c.query("SELECT state,settled_tokens::text,settled_cost_micros::text,settled_at FROM ai_request_reservations WHERE id=$1",[held.requestId]))).rows[0];
+ await worker.settle(toOrgId(ORG),held.requestId,{tokens:5n,costMicros:cost});
+ expect((await asApp(ORG,c=>c.query("SELECT state,settled_tokens::text,settled_cost_micros::text,settled_at FROM ai_request_reservations WHERE id=$1",[held.requestId]))).rows[0]).toEqual(settled);
+ expect(settled).toMatchObject({state:"settled",settled_tokens:"5",settled_cost_micros:"500"});
+ expect((await asApp(ORG,c=>c.query("SELECT count(*)::int AS calls,sum(tokens_total)::text AS tokens,sum(cost_micros)::text AS cost FROM effective_token_usage() WHERE id=$1",[held.requestId]))).rows[0]).toEqual({calls:1,tokens:"5",cost:"500"});
+ expect((await asApp(ORG,c=>c.query("SELECT * FROM token_usage_events WHERE id=$1",[held.requestId]))).rows[0]).toEqual(original);
+ expect((await asApp(ORG,c=>c.query("SELECT token_limit::text,cost_limit_micros::text,price_version FROM ai_budget_windows WHERE org_id=$1 AND user_id=$2",[ORG,USER]))).rows[0]).toEqual({token_limit:"10",cost_limit_micros:"1000",price_version:"test-price-v1"});
+ expect((await admission.reserve(toOrgId(ORG),{...request("fills-after-enrichment"),maximumTokens:5n,maximumCostMicros:500n})).decision).toBe("allowed");
+ expect((await asApp(OTHER,c=>c.query("SELECT id FROM effective_token_usage() WHERE id=$1",[held.requestId]))).rows).toEqual([]);
+ await expect(usage.record(toOrgId(OTHER),reported)).rejects.toBeDefined();
+ // Replacement of already reported facts requires a verified supplier revision protocol; not implemented.
+ await expect(usage.record(toOrgId(ORG),{...reported,tokensTotal:6,completionTokens:3,costMicros:600n})).rejects.toBeDefined();
+ expect((await asApp(ORG,c=>c.query("SELECT count(*)::int AS revisions FROM token_usage_enrichments WHERE request_id=$1",[held.requestId]))).rows[0]).toEqual({revisions:2});
+});

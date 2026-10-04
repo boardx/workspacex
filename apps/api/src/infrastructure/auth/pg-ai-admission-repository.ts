@@ -1,8 +1,13 @@
-import type { DatabasePort } from "../../application/ports/database.port";
+import type {LimitAction,LimitScopeKind} from "../../application/auth/token-quota-ports";
+import {PgLimitRuleRepository} from "./pg-limit-rule-repository";
+import {pickFirstTriggeredExact} from "../../domain/auth/limit-rule-evaluation";
+import {isDeepStrictEqual} from "node:util";
+import type { TenantSession, DatabasePort } from "../../application/ports/database.port";
 import type { AiAdmissionPort, AiReservationInput,AiBudgetPolicyPort,AiReservedPricePort } from "../../application/agent-run/ai-admission-ports";
 import type { OrgId } from "../../domain/org-id";
-import { decideAiAdmission } from "../../domain/agent-run/ai-budget";
+import { decideAiAdmission,type AiAdmissionDecision } from "../../domain/agent-run/ai-budget";
 import {Configuration} from "@repo/contracts/ai-policy";
+import {evaluateAiTokenThresholds,isStrictlyCheaperAiModel,resolveMemberTokenLimit} from "../../domain/agent-run/ai-member-token-policy";
 
 /** Shared PostgreSQL admission foundation, deliberately not composed into production yet. */
 export class PgAiAdmissionRepository implements AiAdmissionPort,AiBudgetPolicyPort,AiReservedPricePort {
@@ -10,6 +15,10 @@ export class PgAiAdmissionRepository implements AiAdmissionPort,AiBudgetPolicyPo
  async resolveBudgetPolicy(orgId:OrgId,userId:string):ReturnType<AiBudgetPolicyPort["resolveBudgetPolicy"]>{
   if(!userId)throw new Error("INVALID_AI_SUBJECT");
   return this.db.withTenant(orgId,async s=>{
+   // Match old quota writers before any organization row/FK locks; this does not
+   // read or activate legacy values. The reverse order deadlocks first-time inserts.
+   await s.query("SELECT pg_advisory_xact_lock(hashtext($1))",[orgId]);
+   await s.query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))",[JSON.stringify(["ai-limit-rules",String(orgId)])]);
    const formal=await s.query("SELECT id FROM organizations WHERE id=$1 AND kind='organization' FOR UPDATE",[orgId]);
    if(!formal.rows.length)return {decision:"PLAN_UNCONFIGURED" as const};
    const member=await s.query("SELECT 1 FROM org_memberships WHERE org_id=$1 AND user_id=$2",[orgId,userId]);
@@ -18,7 +27,11 @@ export class PgAiAdmissionRepository implements AiAdmissionPort,AiBudgetPolicyPo
    if(!plan)return {decision:"PLAN_UNCONFIGURED" as const};
    const policy=(await s.query<{configuration:unknown;price_version:string;updated_by:string}>("SELECT configuration,price_version,updated_by FROM organization_ai_policies WHERE org_id=$1",[orgId])).rows[0];
    if(!policy)return {decision:"AI_POLICY_UNCONFIGURED" as const};
-   const configuration=Configuration.parse(policy.configuration),window=configuration.window;
+   const template=Configuration.parse(policy.configuration),window=template.window;
+   // Explicit authority only: legacy policies neither activate nor overwrite old member quotas.
+   const memberQuota=template.tokenControls?.quotaSource==="member-monthly-utc"
+    ?(await s.query<{monthly_limit:string}>("SELECT monthly_limit::text AS monthly_limit FROM member_token_quota WHERE org_id=$1 AND user_id=$2",[orgId,userId])).rows[0]?.monthly_limit??null:null;
+   const configuration={...template,ordinaryTokensPerUser:resolveMemberTokenLimit(template,userId,memberQuota)};
    const active=await s.query<{active:boolean}>("SELECT now()>=$1::timestamptz AND now()<$2::timestamptz AS active",[window.start,window.end]);
    if(!active.rows[0]?.active)return {decision:"BUDGET_WINDOW_INACTIVE" as const};
    if(plan==="ordinary"&&configuration.ordinaryTokensPerUser===null)return {decision:"TOKEN_LIMIT_UNCONFIGURED" as const};
@@ -45,6 +58,7 @@ export class PgAiAdmissionRepository implements AiAdmissionPort,AiBudgetPolicyPo
    ||input.logicalAttempt!<0||input.maximumAttempts!<1||input.maximumAttempts!>5||input.logicalAttempt!>=input.maximumAttempts!))throw new Error("INVALID_AI_ATTEMPT_SLOT");
   return this.db.withTenant(orgId, async s => {
    // Plan lock serializes entitlement changes with admission, including first-ever plan assignment.
+   await s.query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))",[JSON.stringify(["ai-limit-rules",String(orgId)])]);
    const org=await s.query("SELECT id FROM organizations WHERE id=$1 AND kind='organization' FOR SHARE",[orgId]);
    if(!org.rows[0]) return {decision:"PLAN_UNCONFIGURED" as const,replay:false};
    // All admission/settlement/configuration writers must use this same canonical budget lock.
@@ -53,11 +67,11 @@ export class PgAiAdmissionRepository implements AiAdmissionPort,AiBudgetPolicyPo
     `SELECT token_limit,cost_limit_micros,currency,price_version FROM ai_budget_windows
       WHERE org_id=$1 AND user_id=$2 AND window_start=$3 AND window_end=$4`,
     [orgId,input.userId,input.windowStart,input.windowEnd]);
-   const existing=await s.query<{user_id:string;window_start:Date;window_end:Date;maximum_tokens:string;maximum_cost_micros:string;model_provider:string;model_id:string;currency:string;price_version:string;state:"held"|"settled";logical_call_id:string|null;logical_attempt:number|null;maximum_attempts:number|null}>(
-    "SELECT user_id,window_start,window_end,maximum_tokens,maximum_cost_micros,model_provider,model_id,currency,price_version,state,logical_call_id,logical_attempt,maximum_attempts FROM ai_request_reservations WHERE id=$1",[input.requestId]);
+   const existing=await s.query<{user_id:string;window_start:Date;window_end:Date;maximum_tokens:string;maximum_cost_micros:string;model_provider:string;model_id:string;currency:string;price_version:string;state:"held"|"settled";formal_model_id:string|null;agent_id:string|null;logical_call_id:string|null;logical_attempt:number|null;maximum_attempts:number|null}>(
+    "SELECT user_id,window_start,window_end,maximum_tokens,maximum_cost_micros,model_provider,model_id,currency,price_version,state,formal_model_id,agent_id,logical_call_id,logical_attempt,maximum_attempts FROM ai_request_reservations WHERE id=$1",[input.requestId]);
    const replay=existing.rows[0];
    if(replay){
-    if(replay.user_id!==input.userId || replay.window_start.toISOString()!==new Date(input.windowStart).toISOString()
+    if((replay.formal_model_id??null)!==(input.formalModelId??null)||(replay.agent_id??null)!==(input.agentId??null)||replay.user_id!==input.userId || replay.window_start.toISOString()!==new Date(input.windowStart).toISOString()
       || replay.window_end.toISOString()!==new Date(input.windowEnd).toISOString() || BigInt(replay.maximum_tokens)!==input.maximumTokens
       || BigInt(replay.maximum_cost_micros)!==input.maximumCostMicros || replay.model_provider!==input.modelProvider || replay.model_id!==input.modelId || replay.currency!==input.currency || replay.price_version!==input.priceVersion || (replay.logical_call_id??null)!==(input.logicalCallId??null) || (replay.logical_attempt??null)!==(input.logicalAttempt??null) || (replay.maximum_attempts??null)!==(input.maximumAttempts??null)) throw new Error("AI_RESERVATION_REPLAY_MISMATCH");
     return {decision:"allowed" as const,replay:true,reservationState:replay.state};
@@ -84,9 +98,9 @@ export class PgAiAdmissionRepository implements AiAdmissionPort,AiBudgetPolicyPo
       (count(*) FILTER(WHERE ((e.currency IS DISTINCT FROM $5 AND e.cost_micros IS NOT NULL) OR (e.cost_micros IS NULL AND NOT EXISTS(SELECT 1 FROM ai_request_reservations r WHERE r.id=e.id AND r.org_id=e.org_id AND r.state='held'))))
        + (SELECT count(*) FROM model_request_starts pending WHERE pending.org_id=$1 AND pending.user_id=$2
         AND pending.started_at>=$3 AND pending.started_at<$4
-        AND NOT EXISTS(SELECT 1 FROM token_usage_events terminal WHERE terminal.id=pending.id AND terminal.org_id=pending.org_id)
+        AND NOT EXISTS(SELECT 1 FROM effective_token_usage() terminal WHERE terminal.id=pending.id AND terminal.org_id=pending.org_id)
         AND NOT EXISTS(SELECT 1 FROM ai_request_reservations reserved WHERE reserved.id=pending.id AND reserved.org_id=pending.org_id AND reserved.user_id=pending.user_id AND reserved.state='held')))::text AS unknown_cost
-     FROM token_usage_events e WHERE e.org_id=$1 AND e.user_id=$2
+     FROM effective_token_usage() e WHERE e.org_id=$1 AND e.user_id=$2
       AND COALESCE(e.request_started_at,e.occurred_at)>=$3 AND COALESCE(e.request_started_at,e.occurred_at)<$4`,
      [orgId,input.userId,input.windowStart,input.windowEnd,input.currency]);
    if(BigInt(used.rows[0]!.unknown_cost)>0n) return {decision:"COST_LIMIT_UNCONFIGURED" as const,replay:false};
@@ -94,19 +108,45 @@ export class PgAiAdmissionRepository implements AiAdmissionPort,AiBudgetPolicyPo
    const held=await s.query<{tokens:string;cost:string}>(`SELECT
       COALESCE(sum(GREATEST(r.maximum_tokens,COALESCE(e.tokens_total,0))) FILTER(WHERE r.state='held'),0)::text AS tokens,
       COALESCE(sum(GREATEST(r.maximum_cost_micros,CASE WHEN e.currency=r.currency THEN COALESCE(e.cost_micros,0) ELSE 0 END)) FILTER(WHERE r.state='held'),0)::text AS cost
-     FROM ai_request_reservations r LEFT JOIN token_usage_events e ON e.id=r.id AND e.org_id=r.org_id
+     FROM ai_request_reservations r LEFT JOIN effective_token_usage() e ON e.id=r.id AND e.org_id=r.org_id
       WHERE r.org_id=$1 AND r.user_id=$2 AND r.window_start=$3 AND r.window_end=$4`,
      [orgId,input.userId,input.windowStart,input.windowEnd]);
    const totals=held.rows[0]!;
    const decision=decideAiAdmission({plan,tokenLimit:budget.token_limit===null?null:BigInt(budget.token_limit),
     costLimitMicros:BigInt(budget.cost_limit_micros),usedTokens:BigInt(used.rows[0]!.tokens),heldTokens:BigInt(totals.tokens),
     usedCostMicros:BigInt(used.rows[0]!.cost),heldCostMicros:BigInt(totals.cost)},input.maximumTokens,input.maximumCostMicros);
-   if(decision!=="allowed") return {decision,replay:false};
+   // A cheaper bounded candidate may fit a remaining budget; exhausted absolute
+   // budgets never enter degradation. Every next candidate still reserves independently.
+   if(plan==="ordinary"&&budget.token_limit!==null&&BigInt(used.rows[0]!.tokens)+BigInt(totals.tokens)>=BigInt(budget.token_limit))
+    return {decision:"TOKEN_LIMIT_REACHED" as const,replay:false};
+   if(BigInt(used.rows[0]!.cost)+BigInt(totals.cost)>=BigInt(budget.cost_limit_micros))
+    return {decision:"COST_LIMIT_REACHED" as const,replay:false};
+   let tokenWarning=false;
+   if(input.tokenPolicy){
+    const snapshots=await s.query<{configuration:unknown}>("SELECT configuration FROM organization_ai_policy_changes WHERE org_id=$1 AND price_version=$2",[orgId,input.priceVersion]);
+    if(snapshots.rows.length!==1)throw new Error("AI_RESERVED_PRICE_SNAPSHOT_UNAVAILABLE");
+    const configured=Configuration.parse(snapshots.rows[0]!.configuration);
+    const selected=configured.prices.find(row=>row.modelId===input.tokenPolicy!.selectedModelId);
+    if(!selected||(input.formalModelId!==undefined&&input.formalModelId!==selected.modelId)||selected.modelProvider!==input.modelProvider||selected.runtimeModelId!==input.modelId)throw new Error("AI_PRICE_POLICY_MISMATCH");
+    const threshold=evaluateAiTokenThresholds(configured,plan,BigInt(used.rows[0]!.tokens)+BigInt(totals.tokens));
+    tokenWarning=threshold.warning;
+    if(plan==="ordinary"&&configured.tokenControls?.enforceLimitRules===true){
+     if(!input.formalModelId)throw new Error("AI_FORMAL_MODEL_ID_REQUIRED");
+     const rule=await evaluateAtomicAiLimitRules(this.db,s,orgId,input,configured.fallbackModelIds.filter(id=>isStrictlyCheaperAiModel(configured,input.tokenPolicy!.primaryModelId,id)));
+     if(rule.decision!=="allowed")return {...rule,replay:false};
+     tokenWarning=tokenWarning||rule.tokenWarning===true;
+    }
+    if(threshold.degrade&&input.tokenPolicy.allowDegradation){
+     if(input.tokenPolicy.selectedModelId===input.tokenPolicy.primaryModelId)return {decision:"AI_TOKEN_DEGRADE_REQUIRED" as const,replay:false};
+     if(!configured.fallbackModelIds.includes(input.tokenPolicy.selectedModelId)||!isStrictlyCheaperAiModel(configured,input.tokenPolicy.primaryModelId,input.tokenPolicy.selectedModelId))throw new Error("AI_QUOTA_FALLBACK_NOT_CHEAPER");
+    }
+   }
+   if(decision!=="allowed")return {decision,replay:false};
    await s.query(`INSERT INTO ai_request_reservations(id,org_id,user_id,window_start,window_end,
-    maximum_tokens,maximum_cost_micros,model_provider,model_id,currency,price_version,logical_call_id,logical_attempt,maximum_attempts)
-    VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)`,[input.requestId,orgId,input.userId,input.windowStart,input.windowEnd,
-     input.maximumTokens.toString(),input.maximumCostMicros.toString(),input.modelProvider,input.modelId,input.currency,input.priceVersion,input.logicalCallId??null,input.logicalAttempt??null,input.maximumAttempts??null]);
-   return {decision,replay:false,reservationState:"held" as const};
+    maximum_tokens,maximum_cost_micros,model_provider,model_id,currency,price_version,logical_call_id,logical_attempt,maximum_attempts,formal_model_id,agent_id)
+    VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)`,[input.requestId,orgId,input.userId,input.windowStart,input.windowEnd,
+     input.maximumTokens.toString(),input.maximumCostMicros.toString(),input.modelProvider,input.modelId,input.currency,input.priceVersion,input.logicalCallId??null,input.logicalAttempt??null,input.maximumAttempts??null,input.formalModelId??null,input.agentId??null]);
+   return {decision,replay:false,reservationState:"held" as const,tokenWarning};
   });
  }
  async readReservedPrice(orgId:OrgId,requestId:string):ReturnType<AiReservedPricePort["readReservedPrice"]>{
@@ -132,6 +172,7 @@ export class PgAiAdmissionRepository implements AiAdmissionPort,AiBudgetPolicyPo
    const key=await s.query<{user_id:string;window_start:Date;window_end:Date}>("SELECT user_id,window_start,window_end FROM ai_request_reservations WHERE id=$1",[requestId]);
    if(!key.rows[0]) throw new Error("AI_RESERVATION_NOT_FOUND");
    const k=key.rows[0];
+   await s.query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))",[JSON.stringify(["ai-limit-rules",String(orgId)])]);
    await s.query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))",[JSON.stringify([String(orgId),k.user_id,k.window_start.toISOString(),k.window_end.toISOString()])]);
    const row=await s.query<{state:string;settled_tokens:string|null;settled_cost_micros:string|null;currency:string;price_version:string;model_provider:string;model_id:string}>("SELECT state,settled_tokens,settled_cost_micros,currency,price_version,model_provider,model_id FROM ai_request_reservations WHERE id=$1 FOR UPDATE",[requestId]);
    if(row.rows[0]!.state==="settled"){
@@ -140,7 +181,7 @@ export class PgAiAdmissionRepository implements AiAdmissionPort,AiBudgetPolicyPo
    }
    if(usage.tokens===null || usage.costMicros===null) return; // Retain conservative hold, never invent a free failed request.
    // Settlement requires a matching authoritative ledger terminal; otherwise releasing tokens could oversell.
-   const receipt=await s.query<{tokens_total:string;total_source:string;cost_micros:string|null;currency:string;price_version:string;user_id:string;model_provider:string;model_id:string;request_time:Date}>("SELECT tokens_total,total_source,cost_micros,currency,price_version,user_id,model_provider,model_id,COALESCE(request_started_at,occurred_at) AS request_time FROM token_usage_events WHERE id=$1 AND org_id=$2",[requestId,orgId]);
+   const receipt=await s.query<{tokens_total:string;total_source:string;cost_micros:string|null;currency:string;price_version:string;user_id:string;model_provider:string;model_id:string;request_time:Date}>("SELECT tokens_total,total_source,cost_micros,currency,price_version,user_id,model_provider,model_id,COALESCE(request_started_at,occurred_at) AS request_time FROM effective_token_usage() WHERE id=$1 AND org_id=$2",[requestId,orgId]);
    if(!receipt.rows[0] || receipt.rows[0].total_source!=="reported" || BigInt(receipt.rows[0].tokens_total)!==usage.tokens || receipt.rows[0].cost_micros===null
      || BigInt(receipt.rows[0].cost_micros)!==usage.costMicros || receipt.rows[0].user_id!==k.user_id || receipt.rows[0].currency!==row.rows[0]!.currency
      || receipt.rows[0].price_version!==row.rows[0]!.price_version
@@ -149,4 +190,73 @@ export class PgAiAdmissionRepository implements AiAdmissionPort,AiBudgetPolicyPo
    await s.query("UPDATE ai_request_reservations SET state='settled',settled_tokens=$2,settled_cost_micros=$3,settled_at=now() WHERE id=$1",[requestId,usage.tokens.toString(),usage.costMicros.toString()]);
   });
  }
+}
+
+interface Rule {id:string;scope_kind:LimitScopeKind;scope_ref:string;model_id:string|null;window_kind:string;threshold_tokens:string;action:LimitAction;degrade_to_model_id:string|null;}
+export interface AiRuleResult {decision:AiAdmissionDecision;tokenWarning?:boolean;degradeToModelId?:string;}
+/** Called only under the shared org rule lock, in the reservation transaction.
+ * Rules remain mutable; each physical decision retains its exact input and event.
+ */
+export async function evaluateAtomicAiLimitRules(db:DatabasePort,s:TenantSession,org:OrgId,input:AiReservationInput,authorizedDegradeTargets:readonly string[]):Promise<AiRuleResult>{
+ const fingerprint=JSON.stringify({...input,maximumTokens:input.maximumTokens.toString(),maximumCostMicros:input.maximumCostMicros.toString()});
+ const previous=(await s.query<{input:unknown;result:AiRuleResult}>("SELECT input,result FROM ai_limit_rule_decisions WHERE org_id=$1 AND request_id=$2",[org,input.requestId])).rows[0];
+ if(previous){if(!isDeepStrictEqual(previous.input,JSON.parse(fingerprint)))throw new Error("AI_LIMIT_RULE_REPLAY_MISMATCH");return previous.result;}
+ const remember=async(result:AiRuleResult,eventId:string|null=null)=>{
+  await s.query("INSERT INTO ai_limit_rule_decisions(org_id,request_id,input,result,event_id) VALUES($1,$2,$3::jsonb,$4::jsonb,$5)",[org,input.requestId,fingerprint,JSON.stringify(result),eventId]);
+  return result;
+ };
+ // Ordinary row locks also serialize existing member-role writers without a new permission system.
+ const memberships=await s.query<{user_id:string;org_role:string;team_id:string|null}>("SELECT user_id,org_role,team_id FROM org_memberships WHERE org_id=$1 ORDER BY user_id FOR SHARE",[org]);
+ const membership=memberships.rows.find(row=>row.user_id===input.userId);
+ if(!membership)throw new Error("AI_SUBJECT_NOT_MEMBER");
+ const rules=await s.query<Rule>(`SELECT id,scope_kind,scope_ref,model_id,window_kind,threshold_tokens,action,degrade_to_model_id
+  FROM limit_rules WHERE org_id=$1 AND enabled ORDER BY id FOR SHARE`,[org]);
+ if(input.agentId===undefined&&rules.rows.some(rule=>rule.scope_kind==="agent"))throw new Error("AI_AGENT_SCOPE_UNVERIFIED");
+ const evaluated=[];
+ for(const rule of rules.rows){
+  const matches=rule.scope_kind==="member"?rule.scope_ref===input.userId
+   :rule.scope_kind==="role"?rule.scope_ref===membership.org_role
+   :rule.scope_kind==="team"?rule.scope_ref===membership.team_id
+   :rule.scope_kind==="agent"?rule.scope_ref===input.agentId:rule.scope_ref===input.formalModelId;
+  if(!matches||(rule.model_id!==null&&rule.model_id!==input.formalModelId))continue;
+  // Existing window definitions, made explicitly UTC independent of connection TZ.
+  const since=rule.window_kind==="hour"?"now()-interval '1 hour'"
+   :rule.window_kind==="day"?"date_trunc('day',now() AT TIME ZONE 'UTC') AT TIME ZONE 'UTC'"
+   :rule.window_kind==="week"?"date_trunc('week',now() AT TIME ZONE 'UTC') AT TIME ZONE 'UTC'"
+   :rule.window_kind==="month"?"date_trunc('month',now() AT TIME ZONE 'UTC') AT TIME ZONE 'UTC'":null;
+  if(!since)throw new Error("INVALID_LIMIT_RULE_WINDOW");
+  const scope=rule.scope_kind==="member"?"c.user_id=$2":rule.scope_kind==="role"?"m.org_role=$2"
+   :rule.scope_kind==="team"?"m.team_id=$2":rule.scope_kind==="agent"?"(c.agent_id=$2 OR c.agent_id IS NULL)":"(c.formal_model_id=$2 OR c.formal_model_id IS NULL)";
+  const observed=(await s.query<{tokens:string;unknown:string}>(`WITH counters AS (
+   SELECT e.user_id,e.agent_id,prices.formal_model_id,e.tokens_total AS tokens,e.total_source='unknown' AS unknown,
+    COALESCE(e.request_started_at,e.occurred_at) AS at,false AS held FROM effective_token_usage() e
+    LEFT JOIN LATERAL (SELECT p->>'modelId' AS formal_model_id FROM organization_ai_policy_changes a,
+     LATERAL jsonb_array_elements(a.configuration->'prices') p WHERE a.org_id=e.org_id AND a.price_version=e.price_version
+     AND p->>'modelProvider'=e.model_provider AND p->>'runtimeModelId'=e.model_id LIMIT 1) prices ON true
+    WHERE e.org_id=$1 AND NOT EXISTS(SELECT 1 FROM ai_request_reservations r WHERE r.org_id=e.org_id AND r.id=e.id AND r.state='held')
+   UNION ALL SELECT r.user_id,r.agent_id,r.formal_model_id,GREATEST(r.maximum_tokens,COALESCE(e.tokens_total,0)),false,r.created_at,true
+    FROM ai_request_reservations r LEFT JOIN effective_token_usage() e ON e.org_id=r.org_id AND e.id=r.id
+    WHERE r.org_id=$1 AND r.state='held'
+   UNION ALL SELECT pending.user_id,pending.agent_id,NULL::text,0::bigint,true,pending.started_at,true
+    FROM model_request_starts pending WHERE pending.org_id=$1
+     AND NOT EXISTS(SELECT 1 FROM effective_token_usage() e WHERE e.org_id=pending.org_id AND e.id=pending.id)
+     AND NOT EXISTS(SELECT 1 FROM ai_request_reservations r WHERE r.org_id=pending.org_id AND r.id=pending.id AND r.state='held')
+  ) SELECT COALESCE(sum(c.tokens),0)::text AS tokens,count(*) FILTER(WHERE c.unknown)::text AS unknown
+   FROM counters c LEFT JOIN org_memberships m ON m.org_id=$1 AND m.user_id=c.user_id
+   WHERE (c.held OR c.at>=${since}) AND ${scope} AND ($3::text IS NULL OR c.formal_model_id=$3 OR c.formal_model_id IS NULL)`,[org,rule.scope_ref,rule.model_id])).rows[0]!;
+  if(BigInt(observed.unknown)>0n)return remember({decision:"TOKEN_LIMIT_UNCONFIGURED"});
+  evaluated.push({...rule,ruleId:rule.id,thresholdTokens:BigInt(rule.threshold_tokens),observedTokens:BigInt(observed.tokens)+input.maximumTokens,enabled:true});
+ }
+ const triggered=pickFirstTriggeredExact(evaluated);if(!triggered)return remember({decision:"allowed"});
+ const canDegrade=input.tokenPolicy?.allowDegradation===true&&authorizedDegradeTargets.includes(triggered.degrade_to_model_id??"");
+ const result:AiRuleResult=triggered.action==="warn"?{decision:"allowed",tokenWarning:true}
+  :triggered.action==="block"?{decision:"AI_LIMIT_RULE_BLOCKED"}
+  :triggered.action==="require_approval"?{decision:"AI_LIMIT_APPROVAL_REQUIRED"}
+  :!canDegrade?{decision:"AI_LIMIT_RULE_BLOCKED"}
+  :input.formalModelId===triggered.degrade_to_model_id?{decision:"allowed",tokenWarning:true}
+  :{decision:"AI_TOKEN_DEGRADE_REQUIRED",degradeToModelId:triggered.degrade_to_model_id!};
+ // Immutable decision and ordinary F162 audit event commit together; no nested pool checkout.
+ const eventId=await new PgLimitRuleRepository(db).recordEvent(org,{ruleId:triggered.id,scopeKind:triggered.scope_kind,
+  subjectRef:triggered.scope_ref,actionTaken:triggered.action==="degrade"&&!canDegrade?"block":triggered.action,observedTokens:triggered.observedTokens,thresholdTokens:triggered.thresholdTokens},s);
+ return remember(result,eventId);
 }

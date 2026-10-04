@@ -16,7 +16,7 @@ function fixture(child=false){
   if(sql.includes("FROM organization_ai_policies"))return {rows:[{configuration:config,price_version:"audited-v1",updated_by:"operator"}]};
   if(sql.includes(" AS active"))return {rows:[{active:true}]};
   if(sql.includes("SELECT token_limit"))return {rows:[{token_limit:"100",cost_limit_micros:"100",currency:"CNY",price_version:"audited-v1"}]};
-  if(sql.includes("FROM token_usage_events"))return {rows:[{tokens:"0",cost:"0",unknown_tokens:"0",unknown_cost:"0"}]};
+  if(sql.includes("FROM effective_token_usage()"))return {rows:[{tokens:"0",cost:"0",unknown_tokens:"0",unknown_cost:"0"}]};
   if(sql.includes("COALESCE(sum(GREATEST(r.maximum_tokens"))return {rows:[{tokens:"0",cost:"0"}]};
   if(sql.includes("INSERT INTO model_request_starts"))return {rows:[{id:requestId}]};
   return {rows:[]};

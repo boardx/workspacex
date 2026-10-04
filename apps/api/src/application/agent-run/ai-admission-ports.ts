@@ -10,6 +10,9 @@ export interface AiBudgetPolicyPort {
 }
 export interface AiReservationInput {
  readonly requestId: string; readonly userId: string;
+ readonly formalModelId?:string;readonly agentId?:string|null;
+ /** Original trusted classification and formal model IDs, verified against immutable policy. */
+ readonly tokenPolicy?:{readonly primaryModelId:string;readonly selectedModelId:string;readonly allowDegradation:boolean};
  /** Trusted stable logical call + bounded real attempt slot; all three present together. */
  readonly logicalCallId?:string;readonly logicalAttempt?:number;readonly maximumAttempts?:number;
  readonly windowStart: string; readonly windowEnd: string;
@@ -20,7 +23,7 @@ export interface AiReservationInput {
 export interface AiAdmissionPort {
  /** replay=true MUST resume the existing request/receipt; never dispatch a new provider call. */
  reserve(orgId: OrgId, input: AiReservationInput): Promise<{
-  readonly decision: AiAdmissionDecision; readonly replay: boolean; readonly reservationState?: "held" | "settled";
+  readonly decision: AiAdmissionDecision; readonly replay: boolean; readonly reservationState?: "held" | "settled"; readonly tokenWarning?:boolean;readonly degradeToModelId?:string;
  }>;
  /** Unknown charges retain the entire hold; only authoritative known settlement releases it. */
  settle(orgId: OrgId, requestId: string, usage: {

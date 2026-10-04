@@ -87,3 +87,87 @@ Ledger_review implemented the root assembly helpers; /root owns repository proje
 Source mapping of the requested four classes is locally verified4/4. Authoritative classification is still missing4/4: no field/schema/permission was invented to classify original messages, standalone chat attachment blobs, pinned instruction/Skill content or summary ancestors as public. Generated-summary main-input metadata exists, but its auxiliary actual call/CAS acceptance remains pending. Other known root providers (template guidance, L3 file hits, tool traces, KG/memory, vision, interjection, resume, artifact continuation) remain individually listed in the canonical localIterationChecklist of coverage.json. This source-only case is not all-provider or remote-dispatch completion.
 
 Frozen ebf9 backend37179956329 and harness37179956348 both success. Backend logs explicitly show artifact-index-producer-real-db13/13, and historical attachment-history-sql3/3; those runs precede the new attachment row-ID projection and new negative assertions. No DB was started locally. The newly introduced thin-gateway size failure1409>1393 was fixed by extracting actual attachment/summary/source assembly responsibilities, retaining existing behavior and the original threshold; execute-run now1392 physical lines.
+
+
+## Core acceptance convergence — 2026-10-04 06:14 UTC (local next batch)
+
+The previous36-item provenance checklist is historical evidence, not36 independent required features. Do not implement a second confidentiality authority. Existing I-12 route and ResolveModelConstraint remain authoritative. Local chat/input-only decisions now reuse decideModelRoute: unknown can use compliant primary self-hosted, never cloud; confidential/unknown quota fallback remains disabled under I-21. Three focused files21/21 pass; independent review/full integration pending, no push.
+
+One complete PR, six deduplicated work packages:
+
+1. **Shared policy (owner /root):** reuse authoritative member monthly UTC quota through an explicit compatible-window policy; add configured warning/degrade/final-stop semantics, separate Token/cost budgets and user-visible selection. Preserve existing values/unconfigured state. Never enable old85/90 thresholds implicitly. A cheaper model does not bypass a Token hard stop. Shared contracts/migrations/kernel have one writer.
+2. **Receipt correction and recovery (owner /root):** original logical operation differs from every physical attempt; same-body independent attempts count independently. Immutable correction links original request/subject, replay/ordering rules, one effective call projection for all summaries/reservations. Unknown-to-reported late callbacks must reach that path. Reuse durable intents/outbox for native recovery, not per-provider locks. Current same-ID DO NOTHING does not implement correction.
+3. **First positive chain (owner /root with /root/ledger_review):** configured actual root executor -> real HTTP substitute -> trusted owner policy/reservation -> terminal/correction -> real isolated PG -> usage UI. Include ordinary exhaustion, enterprise Token exemption/finite-cost denial, authorized cheap downgrade, unknown compliant self-hosted and cloud/cross-tenant negatives. Pure unknown refusal tests alone are insufficient.
+4. **Python/retrieval adapters (integration owner /root):** reuse existing physical callbacks/durable intent and shared policy; warmup hook must be written with explicit configurable service identity. No body-hash global dedup. Child source/SDK mapping owner /root/ledger_review, own subtask-run-executor and ai-runtime-wiring; no new classification schema.
+5. **Native adapters (owner /root):** OpenAI/Bailian image, ASR and local trial actual transport admission/receipts with native units; reuse existing putOnce operation IDs and shared recovery. personal-local trial must not invent a formal organization plan or price. Opaque external research boundary must remain explicit until actual version/source is verified.
+6. **Analytics/operator acceptance (owner /root):** effective corrected ledger -> personal/org/platform intersections/detail/trends, actual operator screen evidence and permission negatives in an existing isolated environment. Coordinate environment separately, do not change grants or compete with release resources.
+
+Implementation priority1–3 before additional provenance governance. Packages4–6 may use disjoint adapter/UI files after the shared protocol stabilizes; /root integrates contracts/migration/kernel/ledger. No reliable revised total active-hours estimate yet; measure each completed batch, excluding CI/environment waiting. Prior35–60h withdrawn.
+
+
+## Agent backlog status supplement — 2026-10-04, after executor reconnect
+
+This supplements the six existing packages; it creates no new project. Estimates below are conditional engineering ranges for the named next deliverable, excluding CI/environment waiting, not a whole-PR completion promise. Sole shared contracts/migrations/kernel/ledger writer remains /root. No new code, dispatch, deployment or permission authorization is implied by this plan.
+
+Latest actual execution: executor reconnected and successfully read this file and git status. The previously launched complete usage-unit suite has no recovered terminal result. Last verified coordinator run was17/17 and API typecheck exit0 reported by ledger_review; UI9/9 was verified earlier. Remote4831ec1 CI is green; localc1e1b03 remains unpushed. All current next-batch changes remain uncommitted. The positive-chain warning edit was attempted during disconnection and still requires file inspection. No database/Docker/production mutation occurred.
+
+### B1 — Shared policy / atomic rule enforcement
+- Problem/input: configurable member UTC-month authority and warning/degrade source exist locally; existing F162 LimitRule evaluation and recordEvent are not yet connected to the same atomic admission. Inputs: audited policy snapshot, original org/user, used+held counters and existing rule repository.
+- Minimum next action: inspect latest warning tests, finish current-batch checks, then connect existing rule evaluation/event recording inside admission transaction without implicit85/90 defaults.
+- Sole writer: /root for production shared files. Reviewer: /root/ledger_review. Its next backlog is independently review atomic rule ordering and hard-stop/cost negatives; tests it owns must not edit shared production files.
+- Dependencies/parallel: current contracts and lock ordering first; UI presentation B6 can proceed against fixed contracts, no parallel shared-file writer.
+- Evidence/failure: real-PG concurrent reservations and rule-event exact-once; configured warning before HTTP; enterprise product exemption still finite cost. Oversell, duplicate event, changed legacy quota or warning after dispatch fails acceptance.
+- Conditional effort:4–8h for rule connection/tests after existing transaction contract stabilizes.
+- Status/next deliverable: policy/coordinator source partially implemented,17/17 mocked cases; F162 live integration not done. Next is reviewed current-batch commit, followed by an atomic-rule source/test delta.
+
+### B2 — Receipt corrections / recovery
+- Problem/input: immutable unknown-to-reported enrichment and effective projection are locally authored; already-settled reported-value corrections and Python same-ID journal replay remain missing. Inputs: physical request identity, original subject/window/price and trusted supplier revision evidence.
+- Minimum next action: run authored migration/enrichment PG cases in normal isolated CI; define trusted revision and adjustment rules before allowing settled corrections.
+- Sole writer: /root production protocol/migration. Reviewer: /root/ledger_review; its test backlog is four authored PG cases, correction/replay/RLS review and CI failure triage.
+- Dependencies/parallel: B1 shares repository and needs sequential integration; Python/native recovery consumes stable protocol and can use disjoint adapter files afterward.
+- Evidence/failure: base immutable, one effective call, prior asOf unchanged, unknown hold settles once under original price, concurrent enrichments merge or reject deterministically. Double charge, lost correction, tenant leak, stuck hold after valid complete receipt fails.
+- Conditional effort:2–4h CI hardening of current enrichment;6–12h for trusted settled-adjustment protocol after revision authority is agreed; deployment durability acceptance excluded.
+- Status/next deliverable: migration/source and4 PG cases authored, not locally DB-executed. Next is CI-backed enrichment commit; settled replacement remains unimplemented, not blocked merely by quota amounts.
+
+### B3 — Actual positive chain
+- Problem/input: five real-HTTP/PG coordinator tests authored, but do not execute actual root queue/lease pipeline. Warning fixture edit is unconfirmed after disconnect; report cutoff truncates sub-millisecond precision. Inputs: actual root executor, fake provider transport, isolated PG and existing run fixtures.
+- Minimum next action: inspect warning capture on disk, add a database-clock barrier to fixture if necessary, run typecheck and normal CI, then extend through actual executeQueuedRuns/lease.
+- Sole writer: /root/positive_chain for its test file only. Reviewer: /root. Agent backlog: warning-before-dispatch assertions, deterministic cutoff, actual-root integration fixture and ordinary/enterprise/route/tenant negatives.
+- Dependencies/parallel: B1/B2 protocol fixed before actual root acceptance; disjoint test work can parallel independent ledger review.
+- Evidence/failure: real HTTP counts/models tied to real PG holds/receipts, quota denial0 HTTP, enterprise finite-cost denial, cheaper authorized selection, unknown self-hosted permitted/cloud rejected, wrong tenant denied. Mock coordinator only is not root acceptance; missing warning, extra HTTP or wrong price fails.
+- Conditional effort:1–3h current fixture/CI hardening;4–8h actual root queue integration if reusable fixture and isolated CI are available.
+- Status/next deliverable:5 tests source-authored, no PG run; latest edit/checks interrupted by transport. Next is inspected/typechecked fixture and CI result with exact test count.
+
+### B4 — Python / retrieval
+- Problem/input: actual SDK accounting/durable intents exist, but policy selection/degradation, same-ID late payload journal handling, warmup owner and transformed embedding proof are incomplete.
+- Minimum next action: map shared B1/B2 decisions into existing callback/journal; implement configurable warmup hook without inventing service owner or production price.
+- Sole writer: /root adapter production files. Reviewer: /root/ledger_review. Child provenance agent work is locally implemented and reviewed; its remaining acceptance is actual child executor/final SDK HTTP with own epoch and cancellation negatives.
+- Dependencies/parallel: B1/B2 stable; native/UI disjoint files can parallel. Warmup activation needs exact service-owner/business configuration; default-off hook coding does not.
+- Evidence/failure: intercepted actual SDK retries/batches each reserve/start/terminal once, zero remote dispatch on forbidden route, process-death/late replay reconciles, same-body independent operations stay distinct. Envelope-only receipt, global body dedup or fabricated owner fails.
+- Conditional effort:6–12h next SDK policy/journal batch after protocol stabilization; wider retrieval acceptance estimated separately after transport inventory.
+- Status/next deliverable: partial source and prior local tests; listed gaps not implemented. Next is SDK late-replay/policy source and transport tests.
+
+### B5 — Native transports
+- Problem/input: image/ASR/local receipt subsets exist; native-unit finite-cost admission, cross-process repair and Bailian actual hooks incomplete; research version/source unknown.
+- Minimum next action: choose existing image transport as first native consumer of shared reservation/receipt protocol, preserving putOnce operation identities and explicit unknown billed units.
+- Sole writer: /root adapter files. Reviewer: /root/ledger_review. No additional agent currently owns this package.
+- Dependencies/parallel: B2 recovery contract and verified unit-bound registration; separate adapters may parallel only with nonoverlapping ownership assigned later.
+- Evidence/failure: actual loopback cancel/fail/reconnect and process-death tests, finite enterprise cost, unknown-unit hold, no envelope double count. Estimated PCM mistaken for billed Tokens, invented personal-local plan or unhooked research coverage fails.
+- Conditional effort:4–8h first image admission/repair slice after bounds contract; remaining adapters require per-adapter estimates after inventory.
+- Status/next deliverable: receipt subsets implemented; admission/recovery gaps not done. Missing verified deployment units/owner are configuration dependencies; no authority to deploy or invent them. Next is one actual native transport slice.
+
+### B6 — Analytics / operator UI acceptance
+- Problem/input: UI quota controls9/9 and analytics effective-projection source exist locally; authenticated live operator walkthrough and corrected-ledger acceptance remain missing.
+- Minimum next action: /root/policy_ui review latest shared contract against UI and retain controls/default-off tests; obtain existing isolated PR environment and normal operator session via parent, then capture relevant screens.
+- Sole writer: /root/policy_ui UI/test files; /root analytics repositories (sequential shared ledger ownership). Reviewer: /root for UI, /root/ledger_review for analytics.
+- Dependencies/parallel: UI tests parallel B1/B2 on fixed contract; screenshots depend on authorized environment/session and cannot use fixture as deployed evidence.
+- Evidence/failure: empty organizations, search/pagination, plan edits/audit, explicit unconfigured ordinary limits, corrected usage intersections and foreign-tenant negatives. Missing operator role,404 route, contradictory cost exemption text or fixture-only screenshots fails.
+- Conditional effort:1–3h UI/check hardening;2–4h walkthrough after environment/session exists, excluding setup/waiting.
+- Status/next deliverable: UI9/9 and web typecheck previously passed. Existing listener returned404 and no browser debugging/session was available; missing environment access, not authorized to grant/create accounts/deploy. Next is reviewed UI commit and actual screenshot evidence when parent supplies access.
+
+All three child agents now have explicit pending work above: ledger_review B1/B2/B4/B5 review/test responsibilities; positive_chain B3 test responsibilities; policy_ui B6 UI/acceptance responsibilities. Review assignment is separate from writing and does not authorize concurrent mutation of shared files. The full PR remains incomplete; plans and conditional hours are not completion evidence.
+
+
+### B1 implementation checkpoint — 2026-10-04 local, after reconnect
+
+Actual atomic F162 source is now connected inside the existing guarded admission repository, with explicit enforceLimitRules only; it is no longer merely the proposed pure evaluator. Exact integer3tests and atomic helper6tests exist; UI12/12, targeted45/45, API typecheck and normal lint pass. Shared lock order/root fixes were independently re-reviewed with no new source blocker in inspected paths. PG/HTTP acceptance cases are authored and pending; normal commit/push/CI not yet completed. B1 is source-implemented/acceptance-pending, not finished. B2 settled reported adjustment, B4 Python warning/degradation/journal and B5 native admission/recovery remain unimplemented. Mandatory actual screenshots and their precise missing environment/session/browser inputs are recorded in verification.md. Prior conditional total40–80h is a planning budget, not measured completion time; it does not authorize research-platform expansion.

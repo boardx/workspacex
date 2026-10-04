@@ -19,7 +19,7 @@
  *   **不假装它是 0% 用量**——那会让一条永远不会触发的规则看起来在正常工作。
  */
 import { randomUUID } from "node:crypto";
-import type { DatabasePort } from "../../application/ports/database.port";
+import type { TenantSession, DatabasePort } from "../../application/ports/database.port";
 import type { OrgId } from "../../domain/org-id";
 import {
   DegradeTargetRequiredError, LimitRuleNotFoundError,
@@ -66,23 +66,23 @@ export class PgLimitRuleRepository implements LimitRuleRepository {
         let sql: string | null = null;
         switch (r.scope_kind as LimitScopeKind) {
           case "member":
-            sql = `SELECT SUM(e.tokens_total) AS total FROM token_usage_events e
+            sql = `SELECT SUM(e.tokens_total) AS total FROM effective_token_usage() e
                     WHERE e.org_id = $1 AND e.user_id = $2
                       AND e.occurred_at >= ${since}${modelPredicate}`;
             break;
           case "model":
-            sql = `SELECT SUM(e.tokens_total) AS total FROM token_usage_events e
+            sql = `SELECT SUM(e.tokens_total) AS total FROM effective_token_usage() e
                     WHERE e.org_id = $1 AND e.model_id = $2
                       AND e.occurred_at >= ${since}`;
             break;
           case "role":
-            sql = `SELECT SUM(e.tokens_total) AS total FROM token_usage_events e
+            sql = `SELECT SUM(e.tokens_total) AS total FROM effective_token_usage() e
                      JOIN org_memberships m ON m.user_id = e.user_id AND m.org_id = e.org_id
                     WHERE e.org_id = $1 AND m.org_role = $2
                       AND e.occurred_at >= ${since}${modelPredicate}`;
             break;
           case "team":
-            sql = `SELECT SUM(e.tokens_total) AS total FROM token_usage_events e
+            sql = `SELECT SUM(e.tokens_total) AS total FROM effective_token_usage() e
                      JOIN org_memberships m ON m.user_id = e.user_id AND m.org_id = e.org_id
                     WHERE e.org_id = $1 AND m.team_id = $2
                       AND e.occurred_at >= ${since}${modelPredicate}`;
@@ -122,6 +122,7 @@ export class PgLimitRuleRepository implements LimitRuleRepository {
     }
     const id = randomUUID();
     await this.db.withTenant(orgId, async (s) => {
+      await s.query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))",[JSON.stringify(["ai-limit-rules",String(orgId)])]);
       await s.query(
         `INSERT INTO limit_rules
            (id, org_id, scope_kind, scope_ref, model_id, window_kind, threshold_tokens,
@@ -139,6 +140,7 @@ export class PgLimitRuleRepository implements LimitRuleRepository {
 
   async updateRule(orgId: OrgId, ruleId: string, input: UpdateLimitRuleInput): Promise<void> {
     await this.db.withTenant(orgId, async (s) => {
+      await s.query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))",[JSON.stringify(["ai-limit-rules",String(orgId)])]);
       const existing = await s.query<{ action: string; degrade_to_model_id: string | null }>(
         "SELECT action, degrade_to_model_id FROM limit_rules WHERE org_id=$1 AND id=$2 FOR UPDATE",
         [orgId, ruleId],
@@ -171,6 +173,7 @@ export class PgLimitRuleRepository implements LimitRuleRepository {
 
   async deleteRule(orgId: OrgId, ruleId: string): Promise<void> {
     await this.db.withTenant(orgId, async (s) => {
+      await s.query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))",[JSON.stringify(["ai-limit-rules",String(orgId)])]);
       const res = await s.query<{ id: string }>(
         "DELETE FROM limit_rules WHERE org_id=$1 AND id=$2 RETURNING id", [orgId, ruleId],
       );
@@ -209,12 +212,13 @@ export class PgLimitRuleRepository implements LimitRuleRepository {
     orgId: OrgId,
     input: {
       readonly ruleId: string; readonly scopeKind: LimitScopeKind; readonly subjectRef: string;
-      readonly actionTaken: LimitAction; readonly observedTokens: number;
-      readonly thresholdTokens: number;
+      readonly actionTaken: LimitAction; readonly observedTokens: number|bigint;
+      readonly thresholdTokens: number|bigint;
     },
+    session?: TenantSession,
   ): Promise<string> {
     const id = randomUUID();
-    await this.db.withTenant(orgId, async (s) => {
+    const write = async (s:TenantSession) => {
       await s.query(
         `INSERT INTO limit_events
            (id, org_id, rule_id, scope_kind, subject_ref, action_taken,
@@ -222,10 +226,11 @@ export class PgLimitRuleRepository implements LimitRuleRepository {
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
         [
           id, orgId, input.ruleId, input.scopeKind, input.subjectRef, input.actionTaken,
-          input.observedTokens, input.thresholdTokens,
+          input.observedTokens.toString(), input.thresholdTokens.toString(),
         ],
       );
-    });
+    };
+    if(session)await write(session);else await this.db.withTenant(orgId,write);
     return id;
   }
 }

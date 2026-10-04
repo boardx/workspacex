@@ -69,7 +69,7 @@ export class PgTokenUsageRepository implements TokenUsageMeterPort {
             tokens_total, tokens_prompt, tokens_completion, outcome,
             total_source, project_id, thread_id, agent_id, call_purpose, request_started_at, request_ended_at, execution_attempt_id, cost_micros, currency, price_version, tokens_cache_input, tokens_reasoning_output, subtask_id, native_unit, native_quantity, native_source)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27)
-         ON CONFLICT (id) DO NOTHING`,
+         `,
             params,
           );
         });

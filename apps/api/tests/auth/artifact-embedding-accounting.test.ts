@@ -21,13 +21,13 @@ function fixture(inputOnly=false){
   if(sql.includes('FROM organization_ai_policies'))return {rows:[{configuration,price_version:'immutable',updated_by:'operator'}]};
   if(sql.includes(' AS active'))return {rows:[{active:true}]};
   if(sql.includes('SELECT token_limit'))return {rows:[{token_limit:'100',cost_limit_micros:'100',currency:'CNY',price_version:'immutable'}]};
-  if(sql.includes('FROM token_usage_events')&&sql.includes('AS unknown_tokens'))return {rows:[{tokens:'0',cost:'0',unknown_tokens:'0',unknown_cost:'0'}]};
+  if(sql.includes('FROM effective_token_usage()')&&sql.includes('AS unknown_tokens'))return {rows:[{tokens:'0',cost:'0',unknown_tokens:'0',unknown_cost:'0'}]};
   if(sql.includes('COALESCE(sum(GREATEST(r.maximum_tokens'))return {rows:[{tokens:'0',cost:'0'}]};
-  if(sql.includes('INSERT INTO ai_request_reservations')){reservations.set(String(args[0]),{user_id:args[2],window_start:new Date(String(args[3])),window_end:new Date(String(args[4])),maximum_tokens:args[5],maximum_cost_micros:args[6],model_provider:args[7],model_id:args[8],currency:args[9],price_version:args[10],logical_call_id:args[11],logical_attempt:args[12],maximum_attempts:args[13],state:'held'});return {rows:[]};}
+  if(sql.includes('INSERT INTO ai_request_reservations')){reservations.set(String(args[0]),{user_id:args[2],window_start:new Date(String(args[3])),window_end:new Date(String(args[4])),maximum_tokens:args[5],maximum_cost_micros:args[6],model_provider:args[7],model_id:args[8],currency:args[9],price_version:args[10],logical_call_id:args[11],logical_attempt:args[12],maximum_attempts:args[13],formal_model_id:args[14],agent_id:args[15],state:'held'});return {rows:[]};}
   if(sql.includes('FROM ai_request_reservations')){if(sql.includes('logical_call_id=$3'))return {rows:[...reservations.values()].filter(r=>r.logical_call_id===args[2])};const r=reservations.get(String(args[0]));return {rows:r?[r]:[]};}
   if(sql.includes('UPDATE ai_request_reservations')){Object.assign(reservations.get(String(args[0]))!,{state:'settled',settled_tokens:args[1],settled_cost_micros:args[2]});return {rows:[]};}
   if(sql.includes('INTO token_usage_events')){if(!receipts.has(String(args[0])))receipts.set(String(args[0]),{user_id:args[2],model_provider:args[4],model_id:args[5],tokens_total:args[6],total_source:args[10],request_time:new Date(String(args[15])),cost_micros:args[18],currency:args[19],price_version:args[20]});return {rows:[]};}
-  if(sql.includes('FROM token_usage_events'))return {rows:receipts.has(String(args[0]))?[receipts.get(String(args[0]))]:[]};
+  if(sql.includes('FROM effective_token_usage()'))return {rows:receipts.has(String(args[0]))?[receipts.get(String(args[0]))]:[]};
   if(sql.includes('FROM org_memberships'))return {rows:member?[{org_role:'admin',team_id:null}]:[]};
   if(sql.includes('FROM acl_bindings'))return {rows:[]};
   if(sql.includes('JOIN artifacts'))return {rows:[{artifact_id:'a1',project_id:null,ingestion_status:active?'INDEXED':'READY',confidential:false}]};

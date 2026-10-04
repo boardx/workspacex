@@ -57,7 +57,7 @@ export class PgTokenQuotaRepository implements TokenQuotaRepository, UsageAggreg
         `SELECT SUM(tokens_total) AS total,
                 COUNT(*) AS calls,
                 COUNT(*) FILTER (WHERE outcome = 'failed') AS failed
-           FROM token_usage_events
+           FROM effective_token_usage()
           WHERE org_id = $1 AND occurred_at >= ${since}`,
         [orgId],
       );
@@ -69,7 +69,7 @@ export class PgTokenQuotaRepository implements TokenQuotaRepository, UsageAggreg
            但它们同样会触发模型调用。INNER JOIN 会让那部分用量从矩阵里整行消失，
            而总数里还在——一屏自相矛盾的数字。查不到名字就退回裸 id。 */
         `SELECT e.user_id, c.display_name, e.model_id, SUM(e.tokens_total) AS tokens
-           FROM token_usage_events e
+           FROM effective_token_usage() e
            LEFT JOIN credentials c ON c.user_id = e.user_id
           WHERE e.org_id = $1 AND e.occurred_at >= ${since}
           GROUP BY e.user_id, c.display_name, e.model_id`,
@@ -118,7 +118,7 @@ export class PgTokenQuotaRepository implements TokenQuotaRepository, UsageAggreg
            LEFT JOIN member_token_quota q ON q.org_id = m.org_id AND q.user_id = m.user_id
            LEFT JOIN (
                 SELECT user_id, SUM(tokens_total) AS used_tokens
-                  FROM token_usage_events
+                  FROM effective_token_usage()
                  WHERE org_id = $1 AND occurred_at >= date_trunc('month', now())
                  GROUP BY user_id
            ) u ON u.user_id = m.user_id
@@ -128,7 +128,7 @@ export class PgTokenQuotaRepository implements TokenQuotaRepository, UsageAggreg
       );
 
       const orgUsed = await s.query<{ total: string | null }>(
-        `SELECT SUM(tokens_total) AS total FROM token_usage_events
+        `SELECT SUM(tokens_total) AS total FROM effective_token_usage()
           WHERE org_id = $1 AND occurred_at >= date_trunc('month', now())`,
         [orgId],
       );

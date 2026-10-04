@@ -24,6 +24,8 @@ export function AiPolicyPanel({orgId}:{orgId:string}){
  const [state,setState]=React.useState<AiPolicyState|null>(null),[candidates,setCandidates]=React.useState<AiCandidate[]>([]);
  const [start,setStart]=React.useState(""),[end,setEnd]=React.useState(""),[timezone,setTimezone]=React.useState("");
  const [tokens,setTokens]=React.useState(""),[cost,setCost]=React.useState(""),[currency,setCurrency]=React.useState("");
+ const [enforceRules,setEnforceRules]=React.useState<boolean|undefined>(undefined);
+ const [controls,setControls]=React.useState(false),[quotaSource,setQuotaSource]=React.useState<"organization-template"|"member-monthly-utc">("organization-template"),[warning,setWarning]=React.useState(""),[degrade,setDegrade]=React.useState(""),[overrides,setOverrides]=React.useState<{userId:string;tokens:string}[]>([]);
  const [prices,setPrices]=React.useState<PriceDraft[]>([]),[fallback,setFallback]=React.useState<string[]>([]),[attempts,setAttempts]=React.useState("");
  const [reason,setReason]=React.useState(""),[busy,setBusy]=React.useState(false),[error,setError]=React.useState<string|null>(null),[refresh,setRefresh]=React.useState(0),[saved,setSaved]=React.useState(false);
  React.useEffect(()=>{
@@ -34,11 +36,12 @@ export function AiPolicyPanel({orgId}:{orgId:string}){
    setStart(config?.window.start??"");setEnd(config?.window.end??"");setTimezone(config?.window.timezone??"");
    setTokens(config?.ordinaryTokensPerUser??"");setCost(config?.costMicrosPerUser??"");setCurrency(config?.currency??"");
    setPrices(config?.prices.map(row=>({...emptyPrice(row.modelId),...Object.fromEntries(Object.entries(row).map(([key,value])=>[key,String(value)]))}) as PriceDraft)??[]);
+   setEnforceRules(config?.tokenControls?.enforceLimitRules);setControls(!!config?.tokenControls);setQuotaSource(config?.tokenControls?.quotaSource??"organization-template");setWarning(config?.tokenControls?.warningAtTokens??"");setDegrade(config?.tokenControls?.degradeAtTokens??"");setOverrides(config?.tokenControls?.memberOverrides??[]);
    setFallback(config?.fallbackModelIds??[]);setAttempts(config?String(config.maxAttempts):"");
   }).catch(cause=>{if(active)setError(errorText(cause));});
   return ()=>{active=false;};
  },[orgId,refresh]);
- const parsed=Configuration.safeParse({window:{start,end,timezone},ordinaryTokensPerUser:tokens||null,costMicrosPerUser:cost,currency,
+ const parsed=Configuration.safeParse({...controls?{tokenControls:{...enforceRules===undefined?{}:{enforceLimitRules:enforceRules},quotaSource,warningAtTokens:warning||null,degradeAtTokens:degrade||null,memberOverrides:overrides}}:{},window:{start,end,timezone},ordinaryTokensPerUser:tokens||null,costMicrosPerUser:cost,currency,
   prices:prices.map(({billingMode,outputMicrosPerMillion,maxOutputTokens,...row})=>billingMode==="input-only"?{...row,billingMode,maxInputTokens:Number(row.maxInputTokens)}:{...row,outputMicrosPerMillion,maxInputTokens:Number(row.maxInputTokens),maxOutputTokens:Number(maxOutputTokens)}),fallbackModelIds:fallback,maxAttempts:Number(attempts)});
  async function save(){
   if(!state||!parsed.success||!reason.trim()||busy)return;setBusy(true);setError(null);setSaved(false);
@@ -65,6 +68,31 @@ export function AiPolicyPanel({orgId}:{orgId:string}){
     {field("ai-cost-limit","每人费用上限（整数微货币单位，1 单位货币 = 100万微单位）",cost,setCost)}
     {field("ai-currency","货币（三位大写代码）",currency,setCurrency)}
    </div>
+   <fieldset className="space-y-3 rounded border p-3"><legend>Token 策略</legend>
+    <label className="flex items-center gap-2"><input type="checkbox" disabled={busy} checked={controls} onChange={event=>setControls(event.target.checked)}/>显式配置阈值与成员额度来源</label>
+    {!controls&&<p>未配置额外阈值；保留组织模板额度，不自动启用预警或降级。</p>}
+    {controls&&<>
+     <label className="flex items-center gap-2"><input type="checkbox" disabled={busy} checked={enforceRules===true} onChange={event=>setEnforceRules(event.target.checked)}/>执行已有组织 Token 规则</label>
+     <p>仅显式启用后执行已有组织 Token 规则，不自动添加旧阈值。企业仍豁免产品 Token 配额，有限费用与安全上限继续生效；保存不会启用生产限制。</p>
+     <label htmlFor="ai-quota-source">额度来源<select id="ai-quota-source" className="block rounded border bg-background p-2" disabled={busy} value={quotaSource} onChange={event=>{setQuotaSource(event.target.value as typeof quotaSource);if(event.target.value==="member-monthly-utc")setOverrides([]);}}>
+      <option value="organization-template">组织模板与显式逐人覆盖</option><option value="member-monthly-utc">已有成员额度（UTC 自然月）</option>
+     </select></label>
+     <p>0 表示零额度；空白阈值表示未配置。企业豁免产品 Token 配额，费用硬上限仍生效。</p>
+     {quotaSource==="member-monthly-utc"&&<p>使用已有成员额度作为唯一 Token 额度来源，不修改原额度，不使用模板逐人覆盖。窗口必须为完整 UTC 自然月；成员未配置额度时拒绝准入。</p>}
+     {field("ai-warning-tokens","预警阈值（Token，空白表示未配置）",warning,setWarning)}
+     {field("ai-degrade-tokens","降级阈值（Token，空白表示未配置）",degrade,setDegrade)}
+     <p>降级仅限已授权且路由合规的候选，不能绕过 Token 或费用硬上限；配置保存不代表实际调用已启用。</p>
+     {quotaSource==="organization-template"&&<>
+      {overrides.map((row,index)=><fieldset key={index} className="space-y-2 rounded border p-2"><legend>成员覆盖 {index+1}</legend>
+       {field(`ai-member-${index}`,`成员用户 ID ${index+1}`,row.userId,value=>setOverrides(rows=>rows.map((item,i)=>i===index?{...item,userId:value}:item)))}
+       {field(`ai-member-tokens-${index}`,`成员 Token 上限 ${index+1}（0 表示零额度）`,row.tokens,value=>setOverrides(rows=>rows.map((item,i)=>i===index?{...item,tokens:value}:item)))}
+       <Button variant="outline" disabled={busy} onClick={()=>setOverrides(rows=>rows.filter((_,i)=>i!==index))}>移除成员覆盖 {index+1}</Button>
+      </fieldset>)}
+      <Button variant="outline" disabled={busy||overrides.length>=500} onClick={()=>setOverrides(rows=>[...rows,{userId:"",tokens:""}])}>添加成员覆盖</Button>
+     </>}
+    </>}
+    <p>预算窗口建立后额度快照不可修改；本窗口额度变更会被拒绝，请为不重叠的新窗口配置。</p>
+   </fieldset>
    <p className="text-13">仅选择组织正式池中已启用的单模型；显示候选不代表其路由、价格或安全能力已通过运行时验证。</p>
    {candidates.length===0&&<p>没有可配置的模型，请先在组织正式模型池完成准入。</p>}
    {candidates.map(model=><label className="mr-4 inline-flex items-center gap-2" key={model.modelId}>

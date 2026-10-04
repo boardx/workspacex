@@ -100,3 +100,68 @@ describe("same ledger reports — isolated PostgreSQL",()=>{
  });
 
 });
+
+// Source-only until the isolated PostgreSQL shard executes this file.
+it("late original usage enriches one physical call, preserves raw base and historical asOf",async()=>{
+ const subject={eventId:"late-same-physical",userId:"alice",runId:null,modelProvider:"late-provider",modelId:"late-model",projectId:PROJECT,
+  outcome:"failed" as const,requestStartedAt:new Date(now).toISOString(),requestEndedAt:new Date(now+1).toISOString()};
+ const unknown={...subject,tokensTotal:0,promptTokens:null,completionTokens:null,totalSource:"unknown" as const};
+ await usage.record(toOrgId(ORG),unknown);
+ const original=(await asApp(ORG,c=>c.query("SELECT * FROM token_usage_events WHERE id=$1",[subject.eventId]))).rows[0];
+ // Reporting cutoffs currently serialize milliseconds; advance beyond the commit's microseconds.
+ await asApp(ORG,c=>c.query("SELECT pg_sleep(0.002)"));
+ const scoped={...query,modelId:"late-model"},before=await report.summary(toOrgId(ORG),scoped);
+ expect(before.current).toMatchObject({callCount:1,totalTokens:"0",unknownCalls:1});
+ await usage.record(toOrgId(ORG),{...unknown,promptTokens:3});
+ await asApp(ORG,c=>c.query("SELECT pg_sleep(0.002)"));
+ const partial=await report.summary(toOrgId(ORG),scoped);
+ expect(partial.current).toMatchObject({callCount:1,inputTokens:"3",totalTokens:"0",unknownCalls:1});
+ const reported={...subject,outcome:"succeeded" as const,requestEndedAt:new Date(now+2).toISOString(),tokensTotal:5,promptTokens:3,completionTokens:2,totalSource:"reported" as const,costMicros:500n,currency:"CNY",priceVersion:"original-price"};
+ await usage.record(toOrgId(ORG),reported);await usage.record(toOrgId(ORG),reported);
+ await asApp(ORG,c=>c.query("SELECT pg_sleep(0.002)"));
+ const after=await report.summary(toOrgId(ORG),scoped),calls=await report.calls(toOrgId(ORG),{...scoped,asOf:after.asOf});
+ expect(after.current).toMatchObject({callCount:1,totalTokens:"5",inputTokens:"3",outputTokens:"2",reportedCalls:1,unknownCalls:0});
+ expect(calls.calls).toHaveLength(1);expect(calls.calls[0]).toMatchObject({id:subject.eventId,totalTokens:"5",costMicros:"500",priceVersion:"original-price",outcome:"failed"});
+ expect(Date.parse(calls.calls[0]!.endedAt!)).toBe(Date.parse(subject.requestEndedAt));
+ expect((await report.summary(toOrgId(ORG),{...scoped,asOf:before.asOf})).current).toEqual(before.current);
+ expect((await report.summary(toOrgId(ORG),{...scoped,asOf:partial.asOf})).current).toEqual(partial.current);
+ expect((await asApp(ORG,c=>c.query("SELECT * FROM token_usage_events WHERE id=$1",[subject.eventId]))).rows[0]).toEqual(original);
+ expect((await asApp(ORG,c=>c.query("SELECT revision::text FROM token_usage_enrichments WHERE request_id=$1 ORDER BY revision",[subject.eventId]))).rows).toEqual([{revision:"1"},{revision:"2"}]);
+ expect((await asApp(OTHER,c=>c.query("SELECT id FROM effective_token_usage() WHERE id=$1",[subject.eventId]))).rows).toEqual([]);
+ await expect(usage.record(toOrgId(OTHER),reported)).rejects.toBeDefined();
+ await expect(usage.record(toOrgId(ORG),{...reported,requestStartedAt:new Date(now+1).toISOString()})).rejects.toBeDefined();
+ expect((await asApp(OTHER,c=>c.query("SELECT request_id FROM token_usage_enrichments WHERE request_id=$1",[subject.eventId]))).rows).toEqual([]);
+ await expect(asApp(ORG,c=>c.query("UPDATE token_usage_events SET tokens_total=5 WHERE id=$1",[subject.eventId]))).rejects.toBeDefined();
+ await expect(asApp(ORG,c=>c.query("UPDATE token_usage_enrichments SET facts='{}'::jsonb WHERE request_id=$1",[subject.eventId]))).rejects.toBeDefined();
+});
+it("reported zero and partial known zero cannot be replaced by contradictory late usage",async()=>{
+ const subject={userId:"alice",runId:null,modelProvider:"late-provider",modelId:"zero-model",outcome:"failed" as const};
+ await usage.record(toOrgId(ORG),{...subject,eventId:"reported-zero",tokensTotal:0,promptTokens:0,completionTokens:0,totalSource:"reported",costMicros:0n,currency:"CNY",priceVersion:"zero-price"});
+ await expect(usage.record(toOrgId(ORG),{...subject,eventId:"reported-zero",tokensTotal:1,promptTokens:1,completionTokens:0,totalSource:"reported",costMicros:1n,currency:"CNY",priceVersion:"zero-price"})).rejects.toBeDefined();
+ await usage.record(toOrgId(ORG),{...subject,eventId:"partial-zero",tokensTotal:0,promptTokens:0,completionTokens:null,totalSource:"unknown"});
+ await expect(usage.record(toOrgId(ORG),{...subject,eventId:"partial-zero",tokensTotal:2,promptTokens:1,completionTokens:1,totalSource:"reported"})).rejects.toBeDefined();
+ expect((await asApp(ORG,c=>c.query("SELECT id,tokens_total::text,tokens_prompt::text,total_source FROM effective_token_usage() WHERE model_id='zero-model' ORDER BY id"))).rows).toEqual([
+  {id:"partial-zero",tokens_total:"0",tokens_prompt:"0",total_source:"unknown"},
+  {id:"reported-zero",tokens_total:"0",tokens_prompt:"0",total_source:"reported"},
+ ]);
+ expect((await asApp(ORG,c=>c.query("SELECT request_id FROM token_usage_enrichments WHERE request_id IN ('reported-zero','partial-zero')"))).rows).toEqual([]);
+});
+
+it("concurrent late counters merge once per field while contradictory known counters reject",async()=>{
+ const subject={userId:"alice",runId:null,modelProvider:"late-provider",modelId:"concurrent-model",outcome:"failed" as const};
+ const unknown={...subject,eventId:"concurrent-late",tokensTotal:0,promptTokens:null,completionTokens:null,totalSource:"unknown" as const};
+ await usage.record(toOrgId(ORG),unknown);
+ await Promise.all([usage.record(toOrgId(ORG),{...unknown,promptTokens:3}),usage.record(toOrgId(ORG),{...unknown,completionTokens:2})]);
+ expect((await asApp(ORG,c=>c.query("SELECT tokens_total::text,tokens_prompt::text,tokens_completion::text,total_source FROM effective_token_usage() WHERE id='concurrent-late'"))).rows[0]).toEqual({tokens_total:"0",tokens_prompt:"3",tokens_completion:"2",total_source:"unknown"});
+ await usage.record(toOrgId(ORG),{...unknown,tokensTotal:5,promptTokens:3,completionTokens:2,totalSource:"reported"});
+ expect((await asApp(ORG,c=>c.query("SELECT count(*)::int AS calls,sum(tokens_total)::text AS tokens FROM effective_token_usage() WHERE id='concurrent-late'"))).rows[0]).toEqual({calls:1,tokens:"5"});
+ const conflict={...unknown,eventId:"concurrent-known-conflict"};await usage.record(toOrgId(ORG),conflict);
+ const results=await Promise.allSettled([usage.record(toOrgId(ORG),{...conflict,promptTokens:3}),usage.record(toOrgId(ORG),{...conflict,promptTokens:4})]);
+ expect(results.filter(result=>result.status==="fulfilled")).toHaveLength(1);expect(results.filter(result=>result.status==="rejected")).toHaveLength(1);
+ const effective=(await asApp(ORG,c=>c.query("SELECT tokens_prompt::text FROM effective_token_usage() WHERE id='concurrent-known-conflict'"))).rows[0];
+ expect(["3","4"]).toContain(effective.tokens_prompt);
+ expect((await asApp(ORG,c=>c.query("SELECT count(*)::int AS revisions FROM token_usage_enrichments WHERE request_id='concurrent-known-conflict'"))).rows[0]).toEqual({revisions:1});
+ await expect(asApp(ORG,c=>c.query(`INSERT INTO token_usage_enrichments(org_id,request_id,revision,facts)
+  VALUES($1,'concurrent-known-conflict',2,'{"total_source":null,"tokens_total":null}'::jsonb)`,[ORG]))).rejects.toBeDefined();
+ expect((await asApp(ORG,c=>c.query("SELECT tokens_total::text,total_source FROM effective_token_usage() WHERE id='concurrent-known-conflict'"))).rows[0]).toEqual({tokens_total:"0",total_source:"unknown"});
+});

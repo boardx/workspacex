@@ -1,3 +1,4 @@
+import {AiQuotaPolicyError} from "./ai-quota-policy-error";
 import type {DatabasePort} from "../ports/database.port";
 import {createHash} from 'node:crypto';
 import type {OrgId} from '../../domain/org-id';
@@ -6,7 +7,7 @@ import type {AiPoolCandidate} from '../../domain/agent-run/ai-safe-attempt';
 import type {AiAdmissionPort,AiBudgetPolicyPort} from './ai-admission-ports';
 export interface InputOnlyPreparedRequest {readonly requestId:string;readonly modelProvider:string;readonly modelId:string;readonly serializedBody:string;readonly requestPath:string;}
 export interface InputOnlyCallSubject {
- readonly orgId:OrgId;readonly userId:string;readonly logicalCallId:string;readonly primaryModelId:string;readonly attempt:number;
+ readonly orgId:OrgId;readonly userId:string;readonly agentId?:string|null;readonly logicalCallId:string;readonly primaryModelId:string;readonly attempt:number;
  readonly confidentiality:'confidential'|'non-confidential'|'unknown';readonly requiredCapabilities:readonly string[];
 }
 export interface InputOnlyAdmissionDependencies {
@@ -27,12 +28,13 @@ export async function admitPricedInputOnlyCall(subject:InputOnlyCallSubject,requ
   attempt:subject.attempt,confidentiality:subject.confidentiality,requiredCapabilities:subject.requiredCapabilities,...current,measuredInput,serializedBodySha256:digest});
  if(decision.decision!=='allowed')throw new Error(decision.decision);
  if(request.modelProvider!==decision.modelProvider||request.modelId!==decision.runtimeModelId)throw new Error('AI_DISPATCH_BINDING_MISMATCH');
- const reservation=await deps.admission.reserve(subject.orgId,{requestId:request.requestId,userId:subject.userId,
+ const reservation=await deps.admission.reserve(subject.orgId,{requestId:request.requestId,userId:subject.userId,formalModelId:decision.modelId,agentId:subject.agentId,
   windowStart:budget.configuration.window.start,windowEnd:budget.configuration.window.end,logicalCallId:subject.logicalCallId,
   logicalAttempt:subject.attempt,maximumAttempts:budget.configuration.maxAttempts,maximumTokens:decision.maximumTokens,
   maximumCostMicros:decision.maximumCostMicros,modelProvider:decision.modelProvider,modelId:decision.runtimeModelId,
-  currency:budget.configuration.currency,priceVersion:budget.priceVersion});
- if(reservation.decision!=='allowed')throw new Error(reservation.decision);
+  currency:budget.configuration.currency,priceVersion:budget.priceVersion,
+  ...(budget.configuration.tokenControls?{tokenPolicy:{primaryModelId:subject.primaryModelId,selectedModelId:decision.modelId,allowDegradation:false}}:{})});
+ if(reservation.decision!=='allowed')throw new AiQuotaPolicyError(reservation.decision,reservation.degradeToModelId);
  if(reservation.replay)throw new Error('AI_REQUEST_REPLAY_NO_DISPATCH');
  return decision;
 }

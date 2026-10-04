@@ -1,3 +1,4 @@
+import {withCommittedAiPolicyDecision} from "../../application/agent-run/committed-ai-policy-decision";
 import {artifactEmbeddingInputHash,artifactEmbeddingInputMatchesSource} from '../../application/retrieval/artifact-embedding-input-proof';
 import {createHash} from 'node:crypto';
 import {admitPricedInputOnlyCall,inputOnlyReceiptCost,type InputOnlyRuntimeAdmissionOptions} from '../../application/agent-run/admit-priced-input-only-call';
@@ -20,7 +21,7 @@ interface Operation {id:string;user_id:string;artifact_id:string;artifact_versio
 export class PgArtifactEmbeddingAccounting implements ArtifactEmbeddingAccounting,ArtifactEmbeddingUsagePort {
  constructor(private readonly db:DatabasePort,private readonly inputOnly?:InputOnlyRuntimeAdmissionOptions){}
  private async scoped<T>(orgId:OrgId,work:(db:DatabasePort)=>Promise<T>):Promise<T>{
-  return this.db.withTenant(orgId,async s=>work({withTenant:async(org,fn)=>{if(org!==orgId)throw new ArtifactEmbeddingOwnershipDenied();return fn(s);},withoutTenant:async()=>{throw new ArtifactEmbeddingOwnershipDenied();},close:async()=>{}}));
+  return withCommittedAiPolicyDecision(this.db,orgId,async s=>work({withTenant:async(org,fn)=>{if(org!==orgId)throw new ArtifactEmbeddingOwnershipDenied();return fn(s);},withoutTenant:async()=>{throw new ArtifactEmbeddingOwnershipDenied();},close:async()=>{}}));
  }
  private async authorized(db:DatabasePort,orgId:OrgId,op:Operation){
   const repo=new PgIdentityRepository(db),identity={repo,ids:{next:()=>randomUUID()}};
@@ -57,7 +58,7 @@ export class PgArtifactEmbeddingAccounting implements ArtifactEmbeddingAccountin
    const op=await this.find(db,orgId,operationId);await this.authorized(db,orgId,op);
    if(!artifactEmbeddingInputMatchesSource(input.serializedBody,op.input_hashes??[]))throw new Error('AI_ARTIFACT_WHOLE_INPUT_UNPROVEN');
    const budget=new PgAiAdmissionRepository(db);
-   const decision=await admitPricedInputOnlyCall({orgId,userId:op.user_id,logicalCallId,attempt:0,
+   const decision=await admitPricedInputOnlyCall({orgId,userId:op.user_id,agentId:null,logicalCallId,attempt:0,
     primaryModelId:await configured.primaryModelId(input.modelId),confidentiality:'non-confidential',requiredCapabilities:['embedding']},
     {...input,modelProvider:configured.provider},{...configured.dependencies(orgId,db),policy:budget,admission:budget});
    await new PgTokenUsageRepository(db).startRequest(orgId,{...input,userId:op.user_id,runId:null,executionAttemptId:null,

@@ -76,7 +76,8 @@ describe("immutable per-user policy materialization",()=>{
  };
  it("uses authenticated membership and audited operator attribution before creating a window",async()=>{
   const {repo,query}=fixture();expect(await repo.resolveBudgetPolicy(org,"member")).toMatchObject({decision:"configured",priceVersion:"fixture-v1"});
-  expect(query.mock.calls[0]?.[0]).toContain("FOR UPDATE");
+  expect(query.mock.calls[0]?.[0]).toContain("pg_advisory_xact_lock(hashtext($1))");
+  expect(query.mock.calls[2]?.[0]).toContain("FOR UPDATE");
   const insert=query.mock.calls.find(([sql])=>sql.includes("INSERT INTO ai_budget_windows"));
   expect(insert).toBeDefined();
   expect((insert as unknown as [string,unknown[]])[1]).toEqual([org,"member",config.window.start,config.window.end,config.window.timezone,"100","10000","CNY","fixture-v1","actual-operator"]);

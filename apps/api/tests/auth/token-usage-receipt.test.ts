@@ -25,7 +25,8 @@ describe("token usage receipt boundary", () => {
     await new PgTokenUsageRepository(database(query)).record(org, receipt);
     expect(query).toHaveBeenCalledTimes(2);
     expect(query.mock.calls[0]?.[1]).toEqual(query.mock.calls[1]?.[1]);
-    expect(query.mock.calls[0]?.[0]).toContain("ON CONFLICT (id) DO NOTHING");
+    expect(query.mock.calls[0]?.[0]).toContain("INSERT INTO token_usage_events");
+    expect(query.mock.calls[0]?.[0]).not.toContain("ON CONFLICT");
     expect(query.mock.calls[0]?.[1]).toEqual([
       "receipt-1", org, "user-1", "run-1", "provider", "model", 120, 100, 20, "failed",
       "reported", "project-1", "thread-1", "agent-1", null, null, null, null, null, null, null, null, null, null, null, null, null,

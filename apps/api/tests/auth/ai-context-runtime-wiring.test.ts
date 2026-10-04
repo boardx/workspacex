@@ -64,6 +64,8 @@ function wholeFixture(child=false,contextBindings?:import("../../src/application
  const query=vi.fn(async(sql:string)=>{
   if(sql.includes('FROM context_packs'))return {rows:recordedRow?[{run_id:'context-run',org_id:String(org),status:'assembled',recorded:recordedRow.run,content_hash:recordedRow.contentHash,threshold_used:recordedRow.run.thresholdUsed,pinned_snapshot_id:null}]:[]};
   if(sql.includes('FROM segment_text'))return {rows:[]};
+  if(sql.includes('SELECT v.instructions'))return {rows:[{instructions:'pinned parent instructions'}]};
+  if(sql.includes('SELECT * FROM subtask_runs'))return {rows:child?[{id:'child',parent_run_id:'root',description:'child raw description',context:'child source context',status:'running',agent_version_id:'version',skill_version_ids:[],model_provider:'route',model_id:'actual',artifact_refs:[],tool_calls:[],result:null,error:null,created_at:new Date(0),updated_at:new Date(0),cancel_requested_at:null,cancellation_state:null}]:[]};
   if(sql.includes('FROM agent_runs'))return {rows:child?[]:[owner]};if(sql.includes('FROM subtask_runs'))return {rows:child?[owner]:[]};
   if(sql.includes('FROM organizations'))return {rows:[{id:org,name:'formal',kind:'organization',model_policy:'any',avatar_artifact_id:null}]};if(sql.includes('FROM org_memberships'))return {rows:[{member:1,org_role:'consultant',team_id:null}]};
   if(sql.includes('FROM organization_plans'))return {rows:[{plan:'ordinary'}]};if(sql.includes('FROM organization_ai_policies'))return {rows:[{configuration:config,price_version:'price',updated_by:'u'}]};if(sql.includes(' AS active'))return {rows:[{active:true}]};return {rows:[]};
@@ -84,8 +86,8 @@ it('actual root priced boundary sends assembled fields to producer; unknown is z
   const claimed={runId:'root',requesterUserId:'u',modelProvider:'route',modelId:'actual',resumeStepSeqBase:1,permissionRequestId:null,projectId:null,threadId:'thread',agentId:'agent'};
   const assembled={orgId:String(org),runId:'root',modelProvider:'route',modelId:'actual',executionAttemptId:'root:1',executionLeaseEpoch:1,system:'agent+skill+protocol',user:'raw+attachment+notice',history:[{role:'user',content:'summary+KG+tool'}],skills:[{versionId:'skill',stableName:'skill',content:'pinned'}],images:[{mime:'image/png',dataBase64:'private-pixel'}],interjection:{extra:'private'},extra:'unknown'};
   const model=pricedRunModel(f.model,org,claimed as never,f.wiring.run);
-  await expect(withRunLease({orgId:org,runId:'root',epoch:1,verify:async()=>{}},()=>model.complete(assembled as never))).rejects.toThrow('AI_CONFIDENTIALITY_UNKNOWN');
-  expect(spy).toHaveBeenCalledWith(expect.objectContaining({runId:'root',attemptId:'root:1',leaseEpoch:1,origin:'root-model-input'}),JSON.stringify(assembled),null,null);expect(f.vendors).toBe(0);expect(f.query.mock.calls.some(([sql])=>sql.includes('INSERT INTO ai_request_reservations'))).toBe(false);
+  await expect(withRunLease({orgId:org,runId:'root',epoch:1,verify:async()=>{}},()=>model.complete(assembled as never))).rejects.toThrow('AI_MODEL_UNAVAILABLE');
+  expect(spy).toHaveBeenCalledWith(expect.objectContaining({runId:'root',attemptId:'root:1',leaseEpoch:1,origin:'root-model-input'}),JSON.stringify(assembled),null,null,undefined);expect(f.vendors).toBe(0);expect(f.query.mock.calls.some(([sql])=>sql.includes('INSERT INTO ai_request_reservations'))).toBe(false);
  }finally{spy.mockRestore();}
 });
 for(const child of [false,true])it(`private ${child?'child':'root'} admission sends SDK body and own identity to producer; unknown rejects`,async()=>{
@@ -93,8 +95,8 @@ for(const child of [false,true])it(`private ${child?'child':'root'} admission se
   const repo=new PgRuntimeModelUsageRepository(f.db as never,f.usage as never,undefined,f.wiring.runtime);
   const serializedBody='{"model":"actual","max_tokens":5,"messages":[{"content":"raw-private"}],"tools":[{"name":"private-tool"}],"completeInput":true,"classification":"public"}';
   const request={requestId:'ad05ca76-9ff5-459b-955f-73634b36ec23',attemptId:runId+':1',leaseEpoch:1,startedAt:new Date().toISOString(),modelId:'actual',callPurpose:'primary' as const,serializedBody,outputTokenLimit:5,logicalCallId:JSON.stringify([runId,'primary',createHash('sha256').update(serializedBody).digest('hex')])};
-  await expect(repo.admitRuntimeRequest(org,runId,request)).rejects.toThrow('AI_CONFIDENTIALITY_UNKNOWN');
-  expect(spy).toHaveBeenCalledWith(expect.objectContaining({rootRunId:'root',runId,attemptId:runId+':1',leaseEpoch:1,origin:'private-sdk-body'}),serializedBody,null,undefined);expect(f.vendors).toBe(0);expect(f.query.mock.calls.some(([sql])=>/INSERT INTO (ai_request_reservations|model_request_starts)/.test(sql))).toBe(false);
+  await expect(repo.admitRuntimeRequest(org,runId,request)).rejects.toThrow('AI_MODEL_UNAVAILABLE');
+  expect(spy).toHaveBeenCalledWith(expect.objectContaining({rootRunId:'root',runId,attemptId:runId+':1',leaseEpoch:1,origin:'private-sdk-body'}),serializedBody,null,undefined,child?expect.any(Object):null);expect(f.vendors).toBe(0);expect(f.query.mock.calls.some(([sql])=>/INSERT INTO (ai_request_reservations|model_request_starts)/.test(sql))).toBe(false);
  }finally{spy.mockRestore();}
 });
 
@@ -185,7 +187,7 @@ it('private CP source/identity/model-pool readers share the caller tenant sessio
  try{
   const serializedBody=JSON.stringify({model:'actual',max_tokens:5,messages:[{role:'user',content:'entire selected source'}]});
   const repo=new PgRuntimeModelUsageRepository(f.db as never,f.usage as never,undefined,f.wiring.runtime);
-  await expect(repo.admitRuntimeRequest(org,'child',{requestId:'ad05ca76-9ff5-459b-955f-73634b36ec23',attemptId:'child:1',leaseEpoch:1,startedAt:new Date().toISOString(),modelId:'actual',callPurpose:'primary',serializedBody,outputTokenLimit:5,logicalCallId:JSON.stringify(['child','primary',createHash('sha256').update(serializedBody).digest('hex')])})).rejects.toThrow('AI_CONFIDENTIALITY_UNKNOWN');
+  await expect(repo.admitRuntimeRequest(org,'child',{requestId:'ad05ca76-9ff5-459b-955f-73634b36ec23',attemptId:'child:1',leaseEpoch:1,startedAt:new Date().toISOString(),modelId:'actual',callPurpose:'primary',serializedBody,outputTokenLimit:5,logicalCallId:JSON.stringify(['child','primary',createHash('sha256').update(serializedBody).digest('hex')])})).rejects.toThrow('AI_MODEL_UNAVAILABLE');
   expect(f.query.mock.calls.some(([sql])=>sql.includes('FROM context_packs'))).toBe(true);expect(f.query.mock.calls.some(([sql])=>sql.includes('FROM segment_text'))).toBe(true);expect(f.query.mock.calls.some(([sql])=>sql.includes('SELECT org_role, team_id'))).toBe(true);expect(f.query.mock.calls.some(([sql])=>sql.includes('SELECT id, name, kind, model_policy'))).toBe(true);
   expect(spy.mock.calls[0]?.[2]?.sources[0]).toMatchObject({classification:'confidential',cannotAuthorizeNewDispatch:true});
   expect(spy.mock.results[0]?.value.components.every((component:whole.WholeInputManifest['components'][number])=>component.classification==='unknown')).toBe(true);

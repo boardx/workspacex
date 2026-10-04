@@ -40,7 +40,7 @@ export interface AiBudgetState {
   readonly heldCostMicros: bigint;
 }
 export type AiAdmissionDecision = "allowed" | "PLAN_UNCONFIGURED" | "TOKEN_LIMIT_UNCONFIGURED"
-  | "AI_ATTEMPT_LIMIT_REACHED" | "COST_LIMIT_UNCONFIGURED" | "BUDGET_WINDOW_INACTIVE" | "TOKEN_LIMIT_REACHED" | "COST_LIMIT_REACHED";
+  | "AI_LIMIT_RULE_BLOCKED" | "AI_LIMIT_APPROVAL_REQUIRED" | "AI_TOKEN_DEGRADE_REQUIRED" | "AI_ATTEMPT_LIMIT_REACHED" | "COST_LIMIT_UNCONFIGURED" | "BUDGET_WINDOW_INACTIVE" | "TOKEN_LIMIT_REACHED" | "COST_LIMIT_REACHED";
 /** Caller must apply this inside the shared budget lock, then persist the hold atomically. */
 export function decideAiAdmission(state: AiBudgetState, maximumTokens: bigint, maximumCostMicros: bigint): AiAdmissionDecision {
   const values = [state.usedTokens, state.heldTokens, state.usedCostMicros, state.heldCostMicros, maximumTokens, maximumCostMicros];

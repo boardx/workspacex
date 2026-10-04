@@ -1,3 +1,4 @@
+import {withCommittedAiPolicyDecision} from "../../application/agent-run/committed-ai-policy-decision";
 import {admitPricedInputOnlyCall,inputOnlyReceiptCost,type InputOnlyRuntimeAdmissionOptions} from '../../application/agent-run/admit-priced-input-only-call';
 import {createHash} from "node:crypto";
 import type {DatabasePort,TenantSession} from "../../application/ports/database.port";
@@ -27,7 +28,7 @@ export class PgRuntimeModelUsageRepository implements RuntimeModelUsagePort {
     if(!Number.isSafeInteger(input.outputTokenLimit)||input.outputTokenLimit<=0||input.outputTokenLimit>2147483647||body.model!==input.modelId||!caps.length||caps.some(value=>!Number.isSafeInteger(value)||value!==input.outputTokenLimit))throw new Error("AI_DISPATCH_BINDING_MISMATCH");
     const logicalCallId=JSON.stringify([runId,input.callPurpose,createHash("sha256").update(input.serializedBody).digest("hex")]);
     if(input.logicalCallId!==logicalCallId)throw new Error("AI_LOGICAL_CALL_IDENTITY_MISMATCH");
-    await this.db.withTenant(orgId,async s=>{
+    await withCommittedAiPolicyDecision(this.db,orgId,async s=>{
       const owner=await resolveRuntimeModelOwner(s,orgId,runId,input.leaseEpoch,input.attemptId,input.callPurpose);
       if(!owner)throw new RuntimeUsageOwnershipDenied();
       // One existing transaction: owner row locks, policy/window lock, reserve and durable start.
@@ -53,13 +54,13 @@ export class PgRuntimeModelUsageRepository implements RuntimeModelUsagePort {
     const digest=createHash("sha256").update(input.serializedBody).digest("hex");
     const logicalCallId=JSON.stringify([runId,input.callPurpose,input.requestId,digest,input.requestPath]);
     if(input.logicalCallId!==logicalCallId)throw new Error("AI_LOGICAL_CALL_IDENTITY_MISMATCH");
-    await this.db.withTenant(orgId,async s=>{
+    await withCommittedAiPolicyDecision(this.db,orgId,async s=>{
       const owner=await resolveRuntimeModelOwner(s,orgId,runId,input.leaseEpoch,input.attemptId,input.callPurpose);
       if(!owner)throw new RuntimeUsageOwnershipDenied();
       const scoped:DatabasePort={withTenant:async(tenant,work)=>{if(tenant!==orgId)throw new RuntimeUsageOwnershipDenied();return work(s);},withoutTenant:async()=>{throw new RuntimeUsageOwnershipDenied();},close:async()=>{}};
       const budget=new PgAiAdmissionRepository(scoped);
       const facts=await this.runtimeAdmission!.facts(orgId,owner,input.serializedBody,{runId,attemptId:input.attemptId,leaseEpoch:input.leaseEpoch},scoped);
-      const decision=await admitPricedInputOnlyCall({orgId,userId:owner.user_id,logicalCallId,attempt:0,
+      const decision=await admitPricedInputOnlyCall({orgId,userId:owner.user_id,agentId:owner.agent_id,logicalCallId,attempt:0,
        primaryModelId:await configured.primaryModelId(input.modelId),...facts},
        {...input,modelProvider:configured.provider},{...configured.dependencies(orgId,scoped),policy:budget,admission:budget});
       await this.insertStart(s,orgId,{requestId:input.requestId,userId:owner.user_id,runId:owner.root_run_id,subtaskId:owner.subtask_id,

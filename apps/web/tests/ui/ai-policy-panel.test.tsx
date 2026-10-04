@@ -62,4 +62,43 @@ describe("explicit AI policy configuration",()=>{
   expect(mocks.save.mock.calls[0]![1].configuration.prices[0]).not.toHaveProperty("maxOutputTokens");expect(mocks.save.mock.calls[0]![1].configuration.prices[0]).not.toHaveProperty("outputMicrosPerMillion");
  });
 
+ it.each([undefined,false,true])("preserves existing rule enforcement value %s without implicitly enabling it",async enforceLimitRules=>{
+  const tokenControls={quotaSource:"organization-template",warningAtTokens:null,degradeAtTokens:null,memberOverrides:[],...enforceLimitRules===undefined?{}:{enforceLimitRules}};
+  const configuration={window:{start:"2026-10-01T00:00:00Z",end:"2026-11-01T00:00:00Z",timezone:"Etc/UTC"},ordinaryTokensPerUser:"100",costMicrosPerUser:"10000",currency:"CNY",prices:[{billingMode:"input-only",modelId:"embedding",modelProvider:"fixture-route",runtimeModelId:"embed-actual",inputMicrosPerMillion:"10",cachedInputMicrosPerMillion:"5",maxInputTokens:100}],fallbackModelIds:[],maxAttempts:1,tokenControls};
+  mocks.policy.mockResolvedValue({...state,version:1,configuration});mocks.candidates.mockResolvedValue([]);mocks.save.mockImplementation(async(_org,input)=>({...state,version:2,configuration:input.configuration}));
+  render(<AiPolicyPanel orgId="formal"/>);await screen.findByText(/已配置 · 版本 1/);
+  const checkbox=screen.getByRole("checkbox",{name:"执行已有组织 Token 规则"});expect(checkbox).toHaveProperty("checked",enforceLimitRules===true);
+  fireEvent.change(screen.getByLabelText("变更理由（写入审计）"),{target:{value:"fixture rule preservation"}});fireEvent.click(screen.getByRole("button",{name:"保存额度配置"}));await waitFor(()=>expect(mocks.save).toHaveBeenCalledTimes(1));
+  expect(mocks.save.mock.calls[0]![1].configuration.tokenControls).toEqual(tokenControls);
+  fireEvent.click(checkbox);fireEvent.change(screen.getByLabelText("变更理由（写入审计）"),{target:{value:"fixture explicit rule change"}});fireEvent.click(screen.getByRole("button",{name:"保存额度配置"}));await waitFor(()=>expect(mocks.save).toHaveBeenCalledTimes(2));
+  expect(mocks.save.mock.calls[1]![1].configuration.tokenControls.enforceLimitRules).toBe(enforceLimitRules!==true);
+ });
+ it.each([false,true])("preserves optional controls and zero overrides (configured=%s)",async configured=>{
+  const tokenControls={quotaSource:"organization-template",warningAtTokens:null,degradeAtTokens:"0",memberOverrides:[{userId:"member-fixture",tokens:"0"}]};
+  const configuration={window:{start:"2026-10-01T00:00:00Z",end:"2026-11-01T00:00:00Z",timezone:"Etc/UTC"},ordinaryTokensPerUser:"100",costMicrosPerUser:"10000",currency:"CNY",prices:[{billingMode:"input-only",modelId:"embedding",modelProvider:"fixture-route",runtimeModelId:"embed-actual",inputMicrosPerMillion:"10",cachedInputMicrosPerMillion:"5",maxInputTokens:100}],fallbackModelIds:[],maxAttempts:1,...configured?{tokenControls}:{}};
+  mocks.policy.mockResolvedValue({...state,version:1,configuration});mocks.candidates.mockResolvedValue([]);mocks.save.mockImplementation(async(_org,input)=>({...state,version:2,configuration:input.configuration}));
+  render(<AiPolicyPanel orgId="formal"/>);await screen.findByText(/已配置 · 版本 1/);
+  expect(screen.getByRole("checkbox",{name:"显式配置阈值与成员额度来源"})).toHaveProperty("checked",configured);
+  if(configured){expect(screen.getByLabelText("预警阈值（Token，空白表示未配置）")).toHaveValue("");expect(screen.getByLabelText("降级阈值（Token，空白表示未配置）")).toHaveValue("0");expect(screen.getByLabelText("成员 Token 上限 1（0 表示零额度）")).toHaveValue("0");}
+  fireEvent.change(screen.getByLabelText("变更理由（写入审计）"),{target:{value:"fixture controls"}});fireEvent.click(screen.getByRole("button",{name:"保存额度配置"}));
+  await waitFor(()=>expect(mocks.save).toHaveBeenCalled());
+  const saved=mocks.save.mock.calls[0]![1].configuration;
+  if(configured)expect(saved.tokenControls).toEqual(tokenControls);else expect(saved).not.toHaveProperty("tokenControls");
+ });
+ it("switches to member UTC authority without preserving template overrides",async()=>{
+  const tokenControls={quotaSource:"organization-template",warningAtTokens:null,degradeAtTokens:null,memberOverrides:[{userId:"member-fixture",tokens:"0"}]};
+  const configuration={window:{start:"2026-10-01T00:00:00Z",end:"2026-11-01T00:00:00Z",timezone:"Etc/UTC"},ordinaryTokensPerUser:"100",costMicrosPerUser:"10000",currency:"CNY",prices:[{billingMode:"input-only",modelId:"embedding",modelProvider:"fixture-route",runtimeModelId:"embed-actual",inputMicrosPerMillion:"10",cachedInputMicrosPerMillion:"5",maxInputTokens:100}],fallbackModelIds:[],maxAttempts:1,tokenControls};
+  mocks.policy.mockResolvedValue({...state,version:1,configuration});mocks.candidates.mockResolvedValue([]);mocks.save.mockImplementation(async(_org,input)=>({...state,version:2,configuration:input.configuration}));
+  render(<AiPolicyPanel orgId="formal"/>);await screen.findByText(/已配置 · 版本 1/);
+  fireEvent.change(screen.getByLabelText("变更理由（写入审计）"),{target:{value:"fixture authority"}});
+  fireEvent.click(screen.getByRole("button",{name:"添加成员覆盖"}));
+  fireEvent.change(screen.getByLabelText("成员用户 ID 2"),{target:{value:"member-fixture"}});
+  fireEvent.change(screen.getByLabelText("成员 Token 上限 2（0 表示零额度）"),{target:{value:"0"}});
+  expect(screen.getByRole("button",{name:"保存额度配置"})).toBeDisabled();expect(mocks.save).not.toHaveBeenCalled();
+  fireEvent.change(screen.getByLabelText("额度来源"),{target:{value:"member-monthly-utc"}});
+  expect(screen.queryByRole("button",{name:"添加成员覆盖"})).not.toBeInTheDocument();expect(screen.getByText(/完整 UTC 自然月/)).toBeInTheDocument();
+  fireEvent.change(screen.getByLabelText("变更理由（写入审计）"),{target:{value:"fixture authority"}});fireEvent.click(screen.getByRole("button",{name:"保存额度配置"}));await waitFor(()=>expect(mocks.save).toHaveBeenCalled());
+  expect(mocks.save.mock.calls[0]![1].configuration.tokenControls).toEqual({quotaSource:"member-monthly-utc",warningAtTokens:null,degradeAtTokens:null,memberOverrides:[]});
+ });
+
 });

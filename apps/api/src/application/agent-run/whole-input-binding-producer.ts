@@ -1,3 +1,4 @@
+import {matchesChildSdkEvidence,type ChildSdkEvidence} from "./child-input-source-provenance";
 import {matchesRootAssemblyEvidence,type RootAssemblyEvidence} from "./root-input-source-provenance";
 import {matchesContextSourceLineage,type ContextSourceLineage,type SelectedContextSource} from "./context-pack-source-lineage";
 import {createHash} from 'node:crypto';
@@ -10,7 +11,7 @@ export interface WholeInputManifest {
  readonly kind:'whole-input';readonly contextPackRunId:null;readonly subject:WholeInputSubject;
  readonly inputSha256:string;readonly byteLength:number;readonly completeEnumeration:true;
  readonly components:readonly {readonly ordinal:number;readonly sha256:string;readonly classification:'unknown'|'confidential'|'non-confidential';readonly source?:SelectedContextSource}[];
- readonly assemblyEvidence?:RootAssemblyEvidence;
+ readonly assemblyEvidence?:RootAssemblyEvidence;readonly childEvidence?:ChildSdkEvidence;
  readonly requiredCapabilities:readonly string[];readonly localOnlyRequired:boolean|null;
 }
 const issued=new WeakSet<object>();
@@ -19,7 +20,7 @@ const hash=(value:string)=>createHash('sha256').update(value).digest('hex');
  * The raw envelope digest covers duplicates, unknown fields and every exact byte;
  * parsed components supplement it but cannot replace that envelope or classify it.
  */
-export function produceWholeInputBinding(subject:WholeInputSubject,serializedInput:string,lineage?:ContextSourceLineage|null,assemblyEvidence?:RootAssemblyEvidence|null):WholeInputManifest {
+export function produceWholeInputBinding(subject:WholeInputSubject,serializedInput:string,lineage?:ContextSourceLineage|null,assemblyEvidence?:RootAssemblyEvidence|null,childEvidence?:ChildSdkEvidence|null):WholeInputManifest {
  if(!subject.orgId||!subject.userId||!subject.rootRunId||!subject.runId||!subject.attemptId
   ||!Number.isSafeInteger(subject.leaseEpoch)||subject.leaseEpoch<1||!['root-model-input','private-sdk-body'].includes(subject.origin))throw new Error('AI_WHOLE_INPUT_SUBJECT_INVALID');
  const pieces=[serializedInput];
@@ -36,7 +37,7 @@ export function produceWholeInputBinding(subject:WholeInputSubject,serializedInp
  });
  const manifest:WholeInputManifest=Object.freeze({kind:'whole-input',contextPackRunId:null,subject:Object.freeze({...subject}),
   inputSha256:digest,byteLength:Buffer.byteLength(serializedInput),completeEnumeration:true,
-  components:Object.freeze(components),...(assemblyEvidence&&matchesRootAssemblyEvidence(assemblyEvidence,subject,serializedInput)?{assemblyEvidence}:{}),requiredCapabilities:Object.freeze([]),localOnlyRequired:lineage&&matchesContextSourceLineage(lineage,subject,digest)?lineage.localOnlyRequired:null});
+  components:Object.freeze(components),...(subject.origin==="private-sdk-body"&&childEvidence&&matchesChildSdkEvidence(childEvidence,subject,serializedInput)?{childEvidence}:{}),...(assemblyEvidence&&matchesRootAssemblyEvidence(assemblyEvidence,subject,serializedInput)?{assemblyEvidence}:{}),requiredCapabilities:Object.freeze([]),localOnlyRequired:lineage&&matchesContextSourceLineage(lineage,subject,digest)?lineage.localOnlyRequired:null});
  issued.add(manifest);return manifest;
 }
 export function matchesWholeInputBinding(binding:WholeInputManifest,subject:WholeInputSubject,serializedInput:string):boolean {
