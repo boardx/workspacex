@@ -1,0 +1,40 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/survey-report-echarts/packages/local-runtime
+
+ ❯ test/parity.test.ts (5 tests | 1 failed) 344ms
+   × local/cloud env parity > classifies every environment variable the API reads 272ms
+     → expected [ 'DESIGN_HTML_PAGES', …(2) ] to deeply equal []
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  test/parity.test.ts > local/cloud env parity > classifies every environment variable the API reads
+AssertionError: expected [ 'DESIGN_HTML_PAGES', …(2) ] to deeply equal []
+
+- Expected
++ Received
+
+- Array []
++ Array [
++   "DESIGN_HTML_PAGES",
++   "KG_EVAL_FIXTURE",
++   "KG_EVAL_RECALL_MODE",
++ ]
+
+ ❯ test/parity.test.ts:33:33
+     31|     });
+     32|     // 一条都不许漏：新增的变量要么由 config.ts 供给，要么在 parity.ts…
+     33|     expect(report.unclassified).toEqual([]);
+       |                                 ^
+     34|     // 归类了又供给 = 两处打架，读的人不知道信哪个。
+     35|     expect(report.classifiedButSupplied).toEqual([]);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 4 passed (5)
+   Start at  07:48:45
+   Duration  477ms (transform 35ms, setup 0ms, collect 36ms, tests 344ms, environment 0ms, prepare 29ms)
+
+undefined
+/Users/shenyangjun/.codex/worktrees/survey-report-echarts/packages/local-runtime:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run test/parity.test.ts
