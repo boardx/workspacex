@@ -82,7 +82,7 @@ it("preserves the creation key on failure and resumes the actual server node", a
   fireEvent.click(screen.getByTestId("research-confirm-brief"));
   await screen.findByRole("alert");
   fireEvent.click(screen.getByTestId("research-confirm-brief"));
-  await waitFor(() => expect(push).toHaveBeenCalledWith("/research/created-session/topic"));
+  await waitFor(() => expect(push).toHaveBeenCalledWith("/research/created-session/plan"));
   const [first, second] = vi.mocked(createGuidedResearchSession).mock.calls;
   expect(second?.[0].idempotencyKey).toBe(first?.[0].idempotencyKey);
   expect(second?.[0]).toMatchObject({ title: "新建研究", brief: { topic: "User topic", goal: "User objective" } });
@@ -96,7 +96,7 @@ it("accepts the prototype's single description without requiring a hidden topic 
   fireEvent.change(screen.getByRole("textbox", { name: "研究目标" }), { target: { value: description } });
   expect(screen.getByTestId("research-confirm-brief")).toBeEnabled();
   fireEvent.click(screen.getByTestId("research-confirm-brief"));
-  await waitFor(() => expect(push).toHaveBeenCalledWith("/research/description-session/topic"));
+  await waitFor(() => expect(push).toHaveBeenCalledWith("/research/description-session/plan"));
   expect(vi.mocked(createGuidedResearchSession).mock.calls[0]?.[0]).toMatchObject({
     title: "新建研究", brief: { topic: "新建研究", goal: description },
   });
@@ -129,7 +129,7 @@ it.each([101, 123, 200, 2000, 11540, 40000])("creates research from a %i-charact
   const description = "研".repeat(length);
   fireEvent.change(screen.getByRole("textbox", { name: "研究目标" }), { target: { value: description } });
   fireEvent.click(screen.getByTestId("research-confirm-brief"));
-  await waitFor(() => expect(push).toHaveBeenCalledWith("/research/long-description/topic"));
+  await waitFor(() => expect(push).toHaveBeenCalledWith("/research/long-description/plan"));
   const input = vi.mocked(createGuidedResearchSession).mock.calls[0]![0];
   expect(input.brief?.goal).toBe(description);
   expect(input.title).toBe("新建研究");

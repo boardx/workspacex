@@ -11,11 +11,11 @@ const STAGE_PRESENTATION: Record<GuidedResearchSession["resumeStage"], {
   step: number;
   action: string;
 }> = {
-  brief: { label: "研究问题", step: 1, action: "完善研究问题" },
-  directions: { label: "研究方向", step: 2, action: "确认研究方向" },
-  outline: { label: "研究大纲", step: 3, action: "审阅研究大纲" },
-  researching: { label: "资料取证", step: 4, action: "继续收集证据" },
-  report: { label: "研究报告", step: 5, action: "审阅研究报告" },
+  brief: { label: "确认研究内容", step: 1, action: "完善研究内容" },
+  directions: { label: "研究计划", step: 2, action: "查看研究计划" },
+  outline: { label: "研究计划", step: 2, action: "查看研究计划" },
+  researching: { label: "生成报告", step: 3, action: "继续生成报告" },
+  report: { label: "生成报告", step: 3, action: "查看研究报告" },
 };
 
 export function guidedResearchHomePresentation(session: GuidedResearchSession) {
@@ -28,7 +28,7 @@ export function guidedResearchHomePresentation(session: GuidedResearchSession) {
   const missingEvidence = session.resumeStage === "report" && session.sourceCount === 0;
   return {
     ...stage,
-    step: completed ? 6 : stage.step,
+    step: completed ? 3 : stage.step,
     action: completed ? "查看研究报告" : failed ? "恢复研究" : stage.action,
     attention: failed || missingEvidence,
     attentionLabel: missingEvidence ? "证据缺口" : failed ? "流程中断" : null,
@@ -87,9 +87,9 @@ export function GuidedResearchCardProgress({ session }: { session: GuidedResearc
         <FileCheck2 className="size-3.5 text-muted-foreground" aria-hidden />
         <span className="text-12 font-medium">{presentation.label}</span>
       </div>
-      <span className="text-11 text-muted-foreground">第 {presentation.step} / 6 步</span>
+      <span className="text-11 text-muted-foreground">第 {presentation.step} / 3 步</span>
     </div>
-    <Progress value={presentation.step} max={6} label={`研究流程：第 ${presentation.step} / 6 步，${presentation.label}`} tone="primary" />
+    <Progress value={presentation.step} max={3} label={`研究流程：第 ${presentation.step} / 3 步，${presentation.label}`} tone="primary" />
     {presentation.attention && <div className="flex items-center justify-between gap-3">
       <span className="text-11 text-muted-foreground">{presentation.evidenceLabel}</span>
       {presentation.attentionLabel && <Badge tone="neutral">{presentation.attentionLabel}</Badge>}

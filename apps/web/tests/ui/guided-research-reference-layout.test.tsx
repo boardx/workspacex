@@ -61,23 +61,23 @@ describe("guided research reference layout", () => {
   it("renders unavailable steps as circular indicators, not disabled button tiles", () => {
     const navigate = vi.fn();
     render(<GuidedResearchSixStepShell current="import" available={["import"]} onNavigate={navigate} main="需求" />);
-    const indicator = screen.getByTestId("research-step-topic");
+    const indicator = screen.getByTestId("research-step-plan");
     expect(indicator).toHaveAttribute("aria-disabled", "true");
     expect(indicator.tagName).toBe("SPAN");
-    expect(screen.queryByRole("button", { name: /2确认研究主题/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /研究计划/ })).not.toBeInTheDocument();
     fireEvent.click(indicator);
     expect(navigate).not.toHaveBeenCalled();
   });
   it("requires explicit discard before header navigation leaves unsaved content", () => {
     const back = vi.fn();
     const navigate = vi.fn();
-    render(<GuidedResearchSixStepShell current="topic" available={["import", "topic", "plan"]} onBack={back} onNavigate={navigate} hasUnsavedChanges main="草稿" />);
+    render(<GuidedResearchSixStepShell current="import" available={["import", "topic", "plan"]} onBack={back} onNavigate={navigate} hasUnsavedChanges main="草稿" />);
     fireEvent.click(screen.getByTestId("research-flow-back"));
     expect(back).not.toHaveBeenCalled();
     expect(screen.getByRole("dialog")).toHaveTextContent("尚未保存");
     fireEvent.click(screen.getByRole("button", { name: "继续编辑" }));
     expect(back).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByRole("button", { name: /3研究计划/ }));
+    fireEvent.click(screen.getByRole("button", { name: /研究计划/ }));
     expect(navigate).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "放弃修改并离开" }));
     expect(navigate).toHaveBeenCalledWith("plan");
@@ -91,7 +91,7 @@ describe("guided research reference layout", () => {
     expect(screen.getByTestId("guided-research-plan-panel")).toHaveAttribute("data-reference-layout", "plan-workspace");
     expect(screen.getByText("计划 Markdown")).toBeVisible();
     expect(screen.queryByRole("heading", { name: "核心问题" })).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "开始研究" })).toHaveClass("bg-primary");
+    expect(screen.getByRole("button", { name: "生成报告" })).toHaveClass("bg-primary");
     expect(screen.getByRole("button", { name: "上一步" })).toHaveClass("bg-primary");
   });
   it("uses the reference-style six-step canvas instead of a generic document shell", () => {
@@ -168,7 +168,7 @@ describe("guided research reference layout", () => {
     expect(screen.getByTestId("guided-research-plan-panel")).toHaveAttribute("data-reference-layout", "plan-workspace");
     expect(screen.getByText("计划 Markdown")).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "核心问题" })).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "开始研究" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "生成报告" })).toBeDisabled();
   });
 
   it("uses plan language while the plan is being generated", () => {

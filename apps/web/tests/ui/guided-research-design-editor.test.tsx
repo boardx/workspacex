@@ -14,7 +14,7 @@ describe("editable research design depth", () => {
     const state = runtimeFixture("directions"); state.directions[0] = { ...state.directions[0]!, ...detail };
     vi.mocked(getResearchRuntime).mockResolvedValue(state); vi.mocked(executeResearchRuntime).mockResolvedValue({ ...state, version: 5 });
     render(<GuidedResearchLive sessionId={state.sessionId} onBack={vi.fn()} />);
-    await screen.findByRole("textbox", { name: "研究主题" });
+    await screen.findByTestId("research-plan-recovery");
     expect(screen.queryByLabelText("研究方向")).not.toBeInTheDocument();
     expect(screen.queryByText(/研究设计 · 问题/)).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "重新生成本步骤" })).not.toBeInTheDocument();

@@ -26,7 +26,7 @@ it("uses cached step data plus changed fields when returning to another step", a
   writeResearchMemory(state.sessionId, { runtime: state }, "account");
   vi.mocked(getResearchRuntimeProgress).mockResolvedValue({ type: "patch", sessionId: state.sessionId, version: state.version, revision: state.revision, changes: {}, removed: [] });
   render(<GuidedResearchLive sessionId={state.sessionId} initialNode="directions" visualStage="topic" onBack={vi.fn()} />);
-  await screen.findByDisplayValue(state.brief.topic);
+  expect(await screen.findByTestId("research-plan-recovery")).toHaveTextContent(state.brief.goal);
   expect(getResearchRuntime).not.toHaveBeenCalled();
   expect(getResearchRuntimeProgress).toHaveBeenCalledWith(state.sessionId, state.reportStream, undefined, state);
   expect(readResearchMemory(state.sessionId)?.runtime?.outline).toEqual(state.outline);
@@ -50,5 +50,5 @@ it("does not apply an old poll patch over newer streamed text and timeline", asy
   await act(async () => emit({ type: "report_delta", sessionId: initial.sessionId, requestId, version: 5, sequence: 2, delta: "正文" }));
   await act(async () => finish({ type: "patch", sessionId: initial.sessionId, version: 5, revision: current.revision, changes: { reportTimeline: [{ ...current.reportTimeline[0]!, status: "running" }] }, removed: [] }));
   expect(screen.getByText("已生成正文")).toBeInTheDocument();
-  expect(screen.getByTestId("research-report-timeline").querySelector("[data-status=completed]")).not.toBeNull();
+  expect(screen.getByTestId("execution-chapters")).toHaveTextContent("已完成");
 });

@@ -147,7 +147,7 @@ export function ResearchIntake({ sessionId, session, workflow, onSession, onWork
 
         onClear?.(sessionId);
         onSession(updated);
-        onNavigate("directions", sessionId);
+        onNavigate("outline", sessionId);
         return;
       }
       const pending = pendingCreateIdempotencyKey({ ...createDraft, brief: confirmedBrief });
@@ -173,7 +173,7 @@ export function ResearchIntake({ sessionId, session, workflow, onSession, onWork
       onClear?.();
       onSession(createdSession);
       const node = runtime?.currentNode;
-      onNavigate(runtime?.version === 0 || !runtime ? "directions" : node === "research" ? "search" : node ?? "directions", createdSession.sessionId);
+      onNavigate(runtime?.version === 0 || !runtime ? "outline" : node === "research" ? "search" : node ?? "outline", createdSession.sessionId);
     } catch {
       if (active.current) setSubmitFailed(true);
     } finally {
@@ -209,7 +209,7 @@ export function ResearchIntake({ sessionId, session, workflow, onSession, onWork
           <Field label="重点关注"><Textarea value={brief.focus} onChange={(event) => patch("focus", event.target.value)} data-testid="research-brief-focus" aria-label="重点关注" /></Field>
           </div></details>
           {submitFailed && <p className="text-11 text-destructive" role="alert">研究创建失败，请重试。再次提交不会重复创建。</p>}
-          <div className="mt-auto flex justify-end"><Button variant="primary" className="h-9 px-5 text-sm" disabled={submitting || voiceBusy || importBusy || brief.goal.length > goalLimit || !brief.goal.trim() || Boolean(sessionId && !brief.topic.trim())} onClick={() => void confirm()} data-testid="research-confirm-brief">{submitting ? "正在创建…" : "下一步：确认研究主题"}<ArrowRight className="size-4" aria-hidden /></Button></div>
+          <div className="mt-auto flex justify-end"><Button variant="primary" className="h-9 px-5 text-sm" disabled={submitting || voiceBusy || importBusy || brief.goal.length > goalLimit || !brief.goal.trim() || Boolean(sessionId && !brief.topic.trim())} onClick={() => void confirm()} data-testid="research-confirm-brief">{submitting ? "正在创建…" : "下一步：研究计划"}<ArrowRight className="size-4" aria-hidden /></Button></div>
           {brief.goal.length > goalLimit && <p role="alert" className="text-sm text-destructive">需求超过 {goalLimit} 字，请精简后继续。导入内容已保留。</p>}
         </CardContent></Card>
         <ResearchPrototypeTips />

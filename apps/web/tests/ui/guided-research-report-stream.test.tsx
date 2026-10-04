@@ -23,14 +23,14 @@ const idleReport: Runtime = { ...initial, currentNode: "report", availableNodes:
 beforeEach(() => { vi.resetAllMocks(); vi.mocked(getResearchRuntime).mockResolvedValue(idleReport); });
 afterEach(() => vi.useRealTimers());
 describe("research report stream UI", () => {
-  it("renders the live report area above the generation timeline before text arrives", async () => {
+  it("renders the execution timeline before the live report area before text arrives", async () => {
     vi.mocked(getResearchRuntime).mockResolvedValue({ ...streaming(), reportTimeline: [{ id: "evidence", stage: "evidence", status: "running", attempts: 1 }] });
     render(<GuidedResearchLive sessionId={initial.sessionId} onBack={vi.fn()} />);
     const previewStatus = await screen.findByText("正在组织报告内容，正文返回后将实时显示。");
-    const timeline = screen.getByTestId("research-report-timeline");
-    expect(previewStatus.compareDocumentPosition(timeline) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    const timeline = screen.getByTestId("research-execution-timeline");
+    expect(timeline.compareDocumentPosition(previewStatus) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
-  it("hides the generation timeline once the completed report is being read", async () => {
+  it("retains the execution history before the completed report", async () => {
     vi.mocked(getResearchRuntime).mockResolvedValue({
       ...streaming(), busy: false, leaseUntil: null,
       report: { title: "正式报告", summary: "最终摘要", sections: [] },
@@ -39,7 +39,7 @@ describe("research report stream UI", () => {
     });
     render(<GuidedResearchLive sessionId={initial.sessionId} onBack={vi.fn()} />);
     expect(await screen.findByTestId("research-report-document")).toHaveTextContent("正式报告");
-    expect(screen.queryByTestId("research-report-timeline")).not.toBeInTheDocument();
+    expect(screen.getByTestId("research-execution-timeline").compareDocumentPosition(screen.getByTestId("research-report-document")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
   it("shows actual model text before completion and ignores wrong request and duplicate deltas", async () => {
     vi.mocked(executeResearchRuntime).mockImplementation(async (input, callback) => {
@@ -102,10 +102,10 @@ describe("research report stream UI", () => {
     await act(async () => { render(<GuidedResearchLive sessionId={initial.sessionId} onBack={vi.fn()} />); });
     expect(screen.getByText("刷新恢复摘要")).toBeInTheDocument();
     expect(screen.getByText("已保存章节")).toBeInTheDocument();
-    expect(screen.getByTestId("research-report-timeline").querySelector("[aria-busy=true]")).not.toBeNull();
+    expect(screen.getByTestId("execution-chapters")).toHaveTextContent("执行中");
     await act(async () => { await vi.advanceTimersByTimeAsync(2000); });
     expect(screen.getByText("已保存章节")).toBeInTheDocument();
-    expect(screen.getByTestId("research-report-timeline").querySelector("[data-status=completed]")).not.toBeNull();
+    expect(screen.getByTestId("execution-chapters")).toHaveTextContent("已完成");
     expect(executeResearchRuntime).not.toHaveBeenCalled();
   });
   it("accepts a higher-sequence server reset when a provider cannot stream tokens", async () => {
@@ -120,19 +120,25 @@ describe("research report stream UI", () => {
     expect(screen.getByText("正在组织报告内容，正文返回后将实时显示。")).toBeInTheDocument();
     expect(executeResearchRuntime).not.toHaveBeenCalled();
   });
-  it("offers explicit partial evidence generation only when failed tasks are terminal", async () => {
+  it("uses one combined generation command for terminal failed tasks without silently approving partial evidence", async () => {
     vi.mocked(getResearchRuntime).mockResolvedValue({ ...initial, tasks: [{ ...initial.tasks[0]!, status: "failed" }] });
-    vi.mocked(executeResearchRuntime).mockResolvedValue({ ...initial, version: 8, tasks: [{ ...initial.tasks[0]!, status: "failed" }] });
+    vi.mocked(executeResearchRuntime).mockResolvedValue({ ...initial, version: 8, errorCode: "RESEARCH_TASKS_INCOMPLETE", tasks: [{ ...initial.tasks[0]!, status: "failed" }] });
     render(<GuidedResearchLive sessionId={initial.sessionId} onBack={vi.fn()} />);
-    fireEvent.click(await screen.findByRole("button", { name: "基于已有来源继续" }));
-    fireEvent.click(await screen.findByRole("button", { name: "下一步：生成报告" }));
-    expect(executeResearchRuntime).toHaveBeenCalledWith(expect.objectContaining({ action: "complete", allowPartialResearch: true }), expect.any(Function), expect.any(AbortSignal), expect.objectContaining({ sessionId: expect.any(String) }));
+    fireEvent.click(await screen.findByTestId("research-report-primary-action"));
+    await screen.findByRole("alert");
+    expect(executeResearchRuntime).toHaveBeenCalledTimes(1);
+    const command = vi.mocked(executeResearchRuntime).mock.calls[0]![0];
+    expect(command).toMatchObject({ action: "generate_report", node: "research" });
+    expect(command).not.toHaveProperty("allowPartialResearch");
+    expect(screen.queryByTestId("research-report-document")).not.toBeInTheDocument();
   });
-  it("blocks report generation while searches are pending", async () => {
-    vi.mocked(getResearchRuntime).mockResolvedValue({ ...initial, tasks: [{ ...initial.tasks[0]!, status: "pending" }] });
+  it("disables duplicate combined execution while searches are running", async () => {
+    vi.mocked(getResearchRuntime).mockResolvedValue({ ...initial, busy:true, leaseUntil:"2099-01-01T00:00:00Z", executionGoal:"report", tasks: [{ ...initial.tasks[0]!, status: "pending" }] });
     render(<GuidedResearchLive sessionId={initial.sessionId} onBack={vi.fn()} />);
-    expect(await screen.findByRole("button", { name: "确认并继续" })).toBeDisabled();
-    expect(screen.getByText("检索仍在进行，任务结束后可生成报告。")).toBeInTheDocument();
+    await screen.findByTestId("research-execution-timeline");
+    expect(screen.queryByTestId("research-report-primary-action")).not.toBeInTheDocument();
+    expect(executeResearchRuntime).not.toHaveBeenCalled();
+    expect(screen.queryByTestId("research-report-document")).not.toBeInTheDocument();
   });
   it("keeps failed partial output visibly unfinished without exposing a completed report", async () => {
     vi.mocked(getResearchRuntime).mockResolvedValue({ ...streaming(), busy: false, leaseUntil: null, reportStream: { requestId: "request", sequence: 1, text: '{"summary":"未完成正文', status: "failed" } });
@@ -219,7 +225,7 @@ it("offers a separate full regeneration action for a saved interrupted report", 
   render(<GuidedResearchLive sessionId={initial.sessionId} onBack={vi.fn()} />);
   fireEvent.click(await screen.findByRole("button", { name: "从头重新生成" }));
   await waitFor(() => expect(executeResearchRuntime).toHaveBeenCalledTimes(1));
-  expect(vi.mocked(executeResearchRuntime).mock.calls[0]![0].action).toBe("generate");
+  expect(vi.mocked(executeResearchRuntime).mock.calls[0]![0].action).toBe("generate_report");
 });
 
 it("keeps newer pause controls when an old generation snapshot arrives", async () => {

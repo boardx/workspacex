@@ -1,3 +1,4 @@
+import { executeComposite } from "./guided-composite-execution";
 import { executeTaskPipeline, tasksFromConfirmedQuestions, normalizedResearchUrl } from "./guided-task-pipeline";
 import { withGuidedThinkingPolicy } from "./guided-thinking-policy";
 import { reportBasis } from "./guided-report-checkpoint";
@@ -492,8 +493,19 @@ export class GuidedRuntimeService {
     if (!state.sources.some((source) => source.decision === "accepted")) throw new ResearchRuntimeError("RESEARCH_SOURCES_REQUIRED");
   }
   private async perform(state: ResearchRuntime, command: RuntimeCommand, persist: RuntimePersistence,
-    internalSources: Awaited<ReturnType<GuidedInternalSourceAccessPort["loadAuthorizedSources"]>> = []) {
+    internalSources: Awaited<ReturnType<GuidedInternalSourceAccessPort["loadAuthorizedSources"]>> = [], compositeContinuation = false) {
     const { node, action } = command;
+    if (!compositeContinuation && (["prepare_plan", "generate_report"].includes(action) || (action === "retry" && state.executionGoal))) {
+      await executeComposite(state, command, persist, {
+        save: draft => this.perform(state, { ...command, node: draft.node, action: "save", draft }, persist, internalSources),
+        generate: (target, resume) => this.generate(state, target, persist, undefined, resume),
+        search: resume => this.perform(state, { ...command, node: "research", action: resume ? "retry" : "start", draft: undefined }, persist, internalSources, true),
+        completeReport: () => this.perform(state, { ...command, node: "report", action: "complete", draft: undefined }, persist, internalSources),
+        validateOutline: () => validateRuntimeDraft(state, { node: "outline", value: state.outline }),
+        activity: (stage, summary, status) => appendActivity(state, stage, summary, status),
+      });
+      return;
+    }
     if (steeringActions.has(action)) { applyResearchSteering(state, command); return; }
     if (state.controlStatus === "paused" && (node === "research" || node === "report") && ["start", "retry", "generate"].includes(action)) throw new ResearchRuntimeError("RESEARCH_WORKFLOW_PAUSED");
     if (command.allowPartialResearch !== undefined && (node !== "research" || !["confirm", "complete"].includes(action))) throw new ResearchRuntimeError("RESEARCH_NODE_STATE_INVALID");
@@ -506,12 +518,14 @@ export class GuidedRuntimeService {
       // edited questions through the existing evidence and quality pipeline.
       invalidate(state, "research");
       state.outline = command.draft.value.map((item, order) => ({ ...item, order }));
+      delete state.executionGoal;
       return;
     }
     if (action === "save") {
       if (!command.draft) throw new ResearchRuntimeError("RESEARCH_NODE_STATE_INVALID");
       const editingTopic = command.draft.node === "brief" && state.currentNode !== "brief";
       applyDraft(state, command.draft);
+      delete state.executionGoal;
       if (editingTopic) { state.currentNode = "directions"; state.availableNodes = ["brief", "directions"]; }
       return;
     }
@@ -524,6 +538,7 @@ export class GuidedRuntimeService {
         await this.perform(state, { ...command, action: proposal.action, draft: proposal.draft }, persist, internalSources);
       } else {
         applyDraft(state, proposal.draft);
+        delete state.executionGoal;
         if (!state.generatedNodes.includes(node)) state.generatedNodes.push(node);
       }
       return;
