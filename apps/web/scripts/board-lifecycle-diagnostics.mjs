@@ -1,6 +1,6 @@
 const specs=new Set(['board-shared-outbox.spec.ts']);
 const projects=new Set(['chromium','board-collaboration-regressions','board-api-ws-objectstore']);
-const stages=new Set(['before-freeze','native-visibilitychange','after-active']);
+const stages=new Set(['before-freeze','before-pause','native-visibilitychange','after-active','after-resume']);
 const count=value=>Number.isSafeInteger(value)&&value>=0&&value<=1_000_000;
 /** Rebuild the complete output; never forward stdout, arbitrary keys or paths. */
 export function boardLifecycleDiagnostic(chunk,test){
