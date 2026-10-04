@@ -15,7 +15,7 @@ const hash=(value:string|Uint8Array)=>createHash('sha256').update(value).digest(
 const quote=(value:string)=>"'"+value.replaceAll("'","'\\''")+"'";
 export class DefaultStandardImageService implements StandardImageService{
  constructor(private owner:NativeSessionOwner,private inputs:NativeRunInputs,private sessions:(bound:NativeResolved)=>ImageSession,
-  private authority:Pick<ToolExecutionAuthority,'check'>,private identities:Pick<IdentityRepository,'findOrganization'>,private objects:ObjectStore,private provider:ImageGenerator,private downloader:GeneratedImageDownloader){}
+  private authority:Pick<ToolExecutionAuthority,'check'>,private identities:Pick<IdentityRepository,'findOrganization'>,private objects:ObjectStore,private provider:ImageGenerator,private downloader:GeneratedImageDownloader,private readonly requestAccounting=false){}
  async generate(context:ImageContext,raw:z.infer<typeof ImageGenerateInput>){
   const input=ImageGenerateInput.parse(raw),signal=AbortSignal.timeout(L.deadlineMs);
   const authorize=async()=>{signal.throwIfAborted();if(!(await this.authority.check({...context,toolName:IMAGE_GENERATE_TOOL,toolArgs:input})).allowed)throw new Error('image_generation_denied');};
@@ -45,7 +45,7 @@ export class DefaultStandardImageService implements StandardImageService{
    const cancellation=new AbortController(),stopWatch=new AbortController();
    const watch=(async()=>{try{while(true){await delay(1000,undefined,{signal:stopWatch.signal});await this.owner.resolve(context.bindingId,context);}}catch{if(!stopWatch.signal.aborted)cancellation.abort();}})();
    let generated:Awaited<ReturnType<ImageGenerator['generateImage']>>;
-   try{await authorize();generated=await this.provider.generateImage(input.prompt,AbortSignal.any([signal,cancellation.signal]));}
+   try{await authorize();generated=this.requestAccounting?await this.provider.generateImage(input.prompt,AbortSignal.any([signal,cancellation.signal]),context):await this.provider.generateImage(input.prompt,AbortSignal.any([signal,cancellation.signal]));}
    finally{stopWatch.abort();await watch;}
    if(generated.modelRef!==this.provider.modelRef)throw new Error('image_generation_model_changed');
    await authorize();await this.owner.resolve(context.bindingId,context);

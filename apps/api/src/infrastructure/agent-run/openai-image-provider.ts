@@ -32,6 +32,11 @@
  * `readBoundedJson` 头注记着这条真实事故（CI 上卡满 60s = promise 从没 settle）。
  * 这里的读循环同样用 `abortable(...)` 把每次 `read()` 包起来，不把活性外包给善意。
  */
+import {Logger} from "@nestjs/common";
+import {randomUUID} from "node:crypto";
+import type {ImageRequestAccounting} from "../../application/agent-run/image-request-accounting";
+import type {ImageContext} from "../../application/agent-run/standard-image-tools";
+import type {ReportedUsage} from "../../application/agent-run/ports";
 import { ModelCallError } from "../../application/agent-run/ports";
 import { IMAGE_GENERATE_LIMITS as L } from "@repo/contracts/standard-image-tools";
 import type { GeneratedImage, ImageGenerator } from "../../application/agent-run/standard-image-tools";
@@ -69,15 +74,18 @@ export function readOpenAiImageProviderConfig(env: NodeJS.ProcessEnv = process.e
 
 interface ImagesResponse {
   readonly created?: number;
+  readonly usage?: unknown;
   readonly data?: readonly { readonly b64_json?: string; readonly url?: string }[];
 }
 
 export class OpenAiImageProvider implements ImageGenerator {
-  constructor(private readonly config: OpenAiImageProviderConfig) {}
+  private accountingFault=false;
+  private readonly logger=new Logger(OpenAiImageProvider.name);
+  constructor(private readonly config: OpenAiImageProviderConfig,private readonly accounting?:ImageRequestAccounting,private readonly productQuotaEnabled=false) {}
 
   get modelRef(): string { return this.config.modelId; }
 
-  async generateImage(prompt: string, callerSignal?: AbortSignal): Promise<GeneratedImage> {
+  async generateImage(prompt: string, callerSignal?: AbortSignal,accountingContext?:ImageContext): Promise<GeneratedImage> {
     const { apiKey, modelId, baseUrl, timeoutMs } = this.config;
     if (!apiKey) throw new ModelCallError("MODEL_PROVIDER_NOT_CONFIGURED", "image provider is not configured");
     if (!prompt.trim() || prompt.length > 16_384) throw new ModelCallError("MODEL_CALL_FAILED", "image prompt is invalid");
@@ -86,7 +94,7 @@ export class OpenAiImageProvider implements ImageGenerator {
       : AbortSignal.timeout(timeoutMs);
     try {
       signal.throwIfAborted();
-      const body = await this.submit(baseUrl, apiKey, modelId, prompt.trim(), signal);
+      const body = await this.submit(baseUrl, apiKey, modelId, prompt.trim(), signal, accountingContext);
       return pickDelivery(body, modelId);
     } catch {
       // 不重试：同步接口的一次「确认丢失」同样可能已经在上游产生了一次计费调用。
@@ -95,7 +103,7 @@ export class OpenAiImageProvider implements ImageGenerator {
     }
   }
 
-  private async submit(baseUrl: string, apiKey: string, modelId: string, prompt: string, signal: AbortSignal): Promise<ImagesResponse> {
+  private async submit(baseUrl: string, apiKey: string, modelId: string, prompt: string, signal: AbortSignal,context?:ImageContext): Promise<ImagesResponse> {
     const headers: Record<string, string> = {
       "content-type": "application/json",
       "accept-encoding": "identity",
@@ -107,21 +115,28 @@ export class OpenAiImageProvider implements ImageGenerator {
     // base64）。这不是可以「都发一遍反正无害」的参数，所以按模型名分流。
     const payload: Record<string, unknown> = { model: modelId, prompt, n: 1, size: `${L.dimension}x${L.dimension}` };
     if (modelId.startsWith("dall-e")) payload.response_format = "b64_json";
-    let response: Response;
+    if(this.accountingFault)throw new Error("IMAGE_ACCOUNTING_REPAIR_REQUIRED");
+    if(this.productQuotaEnabled)throw new Error("IMAGE_NATIVE_ADMISSION_REQUIRED");
+    if(this.accounting&&!context)throw new Error("IMAGE_ACCOUNTING_CONTEXT_REQUIRED");
+    signal.throwIfAborted();
+    const receipt=this.accounting?await this.accounting.start(context!,{requestId:randomUUID(),modelId,startedAt:new Date().toISOString()}):undefined;
+    let usage:ReportedUsage={},outcome:'succeeded'|'failed'='failed';
     try {
-      response = await fetch(`${baseUrl}/v1/images/generations`, {
+      signal.throwIfAborted();
+      const response = await fetch(`${baseUrl}/v1/images/generations`, {
         method: "POST", signal, redirect: "error", headers, body: JSON.stringify(payload),
       });
-    } catch {
-      throw new ModelCallError("MODEL_CALL_FAILED", "image provider transport failure");
+      if(!response.ok&&!receipt){await response.body?.cancel();throw new ModelCallError("MODEL_CALL_FAILED", `image generation failed with HTTP ${response.status}`);}
+      const body=await readBoundedJson(response,signal) as ImagesResponse;
+      usage=readImageUsage(body.usage);
+      if(!response.ok)throw new ModelCallError("MODEL_CALL_FAILED", `image generation failed with HTTP ${response.status}`);
+      outcome='succeeded';return body;
+    } finally {
+      if(receipt)try{await receipt.terminal({endedAt:new Date().toISOString(),outcome,usage});}catch{
+        this.accountingFault=true;
+        this.logger.warn("IMAGE_USAGE_TERMINAL_FAILED: durable start remains unmatched; subsequent dispatches blocked in this instance");
+      }
     }
-    if (!response.ok) {
-      // 上游的错误正文留在服务端（同 `bailian-image-provider.ts` 的纪律）：调用方只该
-      // 知道这次失败了，不该拿到供应商回的原文。
-      await response.body?.cancel();
-      throw new ModelCallError("MODEL_CALL_FAILED", `image generation failed with HTTP ${response.status}`);
-    }
-    return await readBoundedJson(response, signal) as ImagesResponse;
   }
 }
 
@@ -181,4 +196,12 @@ function abortable<T>(promise: Promise<T>, signal: AbortSignal): Promise<T> {
     signal.addEventListener("abort", onAbort, { once: true });
     promise.then(resolve, reject).finally(() => signal.removeEventListener("abort", onAbort));
   });
+}
+
+/** Images usage uses input_tokens/output_tokens; absent dimensions remain absent. */
+export function readImageUsage(raw:unknown):ReportedUsage{
+ if(!raw||typeof raw!=="object"||Array.isArray(raw))return {};
+ const u=raw as Record<string,unknown>,count=(v:unknown)=>typeof v==='number'&&Number.isSafeInteger(v)&&v>=0?v:undefined;
+ const result:ReportedUsage={total:count(u.total_tokens),prompt:count(u.input_tokens),completion:count(u.output_tokens)};
+ return Object.fromEntries(Object.entries(result).filter(([,v])=>v!==undefined));
 }

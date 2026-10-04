@@ -36,8 +36,9 @@
       "id": "image-http",
       "source": "apps/api/src/infrastructure/agent-run/openai-image-provider.ts",
       "anchor": "response = await fetch",
-      "receiptHook": "missing",
-      "admissionHook": "missing"
+      "receiptHook": "context-subset",
+      "admissionHook": "missing; product quota enabled denies before start/HTTP",
+      "acceptance": "Trusted standard-image server context only, OpenAI loopback unit coverage; not real vendor/PG. Bailian and direct unowned callers do not receive guessed attribution."
     },
     {
       "id": "asr-websocket",
@@ -116,8 +117,8 @@
   "counts": {
     "auditedConcreteDispatchPoints": 7,
     "receiptHooksImplemented": 3,
-    "receiptHooksContextSubset": 1,
-    "receiptHooksMissing": 3,
+    "receiptHooksContextSubset": 2,
+    "receiptHooksMissing": 2,
     "knownRetrievalProducerRoutes": 7,
     "trustedRunReferenceRoutesImplemented": 2,
     "trustedRunReferenceRoutesMissing": 5,

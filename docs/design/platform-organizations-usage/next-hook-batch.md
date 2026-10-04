@@ -1,6 +1,6 @@
 # Next bounded source batch
 
-Current frozen remote head: `529488455c095a10483ed02848a6bab2e1fd8dd6`. Do not replace its pending CI with another push. Default-off composition and original-unit ledger exist; this does not imply all provider calls are admitted or measured.
+Current frozen remote head: `529488455c095a10483ed02848a6bab2e1fd8dd6`. Its backend/harness CI completed success; current retrieval remote head4d4afffd4 has its own pending CI. Default-off composition and original-unit ledger exist; this does not imply all provider calls are admitted or measured.
 
 ## Durable child acceptance, preserving current contract
 
@@ -8,7 +8,7 @@ Current frozen remote head: `529488455c095a10483ed02848a6bab2e1fd8dd6`. Do not r
 
 ## Actual missing provider hooks, ordered work
 
-1. Retrieval query embedding and listwise rerank: `retrieve-candidates.ts` already has the authorized tenant/principal, but `EmbeddingPort.embed(text)` and `RerankPort.rerank(query,candidates)` discard that authority. Carry a trusted subject/operation context from the server use case, through the private service request, to each actual httpx vendor dispatch. Reuse the sole ledger/admission protocol rather than count the TS service envelope as vendor usage. Preserve permission filtering before rerank and reject unknown ownership when enforcement is on. Need explicit embedding input-only output bound/accounting support; do not pretend chat max_tokens covers embedding.
+1. Retrieval query embedding and listwise rerank (now source-connected for trusted standard-tool runs, default-off; the following explains the original gap): `retrieve-candidates.ts` already has the authorized tenant/principal, but `EmbeddingPort.embed(text)` and `RerankPort.rerank(query,candidates)` discard that authority. Carry a trusted subject/operation context from the server use case, through the private service request, to each actual httpx vendor dispatch. Reuse the sole ledger/admission protocol rather than count the TS service envelope as vendor usage. Preserve permission filtering before rerank and reject unknown ownership when enforcement is on. Need explicit embedding input-only output bound/accounting support; do not pretend chat max_tokens covers embedding.
 2. KG query embedding: `PgKnowledgeRecall.vectorNeighbors` has tenant/user but similarly drops them at `.embed(query)`. Same context path and per-HTTP hook; ensure empty candidates/cancellation are not counted as paid when no provider dispatch happened. Existing implementation can dispatch before candidates finish, so an empty eventual set can still be a real paid call.
 3. Ingestion embedding: `IndexArtifactVersion.index` carries org/artifactVersion only. Derive the immutable initiating author/service authority from the actual producer metadata, not the worker identity or an arbitrary org member. Repeated segments and batches require distinct stable operation IDs and per-HTTP receipts; Python OpenAIEmbeddings splits into batches of10.
 4. Embedding cosine rerank: real calls occur for the query and each candidate (`embedding-cosine-rerank.ts`). One outer rerank receipt is insufficient. Preserve per-call identity through concurrent candidate promises and account actual vendor requests only.
@@ -22,3 +22,6 @@ Configuration still required: ordinary per-user amount/window/timezone, finite s
 Real vendor-transport loopback tests must prove reserve-before-dispatch, trusted tenant/user/service identity, exact reported/unknown usage, cancellation/failed/retry receipts, replay identity and no extra envelope receipt. Isolated CI PostgreSQL then proves concurrency, immutable holds/prices and RLS negatives. Deployed vendor/graph proof and new operator UI screenshots remain separate; lightweight mock tests cannot certify them.
 
 Coverage remains10 grouped families: sourceMissing10, configurationMissing9, acceptanceMissing10. Counts classify families, not exhaustive HTTP call sites. The parent-lease assumption has moved to acceptance of existing child semantics; no business gate was added to clear a table cell.
+
+
+Image source checkpoint: OpenAI Images has optional trusted standard-tool start/terminal actual-fetch accounting. Native quantity remains unknown; missing vendor Token fields remain unknown. Image success is preserved on terminal ledger failure and subsequent dispatches stop in that instance, with an explicit sanitized warning and unmatched durable start. Cross-process repair is still absent. Native admission and other image adapters remain missing; quota mode rejects before actual OpenAI dispatch. No production flag activation.

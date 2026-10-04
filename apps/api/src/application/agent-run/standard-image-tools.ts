@@ -23,6 +23,6 @@ export interface StandardImageService{generate(context:ImageContext,input:z.infe
 export type GeneratedImage=
  |{readonly delivery:'url';readonly url:string;readonly taskId:string;readonly modelRef:string}
  |{readonly delivery:'inline';readonly bytes:Uint8Array;readonly taskId:string;readonly modelRef:string};
-export interface ImageGenerator{readonly modelRef:string;generateImage(prompt:string,signal?:AbortSignal):Promise<GeneratedImage>}
+export interface ImageGenerator{readonly modelRef:string;generateImage(prompt:string,signal?:AbortSignal,accountingContext?:ImageContext):Promise<GeneratedImage>}
 export type ImageSession=DraftSessionFiles&Pick<DocumentSession,'execute'>;
 export interface GeneratedImageDownloader{download(url:string,signal:AbortSignal):Promise<{bytes:Uint8Array;mime:'image/png'|'image/jpeg'}>}

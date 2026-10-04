@@ -110,6 +110,7 @@ import { DefaultStandardAudioService } from "./infrastructure/agent-run/standard
 import { StandardAudioController } from "./interface/controllers/standard-audio.controller";
 import { McpCredentialExecutionBroker, mcpCredentialBrokerFromEnv } from "./infrastructure/mcp/mcp-credential-execution-broker";
 import { STANDARD_IMAGE_SERVICE } from "./application/agent-run/standard-image-tools";
+import {PgImageRequestAccounting} from "./infrastructure/auth/pg-image-request-accounting";
 import { DefaultStandardImageService } from "./infrastructure/agent-run/standard-image-service";
 import { StandardImageController } from "./interface/controllers/standard-image.controller";
 import { createGeneratedImageDownloader } from "./infrastructure/agent-run/generated-image-downloader";
@@ -2529,11 +2530,12 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
       provide: STANDARD_IMAGE_SERVICE,
       useFactory: (db: DatabasePort, owner: NativeSessionOwner | null, authority: ToolExecutionAuthority,
         repo: IdentityRepository, ids: DecisionIdFactory, chat: ChatRepository, objects: ObjectStore) => {
-        const socketPath=process.env.NATIVE_SESSION_SOCKET, selected=selectImageProvider();
+        const requestAccounting=process.env.KERNEL_IMAGE_REQUEST_ACCOUNTING_ENABLED==="1";
+        const socketPath=process.env.NATIVE_SESSION_SOCKET, selected=selectImageProvider(process.env,requestAccounting?new PgImageRequestAccounting(db):undefined);
         if (!owner || !socketPath || !selected) return null;
         return new DefaultStandardImageService(owner,new PgNativeRunInputs(db,objects,{repo,ids,chat}),
           bound => ({...createNativeDraftSession({socketPath,...bound}),execute:createNativeDocumentSession({socketPath,...bound}).execute}),
-          authority,repo,objects,selected.provider,createGeneratedImageDownloader());
+          authority,repo,objects,selected.provider,createGeneratedImageDownloader(),requestAccounting);
       },
       inject: [DATABASE_PORT,NATIVE_SESSION_OWNER,TOOL_EXECUTION_AUTHORITY,IDENTITY_REPOSITORY,
         DECISION_ID_FACTORY,CHAT_REPOSITORY,OBJECT_STORE],
