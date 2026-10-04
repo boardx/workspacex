@@ -13,3 +13,5 @@
 # 下一步最佳动作
 
 回收仅新增Web25709/PID32437并记录动态归属；保留Web25708/PID56810冻结4c、API24705/PID43447冻结5eff及ownedPG20704/Redis21704进行后续QA。Minio未启动。继续剩余真实UI验收，仅复用本WT，开发前fetchmain，不selfmerge/deploy，不新stack/loop，使用pnpm9.15 PATH。保留合成样本，不补造旧答案。
+
+主session独立接受0354为NOT_AVAILABLE：仅design问卷模板saveOnly入口无use/load/retry，不覆盖library/report；template123=105PASS/3BLOCKED/11NOT_AVAILABLE/4NOT_STARTED，parent15PASS。0364报告实际加载失败→retry恢复证据65daedc0f待review，仍NS。
