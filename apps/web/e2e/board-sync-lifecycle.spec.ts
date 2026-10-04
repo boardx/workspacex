@@ -21,7 +21,7 @@ test('S01-S03 independent processes and users prove pending ACK, offline converg
  const sourceSha=runtimeSourceIdentity(),chunks=observeRuntimeChunks(owner);
  let secondBrowser:Browser|undefined,peerContext:BrowserContext|undefined;
  const transport=createSpatialWsMetadataRecorder();transport.observe(owner,'original');
- const errors:unknown[]=[];let failure:unknown,ownerToken='',boardId='',runtimeBefore:Awaited<ReturnType<typeof verifyRuntimeIdentity>>|undefined;
+ const errors:unknown[]=[];let failureCaptured=false;let failureStage='SETUP';let failure:unknown,ownerToken='',boardId='',runtimeBefore:Awaited<ReturnType<typeof verifyRuntimeIdentity>>|undefined;
  let proxy:{dispose:()=>Promise<void>}|undefined;
  const observations:Array<Record<string,unknown>>=[];
  const title=`R08 closed origin lifecycle ${randomUUID()}`;let cleanupPending=false;
@@ -60,23 +60,23 @@ test('S01-S03 independent processes and users prove pending ACK, offline converg
   const bridge=await import(pathToFileURL(bridgePath).href);proxy=await bridge.prepareOwnedProxy({templatePath,boardId,userId:F.userId,title,tokens:[ownerToken,peerToken],participantUserIds:[F.userId,F.leadUserId]});
   const objectId=randomUUID(),initial=await boardHead(api,ownerToken,boardId);
   await boardApi(api,ownerToken,'POST',`/whiteboards/${boardId}/commands`,{requestId:randomUUID(),epoch:initial.epoch,commands:[{type:'create',object:{id:objectId,kind:'sticky',schemaVersion:1,geometry:{x:100,y:160,width:180,height:140,rotation:0},text:'Lifecycle baseline',style:{},parentId:null,orderKey:''}}]});
-  for(const page of [owner,peer]){await page.goto(`/studio/board/${boardId}`);await expectBoardSynced(page);}
+  for(const page of [owner,peer]){failureStage=page===owner?'INITIAL_ORIGIN_SYNC':'INITIAL_PEER_SYNC';await page.goto(`/studio/board/${boardId}`);await expectBoardSynced(page);}
   expect(await peer.evaluate(key=>localStorage.getItem(key),SESSION_TOKEN_STORAGE_KEY)).toBe(peerToken);expect(peer.context()).not.toBe(owner.context());expect(secondBrowser).not.toBe(owner.context().browser());
   expect(bindings.length).toBeGreaterThanOrEqual(2);expect(bindings.every(Boolean)).toBe(true);
   runtimeBefore=await verifyRuntimeIdentity(api,sourceSha,await chunks());
   for(const gesture of ['drag','text','undo'] as const){
-   await expectBoardSynced(owner);const before=await canonicalBoardSnapshot(api,ownerToken,boardId),metadataBefore=transport.snapshot().events.length;
+   failureStage=`${gesture.toUpperCase()}_READY`;await expectBoardSynced(owner);const before=await canonicalBoardSnapshot(api,ownerToken,boardId),metadataBefore=transport.snapshot().events.length;
    await owner.keyboard.press('Escape');await owner.getByTestId('board-tool-select').click();await owner.getByTestId('board-zoom-fit-board').click();
    const point=gesture==='drag'?await objectPoint(owner,objectId):null;
-   await control('hold-writes');
+   failureStage=`${gesture.toUpperCase()}_HOLD`;await control('hold-writes');
    if(gesture==='drag'){await owner.mouse.move(point!.x,point!.y);await owner.mouse.down();await owner.mouse.move(point!.x+40*point!.zoom,point!.y+24*point!.zoom,{steps:12});await owner.mouse.up();}
    else if(gesture==='text')await edit(owner,objectId,'Acknowledged text');
    else await owner.getByRole('button',{name:'撤销',exact:true}).click();
-   await cloud(owner,'pending',`${gesture}-pending`);expect(await canonicalBoardSnapshot(api,ownerToken,boardId)).toEqual(before);
+   failureStage=`${gesture.toUpperCase()}_PENDING`;await cloud(owner,'pending',`${gesture}-pending`);expect(await canonicalBoardSnapshot(api,ownerToken,boardId)).toEqual(before);
    await expect.poll(()=>durableIds(owner,boardId)).not.toEqual([]);const receipts=await durableIds(owner,boardId);
    expect(transport.snapshot().events.slice(metadataBefore).filter(event=>event.client==='original'&&event.direction==='received'&&event.type==='ack')).toHaveLength(0);
    const expected=await canonicalRows(owner);expect(expected).not.toEqual(await canonicalRows(peer));
-   await control('release-writes');await expectBoardSynced(owner);await expectBoardSynced(peer);await expect.poll(()=>canonicalRows(peer)).toEqual(expected);
+   failureStage=`${gesture.toUpperCase()}_ACK`;await control('release-writes');await expectBoardSynced(owner);await expectBoardSynced(peer);await expect.poll(()=>canonicalRows(peer)).toEqual(expected);
    const after=await canonicalBoardSnapshot(api,ownerToken,boardId);expect(after.revision.seq).toBeGreaterThan(before.revision.seq);
    const acks=transport.snapshot().events.slice(metadataBefore).filter(event=>event.client==='original'&&event.direction==='received'&&event.type==='ack');expect(acks.length).toBeGreaterThan(0);expect(new Set(acks.map(event=>event.updateId)).size).toBe(acks.length);
    expect(acks.map(event=>event.updateId).sort()).toEqual(receipts);expect(after.revision).toEqual({epoch:before.revision.epoch,seq:before.revision.seq+acks.length});
@@ -84,13 +84,13 @@ test('S01-S03 independent processes and users prove pending ACK, offline converg
    await expect.poll(()=>durableIds(owner,boardId)).toEqual([]);
    await cloud(owner,'synced',`${gesture}-acked`);observations.push({gesture,before:before.revision,after:after.revision,acks:acks.map(event=>event.updateId)});
   }
-  const offlineBefore=await canonicalBoardSnapshot(api,ownerToken,boardId);await peerContext.setOffline(true);await cloud(peer,'offline','independent-peer-offline');
+  failureStage='PEER_OFFLINE';const offlineBefore=await canonicalBoardSnapshot(api,ownerToken,boardId);await peerContext.setOffline(true);await cloud(peer,'offline','independent-peer-offline');
   const retry=peer.getByTestId('board-retry-sync');await expect(retry).toBeVisible();const retryBounds=await retry.boundingBox();expect(retryBounds).not.toBeNull();expect(retryBounds!.x).toBeGreaterThanOrEqual(0);expect(retryBounds!.x+retryBounds!.width).toBeLessThanOrEqual(peer.viewportSize()!.width);
   await retry.click();await expect(peer.getByTestId('board-sync-status')).toHaveAttribute('data-sync-phase','offline');await expect(peer.getByTestId('board-sync-status')).not.toHaveAttribute('aria-label',/^已同步/);expect(await canonicalBoardSnapshot(api,ownerToken,boardId)).toEqual(offlineBefore);
   await edit(peer,objectId,'Independent offline text');await expect.poll(()=>durableIds(peer,boardId)).not.toEqual([]);expect(await canonicalBoardSnapshot(api,ownerToken,boardId)).toEqual(offlineBefore);
-  await peerContext.setOffline(false);await expectBoardSynced(peer,45_000);await expect.poll(()=>canonicalRows(owner),{timeout:45_000}).toEqual(await canonicalRows(peer));
+  failureStage='PEER_RECOVERY';await peerContext.setOffline(false);await expectBoardSynced(peer,45_000);await expect.poll(()=>canonicalRows(owner),{timeout:45_000}).toEqual(await canonicalRows(peer));
   const recovered=await canonicalBoardSnapshot(api,ownerToken,boardId);expect(recovered.objects).toEqual(offlineBefore.objects.map(object=>object.id===objectId?{...object,text:'Independent offline text'}:object));await expect.poll(()=>durableIds(peer,boardId)).toEqual([]);await peer.reload();await expectBoardSynced(peer);expect(await canonicalBoardSnapshot(api,ownerToken,boardId)).toEqual(recovered);await cloud(peer,'synced','independent-peer-refreshed');
-  await boardApi(api,ownerToken,'PUT',`/whiteboards/${boardId}/members`,{userId:F.leadUserId,role:'viewer'});
+  failureStage='VIEWER_UNMOUNT';await boardApi(api,ownerToken,'PUT',`/whiteboards/${boardId}/members`,{userId:F.leadUserId,role:'viewer'});
   await expect(peer.getByTestId('board-add-sticky')).toBeDisabled();await expectBoardSynced(peer,30_000,true);
   const readonlyBefore=await canonicalBoardSnapshot(api,ownerToken,boardId),readonlyEvents=transport.snapshot().events.length;
   const viewerOutline=peer.getByTestId(`board-a11y-object-${objectId}`);await viewerOutline.focus();await viewerOutline.press('Enter');await expect(viewerOutline).toHaveAttribute('aria-pressed','true');await expect(peer.getByRole('textbox',{name:'对象文字',exact:true})).toHaveCount(0);
@@ -103,15 +103,18 @@ test('S01-S03 independent processes and users prove pending ACK, offline converg
   await peer.waitForTimeout(1500);expect(await canonicalBoardSnapshot(api,ownerToken,boardId)).toEqual(readonlyBefore);
   expect(transport.snapshot().events.slice(readonlyEvents).filter(event=>event.client==='peer'&&event.direction==='sent'&&event.type==='update')).toHaveLength(0);
   expect(bindings.every(Boolean)).toBe(true);observations.push({phase:'readonly-unmount',lateUpdates:0,before:readonlyBefore.revision,after:(await boardHead(api,ownerToken,boardId))});
-  const unmountBefore=await canonicalBoardSnapshot(api,ownerToken,boardId);await owner.context().setOffline(true);await cloud(owner,'offline','owner-before-unmount');
+  failureStage='OWNER_UNMOUNT';const unmountBefore=await canonicalBoardSnapshot(api,ownerToken,boardId);await owner.context().setOffline(true);await cloud(owner,'offline','owner-before-unmount');
   await edit(owner,objectId,'Unsubmitted detached editor');const unmountEvents=transport.snapshot().events.length;
   await owner.goto('/home');await expect(owner.getByTestId('collaborative-editor')).toHaveCount(0);await owner.context().setOffline(false);
   await owner.waitForTimeout(1500);expect(await canonicalBoardSnapshot(api,ownerToken,boardId)).toEqual(unmountBefore);
   expect(transport.snapshot().events.slice(unmountEvents).filter(event=>event.client==='original'&&event.direction==='open')).toHaveLength(0);
   expect(transport.snapshot().events.slice(unmountEvents).filter(event=>event.client==='original'&&event.direction==='sent'&&event.type==='update')).toHaveLength(0);
   expect(transport.snapshot().dropped).toBe(0);observations.push({phase:'editable-offline-unmount',lateUpdates:0,before:unmountBefore.revision,after:await boardHead(api,ownerToken,boardId)});
- }catch(error){failure=error;}
+ }catch(error){failureCaptured=true;failure=error;}
  finally{
+  // Fixed stage only: no browser query, raw error, URL or object identifiers.
+  let stageTimer:ReturnType<typeof setTimeout>|undefined;
+  try{await Promise.race([info.attach('sync-lifecycle-failure-stage',{body:Buffer.from(JSON.stringify({schemaVersion:1,sourceHead:sourceSha,failureCaptured,stage:failureStage})),contentType:'application/json'}),new Promise<never>((_,reject)=>{stageTimer=setTimeout(()=>reject(new Error('SYNC_STAGE_ATTACHMENT_TIMEOUT')),500);})]);}catch(error){errors.push(error);}finally{if(stageTimer)clearTimeout(stageTimer);}
   try{if(proxy)await control('restore');}catch(error){errors.push(error);}
   try{await owner.context().setOffline(false);}catch(error){errors.push(error);}
   try{if(peerContext)await peerContext.setOffline(false);}catch(error){errors.push(error);}
@@ -122,7 +125,7 @@ test('S01-S03 independent processes and users prove pending ACK, offline converg
   try{await sourceProof();}catch(error){errors.push(error);}
   let runtimeAfter:Awaited<ReturnType<typeof verifyRuntimeIdentity>>|undefined;
   if(runtimeBefore)try{runtimeAfter=await verifyRuntimeIdentity(api,sourceSha,runtimeBefore.chunks);}catch(error){errors.push(error);}
-  try{await writeFile(info.outputPath('sync-lifecycle-result.json'),JSON.stringify({sourceSha,status:failure||errors.length?'failed':'functional-cases-passed',completed:false,runtimeBefore:runtimeBefore??null,runtimeAfter:runtimeAfter??null,observations,cleanupPending,independentBrowserProcesses:Boolean(runtimeBefore),independentUsers:Boolean(runtimeBefore),approved:false},null,2),{mode:0o600});}catch(error){errors.push(error);}
+  try{await writeFile(info.outputPath('sync-lifecycle-result.json'),JSON.stringify({sourceSha,status:failureCaptured||errors.length?'failed':'functional-cases-passed',completed:false,runtimeBefore:runtimeBefore??null,runtimeAfter:runtimeAfter??null,observations,cleanupPending,independentBrowserProcesses:Boolean(runtimeBefore),independentUsers:Boolean(runtimeBefore),approved:false},null,2),{mode:0o600});}catch(error){errors.push(error);}
  }
- if(failure||errors.length)throw new AggregateError([...(failure?[failure]:[]),...errors],'SYNC_LIFECYCLE_OR_CLEANUP_FAILED');
+ if(failureCaptured||errors.length)throw new AggregateError([...(failureCaptured?[failure]:[]),...errors],'SYNC_LIFECYCLE_OR_CLEANUP_FAILED');
 });

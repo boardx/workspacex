@@ -1,5 +1,6 @@
 import {parseFilesFailure} from '../e2e/support/board-files-failure-diagnostic.mjs';
 import {observationMode} from '../e2e/support/board-observation-categories.mjs';
+import {safeSyncLifecycleStageExport} from './sync-lifecycle-safe-export.mjs';
 import {safeConnectorLoginExport} from './connector-login-safe-export.mjs';
 import assert from 'node:assert/strict';
 import {readFileSync,writeFileSync,mkdirSync,existsSync,rmSync,openSync,closeSync,readdirSync,copyFileSync,realpathSync,statSync} from 'node:fs';
@@ -264,6 +265,7 @@ export async function run(args=process.argv.slice(2)){
     writeFileSync(join(safeRoot,'acceptance-diagnostics.json'),JSON.stringify({sourceHead:head,...safeAcceptanceDiagnostics(command[7],parsed,root)},null,2),{mode:0o600,flag:'wx'});
     const statistics=Object.fromEntries(['expected','unexpected','flaky','skipped'].map(key=>[key,Number.isInteger(parsed.stats?.[key])?parsed.stats[key]:null]));
     writeFileSync(join(safeRoot,'statistics.json'),JSON.stringify({sourceHead:head,stats:statistics,errors:parsed.errors?.length??0,exitCode,requiredSuiteComplete:false},null,2),{mode:0o600,flag:'wx'});
+    if(isPeer){const lifecycleStage=safeSyncLifecycleStageExport(parsed,join(privateRoot,'artifacts'),head,command[7]);writeFileSync(join(safeRoot,'sync-lifecycle-stage.json'),JSON.stringify(lifecycleStage,null,2),{mode:0o600,flag:'wx'});}
     let connectorLoginExport;
     if(command[7].includes('connector')){
       connectorLoginExport=safeConnectorLoginExport(parsed,join(privateRoot,'artifacts'),head);
