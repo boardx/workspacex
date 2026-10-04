@@ -20,6 +20,9 @@ describe("finite report claim boundaries", () => {
   "成功案例排除了产品固有缺陷。",
   "不能忽略安装成功，所以并非设备的固有缺陷。",
   "不能否认设备不存在固有缺陷。",
+  "不能不承认设备不存在固有缺陷。",
+  "不能不声称设备不存在固有缺陷。",
+  "不能操作该设备所以不存在固有缺陷。",
  ])("does not infer a defect exclusion from scenario heterogeneity: %s", claim => {
   const quote = "另一个场景安装顺利，不能推断普遍发生。";
   expect(assessReportClaimBoundaries(`${claim}[${quote}](#answer-1)`,[evidence(quote)]).missing).toContain("unqualified_defect_exclusion");
@@ -27,6 +30,8 @@ describe("finite report claim boundaries", () => {
  it.each([
   "不能断言设备不存在固有缺陷。",
   "尚不能排除设备固有缺陷。",
+  "设备并非不存在固有缺陷。",
+  "产品不是没有固有缺陷。",
   "若经专项检测确认该设备不存在固有缺陷，才考虑环境因素。",
  ])("keeps scoped uncertainty or hypothetical exclusion: %s", claim => {
   expect(assessReportClaimBoundaries(claim,[]).ok).toBe(true);

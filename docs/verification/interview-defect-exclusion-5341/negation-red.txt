@@ -1,0 +1,68 @@
+
+> @repo/api@0.0.0 test:interview-markdown-unit /Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/apps/api
+> vitest run --config vitest.interview-markdown-unit.config.ts
+
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/apps/api
+
+ ✓ tests/itv/interview-report-recovery.test.ts (24 tests) 70ms
+ ✓ tests/itv/interview-report-grounding.test.ts (76 tests) 41ms
+ ❯ tests/itv/interview-report-claim-boundaries.test.ts (104 tests | 5 failed) 50ms
+   × finite report claim boundaries > does not infer a defect exclusion from scenario heterogeneity: 不能不承认设备不存在固有缺陷。 3ms
+     → expected [] to include 'unqualified_defect_exclusion'
+   × finite report claim boundaries > does not infer a defect exclusion from scenario heterogeneity: 不能不声称设备不存在固有缺陷。 1ms
+     → expected [] to include 'unqualified_defect_exclusion'
+   × finite report claim boundaries > does not infer a defect exclusion from scenario heterogeneity: 不能操作该设备所以不存在固有缺陷。 0ms
+     → expected [] to include 'unqualified_defect_exclusion'
+   × finite report claim boundaries > keeps scoped uncertainty or hypothetical exclusion: 设备并非不存在固有缺陷。 1ms
+     → expected false to be true // Object.is equality
+   × finite report claim boundaries > keeps scoped uncertainty or hypothetical exclusion: 产品不是没有固有缺陷。 0ms
+     → expected false to be true // Object.is equality
+ ✓ tests/itv/interview-report-diagnostics.test.ts (14 tests) 30ms
+ ✓ tests/itv/interview-markdown-report-stream-controller.test.ts (9 tests) 4ms
+ ✓ tests/itv/interview-model-markdown.test.ts (4 tests) 3ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 5 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/itv/interview-report-claim-boundaries.test.ts > finite report claim boundaries > does not infer a defect exclusion from scenario heterogeneity: 不能不承认设备不存在固有缺陷。
+ FAIL  tests/itv/interview-report-claim-boundaries.test.ts > finite report claim boundaries > does not infer a defect exclusion from scenario heterogeneity: 不能不声称设备不存在固有缺陷。
+ FAIL  tests/itv/interview-report-claim-boundaries.test.ts > finite report claim boundaries > does not infer a defect exclusion from scenario heterogeneity: 不能操作该设备所以不存在固有缺陷。
+AssertionError: expected [] to include 'unqualified_defect_exclusion'
+ ❯ tests/itv/interview-report-claim-boundaries.test.ts:28:98
+     26|  ])("does not infer a defect exclusion from scenario heterogeneity: %s…
+     27|   const quote = "另一个场景安装顺利，不能推断普遍发生。";
+     28|   expect(assessReportClaimBoundaries(`${claim}[${quote}](#answer-1)`,[…
+       |                                                                                                  ^
+     29|  });
+     30|  it.each([
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/5]⎯
+
+ FAIL  tests/itv/interview-report-claim-boundaries.test.ts > finite report claim boundaries > keeps scoped uncertainty or hypothetical exclusion: 设备并非不存在固有缺陷。
+ FAIL  tests/itv/interview-report-claim-boundaries.test.ts > finite report claim boundaries > keeps scoped uncertainty or hypothetical exclusion: 产品不是没有固有缺陷。
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ tests/itv/interview-report-claim-boundaries.test.ts:37:52
+     35|   "若经专项检测确认该设备不存在固有缺陷，才考虑环境因素。",
+     36|  ])("keeps scoped uncertainty or hypothetical exclusion: %s", claim =>…
+     37|   expect(assessReportClaimBoundaries(claim,[]).ok).toBe(true);
+       |                                                    ^
+     38|  });
+     39|  it("allows only a source-bound observed exclusion within the same ins…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/5]⎯
+
+ Test Files  1 failed | 5 passed (6)
+      Tests  5 failed | 226 passed (231)
+   Start at  04:10:16
+   Duration  2.51s (transform 631ms, setup 0ms, collect 1.77s, tests 198ms, environment 0ms, prepare 133ms)
+
+/Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/apps/api:
+ ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  @repo/api@0.0.0 test:interview-markdown-unit: `vitest run --config vitest.interview-markdown-unit.config.ts`
+Exit status 1

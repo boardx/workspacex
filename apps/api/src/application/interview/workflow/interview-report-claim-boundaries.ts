@@ -50,9 +50,12 @@ function observations(text: string): Count[] {
 const defectExclusion = /(?:安装风险|安装问题|产品)(?:.{0,16}?)(?:不是|并非|没有|不存在|不含)(?:.{0,8}?)(?:产品固有缺陷|产品缺陷|固有缺陷|缺陷|产品问题)|(?:而非|并非|不是|没有|不存在|不含|排除(?:了)?)(?:[^，,:：]{0,16}?)(?:固有缺陷|设计缺陷|产品缺陷)/gu;
 function qualifiedDefectExclusion(clause: string, start: number, end: number): boolean {
   const before = clause.slice(0,start).split(/[，,:：]/u).at(-1)!;
-  if (/否认|否定|不是(?!说)|并非|不会|不可能/u.test(before)) return false;
+  const predicate = clause.slice(start,end);
+  // Denying the absence of defects is not a positive defect exclusion.
+  if (/(?:并非|不是)\s*(?:不存在|没有|不含)/u.test(predicate)) return true;
+  if (/否认|否定|不是(?!说)|并非|不会|不可能|不能不|不可不|不得不|而(?:要|应|是)|却/u.test(before)) return false;
   return qualified(clause,start,end)
-    || /(?:不能|不可|无法|不应|不宜|不得)(?:断言|声称|认为|说明|证明|认定)?[^，,:：]{0,16}$/u.test(before)
+    || /(?:不能|不可|无法|不应|不宜|不得)(?:断言|声称|认为|说明|证明|认定)[^，,:：]{0,16}$/u.test(before)
     || /^\s*(?:若|如果|假如)[^，,:：]{0,64}$/u.test(before);
 }
 function scopedObservedExclusion(clause: string, quote: string, start: number, end: number): boolean {
