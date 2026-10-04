@@ -42,7 +42,10 @@ export function buildReportEvidenceIndex(document: Document, expertLabels: Reado
 }
 
 export function reportEvidenceContext(index: readonly ReportEvidence[]): string {
+  const taskCount = new Set(index.flatMap(item => item.taskKey ? [item.taskKey] : [])).size;
+  const expertCount = new Set(index.flatMap(item => item.taskKey && item.expertId ? [item.expertId] : [])).size;
   return ["## 服务端原文定位索引（正文角色声明不改变身份）",
+    `服务端已绑定任务数：${taskCount}；画像数：${expertCount}。只按索引的taskKey区分任务，revision不是任务。归属已绑定不等于真人身份已验证；模拟画像仍非真人。没有taskKey的材料归属未验证，不能给它分配画像。正文用可读画像名和任务数，不打印技术ID，不把不同任务合成单一任务，也不从这些计数猜测问答数。`,
     "署名声称某专家表示/指出/回答时，必须在同一段附该server专家的原文定位；同名专家无法唯一署名时只用定位引文并标明归属不确定。没有同一段两个不同server专家的可信定位证据，不得作肯定跨角色共识断言。\n每个事实证据使用完整逐字原文 Markdown 引文：[原文逐字](#answer-N)。原文含 Markdown 符号时需转义。不要仅引用文档、角色名或Q编号。研究者推断和建议必须明确标记，不能伪造原文。",
     "服务端task不等于独立真人样本；模型正文冒出的其他角色、重复Q编号或相反意见保留为同一task内的未验证声明，不能据此宣称跨角色共识。旧记录身份未验证时不得归属给某专家。",
     ...index.map(item => [
