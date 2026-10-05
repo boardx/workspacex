@@ -1,5 +1,5 @@
 import { recordVerifiedEvidence, reconcileEvidenceLedger, ledgerQuestionKey, ledgerBasis } from "./guided-evidence-ledger";
-import { GUIDED_EVIDENCE_VALIDATOR_VERSION } from "./guided-evidence-ledger-record";
+import { GUIDED_EVIDENCE_CHUNK_SIZE, GUIDED_EVIDENCE_MATCH_LIMIT, GUIDED_EVIDENCE_VALIDATOR_VERSION } from "./guided-evidence-ledger-record";
 import { evidenceWireChunk } from "./guided-report-quote-references";
 import { collectChunkEvidence, type EvidenceCandidate, type EvidenceAttemptDiagnostic } from "./guided-report-evidence-validation";
 import { sourceAllowedByPolicy } from "./guided-source-policy";
@@ -50,8 +50,8 @@ export async function extractReportEvidence(state: ResearchRuntime, config: { pr
   const chunks = sources.flatMap((source) => {
     const result = [];
     const evidenceText = source.document?.text ?? source.content;
-    for (let start = 0, index = 0; start < evidenceText.length; start += 6000, index++) {
-      result.push({ sourceId: source.id, alias: aliases.find((item) => item.sourceId === source.id)?.alias, chunkId: `source:${source.id}/chunk:${index}`, title: source.title.slice(0, 300), start, content: evidenceText.slice(start, start + 6000), contentKind: source.document ? "fetched_document" as const : "search_excerpt" as const });
+    for (let start = 0, index = 0; start < evidenceText.length; start += GUIDED_EVIDENCE_CHUNK_SIZE, index++) {
+      result.push({ sourceId: source.id, alias: aliases.find((item) => item.sourceId === source.id)?.alias, chunkId: `source:${source.id}/chunk:${index}`, title: source.title.slice(0, 300), start, content: evidenceText.slice(start, start + GUIDED_EVIDENCE_CHUNK_SIZE), contentKind: source.document ? "fetched_document" as const : "search_excerpt" as const });
     }
     return result;
   });
@@ -120,7 +120,7 @@ export async function extractReportEvidence(state: ResearchRuntime, config: { pr
       const target = matches.get(candidate.questionId)!;
       if (!target.some((item) => item.sourceId === candidate.evidence.sourceId && item.quote === candidate.evidence.quote)) {
         target.push(candidate.evidence); matchCount++;
-        if (matchCount > 16384) throw budget();
+        if (matchCount > GUIDED_EVIDENCE_MATCH_LIMIT) throw budget();
       }
     }
   }
@@ -140,7 +140,7 @@ export async function extractReportEvidence(state: ResearchRuntime, config: { pr
       else if (retainedRecords[existing]!.relevance === "context" && record.relevance === "direct") retainedRecords[existing] = record;
     }
   }
-  if (retainedRecords.length > 16384) throw budget();
+  if (retainedRecords.length > GUIDED_EVIDENCE_MATCH_LIMIT) throw budget();
   state.privateLedger = { validatorVersion: GUIDED_EVIDENCE_VALIDATOR_VERSION, records: retainedRecords };
   return { questions, sources, matches };
 }

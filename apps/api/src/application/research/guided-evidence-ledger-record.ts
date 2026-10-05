@@ -3,6 +3,8 @@ import { research as C } from "@repo/contracts";
 const match = C.GuidedResearchEvidenceModelOutput.shape.evaluations.element.shape.matches.element.shape;
 const hash = z.string().regex(/^[a-f0-9]{64}$/);
 export const GUIDED_EVIDENCE_VALIDATOR_VERSION = 1;
+export const GUIDED_EVIDENCE_CHUNK_SIZE = 6000;
+export const GUIDED_EVIDENCE_MATCH_LIMIT = 16384;
 /** Server-private facts. Public projection must never return this raw schema. */
 export const GuidedEvidenceLedgerRecord = z.object({
   evidenceId: z.string().min(1), questionKey: hash, sectionId: z.string().min(1),
@@ -18,6 +20,6 @@ export const GuidedEvidenceLedgerRecord = z.object({
 export type GuidedEvidenceLedgerRecord = z.infer<typeof GuidedEvidenceLedgerRecord>;
 export const GuidedEvidenceLedger = z.object({
   validatorVersion: z.literal(GUIDED_EVIDENCE_VALIDATOR_VERSION),
-  records: z.array(GuidedEvidenceLedgerRecord).max(16384),
+  records: z.array(GuidedEvidenceLedgerRecord).max(GUIDED_EVIDENCE_MATCH_LIMIT),
 }).strict();
 export type GuidedEvidenceLedger = z.infer<typeof GuidedEvidenceLedger>;

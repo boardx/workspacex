@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { sourceAllowedByPolicy } from "./guided-source-policy";
-import { GUIDED_EVIDENCE_VALIDATOR_VERSION, GuidedEvidenceLedger, GuidedEvidenceLedgerRecord } from "./guided-evidence-ledger-record";
+import { GUIDED_EVIDENCE_CHUNK_SIZE, GUIDED_EVIDENCE_VALIDATOR_VERSION, GuidedEvidenceLedger, GuidedEvidenceLedgerRecord } from "./guided-evidence-ledger-record";
 import type { ResearchRuntime } from "./guided-runtime-ports";
 import type { EvidenceQuestion, VerifiedEvidence } from "./guided-report-evidence";
 const hash = (text: string) => createHash("sha256").update(text).digest("hex");
@@ -59,9 +59,9 @@ function valid(state: ResearchRuntime, question: EvidenceQuestion, record: Guide
   if (!original || record.basis !== basis || record.questionKey !== ledgerQuestionKey(question, basis) || record.sectionId !== question.sectionId || record.questionTextHash !== hash(question.question)) return false;
   if (record.sourceUrl !== original.sourceUrl || record.documentUrl !== original.documentUrl || record.sourceRetrievedAt !== original.sourceRetrievedAt || record.documentRetrievedAt !== original.documentRetrievedAt) return false;
   if (record.documentHash !== original.documentHash || ![original.source.taskId, ...(original.source.taskIds ?? [])].includes(record.taskId)) return false;
-  if (record.chunkStart % 6000 || record.chunkId !== `source:${record.sourceId}/chunk:${record.chunkStart / 6000}` || record.quoteEnd > Math.min(original.text.length, record.chunkStart + 6000)) return false;
+  if (record.chunkStart % GUIDED_EVIDENCE_CHUNK_SIZE || record.chunkId !== `source:${record.sourceId}/chunk:${record.chunkStart / GUIDED_EVIDENCE_CHUNK_SIZE}` || record.quoteEnd > Math.min(original.text.length, record.chunkStart + GUIDED_EVIDENCE_CHUNK_SIZE)) return false;
   if (original.text.slice(record.quoteStart, record.quoteEnd) !== record.quote || record.quoteHash !== hash(record.quote)) return false;
-  const expected = recordVerifiedEvidence(state, question, record, { chunkId: record.chunkId, start: record.chunkStart, content: original.text.slice(record.chunkStart, record.chunkStart + 6000) }, record.verifiedAt);
+  const expected = recordVerifiedEvidence(state, question, record, { chunkId: record.chunkId, start: record.chunkStart, content: original.text.slice(record.chunkStart, record.chunkStart + GUIDED_EVIDENCE_CHUNK_SIZE) }, record.verifiedAt);
   return expected?.evidenceId === record.evidenceId && expected.quoteStart === record.quoteStart;
 }
 export function readQuestionLedger(state: ResearchRuntime, question: EvidenceQuestion): GuidedEvidenceLedgerRecord[] {
