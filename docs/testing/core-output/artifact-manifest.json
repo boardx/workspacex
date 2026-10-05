@@ -1,0 +1,42 @@
+[
+  {
+    "file": "artifacts/edited-persona.md",
+    "bytes": 86,
+    "sha256": "e9d0817398a54ca383d704815011b1094e1a351c852bdafe277e28bcbec0ef9c"
+  },
+  {
+    "file": "artifacts/guided-research-demo.docx",
+    "bytes": 9143,
+    "sha256": "27d080452d25631abffb9ca3b06664fa18a8752f53fc70cb09052cdc1dbef860"
+  },
+  {
+    "file": "artifacts/persona.pdf",
+    "bytes": 74985,
+    "sha256": "6f331c278eb67673e1606eb03cb9b8892905f7c9f5896c9eadd21af7b6d1b006"
+  },
+  {
+    "file": "artifacts/persona.png",
+    "bytes": 92647,
+    "sha256": "0cf7a6d620bbde8a4d1dfc83790f1d0b94204fc768a15d749fc0f482213ecd82"
+  },
+  {
+    "file": "artifacts/production-chinese-report.pdf",
+    "bytes": 145947,
+    "sha256": "579f4f2f47d3895957e2e9e3a0fea1f2a17246ee0e812d28f98cd4a872a38745"
+  },
+  {
+    "file": "artifacts/prototype-native.pptx",
+    "bytes": 81919,
+    "sha256": "937d8c23c44214cdc742450f3a2b849ca3c2b6dfc5e438caa098d395a117ab29"
+  },
+  {
+    "file": "artifacts/research-report.docx",
+    "bytes": 9718,
+    "sha256": "5aa07b69afda02a364ef247806dfb7aba5d004c84a84592e2dde9fb10139937d"
+  },
+  {
+    "file": "artifacts/sandbox-native.pptx",
+    "bytes": 72669,
+    "sha256": "e1306be73be2c2071dfbc95134f1f1b66e4c9c9599062536a82f12c7f7959dc5"
+  }
+]
