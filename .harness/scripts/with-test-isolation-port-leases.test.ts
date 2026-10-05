@@ -11,20 +11,21 @@ function processExitedOrZombie(pid: number, readStat = (path: string) => readFil
   try {
     return /\) Z /.test(readStat(`/proc/${pid}/stat`));
   } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === "ENOENT") return true;
+    const code = (error as NodeJS.ErrnoException).code;
+    if (code === "ENOENT" || code === "ESRCH") return true;
     throw error;
   }
 }
 
 describe("proc exit observation", () => {
-  it("accepts a stat file that disappears before the read", () => {
-    expect(processExitedOrZombie(123, () => { throw Object.assign(new Error("gone"), { code: "ENOENT" }); })).toBe(true);
+  it.each(["ENOENT", "ESRCH"])("accepts a process that disappears during stat read (%s)", (code) => {
+    expect(processExitedOrZombie(123, () => { throw Object.assign(new Error("gone"), { code }); })).toBe(true);
   });
   it("does not mistake an alive process for an exited process", () => {
     expect(processExitedOrZombie(123, () => "123 (child) S 1 2 3")).toBe(false);
     expect(processExitedOrZombie(123, () => "123 (child) Z 1 2 3")).toBe(true);
   });
-  it("propagates non-ENOENT read failures", () => {
+  it("propagates read failures other than a missing process", () => {
     const denied = Object.assign(new Error("denied"), { code: "EACCES" });
     expect(() => processExitedOrZombie(123, () => { throw denied; })).toThrow(denied);
   });
