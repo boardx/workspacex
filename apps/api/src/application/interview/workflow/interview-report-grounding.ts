@@ -100,9 +100,16 @@ export function validateReportEvidence(markdown: string, index: readonly ReportE
         const conclusion = /(?:不能|不可|无法|不应|不得)得出([“"「‘]?)([^，,。；;“”"「」‘’]{0,16})$/u.exec(before);
         const closingQuote: Readonly<Record<string,string>> = {"": "", "“": "”", "\"": "\"", "「": "」", "‘": "’"};
         const close = conclusion ? closingQuote[conclusion[1]!] : undefined;
-        const qualifiedConclusion = close !== undefined
-          && !/(?:结论|因此|所以|于是)/u.test(conclusion![2]!) && after.startsWith(close)
-          && /^的(?:无条件)?结论/u.test(after.slice(close.length));
+        // The finite frame can contain coordinated predicates or causal words.
+        // A prior closed unquoted conclusion cannot qualify a new assertion;
+        // literal “结论” inside the current paired quotation is still its content.
+        const tail = after.slice(0,64);
+        const end = close === undefined ? -1 : close ? tail.indexOf(close) : tail.search(/的(?:无条件)?结论/u);
+        const continuation = end >= 0 ? tail.slice(0,end) : "";
+        const qualifiedConclusion = close !== undefined && end >= 0
+          && !/[，,。；;“”"「」‘’]/u.test(continuation)
+          && (close !== "" || !/的(?:无条件)?结论/u.test(conclusion![2]! + continuation))
+          && /^的(?:无条件)?结论/u.test(after.slice(end + close.length));
         // A direct prohibition on inventing statistics also scopes the following
         // assertion, but not a contrast or unrelated earlier disclaimer.
         const qualified = /(?:不能|不可|无法|不应|不得)(?:凭空)?(?:补充|编造|虚构)(?:样本)?统计来(?:断言|声称|认为|证明|说)[^，,。；;]{0,16}$/u.test(before)

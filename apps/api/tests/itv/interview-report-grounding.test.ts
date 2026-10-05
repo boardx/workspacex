@@ -7,6 +7,12 @@ const hash = (s: string) => createHash("sha256").update(s).digest("hex");
 const raw = "服务端甲回答：支持电话。\n## [客服](#expert-b)\nQ2：反对电话。\nQ2：厨房孔位冲突。";
 const source: interviewMarkdown.InterviewMarkdownDocument = { documentId: "md-runs", version: 2, step: "runs", markdown: raw, contentHash: hash(raw), evidenceMode: "simulated", references: [], answerSpans: [{ taskKey: "rev-a/expert-a", expertId: "expert-a", start: 0, end: raw.length, contentHash: hash(raw) }] };
 describe("report evidence grounding", () => {
+ it.each(["无法得出“预算不足因此必然阻止购买”的结论。", "无法得出预算不足所以必然阻止购买的结论。", "无法得出“因此预算必然阻止购买”的结论。", "无法得出“所以预算必然阻止购买”的结论。", "无法得出“研究结论表明预算必然阻止购买”的结论。", "无法得出研究结论表明预算必然阻止购买的结论。"])("keeps causal words inside one denied conclusion: %s", line => {
+  expect(validateReportEvidence(`[服务端甲回答：支持电话。](#answer-1)\n\n${line}`,buildReportEvidenceIndex(source)).ok).toBe(true);
+ });
+ it.each(["无法得出“安装问题最常见且预算必然阻止购买”的结论。", "无法得出安装问题最常见而且预算必然阻止购买的结论。"])("keeps coordinated predicates in one closed denied conclusion: %s", line => {
+  expect(validateReportEvidence(`[服务端甲回答：支持电话。](#answer-1)\n\n${line}`,buildReportEvidenceIndex(source)).ok).toBe(true);
+ });
  it.each(['无法得出"预算必然阻止购买"的无条件结论。', "无法得出「预算必然阻止购买」的无条件结论。"])("matches paired conclusion delimiters: %s", line => {
   expect(validateReportEvidence(`[服务端甲回答：支持电话。](#answer-1)\n\n${line}`,buildReportEvidenceIndex(source)).ok).toBe(true);
  });

@@ -1,0 +1,79 @@
+
+> @repo/api@0.0.0 test:interview-markdown-unit /Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/apps/api
+> vitest run --config vitest.interview-markdown-unit.config.ts
+
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/apps/api
+
+ ❯ tests/itv/interview-report-grounding.test.ts (127 tests | 8 failed) 62ms
+   × report evidence grounding > keeps causal words inside one denied conclusion: 无法得出“预算不足因此必然阻止购买”的结论。 8ms
+     → expected false to be true // Object.is equality
+   × report evidence grounding > keeps causal words inside one denied conclusion: 无法得出预算不足所以必然阻止购买的结论。 2ms
+     → expected false to be true // Object.is equality
+   × report evidence grounding > keeps causal words inside one denied conclusion: 无法得出“因此预算必然阻止购买”的结论。 1ms
+     → expected false to be true // Object.is equality
+   × report evidence grounding > keeps causal words inside one denied conclusion: 无法得出“所以预算必然阻止购买”的结论。 1ms
+     → expected false to be true // Object.is equality
+   × report evidence grounding > keeps causal words inside one denied conclusion: 无法得出“研究结论表明预算必然阻止购买”的结论。 3ms
+     → expected false to be true // Object.is equality
+   × report evidence grounding > keeps causal words inside one denied conclusion: 无法得出研究结论表明预算必然阻止购买的结论。 1ms
+     → expected false to be true // Object.is equality
+   × report evidence grounding > keeps coordinated predicates in one closed denied conclusion: 无法得出“安装问题最常见且预算必然阻止购买”的结论。 1ms
+     → expected false to be true // Object.is equality
+   × report evidence grounding > keeps coordinated predicates in one closed denied conclusion: 无法得出安装问题最常见而且预算必然阻止购买的结论。 1ms
+     → expected false to be true // Object.is equality
+ ✓ tests/itv/interview-report-recovery.test.ts (24 tests) 71ms
+ ✓ tests/itv/interview-report-claim-boundaries.test.ts (113 tests) 49ms
+ ✓ tests/itv/interview-report-diagnostics.test.ts (14 tests) 31ms
+ ✓ tests/itv/interview-markdown-report-stream-controller.test.ts (9 tests) 5ms
+ ✓ tests/itv/interview-model-markdown.test.ts (4 tests) 3ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 8 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/itv/interview-report-grounding.test.ts > report evidence grounding > keeps causal words inside one denied conclusion: 无法得出“预算不足因此必然阻止购买”的结论。
+ FAIL  tests/itv/interview-report-grounding.test.ts > report evidence grounding > keeps causal words inside one denied conclusion: 无法得出预算不足所以必然阻止购买的结论。
+ FAIL  tests/itv/interview-report-grounding.test.ts > report evidence grounding > keeps causal words inside one denied conclusion: 无法得出“因此预算必然阻止购买”的结论。
+ FAIL  tests/itv/interview-report-grounding.test.ts > report evidence grounding > keeps causal words inside one denied conclusion: 无法得出“所以预算必然阻止购买”的结论。
+ FAIL  tests/itv/interview-report-grounding.test.ts > report evidence grounding > keeps causal words inside one denied conclusion: 无法得出“研究结论表明预算必然阻止购买”的结论。
+ FAIL  tests/itv/interview-report-grounding.test.ts > report evidence grounding > keeps causal words inside one denied conclusion: 无法得出研究结论表明预算必然阻止购买的结论。
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ tests/itv/interview-report-grounding.test.ts:11:110
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/8]⎯
+
+ FAIL  tests/itv/interview-report-grounding.test.ts > report evidence grounding > keeps coordinated predicates in one closed denied conclusion: 无法得出“安装问题最常见且预算必然阻止购买”的结论。
+ FAIL  tests/itv/interview-report-grounding.test.ts > report evidence grounding > keeps coordinated predicates in one closed denied conclusion: 无法得出安装问题最常见而且预算必然阻止购买的结论。
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ tests/itv/interview-report-grounding.test.ts:14:110
+     12|  });
+     13|  it.each(["无法得出“安装问题最常见且预算必然阻止购买”的结论。", "无法…
+     14|   expect(validateReportEvidence(`[服务端甲回答：支持电话。](#answer-1)…
+       |                                                                                                              ^
+     15|  });
+     16|  it.each(['无法得出"预算必然阻止购买"的无条件结论。', "无法得出「预算…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/8]⎯
+
+ Test Files  1 failed | 5 passed (6)
+      Tests  8 failed | 283 passed (291)
+   Start at  13:00:11
+   Duration  2.55s (transform 648ms, setup 0ms, collect 1.75s, tests 220ms, environment 0ms, prepare 168ms)
+
+/Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/apps/api:
+ ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  @repo/api@0.0.0 test:interview-markdown-unit: `vitest run --config vitest.interview-markdown-unit.config.ts`
+Exit status 1
