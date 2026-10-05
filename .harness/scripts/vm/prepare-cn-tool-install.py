@@ -59,15 +59,27 @@ def tool_root_contract(raw,tool):
  require(len(set(prefixes))==1,'TOOL_ROOT_CONTRACT_REQUIRED')
  prefix=prefixes[0];require(prefix.startswith('/') and '..' not in pathlib.PurePosixPath(prefix).parts,'TOOL_ROOT_CONTRACT_PATH')
  return prefix+tool
-def tree_closure(repo,tool,metadata_hash):
+def tree_closure(repo,tool,metadata_hash,source_paths=None):
  fsck=execute_git(repo,'fsck','--full','--no-reflogs')
  raw=execute_git(repo,'ls-tree','-r','-z',tool);entries=[]
  for record in raw.split(b'\0'):
   if not record:continue
   meta,name=record.split(b'\t',1);mode,kind,blob=meta.decode().split();path=name.decode()
-  require(mode in ('100644','100755') and kind=='blob','TOOL_TREE_REGULAR_ONLY')
+  require(mode in ('100644','100755','120000') and kind=='blob','TOOL_TREE_REGULAR_ONLY')
   require(not pathlib.PurePosixPath(path).is_absolute() and '..' not in pathlib.PurePosixPath(path).parts,'TOOL_TREE_PATH')
   entries.append({'path':path,'mode':mode,'blobSha':blob})
+ links={entry['path'] for entry in entries if entry['mode']=='120000'}
+ tracked={entry['path'] for entry in entries}
+ directories={''}
+ for entry in entries:
+  directories.update(str(parent) for parent in pathlib.PurePosixPath(entry['path']).parents if str(parent)!='.')
+ tracked.update(directories)
+ # The exact installation allowlist is the authority. Never permit executable
+ # payload sources, or their ancestors, to be represented by symbolic links.
+ if source_paths is None:
+  source_paths=allowlist(execute_git(repo,'show',tool+':.harness/scripts/vm/cn-build-tool-identity.py')) if links else ()
+ for source in source_paths:
+  require(not any(source==link or source.startswith(link+'/') for link in links),'TOOL_INSTALL_SOURCE_SYMLINK')
  # One persistent process, bounded reads: process count and metadata scans do not scale with blobs.
  child=subprocess.Popen(git_command(repo,'cat-file','--batch'),env=git_environment(),stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.DEVNULL)
  try:
@@ -75,12 +87,35 @@ def tree_closure(repo,tool,metadata_hash):
    blob=entry['blobSha'];child.stdin.write((blob+'\n').encode());child.stdin.flush()
    header=child.stdout.readline(256).decode().strip().split()
    require(len(header)==3 and header[0]==blob and header[1]=='blob' and header[2].isdigit(),'TOOL_BATCH_HEADER')
-   size=int(header[2]);git_hash=hashlib.sha1(('blob '+str(size)+'\0').encode());content_hash=hashlib.sha256();remaining=size
+   size=int(header[2]);git_hash=hashlib.sha1(('blob '+str(size)+'\0').encode());content_hash=hashlib.sha256();remaining=size;link_raw=[]
+   if entry['mode']=='120000':require(0<size<=4096,'TOOL_SYMLINK_SIZE')
    while remaining:
     chunk=child.stdout.read(min(remaining,1024*1024));require(chunk,'TOOL_BATCH_TRUNCATED')
     git_hash.update(chunk);content_hash.update(chunk);remaining-=len(chunk)
+    if entry['mode']=='120000':link_raw.append(chunk)
    require(child.stdout.read(1)==b'\n' and git_hash.hexdigest()==blob,'TOOL_BLOB_HASH')
    entry.update(sha256=content_hash.hexdigest(),bytes=size)
+   if entry['mode']=='120000':
+    # Interpret only the already-hashed Git blob. Do not resolve or open the
+    # corresponding filesystem link, including links to tracked directories.
+    target=b''.join(link_raw).decode('utf-8')
+    require(target and '\0' not in target and '\n' not in target and '\r' not in target and not target.startswith('/'),'TOOL_SYMLINK_RELATIVE')
+    parts=list(pathlib.PurePosixPath(entry['path']).parent.parts)
+    for component in target.split('/'):
+     # Each remaining lexical component requires an actual tracked directory.
+     # In particular, regular-file/../dir must not be normalized past ENOTDIR.
+     require('/'.join(parts) in directories,'TOOL_SYMLINK_NON_DIRECTORY')
+     if component in ('','.'):continue
+     if component=='..':
+      require(parts,'TOOL_SYMLINK_ESCAPE');parts.pop()
+     else:parts.append(component)
+     # Reject even a transient traversal through a link followed by '..'.
+     require('/'.join(parts) not in links,'TOOL_SYMLINK_CHAIN')
+    resolved='/'.join(parts)
+    require(resolved and not entry['path'].startswith(resolved+'/'),'TOOL_SYMLINK_DIRECTORY_CYCLE')
+    require(resolved in tracked,'TOOL_SYMLINK_UNTRACKED')
+    require(not any(resolved==link or resolved.startswith(link+'/') for link in links),'TOOL_SYMLINK_CHAIN')
+    entry.update(linkTarget=target,resolvedTrackedPath=resolved)
   child.stdin.close();require(child.wait()==0,'TOOL_BATCH_FAILED')
  finally:
   if child.poll() is None:child.kill();child.wait()
@@ -159,7 +194,7 @@ def produce(repo,tool,app,main,inventory,output,provider_receipt=None,expected_p
  identity_raw=git(repo,'show',tool+':.harness/scripts/vm/cn-build-tool-identity.py')
  files=allowlist(identity_raw)
  tool_root=tool_root_contract(identity_raw,tool)
- closure=tree_closure(repo,tool,metadata_hash)
+ closure=tree_closure(repo,tool,metadata_hash,files)
  previous_raw=safe_file(inventory);previous=json.loads(previous_raw)
  require(previous.get('schemaVersion')==1 and previous.get('observedAt') and previous.get('sourceInvocation'),'OLD_INVENTORY_REQUIRED')
  old=previous.get('files',{});require(set(old)==set(files),'OLD_INVENTORY_CLOSURE')
