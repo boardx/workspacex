@@ -112,7 +112,7 @@ describe("stage two native image dispatch binding negatives",()=>{
 
 describe("stage two native tariff API malformed numeric inputs",()=>{
  const native={modelId:"audio",modelProvider:"provider",runtimeModelId:"vendor-audio",unit:"millisecond",quantum:"1000",microsPerQuantum:"7",maxQuantity:"2000"};
- const configuration={window:{start:"2026-10-01T00:00:00Z",end:"2026-11-01T00:00:00Z"},ordinaryTokensPerUser:null,costMicrosPerUser:"100",currency:"CNY",
+ const configuration={window:{start:"2026-10-01T00:00:00Z",end:"2026-11-01T00:00:00Z",timezone:"UTC"},ordinaryTokensPerUser:null,costMicrosPerUser:"100",currency:"CNY",
   prices:[{modelId:"chat",modelProvider:"provider",runtimeModelId:"vendor-chat",maxInputTokens:10,maxOutputTokens:2,inputMicrosPerMillion:"1",outputMicrosPerMillion:"1",cachedInputMicrosPerMillion:"1"}],
   nativePrices:[native],fallbackModelIds:[],maxAttempts:1};
  it("the baseline full policy is valid",()=>{expect(Configuration.safeParse(configuration).success).toBe(true);});
