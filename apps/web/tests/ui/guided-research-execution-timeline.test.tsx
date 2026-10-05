@@ -13,3 +13,62 @@ it('keeps chapter writing active until the real review completes',()=>{render(<G
 it('does not replay an old reading-started activity after reading finished',()=>{render(<GuidedResearchExecutionTimeline state={{...runtimeFixture('report'),report:null,busy:true,activity:[{id:'a',sequence:1,stage:'reading',taskId:null,summary:'read',occurredAt:'now',status:'started'},{id:'b',sequence:2,stage:'reading',taskId:null,summary:'read',occurredAt:'now',status:'succeeded'}]}}/>);expect(screen.getByTestId('execution-documents')).toHaveTextContent('待执行');});
 
 it('keeps prior failed task facts while a leased report retry is running',()=>{const state={...runtimeFixture('research'),busy:true,executionGoal:'report' as const,leaseUntil:'2099-01-01T00:00:00Z',tasks:[{id:'bad',sectionId:'o',query:'q',attempts:1,status:'failed' as const,errorCode:'RESEARCH_SEARCH_EMPTY'}],sources:[],report:null,errorCode:'RESEARCH_SEARCH_FAILED'};const view=render(<GuidedResearchExecutionTimeline state={state}/>);expect(screen.getByRole('status')).toHaveTextContent('正在执行研究计划');expect(screen.getByTestId('execution-search')).toHaveTextContent('失败');view.rerender(<GuidedResearchExecutionTimeline state={{...state,busy:false}}/>);expect(screen.getByRole('status')).toHaveTextContent('执行失败');view.rerender(<GuidedResearchExecutionTimeline state={state} interrupted/>);expect(screen.getByRole('status')).toHaveTextContent('执行已中断');});
+
+it('shows active siblings alongside partial search failures', () => {
+  const base = runtimeFixture('research');
+  const state = { ...base, busy: true, leaseUntil: '2099-01-01T00:00:00Z', tasks: [
+    { ...base.tasks[0]!, id: 'bad', status: 'failed' as const, errorCode: 'RESEARCH_SEARCH_EMPTY' },
+    { ...base.tasks[0]!, id: 'active', status: 'running' as const },
+  ] };
+  const view = render(<GuidedResearchExecutionTimeline state={state} />);
+  expect(screen.getByTestId('execution-search')).toHaveTextContent('执行中');
+  expect(screen.getByTestId('execution-search')).toHaveTextContent('部分检索失败');
+  view.rerender(<GuidedResearchExecutionTimeline state={structuredClone(state)} />);
+  expect(screen.getByTestId('execution-search')).toHaveTextContent('执行中');
+  view.rerender(<GuidedResearchExecutionTimeline state={{ ...state, busy: false, tasks: state.tasks.map(t => ({ ...t, status: 'failed' })) }} />);
+  expect(screen.getByTestId('execution-search')).toHaveTextContent('失败');
+  expect(screen.getByTestId('execution-search')).not.toHaveTextContent('执行中');
+  expect(screen.queryByText('执行完成')).not.toBeInTheDocument();
+});
+
+it('recognizes a running recovery attempt without erasing its failed task', () => {
+  const base = runtimeFixture('research');
+  const state = { ...base, busy: true, leaseUntil: '2099-01-01T00:00:00Z', tasks: [{ ...base.tasks[0]!, status: 'failed' as const,
+    errorCode: 'RESEARCH_SEARCH_EMPTY', searchAttempts: [{ query: 'recovery', status: 'running' as const, errorCode: null }],
+  }] };
+  const view = render(<GuidedResearchExecutionTimeline state={state} />);
+  expect(screen.getByTestId('execution-search')).toHaveTextContent('执行中');
+  expect(screen.getByTestId('execution-search')).toHaveTextContent('部分检索失败');
+  for (const terminal of [{ ...state, busy: false }, { ...state, controlStatus: 'paused' as const }, { ...state, leaseUntil: '2000-01-01T00:00:00Z' }]) {
+    view.rerender(<GuidedResearchExecutionTimeline state={terminal} />);
+    expect(screen.getByTestId('execution-search')).not.toHaveTextContent('执行中');
+  }
+  view.rerender(<GuidedResearchExecutionTimeline state={state} interrupted />);
+  expect(screen.getByTestId('execution-search')).not.toHaveTextContent('执行中');
+  expect(state.tasks[0]!.status).toBe('failed');
+});
+
+it('keeps live reading visible alongside a source error and preserves report prose', () => {
+  const base = runtimeFixture('report');
+  const state = { ...base, busy: true, progress: { stage: 'organizing' as const, completed: 0, total: 2 },
+    sources: [{ ...base.sources[0]!, documentError: 'unavailable' as const }],
+  };
+  const view = render(<GuidedResearchExecutionTimeline state={state} />);
+  expect(screen.getByTestId('execution-documents')).toHaveTextContent('执行中');
+  expect(screen.getByTestId('execution-documents')).toHaveTextContent('部分来源读取失败');
+  view.rerender(<GuidedResearchExecutionTimeline state={{ ...state, busy: false }} />);
+  expect(screen.getByTestId('execution-documents')).toHaveTextContent('待核实');
+  expect(screen.getByTestId('execution-documents')).not.toHaveTextContent('执行中');
+  expect(state.report).toEqual(base.report);
+});
+
+it('does not turn a historical reading failure into active reading during a search retry', () => {
+  const base = runtimeFixture('research');
+  render(<GuidedResearchExecutionTimeline state={{ ...base, busy: true, leaseUntil: '2099-01-01T00:00:00Z',
+    progress: { stage: 'searching', completed: 0, total: 1 },
+    sources: [{ ...base.sources[0]!, documentError: 'unavailable' }],
+    activity: [{ id: 'old', sequence: 1, stage: 'reading', taskId: null, summary: 'old read', occurredAt: '2000-01-01', status: 'started' }],
+  }} />);
+  expect(screen.getByTestId('execution-documents')).toHaveTextContent('待核实');
+  expect(screen.getByTestId('execution-documents')).not.toHaveTextContent('执行中');
+});

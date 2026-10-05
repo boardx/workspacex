@@ -1,6 +1,6 @@
 import type { GuidedResearchRuntime as Runtime } from './guided-research-api';
 export type ExecutionStatus = 'pending' | 'running' | 'completed' | 'failed' | 'warning' | 'paused' | 'interrupted';
-export interface ExecutionRow { id: string; title: string; status: ExecutionStatus }
+export interface ExecutionRow { id: string; title: string; status: ExecutionStatus; detail?: string }
 const aggregate = (statuses: string[]): ExecutionStatus => {
   if (!statuses.length) return 'pending';
   if (statuses.includes('failed')) return 'failed';
@@ -13,9 +13,15 @@ export function researchExecutionTimeline(state: Runtime, interrupted = false) {
   const tasks = state.tasks;
   const accepted = state.sources.filter(source => source.decision === 'accepted');
   const active = (status: ExecutionStatus): ExecutionStatus => status !== 'running' ? status : interrupted ? 'interrupted' : state.controlStatus === 'paused' ? 'paused' : status;
-  const search: ExecutionStatus = tasks.some(task => task.status === 'failed') ? 'failed' : tasks.some(task => task.status === 'running') ? 'running' : tasks.length && tasks.every(task => task.status === 'succeeded') ? 'completed' : 'pending';
+  const leasedWork = state.busy && (!state.leaseUntil || Date.parse(state.leaseUntil) > Date.now());
+  const failedSearch = tasks.some(task => task.status === 'failed');
+  const searching = leasedWork && tasks.some(task => task.status === 'running' || task.searchAttempts?.some(attempt => attempt.status === 'running'));
+  const search: ExecutionStatus = searching ? 'running' : failedSearch ? 'failed' : tasks.length && tasks.every(task => task.status === 'succeeded') ? 'completed' : 'pending';
   const lastReading = state.activity?.slice(-50).reverse().find(event => event.stage === 'reading');
-  const document: ExecutionStatus = accepted.some(source => source.documentError) ? 'warning' : accepted.length && accepted.every(source => source.document) ? 'completed' : state.busy && (state.progress?.stage === 'organizing' || lastReading?.status === 'started') ? 'running' : 'pending';
+  const failedDocument = accepted.some(source => source.documentError);
+  const preparingSources = state.currentNode === 'report' && (!state.progress || state.progress.stage === 'searching') && lastReading?.status === 'started';
+  const reading = leasedWork && (state.progress?.stage === 'organizing' || preparingSources);
+  const document: ExecutionStatus = accepted.length && accepted.every(source => source.document) && !failedDocument ? 'completed' : reading ? 'running' : failedDocument ? 'warning' : 'pending';
   const chapterStatuses = timeline.filter(step => step.stage === 'chapter').map(chapter => {
     const review = timeline.find(step => step.stage === 'review' && step.sectionId === chapter.sectionId);
     if (chapter.status === 'completed' && review?.status === 'pending') return 'running';
@@ -24,8 +30,8 @@ export function researchExecutionTimeline(state: Runtime, interrupted = false) {
   const warnings = Boolean(state.reportDraft || state.reportQualityWarnings?.length || state.reportEvidenceWarnings?.length);
   const validation = aggregate(timeline.filter(step => step.stage === 'validation').map(step => step.status));
   const rows: ExecutionRow[] = [
-    { id: 'search', title: '检索资料', status: active(search) },
-    { id: 'documents', title: '读取并整理真实来源', status: active(document) },
+    { id: 'search', title: '检索资料', status: active(search), ...(searching && failedSearch ? { detail: '部分检索失败' } : {}) },
+    { id: 'documents', title: '读取并整理真实来源', status: active(document), ...(reading && failedDocument ? { detail: '部分来源读取失败' } : {}) },
     { id: 'chapters', title: '章节撰写与检查', status: active(aggregate(chapterStatuses)) },
     { id: 'synthesis', title: '综合结论', status: active(aggregate(timeline.filter(step => step.stage === 'synthesis').map(step => step.status))) },
     { id: 'validation', title: '质量检查与保存', status: active(warnings ? 'warning' : validation === 'completed' && !state.report ? 'pending' : validation) },
