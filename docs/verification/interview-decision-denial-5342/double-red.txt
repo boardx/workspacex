@@ -1,0 +1,38 @@
+
+> @repo/api@0.0.0 test:interview-markdown-unit /Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/apps/api
+> vitest run --config vitest.interview-markdown-unit.config.ts
+
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/apps/api
+
+ ❯ tests/itv/interview-report-claim-boundaries.test.ts (202 tests | 1 failed) 85ms
+   × finite report claim boundaries > does not let denial waive a positive state: 不能不证明当前真实采购已经搁置。 3ms
+     → expected [] to include 'unsupported_current_decision_state'
+ ✓ tests/itv/interview-report-recovery.test.ts (24 tests) 74ms
+ ✓ tests/itv/interview-report-grounding.test.ts (76 tests) 45ms
+ ✓ tests/itv/interview-report-diagnostics.test.ts (14 tests) 30ms
+ ✓ tests/itv/interview-markdown-report-stream-controller.test.ts (9 tests) 5ms
+ ✓ tests/itv/interview-model-markdown.test.ts (4 tests) 3ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/itv/interview-report-claim-boundaries.test.ts > finite report claim boundaries > does not let denial waive a positive state: 不能不证明当前真实采购已经搁置。
+AssertionError: expected [] to include 'unsupported_current_decision_state'
+ ❯ tests/itv/interview-report-claim-boundaries.test.ts:18:55
+     16|  });
+     17|  it.each(["当前采购状态并非无法确认为永久搁置。", "并非不证明当前真实…
+     18|   expect(assessReportClaimBoundaries(raw,[]).missing).toContain("unsup…
+       |                                                       ^
+     19|  });
+     20|  it.each(["采用移动插座，因此供电风险降低。", "改用移动插座消除了线缆…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed | 5 passed (6)
+      Tests  1 failed | 328 passed (329)
+   Start at  12:04:46
+   Duration  2.64s (transform 653ms, setup 0ms, collect 1.83s, tests 242ms, environment 0ms, prepare 135ms)
+
+/Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/apps/api:
+ ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  @repo/api@0.0.0 test:interview-markdown-unit: `vitest run --config vitest.interview-markdown-unit.config.ts`
+Exit status 1
