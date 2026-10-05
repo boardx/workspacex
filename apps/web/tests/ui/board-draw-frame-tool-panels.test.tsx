@@ -21,7 +21,7 @@ function FrameHarness({onChoice=vi.fn()}:{onChoice?:(choice:BoardFrameChoice,mod
 it("offers all drawing instruments and keeps stroke appearance controls stateful",()=>{
   const onChoice=vi.fn();
   render(<DrawHarness onChoice={onChoice}/>);
-  expect(screen.getByTestId("board-draw-tool-panel")).toHaveClass("w-[min(40rem,calc(100vw-2rem))]","bg-card","border-border","shadow-2xl","px-4","py-3");
+  expect(screen.getByTestId("board-draw-tool-panel")).toHaveClass("w-[min(28rem,calc(100vw-2rem))]","bg-card","border-border","shadow-lg","px-3","py-3");
   expect(screen.getByTestId("board-draw-tool-panel")).not.toHaveClass("bg-card/98","backdrop-blur");
   for(const name of ["Pen","Marker","Pencil","Highlighter","Eraser"]) expect(screen.getByRole("button",{name})).toBeVisible();
   fireEvent.click(screen.getByTestId("board-draw-pencil"));
@@ -72,7 +72,7 @@ it("keeps highlighter alpha when adjusting width/color and blocks read-only edit
 
 it("shows the renderer's fixed eraser width without offering ineffective width choices",()=>{
   render(<BoardDrawToolPanel choice="eraser" appearance={drawingChoiceStyle("eraser")} readOnly={false} onChoiceChange={vi.fn()} onAppearanceChange={vi.fn()} onSelect={vi.fn()} onClose={vi.fn()}/>);
-  expect(screen.getByLabelText("Eraser width")).toHaveTextContent("24px");
+  expect(screen.getByLabelText("Eraser width")).toHaveTextContent(`${drawingChoiceStyle("eraser").width}px`);
   expect(screen.queryByTestId("board-draw-stroke-3")).not.toBeInTheDocument();
   expect(screen.queryByTestId("board-draw-stroke-8")).not.toBeInTheDocument();
   expect(screen.queryByTestId("board-draw-stroke-20")).not.toBeInTheDocument();

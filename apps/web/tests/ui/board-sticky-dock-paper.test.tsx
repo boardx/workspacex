@@ -18,3 +18,13 @@ it.each([false,true])('keeps the sticky paper explicitly sized with an unchanged
  fireEvent.click(button);expect(change).toHaveBeenCalledWith({kind:'sticky',variant:'square'});
  if(selected)expect(screen.getByTestId('board-tool-picker')).toBeVisible();
 });
+
+it('uses only the sticky paper as the native drag image, with labels available to assistive technology',()=>{
+ render(<BoardBottomDock activeTool="select" creationTool={null} readOnly={false} onToolChange={vi.fn()} onCreationToolChange={vi.fn()} onQuickCreate={vi.fn()} onBulkSticky={vi.fn()} onImageRequest={vi.fn()}/>);
+ const button=screen.getByTestId('board-add-sticky'), setDragImage=vi.fn();
+ fireEvent.dragStart(button,{dataTransfer:{setData:vi.fn(),setDragImage,types:[]}});
+ expect(setDragImage).toHaveBeenCalledWith(button.querySelector('[data-board-drag-preview]'),0,0);
+ expect(button.querySelector('[data-board-drag-preview]')?.querySelector('.submenu')).toBeNull();
+ expect(button.querySelector('.sr-only')).toHaveTextContent('便利贴');
+ expect(screen.getByTestId('board-add-sticky-submenu')).toHaveClass('top-1/2');
+});

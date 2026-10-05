@@ -111,7 +111,9 @@ export function useBoardConnectorGesture(props: Props) {
     const gesture = activeRef.current;
     if (!gesture || event.pointerId !== gesture.pointerId) return;
     event.preventDefault(); event.stopPropagation();
-    const point = scenePoint(event), final = point ? { ...gesture, current: point, bypass: event.metaKey || event.ctrlKey } : gesture;
+    // Fast/coalesced pointer drags can arrive as down → up with no React move.
+    // The release coordinate is authoritative for the drag threshold as well.
+    const point = scenePoint(event), final = point ? { ...gesture, current: point, bypass: event.metaKey || event.ctrlKey, moved: gesture.moved || Math.hypot(point.x - gesture.initial.x, point.y - gesture.initial.y) * latest.current.viewport.zoom >= 3 } : gesture;
     try {
       // React may not have rendered a remote transaction before this pointer release.
       const liveObjects = latest.current.readLiveObjects?.() ?? latest.current.objects;
@@ -130,6 +132,11 @@ export function useBoardConnectorGesture(props: Props) {
       if (!accepted) latest.current.onFailure();
     } catch { cancel(); latest.current.onFailure(); }
   };
+  const onLostPointerCapture = (event?: ConnectorOverlayPointerEvent) => {
+    const gesture = activeRef.current;
+    // Unrelated Fabric/overlay captures bubble through the editor too.
+    if (gesture && (!event || (event.pointerId === gesture.pointerId && event.target === gesture.target))) cancel();
+  };
   useEffect(() => {
     const gesture = activeRef.current;
     if (gesture && !legal(gesture)) cancel();
@@ -147,5 +154,5 @@ export function useBoardConnectorGesture(props: Props) {
   }, []);
   const projected = active && legal(active) ? project(active) : null;
   const candidateObject = projected?.snap ? props.objects.find(object => object.id === projected.snap!.objectId) : null;
-  return { active: Boolean(active), creating: Boolean(active?.creating), id: active?.id ?? null, previewRevision: active?.previewRevision ?? 0, relationship: projected?.relationship ?? null, path: projected ? connectorResolvedPath(projected.relationship, props.objects) : null, snapCandidate: candidateObject ? { id: candidateObject.id, geometry: candidateObject.geometry } : null, beginCreation, beginFreeCreation, onPointerDown, onPointerMove, onPointerUp, onPointerCancel: cancel, onLostPointerCapture: cancel, cancel };
+  return { active: Boolean(active), creating: Boolean(active?.creating), id: active?.id ?? null, previewRevision: active?.previewRevision ?? 0, relationship: projected?.relationship ?? null, path: projected ? connectorResolvedPath(projected.relationship, props.objects) : null, snapCandidate: candidateObject ? { id: candidateObject.id, geometry: candidateObject.geometry } : null, beginCreation, beginFreeCreation, onPointerDown, onPointerMove, onPointerUp, onPointerCancel: cancel, onLostPointerCapture, cancel };
 }

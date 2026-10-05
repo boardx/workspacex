@@ -30,6 +30,34 @@ describe("connector pointer session", () => {
     expect(test.result.current.active).toBe(false);
     test.unmount();
   });
+  it.each(["top", "right", "bottom", "left"] as const)("commits repeated fast releases from %s without a move event", anchor => {
+    const test = setup();
+    const source: WhiteboardObject = { id: "source", schemaVersion: 1, kind: "sticky", geometry: { x: 10, y: 20, width: 100, height: 80, rotation: 0 }, text: "", style: {}, parentId: null, orderKey: "a" };
+    test.rerender({ ...test.props, objects: [source] });
+    for (let index = 0; index < 12; index++) {
+      const pointer = index + 1;
+      act(() => test.result.current.beginCreation({ ...before, fromPoint: undefined, from: source.id, fromAnchor: anchor }, test.event(10, 20, pointer)));
+      act(() => test.result.current.onPointerUp(test.event(300, 200, pointer)));
+      expect(test.result.current.active).toBe(false);
+    }
+    expect(test.execute).toHaveBeenCalledTimes(12);
+    expect(test.created).toHaveBeenCalledTimes(12);
+    expect(test.failure).not.toHaveBeenCalled();
+    test.unmount();
+  });
+  it("ignores unrelated capture loss and permits a fresh gesture after cancellation", () => {
+    const test = setup();
+    act(() => test.result.current.beginCreation(before, test.event(10, 20)));
+    act(() => test.result.current.onLostPointerCapture({ ...test.event(10, 20, 7), target: document.createElement("div") } as unknown as ConnectorOverlayPointerEvent));
+    expect(test.result.current.active).toBe(true);
+    act(() => test.result.current.onPointerCancel());
+    act(() => test.result.current.onPointerUp(test.event(300, 200)));
+    expect(test.execute).not.toHaveBeenCalled();
+    act(() => test.result.current.beginCreation(before, test.event(10, 20, 2)));
+    act(() => test.result.current.onPointerUp(test.event(300, 200, 2)));
+    expect(test.execute).toHaveBeenCalledOnce();
+    test.unmount();
+  });
   it("takes keyboard ownership by focusing the board after a real accepted pointer gesture", () => {
     const test = setup(), host = test.props.host();
     host.tabIndex = -1; document.body.append(host);

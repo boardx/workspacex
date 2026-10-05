@@ -1,7 +1,7 @@
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 import type * as Y from "yjs";
-import { createWhiteboardDocument, readObjects, SpatialRelationshipCommandPort, WhiteboardCommandOrigin, type PanelMetadata } from "@repo/whiteboard-core";
+import { createWhiteboardDocument, readObjects, rotatedAnchorPoint, SpatialRelationshipCommandPort, WhiteboardCommandOrigin, type PanelMetadata } from "@repo/whiteboard-core";
 import { CollaborativeEditor } from "@/components/whiteboard/collaborative-editor";
 import type { BoardFabricObject } from "@/components/whiteboard/fabric/board-fabric-object";
 
@@ -112,10 +112,16 @@ it("creates a semantic connector from handles, updates its label/styles, and fol
   fireEvent.click(screen.getByTestId(`mock-select-${a.id}`));
   act(() => new SpatialRelationshipCommandPort(doc).dispatch({ boardId: "spatial-board", clientId: "fixture", gestureId: "rotate-a", command: { type: "transform", items: [{ id: a.id, geometry: { ...a.geometry, rotation: 90 } }] } }));
   expect(screen.getByTestId(`connector-handle-${a.id}-right`)).toHaveStyle({ left: `${a.geometry.x - a.geometry.height / 2}px`, top: `${a.geometry.y + a.geometry.width}px` });
-  let payload = "";
-  fireEvent.dragStart(screen.getByTestId(`connector-handle-${a.id}-right`), { dataTransfer: { setData: (_type: string, value: string) => { payload = value; } } });
-  fireEvent.click(screen.getByTestId(`mock-select-${b.id}`));
-  fireEvent.drop(screen.getByTestId(`connector-handle-${b.id}-left`), { dataTransfer: { getData: () => payload } });
+  const host=screen.getByTestId("collaborative-editor"), handle=screen.getByTestId(`connector-handle-${a.id}-right`);
+  host.setPointerCapture=vi.fn();host.hasPointerCapture=vi.fn(()=>true);host.releasePointerCapture=vi.fn();
+  const pointer=(type:string,point:{x:number;y:number})=>{const event=new MouseEvent(type,{bubbles:true,cancelable:true,button:0,clientX:point.x,clientY:point.y});Object.defineProperty(event,'pointerId',{value:7});return event;};
+  const start=rotatedAnchorPoint({...a,geometry:{...a.geometry,rotation:90}},'right'),end=rotatedAnchorPoint(b,'left');
+  expect(handle).not.toHaveAttribute('draggable');
+  fireEvent(handle,pointer('pointerdown',start));
+  fireEvent(host,pointer('pointermove',end));
+  expect(readObjects(doc).filter(object=>object.kind==='connector')).toHaveLength(0);
+  fireEvent(host,pointer('pointerup',end));
+  expect(readObjects(doc).filter(object=>object.kind==='connector')).toHaveLength(1);
   const edge = readObjects(doc).find((object) => object.kind === "connector")!;
   expect(edge.connector).toMatchObject({ from: a.id, to: b.id, fromAnchor: "right", toAnchor: "left" });
   const before = edge.geometry;
@@ -141,7 +147,7 @@ it("creates a semantic connector from handles, updates its label/styles, and fol
   openProperties();
   expect(screen.getByLabelText("语义关系")).toBeDisabled();
   expect(screen.queryByTestId("board-connector-toolbar")).toBeNull();
-  expect(screen.queryByTestId("board-connector-color")).toBeNull();
+  expect(screen.queryByTestId("board-connector-color-open")).toBeNull();
   doc.destroy();
 });
 
