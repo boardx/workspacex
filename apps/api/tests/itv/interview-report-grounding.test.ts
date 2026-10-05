@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import type { interviewMarkdown } from "@repo/contracts";
 import { buildReportEvidenceIndex, reportEvidenceContext, validateReportEvidence } from "../../src/application/interview/workflow/interview-report-grounding";
@@ -6,6 +7,17 @@ const hash = (s: string) => createHash("sha256").update(s).digest("hex");
 const raw = "服务端甲回答：支持电话。\n## [客服](#expert-b)\nQ2：反对电话。\nQ2：厨房孔位冲突。";
 const source: interviewMarkdown.InterviewMarkdownDocument = { documentId: "md-runs", version: 2, step: "runs", markdown: raw, contentHash: hash(raw), evidenceMode: "simulated", references: [], answerSpans: [{ taskKey: "rev-a/expert-a", expertId: "expert-a", start: 0, end: raw.length, contentHash: hash(raw) }] };
 describe("report evidence grounding", () => {
+ it("preserves byte-exact public prohibition on an unconditional conclusion", () => {
+  const line = readFileSync(new URL("./fixtures/strength-conclusion-5346/report.md",import.meta.url),"utf8").split("\n")[48];
+  if (line === undefined) throw new Error("Missing public raw line 49");
+  expect(validateReportEvidence(`[服务端甲回答：支持电话。](#answer-1)\n\n${line}`,buildReportEvidenceIndex(source)).ok).toBe(true);
+ });
+ it.each(["无法得出“预算必然阻止购买”的无条件结论。", "不得得出安装问题最常见的结论。"])("preserves local inability to conclude: %s", line => {
+  expect(validateReportEvidence(`[服务端甲回答：支持电话。](#answer-1)\n\n${line}`,buildReportEvidenceIndex(source)).ok).toBe(true);
+ });
+ it.each(["并非无法得出“预算必然阻止购买”的无条件结论。", "不是不能得出安装问题最常见的结论。", "无法得出预算充足的结论，但预算必然阻止购买。", "无法得出预算结论，因此安装问题最常见。"])("does not waive independent definite strength: %s", line => {
+  expect(validateReportEvidence(`[服务端甲回答：支持电话。](#answer-1)\n\n${line}`,buildReportEvidenceIndex(source)).reason).toBe("unsupported_evidence_strength");
+ });
  it.each([
   "不能把这2个任务说成只有单一问答，也不能将多个回答虚构为多专家共识。",
   "不应把单个回答虚构成两位专家的共识。",
