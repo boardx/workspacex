@@ -59,3 +59,19 @@ Error: Timed out waiting 600000ms from config.webServer.
   ✓  4 [board-feedback-20261005] › e2e/board-feedback-20261005.spec.ts:326:9 › Board feedback 390px › 21 connector widths are icon-only, single-row and persist through reload (7.9s)
   4 passed (5.9m)
   总计：5m53s
+## browser-review-final.log
+  ✓  1 [board-feedback-20261005] › e2e/board-compact-chrome-acceptance.spec.ts:16:5 › real thirty-note Board keeps compact chrome and intentional connection handles (23.3s)
+  ✓  2 [board-feedback-20261005] › e2e/board-feedback-20261005.spec.ts:178:9 › Board feedback 1440px › 15–16 transparent note editing and handles adapt to rendered size (4.9s)
+  ✓  3 [board-feedback-20261005] › e2e/board-feedback-20261005.spec.ts:212:9 › Board feedback 1440px › 17 sticky formatting and text fonts survive canonical save and reload (8.2s)
+  ✘  4 [board-feedback-20261005] › e2e/board-feedback-20261005.spec.ts:296:9 › Board feedback 1440px › 18 nearby native double-click copies note appearance and aligns its new neighbor (10.1s)
+  ✓  5 [board-feedback-20261005] › e2e/board-feedback-20261005.spec.ts:178:9 › Board feedback 390px › 15–16 transparent note editing and handles adapt to rendered size (4.7s)
+  ✓  6 [board-feedback-20261005] › e2e/board-feedback-20261005.spec.ts:212:9 › Board feedback 390px › 17 sticky formatting and text fonts survive canonical save and reload (8.9s)
+  ✘  7 [board-feedback-20261005] › e2e/board-feedback-20261005.spec.ts:296:9 › Board feedback 390px › 18 nearby native double-click copies note appearance and aligns its new neighbor (11.5s)
+  2 failed
+  5 passed (4.4m)
+  总计：4m23s
+## browser-nearby-lineage-final.log
+  ✓  1 [board-feedback-20261005] › e2e/board-feedback-20261005.spec.ts:296:9 › Board feedback 1440px › 18 nearby native double-click copies note appearance and aligns its new neighbor (8.7s)
+  ✓  2 [board-feedback-20261005] › e2e/board-feedback-20261005.spec.ts:296:9 › Board feedback 390px › 18 nearby native double-click copies note appearance and aligns its new neighbor (13.1s)
+  2 passed (6.0m)
+  总计：6m2s

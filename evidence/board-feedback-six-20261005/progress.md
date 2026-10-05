@@ -1,5 +1,35 @@
 # Board screenshot feedback delivery
 
+## Final integrated acceptance
+
+PR: https://github.com/boardx/workspacex/pull/5383. Final production source:
+`a97f5338c74f2c57b7ea0eb35fae476d99ed1b65`; subsequent changes are tests/evidence.
+All six lanes completed implementation and self-verification. Parent review found
+and fixed Frame-ancestor collision filtering and standalone Text baseline defaults.
+Original CI additionally found missing spec coverage, Escape lost after the picker
+unmounted its focused button, and a duplicate rendering request. These were fixed
+without relaxing the behavior or performance gates.
+
+Final additional validation: nine Frame/Text tests, eleven native-event scope and
+keyboard/history tests, and 94 canvas/performance/control-visibility tests passed.
+The unchanged 1000-object projection gate now renders once. Full Web/Core typechecks,
+ESLint and the push's eleven affected tasks passed. `lint-spec-gate-coverage.mjs`
+passed after attaching the new spec to the existing CI project.
+
+On this production source, five critical browser tests passed (the existing
+30-note compact CI scene, desktop/mobile controls, desktop/mobile Text create/edit
+baseline). Frame-neighbor tests initially failed a mistaken same-ID Redo assertion;
+real API sequence 5 had already restored the object under a new ID with
+`restoredFrom`. The assertion now verifies that actual protocol and all other
+fields remain equal. Both desktop/mobile cases then passed, exit 0. Thus all seven
+critical final-source scenarios passed, in addition to the earlier 21-case
+acceptance recorded below. Current PR CI is still authoritative for delivery.
+
+All owned isolated stacks were cleaned; final browser wrapper exit 0. The original
+dirty main checkout and other tasks' containers were preserved.
+
+## Earlier runs and repair history
+
 Issue: https://github.com/boardx/workspacex/issues/5381
 Base dependency: https://github.com/boardx/workspacex/pull/5245
 Source candidate: `556b82f35`.

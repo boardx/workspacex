@@ -45,3 +45,12 @@ not substitute for rendered appearance or canonical save/reopen evidence.
 PR must declare its dependency on #5245; until that parent merges, use its branch
 as the PR base so this task does not reintroduce the entire Board delivery diff.
 No merge or passing claim before required CI/review gates.
+
+## Interaction references
+
+The common tool keys V/H, T, N, S, L, P and E match the official
+[Miro shortcut reference](https://help.miro.com/hc/en-us/articles/360017731033-Shortcuts-and-hotkeys).
+The category split separates alignment/distribution from arrangement and smart
+templates; the behavior reference is Miro's
+[board-content structuring guide](https://help.miro.com/hc/en-us/articles/360017730973-Structuring-board-content).
+This is a WorkSpaceX adaptation, not a claim that every Miro command is supported.

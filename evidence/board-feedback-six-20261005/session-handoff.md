@@ -1,7 +1,7 @@
 # Handoff
 
 Scope: `docs/design/board-feedback-backlog-20261005.md`, issue #5381.
-Production source frozen at `556b82f35`; `09260c4da` and `2ed852f92` are test-only.
+Final production source is `a97f5338c`; the following Redo repair is test-only.
 Parent PR #5245 remains open/draft at a848c78ea.
 
 Baseline init, Core 286 tests, Web 1212 tests, typechecks and full Web lint passed.
@@ -17,3 +17,8 @@ Reproduce the browser suite with the isolated-stack wrapper, web command
 
 All owned test stacks cleaned on exit. The original main checkout's preexisting
 changes were preserved. Delivery is stacked on #5245 and must follow that parent.
+
+Final review/CI repairs are detailed at the top of progress.md. Seven key browser
+scenarios passed on final production source (five plus two after correcting the
+Redo identity contract). Follow PR #5383 checks until classifyChecks reports no
+blocked/changes/waitingCi. No main merge is claimed.
