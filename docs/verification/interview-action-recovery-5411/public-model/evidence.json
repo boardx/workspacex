@@ -1,0 +1,73 @@
+{
+  "runtimeSha": "8eb7ee2f2",
+  "firstDeltaMs": 1891,
+  "refreshBytesEqual": true,
+  "refreshHash": "ec235eb6df719a5073d56129e75d39e3a847245efd96f3ffc44c3b357f9fbe01",
+  "refreshVersion": 2,
+  "refreshState": {
+    "documentId": "md-4f67baf4-9212-48fe-bec2-57c8e31db8a8",
+    "status": "failed",
+    "failure": {
+      "code": "REPORT_QUALITY_REJECTED",
+      "retryable": true
+    }
+  },
+  "interviewId": "itv-ed53f10e-9ec7-46b7-a92b-fb82b411cea8",
+  "httpStatus": 200,
+  "elapsedMs": 64944,
+  "attempts": 2,
+  "attemptTimings": [
+    {
+      "attempt": 1,
+      "startedElapsedMs": 190,
+      "firstDeltaElapsedMs": 1891,
+      "ttfrMs": 1701,
+      "endedElapsedMs": 36108,
+      "wallMs": 35918
+    },
+    {
+      "attempt": 2,
+      "startedElapsedMs": 36108,
+      "firstDeltaElapsedMs": 38061,
+      "ttfrMs": 1953,
+      "endedElapsedMs": 64811,
+      "wallMs": 28703
+    }
+  ],
+  "deltaCount": 1011,
+  "checkpointSummary": [
+    {
+      "beforeAttempt": 2,
+      "streamHash": "ec235eb6df719a5073d56129e75d39e3a847245efd96f3ffc44c3b357f9fbe01",
+      "storedHash": "ec235eb6df719a5073d56129e75d39e3a847245efd96f3ffc44c3b357f9fbe01",
+      "rawHash": "ec235eb6df719a5073d56129e75d39e3a847245efd96f3ffc44c3b357f9fbe01",
+      "bytesEqual": true,
+      "version": 5,
+      "reportVersion": 1,
+      "state": {
+        "documentId": "md-f8453393-c09a-41d2-adf1-c51c54e1c029",
+        "status": "failed",
+        "failure": {
+          "code": "REPORT_QUALITY_REJECTED",
+          "retryable": true
+        }
+      }
+    }
+  ],
+  "streamHash": "ec235eb6df719a5073d56129e75d39e3a847245efd96f3ffc44c3b357f9fbe01",
+  "streamBytesEqual": true,
+  "terminal": "failed",
+  "reason": "REPORT_QUALITY_REJECTED",
+  "reportVersion": 2,
+  "reportState": {
+    "documentId": "md-4f67baf4-9212-48fe-bec2-57c8e31db8a8",
+    "status": "failed",
+    "failure": {
+      "code": "REPORT_QUALITY_REJECTED",
+      "retryable": true
+    }
+  },
+  "hash": "ec235eb6df719a5073d56129e75d39e3a847245efd96f3ffc44c3b357f9fbe01",
+  "rawHash": "ec235eb6df719a5073d56129e75d39e3a847245efd96f3ffc44c3b357f9fbe01",
+  "referenceCount": 5
+}
