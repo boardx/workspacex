@@ -1,0 +1,2514 @@
+{
+  "schemaVersion": 1,
+  "kind": "fullstack-inventory-observation",
+  "metadataOnly": true,
+  "executionAuthorityVerified": false,
+  "scopes": [
+    {
+      "scopeId": "fullstack-smoke",
+      "selection": {
+        "config": "playwright.fullstack-smoke.config.ts",
+        "project": "seeded-github-import",
+        "repeatEach": 1
+      },
+      "projectDag": {
+        "seeded": [],
+        "board-collaboration-regressions": [
+          "seeded"
+        ],
+        "official-digital-human": [
+          "seeded",
+          "board-collaboration-regressions"
+        ],
+        "realtime-voice": [
+          "official-digital-human"
+        ],
+        "official-role-workflow": [
+          "official-digital-human"
+        ],
+        "board-image-ingress": [
+          "official-role-workflow",
+          "realtime-voice"
+        ],
+        "seeded-github-import": [
+          "official-role-workflow",
+          "realtime-voice",
+          "board-image-ingress"
+        ]
+      },
+      "expectedCounts": {
+        "tests": 149,
+        "files": 53,
+        "projects": 7,
+        "passed": 148,
+        "skipped": 1
+      },
+      "playwrightVersion": "1.62.0",
+      "observation": {
+        "kind": "list-only-no-assertions",
+        "rawReportSha256": "sha256:3613fbb5f4d44354f0df4894c12ac4ac7c614309df38699e34540387d83b881f",
+        "rawReportBytes": 126381,
+        "sourceSha": "d690c48e300914fe37b19bce5c2375ee1b9f8c65",
+        "sourceTree": "ba3230fe3a1542ac0f0f4e26b5b1ead34aefaf62",
+        "sourceAuthorityVerified": false
+      },
+      "requiredInputPaths": [
+        "apps/web/e2e/agenda-segment-create-smoke.spec.ts",
+        "apps/web/e2e/agent-directory-entry-point.spec.ts",
+        "apps/web/e2e/blueprint-contract-gap-audit.spec.ts",
+        "apps/web/e2e/blueprint-designer-16-panels.spec.ts",
+        "apps/web/e2e/board-acl-race.spec.ts",
+        "apps/web/e2e/board-drawing-live-preview.spec.ts",
+        "apps/web/e2e/board-fabric-surface.spec.ts",
+        "apps/web/e2e/board-files-acceptance.spec.ts",
+        "apps/web/e2e/board-image-ingress-acceptance.spec.ts",
+        "apps/web/e2e/board-library-management.spec.ts",
+        "apps/web/e2e/board-selection-layout.spec.ts",
+        "apps/web/e2e/board-shared-outbox.spec.ts",
+        "apps/web/e2e/board-spatial-relationships.spec.ts",
+        "apps/web/e2e/board-thinking-input.spec.ts",
+        "apps/web/e2e/board-visual-content.spec.ts",
+        "apps/web/e2e/canvas-template-create-smoke.spec.ts",
+        "apps/web/e2e/canvas-template-library-design.spec.ts",
+        "apps/web/e2e/canvas-template-simulate-smoke.spec.ts",
+        "apps/web/e2e/canvas-tpl-sticky-not-clipped.spec.ts",
+        "apps/web/e2e/capability-mutate-smoke.spec.ts",
+        "apps/web/e2e/chat-vision-honest-degrade.spec.ts",
+        "apps/web/e2e/core-journey-01-registration.spec.ts",
+        "apps/web/e2e/core-journey-02-org-management.spec.ts",
+        "apps/web/e2e/core-journey-03-skill-lifecycle-chat.spec.ts",
+        "apps/web/e2e/core-journey-04-canvas-template-lifecycle-chat.spec.ts",
+        "apps/web/e2e/core-journey-05-voice-skill-multichannel-context.spec.ts",
+        "apps/web/e2e/core-journey-06-project-invite-chat-share.spec.ts",
+        "apps/web/e2e/design-workbench-smoke.spec.ts",
+        "apps/web/e2e/digital-human-journey.spec.ts",
+        "apps/web/e2e/digital-interview-density-live.spec.ts",
+        "apps/web/e2e/digital-interview-intake-failure-live.spec.ts",
+        "apps/web/e2e/digital-interview-report-export-live.spec.ts",
+        "apps/web/e2e/digital-interview-research-quality.spec.ts",
+        "apps/web/e2e/feedback-drafts-smoke.spec.ts",
+        "apps/web/e2e/feedback-loop-smoke.spec.ts",
+        "apps/web/e2e/fullstack-smoke.spec.ts",
+        "apps/web/e2e/guided-research-runtime.spec.ts",
+        "apps/web/e2e/guided-research-trust-console.spec.ts",
+        "apps/web/e2e/inbox-smoke.spec.ts",
+        "apps/web/e2e/interview-subjects-smoke.spec.ts",
+        "apps/web/e2e/mail-loopback-smoke.spec.ts",
+        "apps/web/e2e/project-create-smoke.spec.ts",
+        "apps/web/e2e/project-hub-b3-walkthrough.spec.ts",
+        "apps/web/e2e/realtime-voice-journey.spec.ts",
+        "apps/web/e2e/rewrite-coverage-live-smoke.spec.ts",
+        "apps/web/e2e/save-as-org-template-smoke.spec.ts",
+        "apps/web/e2e/skill-agent-import-usecase-audit.spec.ts",
+        "apps/web/e2e/skill-create-smoke.spec.ts",
+        "apps/web/e2e/skill-review-gate.spec.ts",
+        "apps/web/e2e/survey-complete-flow.spec.ts",
+        "apps/web/e2e/survey-trusted-publishing.spec.ts",
+        "apps/web/e2e/w029-browser-journey.spec.ts",
+        "apps/web/e2e/whiteboard-live.spec.ts",
+        "apps/web/package.json",
+        "apps/web/playwright.fullstack-smoke.config.ts",
+        "package.json",
+        "pnpm-lock.yaml",
+        "pnpm-workspace.yaml"
+      ],
+      "observedInputFingerprints": [
+        {
+          "path": "apps/web/e2e/agenda-segment-create-smoke.spec.ts",
+          "digest": "sha256:716d36151dbcd07ad5fbf7d60a8ad4a3aa4919d8d7bc7ff7dad3e9f70fd78f0f"
+        },
+        {
+          "path": "apps/web/e2e/agent-directory-entry-point.spec.ts",
+          "digest": "sha256:5c165434ee324ef21f3a9acc4d93ec35f8d2f979ebe9d31c29ccf309a597294d"
+        },
+        {
+          "path": "apps/web/e2e/blueprint-contract-gap-audit.spec.ts",
+          "digest": "sha256:baf7d26c14e3108dc75e152617cee77751531c3e6307b69bd6ac15d11895ccf7"
+        },
+        {
+          "path": "apps/web/e2e/blueprint-designer-16-panels.spec.ts",
+          "digest": "sha256:a201fc9ca2a5e37f95ffd72d7a1e6a833f7d4ab8faafba1a4e4e75c6d867178e"
+        },
+        {
+          "path": "apps/web/e2e/board-acl-race.spec.ts",
+          "digest": "sha256:e4c02eb4e213118c1a3d2399c421aca34477c36aaf412eafb2f960781e6d073f"
+        },
+        {
+          "path": "apps/web/e2e/board-drawing-live-preview.spec.ts",
+          "digest": "sha256:0d090644fd9e5f7566211b99849b27c5613731ff0d5038c6031e1624e5f828c3"
+        },
+        {
+          "path": "apps/web/e2e/board-fabric-surface.spec.ts",
+          "digest": "sha256:b385b79a3815c01fa8889e863392a559c4d3c5646d105b2fe803fad29b456a08"
+        },
+        {
+          "path": "apps/web/e2e/board-files-acceptance.spec.ts",
+          "digest": "sha256:e9dd3e8ace32d5a921b949e7637a50781b7fafb751bbb2c74e6164dd6043be58"
+        },
+        {
+          "path": "apps/web/e2e/board-image-ingress-acceptance.spec.ts",
+          "digest": "sha256:c66c8277198fc917e62a4766596b5ef58a45c111d018a1e8b070e50524eba01b"
+        },
+        {
+          "path": "apps/web/e2e/board-library-management.spec.ts",
+          "digest": "sha256:b3562f043b8db1e4517f951114a903016b61537c3581c12609e2ddb66c46d85f"
+        },
+        {
+          "path": "apps/web/e2e/board-selection-layout.spec.ts",
+          "digest": "sha256:47c385855213d1d3a1babc710cfd6236b85c945893f6b584c69902bd7fbeb526"
+        },
+        {
+          "path": "apps/web/e2e/board-shared-outbox.spec.ts",
+          "digest": "sha256:c912bd666ad5302114a53a68ed67dd335f2d3c63480bc296055b8f4b100385f7"
+        },
+        {
+          "path": "apps/web/e2e/board-spatial-relationships.spec.ts",
+          "digest": "sha256:50e66023b008830bd28b81926b6695989d699ed9d2eb205275689ff3a4b5e2b3"
+        },
+        {
+          "path": "apps/web/e2e/board-thinking-input.spec.ts",
+          "digest": "sha256:5d3ce60e43bcec1e0297318970b0dfccc0c3cc6caf3341a4f09bf7ec555ca585"
+        },
+        {
+          "path": "apps/web/e2e/board-visual-content.spec.ts",
+          "digest": "sha256:abde20c46fc2e435127809d40cdd0faec1a73b0138de57f328084a6ca362698c"
+        },
+        {
+          "path": "apps/web/e2e/canvas-template-create-smoke.spec.ts",
+          "digest": "sha256:608ec215ce4ddf368878d9366e80e227cc1f4f7515fd0fb1660590e772d0f42b"
+        },
+        {
+          "path": "apps/web/e2e/canvas-template-library-design.spec.ts",
+          "digest": "sha256:b42a581664ab569c8d2db31938b347b0a73c13c6c85371ad32f5779fb85be60e"
+        },
+        {
+          "path": "apps/web/e2e/canvas-template-simulate-smoke.spec.ts",
+          "digest": "sha256:76a3ae0616a970066bd28c93818e3a32c5132f1896ffac55faac8e2a035e2458"
+        },
+        {
+          "path": "apps/web/e2e/canvas-tpl-sticky-not-clipped.spec.ts",
+          "digest": "sha256:8cd6e704f28654a42dd476a37f265e3c5ab4c0ce6fcc52f623f341b7b2813214"
+        },
+        {
+          "path": "apps/web/e2e/capability-mutate-smoke.spec.ts",
+          "digest": "sha256:ba438976216100b31dc1715958d7ab670633ca29a24bcd07cd1783e7b08b4ecc"
+        },
+        {
+          "path": "apps/web/e2e/chat-vision-honest-degrade.spec.ts",
+          "digest": "sha256:e7d2ca16c6dbde600438978f3bbd4c0d8447f6daf789c88fca731aedff276635"
+        },
+        {
+          "path": "apps/web/e2e/core-journey-01-registration.spec.ts",
+          "digest": "sha256:e418b5bede498c827767ab836204ce31eb76339d544db186958fdd28a589bf05"
+        },
+        {
+          "path": "apps/web/e2e/core-journey-02-org-management.spec.ts",
+          "digest": "sha256:9ecc6fd6892cac1067667266a3d42549c01f903ed799c82ed41034f9145060ce"
+        },
+        {
+          "path": "apps/web/e2e/core-journey-03-skill-lifecycle-chat.spec.ts",
+          "digest": "sha256:eed064d3e7836022fd4db3cb61a7106c7cf6ecb0707f7de15c11f549eefc39c8"
+        },
+        {
+          "path": "apps/web/e2e/core-journey-04-canvas-template-lifecycle-chat.spec.ts",
+          "digest": "sha256:51ffa47be8fb0bc7fd338022e2cb970e0b8fbb9befb092c13878e1be9afa5a52"
+        },
+        {
+          "path": "apps/web/e2e/core-journey-05-voice-skill-multichannel-context.spec.ts",
+          "digest": "sha256:a6b64d523988fcf9c49e5a19709ee6858bf716a91ba475bba6ab6239926c6f29"
+        },
+        {
+          "path": "apps/web/e2e/core-journey-06-project-invite-chat-share.spec.ts",
+          "digest": "sha256:51fef0859f718d88146597c5684842ac65f3fbe80a0bb6368a8f49cfcd27710e"
+        },
+        {
+          "path": "apps/web/e2e/design-workbench-smoke.spec.ts",
+          "digest": "sha256:282ddfc6eec1f33a5fe091a9fe6a080bc27ce81f36fc7744404d4e65c3ab2033"
+        },
+        {
+          "path": "apps/web/e2e/digital-human-journey.spec.ts",
+          "digest": "sha256:7589e7174df6d7be1239618aa0f7afdbdfd2076af0d30d88fbfb0d4f844149eb"
+        },
+        {
+          "path": "apps/web/e2e/digital-interview-density-live.spec.ts",
+          "digest": "sha256:5e16b0da6dfc40bc86a3762f7b275c37bc606cc3aef64adfc6110d9cd4f25b32"
+        },
+        {
+          "path": "apps/web/e2e/digital-interview-intake-failure-live.spec.ts",
+          "digest": "sha256:57a7af549100262095318ce679b44abb012885d3c240ae52a00a3032a9ead540"
+        },
+        {
+          "path": "apps/web/e2e/digital-interview-report-export-live.spec.ts",
+          "digest": "sha256:8b8f46fe5c017bf3bb7b2e87428e9c1b03d42b42d701ee470cedfc97b4351491"
+        },
+        {
+          "path": "apps/web/e2e/digital-interview-research-quality.spec.ts",
+          "digest": "sha256:6a7d67a0a276205b15cc219e11ed515e1fd5491bee7a9b83d57049d4f98429e7"
+        },
+        {
+          "path": "apps/web/e2e/feedback-drafts-smoke.spec.ts",
+          "digest": "sha256:2d7a0458999e15286b822ba08001c9a001faa3d490e3508ffdcf93a6bc23c2b4"
+        },
+        {
+          "path": "apps/web/e2e/feedback-loop-smoke.spec.ts",
+          "digest": "sha256:e925d57150b5fc582ab6cd5b5ef786cc1f450260cb85848fe61f2c38b989fb73"
+        },
+        {
+          "path": "apps/web/e2e/fullstack-smoke.spec.ts",
+          "digest": "sha256:347f304a68430405ac25e01a5f54c6c1127d5fc6e416fc3107c8d3c6a4bb6fbb"
+        },
+        {
+          "path": "apps/web/e2e/guided-research-runtime.spec.ts",
+          "digest": "sha256:0953101fa5fb3e4c0804205812180ad02d351294d0825b5157febe82c0d160cc"
+        },
+        {
+          "path": "apps/web/e2e/guided-research-trust-console.spec.ts",
+          "digest": "sha256:825ee4513430cbee9cb80f2e64f7d67c2f3a292f47228fa99b6a456c4b97a083"
+        },
+        {
+          "path": "apps/web/e2e/inbox-smoke.spec.ts",
+          "digest": "sha256:1a15a689fb07b4b4cd79b5e763d31ec2b4602aa8e73d6efbf732ba23c9bc3af9"
+        },
+        {
+          "path": "apps/web/e2e/interview-subjects-smoke.spec.ts",
+          "digest": "sha256:193b183b906a544490973c10b6e5c5850b0ce0b876b06c687990d6df0bd1b658"
+        },
+        {
+          "path": "apps/web/e2e/mail-loopback-smoke.spec.ts",
+          "digest": "sha256:fbfcad8dd0ba1efc9209da83554f3648d4455c0e92d02d613faf79e45583a8ea"
+        },
+        {
+          "path": "apps/web/e2e/project-create-smoke.spec.ts",
+          "digest": "sha256:358c547d7b1de83224f0638f167f1a60fe1eced39d2040f5353b6e705b61cc5d"
+        },
+        {
+          "path": "apps/web/e2e/project-hub-b3-walkthrough.spec.ts",
+          "digest": "sha256:16ac962f6f50c1b59da826f00ddac68be3a7a8f20cbfe975e535c0424f0b0de0"
+        },
+        {
+          "path": "apps/web/e2e/realtime-voice-journey.spec.ts",
+          "digest": "sha256:497025249b4daa2d30fa5a3b7a7e8402b111f54cd92731a74db6023060cd0500"
+        },
+        {
+          "path": "apps/web/e2e/rewrite-coverage-live-smoke.spec.ts",
+          "digest": "sha256:591717358c0f13b5e1f1182513c6ce32ccb2d7bc542a933cb0ff7500c8e8c573"
+        },
+        {
+          "path": "apps/web/e2e/save-as-org-template-smoke.spec.ts",
+          "digest": "sha256:f7b3babf0c0f6d599cdc15cba95d1e7f615b4dd4a88b131987f1656c66f9b58b"
+        },
+        {
+          "path": "apps/web/e2e/skill-agent-import-usecase-audit.spec.ts",
+          "digest": "sha256:8d9256c7689d010a5943f0ba4dcdd8729c543af6a8663708ee036f8b1ec142cb"
+        },
+        {
+          "path": "apps/web/e2e/skill-create-smoke.spec.ts",
+          "digest": "sha256:d9ffb7460339eb1ed8fc40909f2a2258f324668969e78b9e9f7e76b746a8c519"
+        },
+        {
+          "path": "apps/web/e2e/skill-review-gate.spec.ts",
+          "digest": "sha256:3c9631e445cd4ee5b8b901a2de117bea17187e21e2d276b7454e780866668c2d"
+        },
+        {
+          "path": "apps/web/e2e/survey-complete-flow.spec.ts",
+          "digest": "sha256:61e31ef73c722b6618a123abca5cde7d0a09a6799016605aa2c93cbceeeafcb1"
+        },
+        {
+          "path": "apps/web/e2e/survey-trusted-publishing.spec.ts",
+          "digest": "sha256:abd23be8d85b376dfe0a89f29938007bbaf9c9c48d21798b7708c24fd824cac7"
+        },
+        {
+          "path": "apps/web/e2e/w029-browser-journey.spec.ts",
+          "digest": "sha256:1f0ede3da6d296775ccdd05228b8b13dab12dcaeacd4591d7d4cbab430806aee"
+        },
+        {
+          "path": "apps/web/e2e/whiteboard-live.spec.ts",
+          "digest": "sha256:4549acb59df6cbeab747df4af99dd91534b5b1b672d9c993c9aefeec6e4a896d"
+        },
+        {
+          "path": "apps/web/package.json",
+          "digest": "sha256:1b0bae31555eab21e87255ac28f5562171a06466c7644d24f0e6ab7264156c74"
+        },
+        {
+          "path": "apps/web/playwright.fullstack-smoke.config.ts",
+          "digest": "sha256:933ba25d017457c2206b9e0b71ab12b45dc2d2eb56d5e214c2de693c578fbde4"
+        },
+        {
+          "path": "package.json",
+          "digest": "sha256:9b60b05c1acdd99ce7a6ba6e9c920c57e1e954df64def071c2517d4f9aebea56"
+        },
+        {
+          "path": "pnpm-lock.yaml",
+          "digest": "sha256:34ffcc7514d95ac1ea43aaef23b85c3fa0d33da73375cb64fb6083ffd0fe2c49"
+        },
+        {
+          "path": "pnpm-workspace.yaml",
+          "digest": "sha256:08d75840c97ab0e72d1d9b5b84a17e47a2e06cb159a5fbec5ee0a6a56682dad7"
+        }
+      ],
+      "tests": [
+        {
+          "project": "board-collaboration-regressions",
+          "file": "apps/web/e2e/board-acl-race.spec.ts",
+          "line": 8,
+          "column": 5,
+          "titlePath": [
+            "comment and checkpoint operations recheck permissions after a real PostgreSQL lock wait"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "1b340d5e317da1e90645-2a89118281cd22428cf1",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "board-collaboration-regressions",
+          "file": "apps/web/e2e/board-shared-outbox.spec.ts",
+          "line": 15,
+          "column": 5,
+          "titlePath": [
+            "same-browser tabs drain a shared durable outbox without duplicate commits"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "97273d05744a2965817a-cfcb2ba20eb851a7a0e0",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "board-image-ingress",
+          "file": "apps/web/e2e/board-image-ingress-acceptance.spec.ts",
+          "line": 14,
+          "column": 5,
+          "titlePath": [
+            "HTTPS image entry rejects real CORS and malformed ranges then retries durable bytes"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "09ecb91c954fa880a89e-ac20ae3a63046a0d0cdd",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "board-image-ingress",
+          "file": "apps/web/e2e/board-image-ingress-acceptance.spec.ts",
+          "line": 67,
+          "column": 70,
+          "titlePath": [
+            "real completed image upload cannot commit after close"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "09ecb91c954fa880a89e-f6d2f08589d3158bb74e",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "board-image-ingress",
+          "file": "apps/web/e2e/board-image-ingress-acceptance.spec.ts",
+          "line": 67,
+          "column": 70,
+          "titlePath": [
+            "real completed image upload cannot commit after navigate"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "09ecb91c954fa880a89e-71d9687c29600b4cf2ca",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "board-image-ingress",
+          "file": "apps/web/e2e/board-image-ingress-acceptance.spec.ts",
+          "line": 67,
+          "column": 70,
+          "titlePath": [
+            "real completed image upload cannot commit after revoke"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "09ecb91c954fa880a89e-101295408158f048d51e",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "official-digital-human",
+          "file": "apps/web/e2e/digital-human-journey.spec.ts",
+          "line": 133,
+          "column": 5,
+          "titlePath": [
+            "official roles: administrator enables dependencies; member checks seven role skill scopes and runs independent persisted chats"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "5d7125f31d23abdb7d83-09f59df7949260ff533b",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "official-role-workflow",
+          "file": "apps/web/e2e/w029-browser-journey.spec.ts",
+          "line": 15,
+          "column": 5,
+          "titlePath": [
+            "W029 direct role launch: real grants, four real approval confirmations, persisted PRD and reload"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "9f046b512fdb1de78f66-b51ab6ef9169dcf81605",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "realtime-voice",
+          "file": "apps/web/e2e/realtime-voice-journey.spec.ts",
+          "line": 48,
+          "column": 5,
+          "titlePath": [
+            "real voice audio, interrupt, persisted hangup and remote disconnect cleanup/retry"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "f139b2c619a01b306b2f-00e9498d987c97c68c36",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "seeded",
+          "file": "apps/web/e2e/agenda-segment-create-smoke.spec.ts",
+          "line": 42,
+          "column": 5,
+          "titlePath": [
+            "facilitator creates an agenda segment in the browser; PostgreSQL keeps it across a reload"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "2a60ba96a60d0c2aeda0-a2c23c11cbcf9b4dd994",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "seeded",
+          "file": "apps/web/e2e/agent-directory-entry-point.spec.ts",
+          "line": 23,
+          "column": 5,
+          "titlePath": [
+            "Agent 目录从左栏导航可达，不是只能敲 URL 进的孤岛"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "6aaece650dd204656ee8-0b9c62adbb28f10afe46",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "seeded",
+          "file": "apps/web/e2e/blueprint-contract-gap-audit.spec.ts",
+          "line": 92,
+          "column": 7,
+          "titlePath": [
+            "蓝本管理闭环 + 契约缺口审计（F175→F193/F174→F177(边界)→F179→F23→F29，见文件头注）",
+            "F175: 组织后台在真实浏览器里新建蓝本，刷新后仍在（真实 POST/GET /blueprints）"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "2b369fb53a3994aa5c7c-13a30d1dc4a353d61f3f",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "seeded",
+          "file": "apps/web/e2e/blueprint-contract-gap-audit.spec.ts",
+          "line": 131,
+          "column": 7,
+          "titlePath": [
+            "蓝本管理闭环 + 契约缺口审计（F175→F193/F174→F177(边界)→F179→F23→F29，见文件头注）",
+            "F193: /tpl/designer 真实 UI 打开一项设计配置面板，编辑并保存，刷新后改动仍在（真落库）"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "2b369fb53a3994aa5c7c-aef6e75ada8f60debde3",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "seeded",
+          "file": "apps/web/e2e/blueprint-contract-gap-audit.spec.ts",
+          "line": 198,
+          "column": 7,
+          "titlePath": [
+            "蓝本管理闭环 + 契约缺口审计（F175→F193/F174→F177(边界)→F179→F23→F29，见文件头注）",
+            "F174: 填一项设计环节内容并真实 PUT 保存，刷新后完成度真的变化（不是前端 state）"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "2b369fb53a3994aa5c7c-a527684c4b347237c749",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "seeded",
+          "file": "apps/web/e2e/blueprint-contract-gap-audit.spec.ts",
+          "line": 237,
+          "column": 7,
+          "titlePath": [
+            "蓝本管理闭环 + 契约缺口审计（F175→F193/F174→F177(边界)→F179→F23→F29，见文件头注）",
+            "F177 边界证明：换时长档位端点真实存在且乐观并发闸门有效（不是假装完成了一次被契约允许的写入）"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "2b369fb53a3994aa5c7c-fbeb7c846a2001e91798",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "seeded",
+          "file": "apps/web/e2e/blueprint-contract-gap-audit.spec.ts",
+          "line": 271,
+          "column": 7,
+          "titlePath": [
+            "蓝本管理闭环 + 契约缺口审计（F175→F193/F174→F177(边界)→F179→F23→F29，见文件头注）",
+            "F179: 试跑 → 发布蓝本版本（真实 POST /trial-runs + POST /versions），刷新后 /tpl/list 显示已发布 v1"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "2b369fb53a3994aa5c7c-44f41e0e36d942e6baf6",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "seeded",
+          "file": "apps/web/e2e/blueprint-contract-gap-audit.spec.ts",
+          "line": 344,
+          "column": 7,
+          "titlePath": [
+            "蓝本管理闭环 + 契约缺口审计（F175→F193/F174→F177(边界)→F179→F23→F29，见文件头注）",
+            "F23（issue #1667 补实现）：套用蓝本真实新建项目——POST /blueprints/:id/apply 201，刷新 /projects 后仍在（真实落库）"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "2b369fb53a3994aa5c7c-9129c6a41bb3d492fc36",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "seeded",
+          "file": "apps/web/e2e/blueprint-contract-gap-audit.spec.ts",
+          "line": 406,
+          "column": 7,
+          "titlePath": [
+            "蓝本管理闭环 + 契约缺口审计（F175→F193/F174→F177(边界)→F179→F23→F29，见文件头注）",
+            "F29（issue #1667 补实现）：提回蓝本——GET 偏离 + POST 提交 201，GET /pending-changes 刷新后仍在（真实落库）"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "2b369fb53a3994aa5c7c-f2ce7e0ab0f2a9bf521e",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "seeded",
+          "file": "apps/web/e2e/blueprint-designer-16-panels.spec.ts",
+          "line": 54,
+          "column": 7,
+          "titlePath": [
+            "端到端自检：蓝本设计器 14 项全部结构化，真读真写真落库",
+            "建一个蓝本，拿到它的 id"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "69fdecff3c80a32c9d75-a901810a603f9c02d146",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "seeded",
+          "file": "apps/web/e2e/blueprint-designer-16-panels.spec.ts",
+          "line": 78,
+          "column": 7,
+          "titlePath": [
+            "端到端自检：蓝本设计器 14 项全部结构化，真读真写真落库",
+            "① 逐个点开 13 项 + 基本配置：每一项都是结构化面板，无一是通用自由文本框"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "69fdecff3c80a32c9d75-b27c69d994f266a34028",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "seeded",
+          "file": "apps/web/e2e/blueprint-designer-16-panels.spec.ts",
+          "line": 119,
+          "column": 7,
+          "titlePath": [
+            "端到端自检：蓝本设计器 14 项全部结构化，真读真写真落库",
+            "② 挑三项做真实编辑并刷新：值回到原来那一格（真落库），完成度随服务端响应联动"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "69fdecff3c80a32c9d75-f942005e9b6dd4948cf0",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "seeded",
+          "file": "apps/web/e2e/blueprint-designer-16-panels.spec.ts",
+          "line": 214,
+          "column": 7,
+          "titlePath": [
+            "端到端自检：蓝本设计器 14 项全部结构化，真读真写真落库",
+            "③ 完成度是服务端派生：已填 3 项，重新进页面时徽标仍是服务端给的数（不是前端记忆）"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "69fdecff3c80a32c9d75-58c30e296c750acde194",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "seeded",
+          "file": "apps/web/e2e/canvas-template-create-smoke.spec.ts",
+          "line": 143,
+          "column": 5,
+          "titlePath": [
+            "admin creates a canvas template in the browser; PostgreSQL keeps it across reloads, and publishing makes it usable"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "0ce03275f98aef69c53e-f4fb1c4c780898c13a31",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "seeded",
+          "file": "apps/web/e2e/canvas-template-create-smoke.spec.ts",
+          "line": 245,
+          "column": 5,
+          "titlePath": [
+            "counterproof: with the create request stubbed out in the browser, the row does not survive a reload"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "0ce03275f98aef69c53e-8eca8d996dc07e9bc96f",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "seeded",
+          "file": "apps/web/e2e/canvas-template-create-smoke.spec.ts",
+          "line": 327,
+          "column": 5,
+          "titlePath": [
+            "admin mints a new draft version from a published template; the v2 draft survives a reload and draft rows expose no mint entry"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "0ce03275f98aef69c53e-e8f0b7bacedcebfcc5dc",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "seeded",
+          "file": "apps/web/e2e/canvas-template-library-design.spec.ts",
+          "line": 92,
+          "column": 5,
+          "titlePath": [
+            "Design.pdf §3：模板库**默认**就是卡片网格，不需要先切视图"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "4cae23596536dfe29065-fa3ef5dae2e66c88ef6c",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "seeded",
+          "file": "apps/web/e2e/canvas-template-library-design.spec.ts",
+          "line": 117,
+          "column": 5,
+          "titlePath": [
+            "模板库对照 Design.pdf §3：卡片网格 + A1 缩略图 + 真实标签筛选 + 改名换标签"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "4cae23596536dfe29065-79150e1e69df892f9b6e",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "seeded",
+          "file": "apps/web/e2e/canvas-template-library-design.spec.ts",
+          "line": 202,
+          "column": 5,
+          "titlePath": [
+            "Design.pdf §7 第 3 条：进编辑器加分区再返回，卡片上的字段数/区块数同步更新"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "4cae23596536dfe29065-c5cb70f19a43247519a9",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "seeded",
+          "file": "apps/web/e2e/canvas-template-library-design.spec.ts",
+          "line": 244,
+          "column": 5,
+          "titlePath": [
+            "Design.pdf §4：三栏拖拽编辑器 —— 拖到画布、显示设置 mm 实尺、从画布移除保留字段"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "4cae23596536dfe29065-e55aa63b85461c37acda",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "seeded",
+          "file": "apps/web/e2e/canvas-template-library-design.spec.ts",
+          "line": 319,
+          "column": 5,
+          "titlePath": [
+            "#2535：列数选 1 列、最多条数减到 1、换贴纸色 → 保存不再 400，刷新后仍是这些值"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "4cae23596536dfe29065-707397b692f8f617c9d1",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "seeded",
+          "file": "apps/web/e2e/canvas-template-library-design.spec.ts",
+          "line": 365,
+          "column": 5,
+          "titlePath": [
+            "Design.pdf §7 第 6/7 条：纸面与内容区比值精确，且贴纸内文字不被裁切"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "4cae23596536dfe29065-8d6ffc4121b31e3c0ff5",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "seeded",
+          "file": "apps/web/e2e/canvas-template-library-design.spec.ts",
+          "line": 423,
+          "column": 5,
+          "titlePath": [
+            "Design.pdf 补充 · 试运行：填一份数据，画布上渲染出真实内容"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "4cae23596536dfe29065-b1795b74b0600dae4332",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "seeded",
+          "file": "apps/web/e2e/canvas-template-simulate-smoke.spec.ts",
+          "line": 45,
+          "column": 5,
+          "titlePath": [
+            "admin types a prompt into chat 模拟, gets a real model round trip back, and it renders on the canvas grid"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "3fa158093b384216a0c6-4e28594ba5ef47164fa3",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "seeded",
+          "file": "apps/web/e2e/canvas-template-simulate-smoke.spec.ts",
+          "line": 189,
+          "column": 5,
+          "titlePath": [
+            "counterproof: the rendered result reflects the network response body, not the typed prompt verbatim"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "3fa158093b384216a0c6-bf29502b30029a8d96a7",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "seeded",
+          "file": "apps/web/e2e/canvas-template-simulate-smoke.spec.ts",
+          "line": 253,
+          "column": 5,
+          "titlePath": [
+            "R2：结果画布真的可以编辑——点「＋便签」工具落一张便签，画布状态真的变了"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "3fa158093b384216a0c6-e9aac796a1c4a04c6a56",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "seeded",
+          "file": "apps/web/e2e/canvas-template-simulate-smoke.spec.ts",
+          "line": 332,
+          "column": 5,
+          "titlePath": [
+            "R2：模型调不通时，浏览器里看到的是诚实的错误提示，不是卡死或假成功"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "3fa158093b384216a0c6-9e190d5e521718e32f5b",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "seeded",
+          "file": "apps/web/e2e/canvas-tpl-sticky-not-clipped.spec.ts",
+          "line": 98,
+          "column": 7,
+          "titlePath": [
+            "A1 纸：贴纸不被贴纸网格外层裁掉一部分（约束宽度 + 全屏两档）"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "19a8a86dbc16540a0167-1a818693d2d929cb0aaa",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "seeded",
+          "file": "apps/web/e2e/canvas-tpl-sticky-not-clipped.spec.ts",
+          "line": 98,
+          "column": 7,
+          "titlePath": [
+            "A3 纸：贴纸不被贴纸网格外层裁掉一部分（约束宽度 + 全屏两档）"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "19a8a86dbc16540a0167-ed42df8f6c4432de3695",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "seeded",
+          "file": "apps/web/e2e/canvas-tpl-sticky-not-clipped.spec.ts",
+          "line": 98,
+          "column": 7,
+          "titlePath": [
+            "A4 纸：贴纸不被贴纸网格外层裁掉一部分（约束宽度 + 全屏两档）"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "19a8a86dbc16540a0167-fabe36d94d9d1456b0d0",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "seeded",
+          "file": "apps/web/e2e/capability-mutate-smoke.spec.ts",
+          "line": 35,
+          "column": 5,
+          "titlePath": [
+            "admin creates and disables an Agent through the browser, and PostgreSQL keeps it across reloads"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "f45f2c8d74a396d83460-14826401450c7b8425d7",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "seeded",
+          "file": "apps/web/e2e/capability-mutate-smoke.spec.ts",
+          "line": 117,
+          "column": 5,
+          "titlePath": [
+            "a non-admin session is refused by the SERVER, not by a hidden button"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "f45f2c8d74a396d83460-43127ab7904d3c15565c",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "seeded",
+          "file": "apps/web/e2e/chat-vision-honest-degrade.spec.ts",
+          "line": 66,
+          "column": 5,
+          "titlePath": [
+            "P2/#1561：上传图片发消息，视觉能力缺席时模型收到诚实告知而非被静默丢图"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "70bcc079c83aec7da684-ea676cbeffe56b407208",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "seeded",
+          "file": "apps/web/e2e/core-journey-01-registration.spec.ts",
+          "line": 62,
+          "column": 7,
+          "titlePath": [
+            "旅程①邀请注册：lt 激活后直接进入工作台，刷新仍保留正确身份"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "c0ac77a52c2e7b0a547f-27ff83572fe49163d310",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "seeded",
+          "file": "apps/web/e2e/core-journey-01-registration.spec.ts",
+          "line": 62,
+          "column": 7,
+          "titlePath": [
+            "旅程①邀请注册：t 激活后直接进入工作台，刷新仍保留正确身份"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "c0ac77a52c2e7b0a547f-0e998b191223d3cebe6c",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "seeded",
+          "file": "apps/web/e2e/core-journey-01-registration.spec.ts",
+          "line": 125,
+          "column": 5,
+          "titlePath": [
+            "旅程①邀请注册：真实跨标签页锁保留先提交的密码登录会话"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "c0ac77a52c2e7b0a547f-f9b9f5370757e71acc4e",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "seeded",
+          "file": "apps/web/e2e/core-journey-01-registration.spec.ts",
+          "line": 226,
+          "column": 5,
+          "titlePath": [
+            "旅程①：开放注册出的新用户，验证邮箱、登录后能真的用上项目与个人 chat（不是停在一个空 URL）"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "c0ac77a52c2e7b0a547f-76349f7fe90a89db2d46",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "seeded",
+          "file": "apps/web/e2e/core-journey-01-registration.spec.ts",
+          "line": 303,
+          "column": 5,
+          "titlePath": [
+            "旅程①附：刚注册的全新组织，个人 chat 第一条消息真的收到 agent 回复（#2318 已修复）"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "c0ac77a52c2e7b0a547f-c944b714375669f64661",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "seeded",
+          "file": "apps/web/e2e/core-journey-02-org-management.spec.ts",
+          "line": 34,
+          "column": 5,
+          "titlePath": [
+            "旅程②：组织管理员邀请一位新成员 → 受邀人用一次性链接激活账号 → 出现在成员列表里"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "8393d2e1222b1177fc05-88703f0b1fce90b44eaa",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "seeded",
+          "file": "apps/web/e2e/core-journey-05-voice-skill-multichannel-context.spec.ts",
+          "line": 43,
+          "column": 5,
+          "titlePath": [
+            "旅程⑤：转写内录音落库并挂入项目 → 项目线程里挂 skill 的 agent 生成回复 → 转录与标记不跨渠道漏进个人 chat"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "5cb2ce8549dd04a10c3b-1203ff15c7f7a88c1f2a",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "seeded",
+          "file": "apps/web/e2e/design-workbench-smoke.spec.ts",
+          "line": 88,
+          "column": 7,
+          "titlePath": [
+            "设计工作台端到端：新建/深化 → 详情 → 推送 → 收件箱",
+            "① 工作台直接新建 → 详情渲染 → 推送 → 收件箱出现设计方案卡片"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "cc129f376dd9448b43aa-55330fc9c5d2ee0fca01",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "seeded",
+          "file": "apps/web/e2e/design-workbench-smoke.spec.ts",
+          "line": 136,
+          "column": 7,
+          "titlePath": [
+            "设计工作台端到端：新建/深化 → 详情 → 推送 → 收件箱",
+            "② 从反馈「深化」→ 详情 → 推送 → 收件箱出现设计方案 + 原反馈标「已生成」"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "cc129f376dd9448b43aa-9c9bbf32917f546dfca6",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "seeded",
+          "file": "apps/web/e2e/digital-interview-density-live.spec.ts",
+          "line": 7,
+          "column": 5,
+          "titlePath": [
+            "six populated interviews and a long Markdown report survive a real API/DB browser reload"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "86007c3148c5e0e3fce0-90b801d0bab3bbf3c340",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "seeded",
+          "file": "apps/web/e2e/digital-interview-intake-failure-live.spec.ts",
+          "line": 6,
+          "column": 5,
+          "titlePath": [
+            "failed upload and denied microphone preserve Markdown through a saved interview"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "0f9694918f07e80da45e-2af0ba7d4a0a1b96ae5b",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "seeded",
+          "file": "apps/web/e2e/digital-interview-report-export-live.spec.ts",
+          "line": 8,
+          "column": 5,
+          "titlePath": [
+            "Word and print use only the current saved report Markdown revision"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "d8b102b207eecbe8da8c-d934dc6523d45f6778fa",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "seeded",
+          "file": "apps/web/e2e/digital-interview-research-quality.spec.ts",
+          "line": 56,
+          "column": 5,
+          "titlePath": [
+            "expert avatar changes persist, reset and fit desktop/tablet/mobile"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "d749ae0876c057f50f73-feca4b841630428152c0",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "seeded",
+          "file": "apps/web/e2e/digital-interview-research-quality.spec.ts",
+          "line": 111,
+          "column": 5,
+          "titlePath": [
+            "a maintained persona survives Markdown save, reload and explicit confirmation"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "d749ae0876c057f50f73-1dd93d2b12b79a349178",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "seeded",
+          "file": "apps/web/e2e/digital-interview-research-quality.spec.ts",
+          "line": 170,
+          "column": 5,
+          "titlePath": [
+            "new setup opens the canonical intake route content and remains responsive"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "d749ae0876c057f50f73-4b2280a56ec3cead14bd",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "seeded",
+          "file": "apps/web/e2e/digital-interview-research-quality.spec.ts",
+          "line": 198,
+          "column": 5,
+          "titlePath": [
+            "the six-stage workbench restores a direct stage route and updates it from the timeline"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "d749ae0876c057f50f73-7ffd3566131dc0a56e1d",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "seeded",
+          "file": "apps/web/e2e/digital-interview-research-quality.spec.ts",
+          "line": 243,
+          "column": 5,
+          "titlePath": [
+            "virtual-expert model proposal stays unsaved until explicit save"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "d749ae0876c057f50f73-b8a2320c45e44f0dc610",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "seeded",
+          "file": "apps/web/e2e/digital-interview-research-quality.spec.ts",
+          "line": 307,
+          "column": 5,
+          "titlePath": [
+            "a failed report keeps its partial content and exposes retry in a real browser"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "d749ae0876c057f50f73-399e45040cf99183feee",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "seeded",
+          "file": "apps/web/e2e/digital-interview-research-quality.spec.ts",
+          "line": 333,
+          "column": 5,
+          "titlePath": [
+            "a completed report separates the decision brief and replaces an empty evidence table with guidance"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "d749ae0876c057f50f73-b4a5f483ec1a4aac9a52",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "seeded",
+          "file": "apps/web/e2e/digital-interview-research-quality.spec.ts",
+          "line": 353,
+          "column": 5,
+          "titlePath": [
+            "report displays saved Markdown without duplicate statistics or review panels"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "d749ae0876c057f50f73-249c702851d44d25756c",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "seeded",
+          "file": "apps/web/e2e/digital-interview-research-quality.spec.ts",
+          "line": 382,
+          "column": 5,
+          "titlePath": [
+            "prototype journey keeps the list shell separate from all six full-screen stages"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "d749ae0876c057f50f73-aa6295aba1af0faeda8d",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "seeded",
+          "file": "apps/web/e2e/digital-interview-research-quality.spec.ts",
+          "line": 618,
+          "column": 5,
+          "titlePath": [
+            "saved execution metadata and Markdown insights survive the direct route and reload"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "d749ae0876c057f50f73-52c721caf38a2a936e31",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "seeded",
+          "file": "apps/web/e2e/digital-interview-research-quality.spec.ts",
+          "line": 679,
+          "column": 5,
+          "titlePath": [
+            "report stream exposes partial output before completion and survives stage navigation"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "d749ae0876c057f50f73-ac6254684e74b2d608b0",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "seeded",
+          "file": "apps/web/e2e/digital-interview-research-quality.spec.ts",
+          "line": 747,
+          "column": 5,
+          "titlePath": [
+            "expert confirmation shows question generation then automatically starts saved questions once"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "d749ae0876c057f50f73-cbb73ea9a8a3c8ec40c4",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "seeded",
+          "file": "apps/web/e2e/digital-interview-research-quality.spec.ts",
+          "line": 820,
+          "column": 5,
+          "titlePath": [
+            "report repair retains saved candidate through failure and refresh"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "d749ae0876c057f50f73-b912042182bb04875366",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "seeded",
+          "file": "apps/web/e2e/feedback-drafts-smoke.spec.ts",
+          "line": 51,
+          "column": 7,
+          "titlePath": [
+            "反馈草稿端到端：存草稿到提交进收件箱",
+            "① 非管理员：存草稿 → 草稿列表可见 → 继续完善（首次自动追加澄清问题）→ 追加对话 → 提交 → 从列表消失、导航到收件箱后自动打开自己那条、正文可见"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "7d6760ea53cc4a557a48-4cac1b032c3be2a754c4",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "seeded",
+          "file": "apps/web/e2e/feedback-drafts-smoke.spec.ts",
+          "line": 147,
+          "column": 7,
+          "titlePath": [
+            "反馈草稿端到端：存草稿到提交进收件箱",
+            "② 管理员：这条反馈确实落在收件箱、状态待处理（证明数据链路是通的）"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "7d6760ea53cc4a557a48-fc480b003144ddebf7ff",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "seeded",
+          "file": "apps/web/e2e/feedback-loop-smoke.spec.ts",
+          "line": 166,
+          "column": 7,
+          "titlePath": [
+            "反馈端到端：不同种类从前端提交，后台真的看得见",
+            "① 产品级 · 缺陷 —— 引导师，图标栏入口"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "01f9bde327939b9f2bff-c9c35161848bea154965",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "seeded",
+          "file": "apps/web/e2e/feedback-loop-smoke.spec.ts",
+          "line": 177,
+          "column": 7,
+          "titlePath": [
+            "反馈端到端：不同种类从前端提交，后台真的看得见",
+            "② 产品级 · 需求 —— 非管理员成员，图标栏入口"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "01f9bde327939b9f2bff-64e3e7f4c81229bc5357",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "seeded",
+          "file": "apps/web/e2e/feedback-loop-smoke.spec.ts",
+          "line": 187,
+          "column": 7,
+          "titlePath": [
+            "反馈端到端：不同种类从前端提交，后台真的看得见",
+            "③④ Skill·缺陷 与 Agent·需求 —— 引导师，会话内两处入口"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "01f9bde327939b9f2bff-b7814367471078318263",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "seeded",
+          "file": "apps/web/e2e/feedback-loop-smoke.spec.ts",
+          "line": 242,
+          "column": 7,
+          "titlePath": [
+            "反馈端到端：不同种类从前端提交，后台真的看得见",
+            "D3 反证：非管理员看得到标题看不到别人的正文"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "01f9bde327939b9f2bff-9d392815e10943c7d908",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "seeded",
+          "file": "apps/web/e2e/feedback-loop-smoke.spec.ts",
+          "line": 260,
+          "column": 7,
+          "titlePath": [
+            "反馈端到端：不同种类从前端提交，后台真的看得见",
+            "管理员：正文可见、分诊转已进入迭代、带理由拒绝"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "01f9bde327939b9f2bff-7c053cc2785470ecc7b2",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "seeded",
+          "file": "apps/web/e2e/fullstack-smoke.spec.ts",
+          "line": 4,
+          "column": 5,
+          "titlePath": [
+            "anonymous root fails closed in production HTML, RSC, and no-JS navigation"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "15c16ccfe959d760d670-f3742b553f3e8cfef8c1",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "seeded",
+          "file": "apps/web/e2e/fullstack-smoke.spec.ts",
+          "line": 37,
+          "column": 5,
+          "titlePath": [
+            "real login reaches the PG-seeded sentinel through project and Files product entries"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "15c16ccfe959d760d670-8db5cfbc58d81a25627e",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "seeded",
+          "file": "apps/web/e2e/guided-research-runtime.spec.ts",
+          "line": 4,
+          "column": 5,
+          "titlePath": [
+            "research persists the confirmed-question pipeline through the real UI, API and PostgreSQL"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "bca805746a5f5af33b1f-aaa2661aafddc38f4d6e",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "seeded",
+          "file": "apps/web/e2e/guided-research-trust-console.spec.ts",
+          "line": 3,
+          "column": 5,
+          "titlePath": [
+            "trust console validates boundaries, steering and publication readiness"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "e81f2e5e11f87d2152f1-6def33c2df7e9fabc315",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "seeded",
+          "file": "apps/web/e2e/inbox-smoke.spec.ts",
+          "line": 67,
+          "column": 8,
+          "titlePath": [
+            "统一收件箱端到端：直接提交、看板拖拽迁移、不做需理由",
+            "① 直接提交反馈 → 跳转收件箱并自动打开该条详情 drawer"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "cb26418fd132c73b8946-7a216b447e9fe4352c55",
+          "expectedStatus": "skipped",
+          "annotations": [
+            {
+              "type": "fixme"
+            }
+          ]
+        },
+        {
+          "project": "seeded",
+          "file": "apps/web/e2e/inbox-smoke.spec.ts",
+          "line": 96,
+          "column": 7,
+          "titlePath": [
+            "统一收件箱端到端：直接提交、看板拖拽迁移、不做需理由",
+            "② 看板拖拽换状态触发真实 API 迁移，刷新后仍是新状态"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "cb26418fd132c73b8946-8b500932bed13394d962",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "seeded",
+          "file": "apps/web/e2e/inbox-smoke.spec.ts",
+          "line": 152,
+          "column": 7,
+          "titlePath": [
+            "统一收件箱端到端：直接提交、看板拖拽迁移、不做需理由",
+            "③ 转「不做」需要理由：不填不让确认，填了才能确认，理由随状态一起可见"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "cb26418fd132c73b8946-eb3af2eebe93d133ab43",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "seeded",
+          "file": "apps/web/e2e/interview-subjects-smoke.spec.ts",
+          "line": 41,
+          "column": 5,
+          "titlePath": [
+            "facilitator fills a group's interview-subject table in the browser; PostgreSQL keeps it across a reload"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "f084c4f147a339e5a0e3-8f2f38eb9656c05f1ceb",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "seeded",
+          "file": "apps/web/e2e/interview-subjects-smoke.spec.ts",
+          "line": 119,
+          "column": 5,
+          "titlePath": [
+            "F950 regression: facilitator saves the project topic in the browser (path param must not be in the PUT body)"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "f084c4f147a339e5a0e3-e1d9503b7a7c18495066",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "seeded",
+          "file": "apps/web/e2e/mail-loopback-smoke.spec.ts",
+          "line": 43,
+          "column": 5,
+          "titlePath": [
+            "验证邮件进入回环收件箱：链接源正确、令牌与库里逐字一致、点开即验证"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "3038fd50a8da6bf4f28f-a2fd0121cc4aa29e2869",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "seeded",
+          "file": "apps/web/e2e/mail-loopback-smoke.spec.ts",
+          "line": 79,
+          "column": 5,
+          "titlePath": [
+            "反证：替身对该收件人 reject ⇒ 产品确实尝试发送，但收件箱里没有这封邮件"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "3038fd50a8da6bf4f28f-4857babcdfae27a87fa7",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "seeded",
+          "file": "apps/web/e2e/project-create-smoke.spec.ts",
+          "line": 51,
+          "column": 5,
+          "titlePath": [
+            "org lead creates a project through the wizard, and PostgreSQL keeps it across a reload"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "0e2e460792b1472ea702-09736e5dacac775df8be",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "seeded",
+          "file": "apps/web/e2e/project-create-smoke.spec.ts",
+          "line": 126,
+          "column": 5,
+          "titlePath": [
+            "a non-lead walking the same wizard is refused by the server, and the refusal is shown"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "0e2e460792b1472ea702-cf79232d14435250234c",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "seeded",
+          "file": "apps/web/e2e/project-create-smoke.spec.ts",
+          "line": 146,
+          "column": 5,
+          "titlePath": [
+            "counterproof: with the create request stubbed out in the browser, the project does not survive a reload"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "0e2e460792b1472ea702-17c9636162143c5ced36",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "seeded",
+          "file": "apps/web/e2e/project-hub-b3-walkthrough.spec.ts",
+          "line": 87,
+          "column": 5,
+          "titlePath": [
+            "第三批真栈走查：问卷答卷入证据 → 来源列表 / 大脑空态 / AI 权限关来源 / 观察者脱敏"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "5515de2997fe64b73446-de75857032cbee9ce61c",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "seeded",
+          "file": "apps/web/e2e/project-hub-b3-walkthrough.spec.ts",
+          "line": 190,
+          "column": 5,
+          "titlePath": [
+            "通用项目：负责人加协作者 → 协作者打开工作台（无工作坊专属 tab）→ 负责人移出后协作者被拒"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "5515de2997fe64b73446-7817e5485b48eb7d62a5",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "seeded",
+          "file": "apps/web/e2e/rewrite-coverage-live-smoke.spec.ts",
+          "line": 25,
+          "column": 9,
+          "titlePath": [
+            "#2490 rewrite 运行时可达：Next 同源代理把路由交给 API，不是自己的 404 HTML",
+            "/system/error-logs 到达 API（JSON + 鉴权状态码，不是 HTML）"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "bf5212dd3d972ef02c13-d09579a42f4477333855",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "seeded",
+          "file": "apps/web/e2e/rewrite-coverage-live-smoke.spec.ts",
+          "line": 25,
+          "column": 9,
+          "titlePath": [
+            "#2490 rewrite 运行时可达：Next 同源代理把路由交给 API，不是自己的 404 HTML",
+            "/tasks 到达 API（JSON + 鉴权状态码，不是 HTML）"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "bf5212dd3d972ef02c13-6429ce1ba21e41e41bb8",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "seeded",
+          "file": "apps/web/e2e/rewrite-coverage-live-smoke.spec.ts",
+          "line": 25,
+          "column": 9,
+          "titlePath": [
+            "#2490 rewrite 运行时可达：Next 同源代理把路由交给 API，不是自己的 404 HTML",
+            "/tasks/today 到达 API（JSON + 鉴权状态码，不是 HTML）"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "bf5212dd3d972ef02c13-d8793aa8d4c133181564",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "seeded",
+          "file": "apps/web/e2e/rewrite-coverage-live-smoke.spec.ts",
+          "line": 39,
+          "column": 9,
+          "titlePath": [
+            "#2490 rewrite 运行时可达：Next 同源代理把路由交给 API，不是自己的 404 HTML",
+            "#3282 GET /schedule-notifications reaches authenticated API JSON"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "bf5212dd3d972ef02c13-099278520a10c1c555f9",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "seeded",
+          "file": "apps/web/e2e/rewrite-coverage-live-smoke.spec.ts",
+          "line": 39,
+          "column": 9,
+          "titlePath": [
+            "#2490 rewrite 运行时可达：Next 同源代理把路由交给 API，不是自己的 404 HTML",
+            "#3282 POST /schedule-notifications/read reaches authenticated API JSON"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "bf5212dd3d972ef02c13-acd0f25301f32b67e59f",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "seeded",
+          "file": "apps/web/e2e/rewrite-coverage-live-smoke.spec.ts",
+          "line": 50,
+          "column": 7,
+          "titlePath": [
+            "#2490 rewrite 运行时可达：Next 同源代理把路由交给 API，不是自己的 404 HTML",
+            "反空转：没接 rewrite 的路径确实被 Next 接成 404 HTML"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "bf5212dd3d972ef02c13-492b6dbed97d8725d210",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "seeded",
+          "file": "apps/web/e2e/save-as-org-template-smoke.spec.ts",
+          "line": 82,
+          "column": 7,
+          "titlePath": [
+            "#1666：另存为组织模板——两处按钮真实接线 + 持久化反证",
+            "tab-prep.tsx「另存为组织模板」：真实 POST，成功文案含服务端真实 id（不是编好的固定文案）"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "cc0556e8411b7fed45a6-d194d71658a392ecac69",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "seeded",
+          "file": "apps/web/e2e/save-as-org-template-smoke.spec.ts",
+          "line": 126,
+          "column": 7,
+          "titlePath": [
+            "#1666：另存为组织模板——两处按钮真实接线 + 持久化反证",
+            "workflow-screen.tsx「另存为组织模板」：真实 POST，toast 文案含服务端真实 id"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "cc0556e8411b7fed45a6-54ef7e166e8bdc242ecd",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "seeded",
+          "file": "apps/web/e2e/save-as-org-template-smoke.spec.ts",
+          "line": 163,
+          "column": 7,
+          "titlePath": [
+            "#1666：另存为组织模板——两处按钮真实接线 + 持久化反证",
+            "反证：服务端真实失败时，界面如实显示失败，不再是「点了就说成功」的本地 toast"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "cc0556e8411b7fed45a6-981d0095e15ba733fe21",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "seeded",
+          "file": "apps/web/e2e/save-as-org-template-smoke.spec.ts",
+          "line": 190,
+          "column": 7,
+          "titlePath": [
+            "#1666：另存为组织模板——两处按钮真实接线 + 持久化反证",
+            "持久化反证：workflow-screen 存下来的组织模板真的在 PostgreSQL 里，全新项目 + 全新会话读得回来"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "cc0556e8411b7fed45a6-b9a5cc175b7135763b7c",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "seeded",
+          "file": "apps/web/e2e/skill-create-smoke.spec.ts",
+          "line": 49,
+          "column": 5,
+          "titlePath": [
+            "F192 · /skill 库屏没有「完全新建」入口，弹窗默认落在真实可达的导入路径上"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "db21b1128c36206fef3a-5b667c9b7d2d8df24913",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "seeded",
+          "file": "apps/web/e2e/skill-create-smoke.spec.ts",
+          "line": 86,
+          "column": 5,
+          "titlePath": [
+            "F192 · POST /skills 对真实已认证会话恒 410（不是本地 stub，走同源代理到真实 SkillController）"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "db21b1128c36206fef3a-82ec358f3bc4b6288c6c",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "seeded",
+          "file": "apps/web/e2e/skill-review-gate.spec.ts",
+          "line": 139,
+          "column": 7,
+          "titlePath": [
+            "#552 双重门禁：用户自己造出一个「已启用」skill 并在会话里用上它",
+            "提交人建出草稿，过安全扫描，提交进人工门禁（刷新后仍是「待审核」）"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "88c1ddcebb91efcf85a2-601c1f89cb87743c9e77",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "seeded",
+          "file": "apps/web/e2e/skill-review-gate.spec.ts",
+          "line": 190,
+          "column": 7,
+          "titlePath": [
+            "#552 双重门禁：用户自己造出一个「已启用」skill 并在会话里用上它",
+            "反证 A-1：同一个身份走完评审 ⇒ SELF_REVIEW_FORBIDDEN，且库内状态未变"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "88c1ddcebb91efcf85a2-e2669fa4b8384d8ee245",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "seeded",
+          "file": "apps/web/e2e/skill-review-gate.spec.ts",
+          "line": 211,
+          "column": 7,
+          "titlePath": [
+            "#552 双重门禁：用户自己造出一个「已启用」skill 并在会话里用上它",
+            "反证 A-2：安全评审人按下批准 ⇒ REVIEWER_FUNCTION_MISMATCH，且库内状态未变"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "88c1ddcebb91efcf85a2-8c45361dba054207896f",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "seeded",
+          "file": "apps/web/e2e/skill-review-gate.spec.ts",
+          "line": 241,
+          "column": 7,
+          "titlePath": [
+            "#552 双重门禁：用户自己造出一个「已启用」skill 并在会话里用上它",
+            "第二位方法论审核人批准 ⇒ 已启用，且刷新后仍是已启用"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "88c1ddcebb91efcf85a2-cb24242eb1eabde1ecce",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "seeded",
+          "file": "apps/web/e2e/skill-review-gate.spec.ts",
+          "line": 272,
+          "column": 7,
+          "titlePath": [
+            "#552 双重门禁：用户自己造出一个「已启用」skill 并在会话里用上它",
+            "提交人在会话内挂上自己刚造出来的那个 skill；草稿状态的那个被服务端拒绝（反证 C）"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "88c1ddcebb91efcf85a2-8c92bbcf94cd54b57580",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "seeded",
+          "file": "apps/web/e2e/survey-complete-flow.spec.ts",
+          "line": 6,
+          "column": 5,
+          "titlePath": [
+            "题目原位编辑后真实保存并在刷新后恢复显示"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "bf914c0f2a00ed42e096-ec4ecbdfa4217a231a37",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "seeded",
+          "file": "apps/web/e2e/survey-complete-flow.spec.ts",
+          "line": 62,
+          "column": 5,
+          "titlePath": [
+            "AI 提案先校对再应用并保存为 Markdown"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "bf914c0f2a00ed42e096-d7a49691371bf33b877e",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "seeded",
+          "file": "apps/web/e2e/survey-complete-flow.spec.ts",
+          "line": 124,
+          "column": 5,
+          "titlePath": [
+            "用户可从模板完整走通创建、发布、答题、查看答卷和正式报告"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "bf914c0f2a00ed42e096-2e06b560d77e2a21b843",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "seeded",
+          "file": "apps/web/e2e/survey-complete-flow.spec.ts",
+          "line": 273,
+          "column": 5,
+          "titlePath": [
+            "空白创建直接进入设计而不经过 AI 导入"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "bf914c0f2a00ed42e096-ecb5a6f06faa6746df84",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "seeded",
+          "file": "apps/web/e2e/survey-complete-flow.spec.ts",
+          "line": 288,
+          "column": 5,
+          "titlePath": [
+            "新建弹窗可从真实模板创建并在刷新后保留名称"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "bf914c0f2a00ed42e096-0c6552b4e5b1c3ca8a3f",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "seeded",
+          "file": "apps/web/e2e/survey-trusted-publishing.spec.ts",
+          "line": 67,
+          "column": 5,
+          "titlePath": [
+            "发布门控展示全部阻断，修复后显式进入回收且匿名方式被冻结"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "c37c4490196900ed4cf5-e7e0fcc8d03bfd7f2fbb",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "seeded",
+          "file": "apps/web/e2e/survey-trusted-publishing.spec.ts",
+          "line": 112,
+          "column": 5,
+          "titlePath": [
+            "管理员可在真实答卷页排除测试答卷且保留审计理由"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "c37c4490196900ed4cf5-c7b7f6430fe92aa9dc3c",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "seeded",
+          "file": "apps/web/e2e/whiteboard-live.spec.ts",
+          "line": 47,
+          "column": 5,
+          "titlePath": [
+            "realtime presence field convergence"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "944fdfd06970e18fd545-0dfcc0b6a5e19ff19565",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "seeded",
+          "file": "apps/web/e2e/whiteboard-live.spec.ts",
+          "line": 167,
+          "column": 5,
+          "titlePath": [
+            "comments anchor ACL"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "944fdfd06970e18fd545-bef3fea513378df76f81",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "seeded",
+          "file": "apps/web/e2e/whiteboard-live.spec.ts",
+          "line": 190,
+          "column": 5,
+          "titlePath": [
+            "undo offline reconnect recovery"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "944fdfd06970e18fd545-6c137331e4ce61015882",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "seeded",
+          "file": "apps/web/e2e/whiteboard-live.spec.ts",
+          "line": 218,
+          "column": 5,
+          "titlePath": [
+            "multi-user undo redo preserves the other editor and survives reload"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "944fdfd06970e18fd545-ec4c2e5e146e68f09bb1",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "seeded-github-import",
+          "file": "apps/web/e2e/board-drawing-live-preview.spec.ts",
+          "line": 41,
+          "column": 5,
+          "titlePath": [
+            "Fabric Draw previews before commit, cancels without writes, and commits exactly one drawing"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "bc24b4c825a7d0d66dc6-5959bdafbe63bd387ac0",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "seeded-github-import",
+          "file": "apps/web/e2e/board-drawing-live-preview.spec.ts",
+          "line": 88,
+          "column": 5,
+          "titlePath": [
+            "Eraser hits only unlocked drawings in one undo step and survives peer reload"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "bc24b4c825a7d0d66dc6-e61d41476a876d642585",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "seeded-github-import",
+          "file": "apps/web/e2e/board-fabric-surface.spec.ts",
+          "line": 62,
+          "column": 5,
+          "titlePath": [
+            "viewport snapshot survives ACK banner removal between protocol reads"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "3813749790d4c2d8de80-7ea97aa1c2923ea4c699",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "seeded-github-import",
+          "file": "apps/web/e2e/board-fabric-surface.spec.ts",
+          "line": 88,
+          "column": 5,
+          "titlePath": [
+            "fabric surface viewport"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "3813749790d4c2d8de80-85619775add94fe2af09",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "seeded-github-import",
+          "file": "apps/web/e2e/board-fabric-surface.spec.ts",
+          "line": 219,
+          "column": 5,
+          "titlePath": [
+            "selected object inspector adapts to each widget and a narrow editor"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "3813749790d4c2d8de80-6c6a6bb864cb75916ef4",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "seeded-github-import",
+          "file": "apps/web/e2e/board-fabric-surface.spec.ts",
+          "line": 372,
+          "column": 5,
+          "titlePath": [
+            "live drag attachments follow before one durable transform and survive undo/redo/reload"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "3813749790d4c2d8de80-627ecb0be3d1a4121474",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "seeded-github-import",
+          "file": "apps/web/e2e/board-fabric-surface.spec.ts",
+          "line": 452,
+          "column": 5,
+          "titlePath": [
+            "free clicked arrow commits once, cancels drafts and persists nodes through undo/redo/reload"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "3813749790d4c2d8de80-ddcc2a53c6d25a691c4b",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "seeded-github-import",
+          "file": "apps/web/e2e/board-files-acceptance.spec.ts",
+          "line": 13,
+          "column": 5,
+          "titlePath": [
+            "R09 real file drop, multipart filenames, durable refresh download and tenant ACL"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "f327ba922c053cef1d25-2b925330195edbf5b849",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "seeded-github-import",
+          "file": "apps/web/e2e/board-library-management.spec.ts",
+          "line": 81,
+          "column": 5,
+          "titlePath": [
+            "production Board library manages, duplicates, filters and deletes durable Boards"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "11050f5ee1c07d1148cf-d8954db617798681cd12",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "seeded-github-import",
+          "file": "apps/web/e2e/board-library-management.spec.ts",
+          "line": 180,
+          "column": 5,
+          "titlePath": [
+            "Board navigation retains shell in library and only editor is fullscreen"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "11050f5ee1c07d1148cf-6782381a37faea059536",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "seeded-github-import",
+          "file": "apps/web/e2e/board-library-management.spec.ts",
+          "line": 219,
+          "column": 5,
+          "titlePath": [
+            "new Board dialog saves optional existing and new tags before opening"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "11050f5ee1c07d1148cf-d7da8e439432196fe9f5",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "seeded-github-import",
+          "file": "apps/web/e2e/board-library-management.spec.ts",
+          "line": 271,
+          "column": 5,
+          "titlePath": [
+            "library untagged filter is server paginated and cards remain usable"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "11050f5ee1c07d1148cf-f27372a16044b61adce5",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "seeded-github-import",
+          "file": "apps/web/e2e/board-selection-layout.spec.ts",
+          "line": 207,
+          "column": 9,
+          "titlePath": [
+            "organize <=2 actions",
+            "snap guideline zoom",
+            "15 layout commands converge and undo"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "83c822816e3ac85d33ca-7e17bc13706757c39305",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "seeded-github-import",
+          "file": "apps/web/e2e/board-selection-layout.spec.ts",
+          "line": 230,
+          "column": 9,
+          "titlePath": [
+            "organize <=2 actions",
+            "snap guideline zoom",
+            "Alt-drag duplicates ActiveSelection, converges and undoes"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "83c822816e3ac85d33ca-d7cb4367fd35cbab2a9e",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "seeded-github-import",
+          "file": "apps/web/e2e/board-selection-layout.spec.ts",
+          "line": 279,
+          "column": 9,
+          "titlePath": [
+            "organize <=2 actions",
+            "snap guideline zoom",
+            "pointer snap guide converges and undoes"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "83c822816e3ac85d33ca-ef1dae5f89bfac91e6d9",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "seeded-github-import",
+          "file": "apps/web/e2e/board-selection-layout.spec.ts",
+          "line": 320,
+          "column": 9,
+          "titlePath": [
+            "organize <=2 actions",
+            "snap guideline zoom",
+            "smart preview cancel apply undo CAS and reload"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "83c822816e3ac85d33ca-5a5835a495cfa645aad0",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "seeded-github-import",
+          "file": "apps/web/e2e/board-selection-layout.spec.ts",
+          "line": 358,
+          "column": 5,
+          "titlePath": [
+            "visual acceptance: compact selection in three viewports"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "83c822816e3ac85d33ca-eb604f1aceb2aeceadf0",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "seeded-github-import",
+          "file": "apps/web/e2e/board-spatial-relationships.spec.ts",
+          "line": 159,
+          "column": 5,
+          "titlePath": [
+            "multi-select transform, Panel clip/expand, connector preservation, and total z-order survive reload"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "b198ccd5ea62fd88e98c-f0c15f17adcc0149e0a2",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "seeded-github-import",
+          "file": "apps/web/e2e/board-spatial-relationships.spec.ts",
+          "line": 357,
+          "column": 5,
+          "titlePath": [
+            "selection transform locks"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "b198ccd5ea62fd88e98c-844d0c54f77e46b9d6ee",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "seeded-github-import",
+          "file": "apps/web/e2e/board-spatial-relationships.spec.ts",
+          "line": 401,
+          "column": 5,
+          "titlePath": [
+            "copy paste sanitization"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "b198ccd5ea62fd88e98c-9595b405416268936a5d",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "seeded-github-import",
+          "file": "apps/web/e2e/board-spatial-relationships.spec.ts",
+          "line": 465,
+          "column": 5,
+          "titlePath": [
+            "contextual controls availability"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "b198ccd5ea62fd88e98c-dbb67ff9cfabbc3328f9",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "seeded-github-import",
+          "file": "apps/web/e2e/board-thinking-input.spec.ts",
+          "line": 72,
+          "column": 5,
+          "titlePath": [
+            "brainstorm input creates twenty connected ideas and one-operation bulk undo"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "db26f9608f6e5faaf845-e55de6bfc2bb11136e27",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "seeded-github-import",
+          "file": "apps/web/e2e/board-visual-content.spec.ts",
+          "line": 56,
+          "column": 5,
+          "titlePath": [
+            "Shape Draw Image and Tile share one canonical collaborative surface"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "44632932fd46225c5ae8-42b9194f8a4396df9777",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "seeded-github-import",
+          "file": "apps/web/e2e/core-journey-03-skill-lifecycle-chat.spec.ts",
+          "line": 72,
+          "column": 5,
+          "titlePath": [
+            "旅程③：管理员从 GitHub 导入 skill（=立即上线）→ 挂进 chat 线程 → agent 真的执行它并产出唯一一条回复"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "7e3e7fed1b4583757516-14b0e10c58a8d5a14c34",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "seeded-github-import",
+          "file": "apps/web/e2e/core-journey-04-canvas-template-lifecycle-chat.spec.ts",
+          "line": 59,
+          "column": 5,
+          "titlePath": [
+            "旅程④：管理员新建画布模板 → 加字段（测试）→ 发布 → 引导师在项目里真正绑定使用 → 该项目的 chat 可达"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "997d2a57a486fada9445-43f564e7c69b72b34066",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "seeded-github-import",
+          "file": "apps/web/e2e/core-journey-06-project-invite-chat-share.spec.ts",
+          "line": 47,
+          "column": 5,
+          "titlePath": [
+            "旅程⑥：非成员被拒 → 引导师发邀请 → 成员经链接加入 → 引导师建 chat 并分享到全场 → 成员看得到 chat 与项目大脑"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "75b3701afa25983de847-06229012c51d5e92f558",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "seeded-github-import",
+          "file": "apps/web/e2e/skill-agent-import-usecase-audit.spec.ts",
+          "line": 87,
+          "column": 5,
+          "titlePath": [
+            "① skill 从 GitHub 目录 URL 导入：落进目录，内容确实来自 GitHub"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "26303a1968f55d565043-68d46e8e1a1b038a7a71",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "seeded-github-import",
+          "file": "apps/web/e2e/skill-agent-import-usecase-audit.spec.ts",
+          "line": 139,
+          "column": 5,
+          "titlePath": [
+            "② 文件浏览器 + code editor：能看到 GitHub 导入的完整目录，非根文件不是占位符"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "26303a1968f55d565043-466617ef4f2e9c6d4822",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "seeded-github-import",
+          "file": "apps/web/e2e/skill-agent-import-usecase-audit.spec.ts",
+          "line": 185,
+          "column": 5,
+          "titlePath": [
+            "① agent 也能从 GitHub URL 导入，导入完可编辑指令、发布、试跑"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "26303a1968f55d565043-77484faee9c36d725f75",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "seeded-github-import",
+          "file": "apps/web/e2e/skill-agent-import-usecase-audit.spec.ts",
+          "line": 254,
+          "column": 5,
+          "titlePath": [
+            "③ 在后台对刚导入的 skill 发起一次真实试跑，产出真实输出"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "26303a1968f55d565043-3405329af9243face77f",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "seeded-github-import",
+          "file": "apps/web/e2e/skill-agent-import-usecase-audit.spec.ts",
+          "line": 294,
+          "column": 5,
+          "titlePath": [
+            "④ 在 chat 输入框敲 `/` 弹出 skill 候选并可选中挂载"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "26303a1968f55d565043-ddaa9030b07ffc56fc02",
+          "expectedStatus": "passed",
+          "annotations": []
+        }
+      ]
+    },
+    {
+      "scopeId": "trace-geometry",
+      "selection": {
+        "config": "playwright.trace-geometry.config.ts",
+        "project": "chromium",
+        "repeatEach": 1
+      },
+      "projectDag": {
+        "chromium": []
+      },
+      "expectedCounts": {
+        "tests": 7,
+        "files": 5,
+        "projects": 1,
+        "passed": 7,
+        "skipped": 0
+      },
+      "playwrightVersion": "1.62.0",
+      "observation": {
+        "kind": "list-only-no-assertions",
+        "rawReportSha256": "sha256:c3e978996a972e6a02602f14b74cbc1a5f3e95225cd57bf6012d93f1450b1d71",
+        "rawReportBytes": 7617,
+        "sourceSha": "d690c48e300914fe37b19bce5c2375ee1b9f8c65",
+        "sourceTree": "ba3230fe3a1542ac0f0f4e26b5b1ead34aefaf62",
+        "sourceAuthorityVerified": false
+      },
+      "requiredInputPaths": [
+        "apps/web/e2e/chat-plan-panel-scroll-geometry.spec.ts",
+        "apps/web/e2e/chat-rail-notifications-geometry.spec.ts",
+        "apps/web/e2e/chat-trace-collapsed-spinner-liveness.spec.ts",
+        "apps/web/e2e/chat-trace-disclosure-geometry.spec.ts",
+        "apps/web/e2e/chat-trace-failure-forward-motion-geometry.spec.ts",
+        "apps/web/package.json",
+        "apps/web/playwright.trace-geometry.config.ts",
+        "package.json",
+        "pnpm-lock.yaml",
+        "pnpm-workspace.yaml"
+      ],
+      "observedInputFingerprints": [
+        {
+          "path": "apps/web/e2e/chat-plan-panel-scroll-geometry.spec.ts",
+          "digest": "sha256:e16dfc0cd785c9e9c8d7d60b80dda8cbe797a11ab1584e01fc2d17639ff297f8"
+        },
+        {
+          "path": "apps/web/e2e/chat-rail-notifications-geometry.spec.ts",
+          "digest": "sha256:bb365daa8a1f7bb49b2af5debc3c4d08394c6808864fe27076409cf6a32cea5e"
+        },
+        {
+          "path": "apps/web/e2e/chat-trace-collapsed-spinner-liveness.spec.ts",
+          "digest": "sha256:f07aa1fb91b2edb29d08303fe794636ae9375ea9d07c9c80d6711141e159f6de"
+        },
+        {
+          "path": "apps/web/e2e/chat-trace-disclosure-geometry.spec.ts",
+          "digest": "sha256:b4b0de20dc03d8cc115045dc1fb4849e9dde0c3f653d5c91c9ef5d35747c6bcd"
+        },
+        {
+          "path": "apps/web/e2e/chat-trace-failure-forward-motion-geometry.spec.ts",
+          "digest": "sha256:eff20b44c4e5fd7747be9d717b8f742b91780589976c62c5f32713db03dc2a26"
+        },
+        {
+          "path": "apps/web/package.json",
+          "digest": "sha256:1b0bae31555eab21e87255ac28f5562171a06466c7644d24f0e6ab7264156c74"
+        },
+        {
+          "path": "apps/web/playwright.trace-geometry.config.ts",
+          "digest": "sha256:ff02364d9a1660e9f481d2a40956ebb9c4f57435eb5d9782189d5dd3d44bb93c"
+        },
+        {
+          "path": "package.json",
+          "digest": "sha256:9b60b05c1acdd99ce7a6ba6e9c920c57e1e954df64def071c2517d4f9aebea56"
+        },
+        {
+          "path": "pnpm-lock.yaml",
+          "digest": "sha256:34ffcc7514d95ac1ea43aaef23b85c3fa0d33da73375cb64fb6083ffd0fe2c49"
+        },
+        {
+          "path": "pnpm-workspace.yaml",
+          "digest": "sha256:08d75840c97ab0e72d1d9b5b84a17e47a2e06cb159a5fbec5ee0a6a56682dad7"
+        }
+      ],
+      "tests": [
+        {
+          "project": "chromium",
+          "file": "apps/web/e2e/chat-plan-panel-scroll-geometry.spec.ts",
+          "line": 59,
+          "column": 5,
+          "titlePath": [
+            "#3245②：12 步的长计划——容器真的溢出、真的滚得动、末步滚完落回容器内"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "8fca9dfd204a3400111b-4d38ebba9728e7f34d96",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "chromium",
+          "file": "apps/web/e2e/chat-plan-panel-scroll-geometry.spec.ts",
+          "line": 91,
+          "column": 5,
+          "titlePath": [
+            "#3245②：2 步的短计划不出现多余滚动量（修法不许给所有计划都挂上滚动条）"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "8fca9dfd204a3400111b-69333eb8d3701fd3c6a7",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "chromium",
+          "file": "apps/web/e2e/chat-rail-notifications-geometry.spec.ts",
+          "line": 34,
+          "column": 7,
+          "titlePath": [
+            "#3246：1280×620 下通知弹层向右展开、不出视口、在自己内部滚"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "ce03391b01a191cc5746-4da9072fb7a48e4c531f",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "chromium",
+          "file": "apps/web/e2e/chat-rail-notifications-geometry.spec.ts",
+          "line": 34,
+          "column": 7,
+          "titlePath": [
+            "#3246：1280×900 下通知弹层向右展开、不出视口、在自己内部滚"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "ce03391b01a191cc5746-e29a49ea0a89d1f90f7d",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "chromium",
+          "file": "apps/web/e2e/chat-trace-collapsed-spinner-liveness.spec.ts",
+          "line": 31,
+          "column": 5,
+          "titlePath": [
+            "#3316 ①：run 还活着时，「正在执行」那一行的状态图标必须真的在转（两帧比对，不是判 class）"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "0ca0b731cc57a41cfe32-f7b3afaac009a06bfa84",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "chromium",
+          "file": "apps/web/e2e/chat-trace-disclosure-geometry.spec.ts",
+          "line": 34,
+          "column": 5,
+          "titlePath": [
+            "#3205：展开的工具卡片与它上面那条折叠行之间必须有净空，两个盒子不得互相穿插"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "86c68965198d415c7600-6d272e2b47d5d2158c1c",
+          "expectedStatus": "passed",
+          "annotations": []
+        },
+        {
+          "project": "chromium",
+          "file": "apps/web/e2e/chat-trace-failure-forward-motion-geometry.spec.ts",
+          "line": 58,
+          "column": 5,
+          "titlePath": [
+            "工具失败之后，后续工具的进行态不用展开就可见，且活性信号真的在动"
+          ],
+          "repeatEachIndex": 0,
+          "frameworkId": "c3ab7b87081c326d15fb-8a6d4fc948cdd1c1f5e7",
+          "expectedStatus": "passed",
+          "annotations": []
+        }
+      ]
+    }
+  ]
+}

@@ -20,14 +20,15 @@ function fixture() {
   const pull = { number: 9, state: 'closed', merged: true, mergeable: null, merge_commit_sha: S, updated_at: '2026-10-05T10:30:00Z', base: { sha: S, ref: 'main', repo: REPO }, head: { sha: H, repo: REPO } };
   const jobs = [{ id: 101, run_id: 100, name: 'fullstack-smoke', ...success, started_at: '2026-10-05T10:00:01Z', completed_at: '2026-10-05T10:19:00Z', runner_id: 40, runner_group_id: 0, labels: ['ubuntu-latest'], steps: [{ number: 1, name: 'Checkout', ...success, started_at: '2026-10-05T10:00:01Z', completed_at: '2026-10-05T10:00:05Z' }, { number: 2, name: 'Execute smoke', ...success, started_at: '2026-10-05T10:02:00Z', completed_at: '2026-10-05T10:19:00Z' }] }];
   const artifacts = [{ id: 201, name: 'smoke-100', digest: `sha256:${'a'.repeat(64)}`, size_in_bytes: 120, expired: false, created_at: '2026-10-05T10:19:30Z', updated_at: '2026-10-05T10:19:30Z', expires_at: '2026-10-19T10:19:30Z', workflow_run: { id: 100, head_sha: H } }];
-  const state = { source, pull, jobs, artifacts, scope: [source, main, old], attempts: {}, calls: [], counts: new Map(), pageSize: 100, before: null };
+  const state = { source, pull, jobs, artifacts, scope: [source, main, old], latest: {}, attempts: {}, calls: [], counts: new Map(), pageSize: 100, before: null };
   const pages = (items, page) => ({ total_count: items.length, items: items.slice((page - 1) * state.pageSize, page * state.pageSize) });
   const api = async path => {
     state.calls.push(path);
     state.counts.set(path, (state.counts.get(path) ?? 0) + 1);
     if (state.before) await state.before(path, state.counts.get(path), state);
     if (path === '/pulls/9') return structuredClone(state.pull);
-    if (path === '/actions/runs/100') return structuredClone(state.source);
+    const latest = /^\/actions\/runs\/(\d+)$/.exec(path);
+    if (latest) return structuredClone(state.latest[latest[1]] ?? (Number(latest[1]) === 100 ? state.source : state.scope.find(item => item.id === Number(latest[1]))));
     const attempts = /^\/actions\/runs\/(\d+)\/attempts\/(\d+)$/.exec(path);
     if (attempts) return structuredClone(state.attempts[`${attempts[1]}:${attempts[2]}`] ?? state.scope.find(item => item.id === Number(attempts[1]) && item.run_attempt === Number(attempts[2])));
     const history = /^\/actions\/workflows\/10\/runs\?per_page=100&page=(\d+)$/.exec(path);
@@ -66,7 +67,7 @@ test('two independent complete API snapshots match and are observations only', a
   assert.equal(report.snapshots.length, 2);
   assert.equal(report.snapshots[0].fingerprint, report.snapshots[1].fingerprint);
   assert.equal(report.runFull, true); assert.equal(report.skip, false); assert.equal(report.skipAuthorization, false);
-  assert.equal(state.counts.get('/actions/runs/100'), 4, 'source is freshly read at both ends of both windows');
+  assert.equal(state.counts.get('/actions/runs/100'), 6, 'source is freshly read at both ends and its latest endpoint in both windows');
   assert.equal(state.counts.get('/pulls/9'), 4, 'current PR is freshly read at both ends of both windows');
   assert.equal(state.counts.get('/actions/runs/100/attempts/1'), 2);
   assert.equal(report.snapshots[1].latestAttempts.filter(run => run.runId === 100).length, 1);
@@ -78,7 +79,7 @@ test('measurement is bracketed by complete fresh reads and bound to snapshot A f
   let callsAtMeasure;
   const report = await withConsistentCandidateHistory({ ...options, api, measure: async snapshotA => {
     callsAtMeasure = state.calls.length;
-    assert.equal(state.counts.get('/actions/runs/100'), 2, 'A sealed source before measurement');
+    assert.equal(state.counts.get('/actions/runs/100'), 3, 'A sealed source and direct latest before measurement');
     assert.equal(state.counts.get('/pulls/9'), 2, 'A sealed PR before measurement');
     return { ...measuredFacts(snapshotA), marker: 'fresh measurement' };
   } });
@@ -86,7 +87,7 @@ test('measurement is bracketed by complete fresh reads and bound to snapshot A f
   assert.equal(report.measurementBound, true);
   assert.equal(report.measurement.marker, 'fresh measurement');
   assert.ok(state.calls.length > callsAtMeasure, 'B was independently read after measurement');
-  assert.equal(state.counts.get('/actions/runs/100'), 4);
+  assert.equal(state.counts.get('/actions/runs/100'), 6);
   assert.equal(report.skip, false); assert.equal(report.runFull, true); assert.equal(report.skipAuthorization, false);
 });
 
@@ -211,7 +212,7 @@ test('newer successful run needs its own evidence; the component never switches 
   const report = await read();
   assertFallback(report);
   assert.deepEqual(report.reasons, ['history_newer_evidence_required']);
-  assert.equal(state.calls.includes('/actions/runs/110'), false);
+  assert.equal(state.calls.includes('/actions/runs/110'), true, 'newer source is inspected but never selected for old evidence');
   assert.equal(state.calls.some(path => path.includes('/110/') && path.includes('/jobs')), false);
 });
 
@@ -398,4 +399,201 @@ test('an event after the final read is outside the receipt and never authorized 
   assert.equal(report.skip, false);
   assert.equal(report.runFull, true);
   assertFallback(await read());
+});
+
+// These are independent API response models, not live GitHub history or an
+// atomic lease. Latest endpoints and immutable-attempt endpoints deliberately
+// have separate storage so an old green attempt cannot mask a current retry.
+function unrelatedRun(id) {
+  const head = id.toString(16).padStart(40, '0');
+  return run(id, { head_sha: head, head_branch: `worker/unrelated-${id}`, pull_requests: [{ number: id, base: { sha: B }, head: { sha: head } }] });
+}
+function globalFixture(total = 9659) {
+  const value = fixture();
+  const old = value.state.scope.find(item => item.id === 90);
+  value.state.scope = [value.state.source, ...Array.from({ length: total - 2 }, (_, index) => unrelatedRun(1000 + index)), old];
+  return value;
+}
+const directReads = state => state.calls.filter(path => /^\/actions\/runs\/\d+$/.test(path));
+const attemptReads = state => state.calls.filter(path => /^\/actions\/runs\/\d+\/attempts\/\d+$/.test(path));
+const workflowPages = state => state.calls.filter(path => path.startsWith('/actions/workflows/10/runs?'));
+
+test('9659-row unfiltered global catalog exhausts all 97 pages while independently checking only its two associated latest runs', async () => {
+  const { state, read } = globalFixture();
+  const report = await read();
+  assert.equal(report.readStatus, 'ok', report.reasons.join(','));
+  assert.equal(report.stableDuringRead, true); assert.equal(report.skip, false); assert.equal(report.runFull, true); assert.equal(report.skipAuthorization, false);
+  assert.equal(report.snapshots.length, 2); assert.equal(report.snapshots[0].scope.length, 9659);
+  for (const snapshot of report.snapshots) {
+    assert.deepEqual(snapshot.statistics, { runCount: 9659, relatedRunIds: [100, 90], workflowPageCount: 97, relatedLatestReads: 2, relatedAttemptReads: 2,
+      readBounds: { maxPages: 100, maxRuns: 10000, maxAttemptReads: 200 }, catalogObservationOnly: true, indexCompletenessVerified: false, atomicLease: false });
+    assert.deepEqual(snapshot.latestAttempts.map(item => item.runId), [100, 90]);
+    assert.equal(snapshot.pageReceipts.filter(item => item.key === 'workflow_runs').length, 97);
+    assert.equal(snapshot.scope.at(-1).id, 90, 'related old run is in the final advertised page');
+  }
+  assert.equal(workflowPages(state).length, 194);
+  assert.equal(state.counts.get('/actions/workflows/10/runs?per_page=100&page=97'), 2);
+  assert.equal(state.counts.has('/actions/workflows/10/runs?per_page=100&page=98'), false);
+  assert.deepEqual(new Set(directReads(state)), new Set(['/actions/runs/100', '/actions/runs/90']));
+  assert.equal(state.counts.get('/actions/runs/100'), 6); assert.equal(state.counts.get('/actions/runs/90'), 2);
+  assert.deepEqual(new Set(attemptReads(state)), new Set(['/actions/runs/100/attempts/1', '/actions/runs/90/attempts/1']));
+  assert.equal(attemptReads(state).length, 4);
+  assert.equal(state.calls.some(path => /created=|head_sha=|event=/.test(path)), false);
+});
+
+test('large-catalog measurement is performed after the full A catalog and related latest reads, before independent B', async () => {
+  const { state, api } = globalFixture(); let measured = 0;
+  const report = await withConsistentCandidateHistory({ ...options, api, measure: async snapshot => {
+    measured++; assert.equal(snapshot.scope.length, 9659); assert.equal(workflowPages(state).length, 97);
+    assert.equal(state.counts.get('/actions/runs/100'), 3); assert.equal(state.counts.get('/actions/runs/90'), 1);
+    assert.equal(state.counts.get('/actions/runs/90/attempts/1'), 1); return measuredFacts(snapshot);
+  } });
+  assert.equal(report.stableDuringRead, true, report.reasons.join(',')); assert.equal(report.measurementBound, true);
+  assert.equal(measured, 1); assert.equal(workflowPages(state).length, 194); assert.equal(report.skipAuthorization, false);
+});
+
+test('unrelated eligible failures participate in catalog fingerprints without consuming associated-attempt reads', async () => {
+  const { state, read } = fixture();
+  const irrelevant = unrelatedRun(2000); Object.assign(irrelevant, { conclusion: 'failure', run_started_at: '2026-10-05T11:00:00Z', updated_at: '2026-10-05T11:20:00Z' });
+  state.scope.push(irrelevant);
+  const report = await read({ maxAttemptReads: 2 });
+  assert.equal(report.stableDuringRead, true, report.reasons.join(','));
+  assert.equal(report.snapshots[0].scope.find(item => item.id === 2000).conclusion, 'failure');
+  assert.equal(state.calls.includes('/actions/runs/2000'), false); assert.equal(state.calls.some(path => path.includes('/2000/attempts/')), false);
+  assert.deepEqual(report.snapshots[0].statistics.relatedRunIds, [100, 90]);
+});
+
+for (const [name, mutate] of [
+  ['result', item => { item.conclusion = 'failure'; }],
+  ['attempt', item => { item.run_attempt = 2; }],
+  ['actor', item => { item.actor = { id: 987 }; }],
+  ['PR association', item => { item.pull_requests[0].head.sha = oid('a'); }],
+]) test(`global unrelated ${name} changes remain in A/B fingerprints`, async () => {
+  const { state, read } = globalFixture();
+  state.before = (path, count) => { if (path === '/pulls/9' && count === 3) mutate(state.scope[5000]); };
+  const report = await read(); assertFallback(report); assert.deepEqual(report.reasons, ['history_scope_changed_between_reads']);
+  assert.equal(state.calls.includes(`/actions/runs/${state.scope[5000].id}`), false);
+});
+
+for (const [name, status, conclusion] of [['failure', 'completed', 'failure'], ['queued', 'queued', null], ['cancellation', 'completed', 'cancelled']]) {
+  test(`listed attempt 1 green cannot hide direct latest attempt 2 ${name}`, async () => {
+    const { state, read } = fixture(); const listed = state.scope.find(item => item.id === 90);
+    listed.conclusion = 'success'; listed.created_at = '2026-01-01T00:00:00Z';
+    state.attempts['90:1'] = structuredClone(listed);
+    state.latest[90] = { ...structuredClone(listed), run_attempt: 2, status, conclusion, run_started_at: '2026-10-05T11:00:00Z', updated_at: '2026-10-05T11:20:00Z' };
+    state.attempts['90:2'] = structuredClone(state.latest[90]);
+    const report = await read(); assertFallback(report); assert.deepEqual(report.reasons, ['history_latest_run_changed']);
+    assert.equal(state.calls.includes('/actions/runs/90'), true, 'the direct current run endpoint is mandatory even for listed attempt 1');
+    assert.equal(state.calls.includes('/actions/runs/90/attempts/1'), false, 'old exact green is not used to overrule a newer direct latest');
+  });
+}
+
+test('consistent listed/direct attempt 2 still requires the independent exact current attempt and rejects its changed result', async () => {
+  const { state, read } = fixture(); const listed = state.scope.find(item => item.id === 90);
+  listed.run_attempt = 2; listed.conclusion = 'success'; state.latest[90] = structuredClone(listed);
+  state.attempts['90:2'] = { ...structuredClone(listed), conclusion: 'failure' };
+  const report = await read(); assertFallback(report); assert.deepEqual(report.reasons, ['history_latest_attempt_changed']);
+  assert.equal(state.calls.includes('/actions/runs/90'), true); assert.equal(state.calls.includes('/actions/runs/90/attempts/2'), true);
+  assert.equal(state.calls.includes('/actions/runs/90/attempts/1'), false);
+});
+
+test('even an attempt-1 unrelated-head run on the same PR is freshly checked for a hidden newer retry', async () => {
+  const { state, read } = fixture(); const prior = run(50, { head_sha: oid('4'), created_at: '2026-01-01T00:00:00Z', run_started_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:20:00Z', pull_requests: [{ number: 9, base: { sha: B }, head: { sha: oid('4') } }] });
+  state.scope.push(prior); state.attempts['50:1'] = structuredClone(prior);
+  state.latest[50] = { ...structuredClone(prior), run_attempt: 2, conclusion: 'failure', run_started_at: '2026-10-05T11:00:00Z', updated_at: '2026-10-05T11:20:00Z' };
+  const report = await read(); assertFallback(report); assert.deepEqual(report.reasons, ['history_latest_run_changed']);
+  assert.equal(state.calls.includes('/actions/runs/50'), true); assert.equal(state.calls.includes('/actions/runs/50/attempts/1'), false);
+});
+
+test('old-created old-head same-PR run with a consistently observed newer failed retry invalidates source evidence', async () => {
+  const { state, read } = fixture(); state.scope.push(run(50, { run_attempt: 3, head_sha: oid('4'), created_at: '2026-01-01T00:00:00Z', run_started_at: '2026-10-05T11:00:00Z', updated_at: '2026-10-05T11:20:00Z', conclusion: 'failure', pull_requests: [{ number: 9, base: { sha: B }, head: { sha: oid('4') } }] }));
+  const report = await read(); assertFallback(report); assert.deepEqual(report.reasons, ['history_newer_attempt_not_successful']);
+  assert.equal(state.calls.includes('/actions/runs/50'), true); assert.equal(state.calls.includes('/actions/runs/50/attempts/3'), true);
+});
+
+for (const [status, conclusion] of [['completed', 'failure'], ['queued', null], ['completed', 'cancelled']]) test(`same immutable API head on another PR still invalidates a newer ${status}/${conclusion} execution`, async () => {
+  const { state, read } = fixture(); state.scope.push(run(110, { status, conclusion, pull_requests: [{ number: 88, base: { sha: B }, head: { sha: H } }], run_started_at: '2026-10-05T11:00:00Z', updated_at: '2026-10-05T11:20:00Z' }));
+  const report = await read(); assertFallback(report); assert.deepEqual(report.reasons, ['history_newer_related_attempt_not_successful']);
+  assert.equal(state.calls.includes('/actions/runs/110'), true); assert.equal(state.calls.includes('/actions/runs/110/attempts/1'), true);
+});
+
+test('same API head on another PR is related even when its PR-head association differs', async () => {
+  const { state, read } = fixture(); state.scope.push(run(110, { conclusion: 'failure', pull_requests: [{ number: 88, base: { sha: B }, head: { sha: oid('4') } }], run_started_at: '2026-10-05T11:00:00Z', updated_at: '2026-10-05T11:20:00Z' }));
+  const report = await read(); assertFallback(report); assert.deepEqual(report.reasons, ['history_newer_related_attempt_not_successful']); assert.equal(state.calls.includes('/actions/runs/110'), true);
+});
+
+for (const [name, pulls, expected] of [
+  ['empty', [], 'history_candidate_identity_unknown'],
+  ['unknown', [{ number: 88, base: { sha: B }, head: {} }], 'history_candidate_identity_unknown'],
+  ['multiple distinct PRs', [{ number: 88, base: { sha: B }, head: { sha: S } }, { number: 89, base: { sha: B }, head: { sha: S } }], 'history_candidate_identity_unknown'],
+  ['duplicate ambiguous PR', [{ number: 88, base: { sha: B }, head: { sha: S } }, { number: 88, base: { sha: B }, head: { sha: S } }], 'history_candidate_identity_ambiguous'],
+]) test(`an eligible row with ${name} association cannot be excluded as unrelated`, async () => {
+  const { state, read } = fixture(); state.scope.push(unrelatedRun(2000)); state.scope.at(-1).pull_requests = pulls;
+  const report = await read(); assertFallback(report); assert.deepEqual(report.reasons, [expected]);
+});
+
+test('missing source from a complete global list invalidates direct source success', async () => {
+  const { state, read } = fixture(); state.scope = state.scope.filter(item => item.id !== 100);
+  const report = await read(); assertFallback(report); assert.deepEqual(report.reasons, ['history_source_listing_changed']);
+});
+
+test('the 10000-row catalog boundary reads exactly 100 pages per observation', async () => {
+  const { state, read } = globalFixture(10000); const report = await read();
+  assert.equal(report.stableDuringRead, true, report.reasons.join(',')); assert.equal(report.snapshots[1].scope.length, 10000);
+  assert.equal(report.snapshots[1].statistics.workflowPageCount, 100); assert.equal(workflowPages(state).length, 200);
+  assert.equal(state.calls.some(path => path.endsWith('page=101')), false); assert.equal(report.skipAuthorization, false);
+});
+
+test('advertised 10001 rows cannot truncate into a green 10000-row receipt', async () => {
+  const { state, read } = globalFixture(10001); const report = await read();
+  assertFallback(report); assert.deepEqual(report.reasons, ['history_pagination_limit_exceeded']);
+  assert.equal(state.calls.some(path => path.includes('/attempts/')), false, 'an incomplete catalog cannot start attempt evidence reads');
+});
+
+for (const [name, response, expected] of [
+  ['empty page hole', state => ({ total_count: 9659, workflow_runs: [] }), 'history_pagination_incomplete'],
+  ['duplicate earlier page', state => ({ total_count: 9659, workflow_runs: state.scope.slice(0, 100) }), 'history_pagination_shift_or_duplicate'],
+  ['changed advertised count', state => ({ total_count: 9660, workflow_runs: state.scope.slice(4900, 5000) }), 'history_pagination_changed'],
+]) test(`global catalog ${name} at page 50 is latched fallback`, async () => {
+  const { state, read, api } = globalFixture();
+  const report = await read({ api: async path => path === '/actions/workflows/10/runs?per_page=100&page=50' ? response(state) : api(path) });
+  assertFallback(report); assert.deepEqual(report.reasons, [expected]); assert.equal(state.calls.some(path => path.includes('/attempts/')), false);
+});
+
+test('a page exceeding the advertised 100-row API page size fails closed', async () => {
+  const { api, read } = globalFixture();
+  const report = await read({ api: async path => { const value = await api(path); if (path === '/actions/workflows/10/runs?per_page=100&page=1') value.workflow_runs.push(unrelatedRun(50000)); return value; } });
+  assertFallback(report); assert.deepEqual(report.reasons, ['history_pagination_response_invalid']);
+});
+
+test('200 related IDs exhaust the default direct/latest-attempt budget without charging unrelated catalog rows', async () => {
+  const { state, read } = fixture(); state.scope = [state.source, ...Array.from({ length: 199 }, (_, index) => run(2000 + index, { run_started_at: '2026-10-04T10:00:00Z', updated_at: '2026-10-04T10:20:00Z' })), ...Array.from({ length: 500 }, (_, index) => unrelatedRun(10000 + index))];
+  const report = await read(); assert.equal(report.stableDuringRead, true, report.reasons.join(','));
+  assert.equal(report.snapshots[0].statistics.relatedLatestReads, 200); assert.equal(report.snapshots[0].statistics.relatedAttemptReads, 200);
+  assert.equal(attemptReads(state).length, 400); assert.equal(state.calls.includes('/actions/runs/10000'), false); assert.equal(report.snapshots[0].scope.length, 700);
+});
+
+test('201 related IDs fail the default budget instead of silently excluding one', async () => {
+  const { state, read } = fixture(); state.scope = [state.source, ...Array.from({ length: 200 }, (_, index) => run(2000 + index, { run_started_at: '2026-10-04T10:00:00Z', updated_at: '2026-10-04T10:20:00Z' }))];
+  const report = await read(); assertFallback(report); assert.deepEqual(report.reasons, ['history_attempt_read_limit_exceeded']);
+  assert.equal(attemptReads(state).length, 200); assert.equal(state.calls.includes('/actions/runs/2199'), false);
+});
+
+test('a direct latest change during measurement stays latched even after retry observations recover', async () => {
+  const { state, api } = fixture(); let measured = 0;
+  state.before = (path, count) => { if (path === '/pulls/9' && count === 4) delete state.latest[90]; };
+  const report = await withConsistentCandidateHistory({ ...options, api, maxRetries: 1, measure: async snapshot => {
+    measured++; if (measured === 1) state.latest[90] = { ...structuredClone(state.scope.find(item => item.id === 90)), run_attempt: 2, conclusion: 'failure', run_started_at: '2026-10-05T11:00:00Z', updated_at: '2026-10-05T11:20:00Z' };
+    return measuredFacts(snapshot);
+  } });
+  assertFallback(report); assert.deepEqual(report.reasons, ['history_latest_run_changed']); assert.equal(report.measurementBound, false);
+  assert.equal(report.retries, 1); assert.equal(measured, 2);
+  assert.equal(report.snapshots.at(-2).fingerprint, report.snapshots.at(-1).fingerprint);
+});
+
+for (const code of [403, 429]) test(`direct latest HTTP ${code} cannot substitute a cached exact-attempt green`, async () => {
+  const { state, read } = fixture();
+  state.before = (path, count) => { if (path === '/actions/runs/90' && count === 1) { const error = new Error('private HTTP diagnostic'); error.reason = `github_api_http_${code}`; throw error; } };
+  const report = await read({ maxRetries: 1 }); assertFallback(report); assert.deepEqual(report.reasons, [`github_api_http_${code}`]);
+  assert.equal(report.skipAuthorization, false); if (code === 403) assert.equal(report.retries, 0); else { assert.equal(report.retries, 1); assert.equal(report.snapshots.at(-2).fingerprint, report.snapshots.at(-1).fingerprint); }
 });

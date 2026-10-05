@@ -302,6 +302,9 @@ async function consistentEvidence(options) {
     stableDuringRead: true, measurementBound: true, skipAuthorization: false,
     snapshotFingerprints: history.snapshots.map(snapshot => snapshot.fingerprint),
     reads: history.reads, retries: history.retries,
+    statistics: history.snapshots[0].statistics,
+    latestAttempts: history.snapshots[0].latestAttempts,
+    indexCompletenessVerified: false, atomicLease: false,
     residualRace: 'a new run, rerun, or failure can start after the last read',
   }, latestAttempts: history.snapshots[0].latestAttempts };
 }

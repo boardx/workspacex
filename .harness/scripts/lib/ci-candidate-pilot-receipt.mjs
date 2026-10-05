@@ -197,24 +197,20 @@ async function candidateSnapshot(api, repository, candidate, protectedObjects, a
   const pull = await api(`/pulls/${candidate.prNumber}`);
   requireFact(pull?.number === candidate.prNumber && pull.head?.repo?.id === repository.id && pull.base?.repo?.id === repository.id && pull.base.ref === 'main' && pull.head.sha === candidate.headSha && pull.base.sha === candidate.baseSha && pull.state === 'open' && pull.mergeable === true && pull.merged === false && (run.event === 'merge_group' || pull.merge_commit_sha === candidate.mergeSha), 'pilot_pr_head_base_or_conflict_changed');
   const artifacts = await githubPages(api, `/actions/runs/${run.id}/artifacts`, 'artifacts');
-  // No created-at filter: an old run can have a newer failing attempt today.
-  const runs = await githubPages(api, `/actions/workflows/${run.workflow_id}/runs`, 'workflow_runs');
-  requireFact(runs.length <= 200 && runs.some(item => item.id === run.id && item.run_attempt === run.run_attempt), 'pilot_original_history_incomplete');
-  const history = [];
-  for (const item of runs) {
-    repositoryRun(item, repository);
-    requireFact(integer(item.run_attempt) && item.workflow_id === run.workflow_id, 'pilot_history_run_invalid');
-    const latest = await api(`/actions/runs/${item.id}/attempts/${item.run_attempt}`);
-    requireFact(latest.id === item.id && latest.run_attempt === item.run_attempt && latest.status === item.status && latest.conclusion === item.conclusion && latest.head_sha === item.head_sha && latest.run_started_at === item.run_started_at, 'pilot_history_attempt_changed');
-    history.push(latest);
-    if (item.id !== run.id && ['pull_request', 'merge_group'].includes(item.event) && (item.head_sha === run.head_sha || item.pull_requests?.some(pr => pr.number === candidate.prNumber)) && time(item.run_started_at) >= time(run.run_started_at)) requireFact(success(item), 'pilot_newer_candidate_attempt_not_successful');
-  }
   // This existing protected resolver reconstructs actual checkout+definition
-  // facts BETWEEN its independent complete history snapshots. Its authority
+  // facts BETWEEN fresh unfiltered API catalog snapshots. Related IDs include
+  // every same-PR old head OR same immutable API head across PRs, each checked
+  // through direct latest and that exact attempt, including listed attempt 1.
+  // Its authority
   // below was just reconstructed from APIs, never copied from archive JSON.
   const resolved = await resolvePilotCandidate({ api, repositoryName: repository.full_name, sourceRunId: candidate.sourceRunId, authority, config, now });
   requireFact(resolved?.skip === false && resolved.runFull === true && resolved.protectedVerified === false && resolved.historyObservation?.stableDuringRead === true && resolved.historyObservation.measurementBound === true && resolved.historyObservation.skipAuthorization === false && same(resolved.candidate, { prNumber: candidate.prNumber, baseSha: candidate.baseSha, headSha: candidate.headSha, mergeSha: candidate.mergeSha, sourceTree: candidate.fullTree, parents: candidate.parents, mergeable: true, headCurrent: true }) && same(resolved.producer, { runId: candidate.sourceRunId, runAttempt: candidate.sourceRunAttempt, workflowId: candidate.workflowId, path: candidate.workflowPath, event: candidate.event, headSha: run.head_sha }), 'pilot_fresh_candidate_resolver_binding_changed');
-  return { run, attempt, jobs, artifacts, identity, object, base, workflow, pull, history, freshCandidate: resolved.candidate, freshProducer: resolved.producer, historyFingerprints: resolved.historyObservation.snapshotFingerprints };
+  const observation = resolved.historyObservation, statistics = observation.statistics;
+  requireFact(observation.indexCompletenessVerified === false && observation.atomicLease === false && statistics?.catalogObservationOnly === true && statistics.indexCompletenessVerified === false && statistics.atomicLease === false && integer(statistics.runCount) && statistics.runCount <= 10_000 && integer(statistics.workflowPageCount) && statistics.workflowPageCount <= 100 && Array.isArray(statistics.relatedRunIds) && statistics.relatedRunIds.includes(run.id) && Array.isArray(observation.latestAttempts) && observation.latestAttempts.length === statistics.relatedRunIds.length && same(observation.latestAttempts.map(item => item.runId), statistics.relatedRunIds), 'pilot_fresh_history_observation_invalid');
+  return { run, attempt, jobs, artifacts, identity, object, base, workflow, pull,
+    history: observation.latestAttempts, historyStatistics: statistics,
+    freshCandidate: resolved.candidate, freshProducer: resolved.producer,
+    historyFingerprints: observation.snapshotFingerprints };
 }
 
 function actualComponents(receipt, archive, candidate, object, policy) {
@@ -337,6 +333,8 @@ export async function observeProtectedPilotReceipt(input = {}) {
     result.controllerClosureFingerprint = fingerprint(closure(observerObject.entries));
     result.journal = journal;
     result.components = components;
+    result.historyObservation = { statistics: originalBefore.historyStatistics,
+      indexCompletenessVerified: false, atomicLease: false, skipAuthorization: false };
     result.snapshotFingerprints = [fingerprint({ pilot: before, original: originalBefore }), fingerprint({ pilot: after, original: originalAfter })];
     result.observedAt = new Date(now).toISOString();
   } catch (error) {

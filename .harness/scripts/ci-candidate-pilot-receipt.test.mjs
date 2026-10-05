@@ -106,7 +106,12 @@ function fixture({ imageIdType = 'config' } = {}) {
     if (path === '/actions/runs/30') return clone(observerRun);
     if (path === '/actions/runs/10' || path === '/actions/runs/10/attempts/1') return clone(originalRun);
     if (/^\/actions\/workflows\/(100|200|300)$/.test(path)) { const workflowId = Number(path.split('/').at(-1)); return { id: workflowId, path: workflowId === 100 ? sourcePath : workflowId === 200 ? pilotPath : PILOT_RECEIPT_OBSERVER_PATH, state: 'active' }; }
-    if (path.startsWith('/actions/workflows/100/runs?')) return { total_count: value.history.length, workflow_runs: clone(value.history) };
+    if (path.startsWith('/actions/workflows/100/runs?')) {
+      const page = Number(new URLSearchParams(path.split('?')[1]).get('page'));
+      return { total_count: value.history.length, workflow_runs: clone(value.history.slice((page - 1) * 100, page * 100)) };
+    }
+    const historical = /^\/actions\/runs\/(\d+)(?:\/attempts\/(\d+))?$/.exec(path);
+    if (historical) { const run = value.history.find(run => run.id === Number(historical[1])); if (run) return clone(run); }
     if (path.startsWith('/actions/runs/20/attempts/1/jobs?')) return { total_count: 1, jobs: [clone(pilotJob)] };
     if (path.startsWith('/actions/runs/10/attempts/1/jobs?')) return { total_count: 1, jobs: [clone(originalJob)] };
     if (path.startsWith('/actions/runs/20/artifacts?')) return { total_count: 1, artifacts: [clone(artifact)] };
@@ -244,15 +249,48 @@ test('artifact replacement after measurement: rejected', async () => {
 });
 test('old-created run with a newer failed rerun is not hidden by an age/head API filter', async () => {
   const value = fixture(), failure = { ...clone(value.originalRun), id: 9, run_attempt: 2, created_at: '2026-09-01T00:00:00Z', run_started_at: t('10:02:00'), updated_at: t('10:02:30'), conclusion: 'failure' };
-  value.history.push(failure); value.hook = path => path === '/actions/runs/9/attempts/2' ? clone(failure) : undefined;
-  closed(await observe(value)); assert.ok(value.requests.filter(item => item.path.includes('/workflows/100/runs?')).every(item => !item.path.includes('created') && !item.path.includes('head_sha')));
+  value.history.push(failure);
+  const result = await observe(value); closed(result); assert.deepEqual(result.reasons, ['history_newer_attempt_not_successful']);
+  assert.ok(value.requests.filter(item => item.path.includes('/workflows/100/runs?')).every(item => !item.path.includes('created') && !item.path.includes('head_sha')));
 });
 test('history pagination incomplete/shift is never a stable receipt', async () => {
   const value = fixture(); value.hook = path => path.startsWith('/actions/workflows/100/runs?') ? { total_count: 2, workflow_runs: [clone(value.originalRun)] } : undefined; closed(await observe(value));
 });
 test('oversized advertised complete history budget is a fallback, not a truncation to older green', async () => {
-  const value = fixture(); value.hook = path => path.startsWith('/actions/workflows/100/runs?') ? { total_count: 201, workflow_runs: Array.from({ length: 201 }, (_, index) => ({ ...clone(value.originalRun), id: index + 1 })) } : undefined;
-  const result = await observe(value); closed(result); assert.ok(result.reasons.includes('pilot_original_history_incomplete'));
+  const value = fixture(); value.hook = path => path.startsWith('/actions/workflows/100/runs?') ? { total_count: 10_001, workflow_runs: [clone(value.originalRun)] } : undefined;
+  const result = await observe(value); closed(result); assert.deepEqual(result.reasons, ['history_pagination_limit_exceeded']);
+});
+test('unified reader exhausts 9659 unfiltered catalog rows without the obsolete 200-row cap or unrelated attempt reads', async () => {
+  const value = fixture();
+  for (let index = 0; index < 9658; index++) value.history.push({ ...clone(value.originalRun), id: 1000 + index, head_sha: sha('8'), pull_requests: [{ number: 100 + index, base: { sha: sha('3') }, head: { sha: sha('8') } }] });
+  const result = await observe(value);
+  assert.equal(result.scopedProtectedReceiptVerified, true, JSON.stringify(result.reasons));
+  assert.equal(result.skip, false); assert.equal(result.runFull, true); assert.equal(result.protectedVerified, false);
+  const pages = value.requests.filter(item => item.path.startsWith('/actions/workflows/100/runs?'));
+  assert.equal(pages.length, 388, 'two candidate measurements each retain their own fresh 97-page A and B');
+  assert.ok(pages.every(item => !/head_sha|created|status/.test(item.path)));
+  assert.equal(value.requests.some(item => /^\/actions\/runs\/(?:1[0-9]{3}|[2-9][0-9]{3})\//.test(item.path)), false);
+});
+test('unified reader rejects stale listed attempt 1 when old-head same-PR direct latest is a failed attempt 2', async () => {
+  const value = fixture(), old = { ...clone(value.originalRun), id: 9, head_sha: sha('8'), created_at: '2026-09-01T00:00:00Z' };
+  value.history.push(old);
+  value.hook = path => path === '/actions/runs/9' ? { ...clone(old), run_attempt: 2, run_started_at: t('10:02:00'), updated_at: t('10:02:30'), conclusion: 'failure' } : undefined;
+  const result = await observe(value); closed(result); assert.deepEqual(result.reasons, ['history_latest_run_changed']);
+  assert.equal(value.requests.some(item => item.path === '/actions/runs/9/attempts/1'), false);
+});
+test('unified reader preserves same immutable API head across another PR as a newer-failure veto', async () => {
+  const value = fixture(), failure = { ...clone(value.originalRun), id: 9, run_started_at: t('10:02:00'), updated_at: t('10:02:30'), conclusion: 'failure', pull_requests: [{ number: 8, base: { sha: sha('3') }, head: { sha: sha('4') } }] };
+  value.history.push(failure);
+  const result = await observe(value); closed(result); assert.deepEqual(result.reasons, ['history_newer_related_attempt_not_successful']);
+});
+test('unknown eligible association cannot be declared unrelated by a different head', async () => {
+  const value = fixture(); value.history.push({ ...clone(value.originalRun), id: 9, head_sha: sha('8'), pull_requests: [] });
+  const result = await observe(value); closed(result); assert.deepEqual(result.reasons, ['history_candidate_identity_unknown']);
+});
+test('catalog changes between fresh A and B around the source measurement remain latched', async () => {
+  const value = fixture();
+  value.hook = (path, options, nth) => path.startsWith('/actions/workflows/100/runs?') && nth === 2 ? { total_count: 1, workflow_runs: [{ ...clone(value.originalRun), actor: { id: 999 } }] } : undefined;
+  const result = await observe(value); closed(result); assert.ok(result.reasons.some(reason => reason.startsWith('history_')));
 });
 test('original PR base changes during final measurement and cannot retain an earlier scoped success', async () => {
   const value = fixture(); let changed = false;

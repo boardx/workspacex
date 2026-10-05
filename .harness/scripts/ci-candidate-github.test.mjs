@@ -63,6 +63,8 @@ function fixture() {
     if (path.startsWith('/actions/workflows/10/runs?')) return { total_count: state.history.length, workflow_runs: structuredClone(state.history) };
     const rerun = /^\/actions\/runs\/(\d+)\/attempts\/(\d+)$/.exec(path);
     if (rerun) return structuredClone(state.history.find(item => item.id === Number(rerun[1]) && item.run_attempt === Number(rerun[2])));
+    const latest = /^\/actions\/runs\/(\d+)$/.exec(path);
+    if (latest) return structuredClone(state.history.find(item => item.id === Number(latest[1])));
     throw new Error(`Unexpected fixture API: ${path}`);
   };
   const observe = (sourceRunId = 200, extra = {}) => observeCandidateRun({ api, repositoryName: REPO.full_name, sourceRunId, observerRunId: 900, actualCheckout: { sha: O, tree: TS, parents: [S] }, expectedObserverSha: O, config, now, ...extra });

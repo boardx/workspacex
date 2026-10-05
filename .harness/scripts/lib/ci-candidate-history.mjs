@@ -9,6 +9,9 @@ const SHA = /^[a-f0-9]{40}$/;
 const REPOSITORY = /^[\w.-]+\/[\w.-]+$/;
 const WORKFLOW = /^\.github\/workflows\/[\w.-]+\.ya?ml$/;
 const MAX_AGE = 86_400_000;
+const MAX_PAGES = 100;
+const PAGE_SIZE = 100;
+const MAX_RUNS = MAX_PAGES * PAGE_SIZE;
 const integer = value => Number.isSafeInteger(value) && value > 0;
 const validTime = value => typeof value === 'string' && Number.isFinite(Date.parse(value));
 const successful = value => value?.status === 'completed' && value?.conclusion === 'success';
@@ -82,15 +85,21 @@ function artifactIdentity(artifact, source) {
   return { id: artifact.id, name: artifact.name, digest: artifact.digest, sizeInBytes: artifact.size_in_bytes, expired: artifact.expired, runId: artifact.workflow_run.id, headSha: artifact.workflow_run.head_sha, createdAt: artifact.created_at, updatedAt: artifact.updated_at, expiresAt: artifact.expires_at ?? null };
 }
 
-/** Full scope, page order and page boundaries are part of the receipt. */
+/**
+ * Full unfiltered scope, page order and boundaries participate in both reads.
+ * At most 100 pages / 10,000 advertised rows can be observed. Exhausting that
+ * API view is not a guarantee of index completeness or an atomic history lease.
+ */
 async function readPages(api, path, key, options, receipts) {
   const items = [];
   let total;
   for (let page = 1; page <= options.maxPages; page++) {
-    const value = await api(`${path}?per_page=100&page=${page}`);
+    const value = await api(`${path}?per_page=${PAGE_SIZE}&page=${page}`);
     requireFact(Array.isArray(value?.[key]) && Number.isSafeInteger(value.total_count) && value.total_count >= 0, 'history_pagination_response_invalid');
+    requireFact(value[key].length <= PAGE_SIZE, 'history_pagination_response_invalid');
     requireFact(total === undefined || value.total_count === total, 'history_pagination_changed');
     total = value.total_count;
+    requireFact(total <= options.maxPages * PAGE_SIZE && total <= MAX_RUNS, 'history_pagination_limit_exceeded');
     const ids = value[key].map(item => item?.id);
     requireFact(ids.every(integer), 'history_pagination_item_invalid');
     receipts.push({ path, key, page, totalCount: total, ids });
@@ -127,28 +136,44 @@ async function snapshot(options) {
   const source = runIdentity(sourceRaw, options);
   checkSource(source, pull, options);
 
-  // No head/date filter: created_at never moves when an old run is rerun today.
+  // No head/date/status filter: an old-created run may have a newer failing
+  // attempt, including a previous API head of the same PR. Keep the complete
+  // advertised workflow catalog in the A/measurement/B observation fingerprint.
   const listedRaw = await readPages(api, `/actions/workflows/${workflowId}/runs`, 'workflow_runs', options, pageReceipts);
   const scope = listedRaw.map(run => runIdentity(run, options));
   const listedSource = scope.filter(run => run.id === sourceRunId);
   requireFact(listedSource.length === 1 && equal(listedSource[0], source), 'history_source_listing_changed');
   const latestAttempts = [];
   let attemptReads = 0;
+  const relatedRunIds = [];
   for (const listed of scope.filter(run => options.eligibleEvents.includes(run.event))) {
+    // Missing/multiple associations cannot establish that a run is unrelated.
+    // Only an explicit different single PR AND different immutable API head
+    // permits omitting its expensive direct latest/attempt reads.
     requireFact(listed.pulls.length === 1, 'history_candidate_identity_unknown');
-    let attempt = listed;
-    if (listed.runAttempt > 1 || listed.id === sourceRunId) {
-      requireFact(++attemptReads <= options.maxAttemptReads, 'history_attempt_read_limit_exceeded');
-      const raw = await api(`/actions/runs/${listed.id}/attempts/${listed.runAttempt}`);
-      attempt = runIdentity(raw, options);
-      requireFact(equal(attempt, listed), 'history_latest_attempt_changed');
-    }
-    latestAttempts.push({ apiVerified: true, repositoryId: options.repository.id, workflowId, suite: options.suite, runId: attempt.id, runAttempt: attempt.runAttempt, startedAt: attempt.startedAt, status: attempt.status, conclusion: attempt.conclusion, candidate: { prNumber: attempt.pulls[0].number, baseSha: attempt.pulls[0].baseSha, headSha: attempt.pulls[0].headSha } });
+    if (listed.pulls[0].number !== prNumber && listed.headSha !== source.headSha) continue;
+    requireFact(++attemptReads <= options.maxAttemptReads, 'history_attempt_read_limit_exceeded');
+    relatedRunIds.push(listed.id);
+    // A stale listing may still report attempt 1 after a rerun has failed.
+    // Reading that listed old attempt would preserve its success. Always read
+    // the latest route first, then its exact attempt, and latch any difference.
+    const latest = runIdentity(await api(`/actions/runs/${listed.id}`), options);
+    requireFact(equal(latest, listed), 'history_latest_run_changed');
+    const attempt = runIdentity(await api(`/actions/runs/${listed.id}/attempts/${latest.runAttempt}`), options);
+    requireFact(equal(attempt, latest), 'history_latest_attempt_changed');
+    latestAttempts.push({ apiVerified: true, repositoryId: options.repository.id, workflowId, suite: options.suite, runId: attempt.id, runAttempt: attempt.runAttempt, apiHeadSha: attempt.headSha, startedAt: attempt.startedAt, status: attempt.status, conclusion: attempt.conclusion, candidate: { prNumber: attempt.pulls[0].number, baseSha: attempt.pulls[0].baseSha, headSha: attempt.pulls[0].headSha } });
   }
   const matching = latestAttempts.filter(run => run.candidate.prNumber === prNumber).sort((a, b) => Date.parse(b.startedAt) - Date.parse(a.startedAt) || b.runId - a.runId);
   requireFact(matching.length > 0, 'history_candidate_source_missing');
   const latest = matching[0];
   requireFact(latest.runId === sourceRunId && latest.runAttempt === sourceRunAttempt, successful(latest) ? 'history_newer_evidence_required' : 'history_newer_attempt_not_successful');
+  // The existing receipt reader also vetoes a newer non-success with the same
+  // API head associated with another PR. Retain that union of veto domains.
+  for (const related of latestAttempts) {
+    if (related.runId !== sourceRunId && related.apiHeadSha === source.headSha && Date.parse(related.startedAt) >= Date.parse(source.startedAt)) {
+      requireFact(successful(related), 'history_newer_related_attempt_not_successful');
+    }
+  }
 
   const jobsRaw = await readPages(api, `/actions/runs/${sourceRunId}/attempts/${sourceRunAttempt}/jobs`, 'jobs', options, pageReceipts);
   const artifactsRaw = await readPages(api, `/actions/runs/${sourceRunId}/artifacts`, 'artifacts', options, pageReceipts);
@@ -161,7 +186,14 @@ async function snapshot(options) {
   requireFact(equal(source, sourceEnd), 'history_source_changed_during_snapshot');
   requireFact(equal(pull, pullEnd), 'history_pr_changed_during_snapshot');
 
-  const content = { scope, sourceRun: source, sourceAttempt: scope.find(run => run.id === sourceRunId), jobs, artifacts, pull, latestAttempts, pageReceipts };
+  const statistics = {
+    runCount: scope.length, relatedRunIds,
+    workflowPageCount: pageReceipts.filter(receipt => receipt.key === 'workflow_runs').length,
+    relatedLatestReads: attemptReads, relatedAttemptReads: attemptReads,
+    readBounds: { maxPages: options.maxPages, maxRuns: options.maxPages * PAGE_SIZE, maxAttemptReads: options.maxAttemptReads },
+    catalogObservationOnly: true, indexCompletenessVerified: false, atomicLease: false,
+  };
+  const content = { scope, sourceRun: source, sourceAttempt: scope.find(run => run.id === sourceRunId), jobs, artifacts, pull, latestAttempts, pageReceipts, statistics };
   return { fingerprint: fingerprint(content), scopeFingerprint: fingerprint({ scope, pages: pageReceipts.filter(receipt => receipt.key === 'workflow_runs') }), ...content };
 }
 
@@ -169,7 +201,7 @@ function validateOptions(options) {
   requireFact(options && typeof options.api === 'function' && integer(options.repository?.id) && REPOSITORY.test(options.repository?.fullName ?? '') && integer(options.workflowId) && WORKFLOW.test(options.workflowPath ?? '') && integer(options.prNumber) && integer(options.sourceRunId) && integer(options.sourceRunAttempt) && typeof options.suite === 'string' && options.suite.length > 0, 'history_options_invalid');
   requireFact(Array.isArray(options.eligibleEvents) && options.eligibleEvents.length > 0 && new Set(options.eligibleEvents).size === options.eligibleEvents.length && options.eligibleEvents.every(event => ['pull_request', 'merge_group'].includes(event)), 'history_event_policy_invalid');
   requireFact(Number.isFinite(options.now) && Number.isFinite(new Date(options.now).getTime()), 'history_clock_invalid');
-  requireFact(Number.isSafeInteger(options.maxPages) && options.maxPages > 0 && options.maxPages <= 100 && Number.isSafeInteger(options.maxAttemptReads) && options.maxAttemptReads > 0 && options.maxAttemptReads <= 2_000 && [0, 1].includes(options.maxRetries), 'history_read_bounds_invalid');
+  requireFact(Number.isSafeInteger(options.maxPages) && options.maxPages > 0 && options.maxPages <= MAX_PAGES && Number.isSafeInteger(options.maxAttemptReads) && options.maxAttemptReads > 0 && options.maxAttemptReads <= 2_000 && [0, 1].includes(options.maxRetries), 'history_read_bounds_invalid');
   requireFact(Number.isFinite(options.maxAgeMs) && options.maxAgeMs > 0 && options.maxAgeMs <= MAX_AGE, 'history_expiry_policy_invalid');
   if (options.expectedCandidate) requireFact(SHA.test(options.expectedCandidate.baseSha ?? '') && SHA.test(options.expectedCandidate.headSha ?? ''), 'history_expected_candidate_invalid');
   requireFact(options.measure === undefined || typeof options.measure === 'function', 'history_measure_callback_invalid');
@@ -211,10 +243,10 @@ function bindMeasurement(measurement, snapshotA, options) {
  * consistent API omissions, or any producer bypassing a future external fence.
  */
 export async function readConsistentCandidateHistory(input = {}) {
-  const result = { schemaVersion: 1, runFull: true, skip: false, stableDuringRead: false, measurementBound: false, measurement: null, skipAuthorization: false, readStatus: 'fallback', reasons: [], snapshots: [], reads: 0, retries: 0 };
+  const result = { schemaVersion: 1, runFull: true, skip: false, stableDuringRead: false, measurementBound: false, measurement: null, skipAuthorization: false, readStatus: 'fallback', reasons: [], snapshots: [], statistics: [], reads: 0, retries: 0 };
   const add = reason => { if (!result.reasons.includes(reason)) result.reasons.push(reason); };
   try {
-    const options = { now: Date.now(), maxPages: 20, maxAttemptReads: 200, maxRetries: 0, maxAgeMs: MAX_AGE, ...input };
+    const options = { now: Date.now(), maxPages: MAX_PAGES, maxAttemptReads: 200, maxRetries: 0, maxAgeMs: MAX_AGE, ...input };
     validateOptions(options);
     result.observedAt = new Date(options.now).toISOString();
     for (let round = 0; round <= options.maxRetries; round++) {
@@ -223,6 +255,7 @@ export async function readConsistentCandidateHistory(input = {}) {
         result.reads++;
         const first = freezeFacts(await snapshot(options));
         result.snapshots.push(first);
+        result.statistics.push(first.statistics);
         let measurement;
         if (options.measure) {
           measurement = await options.measure(first);
@@ -232,6 +265,7 @@ export async function readConsistentCandidateHistory(input = {}) {
         result.reads++;
         const second = freezeFacts(await snapshot(options));
         result.snapshots.push(second);
+        result.statistics.push(second.statistics);
         if (first.fingerprint !== second.fingerprint) {
           add(first.scopeFingerprint !== second.scopeFingerprint ? 'history_scope_changed_between_reads' : 'history_facts_changed_between_reads');
         }
