@@ -57,3 +57,9 @@ completion 统一落盘现有 21 字段 `validated-production-migration-completi
 完整 Mac 标准命令按原配置复跑：55 files 中 53 通过，594 tests 中 591 通过、3 失败、0 skipped；TLS 23 项通过、依赖路径与 Git 临时目录问题已消失。剩余失败均需 Linux `/proc/self/fd`、`/proc/PID/stat`、`prctl` 或真实 Linux parent-child 协议。67 项独立 Linux 实测通过；完整 Linux CI 仍待远端精确 head 执行，不删除或跳过这些测试。
 
 边界补充：Mac 上四项 parent-source 子进程返回 signal 9 且 stderr 为空，仅凭 signal 不能证明具体原因；Linux 67 项包含这四项且通过，完整远端 Linux CI 仍须验证，不把该 signal 自动视为可忽略。
+
+## 当前完整资格桥接修正
+
+真实 qualification binding 有七字段，stage 语义 binding 为其中五字段；额外 `targetInstanceId/providerBindingSha256` 不能被当作漂移丢弃。修正源码 `79bb53784d5df01ae46f26288c0a53714e4c510d` 严格核对两种字段集合，只比较共同五字段，再把完整资格输入保留给现有独立验证器。直接方法负例覆盖缺目标/provider、额外字段、五种身份漂移及 manifest 摘要不匹配。前一轮完整链路审查结论因该缺口已纠正；本次两文件修正重新独审 ACCEPT。
+
+当前权威源码审查包为 `deploy/aliyun/cn-sop-schema2-repair-qualified-review-closure.json`，128 source / 90 targets / 38 source-only；原字节 SHA256 `d6330121b8b3e0814d37ea28d5e15f002656a76fec220c89a9b8ce5ab80edf0c`，rows SHA256 `803536f058638f6b4d6cce0daec26098ade015f0ae6b999e3c20e9ccd5fb6d85`。先前修复冻结包仅为历史证据，不作当前安装身份。更新后的四组定向验证合计 56/56 通过；最新远端完整 CI 仍是合入门。所有主机/数据库/切流授权边界保持不变。
