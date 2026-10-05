@@ -52,6 +52,7 @@ export async function generateReportChapters(state: ResearchRuntime, model: Mode
   const priorCheckpoint = approved.length ? { basis, chapters: structuredClone(approved), ...(effectiveInstruction !== undefined ? { instruction: effectiveInstruction } : {}) } : undefined;
   const priorWarnings = structuredClone((state.reportQualityWarnings ?? []).filter(warning => approved.some(chapter => chapter.sectionId === warning.sectionId)));
   const priorDraft = priorCheckpoint ? state.reportDraft : null;
+  const priorEvidenceWarnings = structuredClone(state.reportEvidenceWarnings ?? []);
   const reusable = new Map<string, Chapter>();
   const warnedRepairs = new Map<string, { chapter: Chapter; issues: string[] }>();
   const firstWarned = approved.findIndex((chapter) => state.reportQualityWarnings?.some((warning) => warning.sectionId === chapter.sectionId));
@@ -76,6 +77,8 @@ export async function generateReportChapters(state: ResearchRuntime, model: Mode
       // Only same-basis, citation-validated old chapters may survive as an
       // explicitly warned tail. Newly committed replacements always win.
       const replaced = new Set(committed.map(chapter => chapter.sectionId));
+      // Restored chapters retain their extraction limitations, alongside new warnings.
+      state.reportEvidenceWarnings = [...new Map([...priorEvidenceWarnings, ...(state.reportEvidenceWarnings ?? [])].map(warning => [JSON.stringify(warning), warning])).values()].slice(0, 256);
       state.reportCheckpoint = { ...priorCheckpoint, chapters: [...committed, ...structuredClone(priorCheckpoint.chapters.slice(committed.length))] };
       state.reportQualityWarnings = [...(state.reportQualityWarnings ?? []), ...priorWarnings.filter(warning => !replaced.has(warning.sectionId) && !state.reportQualityWarnings?.some(current => current.sectionId === warning.sectionId))];
       if (priorDraft && JSON.stringify(committed) === JSON.stringify(priorCheckpoint.chapters.slice(0, committed.length))) state.reportDraft = priorDraft;
