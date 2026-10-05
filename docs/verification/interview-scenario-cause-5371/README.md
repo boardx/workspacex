@@ -22,3 +22,5 @@ Readonly exact review rejected65d5fccf7: an outer prohibition of an inner denial
 Main review rejected the original head for explicit local 假设 false rejection. Added that case plus unrelated-hypothesis/independent-contrast controls; impossibility double-negative RED2/323 and combined hypothesis RED3/326, then GREEN326/326. Only the immediate same-cause hypothesis token qualifies; outer impossibility of inner denial remains rejected. Fresh main0e0a1ad19 was fetched at scope start; the live PR base may advance independently and is not claimed identical to the branch baseline.
 
 After normal main e097 integration:347/347. External5025b7f82 added local postfix uncertainty (351/351) but readonly rejected source-observation/double-denial bypass. Actual RED4/355; moved postfix after denial frames and excluded explicit confirmation frames, preserving the postfix hypotheses; GREEN355/355.
+
+Root follow-up found inner double-denial could still borrow postfix uncertainty: actual RED2/357, then GREEN358/358 after excluding finite affirmative inner-double frames from suffix qualification. Genuine prohibition of that inner predicate remains allowed.

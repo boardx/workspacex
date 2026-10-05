@@ -87,7 +87,8 @@ function qualifiedScenarioCause(clause: string, match: RegExpMatchArray): boolea
   // A postfix qualifier must describe this relation and end locally; unrelated
   // objects or another causal assertion cannot borrow its uncertainty.
   const suffix = clause.slice(match.index! + match[0].length).trim();
-  if (!/(?:确认|确定|证实|证明)(?:了|的)?\s*$/u.test(before) && /^(?:这一假设|[,，]\s*原因)(?:尚待验证|尚待核实|有待验证|有待核实)\s*$/u.test(suffix)) return true;
+  const innerAffirmative = /(?:(?:并非|不是)(?:没有|不)|不可能不)(?:带来|导致|造成|引起|决定)/u.test(match[0]);
+  if (!innerAffirmative && !/(?:确认|确定|证实|证明)(?:了|的)?\s*$/u.test(before) && /^(?:这一假设|[,，]\s*原因)(?:尚待验证|尚待核实|有待验证|有待核实)\s*$/u.test(suffix)) return true;
   return /(?:不能|不可|无法|不得|不应)(?:断言|声称|确认|认定|证明)\s*$/u.test(before)
     || /(?:若|如果|假如|假设|可能|或许|也许)\s*$/u.test(before);
 }
