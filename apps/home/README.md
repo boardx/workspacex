@@ -241,9 +241,10 @@ no longer quietly lose a platform.
 
 ## Production deployment
 
-The verified production domain is `https://www.boardx.us`, on the existing
+The target production domain is `https://workspacex.us`, on the existing
 Cloudflare Pages Direct Upload project `workspacex-home` in BoardX Inc.
-`workspacex-home.pages.dev` remains its default domain; no DNS change is required.
+`workspacex-home.pages.dev` remains its default domain. The authorized owner must
+attach and verify `workspacex.us` before this change is published.
 The project has no native Git connection. GitHub Actions can publish to this
 same project through Wrangler without migrating it.
 
@@ -258,7 +259,7 @@ The publisher checks out the event SHA, packages only runtime files, and adds
 `/.well-known/workspacex-release.json` with that exact commit. Wrangler uses
 `--project-name workspacex-home --branch main --commit-hash <event SHA>`.
 The source canonical, hreflang, social URLs, security.txt and generated sitemap
-use the verified www domain; a temporary deploy-time substitution is unnecessary.
+use the new apex domain; a temporary deploy-time substitution is unnecessary.
 
 The existing Actions secret names are `CLOUDFLARE_ACCOUNT_ID` and
 `CLOUDFLARE_API_TOKEN`. The account ID must be BoardX Inc's
@@ -269,7 +270,7 @@ must set it through GitHub Settings → Secrets and variables → Actions. Do no
 copy a local env token through a new client or create wider permissions.
 
 Before publishing, the workflow checks the existing project name, main branch,
-www domain and successful current production deployment. It records the previous
+new apex domain and successful current production deployment. It records the previous
 ID, then verifies routes, headers and the public release SHA at both the immutable
 deployment URL and custom domain. Verification failure stops the run and rolls
 back only its own cutover; another publisher's deployment is never reversed.
@@ -340,3 +341,56 @@ HTML structure and link checks include the new source page. To export the same
 body, open `/manual/`, choose Print / Save as PDF, and select A4. Browser page
 numbering is an optional print setting. PDF files are derived deliverables;
 never maintain a separate PDF manuscript.
+
+## Landing-page domain cutover (prepared locally, not deployed)
+
+Only the public website moves from `www.boardx.us` / `boardx.us` to
+`https://workspacex.us`. Start free continues to open `devapp.boardx.us`;
+`develop.boardx.us`, application APIs, OAuth and all email/MX records are unchanged.
+The Organization remains BoardX; its website URL and structured-data identifier
+now use the website origin.
+
+Deployment order for the authorized owner:
+
+1. Record the current successful Pages deployment ID and existing website DNS / redirect
+   settings. Attach `workspacex.us` to the existing `workspacex-home` Pages project,
+   verify TLS and custom-domain readiness. Do not change MX or application domains.
+2. Merge this change only when ready to publish: a home-related push to `main`
+   triggers `deploy-home`. Direct Upload has no native Git binding. The publisher
+   refuses to run unless the project includes `workspacex.us`, and verifies the exact
+   release SHA plus routes / headers on the deployment URL and new custom domain.
+3. After the new domain passes verification, configure a temporary 302 redirect
+   on the old website hosts only; validate it in the browser before changing it
+   to permanent 301. Use a Cloudflare Single Redirect expression matching
+   `(http.host eq "boardx.us") or (http.host eq "www.boardx.us")`, dynamic destination
+   `concat("https://workspacex.us", http.request.uri.path)`, status 302 then 301 and
+   **Preserve query string** enabled. Keep old-host DNS/TLS capable of serving that
+   redirect; never match `*.boardx.us`. Pages `_redirects` does not support
+   domain-level redirects:
+   <https://developers.cloudflare.com/pages/configuration/redirects/>.
+4. Run `node apps/home/scripts/live-check.mjs` for the new origin, then, once the
+   old-host redirect has been made permanent,
+   `node apps/home/scripts/verify-domain-redirects.mjs` for both old hosts, including
+   nested paths and encoded queries. Check Start free, mail links and canonical /
+   hreflang / sitemap in the browser. The ordinary live check deliberately still
+   fails directly linked URLs that redirect; use the dedicated domain verifier
+   for old hosts. No live checks are claimed by local fixture tests.
+
+Rollback: disable/revert the old-host redirect first, then restore the previous
+successful Pages deployment using the retained deployment ID and restore only
+website DNS/custom-domain settings changed for the cutover. A pre-migration
+artifact has the old canonical and deployment guard; revert this code commit
+before a subsequent `main` publication. Recheck both domains, Start free and
+security/privacy links. The existing publisher automatically rolls back only
+its own failed deployment and never another publisher's deployment.
+
+Local verification:
+
+```bash
+node apps/home/scripts/check-all.mjs --static-only
+node --test apps/home/tests/pages-deploy.test.mjs
+```
+
+The deployment fixtures exercise domain mismatch refusal, public-SHA verification,
+rollback ownership, same-path cross-origin redirects, real loops, hop limits,
+path/query preservation and temporary-redirect rejection without contacting Cloudflare.

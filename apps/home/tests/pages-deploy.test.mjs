@@ -5,6 +5,8 @@ import { execFileSync, spawnSync } from 'node:child_process';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { cutover } from '../scripts/deploy-pages.mjs';
+import { resolveRedirects } from '../scripts/resolve-redirects.mjs';
+import { verifyDomainRedirect } from '../scripts/verify-domain-redirects.mjs';
 
 const sha = 'a'.repeat(40);
 const env = { GITHUB_EVENT_NAME: 'push', GITHUB_REF: 'refs/heads/main', GITHUB_SHA: sha, CLOUDFLARE_ACCOUNT_ID: 'cc39c0447db8c730182cfd075fe91bf7', CLOUDFLARE_API_TOKEN: 'fixture-only' };
@@ -22,7 +24,7 @@ function fixture({ badDomain = false, smokeFails = false, wrongPublicSha = false
       if (releaseReads === 2 && lastMarkerReplacement) current = { ...next, ...lastMarkerReplacement };
       return Response.json({ commit: wrongPublicSha || (propagationDelay && releaseReads <= 2) ? 'b'.repeat(40) : sha });
     }
-    return Response.json({ success: true, result: { name: 'workspacex-home', production_branch: 'main', domains: [badDomain ? 'other.example' : 'www.boardx.us'], canonical_deployment: current } });
+    return Response.json({ success: true, result: { name: 'workspacex-home', production_branch: 'main', domains: [badDomain ? (typeof badDomain === 'string' ? badDomain : 'other.example') : 'workspacex.us'], canonical_deployment: current } });
   };
   const run = (command, args, options) => {
     assert.equal(options.killSignal, 'SIGKILL');
@@ -43,7 +45,9 @@ test('PRs, non-main refs and wrong account never reach Cloudflare', async () => 
   }
 });
 test('domain mismatch refuses to publish', async () => {
-  const f = fixture({ badDomain: true }); await assert.rejects(cutover({ env, ...f }), /mismatch/); assert.equal(f.calls.length, 1);
+  for (const badDomain of [true, 'www.boardx.us', 'boardx.us']) {
+    const f = fixture({ badDomain }); await assert.rejects(cutover({ env, ...f }), /mismatch/); assert.equal(f.calls.length, 1);
+  }
 });
 test('success records exact SHA, new deployment and previous rollback target', async () => {
   const f = fixture(); const result = await cutover({ env, ...f }); assert.equal(result.status, 'verified'); assert.equal(result.previous_deployment, old.id); assert.equal(result.deployment_id, next.id); assert.equal(result.commit, sha);
@@ -65,7 +69,7 @@ test('packaging rejects a real dirty tracked home source from its nested working
   try {
     const home = join(repo, 'apps/home'); mkdirSync(join(home, 'scripts'), { recursive: true });
     const script = join(home, 'scripts/package-pages.mjs'); writeFileSync(script, readFileSync(new URL('../scripts/package-pages.mjs', import.meta.url)));
-    const index = join(home, 'index.html'); writeFileSync(index, '<link rel="canonical" href="https://www.boardx.us/">');
+    const index = join(home, 'index.html'); writeFileSync(index, '<link rel="canonical" href="https://workspacex.us/">');
     const git = args => execFileSync('git', args, { cwd: repo, stdio: 'pipe' });
     git(['init']); git(['add', 'apps/home']); git(['-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.invalid', 'commit', '-m', 'fixture']);
     writeFileSync(index, readFileSync(index, 'utf8') + '\nDirty tracked edit');
@@ -139,4 +143,41 @@ test('wall clock rollback cannot extend the production deadline or rollback rese
     assert.equal(wallReads, 0, 'elapsed deadline must never consult the wall clock');
     assert.ok(timeouts[0] <= 300000 && timeouts[1] <= 120000);
   } finally { Date.now = original; }
+});
+
+/* Domain migration must not weaken redirect loop detection. */
+
+const redirected = location => new Response(null, { status: 301, headers: { location } });
+test('same path across domains is valid; repeated full URL is a loop', async () => {
+  const source = 'https://www.boardx.us/privacy?next=%2Fmanual%2F';
+  const target = 'https://workspacex.us/privacy?next=%2Fmanual%2F';
+  const success = await resolveRedirects(source, { fetchImpl: async url => url === source ? redirected(target) : new Response('ok') });
+  assert.equal(success.res.status, 200); assert.equal(success.url, target); assert.equal(success.chain.length, 2);
+  const loop = await resolveRedirects(source, { fetchImpl: async url => redirected(url === source ? target : source) });
+  assert.equal(loop.loop, source);
+});
+test('query changes are distinct URLs; relative loops and hop budget remain failures', async () => {
+  const result = await resolveRedirects('https://workspacex.us/?a=1', { fetchImpl: async url => url.endsWith('a=1') ? redirected('?a=2') : new Response('ok') });
+  assert.equal(result.res.status, 200);
+  const loop = await resolveRedirects('https://workspacex.us/a', { fetchImpl: async () => redirected('/a') });
+  assert.equal(loop.loop, 'https://workspacex.us/a');
+  let count = 0;
+  const exhausted = await resolveRedirects('https://workspacex.us/a', { fetchImpl: async () => redirected(`/hop${++count}`) });
+  assert.equal(exhausted.tooMany, true); assert.equal(count, 4);
+});
+test('domain verification rejects lost path/query, temporary redirects and target loops', async () => {
+  const source = 'https://boardx.us/manual/?utm_source=test&next=%2Fprivacy';
+  const target = 'https://workspacex.us/manual/?utm_source=test&next=%2Fprivacy';
+  await verifyDomainRedirect(source, 'https://workspacex.us', { fetchImpl: async url => url === source ? redirected(target) : new Response('ok') });
+  for (const location of ['https://workspacex.us/', 'https://workspacex.us/manual/', 'https://devapp.boardx.us/manual/?utm_source=test&next=%2Fprivacy']) {
+    await assert.rejects(verifyDomainRedirect(source, 'https://workspacex.us', { fetchImpl: async () => redirected(location) }), /path\/query/);
+  }
+  await assert.rejects(verifyDomainRedirect(source, 'https://workspacex.us', { fetchImpl: async () => new Response(null, { status: 302, headers: { location: target } }) }), /permanent/);
+  await assert.rejects(verifyDomainRedirect(source, 'https://workspacex.us', { fetchImpl: async () => redirected(target) }), /target failed/);
+});
+
+test('publication verifies the new custom domain, not just the deployment URL', async () => {
+  const f = fixture(); await cutover({ env, ...f });
+  assert.ok(f.calls.some(([url]) => url.startsWith('https://workspacex.us/.well-known/workspacex-release.json')));
+  assert.ok(!f.calls.some(([url]) => url.startsWith('https://www.boardx.us/')));
 });

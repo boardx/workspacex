@@ -8,7 +8,7 @@ import { performance } from 'node:perf_hooks';
 
 const PROJECT = 'workspacex-home';
 const ACCOUNT = 'cc39c0447db8c730182cfd075fe91bf7';
-const ORIGIN = 'https://www.boardx.us';
+const ORIGIN = 'https://workspacex.us';
 const API = `https://api.cloudflare.com/client/v4/accounts/${ACCOUNT}/pages/projects/${PROJECT}`;
 
 export async function cutover({ env = process.env, fetchImpl = fetch, run = spawnSync, pause = delay, now = () => performance.now(), output, record = () => {} }) {
@@ -29,7 +29,7 @@ export async function cutover({ env = process.env, fetchImpl = fetch, run = spaw
     return body.result;
   };
   const before = await request();
-  if (before.name !== PROJECT || before.production_branch !== 'main' || !before.domains?.includes('www.boardx.us')) throw new Error('Pages project, production branch or domain mismatch');
+  if (before.name !== PROJECT || before.production_branch !== 'main' || !before.domains?.includes('workspacex.us')) throw new Error('Pages project, production branch or domain mismatch');
   const previous = before.canonical_deployment;
   if (!previous?.id || previous.latest_stage?.status !== 'success') throw new Error('no successful production deployment to retain for rollback');
   const evidence = { commit: env.GITHUB_SHA, project: PROJECT, previous_deployment: previous.id, started_at: new Date().toISOString() };

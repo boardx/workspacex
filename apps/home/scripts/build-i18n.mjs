@@ -32,7 +32,7 @@ const CHECK = process.argv.includes('--check');
    generated from it, and check-links.mjs fails if index.html's absolute URLs
    disagree. The README used to document that it lived in four places, which
    is documenting a defect instead of removing it. */
-const SITE = 'https://www.boardx.us';
+const SITE = 'https://workspacex.us';
 /* Every page that has a Chinese twin. `path` is the URL the Chinese version
    lives at, which is what canonical, hreflang and og:url have to say. */
 const PAGES = [
