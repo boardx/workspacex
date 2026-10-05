@@ -1,0 +1,55 @@
+
+> @repo/api@0.0.0 test:interview-markdown-unit /Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/apps/api
+> vitest run --config vitest.interview-markdown-unit.config.ts
+
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/apps/api
+
+ ✓ tests/itv/interview-report-grounding.test.ts (127 tests) 59ms
+ ✓ tests/itv/interview-report-recovery.test.ts (24 tests) 75ms
+ ❯ tests/itv/interview-report-claim-boundaries.test.ts (148 tests | 3 failed) 62ms
+   × finite scenario cause boundaries > rejects an unproved affirmative cause: 不可能不是厨房布局差异导致安装结果差异。 3ms
+     → expected [] to include 'unsupported_scenario_cause'
+   × finite scenario cause boundaries > rejects an unproved affirmative cause: 不会完全不是厨房布局差异导致安装结果差异。 0ms
+     → expected [] to include 'unsupported_scenario_cause'
+   × finite scenario cause boundaries > keeps local uncertainty or denial: 假设厨房布局差异导致安装结果差异，还需现场验证。 0ms
+     → expected [ 'unsupported_scenario_cause' ] to not include 'unsupported_scenario_cause'
+ ✓ tests/itv/interview-report-diagnostics.test.ts (14 tests) 30ms
+ ✓ tests/itv/interview-markdown-report-stream-controller.test.ts (9 tests) 4ms
+ ✓ tests/itv/interview-model-markdown.test.ts (4 tests) 3ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/itv/interview-report-claim-boundaries.test.ts > finite scenario cause boundaries > rejects an unproved affirmative cause: 不可能不是厨房布局差异导致安装结果差异。
+ FAIL  tests/itv/interview-report-claim-boundaries.test.ts > finite scenario cause boundaries > rejects an unproved affirmative cause: 不会完全不是厨房布局差异导致安装结果差异。
+AssertionError: expected [] to include 'unsupported_scenario_cause'
+ ❯ tests/itv/interview-report-claim-boundaries.test.ts:218:98
+    216|  ])('rejects an unproved affirmative cause: %s', claim => {
+    217|   const quote = '另一个场景安装顺利，不能推断普遍发生。';
+    218|   expect(assessReportClaimBoundaries(claim+'['+quote+'](#answer-1)', […
+       |                                                                                                  ^
+    219|  });
+    220|  it.each([
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
+
+ FAIL  tests/itv/interview-report-claim-boundaries.test.ts > finite scenario cause boundaries > keeps local uncertainty or denial: 假设厨房布局差异导致安装结果差异，还需现场验证。
+AssertionError: expected [ 'unsupported_scenario_cause' ] to not include 'unsupported_scenario_cause'
+ ❯ tests/itv/interview-report-claim-boundaries.test.ts:234:61
+    232|   '两个安装场景结果不同，可能与布局、设备或其他未知因素有关，不能确定…
+    233|  ])('keeps local uncertainty or denial: %s', text => {
+    234|   expect(assessReportClaimBoundaries(text, []).missing).not.toContain(…
+       |                                                             ^
+    235|  });
+    236|  it('keeps only the same source-bound observed comparison', () => {
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/3]⎯
+
+ Test Files  1 failed | 5 passed (6)
+      Tests  3 failed | 323 passed (326)
+   Start at  14:17:44
+   Duration  2.47s (transform 617ms, setup 0ms, collect 1.70s, tests 232ms, environment 0ms, prepare 128ms)
+
+/Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/apps/api:
+ ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  @repo/api@0.0.0 test:interview-markdown-unit: `vitest run --config vitest.interview-markdown-unit.config.ts`
+Exit status 1

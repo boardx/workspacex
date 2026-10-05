@@ -1,0 +1,56 @@
+
+> @repo/api@0.0.0 test:interview-markdown-unit /Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/apps/api
+> vitest run --config vitest.interview-markdown-unit.config.ts
+
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/apps/api
+
+ ✓ tests/itv/interview-report-recovery.test.ts (24 tests) 73ms
+ ✓ tests/itv/interview-report-grounding.test.ts (101 tests) 57ms
+ ❯ tests/itv/interview-report-claim-boundaries.test.ts (130 tests | 1 failed) 64ms
+   × local planned measurement interpretation > does not exempt actual or unscoped counts: ```markdown
+以下建议均为待验证的行动方案，需在获取真人证据后方可执行：
+| 目标 | 步骤 | 条件 | 反例 | 指标 |
+|---|---|---|---|---|
+| **核实物理冲突真实性** | 设施管理人员；携带卷尺和图纸前往目标安装点，比对咖啡机背板尺寸与现有插座/柜体孔位。 | 适用于需要固定安装的机型。 | 若改用桌面型或免安装方案，固定孔位检查不适用，但仍需验证桌面承重和就近供电负荷。 | 方法：实地测绘。指标：记录不兼容项数量。注意：不兼容项为零仅支持本次检测未发现冲突，不能推翻一般安装风险。 |
+```
+## 已执行的检测结果
+| 目标 | 步骤 | 条件 | 反例 | 指标 |
+|---|---|---|---|---|
+| **核实物理冲突真实性** | 设施管理人员；携带卷尺和图纸前往目标安装点，比对咖啡机背板尺寸与现有插座/柜体孔位。 | 适用于需要固定安装的机型。 | 若改用桌面型或免安装方案，固定孔位检查不适用，但仍需验证桌面承重和就近供电负荷。 | 方法：实地测绘。指标：记录不兼容项数量。注意：不兼容项为零仅支持本次检测未发现冲突，不能推翻一般安装风险。 | 4ms
+     → expected [] to include 'unsupported_executed_measurement'
+ ✓ tests/itv/interview-report-diagnostics.test.ts (14 tests) 31ms
+ ✓ tests/itv/interview-markdown-report-stream-controller.test.ts (9 tests) 4ms
+ ✓ tests/itv/interview-model-markdown.test.ts (4 tests) 3ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/itv/interview-report-claim-boundaries.test.ts > local planned measurement interpretation > does not exempt actual or unscoped counts: ```markdown
+以下建议均为待验证的行动方案，需在获取真人证据后方可执行：
+| 目标 | 步骤 | 条件 | 反例 | 指标 |
+|---|---|---|---|---|
+| **核实物理冲突真实性** | 设施管理人员；携带卷尺和图纸前往目标安装点，比对咖啡机背板尺寸与现有插座/柜体孔位。 | 适用于需要固定安装的机型。 | 若改用桌面型或免安装方案，固定孔位检查不适用，但仍需验证桌面承重和就近供电负荷。 | 方法：实地测绘。指标：记录不兼容项数量。注意：不兼容项为零仅支持本次检测未发现冲突，不能推翻一般安装风险。 |
+```
+## 已执行的检测结果
+| 目标 | 步骤 | 条件 | 反例 | 指标 |
+|---|---|---|---|---|
+| **核实物理冲突真实性** | 设施管理人员；携带卷尺和图纸前往目标安装点，比对咖啡机背板尺寸与现有插座/柜体孔位。 | 适用于需要固定安装的机型。 | 若改用桌面型或免安装方案，固定孔位检查不适用，但仍需验证桌面承重和就近供电负荷。 | 方法：实地测绘。指标：记录不兼容项数量。注意：不兼容项为零仅支持本次检测未发现冲突，不能推翻一般安装风险。 |
+AssertionError: expected [] to include 'unsupported_executed_measurement'
+ ❯ tests/itv/interview-report-claim-boundaries.test.ts:208:57
+    206|   plannedIntro+'\n'+plannedRow.replace('指标：记录', '指标：本次已完成…
+    207|  ])('does not exempt actual or unscoped counts: %s', text => {
+    208|   expect(assessReportClaimBoundaries(text, []).missing).toContain('uns…
+       |                                                         ^
+    209|  });
+    210|  it('preserves exact source-bound actual observations', () => {
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed | 5 passed (6)
+      Tests  1 failed | 281 passed (282)
+   Start at  13:38:13
+   Duration  2.61s (transform 624ms, setup 0ms, collect 1.81s, tests 232ms, environment 0ms, prepare 138ms)
+
+/Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/apps/api:
+ ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  @repo/api@0.0.0 test:interview-markdown-unit: `vitest run --config vitest.interview-markdown-unit.config.ts`
+Exit status 1

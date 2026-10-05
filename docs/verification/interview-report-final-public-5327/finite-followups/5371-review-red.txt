@@ -1,0 +1,44 @@
+
+> @repo/api@0.0.0 test:interview-markdown-unit /Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/apps/api
+> vitest run --config vitest.interview-markdown-unit.config.ts
+
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/apps/api
+
+ ✓ tests/itv/interview-report-grounding.test.ts (127 tests) 64ms
+ ✓ tests/itv/interview-report-recovery.test.ts (24 tests) 77ms
+ ❯ tests/itv/interview-report-claim-boundaries.test.ts (143 tests | 3 failed) 67ms
+   × finite scenario cause boundaries > rejects an unproved affirmative cause: 不能说不是厨房布局差异导致安装结果差异。 3ms
+     → expected [] to include 'unsupported_scenario_cause'
+   × finite scenario cause boundaries > rejects an unproved affirmative cause: 不能说完全不是厨房布局差异导致安装结果差异。 1ms
+     → expected [] to include 'unsupported_scenario_cause'
+   × finite scenario cause boundaries > rejects an unproved affirmative cause: 不能说这不是厨房布局差异导致安装结果差异。 0ms
+     → expected [] to include 'unsupported_scenario_cause'
+ ✓ tests/itv/interview-report-diagnostics.test.ts (14 tests) 31ms
+ ✓ tests/itv/interview-markdown-report-stream-controller.test.ts (9 tests) 4ms
+ ✓ tests/itv/interview-model-markdown.test.ts (4 tests) 3ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/itv/interview-report-claim-boundaries.test.ts > finite scenario cause boundaries > rejects an unproved affirmative cause: 不能说不是厨房布局差异导致安装结果差异。
+ FAIL  tests/itv/interview-report-claim-boundaries.test.ts > finite scenario cause boundaries > rejects an unproved affirmative cause: 不能说完全不是厨房布局差异导致安装结果差异。
+ FAIL  tests/itv/interview-report-claim-boundaries.test.ts > finite scenario cause boundaries > rejects an unproved affirmative cause: 不能说这不是厨房布局差异导致安装结果差异。
+AssertionError: expected [] to include 'unsupported_scenario_cause'
+ ❯ tests/itv/interview-report-claim-boundaries.test.ts:214:98
+    212|  ])('rejects an unproved affirmative cause: %s', claim => {
+    213|   const quote = '另一个场景安装顺利，不能推断普遍发生。';
+    214|   expect(assessReportClaimBoundaries(claim+'['+quote+'](#answer-1)', […
+       |                                                                                                  ^
+    215|  });
+    216|  it.each([
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
+
+ Test Files  1 failed | 5 passed (6)
+      Tests  3 failed | 318 passed (321)
+   Start at  14:15:30
+   Duration  2.66s (transform 667ms, setup 0ms, collect 1.86s, tests 245ms, environment 0ms, prepare 138ms)
+
+/Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/apps/api:
+ ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  @repo/api@0.0.0 test:interview-markdown-unit: `vitest run --config vitest.interview-markdown-unit.config.ts`
+Exit status 1

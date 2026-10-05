@@ -1,0 +1,38 @@
+
+> @repo/api@0.0.0 test:interview-markdown-unit /Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/apps/api
+> vitest run --config vitest.interview-markdown-unit.config.ts
+
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/apps/api
+
+ ✓ tests/itv/interview-report-grounding.test.ts (127 tests) 57ms
+ ✓ tests/itv/interview-report-recovery.test.ts (24 tests) 72ms
+ ❯ tests/itv/interview-report-claim-boundaries.test.ts (140 tests | 1 failed) 59ms
+   × finite scenario cause boundaries > rejects an unproved affirmative cause: 并非完全不能断言厨房布局差异导致安装结果差异。 3ms
+     → expected [] to include 'unsupported_scenario_cause'
+ ✓ tests/itv/interview-report-diagnostics.test.ts (14 tests) 29ms
+ ✓ tests/itv/interview-markdown-report-stream-controller.test.ts (9 tests) 4ms
+ ✓ tests/itv/interview-model-markdown.test.ts (4 tests) 3ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/itv/interview-report-claim-boundaries.test.ts > finite scenario cause boundaries > rejects an unproved affirmative cause: 并非完全不能断言厨房布局差异导致安装结果差异。
+AssertionError: expected [] to include 'unsupported_scenario_cause'
+ ❯ tests/itv/interview-report-claim-boundaries.test.ts:211:98
+    209|  ])('rejects an unproved affirmative cause: %s', claim => {
+    210|   const quote = '另一个场景安装顺利，不能推断普遍发生。';
+    211|   expect(assessReportClaimBoundaries(claim+'['+quote+'](#answer-1)', […
+       |                                                                                                  ^
+    212|  });
+    213|  it.each([
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed | 5 passed (6)
+      Tests  1 failed | 317 passed (318)
+   Start at  14:12:48
+   Duration  2.45s (transform 604ms, setup 0ms, collect 1.69s, tests 224ms, environment 0ms, prepare 129ms)
+
+/Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/apps/api:
+ ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  @repo/api@0.0.0 test:interview-markdown-unit: `vitest run --config vitest.interview-markdown-unit.config.ts`
+Exit status 1

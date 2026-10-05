@@ -1,0 +1,166 @@
+==> [harness] pre-push: 受影响模块 typecheck/lint（turbo --affected；跳过用 git push --no-verify）
+• turbo 2.10.5
+
+   • Packages in scope: //, @repo/api
+   • Running typecheck, lint in 2 packages
+   • Remote caching disabled, using shared worktree cache
+
+@repo/fabric-markdown:build: cache hit, replaying logs b0b348fbb4fd69c3
+@repo/local-asr-gateway:build: cache hit, replaying logs 16ba7203425c02c8
+@repo/skill-sandbox:build: cache hit, replaying logs 32d4a84dd614fc48
+@repo/fabric-markdown:build: 
+@repo/local-asr-gateway:build: 
+@repo/fabric-markdown:build: > @repo/fabric-markdown@0.1.0 build /Users/shenyangjun/.codex/worktrees/survey-report-echarts/packages/fabric-markdown
+@repo/fabric-markdown:build: > tsc -p tsconfig.build.json
+@repo/fabric-markdown:build: 
+@repo/skill-sandbox:build: 
+@repo/skill-sandbox:build: > @repo/skill-sandbox@0.1.0 build /Users/shenyangjun/boardx/workspacex/apps/skill-sandbox
+@repo/skill-sandbox:build: > tsc --noEmit
+@repo/skill-sandbox:build: 
+@repo/local-asr-gateway:build: > @repo/local-asr-gateway@0.1.0 build /Users/shenyangjun/.codex/worktrees/deep-research-trust-console/workspacex/apps/local-asr-gateway
+@repo/local-asr-gateway:build: > tsc --noEmit
+@repo/local-asr-gateway:build: 
+@repo/cloud-deploy:build: cache hit, replaying logs c7839ef76e806847
+@repo/dev-mode-accounts:build: cache hit, replaying logs 19a5e9478a9e8c93
+@repo/cloud-deploy:build: 
+@repo/cloud-deploy:build: > @repo/cloud-deploy@0.1.0 build /Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/packages/cloud-deploy
+@repo/cloud-deploy:build: > tsc --noEmit
+@repo/cloud-deploy:build: 
+@repo/dev-mode-accounts:build: 
+@repo/dev-mode-accounts:build: > @repo/dev-mode-accounts@0.1.0 build /Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/packages/dev-mode-accounts
+@repo/dev-mode-accounts:build: > tsc --noEmit
+@repo/dev-mode-accounts:build: 
+@repo/api:lint: cache miss, executing 67e7d10cb2d01984
+@repo/api:typecheck: cache miss, executing cedac9ce7279fe4f
+@repo/api:lint: 
+@repo/api:lint: > @repo/api@0.0.0 lint /Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/apps/api
+@repo/api:lint: > node scripts/lint-error-leak.mjs && node scripts/lint-permission-paths.mjs && node scripts/lint-no-builtin-capabilities.mjs && node scripts/lint-global-scope-test-fixtures.mjs && node scripts/lint-design-facet-single-source.mjs && tsx scripts/gen-design-facet-catalog.ts --check && tsx scripts/gen-agenda-tier-catalog.ts --check && node scripts/lint-skill-context-api-only.mjs && node scripts/lint-naming-single-source.mjs && tsx scripts/lint-work-skill-manifests.ts && node ../../.harness/scripts/lint-arch-deps.mjs apps/api/src
+@repo/api:lint: 
+@repo/api:typecheck: 
+@repo/api:typecheck: > @repo/api@0.0.0 typecheck /Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/apps/api
+@repo/api:typecheck: > tsc --noEmit
+@repo/api:typecheck: 
+@repo/api:lint: ✅ lint-error-leak: 169 files in the interface layer, no error detail reaches a response
+@repo/api:lint: scanned=169
+@repo/api:lint: ✅ lint-permission-paths: every tenant-table read goes through the guarded read path
+@repo/api:lint: scanned=1947 tenant-tables=308 allowlisted=149
+@repo/api:lint: · [debt] apps/web/lib/mock/admin-limits.ts:31  built-in capability entry `Scout`
+@repo/api:lint: · [debt] apps/web/lib/mock/admin-limits.ts:32  built-in capability entry `Ledger`
+@repo/api:lint: · [debt] apps/web/lib/mock/admin-limits.ts:33  built-in capability entry `Ava`
+@repo/api:lint: · [debt] apps/web/lib/mock/admin-limits.ts:114  list-shaped constant `USAGE_MATRIX_MODELS` with 5 entries
+@repo/api:lint: · [debt] apps/web/lib/mock/admin.ts:378  built-in capability entry `Ava`
+@repo/api:lint: · [debt] apps/web/lib/mock/admin.ts:379  built-in capability entry `Scout`
+@repo/api:lint: · [debt] apps/web/lib/mock/admin.ts:380  built-in capability entry `Echo`
+@repo/api:lint: · [debt] apps/web/lib/mock/admin.ts:381  built-in capability entry `Ledger`
+@repo/api:lint: · [debt] apps/web/lib/mock/agent-runtime.ts:229  built-in capability entry `Ledger`
+@repo/api:lint: · [debt] apps/web/lib/mock/agent-runtime.ts:270  built-in capability entry `Ava`
+@repo/api:lint: · [debt] apps/web/lib/mock/agent-runtime.ts:271  built-in capability entry `Atlas`
+@repo/api:lint: · [debt] apps/web/lib/mock/agent-runtime.ts:272  built-in capability entry `Scout`
+@repo/api:lint: · [debt] apps/web/lib/mock/agent-runtime.ts:273  built-in capability entry `Ledger`
+@repo/api:lint: · [debt] apps/web/lib/mock/agent-runtime.ts:274  built-in capability entry `Warden`
+@repo/api:lint: · [debt] apps/web/lib/mock/agent-runtime.ts:275  built-in capability entry `Echo`
+@repo/api:lint: · [debt] apps/web/lib/mock/agent-runtime.ts:288  built-in capability entry `Atlas`
+@repo/api:lint: · [debt] apps/web/lib/mock/agent-runtime.ts:343  built-in capability entry `Ava`
+@repo/api:lint: · [debt] apps/web/lib/mock/agent-runtime.ts:344  built-in capability entry `Scout`
+@repo/api:lint: · [debt] apps/web/lib/mock/agent-runtime.ts:389  built-in capability entry `Ava`
+@repo/api:lint: · [debt] apps/web/lib/mock/agent-runtime.ts:391  list-shaped constant `skills` with 3 entries
+@repo/api:lint: · [debt] apps/web/lib/mock/agent-runtime.ts:393  built-in capability entry `Ava`
+@repo/api:lint: · [debt] apps/web/lib/mock/agent-runtime.ts:395  built-in capability entry `Ava`
+@repo/api:lint: · [debt] apps/web/lib/mock/agent-runtime.ts:400  built-in capability entry `Atlas`
+@repo/api:lint: · [debt] apps/web/lib/mock/agent-runtime.ts:402  list-shaped constant `skills` with 3 entries
+@repo/api:lint: · [debt] apps/web/lib/mock/agent-runtime.ts:404  built-in capability entry `Atlas`
+@repo/api:lint: · [debt] apps/web/lib/mock/agent-runtime.ts:406  built-in capability entry `Atlas`
+@repo/api:lint: · [debt] apps/web/lib/mock/agent-runtime.ts:411  built-in capability entry `Scout`
+@repo/api:lint: · [debt] apps/web/lib/mock/agent-runtime.ts:413  list-shaped constant `skills` with 3 entries
+@repo/api:lint: · [debt] apps/web/lib/mock/agent-runtime.ts:415  built-in capability entry `Scout`
+@repo/api:lint: · [debt] apps/web/lib/mock/agent-runtime.ts:417  built-in capability entry `Scout`
+@repo/api:lint: · [debt] apps/web/lib/mock/agent-runtime.ts:422  built-in capability entry `Ledger`
+@repo/api:lint: · [debt] apps/web/lib/mock/agent-runtime.ts:424  list-shaped constant `skills` with 3 entries
+@repo/api:lint: · [debt] apps/web/lib/mock/agent-runtime.ts:426  built-in capability entry `Ledger`
+@repo/api:lint: · [debt] apps/web/lib/mock/agent-runtime.ts:428  built-in capability entry `Ledger`
+@repo/api:lint: · [debt] apps/web/lib/mock/agent-runtime.ts:433  built-in capability entry `Warden`
+@repo/api:lint: · [debt] apps/web/lib/mock/agent-runtime.ts:435  list-shaped constant `skills` with 3 entries
+@repo/api:lint: · [debt] apps/web/lib/mock/agent-runtime.ts:437  built-in capability entry `Warden`
+@repo/api:lint: · [debt] apps/web/lib/mock/agent-runtime.ts:439  built-in capability entry `Warden`
+@repo/api:lint: · [debt] apps/web/lib/mock/agent-runtime.ts:444  built-in capability entry `Echo`
+@repo/api:lint: · [debt] apps/web/lib/mock/agent-runtime.ts:446  list-shaped constant `skills` with 3 entries
+@repo/api:lint: · [debt] apps/web/lib/mock/agent-runtime.ts:448  built-in capability entry `Echo`
+@repo/api:lint: · [debt] apps/web/lib/mock/agent-runtime.ts:450  built-in capability entry `Echo`
+@repo/api:lint: · [debt] apps/web/lib/mock/agent-runtime.ts:472  built-in capability entry `Ava`
+@repo/api:lint: · [debt] apps/web/lib/mock/asset-governance.ts:385  built-in capability entry `Ava`
+@repo/api:lint: · [debt] apps/web/lib/mock/canvas.ts:268  list-shaped constant `templates` with 3 entries
+@repo/api:lint: · [debt] apps/web/lib/mock/canvas.ts:268  list-shaped constant `skills` with 3 entries
+@repo/api:lint: · [debt] apps/web/lib/mock/canvas.ts:269  list-shaped constant `templates` with 6 entries
+@repo/api:lint: · [debt] apps/web/lib/mock/canvas.ts:269  list-shaped constant `skills` with 3 entries
+@repo/api:lint: · [debt] apps/web/lib/mock/canvas.ts:270  list-shaped constant `templates` with 3 entries
+@repo/api:lint: · [debt] apps/web/lib/mock/canvas.ts:270  list-shaped constant `skills` with 6 entries
+@repo/api:lint: · [debt] apps/web/lib/mock/canvas.ts:271  list-shaped constant `templates` with 3 entries
+@repo/api:lint: · [debt] apps/web/lib/mock/canvas.ts:271  list-shaped constant `skills` with 3 entries
+@repo/api:lint: · [debt] apps/web/lib/mock/chat-diagram-fabric.ts:39  built-in capability entry `Scout`
+@repo/api:lint: · [debt] apps/web/lib/mock/chat-viz.ts:48  built-in capability entry `Scout`
+@repo/api:lint: · [debt] apps/web/lib/mock/chat.ts:56  built-in capability entry `Ava`
+@repo/api:lint: · [debt] apps/web/lib/mock/chat.ts:57  built-in capability entry `Atlas`
+@repo/api:lint: · [debt] apps/web/lib/mock/chat.ts:58  built-in capability entry `Scout`
+@repo/api:lint: · [debt] apps/web/lib/mock/chat.ts:59  built-in capability entry `Ledger`
+@repo/api:lint: · [debt] apps/web/lib/mock/chat.ts:60  built-in capability entry `Warden`
+@repo/api:lint: · [debt] apps/web/lib/mock/chat.ts:61  built-in capability entry `Echo`
+@repo/api:lint: · [debt] apps/web/lib/mock/chat.ts:372  built-in capability entry `Ava`
+@repo/api:lint: · [debt] apps/web/lib/mock/chat.ts:413  built-in capability entry `Ava`
+@repo/api:lint: · [debt] apps/web/lib/mock/chat.ts:422  built-in capability entry `Scout`
+@repo/api:lint: · [debt] apps/web/lib/mock/chat.ts:450  built-in capability entry `Ava`
+@repo/api:lint: · [debt] apps/web/lib/mock/chat.ts:484  built-in capability entry `Scout`
+@repo/api:lint: · [debt] apps/web/lib/mock/chat.ts:485  list-shaped constant `models` with 4 entries
+@repo/api:lint: · [debt] apps/web/lib/mock/chat.ts:530  built-in capability entry `Ledger`
+@repo/api:lint: · [debt] apps/web/lib/mock/chat.ts:733  list-shaped constant `skills` with 6 entries
+@repo/api:lint: · [debt] apps/web/lib/mock/chat.ts:738  list-shaped constant `skills` with 4 entries
+@repo/api:lint: · [debt] apps/web/lib/mock/chat.ts:744  list-shaped constant `skills` with 5 entries
+@repo/api:lint: · [debt] apps/web/lib/mock/chat.ts:749  list-shaped constant `skills` with 4 entries
+@repo/api:lint: · [debt] apps/web/lib/mock/chat.ts:785  list-shaped constant `presetSkills` with 3 entries
+@repo/api:lint: · [debt] apps/web/lib/mock/interview-studio.ts:426  built-in capability entry `Echo`
+@repo/api:lint: · [debt] apps/web/lib/mock/live-collab-orchestration.ts:278  list-shaped constant `skills` with 2 entries
+@repo/api:lint: · [debt] apps/web/lib/mock/live-collab-orchestration.ts:279  built-in capability entry `Scout`
+@repo/api:lint: · [debt] apps/web/lib/mock/live-collab-orchestration.ts:279  list-shaped constant `skills` with 2 entries
+@repo/api:lint: · [debt] apps/web/lib/mock/live-collab-orchestration.ts:282  list-shaped constant `skills` with 2 entries
+@repo/api:lint: · [debt] apps/web/lib/mock/live-collab-orchestration.ts:285  list-shaped constant `skills` with 2 entries
+@repo/api:lint: · [debt] apps/web/lib/mock/live-collab-orchestration.ts:289  built-in capability entry `Scout`
+@repo/api:lint: · [debt] apps/web/lib/mock/live-collab-orchestration.ts:289  list-shaped constant `skills` with 2 entries
+@repo/api:lint: · [debt] apps/web/lib/mock/rec.ts:351  built-in capability entry `Ava`
+@repo/api:lint: · [debt] apps/web/lib/mock/rec.ts:417  built-in capability entry `Ava`
+@repo/api:lint: · [debt] apps/web/lib/mock/rec.ts:418  built-in capability entry `Ava`
+@repo/api:lint: · [debt] apps/web/lib/mock/rec.ts:419  built-in capability entry `Scout`
+@repo/api:lint: · [debt] apps/web/lib/mock/research-studio.ts:90  list-shaped constant `RS_SOURCE_DEFAULT` with 2 entries
+@repo/api:lint: · [debt] apps/web/lib/mock/skill.ts:695  built-in capability entry `Scout`
+@repo/api:lint: · [debt] apps/web/lib/mock/tasks.ts:161  built-in capability entry `Ledger`
+@repo/api:lint: · [debt] apps/web/lib/mock/tasks.ts:171  built-in capability entry `Scout`
+@repo/api:lint: · [debt] apps/web/lib/mock/tpl.ts:343  built-in capability entry `Scout`
+@repo/api:lint: ✅ lint-no-builtin-capabilities: no built-in capability list in product code
+@repo/api:lint: scanned=3380 violations=0 debt=89 migrations=396
+@repo/api:lint: ✓ global-scope test fixtures：28 个文件全部已声明
+@repo/api:lint: · [debt] apps/web/lib/mock/tpl.ts:95  second design-facet definition table spread over multiple lines (13 distinct keys)
+@repo/api:lint: · [debt] apps/web/lib/mock/tpl.ts:523  hardcoded completeness denominator in `usedCount: 12, satisfaction: { mean: 4.6, sampleSize: 9 }, d`
+@repo/api:lint: · [debt] apps/web/lib/mock/tpl.ts:529  hardcoded completeness denominator in `usedCount: 3, satisfaction: { mean: 4.3, sampleSize: 3 }, do`
+@repo/api:lint: · [debt] apps/web/lib/mock/tpl.ts:541  hardcoded completeness denominator in `usedCount: 4, satisfaction: { mean: 4.4, sampleSize: 5 }, do`
+@repo/api:lint: · [debt] apps/web/lib/mock/tpl.ts:560  second design-facet slot list (3 keys: flow-agenda, project-materials, outputs…)
+@repo/api:lint: · [debt] apps/web/lib/mock/tpl.ts:562  second design-facet slot list (2 keys: grouping-rule, skill-binding…)
+@repo/api:lint: · [debt] apps/web/lib/mock/tpl.ts:564  second design-facet slot list (3 keys: topic-and-background, survey, report-template…)
+@repo/api:lint: · [debt] apps/web/components/tpl/designer-panels.tsx:710  second design-facet definition table spread over multiple lines (11 distinct keys)
+@repo/api:lint: ✅ lint-design-facet-single-source: the definition table has one source
+@repo/api:lint: scanned=4963 violations=0 debt=8 keys=13 groups=5
+@repo/api:lint: ✅ design-facet catalog is in sync with the definition table
+@repo/api:lint: ✅ agenda tier catalog is in sync with the definition table
+@repo/api:lint: ✅ lint-skill-context-api-only: 78 个文件，skill 取数只经 Context API（I-25）
+@repo/api:lint: scanned=78 violations=0
+@repo/api:lint: ✅ lint-naming-single-source: 0 处败选名（stepId / step_id / agenda_stage / stage.<action>）
+@repo/api:lint: scanned-roots=4
+@repo/api:lint: lint-work-skill-manifests: 89/89 个 Work Skill manifest 通过
+@repo/api:lint: ✅ lint-arch-deps: 1945 files, all dependencies point inward
+@repo/api:lint: scanned=1945
+
+ Tasks:    7 successful, 7 total
+Cached:    5 cached, 7 total
+  Time:    22.355s 
+
+  ℹ 本地只跑了 typecheck/lint。单元测试与 backend-gates（RLS 反证 / 运行时门 /
+    迁移幂等 / 契约单源 / 洋葱分层 / core-loop e2e）在 PR 的 CI 上跑——本地绿 ≠ CI 绿。
+To https://github.com/boardx/workspacex.git
+   9a9a201ca..e9e852e1c  codex/interview-scenario-cause-5371 -> codex/interview-scenario-cause-5371

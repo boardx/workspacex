@@ -1,0 +1,38 @@
+
+> @repo/api@0.0.0 test:interview-markdown-unit /Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/apps/api
+> vitest run --config vitest.interview-markdown-unit.config.ts
+
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/apps/api
+
+ ✓ tests/itv/interview-report-recovery.test.ts (24 tests) 70ms
+ ✓ tests/itv/interview-report-grounding.test.ts (101 tests) 49ms
+ ❯ tests/itv/interview-report-claim-boundaries.test.ts (122 tests | 1 failed) 56ms
+   × local planned measurement interpretation > keeps the preserved complete raw plan interpretation 7ms
+     → expected [ Array(2) ] to not include 'unsupported_executed_measurement'
+ ✓ tests/itv/interview-report-diagnostics.test.ts (14 tests) 30ms
+ ✓ tests/itv/interview-markdown-report-stream-controller.test.ts (9 tests) 5ms
+ ✓ tests/itv/interview-model-markdown.test.ts (4 tests) 3ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/itv/interview-report-claim-boundaries.test.ts > local planned measurement interpretation > keeps the preserved complete raw plan interpretation
+AssertionError: expected [ Array(2) ] to not include 'unsupported_executed_measurement'
+ ❯ tests/itv/interview-report-claim-boundaries.test.ts:189:67
+    187| describe('local planned measurement interpretation', () => {
+    188|  it('keeps the preserved complete raw plan interpretation', () => {
+    189|   expect(assessReportClaimBoundaries(plannedRaw, []).missing).not.toCo…
+       |                                                                   ^
+    190|  });
+    191|  it.each([
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed | 5 passed (6)
+      Tests  1 failed | 273 passed (274)
+   Start at  13:29:44
+   Duration  2.42s (transform 597ms, setup 0ms, collect 1.68s, tests 212ms, environment 0ms, prepare 127ms)
+
+/Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/apps/api:
+ ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  @repo/api@0.0.0 test:interview-markdown-unit: `vitest run --config vitest.interview-markdown-unit.config.ts`
+Exit status 1

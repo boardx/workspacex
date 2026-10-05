@@ -1,0 +1,98 @@
+
+> @repo/api@0.0.0 test:interview-markdown-unit /Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/apps/api
+> vitest run --config vitest.interview-markdown-unit.config.ts
+
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/apps/api
+
+ ✓ tests/itv/interview-report-grounding.test.ts (127 tests) 58ms
+ ✓ tests/itv/interview-report-recovery.test.ts (24 tests) 72ms
+ ❯ tests/itv/interview-report-claim-boundaries.test.ts (129 tests | 10 failed) 131ms
+   × finite scenario cause boundaries > rejects the preserved raw/source report cause 8ms
+     → expected [ Array(2) ] to include 'unsupported_scenario_cause'
+   × finite scenario cause boundaries > rejects actual raw line57 with its original citations 1ms
+     → expected [] to include 'unsupported_scenario_cause'
+   × finite scenario cause boundaries > rejects an unproved affirmative cause: 不同物理环境（如厨房布局差异）带来的情境异质性。 0ms
+     → expected [] to include 'unsupported_scenario_cause'
+   × finite scenario cause boundaries > rejects an unproved affirmative cause: 厨房布局差异导致安装结果差异。 0ms
+     → expected [] to include 'unsupported_scenario_cause'
+   × finite scenario cause boundaries > rejects an unproved affirmative cause: 安装结果差异由厨房布局差异造成。 0ms
+     → expected [] to include 'unsupported_scenario_cause'
+   × finite scenario cause boundaries > rejects an unproved affirmative cause: 可能需要补充预算，但厨房布局差异导致安装结果差异。 0ms
+     → expected [] to include 'unsupported_scenario_cause'
+   × finite scenario cause boundaries > rejects an unproved affirmative cause: 不能否认厨房布局差异导致安装结果差异。 0ms
+     → expected [] to include 'unsupported_scenario_cause'
+   × finite scenario cause boundaries > rejects an unproved affirmative cause: 并非不能断言厨房布局差异导致安装结果差异。 0ms
+     → expected [] to include 'unsupported_scenario_cause'
+   × finite scenario cause boundaries > rejects an unproved affirmative cause: 厨房布局差异可能导致安装结果差异，但是厨房布局差异决定安装结果差异。 0ms
+     → expected [] to include 'unsupported_scenario_cause'
+   × finite scenario cause boundaries > does not turn a participant opinion into cause proof 0ms
+     → expected [] to include 'unsupported_scenario_cause'
+ ✓ tests/itv/interview-report-diagnostics.test.ts (14 tests) 29ms
+ ✓ tests/itv/interview-markdown-report-stream-controller.test.ts (9 tests) 4ms
+ ✓ tests/itv/interview-model-markdown.test.ts (4 tests) 3ms
+
+⎯⎯⎯⎯⎯⎯ Failed Tests 10 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/itv/interview-report-claim-boundaries.test.ts > finite scenario cause boundaries > rejects the preserved raw/source report cause
+AssertionError: expected [ Array(2) ] to include 'unsupported_scenario_cause'
+ ❯ tests/itv/interview-report-claim-boundaries.test.ts:190:78
+    188| describe('finite scenario cause boundaries', () => {
+    189|  it('rejects the preserved raw/source report cause', () => {
+    190|   expect(assessReportClaimBoundaries(scenarioRaw, scenarioEvidence).mi…
+       |                                                                              ^
+    191|  });
+    192|  it('rejects actual raw line57 with its original citations', () => {
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/10]⎯
+
+ FAIL  tests/itv/interview-report-claim-boundaries.test.ts > finite scenario cause boundaries > rejects actual raw line57 with its original citations
+AssertionError: expected [] to include 'unsupported_scenario_cause'
+ ❯ tests/itv/interview-report-claim-boundaries.test.ts:195:71
+    193|   const line = scenarioRaw.split('\n')[56];
+    194|   if (!line) throw new Error('Missing preserved line57');
+    195|   expect(assessReportClaimBoundaries(line, scenarioEvidence).missing).…
+       |                                                                       ^
+    196|  });
+    197|  it.each([
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/10]⎯
+
+ FAIL  tests/itv/interview-report-claim-boundaries.test.ts > finite scenario cause boundaries > rejects an unproved affirmative cause: 不同物理环境（如厨房布局差异）带来的情境异质性。
+ FAIL  tests/itv/interview-report-claim-boundaries.test.ts > finite scenario cause boundaries > rejects an unproved affirmative cause: 厨房布局差异导致安装结果差异。
+ FAIL  tests/itv/interview-report-claim-boundaries.test.ts > finite scenario cause boundaries > rejects an unproved affirmative cause: 安装结果差异由厨房布局差异造成。
+ FAIL  tests/itv/interview-report-claim-boundaries.test.ts > finite scenario cause boundaries > rejects an unproved affirmative cause: 可能需要补充预算，但厨房布局差异导致安装结果差异。
+ FAIL  tests/itv/interview-report-claim-boundaries.test.ts > finite scenario cause boundaries > rejects an unproved affirmative cause: 不能否认厨房布局差异导致安装结果差异。
+ FAIL  tests/itv/interview-report-claim-boundaries.test.ts > finite scenario cause boundaries > rejects an unproved affirmative cause: 并非不能断言厨房布局差异导致安装结果差异。
+ FAIL  tests/itv/interview-report-claim-boundaries.test.ts > finite scenario cause boundaries > rejects an unproved affirmative cause: 厨房布局差异可能导致安装结果差异，但是厨房布局差异决定安装结果差异。
+AssertionError: expected [] to include 'unsupported_scenario_cause'
+ ❯ tests/itv/interview-report-claim-boundaries.test.ts:207:98
+    205|  ])('rejects an unproved affirmative cause: %s', claim => {
+    206|   const quote = '另一个场景安装顺利，不能推断普遍发生。';
+    207|   expect(assessReportClaimBoundaries(claim+'['+quote+'](#answer-1)', […
+       |                                                                                                  ^
+    208|  });
+    209|  it.each([
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/10]⎯
+
+ FAIL  tests/itv/interview-report-claim-boundaries.test.ts > finite scenario cause boundaries > does not turn a participant opinion into cause proof
+AssertionError: expected [] to include 'unsupported_scenario_cause'
+ ❯ tests/itv/interview-report-claim-boundaries.test.ts:221:107
+    219|  it('does not turn a participant opinion into cause proof', () => {
+    220|   const quote = '我认为厨房布局差异导致安装结果差异。';
+    221|   expect(assessReportClaimBoundaries('厨房布局差异导致安装结果差异。['…
+       |                                                                                                           ^
+    222|   expect(assessReportClaimBoundaries('受访者原话：['+quote+'](#answer-…
+    223|  });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/10]⎯
+
+ Test Files  1 failed | 5 passed (6)
+      Tests  10 failed | 297 passed (307)
+   Start at  14:08:36
+   Duration  2.70s (transform 663ms, setup 0ms, collect 1.86s, tests 297ms, environment 0ms, prepare 136ms)
+
+/Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/apps/api:
+ ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  @repo/api@0.0.0 test:interview-markdown-unit: `vitest run --config vitest.interview-markdown-unit.config.ts`
+Exit status 1

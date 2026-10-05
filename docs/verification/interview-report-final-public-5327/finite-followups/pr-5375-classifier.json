@@ -1,0 +1,11 @@
+{
+  "head": "e9e852e1c13554f5c16bd48b55f87c4b0b6b385f",
+  "checks": {
+    "blocked": [],
+    "changes": [],
+    "waitingCi": [],
+    "advisories": [
+      "DEFERRED: visual-deferred status=COMPLETED conclusion=SKIPPED; outside this iteration's acceptance, never counted as PASS"
+    ]
+  }
+}
