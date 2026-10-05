@@ -1,0 +1,40 @@
+
+> @repo/api@0.0.0 test:interview-markdown-unit /Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/apps/api
+> vitest run --config vitest.interview-markdown-unit.config.ts
+
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/apps/api
+
+ ✓ tests/itv/interview-report-recovery.test.ts (24 tests) 88ms
+ ❯ tests/itv/interview-report-grounding.test.ts (112 tests | 1 failed) 72ms
+   × report evidence grounding > preserves local inability to conclude: 无法得出‘预算必然阻止购买’的无条件结论。 4ms
+     → expected false to be true // Object.is equality
+ ✓ tests/itv/interview-report-claim-boundaries.test.ts (113 tests) 55ms
+ ✓ tests/itv/interview-report-diagnostics.test.ts (14 tests) 32ms
+ ✓ tests/itv/interview-markdown-report-stream-controller.test.ts (9 tests) 5ms
+ ✓ tests/itv/interview-model-markdown.test.ts (4 tests) 3ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/itv/interview-report-grounding.test.ts > report evidence grounding > preserves local inability to conclude: 无法得出‘预算必然阻止购买’的无条件结论。
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ tests/itv/interview-report-grounding.test.ts:16:110
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed | 5 passed (6)
+      Tests  1 failed | 275 passed (276)
+   Start at  12:38:01
+   Duration  2.75s (transform 643ms, setup 0ms, collect 1.91s, tests 254ms, environment 0ms, prepare 143ms)
+
+/Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/apps/api:
+ ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  @repo/api@0.0.0 test:interview-markdown-unit: `vitest run --config vitest.interview-markdown-unit.config.ts`
+Exit status 1
