@@ -394,7 +394,11 @@ class CandidateStageHost:
         require(type(entry) is dict and type(entry.get('input')) is dict,
                 'CANDIDATE_STAGE_QUALIFICATION_INPUT')
         qualification=json.loads(self._read_ref(entry['input']))
-        require(type(qualification) is dict and qualification.get('binding')==bound,
+        semantic_fields=('identity','toolRevision','host','epoch','holdGeneration')
+        binding=qualification.get('binding') if type(qualification) is dict else None
+        require(type(bound) is dict and set(bound)==set(semantic_fields) and
+            type(binding) is dict and set(binding)==set(semantic_fields)|{'targetInstanceId','providerBindingSha256'} and
+            all(binding[k]==bound[k] for k in semantic_fields),
                 'CANDIDATE_STAGE_QUALIFICATION_BINDING')
         manifest=dict(path='/etc/workspacex-cn/maintenance-evidence/'+APP+'/'+
             bound['identity']['attemptId']+'/qualified-current-epoch/epoch.json',sha256=stage_binding['epoch'])

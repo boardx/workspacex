@@ -304,12 +304,30 @@ class SnapshotAuthorityTests(unittest.TestCase):
     def test_snapshot_epoch_is_verified_against_existing_source_qualifier(self):
         import json
         source=object.__new__(CandidateStageHost);source.require_lock=lambda:None
-        semantic=dict(identity={'attemptId':'fixture'},epoch='a'*64);stage=dict(semantic,epoch='b'*64)
+        semantic=dict(identity={'attemptId':'fixture'},toolRevision='e'*40,host={'instanceId':'host','bootId':'boot'},epoch='a'*64,holdGeneration='f'*32);stage=dict(semantic,epoch='b'*64)
+        full_binding=dict(semantic,targetInstanceId='pgm-isolated',providerBindingSha256='9'*64)
         ref={'path':'/etc/workspacex-cn/qualification.json','sha256':'c'*64};calls=[]
         source._recheck=lambda:None;source._profile=lambda:(b'',{'currentEpochQualification':{'input':ref}}, {})
-        source._read_ref=lambda r:json.dumps({'binding':semantic,'collection':{'path':'collection','sha256':'d'*64}}).encode()
+        source._read_ref=lambda r:json.dumps({'binding':full_binding,'collection':{'path':'collection','sha256':'d'*64}}).encode()
         source.verify_current_epoch=lambda refs,bound:(calls.append((refs,bound)) or {'epochManifestSha256':refs['manifest']['sha256']})
         self.assertTrue(source.verify_snapshot_binding(semantic,stage))
         self.assertEqual(calls[0][0]['manifest']['sha256'],stage['epoch']);self.assertEqual(calls[0][1],semantic)
         source.verify_current_epoch=lambda *args:{'epochManifestSha256':'0'*64}
         with self.assertRaisesRegex(RuntimeError,'QUALIFIED_MANIFEST'):source.verify_snapshot_binding(semantic,stage)
+
+    def test_snapshot_qualification_rejects_missing_extra_or_changed_binding_keys(self):
+        import json,copy
+        source=object.__new__(CandidateStageHost);source.require_lock=lambda:None;source._recheck=lambda:None
+        semantic=dict(identity={'attemptId':'fixture'},toolRevision='e'*40,host={'instanceId':'host','bootId':'boot'},epoch='a'*64,holdGeneration='f'*32)
+        stage=dict(semantic,epoch='b'*64);full=dict(semantic,targetInstanceId='pgm-isolated',providerBindingSha256='9'*64)
+        source._profile=lambda:(b'',{'currentEpochQualification':{'input':{}}},{})
+        calls=[];source.verify_current_epoch=lambda *args:(calls.append(args) or {'epochManifestSha256':stage['epoch']})
+        for case in ('missing-target','missing-provider','extra','identity','toolRevision','host','epoch','holdGeneration'):
+            binding=copy.deepcopy(full)
+            if case=='missing-target':binding.pop('targetInstanceId')
+            elif case=='missing-provider':binding.pop('providerBindingSha256')
+            elif case=='extra':binding['unapproved']=True
+            else:binding[case]={} if type(binding[case]) is dict else 'changed'
+            source._read_ref=lambda r:json.dumps({'binding':binding,'collection':{}}).encode()
+            with self.assertRaisesRegex(RuntimeError,'QUALIFICATION_BINDING',msg=case):source.verify_snapshot_binding(semantic,stage)
+        self.assertEqual(calls,[])
