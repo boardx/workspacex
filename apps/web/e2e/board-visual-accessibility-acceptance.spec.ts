@@ -73,8 +73,15 @@ test('visual and accessibility real object states, input and negative controls',
         }
         captures.push(await captureVisual(page,info,`${row.kind}-${row.id}-${viewport.width}`));
         if(row.id==='visual-shape'){
-          if(await page.getByLabel('对象文字',{exact:true}).isVisible())await page.keyboard.press('Escape');
-          const trigger=page.getByRole('button',{name:'更多操作',exact:true});await trigger.click();
+          const editor=page.getByLabel('对象文字',{exact:true});
+          if(await editor.isVisible()){
+            // Outline Enter mounts the editor before its next-frame focus runs.
+            // Sending Escape to the still-focused outline leaves editing open
+            // and hides the contextual menu. Wait for the real keyboard owner.
+            await expect(editor).toBeFocused();await editor.press('Escape');
+            await expect(editor).toBeHidden();
+          }
+          const trigger=page.getByRole('button',{name:'更多操作',exact:true});await expect(trigger).toBeVisible();await trigger.click();
           await page.getByTestId('board-properties-open').click();await expect(page.getByTestId('board-shared-properties')).toBeVisible();
           captures.push(await captureVisual(page,info,`properties-${viewport.width}`,false));await page.keyboard.press('Escape');await expect(trigger).toBeFocused();
         }
