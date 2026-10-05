@@ -181,3 +181,28 @@ test('publication verifies the new custom domain, not just the deployment URL', 
   assert.ok(f.calls.some(([url]) => url.startsWith('https://workspacex.us/.well-known/workspacex-release.json')));
   assert.ok(!f.calls.some(([url]) => url.startsWith('https://www.boardx.us/')));
 });
+
+for (const [name, finalURL] of [
+  ['query removed', 'https://workspacex.us/manual/'],
+  ['old domain returned', 'https://www.boardx.us/manual/?next=%2Fprivacy'],
+  ['HTTPS downgraded', 'http://workspacex.us/manual/?next=%2Fprivacy'],
+]) test(`domain verification rejects a later 200 after ${name}`, async () => {
+  const source = 'https://boardx.us/manual/?next=%2Fprivacy';
+  const target = 'https://workspacex.us/manual/?next=%2Fprivacy';
+  const requested = [];
+  await assert.rejects(verifyDomainRedirect(source, 'https://workspacex.us', { fetchImpl: async url => {
+    requested.push(url);
+    return url === source ? redirected(target) : url === target ? redirected(finalURL) : new Response('ok');
+  } }), /path\/query or target origin changed in redirect chain/);
+  assert.deepEqual(requested, [source, target], 'reject before requesting the changed URL');
+});
+test('domain verification preserves encoded paths and query byte representation', async () => {
+  const source = 'https://www.boardx.us/manual/a%2Fb%20c?next=%2Fprivacy&tag=a%2Bb&tag=c';
+  const target = 'https://workspacex.us/manual/a%2Fb%20c?next=%2Fprivacy&tag=a%2Bb&tag=c';
+  const requested = [];
+  await verifyDomainRedirect(source, 'https://workspacex.us', { fetchImpl: async url => {
+    requested.push(url); return url === source ? redirected(target) : new Response('ok');
+  } });
+  assert.deepEqual(requested, [source, target]);
+  await assert.rejects(verifyDomainRedirect(source, 'http://workspacex.us'), /HTTPS/);
+});

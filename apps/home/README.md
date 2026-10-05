@@ -393,4 +393,6 @@ node --test apps/home/tests/pages-deploy.test.mjs
 
 The deployment fixtures exercise domain mismatch refusal, public-SHA verification,
 rollback ownership, same-path cross-origin redirects, real loops, hop limits,
-path/query preservation and temporary-redirect rejection without contacting Cloudflare.
+path/query preservation throughout the complete chain, later origin changes /
+HTTPS downgrades, encoded paths and temporary-redirect rejection without contacting
+Cloudflare.

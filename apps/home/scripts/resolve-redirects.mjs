@@ -1,8 +1,9 @@
 /* Shared by the site smoke check and the domain migration check. */
-export async function resolveRedirects(start, { fetchImpl = fetch, maxHops = 3 } = {}) {
+export async function resolveRedirects(start, { fetchImpl = fetch, maxHops = 3, validateURL = () => {} } = {}) {
   const chain = [], visited = new Set();
   let url = new URL(start).href;
   for (let hop = 0; hop <= maxHops; hop += 1) {
+    validateURL(url);
     visited.add(url);
     const res = await fetchImpl(url, { redirect: 'manual', headers: { 'user-agent': 'workspacex-live-check' } });
     chain.push(`${res.status} ${url}`);
