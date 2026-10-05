@@ -71,6 +71,10 @@ const SUBTASK_BOUNDARIES = new Set([
   "src/infrastructure/agent-run/subtask-run-executor.ts",
 ]);
 const ALLOWLIST = new Map([
+  [
+    "src/infrastructure/agent/read-published-skill-pins.ts",
+    "Refs #5386: extracted metadata-only lookup previously in guarded PgAgentDirectoryRepository; shared by that repository and PgCreateAgentRepository capability graph read. Caller use cases retain the existing organization membership decision. The helper accepts an existing TenantSession, restricts exact published version IDs to tenant or platform with skill/version org equality, and returns only skillId/versionId in requested order. No content, ACL, grants, writes or withoutTenant. tests/agent/agent-directory-repo-guard.test.ts scans the helper together with the caller for bounded tables/no content/no withoutTenant; published-capability-graph-pins.test.ts asserts tenant/version predicates, unresolved IDs and no inferred bindings. Adding content or unguarded callers invalidates this exemption; no DB privilege changes.",
+  ],
 
   [
     "src/infrastructure/work-content/pg-content-skill-instructions.ts",
