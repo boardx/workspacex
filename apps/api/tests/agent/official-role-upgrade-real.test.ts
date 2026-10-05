@@ -87,7 +87,7 @@ describe("official-role immutable selected upgrade: real PostgreSQL/HTTP",()=>{
     const row=(await s.query<{skill_id:string;version_id:string}>("SELECT s.id AS skill_id,v.id AS version_id FROM skills s JOIN skill_versions v ON v.skill_id=s.id AND v.org_id=s.org_id WHERE s.org_id=$1 AND s.stable_name='customer-research' AND v.published=true",[ORG])).rows[0]!;
     await s.query("UPDATE skill_catalog_entries SET channel='verified' WHERE org_id=$1 AND skill_id=$2",[ORG,row.skill_id]);return row.version_id;
   });
-  expect((await offer()).upgrades).toContainEqual(expect.objectContaining({...current,currentVersion:"1.6.0",targetVersion:"1.6.0",readySkillCount:1}));
+  expect((await offer()).upgrades).toContainEqual(expect.objectContaining({...current,currentVersion:"1.7.0",targetVersion:"1.7.0",readySkillCount:1}));
   const request=body(current);
   expect((await post(agentRole.operations.upgradeOfficialRoles.path,request,MEMBER)).status).toBe(403);
   expect((await post(agentRole.operations.upgradeOfficialRoles.path,request,ADMIN,OTHER)).status).toBe(403);
