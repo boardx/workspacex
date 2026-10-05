@@ -70,8 +70,8 @@ function scopedObservedExclusion(clause: string, quote: string, start: number, e
 }
 // Finite installation-scene causal forms observed in #5371, not general causal inference.
 const scenarioCause = /(?:不同物理环境(?:\([^。；;\n]{0,32}\))?|(?:厨房|办公室|装修)?布局(?:差异|不同))\s*(可能|或许|也许)?\s*(?:(?:并非|不是)(?:没有|不)|不可能不)?(?:带来(?:的)?|导致|造成|引起|决定)(?:[^，,:：。；;\n]{0,16})(?:情境异质性|安装(?:结果)?差异|安装成功|安装失败)|安装(?:结果)?差异(?:由|是由)(?:厨房|办公室|装修)?布局(?:差异|不同)(可能|或许|也许)?(?:造成|导致|引起|决定)/gu;
-const causalConfirmationConnector = String.raw`(?:了|的)?(?:(?:确实|的确|明确|直接|完全|真的|\s)*|(?:(?!(?:确认|确定|证实|证明|且|并|而))[^，,:：。；;\n])*是)\s*$`;
-const confirmedScenarioCause = new RegExp(String.raw`(?:确认|确定|证实|证明)` + causalConfirmationConnector, "u");
+// Explicit finite modifiers/copulas only: never scan arbitrary object text up to 是.
+const causalConfirmationConnector = String.raw`(?:了|的)?(?:确实|的确|明确|直接|完全|真的|明显|有充分依据|\s){0,8}(?:这(?:一原因)?(?:就)?是|(?:就)?是)?\s*$`;
 const deniedScenarioCause = new RegExp(String.raw`(?:不能|不可|无法|不得|不应)(?:断言|声称|确认|认定|证明|证实)` + causalConfirmationConnector, "u");
 function qualifiedScenarioCause(clause: string, match: RegExpMatchArray): boolean {
   const before = clause.slice(0, match.index!).split(/[，,:：]/u).at(-1)!;
@@ -91,10 +91,9 @@ function qualifiedScenarioCause(clause: string, match: RegExpMatchArray): boolea
   // objects or another causal assertion cannot borrow its uncertainty.
   const suffix = clause.slice(match.index! + match[0].length).trim();
   const innerAffirmative = /(?:(?:并非|不是)(?:没有|不)|不可能不)(?:带来|导致|造成|引起|决定)/u.test(match[0]);
-  // Copular 是 binds the following causal proposition even when modifiers intervene.
-  // The comma-local prefix prevents confirmation of an earlier independent object
-  // from being treated as confirmation of this cause.
-  const confirmed = confirmedScenarioCause.test(before);
+  // Unknown or oversized confirmation frames cannot borrow postfix uncertainty.
+  // Only the finite direct-denial grammar below can admit such an operator frame.
+  const confirmed = /(?:确认|确定|证实|证明)/u.test(before);
   if (!innerAffirmative && !confirmed && /^(?:这一假设|[,，]\s*原因)(?:尚待验证|尚待核实|有待验证|有待核实)\s*$/u.test(suffix)) return true;
   return deniedScenarioCause.test(before)
     || /(?:若|如果|假如|假设|可能|或许|也许)\s*$/u.test(before);
