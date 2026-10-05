@@ -1,0 +1,40 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/packages/contracts
+
+ ❯ tests/interview-markdown.test.ts (70 tests | 4 failed) 40ms
+   × numbered verifiable action headings (#5289) > accepts hierarchical heading 6.1 下一步验证建议 with substantive action 3ms
+     → expected false to be true // Object.is equality
+   × numbered verifiable action headings (#5289) > accepts hierarchical heading 6.1. 下一步验证建议 with substantive action 0ms
+     → expected false to be true // Object.is equality
+   × numbered verifiable action headings (#5289) > accepts hierarchical heading 6.1.2 验证计划（可执行行动） with substantive action 0ms
+     → expected false to be true // Object.is equality
+   × numbered verifiable action headings (#5289) > accepts hierarchical heading ６．１ 下一步验证建议 with substantive action 0ms
+     → expected false to be true // Object.is equality
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 4 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/interview-markdown.test.ts > numbered verifiable action headings (#5289) > accepts hierarchical heading 6.1 下一步验证建议 with substantive action
+ FAIL  tests/interview-markdown.test.ts > numbered verifiable action headings (#5289) > accepts hierarchical heading 6.1. 下一步验证建议 with substantive action
+ FAIL  tests/interview-markdown.test.ts > numbered verifiable action headings (#5289) > accepts hierarchical heading 6.1.2 验证计划（可执行行动） with substantive action
+ FAIL  tests/interview-markdown.test.ts > numbered verifiable action headings (#5289) > accepts hierarchical heading ６．１ 下一步验证建议 with substantive action
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ tests/interview-markdown.test.ts:178:78
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/4]⎯
+
+ Test Files  1 failed (1)
+      Tests  4 failed | 66 passed (70)
+   Start at  03:46:06
+   Duration  468ms (transform 126ms, setup 0ms, collect 215ms, tests 40ms, environment 0ms, prepare 62ms)
+
+undefined
+/Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/packages/contracts:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/interview-markdown.test.ts
