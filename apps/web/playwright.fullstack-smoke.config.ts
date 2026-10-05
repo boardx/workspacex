@@ -500,6 +500,8 @@ export default defineConfig({
         // Draw preview/cancellation remains in smoke. The 30-minute meeting-room
         // acceptance runs in its dedicated Board CI lane with a private ledger key.
         "board-drawing-live-preview.spec.ts",
+        // Screenshot feedback owns disposable Boards; keep its save/reload assertions CI-reachable.
+        "board-feedback-20261005.spec.ts",
         // R09 owns disposable Boards/tenant and shares this existing isolated stack.
         "board-files-acceptance.spec.ts",
       ],
@@ -842,6 +844,7 @@ export default defineConfig({
         // switch makes the trust-console browser contract reachable in the production-mode
         // build exercised by fullstack smoke.
         FULLSTACK_E2E_PREVIEWS: "1",
+        FULLSTACK_E2E_BOARD_RECEIPTS: "1",
         NEXT_DIST_DIR: ".next-fullstack-e2e",
         /**
          * #951 —— 让 `next build` 的 `next/font/google` 完全不联网（hermetic）。

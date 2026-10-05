@@ -1,0 +1,65 @@
+{
+  "numTotalTests": 1212,
+  "numPassedTests": 1203,
+  "numFailedTests": 9,
+  "success": false,
+  "failures": [
+    {
+      "file": "board-drawing-choice-style.test.ts",
+      "tests": [
+        {
+          "name": "uses instrument alpha once within a stroke and source-over between independent strokes",
+          "message": "browserType.launch: Target page, context or browser has been closed"
+        }
+      ]
+    },
+    {
+      "file": "board-drawing-stroke-path.test.ts",
+      "tests": [
+        {
+          "name": "composites joint alpha once in real browser pixels and retains scaled eraser masks",
+          "message": "browserType.launch: Target page, context or browser has been closed"
+        }
+      ]
+    },
+    {
+      "file": "board-content-tools.test.tsx",
+      "tests": [
+        {
+          "name": "creates a real shape and structured Tile from the touch-first dock",
+          "message": "Error: Test timed out in 15000ms."
+        },
+        {
+          "name": "makes all fifteen canonical shape variants reachable from the dock",
+          "message": "Error: Test timed out in 15000ms."
+        },
+        {
+          "name": "stores pressure-aware drawing and eraser strokes as vector compositing objects",
+          "message": "TestingLibraryElementError: Found multiple elements by: [data-testid=\"board-add-draw\"]"
+        },
+        {
+          "name": "creates a verified durable image without writing bytes or blob/data URLs into the shared document",
+          "message": "AssertionError: expected [] to have a length of 1 but got +0"
+        },
+        {
+          "name": "retains a shared image asset across duplicate deletion and remote bulk deletion until editor unmount",
+          "message": "AssertionError: expected [] to have a length of 1 but got +0"
+        }
+      ]
+    },
+    {
+      "file": "whiteboard-confirmed-loss.test.ts",
+      "tests": [
+        {
+          "name": "retires offline delete/undo/redo after confirmed viewer archived=false and regrant cannot replay it",
+          "message": "AssertionError: expected { phase: 'connecting', …(10) } to match object { phase: 'blocked', …(2) }"
+        },
+        {
+          "name": "retires offline delete/undo/redo after confirmed editor archived=true and regrant cannot replay it",
+          "message": "AssertionError: expected { phase: 'connecting', …(10) } to match object { phase: 'blocked', …(2) }"
+        }
+      ]
+    }
+  ],
+  "rerun": "Four files repeated with one worker outside sandbox; three passed, content-tools static-import test-only fix then 38/38 passed. Original assertion/timeout unchanged."
+}

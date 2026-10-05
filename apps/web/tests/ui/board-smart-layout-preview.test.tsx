@@ -24,6 +24,7 @@ it("renders deterministic before/after preview, cancels without mutation, and co
   render(<CollaborativeThinkingEditor boardId="board" clientId="web" doc={doc} readOnly={false} title="Board" status="已连接" />);
   fireEvent.click(screen.getByTestId("select-all"));
   fireEvent.click(screen.getByTestId("board-inspector-layout"));
+  fireEvent.mouseDown(screen.getByTestId("board-layout-tab-smart"), { button: 0, ctrlKey: false });
   fireEvent.click(screen.getByTestId("board-layout-smart-preview"));
   expect(screen.getByTestId("board-layout-preview")).toHaveTextContent("Grid 预览");
   expect(geometry(doc)).toEqual(before);
@@ -33,6 +34,7 @@ it("renders deterministic before/after preview, cancels without mutation, and co
   expect(geometry(doc)).toEqual(before);
   expect(projected()).toEqual(before);
 
+  fireEvent.mouseDown(screen.getByTestId("board-layout-tab-smart"), { button: 0, ctrlKey: false });
   fireEvent.click(screen.getByTestId("board-layout-smart-preview"));
   expect(projected()).toEqual(firstPreview);
   let transactions = 0;
@@ -50,6 +52,7 @@ it("blocks all other mutation controls while a preview is pending", () => {
   render(<CollaborativeThinkingEditor boardId="board" clientId="web" doc={doc} readOnly={false} title="Board" status="已连接" />);
   fireEvent.click(screen.getByTestId("select-all"));
   fireEvent.click(screen.getByTestId("board-inspector-layout"));
+  fireEvent.mouseDown(screen.getByTestId("board-layout-tab-smart"), { button: 0, ctrlKey: false });
   fireEvent.click(screen.getByTestId("board-smart-timeline"));
   expect(screen.getByTestId("board-layout-preview")).toHaveTextContent("Timeline 预览");
   expect(screen.getByRole("button", { name: "撤销" })).toBeDisabled();

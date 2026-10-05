@@ -1,0 +1,46 @@
+==> [harness] pre-push: 受影响模块 typecheck/lint（turbo --affected；跳过用 git push --no-verify）
+• turbo 2.10.5
+
+   • Packages in scope: //, web
+   • Running typecheck, lint in 2 packages
+   • Remote caching disabled, using shared worktree cache
+
+@repo/dev-mode-accounts:build: cache hit, replaying logs dd08e05d30cf29a5
+@repo/dev-mode-accounts:build: 
+@repo/dev-mode-accounts:build: > @repo/dev-mode-accounts@0.1.0 build /private/tmp/wsx-pr5298-ci-fixture-repair-20261004/packages/dev-mode-accounts
+@repo/dev-mode-accounts:build: > tsc --noEmit
+@repo/dev-mode-accounts:build: 
+@repo/fabric-markdown:build: cache hit, replaying logs b0b348fbb4fd69c3
+@repo/fabric-markdown:build: 
+@repo/fabric-markdown:build: > @repo/fabric-markdown@0.1.0 build /Users/shenyanbin/.codex/worktrees/board-acceptance-assets/workspacex/packages/fabric-markdown
+@repo/fabric-markdown:build: > tsc -p tsconfig.build.json
+@repo/fabric-markdown:build: 
+web:lint: cache miss, executing 119392f640d4586a
+web:typecheck: cache miss, executing b953caafaaf55336
+web:typecheck: 
+web:typecheck: > web@0.1.0 typecheck /private/tmp/wsx-board-main-delivery-20261003/apps/web
+web:typecheck: > tsc --noEmit
+web:typecheck: 
+web:lint: 
+web:lint: > web@0.1.0 lint /private/tmp/wsx-board-main-delivery-20261003/apps/web
+web:lint: > next lint --max-warnings 0 && node scripts/gen-light-scope.mjs --check && ./scripts/lint-design.sh
+web:lint: 
+web:lint: ✔ No ESLint warnings or errors
+web:lint: ✅ gen-light-scope: .wx-light 与 :root 一致（53 个 token）
+web:lint: 
+web:lint: ✅ lint-design：全部通过（扫描 app components lib）
+
+ Tasks:    4 successful, 4 total
+Cached:    2 cached, 4 total
+  Time:    10.202s 
+
+  ℹ 本地只跑了 typecheck/lint。单元测试与 backend-gates（RLS 反证 / 运行时门 /
+    迁移幂等 / 契约单源 / 洋葱分层 / core-loop e2e）在 PR 的 CI 上跑——本地绿 ≠ CI 绿。
+To https://github.com/boardx/workspacex.git
+ ! [rejected]            codex/board-main-delivery-20261003 -> codex/board-main-delivery-20261003 (fetch first)
+error: failed to push some refs to 'https://github.com/boardx/workspacex.git'
+hint: Updates were rejected because the remote contains work that you do not
+hint: have locally. This is usually caused by another repository pushing to
+hint: the same ref. If you want to integrate the remote changes, use
+hint: 'git pull' before pushing again.
+hint: See the 'Note about fast-forwards' in 'git push --help' for details.

@@ -1,0 +1,41 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /private/tmp/wsx-board-acceptance-20261005-49c0c/apps/web
+
+ ✓ tests/whiteboard/board-indexeddb-quiescent-pause.test.ts (3 tests) 3ms
+stderr | tests/ui/board-tool-popover-above.test.tsx > renders compact connector menus without browser globals during SSR
+Warning: useLayoutEffect does nothing on the server, because its effect cannot be encoded into the server renderer's output format. This will lead to a mismatch between the initial, non-hydrated UI and the intended UI. To avoid this, useLayoutEffect should only be used in components that render exclusively on the client. See https://reactjs.org/link/uselayouteffect-ssr for common fixes.
+    at BoardToolPopover (/private/tmp/wsx-board-acceptance-20261005-49c0c/apps/web/components/whiteboard/board-tool-popover.tsx:12:29)
+Warning: useLayoutEffect does nothing on the server, because its effect cannot be encoded into the server renderer's output format. This will lead to a mismatch between the initial, non-hydrated UI and the intended UI. To avoid this, useLayoutEffect should only be used in components that render exclusively on the client. See https://reactjs.org/link/uselayouteffect-ssr for common fixes.
+    at Dialog (file:///private/tmp/wsx-board-acceptance-20261005-49c0c/node_modules/.pnpm/@radix-ui+react-dialog@1.1.23_@types+react-dom@18.3.7_@types+react@18.3.31__@types+react@18.3_ov7ec2dtynlqribcbkywdp7bhm/node_modules/@radix-ui/react-dialog/dist/index.mjs:28:5)
+    at BoardToolPopover (/private/tmp/wsx-board-acceptance-20261005-49c0c/apps/web/components/whiteboard/board-tool-popover.tsx:12:29)
+Warning: useLayoutEffect does nothing on the server, because its effect cannot be encoded into the server renderer's output format. This will lead to a mismatch between the initial, non-hydrated UI and the intended UI. To avoid this, useLayoutEffect should only be used in components that render exclusively on the client. See https://reactjs.org/link/uselayouteffect-ssr for common fixes.
+    at Dialog (file:///private/tmp/wsx-board-acceptance-20261005-49c0c/node_modules/.pnpm/@radix-ui+react-dialog@1.1.23_@types+react-dom@18.3.7_@types+react@18.3.31__@types+react@18.3_ov7ec2dtynlqribcbkywdp7bhm/node_modules/@radix-ui/react-dialog/dist/index.mjs:28:5)
+    at BoardToolPopover (/private/tmp/wsx-board-acceptance-20261005-49c0c/apps/web/components/whiteboard/board-tool-popover.tsx:12:29)
+Warning: useLayoutEffect does nothing on the server, because its effect cannot be encoded into the server renderer's output format. This will lead to a mismatch between the initial, non-hydrated UI and the intended UI. To avoid this, useLayoutEffect should only be used in components that render exclusively on the client. See https://reactjs.org/link/uselayouteffect-ssr for common fixes.
+    at Dialog (file:///private/tmp/wsx-board-acceptance-20261005-49c0c/node_modules/.pnpm/@radix-ui+react-dialog@1.1.23_@types+react-dom@18.3.7_@types+react@18.3.31__@types+react@18.3_ov7ec2dtynlqribcbkywdp7bhm/node_modules/@radix-ui/react-dialog/dist/index.mjs:28:5)
+    at BoardToolPopover (/private/tmp/wsx-board-acceptance-20261005-49c0c/apps/web/components/whiteboard/board-tool-popover.tsx:12:29)
+Warning: useLayoutEffect does nothing on the server, because its effect cannot be encoded into the server renderer's output format. This will lead to a mismatch between the initial, non-hydrated UI and the intended UI. To avoid this, useLayoutEffect should only be used in components that render exclusively on the client. See https://reactjs.org/link/uselayouteffect-ssr for common fixes.
+    at Presence (file:///private/tmp/wsx-board-acceptance-20261005-49c0c/node_modules/.pnpm/@radix-ui+react-presence@1.1.10_@types+react-dom@18.3.7_@types+react@18.3.31__@types+react@18_3crtfjntzvxf32uscfndiinj74/node_modules/@radix-ui/react-presence/dist/index.mjs:21:11)
+    at Provider (file:///private/tmp/wsx-board-acceptance-20261005-49c0c/node_modules/.pnpm/@radix-ui+react-context@1.2.2_@types+react@18.3.31_react@18.3.1/node_modules/@radix-ui/react-context/dist/index.mjs:38:15)
+    at DialogPortal (file:///private/tmp/wsx-board-acceptance-20261005-49c0c/node_modules/.pnpm/@radix-ui+react-dialog@1.1.23_@types+react-dom@18.3.7_@types+react@18.3.31__@types+react@18.3_ov7ec2dtynlqribcbkywdp7bhm/node_modules/@radix-ui/react-dialog/dist/index.mjs:92:11)
+    at Provider (file:///private/tmp/wsx-board-acceptance-20261005-49c0c/node_modules/.pnpm/@radix-ui+react-context@1.2.2_@types+react@18.3.31_react@18.3.1/node_modules/@radix-ui/react-context/dist/index.mjs:38:15)
+    at Dialog (file:///private/tmp/wsx-board-acceptance-20261005-49c0c/node_modules/.pnpm/@radix-ui+react-dialog@1.1.23_@types+react-dom@18.3.7_@types+react@18.3.31__@types+react@18.3_ov7ec2dtynlqribcbkywdp7bhm/node_modules/@radix-ui/react-dialog/dist/index.mjs:28:5)
+    at BoardToolPopover (/private/tmp/wsx-board-acceptance-20261005-49c0c/apps/web/components/whiteboard/board-tool-popover.tsx:12:29)
+Warning: useLayoutEffect does nothing on the server, because its effect cannot be encoded into the server renderer's output format. This will lead to a mismatch between the initial, non-hydrated UI and the intended UI. To avoid this, useLayoutEffect should only be used in components that render exclusively on the client. See https://reactjs.org/link/uselayouteffect-ssr for common fixes.
+    at Presence (file:///private/tmp/wsx-board-acceptance-20261005-49c0c/node_modules/.pnpm/@radix-ui+react-presence@1.1.10_@types+react-dom@18.3.7_@types+react@18.3.31__@types+react@18_3crtfjntzvxf32uscfndiinj74/node_modules/@radix-ui/react-presence/dist/index.mjs:21:11)
+    at Provider (file:///private/tmp/wsx-board-acceptance-20261005-49c0c/node_modules/.pnpm/@radix-ui+react-context@1.2.2_@types+react@18.3.31_react@18.3.1/node_modules/@radix-ui/react-context/dist/index.mjs:38:15)
+    at DialogPortal (file:///private/tmp/wsx-board-acceptance-20261005-49c0c/node_modules/.pnpm/@radix-ui+react-dialog@1.1.23_@types+react-dom@18.3.7_@types+react@18.3.31__@types+react@18.3_ov7ec2dtynlqribcbkywdp7bhm/node_modules/@radix-ui/react-dialog/dist/index.mjs:92:11)
+    at Provider (file:///private/tmp/wsx-board-acceptance-20261005-49c0c/node_modules/.pnpm/@radix-ui+react-context@1.2.2_@types+react@18.3.31_react@18.3.1/node_modules/@radix-ui/react-context/dist/index.mjs:38:15)
+    at Dialog (file:///private/tmp/wsx-board-acceptance-20261005-49c0c/node_modules/.pnpm/@radix-ui+react-dialog@1.1.23_@types+react-dom@18.3.7_@types+react@18.3.31__@types+react@18.3_ov7ec2dtynlqribcbkywdp7bhm/node_modules/@radix-ui/react-dialog/dist/index.mjs:28:5)
+    at BoardToolPopover (/private/tmp/wsx-board-acceptance-20261005-49c0c/apps/web/components/whiteboard/board-tool-popover.tsx:12:29)
+
+ ✓ tests/ui/board-tool-popover-above.test.tsx (18 tests) 189ms
+ ✓ tests/ui/board-compact-chrome.test.tsx (3 tests) 141ms
+ ✓ tests/ui/board-toolbar-position.test.tsx (19 tests) 208ms
+
+ Test Files  4 passed (4)
+      Tests  43 passed (43)
+   Start at  12:48:13
+   Duration  2.15s (transform 805ms, setup 287ms, collect 1.50s, tests 541ms, environment 1.43s, prepare 137ms)
+

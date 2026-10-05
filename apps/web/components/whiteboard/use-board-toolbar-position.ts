@@ -14,11 +14,13 @@ const GAP = 12;
 const overlapArea = (a: Rect, b: Rect) => Math.max(0, Math.min(a.x + a.width, b.x + b.width) - Math.max(a.x, b.x)) * Math.max(0, Math.min(a.y + a.height, b.y + b.height) - Math.max(a.y, b.y));
 
 /** Geometry, obstacles and returned style all use the toolbar's offset-parent coordinates. */
-export function boardToolbarPosition(geometry: Geometry, viewport: BoardViewport, windowSize: Size, toolbarSize: Size, chrome: readonly Rect[] = []): CSSProperties {
+export function boardToolbarPosition(geometry: Geometry, viewport: BoardViewport, windowSize: Size, toolbarSize: Size, chrome: readonly Rect[] = [], submenuHeight = 0): CSSProperties {
   const maxWidth = Math.max(1, windowSize.width - EDGE * 2);
   const width = Math.min(toolbarSize.width, maxWidth);
   const height = Math.min(toolbarSize.height, Math.max(1, windowSize.height - EDGE * 2));
-  const minTop = Math.min(HEADER, Math.max(EDGE, windowSize.height - height - EDGE));
+  const ordinaryMinTop = Math.min(HEADER, Math.max(EDGE, windowSize.height - height - EDGE));
+  const submenuBudget = Math.max(0, windowSize.height - DOCK - height - HEADER - GAP);
+  const minTop = submenuHeight > 0 ? ordinaryMinTop + GAP + Math.min(submenuHeight, submenuBudget) : ordinaryMinTop;
   const maxTop = Math.max(minTop, windowSize.height - DOCK - height);
   const object = { x: geometry.x * viewport.zoom + viewport.panX, y: geometry.y * viewport.zoom + viewport.panY, width: geometry.width * viewport.zoom, height: geometry.height * viewport.zoom };
   const centered = object.x + (object.width - width) / 2;
@@ -45,7 +47,25 @@ export function useBoardToolbarPosition(geometry: Geometry | undefined, viewport
   const [windowSize, setWindowSize] = useState<Size>({ width: 1024, height: 768 });
   const [chrome, setChrome] = useState<Rect[]>([]);
   const [toolbarSize, setToolbarSize] = useState<Size>({ width: 640, height: 54 });
+  const [submenuHeight, setSubmenuHeight] = useState(0);
+  const submenuOwner = useRef<HTMLElement|null>(null);
   const hasGeometry = Boolean(geometry);
+  useLayoutEffect(() => {
+    const reserve = (event: Event) => {
+      const detail = (event as CustomEvent<{trigger?: unknown;height?: unknown}>).detail;
+      if (!(detail?.trigger instanceof HTMLElement) || typeof detail.height !== "number" || !Number.isFinite(detail.height)) return;
+      if (detail.height <= 0) {
+        if (submenuOwner.current !== detail.trigger) return;
+        submenuOwner.current = null;
+        setSubmenuHeight(0);
+      } else if (ref.current?.contains(detail.trigger)) {
+        submenuOwner.current = detail.trigger;
+        setSubmenuHeight(detail.height);
+      }
+    };
+    window.addEventListener("board-inspector-space", reserve);
+    return () => window.removeEventListener("board-inspector-space", reserve);
+  }, []);
   useLayoutEffect(() => {
     const update = () => {
       const parent = ref.current?.offsetParent ?? ref.current?.closest('[data-testid="collaborative-editor"]');
@@ -66,5 +86,5 @@ export function useBoardToolbarPosition(geometry: Geometry | undefined, viewport
     window.addEventListener("resize", update);
     return () => { observer?.disconnect(); window.removeEventListener("resize", update); };
   }, [hasGeometry, controlLayoutKey]);
-  return { ref, style: geometry ? boardToolbarPosition(geometry, viewport, windowSize, toolbarSize, chrome) : undefined };
+  return { ref, style: geometry ? boardToolbarPosition(geometry, viewport, windowSize, toolbarSize, chrome, submenuHeight) : undefined };
 }

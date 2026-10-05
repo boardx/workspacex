@@ -72,6 +72,7 @@ function projectedTextStyle(object: WhiteboardObject): Partial<BoardFabricStyle>
       underline: validated.underline,
       textColor: validated.color,
       alignment: validated.alignment,
+      verticalAlignment: object.kind === "text" && text.verticalAlignment === undefined ? "top" : validated.verticalAlignment,
       lineHeight: validated.lineHeight,
       list: validated.list,
       link: validated.link,

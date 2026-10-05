@@ -119,10 +119,10 @@ Related parent #4860; separate from image business changes.
 
 ### 09: Ordinary File Drag-Drop And Security -- #4861
 
-- F01: Nonimage file drops directly to board, never image dialog. Correct pan/zoom placement, one tile, exact upload/download SHA-256, filename and refresh persistence; 503 retry adds no duplicate tile.
+- F01: Nonimage file drops directly to board, never image dialog. Correct pan/zoom placement, one tile, exact upload/download SHA-256, original metadata/UI filename and refresh persistence; 503 retry adds no duplicate tile.
 - F02: Missing/empty returns 400; 25MB+1 returns 413 with no readable asset. Other-board/cross-tenant/viewer/revoked writes reject. Archive/org-freeze and private attachment/octet-stream/nosniff/no-store behavior are proven via real HTTP.
-- F03: Apostrophe/brackets/star/Chinese/percent/double-quote filenames survive real multipart, metadata, RFC5987 header and browser download exactly. Portable/copy rejection is explicit, never silent asset loss.
-- Contract decision: on 2026-10-02 the human explicitly approved optional multipart fileName with compatibility when old clients omit it. Double-quote behavior still requires real HTTP/browser proof; approval is not implementation or acceptance. Record this decision in the existing bundle workflow without agent-authored signoff status.
+- F03: Apostrophe/brackets/star/Chinese/percent/double-quote filenames survive real multipart, metadata, UI and RFC5987 header exactly. Browser disk names may use native safe-character normalization; pinned Chromium replaces star/double-quote with underscores, while the other matrix names remain unchanged. Browser download bytes and SHA-256 must remain exact. Portable/copy rejection is explicit, never silent asset loss.
+- Contract decision: on 2026-10-02 the human explicitly approved optional multipart fileName with compatibility when old clients omit it. The 2026-10-05 human decision supersedes the original exact browser disk-name requirement: native safe-character normalization is accepted, while original multipart/metadata/UI/RFC5987 names and downloaded bytes remain exact. Approval is not implementation or acceptance. Record this decision in the existing bundle workflow without agent-authored signoff status.
 
 ### 10: Fabric Canvas Skill And Final Evidence Audit -- #4880
 

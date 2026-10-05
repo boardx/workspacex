@@ -10,6 +10,12 @@ vi.mock('@/components/whiteboard/fabric/board-fabric-surface', () => ({ BoardFab
 globalThis.ResizeObserver = class { observe() {} disconnect() {} } as unknown as typeof ResizeObserver;
 afterEach(() => { cleanup(); harness.props = null; vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
+function boardKey(key: string) {
+  const focused = screen.getByTestId('board-tool-select');
+  focused.focus();
+  expect(document.activeElement).toBe(focused);
+  fireEvent.keyDown(focused, { key });
+}
 function mount() {
   const doc = createWhiteboardDocument();
   render(<CollaborativeEditor boardId="round04" clientId="tools-client" doc={doc} readOnly={false} title="Board" status="Connected" />);
@@ -19,19 +25,39 @@ it.each(['sticky', 'text', 'shape'])('arms %s without creating, creates once and
   const doc = mount();
   try {
     fireEvent.click(screen.getByTestId(`board-add-${kind}`));
+    expect(harness.props!.creationMode).toBe(true);
     expect(readObjects(doc)).toHaveLength(0);
     act(() => harness.props!.onCanvasClick?.({ x: 400, y: 350 }));
     expect(readObjects(doc)).toHaveLength(1);
     expect(screen.getByTestId('board-tool-select')).toHaveAttribute('aria-pressed', 'true');
+    expect(harness.props!.creationMode).toBe(false);
     act(() => harness.props!.onCanvasClick?.({ x: 500, y: 400 }));
     expect(readObjects(doc)).toHaveLength(1);
+  } finally { cleanup(); doc.destroy(); }
+});
+it.each(['sticky', 'text', 'shape'])('hides stale object chrome while %s placement is armed and restores it on cancel', kind => {
+  const doc = mount();
+  try {
+    fireEvent.click(screen.getByTestId('board-add-shape'));
+    act(() => harness.props!.onCanvasClick?.({ x: 400, y: 350 }));
+    const original = readObjects(doc)[0]!;
+    expect(screen.getByTestId('board-context-toolbar')).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId(`board-add-${kind}`));
+    expect(harness.props!.creationMode).toBe(true);
+    expect(screen.queryByTestId('board-context-toolbar')).toBeNull();
+    expect(screen.queryByTestId(`connector-handle-${original.id}-right`)).toBeNull();
+    expect(readObjects(doc)).toEqual([original]);
+    boardKey('Escape');
+    expect(harness.props!.creationMode).toBe(false);
+    expect(screen.getByTestId('board-context-toolbar')).toBeInTheDocument();
+    expect(readObjects(doc)).toEqual([original]);
   } finally { cleanup(); doc.destroy(); }
 });
 it('keeps Frame data but removes its creation entry and shortcut', () => {
   const doc = mount();
   try {
     expect(screen.queryByTestId('board-add-frame')).toBeNull();
-    fireEvent.keyDown(window, { key: 'f' });
+    boardKey('f');
     act(() => harness.props!.onCanvasClick?.({ x: 400, y: 350 }));
     expect(readObjects(doc)).toHaveLength(0);
   } finally { cleanup(); doc.destroy(); }
@@ -88,7 +114,7 @@ it.each([{ viewport: 1440, dockLeft: 420, triggerLeft: 650, width: 420, left: 47
     fireEvent.click(screen.getByTestId('board-add-shape'));
     expect(screen.getByTestId('board-tool-picker')).toHaveStyle({ position: 'fixed', left: `${left}px`, width: `${width}px`, bottom: '108px' });
     expect(readObjects(doc)).toHaveLength(0);
-    fireEvent.keyDown(window, { key: 'Escape' });
+    boardKey('Escape');
     act(() => harness.props!.onCanvasClick?.({ x: 400, y: 350 }));
     expect(readObjects(doc)).toHaveLength(0);
   } finally { cleanup(); doc.destroy(); }

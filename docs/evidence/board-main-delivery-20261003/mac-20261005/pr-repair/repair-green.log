@@ -1,0 +1,12 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /private/tmp/wsx-board-acceptance-20261005-49c0c/apps/web
+
+ ✓ tests/whiteboard/board-indexeddb-quiescent-pause.test.ts (3 tests) 2ms
+ ✓ tests/ui/board-toolbar-position.test.tsx (19 tests) 208ms
+
+ Test Files  2 passed (2)
+      Tests  22 passed (22)
+   Start at  12:47:09
+   Duration  1.83s (transform 652ms, setup 147ms, collect 980ms, tests 210ms, environment 413ms, prepare 70ms)
+

@@ -42,16 +42,28 @@ for (const kind of ['sticky', 'text', 'shape'] as const) {
   }
 }
 
-it('normal touch up and implicit capture release preserve click and picker', () => {
+it('normal touch up and implicit capture release preserve the armed tool while clicks toggle its picker', () => {
   render(<Controlled/>);
   const source = screen.getByTestId('board-add-sticky');
-  fireEvent.click(source);
+  // The first completed touch click opens and arms the tool.
   pointer(source, 'pointerdown');
   pointer(source, 'pointerup', 7, 0);
   pointer(source, 'lostpointercapture', 7, 0);
   fireEvent.click(source);
   expect(source).toHaveAttribute('aria-pressed', 'true');
+  expect(source).toHaveAttribute('aria-expanded', 'true');
   expect(screen.getByTestId('board-tool-picker')).toBeVisible();
+  // Releasing another held touch must not cancel the tool or close its menu.
+  pointer(source, 'pointerdown');
+  pointer(source, 'pointerup', 7, 0);
+  pointer(source, 'lostpointercapture', 7, 0);
+  expect(source).toHaveAttribute('aria-pressed', 'true');
+  expect(screen.getByTestId('board-tool-picker')).toBeVisible();
+  // The resulting same-trigger click intentionally folds the menu only.
+  fireEvent.click(source);
+  expect(source).toHaveAttribute('aria-pressed', 'true');
+  expect(source).toHaveAttribute('aria-expanded', 'false');
+  expect(screen.queryByTestId('board-tool-picker')).toBeNull();
   expect(quickCreate).not.toHaveBeenCalled();
 });
 

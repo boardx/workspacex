@@ -1,0 +1,1 @@
+export function connectorLoginDiagnostic(status:number,body:unknown,expectedUserId:string,expectedToken:string,jsonParsed:boolean): {version:number;httpStatus:number|null;jsonParsed:boolean;objectSchema:boolean;actorString:boolean;tokenString:boolean;actorMatches:boolean;tokenMatches:boolean};
