@@ -23,6 +23,7 @@ it('shows active siblings alongside partial search failures', () => {
   const view = render(<GuidedResearchExecutionTimeline state={state} />);
   expect(screen.getByTestId('execution-search')).toHaveTextContent('执行中');
   expect(screen.getByTestId('execution-search')).toHaveTextContent('部分检索失败');
+  expect(screen.getByRole('status')).toHaveTextContent('正在执行研究计划');
   view.rerender(<GuidedResearchExecutionTimeline state={structuredClone(state)} />);
   expect(screen.getByTestId('execution-search')).toHaveTextContent('执行中');
   view.rerender(<GuidedResearchExecutionTimeline state={{ ...state, busy: false, tasks: state.tasks.map(t => ({ ...t, status: 'failed' })) }} />);
@@ -121,4 +122,18 @@ it('requires current progress for a running search attempt after reclaim', () =>
   expect(screen.getByTestId('execution-search')).not.toHaveTextContent('执行中');
   view.rerender(<GuidedResearchExecutionTimeline state={{ ...state, progress: { ...state.progress, executionVersion: state.version } }} />);
   expect(screen.getByTestId('execution-search')).toHaveTextContent('执行中');
+});
+
+it.each(['task', 'recovery', 'document'] as const)('maps expired current %s work to interruption', kind => {
+ const base = runtimeFixture(kind === 'document' ? 'report' : 'research');
+ const state = { ...base, busy: true, leaseUntil: '2000-01-01T00:00:00Z',
+  tasks: [{ ...base.tasks[0]!, status: kind === 'task' ? 'running' as const : 'failed' as const,
+   searchAttempts: kind === 'recovery' ? [{ query: 'retry', status: 'running' as const, errorCode: null }] : [] }],
+  progress: { stage: kind === 'document' ? 'organizing' as const : 'searching' as const, executionVersion: base.version, completed: 0, total: 1 },
+  sources: [{ ...base.sources[0]!, document: undefined, documentError: 'unavailable' as const }],
+ };
+ render(<GuidedResearchExecutionTimeline state={state} interrupted />);
+ expect(screen.getByTestId(kind === 'document' ? 'execution-documents' : 'execution-search')).toHaveTextContent('已中断');
+ expect(screen.getByRole('status')).toHaveTextContent('执行已中断');
+ expect(screen.queryByText('执行中')).not.toBeInTheDocument();
 });

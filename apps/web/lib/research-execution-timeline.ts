@@ -14,15 +14,16 @@ export function researchExecutionTimeline(state: Runtime, interrupted = false) {
   const accepted = state.sources.filter(source => source.decision === 'accepted');
   const leasedWork = state.busy && Boolean(state.leaseUntil && Date.parse(state.leaseUntil) > Date.now());
   const active = (status: ExecutionStatus): ExecutionStatus => status !== 'running' ? status : interrupted ? 'interrupted' : state.controlStatus === 'paused' ? 'paused' : leasedWork ? status : 'pending';
+  const displayWork = leasedWork || (state.busy && interrupted);
   const failedSearch = tasks.some(task => task.status === 'failed');
   const currentProgress = state.progress?.executionVersion === state.version;
-  const searching = leasedWork && currentProgress && state.progress?.stage === 'searching' && tasks.some(task => task.status === 'running' || task.searchAttempts?.some(attempt => attempt.status === 'running'));
+  const searching = displayWork && currentProgress && state.progress?.stage === 'searching' && tasks.some(task => task.status === 'running' || task.searchAttempts?.some(attempt => attempt.status === 'running'));
   const search: ExecutionStatus = searching ? 'running' : failedSearch ? 'failed' : tasks.length && tasks.every(task => task.status === 'succeeded') ? 'completed' : 'pending';
   const lastReading = state.activity?.slice().reverse().find(event => event.stage === 'reading');
   const failedDocument = accepted.some(source => source.documentError);
   // Legacy history has no execution identity and cannot prove active work.
   const preparingSources = lastReading?.executionVersion === state.version && lastReading.status === 'started';
-  const reading = leasedWork && state.currentNode === 'report' && (currentProgress && state.progress?.stage === 'organizing' || preparingSources);
+  const reading = displayWork && state.currentNode === 'report' && (currentProgress && state.progress?.stage === 'organizing' || preparingSources);
   const document: ExecutionStatus = accepted.length && accepted.every(source => source.document) && !failedDocument ? 'completed' : reading ? 'running' : failedDocument ? 'warning' : 'pending';
   const chapterStatuses = timeline.filter(step => step.stage === 'chapter').map(chapter => {
     const review = timeline.find(step => step.stage === 'review' && step.sectionId === chapter.sectionId);
@@ -40,6 +41,6 @@ export function researchExecutionTimeline(state: Runtime, interrupted = false) {
   ];
   const finished = Boolean(state.report && state.completed && !state.busy && !state.errorCode && !warnings && !interrupted && state.controlStatus !== 'paused' && !tasks.some(task => task.status === 'failed'));
   const runningGoal = leasedWork && state.executionGoal === 'report';
-  const summary = interrupted ? '执行已中断' : state.controlStatus === 'paused' ? '执行已暂停' : state.busy && !leasedWork ? '执行状态待确认' : runningGoal ? '正在执行研究计划' : state.errorCode || tasks.some(task => task.status === 'failed') ? '执行失败' : warnings ? '部分内容待核实' : finished ? '执行完成' : leasedWork ? '正在执行研究计划' : state.report ? '已有报告，请查看质量与保存状态' : '将按以下计划执行';
+  const summary = interrupted ? '执行已中断' : state.controlStatus === 'paused' ? '执行已暂停' : state.busy && !leasedWork ? '执行状态待确认' : runningGoal || searching ? '正在执行研究计划' : state.errorCode || tasks.some(task => task.status === 'failed') ? '执行失败' : warnings ? '部分内容待核实' : finished ? '执行完成' : leasedWork ? '正在执行研究计划' : state.report ? '已有报告，请查看质量与保存状态' : '将按以下计划执行';
   return { rows, summary, finished };
 }
