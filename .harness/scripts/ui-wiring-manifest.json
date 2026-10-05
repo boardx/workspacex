@@ -769,6 +769,59 @@
       "useCases": [
         "model/platform-model-test"
       ]
+    },
+    "AgentStarterImportController": {
+      "useCases": [
+        "agent-import/get-official-role-pack-offer",
+        "agent-import/import-agent-starter-pack",
+        "agent-import/import-official-agent-role-pack",
+        "agent-import/upgrade-official-roles"
+      ]
+    },
+    "AgentUrlImportController": {
+      "useCases": [
+        "agent-import/import-agent-from-url"
+      ]
+    },
+    "OrgCoreModelController": {
+      "useCases": [
+        "model/org-core-model",
+        "model/org-core-model-candidates"
+      ]
+    },
+    "SkillArtifactImportController": {
+      "useCases": [
+        "artifacts-steering/errors",
+        "skill-import/import-skill-artifact",
+        "skill-import/import-skill-starter-pack"
+      ]
+    },
+    "SkillStarterImportController": {
+      "useCases": [
+        "skill-import/import-skill-starter-pack"
+      ]
+    },
+    "SkillUrlImportController": {
+      "useCases": [
+        "skill-import/discover-skills-from-url",
+        "skill-import/import-skill-from-url",
+        "skill-import/url-import-draft"
+      ]
+    },
+    "SkillVersionEditController": {
+      "useCases": [
+        "skill/edit-skill-version-content"
+      ]
+    },
+    "SystemErrorLogController": {
+      "useCases": [
+        "system/update-system-error-lifecycle"
+      ]
+    },
+    "SystemMailController": {
+      "useCases": [
+        "notifications/send-test-email"
+      ]
     }
   },
   "routes": {
@@ -2128,12 +2181,108 @@
       "screen": "apps/web/app/platform-admin/page.tsx"
     },
     "/platform-admin/[module]": {
-      "kind": "mock",
+      "kind": "wired",
       "screen": "apps/web/app/platform-admin/[module]/page.tsx",
-      "mocks": [
-        "apps/web/lib/mock/admin.ts",
-        "apps/web/lib/mock/asset-governance.ts",
-        "apps/web/lib/mock/canvas.ts"
+      "adapters": [
+        "apps/web/lib/live-admin-nav-counts.ts",
+        "apps/web/lib/live-ai-usage.ts",
+        "apps/web/lib/live-asr-draft.ts",
+        "apps/web/lib/live-capabilities.ts",
+        "apps/web/lib/live-chat.ts",
+        "apps/web/lib/live-design-workbench.ts",
+        "apps/web/lib/live-feedback.ts",
+        "apps/web/lib/live-identity.ts",
+        "apps/web/lib/live-inbox.ts",
+        "apps/web/lib/live-mcp-admin.ts",
+        "apps/web/lib/live-memory-ops.ts",
+        "apps/web/lib/live-model.ts",
+        "apps/web/lib/live-org-admin.ts",
+        "apps/web/lib/live-org-core-model.ts",
+        "apps/web/lib/live-platform-access.ts",
+        "apps/web/lib/live-platform-extraction-setting.ts",
+        "apps/web/lib/live-platform-members.ts",
+        "apps/web/lib/live-platform-organizations.ts",
+        "apps/web/lib/live-projects.ts",
+        "apps/web/lib/live-recording.ts",
+        "apps/web/lib/live-skill-admin.ts",
+        "apps/web/lib/live-skill-starter-import.ts",
+        "apps/web/lib/live-system-errors.ts"
+      ],
+      "contracts": [
+        "agent-defaults",
+        "agent-runtime",
+        "ai-usage",
+        "artifact",
+        "chat",
+        "chat-file-upload",
+        "chat-knowledge-graph",
+        "design-ai-collab",
+        "design-prototype",
+        "design-workbench",
+        "feedback-loop",
+        "identity",
+        "inbox",
+        "org-admin",
+        "organization-core-model",
+        "plan-permissions",
+        "platform-members",
+        "platform-organizations",
+        "project",
+        "system-error-logs",
+        "wave2-runtime"
+      ],
+      "controllers": [
+        "AgentController",
+        "AgentPublishController",
+        "AgentRunController",
+        "AgentSkillPinsController",
+        "AgentStarterImportController",
+        "AgentTrialRunController",
+        "AgentUrlImportController",
+        "AiUsageController",
+        "ArtifactBindingController",
+        "ArtifactReferenceController",
+        "CapabilityController",
+        "ChatAttachmentController",
+        "ChatController",
+        "ChatFollowUpSuggestionsController",
+        "CheckinBoardController",
+        "CopilotkitAguiController",
+        "DesignWorkbenchController",
+        "DeviceSessionController",
+        "DocumentGenerationAutoApproveController",
+        "EvidenceWithdrawalController",
+        "FeedbackController",
+        "HomeProjectPreviewsController",
+        "IdentityController",
+        "InboxController",
+        "KernelProbeController",
+        "KnowledgeConsolidationController",
+        "KnowledgeGraphController",
+        "KnowledgeShareController",
+        "LocalExportController",
+        "LocalOrgController",
+        "McpRemoteDiscoveryController",
+        "McpServersController",
+        "ModelController",
+        "OrgAdminManagementController",
+        "OrgAdminScopeController",
+        "OrgCoreModelController",
+        "OrgInviteController",
+        "OrgInviteLinkController",
+        "PlatformAccessController",
+        "PlatformOrganizationController",
+        "ProjectAiSettingsController",
+        "ProjectController",
+        "ProjectInviteController",
+        "PublicDesignShareController",
+        "SkillArtifactImportController",
+        "SkillStarterImportController",
+        "SkillUrlImportController",
+        "SkillVersionEditController",
+        "SystemErrorLogController",
+        "SystemMailController",
+        "ToolPermissionGrantController"
       ]
     },
     "/platform-admin/agent/[id]": {

@@ -161,19 +161,32 @@ describe("#464 画布模板两条路径的取数不依赖 lib/mock", () => {
    * `/canvas` hub 的其余四屏仍是 mock 原型（后端零路由，缺口已报 coord）。
    * 逐条钉住，而不是假装已清理：新增一条会红，清理一条也会红。
    */
+  it("真实后台导航闭包走到元数据和实时计数，且不再引 mock", () => {
+    const hub = walk("app/canvas/[screen]/page.tsx");
+    expect(hub.visited).toContain("components/admin/admin-nav.tsx");
+    const { visited, mockEdges } = walk("components/admin/admin-nav.tsx");
+    expect(mockEdges).toEqual([]);
+    for (const [file, metadataImport] of [
+      ["components/admin/admin-nav.tsx", 'from "@/lib/admin-nav-metadata"'],
+      ["components/admin/asset-kind-nav.ts", 'from "@/lib/admin-nav-metadata"'],
+      ["lib/live-admin-nav-counts.ts", 'from "./admin-nav-metadata"'],
+    ] as const) {
+      const source = readFileSync(resolve(ROOT, file), "utf8");
+      expect(source).toContain(metadataImport);
+    }
+    for (const file of [
+      "lib/admin-nav-metadata.ts", "components/admin/asset-kind-nav.ts",
+      "lib/live-admin-nav-counts.ts", "lib/admin-nav-counts.ts", "lib/api-client.ts",
+    ]) expect(visited).toContain(file);
+  });
+
   it("如实钉住：/canvas hub 上剩余的 mock 边正好是这几条（后端无对应路由）", () => {
     const { mockEdges, visited } = walk("app/canvas/[screen]/page.tsx");
     expect(visited).toContain("components/canvas/canvas-hub.tsx"); // 反空转：真的走进了 hub
     expect(mockEdges).toEqual([
-      // D-43 被推翻（2026-08-17）：template-admin 屏重新挂上 `AdminNav`（后台侧栏），
-      // 与后台所有其它模块共用同一份左栏——这三条边是 `AdminNav` 自身的既有形态，不是
-      // 本次新引入的债：`lib/mock/admin.ts` 是 `ADMIN_NAV` 导航结构（菜单项/图标/顺序）
-      // 的单一事实源，`asset-kind-nav.ts` 派生自它，`live-admin-nav-counts.ts` 兜底无
-      // 会话时的静态计数——这三条边在其它任何一个挂了 `AdminNav` 的后台屏（`/admin/
-      // [module]`）的依赖树里同样存在，canvas hub 只是第一次把它们变得对这份走图器
-      // 可见。
-      "components/admin/admin-nav.tsx -> lib/mock/admin.ts",
-      "components/admin/asset-kind-nav.ts -> lib/mock/admin.ts",
+      // #5376 导航元数据移到 lib/admin-nav-metadata.ts，移除 admin-nav、
+      // asset-kind-nav、live-admin-nav-counts 指向 lib/mock/admin.ts 的三条边。
+      // 下面单独走真实导航闭包验证迁移，保留其余七条业务原型债的精确台账。
       // UC-7.2 AI 起草留白：后端无 draftCanvas 路由
       "components/canvas/ai-draft-panel.tsx -> lib/mock/canvas.ts",
       // UC-7.3 协作编辑三栏：项目上下文仍是 mock（属别的 issue 的热点，本 issue 不动）
@@ -190,7 +203,6 @@ describe("#464 画布模板两条路径的取数不依赖 lib/mock", () => {
       // mermaid 图分支的设计对话、分区重排、版本历史与回滚——人类签核时明确裁定该扩展
       // 「作为后续独立 feature 迭代」，不在 #988 范围内，所以仍是 mock 原型。
       "components/canvas/template-editor.tsx -> lib/mock/canvas.ts",
-      "lib/live-admin-nav-counts.ts -> lib/mock/admin.ts",
     ]);
   });
 
