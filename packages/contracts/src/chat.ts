@@ -1612,9 +1612,9 @@ export const streamOperations = {
       z.object({ type: z.literal("user.speech_started") }).strict(),
       z.object({ type: z.literal("user.speech_stopped") }).strict(),
       z.object({ type: z.literal("user.transcript"), text: z.string(), final: z.boolean() }).strict(),
-      z.object({ type: z.literal("assistant.transcript"), text: z.string(), final: z.boolean() }).strict(),
-      z.object({ type: z.literal("assistant.audio"), audio: z.string() }).strict(),
-      z.object({ type: z.literal("assistant.audio_done") }).strict(),
+      z.object({ type: z.literal("assistant.transcript"), text: z.string(), final: z.boolean(), responseId: z.string().optional() }).strict(),
+      z.object({ type: z.literal("assistant.audio"), audio: z.string(), responseId: z.string().optional() }).strict(),
+      z.object({ type: z.literal("assistant.audio_done"), responseId: z.string().optional() }).strict(),
       z.object({ type: z.literal("session.error"), reason: RealtimeDigitalHumanErrorReason, message: z.string() }).strict(),
       /** Chat 宿主：一轮转写已作为普通消息落进线程（挂断后线程里能看到整段对话）。 */
       z.object({ type: z.literal("turn.persisted"), role: z.enum(["user", "assistant"]), messageId: z.string() }).strict(),

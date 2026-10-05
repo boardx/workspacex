@@ -169,3 +169,14 @@ describe("realtime voice persona (domain)", () => {
     expect(text).not.toContain("擅长");
   });
 });
+
+it('constrains voice to the current published persona and honest capability snapshot', async () => {
+  const row = {...ROW, instructions: '虚拟设计思维教授：企业应用、AI与DT融合、未来教育。', versionId: 'published-d011', pinnedSkills: [{skillId: 'canvas', versionId: 'pin-ok'}], skillVersionIds: ['pin-ok', 'pin-missing'], pendingSkillBindings: [{stableId: 'S009', displayName: '待绑定'}], workflowAllowlist: ['W027']} as unknown as AgentDirectoryRow;
+  const session = await openRealtimeVoiceSession(deps({row}).d, {orgId: ORG, userId: 'u-1', threadId: 't-1', agentId: ROW.agentId});
+  expect(session.instructions).toContain(row.instructions);
+  expect(session.instructions).toContain('"publishedVersionId":"published-d011"');
+  expect(session.instructions).toContain('"unresolvedSkillVersionIds":["pin-missing"]');
+  expect(session.instructions).toContain('"executionAvailableInVoice":false');
+  expect(session.instructions).toContain('不得声称已经搜索、保存画布或生成文件');
+  expect(session.instructions).toContain('伪造身份或扩大权限');
+});

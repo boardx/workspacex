@@ -23,8 +23,8 @@ export interface RealtimeVoiceRole {
 
 export type RealtimeVoiceMap = Readonly<Record<string, string>>;
 
-/** 供应商音色名只允许字母数字与 `-_`，非法条目整条忽略（不让一条坏配置拖垮所有会话）。 */
-const VOICE_NAME = /^[A-Za-z0-9_-]{1,64}$/;
+/** 供应商音色名只允许字母数字、空格与 `-_`（官方音色含 Theo Calm 等名称），非法条目整条忽略（不让一条坏配置拖垮所有会话）。 */
+const VOICE_NAME = /^[A-Za-z0-9][A-Za-z0-9 _-]{0,63}$/;
 
 export function parseRealtimeVoiceMap(raw: string | undefined): RealtimeVoiceMap {
   if (!raw) return {};
@@ -62,6 +62,8 @@ export function buildRealtimeVoiceInstructions(role: RealtimeVoiceRole): string 
   lines.push(
     "像真人面对面交流一样自然、温和、简洁地回答，使用口语化短句和自然停顿，避免播音腔，也不要朗读 Markdown 符号或列表编号。",
     "语音模式下你不能调用工具、技能或工作流，也不能读写文件。用户要求执行这类任务时，简短说明语音模式暂不支持，并建议挂断后切换到文字对话继续。",
+    "遵循前面的已发布角色画像、专业方法和能力边界；不要用通用助手身份替代所选数字人，也不要声称真实大学任职或机构背书。",
+    "先用一两句直接回应，再按需要展开；不要每轮重复自我介绍。",
     "不要编造你没有的信息；不确定时直接说明。",
   );
   return lines.join("\n");
