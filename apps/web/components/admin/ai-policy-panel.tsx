@@ -1,11 +1,15 @@
 "use client";
 import * as React from "react";
+import {NATIVE_UNITS} from "@repo/contracts/ai-usage";
 import {Configuration} from "@repo/contracts/ai-policy";
 import {Button} from "@/components/ui/button";
 import {Input} from "@/components/ui/input";
 import {ApiError} from "@/lib/api-client";
 import {getPlatformAiPolicy,getPlatformAiCandidates,setPlatformAiPolicy,type AiPolicyState,type AiCandidate} from "@/lib/live-platform-organizations";
 type PriceDraft={modelId:string;billingMode:"input-output"|"input-only";modelProvider:string;runtimeModelId:string;inputMicrosPerMillion:string;outputMicrosPerMillion:string;cachedInputMicrosPerMillion:string;maxInputTokens:string;maxOutputTokens:string;};
+type NativePriceDraft={modelId:string;modelProvider:string;runtimeModelId:string;unit:string;quantum:string;microsPerQuantum:string;maxQuantity:string;};
+const emptyNativePrice=(modelId:string):NativePriceDraft=>({modelId,modelProvider:"",runtimeModelId:"",unit:"",quantum:"",microsPerQuantum:"",maxQuantity:""});
+const nativeUnitLabels:Record<typeof NATIVE_UNITS[number],string>={image:"张图片",pixel:"像素",millisecond:"毫秒",microsecond:"微秒",character:"字符",request:"次请求"};
 const emptyPrice=(modelId:string):PriceDraft=>({modelId,billingMode:"input-output",modelProvider:"",runtimeModelId:"",inputMicrosPerMillion:"",outputMicrosPerMillion:"",cachedInputMicrosPerMillion:"",maxInputTokens:"",maxOutputTokens:""});
 function errorText(error:unknown){
  if(error instanceof ApiError){
@@ -26,6 +30,7 @@ export function AiPolicyPanel({orgId}:{orgId:string}){
  const [tokens,setTokens]=React.useState(""),[cost,setCost]=React.useState(""),[currency,setCurrency]=React.useState("");
  const [enforceRules,setEnforceRules]=React.useState<boolean|undefined>(undefined);
  const [controls,setControls]=React.useState(false),[quotaSource,setQuotaSource]=React.useState<"organization-template"|"member-monthly-utc">("organization-template"),[warning,setWarning]=React.useState(""),[degrade,setDegrade]=React.useState(""),[overrides,setOverrides]=React.useState<{userId:string;tokens:string}[]>([]);
+ const [nativePrices,setNativePrices]=React.useState<NativePriceDraft[]|undefined>(undefined);
  const [prices,setPrices]=React.useState<PriceDraft[]>([]),[fallback,setFallback]=React.useState<string[]>([]),[attempts,setAttempts]=React.useState("");
  const [reason,setReason]=React.useState(""),[busy,setBusy]=React.useState(false),[error,setError]=React.useState<string|null>(null),[refresh,setRefresh]=React.useState(0),[saved,setSaved]=React.useState(false);
  React.useEffect(()=>{
@@ -36,13 +41,14 @@ export function AiPolicyPanel({orgId}:{orgId:string}){
    setStart(config?.window.start??"");setEnd(config?.window.end??"");setTimezone(config?.window.timezone??"");
    setTokens(config?.ordinaryTokensPerUser??"");setCost(config?.costMicrosPerUser??"");setCurrency(config?.currency??"");
    setPrices(config?.prices.map(row=>({...emptyPrice(row.modelId),...Object.fromEntries(Object.entries(row).map(([key,value])=>[key,String(value)]))}) as PriceDraft)??[]);
+   setNativePrices(config?.nativePrices?.map(row=>({...row})));
    setEnforceRules(config?.tokenControls?.enforceLimitRules);setControls(!!config?.tokenControls);setQuotaSource(config?.tokenControls?.quotaSource??"organization-template");setWarning(config?.tokenControls?.warningAtTokens??"");setDegrade(config?.tokenControls?.degradeAtTokens??"");setOverrides(config?.tokenControls?.memberOverrides??[]);
    setFallback(config?.fallbackModelIds??[]);setAttempts(config?String(config.maxAttempts):"");
   }).catch(cause=>{if(active)setError(errorText(cause));});
   return ()=>{active=false;};
  },[orgId,refresh]);
  const parsed=Configuration.safeParse({...controls?{tokenControls:{...enforceRules===undefined?{}:{enforceLimitRules:enforceRules},quotaSource,warningAtTokens:warning||null,degradeAtTokens:degrade||null,memberOverrides:overrides}}:{},window:{start,end,timezone},ordinaryTokensPerUser:tokens||null,costMicrosPerUser:cost,currency,
-  prices:prices.map(({billingMode,outputMicrosPerMillion,maxOutputTokens,...row})=>billingMode==="input-only"?{...row,billingMode,maxInputTokens:Number(row.maxInputTokens)}:{...row,outputMicrosPerMillion,maxInputTokens:Number(row.maxInputTokens),maxOutputTokens:Number(maxOutputTokens)}),fallbackModelIds:fallback,maxAttempts:Number(attempts)});
+  ...nativePrices===undefined?{}:{nativePrices},prices:prices.map(({billingMode,outputMicrosPerMillion,maxOutputTokens,...row})=>billingMode==="input-only"?{...row,billingMode,maxInputTokens:Number(row.maxInputTokens)}:{...row,outputMicrosPerMillion,maxInputTokens:Number(row.maxInputTokens),maxOutputTokens:Number(maxOutputTokens)}),fallbackModelIds:fallback,maxAttempts:Number(attempts)});
  async function save(){
   if(!state||!parsed.success||!reason.trim()||busy)return;setBusy(true);setError(null);setSaved(false);
   const ownerOrg=orgId,ownerGeneration=generation.current;
@@ -50,6 +56,9 @@ export function AiPolicyPanel({orgId}:{orgId:string}){
   try{const updated=await setPlatformAiPolicy(orgId,{expectedVersion:state.version,reason:reason.trim(),configuration:parsed.data});if(ownsResponse()){setState(updated);setReason("");setSaved(true);}}
   catch(cause){if(ownsResponse())setError(errorText(cause));}finally{if(ownsResponse())setBusy(false);}
  }
+ const conflictingNativeModel=nativePrices?.some(row=>prices.some(price=>price.modelId===row.modelId));
+ const conflictingNativeBinding=nativePrices?.some((row,index)=>row.modelProvider&&row.runtimeModelId&&[...prices,...nativePrices.slice(0,index)].some(other=>other.modelProvider===row.modelProvider&&other.runtimeModelId===row.runtimeModelId));
+ const updateNativePrice=(modelId:string,key:keyof NativePriceDraft,value:string)=>setNativePrices(rows=>rows?.map(row=>row.modelId===modelId?{...row,[key]:value}:row));
  const field=(id:string,label:string,value:string,onChange:(value:string)=>void)=><label className="block space-y-1" key={id} htmlFor={id}>{label}<Input id={id} value={value} disabled={busy} onChange={event=>onChange(event.target.value)} /></label>;
  return <section aria-label="AI额度配置" className="my-4 space-y-3 rounded-lg border p-4">
   <h3 className="font-semibold">AI 额度与安全配置</h3>
@@ -115,6 +124,33 @@ export function AiPolicyPanel({orgId}:{orgId:string}){
      </select></label></div>
     <label className="flex items-center gap-2"><input type="checkbox" disabled={busy||(!fallback.includes(row.modelId)&&fallback.length>=4)} checked={fallback.includes(row.modelId)} onChange={event=>setFallback(ids=>event.target.checked?[...ids,row.modelId]:ids.filter(id=>id!==row.modelId))}/>允许作为后备模型</label>
    </fieldset>)}
+   <fieldset className="space-y-3 rounded border p-3" aria-describedby="ai-native-help"><legend>图片与语音等原生用量价格</legend>
+    <p id="ai-native-help" className="text-13 text-muted-foreground">按供应商实际计费单位配置图片、语音等模型，不折算为 Token。已进入模型目录不代表账号可用；调用前仍需验证路由、价格和单次上限。企业的费用与安全上限继续生效。</p>
+    {!nativePrices?.length&&<p data-testid="ai-native-empty" className="text-13">原生价格未配置。添加模型后，请填写已核实的单位、费率与单次用量上限。</p>}
+    <label htmlFor="ai-native-add">添加原生计费模型<select id="ai-native-add" className="block w-full rounded border bg-background p-2 transition-colors focus-visible:ring-2" disabled={busy||!candidates.length||(nativePrices?.length??0)>=50} value="" onChange={event=>{const modelId=event.target.value;if(modelId)setNativePrices(rows=>[...rows??[],emptyNativePrice(modelId)]);}}>
+     <option value="">请选择组织正式模型</option>{candidates.filter(model=>!nativePrices?.some(row=>row.modelId===model.modelId)).map(model=><option key={model.modelId} value={model.modelId}>{model.displayName}</option>)}
+    </select></label>
+    {nativePrices?.map(row=><fieldset key={row.modelId} className="space-y-2 rounded border p-3"><legend>原生价格 · {candidates.find(model=>model.modelId===row.modelId)?.displayName??row.modelId}</legend>
+     <div className="grid gap-3 md:grid-cols-2">
+      <label htmlFor={`native-provider-${row.modelId}`}>原生模型已注册路由<select id={`native-provider-${row.modelId}`} className="block w-full rounded border bg-background p-2 transition-colors focus-visible:ring-2" disabled={busy} value={row.modelProvider} onChange={event=>updateNativePrice(row.modelId,"modelProvider",event.target.value)}>
+       <option value="">请选择</option>{row.modelProvider&&!candidates.find(model=>model.modelId===row.modelId)?.modelProviders.includes(row.modelProvider)&&<option value={row.modelProvider}>{row.modelProvider}（现有配置，需重新验证）</option>}
+       {candidates.find(model=>model.modelId===row.modelId)?.modelProviders.map(provider=><option key={provider} value={provider}>{provider}</option>)}
+      </select></label>
+      {field(`native-runtime-${row.modelId}`,"原生模型供应商实际标识",row.runtimeModelId,value=>updateNativePrice(row.modelId,"runtimeModelId",value))}
+      <label htmlFor={`native-unit-${row.modelId}`}>原生计量单位<select id={`native-unit-${row.modelId}`} className="block w-full rounded border bg-background p-2 transition-colors focus-visible:ring-2" disabled={busy} value={row.unit} onChange={event=>updateNativePrice(row.modelId,"unit",event.target.value)}>
+       <option value="">请选择已核实的计费单位</option>{NATIVE_UNITS.map(unit=><option key={unit} value={unit}>{nativeUnitLabels[unit]}（{unit}）</option>)}
+      </select></label>
+      {field(`native-quantum-${row.modelId}`,"每个计价单位包含的用量（正整数）",row.quantum,value=>updateNativePrice(row.modelId,"quantum",value))}
+      {field(`native-rate-${row.modelId}`,"每个计价单位价格（正整数微货币）",row.microsPerQuantum,value=>updateNativePrice(row.modelId,"microsPerQuantum",value))}
+      {field(`native-max-${row.modelId}`,"单次原生用量硬上限（正整数）",row.maxQuantity,value=>updateNativePrice(row.modelId,"maxQuantity",value))}
+     </div>
+     <p className="text-13 text-muted-foreground">{row.unit?`用量单位：${nativeUnitLabels[row.unit as typeof NATIVE_UNITS[number]]??row.unit}。`:"计量单位尚未配置。"}价格与每人费用上限使用上方相同货币；1 单位货币 = 100万微单位。此上限应覆盖实际供应商调用，保存不会启用模型。</p>
+     <Button variant="outline" disabled={busy} onClick={()=>setNativePrices(rows=>rows?.filter(item=>item.modelId!==row.modelId))}>移除原生价格 {candidates.find(model=>model.modelId===row.modelId)?.displayName??row.modelId}</Button>
+    </fieldset>)}
+    {conflictingNativeModel&&<p role="alert" className="text-13 text-destructive">同一正式模型不能同时配置 Token 与原生价格，请保留已核实的一种计费方式。</p>}
+    {!conflictingNativeModel&&conflictingNativeBinding&&<p role="alert" className="text-13 text-destructive">同一供应商路由与实际模型标识不能重复配置价格，请检查模型绑定。</p>}
+    {!parsed.success&&nativePrices?.length&&!conflictingNativeModel&&!conflictingNativeBinding&&parsed.error.issues.some(issue=>issue.path[0]==="nativePrices")?<p role="alert" className="text-13 text-destructive">请填写原生模型的路由、实际标识、单位与正整数价格、用量上限；空白表示未配置。</p>:null}
+   </fieldset>
    <p>后备顺序（主模型不重复调用）：{fallback.length?fallback.join(" → "):"无后备，不自动降级"}</p>
    {field("ai-max-attempts","一次调用最多尝试次数（含主模型，1–5）",attempts,setAttempts)}
    {field("ai-policy-reason","变更理由（写入审计）",reason,setReason)}

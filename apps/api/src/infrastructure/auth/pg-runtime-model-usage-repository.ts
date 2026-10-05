@@ -1,3 +1,4 @@
+import {recoverAiReceiptSettlement,type AiReceiptRecoveryPort} from "../../application/agent-run/stage-two-receipt-recovery";
 import {withCommittedAiPolicyDecision} from "../../application/agent-run/committed-ai-policy-decision";
 import {admitPricedInputOnlyCall,inputOnlyReceiptCost,type InputOnlyRuntimeAdmissionOptions} from '../../application/agent-run/admit-priced-input-only-call';
 import {createHash} from "node:crypto";
@@ -22,7 +23,7 @@ export interface RuntimeAiAdmissionOptions {
  readonly facts:(orgId:OrgId,owner:RuntimeModelOwner,serializedInput:string,identity:{readonly runId:string;readonly attemptId:string;readonly leaseEpoch:number},scopedDb?:DatabasePort)=>Promise<{confidentiality:"confidential"|"non-confidential"|"unknown";requiredCapabilities:readonly string[]}>;
 }
 export class PgRuntimeModelUsageRepository implements RuntimeModelUsagePort {
- constructor(private readonly db:DatabasePort,private readonly usage:TokenUsageMeterPort,private readonly admission?:(AiAdmissionPort&AiReservedPricePort),private readonly runtimeAdmission?:RuntimeAiAdmissionOptions){}
+ constructor(private readonly db:DatabasePort,private readonly usage:TokenUsageMeterPort,private readonly admission?:(AiAdmissionPort&AiReservedPricePort&Partial<AiReceiptRecoveryPort>),private readonly runtimeAdmission?:RuntimeAiAdmissionOptions){}
   async admitRuntimeRequest(orgId:OrgId,runId:string,input:Parameters<NonNullable<RuntimeModelUsagePort["admitRuntimeRequest"]>>[2]){
     if(!this.runtimeAdmission)throw new Error("RUNTIME_AI_ADMISSION_DISABLED");
     if("billingMode" in input)return this.admitInputOnlyRuntimeRequest(orgId,runId,input);
@@ -146,7 +147,10 @@ export class PgRuntimeModelUsageRepository implements RuntimeModelUsagePort {
       tokensTotal:input.usage.total??0,promptTokens:input.usage.prompt??null,completionTokens:input.usage.completion??null,
       cacheInputTokens:cacheInput!==undefined&&prompt!==undefined&&cacheInput<=prompt?cacheInput:null,reasoningOutputTokens:reasoningOutput!==undefined&&completion!==undefined&&reasoningOutput<=completion?reasoningOutput:null,
       ...(cost===null||!snapshot?{}:{costMicros:cost,currency:snapshot.currency,priceVersion:snapshot.priceVersion}),outcome:input.outcome});
-    if(snapshot)await this.admission!.settle(orgId,input.requestId,{tokens:total===undefined?null:BigInt(total),costMicros:cost});
+    if(snapshot){
+     if(this.admission!.readRecoverySnapshot)await recoverAiReceiptSettlement({recovery:this.admission! as AiReceiptRecoveryPort,admission:this.admission!},orgId,input.requestId);
+     else await this.admission!.settle(orgId,input.requestId,{tokens:total===undefined?null:BigInt(total),costMicros:cost});
+    }
   }
  private async insertStart(s:TenantSession,orgId:OrgId,input:{requestId:string;userId:string;runId:string;executionAttemptId:string;projectId:string|null;threadId:string|null;agentId:string|null;callPurpose:string;modelProvider:string;modelId:string;startedAt:string;executionLeaseEpoch:number;subtaskId?:string|null}):Promise<void>{
   const inserted=await s.query(`INSERT INTO model_request_starts(id,org_id,user_id,run_id,execution_attempt_id,project_id,model_provider,model_id,started_at,thread_id,agent_id,call_purpose,execution_lease_epoch,subtask_id)

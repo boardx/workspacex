@@ -42,14 +42,15 @@ export interface AiBudgetState {
 export type AiAdmissionDecision = "allowed" | "PLAN_UNCONFIGURED" | "TOKEN_LIMIT_UNCONFIGURED"
   | "AI_LIMIT_RULE_BLOCKED" | "AI_LIMIT_APPROVAL_REQUIRED" | "AI_TOKEN_DEGRADE_REQUIRED" | "AI_ATTEMPT_LIMIT_REACHED" | "COST_LIMIT_UNCONFIGURED" | "BUDGET_WINDOW_INACTIVE" | "TOKEN_LIMIT_REACHED" | "COST_LIMIT_REACHED";
 /** Caller must apply this inside the shared budget lock, then persist the hold atomically. */
-export function decideAiAdmission(state: AiBudgetState, maximumTokens: bigint, maximumCostMicros: bigint): AiAdmissionDecision {
+export function decideAiAdmission(state: AiBudgetState, maximumTokens: bigint, maximumCostMicros: bigint, tokenBilling:"token"|"not-applicable"="token"): AiAdmissionDecision {
   const values = [state.usedTokens, state.heldTokens, state.usedCostMicros, state.heldCostMicros, maximumTokens, maximumCostMicros];
   if (values.some(n => n < 0n) || (state.tokenLimit !== null && state.tokenLimit < 0n)
     || (state.costLimitMicros !== null && state.costLimitMicros < 0n)) throw new Error("INVALID_AI_BUDGET");
   if (state.plan === null) return "PLAN_UNCONFIGURED";
-  if (state.plan === "ordinary" && state.tokenLimit === null) return "TOKEN_LIMIT_UNCONFIGURED";
+  if(tokenBilling==="not-applicable"&&maximumTokens!==0n)throw new Error("INVALID_AI_NATIVE_TOKEN_BOUND");
+  if (tokenBilling==="token"&&state.plan === "ordinary" && state.tokenLimit === null) return "TOKEN_LIMIT_UNCONFIGURED";
   if (state.costLimitMicros === null) return "COST_LIMIT_UNCONFIGURED";
-  if (state.plan === "ordinary" && state.usedTokens + state.heldTokens + maximumTokens > state.tokenLimit!) return "TOKEN_LIMIT_REACHED";
+  if (tokenBilling==="token"&&state.plan === "ordinary" && state.usedTokens + state.heldTokens + maximumTokens > state.tokenLimit!) return "TOKEN_LIMIT_REACHED";
   if (state.usedCostMicros + state.heldCostMicros + maximumCostMicros > state.costLimitMicros) return "COST_LIMIT_REACHED";
   return "allowed";
 }

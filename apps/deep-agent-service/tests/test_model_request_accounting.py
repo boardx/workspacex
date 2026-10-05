@@ -486,7 +486,7 @@ def test_inflight_persistence_failure_prevents_vendor_dispatch(context,monkeypat
     monkeypatch.setattr(a.Journal,'begin',lambda *args:(_ for _ in ()).throw(OSError('disk unavailable')))
     with httpx.Client(transport=a.AccountingTransport(httpx.MockTransport(lambda req:paid.append(req)))) as client:
         with pytest.raises(OSError):client.send(request())
-    assert paid==[] and [c[1] for c in calls]==['start']
+    assert paid==[] and calls==[]
 
 def test_inflight_real_process_exit_releases_lock_and_repairs_without_vendor(context):
     import subprocess,sys,os
@@ -523,7 +523,7 @@ def test_async_inflight_persistence_failure_zero_vendor(context,monkeypatch):
     async def run():
         async with httpx.AsyncClient(transport=a.AsyncAccountingTransport(httpx.MockTransport(vendor))) as client:
             with pytest.raises(OSError):await client.send(request())
-    asyncio.run(run());assert paid==[] and [c[1] for c in calls]==['start']
+    asyncio.run(run());assert paid==[] and calls==[]
 
 def test_inflight_idle_replays_unknown_metadata_without_vendor(context,monkeypatch):
     calls,path=context;journal=a.Journal(str(path));start=inflight_start();fd=journal.begin(OWNER,start);a.os.close(fd)
@@ -581,7 +581,7 @@ def test_gc_real_process_unlink_between_producer_open_and_flock_zero_vendor(cont
     monkeypatch.setattr(a.fcntl,'flock',paused)
     with httpx.Client(transport=a.AccountingTransport(httpx.MockTransport(lambda req:paid.append(req)))) as client:
         with pytest.raises(FileNotFoundError):client.send(request())
-    assert once and paid==[] and [c[1] for c in calls]==['start']
+    assert once and paid==[] and calls==[]
     with a.Journal(str(path)).connect() as db:assert db.execute('SELECT count(*) FROM inflight').fetchone()[0]==0
 
 def test_gc_bounded_rotation_preserves_live_and_pending_then_collects_completed(context):
@@ -759,7 +759,9 @@ def test_authorized_replacement_is_only_vendor_dispatch_and_journal_identity(con
         with httpx.Client(transport=a.AccountingTransport(httpx.MockTransport(vendor))) as client:client.send(req())
     assert paid==[selected]
     assert [phase for _,phase,_ in calls]==["admit","terminal"]
-    assert starts[0]["modelId"]=="cheap-model"
+    # Local pre-ACK intent contains the original transient model; its persisted
+    # projection has no model. The vendor body and server admission own selection.
+    assert starts[0]["modelId"]=="fixture-model"
     assert starts[0]["requestId"]==calls[-1][2]["requestId"]
 
 @pytest.mark.parametrize("change", [{"messages":[]},{"max_tokens":True},{"max_tokens":11},{"new_field":1},{"temperature":True}])
@@ -796,3 +798,147 @@ def test_admission_protocol_header_preserves_legacy_request_body(context,monkeyp
     assert requests[0].headers["x-deep-agent-admission-protocol"]=="same-connection-v1"
     assert "x-deep-agent-admission-protocol" not in requests[1].headers
     assert [json.loads(req.content) for req in requests]==[body,body]
+
+
+@pytest.mark.parametrize("admission", [False, True])
+@pytest.mark.parametrize("asynchronous", [False, True])
+def test_lost_start_ack_keeps_durable_identity_and_repair_never_dispatches(context, monkeypatch, admission, asynchronous):
+    calls, path = context
+    monkeypatch.setenv("DEEP_AGENT_MODEL_ADMISSION_ENABLED", "1" if admission else "0")
+    paid = []
+    journal = a.Journal(str(path))
+
+    def lost_ack(owner, run, phase, body):
+        # Model server has committed this identity; its response is lost.
+        with journal.connect() as db:
+            persisted = db.execute("SELECT start FROM inflight WHERE id=?", (body["requestId"],)).fetchone()
+        assert persisted is not None
+        assert "prompt-never-persist" not in persisted[0]
+        calls.append((run, phase, dict(body)))
+        raise a.RuntimeUsageError("usage_receipt_delivery_unconfirmed")
+
+    async def alost_ack(*args):
+        return lost_ack(*args)
+
+    req = httpx.Request("POST", "http://vendor.example.test/v1/chat/completions", json={"model":"fixture-model", "max_tokens":2, "messages":[{"role":"user", "content":"prompt-never-persist"}]})
+    if asynchronous:
+        monkeypatch.setattr(a, "apost", alost_ack)
+        async def run():
+            async with httpx.AsyncClient(transport=a.AsyncAccountingTransport(httpx.MockTransport(lambda req: paid.append(req)))) as client:
+                with pytest.raises(a.RuntimeUsageError):
+                    await client.send(req)
+        asyncio.run(run())
+    else:
+        monkeypatch.setattr(a, "post", lost_ack)
+        with httpx.Client(transport=a.AccountingTransport(httpx.MockTransport(lambda req: paid.append(req)))) as client:
+            with pytest.raises(a.RuntimeUsageError):
+                client.send(req)
+    assert paid == []
+    original = calls[0][2]["requestId"]
+    async def repair(owner, run, phase, body):
+        calls.append((run, phase, dict(body)))
+    monkeypatch.setattr(a, "apost", repair)
+    assert asyncio.run(a.replay_pending_batch(OWNER, a.Journal(str(path)))) == 1
+    assert calls[-1][1] == "terminal"
+    assert calls[-1][2]["requestId"] == original
+    assert calls[-1][2]["usage"] == {}
+    assert paid == []
+    assert asyncio.run(a.replay_pending_batch(OWNER, journal)) == 0
+
+
+def test_cancelled_admission_ack_releases_lock_for_callback_only_repair(context, monkeypatch):
+    calls, path = context
+    monkeypatch.setenv("DEEP_AGENT_MODEL_ADMISSION_ENABLED", "1")
+    paid = []
+    async def cancelled(owner, run, phase, body):
+        calls.append((run, phase, dict(body)))
+        raise asyncio.CancelledError()
+    monkeypatch.setattr(a, "apost", cancelled)
+    async def run():
+        req = httpx.Request("POST", "http://vendor.example.test/v1/chat/completions", json={"model":"fixture-model", "max_tokens":2})
+        async with httpx.AsyncClient(transport=a.AsyncAccountingTransport(httpx.MockTransport(lambda req: paid.append(req)))) as client:
+            with pytest.raises(asyncio.CancelledError):
+                await client.send(req)
+    asyncio.run(run())
+    async def repair(owner, run, phase, body):
+        calls.append((run, phase, dict(body)))
+    monkeypatch.setattr(a, "apost", repair)
+    assert asyncio.run(a.replay_pending_batch(OWNER, a.Journal(str(path)))) == 1
+    assert len(calls) == 2 and calls[0][2]["requestId"] == calls[1][2]["requestId"]
+    assert paid == []
+
+
+@pytest.mark.parametrize("damage", ["invalid-json", "foreign-id", "extra-content", "bool-lease"])
+def test_corrupt_inflight_intent_never_emits_forged_receipt_or_starves_valid_repair(context, damage):
+    calls, path = context
+    journal = a.Journal(str(path))
+    broken, valid = inflight_start(), inflight_start()
+    for start in (broken, valid):
+        fd = journal.begin(OWNER, start)
+        a.os.close(fd)
+    damaged = dict(broken)
+    if damage == "foreign-id":
+        damaged["requestId"] = valid["requestId"]
+    elif damage == "extra-content":
+        damaged["serializedBody"] = "prompt-must-not-be-replayed"
+    elif damage == "bool-lease":
+        damaged["leaseEpoch"] = True
+    encoded = "{" if damage == "invalid-json" else json.dumps(damaged)
+    with journal.connect() as db:
+        db.execute("UPDATE inflight SET start=? WHERE id=?", (encoded, broken["requestId"]))
+    journal.recover_inflight(OWNER)
+    pending = journal.pending(OWNER)
+    assert len(pending) == 1 and pending[0][0] == valid["requestId"]
+    assert "prompt-must-not-be-replayed" not in pending[0][2]
+    with journal.connect() as db:
+        assert db.execute("SELECT id FROM inflight").fetchall() == [(broken["requestId"],)]
+    assert calls == []
+
+
+@pytest.mark.parametrize("field,value", [("leaseEpoch", True), ("leaseEpoch", 0), ("attemptId", ""), ("orgId", None)])
+def test_invalid_intent_metadata_fails_before_any_callback_or_vendor(context, field, value):
+    calls, path = context
+    start = inflight_start() | {field:value}
+    journal = a.Journal(str(path))
+    with pytest.raises(a.RuntimeUsageError, match="usage_inflight_metadata_invalid"):
+        journal.begin(OWNER, start)
+    with journal.connect() as db:
+        assert db.execute("SELECT count(*) FROM inflight").fetchone()[0] == 0
+    assert calls == []
+
+
+@pytest.mark.parametrize("asynchronous", [False, True])
+def test_actual_terminal_callback_ack_loss_retries_only_same_receipt(context, monkeypatch, asynchronous):
+    _, path = context
+    journal = a.Journal(str(path))
+    start = inflight_start()
+    fd = journal.begin(OWNER, start)
+    wire = []
+    lost = True
+    def callback(req):
+        wire.append(json.loads(req.content))
+        if lost:
+            # Receiver accepted the terminal; only its HTTP acknowledgement vanished.
+            raise httpx.ReadError("fixture acknowledgement lost", request=req)
+        return httpx.Response(200, json={"accepted":True})
+    sync_client, async_client = httpx.Client, httpx.AsyncClient
+    monkeypatch.setattr(a.httpx, "Client", lambda **kwargs:sync_client(transport=httpx.MockTransport(callback), **kwargs))
+    monkeypatch.setattr(a.httpx, "AsyncClient", lambda **kwargs:async_client(transport=httpx.MockTransport(callback), **kwargs))
+    monkeypatch.setattr(a, "post", ORIGINAL_POST)
+    monkeypatch.setattr(a, "apost", ORIGINAL_APOST)
+    if asynchronous:
+        stream = a.AccountedAsyncStream(a.response_stream_empty(), OWNER, journal, start, "application/json", True, fd)
+        stream.parser.feed(b'{"usage":{"total_tokens":3,"prompt_tokens":2,"completion_tokens":1}}')
+        asyncio.run(stream.finish(True))
+    else:
+        stream = a.AccountedSyncStream(httpx.ByteStream(b""), OWNER, journal, start, "application/json", True, fd)
+        stream.parser.feed(b'{"usage":{"total_tokens":3,"prompt_tokens":2,"completion_tokens":1}}')
+        stream.finish(True)
+    assert len(wire) == 3 and all(body == wire[0] for body in wire)
+    assert wire[0]["requestId"] == start["requestId"]
+    assert len(journal.pending(OWNER)) == 1
+    lost = False
+    assert asyncio.run(a.replay_pending_batch(OWNER, a.Journal(str(path)))) == 1
+    assert len(wire) == 4 and wire[-1] == wire[0]
+    assert journal.pending(OWNER) == []
+    assert asyncio.run(a.replay_pending_batch(OWNER, journal)) == 0

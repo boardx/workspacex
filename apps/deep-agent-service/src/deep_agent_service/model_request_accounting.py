@@ -153,6 +153,23 @@ def merge_late_terminal(previous: dict, incoming: dict):
     return previous | {"usage": merged}
 
 
+def validate_inflight_metadata(start, request_id):
+    """Strict metadata-only projection; a damaged row cannot assert another UUID.
+
+    This validates local structure, never establishes an acknowledged server start.
+    Unknown or corrupt intents remain closed until explicit operator repair.
+    """
+    required = {"orgId", "requestId", "startedAt"}
+    leased = {"attemptId", "leaseEpoch"}
+    if not isinstance(start, dict) or set(start) not in (required, required | leased):
+        raise RuntimeUsageError("usage_inflight_metadata_invalid")
+    if start["requestId"] != request_id or not all(isinstance(start[name], str) and start[name] for name in required):
+        raise RuntimeUsageError("usage_inflight_metadata_invalid")
+    if "attemptId" in start and (not isinstance(start["attemptId"], str) or not start["attemptId"] or type(start["leaseEpoch"]) is not int or start["leaseEpoch"] < 1):
+        raise RuntimeUsageError("usage_inflight_metadata_invalid")
+    return start
+
+
 class Journal:
     def __init__(self, directory: str):
         root = Path(directory)
@@ -281,6 +298,7 @@ class Journal:
         try:
             # Explicit projection: no request body, callback address/key or model content.
             metadata = {k:start[k] for k in ("orgId", "requestId", "attemptId", "leaseEpoch", "startedAt") if k in start}
+            validate_inflight_metadata(metadata, start["requestId"])
             with self.connect() as db:
                 db.execute("INSERT INTO inflight(id,receiver,subject_id,subject_kind,start) VALUES(?,?,?,?,?)",
                            (start["requestId"], sha256(owner["base_url"].encode()).hexdigest(), subject_id(owner), owner.get("subject_kind") or "agent-run", json.dumps(metadata, separators=(",", ":"))))
@@ -305,7 +323,13 @@ class Journal:
                     row = db.execute("SELECT subject_id,subject_kind,start FROM inflight WHERE id=? AND receiver=?", (request_id, receiver)).fetchone()
                     if not row:
                         continue
-                    start = json.loads(row[2])
+                    try:
+                        start = validate_inflight_metadata(json.loads(row[2]), request_id)
+                    except (RuntimeUsageError, ValueError, TypeError):
+                        # Rotate past damaged metadata without deleting its evidence,
+                        # leaking its contents, or starving later recoverable rows.
+                        _logger.warning("usage_inflight_metadata_invalid")
+                        continue
                     body = {k:start[k] for k in ("orgId", "requestId", "attemptId", "leaseEpoch") if k in start}
                     body.update(endedAt=now(), outcome="failed", usage={})
                     # An actual durable terminal always wins, even after a crash.
@@ -669,12 +693,21 @@ class AccountingTransport(httpx.BaseTransport):
                 post(owner | {"subject_kind":kind},run_id,"terminal",json.loads(payload)); journal.acknowledge(request_id,payload)
             except RuntimeUsageError:
                 break
-        if admission_enabled():
-            acknowledgement = post(owner,subject_id(owner),"admit",admission_payload(request,owner,start))
-            request = apply_admitted_dispatch(request,start,acknowledgement)
-        else:
-            post(owner,subject_id(owner),"start",start)
+        # Persist metadata and own the physical lock before sending a callback.
+        # A committed server start with a lost ACK must remain repairable locally.
+        # No vendor dispatch is inferred from an ACK or retried during recovery.
         intent_lock = journal.begin(owner,start)
+        try:
+            if admission_enabled():
+                acknowledgement = post(owner,subject_id(owner),"admit",admission_payload(request,owner,start))
+                request = apply_admitted_dispatch(request,start,acknowledgement)
+            else:
+                post(owner,subject_id(owner),"start",start)
+        except BaseException:
+            # Keep the durable uncertain intent, but relinquish the live lock.
+            # Idle repair sends an unknown-usage terminal for this same UUID.
+            os.close(intent_lock)
+            raise
         try:
             response = self.inner.handle_request(request)
         except BaseException:
@@ -709,12 +742,21 @@ class AsyncAccountingTransport(httpx.AsyncBaseTransport):
                 await apost(owner | {"subject_kind":kind},run_id,"terminal",json.loads(payload)); journal.acknowledge(request_id,payload)
             except RuntimeUsageError:
                 break
-        if admission_enabled():
-            acknowledgement = await apost(owner,subject_id(owner),"admit",admission_payload(request,owner,start))
-            request = apply_admitted_dispatch(request,start,acknowledgement)
-        else:
-            await apost(owner,subject_id(owner),"start",start)
+        # Persist metadata and own the physical lock before sending a callback.
+        # A committed server start with a lost ACK must remain repairable locally.
+        # No vendor dispatch is inferred from an ACK or retried during recovery.
         intent_lock = journal.begin(owner,start)
+        try:
+            if admission_enabled():
+                acknowledgement = await apost(owner,subject_id(owner),"admit",admission_payload(request,owner,start))
+                request = apply_admitted_dispatch(request,start,acknowledgement)
+            else:
+                await apost(owner,subject_id(owner),"start",start)
+        except BaseException:
+            # Keep the durable uncertain intent, but relinquish the live lock.
+            # Idle repair sends an unknown-usage terminal for this same UUID.
+            os.close(intent_lock)
+            raise
         try:
             response = await self.inner.handle_async_request(request)
         except BaseException:

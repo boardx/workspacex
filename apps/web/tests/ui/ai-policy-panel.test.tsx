@@ -102,3 +102,69 @@ describe("explicit AI policy configuration",()=>{
  });
 
 });
+
+const nativeBaseConfiguration={window:{start:"2026-10-01T00:00:00Z",end:"2026-11-01T00:00:00Z",timezone:"Etc/UTC"},ordinaryTokensPerUser:"100",costMicrosPerUser:"10000",currency:"CNY",
+ prices:[{billingMode:"input-only",modelId:"embedding",modelProvider:"fixture-route",runtimeModelId:"embed-actual",inputMicrosPerMillion:"10",cachedInputMicrosPerMillion:"5",maxInputTokens:100}],fallbackModelIds:[],maxAttempts:1};
+const nativeCandidate={modelId:"asr-fixture",displayName:"Fixture ASR",kind:"closed-api",capabilityTags:["asr"],contextWindow:1000,modelProviders:["verified-asr-route"]};
+const nativePrice={modelId:nativeCandidate.modelId,modelProvider:"verified-asr-route",runtimeModelId:"verified-runtime-asr",unit:"millisecond",quantum:"1000",microsPerQuantum:"15",maxQuantity:"30000"};
+function nativeFixture(nativePrices?:unknown[]){
+ const configuration={...nativeBaseConfiguration,...nativePrices===undefined?{}:{nativePrices}};
+ mocks.policy.mockResolvedValue({...state,version:7,configuration});mocks.candidates.mockResolvedValue([nativeCandidate]);
+ mocks.save.mockImplementation(async(_org,input)=>({...state,version:8,configuration:input.configuration}));
+ render(<AiPolicyPanel orgId="formal"/>);
+}
+async function addNativePrice(){
+ await screen.findByText(/已配置 · 版本 7/);
+ fireEvent.change(screen.getByLabelText("添加原生计费模型"),{target:{value:nativeCandidate.modelId}});
+}
+function fillNativePrice(){
+ for(const [label,value] of [["原生模型供应商实际标识",nativePrice.runtimeModelId],["每个计价单位包含的用量（正整数）",nativePrice.quantum],["每个计价单位价格（正整数微货币）",nativePrice.microsPerQuantum],["单次原生用量硬上限（正整数）",nativePrice.maxQuantity]])fireEvent.change(screen.getByLabelText(label!),{target:{value}});
+ fireEvent.change(screen.getByLabelText("原生模型已注册路由"),{target:{value:nativePrice.modelProvider}});
+ fireEvent.change(screen.getByLabelText("原生计量单位"),{target:{value:nativePrice.unit}});
+ fireEvent.change(screen.getByLabelText("变更理由（写入审计）"),{target:{value:"verified native policy"}});
+}
+describe("explicit native model pricing",()=>{
+ it("keeps absent native policy absent and presents honest catalog and cost boundaries",async()=>{
+  nativeFixture();await screen.findByTestId("ai-native-empty");
+  expect(screen.getByText(/已进入模型目录不代表账号可用/)).toBeInTheDocument();
+  fireEvent.change(screen.getByLabelText("变更理由（写入审计）"),{target:{value:"preserve legacy"}});fireEvent.click(screen.getByRole("button",{name:"保存额度配置"}));
+  await waitFor(()=>expect(mocks.save).toHaveBeenCalledOnce());expect(mocks.save.mock.calls[0]![1].configuration).not.toHaveProperty("nativePrices");
+ });
+ it("new native model starts entirely unconfigured, then saves verified unit/rate/cap with existing version and audit",async()=>{
+  nativeFixture();await addNativePrice();
+  for(const label of ["原生模型供应商实际标识","原生模型已注册路由","原生计量单位","每个计价单位包含的用量（正整数）","每个计价单位价格（正整数微货币）","单次原生用量硬上限（正整数）"])expect(screen.getByLabelText(label)).toHaveValue("");
+  expect(screen.getByRole("button",{name:"保存额度配置"})).toBeDisabled();
+  fillNativePrice();fireEvent.click(screen.getByRole("button",{name:"保存额度配置"}));
+  await waitFor(()=>expect(mocks.save).toHaveBeenCalledWith("formal",expect.objectContaining({expectedVersion:7,reason:"verified native policy",configuration:expect.objectContaining({nativePrices:[nativePrice],prices:nativeBaseConfiguration.prices})})));
+  expect(await screen.findByText("配置已保存，限制尚未启用。")).toBeInTheDocument();
+ });
+ it("loads existing native values and saves a deliberate rate edit without dropping other configuration",async()=>{
+  nativeFixture([nativePrice]);await screen.findByText(/已配置 · 版本 7/);
+  expect(screen.getByLabelText("原生计量单位")).toHaveValue("millisecond");expect(screen.getByLabelText("单次原生用量硬上限（正整数）")).toHaveValue("30000");
+  fireEvent.change(screen.getByLabelText("每个计价单位价格（正整数微货币）"),{target:{value:"20"}});
+  fireEvent.change(screen.getByLabelText("变更理由（写入审计）"),{target:{value:"confirmed new rate"}});fireEvent.click(screen.getByRole("button",{name:"保存额度配置"}));
+  await waitFor(()=>expect(mocks.save).toHaveBeenCalledOnce());expect(mocks.save.mock.calls[0]![1].configuration.nativePrices).toEqual([{...nativePrice,microsPerQuantum:"20"}]);
+ });
+ it.each(["0","-1","1.5","9223372036854775808","not-a-number"])("rejects invalid native maximum %s before API save",async invalid=>{
+  nativeFixture([nativePrice]);await screen.findByText(/已配置 · 版本 7/);
+  fireEvent.change(screen.getByLabelText("单次原生用量硬上限（正整数）"),{target:{value:invalid}});fireEvent.change(screen.getByLabelText("变更理由（写入审计）"),{target:{value:"attempt invalid"}});
+  expect(screen.getByRole("button",{name:"保存额度配置"})).toBeDisabled();expect(screen.getByRole("alert")).toHaveTextContent("正整数");expect(mocks.save).not.toHaveBeenCalled();
+ });
+ it("shared Configuration rejects one formal model as both token and native billing, with clear recovery",async()=>{
+  nativeFixture([nativePrice]);await screen.findByText(/已配置 · 版本 7/);
+  fireEvent.click(screen.getByRole("checkbox",{name:/Fixture ASR/}));fireEvent.change(screen.getByLabelText("变更理由（写入审计）"),{target:{value:"conflict"}});
+  expect(screen.getByRole("alert")).toHaveTextContent("同一正式模型不能同时配置 Token 与原生价格");expect(screen.getByRole("button",{name:"保存额度配置"})).toBeDisabled();expect(mocks.save).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("checkbox",{name:/Fixture ASR/}));expect(screen.queryByRole("alert")).not.toBeInTheDocument();expect(screen.getByRole("button",{name:"保存额度配置"})).toBeEnabled();
+ });
+ it("native removal is explicit and saves an empty native array without touching token prices",async()=>{
+  nativeFixture([nativePrice]);await screen.findByText(/已配置 · 版本 7/);
+  fireEvent.click(screen.getByRole("button",{name:"移除原生价格 Fixture ASR"}));expect(screen.getByTestId("ai-native-empty")).toBeInTheDocument();
+  fireEvent.change(screen.getByLabelText("变更理由（写入审计）"),{target:{value:"remove native price"}});fireEvent.click(screen.getByRole("button",{name:"保存额度配置"}));
+  await waitFor(()=>expect(mocks.save).toHaveBeenCalledOnce());expect(mocks.save.mock.calls[0]![1].configuration.nativePrices).toEqual([]);expect(mocks.save.mock.calls[0]![1].configuration.prices).toEqual(nativeBaseConfiguration.prices);
+ });
+});
+it("blocks duplicate runtime binding across distinct formal models and explains what to repair",async()=>{
+ nativeFixture([{...nativePrice,modelProvider:"fixture-route",runtimeModelId:"embed-actual"}]);await screen.findByText(/已配置 · 版本 7/);
+ fireEvent.change(screen.getByLabelText("变更理由（写入审计）"),{target:{value:"duplicate binding"}});
+ expect(screen.getByRole("alert")).toHaveTextContent("同一供应商路由与实际模型标识不能重复配置价格");expect(screen.getByRole("button",{name:"保存额度配置"})).toBeDisabled();expect(mocks.save).not.toHaveBeenCalled();
+});

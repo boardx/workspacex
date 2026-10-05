@@ -1,3 +1,4 @@
+import type {NativeBoundRegistration} from "./native-quota-wiring";
 import {readPrivateChildSources} from "./private-child-source-reader";
 import type {ChildSdkEvidence} from "../../application/agent-run/child-input-source-provenance";
 import {readRootAssembly,type RootAssemblyEvidence} from "../../application/agent-run/root-input-source-provenance";
@@ -25,6 +26,8 @@ import {IdentityModelConstraint} from "../context-pack/identity-model-constraint
  * no public config endpoint, dynamic code loader, guessed price/model/count or public default.
  */
 export interface AiQuotaRuntimeConfiguration {
+ /** Native tariffs require separately verified endpoint/account bounds; catalog entries cannot grant dispatch. */
+ readonly nativeBounds?:readonly NativeBoundRegistration[];
  readonly inputOnlyModelBounds?:readonly InputOnlyModelBoundRegistration[];
  readonly modelBounds:readonly ModelBoundRegistration[];
  /** Optional legacy CP fragment evidence; never authoritative whole-input classification. */
@@ -34,6 +37,8 @@ export interface AiQuotaRuntimeConfiguration {
 }
 export const AI_QUOTA_RUNTIME_CONFIGURATION=Symbol("AiQuotaRuntimeConfiguration");
 export const AI_QUOTA_RUNTIME_WIRING=Symbol("AiQuotaRuntimeWiring");
+/** Kept separate from Token model wiring to avoid model/provider dependency cycles. */
+export const NATIVE_AI_QUOTA_RUNTIME_WIRING=Symbol("NativeAiQuotaRuntimeWiring");
 export interface AiQuotaRuntimeWiring {readonly run:RunAiAdmission;readonly runtime:RuntimeAiAdmissionOptions;readonly inputOnly?:InputOnlyRuntimeAdmissionOptions;}
 export function createAiQuotaRuntimeWiring(enabled:boolean,configuration:AiQuotaRuntimeConfiguration|null,deps:{
  readonly db:DatabasePort;readonly identity:IdentityRepository;readonly pool:ModelPoolRepository;

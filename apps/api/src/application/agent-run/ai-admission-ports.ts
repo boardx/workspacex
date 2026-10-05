@@ -1,3 +1,4 @@
+export const AI_NATIVE_POLICY_PROVIDERS=Symbol("AI_NATIVE_POLICY_PROVIDERS");
 import type { OrgId } from "../../domain/org-id";
 import type { AiAdmissionDecision } from "../../domain/agent-run/ai-budget";
 import type {z} from "zod";
@@ -6,12 +7,14 @@ export interface AiConfiguredBudget {readonly decision:"configured";readonly pla
  readonly configuration:z.infer<typeof Configuration>;readonly priceVersion:string;}
 export interface AiBudgetPolicyPort {
  /** Derives a member window from the audited org template; never resets an existing window. */
- resolveBudgetPolicy(orgId:OrgId,userId:string):Promise<AiConfiguredBudget|{readonly decision:AiAdmissionDecision|"AI_POLICY_UNCONFIGURED"|"AI_SUBJECT_NOT_MEMBER"}>;
+ resolveBudgetPolicy(orgId:OrgId,userId:string,tokenBilling?:"token"|"not-applicable"):Promise<AiConfiguredBudget|{readonly decision:AiAdmissionDecision|"AI_POLICY_UNCONFIGURED"|"AI_SUBJECT_NOT_MEMBER"}>;
 }
 export interface AiReservationInput {
  readonly requestId: string; readonly userId: string;
  /** Trusted pre-dispatch candidate slot; physical reservation identity remains requestId. */
  readonly candidateDecisionSlot?:number;
+ /** Trusted native-only bound, matched against the immutable audited tariff. */
+ readonly nativePolicy?:{readonly unit:import("../../domain/agent-run/ai-billable-unit").AiNativeUnit;readonly maximumQuantity:bigint};
  readonly formalModelId?:string;readonly agentId?:string|null;
  /** Original trusted classification and formal model IDs, verified against immutable policy. */
  readonly tokenPolicy?:{readonly primaryModelId:string;readonly selectedModelId:string;readonly allowDegradation:boolean};

@@ -1,4 +1,5 @@
 import {z} from "zod";
+import {NATIVE_UNITS} from "./ai-usage";
 /** Decimal integers avoid float rounding and remain bounded by PostgreSQL bigint. */
 export const Micros = z.string().regex(/^(0|[1-9]\d{0,18})$/).refine(value=>/^(0|[1-9]\d{0,18})$/.test(value)&&BigInt(value)<=9223372036854775807n);
 const Timezone=z.string().max(100).refine(value=>{try{new Intl.DateTimeFormat("en",{timeZone:value});return true;}catch{return false;}},"invalid timezone");
@@ -24,6 +25,12 @@ export const InputOnlyModelPrice=z.object({billingMode:z.literal("input-only"),m
  maxInputTokens:z.number().int().positive().max(2147483647),
 }).strict();
 export const ModelPrice=z.union([ChatModelPrice,InputOnlyModelPrice]);
+/** Separate native dimensions never manufacture Token caps or rates. */
+export const NativeModelPrice=z.object({modelId:z.string().min(1).max(200),modelProvider:z.string().min(1).max(100),
+ runtimeModelId:z.string().min(1).max(200),unit:z.enum(NATIVE_UNITS),
+ quantum:Micros.refine(value=>/^[0-9]+$/.test(value)&&BigInt(value)>0n),microsPerQuantum:Micros.refine(value=>/^[0-9]+$/.test(value)&&BigInt(value)>0n),
+ maxQuantity:Micros.refine(value=>/^[0-9]+$/.test(value)&&BigInt(value)>0n),
+}).strict();
 /** Optional controls preserve legacy configurations without enabling inferred thresholds. */
 export const TokenControls=z.object({
  enforceLimitRules:z.boolean().optional(),
@@ -40,6 +47,7 @@ export const TokenControls=z.object({
 });
 export const Configuration=z.object({tokenControls:TokenControls.optional(),window:Window,ordinaryTokensPerUser:Micros.nullable(),costMicrosPerUser:Micros,
  currency:z.string().regex(/^[A-Z]{3}$/),prices:z.array(ModelPrice).min(1).max(50),
+ nativePrices:z.array(NativeModelPrice).max(50).optional(),
  /** Empty means no fallback. Attempts include the primary; SDK retry admission is separate. */
  fallbackModelIds:z.array(z.string().min(1).max(200)).max(4),maxAttempts:z.number().int().min(1).max(5),
 }).strict().superRefine((value,ctx)=>{
@@ -47,6 +55,10 @@ export const Configuration=z.object({tokenControls:TokenControls.optional(),wind
   ctx.addIssue({code:z.ZodIssueCode.custom,message:"member quota requires a complete UTC calendar month"});
  const ids=value.prices.map(row=>row.modelId);
  const bindings=value.prices.map(row=>JSON.stringify([row.modelProvider,row.runtimeModelId]));
+ const allIds=[...ids,...(value.nativePrices??[]).map(row=>row.modelId)];
+ const allBindings=[...bindings,...(value.nativePrices??[]).map(row=>JSON.stringify([row.modelProvider,row.runtimeModelId]))];
+ if(new Set(allIds).size!==allIds.length||new Set(allBindings).size!==allBindings.length)
+  ctx.addIssue({code:z.ZodIssueCode.custom,message:"duplicate native model binding"});
  if(new Set(ids).size!==ids.length||new Set(value.fallbackModelIds).size!==value.fallbackModelIds.length
   ||new Set(bindings).size!==bindings.length||value.fallbackModelIds.some(id=>!ids.includes(id)))ctx.addIssue({code:z.ZodIssueCode.custom,message:"invalid model references"});
  if(value.maxAttempts>value.fallbackModelIds.length+1)ctx.addIssue({code:z.ZodIssueCode.custom,message:"attempts exceed authorized candidates"});

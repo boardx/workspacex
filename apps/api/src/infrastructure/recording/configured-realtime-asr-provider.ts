@@ -43,6 +43,7 @@
  *
  * 这条 bug 完全静默了 7 天以上没有任何日志——见 `onClosed` 的说明。
  */
+import {prepareAsrAiAdmission,type AsrNativeAdmissionDependencies,type AsrNativeAdmissionPort} from "./bounded-asr-admission";
 import {Logger} from "@nestjs/common";
 import type {AsrRequestAccounting,AsrAccountingContext} from "../../application/recording/asr-request-accounting";
 import { WebSocket } from "ws";
@@ -192,7 +193,7 @@ export class ConfiguredRealtimeAsrProvider implements AsrProviderPort {
   private accountingFault=false;
   private readonly logger=new Logger(ConfiguredRealtimeAsrProvider.name);
 
-  constructor(config: ProviderConfig | null = readConfig(),private readonly accounting?:AsrRequestAccounting,private readonly productQuotaEnabled=false) {
+  constructor(config: ProviderConfig | null = readConfig(),private readonly accounting?:AsrRequestAccounting,private readonly productQuotaEnabled=false,private readonly nativeAdmission?:AsrNativeAdmissionDependencies|AsrNativeAdmissionPort) {
     this.config = config !== null && config.turnDetectionSilenceMs === undefined
       ? { ...config, turnDetectionSilenceMs: DEFAULT_ASR_TURN_SILENCE_MS }
       : config;
@@ -218,13 +219,21 @@ export class ConfiguredRealtimeAsrProvider implements AsrProviderPort {
     // 之后再用 `session.update` 改模型已经太晚——连接可能已经因为默认模型不可用被关闭。
     const url = `${config.baseUrl}?model=${encodeURIComponent(config.model)}`;
     if(this.accountingFault)throw new Error("ASR_ACCOUNTING_REPAIR_REQUIRED");
-    if(this.productQuotaEnabled)throw new Error("ASR_NATIVE_ADMISSION_REQUIRED");
-    if(this.accounting&&!options?.accountingContext)throw new Error("ASR_ACCOUNTING_CONTEXT_REQUIRED");
+    if(this.productQuotaEnabled&&!this.nativeAdmission)throw new Error("ASR_NATIVE_ADMISSION_REQUIRED");
+    if((this.accounting||this.productQuotaEnabled)&&!options?.accountingContext)throw new Error("ASR_ACCOUNTING_CONTEXT_REQUIRED");
     options?.signal?.throwIfAborted();
-    const receipt=this.accounting?await this.accounting.start(options!.accountingContext!,{requestId:randomUUID(),modelProvider:config.provider,modelId:config.model,startedAt:new Date().toISOString()}):undefined;
+    const request={requestId:randomUUID(),modelProvider:config.provider,modelId:config.model,startedAt:new Date().toISOString()};
+    const admitted=this.productQuotaEnabled?await ("start" in this.nativeAdmission!
+      ?this.nativeAdmission!.start(options!.accountingContext!,{...request,audio})
+      :prepareAsrAiAdmission(options!.accountingContext!,{...request,audio},this.nativeAdmission!)):undefined;
+    const receipt=admitted??(this.accounting?await this.accounting.start(options!.accountingContext!,request):undefined);
     let queuedPcmBytes=0,wasCancelled=false,terminal:Promise<void>|undefined;
+    let terminalReceipt:Parameters<Awaited<ReturnType<AsrRequestAccounting['start']>>['terminal']>[0]|undefined;
     const account=(outcome:'succeeded'|'failed')=>{
-      if(receipt&&!terminal)terminal=Promise.resolve().then(()=>receipt.terminal({endedAt:new Date().toISOString(),outcome,queuedDurationMs:queuedPcmDurationMs(queuedPcmBytes,audio)})).catch(()=>{this.accountingFault=true;this.logger.warn("ASR_USAGE_TERMINAL_FAILED: unmatched durable start; subsequent sessions blocked in this instance");});
+      if(receipt&&!terminal){
+        terminalReceipt??={endedAt:new Date().toISOString(),outcome,queuedDurationMs:queuedPcmDurationMs(queuedPcmBytes,audio)};
+        terminal=Promise.resolve().then(()=>receipt.terminal(terminalReceipt!)).catch(()=>{terminal=undefined;this.accountingFault=true;this.logger.warn("ASR_USAGE_TERMINAL_FAILED: unmatched durable start; subsequent sessions blocked in this instance");});
+      }
       return terminal??Promise.resolve();
     };
     let socket:WebSocket;
@@ -417,6 +426,10 @@ export class ConfiguredRealtimeAsrProvider implements AsrProviderPort {
     return {
       pushAudio(frame) {
         if (finishRequested || closed || socket.readyState !== WebSocket.OPEN) return;
+        if(admitted&&(frame.byteLength%2!==0||queuedPcmDurationMs(queuedPcmBytes+frame.byteLength,audio)!>admitted.maximumDurationMs)){
+          closed=true;socket.terminate();void account('failed');
+          reportError(PROVIDER_UNAVAILABLE,"Audio session reached its admitted duration limit");return;
+        }
         const payload = JSON.stringify({
           type: "input_audio_buffer.append",
           ...(manual ? {event_id: randomUUID()} : {}),
@@ -438,7 +451,7 @@ export class ConfiguredRealtimeAsrProvider implements AsrProviderPort {
       },
       async finish() {
         finishRequested = true;
-        if (closed || socket.readyState !== WebSocket.OPEN) return;
+        if (closed || socket.readyState !== WebSocket.OPEN) {await account('failed');return;}
         finalSeen = false;
         if (manual) sessionFinished = false;
         socket.send(JSON.stringify({ type: "input_audio_buffer.commit", ...(manual ? {event_id: randomUUID()} : {}) }));

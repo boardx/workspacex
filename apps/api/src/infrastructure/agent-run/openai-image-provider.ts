@@ -33,6 +33,7 @@
  * 这里的读循环同样用 `abortable(...)` 把每次 `read()` 包起来，不把活性外包给善意。
  */
 import {Logger} from "@nestjs/common";
+import {readReportedImageQuantity,type ImageAiAdmission} from "./image-ai-admission";
 import {randomUUID} from "node:crypto";
 import type {ImageRequestAccounting} from "../../application/agent-run/image-request-accounting";
 import type {ImageContext} from "../../application/agent-run/standard-image-tools";
@@ -81,7 +82,7 @@ interface ImagesResponse {
 export class OpenAiImageProvider implements ImageGenerator {
   private accountingFault=false;
   private readonly logger=new Logger(OpenAiImageProvider.name);
-  constructor(private readonly config: OpenAiImageProviderConfig,private readonly accounting?:ImageRequestAccounting,private readonly productQuotaEnabled=false) {}
+  constructor(private readonly config: OpenAiImageProviderConfig,private readonly accounting?:ImageRequestAccounting,private readonly productQuotaEnabled=false,private readonly nativeAdmission?:ImageAiAdmission) {}
 
   get modelRef(): string { return this.config.modelId; }
 
@@ -116,22 +117,32 @@ export class OpenAiImageProvider implements ImageGenerator {
     const payload: Record<string, unknown> = { model: modelId, prompt, n: 1, size: `${L.dimension}x${L.dimension}` };
     if (modelId.startsWith("dall-e")) payload.response_format = "b64_json";
     if(this.accountingFault)throw new Error("IMAGE_ACCOUNTING_REPAIR_REQUIRED");
-    if(this.productQuotaEnabled)throw new Error("IMAGE_NATIVE_ADMISSION_REQUIRED");
+    if(this.productQuotaEnabled&&!this.nativeAdmission)throw new Error("IMAGE_NATIVE_ADMISSION_REQUIRED");
+    if(this.nativeAdmission&&!context)throw new Error("IMAGE_ACCOUNTING_CONTEXT_REQUIRED");
     if(this.accounting&&!context)throw new Error("IMAGE_ACCOUNTING_CONTEXT_REQUIRED");
     signal.throwIfAborted();
-    const receipt=this.accounting?await this.accounting.start(context!,{requestId:randomUUID(),modelId,startedAt:new Date().toISOString()}):undefined;
+    const requestId=randomUUID();
+    const nativeReceipt=this.nativeAdmission?await this.nativeAdmission.start(context!,{requestId,modelProvider:OPENAI_IMAGE_PROVIDER_NAME,modelId,serializedBody:JSON.stringify(payload),quantity:1n}):undefined;
+    const receipt=!nativeReceipt&&this.accounting?await this.accounting.start(context!,{requestId,modelId,startedAt:new Date().toISOString()}):undefined;
+    let nativeQuantity:bigint|null=null;
     let usage:ReportedUsage={},outcome:'succeeded'|'failed'='failed';
     try {
       signal.throwIfAborted();
       const response = await fetch(`${baseUrl}/v1/images/generations`, {
         method: "POST", signal, redirect: "error", headers, body: JSON.stringify(payload),
       });
-      if(!response.ok&&!receipt){await response.body?.cancel();throw new ModelCallError("MODEL_CALL_FAILED", `image generation failed with HTTP ${response.status}`);}
+      if(!response.ok&&!receipt&&!nativeReceipt){await response.body?.cancel();throw new ModelCallError("MODEL_CALL_FAILED", `image generation failed with HTTP ${response.status}`);}
       const body=await readBoundedJson(response,signal) as ImagesResponse;
       usage=readImageUsage(body.usage);
+      nativeQuantity=readReportedImageQuantity(body.usage);
       if(!response.ok)throw new ModelCallError("MODEL_CALL_FAILED", `image generation failed with HTTP ${response.status}`);
+      pickDelivery(body,modelId);
       outcome='succeeded';return body;
     } finally {
+      if(nativeReceipt)try{await nativeReceipt.terminal({endedAt:new Date().toISOString(),outcome,quantity:nativeQuantity});}catch{
+        this.accountingFault=true;
+        this.logger.warn("IMAGE_USAGE_TERMINAL_FAILED: native reservation remains held; subsequent dispatches blocked in this instance");
+      }
       if(receipt)try{await receipt.terminal({endedAt:new Date().toISOString(),outcome,usage});}catch{
         this.accountingFault=true;
         this.logger.warn("IMAGE_USAGE_TERMINAL_FAILED: durable start remains unmatched; subsequent dispatches blocked in this instance");

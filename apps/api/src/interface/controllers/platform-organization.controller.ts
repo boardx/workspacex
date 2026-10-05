@@ -1,3 +1,4 @@
+import {AI_NATIVE_POLICY_PROVIDERS} from "../../application/agent-run/ai-admission-ports";
 import { Body, Controller, Get, HttpException, Inject, Param, Patch, Query, UseGuards } from "@nestjs/common";
 import { aiUsage as U, platformOrganizations as C } from "@repo/contracts";
 import type { z } from "zod";
@@ -22,7 +23,9 @@ export class PlatformOrganizationController {
   constructor(@Inject(PLATFORM_ORGANIZATION_REPOSITORY) private readonly repo: PlatformOrganizationRepository,
     @Inject(AI_USAGE_REPOSITORY) private readonly usage:AiUsageRepository,
     @Inject(MODEL_POOL_REPOSITORY) private readonly pool?:ModelPoolRepository,
-    @Inject(MODEL_CALL_PORT) private readonly model?:ModelCallPort) {}
+    @Inject(MODEL_CALL_PORT) private readonly model?:ModelCallPort,
+    @Inject(AI_NATIVE_POLICY_PROVIDERS) private readonly nativeProviders?:readonly string[]) {}
+  private providers():string[]{return [...new Set([...(this.model?.registeredProviders?.()??[]),...(this.nativeProviders??[])])];}
   private async execute<T>(call: () => Promise<T>): Promise<T> {
     try { return await call(); }
     catch (error) {
@@ -67,7 +70,7 @@ export class PlatformOrganizationController {
     return this.execute(async()=>{
       await this.repo.getAiPolicy(toOrgId(orgId),principal.userId); // formal kind + access audit before pool disclosure
       if(!this.pool)throw new PlatformOrganizationError("AI_POLICY_MODEL_UNAVAILABLE");
-      return C.operations.getAiCandidates.out.parse(await aiPolicyCandidates(this.pool,orgId,this.model?.registeredProviders?.()??[]));
+      return C.operations.getAiCandidates.out.parse(await aiPolicyCandidates(this.pool,orgId,this.providers()));
     });
   }
   @Patch(C.operations.setAiPolicy.path)
@@ -77,7 +80,7 @@ export class PlatformOrganizationController {
       const parsed=C.operations.setAiPolicy.in.parse(input);
       await this.repo.getAiPolicy(toOrgId(orgId),principal.userId);
       if(!this.pool)throw new PlatformOrganizationError("AI_POLICY_MODEL_UNAVAILABLE");
-      await validateAiPolicyModels(this.pool,orgId,parsed.configuration,this.model?.registeredProviders?.()??[]);
+      await validateAiPolicyModels(this.pool,orgId,parsed.configuration,this.providers());
       return C.operations.setAiPolicy.out.parse(await this.repo.setAiPolicy(toOrgId(orgId),parsed,principal.userId));
     });
   }

@@ -1,7 +1,9 @@
+import {AI_NATIVE_POLICY_PROVIDERS} from "./application/agent-run/ai-admission-ports";
 import {ArtifactEmbeddingUsageController} from "./interface/controllers/artifact-embedding-usage.controller";
 import {ARTIFACT_EMBEDDING_USAGE} from "./application/retrieval/artifact-embedding-accounting";
 import {PgArtifactEmbeddingAccounting} from "./infrastructure/retrieval/pg-artifact-embedding-accounting";
-import {AI_QUOTA_RUNTIME_CONFIGURATION,AI_QUOTA_RUNTIME_WIRING,createAiQuotaRuntimeWiring,type AiQuotaRuntimeConfiguration,type AiQuotaRuntimeWiring} from "./infrastructure/agent-run/ai-runtime-wiring";
+import {AI_QUOTA_RUNTIME_CONFIGURATION,AI_QUOTA_RUNTIME_WIRING,NATIVE_AI_QUOTA_RUNTIME_WIRING,createAiQuotaRuntimeWiring,type AiQuotaRuntimeConfiguration,type AiQuotaRuntimeWiring} from "./infrastructure/agent-run/ai-runtime-wiring";
+import {createNativeQuotaWiring,type NativeQuotaWiring} from "./infrastructure/agent-run/native-quota-wiring";
 import type {DynamicModule} from "@nestjs/common";
 import type {ModelPoolRepository} from "./application/model/ports";
 import {PgAiAdmissionRepository} from "./infrastructure/auth/pg-ai-admission-repository";
@@ -2251,7 +2253,7 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
            */
           ...(capabilityAvailability(readDeploymentEdition(), "image-generation") === "absent"
             ? []
-            : [[BAILIAN_IMAGE_PROVIDER_NAME, new BailianImageProvider(readBailianImageProviderConfig())] as const]),
+            : [[BAILIAN_IMAGE_PROVIDER_NAME, new BailianImageProvider(readBailianImageProviderConfig(),undefined,process.env.KERNEL_AI_PRODUCT_QUOTA_ENABLED==="1")] as const]),
         ], loopbackAliases, chatPort)), kernelServed);
       },
     },
@@ -2461,6 +2463,14 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
     // F159. 计量的唯一写入实现。挂在执行器上而不是 provider 上：provider 只知道
     // 「这次返回了多少 token」，不知道这次调用属于哪个组织的哪个人——那是 run 才有的事实。
     {provide:AI_QUOTA_RUNTIME_CONFIGURATION,useValue:null},
+    {provide:AI_NATIVE_POLICY_PROVIDERS,useFactory:(configuration:AiQuotaRuntimeConfiguration|null)=>
+      [...new Set((configuration?.nativeBounds??[]).map(bound=>bound.modelProvider))],inject:[AI_QUOTA_RUNTIME_CONFIGURATION]},
+    // Native admission owns no ModelCallPort: image/ASR providers may depend on this factory safely.
+    {provide:NATIVE_AI_QUOTA_RUNTIME_WIRING,
+      useFactory:(configuration:AiQuotaRuntimeConfiguration|null,db:DatabasePort,usage:TokenUsageMeterPort,policies:RetentionPolicyRepository,ids:RecordingIdGenerator)=>
+        createNativeQuotaWiring(process.env.KERNEL_AI_PRODUCT_QUOTA_ENABLED==="1",configuration?.nativeBounds?{nativeBounds:configuration.nativeBounds}:null,
+          {db,usage,asrRepositories:scoped=>({identities:new PgIdentityRepository(scoped),recording:new PgRecordingUnitOfWork(scoped,policies,ids)})}),
+      inject:[AI_QUOTA_RUNTIME_CONFIGURATION,DATABASE_PORT,TOKEN_USAGE_METER,RETENTION_POLICY_REPOSITORY,RECORDING_ID_GENERATOR]},
     {provide:AI_QUOTA_RUNTIME_WIRING,useFactory:(configuration:AiQuotaRuntimeConfiguration|null,db:DatabasePort,identity:IdentityRepository,pool:ModelPoolRepository,model:ModelCallPort,usage:TokenUsageMeterPort)=>
       createAiQuotaRuntimeWiring(process.env.KERNEL_AI_PRODUCT_QUOTA_ENABLED==="1",configuration,{db,identity,pool,model,usage}),
       inject:[AI_QUOTA_RUNTIME_CONFIGURATION,DATABASE_PORT,IDENTITY_REPOSITORY,MODEL_POOL_REPOSITORY,MODEL_CALL_PORT,TOKEN_USAGE_METER]},
@@ -2535,16 +2545,16 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
     {
       provide: STANDARD_IMAGE_SERVICE,
       useFactory: (db: DatabasePort, owner: NativeSessionOwner | null, authority: ToolExecutionAuthority,
-        repo: IdentityRepository, ids: DecisionIdFactory, chat: ChatRepository, objects: ObjectStore) => {
+        repo: IdentityRepository, ids: DecisionIdFactory, chat: ChatRepository, objects: ObjectStore,nativeWiring:NativeQuotaWiring|null) => {
         const requestAccounting=process.env.KERNEL_IMAGE_REQUEST_ACCOUNTING_ENABLED==="1";
-        const socketPath=process.env.NATIVE_SESSION_SOCKET, selected=selectImageProvider(process.env,requestAccounting?new PgImageRequestAccounting(db):undefined);
+        const socketPath=process.env.NATIVE_SESSION_SOCKET, selected=selectImageProvider(process.env,requestAccounting?new PgImageRequestAccounting(db):undefined,nativeWiring?.image);
         if (!owner || !socketPath || !selected) return null;
         return new DefaultStandardImageService(owner,new PgNativeRunInputs(db,objects,{repo,ids,chat}),
           bound => ({...createNativeDraftSession({socketPath,...bound}),execute:createNativeDocumentSession({socketPath,...bound}).execute}),
-          authority,repo,objects,selected.provider,createGeneratedImageDownloader(),requestAccounting);
+          authority,repo,objects,selected.provider,createGeneratedImageDownloader(),requestAccounting||process.env.KERNEL_AI_PRODUCT_QUOTA_ENABLED==="1");
       },
       inject: [DATABASE_PORT,NATIVE_SESSION_OWNER,TOOL_EXECUTION_AUTHORITY,IDENTITY_REPOSITORY,
-        DECISION_ID_FACTORY,CHAT_REPOSITORY,OBJECT_STORE],
+        DECISION_ID_FACTORY,CHAT_REPOSITORY,OBJECT_STORE,NATIVE_AI_QUOTA_RUNTIME_WIRING],
     },
     { provide: NATIVE_FILE_DELEGATION, useFactory: (db: DatabasePort, authority: ToolExecutionAuthority, objects: ObjectStore, repo: IdentityRepository, ids: DecisionIdFactory, chat: ChatRepository) => new NativeFileDelegationProof(db, authority, new PgNativeRunInputs(db, objects, {repo, ids, chat})), inject: [DATABASE_PORT, TOOL_EXECUTION_AUTHORITY, OBJECT_STORE, IDENTITY_REPOSITORY, DECISION_ID_FACTORY, CHAT_REPOSITORY] },
     { provide: PgScheduleNotifications, useFactory: (db: DatabasePort, repo: IdentityRepository) => new PgScheduleNotifications(db, repo), inject: [DATABASE_PORT, IDENTITY_REPOSITORY] },
@@ -3329,7 +3339,7 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
     // `KERNEL_ASR_PROVIDER`; unconfigured means `ASR_NOT_CONFIGURED` reaches the browser,
     // never a silent fallback to some other provider. See the adapter's header for why
     // that is a structural property here and not a promise.
-    { provide: ASR_PROVIDER, useFactory: (db:DatabasePort,policies:RetentionPolicyRepository,ids:RecordingIdGenerator) => new ConfiguredRealtimeAsrProvider(undefined,process.env.KERNEL_ASR_REQUEST_ACCOUNTING_ENABLED==="1"?new PgAsrRequestAccounting(db,scoped=>({identities:new PgIdentityRepository(scoped),recording:new PgRecordingUnitOfWork(scoped,policies,ids)})):undefined,process.env.KERNEL_AI_PRODUCT_QUOTA_ENABLED==="1"),inject:[DATABASE_PORT,RETENTION_POLICY_REPOSITORY,RECORDING_ID_GENERATOR] },
+    { provide: ASR_PROVIDER, useFactory: (db:DatabasePort,policies:RetentionPolicyRepository,ids:RecordingIdGenerator,nativeWiring:NativeQuotaWiring|null) => new ConfiguredRealtimeAsrProvider(undefined,process.env.KERNEL_ASR_REQUEST_ACCOUNTING_ENABLED==="1"?new PgAsrRequestAccounting(db,scoped=>({identities:new PgIdentityRepository(scoped),recording:new PgRecordingUnitOfWork(scoped,policies,ids)})):undefined,process.env.KERNEL_AI_PRODUCT_QUOTA_ENABLED==="1",nativeWiring?.asr),inject:[DATABASE_PORT,RETENTION_POLICY_REPOSITORY,RECORDING_ID_GENERATOR,NATIVE_AI_QUOTA_RUNTIME_WIRING] },
     // #459: declarative-contract Skills. The provider hands out a *factory* -- the scoped
     // repository cannot be constructed without a tenant, so there is no "untenanted skill
     // repository" object for a forgetful caller to reach for.

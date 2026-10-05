@@ -7,12 +7,14 @@ import type { AiAdmissionPort, AiReservationInput,AiBudgetPolicyPort,AiReservedP
 import type { OrgId } from "../../domain/org-id";
 import { decideAiAdmission,type AiAdmissionDecision } from "../../domain/agent-run/ai-budget";
 import {Configuration} from "@repo/contracts/ai-policy";
+import {priceNativeAiUsage} from "../../domain/agent-run/ai-billable-unit";
+import type {AiReceiptRecoveryPort} from "../../application/agent-run/stage-two-receipt-recovery";
 import {evaluateAiTokenThresholds,isStrictlyCheaperAiModel,resolveMemberTokenLimit} from "../../domain/agent-run/ai-member-token-policy";
 
 /** Shared PostgreSQL admission foundation, deliberately not composed into production yet. */
-export class PgAiAdmissionRepository implements AiAdmissionPort,AiBudgetPolicyPort,AiReservedPricePort {
+export class PgAiAdmissionRepository implements AiAdmissionPort,AiBudgetPolicyPort,AiReservedPricePort,AiReceiptRecoveryPort {
  constructor(private readonly db: DatabasePort) {}
- async resolveBudgetPolicy(orgId:OrgId,userId:string):ReturnType<AiBudgetPolicyPort["resolveBudgetPolicy"]>{
+ async resolveBudgetPolicy(orgId:OrgId,userId:string,tokenBilling:"token"|"not-applicable"="token"):ReturnType<AiBudgetPolicyPort["resolveBudgetPolicy"]>{
   if(!userId)throw new Error("INVALID_AI_SUBJECT");
   return this.db.withTenant(orgId,async s=>{
    // Match old quota writers before any organization row/FK locks; this does not
@@ -34,7 +36,7 @@ export class PgAiAdmissionRepository implements AiAdmissionPort,AiBudgetPolicyPo
    const configuration={...template,ordinaryTokensPerUser:resolveMemberTokenLimit(template,userId,memberQuota)};
    const active=await s.query<{active:boolean}>("SELECT now()>=$1::timestamptz AND now()<$2::timestamptz AS active",[window.start,window.end]);
    if(!active.rows[0]?.active)return {decision:"BUDGET_WINDOW_INACTIVE" as const};
-   if(plan==="ordinary"&&configuration.ordinaryTokensPerUser===null)return {decision:"TOKEN_LIMIT_UNCONFIGURED" as const};
+   if(tokenBilling==="token"&&plan==="ordinary"&&configuration.ordinaryTokensPerUser===null)return {decision:"TOKEN_LIMIT_UNCONFIGURED" as const};
    // Canonical lock is also used by reservation/settlement. Org lock prevents templates
    // changing between snapshot read and immutable per-user window creation.
    await s.query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))",[JSON.stringify([String(orgId),userId,new Date(window.start).toISOString(),new Date(window.end).toISOString()])]);
@@ -53,6 +55,7 @@ export class PgAiAdmissionRepository implements AiAdmissionPort,AiBudgetPolicyPo
  async reserve(orgId: OrgId, input: AiReservationInput) {
   if (!input.requestId || !input.userId || input.maximumTokens < 0n || input.maximumCostMicros < 0n
    || !Number.isFinite(Date.parse(input.windowStart)) || !Number.isFinite(Date.parse(input.windowEnd)) || Date.parse(input.windowEnd)<=Date.parse(input.windowStart)) throw new Error("INVALID_AI_RESERVATION");
+  if(input.nativePolicy&&(input.tokenPolicy||input.maximumTokens!==0n||input.nativePolicy.maximumQuantity<=0n))throw new Error("INVALID_AI_NATIVE_RESERVATION");
   const logical=input.logicalCallId!==undefined||input.logicalAttempt!==undefined||input.maximumAttempts!==undefined;
   if(logical&&(!input.logicalCallId||input.logicalCallId.length>500||!Number.isSafeInteger(input.logicalAttempt)||!Number.isSafeInteger(input.maximumAttempts)
    ||input.logicalAttempt!<0||input.maximumAttempts!<1||input.maximumAttempts!>5||input.logicalAttempt!>=input.maximumAttempts!))throw new Error("INVALID_AI_ATTEMPT_SLOT");
@@ -67,11 +70,22 @@ export class PgAiAdmissionRepository implements AiAdmissionPort,AiBudgetPolicyPo
     `SELECT token_limit,cost_limit_micros,currency,price_version FROM ai_budget_windows
       WHERE org_id=$1 AND user_id=$2 AND window_start=$3 AND window_end=$4`,
     [orgId,input.userId,input.windowStart,input.windowEnd]);
-   const existing=await s.query<{user_id:string;window_start:Date;window_end:Date;maximum_tokens:string;maximum_cost_micros:string;model_provider:string;model_id:string;currency:string;price_version:string;state:"held"|"settled";formal_model_id:string|null;agent_id:string|null;logical_call_id:string|null;logical_attempt:number|null;maximum_attempts:number|null}>(
-    "SELECT user_id,window_start,window_end,maximum_tokens,maximum_cost_micros,model_provider,model_id,currency,price_version,state,formal_model_id,agent_id,logical_call_id,logical_attempt,maximum_attempts FROM ai_request_reservations WHERE id=$1",[input.requestId]);
+   if(input.nativePolicy){
+    const snapshots=await s.query<{configuration:unknown}>("SELECT configuration FROM organization_ai_policy_changes WHERE org_id=$1 AND price_version=$2",[orgId,input.priceVersion]);
+    if(snapshots.rows.length!==1)throw new Error("AI_RESERVED_PRICE_SNAPSHOT_UNAVAILABLE");
+    const snapshot=Configuration.parse(snapshots.rows[0]!.configuration);
+    const native=snapshot.nativePrices?.find(p=>p.modelId===input.formalModelId&&p.modelProvider===input.modelProvider&&p.runtimeModelId===input.modelId);
+    if(!native||native.unit!==input.nativePolicy.unit||input.nativePolicy.maximumQuantity>BigInt(native.maxQuantity)||snapshot.currency!==input.currency)
+     throw new Error("AI_NATIVE_PRICE_POLICY_MISMATCH");
+    const maximum=priceNativeAiUsage({unit:native.unit,quantum:BigInt(native.quantum),microsPerQuantum:BigInt(native.microsPerQuantum),currency:input.currency,version:input.priceVersion},
+     {kind:"native",unit:native.unit,quantity:input.nativePolicy.maximumQuantity,source:"reported"});
+    if(maximum!==input.maximumCostMicros)throw new Error("AI_NATIVE_PRICE_POLICY_MISMATCH");
+   }
+   const existing=await s.query<{user_id:string;window_start:Date;window_end:Date;maximum_tokens:string;maximum_cost_micros:string;model_provider:string;model_id:string;currency:string;price_version:string;state:"held"|"settled";formal_model_id:string|null;agent_id:string|null;logical_call_id:string|null;logical_attempt:number|null;maximum_attempts:number|null;billing_kind:"token"|"native";native_unit:string|null;max_native_quantity:string|null}>(
+    "SELECT user_id,window_start,window_end,maximum_tokens,maximum_cost_micros,model_provider,model_id,currency,price_version,state,formal_model_id,agent_id,logical_call_id,logical_attempt,maximum_attempts,billing_kind,native_unit,max_native_quantity FROM ai_request_reservations WHERE id=$1",[input.requestId]);
    const replay=existing.rows[0];
    if(replay){
-    if((replay.formal_model_id??null)!==(input.formalModelId??null)||(replay.agent_id??null)!==(input.agentId??null)||replay.user_id!==input.userId || replay.window_start.toISOString()!==new Date(input.windowStart).toISOString()
+    if((replay.billing_kind??"token")!==(input.nativePolicy?"native":"token")||(replay.native_unit??null)!==(input.nativePolicy?.unit??null)||(replay.max_native_quantity??null)!==(input.nativePolicy?.maximumQuantity.toString()??null)||(replay.formal_model_id??null)!==(input.formalModelId??null)||(replay.agent_id??null)!==(input.agentId??null)||replay.user_id!==input.userId || replay.window_start.toISOString()!==new Date(input.windowStart).toISOString()
       || replay.window_end.toISOString()!==new Date(input.windowEnd).toISOString() || BigInt(replay.maximum_tokens)!==input.maximumTokens
       || BigInt(replay.maximum_cost_micros)!==input.maximumCostMicros || replay.model_provider!==input.modelProvider || replay.model_id!==input.modelId || replay.currency!==input.currency || replay.price_version!==input.priceVersion || (replay.logical_call_id??null)!==(input.logicalCallId??null) || (replay.logical_attempt??null)!==(input.logicalAttempt??null) || (replay.maximum_attempts??null)!==(input.maximumAttempts??null)) throw new Error("AI_RESERVATION_REPLAY_MISMATCH");
     return {decision:"allowed" as const,replay:true,reservationState:replay.state};
@@ -104,7 +118,7 @@ export class PgAiAdmissionRepository implements AiAdmissionPort,AiBudgetPolicyPo
       AND COALESCE(e.request_started_at,e.occurred_at)>=$3 AND COALESCE(e.request_started_at,e.occurred_at)<$4`,
      [orgId,input.userId,input.windowStart,input.windowEnd,input.currency]);
    if(BigInt(used.rows[0]!.unknown_cost)>0n) return {decision:"COST_LIMIT_UNCONFIGURED" as const,replay:false};
-   if(plan==="ordinary" && BigInt(used.rows[0]!.unknown_tokens)>0n) return {decision:"TOKEN_LIMIT_UNCONFIGURED" as const,replay:false};
+   if(!input.nativePolicy&&plan==="ordinary" && BigInt(used.rows[0]!.unknown_tokens)>0n) return {decision:"TOKEN_LIMIT_UNCONFIGURED" as const,replay:false};
    const held=await s.query<{tokens:string;cost:string}>(`SELECT
       COALESCE(sum(GREATEST(r.maximum_tokens,COALESCE(e.tokens_total,0))) FILTER(WHERE r.state='held'),0)::text AS tokens,
       COALESCE(sum(GREATEST(r.maximum_cost_micros,CASE WHEN e.currency=r.currency THEN COALESCE(e.cost_micros,0) ELSE 0 END)) FILTER(WHERE r.state='held'),0)::text AS cost
@@ -114,10 +128,10 @@ export class PgAiAdmissionRepository implements AiAdmissionPort,AiBudgetPolicyPo
    const totals=held.rows[0]!;
    const decision=decideAiAdmission({plan,tokenLimit:budget.token_limit===null?null:BigInt(budget.token_limit),
     costLimitMicros:BigInt(budget.cost_limit_micros),usedTokens:BigInt(used.rows[0]!.tokens),heldTokens:BigInt(totals.tokens),
-    usedCostMicros:BigInt(used.rows[0]!.cost),heldCostMicros:BigInt(totals.cost)},input.maximumTokens,input.maximumCostMicros);
+    usedCostMicros:BigInt(used.rows[0]!.cost),heldCostMicros:BigInt(totals.cost)},input.maximumTokens,input.maximumCostMicros,input.nativePolicy?"not-applicable":"token");
    // A cheaper bounded candidate may fit a remaining budget; exhausted absolute
    // budgets never enter degradation. Every next candidate still reserves independently.
-   if(plan==="ordinary"&&budget.token_limit!==null&&BigInt(used.rows[0]!.tokens)+BigInt(totals.tokens)>=BigInt(budget.token_limit))
+   if(!input.nativePolicy&&plan==="ordinary"&&budget.token_limit!==null&&BigInt(used.rows[0]!.tokens)+BigInt(totals.tokens)>=BigInt(budget.token_limit))
     return {decision:"TOKEN_LIMIT_REACHED" as const,replay:false};
    if(BigInt(used.rows[0]!.cost)+BigInt(totals.cost)>=BigInt(budget.cost_limit_micros))
     return {decision:"COST_LIMIT_REACHED" as const,replay:false};
@@ -143,9 +157,9 @@ export class PgAiAdmissionRepository implements AiAdmissionPort,AiBudgetPolicyPo
    }
    if(decision!=="allowed")return {decision,replay:false};
    await s.query(`INSERT INTO ai_request_reservations(id,org_id,user_id,window_start,window_end,
-    maximum_tokens,maximum_cost_micros,model_provider,model_id,currency,price_version,logical_call_id,logical_attempt,maximum_attempts,formal_model_id,agent_id)
-    VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)`,[input.requestId,orgId,input.userId,input.windowStart,input.windowEnd,
-     input.maximumTokens.toString(),input.maximumCostMicros.toString(),input.modelProvider,input.modelId,input.currency,input.priceVersion,input.logicalCallId??null,input.logicalAttempt??null,input.maximumAttempts??null,input.formalModelId??null,input.agentId??null]);
+    maximum_tokens,maximum_cost_micros,model_provider,model_id,currency,price_version,logical_call_id,logical_attempt,maximum_attempts,formal_model_id,agent_id,billing_kind,native_unit,max_native_quantity)
+    VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)`,[input.requestId,orgId,input.userId,input.windowStart,input.windowEnd,
+     input.maximumTokens.toString(),input.maximumCostMicros.toString(),input.modelProvider,input.modelId,input.currency,input.priceVersion,input.logicalCallId??null,input.logicalAttempt??null,input.maximumAttempts??null,input.formalModelId??null,input.agentId??null,input.nativePolicy?"native":"token",input.nativePolicy?.unit??null,input.nativePolicy?.maximumQuantity.toString()??null]);
    return {decision,replay:false,reservationState:"held" as const,tokenWarning};
   });
  }
@@ -165,6 +179,19 @@ export class PgAiAdmissionRepository implements AiAdmissionPort,AiBudgetPolicyPo
     currency:reservation.currency,priceVersion:reservation.price_version,price:matches[0]!};
   });
  }
+ async readRecoverySnapshot(orgId:OrgId,requestId:string):ReturnType<AiReceiptRecoveryPort["readRecoverySnapshot"]>{
+  return this.db.withTenant(orgId,async s=>{
+   const result=await s.query<{state:"held"|"settled";receipt_id:string|null;total_source:string|null;tokens_total:string|null;cost_micros:string|null;native_source:string|null}>(
+    `SELECT r.state,e.id AS receipt_id,e.total_source,e.tokens_total,e.cost_micros,e.native_source
+     FROM ai_request_reservations r LEFT JOIN effective_token_usage() e ON e.id=r.id AND e.org_id=r.org_id
+     WHERE r.org_id=$1 AND r.id=$2`,[orgId,requestId]);
+   const row=result.rows[0];if(!row)return null;
+   return {orgId,requestId,reservationState:row.state,receipt:row.receipt_id?{
+    tokens:row.total_source==="reported"?BigInt(row.tokens_total!):row.total_source==="not-applicable"&&row.native_source==="reported"?0n:null,
+    costMicros:row.cost_micros===null?null:BigInt(row.cost_micros),
+   }:null};
+  });
+ }
  async settle(orgId:OrgId,requestId:string,usage:{readonly tokens:bigint|null;readonly costMicros:bigint|null}):Promise<void>{
   if((usage.tokens!==null && usage.tokens<0n)||(usage.costMicros!==null && usage.costMicros<0n)) throw new Error("INVALID_AI_SETTLEMENT");
   await this.db.withTenant(orgId,async s=>{
@@ -174,15 +201,28 @@ export class PgAiAdmissionRepository implements AiAdmissionPort,AiBudgetPolicyPo
    const k=key.rows[0];
    await s.query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))",[JSON.stringify(["ai-limit-rules",String(orgId)])]);
    await s.query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))",[JSON.stringify([String(orgId),k.user_id,k.window_start.toISOString(),k.window_end.toISOString()])]);
-   const row=await s.query<{state:string;settled_tokens:string|null;settled_cost_micros:string|null;currency:string;price_version:string;model_provider:string;model_id:string}>("SELECT state,settled_tokens,settled_cost_micros,currency,price_version,model_provider,model_id FROM ai_request_reservations WHERE id=$1 FOR UPDATE",[requestId]);
+   const row=await s.query<{state:string;settled_tokens:string|null;settled_cost_micros:string|null;currency:string;price_version:string;model_provider:string;model_id:string;billing_kind:"token"|"native";native_unit:string|null;formal_model_id:string|null}>("SELECT state,settled_tokens,settled_cost_micros,currency,price_version,model_provider,model_id,billing_kind,native_unit,formal_model_id FROM ai_request_reservations WHERE id=$1 FOR UPDATE",[requestId]);
    if(row.rows[0]!.state==="settled"){
     if(usage.tokens!==null && usage.costMicros!==null && (BigInt(row.rows[0]!.settled_tokens!)!==usage.tokens||BigInt(row.rows[0]!.settled_cost_micros!)!==usage.costMicros)) throw new Error("AI_SETTLEMENT_REPLAY_MISMATCH");
     return;
    }
    if(usage.tokens===null || usage.costMicros===null) return; // Retain conservative hold, never invent a free failed request.
    // Settlement requires a matching authoritative ledger terminal; otherwise releasing tokens could oversell.
-   const receipt=await s.query<{tokens_total:string;total_source:string;cost_micros:string|null;currency:string;price_version:string;user_id:string;model_provider:string;model_id:string;request_time:Date}>("SELECT tokens_total,total_source,cost_micros,currency,price_version,user_id,model_provider,model_id,COALESCE(request_started_at,occurred_at) AS request_time FROM effective_token_usage() WHERE id=$1 AND org_id=$2",[requestId,orgId]);
-   if(!receipt.rows[0] || receipt.rows[0].total_source!=="reported" || BigInt(receipt.rows[0].tokens_total)!==usage.tokens || receipt.rows[0].cost_micros===null
+   const receipt=await s.query<{tokens_total:string;total_source:string;cost_micros:string|null;currency:string;price_version:string;user_id:string;model_provider:string;model_id:string;request_time:Date;native_unit:string|null;native_quantity:string|null;native_source:string|null}>("SELECT tokens_total,total_source,native_unit,native_quantity,native_source,cost_micros,currency,price_version,user_id,model_provider,model_id,COALESCE(request_started_at,occurred_at) AS request_time FROM effective_token_usage() WHERE id=$1 AND org_id=$2",[requestId,orgId]);
+   const actual=receipt.rows[0];
+   let nativeKnown=false;
+   if(row.rows[0]!.billing_kind==="native"&&actual?.native_unit===row.rows[0]!.native_unit&&actual?.total_source==="not-applicable"&&actual.native_source==="reported"&&actual.native_quantity!==null&&usage.tokens===0n){
+    const snapshots=await s.query<{configuration:unknown}>("SELECT configuration FROM organization_ai_policy_changes WHERE org_id=$1 AND price_version=$2",[orgId,row.rows[0]!.price_version]);
+    if(snapshots.rows.length!==1)throw new Error("AI_RESERVED_PRICE_SNAPSHOT_UNAVAILABLE");
+    const snapshot=Configuration.parse(snapshots.rows[0]!.configuration);
+    const native=snapshot.nativePrices?.find(p=>p.modelId===row.rows[0]!.formal_model_id&&p.modelProvider===actual.model_provider&&p.runtimeModelId===actual.model_id&&p.unit===actual.native_unit);
+    if(native&&snapshot.currency===actual.currency){
+     const cost=priceNativeAiUsage({unit:native.unit,quantum:BigInt(native.quantum),microsPerQuantum:BigInt(native.microsPerQuantum),currency:actual.currency,version:actual.price_version},
+      {kind:"native",unit:native.unit,quantity:BigInt(actual.native_quantity),source:"reported"});
+     nativeKnown=cost===usage.costMicros;
+    }
+   }
+   if(!receipt.rows[0] || ((row.rows[0]!.billing_kind??"token")==="native"?!nativeKnown:receipt.rows[0].total_source!=="reported") || BigInt(receipt.rows[0].tokens_total)!==usage.tokens || receipt.rows[0].cost_micros===null
      || BigInt(receipt.rows[0].cost_micros)!==usage.costMicros || receipt.rows[0].user_id!==k.user_id || receipt.rows[0].currency!==row.rows[0]!.currency
      || receipt.rows[0].price_version!==row.rows[0]!.price_version
      || receipt.rows[0].model_provider!==row.rows[0]!.model_provider || receipt.rows[0].model_id!==row.rows[0]!.model_id
