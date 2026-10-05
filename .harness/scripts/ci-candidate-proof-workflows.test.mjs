@@ -30,7 +30,7 @@ function inspect(value) {
   assert.equal(pilot.steps[0].uses, 'actions/checkout@v5');
   assert.deepEqual(pilot.steps[0].with, { ref: '${{ github.sha }}', 'fetch-depth': 0, 'persist-credentials': false });
   assert.equal(pilot.steps[1].uses, 'actions/setup-node@v5');
-  assert.deepEqual(pilot.steps[1].with, { 'node-version': '22' });
+  assert.deepEqual(pilot.steps[1].with, { 'node-version': '22', 'package-manager-cache': false });
   assert.equal(pilot.steps[2].run, `docker pull ${policy.image.reference}`);
   assert.equal(pilot.steps[3].name, 'Start trusted runtime supervisor');
   assert.equal(pilot.steps[3].run, 'node .harness/scripts/ci-candidate-pilot-supervisor.mjs');
@@ -50,6 +50,7 @@ function inspect(value) {
   const regression = value.jobs['isolation-regression'];
   assert.equal(regression.if, "github.event_name != 'workflow_dispatch'");
   assert.equal(regression.steps[0].with['persist-credentials'], false);
+  assert.deepEqual(regression.steps[1].with, { 'node-version': '22', 'package-manager-cache': false });
   assert.equal(regression.steps[2].run, `docker pull ${policy.image.reference}`);
   assert.deepEqual(regression.steps[3].env, { CI_CANDIDATE_PILOT_REAL: '1', CI_CANDIDATE_PILOT_REAL_OUTPUT: '${{ runner.temp }}/ci-candidate-isolation-regression' });
   assert.equal(regression.steps[3].run, 'node --test .harness/scripts/ci-candidate-pilot.test.mjs');
@@ -74,6 +75,7 @@ for (const [name, mutate] of [
   ['candidate-controlled shell', value => { value.jobs['protected-pilot'].steps[3].run = '${{ inputs.source_run_id }}'; }],
   ['credentials retained in input repository', value => { value.jobs['protected-pilot'].steps[0].with['persist-credentials'] = true; }],
   ['dispatch branch silently accepted', value => { value.jobs['reject-branch-dispatch'].steps[0].run = 'exit 0'; }],
+  ['automatic candidate package-manager cache', value => { delete value.jobs['isolation-regression'].steps[1].with['package-manager-cache']; }],
 ]) test(`workflow regression rejects ${name}`, () => {
   const changed = structuredClone(definition); mutate(changed); assert.throws(() => inspect(changed));
 });
@@ -87,6 +89,7 @@ test('completed pilot observer uses only protected main code and bounded data ar
   assert.equal(value.jobs.observe['runs-on'], 'ubuntu-latest');
   assert.deepEqual(value.jobs.observe.steps[0].with, { ref: '${{ github.sha }}', 'fetch-depth': 0, 'persist-credentials': false });
   assert.equal(value.jobs.observe.steps[1].uses, 'actions/setup-node@v5');
+  assert.deepEqual(value.jobs.observe.steps[1].with, { 'node-version': '22', 'package-manager-cache': false });
   assert.equal(value.jobs.observe.steps[2].run, 'node .harness/scripts/ci-candidate-pilot-observer.mjs');
   assert.deepEqual(value.jobs.observe.steps[2].env, {
     GH_TOKEN: '${{ github.token }}', CI_CANDIDATE_SOURCE_RUN_ID: '${{ inputs.source_run_id || github.event.workflow_run.id }}',

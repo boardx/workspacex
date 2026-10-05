@@ -41,6 +41,7 @@ jobs:
         uses: actions/setup-node@v5
         with:
           node-version: '22'
+          package-manager-cache: false
       - name: Pull fixed isolated Node image
         run: docker pull docker.io/library/node@sha256:8607a9064d4a571140998ae9e52a3b3fcf9cff361d04642d5971e6cd76d39e27
       - name: Exercise actual isolation boundaries
@@ -76,6 +77,7 @@ jobs:
         uses: actions/setup-node@v5
         with:
           node-version: '22'
+          package-manager-cache: false
       - name: Pull fixed isolated Node image
         run: docker pull docker.io/library/node@sha256:8607a9064d4a571140998ae9e52a3b3fcf9cff361d04642d5971e6cd76d39e27
       - name: Start trusted runtime supervisor
