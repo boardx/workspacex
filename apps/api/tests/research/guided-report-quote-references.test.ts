@@ -34,7 +34,7 @@ describe("block-local source excerpt references", () => {
 });
 
 it("supplies bounded block-local choices once and materializes selected quotes in extraction", async () => {
-  const state = { outline: [{ id: "chapter", enabled: true, questions: ["What is required?"] }], brief: {}, sources: [{ id: "official", title: "Policy", content: "x".repeat(1201), url: "https://w3.org/policy", decision: "accepted" }] } as any;
+  const state = { tasks: [], outline: [{ id: "chapter", enabled: true, questions: ["What is required?"] }], brief: {}, sources: [{ id: "official", title: "Policy", content: "x".repeat(1201), url: "https://w3.org/policy", decision: "accepted" }] } as any;
   const result = await extractReportEvidence(state, { provider: "fixture", id: "fixture" }, async (input, validate) => {
     const request = JSON.parse(input.user);
     const chunk = request.chunks[0];
@@ -47,7 +47,7 @@ it("supplies bounded block-local choices once and materializes selected quotes i
 });
 
 it("retains valid blocks while retrying an invalid reference with stable block-local choices", async () => {
-  const state = { outline: [{ id: "chapter", enabled: true, questions: ["What is required?"] }], brief: {}, sources: chunks.map((chunk, index) => ({ id: `source${index}`, title: "Policy", content: chunk.content, url: `https://w3.org/policy/${index}`, decision: "accepted" })) } as any;
+  const state = { tasks: [], outline: [{ id: "chapter", enabled: true, questions: ["What is required?"] }], brief: {}, sources: chunks.map((chunk, index) => ({ id: `source${index}`, title: "Policy", content: chunk.content, url: `https://w3.org/policy/${index}`, decision: "accepted" })) } as any;
   const requests: any[] = [];
   const result = await extractReportEvidence(state, { provider: "fixture", id: "fixture" }, async (input, validate) => {
     const request = JSON.parse(input.user); requests.push(request);

@@ -15,7 +15,7 @@
 
 问题身份使用稳定 sectionId、完整问题文字哈希和该问题的确认依据。重新排序不改变身份；问题删除、确认依据变化、正文变化、来源被排除或来源策略变化使记录不可复用。direct 与 context 分开，context 不补足 direct 覆盖。记录保存服务端 evidenceId、来源和任务、正文哈希、chunk、原文跨度、引用哈希、校验版本与时间。
 
-账本写入现有租户隔离的 runtime JSON。内部 PersistedResearchRuntimeSchema 扩展公开契约，只增加可选 privateLedger，旧 JSON 仍合法；现有租户鉴权、请求幂等、版本 CAS、租约与暂停规则保持同一权威。对外唯一投影从公开契约字段集合正向选择，再以公开严格 schema 校验。GET、命令所有提前返回、重放和 SSE snapshot/result 都经过此投影；公开 delta、progress 和 fingerprints 不增加私有字段。
+账本记录和容器的 Zod 定义按仓库契约单源规则放在 packages/contracts/src/research-evidence-ledger.ts，通过显式内部子路径引用；它不注册公开操作，也不扩展公开 runtime 响应。账本写入现有租户隔离的 runtime JSON。内部 PersistedResearchRuntimeSchema 扩展公开契约，只增加可选 privateLedger，旧 JSON 仍合法；现有租户鉴权、请求幂等、版本 CAS、租约与暂停规则保持同一权威。对外唯一投影从公开契约字段集合正向选择，再以公开严格 schema 校验。GET、命令所有提前返回、重放和 SSE snapshot/result 都经过此投影；公开 delta、progress 和 fingerprints 不增加私有字段。
 
 本 issue 交付账本与保存/公开边界基础；有界补搜、跨来源事实检查、写作全面读取账本与正文引用核验分别由 #5367、#5368、#5369 承担。整体十分钟是软目标，不引入整体 180/600 秒强制失败。
 

@@ -5,7 +5,7 @@ Branch: codex/research-question-evidence-ledger. Base freshly fetched main 9ccdb
 Production scope: server-private exact fetched-document evidence records after existing quoteRef validation; question/full-confirmation identity, provenance/hash/span invalidation, duplicate-span budget discipline; persisted JSON schema and public positive-selection projection. No public schema expansion, embeddings, new connectors, whole-run 180/600-second deadline or full writer migration. ADR-122 is Proposed.
 
 Actual validation (2026-10-05):
-- Pure API: 18 files, 452 PASS, exit 0 (`vitest run --config vitest.research-unit.config.ts`).
+- Pure API: 20 files, 474 PASS, exit 0 (`vitest run --config vitest.research-unit.config.ts`).
 - Isolated actual PostgreSQL runtime persistence: 49 PASS, exit 0 (`with-test-isolation -- pnpm --filter @repo/api exec vitest run tests/research/guided-runtime-persistence.test.ts`). Final pause/CAS recheck dedicated wsx_e28dc23802f1b669a69f (earlier wsx_605142967b4a91ad10cf); wrapper completed cleanup, peak six connections. Controlled model/search, not real-provider quality evidence.
 - API typecheck, API lint, git diff check: exit 0.
 - ./init.sh: exit 0, installed-tree quick health path; not full repository verification.
@@ -21,3 +21,7 @@ Limits: actual user session grs_4e804e5504fc4ca7bbcb28e54835daa8 backend delay/i
 ## Review correction: bounded reconciliation work
 
 1511e51f8c426ddb4073b686ee1018eeaff21157 was rejected on P2 after a public synthetic real-helper experiment showed repeated full-ledger parsing and body hashes before identity rejection. Corrected pass parses once, buckets stable question identities and caches source material only within one synchronous call. The same 128-question/256-record/two-60k-body fixture asserts full-body hash computations 33,024 → 2, one ledger parse, and zero body hashes after basis invalidation; no flaky wall-clock assertion or cross-call cache. All span/provenance/source-policy/confirmed-question checks remain. Final full pure 452 PASS; API types/lint exit 0. Final real PG 49 PASS includes pause retained through a late persistence write and stale version rejection. Additional actual logs: /private/tmp/research-5366-{computation-red,computation-green,perf-full,perf-type,perf-lint,pause-db}.log.
+
+## CI failures corrected
+
+684b826175c39dc770e309b46b7c4a46e7fed919 CI failed on real gates, not infrastructure: backend z.object declarations violated contract-single-source; two old quote-reference fixtures omitted tasks. Private record/envelope schemas now live once in packages/contracts/src/research-evidence-ledger.ts with an explicit subpath API re-export, no public-operation registration or public-runtime-field expansion. Quote tests retain original evidence assertions with tasks:[]; both previously omitted suites are included in the pure research config. Focused actual 22 PASS, final full pure 20 files474 PASS; API/contracts types exit0. Logs: /private/tmp/research-5366-ci-fix-{focus,pure,api-type,contract-type}.log. Older SHA CI is not borrowed.
