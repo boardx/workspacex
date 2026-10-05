@@ -1,5 +1,6 @@
-/** Read-only GitHub adapter. No candidate checkout, code or artifact payload is executed/read. */
+/** Read-only GitHub adapter; candidate code is never executed. Bounded artifact transport returns data only. */
 import { buildCandidateManifest, evaluateShadow, fingerprint, fingerprintEntries } from './ci-candidate-evidence.mjs';
+import { withConsistentCandidateHistory } from './ci-candidate-history.mjs';
 
 export const IDENTITY_STEP = 'Record candidate checkout and runtime identity';
 export const IDENTITY_PREFIX = 'CI_CANDIDATE_IDENTITY_V1:';
@@ -21,19 +22,32 @@ const fallback = (reason, details = {}) => ({ schemaVersion: 1, mode: 'shadow', 
 /** Logs may redirect to signed storage. Never send the token to that host. */
 export function createGitHubApi({ repository, token, fetchImpl = fetch }) {
   requireFact(/^[\w.-]+\/[\w.-]+$/.test(repository ?? '') && typeof token === 'string' && token.length > 0, 'github_connection_missing');
-  return async (path, { raw = false } = {}) => {
+  return async (path, { raw = false, binary = false } = {}) => {
     requireFact(typeof path === 'string' && (path === '' || path.startsWith('/')) && !path.startsWith('//') && !/[\r\n]/.test(path), 'invalid_api_path');
+    requireFact(!(raw && binary), 'ambiguous_api_response_mode');
     const response = await fetchImpl(`https://api.github.com/repos/${repository}${path}`, {
       headers: { Authorization: `Bearer ${token}`, Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28' },
       signal: AbortSignal.timeout(30_000), redirect: 'manual',
     });
     let actual = response;
-    if (raw && response.status === 302) {
+    if ((raw || binary) && response.status === 302) {
       const destination = new URL(response.headers.get('location'));
       requireFact(destination.protocol === 'https:' && !destination.username && !destination.password, 'unsafe_log_redirect');
       actual = await fetchImpl(destination.href, { signal: AbortSignal.timeout(30_000), redirect: 'error' });
     }
     requireFact(actual.ok, `github_api_http_${actual.status}`);
+    if (binary) {
+      const declared = Number(actual.headers.get('content-length'));
+      requireFact(!Number.isFinite(declared) || declared <= 20_000_000, 'artifact_archive_too_large');
+      requireFact(actual.body, 'artifact_archive_body_missing');
+      const chunks = []; let size = 0;
+      for await (const chunk of actual.body) {
+        size += chunk.byteLength;
+        requireFact(size <= 20_000_000, 'artifact_archive_too_large');
+        chunks.push(Buffer.from(chunk));
+      }
+      return Buffer.concat(chunks);
+    }
     if (!raw) return actual.json();
     const body = await actual.text();
     requireFact(Buffer.byteLength(body) <= 20_000_000, 'job_logs_too_large');
@@ -187,6 +201,10 @@ function selectedJob(jobs, suite) {
   const job = matches[0];
   requireFact(integer(job.id) && successful(job), `required_job_not_successful:${suite.owner.job}`);
   requireFact(Array.isArray(job.steps) && new Set(job.steps.map(step => step.name)).size === job.steps.length, 'ambiguous_job_steps');
+  // A job-level continue-on-error can mask a failing upload/cleanup step.
+  // Keep ordinary conditional skips, but never accept that masked failure as
+  // successful source evidence even when the selected test steps passed.
+  requireFact(job.steps.every(step => step.status === 'completed' && ['success', 'skipped'].includes(step.conclusion)), 'source_job_step_not_successful');
   const stepNames = [...suite.execution.actualStepNames];
   for (const pattern of suite.execution.actualStepNamePatterns ?? []) {
     const matches = job.steps.filter(step => new RegExp(pattern).test(step.name));
@@ -256,8 +274,62 @@ async function createEvidence({ api, git, repository, config, suite, data, autho
   const rawArtifacts = await githubPages(api, `/actions/runs/${run.id}/artifacts`, 'artifacts');
   const artifacts = selectedArtifacts(rawArtifacts, suite, run);
   const policy = { repositoryId: repository.id, repository: repository.full_name, suite: suite.id, observer: { workflowId: authority.workflowId, path: authority.path, ref: authority.ref }, producer: { workflowId: run.workflow_id, path, events: suite.eligibleSourceEvents }, jobs: [{ name: job.name, executeSteps: stepNames, artifactNames: artifacts.map(artifact => artifact.name) }], maxAgeMs: MAX_AGE };
-  const manifest = buildCandidateManifest({ repository: { id: repository.id, fullName: repository.full_name }, suite: suite.id, observer: authority, producer: { apiVerified: true, definitionTrusted: true, repositoryId: repository.id, workflowId: run.workflow_id, path, event: run.event, runId: run.id, runAttempt: run.run_attempt, headSha: run.head_sha, status: run.status, conclusion: run.conclusion, startedAt: run.run_started_at, completedAt: run.updated_at, runtimeAttested: { verified: false, source: 'pre-install-host-only' }, jobs: [{ id: job.id, name: job.name, status: job.status, conclusion: job.conclusion, steps: job.steps.map(step => ({ name: step.name, status: step.status, conclusion: step.conclusion })), checkout: checkout.proof }] }, candidate, fingerprints: await checkoutFingerprints(git, checkout.identity, config), artifacts, observedAt: new Date(now).toISOString() });
+  const manifest = buildCandidateManifest({ repository: { id: repository.id, fullName: repository.full_name }, suite: suite.id, observer: authority, producer: { apiVerified: true, definitionTrusted: true, repositoryId: repository.id, workflowId: run.workflow_id, path, event: run.event, runId: run.id, runAttempt: run.run_attempt, headSha: run.head_sha, status: run.status, conclusion: run.conclusion, startedAt: run.run_started_at, completedAt: run.updated_at, runtimeAttested: { verified: false, source: 'pre-install-host-only' }, jobs: [{ id: job.id, name: job.name, status: job.status, conclusion: job.conclusion, steps: job.steps.map(step => ({ number: step.number, name: step.name, status: step.status, conclusion: step.conclusion })), checkout: checkout.proof }] }, candidate, fingerprints: await checkoutFingerprints(git, checkout.identity, config), artifacts, observedAt: new Date(now).toISOString() });
   return { manifest, policy, candidate, checkout };
+}
+
+/** Bracket fresh API/log/Git measurement, rather than checking a previously built JSON. */
+async function consistentEvidence(options) {
+  const { api, repository, suite, data, authority, now } = options;
+  // Resolve actual checkout parents first. This provisional result is never consumed:
+  // the callback must reconstruct it from fresh APIs and a fresh Git-object reader.
+  const provisional = await createEvidence(options);
+  const history = await withConsistentCandidateHistory({
+    api, repository: { id: repository.id, fullName: repository.full_name },
+    workflowId: data.run.workflow_id, workflowPath: data.path,
+    prNumber: provisional.candidate.prNumber, sourceRunId: data.run.id,
+    sourceRunAttempt: data.run.run_attempt, eligibleEvents: suite.eligibleSourceEvents,
+    suite: suite.id, expectedCandidate: provisional.candidate, now,
+    measure: async () => {
+      const fresh = await runData(api, data.run.id, repository);
+      requireFact(fresh.run.run_attempt === data.run.run_attempt && fresh.path === data.path, 'source_attempt_changed_during_observation');
+      return createEvidence({ ...options, git: gitReader(api), data: fresh, authority });
+    },
+  });
+  requireFact(history.readStatus === 'ok' && history.stableDuringRead && history.measurementBound,
+    history.reasons[0] || 'history_measurement_unstable');
+  return { ...history.measurement, historyObservation: {
+    stableDuringRead: true, measurementBound: true, skipAuthorization: false,
+    snapshotFingerprints: history.snapshots.map(snapshot => snapshot.fingerprint),
+    reads: history.reads, retries: history.retries,
+    residualRace: 'a new run, rerun, or failure can start after the last read',
+  }, latestAttempts: history.snapshots[0].latestAttempts };
+}
+
+/**
+ * Input-only resolver for the separate protected manual pilot. Its bootstrap
+ * independently verifies the controller's API identity before calling here.
+ * This does not promote source runtime metadata or authorize any reuse.
+ */
+export async function resolvePilotCandidate({ api, repositoryName, sourceRunId, authority, config, now = Date.now() }) {
+  requireFact(integer(sourceRunId) && authority?.apiBootstrapVerified === true && authority.definitionTrusted === true &&
+    authority.path === '.github/workflows/ci-candidate-runtime-pilot.yml' && authority.ref === 'refs/heads/main' &&
+    SHA.test(authority.headSha ?? ''), 'pilot_controller_authority_missing');
+  const repository = await api('');
+  requireFact(repository?.default_branch === 'main' && repository.full_name === repositoryName && repository.id === authority.repositoryId,
+    'pilot_repository_identity_mismatch');
+  const data = await runData(api, sourceRunId, repository);
+  requireFact(data.path === '.github/workflows/harness-verify.yml' && ['pull_request', 'merge_group'].includes(data.run.event),
+    'pilot_source_workflow_or_event_invalid');
+  const suite = config.suites.find(item => item.id === 'fullstack-smoke' && item.owner.workflow === data.path && item.owner.job === 'fullstack-smoke');
+  requireFact(suite, 'pilot_checkout_suite_missing');
+  const source = await consistentEvidence({ api, git: gitReader(api), repository, config, suite, data, authority, now });
+  return {
+    candidate: source.candidate, checkout: source.checkout.proof,
+    producer: { runId: data.run.id, runAttempt: data.run.run_attempt, workflowId: data.run.workflow_id, path: data.path, event: data.run.event, headSha: data.run.head_sha },
+    historyObservation: source.historyObservation,
+    runFull: true, skip: false, protectedVerified: false,
+  };
 }
 
 /**
@@ -282,8 +354,8 @@ export async function observeCandidateRun({ api, repositoryName, sourceRunId, ob
     for (const suite of suites) {
       try {
         if (['pull_request', 'merge_group'].includes(data.run.event)) {
-          const source = await createEvidence({ api, git, repository, config, suite, data, authority, now });
-          report.suites.push(fallback('awaiting_main_comparison', { suite: suite.id, candidateEvidenceGenerated: true, manifest: source.manifest }));
+          const source = await consistentEvidence({ api, git, repository, config, suite, data, authority, now });
+          report.suites.push(fallback('awaiting_main_comparison', { suite: suite.id, candidateEvidenceGenerated: true, manifest: source.manifest, historyObservation: source.historyObservation }));
           continue;
         }
         requireFact(data.run.event === 'push' && data.run.head_branch === 'main' && successful(data.run), 'not_successful_main_validation');
@@ -313,8 +385,8 @@ export async function observeCandidateRun({ api, repositoryName, sourceRunId, ob
         requireFact(successful(latest) && latest.head_sha === (latest.event === 'pull_request' ? pull.head.sha : latest.head_sha), 'newer_attempt_not_successful_or_head_changed');
         const sourceData = await runData(api, latest.id, repository);
         requireFact(sourceData.run.run_attempt === latest.run_attempt && sourceData.run.status === latest.status && sourceData.run.conclusion === latest.conclusion && sourceData.run.workflow_id === data.run.workflow_id && sourceData.path === data.path, 'source_attempt_changed_during_observation');
-        const source = await createEvidence({ api, git, repository, config, suite, data: sourceData, authority, now });
-        const history = matching.map(run => ({ apiVerified: true, repositoryId: repository.id, workflowId: run.workflow_id, suite: suite.id, runId: run.id, runAttempt: run.run_attempt, startedAt: run.run_started_at ?? run.created_at, status: run.status, conclusion: run.conclusion, candidate: { prNumber: run.pull_requests[0].number, baseSha: run.pull_requests[0].base?.sha, headSha: run.pull_requests[0].head?.sha } }));
+        const source = await consistentEvidence({ api, git, repository, config, suite, data: sourceData, authority, now });
+        const history = source.latestAttempts;
         // Source identity is additionally proven by actual checkout parents + current PR API.
         const sourceHistory = history.find(run => run.runId === sourceData.run.id && run.runAttempt === sourceData.run.run_attempt);
         requireFact(sourceHistory && sourceHistory.candidate.headSha === source.candidate.headSha && sourceHistory.candidate.baseSha === source.candidate.baseSha, 'history_source_candidate_mismatch');
@@ -322,7 +394,7 @@ export async function observeCandidateRun({ api, repositoryName, sourceRunId, ob
         const currentAuthority = await observerAuthority(api, repository, observerRunId, actualCheckout, expectedObserverSha, git);
         const current = { repositoryId: repository.id, suite: suite.id, candidate: { ...source.candidate, prNumber: pull.number, headSha: pull.head.sha, baseSha: main.proof.parents[0], headCurrent: true, mergeable: pull.merged === true }, checkout: main.proof, runtimeAttested: { verified: false, source: 'pre-install-host-only' }, fingerprints: await checkoutFingerprints(git, main.identity, config) };
         const verdict = evaluateShadow({ mode, evidence: source.manifest, current, policy: source.policy, authority: currentAuthority, latestAttempts: history, readStatus: 'ok', now });
-        report.suites.push({ suite: suite.id, ...verdict, manifest: source.manifest });
+        report.suites.push({ suite: suite.id, ...verdict, manifest: source.manifest, historyObservation: source.historyObservation });
       } catch (error) {
         report.suites.push(fallback(error instanceof EvidenceReadError ? error.reason : 'evidence_lookup_or_validation_exception', { suite: suite.id }));
       }

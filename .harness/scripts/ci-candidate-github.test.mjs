@@ -23,7 +23,9 @@ function identity({ main = false } = {}) {
 }
 const marker = (value, stamp = '2026-10-05T10:00:03.1250000Z') => `${stamp} ${IDENTITY_PREFIX}${Buffer.from(JSON.stringify(value)).toString('base64')}\n`;
 function job(id, main = false) {
-  return { id, name: 'fullstack-smoke', ...success, runner_id: 123, runner_group_id: 1, labels: ['ubuntu-latest'], steps: [{ name: 'Set up job', ...success }, { name: 'Run actions/checkout@v5', ...success }, { name: IDENTITY_STEP, ...success, started_at: main ? '2026-10-05T10:20:00Z' : '2026-10-05T10:00:00Z', completed_at: main ? '2026-10-05T10:20:06Z' : '2026-10-05T10:00:06Z' }, { name: 'Execute smoke', ...success }] };
+  const started_at = main ? '2026-10-05T10:20:00Z' : '2026-10-05T10:00:00Z';
+  const completed_at = main ? '2026-10-05T10:30:00Z' : '2026-10-05T10:10:00Z';
+  return { id, run_id: id - 1, name: 'fullstack-smoke', ...success, started_at, completed_at, runner_id: 123, runner_group_id: 1, labels: ['ubuntu-latest'], steps: [{ name: 'Set up job', ...success }, { name: 'Run actions/checkout@v5', ...success }, { name: IDENTITY_STEP, ...success, started_at, completed_at: main ? '2026-10-05T10:20:06Z' : '2026-10-05T10:00:06Z' }, { name: 'Execute smoke', ...success }].map((step, index) => ({ number: index + 1, started_at, completed_at, ...step })) };
 }
 function run(id, event, sha, extras = {}) {
   return { id, event, run_attempt: 1, workflow_id: 10, head_sha: sha, head_branch: event === 'pull_request' ? 'worker/candidate' : 'main', path: PATH, repository: REPO, head_repository: REPO, run_started_at: '2026-10-05T10:00:00Z', created_at: '2026-10-05T10:00:00Z', updated_at: '2026-10-05T10:10:00Z', pull_requests: event === 'pull_request' ? [{ number: 9, base: { sha: B }, head: { sha: H } }] : [], ...success, ...extras };
@@ -32,14 +34,15 @@ function fixture() {
   const source = run(100, 'pull_request', H);
   const main = run(200, 'push', S, { run_started_at: '2026-10-05T10:20:00Z', updated_at: '2026-10-05T10:30:00Z' });
   const own = run(900, 'workflow_run', O, { workflow_id: 20, path: OBSERVER, status: 'in_progress', conclusion: null });
-  const pull = { number: 9, state: 'closed', merged: true, mergeable: null, merge_commit_sha: S, base: { sha: S, ref: 'main', repo: REPO }, head: { sha: H, repo: REPO } };
+  const pull = { number: 9, state: 'closed', merged: true, mergeable: null, merge_commit_sha: S, updated_at: '2026-10-05T10:19:00Z', base: { sha: S, ref: 'main', repo: REPO }, head: { sha: H, repo: REPO } };
   const entries = sourceCode => [{ path: PATH, type: 'blob', mode: '100644', sha: oid('a') }, { path: OBSERVER, type: 'blob', mode: '100644', sha: oid('b') }, { path: ACTION, type: 'blob', mode: '100644', sha: oid('c') }, { path: 'pnpm-lock.yaml', type: 'blob', mode: '100644', sha: oid('d') }, { path: 'apps/api/src/index.ts', type: 'blob', mode: '100644', sha: sourceCode }];
   const commits = { [B]: { sha: B, tree: { sha: TB }, parents: [{ sha: oid('0') }] }, [H]: { sha: H, tree: { sha: TH }, parents: [{ sha: B }] }, [M]: { sha: M, tree: { sha: TS }, parents: [{ sha: B }, { sha: H }] }, [S]: { sha: S, tree: { sha: TS }, parents: [{ sha: B }] }, [O]: { sha: O, tree: { sha: TS }, parents: [{ sha: S }] } };
   const trees = { [TB]: { sha: TB, truncated: false, tree: entries(oid('e')) }, [TH]: { sha: TH, truncated: false, tree: entries(oid('f')) }, [TS]: { sha: TS, truncated: false, tree: entries(oid('f')) } };
-  const artifacts = [{ id: 301, name: 'smoke-100', expired: false, size_in_bytes: 200, digest: `sha256:${'a'.repeat(64)}`, workflow_run: { id: 100, head_sha: H }, created_at: '2026-10-05T10:09:00Z' }];
+  const artifacts = [{ id: 301, name: 'smoke-100', expired: false, size_in_bytes: 200, digest: `sha256:${'a'.repeat(64)}`, workflow_run: { id: 100, head_sha: H }, created_at: '2026-10-05T10:09:00Z', updated_at: '2026-10-05T10:09:00Z' }];
   const state = { source, main, own, pull, commits, trees, artifacts, jobs: { 100: job(101), 200: job(201, true) }, logs: { 101: marker(identity()), 201: marker(identity({ main: true }), '2026-10-05T10:20:03.1250000Z') }, history: [source], calls: [], denied: null };
   const api = async (path, options) => {
     state.calls.push({ path, options });
+    state.beforeApi?.(path);
     if (state.denied?.(path)) { const { EvidenceReadError } = await import('./lib/ci-candidate-github.mjs'); throw new EvidenceReadError('github_api_http_403'); }
     if (path === '') return structuredClone(REPO);
     if (path === '/actions/runs/900') return structuredClone(state.own);
@@ -139,6 +142,81 @@ test('trusted PR producer creates manifest from APIs, without downloading any ar
   assert.equal(report.suites[0].runFull, true);
   assert.deepEqual(report.suites[0].reasons, ['awaiting_main_comparison']);
   assert.equal(state.calls.some(call => /\/artifacts\/\d+\//.test(call.path)), false);
+  assert.equal(report.suites[0].historyObservation.stableDuringRead, true);
+  assert.equal(report.suites[0].historyObservation.measurementBound, true);
+  assert.equal(report.suites[0].historyObservation.skipAuthorization, false);
+  assert.equal(report.suites[0].historyObservation.snapshotFingerprints.length, 2);
+});
+
+test('job success cannot mask an unsuccessful unselected upload or cleanup step', async () => {
+  for (const conclusion of ['failure', 'cancelled', 'timed_out', 'neutral']) {
+    const { state, observe } = fixture();
+    state.jobs[100].steps.push({ number: 5, name: 'Retain artifact or cleanup', status: 'completed', conclusion, started_at: state.jobs[100].started_at, completed_at: state.jobs[100].completed_at });
+    const result = (await observe(100)).suites[0];
+    assert.deepEqual(result.reasons, ['source_job_step_not_successful']);
+    assert.equal(result.manifest, undefined); assert.equal(result.skip, false); assert.equal(result.runFull, true);
+  }
+});
+
+test('ordinary skipped optional steps do not fabricate or discard the actual successful execution', async () => {
+  const { state, observe } = fixture();
+  state.jobs[100].steps.push({ number: 5, name: 'Optional conditional cleanup', status: 'completed', conclusion: 'skipped', started_at: state.jobs[100].started_at, completed_at: state.jobs[100].completed_at });
+  const result = (await observe(100)).suites[0];
+  assert.equal(result.candidateEvidenceGenerated, true); assert.equal(result.skip, false); assert.equal(result.runFull, true);
+});
+
+test('adapter rejects a new failed candidate appearing in the second full-history read', async () => {
+  const { state, observe } = fixture();
+  let histories = 0;
+  state.beforeApi = path => {
+    if (path.startsWith('/actions/workflows/10/runs?') && ++histories === 2) {
+      state.history.unshift(run(110, 'pull_request', H, { conclusion: 'failure', run_started_at: '2026-10-05T10:11:00Z', updated_at: '2026-10-05T10:12:00Z' }));
+    }
+  };
+  const result = (await observe(100)).suites[0];
+  assert.deepEqual(result.reasons, ['history_newer_attempt_not_successful']);
+  assert.equal(result.manifest, undefined); assert.equal(result.skip, false); assert.equal(result.runFull, true);
+});
+
+test('adapter cannot bind a replacement artifact measured after snapshot A', async () => {
+  const { state, observe } = fixture();
+  let artifacts = 0;
+  state.beforeApi = path => {
+    if (path.startsWith('/actions/runs/100/artifacts?') && ++artifacts === 3) state.artifacts[0].digest = `sha256:${'b'.repeat(64)}`;
+  };
+  const result = (await observe(100)).suites[0];
+  assert.deepEqual(result.reasons, ['history_measurement_artifact_mismatch']);
+  assert.equal(result.manifest, undefined); assert.equal(result.skip, false);
+});
+
+test('adapter cannot bind a changed step identity measured after snapshot A', async () => {
+  const { state, observe } = fixture();
+  let jobs = 0;
+  state.beforeApi = path => {
+    if (path.startsWith('/actions/runs/100/attempts/1/jobs?') && ++jobs === 3) state.jobs[100].steps[3].number = 8;
+  };
+  const result = (await observe(100)).suites[0];
+  assert.deepEqual(result.reasons, ['history_measurement_step_mismatch']);
+  assert.equal(result.manifest, undefined); assert.equal(result.runFull, true);
+});
+
+test('adapter rejects permission loss during the second read without retaining an old manifest', async () => {
+  const { state, observe } = fixture();
+  let histories = 0;
+  state.denied = path => path.startsWith('/actions/workflows/10/runs?') && ++histories === 2;
+  const result = (await observe(100)).suites[0];
+  assert.deepEqual(result.reasons, ['github_api_http_403']);
+  assert.equal(result.manifest, undefined); assert.equal(result.skip, false);
+});
+
+test('a failed rerun can start after the last read; a stable observation never authorizes reuse', async () => {
+  const { state, observe } = fixture();
+  const result = (await observe(100)).suites[0];
+  state.source.run_attempt = 2; state.source.status = 'in_progress'; state.source.conclusion = null;
+  assert.equal(result.historyObservation.stableDuringRead, true);
+  assert.equal(result.historyObservation.skipAuthorization, false);
+  assert.equal(result.manifest.producer.runtimeAttested.verified, false);
+  assert.equal(result.skip, false); assert.equal(result.runFull, true); assert.equal(result.wouldReuse, false);
 });
 
 test('single-PR merge group binds actual Git parents; an ambiguous merge group retains full execution', async () => {
@@ -290,6 +368,39 @@ test('real API wrapper accepts exact repository root and omits token on log redi
   assert.equal(calls[0].url, 'https://api.github.com/repos/boardx/workspacex');
   assert.equal(calls[2].options.headers, undefined);
   await assert.rejects(api('//attacker.example'), /invalid_api_path/);
+});
+
+test('binary artifact transport preserves ZIP bytes and strips authorization on signed redirect', async () => {
+  const bytes = Buffer.from([0x50, 0x4b, 0x03, 0x04, 0xff, 0x00, 0x80]);
+  const calls = [];
+  const api = createGitHubApi({ repository: REPO.full_name, token: 'private-test-token', fetchImpl: async (url, options) => {
+    calls.push({ url, options });
+    return calls.length === 1
+      ? new Response(null, { status: 302, headers: { location: 'https://artifacts.example.test/signed-archive' } })
+      : new Response(bytes, { headers: { 'content-length': String(bytes.length) } });
+  } });
+  assert.deepEqual(await api('/actions/artifacts/301/zip', { binary: true }), bytes);
+  assert.equal(calls[0].options.headers.Authorization, 'Bearer private-test-token');
+  assert.equal(calls[1].options.headers, undefined);
+  assert.equal(calls[1].options.redirect, 'error');
+});
+
+test('binary artifact transport rejects declared and streamed size overflow', async () => {
+  for (const declared of [true, false]) {
+    const oversized = new ReadableStream({ start(controller) { controller.enqueue(new Uint8Array(20_000_001)); controller.close(); } });
+    const api = createGitHubApi({ repository: REPO.full_name, token: 'test-token', fetchImpl: async () => new Response(oversized, { headers: declared ? { 'content-length': '20000001' } : {} }) });
+    await assert.rejects(api('/actions/artifacts/301/zip', { binary: true }), /artifact_archive_too_large/);
+  }
+});
+
+test('binary artifact transport refuses missing bodies, insecure redirects and ambiguous modes', async () => {
+  const api = createGitHubApi({ repository: REPO.full_name, token: 'test-token', fetchImpl: async () => new Response(null) });
+  await assert.rejects(api('/actions/artifacts/301/zip', { binary: true }), /artifact_archive_body_missing/);
+  await assert.rejects(api('/actions/artifacts/301/zip', { binary: true, raw: true }), /ambiguous_api_response_mode/);
+  for (const location of ['http://artifacts.example.test/archive', 'https://user:password@artifacts.example.test/archive']) {
+    const unsafe = createGitHubApi({ repository: REPO.full_name, token: 'test-token', fetchImpl: async () => new Response(null, { status: 302, headers: { location } }) });
+    await assert.rejects(unsafe('/actions/artifacts/301/zip', { binary: true }), /unsafe_log_redirect/);
+  }
 });
 
 test('CLI bootstrap failure and disabled modes still write receipt files and skip=false', async () => {

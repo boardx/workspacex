@@ -1,0 +1,61 @@
+name: ci-candidate-pilot-observer
+
+on:
+  workflow_run:
+    workflows: [ci-candidate-runtime-pilot]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      source_run_id:
+        description: 'Read-only verification of a completed protected runtime pilot. No candidate execution or reuse.'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+  pull-requests: read
+
+concurrency:
+  group: ci-candidate-pilot-observer-${{ github.event.workflow_run.id || github.run_id }}-${{ github.run_attempt }}
+  cancel-in-progress: false
+
+jobs:
+  observe:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout protected pilot observer
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Set up observer Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+      - name: Verify completed protected pilot receipt
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CI_CANDIDATE_SOURCE_RUN_ID: ${{ inputs.source_run_id || github.event.workflow_run.id }}
+          CI_CANDIDATE_OUTPUT_DIR: ${{ runner.temp }}/ci-candidate-pilot-observer
+        run: node .harness/scripts/ci-candidate-pilot-observer.mjs
+      - name: Retain independent pilot observation
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: ci-candidate-pilot-observer-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/ci-candidate-pilot-observer/*.json
+          if-no-files-found: error
+          retention-days: 14
+
+  reject-branch-dispatch:
+    if: github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require protected main observer
+        run: |
+          echo '::error::The receipt observer requires the main definition.'
+          exit 1

@@ -1,0 +1,133 @@
+{
+  "schemaVersion": 1,
+  "overallReuseComplete": false,
+  "protectedLiveReceiptObtained": false,
+  "measuredSavingsMinutes": 0,
+  "fullHarnessEntry": {
+    "exitCode": 1,
+    "stage": "lint:vocabulary",
+    "unchangedBaselineFile": "docs/testing/d011-reconstruction/canvas-inventory.md:34",
+    "baselineCommit": "9225b28b17f634185e795469898b2385546f0284",
+    "scopeChanged": false
+  },
+  "fullHarnessVitestMac": {
+    "exitCode": 1,
+    "passed": 2967,
+    "failed": 4,
+    "skipped": 6,
+    "filesPassed": 215,
+    "filesFailed": 2,
+    "failedFiles": [
+      ".harness/scripts/real-model-smoke.test.ts",
+      ".harness/scripts/vm/deploy-secret-argv.test.ts"
+    ],
+    "defaultBashVersion": "3.2.57",
+    "failedFilesAndRuntimeScriptsChanged": false,
+    "classification": "Unchanged baseline shell fixtures fail on this Mac; Linux CI result remains to be obtained. No skip or assertion weakening.",
+    "targetedLocaleProbe": {
+      "command": "LC_ALL=C pnpm exec vitest run --config .harness/vitest.config.ts --dir .harness real-model-smoke.test.ts",
+      "exitCode": 0,
+      "passed": 4,
+      "meaning": "The unchanged real-model shell fixtures pass under the C locale on Mac Bash 3.2. This does not repair the original full-run result."
+    }
+  },
+  "additionalBoundaries": [
+    "Local Docker receipts cannot prove protected main executor identity.",
+    "AMD64 emulation on ARM omits external emulator byte closure.",
+    "Full workflow history exceeding bounded enumeration falls back, never authorizes reuse.",
+    "Read-only history brackets are not an atomic consumption lease.",
+    "Pure Node pilot does not close fullstack, backend, native, meeting or production runtime coverage."
+  ],
+  "baselineByteComparison": [
+    {
+      "path": "docs/testing/d011-reconstruction/canvas-inventory.md",
+      "baselineIdentical": true,
+      "digest": "sha256:c33ee3092e456c3f1873b5538db743d6028d038189832162febcc00c25263c55"
+    },
+    {
+      "path": ".harness/scripts/real-model-smoke.test.ts",
+      "baselineIdentical": true,
+      "digest": "sha256:40b346c7beb8029d146e3fda08cec2fe02fc5fd73f1a21d9c1fe4e4d367222f2"
+    },
+    {
+      "path": "scripts/real-model-env.sh",
+      "baselineIdentical": true,
+      "digest": "sha256:8d027bd5a3cdcf9c5faf264e3b87b711c86ce444b879be7ce9c0b61ba5f14f6d"
+    },
+    {
+      "path": "scripts/real-model-smoke.sh",
+      "baselineIdentical": true,
+      "digest": "sha256:4bb21c68cb530a44a9da8b2ee884560bbe43416230e43bab0c760ffd7478fb2a"
+    },
+    {
+      "path": ".harness/scripts/vm/deploy-secret-argv.test.ts",
+      "baselineIdentical": true,
+      "digest": "sha256:6c7ad186accd41fdca505442c997510c1ec537f57a1f5be886b0c6d7535fdbf1"
+    },
+    {
+      "path": ".harness/scripts/vm/deploy.sh",
+      "baselineIdentical": true,
+      "digest": "sha256:105fed6afb0c06af5d9e92184dc1090a6e0311b43b35c0a4bd23ead23c13aec2"
+    }
+  ],
+  "liveHistoryBudgetObservation": {
+    "observedAt": "2026-10-05T16:00:00Z",
+    "readOnlyApi": "https://api.github.com/repos/boardx/workspacex/actions/workflows/harness-verify.yml/runs?per_page=1",
+    "advertisedTotalCount": 9655,
+    "readerMaxPages": 20,
+    "readerMaxOriginalRuns": 200,
+    "outcome": "Current real workflow history exceeds the bounded enumeration budget. Current protected-live candidate resolver/reader will fall back; merge approval alone does not remove this operational gap. No filtering or budget weakening was applied."
+  },
+  "focusedNode": {
+    "passed": 624,
+    "failed": 0,
+    "skipped": 6,
+    "command": "node --test .harness/scripts/ci-candidate-*.test.mjs",
+    "realDockerMeaning": "Default opts out six real cases. The separate actual native ARM run executes all 49 and skips none."
+  },
+  "prNodeGateScripts": [
+    {
+      "path": ".harness/scripts/lint-ui-material.mjs",
+      "exitCode": 0
+    },
+    {
+      "path": ".harness/scripts/lint-shipped-pack-version.mjs",
+      "exitCode": 0
+    },
+    {
+      "path": ".harness/scripts/lint-ui-prototyper-single-source.mjs",
+      "exitCode": 0
+    },
+    {
+      "path": ".harness/scripts/lint-third-artifact.mjs",
+      "exitCode": 0
+    },
+    {
+      "path": ".harness/scripts/lint-verification-can-fail.mjs",
+      "exitCode": 0
+    },
+    {
+      "path": ".harness/scripts/lint-nav-reachability.mjs",
+      "exitCode": 0
+    },
+    {
+      "path": ".harness/scripts/lint-spec-gate-coverage.mjs",
+      "exitCode": 0
+    },
+    {
+      "path": ".harness/scripts/lint-contract-state-names.mjs",
+      "exitCode": 0
+    },
+    {
+      "path": ".harness/scripts/lint-ci-suite-ownership.mjs",
+      "exitCode": 0
+    }
+  ],
+  "focusedVitest": {
+    "passed": 624,
+    "failed": 0,
+    "skipped": 6,
+    "filesPassed": 10,
+    "command": "pnpm exec vitest run --config .harness/vitest.config.ts --dir .harness ci-candidate"
+  }
+}

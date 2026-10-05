@@ -1,0 +1,48 @@
+{
+  "schemaVersion": 1,
+  "mode": "shadow",
+  "suite": "ci-candidate-evidence-core",
+  "image": {
+    "reference": "docker.io/library/node@sha256:8607a9064d4a571140998ae9e52a3b3fcf9cff361d04642d5971e6cd76d39e27",
+    "platform": "linux/amd64",
+    "nodeBinary": "/usr/local/bin/node",
+    "configDigest": "sha256:bd16adabad7619222d4d0ab2d61f48391dacde03ad93f54d344683e326cbd0e2",
+    "rootfsLayers": [
+      "sha256:81f823b9617547261c907396f63f770deaa554748ff739bedfa650e3bb74595a",
+      "sha256:aa7bf5b94b92bc0951fa6a85f909392c3e1ed27b4c2fa82bc77fa84122a08416",
+      "sha256:96a9284da7b47faab75998a33dc2e56874756555b92480d023585ff8a6d153fd",
+      "sha256:a4bc3d2a20bafc5e6c89c5e2285579f620f118f81b5413c62edee3d2380bdaa2",
+      "sha256:f7d704e9049824a8bb8860609b030e2cfd2c380484325cda609bb4d578d0db3a"
+    ]
+  },
+  "command": {
+    "argv": [
+      "/usr/local/bin/node",
+      "--test",
+      "/input/.harness/scripts/ci-candidate-evidence.test.mjs"
+    ],
+    "expectedTests": 175,
+    "definitionBlobs": [
+      {
+        "path": ".harness/scripts/ci-candidate-evidence.test.mjs",
+        "oid": "3bc756e0510e31e2d5fa15163abccc7ac3d17842"
+      },
+      {
+        "path": ".harness/scripts/lib/ci-candidate-evidence.mjs",
+        "oid": "ebd02c725573995cb97e0aa091da98ced0ad4350"
+      }
+    ]
+  },
+  "limits": {
+    "timeoutMs": 120000,
+    "maxLogBytes": 2000000,
+    "memoryBytes": 536870912,
+    "pidsLimit": 128,
+    "maxSourceBytes": 2147483648,
+    "maxSourceFileBytes": 33554432
+  },
+  "isolation": {
+    "uid": 65532,
+    "gid": 65532
+  }
+}

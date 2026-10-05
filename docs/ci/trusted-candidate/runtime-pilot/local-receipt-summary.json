@@ -1,0 +1,402 @@
+{
+  "schemaVersion": 1,
+  "kind": "Local measurements; not protected authority or reuse evidence",
+  "capturedAt": "2026-10-05T15:45:15.150Z",
+  "measuredSavingsMinutes": 0,
+  "controllerSourceBytes": [
+    {
+      "path": ".harness/scripts/lib/ci-candidate-pilot.mjs",
+      "digest": "sha256:73dcb38c3b371f4ba0a1997d53c01da0a93041980caf4385273729136b249e13"
+    },
+    {
+      "path": ".harness/scripts/lib/ci-candidate-pilot-source.mjs",
+      "digest": "sha256:9be50ae55874c26e52d1db9e07da9606942091e3c0fb6cce3e57675851e6688e"
+    },
+    {
+      "path": ".harness/scripts/ci-candidate-pilot.mjs",
+      "digest": "sha256:6d267a3f19082fb558f04bf4bde6311e28dc47b2e37c9f82f005d631e2acfd61"
+    },
+    {
+      "path": ".harness/scripts/ci-candidate-pilot.test.mjs",
+      "digest": "sha256:a0fc8ce1fca3ddfc98ce6ed8ba4e1fcdc624a85d413df8451a444368624115c5"
+    },
+    {
+      "path": ".harness/scripts/lib/ci-candidate-runtime.mjs",
+      "digest": "sha256:2c88a6f2e8304d63c832a49c6d4c18522bb1743c6b64193bf6324a7f499561ad"
+    },
+    {
+      "path": ".harness/scripts/lib/ci-candidate-source.mjs",
+      "digest": "sha256:d5502c5b8d6ac025c8de8b8624dd986b28b2ecc81ce762be60b1748bb7cf1cfd"
+    }
+  ],
+  "nativeArm": {
+    "testCount": 49,
+    "passed": 49,
+    "skipped": 0,
+    "policy": "temporary local ARM profile; production AMD64 policy is unchanged",
+    "scope": "local-unprotected",
+    "rawReceiptDigest": "sha256:0863b4a0bdb160d7c3338d4dc1a2e4832583ecd0239b3358efffaca7cbc4e91a",
+    "receiptFingerprint": "sha256:5e605c7bcbc90a66bc1ca5b768f3148de5ba66d61193d63d90e0ce777d16c402",
+    "controller": {
+      "startedAt": "2026-10-05T15:41:59.731Z",
+      "nonce": "cae19c85-07db-4c9c-8335-09186ec24d7b",
+      "candidateCodeExecutedOnHost": false,
+      "completedAt": "2026-10-05T15:42:16.902Z"
+    },
+    "gitInput": {
+      "sha": "9225b28b17f634185e795469898b2385546f0284",
+      "tree": "1723b116a1b6903b8cbe1e1103f6a768c7261cc3",
+      "parents": [
+        "41e0356877ad4349aab695cbf89845841e83f003"
+      ],
+      "entriesFingerprint": "sha256:e331e8d92c43653d8e92cf8cad29702509b3c5564818c2e9353a759cb93d79ec",
+      "materializedFingerprint": "sha256:79999904a0c12ce40aa1b395b817df7a3686c7c4a33657984cfb052fb911763f",
+      "fileCount": 17875,
+      "totalBytes": 802478662,
+      "definitionBlobs": [
+        {
+          "path": ".harness/scripts/ci-candidate-evidence.test.mjs",
+          "oid": "3bc756e0510e31e2d5fa15163abccc7ac3d17842"
+        },
+        {
+          "path": ".harness/scripts/lib/ci-candidate-evidence.mjs",
+          "oid": "ebd02c725573995cb97e0aa091da98ced0ad4350"
+        }
+      ]
+    },
+    "image": {
+      "reference": "docker.io/library/node@sha256:ef03a3d0e663b3c9d38c95be3fd31a100514d41df2599562b68a58a57f979adf",
+      "imageId": "sha256:ef03a3d0e663b3c9d38c95be3fd31a100514d41df2599562b68a58a57f979adf",
+      "platform": "linux/arm64",
+      "rootfsLayers": [
+        "sha256:12cdff3b039e28c684ffd2097ff5a66df274a8500966a1431038b05f50bcf096",
+        "sha256:43e4f3df99f20979a78cc4e6fb9e52bdc4ab31172750194f853005d88964db7e",
+        "sha256:2316784a23db74c15d46af9a7f2f891d2b44f77abbb4bed1e861b3268bdd946e",
+        "sha256:888e40d812f105ea5ea1263d750cf66a552432bb12d9b7436cbe345989d0f3c1",
+        "sha256:a491c257493e76fe1e68b7d0251d2497e59c543eed2289846fa87df1e227489f"
+      ]
+    },
+    "resourceObservation": {
+      "pre": {
+        "memoryBytes": 536870912,
+        "memorySwapBytes": 536870912,
+        "pidsLimit": 128,
+        "autoRemove": false,
+        "restartPolicy": {
+          "Name": "no",
+          "MaximumRetryCount": 0
+        }
+      },
+      "post": {
+        "memoryBytes": 536870912,
+        "memorySwapBytes": 536870912,
+        "pidsLimit": 128,
+        "autoRemove": false,
+        "restartPolicy": {
+          "Name": "no",
+          "MaximumRetryCount": 0
+        }
+      }
+    },
+    "execution": {
+      "startedAt": "2026-10-05T15:42:13.630Z",
+      "actualArgv": [
+        "/usr/local/bin/node",
+        "--test",
+        "/input/.harness/scripts/ci-candidate-evidence.test.mjs"
+      ],
+      "timedOut": false,
+      "finishedAt": "2026-10-05T15:42:13.919Z",
+      "daemonExitCode": 0,
+      "oomKilled": false,
+      "daemonError": "",
+      "daemonStartedAt": "2026-10-05T15:42:13.6635435Z",
+      "daemonFinishedAt": "2026-10-05T15:42:13.839964084Z",
+      "status": "exited",
+      "diagnostic": {
+        "untrustedCandidateOutput": true,
+        "expectedTests": 175,
+        "reportedTests": 175
+      }
+    },
+    "outputDigests": {
+      "stdout": {
+        "digest": "sha256:1da3b73f0845c1072f371f77217a52973f07fb0fd42ba8fe2c681b8bc35e1132",
+        "bytes": 29523
+      },
+      "stderr": {
+        "digest": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "bytes": 0
+      },
+      "candidateControlled": true
+    },
+    "rootfs": {
+      "archiveDigest": "sha256:a923b1c3cb4a4c9612721701d8889de5237e08142ac0eff05271958f81840de2",
+      "inventoryFingerprint": "sha256:b71cf6d6911892063f2c784c9607d1759387d459d9d64c8bce1c501c1e44627d",
+      "byteCount": 248880128,
+      "entryCount": 7294
+    },
+    "flags": {
+      "suiteExecuted": true,
+      "executionSuccessful": true,
+      "measurementComplete": true,
+      "proofComplete": true,
+      "protectedVerified": false,
+      "verified": false,
+      "skip": false,
+      "runFull": true,
+      "reuseAuthorized": false
+    },
+    "blockers": [
+      "protected_supervisor_authority_not_supplied"
+    ],
+    "allOwnedContainersRemoved": true,
+    "inputRemoved": true,
+    "attacks": [
+      {
+        "name": "excess-candidate-logs-are-bounded-and-fail-closed.json",
+        "rawReceiptDigest": "sha256:ad4261142ae9e85339165e0fdb4d668e3e1dc8e2dc0e0d85bce54e39fdb7f24b",
+        "receiptFingerprint": "sha256:98856b61ac25c4fdfb1572bb398a2b081f423aa2a02dc42b218a660cb78cc43b",
+        "suiteExecuted": true,
+        "executionSuccessful": false,
+        "measurementComplete": false,
+        "proofComplete": false,
+        "verified": false,
+        "protectedVerified": false,
+        "skip": false,
+        "runFull": true,
+        "reuseAuthorized": false,
+        "exit": 0,
+        "timedOut": false,
+        "blockers": [
+          "protected_supervisor_authority_not_supplied",
+          "candidate_log_capture_incomplete"
+        ],
+        "allOwnedContainersRemoved": true,
+        "inputRemoved": true
+      },
+      {
+        "name": "fake-successful-tap-with-nonzero-daemon-exit-still-fails.json",
+        "rawReceiptDigest": "sha256:a9b76880bb0b709d7c66dcec20508f035596d527e18f94c55234330bfd47af85",
+        "receiptFingerprint": "sha256:b62d8c2b17d794d01f73f2c0e17907b2a6eb19bffa0325e30e9ab763ec8f3b9a",
+        "suiteExecuted": true,
+        "executionSuccessful": false,
+        "measurementComplete": false,
+        "proofComplete": false,
+        "verified": false,
+        "protectedVerified": false,
+        "skip": false,
+        "runFull": true,
+        "reuseAuthorized": false,
+        "exit": 1,
+        "timedOut": false,
+        "blockers": [
+          "protected_supervisor_authority_not_supplied",
+          "runtime_execution_incomplete:terminal:container_lifecycle_identity,protected_supervisor_policy,supervisor_authority,independent_inspect_binding,supervisor_before_candidate_code"
+        ],
+        "allOwnedContainersRemoved": true,
+        "inputRemoved": true
+      },
+      {
+        "name": "read-only-no-network-no-socket-boundary-and-forged-evidence-cannot-alter-controller-receipt.json",
+        "rawReceiptDigest": "sha256:f9de15c8b7dbc6a0d8bc8c61519a47d5ff41d199f653081b8d190748ea109675",
+        "receiptFingerprint": "sha256:9ca388d75cf10bd45c86a6856e951c698ff54b8302f42adff2c00971900f276b",
+        "suiteExecuted": true,
+        "executionSuccessful": true,
+        "measurementComplete": true,
+        "proofComplete": true,
+        "verified": false,
+        "protectedVerified": false,
+        "skip": false,
+        "runFull": true,
+        "reuseAuthorized": false,
+        "exit": 0,
+        "timedOut": false,
+        "blockers": [
+          "protected_supervisor_authority_not_supplied"
+        ],
+        "allOwnedContainersRemoved": true,
+        "inputRemoved": true
+      },
+      {
+        "name": "sigterm-cancellation.json",
+        "rawReceiptDigest": "sha256:2b8f8d9a8a09b8de5f6eb133cb279831b2a44269b5baba083d1015c2e9aaa24f",
+        "receiptFingerprint": "sha256:35885f3c41cb974e7ab5e56dbec238362a75210ef20559ecb494b45c6076a6ac",
+        "suiteExecuted": true,
+        "executionSuccessful": false,
+        "measurementComplete": false,
+        "proofComplete": false,
+        "verified": false,
+        "protectedVerified": false,
+        "skip": false,
+        "runFull": true,
+        "reuseAuthorized": false,
+        "exit": null,
+        "timedOut": false,
+        "blockers": [
+          "protected_supervisor_authority_not_supplied",
+          "container_postinspect_failed",
+          "pilot_controller_cancelled"
+        ],
+        "allOwnedContainersRemoved": true,
+        "inputRemoved": true
+      },
+      {
+        "name": "timeout-kills-only-owned-container-and-prevents-success.json",
+        "rawReceiptDigest": "sha256:4638b93ea45748d0c81517dc58a58e8d087575249cbaf4063d39b413e663f7cf",
+        "receiptFingerprint": "sha256:263d2e0a91ec1652d44b842e524b83443350ddd59782b1c319ff27d201456517",
+        "suiteExecuted": true,
+        "executionSuccessful": false,
+        "measurementComplete": false,
+        "proofComplete": false,
+        "verified": false,
+        "protectedVerified": false,
+        "skip": false,
+        "runFull": true,
+        "reuseAuthorized": false,
+        "exit": 137,
+        "timedOut": true,
+        "blockers": [
+          "protected_supervisor_authority_not_supplied",
+          "runtime_execution_incomplete:terminal:container_lifecycle_identity,protected_supervisor_policy,supervisor_authority,independent_inspect_binding,supervisor_before_candidate_code"
+        ],
+        "allOwnedContainersRemoved": true,
+        "inputRemoved": true
+      }
+    ]
+  },
+  "amd64OnArm": {
+    "testCount": 47,
+    "passed": 47,
+    "skipped": 0,
+    "limitation": "External emulator byte closure is missing; proofComplete false. This earlier run predates explicit resourceObservation binding.",
+    "scope": "local-unprotected",
+    "rawReceiptDigest": "sha256:040a0d8925d76d2dc4f840f7ee8c151d1cfdac062ace10f9a3f4439ad39efba3",
+    "receiptFingerprint": "sha256:00be445b9425c6b217d9a321685f0410a630aab8821de0f7193694020c2ff70f",
+    "controller": {
+      "startedAt": "2026-10-05T15:32:16.551Z",
+      "nonce": "315f1532-dc4a-4b6d-a61c-fe280dc89aaf",
+      "candidateCodeExecutedOnHost": false,
+      "completedAt": "2026-10-05T15:32:34.762Z"
+    },
+    "gitInput": {
+      "sha": "9225b28b17f634185e795469898b2385546f0284",
+      "tree": "1723b116a1b6903b8cbe1e1103f6a768c7261cc3",
+      "parents": [
+        "41e0356877ad4349aab695cbf89845841e83f003"
+      ],
+      "entriesFingerprint": "sha256:e331e8d92c43653d8e92cf8cad29702509b3c5564818c2e9353a759cb93d79ec",
+      "materializedFingerprint": "sha256:79999904a0c12ce40aa1b395b817df7a3686c7c4a33657984cfb052fb911763f",
+      "fileCount": 17875,
+      "totalBytes": 802478662,
+      "definitionBlobs": [
+        {
+          "path": ".harness/scripts/ci-candidate-evidence.test.mjs",
+          "oid": "3bc756e0510e31e2d5fa15163abccc7ac3d17842"
+        },
+        {
+          "path": ".harness/scripts/lib/ci-candidate-evidence.mjs",
+          "oid": "ebd02c725573995cb97e0aa091da98ced0ad4350"
+        }
+      ]
+    },
+    "image": {
+      "reference": "docker.io/library/node@sha256:8607a9064d4a571140998ae9e52a3b3fcf9cff361d04642d5971e6cd76d39e27",
+      "imageId": "sha256:8607a9064d4a571140998ae9e52a3b3fcf9cff361d04642d5971e6cd76d39e27",
+      "platform": "linux/amd64",
+      "rootfsLayers": [
+        "sha256:81f823b9617547261c907396f63f770deaa554748ff739bedfa650e3bb74595a",
+        "sha256:aa7bf5b94b92bc0951fa6a85f909392c3e1ed27b4c2fa82bc77fa84122a08416",
+        "sha256:96a9284da7b47faab75998a33dc2e56874756555b92480d023585ff8a6d153fd",
+        "sha256:a4bc3d2a20bafc5e6c89c5e2285579f620f118f81b5413c62edee3d2380bdaa2",
+        "sha256:f7d704e9049824a8bb8860609b030e2cfd2c380484325cda609bb4d578d0db3a"
+      ]
+    },
+    "resourceObservation": null,
+    "execution": {
+      "startedAt": "2026-10-05T15:32:30.731Z",
+      "actualArgv": [
+        "/usr/local/bin/node",
+        "--test",
+        "/input/.harness/scripts/ci-candidate-evidence.test.mjs"
+      ],
+      "timedOut": false,
+      "finishedAt": "2026-10-05T15:32:31.538Z",
+      "daemonExitCode": 0,
+      "oomKilled": false,
+      "daemonError": "",
+      "daemonStartedAt": "2026-10-05T15:32:30.77516355Z",
+      "daemonFinishedAt": "2026-10-05T15:32:31.453710259Z",
+      "status": "exited",
+      "diagnostic": {
+        "untrustedCandidateOutput": true,
+        "expectedTests": 175,
+        "reportedTests": 175
+      }
+    },
+    "outputDigests": {
+      "stdout": {
+        "digest": "sha256:8635403b4cf6243dfde7a986cc7e52428743861a4a550c757eeafd24be4708e3",
+        "bytes": 29519
+      },
+      "stderr": {
+        "digest": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "bytes": 0
+      },
+      "candidateControlled": true
+    },
+    "rootfs": {
+      "archiveDigest": "sha256:59592c4a27acb1012b590febdf7a7cb34f1edadf6060c416bc4cc43a6e419209",
+      "inventoryFingerprint": "sha256:7cbfd1d561f4417ea7042808e2b1ea1dd3ae98bfc1b14057ef5b0f1e2125241d",
+      "byteCount": 229221888,
+      "entryCount": 7299
+    },
+    "flags": {
+      "suiteExecuted": true,
+      "executionSuccessful": true,
+      "measurementComplete": true,
+      "proofComplete": false,
+      "protectedVerified": false,
+      "verified": false,
+      "skip": false,
+      "runFull": true,
+      "reuseAuthorized": false
+    },
+    "blockers": [
+      "protected_supervisor_authority_not_supplied",
+      "external_emulator_byte_closure"
+    ],
+    "allOwnedContainersRemoved": true,
+    "inputRemoved": true,
+    "attacks": []
+  },
+  "independentLocalReaderComparison": {
+    "componentBindingsVerified": true,
+    "apiVerified": false,
+    "protectedVerified": false,
+    "scopedProtectedReceiptVerified": false,
+    "skip": false,
+    "runFull": true,
+    "reuseAuthorized": false,
+    "reasons": [],
+    "rawReportDigest": "sha256:050594f8ab53083cfee2aea4ac7154d4ab52eca58fe35d970f0cd42fd894f7ce",
+    "components": {
+      "sourceTree": "1723b116a1b6903b8cbe1e1103f6a768c7261cc3",
+      "materializedFingerprint": "sha256:79999904a0c12ce40aa1b395b817df7a3686c7c4a33657984cfb052fb911763f",
+      "imageId": "sha256:ef03a3d0e663b3c9d38c95be3fd31a100514d41df2599562b68a58a57f979adf",
+      "rootfsInventoryFingerprint": "sha256:b71cf6d6911892063f2c784c9607d1759387d459d9d64c8bce1c501c1e44627d",
+      "toolBytesFingerprint": "sha256:0f163bcede9c9bfad25ae758cd182114565667250ee591de28e734d853dc3ac3",
+      "outputDigests": {
+        "stdout": {
+          "digest": "sha256:1da3b73f0845c1072f371f77217a52973f07fb0fd42ba8fe2c681b8bc35e1132",
+          "bytes": 29523
+        },
+        "stderr": {
+          "digest": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "bytes": 0
+        },
+        "candidateControlled": true
+      }
+    }
+  }
+}

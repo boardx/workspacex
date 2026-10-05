@@ -1,0 +1,106 @@
+name: ci-candidate-runtime-pilot
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/ci-candidate-runtime-pilot.yml'
+      - '.harness/config/ci-candidate-pilot.json'
+      - '.harness/scripts/ci-candidate-*'
+      - '.harness/scripts/lib/ci-candidate-*'
+  merge_group:
+  workflow_dispatch:
+    inputs:
+      source_run_id:
+        description: 'Existing successful harness PR/merge-group run. Manual isolated Node measurement; never skip, merge or deploy.'
+        required: true
+        type: string
+
+# Existing read-only subset; no secrets, OIDC, attestation or coordinator write.
+permissions:
+  contents: read
+  actions: read
+  pull-requests: read
+
+concurrency:
+  group: ci-candidate-runtime-pilot-${{ github.run_id }}-${{ github.run_attempt }}
+  cancel-in-progress: false
+
+jobs:
+  isolation-regression:
+    # Candidate-controlled PR tests are regression evidence, never a protected receipt.
+    if: github.event_name != 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout regression candidate
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Set up regression Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+      - name: Pull fixed isolated Node image
+        run: docker pull docker.io/library/node@sha256:8607a9064d4a571140998ae9e52a3b3fcf9cff361d04642d5971e6cd76d39e27
+      - name: Exercise actual isolation boundaries
+        env:
+          CI_CANDIDATE_PILOT_REAL: '1'
+          CI_CANDIDATE_PILOT_REAL_OUTPUT: ${{ runner.temp }}/ci-candidate-isolation-regression
+        run: node --test .harness/scripts/ci-candidate-pilot.test.mjs
+      - name: Retain actual regression measurements
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: ci-candidate-isolation-regression-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/ci-candidate-isolation-regression/**/*.json
+            ${{ runner.temp }}/ci-candidate-isolation-regression/**/candidate.stdout
+            ${{ runner.temp }}/ci-candidate-isolation-regression/**/candidate.stderr
+          if-no-files-found: error
+          retention-days: 14
+
+  protected-pilot:
+    # A separate fresh runner. The existing observer remains read-only and never executes candidates.
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout protected supervisor
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Set up controller Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+      - name: Pull fixed isolated Node image
+        run: docker pull docker.io/library/node@sha256:8607a9064d4a571140998ae9e52a3b3fcf9cff361d04642d5971e6cd76d39e27
+      - name: Start trusted runtime supervisor
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CI_CANDIDATE_SOURCE_RUN_ID: ${{ inputs.source_run_id }}
+          CI_CANDIDATE_OUTPUT_DIR: ${{ runner.temp }}/ci-candidate-runtime-pilot
+        run: node .harness/scripts/ci-candidate-pilot-supervisor.mjs
+      - name: Retain isolated pilot receipt
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: ci-candidate-runtime-pilot-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/ci-candidate-runtime-pilot/**/*.json
+            ${{ runner.temp }}/ci-candidate-runtime-pilot/**/candidate.stdout
+            ${{ runner.temp }}/ci-candidate-runtime-pilot/**/candidate.stderr
+          if-no-files-found: error
+          retention-days: 14
+
+  reject-branch-dispatch:
+    if: github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require protected main controller
+        run: |
+          echo '::error::The protected pilot requires the main definition. PR regression tests are separate.'
+          exit 1
