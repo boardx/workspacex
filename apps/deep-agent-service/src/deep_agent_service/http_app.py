@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import asyncio
 import json
-from contextlib import AsyncExitStack, asynccontextmanager
+from contextlib import AsyncExitStack, asynccontextmanager, suppress
 from typing import Any
 from types import SimpleNamespace
 
@@ -24,14 +24,21 @@ def create_app(runtime: Runtime | None = None) -> Starlette:
     @asynccontextmanager
     async def lifespan(app: Starlette):
         nonlocal selected
+        from deep_agent_service.model_request_accounting import idle_replay_configuration, replay_pending_receipts
+        replay_configuration = idle_replay_configuration()
         selected = selected or production_runtime()
         app.state.runtime = selected
         await selected.start()
         from deep_agent_service.retrieval_embeddings import keep_provider_connection_warm
         warm = asyncio.create_task(keep_provider_connection_warm())
+        replay = asyncio.create_task(replay_pending_receipts(*replay_configuration)) if replay_configuration else None
         try: yield
         finally:
             warm.cancel()
+            if replay:
+                replay.cancel()
+                with suppress(asyncio.CancelledError):
+                    await replay
             await selected.stop()
 
     def rt(request: Request) -> Runtime:

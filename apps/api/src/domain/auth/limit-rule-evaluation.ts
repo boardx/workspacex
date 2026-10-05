@@ -64,3 +64,20 @@ export function pickFirstTriggered<T extends EvaluableRule>(
         : (cur.rule.ruleId < best.rule.ruleId ? cur : best),
   );
 }
+
+/** Exact admission ordering: counters must never round through Number. */
+export interface ExactEvaluableRule {
+ readonly ruleId:string; readonly thresholdTokens:bigint;
+ readonly observedTokens:bigint; readonly enabled:boolean;
+}
+export function pickFirstTriggeredExact<T extends ExactEvaluableRule>(rules:readonly T[]):T|null {
+ let best:T|null=null;
+ for(const rule of rules){
+  if(rule.observedTokens<0n||rule.thresholdTokens<=0n)throw new Error("INVALID_LIMIT_RULE_COUNTER");
+  if(!rule.enabled||rule.observedTokens<rule.thresholdTokens)continue;
+  if(best===null){best=rule;continue;}
+  const left=rule.observedTokens*best.thresholdTokens,right=best.observedTokens*rule.thresholdTokens;
+  if(left>right||(left===right&&rule.ruleId<best.ruleId))best=rule;
+ }
+ return best;
+}

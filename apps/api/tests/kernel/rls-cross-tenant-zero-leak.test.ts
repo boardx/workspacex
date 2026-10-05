@@ -96,6 +96,13 @@ describe("I-4: reads", () => {
     const foreign = await asApp(A, async (c) => {
       const out: string[] = [];
       for (const { table, col } of tables) {
+        if(table === "platform_organization_access_events") {
+          // Write-only audit is more restrictive than row filtering; prove SELECT denial.
+          await c.query("SAVEPOINT audit_read_denial");
+          await expect(c.query(`SELECT * FROM ${table}`)).rejects.toMatchObject({code:"42501"});
+          await c.query("ROLLBACK TO SAVEPOINT audit_read_denial");
+          continue;
+        }
         // 见本文件头注「一处已记录的例外」：`org-platform` 自己的行不算跨租户
         // 泄漏——`_platform_read` 策略就是设计成让每个租户都看得到它们。
         const r = await c.query<{ n: string }>(
@@ -137,6 +144,13 @@ describe("I-4: reads", () => {
     const nonEmpty = await asApp(null, async (c) => {
       const out: string[] = [];
       for (const { table, col } of tables) {
+        if(table === "platform_organization_access_events") {
+          // Write-only audit is more restrictive than row filtering; prove SELECT denial.
+          await c.query("SAVEPOINT audit_read_denial");
+          await expect(c.query(`SELECT * FROM ${table}`)).rejects.toMatchObject({code:"42501"});
+          await c.query("ROLLBACK TO SAVEPOINT audit_read_denial");
+          continue;
+        }
         // 同上一条：`_platform_read` 策略不看 `app.current_org`（它的 USING 子句只问
         // "这行是不是 org-platform 的"），所以即使完全没设租户上下文，platform 行
         // 依然会被这个策略放行——这是设计如此，不是 fail-closed 出了缺口。

@@ -1,7 +1,7 @@
 import { createServer, type Server } from "node:http";
 import { once } from "node:events";
 import { afterEach, describe, expect, it } from "vitest";
-import { WebSocket } from "ws";
+import { WebSocket, type WebSocketServer } from "ws";
 import type { AsrProviderPort, AsrSessionHandlers } from "../../src/application/recording/asr-ports";
 import type { PersonalTranscriptionRepository } from "../../src/application/recording/personal-transcription-ports";
 import type { AsrUsageEvent, AsrUsageMeter, RealtimeAsrTicketStore } from "../../src/application/recording/personal-realtime-asr";
@@ -14,8 +14,15 @@ const TRANSCRIPTION = "transcription-1";
 const CAPTURE = "capture-1";
 const OWNER = "user-1";
 const servers: Server[] = [];
+const clients: WebSocket[] = [];
+const gateways: WebSocketServer[] = [];
 
 afterEach(async () => {
+  for (const client of clients.splice(0)) client.terminate();
+  await Promise.all(gateways.splice(0).map(gateway => {
+    for (const socket of gateway.clients) socket.terminate();
+    return new Promise<void>(resolve => gateway.close(() => resolve()));
+  }));
   await Promise.all(servers.splice(0).map(server => new Promise<void>(resolve => server.close(() => resolve()))));
 });
 
@@ -51,7 +58,10 @@ describe("personal realtime ASR gateway", () => {
     expect(await client.next()).toMatchObject({ type: "ready", captureId: CAPTURE });
     expect(format).toEqual({ sampleRate: 16_000, channels: 1, encoding: "pcm16le" });
 
-    expect(options).toEqual({ turnDetection: "recording" });
+    expect(options).toEqual({ turnDetection: "recording", accountingContext: {
+      kind: "personal-capture", orgId: ORG, ownerUserId: OWNER,
+      transcriptionId: TRANSCRIPTION, captureId: CAPTURE,
+    } });
     handlers?.onPartial({ text: "临时文本", confidence: null });
     expect(await client.next()).toMatchObject({ type: "interim", text: "临时文本" });
     client.ws.send(Buffer.alloc(48_000));
@@ -259,7 +269,7 @@ async function connect(input: {
   const server = createServer();
   servers.push(server);
   let sequence = 0;
-  attachPersonalRealtimeAsrGateway(server, {
+  gateways.push(attachPersonalRealtimeAsrGateway(server, {
     provider: input.provider,
     repository: input.repository,
     usage: input.usage,
@@ -276,7 +286,7 @@ async function connect(input: {
         expiresAtMs: Date.now() + 60_000,
       }),
     } satisfies RealtimeAsrTicketStore,
-  });
+  }));
   server.listen(0, "127.0.0.1");
   await once(server, "listening");
   const address = server.address();
@@ -285,6 +295,7 @@ async function connect(input: {
   const client = new WebSocket(
     `ws://127.0.0.1:${address.port}/recording/sessions/${TRANSCRIPTION}/asr-stream?captureId=${CAPTURE}&ticket=${ticket}`,
   );
+  clients.push(client);
   await once(client, "open");
   const frames: Record<string, unknown>[] = [];
   const waiters: Array<(frame: Record<string, unknown>) => void> = [];

@@ -14,7 +14,7 @@ import { knowledgeGraph as KG } from "@repo/contracts";
 import { readKgRecallEvaluationMode } from "./kg-recall-evaluation-config";
 import type { DatabasePort } from "../../application/ports/database.port";
 import type { KnowledgeRecallPort, TurnRecallRecord } from "../../application/knowledge-graph/ports";
-import type { EmbeddingPort } from "../../application/retrieval/ports";
+import type { EmbeddingPort, RetrievalAccountingContext } from "../../application/retrieval/ports";
 import type { GraphHit, GraphHop, RecallClaim, RecallObject, VectorHit } from "../../domain/knowledge-graph/recall";
 import type { OrgId } from "../../domain/org-id";
 import { annOrder, annThenExact, exactOrder, prepareAnn } from "../retrieval/hnsw-ann";
@@ -33,7 +33,7 @@ const CLAIM_COLUMNS = `c.id, c.statement, c.status, c.claim_kind, c.valid_to, c.
 export class PgKnowledgeRecall implements KnowledgeRecallPort {
   readonly evaluationMode = readKgRecallEvaluationMode();
   /** `embeddings`：部署的嵌入模型（F10 同一个 EMBEDDING_PORT）；null ⇒ 向量通道未配置（S9，#4366）。 */
-  constructor(private readonly db: DatabasePort, private readonly embeddings: EmbeddingPort | null = null) {}
+  constructor(private readonly db: DatabasePort, private readonly embeddings: EmbeddingPort | null = null, private readonly requestAccounting=false) {}
 
   async candidates(orgId: OrgId, userId: string, threadId: string) {
     return this.db.withTenant(orgId, async (s) => {
@@ -189,13 +189,14 @@ export class PgKnowledgeRecall implements KnowledgeRecallPort {
    *   按故障报、降级，不当成「没有相似的」静默略过）。嵌入服务 / 库出错照原样抛，调用方降级。
    */
   async vectorNeighbors(
-    orgId: OrgId, userId: string, query: string, candidateIds: readonly string[] | Promise<readonly string[]>, limit: number,
+    orgId: OrgId, userId: string, query: string, candidateIds: readonly string[] | Promise<readonly string[]>, limit: number, accounting?: RetrievalAccountingContext,
   ): Promise<readonly VectorHit[] | null> {
     if (this.embeddings === null) return null;
     if (limit < 1 || (Array.isArray(candidateIds) && candidateIds.length === 0)) return [];
+    if(this.requestAccounting&&accounting?.orgId!==String(orgId))throw new Error("retrieval_accounting_tenant_mismatch");
     const model = { model: this.embeddings.model, modelVersion: this.embeddings.modelVersion };
     // 嵌入问题与读候选集并行（候选集还在读时就开始嵌入）。
-    const [claimIds, q] = await Promise.all([candidateIds, this.embeddings.embed(query)]);
+    const [claimIds, q] = await Promise.all([candidateIds, this.embeddings.embed(query,this.requestAccounting?accounting:undefined)]);
     if (claimIds.length === 0) return [];
     // pgvector 的文本输入格式就是 JSON 数组的写法。
     const vec = JSON.stringify(q);

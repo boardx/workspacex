@@ -80,14 +80,14 @@ describe("readThreadHistory —— 附件元数据聚合（真库反证）", () 
     // m1 带回两个附件，顺序按 created_at,id。未抽取 ⇒ extraction_status 默认 'pending'、
     // excerpt 为 NULL（省略）——V9-b 的 SQL 顺带把抽取状态聚合回来。
     expect(history[0]!.attachments).toEqual([
-      { filename: "简历.pdf", mime: "application/pdf", extractionStatus: "pending" },
-      { filename: "作品.png", mime: "image/png", extractionStatus: "pending" },
+      { attachmentId: "att-1a", filename: "简历.pdf", mime: "application/pdf", extractionStatus: "pending" },
+      { attachmentId: "att-1b", filename: "作品.png", mime: "image/png", extractionStatus: "pending" },
     ]);
     // agent 轮没有附件 → 不挂 attachments 字段（保持「空/缺省=没有附件」）。
     expect(history[1]!.attachments).toBeUndefined();
     // m3 带回一个。
     expect(history[2]!.attachments).toEqual([
-      { filename: "合同.docx", mime: "application/vnd.openxmlformats-officedocument.wordprocessingml.document", extractionStatus: "pending" },
+      { attachmentId: "att-3", filename: "合同.docx", mime: "application/vnd.openxmlformats-officedocument.wordprocessingml.document", extractionStatus: "pending" },
     ]);
   });
 
@@ -107,7 +107,7 @@ describe("readThreadHistory —— 附件元数据聚合（真库反证）", () 
 
     const history = await repo.readThreadHistory(toOrgId(ORG), THREAD, "ih-e9-trigger", 10);
     expect(history[0]!.attachments).toEqual([
-      { filename: "简历.pdf", mime: "application/pdf", extractionStatus: "extracted", extractedExcerpt: "# 张三\n资深后端工程师" },
+      { attachmentId: "att-ex", filename: "简历.pdf", mime: "application/pdf", extractionStatus: "extracted", extractedExcerpt: "# 张三\n资深后端工程师" },
     ]);
   });
 

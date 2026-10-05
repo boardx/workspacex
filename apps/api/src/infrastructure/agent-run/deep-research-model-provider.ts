@@ -88,6 +88,8 @@ export class DeepResearchModelProvider implements ModelCallPort {
   constructor(private readonly config: DeepResearchProviderConfig) {}
 
   async complete(input: ModelCallInput): Promise<{ readonly text: string; readonly tokens?: number }> {
+    // The external graph envelope cannot attest or reserve its opaque vendor calls.
+    if(process.env.KERNEL_AI_PRODUCT_QUOTA_ENABLED==='1')throw new ModelCallError('MODEL_PROVIDER_NOT_CONFIGURED','AI_RESEARCH_DISPATCH_ADMISSION_UNSUPPORTED');
     const { baseUrl, timeoutMs, pollIntervalMs } = this.config;
     if (baseUrl === "") {
       throw new ModelCallError(

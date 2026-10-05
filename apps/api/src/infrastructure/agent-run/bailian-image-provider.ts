@@ -33,6 +33,9 @@
  * 本身。生产走 `KERNEL_BAILIAN_IMAGE_BASE_URL` 未设置时的默认值（真实 DashScope
  * 域名），测试指向一个本地 stub HTTP 服务器。
  */
+import {randomUUID} from "node:crypto";
+import {readReportedImageQuantity,type ImageAiAdmission,type ImageAiReceipt} from "./image-ai-admission";
+import type {ImageContext} from "../../application/agent-run/standard-image-tools";
 import { setTimeout as delay } from "node:timers/promises";
 import type { ModelCallInput } from "../../application/agent-run/ports";
 import { ModelCallError, type ModelCallPort } from "../../application/agent-run/ports";
@@ -75,6 +78,7 @@ interface SubmitResponse {
 }
 
 interface TaskResponse {
+  readonly usage?:unknown;
   readonly output?: {
     readonly task_status?: string;
     readonly results?: readonly { readonly url?: string }[];
@@ -82,7 +86,8 @@ interface TaskResponse {
 }
 
 export class BailianImageProvider implements ModelCallPort {
-  constructor(private readonly config: BailianImageProviderConfig) {}
+  private accountingFault=false;
+  constructor(private readonly config: BailianImageProviderConfig,private readonly nativeAdmission?:ImageAiAdmission,private readonly productQuotaEnabled=false) {}
 
   async complete(input: ModelCallInput): Promise<{ readonly text: string; readonly tokens?: number }> {
     const { apiKey } = this.config;
@@ -104,22 +109,30 @@ export class BailianImageProvider implements ModelCallPort {
   }
 
   /** Structured result for the standard image tool; persistence remains the existing artifact path. */
-  async generateImage(prompt: string, callerSignal?: AbortSignal): Promise<GeneratedImage> {
+  async generateImage(prompt: string, callerSignal?: AbortSignal,accountingContext?:ImageContext): Promise<GeneratedImage> {
+    if((this.productQuotaEnabled||process.env.KERNEL_AI_PRODUCT_QUOTA_ENABLED==='1')&&!this.nativeAdmission)throw new ModelCallError('MODEL_PROVIDER_NOT_CONFIGURED','AI_NATIVE_DISPATCH_ADMISSION_UNSUPPORTED');
     const {apiKey,modelId,baseUrl}=this.config;
     if (!apiKey) throw new ModelCallError("MODEL_PROVIDER_NOT_CONFIGURED", "image provider is not configured");
     if (!prompt.trim() || prompt.length > 16_384) throw new ModelCallError("MODEL_CALL_FAILED", "image prompt is invalid");
     const timeoutMs=Math.min(120_000,Math.max(1,this.config.timeoutMs));
     const signal=callerSignal ? AbortSignal.any([callerSignal,AbortSignal.timeout(timeoutMs)]) : AbortSignal.timeout(timeoutMs);
+    if(this.accountingFault)throw new ModelCallError("MODEL_CALL_FAILED","IMAGE_ACCOUNTING_REPAIR_REQUIRED");
+    if(this.nativeAdmission&&!accountingContext)throw new ModelCallError("MODEL_CALL_FAILED","IMAGE_ACCOUNTING_CONTEXT_REQUIRED");
+    let receipt:ImageAiReceipt|undefined,quantity:bigint|null=null,outcome:"succeeded"|"failed"="failed";
     try {
+      signal.throwIfAborted();
+      receipt=this.nativeAdmission?await this.nativeAdmission.start(accountingContext!,{requestId:randomUUID(),modelProvider:BAILIAN_IMAGE_PROVIDER_NAME,modelId,serializedBody:JSON.stringify({model:modelId,input:{prompt:prompt.trim()},parameters:{size:"1024*1024",n:1}}),quantity:1n}):undefined;
       signal.throwIfAborted();
       const taskId=await this.submit(baseUrl,apiKey,modelId,prompt.trim(),signal);
       while (true) {
         signal.throwIfAborted();
-        const {status,url}=await this.readTask(baseUrl,apiKey,taskId,signal);
+        const {status,url,usage}=await this.readTask(baseUrl,apiKey,taskId,signal);
+        if(!['PENDING','RUNNING'].includes(status))quantity=readReportedImageQuantity(usage);
         if(status==='SUCCEEDED') {
           if(!url)throw new Error('missing image');
           const parsed=new URL(url);
           if(parsed.protocol!=='https:'||parsed.username||parsed.password||/[\s()<>]/.test(url))throw new Error('invalid image');
+          outcome='succeeded';
           return {delivery:'url',url,taskId,modelRef:modelId};
         }
         if(!['PENDING','RUNNING'].includes(status))throw new Error('terminal failure');
@@ -128,6 +141,8 @@ export class BailianImageProvider implements ModelCallPort {
     } catch {
       // No retry: a lost submission acknowledgement may already have created a vendor task.
       throw new ModelCallError("MODEL_CALL_FAILED", "image generation failed, was cancelled, or exceeded its deadline");
+    } finally {
+      if(receipt)try{await receipt.terminal({endedAt:new Date().toISOString(),outcome,quantity});}catch{this.accountingFault=true;}
     }
   }
 
@@ -158,7 +173,7 @@ export class BailianImageProvider implements ModelCallPort {
     return body.output.task_id;
   }
 
-  private async readTask(baseUrl: string, apiKey: string, taskId: string, signal: AbortSignal): Promise<{ status: string; url: string | null }> {
+  private async readTask(baseUrl: string, apiKey: string, taskId: string, signal: AbortSignal): Promise<{ status: string; url: string | null;usage:unknown }> {
     let response: Response;
     try {
       response = await fetch(`${baseUrl}/api/v1/tasks/${taskId}`, {
@@ -175,6 +190,7 @@ export class BailianImageProvider implements ModelCallPort {
     const body = await readBoundedJson(response,signal) as TaskResponse;
     return {
       status: body.output?.task_status ?? "UNKNOWN",
+      usage:body.usage,
       url: body.output?.results?.[0]?.url ?? null,
     };
   }

@@ -80,6 +80,8 @@ export type ClaimOutcome =
  * 有附件、能诚实说「我看到你传了 X（image/png），但还读不了它的内容」，而不是矢口否认。
  */
 export interface HistoryAttachmentMeta {
+  /** Repository-issued original attachment row identity; absent for legacy metadata. */
+  readonly attachmentId?: string;
   readonly filename: string;
   readonly mime: string;
   /**
@@ -979,6 +981,15 @@ export interface ModelResponseSchema {
 }
 
 export interface ModelCallInput {
+  /** Trusted per-HTTP output ceiling. Concrete adapter combines it with the deployment ceiling. */
+  readonly outputTokenLimit?: number;
+  /** Admission sees the exact serialized provider body in memory, before any paid dispatch.
+   * Never persist/log this body: it can contain user content. A rejection propagates unchanged.
+   * Only adapters explicitly supporting this boundary may be admitted by a policy coordinator. */
+  readonly beforeProviderDispatch?: (request: {
+    readonly requestId: string; readonly modelProvider: string; readonly modelId: string;
+    readonly serializedBody: string; readonly outputTokenLimit: number | undefined;
+  }) => Promise<void>;
   /** Trusted task policy; adapter applies only to compatible hybrid models/endpoints. */
   readonly thinkingMode?: "off";
   /** Local transport cancellation only; never serialized or a claim of remote cessation. */
@@ -1027,6 +1038,7 @@ export interface ModelCallInput {
   /** Trusted executor identity, never sourced from model tool arguments. */
   readonly executionAttemptId?: string;
   readonly executionLeaseEpoch?: number;
+  readonly usageCallPurpose?: "primary" | "history-summary" | "script-retry" | "retrieval-embedding" | "retrieval-rerank" | "native-image" | "local-trial" | "native-asr";
   readonly executionPermissionRequestId?: string;
   readonly modelProvider: string;
   readonly modelId: string;
@@ -1098,6 +1110,8 @@ export interface ModelCallInput {
    * 派发目标——见 `deep_agent_service/tools.py::spawn_async_task` 自己的降级说明）。
    */
   /** Trusted requester identity only; absent means no personal memory capability. */
+  /** Trusted accounting callback; adapters invoke immediately before real HTTP dispatch and at terminal. */
+  readonly onProviderRequest?: (event: ProviderRequestEvent) => Promise<void>;
   readonly trustedMemoryScope?: z.infer<typeof SC.TrustedMemoryScope>;
   readonly orgId?: string;
   readonly runId?: string;
@@ -1214,6 +1228,8 @@ export class ModelCallError extends Error {
      * 都不进来——`detail` 那条「provider 的话到此为止」的纪律不因为这个字段松动。
      */
     readonly usage?: ReportedUsage,
+    /** Adapter-owned HTTP classification; absent means no automatic fallback. */
+    readonly retryDisposition?: "rate-limited" | "temporarily-unavailable",
   ) {
     super(code);
     this.name = "ModelCallError";
@@ -1281,6 +1297,8 @@ export interface ModelCallCompletion {
   readonly tokens?: number;
   readonly promptTokens?: number;
   readonly completionTokens?: number;
+  readonly cacheInputTokens?: number;
+  readonly reasoningOutputTokens?: number;
   /**
    * #1747 —— 除最终回复之外，这次调用途中产生的、**可能含可执行脚本块**的文本。
    *
@@ -1304,7 +1322,22 @@ export interface ModelCallCompletion {
   readonly truncated?: boolean;
 }
 
+export interface ProviderRequestEvent {
+  readonly requestId: string;
+  readonly startedAt: string;
+  readonly phase: "started" | "terminal";
+  readonly endedAt?: string;
+  readonly usage?: ReportedUsage;
+  readonly outcome?: "succeeded" | "failed";
+}
+
 export interface ModelCallPort {
+  /** Registered route names only; never endpoints, credentials or automatic candidates. */
+  registeredProviders?():readonly string[];
+  /** True only for adapters reporting every actual dispatch through onProviderRequest. */
+  supportsRequestAccounting?(modelProvider: string): boolean;
+  /** Exact serialized-body admission before each actual HTTP attempt; absent is unsupported. */
+  supportsDispatchAdmission?(modelProvider: string): boolean;
   supportsLiveInterjections?(modelProvider: string): boolean;
   /**
    * 数字人能力（决策 B）—— 这个 provider 名是否由 deep-agent 内核的 LLM 端点**同样**提供
@@ -1480,16 +1513,37 @@ export interface AgentRunExecutorPort {
  * provider 未必报。填 0 会让「没报」在报表上等于「一个 prompt token 都没用过」。
  */
 export interface TokenUsageRecord {
+  /** Unique receipt identity; reuse only when retrying this same accounting write. */
+  readonly eventId?: string;
+  /** Explicit trusted priced amount; absence is unknown, never free. */
+  readonly costMicros?: bigint;
+  readonly currency?: string;
+  readonly priceVersion?: string;
+  readonly requestStartedAt?: string;
+  readonly requestEndedAt?: string;
+  readonly executionAttemptId?: string;
+  /** Trusted execution context, never inferred from provider output or historical data. */
+  readonly projectId?: string | null;
+  readonly threadId?: string | null;
+  readonly agentId?: string | null;
+  /** Legacy records omit this; new writes explicitly distinguish missing total usage. */
+  readonly totalSource?: "reported" | "unknown" | "not-applicable";
+  /** Native dimensions never masquerade as reported zero tokens. */
+  readonly nativeUsage?:{readonly unit:import("../../domain/agent-run/ai-billable-unit").AiNativeUnit;readonly quantity:bigint|null;readonly source:"reported"|"estimated"|"unknown"};
+  readonly callPurpose?: "primary" | "history-summary" | "script-retry" | "retrieval-embedding" | "retrieval-rerank" | "native-image" | "local-trial" | "native-asr";
   readonly userId: string;
-  readonly runId: string;
+  readonly runId: string | null;
+  readonly subtaskId?: string | null;
   readonly modelProvider: string;
   readonly modelId: string;
-  /** 上游没报总数时是 0——总数是必填维度，缺失按 0 记而不是猜一个估值。 */
+  /** Missing total uses a sentinel 0: totalSource unknown is unreported; not-applicable is native billing N/A, never reported zero or Token pricing. Reported partials remain independent observations. */
   readonly tokensTotal: number;
   /** null = 上游没报。 */
   readonly promptTokens: number | null;
   /** null = 上游没报。 */
   readonly completionTokens: number | null;
+  readonly cacheInputTokens?: number | null;
+  readonly reasoningOutputTokens?: number | null;
   readonly outcome: "succeeded" | "failed";
 }
 
@@ -1501,6 +1555,9 @@ export interface ReportedUsage {
   readonly total?: number;
   readonly prompt?: number;
   readonly completion?: number;
+  /** Subsets of input/output; never add again to total. */
+  readonly cacheInput?: number;
+  readonly reasoningOutput?: number;
 }
 
 /**
@@ -1514,6 +1571,16 @@ export interface ReportedUsage {
  * 「有人在注释旁边真的写了一条 INSERT」这种最像真的情形。
  */
 export interface TokenUsageMeterPort {
+  /** Durable start marker before provider dispatch; failed starts must prevent dispatch. */
+  startRequest?(orgId: OrgId, input: {
+    readonly requestId: string; readonly userId: string; readonly runId: string|null;
+    readonly executionLeaseEpoch?:number; readonly artifactOperationId?:string; readonly subtaskId?:string|null;
+    /** Private platform test authority; same tenant/member provenance is enforced in SQL. */
+    readonly platformTestId?:string;
+    readonly modelProvider: string; readonly modelId: string; readonly startedAt: string;
+    readonly executionAttemptId: string | null; readonly projectId: string | null;
+    readonly threadId?: string | null; readonly agentId?: string | null; readonly callPurpose?: TokenUsageRecord["callPurpose"];
+  }): Promise<void>;
   record(orgId: OrgId, usage: TokenUsageRecord): Promise<void>;
 }
 

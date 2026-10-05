@@ -7,11 +7,12 @@ import { McpScreen } from "@/components/admin/mcp-screen";
 import { OpsStatusScreen } from "@/components/admin/ops-status-screen";
 import { FeedbackDraftsScreen, DesignLoopInboxAdminScreen, DesignWorkbenchAdminScreen } from "@/components/admin/design-loop-screens";
 import { TelemetrySettingsScreen } from "@/components/admin/telemetry-settings-screen";
+import { PlatformOrganizationsScreen } from "@/components/admin/platform-organizations-screen";
 import { PlatformMembersScreen } from "@/components/admin/platform-members-screen";
 import { resolvePreviewState, type UiState } from "@/lib/ui-state";
 import { resolvePreviewRole } from "@/lib/identity";
-import type { AdminModuleKey } from "@/lib/mock/admin";
-import { PLATFORM_ADMIN_ROUTES } from "@/lib/platform-admin-routes";
+import type { AdminModuleKey } from "@/lib/admin-nav-metadata";
+import { PLATFORM_ADMIN_MODULE_ROUTES, platformAdminModuleStaticParams } from "@/lib/platform-admin-routes";
 
 /**
  * 平台后台 `/platform-admin/<module>`（2026-09-02 人类直接裁决，后台切成两面——见
@@ -38,6 +39,7 @@ const SCREENS: Partial<Record<AdminModuleKey, (p: { state: UiState }) => React.R
   model: ModelScreen,
   mcp: McpScreen,
   platform: PlatformMembersScreen,
+  organizations: PlatformOrganizationsScreen,
   "ops-status": OpsStatusScreen,
   telemetry: TelemetrySettingsScreen,
   "feedback-drafts": FeedbackDraftsScreen,
@@ -46,7 +48,7 @@ const SCREENS: Partial<Record<AdminModuleKey, (p: { state: UiState }) => React.R
 };
 
 export function generateStaticParams() {
-  return [...Object.keys(PLATFORM_ADMIN_ROUTES), ...Object.keys(REDIRECTS)].map((module) => ({ module }));
+  return [...platformAdminModuleStaticParams(), ...Object.keys(REDIRECTS).map((module) => ({ module }))];
 }
 
 export default function PlatformAdminModulePage({
@@ -58,7 +60,7 @@ export default function PlatformAdminModulePage({
   const redirectTo = REDIRECTS[params.module];
   if (redirectTo) redirect(redirectTo);
 
-  const key = PLATFORM_ADMIN_ROUTES[params.module];
+  const key = PLATFORM_ADMIN_MODULE_ROUTES[params.module];
   const Screen = key ? SCREENS[key] : undefined;
   if (!key || !Screen) notFound();
 

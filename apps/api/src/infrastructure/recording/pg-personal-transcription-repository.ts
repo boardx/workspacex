@@ -243,15 +243,16 @@ export class PgPersonalTranscriptionRepository implements PersonalTranscriptionR
     });
   }
 
-  async hasActiveCapture(input: { orgId: OrgId; ownerUserId: string; transcriptionId: string }): Promise<boolean> {
+  async hasActiveCapture(input: { orgId: OrgId; ownerUserId: string; transcriptionId: string;captureId?:string }): Promise<boolean> {
     return this.db.withTenant(input.orgId, async (session) => {
       const result = await session.query(
         `SELECT 1 FROM recording_sessions rs
           JOIN personal_transcriptions p ON p.id=rs.source_ref_id AND p.org_id=rs.org_id
          WHERE p.id=$1 AND p.org_id=$2 AND p.owner_user_id=$3
            AND rs.source_type='personal' AND rs.created_by=p.owner_user_id AND rs.ended_at IS NULL
-         LIMIT 1`,
-        [input.transcriptionId, input.orgId, input.ownerUserId],
+           AND ($4::text IS NULL OR rs.id=$4)
+         LIMIT 1 FOR SHARE OF p,rs`,
+        [input.transcriptionId, input.orgId, input.ownerUserId,input.captureId??null],
       );
       return result.rows.length > 0;
     });

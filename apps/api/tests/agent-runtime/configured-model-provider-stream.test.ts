@@ -21,6 +21,7 @@ let server: Server;
 let base = "";
 let nextFrames: string[] = [];
 let nextStatus = 200;
+let requests = 0;
 let frameDelayMs = 0;
 /**
  * issue #2104 —— 帧分隔符的行尾。`"lf"` 是本套件历史上唯一说过的方言（`\n\n`）；
@@ -34,9 +35,10 @@ const eol = (): string => (nextLineEnding === "crlf" ? "\r\n" : "\n");
 
 async function startServer(): Promise<void> {
   server = createServer((_req: IncomingMessage, res: ServerResponse) => {
+    requests += 1;
     if (nextStatus !== 200) {
       res.writeHead(nextStatus, { "content-type": "application/json" });
-      res.end(JSON.stringify({ error: "boom" }));
+      res.end(JSON.stringify({ error: "boom", usage: { total_tokens: 3, prompt_tokens: 3, completion_tokens: 0 } }));
       return;
     }
     res.writeHead(200, { "content-type": "text/event-stream" });
@@ -76,6 +78,30 @@ afterEach(() => { nextFrames = []; nextStatus = 200; frameDelayMs = 0; nextLineE
 afterAll(async () => { await new Promise<void>((resolve) => server.close(() => resolve())); });
 
 describe("ConfiguredModelProvider.completeStream", () => {
+  it("preserves reported cache/reasoning subsets in stream and terminal receipt without double counting",async()=>{
+    nextFrames=[`data: ${JSON.stringify({choices:[{delta:{content:"ok"},finish_reason:"stop"}],usage:{total_tokens:120,prompt_tokens:100,completion_tokens:20,prompt_tokens_details:{cached_tokens:60},completion_tokens_details:{reasoning_tokens:10}}})}\n\n`,doneFrame()];
+    const seen:import("../../src/application/agent-run/ports").ProviderRequestEvent[]=[];
+    const result=await provider().completeStream!({modelProvider:PROVIDER,modelId:"loopback",system:"s",user:"u",onProviderRequest:async event=>{seen.push(event);}},async()=>{});
+    expect(result).toMatchObject({tokens:120,promptTokens:100,completionTokens:20,cacheInputTokens:60,reasoningOutputTokens:10});
+    expect(seen[1]?.usage).toMatchObject({total:120,prompt:100,completion:20,cacheInput:60,reasoningOutput:10});
+  });
+  it("retains subsets from an earlier usage frame when stream consumption fails",async()=>{
+    nextFrames=[`data: ${JSON.stringify({choices:[],usage:{total_tokens:120,prompt_tokens:100,completion_tokens:20,prompt_tokens_details:{cached_tokens:60},completion_tokens_details:{reasoning_tokens:10}}})}\n\n`,sseChunk("stop")];
+    const seen:import("../../src/application/agent-run/ports").ProviderRequestEvent[]=[];
+    await expect(provider().completeStream!({modelProvider:PROVIDER,modelId:"loopback",system:"s",user:"u",onProviderRequest:async event=>{seen.push(event);}},async()=>{throw new Error("consumer cancelled");})).rejects.toBeInstanceOf(ModelCallError);
+    expect(seen[1]).toMatchObject({outcome:"failed",usage:{total:120,cacheInput:60,reasoningOutput:10}});
+  });
+  it("isolates impossible provider subset details while preserving reported billed totals",async()=>{
+    nextFrames=[`data: ${JSON.stringify({choices:[{delta:{content:"ok"}}],usage:{total_tokens:3,prompt_tokens:2,completion_tokens:1,prompt_tokens_details:{cached_tokens:5},completion_tokens_details:{reasoning_tokens:4}}})}\n\n`,doneFrame()];
+    const result=await provider().completeStream!({modelProvider:PROVIDER,modelId:"loopback",system:"s",user:"u"},async()=>{});
+    expect(result).toMatchObject({tokens:3,promptTokens:2,completionTokens:1});
+    expect(result.cacheInputTokens).toBeUndefined();expect(result.reasoningOutputTokens).toBeUndefined();
+  });
+  it("isolates stale subset after a later frame corrects parent counts",async()=>{
+    nextFrames=[`data: ${JSON.stringify({choices:[],usage:{prompt_tokens:100,prompt_tokens_details:{cached_tokens:60}}})}\n\n`,`data: ${JSON.stringify({choices:[{delta:{content:"ok"}}],usage:{total_tokens:55,prompt_tokens:50,completion_tokens:5}})}\n\n`,doneFrame()];
+    const result=await provider().completeStream!({modelProvider:PROVIDER,modelId:"loopback",system:"s",user:"u"},async()=>{});
+    expect(result).toMatchObject({tokens:55,promptTokens:50,completionTokens:5});expect(result.cacheInputTokens).toBeUndefined();
+  });
   it("每个 delta 按到达顺序回调，最终文本是拼接结果，usage 取最后一次上报", async () => {
     nextFrames = [
       sseChunk("Hel"),
@@ -193,6 +219,64 @@ describe("ConfiguredModelProvider.completeStream", () => {
         async () => {},
       ),
     ).rejects.toMatchObject({ code: "MODEL_CALL_FAILED" });
+  });
+
+  it("HTTP failure retains billable usage without provider error text", async () => {
+    nextStatus = 429;
+    await expect(provider().completeStream!(
+      { modelProvider: PROVIDER, modelId: "m1", system: "s", user: "u" }, async () => {},
+    )).rejects.toMatchObject({ usage: { total: 3, prompt: 3, completion: 0 } });
+  });
+
+  it("consumer failure preserves usage in the same SSE frame", async () => {
+    nextFrames = [sseChunk("a", { usage: 7 }), doneFrame()];
+    await expect(provider().completeStream!(
+      { modelProvider: PROVIDER, modelId: "m1", system: "s", user: "u" },
+      async () => { throw new Error("consumer failed"); },
+    )).rejects.toMatchObject({ usage: { total: 7 } });
+  });
+
+  it("persists start before HTTP and settles the same request identity", async () => {
+    nextFrames = [sseChunk("ok", { usage: 9 }), doneFrame()];
+    const seen: import("../../src/application/agent-run/ports").ProviderRequestEvent[] = [];
+    const before = requests;
+    await provider().completeStream!({ modelProvider: PROVIDER, modelId: "m1", system: "s", user: "u",
+      onProviderRequest: async event => {
+        if (event.phase === "started") expect(requests).toBe(before);
+        seen.push(event);
+      },
+    }, async () => {});
+    expect(requests).toBe(before + 1);
+    expect(seen.map(e => e.phase)).toEqual(["started", "terminal"]);
+    expect(seen[1]).toMatchObject({ requestId: seen[0]!.requestId, usage: { total: 9 }, outcome: "succeeded" });
+    expect(Date.parse(seen[1]!.endedAt!)).toBeGreaterThanOrEqual(Date.parse(seen[0]!.startedAt));
+  });
+
+  it("failed durable start prevents HTTP dispatch", async () => {
+    const before = requests;
+    const denied = new Error("database unavailable");
+    await expect(provider().completeStream!({ modelProvider: PROVIDER, modelId: "m1", system: "s", user: "u",
+      onProviderRequest: async () => { throw denied; },
+    }, async () => {})).rejects.toBe(denied);
+    expect(requests).toBe(before);
+  });
+
+  it("preflight rejection produces no request receipt", async () => {
+    const seen: unknown[] = [];
+    await expect(provider().complete({ modelProvider: "unconfigured", modelId: "m1", system: "s", user: "u",
+      onProviderRequest: async event => { seen.push(event); },
+    })).rejects.toMatchObject({ code: "MODEL_PROVIDER_NOT_CONFIGURED" });
+    expect(seen).toEqual([]);
+  });
+
+  it("terminal accounting failure does not retry model or discard completion", async () => {
+    nextFrames = [sseChunk("ok"), doneFrame()];
+    const before = requests;
+    const completion = await provider().completeStream!({ modelProvider: PROVIDER, modelId: "m1", system: "s", user: "u",
+      onProviderRequest: async event => { if (event.phase === "terminal") throw new Error("lost write"); },
+    }, async () => {});
+    expect(completion.text).toBe("ok");
+    expect(requests).toBe(before + 1);
   });
 
   it("run 钉的 provider 与部署配置的 provider 不一致：拒绝，不悄悄改用配置的那个", async () => {

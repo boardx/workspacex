@@ -604,6 +604,15 @@ export class DeepAgentModelProvider implements ModelCallPort {
     return Boolean(this.config.subtaskCallbackBaseUrl && this.config.subtaskCallbackKey);
   }
 
+  supportsRequestAccounting():boolean {
+    return process.env.KERNEL_DEEP_AGENT_REQUEST_ACCOUNTING_ENABLED==="1" && this.supportsLiveInterjections();
+  }
+  private requestAccountingConfig(input:ModelCallInput):Record<string,unknown>{
+    if(!this.supportsRequestAccounting() || !input.onProviderRequest)return {};
+    if(!input.orgId||!input.runId||!input.executionAttemptId||!input.executionLeaseEpoch)throw new ModelCallError("MODEL_CALL_FAILED","runtime_usage_ownership_unconfigured");
+    return {model_request_accounting:{base_url:this.config.subtaskCallbackBaseUrl,
+      org_id:input.orgId,run_id:input.runId,attempt_id:input.executionAttemptId,lease_epoch:input.executionLeaseEpoch,call_purpose:input.usageCallPurpose??"primary"}};
+  }
   private nativeConfig(input: ModelCallInput): Record<string, unknown> {
     if (input.nativeSession === undefined) return {};
     const parsed = NativeSessionBindingRef.safeParse(input.nativeSession);
@@ -1280,6 +1289,7 @@ export class DeepAgentModelProvider implements ModelCallPort {
             configurable: {
               ...this.nativeConfig(input),
               ...this.runControlConfig(input),
+              ...this.requestAccountingConfig(input),
               ...pinnedModelConfig(input),
               org_skills: toWireSkills(input.skills),
             // #3749 R2：本轮不挂载的工具（画布请求不需要 skill 工具；见 tool_budget.py）
@@ -1378,6 +1388,7 @@ export class DeepAgentModelProvider implements ModelCallPort {
           configurable: {
               ...this.nativeConfig(input),
               ...this.runControlConfig(input),
+              ...this.requestAccountingConfig(input),
               ...pinnedModelConfig(input),
             org_skills: toWireSkills(input.skills),
             // #3749 R2：本轮不挂载的工具（画布请求不需要 skill 工具；见 tool_budget.py）

@@ -97,7 +97,7 @@ function serve(ws:WebSocket,deps:PersonalRealtimeAsrGatewayDeps,auth:{orgId:Retu
         onFlow:flow=>{if(!terminal)send({type:"flow",captureId:auth.captureId,...flow});},
         onError:(reason,detail)=>{if(stopping)process.stderr.write(`[personal-asr] provider error while stopping: ${reason} / ${String(detail).slice(0,120)}\n`);void fail(asPersonalErrorReason(reason,detail,stopping));},
         onClosed:()=>undefined,
-      },{sampleRate:16_000,channels:1,encoding:"pcm16le"},{turnDetection:"recording"}).then(s=>{starting=false;
+      },{sampleRate:16_000,channels:1,encoding:"pcm16le"},{turnDetection:"recording",accountingContext:{kind:'personal-capture',orgId:auth.orgId,ownerUserId:auth.ownerUserId,transcriptionId:auth.transcriptionId,captureId:auth.captureId}}).then(s=>{starting=false;
         if(terminal){s.abort();return;}providerReadyAt=Date.now();upstream=s;
           send({type:"ready",captureId:auth.captureId});
           for(const audio of pendingAudio.splice(0))s.pushAudio(audio);pendingBytes=0;

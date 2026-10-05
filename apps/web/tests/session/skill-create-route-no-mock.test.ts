@@ -58,15 +58,10 @@ const RESIDUAL_MOCK_EDGES: readonly string[] = [
   // 这条边（曾经的 `ag-screens.tsx`/`ag-shared.tsx -> lib/mock/asset-governance.ts`）
   // 因此从这棵闭包里消失——不是本轮刻意清理 `asset-governance` 束自己的债，只是
   // `skill-app.tsx` 不再有路径走到它。清理一条边也要红一次，这条注释是那次清理的记录。
-  // 2026-08-13（后台侧栏核对，人类拿两张后台原型截图核对）：`/skill` 加回后台
-  // `AdminNav` 侧栏（与 `/admin/[module]` 那批屏一致），带进这三条既存的传递依赖。
-  // `AdminNav` 本身接的是**真实**计数（`useLiveAdminNavCounts` → `GET /capabilities`
-  // 等真实端点，见 #881），这几条 mock 边不是它的取数路径，是「计数源查不到时的
-  // 静态标签表 / 兜底数据源字典」这类结构性依赖，属于 `admin-nav` 这套既存组件自己
-  // 的既存债（不是本轮制造的），只是此前没有任何从 `skill-app.tsx` 出发的路径会走到它。
-  "components/admin/admin-nav.tsx -> lib/mock/admin.ts",
-  "components/admin/asset-kind-nav.ts -> lib/mock/admin.ts",
-  "lib/live-admin-nav-counts.ts -> lib/mock/admin.ts",
+  // #5376 将导航元数据抽离为 lib/admin-nav-metadata.ts，清掉 admin-nav、
+  // asset-kind-nav、live-admin-nav-counts → lib/mock/admin.ts 三条边。
+  // 下方真实导航闭包断言覆盖迁移；九条 Skill 原型债仍逐边精确保留。
+
 ];
 
 describe("#520 /skill 的「新建 skill」路径不依赖 lib/mock", () => {
@@ -100,6 +95,25 @@ describe("#520 /skill 的「新建 skill」路径不依赖 lib/mock", () => {
     const { mockEdges } = walk("components/skill/skill-app.tsx");
     // `toEqual` 而不是 `toContain`：只有精确相等才能让「清理了一条」也变红。
     expect(mockEdges).toEqual([...RESIDUAL_MOCK_EDGES].sort());
+  });
+
+  it("Skill 壳仍挂真实后台导航，导航闭包不含 mock 边", () => {
+    expect(walk("components/skill/skill-app.tsx").visited)
+      .toContain("components/admin/admin-nav.tsx");
+    const { visited, mockEdges } = walk("components/admin/admin-nav.tsx");
+    expect(mockEdges).toEqual([]);
+    for (const [file, metadataImport] of [
+      ["components/admin/admin-nav.tsx", 'from "@/lib/admin-nav-metadata"'],
+      ["components/admin/asset-kind-nav.ts", 'from "@/lib/admin-nav-metadata"'],
+      ["lib/live-admin-nav-counts.ts", 'from "./admin-nav-metadata"'],
+    ] as const) {
+      const source = readFileSync(resolve(ROOT, file), "utf8");
+      expect(source).toContain(metadataImport);
+    }
+    for (const file of [
+      "lib/admin-nav-metadata.ts", "components/admin/asset-kind-nav.ts",
+      "lib/live-admin-nav-counts.ts", "lib/admin-nav-counts.ts", "lib/api-client.ts",
+    ]) expect(visited).toContain(file);
   });
 
   it("写路径打的是已签契约的真实端点，且不存在第二个 skill 写出口", () => {

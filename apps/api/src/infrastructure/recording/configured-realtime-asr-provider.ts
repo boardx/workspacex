@@ -43,6 +43,9 @@
  *
  * 这条 bug 完全静默了 7 天以上没有任何日志——见 `onClosed` 的说明。
  */
+import {prepareAsrAiAdmission,type AsrNativeAdmissionDependencies,type AsrNativeAdmissionPort} from "./bounded-asr-admission";
+import {Logger} from "@nestjs/common";
+import type {AsrRequestAccounting,AsrAccountingContext} from "../../application/recording/asr-request-accounting";
 import { WebSocket } from "ws";
 import { randomUUID } from "node:crypto";
 import {
@@ -187,8 +190,10 @@ function validTranscriptIdentity(value: unknown): value is string {
 
 export class ConfiguredRealtimeAsrProvider implements AsrProviderPort {
   private readonly config: ProviderConfig | null;
+  private accountingFault=false;
+  private readonly logger=new Logger(ConfiguredRealtimeAsrProvider.name);
 
-  constructor(config: ProviderConfig | null = readConfig()) {
+  constructor(config: ProviderConfig | null = readConfig(),private readonly accounting?:AsrRequestAccounting,private readonly productQuotaEnabled=false,private readonly nativeAdmission?:AsrNativeAdmissionDependencies|AsrNativeAdmissionPort) {
     this.config = config !== null && config.turnDetectionSilenceMs === undefined
       ? { ...config, turnDetectionSilenceMs: DEFAULT_ASR_TURN_SILENCE_MS }
       : config;
@@ -200,7 +205,7 @@ export class ConfiguredRealtimeAsrProvider implements AsrProviderPort {
     return this.config !== null;
   }
 
-  async open(handlers: AsrSessionHandlers, audio: AsrAudioFormat, options?: {readonly turnDetection: "manual" | "recording"; readonly signal?: AbortSignal}): Promise<AsrSession> {
+  async open(handlers: AsrSessionHandlers, audio: AsrAudioFormat, options?: {readonly turnDetection?: "manual" | "recording"; readonly signal?: AbortSignal;readonly accountingContext?:AsrAccountingContext}): Promise<AsrSession> {
     const manual = options?.turnDetection === "manual";
     const config = this.config;
     if (config === null) {
@@ -213,30 +218,52 @@ export class ConfiguredRealtimeAsrProvider implements AsrProviderPort {
     // 就已经用这个参数（缺省时用一个这个账号未必有权限的默认模型）初始化了会话，
     // 之后再用 `session.update` 改模型已经太晚——连接可能已经因为默认模型不可用被关闭。
     const url = `${config.baseUrl}?model=${encodeURIComponent(config.model)}`;
-    const socket = new WebSocket(url, {
+    if(this.accountingFault)throw new Error("ASR_ACCOUNTING_REPAIR_REQUIRED");
+    if(this.productQuotaEnabled&&!this.nativeAdmission)throw new Error("ASR_NATIVE_ADMISSION_REQUIRED");
+    if((this.accounting||this.productQuotaEnabled)&&!options?.accountingContext)throw new Error("ASR_ACCOUNTING_CONTEXT_REQUIRED");
+    options?.signal?.throwIfAborted();
+    const request={requestId:randomUUID(),modelProvider:config.provider,modelId:config.model,startedAt:new Date().toISOString()};
+    const admitted=this.productQuotaEnabled?await ("start" in this.nativeAdmission!
+      ?this.nativeAdmission!.start(options!.accountingContext!,{...request,audio})
+      :prepareAsrAiAdmission(options!.accountingContext!,{...request,audio},this.nativeAdmission!)):undefined;
+    const receipt=admitted??(this.accounting?await this.accounting.start(options!.accountingContext!,request):undefined);
+    let queuedPcmBytes=0,wasCancelled=false,terminal:Promise<void>|undefined;
+    let terminalReceipt:Parameters<Awaited<ReturnType<AsrRequestAccounting['start']>>['terminal']>[0]|undefined;
+    const account=(outcome:'succeeded'|'failed')=>{
+      if(receipt&&!terminal){
+        terminalReceipt??={endedAt:new Date().toISOString(),outcome,queuedDurationMs:queuedPcmDurationMs(queuedPcmBytes,audio)};
+        terminal=Promise.resolve().then(()=>receipt.terminal(terminalReceipt!)).catch(()=>{terminal=undefined;this.accountingFault=true;this.logger.warn("ASR_USAGE_TERMINAL_FAILED: unmatched durable start; subsequent sessions blocked in this instance");});
+      }
+      return terminal??Promise.resolve();
+    };
+    let socket:WebSocket;
+    try{options?.signal?.throwIfAborted();socket = new WebSocket(url, {
       headers: {
         // 上游的鉴权。**这一行就是这条面必须是服务端代理的全部理由**：
         // 浏览器直连等于把它发给每一个访客。
         Authorization: `bearer ${config.apiKey}`,
         "OpenAI-Beta": "realtime=v1",
       },
-    });
+    });}catch(error){await account('failed');throw error;}
 
-    const abortSocket = () => socket.terminate();
+    // Keep later transport errors from becoming unhandled during handshake cleanup.
+    socket.on("error",()=>{});
+    const abortSocket = () => {wasCancelled=true;socket.terminate();};
     options?.signal?.addEventListener("abort", abortSocket, {once: true});
     socket.once("close", () => options?.signal?.removeEventListener("abort", abortSocket));
 
-    await new Promise<void>((resolve, reject) => {
+    try{await new Promise<void>((resolve, reject) => {
       const onOpen = () => { cleanup(); resolve(); };
       const onError = (e: Error) => { cleanup(); reject(e); };
+      const onClose = () => {cleanup();reject(new Error("ASR_HANDSHAKE_CLOSED"));};
       const cleanup = () => {
         socket.off("open", onOpen);
-        socket.off("error", onError);
+        socket.off("error", onError);socket.off("close",onClose);
       };
       socket.on("open", onOpen);
-      socket.on("error", onError);
+      socket.on("error", onError);socket.on("close",onClose);
       if (options?.signal?.aborted) abortSocket();
-    });
+    });}catch(error){await account('failed');throw error;}
 
     const silenceMs = options?.turnDetection === "recording"
       ? resolveRecordingTurnSilenceMs(config.recordingTurnDetectionSilenceMs)
@@ -247,7 +274,7 @@ export class ConfiguredRealtimeAsrProvider implements AsrProviderPort {
     // `audio.encoding`（`"pcm16le"`）是我们自己线路上的字节格式描述符，不是
     // `input_audio_format` 的取值词表——这个字段只认字面量 `"pcm"`，字段名也是顶层
     // `sample_rate`，不是 `input_audio_sample_rate`（均已用真实端点验证，见本文件头注）。
-    socket.send(JSON.stringify({
+    try{socket.send(JSON.stringify({
       type: "session.update",
       ...(manual ? {event_id: randomUUID()} : {}),
       session: {
@@ -265,7 +292,7 @@ export class ConfiguredRealtimeAsrProvider implements AsrProviderPort {
             }
           : {}),
       },
-    }));
+    }));}catch(error){socket.terminate();await account('failed');throw error;}
 
     let closed = false;
     let finalSeen = false;
@@ -388,6 +415,7 @@ export class ConfiguredRealtimeAsrProvider implements AsrProviderPort {
       if ((!finishRequested || (manual && !sessionFinished)) && !errorReported) {
         reportError(PROVIDER_UNAVAILABLE, `upstream closed unexpectedly (code=${code}): ${reasonBuf.toString() || "no reason given"}`);
       }
+      void account(!wasCancelled&&!errorReported&&finishRequested&&(manual?sessionFinished:finalSeen||finalSeenEver)?'succeeded':'failed');
       handlers.onClosed();
     });
     socket.on("error", (e: Error) => {
@@ -397,7 +425,11 @@ export class ConfiguredRealtimeAsrProvider implements AsrProviderPort {
 
     return {
       pushAudio(frame) {
-        if (closed || socket.readyState !== WebSocket.OPEN) return;
+        if (finishRequested || closed || socket.readyState !== WebSocket.OPEN) return;
+        if(admitted&&(frame.byteLength%2!==0||queuedPcmDurationMs(queuedPcmBytes+frame.byteLength,audio)!>admitted.maximumDurationMs)){
+          closed=true;socket.terminate();void account('failed');
+          reportError(PROVIDER_UNAVAILABLE,"Audio session reached its admitted duration limit");return;
+        }
         const payload = JSON.stringify({
           type: "input_audio_buffer.append",
           ...(manual ? {event_id: randomUUID()} : {}),
@@ -410,8 +442,8 @@ export class ConfiguredRealtimeAsrProvider implements AsrProviderPort {
           return;
         }
         observeFlow(socket.bufferedAmount);
-        audioBytesPushed += frame.byteLength;
         socket.send(payload);
+        audioBytesPushed += frame.byteLength;queuedPcmBytes+=frame.byteLength;
       },
       commit() {
         if (closed || socket.readyState !== WebSocket.OPEN) return;
@@ -419,7 +451,7 @@ export class ConfiguredRealtimeAsrProvider implements AsrProviderPort {
       },
       async finish() {
         finishRequested = true;
-        if (closed || socket.readyState !== WebSocket.OPEN) return;
+        if (closed || socket.readyState !== WebSocket.OPEN) {await account('failed');return;}
         finalSeen = false;
         if (manual) sessionFinished = false;
         socket.send(JSON.stringify({ type: "input_audio_buffer.commit", ...(manual ? {event_id: randomUUID()} : {}) }));
@@ -439,11 +471,12 @@ export class ConfiguredRealtimeAsrProvider implements AsrProviderPort {
           reportError(PROVIDER_UNAVAILABLE, "upstream did not settle the final segment in time");
         }
         socket.close();
+        await account(!wasCancelled&&!errorReported&&(manual?sessionFinished:finalSeen||finalSeenEver)?'succeeded':'failed');
       },
       abort() {
         finishRequested = true;
-        closed = true;
-        socket.terminate();
+        closed = true;wasCancelled=true;
+        socket.terminate();void account('failed');
       },
     };
   }
@@ -454,3 +487,9 @@ export class ConfiguredRealtimeAsrProvider implements AsrProviderPort {
  * **不是**当成「用户什么都没说」。
  */
 const FINISH_GRACE_MS = Number(process.env.KERNEL_ASR_FINISH_GRACE_MS ?? 15_000);
+
+/** Transport-queued PCM duration is an estimate, never vendor-reported billed time. */
+export function queuedPcmDurationMs(bytes:number,audio:AsrAudioFormat):bigint|null{
+ if(audio.encoding!=="pcm16le"||!Number.isSafeInteger(bytes)||bytes<0||!Number.isSafeInteger(audio.sampleRate)||audio.sampleRate<=0||!Number.isSafeInteger(audio.channels)||audio.channels<=0)return null;
+ const divisor=BigInt(audio.sampleRate)*BigInt(audio.channels)*2n;return (BigInt(bytes)*1000n+divisor-1n)/divisor;
+}

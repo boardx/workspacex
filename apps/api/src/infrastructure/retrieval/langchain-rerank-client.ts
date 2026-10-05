@@ -1,3 +1,4 @@
+import {RetrievalAccountingContext} from "@repo/contracts/retrieval-accounting";
 import {RETRIEVAL_RERANK_LIMITS as L,RetrievalRerankRequest,RetrievalRerankResponse} from '@repo/contracts/retrieval-rerank';
 import type {RerankPort} from '../../application/retrieval/ports';
 /** Infrastructure identity only; neither endpoint nor model is a tool argument. */
@@ -10,9 +11,9 @@ export class LangChainRerankClient implements RerankPort {
   this.model=config.model;this.modelVersion=config.modelVersion;
  }
  readonly model:string;readonly modelVersion:string;
- async rerank(query:string,candidates:readonly{id:string;content:string}[]):Promise<readonly string[]>{
+ async rerank(query:string,candidates:readonly{id:string;content:string}[],accounting?:RetrievalAccountingContext):Promise<readonly string[]>{
   if(candidates.some(c=>Buffer.byteLength(c.content)>L.maxTextBytes)||new Set(candidates.map(c=>c.id)).size!==candidates.length)throw new Error('rerank_input_invalid');
-  const body=JSON.stringify(RetrievalRerankRequest.parse({query,candidates}));
+  const body=JSON.stringify(RetrievalRerankRequest.parse({query,candidates,...this.accounting(accounting)}));
   if(Buffer.byteLength(body)>L.maxRequestBytes)throw new Error('rerank_input_too_large');
   const abort=new AbortController(),timer=setTimeout(()=>abort.abort(),L.deadlineMs);timer.unref();
   try{
@@ -25,6 +26,14 @@ export class LangChainRerankClient implements RerankPort {
    return output.ids;
   }catch{throw new Error('rerank_unavailable');}finally{clearTimeout(timer);}
  }
+ private accounting(value:RetrievalAccountingContext|undefined){
+  const enabled=process.env.KERNEL_RETRIEVAL_REQUEST_ACCOUNTING_ENABLED==="1";
+  if(process.env.KERNEL_AI_PRODUCT_QUOTA_ENABLED==="1"&&!enabled)throw new Error("retrieval_accounting_required");
+  if(!enabled){if(value)throw new Error("retrieval_accounting_runtime_disabled");return {};}
+  if(!value)throw new Error("retrieval_accounting_owner_required");
+  return {accounting:RetrievalAccountingContext.parse(value)};
+ }
+
 }
 export function langChainRerankClientFromEnv():LangChainRerankClient|null{
  const model=process.env.KERNEL_RERANK_MODEL_ID??'',modelVersion=process.env.KERNEL_RERANK_MODEL_VERSION??'';

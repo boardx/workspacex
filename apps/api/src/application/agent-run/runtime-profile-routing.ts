@@ -1,3 +1,5 @@
+import {pricedRunModel} from "./priced-run-model";
+import {currentRunLease} from "./run-lease";
 import type { ClaimedAgentRun } from "./ports";
 import type { ExecuteAgentRunDeps } from "./execute-run";
 
@@ -10,5 +12,8 @@ export function dependenciesForRuntimeProfile(deps: ExecuteAgentRunDeps, run: Cl
     || run.resumeStepSeqBase !== undefined || (run.leaseEpoch ?? 1) > 1;
   const native = run.runtimeProfile === "native-v1"
     || (!continuing && deps.nativeRuntimeEnabled !== false);
-  return native ? deps : { ...deps, nativeSessions: undefined };
+  const view=native ? deps : { ...deps, nativeSessions: undefined };
+  if(!deps.aiAdmission)return view;
+  const lease=currentRunLease();if(!lease||lease.runId!==run.runId)throw new Error("AI_RUN_LEASE_MISSING");
+  return {...view,model:pricedRunModel(deps.model,lease.orgId,run,deps.aiAdmission)};
 }

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { Bot, Boxes, Cpu, Plug, Shapes, LayoutTemplate, LayoutDashboard, Users, UserCog, Mail, Lock, Globe, Settings, Activity, FileEdit, Inbox, PencilRuler, Send, Home, KeyRound } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import * as React from "react";
-import { ADMIN_NAV, ADMIN_MODULE_SCOPE, ADMIN_SCOPE_META, adminNavForScope, type AdminModuleKey, type AdminScope } from "@/lib/mock/admin";
+import { ADMIN_NAV, ADMIN_MODULE_SCOPE, ADMIN_SCOPE_META, adminNavForScope, type AdminModuleKey, type AdminScope } from "@/lib/admin-nav-metadata";
 import { useOptionalSession } from "@/components/session/session-provider";
 import { useLiveAdminNavCounts } from "@/lib/live-admin-nav-counts";
 import { ADMIN_NAV_TESTID } from "./asset-kind-nav";
@@ -46,6 +46,8 @@ const ICONS: Record<AdminModuleKey, LucideIcon> = {
   local: Lock,
   // 地球：跨组织的全平台视角，与「组织」组的 Users（一个组织里的人）刻意不同符号。
   platform: Globe,
+  organizations: Globe,
+  "model-tests": Cpu,
   // UC-17.8 研发闭环三面。
   "feedback-drafts": FileEdit,
   inbox: Inbox,

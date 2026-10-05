@@ -121,6 +121,7 @@ export interface RetrievalOutcome {
 }
 
 export interface RetrieveInput {
+  readonly modelRequestAccounting?:import("@repo/contracts/retrieval-accounting").RetrievalAccountingContext;
   readonly userId: string;
   readonly orgId: OrgId;
   readonly projectId: string | null;
@@ -194,7 +195,7 @@ export async function retrieveCandidates(
           case "fts":
             return { planned, rows: await deps.retriever.fts(q) };
           case "vector": {
-            const embedding = await deps.embeddings.embed(input.query);
+            const embedding = await deps.embeddings.embed(input.query,...(input.modelRequestAccounting?[input.modelRequestAccounting]:[]));
             return {
               planned,
               rows: await deps.retriever.vector(q, embedding, {
@@ -343,6 +344,7 @@ export async function retrieveCandidates(
     .rerank(
       input.query,
       fused.map((f) => ({ id: f.id, content: byId.get(f.id)?.content ?? "" })),
+      ...(input.modelRequestAccounting?[input.modelRequestAccounting]:[]),
     )
     .catch((e: unknown) => {
       throw new RetrievalUnavailableError("vector", e);

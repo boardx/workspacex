@@ -1,0 +1,16 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /private/tmp/wsx-bailian-json-catalog/apps/web
+
+ ✓ tests/lib/provider-model-catalog-view.test.ts (3 tests) 26ms
+ ✓ tests/ui/bailian-model-catalog.test.tsx (6 tests) 1273ms
+   ✓ Bailian public catalog user experience > clearly separates published catalog coverage from tenant admission and unknown prices 326ms
+   ✓ Bailian public catalog user experience > filters using accessible vendor and capability controls 470ms
+ ✓ tests/ui/admin-model-catalog.test.tsx (7 tests) 1542ms
+   ✓ admin-model · 卡片目录 + 面板 > 单个网格：两类模型都在，没有分组容器与视图切换 343ms
+   ✓ admin-model · 卡片目录 + 面板 > switches to a distinct public catalog without registering or enabling a tenant model 382ms
+
+ Test Files  3 passed (3)
+      Tests  16 passed (16)
+   Start at  13:46:06
+   Duration  9.68s (transform 3.54s, setup 1.30s, collect 6.68s, tests 2.84s, environment 4.20s, prepare 440ms)

@@ -1,5 +1,6 @@
 "use client";
 import * as React from "react";
+import { AiUsagePanel } from "./ai-usage-panel";
 import { BarChart3 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -128,6 +129,7 @@ export function UsageMonitorTab() {
         </span>
       </div>
 
+      {orgId && <AiUsagePanel key={orgId} orgId={orgId}/>}
       {!orgId && <p className="text-12 text-muted-foreground">尚未选择组织。</p>}
 
       {error && (
