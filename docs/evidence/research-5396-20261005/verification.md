@@ -1,0 +1,9 @@
+# Terminal partial-search draft recovery (#5396)
+
+A composite report previously stopped on any failed search task before reaching strict question evidence extraction. Controlled RED demonstrates this front gate. Only a typed RESEARCH_SEARCH_PARTIAL_FAILURE with terminal tasks/attempts and policy-allowed accepted fetched documents whose exact content hashes match can now enter the existing strict report path.
+
+This is draft recovery, not formal completion. Task failures remain; reportPartial and single-language introduction disclose search limitations. Only reportDraft is retained, report is null and completed=false. Raw report save and complete commands cannot promote an unresolved partial draft. A successful full composite retry must re-enter the original search/quality path. Current-question extraction, exact direct quote evidence, gap/quality checks, all-invalid rejection and exclusion of warned chapter bodies from synthesis remain unchanged. No projected coverage or source count is a completion authority. Previous published report history remains readable.
+
+Controlled recovery, promotion-bypass and missing-limitation RED artifacts are retained below. Focused 34 cases cover runtime behavior and admission/promotion guards. Complete pure suite and API checks are recorded in current-validation below. The real isolated PostgreSQL persistence suite passed 49 tests (controlled ports); database wsx_cde49f2af9b3494988ba was cleaned by the isolation wrapper. Existing persistence coverage is not a real-provider report or an original-session recovery test.
+
+No retry of the original user session, deployment, provider root cause, online latency improvement or complete report quality acceptance is claimed. Its five underlying search failure causes remain UNKNOWN. This is one recovery stage of the reported problem.

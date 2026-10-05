@@ -1,0 +1,38 @@
+{
+  "current-validation.md": {
+    "bytes": 262,
+    "sha256": "29fcb6cc2d02ac7009f9641ca4ecdc4608e2e7825b20c5665a018675ad54070a"
+  },
+  "focused-final.log": {
+    "bytes": 414,
+    "sha256": "356ca71cb0d065432fa4d99077d535355ea06145c2af440cba651d5f0efcb13b"
+  },
+  "full-final.log": {
+    "bytes": 2252,
+    "sha256": "c6dda4d8ef9c08ae5e6bd50a0b915acb66739813a9c2cef2920b577d4de30bb1"
+  },
+  "limitations-red.log": {
+    "bytes": 2219,
+    "sha256": "db956e3b2053eaa5198674babb58cde457a12a629ca464b841c3375bb4a35a42"
+  },
+  "lint-final.log": {
+    "bytes": 10265,
+    "sha256": "1e01c569bcd3a362e9c469b2a4b5f500d8f92ed55e78662c96dc1625993b6b79"
+  },
+  "persistence.log": {
+    "bytes": 5435,
+    "sha256": "ca984b21515ac674c1786136dc45034b63d564f65351bd69aec87fd1406d657f"
+  },
+  "promotion-red.log": {
+    "bytes": 1893,
+    "sha256": "292d34f4e41b5645a116ea8078c70e63b09c1a7dbe8b9dd5c664d72ded8e1109"
+  },
+  "recovery-red.log": {
+    "bytes": 1889,
+    "sha256": "f227b6d3c37ddb982e41ea02ab784daae6485a2baf98e0c9b53055a42e0d1709"
+  },
+  "type-final.log": {
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  }
+}

@@ -1,3 +1,4 @@
+import { isUnresolvedPartialDraft } from "./guided-partial-report-recovery";
 import { toPublicResearchRuntime } from "./guided-runtime-persistence";
 import { executeComposite } from "./guided-composite-execution";
 import { executeTaskPipeline, tasksFromConfirmedQuestions, normalizedResearchUrl } from "./guided-task-pipeline";
@@ -158,6 +159,7 @@ function invalidate(state: ResearchRuntime, node: Node) {
   if (index < 4) { state.report = null; state.reportDraft = null; state.reportQualityWarnings = []; state.reportStream = null; state.reportPartial = false; state.reportEvidenceWarnings = []; state.questionEvidence = []; state.reportCheckpoint = null; state.reportSourceAliases = []; state.reportTimeline = []; state.progress = null; }
 }
 function applyDraft(state: ResearchRuntime, draft: RuntimeDraft) {
+  if (draft.node === "report" && isUnresolvedPartialDraft(state)) throw new ResearchRuntimeError("RESEARCH_TASKS_INCOMPLETE");
   if (draft.node === "report" && state.reportQualityWarnings?.length) throw new ResearchRuntimeError("RESEARCH_REPORT_QUALITY_INSUFFICIENT");
   validateRuntimeDraft(state, draft);
   invalidate(state, draft.node);
@@ -315,10 +317,21 @@ export class GuidedRuntimeService {
     const draft = C.GuidedResearchRuntimeDraft.safeParse({ node, value });
     if (!draft.success) throw new ResearchRuntimeError("RESEARCH_NODE_STATE_INVALID");
     validateGeneratedResearchDesign(node, draft.data.value);
-    if (node === "report" && draft.data.node === "report" && state.reportQualityWarnings?.length) {
+    if (node === "report" && draft.data.node === "report" && (state.reportQualityWarnings?.length || (state.executionGoal === "report" && state.reportPartial))) {
       validateRuntimeDraft(state, draft.data);
       invalidate(state, "report");
+      if (state.executionGoal === "report" && state.reportPartial) {
+        const failed = state.tasks.filter(task => task.status === "failed").length;
+        const limitation = C.guidedResearchReportFraming(state.brief).language === "Chinese"
+          ? `搜索局限：${state.tasks.length} 个检索任务中有 ${failed} 个未成功。本稿基于保留资料生成；未完成的检索及问题缺口仍须补充；不是正式完成报告。\n\n`
+          : `Search limitation: ${failed} of ${state.tasks.length} search tasks failed. Preserved materials were used to prepare this draft; failed searches and unanswered questions still require further research. This is not a completed report.\n\n`;
+        const introduction = limitation + (draft.data.value.introduction ?? "");
+        // Never truncate an already audited summary to make room for metadata.
+        if (!C.GuidedResearchReport.shape.introduction.safeParse(introduction).success) throw new ResearchRuntimeError("RESEARCH_REPORT_QUALITY_INSUFFICIENT");
+        draft.data.value.introduction = introduction;
+      }
       state.reportDraft = draft.data.value;
+      if (state.executionGoal === "report" && state.reportPartial) updateReportTimeline(state, "validation", "warning");
       state.report = null; state.reportStream = null; state.completed = false;
       state.generatedNodes = state.generatedNodes.filter((item) => item !== "report");
       return;
@@ -589,6 +602,7 @@ export class GuidedRuntimeService {
       }
       if (node !== "research" && !state.generatedNodes.includes(node)) await this.generate(state, node, persist);
       if (node === "report") {
+        if (isUnresolvedPartialDraft(state)) throw new ResearchRuntimeError("RESEARCH_TASKS_INCOMPLETE");
         if (!state.report) throw new ResearchRuntimeError("RESEARCH_NODE_STATE_INVALID");
         validateRuntimeDraft(state, { node: "report", value: state.report }); state.completed = true; return;
       }
