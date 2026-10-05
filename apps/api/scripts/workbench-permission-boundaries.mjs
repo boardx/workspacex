@@ -1,6 +1,8 @@
+import {modelMetadataPermissionBoundaries} from "./model-metadata-permission-boundaries.mjs";
 /** Narrow control-plane exceptions. Each admitted file is checked again on every lint
  * invocation; disclosure stays at the existing authenticated application boundary. */
 export const workbenchBoundaries = new Map([
+  ...modelMetadataPermissionBoundaries,
   ['src/infrastructure/artifacts-steering/accept-message-artifact-run-launcher.ts', {
     tables:['agent_runs','agent_run_artifact_context'],
     reason:'Internal continuation write path: reads only source agent identity and accepted context binding. Caller discloses the source version first; acceptHumanMessage rechecks write authority before any run creation.',

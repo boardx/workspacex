@@ -6,8 +6,8 @@ import {PlatformModelTestService} from "../../application/model/platform-model-t
 import {PLATFORM_MODEL_TEST_READ,platformModelTestRecord,type PlatformModelTestReadPort} from "../../application/model/platform-model-test-read-ports";
 import {PlatformOperatorGuard} from "../guards/platform-operator.guard";
 import {CurrentPrincipal} from "../current-principal.decorator";
-@Controller()
 @UseGuards(PlatformOperatorGuard)
+@Controller()
 export class PlatformModelTestController{
  constructor(@Inject(PLATFORM_MODEL_TEST_SERVICE) private readonly service:PlatformModelTestService,
   @Inject(PLATFORM_MODEL_TEST_READ) private readonly reader:PlatformModelTestReadPort){}

@@ -16,7 +16,7 @@
  * ⚠ **空集会让双向差集平凡为真**（本仓栽过的形状）：任一侧为空一律判失败，见 `diffAssetNav`。
  */
 import { AssetKind } from "@repo/contracts/asset-governance";
-import { ADMIN_NAV, AI_CAPABILITY_GROUP, type AdminModuleKey } from "@/lib/mock/admin";
+import { ADMIN_NAV, AI_CAPABILITY_GROUP, type AdminModuleKey } from "@/lib/admin-nav-metadata";
 
 /** 契约的六个取值（`z.enum` 的 `options`，不在此处抄第二份）。 */
 export type AssetKindCode = (typeof AssetKind.options)[number];

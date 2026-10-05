@@ -45,7 +45,7 @@ export const AI_QUOTA_RUNTIME_WIRING=Symbol("AiQuotaRuntimeWiring");
 export const NATIVE_AI_QUOTA_RUNTIME_WIRING=Symbol("NativeAiQuotaRuntimeWiring");
 export interface AiQuotaRuntimeWiring {readonly run:RunAiAdmission;readonly runtime:RuntimeAiAdmissionOptions;readonly inputOnly?:InputOnlyRuntimeAdmissionOptions;}
 export function createAiQuotaRuntimeWiring(enabled:boolean,configuration:AiQuotaRuntimeConfiguration|null,deps:{
- readonly coreModels?:OrgCoreModelAvailability;
+ readonly coreModels?:OrgCoreModelAvailability|null;
  readonly db:DatabasePort;readonly identity:IdentityRepository;readonly pool:ModelPoolRepository;
  readonly model:ModelCallPort;readonly usage:TokenUsageMeterPort;
 }):AiQuotaRuntimeWiring|null{
@@ -60,7 +60,7 @@ export function createAiQuotaRuntimeWiring(enabled:boolean,configuration:AiQuota
  const facts=async(subject:WholeInputSubject,serializedInput:string,scopedDb?:DatabasePort,assemblyEvidence?:RootAssemblyEvidence|null,childEvidence?:ChildSdkEvidence|null)=>{
   const {orgId,userId,runId}=subject;
   const db=scopedDb??deps.db;
-  await assertRunCoreModelSnapshot(db,deps.coreModels,orgId,subject.rootRunId);
+  await assertRunCoreModelSnapshot(db,deps.coreModels??undefined,orgId,subject.rootRunId);
   const constraints=new IdentityModelConstraint(scopedDb?new PgIdentityRepository(scopedDb):deps.identity);
   const store=new PgContextPackStore(db,orgId,constraints,userId);
   const lineage=configuration.contextBindings?await readSelectedContextSourceLineage({orgId,userId,runId,serializedInput},{bindings:configuration.contextBindings,store,constraints}):null;

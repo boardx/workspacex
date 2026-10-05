@@ -17,8 +17,8 @@ import {MODEL_CALL_PORT,type ModelCallPort} from "../../application/agent-run/po
 export const SET_ORGANIZATION_PLAN_SCHEMA = C.operations.setPlan.in;
 const status = { NOT_PLATFORM_SUPERUSER: 403, ORGANIZATION_NOT_FOUND: 404, PLAN_VERSION_CONFLICT: 409, PLATFORM_CATALOG_UNAVAILABLE: 503,
   AI_POLICY_VERSION_CONFLICT:409,AI_POLICY_MODEL_UNAVAILABLE:400,AI_POLICY_WINDOW_LOCKED:409 } as const;
-@Controller()
 @UseGuards(PlatformOperatorGuard)
+@Controller()
 export class PlatformOrganizationController {
   constructor(@Inject(PLATFORM_ORGANIZATION_REPOSITORY) private readonly repo: PlatformOrganizationRepository,
     @Inject(AI_USAGE_REPOSITORY) private readonly usage:AiUsageRepository,

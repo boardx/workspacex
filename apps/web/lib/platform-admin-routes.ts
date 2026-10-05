@@ -1,4 +1,4 @@
-import type { AdminModuleKey } from "@/lib/mock/admin";
+import type { AdminModuleKey } from "@/lib/admin-nav-metadata";
 
 /**
  * 平台后台 `/platform-admin/<segment>` 的路由段 → 模块键（2026-09-02 后台切成两面，
@@ -18,6 +18,7 @@ export const PLATFORM_ADMIN_ROUTES: Record<string, AdminModuleKey> = {
   // AI 能力（2026-09-02 第二次裁决：AI 能力归平台后台）
   agent: "agent",
   model: "model",
+  "model-tests": "model-tests",
   mcp: "mcp",
   // 平台 / 运营
   members: "platform",

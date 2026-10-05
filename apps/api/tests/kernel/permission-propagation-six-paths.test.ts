@@ -306,6 +306,10 @@ describe("the cache path (the one that is live today)", () => {
  * watched go red is a gate nobody knows works.
  */
 describe("lint-permission-paths: counter-proof", () => {
+  it("audited model metadata premises reject every removed authority and content expansion", () => {
+    const api = fileURLToPath(new URL("../..", import.meta.url));
+    expect(() => execFileSync("node", ["--test", "scripts/tests/model-metadata-permission-boundary.test.mjs"], {cwd: api, stdio: "pipe"})).not.toThrow();
+  });
   const API = fileURLToPath(new URL("../..", import.meta.url));
   const GATE = join(API, "scripts/lint-permission-paths.mjs");
   const run = (...args: string[]): { code: number; out: string } => {
@@ -1263,7 +1267,7 @@ describe("lint-permission-paths: counter-proof", () => {
       failures: string[]; rules: Array<{path: string; reason: string; checks: number; rejectsMissingImplementation: boolean}>;
     };
     expect(boundaryAudit.failures).toEqual([]);
-    expect(boundaryAudit.rules).toHaveLength(25);
+    expect(boundaryAudit.rules).toHaveLength(29);
     for (const rule of boundaryAudit.rules) {
       expect(rule.reason.length, rule.path).toBeGreaterThan(40);
       expect(rule.checks, rule.path).toBeGreaterThan(0);

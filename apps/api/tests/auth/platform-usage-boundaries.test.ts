@@ -1,3 +1,11 @@
+import "reflect-metadata";
+import {KernelModule} from "../../src/kernel.module";
+import type {FactoryProvider} from "@nestjs/common";
+import {DATABASE_PORT} from "../../src/application/ports/database.port";
+import {RUNTIME_MODEL_USAGE,type RuntimeModelUsagePort} from "../../src/application/agent-run/runtime-model-usage";
+import {TOKEN_USAGE_METER} from "../../src/application/agent-run/ports";
+import {CORE_MODEL_RUNTIME_GUARD} from "../../src/infrastructure/model/core-model-runtime-guard";
+import {AI_QUOTA_RUNTIME_WIRING} from "../../src/infrastructure/agent-run/ai-runtime-wiring";
 import {readFileSync} from "node:fs";
 import {describe,expect,it,vi} from "vitest";
 import {GUARDS_METADATA} from "@nestjs/common/constants";
@@ -19,8 +27,23 @@ describe("#5261 metadata exemption enforced premises",()=>{
   const repo=source("../../src/infrastructure/auth/pg-ai-admission-repository.ts");
   expect(repo).not.toContain("withoutTenant");expect(repo).not.toMatch(/return\s+(policy|used|held|receipt|row)\.rows/);
   expect(repo).not.toMatch(/\b(FROM|JOIN)\s+(artifacts|chat_messages|agent_run_steps|credentials)\b/i);
-  // Paid runtime options are composed only through the explicit default-off deployment gate.
-  expect(source("../../src/kernel.module.ts")).toContain("new PgRuntimeModelUsageRepository(db,usage,new PgAiAdmissionRepository(db),wiring?.runtime)");
+  // Product admission stays default-off; the independent accepted-model guard is tested below.
+  expect(source("../../src/kernel.module.ts")).toContain('createAiQuotaRuntimeWiring(process.env.KERNEL_AI_PRODUCT_QUOTA_ENABLED==="1"');
+ });
+ it("production DI keeps accepted core snapshots guarded when product quota wiring is disabled",async()=>{
+  const providers=Reflect.getMetadata("providers",KernelModule) as FactoryProvider[];
+  const factory=providers.find(provider=>provider.provide===RUNTIME_MODEL_USAGE);
+  expect(factory).toBeDefined();expect(factory!.inject).toEqual([DATABASE_PORT,TOKEN_USAGE_METER,AI_QUOTA_RUNTIME_WIRING,CORE_MODEL_RUNTIME_GUARD]);
+  const query=vi.fn(async(sql:string)=>({rows:sql.includes("FROM agent_runs")?[{user_id:"actual-user",project_id:"project",thread_id:"thread",agent_id:"agent",root_run_id:"accepted-root",subtask_id:null}]:[]}));
+  const db={withTenant:async(org:unknown,work:Function)=>{expect(org).toBe("formal");return work({query});}};
+  const guard={assertAccepted:vi.fn(async()=>{throw new Error("CORE_MODEL_UNAVAILABLE");})};
+  const previous=process.env.KERNEL_MODEL_PROVIDER;process.env.KERNEL_MODEL_PROVIDER="fixture-provider";
+  try{
+   const runtime=factory!.useFactory(db,{record:vi.fn()},null,guard) as RuntimeModelUsagePort;
+   await expect(runtime.startRuntimeRequest(toOrgId("formal"),"accepted-root",{requestId:"actual-request",attemptId:"actual-attempt",leaseEpoch:1,modelId:"accepted-model",callPurpose:"primary",startedAt:"2026-10-05T00:00:00Z"})).rejects.toThrow("CORE_MODEL_UNAVAILABLE");
+   expect(guard.assertAccepted).toHaveBeenCalledWith("formal","accepted-root",expect.any(Object));
+   expect(query.mock.calls.some(([sql])=>sql.startsWith("INSERT"))).toBe(false);
+  }finally{if(previous===undefined)delete process.env.KERNEL_MODEL_PROVIDER;else process.env.KERNEL_MODEL_PROVIDER=previous;}
  });
  it("platform routes remain guarded and audit writes have the platform tenant scope",()=>{
   expect(Reflect.getMetadata(GUARDS_METADATA,PlatformOrganizationController)).toContain(PlatformOperatorGuard);
