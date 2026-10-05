@@ -6,7 +6,7 @@ type Count = {value: string; unit: string};
 // Never mutate candidate bytes, infer source identity, or treat arbitrary nearby quotes as support.
 const executed = /(?:本次|此次|这次|已(?:经)?)(?:.{0,16})(?:检测|测量|检查|发现|记录)|(?:检测|测量|检查)(?:.{0,8})(?:结果|发现)/u;
 const count = /不兼容项(?:数量|数)?[^。；\n]{0,24}?(?<!不|非)(?:为|是|发现(?:了)?|记录(?:了)?|:)[：:\s]*([+-]?(?:(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?(?:e[+-]?\d+)?|[零〇一二两三四五六七八九十百千万]+))\s*(%|项|个)?/giu;
-const clauses = (text: string) => text.normalize("NFKC").split(/[。；\n]|(?:但是|但|不过|然而|却)/u).filter(Boolean);
+const clauses = (text: string) => text.normalize("NFKC").split(/[。；;\n]|(?:但是|但|不过|然而|却)/u).filter(Boolean);
 function qualified(clause: string, start: number, end: number): boolean {
   const prefix = clause.slice(0,start);
   const before = prefix.split(/[，,：:]/u).at(-1)!;
@@ -32,15 +32,41 @@ function chineseCount(raw: string): number {
   }
   return total + section + digit;
 }
+function conditionalMeasurement(proposition: string): boolean {
+  // The condition must immediately qualify this count relation. An unrelated
+  // conditional object (e.g. budget) or another clause cannot waive a measurement.
+  return /^不兼容项(?:数量|数)?(?:在(?:本次|此次|这次)(?:检测|测量|检查)(?:中|时))?\s*(?:若|如果|假如)\s*(?:为|是|发现(?:了)?|记录(?:了)?|:)/u.test(proposition);
+}
 function observations(text: string): Count[] {
   return clauses(text).flatMap(clause => [...clause.matchAll(count)].flatMap(match => {
     const proposition = clause.slice(0, match.index!).split(/[，,]/u).at(-1)! + match[0] + clause.slice(match.index! + match[0].length).split(/[，,]/u)[0]!;
-    if (/[？?]|是否|(?:吗|么|呢)\s*$/u.test(proposition) || !executed.test(clause) || qualified(clause,match.index!,match.index!+match[0].length)) return [];
+    if (/[？?]|是否|(?:吗|么|呢)\s*$/u.test(proposition) || !executed.test(clause) || conditionalMeasurement(match[0]) || qualified(clause,match.index!,match.index!+match[0].length)) return [];
     const raw = match[1]!.toLowerCase().replaceAll(",", "");
     const small: Record<string,number> = {零:0,〇:0,一:1,二:2,两:2,三:3,四:4,五:5,六:6,七:7,八:8,九:9,十:10};
     const numeric = small[raw] ?? (/^[零〇一二两三四五六七八九十百千万]+$/u.test(raw) ? chineseCount(raw) : Number(raw));
     return [{value: Number.isFinite(numeric) ? String(numeric) : raw, unit: match[2] === "%" ? "%" : "count"}];
   }));
+}
+const defectExclusion = /(?:安装风险|安装问题|产品)(?:.{0,16}?)(?:不是|并非|没有|不存在|不含|并无|无)(?:.{0,8}?)(?:产品固有缺陷|产品缺陷|固有缺陷|缺陷|产品问题)|(?:而非|并非|不是|没有|不存在|不含|并无|无|排除(?:了)?)(?:[^，,:：]{0,16}?)(?:固有缺陷|设计缺陷|产品缺陷)/gu;
+function qualifiedDefectExclusion(clause: string, start: number, end: number): boolean {
+  const before = clause.slice(0,start).split(/[，,:：]/u).at(-1)!;
+  const predicate = clause.slice(start,end);
+  // Denying the absence of defects is not a positive defect exclusion.
+  if (/(?:并非|不是)\s*(?:不存在|没有|不含|并无|无)/u.test(predicate)) return true;
+  if (/否认|否定|不是(?!说)|并非|不会|不可能|不能不|不可不|不得不|而(?:要|应|是)|却/u.test(before)) return false;
+  if (/^(?:安装风险|安装问题|产品)?(?:没有|无)证据排除/u.test(predicate)) return true;
+  if (/^排除(?:了)?/u.test(predicate) && /(?:尚未|未能|没有证据)\s*$/u.test(before)) return true;
+  return qualified(clause,start,end)
+    || /(?:不能|不可|无法|不应|不宜|不得)(?:断言|声称|认为|说明|证明|认定)[^，,:：]{0,16}$/u.test(before)
+    || /^\s*(?:若|如果|假如)[^，,:：]{0,64}$/u.test(before);
+}
+function scopedObservedExclusion(clause: string, quote: string, start: number, end: number): boolean {
+  // A finite observed-method form, not a truth certificate. Preserve the same
+  // inspected component, method and result; never extrapolate to the whole product.
+  const inspected = /^\s*(?:本次|此次)对(该[^，,:：]{1,24}?(?:模块|部件|接口|回路))(?:拆机检测|故障复现排查|逐项检测|专项检测)(?:已)?(?:确认|查明)\1(?:不存在|没有)(?:[^，,:：]{0,8})(?:设计缺陷|固有缺陷)/u;
+  const observed = inspected.exec(clause);
+  return !!observed && start >= observed.index && end <= observed.index + observed[0].length
+    && clauses(quote).some(source => source.trim() === clause.trim());
 }
 export function assessReportClaimBoundaries(markdown: string, index: readonly ReportEvidence[]): {ok: boolean; missing: readonly ReportClaimBoundaryGap[]} {
   const missing = new Set<ReportClaimBoundaryGap>();
@@ -55,9 +81,15 @@ export function assessReportClaimBoundaries(markdown: string, index: readonly Re
     if (claims.some(claim => !supported.some(source => source.value === claim.value && source.unit === claim.unit)))
       missing.add("unsupported_executed_measurement");
     for (const clause of clauses(assertion.text)) {
-      const exclusion = /(?:安装风险|安装问题|产品)(?:.{0,16}?)(?:不是|并非|没有|不存在|不含)(?:.{0,8}?)(?:产品固有缺陷|产品缺陷|固有缺陷|缺陷|产品问题)/u.exec(clause);
-      if (exclusion && !qualified(clause,exclusion.index,exclusion.index+exclusion[0].length))
-        missing.add("unqualified_defect_exclusion");
+      for (const exclusion of clause.matchAll(defectExclusion)) {
+        const boundProof = assertion.links.some(link => {
+          const entry = sourceByAnchor.get(link.url);
+          return entry?.expertId && entry.taskKey && entry.quote === link.text
+            && scopedObservedExclusion(clause,entry.quote,exclusion.index!,exclusion.index!+exclusion[0].length);
+        });
+        if (!qualifiedDefectExclusion(clause,exclusion.index!,exclusion.index!+exclusion[0].length) && !boundProof)
+          missing.add("unqualified_defect_exclusion");
+      }
     }
     const text = assertion.text.normalize("NFKC");
     const denial = /(?:(?:不能|不可|无法|不得)(?:说|断言|声称|认为)|不是说)(?:[^，,:：]{0,24})$/u;

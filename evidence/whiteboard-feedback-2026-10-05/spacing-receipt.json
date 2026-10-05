@@ -1,0 +1,80 @@
+{
+  "labels": [
+    {
+      "text": "120 px",
+      "center": 540,
+      "bottom": 260
+    },
+    {
+      "text": "120 px",
+      "center": 840,
+      "bottom": 260
+    }
+  ],
+  "canonicalBefore": [
+    {
+      "id": "a",
+      "schemaVersion": 1,
+      "kind": "sticky",
+      "geometry": {
+        "x": 300,
+        "y": 260,
+        "width": 180,
+        "height": 180,
+        "rotation": 0
+      },
+      "text": "a",
+      "style": {
+        "fill": "#FFE99A"
+      },
+      "parentId": null,
+      "orderKey": "a",
+      "locked": false,
+      "hidden": false,
+      "zIndex": 0
+    },
+    {
+      "id": "b",
+      "schemaVersion": 1,
+      "kind": "sticky",
+      "geometry": {
+        "x": 600,
+        "y": 260,
+        "width": 180,
+        "height": 180,
+        "rotation": 0
+      },
+      "text": "b",
+      "style": {
+        "fill": "#C6DDFF"
+      },
+      "parentId": null,
+      "orderKey": "b",
+      "locked": false,
+      "hidden": false,
+      "zIndex": 0
+    },
+    {
+      "id": "c",
+      "schemaVersion": 1,
+      "kind": "sticky",
+      "geometry": {
+        "x": 900,
+        "y": 260,
+        "width": 180,
+        "height": 180,
+        "rotation": 0
+      },
+      "text": "c",
+      "style": {
+        "fill": "#FBC9DF"
+      },
+      "parentId": null,
+      "orderKey": "c",
+      "locked": false,
+      "hidden": false,
+      "zIndex": 0
+    }
+  ],
+  "heldPointer": true
+}

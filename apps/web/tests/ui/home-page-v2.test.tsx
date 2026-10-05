@@ -207,7 +207,7 @@ describe("继续你的工作", () => {
       interviews: ready([{ interviewId: "i1", name: "用户访谈A", status: "running", kind: "batch", expertCount: 5, completedExpertCount: 2, href: "/itv/i1/setup", updatedAt: "2026-09-30T00:00:00Z" }]),
       surveys: ready([{ id: "s1", title: "满意度", status: "ready", collecting: true, updatedAt: "2026-09-30T00:00:00Z" }]),
     })} />);
-    expect(screen.getByTestId("home-recent-research-r1").getAttribute("href")).toBe("/research/r1/research");
+    expect(screen.getByTestId("home-recent-research-r1").getAttribute("href")).toBe("/research/r1/report");
     expect(screen.getByTestId("home-recent-research-r1").textContent).toContain("进度 40%");
     expect(screen.getByTestId("home-recent-interview-i1").getAttribute("href")).toBe("/itv/i1/setup");
     expect(screen.getByTestId("home-recent-interview-i1").textContent).toContain("专家 2/5");

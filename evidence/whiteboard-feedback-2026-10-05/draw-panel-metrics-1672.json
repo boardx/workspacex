@@ -1,0 +1,26 @@
+{
+  "viewport": {
+    "width": 1672,
+    "height": 941
+  },
+  "dock": {
+    "x": 554.5,
+    "y": 851,
+    "width": 563,
+    "height": 70
+  },
+  "button": {
+    "x": 874.5,
+    "y": 858,
+    "width": 56,
+    "height": 56
+  },
+  "panel": {
+    "x": 678.5,
+    "y": 688,
+    "width": 448,
+    "height": 155
+  },
+  "dockGap": 8,
+  "compactCiCondition": true
+}

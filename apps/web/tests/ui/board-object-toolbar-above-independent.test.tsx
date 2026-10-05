@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { WhiteboardObject } from "@repo/whiteboard-core";
 import { BoardSelectedObjectPanel } from "@/components/whiteboard/board-selected-object-panel";
@@ -47,4 +47,14 @@ describe("independent selection toolbar object-relative positioning", () => {
       expect(Number(position.left) + toolbar.width).toBeLessThanOrEqual(width - 16);
     });
   }
+});
+
+it('clamps a newly expanded Frame immediately using its actual width instead of the previous compact width',()=>{
+ vi.stubGlobal('innerWidth',390);vi.stubGlobal('innerHeight',1000);
+ const object:WhiteboardObject={id:'frame',schemaVersion:1,kind:'frame',parentId:null,orderKey:'a',geometry:{x:160,y:400,width:100,height:80,rotation:0},style:{},text:'Frame'};
+ render(<BoardSelectedObjectPanel title="Frame" typeLabel="Frame" object={object} readOnly={false} onClose={vi.fn()} onGeometryChange={vi.fn()} floatingStyle={{left:122.4375,top:900}} compactActions={<button>Action</button>}><span>Properties</span></BoardSelectedObjectPanel>);
+ fireEvent.click(screen.getByTestId('board-inspector-expand'));
+ const panel=screen.getByTestId('board-context-toolbar');
+ expect(panel).toHaveAttribute('data-expanded','true');
+ expect(panel).toHaveStyle({left:'54px',top:'544px','--board-inspector-width':'320px'});
 });

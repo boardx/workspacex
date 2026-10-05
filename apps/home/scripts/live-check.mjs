@@ -19,6 +19,7 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
+import { resolveRedirects } from './resolve-redirects.mjs';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const SITE = readFileSync(join(root, 'scripts/build-i18n.mjs'), 'utf8').match(/^const SITE = '([^']+)';/m)[1];
@@ -26,23 +27,8 @@ const args = process.argv.slice(2);
 const BASE = (args.includes('--base') ? args[args.indexOf('--base') + 1] : SITE).replace(/\/$/, '');
 const MAX_HOPS = 3;
 
-/* Follow redirects one at a time; report the chain, a loop, or too many hops. */
-async function resolve(path) {
-  const chain = [];
-  let url = new URL(path, BASE).href;
-  for (let hop = 0; hop <= MAX_HOPS; hop += 1) {
-    const res = await fetch(url, { redirect: 'manual', headers: { 'user-agent': 'workspacex-live-check' } });
-    chain.push(`${res.status} ${new URL(url).pathname}`);
-    if (res.status >= 300 && res.status < 400) {
-      const next = new URL(res.headers.get('location'), url).href;
-      if (chain.some((c) => c.endsWith(` ${new URL(next).pathname}`))) return { res, chain, loop: next };
-      url = next;
-      continue;
-    }
-    return { res, chain };
-  }
-  return { res: null, chain, tooMany: true };
-}
+/* Full URLs distinguish a domain cutover from a redirect loop. */
+const resolve = path => resolveRedirects(new URL(path, BASE).href, { maxHops: MAX_HOPS });
 
 const problems = [];
 const pages = ['/', '/zh/', '/privacy', '/zh/privacy'];
@@ -54,7 +40,7 @@ for (const path of [...new Set([...pages, ...locs, ...extra])]) {
   try {
     const { res, chain, loop, tooMany } = await resolve(path);
     const route = chain.join(' → ');
-    if (loop) problems.push(`${path}: redirect LOOP — ${route} → back to ${new URL(loop).pathname}`);
+    if (loop) problems.push(`${path}: redirect LOOP — ${route} → back to ${loop}`);
     else if (tooMany) problems.push(`${path}: more than ${MAX_HOPS} redirects — ${route}`);
     else if (res.status !== 200) problems.push(`${path}: ends at ${res.status} — ${route}`);
     /* A page the site links to directly should answer without a hop. */

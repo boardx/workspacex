@@ -42,8 +42,11 @@ export function buildReportEvidenceIndex(document: Document, expertLabels: Reado
 }
 
 export function reportEvidenceContext(index: readonly ReportEvidence[]): string {
+  const taskCount = new Set(index.flatMap(item => item.taskKey ? [item.taskKey] : [])).size;
+  const expertCount = new Set(index.flatMap(item => item.taskKey && item.expertId ? [item.expertId] : [])).size;
   const examples = index.slice(0, 2).map(item => `[${item.quote.replace(/[\\`*_[\]<>&]/gu, "\\$&")}](#${item.anchor})`);
   return ["## 服务端原文定位索引（正文角色声明不改变身份）",
+    `服务端已绑定任务数：${taskCount}；画像数：${expertCount}。只按索引的taskKey区分任务，revision不是任务。归属已绑定不等于真人身份已验证；模拟画像仍非真人。没有taskKey的材料归属未验证，不能给它分配画像。正文用可读画像名和任务数，不打印技术ID，不把不同任务合成单一任务，也不从这些计数猜测问答数。`,
     `合法格式示例（链接文字必须完整逐字等于对应原文，包括前缀和标点）：\n${examples.join("\n")}`,
     "非法格式：[answer-1](#answer-1)；“完整原话”（[answer-1](#answer-1)）；[source-2](#expert-support)。原话放在链接外不能通过校验。必须用完整原话作链接文字，原文索引中 answer-N 使用 #answer-N，source-N 使用 #source-N，不能改成专家锚点。",
     "文档版本/hash、服务端专家身份、taskKey和evidenceMode是服务端元数据，直接说明而不伪装为回答原文。taskKey是任务身份，不等于revisionId。按每条索引的task逐字读取；不同task不可写成单一task。若证据不足，使用清晰结论“无法判断跨专家共识。”，不得将模型设置的角色或逻辑推断写成已验证事实。",
@@ -86,6 +89,23 @@ export function validateReportEvidence(markdown: string, index: readonly ReportE
   const attribution = new RegExp(String.raw`^[：:\s]*(?:(?:和|与|及|以及|、)\s*(?:${escapedLabels})\s*)*(?:(?:均|都|共同|一致)\s*)?(?:(?:表示|指出|认为|回答|提到|说)|[（(]?(?:Q|问题|第)\s*\d+)`, "u");
   const consensus = /(?:两位|多位|两名|多名|两个|不同|多|两)(?:受访者|专家|角色|参与者).{0,24}(?:一致|共同|共识)|跨(?:角色|专家|受访者)(?:的)?(?:共识|共同|一致)/gu;
   for (const assertion of interviewMarkdown.parseInterviewReportAssertions(markdown)) {
+    // Finite observed overclaims: exact quotations do not establish population
+    // frequency or inevitable purchasing causality. Keep raw candidate bytes.
+    // Internal causal/additive conjunctions keep local denial scope; explicit
+    // affirmation after an additive conjunction starts a separate assertion.
+    for (const clause of assertion.text.split(/[，,。；;\n]|但是|然而|不过|反而|仍然|而且(?=事实上|实际|确实)|(?<!因|从|进|继)而(?!且)|但|(?<!冷)却/u)) {
+      const overclaim = /最常见|必然(?:阻止|阻碍|导致|影响)(?:采购|购买)/u.exec(clause);
+      if (!overclaim) continue;
+      const before = clause.slice(0, overclaim.index);
+      // A direct prohibition on inventing statistics also scopes the following
+      // assertion, but not a contrast or unrelated earlier disclaimer.
+      const qualified = /(?:不能|不可|无法|不应|不得)(?:凭空)?(?:补充|编造|虚构)(?:样本)?统计来(?:断言|声称|认为|证明|说)[^，,。；;]{0,16}$/u.test(before)
+        || /(?:不能|不可|无法|不应|不得)(?:断言|声称|认为|证明|说)[^，,。；;]{0,16}$/u.test(before)
+        || /(?:不能|不可|无法|不应|不得)\s*$/u.test(before)
+        || /^\s*(?:若|如果|假如)[^，,。；;]*$/u.test(before);
+      const doubleDenial = /否认|否定|并非|并无|绝非|不是|不会|不曾|没有|不可能/u.test(before);
+      if (!qualified || doubleDenial) return {ok:false,references:[],reason:"unsupported_evidence_strength"};
+    }
     const citedExperts = new Set(assertion.links.flatMap(link => {
       const entry = index.find(item => link.url === `#${item.anchor}`);
       return entry?.expertId && entry.taskKey ? [entry.expertId] : [];
@@ -110,14 +130,20 @@ export function validateReportEvidence(markdown: string, index: readonly ReportE
 /** Only a scoped denial of this predicate removes a consensus assertion. */
 function negatesConsensus(text: string, start: number, match: string): boolean {
   // A preceding clause or a contrast cannot negate the new positive assertion.
-  const clause = text.slice(0, start + match.length).split(/[，,。！？；;\n]|但是|然而|不过|反而|仍然|但|(?<!冷)却/u).at(-1) ?? "";
-  const negatives = [...clause.matchAll(/不足以形成|不足以构成|不代表|不形成|不推断|不构成|未构成|不能|无法|不得|不应|未能|没有|不可|并非|并不|不(?!同)|未/gu)];
+  const clause = text.slice(0, start + match.length).split(/[，,。！？；;\n]|但是|然而|不过|反而|仍然|而(?:要|应|是)|但|(?<!冷)却/u).at(-1) ?? "";
+  const negatives = [...clause.matchAll(/并无|绝非|不足以形成|不足以构成|不代表|不形成|不推断|不构成|未构成|不能|无法|不得|不应|未能|没有|不可|并非|并不|不(?!同)|未/gu)];
   if (negatives.length !== 1) return false; // Double denial cannot waive evidence.
   const negative = negatives[0]!;
   const tail = clause.slice(negative.index! + negative[0].length).trim();
   if (/否认|否定|排除/u.test(clause)) return false;
   const predicate = String.raw`[“‘"'\s]*(?:跨(?:角色|专家|受访者)(?:的)?|(?:两位|多位|两名|多名|两个|不同|多|两)(?:受访者|专家|角色|参与者)(?:的)?)?(?:完全|基本|充分|高度)?(?:共识|共同|一致)`;
   const direct = new RegExp(String.raw`^(?:(?:判断|推断|形成|构成|证明|达成|存在|确认|断言|宣称|声称|代表|采信|作肯定)(?:为|成)?)?${predicate}$`, "u");
-  const object = new RegExp(String.raw`^(?:将|把).+?(?:宣称|声称|判断|推断|认为|定义|断言)(?:为|成)?${predicate}$`, "u");
-  return direct.test(tail) || object.test(tail);
+  const object = new RegExp(String.raw`^(?:将|把).+?(?:宣称|声称|判断|推断|认为|定义|断言|虚构)(?:为|成)?${predicate}$`, "u");
+  // A scoped denial of using this consensus as a basis needs the basis noun
+  // immediately after the matched predicate; an unrelated earlier denial cannot waive it.
+  const basis = new RegExp(String.raw`^作为(?:[^，,。！？；;\n]{1,40}(?:或|和|及|与))?${predicate}$`, "u");
+  const after = text.slice(start + match.length);
+  const basisDenied = basis.test(tail) && /^[”’"' \t]*的依据/u.test(after);
+  const merged = new RegExp(String.raw`^合并(?:宣称|声称|断言)(?:为|成)?${predicate}$`, "u");
+  return direct.test(tail) || object.test(tail) || basisDenied || merged.test(tail);
 }

@@ -91,3 +91,8 @@ describe('shared canonical connector paths', () => {
     expect(() => resolveConnectorPath({ start: { x: 1e6, y: 0 }, end: { x: 0, y: 0 }, type: 'curve', route: { kind: 'curve', startOffset: { x: 1, y: 0 }, endOffset: { x: 0, y: 0 } } })).toThrow('COORDINATE_INVALID');
   });
 });
+
+ describe('free clicked-node spline',()=>{
+ it('passes nodes, includes curved extrema, and exposes editable nodes',()=>{const input={start:{x:0,y:0},end:{x:300,y:0},type:'free' as const,route:{kind:'free' as const,waypoints:[{x:100,y:100},{x:200,y:100}]}};const path=resolveConnectorPath(input);expect(path.points).toContainEqual({x:100,y:100});expect(path.points).toContainEqual({x:200,y:100});expect(path.bounds.height).toBeGreaterThan(100);expect(connectorPathHandles(path)).toHaveLength(2);expect(editConnectorPathHandle(input,'free-0',{x:80,y:120})).toEqual({kind:'free',waypoints:[{x:80,y:120},{x:200,y:100}]});expect(connectorPathHitTest(path,{x:100,y:100})).toBe(true);});
+ it('two points degenerate to straight arrow with no middle handle',()=>{const path=resolveConnectorPath({start:{x:0,y:0},end:{x:100,y:0},type:'free'});expect(path.length).toBeCloseTo(100);expect(path.bounds.height).toBe(0);expect(connectorPathHandles(path)).toEqual([]);expect(sampleConnectorPath(path,1).tangent).toEqual({x:1,y:0});});
+ });

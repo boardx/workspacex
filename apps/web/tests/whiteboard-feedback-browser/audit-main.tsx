@@ -1,0 +1,24 @@
+import React, {useState,useCallback} from 'react';
+import {createRoot} from 'react-dom/client';
+import {createWhiteboardDocument,executeCommands,readObjects,createContentObjectEnvelope,type CanonicalContentObject,type WhiteboardObject,type WhiteboardCommand} from '@repo/whiteboard-core';
+import {CollaborativeThinkingEditor} from '../../components/whiteboard/collaborative-thinking-editor';
+import {BoardOrganizeControls} from '../../components/whiteboard/board-organize-controls';
+import '../../app/globals.css';
+const boardId='22222222-2222-4222-8222-222222222222';
+const params=new URLSearchParams(location.search),kind=params.get('kind')??'sticky',edge=params.get('edge')??'center';
+const width=180,height=140,x=edge==='left'?20:edge==='right'?innerWidth-width-20:(innerWidth-width)/2,y=edge==='left'?115:edge==='right'?innerHeight-height-190:(innerHeight-height)/2;
+const geometry={x,y,width,height,rotation:0};const doc=createWhiteboardDocument();
+const make=(id:string,objectKind:WhiteboardObject['kind'],g=geometry):WhiteboardObject=>({id,schemaVersion:1,kind:objectKind,text:id,geometry:g,style:{fill:'#FFE99A',stroke:'#18181B'},parentId:null,orderKey:id});
+const content=(value:CanonicalContentObject)=>createContentObjectEnvelope({boardId,clientId:'audit',gestureId:'seed',id:'target',geometry,content:value}).commands;
+let commands:readonly WhiteboardCommand[]=[];
+if(kind==='sticky'||kind==='text'||kind==='multi')commands=[{type:'create',object:make('target',kind==='text'?'text':'sticky')}];
+else if(kind==='shape')commands=content({version:1,type:'shape',variant:'rectangle',fill:'#BFE7CB',borderColor:'#18181B',borderWidth:2,borderStyle:'solid',radius:20,opacity:1,textColor:'#18181B',horizontalAlign:'center',verticalAlign:'middle'});
+else if(kind==='drawing')commands=content({version:1,type:'drawing',strokes:[{id:'ink',tool:'pen',points:[{x:0,y:70,pressure:.5},{x:180,y:70,pressure:.5}],color:'#18181B',width:4,opacity:1}]});
+else if(kind==='image')commands=content({version:1,type:'image',status:'failed',assetId:null,sourceUrl:null,mimeType:'image/png',intrinsicWidth:0,intrinsicHeight:0,crop:{x:0,y:0,width:1,height:1},opacity:1,borderColor:'#18181B',borderWidth:0,cornerRadius:0,fileName:'audit.png',replacementOf:null,failureCode:'AUDIT_PLACEHOLDER'});
+else if(kind==='connector')commands=[{type:'create',object:{...make('target','connector'),text:'',style:{stroke:'#18181B'},connector:{fromPoint:{x,y:y+30},toPoint:{x:x+180,y:y+100},type:'straight',label:'',lineStyle:'solid',startStyle:'none',endStyle:'arrow',strokeWidth:2}}}];
+else if(kind==='frame')commands=[{type:'create',object:{...make('target','frame'),extensionData:{spatial:{version:1,mode:'freeform',autoExpand:false,clipContent:false,padding:24,gap:24,columns:2,flowDirection:'vertical',shape:'rectangle',template:'blank'}}}}];
+if(kind==='multi')commands=[...commands,{type:'create',object:make('second','sticky',{...geometry,x:x+12,y:y+160,width:160,height:120})}];
+executeCommands(doc,commands,'audit-seed');
+Object.assign(window,{feedbackSnapshot:()=>structuredClone(readObjects(doc))});
+function Audit(){const[selectedIds,setSelectedIds]=useState<string[]>([]),[title,setTitle]=useState('全菜单验收');const selected=useCallback((ids:string[])=>setSelectedIds(ids),[]);return <div style={{position:'fixed',left:params.has('offset')?40:0,top:params.has('offset')?70:0,width:params.has('offset')?'calc(100vw - 50px)':'100vw',height:params.has('offset')?'calc(100vh - 80px)':'100vh','--font-sans':'system-ui'} as React.CSSProperties}><CollaborativeThinkingEditor boardId={boardId} clientId="audit-browser" doc={doc} readOnly={false} role="owner" title={title} status="组件菜单验收" onTitleChange={setTitle} onSelectionChange={selected} dockExtension={<BoardOrganizeControls boardId={boardId} doc={doc} selectedIds={selectedIds} readOnly={false} onProposal={()=>{}} undo={null} onUndone={()=>{}}/>}/></div>}
+createRoot(document.getElementById('root')!).render(<Audit/>);

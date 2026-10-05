@@ -1,0 +1,21 @@
+# Counterexample-first boundary label (#5340)
+
+Fresh main base246abb59ca5f4d941ac5663d904da4deb215effc. Public unchanged report (integration original evidence05c4bb4bc) contains explicit “反例与边界” label and concrete successful installation counterexample. Existing structure gate recognized “边界与反例” and “反例”, but not this equivalent label order.
+
+One regex alternative change: anchored 反例 becomes 反例(?:与边界)?. No AST, heading/prose extraction, threshold, action/evidence identity, API/error/schema/hash or saved-report state changes.
+
+Four labels (plain/bold list/heading/CRLF heading) RED4/45→GREEN49; six controls keep empty heading, heading followed only by code, fenced/inline code, incidental prose and link URL from supplying boundary analysis. Existing converse-label cases still pass. Full controlled API192 pass, contracts typecheck exit0. Fresh base does not contain separate #5338/#5339 fixes; these192 are this exact branch, not integrated totals.
+
+Offline assessment of BOTH complete original raw attempts now returns analysis ok/missing[] with byte hashes63b3cab722eb3bf65265c61a87152c9e857a5636757e591df3d1247f3d563630 and9de08f57258a2b8915c502a8c3dadbb724d9e2d83ad8f544e0a188ea0b1d0543 unchanged. `public-analysis.json` is new offline structure assessment, not the original85ec generation/validation result. No original evidence overwritten or new model/storage API called.
+
+Structure ok is NOT exact quotation/finite claim/semantic approval. Overall public semantic FAIL with #5341/#5342/#5343, #5327 OPEN, original private cause UNKNOWN; other finite parser issues #5338/#5339/#5346 separate. No merges/deploys/new models.
+
+## Separate paragraph correction after 2264b9a
+
+Independent review rejected 2264b9a because it discarded valid standalone labels with substantive prose in the following paragraph. Five regression cases failed before this correction (plain/bold labels in either order and a separated list-item paragraph). The AST now reads sibling prose only until the next heading or standalone label. Code, quotations and other list items cannot fill an empty label. Four additional negative controls and all earlier empty-label controls pass.
+
+Validation: contracts 61/61, controlled API six files 192/192, contracts `tsc --noEmit` exit 0. Logs: paragraph-red.txt, paragraph-green.txt, paragraph-api-green.txt. This changes only structural assessment; original report Markdown and its semantic review failures remain unchanged. Independent review and CI are pending at commit time.
+
+### Reviewer counterexamples after ce7678602
+
+Readonly review rejected ce7678602: an action label with inline body could fill the preceding boundary label; a list containing only a blockquote could also fill it. Both direct counterexamples were added (RED 2). Following prose now uses the existing recursively quote-excluding visible-prose extractor, and explicit action/decision/synthesis labels stop lookahead even with inline body. Contracts 63/63 and API 192/192 pass; contracts typecheck exits 0. Logs scope-red.txt, scope-green.txt, scope-api-green.txt. New exact review and CI remain required; earlier acceptance is not reused.

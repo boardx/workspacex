@@ -1,8 +1,10 @@
 "use client";
 
-import { Eraser, Highlighter, Paintbrush, Palette, PenTool, Pencil, X } from "lucide-react";
+import { useLayoutEffect, useRef, useState } from "react";
+import { Eraser, Highlighter, MousePointer2, Paintbrush, Palette, PenTool, Pencil, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { BoardFabricTool } from "./fabric/board-fabric-object";
+import { BOARD_INK_COLORS } from "./board-color-palette";
 import { drawingChoiceStyle } from "./drawing-tool-style";
 
 export type BoardDrawChoice = "pen" | "marker" | "pencil" | "highlighter" | "eraser";
@@ -17,7 +19,7 @@ const tools = [
 ] as const;
 
 const strokeOptions = [{ value: 3 }, { value: 8 }, { value: 20 }] as const;
-const colors = ["#18181B", "#A1A1AA", "#F4F4F5", "#F9A8D4", "#EF4444", "#FB923C", "#FACC15", "#4ADE80", "#2563EB", "#A855F7"] as const;
+const colors = BOARD_INK_COLORS;
 
 export function fabricToolForDrawChoice(choice: BoardDrawChoice): BoardFabricTool {
   if (choice === "eraser") return "erase";
@@ -34,15 +36,41 @@ export function BoardDrawToolPanel({ choice, appearance, readOnly, onChoiceChang
   onSelect: () => void;
   onClose: () => void;
 }) {
-  return <section data-testid="board-draw-tool-panel" data-board-chrome="draw-panel" aria-label="Draw tools" className="absolute bottom-24 left-1/2 z-40 w-[min(40rem,calc(100vw-2rem))] -translate-x-1/2 rounded-2xl border border-border bg-card px-4 py-3.5 shadow-2xl max-sm:bottom-20">
-    <div className="flex items-center gap-1">
-      {tools.map(({id,label,icon:Icon})=><button key={id} type="button" aria-label={label} title={label} data-testid={`board-draw-${id}`} aria-pressed={choice===id} disabled={readOnly} onClick={()=>{onAppearanceChange(drawingChoiceStyle(id));onChoiceChange(id);}} className={cn("grid h-11 min-w-11 place-items-center rounded-xl border border-border-subtle text-muted-foreground transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:bg-disabled disabled:text-disabled-foreground",choice===id&&"border-primary bg-primary/5 text-foreground ring-1 ring-primary")}><Icon className={cn("h-6 w-6",id==="highlighter"&&"text-warning",id==="eraser"&&"text-destructive")}/><span data-testid={`board-draw-preview-${id}`} aria-hidden className="block w-8 rounded-full" style={{height:Math.min((choice===id?appearance:drawingChoiceStyle(id)).width,12),backgroundColor:(choice===id?appearance:drawingChoiceStyle(id)).color,opacity:(choice===id?appearance:drawingChoiceStyle(id)).opacity}}/></button>)}
-      <button type="button" data-testid="board-draw-select" onClick={onSelect} className="ml-auto min-h-11 rounded-xl px-2 text-12 transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring">Select</button>
-      <button type="button" aria-label="Close draw tools" onClick={onClose} className="grid h-11 min-w-11 place-items-center rounded-xl transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring"><X className="h-4 w-4"/></button>
+  const panelRef = useRef<HTMLElement>(null);
+  const [anchor, setAnchor] = useState<{ left: number; top: number; maxHeight: number } | null>(null);
+  useLayoutEffect(() => {
+    const trigger = document.querySelector<HTMLElement>('[data-testid="board-add-draw"]');
+    if (!trigger) return;
+    const update = () => {
+      const bounds = trigger.getBoundingClientRect(), panel = panelRef.current;
+      const motherBounds = trigger.closest<HTMLElement>('[data-testid="board-creation-dock"]')?.getBoundingClientRect() ?? bounds;
+      const margin = 16, gap = 8;
+      const width = panel?.getBoundingClientRect().width || Math.min(448, window.innerWidth - margin * 2);
+      // scrollHeight is the full content height but excludes the panel borders.
+      const height = (panel?.scrollHeight || 160) + Math.max(0, (panel?.offsetHeight || 0) - (panel?.clientHeight || 0));
+      const above = motherBounds.top - gap - margin;
+      const openAbove = above >= height || above >= window.innerHeight - motherBounds.bottom - gap - margin;
+      setAnchor({ left: Math.max(margin, Math.min(bounds.left + bounds.width / 2 - width / 2, window.innerWidth - width - margin)), top: openAbove ? motherBounds.top - gap - Math.min(height, above) : motherBounds.bottom + gap, maxHeight: Math.max(0, openAbove ? above : window.innerHeight - motherBounds.bottom - gap - margin) });
+    };
+    update();
+    const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(update);
+    if (panelRef.current) observer?.observe(panelRef.current);
+    observer?.observe(trigger);
+    const mother = trigger.closest<HTMLElement>('[data-testid="board-creation-dock"]');
+    if (mother) observer?.observe(mother);
+    window.addEventListener("resize", update);
+    window.addEventListener("scroll", update, true);
+    return () => { observer?.disconnect(); window.removeEventListener("resize", update); window.removeEventListener("scroll", update, true); };
+  }, [choice]);
+  return <section ref={panelRef} style={anchor ? { ...anchor, overflowY: "auto" } : undefined} data-testid="board-draw-tool-panel" data-board-chrome="draw-panel" aria-label="Draw tools" className={cn("z-40 w-[min(28rem,calc(100vw-2rem))] rounded-2xl border border-border bg-card px-3 py-3 shadow-lg", anchor ? "fixed" : "absolute bottom-24 left-1/2 -translate-x-1/2 max-sm:bottom-20")}>
+    <div className="flex items-center gap-0.5 border-b border-border/60 pb-2">
+      {tools.map(({id,label,icon:Icon})=><button key={id} type="button" aria-label={label} title={label} data-testid={`board-draw-${id}`} aria-pressed={choice===id} disabled={readOnly} onClick={()=>{onAppearanceChange(drawingChoiceStyle(id));onChoiceChange(id);}} className={cn("flex h-12 min-w-11 flex-col items-center justify-center gap-1 rounded-lg text-muted-foreground transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:bg-disabled disabled:text-disabled-foreground",choice===id&&"bg-accent text-foreground ring-1 ring-border")}><Icon className="h-5 w-5"/><span data-testid={`board-draw-preview-${id}`} aria-hidden className="block w-6 rounded-full" style={{height:Math.min((choice===id?appearance:drawingChoiceStyle(id)).width,12),backgroundColor:(choice===id?appearance:drawingChoiceStyle(id)).color,opacity:(choice===id?appearance:drawingChoiceStyle(id)).opacity}}/></button>)}
+      <button type="button" data-testid="board-draw-select" onClick={onSelect} aria-label="Select" title="Select" className="ml-auto grid h-10 min-w-10 place-items-center rounded-lg text-muted-foreground transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring"><MousePointer2 className="h-4 w-4"/></button>
+      <button type="button" aria-label="Close draw tools" onClick={onClose} className="grid h-10 min-w-10 place-items-center rounded-lg text-muted-foreground transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring"><X className="h-4 w-4"/></button>
     </div>
-    <div className="mt-2 flex flex-wrap items-center gap-3" onClickCapture={event=>{if(readOnly)event.stopPropagation();}}>
-      <fieldset className="flex w-[9.5rem] shrink-0 items-center gap-1"><legend className="sr-only">Stroke</legend>{choice==="eraser"?<output aria-label="Eraser width" className="flex h-11 w-full items-center justify-center gap-3 rounded-xl border border-border-subtle text-12"><span data-testid="board-draw-eraser-width-preview" aria-hidden className="block shrink-0 rounded-full border border-dashed border-current" style={{width:drawingChoiceStyle("eraser").width,height:drawingChoiceStyle("eraser").width}}/>{drawingChoiceStyle("eraser").width}px</output>:strokeOptions.map(option=><button key={option.value} type="button" data-testid={`board-draw-stroke-${option.value}`} aria-label={`Stroke ${option.value}`} aria-pressed={appearance.width===option.value} disabled={readOnly} onClick={()=>onAppearanceChange({...appearance,width:option.value})} className={cn("grid h-11 w-12 place-items-center rounded-xl border border-border-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",appearance.width===option.value&&"border-primary ring-1 ring-primary")}><span className="block w-7 rounded-full" style={{height:option.value,backgroundColor:appearance.color,opacity:appearance.opacity}}/></button>)}</fieldset>
-      <fieldset disabled={readOnly||choice==="eraser"} className="min-w-0 flex-1"><legend className="sr-only">Color</legend><div className="flex flex-wrap items-center gap-2">{colors.map(color=><button key={color} type="button" data-testid={`board-draw-color-${color.slice(1).toLowerCase()}`} aria-label={`Color ${color}`} aria-pressed={appearance.color===color} onClick={()=>onAppearanceChange({...appearance,color})} className={cn("h-7 w-7 rounded-full border border-border-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",appearance.color===color&&"ring-2 ring-primary ring-offset-2")} style={{backgroundColor:color}}/>)}<label className="relative grid h-7 w-7 place-items-center overflow-hidden rounded-full border border-border-subtle bg-muted text-muted-foreground"><span className="sr-only">Custom draw color</span><Palette className="h-4 w-4"/><input data-testid="board-draw-color-custom" aria-label="Custom draw color" type="color" value={appearance.color} onChange={event=>onAppearanceChange({...appearance,color:event.target.value.toUpperCase()})} className="absolute inset-0 h-full w-full cursor-pointer opacity-0"/></label></div></fieldset>
+    <div className="mt-3 flex flex-wrap items-center gap-2" onClickCapture={event=>{if(readOnly)event.stopPropagation();}}>
+      <fieldset className="flex items-center gap-1"><legend className="sr-only">Stroke</legend>{choice==="eraser"?<output aria-label="Eraser width" className="flex h-10 w-full items-center gap-2 text-12 text-muted-foreground"><span data-testid="board-draw-eraser-width-preview" aria-hidden className="block shrink-0 rounded-full border border-dashed border-current" style={{width:drawingChoiceStyle("eraser").width,height:drawingChoiceStyle("eraser").width}}/><span>{drawingChoiceStyle("eraser").width}px</span></output>:strokeOptions.map(option=><button key={option.value} type="button" data-testid={`board-draw-stroke-${option.value}`} aria-label={`Stroke ${option.value}`} aria-pressed={appearance.width===option.value} disabled={readOnly} onClick={()=>onAppearanceChange({...appearance,width:option.value})} className={cn("grid h-10 w-10 place-items-center rounded-lg transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",appearance.width===option.value&&"bg-accent ring-1 ring-border")}><span className="block w-7 rounded-full" style={{height:option.value,backgroundColor:appearance.color,opacity:appearance.opacity}}/></button>)}</fieldset>
+      <fieldset disabled={readOnly||choice==="eraser"} className="min-w-0 flex-1"><legend className="sr-only">Color</legend><div className="flex flex-wrap items-center gap-2 border-l border-border/60 pl-2">{colors.map(color=><button key={color} type="button" data-testid={`board-draw-color-${color.slice(1).toLowerCase()}`} aria-label={`Color ${color}`} aria-pressed={appearance.color===color} onClick={()=>onAppearanceChange({...appearance,color})} className={cn("h-6 w-6 rounded-full border border-border-subtle transition-transform hover:scale-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",appearance.color===color&&"ring-2 ring-foreground ring-offset-2")} style={{backgroundColor:color}}/>)}<label className="relative grid h-7 w-7 place-items-center overflow-hidden rounded-full border border-border-subtle bg-muted text-muted-foreground"><span className="sr-only">Custom draw color</span><Palette className="h-4 w-4"/><input data-testid="board-draw-color-custom" aria-label="Custom draw color" type="color" value={appearance.color} onChange={event=>onAppearanceChange({...appearance,color:event.target.value.toUpperCase()})} className="absolute inset-0 h-full w-full cursor-pointer opacity-0"/></label></div></fieldset>
     </div>
   </section>;
 }

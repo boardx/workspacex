@@ -1,0 +1,43 @@
+
+ RUN  v2.1.9 /private/tmp/wsx-board-feedback-menu-audit/packages/whiteboard-core
+
+ ✓ tests/connector-path.test.ts (21 tests) 649ms
+   ✓ shared canonical connector paths > accepts legal extreme world curves without relaxing the global error budget 340ms
+ ✓ tests/content-objects.test.ts (19 tests) 286ms
+ ✓ tests/operation-ai-handoff.test.ts (11 tests) 327ms
+ ✓ tests/document.test.ts (12 tests) 444ms
+ ✓ tests/connector-canonical-fields.test.ts (18 tests) 849ms
+ ✓ tests/spatial-relationships.test.ts (21 tests) 1040ms
+ ✓ tests/thinking-input.test.ts (9 tests) 150ms
+ ✓ tests/collaboration.test.ts (7 tests) 92ms
+ ✓ tests/duplicate.test.ts (14 tests) 394ms
+ ✓ tests/import-mapping.test.ts (8 tests) 100ms
+ ✓ tests/connector-matrix-authority-independent.test.ts (9 tests) 409ms
+ ✓ tests/connector-round03-reconnect.test.ts (4 tests) 366ms
+ ✓ tests/command-port.test.ts (2 tests) 99ms
+ ✓ tests/connector-authority-guard.test.ts (8 tests) 424ms
+ ✓ tests/connector-lifecycle-independent.test.ts (3 tests) 460ms
+ ✓ tests/undo-conflict.test.ts (13 tests) 3075ms
+   ✓ round-trips a 100-object create batch as one history item 2467ms
+ ✓ tests/connector-local-offset.test.ts (2 tests) 123ms
+ ✓ tests/connector-snap.test.ts (2 tests) 37ms
+ ✓ tests/connector-direct-geometry-offset.test.ts (3 tests) 116ms
+ ✓ tests/duplicate-thinking-metadata.test.ts (10 tests) 130ms
+ ✓ tests/connector-matrix-independent.test.ts (48 tests) 4175ms
+   ✓ curve has correct endpoint direction, length and label normal for right 702ms
+   ✓ curve has correct endpoint direction, length and label normal for left 510ms
+   ✓ curve has correct endpoint direction, length and label normal for down 471ms
+   ✓ curve has correct endpoint direction, length and label normal for up 529ms
+   ✓ curve has correct endpoint direction, length and label normal for down-right 431ms
+   ✓ curve has correct endpoint direction, length and label normal for down-left 529ms
+   ✓ curve has correct endpoint direction, length and label normal for up-right 401ms
+ ✓ tests/update.test.ts (11 tests) 6049ms
+   ✓ validates and reloads the configured maximum-object board within the document budget 5793ms
+ ✓ tests/selection-layout.test.ts (30 tests) 20120ms
+   ✓ operation, event, CAS and undo boundary > arranges 500 objects in one transaction and one undo unit 19634ms
+
+ Test Files  23 passed (23)
+      Tests  285 passed (285)
+   Start at  10:26:08
+   Duration  21.69s (transform 2.42s, setup 0ms, collect 12.10s, tests 39.92s, environment 47ms, prepare 5.26s)
+

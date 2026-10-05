@@ -87,9 +87,10 @@ export const WhiteboardExtensionData = z.record(z.unknown()).superRefine((value,
   }
 });
 export const WhiteboardPoint = z.object({ x: z.number().finite().min(-1000000).max(1000000), y: z.number().finite().min(-1000000).max(1000000) }).strict();
-export const WHITEBOARD_CONNECTOR_LIMITS = { defaultStrokeWidth: 2, strokeWidthMin: 1, strokeWidthMax: 24, waypointsMax: 8, labelOffsetMax: 1000000 } as const;
+export const WHITEBOARD_CONNECTOR_LIMITS = { defaultStrokeWidth: 2, strokeWidthMin: 1, strokeWidthMax: 24, waypointsMax: 8, freeWaypointsMax: 64, labelOffsetMax: 1000000 } as const;
 export const WhiteboardConnectorRoute = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('curve'), startOffset: WhiteboardPoint, endOffset: WhiteboardPoint }).strict(),
+  z.object({ kind: z.literal('free'), waypoints: z.array(WhiteboardPoint).max(WHITEBOARD_CONNECTOR_LIMITS.freeWaypointsMax) }).strict(),
   z.object({ kind: z.literal('elbow'), waypoints: z.array(WhiteboardPoint).min(1).max(WHITEBOARD_CONNECTOR_LIMITS.waypointsMax) }).strict(),
 ]);
 export type WhiteboardConnectorRoute = z.infer<typeof WhiteboardConnectorRoute>;
@@ -102,7 +103,7 @@ export const WhiteboardConnector = z.object({
   fromOffset: WhiteboardPoint.optional(), toOffset: WhiteboardPoint.optional(),
   fromAnchor: z.enum(['top', 'right', 'bottom', 'left', 'center']).optional(),
   toAnchor: z.enum(['top', 'right', 'bottom', 'left', 'center']).optional(),
-  type: z.enum(['straight', 'elbow', 'curve']).optional(),
+  type: z.enum(['straight', 'elbow', 'curve', 'free']).optional(),
   startStyle: z.enum(['none', 'arrow', 'circle', 'diamond']).optional(),
   endStyle: z.enum(['none', 'arrow', 'circle', 'diamond']).optional(),
   lineStyle: z.enum(['solid', 'dashed', 'dotted']).optional(),

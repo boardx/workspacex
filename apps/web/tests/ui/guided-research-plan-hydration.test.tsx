@@ -15,7 +15,7 @@ it("keeps the acknowledged plan visible after hydration and recovery reads fail,
   vi.mocked(getResearchRuntime).mockResolvedValueOnce(initial).mockRejectedValue(new Error("GET unavailable"));
   vi.mocked(executeResearchRuntime).mockRejectedValueOnce(new ResearchRuntimeHydrationError(acknowledged, new Error("GET unavailable")));
   render(<GuidedResearchLive sessionId="s" onBack={vi.fn()} />);
-  fireEvent.click(await screen.findByRole("button", { name: "开始研究" }));
+  fireEvent.click(await screen.findByRole("button", { name: "生成报告" }));
   await screen.findByTestId("research-recovery");
   await waitFor(() => expect(screen.getByTestId("guided-research-plan-panel")).toHaveTextContent("Saved plan"));
   expect(screen.getByText("已保存当前进度，暂时无法获取完整内容，请同步后继续。")).toBeInTheDocument();

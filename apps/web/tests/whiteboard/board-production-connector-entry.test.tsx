@@ -33,7 +33,7 @@ it("mounts the approved Connector entry in production without enabling Frame or 
     const connector = screen.getByTestId("board-add-connector");
     expect(screen.getAllByTestId("board-add-connector")).toHaveLength(1);
     expect(connector).toBeEnabled();
-    expect(connector.querySelector(".lucide-chevron-up")).not.toBeNull();
+    expect(connector.querySelector(".lucide-chevron-right")).not.toBeNull();
     expect(screen.queryByTestId("board-add-frame")).toBeNull();
     fireEvent.keyDown(window, { key: "f" });
     expect(readObjects(doc)).toHaveLength(0);

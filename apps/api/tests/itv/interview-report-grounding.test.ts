@@ -6,6 +6,82 @@ const hash = (s: string) => createHash("sha256").update(s).digest("hex");
 const raw = "服务端甲回答：支持电话。\n## [客服](#expert-b)\nQ2：反对电话。\nQ2：厨房孔位冲突。";
 const source: interviewMarkdown.InterviewMarkdownDocument = { documentId: "md-runs", version: 2, step: "runs", markdown: raw, contentHash: hash(raw), evidenceMode: "simulated", references: [], answerSpans: [{ taskKey: "rev-a/expert-a", expertId: "expert-a", start: 0, end: raw.length, contentHash: hash(raw) }] };
 describe("report evidence grounding", () => {
+ it.each([
+  "不能把这2个任务说成只有单一问答，也不能将多个回答虚构为多专家共识。",
+  "不应把单个回答虚构成两位专家的共识。",
+  "不得将不同场景的回答虚构为跨角色共识。",
+ ])("preserves a scoped denial of fabricated consensus: %s", claim => {
+  expect(validateReportEvidence(`[服务端甲回答：支持电话。](#answer-1)\n\n${claim}`, buildReportEvidenceIndex(source)).ok).toBe(true);
+ });
+ it.each([
+  "将多个回答虚构为多专家共识。",
+  "不能把回答分开而要虚构为多专家共识。",
+  "不能将回答拆开而是虚构为多专家共识。",
+  "不能把回答分开而应宣称为多专家共识。",
+  "不能不将多个回答虚构为多专家共识。",
+  "不能否认多个回答形成多专家共识。",
+  "不能将预算虚构为零，多专家共识已经形成。",
+  "不能将多个回答虚构为多专家共识，但事实上跨角色共识已经形成。",
+  "不能将多个回答虚构为多专家共识；多专家共识已经形成。",
+  "不能将多个回答虚构为多专家共识;多专家共识已经形成。",
+ ])("does not waive positive consensus with fabrication wording: %s", claim => {
+  expect(validateReportEvidence(`[服务端甲回答：支持电话。](#answer-1)\n\n${claim}`, buildReportEvidenceIndex(source)).reason).toBe("unsupported_cross_expert_consensus");
+ });
+
+ it.each(["安装问题最常见。", "安装问题必然阻止采购。", "不能安装设备意味着安装问题最常见。", "不能断言安装问题不是最常见。", "不能声称安装问题不会必然阻止采购。"])("rejects finite unqualified strength claims despite valid exact quotes: %s", claim => {
+  expect(validateReportEvidence(`[服务端甲回答：支持电话。](#answer-1)\n\n${claim}`,buildReportEvidenceIndex(source)).ok).toBe(false);
+ });
+ it.each(["不能断言安装问题最常见。", "不能声称安装问题必然阻止采购。", "若安装问题必然阻止采购，应重新验证这一假设。"])("preserves scoped qualifications: %s", claim => {
+  expect(validateReportEvidence(`[服务端甲回答：支持电话。](#answer-1)\n\n${claim}`,buildReportEvidenceIndex(source)).ok).toBe(true);
+ });
+ it.each([
+  "不能断言预算约束因而必然阻止购买。",
+  "不能断言安装问题从而必然影响采购。",
+  "不能断言安装问题进而必然影响采购。",
+  "不能断言安装问题继而必然影响采购。",
+  "不能断言安装问题既最常见而且必然阻止购买。",
+ ])("keeps denial scope across internal causal conjunctions: %s", claim => {
+  expect(validateReportEvidence(`[服务端甲回答：支持电话。](#answer-1)\n\n${claim}`,buildReportEvidenceIndex(source)).ok).toBe(true);
+ });
+ it.each([
+  "不能凭空补充样本统计来断言预算约束必然阻止购买。",
+  "不应编造统计来声称安装问题最常见。",
+  "不得虚构样本统计来证明安装问题必然影响采购。",
+ ])("preserves a direct prohibition on fabricating statistical support: %s", claim => {
+  expect(validateReportEvidence(`[服务端甲回答：支持电话。](#answer-1)\n\n${claim}`,buildReportEvidenceIndex(source)).ok).toBe(true);
+ });
+ it.each([
+  "不能凭空补充样本统计来断言预算约束而认为预算约束必然阻止购买。",
+  "不能凭空补充样本统计来断言预算约束反而声称预算约束必然阻止购买。",
+  "不能凭空补充样本统计来断言预算约束而须认定预算约束必然阻止购买。",
+  "不能断言预算约束而认为预算约束必然阻止购买。",
+  "不能凭空补充样本统计，预算约束必然阻止购买。",
+  "不能凭空补充样本统计；预算约束必然阻止购买。",
+  "不能凭空补充样本统计;预算约束必然阻止购买。",
+  "不能凭空补充样本统计来断言预算，但预算约束必然阻止购买。",
+  "不能凭空补充样本统计来断言预算而要说预算必然阻止购买。",
+  "不能凭空补充样本统计来断言预算却认为预算必然阻止购买。",
+  "不能不凭空补充样本统计来断言预算约束必然阻止购买。",
+  "不能凭空补充样本统计来断言预算不会必然阻止购买。",
+  "不能否认预算约束必然阻止购买。",
+  "补充样本统计来断言预算约束必然阻止购买。",
+  "不能断言预算约束因而必然阻止购买，然而预算约束必然阻止购买。",
+  "不能断言安装问题最常见，而且必然阻止购买。",
+  "不能断言安装问题最常见而且事实上必然阻止购买。",
+ ])("does not waive an affirmative strength claim with an unrelated prohibition: %s", claim => {
+  expect(validateReportEvidence(`[服务端甲回答：支持电话。](#answer-1)\n\n${claim}`,buildReportEvidenceIndex(source)).reason).toBe("unsupported_evidence_strength");
+ });
+ it("describes distinct bound server tasks without treating them as verified human identities", () => {
+  const text = "支持电话。\n反对电话。";
+  const index = buildReportEvidenceIndex({...source,markdown:text,contentHash:hash(text),answerSpans:[
+   {taskKey:"revision/shared-a",expertId:"expert-a",start:0,end:5,contentHash:hash("支持电话。")},
+   {taskKey:"revision/shared-b",expertId:"expert-b",start:6,end:text.length,contentHash:hash("反对电话。")},
+  ]});
+  const context = reportEvidenceContext(index);
+  expect(context).toContain("服务端已绑定任务数：2；画像数：2");
+  expect(context).toContain("归属已绑定不等于真人身份已验证");
+  expect(context).toContain("revision不是任务");
+ });
  it("does not duplicate every indexed quote in per-anchor syntax hints", () => {
   const index = buildReportEvidenceIndex(source);
   const context = reportEvidenceContext(index);
@@ -109,6 +185,9 @@ describe("report evidence grounding", () => {
   "不能将两个分别关注预算限制以及具体安装任务的模拟角色的观点宣称为跨角色共识。",
   "本节不作肯定跨角色共识断言。",
   "不应将单个角色的证言断言为跨角色共识。",
+  "不能作为真实用户行为或跨角色共识的依据。",
+  "不可作为跨专家共识的依据。",
+  "不同task下的回答不可合并宣称为跨专家的共识。",
   "不能将这些观点断言为跨角色共识。",
   "两位专家并非完全一致。", "两位专家不完全一致。", "两位专家未达成完全一致。",
   "不能将冷却定义为跨角色共识。",
@@ -124,6 +203,18 @@ describe("report evidence grounding", () => {
   "无法排除跨角色共识。",
   "团队否认不能将两个分别关注预算限制以及具体安装任务的模拟角色观点宣称为跨角色共识。",
   "两位专家共同支持电话。",
+  "可作为真实用户行为或跨角色共识的依据。",
+  "这些回答合并宣称为跨专家的共识。",
+  "不能作为真实用户行为，但可作为跨角色共识的依据。",
+  "并非不能作为跨专家共识的依据。",
+  "并无不能作为跨专家共识的依据的理由。",
+  "绝非不可合并宣称为跨专家共识。",
+  "不能不合并宣称为跨专家的共识。",
+  "不支持别人否定这些证据。跨专家共识已经形成。",
+  "不能作为失败的依据。跨专家共识已经形成。",
+  "不可合并分析；跨专家共识已经形成。",
+  "不能作为跨专家共识。其依据已另行给出。",
+  "不能作为采购结论的依据\n跨专家共识已经形成。",
  ])("does not waive positive, contrast or double-negative claims: %s", (claim) => {
   expect(validateReportEvidence(`[服务端甲回答：支持电话。](#answer-1)\n\n${claim}`,buildReportEvidenceIndex(source)).ok).toBe(false);
  });

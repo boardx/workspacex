@@ -1,10 +1,11 @@
 'use client';
 import {useEffect,useRef,useState} from 'react';
-import {Check,Type,RotateCcw,AlignCenter,Minus,ChevronDown,ArrowLeftRight} from 'lucide-react';
+import {Check,Type,RotateCcw,AlignCenter,Minus,ChevronRight,ArrowLeftRight} from 'lucide-react';
 import {WHITEBOARD_CONNECTOR_LIMITS,WhiteboardConnector} from '@repo/contracts/whiteboard-document';
 import type {ConnectorLineStyle,ConnectorRelationship,ConnectorTip} from '@repo/whiteboard-core';
 import {Button} from '@/components/ui/button';
 import {BoardToolPopover} from './board-tool-popover';
+import {BoardColorSwatches} from './board-appearance-controls';
 import {BoardConnectorPicker} from './board-connector-picker';
 import {ConnectorToolPreview} from './board-connector-preview';
 
@@ -25,11 +26,9 @@ export function BoardConnectorToolbar({relationship,color,disabled,onRelationshi
  const [labelError,setLabelError]=useState<string|null>(null);
  const composing=useRef(false);
  const labelConflict=labelBase!==relationship.label&&label!==relationship.label;
- const menuCue=<ChevronDown aria-hidden="true" className="pointer-events-none absolute bottom-1 right-1 h-2.5 w-2.5"/>;
- const [width,setWidth]=useState(String(relationship.strokeWidth??WHITEBOARD_CONNECTOR_LIMITS.defaultStrokeWidth));
+ const menuCue=<ChevronRight aria-hidden="true" className="pointer-events-none absolute right-0.5 top-1/2 h-2.5 w-2.5 -translate-y-1/2 text-muted-foreground"/>;
  useEffect(()=>{if(label===labelBase){setLabel(relationship.label);setLabelBase(relationship.label);}else if(label===relationship.label)setLabelBase(relationship.label);},[label,labelBase,relationship.label]);
- useEffect(()=>setWidth(String(relationship.strokeWidth??WHITEBOARD_CONNECTOR_LIMITS.defaultStrokeWidth)),[relationship.strokeWidth]);
- const commitWidth=()=>{const value=Number(width);if(!disabled&&width.trim()&&Number.isFinite(value)&&value>=WHITEBOARD_CONNECTOR_LIMITS.strokeWidthMin&&value<=WHITEBOARD_CONNECTOR_LIMITS.strokeWidthMax&&value!==(relationship.strokeWidth??WHITEBOARD_CONNECTOR_LIMITS.defaultStrokeWidth))onRelationshipChange({strokeWidth:value});else setWidth(String(relationship.strokeWidth??WHITEBOARD_CONNECTOR_LIMITS.defaultStrokeWidth));};
+ const strokeWidth=relationship.strokeWidth??WHITEBOARD_CONNECTOR_LIMITS.defaultStrokeWidth;
  const commitLabel=()=>{
   if(disabled||composing.current)return;
   if(labelConflict){setLabelError('标签已被其他用户修改，您的草稿已保留。');return;}
@@ -38,17 +37,18 @@ export function BoardConnectorToolbar({relationship,color,disabled,onRelationshi
   setLabelError(null);
  };
  return <div data-testid="board-connector-toolbar" role="toolbar" aria-label="连接线样式" className="flex w-max min-w-0 flex-nowrap items-center gap-0.5 [&>button]:relative [&>button]:shrink-0">
-  <BoardToolPopover placement="above" label="连接线路径" trigger={<Button data-testid="board-connector-path-open" aria-label="连接线路径" title="连接线路径" size="icon" variant="ghost" className="h-11 w-11" disabled={disabled}><ConnectorToolPreview type={relationship.type} color={color}/>{menuCue}</Button>}>
+  <BoardToolPopover compact placement="above" label="连接线路径" trigger={<Button data-testid="board-connector-path-open" aria-label="连接线路径" title="连接线路径" size="icon" variant="ghost" className="h-11 w-11" disabled={disabled}><ConnectorToolPreview type={relationship.type} color={color}/>{menuCue}</Button>}>
    <BoardConnectorPicker value={relationship.type} disabled={disabled} onChange={type=>{if(type!==relationship.type)onRelationshipChange({type,route:undefined});}}/>
    <Button data-testid="board-connector-route-reset" aria-label="重置连接线路径" title="重置连接线路径" size="icon" variant="ghost" disabled={disabled||!relationship.route} onClick={()=>onRelationshipChange({route:undefined})}><RotateCcw className="h-4 w-4"/></Button>
   </BoardToolPopover>
-  <label title="连接线颜色" className="grid h-11 w-11 shrink-0 place-items-center rounded-lg border border-border"><input data-testid="board-connector-color" type="color" aria-label="连接线颜色" value={color} disabled={disabled} onChange={event=>onColorChange(event.target.value.toUpperCase())} className="h-7 w-7 cursor-pointer border-0 bg-transparent p-0"/></label>
-  <BoardToolPopover placement="above" label="连接线粗细" trigger={<Button data-testid="board-connector-width-open" aria-label="连接线粗细" title="连接线粗细" size="icon" variant="ghost" className="h-11 w-11 gap-0.5" disabled={disabled}><Minus aria-hidden="true" className="h-4 w-4" strokeWidth={Math.min(6,relationship.strokeWidth??WHITEBOARD_CONNECTOR_LIMITS.defaultStrokeWidth)}/><span className="text-10 tabular-nums">{relationship.strokeWidth??WHITEBOARD_CONNECTOR_LIMITS.defaultStrokeWidth}</span>{menuCue}</Button>}>
-   <div className="flex items-center gap-3"><input data-testid="board-connector-width" type="number" aria-label="连接线粗细数值" title="连接线粗细" min={WHITEBOARD_CONNECTOR_LIMITS.strokeWidthMin} max={WHITEBOARD_CONNECTOR_LIMITS.strokeWidthMax} step="1" value={width} disabled={disabled} onChange={event=>setWidth(event.target.value)} onBlur={commitWidth} onKeyDown={event=>{if(event.nativeEvent.isComposing)return;if(event.key==='Enter')event.currentTarget.blur();else if(event.key==='Escape'){event.stopPropagation();setWidth(String(relationship.strokeWidth??WHITEBOARD_CONNECTOR_LIMITS.defaultStrokeWidth));}}} className="h-11 w-20 rounded-lg border border-input bg-card px-2 text-13"/><span aria-hidden="true" className="min-w-0 flex-1 rounded-full bg-foreground" style={{height:Math.max(1,Math.min(24,Number(width)||2))}}/></div>
-   <div className="mt-3 grid grid-cols-3 gap-1">{[WHITEBOARD_CONNECTOR_LIMITS.strokeWidthMin,2,4,8,12,WHITEBOARD_CONNECTOR_LIMITS.strokeWidthMax].map(value=><Button key={value} data-testid={`board-connector-width-${value}`} aria-label={`${value} px`} title={`${value} px`} variant={relationship.strokeWidth===value?'secondary':'ghost'} disabled={disabled} onPointerDown={event=>{if(event.button===0)event.preventDefault();}} onClick={()=>{setWidth(String(value));if(value!==(relationship.strokeWidth??WHITEBOARD_CONNECTOR_LIMITS.defaultStrokeWidth))onRelationshipChange({strokeWidth:value});}}><span aria-hidden="true" className="w-10 rounded-full bg-foreground" style={{height:value}}/></Button>)}</div>
+  <BoardToolPopover placement="above" label="连接线颜色" trigger={<Button data-testid="board-connector-color-open" aria-label="连接线颜色" title="连接线颜色" size="icon" variant="ghost" className="h-11 w-11" disabled={disabled}><span aria-hidden="true" className="h-5 w-5 rounded-full border border-border" style={{backgroundColor:color}}/>{menuCue}</Button>}>
+   <BoardColorSwatches label="连接线颜色" value={color} disabled={disabled} onChange={onColorChange}/>
+  </BoardToolPopover>
+  <BoardToolPopover compact placement="above" label="连接线粗细" trigger={<Button data-testid="board-connector-width-open" aria-label="连接线粗细" title="连接线粗细" size="icon" variant="ghost" className="h-11 w-11" disabled={disabled}><Minus aria-hidden="true" className="h-5 w-5" strokeWidth={Math.min(6,strokeWidth)}/>{menuCue}</Button>}>
+   <div role="group" aria-label="连接线粗细预设" className="grid grid-cols-3 gap-1">{[WHITEBOARD_CONNECTOR_LIMITS.strokeWidthMin,2,4,8,12,WHITEBOARD_CONNECTOR_LIMITS.strokeWidthMax].map(value=><Button key={value} data-testid={`board-connector-width-${value}`} aria-label={`${value} px`} title={`${value} px`} aria-pressed={strokeWidth===value} variant={strokeWidth===value?'secondary':'ghost'} disabled={disabled} className="h-11" onClick={()=>{if(value!==strokeWidth)onRelationshipChange({strokeWidth:value});}}><span aria-hidden="true" className="w-10 rounded-full" style={{height:value,backgroundColor:color}}/></Button>)}</div>
   </BoardToolPopover>
   <span aria-hidden="true" className="mx-1 h-5 shrink-0 border-l border-border"/>
-  <BoardToolPopover placement="above" label="连接线型" trigger={<Button data-testid="board-connector-pattern-open" aria-label="连接线型" title="连接线型" size="icon" variant="ghost" className="h-11 w-11" disabled={disabled}>{linePreview(relationship.lineStyle,color)}{menuCue}</Button>}>
+  <BoardToolPopover compact placement="above" label="连接线型" trigger={<Button data-testid="board-connector-pattern-open" aria-label="连接线型" title="连接线型" size="icon" variant="ghost" className="h-11 w-11" disabled={disabled}>{linePreview(relationship.lineStyle,color)}{menuCue}</Button>}>
    <div className="grid grid-cols-3 gap-1">{(['solid','dashed','dotted'] as const).map((lineStyle:ConnectorLineStyle)=><Button key={lineStyle} data-testid={`board-connector-pattern-${lineStyle}`} aria-label={({solid:'实线',dashed:'虚线',dotted:'点线'})[lineStyle]} title={({solid:'实线',dashed:'虚线',dotted:'点线'})[lineStyle]} aria-pressed={relationship.lineStyle===lineStyle} variant={relationship.lineStyle===lineStyle?'secondary':'ghost'} disabled={disabled} onClick={()=>onRelationshipChange({lineStyle})}>{linePreview(lineStyle,color)}</Button>)}</div>
   </BoardToolPopover>
   <BoardToolPopover placement="above" label="端点样式" trigger={<Button data-testid="board-connector-endpoints-open" aria-label="端点样式" title="端点样式" size="icon" variant="ghost" className="h-11 w-11" disabled={disabled}><ArrowLeftRight className="h-5 w-5"/>{menuCue}</Button>}>

@@ -5,9 +5,9 @@ export type ConnectorPathPoint = SpatialPoint;
 export interface ConnectorPathInput { start: SpatialPoint; end: SpatialPoint; type?: WhiteboardConnector['type']; route?: WhiteboardConnector['route']; fromAnchor?: SpatialAnchor; toAnchor?: SpatialAnchor }
 export interface ConnectorPathBounds { x: number; y: number; width: number; height: number }
 export interface ConnectorArcSample { parameter: number; length: number; point: SpatialPoint }
-export interface ResolvedConnectorPath { kind: 'line' | 'polyline' | 'cubic'; start: SpatialPoint; end: SpatialPoint; points: readonly SpatialPoint[]; controls?: readonly [SpatialPoint, SpatialPoint]; bounds: ConnectorPathBounds; length: number; lengthError: number; arcLengthTable: readonly ConnectorArcSample[]; route?: WhiteboardConnector['route'] }
+export interface ResolvedConnectorPath { kind: 'line' | 'polyline' | 'cubic'; start: SpatialPoint; end: SpatialPoint; points: readonly SpatialPoint[]; controls?: readonly [SpatialPoint, SpatialPoint]; segments?: readonly (readonly SpatialPoint[])[]; bounds: ConnectorPathBounds; length: number; lengthError: number; arcLengthTable: readonly ConnectorArcSample[]; route?: WhiteboardConnector['route'] }
 export interface ConnectorPathSample { point: SpatialPoint; tangent: SpatialPoint; normal: SpatialPoint }
-export interface ConnectorPathHandle { id: string; kind: 'curve' | 'elbow'; point: SpatialPoint }
+export interface ConnectorPathHandle { id: string; kind: 'curve' | 'elbow' | 'free'; point: SpatialPoint }
 const distance = (a: SpatialPoint, b: SpatialPoint) => Math.hypot(a.x - b.x, a.y - b.y);
 const mix = (a: SpatialPoint, b: SpatialPoint, t: number): SpatialPoint => ({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t });
 const add = (a: SpatialPoint, b: SpatialPoint): SpatialPoint => ({ x: a.x + b.x, y: a.y + b.y });
@@ -48,14 +48,43 @@ function cubicTable(points: readonly SpatialPoint[]): { table: ConnectorArcSampl
   for (const l of leaves) { length += (l.upper + l.lower) / 2; table.push({ parameter: l.end, length, point: { ...l.points[3]! } }); }
   return { table, error: leaves.reduce((sum, l) => sum + l.gap, 0) / 2 };
 }
+function freeCurveSamples(points: readonly SpatialPoint[]): SpatialPoint[] {
+  const output: SpatialPoint[] = [], pending=[leaf(points,0,1,0)];
+  while (pending.length) {
+    const segment=pending.pop()!;
+    const flat=Math.max(pointSegment(segment.points[1]!,segment.points[0]!,segment.points[3]!).distance,pointSegment(segment.points[2]!,segment.points[0]!,segment.points[3]!).distance);
+    // Bounded projection work even for canonical coordinates near world limits.
+    // Exact cubic SVG and extrema remain independent of this hit-test table.
+    if(flat<=.25 || segment.depth>=7){output.push({...segment.points[3]!});continue;}
+    const [left,right]=split(segment);pending.push(right,left);
+  }
+  return output;
+}
 function horizontal(anchor?: SpatialAnchor) { return anchor !== 'top' && anchor !== 'bottom'; }
 export function resolveConnectorPath(input: ConnectorPathInput): ResolvedConnectorPath {
   const start = checkedPoint(input.start), end = checkedPoint(input.end), type = input.type ?? 'straight', route = input.route ? WhiteboardConnectorRoute.parse(input.route) : undefined;
-  if (!['straight', 'elbow', 'curve'].includes(type) || (route && route.kind !== type)) throw new Error('CONNECTOR_PATH_ROUTE_INVALID');
+  if (!['straight', 'elbow', 'curve', 'free'].includes(type) || (route && route.kind !== type)) throw new Error('CONNECTOR_PATH_ROUTE_INVALID');
   if (type === 'curve') {
     const controls: [SpatialPoint, SpatialPoint] = route?.kind === 'curve' ? [checkedPoint(add(start, route.startOffset)), checkedPoint(add(end, route.endOffset))] : [{ x: (start.x + end.x) / 2, y: start.y }, { x: (start.x + end.x) / 2, y: end.y }];
     const points = [start, ...controls, end], measured = cubicTable(points), table = measured.table;
     return { kind: 'cubic', start, end, points, controls, bounds: cubicBounds(points), length: table[table.length - 1]!.length, lengthError: measured.error, arcLengthTable: table, route };
+  }
+  if (type === 'free') {
+    const nodes = [start, ...(route?.kind === 'free' ? route.waypoints : []), end];
+    const points: SpatialPoint[] = [start];
+    const extrema: SpatialPoint[] = []; const segments: SpatialPoint[][] = [];
+    // Uniform Catmull–Rom interpolating spline, converted to cubic Beziers.
+    // Canonical stores clicked nodes; paint and hit tests share this projection.
+    for (let i = 0; i < nodes.length - 1; i++) {
+      const a = nodes[Math.max(0, i - 1)]!, b = nodes[i]!, c = nodes[i + 1]!, d = nodes[Math.min(nodes.length - 1, i + 2)]!;
+      const controls = nodes.length === 2 ? [b, c] : [add(b, {x:(c.x-a.x)/6,y:(c.y-a.y)/6}), subtract(c, {x:(d.x-b.x)/6,y:(d.y-b.y)/6})];
+      const segment = [b, ...controls, c]; segments.push(segment);
+      const box = cubicBounds(segment); extrema.push({x:box.x,y:box.y},{x:box.x+box.width,y:box.y+box.height});
+      points.push(...freeCurveSamples(segment));
+    }
+    let length = 0;
+    const table = points.map((point, i) => { if (i) length += distance(points[i-1]!, point); return {parameter:i,length,point}; });
+    return {kind:'polyline',start,end,points,segments,bounds:bounds(extrema),length,lengthError:Math.max(0, segments.reduce((sum,p)=>sum+distance(p[0]!,p[1]!)+distance(p[1]!,p[2]!)+distance(p[2]!,p[3]!),0)-length),arcLengthTable:table,route:route ?? {kind:'free',waypoints:[]}};
   }
   const points: SpatialPoint[] = [start];
   if (type === 'elbow') {
@@ -76,6 +105,12 @@ export function resolveConnectorPath(input: ConnectorPathInput): ResolvedConnect
 function sampleAtParameter(path: ResolvedConnectorPath, t: number): ConnectorPathSample { const point = cubic(path.points, t); let direction = derivative(path.points, t); if (Math.hypot(direction.x, direction.y) < 1e-12) direction = subtract(cubic(path.points, Math.min(1, t + 1e-6)), cubic(path.points, Math.max(0, t - 1e-6))); const tangent = unit(direction); return { point, tangent, normal: { x: -tangent.y, y: tangent.x } }; }
 export function sampleConnectorPath(path: ResolvedConnectorPath, arcLengthT: number): ConnectorPathSample {
   if (!Number.isFinite(arcLengthT) || arcLengthT < 0 || arcLengthT > 1) throw new Error('CONNECTOR_PATH_SAMPLE_INVALID');
+  if (path.segments && (arcLengthT === 0 || arcLengthT === 1)) {
+    const segment = arcLengthT === 0 ? path.segments[0]! : path.segments[path.segments.length-1]!;
+    let direction = derivative(segment, arcLengthT);
+    if (Math.hypot(direction.x,direction.y)<1e-12) direction=subtract(segment[3]!,segment[0]!);
+    const tangent=unit(direction);return {point:{...(arcLengthT===0?path.start:path.end)},tangent,normal:{x:-tangent.y,y:tangent.x}};
+  }
   const target = arcLengthT * path.length, table = path.arcLengthTable;
   if (path.length === 0) return { point: { ...path.start }, tangent: { x: 1, y: 0 }, normal: { x: 0, y: 1 } };
   let index = 1; while (index < table.length - 1 && table[index]!.length <= target) index++;
@@ -116,13 +151,14 @@ export function connectorLabelPlacement(path: ResolvedConnectorPath, position?: 
 }
 export function connectorPathHandles(path: ResolvedConnectorPath): readonly ConnectorPathHandle[] {
   if (path.kind === 'cubic') return path.controls!.map((point, i) => ({ id: i ? 'curve-end' : 'curve-start', kind: 'curve', point: { ...point } }));
+  if (path.route?.kind === 'free') return path.route.waypoints.map((point,i) => ({id:`free-${i}`,kind:'free',point:{...point}}));
   if (path.kind === 'polyline') return (path.route?.kind === 'elbow' ? path.route.waypoints : [path.points[1] ?? path.start]).map((point, i) => ({ id: `elbow-${i}`, kind: 'elbow', point: { ...point } }));
   return [];
 }
 export function editConnectorPathHandle(input: ConnectorPathInput, handleId: string, scenePoint: SpatialPoint): WhiteboardConnector['route'] {
   const path = resolveConnectorPath(input), handle = connectorPathHandles(path).find(h => h.id === handleId); if (!handle) throw new Error('CONNECTOR_PATH_HANDLE_INVALID'); checkedPoint(scenePoint);
   if (path.kind === 'cubic') { const offsets = { kind: 'curve' as const, startOffset: subtract(path.controls![0], path.start), endOffset: subtract(path.controls![1], path.end) }; if (handleId === 'curve-start') offsets.startOffset = subtract(scenePoint, path.start); else offsets.endOffset = subtract(scenePoint, path.end); return WhiteboardConnectorRoute.parse(offsets); }
-  const waypoints = connectorPathHandles(path).map(h => h.id === handleId ? { ...scenePoint } : { ...h.point }); return WhiteboardConnectorRoute.parse({ kind: 'elbow', waypoints });
+  const waypoints = connectorPathHandles(path).map(h => h.id === handleId ? { ...scenePoint } : { ...h.point }); return WhiteboardConnectorRoute.parse({ kind: path.route?.kind === 'free' ? 'free' : 'elbow', waypoints });
 }
 export function connectorPathHitTest(path: ResolvedConnectorPath, point: SpatialPoint, options: { strokeWidth?: number; zoom?: number; tolerance?: number } = {}): boolean {
   const { strokeWidth = WHITEBOARD_CONNECTOR_LIMITS.defaultStrokeWidth, zoom = 1, tolerance = 6 } = options;
@@ -130,4 +166,4 @@ export function connectorPathHitTest(path: ResolvedConnectorPath, point: Spatial
   return nearestConnectorPoint(path, point).distance <= strokeWidth / 2 + tolerance / zoom;
 }
 export function connectorPathVisualBounds(path: ResolvedConnectorPath, strokeWidth: number = WHITEBOARD_CONNECTOR_LIMITS.defaultStrokeWidth): ConnectorPathBounds { if (!Number.isFinite(strokeWidth) || strokeWidth < WHITEBOARD_CONNECTOR_LIMITS.strokeWidthMin || strokeWidth > WHITEBOARD_CONNECTOR_LIMITS.strokeWidthMax) throw new Error('CONNECTOR_PATH_WIDTH_INVALID'); return { x: path.bounds.x - strokeWidth / 2, y: path.bounds.y - strokeWidth / 2, width: path.bounds.width + strokeWidth, height: path.bounds.height + strokeWidth }; }
-export function connectorPathToSvg(path: ResolvedConnectorPath): string { const start = `M ${path.start.x} ${path.start.y}`; return path.kind === 'cubic' ? `${start} C ${path.controls![0].x} ${path.controls![0].y} ${path.controls![1].x} ${path.controls![1].y} ${path.end.x} ${path.end.y}` : `${start}${path.points.slice(1).map(p => ` L ${p.x} ${p.y}`).join('')}`; }
+export function connectorPathToSvg(path: ResolvedConnectorPath): string { const start = `M ${path.start.x} ${path.start.y}`; return path.segments ? `${start}${path.segments.map(p=>` C ${p[1]!.x} ${p[1]!.y} ${p[2]!.x} ${p[2]!.y} ${p[3]!.x} ${p[3]!.y}`).join('')}` : path.kind === 'cubic' ? `${start} C ${path.controls![0].x} ${path.controls![0].y} ${path.controls![1].x} ${path.controls![1].y} ${path.end.x} ${path.end.y}` : `${start}${path.points.slice(1).map(p => ` L ${p.x} ${p.y}`).join('')}`; }

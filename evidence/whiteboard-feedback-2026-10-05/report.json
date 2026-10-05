@@ -1,0 +1,63 @@
+{
+  "scope": "Production CollaborativeThinkingEditor and Fabric in a browser, in-memory canonical Yjs. No API durability, auth, websocket or reload persistence claim.",
+  "checks": [
+    {
+      "name": "dock-icons-and-right-chevrons",
+      "ok": true
+    },
+    {
+      "name": "sticky-native-drag-single-object",
+      "ok": true
+    },
+    {
+      "name": "submenu-adjacency-1440",
+      "ok": true
+    },
+    {
+      "name": "submenu-adjacency-390",
+      "ok": true
+    },
+    {
+      "name": "drawing-live-eraser-cancel-undo",
+      "ok": true
+    },
+    {
+      "name": "connector-repeated-drag",
+      "ok": true
+    },
+    {
+      "name": "shape-comment-and-appearance",
+      "ok": true
+    },
+    {
+      "name": "drawing-panel-adjacent-1440",
+      "ok": true
+    },
+    {
+      "name": "drawing-panel-adjacent-390",
+      "ok": true
+    },
+    {
+      "name": "drawing-panel-adjacent-1536",
+      "ok": true
+    },
+    {
+      "name": "drawing-panel-adjacent-1672",
+      "ok": true
+    },
+    {
+      "name": "spacing-held-gap-midpoints",
+      "ok": true
+    },
+    {
+      "name": "source-freeze",
+      "ok": true
+    },
+    {
+      "name": "no-page-errors",
+      "ok": true
+    }
+  ],
+  "errors": [],
+  "ok": true
+}

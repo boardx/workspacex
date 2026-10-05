@@ -29,6 +29,29 @@ beforeEach(() => {
  });
 });
 describe("bounded report quality recovery", () => {
+ it("rejects exact-quote overclaims before saving and uses the existing bounded repair", async () => {
+  const wrong = `${GOOD}\n\n安装问题最常见且必然阻止采购。`;
+  complete.mockResolvedValueOnce({text:wrong}).mockResolvedValueOnce({text:GOOD});
+  await generateInterviewMarkdown(deps(),input);
+  expect(complete).toHaveBeenCalledTimes(2);
+  expect(save.mock.calls[0]![0]).toMatchObject({markdown:wrong, failure:{code:"REPORT_GROUNDING_REJECTED",retryable:true}});
+  expect(snapshot.documents.find(document => document.step === "report")?.markdown).toBe(GOOD);
+ });
+ it("requires evidence strength and conditional recommendations on every bounded attempt", async () => {
+  complete.mockResolvedValueOnce({text:BAD}).mockResolvedValueOnce({text:GOOD});
+  await generateInterviewMarkdown(deps(),input);
+  expect(complete).toHaveBeenCalledTimes(2);
+  for (const [request] of complete.mock.calls) {
+   expect(request.system).toContain("事实证据、研究者推论、待验证方案");
+   expect(request.system).toContain("频率、排名、成本量级和因果必然性");
+   expect(request.system).toContain("不同场景的成功与失败属于情境差异");
+   expect(request.system).toContain("适用条件、反例或失效条件、具体验证方法");
+   expect(request.system).toContain("按服务端任务与实际问答数量描述样本");
+   expect(request.system).toContain("每条推论就地写成立条件");
+   expect(request.system).toContain("安装时长差异不能单独证明购买决策因果");
+   expect(request.system).toContain("不显著不等于不存在影响");
+  }
+ });
  it("retains a structurally valid but misquoted candidate as failed and binds repaired exact locators", async () => {
   const wrong = GOOD.replace("[反对电话。](#answer-2)", "[支持电话。](#answer-2)");
   complete.mockResolvedValueOnce({text:wrong}).mockResolvedValueOnce({text:GOOD});

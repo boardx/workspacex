@@ -5,7 +5,7 @@ import { researchWorkspaceStyle as workspace, ResearchWorkspaceStepIndicator } f
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
-import { GUIDED_RESEARCH_SIX_STEPS, type GuidedResearchVisualStage } from "@/lib/guided-research-six-step";
+import { GUIDED_RESEARCH_STEPS, canonicalResearchStage, type GuidedResearchVisualStage } from "@/lib/guided-research-six-step";
 import { guidedResearchRoute } from "@/lib/guided-research-routes";
 
 export function GuidedResearchSixStepShell({
@@ -41,7 +41,11 @@ export function GuidedResearchSixStepShell({
   sessionId?: string;
   hasUnsavedChanges?: boolean;
 }) {
-  const furthestIndex = Math.max(...available.map((stage) => GUIDED_RESEARCH_SIX_STEPS.findIndex((item) => item.id === stage)), 0);
+  const currentScreen = canonicalResearchStage(current);
+  const runningScreen = running && canonicalResearchStage(running);
+  const availableScreens = React.useMemo(() => Array.from(new Set(available.map(canonicalResearchStage))), [available]);
+  const completedScreens = completedStages?.map(canonicalResearchStage);
+  const furthestIndex = Math.max(...availableScreens.map((stage) => GUIDED_RESEARCH_STEPS.findIndex((item) => item.id === stage)), 0);
   const [internalAssistantOpen, setInternalAssistantOpen] = React.useState(false);
   const assistantOpen = controlledAssistantOpen ?? internalAssistantOpen;
   const setAssistantOpen = onAssistantOpenChange ?? setInternalAssistantOpen;
@@ -60,8 +64,9 @@ export function GuidedResearchSixStepShell({
         } else onBack?.();
         return;
       }
-      const stage = window.location.pathname.split("/").at(-1) as GuidedResearchVisualStage;
-      if (!available.includes(stage) || stage === current) return;
+      const rawStage = window.location.pathname.split("/").at(-1) as GuidedResearchVisualStage;
+      const stage = canonicalResearchStage(rawStage);
+      if (!availableScreens.includes(stage) || stage === currentScreen) return;
       if (hasUnsavedChanges) {
         // popstate does not fire beforeunload; keep the current draft and URL until the user decides.
         window.history.replaceState({}, "", guidedResearchRoute(sessionId, current));
@@ -70,7 +75,7 @@ export function GuidedResearchSixStepShell({
     };
     window.addEventListener("popstate", restoreRoute);
     return () => window.removeEventListener("popstate", restoreRoute);
-  }, [available, current, hasUnsavedChanges, onBack, onHistoryNavigate, onNavigate, requestLeave, sessionId]);
+  }, [availableScreens, currentScreen, current, hasUnsavedChanges, onBack, onHistoryNavigate, onNavigate, requestLeave, sessionId]);
   React.useEffect(() => {
     if (!hasUnsavedChanges) return;
     const preventUnload = (event: BeforeUnloadEvent) => { event.preventDefault(); event.returnValue = ""; };
@@ -86,11 +91,11 @@ export function GuidedResearchSixStepShell({
           <h1 className="text-2xl font-bold tracking-tight">{researchName?.trim() || DEFAULT_RESEARCH_NAME}</h1>
           <nav aria-label="研究步骤" data-testid="research-flow-progress" data-reference-variant="monochrome-stepper" className="mt-3 pb-3">
           <ol className={workspace.timeline}>
-            {GUIDED_RESEARCH_SIX_STEPS.map((step, index) => {
-              const unlocked = available.includes(step.id);
-              const active = step.id === current;
-              const executing = step.id === running;
-              const completed = !executing && unlocked && (researchCompleted || (completedStages ? completedStages.includes(step.id) : index < furthestIndex));
+            {GUIDED_RESEARCH_STEPS.map((step, index) => {
+              const unlocked = availableScreens.includes(step.id);
+              const active = step.id === currentScreen;
+              const executing = step.id === runningScreen;
+              const completed = !executing && unlocked && (researchCompleted || (completedScreens ? completedScreens.includes(step.id) : index < furthestIndex));
               const stepContent = <><ResearchWorkspaceStepIndicator number={index + 1} active={active} completed={completed} running={executing} /><span className="truncate">{step.label}</span></>;
               return <li key={step.id} className={workspace.step}>
                 {!unlocked ? <span data-testid={`research-step-${step.id}`} aria-current={active ? "step" : undefined} aria-disabled="true" className="inline-flex min-h-6 items-center gap-2 p-1 text-sm text-muted-foreground">{stepContent}</span> :
@@ -105,7 +110,7 @@ export function GuidedResearchSixStepShell({
                 >
                   {sessionId && unlocked ? <a role="button" href={`/research/${encodeURIComponent(sessionId)}/${step.id}`}>{stepContent}</a> : stepContent}
                 </Button>}
-                {index < GUIDED_RESEARCH_SIX_STEPS.length - 1 && <span className={workspace.connector} aria-hidden />}
+                {index < GUIDED_RESEARCH_STEPS.length - 1 && <span className={workspace.connector} aria-hidden />}
               </li>;
             })}
           </ol>

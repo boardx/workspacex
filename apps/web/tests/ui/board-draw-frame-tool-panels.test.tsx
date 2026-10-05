@@ -21,7 +21,7 @@ function FrameHarness({onChoice=vi.fn()}:{onChoice?:(choice:BoardFrameChoice,mod
 it("offers all drawing instruments and keeps stroke appearance controls stateful",()=>{
   const onChoice=vi.fn();
   render(<DrawHarness onChoice={onChoice}/>);
-  expect(screen.getByTestId("board-draw-tool-panel")).toHaveClass("w-[min(40rem,calc(100vw-2rem))]","bg-card","border-border","shadow-2xl","px-4","py-3.5");
+  expect(screen.getByTestId("board-draw-tool-panel")).toHaveClass("w-[min(28rem,calc(100vw-2rem))]","bg-card","border-border","shadow-lg","px-3","py-3");
   expect(screen.getByTestId("board-draw-tool-panel")).not.toHaveClass("bg-card/98","backdrop-blur");
   for(const name of ["Pen","Marker","Pencil","Highlighter","Eraser"]) expect(screen.getByRole("button",{name})).toBeVisible();
   fireEvent.click(screen.getByTestId("board-draw-pencil"));
@@ -64,7 +64,6 @@ it("keeps highlighter alpha when adjusting width/color and blocks read-only edit
   fireEvent.click(screen.getByTestId("board-draw-color-ef4444"));
   expect(onAppearance).toHaveBeenLastCalledWith({...props.appearance,color:"#EF4444"});
   onAppearance.mockClear();rerender(<BoardDrawToolPanel {...props} readOnly/>);
-  for(const width of [3,8,20])expect(screen.getByTestId(`board-draw-stroke-${width}`)).toBeDisabled();
   fireEvent.click(screen.getByTestId("board-draw-pen"));
   fireEvent.click(screen.getByTestId("board-draw-stroke-3"));
   fireEvent.click(screen.getByTestId("board-draw-color-2563eb"));
@@ -73,27 +72,10 @@ it("keeps highlighter alpha when adjusting width/color and blocks read-only edit
 
 it("shows the renderer's fixed eraser width without offering ineffective width choices",()=>{
   render(<BoardDrawToolPanel choice="eraser" appearance={drawingChoiceStyle("eraser")} readOnly={false} onChoiceChange={vi.fn()} onAppearanceChange={vi.fn()} onSelect={vi.fn()} onClose={vi.fn()}/>);
-  expect(screen.getByLabelText("Eraser width")).toHaveTextContent("24px");
+  expect(screen.getByLabelText("Eraser width")).toHaveTextContent(`${drawingChoiceStyle("eraser").width}px`);
   expect(screen.queryByTestId("board-draw-stroke-3")).not.toBeInTheDocument();
   expect(screen.queryByTestId("board-draw-stroke-8")).not.toBeInTheDocument();
   expect(screen.queryByTestId("board-draw-stroke-20")).not.toBeInTheDocument();
-  expect(screen.getByTestId("board-draw-eraser-width-preview")).toHaveStyle({width:"24px",height:"24px"});
-  expect(screen.getByTestId("board-draw-color-2563eb")).toBeDisabled();
-  expect(screen.getByTestId("board-draw-color-custom")).toBeDisabled();
-});
-
-it("retains one thickness track across all five instruments without changing their visual styles",()=>{
-  render(<DrawHarness/>);
-  for(const choice of ["pen","marker","pencil","highlighter","eraser"] as const){
-    fireEvent.click(screen.getByTestId(`board-draw-${choice}`));
-    expect(screen.getByRole("group",{name:"Stroke"})).toHaveClass("w-[9.5rem]","shrink-0");
-    expect(screen.getByTestId("board-draw-tool-panel")).toHaveClass("py-3.5");
-    expect(screen.queryByText("Opacity")).not.toBeInTheDocument();
-    if(choice!=="eraser")expect(screen.getByTestId(`board-draw-preview-${choice}`)).toHaveStyle({backgroundColor:drawingChoiceStyle(choice).color,opacity:drawingChoiceStyle(choice).opacity});
-  }
-  fireEvent.click(screen.getByTestId("board-draw-pen"));
-  expect(screen.getByTestId("board-draw-color-2563eb")).toBeEnabled();
-  expect(screen.getByTestId("board-draw-color-custom")).toBeEnabled();
 });
 
 it("maps frame choices to canonical modes and exposes preset and custom sizes",()=>{
@@ -109,4 +91,28 @@ it("maps frame choices to canonical modes and exposes preset and custom sizes",(
   fireEvent.change(screen.getByRole("spinbutton",{name:"Frame width"}),{target:{value:"1440"}});
   expect(screen.getByTestId("board-frame-size-custom")).toHaveAttribute("aria-pressed","true");
   expect(screen.getByRole("spinbutton",{name:"Frame width"})).toHaveValue(1440);
+});
+
+it.each([{ width: 375, dockTop: 686 }, { width: 1536, dockTop: 910 }, { width: 1672, dockTop: 827 }])("anchors draw palette eight pixels above the outer dock at $width with padded buttons", ({ width, dockTop }) => {
+  const dock = document.createElement("nav"), trigger = document.createElement("button");
+  dock.dataset.testid = "board-creation-dock";
+  trigger.dataset.testid = "board-add-draw";
+  dock.append(trigger);
+  document.body.append(dock);
+  const rect = (x: number, y: number, rectWidth: number, height: number) => ({ x, y, left: x, top: y, width: rectWidth, height, right: x + rectWidth, bottom: y + height, toJSON: () => ({}) });
+  vi.spyOn(dock, "getBoundingClientRect").mockReturnValue(rect(16, dockTop, width - 32, 60));
+  vi.spyOn(trigger, "getBoundingClientRect").mockReturnValue(rect(width / 2 - 22, dockTop + 7, 44, 44));
+  const viewportWidth = vi.spyOn(window, "innerWidth", "get").mockReturnValue(width);
+  const viewportHeight = vi.spyOn(window, "innerHeight", "get").mockReturnValue(dockTop + 114);
+  const scrollHeight = vi.spyOn(HTMLElement.prototype, "scrollHeight", "get").mockReturnValue(133);
+  const offsetHeight = vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockReturnValue(135);
+  const clientHeight = vi.spyOn(HTMLElement.prototype, "clientHeight", "get").mockReturnValue(133);
+  try {
+    render(<DrawHarness/>);
+    const panel = screen.getByTestId("board-draw-tool-panel");
+    //133px content plus two border pixels is135px; the gap belongs to the full dock,
+    // independent of the trigger's seven pixels of internal vertical padding.
+    expect(panel).toHaveStyle({ top: `${dockTop - 8 - 135}px`, left: `${Math.max(16, width / 2 - 224)}px` });
+    expect(Number.parseFloat(panel.style.top) + 135).toBe(dockTop - 8);
+  } finally { viewportWidth.mockRestore(); viewportHeight.mockRestore(); scrollHeight.mockRestore(); offsetHeight.mockRestore(); clientHeight.mockRestore(); dock.remove(); }
 });

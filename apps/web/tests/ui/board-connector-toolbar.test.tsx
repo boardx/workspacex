@@ -10,36 +10,32 @@ it('anchors connector inspectors above their own trigger instead of the fixed si
  expect(screen.getByRole('dialog')).toHaveAttribute('data-board-popover-placement','above');
  expect(screen.getByRole('dialog')).toHaveStyle({transform:'translateY(-100%)'});
 });
-it.each([90,220.5])('keeps a restricted-space trigger %s above with a scrollable height limit',top=>{
- mount();vi.spyOn(screen.getByTestId('board-connector-width-open'),'getBoundingClientRect').mockReturnValue({left:100,top,bottom:top+44,right:144,x:100,y:top,width:44,height:44,toJSON:()=>({})});fireEvent.click(screen.getByTestId('board-connector-width-open'));
- const dialog=screen.getByRole('dialog');expect(dialog).toHaveAttribute('data-board-popover-placement','above');expect(dialog).toHaveStyle({top:`${top-8}px`,maxHeight:`${top-80}px`,transform:'translateY(-100%)'});expect(dialog.className).toContain('overflow-y-auto');
+it.each([{top:90,side:'below'},{top:220.5,side:'above'}] as const)('keeps a trigger at $top adjacent and visible on $side',({top,side})=>{
+ mount();const trigger=screen.getByTestId('board-connector-width-open');vi.spyOn(trigger,'getBoundingClientRect').mockReturnValue({left:100,top,bottom:top+44,right:144,x:100,y:top,width:44,height:44,toJSON:()=>({})});fireEvent.click(trigger);
+ const dialog=screen.getByRole('dialog');expect(dialog).toHaveAttribute('data-board-popover-preferred-placement','above');expect(dialog).toHaveAttribute('data-board-popover-placement',side);
+ const expectedTop=side==='above'?top-8:top+44+8;
+ const availableHeight=side==='above'?top-80:window.innerHeight-expectedTop-16;
+ expect(dialog).toHaveStyle({left:'100px',top:`${expectedTop}px`,maxHeight:`${availableHeight}px`});
+ if(side==='above')expect(dialog).toHaveStyle({transform:'translateY(-100%)'});else expect(dialog.style.transform).toBe('');
+ expect(availableHeight).toBeGreaterThan(80);expect(dialog).toBeVisible();expect(dialog.className).toContain('overflow-y-auto');
 });
 it('clamps the inspector within the viewport and follows trigger movement without changing content',()=>{
  const{change}=mount();const trigger=screen.getByTestId('board-connector-width-open');
  let left=1400,top=500;const measure=vi.spyOn(trigger,'getBoundingClientRect').mockImplementation(()=>({left,top,right:left+44,bottom:top+44,width:44,height:44,x:left,y:top,toJSON:()=>({})}));
  fireEvent.click(trigger);const panel=screen.getByRole('dialog');
- expect(panel).toHaveStyle({left:`${Math.max(16,window.innerWidth-336)}px`,top:'492px',maxHeight:'420px'});
+ expect(panel).toHaveStyle({left:`${Math.max(16,window.innerWidth-224)}px`,top:'492px',maxHeight:'420px'});
  left=100;top=400;fireEvent(window,new Event('resize'));
  expect(panel).toHaveStyle({left:'100px',top:'392px',maxHeight:'320px'});expect(change).not.toHaveBeenCalled();measure.mockRestore();
 });
 const relationship:ConnectorRelationship={from:'a',to:'b',fromAnchor:'right',toAnchor:'left',type:'straight',startStyle:'none',endStyle:'arrow',lineStyle:'solid',label:'before',semanticRelation:''};
 const mount=(disabled=false)=>{const change=vi.fn(),color=vi.fn();render(<BoardConnectorToolbar relationship={relationship} color="#123456" disabled={disabled} onRelationshipChange={change} onColorChange={color}/>);return{change,color};};
-it('shows canonical width on the line-weight trigger, not an uncommitted numeric draft',()=>{
- const props={relationship,color:'#123456',disabled:false,onRelationshipChange:vi.fn(),onColorChange:vi.fn()};const view=render(<BoardConnectorToolbar {...props}/>);
- expect(screen.getByTestId('board-connector-width-open')).toHaveTextContent('2');
- fireEvent.click(screen.getByTestId('board-connector-width-open'));fireEvent.change(screen.getByTestId('board-connector-width'),{target:{value:'8'}});
- expect(screen.getByTestId('board-connector-width-open')).toHaveTextContent('2');
- view.rerender(<BoardConnectorToolbar {...props} relationship={{...relationship,strokeWidth:7}}/>);
- expect(screen.getByTestId('board-connector-width-open')).toHaveTextContent('7');
-});
-it('replaces a dirty width draft with one preset command rather than blur plus click commands',()=>{
- const{change}=mount();fireEvent.click(screen.getByTestId('board-connector-width-open'));
- const input=screen.getByTestId('board-connector-width');input.focus();fireEvent.change(input,{target:{value:'8'}});
- const preset=screen.getByTestId('board-connector-width-4');
- const down=new MouseEvent('pointerdown',{button:0,bubbles:true,cancelable:true});
- if(fireEvent(preset,down))fireEvent.blur(input);
- fireEvent.click(preset);
- expect(change).toHaveBeenCalledOnce();expect(change).toHaveBeenCalledWith({strokeWidth:4});
+it('shows canonical weight visually and dispatches a single preset command',()=>{
+ const change=vi.fn(),props={relationship,color:'#123456',disabled:false,onRelationshipChange:change,onColorChange:vi.fn()};const view=render(<BoardConnectorToolbar {...props}/>);
+ const trigger=screen.getByTestId('board-connector-width-open');expect(trigger.textContent).toBe('');expect(trigger.querySelector('.lucide-minus')).toHaveAttribute('stroke-width','2');
+ fireEvent.click(trigger);expect(screen.queryByRole('spinbutton')).toBeNull();expect(screen.getByTestId('board-connector-width-2')).toHaveAttribute('aria-pressed','true');
+ fireEvent.click(screen.getByTestId('board-connector-width-4'));expect(change).toHaveBeenCalledOnce();expect(change).toHaveBeenCalledWith({strokeWidth:4});
+ view.rerender(<BoardConnectorToolbar {...props} relationship={{...relationship,strokeWidth:4}}/>);expect(screen.getByTestId('board-connector-width-4')).toHaveAttribute('aria-pressed','true');
+ fireEvent.click(screen.getByTestId('board-connector-width-4'));expect(change).toHaveBeenCalledOnce();
 });
 it('keeps all primary icon controls in one row and width editing out of the primary row',()=>{
  mount();expect(screen.getByRole('toolbar')).toHaveClass('flex-nowrap');expect(screen.queryByTestId('board-connector-width')).toBeNull();expect(screen.getByTestId('board-connector-width-open')).toHaveAttribute('title','连接线粗细');
@@ -79,17 +75,11 @@ it('disables both endpoint groups after permission is revoked while their shared
  expect(change).not.toHaveBeenCalled();
 });
 it('commits multiline label once explicitly rather than creating history per keystroke',()=>{
- const{change,color}=mount();fireEvent.change(screen.getByTestId('board-connector-color'),{target:{value:'#abcdef'}});expect(color).toHaveBeenCalledWith('#ABCDEF');
+ const{change,color}=mount();fireEvent.click(screen.getByTestId('board-connector-color-open'));fireEvent.change(screen.getByLabelText('连接线颜色自定义'),{target:{value:'#abcdef'}});expect(color).toHaveBeenCalledWith('#ABCDEF');
  fireEvent.click(screen.getByTestId('board-connector-label-open'));fireEvent.change(screen.getByTestId('board-connector-label'),{target:{value:'one\ntwo'}});expect(change).not.toHaveBeenCalled();
  fireEvent.click(screen.getByTestId('board-connector-label-save'));expect(change).toHaveBeenCalledOnce();expect(change).toHaveBeenCalledWith({label:'one\ntwo'});
 });
-it('disables every mutating toolbar entrance',()=>{const{change,color}=mount(true);for(const button of screen.getByRole('toolbar').querySelectorAll('button'))expect(button).toBeDisabled();expect(screen.getByTestId('board-connector-color')).toBeDisabled();expect(change).not.toHaveBeenCalled();expect(color).not.toHaveBeenCalled();});
-it('commits width on blur once and rejects invalid draft values without a command',()=>{
- const{change}=mount();fireEvent.click(screen.getByTestId('board-connector-width-open'));const input=screen.getByTestId('board-connector-width');
- fireEvent.change(input,{target:{value:'8'}});expect(change).not.toHaveBeenCalled();fireEvent.blur(input);expect(change).toHaveBeenCalledWith({strokeWidth:8});
- change.mockClear();fireEvent.change(input,{target:{value:'999'}});fireEvent.blur(input);expect(change).not.toHaveBeenCalled();expect(input).toHaveValue(2);
- fireEvent.change(input,{target:{value:''}});fireEvent.blur(input);expect(change).not.toHaveBeenCalled();
-});
+it('disables every mutating toolbar entrance',()=>{const{change,color}=mount(true);for(const button of screen.getByRole('toolbar').querySelectorAll('button'))expect(button).toBeDisabled();expect(screen.getByTestId('board-connector-color-open')).toBeDisabled();expect(change).not.toHaveBeenCalled();expect(color).not.toHaveBeenCalled();});
 it('clears old controls when path kind changes and explicitly centers a label on arc length',()=>{
  const{change}=mount();fireEvent.click(screen.getByTestId('board-connector-path-open'));fireEvent.click(screen.getByTestId('board-connector-curve'));expect(change).toHaveBeenCalledWith({type:'curve',route:undefined});
  fireEvent.click(screen.getByTestId('board-connector-label-open'));fireEvent.click(screen.getByTestId('board-connector-label-center'));expect(change).toHaveBeenLastCalledWith({labelPosition:{t:.5,normalOffset:0}});
@@ -97,15 +87,14 @@ it('clears old controls when path kind changes and explicitly centers a label on
 it('drops uncommitted drafts after permission becomes readonly without emitting mutations',()=>{
  const change=vi.fn(),props={relationship,color:'#123456',disabled:false,onRelationshipChange:change,onColorChange:vi.fn()};
  const view=render(<BoardConnectorToolbar {...props}/>);
- fireEvent.click(screen.getByTestId('board-connector-width-open'));
- fireEvent.change(screen.getByTestId('board-connector-width'),{target:{value:'8'}});
+
  fireEvent.click(screen.getByTestId('board-connector-label-open'));fireEvent.change(screen.getByTestId('board-connector-label'),{target:{value:'draft'}});
  view.rerender(<BoardConnectorToolbar {...props} disabled/>);
  fireEvent.click(screen.getByTestId('board-connector-label-save'));
  expect(screen.getByTestId('board-connector-label')).toBeDisabled();expect(screen.getByTestId('board-connector-width-open')).toBeDisabled();expect(change).not.toHaveBeenCalled();
 });
 it.each([WHITEBOARD_CONNECTOR_LIMITS.strokeWidthMin,WHITEBOARD_CONNECTOR_LIMITS.strokeWidthMax])('accepts canonical width boundary %s exactly once',value=>{
- const{change}=mount();fireEvent.click(screen.getByTestId('board-connector-width-open'));const input=screen.getByTestId('board-connector-width');fireEvent.change(input,{target:{value:String(value)}});fireEvent.blur(input);expect(change).toHaveBeenCalledOnce();expect(change).toHaveBeenCalledWith({strokeWidth:value});
+ const{change}=mount();fireEvent.click(screen.getByTestId('board-connector-width-open'));fireEvent.click(screen.getByTestId(`board-connector-width-${value}`));expect(change).toHaveBeenCalledOnce();expect(change).toHaveBeenCalledWith({strokeWidth:value});
 });
 it('emits a single type-and-route patch without rewriting endpoints, width or label position',()=>{
  const change=vi.fn(),custom:ConnectorRelationship={...relationship,type:'curve',strokeWidth:8,route:{kind:'curve',startOffset:{x:30,y:40},endOffset:{x:-30,y:-40}},labelPosition:{t:.3,normalOffset:12}};
@@ -113,4 +102,14 @@ it('emits a single type-and-route patch without rewriting endpoints, width or la
  fireEvent.click(screen.getByTestId('board-connector-path-open'));fireEvent.click(screen.getByTestId('board-connector-elbow'));
  expect(change).toHaveBeenCalledOnce();expect(change).toHaveBeenCalledWith({type:'elbow',route:undefined});
  expect(custom.route).toEqual({kind:'curve',startOffset:{x:30,y:40},endOffset:{x:-30,y:-40}});
+});
+
+it('uses standard palette swatches that update the line and endpoint previews',()=>{
+ const onColorChange=vi.fn<(color:string)=>void>(),props={relationship,color:'#123456',disabled:false,onRelationshipChange:vi.fn(),onColorChange};
+ const view=render(<BoardConnectorToolbar {...props}/>);fireEvent.click(screen.getByTestId('board-connector-color-open'));
+ const swatch=screen.getByRole('group',{name:'连接线颜色'}).querySelector('button')!;fireEvent.click(swatch);expect(onColorChange).toHaveBeenCalledOnce();const color=onColorChange.mock.calls[0]![0];
+ view.rerender(<BoardConnectorToolbar {...props} color={color}/>);
+ expect(screen.getByTestId('board-connector-path-open').querySelector('[data-connector-path]')).toHaveAttribute('stroke',color);
+ expect(screen.getByTestId('board-connector-path-open').querySelector('marker')).toHaveAttribute('fill',color);
+ for(const icon of screen.getByRole('toolbar').querySelectorAll('.lucide-chevron-right'))expect(icon).toHaveClass('right-0.5','top-1/2');
 });

@@ -90,7 +90,7 @@ describe("F180 signed guided-research visual contract", () => {
     expect(screen.getByTestId("rs-nav-list")).toHaveAttribute("data-active", "true");
   });
 
-  it("renders one signed six-step progress strip and desktop flow shell", async () => {
+  it("renders one signed three-step progress strip and desktop flow shell", async () => {
     api.getResearchRuntime.mockResolvedValue(sessionAt("search"));
     render(<GuidedResearchFlow step="search" sessionId="grs-visual" />);
 
@@ -103,7 +103,7 @@ describe("F180 signed guided-research visual contract", () => {
 
     expect(progress).toHaveAttribute("aria-label", "研究步骤");
     expect(screen.queryByTestId("research-progress-shell")).not.toBeInTheDocument();
-    expect(within(progress).getAllByRole("listitem")).toHaveLength(6);
+    expect(within(progress).getAllByRole("listitem")).toHaveLength(3);
   });
 
   it("keeps one work canvas and a collapsible assistant on guided steps", async () => {
@@ -145,7 +145,7 @@ describe("F180 signed guided-research visual contract", () => {
     api.getResearchRuntime.mockResolvedValueOnce(sessionAt("directions"));
     const directions = render(<GuidedResearchFlow step="directions" sessionId="grs-visual" />);
     await screen.findByTestId("research-flow-directions");
-    for (const futureStep of ["研究计划", "资料研究", "生成报告"]) {
+    for (const futureStep of ["生成报告"]) {
       expect(within(screen.getByRole("navigation", { name: "研究步骤" })).getByText(futureStep, { exact: true }).closest("[aria-disabled]")).toHaveAttribute("aria-disabled", "true");
     }
     directions.unmount();
@@ -172,6 +172,7 @@ describe("F180 signed guided-research visual contract", () => {
     await screen.findByTestId("research-flow-search");
     expect(screen.queryByRole("heading", { name: "研究检索进度" })).not.toBeInTheDocument();
     expect(screen.queryByText("查看全部来源与 Markdown")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByText(/查看研究资料/));
     expect(screen.getByRole("list", { name: "已获取的研究资料" })).toBeVisible();
     expect(screen.getByTestId("guided-research-source-workspace")).toBeVisible();
 

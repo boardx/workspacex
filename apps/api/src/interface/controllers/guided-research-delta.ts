@@ -46,7 +46,7 @@ export function runtimePollingDelta(state: ResearchRuntime, known: z.infer<typeo
  * resets are sent. GET remains the complete hydration/recovery authority. */
 export function runtimePlanStagePatch(state: ResearchRuntime) {
   const stage = new Set<string>(["directions", "outline", "researchPlan", "currentNode", "availableNodes", "generatedNodes",
-    "busy", "leaseUntil", "errorCode", "completed", "progress", "proposal", "planRevision", "controlStatus", "sourcePolicy",
+    "busy", "leaseUntil", "errorCode", "completed", "progress", "proposal", "planRevision", "controlStatus", "sourcePolicy", "executionGoal", "activity",
     "coverage", "claimEvidence", "conflicts", "qualityScore", "publicationReadiness"]);
   const privateHistory = new Set<string>(["brief", "messages", "modelCalls"]);
   const changes: Record<string, unknown> = {};

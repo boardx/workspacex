@@ -30,6 +30,34 @@ describe("connector pointer session", () => {
     expect(test.result.current.active).toBe(false);
     test.unmount();
   });
+  it.each(["top", "right", "bottom", "left"] as const)("commits repeated fast releases from %s without a move event", anchor => {
+    const test = setup();
+    const source: WhiteboardObject = { id: "source", schemaVersion: 1, kind: "sticky", geometry: { x: 10, y: 20, width: 100, height: 80, rotation: 0 }, text: "", style: {}, parentId: null, orderKey: "a" };
+    test.rerender({ ...test.props, objects: [source] });
+    for (let index = 0; index < 12; index++) {
+      const pointer = index + 1;
+      act(() => test.result.current.beginCreation({ ...before, fromPoint: undefined, from: source.id, fromAnchor: anchor }, test.event(10, 20, pointer)));
+      act(() => test.result.current.onPointerUp(test.event(300, 200, pointer)));
+      expect(test.result.current.active).toBe(false);
+    }
+    expect(test.execute).toHaveBeenCalledTimes(12);
+    expect(test.created).toHaveBeenCalledTimes(12);
+    expect(test.failure).not.toHaveBeenCalled();
+    test.unmount();
+  });
+  it("ignores unrelated capture loss and permits a fresh gesture after cancellation", () => {
+    const test = setup();
+    act(() => test.result.current.beginCreation(before, test.event(10, 20)));
+    act(() => test.result.current.onLostPointerCapture({ ...test.event(10, 20, 7), target: document.createElement("div") } as unknown as ConnectorOverlayPointerEvent));
+    expect(test.result.current.active).toBe(true);
+    act(() => test.result.current.onPointerCancel());
+    act(() => test.result.current.onPointerUp(test.event(300, 200)));
+    expect(test.execute).not.toHaveBeenCalled();
+    act(() => test.result.current.beginCreation(before, test.event(10, 20, 2)));
+    act(() => test.result.current.onPointerUp(test.event(300, 200, 2)));
+    expect(test.execute).toHaveBeenCalledOnce();
+    test.unmount();
+  });
   it("takes keyboard ownership by focusing the board after a real accepted pointer gesture", () => {
     const test = setup(), host = test.props.host();
     host.tabIndex = -1; document.body.append(host);
@@ -69,3 +97,19 @@ describe("connector pointer session", () => {
     expect(test.execute).not.toHaveBeenCalled(); expect(test.result.current.active).toBe(false);
   });
 });
+
+ describe('free click arrow',()=>{
+ it('holds nodes only in preview and finishes once without preview mouse point',()=>{
+ const test=setup();for(const p of [[10,20],[90,120],[210,30]])act(()=>test.result.current.beginFreeCreation('free',test.event(p[0]!,p[1]!)));
+ act(()=>test.result.current.onPointerMove(test.event(400,500)));expect(test.execute).not.toHaveBeenCalled();
+ act(()=>test.result.current.finishFree());expect(test.execute).toHaveBeenCalledOnce();expect(test.execute.mock.calls[0]![0]).toMatchObject({relationship:{type:'free',fromPoint:{x:10,y:20},toPoint:{x:210,y:30},route:{kind:'free',waypoints:[{x:90,y:120}]}}});test.unmount();
+ });
+ it('bounds preview and completion to 64 interior nodes and rejects duplicate clicks',()=>{
+ const test=setup();for(let i=0;i<66;i++)act(()=>test.result.current.beginFreeCreation('free',test.event(i*10, i%2*10)));
+ act(()=>test.result.current.onPointerMove(test.event(900,900)));expect(test.result.current.relationship?.route).toMatchObject({kind:'free'});
+ act(()=>test.result.current.beginFreeCreation('free',test.event(650,10)));expect(test.failure).not.toHaveBeenCalled();
+ act(()=>test.result.current.beginFreeCreation('free',test.event(800,20)));expect(test.failure).toHaveBeenCalledOnce();
+ act(()=>test.result.current.finishFree());expect((test.execute.mock.calls[0]![0] as any).relationship.route.waypoints).toHaveLength(64);test.unmount();
+ });
+ it('cancels without canonical writes and cannot finish one point',()=>{const test=setup();act(()=>test.result.current.beginFreeCreation('free',test.event(1,1)));act(()=>test.result.current.finishFree());expect(test.execute).not.toHaveBeenCalled();act(()=>test.result.current.beginFreeCreation('free',test.event(1,1)));act(()=>test.result.current.cancel());expect(test.execute).not.toHaveBeenCalled();test.unmount();});
+ });

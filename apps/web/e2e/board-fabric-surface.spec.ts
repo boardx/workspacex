@@ -1,3 +1,4 @@
+import { STICKY_COLOR_PRESETS } from "@repo/whiteboard-core";
 import { seedExistingFrame } from "./board-acceptance-support";
 import {expectBoardSynced} from './support/board-sync-status';
 import { randomUUID } from "node:crypto";
@@ -288,7 +289,15 @@ test("selected object inspector adapts to each widget and a narrow editor", asyn
   await selectObjectAndExpand(shapeObject);
   await expect(inspector).toContainText("形状");
   await expect(page.getByTestId("board-shape-properties")).toBeVisible();
-  await expect(page.getByLabel("形状填充色")).toBeVisible();
+  const shapeFill = inspector.getByRole("group", { name: "形状填充色", exact: true });
+  await expect(shapeFill).toBeVisible();
+  const greenFill = shapeFill.getByRole("button", { name: `形状填充色 ${STICKY_COLOR_PRESETS.green}`, exact: true });
+  await greenFill.click();
+  await expect(greenFill).toHaveAttribute("aria-pressed", "true");
+  await expectBoardSynced(page, 30_000);
+  const shapeId = await shapeObject.getAttribute("data-object-id");
+  const coloredShape = (await canonicalBoardSnapshot(api, token, board.id)).objects.find((object) => object.id === shapeId);
+  expect(coloredShape?.extensionData?.contentObject).toMatchObject({ type: "shape", fill: STICKY_COLOR_PRESETS.green });
   await capture("selected-shape-inspector");
   await page.getByTestId("board-inspector-close").click();
 
@@ -319,7 +328,7 @@ test("selected object inspector adapts to each widget and a narrow editor", asyn
   await expect(inspector).toHaveAttribute("aria-label", "图片属性");
   await expect(inspector).toContainText("图片");
   await expect(page.getByTestId("board-image-properties")).toBeVisible();
-  await expect(page.getByLabel("图片裁剪宽度")).toBeVisible();
+  await expect(inspector.getByRole("slider", { name: "图片裁剪宽度", exact: true })).toBeVisible();
   await capture("selected-image-inspector");
   await page.getByTestId("board-inspector-close").click();
 
@@ -438,4 +447,75 @@ test("live drag attachments follow before one durable transform and survive undo
   await page.reload(); await expect(page.getByTestId("board-sync-status")).toHaveAttribute("aria-label", /已同步/);
   await expect.poll(canonical).toBe(after);
   await expect(page.getByTestId("board-a11y-mirror").locator("li[data-object-id]")).toHaveCount(3);
+});
+
+test('free clicked arrow commits once, cancels drafts and persists nodes through undo/redo/reload', async ({ page, request: api }, info) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const token = await login(page);
+  const response = await apiRequest(api, token, 'POST', '/whiteboards', { requestId: randomUUID(), name: `Free clicked arrow ${randomUUID()}` });
+  const board = await response.json() as { id: string; lifecycleRevision: number };
+  boardToArchive = { ...board, token };
+  await page.goto(`/studio/board/${board.id}`);
+  await expect(page.getByTestId('collaborative-editor')).toBeVisible({ timeout: 30_000 });
+  await expectBoardSynced(page, 30_000);
+  const surface = page.getByTestId('board-fabric-surface');
+  const snapshot = () => canonicalBoardSnapshot(api, token, board.id);
+  const arrows = async () => (await snapshot()).objects.filter(object => object.kind === 'connector');
+  const head = async () => (await apiRequest(api, token, 'GET', `/v1/whiteboards/${board.id}/head`)).json() as Promise<{ epoch: number; seq: number }>;
+  const chooseFree = async () => {
+    await page.getByTestId('board-add-connector').click();
+    await page.getByTestId('board-connector-free').click();
+  };
+  const clickPoint = async (x: number, y: number, twice = false) => {
+    const box = await surface.boundingBox(); expect(box).toBeTruthy();
+    if (twice) await page.mouse.dblclick(box!.x + x, box!.y + y);
+    else await page.mouse.click(box!.x + x, box!.y + y);
+  };
+
+  const emptyHead = await head();
+  await chooseFree();
+  await clickPoint(200, 300); await clickPoint(350, 180); await clickPoint(520, 320);
+  await expect(page.getByTestId('board-connector-live-path')).toBeVisible();
+  expect(await arrows(), 'held clicked nodes must not create a durable object').toHaveLength(0);
+  expect(await head(), 'draft must not advance the durable head').toEqual(emptyHead);
+  await page.keyboard.press('Escape');
+  await expect(page.getByTestId('board-connector-live-path')).toHaveCount(0);
+  expect(await arrows(), 'Escape discards the entire draft').toHaveLength(0);
+  expect(await head()).toEqual(emptyHead);
+
+  await chooseFree();
+  await clickPoint(200, 300); await clickPoint(350, 180); await clickPoint(520, 320);
+  await page.keyboard.press('Enter');
+  await expectBoardSynced(page, 30_000);
+  await expect.poll(async () => (await arrows()).length).toBe(1);
+  const first = (await arrows())[0]!;
+  expect(first.connector).toMatchObject({ type: 'free', route: { kind: 'free' }, startStyle: 'none', endStyle: 'arrow' });
+  expect(first.connector?.route?.kind).toBe('free');
+  if (first.connector?.route?.kind !== 'free') throw new Error('Expected canonical free route');
+  expect(first.connector.route.waypoints).toHaveLength(1);
+  expect((await head()).seq).toBe(emptyHead.seq + 1);
+
+  await page.getByRole('button', { name: '撤销', exact: true }).click();
+  await expectBoardSynced(page, 30_000);
+  await expect.poll(async () => (await arrows()).length).toBe(0);
+  await page.getByRole('button', { name: '重做', exact: true }).click();
+  await expectBoardSynced(page, 30_000);
+  await expect.poll(async () => (await arrows()).length).toBe(1);
+  expect((await arrows())[0]!.connector).toEqual(first.connector);
+
+  // A second actual pointer workflow exercises native double-click completion.
+  const beforeDouble = await head();
+  await chooseFree(); await clickPoint(720, 260); await clickPoint(930, 390, true);
+  await expectBoardSynced(page, 30_000);
+  await expect.poll(async () => (await arrows()).length).toBe(2);
+  expect((await head()).seq).toBe(beforeDouble.seq + 1);
+  const saved = await arrows();
+  for (const object of saved) expect(object.connector).toMatchObject({ type: 'free', route: { kind: 'free' } });
+  expect(saved.find(object => object.connector?.route?.kind === 'free' && object.connector.route.waypoints.length === 0)).toBeTruthy();
+  await info.attach('free-arrow-canonical-before-reload', { body: JSON.stringify(saved), contentType: 'application/json' });
+  await info.attach('free-arrow-actual-ui', { body: await page.screenshot(), contentType: 'image/png' });
+  await page.reload();
+  await expectBoardSynced(page, 30_000);
+  await expect(page.getByTestId('board-a11y-mirror').locator('li[data-object-id]')).toHaveCount(2);
+  expect(await arrows(), 'server snapshot and free route survive reload unchanged').toEqual(saved);
 });

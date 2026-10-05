@@ -22,7 +22,7 @@ it.each(["final", "draft"])("reads a saved %s as a report without generation dia
   await screen.findByRole("heading", { name: base.report!.title });
   expect(screen.queryByTestId("research-report-history")).not.toBeInTheDocument();
   expect(screen.getByTestId(kind === "final" ? "research-report-document" : "research-report-preview-text").querySelectorAll('[data-testid="research-report-chapter"]')).toHaveLength(base.report!.sections.length);
-  expect(screen.queryByTestId("research-report-timeline")).not.toBeInTheDocument();
+  expect(screen.getByTestId("research-execution-timeline")).not.toHaveTextContent("Critical Evidence Mismatch");
   expect(screen.queryByTestId("research-report-evidence-warning")).not.toBeInTheDocument();
   expect(screen.queryByTestId("research-report-evidence-gap")).not.toBeInTheDocument();
   expect(screen.queryByText(/Critical Evidence Mismatch/)).not.toBeInTheDocument();
@@ -40,13 +40,13 @@ it("opens the report assistant without losing entered text when collapsed", asyn
   expect(screen.queryByRole("button", { name: "修改报告" })).not.toBeInTheDocument();
   fireEvent.pointerDown(screen.getByRole("button", { name: "更多操作" }), { button: 0, ctrlKey: false });
   fireEvent.click(await screen.findByRole("menuitem", { name: "修改报告" }));
-  const input = screen.getByRole("textbox");
+  const input = screen.getByRole("textbox", { name: "研究对话" });
   fireEvent.change(input, { target: { value: "请补充结论" } });
   fireEvent.pointerDown(screen.getByRole("button", { name: "更多操作" }), { button: 0, ctrlKey: false });
   fireEvent.click(await screen.findByRole("menuitem", { name: "收起助手" }));
-  expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
+  expect(screen.queryByRole("textbox",{name:"研究对话"})).not.toBeInTheDocument();
   fireEvent.pointerDown(screen.getByRole("button", { name: "更多操作" }), { button: 0, ctrlKey: false });
   fireEvent.click(await screen.findByRole("menuitem", { name: "修改报告" }));
-  expect(screen.getByRole("textbox")).toHaveValue("请补充结论");
+  expect(screen.getByRole("textbox", { name: "研究对话" })).toHaveValue("请补充结论");
   expect(executeResearchRuntime).not.toHaveBeenCalled();
 });

@@ -28,7 +28,10 @@ import { drawingStrokePath } from "./drawing-stroke-path";
 import { preserveDrawingInkCache } from "./drawing-cache-bounds";
 import { ShapeProjectionGroup } from "./shape-projection-group";
 import { drawingEraserTargets } from "./drawing-hit-test";
-import { drawingPointBounds } from "../drawing-coordinate-space";
+import { drawingPointBounds, worldStrokeToDrawingSpace, geometryForAppendedDrawingStroke } from "../drawing-coordinate-space";
+import { fitDrawingStrokeToExtensionBudget } from "../board-drawing-budget";
+import { eraserTargetStrokeIds } from "../board-drawing-eraser";
+import { boardSpacingMeasurementPosition } from "../board-spacing-measurement";
 
 type TaggedFabricObject = FabricObject & {
   data?: { boardObjectId?: string; adapterKind?: BoardFabricObject["kind"]; renderedRevision?: number; connectorRenderIdentity?: string; projectionFailure?: boolean; stickyVariant?: BoardFabricStickyAppearance["variant"]; sizingMode?: BoardFabricStickyAppearance["sizingMode"]; drawingPreview?: boolean };
@@ -45,7 +48,7 @@ export function serializeFabricObjectScenes(registry: ReadonlyMap<string, Fabric
 
 type DrawingTool = "pen" | "marker" | "highlighter" | "eraser";
 
-export function connectorTipAngles(type: "straight" | "elbow" | "curve", x1: number, y1: number, x2: number, y2: number): { start: number; end: number } {
+export function connectorTipAngles(type: "straight" | "elbow" | "curve" | "free", x1: number, y1: number, x2: number, y2: number): { start: number; end: number } {
   const tangent = type === "straight"
     ? { start: { x: x2 - x1, y: y2 - y1 }, end: { x: x2 - x1, y: y2 - y1 } }
     : type === "elbow"
@@ -601,6 +604,7 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
   const canonicalRef = React.useRef(new Map<string, BoardFabricObject>());
   const renderedRef = React.useRef(new Map<string, BoardFabricObject>());
   const [renderedObjects, setRenderedObjects] = React.useState<readonly BoardFabricObject[]>(objects);
+  const [eraserPointer, setEraserPointer] = React.useState<{ x: number; y: number } | null>(null);
   const [snapPreview, setSnapPreview] = React.useState<SnapResult | null>(null);
   const [selectionScene, setSelectionScene] = React.useState<{ bounds: { left: number; top: number; width: number; height: number }; hitPoints: Array<{ x: number; y: number }> } | null>(null);
   const [objectScenes, setObjectScenes] = React.useState<ReturnType<typeof serializeFabricObjectScenes>>([]);
@@ -608,6 +612,7 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
   const reconcilingSelectionRef = React.useRef(false);
   const renderFrameRef = React.useRef<number | null>(null);
   const cancelDrawingRef = React.useRef<() => void>(() => undefined);
+  const refreshEraserPreviewRef = React.useRef<() => void>(() => undefined);
   const cancelTransformRef = React.useRef<() => void>(() => undefined);
   const callbacksRef = React.useRef({ onSelectionChange, onObjectTransform, onObjectsTransform, onTransformPreview, onViewportChange, onCanvasClick, onCanvasDoubleClick, onObjectDoubleClick, onToolDrop, onDrawingComplete, onPanelHoverChange, onObjectReparent, onObjectHoverChange });
   const stateRef = React.useRef({ readOnly, tool, creationMode, viewport, drawingAppearance });
@@ -880,15 +885,51 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
     let drawing: { tool: DrawingTool; appearance: BoardDrawingToolStyle; points: Array<{ x: number; y: number; pressure: number }> } | null = null;
     let drawingPreview: TaggedFabricObject[] = [];
     let drawingPreviewSegments = 0;
+    const erasedPreviewIds = new Set<string>();
     const exposeDrawingPreviewCount = () => { host.dataset.drawingPreviewSegments = String(drawingPreviewSegments); };
     const clearDrawingPreview = () => {
-      if (!drawingPreview.length) return;
+      if (!drawingPreview.length && !erasedPreviewIds.size) return;
+      for (const id of erasedPreviewIds) {
+        const canonical = canonicalRef.current.get(id);
+        registryRef.current.get(id)?.set({ visible: Boolean(canonical && !canonical.hidden) });
+      }
+      erasedPreviewIds.clear();
       for (const segment of drawingPreview) canvas.remove(segment);
       drawingPreview = [];
       drawingPreviewSegments = 0;
       exposeDrawingPreviewCount();
       canvas.requestRenderAll();
     };
+    const refreshEraserPreview = () => {
+      if (!drawing || drawing.tool !== "eraser") return;
+      clearDrawingPreview();
+      const stroke = { id: "local-eraser-preview", tool: "eraser" as const, ...drawing.appearance, points: drawing.points };
+      const ids = drawingEraserTargets(canonicalRef.current.values(), stroke.points, stroke.width);
+      for (const id of ids) {
+        const canonical = canonicalRef.current.get(id), original = registryRef.current.get(id);
+        if (!canonical || !original || canonical.locked || canonical.boardContent?.type !== "drawing") continue;
+        const existing = canonical.boardContent.strokes;
+        const draft = worldStrokeToDrawingSpace(canonical.geometry, existing, { ...stroke, erases: eraserTargetStrokeIds(canonical.geometry, existing, stroke) });
+        let local;
+        try { local = fitDrawingStrokeToExtensionBudget(existing, draft); }
+        catch { continue; } // Full drawings reject the same append at commit; retain canonical ink.
+        let preview: TaggedFabricObject;
+        try { preview = createFabricObject({ ...canonical, geometry: geometryForAppendedDrawingStroke(canonical.geometry, existing, local), boardContent: { ...canonical.boardContent, strokes: [...existing, local] } }); }
+        catch { continue; } // A concurrent canonical limit must not strand hidden ink.
+        preview.data = { drawingPreview: true };
+        preview.set({ selectable: false, evented: false, clipPath: original.clipPath });
+        const index = canvas.getObjects().indexOf(original);
+        original.set({ visible: false });
+        erasedPreviewIds.add(id);
+        drawingPreview.push(preview);
+        canvas.add(preview);
+        canvas.moveObjectTo(preview, index + 1);
+      }
+      drawingPreviewSegments = Math.max(0, drawing.points.length - 1);
+      exposeDrawingPreviewCount();
+      canvas.requestRenderAll();
+    };
+    refreshEraserPreviewRef.current = refreshEraserPreview;
     const cancelDrawing = () => {
       drawing = null;
       clearDrawingPreview();
@@ -1100,7 +1141,7 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
         const pointer = canvas.getScenePoint(event.e);
         const next = { x: pointer.x, y: pointer.y, pressure: pressureOf(input) };
         drawing.points.push(next);
-        if (drawing.tool === "eraser") return;
+        if (drawing.tool === "eraser") { refreshEraserPreview(); return; }
         const style = drawing.appearance;
         const segment = new Path(drawingStrokePath(drawing.points, style.width), {
           fill: style.color, stroke: undefined, strokeWidth: 0, opacity: style.opacity, fillRule: "nonzero", selectable: false, evented: false,
@@ -1342,6 +1383,7 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
       // do not publish that transient empty state to the canonical editor.
       reconcilingSelectionRef.current = wasReconcilingSelection;
     }
+    refreshEraserPreviewRef.current();
     setObjectScenes(serializeFabricObjectScenes(registryRef.current));
     scheduleRender();
   }, [editingObjectId, objects, readOnly, scheduleRender]);
@@ -1351,10 +1393,11 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
     if (!canvas) return;
     clearTransformPreviewRef.current();
     cancelDrawingRef.current();
+    setEraserPointer(null);
     cancelTransformRef.current();
     canvas.selection = tool === "select" && !readOnly && !creationMode;
     canvas.skipTargetFind = creationMode && tool === "select";
-    canvas.defaultCursor = tool === "hand" ? "grab" : tool.startsWith("draw-") ? "crosshair" : tool === "erase" ? "cell" : "default";
+    canvas.defaultCursor = tool === "hand" ? "grab" : tool.startsWith("draw-") ? "crosshair" : tool === "erase" ? "none" : "default";
     for (const [id, projected] of registryRef.current) {
       const canonical = canonicalRef.current.get(id);
       const selectable = !readOnly && !creationMode && tool === "select" && !canonical?.hidden && canonical?.kind !== "placeholder";
@@ -1457,6 +1500,9 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
       data-selection-scene={selectionScene ? JSON.stringify(selectionScene) : undefined}
       data-object-scenes={JSON.stringify(objectScenes)}
       data-drawing-preview-segments="0"
+      onPointerMove={event => { if (tool === "erase") { const bounds = event.currentTarget.getBoundingClientRect(); setEraserPointer({ x: event.clientX - bounds.left, y: event.clientY - bounds.top }); } }}
+      onMouseMove={event => { if (tool === "erase") { const bounds = event.currentTarget.getBoundingClientRect(); setEraserPointer({ x: event.clientX - bounds.left, y: event.clientY - bounds.top }); } }}
+      onPointerLeave={() => setEraserPointer(null)}
       onPointerCancel={() => cancelDrawingRef.current()}
       onLostPointerCapture={() => cancelDrawingRef.current()}
       onDragOver={(event) => { if (event.dataTransfer.types.includes("application/x-workspacex-board-tool")) { event.preventDefault(); event.dataTransfer.dropEffect = "copy"; } }}
@@ -1472,8 +1518,9 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
         {snapPreview.guides.map((guide, index) => guide.axis === "x"
           ? <span key={`guide-${index}`} className="absolute inset-y-0 w-px bg-primary" style={{ left: guide.position * viewport.zoom + viewport.panX }} />
           : <span key={`guide-${index}`} className="absolute inset-x-0 h-px bg-primary" style={{ top: guide.position * viewport.zoom + viewport.panY }} />)}
-        {snapPreview.measurements.map((measurement, index) => <span key={`measurement-${index}`} data-testid="board-spacing-measurement" className="absolute rounded-control bg-primary px-1 text-11 font-semibold text-primary-foreground" style={measurement.axis === "x" ? { left: ((measurement.from + measurement.to) / 2) * viewport.zoom + viewport.panX, top: 12 + index * 20 } : { left: 12 + index * 48, top: ((measurement.from + measurement.to) / 2) * viewport.zoom + viewport.panY }}>{Math.round(measurement.size)} px</span>)}
+        {snapPreview.measurements.map((measurement, index) => <span key={`measurement-${index}`} data-testid="board-spacing-measurement" className="absolute rounded-control bg-primary px-1 text-11 font-semibold text-primary-foreground" style={boardSpacingMeasurementPosition(measurement, snapPreview.geometry, viewport)}>{Math.round(measurement.size)} px</span>)}
       </div> : null}
+      {tool === "erase" && eraserPointer ? <div data-testid="board-eraser-cursor" aria-hidden="true" className="pointer-events-none absolute z-20 flex flex-col justify-between rounded-lg border border-muted-foreground bg-card/70 shadow-sm" style={{ left: eraserPointer.x, top: eraserPointer.y, width: drawingToolStyle("eraser").width * viewport.zoom, height: drawingToolStyle("eraser").width * viewport.zoom, padding: drawingToolStyle("eraser").width * viewport.zoom * .08, transform: "translate(-50%, -50%)" }}><span className="h-1/4 rounded-full bg-muted-foreground/40"/><span className="h-px bg-muted-foreground/40"/></div> : null}
       <BoardA11yMirror objects={renderedObjects} selectedObjectIds={selectedObjectIds} onSelect={selectFromOutline} readOnly={readOnly} />
     </div>
   );

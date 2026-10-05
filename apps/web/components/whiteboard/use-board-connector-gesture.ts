@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { WHITEBOARD_CONNECTOR_LIMITS } from "@repo/contracts/whiteboard-document";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { connectorLabelPlacement, connectorPathHandles, type ConnectorRelationship, type ConnectorType, type SpatialCommand, type SpatialPrecondition, type WhiteboardObject } from "@repo/whiteboard-core";
 import type { BoardViewport } from "./fabric/board-fabric-object";
 import type { ConnectorOverlayPointerEvent, ConnectorHandleKind } from "./board-connector-handles";
@@ -8,6 +9,7 @@ import { connectorEndpointChange, connectorGestureChange, connectorGestureSnap, 
 
 type CaptureTarget = HTMLElement | SVGElement;
 interface Gesture {
+  nodes?: ConnectorScenePoint[];
   pointerId: number;
   target: CaptureTarget;
   id: string;
@@ -47,10 +49,10 @@ export function useBoardConnectorGesture(props: Props) {
     if (!rect) return null;
     return { x: (event.clientX - rect.left - viewport.panX) / viewport.zoom, y: (event.clientY - rect.top - viewport.panY) / viewport.zoom };
   };
-  const cancel = () => {
+  const cancel = useCallback(() => {
     const old = activeRef.current; activeRef.current = null; setActive(null);
     if (old?.target.hasPointerCapture?.(old.pointerId)) old.target.releasePointerCapture(old.pointerId);
-  };
+  }, []);
   const legal = (gesture: Gesture, objects = latest.current.objects) => {
     const { blocked } = latest.current;
     if (blocked) return false;
@@ -62,6 +64,11 @@ export function useBoardConnectorGesture(props: Props) {
   };
   const project = (gesture: Gesture, objects = latest.current.objects) => {
     const { viewport } = latest.current;
+    if (gesture.nodes) {
+      const nodes = gesture.nodes;
+      const relationship: ConnectorRelationship = {...gesture.before, fromPoint:nodes[0], toPoint:gesture.current, route:{kind:'free',waypoints:nodes.slice(1, nodes[nodes.length-1]!.x===gesture.current.x && nodes[nodes.length-1]!.y===gesture.current.y ? -1 : undefined)}};
+      return {relationship,snap:null};
+    }
     const relationship = gesture.creating ? gesture.before : connectorRelationshipFromObject(objects.find(object => object.id === gesture.id)!) ?? gesture.before;
     if (gesture.kind === "from" || gesture.kind === "to") {
       const opposite = gesture.kind === "from" ? relationship.to : relationship.from;
@@ -93,25 +100,48 @@ export function useBoardConnectorGesture(props: Props) {
   };
   const beginFreeCreation = (type: ConnectorType, event: ConnectorOverlayPointerEvent) => {
     const point = scenePoint(event); if (!point) return;
+    if (type === 'free') {
+      event.preventDefault(); event.stopPropagation(); latest.current.host()?.focus({preventScroll:true});
+      if (latest.current.blocked || event.button !== 0 || spaceHeld.current) return;
+      const old = activeRef.current;
+      if (old?.nodes) {
+        if (Math.hypot(point.x-old.nodes[old.nodes.length-1]!.x,point.y-old.nodes[old.nodes.length-1]!.y)*latest.current.viewport.zoom < 3) return;
+        if (old.nodes.length >= WHITEBOARD_CONNECTOR_LIMITS.freeWaypointsMax + 2) { latest.current.onFailure(); return; }
+        const next = {...old,nodes:[...old.nodes,point],current:point,previewRevision:old.previewRevision+1}; activeRef.current=next;setActive(next); return;
+      }
+      const before: ConnectorRelationship = {fromPoint:point,toPoint:point,type:'free',route:{kind:'free',waypoints:[]},fromAnchor:'right',toAnchor:'left',startStyle:'none',endStyle:'arrow',lineStyle:'solid',label:'',semanticRelation:''};
+      const next: Gesture = {nodes:[point],pointerId:event.pointerId,target:event.currentTarget,id:crypto.randomUUID(),creating:true,kind:'to',handleId:null,initial:point,current:point,before,baseline:null,bypass:true,moved:false,previewRevision:1}; activeRef.current=next;setActive(next); return;
+    }
     const snap = connectorGestureSnap(latest.current.objects, point, latest.current.viewport.zoom, [], event.metaKey || event.ctrlKey);
     const start = snap?.point ?? point;
     beginCreation({ ...(snap ? { from: snap.objectId } : { fromPoint: start }), toPoint: start, fromAnchor: snap?.anchor ?? "right", toAnchor: "left", type, startStyle: "none", endStyle: "arrow", lineStyle: "solid", label: "", semanticRelation: "" }, event);
   };
   const onPointerMove = (event: ConnectorOverlayPointerEvent) => {
     const gesture = activeRef.current, point = scenePoint(event);
-    if (!gesture || event.pointerId !== gesture.pointerId || !point) return;
+    if (!gesture || (!gesture.nodes && event.pointerId !== gesture.pointerId) || !point) return;
     event.preventDefault(); event.stopPropagation();
     if (!legal(gesture)) { cancel(); return; }
     const moved = gesture.moved || Math.hypot(point.x - gesture.initial.x, point.y - gesture.initial.y) * latest.current.viewport.zoom >= 3;
-    const next = { ...gesture, current: point, moved, bypass: event.metaKey || event.ctrlKey, previewRevision: gesture.previewRevision + 1 };
+    const next = { ...gesture, current: gesture.nodes && gesture.nodes.length >= WHITEBOARD_CONNECTOR_LIMITS.freeWaypointsMax + 2 ? gesture.nodes[gesture.nodes.length-1]! : point, moved, bypass: event.metaKey || event.ctrlKey, previewRevision: gesture.previewRevision + 1 };
     next.heldSnapTargetId = project(next).snap?.objectId;
     activeRef.current = next; setActive(next);
   };
+  const finishFree = () => {
+    const draft=activeRef.current; if (!draft?.nodes) return;
+    const nodes=draft.nodes; const live=latest.current.readLiveObjects?.()??latest.current.objects;
+    if (nodes.length<2 || !legal(draft,live)) { cancel();return; }
+    const relationship: ConnectorRelationship={...draft.before,fromPoint:nodes[0],toPoint:nodes[nodes.length-1],route:{kind:'free',waypoints:nodes.slice(1,-1)}};
+    cancel();
+    try { const accepted=latest.current.execute({type:'create-connector',id:draft.id,relationship});if(accepted)latest.current.onCreated(draft.id);else latest.current.onFailure(); } catch {latest.current.onFailure();}
+  };
+  const finishFreeRef = useRef(finishFree); finishFreeRef.current = finishFree;
   const onPointerUp = (event: ConnectorOverlayPointerEvent) => {
     const gesture = activeRef.current;
-    if (!gesture || event.pointerId !== gesture.pointerId) return;
+    if (!gesture || gesture.nodes || event.pointerId !== gesture.pointerId) return;
     event.preventDefault(); event.stopPropagation();
-    const point = scenePoint(event), final = point ? { ...gesture, current: point, bypass: event.metaKey || event.ctrlKey } : gesture;
+    // Fast/coalesced pointer drags can arrive as down → up with no React move.
+    // The release coordinate is authoritative for the drag threshold as well.
+    const point = scenePoint(event), final = point ? { ...gesture, current: point, bypass: event.metaKey || event.ctrlKey, moved: gesture.moved || Math.hypot(point.x - gesture.initial.x, point.y - gesture.initial.y) * latest.current.viewport.zoom >= 3 } : gesture;
     try {
       // React may not have rendered a remote transaction before this pointer release.
       const liveObjects = latest.current.readLiveObjects?.() ?? latest.current.objects;
@@ -130,6 +160,11 @@ export function useBoardConnectorGesture(props: Props) {
       if (!accepted) latest.current.onFailure();
     } catch { cancel(); latest.current.onFailure(); }
   };
+  const onLostPointerCapture = (event?: ConnectorOverlayPointerEvent) => {
+    const gesture = activeRef.current;
+    // Unrelated Fabric/overlay captures bubble through the editor too.
+    if (gesture && !gesture.nodes && (!event || (event.pointerId === gesture.pointerId && event.target === gesture.target))) cancel();
+  };
   useEffect(() => {
     const gesture = activeRef.current;
     if (gesture && !legal(gesture)) cancel();
@@ -137,6 +172,7 @@ export function useBoardConnectorGesture(props: Props) {
   useEffect(() => {
     const keydown = (event: KeyboardEvent) => {
       if (event.key === " " && !(event.target instanceof Element && event.target.closest("input,textarea,[contenteditable=true]"))) { spaceHeld.current = true; if (activeRef.current) cancel(); }
+      if (event.key === "Enter" && activeRef.current?.nodes && !(event.target instanceof Element && event.target.closest("input,textarea,[contenteditable=true]"))) {event.preventDefault();finishFreeRef.current();}
       if (event.key === "Escape" && activeRef.current) { event.preventDefault(); cancel(); }
     };
     const keyup = (event: KeyboardEvent) => { if (event.key === " ") spaceHeld.current = false; };
@@ -144,8 +180,8 @@ export function useBoardConnectorGesture(props: Props) {
     window.addEventListener("keydown", keydown);
     window.addEventListener("keyup", keyup); window.addEventListener("blur", blur);
     return () => { window.removeEventListener("keydown", keydown); window.removeEventListener("keyup", keyup); window.removeEventListener("blur", blur); const old = activeRef.current; activeRef.current = null; if (old?.target.hasPointerCapture?.(old.pointerId)) old.target.releasePointerCapture(old.pointerId); };
-  }, []);
+  }, [cancel]);
   const projected = active && legal(active) ? project(active) : null;
   const candidateObject = projected?.snap ? props.objects.find(object => object.id === projected.snap!.objectId) : null;
-  return { active: Boolean(active), creating: Boolean(active?.creating), id: active?.id ?? null, previewRevision: active?.previewRevision ?? 0, relationship: projected?.relationship ?? null, path: projected ? connectorResolvedPath(projected.relationship, props.objects) : null, snapCandidate: candidateObject ? { id: candidateObject.id, geometry: candidateObject.geometry } : null, beginCreation, beginFreeCreation, onPointerDown, onPointerMove, onPointerUp, onPointerCancel: cancel, onLostPointerCapture: cancel, cancel };
+  return { active: Boolean(active), creating: Boolean(active?.creating), id: active?.id ?? null, previewRevision: active?.previewRevision ?? 0, relationship: projected?.relationship ?? null, path: projected ? connectorResolvedPath(projected.relationship, props.objects) : null, snapCandidate: candidateObject ? { id: candidateObject.id, geometry: candidateObject.geometry } : null, beginCreation, beginFreeCreation, finishFree, onPointerDown, onPointerMove, onPointerUp, onPointerCancel: cancel, onLostPointerCapture, cancel };
 }

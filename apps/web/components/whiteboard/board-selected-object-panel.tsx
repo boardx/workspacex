@@ -54,7 +54,11 @@ export function BoardSelectedObjectPanel({ title, typeLabel, object, readOnly, o
   const minHeight = Math.min(HEIGHT_MIN, maxHeight);
   const fittedWidth = Math.min(width, maxWidth);
   const fittedHeight = Math.min(height, maxHeight);
-  const responsiveFloatingStyle = floatingStyle;
+  const responsiveFloatingStyle = expanded && floatingStyle ? {
+    ...floatingStyle,
+    left: typeof floatingStyle.left === "number" ? Math.max(16, Math.min(bounds.width - fittedWidth - 16, floatingStyle.left)) : floatingStyle.left,
+    top: typeof floatingStyle.top === "number" ? Math.max(16, Math.min(bounds.height - fittedHeight - 16, floatingStyle.top)) : floatingStyle.top,
+  } : floatingStyle;
   const drag = useRef<{ pointerX: number; pointerY: number; width: number; height: number; axis: "x" | "y" } | null>(null);
   const resizeStart = (event: PointerEvent<HTMLDivElement>) => {
     event.preventDefault();
@@ -83,7 +87,7 @@ export function BoardSelectedObjectPanel({ title, typeLabel, object, readOnly, o
     onGeometryChange(next);
   };
 
-  return <aside ref={panelRef} data-testid="board-context-toolbar" data-board-selected-object-panel="true" data-expanded={expanded} aria-label={`${typeLabel}${expanded ? "属性" : "快捷工具"}`} className={cn(expanded ? "absolute z-40 flex h-[min(var(--board-inspector-height),var(--board-inspector-max-height))] max-h-[var(--board-inspector-max-height)] w-[min(var(--board-inspector-width),var(--board-inspector-max-width))] flex-col overflow-hidden rounded-xl border border-border/80 bg-card shadow-lg max-sm:w-[min(var(--board-inspector-width),var(--board-inspector-max-width))]" : "absolute z-40 w-fit max-w-[min(27rem,calc(100vw-2rem))] overflow-hidden rounded-xl border border-border/80 bg-card px-1 shadow-lg",className)} style={expanded ? { ...responsiveFloatingStyle, "--board-inspector-width": `${fittedWidth}px`, "--board-inspector-height": `${fittedHeight}px`, "--board-inspector-max-width": `${maxWidth}px`, "--board-inspector-max-height": `${maxHeight}px` } as CSSProperties : responsiveFloatingStyle}>
+  return <aside ref={panelRef} data-testid="board-context-toolbar" data-board-selected-object-panel="true" data-expanded={expanded} aria-label={`${typeLabel}${expanded ? "属性" : "快捷工具"}`} className={cn(expanded ? "absolute z-40 flex h-[min(var(--board-inspector-height),var(--board-inspector-max-height))] max-h-[var(--board-inspector-max-height)] w-[min(var(--board-inspector-width),var(--board-inspector-max-width))] flex-col overflow-clip rounded-xl border border-border/80 bg-card shadow-lg max-sm:w-[min(var(--board-inspector-width),var(--board-inspector-max-width))]" : "absolute z-40 w-fit max-w-[min(27rem,calc(100vw-2rem))] overflow-hidden rounded-xl border border-border/80 bg-card px-1 shadow-lg",className)} style={expanded ? { ...responsiveFloatingStyle, "--board-inspector-width": `${fittedWidth}px`, "--board-inspector-height": `${fittedHeight}px`, "--board-inspector-max-width": `${maxWidth}px`, "--board-inspector-max-height": `${maxHeight}px` } as CSSProperties : responsiveFloatingStyle}>
     {!expanded ? <div className="flex min-h-[44px] max-w-full items-center gap-0.5 overflow-hidden">
       <div className="min-w-0 flex-1 overflow-x-auto overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">{compactActions ?? <span className="px-2 text-12 font-medium">{title || "未命名对象"}</span>}</div>
       {collapsedControls ? <><Button type="button" variant="ghost" size="icon" className="min-h-11 min-w-11" data-testid="board-inspector-expand" aria-label={`编辑${typeLabel}属性`} title="打开详细属性" aria-expanded={false} onClick={() => setExpanded(true)}><SlidersHorizontal className="h-4 w-4" /></Button>

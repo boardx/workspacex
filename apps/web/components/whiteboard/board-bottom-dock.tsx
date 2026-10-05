@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { Brush, ChevronUp, Hand, ImagePlus, MousePointer2, Type, MoreHorizontal } from "lucide-react";
+import { Brush, ChevronRight, Hand, ImagePlus, MousePointer2, Type, MoreHorizontal } from "lucide-react";
+import { boardMenuPosition } from "./board-menu-position";
 import {BoardStickyPicker} from "./board-sticky-picker";
 import {STICKY_COLOR_PRESETS} from "@repo/whiteboard-core";
 import { StickyToolPreview, ShapeToolPreview } from "./board-tool-preview";
@@ -109,7 +110,7 @@ export function BoardBottomDock({ editing=false,connectorEnabled=false,stickyCol
   const contentOpen = creationTool?.kind === "content";
   const drawOpen = activeTool.startsWith("draw-") || activeTool === "erase";
   const connectorOpen = creationTool?.kind === "connector";
-  const [pickerPosition, setPickerPosition] = useState({ left: 0, width: 420 });
+  const [pickerPosition, setPickerPosition] = useState({ left: 16, bottom: 0, width: 420, maxHeight: 320 });
   const pickerKind = creationTool?.kind;
   useLayoutEffect(() => {
     if (!pickerOpen || !pickerKind) return;
@@ -118,18 +119,19 @@ export function BoardBottomDock({ editing=false,connectorEnabled=false,stickyCol
     const trigger = Array.from(dock?.querySelectorAll<HTMLElement>("[data-testid]") ?? []).find(element => element.dataset.testid === triggerId);
     const update = () => {
       if (!dock || !trigger) return;
-      const bounds = dock.getBoundingClientRect(), anchor = trigger.getBoundingClientRect();
-      const width = Math.min(420, Math.max(1, window.innerWidth - 32));
-      const screenLeft = Math.max(16, Math.min(window.innerWidth - width - 16, anchor.left + anchor.width / 2 - width / 2));
-      setPickerPosition({ left: screenLeft - bounds.left, width });
+      const anchor = trigger.getBoundingClientRect();
+      const preferredWidth = pickerKind === "connector" ? 208 : pickerKind === "text" ? 360 : 420;
+      setPickerPosition(boardMenuPosition(anchor, preferredWidth, { width: window.innerWidth, height: window.innerHeight }, 8, dock.getBoundingClientRect().top));
     };
     update();
     window.addEventListener("resize", update);
+    window.addEventListener("scroll", update, true);
     const observer = typeof ResizeObserver !== "undefined" ? new ResizeObserver(update) : null;
     if (trigger) observer?.observe(trigger);
+    if (dock) observer?.observe(dock);
     const scroller = trigger?.parentElement;
     scroller?.addEventListener("scroll", update);
-    return () => { observer?.disconnect(); window.removeEventListener("resize", update); scroller?.removeEventListener("scroll", update); };
+    return () => { observer?.disconnect(); window.removeEventListener("resize", update); window.removeEventListener("scroll", update, true); scroller?.removeEventListener("scroll", update); };
   }, [pickerOpen, pickerKind]);
   return (
     <nav data-testid="board-creation-dock" data-board-chrome="dock" ref={dockRef} onPointerDownCapture={startToolPointer} onPointerUpCapture={finishToolPointer} onPointerCancel={cancelToolPointer} onLostPointerCapture={cancelToolPointer} onKeyDownCapture={capturePortalEvent}
@@ -143,7 +145,7 @@ export function BoardBottomDock({ editing=false,connectorEnabled=false,stickyCol
       }}
       aria-label="白板工具" className={cn("absolute bottom-5 inset-x-4 z-30 mx-auto w-max max-w-[calc(100vw-2rem)]",editing&&"max-sm:hidden")}>
       {pickerOpen && (stickyOpen || textOpen || shapeOpen || contentOpen || connectorOpen) && (
-        <div data-testid="board-tool-picker" data-board-chrome="tool-picker" data-picker-anchor={creationTool?.kind} style={{ position: "absolute", bottom: "100%", left: pickerPosition.left, width: pickerPosition.width, marginBottom: 16, maxHeight: "min(320px, calc(100dvh - 180px))" }} className="flex min-w-0 flex-wrap items-center justify-center gap-2 overflow-auto rounded-lg border border-border-subtle bg-card p-2 shadow-lg motion-safe:animate-in motion-safe:slide-in-from-bottom-2 motion-safe:fade-in">
+        <div data-testid="board-tool-picker" data-board-chrome="tool-picker" data-picker-anchor={creationTool?.kind} style={{ position: "fixed", bottom: pickerPosition.bottom, left: pickerPosition.left, width: pickerPosition.width, maxHeight: Math.min(320, pickerPosition.maxHeight) }} className="flex min-w-0 flex-wrap items-center justify-center gap-2 overflow-auto rounded-lg border border-border-subtle bg-card p-2 shadow-lg motion-safe:animate-in motion-safe:slide-in-from-bottom-2 motion-safe:fade-in">
           {stickyOpen ? <BoardStickyPicker color={stickyColor} variant={creationTool.variant} readOnly={readOnly} onColorChange={value=>onStickyColorChange?.(value)} onVariantChange={variant=>onCreationToolChange({kind:"sticky",variant})} onBulk={onBulkSticky}/> : textOpen ? TEXT_PRESETS.map(({ preset, label }) => (
             <button
               key={preset}
@@ -179,7 +181,7 @@ export function BoardBottomDock({ editing=false,connectorEnabled=false,stickyCol
 }
 
 function DockButton({ testId, label, shortcut, pressed, disabled, onClick, children, dragTool, submenu }: { dragTool?: Exclude<BoardCreationTool,null> & {color?:string}; submenu?: boolean; testId?: string; label: string; shortcut: string; pressed: boolean; disabled?: boolean; onClick: () => void; children: React.ReactNode }) {
-  return <button type="button" draggable={Boolean(dragTool)&&!disabled} onDragStart={event=>{if(!dragTool||disabled)return;event.dataTransfer.setData(BOARD_TOOL_DRAG_MIME,JSON.stringify(dragTool));event.dataTransfer.effectAllowed="copy";}} data-testid={testId} data-board-create-tool={dragTool?.kind} title={shortcut ? `${label} (${shortcut})` : label} aria-label={shortcut ? `${label}，快捷键 ${shortcut}` : label} aria-pressed={pressed} disabled={disabled} onClick={onClick} style={{minHeight:56,minWidth:56,paddingInline:8}} className={cn("group flex shrink-0 flex-col items-center justify-center gap-1 rounded-xl text-11 transition-colors duration-fast hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:bg-disabled disabled:text-disabled-foreground", pressed && "bg-primary text-primary-foreground shadow-md hover:bg-primary-hover hover:text-primary-foreground")}>
-    <span style={{width:24,height:24}} className="relative grid shrink-0 place-items-center transition-transform motion-safe:group-hover:scale-110 [&>svg:not(.submenu)]:!h-full [&>svg:not(.submenu)]:!w-full">{children}{submenu?<ChevronUp data-testid={`${testId}-submenu`} aria-hidden className="submenu absolute -right-2 -top-1 h-3 w-3"/>:null}</span><span className="leading-none max-sm:sr-only">{label}</span>
+  return <button type="button" draggable={Boolean(dragTool)&&!disabled} onDragStart={event=>{if(!dragTool||disabled)return;event.dataTransfer.setData(BOARD_TOOL_DRAG_MIME,JSON.stringify(dragTool));event.dataTransfer.effectAllowed="copy";const preview=event.currentTarget.querySelector<HTMLElement>("[data-board-drag-preview]");if(preview)event.dataTransfer.setDragImage?.(preview,preview.offsetWidth/2,preview.offsetHeight/2);}} data-testid={testId} data-board-create-tool={dragTool?.kind} title={shortcut ? `${label} (${shortcut})` : label} aria-label={shortcut ? `${label}，快捷键 ${shortcut}` : label} aria-pressed={pressed} disabled={disabled} onClick={onClick} style={{minHeight:56,minWidth:56,paddingInline:8}} className={cn("group flex shrink-0 flex-col items-center justify-center gap-1 rounded-xl text-11 transition-colors duration-fast hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:bg-disabled disabled:text-disabled-foreground", pressed && "bg-primary text-primary-foreground shadow-md hover:bg-primary-hover hover:text-primary-foreground")}>
+    <span style={{width:24,height:24}} className="relative grid shrink-0 place-items-center transition-transform motion-safe:group-hover:scale-110 [&>svg:not(.submenu)]:!h-full [&>svg:not(.submenu)]:!w-full"><span data-board-drag-preview className="grid h-full w-full place-items-center [&>svg]:!h-full [&>svg]:!w-full">{children}</span>{submenu?<ChevronRight data-testid={`${testId}-submenu`} aria-hidden className="submenu absolute -right-3 top-1/2 h-3 w-3 -translate-y-1/2"/>:null}</span><span className="sr-only">{label}</span>
   </button>;
 }
