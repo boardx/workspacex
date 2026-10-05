@@ -34,10 +34,17 @@ import {
 } from "@repo/fabric-markdown";
 import type { Canvas as FabricCanvas } from "fabric";
 
-function serializeModel(model: DiagramModel): { code: string; lang: string } {
+function serializeModel(model: DiagramModel, fenceLang?: string): { code: string; lang: string } {
   if (model.kind === "template") {
-    const lang = model.meta?.templateKey === "persona" ? "persona" : "canvas";
-    return { code: serializeTemplate(model), lang };
+    const key = model.meta?.templateKey;
+    const lang = fenceLang ?? (key === "persona" ? "persona" : "canvas");
+    // The vendor omits the persona key because its persona fence implies it.
+    // Existing canvas fences are preserved by replaceMermaidBlock.
+    const body = serializeTemplate(model);
+    const code = lang === "canvas" && key === "persona"
+      ? `模板: ${key}\n${body}`
+      : body;
+    return { code, lang };
   }
   if (model.kind === "usecase") {
     return { code: serializeUsecase(model), lang: "usecase" };
@@ -52,10 +59,11 @@ export function serializeCanvasMarkdown(
   blockIndex = 0,
 ): string {
   const model = extractModel(canvas);
-  const { code, lang } = serializeModel(model);
+  const block = originalMarkdown === undefined
+    ? undefined
+    : extractMermaidBlocks(originalMarkdown)[blockIndex];
+  const { code, lang } = serializeModel(model, block?.lang);
   if (originalMarkdown !== undefined) {
-    const blocks = extractMermaidBlocks(originalMarkdown);
-    const block = blocks[blockIndex];
     if (block) return replaceMermaidBlock(originalMarkdown, block, code);
     const sep = originalMarkdown.endsWith("\n") ? "" : "\n";
     return originalMarkdown + sep + "\n" + wrapAsMermaidBlock(code, lang) + "\n";
