@@ -1,3 +1,5 @@
+import { research as C } from "@repo/contracts";
+import type { NegativeSourceScreenCache } from "./guided-negative-screen-cache";
 import { adaptiveSourceEvidenceWork, sourceEvidenceTerms, sourceScreenBatches, SOURCE_SCREEN_CHUNK_CHARS, type SourceEvidenceChunk } from "./guided-source-evidence-work";
 import { evidenceWireChunk, materializeQuoteReferences, quoteReferenceMatchSchema } from "./guided-report-quote-references";
 import { createHash } from "node:crypto";
@@ -36,15 +38,31 @@ const instruction = `Screen provided source excerpts for relevance to the confir
 function screeningContent(source: Source): string {
   return source.document?.text.trim() ? source.document.text : source.content;
 }
-// Include the policy version so a stricter gate can recheck persisted approvals.
+// Include the validator version so a stricter gate can recheck persisted approvals.
+const SOURCE_RELEVANCE_VALIDATOR_VERSION = 4;
 export function sourceTaskIds(source: Source): string[] { return [...new Set([source.taskId, ...(source.taskIds ?? [])])]; }
 export function sourceRelevanceBasis(state: ResearchRuntime, source: Source): string {
-  return createHash("sha256").update(JSON.stringify({ policy: 4, brief: state.brief,
+  return createHash("sha256").update(JSON.stringify({ policy: SOURCE_RELEVANCE_VALIDATOR_VERSION, brief: state.brief,
     taskIds: sourceTaskIds(source).sort(),
     tasks: state.tasks.filter((task) => sourceTaskIds(source).includes(task.id))
       .map(({ id, sectionId, questionId, query, title, objective, deliverables }) => ({ id, sectionId, questionId, query, title, objective, deliverables })).sort((a, b) => a.id.localeCompare(b.id)),
     outline: state.outline.filter((section) => section.enabled),
     title: source.title, url: source.url, content: screeningContent(source) })).digest("hex");
+}
+
+/** Discovery UUID/time are not model inputs. Original bytes and canonical
+ * source/document provenance plus every confirmed screening input are. */
+function negativeScreenKey(state: ResearchRuntime, source: Source): string | undefined {
+  if (state.sourcePolicy && !C.GuidedResearchSourcePolicy.safeParse(state.sourcePolicy).success) return;
+  if (source.document && createHash("sha256").update(source.document.text).digest("hex") !== source.document.contentHash) return;
+  let sourceUrl: string, documentUrl: string | null;
+  try { sourceUrl = new URL(source.url).href; documentUrl = source.document ? new URL(source.document.url).href : null; } catch { return; }
+  return createHash("sha256").update(JSON.stringify({ validatorVersion: SOURCE_RELEVANCE_VALIDATOR_VERSION,
+    sessionId: state.sessionId, executionVersion: state.version, intent: state.intent ?? null, sourcePolicy: state.sourcePolicy ?? null,
+    basis: sourceRelevanceBasis(state, { ...source, url: sourceUrl }), sourceUrl, documentUrl,
+    materialKind: source.document?.text.trim() ? "fetched_document" : "search_excerpt",
+    materialHash: createHash("sha256").update(screeningContent(source)).digest("hex"),
+  })).digest("hex");
 }
 
 /** Two local calculations; failures stop dispatch/repair and drain every callback.
@@ -72,10 +90,19 @@ async function screeningBatchWork<T, R>(items: readonly T[], compute: (item: T, 
  * admits that scope. It does not certify answers to every question, completeness,
  * or absence of contradictory omitted material. Report evidence/quality gates
  * remain independent; adaptive scheduling must never write question coverage. */
-export async function screenResearchSources(state: ResearchRuntime, sources: Source[], complete: Complete, options: { adaptive?: boolean; signal?: AbortSignal } = {}): Promise<Source[]> {
+export async function screenResearchSources(state: ResearchRuntime, sources: Source[], complete: Complete, options: { adaptive?: boolean; signal?: AbortSignal; negativeCache?: NegativeSourceScreenCache } = {}): Promise<Source[]> {
   options.signal?.throwIfAborted();
-  const candidates = sources.filter((source) => source.decision !== "excluded" && !source.addedByUser && source.relevanceBasis !== sourceRelevanceBasis(state, source));
-  if (!candidates.length) return sources;
+  const keys = new Map<string, string>(), cachedNegative = new Set<string>();
+  const candidates = sources.filter((source) => {
+    if (source.decision === "excluded" || source.addedByUser || source.relevanceBasis === sourceRelevanceBasis(state, source)) return false;
+    const key = options.negativeCache ? negativeScreenKey(state, source) : undefined;
+    if (key) {
+      keys.set(source.id, key);
+      if (options.negativeCache!.has(key)) { cachedNegative.add(source.id); return false; }
+    }
+    return true;
+  });
+  if (!candidates.length) return sources.filter(source => !cachedNegative.has(source.id));
   const questions = reportQuestions(state.outline.filter((section) => section.enabled));
   const chunks: Chunk[] = candidates.flatMap((source) => {
     const result: Chunk[] = [];
@@ -98,6 +125,7 @@ export async function screenResearchSources(state: ResearchRuntime, sources: Sou
   // Bound both source text and evaluations without wasting calls on short excerpts.
   if (chunks.length > 512) throw new ResearchRuntimeError("RESEARCH_EVIDENCE_BUDGET_EXCEEDED");
   const batches: Chunk[][] = options.adaptive ? [] : sourceScreenBatches(chunks);
+  let hadRepair = false;
   const evaluate = async (batch: Chunk[], checkBatch: () => void) => {
     const check = () => { options.signal?.throwIfAborted(); checkBatch(); };
     const parse = (value: unknown) => {
@@ -150,6 +178,7 @@ export async function screenResearchSources(state: ResearchRuntime, sources: Sou
         // Provider/persistence failures must never be retried as malformed output.
         if (!(error instanceof InvalidRelevanceOutput) || attempt === 1) throw error;
         check();
+        hadRepair = true;
         repairIssues = error.issues;
         if (error.rawOutput !== undefined) previousOutput = error.rawOutput;
       }
@@ -180,8 +209,18 @@ export async function screenResearchSources(state: ResearchRuntime, sources: Sou
       taskIds.add(taskId); accepted.set(entry.sourceId, taskIds);
     }
   }
+  options.signal?.throwIfAborted();
+  if (options.negativeCache && !hadRepair) {
+    const scanned = new Set(batches.flat().map(chunk => chunk.chunkId));
+    for (const source of candidates) {
+      const sourceChunks = chunks.filter(chunk => chunk.sourceId === source.id), key = keys.get(source.id);
+      // No positive scope, no omitted tail, and every chunk passed the original
+      // strict validator. Failures above never reach this atomic cache admission.
+      if (key && !accepted.has(source.id) && sourceChunks.length && sourceChunks.every(chunk => scanned.has(chunk.chunkId))) options.negativeCache.remember(key);
+    }
+  }
   const reviewed = new Set(candidates.map((source) => source.id));
-  return sources.filter((source) => !reviewed.has(source.id) || accepted.has(source.id))
+  return sources.filter((source) => !cachedNegative.has(source.id) && (!reviewed.has(source.id) || accepted.has(source.id)))
     .map((source) => {
       if (!reviewed.has(source.id)) return source;
       const taskIds = [...accepted.get(source.id)!];

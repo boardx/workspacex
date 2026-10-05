@@ -4,6 +4,7 @@ import { research as C } from "@repo/contracts";
 import { reportQuestions } from "./guided-report-evidence";
 import { collectSourceDocuments } from "./guided-source-documents";
 import { screenResearchSources, sourceRelevanceBasis, sourceTaskIds } from "./guided-source-relevance";
+import { NegativeSourceScreenCache } from "./guided-negative-screen-cache";
 import { isRecoverableSearchFailure, recoveryQueries } from "./guided-search-recovery";
 import { supplementQuery } from "./guided-supplement-query";
 import { ResearchRuntimeError, type GuidedSearchPort, type ResearchRuntime } from "./guided-runtime-ports";
@@ -63,6 +64,7 @@ export type PipelineMetrics = { durationMs: number; firstSourceMs: number | null
 export async function executeTaskPipeline(state: ResearchRuntime, persist: RuntimePersistence, search: GuidedSearchPort,
   budget: SearchBudget, complete: PipelineComplete, metrics?: (result: PipelineMetrics) => void): Promise<void> {
   const started = Date.now(), initialModels = state.modelCalls.length;
+  const negativeCache = new NegativeSourceScreenCache();
   let firstSourceMs: number | null = null;
   let materialUpgradesRejected = 0;
   let stopped = false, failure: unknown;
@@ -156,7 +158,7 @@ export async function executeTaskPipeline(state: ResearchRuntime, persist: Runti
       source.addedByUser = false;
       delete source.presentation;
     }
-    const screened = await screenResearchSources(state, candidates, model(true), { adaptive: true, signal }); check();
+    const screened = await screenResearchSources(state, candidates, model(true), { adaptive: true, signal, negativeCache }); check();
     const denied = upgraded.filter(source => {
       const retained = screened.find(item => item.id === source.id);
       const required = [...sourceTaskIds(previous.get(source.id)!), ...(task ? [task.id] : [])];
@@ -171,7 +173,7 @@ export async function executeTaskPipeline(state: ResearchRuntime, persist: Runti
       return task && !sourceTaskIds(stored).includes(task.id)
         ? { ...stored, taskId: task.id, taskIds: [task.id], addedByUser: false } : stored;
     });
-    const retained = task ? await screenResearchSources(state, fallback, model(true), { adaptive: true, signal }) : fallback;
+    const retained = task ? await screenResearchSources(state, fallback, model(true), { adaptive: true, signal, negativeCache }) : fallback;
     check();
     return [...screened.filter(source => !denied.some(item => item.id === source.id)), ...retained];
   };
@@ -281,6 +283,7 @@ export async function executeTaskPipeline(state: ResearchRuntime, persist: Runti
     }
     throw error;
   } finally {
+    negativeCache.clear();
     // Model diagnostics are metadata only; no queries, excerpts, URLs or response bodies.
     try { metrics?.({ durationMs: Date.now() - started, firstSourceMs, taskCount: state.tasks.length, succeeded: state.tasks.filter(task => task.status === "succeeded").length,
       failed: state.tasks.filter(task => task.status === "failed").length, accepted: state.sources.filter(source => source.decision === "accepted").length,
