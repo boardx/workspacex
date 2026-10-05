@@ -1,0 +1,22 @@
+import assert from 'node:assert/strict';
+import {mkdirSync,writeFileSync,readFileSync} from 'node:fs';
+import {listTemplates,templateToModel,serializeTemplate} from '/Users/shenyanbin/Documents/Codex/2026-10-04/task-3/d011-active/packages/fabric-markdown/src/templates-entry.ts';
+import {BUILTIN_CANVAS_TEMPLATES} from '/Users/shenyanbin/Documents/Codex/2026-10-04/task-3/d011-active/packages/contracts/src/canvas.ts';
+import {selectGuidanceTemplates} from '/Users/shenyanbin/Documents/Codex/2026-10-04/task-3/d011-active/apps/api/src/application/agent-run/canvas-template-guidance.ts';
+const out='/tmp/core-output-canvas/all-template-artifacts';mkdirSync(out,{recursive:true});
+const templates=listTemplates();const catalog=templates.map(t=>({key:t.key,displayName:(BUILTIN_CANVAS_TEMPLATES as Record<string,string>)[t.key]}));
+const results=templates.map(spec=>{
+ const source=(spec.key==='persona'?'':`模板: ${spec.key}\n`)+spec.sections.map((s,i)=>`## ${s.name}\n- synthetic-${spec.key}-${i} &lt;原文&gt;`).join('\n');
+ const model=templateToModel(source,spec.key==='persona'?'persona':undefined);
+ const stickies=model.nodes.filter(n=>n.data?.role==='sticky');assert.equal(stickies.length,spec.sections.length,spec.key);
+ for(const sticky of stickies)sticky.label+='-edited';
+ const serialized=serializeTemplate(model);const path=`${out}/${spec.key}.md`;writeFileSync(path,serialized);
+ const readback=templateToModel(readFileSync(path,'utf8'),spec.key==='persona'?'persona':undefined);
+ assert.deepEqual(readback.nodes.filter(n=>n.data?.role==='sticky').map(n=>n.label).sort(),stickies.map(n=>n.label).sort(),spec.key);
+ const selected=selectGuidanceTemplates(catalog,{mode:'matched',text:`请生成${(BUILTIN_CANVAS_TEMPLATES as Record<string,string>)[spec.key]}画布`});
+ assert.ok(selected.some(t=>t.key===spec.key),`${spec.key} named request omitted`);
+ return {key:spec.key,nodes:model.nodes.length,editedStickies:stickies.length,readback:true,namedPromptMatched:true,path};
+});
+assert.equal(results.length,20);
+writeFileSync('/tmp/core-output-canvas/all-template-roundtrip-results.json',JSON.stringify({scope:'real pure template IR generation/edit/serialization/local file readback, not provider/DOM/DB',count:results.length,results},null,2));
+console.log(JSON.stringify({count:results.length,allReadback:true,allNamedPromptMatched:true}));

@@ -1,0 +1,166 @@
+{
+  "scope": "real pure template IR generation/edit/serialization/local file readback, not provider/DOM/DB",
+  "count": 20,
+  "results": [
+    {
+      "key": "persona",
+      "nodes": 45,
+      "editedStickies": 6,
+      "readback": true,
+      "namedPromptMatched": true,
+      "path": "/tmp/core-output-canvas/all-template-artifacts/persona.md"
+    },
+    {
+      "key": "pestel",
+      "nodes": 25,
+      "editedStickies": 6,
+      "readback": true,
+      "namedPromptMatched": true,
+      "path": "/tmp/core-output-canvas/all-template-artifacts/pestel.md"
+    },
+    {
+      "key": "swot",
+      "nodes": 19,
+      "editedStickies": 4,
+      "readback": true,
+      "namedPromptMatched": true,
+      "path": "/tmp/core-output-canvas/all-template-artifacts/swot.md"
+    },
+    {
+      "key": "bmc",
+      "nodes": 37,
+      "editedStickies": 9,
+      "readback": true,
+      "namedPromptMatched": true,
+      "path": "/tmp/core-output-canvas/all-template-artifacts/bmc.md"
+    },
+    {
+      "key": "mvp",
+      "nodes": 33,
+      "editedStickies": 8,
+      "readback": true,
+      "namedPromptMatched": true,
+      "path": "/tmp/core-output-canvas/all-template-artifacts/mvp.md"
+    },
+    {
+      "key": "three-horizons",
+      "nodes": 25,
+      "editedStickies": 6,
+      "readback": true,
+      "namedPromptMatched": true,
+      "path": "/tmp/core-output-canvas/all-template-artifacts/three-horizons.md"
+    },
+    {
+      "key": "ai-strategy",
+      "nodes": 37,
+      "editedStickies": 9,
+      "readback": true,
+      "namedPromptMatched": true,
+      "path": "/tmp/core-output-canvas/all-template-artifacts/ai-strategy.md"
+    },
+    {
+      "key": "ai-bmc",
+      "nodes": 49,
+      "editedStickies": 12,
+      "readback": true,
+      "namedPromptMatched": true,
+      "path": "/tmp/core-output-canvas/all-template-artifacts/ai-bmc.md"
+    },
+    {
+      "key": "empathy",
+      "nodes": 27,
+      "editedStickies": 6,
+      "readback": true,
+      "namedPromptMatched": true,
+      "path": "/tmp/core-output-canvas/all-template-artifacts/empathy.md"
+    },
+    {
+      "key": "jtbd",
+      "nodes": 34,
+      "editedStickies": 6,
+      "readback": true,
+      "namedPromptMatched": true,
+      "path": "/tmp/core-output-canvas/all-template-artifacts/jtbd.md"
+    },
+    {
+      "key": "journey-map",
+      "nodes": 66,
+      "editedStickies": 20,
+      "readback": true,
+      "namedPromptMatched": true,
+      "path": "/tmp/core-output-canvas/all-template-artifacts/journey-map.md"
+    },
+    {
+      "key": "value-proposition",
+      "nodes": 26,
+      "editedStickies": 6,
+      "readback": true,
+      "namedPromptMatched": true,
+      "path": "/tmp/core-output-canvas/all-template-artifacts/value-proposition.md"
+    },
+    {
+      "key": "adlib",
+      "nodes": 27,
+      "editedStickies": 6,
+      "readback": true,
+      "namedPromptMatched": true,
+      "path": "/tmp/core-output-canvas/all-template-artifacts/adlib.md"
+    },
+    {
+      "key": "hmw",
+      "nodes": 40,
+      "editedStickies": 8,
+      "readback": true,
+      "namedPromptMatched": true,
+      "path": "/tmp/core-output-canvas/all-template-artifacts/hmw.md"
+    },
+    {
+      "key": "freytag",
+      "nodes": 33,
+      "editedStickies": 8,
+      "readback": true,
+      "namedPromptMatched": true,
+      "path": "/tmp/core-output-canvas/all-template-artifacts/freytag.md"
+    },
+    {
+      "key": "burger",
+      "nodes": 21,
+      "editedStickies": 5,
+      "readback": true,
+      "namedPromptMatched": true,
+      "path": "/tmp/core-output-canvas/all-template-artifacts/burger.md"
+    },
+    {
+      "key": "golden-circle",
+      "nodes": 13,
+      "editedStickies": 3,
+      "readback": true,
+      "namedPromptMatched": true,
+      "path": "/tmp/core-output-canvas/all-template-artifacts/golden-circle.md"
+    },
+    {
+      "key": "three-lenses",
+      "nodes": 13,
+      "editedStickies": 3,
+      "readback": true,
+      "namedPromptMatched": true,
+      "path": "/tmp/core-output-canvas/all-template-artifacts/three-lenses.md"
+    },
+    {
+      "key": "storyboard",
+      "nodes": 30,
+      "editedStickies": 6,
+      "readback": true,
+      "namedPromptMatched": true,
+      "path": "/tmp/core-output-canvas/all-template-artifacts/storyboard.md"
+    },
+    {
+      "key": "maau",
+      "nodes": 30,
+      "editedStickies": 6,
+      "readback": true,
+      "namedPromptMatched": true,
+      "path": "/tmp/core-output-canvas/all-template-artifacts/maau.md"
+    }
+  ]
+}

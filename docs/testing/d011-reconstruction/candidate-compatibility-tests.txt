@@ -1,0 +1,8 @@
+RUN  v2.1.9 /Users/shenyanbin/Documents/Codex/2026-10-04/task-3
+
+ ✓ ../../../../../../tmp/d011-role-reframe/role.test.ts (2 tests) 9ms
+
+ Test Files  1 passed (1)
+      Tests  2 passed (2)
+   Start at  18:37:42
+   Duration  754ms (transform 432ms, setup 0ms, collect 652ms, tests 9ms, environment 0ms, prepare 24ms)

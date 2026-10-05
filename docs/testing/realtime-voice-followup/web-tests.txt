@@ -1,0 +1,13 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyanbin/Documents/Codex/2026-10-04/task-3/realtime-pr/apps/web
+
+ ✓ tests/ui/realtime-voice-session.test.tsx (12 tests) 943ms
+ ✓ tests/recording/live-recording-capture.test.ts (26 tests) 6ms
+ ✓ tests/live-omni-conversation-hangup.test.ts (8 tests) 250ms
+
+ Test Files  3 passed (3)
+      Tests  46 passed (46)
+   Start at  20:07:35
+   Duration  3.29s (transform 864ms, setup 143ms, collect 1.38s, tests 1.20s, environment 238ms, prepare 63ms)
+

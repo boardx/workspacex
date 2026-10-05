@@ -1,0 +1,19 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyanbin/Documents/Codex/2026-10-04/task-3/core-output-pr/apps/web
+
+ ✓ tests/ui/authed-image-state.test.tsx (1 test) 123ms
+ ✓ tests/ui/guided-research-export.test.tsx (3 tests) 1182ms
+   ✓ guided report actual export routing > downloads a genuine DOCX with its extension and delayed URL cleanup 1128ms
+ ✓ tests/ui/chat-canvas-literal-save.test.tsx (1 test) 309ms
+   ✓ preserves literal HTML entities in saved canvas text and the close callback 308ms
+ ✓ tests/ui/research-report-export.test.tsx (4 tests) 1054ms
+   ✓ exports real OOXML without references or citation markers while retaining page evidence (prefix ) 774ms
+ ✓ tests/ui/guided-research-visual-contract.test.tsx (8 tests) 1254ms
+   ✓ F180 signed guided-research visual contract > keeps one work canvas and a collapsible assistant on guided steps 689ms
+ ✓ tests/ui/guided-research-flow.test.tsx (21 tests) 1445ms
+
+ Test Files  6 passed (6)
+      Tests  38 passed (38)
+   Start at  19:37:52
+   Duration  6.40s (transform 4.05s, setup 1.16s, collect 11.77s, tests 5.37s, environment 4.68s, prepare 509ms)

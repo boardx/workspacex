@@ -1,0 +1,26 @@
+[
+  {
+    "file": "sandbox-native.pptx",
+    "bytes": 72669,
+    "sha256": "e1306be73be2c2071dfbc95134f1f1b66e4c9c9599062536a82f12c7f7959dc5",
+    "slides": 1,
+    "zipCRC": "pass",
+    "parsedXMLParts": 22,
+    "nativeTables": 1,
+    "nativeCharts": 1,
+    "editableChartWorkbooks": 1,
+    "pictureShapes": 0
+  },
+  {
+    "file": "prototype-native.pptx",
+    "bytes": 81919,
+    "sha256": "937d8c23c44214cdc742450f3a2b849ca3c2b6dfc5e438caa098d395a117ab29",
+    "slides": 2,
+    "zipCRC": "pass",
+    "parsedXMLParts": 26,
+    "nativeTables": 1,
+    "nativeCharts": 1,
+    "editableChartWorkbooks": 1,
+    "pictureShapes": 0
+  }
+]

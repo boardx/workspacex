@@ -1,0 +1,21 @@
+# realtime-pr 独立只读review
+
+未发现这轮diff的阻断源码回归。没有模型调用或共享写。
+
+真实生产Pcm16Player class提取至独立VM，控制AudioContext clock做7断言，node player.cjs exit0：首个source结束仍true；最后source结束false；interrupt结束false；旧source晚到onended不会错误结束新队列；第二个1秒块精确1.02秒开始，连续排队不额外插20ms。该证据是调度回调实证，不是设备或provider真实延迟测量。
+
+API保留已发布row.instructions并加入同一row.versionId、resolved pins、未解析IDs、pending bindings与workflow allowlist说明；明确voice无执行能力。沿既有findVisible租户可见性和线程写门，无新增grant或工具执行。新增测试仅验证指令注入内容，不证明模型实际服从人设或抗用户越权；真实模型行为验收仍缺。
+
+采音只openOmniConversation显式frameSize1024，startCapture未传默认4096。现capture test已逐项检查undefined/1024参数。时长改善仅帧化基线4096→1024，不能据此声称端到端延迟下降到某数值。
+
+voiceMap regex允许Theo Calm等内部空格并拒绝bad voice!；readRealtimeModelConfig对默认voice执行trim||Maia，空白fallback源码正确。下载官方文档含Qwen3.8表与Maia；官方provider默认Tina与产品自选Maia可以同时成立。没有新外网请求。建议再加空白defaultVoice和带空格合法voice显式配置测试（当前diff前者未见断言），不必改既有默认。
+
+scope限制：cancel之后晚到旧audio仍可重新播放、OPEN发送无背压、握手音频缓冲预算未改变；这些为先前已报告缺口，并非本轮drain/frame/persona修复新增回归。不能用本PR宣称全部语音延迟与取消问题闭合。重复onAssistantAudio(false)目前interrupt及调用方都有，值正确但可减少重复通知；不阻断。
+
+## 最终 responseId 增量独审
+
+optional responseId 契约兼容无ID旧事件；gateway 原样转发顶层response_id至音频、转写与audio_done，GA event名称归一不丢字段。客户端canceledResponses对已观察到ID的被取消响应过滤所有这些帧，后续不同ID可播放；没有阻断当前“已知ID取消→旧音频→新ID”范围的源码bug。
+
+范围限制应明确：取消发生在任何带ID的delta到达之前时activeResponseId未知，后续第一份旧响应音频仍会播放；即使provider支持ID，这个启动窗口也不能隔离。gateway没有forward response.created，因此不能以“支持ID就全部可靠隔离”宣传。一个新响应的transcript或旧响应晚到done也会更新activeResponseId，它是最近观察到事件ID而非实际playing sources响应ID；如果不同响应交叠，cancel可能记录错误ID。当前provider串行时序未实测，建议后续以response.created/响应生命周期及source ID归属完善；本轮不伪称已覆盖。
+
+无ID旧事件明确只能兼容，不能隔离。取消集合按会话增长，正常有限通话非阻断；超长通话可后续有界清理，但不能过早清除仍可能晚到ID。现已知ID反例不修改断言，之前生产class7断言仍适用；未重复全局/API/Web检查或模型调用。

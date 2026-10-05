@@ -1,0 +1,23 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyanbin/Documents/Codex/2026-10-04/task-3/d011-active/apps/web
+
+ ✓ tests/ui/authed-image-state.test.tsx (1 test) 129ms
+ ✓ tests/ui/guided-research-export.test.tsx (3 tests) 1467ms
+   ✓ guided report actual export routing > downloads a genuine DOCX with its extension and delayed URL cleanup 1328ms
+ ✓ tests/ui/research-report-export.test.tsx (4 tests) 1941ms
+   ✓ exports real OOXML without references or citation markers while retaining page evidence (prefix ) 1051ms
+   ✓ prints only the report document and cleans up the isolated frame 613ms
+ ✓ tests/ui/guided-research-visual-contract.test.tsx (8 tests) 3294ms
+   ✓ F180 signed guided-research visual contract > derives restored budget progress from the selected tier limits 520ms
+   ✓ F180 signed guided-research visual contract > removes the secondary menu from guided research while retaining it for legacy Studio 440ms
+   ✓ F180 signed guided-research visual contract > keeps one work canvas and a collapsible assistant on guided steps 1558ms
+ ✓ tests/ui/guided-research-flow.test.tsx (21 tests) 4565ms
+   ✓ guided research session routing and lifecycle > shows the research plan without the removed scope cards 601ms
+   ✓ guided research session routing and lifecycle > preserves an unsent assistant message when leaving is cancelled 928ms
+   ✓ guided research session routing and lifecycle > guards browser history navigation while an assistant message is unsent 836ms
+
+ Test Files  5 passed (5)
+      Tests  37 passed (37)
+   Start at  18:50:21
+   Duration  14.85s (transform 6.10s, setup 2.85s, collect 17.18s, tests 11.40s, environment 12.17s, prepare 1.05s)

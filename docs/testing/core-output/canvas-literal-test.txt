@@ -1,0 +1,10 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyanbin/Documents/Codex/2026-10-04/task-3/d011-active/apps/web
+
+ ✓ tests/ui/chat-canvas-literal-save.test.tsx (1 test) 87ms
+
+ Test Files  1 passed (1)
+      Tests  1 passed (1)
+   Start at  18:56:05
+   Duration  5.92s (transform 1.33s, setup 344ms, collect 2.73s, tests 87ms, environment 1.42s, prepare 88ms)

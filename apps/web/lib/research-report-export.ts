@@ -16,7 +16,7 @@ function exportDocument(root: HTMLElement): HTMLElement {
 
 /** Export report content, without workflow notices, references or citation markers. */
 export async function buildResearchWord(root: HTMLElement): Promise<Blob> {
-  const { Document, Packer, Paragraph, TextRun, ExternalHyperlink, HeadingLevel, Table, TableRow, TableCell, Footer, PageNumber, AlignmentType } = await import("docx");
+  const { Document, Packer, Paragraph, TextRun, ExternalHyperlink, HeadingLevel, Table, TableRow, TableCell, Footer, PageNumber, AlignmentType, WidthType, TableLayoutType } = await import("docx");
   type Inline = InstanceType<typeof TextRun> | InstanceType<typeof ExternalHyperlink>;
   function inline(node: Node, style: { bold?: boolean; italics?: boolean; superScript?: boolean } = {}): Inline[] {
     if (node.nodeType === Node.TEXT_NODE) return [new TextRun({ text: node.textContent ?? "", ...style })];
@@ -37,7 +37,18 @@ export async function buildResearchWord(root: HTMLElement): Promise<Blob> {
   function visit(element: Element, level = 0) {
     if (element.hasAttribute("data-report-ui")) return;
     if (element.tagName === "TABLE") {
-      children.push(new Table({ rows: Array.from(element.querySelectorAll("tr")).map((row) => new TableRow({ children: Array.from(row.children).map((cell) => new TableCell({ children: [new Paragraph({ children: inline(cell), spacing: { after: 100 } })] })) })) }));
+      const rows = Array.from(element.querySelectorAll("tr"));
+      const columns = Math.max(1, ...rows.map(row => row.children.length));
+      // Match the document's A4 default width minus the two one-inch margins.
+      const bodyWidth = 11906 - 1440 * 2;
+      const columnWidths = Array.from({ length: columns }, (_, index) => Math.floor(bodyWidth / columns) + (index < bodyWidth % columns ? 1 : 0));
+      children.push(new Table({
+        width: { size: bodyWidth, type: WidthType.DXA }, layout: TableLayoutType.FIXED, columnWidths,
+        rows: rows.map(row => new TableRow({ children: Array.from(row.children).map((cell, index) => new TableCell({
+          width: { size: columnWidths[index]!, type: WidthType.DXA },
+          children: [new Paragraph({ children: inline(cell), spacing: { after: 100 } })],
+        })) })),
+      }));
     } else if (element.tagName === "LI" && element.closest("nav")) {
       paragraph(inline(element));
     } else if (element.tagName === "LI") {
