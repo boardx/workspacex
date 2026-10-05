@@ -26,3 +26,5 @@ After normal main e097 integration:347/347. External5025b7f82 added local postfi
 Root follow-up found inner double-denial could still borrow postfix uncertainty: actual RED2/357, then GREEN358/358 after excluding finite affirmative inner-double frames from suffix qualification. Genuine prohibition of that inner predicate remains allowed.
 
 Main further rejected copular confirmation prefixes: actual RED2/361. A modifier-inserted copular variant additionally produced RED1/362. Confirmation is now bound to the comma-local causal predicate through 是, preserving independent budget confirmation and ordinary uncertainty. GREEN362/362; no new model request.
+
+Readonly rejected single denied confirmations with the same copular connector: actual RED2/365. Confirmation and its direct denial now share one connector grammar; 证实 is included in the direct denial operator. The outer double-negative control remains rejected. GREEN365/365 across six files. Overall public real-model trial #5327 remains FAIL; this verification makes no new model or deployment claim.
