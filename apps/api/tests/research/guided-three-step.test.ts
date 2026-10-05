@@ -1,3 +1,4 @@
+import { PersistedResearchRuntimeSchema } from "../../src/application/research/guided-runtime-persistence";
 import { describe, expect, it, vi } from "vitest";
 import { research as C } from "@repo/contracts";
 import { createHash } from "node:crypto";
@@ -19,7 +20,7 @@ function fixture() {
     requests.set(command.requestId, hash); state.version++; state.busy = true; state.errorCode = null;
     return { state: structuredClone(state), replay: false };
   });
-  const write = vi.fn(async (_actor, _request, next: ResearchRuntime) => { state = C.GuidedResearchRuntime.parse(structuredClone(next)); writes.push(structuredClone(state)); });
+  const write = vi.fn(async (_actor, _request, next: ResearchRuntime) => { state = PersistedResearchRuntimeSchema.parse(structuredClone(next)); writes.push(structuredClone(state)); });
   const store: GuidedRuntimeStore = { read: async () => structuredClone(state), claim, write };
   const model = { complete: vi.fn(async (input: { system: string; user: string }) => ({ text: guidedResearchReply(input.system, input.user)! })) };
   const search = vi.fn(async (query: string) => [{ title: "Official policy", url: `https://example.org/${createHash("sha256").update(query).digest("hex")}`, content: "Grid policy requires documented permits and local verification." }]);

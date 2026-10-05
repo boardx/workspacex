@@ -747,4 +747,24 @@ describe("report streaming and explicit partial evidence", () => {
     await run("complete", { allowPartialResearch: true });
     expect(state.errorCode).toBe("RESEARCH_TASKS_INCOMPLETE"); expect(state.report).toBeNull();
   });
+  it("retains the private ledger through claim, write, replay and expired reclaim", async () => {
+    const store = new PgGuidedRuntimeStore(db);
+    const persisted = await store.read(actor, initialRuntime(session));
+    persisted.privateLedger = { validatorVersion: 1, records: [] };
+    const command = { sessionId: actor.sessionId, node: "brief" as const, action: "generate" as const, expectedVersion: persisted.version, requestId: randomUUID() };
+    const claimed = await store.claim(actor, command, "ledger-claim");
+    claimed.state.privateLedger = persisted.privateLedger;
+    await store.write(actor, command.requestId, claimed.state, false);
+    expect((await store.read(actor, initialRuntime(session))).privateLedger).toEqual(persisted.privateLedger);
+    const replay = await store.claim(actor, command, "ledger-claim");
+    expect(replay.replay).toBe(true); expect(replay.state.privateLedger).toEqual(persisted.privateLedger);
+    const expired = { ...claimed.state, leaseUntil: "2000-01-01T00:00:00.000Z" };
+    await store.write(actor, command.requestId, expired, false);
+    const reclaimed = await store.claim(actor, { ...command, expectedVersion: expired.version, requestId: randomUUID() }, "ledger-reclaim");
+    expect(reclaimed.state.version).toBe(expired.version + 1);
+    expect(reclaimed.state.privateLedger).toEqual(persisted.privateLedger);
+    await expect(store.write(actor, command.requestId, expired, true)).rejects.toMatchObject({ reasonCode: "RESEARCH_GRAPH_VERSION_CONFLICT" });
+    expect(await service.get(actor, session)).not.toHaveProperty("privateLedger");
+  });
+
 });

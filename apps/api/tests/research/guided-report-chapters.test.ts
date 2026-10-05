@@ -754,7 +754,7 @@ describe("post-research chapter structure saves (#5081)", () => {
   it.each(["save_chapters", "save"])("%s keeps the appropriate invalidation boundary", async (action) => {
     const f = fixture(); f.state.busy = false; f.state.availableNodes = ["brief", "directions", "outline", "research", "report"];
     f.state.sources[1]!.decision = "excluded";
-    f.state.reportDraft = { title: "Old draft", summary: "Old", sections: [] };
+    f.state.reportDraft = { title: "Old draft", summary: "Old", sections: [{ sectionId: "b", body: body("source-b"), sourceIds: ["source-b"] }] };
     const beforeSources = structuredClone(f.state.sources), beforeTasks = structuredClone(f.state.tasks);
     const value = f.state.outline.map((item) => ({ ...item, title: `${item.title} edited`, questions: [...item.questions, "New unsupported question?"] }));
     const store: GuidedRuntimeStore = { read: async () => f.state, claim: async () => ({ state: f.state, replay: false }), write: async (_actor, _request, state) => { f.writes.push(structuredClone(state)); } };

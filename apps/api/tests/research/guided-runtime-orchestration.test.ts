@@ -1,3 +1,4 @@
+import { PersistedResearchRuntimeSchema } from "../../src/application/research/guided-runtime-persistence";
 import { describe, expect, it, vi } from "vitest";
 import { research as C } from "@repo/contracts";
 import { GuidedRuntimeService, initialRuntime } from "../../src/application/research/guided-runtime-service";
@@ -10,7 +11,7 @@ function fixture() {
   state.currentNode = "research"; state.availableNodes = ["brief", "directions", "outline", "research"];
   state.outline = [{ id: "o", title: "Policy", questions: ["Which policy?"], enabled: true, order: 0 }];
   const writes: ResearchRuntime[] = [];
-  const store: GuidedRuntimeStore = { read: async () => state, claim: async () => { state.errorCode = null; state.busy = true; return { state, replay: false }; }, write: async (_a, _r, value) => { state = C.GuidedResearchRuntime.parse(structuredClone(value)); writes.push(structuredClone(value)); } };
+  const store: GuidedRuntimeStore = { read: async () => state, claim: async () => { state.errorCode = null; state.busy = true; return { state, replay: false }; }, write: async (_a, _r, value) => { state = PersistedResearchRuntimeSchema.parse(structuredClone(value)); writes.push(structuredClone(value)); } };
   const actor = { orgId: toOrgId("org"), userId: "owner", sessionId: session.sessionId };
   return { session, actor, store, writes, state, latest: () => state };
 }
