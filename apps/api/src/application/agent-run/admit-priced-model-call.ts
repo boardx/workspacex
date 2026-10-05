@@ -10,6 +10,7 @@ import type {ModelCallInput,ModelCallPort,TokenUsageMeterPort,TokenUsageRecord} 
 export interface AiPricedCallSubject {
  readonly orgId:OrgId;readonly userId:string;readonly runId:string;readonly executionAttemptId:string;
  readonly executionLeaseEpoch?:number;
+ readonly candidateDecisionSlot?:number;
  readonly projectId:string|null;readonly threadId:string|null;readonly agentId:string|null;
  readonly callPurpose:NonNullable<TokenUsageRecord["callPurpose"]>;
  readonly primaryModelId:string;readonly logicalCallId:string;readonly attempt:number;
@@ -49,6 +50,7 @@ export async function preparePricedModelCall(subject:AiPricedCallSubject,deps:{
     ...current,measuredInput});
    if(decision.decision!=="allowed")throw new Error(decision.decision);
    const reservation=await deps.admission.reserve(subject.orgId,{requestId:request.requestId,userId:subject.userId,formalModelId:price.modelId,agentId:subject.agentId,
+    ...(subject.candidateDecisionSlot===undefined?{}:{candidateDecisionSlot:subject.candidateDecisionSlot}),
     windowStart:configuration.window.start,windowEnd:configuration.window.end,logicalCallId:subject.logicalCallId,logicalAttempt:subject.attempt,maximumAttempts:configuration.maxAttempts,maximumTokens:decision.maximumTokens,
     maximumCostMicros:decision.maximumCostMicros,modelProvider:price.modelProvider,modelId:price.runtimeModelId,
     currency:configuration.currency,priceVersion:budget.priceVersion,

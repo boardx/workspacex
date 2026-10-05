@@ -18,3 +18,9 @@ export const InputOnlyRuntimeModelRequestAdmission=RuntimeModelRequestStart.exte
  requestPath:z.string().min(1).max(500).refine(value=>value.startsWith('/')&&!/[?#]/.test(value)),
 }).strict();
 export const RuntimeModelRequestAdmission=z.union([ChatRuntimeModelRequestAdmission,InputOnlyRuntimeModelRequestAdmission]);
+
+/** Private server-authorized same-provider replacement; transient body is never a receipt. */
+export const RuntimeModelRequestAdmissionResponse=z.object({accepted:z.literal(true),dispatch:z.object({
+ modelId:z.string().min(1).max(200),serializedBody:z.string().min(1).max(2_000_000),
+ outputTokenLimit:z.number().int().positive().max(2147483647),
+}).strict().optional()}).strict();

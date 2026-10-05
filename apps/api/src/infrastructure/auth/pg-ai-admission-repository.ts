@@ -198,11 +198,13 @@ export interface AiRuleResult {decision:AiAdmissionDecision;tokenWarning?:boolea
  * Rules remain mutable; each physical decision retains its exact input and event.
  */
 export async function evaluateAtomicAiLimitRules(db:DatabasePort,s:TenantSession,org:OrgId,input:AiReservationInput,authorizedDegradeTargets:readonly string[]):Promise<AiRuleResult>{
+ if(input.candidateDecisionSlot!==undefined&&(!Number.isSafeInteger(input.candidateDecisionSlot)||input.candidateDecisionSlot<0||input.candidateDecisionSlot!==input.logicalAttempt))throw new Error("AI_LIMIT_RULE_SLOT_INVALID");
+ const decisionId=input.candidateDecisionSlot===undefined?input.requestId:JSON.stringify(["private-candidate",input.requestId,input.candidateDecisionSlot]);
  const fingerprint=JSON.stringify({...input,maximumTokens:input.maximumTokens.toString(),maximumCostMicros:input.maximumCostMicros.toString()});
- const previous=(await s.query<{input:unknown;result:AiRuleResult}>("SELECT input,result FROM ai_limit_rule_decisions WHERE org_id=$1 AND request_id=$2",[org,input.requestId])).rows[0];
+ const previous=(await s.query<{input:unknown;result:AiRuleResult}>("SELECT input,result FROM ai_limit_rule_decisions WHERE org_id=$1 AND request_id=$2",[org,decisionId])).rows[0];
  if(previous){if(!isDeepStrictEqual(previous.input,JSON.parse(fingerprint)))throw new Error("AI_LIMIT_RULE_REPLAY_MISMATCH");return previous.result;}
  const remember=async(result:AiRuleResult,eventId:string|null=null)=>{
-  await s.query("INSERT INTO ai_limit_rule_decisions(org_id,request_id,input,result,event_id) VALUES($1,$2,$3::jsonb,$4::jsonb,$5)",[org,input.requestId,fingerprint,JSON.stringify(result),eventId]);
+  await s.query("INSERT INTO ai_limit_rule_decisions(org_id,request_id,input,result,event_id) VALUES($1,$2,$3::jsonb,$4::jsonb,$5)",[org,decisionId,fingerprint,JSON.stringify(result),eventId]);
   return result;
  };
  // Ordinary row locks also serialize existing member-role writers without a new permission system.

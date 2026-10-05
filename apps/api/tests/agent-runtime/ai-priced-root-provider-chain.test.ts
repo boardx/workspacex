@@ -9,6 +9,7 @@ import {PgAgentRunRepository} from '../../src/infrastructure/agent-run/pg-agent-
 import type {RunAiAdmission} from '../../src/application/agent-run/priced-run-model';
 import {Configuration} from '@repo/contracts/ai-policy';
 import {executePricedModelCall,type AiModelSelection} from '../../src/application/agent-run/execute-priced-model-call';
+import {PgRuntimeModelUsageRepository} from '../../src/infrastructure/auth/pg-runtime-model-usage-repository';
 import {ConfiguredModelProvider} from '../../src/infrastructure/agent-run/configured-model-provider';
 import {PgAiAdmissionRepository} from '../../src/infrastructure/auth/pg-ai-admission-repository';
 import {PgTokenUsageRepository} from '../../src/infrastructure/auth/pg-token-usage-repository';
@@ -21,7 +22,7 @@ import {seedAgentRun} from '../support/agent-run-db';
 import {ensureDatabase,migrateOnce,seedOrg,addOrgMember,asApp,resetOrgs} from '../support/db';
 /** Real HTTP/PG coordinator boundary, not executeQueuedRuns/lease acceptance.
  * Classification/bounds are test-only fixtures, not deployment/tokenizer proof. */
-let db:PgDatabase,server:Server,model:ConfiguredModelProvider;
+let db:PgDatabase,server:Server,model:ConfiguredModelProvider,vendorBaseUrl:string;
 const orgs:string[]=[],requests:Array<{model:string;max_tokens:number}>=[];
 beforeAll(async()=>{
  await ensureDatabase();await migrateOnce();db=new PgDatabase(appConfig());
@@ -33,7 +34,8 @@ beforeAll(async()=>{
  });
  await new Promise<void>(resolve=>server.listen(0,'127.0.0.1',resolve));
  const address=server.address();if(!address||typeof address==='string')throw new Error('missing address');
- model=new ConfiguredModelProvider({provider:'test-http',baseUrl:`http://127.0.0.1:${address.port}/v1`,apiKey:'fixture-only',timeoutMs:5000,streamEnabled:false,visionModelIds:new Set(),thinkingDisableModelIds:new Set(),bailianExtensionsEnabled:false});
+ vendorBaseUrl=`http://127.0.0.1:${address.port}/v1`;
+ model=new ConfiguredModelProvider({provider:'test-http',baseUrl:vendorBaseUrl,apiKey:'fixture-only',timeoutMs:5000,streamEnabled:false,visionModelIds:new Set(),thinkingDisableModelIds:new Set(),bailianExtensionsEnabled:false});
 });
 afterAll(async()=>{
  await model?.close();
@@ -328,4 +330,36 @@ it('actual native not-applicable Token receipt preserves image dimension and con
  await expect(executePricedModelCall({...f.subject,logicalCallId:randomUUID()},{system:'s',user:'u'},f.deps)).rejects.toThrow('COST_LIMIT_REACHED');
  expect(requests.slice(before)).toHaveLength(1);
  expect((await asApp(f.org,c=>c.query('SELECT sum(cost_micros)::text AS cost,count(*)::int AS calls FROM effective_token_usage() WHERE org_id=$1 AND user_id=$2',[f.org,'caller']))).rows).toEqual([{cost:'8',calls:2}]);
+});
+
+for(const rules of [false,true])it(`private SDK ${rules?'F162':'soft threshold'} downgrade has two candidate decisions, one actual HTTP and selected settlement`,async()=>{
+ const f=await fixture('ordinary','100',!rules,'100',rules),before=requests.length;
+ // Authoritative leased run fixture; actual claim/executor is covered separately above.
+ await asApp(f.org,async c=>{
+  await c.query("UPDATE agent_runs SET status='running',started_at=now(),lease_epoch=1,lease_expires_at=now()+interval '5 minutes' WHERE org_id=$1 AND id=$2",[f.org,f.subject.runId]);
+  await c.query("INSERT INTO agent_run_steps(id,org_id,run_id,seq,kind,status,started_at,ended_at) VALUES($1,$2,$3,1,'context_built','succeeded',now(),now())",[randomUUID(),f.org,f.subject.runId]);
+  if(rules)await c.query("INSERT INTO limit_rules(id,org_id,scope_kind,scope_ref,model_id,window_kind,threshold_tokens,action,degrade_to_model_id,enabled) VALUES($1,$2,'model','primary',NULL,'hour','1','degrade','cheap',true)",[randomUUID(),f.org]);
+ });
+ const repo=new PgRuntimeModelUsageRepository(db,f.deps.usage,f.deps.admission,{
+  dependencies:()=>f.deps,primaryModelId:async()=> 'primary',facts:async()=>({confidentiality:'non-confidential',requiredCapabilities:[]}),
+  verifyReplacementBinding:async()=>true,selection:async(_org,_run,selection)=>f.deps.onModelSelection(selection),
+ });
+ const body=JSON.stringify({model:'runtime-primary',max_tokens:2,messages:[{role:'user',content:'PRIVATE SDK INPUT'}]});
+ const requestId=randomUUID(),input={requestId,attemptId:f.subject.runId+':0',leaseEpoch:1,startedAt:new Date().toISOString(),modelId:'runtime-primary',callPurpose:'primary' as const,
+  logicalCallId:JSON.stringify([f.subject.runId,'primary',requestId,createHash('sha256').update(body).digest('hex')]),serializedBody:body,outputTokenLimit:2};
+ await expect(repo.admitRuntimeRequest(f.org,f.subject.runId,{...input,leaseEpoch:99})).rejects.toThrow('RUNTIME_USAGE_OWNERSHIP_DENIED');
+ const selected=await repo.admitRuntimeRequest(f.org,f.subject.runId,input);expect(selected?.modelId).toBe('runtime-cheap');
+ expect(f.notices.every(row=>row.httpCount===before)).toBe(true);
+ const result=await fetch(vendorBaseUrl+'/chat/completions',{method:'POST',headers:{'content-type':'application/json'},body:selected!.serializedBody});
+ expect(result.ok).toBe(true);await result.json();
+ await repo.terminalRuntimeRequest(f.org,f.subject.runId,{requestId,attemptId:input.attemptId,leaseEpoch:1,endedAt:new Date().toISOString(),outcome:'succeeded',usage:{total:3,prompt:2,completion:1}});
+ expect(requests.slice(before)).toEqual([expect.objectContaining({model:'runtime-cheap',max_tokens:2})]);
+ const state=await asApp(f.org,c=>c.query(`SELECT
+  (SELECT count(*)::int FROM model_request_starts WHERE org_id=$1) AS starts,
+  (SELECT count(*)::int FROM ai_request_reservations WHERE org_id=$1 AND state='settled') AS settled,
+  (SELECT count(*)::int FROM effective_token_usage() WHERE org_id=$1) AS calls`,[f.org]));
+ expect(state.rows).toEqual([{starts:1,settled:1,calls:1}]);
+ if(rules)expect((await asApp(f.org,c=>c.query("SELECT count(*)::int AS decisions FROM ai_limit_rule_decisions WHERE org_id=$1",[f.org]))).rows).toEqual([{decisions:2}]);
+ await expect(repo.admitRuntimeRequest(f.org,f.subject.runId,input)).rejects.toThrow();
+ expect(requests.slice(before)).toHaveLength(1);
 });

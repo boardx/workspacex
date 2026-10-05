@@ -4,7 +4,7 @@ import {toOrgId} from "../../src/domain/org-id";
 const org=toOrgId("rule-org"),input={requestId:"physical",userId:"u",formalModelId:"primary",agentId:null,windowStart:"2026-10-01T00:00:00Z",windowEnd:"2026-11-01T00:00:00Z",maximumTokens:4n,maximumCostMicros:4n,modelProvider:"route",modelId:"runtime",currency:"CNY",priceVersion:"v",tokenPolicy:{primaryModelId:"primary",selectedModelId:"primary",allowDegradation:true}};
 const rule={id:"r",scope_kind:"member",scope_ref:"u",model_id:null,window_kind:"month",threshold_tokens:"10",action:"block",degrade_to_model_id:null};
 function fixture(rules:Array<Omit<typeof rule,"degrade_to_model_id">&{degrade_to_model_id:string|null}>=[rule],tokens="7",previous:unknown=null,unknown="0"){
- const query=vi.fn(async(sql:string)=>({rows:sql.startsWith("SELECT input,result")?(previous?[previous]:[]):sql.includes("SELECT user_id,org_role")?[{user_id:"u",org_role:"member",team_id:"t"}]:sql.includes("FROM limit_rules")?rules:sql.startsWith("WITH counters")?[{tokens,unknown}]:[]}));
+ const query=vi.fn(async(sql:string,_args?:unknown[])=>({rows:sql.startsWith("SELECT input,result")?(previous?[previous]:[]):sql.includes("SELECT user_id,org_role")?[{user_id:"u",org_role:"member",team_id:"t"}]:sql.includes("FROM limit_rules")?rules:sql.startsWith("WITH counters")?[{tokens,unknown}]:[]}));
  const db={withTenant:vi.fn(()=>{throw new Error("nested pool checkout");})};
  return {query,db:db as never,s:{query} as never};
 }
@@ -45,4 +45,13 @@ it("freezes untriggered and unknown decisions, and includes unmatched durable st
  expect(unknown.query.mock.calls.some(([sql])=>sql.includes("INSERT INTO ai_limit_rule_decisions"))).toBe(true);
  expect(unknown.query.mock.calls.find(([sql])=>sql.startsWith("WITH counters"))![0]).toContain("FROM model_request_starts pending");
  expect(unknown.query.mock.calls.some(([sql])=>sql.includes("ORDER BY user_id FOR SHARE"))).toBe(true);
+});
+
+it("private candidate slots retain independent immutable audits under one physical request",async()=>{
+ const first=fixture(),second=fixture();
+ await evaluateAtomicAiLimitRules(first.db,first.s,org,{...input,logicalAttempt:0},[]);
+ await evaluateAtomicAiLimitRules(second.db,second.s,org,{...input,formalModelId:"cheap",logicalAttempt:1,candidateDecisionSlot:1},[]);
+ const ids=[first,second].map(f=>(f.query.mock.calls.find(([sql])=>sql.includes("INSERT INTO ai_limit_rule_decisions")) as unknown as [string,unknown[]])[1][1]);
+ expect(ids).toEqual(["physical",JSON.stringify(["private-candidate","physical",1])]);
+ await expect(evaluateAtomicAiLimitRules(first.db,first.s,org,{...input,logicalAttempt:0,candidateDecisionSlot:1},[])).rejects.toThrow("AI_LIMIT_RULE_SLOT_INVALID");
 });

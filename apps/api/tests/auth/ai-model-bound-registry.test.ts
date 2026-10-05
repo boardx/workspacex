@@ -31,3 +31,12 @@ describe("trusted code model-bound registration",()=>{
   (entry.binding.capabilityTags as string[]).push("unverified-capability");expect(await registry.measure(request)).not.toBeNull();valid=false;expect(await registry.measure(request)).toBeNull();expect(verify).toHaveBeenCalledTimes(2);
  });
 });
+
+it("private SDK replacement requires verified exact endpoint/account grouping",async()=>{
+ const first=registration(),second={...registration(),binding:{...registration().binding,modelId:"cheap",runtimeModelId:"cheap-runtime"}};
+ expect(await new VerifiedModelBoundRegistry(model,[first,second]).samePrivateConnection("route","runtime","cheap-runtime")).toBe(false);
+ const grouped=[first,second].map(entry=>({...entry,privateConnectionId:"fixture-endpoint-account"}));
+ expect(await new VerifiedModelBoundRegistry(model,grouped).samePrivateConnection("route","runtime","cheap-runtime")).toBe(true);
+ expect(await new VerifiedModelBoundRegistry(model,[grouped[0]!,{...grouped[1]!,privateConnectionId:"other-account"}]).samePrivateConnection("route","runtime","cheap-runtime")).toBe(false);
+ expect(await new VerifiedModelBoundRegistry(model,[grouped[0]!,{...grouped[1]!,verifyDeploymentBinding:async()=>false}]).samePrivateConnection("route","runtime","cheap-runtime")).toBe(false);
+});

@@ -6,6 +6,8 @@ import type {AiPoolCandidate,VerifiedAiBinding,VerifiedInputBound} from "../../d
 type PreparedRequest=Parameters<NonNullable<ModelCallInput["beforeProviderDispatch"]>>[0];
 export interface ModelBoundRegistration {
  readonly binding:VerifiedAiBinding;
+ /** Trusted exact SDK endpoint/account grouping; absent disables private model replacement. */
+ readonly privateConnectionId?:string;
  /** Code/deployment verification artifact, never taken from organization policy or model arguments. */
  readonly billingUnit:"token"|"native"|"unknown";
  readonly implementation:string;readonly version:string;readonly artifactSha256:string;
@@ -38,6 +40,11 @@ export class VerifiedModelBoundRegistry {
   return entry.billingUnit==="token"&&b.outputCapSupported&&b.billedOutputBoundVerified&&b.accountingComplete
    &&this.model.supportsDispatchAdmission?.(b.modelProvider)===true&&this.model.supportsRequestAccounting?.(b.modelProvider)===true
    &&await entry.verifyDeploymentBinding();
+ }
+ async samePrivateConnection(provider:string,original:string,target:string):Promise<boolean>{
+  const first=this.entries.get(JSON.stringify([provider,original])),second=this.entries.get(JSON.stringify([provider,target]));
+  return !!first&&!!second&&!!first.privateConnectionId&&first.privateConnectionId===second.privateConnectionId
+    &&await this.verified(first)&&await this.verified(second);
  }
  async formalModelId(modelProvider:string,pinnedId:string):Promise<string>{
   const matches=[...this.entries.values()].filter(entry=>entry.binding.modelProvider===modelProvider&&(entry.binding.modelId===pinnedId||entry.binding.runtimeModelId===pinnedId));

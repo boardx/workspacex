@@ -372,7 +372,7 @@ def post(owner: dict, run_id: str, phase: str, body: dict):
             with httpx.Client(timeout=5, follow_redirects=False) as client:
                 response = client.post(url, headers={"x-deep-agent-internal-key": owner["key"]}, json=body)
                 if response.status_code == 200 and response.json().get("accepted") is True:
-                    return
+                    return response.json()
                 if response.status_code < 500:
                     break
         except Exception:
@@ -387,7 +387,7 @@ async def apost(owner: dict, run_id: str, phase: str, body: dict):
             async with httpx.AsyncClient(timeout=5, follow_redirects=False) as client:
                 response = await client.post(url, headers={"x-deep-agent-internal-key": owner["key"]}, json=body)
                 if response.status_code == 200 and response.json().get("accepted") is True:
-                    return
+                    return response.json()
                 if response.status_code < 500:
                     break
         except Exception:
@@ -500,6 +500,40 @@ def admission_payload(request, owner, start):
     digest = sha256(request.content).hexdigest()
     logical = json.dumps([owner["run_id"],start["callPurpose"],start["requestId"],digest],separators=(",",":"))
     return start | {"logicalCallId":logical,"serializedBody":serialized,"outputTokenLimit":caps[0]}
+
+def apply_admitted_dispatch(request, start, acknowledgement):
+    """Accept only the API's same-provider model/cap substitution, never new content or URL.
+
+    The API has already remeasured/reserved this exact body and persisted its selected start.
+    A malformed replacement fails before vendor dispatch; the hold is retained for recovery.
+    """
+    if acknowledgement is None or "dispatch" not in acknowledgement:
+        return request
+    try:
+        dispatch = acknowledgement["dispatch"]
+        if not isinstance(dispatch, dict) or set(dispatch) != {"modelId", "serializedBody", "outputTokenLimit"}:
+            raise ValueError()
+        cap = dispatch["outputTokenLimit"]
+        if type(cap) is not int or not 0 < cap <= 2147483647 or not isinstance(dispatch["modelId"], str) or not 0 < len(dispatch["modelId"]) <= 200:
+            raise ValueError()
+        encoded = dispatch["serializedBody"].encode("utf-8")
+        if len(encoded) > 2_000_000:
+            raise ValueError()
+        original, selected = json.loads(request.content), json.loads(encoded)
+        if not isinstance(selected, dict) or set(original) != set(selected) or selected.get("model") != dispatch["modelId"]:
+            raise ValueError()
+        caps = [name for name in ("max_tokens", "max_completion_tokens") if name in original]
+        if not caps or any(type(original[name]) is not int or type(selected[name]) is not int or selected[name] != cap or cap > original[name] for name in caps):
+            raise ValueError()
+        if json.dumps({name:original[name] for name in original if name not in {"model", *caps}},sort_keys=True,separators=(",", ":")) != json.dumps({name:selected[name] for name in selected if name not in {"model", *caps}},sort_keys=True,separators=(",", ":")):
+            raise ValueError()
+        headers = [(key, value) for key, value in request.headers.multi_items() if key.lower() != "content-length"]
+        selected_request = httpx.Request(request.method, request.url, headers=headers, content=encoded, extensions=request.extensions)
+        start["modelId"] = dispatch["modelId"]
+        return selected_request
+    except Exception:
+        raise RuntimeUsageError("admission_dispatch_binding_invalid") from None
+
 
 def terminal(start: dict, parser: UsageParser, success: bool):
     parser.finish()
@@ -636,7 +670,8 @@ class AccountingTransport(httpx.BaseTransport):
             except RuntimeUsageError:
                 break
         if admission_enabled():
-            post(owner,subject_id(owner),"admit",admission_payload(request,owner,start))
+            acknowledgement = post(owner,subject_id(owner),"admit",admission_payload(request,owner,start))
+            request = apply_admitted_dispatch(request,start,acknowledgement)
         else:
             post(owner,subject_id(owner),"start",start)
         intent_lock = journal.begin(owner,start)
@@ -675,7 +710,8 @@ class AsyncAccountingTransport(httpx.AsyncBaseTransport):
             except RuntimeUsageError:
                 break
         if admission_enabled():
-            await apost(owner,subject_id(owner),"admit",admission_payload(request,owner,start))
+            acknowledgement = await apost(owner,subject_id(owner),"admit",admission_payload(request,owner,start))
+            request = apply_admitted_dispatch(request,start,acknowledgement)
         else:
             await apost(owner,subject_id(owner),"start",start)
         intent_lock = journal.begin(owner,start)

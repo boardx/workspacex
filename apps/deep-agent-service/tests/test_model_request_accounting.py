@@ -716,3 +716,58 @@ def test_idle_old_delivery_ack_preserves_late_enrichment(context,monkeypatch):
     assert asyncio.run(a.replay_pending_batch(OWNER,journal))==1
     assert delivered[-1]["usage"]=={"total":7}
     assert journal.pending(OWNER)==[]
+
+@pytest.mark.parametrize("asynchronous", [False, True])
+def test_authorized_replacement_is_only_vendor_dispatch_and_journal_identity(context, monkeypatch, asynchronous):
+    calls,_=context
+    monkeypatch.setenv("DEEP_AGENT_MODEL_ADMISSION_ENABLED","1")
+    original={"model":"fixture-model","max_tokens":10,"messages":[{"role":"user","content":"unchanged"}]}
+    selected={**original,"model":"cheap-model","max_tokens":3}
+    paid,starts=[],[]
+    begin=a.Journal.begin
+    def record_start(journal,owner,start):
+        starts.append(dict(start))
+        return begin(journal,owner,start)
+    monkeypatch.setattr(a.Journal,"begin",record_start)
+    def callback(owner,run,phase,body):
+        calls.append((run,phase,dict(body)))
+        if phase=="admit":
+            assert json.loads(body["serializedBody"])==original
+            return {"accepted":True,"dispatch":{"modelId":"cheap-model","serializedBody":json.dumps(selected),"outputTokenLimit":3}}
+    async def acallback(*args):return callback(*args)
+    monkeypatch.setattr(a,"post",callback);monkeypatch.setattr(a,"apost",acallback)
+    def check(req):
+        assert calls[-1][1]=="admit"
+        assert str(req.url)=="http://vendor.example.test/v1/chat/completions"
+        assert req.headers["authorization"]=="Bearer fixture-only"
+        paid.append(json.loads(req.content))
+    def req():return httpx.Request("POST","http://vendor.example.test/v1/chat/completions",headers={"authorization":"Bearer fixture-only"},json=original)
+    if asynchronous:
+        async def vendor(r):
+            check(r)
+            class Bytes(httpx.AsyncByteStream):
+                async def __aiter__(self):yield b'{"usage":{"total_tokens":2}}'
+            return httpx.Response(200,headers={"content-type":"application/json"},stream=Bytes())
+        async def execute():
+            async with httpx.AsyncClient(transport=a.AsyncAccountingTransport(httpx.MockTransport(vendor))) as client:await client.send(req())
+        asyncio.run(execute())
+    else:
+        def vendor(r):
+            check(r);return response(b'{"usage":{"total_tokens":2}}')
+        with httpx.Client(transport=a.AccountingTransport(httpx.MockTransport(vendor))) as client:client.send(req())
+    assert paid==[selected]
+    assert [phase for _,phase,_ in calls]==["admit","terminal"]
+    assert starts[0]["modelId"]=="cheap-model"
+    assert starts[0]["requestId"]==calls[-1][2]["requestId"]
+
+@pytest.mark.parametrize("change", [{"messages":[]},{"max_tokens":True},{"max_tokens":11},{"new_field":1},{"temperature":True}])
+def test_replacement_cannot_change_content_types_or_increase_cap(context,monkeypatch,change):
+    monkeypatch.setenv("DEEP_AGENT_MODEL_ADMISSION_ENABLED","1")
+    original={"model":"fixture-model","max_tokens":10,"temperature":1,"messages":[{"role":"user","content":"unchanged"}]}
+    selected={**original,"model":"cheap-model","max_tokens":3,**change}
+    monkeypatch.setattr(a,"post",lambda *args:{"accepted":True,"dispatch":{"modelId":"cheap-model","serializedBody":json.dumps(selected),"outputTokenLimit":selected["max_tokens"]}})
+    paid=[]
+    with pytest.raises(a.RuntimeUsageError,match="admission_dispatch_binding_invalid"):
+        with httpx.Client(transport=a.AccountingTransport(httpx.MockTransport(lambda req:paid.append(req)))) as client:
+            client.send(httpx.Request("POST","http://vendor.example.test/v1/chat/completions",json=original))
+    assert paid==[]

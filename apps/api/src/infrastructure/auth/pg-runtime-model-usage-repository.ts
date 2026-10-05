@@ -10,7 +10,12 @@ import {priceAiTokens} from "../../domain/agent-run/ai-budget";
 import {preparePricedModelCall,type AiPricedCallDependencies} from "../../application/agent-run/admit-priced-model-call";
 import {PgAiAdmissionRepository} from "./pg-ai-admission-repository";
 import {PgTokenUsageRepository} from "./pg-token-usage-repository";
+import {AiQuotaPolicyError} from "../../application/agent-run/ai-quota-policy-error";
+import {isStrictlyCheaperAiModel} from "../../domain/agent-run/ai-member-token-policy";
+import type {AiModelSelection} from "../../application/agent-run/execute-priced-model-call";
 export interface RuntimeAiAdmissionOptions {
+ readonly verifyReplacementBinding?:(originalRuntimeModelId:string,targetRuntimeModelId:string)=>Promise<boolean>;
+ readonly selection?:(orgId:OrgId,runId:string,selection:AiModelSelection,scopedDb:DatabasePort)=>Promise<void>;
  readonly inputOnly?:InputOnlyRuntimeAdmissionOptions;
  readonly dependencies:(orgId:OrgId,scopedDb?:DatabasePort)=>Pick<AiPricedCallDependencies,"model"|"currentCandidates"|"measure">;
  readonly primaryModelId:(modelId:string)=>Promise<string>;
@@ -18,7 +23,7 @@ export interface RuntimeAiAdmissionOptions {
 }
 export class PgRuntimeModelUsageRepository implements RuntimeModelUsagePort {
  constructor(private readonly db:DatabasePort,private readonly usage:TokenUsageMeterPort,private readonly admission?:(AiAdmissionPort&AiReservedPricePort),private readonly runtimeAdmission?:RuntimeAiAdmissionOptions){}
-  async admitRuntimeRequest(orgId:OrgId,runId:string,input:Parameters<NonNullable<RuntimeModelUsagePort["admitRuntimeRequest"]>>[2]):Promise<void>{
+  async admitRuntimeRequest(orgId:OrgId,runId:string,input:Parameters<NonNullable<RuntimeModelUsagePort["admitRuntimeRequest"]>>[2]){
     if(!this.runtimeAdmission)throw new Error("RUNTIME_AI_ADMISSION_DISABLED");
     if("billingMode" in input)return this.admitInputOnlyRuntimeRequest(orgId,runId,input);
     const configured=this.runtimeAdmission;
@@ -28,7 +33,7 @@ export class PgRuntimeModelUsageRepository implements RuntimeModelUsagePort {
     if(!Number.isSafeInteger(input.outputTokenLimit)||input.outputTokenLimit<=0||input.outputTokenLimit>2147483647||body.model!==input.modelId||!caps.length||caps.some(value=>!Number.isSafeInteger(value)||value!==input.outputTokenLimit))throw new Error("AI_DISPATCH_BINDING_MISMATCH");
     const logicalCallId=JSON.stringify([runId,input.callPurpose,input.requestId,createHash("sha256").update(input.serializedBody).digest("hex")]);
     if(input.logicalCallId!==logicalCallId)throw new Error("AI_LOGICAL_CALL_IDENTITY_MISMATCH");
-    await withCommittedAiPolicyDecision(this.db,orgId,async s=>{
+    return withCommittedAiPolicyDecision(this.db,orgId,async s=>{
       const owner=await resolveRuntimeModelOwner(s,orgId,runId,input.leaseEpoch,input.attemptId,input.callPurpose);
       if(!owner)throw new RuntimeUsageOwnershipDenied();
       // One existing transaction: owner row locks, policy/window lock, reserve and durable start.
@@ -36,17 +41,54 @@ export class PgRuntimeModelUsageRepository implements RuntimeModelUsagePort {
         withoutTenant:async()=>{throw new RuntimeUsageOwnershipDenied();},close:async()=>{}};
       const budget=new PgAiAdmissionRepository(scoped),meter=new PgTokenUsageRepository(scoped);
       const facts=await configured.facts(orgId,owner,input.serializedBody,{runId,attemptId:input.attemptId,leaseEpoch:input.leaseEpoch},scoped),deps=configured.dependencies(orgId,scoped);
-      const prepared=await preparePricedModelCall({orgId,userId:owner.user_id,runId:owner.root_run_id,executionAttemptId:input.attemptId,executionLeaseEpoch:input.leaseEpoch,
-        logicalCallId,attempt:0,projectId:owner.project_id,threadId:owner.thread_id,agentId:owner.agent_id,
-        callPurpose:input.callPurpose,primaryModelId:await configured.primaryModelId(input.modelId),...facts},
-        {...deps,policy:budget,admission:budget,usage:meter});
-      if(prepared.modelId!==input.modelId||input.outputTokenLimit>prepared.outputTokenLimit!)throw new Error("AI_DISPATCH_BINDING_MISMATCH");
-      await prepared.beforeProviderDispatch!({requestId:input.requestId,modelProvider:prepared.modelProvider,modelId:input.modelId,
-        serializedBody:input.serializedBody,outputTokenLimit:input.outputTokenLimit});
-      // Shared accounting authority retains child/epoch metadata for late private terminal receipt.
-      await this.insertStart(s,orgId,{requestId:input.requestId,userId:owner.user_id,runId:owner.root_run_id,subtaskId:owner.subtask_id,
-        executionAttemptId:input.attemptId,executionLeaseEpoch:input.leaseEpoch,projectId:owner.project_id,threadId:owner.thread_id,
-        agentId:owner.agent_id,callPurpose:input.callPurpose,modelProvider:prepared.modelProvider,modelId:input.modelId,startedAt:input.startedAt});
+      const primaryModelId=await configured.primaryModelId(input.modelId);
+      const policy=await budget.resolveBudgetPolicy(orgId,owner.user_id);
+      if(policy.decision!=="configured")throw new Error(policy.decision);
+      const ids=[primaryModelId,...policy.configuration.fallbackModelIds.filter(id=>id!==primaryModelId)];
+      let degradeTarget:string|undefined,degradeRequired=false;
+      for(let attempt=0;attempt<policy.configuration.maxAttempts;attempt++){
+        const formalId=ids[attempt];
+        if(attempt>0&&(!formalId||facts.confidentiality!=="non-confidential"||!degradeRequired
+          ||degradeTarget&&formalId!==degradeTarget||!isStrictlyCheaperAiModel(policy.configuration,primaryModelId,formalId)))continue;
+        const price=policy.configuration.prices.find(row=>row.modelId===formalId);
+        if(!price||!("maxOutputTokens" in price))throw new Error("AI_MODEL_UNAVAILABLE");
+        // A private SDK connection cannot silently change provider credentials or host.
+        if(attempt>0&&price.modelProvider!==policy.configuration.prices.find(row=>row.modelId===primaryModelId)?.modelProvider)continue;
+        if(attempt>0&&(!configured.verifyReplacementBinding||!await configured.verifyReplacementBinding(input.modelId,price.runtimeModelId)))throw new Error("AI_PRIVATE_REPLACEMENT_BINDING_UNVERIFIED");
+        const selectedBody=attempt===0?input.serializedBody:JSON.stringify({...body,model:price.runtimeModelId,
+          ...(body.max_tokens!==undefined?{max_tokens:Math.min(input.outputTokenLimit,price.maxOutputTokens)}:{}),
+          ...(body.max_completion_tokens!==undefined?{max_completion_tokens:Math.min(input.outputTokenLimit,price.maxOutputTokens)}:{})});
+        const outputTokenLimit=attempt===0?input.outputTokenLimit:Math.min(input.outputTokenLimit,price.maxOutputTokens);
+        let selectionDelivered=false;
+        const selection:AiModelSelection={logicalCallId,logicalAttempt:attempt,modelId:formalId!,modelProvider:price.modelProvider,
+          runtimeModelId:price.runtimeModelId,fallbackUsed:attempt>0};
+        const disclose=async()=>{
+          if(attempt===0||selectionDelivered)return;
+          if(!configured.selection)throw new Error("AI_WARNING_DELIVERY_UNAVAILABLE");
+          await configured.selection(orgId,owner.root_run_id,{...selection,notice:"quota-degradation"},scoped);selectionDelivered=true;
+        };
+        const prepared=await preparePricedModelCall({orgId,userId:owner.user_id,runId:owner.root_run_id,executionAttemptId:input.attemptId,executionLeaseEpoch:input.leaseEpoch,
+          logicalCallId,attempt,...(attempt===0?{}:{candidateDecisionSlot:attempt}),projectId:owner.project_id,threadId:owner.thread_id,agentId:owner.agent_id,callPurpose:input.callPurpose,primaryModelId,...facts},
+          {...deps,policy:budget,admission:budget,usage:meter,onTokenWarning:configured.selection?async()=>{
+            await disclose();await configured.selection!(orgId,owner.root_run_id,{...selection,notice:"token-warning"},scoped);
+          }:undefined});
+        if(prepared.modelId!==price.runtimeModelId||outputTokenLimit>prepared.outputTokenLimit!)throw new Error("AI_DISPATCH_BINDING_MISMATCH");
+        try{
+          await prepared.beforeProviderDispatch!({requestId:input.requestId,modelProvider:prepared.modelProvider,modelId:price.runtimeModelId,
+            serializedBody:selectedBody,outputTokenLimit});
+        }catch(error){
+          if(error instanceof AiQuotaPolicyError&&error.decision==="AI_TOKEN_DEGRADE_REQUIRED"&&facts.confidentiality==="non-confidential"){
+            degradeRequired=true;degradeTarget=error.degradeToModelId;continue;
+          }
+          throw error;
+        }
+        await disclose();
+        await this.insertStart(s,orgId,{requestId:input.requestId,userId:owner.user_id,runId:owner.root_run_id,subtaskId:owner.subtask_id,
+          executionAttemptId:input.attemptId,executionLeaseEpoch:input.leaseEpoch,projectId:owner.project_id,threadId:owner.thread_id,
+          agentId:owner.agent_id,callPurpose:input.callPurpose,modelProvider:prepared.modelProvider,modelId:price.runtimeModelId,startedAt:input.startedAt});
+        return attempt===0?undefined:{modelId:price.runtimeModelId,serializedBody:selectedBody,outputTokenLimit};
+      }
+      throw new AiQuotaPolicyError("AI_TOKEN_DEGRADE_REQUIRED",degradeTarget);
     });
   }
   private async admitInputOnlyRuntimeRequest(orgId:OrgId,runId:string,input:Extract<Parameters<NonNullable<RuntimeModelUsagePort["admitRuntimeRequest"]>>[2],{billingMode:"input-only"}>):Promise<void>{
@@ -60,9 +102,11 @@ export class PgRuntimeModelUsageRepository implements RuntimeModelUsagePort {
       const scoped:DatabasePort={withTenant:async(tenant,work)=>{if(tenant!==orgId)throw new RuntimeUsageOwnershipDenied();return work(s);},withoutTenant:async()=>{throw new RuntimeUsageOwnershipDenied();},close:async()=>{}};
       const budget=new PgAiAdmissionRepository(scoped);
       const facts=await this.runtimeAdmission!.facts(orgId,owner,input.serializedBody,{runId,attemptId:input.attemptId,leaseEpoch:input.leaseEpoch},scoped);
+      const primaryModelId=await configured.primaryModelId(input.modelId);
       const decision=await admitPricedInputOnlyCall({orgId,userId:owner.user_id,agentId:owner.agent_id,logicalCallId,attempt:0,
-       primaryModelId:await configured.primaryModelId(input.modelId),...facts},
-       {...input,modelProvider:configured.provider},{...configured.dependencies(orgId,scoped),policy:budget,admission:budget});
+       primaryModelId,...facts},
+       {...input,modelProvider:configured.provider},{...configured.dependencies(orgId,scoped),policy:budget,admission:budget,onTokenWarning:this.runtimeAdmission!.selection?()=>this.runtimeAdmission!.selection!(orgId,owner.root_run_id,
+         {logicalCallId,logicalAttempt:0,modelId:primaryModelId,modelProvider:configured.provider,runtimeModelId:input.modelId,fallbackUsed:false,notice:"token-warning"},scoped):undefined});
       await this.insertStart(s,orgId,{requestId:input.requestId,userId:owner.user_id,runId:owner.root_run_id,subtaskId:owner.subtask_id,
        executionAttemptId:input.attemptId,executionLeaseEpoch:input.leaseEpoch,projectId:owner.project_id,threadId:owner.thread_id,
        agentId:owner.agent_id,callPurpose:input.callPurpose,modelProvider:decision.modelProvider,modelId:decision.runtimeModelId,startedAt:input.startedAt});

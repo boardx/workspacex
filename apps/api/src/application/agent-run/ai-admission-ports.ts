@@ -10,6 +10,8 @@ export interface AiBudgetPolicyPort {
 }
 export interface AiReservationInput {
  readonly requestId: string; readonly userId: string;
+ /** Trusted pre-dispatch candidate slot; physical reservation identity remains requestId. */
+ readonly candidateDecisionSlot?:number;
  readonly formalModelId?:string;readonly agentId?:string|null;
  /** Original trusted classification and formal model IDs, verified against immutable policy. */
  readonly tokenPolicy?:{readonly primaryModelId:string;readonly selectedModelId:string;readonly allowDegradation:boolean};

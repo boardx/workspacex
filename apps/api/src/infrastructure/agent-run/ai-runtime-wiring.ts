@@ -30,7 +30,7 @@ export interface AiQuotaRuntimeConfiguration {
  /** Optional legacy CP fragment evidence; never authoritative whole-input classification. */
  readonly contextBindings?:AiContextPackBindingPort;
  readonly privateRuntimeProvider:string;
- readonly selection:(orgId:OrgId,runId:string,selection:AiModelSelection)=>Promise<void>;
+ readonly selection:(orgId:OrgId,runId:string,selection:AiModelSelection,scopedDb?:DatabasePort)=>Promise<void>;
 }
 export const AI_QUOTA_RUNTIME_CONFIGURATION=Symbol("AiQuotaRuntimeConfiguration");
 export const AI_QUOTA_RUNTIME_WIRING=Symbol("AiQuotaRuntimeWiring");
@@ -65,7 +65,7 @@ export function createAiQuotaRuntimeWiring(enabled:boolean,configuration:AiQuota
   facts:(orgId,run,input)=>{const subject:WholeInputSubject={orgId,userId:run.requesterUserId,rootRunId:run.runId,runId:run.runId,attemptId:input.executionAttemptId??"",leaseEpoch:input.executionLeaseEpoch??0,origin:"root-model-input"};return facts(subject,JSON.stringify(input),undefined,readRootAssembly(input,subject));},
   dependencies:orgId=>({...boundaries(orgId),policy:budget,admission:budget,usage:deps.usage}),
   selection:(orgId,run,selection)=>configuration.selection(orgId,run.runId,selection)},
-  runtime:{inputOnly,primaryModelId:modelId=>registry.formalModelId(configuration.privateRuntimeProvider,modelId),dependencies:boundaries,
+  runtime:{inputOnly,verifyReplacementBinding:(original,target)=>registry.samePrivateConnection(configuration.privateRuntimeProvider,original,target),selection:configuration.selection,primaryModelId:modelId=>registry.formalModelId(configuration.privateRuntimeProvider,modelId),dependencies:boundaries,
    facts:async(orgId,owner,serializedInput,identity,scopedDb)=>{
     if(identity.runId!==(owner.subtask_id??owner.root_run_id))throw new Error("AI_WHOLE_INPUT_SUBJECT_INVALID");
     const childEvidence=owner.subtask_id?await readPrivateChildSources(scopedDb??deps.db,{orgId,userId:owner.user_id,rootRunId:owner.root_run_id,runId:identity.runId,attemptId:identity.attemptId,leaseEpoch:identity.leaseEpoch},serializedInput):null;
