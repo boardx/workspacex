@@ -1,7 +1,7 @@
-import type { GuidedResearchVisualStage } from "./guided-research-six-step";
+import { canonicalResearchStage, type GuidedResearchVisualStage } from "./guided-research-six-step";
 
 export function guidedResearchRoute(sessionId: string, stage: GuidedResearchVisualStage): string {
-  return `/research/${encodeURIComponent(sessionId)}/${stage}`;
+  return `/research/${encodeURIComponent(sessionId)}/${canonicalResearchStage(stage)}`;
 }
 
 export const RESEARCH_STAGE_NODES = {

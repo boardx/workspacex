@@ -121,9 +121,9 @@ describe("F168 guided research home live data", () => {
     render(<GuidedResearchFlow step="home" onStepChange={onStepChange} />);
 
     const card = await screen.findByTestId("research-history-grs-outline");
-    expect(card).toHaveTextContent("研究大纲");
-    expect(card).toHaveTextContent("第 3 / 6 步");
-    fireEvent.click(screen.getByRole("button", { name: "审阅研究大纲" }));
+    expect(card).toHaveTextContent("研究计划");
+    expect(card).toHaveTextContent("第 2 / 3 步");
+    fireEvent.click(screen.getByRole("button", { name: "查看研究计划" }));
     expect(onStepChange).toHaveBeenCalledWith("outline", "grs-outline");
   });
 
@@ -143,7 +143,7 @@ describe("F168 guided research home live data", () => {
     expect(card).toHaveTextContent("证据缺口");
     expect(card).toHaveTextContent("报告阶段尚无可用来源");
     expect(card).not.toHaveTextContent("90%");
-    expect(screen.getByRole("button", { name: "审阅研究报告" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "查看研究报告" })).toBeInTheDocument();
   });
 
   it("does not flag a fresh researching run with zero sources as an evidence gap", async () => {
@@ -176,7 +176,7 @@ describe("F168 guided research home live data", () => {
     expect(await screen.findByTestId("research-home-summary")).toHaveTextContent("进行中2");
     expect(screen.getByTestId("research-home-summary")).toHaveTextContent("需要处理1");
     expect(screen.getByTestId("research-home-summary")).toHaveTextContent("已完成1");
-    expect(screen.getByTestId("research-stage-grs-complete")).toHaveTextContent("第 6 / 6 步");
+    expect(screen.getByTestId("research-stage-grs-complete")).toHaveTextContent("第 3 / 3 步");
   });
 
   it("uses the status summary to filter the library and composes it with search", async () => {
@@ -251,7 +251,7 @@ describe("F168 guided research home live data", () => {
     render(<GuidedResearchFlow step="home" onStepChange={onStepChange} />);
 
     await screen.findByTestId("research-history-grs-report-active");
-    expect(screen.getByTestId("research-stage-grs-report-active")).toHaveTextContent("研究报告");
+    expect(screen.getByTestId("research-stage-grs-report-active")).toHaveTextContent("生成报告");
     fireEvent.click(screen.getByTestId("research-continue-grs-report-active"));
     expect(onStepChange).toHaveBeenCalledWith("report", "grs-report-active");
   });
@@ -284,7 +284,7 @@ describe("F168 guided research home live data", () => {
       idempotencyKey: expect.any(String),
       brief: expect.objectContaining({ topic: "新的研究主题" }),
     }));
-    await waitFor(() => expect(onStepChange).toHaveBeenCalledWith("directions", "grs-new"));
+    await waitFor(() => expect(onStepChange).toHaveBeenCalledWith("outline", "grs-new"));
   });
 
   it("confirms the initial brief once and keeps the next step loading until the model response", async () => {
@@ -295,17 +295,17 @@ describe("F168 guided research home live data", () => {
     render(<GuidedResearchFlow step="brief" />);
     fireEvent.change(screen.getByTestId("research-brief-goal"), { target: { value: "核对具体政策" } });
     fireEvent.click(screen.getByTestId("research-confirm-brief"));
-    expect(screen.getByTestId("research-step-loading")).toHaveTextContent("正在解析研究主题");
-    expect(screen.getByTestId("research-step-topic")).toHaveAttribute("aria-current", "step");
-    expect(screen.getByTestId("research-step-topic")).toHaveAttribute("aria-disabled", "true");
+    expect(screen.getByText("正在分析研究需求…")).toBeInTheDocument();
+    expect(screen.getByTestId("research-step-plan")).toHaveAttribute("aria-current", "step");
+    expect(screen.getByTestId("research-step-plan")).toHaveAttribute("aria-disabled", "true");
     await waitFor(() => expect(executeResearchRuntime).toHaveBeenCalledTimes(1));
     expect(vi.mocked(executeResearchRuntime).mock.calls.map(([input]) => input)).toContainEqual(expect.objectContaining({
-      sessionId: "grs-entry", node: "brief", action: "confirm", expectedVersion: 0,
+      sessionId: "grs-entry", node: "brief", action: "prepare_plan", expectedVersion: 0,
       draft: { node: "brief", value: expect.objectContaining({ goal: "核对具体政策" }) },
     }));
-    expect(window.location.pathname).toBe("/research/grs-entry/topic");
-    resolve(runtimeFixture("directions", "grs-entry"));
-    await screen.findByRole("textbox", { name: "研究主题" });
+    expect(window.location.pathname).toBe("/research/grs-entry/plan");
+    resolve(runtimeFixture("outline", "grs-entry"));
+    await screen.findByTestId("guided-research-plan-panel");
   });
 
   it("opens the progressed session from an idempotent create replay without another confirmation", async () => {
@@ -327,7 +327,7 @@ describe("F168 guided research home live data", () => {
     render(<GuidedResearchFlow step="brief" />);
     fireEvent.click(screen.getByTestId("research-confirm-brief"));
     await screen.findByRole("alert");
-    expect(window.location.pathname).toBe("/research/grs-lost/topic");
+    expect(window.location.pathname).toBe("/research/grs-lost/plan");
     expect(createGuidedResearchSession).toHaveBeenCalledTimes(1);
     expect(executeResearchRuntime).toHaveBeenCalledTimes(1);
     expect(getResearchRuntime).toHaveBeenCalledTimes(3);
@@ -339,7 +339,7 @@ describe("F168 guided research home live data", () => {
     const navigate = vi.fn();
     render(<GuidedResearchFlow step="brief" onStepChange={navigate} />);
     fireEvent.click(screen.getByTestId("research-confirm-brief"));
-    await waitFor(() => expect(navigate).toHaveBeenCalledWith("directions", "grs-offline"));
+    await waitFor(() => expect(navigate).toHaveBeenCalledWith("outline", "grs-offline"));
     expect(createGuidedResearchSession).toHaveBeenCalledTimes(1);
     expect(executeResearchRuntime).not.toHaveBeenCalled();
   });
@@ -395,7 +395,7 @@ describe("F168 guided research home live data", () => {
 
     await waitFor(() => expect(createGuidedResearchSession).toHaveBeenCalledTimes(2));
     expect(createGuidedResearchSession.mock.calls[1]![0].idempotencyKey).toBe(firstKey);
-    await waitFor(() => expect(onStepChange).toHaveBeenCalledWith("directions", "grs-replayed"));
+    await waitFor(() => expect(onStepChange).toHaveBeenCalledWith("outline", "grs-replayed"));
     expect(Object.values(window.localStorage).some((value) => value.includes(firstKey))).toBe(false);
   });
 

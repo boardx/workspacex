@@ -11,7 +11,7 @@ import type { GuidedResearchRuntime } from "@/lib/guided-research-api";
 type Outline = GuidedResearchRuntime["outline"];
 export function ResearchChaptersWorkspace({ runtime, disabled, onSave, onNext, onBack, onDirtyChange }: {
   runtime: GuidedResearchRuntime; disabled: boolean; onSave: (value: Outline) => void;
-  onOptimize: (value: Outline) => void; onNext: () => void; onBack?: () => void; onDirtyChange?: (dirty: boolean) => void;
+  onOptimize: (value: Outline) => void; onNext?: () => void; onBack?: () => void; onDirtyChange?: (dirty: boolean) => void;
 }) {
   const [chapters, setChapters] = React.useState(runtime.outline);
   const [selectedId, setSelectedId] = React.useState(runtime.outline.find((chapter) => chapter.enabled)?.id);
@@ -68,6 +68,6 @@ export function ResearchChaptersWorkspace({ runtime, disabled, onSave, onNext, o
         <Button variant="outline" disabled={disabled || (selected.subsections?.length ?? 0) >= 8} onClick={() => patch({ subsections: [...(selected.subsections ?? []), { id: crypto.randomUUID(), title: "新小章节", questions: researchQuestionsForTitle("新小章节") }] })}><Plus className="mr-2 size-4" />新增小章节</Button>
       </article>}
     </div>
-    <div className="flex flex-wrap justify-end gap-3">{changed && <Button variant="primary" disabled={disabled || !valid} onClick={() => onSave(prepareResearchOutline(chapters, runtime.outline))}>保存章节结构</Button>}{onBack && <Button variant="outline" disabled={disabled || changed} onClick={onBack}>上一步</Button>}<Button variant="primary" disabled={disabled || changed} onClick={onNext}>下一步：生成报告</Button></div>
+    <div className="flex flex-wrap justify-end gap-3">{changed && <Button variant="primary" disabled={disabled || !valid} onClick={() => onSave(prepareResearchOutline(chapters, runtime.outline))}>保存章节结构</Button>}{onBack && <Button variant="outline" disabled={disabled || changed} onClick={onBack}>上一步</Button>}{onNext && <Button variant="primary" disabled={disabled || changed} onClick={onNext}>下一步：生成报告</Button>}</div>
   </section>;
 }

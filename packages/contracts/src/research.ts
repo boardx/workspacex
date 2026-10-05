@@ -1056,6 +1056,8 @@ export const GuidedResearchRuntime = z.object({
   tasks: z.array(GuidedResearchTask), sources: z.array(GuidedResearchSource), report: GuidedResearchReport.nullable(),
   reportStream: z.object({ requestId: z.string().min(1), sequence: z.number().int().nonnegative(), text: z.string().max(1048576), status: z.enum(["streaming", "failed"]) }).strict().nullable().optional(),
   researchPlan: GuidedResearchPlanDescription.nullable().optional(),
+  // Durable composite intent; absence preserves legacy single-node execution.
+  executionGoal: z.enum(["plan", "report"]).optional(),
   progress: z.object({ stage: z.enum(["planning", "searching", "organizing", "writing", "reviewing", "synthesizing"]), completed: z.number().int().nonnegative(), total: z.number().int().nonnegative(), sectionId: z.string().optional() }).strict().nullable().optional(),
   reportCheckpoint: z.object({ basis: z.string().min(1), instruction: z.string().max(10000).optional(), chapters: GuidedResearchReport.shape.sections.min(0) }).strict().nullable().optional(),
   reportSourceAliases: z.array(z.object({ alias: z.string().min(1), sourceId: z.string().min(1) }).strict()).optional(),
@@ -1099,7 +1101,7 @@ export const GuidedResearchRuntimePatch = z.object({
 }).strict();
 export const GuidedResearchRuntimeCommand = z.object({
   sessionId: z.string().min(1), node: ResearchNode,
-  action: z.enum(["save", "save_chapters", "generate", "confirm", "start", "retry", "complete", "message", "apply", "add_source", "remove_source", "pause", "resume", "refine_scope", "refine_source_policy", "resolve_conflict"]),
+  action: z.enum(["save", "save_chapters", "generate", "confirm", "start", "retry", "complete", "message", "apply", "add_source", "remove_source", "pause", "resume", "refine_scope", "refine_source_policy", "resolve_conflict", "prepare_plan", "generate_report"]),
   requestId: z.string().min(1).max(200), expectedVersion: z.number().int().nonnegative(),
   knownFields: GuidedResearchRuntimeKnownFields.optional(),
   expectedRevision: z.number().int().nonnegative().optional(), idempotencyKey: z.string().min(1).max(200).optional(),
@@ -1117,7 +1119,15 @@ export const GuidedResearchRuntimeCommand = z.object({
   conflictResolutionAction: z.enum(["retain_uncertainty", "prefer_source"]).optional(),
   conflictResolution: z.string().trim().min(1).max(2000).optional(),
   allowPartialResearch: z.boolean().optional(),
-}).strict().refine((command) => command.action !== "save_chapters" || (command.node === "outline" && command.draft?.node === "outline" && !command.message && !command.proposalId), "chapter saves require an explicit outline draft").refine((command) => command.allowPartialResearch === undefined || (command.node === "research" && ["confirm", "complete"].includes(command.action)), "partial research requires explicit research completion").refine((command) => !command.draft || command.node === command.draft.node, "draft must target the requested node")
+}).strict().refine((command) => {
+  if (!["prepare_plan", "generate_report"].includes(command.action)) return true;
+  const positions = command.action === "prepare_plan" ? ["brief", "directions"] : ["outline", "research", "report"];
+  return positions.includes(command.node) && (command.action !== "generate_report" || !command.draft || command.node === "outline")
+    && [command.message, command.proposalId, command.allowPartialResearch, command.sourceUrl, command.sourceId,
+      command.conflictId, command.conflictResolution, command.conflictResolutionAction, command.expectedRevision,
+      command.idempotencyKey, command.intent, command.sourcePolicy].every(value => value === undefined);
+}, "composite execution requires an authorized stage and explicit same-stage draft, without partial or steering overrides")
+.refine((command) => command.action !== "save_chapters" || (command.node === "outline" && command.draft?.node === "outline" && !command.message && !command.proposalId), "chapter saves require an explicit outline draft").refine((command) => command.allowPartialResearch === undefined || (command.node === "research" && ["confirm", "complete"].includes(command.action)), "partial research requires explicit research completion").refine((command) => !command.draft || command.node === command.draft.node, "draft must target the requested node")
   .refine((command) => !["pause", "resume", "refine_scope", "refine_source_policy", "resolve_conflict"].includes(command.action)
     || ((command.action === "refine_scope" ? ["outline", "research"].includes(command.node) : ["pause", "resume"].includes(command.action) ? ["research", "report"].includes(command.node) : command.node === "research")
       && command.expectedRevision !== undefined && Boolean(command.idempotencyKey)), "steering commands require an editable plan node, expected revision and idempotency key")
@@ -1135,7 +1145,7 @@ export const GuidedResearchRuntimeCommand = z.object({
 // Progress responses never include source excerpts, messages, history or whole report bodies.
 export const GuidedResearchRuntimeProgress = GuidedResearchRuntime.pick({
   sessionId: true, version: true, revision: true, currentNode: true, availableNodes: true,
-  busy: true, leaseUntil: true, errorCode: true, completed: true, progress: true,
+  busy: true, leaseUntil: true, errorCode: true, completed: true, progress: true, executionGoal: true,
   reportTimeline: true, reportPartial: true, reportSourceAliases: true, reportQualityWarnings: true,
   planRevision: true, sourcePolicy: true, controlStatus: true, activity: true, coverage: true, conflicts: true,
   qualityScore: true, publicationReadiness: true,

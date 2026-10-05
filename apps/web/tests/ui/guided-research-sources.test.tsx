@@ -47,7 +47,7 @@ describe("compact research sources", () => {
     await waitFor(() => expect(screen.queryByLabelText("来源链接")).not.toBeInTheDocument());
     expect(add).toHaveBeenCalledTimes(2);
   });
-  it("shows legacy search URLs but no manual add control, and keeps pending sources on completion", async () => {
+  it("shows legacy search URLs without manual add and submits combined execution without silently accepting pending sources", async () => {
     vi.mocked(executeResearchRuntime).mockReset();
     const state = runtimeFixture("research"); state.sources[0]!.decision = "pending";
     vi.mocked(getResearchRuntime).mockResolvedValue(state);
@@ -55,7 +55,8 @@ describe("compact research sources", () => {
     render(<GuidedResearchLive sessionId={state.sessionId} onBack={vi.fn()} />);
     expect(await screen.findByTestId(`research-source-description-${source.id}`)).toHaveAttribute("href", source.url);
     expect(screen.queryByRole("button", { name: "添加来源" })).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "确认并继续" }));
-    await waitFor(() => expect(vi.mocked(executeResearchRuntime).mock.calls.at(-1)?.[0]).toEqual(expect.objectContaining({ action: "save", expectedVersion: state.version, draft: { node: "research", value: [{ id: source.id, decision: "accepted" }] } })));
+    fireEvent.click(screen.getByTestId("research-report-primary-action"));
+    await waitFor(() => expect(vi.mocked(executeResearchRuntime).mock.calls.at(-1)?.[0]).toEqual(expect.objectContaining({ action: "generate_report", expectedVersion: state.version })));
+    expect(vi.mocked(executeResearchRuntime).mock.calls.at(-1)?.[0]).not.toHaveProperty("draft");
   });
 });

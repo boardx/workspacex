@@ -42,10 +42,10 @@ describe("continuous generation timeline", () => {
   it("restores real retries and warnings without empty report cards or replaying commands", async () => {
     vi.mocked(getResearchRuntime).mockResolvedValue({ ...base, report: null, busy: true, leaseUntil: "2099-01-01T00:00:00Z", reportStream: { requestId: "r", sequence: 0, status: "streaming", text: "" }, reportTimeline: [{ id: "e", stage: "evidence", status: "warning", attempts: 2, completed: 2, total: 2 }, { id: "c", stage: "chapter", sectionId: "o1", status: "retrying", attempts: 2 }, { id: "v", stage: "validation", status: "pending", attempts: 0 }] });
     render(<GuidedResearchLive sessionId={base.sessionId} onBack={vi.fn()} />);
-    const timeline = await screen.findByTestId("research-report-timeline");
-    expect(timeline).toHaveTextContent("存在证据缺口");
+    const timeline = await screen.findByTestId("research-execution-timeline");
+    expect(screen.getByTestId("execution-chapters")).toHaveTextContent("执行中");
     expect(timeline).not.toHaveTextContent(/次尝试|需要完善|批次/);
-    expect(timeline.querySelectorAll("[aria-busy=true]")).toHaveLength(1);
+    expect(screen.getByTestId("execution-validation")).toHaveTextContent("待执行");
     expect(timeline).not.toHaveTextContent("等待处理");
     expect(screen.queryByTestId("research-report-preview")).not.toBeInTheDocument();
     expect(screen.queryByTestId("research-runtime-progress")).not.toBeInTheDocument();

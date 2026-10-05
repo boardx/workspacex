@@ -182,3 +182,40 @@ it("keeps non-outline ordinary commands on their existing full-or-fingerprint re
   const patch = C.GuidedResearchRuntimePatch.parse(await controller.executeRuntime({ userId: "u", orgId: "org" as never }, "s", { ...command, knownFields: fingerprints() }, {} as never));
   expect(patch.changes).toEqual({ busy: true }); expect(patch.removed).toEqual([]);
 });
+
+it("projects durable composite intent and real steering controls in progress without fingerprint hints", async () => {
+  const { runtimeProgress } = await import("../../src/interface/controllers/guided-research-progress");
+  const { applyResearchSteering } = await import("../../src/application/research/guided-runtime-service");
+  const current = structuredClone({ ...state, executionGoal: "report" as const });
+  applyResearchSteering(current, C.GuidedResearchRuntimeCommand.parse({ sessionId: "s", requestId: "pause", expectedVersion: 2, expectedRevision: 0, idempotencyKey: "pause-progress", node: "research", action: "pause" }));
+  const progress = C.GuidedResearchRuntimeProgress.parse(runtimeProgress(current));
+  expect(progress.executionGoal).toBe("report"); expect(progress.controlStatus).toBe("paused");
+  expect(progress.planRevision).toBe(1); expect(progress.activity).toEqual(current.activity);
+  expect(progress.activity?.some(event => event.id === "pause-progress")).toBe(true);
+  expect(JSON.stringify(progress)).not.toContain("历史内容");
+});
+
+it("keeps actual composite steering activity in compact plan responses", async () => {
+  const { runtimePlanStagePatch } = await import("../../src/interface/controllers/guided-research-delta");
+  const { applyResearchSteering } = await import("../../src/application/research/guided-runtime-service");
+  const current = structuredClone({ ...state, executionGoal: "report" as const });
+  applyResearchSteering(current, C.GuidedResearchRuntimeCommand.parse({ sessionId: "s", requestId: "pause", expectedVersion: 2, expectedRevision: 0, idempotencyKey: "pause-plan", node: "research", action: "pause" }));
+  const patch = C.GuidedResearchRuntimePatch.parse(runtimePlanStagePatch(current));
+  expect(patch.changes).toMatchObject({ executionGoal: "report", controlStatus: "paused", planRevision: 1 });
+  expect(patch.changes.activity).toEqual(current.activity);
+  expect(JSON.stringify(patch)).not.toContain("历史内容");
+});
+
+it("removes a cleared optional execution goal from both compact plan and fingerprint baselines", async () => {
+  const { runtimePlanStagePatch } = await import("../../src/interface/controllers/guided-research-delta");
+  const known = { ...fingerprints(), executionGoal: fieldFingerprint("report") };
+  const delta = runtimeDelta(state, known), plan = runtimePlanStagePatch(state);
+  expect(delta.removed).toContain("executionGoal"); expect(plan.removed).toContain("executionGoal");
+  for (const patch of [delta, plan]) {
+    const baseline: Record<string, unknown> = { ...state, executionGoal: "report" };
+    Object.assign(baseline, patch.changes); for (const key of patch.removed) delete baseline[key];
+    expect(C.GuidedResearchRuntime.parse(baseline).executionGoal).toBeUndefined();
+    expect(C.GuidedResearchRuntime.parse(baseline).messages).toEqual(state.messages);
+  }
+  rememberRuntimeDelta(known, delta); expect(runtimeDelta(state, known).removed).not.toContain("executionGoal");
+});
