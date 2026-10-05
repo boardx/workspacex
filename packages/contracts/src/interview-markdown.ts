@@ -343,3 +343,22 @@ export function parseInterviewReportAssertions(markdown: string, options: {group
   visit(parser.parse(markdown) as MarkdownNode);
   return assertions;
 }
+
+/** First data row of a top-level table immediately after a plain paragraph.
+ * Code, quotes, headings and intervening blocks cannot supply paragraph context. */
+export function parseInterviewReportAdjacentTableRows(markdown: string, paragraph: string): readonly string[] {
+  const nodes = (parser.parse(markdown) as MarkdownNode).children ?? [];
+  const rows: string[] = [];
+  for (let i = 0; i < nodes.length - 1; i++) {
+    const node = nodes[i]!;
+    const table = nodes[i + 1]!;
+    if (node.type !== "paragraph" || !node.children?.every(child => child.type === "text")
+      || plainText(node).normalize("NFKC").trim() !== paragraph || table.type !== "table") continue;
+    const start = table.position?.start.offset;
+    const end = table.position?.end.offset;
+    if (start === undefined || end === undefined) continue;
+    const row = parseInterviewReportAssertions(markdown.slice(start, end), {groupTableRows:true})[1];
+    if (row) rows.push(row.text.normalize("NFKC"));
+  }
+  return rows;
+}

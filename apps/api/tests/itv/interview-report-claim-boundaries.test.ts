@@ -192,6 +192,8 @@ describe('local planned measurement interpretation', () => {
  it.each([
   '不兼容项为零仅支持本次检测未发现冲突。',
   plannedRow,
+  '```markdown\n'+plannedIntro+'\n'+plannedTable+'\n```\n## 已执行的检测结果\n'+plannedTable,
+  '> '+plannedIntro+'\n\n'+plannedTable,
   plannedIntro+'\n## 已执行的检测结果\n'+plannedTable,
   plannedIntro+'\n'+plannedTable+'\n## 检测结果\n'+plannedTable,
   plannedIntro+'\n## 已执行的检测结果\n'+plannedRow,

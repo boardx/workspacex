@@ -74,16 +74,7 @@ export function assessReportClaimBoundaries(markdown: string, index: readonly Re
   // Only a plain future-plan introduction and the immediately following method row
   // qualify this finite interpretation. Headings and arbitrary plan wrappers do not.
   const intro = "以下建议均为待验证的行动方案,需在获取真人证据后方可执行:";
-  const lines = markdown.normalize("NFKC").split("\n");
-  const plannedRows = new Set<string>();
-  for (let i = 0; i < lines.length; i++) {
-    if (lines[i]!.trim() !== intro) continue;
-    const next = lines.slice(i + 1, i + 7).filter(line => line.trim());
-    // Require the immediately adjacent table, not a heading or another paragraph.
-    if (!/^\s*\|/u.test(next[0] ?? "") || !/^\s*\|[\s:|-]+\|\s*$/u.test(next[1] ?? "")) continue;
-    for (const row of interviewMarkdown.parseInterviewReportAssertions(next.slice(0,3).join("\n"), {groupTableRows:true}).slice(-1))
-      plannedRows.add(row.text.normalize("NFKC"));
-  }
+  const plannedRows = new Set(interviewMarkdown.parseInterviewReportAdjacentTableRows(markdown, intro));
   const assertions = interviewMarkdown.parseInterviewReportAssertions(markdown, {groupTableRows:true});
   for (const assertion of assertions) {
     const local = assertion.text.normalize("NFKC");
