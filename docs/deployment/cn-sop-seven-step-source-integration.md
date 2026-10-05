@@ -53,3 +53,7 @@ completion 统一落盘现有 21 字段 `validated-production-migration-completi
 本轮定向验证：Linux 实际身份与进程 67/67、快照/模板真实发布/验收消费者 46/46、stage dispatcher 9/9、安装包预检查 3/3 通过，typecheck/lint 通过，独立源码审查接受。首次 Mac 全套测试尚非通过：Linux /proc 接口缺失、回环监听 sandbox EPERM 和复用依赖软链接布局失败分别记录；现有 Linux 测试镜像缺 git，不能用它替代 Git 相关完整测试。完整 exact-head CI 仍是合入前门禁，不以定向结果宣称全绿。
 
 本次只有源码修复授权；主机安装、仓库创建、删除、replay、数据库迁移和生产切流均未执行。
+
+完整 Mac 标准命令按原配置复跑：55 files 中 53 通过，594 tests 中 591 通过、3 失败、0 skipped；TLS 23 项通过、依赖路径与 Git 临时目录问题已消失。剩余失败均需 Linux `/proc/self/fd`、`/proc/PID/stat`、`prctl` 或真实 Linux parent-child 协议。67 项独立 Linux 实测通过；完整 Linux CI 仍待远端精确 head 执行，不删除或跳过这些测试。
+
+边界补充：Mac 上四项 parent-source 子进程返回 signal 9 且 stderr 为空，仅凭 signal 不能证明具体原因；Linux 67 项包含这四项且通过，完整远端 Linux CI 仍须验证，不把该 signal 自动视为可忽略。
