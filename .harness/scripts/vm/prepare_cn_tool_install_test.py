@@ -160,4 +160,83 @@ class Producer(unittest.TestCase):
    self.assertEqual(pathlib.Path(e['inventoryPath']).read_bytes(),raw);self.assertEqual(pathlib.Path(e['providerReceiptPath']).read_bytes(),receipt_raw)
    self.assertEqual(e['expected'],expected);self.assertEqual(result['profileEntries'],[]);self.assertFalse(result['ready'])
    self.assertNotIn('PROVIDER_RECEIPT_BINDING_MISSING',result['installationBlockers']);self.assertIn('TOOL_ROOT_GIT_ARTIFACT_NOT_PACKAGED',result['installationBlockers'])
+ def commit_fixture(self,repo):
+  m.git(repo,'add','.');m.git(repo,'-c','user.name=Fixture','-c','user.email=fixture@example.test','commit','-qm','tracked tree links')
+  return m.git(repo,'rev-parse','HEAD').decode().strip()
+ def add_skill_links(self,repo):
+  links={'.claude/skills/execution-plan':'../../.agents/skills/execution-plan','.claude/skills/frontend-design':'../../.agents/skills/frontend-design'}
+  for name,target in links.items():
+   dest=repo/name;dest.parent.mkdir(parents=True,exist_ok=True);dest.symlink_to(target)
+   directory=repo/'.agents/skills'/pathlib.Path(name).name;directory.mkdir(parents=True,exist_ok=True);(directory/'SKILL.md').write_bytes(b'fixture committed skill\n')
+  return links
+ def test_real_git_two_tracked_skill_links_preserve_raw_blob_identity(self):
+  with tempfile.TemporaryDirectory(dir=pathlib.Path(tempfile.gettempdir()).resolve()) as d:
+   p=pathlib.Path(d);repo,h,inv,v=self.fixture(p);links=self.add_skill_links(repo);h=self.commit_fixture(repo)
+   result=m.produce(repo,h,h,h,inv,p/'out');entries={e['path']:e for e in result['trustedGitClosure']['entries']}
+   for name,target in links.items():
+    raw=m.git(repo,'show',h+':'+name);entry=entries[name]
+    self.assertEqual(raw,target.encode());self.assertEqual(entry['mode'],'120000')
+    self.assertEqual(entry['blobSha'],m.git(repo,'rev-parse',h+':'+name).decode().strip())
+    self.assertEqual(entry['sha256'],hashlib.sha256(raw).hexdigest());self.assertEqual(entry['bytes'],len(raw))
+    self.assertEqual(entry['linkTarget'],target);self.assertEqual(entry['resolvedTrackedPath'],'.agents/skills/'+pathlib.Path(name).name)
+   self.assertFalse(result['ready']);self.assertFalse(result['installationAuthorized'])
+ def test_real_git_rejects_absolute_escape_link_chain_cycle_and_gitlink(self):
+  for scenario in ('absolute','escape','chain','cycle','submodule'):
+   with self.subTest(scenario=scenario),tempfile.TemporaryDirectory(dir=pathlib.Path(tempfile.gettempdir()).resolve()) as d:
+    p=pathlib.Path(d);repo,h,inv,v=self.fixture(p);links=self.add_skill_links(repo)
+    link=repo/'.claude/skills/execution-plan';link.unlink()
+    if scenario=='absolute':link.symlink_to('/etc/passwd')
+    elif scenario=='escape':link.symlink_to('../../../outside')
+    elif scenario=='chain':
+     target=repo/'.agents/skills/execution-plan';(target/'SKILL.md').unlink();target.rmdir();target.symlink_to('frontend-design');link.symlink_to(links['.claude/skills/execution-plan'])
+    elif scenario=='cycle':
+     link.symlink_to('frontend-design');other=repo/'.claude/skills/frontend-design';other.unlink();other.symlink_to('execution-plan')
+    else:
+     link.symlink_to(links['.claude/skills/execution-plan'])
+    if scenario=='submodule':
+     m.git(repo,'add','.');m.git(repo,'update-index','--add','--cacheinfo','160000,'+h+',vendor/submodule')
+     m.git(repo,'-c','user.name=Fixture','-c','user.email=fixture@example.test','commit','-qm','tracked gitlink')
+     h=m.git(repo,'rev-parse','HEAD').decode().strip()
+     self.assertIn(b'160000 commit',m.git(repo,'ls-tree','-r',h))
+    else:h=self.commit_fixture(repo)
+    code={'absolute':'TOOL_SYMLINK_RELATIVE','escape':'TOOL_SYMLINK_ESCAPE','chain':'TOOL_SYMLINK_CHAIN','cycle':'TOOL_SYMLINK_CHAIN','submodule':'TOOL_TREE_REGULAR_ONLY'}[scenario]
+    with self.assertRaisesRegex(ValueError,code):m.produce(repo,h,h,h,inv,p/'out')
+    self.assertFalse((p/'out').exists())
+ def test_real_git_rejects_transient_links_and_malformed_raw_targets(self):
+  for scenario in ('untracked','transient','non-directory','root-cycle','ancestor-cycle','empty','nul','newline','oversize'):
+   with self.subTest(scenario=scenario),tempfile.TemporaryDirectory(dir=pathlib.Path(tempfile.gettempdir()).resolve()) as d:
+    p=pathlib.Path(d);repo,h,inv,v=self.fixture(p);self.add_skill_links(repo);link=repo/'.claude/skills/execution-plan';link.unlink()
+    raw={'untracked':b'../../.agents/skills/missing','transient':b'frontend-design/../execution-plan','non-directory':b'../../.agents/skills/frontend-design/SKILL.md/../','root-cycle':b'../..','ancestor-cycle':b'..','empty':b'','nul':b'target\x00tail','newline':b'target\n','oversize':b'x'*4097}[scenario]
+    m.git(repo,'add','.')
+    blob=subprocess.check_output(['git','-C',str(repo),'hash-object','-w','--stdin'],input=raw).decode().strip()
+    m.git(repo,'update-index','--add','--cacheinfo','120000,'+blob+',.claude/skills/execution-plan')
+    m.git(repo,'-c','user.name=Fixture','-c','user.email=fixture@example.test','commit','-qm','exact raw malicious link')
+    h=m.git(repo,'rev-parse','HEAD').decode().strip();self.assertEqual(m.git(repo,'show',h+':.claude/skills/execution-plan'),raw)
+    code={'untracked':'TOOL_SYMLINK_UNTRACKED','transient':'TOOL_SYMLINK_CHAIN','non-directory':'TOOL_SYMLINK_NON_DIRECTORY','root-cycle':'TOOL_SYMLINK_DIRECTORY_CYCLE','ancestor-cycle':'TOOL_SYMLINK_DIRECTORY_CYCLE','empty':'TOOL_SYMLINK_SIZE','nul':'TOOL_SYMLINK_RELATIVE','newline':'TOOL_SYMLINK_RELATIVE','oversize':'TOOL_SYMLINK_SIZE'}[scenario]
+    with self.assertRaisesRegex(ValueError,code):m.produce(repo,h,h,h,inv,p/'out')
+    self.assertFalse((p/'out').exists())
+ def test_real_git_128_allowlisted_sources_cannot_be_exact_link(self):
+  with tempfile.TemporaryDirectory(dir=pathlib.Path(tempfile.gettempdir()).resolve()) as d:
+   p=pathlib.Path(d);repo,h,inv,v=self.fixture(p);identity='.harness/scripts/vm/cn-build-tool-identity.py'
+   sources={identity:'/usr/local/bin/fixture'}|{'.harness/scripts/vm/source-'+str(n)+'.py':'/usr/local/lib/fixture-'+str(n) for n in range(127)}
+   (repo/identity).write_text('FILES='+repr(sources)+"\ndef validate_identity(value,tool):\n return value.get('toolRoot')=='/opt/workspacex-cn/release-tools/'+tool\n")
+   for name,target in sources.items():
+    if name!=identity:
+     (repo/name).write_bytes(b'actual source\n');v['files'][name]={'target':target,'present':False,'sha256':None,'mode':None,'uid':None,'gid':None,'links':None}
+   source=repo/'.harness/scripts/vm/source-0.py';source.unlink();source.symlink_to('source-1.py');h=self.commit_fixture(repo);inv.write_text(json.dumps(v))
+   with self.assertRaisesRegex(ValueError,'TOOL_INSTALL_SOURCE_SYMLINK'):m.produce(repo,h,h,h,inv,p/'out')
+   self.assertFalse((p/'out').exists())
+ def test_real_git_128_allowlisted_sources_cannot_follow_link_ancestor(self):
+  with tempfile.TemporaryDirectory(dir=pathlib.Path(tempfile.gettempdir()).resolve()) as d:
+   p=pathlib.Path(d);repo,h,inv,v=self.fixture(p);identity='.harness/scripts/vm/cn-build-tool-identity.py'
+   sources={identity:'/usr/local/bin/fixture'}|{'.harness/linked/source-'+str(n)+'.py':'/usr/local/lib/fixture-'+str(n) for n in range(127)}
+   (repo/identity).write_text('FILES='+repr(sources)+"\ndef validate_identity(value,tool):\n return value.get('toolRoot')=='/opt/workspacex-cn/release-tools/'+tool\n")
+   target=repo/'ordinary';target.mkdir()
+   for n in range(127):(target/('source-'+str(n)+'.py')).write_bytes(b'actual tracked source\n')
+   (repo/'.harness/linked').symlink_to('../ordinary');h=self.commit_fixture(repo)
+   for name,target in sources.items():
+    if name!=identity:v['files'][name]={'target':target,'present':False,'sha256':None,'mode':None,'uid':None,'gid':None,'links':None}
+   inv.write_text(json.dumps(v))
+   with self.assertRaisesRegex(ValueError,'TOOL_INSTALL_SOURCE_SYMLINK'):m.produce(repo,h,h,h,inv,p/'out')
+   self.assertFalse((p/'out').exists())
 if __name__=='__main__':unittest.main()
