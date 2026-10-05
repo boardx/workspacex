@@ -94,7 +94,8 @@ export function parseCheckoutIdentity(logs, job) {
     requireFact(value[field] && Object.keys(value[field]).length === keys.length && keys.every(key => typeof value[field][key] === 'string' && value[field][key].length > 0 && value[field][key].length < 512), `invalid_${field}_identity`);
   }
   requireFact(value.environment.runnerEnvironment === 'github-hosted' && value.environment.platform === 'linux' && value.environment.runnerOS === 'Linux' && value.environment.imageVersion.length > 0, 'untrusted_runner_environment');
-  requireFact(integer(job.runner_id) && integer(job.runner_group_id) && Array.isArray(job.labels) && job.labels.length > 0, 'runner_identity_missing');
+  // GitHub-hosted jobs report group 0 (the default group), unlike positive job/run IDs.
+  requireFact(integer(job.runner_id) && Number.isSafeInteger(job.runner_group_id) && job.runner_group_id >= 0 && Array.isArray(job.labels) && job.labels.length > 0, 'runner_identity_missing');
   requireFact(value.candidate && Object.keys(value.candidate).length === 3, 'invalid_candidate_marker');
   return value;
 }

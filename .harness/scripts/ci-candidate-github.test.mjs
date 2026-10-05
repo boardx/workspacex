@@ -72,6 +72,25 @@ test('fixed pre-install identity interior is parsed; test-produced marker outsid
   assert.deepEqual(parseCheckoutIdentity(marker(original) + marker(forged, '2026-10-05T10:05:00Z'), job(101)), original);
 });
 
+test('GitHub-hosted default runner group zero is valid API identity, without attesting runtime', async () => {
+  const actualHosted = job(101); actualHosted.runner_group_id = 0;
+  assert.deepEqual(parseCheckoutIdentity(marker(identity()), actualHosted), identity());
+  const { observe, state } = fixture();
+  state.jobs[100].runner_group_id = 0; state.jobs[200].runner_group_id = 0;
+  const observed = (await observe()).suites[0];
+  assert.deepEqual(observed.reasons, ['runtime_not_attested']);
+  assert.equal(observed.wouldReuse, false); assert.equal(observed.skip, false); assert.equal(observed.runFull, true);
+});
+
+test('missing, negative or malformed runner group and missing runner ID cannot prove API identity', () => {
+  for (const value of [undefined, null, -1, 0.5, '0', false, NaN]) {
+    const altered = job(101); altered.runner_group_id = value;
+    assert.throws(() => parseCheckoutIdentity(marker(identity()), altered), /runner_identity_missing/);
+  }
+  const altered = job(101); altered.runner_id = 0; altered.runner_group_id = 0;
+  assert.throws(() => parseCheckoutIdentity(marker(identity()), altered), /runner_identity_missing/);
+});
+
 test('a malicious nested timestamp, boundary marker, duplicates or no marker cannot prove checkout', () => {
   for (const logs of [
     `2026-10-05T10:05:00Z ${marker(identity())}`,
