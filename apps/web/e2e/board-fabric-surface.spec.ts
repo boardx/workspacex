@@ -1,3 +1,4 @@
+import { STICKY_COLOR_PRESETS } from "@repo/whiteboard-core";
 import { seedExistingFrame } from "./board-acceptance-support";
 import {expectBoardSynced} from './support/board-sync-status';
 import { randomUUID } from "node:crypto";
@@ -288,7 +289,15 @@ test("selected object inspector adapts to each widget and a narrow editor", asyn
   await selectObjectAndExpand(shapeObject);
   await expect(inspector).toContainText("形状");
   await expect(page.getByTestId("board-shape-properties")).toBeVisible();
-  await expect(page.getByLabel("形状填充色")).toBeVisible();
+  const shapeFill = inspector.getByRole("group", { name: "形状填充色", exact: true });
+  await expect(shapeFill).toBeVisible();
+  const greenFill = shapeFill.getByRole("button", { name: `形状填充色 ${STICKY_COLOR_PRESETS.green}`, exact: true });
+  await greenFill.click();
+  await expect(greenFill).toHaveAttribute("aria-pressed", "true");
+  await expectBoardSynced(page, 30_000);
+  const shapeId = await shapeObject.getAttribute("data-object-id");
+  const coloredShape = (await canonicalBoardSnapshot(api, token, board.id)).objects.find((object) => object.id === shapeId);
+  expect(coloredShape?.extensionData?.contentObject).toMatchObject({ type: "shape", fill: STICKY_COLOR_PRESETS.green });
   await capture("selected-shape-inspector");
   await page.getByTestId("board-inspector-close").click();
 
@@ -319,7 +328,7 @@ test("selected object inspector adapts to each widget and a narrow editor", asyn
   await expect(inspector).toHaveAttribute("aria-label", "图片属性");
   await expect(inspector).toContainText("图片");
   await expect(page.getByTestId("board-image-properties")).toBeVisible();
-  await expect(page.getByLabel("图片裁剪宽度")).toBeVisible();
+  await expect(inspector.getByRole("slider", { name: "图片裁剪宽度", exact: true })).toBeVisible();
   await capture("selected-image-inspector");
   await page.getByTestId("board-inspector-close").click();
 

@@ -255,15 +255,29 @@ test("multi-select transform, Panel clip/expand, connector preservation, and tot
 
   // Explicit endpoint deletion keeps a free endpoint connector; the other attached end remains live.
   await selectObjectFromOutline(page, firstSticky);
-  await page.getByTestId(`connector-handle-${firstId}-right`).evaluate(element => {
-    const transfer = new DataTransfer(); (window as typeof window & { __boardConnectorTransfer?: DataTransfer }).__boardConnectorTransfer = transfer;
-    element.dispatchEvent(new DragEvent("dragstart", { bubbles: true, dataTransfer: transfer }));
-  });
-  await selectObjectFromOutline(page, secondSticky);
-  await page.getByTestId(`connector-handle-${secondId}-left`).evaluate(element => {
-    const transfer = (window as typeof window & { __boardConnectorTransfer?: DataTransfer }).__boardConnectorTransfer!;
-    element.dispatchEvent(new DragEvent("drop", { bubbles: true, dataTransfer: transfer }));
-  });
+  // The production connector gesture captures pointer events. Native HTML
+  // drag/drop deliberately has no connector creation handler because it races
+  // pointer cancellation. Fit both objects before dragging a real source handle.
+  await page.getByTestId("board-zoom-fit-board").click();
+  const sourceHandle = page.getByTestId(`connector-handle-${firstId}-right`);
+  await expect(sourceHandle).toBeVisible();
+  const sourceBounds = (await sourceHandle.boundingBox())!;
+  const targetAnchor = anchorPoint(await geometryOf(secondSticky), "left");
+  const connectorViewport = await canvasTransform(page);
+  const targetPointer = {
+    x: connectorViewport.box.x + connectorViewport.panX + targetAnchor.x * connectorViewport.zoom,
+    y: connectorViewport.box.y + connectorViewport.panY + targetAnchor.y * connectorViewport.zoom,
+  };
+  expect(targetPointer.x).toBeGreaterThan(connectorViewport.box.x);
+  expect(targetPointer.x).toBeLessThan(connectorViewport.box.x + connectorViewport.box.width);
+  expect(targetPointer.y).toBeGreaterThan(connectorViewport.box.y);
+  expect(targetPointer.y).toBeLessThan(connectorViewport.box.y + connectorViewport.box.height);
+  await page.mouse.move(sourceBounds.x + sourceBounds.width / 2, sourceBounds.y + sourceBounds.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(targetPointer.x, targetPointer.y, { steps: 12 });
+  await expect(objectRow(page, "connector")).toHaveCount(0);
+  await page.mouse.up();
+  await expect(objectRow(page, "connector")).toBeVisible();
   const connector = objectRow(page, "connector");
   const connectorStart = JSON.parse((await connector.getAttribute("data-connector-start"))!) as { x: number; y: number };
   const connectorEnd = JSON.parse((await connector.getAttribute("data-connector-end"))!) as { x: number; y: number };
