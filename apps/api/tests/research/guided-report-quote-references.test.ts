@@ -1,6 +1,8 @@
+import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { extractReportEvidence } from "../../src/application/research/guided-report-evidence";
 import { collectChunkEvidence } from "../../src/application/research/guided-report-evidence-validation";
+const document = (text: string, url: string) => ({ text, url, contentHash: createHash("sha256").update(text).digest("hex"), contentKind: "text", truncated: false, retrievedAt: "now" });
 const chunks = [
   { sourceId: "official", chunkId: "source:official/chunk:0", content: "Focus remains visible. Exceptions apply to equivalent controls." },
   { sourceId: "official", chunkId: "source:official/chunk:1", content: "Authentication allows password managers and pasting." },
@@ -34,7 +36,7 @@ describe("block-local source excerpt references", () => {
 });
 
 it("supplies bounded block-local choices once and materializes selected quotes in extraction", async () => {
-  const state = { tasks: [], outline: [{ id: "chapter", enabled: true, questions: ["What is required?"] }], brief: {}, sources: [{ id: "official", title: "Policy", content: "x".repeat(1201), url: "https://w3.org/policy", decision: "accepted" }] } as any;
+  const state = { tasks: [{ id: "task", sectionId: "chapter", query: "policy", status: "succeeded", attempts: 1, errorCode: null }], outline: [{ id: "chapter", enabled: true, questions: ["What is required?"] }], brief: {}, sources: [{ id: "official", taskId: "task", retrievedAt: "now", document: document("x".repeat(1201), "https://w3.org/policy"), title: "Policy", content: "x".repeat(1201), url: "https://w3.org/policy", decision: "accepted" }] } as any;
   const result = await extractReportEvidence(state, { provider: "fixture", id: "fixture" }, async (input, validate) => {
     const request = JSON.parse(input.user);
     const chunk = request.chunks[0];
@@ -47,7 +49,7 @@ it("supplies bounded block-local choices once and materializes selected quotes i
 });
 
 it("retains valid blocks while retrying an invalid reference with stable block-local choices", async () => {
-  const state = { tasks: [], outline: [{ id: "chapter", enabled: true, questions: ["What is required?"] }], brief: {}, sources: chunks.map((chunk, index) => ({ id: `source${index}`, title: "Policy", content: chunk.content, url: `https://w3.org/policy/${index}`, decision: "accepted" })) } as any;
+  const state = { tasks: [{ id: "task", sectionId: "chapter", query: "policy", status: "succeeded", attempts: 1, errorCode: null }], outline: [{ id: "chapter", enabled: true, questions: ["What is required?"] }], brief: {}, sources: chunks.map((chunk, index) => ({ id: `source${index}`, taskId: "task", retrievedAt: "now", document: document(chunk.content, `https://w3.org/policy/${index}`), title: "Policy", content: chunk.content, url: `https://w3.org/policy/${index}`, decision: "accepted" })) } as any;
   const requests: any[] = [];
   const result = await extractReportEvidence(state, { provider: "fixture", id: "fixture" }, async (input, validate) => {
     const request = JSON.parse(input.user); requests.push(request);

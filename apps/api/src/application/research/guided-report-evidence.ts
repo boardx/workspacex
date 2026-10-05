@@ -131,7 +131,7 @@ export async function extractReportEvidence(state: ResearchRuntime, config: { pr
   for (const result of results) for (const candidate of result.accepted) {
     const question = questions.find(question => question.id === candidate.questionId)!;
     const chunk = chunks.find(chunk => chunk.chunkId === candidate.chunkId)!;
-    const record = recordVerifiedEvidence(state, question, candidate.evidence, chunk);
+    const record = recordVerifiedEvidence(state, question, candidate.evidence, { ...chunk, quoteOffset: candidate.quoteOffset });
     if (record) {
       // Repeated text in later chunks adds no new fact. Keep one real validated
       // span per existing question/source/quote match, preferring direct support.

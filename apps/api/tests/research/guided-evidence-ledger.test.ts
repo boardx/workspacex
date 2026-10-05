@@ -159,3 +159,23 @@ it("reconciles 128 questions and 256 records with one original-body hash per sou
     expect(hashWork.fullBodies).toBe(0);
   } finally { parse.mockRestore(); }
 });
+
+it("retains the selected later identical quote option within one chunk", async () => {
+  const current = state();
+  const text = "E".repeat(6000);
+  current.sources[0]!.document = { ...current.sources[0]!.document!, text, contentHash: hash(text) };
+  await extractReportEvidence(current, config, async (input, validate) => {
+    const c = JSON.parse(input.user) as any;
+    return validate(JSON.stringify({ evaluations: c.chunks.map((chunk: any) => {
+      const option = chunk.quoteOptions[1];
+      expect(option.text).toBe(chunk.quoteOptions[0].text);
+      return { sourceId: chunk.sourceId, chunkId: chunk.chunkId, irrelevant: false,
+        matches: [{ questionId: c.questions.find((q: any) => q.sectionId === "a").id, quoteRef: option.quoteRef, insight: "Literal validated evidence", relevance: "direct" }] };
+    }) }));
+  });
+  const record = current.privateLedger!.records[0]!;
+  expect(record.quoteStart).toBe(record.quote.length);
+  expect(record.quoteEnd).toBe(record.quoteStart + record.quote.length);
+  expect(readQuestionLedger(current, reportQuestions(current.outline)[0]!)[0]?.evidenceId).toBe(record.evidenceId);
+  expect(reconcileEvidenceLedger(current).records).toEqual([record]);
+});
