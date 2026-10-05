@@ -74,13 +74,21 @@ export function assessReportClaimBoundaries(markdown: string, index: readonly Re
   // Only a plain future-plan introduction and the immediately following method row
   // qualify this finite interpretation. Headings and arbitrary plan wrappers do not.
   const intro = "以下建议均为待验证的行动方案,需在获取真人证据后方可执行:";
-  const hasPlainIntro = markdown.normalize("NFKC").split("\n").some(line => line.trim() === intro);
-  let planDistance = 4;
-  for (const assertion of interviewMarkdown.parseInterviewReportAssertions(markdown, {groupTableRows:true})) {
+  const lines = markdown.normalize("NFKC").split("\n");
+  const plannedRows = new Set<string>();
+  for (let i = 0; i < lines.length; i++) {
+    if (lines[i]!.trim() !== intro) continue;
+    const next = lines.slice(i + 1, i + 7).filter(line => line.trim());
+    // Require the immediately adjacent table, not a heading or another paragraph.
+    if (!/^\s*\|/u.test(next[0] ?? "") || !/^\s*\|[\s:|-]+\|\s*$/u.test(next[1] ?? "")) continue;
+    for (const row of interviewMarkdown.parseInterviewReportAssertions(next.slice(0,3).join("\n"), {groupTableRows:true}).slice(-1))
+      plannedRows.add(row.text.normalize("NFKC"));
+  }
+  const assertions = interviewMarkdown.parseInterviewReportAssertions(markdown, {groupTableRows:true});
+  for (const assertion of assertions) {
     const local = assertion.text.normalize("NFKC");
-    planDistance = hasPlainIntro && local === intro ? 0 : planDistance + 1;
     const note = local.indexOf("注意:");
-    const planned = planDistance > 0 && planDistance <= 2 && note >= 0
+    const planned = plannedRows.has(local) && assertions.filter(row => row.text.normalize("NFKC") === local).length === 1 && note >= 0
       && /方法:实地测绘。指标:记录不兼容项数量。注意:/u.test(local)
       && !executed.test(local.slice(0, note));
     const claims = observations(assertion.text, planned);

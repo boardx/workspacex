@@ -184,6 +184,7 @@ describe("finite report claim boundaries", () => {
 const plannedRaw = readFileSync(new URL('./fixtures/planned-count-5364/report.md', import.meta.url), 'utf8');
 const plannedIntro = '以下建议均为待验证的行动方案，需在获取真人证据后方可执行：';
 const plannedRow = plannedRaw.split('\n').find(line => line.includes('方法：实地测绘'))!;
+const plannedTable = '| 目标 | 步骤 | 条件 | 反例 | 指标 |\n|---|---|---|---|---|\n'+plannedRow;
 describe('local planned measurement interpretation', () => {
  it('keeps the preserved complete raw plan interpretation', () => {
   expect(assessReportClaimBoundaries(plannedRaw, []).missing).not.toContain('unsupported_executed_measurement');
@@ -191,6 +192,10 @@ describe('local planned measurement interpretation', () => {
  it.each([
   '不兼容项为零仅支持本次检测未发现冲突。',
   plannedRow,
+  plannedIntro+'\n## 已执行的检测结果\n'+plannedTable,
+  plannedIntro+'\n'+plannedTable+'\n## 检测结果\n'+plannedTable,
+  plannedIntro+'\n## 已执行的检测结果\n'+plannedRow,
+  plannedIntro+'\n普通段落。\n# '+plannedIntro+'\n'+plannedRow,
   plannedIntro+'\n本次检测结果发现不兼容项为零。',
   '# '+plannedIntro+'\n'+plannedRow,
   plannedIntro+'\n本次实际检测不兼容项为零，仅支持本次检测未发现冲突。',
