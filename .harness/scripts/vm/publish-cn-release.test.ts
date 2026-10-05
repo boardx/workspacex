@@ -1,6 +1,8 @@
-import { execFileSync } from "node:child_process";
-import { readFileSync, statSync } from "node:fs";
-import { resolve } from "node:path";
+import { execFileSync, spawn } from "node:child_process";
+import { existsSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { join, resolve } from "node:path";
+import { tmpdir } from "node:os";
+import { setTimeout as delay } from "node:timers/promises";
 import { describe, expect, it } from "vitest";
 
 const file=resolve(import.meta.dirname,"publish-cn-release.sh");
@@ -197,4 +199,66 @@ describe("China production release publisher",()=>{
     expect(sandboxDockerfile).toContain("sha256sum --check --strict");
     expect(sandboxDockerfile).toContain("COPY analysis/AnalysisSans.NOTICE /font/NOTICE");
   });
+});
+
+// Execute the actual publisher lifecycle in isolation: no Docker, registry or host writes.
+describe("publisher owned build lifecycle",()=>{
+  for(const scenario of ["TERM","INT","EXIT","TERM-resistant"] as const){
+    it(`joins only owned children before cleanup on ${scenario}`,async()=>{
+      const dir=mkdtempSync(join(tmpdir(),"cn-publisher-lifecycle-"));
+      const work=join(dir,"work");
+      const ready=join(dir,"ready");
+      const childFile=join(dir,"child");
+      const descendantFile=join(dir,"descendant");
+      const lifecycle=source.slice(source.indexOf("set -m\npids=()"),source.indexOf('mkdir "$work/agent"'));
+      expect(lifecycle).toContain("cleanup_owned_builds");
+      const worker=join(dir,"worker.sh");
+      writeFileSync(worker,`#!/bin/bash
+${scenario==="TERM-resistant" ? "trap '' TERM" : "trap 'kill -TERM \"$descendant\" 2>/dev/null || true; wait \"$descendant\" 2>/dev/null || true; exit 0' TERM"}
+sleep 60 &
+descendant=$!
+echo "$descendant" > "$1"
+wait "$descendant"
+`);
+      const script=join(dir,"test.sh");
+      writeFileSync(script,`set -euo pipefail
+work=$1
+mkdir "$work"
+${lifecycle}
+bash "$2" "$3" &
+pids+=("$!"); names+=(mock)
+echo "$!" > "$4"
+while [[ ! -s "$3" ]]; do sleep 0.01; done
+touch "$5"
+${scenario==="EXIT" ? "exit 17" : 'wait "${pids[0]}"'}
+`);
+      const unrelated=spawn("sleep",["60"]);
+      const publisher=spawn("bash",[script,work,worker,descendantFile,childFile,ready],{stdio:"ignore"});
+      const closed=new Promise<number|null>(resolve=>publisher.once("close",code=>resolve(code)));
+      let child=0,descendant=0;
+      try{
+        for(let attempt=0;attempt<200 && !existsSync(ready);attempt++)await delay(10);
+        expect(existsSync(ready)).toBe(true);
+        child=Number(readFileSync(childFile,"utf8").trim());
+        descendant=Number(readFileSync(descendantFile,"utf8").trim());
+        if(scenario!=="EXIT")publisher.kill(scenario==="INT" ? "SIGINT" : "SIGTERM");
+        const code=await Promise.race([closed,delay(5000).then(()=>{throw new Error("owned cleanup did not finish");})]);
+        expect(code).toBe(scenario==="EXIT" ? 17 : scenario==="INT" ? 130 : 143);
+        expect(existsSync(work)).toBe(false);
+        for(const pid of [child,descendant]){
+          // Killed orphan descendants may await host init reaping; none may run.
+          const proc=`/proc/${pid}/stat`;
+          if(existsSync(proc))expect(readFileSync(proc,"utf8").split(") ")[1]?.[0]).toBe("Z");
+        }
+        expect(unrelated.exitCode).toBe(null);
+        expect(()=>process.kill(unrelated.pid!,0)).not.toThrow();
+      }finally{
+        publisher.kill("SIGKILL");
+        for(const pid of [child,descendant])if(pid)try{process.kill(pid,"SIGKILL");}catch{}
+        unrelated.kill("SIGKILL");
+        await new Promise<void>(resolve=>unrelated.once("close",()=>resolve()));
+        rmSync(dir,{recursive:true,force:true});
+      }
+    });
+  }
 });

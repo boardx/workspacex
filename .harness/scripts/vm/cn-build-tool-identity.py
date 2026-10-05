@@ -2,67 +2,134 @@
 """Explicit build-only tool binding; never authorizes prepare or activation."""
 import datetime,fcntl,hashlib,json,os,pathlib,re,stat,subprocess,sys,tempfile,uuid
 FILES={
- '.harness/scripts/vm/cn_backup_package.py':'/usr/local/lib/workspacex-cn/cn_backup_package.py',
- '.harness/scripts/vm/cn_backup_stream.py':'/usr/local/lib/workspacex-cn/cn_backup_stream.py',
- '.harness/scripts/vm/cn_backup_sql.py':'/usr/local/lib/workspacex-cn/cn_backup_sql.py',
- '.harness/scripts/vm/cn_backup_channel.py':'/usr/local/lib/workspacex-cn/cn_backup_channel.py',
- '.harness/scripts/vm/cn_backup_host.py':'/usr/local/lib/workspacex-cn/cn_backup_host.py',
- '.harness/scripts/vm/cn_backup_backend.py':'/usr/local/lib/workspacex-cn/cn_backup_backend.py',
- '.harness/scripts/vm/cn_backup_profile.py':'/usr/local/lib/workspacex-cn/cn_backup_profile.py',
- '.harness/scripts/vm/cn_backup_profile_host.py':'/usr/local/lib/workspacex-cn/cn_backup_profile_host.py',
- '.harness/scripts/vm/cn_backup_watchdog.py':'/usr/local/lib/workspacex-cn/cn_backup_watchdog.py',
- '.harness/scripts/vm/cn_backup_run.py':'/usr/local/lib/workspacex-cn/cn_backup_run.py',
+ '.agents/skills/workspacex-cn-release/scripts/validate_preflight.py':None,
+ '.harness/scripts/vm/acceptance_receipt_producer.cjs':'/usr/local/lib/workspacex-cn/acceptance_receipt_producer.cjs',
+ '.harness/scripts/vm/acceptance_receipt_store.py':'/usr/local/lib/workspacex-cn/acceptance_receipt_store.py',
+ '.harness/scripts/vm/acceptance_source_closure.cjs':'/usr/local/lib/workspacex-cn/acceptance_source_closure.cjs',
  '.harness/scripts/vm/backup_connection.cjs':'/usr/local/lib/workspacex-cn/backup_connection.cjs',
  '.harness/scripts/vm/backup_profile_transport.cjs':'/usr/local/lib/workspacex-cn/backup_profile_transport.cjs',
- '.harness/scripts/vm/cn-backup-fixed-queries.json':'/usr/local/lib/workspacex-cn/cn-backup-fixed-queries.json',
- '.harness/scripts/vm/candidate_writer.py':'/usr/local/lib/workspacex-cn/candidate_writer.py',
+ '.harness/scripts/vm/build-cn-candidate-compose-source.mjs':None,
+ '.harness/scripts/vm/build-cn-release-candidate.sh':'/usr/local/bin/workspacex-cn-build-candidate',
  '.harness/scripts/vm/candidate_backend_collector.py':'/usr/local/lib/workspacex-cn/candidate_backend_collector.py',
- '.harness/scripts/vm/cn-maintenance-migrator.cjs':'/usr/local/lib/workspacex-cn/cn-maintenance-migrator.cjs',
- '.harness/scripts/vm/cn-maintenance-drain.cjs':'/usr/local/lib/workspacex-cn/cn-maintenance-drain.cjs',
- '.harness/scripts/vm/cn-maintenance-canonical.cjs':'/usr/local/lib/workspacex-cn/cn-maintenance-canonical.cjs',
- '.harness/scripts/vm/cn-maintenance-browser.cjs':'/usr/local/lib/workspacex-cn/cn-maintenance-browser.cjs',
- '.harness/scripts/vm/collect-cn-migration-snapshot.py':'/usr/local/lib/workspacex-cn/collect-cn-migration-snapshot.py',
- '.harness/scripts/vm/cn-migration-snapshot-query.cjs':'/usr/local/lib/workspacex-cn/cn-migration-snapshot-query.cjs',
+ '.harness/scripts/vm/candidate_browser_acceptance.py':'/usr/local/lib/workspacex-cn/candidate_browser_acceptance.py',
+ '.harness/scripts/vm/candidate_canonical_acceptance.py':'/usr/local/lib/workspacex-cn/candidate_canonical_acceptance.py',
+ '.harness/scripts/vm/candidate_completion_contract.py':'/usr/local/lib/workspacex-cn/candidate_completion_contract.py',
+ '.harness/scripts/vm/candidate_host_transport.py':'/usr/local/lib/workspacex-cn/candidate_host_transport.py',
+ '.harness/scripts/vm/candidate_plan_producer.py':'/usr/local/lib/workspacex-cn/candidate_plan_producer.py',
+ '.harness/scripts/vm/candidate_pointer_adapter.py':'/usr/local/lib/workspacex-cn/candidate_pointer_adapter.py',
+ '.harness/scripts/vm/candidate_readonly_docker.py':'/usr/local/lib/workspacex-cn/candidate_readonly_docker.py',
+ '.harness/scripts/vm/candidate_stage_actions.py':'/usr/local/lib/workspacex-cn/candidate_stage_actions.py',
+ '.harness/scripts/vm/candidate_stage_host.py':'/usr/local/lib/workspacex-cn/candidate_stage_host.py',
+ '.harness/scripts/vm/candidate_writer.py':'/usr/local/lib/workspacex-cn/candidate_writer.py',
+ '.harness/scripts/vm/cn-backup-fixed-queries.json':'/usr/local/lib/workspacex-cn/cn-backup-fixed-queries.json',
+ '.harness/scripts/vm/cn-baseline-schema-contract.cjs':'/usr/local/lib/workspacex-cn/cn-baseline-schema-contract.cjs',
+ '.harness/scripts/vm/cn-bootstrap-baseline-source.mjs':'/usr/local/lib/workspacex-cn/cn-bootstrap-baseline-source.mjs',
+ '.harness/scripts/vm/cn-bootstrap-baseline.cjs':'/usr/local/lib/workspacex-cn/cn-bootstrap-baseline.cjs',
+ '.harness/scripts/vm/cn-bootstrap-source-probe.mjs':'/usr/local/lib/workspacex-cn/cn-bootstrap-source-probe.mjs',
+ '.harness/scripts/vm/cn-build-tool-identity.py':'/usr/local/lib/workspacex-cn/cn-build-tool-identity.py',
+ '.harness/scripts/vm/cn-candidate-compose-source.cjs':'/usr/local/lib/workspacex-cn/cn-candidate-compose-source.cjs',
+ '.harness/scripts/vm/cn-candidate-compose-source.cjs.source-closure.json':None,
  '.harness/scripts/vm/cn-maintenance-activation.py':'/usr/local/lib/workspacex-cn/cn-maintenance-activation.py',
- '.harness/scripts/vm/cn_object_inventory/source_audit.py':None,
- '.harness/scripts/vm/cn_object_inventory/runtime_audit.py':None,
- '.harness/scripts/vm/cn_object_inventory/inventory.py':None,
- '.harness/scripts/vm/cn-tool-install-transaction.py':'/usr/local/lib/workspacex-cn/cn-tool-install-transaction.py',
- '.harness/scripts/vm/prepare-cn-tool-install.py':'/usr/local/lib/workspacex-cn/prepare-cn-tool-install.py',
+ '.harness/scripts/vm/cn-maintenance-browser.cjs':'/usr/local/lib/workspacex-cn/cn-maintenance-browser.cjs',
+ '.harness/scripts/vm/cn-maintenance-canonical.cjs':'/usr/local/lib/workspacex-cn/cn-maintenance-canonical.cjs',
+ '.harness/scripts/vm/cn-maintenance-drain.cjs':'/usr/local/lib/workspacex-cn/cn-maintenance-drain.cjs',
+ '.harness/scripts/vm/cn-maintenance-host-controller.cjs':'/usr/local/lib/workspacex-cn/cn-maintenance-host-controller.cjs',
+ '.harness/scripts/vm/cn-maintenance-host-launcher.py':'/usr/local/lib/workspacex-cn/cn-maintenance-host-launcher.py',
+ '.harness/scripts/vm/cn-maintenance-migrator.cjs':'/usr/local/lib/workspacex-cn/cn-maintenance-migrator.cjs',
  '.harness/scripts/vm/cn-maintenance-recovery-evidence-verifier.py':'/usr/local/lib/workspacex-cn/cn-maintenance-recovery-evidence-verifier.py',
- '.harness/scripts/vm/writer_fence.py':'/usr/local/lib/workspacex-cn/writer_fence.py',
- '.harness/scripts/vm/host_transport.py':'/usr/local/lib/workspacex-cn/host_transport.py',
- '.harness/scripts/vm/fixed_probes.py':'/usr/local/lib/workspacex-cn/fixed_probes.py',
- '.harness/scripts/vm/control_connection.py':'/usr/local/lib/workspacex-cn/control_connection.py',
- '.harness/scripts/vm/control_connection.cjs':'/usr/local/lib/workspacex-cn/control_connection.cjs',
+ '.harness/scripts/vm/cn-migration-snapshot-query.cjs':'/usr/local/lib/workspacex-cn/cn-migration-snapshot-query.cjs',
  '.harness/scripts/vm/cn-production-rds-identity-probe.py':'/usr/local/lib/workspacex-cn/cn-production-rds-identity-probe.py',
+ '.harness/scripts/vm/cn-production-recovery-catalog.cjs':'/usr/local/lib/workspacex-cn/cn-production-recovery-catalog.cjs',
  '.harness/scripts/vm/cn-production-recovery-executor.py':'/usr/local/lib/workspacex-cn/cn-production-recovery-executor.py',
+ '.harness/scripts/vm/cn-production-recovery-fidelity.cjs':'/usr/local/lib/workspacex-cn/cn-production-recovery-fidelity.cjs',
+ '.harness/scripts/vm/cn-production-recovery-readback.cjs':'/usr/local/lib/workspacex-cn/cn-production-recovery-readback.cjs',
+ '.harness/scripts/vm/cn-release-orphans.py':'/usr/local/lib/workspacex-cn/cn-release-orphans.py',
+ '.harness/scripts/vm/cn-release-preflight-evidence.mjs':'/usr/local/lib/workspacex-cn/cn-release-preflight-evidence.mjs',
+ '.harness/scripts/vm/cn-tool-install-transaction.py':'/usr/local/lib/workspacex-cn/cn-tool-install-transaction.py',
+ '.harness/scripts/vm/cn_backup_backend.py':'/usr/local/lib/workspacex-cn/cn_backup_backend.py',
+ '.harness/scripts/vm/cn_backup_channel.py':'/usr/local/lib/workspacex-cn/cn_backup_channel.py',
+ '.harness/scripts/vm/cn_backup_host.py':'/usr/local/lib/workspacex-cn/cn_backup_host.py',
+ '.harness/scripts/vm/cn_backup_package.py':'/usr/local/lib/workspacex-cn/cn_backup_package.py',
+ '.harness/scripts/vm/cn_backup_profile.py':'/usr/local/lib/workspacex-cn/cn_backup_profile.py',
+ '.harness/scripts/vm/cn_backup_profile_host.py':'/usr/local/lib/workspacex-cn/cn_backup_profile_host.py',
+ '.harness/scripts/vm/cn_backup_run.py':'/usr/local/lib/workspacex-cn/cn_backup_run.py',
+ '.harness/scripts/vm/cn_backup_sql.py':'/usr/local/lib/workspacex-cn/cn_backup_sql.py',
+ '.harness/scripts/vm/cn_backup_stream.py':'/usr/local/lib/workspacex-cn/cn_backup_stream.py',
+ '.harness/scripts/vm/cn_backup_watchdog.py':'/usr/local/lib/workspacex-cn/cn_backup_watchdog.py',
+ '.harness/scripts/vm/cn_maintenance_admission.py':'/usr/local/lib/workspacex-cn/cn_maintenance_admission.py',
+ '.harness/scripts/vm/cn_maintenance_hold.py':'/usr/local/lib/workspacex-cn/cn_maintenance_hold.py',
+ '.harness/scripts/vm/cn_object_inventory/inventory.py':None,
+ '.harness/scripts/vm/cn_object_inventory/runtime_audit.py':None,
+ '.harness/scripts/vm/cn_object_inventory/source_audit.py':None,
  '.harness/scripts/vm/cn_production_recovery_executor.py':'/usr/local/lib/workspacex-cn/cn_production_recovery_executor.py',
  '.harness/scripts/vm/cn_production_recovery_stream.py':'/usr/local/lib/workspacex-cn/cn_production_recovery_stream.py',
  '.harness/scripts/vm/cn_production_recovery_transport.py':'/usr/local/lib/workspacex-cn/cn_production_recovery_transport.py',
- '.harness/scripts/vm/cn-production-recovery-readback.cjs':'/usr/local/lib/workspacex-cn/cn-production-recovery-readback.cjs',
- '.harness/scripts/vm/cn-production-recovery-catalog.cjs':'/usr/local/lib/workspacex-cn/cn-production-recovery-catalog.cjs',
- '.harness/scripts/vm/cn-production-recovery-fidelity.cjs':'/usr/local/lib/workspacex-cn/cn-production-recovery-fidelity.cjs',
- '.harness/scripts/vm/cn-maintenance-host-launcher.py':'/usr/local/lib/workspacex-cn/cn-maintenance-host-launcher.py',
- '.harness/scripts/vm/cn-maintenance-host-controller.cjs':'/usr/local/lib/workspacex-cn/cn-maintenance-host-controller.cjs',
  '.harness/scripts/vm/cn_tool_profile.py':'/usr/local/lib/workspacex-cn/cn_tool_profile.py',
- '.harness/scripts/vm/cn_maintenance_admission.py':'/usr/local/lib/workspacex-cn/cn_maintenance_admission.py',
- 'packages/cloud-deploy/src/cn-migration-completion.ts':None,
- 'packages/cloud-deploy/src/cn-migration-completion-cli.ts':None,
- '.harness/scripts/vm/cn_maintenance_hold.py':'/usr/local/lib/workspacex-cn/cn_maintenance_hold.py',
- '.harness/scripts/vm/build-cn-release-candidate.sh':'/usr/local/bin/workspacex-cn-build-candidate',
- '.harness/scripts/vm/deploy-cn-production.sh':'/usr/local/bin/workspacex-cn-deploy',
- '.harness/scripts/vm/publish-cn-release.sh':'/usr/local/lib/workspacex-cn/publish-cn-release.sh',
- '.harness/scripts/vm/verify-cn-release-preflight.sh':'/usr/local/lib/workspacex-cn/verify-cn-release-preflight.sh',
+ '.harness/scripts/vm/collect-cn-migration-snapshot.py':'/usr/local/lib/workspacex-cn/collect-cn-migration-snapshot.py',
  '.harness/scripts/vm/collect-cn-release-preflight.sh':'/usr/local/lib/workspacex-cn/collect-cn-release-preflight.sh',
- '.harness/scripts/vm/cn-release-preflight-evidence.mjs':'/usr/local/lib/workspacex-cn/cn-release-preflight-evidence.mjs',
- '.harness/scripts/vm/cn-release-orphans.py':'/usr/local/lib/workspacex-cn/cn-release-orphans.py',
- '.harness/scripts/vm/cn-baseline-schema-contract.cjs':'/usr/local/lib/workspacex-cn/cn-baseline-schema-contract.cjs',
- '.harness/scripts/vm/cn-bootstrap-baseline.cjs':'/usr/local/lib/workspacex-cn/cn-bootstrap-baseline.cjs',
- '.harness/scripts/vm/cn-bootstrap-baseline-source.mjs':'/usr/local/lib/workspacex-cn/cn-bootstrap-baseline-source.mjs',
- '.harness/scripts/vm/cn-bootstrap-source-probe.mjs':'/usr/local/lib/workspacex-cn/cn-bootstrap-source-probe.mjs',
- '.harness/scripts/vm/cn-build-tool-identity.py':'/usr/local/lib/workspacex-cn/cn-build-tool-identity.py',
- '.agents/skills/workspacex-cn-release/scripts/validate_preflight.py':None,
+ '.harness/scripts/vm/concretize_candidate_template.py':'/usr/local/lib/workspacex-cn/concretize_candidate_template.py',
+ '.harness/scripts/vm/control_connection.cjs':'/usr/local/lib/workspacex-cn/control_connection.cjs',
+ '.harness/scripts/vm/control_connection.py':'/usr/local/lib/workspacex-cn/control_connection.py',
+ '.harness/scripts/vm/current_epoch_qualification.py':'/usr/local/lib/workspacex-cn/current_epoch_qualification.py',
+ '.harness/scripts/vm/current_held_epoch_evidence_producer.py':'/usr/local/lib/workspacex-cn/current_held_epoch_evidence_producer.py',
+ '.harness/scripts/vm/deploy-cn-production.sh':'/usr/local/bin/workspacex-cn-deploy',
+ '.harness/scripts/vm/fixed_probes.py':'/usr/local/lib/workspacex-cn/fixed_probes.py',
+ '.harness/scripts/vm/held_candidate_expected.cjs':'/usr/local/lib/workspacex-cn/held_candidate_expected.cjs',
+ '.harness/scripts/vm/held_candidate_expected_producer.cjs':'/usr/local/lib/workspacex-cn/held_candidate_expected_producer.cjs',
+ '.harness/scripts/vm/held_candidate_queries.cjs':'/usr/local/lib/workspacex-cn/held_candidate_queries.cjs',
+ '.harness/scripts/vm/host_transport.py':'/usr/local/lib/workspacex-cn/host_transport.py',
+ '.harness/scripts/vm/isolated_canonical_plan_factory.py':'/usr/local/lib/workspacex-cn/isolated_canonical_plan_factory.py',
+ '.harness/scripts/vm/isolated_conservation_evidence_producer.py':'/usr/local/lib/workspacex-cn/isolated_conservation_evidence_producer.py',
+ '.harness/scripts/vm/isolated_conservation_inputs.py':'/usr/local/lib/workspacex-cn/isolated_conservation_inputs.py',
+ '.harness/scripts/vm/isolated_conservation_plan.py':'/usr/local/lib/workspacex-cn/isolated_conservation_plan.py',
+ '.harness/scripts/vm/isolated_conservation_stage.py':'/usr/local/lib/workspacex-cn/isolated_conservation_stage.py',
+ '.harness/scripts/vm/isolated_rehearsal.py':'/usr/local/lib/workspacex-cn/isolated_rehearsal.py',
+ '.harness/scripts/vm/maintenance_source_operations.py':'/usr/local/lib/workspacex-cn/maintenance_source_operations.py',
+ '.harness/scripts/vm/opened_host_evidence.py':'/usr/local/lib/workspacex-cn/opened_host_evidence.py',
+ '.harness/scripts/vm/opened_service_health.py':'/usr/local/lib/workspacex-cn/opened_service_health.py',
+ '.harness/scripts/vm/parent_source_invocation_receipt.py':'/usr/local/lib/workspacex-cn/parent_source_invocation_receipt.py',
+ '.harness/scripts/vm/prepare-cn-tool-install.py':'/usr/local/lib/workspacex-cn/prepare-cn-tool-install.py',
+ '.harness/scripts/vm/publish-cn-release.sh':'/usr/local/lib/workspacex-cn/publish-cn-release.sh',
+ '.harness/scripts/vm/retained_backend_observer.py':'/usr/local/lib/workspacex-cn/retained_backend_observer.py',
+ '.harness/scripts/vm/retained_backup_helper.cjs':'/usr/local/lib/workspacex-cn/retained_backup_helper.cjs',
+ '.harness/scripts/vm/retained_backup_host.py':'/usr/local/lib/workspacex-cn/retained_backup_host.py',
+ '.harness/scripts/vm/retained_epoch_acquisition.py':'/usr/local/lib/workspacex-cn/retained_epoch_acquisition.py',
+ '.harness/scripts/vm/retained_epoch_capture.py':'/usr/local/lib/workspacex-cn/retained_epoch_capture.py',
+ '.harness/scripts/vm/source_invocation_receipt.py':'/usr/local/lib/workspacex-cn/source_invocation_receipt.py',
+ '.harness/scripts/vm/verify-cn-release-preflight.sh':'/usr/local/lib/workspacex-cn/verify-cn-release-preflight.sh',
+ '.harness/scripts/vm/writer_fence.py':'/usr/local/lib/workspacex-cn/writer_fence.py',
+ 'packages/cloud-deploy/src/cn-candidate-compose-source-cli.ts':None,
+ 'packages/cloud-deploy/src/cn-candidate-compose-source.ts':None,
+ 'packages/cloud-deploy/src/cn-maintenance-host/a_route.ts':None,
+ 'packages/cloud-deploy/src/cn-maintenance-host/a_route_adapter.ts':None,
+ 'packages/cloud-deploy/src/cn-maintenance-host/a_route_factory.ts':None,
+ 'packages/cloud-deploy/src/cn-maintenance-host/acceptance_contract.ts':None,
+ 'packages/cloud-deploy/src/cn-maintenance-host/activation_transport.ts':None,
+ 'packages/cloud-deploy/src/cn-maintenance-host/controller.ts':None,
+ 'packages/cloud-deploy/src/cn-maintenance-host/current_epoch_manifest_consumer.ts':None,
+ 'packages/cloud-deploy/src/cn-maintenance-host/dynamic_gate.ts':None,
+ 'packages/cloud-deploy/src/cn-maintenance-host/entry.ts':None,
+ 'packages/cloud-deploy/src/cn-maintenance-host/fixed_public_json_reader.ts':None,
+ 'packages/cloud-deploy/src/cn-maintenance-host/fixed_transport.ts':None,
+ 'packages/cloud-deploy/src/cn-maintenance-host/migration_library.ts':None,
+ 'packages/cloud-deploy/src/cn-maintenance-host/migration_snapshot_query.ts':None,
+ 'packages/cloud-deploy/src/cn-maintenance-host/migration_transport.ts':None,
+ 'packages/cloud-deploy/src/cn-maintenance-host/native_completion.ts':None,
+ 'packages/cloud-deploy/src/cn-maintenance-host/offline_artifacts.ts':None,
+ 'packages/cloud-deploy/src/cn-maintenance-host/pinned-app-9b/migration-pg.ts':None,
+ 'packages/cloud-deploy/src/cn-maintenance-host/pinned-app-9b/migrator.ts':None,
+ 'packages/cloud-deploy/src/cn-maintenance-host/pinned-app-9b/pg-config.ts':None,
+ 'packages/cloud-deploy/src/cn-maintenance-host/production_consumers.ts':None,
+ 'packages/cloud-deploy/src/cn-maintenance-host/production_factory.ts':None,
+ 'packages/cloud-deploy/src/cn-maintenance-host/public_acceptance.ts':None,
+ 'packages/cloud-deploy/src/cn-maintenance-host/public_observation_transport.ts':None,
+ 'packages/cloud-deploy/src/cn-maintenance-host/recovery_audit.ts':None,
+ 'packages/cloud-deploy/src/cn-maintenance-host/reused_actions.ts':None,
+ 'packages/cloud-deploy/src/cn-maintenance-host/sealed_runtime.ts':None,
+ 'packages/cloud-deploy/src/cn-maintenance-host/source_production_consumers.ts':None,
+ 'packages/cloud-deploy/src/cn-maintenance-host/typed_operations.ts':None,
+ 'packages/cloud-deploy/src/cn-migration-completion-cli.ts':None,
+ 'packages/cloud-deploy/src/cn-migration-completion.ts':None,
 }
 def require(value,code):
  if not value:raise ValueError(code)
@@ -97,12 +164,12 @@ def trust_git_root(root,bare,expected_uid=0,boundary=None):
  require(not re.search(rb'^\s*\[(?:include(?:if)?|filter)[\s\]]',config,re.M|re.I),'GIT_CONFIG_INCLUDE')
  return gitdir
 GIT_OPTIONS=['-c','core.fsmonitor=false','-c','core.hooksPath=/dev/null','-c','core.untrackedCache=false','-c','gc.auto=0']
-def validate_full_prebuild(validator,prebuild_raw,validated_raw):
+def validate_full_prebuild(validator,prebuild_raw,validated_raw,artifact_only=False):
  # Execute the exact already hash-bound tool validator, not a second gate implementation.
  namespace={'__name__':'reviewed_preflight_validator','__file__':str(validator)}
  exec(compile(private_read(validator).decode(),str(validator),'exec'),namespace)
  result=namespace['validate'](json.loads(prebuild_raw));stored=json.loads(validated_raw)
- require(result==stored and result.get('schemaVersion')==2 and result.get('phase')=='prebuild' and result.get('ready') is True and result.get('blockers')==[],'FULL_PREBUILD_VALIDATION')
+ require(result==stored and result.get('schemaVersion')==2 and result.get('phase')==('artifact-build' if artifact_only else 'prebuild') and result.get('ready') is True and result.get('blockers')==[],'FULL_PREBUILD_VALIDATION')
  return result
 
 def atomic_receipt(output,result):
@@ -206,7 +273,7 @@ def sealed_receipt(binding,manifest_raw,seal_raw,prebuild_raw,inspect,validate_p
  require(seal.get('schemaVersion')==1 and seal.get('status')=='sealed' and seal.get('sourceRevision')==app and seal.get('manifestSha256')==hashlib.sha256(manifest_raw).hexdigest(),'SEAL_BINDING')
  full=validate_prebuild(prebuild_raw)
  require(full.get('ready') is True and full.get('blockers')==[] and full.get('schemaVersion')==2,'FULL_PREBUILD_VALIDATION')
- require(full.get('phase')=='prebuild' and full.get('sourceSha')==app and full.get('release')==binding['release'] and full.get('attemptId')==binding['attemptId'],'PREBUILD_IDENTITY')
+ require(full.get('phase')=='artifact-build' and full.get('sourceSha')==app and full.get('release')==binding['release'] and full.get('attemptId')==binding['attemptId'],'PREBUILD_IDENTITY')
  require(set(manifest.get('images',{}))=={'web','api','agent','sandbox','postgres','redis'},'SEALED_SERVICE_CLOSURE')
  digests={}
  for service,artifact in manifest['images'].items():
@@ -278,9 +345,10 @@ def main():
    else:raise ValueError('CANONICAL_LOCK_NOT_HELD')
   finally:os.close(fd)
   manifest,seal,prebuild,output=args[5:]
-  validated=str(pathlib.Path(prebuild).with_name('prebuild.validated.json'))
+  require(prebuild=='/var/lib/workspacex-cn/preflight-receipts/'+app+'/'+attempt+'/artifact-build.json','ARTIFACT_RECEIPT_FIXED_PATH')
+  validated=str(pathlib.Path(prebuild).with_name('artifact-build.validated.json'))
   prebuild_raw=private_read(prebuild,0o600);validated_raw=private_read(validated,0o600)
-  def validate_bound(raw):return validate_full_prebuild(pathlib.Path(root)/'.agents/skills/workspacex-cn-release/scripts/validate_preflight.py',raw,validated_raw)
+  def validate_bound(raw):return validate_full_prebuild(pathlib.Path(root)/'.agents/skills/workspacex-cn-release/scripts/validate_preflight.py',raw,validated_raw,artifact_only=True)
   def inspect(image):return subprocess.check_output(['docker','buildx','imagetools','inspect',image],stderr=subprocess.DEVNULL,timeout=30).decode()
   result=sealed_receipt(value,private_read(manifest),private_read(seal),prebuild_raw,inspect,validate_bound)
   result['toolBindingSha256']=hashlib.sha256(private_read(path,0o600)).hexdigest()

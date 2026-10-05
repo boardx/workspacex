@@ -101,12 +101,14 @@ git -C "$REPOSITORY_DIR" clean -ffd
 COREPACK_ENABLE_NETWORK=0 /usr/bin/corepack pnpm@9.15.0 --dir "$REPOSITORY_DIR" install --offline --frozen-lockfile --ignore-scripts >/dev/null || fail "candidate offline dependency closure unavailable"
 (cd "$REPOSITORY_DIR"; node --import tsx packages/cloud-deploy/src/cn-candidate-config-cli.ts prepare "$revision" "$release" "$attempt_id") >/dev/null || fail "candidate configuration preparation rejected"
 
-# A fresh schema-v2 prebuild receipt is the admission ticket for any image build.
+preflight_phase=prebuild
+[[ "$build_only" == 0 ]] || preflight_phase=artifact-build
+# A fresh schema-v2 scoped receipt is the admission ticket for any image build.
 # The verifier persists the exact raw evidence before candidate_build_started can
 # be recorded, so manifest/seal artifacts can never masquerade as preflight.
-"$PREFLIGHT_COLLECTOR" prebuild "$revision" "$release" "$attempt_id" >/dev/null \
+"$PREFLIGHT_COLLECTOR" "$preflight_phase" "$revision" "$release" "$attempt_id" >/dev/null \
   || fail "prebuild evidence collection failed"
-"$PREFLIGHT_VERIFIER" prebuild "$revision" "$release" "$attempt_id" >/dev/null \
+"$PREFLIGHT_VERIFIER" "$preflight_phase" "$revision" "$release" "$attempt_id" >/dev/null \
   || fail "prebuild receipt is missing or invalid"
 record_event prebuild_validated
 record_event candidate_build_started
@@ -147,7 +149,7 @@ record_event candidate_sealed
 if [[ "$build_only" == 1 ]]; then
   python3 /usr/local/lib/workspacex-cn/cn-build-tool-identity.py --receipt "$tool_binding" "$revision" "$release" "$attempt_id" prebuild \
     "/etc/workspacex-cn/releases/$revision.json" "/etc/workspacex-cn/releases/$revision.sealed.json" \
-    "/var/lib/workspacex-cn/preflight-receipts/$revision/$attempt_id/prebuild.json" \
+    "/var/lib/workspacex-cn/preflight-receipts/$revision/$attempt_id/artifact-build.json" \
     "/var/lib/workspacex-cn/preflight-receipts/$revision/$attempt_id/build-only.sealed.json" \
     || fail "build-only sealed identity receipt rejected"
   printf 'CN_RELEASE_ARTIFACTS_SEALED_BUILD_ONLY revision=%s release=%s ready=false\n' "$revision" "$release"

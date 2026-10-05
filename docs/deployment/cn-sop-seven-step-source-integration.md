@@ -1,0 +1,65 @@
+# 固定 9b 七步源码整合
+
+范围固定 APP `9b25bfa65662b96c0826fe67506b562ea46aa6d0`、BASE `ba6343199f3c834d6a198f83d0c771614292c82b`、release `2026.10.3-cn.1`。本次只开发、源编译和 mock/本地隔离测试；没有安装正式主机、构建或推送真实镜像、生产 SQL、切换、IAM 修改、模型请求，也没有重启被暂停的 baseline255 replay。
+
+## 七步交付与依赖
+
+| 步骤 | 源码包 | 输入、输出及失败处置 |
+| --- | --- | --- |
+| 1 freeze | manifest/tag binding、held expected producer/checker | 固定 Git/source 和 tag；expected 来源为三库固定只读 projection、APP 原始 bootstrap/agent templates、独立资格与 completion，不接受 caller passed。三 seed 使用 `targetId + keyValues`。 |
+| 2 precheck/install | transaction installer、source invocation、parent invocation | 固定文件映射和独立 root source/runtime pins；安装 review producer 无安装 executor。重复执行不覆盖证据，owned child 未回收则无成功回执。 |
+| 3 artifact-build/publish | build-only artifact lane、publisher、native Compose emitter | build-only 不依赖 baseline255。publisher TERM/INT/EXIT 仅终止自己拥有的 child group，等待回收；Compose 复用固定 APP、Zod/lockfile 和已有原生 network/env 合约。 |
+| 4 isolation/recovery | retained backup host/observer/capture、qualification | 借用同父进程已有三 control、三 diagnostic，不建立新 admin。采集 draft、原字节输入见证、密文副本与 12 类 parent invocation；缺外部 20 类实际对象/恢复/隔离/旅程 invocation 时拒绝 qualified。 |
+| 5 prepare/readiness | stage host/actions、held queries、late template/plan | 固定本地 immutable images、既有 bridge network、Compose `create --no-build --pull never --no-deps`；候选保持 stopped，完整 config/host/mount/network 取证。原生 flat completion 和 retained live ledger 对齐后生成 late candidate plan。 |
+| 6 maintenance A-route | schema 2 source factory、persistent source dispatcher、candidate pointer/actor | 复用同一 A-route。先只读重验已有合格 prehold archive；held 后必须 fresh capture/current qualification。持久化 intent 后原子 pointer CAS，停止仍占端口的已暂停旧 API/web，再只恢复候选。SQL intent 后禁止回退旧代码。 |
+| 7 browser/CAS/open | candidate canonical/browser、pinned Docker、receipt store、opened evidence | 实际 canonical 8 stages、browser 6 journeys 与真实 owned run IDs。hold clear CAS/readback 后反复观察；失败独立 rehold + candidate reblock，保留原进程和 FD9，禁止重试 resume。 |
+
+## 入口与可信数据
+
+`production_consumers.ts` 只把严格 `schemaVersion: 2` data 输入路由到 `source_production_consumers.ts`。schema 1 的旧 activation capability 硬拒绝保留，不能用 lane boolean 绕过。schema 2 的模块集合由源码中的 `persistentSourceModules` 精确限定；运行时经 root-owned 0700/hash FD 加载，并用 Python `-I` 的闭合 module finder，不使用 `sys.path`、相邻目录或 JSON callback registry。
+
+`maintenance_source_operations.py` 只提供固定动作：capture draft、stage 外部证据、finalize input、qualification/readonly requalification、held readback、stage+seal、canonical、browser、public marker、opened observation。输入固定为 `/etc/workspacex-cn/maintenance-source-inputs/APP/attempt/action.json` 的 root-private/hash 绑定。
+
+实际输出 hash 在采集后才存在，因此 root 可在动作之间独立批准 late data capability；`toolRevision/filesSha256/installedFilesSha256` 和 dispatcher source pin 不允许变化，每个动作内部 profile 原字节必须稳定。该数据批准属于未来单项生产审查，不由 producer 自动生成。重复 mutation/失去回执后禁止自动重放；marker/observation 只读动作允许重复。
+
+`currentEpochQualification` 与 `preholdEpochQualification` 是独立 schema 2 root capability。prehold CLI 仅 readonly `verify_existing_qualification`，不得发布或替代当前 held capture；当前发布仍为 O_EXCL、0600、fsync。源码 0700、Python 运行时 0755 由独立 root profile pins 认可，普通 attempt 证据仍为 0600。证据中的 private code copy 不能自授权。
+
+completion 统一落盘现有 21 字段 `validated-production-migration-completion` native witness；migration transport、A-route、stage producer、pointer adapter 与 retained candidate 都消费同一格式并重验真实 ledger。旧 wrapper 不作为候选资格。
+
+## 幂等、失败与恢复
+
+每个 producer 使用固定 attempt 路径与 create-once publication；同字节只读重验和明确允许的只读观测可以重复。未知写状态保留原 actor、helpers、journal 与 FD9。持久化 SQL intent 后只记录数据库恢复/写状态 reconciliation，不能继续 baseline resume。生产恢复仍要求独立批准的 recovery plan，不因本地 mock 成功自动获得执行权限。
+
+## 冻结与剩余真实输入
+
+前 1–3 步原冻结 inventory/tar 保持不变。最终整合版本的 FILES 为 128 source、90 installed targets、38 source-only；它包含新增 4–7 模块，不表示现有主机已经拥有这些文件。最终 source commit 与逐项 Git bytes/SHA256 会另冻于独立 closure，不能以 dirty tree 或 latest 替代。
+
+真实主机仍需新鲜 90-target inventory、旧文件原字节/metadata 和恢复载荷、root profile 提案及 main ancestry，才能生成 installer COMPLETE review。已有 Mac read-only 55-target inventory 不能当作新增目标的事实。`postgres-age` 仓库缺失仍待独立授权；不能以 pgvector 替代 AGE 应用镜像。baseline255 已暂停且无合格替代，prehold 会如实拒绝缺失 archive；不得自行恢复 replay。真实 32-kind epoch/source policy、provider receipts、对象版本与隔离/旅程证据仍待实际批准和执行。
+
+本地测试与截图只证明源码/mock 行为，不是业务浏览器验收或生产可用性证明。Library 已取得官方 upload session，但实际 signed URL PUT 传输返回 Forbidden、尚未 finalize；未产生可交付的 library_file_id，保存本地原日志与页面截图。
+
+## 最终源码回执
+
+源码 commit：`12551f6607b0085e079c088e98188aec162b4224`。独立冻结文件 `deploy/aliyun/cn-sop-final-seven-review-closure.json` 的原字节 SHA256：`c69024d11176d70e956424e2b775623b691f91b903f2c180636448911f5d07be`；内部 rows closure SHA256：`a4870f032aa12171c4eba66dfbf099618af05231b557b1bc00c81a8d9a65a15b`。128 项全部对 Git blob 字节逐项重验；source-only tar SHA256：`4a81d7c28755db54cb2dc4eb3f0c15417db45521e6cbfcdf9d3ee814fecdd2c8`。
+
+本地验证：cloud-deploy 55 files / 594 tests、Python 382、Node helpers 76 全通过；正常 pre-push typecheck/lint 49.72 秒通过。CI 另以远端 check-runs 事实记录，本地结果不替代 CI。各步在该完整源码 SHA 重新运行的原日志、JSON、实际 Chromium 页面截图保存在 `/workspace/cn-sop-evidence/final-seven/`。截图范围为 source/mock/local isolation，不是业务验收。
+
+## 2026-10-05 源码修复回执
+
+现有 iteration PR #5337 继续承载交付，不新增 feature PR。修复源码 commit 为 `0ab285c616b1ef0a0a9510fc5650ede28c918b5f`；新增独立冻结包 `deploy/aliyun/cn-sop-schema2-repair-review-closure.json`，原字节 SHA256 `7967fbdd4ad729caf1db8fc37c2a6106363497041bfa879927db9b32c19638e5`，rows closure SHA256 `0d2f0f29c972847e0f5d4b7f5279ae20109a942370016a333a819ee721b6d60f`。计数仍为 128 source / 90 installed targets / 38 source-only；原历史冻结包不变。
+
+阶段快照单独绑定已验证 epoch manifest SHA，capture、blueprint、runtime 保留语义 epoch，模板重跑现有 qualification 验证器。快照 profile 摘要只排除晚生成且反向引用快照的 canonical-candidate-acceptance input；其余能力和输入仍绑定，dispatcher 固定路径/hash 审批及动作内原字节漂移门保持。测试去除 /workspace 路径假设，仅模拟临时根外部祖先，新增真实根/输出目录 0777 拒绝反证。
+
+本轮定向验证：Linux 实际身份与进程 67/67、快照/模板真实发布/验收消费者 46/46、stage dispatcher 9/9、安装包预检查 3/3 通过，typecheck/lint 通过，独立源码审查接受。首次 Mac 全套测试尚非通过：Linux /proc 接口缺失、回环监听 sandbox EPERM 和复用依赖软链接布局失败分别记录；现有 Linux 测试镜像缺 git，不能用它替代 Git 相关完整测试。完整 exact-head CI 仍是合入前门禁，不以定向结果宣称全绿。
+
+本次只有源码修复授权；主机安装、仓库创建、删除、replay、数据库迁移和生产切流均未执行。
+
+完整 Mac 标准命令按原配置复跑：55 files 中 53 通过，594 tests 中 591 通过、3 失败、0 skipped；TLS 23 项通过、依赖路径与 Git 临时目录问题已消失。剩余失败均需 Linux `/proc/self/fd`、`/proc/PID/stat`、`prctl` 或真实 Linux parent-child 协议。67 项独立 Linux 实测通过；完整 Linux CI 仍待远端精确 head 执行，不删除或跳过这些测试。
+
+边界补充：Mac 上四项 parent-source 子进程返回 signal 9 且 stderr 为空，仅凭 signal 不能证明具体原因；Linux 67 项包含这四项且通过，完整远端 Linux CI 仍须验证，不把该 signal 自动视为可忽略。
+
+## 当前完整资格桥接修正
+
+真实 qualification binding 有七字段，stage 语义 binding 为其中五字段；额外 `targetInstanceId/providerBindingSha256` 不能被当作漂移丢弃。修正源码 `79bb53784d5df01ae46f26288c0a53714e4c510d` 严格核对两种字段集合，只比较共同五字段，再把完整资格输入保留给现有独立验证器。直接方法负例覆盖缺目标/provider、额外字段、五种身份漂移及 manifest 摘要不匹配。前一轮完整链路审查结论因该缺口已纠正；本次两文件修正重新独审 ACCEPT。
+
+当前权威源码审查包为 `deploy/aliyun/cn-sop-schema2-repair-qualified-review-closure.json`，128 source / 90 targets / 38 source-only；原字节 SHA256 `d6330121b8b3e0814d37ea28d5e15f002656a76fec220c89a9b8ce5ab80edf0c`，rows SHA256 `803536f058638f6b4d6cce0daec26098ade015f0ae6b999e3c20e9ccd5fb6d85`。先前修复冻结包仅为历史证据，不作当前安装身份。更新后的四组定向验证合计 56/56 通过；最新远端完整 CI 仍是合入门。所有主机/数据库/切流授权边界保持不变。

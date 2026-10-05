@@ -31,6 +31,9 @@ class ProtectedArtifacts:
         st=self.root.lstat();require(stat.S_IMODE(st.st_mode)==0o700,'ARTIFACT_ROOT_PRIVATE')
     def _parents(self,path):
         for parent in (path,*path.parents):
+            # Non-root uid overrides belong solely to the disposable test API.
+            # Production uses uid=0 and still verifies every ancestor to '/'.
+            if self.uid != 0 and parent == self.root.parent:break
             st=parent.lstat()
             require(stat.S_ISDIR(st.st_mode) and st.st_uid in (0,self.uid) and
                     (not st.st_mode&0o022 or st.st_mode&stat.S_ISVTX),'ARTIFACT_PARENT_TRUST')

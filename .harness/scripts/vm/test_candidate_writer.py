@@ -228,6 +228,22 @@ class Tests(unittest.TestCase):
             with self.assertRaises(RuntimeError): CandidateWriterAdapter(i,p,t,j).resume_candidate(i)
             self.assertEqual(t.calls,[])
 
+    def test_failed_resume_is_permanently_latched_even_if_uncertain_journal_write_fails(self):
+        i,p,j,t=fixture();a=CandidateWriterAdapter(i,p,t,j);t.fail=True
+        original=j.record
+        def record(state, **data):
+            if state=='candidate-resume-uncertain':raise OSError('lost fsync')
+            original(state,**data)
+        j.record=record
+        a.prepare_resume_intent(i)
+        with self.assertRaisesRegex(RuntimeError,'lost-response'):
+            a.resume_candidate(i,require_prepared=True)
+        self.assertEqual(j.durable[-1]['state'],'candidate-reblocked')
+        self.assertFalse(a.resume_unknown)
+        with self.assertRaisesRegex(RuntimeError,'RETRY_REQUIRES_RECONCILIATION'):
+            a.resume_candidate(i,require_prepared=True)
+        self.assertEqual(t.calls,['reopen','reblock'])
+
     def test_journal_failure_cannot_skip_reblock_or_publish_success(self):
         for reblock_fails in (False, True):
             i,p,j,t=fixture();a=CandidateWriterAdapter(i,p,t,j);t.fail=True

@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
@@ -41,10 +42,15 @@ describe("China production trusted deployment entrypoints", () => {
   });
 
   it("fails closed on fresh two-stage preflight receipts before build and activation", () => {
-    const prebuild = candidate.indexOf('"$PREFLIGHT_VERIFIER" prebuild "$revision" "$release"');
+    const prepare = candidate.indexOf("cn-candidate-config-cli.ts prepare");
+    const collect = candidate.indexOf('"$PREFLIGHT_COLLECTOR" "$preflight_phase" "$revision" "$release"');
+    const prebuild = candidate.indexOf('"$PREFLIGHT_VERIFIER" "$preflight_phase" "$revision" "$release"');
     const buildStarted = candidate.indexOf("record_event candidate_build_started");
     const publisher = candidate.indexOf('"$PUBLISHER" "$revision" "$release"');
-    expect(prebuild).toBeGreaterThan(-1);
+    expect(prepare).toBeGreaterThan(-1);
+    expect(collect).toBeGreaterThan(prepare);
+    expect(prebuild).toBeGreaterThan(collect);
+    expect(publisher).toBeGreaterThan(-1);
     expect(prebuild).toBeLessThan(buildStarted);
     expect(buildStarted).toBeLessThan(publisher);
     const invocation = '"$PREFLIGHT_VERIFIER" ${preflight_flags[@]+"${preflight_flags[@]}"} preactivate';
@@ -58,6 +64,31 @@ describe("China production trusted deployment entrypoints", () => {
     expect(preflight).toContain('canonical-release-lock-held');
     expect(preflight).toContain('if(canonical(input.prebuildEvidence)!==canonical(prior))process.exit(1)');
     expect(preflight).toContain('install_once_or_identical "$evidence" "$raw_receipt"');
+  });
+
+  it.each(["0", "1"])("never reaches publication on collector/verifier failure in mode %s", (buildOnly) => {
+    const start = candidate.indexOf("preflight_phase=prebuild");
+    const end = candidate.indexOf("# Credentials are obtained", start);
+    expect(start).toBeGreaterThan(-1);
+    expect(end).toBeGreaterThan(start);
+    const admission = candidate.slice(start, end);
+    for (const rejected of ["collector", "verifier", "none"]) {
+      const script = `
+revision=source; release=release; attempt_id=attempt
+PREFLIGHT_COLLECTOR=collector; PREFLIGHT_VERIFIER=verifier
+fail(){ exit 1; }
+collector(){ [[ "$rejected" != collector ]]; }
+verifier(){ [[ "$rejected" != verifier ]]; }
+record_event(){ printf '%s\n' "$1"; }
+${admission}
+printf 'publisher\n'
+`;
+      const result = spawnSync("bash", ["-euo", "pipefail", "-c", script], {
+        env: { ...process.env, build_only: buildOnly, rejected }, encoding: "utf8",
+      });
+      expect(result.status).toBe(rejected === "none" ? 0 : 1);
+      expect(result.stdout).toBe(rejected === "none" ? "prebuild_validated\ncandidate_build_started\npublisher\n" : "");
+    }
   });
 
   it("requires Docker Buildx before installing the deployment entrypoint", () => {

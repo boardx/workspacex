@@ -25,3 +25,10 @@ test('sealed plaintext session requires bound authority and actual socket proof'
  for(const edit of [(a:typeof authority)=>{a.expiresAt=1;},(a:typeof authority)=>{a.configurationSha256='0'.repeat(64);},(a:typeof authority)=>{a.toolRevision='0'.repeat(40);},(a:typeof authority)=>{a.sourceEvidence.configuration.rdsTlsException!.allowedCidrs=['0.0.0.0/0'];}]){const a=structuredClone(authority);edit(a);assert.throws(()=>verifySealedSessionTransport(session,a,identity,toolRevision));}
  assert.throws(()=>verifySealedSessionTransport({...session,transport:{...session.transport,providerEvidenceSha256:'0'.repeat(64)}},authority,identity,toolRevision));
 });
+
+test('fresh candidate plaintext authority reuses serverless verifier and rejects provider/network drift',async()=>{
+ const {verifyFreshMaintenanceProviderTransport}=await import('./migration_library');
+ const f=fixture();const live={attribute:f.input.sourceEvidence.attributeResponse,network:f.input.sourceEvidence.netInfoResponse,ssl:f.input.sslResponse,allowlist:f.input.allowlistResponse};
+ assert.equal(verifyFreshMaintenanceProviderTransport(f.input,live).privateAddress,'192.168.100.44');
+ for(const edit of [(v:typeof live)=>{v.ssl.SSLEnabled='on';},(v:typeof live)=>{v.attribute.Items.DBInstanceAttribute[0]!.Category='HighAvailability';},(v:typeof live)=>{v.allowlist.Items.DBInstanceIPArray[0].SecurityIPList='0.0.0.0/0';},(v:typeof live)=>{v.network.DBInstanceNetInfos.DBInstanceNetInfo[0]!.IPAddress='192.168.100.45';}]){const bad=structuredClone(live);edit(bad);assert.throws(()=>verifyFreshMaintenanceProviderTransport(f.input,bad));}
+});

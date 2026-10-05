@@ -4,7 +4,10 @@ import { expect, it } from "vitest";
 const read=(name:string)=>readFileSync(new URL(name,import.meta.url),"utf8");
 const build=read("build-cn-release-candidate.sh"),deploy=read("deploy-cn-production.sh"),collector=read("collect-cn-release-preflight.sh");
 it("prepares an attempt-owned config before any aggregate collector/build without changing active config",()=>{
- expect(build.indexOf("cn-candidate-config-cli.ts prepare")).toBeLessThan(build.indexOf('"$PREFLIGHT_COLLECTOR" prebuild'));
+ const prepare=build.indexOf("cn-candidate-config-cli.ts prepare");
+ const collect=build.indexOf('"$PREFLIGHT_COLLECTOR" "$preflight_phase"');
+ expect(prepare).toBeGreaterThan(-1);
+ expect(collect).toBeGreaterThan(prepare);
  for(const source of [deploy,collector])expect(source).toContain('CONFIG_FILE="/etc/workspacex-cn/candidate-configs/$revision/$attempt_id/deployment.json"');
  expect(build).not.toContain("candidate-config-cli.ts commit");
  expect(collector).not.toContain("candidate-config-cli.ts commit");
@@ -27,4 +30,23 @@ it("all trusted callers establish private root lock metadata before invoking the
  for(const source of [build,deploy,read("verify-cn-release-promotion.sh")]){
   expect(source).toContain('chown root:root "$RUNTIME_ROOT/release.lock"; chmod 0600 "$RUNTIME_ROOT/release.lock"');
  }
+});
+
+it("selects prebuild by default and artifact-build only for the trusted build-only mode",()=>{
+ const start=build.indexOf("preflight_phase=prebuild");
+ const end=build.indexOf("# A fresh schema-v2",start);
+ expect(start).toBeGreaterThan(-1);
+ expect(end).toBeGreaterThan(start);
+ const selection=build.slice(start,end);
+ for(const [mode,phase] of [["0","prebuild"],["1","artifact-build"]]){
+  const result=spawnSync("bash",["-eu","-c",`${selection}printf '%s' "$preflight_phase"`],{env:{...process.env,build_only:mode},encoding:"utf8"});
+  expect(result.status).toBe(0);
+  expect(result.stdout).toBe(phase);
+ }
+ expect(build).toContain("build_only=0");
+ expect(build).toContain('if [[ ${1:-} == --build-only ]]; then');
+ const binding=build.indexOf('CN_BUILD_TOOL_ROOT=$(python3');
+ expect(binding).toBeGreaterThan(-1);
+ expect(binding).toBeLessThan(start);
+ expect(build.slice(binding,start)).toContain('"$tool_binding" "$revision" "$release" "$attempt_id" prebuild) || exit 1');
 });

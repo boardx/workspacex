@@ -11,7 +11,7 @@ elif [[ ${1:-} == --maintenance ]]; then
   binding_family=maintenance-bindings; shift
 fi
 
-[[ $# -eq 4 && "$1" =~ ^(prebuild|preactivate)$ && "$2" =~ ^[a-f0-9]{40}$ && "$3" =~ ^v?[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9]+([.-][a-zA-Z0-9]+)*)?$ && "$4" =~ ^[a-z0-9][a-z0-9._-]{0,127}$ ]] || {
+[[ $# -eq 4 && "$1" =~ ^(prebuild|artifact-build|preactivate)$ && "$2" =~ ^[a-f0-9]{40}$ && "$3" =~ ^v?[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9]+([.-][a-zA-Z0-9]+)*)?$ && "$4" =~ ^[a-z0-9][a-z0-9._-]{0,127}$ ]] || {
   echo "usage: verify-cn-release-preflight <prebuild|preactivate> <40-hex-revision> <semantic-release> <attempt-id>" >&2
   exit 2
 }
@@ -21,6 +21,11 @@ phase=$1
 revision=$2
 release=$3
 attempt_id=$4
+identity_phase=$phase
+if [[ "$phase" == artifact-build ]]; then
+  [[ -n ${CN_BUILD_TOOL_BINDING:-} && "$operational" == 0 ]] || { echo "ARTIFACT_BUILD_REQUIRES_BOUND_BUILD_ONLY" >&2; exit 1; }
+  identity_phase=prebuild
+fi
 REPOSITORY_DIR=/opt/workspacex-cn/repository
 INPUT_ROOT=/etc/workspacex-cn/preflights
 RECEIPT_ROOT=/var/lib/workspacex-cn/preflight-receipts
@@ -71,10 +76,10 @@ validator="$work/validate_preflight.py"
 if [[ "$operational" == 1 ]]; then
   [[ "$phase" == preactivate && -z ${CN_BUILD_TOOL_BINDING:-} ]] || exit 1
   operational_binding="/etc/workspacex-cn/$binding_family/$revision/$attempt_id/preactivate.json"
-  operational_root=$(python3 /usr/local/lib/workspacex-cn/cn-build-tool-identity.py "$admission_flag" "$operational_binding" "$revision" "$release" "$attempt_id" "$phase") || exit 1
+  operational_root=$(python3 /usr/local/lib/workspacex-cn/cn-build-tool-identity.py "$admission_flag" "$operational_binding" "$revision" "$release" "$attempt_id" "$identity_phase") || exit 1
   cp "$operational_root/.agents/skills/workspacex-cn-release/scripts/validate_preflight.py" "$validator"
 elif [[ -n ${CN_BUILD_TOOL_BINDING:-} ]]; then
-  tool_root=$(python3 /usr/local/lib/workspacex-cn/cn-build-tool-identity.py "$CN_BUILD_TOOL_BINDING" "$revision" "$release" "$attempt_id" "$phase") || exit 1
+  tool_root=$(python3 /usr/local/lib/workspacex-cn/cn-build-tool-identity.py "$CN_BUILD_TOOL_BINDING" "$revision" "$release" "$attempt_id" "$identity_phase") || exit 1
   [[ "$tool_root" == "${CN_BUILD_TOOL_ROOT:-}" ]] || exit 1
   cp "$tool_root/.agents/skills/workspacex-cn-release/scripts/validate_preflight.py" "$validator"
 else

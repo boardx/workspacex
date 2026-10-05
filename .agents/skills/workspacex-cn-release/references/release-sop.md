@@ -271,3 +271,7 @@ runner 仅获得 `workspacex-cn-export-source` 的只读参数能力；缓存写
 缺对象、promisor、alternates、baseline 不一致或发布锁忙时立即 NOT_READY，不回退公网下载。
 这条路径只消费已校验的国内缓存；它不等同于新版本 OSS/OIDC 自动运输已经部署或验收。
 独立记录 workflow SHA、source SHA 和 attempt，完整运输仍需另外验收。
+
+## Artifact-only build (#5319)
+
+The trusted fixed-candidate build-only lane uses a separate `artifact-build` receipt and stops after sealing. Full baseline admission remains mandatory before migration and activation. See the single [stage-boundary contract](preflight-contract.md#artifact-only-stage-boundary-5319) for the exact producer/consumer protocol.
