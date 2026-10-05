@@ -25,7 +25,7 @@ function seed() {
 function fixture(initial = seed(), read?: GuidedSearchPort["read"]) {
   let state = structuredClone(initial);
   const writes: ResearchRuntime[] = [];
-  const write = vi.fn(async (_actor: unknown, _request: string, next: ResearchRuntime) => { state = structuredClone(next); writes.push(state); });
+  const write = vi.fn(async (_actor: unknown, _request: string, next: ResearchRuntime): Promise<ResearchRuntime | void> => { state = structuredClone(next); writes.push(state); });
   const store: GuidedRuntimeStore = { read: async () => structuredClone(state), claim: async () => { state.version++; state.errorCode = null; state.busy = true; return { state: structuredClone(state), replay: false }; }, write };
   let queries = [short, second];
   const model = { complete: vi.fn(async (input: { system: string; user: string }) => {
@@ -167,7 +167,7 @@ describe("bounded search query recovery", () => {
     const operation = f.run().then(result => { settled = true; return result; });
     try {
       await began; await new Promise(resolve => setTimeout(resolve, 10));
-      expect(settled).toBe(false); expect(holderSignal?.aborted).toBe(true);
+      expect(settled).toBe(true); expect(holderSignal?.aborted).toBe(true);
       release(); const result = await operation;
       expect(result.errorCode).toBe(failure.reasonCode); expect(lateReads).toBe(0);
       expect(f.model.complete).toHaveBeenCalledTimes(3);
@@ -252,7 +252,7 @@ describe("bounded search query recovery", () => {
     const operation = f.run().then(value => { settled = true; return value; });
     try {
       await began; await new Promise(resolve => setTimeout(resolve, 10));
-      expect(settled).toBe(false); expect(partnerSignal?.aborted).toBe(true);
+      expect(settled).toBe(true); expect(partnerSignal?.aborted).toBe(true);
       expect(f.search.mock.calls.length).toBeLessThanOrEqual(3);
       release(); const result = await operation;
       expect(result.errorCode).toBe(failure.reasonCode); expect(lateBodyReads).toBe(0);
@@ -348,7 +348,55 @@ describe("bounded search query recovery", () => {
     expect(f.model.complete.mock.calls.every(([input]) => JSON.parse(input.user).researchStage === "source_relevance")).toBe(true);
   });
 
-  it("finishes an unresponsive search at the shared three-minute budget and ignores late results", async () => {
+  it.each(["search", "read"].flatMap(boundary => ["fatal", "pause"].map(stop => ({ boundary, stop }))))("aborts a blocked sibling $boundary on $stop and never consumes its late body", async ({ boundary, stop }) => {
+    const state = seed(); state.tasks = [0, 1].map(index => ({ ...state.tasks[0]!, id: `fatal-${index}`, query: `fatal-query-${index}` }));
+    let started!: () => void, release!: () => void, signal!: AbortSignal, lateReads = 0;
+    const entered = new Promise<void>(resolve => { started = resolve; });
+    const blocked = new Promise<void>(resolve => { release = resolve; });
+    const f = fixture(state, boundary === "read" ? async (url, options) => {
+      if (url.endsWith("1")) { signal = options!.signal!; started(); await blocked; }
+      return { get text() { if (url.endsWith("1")) lateReads++; return hit.content; }, contentKind: "text", truncated: false };
+    } : undefined);
+    f.search.mockImplementation(async (query, ...args: unknown[]) => {
+      if (query.endsWith("0")) await entered;
+      if (boundary === "search" && query.endsWith("1")) { signal = (args[0] as { signal: AbortSignal }).signal; started(); await blocked; }
+      return [{ ...hit, url: `${hit.url}/${query}`, get content() { if (boundary === "search" && query.endsWith("1")) lateReads++; return hit.content; } }];
+    });
+    const write = f.write.getMockImplementation()!, failure = new ResearchRuntimeError("RESEARCH_GRAPH_VERSION_CONFLICT"); let failed = false;
+    f.write.mockImplementation(async (...args) => {
+      if (!failed && args[2].sources.length) {
+        await entered; failed = true;
+        if (stop === "fatal") throw failure;
+        const paused = structuredClone(args[2]); paused.controlStatus = "paused"; paused.planRevision = 1;
+        await write(args[0], args[1], paused); return paused;
+      }
+      return write(...args);
+    });
+    const operation = f.run();
+    try {
+      await entered; const result = await operation;
+      if (stop === "fatal") expect(result.errorCode).toBe(failure.reasonCode);
+      else expect(result).toMatchObject({ controlStatus: "paused", errorCode: null, busy: false });
+      expect(signal.aborted).toBe(true);
+      const writes = f.writes.length; release(); await new Promise(resolve => setTimeout(resolve, 0));
+      expect(lateReads).toBe(0); expect(f.writes).toHaveLength(writes);
+    } finally { release(); await operation; }
+  });
+  it("persists successful tasks throughout a research execution beyond both 180s and 600s", async () => {
+    vi.useFakeTimers();
+    const state = seed(); state.tasks = Array.from({ length: 24 }, (_, index) => ({ ...state.tasks[0]!, id: `long-${index}`, query: `long-query-${index}` }));
+    const f = fixture(state), complete = f.model.complete.getMockImplementation()!;
+    f.search.mockImplementation(async query => [{ ...hit, url: `${hit.url}/${query}` }]);
+    f.model.complete.mockImplementation(async input => { await new Promise(resolve => setTimeout(resolve, 60000)); return complete(input); });
+    const started = Date.now(), operation = f.run();
+    try {
+      await vi.runAllTimersAsync(); const result = await operation;
+      expect(Date.now() - started).toBeGreaterThan(600000); expect(result.errorCode).toBeNull();
+      expect(result.tasks.every(task => task.status === "succeeded")).toBe(true); expect(result.sources).toHaveLength(24);
+      expect(f.writes.some(write => write.tasks.some(task => task.status === "succeeded") && write.tasks.some(task => task.status !== "succeeded"))).toBe(true);
+    } finally { vi.useRealTimers(); }
+  });
+  it("bounds an unresponsive search per call and ignores late results", async () => {
     vi.useFakeTimers();
     const f = fixture();
     let release!: () => void;
@@ -356,10 +404,10 @@ describe("bounded search query recovery", () => {
     let result: ResearchRuntime | undefined;
     const operation = f.run().then((value) => { result = value; return value; });
     try {
-      await vi.advanceTimersByTimeAsync(180001);
+      await vi.runAllTimersAsync();
       expect(result).toBeDefined();
       expect(result?.busy).toBe(false);
-      expect(result?.errorCode).toBe("RESEARCH_SEARCH_TIME_BUDGET_EXCEEDED");
+      expect(result?.errorCode).toBe("RESEARCH_SEARCH_PARTIAL_FAILURE");
       expect(result?.tasks[0]?.status).toBe("failed");
       const count = f.writes.length;
       release(); await vi.advanceTimersByTimeAsync(1);
@@ -367,7 +415,7 @@ describe("bounded search query recovery", () => {
       expect(result?.sources).toEqual([]);
     } finally { release?.(); await operation; vi.useRealTimers(); }
   });
-  it.each(["model", "read"])("ignores late %s responses after durable budget finalization", async (boundary) => {
+  it.each(["model", "read"])("ignores late %s responses after per-call finalization", async (boundary) => {
     vi.useFakeTimers();
     const releases: Array<() => void> = [];
     const wait = () => new Promise<void>((resolve) => { releases.push(resolve); });
@@ -377,8 +425,9 @@ describe("bounded search query recovery", () => {
     let result: ResearchRuntime | undefined;
     const operation = f.run().then((value) => { result = value; return value; });
     try {
-      await vi.advanceTimersByTimeAsync(180001);
-      expect(result?.errorCode).toBe("RESEARCH_SEARCH_TIME_BUDGET_EXCEEDED");
+      await vi.runAllTimersAsync();
+      if (boundary === "model") expect(result?.errorCode).toBe("RESEARCH_SEARCH_PARTIAL_FAILURE");
+      else expect(result?.sources.some(source => source.documentError)).toBe(true);
       expect(result?.busy).toBe(false);
       expect(result?.tasks.some((task) => task.status === "running")).toBe(false);
       expect(result?.tasks.some((task) => task.searchAttempts?.some((attempt) => attempt.status === "running"))).toBe(false);
@@ -389,7 +438,7 @@ describe("bounded search query recovery", () => {
       expect(result?.sources.some((source) => source.document)).toBe(false);
     } finally { releases.forEach((release) => release()); await operation; vi.useRealTimers(); }
   });
-  it("stops dispatching a large queue at expiry while retaining fast successful evidence", async () => {
+  it("continues a bounded queue after individual request timeouts while retaining fast successful evidence", async () => {
     vi.useFakeTimers();
     const state = seed(); state.tasks = Array.from({ length: 12 }, (_, index) => ({ ...state.tasks[0]!, id: `task-${index}`, query: `query-${index}` }));
     const f = fixture(state); const releases: Array<() => void> = [];
@@ -397,10 +446,10 @@ describe("bounded search query recovery", () => {
     let result: ResearchRuntime | undefined;
     const operation = f.run().then((value) => { result = value; return value; });
     try {
-      await vi.advanceTimersByTimeAsync(180001);
-      expect(result?.errorCode).toBe("RESEARCH_SEARCH_TIME_BUDGET_EXCEEDED");
-      expect(f.search.mock.calls.length).toBeLessThanOrEqual(4);
-      expect(result?.tasks.filter((task) => task.searchAttempts?.length).map(task => task.query)).toEqual(["query-0", "query-1", "query-2"]);
+      await vi.runAllTimersAsync();
+      expect(result?.errorCode).toBe("RESEARCH_SEARCH_PARTIAL_FAILURE");
+      expect(f.search.mock.calls.length).toBeGreaterThanOrEqual(12);
+      expect(result?.tasks.filter((task) => task.searchAttempts?.length).map(task => task.query)).toEqual(state.tasks.map(task => task.query));
       expect(result?.tasks[0]?.status).toBe("succeeded");
       expect(result?.sources.some((source) => source.url.endsWith("/query-0"))).toBe(true);
       const count = f.writes.length; releases.forEach((release) => release()); await vi.advanceTimersByTimeAsync(1);
@@ -659,7 +708,7 @@ describe("bounded search query recovery", () => {
     const operation = f.run().then(value => { settled = true; return value; });
     try {
       await began; await new Promise(resolve => setTimeout(resolve, 20));
-      expect(settled).toBe(false); expect(recoverySignal?.aborted).toBe(true);
+      expect(settled).toBe(true); expect(recoverySignal?.aborted).toBe(true);
       expect(f.search.mock.calls.map(([query]) => query)).toEqual([original, "successful-query"]);
       release(); const result = await operation;
       expect(result.errorCode).toBe(failure.reasonCode); expect(lateReads).toBe(0);

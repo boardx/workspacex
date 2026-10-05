@@ -1,0 +1,243 @@
+{
+  "boundary": "actual Google search adapter only; no model, document read, DB or report quality/SLA",
+  "concurrency": 2,
+  "totalMs": 31373.973084,
+  "queries": [
+    {
+      "queryId": "http",
+      "queueWaitMs": 18.75675000000001,
+      "searchMs": 3339.36775,
+      "resultCount": 1,
+      "uniqueUrls": 1,
+      "hosts": [
+        "nodejs.org"
+      ],
+      "status": "success"
+    },
+    {
+      "queryId": "fs",
+      "queueWaitMs": 0.041958000000022366,
+      "searchMs": 4445.076458,
+      "resultCount": 1,
+      "uniqueUrls": 1,
+      "hosts": [
+        "nodejs.org"
+      ],
+      "status": "success"
+    },
+    {
+      "queryId": "stream",
+      "queueWaitMs": 3358.155833,
+      "searchMs": 2996.570667,
+      "resultCount": 1,
+      "uniqueUrls": 1,
+      "hosts": [
+        "nodejs.org"
+      ],
+      "status": "success"
+    },
+    {
+      "queryId": "events",
+      "queueWaitMs": 4445.159958,
+      "searchMs": 3062.1068750000004,
+      "resultCount": 1,
+      "uniqueUrls": 1,
+      "hosts": [
+        "nodejs.org"
+      ],
+      "status": "success"
+    },
+    {
+      "queryId": "buffer",
+      "queueWaitMs": 6354.737875,
+      "searchMs": 2697.232084,
+      "resultCount": 1,
+      "uniqueUrls": 1,
+      "hosts": [
+        "nodejs.org"
+      ],
+      "status": "success"
+    },
+    {
+      "queryId": "url",
+      "queueWaitMs": 7507.2835,
+      "searchMs": 3203.153542,
+      "resultCount": 1,
+      "uniqueUrls": 1,
+      "hosts": [
+        "nodejs.org"
+      ],
+      "status": "success"
+    },
+    {
+      "queryId": "timers",
+      "queueWaitMs": 9051.983208,
+      "searchMs": 2835.0567919999994,
+      "resultCount": 0,
+      "uniqueUrls": 0,
+      "hosts": [],
+      "status": "success"
+    },
+    {
+      "queryId": "worker_threads",
+      "queueWaitMs": 10710.447167,
+      "searchMs": 2637.639666000001,
+      "resultCount": 1,
+      "uniqueUrls": 1,
+      "hosts": [
+        "nodejs.org"
+      ],
+      "status": "success"
+    },
+    {
+      "queryId": "child_process",
+      "queueWaitMs": 11887.048875,
+      "searchMs": 3527.233042,
+      "resultCount": 1,
+      "uniqueUrls": 1,
+      "hosts": [
+        "nodejs.org"
+      ],
+      "status": "success"
+    },
+    {
+      "queryId": "crypto",
+      "queueWaitMs": 13348.092999999999,
+      "searchMs": 2819.0802089999997,
+      "resultCount": 1,
+      "uniqueUrls": 1,
+      "hosts": [
+        "nodejs.org"
+      ],
+      "status": "success"
+    },
+    {
+      "queryId": "path",
+      "queueWaitMs": 15414.296667,
+      "searchMs": 2592.181457999999,
+      "resultCount": 1,
+      "uniqueUrls": 1,
+      "hosts": [
+        "nodejs.org"
+      ],
+      "status": "success"
+    },
+    {
+      "queryId": "process",
+      "queueWaitMs": 16167.192958000001,
+      "searchMs": 3172.472167,
+      "resultCount": 1,
+      "uniqueUrls": 1,
+      "hosts": [
+        "nodejs.org"
+      ],
+      "status": "success"
+    },
+    {
+      "queryId": "util",
+      "queueWaitMs": 18006.504875000002,
+      "searchMs": 2600.9659169999977,
+      "resultCount": 0,
+      "uniqueUrls": 0,
+      "hosts": [],
+      "status": "success"
+    },
+    {
+      "queryId": "assert",
+      "queueWaitMs": 19339.673375,
+      "searchMs": 3127.6176250000026,
+      "resultCount": 1,
+      "uniqueUrls": 1,
+      "hosts": [
+        "nodejs.org"
+      ],
+      "status": "success"
+    },
+    {
+      "queryId": "test",
+      "queueWaitMs": 20607.4725,
+      "searchMs": 3024.0757080000003,
+      "resultCount": 1,
+      "uniqueUrls": 1,
+      "hosts": [
+        "nodejs.org"
+      ],
+      "status": "success"
+    },
+    {
+      "queryId": "async_hooks",
+      "queueWaitMs": 22467.302,
+      "searchMs": 2054.230541000001,
+      "resultCount": 1,
+      "uniqueUrls": 1,
+      "hosts": [
+        "nodejs.org"
+      ],
+      "status": "success"
+    },
+    {
+      "queryId": "perf_hooks",
+      "queueWaitMs": 23631.559,
+      "searchMs": 2272.4472920000007,
+      "resultCount": 1,
+      "uniqueUrls": 1,
+      "hosts": [
+        "nodejs.org"
+      ],
+      "status": "success"
+    },
+    {
+      "queryId": "net",
+      "queueWaitMs": 24521.542583,
+      "searchMs": 2605.994125000001,
+      "resultCount": 1,
+      "uniqueUrls": 1,
+      "hosts": [
+        "nodejs.org"
+      ],
+      "status": "success"
+    },
+    {
+      "queryId": "dns",
+      "queueWaitMs": 25904.01675,
+      "searchMs": 2300.4718329999996,
+      "resultCount": 1,
+      "uniqueUrls": 1,
+      "hosts": [
+        "nodejs.org"
+      ],
+      "status": "success"
+    },
+    {
+      "queryId": "tls",
+      "queueWaitMs": 27127.541041,
+      "searchMs": 2068.6736249999994,
+      "resultCount": 1,
+      "uniqueUrls": 1,
+      "hosts": [
+        "nodejs.org"
+      ],
+      "status": "success"
+    },
+    {
+      "queryId": "zlib",
+      "queueWaitMs": 28204.498541999998,
+      "searchMs": 2239.755250000002,
+      "resultCount": 1,
+      "uniqueUrls": 1,
+      "hosts": [
+        "nodejs.org"
+      ],
+      "status": "success"
+    },
+    {
+      "queryId": "module",
+      "queueWaitMs": 29196.225917,
+      "searchMs": 2177.702416,
+      "resultCount": 0,
+      "uniqueUrls": 0,
+      "hosts": [],
+      "status": "success"
+    }
+  ]
+}
