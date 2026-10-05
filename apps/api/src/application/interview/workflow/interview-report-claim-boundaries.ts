@@ -70,7 +70,7 @@ function scopedObservedExclusion(clause: string, quote: string, start: number, e
 }
 // Finite installation-scene causal forms observed in #5371, not general causal inference.
 const scenarioCause = /(?:不同物理环境(?:\([^。；;\n]{0,32}\))?|(?:厨房|办公室|装修)?布局(?:差异|不同))\s*(可能|或许|也许)?\s*(?:(?:并非|不是)(?:没有|不)|不可能不)?(?:带来(?:的)?|导致|造成|引起|决定)(?:[^，,:：。；;\n]{0,16})(?:情境异质性|安装(?:结果)?差异|安装成功|安装失败)|安装(?:结果)?差异(?:由|是由)(?:厨房|办公室|装修)?布局(?:差异|不同)(可能|或许|也许)?(?:造成|导致|引起|决定)/gu;
-const causalConfirmationConnector = String.raw`(?:了|的)?(?:(?:确实|的确|明确|直接|完全|真的|\s)*|[^，,:：。；;\n]*是)\s*$`;
+const causalConfirmationConnector = String.raw`(?:了|的)?(?:(?:确实|的确|明确|直接|完全|真的|\s)*|(?:(?!(?:确认|确定|证实|证明|且|并|而))[^，,:：。；;\n])*是)\s*$`;
 const confirmedScenarioCause = new RegExp(String.raw`(?:确认|确定|证实|证明)` + causalConfirmationConnector, "u");
 const deniedScenarioCause = new RegExp(String.raw`(?:不能|不可|无法|不得|不应)(?:断言|声称|确认|认定|证明|证实)` + causalConfirmationConnector, "u");
 function qualifiedScenarioCause(clause: string, match: RegExpMatchArray): boolean {

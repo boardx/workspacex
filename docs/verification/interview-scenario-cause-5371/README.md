@@ -28,3 +28,5 @@ Root follow-up found inner double-denial could still borrow postfix uncertainty:
 Main further rejected copular confirmation prefixes: actual RED2/361. A modifier-inserted copular variant additionally produced RED1/362. Confirmation is now bound to the comma-local causal predicate through 是, preserving independent budget confirmation and ordinary uncertainty. GREEN362/362; no new model request.
 
 Readonly rejected single denied confirmations with the same copular connector: actual RED2/365. Confirmation and its direct denial now share one connector grammar; 证实 is included in the direct denial operator. The outer double-negative control remains rejected. GREEN365/365 across six files. Overall public real-model trial #5327 remains FAIL; this verification makes no new model or deployment claim.
+
+Readonly then rejected two unrelated-object/conjoined confirmation bypasses at731917a20. Actual RED2/367; connector cannot cross a new confirmation operator or independent conjunction. GREEN367/367. No source-proof behavior changed.
