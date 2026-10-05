@@ -7,6 +7,17 @@ import { interviewMarkdown } from "@repo/contracts";
 const evidence = (quote: string): ReportEvidence => ({ anchor: "answer-1", documentId: "runs", version: 1,
   sourceHash: "a".repeat(64), start: 0, end: quote.length, quote, expertId: "expert", taskKey: "task", evidenceMode: "simulated", expertLabel: "甲" });
 describe("finite report claim boundaries", () => {
+ it("preserves byte-exact final public risk denial", () => {
+  const raw = readFileSync(new URL("./fixtures/risk-denial-5343/report.md", import.meta.url), "utf8").split("\n")[29];
+  if (raw === undefined) throw new Error("Missing public raw line 30");
+  expect(assessReportClaimBoundaries(raw,[]).missing).not.toContain("unsupported_physical_risk_downgrade");
+ });
+ it.each(["采用移动插座，不能据此断言供电风险已经降低。", "改用桌面型，无法据此确认承重风险已消除。"])("preserves immediate epistemic risk prohibition: %s", raw => {
+  expect(assessReportClaimBoundaries(raw,[]).missing).not.toContain("unsupported_physical_risk_downgrade");
+ });
+ it.each(["采用移动插座，不是说不能据此断言供电风险已降低。", "采用移动插座，并非真的不能据此断言供电风险已降低。", "采用移动插座，并非不能据此断言供电风险已降低。", "采用移动插座，不是无法据此确认供电风险已消除。", "不能据此断言移动插座合适，但供电风险已降低。", "采用移动插座，不能据此断言预算合适，供电风险已降低。"])("does not waive definite risk reduction: %s", raw => {
+  expect(assessReportClaimBoundaries(raw,[]).missing).toContain("unsupported_physical_risk_downgrade");
+ });
  it.each([4,5,8])("does not erase outer denial with %s spaces", spaces => {
   expect(assessReportClaimBoundaries(`并非${" ".repeat(spaces)}不证明当前采购已经搁置。`,[]).missing).toContain("unsupported_current_decision_state");
  });

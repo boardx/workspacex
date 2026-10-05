@@ -1,0 +1,55 @@
+
+> @repo/api@0.0.0 test:interview-markdown-unit /Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/apps/api
+> vitest run --config vitest.interview-markdown-unit.config.ts
+
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/apps/api
+
+ ❯ tests/itv/interview-report-claim-boundaries.test.ts (200 tests | 3 failed) 85ms
+   × finite report claim boundaries > preserves byte-exact final public risk denial 3ms
+     → ENOENT: no such file or directory, open '/Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/apps/api/tests/itv/fixtures/risk-denial-5343/report.md'
+   × finite report claim boundaries > preserves immediate epistemic risk prohibition: 采用移动插座，不能据此断言供电风险已经降低。 5ms
+     → expected [ Array(1) ] to not include 'unsupported_physical_risk_downgrade'
+   × finite report claim boundaries > preserves immediate epistemic risk prohibition: 改用桌面型，无法据此确认承重风险已消除。 1ms
+     → expected [ Array(1) ] to not include 'unsupported_physical_risk_downgrade'
+ ✓ tests/itv/interview-report-recovery.test.ts (24 tests) 73ms
+ ✓ tests/itv/interview-report-grounding.test.ts (76 tests) 42ms
+ ✓ tests/itv/interview-report-diagnostics.test.ts (14 tests) 32ms
+ ✓ tests/itv/interview-markdown-report-stream-controller.test.ts (9 tests) 5ms
+ ✓ tests/itv/interview-model-markdown.test.ts (4 tests) 3ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/itv/interview-report-claim-boundaries.test.ts > finite report claim boundaries > preserves byte-exact final public risk denial
+Error: ENOENT: no such file or directory, open '/Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/apps/api/tests/itv/fixtures/risk-denial-5343/report.md'
+ ❯ tests/itv/interview-report-claim-boundaries.test.ts:11:15
+      9| describe("finite report claim boundaries", () => {
+     10|  it("preserves byte-exact final public risk denial", () => {
+     11|   const raw = readFileSync(new URL("./fixtures/risk-denial-5343/report…
+       |               ^
+     12|   if (raw === undefined) throw new Error("Missing public raw line 30");
+     13|   expect(assessReportClaimBoundaries(raw,[]).missing).not.toContain("u…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
+
+ FAIL  tests/itv/interview-report-claim-boundaries.test.ts > finite report claim boundaries > preserves immediate epistemic risk prohibition: 采用移动插座，不能据此断言供电风险已经降低。
+ FAIL  tests/itv/interview-report-claim-boundaries.test.ts > finite report claim boundaries > preserves immediate epistemic risk prohibition: 改用桌面型，无法据此确认承重风险已消除。
+AssertionError: expected [ Array(1) ] to not include 'unsupported_physical_risk_downgrade'
+ ❯ tests/itv/interview-report-claim-boundaries.test.ts:16:59
+     14|  });
+     15|  it.each(["采用移动插座，不能据此断言供电风险已经降低。", "改用桌面型…
+     16|   expect(assessReportClaimBoundaries(raw,[]).missing).not.toContain("u…
+       |                                                           ^
+     17|  });
+     18|  it.each(["采用移动插座，并非不能据此断言供电风险已降低。", "采用移动…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/3]⎯
+
+ Test Files  1 failed | 5 passed (6)
+      Tests  3 failed | 324 passed (327)
+   Start at  12:26:02
+   Duration  2.75s (transform 705ms, setup 0ms, collect 1.95s, tests 239ms, environment 0ms, prepare 141ms)
+
+/Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/apps/api:
+ ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  @repo/api@0.0.0 test:interview-markdown-unit: `vitest run --config vitest.interview-markdown-unit.config.ts`
+Exit status 1
