@@ -9,7 +9,7 @@ import { PendingSkillBinding } from "@repo/contracts/agent-role";
  * （见 `pg-official-agent-role-pack-import-repository.ts`），`scope='org-wide' AND enabled`
  * 才进目录（AR13 同款 fail-closed，见用例文件头）。
  */
-import type { DatabasePort } from "../../application/ports/database.port";
+import type { DatabasePort, TenantSession } from "../../application/ports/database.port";
 import { PLATFORM_ORG_ID, toOrgId, type OrgId } from "../../domain/org-id";
 import type { AgentDirectoryRepository, AgentDirectoryRow } from "../../application/agent/list-agent-directory";
 import { AGENT_ROLE_COLUMN_OF, toRoleFieldsTolerant, type AgentRoleColumnsRow } from "./agent-version-insert";
@@ -104,18 +104,25 @@ export class PgAgentDirectoryRepository implements AgentDirectoryRepository {
       const result = await session.query<Row>(`${SELECT} AND a.id = $2`, [orgId, agentId]);
       const row = result.rows[0];
       if (!row) return null;
-      const pins = await session.query<{ skill_id: string; version_id: string }>(
-        `SELECT sk.id AS skill_id, sv.id AS version_id
-           FROM skill_versions sv JOIN skills sk ON sk.id=sv.skill_id AND sk.org_id=sv.org_id
-          WHERE (sv.org_id=$1 OR sv.org_id=$3) AND sv.id=ANY($2::text[]) AND sv.published`,
-        [orgId, row.skill_version_ids ?? [], PLATFORM_ORG_ID],
-      );
-      const byVersion = new Map(pins.rows.map(pin => [pin.version_id, pin.skill_id]));
-      row.pinned_skills = (row.skill_version_ids ?? []).flatMap(versionId => {
-        const skillId = byVersion.get(versionId);
-        return skillId ? [{ skillId, versionId }] : [];
-      });
+      row.pinned_skills = await readPublishedSkillPins(session, orgId, row.skill_version_ids ?? []);
       return toRow(row);
     });
   }
+}
+
+/** Resolve only exact published versions visible in the tenant or shared platform. */
+export async function readPublishedSkillPins(session: TenantSession, orgId: string, ids: readonly string[]) {
+  const versions = [...new Set(ids.filter(id => typeof id === "string" && id.length > 0))];
+  if (!versions.length) return [];
+  const result = await session.query<{ skill_id: string; version_id: string }>(
+    `SELECT sk.id AS skill_id, sv.id AS version_id
+       FROM skill_versions sv JOIN skills sk ON sk.id=sv.skill_id AND sk.org_id=sv.org_id
+      WHERE (sv.org_id=$1 OR sv.org_id=$3) AND sv.id=ANY($2::text[]) AND sv.published`,
+    [orgId, versions, PLATFORM_ORG_ID],
+  );
+  const byVersion = new Map(result.rows.map(pin => [pin.version_id, pin.skill_id]));
+  return versions.flatMap(versionId => {
+    const skillId = byVersion.get(versionId);
+    return skillId ? [{ skillId, versionId }] : [];
+  });
 }

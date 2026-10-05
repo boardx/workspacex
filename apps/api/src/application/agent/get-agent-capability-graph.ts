@@ -46,6 +46,10 @@ export interface GetAgentCapabilityGraphRepository {
 }
 
 export interface GetAgentCapabilityGraphResult {
+  readonly publishedVersionId?: AgentCapabilityGraphRow["publishedVersionId"];
+  readonly pinnedSkills?: AgentCapabilityGraphRow["pinnedSkills"];
+  readonly unresolvedSkillVersionIds?: AgentCapabilityGraphRow["unresolvedSkillVersionIds"];
+  readonly pendingSkillBindings?: AgentCapabilityGraphRow["pendingSkillBindings"];
   readonly agentId: string;
   readonly name: string;
   readonly roleLabel: string;
@@ -62,6 +66,10 @@ export async function getAgentCapabilityGraph(
     throw new GetAgentCapabilityGraphError("AGENT_NOT_FOUND");
   }
   return {
+    publishedVersionId: row.publishedVersionId ?? null,
+    pinnedSkills: row.pinnedSkills ?? [],
+    unresolvedSkillVersionIds: row.unresolvedSkillVersionIds ?? [],
+    pendingSkillBindings: row.pendingSkillBindings ?? [],
     agentId: row.agentId,
     name: row.name,
     roleLabel: row.roleLabel,

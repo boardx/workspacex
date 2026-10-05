@@ -54,7 +54,7 @@ describe("AG04 白名单条目的前提：仓储侧", () => {
 
   it("pin metadata is limited to exact published versions in tenant or platform, never skill content", () => {
     expect(repoSource).toContain("sk.org_id=sv.org_id");
-    expect(repoSource).toContain("(sv.org_id=$1 OR sv.org_id=$3) AND sv.id=ANY($2::text[]) AND sv.published");
+    expect(repoSource.replace(/\s+/g, "")).toContain("(sv.org_id=$1ORsv.org_id=$3)ANDsv.id=ANY($2::text[])ANDsv.published");
     expect(repoSource).toContain("row.skill_version_ids ?? []");
     expect(repoSource).not.toMatch(/SELECT[^;]*sv\.(?:content|instructions|body)/s);
   });

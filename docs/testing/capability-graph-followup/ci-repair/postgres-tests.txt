@@ -1,0 +1,24 @@
+
+ RUN  v2.1.9 /Users/shenyanbin/Documents/Codex/2026-10-04/task-3/capability-pr/apps/api
+
+[db-isolation] db=wsx_capability_5389_ci capacity=100 current=6 required=32
+ ✓ tests/kernel/permission-propagation-six-paths.test.ts (31 tests) 13758ms
+   ✓ lint-permission-paths: counter-proof > scans the real source tree and derives a real table list (not the exit code) 682ms
+   ✓ lint-permission-paths: counter-proof > rejects a permission-blind read from outside infrastructure 330ms
+   ✓ lint-permission-paths: counter-proof > rejects a raw read even when it IS in infrastructure -- the folder is not the rule 343ms
+   ✓ lint-permission-paths: counter-proof > does NOT over-fire on the correct shape 326ms
+   ✓ lint-permission-paths: counter-proof > the allowlist stays short, and every entry carries a real argument 909ms
+{"level":"info","msg":"instance telemetry disabled (endpoint_unset)","traceId":"instance-telemetry"}
+{"level":"info","msg":"dev-process projection sync disabled (WSX_DEV_PROJECTION_SYNC_ORG unset)","traceId":"dev-process-projection-sync"}
+{"level":"info","msg":"kg embedding worker not started: no embedding model configured; memory recall uses text + graph only","traceId":"kg-embedding","code":"embedding_not_configured"}
+{"level":"error","msg":"http exception","traceId":"f2ff8a2d-e57d-48d6-bfe7-216fbea2b884","detail":{"name":"NotFoundException","message":"Not Found Exception","stack":"NotFoundException: Not Found Exception\n    at AgentController.toHttp (/Users/shenyanbin/Documents/Codex/2026-10-04/task-3/capability-pr/apps/api/src/interface/controllers/agent.controller.ts:310:49)\n    at AgentController.getCapabilityGraph (/Users/shenyanbin/Documents/Codex/2026-10-04/task-3/capability-pr/apps/api/src/interface/controllers/agent.controller.ts:236:69)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at /Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_sgffei4zmw63aa4v2dkhbu25m4/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_sgffei4zmw63aa4v2dkhbu25m4/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+{"level":"error","msg":"http exception","traceId":"ff5243d3-12da-4f4c-8af9-1f057c2bbcfc","detail":{"name":"NotFoundException","message":"Not Found Exception","stack":"NotFoundException: Not Found Exception\n    at AgentController.toHttp (/Users/shenyanbin/Documents/Codex/2026-10-04/task-3/capability-pr/apps/api/src/interface/controllers/agent.controller.ts:310:49)\n    at AgentController.getCapabilityGraph (/Users/shenyanbin/Documents/Codex/2026-10-04/task-3/capability-pr/apps/api/src/interface/controllers/agent.controller.ts:236:69)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at /Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_sgffei4zmw63aa4v2dkhbu25m4/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_sgffei4zmw63aa4v2dkhbu25m4/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+{"level":"error","msg":"http exception","traceId":"88a34a6f-f71d-4ce9-8492-b1ca215bd26e","detail":{"name":"NotFoundException","message":"Not Found Exception","stack":"NotFoundException: Not Found Exception\n    at AgentController.toHttp (/Users/shenyanbin/Documents/Codex/2026-10-04/task-3/capability-pr/apps/api/src/interface/controllers/agent.controller.ts:310:49)\n    at AgentController.getCapabilityGraph (/Users/shenyanbin/Documents/Codex/2026-10-04/task-3/capability-pr/apps/api/src/interface/controllers/agent.controller.ts:236:69)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at /Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_sgffei4zmw63aa4v2dkhbu25m4/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_sgffei4zmw63aa4v2dkhbu25m4/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+ ✓ tests/agent-runtime/get-agent-capability-graph-http-route.test.ts (6 tests) 5589ms
+
+ Test Files  2 passed (2)
+      Tests  37 passed (37)
+   Start at  22:03:18
+   Duration  21.33s (transform 3.16s, setup 8ms, collect 1.02s, tests 19.35s, environment 0ms, prepare 63ms)
+
+[db-isolation] db=wsx_capability_5389_ci peak_connections=8

@@ -1,0 +1,44 @@
+[stack-admission] load1=4.62 cores=10 perCore=0.46 running=0/2
+[test-isolation] id=run-muvakr0w-7d754847-8496952fdeae db=wsx_8496952fdeaea7cf9de0 compose=wsx-8496952fdeaea7cf9de0 pg=20103 redis=21103 api=24103 web=25103 sandbox=26103 model=27103 deep-agent=28103 asr=29103 vision=30103 loopback-sandbox=31103 mail=19103
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/pr-readiness-files/workspacex/apps/api
+
+[db-isolation] db=wsx_8496952fdeaea7cf9de0 capacity=100 current=6 required=32
+ ❯ tests/auth/ai-usage-repository.test.ts (12 tests | 1 failed) 10782ms
+   × same ledger reports — isolated PostgreSQL > preserves microsecond snapshot bounds across report projections 83ms
+     → expected '2026-10-05T13:35:09.123Z' to be '2026-10-05T13:35:09.123456Z' // Object.is equality
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/auth/ai-usage-repository.test.ts > same ledger reports — isolated PostgreSQL > preserves microsecond snapshot bounds across report projections
+AssertionError: expected '2026-10-05T13:35:09.123Z' to be '2026-10-05T13:35:09.123456Z' // Object.is equality
+
+Expected: "2026-10-05T13:35:09.123456Z"
+Received: "2026-10-05T13:35:09.123Z"
+
+ ❯ tests/auth/ai-usage-repository.test.ts:61:24
+     59|   const asOf=new Date(Date.now()-1000).toISOString().replace(/\.\d{3}Z…
+     60|   const summary=await report.summary(toOrgId(ORG),{...query,asOf});
+     61|   expect(summary.asOf).toBe(asOf);
+       |                        ^
+     62|   expect((await report.calls(toOrgId(ORG),{...query,asOf:summary.asOf}…
+     63|   expect((await report.summary(toOrgId(ORG),query)).asOf).toMatch(/\.\…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 11 passed (12)
+   Start at  21:34:56
+   Duration  14.52s (transform 689ms, setup 5ms, collect 948ms, tests 10.78s, environment 0ms, prepare 35ms)
+
+[db-isolation] db=wsx_8496952fdeaea7cf9de0 peak_connections=4
+undefined
+/Users/shenyangjun/.codex/worktrees/pr-readiness-files/workspacex/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/auth/ai-usage-repository.test.ts
+[timing] pnpm --filter api exec vitest run tests/auth/ai-usage-repository.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：15s
+  清理：1s
+  总计：16s

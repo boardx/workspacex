@@ -1,0 +1,33 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/research-5056-fixes/workspacex/apps/api
+
+ ✓ tests/research/guided-report-chapters.test.ts (97 tests) 2583ms
+   ✓ chapter-based report generation > rejects callbacks retained by a failed stream attempt during retry 506ms
+   ✓ chapter-based report generation > retries a recoverable chapter stream from the approved prefix 503ms
+   ✓ chapter-based report generation > retries a recoverable synthesis stream from the approved prefix 503ms
+   ✓ chapter-based report generation > bounds provider HTTP 503 attempts at 2 503ms
+ ✓ tests/research/guided-search-recovery.test.ts (67 tests) 517ms
+ ✓ tests/research/guided-source-relevance.test.ts (58 tests) 153ms
+ ✓ tests/research/guided-three-step.test.ts (20 tests) 734ms
+ ✓ tests/research/guided-runtime-delta.test.ts (21 tests) 373ms
+   ✓ strips cache hints from command execution and returns only changed fields 337ms
+ ✓ tests/research/guided-runtime-diagnostics.test.ts (20 tests) 25ms
+ ✓ tests/research/guided-evidence-ledger.test.ts (25 tests) 46ms
+ ✓ tests/research/google-guided-search.test.ts (42 tests) 1030ms
+ ✓ tests/research/guided-plan-repair.test.ts (13 tests) 38ms
+ ✓ tests/research/guided-runtime-orchestration.test.ts (6 tests) 47ms
+ ✓ tests/research/guided-supplement-task-scope.test.ts (12 tests) 19ms
+ ✓ tests/research/guided-report-evidence.test.ts (14 tests) 20ms
+ ✓ tests/research/guided-source-documents.test.ts (8 tests) 26ms
+ ✓ tests/research/guided-runtime-private-ledger.test.ts (10 tests) 156ms
+ ✓ tests/research/guided-research-trust.test.ts (10 tests) 5ms
+ ✓ tests/research/guided-source-document-references.test.ts (11 tests) 7ms
+ ✓ tests/research/guided-runtime-progress.test.ts (7 tests) 31ms
+ ✓ tests/research/guided-search-recovery-query-scope.test.ts (24 tests) 6ms
+ ✓ tests/research/guided-call-budget.test.ts (4 tests) 4ms
+
+ Test Files  19 passed (19)
+      Tests  469 passed (469)
+   Start at  20:46:02
+   Duration  12.50s (transform 719ms, setup 0ms, collect 4.66s, tests 5.82s, environment 1ms, prepare 495ms)
+
