@@ -252,12 +252,16 @@ describe('finite scenario cause boundaries', () => {
   '并非不能断言厨房布局差异导致安装结果差异。',
   '并非完全不能断言厨房布局差异导致安装结果差异。',
   '预算可能不足，厨房布局差异导致安装结果差异，预算如何呢？',
+  '厨房布局差异导致安装结果差异，预算尚待验证。',
+  '厨房布局差异导致安装结果差异这一假设尚待验证，办公室布局差异决定安装结果差异。',
   '厨房布局差异可能导致安装结果差异，但是厨房布局差异决定安装结果差异。',
  ])('rejects an unproved affirmative cause: %s', claim => {
   const quote = '另一个场景安装顺利，不能推断普遍发生。';
   expect(assessReportClaimBoundaries(claim+'['+quote+'](#answer-1)', [evidence(quote)]).missing).toContain('unsupported_scenario_cause');
  });
  it.each([
+  '厨房布局差异导致安装结果差异这一假设尚待验证',
+  '厨房布局差异导致安装结果差异，原因尚待验证',
   '厨房布局差异可能导致安装结果差异，还需核实。',
   '假设厨房布局差异导致安装结果差异，还需现场验证。',
   '厨房布局差异导致安装结果差异吗？',
