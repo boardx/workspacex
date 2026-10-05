@@ -1472,7 +1472,9 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
       const bounds = active.getBoundingRect();
       active.set({ hasControls: boardObjectControlsVisible({ width: bounds.width, height: bounds.height }, zoom) });
     }
-    canvas.requestRenderAll();
+    // Every dependency here already queues rendering through projection, selection,
+    // or viewport effects. Update chrome before that frame instead of issuing a
+    // second requestRenderAll for each canonical patch.
   }, [objects, selectedObjectIds, viewport.zoom]);
 
   React.useEffect(() => {
