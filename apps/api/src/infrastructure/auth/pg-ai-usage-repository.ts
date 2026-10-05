@@ -18,8 +18,11 @@ const stats=(relation:string)=>`(SELECT jsonb_build_object('inputTokens',COALESC
 export class PgAiUsageRepository implements AiUsageRepository {
  constructor(private readonly db:DatabasePort){}
  private async parameters(s:TenantSession,orgId:OrgId,q:AiUsageQuery){
-  const now=(await s.query<{now:Date}>("SELECT now() AS now")).rows[0]!.now;
-  const asOf=q.asOf?new Date(Math.min(Date.parse(q.asOf),now.getTime())).toISOString():now.toISOString();
+  // Keep the snapshot clamp at PostgreSQL precision: JS Date truncates receipts
+  // in the remaining microseconds, including a receipt exactly at an explicit cutoff.
+  const asOf=(await s.query<{asOf:string}>(`SELECT to_char(
+   LEAST(COALESCE($1::timestamptz,now()),now()) AT TIME ZONE 'UTC',
+   'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS "asOf"`,[q.asOf??null])).rows[0]!.asOf;
   const previousStart=new Date(2*Date.parse(q.start)-Date.parse(q.end)).toISOString();
   return {asOf,values:[orgId,q.userId??null,q.modelProvider??null,q.modelId??null,q.projectId??null,q.unassignedProject==="true",
    q.runId??null,q.threadId??null,q.agentId??null,q.start,q.end,previousStart,asOf,q.timezone]};

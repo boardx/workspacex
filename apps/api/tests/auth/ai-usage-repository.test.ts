@@ -28,6 +28,35 @@ beforeEach(async()=>{
 });
 afterAll(async()=>{await resetOrgs(ORG,OTHER);await db.close();});
 describe("same ledger reports — isolated PostgreSQL",()=>{
+ it("preserves the microsecond snapshot boundary across summary and call pagination",async()=>{
+  const boundary="2020-01-01T00:00:00.123456Z";
+  await asApp(ORG,async s=>{
+   for(const [id,time] of [["micro-before","2020-01-01T00:00:00.123455Z"],["micro-equal",boundary],["micro-after","2020-01-01T00:00:00.123457Z"]])
+    await s.query(`INSERT INTO token_usage_events(id,org_id,user_id,model_provider,model_id,tokens_total,total_source,outcome,occurred_at)
+     VALUES($1,$2,'alice','fixture','microseconds',1,'reported','succeeded',$3::timestamptz)`,[id,ORG,time]);
+  });
+  const scoped=C.Query.parse({start:"2020-01-01T00:00:00Z",end:"2020-01-02T00:00:00Z",timezone:"Etc/UTC",asOf:boundary,modelId:"microseconds",limit:1});
+  const summary=await report.summary(toOrgId(ORG),scoped);
+  expect(summary.asOf).toBe(boundary);
+  expect(summary.current).toMatchObject({callCount:2,totalTokens:"2"});
+  const first=await report.calls(toOrgId(ORG),{...scoped,asOf:summary.asOf});
+  expect(first.asOf).toBe(boundary);
+  expect(first.calls.map(c=>c.id)).toEqual(["micro-equal"]);
+  expect(first.nextCursor).toEqual({occurredAt:boundary,id:"micro-equal"});
+  const second=await report.calls(toOrgId(ORG),{...scoped,asOf:first.asOf,cursorTime:first.nextCursor!.occurredAt,cursorId:first.nextCursor!.id});
+  expect(second.calls.map(c=>c.id)).toEqual(["micro-before"]);
+  expect(second.nextCursor).toBeNull();
+ });
+ it("uses a database-precision default cutoff and clamps a future cutoff to database now",async()=>{
+  for(const asOf of [undefined,"2099-01-01T00:00:00.999999Z"]){
+   const summary=await report.summary(toOrgId(ORG),{...query,asOf});
+   expect(summary.asOf).toMatch(/\.\d{6}Z$/);
+   expect(summary.current).toMatchObject({callCount:2,totalTokens:"15"});
+   const check=await asApp(ORG,s=>s.query<{notFuture:boolean}>(`SELECT $1::timestamptz<=now() AS "notFuture"`,[summary.asOf]));
+   expect(check.rows[0]!.notFuture).toBe(true);
+   expect((await report.calls(toOrgId(ORG),{...query,asOf:summary.asOf})).calls).toHaveLength(2);
+  }
+ });
  it("summary, member/model/project and details have matching totals and explicit unknown coverage",async()=>{
   const summary=await report.summary(toOrgId(ORG),query);
   expect(summary.current).toMatchObject({totalTokens:"15",inputTokens:"10",outputTokens:"5",callCount:2,unknownCalls:1,failedCalls:1});
