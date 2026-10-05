@@ -1,4 +1,7 @@
 "use client";
+
+import { boardObjectControlsVisible } from "../screen-control-visibility";
+import { databaseShapePath } from "./database-shape-path";
 import {beginBoardPinch,updateBoardPinch,type BoardPinchSession} from "./board-pinch-viewport";
 import { boardWheelDelta, finishCancelledFabricTouch, panFabricViewport, readFabricInput, type FabricInput } from "./fabric-input";
 import {fitBoardContent,type BoardFitInsets} from "../board-chrome-fit";
@@ -402,7 +405,7 @@ function shapePath(variant: string, width: number, height: number): string {
   if (variant === "triangle") return `M 0 ${-y} L ${x} ${y} L ${-x} ${y} Z`;
   if (variant === "hexagon") return `M ${-x * .55} ${-y} L ${x * .55} ${-y} L ${x} 0 L ${x * .55} ${y} L ${-x * .55} ${y} L ${-x} 0 Z`;
   if (variant === "cloud") return `M ${-x} ${y * .25} C ${-x} ${-y * .35} ${-x * .45} ${-y * .6} ${-x * .15} ${-y * .35} C 0 ${-y} ${x * .65} ${-y * .7} ${x * .55} ${-y * .25} C ${x} ${-y * .2} ${x} ${y * .5} ${x * .55} ${y * .55} L ${-x * .55} ${y * .55} C ${-x * .9} ${y * .55} ${-x} ${y * .25} ${-x} ${y * .25} Z`;
-  if (variant === "database") return `M ${-x} ${-y * .7} C ${-x} ${-y} ${x} ${-y} ${x} ${-y * .7} L ${x} ${y * .7} C ${x} ${y} ${-x} ${y} ${-x} ${y * .7} Z`;
+  if (variant === "database") return databaseShapePath(width, height);
   if (variant === "data") return `M ${-x * .7} ${-y} L ${x} ${-y} L ${x * .7} ${y} L ${-x} ${y} Z`;
   if (variant === "predefined-process") return `M ${-x} ${-y} L ${x} ${-y} L ${x} ${y} L ${-x} ${y} Z M ${-x * .72} ${-y} L ${-x * .72} ${y} M ${x * .72} ${-y} L ${x * .72} ${y}`;
   return `M ${-x} ${-y} L ${x * .55} ${-y} L ${x} ${-y * .55} L ${x} ${y} L ${-x} ${y} Z`;
@@ -1458,6 +1461,22 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
 
   React.useEffect(() => {
     const canvas = canvasRef.current;
+    if (!canvas) return;
+    const zoom = clampBoardZoom(viewport.zoom);
+    for (const [id, projected] of registryRef.current) {
+      const object = canonicalRef.current.get(id);
+      if (object) projected.set({ hasControls: object.kind !== "connector" && boardObjectControlsVisible({ width: projected.width * Math.abs(projected.scaleX), height: projected.height * Math.abs(projected.scaleY) }, zoom) });
+    }
+    const active = canvas.getActiveObject();
+    if (active instanceof ActiveSelection) {
+      const bounds = active.getBoundingRect();
+      active.set({ hasControls: boardObjectControlsVisible({ width: bounds.width, height: bounds.height }, zoom) });
+    }
+    canvas.requestRenderAll();
+  }, [objects, selectedObjectIds, viewport.zoom]);
+
+  React.useEffect(() => {
+    const canvas = canvasRef.current;
     if (!canvas || viewport.fitRequest === 0) return;
     const width = canvas.getWidth(), height = canvas.getHeight();
     const applied = appliedFitRef.current;
@@ -1496,6 +1515,7 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
       // Keep keyboard shortcuts within this board after a real canvas gesture.
       if (event.target instanceof HTMLCanvasElement) event.currentTarget.focus({ preventScroll: true });
     }} className={className ?? "relative h-full w-full overflow-hidden bg-background"} style={boardDotGridStyle(viewport)} data-testid="board-fabric-surface"
+      data-object-controls-visible={objects.filter(object => selectedObjectIds.includes(object.id) && object.kind !== "connector" && boardObjectControlsVisible(object.geometry, clampBoardZoom(viewport.zoom))).length > 0 ? "true" : "false"}
       data-viewport-zoom={clampBoardZoom(viewport.zoom)} data-viewport-pan-x={viewport.panX} data-viewport-pan-y={viewport.panY}
       data-selection-scene={selectionScene ? JSON.stringify(selectionScene) : undefined}
       data-object-scenes={JSON.stringify(objectScenes)}

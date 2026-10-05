@@ -42,13 +42,21 @@ it('keeps the FigJam tool order and keeps Frame creation hidden',()=>{
 });
 it('keeps zoom, fit, and a keyboard-accessible overview action together at the lower-right entry',()=>{
  const fit=vi.fn();
- render(<BoardViewportControls zoom={1} onZoom={vi.fn()} onFitBoard={fit} onFitSelection={vi.fn()} hasSelection={false}/>);
+ render(<BoardViewportControls zoom={1} onZoom={vi.fn()} onFitBoard={fit} onFitSelection={vi.fn()} hasSelection={false} minimap={<div data-testid="test-minimap">缩略图</div>}/>);
  const controls=screen.getByTestId('board-navigation-controls');
  expect(controls.parentElement).toHaveClass('bottom-[96px]','right-[16px]','xl:bottom-[20px]');
  expect(within(controls).getByTestId('board-zoom-fit-board')).toBeVisible();
  const overview=within(controls).getByTestId('board-overview-fit');
- expect(overview).toHaveAccessibleName('画布概览：显示全部内容');
+ expect(overview).toHaveAccessibleName('切换白板缩略图');
+ expect(overview).toHaveAttribute('aria-expanded','false');
+ expect(screen.queryByTestId('test-minimap')).toBeNull();
  fireEvent.click(overview);
+ expect(overview).toHaveAttribute('aria-expanded','true');
+ expect(screen.getByTestId('test-minimap')).toBeVisible();
+ expect(fit).not.toHaveBeenCalled();
+ fireEvent.click(overview);
+ expect(screen.queryByTestId('test-minimap')).toBeNull();
+ fireEvent.click(within(controls).getByTestId('board-zoom-fit-board'));
  expect(fit).toHaveBeenCalledOnce();
 });
 it('compact presentation controls still invoke real claim and leave callbacks',()=>{

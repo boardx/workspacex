@@ -22,6 +22,11 @@ import {
 const geometry = (x: number, y: number, width = 200, height = 160) => ({ x, y, width, height, rotation: 0 });
 
 describe('thinking input appearance', () => {
+  it('validates persistent vertical alignment with legacy middle default', () => {
+    expect(validateTextAttributes({preset:'body'}).verticalAlignment).toBe('middle');
+    for(const verticalAlignment of ['top','middle','bottom'] as const) expect(validateTextAttributes({preset:'body',verticalAlignment}).verticalAlignment).toBe(verticalAlignment);
+    expect(() => validateTextAttributes({preset:'body',verticalAlignment:'center' as 'top'})).toThrow('TEXT_VERTICAL_ALIGNMENT_INVALID');
+  });
   it('resolves all eight presets and canonicalizes safe custom colors', () => {
     expect(['yellow', 'pink', 'blue', 'green', 'purple', 'orange', 'gray', 'white'].map(preset =>
       resolveStickyColor({ preset: preset as 'yellow' }),

@@ -16,6 +16,20 @@ function object(kind: "sticky" | "text"): BoardFabricObject {
 }
 
 describe("ThinkingInputEditor", () => {
+  it("keeps the focused input transparent while displaying its caret and accepting edits", async () => {
+    const onCommit = vi.fn(() => true);
+    render(<ThinkingInputEditor object={object("sticky")} initialValue="原文" viewport={viewport} readOnly={false} onLiveCommit={vi.fn()} onCommit={onCommit} onCancel={vi.fn()} onContinue={vi.fn()} />);
+    const input = screen.getByTestId("board-thinking-editor");
+    await waitFor(() => expect(input).toHaveFocus());
+    expect(input.style.backgroundColor).toBe("transparent");
+    expect(input.style.borderWidth).toBe("0px");
+    expect(input.style.boxShadow).toBe("none");
+    expect(input.style.caretColor).toBe("rgb(18, 52, 86)");
+    fireEvent.change(input, { target: { value: "修改内容" } });
+    fireEvent.keyDown(input, { key: "Enter", ctrlKey: true });
+    expect(onCommit).toHaveBeenCalledWith("修改内容", "enter");
+  });
+
   it.each([
     { rotation: 0, left: "196px", top: "318.05px" },
     { rotation: 90, left: "41.95px", top: "236px" },

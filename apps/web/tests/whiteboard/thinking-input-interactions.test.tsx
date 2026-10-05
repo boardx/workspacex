@@ -30,6 +30,13 @@ const editor = (readOnly = false, supplied = createWhiteboardDocument()) => {
   return doc;
 };
 
+function canvasShortcut(key: string, shiftKey = false) {
+  const canvas = screen.getByTestId("mock-canvas-click");
+  canvas.focus();
+  expect(document.activeElement).toBe(canvas);
+  fireEvent.keyDown(canvas, { key, shiftKey });
+}
+
 async function openInspectorProperties() {
   fireEvent.click(screen.getByTestId("board-inspector-expand"));
   await waitFor(() => expect(screen.getByTestId("board-context-toolbar")).toHaveAttribute("data-expanded", "true"));
@@ -136,7 +143,10 @@ it("guards shortcuts inside inputs and creates from N/T only when canvas context
   fireEvent.keyDown(title, { key: "n" });
   expect(readObjects(doc)).toHaveLength(0);
   fireEvent.keyDown(title,{key:"Escape"});
-  act(() => window.dispatchEvent(new KeyboardEvent("keydown", { key: "n", bubbles: true })));
+  fireEvent.keyDown(document.body, {key:"n"});
+  fireEvent.click(screen.getByTestId("mock-canvas-click"));
+  expect(readObjects(doc)).toHaveLength(0);
+  canvasShortcut("n");
   expect(readObjects(doc)).toHaveLength(0);
   fireEvent.click(screen.getByTestId('mock-canvas-click'));
   expect(readObjects(doc)).toHaveLength(1);
@@ -171,7 +181,7 @@ it("dispatches Shift+N bulk creation as one command transaction for up to 100 ro
   const doc = editor();
   const origins: WhiteboardCommandOrigin[] = [];
   doc.on("afterTransaction", (transaction) => { if (transaction.origin instanceof WhiteboardCommandOrigin) origins.push(transaction.origin); });
-  act(() => window.dispatchEvent(new KeyboardEvent("keydown", { key: "N", shiftKey: true, bubbles: true })));
+  canvasShortcut("N", true);
   fireEvent.change(screen.getByTestId("board-bulk-text"), { target: { value: "研究\n设计\n验证" } });
   fireEvent.click(screen.getByTestId("board-bulk-apply"));
   expect(readObjects(doc).map((item) => item.text)).toEqual(["研究", "设计", "验证"]);
@@ -209,7 +219,7 @@ it("accepts dock drag payloads at the Fabric drop point and rejects every read-o
   const readonly = editor(true);
   fireEvent.click(screen.getByTestId("mock-canvas-double"));
   fireEvent.click(screen.getByTestId("mock-tool-drop"));
-  act(() => window.dispatchEvent(new KeyboardEvent("keydown", { key: "n", bubbles: true })));
+  canvasShortcut("n");
   expect(readObjects(readonly)).toEqual([]);
   expect(screen.getByTestId("board-add-sticky")).toBeDisabled();
   readonly.destroy();

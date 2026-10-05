@@ -10,7 +10,7 @@ import { sharedOutboxPanelCommands } from "../../e2e/support/board-shared-outbox
 interface MockProjectedObject {
   data?: { boardObjectId?: string; adapterKind?: string; stickyVariant?: string; sizingMode?: string; drawingPreview?: boolean };
   left: number; top: number; width: number; height: number; scaleX: number; scaleY: number; angle: number;
-  selectable: boolean; evented: boolean;
+  selectable: boolean; evented: boolean; hasControls?: boolean;
   mockKind?: string; children?: MockProjectedObject[]; controls?: Record<string, boolean>;
   fontFamily?: string; fontSize?: number; fontWeight?: number; fontStyle?: string; underline?: boolean; textAlign?: string; lineHeight?: number; fill?: string; hoverCursor?: string; lockScalingX?: boolean; lockScalingY?: boolean;
   clipPath?: unknown; visible?: boolean; globalCompositeOperation?: string;
@@ -151,6 +151,33 @@ function renderSurface(overrides: Partial<React.ComponentProps<typeof BoardFabri
 }
 
 describe("BoardFabricSurface", () => {
+  it("updates group controls on zoom without rebuilding the active selection", async () => {
+    const props = { objects: OBJECTS, selectedObjectIds: ["s-1", "r-1"], readOnly: false, tool: "select" as const, onSelectionChange: vi.fn(), onObjectTransform: vi.fn(), onViewportChange: vi.fn() };
+    const view = render(<BoardFabricSurface {...props} viewport={VIEWPORT} />);
+    await waitFor(() => expect(probe.active?.hasControls).toBe(true));
+    const selection = probe.active;
+    view.rerender(<BoardFabricSurface {...props} viewport={{ ...VIEWPORT, zoom: .22 }} />);
+    await waitFor(() => expect(probe.active?.hasControls).toBe(false));
+    view.rerender(<BoardFabricSurface {...props} viewport={VIEWPORT} />);
+    await waitFor(() => expect(probe.active?.hasControls).toBe(true));
+    expect(probe.active).toBe(selection);
+  });
+
+  it("hides crowded handles at 22 percent and restores them on zoom without changing selection", async () => {
+    const onSelectionChange = vi.fn();
+    const props = { objects: OBJECTS, selectedObjectIds: ["s-1"], readOnly: false, tool: "select" as const, onSelectionChange, onObjectTransform: vi.fn(), onViewportChange: vi.fn() };
+    const view = render(<BoardFabricSurface {...props} viewport={{ ...VIEWPORT, zoom: .22 }} />);
+    await waitFor(() => expect(probe.objects.find(item => item.data?.boardObjectId === "s-1")?.hasControls).toBe(false));
+    const selected = probe.active;
+    onSelectionChange.mockClear();
+    view.rerender(<BoardFabricSurface {...props} viewport={VIEWPORT} />);
+    await waitFor(() => expect(probe.objects.find(item => item.data?.boardObjectId === "s-1")?.hasControls).toBe(true));
+    expect(probe.active).toBe(selected);
+    expect(onSelectionChange).not.toHaveBeenCalled();
+    view.rerender(<BoardFabricSurface {...props} viewport={{ ...VIEWPORT, zoom: .22 }} />);
+    await waitFor(() => expect(probe.objects.find(item => item.data?.boardObjectId === "s-1")?.hasControls).toBe(false));
+  });
+
   beforeEach(() => { probe.canvasWidth = 1200; probe.canvasHeight = 800; probe.resize = null; });
   beforeEach(() => { probe.instances = 0; probe.objects.length = 0; probe.handlers.clear(); probe.active = null; probe.activeId = null; probe.emitSelectionOnSet = false; probe.zoom = 1; probe.clearCalls = 0; probe.renderCalls = 0; probe.moveCalls = 0; probe.primitiveKinds.length = 0; probe.imageSources.length = 0; probe.imageOptions.length = 0; });
 

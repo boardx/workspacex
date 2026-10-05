@@ -132,7 +132,15 @@ it("creates a real shape and structured Tile from the touch-first dock", async (
 it("makes all fifteen canonical shape variants reachable from the dock", async () => {
   const doc = await setup();
   fireEvent.click(screen.getByTestId("board-add-shape"));
-  for (const variant of ["rectangle", "rounded-rectangle", "circle", "ellipse", "diamond", "triangle", "hexagon", "cloud", "database", "document", "process", "decision", "terminator", "data", "predefined-process"]) expect(screen.getByTestId(`board-shape-${variant}`)).toBeVisible();
+  for (const [category, variants] of [
+    ["基础", ["rectangle", "rounded-rectangle", "circle", "ellipse", "diamond", "triangle", "hexagon"]],
+    ["资料", ["cloud", "database", "document"]],
+    ["流程", ["process", "decision", "terminator", "data", "predefined-process"]],
+  ] as const) {
+    fireEvent.click(screen.getByRole("tab", { name: category }));
+    expect(screen.getByRole("tab", { name: category })).toHaveAttribute("aria-selected", "true");
+    for (const variant of variants) expect(screen.getByTestId(`board-shape-${variant}`)).toBeVisible();
+  }
   doc.destroy();
 });
 

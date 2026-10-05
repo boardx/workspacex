@@ -1,6 +1,7 @@
 import {cleanup,fireEvent,render,screen} from '@testing-library/react';
 import {afterEach,expect,it,vi} from 'vitest';
-import {BoardBottomDock} from '@/components/whiteboard/board-bottom-dock';
+import {useState} from 'react';
+import {BoardBottomDock,type BoardCreationTool} from '@/components/whiteboard/board-bottom-dock';
 afterEach(cleanup);
 function mount(readOnly=false){
  const onToolChange=vi.fn(),onCreationToolChange=vi.fn();
@@ -27,4 +28,13 @@ it('does not enable drawing mutations in readonly mode',()=>{
  const callbacks=mount(true),draw=screen.getByTestId('board-add-draw');
  expect(draw).toBeDisabled();fireEvent.click(draw);
  expect(callbacks.onToolChange).not.toHaveBeenCalled();expect(callbacks.onCreationToolChange).not.toHaveBeenCalled();
+});
+
+it('uses actual picker visibility for chevron direction and toggles the same trigger',()=>{
+ function Harness(){const [creation,setCreation]=useState<BoardCreationTool>(null);return <BoardBottomDock activeTool="select" creationTool={creation} readOnly={false} onToolChange={vi.fn()} onCreationToolChange={setCreation} onQuickCreate={vi.fn()} onBulkSticky={vi.fn()} onImageRequest={vi.fn()}/>;}
+ render(<Harness/>);const trigger=screen.getByTestId('board-add-sticky'),arrow=screen.getByTestId('board-add-sticky-submenu');
+ expect(arrow).toHaveAttribute('data-state','closed');fireEvent.click(trigger);
+ expect(arrow).toHaveAttribute('data-state','open');expect(arrow).toHaveClass('rotate-180');fireEvent.click(trigger);
+ expect(arrow).toHaveAttribute('data-state','closed');expect(trigger).toHaveAttribute('aria-expanded','false');
+ fireEvent.click(trigger);fireEvent.keyDown(window,{key:'Escape'});expect(arrow).toHaveAttribute('data-state','closed');
 });
