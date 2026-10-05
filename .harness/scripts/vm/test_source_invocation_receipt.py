@@ -15,9 +15,34 @@ import test_isolated_conservation_evidence_producer as fixture
 
 class InvocationTests(unittest.TestCase):
     def setUp(self):
-        self.tmp = tempfile.TemporaryDirectory(dir='/workspace')
-        self.root = Path(self.tmp.name)
+        self.tmp = tempfile.TemporaryDirectory()
+        self.root = Path(self.tmp.name).resolve()
         self.root.chmod(0o700)
+        # Only ambient ancestors above this disposable root are simulated.
+        # Private fixture files and directories retain real ownership/mode checks.
+        original_lstat = Path.lstat
+        ancestors = set(self.root.parents)
+        def fixture_lstat(path):
+            value = original_lstat(path)
+            if path in ancestors:
+                fields = list(value)
+                fields[0] &= ~0o022
+                fields[4:6] = [os.geteuid(), os.getegid()]
+                return os.stat_result(fields)
+            return value
+        fixture_patch = patch.object(Path, 'lstat', fixture_lstat)
+        fixture_patch.start()
+        self.addCleanup(fixture_patch.stop)
+        # The actual pinned child performs the same parent checks independently.
+        # Simulate ambient ancestors in its test bootstrap, never the FD-loaded
+        # source or the private fixture subtree whose tamper checks are exercised.
+        original_bootstrap = m.pinned_bootstrap
+        def fixture_bootstrap(closure, descriptors):
+            setup = "import pathlib,os\n_fixture_ancestors=" + repr([str(path) for path in ancestors]) + "\n_fixture_lstat=pathlib.Path.lstat\ndef _fixture_parent_lstat(path):\n value=_fixture_lstat(path)\n if str(path) in _fixture_ancestors:\n  fields=list(value);fields[0]&=~0o022;fields[4:6]=[os.geteuid(),os.getegid()];return os.stat_result(fields)\n return value\npathlib.Path.lstat=_fixture_parent_lstat\n"
+            return setup + original_bootstrap(closure, descriptors)
+        bootstrap_patch = patch.object(m, 'pinned_bootstrap', fixture_bootstrap)
+        bootstrap_patch.start()
+        self.addCleanup(bootstrap_patch.stop)
         self.output = self.root / 'output'
         self.output.mkdir(mode=0o700)
         sample = fixture.CollectionTests()
@@ -149,6 +174,17 @@ while True:signal.pause()
             Path(module['path']).write_text('raise RuntimeError("foreign module")')
             with self.assertRaisesRegex(ValueError, 'MODULE_PIN'):
                 self.run_source()
+            spawn.assert_not_called()
+
+    def test_fixture_ancestor_override_does_not_mask_writable_private_subtree(self):
+        with patch.object(m.subprocess, 'Popen') as spawn:
+            for directory in (self.root, self.output):
+                directory.chmod(0o777)
+                try:
+                    with self.assertRaisesRegex(ValueError, '(PARENT_TRUST|PRIVATE_OUTPUT|OUTPUT_TRUST)'):
+                        self.run_source()
+                finally:
+                    directory.chmod(0o700)
             spawn.assert_not_called()
 
     def test_owner_uid_and_gid_rejected_before_spawn(self):

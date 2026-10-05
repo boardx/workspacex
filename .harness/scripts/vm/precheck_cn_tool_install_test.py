@@ -24,7 +24,7 @@ class PackagePrecheck(unittest.TestCase):
 
     def test_readonly_replay_keeps_authority_closed(self):
         with tempfile.TemporaryDirectory() as directory:
-            repo, revision, out, pin = self.package(pathlib.Path(directory))
+            repo, revision, out, pin = self.package(pathlib.Path(directory).resolve())
             before = {str(p): p.read_bytes() for p in out.rglob('*') if p.is_file()}
             first = m.precheck(repo, out, pin, revision, revision, revision)
             self.assertEqual(first, m.precheck(repo, out, pin, revision, revision, revision))
@@ -36,7 +36,7 @@ class PackagePrecheck(unittest.TestCase):
     def test_mutations_failclosed(self):
         for kind in ('pin', 'complete', 'application', 'payload', 'extra', 'symlink', 'metadata', 'authority', 'target', 'tree'):
             with self.subTest(kind=kind), tempfile.TemporaryDirectory() as directory:
-                root = pathlib.Path(directory)
+                root = pathlib.Path(directory).resolve()
                 repo, revision, out, pin = self.package(root)
                 app = revision
                 source = '.harness/scripts/vm/cn-build-tool-identity.py'

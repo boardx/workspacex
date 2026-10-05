@@ -14,7 +14,7 @@ class QualificationTests(unittest.TestCase):
  def setUp(self):
   identity={'sourceRevision':q.APP,'baselineRevision':q.BASE,'migrationPlanSha256':'c'*64,'attemptId':'local-fixture'}
   self.r=rf.ReplayTests('test_actual_file_comparison_not_receipt_flags')
-  with patch.object(rf,'IDENTITY',identity),patch.object(rf.tempfile,'gettempdir',return_value='/workspace'):self.r.setUp()
+  with patch.object(rf,'IDENTITY',identity):self.r.setUp()
   self.root=self.r.root;self.n=0
   self.b={'identity':identity,'toolRevision':'a'*40,'host':{'instanceId':q.ECS,'bootId':'11111111-1111-4111-8111-111111111111'},'epoch':'e'*64,'holdGeneration':'d'*32,'targetInstanceId':'pgm-isolatedfixture','providerBindingSha256':'f'*64}
   baseline=json.loads(pathlib.Path(self.r.manifest['baselineManifest']['path']).read_bytes());baseline['snapshotId']=self.b['epoch'];baseline['baselineRevision']=q.BASE;self.r.manifest['baselineManifest']=self.put(baseline)
@@ -100,13 +100,13 @@ class QualificationTests(unittest.TestCase):
  def run_it(self):return self._execute(q.qualify)
  def verify_it(self):return self._execute(q.verify_existing_qualification)
  def _execute(self,consumer):
-  # Disposable test owner override only for the container's '/' owner mismatch;
+  # Simulate only ambient ancestors above the disposable fixture root;
   # all artifact modes, hashes, O_EXCL and fsync remain actual filesystem calls.
   original=pathlib.Path.lstat
   def local_lstat(path):
    value=original(path)
-   if str(path)=='/':
-    fields=list(value);fields[4]=os.geteuid();return os.stat_result(fields)
+   if path in self.root.parents:
+    fields=list(value);fields[0]&=~0o022;fields[4:6]=[os.geteuid(),os.getegid()];return os.stat_result(fields)
    return value
   with patch.object(pathlib.Path,'lstat',local_lstat):return consumer(self.p,self.r.reader(),self.p['sourcePolicy'],code_authority=getattr(self,'code_authority',None))
  def change(self,key,edit):
@@ -140,7 +140,7 @@ class QualificationTests(unittest.TestCase):
   with self.assertRaisesRegex((q.recovery.Rejected,rf.m.Rejected),'ACTUAL_ARTIFACT_MISSING'):self.verify_it()
   self.assertFalse(path.exists())
  def install_fixture_code(self):
-  self.code_tmp=tempfile.TemporaryDirectory(dir='/workspace');root=pathlib.Path(self.code_tmp.name);root.chmod(0o700);(root/'sources').mkdir(mode=0o700)
+  self.code_tmp=tempfile.TemporaryDirectory();root=pathlib.Path(self.code_tmp.name);root.chmod(0o700);(root/'sources').mkdir(mode=0o700)
   pins={};mapping={}
   for source,old in list(self.policy['sources'].items()):
    filename=source.removeprefix('.harness/scripts/vm/');path=root/'sources'/filename;path.parent.mkdir(parents=True,exist_ok=True);path.write_bytes(pathlib.Path(old['path']).read_bytes());path.chmod(0o700)
@@ -177,8 +177,8 @@ authority=code['QualificationCodeAuthority'](payload['sourcePins'],payload['exec
 original=pathlib.Path.lstat
 def local_lstat(path):
  value=original(path)
- if str(path)=='/':
-  fields=list(value);fields[4]=os.geteuid();return os.stat_result(fields)
+ if path in pathlib.Path(payload['root']).parents:
+  fields=list(value);fields[0]&=~0o022;fields[4:6]=[os.geteuid(),os.getegid()];return os.stat_result(fields)
  return value
 with patch.object(pathlib.Path,'lstat',local_lstat):
  result=code['qualify'](payload['input'],reader,payload['input']['sourcePolicy'],code_authority=authority)

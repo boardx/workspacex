@@ -138,8 +138,11 @@ class MaintenanceSourceOperations:
     require(type(data['producer']) is dict and set(data['producer'])=={*bound,'refs'} and
             all(data['producer'][k]==bound[k] for k in bound),'SOURCE_CANDIDATE_PRODUCER_BINDING')
     source=CandidateStageHost(self.host,self.journal);prepare(data['prepare'],source)
-    rows=source.inspect_stage(source.compose['name']);snapshot=source.persist_stage_snapshot(bound,rows)
-    template=concretize_and_write(bound,source,snapshot);late=source.publish_late_evidence(bound)
+    # Capture/runtime evidence uses the semantic epoch; the immutable candidate
+    # stage and final candidate plan bind the qualified manifest byte hash.
+    stage_bound=copy.deepcopy(bound);stage_bound['epoch']=self.qualified['epoch']['sha256']
+    rows=source.inspect_stage(source.compose['name']);snapshot=source.persist_stage_snapshot(stage_bound,rows)
+    template=concretize_and_write(bound,source,snapshot,stage_binding=stage_bound);late=source.publish_late_evidence(bound)
     inputs=copy.deepcopy(data['producer']);require(all(inputs[k]==bound[k] for k in bound),'SOURCE_CANDIDATE_PRODUCER_BINDING')
     inputs['refs'].update(template=template,epochManifest=self.qualified['epoch'],
                          epochInput=self.qualification_input['collectionInput'],epochCollection=self.qualification_input['collection'],**late)

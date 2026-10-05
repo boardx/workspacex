@@ -11,6 +11,23 @@ from candidate_stage_actions import DOCKER_PREFIX,SERVICES
 from fixed_probes import FixedProbes
 from writer_fence import require, digest
 
+def candidate_stage_profile_sha256(profile):
+    """Bind every stage authority except the one receipt-dependent late input.
+
+    Canonical acceptance names this snapshot's hash, so its root-approved input
+    cannot participate in that hash. The dispatcher separately verifies its
+    exact protected path and bytes before execution. No other authority or input
+    is excluded, and each operation still rechecks the full raw profile.
+    """
+    require(type(profile) is dict,'CANDIDATE_STAGE_PROFILE_SCHEMA')
+    frozen=copy.deepcopy(profile)
+    entry=frozen.get('maintenanceSourceOperations')
+    if entry is not None:
+        require(type(entry) is dict and type(entry.get('inputs')) is dict,
+                'CANDIDATE_STAGE_PROFILE_INPUT_SCHEMA')
+        entry['inputs'].pop('canonical-candidate-acceptance',None)
+    return digest(frozen)
+
 def verify_none_endpoint(container,source_none,allow_unallocated=False):
     """Actual builtin null-driver identity plus closed endpoint isolation facts."""
     require(type(source_none) is dict and source_none.get('Name')=='none' and source_none.get('Driver')=='null' and
@@ -369,6 +386,23 @@ class CandidateStageHost:
                     epochManifestSha256=refs['manifest']['sha256'],recoveryEvidenceSha256=p['recoveryEvidence']['sha256'],
                     acceptanceEvidenceSha256=acceptance['sha256'])
 
+    def verify_snapshot_binding(self,bound,stage_binding):
+        """Requalify the manifest binding; an epoch-looking caller hash is insufficient."""
+        self.require_lock();self._recheck()
+        _,profile,_=self._profile()
+        entry=profile.get('currentEpochQualification')
+        require(type(entry) is dict and type(entry.get('input')) is dict,
+                'CANDIDATE_STAGE_QUALIFICATION_INPUT')
+        qualification=json.loads(self._read_ref(entry['input']))
+        require(type(qualification) is dict and qualification.get('binding')==bound,
+                'CANDIDATE_STAGE_QUALIFICATION_BINDING')
+        manifest=dict(path='/etc/workspacex-cn/maintenance-evidence/'+APP+'/'+
+            bound['identity']['attemptId']+'/qualified-current-epoch/epoch.json',sha256=stage_binding['epoch'])
+        verified=self.verify_current_epoch(dict(collection=qualification['collection'],manifest=manifest),bound)
+        require(verified.get('epochManifestSha256')==stage_binding['epoch'],
+                'CANDIDATE_STAGE_QUALIFIED_MANIFEST')
+        self._recheck();return True
+
     def persist_stage_snapshot(self,bound,containers):
         self.require_lock();self._recheck()
         require(all(bound[k]==self.host.plan[k] for k in ('identity','toolRevision','host','holdGeneration')),
@@ -377,7 +411,7 @@ class CandidateStageHost:
         require(len(containers)==len(SERVICES),'CANDIDATE_STAGE_SNAPSHOT_CLOSURE')
         baseline=self.observe_baseline()['containers']
         result=dict(schemaVersion=1,kind='source-inspected-candidate-stage-snapshot',binding=copy.deepcopy(bound),
-            sourceProfileSha256=hashlib.sha256(self.profile_raw).hexdigest(),composeRef=self.inputs['compose'],
+            sourceProfileSha256=candidate_stage_profile_sha256(json.loads(self.profile_raw)),composeRef=self.inputs['compose'],
             manifestRef=self.inputs['manifest'],containers=copy.deepcopy(containers+baseline),
             candidateContainerIds=[c['Id'] for c in containers],baselineContainerIds=[c['Id'] for c in baseline])
         for c in containers:

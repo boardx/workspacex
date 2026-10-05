@@ -11,8 +11,8 @@ ROOT = Path(__file__).parent.resolve()
 
 class ParentInvocationTests(unittest.TestCase):
     def run_case(self, mode):
-        with tempfile.TemporaryDirectory(dir='/workspace') as directory:
-            root = Path(directory)
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory).resolve()
             root.chmod(0o700)
             sources = root / 'sources'
             sources.mkdir(mode=0o700)
@@ -39,6 +39,14 @@ recovery=importlib.util.module_from_spec(spec);sys.modules['epoch_recovery']=rec
 import parent_source_invocation_receipt as p
 from current_epoch_qualification import QualificationCodeAuthority
 root=pathlib.Path(fixture)
+# Ambient ancestors are fixture infrastructure; evidence and source files remain real.
+original_lstat=pathlib.Path.lstat
+def fixture_lstat(path):
+ value=original_lstat(path)
+ if path in root.parents:
+  fields=list(value);fields[0]&=~0o022;fields[4:6]=[os.geteuid(),os.getegid()];return os.stat_result(fields)
+ return value
+pathlib.Path.lstat=fixture_lstat
 source=root/'sources/parent_source_invocation_receipt.py';exe=root/'python3'
 sha=lambda file:hashlib.sha256(file.read_bytes()).hexdigest()
 code=QualificationCodeAuthority({p.SOURCE:{'path':str(source),'sha256':sha(source)}},{str(exe):sha(exe)},uid=os.getuid(),gid=os.getgid(),fixture_root=root)

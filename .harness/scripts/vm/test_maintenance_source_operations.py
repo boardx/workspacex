@@ -1,5 +1,5 @@
 """Local dispatcher tests; host/SQL/capture boundaries are mocks, never production."""
-import hashlib,json,pathlib,types,unittest
+import copy,hashlib,json,pathlib,types,unittest
 from unittest.mock import patch
 import maintenance_source_operations as m
 
@@ -66,6 +66,29 @@ class Tests(unittest.TestCase):
  def test_json_cannot_extend_action_or_module_registry(self):
   f=Fixture();f.profile['maintenanceSourceOperations']['inputs']['run-any-command']={'path':'/tmp/command','sha256':'f'*64};f.sync()
   with self.assertRaisesRegex(Exception,'INPUT_CLOSURE'):f.create()
+ def test_stage_manifest_binding_is_distinct_from_semantic_capture_epoch(self):
+  f=Fixture();bound={**copy.deepcopy(f.host.plan),'epoch':'d'*64}
+  data={'prepare':copy.deepcopy(bound),'producer':{**copy.deepcopy(bound),'refs':{}}}
+  ref=f.approve('stage-candidate-and-seal',data);op=f.create()
+  op.capture=types.SimpleNamespace(b=copy.deepcopy(bound))
+  manifest={'path':'qualified-epoch.json','sha256':'e'*64};op.qualified={'epoch':manifest}
+  op.qualification_input={'collectionInput':{'path':'input','sha256':'1'*64},'collection':{'path':'collection','sha256':'2'*64}}
+  op.finished['held-candidate-readback']={}
+  stage_bound={**copy.deepcopy(bound),'epoch':manifest['sha256']}
+  snapshots=[];late=[];rows=[{'Id':'actual'}];snapshot={'path':'stage','sha256':'3'*64}
+  source=types.SimpleNamespace(compose={'name':'actual-project'},inspect_stage=lambda name:rows,
+   persist_stage_snapshot=lambda b,r:(snapshots.append((copy.deepcopy(b),r)) or snapshot),
+   publish_late_evidence=lambda b:(late.append(copy.deepcopy(b)) or {}))
+  with patch('candidate_stage_host.CandidateStageHost',return_value=source),patch('candidate_stage_actions.prepare') as prepare,patch('concretize_candidate_template.concretize_and_write',return_value={'path':'template','sha256':'4'*64}) as concretize,patch('candidate_plan_producer.produce',return_value={'plan':'sealed'}) as produce,patch('candidate_plan_producer.write_candidate',return_value={'path':'candidate','sha256':'5'*64}):
+   value=op.dispatch('stage-candidate-and-seal',f.identity,ref)
+  self.assertEqual(snapshots,[(stage_bound,rows)])
+  self.assertEqual(concretize.call_args.args,(bound,source,snapshot))
+  self.assertEqual(concretize.call_args.kwargs,{'stage_binding':stage_bound})
+  self.assertEqual(prepare.call_args.args,(bound,source));self.assertEqual(late,[bound])
+  actual=produce.call_args.args[0]
+  self.assertEqual({k:actual[k] for k in bound},bound)
+  self.assertEqual(actual['refs']['epochManifest'],manifest)
+  self.assertEqual(op.capture.b,bound);self.assertEqual(value['value']['stageSnapshot'],snapshot)
  def test_canonical_requires_exact_retained_candidate(self):
   f=Fixture();ref=f.approve('canonical-candidate-acceptance',{});op=f.create();op.candidate={'path':'actual-private-plan','sha256':'a'*64}
   actor=types.SimpleNamespace(reference={'path':'foreign-plan','sha256':'a'*64})

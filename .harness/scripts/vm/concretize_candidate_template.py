@@ -1,13 +1,22 @@
 """Source-owned late candidate template; no placeholder Docker identities."""
-import copy,json,hashlib
+import copy,hashlib,json,re
 from candidate_writer import validate,APP,BASELINE
 from candidate_stage_actions import SERVICES
 from candidate_plan_producer import BIND
 from writer_fence import require,digest,DATABASES
+from candidate_stage_host import candidate_stage_profile_sha256
 
 
-def concretize(bound,source,snapshot_ref):
+def concretize(bound,source,snapshot_ref,stage_binding=None):
     source.require_lock();_,profile,_=source._profile()
+    expected_stage=bound if stage_binding is None else stage_binding
+    require(type(expected_stage) is dict and set(expected_stage)==set(bound) and
+        all(expected_stage[k]==bound[k] for k in bound if k!='epoch') and
+        type(expected_stage.get('epoch')) is str and re.fullmatch('[a-f0-9]{64}',expected_stage['epoch']),
+        'CANDIDATE_TEMPLATE_STAGE_BINDING_SCHEMA')
+    if stage_binding is not None:
+        require(source.verify_snapshot_binding(bound,stage_binding) is True,
+                'CANDIDATE_TEMPLATE_UNQUALIFIED_STAGE_BINDING')
     recipe=profile.get('candidateTemplateRecipe')
     require(type(recipe) is dict and set(recipe)=={'blueprintRef','runtimeRef'},'CANDIDATE_TEMPLATE_SOURCE_RECIPE')
     raw=source._read_ref(recipe['blueprintRef']);blueprint=json.loads(raw)
@@ -17,9 +26,9 @@ def concretize(bound,source,snapshot_ref):
     snapshot_raw=source._read_ref(snapshot_ref);snapshot=json.loads(snapshot_raw)
     require(set(snapshot)=={'schemaVersion','kind','binding','sourceProfileSha256','composeRef','manifestRef','containers',
         'candidateContainerIds','baselineContainerIds'} and snapshot['schemaVersion']==1,'CANDIDATE_TEMPLATE_SNAPSHOT_SCHEMA')
-    require(snapshot['kind']=='source-inspected-candidate-stage-snapshot' and snapshot['binding']==bound and
+    require(snapshot['kind']=='source-inspected-candidate-stage-snapshot' and snapshot['binding']==expected_stage and
         snapshot['composeRef']==source.inputs['compose'] and snapshot['manifestRef']==source.inputs['manifest'] and
-        snapshot['sourceProfileSha256']==hashlib.sha256(source.profile_raw).hexdigest(),
+        snapshot['sourceProfileSha256']==candidate_stage_profile_sha256(profile),
         'CANDIDATE_TEMPLATE_STAGE_SOURCE_BINDING')
     actual=source.inspect_stage(source.compose['name']);baseline=source.observe_baseline()['containers']
     require(snapshot['containers']==actual+baseline and snapshot['candidateContainerIds']==[c['Id'] for c in actual] and
@@ -54,11 +63,11 @@ def concretize(bound,source,snapshot_ref):
     return plan
 
 
-def concretize_and_write(bound,source,snapshot_ref):
+def concretize_and_write(bound,source,snapshot_ref,stage_binding=None):
     """Fixed private native template; exact retries reuse only identical bytes."""
     import os,pathlib,stat
     from host_transport import private
-    plan=concretize(bound,source,snapshot_ref)
+    plan=concretize(bound,source,snapshot_ref,stage_binding=stage_binding)
     path=pathlib.Path('/etc/workspacex-cn/maintenance-candidate')/APP/bound['identity']['attemptId']/'candidate-template.json'
     require(os.geteuid()==0 and os.getegid()==0,'CANDIDATE_TEMPLATE_ROOT_REQUIRED')
     for parent in (path.parent,*path.parent.parents):
@@ -75,5 +84,5 @@ def concretize_and_write(bound,source,snapshot_ref):
         dfd=os.open(path.parent,os.O_RDONLY|os.O_DIRECTORY|os.O_NOFOLLOW)
         try:os.fsync(dfd)
         finally:os.close(dfd)
-    require(concretize(bound,source,snapshot_ref)==plan,'CANDIDATE_TEMPLATE_PUBLICATION_RACE')
+    require(concretize(bound,source,snapshot_ref,stage_binding=stage_binding)==plan,'CANDIDATE_TEMPLATE_PUBLICATION_RACE')
     return dict(path=str(path),sha256=hashlib.sha256(raw).hexdigest())

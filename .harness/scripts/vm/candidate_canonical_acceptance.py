@@ -2,6 +2,7 @@
 import copy,datetime,hashlib,json,pathlib,re,time,stat,ipaddress
 from writer_fence import require,digest
 from candidate_readonly_docker import invoke_readonly_docker
+from candidate_stage_host import candidate_stage_profile_sha256
 APP='9b25bfa65662b96c0826fe67506b562ea46aa6d0'
 BASE='ba6343199f3c834d6a198f83d0c771614292c82b'
 SERVICES={'web','api','agent','sandbox','sandbox-sessions'}
@@ -102,7 +103,7 @@ def candidate_canonical_receipt(transport,binding,now=time.time):
     expected_bound=dict(identity=identity,toolRevision=transport.host.plan['toolRevision'],host=plan['host'],epoch=plan['epoch'],holdGeneration=plan['holdGeneration'])
     require(stage['binding']==expected_bound,'CANDIDATE_CANONICAL_STAGE_BINDING')
     profile_raw=source.private('/etc/workspacex-cn/trusted-tool-binding.json');profile=json.loads(profile_raw)
-    require(stage['sourceProfileSha256']==hashlib.sha256(profile_raw).hexdigest() and profile['toolRevision']==expected_bound['toolRevision'],'CANDIDATE_CANONICAL_STAGE_PROFILE')
+    require(stage['sourceProfileSha256']==candidate_stage_profile_sha256(profile) and profile['toolRevision']==expected_bound['toolRevision'],'CANDIDATE_CANONICAL_STAGE_PROFILE')
     emitter=profile['candidateComposeEmitter'];options=json.loads(read(emitter['optionsRef']))
     require(options['composeRef']==stage['composeRef'] and options['manifestRef']==stage['manifestRef'],'CANDIDATE_CANONICAL_STAGE_REFS')
     compose=json.loads(read(stage['composeRef']));read(stage['manifestRef'])

@@ -1,7 +1,7 @@
 import unittest
 from types import SimpleNamespace
 from unittest.mock import patch
-from candidate_stage_host import CandidateStageHost
+from candidate_stage_host import CandidateStageHost,candidate_stage_profile_sha256
 from candidate_stage_actions import DOCKER_PREFIX
 from writer_fence import digest
 
@@ -276,3 +276,40 @@ class NoneEndpointTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError,'ENDPOINT_OWNER'):verify_none_endpoint(c,s)
         e['EndpointID']='c'*64;s['Containers'][c['Id']]=dict(EndpointID='c'*64,MacAddress='',IPv4Address='',IPv6Address='')
         self.assertTrue(verify_none_endpoint(c,s))
+
+class SnapshotAuthorityTests(unittest.TestCase):
+    def profile(self):
+        return dict(toolRevision='f'*40,filesSha256={'source.py':'a'*64},installedFilesSha256={'/usr/local/source.py':'a'*64},
+            candidateComposeEmitter={'optionsRef':{'path':'/etc/workspacex-cn/options.json','sha256':'b'*64}},
+            candidateTemplateRecipe={'blueprintRef':{'path':'/etc/workspacex-cn/blueprint.json','sha256':'c'*64}},
+            maintenanceBrowserRuntime={'nodeSha256':'d'*64},maintenanceSourceOperations=dict(schemaVersion=1,
+                sourcePath='.harness/scripts/vm/maintenance_source_operations.py',sha256='e'*64,
+                inputs={'stage-candidate-and-seal':{'path':'/etc/workspacex-cn/stage.json','sha256':'a'*64}}))
+    def test_only_receipt_dependent_canonical_approval_is_outside_snapshot_hash(self):
+        import copy
+        p=self.profile();before=copy.deepcopy(p);expected=candidate_stage_profile_sha256(p)
+        self.assertEqual(p,before)
+        p['maintenanceSourceOperations']['inputs']['canonical-candidate-acceptance']={'path':'/etc/workspacex-cn/canonical.json','sha256':'f'*64}
+        self.assertEqual(candidate_stage_profile_sha256(p),expected)
+        p['maintenanceSourceOperations']['inputs']['canonical-candidate-acceptance']['sha256']='0'*64
+        self.assertEqual(candidate_stage_profile_sha256(p),expected)
+        for field in ('toolRevision','filesSha256','installedFilesSha256','candidateComposeEmitter','candidateTemplateRecipe','maintenanceBrowserRuntime'):
+            changed=copy.deepcopy(p);changed[field]='changed'
+            self.assertNotEqual(candidate_stage_profile_sha256(changed),expected,field)
+        for action in ('stage-candidate-and-seal','browser-candidate-acceptance','read-public-candidate-identity','observe-opened-candidate'):
+            changed=copy.deepcopy(p);changed['maintenanceSourceOperations']['inputs'][action]={'path':'/etc/workspacex-cn/other.json','sha256':'0'*64}
+            self.assertNotEqual(candidate_stage_profile_sha256(changed),expected,action)
+        changed=copy.deepcopy(p);changed['maintenanceSourceOperations']['sha256']='0'*64
+        self.assertNotEqual(candidate_stage_profile_sha256(changed),expected)
+    def test_snapshot_epoch_is_verified_against_existing_source_qualifier(self):
+        import json
+        source=object.__new__(CandidateStageHost);source.require_lock=lambda:None
+        semantic=dict(identity={'attemptId':'fixture'},epoch='a'*64);stage=dict(semantic,epoch='b'*64)
+        ref={'path':'/etc/workspacex-cn/qualification.json','sha256':'c'*64};calls=[]
+        source._recheck=lambda:None;source._profile=lambda:(b'',{'currentEpochQualification':{'input':ref}}, {})
+        source._read_ref=lambda r:json.dumps({'binding':semantic,'collection':{'path':'collection','sha256':'d'*64}}).encode()
+        source.verify_current_epoch=lambda refs,bound:(calls.append((refs,bound)) or {'epochManifestSha256':refs['manifest']['sha256']})
+        self.assertTrue(source.verify_snapshot_binding(semantic,stage))
+        self.assertEqual(calls[0][0]['manifest']['sha256'],stage['epoch']);self.assertEqual(calls[0][1],semantic)
+        source.verify_current_epoch=lambda *args:{'epochManifestSha256':'0'*64}
+        with self.assertRaisesRegex(RuntimeError,'QUALIFIED_MANIFEST'):source.verify_snapshot_binding(semantic,stage)

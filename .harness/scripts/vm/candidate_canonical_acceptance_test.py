@@ -2,6 +2,7 @@ import copy,hashlib,json,sys,types,unittest
 from unittest.mock import patch
 import candidate_canonical_acceptance as m
 from writer_fence import digest
+from candidate_stage_host import candidate_stage_profile_sha256
 class Tests(unittest.TestCase):
  def fixture(self):
   i=dict(sourceRevision=m.APP,baselineRevision=m.BASE,migrationPlanSha256='a'*64,attemptId='canonical');host=dict(instanceId='host',bootId='boot');files={};calls=[];live=[];plan=dict(identity=i,host=host,holdGeneration='b'*32,epoch='e'*64,candidateWriters=[],baselineWriters=[])
@@ -17,9 +18,9 @@ class Tests(unittest.TestCase):
   approved=dict(Id='candidate-network',Name='candidate-runtime',Driver='bridge',Internal=False,IPAM={},Options={})
   networkref=ref('/etc/workspacex-cn/network.json',json.dumps(approved).encode());manifestref=ref('/etc/workspacex-cn/manifest.json',b'manifest');composeref=dict(path='/etc/workspacex-cn/candidate.json',sha256=hashlib.sha256(files['/etc/workspacex-cn/candidate.json']).hexdigest())
   optionsref=ref('/etc/workspacex-cn/options.json',json.dumps(dict(projectName='candidate',composeRef=composeref,manifestRef=manifestref,networkRef=networkref)).encode())
-  profile_raw=json.dumps(dict(toolRevision='f'*40,maintenanceBrowserRuntime=dict(nodeSha256='c'*64),candidateComposeEmitter=dict(optionsRef=optionsref,dockerPath='/usr/bin/docker',dockerSha256='d'*64,dockerSocket=dict(device=1,inode=2,uid=0,gid=0,mode=0o660)))).encode()
+  profile_raw=json.dumps(dict(toolRevision='f'*40,maintenanceSourceOperations=dict(schemaVersion=1,sourcePath='.harness/scripts/vm/maintenance_source_operations.py',sha256='a'*64,inputs={}),maintenanceBrowserRuntime=dict(nodeSha256='c'*64),candidateComposeEmitter=dict(optionsRef=optionsref,dockerPath='/usr/bin/docker',dockerSha256='d'*64,dockerSocket=dict(device=1,inode=2,uid=0,gid=0,mode=0o660)))).encode()
   bound=dict(identity=i,host=host,holdGeneration=plan['holdGeneration'],epoch=plan['epoch'],toolRevision='f'*40)
-  stage=dict(schemaVersion=1,kind='source-inspected-candidate-stage-snapshot',binding=bound,sourceProfileSha256=hashlib.sha256(profile_raw).hexdigest(),composeRef=composeref,manifestRef=manifestref,containers=copy.deepcopy(live),candidateContainerIds=[w['binding']['containerId'] for w in plan['candidateWriters']],baselineContainerIds=[w['binding']['containerId'] for w in plan['baselineWriters']])
+  stage=dict(schemaVersion=1,kind='source-inspected-candidate-stage-snapshot',binding=bound,sourceProfileSha256=candidate_stage_profile_sha256(json.loads(profile_raw)),composeRef=composeref,manifestRef=manifestref,containers=copy.deepcopy(live),candidateContainerIds=[w['binding']['containerId'] for w in plan['candidateWriters']],baselineContainerIds=[w['binding']['containerId'] for w in plan['baselineWriters']])
   binding=dict(identity=i,candidateConfig=ref('/etc/workspacex-cn/deployment.json',b'config'),candidateNginx=ref('/etc/nginx/conf.d/workspacex-cn.conf',b'nginx'),stageInspection=ref(f'/etc/workspacex-cn/maintenance-candidate/{m.APP}/canonical/stage-snapshot.json',json.dumps(stage).encode()),browserPlan=ref('/etc/workspacex-cn/browser.json',b'{"publicUrl":"https://example.invalid/","deploymentMarker":"marker"}'),nodeBinary=dict(path='/usr/bin/node',sha256='c'*64))
   artifact=ref('/etc/workspacex-cn/artifact.json',b'artifact');plan['artifactSha256']=artifact['sha256']
   def run(args):
@@ -83,6 +84,19 @@ class Tests(unittest.TestCase):
   t,b,s,d,c=self.fixture()
   with patch('candidate_readonly_docker.socket_authority',lambda e:e['dockerSocket']),patch.dict(sys.modules,{'compiled_maintenance_activation':None}):
    with self.assertRaises(ModuleNotFoundError):m.candidate_canonical_receipt(t,b)
+
+ def test_late_root_canonical_input_approval_does_not_invalidate_snapshot(self):
+  t,b,source,d,c=self.fixture();original=source.private
+  profile=json.loads(original('/etc/workspacex-cn/trusted-tool-binding.json'))
+  profile['maintenanceSourceOperations']['inputs']['canonical-candidate-acceptance']={'path':'/etc/workspacex-cn/maintenance-source-inputs/'+m.APP+'/canonical/canonical-candidate-acceptance.json','sha256':digest(b)}
+  raw=json.dumps(profile).encode();source.private=lambda path,expected=None:raw if path=='/etc/workspacex-cn/trusted-tool-binding.json' else original(path,expected)
+  with patch('candidate_readonly_docker.socket_authority',lambda e:e['dockerSocket']),patch.dict(sys.modules,{'compiled_maintenance_activation':source}):
+   self.assertEqual(m.candidate_canonical_receipt(t,b)['checks']['passedStages'],8)
+  profile['maintenanceSourceOperations']['inputs']['browser-candidate-acceptance']={'path':'/etc/workspacex-cn/browser.json','sha256':'0'*64}
+  raw=json.dumps(profile).encode()
+  with patch.dict(sys.modules,{'compiled_maintenance_activation':source}):
+   with self.assertRaisesRegex(RuntimeError,'STAGE_PROFILE'):m.candidate_canonical_receipt(t,b)
+
 
 class DockerStateTransitionTests(unittest.TestCase):
  def endpoint_fixture(self):
