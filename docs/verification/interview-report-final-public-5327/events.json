@@ -1,0 +1,4362 @@
+[
+  {
+    "type": "stage",
+    "stage": "context"
+  },
+  {
+    "type": "attempt",
+    "attempt": 1
+  },
+  {
+    "type": "stage",
+    "stage": "model"
+  },
+  {
+    "type": "delta",
+    "delta": "#"
+  },
+  {
+    "type": "delta",
+    "delta": " 办公"
+  },
+  {
+    "type": "delta",
+    "delta": "咖啡机采购研究"
+  },
+  {
+    "type": "delta",
+    "delta": "：安装"
+  },
+  {
+    "type": "delta",
+    "delta": "与预算对购买"
+  },
+  {
+    "type": "delta",
+    "delta": "决策"
+  },
+  {
+    "type": "delta",
+    "delta": "的影响\n\n## "
+  },
+  {
+    "type": "delta",
+    "delta": "证据边界声明\n\n"
+  },
+  {
+    "type": "delta",
+    "delta": "本报告"
+  },
+  {
+    "type": "delta",
+    "delta": "所有证据均来自模型"
+  },
+  {
+    "type": "delta",
+    "delta": "模拟生成，服务端"
+  },
+  {
+    "type": "delta",
+    "delta": "元数据已将所有"
+  },
+  {
+    "type": "delta",
+    "delta": "回答标记为 `"
+  },
+  {
+    "type": "delta",
+    "delta": "e"
+  },
+  {
+    "type": "delta",
+    "delta": "videnceMode: simulated"
+  },
+  {
+    "type": "delta",
+    "delta": "`。"
+  },
+  {
+    "type": "delta",
+    "delta": "原始材料明确声明"
+  },
+  {
+    "type": "delta",
+    "delta": "["
+  },
+  {
+    "type": "delta",
+    "delta": "以下回答来自模型"
+  },
+  {
+    "type": "delta",
+    "delta": "模拟，需真人"
+  },
+  {
+    "type": "delta",
+    "delta": "验证。](#"
+  },
+  {
+    "type": "delta",
+    "delta": "answer"
+  },
+  {
+    "type": "delta",
+    "delta": "-2)因此"
+  },
+  {
+    "type": "delta",
+    "delta": "，本报告中不存在"
+  },
+  {
+    "type": "delta",
+    "delta": "已证实的真人"
+  },
+  {
+    "type": "delta",
+    "delta": "事实，所有发现"
+  },
+  {
+    "type": "delta",
+    "delta": "均为待验证假设"
+  },
+  {
+    "type": "delta",
+    "delta": "，不能直接用于"
+  },
+  {
+    "type": "delta",
+    "delta": "实际采购或产品"
+  },
+  {
+    "type": "delta",
+    "delta": "决策。无法判断"
+  },
+  {
+    "type": "delta",
+    "delta": "跨"
+  },
+  {
+    "type": "delta",
+    "delta": "专家共识，因为"
+  },
+  {
+    "type": "delta",
+    "delta": "不同角色（support"
+  },
+  {
+    "type": "delta",
+    "delta": " "
+  },
+  {
+    "type": "delta",
+    "delta": "与 purchase）的回答"
+  },
+  {
+    "type": "delta",
+    "delta": "分属独立模拟"
+  },
+  {
+    "type": "delta",
+    "delta": "任务，且未"
+  },
+  {
+    "type": "delta",
+    "delta": "经验"
+  },
+  {
+    "type": "delta",
+    "delta": "证是否代表真实"
+  },
+  {
+    "type": "delta",
+    "delta": "人类观点。\n\n"
+  },
+  {
+    "type": "delta",
+    "delta": "---"
+  },
+  {
+    "type": "delta",
+    "delta": "\n\n## 一"
+  },
+  {
+    "type": "delta",
+    "delta": "、研究结论摘要"
+  },
+  {
+    "type": "delta",
+    "delta": "\n\n本次模拟研究"
+  },
+  {
+    "type": "delta",
+    "delta": "围绕“办公咖啡"
+  },
+  {
+    "type": "delta",
+    "delta": "机采购”中"
+  },
+  {
+    "type": "delta",
+    "delta": "安装风险与预算"
+  },
+  {
+    "type": "delta",
+    "delta": "约束两个主题展开"
+  },
+  {
+    "type": "delta",
+    "delta": "。"
+  },
+  {
+    "type": "delta",
+    "delta": "基于两条模拟任务的"
+  },
+  {
+    "type": "delta",
+    "delta": "输出，可归纳"
+  },
+  {
+    "type": "delta",
+    "delta": "出"
+  },
+  {
+    "type": "delta",
+    "delta": "三个条件性假设"
+  },
+  {
+    "type": "delta",
+    "delta": "：\n\n1."
+  },
+  {
+    "type": "delta",
+    "delta": " **"
+  },
+  {
+    "type": "delta",
+    "delta": "物理安装冲突可能"
+  },
+  {
+    "type": "delta",
+    "delta": "触发采购暂缓**"
+  },
+  {
+    "type": "delta",
+    "delta": "："
+  },
+  {
+    "type": "delta",
+    "delta": "插座位置与柜"
+  },
+  {
+    "type": "delta",
+    "delta": "体"
+  },
+  {
+    "type": "delta",
+    "delta": "孔位的空间冲突"
+  },
+  {
+    "type": "delta",
+    "delta": "被识别为一个潜在"
+  },
+  {
+    "type": "delta",
+    "delta": "否决点。\n"
+  },
+  {
+    "type": "delta",
+    "delta": "2"
+  },
+  {
+    "type": "delta",
+    "delta": ". **预算缺口"
+  },
+  {
+    "type": "delta",
+    "delta": "驱动替代方案探索"
+  },
+  {
+    "type": "delta",
+    "delta": "**：当设备"
+  },
+  {
+    "type": "delta",
+    "delta": "报价超出采购预算"
+  },
+  {
+    "type": "delta",
+    "delta": "时"
+  },
+  {
+    "type": "delta",
+    "delta": "，低成本方案的验证"
+  },
+  {
+    "type": "delta",
+    "delta": "成为"
+  },
+  {
+    "type": "delta",
+    "delta": "前置条件。\n"
+  },
+  {
+    "type": "delta",
+    "delta": "3"
+  },
+  {
+    "type": "delta",
+    "delta": ". **当前采购"
+  },
+  {
+    "type": "delta",
+    "delta": "状态"
+  },
+  {
+    "type": "delta",
+    "delta": "无法确认为永久"
+  },
+  {
+    "type": "delta",
+    "delta": "搁置**：“"
+  },
+  {
+    "type": "delta",
+    "delta": "暂缓”仅代表特定"
+  },
+  {
+    "type": "delta",
+    "delta": "场景下的时间线"
+  },
+  {
+    "type": "delta",
+    "delta": "推迟"
+  },
+  {
+    "type": "delta",
+    "delta": "，不等同于取消"
+  },
+  {
+    "type": "delta",
+    "delta": "。\n\n这些结论"
+  },
+  {
+    "type": "delta",
+    "delta": "仅在模拟上下文中"
+  },
+  {
+    "type": "delta",
+    "delta": "成立，需通过"
+  },
+  {
+    "type": "delta",
+    "delta": "真人访谈和实地"
+  },
+  {
+    "type": "delta",
+    "delta": "核查"
+  },
+  {
+    "type": "delta",
+    "delta": "进行验证。\n\n"
+  },
+  {
+    "type": "delta",
+    "delta": "---"
+  },
+  {
+    "type": "delta",
+    "delta": "\n\n## 二"
+  },
+  {
+    "type": "delta",
+    "delta": "、主题分析："
+  },
+  {
+    "type": "delta",
+    "delta": "安装"
+  },
+  {
+    "type": "delta",
+    "delta": "体验与物理冲突"
+  },
+  {
+    "type": "delta",
+    "delta": "风险"
+  },
+  {
+    "type": "delta",
+    "delta": "\n\n### 证据"
+  },
+  {
+    "type": "delta",
+    "delta": "事实\n在 support"
+  },
+  {
+    "type": "delta",
+    "delta": " "
+  },
+  {
+    "type": "delta",
+    "delta": "任务中，模拟"
+  },
+  {
+    "type": "delta",
+    "delta": "回答指出：["
+  },
+  {
+    "type": "delta",
+    "delta": "公开"
+  },
+  {
+    "type": "delta",
+    "delta": "合成回答：安装"
+  },
+  {
+    "type": "delta",
+    "delta": "时发现"
+  },
+  {
+    "type": "delta",
+    "delta": "厨房插座位置与"
+  },
+  {
+    "type": "delta",
+    "delta": "柜"
+  },
+  {
+    "type": "delta",
+    "delta": "体孔位冲突"
+  },
+  {
+    "type": "delta",
+    "delta": "，因此暂缓购买"
+  },
+  {
+    "type": "delta",
+    "delta": "。]("
+  },
+  {
+    "type": "delta",
+    "delta": "#answer-5"
+  },
+  {
+    "type": "delta",
+    "delta": ")\n\n### "
+  },
+  {
+    "type": "delta",
+    "delta": "条件性解释\n"
+  },
+  {
+    "type": "delta",
+    "delta": "若"
+  },
+  {
+    "type": "delta",
+    "delta": "该冲突模式在"
+  },
+  {
+    "type": "delta",
+    "delta": "真实"
+  },
+  {
+    "type": "delta",
+    "delta": "办公厨房环境中存在"
+  },
+  {
+    "type": "delta",
+    "delta": "，则说明固定"
+  },
+  {
+    "type": "delta",
+    "delta": "安装类咖啡机的"
+  },
+  {
+    "type": "delta",
+    "delta": "物理兼容性是采购"
+  },
+  {
+    "type": "delta",
+    "delta": "决策"
+  },
+  {
+    "type": "delta",
+    "delta": "链中的一个关键否决"
+  },
+  {
+    "type": "delta",
+    "delta": "点。插座与"
+  },
+  {
+    "type": "delta",
+    "delta": "柜"
+  },
+  {
+    "type": "delta",
+    "delta": "体孔位的空间"
+  },
+  {
+    "type": "delta",
+    "delta": "干涉意味着标准安装"
+  },
+  {
+    "type": "delta",
+    "delta": "流程"
+  },
+  {
+    "type": "delta",
+    "delta": "无法闭环，迫使"
+  },
+  {
+    "type": "delta",
+    "delta": "决策者暂停推进"
+  },
+  {
+    "type": "delta",
+    "delta": "。此推论"
+  },
+  {
+    "type": "delta",
+    "delta": "的成立条件是："
+  },
+  {
+    "type": "delta",
+    "delta": "目标安装场所确实"
+  },
+  {
+    "type": "delta",
+    "delta": "采用固定柜体"
+  },
+  {
+    "type": "delta",
+    "delta": "设计"
+  },
+  {
+    "type": "delta",
+    "delta": "，且咖啡机"
+  },
+  {
+    "type": "delta",
+    "delta": "要求"
+  },
+  {
+    "type": "delta",
+    "delta": "特定位置的电源接入"
+  },
+  {
+    "type": "delta",
+    "delta": "。\n\n### "
+  },
+  {
+    "type": "delta",
+    "delta": "待验证决策影响"
+  },
+  {
+    "type": "delta",
+    "delta": "\n若后续真人"
+  },
+  {
+    "type": "delta",
+    "delta": "验证"
+  },
+  {
+    "type": "delta",
+    "delta": "确认此类物理冲突"
+  },
+  {
+    "type": "delta",
+    "delta": "具有"
+  },
+  {
+    "type": "delta",
+    "delta": "普遍性，则可"
+  },
+  {
+    "type": "delta",
+    "delta": "考虑在采购评估"
+  },
+  {
+    "type": "delta",
+    "delta": "清单中增加“"
+  },
+  {
+    "type": "delta",
+    "delta": "现场"
+  },
+  {
+    "type": "delta",
+    "delta": "供电与柜体"
+  },
+  {
+    "type": "delta",
+    "delta": "孔"
+  },
+  {
+    "type": "delta",
+    "delta": "位测绘”作为"
+  },
+  {
+    "type": "delta",
+    "delta": "强制前置步骤；"
+  },
+  {
+    "type": "delta",
+    "delta": "还可优先筛选免"
+  },
+  {
+    "type": "delta",
+    "delta": "安装"
+  },
+  {
+    "type": "delta",
+    "delta": "、桌面型或"
+  },
+  {
+    "type": "delta",
+    "delta": "采用移动式带线"
+  },
+  {
+    "type": "delta",
+    "delta": "插座的替代机型"
+  },
+  {
+    "type": "delta",
+    "delta": "。但需注意，"
+  },
+  {
+    "type": "delta",
+    "delta": "改变设备形态或"
+  },
+  {
+    "type": "delta",
+    "delta": "供电"
+  },
+  {
+    "type": "delta",
+    "delta": "方式仅是待验证"
+  },
+  {
+    "type": "delta",
+    "delta": "的干预措施，"
+  },
+  {
+    "type": "delta",
+    "delta": "不能据此断言"
+  },
+  {
+    "type": "delta",
+    "delta": "物理冲突风险已"
+  },
+  {
+    "type": "delta",
+    "delta": "自动"
+  },
+  {
+    "type": "delta",
+    "delta": "降级——线缆长度"
+  },
+  {
+    "type": "delta",
+    "delta": "、负荷容量、"
+  },
+  {
+    "type": "delta",
+    "delta": "承重"
+  },
+  {
+    "type": "delta",
+    "delta": "限制及空间占用"
+  },
+  {
+    "type": "delta",
+    "delta": "等"
+  },
+  {
+    "type": "delta",
+    "delta": "残余风险仍需逐项"
+  },
+  {
+    "type": "delta",
+    "delta": "检查。\n\n###"
+  },
+  {
+    "type": "delta",
+    "delta": " 反例与"
+  },
+  {
+    "type": "delta",
+    "delta": "边界\n同一任务"
+  },
+  {
+    "type": "delta",
+    "delta": "中提供了相反情境"
+  },
+  {
+    "type": "delta",
+    "delta": "：[公开合成"
+  },
+  {
+    "type": "delta",
+    "delta": "反例"
+  },
+  {
+    "type": "delta",
+    "delta": "：另一个场景安装"
+  },
+  {
+    "type": "delta",
+    "delta": "顺利，不能推断"
+  },
+  {
+    "type": "delta",
+    "delta": "普遍"
+  },
+  {
+    "type": "delta",
+    "delta": "发生。](#"
+  },
+  {
+    "type": "delta",
+    "delta": "answer"
+  },
+  {
+    "type": "delta",
+    "delta": "-7)这一"
+  },
+  {
+    "type": "delta",
+    "delta": "反例表明，"
+  },
+  {
+    "type": "delta",
+    "delta": "安装失败与成功"
+  },
+  {
+    "type": "delta",
+    "delta": "属于"
+  },
+  {
+    "type": "delta",
+    "delta": "情境差异（如"
+  },
+  {
+    "type": "delta",
+    "delta": "不同"
+  },
+  {
+    "type": "delta",
+    "delta": "办公室的装修布局"
+  },
+  {
+    "type": "delta",
+    "delta": "不同"
+  },
+  {
+    "type": "delta",
+    "delta": "），而非设备固有"
+  },
+  {
+    "type": "delta",
+    "delta": "缺陷"
+  },
+  {
+    "type": "delta",
+    "delta": "的必然表现。"
+  },
+  {
+    "type": "delta",
+    "delta": "一次"
+  },
+  {
+    "type": "delta",
+    "delta": "安装顺利不能排除"
+  },
+  {
+    "type": "delta",
+    "delta": "设备在其他环境中的"
+  },
+  {
+    "type": "delta",
+    "delta": "兼容性问题；同理"
+  },
+  {
+    "type": "delta",
+    "delta": "，一次冲突记录"
+  },
+  {
+    "type": "delta",
+    "delta": "也不能证明所有场所"
+  },
+  {
+    "type": "delta",
+    "delta": "均会失败。"
+  },
+  {
+    "type": "delta",
+    "delta": "本次"
+  },
+  {
+    "type": "delta",
+    "delta": "关于“插座与"
+  },
+  {
+    "type": "delta",
+    "delta": "孔"
+  },
+  {
+    "type": "delta",
+    "delta": "位冲突”的记录"
+  },
+  {
+    "type": "delta",
+    "delta": "仅支持该特定"
+  },
+  {
+    "type": "delta",
+    "delta": "场所、特定检查"
+  },
+  {
+    "type": "delta",
+    "delta": "对象的"
+  },
+  {
+    "type": "delta",
+    "delta": "窄范围结果，"
+  },
+  {
+    "type": "delta",
+    "delta": "不能借用到其他"
+  },
+  {
+    "type": "delta",
+    "delta": "供电系统或物理"
+  },
+  {
+    "type": "delta",
+    "delta": "风险排查中。"
+  },
+  {
+    "type": "delta",
+    "delta": "\n\n---\n\n##"
+  },
+  {
+    "type": "delta",
+    "delta": " 三、主题"
+  },
+  {
+    "type": "delta",
+    "delta": "分析"
+  },
+  {
+    "type": "delta",
+    "delta": "：预算约束与"
+  },
+  {
+    "type": "delta",
+    "delta": "采购审批\n\n###"
+  },
+  {
+    "type": "delta",
+    "delta": " 证据事实\n"
+  },
+  {
+    "type": "delta",
+    "delta": "在 purchase 任务"
+  },
+  {
+    "type": "delta",
+    "delta": "中，模拟回答"
+  },
+  {
+    "type": "delta",
+    "delta": "指出：[公开"
+  },
+  {
+    "type": "delta",
+    "delta": "合成回答：采购"
+  },
+  {
+    "type": "delta",
+    "delta": "预算低于"
+  },
+  {
+    "type": "delta",
+    "delta": "设备报价，需"
+  },
+  {
+    "type": "delta",
+    "delta": "先"
+  },
+  {
+    "type": "delta",
+    "delta": "验证低成本方案。"
+  },
+  {
+    "type": "delta",
+    "delta": "](#answer-"
+  },
+  {
+    "type": "delta",
+    "delta": "10)\n\n"
+  },
+  {
+    "type": "delta",
+    "delta": "### 条件"
+  },
+  {
+    "type": "delta",
+    "delta": "性解释\n若"
+  },
+  {
+    "type": "delta",
+    "delta": "预算缺口在真实"
+  },
+  {
+    "type": "delta",
+    "delta": "采购"
+  },
+  {
+    "type": "delta",
+    "delta": "流程中确实存在"
+  },
+  {
+    "type": "delta",
+    "delta": "，则说明财务"
+  },
+  {
+    "type": "delta",
+    "delta": "约束构成了决策链"
+  },
+  {
+    "type": "delta",
+    "delta": "中的硬性门槛。"
+  },
+  {
+    "type": "delta",
+    "delta": "在此"
+  },
+  {
+    "type": "delta",
+    "delta": "条件下，采购角色的"
+  },
+  {
+    "type": "delta",
+    "delta": "行为模式从“"
+  },
+  {
+    "type": "delta",
+    "delta": "评估"
+  },
+  {
+    "type": "delta",
+    "delta": "首选设备”转向"
+  },
+  {
+    "type": "delta",
+    "delta": "“寻找并验证"
+  },
+  {
+    "type": "delta",
+    "delta": "符合"
+  },
+  {
+    "type": "delta",
+    "delta": "预算的替代品”。"
+  },
+  {
+    "type": "delta",
+    "delta": "此"
+  },
+  {
+    "type": "delta",
+    "delta": "推论的成立"
+  },
+  {
+    "type": "delta",
+    "delta": "条件是：组织财务"
+  },
+  {
+    "type": "delta",
+    "delta": "制度不允许超预算"
+  },
+  {
+    "type": "delta",
+    "delta": "特"
+  },
+  {
+    "type": "delta",
+    "delta": "批，且市场上"
+  },
+  {
+    "type": "delta",
+    "delta": "存在功能可接受"
+  },
+  {
+    "type": "delta",
+    "delta": "的低成本替代方案"
+  },
+  {
+    "type": "delta",
+    "delta": "。\n\n### "
+  },
+  {
+    "type": "delta",
+    "delta": "待验证决策影响"
+  },
+  {
+    "type": "delta",
+    "delta": "\n若真人验证"
+  },
+  {
+    "type": "delta",
+    "delta": "确认"
+  },
+  {
+    "type": "delta",
+    "delta": "预算为主要否决点"
+  },
+  {
+    "type": "delta",
+    "delta": "，则可考虑调整"
+  },
+  {
+    "type": "delta",
+    "delta": "采购策略优先级，"
+  },
+  {
+    "type": "delta",
+    "delta": "将"
+  },
+  {
+    "type": "delta",
+    "delta": "“低成本方案的功能"
+  },
+  {
+    "type": "delta",
+    "delta": "覆盖率测试”提前"
+  },
+  {
+    "type": "delta",
+    "delta": "至审批流程前端"
+  },
+  {
+    "type": "delta",
+    "delta": "。还需验证低成本"
+  },
+  {
+    "type": "delta",
+    "delta": "方案是否在维护成本"
+  },
+  {
+    "type": "delta",
+    "delta": "、"
+  },
+  {
+    "type": "delta",
+    "delta": "使用寿命或员工满意度"
+  },
+  {
+    "type": "delta",
+    "delta": "上引入新的隐性"
+  },
+  {
+    "type": "delta",
+    "delta": "代价。\n\n###"
+  },
+  {
+    "type": "delta",
+    "delta": " "
+  },
+  {
+    "type": "delta",
+    "delta": "反例与边界"
+  },
+  {
+    "type": "delta",
+    "delta": "\n材料中未"
+  },
+  {
+    "type": "delta",
+    "delta": "提供预算充足或"
+  },
+  {
+    "type": "delta",
+    "delta": "成功获批的反例"
+  },
+  {
+    "type": "delta",
+    "delta": "记录"
+  },
+  {
+    "type": "delta",
+    "delta": "，因此无法判断"
+  },
+  {
+    "type": "delta",
+    "delta": "预算"
+  },
+  {
+    "type": "delta",
+    "delta": "约束在不同规模企业"
+  },
+  {
+    "type": "delta",
+    "delta": "或不同审批权限"
+  },
+  {
+    "type": "delta",
+    "delta": "下的异质性。"
+  },
+  {
+    "type": "delta",
+    "delta": "证据不足，无法"
+  },
+  {
+    "type": "delta",
+    "delta": "得出“预算必然"
+  },
+  {
+    "type": "delta",
+    "delta": "阻止"
+  },
+  {
+    "type": "delta",
+    "delta": "购买”的无条件"
+  },
+  {
+    "type": "delta",
+    "delta": "结论。\n\n---"
+  },
+  {
+    "type": "delta",
+    "delta": "\n\n##"
+  },
+  {
+    "type": "delta",
+    "delta": " 四、跨"
+  },
+  {
+    "type": "delta",
+    "delta": "回答"
+  },
+  {
+    "type": "delta",
+    "delta": "综合与分歧比较"
+  },
+  {
+    "type": "delta",
+    "delta": "\n\n由于 support "
+  },
+  {
+    "type": "delta",
+    "delta": "任务关注物理安装"
+  },
+  {
+    "type": "delta",
+    "delta": "，"
+  },
+  {
+    "type": "delta",
+    "delta": "purchase 任务关注"
+  },
+  {
+    "type": "delta",
+    "delta": "财务"
+  },
+  {
+    "type": "delta",
+    "delta": "预算，两者分别"
+  },
+  {
+    "type": "delta",
+    "delta": "指出了不同维度的"
+  },
+  {
+    "type": "delta",
+    "delta": "阻碍因素。材料"
+  },
+  {
+    "type": "delta",
+    "delta": "中未出现同一"
+  },
+  {
+    "type": "delta",
+    "delta": "当事人"
+  },
+  {
+    "type": "delta",
+    "delta": "对同一采购对象"
+  },
+  {
+    "type": "delta",
+    "delta": "在同一"
+  },
+  {
+    "type": "delta",
+    "delta": "时间窗口内同时"
+  },
+  {
+    "type": "delta",
+    "delta": "讨论两者的记录，"
+  },
+  {
+    "type": "delta",
+    "delta": "因此"
+  },
+  {
+    "type": "delta",
+    "delta": "无法判断这两个因素"
+  },
+  {
+    "type": "delta",
+    "delta": "在实际"
+  },
+  {
+    "type": "delta",
+    "delta": "决策中孰轻"
+  },
+  {
+    "type": "delta",
+    "delta": "孰"
+  },
+  {
+    "type": "delta",
+    "delta": "重，也无法判断"
+  },
+  {
+    "type": "delta",
+    "delta": "跨专家共识。"
+  },
+  {
+    "type": "delta",
+    "delta": "\n\n分歧"
+  },
+  {
+    "type": "delta",
+    "delta": "/反例方面"
+  },
+  {
+    "type": "delta",
+    "delta": "：安装场景中同时"
+  },
+  {
+    "type": "delta",
+    "delta": "存在“冲突导致"
+  },
+  {
+    "type": "delta",
+    "delta": "暂缓"
+  },
+  {
+    "type": "delta",
+    "delta": "”（[#answer"
+  },
+  {
+    "type": "delta",
+    "delta": "-5"
+  },
+  {
+    "type": "delta",
+    "delta": "](#answer-"
+  },
+  {
+    "type": "delta",
+    "delta": "5)）与"
+  },
+  {
+    "type": "delta",
+    "delta": "“安装顺利”"
+  },
+  {
+    "type": "delta",
+    "delta": "（[#answer-"
+  },
+  {
+    "type": "delta",
+    "delta": "7"
+  },
+  {
+    "type": "delta",
+    "delta": "](#answer-"
+  },
+  {
+    "type": "delta",
+    "delta": "7"
+  },
+  {
+    "type": "delta",
+    "delta": ")）的描述。"
+  },
+  {
+    "type": "delta",
+    "delta": "这"
+  },
+  {
+    "type": "delta",
+    "delta": "并非内部矛盾，"
+  },
+  {
+    "type": "delta",
+    "delta": "而是反映了不同物理"
+  },
+  {
+    "type": "delta",
+    "delta": "环境（如厨房"
+  },
+  {
+    "type": "delta",
+    "delta": "布局"
+  },
+  {
+    "type": "delta",
+    "delta": "差异）带来的情境"
+  },
+  {
+    "type": "delta",
+    "delta": "异质性。\n\n"
+  },
+  {
+    "type": "delta",
+    "delta": "---\n\n## "
+  },
+  {
+    "type": "delta",
+    "delta": "五"
+  },
+  {
+    "type": "delta",
+    "delta": "、不确定性与限制"
+  },
+  {
+    "type": "delta",
+    "delta": "\n\n1. **"
+  },
+  {
+    "type": "delta",
+    "delta": "样本性质限制**"
+  },
+  {
+    "type": "delta",
+    "delta": "：服务端"
+  },
+  {
+    "type": "delta",
+    "delta": "已绑定任务数为"
+  },
+  {
+    "type": "delta",
+    "delta": " "
+  },
+  {
+    "type": "delta",
+    "delta": "2，画像数为"
+  },
+  {
+    "type": "delta",
+    "delta": " 2，但"
+  },
+  {
+    "type": "delta",
+    "delta": "所有回答均标记"
+  },
+  {
+    "type": "delta",
+    "delta": "为"
+  },
+  {
+    "type": "delta",
+    "delta": " `simulated`"
+  },
+  {
+    "type": "delta",
+    "delta": "。"
+  },
+  {
+    "type": "delta",
+    "delta": "没有真人样本，"
+  },
+  {
+    "type": "delta",
+    "delta": "所有"
+  },
+  {
+    "type": "delta",
+    "delta": "发现均为模拟推测"
+  },
+  {
+    "type": "delta",
+    "delta": "。\n2."
+  },
+  {
+    "type": "delta",
+    "delta": " **"
+  },
+  {
+    "type": "delta",
+    "delta": "状态误判风险"
+  },
+  {
+    "type": "delta",
+    "delta": "**：原文提到"
+  },
+  {
+    "type": "delta",
+    "delta": "“因此暂缓购买"
+  },
+  {
+    "type": "delta",
+    "delta": "”，这仅说明"
+  },
+  {
+    "type": "delta",
+    "delta": "在该"
+  },
+  {
+    "type": "delta",
+    "delta": "模拟场景下采取了"
+  },
+  {
+    "type": "delta",
+    "delta": "推迟行动，不"
+  },
+  {
+    "type": "delta",
+    "delta": "证明当前真实采购"
+  },
+  {
+    "type": "delta",
+    "delta": "已经"
+  },
+  {
+    "type": "delta",
+    "delta": "搁置、暂停"
+  },
+  {
+    "type": "delta",
+    "delta": "或"
+  },
+  {
+    "type": "delta",
+    "delta": "中断。缺乏同一"
+  },
+  {
+    "type": "delta",
+    "delta": "当事人、同一采购"
+  },
+  {
+    "type": "delta",
+    "delta": "对象和同一时间"
+  },
+  {
+    "type": "delta",
+    "delta": "窗口的实际状态"
+  },
+  {
+    "type": "delta",
+    "delta": "记录，无法判断"
+  },
+  {
+    "type": "delta",
+    "delta": "当前采购的真实进度"
+  },
+  {
+    "type": "delta",
+    "delta": "。\n3."
+  },
+  {
+    "type": "delta",
+    "delta": " **验证计划不等于"
+  },
+  {
+    "type": "delta",
+    "delta": "执行结果**："
+  },
+  {
+    "type": "delta",
+    "delta": "purchase"
+  },
+  {
+    "type": "delta",
+    "delta": " 任务提出["
+  },
+  {
+    "type": "delta",
+    "delta": "公开合成回答："
+  },
+  {
+    "type": "delta",
+    "delta": "访谈五位采购用户"
+  },
+  {
+    "type": "delta",
+    "delta": "，测量安装任务"
+  },
+  {
+    "type": "delta",
+    "delta": "时长"
+  },
+  {
+    "type": "delta",
+    "delta": "，对比独立对照组"
+  },
+  {
+    "type": "delta",
+    "delta": "，再"
+  },
+  {
+    "type": "delta",
+    "delta": "决定投入。]("
+  },
+  {
+    "type": "delta",
+    "delta": "#answer"
+  },
+  {
+    "type": "delta",
+    "delta": "-12)"
+  },
+  {
+    "type": "delta",
+    "delta": "这是一个未来验证计划"
+  },
+  {
+    "type": "delta",
+    "delta": "的设计建议，不代表"
+  },
+  {
+    "type": "delta",
+    "delta": "该计划已经执行"
+  },
+  {
+    "type": "delta",
+    "delta": "，"
+  },
+  {
+    "type": "delta",
+    "delta": "也不代表安装时长"
+  },
+  {
+    "type": "delta",
+    "delta": "差异"
+  },
+  {
+    "type": "delta",
+    "delta": "已被证实能决定"
+  },
+  {
+    "type": "delta",
+    "delta": "购买因果。\n"
+  },
+  {
+    "type": "delta",
+    "delta": "4."
+  },
+  {
+    "type": "delta",
+    "delta": " **指标匹配问题"
+  },
+  {
+    "type": "delta",
+    "delta": "**：即使未来"
+  },
+  {
+    "type": "delta",
+    "delta": "执行"
+  },
+  {
+    "type": "delta",
+    "delta": "了上述计划，“"
+  },
+  {
+    "type": "delta",
+    "delta": "测量安装任务时长"
+  },
+  {
+    "type": "delta",
+    "delta": "”"
+  },
+  {
+    "type": "delta",
+    "delta": "只能反映安装效率"
+  },
+  {
+    "type": "delta",
+    "delta": "，不能单独证明"
+  },
+  {
+    "type": "delta",
+    "delta": "购买决策的因果关系"
+  },
+  {
+    "type": "delta",
+    "delta": "。必须同时观察"
+  },
+  {
+    "type": "delta",
+    "delta": "实际购买、暂缓"
+  },
+  {
+    "type": "delta",
+    "delta": "或取消的最终决策"
+  },
+  {
+    "type": "delta",
+    "delta": "行为"
+  },
+  {
+    "type": "delta",
+    "delta": "。\n\n---\n\n"
+  },
+  {
+    "type": "delta",
+    "delta": "##"
+  },
+  {
+    "type": "delta",
+    "delta": " 六、下一步"
+  },
+  {
+    "type": "delta",
+    "delta": "验证建议\n\n以下"
+  },
+  {
+    "type": "delta",
+    "delta": "建议均为待验证"
+  },
+  {
+    "type": "delta",
+    "delta": "的行动"
+  },
+  {
+    "type": "delta",
+    "delta": "方案，需在获取"
+  },
+  {
+    "type": "delta",
+    "delta": "真人证据后方可执行"
+  },
+  {
+    "type": "delta",
+    "delta": "："
+  },
+  {
+    "type": "delta",
+    "delta": "\n\n| 验证"
+  },
+  {
+    "type": "delta",
+    "delta": "目标 | 行动"
+  },
+  {
+    "type": "delta",
+    "delta": "对象与"
+  },
+  {
+    "type": "delta",
+    "delta": "步骤 | 适用"
+  },
+  {
+    "type": "delta",
+    "delta": "条件 | 反"
+  },
+  {
+    "type": "delta",
+    "delta": "例/失效条件"
+  },
+  {
+    "type": "delta",
+    "delta": " | 具体验证"
+  },
+  {
+    "type": "delta",
+    "delta": "方法与可观察指标"
+  },
+  {
+    "type": "delta",
+    "delta": " |\n| :"
+  },
+  {
+    "type": "delta",
+    "delta": "--- |"
+  },
+  {
+    "type": "delta",
+    "delta": " :--- | :"
+  },
+  {
+    "type": "delta",
+    "delta": "--- | :---"
+  },
+  {
+    "type": "delta",
+    "delta": " | :"
+  },
+  {
+    "type": "delta",
+    "delta": "--- |\n|"
+  },
+  {
+    "type": "delta",
+    "delta": " **"
+  },
+  {
+    "type": "delta",
+    "delta": "核实物理冲突真实性"
+  },
+  {
+    "type": "delta",
+    "delta": "** | 设施"
+  },
+  {
+    "type": "delta",
+    "delta": "管理人员；携带卷"
+  },
+  {
+    "type": "delta",
+    "delta": "尺和图纸前往"
+  },
+  {
+    "type": "delta",
+    "delta": "目标安装点，"
+  },
+  {
+    "type": "delta",
+    "delta": "比对咖啡机背"
+  },
+  {
+    "type": "delta",
+    "delta": "板尺寸与现有"
+  },
+  {
+    "type": "delta",
+    "delta": "插座/柜体"
+  },
+  {
+    "type": "delta",
+    "delta": "孔"
+  },
+  {
+    "type": "delta",
+    "delta": "位。 | "
+  },
+  {
+    "type": "delta",
+    "delta": "适用于需要固定安装的"
+  },
+  {
+    "type": "delta",
+    "delta": "机型。 | "
+  },
+  {
+    "type": "delta",
+    "delta": "若"
+  },
+  {
+    "type": "delta",
+    "delta": "改用桌面型或"
+  },
+  {
+    "type": "delta",
+    "delta": "免"
+  },
+  {
+    "type": "delta",
+    "delta": "安装方案，固定"
+  },
+  {
+    "type": "delta",
+    "delta": "孔位检查不适用"
+  },
+  {
+    "type": "delta",
+    "delta": "，但仍需验证"
+  },
+  {
+    "type": "delta",
+    "delta": "桌面承重和就近"
+  },
+  {
+    "type": "delta",
+    "delta": "供电负荷。 |"
+  },
+  {
+    "type": "delta",
+    "delta": " 方法"
+  },
+  {
+    "type": "delta",
+    "delta": "：实地测绘。"
+  },
+  {
+    "type": "delta",
+    "delta": "指标：记录不"
+  },
+  {
+    "type": "delta",
+    "delta": "兼容项数量。"
+  },
+  {
+    "type": "delta",
+    "delta": "注意：不兼容"
+  },
+  {
+    "type": "delta",
+    "delta": "项"
+  },
+  {
+    "type": "delta",
+    "delta": "为零仅支持本次"
+  },
+  {
+    "type": "delta",
+    "delta": "检测未发现冲突，"
+  },
+  {
+    "type": "delta",
+    "delta": "不能"
+  },
+  {
+    "type": "delta",
+    "delta": "推翻一般安装风险"
+  },
+  {
+    "type": "delta",
+    "delta": "。 |\n|"
+  },
+  {
+    "type": "delta",
+    "delta": " **确认当前采购"
+  },
+  {
+    "type": "delta",
+    "delta": "状态"
+  },
+  {
+    "type": "delta",
+    "delta": "** | 采购"
+  },
+  {
+    "type": "delta",
+    "delta": "发起人；询问该项目"
+  },
+  {
+    "type": "delta",
+    "delta": "目前是处于正常评估"
+  },
+  {
+    "type": "delta",
+    "delta": "、主动暂缓还是"
+  },
+  {
+    "type": "delta",
+    "delta": "已取消。 |"
+  },
+  {
+    "type": "delta",
+    "delta": " 针对当前正在"
+  },
+  {
+    "type": "delta",
+    "delta": "进行的"
+  },
+  {
+    "type": "delta",
+    "delta": "采购项目。 | "
+  },
+  {
+    "type": "delta",
+    "delta": "历史"
+  },
+  {
+    "type": "delta",
+    "delta": "项目的暂缓经历不能"
+  },
+  {
+    "type": "delta",
+    "delta": "升级为"
+  },
+  {
+    "type": "delta",
+    "delta": "当前项目的事实状态"
+  },
+  {
+    "type": "delta",
+    "delta": "。 | 方法"
+  },
+  {
+    "type": "delta",
+    "delta": "：结构化访谈。"
+  },
+  {
+    "type": "delta",
+    "delta": "指标：明确获取"
+  },
+  {
+    "type": "delta",
+    "delta": "“继续、暂缓"
+  },
+  {
+    "type": "delta",
+    "delta": "、"
+  },
+  {
+    "type": "delta",
+    "delta": "取消”的实际状态"
+  },
+  {
+    "type": "delta",
+    "delta": "词"
+  },
+  {
+    "type": "delta",
+    "delta": "。 |\n|"
+  },
+  {
+    "type": "delta",
+    "delta": " **"
+  },
+  {
+    "type": "delta",
+    "delta": "验证预算缺口影响"
+  },
+  {
+    "type": "delta",
+    "delta": "** | 财务"
+  },
+  {
+    "type": "delta",
+    "delta": "审批人；获取"
+  },
+  {
+    "type": "delta",
+    "delta": "实际可用预算额度"
+  },
+  {
+    "type": "delta",
+    "delta": "与候选机型报价"
+  },
+  {
+    "type": "delta",
+    "delta": "单"
+  },
+  {
+    "type": "delta",
+    "delta": "进行交叉比对。"
+  },
+  {
+    "type": "delta",
+    "delta": " |"
+  },
+  {
+    "type": "delta",
+    "delta": " 适用于有严格"
+  },
+  {
+    "type": "delta",
+    "delta": "预算上限的组织。"
+  },
+  {
+    "type": "delta",
+    "delta": " | 若存在"
+  },
+  {
+    "type": "delta",
+    "delta": "弹性预算或部门"
+  },
+  {
+    "type": "delta",
+    "delta": "分摊机制，单一"
+  },
+  {
+    "type": "delta",
+    "delta": "预算对比失效。"
+  },
+  {
+    "type": "delta",
+    "delta": " | 方法"
+  },
+  {
+    "type": "delta",
+    "delta": "：文档审查。"
+  },
+  {
+    "type": "delta",
+    "delta": "指标：报价与"
+  },
+  {
+    "type": "delta",
+    "delta": "预算的差额绝对"
+  },
+  {
+    "type": "delta",
+    "delta": "值及百分比。"
+  },
+  {
+    "type": "delta",
+    "delta": " |\n"
+  },
+  {
+    "type": "delta",
+    "delta": "| **执行安装"
+  },
+  {
+    "type": "delta",
+    "delta": "时长与决策对照"
+  },
+  {
+    "type": "delta",
+    "delta": "测试"
+  },
+  {
+    "type": "delta",
+    "delta": "** | 按"
+  },
+  {
+    "type": "delta",
+    "delta": " [#answer-1"
+  },
+  {
+    "type": "delta",
+    "delta": "2"
+  },
+  {
+    "type": "delta",
+    "delta": "](#answer-"
+  },
+  {
+    "type": "delta",
+    "delta": "1"
+  },
+  {
+    "type": "delta",
+    "delta": "2) 提出的"
+  },
+  {
+    "type": "delta",
+    "delta": "设计建议，招募"
+  },
+  {
+    "type": "delta",
+    "delta": "真实采购用户。"
+  },
+  {
+    "type": "delta",
+    "delta": " | 需确保"
+  },
+  {
+    "type": "delta",
+    "delta": "样本量达到统计"
+  },
+  {
+    "type": "delta",
+    "delta": "效力要求（“"
+  },
+  {
+    "type": "delta",
+    "delta": "五位”仅为模拟"
+  },
+  {
+    "type": "delta",
+    "delta": "文本提及的数字，"
+  },
+  {
+    "type": "delta",
+    "delta": "作为"
+  },
+  {
+    "type": "delta",
+    "delta": "正式实验设计建议"
+  },
+  {
+    "type": "delta",
+    "delta": "时必须明确标注其"
+  },
+  {
+    "type": "delta",
+    "delta": "未经统计学验证）。"
+  },
+  {
+    "type": "delta",
+    "delta": " | 若对照组"
+  },
+  {
+    "type": "delta",
+    "delta": "设置不当（如"
+  },
+  {
+    "type": "delta",
+    "delta": "环境"
+  },
+  {
+    "type": "delta",
+    "delta": "差异过大），时长"
+  },
+  {
+    "type": "delta",
+    "delta": "差异将无法归因"
+  },
+  {
+    "type": "delta",
+    "delta": "于设备本身。"
+  },
+  {
+    "type": "delta",
+    "delta": " | 方法："
+  },
+  {
+    "type": "delta",
+    "delta": "A"
+  },
+  {
+    "type": "delta",
+    "delta": "/B 测试或"
+  },
+  {
+    "type": "delta",
+    "delta": "独立对照组观察。"
+  },
+  {
+    "type": "delta",
+    "delta": "指标"
+  },
+  {
+    "type": "delta",
+    "delta": "：安装耗时（"
+  },
+  {
+    "type": "delta",
+    "delta": "分钟"
+  },
+  {
+    "type": "delta",
+    "delta": "）、最终决策转化率"
+  },
+  {
+    "type": "delta",
+    "delta": "。"
+  },
+  {
+    "type": "delta",
+    "delta": "需明确写出需要"
+  },
+  {
+    "type": "delta",
+    "delta": "多大的决策变化才能"
+  },
+  {
+    "type": "delta",
+    "delta": "支持或调整原"
+  },
+  {
+    "type": "delta",
+    "delta": "假设。 |"
+  },
+  {
+    "type": "stage",
+    "stage": "validation"
+  },
+  {
+    "type": "stage",
+    "stage": "storage"
+  },
+  {
+    "type": "stage",
+    "stage": "context"
+  },
+  {
+    "type": "attempt",
+    "attempt": 2
+  },
+  {
+    "type": "stage",
+    "stage": "model"
+  },
+  {
+    "type": "delta",
+    "delta": "#"
+  },
+  {
+    "type": "delta",
+    "delta": " 办公"
+  },
+  {
+    "type": "delta",
+    "delta": "咖啡机"
+  },
+  {
+    "type": "delta",
+    "delta": "采购研究"
+  },
+  {
+    "type": "delta",
+    "delta": "：安装风险与"
+  },
+  {
+    "type": "delta",
+    "delta": "预算"
+  },
+  {
+    "type": "delta",
+    "delta": "约束对购买决策"
+  },
+  {
+    "type": "delta",
+    "delta": "的影响\n\n## "
+  },
+  {
+    "type": "delta",
+    "delta": "证据"
+  },
+  {
+    "type": "delta",
+    "delta": "边界声明\n\n本报告"
+  },
+  {
+    "type": "delta",
+    "delta": "所有证据均来自模型"
+  },
+  {
+    "type": "delta",
+    "delta": "模拟生成，服务端"
+  },
+  {
+    "type": "delta",
+    "delta": "元"
+  },
+  {
+    "type": "delta",
+    "delta": "数据已将所有回答"
+  },
+  {
+    "type": "delta",
+    "delta": "标记"
+  },
+  {
+    "type": "delta",
+    "delta": "为 `evidence"
+  },
+  {
+    "type": "delta",
+    "delta": "Mode:"
+  },
+  {
+    "type": "delta",
+    "delta": " simulated`。原始"
+  },
+  {
+    "type": "delta",
+    "delta": "材料明确"
+  },
+  {
+    "type": "delta",
+    "delta": "声明[以下回答"
+  },
+  {
+    "type": "delta",
+    "delta": "来自"
+  },
+  {
+    "type": "delta",
+    "delta": "模型模拟，需"
+  },
+  {
+    "type": "delta",
+    "delta": "真人验证"
+  },
+  {
+    "type": "delta",
+    "delta": "。](#answer"
+  },
+  {
+    "type": "delta",
+    "delta": "-2)因此"
+  },
+  {
+    "type": "delta",
+    "delta": "，本"
+  },
+  {
+    "type": "delta",
+    "delta": "报告中不存在已证实"
+  },
+  {
+    "type": "delta",
+    "delta": "的真人事实，"
+  },
+  {
+    "type": "delta",
+    "delta": "所有发现均为待"
+  },
+  {
+    "type": "delta",
+    "delta": "验证假设，不能"
+  },
+  {
+    "type": "delta",
+    "delta": "直接用于实际采购"
+  },
+  {
+    "type": "delta",
+    "delta": "或产品决策。"
+  },
+  {
+    "type": "delta",
+    "delta": "由于不同角色（"
+  },
+  {
+    "type": "delta",
+    "delta": "support 与 purchase"
+  },
+  {
+    "type": "delta",
+    "delta": "）的回答分属"
+  },
+  {
+    "type": "delta",
+    "delta": "独立模拟任务，"
+  },
+  {
+    "type": "delta",
+    "delta": "且未经验证"
+  },
+  {
+    "type": "delta",
+    "delta": "是否代表真实人类"
+  },
+  {
+    "type": "delta",
+    "delta": "观点，无法判断"
+  },
+  {
+    "type": "delta",
+    "delta": "跨专家共识。"
+  },
+  {
+    "type": "delta",
+    "delta": "\n\n---\n\n##"
+  },
+  {
+    "type": "delta",
+    "delta": " 一"
+  },
+  {
+    "type": "delta",
+    "delta": "、研究结论摘要"
+  },
+  {
+    "type": "delta",
+    "delta": "\n\n本次"
+  },
+  {
+    "type": "delta",
+    "delta": "模拟研究围绕“"
+  },
+  {
+    "type": "delta",
+    "delta": "办公"
+  },
+  {
+    "type": "delta",
+    "delta": "咖啡机采购”"
+  },
+  {
+    "type": "delta",
+    "delta": "中安装风险与"
+  },
+  {
+    "type": "delta",
+    "delta": "预算约束两个主题"
+  },
+  {
+    "type": "delta",
+    "delta": "展开。基于两条"
+  },
+  {
+    "type": "delta",
+    "delta": "模拟任务的输出，"
+  },
+  {
+    "type": "delta",
+    "delta": "可归纳出三个"
+  },
+  {
+    "type": "delta",
+    "delta": "条件性假设："
+  },
+  {
+    "type": "delta",
+    "delta": "\n\n1. **"
+  },
+  {
+    "type": "delta",
+    "delta": "物理安装冲突可能"
+  },
+  {
+    "type": "delta",
+    "delta": "触发采购暂缓**"
+  },
+  {
+    "type": "delta",
+    "delta": "：插座位置与"
+  },
+  {
+    "type": "delta",
+    "delta": "柜体孔位的"
+  },
+  {
+    "type": "delta",
+    "delta": "空间冲突被识别"
+  },
+  {
+    "type": "delta",
+    "delta": "为一个潜在否决点"
+  },
+  {
+    "type": "delta",
+    "delta": "。\n2."
+  },
+  {
+    "type": "delta",
+    "delta": " **"
+  },
+  {
+    "type": "delta",
+    "delta": "预算缺口驱动替代"
+  },
+  {
+    "type": "delta",
+    "delta": "方案探索**："
+  },
+  {
+    "type": "delta",
+    "delta": "当"
+  },
+  {
+    "type": "delta",
+    "delta": "设备报价超出采购"
+  },
+  {
+    "type": "delta",
+    "delta": "预算时，低成本"
+  },
+  {
+    "type": "delta",
+    "delta": "方案的"
+  },
+  {
+    "type": "delta",
+    "delta": "验证成为前置条件"
+  },
+  {
+    "type": "delta",
+    "delta": "。\n3."
+  },
+  {
+    "type": "delta",
+    "delta": " **"
+  },
+  {
+    "type": "delta",
+    "delta": "当前采购状态无法"
+  },
+  {
+    "type": "delta",
+    "delta": "确认为永久搁"
+  },
+  {
+    "type": "delta",
+    "delta": "置**：“暂缓"
+  },
+  {
+    "type": "delta",
+    "delta": "”仅代表特定场景"
+  },
+  {
+    "type": "delta",
+    "delta": "下的时间线推迟"
+  },
+  {
+    "type": "delta",
+    "delta": "，不等同于取消"
+  },
+  {
+    "type": "delta",
+    "delta": "。\n\n这些结论"
+  },
+  {
+    "type": "delta",
+    "delta": "仅在"
+  },
+  {
+    "type": "delta",
+    "delta": "模拟上下文中成立"
+  },
+  {
+    "type": "delta",
+    "delta": "，需通过真人"
+  },
+  {
+    "type": "delta",
+    "delta": "访谈和实地核查"
+  },
+  {
+    "type": "delta",
+    "delta": "进行验证。\n\n"
+  },
+  {
+    "type": "delta",
+    "delta": "---\n\n"
+  },
+  {
+    "type": "delta",
+    "delta": "## 二、"
+  },
+  {
+    "type": "delta",
+    "delta": "主题分析"
+  },
+  {
+    "type": "delta",
+    "delta": "：安装体验与"
+  },
+  {
+    "type": "delta",
+    "delta": "物理冲突风险\n\n"
+  },
+  {
+    "type": "delta",
+    "delta": "### 证据事实"
+  },
+  {
+    "type": "delta",
+    "delta": "\n"
+  },
+  {
+    "type": "delta",
+    "delta": "在 support 任务"
+  },
+  {
+    "type": "delta",
+    "delta": "中，模拟回答"
+  },
+  {
+    "type": "delta",
+    "delta": "指出"
+  },
+  {
+    "type": "delta",
+    "delta": "：[公开合成"
+  },
+  {
+    "type": "delta",
+    "delta": "回答"
+  },
+  {
+    "type": "delta",
+    "delta": "：安装时发现厨房"
+  },
+  {
+    "type": "delta",
+    "delta": "插座"
+  },
+  {
+    "type": "delta",
+    "delta": "位置与柜体"
+  },
+  {
+    "type": "delta",
+    "delta": "孔"
+  },
+  {
+    "type": "delta",
+    "delta": "位冲突，因此"
+  },
+  {
+    "type": "delta",
+    "delta": "暂缓购买。]("
+  },
+  {
+    "type": "delta",
+    "delta": "#answer-"
+  },
+  {
+    "type": "delta",
+    "delta": "5)\n\n###"
+  },
+  {
+    "type": "delta",
+    "delta": " "
+  },
+  {
+    "type": "delta",
+    "delta": "条件性解释\n"
+  },
+  {
+    "type": "delta",
+    "delta": "若"
+  },
+  {
+    "type": "delta",
+    "delta": "该冲突模式在"
+  },
+  {
+    "type": "delta",
+    "delta": "真实办公厨房环境中"
+  },
+  {
+    "type": "delta",
+    "delta": "存在，则说明"
+  },
+  {
+    "type": "delta",
+    "delta": "固定安装类咖啡"
+  },
+  {
+    "type": "delta",
+    "delta": "机的物理兼容性是"
+  },
+  {
+    "type": "delta",
+    "delta": "采购决策链中的一个"
+  },
+  {
+    "type": "delta",
+    "delta": "关键否决点。"
+  },
+  {
+    "type": "delta",
+    "delta": "插座与柜体"
+  },
+  {
+    "type": "delta",
+    "delta": "孔"
+  },
+  {
+    "type": "delta",
+    "delta": "位的空间干涉意味着"
+  },
+  {
+    "type": "delta",
+    "delta": "标准安装流程无法"
+  },
+  {
+    "type": "delta",
+    "delta": "闭环，迫使决策"
+  },
+  {
+    "type": "delta",
+    "delta": "者暂停推进。"
+  },
+  {
+    "type": "delta",
+    "delta": "此推论的"
+  },
+  {
+    "type": "delta",
+    "delta": "成立条件是：目标"
+  },
+  {
+    "type": "delta",
+    "delta": "安装场所确实采用"
+  },
+  {
+    "type": "delta",
+    "delta": "固定"
+  },
+  {
+    "type": "delta",
+    "delta": "柜体设计，"
+  },
+  {
+    "type": "delta",
+    "delta": "且咖啡机要求"
+  },
+  {
+    "type": "delta",
+    "delta": "特定位置的电源接入"
+  },
+  {
+    "type": "delta",
+    "delta": "。\n\n### "
+  },
+  {
+    "type": "delta",
+    "delta": "待"
+  },
+  {
+    "type": "delta",
+    "delta": "验证决策影响\n"
+  },
+  {
+    "type": "delta",
+    "delta": "若"
+  },
+  {
+    "type": "delta",
+    "delta": "后续真人验证确认"
+  },
+  {
+    "type": "delta",
+    "delta": "此类物理冲突具有"
+  },
+  {
+    "type": "delta",
+    "delta": "普遍性，则可"
+  },
+  {
+    "type": "delta",
+    "delta": "考虑在采购评估"
+  },
+  {
+    "type": "delta",
+    "delta": "清单中增加“"
+  },
+  {
+    "type": "delta",
+    "delta": "现场"
+  },
+  {
+    "type": "delta",
+    "delta": "供电与柜体"
+  },
+  {
+    "type": "delta",
+    "delta": "孔位测绘”"
+  },
+  {
+    "type": "delta",
+    "delta": "作为"
+  },
+  {
+    "type": "delta",
+    "delta": "强制前置步骤；"
+  },
+  {
+    "type": "delta",
+    "delta": "还可优先筛选免"
+  },
+  {
+    "type": "delta",
+    "delta": "安装、桌面型"
+  },
+  {
+    "type": "delta",
+    "delta": "或采用移动式带"
+  },
+  {
+    "type": "delta",
+    "delta": "线插座的替代"
+  },
+  {
+    "type": "delta",
+    "delta": "机型。但需注意"
+  },
+  {
+    "type": "delta",
+    "delta": "，改变设备形态"
+  },
+  {
+    "type": "delta",
+    "delta": "或供电方式仅是"
+  },
+  {
+    "type": "delta",
+    "delta": "待验证的干预"
+  },
+  {
+    "type": "delta",
+    "delta": "措施，"
+  },
+  {
+    "type": "delta",
+    "delta": "不能据此断言"
+  },
+  {
+    "type": "delta",
+    "delta": "物理冲突风险已"
+  },
+  {
+    "type": "delta",
+    "delta": "自动降级——线缆"
+  },
+  {
+    "type": "delta",
+    "delta": "长度、负荷容量"
+  },
+  {
+    "type": "delta",
+    "delta": "、承重限制及"
+  },
+  {
+    "type": "delta",
+    "delta": "空间"
+  },
+  {
+    "type": "delta",
+    "delta": "占用等残余风险"
+  },
+  {
+    "type": "delta",
+    "delta": "仍需"
+  },
+  {
+    "type": "delta",
+    "delta": "逐项检查。\n\n"
+  },
+  {
+    "type": "delta",
+    "delta": "### 反例"
+  },
+  {
+    "type": "delta",
+    "delta": "与边界"
+  },
+  {
+    "type": "delta",
+    "delta": "\n同一任务中"
+  },
+  {
+    "type": "delta",
+    "delta": "提供了相反情境："
+  },
+  {
+    "type": "delta",
+    "delta": "[公开合成反"
+  },
+  {
+    "type": "delta",
+    "delta": "例"
+  },
+  {
+    "type": "delta",
+    "delta": "：另一个场景安装"
+  },
+  {
+    "type": "delta",
+    "delta": "顺利，不能推断"
+  },
+  {
+    "type": "delta",
+    "delta": "普遍发生"
+  },
+  {
+    "type": "delta",
+    "delta": "。](#answer"
+  },
+  {
+    "type": "delta",
+    "delta": "-7)这一"
+  },
+  {
+    "type": "delta",
+    "delta": "反例表明"
+  },
+  {
+    "type": "delta",
+    "delta": "，安装失败与"
+  },
+  {
+    "type": "delta",
+    "delta": "成功"
+  },
+  {
+    "type": "delta",
+    "delta": "属于情境差异（"
+  },
+  {
+    "type": "delta",
+    "delta": "如"
+  },
+  {
+    "type": "delta",
+    "delta": "不同办公室的装修"
+  },
+  {
+    "type": "delta",
+    "delta": "布局"
+  },
+  {
+    "type": "delta",
+    "delta": "不同），而非设备"
+  },
+  {
+    "type": "delta",
+    "delta": "固有缺陷的必然"
+  },
+  {
+    "type": "delta",
+    "delta": "表现"
+  },
+  {
+    "type": "delta",
+    "delta": "。一次安装顺利"
+  },
+  {
+    "type": "delta",
+    "delta": "不能"
+  },
+  {
+    "type": "delta",
+    "delta": "排除设备在其他环境"
+  },
+  {
+    "type": "delta",
+    "delta": "中的兼容性问题；"
+  },
+  {
+    "type": "delta",
+    "delta": "同理"
+  },
+  {
+    "type": "delta",
+    "delta": "，一次冲突记录"
+  },
+  {
+    "type": "delta",
+    "delta": "也不能"
+  },
+  {
+    "type": "delta",
+    "delta": "证明所有场所均"
+  },
+  {
+    "type": "delta",
+    "delta": "会失败。本次"
+  },
+  {
+    "type": "delta",
+    "delta": "关于"
+  },
+  {
+    "type": "delta",
+    "delta": "“插座与孔"
+  },
+  {
+    "type": "delta",
+    "delta": "位冲突”的记录"
+  },
+  {
+    "type": "delta",
+    "delta": "仅支持该特定"
+  },
+  {
+    "type": "delta",
+    "delta": "场所、特定检查"
+  },
+  {
+    "type": "delta",
+    "delta": "对象的窄范围结果"
+  },
+  {
+    "type": "delta",
+    "delta": "，不能"
+  },
+  {
+    "type": "delta",
+    "delta": "借用到其他供电"
+  },
+  {
+    "type": "delta",
+    "delta": "系统或物理风险"
+  },
+  {
+    "type": "delta",
+    "delta": "排查中。\n\n"
+  },
+  {
+    "type": "delta",
+    "delta": "---"
+  },
+  {
+    "type": "delta",
+    "delta": "\n\n## 三"
+  },
+  {
+    "type": "delta",
+    "delta": "、主题分析："
+  },
+  {
+    "type": "delta",
+    "delta": "预算约束与采购"
+  },
+  {
+    "type": "delta",
+    "delta": "审批"
+  },
+  {
+    "type": "delta",
+    "delta": "\n\n### 证据"
+  },
+  {
+    "type": "delta",
+    "delta": "事实\n在 purchase"
+  },
+  {
+    "type": "delta",
+    "delta": " "
+  },
+  {
+    "type": "delta",
+    "delta": "任务中，模拟"
+  },
+  {
+    "type": "delta",
+    "delta": "回答指出：["
+  },
+  {
+    "type": "delta",
+    "delta": "公开"
+  },
+  {
+    "type": "delta",
+    "delta": "合成回答：采购"
+  },
+  {
+    "type": "delta",
+    "delta": "预算"
+  },
+  {
+    "type": "delta",
+    "delta": "低于设备报价，"
+  },
+  {
+    "type": "delta",
+    "delta": "需先"
+  },
+  {
+    "type": "delta",
+    "delta": "验证低成本方案。"
+  },
+  {
+    "type": "delta",
+    "delta": "](#answer-"
+  },
+  {
+    "type": "delta",
+    "delta": "10)"
+  },
+  {
+    "type": "delta",
+    "delta": "\n\n### 条件"
+  },
+  {
+    "type": "delta",
+    "delta": "性解释\n若"
+  },
+  {
+    "type": "delta",
+    "delta": "预算"
+  },
+  {
+    "type": "delta",
+    "delta": "缺口在真实采购"
+  },
+  {
+    "type": "delta",
+    "delta": "流程"
+  },
+  {
+    "type": "delta",
+    "delta": "中确实存在，"
+  },
+  {
+    "type": "delta",
+    "delta": "则说明财务约束"
+  },
+  {
+    "type": "delta",
+    "delta": "构成了"
+  },
+  {
+    "type": "delta",
+    "delta": "决策链中的硬性"
+  },
+  {
+    "type": "delta",
+    "delta": "门槛。在此条件下"
+  },
+  {
+    "type": "delta",
+    "delta": "，采购角色的行为"
+  },
+  {
+    "type": "delta",
+    "delta": "模式"
+  },
+  {
+    "type": "delta",
+    "delta": "从“评估首选"
+  },
+  {
+    "type": "delta",
+    "delta": "设备”转向“"
+  },
+  {
+    "type": "delta",
+    "delta": "寻找"
+  },
+  {
+    "type": "delta",
+    "delta": "并验证符合预算"
+  },
+  {
+    "type": "delta",
+    "delta": "的替代品”。此"
+  },
+  {
+    "type": "delta",
+    "delta": "推论的成立"
+  },
+  {
+    "type": "delta",
+    "delta": "条件是："
+  },
+  {
+    "type": "delta",
+    "delta": "组织财务制度不允许"
+  },
+  {
+    "type": "delta",
+    "delta": "超预算"
+  },
+  {
+    "type": "delta",
+    "delta": "特批，且"
+  },
+  {
+    "type": "delta",
+    "delta": "市场上"
+  },
+  {
+    "type": "delta",
+    "delta": "存在功能可接受"
+  },
+  {
+    "type": "delta",
+    "delta": "的低成本替代方案"
+  },
+  {
+    "type": "delta",
+    "delta": "。"
+  },
+  {
+    "type": "delta",
+    "delta": "\n\n### 待"
+  },
+  {
+    "type": "delta",
+    "delta": "验证决策影响\n"
+  },
+  {
+    "type": "delta",
+    "delta": "若真人验证确认"
+  },
+  {
+    "type": "delta",
+    "delta": "预算为主要否决点"
+  },
+  {
+    "type": "delta",
+    "delta": "，则可考虑调整"
+  },
+  {
+    "type": "delta",
+    "delta": "采购策略"
+  },
+  {
+    "type": "delta",
+    "delta": "优先级，将“"
+  },
+  {
+    "type": "delta",
+    "delta": "低成本"
+  },
+  {
+    "type": "delta",
+    "delta": "方案的功能覆盖率测试"
+  },
+  {
+    "type": "delta",
+    "delta": "”提前至审批"
+  },
+  {
+    "type": "delta",
+    "delta": "流程"
+  },
+  {
+    "type": "delta",
+    "delta": "前端。还需验证"
+  },
+  {
+    "type": "delta",
+    "delta": "低成本"
+  },
+  {
+    "type": "delta",
+    "delta": "方案是否在维护成本"
+  },
+  {
+    "type": "delta",
+    "delta": "、使用寿命或员工"
+  },
+  {
+    "type": "delta",
+    "delta": "满意度上引入新的"
+  },
+  {
+    "type": "delta",
+    "delta": "隐性代价。\n\n"
+  },
+  {
+    "type": "delta",
+    "delta": "### "
+  },
+  {
+    "type": "delta",
+    "delta": "反例与边界"
+  },
+  {
+    "type": "delta",
+    "delta": "\n材料"
+  },
+  {
+    "type": "delta",
+    "delta": "中未提供预算"
+  },
+  {
+    "type": "delta",
+    "delta": "充足"
+  },
+  {
+    "type": "delta",
+    "delta": "或成功获批的反"
+  },
+  {
+    "type": "delta",
+    "delta": "例记录，因此"
+  },
+  {
+    "type": "delta",
+    "delta": "无法判断预算约束"
+  },
+  {
+    "type": "delta",
+    "delta": "在不同规模企业或"
+  },
+  {
+    "type": "delta",
+    "delta": "不同审批"
+  },
+  {
+    "type": "delta",
+    "delta": "权限下的异质性"
+  },
+  {
+    "type": "delta",
+    "delta": "。证据不足，"
+  },
+  {
+    "type": "delta",
+    "delta": "无法"
+  },
+  {
+    "type": "delta",
+    "delta": "得出“预算必然"
+  },
+  {
+    "type": "delta",
+    "delta": "阻止"
+  },
+  {
+    "type": "delta",
+    "delta": "购买”的无条件"
+  },
+  {
+    "type": "delta",
+    "delta": "结论。\n\n---"
+  },
+  {
+    "type": "delta",
+    "delta": "\n\n"
+  },
+  {
+    "type": "delta",
+    "delta": "## 四、"
+  },
+  {
+    "type": "delta",
+    "delta": "跨回答"
+  },
+  {
+    "type": "delta",
+    "delta": "综合与分歧比较"
+  },
+  {
+    "type": "delta",
+    "delta": "\n\n由于 support "
+  },
+  {
+    "type": "delta",
+    "delta": "任务关注物理安装"
+  },
+  {
+    "type": "delta",
+    "delta": "，purchase 任务"
+  },
+  {
+    "type": "delta",
+    "delta": "关注"
+  },
+  {
+    "type": "delta",
+    "delta": "财务预算，两者"
+  },
+  {
+    "type": "delta",
+    "delta": "分别指出了不同维"
+  },
+  {
+    "type": "delta",
+    "delta": "度的阻碍因素。"
+  },
+  {
+    "type": "delta",
+    "delta": "材料中未出现"
+  },
+  {
+    "type": "delta",
+    "delta": "同一当事人对同一"
+  },
+  {
+    "type": "delta",
+    "delta": "采购对象在同一时间"
+  },
+  {
+    "type": "delta",
+    "delta": "窗口内同时讨论"
+  },
+  {
+    "type": "delta",
+    "delta": "两者的"
+  },
+  {
+    "type": "delta",
+    "delta": "记录，因此无法"
+  },
+  {
+    "type": "delta",
+    "delta": "判断这两个因素在实际"
+  },
+  {
+    "type": "delta",
+    "delta": "决策中孰轻"
+  },
+  {
+    "type": "delta",
+    "delta": "孰重，也无法"
+  },
+  {
+    "type": "delta",
+    "delta": "判断"
+  },
+  {
+    "type": "delta",
+    "delta": "跨专家共识。"
+  },
+  {
+    "type": "delta",
+    "delta": "\n\n分歧/反"
+  },
+  {
+    "type": "delta",
+    "delta": "例方面：安装"
+  },
+  {
+    "type": "delta",
+    "delta": "场景中同时存在“"
+  },
+  {
+    "type": "delta",
+    "delta": "冲突导致暂缓”"
+  },
+  {
+    "type": "delta",
+    "delta": "（[公开合成"
+  },
+  {
+    "type": "delta",
+    "delta": "回答：安装时发现"
+  },
+  {
+    "type": "delta",
+    "delta": "厨房插座位置与"
+  },
+  {
+    "type": "delta",
+    "delta": "柜"
+  },
+  {
+    "type": "delta",
+    "delta": "体孔位冲突"
+  },
+  {
+    "type": "delta",
+    "delta": "，因此暂缓购买"
+  },
+  {
+    "type": "delta",
+    "delta": "。](#answer"
+  },
+  {
+    "type": "delta",
+    "delta": "-5)）"
+  },
+  {
+    "type": "delta",
+    "delta": "与“"
+  },
+  {
+    "type": "delta",
+    "delta": "安装顺利”（"
+  },
+  {
+    "type": "delta",
+    "delta": "["
+  },
+  {
+    "type": "delta",
+    "delta": "公开合成反例"
+  },
+  {
+    "type": "delta",
+    "delta": "：另一个场景安装"
+  },
+  {
+    "type": "delta",
+    "delta": "顺利，不能推断"
+  },
+  {
+    "type": "delta",
+    "delta": "普遍"
+  },
+  {
+    "type": "delta",
+    "delta": "发生。](#"
+  },
+  {
+    "type": "delta",
+    "delta": "answer-"
+  },
+  {
+    "type": "delta",
+    "delta": "7)）的描述"
+  },
+  {
+    "type": "delta",
+    "delta": "。这并非内部"
+  },
+  {
+    "type": "delta",
+    "delta": "矛盾，而是反映了"
+  },
+  {
+    "type": "delta",
+    "delta": "不同物理环境（"
+  },
+  {
+    "type": "delta",
+    "delta": "如厨房布局差异"
+  },
+  {
+    "type": "delta",
+    "delta": "）带来的情境异"
+  },
+  {
+    "type": "delta",
+    "delta": "质性"
+  },
+  {
+    "type": "delta",
+    "delta": "。\n\n---\n\n"
+  },
+  {
+    "type": "delta",
+    "delta": "##"
+  },
+  {
+    "type": "delta",
+    "delta": " 五、不确定"
+  },
+  {
+    "type": "delta",
+    "delta": "性与限制"
+  },
+  {
+    "type": "delta",
+    "delta": "\n\n1. **"
+  },
+  {
+    "type": "delta",
+    "delta": "样本性质限制**"
+  },
+  {
+    "type": "delta",
+    "delta": "："
+  },
+  {
+    "type": "delta",
+    "delta": "服务端已绑定任务"
+  },
+  {
+    "type": "delta",
+    "delta": "数为 2，"
+  },
+  {
+    "type": "delta",
+    "delta": "画像数为 2"
+  },
+  {
+    "type": "delta",
+    "delta": "，"
+  },
+  {
+    "type": "delta",
+    "delta": "但所有回答均"
+  },
+  {
+    "type": "delta",
+    "delta": "标记"
+  },
+  {
+    "type": "delta",
+    "delta": "为 `simulated"
+  },
+  {
+    "type": "delta",
+    "delta": "`。"
+  },
+  {
+    "type": "delta",
+    "delta": "没有真人样本，"
+  },
+  {
+    "type": "delta",
+    "delta": "所有发现均为模拟"
+  },
+  {
+    "type": "delta",
+    "delta": "推测。\n2"
+  },
+  {
+    "type": "delta",
+    "delta": ". **"
+  },
+  {
+    "type": "delta",
+    "delta": "状态误判风险"
+  },
+  {
+    "type": "delta",
+    "delta": "**：原文提到"
+  },
+  {
+    "type": "delta",
+    "delta": "“因此"
+  },
+  {
+    "type": "delta",
+    "delta": "暂缓购买”，这"
+  },
+  {
+    "type": "delta",
+    "delta": "仅说明在该模拟"
+  },
+  {
+    "type": "delta",
+    "delta": "场景"
+  },
+  {
+    "type": "delta",
+    "delta": "下采取了推迟行动"
+  },
+  {
+    "type": "delta",
+    "delta": "，不证明当前"
+  },
+  {
+    "type": "delta",
+    "delta": "真实采购已经搁"
+  },
+  {
+    "type": "delta",
+    "delta": "置、暂停或"
+  },
+  {
+    "type": "delta",
+    "delta": "中断。"
+  },
+  {
+    "type": "delta",
+    "delta": "缺乏同一当事人、"
+  },
+  {
+    "type": "delta",
+    "delta": "同一采购对象和"
+  },
+  {
+    "type": "delta",
+    "delta": "同一时间窗口的"
+  },
+  {
+    "type": "delta",
+    "delta": "实际状态记录，"
+  },
+  {
+    "type": "delta",
+    "delta": "无法判断当前采购"
+  },
+  {
+    "type": "delta",
+    "delta": "的真实进度。\n"
+  },
+  {
+    "type": "delta",
+    "delta": "3."
+  },
+  {
+    "type": "delta",
+    "delta": " **验证计划不等于"
+  },
+  {
+    "type": "delta",
+    "delta": "执行结果**："
+  },
+  {
+    "type": "delta",
+    "delta": "purchase"
+  },
+  {
+    "type": "delta",
+    "delta": " 任务提出["
+  },
+  {
+    "type": "delta",
+    "delta": "公开合成"
+  },
+  {
+    "type": "delta",
+    "delta": "回答：访谈五位"
+  },
+  {
+    "type": "delta",
+    "delta": "采购用户，测量"
+  },
+  {
+    "type": "delta",
+    "delta": "安装任务"
+  },
+  {
+    "type": "delta",
+    "delta": "时长，对比独立"
+  },
+  {
+    "type": "delta",
+    "delta": "对照组，再决定"
+  },
+  {
+    "type": "delta",
+    "delta": "投入。"
+  },
+  {
+    "type": "delta",
+    "delta": "](#answer-"
+  },
+  {
+    "type": "delta",
+    "delta": "12)这是一个"
+  },
+  {
+    "type": "delta",
+    "delta": "未来"
+  },
+  {
+    "type": "delta",
+    "delta": "验证计划的设计建议"
+  },
+  {
+    "type": "delta",
+    "delta": "，不代表该计划"
+  },
+  {
+    "type": "delta",
+    "delta": "已经执行，也不"
+  },
+  {
+    "type": "delta",
+    "delta": "代表安装时长差异"
+  },
+  {
+    "type": "delta",
+    "delta": "已被证实能决定"
+  },
+  {
+    "type": "delta",
+    "delta": "购买因果。\n"
+  },
+  {
+    "type": "delta",
+    "delta": "4. **指标"
+  },
+  {
+    "type": "delta",
+    "delta": "匹配问题**："
+  },
+  {
+    "type": "delta",
+    "delta": "即使未来执行了"
+  },
+  {
+    "type": "delta",
+    "delta": "上述计划，“测量"
+  },
+  {
+    "type": "delta",
+    "delta": "安装任务时长”"
+  },
+  {
+    "type": "delta",
+    "delta": "只能反映安装效率"
+  },
+  {
+    "type": "delta",
+    "delta": "，不能单独证明"
+  },
+  {
+    "type": "delta",
+    "delta": "购买决策的因果关系"
+  },
+  {
+    "type": "delta",
+    "delta": "。必须同时观察"
+  },
+  {
+    "type": "delta",
+    "delta": "实际购买、暂缓"
+  },
+  {
+    "type": "delta",
+    "delta": "或"
+  },
+  {
+    "type": "delta",
+    "delta": "取消的最终决策行为"
+  },
+  {
+    "type": "delta",
+    "delta": "。\n\n---\n\n"
+  },
+  {
+    "type": "delta",
+    "delta": "## 六"
+  },
+  {
+    "type": "delta",
+    "delta": "、下一步验证建议"
+  },
+  {
+    "type": "delta",
+    "delta": "\n\n"
+  },
+  {
+    "type": "delta",
+    "delta": "以下建议均为待"
+  },
+  {
+    "type": "delta",
+    "delta": "验证的行动方案，"
+  },
+  {
+    "type": "delta",
+    "delta": "需在获取真人证据"
+  },
+  {
+    "type": "delta",
+    "delta": "后方可执行：\n\n"
+  },
+  {
+    "type": "delta",
+    "delta": "| 验证目标"
+  },
+  {
+    "type": "delta",
+    "delta": " |"
+  },
+  {
+    "type": "delta",
+    "delta": " 行动对象与"
+  },
+  {
+    "type": "delta",
+    "delta": "步骤 | 适用"
+  },
+  {
+    "type": "delta",
+    "delta": "条件 | 反"
+  },
+  {
+    "type": "delta",
+    "delta": "例/失效条件"
+  },
+  {
+    "type": "delta",
+    "delta": " | 具体验证"
+  },
+  {
+    "type": "delta",
+    "delta": "方法与"
+  },
+  {
+    "type": "delta",
+    "delta": "可观察指标 |"
+  },
+  {
+    "type": "delta",
+    "delta": "\n"
+  },
+  {
+    "type": "delta",
+    "delta": "| :--- |"
+  },
+  {
+    "type": "delta",
+    "delta": " :--- | :"
+  },
+  {
+    "type": "delta",
+    "delta": "--- |"
+  },
+  {
+    "type": "delta",
+    "delta": " :--- | :"
+  },
+  {
+    "type": "delta",
+    "delta": "--- |"
+  },
+  {
+    "type": "delta",
+    "delta": "\n| **核实"
+  },
+  {
+    "type": "delta",
+    "delta": "物理"
+  },
+  {
+    "type": "delta",
+    "delta": "冲突真实性** |"
+  },
+  {
+    "type": "delta",
+    "delta": " "
+  },
+  {
+    "type": "delta",
+    "delta": "设施管理人员；携带"
+  },
+  {
+    "type": "delta",
+    "delta": "卷"
+  },
+  {
+    "type": "delta",
+    "delta": "尺和图纸前往"
+  },
+  {
+    "type": "delta",
+    "delta": "目标安装点，"
+  },
+  {
+    "type": "delta",
+    "delta": "比对"
+  },
+  {
+    "type": "delta",
+    "delta": "咖啡机背板"
+  },
+  {
+    "type": "delta",
+    "delta": "尺寸与现有插座"
+  },
+  {
+    "type": "delta",
+    "delta": "/柜体孔"
+  },
+  {
+    "type": "delta",
+    "delta": "位。"
+  },
+  {
+    "type": "delta",
+    "delta": " | 适用于需要"
+  },
+  {
+    "type": "delta",
+    "delta": "固定"
+  },
+  {
+    "type": "delta",
+    "delta": "安装的机型。 |"
+  },
+  {
+    "type": "delta",
+    "delta": " 若"
+  },
+  {
+    "type": "delta",
+    "delta": "改用桌面型或"
+  },
+  {
+    "type": "delta",
+    "delta": "免"
+  },
+  {
+    "type": "delta",
+    "delta": "安装方案，固定"
+  },
+  {
+    "type": "delta",
+    "delta": "孔位"
+  },
+  {
+    "type": "delta",
+    "delta": "检查不适用，但仍"
+  },
+  {
+    "type": "delta",
+    "delta": "需验证桌面承重"
+  },
+  {
+    "type": "delta",
+    "delta": "和就近供电负荷"
+  },
+  {
+    "type": "delta",
+    "delta": "。 | 方法"
+  },
+  {
+    "type": "delta",
+    "delta": "：实地测绘。"
+  },
+  {
+    "type": "delta",
+    "delta": "指标"
+  },
+  {
+    "type": "delta",
+    "delta": "：记录不兼容"
+  },
+  {
+    "type": "delta",
+    "delta": "项"
+  },
+  {
+    "type": "delta",
+    "delta": "数量。注意："
+  },
+  {
+    "type": "delta",
+    "delta": "不兼容项为零"
+  },
+  {
+    "type": "delta",
+    "delta": "仅支持本次检测"
+  },
+  {
+    "type": "delta",
+    "delta": "未发现"
+  },
+  {
+    "type": "delta",
+    "delta": "冲突，不能推翻"
+  },
+  {
+    "type": "delta",
+    "delta": "一般"
+  },
+  {
+    "type": "delta",
+    "delta": "安装风险。 |"
+  },
+  {
+    "type": "delta",
+    "delta": "\n"
+  },
+  {
+    "type": "delta",
+    "delta": "| **确认当前"
+  },
+  {
+    "type": "delta",
+    "delta": "采购状态** |"
+  },
+  {
+    "type": "delta",
+    "delta": " 采购"
+  },
+  {
+    "type": "delta",
+    "delta": "发起人；询问该项目"
+  },
+  {
+    "type": "delta",
+    "delta": "目前是"
+  },
+  {
+    "type": "delta",
+    "delta": "处于正常评估、"
+  },
+  {
+    "type": "delta",
+    "delta": "主动暂缓还是已"
+  },
+  {
+    "type": "delta",
+    "delta": "取消。 | "
+  },
+  {
+    "type": "delta",
+    "delta": "针对"
+  },
+  {
+    "type": "delta",
+    "delta": "当前正在进行的采购项目"
+  },
+  {
+    "type": "delta",
+    "delta": "。 | 历史"
+  },
+  {
+    "type": "delta",
+    "delta": "项目的暂缓经历不能"
+  },
+  {
+    "type": "delta",
+    "delta": "升级为当前项目的事实"
+  },
+  {
+    "type": "delta",
+    "delta": "状态。 | "
+  },
+  {
+    "type": "delta",
+    "delta": "方法"
+  },
+  {
+    "type": "delta",
+    "delta": "：结构化访谈。"
+  },
+  {
+    "type": "delta",
+    "delta": "指标：明确获取"
+  },
+  {
+    "type": "delta",
+    "delta": "“继续"
+  },
+  {
+    "type": "delta",
+    "delta": "、暂缓、取消"
+  },
+  {
+    "type": "delta",
+    "delta": "”的实际状态词"
+  },
+  {
+    "type": "delta",
+    "delta": "。 |\n|"
+  },
+  {
+    "type": "delta",
+    "delta": " **"
+  },
+  {
+    "type": "delta",
+    "delta": "验证预算缺口影响"
+  },
+  {
+    "type": "delta",
+    "delta": "** | 财务"
+  },
+  {
+    "type": "delta",
+    "delta": "审批人"
+  },
+  {
+    "type": "delta",
+    "delta": "；获取实际可用"
+  },
+  {
+    "type": "delta",
+    "delta": "预算额度与"
+  },
+  {
+    "type": "delta",
+    "delta": "候选机型报价单"
+  },
+  {
+    "type": "delta",
+    "delta": "进行"
+  },
+  {
+    "type": "delta",
+    "delta": "交叉比对。 |"
+  },
+  {
+    "type": "delta",
+    "delta": " 适用于"
+  },
+  {
+    "type": "delta",
+    "delta": "有严格预算上限"
+  },
+  {
+    "type": "delta",
+    "delta": "的组织"
+  },
+  {
+    "type": "delta",
+    "delta": "。 | 若"
+  },
+  {
+    "type": "delta",
+    "delta": "存在弹性预算或"
+  },
+  {
+    "type": "delta",
+    "delta": "部门"
+  },
+  {
+    "type": "delta",
+    "delta": "分摊机制，单一"
+  },
+  {
+    "type": "delta",
+    "delta": "预算"
+  },
+  {
+    "type": "delta",
+    "delta": "对比失效。 |"
+  },
+  {
+    "type": "delta",
+    "delta": " 方法"
+  },
+  {
+    "type": "delta",
+    "delta": "：文档审查。"
+  },
+  {
+    "type": "delta",
+    "delta": "指标"
+  },
+  {
+    "type": "delta",
+    "delta": "：报价与预算"
+  },
+  {
+    "type": "delta",
+    "delta": "的差额绝对值"
+  },
+  {
+    "type": "delta",
+    "delta": "及"
+  },
+  {
+    "type": "delta",
+    "delta": "百分比。 |\n"
+  },
+  {
+    "type": "delta",
+    "delta": "| **执行安装"
+  },
+  {
+    "type": "delta",
+    "delta": "时长与决策对照"
+  },
+  {
+    "type": "delta",
+    "delta": "测试** | "
+  },
+  {
+    "type": "delta",
+    "delta": "按"
+  },
+  {
+    "type": "delta",
+    "delta": " [公开合成回答"
+  },
+  {
+    "type": "delta",
+    "delta": "：访谈五位采购"
+  },
+  {
+    "type": "delta",
+    "delta": "用户"
+  },
+  {
+    "type": "delta",
+    "delta": "，测量安装任务"
+  },
+  {
+    "type": "delta",
+    "delta": "时长，对比独立"
+  },
+  {
+    "type": "delta",
+    "delta": "对照组，再决定"
+  },
+  {
+    "type": "delta",
+    "delta": "投入。"
+  },
+  {
+    "type": "delta",
+    "delta": "](#answer-"
+  },
+  {
+    "type": "delta",
+    "delta": "12) "
+  },
+  {
+    "type": "delta",
+    "delta": "提出的"
+  },
+  {
+    "type": "delta",
+    "delta": "设计建议，招募"
+  },
+  {
+    "type": "delta",
+    "delta": "真实"
+  },
+  {
+    "type": "delta",
+    "delta": "采购用户。 |"
+  },
+  {
+    "type": "delta",
+    "delta": " 需"
+  },
+  {
+    "type": "delta",
+    "delta": "确保样本量达到"
+  },
+  {
+    "type": "delta",
+    "delta": "统计效力要求（"
+  },
+  {
+    "type": "delta",
+    "delta": "“五位"
+  },
+  {
+    "type": "delta",
+    "delta": "”仅为模拟文本"
+  },
+  {
+    "type": "delta",
+    "delta": "提及的数字，作为"
+  },
+  {
+    "type": "delta",
+    "delta": "正式实验设计建议"
+  },
+  {
+    "type": "delta",
+    "delta": "时必须明确标注其"
+  },
+  {
+    "type": "delta",
+    "delta": "未经统计学验证）。"
+  },
+  {
+    "type": "delta",
+    "delta": " | 若对照组"
+  },
+  {
+    "type": "delta",
+    "delta": "设置"
+  },
+  {
+    "type": "delta",
+    "delta": "不当（如环境"
+  },
+  {
+    "type": "delta",
+    "delta": "差异过大），时长"
+  },
+  {
+    "type": "delta",
+    "delta": "差异将无法归因"
+  },
+  {
+    "type": "delta",
+    "delta": "于"
+  },
+  {
+    "type": "delta",
+    "delta": "设备本身。 |"
+  },
+  {
+    "type": "delta",
+    "delta": " 方法"
+  },
+  {
+    "type": "delta",
+    "delta": "：A/B "
+  },
+  {
+    "type": "delta",
+    "delta": "测试或独立对照组"
+  },
+  {
+    "type": "delta",
+    "delta": "观察。指标："
+  },
+  {
+    "type": "delta",
+    "delta": "安装耗时（分钟"
+  },
+  {
+    "type": "delta",
+    "delta": "）、最终决策转化率"
+  },
+  {
+    "type": "delta",
+    "delta": "。需明确写出"
+  },
+  {
+    "type": "delta",
+    "delta": "需要多大的决策变化"
+  },
+  {
+    "type": "delta",
+    "delta": "才能支持或调整"
+  },
+  {
+    "type": "delta",
+    "delta": "原假设。 |"
+  },
+  {
+    "type": "stage",
+    "stage": "validation"
+  },
+  {
+    "type": "stage",
+    "stage": "storage"
+  },
+  {
+    "type": "failed",
+    "reasonCode": "REPORT_QUALITY_REJECTED"
+  }
+]

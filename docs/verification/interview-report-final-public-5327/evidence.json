@@ -1,0 +1,73 @@
+{
+  "runtimeSha": "1da29686b692325ae7f1fbc8b6c1e22bc249fba1",
+  "firstDeltaMs": 1987,
+  "refreshBytesEqual": true,
+  "refreshHash": "1802bf35454669c79dfe5093773507da9cad22d9ecef962607b5ab3be21d44c3",
+  "refreshVersion": 2,
+  "refreshState": {
+    "documentId": "md-96a84619-5e91-41bd-9cb8-4002dbfe5d07",
+    "status": "failed",
+    "failure": {
+      "code": "REPORT_QUALITY_REJECTED",
+      "retryable": true
+    }
+  },
+  "interviewId": "itv-93462d56-a1bf-461b-ab1e-f85582170c9e",
+  "httpStatus": 200,
+  "elapsedMs": 78434,
+  "attempts": 2,
+  "attemptTimings": [
+    {
+      "attempt": 1,
+      "startedElapsedMs": 136,
+      "firstDeltaElapsedMs": 1987,
+      "ttfrMs": 1851,
+      "endedElapsedMs": 43671,
+      "wallMs": 43535
+    },
+    {
+      "attempt": 2,
+      "startedElapsedMs": 43671,
+      "firstDeltaElapsedMs": 44440,
+      "ttfrMs": 769,
+      "endedElapsedMs": 78301,
+      "wallMs": 34630
+    }
+  ],
+  "deltaCount": 1079,
+  "checkpointSummary": [
+    {
+      "beforeAttempt": 2,
+      "streamHash": "e1d40d641c7ab6c3ed91f1e9c7da5f0ffd58366377861eff88456430cd1da73d",
+      "storedHash": "e1d40d641c7ab6c3ed91f1e9c7da5f0ffd58366377861eff88456430cd1da73d",
+      "rawHash": "e1d40d641c7ab6c3ed91f1e9c7da5f0ffd58366377861eff88456430cd1da73d",
+      "bytesEqual": true,
+      "version": 5,
+      "reportVersion": 1,
+      "state": {
+        "documentId": "md-fb99b737-380b-48ae-bd8d-94df270eb6d1",
+        "status": "failed",
+        "failure": {
+          "code": "REPORT_QUALITY_REJECTED",
+          "retryable": true
+        }
+      }
+    }
+  ],
+  "streamHash": "1802bf35454669c79dfe5093773507da9cad22d9ecef962607b5ab3be21d44c3",
+  "streamBytesEqual": true,
+  "terminal": "failed",
+  "reason": "REPORT_QUALITY_REJECTED",
+  "reportVersion": 2,
+  "reportState": {
+    "documentId": "md-96a84619-5e91-41bd-9cb8-4002dbfe5d07",
+    "status": "failed",
+    "failure": {
+      "code": "REPORT_QUALITY_REJECTED",
+      "retryable": true
+    }
+  },
+  "hash": "1802bf35454669c79dfe5093773507da9cad22d9ecef962607b5ab3be21d44c3",
+  "rawHash": "1802bf35454669c79dfe5093773507da9cad22d9ecef962607b5ab3be21d44c3",
+  "referenceCount": 5
+}

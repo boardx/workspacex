@@ -1,0 +1,21 @@
+{
+  "quality": {
+    "ok": true,
+    "missing": []
+  },
+  "boundaries": {
+    "ok": false,
+    "missing": [
+      "unsupported_current_decision_state",
+      "unsupported_physical_risk_downgrade",
+      "unqualified_defect_exclusion",
+      "unsupported_executed_measurement"
+    ]
+  },
+  "grounding": {
+    "ok": false,
+    "reason": "unsupported_evidence_strength",
+    "exactReferenceCount": 0
+  },
+  "scope": "exact quotes and finite claim syntax only; independent semantic review required"
+}
