@@ -33,5 +33,15 @@
     "file": "current-validation.log",
     "sha256": "d2b4b7d73ca609bd1b343b08c1edda11fd8ec5c785bd786a5622683a957e3830",
     "bytes": 12749
+  },
+  {
+    "file": "pr5395-usage-red.log",
+    "sha256": "46df8e7b932d23cdb47dc5b03de4d7f5f79c70f7d0ed198f6fb0a50f428a12cf",
+    "bytes": 2401
+  },
+  {
+    "file": "pr5395-usage-green.log",
+    "sha256": "330f8e04356e9f8ffaf86c66074a7f9ed733d485cf17ff41aa0616501e54b908",
+    "bytes": 1039
   }
 ]

@@ -19,3 +19,7 @@ git diff --check
 Current-head rerun output is retained as `retained/current-validation.log`; its explicit exit codes distinguish successful silent commands from missing output. All original assertions and production scope/caps remain unchanged.
 
 Fresh main baseline f2f688b98a80b6e01465c6c27a653dcff39becd0. Independent of negative cache PR #5392. No actual-session retry, real model, deployment, online latency or completed report acceptance is claimed. Original five failed-task underlying causes remain unknown.
+
+## CI follow-up: report snapshot precision
+
+Run 37314375134 shard 2 failed the existing native receipt count assertion (2 instead of 3). PostgreSQL snapshot time was converted through JavaScript Date, truncating microseconds and potentially excluding a receipt committed in the same millisecond. The new isolated PostgreSQL regression reproduced exact `.123456Z` becoming `.123Z` (1 failed, 11 passed); preserving the database timestamp/clamp in SQL produced 12 passed, including original count, native provenance, late-receipt and tenant isolation assertions. API typecheck/lint exit 0; independent review accepted the two-file fix. RED/GREEN logs are retained and hashed. Reproduce with `pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter api exec vitest run tests/auth/ai-usage-repository.test.ts`. No report counters or assertions were relaxed.
