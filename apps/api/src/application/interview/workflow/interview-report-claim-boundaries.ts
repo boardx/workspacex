@@ -81,11 +81,11 @@ function qualifiedScenarioCause(clause: string, match: RegExpMatchArray): boolea
   if (negatives.length) {
     const inner = before.search(/(?:并非|不是)\s*$/u);
     const outer = inner < 0 ? before : before.slice(0, inner);
-    const prohibitedDenial = /(?:不能|不可|无法|不得|不应)(?:说|断言|声称|确认|认定|证明)(?:完全|明确|直接|确实|真的|绝对|这|该|\s)*$/u.test(outer);
+    const prohibitedDenial = /(?:(?:不能|不可|无法|不得|不应)(?:说|断言|声称|确认|认定|证明)|(?:不可能|不会|无法|不能))(?:完全|明确|直接|确实|真的|绝对|这|该|\s)*$/u.test(outer);
     return !prohibitedDenial && negatives.length === 1 && inner >= 0;
   }
   return /(?:不能|不可|无法|不得|不应)(?:断言|声称|确认|认定|证明)\s*$/u.test(before)
-    || /(?:若|如果|假如|可能|或许|也许)\s*$/u.test(before);
+    || /(?:若|如果|假如|假设|可能|或许|也许)\s*$/u.test(before);
 }
 function scopedObservedScenarioCause(clause: string, quote: string): boolean {
   // Exact source-bound, explicitly observed comparison; opinion/heterogeneity alone

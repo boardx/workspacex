@@ -12,9 +12,11 @@ Initial meaningful RED: 10 failed / 297 passed (307); actual whole report and li
 Additional local RED: 4 failed / 309 passed (313), covering two definite double negatives and two questions.
 Readonly review rejected single-negative false positives; three single-negative placements added.
 Modifier RED: 1 failed / 317 passed (318), guarding a modifier between outer denial and inner prohibition.
-Final GREEN: 321/321 across six files.
+Final GREEN: 326/326 across six files.
 
 The boundary only covers finite environment/layout → installation-difference causal forms. Local hypotheses, conditions, questions and single denial survive; unrelated qualifiers and affirmative/double-denial causes do not. Exact source support requires the same explicitly observed comparison with fixed object/method, server-bound expert/task metadata and unchanged quote bytes. A participant opinion, nearby citation or a general successful counterexample cannot establish cause. This is not a general semantic or causal truth validator.
 Existing generation guidance now explicitly keeps environment, layout, equipment and unknown factors as concurrent unverified explanations when scene conditions are absent. No RAG/research architecture change, new model request, deployment or main merge.
 
 Readonly exact review rejected65d5fccf7: an outer prohibition of an inner denial (不能说不是…) was mistaken for a single denial. Actual RED3/321; fixed finite prohibited-denial frame including observed local modifiers and demonstratives.
+
+Main review rejected the original head for explicit local 假设 false rejection. Added that case plus unrelated-hypothesis/independent-contrast controls; impossibility double-negative RED2/323 and combined hypothesis RED3/326, then GREEN326/326. Only the immediate same-cause hypothesis token qualifies; outer impossibility of inner denial remains rejected. Fresh main0e0a1ad19 was fetched at scope start; the live PR base may advance independently and is not claimed identical to the branch baseline.
