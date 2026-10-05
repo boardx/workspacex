@@ -1,6 +1,6 @@
 import { interviewMarkdown } from "@repo/contracts";
 import type { ReportEvidence } from "./interview-report-grounding";
-export type ReportClaimBoundaryGap = "unsupported_executed_measurement" | "unqualified_defect_exclusion" | "overbroad_physical_check_exemption";
+export type ReportClaimBoundaryGap = "unsupported_executed_measurement" | "unqualified_defect_exclusion" | "overbroad_physical_check_exemption" | "unsupported_scenario_cause";
 type Count = {value: string; unit: string};
 // This is a finite syntax boundary for observed counterexamples, NOT a semantic truth validator.
 // Never mutate candidate bytes, infer source identity, or treat arbitrary nearby quotes as support.
@@ -68,6 +68,42 @@ function scopedObservedExclusion(clause: string, quote: string, start: number, e
   return !!observed && start >= observed.index && end <= observed.index + observed[0].length
     && clauses(quote).some(source => source.trim() === clause.trim());
 }
+// Finite installation-scene causal forms observed in #5371, not general causal inference.
+const scenarioCause = /(?:不同物理环境(?:\([^。；;\n]{0,32}\))?|(?:厨房|办公室|装修)?布局(?:差异|不同))\s*(可能|或许|也许)?\s*(?:(?:并非|不是)(?:没有|不)|不可能不)?(?:带来(?:的)?|导致|造成|引起|决定)(?:[^，,:：。；;\n]{0,16})(?:情境异质性|安装(?:结果)?差异|安装成功|安装失败)|安装(?:结果)?差异(?:由|是由)(?:厨房|办公室|装修)?布局(?:差异|不同)(可能|或许|也许)?(?:造成|导致|引起|决定)/gu;
+// Explicit finite modifiers/copulas only: never scan arbitrary object text up to 是.
+const causalConfirmationConnector = String.raw`(?:了|的)?(?:确实|的确|明确|直接|完全|真的|明显|有充分依据|\s){0,8}(?:这(?:一原因)?(?:就)?是|(?:就)?是)?\s*$`;
+const deniedScenarioCause = new RegExp(String.raw`(?:不能|不可|无法|不得|不应)(?:断言|声称|确认|认定|证明|证实)` + causalConfirmationConnector, "u");
+function qualifiedScenarioCause(clause: string, match: RegExpMatchArray): boolean {
+  const before = clause.slice(0, match.index!).split(/[，,:：]/u).at(-1)!;
+  // Modality must qualify this causal relation, not another object or sentence.
+  const after = clause.slice(match.index! + match[0].length).split(/[，,:：]/u)[0]!;
+  if (/^\s*(?:吗|么|呢)?[？?]\s*$/u.test(after)) return true;
+  if (match[1] || match[2]) return true;
+  if (/(?:否认|否定|不能不|不得不|不会不|(?:并非|不是)\s*(?:不能|不可|无法|不得|不应|并非|不是))/u.test(before)) return false;
+  const negatives = before.match(/并非|不是/gu) ?? [];
+  if (negatives.length) {
+    const inner = before.search(/(?:并非|不是)\s*$/u);
+    const outer = inner < 0 ? before : before.slice(0, inner);
+    const prohibitedDenial = /(?:(?:不能|不可|无法|不得|不应)(?:说|断言|声称|确认|认定|证明)|(?:不可能|不会|无法|不能))(?:完全|明确|直接|确实|真的|绝对|这|该|\s)*$/u.test(outer);
+    return !prohibitedDenial && negatives.length === 1 && inner >= 0;
+  }
+  // A postfix qualifier must describe this relation and end locally; unrelated
+  // objects or another causal assertion cannot borrow its uncertainty.
+  const suffix = clause.slice(match.index! + match[0].length).trim();
+  const innerAffirmative = /(?:(?:并非|不是)(?:没有|不)|不可能不)(?:带来|导致|造成|引起|决定)/u.test(match[0]);
+  // Unknown or oversized confirmation frames cannot borrow postfix uncertainty.
+  // Only the finite direct-denial grammar below can admit such an operator frame.
+  const confirmed = /(?:确认|确定|证实|证明)/u.test(before);
+  if (!innerAffirmative && !confirmed && /^(?:这一假设|[,，]\s*原因)(?:尚待验证|尚待核实|有待验证|有待核实)\s*$/u.test(suffix)) return true;
+  return deniedScenarioCause.test(before)
+    || /(?:若|如果|假如|假设|可能|或许|也许)\s*$/u.test(before);
+}
+function scopedObservedScenarioCause(clause: string, quote: string): boolean {
+  // Exact source-bound, explicitly observed comparison; opinion/heterogeneity alone
+  // is insufficient. No alias, object, time or method is inferred from a nearby quote.
+  return /^\s*本次对这两个安装场景逐项对照检测确认(?:厨房|办公室|装修)?布局(?:差异|不同)(?:导致|造成|引起)安装结果差异\s*$/u.test(clause)
+    && clauses(quote).some(source => source.trim() === clause.trim());
+}
 export function assessReportClaimBoundaries(markdown: string, index: readonly ReportEvidence[]): {ok: boolean; missing: readonly ReportClaimBoundaryGap[]} {
   const missing = new Set<ReportClaimBoundaryGap>();
   const sourceByAnchor = new Map(index.map(entry => [`#${entry.anchor}`,entry]));
@@ -91,6 +127,14 @@ export function assessReportClaimBoundaries(markdown: string, index: readonly Re
     if (claims.some(claim => !supported.some(source => source.value === claim.value && source.unit === claim.unit)))
       missing.add("unsupported_executed_measurement");
     for (const clause of clauses(assertion.text)) {
+      for (const cause of clause.matchAll(scenarioCause)) {
+        const boundProof = assertion.links.some(link => {
+          const entry = sourceByAnchor.get(link.url);
+          return entry?.expertId && entry.taskKey && entry.quote === link.text
+            && scopedObservedScenarioCause(clause, entry.quote);
+        });
+        if (!qualifiedScenarioCause(clause, cause) && !boundProof) missing.add("unsupported_scenario_cause");
+      }
       for (const exclusion of clause.matchAll(defectExclusion)) {
         const boundProof = assertion.links.some(link => {
           const entry = sourceByAnchor.get(link.url);
