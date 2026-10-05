@@ -13,11 +13,11 @@ export class RuntimeModelUsageController {
   if(!expected.length||expected.length!==actual.length||!timingSafeEqual(expected,actual))throw new UnauthorizedException();
  }
  @Public() @Post("/internal/agent-runs/:runId/model-requests/admit") @HttpCode(200)
- async admit(@Headers("x-deep-agent-internal-key") key:string|undefined,@Param("runId") runId:string,@Body() body:unknown){
+ async admit(@Headers("x-deep-agent-internal-key") key:string|undefined,@Headers("x-deep-agent-admission-protocol") protocol:string|undefined,@Param("runId") runId:string,@Body() body:unknown){
   this.authenticate(key);const parsed=RuntimeModelRequestAdmission.safeParse(body);if(!parsed.success)throw new BadRequestException("invalid_admission_request");
   const {orgId,...input}=parsed.data;
   if(!this.usage.admitRuntimeRequest)throw new ForbiddenException("admission_unavailable");
-  try{const dispatch=await this.usage.admitRuntimeRequest(toOrgId(orgId),runId,input);return RuntimeModelRequestAdmissionResponse.parse({accepted:true,...(dispatch?{dispatch}:{})});}catch(error){if(error instanceof RuntimeUsageOwnershipDenied)throw new ForbiddenException("usage_ownership_denied");throw error;}
+  try{const dispatch=await this.usage.admitRuntimeRequest(toOrgId(orgId),runId,{...input,...(protocol==="same-connection-v1"?{dispatchProtocol:"same-connection-v1" as const}:{})});return RuntimeModelRequestAdmissionResponse.parse({accepted:true,...(dispatch?{dispatch}:{})});}catch(error){if(error instanceof RuntimeUsageOwnershipDenied)throw new ForbiddenException("usage_ownership_denied");throw error;}
  }
  @Public() @Post("/internal/agent-runs/:runId/model-requests/start") @HttpCode(200)
  async start(@Headers("x-deep-agent-internal-key") key:string|undefined,@Param("runId") runId:string,@Body() body:unknown){

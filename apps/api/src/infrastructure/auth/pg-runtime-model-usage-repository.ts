@@ -54,6 +54,7 @@ export class PgRuntimeModelUsageRepository implements RuntimeModelUsagePort {
         if(!price||!("maxOutputTokens" in price))throw new Error("AI_MODEL_UNAVAILABLE");
         // A private SDK connection cannot silently change provider credentials or host.
         if(attempt>0&&price.modelProvider!==policy.configuration.prices.find(row=>row.modelId===primaryModelId)?.modelProvider)continue;
+        if(attempt>0&&input.dispatchProtocol!=="same-connection-v1")throw new Error("AI_PRIVATE_REPLACEMENT_PROTOCOL_REQUIRED");
         if(attempt>0&&(!configured.verifyReplacementBinding||!await configured.verifyReplacementBinding(input.modelId,price.runtimeModelId)))throw new Error("AI_PRIVATE_REPLACEMENT_BINDING_UNVERIFIED");
         const selectedBody=attempt===0?input.serializedBody:JSON.stringify({...body,model:price.runtimeModelId,
           ...(body.max_tokens!==undefined?{max_tokens:Math.min(input.outputTokenLimit,price.maxOutputTokens)}:{}),

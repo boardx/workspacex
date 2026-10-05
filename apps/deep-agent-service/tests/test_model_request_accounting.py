@@ -5,6 +5,8 @@ import httpx
 import pytest
 from deep_agent_service import model_request_accounting as a
 
+ORIGINAL_POST=a.post
+ORIGINAL_APOST=a.apost
 ORIGINAL_OWNERSHIP=a.ownership
 OWNER={"base_url":"http://api.example.test","key":"fixture-secret-must-not-persist","org_id":"org-A","run_id":"run-A","attempt_id":"run-A:1","lease_epoch":3}
 @pytest.fixture
@@ -771,3 +773,26 @@ def test_replacement_cannot_change_content_types_or_increase_cap(context,monkeyp
         with httpx.Client(transport=a.AccountingTransport(httpx.MockTransport(lambda req:paid.append(req)))) as client:
             client.send(httpx.Request("POST","http://vendor.example.test/v1/chat/completions",json=original))
     assert paid==[]
+
+@pytest.mark.parametrize("asynchronous", [False, True])
+def test_admission_protocol_header_preserves_legacy_request_body(context,monkeypatch,asynchronous):
+    requests=[]
+    def callback(req):
+        requests.append(req)
+        return httpx.Response(200,json={"accepted":True})
+    body={"requestId":"fixture-id","modelId":"fixture-model"}
+    if asynchronous:
+        client=httpx.AsyncClient
+        monkeypatch.setattr(a.httpx,"AsyncClient",lambda **kwargs:client(transport=httpx.MockTransport(callback),**kwargs))
+        async def execute():
+            await ORIGINAL_APOST(OWNER,OWNER["run_id"],"admit",body)
+            await ORIGINAL_APOST(OWNER,OWNER["run_id"],"terminal",body)
+        asyncio.run(execute())
+    else:
+        client=httpx.Client
+        monkeypatch.setattr(a.httpx,"Client",lambda **kwargs:client(transport=httpx.MockTransport(callback),**kwargs))
+        ORIGINAL_POST(OWNER,OWNER["run_id"],"admit",body)
+        ORIGINAL_POST(OWNER,OWNER["run_id"],"terminal",body)
+    assert requests[0].headers["x-deep-agent-admission-protocol"]=="same-connection-v1"
+    assert "x-deep-agent-admission-protocol" not in requests[1].headers
+    assert [json.loads(req.content) for req in requests]==[body,body]

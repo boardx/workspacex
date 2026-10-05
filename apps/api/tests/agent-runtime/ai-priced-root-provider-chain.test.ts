@@ -42,12 +42,12 @@ afterAll(async()=>{
  if(server)await new Promise<void>((resolve,reject)=>server.close(error=>error?reject(error):resolve()));
  await db?.close();await resetOrgs(orgs);
 });
-async function fixture(plan:'ordinary'|'enterprise',cost='100',degrade=false,tokens='100',rules=false){
+async function fixture(plan:'ordinary'|'enterprise',cost='100',degrade=false,tokens='100',rules=false,runStatus:'succeeded'|'running'='succeeded'){
  const org=toOrgId('priced-http-'+randomUUID());orgs.push(org);const project='project-'+org,user='caller';
  await seedOrg({orgId:org,projectId:project});await addOrgMember(org,user,'consultant',null);
  const thread='thread-'+org,run='root-'+org;
  await addChatThread({orgId:org,id:thread,projectId:project,visibilityScope:'plenary',createdBy:user});
- await seedAgentRun({orgId:org,id:run,threadId:thread,authorId:user});
+ await seedAgentRun({orgId:org,id:run,threadId:thread,authorId:user,status:runStatus});
  const window={start:new Date(Date.now()-60000).toISOString(),end:new Date(Date.now()+3600000).toISOString(),timezone:'Etc/UTC'};
  const prices=['primary','cheap'].map((modelId,index)=>({modelId,modelProvider:'test-http',runtimeModelId:'runtime-'+modelId,inputMicrosPerMillion:index?'1000000':'2000000',outputMicrosPerMillion:index?'1000000':'2000000',cachedInputMicrosPerMillion:index?'1000000':'2000000',maxInputTokens:10,maxOutputTokens:2}));
  const configuration=Configuration.parse({window,ordinaryTokensPerUser:plan==='enterprise'?'0':tokens,costMicrosPerUser:cost,currency:'CNY',prices,fallbackModelIds:['cheap'],maxAttempts:2,...(degrade||rules?{tokenControls:{quotaSource:'organization-template',warningAtTokens:degrade?'0':null,degradeAtTokens:degrade?'0':null,memberOverrides:[],enforceLimitRules:rules}}:{})});
@@ -333,7 +333,7 @@ it('actual native not-applicable Token receipt preserves image dimension and con
 });
 
 for(const rules of [false,true])it(`private SDK ${rules?'F162':'soft threshold'} downgrade has two candidate decisions, one actual HTTP and selected settlement`,async()=>{
- const f=await fixture('ordinary','100',!rules,'100',rules),before=requests.length;
+ const f=await fixture('ordinary','100',!rules,'100',rules,'running'),before=requests.length;
  // Authoritative leased run fixture; actual claim/executor is covered separately above.
  await asApp(f.org,async c=>{
   await c.query("UPDATE agent_runs SET status='running',started_at=now(),lease_epoch=1,lease_expires_at=now()+interval '5 minutes' WHERE org_id=$1 AND id=$2",[f.org,f.subject.runId]);
@@ -345,7 +345,7 @@ for(const rules of [false,true])it(`private SDK ${rules?'F162':'soft threshold'}
   verifyReplacementBinding:async()=>true,selection:async(_org,_run,selection)=>f.deps.onModelSelection(selection),
  });
  const body=JSON.stringify({model:'runtime-primary',max_tokens:2,messages:[{role:'user',content:'PRIVATE SDK INPUT'}]});
- const requestId=randomUUID(),input={requestId,attemptId:f.subject.runId+':0',leaseEpoch:1,startedAt:new Date().toISOString(),modelId:'runtime-primary',callPurpose:'primary' as const,
+ const requestId=randomUUID(),input={dispatchProtocol:"same-connection-v1" as const,requestId,attemptId:f.subject.runId+':0',leaseEpoch:1,startedAt:new Date().toISOString(),modelId:'runtime-primary',callPurpose:'primary' as const,
   logicalCallId:JSON.stringify([f.subject.runId,'primary',requestId,createHash('sha256').update(body).digest('hex')]),serializedBody:body,outputTokenLimit:2};
  await expect(repo.admitRuntimeRequest(f.org,f.subject.runId,{...input,leaseEpoch:99})).rejects.toThrow('RUNTIME_USAGE_OWNERSHIP_DENIED');
  const selected=await repo.admitRuntimeRequest(f.org,f.subject.runId,input);expect(selected?.modelId).toBe('runtime-cheap');

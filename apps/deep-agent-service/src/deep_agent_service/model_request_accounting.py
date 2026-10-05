@@ -370,7 +370,7 @@ def post(owner: dict, run_id: str, phase: str, body: dict):
     for _ in range(3):
         try:
             with httpx.Client(timeout=5, follow_redirects=False) as client:
-                response = client.post(url, headers={"x-deep-agent-internal-key": owner["key"]}, json=body)
+                response = client.post(url, headers={"x-deep-agent-internal-key": owner["key"],**({"x-deep-agent-admission-protocol":"same-connection-v1"} if phase=="admit" else {})}, json=body)
                 if response.status_code == 200 and response.json().get("accepted") is True:
                     return response.json()
                 if response.status_code < 500:
@@ -385,7 +385,7 @@ async def apost(owner: dict, run_id: str, phase: str, body: dict):
     for _ in range(3):
         try:
             async with httpx.AsyncClient(timeout=5, follow_redirects=False) as client:
-                response = await client.post(url, headers={"x-deep-agent-internal-key": owner["key"]}, json=body)
+                response = await client.post(url, headers={"x-deep-agent-internal-key": owner["key"],**({"x-deep-agent-admission-protocol":"same-connection-v1"} if phase=="admit" else {})}, json=body)
                 if response.status_code == 200 and response.json().get("accepted") is True:
                     return response.json()
                 if response.status_code < 500:

@@ -1,5 +1,5 @@
 import {createHash} from "node:crypto";
-import {describe,it,expect,vi} from "vitest";
+import {describe,it,expect,vi,afterEach} from "vitest";
 import {PgRuntimeModelUsageRepository} from "../../src/infrastructure/auth/pg-runtime-model-usage-repository";
 import {VerifiedModelBoundRegistry} from "../../src/application/agent-run/verified-model-bound-registry";
 import {toOrgId} from "../../src/domain/org-id";
@@ -28,7 +28,7 @@ function fixture(child=false,warning=false,selection?:import("../../src/infrastr
  const pool={listForOrg:vi.fn().mockResolvedValue(configuration.prices.map(price=>({row:{modelId:price.modelId,kind:"closed-api",shape:"single",status:"已启用",complianceAttrs:[],members:[],contextWindow:100,capabilityTags:[]}})))};
  const deps={selection,verifyReplacementBinding:async()=>bindingVerified,dependencies:()=>({model,currentCandidates:()=>registry.currentCandidates(pool as never,String(org)),measure:(request:Parameters<typeof registry.measure>[0])=>registry.measure(request)}),primaryModelId:(id:string)=>registry.formalModelId("route",id),facts:async()=>({confidentiality,requiredCapabilities:[]})};
  const repo=new PgRuntimeModelUsageRepository({withTenant} as never,{record:vi.fn()} as never,undefined,deps);
- const input={requestId,attemptId:child?"child:1":"root:1",leaseEpoch:1,startedAt:"2026-10-04T01:00:00Z",modelId:"actual",callPurpose:"primary" as const,logicalCallId:child?"child-logical":"root-logical",serializedBody:JSON.stringify({model:"actual",max_tokens:5,messages:[{role:"user",content:"transient-only"}]}),outputTokenLimit:5};
+ const input={dispatchProtocol:"same-connection-v1" as const,requestId,attemptId:child?"child:1":"root:1",leaseEpoch:1,startedAt:"2026-10-04T01:00:00Z",modelId:"actual",callPurpose:"primary" as const,logicalCallId:child?"child-logical":"root-logical",serializedBody:JSON.stringify({model:"actual",max_tokens:5,messages:[{role:"user",content:"transient-only"}]}),outputTokenLimit:5};
  input.logicalCallId=JSON.stringify([child?"child":"root",input.callPurpose,input.requestId,createHash("sha256").update(input.serializedBody).digest("hex")]);
  return {repo,input,query,withTenant,model,pool};
 }
@@ -120,4 +120,26 @@ it("a same-provider name without verified SDK endpoint/account cannot authorize 
  const selection=vi.fn(),f=fixture(false,true,selection,true,"non-confidential",false);
  await expect(f.repo.admitRuntimeRequest(org,"root",f.input)).rejects.toThrow("AI_PRIVATE_REPLACEMENT_BINDING_UNVERIFIED");
  expect(selection).not.toHaveBeenCalled();expect(f.query.mock.calls.some(([sql])=>sql.includes("INSERT INTO model_request_starts"))).toBe(false);
+});
+
+it("legacy SDK cannot silently ignore a selected model replacement",async()=>{
+ const f=fixture(false,true,vi.fn(),true);
+ const {dispatchProtocol:_protocol,...legacy}=f.input;
+ await expect(f.repo.admitRuntimeRequest(org,"root",legacy)).rejects.toThrow("AI_PRIVATE_REPLACEMENT_PROTOCOL_REQUIRED");
+ expect(f.query.mock.calls.some(([sql])=>sql.includes("INSERT INTO model_request_starts"))).toBe(false);
+});
+
+import {RuntimeModelUsageController} from "../../src/interface/controllers/runtime-model-usage.controller";
+afterEach(()=>vi.unstubAllEnvs());
+it("private capability comes only from the authenticated protocol header",async()=>{
+ vi.stubEnv("DEEP_AGENT_SERVICE_INTERNAL_KEY","fixture-secret");
+ const f=fixture(),{dispatchProtocol:_protocol,...body}=f.input;
+ const admitRuntimeRequest=vi.fn().mockResolvedValue(undefined),controller=new RuntimeModelUsageController({admitRuntimeRequest} as never);
+ await controller.admit("fixture-secret","same-connection-v1","root",{orgId:org,...body});
+ expect(admitRuntimeRequest.mock.calls[0]![2].dispatchProtocol).toBe("same-connection-v1");
+ await controller.admit("fixture-secret","unknown-version","root",{orgId:org,...body});
+ expect(admitRuntimeRequest.mock.calls[1]![2].dispatchProtocol).toBeUndefined();
+ await expect(controller.admit("fixture-secret","same-connection-v1","root",{orgId:org,...body,dispatchProtocol:"same-connection-v1"})).rejects.toThrow("invalid_admission_request");
+ await expect(controller.admit("wrong-secret","same-connection-v1","root",{orgId:org,...body})).rejects.toThrow();
+ expect(admitRuntimeRequest).toHaveBeenCalledTimes(2);
 });
