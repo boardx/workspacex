@@ -14,14 +14,9 @@
  * `lib/live-capabilities.ts` → `lib/api-client.ts`），也就是 `/admin/agent` 这条路由
  * 真正用来取数与写入的全部模块。
  *
- * ⚠ **不**覆盖 `app/platform-admin/[module]/page.tsx`（2026-09-02 前是 `app/admin/[module]`）这个外壳本身。它 `import type
- * { AdminModuleKey } from "@/lib/mock/admin"`——一个**类型**导入（左栏模块键的联合类型），
- * 编译后不产生任何运行时依赖，也不给 Agent 目录提供任何数据；而那个外壳同时挂着
- * mcp / blueprint 等仍在吃 mock 的屏（#1381 起 model 屏的列表读真实 `GET /models` 了，
- * 从这份「仍在吃 mock」名单里摘掉），把它们拽进本断言等于让 #458
- * 去背别人的债。这个残留已在 issue #458 的评论里报给 coord，不在本 issue 范围内。
- * 这段话是**限制说明**，不是免责声明：下面第三条断言把「外壳只从 mock 拿类型」钉死，
- * 一旦有人从那里拿到运行时的值，它会红。
+ * ⚠ 不把平台动态外壳挂载的其他屏纳入 Agent 业务数据闭包；它们有各自验收。
+ * #5376 已将外壳使用的 AdminModuleKey 移至纯导航元数据，不再残留 mock 类型导入。
+ * 下方单独检查外壳的直接模块引用，并用注入 mock 引用的反例保护这条边界。
  *
  * ## 走图器本体已抽到 `./import-closure`（#520）
  *
@@ -33,8 +28,24 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { ROOT, walk } from "./import-closure";
+import * as ts from "typescript";
 
 const AGENT_ENTRY = "components/admin/agent-screen.tsx";
+// Parse module syntax: comments mentioning old mock debt are not imports.
+function directMockReferences(source: string): string[] {
+  const file = ts.createSourceFile("platform-page.tsx", source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  const found: string[] = [];
+  const collect = (value: ts.Node | undefined) => {
+    if (value && ts.isStringLiteral(value) && /(?:^|\/)lib\/mock\//.test(value.text)) found.push(value.text);
+  };
+  const visit = (node: ts.Node) => {
+    if (ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) collect(node.moduleSpecifier);
+    if (ts.isCallExpression(node) && node.expression.kind === ts.SyntaxKind.ImportKeyword) collect(node.arguments[0]);
+    ts.forEachChild(node, visit);
+  };
+  visit(file);
+  return found;
+}
 
 describe("#458 /admin/agent 的取数与写入路径不依赖 lib/mock", () => {
   it("Agent 屏的整棵依赖树里没有任何一条指向 lib/mock 的边", () => {
@@ -71,20 +82,25 @@ describe("#458 /admin/agent 的取数与写入路径不依赖 lib/mock", () => {
     expect(callers).toEqual(["lib/live-capabilities.ts"]);
   });
 
-  it("外壳从 lib/mock 只拿类型：一旦拿到运行时的值，这条会红", () => {
-    // 2026-09-02（AI 能力归平台后台）：Agent 目录的外壳从 `app/admin/[module]` 搬到
-    // `app/platform-admin/[module]`（旧路由只剩重定向），本条断言跟着搬——判定内容不变。
+  it("动态外壳直接模块引用不含 mock，类型来自纯导航元数据", () => {
     const page = readFileSync(resolve(ROOT, "app/platform-admin/[module]/page.tsx"), "utf8");
-    // ⚠ 刻意用 `[^\n;]` 而不是 `[\s\S]`：后者会从更早的一条 import 起头一路跨行匹配到
-    //   mock 那一行，把别人的 import 子句当成本条的子句。第一版就是这么写的，
-    //   它红了——留下这条注释，免得有人「顺手改回去」。
-    const mockImports = [...page.matchAll(/^import\s+([^\n;]*?)\s+from\s+["']@\/lib\/mock\/[^"']+["'];?$/gm)];
-    expect(mockImports.length).toBeGreaterThan(0); // 残留确实还在——如实钉住，不假装已清理
-    for (const [, clause] of mockImports) {
-      expect(clause!.trimStart().startsWith("type ")).toBe(true);
-    }
-    // 并且 agent 段确实落在被上面几条覆盖的那个屏上。
+    expect(directMockReferences(page)).toEqual([]);
+    expect(page).toContain('import type { AdminModuleKey } from "@/lib/admin-nav-metadata"');
+    // The Agent segment must still resolve to the already verified real screen.
     expect(page).toMatch(/agent:\s*AgentScreen/);
+    expect(walk("lib/admin-nav-metadata.ts").mockEdges).toEqual([]);
+  });
+
+  it.each([
+    'import { ADMIN_NAV } from "@/lib/mock/admin";',
+    'import type { AdminModuleKey } from "@/lib/mock/admin";',
+    'import {\n ADMIN_NAV\n} from "@/lib/mock/admin";',
+    'import "@/lib/mock/admin";',
+    'export { ADMIN_NAV } from "@/lib/mock/admin";',
+    'const load = () => import("@/lib/mock/admin");',
+  ])("反证：外壳重新引入 mock 模块会被识别：%s", (introduced) => {
+    const page = readFileSync(resolve(ROOT, "app/platform-admin/[module]/page.tsx"), "utf8");
+    expect(directMockReferences(`${page}\n${introduced}`)).toEqual(["@/lib/mock/admin"]);
   });
 
   it("旧路由 /admin/agent 只剩重定向到 /platform-admin/agent，不再自己渲染 AgentScreen", () => {
