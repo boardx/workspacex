@@ -77,10 +77,6 @@ function qualifiedScenarioCause(clause: string, match: RegExpMatchArray): boolea
   if (/^\s*(?:吗|么|呢)?[？?]\s*$/u.test(after)) return true;
   if (match[1] || match[2]) return true;
   if (/(?:否认|否定|不能不|不得不|不会不|(?:并非|不是)\s*(?:不能|不可|无法|不得|不应|并非|不是))/u.test(before)) return false;
-  // A postfix qualifier must describe this relation and end locally; unrelated
-  // objects or another causal assertion cannot borrow its uncertainty.
-  const suffix = clause.slice(match.index! + match[0].length).trim();
-  if (/^(?:这一假设|[,，]\s*原因)(?:尚待验证|尚待核实|有待验证|有待核实)\s*$/u.test(suffix)) return true;
   const negatives = before.match(/并非|不是/gu) ?? [];
   if (negatives.length) {
     const inner = before.search(/(?:并非|不是)\s*$/u);
@@ -88,6 +84,10 @@ function qualifiedScenarioCause(clause: string, match: RegExpMatchArray): boolea
     const prohibitedDenial = /(?:(?:不能|不可|无法|不得|不应)(?:说|断言|声称|确认|认定|证明)|(?:不可能|不会|无法|不能))(?:完全|明确|直接|确实|真的|绝对|这|该|\s)*$/u.test(outer);
     return !prohibitedDenial && negatives.length === 1 && inner >= 0;
   }
+  // A postfix qualifier must describe this relation and end locally; unrelated
+  // objects or another causal assertion cannot borrow its uncertainty.
+  const suffix = clause.slice(match.index! + match[0].length).trim();
+  if (!/(?:确认|确定|证实|证明)(?:了|的)?\s*$/u.test(before) && /^(?:这一假设|[,，]\s*原因)(?:尚待验证|尚待核实|有待验证|有待核实)\s*$/u.test(suffix)) return true;
   return /(?:不能|不可|无法|不得|不应)(?:断言|声称|确认|认定|证明)\s*$/u.test(before)
     || /(?:若|如果|假如|假设|可能|或许|也许)\s*$/u.test(before);
 }
