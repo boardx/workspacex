@@ -43,3 +43,13 @@ completion 统一落盘现有 21 字段 `validated-production-migration-completi
 源码 commit：`12551f6607b0085e079c088e98188aec162b4224`。独立冻结文件 `deploy/aliyun/cn-sop-final-seven-review-closure.json` 的原字节 SHA256：`c69024d11176d70e956424e2b775623b691f91b903f2c180636448911f5d07be`；内部 rows closure SHA256：`a4870f032aa12171c4eba66dfbf099618af05231b557b1bc00c81a8d9a65a15b`。128 项全部对 Git blob 字节逐项重验；source-only tar SHA256：`4a81d7c28755db54cb2dc4eb3f0c15417db45521e6cbfcdf9d3ee814fecdd2c8`。
 
 本地验证：cloud-deploy 55 files / 594 tests、Python 382、Node helpers 76 全通过；正常 pre-push typecheck/lint 49.72 秒通过。CI 另以远端 check-runs 事实记录，本地结果不替代 CI。各步在该完整源码 SHA 重新运行的原日志、JSON、实际 Chromium 页面截图保存在 `/workspace/cn-sop-evidence/final-seven/`。截图范围为 source/mock/local isolation，不是业务验收。
+
+## 2026-10-05 源码修复回执
+
+现有 iteration PR #5337 继续承载交付，不新增 feature PR。修复源码 commit 为 `0ab285c616b1ef0a0a9510fc5650ede28c918b5f`；新增独立冻结包 `deploy/aliyun/cn-sop-schema2-repair-review-closure.json`，原字节 SHA256 `7967fbdd4ad729caf1db8fc37c2a6106363497041bfa879927db9b32c19638e5`，rows closure SHA256 `0d2f0f29c972847e0f5d4b7f5279ae20109a942370016a333a819ee721b6d60f`。计数仍为 128 source / 90 installed targets / 38 source-only；原历史冻结包不变。
+
+阶段快照单独绑定已验证 epoch manifest SHA，capture、blueprint、runtime 保留语义 epoch，模板重跑现有 qualification 验证器。快照 profile 摘要只排除晚生成且反向引用快照的 canonical-candidate-acceptance input；其余能力和输入仍绑定，dispatcher 固定路径/hash 审批及动作内原字节漂移门保持。测试去除 /workspace 路径假设，仅模拟临时根外部祖先，新增真实根/输出目录 0777 拒绝反证。
+
+本轮定向验证：Linux 实际身份与进程 67/67、快照/模板真实发布/验收消费者 46/46、stage dispatcher 9/9、安装包预检查 3/3 通过，typecheck/lint 通过，独立源码审查接受。首次 Mac 全套测试尚非通过：Linux /proc 接口缺失、回环监听 sandbox EPERM 和复用依赖软链接布局失败分别记录；现有 Linux 测试镜像缺 git，不能用它替代 Git 相关完整测试。完整 exact-head CI 仍是合入前门禁，不以定向结果宣称全绿。
+
+本次只有源码修复授权；主机安装、仓库创建、删除、replay、数据库迁移和生产切流均未执行。
