@@ -33,7 +33,7 @@ flowchart TD
 
   class G doing
   class S1 tested
-  %% evidence S1: contract tests 5 passed; evidence/contract-tests.log
+  %% evidence S1: contract tests 5 passed; evidence/contract-tests.txt
   class S2 tested
   %% evidence S2: 14 official content hashes match; evidence/source-audit.json; offline refresh 5 passed
   class S3 tested
