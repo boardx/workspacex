@@ -5,6 +5,7 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { createGitHubApi } from './lib/ci-candidate-github.mjs';
 import { observeProtectedPilotReceipt } from './lib/ci-candidate-pilot-receipt.mjs';
+import { createObservationBudget, budgetedObservationApi } from './lib/ci-candidate-budget.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const positiveId = value => typeof value === 'string' && /^[1-9][0-9]*$/.test(value) && Number.isSafeInteger(Number(value));
@@ -16,6 +17,7 @@ export async function runPilotReceiptObserver(env = process.env, dependencies = 
   const repositoryRoot = dependencies.repositoryRoot ?? ROOT;
   const outputDirectory = resolve(env.CI_CANDIDATE_OUTPUT_DIR || join(env.RUNNER_TEMP || '/tmp', 'ci-candidate-pilot-observer'));
   mkdirSync(outputDirectory, { recursive: true });
+  const budget = dependencies.budget ?? dependencies.api?.observationBudget ?? createObservationBudget();
   let report;
   try {
     const mode = env.CI_CANDIDATE_MODE ?? 'shadow';
@@ -31,22 +33,27 @@ export async function runPilotReceiptObserver(env = process.env, dependencies = 
       git(['diff', '--no-ext-diff', '--no-textconv', '--quiet', 'HEAD', '--', '.harness', '.github', 'package.json', '.npmrc', 'pnpm-lock.yaml', 'pnpm-workspace.yaml', '.nvmrc']);
       const policyText = readFileSync(join(repositoryRoot, '.harness/config/ci-candidate-pilot.json'), 'utf8');
       requireFact(git(['show', `${actualCheckout.sha}:.harness/config/ci-candidate-pilot.json`]) === policyText, 'pilot_receipt_policy_worktree_changed');
-      report = await observeProtectedPilotReceipt({ api: dependencies.api ?? createGitHubApi({ repository: env.GITHUB_REPOSITORY, token: env.GH_TOKEN }), repositoryName: env.GITHUB_REPOSITORY,
+      const api = budgetedObservationApi(dependencies.api ?? createGitHubApi({ repository: env.GITHUB_REPOSITORY, token: env.GH_TOKEN, budget }), budget);
+      report = await budget.measure('protected-pilot-receipt', () => observeProtectedPilotReceipt({ api, repositoryName: env.GITHUB_REPOSITORY,
         sourceRunId: Number(rawId), observerRunId: Number(env.GITHUB_RUN_ID), observerRunAttempt: Number(env.GITHUB_RUN_ATTEMPT), actualCheckout, expectedObserverSha: env.GITHUB_SHA,
-        observerRef: env.GITHUB_REF, observerEvent: env.GITHUB_EVENT_NAME, policy: JSON.parse(policyText), now: dependencies.now ?? Date.now() });
+        observerRef: env.GITHUB_REF, observerEvent: env.GITHUB_EVENT_NAME, policy: JSON.parse(policyText), now: dependencies.now ?? Date.now() }));
     }
-  } catch (error) { report = fallback(typeof error?.reason === 'string' ? error.reason : 'pilot_receipt_observer_bootstrap_failed'); }
+  } catch (error) { report = fallback(typeof error?.reason === 'string' && /^[a-z0-9_:-]{1,120}$/.test(error.reason) ? error.reason : 'pilot_receipt_observer_bootstrap_failed'); }
+  report.observationBudget = budget.snapshot();
   writeFileSync(join(outputDirectory, 'pilot-observer-report.json'), `${JSON.stringify(report, null, 2)}\n`);
   const summary = [
     '### Completed protected pilot receipt observation', '',
     `Scoped protected receipt verified: **${report.scopedProtectedReceiptVerified}**. Complete validation continues: **runFull=true, skip=false**.`, '',
+    `Read budget: **${report.observationBudget.requests}/${report.observationBudget.limits.maxRequests} requests**, **${report.observationBudget.elapsedMs}/${report.observationBudget.limits.maxElapsedMs} ms**; exhausted=${report.observationBudget.exhausted}; reason=${report.observationBudget.reason ?? 'none'}.`, '',
+    '| Route | Requests | Elapsed ms | Outcome |', '| --- | --- | --- | --- |',
+    ...report.observationBudget.routes.map(route => `| ${route.route} | ${route.requests} | ${route.elapsedMs} | ${route.reason ?? route.outcome} |`), '',
     `Reasons: ${report.reasons.length ? report.reasons.join(', ') : 'completed API execution, archive bytes and scoped actual components independently match'}.`, '',
     'Scope: the fixed no-install Node evidence-core suite only. This read-only observation supplies no fullstack coverage, production authority, merge/deployment action or atomic lease. A new attempt/failure may start after the final read.', '',
   ].join('\n');
   writeFileSync(join(outputDirectory, 'summary.md'), summary);
   if (env.GITHUB_STEP_SUMMARY) appendFileSync(env.GITHUB_STEP_SUMMARY, summary);
   if (env.GITHUB_OUTPUT) appendFileSync(env.GITHUB_OUTPUT, 'run_full=true\nskip=false\nreuse_authorized=false\n');
-  console.log(JSON.stringify({ mode: report.mode, scopedProtectedReceiptVerified: report.scopedProtectedReceiptVerified, runFull: true, skip: false, reuseAuthorized: false, reasons: report.reasons }));
+  console.log(JSON.stringify({ mode: report.mode, scopedProtectedReceiptVerified: report.scopedProtectedReceiptVerified, runFull: true, skip: false, reuseAuthorized: false, reasons: report.reasons, observationBudget: report.observationBudget }));
   return report;
 }
 

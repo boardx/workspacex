@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parse } from 'yaml';
+import { OBSERVATION_LIMITS } from './lib/ci-candidate-budget.mjs';
 const { test } = process.env.VITEST ? await import('vitest') : await import('node:test');
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
@@ -104,8 +105,8 @@ test('completed pilot observer uses only protected main code and bounded data ar
   assert.equal(value.jobs.observe.environment, undefined);
 });
 
-test('parent source validation workflows and read-only observer remain byte-identical', () => {
-  for (const path of ['harness-verify.yml', 'backend-gates.yml', 'board-acceptance.yml', 'board-native-acceptance.yml', 'ci-candidate-shadow.yml']) {
+test('parent source validation workflows and deployment scripts remain byte-identical', () => {
+  for (const path of ['harness-verify.yml', 'backend-gates.yml', 'board-acceptance.yml', 'board-native-acceptance.yml']) {
     const file = `.github/workflows/${path}`;
     assert.equal(read(file), git(['show', `${PARENT}:${file}`]), file);
   }
@@ -126,4 +127,25 @@ test('the fixed dependency-free command and test definitions are actual parent G
   assert.equal(policy.image.platform, 'linux/amd64');
   assert.match(policy.image.configDigest, /^sha256:[a-f0-9]{64}$/);
   assert.equal(policy.image.rootfsLayers.length, 5);
+});
+
+// Only the two trusted observer read steps acquire a timeout; every other byte
+// remains bound to the frozen checkpoint, including permissions and triggers.
+test('observer workflow delta is exactly the bounded read timeout with receipt headroom', () => {
+  const base = '77700fe5f15eabb4ceeff2bd10a2eed59e2d7178';
+  const addition = '        # Internal read budget is 90s; leave time for bootstrap and receipt output.\n        timeout-minutes: 3\n';
+  for (const [file, stepName] of [
+    ['ci-candidate-shadow.yml', 'Observe candidate evidence (always execute validation)'],
+    ['ci-candidate-pilot-observer.yml', 'Verify completed protected pilot receipt'],
+  ]) {
+    const path = `.github/workflows/${file}`, text = read(path), old = git(['show', `${base}:${path}`]);
+    assert.equal(text.split(addition).length, 2, 'one exact timeout insertion only');
+    assert.equal(text.replace(addition, ''), old, 'no other workflow delta allowed');
+    const definition = parse(text), step = definition.jobs.observe.steps.find(value => value.name === stepName);
+    assert.equal(step['timeout-minutes'], 3);
+    assert.ok(OBSERVATION_LIMITS.maxElapsedMs + 60_000 < step['timeout-minutes'] * 60_000);
+    assert.ok(step['timeout-minutes'] < definition.jobs.observe['timeout-minutes']);
+    assert.deepEqual(definition.permissions, { contents: 'read', actions: 'read', 'pull-requests': 'read' });
+    assert.equal(definition.jobs.observe.steps.at(-1).if, 'always()');
+  }
 });

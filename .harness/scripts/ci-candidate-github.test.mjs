@@ -1,9 +1,10 @@
 import assert from 'node:assert/strict';
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 const { test } = process.env.VITEST ? await import('vitest') : await import('node:test');
 import { createGitHubApi, githubPages, IDENTITY_PREFIX, IDENTITY_STEP, observeCandidateRun, parseCheckoutIdentity } from './lib/ci-candidate-github.mjs';
+import { createObservationBudget } from './lib/ci-candidate-budget.mjs';
 import { runObserver } from './ci-candidate-observer.mjs';
 
 const oid = value => value.repeat(40);
@@ -39,14 +40,14 @@ function fixture() {
   const commits = { [B]: { sha: B, tree: { sha: TB }, parents: [{ sha: oid('0') }] }, [H]: { sha: H, tree: { sha: TH }, parents: [{ sha: B }] }, [M]: { sha: M, tree: { sha: TS }, parents: [{ sha: B }, { sha: H }] }, [S]: { sha: S, tree: { sha: TS }, parents: [{ sha: B }] }, [O]: { sha: O, tree: { sha: TS }, parents: [{ sha: S }] } };
   const trees = { [TB]: { sha: TB, truncated: false, tree: entries(oid('e')) }, [TH]: { sha: TH, truncated: false, tree: entries(oid('f')) }, [TS]: { sha: TS, truncated: false, tree: entries(oid('f')) } };
   const artifacts = [{ id: 301, name: 'smoke-100', expired: false, size_in_bytes: 200, digest: `sha256:${'a'.repeat(64)}`, workflow_run: { id: 100, head_sha: H }, created_at: '2026-10-05T10:09:00Z', updated_at: '2026-10-05T10:09:00Z' }];
-  const state = { source, main, own, pull, commits, trees, artifacts, jobs: { 100: job(101), 200: job(201, true) }, logs: { 101: marker(identity()), 201: marker(identity({ main: true }), '2026-10-05T10:20:03.1250000Z') }, history: [source], calls: [], denied: null };
+  const state = { source, main, own, pull, commits, trees, artifacts, jobs: { 100: job(101), 200: job(201, true) }, logs: { 101: marker(identity()), 201: marker(identity({ main: true }), '2026-10-05T10:20:03.1250000Z') }, history: [source], latest: {}, attempts: {}, calls: [], denied: null };
   const api = async (path, options) => {
     state.calls.push({ path, options });
     state.beforeApi?.(path);
     if (state.denied?.(path)) { const { EvidenceReadError } = await import('./lib/ci-candidate-github.mjs'); throw new EvidenceReadError('github_api_http_403'); }
     if (path === '') return structuredClone(REPO);
     if (path === '/actions/runs/900') return structuredClone(state.own);
-    if (path === '/actions/runs/100') return structuredClone(state.source);
+    if (path === '/actions/runs/100') return structuredClone(state.latest[100] ?? state.source);
     if (path === '/actions/runs/200') return structuredClone(state.main);
     if (path === '/actions/workflows/20') return { id: 20, path: OBSERVER };
     if (path === '/actions/workflows/10') return { id: 10, path: PATH };
@@ -60,11 +61,11 @@ function fixture() {
     if (path === '/pulls/9') return structuredClone(state.pull);
     if (path === `/commits/${S}/pulls?per_page=100`) return [structuredClone(state.pull)];
     if (path === `/commits/${H}/pulls?per_page=100`) return state.mergeGroupPulls ?? [structuredClone(state.pull)];
-    if (path.startsWith('/actions/workflows/10/runs?')) return { total_count: state.history.length, workflow_runs: structuredClone(state.history) };
+    if (path.startsWith('/actions/workflows/10/runs?')) { const page = Number(new URL(path, 'https://fixture.invalid').searchParams.get('page')); return { total_count: state.history.length, workflow_runs: structuredClone(state.history.slice((page - 1) * 100, page * 100)) }; }
     const rerun = /^\/actions\/runs\/(\d+)\/attempts\/(\d+)$/.exec(path);
-    if (rerun) return structuredClone(state.history.find(item => item.id === Number(rerun[1]) && item.run_attempt === Number(rerun[2])));
+    if (rerun) return structuredClone(state.attempts[`${rerun[1]}:${rerun[2]}`] ?? state.history.find(item => item.id === Number(rerun[1]) && item.run_attempt === Number(rerun[2])));
     const latest = /^\/actions\/runs\/(\d+)$/.exec(path);
-    if (latest) return structuredClone(state.history.find(item => item.id === Number(latest[1])));
+    if (latest) return structuredClone(state.latest[latest[1]] ?? state.history.find(item => item.id === Number(latest[1])));
     throw new Error(`Unexpected fixture API: ${path}`);
   };
   const observe = (sourceRunId = 200, extra = {}) => observeCandidateRun({ api, repositoryName: REPO.full_name, sourceRunId, observerRunId: 900, actualCheckout: { sha: O, tree: TS, parents: [S] }, expectedObserverSha: O, config, now, ...extra });
@@ -251,6 +252,167 @@ test('squash SHA differs but independent full-tree comparison works and host-onl
   assert.equal(state.calls.filter(call => call.path === '/actions/runs/900').length, 2, 'authority is independently re-read');
 });
 
+function otherPrRun(id) {
+  const head = id.toString(16).padStart(40, '0');
+  return run(id, 'pull_request', head, { head_branch: `worker/unrelated-${id}`, pull_requests: [{ number: id, base: { sha: B }, head: { sha: head } }] });
+}
+function mainCatalogFixture(total = 2501) {
+  const value = fixture(); value.state.history = [...Array.from({ length: total - 1 }, (_, index) => otherPrRun(1000 + index)), value.state.source];
+  return value;
+}
+function assertCompleteValidation(report) {
+  assert.equal(report.runFull, true); assert.equal(report.skip, false);
+  for (const result of report.suites) { assert.equal(result.runFull, true); assert.equal(result.skip, false); assert.equal(result.wouldReuse, false); }
+}
+
+for (const limit of [undefined, 80]) test(`main-push discovery beyond 2000 rows uses shared reader with ${limit ?? 'default'} request budget`, async () => {
+  const { state, observe } = mainCatalogFixture(); const report = await observe(200, limit === undefined ? {} : { budget: createObservationBudget({ maxRequests: limit }) }); const result = report.suites[0];
+  if (process.env.CI_CANDIDATE_ROUTE_REPRO_RECEIPT) writeFileSync(process.env.CI_CANDIDATE_ROUTE_REPRO_RECEIPT, `${JSON.stringify({ modelOnly: true, catalogRows: state.history.length, report, paths: state.calls.map(call => call.path) }, null, 2)}\n`);
+  assertCompleteValidation(report);
+  assert.ok(state.calls.some(call => call.path.endsWith('page=26')), 'source is intentionally after the old 20-page limit');
+  if (limit === 80) {
+    assert.deepEqual(result.reasons, ['observer_request_budget_exhausted']);
+    assert.equal(result.manifest, undefined);
+    assert.equal(report.observationBudget.requests, 80); assert.equal(report.observationBudget.exhausted, true);
+    assert.equal(report.observationBudget.reason, 'observer_request_budget_exhausted');
+    assert.equal(result.discoveryObservation.strategy, 'unfiltered-workflow-api-view-v1');
+    assert.equal(result.discoveryObservation.statistics.runCount, 2501);
+    assert.equal(result.discoveryObservation.indexCompletenessVerified, false); assert.equal(result.discoveryObservation.atomicLease, false);
+  } else {
+    assert.deepEqual(result.reasons, ['runtime_not_attested']);
+    assert.equal(report.observationBudget.requests, 130);
+    assert.equal(report.observationBudget.exhausted, false);
+    assert.equal(result.historyObservation.stableDuringRead, true); assert.equal(result.historyObservation.measurementBound, true);
+    assert.equal(result.manifest.producer.runId, 100); assert.equal(result.manifest.producer.runtimeAttested.verified, false);
+  }
+});
+
+for (const [name, status, conclusion] of [['failure', 'completed', 'failure'], ['queued', 'queued', null], ['cancelled', 'completed', 'cancelled']]) test(`main discovery cannot select old attempt-1 green over direct latest attempt-2 ${name}`, async () => {
+  const { state, observe } = mainCatalogFixture();
+  const listed = run(90, 'pull_request', H, { created_at: '2026-01-01T00:00:00Z', run_started_at: '2026-10-04T10:00:00Z', updated_at: '2026-10-04T10:10:00Z' });
+  state.history.splice(1100, 0, listed); state.attempts['90:1'] = structuredClone(listed);
+  state.latest[90] = { ...structuredClone(listed), run_attempt: 2, status, conclusion, run_started_at: '2026-10-05T10:15:00Z', updated_at: '2026-10-05T10:16:00Z' };
+  state.attempts['90:2'] = structuredClone(state.latest[90]);
+  const report = await observe(); assertCompleteValidation(report);
+  assert.deepEqual(report.suites[0].reasons, ['history_latest_run_changed']); assert.equal(report.suites[0].manifest, undefined);
+  assert.equal(state.calls.some(call => call.path === '/actions/runs/90'), true);
+  assert.equal(state.calls.some(call => call.path === '/actions/runs/90/attempts/1'), false, 'the old exact green does not replace a fresh latest read');
+});
+
+test('main discovery and A/B revalidation retain every unrelated row in the scope fingerprint', async () => {
+  const { state, observe } = mainCatalogFixture(201); let firstPages = 0;
+  state.beforeApi = path => { if (path === '/actions/workflows/10/runs?per_page=100&page=1' && ++firstPages === 3) state.history[100].conclusion = 'failure'; };
+  const report = await observe(); assertCompleteValidation(report);
+  assert.deepEqual(report.suites[0].reasons, ['history_scope_changed_between_reads']); assert.equal(report.suites[0].manifest, undefined);
+  assert.equal(firstPages, 3, 'discovery, A, and independent B all exhaust their own global catalog');
+  assert.equal(state.calls.some(call => call.path === `/actions/runs/${state.history[100].id}`), false, 'explicitly unrelated rows contribute fingerprints without direct attempt reads');
+});
+
+test('main cannot compare a fresh stable A/B measurement against an older discovery catalog', async () => {
+  const { state, observe } = mainCatalogFixture(201); let firstPages = 0;
+  state.beforeApi = path => { if (path === '/actions/workflows/10/runs?per_page=100&page=1' && ++firstPages === 2) state.history[100].conclusion = 'cancelled'; };
+  const report = await observe(); assertCompleteValidation(report);
+  assert.deepEqual(report.suites[0].reasons, ['history_discovery_catalog_changed']); assert.equal(report.suites[0].manifest, undefined);
+  assert.equal(firstPages, 3, 'the changed catalog is stable in A/B but still differs from source discovery');
+});
+
+test('main discovery cross-checks the independently read exact latest attempt rather than trusting the latest endpoint alone', async () => {
+  const { state, observe } = mainCatalogFixture();
+  state.attempts['100:1'] = { ...structuredClone(state.source), conclusion: 'failure' };
+  const report = await observe(); assertCompleteValidation(report);
+  assert.deepEqual(report.suites[0].reasons, ['history_latest_attempt_changed']); assert.equal(report.suites[0].manifest, undefined);
+  assert.equal(state.calls.some(call => call.path === '/actions/runs/100'), true);
+  assert.equal(state.calls.some(call => call.path === '/actions/runs/100/attempts/1'), true);
+});
+
+test('main discovery refuses a newer failed run associated with another PR at the same source API head', async () => {
+  const { state, observe } = mainCatalogFixture();
+  const differentPr = run(50, 'pull_request', H, { run_started_at: '2026-10-05T10:15:00Z', conclusion: 'failure',
+    pull_requests: [{ number: 999, base: { sha: B }, head: { sha: H } }] });
+  state.history.splice(1100, 0, differentPr);
+  const report = await observe(); assertCompleteValidation(report);
+  assert.deepEqual(report.suites[0].reasons, ['history_newer_related_attempt_not_successful']); assert.equal(report.suites[0].manifest, undefined);
+  assert.equal(state.calls.some(call => call.path === '/actions/runs/50'), true);
+  assert.equal(state.calls.some(call => call.path === '/actions/runs/50/attempts/1'), true);
+});
+
+for (const event of ['pull_request', 'push']) test(`main discovery rejects a foreign-repository catalog row even for ${event}`, async () => {
+  const { state, observe } = mainCatalogFixture();
+  const foreign = otherPrRun(50000); foreign.event = event; foreign.head_repository = { ...REPO, id: 2, full_name: 'other/foreign' }; if (event === 'push') foreign.pull_requests = [];
+  state.history.splice(1100, 0, foreign);
+  const report = await observe(); assertCompleteValidation(report); assert.deepEqual(report.suites[0].reasons, ['history_foreign_repository']); assert.equal(report.suites[0].manifest, undefined);
+});
+
+for (const [name, pulls, reason] of [
+  ['no PR association', [], 'history_candidate_identity_unknown'],
+  ['unknown PR association', [{ number: 50000, base: { sha: B }, head: {} }], 'history_candidate_identity_unknown'],
+  ['multiple PR associations', [{ number: 50000, base: { sha: B }, head: { sha: S } }, { number: 50001, base: { sha: B }, head: { sha: S } }], 'history_candidate_identity_unknown'],
+  ['duplicate ambiguous PR associations', [{ number: 50000, base: { sha: B }, head: { sha: S } }, { number: 50000, base: { sha: B }, head: { sha: S } }], 'history_candidate_identity_ambiguous'],
+]) test(`main discovery cannot exclude an eligible catalog row with ${name}`, async () => {
+  const { state, observe } = mainCatalogFixture(); const row = otherPrRun(50000); row.pull_requests = pulls; state.history.splice(1100, 0, row);
+  const report = await observe(); assertCompleteValidation(report); assert.deepEqual(report.suites[0].reasons, [reason]); assert.equal(report.suites[0].manifest, undefined);
+});
+
+test('main discovery rejects advertised catalogs over 10000 at the first page without requesting history evidence', async () => {
+  const { state, observe } = mainCatalogFixture(10001); const report = await observe(); assertCompleteValidation(report);
+  assert.deepEqual(report.suites[0].reasons, ['history_pagination_limit_exceeded']); assert.equal(report.suites[0].manifest, undefined);
+  const pages = state.calls.filter(call => call.path.startsWith('/actions/workflows/10/runs?'));
+  assert.equal(pages.length, 1); assert.ok(pages[0].path.endsWith('page=1'));
+  assert.equal(state.calls.some(call => call.path === '/actions/runs/100/attempts/1'), false);
+});
+
+for (const sourceRunId of [100, 200]) test(`source ${sourceRunId} retains complete execution when its whole observation request budget is exhausted`, async () => {
+  const { state, observe } = fixture(); const budget = createObservationBudget({ maxRequests: 20 });
+  const report = await observe(sourceRunId, { budget }); assertCompleteValidation(report);
+  assert.deepEqual(report.suites[0].reasons, ['observer_request_budget_exhausted']); assert.equal(report.suites[0].manifest, undefined);
+  assert.equal(state.calls.length, 20); assert.equal(report.observationBudget.requests, 20); assert.equal(report.observationBudget.limits.maxRequests, 20);
+  assert.equal(report.observationBudget.reason, 'observer_request_budget_exhausted'); assert.equal(report.observationBudget.exhausted, true);
+  assert.equal(report.observationBudget.executionAuthorityVerified, false); assert.equal(report.observationBudget.runFull, true); assert.equal(report.observationBudget.skip, false);
+  assert.equal(state.calls.some(call => call.path.startsWith('/actions/workflows/10/runs?')), true, 'the limit covers evidence lookup as well as bootstrap');
+});
+
+test('multiple suites share one latched request budget instead of receiving a fresh allowance each', async () => {
+  const { state, observe } = fixture(); const budget = createObservationBudget({ maxRequests: 20 });
+  const multipleSuites = { ...config, suites: [suite, { ...suite, id: 'second-observed-suite' }] };
+  const report = await observe(100, { budget, config: multipleSuites }); assertCompleteValidation(report);
+  assert.equal(report.suites.length, 2); assert.equal(state.calls.length, 20); assert.equal(report.observationBudget.requests, 20);
+  for (const result of report.suites) { assert.deepEqual(result.reasons, ['observer_request_budget_exhausted']); assert.equal(result.manifest, undefined); }
+  assert.equal(report.observationBudget.reason, 'observer_request_budget_exhausted');
+});
+
+test('the whole observation deadline rejects an API result that returns after its time budget', async () => {
+  const { state, observe } = fixture(); let elapsed = 0;
+  const budget = createObservationBudget({ maxElapsedMs: 10, clock: () => elapsed });
+  state.beforeApi = path => { if (path.includes('/jobs?')) elapsed = 11; };
+  const report = await observe(100, { budget }); assertCompleteValidation(report);
+  assert.deepEqual(report.suites[0].reasons, ['observer_time_budget_exhausted']); assert.equal(report.suites[0].manifest, undefined);
+  assert.equal(report.observationBudget.elapsedMs, 11); assert.equal(report.observationBudget.limits.maxElapsedMs, 10);
+  assert.equal(report.observationBudget.reason, 'observer_time_budget_exhausted'); assert.equal(report.observationBudget.requests, state.calls.length);
+  assert.equal(state.calls.some(call => call.path.includes('/logs')), false, 'a late jobs response cannot advance into trusted log measurement');
+});
+
+test('a hanging observation API is aborted, and a late green cannot clear its timeout fallback', async () => {
+  const value = fixture(); const budget = createObservationBudget({ maxElapsedMs: 1000, requestTimeoutMs: 10 });
+  let calls = 0, signal, resolveLate;
+  const hangingApi = async (_path, options) => { calls++; signal = options.signal; return new Promise(resolve => { resolveLate = resolve; }); };
+  const report = await value.observe(100, { budget, api: hangingApi }); assertCompleteValidation(report);
+  assert.deepEqual(report.suites[0].reasons, ['observer_request_timeout']); assert.equal(report.suites[0].manifest, undefined);
+  assert.equal(calls, 1); assert.equal(signal.aborted, true); assert.equal(report.observationBudget.reason, 'observer_request_timeout');
+  resolveLate(REPO); await Promise.resolve();
+  const repeat = await value.observe(100, { budget, api: hangingApi }); assertCompleteValidation(repeat);
+  assert.deepEqual(repeat.suites[0].reasons, ['observer_request_timeout']); assert.equal(repeat.suites[0].manifest, undefined);
+  assert.equal(calls, 1); assert.equal(repeat.observationBudget.requests, 1);
+});
+
+test('a normal-sized successful model reports the default global bounds without granting reuse', async () => {
+  const { state, observe } = fixture(); const report = await observe(); assertCompleteValidation(report);
+  assert.deepEqual(report.suites[0].reasons, ['runtime_not_attested']);
+  assert.deepEqual(report.observationBudget.limits, { maxRequests: 200, maxElapsedMs: 90000, requestTimeoutMs: 10000 });
+  assert.equal(report.observationBudget.requests, state.calls.length); assert.ok(report.observationBudget.requests <= 200);
+  assert.equal(report.observationBudget.exhausted, false); assert.equal(report.observationBudget.reason, null);
+  assert.equal(report.observationBudget.executionAuthorityVerified, false); assert.equal(report.observationBudget.diagnosticsOnly, true);
+});
+
 test('source workflow or identity action modification against trusted base is rejected', async () => {
   for (const path of [PATH, ACTION]) {
     const { observe, state } = fixture();
@@ -419,4 +581,54 @@ test('CLI bootstrap failure and disabled modes still write receipt files and ski
     const disabled = await runObserver({ CI_CANDIDATE_MODE: 'off', CI_CANDIDATE_OUTPUT_DIR: directory });
     assert.deepEqual(disabled.suites[0].reasons, ['reuse_disabled']);
   } finally { rmSync(directory, { recursive: true, force: true }); }
+});
+
+test('CLI persists exact global-budget fallback receipts and no stale candidate manifests', async () => {
+  const directory = mkdtempSync(join(tmpdir(), 'candidate-budget-cli-test-'));
+  try {
+    const { api, state } = fixture(); const budget = createObservationBudget({ maxRequests: 20 });
+    const event = join(directory, 'event.json'); writeFileSync(event, JSON.stringify({ workflow_run: { id: 100 } }));
+    const env = { CI_CANDIDATE_OUTPUT_DIR: directory, GITHUB_EVENT_PATH: event, GITHUB_REPOSITORY: REPO.full_name,
+      GITHUB_RUN_ID: '900', GITHUB_SHA: O, GITHUB_STEP_SUMMARY: join(directory, 'github-summary.md'), GITHUB_OUTPUT: join(directory, 'github-output.txt'),
+      CI_CANDIDATE_MAX_REQUESTS: '1000000', CI_CANDIDATE_MAX_ELAPSED_MS: '1000000' };
+    const git = args => { if (args.join(' ') === 'rev-parse HEAD') return O; if (args.join(' ') === 'rev-parse HEAD^{tree}') return TS; assert.deepEqual(args, ['show', '-s', '--format=%P', 'HEAD']); return S; };
+    writeFileSync(join(directory, 'candidate-manifests.json'), JSON.stringify([{ verified: true, stale: true }]));
+    const report = await runObserver(env, { api, budget, git, config, now }); assertCompleteValidation(report);
+    assert.deepEqual(report.suites[0].reasons, ['observer_request_budget_exhausted']); assert.equal(state.calls.length, 20);
+    const saved = JSON.parse(readFileSync(join(directory, 'shadow-report.json'), 'utf8'));
+    assert.deepEqual(saved.observationBudget, report.observationBudget); assert.equal(saved.observationBudget.limits.maxRequests, 20);
+    assert.deepEqual(JSON.parse(readFileSync(join(directory, 'candidate-manifests.json'), 'utf8')), []);
+    assert.match(readFileSync(join(directory, 'summary.md'), 'utf8'), /observer_request_budget_exhausted/);
+    assert.match(readFileSync(env.GITHUB_STEP_SUMMARY, 'utf8'), /observer_request_budget_exhausted/);
+    assert.match(readFileSync(env.GITHUB_OUTPUT, 'utf8'), /run_full=true\nskip=false/);
+  } finally { rmSync(directory, { recursive: true, force: true }); }
+});
+
+for (const kind of ['bootstrap-time', 'api-timeout']) test(`CLI persists ${kind} fallback and safe GitHub outputs`, async () => {
+  const directory = mkdtempSync(join(tmpdir(), 'candidate-deadline-cli-test-'));
+  let resolveLate;
+  try {
+    const value = fixture(); let elapsed = 0, signal, apiCalls = 0;
+    const budget = kind === 'bootstrap-time' ? createObservationBudget({ maxElapsedMs: 10, clock: () => elapsed }) :
+      createObservationBudget({ maxElapsedMs: 1000, requestTimeoutMs: 10 });
+    const event = join(directory, 'event.json'); writeFileSync(event, JSON.stringify({ workflow_run: { id: 100 } }));
+    const env = { CI_CANDIDATE_OUTPUT_DIR: directory, GITHUB_EVENT_PATH: event, GITHUB_REPOSITORY: REPO.full_name,
+      GITHUB_RUN_ID: '900', GITHUB_SHA: O, GITHUB_STEP_SUMMARY: join(directory, 'github-summary.md'), GITHUB_OUTPUT: join(directory, 'github-output.txt') };
+    const git = args => { if (kind === 'bootstrap-time') elapsed = 11; if (args.join(' ') === 'rev-parse HEAD') return O;
+      if (args.join(' ') === 'rev-parse HEAD^{tree}') return TS; assert.deepEqual(args, ['show', '-s', '--format=%P', 'HEAD']); return S; };
+    const api = kind === 'bootstrap-time' ? value.api : async (_path, options) => { apiCalls++; signal = options.signal;
+      return new Promise(resolve => { resolveLate = resolve; }); };
+    writeFileSync(join(directory, 'candidate-manifests.json'), JSON.stringify([{ verified: true, stale: true }]));
+    const report = await runObserver(env, { api, budget, git, config, now }); assertCompleteValidation(report);
+    const reason = kind === 'bootstrap-time' ? 'observer_time_budget_exhausted' : 'observer_request_timeout';
+    assert.deepEqual(report.suites[0].reasons, [reason]); assert.equal(report.observationBudget.reason, reason); assert.equal(report.observationBudget.exhausted, true);
+    const saved = JSON.parse(readFileSync(join(directory, 'shadow-report.json'), 'utf8')); assert.deepEqual(saved.observationBudget, report.observationBudget);
+    assert.deepEqual(JSON.parse(readFileSync(join(directory, 'candidate-manifests.json'), 'utf8')), []);
+    assert.match(readFileSync(join(directory, 'summary.md'), 'utf8'), new RegExp(reason)); assert.match(readFileSync(env.GITHUB_STEP_SUMMARY, 'utf8'), new RegExp(reason));
+    assert.match(readFileSync(env.GITHUB_OUTPUT, 'utf8'), /run_full=true\nskip=false/);
+    if (kind === 'bootstrap-time') { assert.equal(value.state.calls.length, 0); assert.equal(report.observationBudget.requests, 0);
+      assert.equal(report.observationBudget.elapsedMs, 11); assert.match(readFileSync(join(directory, 'summary.md'), 'utf8'), /11\/10 ms/); }
+    else { assert.equal(apiCalls, 1); assert.equal(signal.aborted, true); assert.equal(report.observationBudget.requests, 1);
+      resolveLate(REPO); await Promise.resolve(); assert.deepEqual(JSON.parse(readFileSync(join(directory, 'candidate-manifests.json'), 'utf8')), []); }
+  } finally { resolveLate?.(REPO); rmSync(directory, { recursive: true, force: true }); }
 });

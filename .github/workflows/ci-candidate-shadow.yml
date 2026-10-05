@@ -39,6 +39,8 @@ jobs:
         with:
           node-version: '22'
       - name: Observe candidate evidence (always execute validation)
+        # Internal read budget is 90s; leave time for bootstrap and receipt output.
+        timeout-minutes: 3
         env:
           GH_TOKEN: ${{ github.token }}
           CI_CANDIDATE_MODE: ${{ vars.CI_CANDIDATE_MODE || 'shadow' }}

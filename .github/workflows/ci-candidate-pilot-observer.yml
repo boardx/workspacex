@@ -38,6 +38,8 @@ jobs:
           node-version: '22'
           package-manager-cache: false
       - name: Verify completed protected pilot receipt
+        # Internal read budget is 90s; leave time for bootstrap and receipt output.
+        timeout-minutes: 3
         env:
           GH_TOKEN: ${{ github.token }}
           CI_CANDIDATE_SOURCE_RUN_ID: ${{ inputs.source_run_id || github.event.workflow_run.id }}

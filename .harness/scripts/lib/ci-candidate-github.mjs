@@ -1,6 +1,7 @@
 /** Read-only GitHub adapter; candidate code is never executed. Bounded artifact transport returns data only. */
+import { createObservationBudget, budgetedObservationApi, observationRequestFamily, ObservationBudgetError } from './ci-candidate-budget.mjs';
 import { buildCandidateManifest, evaluateShadow, fingerprint, fingerprintEntries } from './ci-candidate-evidence.mjs';
-import { withConsistentCandidateHistory } from './ci-candidate-history.mjs';
+import { CandidateHistoryReadError, CANDIDATE_HISTORY_CATALOG_POLICY, readCandidateWorkflowCatalog, readRelatedCandidateAttempts, withConsistentCandidateHistory } from './ci-candidate-history.mjs';
 
 export const IDENTITY_STEP = 'Record candidate checkout and runtime identity';
 export const IDENTITY_PREFIX = 'CI_CANDIDATE_IDENTITY_V1:';
@@ -20,39 +21,51 @@ const requireFact = (condition, reason) => { if (!condition) throw new EvidenceR
 const fallback = (reason, details = {}) => ({ schemaVersion: 1, mode: 'shadow', skip: false, runFull: true, wouldReuse: false, reasons: [reason], sourceRun: null, evidenceFingerprint: null, ...details });
 
 /** Logs may redirect to signed storage. Never send the token to that host. */
-export function createGitHubApi({ repository, token, fetchImpl = fetch }) {
+export function createGitHubApi({ repository, token, fetchImpl = fetch, budget = createObservationBudget() }) {
   requireFact(/^[\w.-]+\/[\w.-]+$/.test(repository ?? '') && typeof token === 'string' && token.length > 0, 'github_connection_missing');
-  return async (path, { raw = false, binary = false } = {}) => {
-    requireFact(typeof path === 'string' && (path === '' || path.startsWith('/')) && !path.startsWith('//') && !/[\r\n]/.test(path), 'invalid_api_path');
-    requireFact(!(raw && binary), 'ambiguous_api_response_mode');
-    const response = await fetchImpl(`https://api.github.com/repos/${repository}${path}`, {
-      headers: { Authorization: `Bearer ${token}`, Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28' },
-      signal: AbortSignal.timeout(30_000), redirect: 'manual',
-    });
-    let actual = response;
-    if ((raw || binary) && response.status === 302) {
-      const destination = new URL(response.headers.get('location'));
-      requireFact(destination.protocol === 'https:' && !destination.username && !destination.password, 'unsafe_log_redirect');
-      actual = await fetchImpl(destination.href, { signal: AbortSignal.timeout(30_000), redirect: 'error' });
-    }
+  budget.markTransport();
+  const readResponse = async (actual, { raw, binary }) => {
     requireFact(actual.ok, `github_api_http_${actual.status}`);
-    if (binary) {
-      const declared = Number(actual.headers.get('content-length'));
-      requireFact(!Number.isFinite(declared) || declared <= 20_000_000, 'artifact_archive_too_large');
-      requireFact(actual.body, 'artifact_archive_body_missing');
+    const declared = Number(actual.headers?.get('content-length'));
+    requireFact(!Number.isFinite(declared) || declared <= 20_000_000, binary ? 'artifact_archive_too_large' : 'github_response_too_large');
+    if (actual.body) {
       const chunks = []; let size = 0;
       for await (const chunk of actual.body) {
         size += chunk.byteLength;
-        requireFact(size <= 20_000_000, 'artifact_archive_too_large');
+        requireFact(size <= 20_000_000, binary ? 'artifact_archive_too_large' : 'github_response_too_large');
         chunks.push(Buffer.from(chunk));
       }
-      return Buffer.concat(chunks);
+      const bytes = Buffer.concat(chunks);
+      if (binary) return bytes;
+      const text = bytes.toString('utf8');
+      return raw ? text : JSON.parse(text);
     }
+    // In-process API test doubles need not implement a Fetch ReadableStream.
+    requireFact(!binary, 'artifact_archive_body_missing');
     if (!raw) return actual.json();
-    const body = await actual.text();
-    requireFact(Buffer.byteLength(body) <= 20_000_000, 'job_logs_too_large');
-    return body;
+    const text = await actual.text();
+    requireFact(Buffer.byteLength(text) <= 20_000_000, 'job_logs_too_large');
+    return text;
   };
+  const api = async (path, { raw = false, binary = false } = {}) => {
+    requireFact(typeof path === 'string' && (path === '' || path.startsWith('/')) && !path.startsWith('//') && !/[\r\n]/.test(path), 'invalid_api_path');
+    requireFact(!(raw && binary), 'ambiguous_api_response_mode');
+    return budget.call(observationRequestFamily(path), async signal => {
+      const response = await fetchImpl(`https://api.github.com/repos/${repository}${path}`, {
+        headers: { Authorization: `Bearer ${token}`, Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28' },
+        signal, redirect: 'manual',
+      });
+      if ((raw || binary) && response.status === 302) {
+        const destination = new URL(response.headers.get('location'));
+        requireFact(destination.protocol === 'https:' && !destination.username && !destination.password, 'unsafe_log_redirect');
+        // A redirect is a second transport request; no token is forwarded.
+        return budget.call('storage-redirect', async redirectSignal => readResponse(await fetchImpl(destination.href, { signal: AbortSignal.any([signal, redirectSignal]), redirect: 'error' }), { raw, binary }));
+      }
+      return readResponse(response, { raw, binary });
+    });
+  };
+  Object.defineProperty(api, 'observationBudget', { value: budget });
+  return api;
 }
 
 /** Exhaust ALL advertised pages; an arbitrary first page can conceal a newer failure. */
@@ -299,8 +312,10 @@ async function consistentEvidence(options) {
   requireFact(history.readStatus === 'ok' && history.stableDuringRead && history.measurementBound,
     history.reasons[0] || 'history_measurement_unstable');
   return { ...history.measurement, historyObservation: {
+    strategy: CANDIDATE_HISTORY_CATALOG_POLICY.strategy,
     stableDuringRead: true, measurementBound: true, skipAuthorization: false,
     snapshotFingerprints: history.snapshots.map(snapshot => snapshot.fingerprint),
+    catalogFingerprints: history.snapshots.map(snapshot => snapshot.scopeFingerprint),
     reads: history.reads, retries: history.retries,
     statistics: history.snapshots[0].statistics,
     latestAttempts: history.snapshots[0].latestAttempts,
@@ -341,69 +356,68 @@ export async function resolvePilotCandidate({ api, repositoryName, sourceRunId, 
  * Future activation additionally requires consistent fresh source/PR/history
  * checks or a lease and independently attested post-install runtime identity.
  */
-export async function observeCandidateRun({ api, repositoryName, sourceRunId, observerRunId, actualCheckout, expectedObserverSha, config, mode = 'shadow', freshRun = false, now = Date.now() }) {
-  const report = { schemaVersion: 1, mode, skip: false, runFull: true, sourceRunId, observerRunId, observedAt: new Date(now).toISOString(), suites: [] };
-  if (mode !== 'shadow') { report.suites.push(fallback(mode === 'off' ? 'reuse_disabled' : 'reuse_not_approved', { mode })); return report; }
-  if (freshRun) { report.suites.push(fallback('fresh_run_requested')); return report; }
+export async function observeCandidateRun({ api, repositoryName, sourceRunId, observerRunId, actualCheckout, expectedObserverSha, config, mode = 'shadow', freshRun = false, now = Date.now(), budget = api?.observationBudget ?? createObservationBudget() }) {
+  const report = { schemaVersion: 1, mode, historyStrategy: CANDIDATE_HISTORY_CATALOG_POLICY.strategy, skip: false, runFull: true, sourceRunId, observerRunId, observedAt: Number.isFinite(now) ? new Date(now).toISOString() : null, suites: [] };
+  const finish = () => ({ ...report, observationBudget: budget.snapshot() });
+  if (mode !== 'shadow') { report.suites.push(fallback(mode === 'off' ? 'reuse_disabled' : 'reuse_not_approved', { mode })); return finish(); }
+  if (freshRun) { report.suites.push(fallback('fresh_run_requested')); return finish(); }
   try {
+    api = budgetedObservationApi(api, budget);
     requireFact(Number.isFinite(now) && integer(sourceRunId) && integer(observerRunId), 'invalid_observation_inputs');
-    const repository = await api('');
+    const repository = await budget.measure('repository', () => api(''));
     requireFact(integer(repository?.id) && repository.full_name === repositoryName, 'repository_identity_mismatch');
     const git = gitReader(api);
-    const authority = await observerAuthority(api, repository, observerRunId, actualCheckout, expectedObserverSha, git);
-    const data = await runData(api, sourceRunId, repository);
+    const authority = await budget.measure('observer-authority', () => observerAuthority(api, repository, observerRunId, actualCheckout, expectedObserverSha, git));
+    const data = await budget.measure('source-run', () => runData(api, sourceRunId, repository));
     const suites = config.suites.filter(suite => suite.owner.workflow === data.path && suite.eligibleSourceEvents.length > 0);
     requireFact(suites.length > 0, 'source_workflow_has_no_observable_suite');
     for (const suite of suites) {
+      let discoveryObservation;
       try {
         if (['pull_request', 'merge_group'].includes(data.run.event)) {
-          const source = await consistentEvidence({ api, git, repository, config, suite, data, authority, now });
+          const source = await budget.measure('pr-candidate-consistency', () => consistentEvidence({ api, git, repository, config, suite, data, authority, now }));
           report.suites.push(fallback('awaiting_main_comparison', { suite: suite.id, candidateEvidenceGenerated: true, manifest: source.manifest, historyObservation: source.historyObservation }));
           continue;
         }
         requireFact(data.run.event === 'push' && data.run.head_branch === 'main' && successful(data.run), 'not_successful_main_validation');
         const { job } = selectedJob(data.jobs, suite);
-        const main = await checkoutProof({ api, git, job, run: data.run, repository, path: data.path, protectedSha: authority.headSha });
+        const main = await budget.measure('main-checkout', () => checkoutProof({ api, git, job, run: data.run, repository, path: data.path, protectedSha: authority.headSha }));
         const pulls = await api(`/commits/${main.proof.sha}/pulls?per_page=100`);
         requireFact(Array.isArray(pulls) && pulls.length === 1 && integer(pulls[0].number) && pulls[0].merged === true && pulls[0].merge_commit_sha === main.proof.sha, 'main_merged_candidate_missing_or_ambiguous');
         const pull = await api(`/pulls/${pulls[0].number}`);
         requireFact(pull?.head?.repo?.id === repository.id && pull.base?.repo?.id === repository.id && pull.base.ref === 'main' && SHA.test(pull.head.sha ?? ''), 'foreign_merged_candidate');
-        // created_at is immutable across reruns: a date filter can hide an old
-        // run rerun to failure today. Read all pages or retain full execution.
-        const runs = await githubPages(api, `/actions/workflows/${data.run.workflow_id}/runs`, 'workflow_runs');
-        const eligible = [];
-        for (const listed of runs.filter(run => suite.eligibleSourceEvents.includes(run.event))) {
-          requireFact(integer(listed.run_attempt), 'history_attempt_identity_missing');
-          const run = listed.run_attempt > 1 ? await api(`/actions/runs/${listed.id}/attempts/${listed.run_attempt}`) : listed;
-          sameRepository(run, repository);
-          requireFact(run.id === listed.id && run.run_attempt === listed.run_attempt && run.workflow_id === data.run.workflow_id && Number.isFinite(time(run.run_started_at)), 'history_attempt_changed_or_time_unknown');
-          eligible.push(run);
-        }
-        const sorted = eligible.sort((a, b) => time(b.run_started_at ?? b.created_at) - time(a.run_started_at ?? a.created_at) || b.id - a.id);
-        // Unknown candidate identity can conceal a changed head or failed newer attempt.
-        requireFact(sorted.every(run => Array.isArray(run.pull_requests) && run.pull_requests.length === 1), 'history_candidate_identity_unknown');
-        const matching = sorted.filter(run => run.pull_requests[0].number === pull.number);
+        // Discovery and A/measurement/B share one bounded unfiltered catalog
+        // and identity validator. No older 20-page or stale-attempt-1 path.
+        const catalogOptions = { api, repository: { id: repository.id, fullName: repository.full_name }, workflowId: data.run.workflow_id, workflowPath: data.path, eligibleEvents: suite.eligibleSourceEvents, suite: suite.id };
+        const catalog = await budget.measure('main-discovery', () => readCandidateWorkflowCatalog(catalogOptions));
+        discoveryObservation = { strategy: catalog.strategy, catalogFingerprint: catalog.scopeFingerprint, statistics: catalog.statistics, catalogObservationOnly: true, indexCompletenessVerified: false, atomicLease: false, runFull: true, skip: false, skipAuthorization: false };
+        const matching = catalog.scope.filter(run => suite.eligibleSourceEvents.includes(run.event) && run.pulls[0].number === pull.number)
+          .sort((a, b) => time(b.startedAt) - time(a.startedAt) || b.id - a.id);
         requireFact(matching.length > 0, 'candidate_source_missing');
         const latest = matching[0];
-        requireFact(successful(latest) && latest.head_sha === (latest.event === 'pull_request' ? pull.head.sha : latest.head_sha), 'newer_attempt_not_successful_or_head_changed');
+        const discovered = await budget.measure('main-related-attempts', () => readRelatedCandidateAttempts({ ...catalogOptions, catalog, source: latest, prNumber: pull.number }));
+        discoveryObservation.statistics = { ...catalog.statistics, ...discovered.statistics };
+        requireFact(successful(latest) && latest.headSha === (latest.event === 'pull_request' ? pull.head.sha : latest.headSha), 'newer_attempt_not_successful_or_head_changed');
         const sourceData = await runData(api, latest.id, repository);
-        requireFact(sourceData.run.run_attempt === latest.run_attempt && sourceData.run.status === latest.status && sourceData.run.conclusion === latest.conclusion && sourceData.run.workflow_id === data.run.workflow_id && sourceData.path === data.path, 'source_attempt_changed_during_observation');
-        const source = await consistentEvidence({ api, git, repository, config, suite, data: sourceData, authority, now });
+        requireFact(sourceData.run.run_attempt === latest.runAttempt && sourceData.run.status === latest.status && sourceData.run.conclusion === latest.conclusion && sourceData.run.head_sha === latest.headSha && sourceData.run.event === latest.event && sourceData.run.run_started_at === latest.startedAt && sourceData.run.workflow_id === data.run.workflow_id && sourceData.path === data.path, 'source_attempt_changed_during_observation');
+        const source = await budget.measure('main-candidate-consistency', () => consistentEvidence({ api, git, repository, config, suite, data: sourceData, authority, now }));
+        // Even a changed unrelated catalog row remains a conservative fallback.
+        requireFact(source.historyObservation.catalogFingerprints[0] === catalog.scopeFingerprint, 'history_discovery_catalog_changed');
         const history = source.latestAttempts;
         // Source identity is additionally proven by actual checkout parents + current PR API.
         const sourceHistory = history.find(run => run.runId === sourceData.run.id && run.runAttempt === sourceData.run.run_attempt);
         requireFact(sourceHistory && sourceHistory.candidate.headSha === source.candidate.headSha && sourceHistory.candidate.baseSha === source.candidate.baseSha, 'history_source_candidate_mismatch');
         // Re-read observer API independently; do not treat manifest.observer as an authority receipt.
-        const currentAuthority = await observerAuthority(api, repository, observerRunId, actualCheckout, expectedObserverSha, git);
-        const current = { repositoryId: repository.id, suite: suite.id, candidate: { ...source.candidate, prNumber: pull.number, headSha: pull.head.sha, baseSha: main.proof.parents[0], headCurrent: true, mergeable: pull.merged === true }, checkout: main.proof, runtimeAttested: { verified: false, source: 'pre-install-host-only' }, fingerprints: await checkoutFingerprints(git, main.identity, config) };
+        const currentAuthority = await budget.measure('observer-authority-recheck', () => observerAuthority(api, repository, observerRunId, actualCheckout, expectedObserverSha, git));
+        const current = { repositoryId: repository.id, suite: suite.id, candidate: { ...source.candidate, prNumber: pull.number, headSha: pull.head.sha, baseSha: main.proof.parents[0], headCurrent: true, mergeable: pull.merged === true }, checkout: main.proof, runtimeAttested: { verified: false, source: 'pre-install-host-only' }, fingerprints: await budget.measure('main-input-fingerprints', () => checkoutFingerprints(git, main.identity, config)) };
         const verdict = evaluateShadow({ mode, evidence: source.manifest, current, policy: source.policy, authority: currentAuthority, latestAttempts: history, readStatus: 'ok', now });
-        report.suites.push({ suite: suite.id, ...verdict, manifest: source.manifest, historyObservation: source.historyObservation });
+        report.suites.push({ suite: suite.id, ...verdict, manifest: source.manifest, discoveryObservation, historyObservation: source.historyObservation });
       } catch (error) {
-        report.suites.push(fallback(error instanceof EvidenceReadError ? error.reason : 'evidence_lookup_or_validation_exception', { suite: suite.id }));
+        report.suites.push(fallback(error instanceof EvidenceReadError || error instanceof CandidateHistoryReadError || error instanceof ObservationBudgetError ? error.reason : 'evidence_lookup_or_validation_exception', { suite: suite.id, ...(discoveryObservation ? { discoveryObservation } : {}) }));
       }
     }
   } catch (error) {
-    report.suites.push(fallback(error instanceof EvidenceReadError ? error.reason : 'evidence_lookup_or_validation_exception'));
+    report.suites.push(fallback(error instanceof EvidenceReadError || error instanceof CandidateHistoryReadError || error instanceof ObservationBudgetError ? error.reason : 'evidence_lookup_or_validation_exception'));
   }
-  return report;
+  return finish();
 }
