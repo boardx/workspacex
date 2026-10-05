@@ -4,4 +4,6 @@ One feature / one PR for #5378 on codex/research-active-partial-status, based on
 
 Read current PR checks and exact SHA before claiming green. Do not merge or deploy automatically. This change does not resolve the user's half-hour research duration. Obtain trustworthy minimal per-phase task/attempt/model timing via authorized backend diagnostics before selecting a performance change; do not infer from empty progress patches.
 
+PR #5380 initial 0754115f3 was CI green but main review REJECTED stale reading promotion. Supersede its ACCEPT. Current correction adds optional executionVersion stamps in the contracts and creators, and UI requires matching claim version with valid lease. Legacy records parse but cannot prove active work. Never stamp old metadata during persist. Re-run exact review and new-head CI; do not use the old green checks as delivery evidence.
+
 No owned running application servers, temporary browser diagnostic tab or Docker stacks remain from this change. Existing user research page remains untouched.

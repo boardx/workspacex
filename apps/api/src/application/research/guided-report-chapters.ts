@@ -102,7 +102,7 @@ export async function generateReportChapters(state: ResearchRuntime, model: Mode
       for (let attempt = 0; attempt < 2; attempt++) {
         updateReportTimeline(activeState, timelineStage, attempt || context.reportStage.endsWith("revision") ? "retrying" : "running", { sectionId: context.section?.id, attempt: true, ...(timelineStage === "evidence" ? { completed: evidenceCompleted, total: context.batchTotal ?? 1 } : {}) });
         const call = { id: randomUUID(), node: "report" as const, modelId: config.id, status: "failed" as "failed" | "succeeded", createdAt: new Date().toISOString() };
-        activeState.progress = { stage, completed: stage === "organizing" ? evidenceCompleted : chapters.length, total: stage === "organizing" ? (context.batchTotal ?? 1) : sections.length, ...(context.section ? { sectionId: context.section.id } : {}) };
+        activeState.progress = { executionVersion: activeState.version, stage, completed: stage === "organizing" ? evidenceCompleted : chapters.length, total: stage === "organizing" ? (context.batchTotal ?? 1) : sections.length, ...(context.section ? { sectionId: context.section.id } : {}) };
         activeState.modelCalls.push(call);
         try { await save(); }
         catch (error) { chapterPersistenceFailed = true; chapterPersistenceFailure = error; throw error; }
@@ -288,7 +288,7 @@ export async function generateReportChapters(state: ResearchRuntime, model: Mode
       }
       chapters.push(chapter);
       state.reportCheckpoint = { basis, chapters: structuredClone(chapters), ...(effectiveInstruction !== undefined ? { instruction: effectiveInstruction } : {}) };
-      state.progress = { stage: "writing", completed: chapters.length, total: sections.length, sectionId: section.id };
+      state.progress = { executionVersion: state.version, stage: "writing", completed: chapters.length, total: sections.length, sectionId: section.id };
       await persist(); await restoreApproved();
       frontIndex = index + 1;
       const nextState = chapterStates.get(frontIndex);

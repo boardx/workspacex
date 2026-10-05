@@ -44,12 +44,12 @@ export async function executeComposite(state: ResearchRuntime, command: RuntimeC
   if (goal === "plan") {
     if (state.generatedNodes.includes("outline")) { await enter("outline"); return; }
     steps.activity("planning", "正在分析研究内容并准备研究计划", "started");
-    state.progress = { stage: "planning", completed: 0, total: 3 }; await publish();
+    state.progress = { executionVersion: state.version, stage: "planning", completed: 0, total: 3 }; await publish();
     try {
       for (const node of ["brief", "directions", "outline"] as const) {
         if (!state.generatedNodes.includes(node)) { await enter(node); await steps.generate(node, retry); }
         check();
-        state.progress = { stage: "planning", completed: ["brief", "directions", "outline"].indexOf(node) + 1, total: 3 };
+        state.progress = { executionVersion: state.version, stage: "planning", completed: ["brief", "directions", "outline"].indexOf(node) + 1, total: 3 };
         await publish();
       }
       steps.activity("planning", "研究计划已生成，等待确认", "succeeded"); await publish();

@@ -151,6 +151,7 @@ describe("chapter-based report generation", () => {
     } };
     const report = await generateReportChapters(f.state, model, config, persist);
     expect(peak).toBe(3); expect(writePeak).toBe(1);
+    expect(f.writes.filter(state => state.progress?.stage === "organizing").every(state => state.progress?.executionVersion === f.state.version)).toBe(true);
     const progress = f.writes.filter((state) => state.progress?.stage === "organizing").map((state) => state.progress!.completed);
     expect(progress).toEqual([...progress].sort((a, b) => a - b));
     expect(Math.max(...progress)).toBe(3);

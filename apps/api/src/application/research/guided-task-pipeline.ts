@@ -100,7 +100,7 @@ export async function executeTaskPipeline(state: ResearchRuntime, persist: Runti
     }
     const result = await pending; check(); return result;
   };
-  const updateProgress = () => { state.progress = { stage: "searching", completed: state.tasks.filter(task => ["succeeded", "failed"].includes(task.status)).length, total: state.tasks.length }; };
+  const updateProgress = () => { state.progress = { executionVersion: state.version, stage: "searching", completed: state.tasks.filter(task => ["succeeded", "failed"].includes(task.status)).length, total: state.tasks.length }; };
   const save = async () => { updateProgress(); await persist(); persist.observe({ type: "snapshot", state: structuredClone(state) }); };
   const taskError = (error: unknown) => {
     const code = error instanceof ResearchRuntimeError ? error.reasonCode : "RESEARCH_SEARCH_UNAVAILABLE";

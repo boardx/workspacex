@@ -217,4 +217,33 @@ describe("three visible stages with durable composite execution", () => {
     } finally { unblock(); await pending; }
   });
 
+  it("stamps new planning and reading activity with the claim version without relabelling old attempt history", async () => {
+    const f = fixture();
+    f.set({ ...f.latest(), activity: [{ id: "historical", sequence: 1, stage: "reading", taskId: null, summary: "Old reading", occurredAt: "now", status: "started", executionVersion: 0 }] });
+    const plan = await f.run("prepare_plan");
+    expect(plan.activity?.find(event => event.id === "historical")?.executionVersion).toBe(0);
+    expect(f.writes.filter(write => write.progress?.stage === "planning").every(write => write.progress?.executionVersion === plan.version)).toBe(true);
+    const report = await f.run("generate_report", "outline");
+    expect(report.activity?.filter(event => event.stage === "reading" && event.id !== "historical").every(event => event.executionVersion === report.version)).toBe(true);
+    expect(report.activity?.find(event => event.id === "historical")?.executionVersion).toBe(0);
+    const searchWrites = f.writes.filter(write => write.progress?.stage === "searching");
+    expect(searchWrites.length).toBeGreaterThan(0);
+    expect(searchWrites.every(write => write.progress?.executionVersion === report.version)).toBe(true);
+  });
+  it("stamps retried report work with the new claim version and retains the original event versions", async () => {
+    const f = fixture(); await f.run("prepare_plan"); const complete = f.model.complete.getMockImplementation()!;
+    let fail = true;
+    f.model.complete.mockImplementation(async input => { if (fail && JSON.parse(input.user).reportStage === "synthesis") throw new Error("controlled synthesis failure"); return complete(input); });
+    const first = await f.run("generate_report", "outline"), previous = new Map(first.activity?.map(event => [event.id, event.executionVersion]));
+    f.set({ ...f.latest(), progress: { stage: "organizing", completed: 1, total: 3, executionVersion: first.version } });
+    fail = false; const offset = f.writes.length, retried = await f.run("retry", "report");
+    expect(retried.version).toBeGreaterThan(first.version);
+    for (const event of retried.activity ?? []) expect(event.executionVersion).toBe(previous.has(event.id) ? previous.get(event.id) : retried.version);
+    expect(f.writes[offset]?.progress?.executionVersion).toBe(first.version);
+    const newWork = f.writes.slice(offset).filter(write => write.progress?.stage === "synthesizing");
+    expect(newWork.length).toBeGreaterThan(0);
+    expect(newWork.every(write => write.progress?.executionVersion === retried.version)).toBe(true);
+    expect(new Set(f.writes.slice(offset).map(write => write.version))).toEqual(new Set([retried.version]));
+  });
+
 });

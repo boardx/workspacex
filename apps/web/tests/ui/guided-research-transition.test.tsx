@@ -25,7 +25,7 @@ describe("confirm and generate the next research step", () => {
       expect(destination).toHaveAttribute("aria-busy", "true");
       expect(screen.getByTestId("execution-search")).toHaveTextContent("待执行");
       expect(screen.queryByTestId("research-step-loading")).not.toBeInTheDocument();
-      await act(async () => emit!({type:"snapshot",state:{...generated,busy:true,leaseUntil:"2099-01-01T00:00:00Z",executionGoal:"report",tasks:generated.tasks.map(task=>({...task,status:"running" as const})),sources:[]}}));
+      await act(async () => emit!({type:"snapshot",state:{...generated,busy:true,leaseUntil:"2099-01-01T00:00:00Z",executionGoal:"report",progress:{stage:"searching",executionVersion:generated.version,completed:0,total:generated.tasks.length},tasks:generated.tasks.map(task=>({...task,status:"running" as const})),sources:[]}}));
       expect(screen.getByTestId("research-step-loading")).toHaveTextContent("正在获取资料");
       expect(screen.getByTestId("execution-search")).toHaveTextContent("执行中");
     } else expect(screen.getByTestId("research-step-loading")).toBeInTheDocument();
