@@ -500,6 +500,8 @@ export default defineConfig({
         // Draw preview/cancellation remains in smoke. The 30-minute meeting-room
         // acceptance runs in its dedicated Board CI lane with a private ledger key.
         "board-drawing-live-preview.spec.ts",
+        // Screenshot feedback owns disposable Boards; keep its save/reload assertions CI-reachable.
+        "board-feedback-20261005.spec.ts",
         // R09 owns disposable Boards/tenant and shares this existing isolated stack.
         "board-files-acceptance.spec.ts",
       ],

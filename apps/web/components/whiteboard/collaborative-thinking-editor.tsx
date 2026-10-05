@@ -26,6 +26,7 @@ import {useBoardOrganizeFit,type BoardOrganizeFitRequest} from "./use-board-orga
 import { eraserTargetStrokeIds } from "./board-drawing-eraser";
 import { BoardEditorHeader } from "./board-editor-header";
 import type { BoardSyncVisualState, BoardSyncPhase } from "./board-sync-indicator";
+import { boardTextAttributes } from "./board-text-attributes";
 import { nearbyStickyPlacement } from "./board-nearby-sticky";
 import { shouldHandleBoardShortcut, BOARD_TOOL_SHORTCUTS } from "./board-shortcuts";
 import { BoardMinimap } from "./board-minimap";
@@ -249,7 +250,7 @@ export function CollaborativeThinkingEditor({ organizeFitRequest, dockExtension,
   }, [beginCreatedEditing, boardId, clientId, dispatchEnvelope, readOnly, stickyColor]);
   const createTextAt = useCallback((point: Point, preset: TextStylePreset = "body", text = "") => {
     if (readOnly) { setNotice("当前白板为只读，不能创建文字。"); return null; }
-    const id = crypto.randomUUID(), attributes = validateTextAttributes({ preset });
+    const id = crypto.randomUUID(), attributes = boardTextAttributes("text", { preset });
     const object: WhiteboardObject = { id, schemaVersion: 1, kind: "text", geometry: topLeft(point, preset === "title" ? 480 : 320, preset === "caption" ? 56 : 96), text, style: { color: attributes.color, fontSize: attributes.fontSize }, parentId: null, orderKey: "", extensionData: { thinkingInput: { text: attributes } } };
     if (!execute([{ type: "create", object }])) return null; setCreationTool(null); setTool("select"); beginCreatedEditing(id, text); return id;
   }, [beginCreatedEditing, execute, readOnly]);
@@ -356,7 +357,7 @@ export function CollaborativeThinkingEditor({ organizeFitRequest, dockExtension,
     const input = { ...known, ...patch };
     if (resetPreset) { delete input.fontSize; delete input.bold; delete input.lineHeight; }
     try {
-      const validated = validateTextAttributes(input);
+      const validated = boardTextAttributes(current.kind as "text" | "sticky", input);
       execute([{ type: "style", id, style: { color: validated.color, fontSize: validated.fontSize } }, { type: "extension", id, key: "thinkingInput", value: { ...thinking, text: { ...existing, ...validated } } }]);
     } catch { setNotice("文字样式未应用：链接仅支持 http(s)，数值需在允许范围内。"); }
   }, [doc, execute, readOnly]);

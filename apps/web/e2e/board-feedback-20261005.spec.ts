@@ -209,7 +209,7 @@ for (const viewport of viewports) {
       await page.reload(); await expectBoardSynced(page);
       expect((await canonicalBoardSnapshot(request, token, boardId)).objects.find(item => item.id === 'feedback-note-a')?.text).toBe('Edited 中文 English');
     });
-    test('17 note formatting and text fonts survive canonical save and reload', async ({ page, request }, info) => {
+    test('17 sticky formatting and text fonts survive canonical save and reload', async ({ page, request }, info) => {
       await selectNote(page);
       await page.getByTestId('board-sticky-text-open').click();
       const format = page.getByTestId('board-text-format-controls');
@@ -223,11 +223,23 @@ for (const viewport of viewports) {
       await expect.poll(async () => (await canonicalBoardSnapshot(request, token, boardId)).objects.find(item => item.id === 'feedback-note-a')?.extensionData?.thinkingInput).toMatchObject({ text: { bold: true, alignment: 'right', verticalAlignment: 'bottom', fontSize: 28 } });
       await screenshot(page, info, 'sticky-six-alignments-font-size');
       await page.keyboard.press('Escape');
-      const text = object('feedback-text', 'text', 920, 100, '中文 / English title', 260, 80);
-      text.style = { fill: 'transparent', fontSize: 24 };
-      text.extensionData = { thinkingInput: { text: { preset: 'heading', fontFamily: 'Noto Sans SC', fontSize: 24 } } };
-      await operate(request, token, boardId, createCommands([text]));
+      await page.getByTestId('board-add-text').click();
+      await page.getByTestId('board-text-heading').click();
+      await page.getByTestId('board-add-text').click();
+      const surface = page.getByTestId('board-fabric-surface');
+      const createPoint = await surface.evaluate(node => {
+        const rect = node.querySelector('canvas.upper-canvas')!.getBoundingClientRect();
+        return { x: rect.x + rect.width / 2, y: rect.y + rect.height * .25 };
+      });
+      expect(await page.evaluate(point => document.elementFromPoint(point.x, point.y)?.matches('canvas.upper-canvas'), createPoint)).toBe(true);
+      await page.mouse.click(createPoint.x, createPoint.y);
+      const textEditor = page.getByTestId('board-thinking-editor');
+      await expect(textEditor).toBeVisible();
+      await textEditor.fill('中文 / English title');
+      await textEditor.press('ControlOrMeta+Enter'); await expectBoardSynced(page);
       await expect(page.getByTestId('board-a11y-mirror').locator('li[data-object-id]')).toHaveCount(4);
+      const text = (await canonicalBoardSnapshot(request, token, boardId)).objects.find(item => item.kind === 'text')!;
+      expect(text.extensionData?.thinkingInput).toMatchObject({ text: { preset: 'heading', verticalAlignment: 'top' } });
       await page.getByTestId('board-zoom-fit-board').click();
       await selectNote(page, text.id);
       await page.getByTestId('board-inspector-text').click();
@@ -240,35 +252,89 @@ for (const viewport of viewports) {
       await expect(textFormat.getByRole('alert')).toHaveText('未找到该字体，请先在设备上安装后重试');
       await expect(textFormat.getByTestId('board-format-font-family')).toHaveValue('Bitter');
       await expectBoardSynced(page);
+      await page.keyboard.press('Escape');
+      await page.evaluate(async () => { await document.fonts.ready; await new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))); });
+      const renderedBaseline = () => surface.evaluate((node, id) => {
+        const canvas = node.querySelector<HTMLCanvasElement>('canvas.lower-canvas')!;
+        const rect = canvas.getBoundingClientRect(), ratio = canvas.width / rect.width;
+        const scene = (JSON.parse(node.getAttribute('data-object-scenes')!) as Array<{id: string; left: number; top: number; width: number; height: number}>).find(item => item.id === id)!;
+        const zoom = Number(node.getAttribute('data-viewport-zoom'));
+        const x = Math.round((Number(node.getAttribute('data-viewport-pan-x')) + scene.left * zoom) * ratio);
+        const y = Math.round((Number(node.getAttribute('data-viewport-pan-y')) + scene.top * zoom) * ratio);
+        const width = Math.max(1, Math.round(scene.width * zoom * ratio)), height = Math.max(1, Math.round(scene.height * zoom * ratio));
+        const data = canvas.getContext('2d')!.getImageData(x, y, width, height).data;
+        for (let row = 0; row < height; row++) for (let col = 0; col < width; col++) {
+          const offset = (row * width + col) * 4;
+          if (data[offset + 3]! > 100 && data[offset]! < 100 && data[offset + 1]! < 100 && data[offset + 2]! < 100) return row / ratio;
+        }
+        return -1;
+      }, text.id);
+      await expect.poll(renderedBaseline).toBeGreaterThanOrEqual(0);
+      const baselineBeforeEdit = await renderedBaseline();
+      const textPoint = await objectPoint(page, text.id);
+      await page.mouse.dblclick(textPoint.x, textPoint.y);
+      await expect(textEditor).toBeVisible();
+      const overlayBaseline = await textEditor.evaluate(element => {
+        const surface = document.querySelector<HTMLElement>('[data-testid="board-fabric-surface"]')!;
+        const rect = surface.querySelector('canvas.upper-canvas')!.getBoundingClientRect();
+        const zoom = Number(surface.getAttribute('data-viewport-zoom'));
+        const scene = (JSON.parse(surface.getAttribute('data-object-scenes')!) as Array<{id: string; top: number}>).find(item => item.id === element.getAttribute('data-object-id'));
+        return { top: element.getBoundingClientRect().top, canvasTop: rect.top, zoom, sceneTop: scene?.top, panY: Number(surface.getAttribute('data-viewport-pan-y')) };
+      });
+      // The overlay begins at canonical text top, rather than centering a line within 96px.
+      expect(Math.abs(overlayBaseline.top - (overlayBaseline.canvasTop + overlayBaseline.panY + text.geometry.y * overlayBaseline.zoom))).toBeLessThan(1.5);
+      await screenshot(page, info, 'standalone-text-top-editor');
+      await textEditor.press('ControlOrMeta+Enter'); await expectBoardSynced(page);
+      await expect.poll(renderedBaseline).toBe(baselineBeforeEdit);
       const saved = await canonicalBoardSnapshot(request, token, boardId);
-      expect(saved.objects.find(item => item.id === text.id)?.extensionData?.thinkingInput).toMatchObject({ text: { fontFamily: 'Bitter' } });
+      expect(saved.objects.find(item => item.id === text.id)?.extensionData?.thinkingInput).toMatchObject({ text: { fontFamily: 'Bitter', verticalAlignment: 'top' } });
       await screenshot(page, info, 'text-font-family-and-add-validation');
       await page.reload(); await expectBoardSynced(page);
       expect(await canonicalBoardSnapshot(request, token, boardId)).toEqual(saved);
     });
 
     test('18 nearby native double-click copies note appearance and aligns its new neighbor', async ({ page, request }, info) => {
+      const frame = object('feedback-frame', 'frame', 80, 60, 'Ancestor frame', 220, 260);
+      frame.style = { fill: 'transparent', stroke: '#CBD5E1' };
+      frame.extensionData = { spatial: { version: 1, mode: 'freeform', autoExpand: false, clipContent: false, padding: 24, gap: 24, columns: 3, flowDirection: 'horizontal' } };
+      await operate(request, token, boardId, [ ...createCommands([frame]), { type: 'parent', id: 'feedback-note-a', parentId: frame.id, orderKey: 'feedback-note-a' }, { type: 'extension', id: 'feedback-note-a', key: 'thinkingInput', value: { sticky: { variant: 'square', sizing: 'fixed', color: { custom: '#C6DDFF' } }, text: { preset: 'body', alignment: 'right', verticalAlignment: 'bottom', fontSize: 20 } } } ]);
+      await expect(page.getByTestId('board-a11y-mirror').locator('li[data-object-id]')).toHaveCount(4);
+      await page.getByTestId('board-zoom-menu').click();
+      await page.getByRole('menuitem', { name: '实际大小 100%', exact: true }).click();
+      await expect(page.getByTestId('board-fabric-surface')).toHaveAttribute('data-viewport-zoom', '1');
+      const before = await canonicalBoardSnapshot(request, token, boardId);
       const surface = page.getByTestId('board-fabric-surface');
       const point = await surface.evaluate(node => {
         const rect = node.getBoundingClientRect();
         const zoom = Number(node.getAttribute('data-viewport-zoom'));
         const panX = Number(node.getAttribute('data-viewport-pan-x'));
         const panY = Number(node.getAttribute('data-viewport-pan-y'));
-        return { x: rect.x + panX + 190 * zoom, y: rect.y + panY + 100 * zoom - 40 };
+        return { x: rect.x + panX + 190 * zoom, y: rect.y + panY + 40 * zoom };
       });
       expect(await page.evaluate(point => document.elementFromPoint(point.x, point.y)?.matches('canvas.upper-canvas'), point)).toBe(true);
       await page.mouse.dblclick(point.x, point.y);
       await expectBoardSynced(page);
-      await expect.poll(async () => (await canonicalBoardSnapshot(request, token, boardId)).objects.length).toBe(4);
+      await expect.poll(async () => (await canonicalBoardSnapshot(request, token, boardId)).objects.length).toBe(5);
       const snapshot = await canonicalBoardSnapshot(request, token, boardId);
       const source = snapshot.objects.find(item => item.id === 'feedback-note-a')!;
-      const created = snapshot.objects.find(item => !['feedback-note-a', 'feedback-note-b', 'feedback-note-c'].includes(item.id))!;
+      const created = snapshot.objects.find(item => !['feedback-note-a', 'feedback-note-b', 'feedback-note-c', frame.id].includes(item.id))!;
       expect(created.kind).toBe('sticky');
       expect(created.style).toEqual(source.style);
+      expect(created.parentId).toBe(frame.id);
+      expect(created.extensionData?.thinkingInput).toEqual(source.extensionData?.thinkingInput);
       expect(created.geometry).toEqual({ ...source.geometry, y: source.geometry.y - source.geometry.height - 24 });
       await page.keyboard.press('Escape');
       await page.getByTestId('board-zoom-fit-board').click();
       await screenshot(page, info, 'nearby-note-native-double-click');
+      // Blank click is outside the Frame, while the new note overlaps its ancestor by 16px.
+      expect(created.geometry.y + created.geometry.height).toBeGreaterThan(frame.geometry.y);
+      await info.attach('nearby-frame-boundary', { body: JSON.stringify({ frame, source, created, blankPoint: point, frameBackgroundDoubleClickChanged: false }), contentType: 'application/json' });
+      await page.getByTestId('board-tool-select').click();
+      await page.keyboard.press('ControlOrMeta+z'); await expectBoardSynced(page);
+      await expect.poll(async () => (await canonicalBoardSnapshot(request, token, boardId)).objects).toEqual(before.objects);
+      await page.keyboard.press('ControlOrMeta+Shift+z'); await expectBoardSynced(page);
+      await expect.poll(async () => (await canonicalBoardSnapshot(request, token, boardId)).objects.find(item => item.id === created.id)).toEqual(created);
+
       await page.reload(); await expectBoardSynced(page);
       expect((await canonicalBoardSnapshot(request, token, boardId)).objects.find(item => item.id === created.id)).toEqual(created);
     });

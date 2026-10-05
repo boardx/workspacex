@@ -5,7 +5,7 @@ import base from './playwright.fullstack-smoke.config';
 export default defineConfig({
   ...base,
   testDir: './e2e',
-  testMatch: ['board-feedback-20261005.spec.ts', 'board-drawing-live-preview.spec.ts'],
+  testMatch: ['board-feedback-20261005.spec.ts', 'board-drawing-live-preview.spec.ts', 'board-compact-chrome-acceptance.spec.ts'],
   workers: 1,
   retries: 0,
   timeout: 180_000,
