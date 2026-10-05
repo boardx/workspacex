@@ -97,10 +97,11 @@ export function validateReportEvidence(markdown: string, index: readonly ReportE
       for (const overclaim of clause.matchAll(/最常见|必然(?:阻止|阻碍|导致|影响)(?:采购|购买)/gu)) {
         const before = clause.slice(0, overclaim.index);
         const after = clause.slice(overclaim.index! + overclaim[0].length);
-        const conclusion = /(?:不能|不可|无法|不应|不得)得出([“"「‘]?)[^，,。；;“”"「」‘’]{0,16}$/u.exec(before);
+        const conclusion = /(?:不能|不可|无法|不应|不得)得出([“"「‘]?)([^，,。；;“”"「」‘’]{0,16})$/u.exec(before);
         const closingQuote: Readonly<Record<string,string>> = {"": "", "“": "”", "\"": "\"", "「": "」", "‘": "’"};
         const close = conclusion ? closingQuote[conclusion[1]!] : undefined;
-        const qualifiedConclusion = close !== undefined && after.startsWith(close)
+        const qualifiedConclusion = close !== undefined
+          && !/(?:结论|因此|所以|于是)/u.test(conclusion![2]!) && after.startsWith(close)
           && /^的(?:无条件)?结论/u.test(after.slice(close.length));
         // A direct prohibition on inventing statistics also scopes the following
         // assertion, but not a contrast or unrelated earlier disclaimer.

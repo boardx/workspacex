@@ -21,7 +21,7 @@ describe("report evidence grounding", () => {
  it.each(["无法得出“预算必然阻止购买”的无条件结论。", "无法得出‘预算必然阻止购买’的无条件结论。", "不得得出安装问题最常见的结论。"])("preserves local inability to conclude: %s", line => {
   expect(validateReportEvidence(`[服务端甲回答：支持电话。](#answer-1)\n\n${line}`,buildReportEvidenceIndex(source)).ok).toBe(true);
  });
- it.each(["并非无法得出“预算必然阻止购买”的无条件结论。", "并非无法得出‘预算必然阻止购买’的无条件结论。", "不是不能得出安装问题最常见的结论。", "无法得出预算充足的结论，但预算必然阻止购买。", "无法得出预算结论，因此安装问题最常见。", "无法得出安装问题最常见的结论且预算必然阻止购买。", "无法得出‘安装问题最常见’的结论且预算必然阻止购买。"])("does not waive independent definite strength: %s", line => {
+ it.each(["无法得出预算充足的结论因此预算必然阻止购买的结论。", "无法得出安装顺利的结论所以安装问题最常见的结论。", "并非无法得出“预算必然阻止购买”的无条件结论。", "并非无法得出‘预算必然阻止购买’的无条件结论。", "不是不能得出安装问题最常见的结论。", "无法得出预算充足的结论，但预算必然阻止购买。", "无法得出预算结论，因此安装问题最常见。", "无法得出安装问题最常见的结论且预算必然阻止购买。", "无法得出‘安装问题最常见’的结论且预算必然阻止购买。"])("does not waive independent definite strength: %s", line => {
   expect(validateReportEvidence(`[服务端甲回答：支持电话。](#answer-1)\n\n${line}`,buildReportEvidenceIndex(source)).reason).toBe("unsupported_evidence_strength");
  });
  it.each([
