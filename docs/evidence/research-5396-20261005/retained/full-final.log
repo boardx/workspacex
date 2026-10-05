@@ -1,0 +1,35 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/research-5056-fixes/workspacex/apps/api
+
+ ✓ tests/research/guided-report-chapters.test.ts (97 tests) 2622ms
+   ✓ chapter-based report generation > rejects callbacks retained by a failed stream attempt during retry 504ms
+   ✓ chapter-based report generation > retries a recoverable chapter stream from the approved prefix 504ms
+   ✓ chapter-based report generation > retries a recoverable synthesis stream from the approved prefix 503ms
+   ✓ chapter-based report generation > bounds provider HTTP 503 attempts at 2 504ms
+ ✓ tests/research/guided-search-recovery.test.ts (67 tests) 390ms
+ ✓ tests/research/guided-source-relevance.test.ts (58 tests) 174ms
+ ✓ tests/research/guided-three-step.test.ts (23 tests) 1007ms
+ ✓ tests/research/guided-runtime-delta.test.ts (21 tests) 436ms
+   ✓ strips cache hints from command execution and returns only changed fields 396ms
+ ✓ tests/research/guided-runtime-diagnostics.test.ts (20 tests) 25ms
+ ✓ tests/research/guided-evidence-ledger.test.ts (25 tests) 48ms
+ ✓ tests/research/google-guided-search.test.ts (42 tests) 1044ms
+ ✓ tests/research/guided-plan-repair.test.ts (13 tests) 32ms
+ ✓ tests/research/guided-runtime-orchestration.test.ts (6 tests) 46ms
+ ✓ tests/research/guided-report-evidence.test.ts (14 tests) 18ms
+ ✓ tests/research/guided-negative-screen-cache.test.ts (22 tests) 44ms
+ ✓ tests/research/guided-source-documents.test.ts (8 tests) 25ms
+ ✓ tests/research/guided-runtime-private-ledger.test.ts (10 tests) 157ms
+ ✓ tests/research/guided-research-trust.test.ts (10 tests) 6ms
+ ✓ tests/research/guided-partial-report-recovery.test.ts (11 tests) 15ms
+ ✓ tests/research/guided-source-document-references.test.ts (11 tests) 7ms
+ ✓ tests/research/guided-runtime-progress.test.ts (7 tests) 34ms
+ ✓ tests/research/guided-search-recovery-query-scope.test.ts (24 tests) 6ms
+ ✓ tests/research/guided-negative-screen-cache-pipeline.test.ts (2 tests) 19ms
+ ✓ tests/research/guided-call-budget.test.ts (4 tests) 17ms
+
+ Test Files  21 passed (21)
+      Tests  495 passed (495)
+   Start at  21:52:12
+   Duration  13.94s (transform 896ms, setup 0ms, collect 5.39s, tests 6.17s, environment 2ms, prepare 600ms)
+
