@@ -1,0 +1,38 @@
+
+> @repo/api@0.0.0 test:interview-markdown-unit /Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/apps/api
+> vitest run --config vitest.interview-markdown-unit.config.ts
+
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/apps/api
+
+ ✓ tests/itv/interview-report-recovery.test.ts (24 tests) 70ms
+ ✓ tests/itv/interview-report-grounding.test.ts (76 tests) 44ms
+ ❯ tests/itv/interview-report-claim-boundaries.test.ts (99 tests | 1 failed) 48ms
+   × finite report claim boundaries > allows only a source-bound observed exclusion within the same inspected scope 3ms
+     → expected [] to include 'unqualified_defect_exclusion'
+ ✓ tests/itv/interview-report-diagnostics.test.ts (14 tests) 29ms
+ ✓ tests/itv/interview-markdown-report-stream-controller.test.ts (9 tests) 4ms
+ ✓ tests/itv/interview-model-markdown.test.ts (4 tests) 3ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/itv/interview-report-claim-boundaries.test.ts > finite report claim boundaries > allows only a source-bound observed exclusion within the same inspected scope
+AssertionError: expected [] to include 'unqualified_defect_exclusion'
+ ❯ tests/itv/interview-report-claim-boundaries.test.ts:41:110
+     39|   expect(assessReportClaimBoundaries(`${quote}[${quote}](#answer-1)`,[…
+     40|   const overbroad = quote.slice(0,-1)+"，因此所有设备不存在固有缺陷。";
+     41|   expect(assessReportClaimBoundaries(`${overbroad}[${overbroad}](#answ…
+       |                                                                                                              ^
+     42|   const wrongObject = "本次对该设备的供电模块拆机检测确认该设备的空间…
+     43|   expect(assessReportClaimBoundaries(`${wrongObject}[${wrongObject}](#…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed | 5 passed (6)
+      Tests  1 failed | 225 passed (226)
+   Start at  04:06:17
+   Duration  2.56s (transform 641ms, setup 0ms, collect 1.81s, tests 199ms, environment 0ms, prepare 136ms)
+
+/Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/apps/api:
+ ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  @repo/api@0.0.0 test:interview-markdown-unit: `vitest run --config vitest.interview-markdown-unit.config.ts`
+Exit status 1

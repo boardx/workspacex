@@ -7,6 +7,59 @@ import { interviewMarkdown } from "@repo/contracts";
 const evidence = (quote: string): ReportEvidence => ({ anchor: "answer-1", documentId: "runs", version: 1,
   sourceHash: "a".repeat(64), start: 0, end: quote.length, quote, expertId: "expert", taskKey: "task", evidenceMode: "simulated", expertLabel: "甲" });
 describe("finite report claim boundaries", () => {
+ it.each([1,2])("rejects the preserved public attempt %s's unsupported defect exclusion", attempt => {
+  const root = new URL("./fixtures/defect-exclusion-5341/", import.meta.url);
+  const raw = readFileSync(new URL(`attempt-${attempt}.md`, root), "utf8");
+  const saved = JSON.parse(readFileSync(new URL("source.json", root), "utf8"));
+  const index = buildReportEvidenceIndex(saved.documents.find((d: {step:string}) => d.step === "runs"));
+  expect(assessReportClaimBoundaries(raw,index).missing).toContain("unqualified_defect_exclusion");
+ });
+ it.each([
+  "另一个场景安装顺利，这说明冲突而非设备的固有缺陷。",
+  "该设备不存在固有缺陷。",
+  "成功案例证明设备并无固有缺陷。",
+  "该设备无固有缺陷。",
+  "产品无固有缺陷。",
+  "成功案例排除了产品固有缺陷。",
+  "不能忽略安装成功，所以并非设备的固有缺陷。",
+  "不能否认设备不存在固有缺陷。",
+  "不能不承认设备不存在固有缺陷。",
+  "不能不声称设备不存在固有缺陷。",
+  "不能操作该设备所以不存在固有缺陷。",
+ ])("does not infer a defect exclusion from scenario heterogeneity: %s", claim => {
+  const quote = "另一个场景安装顺利，不能推断普遍发生。";
+  expect(assessReportClaimBoundaries(`${claim}[${quote}](#answer-1)`,[evidence(quote)]).missing).toContain("unqualified_defect_exclusion");
+ });
+ it.each([
+  "不能断言设备不存在固有缺陷。",
+  "尚不能排除设备固有缺陷。",
+  "尚未排除设备固有缺陷。",
+  "未能排除产品固有缺陷。",
+  "没有证据排除固有缺陷。",
+  "产品没有证据排除固有缺陷。",
+  "产品无证据排除固有缺陷。",
+  "设备并非并无固有缺陷。",
+  "设备并非不存在固有缺陷。",
+  "产品不是没有固有缺陷。",
+  "若经专项检测确认该设备不存在固有缺陷，才考虑环境因素。",
+ ])("keeps scoped uncertainty or hypothetical exclusion: %s", claim => {
+  expect(assessReportClaimBoundaries(claim,[]).ok).toBe(true);
+ });
+ it("allows only a source-bound observed exclusion within the same inspected scope", () => {
+  const quote = "本次对该设备的供电模块拆机检测确认该设备的供电模块不存在供电设计缺陷。";
+  expect(assessReportClaimBoundaries(`${quote}[${quote}](#answer-1)`,[evidence(quote)]).ok).toBe(true);
+  expect(assessReportClaimBoundaries(`所有设备不存在固有缺陷。[${quote}](#answer-1)`,[evidence(quote)]).missing).toContain("unqualified_defect_exclusion");
+  expect(assessReportClaimBoundaries(`${quote}[另一个场景安装顺利。](#answer-1)`,[evidence(quote)]).missing).toContain("unqualified_defect_exclusion");
+  expect(assessReportClaimBoundaries(`${quote}[${quote}](#answer-1)`,[{...evidence(quote),taskKey:null}]).missing).toContain("unqualified_defect_exclusion");
+  const overbroad = quote.slice(0,-1)+"，因此所有设备不存在固有缺陷。";
+  expect(assessReportClaimBoundaries(`${overbroad}[${overbroad}](#answer-1)`,[evidence(overbroad)]).missing).toContain("unqualified_defect_exclusion");
+  for (const prefix of ["我认为", "计划"]) {
+    const unobserved = prefix+quote;
+    expect(assessReportClaimBoundaries(`${unobserved}[${unobserved}](#answer-1)`,[evidence(unobserved)]).missing).toContain("unqualified_defect_exclusion");
+  }
+  const wrongObject = "本次对该设备的供电模块拆机检测确认该设备的空间接口不存在固有缺陷。";
+  expect(assessReportClaimBoundaries(`${wrongObject}[${wrongObject}](#answer-1)`,[evidence(wrongObject)]).missing).toContain("unqualified_defect_exclusion");
+ });
  it.each([
   "不兼容项在本次检测中若为零，只支持本次检测未发现该冲突，不能推翻一般安装风险。",
   "本次检测不兼容项若为零，可考虑试点。",
