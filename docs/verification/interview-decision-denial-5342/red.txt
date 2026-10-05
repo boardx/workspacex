@@ -1,0 +1,58 @@
+
+> @repo/api@0.0.0 test:interview-markdown-unit /Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/apps/api
+> vitest run --config vitest.interview-markdown-unit.config.ts
+
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/apps/api
+
+ ❯ tests/itv/interview-report-claim-boundaries.test.ts (201 tests | 4 failed) 87ms
+   × finite report claim boundaries > preserves byte-exact final public state denial at line 15 9ms
+     → expected [ Array(1) ] to not include 'unsupported_current_decision_state'
+   × finite report claim boundaries > preserves byte-exact final public state denial at line 64 2ms
+     → expected [ Array(1) ] to not include 'unsupported_current_decision_state'
+   × finite report claim boundaries > preserves local epistemic state denial: 当前采购状态无法确认为永久搁置。 1ms
+     → expected [ Array(1) ] to not include 'unsupported_current_decision_state'
+   × finite report claim boundaries > preserves local epistemic state denial: 不证明当前真实采购已经搁置。 1ms
+     → expected [ Array(1) ] to not include 'unsupported_current_decision_state'
+ ✓ tests/itv/interview-report-recovery.test.ts (24 tests) 80ms
+ ✓ tests/itv/interview-report-grounding.test.ts (76 tests) 42ms
+ ✓ tests/itv/interview-report-diagnostics.test.ts (14 tests) 30ms
+ ✓ tests/itv/interview-markdown-report-stream-controller.test.ts (9 tests) 4ms
+ ✓ tests/itv/interview-model-markdown.test.ts (4 tests) 3ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 4 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/itv/interview-report-claim-boundaries.test.ts > finite report claim boundaries > preserves byte-exact final public state denial at line 15
+ FAIL  tests/itv/interview-report-claim-boundaries.test.ts > finite report claim boundaries > preserves byte-exact final public state denial at line 64
+AssertionError: expected [ Array(1) ] to not include 'unsupported_current_decision_state'
+ ❯ tests/itv/interview-report-claim-boundaries.test.ts:12:59
+     10|  it.each([15,64])("preserves byte-exact final public state denial at l…
+     11|   const raw = readFileSync(new URL("./fixtures/decision-denial-5342/re…
+     12|   expect(assessReportClaimBoundaries(raw,[]).missing).not.toContain("u…
+       |                                                           ^
+     13|  });
+     14|  it.each(["当前采购状态无法确认为永久搁置。", "不证明当前真实采购已经…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/4]⎯
+
+ FAIL  tests/itv/interview-report-claim-boundaries.test.ts > finite report claim boundaries > preserves local epistemic state denial: 当前采购状态无法确认为永久搁置。
+ FAIL  tests/itv/interview-report-claim-boundaries.test.ts > finite report claim boundaries > preserves local epistemic state denial: 不证明当前真实采购已经搁置。
+AssertionError: expected [ Array(1) ] to not include 'unsupported_current_decision_state'
+ ❯ tests/itv/interview-report-claim-boundaries.test.ts:15:59
+     13|  });
+     14|  it.each(["当前采购状态无法确认为永久搁置。", "不证明当前真实采购已经…
+     15|   expect(assessReportClaimBoundaries(raw,[]).missing).not.toContain("u…
+       |                                                           ^
+     16|  });
+     17|  it.each(["当前采购状态并非无法确认为永久搁置。", "并非不证明当前真实…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/4]⎯
+
+ Test Files  1 failed | 5 passed (6)
+      Tests  4 failed | 324 passed (328)
+   Start at  12:04:03
+   Duration  2.64s (transform 662ms, setup 0ms, collect 1.84s, tests 247ms, environment 0ms, prepare 139ms)
+
+/Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/apps/api:
+ ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  @repo/api@0.0.0 test:interview-markdown-unit: `vitest run --config vitest.interview-markdown-unit.config.ts`
+Exit status 1

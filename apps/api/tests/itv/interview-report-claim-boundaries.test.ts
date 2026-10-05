@@ -7,6 +7,16 @@ import { interviewMarkdown } from "@repo/contracts";
 const evidence = (quote: string): ReportEvidence => ({ anchor: "answer-1", documentId: "runs", version: 1,
   sourceHash: "a".repeat(64), start: 0, end: quote.length, quote, expertId: "expert", taskKey: "task", evidenceMode: "simulated", expertLabel: "甲" });
 describe("finite report claim boundaries", () => {
+ it.each([15,64])("preserves byte-exact final public state denial at line %s", line => {
+  const raw = readFileSync(new URL("./fixtures/decision-denial-5342/report.md", import.meta.url), "utf8").split("\n")[line-1];
+  expect(assessReportClaimBoundaries(raw,[]).missing).not.toContain("unsupported_current_decision_state");
+ });
+ it.each(["当前采购状态无法确认为永久搁置。", "不证明当前真实采购已经搁置。"])("preserves local epistemic state denial: %s", raw => {
+  expect(assessReportClaimBoundaries(raw,[]).missing).not.toContain("unsupported_current_decision_state");
+ });
+ it.each(["当前采购状态并非无法确认为永久搁置。", "并非不证明当前真实采购已经搁置。", "不能不证明当前真实采购已经搁置。", "不证明预算不足，但当前真实采购已经搁置。", "当前采购状态无法确认预算，而当前采购已暂停。"])("does not let denial waive a positive state: %s", raw => {
+  expect(assessReportClaimBoundaries(raw,[]).missing).toContain("unsupported_current_decision_state");
+ });
  it.each(["采用移动插座，因此供电风险降低。", "改用移动插座消除了线缆风险。", "移动插座并非没有降低供电风险。", "供电风险已得到降低，采用移动插座。"])("rejects unmarked definite risk reduction: %s", claim => {
   expect(assessReportClaimBoundaries(claim,[]).missing).toContain("unsupported_physical_risk_downgrade");
  });
