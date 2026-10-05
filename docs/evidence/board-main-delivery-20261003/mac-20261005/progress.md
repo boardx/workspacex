@@ -1,3 +1,11 @@
+# PR repair continuation — 2026-10-05
+
+User deferred environment setup and requested resolving all PR problems. Repair `5b769417c5f019aa67c47fe5d1194d1c751d72c1` normally pushed after base `49c0c838d`: six toolbar failures fixed; shared-outbox suspension now waits outside native IDB transactions. Original targeted tests107/107 and affected regressions43/43 pass, typecheck/lint pass, normal pre-push20/20. Exact-head CI must finish independently. See [repair evidence](pr-repair/README.md).
+
+Independent review found and fixed a diagnostic-only cleanup gap: browser acquisition is inside try, both owned browser and HTTP listener are separately cleaned, AggregateError preserves primary first. Re-run real Chromium diagnostic and lint exit0. No runtime/DB/role changes, merge or deployment. Formal product native suites remain NOT_RUN; original environment deficits still apply.
+
+---
+
 # Mac verification — 2026-10-05
 
 Tested source: `f2363bd58acafda2d97f896295e1bec86f1e84bd`. Existing PR #5245 only. Both `114dcdc56` and `9fb4c32de` are ancestors. `5a301c` cannot be resolved in the Mac object database, including after fetching the existing PR branch.

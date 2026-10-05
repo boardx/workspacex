@@ -19,3 +19,5 @@ The repository browser diagnostic entry `node apps/web/e2e/support/board-indexed
 `pnpm --filter web typecheck` and ESLint for all five changed source/test files exited 0. The first typecheck exposed the new observer's missing explicit `this: IDBDatabase`; that annotation was fixed before the successful rerun. Logs retain the original toolbar red and repaired green results.
 
 Affected popover regression command: `pnpm --filter web exec vitest run tests/ui/board-tool-popover-above.test.tsx tests/ui/board-toolbar-position.test.tsx tests/ui/board-compact-chrome.test.tsx tests/whiteboard/board-indexeddb-quiescent-pause.test.ts` — exit 0, 43/43 passed, zero skipped; see popover-regression.log.
+
+Independent review reproduced43/43 and the real-browser quiescent diagnostic. Its sole P2 finding was diagnostic resource acquisition/cleanup: failed browser startup could leave the HTTP listener, and close failure could mask the primary error. The follow-up places acquisition inside try, cleans both resources independently and preserves primary as the first AggregateError member. Re-run diagnostic and ESLint exit0. No full product acceptance claim.

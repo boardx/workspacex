@@ -9,10 +9,13 @@ const require=createRequire(import.meta.url);const {chromium}=require('playwrigh
 const source=readFileSync(new URL('./board-indexeddb-quiescent-pause.ts',import.meta.url),'utf8');
 const code=ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ES2022}}).outputText;
 const {installIndexedDbTransactionObserver,requestIndexedDbQuiescentPause}=await import('data:text/javascript;base64,'+Buffer.from(code).toString('base64'));
-const server=createServer((q,r)=>r.end('<html><title>diagnostic</title></html>'));await new Promise(r=>server.listen(0,'127.0.0.1',r));
-const owned=await createOwnedLifecycleBrowser(chromium,{testBudgetMs:45000,teardownBudgetMs:5000});
+const server=createServer((q,r)=>r.end('<html><title>diagnostic</title></html>'));
+let owned,primaryFailure,failed=false;
 const results=[];
-try{const owner=owned.page,peer=await owned.context.newPage(),origin=`http://127.0.0.1:${server.address().port}`;await owner.addInitScript(installIndexedDbTransactionObserver,'idb-test-tracking');await owner.goto(origin);await peer.goto(origin);await owner.evaluate(()=>{globalThis.tick=setInterval(()=>{globalThis.counter=(globalThis.counter||0)+1;},20);});
+try{
+await new Promise((resolve,reject)=>{server.once('error',reject);server.listen(0,'127.0.0.1',resolve);});
+owned=await createOwnedLifecycleBrowser(chromium,{testBudgetMs:45000,teardownBudgetMs:5000});
+const owner=owned.page,peer=await owned.context.newPage(),origin=`http://127.0.0.1:${server.address().port}`;await owner.addInitScript(installIndexedDbTransactionObserver,'idb-test-tracking');await owner.goto(origin);await peer.goto(origin);await owner.evaluate(()=>{globalThis.tick=setInterval(()=>{globalThis.counter=(globalThis.counter||0)+1;},20);});
 await owner.evaluate(async()=>{globalThis.db=await new Promise((resolve,reject)=>{const r=indexedDB.open('diagnostic');r.onupgradeneeded=()=>r.result.createObjectStore('s');r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error);});await new Promise(r=>{const tx=db.transaction('s','readwrite');tx.objectStore('s').put('initial','k');tx.oncomplete=r;});});
 await peer.evaluate(async()=>{globalThis.db=await new Promise((resolve,reject)=>{const r=indexedDB.open('diagnostic');r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error);});});
 const cdp=await owned.context.newCDPSession(owner);await cdp.send('Debugger.enable');let paused;cdp.on('Debugger.paused',()=>paused?.());
@@ -29,4 +32,9 @@ const pauseDelayMs=Date.now()-requested;
 results.push({case:'helper-waits-for-active-owner-transaction-then-peer-write',pauseDelayMs,beforeRequest,bindings,...await measure(()=>new Promise((resolve,reject)=>{const tx=db.transaction('s','readwrite');tx.objectStore('s').put('peer-after-quiescent-pause','k');tx.oncomplete=()=>resolve('committed');tx.onabort=()=>reject(tx.error);} ))});
 assert.equal(beforeRequest.active,1);assert.equal(beforeRequest.transactionComplete,false);assert.deepEqual(bindings,[{type:'storage-quiescent',active:0}]);assert.equal(results[3].completedWhilePaused,true);assert.match(results[2].exception,/IDB_QUIESCENCE_UNAVAILABLE/);
 console.log(JSON.stringify({browser:owned.browser.version(),context:'owned-default-CDP',results},null,2));
-}finally{await owned.close();await new Promise(r=>server.close(r));}
+}catch(error){failed=true;primaryFailure=error;throw error;}finally{
+ const cleanupErrors=[];
+ try{await owned?.close();}catch(error){cleanupErrors.push(error);}
+ try{if(server.listening)await new Promise((resolve,reject)=>server.close(error=>error?reject(error):resolve()));}catch(error){cleanupErrors.push(error);}
+ if(cleanupErrors.length)throw new AggregateError(failed?[primaryFailure,...cleanupErrors]:cleanupErrors,'QUIESCENT_DIAGNOSTIC_CLEANUP_FAILED');
+}
