@@ -91,11 +91,16 @@ export function validateReportEvidence(markdown: string, index: readonly ReportE
   for (const assertion of interviewMarkdown.parseInterviewReportAssertions(markdown)) {
     // Finite observed overclaims: exact quotations do not establish population
     // frequency or inevitable purchasing causality. Keep raw candidate bytes.
-    for (const clause of assertion.text.split(/[，,。；;\n]|但是|然而|不过|但/u)) {
+    // Internal causal/additive conjunctions keep local denial scope; explicit
+    // affirmation after an additive conjunction starts a separate assertion.
+    for (const clause of assertion.text.split(/[，,。；;\n]|但是|然而|不过|反而|仍然|而且(?=事实上|实际|确实)|(?<!因|从|进|继)而(?!且)|但|(?<!冷)却/u)) {
       const overclaim = /最常见|必然(?:阻止|阻碍|导致|影响)(?:采购|购买)/u.exec(clause);
       if (!overclaim) continue;
       const before = clause.slice(0, overclaim.index);
-      const qualified = /(?:不能|不可|无法|不应|不得)(?:断言|声称|认为|证明|说)[^，,。；;]{0,16}$/u.test(before)
+      // A direct prohibition on inventing statistics also scopes the following
+      // assertion, but not a contrast or unrelated earlier disclaimer.
+      const qualified = /(?:不能|不可|无法|不应|不得)(?:凭空)?(?:补充|编造|虚构)(?:样本)?统计来(?:断言|声称|认为|证明|说)[^，,。；;]{0,16}$/u.test(before)
+        || /(?:不能|不可|无法|不应|不得)(?:断言|声称|认为|证明|说)[^，,。；;]{0,16}$/u.test(before)
         || /(?:不能|不可|无法|不应|不得)\s*$/u.test(before)
         || /^\s*(?:若|如果|假如)[^，,。；;]*$/u.test(before);
       const doubleDenial = /否认|否定|并非|并无|绝非|不是|不会|不曾|没有|不可能/u.test(before);
