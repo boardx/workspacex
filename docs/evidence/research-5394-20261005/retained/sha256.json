@@ -1,0 +1,37 @@
+[
+  {
+    "file": "research-supplement-scope-counterexample.test.ts",
+    "sha256": "ce64e6f83a6664e607bea97ffd3b070d66409e4f280c182d1f94dc03f3fedd18",
+    "bytes": 5662
+  },
+  {
+    "file": "research-supplement-scope-counterexample.log",
+    "sha256": "d96cedb7ebaa108c671535652bedb56fc1a43bcc8e7dc860b9c1c9317b3344d0",
+    "bytes": 1251
+  },
+  {
+    "file": "research-5394-red.log",
+    "sha256": "42db272a858bbd7f052fbc8464ee0014568103c87bc896027974f6b72325d8de",
+    "bytes": 4692
+  },
+  {
+    "file": "research-5394-full-identity-final.log",
+    "sha256": "37de352d57ee08704c32f308738a3711dde5c759a93bec1e21f6865906dd80b1",
+    "bytes": 2094
+  },
+  {
+    "file": "research-5394-type-identity-final.log",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "bytes": 0
+  },
+  {
+    "file": "research-5394-lint-identity-final.log",
+    "sha256": "54fce1cf716cefd0678ceedecd5cb330ee89732b5d0db91fc7d034af3908a90d",
+    "bytes": 10265
+  },
+  {
+    "file": "current-validation.log",
+    "sha256": "d2b4b7d73ca609bd1b343b08c1edda11fd8ec5c785bd786a5622683a957e3830",
+    "bytes": 12749
+  }
+]
