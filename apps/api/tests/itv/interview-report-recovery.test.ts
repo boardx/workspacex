@@ -29,6 +29,21 @@ beforeEach(() => {
  });
 });
 describe("bounded report quality recovery", () => {
+ it("never instructs a naked zero-count observation without a source and gives precise measurement repair feedback", async () => {
+  const wrong = GOOD + "\n\n不兼容项为零只支持本次检测未发现该冲突，不能推翻一般安装风险。";
+  complete.mockResolvedValueOnce({text:wrong}).mockResolvedValueOnce({text:GOOD});
+  await generateInterviewMarkdown(deps(),input);
+  expect(complete).toHaveBeenCalledTimes(2);
+  for (const [request] of complete.mock.calls) {
+   expect(request.system).not.toContain("不兼容项为零只支持本次检测未发现该冲突");
+   expect(request.system).toContain("若未来检测不兼容项为零");
+  }
+  expect(complete.mock.calls[1]![0].user).toContain("测量声明修复");
+  expect(complete.mock.calls[1]![0].user).toContain("没有实际测量来源");
+  expect(complete.mock.calls[1]![0].user).toContain("不得编造已完成检查");
+  expect(save.mock.calls[0]![0].failure.code).toBe("REPORT_QUALITY_REJECTED");
+  expect(snapshot.states.find(s=>s.documentId==="md-report")?.status).toBe("draft");
+ });
  it("rejects exact-quote overclaims before saving and uses the existing bounded repair", async () => {
   const wrong = `${GOOD}\n\n安装问题最常见且必然阻止采购。`;
   complete.mockResolvedValueOnce({text:wrong}).mockResolvedValueOnce({text:GOOD});
