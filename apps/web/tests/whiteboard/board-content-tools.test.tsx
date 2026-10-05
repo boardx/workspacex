@@ -1,3 +1,4 @@
+import { CollaborativeEditor } from "@/components/whiteboard/collaborative-editor";
 import { createHash } from 'node:crypto';
 import { act, cleanup, createEvent, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
@@ -91,7 +92,6 @@ function webp(kind: "VP8" | "VP8L" | "VP8X", width: number, height: number): Uin
 const byteBuffer = (bytes: Uint8Array): ArrayBuffer => new Uint8Array(bytes).buffer;
 
 async function setupView() {
-  const { CollaborativeEditor } = await import("@/components/whiteboard/collaborative-editor");
   const doc = createWhiteboardDocument();
   const view = render(<CollaborativeEditor boardId="content-board" clientId="content-client" doc={doc} readOnly={false} title="内容板" status="已连接" />);
   return { doc, ...view };
