@@ -42,7 +42,7 @@ describe("authored official role identities", () => {
   });
   it("ships seven distinct Chinese professional identities in the actual signed prompt", () => {
     const pack = buildOfficialAgentRolePack();
-    expect(pack.packVersion).toBe("1.6.0");
+    expect(pack.packVersion).toBe("1.7.0");
     expect(verifyOfficialAgentStarterPack(pack, { packId: pack.packId, packVersion: OFFICIAL_AGENT_ROLE_PACK_VERSION })).toEqual(pack);
     expect(pack.agents).toHaveLength(7);
     expect(new Set(pack.agents.map((role) => role.instructions)).size).toBe(7);
@@ -68,7 +68,8 @@ describe("authored official role identities", () => {
     const pack = buildOfficialAgentRolePack();
     expect(Object.keys(historicalOfficialRoleInstructionDigests("1.0.0"))).toHaveLength(4);
     expect(Object.keys(historicalOfficialRoleInstructionDigests("1.5.0"))).toHaveLength(7);
-    expect(historicalOfficialRoleInstructionDigests("1.6.0")).toEqual({});
+    expect(Object.keys(historicalOfficialRoleInstructionDigests("1.6.0"))).toHaveLength(7);
+    expect(historicalOfficialRoleInstructionDigests("1.7.0")).toEqual({});
     for (const role of pack.agents) {
       expect(historicalOfficialRoleInstructionDigests("1.5.0")[role.stableName]).not.toBe(role.instructionDigest);
     }

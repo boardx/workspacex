@@ -1,0 +1,321 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyanbin/Documents/Codex/2026-10-04/task-3/d011-active/apps/web
+
+ ✓ tests/canvas-instance-save-scope.test.tsx (16 tests) 936ms
+stderr | tests/ui/canvas-export-artifact-readback.test.tsx > 画布导出产物：重新打开验证（#3009） > ① PNG 被真的解码回来 > 解码出的像素尺寸 == exportPNG() 自报的 逻辑尺寸 × multiplier
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+TypeError: Cannot read properties of null (reading 'scale')
+    at ho.setTargetFindTolerance (file:///Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/fabric@7.4.0/node_modules/fabric/src/canvas/SelectableCanvas.ts:455:27)
+    at ho._createCacheCanvas (file:///Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/fabric@7.4.0/node_modules/fabric/src/canvas/SelectableCanvas.ts:1123:10)
+    at ho.initElements (file:///Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/fabric@7.4.0/node_modules/fabric/src/canvas/SelectableCanvas.ts:340:10)
+    at new e (file:///Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/fabric@7.4.0/node_modules/fabric/src/canvas/StaticCanvas.ts:209:10)
+    at new e (file:///Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/fabric@7.4.0/node_modules/fabric/src/canvas/SelectableCanvas.ts:175:11)
+    at new ho (file:///Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/fabric@7.4.0/node_modules/fabric/src/canvas/Canvas.ts:124:5)
+    at /Users/shenyanbin/Documents/Codex/2026-10-04/task-3/d011-active/apps/web/components/canvas/canvas-stage.tsx:358:20
+    at commitHookEffectListMount (/Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:23189:26)
+    at commitPassiveMountOnFiber (/Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:24970:11)
+    at commitPassiveMountEffects_complete (/Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:24930:9)
+The above error occurred in the <ForwardRef(CanvasStage2)> component:
+
+    at CanvasStage2 (/Users/shenyanbin/Documents/Codex/2026-10-04/task-3/d011-active/apps/web/components/canvas/canvas-stage.tsx:40:3)
+
+Consider adding an error boundary to your tree to customize error handling behavior.
+Visit https://reactjs.org/link/error-boundaries to learn more about error boundaries.
+
+stderr | tests/ui/canvas-export-artifact-readback.test.tsx > 画布导出产物：重新打开验证（#3009） > ① PNG 被真的解码回来 > 图里真的画着东西：整体有墨水，左右两个节点和中间的连接线各自成像
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+TypeError: Cannot read properties of null (reading 'scale')
+    at ho.setTargetFindTolerance (file:///Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/fabric@7.4.0/node_modules/fabric/src/canvas/SelectableCanvas.ts:455:27)
+    at ho._createCacheCanvas (file:///Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/fabric@7.4.0/node_modules/fabric/src/canvas/SelectableCanvas.ts:1123:10)
+    at ho.initElements (file:///Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/fabric@7.4.0/node_modules/fabric/src/canvas/SelectableCanvas.ts:340:10)
+    at new e (file:///Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/fabric@7.4.0/node_modules/fabric/src/canvas/StaticCanvas.ts:209:10)
+    at new e (file:///Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/fabric@7.4.0/node_modules/fabric/src/canvas/SelectableCanvas.ts:175:11)
+    at new ho (file:///Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/fabric@7.4.0/node_modules/fabric/src/canvas/Canvas.ts:124:5)
+    at /Users/shenyanbin/Documents/Codex/2026-10-04/task-3/d011-active/apps/web/components/canvas/canvas-stage.tsx:358:20
+    at commitHookEffectListMount (/Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:23189:26)
+    at commitPassiveMountOnFiber (/Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:24970:11)
+    at commitPassiveMountEffects_complete (/Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:24930:9)
+The above error occurred in the <ForwardRef(CanvasStage2)> component:
+
+    at CanvasStage2 (/Users/shenyanbin/Documents/Codex/2026-10-04/task-3/d011-active/apps/web/components/canvas/canvas-stage.tsx:40:3)
+
+Consider adding an error boundary to your tree to customize error handling behavior.
+Visit https://reactjs.org/link/error-boundaries to learn more about error boundaries.
+
+stderr | tests/ui/canvas-export-artifact-readback.test.tsx > 画布导出产物：重新打开验证（#3009） > ② PDF 真的被生成，并且能重新打开 > 真实 jspdf 产出的 PDF：单页、页面尺寸 = 逻辑尺寸×PX_TO_PT、页内图像与导出的 PNG 逐像素一致
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+TypeError: Cannot read properties of null (reading 'scale')
+    at ho.setTargetFindTolerance (file:///Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/fabric@7.4.0/node_modules/fabric/src/canvas/SelectableCanvas.ts:455:27)
+    at ho._createCacheCanvas (file:///Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/fabric@7.4.0/node_modules/fabric/src/canvas/SelectableCanvas.ts:1123:10)
+    at ho.initElements (file:///Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/fabric@7.4.0/node_modules/fabric/src/canvas/SelectableCanvas.ts:340:10)
+    at new e (file:///Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/fabric@7.4.0/node_modules/fabric/src/canvas/StaticCanvas.ts:209:10)
+    at new e (file:///Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/fabric@7.4.0/node_modules/fabric/src/canvas/SelectableCanvas.ts:175:11)
+    at new ho (file:///Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/fabric@7.4.0/node_modules/fabric/src/canvas/Canvas.ts:124:5)
+    at /Users/shenyanbin/Documents/Codex/2026-10-04/task-3/d011-active/apps/web/components/canvas/canvas-stage.tsx:358:20
+    at commitHookEffectListMount (/Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:23189:26)
+    at commitPassiveMountOnFiber (/Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:24970:11)
+    at commitPassiveMountEffects_complete (/Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:24930:9)
+The above error occurred in the <ForwardRef(CanvasStage2)> component:
+
+    at CanvasStage2 (/Users/shenyanbin/Documents/Codex/2026-10-04/task-3/d011-active/apps/web/components/canvas/canvas-stage.tsx:40:3)
+
+Consider adding an error boundary to your tree to customize error handling behavior.
+Visit https://reactjs.org/link/error-boundaries to learn more about error boundaries.
+
+stderr | tests/ui/canvas-export-artifact-readback.test.tsx > 画布导出产物：重新打开验证（#3009） > ③ 反证：产物缺失 / 损坏时，上面的判据必须红 > 全白图：墨水判据给 0，'图里有内容' 不成立
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+TypeError: Cannot read properties of null (reading 'scale')
+    at ho.setTargetFindTolerance (file:///Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/fabric@7.4.0/node_modules/fabric/src/canvas/SelectableCanvas.ts:455:27)
+    at ho._createCacheCanvas (file:///Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/fabric@7.4.0/node_modules/fabric/src/canvas/SelectableCanvas.ts:1123:10)
+    at ho.initElements (file:///Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/fabric@7.4.0/node_modules/fabric/src/canvas/SelectableCanvas.ts:340:10)
+    at new e (file:///Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/fabric@7.4.0/node_modules/fabric/src/canvas/StaticCanvas.ts:209:10)
+    at new e (file:///Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/fabric@7.4.0/node_modules/fabric/src/canvas/SelectableCanvas.ts:175:11)
+    at new ho (file:///Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/fabric@7.4.0/node_modules/fabric/src/canvas/Canvas.ts:124:5)
+    at /Users/shenyanbin/Documents/Codex/2026-10-04/task-3/d011-active/apps/web/components/canvas/canvas-stage.tsx:358:20
+    at commitHookEffectListMount (/Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:23189:26)
+    at commitPassiveMountOnFiber (/Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:24970:11)
+    at commitPassiveMountEffects_complete (/Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:24930:9)
+The above error occurred in the <ForwardRef(CanvasStage2)> component:
+
+    at CanvasStage2 (/Users/shenyanbin/Documents/Codex/2026-10-04/task-3/d011-active/apps/web/components/canvas/canvas-stage.tsx:40:3)
+
+Consider adding an error boundary to your tree to customize error handling behavior.
+Visit https://reactjs.org/link/error-boundaries to learn more about error boundaries.
+
+stderr | tests/ui/canvas-export-artifact-readback.test.tsx > 画布导出产物：重新打开验证（#3009） > ③ 反证：产物缺失 / 损坏时，上面的判据必须红 > 截断的 PNG：解码器 throw，不会静默返回一张「看起来对」的图
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+TypeError: Cannot read properties of null (reading 'scale')
+    at ho.setTargetFindTolerance (file:///Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/fabric@7.4.0/node_modules/fabric/src/canvas/SelectableCanvas.ts:455:27)
+    at ho._createCacheCanvas (file:///Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/fabric@7.4.0/node_modules/fabric/src/canvas/SelectableCanvas.ts:1123:10)
+    at ho.initElements (file:///Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/fabric@7.4.0/node_modules/fabric/src/canvas/SelectableCanvas.ts:340:10)
+    at new e (file:///Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/fabric@7.4.0/node_modules/fabric/src/canvas/StaticCanvas.ts:209:10)
+    at new e (file:///Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/fabric@7.4.0/node_modules/fabric/src/canvas/SelectableCanvas.ts:175:11)
+    at new ho (file:///Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/fabric@7.4.0/node_modules/fabric/src/canvas/Canvas.ts:124:5)
+    at /Users/shenyanbin/Documents/Codex/2026-10-04/task-3/d011-active/apps/web/components/canvas/canvas-stage.tsx:358:20
+    at commitHookEffectListMount (/Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:23189:26)
+    at commitPassiveMountOnFiber (/Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:24970:11)
+    at commitPassiveMountEffects_complete (/Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:24930:9)
+The above error occurred in the <ForwardRef(CanvasStage2)> component:
+
+    at CanvasStage2 (/Users/shenyanbin/Documents/Codex/2026-10-04/task-3/d011-active/apps/web/components/canvas/canvas-stage.tsx:40:3)
+
+Consider adding an error boundary to your tree to customize error handling behavior.
+Visit https://reactjs.org/link/error-boundaries to learn more about error boundaries.
+
+stderr | tests/ui/canvas-export-artifact-readback.test.tsx > 画布导出产物：重新打开验证（#3009） > ③ 反证：产物缺失 / 损坏时，上面的判据必须红 > 被改坏的 PDF：截断、抹掉图像、篡改流长度，三种坏法都 throw
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+TypeError: Cannot read properties of null (reading 'scale')
+    at ho.setTargetFindTolerance (file:///Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/fabric@7.4.0/node_modules/fabric/src/canvas/SelectableCanvas.ts:455:27)
+    at ho._createCacheCanvas (file:///Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/fabric@7.4.0/node_modules/fabric/src/canvas/SelectableCanvas.ts:1123:10)
+    at ho.initElements (file:///Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/fabric@7.4.0/node_modules/fabric/src/canvas/SelectableCanvas.ts:340:10)
+    at new e (file:///Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/fabric@7.4.0/node_modules/fabric/src/canvas/StaticCanvas.ts:209:10)
+    at new e (file:///Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/fabric@7.4.0/node_modules/fabric/src/canvas/SelectableCanvas.ts:175:11)
+    at new ho (file:///Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/fabric@7.4.0/node_modules/fabric/src/canvas/Canvas.ts:124:5)
+    at /Users/shenyanbin/Documents/Codex/2026-10-04/task-3/d011-active/apps/web/components/canvas/canvas-stage.tsx:358:20
+    at commitHookEffectListMount (/Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:23189:26)
+    at commitPassiveMountOnFiber (/Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:24970:11)
+    at commitPassiveMountEffects_complete (/Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:24930:9)
+The above error occurred in the <ForwardRef(CanvasStage2)> component:
+
+    at CanvasStage2 (/Users/shenyanbin/Documents/Codex/2026-10-04/task-3/d011-active/apps/web/components/canvas/canvas-stage.tsx:40:3)
+
+Consider adding an error boundary to your tree to customize error handling behavior.
+Visit https://reactjs.org/link/error-boundaries to learn more about error boundaries.
+
+ ❯ tests/ui/canvas-export-artifact-readback.test.tsx (6 tests | 6 failed) 161ms
+   × 画布导出产物：重新打开验证（#3009） > ① PNG 被真的解码回来 > 解码出的像素尺寸 == exportPNG() 自报的 逻辑尺寸 × multiplier 107ms
+     → Cannot read properties of null (reading 'scale')
+   × 画布导出产物：重新打开验证（#3009） > ① PNG 被真的解码回来 > 图里真的画着东西：整体有墨水，左右两个节点和中间的连接线各自成像 13ms
+     → Cannot read properties of null (reading 'scale')
+   × 画布导出产物：重新打开验证（#3009） > ② PDF 真的被生成，并且能重新打开 > 真实 jspdf 产出的 PDF：单页、页面尺寸 = 逻辑尺寸×PX_TO_PT、页内图像与导出的 PNG 逐像素一致 9ms
+     → Cannot read properties of null (reading 'scale')
+   × 画布导出产物：重新打开验证（#3009） > ③ 反证：产物缺失 / 损坏时，上面的判据必须红 > 全白图：墨水判据给 0，'图里有内容' 不成立 7ms
+     → Cannot read properties of null (reading 'scale')
+   × 画布导出产物：重新打开验证（#3009） > ③ 反证：产物缺失 / 损坏时，上面的判据必须红 > 截断的 PNG：解码器 throw，不会静默返回一张「看起来对」的图 7ms
+     → Cannot read properties of null (reading 'scale')
+   × 画布导出产物：重新打开验证（#3009） > ③ 反证：产物缺失 / 损坏时，上面的判据必须红 > 被改坏的 PDF：截断、抹掉图像、篡改流长度，三种坏法都 throw 15ms
+     → Cannot read properties of null (reading 'scale')
+stderr | tests/ui/canvas-stage-export.test.tsx > 画布导出 > ① CanvasStage.exportPNG() > 空画布返回 null，不产出一张空白 PNG 冒充导出成功
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+TypeError: Cannot read properties of null (reading 'scale')
+    at ho.setTargetFindTolerance (file:///Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/fabric@7.4.0/node_modules/fabric/src/canvas/SelectableCanvas.ts:455:27)
+    at ho._createCacheCanvas (file:///Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/fabric@7.4.0/node_modules/fabric/src/canvas/SelectableCanvas.ts:1123:10)
+    at ho.initElements (file:///Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/fabric@7.4.0/node_modules/fabric/src/canvas/SelectableCanvas.ts:340:10)
+    at new e (file:///Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/fabric@7.4.0/node_modules/fabric/src/canvas/StaticCanvas.ts:209:10)
+    at new e (file:///Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/fabric@7.4.0/node_modules/fabric/src/canvas/SelectableCanvas.ts:175:11)
+    at new ho (file:///Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/fabric@7.4.0/node_modules/fabric/src/canvas/Canvas.ts:124:5)
+    at /Users/shenyanbin/Documents/Codex/2026-10-04/task-3/d011-active/apps/web/components/canvas/canvas-stage.tsx:358:20
+    at commitHookEffectListMount (/Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:23189:26)
+    at commitPassiveMountOnFiber (/Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:24970:11)
+    at commitPassiveMountEffects_complete (/Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:24930:9)
+The above error occurred in the <ForwardRef(CanvasStage2)> component:
+
+    at CanvasStage2 (/Users/shenyanbin/Documents/Codex/2026-10-04/task-3/d011-active/apps/web/components/canvas/canvas-stage.tsx:40:3)
+
+Consider adding an error boundary to your tree to customize error handling behavior.
+Visit https://reactjs.org/link/error-boundaries to learn more about error boundaries.
+
+stderr | tests/ui/canvas-stage-export.test.tsx > 画布导出 > ① CanvasStage.exportPNG() > 非空画布返回真实 PNG data URL 与像素尺寸
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+TypeError: Cannot read properties of null (reading 'scale')
+    at ho.setTargetFindTolerance (file:///Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/fabric@7.4.0/node_modules/fabric/src/canvas/SelectableCanvas.ts:455:27)
+    at ho._createCacheCanvas (file:///Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/fabric@7.4.0/node_modules/fabric/src/canvas/SelectableCanvas.ts:1123:10)
+    at ho.initElements (file:///Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/fabric@7.4.0/node_modules/fabric/src/canvas/SelectableCanvas.ts:340:10)
+    at new e (file:///Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/fabric@7.4.0/node_modules/fabric/src/canvas/StaticCanvas.ts:209:10)
+    at new e (file:///Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/fabric@7.4.0/node_modules/fabric/src/canvas/SelectableCanvas.ts:175:11)
+    at new ho (file:///Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/fabric@7.4.0/node_modules/fabric/src/canvas/Canvas.ts:124:5)
+    at /Users/shenyanbin/Documents/Codex/2026-10-04/task-3/d011-active/apps/web/components/canvas/canvas-stage.tsx:358:20
+    at commitHookEffectListMount (/Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:23189:26)
+    at commitPassiveMountOnFiber (/Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:24970:11)
+    at commitPassiveMountEffects_complete (/Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:24930:9)
+The above error occurred in the <ForwardRef(CanvasStage2)> component:
+
+    at CanvasStage2 (/Users/shenyanbin/Documents/Codex/2026-10-04/task-3/d011-active/apps/web/components/canvas/canvas-stage.tsx:40:3)
+
+Consider adding an error boundary to your tree to customize error handling behavior.
+Visit https://reactjs.org/link/error-boundaries to learn more about error boundaries.
+
+stderr | tests/ui/canvas-stage-export.test.tsx > 画布导出 > ② 全屏编辑器的导出按钮 > mermaid 图编辑器：点「导出为 PNG」调用 downloadDataUrl，点「导出为 PDF」调用 exportPngAsPdf
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+TypeError: Cannot read properties of null (reading 'scale')
+    at ho.setTargetFindTolerance (file:///Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/fabric@7.4.0/node_modules/fabric/src/canvas/SelectableCanvas.ts:455:27)
+    at ho._createCacheCanvas (file:///Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/fabric@7.4.0/node_modules/fabric/src/canvas/SelectableCanvas.ts:1123:10)
+    at ho.initElements (file:///Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/fabric@7.4.0/node_modules/fabric/src/canvas/SelectableCanvas.ts:340:10)
+    at new e (file:///Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/fabric@7.4.0/node_modules/fabric/src/canvas/StaticCanvas.ts:209:10)
+    at new e (file:///Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/fabric@7.4.0/node_modules/fabric/src/canvas/SelectableCanvas.ts:175:11)
+    at new ho (file:///Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/fabric@7.4.0/node_modules/fabric/src/canvas/Canvas.ts:124:5)
+    at /Users/shenyanbin/Documents/Codex/2026-10-04/task-3/d011-active/apps/web/components/canvas/canvas-stage.tsx:358:20
+    at commitHookEffectListMount (/Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:23189:26)
+    at commitPassiveMountOnFiber (/Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:24970:11)
+    at commitPassiveMountEffects_complete (/Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:24930:9)
+The above error occurred in the <ForwardRef(CanvasStage2)> component:
+
+    at CanvasStage2 (/Users/shenyanbin/Documents/Codex/2026-10-04/task-3/d011-active/apps/web/components/canvas/canvas-stage.tsx:40:3)
+    at div
+    at div
+    at div
+    at ChatDiagramCanvasModal (/Users/shenyanbin/Documents/Codex/2026-10-04/task-3/d011-active/apps/web/components/chat/chat-diagram-canvas-modal.tsx:35:3)
+
+Consider adding an error boundary to your tree to customize error handling behavior.
+Visit https://reactjs.org/link/error-boundaries to learn more about error boundaries.
+
+stderr | tests/ui/canvas-stage-export.test.tsx > 画布导出 > ② 全屏编辑器的导出按钮 > 工作坊画布模板编辑器：同一套导出按钮存在且能触发
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+TypeError: Cannot read properties of null (reading 'scale')
+    at ho.setTargetFindTolerance (file:///Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/fabric@7.4.0/node_modules/fabric/src/canvas/SelectableCanvas.ts:455:27)
+    at ho._createCacheCanvas (file:///Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/fabric@7.4.0/node_modules/fabric/src/canvas/SelectableCanvas.ts:1123:10)
+    at ho.initElements (file:///Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/fabric@7.4.0/node_modules/fabric/src/canvas/SelectableCanvas.ts:340:10)
+    at new e (file:///Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/fabric@7.4.0/node_modules/fabric/src/canvas/StaticCanvas.ts:209:10)
+    at new e (file:///Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/fabric@7.4.0/node_modules/fabric/src/canvas/SelectableCanvas.ts:175:11)
+    at new ho (file:///Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/fabric@7.4.0/node_modules/fabric/src/canvas/Canvas.ts:124:5)
+    at /Users/shenyanbin/Documents/Codex/2026-10-04/task-3/d011-active/apps/web/components/canvas/canvas-stage.tsx:358:20
+    at commitHookEffectListMount (/Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:23189:26)
+    at commitPassiveMountOnFiber (/Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:24970:11)
+    at commitPassiveMountEffects_complete (/Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:24930:9)
+The above error occurred in the <ForwardRef(CanvasStage2)> component:
+
+    at CanvasStage2 (/Users/shenyanbin/Documents/Codex/2026-10-04/task-3/d011-active/apps/web/components/canvas/canvas-stage.tsx:40:3)
+    at div
+    at div
+    at div
+    at ChatCanvasModal (/Users/shenyanbin/Documents/Codex/2026-10-04/task-3/d011-active/apps/web/components/chat/chat-canvas-modal.tsx:31:3)
+
+Consider adding an error boundary to your tree to customize error handling behavior.
+Visit https://reactjs.org/link/error-boundaries to learn more about error boundaries.
+
+stderr | tests/ui/canvas-stage-export.test.tsx > 画布导出 > ② 全屏编辑器的导出按钮 > 保存工作坊文字保留字面 HTML 实体，并在关闭时返回原文
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+TypeError: Cannot read properties of null (reading 'scale')
+    at ho.setTargetFindTolerance (file:///Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/fabric@7.4.0/node_modules/fabric/src/canvas/SelectableCanvas.ts:455:27)
+    at ho._createCacheCanvas (file:///Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/fabric@7.4.0/node_modules/fabric/src/canvas/SelectableCanvas.ts:1123:10)
+    at ho.initElements (file:///Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/fabric@7.4.0/node_modules/fabric/src/canvas/SelectableCanvas.ts:340:10)
+    at new e (file:///Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/fabric@7.4.0/node_modules/fabric/src/canvas/StaticCanvas.ts:209:10)
+    at new e (file:///Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/fabric@7.4.0/node_modules/fabric/src/canvas/SelectableCanvas.ts:175:11)
+    at new ho (file:///Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/fabric@7.4.0/node_modules/fabric/src/canvas/Canvas.ts:124:5)
+    at /Users/shenyanbin/Documents/Codex/2026-10-04/task-3/d011-active/apps/web/components/canvas/canvas-stage.tsx:358:20
+    at commitHookEffectListMount (/Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:23189:26)
+    at commitPassiveMountOnFiber (/Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:24970:11)
+    at commitPassiveMountEffects_complete (/Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:24930:9)
+The above error occurred in the <ForwardRef(CanvasStage2)> component:
+
+    at CanvasStage2 (/Users/shenyanbin/Documents/Codex/2026-10-04/task-3/d011-active/apps/web/components/canvas/canvas-stage.tsx:40:3)
+    at div
+    at div
+    at div
+    at ChatCanvasModal (/Users/shenyanbin/Documents/Codex/2026-10-04/task-3/d011-active/apps/web/components/chat/chat-canvas-modal.tsx:31:3)
+
+Consider adding an error boundary to your tree to customize error handling behavior.
+Visit https://reactjs.org/link/error-boundaries to learn more about error boundaries.
+
+ ❯ tests/ui/canvas-stage-export.test.tsx (5 tests | 5 failed) 601ms
+   × 画布导出 > ① CanvasStage.exportPNG() > 空画布返回 null，不产出一张空白 PNG 冒充导出成功 359ms
+     → Cannot read properties of null (reading 'scale')
+   × 画布导出 > ① CanvasStage.exportPNG() > 非空画布返回真实 PNG data URL 与像素尺寸 15ms
+     → Cannot read properties of null (reading 'scale')
+   × 画布导出 > ② 全屏编辑器的导出按钮 > mermaid 图编辑器：点「导出为 PNG」调用 downloadDataUrl，点「导出为 PDF」调用 exportPngAsPdf 126ms
+     → Cannot read properties of null (reading 'scale')
+   × 画布导出 > ② 全屏编辑器的导出按钮 > 工作坊画布模板编辑器：同一套导出按钮存在且能触发 60ms
+     → Cannot read properties of null (reading 'scale')
+   × 画布导出 > ② 全屏编辑器的导出按钮 > 保存工作坊文字保留字面 HTML 实体，并在关闭时返回原文 23ms
+     → Cannot read properties of null (reading 'scale')
+
+⎯⎯⎯⎯⎯⎯ Failed Tests 11 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/ui/canvas-export-artifact-readback.test.tsx > 画布导出产物：重新打开验证（#3009） > ① PNG 被真的解码回来 > 解码出的像素尺寸 == exportPNG() 自报的 逻辑尺寸 × multiplier
+ FAIL  tests/ui/canvas-export-artifact-readback.test.tsx > 画布导出产物：重新打开验证（#3009） > ① PNG 被真的解码回来 > 图里真的画着东西：整体有墨水，左右两个节点和中间的连接线各自成像
+ FAIL  tests/ui/canvas-export-artifact-readback.test.tsx > 画布导出产物：重新打开验证（#3009） > ② PDF 真的被生成，并且能重新打开 > 真实 jspdf 产出的 PDF：单页、页面尺寸 = 逻辑尺寸×PX_TO_PT、页内图像与导出的 PNG 逐像素一致
+ FAIL  tests/ui/canvas-export-artifact-readback.test.tsx > 画布导出产物：重新打开验证（#3009） > ③ 反证：产物缺失 / 损坏时，上面的判据必须红 > 全白图：墨水判据给 0，'图里有内容' 不成立
+ FAIL  tests/ui/canvas-export-artifact-readback.test.tsx > 画布导出产物：重新打开验证（#3009） > ③ 反证：产物缺失 / 损坏时，上面的判据必须红 > 截断的 PNG：解码器 throw，不会静默返回一张「看起来对」的图
+ FAIL  tests/ui/canvas-export-artifact-readback.test.tsx > 画布导出产物：重新打开验证（#3009） > ③ 反证：产物缺失 / 损坏时，上面的判据必须红 > 被改坏的 PDF：截断、抹掉图像、篡改流长度，三种坏法都 throw
+ FAIL  tests/ui/canvas-stage-export.test.tsx > 画布导出 > ① CanvasStage.exportPNG() > 空画布返回 null，不产出一张空白 PNG 冒充导出成功
+ FAIL  tests/ui/canvas-stage-export.test.tsx > 画布导出 > ① CanvasStage.exportPNG() > 非空画布返回真实 PNG data URL 与像素尺寸
+ FAIL  tests/ui/canvas-stage-export.test.tsx > 画布导出 > ② 全屏编辑器的导出按钮 > mermaid 图编辑器：点「导出为 PNG」调用 downloadDataUrl，点「导出为 PDF」调用 exportPngAsPdf
+ FAIL  tests/ui/canvas-stage-export.test.tsx > 画布导出 > ② 全屏编辑器的导出按钮 > 工作坊画布模板编辑器：同一套导出按钮存在且能触发
+ FAIL  tests/ui/canvas-stage-export.test.tsx > 画布导出 > ② 全屏编辑器的导出按钮 > 保存工作坊文字保留字面 HTML 实体，并在关闭时返回原文
+TypeError: Cannot read properties of null (reading 'scale')
+ ❯ ho.setTargetFindTolerance ../../../../../../workspacex/node_modules/.pnpm/fabric@7.4.0/node_modules/fabric/src/canvas/SelectableCanvas.ts:455:27
+ ❯ ho._createCacheCanvas ../../../../../../workspacex/node_modules/.pnpm/fabric@7.4.0/node_modules/fabric/src/canvas/SelectableCanvas.ts:1123:10
+ ❯ ho.initElements ../../../../../../workspacex/node_modules/.pnpm/fabric@7.4.0/node_modules/fabric/src/canvas/SelectableCanvas.ts:340:10
+ ❯ new e ../../../../../../workspacex/node_modules/.pnpm/fabric@7.4.0/node_modules/fabric/src/canvas/StaticCanvas.ts:209:10
+ ❯ new e ../../../../../../workspacex/node_modules/.pnpm/fabric@7.4.0/node_modules/fabric/src/canvas/SelectableCanvas.ts:175:11
+ ❯ new ho ../../../../../../workspacex/node_modules/.pnpm/fabric@7.4.0/node_modules/fabric/src/canvas/Canvas.ts:124:5
+ ❯ components/canvas/canvas-stage.tsx:358:20
+    356|     if (!el || !container) return;
+    357|     const rect = container.getBoundingClientRect();
+    358|     const canvas = new FabricCanvas(el, {
+       |                    ^
+    359|       width: Math.max(600, rect.width),
+    360|       height: Math.max(400, rect.height),
+ ❯ commitHookEffectListMount ../../../../../../workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:23189:26
+ ❯ commitPassiveMountOnFiber ../../../../../../workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:24970:11
+ ❯ commitPassiveMountEffects_complete ../../../../../../workspacex/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:24930:9
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/11]⎯
+
+ Test Files  2 failed | 1 passed (3)
+      Tests  11 failed | 16 passed (27)
+   Start at  18:53:05
+   Duration  13.38s (transform 3.80s, setup 1.35s, collect 12.66s, tests 1.70s, environment 6.24s, prepare 538ms)

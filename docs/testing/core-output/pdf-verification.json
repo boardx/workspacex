@@ -1,0 +1,18 @@
+{
+  "bytes": 145947,
+  "pages": 3,
+  "checks": {
+    "中文研究报告": true,
+    "市场范围": true,
+    "风险与局限": true,
+    "演示报告": true,
+    "合成演示来源": true,
+    "最终结论": true,
+    "无真实用户数据": true,
+    "淼喆": true
+  },
+  "productionGuidedDocument": true,
+  "productionPrintIframe": true,
+  "browserPdf": true,
+  "manualSaveDialogConfirmed": false
+}

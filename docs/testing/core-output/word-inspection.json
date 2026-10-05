@@ -1,0 +1,53 @@
+[
+  {
+    "file": "/tmp/core-output-word/integrated/guided-research-demo.docx",
+    "sha256": "27d080452d25631abffb9ca3b06664fa18a8752f53fc70cb09052cdc1dbef860",
+    "CRC": "valid",
+    "XML": "parsed",
+    "textRuns": [
+      "中文合成研究报告",
+      "演示报告：仅包含当前已确认的大纲、摘要和已保留的演示来源，不代表真实检索或研究结论。",
+      "目录",
+      "1. 市场范围",
+      "2. 风险与局限",
+      "摘要",
+      "当前已确认摘要：证据仍待核验。",
+      "已确认章节大纲",
+      "市场范围",
+      "风险与局限",
+      "来源与引用",
+      "序号",
+      "当前已保留的演示来源",
+      "1",
+      "合成演示来源末段中文验证",
+      "https://example.com/synthetic"
+    ],
+    "gridWidths": [
+      1800,
+      7226
+    ],
+    "native": false
+  },
+  {
+    "file": "/tmp/core-output-word/integrated/research-report.docx",
+    "sha256": "5aa07b69afda02a364ef247806dfb7aba5d004c84a84592e2dde9fb10139937d",
+    "CRC": "valid",
+    "XML": "parsed",
+    "textRuns": [
+      "季度中文报告",
+      "营业收入同比增长百分之十八。",
+      "指标",
+      "本季",
+      "同比",
+      "营业收入（万元）",
+      "1,284",
+      "+18%"
+    ],
+    "gridWidths": [
+      3009,
+      3009,
+      3008
+    ],
+    "native": false
+  }
+]

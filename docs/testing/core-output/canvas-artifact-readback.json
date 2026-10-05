@@ -1,0 +1,12 @@
+{
+  "pngBytes": 92647,
+  "pngWidth": 1700,
+  "pngHeight": 1100,
+  "coloredPixelsReadback": 150051,
+  "pdfBytes": 74985,
+  "pdfPages": 1,
+  "pdfWidthPt": 1275,
+  "pdfHeightPt": 825,
+  "embeddedImageObjects": 1,
+  "scope": "real Fabric render + PNG decode + production PNG-to-PDF page parse; no devapp save/provider proof"
+}
