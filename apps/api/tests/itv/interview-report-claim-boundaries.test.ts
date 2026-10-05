@@ -17,6 +17,28 @@ describe("finite report claim boundaries", () => {
  });
  it.each(["采用移动插座，不是说不能据此断言供电风险已降低。", "采用移动插座，并非真的不能据此断言供电风险已降低。", "采用移动插座，并非不能据此断言供电风险已降低。", "采用移动插座，不是无法据此确认供电风险已消除。", "不能据此断言移动插座合适，但供电风险已降低。", "采用移动插座，不能据此断言预算合适，供电风险已降低。"])("does not waive definite risk reduction: %s", raw => {
   expect(assessReportClaimBoundaries(raw,[]).missing).toContain("unsupported_physical_risk_downgrade");
+ it.each([4,5,8])("does not erase outer denial with %s spaces", spaces => {
+  expect(assessReportClaimBoundaries(`并非${" ".repeat(spaces)}不证明当前采购已经搁置。`,[]).missing).toContain("unsupported_current_decision_state");
+ });
+ it("does not erase outer denial beyond four modifier tokens", () => {
+  expect(assessReportClaimBoundaries("并非真的完全明确直接确实不证明当前采购已经搁置。",[]).missing).toContain("unsupported_current_decision_state");
+ });
+ it.each(["不证明张采购者目前这笔咖啡机采购已暂停。", "不证明张李王赵采购者目前这笔咖啡机采购已暂停。"])("preserves bounded named role denial: %s", raw => {
+  expect(assessReportClaimBoundaries(raw,[]).missing).not.toContain("unsupported_current_decision_state");
+ });
+ it.each(["并非真的不证明张采购者目前这笔咖啡机采购已暂停。", "不证明张李王赵钱采购者目前这笔咖啡机采购已暂停。", `并非${"真的".repeat(70)}不证明当前采购已暂停。`])("fails closed for outer or oversized role denial: %s", raw => {
+  expect(assessReportClaimBoundaries(raw,[]).missing).toContain("unsupported_current_decision_state");
+ });
+ it.each([15,64])("preserves byte-exact final public state denial at line %s", line => {
+  const raw = readFileSync(new URL("./fixtures/decision-denial-5342/report.md", import.meta.url), "utf8").split("\n")[line-1];
+  if (raw === undefined) throw new Error(`Missing public raw line ${line}`);
+  expect(assessReportClaimBoundaries(raw,[]).missing).not.toContain("unsupported_current_decision_state");
+ });
+ it.each(["当前采购状态无法确认为永久搁置。", "不证明当前真实采购已经搁置。"])("preserves local epistemic state denial: %s", raw => {
+  expect(assessReportClaimBoundaries(raw,[]).missing).not.toContain("unsupported_current_decision_state");
+ });
+ it.each(["当前采购状态并非无法确认为永久搁置。", "并非不证明当前真实采购已经搁置。", "并非真的不证明当前真实采购已经搁置。", "不能明确说不证明当前真实采购已经搁置。", "不能不证明当前真实采购已经搁置。", "不证明预算不足，但当前真实采购已经搁置。", "当前采购状态无法确认预算，而当前采购已暂停。"])("does not let denial waive a positive state: %s", raw => {
+  expect(assessReportClaimBoundaries(raw,[]).missing).toContain("unsupported_current_decision_state");
  });
  it.each(["采用移动插座，因此供电风险降低。", "改用移动插座消除了线缆风险。", "移动插座并非没有降低供电风险。", "供电风险已得到降低，采用移动插座。"])("rejects unmarked definite risk reduction: %s", claim => {
   expect(assessReportClaimBoundaries(claim,[]).missing).toContain("unsupported_physical_risk_downgrade");

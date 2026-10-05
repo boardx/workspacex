@@ -78,6 +78,18 @@ const decisionPrevention = new RegExp(String.raw`(?:避免|防止)${decisionSubj
 function qualifiedDecisionState(clause: string, start: number, end: number): boolean {
   const before = clause.slice(0,start).split(/[，,:：]/u).at(-1)!;
   const predicate = clause.slice(start,end);
+  // Unknown confirmation is about this same state predicate, not a disclaimer
+  // for other decisions or a positive state after a contrast boundary.
+  if (/(?:无法|不能)确认(?:为)?(?:永久)?(?:搁置|暂停|暂缓|中断)$/u.test(predicate)
+    && !/(?:并非|不是)\s*(?:无法|不能)确认/u.test(predicate)
+    && !/(?:并非|不是)\s*$/u.test(before)) return true;
+  if (new RegExp(String.raw`不证明${decisionSubject}\s*$`, "u").test(before)) {
+    // Normalize whitespace, and fail closed beyond the finite local scan. A
+    // modifier limit must never turn an outer negation into an allowed denial.
+    const local = before.replace(/\s/gu, "");
+    if (local.length > 128) return false;
+    return !new RegExp(String.raw`(?:并非|不是|不能|不可|不得|否认|否定)(?:真的|明确|直接|确实|完全|说|声称|表示)*不证明${decisionSubject}$`, "u").test(local);
+  }
   const doubleDenial = /(?:并非|不是)\s*(?:没有|并未|未曾|从未|并不)/u.test(predicate);
   if (!doubleDenial && (/(?:是否|可能|或许|预计|将|拟|会|尚未|并未|并不|并非|不是|没有|未曾|从未)(?:已|已经|被|处于|将|会|\s)*(?:搁置|暂停|暂缓|中断)/u.test(predicate)
     || /^\s*(?:吗|么|呢|[？?])/u.test(clause.slice(end)))) return true;

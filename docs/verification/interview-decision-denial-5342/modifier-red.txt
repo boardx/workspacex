@@ -1,0 +1,72 @@
+
+> @repo/api@0.0.0 test:interview-markdown-unit /Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/apps/api
+> vitest run --config vitest.interview-markdown-unit.config.ts
+
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/apps/api
+
+ ❯ tests/itv/interview-report-claim-boundaries.test.ts (210 tests | 5 failed) 93ms
+   × finite report claim boundaries > does not erase outer denial with 5 spaces 4ms
+     → expected [] to include 'unsupported_current_decision_state'
+   × finite report claim boundaries > does not erase outer denial with 8 spaces 1ms
+     → expected [] to include 'unsupported_current_decision_state'
+   × finite report claim boundaries > does not erase outer denial beyond four modifier tokens 1ms
+     → expected [] to include 'unsupported_current_decision_state'
+   × finite report claim boundaries > preserves bounded named role denial: 不证明张采购者目前这笔咖啡机采购已暂停。 1ms
+     → expected [ Array(1) ] to not include 'unsupported_current_decision_state'
+   × finite report claim boundaries > preserves bounded named role denial: 不证明张李王赵采购者目前这笔咖啡机采购已暂停。 1ms
+     → expected [ Array(1) ] to not include 'unsupported_current_decision_state'
+ ✓ tests/itv/interview-report-recovery.test.ts (24 tests) 74ms
+ ✓ tests/itv/interview-report-grounding.test.ts (76 tests) 43ms
+ ✓ tests/itv/interview-report-diagnostics.test.ts (14 tests) 31ms
+ ✓ tests/itv/interview-markdown-report-stream-controller.test.ts (9 tests) 4ms
+ ✓ tests/itv/interview-model-markdown.test.ts (4 tests) 3ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 5 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/itv/interview-report-claim-boundaries.test.ts > finite report claim boundaries > does not erase outer denial with 5 spaces
+ FAIL  tests/itv/interview-report-claim-boundaries.test.ts > finite report claim boundaries > does not erase outer denial with 8 spaces
+AssertionError: expected [] to include 'unsupported_current_decision_state'
+ ❯ tests/itv/interview-report-claim-boundaries.test.ts:11:89
+      9| describe("finite report claim boundaries", () => {
+     10|  it.each([4,5,8])("does not erase outer denial with %s spaces", spaces…
+     11|   expect(assessReportClaimBoundaries(`并非${" ".repeat(spaces)}不证明…
+       |                                                                                         ^
+     12|  });
+     13|  it("does not erase outer denial beyond four modifier tokens", () => {
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/5]⎯
+
+ FAIL  tests/itv/interview-report-claim-boundaries.test.ts > finite report claim boundaries > does not erase outer denial beyond four modifier tokens
+AssertionError: expected [] to include 'unsupported_current_decision_state'
+ ❯ tests/itv/interview-report-claim-boundaries.test.ts:14:78
+     12|  });
+     13|  it("does not erase outer denial beyond four modifier tokens", () => {
+     14|   expect(assessReportClaimBoundaries("并非真的完全明确直接确实不证明当…
+       |                                                                              ^
+     15|  });
+     16|  it.each(["不证明张采购者目前这笔咖啡机采购已暂停。", "不证明张李王赵…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/5]⎯
+
+ FAIL  tests/itv/interview-report-claim-boundaries.test.ts > finite report claim boundaries > preserves bounded named role denial: 不证明张采购者目前这笔咖啡机采购已暂停。
+ FAIL  tests/itv/interview-report-claim-boundaries.test.ts > finite report claim boundaries > preserves bounded named role denial: 不证明张李王赵采购者目前这笔咖啡机采购已暂停。
+AssertionError: expected [ Array(1) ] to not include 'unsupported_current_decision_state'
+ ❯ tests/itv/interview-report-claim-boundaries.test.ts:17:59
+     15|  });
+     16|  it.each(["不证明张采购者目前这笔咖啡机采购已暂停。", "不证明张李王赵…
+     17|   expect(assessReportClaimBoundaries(raw,[]).missing).not.toContain("u…
+       |                                                           ^
+     18|  });
+     19|  it.each([15,64])("preserves byte-exact final public state denial at l…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/5]⎯
+
+ Test Files  1 failed | 5 passed (6)
+      Tests  5 failed | 332 passed (337)
+   Start at  12:35:35
+   Duration  2.78s (transform 686ms, setup 0ms, collect 1.96s, tests 248ms, environment 0ms, prepare 142ms)
+
+/Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/apps/api:
+ ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  @repo/api@0.0.0 test:interview-markdown-unit: `vitest run --config vitest.interview-markdown-unit.config.ts`
+Exit status 1
