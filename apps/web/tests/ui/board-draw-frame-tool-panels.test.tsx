@@ -92,3 +92,27 @@ it("maps frame choices to canonical modes and exposes preset and custom sizes",(
   expect(screen.getByTestId("board-frame-size-custom")).toHaveAttribute("aria-pressed","true");
   expect(screen.getByRole("spinbutton",{name:"Frame width"})).toHaveValue(1440);
 });
+
+it.each([{ width: 375, dockTop: 686 }, { width: 1536, dockTop: 910 }, { width: 1672, dockTop: 827 }])("anchors draw palette eight pixels above the outer dock at $width with padded buttons", ({ width, dockTop }) => {
+  const dock = document.createElement("nav"), trigger = document.createElement("button");
+  dock.dataset.testid = "board-creation-dock";
+  trigger.dataset.testid = "board-add-draw";
+  dock.append(trigger);
+  document.body.append(dock);
+  const rect = (x: number, y: number, rectWidth: number, height: number) => ({ x, y, left: x, top: y, width: rectWidth, height, right: x + rectWidth, bottom: y + height, toJSON: () => ({}) });
+  vi.spyOn(dock, "getBoundingClientRect").mockReturnValue(rect(16, dockTop, width - 32, 60));
+  vi.spyOn(trigger, "getBoundingClientRect").mockReturnValue(rect(width / 2 - 22, dockTop + 7, 44, 44));
+  const viewportWidth = vi.spyOn(window, "innerWidth", "get").mockReturnValue(width);
+  const viewportHeight = vi.spyOn(window, "innerHeight", "get").mockReturnValue(dockTop + 114);
+  const scrollHeight = vi.spyOn(HTMLElement.prototype, "scrollHeight", "get").mockReturnValue(133);
+  const offsetHeight = vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockReturnValue(135);
+  const clientHeight = vi.spyOn(HTMLElement.prototype, "clientHeight", "get").mockReturnValue(133);
+  try {
+    render(<DrawHarness/>);
+    const panel = screen.getByTestId("board-draw-tool-panel");
+    //133px content plus two border pixels is135px; the gap belongs to the full dock,
+    // independent of the trigger's seven pixels of internal vertical padding.
+    expect(panel).toHaveStyle({ top: `${dockTop - 8 - 135}px`, left: `${Math.max(16, width / 2 - 224)}px` });
+    expect(Number.parseFloat(panel.style.top) + 135).toBe(dockTop - 8);
+  } finally { viewportWidth.mockRestore(); viewportHeight.mockRestore(); scrollHeight.mockRestore(); offsetHeight.mockRestore(); clientHeight.mockRestore(); dock.remove(); }
+});

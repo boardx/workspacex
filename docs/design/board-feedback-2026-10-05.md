@@ -28,9 +28,11 @@
 - `pnpm --filter @repo/whiteboard-core exec vitest run`：23 文件、281 测试通过。
 - 独立源码 review：初轮发现顶部浮层不可见和缩放后擦除光标不更新，修正后复核无剩余阻断项。
 - 最终截图复核修复不存在的 `--foreground` token 导致的原生蓝色滑杆，以及外层面板被焦点滚动的标题裁切；增量 3 文件、22 测试通过，完整 lint 再次通过。
-- 最终真实浏览器 12/12 验收通过：包括 10 次连接拖拽、松手前擦除像素变化与 canonical 不变、取消/撤销/重做、桌面/窄屏浮层、评论/外观、实际拖动时两处 120px 等距标注的世界间隙中点。应用源码 SHA256 manifest 在运行前后冻结一致。
+- 最终真实浏览器 14/14 验收通过：包括 10 次连接拖拽、松手前擦除像素变化与 canonical 不变、取消/撤销/重做、桌面/窄屏浮层、评论/外观、实际拖动时两处 120px 等距标注的世界间隙中点。应用源码 SHA256 manifest 在运行前后冻结一致。
 - 命令输出与浏览器截图在 `evidence/whiteboard-feedback-2026-10-05/`；浏览器可复跑入口在 `apps/web/tests/whiteboard-feedback-browser/`。
 
 浏览器使用生产 `CollaborativeThinkingEditor` 与真实 Fabric 投影、内存 canonical Yjs，验证真实 pointer、native drag、菜单位置与像素。它不证明远端 API 持久化、鉴权、WebSocket 或页面刷新恢复；此次没有改动这些后端路径。评论视觉使用明确限定的列表请求替身。未进行 Apple 实机触控板/系统 IME 测试。
 
 本次直接交办不更改阶段 feature 状态或设计签核；CI 当前状态以唯一 PR 的实时检查为准。原共享主 checkout 的既有未提交改动仍由其原 owner 负责，本次仅提交隔离候选树中的白板反馈文件。没有创建 Docker 栈。交付后关闭自有浏览器/开发服务，停止 tick 并释放本次协调租约。
+
+PR CI 发现绘制浮层与 dock 间距不满足原几何断言。修复使用母 dock 外框和完整 border-box 高度；375/1536/1672 单元回归通过，1440/390/1536/1672 浏览器实测均保持 8px 间距，保留原 CI 判据。

@@ -43,17 +43,21 @@ export function BoardDrawToolPanel({ choice, appearance, readOnly, onChoiceChang
     if (!trigger) return;
     const update = () => {
       const bounds = trigger.getBoundingClientRect(), panel = panelRef.current;
+      const motherBounds = trigger.closest<HTMLElement>('[data-testid="board-creation-dock"]')?.getBoundingClientRect() ?? bounds;
       const margin = 16, gap = 8;
       const width = panel?.getBoundingClientRect().width || Math.min(448, window.innerWidth - margin * 2);
-      const height = panel?.scrollHeight || 160;
-      const above = bounds.top - gap - margin;
-      const openAbove = above >= height || above >= window.innerHeight - bounds.bottom - gap - margin;
-      setAnchor({ left: Math.max(margin, Math.min(bounds.left + bounds.width / 2 - width / 2, window.innerWidth - width - margin)), top: openAbove ? bounds.top - gap - Math.min(height, above) : bounds.bottom + gap, maxHeight: Math.max(0, openAbove ? above : window.innerHeight - bounds.bottom - gap - margin) });
+      // scrollHeight is the full content height but excludes the panel borders.
+      const height = (panel?.scrollHeight || 160) + Math.max(0, (panel?.offsetHeight || 0) - (panel?.clientHeight || 0));
+      const above = motherBounds.top - gap - margin;
+      const openAbove = above >= height || above >= window.innerHeight - motherBounds.bottom - gap - margin;
+      setAnchor({ left: Math.max(margin, Math.min(bounds.left + bounds.width / 2 - width / 2, window.innerWidth - width - margin)), top: openAbove ? motherBounds.top - gap - Math.min(height, above) : motherBounds.bottom + gap, maxHeight: Math.max(0, openAbove ? above : window.innerHeight - motherBounds.bottom - gap - margin) });
     };
     update();
     const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(update);
     if (panelRef.current) observer?.observe(panelRef.current);
     observer?.observe(trigger);
+    const mother = trigger.closest<HTMLElement>('[data-testid="board-creation-dock"]');
+    if (mother) observer?.observe(mother);
     window.addEventListener("resize", update);
     window.addEventListener("scroll", update, true);
     return () => { observer?.disconnect(); window.removeEventListener("resize", update); window.removeEventListener("scroll", update, true); };
