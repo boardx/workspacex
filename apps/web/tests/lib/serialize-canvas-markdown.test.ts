@@ -71,6 +71,10 @@ describe("all registered canvas templates", () => {
     const spec = getTemplate(key)!;
     const source = [`模板: ${key}`, ...(spec.fields ?? []).map(field => `${field}: 测试字段`),
       ...spec.sections.flatMap(section => [`## ${section.name}`, `- 便签：${section.name}`])].join("\n");
+    const colonHeadings = source.replace(/^## (.+)$/gm, "$1:");
+    expect(checkCanvasFence(colonHeadings, "canvas")).toMatchObject({ ok: true, key });
+    expect(templateToModel(colonHeadings).nodes.filter(n => n.data?.role === "sticky"))
+      .toHaveLength(spec.sections.length);
     const model = templateToModel(source);
     const sections = model.nodes.filter(n => n.data?.role === "section");
     const moved = model.nodes.find(n => n.data?.role === "sticky")!;

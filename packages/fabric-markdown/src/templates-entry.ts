@@ -30,3 +30,5 @@ export {
   lookupSectionItems,
 } from './diagrams/template-engine';
 export type { TemplateSpec, TemplateSection, ParsedTemplateText } from './diagrams/template-engine';
+
+export { normalizeTemplateSectionHeading } from './diagrams/template-section-headings';

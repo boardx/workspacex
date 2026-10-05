@@ -111,3 +111,5 @@ export function canvasToMarkdown(
   }
   return wrapAsMermaidBlock(code, lang);
 }
+
+export { normalizeTemplateSectionHeading } from './diagrams/template-section-headings';

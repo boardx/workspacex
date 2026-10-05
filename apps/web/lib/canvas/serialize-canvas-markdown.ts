@@ -13,9 +13,10 @@
  * 之前从没有调用点让 `CanvasStage` 在**可编辑**模式下加载过模板围栏（`ChatCanvasFabric`
  * 只读预览、`chat-diagram-fabric` 只处理 mermaid），所以这条分支从未被真正踩到过。
  *
- * ## vendor 纪律：不改 `packages/fabric-markdown/src/**` 一个字
+ * ## 保存边界适配
  *
- * 见其 `VENDOR.md`。因此这里不是「修 bug」，是用它的公开导出
+ * 模板正文继续复用包的序列化器，最终围栏与模板身份由应用层共同决定；
+ * 共享解析器的分区标题兼容改动记录在包的 `VENDOR.md`。这里用公开导出
  * （`extractModel`/`serializeTemplate`/`modelToMermaid`/`serializeUsecase`/
  * `extractMermaidBlocks`/`replaceMermaidBlock`/`wrapAsMermaidBlock`）在包外重新拼一份
  * **正确版本**——`auto-template-layout.ts` 已经是这个模式的先例（组织自建模板的坐标生成

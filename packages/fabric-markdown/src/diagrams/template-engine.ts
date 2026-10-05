@@ -13,6 +13,7 @@
  * spec; ```persona remains an alias for the persona template.
  */
 import { registerDiagram } from './registry';
+import { normalizeTemplateSectionHeading } from './template-section-headings';
 import type { DiagramModel, DiagramNode } from '../model';
 import { LINE, PAPER, STICKY_FILL } from '../theme';
 
@@ -238,7 +239,7 @@ export interface ParsedTemplateText {
   sections: Map<string, string[]>;
 }
 
-export function parseTemplateText(code: string): ParsedTemplateText {
+export function parseTemplateText(code: string, impliedKey?: string): ParsedTemplateText {
   const fields = new Map<string, string>();
   const sections = new Map<string, string[]>();
   let templateKey: string | undefined;
@@ -258,8 +259,22 @@ export function parseTemplateText(code: string): ParsedTemplateText {
     paragraph = [];
   };
 
-  for (const raw of code.split('\n')) {
-    const line = raw.trim();
+  const lines = code.split('\n');
+  for (let i = 0; i < lines.length; i++) {
+    const spec = templates.get(templateKey ?? impliedKey ?? '');
+    if (spec) {
+      const resolve = (name: string, names: string[]): string | null => {
+        const matches = names.filter(candidate => normalizeSectionKey(candidate) === normalizeSectionKey(name));
+        return matches.length === 1 ? matches[0]! : null;
+      };
+      const normalized = normalizeTemplateSectionHeading(
+        lines[i]!, lines.slice(i + 1).find(line => line.trim() !== ''),
+        name => resolve(name, spec.sections.map(section => section.name)),
+        name => resolve(name, spec.fields ?? []) !== null,
+      );
+      if (normalized) lines.splice(i, 1, ...normalized.text.split('\n'));
+    }
+    const line = lines[i]!.trim();
     const heading = /^##\s*(.+)$/.exec(line);
     if (heading) {
       flush();
@@ -518,7 +533,7 @@ export function lookupFieldValue(fields: Map<string, string>, key: string): stri
  * the ```persona alias); otherwise the text's `模板:` line decides.
  */
 export function templateToModel(code: string, fenceKey?: string): DiagramModel {
-  const parsed = parseTemplateText(code);
+  const parsed = parseTemplateText(code, fenceKey);
   const key = fenceKey ?? parsed.templateKey ?? '';
   const spec = templates.get(key);
   if (!spec) {
