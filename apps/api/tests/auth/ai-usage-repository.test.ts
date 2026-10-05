@@ -84,6 +84,13 @@ describe("same ledger reports — isolated PostgreSQL",()=>{
   await usage.record(toOrgId(ORG),{eventId:"late-r",userId:"alice",runId:null,modelProvider:"p",modelId:"m",tokensTotal:3,promptTokens:2,completionTokens:1,outcome:"succeeded",totalSource:"reported"});
   expect((await report.calls(toOrgId(ORG),{...query,asOf:initial.asOf})).calls.some(c=>c.id==="late-r")).toBe(false);
  });
+ it("preserves microsecond snapshot bounds across report projections",async()=>{
+  const asOf=new Date(Date.now()-1000).toISOString().replace(/\.\d{3}Z$/, ".123456Z");
+  const summary=await report.summary(toOrgId(ORG),{...query,asOf});
+  expect(summary.asOf).toBe(asOf);
+  expect((await report.calls(toOrgId(ORG),{...query,asOf:summary.asOf})).asOf).toBe(asOf);
+  expect((await report.summary(toOrgId(ORG),query)).asOf).toMatch(/\.\d{6}Z$/);
+ });
  it("native dimensions keep original units, unknown provenance, and one receipt across report projections",async()=>{
   for(const [id,source,quantity] of [["native-estimated","estimated",2000n],["native-reported","reported",3n],["native-unknown","unknown",null]] as const){
    await usage.record(toOrgId(ORG),{eventId:id,userId:"alice",runId:null,modelProvider:"p",modelId:"native",tokensTotal:0,promptTokens:null,completionTokens:null,outcome:"succeeded",totalSource:"not-applicable",requestStartedAt:new Date(now).toISOString(),nativeUsage:{unit:"millisecond",quantity,source}});

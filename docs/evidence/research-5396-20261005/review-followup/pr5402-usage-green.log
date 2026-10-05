@@ -1,0 +1,22 @@
+[stack-admission] load1=3.46 cores=10 perCore=0.35 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-muvciro9-79982ebf-f7ca893c57ec db=wsx_f7ca893c57ec7c758aca compose=wsx-f7ca893c57ec7c758aca pg=20756 redis=21756 api=24756 web=25756 sandbox=26756 model=27756 deep-agent=28756 asr=29756 vision=30756 loopback-sandbox=31756 mail=19756
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/pr-readiness-files/workspacex/apps/api
+
+[db-isolation] db=wsx_f7ca893c57ec7c758aca capacity=100 current=6 required=32
+ ✓ tests/auth/ai-usage-repository.test.ts (12 tests) 8138ms
+
+ Test Files  1 passed (1)
+      Tests  12 passed (12)
+   Start at  22:29:23
+   Duration  11.74s (transform 628ms, setup 8ms, collect 751ms, tests 8.14s, environment 0ms, prepare 52ms)
+
+[db-isolation] db=wsx_f7ca893c57ec7c758aca peak_connections=3
+[timing] pnpm --filter api exec vitest run tests/auth/ai-usage-repository.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：12s
+  清理：0s
+  总计：12s

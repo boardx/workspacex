@@ -1,3 +1,4 @@
+import { preservePreviousReport } from "../../src/application/research/guided-report-history";
 import { createHash } from "node:crypto";
 import { describe, expect, it, vi } from "vitest";
 import { executeComposite, type CompositeSteps } from "../../src/application/research/guided-composite-execution";
@@ -80,4 +81,15 @@ describe("terminal partial search draft admission", () => {
     const f = fixture(), failure = new Error("persistence"); f.steps.search = vi.fn(async () => { throw failure; });
     await expect(f.run()).rejects.toBe(failure); expect(f.steps.generate).not.toHaveBeenCalled();
   });
+});
+
+it("archives the original partial draft provenance before a successful retry", async () => {
+  const f = fixture(), original = { title: "Partial draft" } as ResearchRuntime["reportDraft"];
+  f.state.reportDraft = original; f.state.reportPartial = true; f.state.executionGoal = "report";
+  f.steps.search = vi.fn(async () => { f.state.tasks.forEach(task => { task.status = "succeeded"; task.errorCode = null; }); });
+  f.steps.generate = vi.fn(async () => { preservePreviousReport(f.state); f.state.reportDraft = null; f.state.report = { title: "Complete" } as ResearchRuntime["report"]; });
+  const persist = Object.assign(vi.fn(async () => {}), { observe: vi.fn(), requestId: "retry" }) as RuntimePersistence;
+  await executeComposite(f.state, { sessionId: "partial", requestId: "retry", expectedVersion: 2, node: "report", action: "retry" }, persist, f.steps);
+  expect(f.state.reportPrevious).toMatchObject({ draft: original, partial: true });
+  expect(f.state.reportPartial).toBe(false); expect(f.steps.completeReport).toHaveBeenCalledOnce();
 });

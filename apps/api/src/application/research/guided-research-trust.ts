@@ -85,6 +85,7 @@ export function projectResearchTrust(runtime: ResearchRuntime): GuidedResearchTr
     openGapCount, overall: average([citationCoverage, authority, recency, crossValidation]),
     explanations: ["引用覆盖按已回答问题计算", "权威性按具有完整读取文档的来源计算", "时效性按近一年检索时间计算", "交叉验证按至少两个来源的问题计算"] });
   const blockers: string[] = [];
+  if (runtime.reportPartial || runtime.tasks.some(task => task.status === "failed")) blockers.push("搜索未完成，报告仅为部分草稿");
   if (!runtime.report && !runtime.reportDraft) blockers.push("报告尚未生成");
   if (!coverage.length || coverage.some((item) => item.status === "missing")) blockers.push("核心问题覆盖不足");
   if (runtime.report && (!claimEvidence.length || coverage.some((item) => item.status === "weak"))) blockers.push("关键结论缺少来源");
