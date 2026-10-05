@@ -12,6 +12,7 @@ import type { CanvasTool } from "@/components/canvas/canvas-toolbar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { CanvasFieldCompleteness } from "./canvas-field-completeness";
 import { formatRelativeTime } from "./chat-diagram-canvas-modal";
 
 /**
@@ -346,6 +347,7 @@ export function ChatCanvasModal({
         </div>
       </header>
       </TooltipProvider>
+      <CanvasFieldCompleteness code={extractMermaidBlocks(markdown)[0]?.code ?? ""} lang={lang} />
 
       {savedSource && viewing === "saved" ? (
         <div

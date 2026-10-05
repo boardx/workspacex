@@ -11,6 +11,7 @@ import { useOptionalSession } from "@/components/session/session-provider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ChatDiagramBoardHandoff } from './chat-diagram-board-handoff';
+import { CanvasFieldCompleteness } from "./canvas-field-completeness";
 import { ChatCanvasModal } from "./chat-canvas-modal";
 import { fetchLatestSavedDiagramSource } from "@/lib/chat/diagram-readback";
 import { useSampledFenceCode } from "@/lib/canvas/streaming-fence-sample";
@@ -475,6 +476,8 @@ function CanvasFabricBody({
         </Button>
         {boardHandoff}
       </div>
+
+      {status.phase === "valid" && <CanvasFieldCompleteness code={renderCode} lang={lang} />}
 
       <div data-testid="chat-canvas-fabric-body" className="relative">
         {/* <canvas> 只有校验通过（valid）才挂——错误内容永不触碰 fabric（见文件头注释）。 */}
