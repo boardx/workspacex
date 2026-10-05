@@ -16,7 +16,7 @@ export const BOARD_DRAWING_TOOL_STYLES = {
   pen: { color: "#18181B", width: 3, opacity: 1 },
   marker: { color: "#2563EB", width: 8, opacity: .9 },
   highlighter: { color: "#FACC15", width: 20, opacity: .35 },
-  eraser: { color: "#FFFFFF", width: 24, opacity: 1 },
+  eraser: { color: "#FFFFFF", width: 48, opacity: 1 },
 } as const satisfies Readonly<Record<DrawingTool, BoardDrawingToolStyle>>;
 
 export function drawingToolStyle(tool: DrawingTool): BoardDrawingToolStyle {

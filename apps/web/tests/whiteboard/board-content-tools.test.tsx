@@ -5,6 +5,7 @@ import { createWhiteboardDocument, executeCommands, readObjects, WhiteboardComma
 import type { DrawingStroke } from "@repo/whiteboard-core";
 import type { BoardFabricObject } from "@/components/whiteboard/fabric/board-fabric-object";
 import { drawingEraserTargets } from "@/components/whiteboard/fabric/drawing-hit-test";
+import { BOARD_FILL_COLORS } from "@/components/whiteboard/board-color-palette";
 import { drawingToolStyle } from "@/components/whiteboard/drawing-tool-style";
 
 vi.mock("@/components/whiteboard/board-comments",()=>({listBoardCommentThreads:async()=>[],dispatchBoardCommentCommand:vi.fn()}));
@@ -373,8 +374,8 @@ it("validates HTTPS image MIME, size, and magic bytes before storing a durable a
   fireEvent.change(screen.getByLabelText("图片裁剪宽度"), { target: { value: ".8" } });
   fireEvent.change(screen.getByLabelText("图片裁剪高度"), { target: { value: ".8" } });
   fireEvent.change(screen.getByLabelText("图片透明度"), { target: { value: ".6" } });
-  fireEvent.change(screen.getByLabelText("图片边框粗细"), { target: { value: "2" } });
-  fireEvent.change(screen.getByLabelText("图片圆角"), { target: { value: "20" } });
+  fireEvent.click(screen.getByRole("button", { name: "图片边框粗细 2px" }));
+  fireEvent.click(screen.getByRole("button", { name: "图片圆角 20px" }));
   expect(readObjects(doc)[0]?.extensionData?.contentObject).toMatchObject({ crop: { x: 0, y: 0, width: .8, height: .8 }, opacity: .6, borderWidth: 2, cornerRadius: 20 });
   openAppearance();
   expect(screen.getByRole("link", { name: "下载" })).toHaveAttribute("href", "blob:verified-1");
@@ -507,9 +508,11 @@ it("applies contextual color and duplicates with a 24px offset", async () => {
   fireEvent.click(screen.getByTestId("canvas-click"));
   const source = readObjects(doc)[0]!;
   openAppearance();
-  fireEvent.change(screen.getByLabelText("形状填充色"), { target: { value: "#93C5FD" } });
+  fireEvent.click(screen.getByRole("button", { name: `形状填充色 ${BOARD_FILL_COLORS[2]}` }));
+  expect(readObjects(doc).find((item) => item.id === source.id)?.extensionData?.contentObject).toMatchObject({ fill: BOARD_FILL_COLORS[2] });
+  fireEvent.change(screen.getByLabelText("形状填充色自定义"), { target: { value: "#93C5FD" } });
   expect(readObjects(doc).find((item) => item.id === source.id)?.extensionData?.contentObject).toMatchObject({ fill: "#93C5FD" });
-  fireEvent.change(screen.getByLabelText("形状边框样式"), { target: { value: "dashed" } });
+  fireEvent.click(screen.getByRole("button", { name: "形状边框样式 dashed" }));
   fireEvent.change(screen.getByLabelText("形状文字对齐"), { target: { value: "left" } });
   expect(readObjects(doc).find((item) => item.id === source.id)?.extensionData?.contentObject).toMatchObject({ borderStyle: "dashed", horizontalAlign: "left", verticalAlign: "middle" });
   fireEvent.click(screen.getByRole("button", { name: "复制" }));

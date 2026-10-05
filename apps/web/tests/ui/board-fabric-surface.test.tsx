@@ -12,7 +12,7 @@ interface MockProjectedObject {
   selectable: boolean; evented: boolean;
   mockKind?: string; children?: MockProjectedObject[]; controls?: Record<string, boolean>;
   fontFamily?: string; fontSize?: number; fontWeight?: number; fontStyle?: string; underline?: boolean; textAlign?: string; lineHeight?: number; fill?: string; hoverCursor?: string; lockScalingX?: boolean; lockScalingY?: boolean;
-  clipPath?: unknown;
+  clipPath?: unknown; visible?: boolean; globalCompositeOperation?: string;
   matrix?: number[];
   text?: string; stroke?: string; strokeWidth?: number; opacity?: number;
   calcTransformMatrix: () => number[];
@@ -399,9 +399,57 @@ describe("BoardFabricSurface", () => {
     renderSurface({ objects: [...OBJECTS, drawing, { ...drawing, id: "locked", locked: true }], tool: "erase", onDrawingComplete });
     probe.handlers.get("mouse:down")?.({ e: new MouseEvent("mousedown", { clientX: 40, clientY: 60 }) });
     probe.handlers.get("mouse:move")?.({ e: new MouseEvent("mousemove", { clientX: 60, clientY: 40 }) });
-    expect(probe.objects.some(object => object.data?.drawingPreview)).toBe(false);
+    const preview = probe.objects.find(object => object.data?.drawingPreview)!;
+    expect(preview).toBeDefined();
+    expect(preview.children?.at(-1)).toMatchObject({ globalCompositeOperation: "destination-out" });
+    expect(probe.objects.find(object => object.data?.boardObjectId === "ink")).toMatchObject({ visible: false });
+    expect(probe.objects.find(object => object.data?.boardObjectId === "locked")?.visible).not.toBe(false);
+    expect(onDrawingComplete).not.toHaveBeenCalled();
     probe.handlers.get("mouse:up")?.({ e: new MouseEvent("mouseup", { clientX: 60, clientY: 40 }) });
+    expect(onDrawingComplete).toHaveBeenCalledOnce();
     expect(onDrawingComplete).toHaveBeenCalledWith(expect.objectContaining({ tool: "eraser", targetObjectIds: ["ink"] }));
+    expect(probe.objects.some(object => object.data?.drawingPreview)).toBe(false);
+    expect(probe.objects.find(object => object.data?.boardObjectId === "ink")).toMatchObject({ visible: true });
+  });
+
+  it("restores the latest canonical drawing when held erasure is cancelled", () => {
+    const ink: BoardFabricObject = { ...OBJECTS[0]!, id: "ink", kind: "drawing", geometry: { x: 0, y: 0, width: 100, height: 100, rotation: 0 }, boardContent: { version: 1, type: "drawing", strokes: [{ id: "pen", tool: "pen", width: 3, opacity: 1, color: "#18181B", points: [{ x: 0, y: 0, pressure: 1 }, { x: 100, y: 100, pressure: 1 }] }] } };
+    const props = { objects: [ink], selectedObjectIds: [], readOnly: false, tool: "erase" as const, viewport: VIEWPORT, onSelectionChange: vi.fn(), onObjectTransform: vi.fn(), onViewportChange: vi.fn(), onDrawingComplete: vi.fn() };
+    const view = render(<BoardFabricSurface {...props}/>);
+    probe.handlers.get("mouse:down")?.({ e: new MouseEvent("mousedown", { clientX: 40, clientY: 60 }) });
+    probe.handlers.get("mouse:move")?.({ e: new MouseEvent("mousemove", { clientX: 60, clientY: 40 }) });
+    const remote = { ...ink, revision: 2, geometry: { ...ink.geometry, x: 250 }, locked: true };
+    view.rerender(<BoardFabricSurface {...props} objects={[remote]}/>);
+    expect(probe.objects.some(object => object.data?.drawingPreview)).toBe(false);
+    fireEvent.pointerCancel(screen.getByTestId("board-fabric-surface"));
+    expect(props.onDrawingComplete).not.toHaveBeenCalled();
+    expect(probe.objects.find(object => object.data?.boardObjectId === "ink")).toMatchObject({ left: 250, visible: true, lockMovementX: true });
+  });
+
+  it("updates the whiteboard eraser footprint after zoom without cancelling the held gesture", () => {
+    const props = { objects: [], selectedObjectIds: [], readOnly: false, tool: "erase" as const, viewport: VIEWPORT, onSelectionChange: vi.fn(), onObjectTransform: vi.fn(), onViewportChange: vi.fn(), onDrawingComplete: vi.fn() };
+    const view = render(<BoardFabricSurface {...props}/>);
+    fireEvent.mouseMove(screen.getByTestId("board-fabric-surface"), { clientX: 40, clientY: 60 });
+    expect(screen.getByTestId("board-eraser-cursor")).toHaveStyle({ width: "48px", height: "48px", left: "40px", top: "60px" });
+    probe.handlers.get("mouse:down")?.({ e: new MouseEvent("mousedown", { clientX: 40, clientY: 60 }) });
+    view.rerender(<BoardFabricSurface {...props} viewport={{ ...VIEWPORT, zoom: 2 }}/>);
+    expect(screen.getByTestId("board-eraser-cursor")).toHaveStyle({ width: "96px", height: "96px" });
+    probe.handlers.get("mouse:move")?.({ e: new MouseEvent("mousemove", { clientX: 60, clientY: 40 }) });
+    probe.handlers.get("mouse:up")?.({ e: new MouseEvent("mouseup", { clientX: 60, clientY: 40 }) });
+    expect(props.onDrawingComplete).toHaveBeenCalledOnce();
+  });
+
+  it("updates connector stroke and both tips on canonical color refresh", () => {
+    const arrow: BoardFabricObject = { id: "edge", kind: "connector", revision: 1, orderKey: "z", geometry: { x: 100, y: 100, width: 200, height: 1, rotation: 0 }, style: { fill: "", textColor: "#222", stroke: "#29261E" }, content: { text: "" }, connector: { fromAnchor: "right", toAnchor: "left", type: "straight", startStyle: "circle", endStyle: "arrow", lineStyle: "solid", label: "", semanticRelation: "", start: { x: 100, y: 100 }, end: { x: 300, y: 100 } } };
+    const props = { objects: [arrow], selectedObjectIds: [], readOnly: false, tool: "select" as const, viewport: VIEWPORT, onSelectionChange: vi.fn(), onObjectTransform: vi.fn(), onViewportChange: vi.fn() };
+    const view = render(<BoardFabricSurface {...props}/>);
+    const original = probe.objects.find(item => item.data?.boardObjectId === "edge")!;
+    view.rerender(<BoardFabricSurface {...props} objects={[{ ...arrow, revision: 2, style: { ...arrow.style, stroke: "#A855F7" } }]}/>);
+    const updated = probe.objects.find(item => item.data?.boardObjectId === "edge")!;
+    expect(updated).not.toBe(original);
+    expect(updated.children?.[0]?.stroke).toBe("#A855F7");
+    expect(updated.children?.slice(1).map(item => item.fill)).toEqual(["#A855F7", "#A855F7"]);
+    expect(props.onObjectTransform).not.toHaveBeenCalled();
   });
 
   it.each([

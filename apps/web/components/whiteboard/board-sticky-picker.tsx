@@ -13,11 +13,11 @@ export function BoardStickyPicker({ color, variant, readOnly, onColorChange, onV
     </div>
     <div className="flex items-center gap-2">
       <span className="w-8 shrink-0 text-13 text-muted-foreground">形状</span>
-      <div className="flex gap-1">{([{ value: 'square', label: '方形便利贴' }, { value: 'rectangle', label: '长方形便利贴' }, { value: 'circle', label: '圆形便利贴' }] as const).map(item => <Button key={item.value} type="button" data-testid={`board-sticky-${item.value}`} data-board-create-tool="sticky" title={item.label} aria-label={item.label} aria-pressed={variant === item.value} variant={variant === item.value ? 'secondary' : 'ghost'} className="min-h-11 min-w-11" disabled={readOnly} draggable={!readOnly} onDragStart={event => { event.dataTransfer.setData('application/x-workspacex-board-tool', JSON.stringify({ kind: 'sticky', variant: item.value, color })); }} onClick={() => onVariantChange(item.value)}>
-        <StickyToolPreview variant={item.value} color={color} />
+      <div className="flex gap-1">{([{ value: 'square', label: '方形便利贴' }, { value: 'rectangle', label: '长方形便利贴' }, { value: 'circle', label: '圆形便利贴' }] as const).map(item => <Button key={item.value} type="button" data-testid={`board-sticky-${item.value}`} data-board-create-tool="sticky" title={item.label} aria-label={item.label} aria-pressed={variant === item.value} variant={variant === item.value ? 'secondary' : 'ghost'} className="min-h-11 min-w-11" disabled={readOnly} draggable={!readOnly} onDragStart={event => { event.dataTransfer.setData('application/x-workspacex-board-tool', JSON.stringify({ kind: 'sticky', variant: item.value, color })); const preview = event.currentTarget.querySelector<HTMLElement>('[data-board-drag-preview]'); if (preview) event.dataTransfer.setDragImage?.(preview, preview.offsetWidth / 2, preview.offsetHeight / 2); }} onClick={() => onVariantChange(item.value)}>
+        <span data-board-drag-preview><StickyToolPreview variant={item.value} color={color} /></span>
       </Button>)}</div>
       <Button data-testid="board-bulk-open" aria-label="批量创建便利贴" variant="ghost" className="ml-auto min-h-11 shrink-0 px-2 text-12" onClick={onBulk} disabled={readOnly}>批量创建</Button>
     </div>
-    <p className="px-1 text-11 leading-5 text-muted-foreground">应用于接下来创建的便利贴</p>
+
   </div>;
 }

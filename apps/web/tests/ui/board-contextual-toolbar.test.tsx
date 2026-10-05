@@ -4,6 +4,7 @@ import { createRef } from "react";
 import { createWhiteboardDocument, executeCommands, readObjects, type WhiteboardObject } from "@repo/whiteboard-core";
 import { ObjectContextToolbar } from "@/components/whiteboard/object-context-toolbar";
 import { CollaborativeThinkingEditor } from "@/components/whiteboard/collaborative-thinking-editor";
+import { BOARD_FILL_COLORS } from "@/components/whiteboard/board-color-palette";
 import { BoardSelectedObjectPanel } from "@/components/whiteboard/board-selected-object-panel";
 import { BoardContentObjectInspector } from "@/components/whiteboard/board-content-object-inspector";
 import type { BoardFabricObject } from "@/components/whiteboard/fabric/board-fabric-object";
@@ -66,6 +67,11 @@ it("provides adjustable inspector size, compact geometry disclosure and grouped 
   expect(panel).not.toHaveClass("p-1");
   openProperties();
   expect(screen.getByTestId("board-inspector-scroll-content")).toBeVisible();
+  expect(screen.getByTestId("board-context-toolbar")).toHaveClass("overflow-clip");
+  expect(screen.getByTestId("board-inspector-scroll-content")).toHaveClass("overflow-y-auto");
+  screen.getByRole("button", { name: "样式操作" }).focus();
+  expect(screen.getByRole("button", { name: "样式操作" })).toHaveFocus();
+  expect(screen.getByRole("heading", { name: "Idea" })).toBeVisible();
   const width = screen.getByTestId("board-inspector-resize");
   expect(width).toHaveAttribute("aria-valuenow", "320");
   width.setPointerCapture = vi.fn();
@@ -241,7 +247,13 @@ it("opens the matching object menu when a shape is selected on the Fabric board"
   expect(panel).toHaveAttribute("aria-label", "形状快捷工具");
   expect(panel.style.left).toMatch(/px$/);
   expect(panel.style.top).toMatch(/px$/);
-  expect(screen.getByTestId("board-object-fill-color")).toBeVisible();
+  fireEvent.click(screen.getByRole("button", { name: "对象填充颜色" }));
+  expect(screen.getByRole("group", { name: "对象填充颜色" })).toBeVisible();
+  fireEvent.click(screen.getByRole("button", { name: `对象填充颜色 ${BOARD_FILL_COLORS[2]}` }));
+  expect(readObjects(doc)).toHaveLength(1);
+  expect(readObjects(doc)[0]!.style.fill).toBe(BOARD_FILL_COLORS[2]);
+  fireEvent.change(screen.getByLabelText("对象填充颜色自定义"), { target: { value: "#123abc" } });
+  expect(readObjects(doc)[0]!.style.fill).toBe("#123ABC");
   expect(screen.getByRole("button", { name: "复制对象" })).toBeEnabled();
   expect(screen.getByRole("button", { name: "删除对象" })).toBeEnabled();
   doc.destroy();
@@ -328,4 +340,19 @@ it("hides mutating single-object controls when the selected object is locked", (
   expect(screen.getByTestId("board-spatial-duplicate")).toBeDisabled();
   expect(screen.getByTestId("board-spatial-duplicate")).toHaveAttribute("title", "选择中包含锁定对象");
   doc.destroy();
+});
+
+it('persists Sticky compact text formatting and projects it after rerender',()=>{
+ const doc=createWhiteboardDocument();executeCommands(doc,[{type:'create',object:{...sticky,id:'note',text:'Sticky text'}}],'seed');
+ render(<CollaborativeThinkingEditor boardId="board" clientId="web" doc={doc} readOnly={false} title="Board" status="已连接" />);
+ fireEvent.click(screen.getByTestId('select-one'));
+ fireEvent.click(screen.getByTestId('board-sticky-text-open'));
+ fireEvent.click(screen.getByRole('button',{name:'切换粗体'}));
+ expect(readObjects(doc)[0]?.extensionData).toMatchObject({thinkingInput:{text:{bold:true,preset:'body'}}});
+ expect(screen.getByRole('button',{name:'切换粗体'})).toHaveAttribute('aria-pressed','true');
+ fireEvent.click(screen.getByRole('button',{name:'切换斜体'}));
+ expect(readObjects(doc)[0]?.extensionData).toMatchObject({thinkingInput:{text:{bold:true,italic:true}}});
+ fireEvent.click(screen.getByRole('button',{name:'切换文字对齐'}));
+ expect(readObjects(doc)[0]?.extensionData).toMatchObject({thinkingInput:{text:{alignment:'center'}}});
+ doc.destroy();
 });

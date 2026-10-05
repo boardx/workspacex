@@ -294,7 +294,7 @@ it("applies all direct text controls and rejects a non-http link without mutatin
   fireEvent.click(screen.getByLabelText("粗体"));
   fireEvent.click(screen.getByLabelText("斜体"));
   fireEvent.click(screen.getByLabelText("下划线"));
-  fireEvent.change(screen.getByLabelText("文字颜色"), { target: { value: "#123456" } });
+  fireEvent.change(screen.getByLabelText("文字颜色自定义"), { target: { value: "#123456" } });
   fireEvent.change(screen.getByLabelText("文字对齐"), { target: { value: "center" } });
   fireEvent.change(screen.getByLabelText("行高"), { target: { value: "1.8" } });
   fireEvent.change(screen.getByLabelText("列表"), { target: { value: "bullet" } });

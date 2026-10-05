@@ -1,0 +1,13 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /private/tmp/wsx-board-feedback-20261005/apps/web
+
+ ✓ tests/ui/board-appearance-controls.test.tsx (4 tests) 176ms
+ ✓ tests/ui/board-contextual-toolbar.test.tsx (16 tests) 911ms
+ ✓ tests/ui/board-panel-anchored-resize.test.tsx (2 tests) 52ms
+
+ Test Files  3 passed (3)
+      Tests  22 passed (22)
+   Start at  08:52:29
+   Duration  4.65s (transform 1.15s, setup 364ms, collect 2.17s, tests 1.14s, environment 1.92s, prepare 163ms)
+
