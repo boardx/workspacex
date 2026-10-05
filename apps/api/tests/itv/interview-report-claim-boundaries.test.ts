@@ -7,6 +7,75 @@ import { interviewMarkdown } from "@repo/contracts";
 const evidence = (quote: string): ReportEvidence => ({ anchor: "answer-1", documentId: "runs", version: 1,
   sourceHash: "a".repeat(64), start: 0, end: quote.length, quote, expertId: "expert", taskKey: "task", evidenceMode: "simulated", expertLabel: "甲" });
 describe("finite report claim boundaries", () => {
+ it.each(["采用移动插座，因此供电风险降低。", "改用移动插座消除了线缆风险。", "移动插座并非没有降低供电风险。", "供电风险已得到降低，采用移动插座。"])("rejects unmarked definite risk reduction: %s", claim => {
+  expect(assessReportClaimBoundaries(claim,[]).missing).toContain("unsupported_physical_risk_downgrade");
+ });
+ it("activates the gate from exact bound setup evidence without promoting its quote", () => {
+  const quote = "受访者建议采用移动插座。";
+  expect(assessReportClaimBoundaries(`[${quote}](#answer-1) 因此供电风险已降低。`,[evidence(quote)]).missing).toContain("unsupported_physical_risk_downgrade");
+  expect(assessReportClaimBoundaries(`[${quote}](#answer-1) 供电风险尚待验证。`,[evidence(quote)]).ok).toBe(true);
+ });
+ it.each(["供电回路的现场负荷检测确认供电风险已降低", "承重结构的专项检测确认承重风险已降低", "线缆路径的安全检测确认线缆风险已降低"])("accepts exact site/object/method risk evidence: %s", result => {
+  const quote = `本次对该办公区${result}。`;
+  const claim = `采用移动插座，${quote}`;
+  expect(assessReportClaimBoundaries(`${claim}[${quote}](#answer-1)`,[evidence(quote)]).ok).toBe(true);
+  expect(assessReportClaimBoundaries(`${claim.replace("办公区","会议室")}[${quote}](#answer-1)`,[evidence(quote)]).missing).toContain("unsupported_physical_risk_downgrade");
+ });
+ it.each(["移动插座可能降低供电风险。", "建议采用移动插座降低供电风险。", "移动插座尚未消除线缆风险。"])("preserves scoped modal reverse risk predicates: %s", claim => {
+  expect(assessReportClaimBoundaries(claim,[]).ok).toBe(true);
+ });
+ it.each([1,2])("rejects preserved public attempt %s's automatic physical-risk downgrade", attempt => {
+  const root = new URL("./fixtures/defect-exclusion-5341/", import.meta.url);
+  const raw = readFileSync(new URL(`attempt-${attempt}.md`, root), "utf8");
+  const saved = JSON.parse(readFileSync(new URL("source.json", root), "utf8"));
+  const index = buildReportEvidenceIndex(saved.documents.find((d: {step:string}) => d.step === "runs"));
+  expect(assessReportClaimBoundaries(raw,index).missing).toContain("unsupported_physical_risk_downgrade");
+ });
+ it.each([
+  "若办公区采用移动式带线插座或无固定柜体，则该物理冲突风险自动降级。",
+  "改用移动插座后，供电风险自动降低。仍需检查线缆。",
+  "无固定柜体，所以空间风险已经消除。",
+  "不能确认安装成本，但采用移动插座后物理风险必然降低。",
+  "不能否认采用移动插座后供电风险自动降低。",
+  "采用移动插座后供电风险并非没有自动降低。",
+  "采用移动插座后供电风险不是尚未自动降低。",
+  "采用移动插座后供电风险并非没有得到降低。",
+  "移动插座并非没有降低供电风险。",
+  "采用移动插座并非不会消除供电风险。",
+  "采用移动插座不是未降低供电风险。",
+ ])("does not treat a changed setup as verified risk reduction: %s", claim => {
+  const quote = "另一个场景安装顺利，不能推断普遍发生。";
+  expect(assessReportClaimBoundaries(`${claim}[${quote}](#answer-1)`,[evidence(quote)]).missing).toContain("unsupported_physical_risk_downgrade");
+ });
+ it.each([
+  "若采用移动插座，还需验证物理风险是否降低，并检查负荷与线缆。",
+  "无固定柜体仅可省略固定孔位检查，供电、承重与空间仍需检查。",
+  "不能断言采用移动插座后供电风险自动降低。",
+  "采用移动插座后物理风险并非自动降低。",
+  "采用移动插座后供电风险没有自动降低。",
+  "采用移动插座后供电风险尚未自动降低。",
+  "采用移动插座后供电风险没有得到降低。",
+  "移动插座并非降低供电风险。",
+  "采用移动插座并不降低供电风险。",
+  "采用移动插座不会消除供电风险。",
+  "采用移动插座未降低供电风险。",
+  "移动插座可能减轻孔位冲突，但线缆与供电仍待验证。",
+  "若移动插座经现场负荷检测确认供电风险已降低，才调整供电检查频率。",
+  "采用移动插座后，供电风险已降低吗？需要现场验证。",
+ ])("preserves pending risk hypotheses and narrow hole-check advice: %s", claim => {
+  expect(assessReportClaimBoundaries(claim,[]).ok).toBe(true);
+ });
+ it("keeps recorded narrow checks separate from other risks and setup proposals", () => {
+  const quote = "本次对该办公区固定孔位的现场复核确认该固定孔位冲突风险已降低。";
+  const claim = `改用移动插座后，${quote}`;
+  expect(assessReportClaimBoundaries(`${claim}[${quote}](#answer-1)`,[evidence(quote)]).ok).toBe(true);
+  for (const unsafe of ["改用移动插座后，供电风险已降低。", "改用移动插座后，物理风险已降低。", "改用移动插座后，本次对该会议室固定孔位的现场复核确认该固定孔位冲突风险已降低。"])
+    expect(assessReportClaimBoundaries(`${unsafe}[${quote}](#answer-1)`,[evidence(quote)]).missing).toContain("unsupported_physical_risk_downgrade");
+  expect(assessReportClaimBoundaries(`${claim}[${quote}](#answer-1)`,[{...evidence(quote),taskKey:null}]).missing).toContain("unsupported_physical_risk_downgrade");
+  const plan = quote.replace("本次", "计划");
+  expect(assessReportClaimBoundaries(`${claim}[${plan}](#answer-1)`,[evidence(plan)]).missing).toContain("unsupported_physical_risk_downgrade");
+  expect(assessReportClaimBoundaries(`改用移动插座后的原话：[${quote}](#answer-1)`,[evidence(quote)]).ok).toBe(true);
+ });
  it.each(["这笔采购处于暂停状态。", "这笔购买处于中断状态。"])("rejects unsupported present-state copula: %s", claim => {
   expect(assessReportClaimBoundaries(claim,[]).missing).toContain("unsupported_current_decision_state");
  });
