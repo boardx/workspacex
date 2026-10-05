@@ -1,0 +1,27 @@
+{
+  "browser": "151.0.7922.34",
+  "context": "owned-default-CDP",
+  "results": [
+    {
+      "case": "idle-owner-paused-peer-renderer",
+      "completedWhilePaused": true,
+      "totalMs": 1505,
+      "value": {
+        "ok": true,
+        "time": 70.40000000596046
+      }
+    },
+    {
+      "case": "idle-owner-paused-peer-idb-readwrite",
+      "completedWhilePaused": true,
+      "totalMs": 1504,
+      "value": "committed"
+    },
+    {
+      "case": "active-owner-transaction-paused-peer-idb-readwrite",
+      "completedWhilePaused": false,
+      "totalMs": 1503,
+      "value": "committed"
+    }
+  ]
+}

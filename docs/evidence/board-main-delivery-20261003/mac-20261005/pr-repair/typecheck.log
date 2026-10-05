@@ -1,0 +1,4 @@
+
+> web@0.1.0 typecheck /private/tmp/wsx-board-acceptance-20261005-49c0c/apps/web
+> tsc --noEmit
+

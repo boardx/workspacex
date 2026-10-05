@@ -1,0 +1,86 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /private/tmp/wsx-board-acceptance-20261005-49c0c/apps/web
+
+ ❯ tests/ui/board-toolbar-position.test.tsx (19 tests | 6 failed) 191ms
+   × switches actual open popovers and releases the final reservation on close 8ms
+     → expected 72 to be greater than or equal to 264
+   × opens the actual managed 连接线路径 popover and releases its reservation on removal 5ms
+     → expect(element).toHaveAttribute("data-board-popover-placement", "above") // element.getAttribute("data-board-popover-placement") === "above"
+
+Expected the element to have attribute:
+  data-board-popover-placement="above"
+Received:
+  data-board-popover-placement="below"
+   × opens the actual managed 连接线粗细 popover and releases its reservation on removal 4ms
+     → expect(element).toHaveAttribute("data-board-popover-placement", "above") // element.getAttribute("data-board-popover-placement") === "above"
+
+Expected the element to have attribute:
+  data-board-popover-placement="above"
+Received:
+  data-board-popover-placement="below"
+   × opens the actual managed 连接线型 popover and releases its reservation on removal 5ms
+     → expect(element).toHaveAttribute("data-board-popover-placement", "above") // element.getAttribute("data-board-popover-placement") === "above"
+
+Expected the element to have attribute:
+  data-board-popover-placement="above"
+Received:
+  data-board-popover-placement="below"
+   × opens the actual managed 端点样式 popover and releases its reservation on removal 4ms
+     → expect(element).toHaveAttribute("data-board-popover-placement", "above") // element.getAttribute("data-board-popover-placement") === "above"
+
+Expected the element to have attribute:
+  data-board-popover-placement="above"
+Received:
+  data-board-popover-placement="below"
+   × opens the actual managed 连接标签 popover and releases its reservation on removal 3ms
+     → expect(element).toHaveAttribute("data-board-popover-placement", "above") // element.getAttribute("data-board-popover-placement") === "above"
+
+Expected the element to have attribute:
+  data-board-popover-placement="above"
+Received:
+  data-board-popover-placement="below"
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 6 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/ui/board-toolbar-position.test.tsx > switches actual open popovers and releases the final reservation on close
+AssertionError: expected 72 to be greater than or equal to 264
+ ❯ tests/ui/board-toolbar-position.test.tsx:88:48
+     86|   });
+     87|   fireEvent.click(trigger);
+     88|   expect(Number.parseFloat(toolbar.style.top)).toBeGreaterThanOrEqual(…
+       |                                                ^
+     89|   expect(screen.getAllByRole('dialog',{hidden:true})).toHaveLength(1);
+     90|  }
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/6]⎯
+
+ FAIL  tests/ui/board-toolbar-position.test.tsx > opens the actual managed 连接线路径 popover and releases its reservation on removal
+ FAIL  tests/ui/board-toolbar-position.test.tsx > opens the actual managed 连接线粗细 popover and releases its reservation on removal
+ FAIL  tests/ui/board-toolbar-position.test.tsx > opens the actual managed 连接线型 popover and releases its reservation on removal
+ FAIL  tests/ui/board-toolbar-position.test.tsx > opens the actual managed 端点样式 popover and releases its reservation on removal
+ FAIL  tests/ui/board-toolbar-position.test.tsx > opens the actual managed 连接标签 popover and releases its reservation on removal
+Error: expect(element).toHaveAttribute("data-board-popover-placement", "above") // element.getAttribute("data-board-popover-placement") === "above"
+
+Expected the element to have attribute:
+  data-board-popover-placement="above"
+Received:
+  data-board-popover-placement="below"
+ ❯ tests/ui/board-toolbar-position.test.tsx:117:51
+    115|  });
+    116|  fireEvent.click(trigger);
+    117|  expect(screen.getByRole('dialog',{hidden:true})).toHaveAttribute('dat…
+       |                                                   ^
+    118|  expect(Number.parseFloat(toolbar.style.top)).toBeGreaterThanOrEqual(2…
+    119|  fireEvent(window,new Event('resize'));
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/6]⎯
+
+ Test Files  1 failed (1)
+      Tests  6 failed | 13 passed (19)
+   Start at  12:46:29
+   Duration  2.05s (transform 630ms, setup 81ms, collect 1.01s, tests 191ms, environment 427ms, prepare 31ms)
+
+undefined
+/private/tmp/wsx-board-acceptance-20261005-49c0c/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/ui/board-toolbar-position.test.tsx

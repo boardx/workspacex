@@ -1,0 +1,42 @@
+{
+  "browser": "151.0.7922.34",
+  "context": "owned-default-CDP",
+  "results": [
+    {
+      "case": "idle-owner-paused-peer-renderer",
+      "completedWhilePaused": true,
+      "totalMs": 1502,
+      "value": {
+        "ok": true,
+        "time": 75
+      }
+    },
+    {
+      "case": "idle-owner-paused-peer-idb-readwrite",
+      "completedWhilePaused": true,
+      "totalMs": 1504,
+      "value": "committed"
+    },
+    {
+      "case": "missing-instrumentation-fail-closed",
+      "exception": "Error: IDB_QUIESCENCE_UNAVAILABLE\n    at requestIndexedDbQuiescentPause (<anonymous>:6:15)\n    at <anonymous>:18:3"
+    },
+    {
+      "case": "helper-waits-for-active-owner-transaction-then-peer-write",
+      "pauseDelayMs": 96,
+      "beforeRequest": {
+        "active": 1,
+        "transactionComplete": false
+      },
+      "bindings": [
+        {
+          "type": "storage-quiescent",
+          "active": 0
+        }
+      ],
+      "completedWhilePaused": true,
+      "totalMs": 1502,
+      "value": "committed"
+    }
+  ]
+}

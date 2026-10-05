@@ -13,9 +13,11 @@ The original Board session retains its separate uncommitted work; it was not
 copied or overwritten. The identity of an additional session called “board dev”
 has not been established from its name alone.
 
-**FINAL_SCOPE_READY=false. This draft is blocked by the unchanged R01 pixel
-oracle and unfinished runtime acceptance. Source presence, source review and
-local static checks do not establish any of the ten rounds as complete.**
+**FINAL_SCOPE_READY=false. Full native product acceptance remains unfinished.
+The earlier R01 pixel-oracle failure no longer reproduces on `49c0c838d`;
+[the current repair evidence](mac-20261005/pr-repair/README.md) records the exact
+checks and shared-outbox suspension diagnosis. Source presence, source review
+and local checks do not establish all ten rounds as complete.**
 
 ## Source preservation
 

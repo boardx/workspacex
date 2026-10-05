@@ -1,0 +1,21 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /private/tmp/wsx-board-acceptance-20261005-49c0c/apps/web
+
+ ✓ tests/whiteboard/whiteboard-outbox-indexeddb.test.ts (7 tests) 33ms
+ ✓ tests/whiteboard/whiteboard-provider.test.ts (79 tests) 11480ms
+   ✓ already-open peer waits for the actual origin claim then drains after close releases it without reload 322ms
+   ✓ attributes a delayed original ACK only on its current socket after shared durable peer drain 2052ms
+   ✓ attributes a delayed original ACK only on its replacement socket after shared durable peer drain 2105ms
+   ✓ attributes a delayed original ACK only on its reauthorized socket after shared durable peer drain 2051ms
+   ✓ resends its exact sent intent after peer durable ACK and original1006 before accepting its own replacement receipt 2604ms
+   ✓ orders a real peer durable ACK against original reconcile-first recovery without faking claim success 312ms
+   ✓ orders a real peer durable ACK against original renew-first recovery without faking claim success 368ms
+ ✓ tests/whiteboard/shape-projection-cache-policy.test.ts (8 tests) 105ms
+ ✓ tests/whiteboard/board-r01-oracle.test.ts (13 tests) 152ms
+
+ Test Files  4 passed (4)
+      Tests  107 passed (107)
+   Start at  12:39:03
+   Duration  12.97s (transform 393ms, setup 507ms, collect 25.20s, tests 11.77s, environment 0ms, prepare 504ms)
+

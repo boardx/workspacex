@@ -9,6 +9,7 @@ import {FULLSTACK_E2E as F} from './fullstack-smoke-fixture';
 import {SESSION_TOKEN_STORAGE_KEY} from '../lib/api-client';
 import {createSpatialWsMetadataRecorder,spatialFrameMetadata,installNativeSocketCloseObserver} from './support/board-spatial-ws-metadata';
 import {sharedOutboxProof} from './support/board-shared-outbox-proof';
+import {installIndexedDbTransactionObserver,requestIndexedDbQuiescentPause} from './support/board-indexeddb-quiescent-pause';
 
 // Ordinary Playwright pages enable focus emulation and remain visibly captured
 // when minimized. Own only this test's browser/default context so native hide
@@ -74,6 +75,9 @@ test('same-browser tabs drain a shared durable outbox without duplicate commits'
   evidence.ownerNativeLifecycleCounts={freeze:counts!.freeze,resume:counts!.resume,untrusted:counts!.untrusted};nativeCountsCaptured=true;
  };
  const lifecycleBinding=`boardOutboxLifecycle${randomUUID().replaceAll('-','')}`;
+ const storageObserverKey=lifecycleBinding+'Storage';
+ await page.addInitScript(installIndexedDbTransactionObserver,storageObserverKey);
+ let storageQuiescent=false;
  const lifecycleEvents={freeze:0,resume:0};
  const debuggerEvents={paused:0,resumed:0};
  const onDebuggerPaused=()=>{debuggerEvents.paused++;mark('debugger-paused-observed');};
@@ -178,7 +182,8 @@ test('same-browser tabs drain a shared durable outbox without duplicate commits'
   await ownerLifecycle.send('Runtime.addBinding',{name:lifecycleBinding});
   ownerLifecycle.on('Runtime.bindingCalled',event=>{
    if(event.name!==lifecycleBinding)return;
-   try{const observed=JSON.parse(event.payload) as {type?:string;trusted?:boolean;state?:string;trustedChanges?:number;untrustedChanges?:number;sameDocument?:number};
+   try{const observed=JSON.parse(event.payload) as {type?:string;active?:number;trusted?:boolean;state?:string;trustedChanges?:number;untrustedChanges?:number;sameDocument?:number};
+    if(observed.type==='storage-quiescent'){storageQuiescent=observed.active===0;evidence.ownerStorageAtPause={active:observed.active};return;}
     if(observed.type==='visibilitychange'){recordVisibility('native-visibilitychange',observed);return;}
     if(observed.type==='ready'){lifecycleReady++;return;}
     if(observed.trusted===true&&(observed.type==='freeze'||observed.type==='resume')){lifecycleEvents[observed.type]++;mark(`native-${observed.type}-observed`);}
@@ -208,8 +213,15 @@ test('same-browser tabs drain a shared durable outbox without duplicate commits'
   expect((await ownerLifecycle.send('Browser.getWindowBounds',{windowId:ownerWindow.windowId})).bounds.windowState).toBe('minimized');
   await expect.poll(()=>nativeVisibility?.state==='hidden'&&nativeVisibility.sameDocument===1&&(nativeVisibility.trustedChanges??0)>=1,{timeout:remaining(),message:'Owned window must genuinely hide on the original document before JS suspension'}).toBe(true);
   mark('trusted-hidden-confirmed');
-  ownerPaused=true;mark('debugger-pause-requested');await ownerLifecycle.send('Debugger.pause');mark('debugger-pause-completed');
+  // Pausing inside an unfinished IndexedDB transaction holds its native locks,
+  // preventing any peer from acquiring the durable lease even after expiry.
+  // Observe real transaction completion, then pause in the same idle JS task.
+  ownerPaused=true;mark('debugger-pause-requested');
+  const pauseScheduled=await ownerLifecycle.send('Runtime.evaluate',{expression:`(${requestIndexedDbQuiescentPause.toString()})(${JSON.stringify({key:storageObserverKey,binding:lifecycleBinding})})`});
+  expect(pauseScheduled.exceptionDetails,'Storage-aware suspension must actually schedule').toBeUndefined();
+  mark('debugger-pause-completed');
   await expect.poll(()=>debuggerEvents.paused,{timeout:remaining(),message:'Original target must actually report Debugger.paused'}).toBe(1);
+  expect(storageQuiescent,'Original target must pause outside all active IndexedDB transactions').toBe(true);
   expect(lifecycleEvents.freeze,'Debugger suspension must not be labeled native freeze').toBe(0);
   evidence.ownerLifecycleControl='debugger-paused';mark('original-tab-paused');
   const testPeer=await page.context().newPage();peer=testPeer;if(info.project.use.viewport)await testPeer.setViewportSize(info.project.use.viewport);testPeer.setDefaultTimeout(15_000);testPeer.setDefaultNavigationTimeout(15_000);await observeProviderReceipts(testPeer,'peer');metadata.observe(testPeer,'peer');await testPeer.goto(boardUrl(`/studio/board/${boardId}`));mark('peer-opened');
