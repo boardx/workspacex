@@ -1,0 +1,8 @@
+Listing tests:
+  board-files-boundaries.spec.ts:11:5 › R09 missing, empty, oversized and revoked file writes leave no asset or board update
+  board-files-filenames.spec.ts:17:5 › R09 real multipart original filename matrix and literal RFC5987 download headers
+  board-files-filenames.spec.ts:71:5 › R09 native UI downloads preserve browser-safe filenames and exact bytes after refresh
+  board-files-placement.spec.ts:14:38 › R09 ordinary-file drop after real pan and zoom at 1440px
+  board-files-placement.spec.ts:14:38 › R09 ordinary-file drop after real pan and zoom at 390px
+  board-files-retry.spec.ts:18:5 › R09 real filesystem-backed API 503 then UI retry creates exactly one file tile
+Total: 6 tests in 4 files

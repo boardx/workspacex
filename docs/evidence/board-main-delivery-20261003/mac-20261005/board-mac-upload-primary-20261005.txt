@@ -1,0 +1,13 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /private/tmp/wsx-board-main-delivery-20261003/apps/web
+
+ ✓ tests/ui/board-file-upload-response.test.ts (12 tests) 2ms
+ ✓ tests/whiteboard/board-primary-failure.test.ts (5 tests) 4ms
+ ✓ tests/ui/board-file-upload.test.tsx (4 tests) 21ms
+
+ Test Files  3 passed (3)
+      Tests  21 passed (21)
+   Start at  08:59:30
+   Duration  987ms (transform 165ms, setup 238ms, collect 225ms, tests 26ms, environment 549ms, prepare 110ms)
+
