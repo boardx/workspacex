@@ -7,6 +7,17 @@ import { interviewMarkdown } from "@repo/contracts";
 const evidence = (quote: string): ReportEvidence => ({ anchor: "answer-1", documentId: "runs", version: 1,
   sourceHash: "a".repeat(64), start: 0, end: quote.length, quote, expertId: "expert", taskKey: "task", evidenceMode: "simulated", expertLabel: "甲" });
 describe("finite report claim boundaries", () => {
+ it("preserves byte-exact final public risk denial", () => {
+  const raw = readFileSync(new URL("./fixtures/risk-denial-5343/report.md", import.meta.url), "utf8").split("\n")[29];
+  if (raw === undefined) throw new Error("Missing public raw line 30");
+  expect(assessReportClaimBoundaries(raw,[]).missing).not.toContain("unsupported_physical_risk_downgrade");
+ });
+ it.each(["采用移动插座，不能据此断言供电风险已经降低。", "改用桌面型，无法据此确认承重风险已消除。"])("preserves immediate epistemic risk prohibition: %s", raw => {
+  expect(assessReportClaimBoundaries(raw,[]).missing).not.toContain("unsupported_physical_risk_downgrade");
+ });
+ it.each(["采用移动插座，并非不能据此断言供电风险已降低。", "采用移动插座，不是无法据此确认供电风险已消除。", "不能据此断言移动插座合适，但供电风险已降低。", "采用移动插座，不能据此断言预算合适，供电风险已降低。"])("does not waive definite risk reduction: %s", raw => {
+  expect(assessReportClaimBoundaries(raw,[]).missing).toContain("unsupported_physical_risk_downgrade");
+ });
  it.each(["采用移动插座，因此供电风险降低。", "改用移动插座消除了线缆风险。", "移动插座并非没有降低供电风险。", "供电风险已得到降低，采用移动插座。"])("rejects unmarked definite risk reduction: %s", claim => {
   expect(assessReportClaimBoundaries(claim,[]).missing).toContain("unsupported_physical_risk_downgrade");
  });
