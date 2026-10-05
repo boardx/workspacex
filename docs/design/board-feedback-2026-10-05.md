@@ -16,10 +16,12 @@
 | B10 | 连接线宽度改用不同粗细线段预设；去除数字 2；线型/端点图标清晰 | 修改颜色作用于线与箭头；undo/redo 保持样式 |
 | B11 | 对象外观面板专业化，颜色使用已有单源，粗细/线型/圆角直接可视化 | 消除原生蓝色控件；文本与对象颜色一致；精确位置尺寸仍可编辑 |
 | B12 | 修复 docking 等距标注位置 | 数值出现在实际间距旁，跟随 viewport，避免固定屏幕边缘 |
+| B13 | 09:55 追加：连接线类型菜单紧凑且贴近触发器；全面验收所有白板菜单 | 菜单矩阵覆盖桌面、窄屏、边缘、关闭与选项；不以部分菜单替代全部 |
+| B14 | 09:59 追加：Excalidraw 式多点自由箭头 | 点击加点、实时预览、完成一次保存、取消零残留；节点编辑、箭头切线、undo/redo 与路径兼容 |
 
 并行 ownership：菜单与工具栏、绘制与对齐、连接线、外观与评论。共享 editor 由菜单 worker 独占；Fabric surface 由绘制 worker 独占，其他 worker 提供集成片段。所有修改在隔离候选树上共同验证，主 checkout 的既有改动不纳入此次交付。
 
-## 验证与交接
+## 首轮验证与交接（ffa06789b）
 
 - 对应统一 issue：https://github.com/boardx/workspacex/issues/5355。
 - `./init.sh`：通过。
@@ -38,3 +40,19 @@
 PR CI 发现绘制浮层与 dock 间距不满足原几何断言。修复使用母 dock 外框和完整 border-box 高度；375/1536/1672 单元回归通过，1440/390/1536/1672 浏览器实测均保持 8px 间距，保留原 CI 判据。
 
 全栈 CI 的旧色板宽匹配与原生 DragEvent fixture 已更新：精确角色定位并点击色块，读取服务端 canonical 导出验证颜色；连接线使用实际鼠标按下/移动/释放，保留端点、删除保留和 reload 持久化断言。未放宽完成判据。
+
+## 追加验收与交接
+
+B13/B14 继续更新于同一 PR #5356。前述首轮证据属于 ffa06789b；新增模式和菜单矩阵须在冻结后的源码上重新执行，不借用旧截图作为新增实现证明。
+
+- 最终 Web 回归：134 文件、960 测试通过；核心：23 文件、285 测试通过；相关契约：3 文件、7 测试通过；Web typecheck 与完整 lint 通过。
+- 菜单矩阵 302/302、补充 21/21、原截图回归 14/14 与真实导入面板桌面/窄屏检查均通过，无浏览器错误。四组验收共享完全相同的 272 文件 SHA256 manifest（含生产、fixture、runner 与说明），收据位于 `evidence/whiteboard-menu-audit-2026-10-05/combined-receipt.json`。
+- 独立源码复核无阻断项；矩阵实际发现并修复边框测量、窄屏展开限位、便利贴格式不写入，以及创建中自由箭头预览命中层的问题。
+- 自由箭头实际 UI → API canonical → 撤销重做 → 刷新恢复场景已加入既有 `board-fabric-surface.spec.ts` 全栈 lane；类型检查和用例收集通过，真实服务结果由此 PR 的最新 CI 确认。
+- 下一轮复跑入口：`apps/web/tests/whiteboard-feedback-browser/README.md`；以 PR 最新 head 与实时检查为准，不改 phase 状态或签核。自有服务已停止，无自建 Docker 栈，交付时停止 tick 并释放临时 worktree。
+
+### 自由箭头参考与实现边界
+
+参考 Excalidraw 官方 [逐点创建讨论](https://github.com/excalidraw/excalidraw/discussions/3926)、[多点状态](https://github.com/excalidraw/excalidraw/blob/master/packages/excalidraw/types.ts) 和 [节点编辑及曲线路径入口](https://github.com/excalidraw/excalidraw/blob/master/packages/element/src/linearElementEditor.ts)。其仓库采用 [MIT](https://github.com/excalidraw/excalidraw/blob/master/LICENSE)；本次没有复制代码，参考点击生命周期和节点编辑，Catmull–Rom 转分段 Bézier 为本仓适配，不复制 RoughJS 手绘噪声。
+
+新增 `free` route 在契约单源存最多 64 个中间节点（端点另存，保持旧 straight/elbow/curve 数据兼容）。悬停只投影，Enter/双击完成一次 command；Esc、切工具或只读取消草稿。两个点退化为直箭头，曲线穿点、包围盒含导数极值、箭头使用末端切线；中间点拖动复用 command/历史，双端点一起平移仅平移节点一次。命中与标签采用有界近似采样，极端坐标下有近似误差；SVG 曲线与包围盒使用精确 Bézier。

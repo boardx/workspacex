@@ -6,7 +6,7 @@ import { useEffect, useLayoutEffect, useId, useRef, useState, type ReactNode } f
 import { Button } from "@/components/ui/button";
 
 /** Non-modal inspector: explicit entry, Escape/outside dismissal and focus return. */
-export function BoardToolPopover({ label, children, trigger, open, onOpenChange, placement = "right", onEscapeKeyDown }: { label: string; children: ReactNode; trigger?: ReactNode; open?: boolean; onOpenChange?: (open: boolean) => void; placement?: "left" | "right" | "above"; onEscapeKeyDown?: (event: KeyboardEvent) => void }) {
+export function BoardToolPopover({ label, children, trigger, open, onOpenChange, placement = "right", compact = false, onEscapeKeyDown }: { label: string; children: ReactNode; trigger?: ReactNode; open?: boolean; onOpenChange?: (open: boolean) => void; placement?: "left" | "right" | "above"; compact?: boolean; onEscapeKeyDown?: (event: KeyboardEvent) => void }) {
   const id = useId();
   const [localOpen, setLocalOpen] = useState(false);
   const isOpen = open ?? localOpen;
@@ -20,8 +20,10 @@ export function BoardToolPopover({ label, children, trigger, open, onOpenChange,
       const bounds = triggerRef.current?.getBoundingClientRect();
       if (!bounds) return;
       const margin = 16, gap = 8;
-      const width = Math.min(320, window.innerWidth - margin * 2);
-      const height = Math.min(contentRef.current?.scrollHeight || 320, window.innerHeight - 96);
+      const width = Math.min(compact ? 208 : 320, window.innerWidth - margin * 2);
+      const content = contentRef.current;
+      const border = content ? Math.max(0, content.offsetHeight - content.clientHeight) : 0;
+      const height = Math.min((content?.scrollHeight || 320) + border, window.innerHeight - 96);
       const above = Math.max(0, bounds.top - gap - 72);
       const below = Math.max(0, window.innerHeight - bounds.bottom - gap - margin);
       let side: 'above' | 'below' | 'left' | 'right' = placement;
@@ -44,7 +46,7 @@ export function BoardToolPopover({ label, children, trigger, open, onOpenChange,
     const follow = () => { update();frame=requestAnimationFrame(follow); };
     follow();window.addEventListener("resize",update);window.addEventListener("scroll",update,true);
     return () => {cancelAnimationFrame(frame);window.removeEventListener("resize",update);window.removeEventListener("scroll",update,true);};
-  },[isOpen,placement]);
+  },[isOpen,placement,compact]);
   const updateOpen = (next: boolean) => { setLocalOpen(next); onOpenChange?.(next); if (next) window.dispatchEvent(new CustomEvent("board-inspector-open", { detail: id })); };
   useEffect(() => { const closeOthers = (event: Event) => { if (isOpen && (event as CustomEvent<string>).detail !== id) { setLocalOpen(false); onOpenChange?.(false); } }; window.addEventListener("board-inspector-open", closeOthers); return () => window.removeEventListener("board-inspector-open", closeOthers); }, [id, isOpen, onOpenChange]);
   return <Dialog.Root modal={false} open={isOpen} onOpenChange={updateOpen}>
@@ -54,11 +56,12 @@ export function BoardToolPopover({ label, children, trigger, open, onOpenChange,
       top: anchor.top,
       transform: anchor.side === "above" ? "translateY(-100%)" : undefined,
       maxHeight: anchor.maxHeight,
+      width: compact ? 208 : undefined,
       visibility: anchor.maxHeight < 2 ? "hidden" : undefined,
       pointerEvents: anchor.maxHeight < 2 ? "none" : undefined,
     }} aria-describedby={undefined} onEscapeKeyDown={onEscapeKeyDown} className={`fixed z-50 max-h-[calc(100dvh-12rem)] w-80 max-w-[calc(100vw-2rem)] overflow-y-auto [&_button]:min-h-11 [&_button]:min-w-11 [&_input]:min-h-11 [&_select]:min-h-11 rounded-2xl border border-border bg-card text-foreground shadow-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-ring motion-safe:animate-in motion-safe:fade-in`}>
-      <div className="p-4">
-        <div className="mb-4 flex items-center justify-between gap-2"><Dialog.Title className="text-14 font-semibold">{label}</Dialog.Title><Dialog.Close asChild><Button variant="ghost" size="icon" aria-label={`关闭${label}`} className="min-h-11 min-w-11"><X className="h-4 w-4" /></Button></Dialog.Close></div>
+      <div className={compact ? "p-2" : "p-4"}>
+        <div className={compact ? "mb-1 flex items-center justify-between gap-2" : "mb-4 flex items-center justify-between gap-2"}><Dialog.Title className={compact ? "text-12 font-medium" : "text-14 font-semibold"}>{label}</Dialog.Title><Dialog.Close asChild><Button variant="ghost" size="icon" aria-label={`关闭${label}`} className={compact ? "h-6 w-6 !min-h-6 !min-w-6" : "min-h-11 min-w-11"}><X className="h-4 w-4" /></Button></Dialog.Close></div>
         {children}
       </div>
     </Dialog.Content></Dialog.Portal>

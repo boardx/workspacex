@@ -1,0 +1,8 @@
+
+> web@0.1.0 lint /private/tmp/wsx-board-feedback-menu-audit/apps/web
+> next lint --max-warnings 0 && node scripts/gen-light-scope.mjs --check && ./scripts/lint-design.sh
+
+✔ No ESLint warnings or errors
+✅ gen-light-scope: .wx-light 与 :root 一致（53 个 token）
+
+✅ lint-design：全部通过（扫描 app components lib）

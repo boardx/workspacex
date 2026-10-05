@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, type CSSProperties, type Ref, type ReactNode } from "react";
-import { Bold, Italic, AlignLeft, Copy, Trash2, Link2, MessageCircle, MoreHorizontal, Plus, Tag, X, Eye } from "lucide-react";
+import { Bold, Italic, AlignLeft, ChevronRight, Copy, Trash2, Link2, MessageCircle, MoreHorizontal, Plus, Tag, X, Eye } from "lucide-react";
 import { STICKY_COLOR_PRESETS, type StickyVariant, type TextAttributes, type TextStylePreset, type WhiteboardObject } from "@repo/whiteboard-core";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -118,7 +118,7 @@ export function ObjectContextToolbar({ editing=false,object, readOnly, objectAct
     </div>
     {object.kind === "sticky" ? <section data-testid="board-sticky-size-presets" className="space-y-2"><h3 className="text-12 font-semibold">大小</h3><div role="group" aria-label="便利贴大小" className="grid grid-cols-3 gap-2">{STICKY_SIZE_PRESETS.map((preset) => <Button key={preset.id} type="button" size="sm" variant={object.geometry.width === preset.width && object.geometry.height === preset.height ? "primary" : "secondary"} disabled={locked} data-testid={`sticky-size-${preset.id}`} aria-pressed={object.geometry.width === preset.width && object.geometry.height === preset.height} onClick={() => onGeometryChange({ ...object.geometry, width: preset.width, height: preset.height })}>{preset.label}</Button>)}</div></section> : null}
     <details data-testid="board-widget-advanced-format" className="group rounded-lg border border-border/70 bg-muted/25">
-      <summary className="flex min-h-10 cursor-pointer list-none items-center justify-between gap-3 rounded-lg px-3 py-2 text-12 font-semibold transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring [&::-webkit-details-marker]:hidden"><span>更多格式与协作</span><span aria-hidden="true" className="text-muted-foreground transition-transform group-open:rotate-180">⌄</span></summary>
+      <summary className="flex min-h-10 cursor-pointer list-none items-center justify-between gap-3 rounded-lg px-3 py-2 text-12 font-semibold transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring [&::-webkit-details-marker]:hidden"><span>更多格式与协作</span><ChevronRight aria-hidden="true" className="h-4 w-4 text-muted-foreground transition-transform group-open:rotate-90" /></summary>
       <div className="space-y-4 border-t border-border p-3">
     {object.kind === "sticky" ? <section className="space-y-3"><h3 className="text-13 font-semibold">内容调整</h3><label className="grid gap-1 text-12">自动调整<select data-testid="sticky-sizing" aria-label="便利贴尺寸模式" disabled={locked} value={typeof sticky.sizing === "string" ? sticky.sizing : "auto-height"} onChange={(event) => onStickyChange({ sizing: event.target.value as "auto-height" | "fixed" | "auto-size" })} className="h-10 rounded-control border border-input bg-card px-2"><option value="auto-height">自动高度</option><option value="fixed">固定尺寸</option><option value="auto-size">随内容调整</option></select></label></section> : null}
     {object.kind === "text" ? <BoardToolPopover label="文字样式" trigger={<Button variant="ghost" className="min-h-11 min-w-11" data-testid="board-inspector-text" aria-label="文字样式" title="文字样式">Aa</Button>}><div className="grid gap-3">

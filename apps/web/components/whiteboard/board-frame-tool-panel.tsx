@@ -1,7 +1,8 @@
 "use client";
 
+import { boardMenuPosition } from "./board-menu-position";
 import { X } from "lucide-react";
-import { useState } from "react";
+import { useLayoutEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 import type { PanelMode } from "@repo/whiteboard-core";
 
@@ -39,7 +40,13 @@ function FrameChoiceButton({item,selected,onChoose}:{item:(typeof common)[number
 
 export function BoardFrameToolPanel({choice,dimensions,readOnly,onChoiceChange,onDimensionsChange,onClose}:{choice:BoardFrameChoice;dimensions:BoardFrameDimensions;readOnly:boolean;onChoiceChange:(choice:BoardFrameChoice,mode:PanelMode)=>void;onDimensionsChange:(dimensions:BoardFrameDimensions)=>void;onClose:()=>void}){
   const [customOpen,setCustomOpen]=useState(dimensions.size==="custom");
-  return <section data-testid="board-frame-tool-panel" data-board-chrome="frame-panel" aria-label="Frame tools" className="absolute bottom-24 left-1/2 z-40 min-h-[21.25rem] w-[min(24rem,calc(100vw-2rem))] -translate-x-1/2 rounded-2xl border border-border bg-card p-4 shadow-2xl max-sm:bottom-20 max-sm:max-h-[70vh] max-sm:min-h-0 max-sm:overflow-y-auto max-sm:rounded-b-none">
+  const [anchor,setAnchor]=useState<{left:number;bottom:number;maxHeight:number}|null>(null);
+  useLayoutEffect(()=>{
+    const update=()=>{const trigger=document.querySelector('[data-testid="board-add-more"]');if(!trigger)return;setAnchor(boardMenuPosition(trigger.getBoundingClientRect(),384,{width:window.innerWidth,height:window.innerHeight},8,trigger.closest('[data-testid="board-creation-dock"]')?.getBoundingClientRect().top));};
+    update();const trigger=document.querySelector('[data-testid="board-add-more"]');const observer=typeof ResizeObserver==='undefined'?null:new ResizeObserver(update);if(trigger){observer?.observe(trigger);const dock=trigger.closest('[data-testid="board-creation-dock"]');if(dock)observer?.observe(dock);}window.addEventListener('resize',update);window.addEventListener('scroll',update,true);
+    return()=>{observer?.disconnect();window.removeEventListener('resize',update);window.removeEventListener('scroll',update,true);};
+  },[]);
+  return <section style={anchor ? {...anchor,position:'fixed',transform:'none',overflowY:'auto',minHeight:0} : undefined} data-testid="board-frame-tool-panel" data-board-chrome="frame-panel" aria-label="Frame tools" className="absolute bottom-24 left-1/2 z-40 min-h-[21.25rem] w-[min(24rem,calc(100vw-2rem))] -translate-x-1/2 rounded-2xl border border-border bg-card p-4 shadow-2xl max-sm:bottom-20 max-sm:max-h-[70vh] max-sm:min-h-0 max-sm:overflow-y-auto max-sm:rounded-b-none">
     <header className="flex items-center justify-between border-b border-border-subtle pb-3"><h2 className="text-14 font-semibold">Frame</h2><button type="button" aria-label="Close frame tools" onClick={onClose} className="grid h-8 w-8 place-items-center rounded-lg transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><X className="h-4 w-4"/></button></header>
     <fieldset disabled={readOnly} className="mt-3"><legend className="mb-2 text-11 font-medium">Common</legend><div className="grid grid-cols-4 gap-2">{common.map(item=><FrameChoiceButton key={item.id} item={item} selected={choice===item.id} onChoose={onChoiceChange}/>)}</div></fieldset>
     <fieldset disabled={readOnly} className="mt-4"><legend className="mb-2 text-11 font-medium">Templates</legend><div className="grid grid-cols-4 gap-2">{templates.map(item=><FrameChoiceButton key={item.id} item={item} selected={choice===item.id} onChoose={onChoiceChange}/>)}</div></fieldset>

@@ -17,7 +17,7 @@ it('previews three genuinely distinct paths and changes only the selected contro
 });
 it('does not offer mutation for readonly or locked users',()=>{
  const change=vi.fn();render(<BoardConnectorPicker value="straight" disabled onChange={change}/>);
- for(const type of ['straight','elbow','curve']){const button=screen.getByTestId(`board-connector-${type}`);expect(button).toBeDisabled();fireEvent.click(button);}
+ for(const type of ['straight','elbow','curve','free']){const button=screen.getByTestId(`board-connector-${type}`);expect(button).toBeDisabled();fireEvent.click(button);}
  expect(change).not.toHaveBeenCalled();
 });
 it('exposes the connector only through explicit integration gate while preserving the current hidden Frame creation entry',()=>{
@@ -37,4 +37,12 @@ it('keeps one gated connector after image without replacing the other dock entri
  view.rerender(<BoardBottomDock {...props} connectorEnabled={false}/>);
  expect(screen.queryAllByTestId('board-add-connector')).toHaveLength(0);
  for(const id of ids.filter(id=>id!=='board-add-connector'))expect(screen.getAllByTestId(id)).toHaveLength(1);
+});
+
+it('offers a distinct accessible free-arrow tool and preserves the controlled creation mode',()=>{
+ const change=vi.fn();render(<BoardConnectorPicker value="straight" disabled={false} onChange={change}/>);
+ const free=screen.getByRole('button',{name:'自由箭头'});
+ expect(free).toHaveAttribute('title','自由箭头');
+ expect(free.querySelector('svg.lucide-waypoints')).not.toBeNull();
+ fireEvent.click(free);expect(change).toHaveBeenCalledWith('free');
 });

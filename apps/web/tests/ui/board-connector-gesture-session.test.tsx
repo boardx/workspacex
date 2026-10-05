@@ -97,3 +97,19 @@ describe("connector pointer session", () => {
     expect(test.execute).not.toHaveBeenCalled(); expect(test.result.current.active).toBe(false);
   });
 });
+
+ describe('free click arrow',()=>{
+ it('holds nodes only in preview and finishes once without preview mouse point',()=>{
+ const test=setup();for(const p of [[10,20],[90,120],[210,30]])act(()=>test.result.current.beginFreeCreation('free',test.event(p[0]!,p[1]!)));
+ act(()=>test.result.current.onPointerMove(test.event(400,500)));expect(test.execute).not.toHaveBeenCalled();
+ act(()=>test.result.current.finishFree());expect(test.execute).toHaveBeenCalledOnce();expect(test.execute.mock.calls[0]![0]).toMatchObject({relationship:{type:'free',fromPoint:{x:10,y:20},toPoint:{x:210,y:30},route:{kind:'free',waypoints:[{x:90,y:120}]}}});test.unmount();
+ });
+ it('bounds preview and completion to 64 interior nodes and rejects duplicate clicks',()=>{
+ const test=setup();for(let i=0;i<66;i++)act(()=>test.result.current.beginFreeCreation('free',test.event(i*10, i%2*10)));
+ act(()=>test.result.current.onPointerMove(test.event(900,900)));expect(test.result.current.relationship?.route).toMatchObject({kind:'free'});
+ act(()=>test.result.current.beginFreeCreation('free',test.event(650,10)));expect(test.failure).not.toHaveBeenCalled();
+ act(()=>test.result.current.beginFreeCreation('free',test.event(800,20)));expect(test.failure).toHaveBeenCalledOnce();
+ act(()=>test.result.current.finishFree());expect((test.execute.mock.calls[0]![0] as any).relationship.route.waypoints).toHaveLength(64);test.unmount();
+ });
+ it('cancels without canonical writes and cannot finish one point',()=>{const test=setup();act(()=>test.result.current.beginFreeCreation('free',test.event(1,1)));act(()=>test.result.current.finishFree());expect(test.execute).not.toHaveBeenCalled();act(()=>test.result.current.beginFreeCreation('free',test.event(1,1)));act(()=>test.result.current.cancel());expect(test.execute).not.toHaveBeenCalled();test.unmount();});
+ });

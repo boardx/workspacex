@@ -1,0 +1,12 @@
+
+ RUN  v2.1.9 /private/tmp/wsx-board-feedback-menu-audit/packages/contracts
+
+ ✓ tests/whiteboard-document.test.ts (2 tests) 8ms
+ ✓ tests/whiteboard-free-arrow.test.ts (2 tests) 8ms
+ ✓ tests/whiteboard-connector-endpoints.test.ts (3 tests) 11ms
+
+ Test Files  3 passed (3)
+      Tests  7 passed (7)
+   Start at  10:26:31
+   Duration  572ms (transform 214ms, setup 0ms, collect 396ms, tests 27ms, environment 1ms, prepare 333ms)
+

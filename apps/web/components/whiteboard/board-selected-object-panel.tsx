@@ -54,7 +54,11 @@ export function BoardSelectedObjectPanel({ title, typeLabel, object, readOnly, o
   const minHeight = Math.min(HEIGHT_MIN, maxHeight);
   const fittedWidth = Math.min(width, maxWidth);
   const fittedHeight = Math.min(height, maxHeight);
-  const responsiveFloatingStyle = floatingStyle;
+  const responsiveFloatingStyle = expanded && floatingStyle ? {
+    ...floatingStyle,
+    left: typeof floatingStyle.left === "number" ? Math.max(16, Math.min(bounds.width - fittedWidth - 16, floatingStyle.left)) : floatingStyle.left,
+    top: typeof floatingStyle.top === "number" ? Math.max(16, Math.min(bounds.height - fittedHeight - 16, floatingStyle.top)) : floatingStyle.top,
+  } : floatingStyle;
   const drag = useRef<{ pointerX: number; pointerY: number; width: number; height: number; axis: "x" | "y" } | null>(null);
   const resizeStart = (event: PointerEvent<HTMLDivElement>) => {
     event.preventDefault();

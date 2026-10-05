@@ -23,7 +23,7 @@ it('clamps the inspector within the viewport and follows trigger movement withou
  const{change}=mount();const trigger=screen.getByTestId('board-connector-width-open');
  let left=1400,top=500;const measure=vi.spyOn(trigger,'getBoundingClientRect').mockImplementation(()=>({left,top,right:left+44,bottom:top+44,width:44,height:44,x:left,y:top,toJSON:()=>({})}));
  fireEvent.click(trigger);const panel=screen.getByRole('dialog');
- expect(panel).toHaveStyle({left:`${Math.max(16,window.innerWidth-336)}px`,top:'492px',maxHeight:'420px'});
+ expect(panel).toHaveStyle({left:`${Math.max(16,window.innerWidth-224)}px`,top:'492px',maxHeight:'420px'});
  left=100;top=400;fireEvent(window,new Event('resize'));
  expect(panel).toHaveStyle({left:'100px',top:'392px',maxHeight:'320px'});expect(change).not.toHaveBeenCalled();measure.mockRestore();
 });

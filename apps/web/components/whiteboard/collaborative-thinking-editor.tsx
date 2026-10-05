@@ -332,7 +332,7 @@ export function CollaborativeThinkingEditor({ organizeFitRequest, dockExtension,
     execute(commands);
   }, [doc, execute, readOnly]);
   const updateTextStyle = useCallback((id: string, patch: Partial<TextAttributes>, resetPreset = false) => {
-    const current = readObjects(doc).find((candidate) => candidate.id === id && candidate.kind === "text"); if (!current || readOnly) return;
+    const current = readObjects(doc).find((candidate) => candidate.id === id && (candidate.kind === "text" || candidate.kind === "sticky")); if (!current || readOnly || current.locked) return;
     const thinking = record(current.extensionData?.thinkingInput), existing = record(thinking.text);
     const known: TextAttributes = {
       preset: (["title", "heading", "subheading", "body", "caption"].includes(String(existing.preset)) ? existing.preset : "body") as TextStylePreset,
@@ -423,6 +423,8 @@ export function CollaborativeThinkingEditor({ organizeFitRequest, dockExtension,
   const updatePanel = (patch: Partial<PanelMetadata>) => { if (selectedPanel && panelMetadata) executeSpatial({ type: "update-panel", id: selectedPanel.id, panel: { ...panelMetadata, ...patch } }); };
 
   const connectorGesture = useBoardConnectorGesture({ objects: model.objects, readLiveObjects: () => readObjects(doc), viewport, blocked: mutationBlocked, selectedId: selectedConnector?.id ?? null, host: () => chromeHost.current, execute: executeSpatial, onCreated: (id) => { setSelected([id]); setCreationTool(null); setTool("select"); setPendingConnector(null); }, onFailure: () => setNotice("连接线修改未被接受，请检查对象与访问权限。") });
+  const cancelConnectorGesture = connectorGesture.cancel;
+  useEffect(() => { if (creationTool?.kind !== "connector" || creationTool.connectorType !== "free") cancelConnectorGesture(); }, [creationTool, cancelConnectorGesture]);
   const selectedConnectorPath = useMemo(() => connectorRelationship ? connectorResolvedPath(connectorRelationship, model.objects) : null, [connectorRelationship, model.objects]);
   const connectorPreviewObjects = displayObjects.map(object => {
     const path = connectorGesture.path, relationship = connectorGesture.relationship;
@@ -660,6 +662,7 @@ export function CollaborativeThinkingEditor({ organizeFitRequest, dockExtension,
       const anchor = match[2] as ConnectorAnchor, point = rotatedAnchorPoint(source, anchor);
       connectorGesture.beginCreation({ from: source.id, toPoint: point, fromAnchor: anchor, toAnchor: "left", type: creationTool?.kind === "connector" ? creationTool.connectorType : "straight", startStyle: "none", endStyle: "arrow", lineStyle: "solid", label: "", semanticRelation: "" }, event);
     }}
+    onDoubleClickCapture={(event) => { if (creationTool?.kind === "connector" && creationTool.connectorType === "free" && (event.target as Element).closest("[data-testid=board-fabric-surface]")) { event.preventDefault(); event.stopPropagation(); connectorGesture.finishFree(); } }}
     onPointerMove={connectorGesture.onPointerMove}
     onPointerUp={connectorGesture.onPointerUp}
     onPointerCancel={connectorGesture.active ? connectorGesture.onPointerCancel : undefined}

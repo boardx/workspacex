@@ -150,3 +150,29 @@ it('keeps the three new optional fields absent through legacy move and duplicate
     for (const value of [readObjects(doc)[0]!, readObjects(target)[0]!]) { expect(value.connector).not.toHaveProperty('route'); expect(value.connector).not.toHaveProperty('strokeWidth'); expect(value.connector).not.toHaveProperty('labelPosition'); }
   } finally { doc.destroy(); target.destroy(); }
 });
+it('persists free clicked nodes through sync, movement, node edit and undo/redo', () => {
+ const doc=createWhiteboardDocument(), copy=createWhiteboardDocument(), undo=new WhiteboardUndo(doc), port=new SpatialRelationshipCommandPort(doc);
+ const free:ConnectorRelationship={...relation,type:'free',route:{kind:'free',waypoints:[{x:80,y:160},{x:140,y:30}]}};
+ const dispatch=(gestureId:string, command:any)=>port.dispatch({boardId:'board',clientId:'local',gestureId,command});
+ try {
+ dispatch('free-create',{type:'create-connector',id:'free',relationship:free});
+ expect(undo.undo()).toBe('undone');expect(readObjects(doc)).toHaveLength(0);expect(undo.redo()).toBe(true);
+ const geometry=readObjects(doc)[0]!.geometry, edgeId=readObjects(doc)[0]!.id;
+ dispatch('free-move',{type:'move',id:edgeId,x:geometry.x+20,y:geometry.y+30});
+ expect(readObjects(doc)[0]!.connector!.route).toEqual({kind:'free',waypoints:[{x:100,y:190},{x:160,y:60}]});
+ dispatch('free-edit',{type:'update-connector',id:edgeId,relationship:{...readObjects(doc)[0]!.connector,route:{kind:'free',waypoints:[{x:110,y:200},{x:160,y:60}]}}});
+ expect(undo.undo()).toBe('undone');expect(readObjects(doc)[0]!.connector!.route).toEqual({kind:'free',waypoints:[{x:100,y:190},{x:160,y:60}]});expect(undo.redo()).toBe(true);
+ Y.applyUpdate(copy,Y.encodeStateAsUpdate(doc));expect(readObjects(copy)[0]!.connector).toEqual(readObjects(doc)[0]!.connector);
+ } finally {undo.destroy();doc.destroy();copy.destroy();}
+});
+
+it('translates free spline nodes exactly once for equal attached endpoint moves',()=>{
+ const f=fixture(true);
+ try {
+ const route={kind:'free' as const,waypoints:[{x:50,y:80},{x:150,y:80}]};
+ f.port.dispatch({boardId:'board',clientId:'local',gestureId:'free-route',command:{type:'update-connector',id:'edge',relationship:{...relation,from:'a',to:'b',fromPoint:undefined,toPoint:undefined,type:'free',route}}});
+ f.port.dispatch({boardId:'board',clientId:'local',gestureId:'free-together',command:{type:'transform',items:[{id:'a',geometry:{...geometry,x:30,y:40}},{id:'b',geometry:{...geometry,x:230,y:40}}]}});
+ const expected={kind:'free',waypoints:[{x:80,y:120},{x:180,y:120}]};expect(f.edge().connector!.route).toEqual(expected);
+ f.port.dispatch({boardId:'board',clientId:'local',gestureId:'free-one',command:{type:'move',id:'a',x:45,y:70}});expect(f.edge().connector!.route).toEqual(expected);
+ } finally {f.doc.destroy();}
+});

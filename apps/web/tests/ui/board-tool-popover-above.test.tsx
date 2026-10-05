@@ -1,3 +1,4 @@
+import {renderToString} from 'react-dom/server';
 import {cleanup,fireEvent,render,screen} from '@testing-library/react';
 import {afterEach,expect,it,vi} from 'vitest';
 import {BoardToolPopover} from '@/components/whiteboard/board-tool-popover';
@@ -57,3 +58,21 @@ it('keeps an above submenu within a 390px viewport as its trigger moves',()=>{
  expect(screen.getByRole('dialog')).toHaveStyle({left:`${expectedLeft}px`,top:'200px'});
  vi.unstubAllGlobals();
  });
+
+it('renders compact connector menus without browser globals during SSR',()=>{
+ vi.stubGlobal('window',undefined);
+ try{expect(()=>renderToString(<BoardToolPopover label="连接线路径" compact trigger={<button>连接线路径</button>}>路径</BoardToolPopover>)).not.toThrow();}finally{vi.unstubAllGlobals();}
+});
+
+it('includes border thickness when clamping a low side submenu inside the viewport',()=>{
+ vi.stubGlobal('innerWidth',1440);vi.stubGlobal('innerHeight',1000);
+ const offset=vi.spyOn(HTMLElement.prototype,'offsetHeight','get').mockReturnValue(122);
+ const client=vi.spyOn(HTMLElement.prototype,'clientHeight','get').mockReturnValue(120);
+ const scroll=vi.spyOn(HTMLElement.prototype,'scrollHeight','get').mockReturnValue(120);
+ render(<BoardToolPopover label="外观" trigger={<button data-testid="trigger">Open</button>}>Content</BoardToolPopover>);
+ vi.spyOn(screen.getByTestId('trigger'),'getBoundingClientRect').mockReturnValue({left:400,right:444,top:960,bottom:1004,width:44,height:44,x:400,y:960,toJSON:()=>({})});
+ fireEvent.click(screen.getByTestId('trigger'));fireEvent(window,new Event('resize'));
+ expect(screen.getByRole('dialog')).toHaveStyle({top:'862px'});
+ expect(862+122).toBe(1000-16);
+ offset.mockRestore();client.mockRestore();scroll.mockRestore();vi.unstubAllGlobals();
+});

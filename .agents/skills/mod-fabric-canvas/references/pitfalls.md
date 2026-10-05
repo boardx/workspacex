@@ -66,3 +66,5 @@ Shape 的 FixedLayout 逻辑容器与子对象描边的可见外沿不是同一�
 避免粘贴 schema/公式/颜色常量/整份日志；引用源码或契约单源。
 推翻旧经验：原条目保留并标被哪一条取代，不能把历史事故改写成从未发生。
 追加经验可以随功能 PR；新规则/重组/权限与完成定义变更必须走正常 review。
+
+- 2026-10-05：[PR #5356](https://github.com/boardx/workspacex/pull/5356) 全菜单浏览器矩阵发现子菜单自然高度遗漏边框、展开属性沿用紧凑宽度限位、便利贴文字回调拒绝 sticky 三个真实断点；回归入口为 `board-tool-popover-above`、`board-object-toolbar-above-independent`、`board-contextual-toolbar`，统一收据见 `evidence/whiteboard-menu-audit-2026-10-05/combined-receipt.json`。创建自由多点箭头时预览只绘制路径，不能暴露编辑按钮/body hit 抢占后续点击；`board-connector-handles` 回归覆盖该边界。验收 fixture 的全局字体必须作用于 body portal，生产与 fixture/runner 指纹同时冻结。组件与内存 Yjs 浏览器通过不等于远端 API、AI 模型或导入服务通过；此 PR 新增自由箭头的真实全栈保存/刷新 lane，结果读取最新 head CI。

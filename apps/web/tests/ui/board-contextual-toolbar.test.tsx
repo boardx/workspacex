@@ -341,3 +341,18 @@ it("hides mutating single-object controls when the selected object is locked", (
   expect(screen.getByTestId("board-spatial-duplicate")).toHaveAttribute("title", "选择中包含锁定对象");
   doc.destroy();
 });
+
+it('persists Sticky compact text formatting and projects it after rerender',()=>{
+ const doc=createWhiteboardDocument();executeCommands(doc,[{type:'create',object:{...sticky,id:'note',text:'Sticky text'}}],'seed');
+ render(<CollaborativeThinkingEditor boardId="board" clientId="web" doc={doc} readOnly={false} title="Board" status="已连接" />);
+ fireEvent.click(screen.getByTestId('select-one'));
+ fireEvent.click(screen.getByTestId('board-sticky-text-open'));
+ fireEvent.click(screen.getByRole('button',{name:'切换粗体'}));
+ expect(readObjects(doc)[0]?.extensionData).toMatchObject({thinkingInput:{text:{bold:true,preset:'body'}}});
+ expect(screen.getByRole('button',{name:'切换粗体'})).toHaveAttribute('aria-pressed','true');
+ fireEvent.click(screen.getByRole('button',{name:'切换斜体'}));
+ expect(readObjects(doc)[0]?.extensionData).toMatchObject({thinkingInput:{text:{bold:true,italic:true}}});
+ fireEvent.click(screen.getByRole('button',{name:'切换文字对齐'}));
+ expect(readObjects(doc)[0]?.extensionData).toMatchObject({thinkingInput:{text:{alignment:'center'}}});
+ doc.destroy();
+});

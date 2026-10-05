@@ -38,7 +38,7 @@ type TaggedFabricObject = FabricObject & {
 
 type DrawingTool = "pen" | "marker" | "highlighter" | "eraser";
 
-export function connectorTipAngles(type: "straight" | "elbow" | "curve", x1: number, y1: number, x2: number, y2: number): { start: number; end: number } {
+export function connectorTipAngles(type: "straight" | "elbow" | "curve" | "free", x1: number, y1: number, x2: number, y2: number): { start: number; end: number } {
   const tangent = type === "straight"
     ? { start: { x: x2 - x1, y: y2 - y1 }, end: { x: x2 - x1, y: y2 - y1 } }
     : type === "elbow"

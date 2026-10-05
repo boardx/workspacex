@@ -1,0 +1,33 @@
+{
+  "ok": true,
+  "receipts": [
+    {
+      "width": 1440,
+      "bounds": {
+        "x": 976,
+        "y": 16,
+        "width": 448,
+        "height": 399
+      },
+      "sourceSelected": "mural",
+      "fileSelected": true,
+      "submitEnabled": true
+    },
+    {
+      "width": 390,
+      "bounds": {
+        "x": 16,
+        "y": 16,
+        "width": 358,
+        "height": 435
+      },
+      "sourceSelected": "mural",
+      "fileSelected": true,
+      "submitEnabled": true
+    }
+  ],
+  "closed": true,
+  "narrowEntryHidden": true,
+  "errors": [],
+  "limits": "Actual production header and import panel components. No server import submitted or persistence claimed."
+}

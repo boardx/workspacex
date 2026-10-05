@@ -1,8 +1,6 @@
 const {chromium}=require('../../node_modules/playwright-core');
 const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
-const crypto=require('node:crypto');
-const sourceRoot=path.resolve(__dirname,'../../../..');
-const sourceManifest=()=>{const rows=[];const walk=dir=>{for(const item of fs.readdirSync(dir,{withFileTypes:true})){const file=path.join(dir,item.name);if(item.isDirectory())walk(file);else if(/\.(tsx?|css)$/.test(file))rows.push([path.relative(sourceRoot,file),crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex')]);}};for(const dir of ['apps/web/components/whiteboard','packages/whiteboard-core/src','packages/contracts/src'])walk(path.join(sourceRoot,dir));return rows.sort(([a],[b])=>a.localeCompare(b));};
+const{hashes:sourceManifest}=require('./audit-source.cjs');
 const manifestBefore=sourceManifest();
 const out=process.env.FEEDBACK_OUT||'/private/tmp/board-feedback-browser';fs.mkdirSync(out,{recursive:true});
 (async()=>{const browser=await chromium.launch({headless:true});const page=await browser.newPage({viewport:{width:1440,height:1000}});page.setDefaultTimeout(8000);const errors=[];page.on('pageerror',e=>errors.push(e.message));const checks=[];await page.route('**/whiteboards/22222222-2222-4222-8222-222222222222/comments',route=>route.fulfill({json:{items:[{id:'11111111-1111-4111-8111-111111111111',boardId:'22222222-2222-4222-8222-222222222222',objectId:'shape',worldPosition:null,status:'open',revision:1,resolvedBy:null,resolvedAt:null,archivedAt:null,comments:[]}]}}));const snapshot=()=>page.evaluate(()=>window.feedbackSnapshot());

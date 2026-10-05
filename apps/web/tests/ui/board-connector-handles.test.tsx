@@ -35,3 +35,9 @@ it('attached straight edges have only endpoint handles and no free translation t
  render(<BoardConnectorHandles {...value} relationship={attached} path={resolveConnectorPath({start:{x:10,y:20},end:{x:110,y:120}})}/>);
  expect(screen.getAllByRole('button')).toHaveLength(2);expect(screen.queryByTestId('board-connector-body-hit')).toBeNull();expect(screen.queryByTestId('board-connector-handle-label')).toBeNull();
 });
+it('creation preview leaves every click and double click on the canvas',()=>{
+ const value=props();render(<BoardConnectorHandles {...value} active/>);
+ expect(screen.getByTestId('board-connector-live-path')).toBeInTheDocument();
+ expect(screen.queryAllByRole('button')).toHaveLength(0);
+ expect(screen.queryByTestId('board-connector-body-hit')).toBeNull();
+});

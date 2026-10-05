@@ -8,7 +8,7 @@ import { resolveConnectorPath } from './connector-path';
 
 export type LayerAction = 'bring-forward' | 'bring-to-front' | 'send-backward' | 'send-to-back';
 export type ConnectorAnchor = SpatialAnchor;
-export type ConnectorType = 'straight' | 'elbow' | 'curve';
+export type ConnectorType = 'straight' | 'elbow' | 'curve' | 'free';
 export type ConnectorTip = 'none' | 'arrow' | 'circle' | 'diamond';
 export type ConnectorLineStyle = 'solid' | 'dashed' | 'dotted';
 
@@ -169,13 +169,13 @@ function translatedRelationship<T extends WhiteboardConnector>(value: T, dx: num
   return WhiteboardConnector.parse({ ...value,
     ...(value.fromPoint ? { fromPoint: point(value.fromPoint) } : {}),
     ...(value.toPoint ? { toPoint: point(value.toPoint) } : {}),
-    ...(value.route?.kind === 'elbow' ? { route: { kind: 'elbow', waypoints: value.route.waypoints.map(point) } } : {}),
+    ...(value.route && (value.route.kind === 'elbow' || value.route.kind === 'free') ? { route: { kind: value.route.kind, waypoints: value.route.waypoints.map(point) } } : {}),
   }) as T;
 }
 export { translatedRelationship as translateConnector };
 
 function translatedAttachedRoute(snapshot: Snapshot, value: ConnectorRelationship, proposed: Map<string, WhiteboardObject>): ConnectorRelationship | null {
-  if (value.route?.kind !== 'elbow' || !value.from || !value.to) return null;
+  if (!value.route || !['elbow', 'free'].includes(value.route.kind) || !value.from || !value.to) return null;
   const from = object(snapshot, value.from), to = object(snapshot, value.to), nextFrom = proposed.get(from.id), nextTo = proposed.get(to.id);
   if (!nextFrom || !nextTo) return null;
   const pureMove = (before: WhiteboardGeometry, after: WhiteboardGeometry) => before.width === after.width && before.height === after.height && before.rotation === after.rotation;

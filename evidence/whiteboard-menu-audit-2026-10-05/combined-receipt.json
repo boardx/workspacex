@@ -1,0 +1,29 @@
+{
+  "ok": true,
+  "sourceFiles": 272,
+  "allFourManifestsIdentical": true,
+  "originalScreenshotChecks": 14,
+  "menuChecks": 302,
+  "supplementalChecks": 21,
+  "importPanelDesktopAndNarrow": true,
+  "pageErrors": [],
+  "commands": [
+    "FEEDBACK_OUT=/private/tmp/board-feedback-complete-final node apps/web/tests/whiteboard-feedback-browser/verify.cjs",
+    "MENU_AUDIT_OUT=/private/tmp/board-menu-audit-complete-final node apps/web/tests/whiteboard-feedback-browser/menu-audit.cjs",
+    "MENU_AUDIT_OUT=/private/tmp/board-menu-supplement-complete-final node apps/web/tests/whiteboard-feedback-browser/menu-supplement.cjs",
+    "MENU_AUDIT_OUT=/private/tmp/board-import-audit-complete-final node apps/web/tests/whiteboard-feedback-browser/import-audit.cjs"
+  ],
+  "limits": [
+    "Production components with in-memory canonical Yjs; no API durability/auth/realtime/model claim.",
+    "Frame creation has no current dock entry; overview/minimap is a direct fit-board action.",
+    "Narrow header title/import/share/help are responsive-hidden; import open panel is resized from actual desktop entry.",
+    "Image replacement validates dialog, not server upload; import chooses a file but does not submit."
+  ],
+  "failedReceiptsRetained": [
+    "/private/tmp/board-all-menu-audit-run1",
+    "/private/tmp/board-all-menu-audit-run2",
+    "/private/tmp/board-menu-supplement-run1",
+    "/private/tmp/board-menu-supplement-run2",
+    "/private/tmp/board-menu-supplement-run3"
+  ]
+}

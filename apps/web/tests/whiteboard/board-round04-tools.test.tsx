@@ -76,8 +76,9 @@ it('native tool drags encode one tool and the drop creates once at its scene poi
   } finally { cleanup(); doc.destroy(); }
 });
 
-it.each([{ viewport: 1440, dockLeft: 420, triggerLeft: 650, width: 420, left: 50 }, { viewport: 390, dockLeft: 16, triggerLeft: 150, width: 358, left: 0 }])('anchors the picker above its trigger within a $viewport px viewport', ({ viewport, dockLeft, triggerLeft, width, left }) => {
+it.each([{ viewport: 1440, dockLeft: 420, triggerLeft: 650, width: 420, left: 470 }, { viewport: 390, dockLeft: 16, triggerLeft: 150, width: 358, left: 16 }])('anchors the picker above its trigger within a $viewport px viewport', ({ viewport, dockLeft, triggerLeft, width, left }) => {
   vi.stubGlobal('innerWidth', viewport);
+  vi.stubGlobal('innerHeight', 900);
   vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
     const x = this.dataset.testid === 'board-creation-dock' ? dockLeft : triggerLeft;
     return { left: x, top: 800, width: 60, height: 60, x, y: 800, right: x + 60, bottom: 860, toJSON() {} };
@@ -85,7 +86,7 @@ it.each([{ viewport: 1440, dockLeft: 420, triggerLeft: 650, width: 420, left: 50
   const doc = mount();
   try {
     fireEvent.click(screen.getByTestId('board-add-shape'));
-    expect(screen.getByTestId('board-tool-picker')).toHaveStyle({ left: `${left}px`, width: `${width}px`, bottom: '100%', marginBottom: '16px' });
+    expect(screen.getByTestId('board-tool-picker')).toHaveStyle({ position: 'fixed', left: `${left}px`, width: `${width}px`, bottom: '108px' });
     expect(readObjects(doc)).toHaveLength(0);
     fireEvent.keyDown(window, { key: 'Escape' });
     act(() => harness.props!.onCanvasClick?.({ x: 400, y: 350 }));

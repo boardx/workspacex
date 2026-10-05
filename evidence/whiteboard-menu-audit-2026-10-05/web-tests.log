@@ -1,0 +1,380 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /private/tmp/wsx-board-feedback-menu-audit/apps/web
+
+ ✓ tests/ui/board-fabric-surface.test.tsx (79 tests) 11069ms
+   ✓ BoardFabricSurface > renders sticky paper, blue corners and a world-anchored grid without changing persisted appearance 357ms
+   ✓ focuses the real surface DOM from canvas pointerdown so keyboard all-selection reaches the editor 6673ms
+ ✓ tests/whiteboard/board-content-tools.test.tsx (38 tests) 36922ms
+   ✓ creates a real shape and structured Tile from the touch-first dock 13455ms
+   ✓ makes all fifteen canonical shape variants reachable from the dock 1367ms
+   ✓ stores pressure-aware drawing and eraser strokes as vector compositing objects 679ms
+   ✓ erases precise no-hint geometry once while preserving non-drawing, hidden and locked objects through undo/redo 1204ms
+   ✓ preserves drawing geometry after 'move-first' and a follow-up stroke 500ms
+   ✓ keeps an unsupported image file recoverable without creating a broken object 565ms
+   ✓ creates a verified durable image without writing bytes or blob/data URLs into the shared document 1831ms
+   ✓ discards a local image decode that completes after editor unmount 528ms
+   ✓ retains a shared image asset across duplicate deletion and remote bulk deletion until editor unmount 761ms
+   ✓ validates HTTPS image MIME, size, and magic bytes before storing a durable asset reference 1241ms
+   ✓ rejects malformed partial responses before creating an image object 539ms
+   ✓ applies contextual color and duplicates with a 24px offset 4015ms
+   ✓ instantiates a template as one stable object set 982ms
+   ✓ rehydrates a persisted image in a fresh editor session 3677ms
+   ✓ never creates ready canonical content when durable upload fails 449ms
+   ✓ erases only hit unlocked drawings in one undo/redo gesture without selecting them 570ms
+   ✓ retains the original replacement target when retrying after the image dialog closes 916ms
+   ✓ places one Shape per gesture then returns to Select and remembers the variant 362ms
+ ✓ tests/whiteboard/collaborative-editor.test.tsx (27 tests) 19794ms
+   ✓ routes a completed Fabric transform through one identifiable canonical transaction 2178ms
+   ✓ returns a rejected transform result, reports it truthfully, and opens no Yjs transaction 350ms
+   ✓ read-only disables mutation controls and does not alter the document 628ms
+   ✓ undoes and redoes object creation as one local operation 1795ms
+   ✓ IME keeps remote text and preserves the uncommitted composition draft 2064ms
+   ✓ reports world coordinates after zoom and renders server peer cursors/selections 923ms
+   ✓ exposes every multi-selection layout action and commits grid as one canonical transaction 3742ms
+   ✓ smart layout preview is zero-write, cancelable, applicable and conflict guarded 1174ms
+   ✓ announces the actual undo result conflict 313ms
+   ✓ announces the actual undo result empty 362ms
+   ✓ announces undo durability only after the exact update gesture receipt 401ms
+   ✓ preserves native editing select-all and respects an already-handled canvas event 903ms
+   ✓ commenter can start another discussion on an already commented object while object editing stays disabled 1761ms
+   ✓ uses measured frame height 744 for viewport presence and arms one canvas placement 603ms
+   ✓ uses measured frame height 680 for viewport presence and arms one canvas placement 455ms
+ ✓ tests/ui/board-fabric-event-command-bridge.test.ts (15 tests) 3340ms
+   ✓ Board Fabric event-to-command boundary > proves real Fabric Group path endpoints stay in world coordinates despite stroke bounds 451ms
+   ✓ Board Fabric event-to-command boundary > previews attached connectors and chrome after snapping without committing, then restores rejection 918ms
+   ✓ Board Fabric event-to-command boundary > emits one transform command only when a completed local Fabric gesture fires 547ms
+ ✓ tests/ui/board-contextual-toolbar.test.tsx (17 tests) 21026ms
+   ✓ shows Sticky-only direct controls and makes every mutating control unavailable in readonly mode 2987ms
+   ✓ provides adjustable inspector size, compact geometry disclosure and grouped quick actions 1241ms
+   ✓ starts text editing from the outline only for explicitly text-editable objects 2642ms
+   ✓ groups the selected widget's frequent actions separately from detailed properties 840ms
+   ✓ offers direct S/M/L sticky sizing through the object's geometry operation 318ms
+   ✓ exposes type-specific shape appearance controls and updates canonical shape content 334ms
+   ✓ exposes the selected Text's common formatting and object actions before detailed controls 411ms
+   ✓ opens the matching object menu when a shape is selected on the Fabric board 1529ms
+   ✓ keeps the image edit menu as the single floating inspector for selected image widgets 1279ms
+   ✓ offers Frame size presets while keeping title and layout controls in the same inspector 1664ms
+   ✓ derives command availability from selection count and hides single-object controls for a mixed selection 1670ms
+   ✓ explains readonly command unavailability through the toolbar description 849ms
+   ✓ hides mutating single-object controls when the selected object is locked 2206ms
+   ✓ persists Sticky compact text formatting and projects it after rerender 2416ms
+ ✓ tests/whiteboard/whiteboard-library.test.tsx (26 tests) 18517ms
+   ✓ Board library > requests untagged boards from the server and clears that filter when selecting a tag 2003ms
+   ✓ Board library > creates once with a durable request id and enters the full-screen editor 952ms
+   ✓ Board library > opens default title and returns focus after Escape without creating 673ms
+   ✓ Board library > preserves the created board when tag binding needs retry 1708ms
+   ✓ Board library > preserves the created board when tag binding needs already-saved 1318ms
+   ✓ Board library > preserves the created board when tag binding needs conflict 1205ms
+   ✓ Board library > adds a new tag using a stable retry identity 1040ms
+   ✓ Board library > never silently discards an unfinished tag name and allows abandoning an uncertain tag 971ms
+   ✓ Board library > debounces server search and sends stable tag ids as an AND filter 415ms
+   ✓ Board library > ignores a superseded list response that resolves after the current query 1125ms
+   ✓ Board library > deduplicates cursor pages by board id and keeps the newest projection 652ms
+   ✓ Board library > opens editor from the card while the three-dot menu stays action-only 1020ms
+   ✓ Board library > updates board tags with the current CAS revision 773ms
+   ✓ Board library > reuses exact request ids and payloads for uncertain tag create, rename and delete retries 856ms
+   ✓ Board library > freezes and reuses the exact duplicate request after an uncertain response 310ms
+   ✓ Board library > surfaces an archive revision conflict, refreshes and disables the stale action 541ms
+   ✓ Board library > deletes only archived boards with explicit confirmation 412ms
+   ✓ Board library > removes the prior cursor for a new filter and keeps load-more unavailable on failure 401ms
+   ✓ Board library > returns focus to the originating menu trigger when a dialog closes 475ms
+ ✓ tests/whiteboard/thinking-input-interactions.test.tsx (16 tests) 15153ms
+   ✓ double-clicks blank Fabric space into an immediately focused, IME-safe sticky editor 1818ms
+   ✓ keeps a newly created sticky in edit mode across a transient collaboration projection gap 806ms
+   ✓ creates twenty 24px-spaced stickies by typing and pressing Tab without opening a menu 3154ms
+   ✓ coalesces rapid text input into one durable command before the user pauses 370ms
+   ✓ flushes the pending coalesced text before Escape closes the editor 363ms
+   ✓ guards shortcuts inside inputs and creates from N/T only when canvas context owns the key 1061ms
+   ✓ exposes three sticky shapes and five text presets from the touch dock 507ms
+   ✓ dispatches Shift+N bulk creation as one command transaction for up to 100 rows 670ms
+   ✓ offers intelligent multiline paste and creates the chosen stickies in one operation 626ms
+   ✓ accepts dock drag payloads at the Fabric drop point and rejects every read-only creation path 434ms
+   ✓ does not create after cancelling an armed native tool drag until explicitly rearmed 361ms
+   ✓ edits sticky appearance through canonical commands while preserving future extension fields 869ms
+   ✓ persists tags, per-person reactions and a safe link preview without losing unknown experience data 907ms
+   ✓ applies all direct text controls and rejects a non-http link without mutating canonical data 1714ms
+   ✓ shows contextual data in read-only mode but disables every mutation control 692ms
+   ✓ keeps creation palette defaults separate from the selected sticky's canonical color 767ms
+ ✓ tests/whiteboard/spatial-interactions.test.tsx (7 tests) 17694ms
+   ✓ creates and edits a semantic Panel, highlights a drop target, and reparents through the spatial port 2523ms
+   ✓ locks objects against transform and exposes both explicit Panel deletion outcomes 3356ms
+   ✓ creates a semantic connector from handles, updates its label/styles, and follows endpoint movement 3270ms
+   ✓ groups, layers, duplicates the full subgraph, and ungroups through canonical spatial commands 3100ms
+   ✓ preflights multi-delete and commits preserve-free endpoints in one UI transaction 2897ms
+   ✓ keeps multi-selection quiet and restores handles for touch single-selection 2317ms
+ ✓ tests/ui/board-object-authoring-preview.test.tsx (24 tests) 5866ms
+   ✓ BoardObjectAuthoringPreview > renders the default signing scene 827ms
+   ✓ BoardObjectAuthoringPreview > renders the continuous signing scene 384ms
+   ✓ BoardObjectAuthoringPreview > renders the readonly signing scene 305ms
+   ✓ BoardObjectAuthoringPreview > keeps readonly authoring controls disabled while the canvas remains visible 456ms
+   ✓ BoardObjectAuthoringPreview > keeps contextual controls matched to the selected canonical kind 644ms
+   ✓ BoardObjectAuthoringPreview > derives contextual UI, property controls and command targets from one selected object 739ms
+   ✓ BoardObjectAuthoringPreview > updates the default scene property panel when the mirror selects Text 445ms
+ ✓ tests/whiteboard/live-board-collaboration-status.test.tsx (9 tests) 1214ms
+   ✓ shows provider-authoritative pending and reconnect in the cloud without a standalone banner 803ms
+ ✓ tests/ui/board-connector-toolbar.test.tsx (19 tests) 4576ms
+   ✓ anchors connector inspectors above their own trigger instead of the fixed side panel 814ms
+   ✓ preserves a dirty multiline label after a remote label change and refuses silent overwrite 469ms
+   ✓ does not reset an IME draft on composing Escape and rejects over-limit labels without truncation 304ms
+ ✓ tests/ui/board-fabric-projection-registry.test.ts (4 tests) 851ms
+   ✓ Board Fabric incremental projection registry > patches by stable object id, adds and removes only the changed entries, and never reloads the canvas 628ms
+ ✓ tests/whiteboard/native-sticky-placement.test.ts (15 tests) 1644ms
+   ✓ dismisses the actual selected-object inspector without a canonical write before the disarmed blank click 1476ms
+ ✓ tests/ui/board-run-card.test.tsx (16 tests) 1352ms
+   ✓ BoardRunCard > 渲染图标、标题、Agent 头像叠放与徽标；不可拖动；点击跳实例详情 343ms
+ ✓ tests/ui/board-connector-gesture-session.test.tsx (14 tests) 535ms
+ ✓ tests/ui/board-draw-frame-tool-panels.test.tsx (9 tests) 1743ms
+   ✓ offers all drawing instruments and keeps stroke appearance controls stateful 897ms
+ ✓ tests/ui/board-image-entrypoints.test.tsx (9 tests) 5274ms
+   ✓ I opens the unified picker; one successful selection creates exactly one image 1549ms
+   ✓ board drop uses the world coordinate under zoom and pan, rather than viewport center 490ms
+   ✓ paste uses the same upload and upload failure leaves the document unchanged with retry 643ms
+   ✓ replacement preserves the original ID and geometry; a failure preserves original content 883ms
+   ✓ cannot send a delayed verified image into another board scope 469ms
+   ✓ cannot send a delayed verified image into another document scope 303ms
+   ✓ rejects a replacement if a remote edit changes the target during upload 406ms
+ ✓ tests/whiteboard/connector-editor-authority-independent.test.tsx (6 tests) 4391ms
+   ✓ actual editor spatial wiring guards a late label transaction without a React rerender 904ms
+   ✓ actual editor spatial wiring guards a late width transaction without a React rerender 723ms
+   ✓ actual editor spatial wiring guards a late target-locked transaction without a React rerender 825ms
+   ✓ actual editor spatial wiring guards a late accepted transaction without a React rerender 674ms
+   ✓ held from detachment clears the old binding in Surface projection and cancels or commits atomically 853ms
+   ✓ held to detachment clears the old binding in Surface projection and cancels or commits atomically 410ms
+ ✓ tests/ui/board-overlay-navigation.test.tsx (13 tests) 649ms
+ ✓ tests/ui/board-connector-gesture-independent.test.tsx (15 tests) 897ms
+   ✓ route preview does not write; one release is one real command batch and one Undo 352ms
+ ✓ tests/ui/board-property-panel.test.tsx (3 tests) 3702ms
+   ✓ edits canonical Panel properties and enforces mutually exclusive layout controls 1770ms
+   ✓ shows relationship-specific fields and disables precise edits after locking 1569ms
+   ✓ shows shared geometry and explicit mixed values for heterogeneous selections 362ms
+ ✓ tests/ui/board-tool-pointer-cancel.test.tsx (14 tests) 2815ms
+   ✓ pointercancel while held disarms sticky without quick creation 538ms
+   ✓ pointercancel leaves actual document and unarmed canvas click unchanged 641ms
+   ✓ lostpointercapture leaves actual document and unarmed canvas click unchanged 306ms
+ ✓ tests/ui/board-reference-shell.test.tsx (7 tests) 1596ms
+   ✓ copies the real board URL without granting permissions and only reports successful clipboard writes 563ms
+   ✓ keeps the FigJam tool order and keeps Frame creation hidden 337ms
+ ✓ tests/ui/board-image-upload.test.tsx (10 tests) 464ms
+ ✓ tests/ui/board-a11y-mirror.test.tsx (6 tests) 467ms
+   ✓ Board accessibility object mirror > exposes canonical object ids, order, kinds, names, and selection through accessible controls 367ms
+ ✓ tests/whiteboard/board-round04-tools.test.tsx (8 tests) 4240ms
+   ✓ arms sticky without creating, creates once and clears the tool 1084ms
+   ✓ arms text without creating, creates once and clears the tool 314ms
+   ✓ arms shape without creating, creates once and clears the tool 495ms
+   ✓ previews real colors, shapes and typography with submenu cues 1174ms
+   ✓ native tool drags encode one tool and the drop creates once at its scene point 598ms
+ ✓ tests/whiteboard/board-collaboration-ui.test.tsx (2 tests) 5041ms
+   ✓ renders identity/presenter presence and waits for authoritative comment results 4619ms
+   ✓ keeps peer updates outside the local undo stack 420ms
+stderr | tests/ui/board-tool-popover-above.test.tsx > renders compact connector menus without browser globals during SSR
+Warning: useLayoutEffect does nothing on the server, because its effect cannot be encoded into the server renderer's output format. This will lead to a mismatch between the initial, non-hydrated UI and the intended UI. To avoid this, useLayoutEffect should only be used in components that render exclusively on the client. See https://reactjs.org/link/uselayouteffect-ssr for common fixes.
+    at BoardToolPopover (/private/tmp/wsx-board-feedback-menu-audit/apps/web/components/whiteboard/board-tool-popover.tsx:12:29)
+Warning: useLayoutEffect does nothing on the server, because its effect cannot be encoded into the server renderer's output format. This will lead to a mismatch between the initial, non-hydrated UI and the intended UI. To avoid this, useLayoutEffect should only be used in components that render exclusively on the client. See https://reactjs.org/link/uselayouteffect-ssr for common fixes.
+    at Dialog (file:///private/tmp/wsx-board-feedback-menu-audit/node_modules/.pnpm/@radix-ui+react-dialog@1.1.23_@types+react-dom@18.3.7_@types+react@18.3.31__@types+react@18.3_ov7ec2dtynlqribcbkywdp7bhm/node_modules/@radix-ui/react-dialog/dist/index.mjs:28:5)
+    at BoardToolPopover (/private/tmp/wsx-board-feedback-menu-audit/apps/web/components/whiteboard/board-tool-popover.tsx:12:29)
+Warning: useLayoutEffect does nothing on the server, because its effect cannot be encoded into the server renderer's output format. This will lead to a mismatch between the initial, non-hydrated UI and the intended UI. To avoid this, useLayoutEffect should only be used in components that render exclusively on the client. See https://reactjs.org/link/uselayouteffect-ssr for common fixes.
+    at Dialog (file:///private/tmp/wsx-board-feedback-menu-audit/node_modules/.pnpm/@radix-ui+react-dialog@1.1.23_@types+react-dom@18.3.7_@types+react@18.3.31__@types+react@18.3_ov7ec2dtynlqribcbkywdp7bhm/node_modules/@radix-ui/react-dialog/dist/index.mjs:28:5)
+    at BoardToolPopover (/private/tmp/wsx-board-feedback-menu-audit/apps/web/components/whiteboard/board-tool-popover.tsx:12:29)
+Warning: useLayoutEffect does nothing on the server, because its effect cannot be encoded into the server renderer's output format. This will lead to a mismatch between the initial, non-hydrated UI and the intended UI. To avoid this, useLayoutEffect should only be used in components that render exclusively on the client. See https://reactjs.org/link/uselayouteffect-ssr for common fixes.
+    at Dialog (file:///private/tmp/wsx-board-feedback-menu-audit/node_modules/.pnpm/@radix-ui+react-dialog@1.1.23_@types+react-dom@18.3.7_@types+react@18.3.31__@types+react@18.3_ov7ec2dtynlqribcbkywdp7bhm/node_modules/@radix-ui/react-dialog/dist/index.mjs:28:5)
+    at BoardToolPopover (/private/tmp/wsx-board-feedback-menu-audit/apps/web/components/whiteboard/board-tool-popover.tsx:12:29)
+Warning: useLayoutEffect does nothing on the server, because its effect cannot be encoded into the server renderer's output format. This will lead to a mismatch between the initial, non-hydrated UI and the intended UI. To avoid this, useLayoutEffect should only be used in components that render exclusively on the client. See https://reactjs.org/link/uselayouteffect-ssr for common fixes.
+    at Presence (file:///private/tmp/wsx-board-feedback-menu-audit/node_modules/.pnpm/@radix-ui+react-presence@1.1.10_@types+react-dom@18.3.7_@types+react@18.3.31__@types+react@18_3crtfjntzvxf32uscfndiinj74/node_modules/@radix-ui/react-presence/dist/index.mjs:21:11)
+    at Provider (file:///private/tmp/wsx-board-feedback-menu-audit/node_modules/.pnpm/@radix-ui+react-context@1.2.2_@types+react@18.3.31_react@18.3.1/node_modules/@radix-ui/react-context/dist/index.mjs:38:15)
+    at DialogPortal (file:///private/tmp/wsx-board-feedback-menu-audit/node_modules/.pnpm/@radix-ui+react-dialog@1.1.23_@types+react-dom@18.3.7_@types+react@18.3.31__@types+react@18.3_ov7ec2dtynlqribcbkywdp7bhm/node_modules/@radix-ui/react-dialog/dist/index.mjs:92:11)
+    at Provider (file:///private/tmp/wsx-board-feedback-menu-audit/node_modules/.pnpm/@radix-ui+react-context@1.2.2_@types+react@18.3.31_react@18.3.1/node_modules/@radix-ui/react-context/dist/index.mjs:38:15)
+    at Dialog (file:///private/tmp/wsx-board-feedback-menu-audit/node_modules/.pnpm/@radix-ui+react-dialog@1.1.23_@types+react-dom@18.3.7_@types+react@18.3.31__@types+react@18.3_ov7ec2dtynlqribcbkywdp7bhm/node_modules/@radix-ui/react-dialog/dist/index.mjs:28:5)
+    at BoardToolPopover (/private/tmp/wsx-board-feedback-menu-audit/apps/web/components/whiteboard/board-tool-popover.tsx:12:29)
+Warning: useLayoutEffect does nothing on the server, because its effect cannot be encoded into the server renderer's output format. This will lead to a mismatch between the initial, non-hydrated UI and the intended UI. To avoid this, useLayoutEffect should only be used in components that render exclusively on the client. See https://reactjs.org/link/uselayouteffect-ssr for common fixes.
+    at Presence (file:///private/tmp/wsx-board-feedback-menu-audit/node_modules/.pnpm/@radix-ui+react-presence@1.1.10_@types+react-dom@18.3.7_@types+react@18.3.31__@types+react@18_3crtfjntzvxf32uscfndiinj74/node_modules/@radix-ui/react-presence/dist/index.mjs:21:11)
+    at Provider (file:///private/tmp/wsx-board-feedback-menu-audit/node_modules/.pnpm/@radix-ui+react-context@1.2.2_@types+react@18.3.31_react@18.3.1/node_modules/@radix-ui/react-context/dist/index.mjs:38:15)
+    at DialogPortal (file:///private/tmp/wsx-board-feedback-menu-audit/node_modules/.pnpm/@radix-ui+react-dialog@1.1.23_@types+react-dom@18.3.7_@types+react@18.3.31__@types+react@18.3_ov7ec2dtynlqribcbkywdp7bhm/node_modules/@radix-ui/react-dialog/dist/index.mjs:92:11)
+    at Provider (file:///private/tmp/wsx-board-feedback-menu-audit/node_modules/.pnpm/@radix-ui+react-context@1.2.2_@types+react@18.3.31_react@18.3.1/node_modules/@radix-ui/react-context/dist/index.mjs:38:15)
+    at Dialog (file:///private/tmp/wsx-board-feedback-menu-audit/node_modules/.pnpm/@radix-ui+react-dialog@1.1.23_@types+react-dom@18.3.7_@types+react@18.3.31__@types+react@18.3_ov7ec2dtynlqribcbkywdp7bhm/node_modules/@radix-ui/react-dialog/dist/index.mjs:28:5)
+    at BoardToolPopover (/private/tmp/wsx-board-feedback-menu-audit/apps/web/components/whiteboard/board-tool-popover.tsx:12:29)
+
+ ✓ tests/ui/board-tool-popover-above.test.tsx (18 tests) 2685ms
+   ✓ flips below a header-adjacent trigger when above has no space 1014ms
+ ✓ tests/ui/board-selection-model.test.tsx (3 tests) 6056ms
+   ✓ keeps canvas, marquee, and accessible outline selection controlled by canonical ids 4037ms
+   ✓ Option/Alt drag duplicates only unlocked members with canonical ids and the drag offset 1140ms
+   ✓ transforms unlocked members in one undoable operation while locked members stay unchanged 853ms
+ ✓ tests/ui/board-connector-handle-overlap-independent.test.tsx (15 tests) 3096ms
+   ✓ independent connector coincident controls > keeps all 44px hit rectangles reachable for 'elbow-horizontal' at 0.5 1478ms
+ ✓ tests/whiteboard/connector-editor-late-target-independent.test.tsx (9 tests) 7194ms
+   ✓ preserves late target authority for edge-locked through the actual editor port 1441ms
+   ✓ preserves late target authority for old-target-locked through the actual editor port 921ms
+   ✓ preserves late target authority for old-target-deleted through the actual editor port 889ms
+   ✓ preserves late target authority for new-target-locked through the actual editor port 781ms
+   ✓ preserves late target authority for new-target-hidden through the actual editor port 636ms
+   ✓ preserves late target authority for new-target-deleted through the actual editor port 591ms
+   ✓ preserves late target authority for revoked through the actual editor port 690ms
+   ✓ preserves late target authority for left-candidate through the actual editor port 653ms
+   ✓ preserves late target authority for bypassed-candidate through the actual editor port 589ms
+ ✓ tests/ui/board-file-drop.test.tsx (8 tests) 3139ms
+   ✓ creates exactly one ordinary-file tile after successful upload and clears busy state 1117ms
+   ✓ keeps failures visible with retry and creates no tile before success 1113ms
+ ✓ tests/ui/board-header-responsive.test.tsx (3 tests) 1064ms
+   ✓ moves presence and presentation into the narrow-desktop menu without duplicating or losing actions 701ms
+   ✓ explains the disabled title field and provides the return path for renaming 315ms
+ ✓ tests/ui/board-creation-preview-authority.test.tsx (5 tests) 1586ms
+   ✓ previews each canonical text preset size and weight without creating 404ms
+   ✓ uses matching paper silhouettes and the chosen source color in picker and Dock 913ms
+ ✓ tests/whiteboard/board-erase-atomic-independent.test.tsx (3 tests) 1352ms
+   ✓ erases all intersected drawings without selection as one transaction and restores both with one Undo/Redo 1024ms
+ ✓ tests/ui/board-anchored-comments.test.tsx (2 tests) 1357ms
+   ✓ lets a commenter create an object-anchored thread while keeping object editing read-only 1354ms
+ ✓ tests/ui/board-compact-chrome.test.tsx (3 tests) 610ms
+   ✓ opens only the requested inspector, dismisses with Escape and returns focus 308ms
+ ✓ tests/ui/board-connector-handles.test.tsx (5 tests) 396ms
+   ✓ projects shared endpoints, route controls and arc label with fixed screen hit dimensions 302ms
+ ✓ tests/ui/board-fabric-text-geometry.test.ts (6 tests) 764ms
+   ✓ real Fabric text keeps font metrics independent of its container > hides only the sticky glyphs while its transparent DOM editor is active 500ms
+ ✓ tests/ui/board-keyboard-shortcuts.test.tsx (3 tests) 2813ms
+   ✓ maps authoring shortcuts to canonical object creation and tool state without firing in an input 1461ms
+   ✓ groups a multi-selection through Cmd/Ctrl+G and opens bulk sticky creation with Shift+N 1001ms
+   ✓ copies, pastes, and duplicates canonical selections through standard shortcuts 348ms
+ ✓ tests/whiteboard/board-ai-api.test.tsx (4 tests) 752ms
+   ✓ Board AI/API and room controls > shows a zero-write proposal with before/after diff, provenance and explicit confirm/cancel 711ms
+ ✓ tests/whiteboard/import-panel-retry.test.tsx (3 tests) 564ms
+   ✓ reuses the same write identity and epoch after an ambiguous network failure 462ms
+ ✓ tests/ui/board-connector-picker.test.tsx (5 tests) 786ms
+   ✓ previews three genuinely distinct paths and changes only the selected controlled type 532ms
+ ✓ tests/ui/board-object-toolbar-above-independent.test.tsx (15 tests) 460ms
+ ✓ tests/ui/board-smart-layout-preview.test.tsx (2 tests) 2847ms
+   ✓ renders deterministic before/after preview, cancels without mutation, and confirms in one operation 2018ms
+   ✓ blocks all other mutation controls while a preview is pending 827ms
+ ✓ tests/ui/board-toolbar-position.test.tsx (5 tests) 1245ms
+   ✓ keeps selection compact until properties are opened, then keyboard-resizes the inspector 1223ms
+ ✓ tests/ui/board-fabric-v01.test.tsx (3 tests) 893ms
+   ✓ Board Fabric V0.1 preview > exposes every creation/navigation tool and the full 5%-800% zoom range 704ms
+ ✓ tests/ui/board-file-upload.test.tsx (4 tests) 157ms
+ ✓ tests/ui/board-connector-toolbar-obstacles-independent.test.ts (2 tests) 471ms
+   ✓ independent desktop connector toolbar obstacles > does not cover the actual rendered route control after measuring desktop DOM geometry 449ms
+ ✓ tests/whiteboard/board-organize-controls.test.tsx (4 tests) 678ms
+   ✓ shows stale undo honestly and does not clear receipt on rejected inverse 361ms
+ ✓ tests/whiteboard/connector-menu-resolved-bounds.test.tsx (1 test) 887ms
+   ✓ anchors the mounted Connector menu to its resolved route, not zero canonical geometry, and follows camera and node changes 886ms
+ ✓ tests/ui/board-mention-picker.test.tsx (5 tests) 811ms
+   ✓ board mention picker > selects by real name with keyboard, removes chips, never asks for IDs 598ms
+ ✓ tests/ui/board-connector-preview-revision-independent.test.tsx (1 test) 731ms
+   ✓ independent connector preview revision collision > restores remote canonical path when cancellation shares the last preview revision 729ms
+ ✓ tests/ui/board-tool-drag-cancel.test.tsx (7 tests) 421ms
+ ✓ tests/whiteboard/connector-toolbar-draft-independent.test.tsx (5 tests) 1102ms
+   ✓ preserves a dirty multiline draft after a remote label change and refuses stale save with feedback 791ms
+ ✓ tests/whiteboard/board-rotated-toolbar-bounds.test.tsx (2 tests) 1176ms
+   ✓ uses rotated entity bounds for single and mixed-child menus during 30-degree held preview 961ms
+ ✓ tests/ui/board-connector-label-bounds-independent.test.tsx (3 tests) 506ms
+   ✓ independent multiline connector label bounds > sizes its background from actual text, not path bounds (undefined) 390ms
+ ✓ tests/ui/board-connector-hidden-independent.test.tsx (1 test) 854ms
+   ✓ independent hidden connector Fabric projection > honors initial and remote hidden changes for a connector without opacity hacks or selectable hidden objects 853ms
+ ✓ tests/whiteboard/use-whiteboard-document.test.tsx (2 tests) 364ms
+   ✓ reuses decoded objects on UI-only rerenders and decodes Yjs changes once 321ms
+ ✓ tests/ui/board-sticky-appearance-consistency.test.tsx (28 tests) 6247ms
+   ✓ uses the actual legacy paper fill instead of inventing yellow metadata on selection 1500ms
+   ✓ keeps metadata 'yellow'/'square' consistent with renderer despite stale legacy fill 627ms
+   ✓ keeps metadata 'yellow'/'rectangle' consistent with renderer despite stale legacy fill 459ms
+   ✓ keeps metadata 'yellow'/'circle' consistent with renderer despite stale legacy fill 605ms
+ ✓ tests/whiteboard/board-organize-fit.test.tsx (4 tests) 60ms
+ ✓ tests/ui/board-sticky-picker-compact.test.tsx (4 tests) 538ms
+ ✓ tests/whiteboard/connector-toolbar-object-ownership-independent.test.tsx (1 test) 728ms
+   ✓ keeps an unsaved label draft owned by the selected edge rather than carrying it to another edge with the same label 727ms
+ ✓ tests/ui/board-appearance-controls.test.tsx (4 tests) 642ms
+   ✓ board visual appearance controls > offers visible line weights and radius presets that commit their represented value 428ms
+ ✓ tests/ui/board-fabric-presence.test.tsx (1 test) 747ms
+   ✓ projects user and agent presence around Fabric objects without persisting ephemeral state 746ms
+ ✓ tests/ui/board-object-authoring-fabric-object.test.ts (3 tests) 771ms
+   ✓ board object authoring real Fabric projection > wraps the auto-height CJK copy inside the sticky and before the property panel 636ms
+ ✓ tests/whiteboard/connector-history-shortcut.test.tsx (3 tests) 1147ms
+   ✓ ctrlKey Z and Shift Z use the board's real atomic history 649ms
+ ✓ tests/ui/board-connector-fabric-path.test.tsx (1 test) 545ms
+   ✓ real Fabric connector path > preserves exact world path, stroke width and manual label placement without bounds scaling 544ms
+ ✓ tests/whiteboard/board-hidden-selection-context.test.tsx (2 tests) 1424ms
+   ✓ removes hidden selected sticky context and restores it when unhidden without reselection 1068ms
+   ✓ removes hidden selected connector context and restores it when unhidden without reselection 354ms
+ ✓ tests/whiteboard/chat-board-handoff-retry.test.tsx (2 tests) 266ms
+ ✓ tests/whiteboard/board-production-connector-entry.test.tsx (1 test) 2006ms
+   ✓ mounts the approved Connector entry in production without enabling Frame or read-only writes 2001ms
+ ✓ tests/ui/board-sticky-dock-paper.test.tsx (3 tests) 854ms
+   ✓ keeps the sticky paper explicitly sized with an unchanged accessible hit target (selected=false) 688ms
+ ✓ tests/ui/board-fabric-image-load.test.ts (1 test) 308ms
+   ✓ invalidates a completed parent cache while preserving crop and geometry on asynchronous image load 307ms
+ ✓ tests/ui/board-dock-portal.test.tsx (1 test) 832ms
+   ✓ keeps AI options mounted through portaled touch and Escape and dispatches undo 831ms
+ ✓ tests/ui/board-sync-indicator.test.tsx (7 tests) 310ms
+ ✓ tests/ui/board-draw-submenu-indicator.test.tsx (3 tests) 236ms
+ ✓ tests/whiteboard/vendor-local-dom.test.tsx (1 test) 161ms
+ ✓ tests/whiteboard/board-chrome-insets.test.tsx (1 test) 153ms
+ ✓ tests/whiteboard/board-frame.test.tsx (3 tests) 157ms
+ ✓ tests/whiteboard/board-organize-client.test.ts (2 tests) 61ms
+ ✓ tests/ui/board-drawing-shortcut-appearance.test.tsx (2 tests) 581ms
+   ✓ P restores the single-source pen appearance after highlighter 338ms
+ ✓ tests/whiteboard/presentation-fetch-abort.test.tsx (2 tests) 63ms
+ ✓ tests/ui/board-fabric-touch-teardown.test.ts (1 test) 62ms
+ ✓ tests/ui/board-panel-anchored-resize.test.tsx (2 tests) 190ms
+ ✓ tests/ui/board-document-projection-cache.test.tsx (1 test) 40ms
+ ✓ tests/ui/board-a11y-object-outline.test.tsx (6 tests) 481ms
+ ✓ tests/whiteboard/whiteboard-outbox-key-store.test.ts (14 tests) 174ms
+ ✓ tests/whiteboard/chat-board-diagram-layout.test.ts (10 tests) 334ms
+ ✓ tests/whiteboard/whiteboard-provider.test.ts (33 tests) 1731ms
+   ✓ fails closed when the in-page offline replay queue reaches its bounded update count 1299ms
+ ✓ tests/ui/board-drawing-coordinate-space.test.ts (12 tests) 42ms
+ ✓ tests/ui/board-fabric-projection-adapter.test.ts (7 tests) 19ms
+ ✓ tests/whiteboard/whiteboard-outbox-atomic.test.ts (6 tests) 31ms
+ ✓ tests/whiteboard/board-meeting-cas-evidence.test.ts (13 tests) 1237ms
+ ✓ tests/ui/board-fabric-coordinate.test.ts (10 tests) 455ms
+ ✓ tests/whiteboard/board-durable-image-assets.test.ts (7 tests) 41ms
+ ✓ tests/ui/board-sticky-text-layout.test.ts (13 tests) 1395ms
+   ✓ fixed-frame sticky text fit using real Fabric metrics > fits or explicitly overflows without altering source 中文内容换行中文内容换行 373ms
+   ✓ fixed-frame sticky text fit using real Fabric metrics > retains canonical text/frame/font during real circle projection and resize 529ms
+ ✓ tests/whiteboard/board-r10-producer-ui-path.test.ts (5 tests) 14ms
+ ✓ tests/whiteboard/whiteboard-outbox-indexeddb.test.ts (5 tests) 66ms
+ ✓ tests/whiteboard/whiteboard-outbox-key-envelope.test.ts (3 tests) 16ms
+ ✓ tests/whiteboard/whiteboard-confirmed-loss.test.ts (4 tests) 1005ms
+   ✓ retires offline delete/undo/redo after confirmed viewer archived=false and regrant cannot replay it 304ms
+   ✓ retires offline delete/undo/redo after confirmed editor archived=true and regrant cannot replay it 317ms
+ ✓ tests/ui/board-drawing-stroke-path.test.ts (5 tests) 340ms
+   ✓ composites joint alpha once in real browser pixels and retains scaled eraser masks 335ms
+ ✓ tests/whiteboard/vendor-local-proof.test.ts (21 tests) 31ms
+ ✓ tests/ui/board-drawing-cache-bounds.test.ts (1 test) 1014ms
+   ✓ drawing isolated ink cache > renders round caps beyond the canonical frame without erasing other objects 1013ms
+ ✓ tests/whiteboard/vendor-captured-fixtures.test.ts (3 tests) 27ms
+ ✓ tests/ui/board-fabric-input.test.ts (5 tests) 7ms
+ ✓ tests/whiteboard/connector-gesture.test.ts (3 tests) 14ms
+ ✓ tests/ui/board-pinch-viewport.test.ts (5 tests) 6ms
+ ✓ tests/ui/board-layout-revision-conflict.test.ts (2 tests) 57ms
+ ✓ tests/ui/board-fabric-visual.test.ts (7 tests) 9ms
+ ✓ tests/whiteboard/board-spatial-pointer.test.ts (5 tests) 8ms
+ ✓ tests/whiteboard/board-meeting-producer.test.ts (4 tests) 9ms
+ ✓ tests/ui/board-copy-paste-duplicate.test.ts (2 tests) 36ms
+ ✓ tests/whiteboard/board-shared-outbox-fixture.test.ts (3 tests) 65ms
+ ✓ tests/ui/board-fabric-subpixel-transform.test.ts (4 tests) 49ms
+ ✓ tests/ui/board-drawing-choice-style.test.ts (1 test) 790ms
+   ✓ uses instrument alpha once within a stroke and source-over between independent strokes 789ms
+ ✓ tests/ui/board-snap-guidelines.test.ts (5 tests) 31ms
+ ✓ tests/ui/board-sticky-resize-regression.test.ts (5 tests) 35ms
+ ✓ tests/ui/board-drawing-hit-test.test.ts (3 tests) 5ms
+ ✓ tests/ui/board-file-upload-response.test.ts (12 tests) 21ms
+ ✓ tests/ui/board-nine-point-rubric.test.ts (2 tests) 8ms
+ ✓ tests/ui/board-connector-hit-test.test.ts (2 tests) 17ms
+ ✓ tests/ui/board-object-authoring-proposal-material.test.ts (2 tests) 35ms
+ ✓ tests/whiteboard/board-select-all.test.ts (2 tests) 8ms
+ ✓ tests/ui/board-drawing-eraser.test.ts (2 tests) 23ms
+ ✓ tests/whiteboard/presentation-read-signal.test.ts (2 tests) 22ms
+ ✓ tests/whiteboard/board-shared-outbox-proof.test.ts (6 tests) 5ms
+ ✓ tests/whiteboard/whiteboard-rewrite.test.ts (1 test) 5ms
+ ✓ tests/whiteboard/board-meeting-reconnect-projection.test.ts (1 test) 3ms
+ ✓ tests/ui/board-spacing-measurement.test.ts (2 tests) 4ms
+ ✓ tests/whiteboard/connection-handle-visibility.test.ts (3 tests) 7ms
+ ✓ tests/ui/board-atomic-layout-commands.test.ts (16 tests) 43994ms
+   ✓ arranges 500 objects in one canonical transaction without per-object dispatch 43874ms
+ ✓ tests/whiteboard/live-whiteboard.test.ts (1 test) 17ms
+ ✓ tests/whiteboard/board-spatial-ws-metadata.test.ts (2 tests) 11ms
+ ✓ tests/whiteboard/board-chrome-fit.test.ts (3 tests) 5ms
+
+ Test Files  134 passed (134)
+      Tests  960 passed (960)
+   Start at  10:18:40
+   Duration  437.17s (transform 22.74s, setup 67.19s, collect 153.95s, tests 311.54s, environment 237.79s, prepare 27.26s)
+
