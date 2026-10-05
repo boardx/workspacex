@@ -1,17 +1,12 @@
 import {createHash} from 'node:crypto';
-import {z} from 'zod';
+import {Request,BILLING_MODES,type BillingMode} from '@repo/contracts/qwen-tts';
 import {priceNativeAiUsage,type AiNativePrice} from '../../domain/agent-run/ai-billable-unit';
 
-/** Only the Qwen-TTS multimodal-generation dialect. Other TTS dialects require their own adapter. */
-const Request=z.object({model:z.string().min(1).max(200),input:z.object({
- text:z.string().min(1),voice:z.string().min(1).max(200),
- language_type:z.enum(['Auto','Chinese','English','German','Italian','Portuguese','Spanish','Japanese','Korean','French','Russian']).optional(),
-}).strict()}).strict();
 export interface QwenTtsDeploymentSpecification {
  readonly runtimeModelId:string;
  /** Deployment-confirmed voices and transport input bound, never inferred from a catalog name. */
  readonly allowedVoices:readonly string[];readonly maximumUtf8Bytes:number;
- readonly billingMode:'character'|'audio-token';
+ readonly billingMode:BillingMode;
 }
 export interface PreparedQwenTtsRequest {
  readonly modelId:string;readonly serializedBody:string;readonly serializedBodySha256:string;
@@ -19,7 +14,7 @@ export interface PreparedQwenTtsRequest {
 }
 /** A validated request is not permission to call a supplier: ownership/admission remains required. */
 export function prepareQwenTtsRequest(payload:unknown,specification:QwenTtsDeploymentSpecification):PreparedQwenTtsRequest {
- if(!['character','audio-token'].includes(specification.billingMode)||!specification.runtimeModelId||!Number.isSafeInteger(specification.maximumUtf8Bytes)||specification.maximumUtf8Bytes<=0
+ if(!BILLING_MODES.includes(specification.billingMode)||!specification.runtimeModelId||!Number.isSafeInteger(specification.maximumUtf8Bytes)||specification.maximumUtf8Bytes<=0
   ||specification.maximumUtf8Bytes>2_000_000||!specification.allowedVoices.length)
   throw new Error('TTS_DEPLOYMENT_SPECIFICATION_UNVERIFIED');
  const parsed=Request.safeParse(payload);
