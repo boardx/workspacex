@@ -28,6 +28,7 @@
  *   `AgentRuntimeError` 的每一个成员都在下方某个操作的 `err` 里出现。
  */
 import { z } from "zod";
+import { PendingSkillBinding } from "./agent-role";
 import { getAgentSkillPins } from "./agent-skill-pins";
 import { ArtifactError } from "./artifact";
 import { PermissionReason } from "./identity";
@@ -1678,6 +1679,10 @@ export const operations = {
         agentId: z.string(),
         name: z.string(),
         roleLabel: z.string(),
+        publishedVersionId: z.string().nullable().optional(),
+        pinnedSkills: z.array(z.object({skillId:z.string(),versionId:z.string()}).strict()).optional(),
+        unresolvedSkillVersionIds: z.array(z.string()).optional(),
+        pendingSkillBindings: z.array(PendingSkillBinding).optional(),
         skillMounts: z.array(SkillMount),
         toolWhitelist: z.array(ToolWhitelistEntry),
       })

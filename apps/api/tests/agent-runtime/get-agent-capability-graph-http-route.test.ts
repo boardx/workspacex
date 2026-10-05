@@ -9,7 +9,7 @@
  * ③ 跨组织读不到（fail-closed，与 `findForClone` 同一形状）单独一条负样本，
  *   不与"不存在"共用同一条断言掩盖差异。
  */
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import type { NestExpressApplication } from "@nestjs/platform-express";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { agentRuntime as AR } from "@repo/contracts";
@@ -179,5 +179,64 @@ describe("空态：没有挂载任何能力的 agent ⇒ 两个数组都是真�
     const parsed = AR.operations.getAgentCapabilityGraph.out.parse(await response.json());
     expect(parsed.skillMounts).toEqual([]);
     expect(parsed.toolWhitelist).toEqual([]);
+  });
+});
+
+
+describe("#5389 current published pin metadata under real tenant isolation", () => {
+  it("resolves only current published tenant pins, withholding foreign, unpublished and historical pins", async () => {
+    await resetOrgs(ORG, OTHER_ORG);
+    for (const orgId of [ORG, OTHER_ORG]) {
+      await seedOrg({orgId, projectId: `proj-5389-${orgId}`});
+      await addOrgMember(orgId, ADMIN, "admin", null);
+    }
+    const seedSkill = async (orgId: string, published: boolean) => {
+      const skillId = `skill-5389-${randomUUID()}`;
+      const versionId = `sv-5389-${randomUUID()}`;
+      const content = Buffer.from("# private skill body not disclosed\n");
+      const digest = createHash("sha256").update(content).digest("hex");
+      await asApp(orgId, async c => {
+        await c.query(`INSERT INTO skills (id,org_id,stable_name,name,status,creator_id,created_at,updated_at)
+          VALUES ($1,$2,$1,$1,'enabled',$3,now(),now())`, [skillId, orgId, ADMIN]);
+        await c.query(`INSERT INTO skill_versions (id,org_id,skill_id,semantic_label,content_digest,manifest,creator_id,created_at,published)
+          VALUES ($1,$2,$3,'v1',$4,'{}'::jsonb,$5,now(),false)`, [versionId, orgId, skillId, digest, ADMIN]);
+        await c.query(`INSERT INTO skill_version_files (org_id,version_id,path,content,media_type,digest)
+          VALUES ($1,$2,'SKILL.md',$3::bytea,'text/markdown',$4)`, [orgId, versionId, content, digest]);
+        if (published) await c.query("SELECT wave2_publish_skill_version($1,$2)", [orgId, versionId]);
+      });
+      return {skillId, versionId};
+    };
+    const current = await seedSkill(ORG, true);
+    const historic = await seedSkill(ORG, true);
+    const unpublished = await seedSkill(ORG, false);
+    const foreign = await seedSkill(OTHER_ORG, true);
+    const missing = `sv-missing-${randomUUID()}`;
+    const agentId = await seedAgentWithCapabilities(ORG);
+    const versionId = `av-current-${randomUUID()}`;
+    const oldVersionId = `av-old-${randomUUID()}`;
+    const instructions = "PRIVATE PUBLISHED INSTRUCTIONS MUST NOT BE DISCLOSED";
+    await asApp(ORG, async c => {
+      for (const [id, pins] of [[oldVersionId, [historic.versionId]], [versionId, [current.versionId, foreign.versionId, unpublished.versionId, missing, current.versionId]]] as const) {
+        await c.query(`INSERT INTO agent_versions (id,org_id,agent_id,semantic_label,instruction_digest,instructions,skill_version_ids,
+          model_provider,model_id,tool_policy,creator_id,created_at,published_at)
+          VALUES ($1,$2,$3,$4,$5,$6,$7::text[],'wave2-loopback','sentinel-model','[]'::jsonb,$8,now(),now())`,
+          [id, ORG, agentId, id, createHash("sha256").update(instructions).digest("hex"), instructions, pins, ADMIN]);
+      }
+      await c.query("UPDATE agents SET published_version_id=$1 WHERE id=$2 AND org_id=$3", [versionId, agentId, ORG]);
+    });
+    const response = await get(`/agents/${agentId}`, ADMIN, ORG);
+    expect(response.status).toBe(200);
+    const graph = AR.operations.getAgentCapabilityGraph.out.parse(await response.json());
+    expect(graph.publishedVersionId).toBe(versionId);
+    expect(graph.pinnedSkills).toEqual([{skillId: current.skillId, versionId: current.versionId}]);
+    expect(graph.unresolvedSkillVersionIds).toEqual([foreign.versionId, unpublished.versionId, missing]);
+    expect(graph.pendingSkillBindings).toEqual([]);
+    expect(graph.skillMounts).toEqual([{skillId: "skill-i1911-ppt", skillVersion: 3}]);
+    expect(JSON.stringify(graph)).not.toContain(instructions);
+    expect(JSON.stringify(graph)).not.toContain("private skill body");
+    expect(JSON.stringify(graph)).not.toContain(historic.versionId);
+    const denied = await get(`/agents/${agentId}`, ADMIN, OTHER_ORG);
+    expect(denied.status).toBe(404);
+    expect(await denied.json()).toMatchObject({reasonCode: "AGENT_NOT_FOUND"});
   });
 });

@@ -55,6 +55,7 @@ MCP 接线、模型路由、context-pack、provenance；不含对话 UI 本身�
 3. 交付：`verify --sprint` 门控；PR 描述里写清对上述契约的影响面。
 
 ## 踩坑与经验（append-only，最新在上）
+- 2026-10-05：能力图新增当前发布版本元数据读取时，仓储守卫应按方法限制表与精确 SELECT 列；创建/克隆/列表不能一起放宽。复用已守卫的目录 pin resolver 可避免新增权限豁免，仍需真实 PG 跨组织、未发布及历史版本反例证明边界（PR #5389 / issue #5386）。
 - 2026-10-01：数字人 exact pins 与通用助手挂载并存时，general 范围必须由已发布服务端目录的系统通用 stable_name 确认，客户端选择标记不得赋权；真实 mounted Skill 测试应种通用身份，另保留客户端伪造 general 的拒绝反证。召回用户第一人称材料放入 user history 后，测试应同时断言 user 归属与记忆引用内容，不能只让旧 assistant oracle 读空（#4948 / PR #4917）。
 - 2026-10-01：全 Skills batch 的当前执行未生成 report 时，不能返回历史门状态且 error=null；应明确 not_evaluated 与执行错误。27个suite存在/机器校验通过不等于26个未注册subject能执行，S003确定性loopback不等于83个真实模型质量验收（skills-all/runtime反证）。
 - 2026-10-01：DevApp PDF 的三次 `tool_call_unresolved` 发生在执行前：模型把 `document-understanding` 技能名当作工具名，原生快照授权直接抛异常。不存在注册 handler 的名字应先返回错误 ToolMessage，让模型读取 SKILL.md 并纠正工具与 schema；注册了但快照不允许的工具仍必须 fail-closed，不能把 ToolAuthorityError 统一吞掉（出处：issue #4869，runner 取证 36845699068）。
