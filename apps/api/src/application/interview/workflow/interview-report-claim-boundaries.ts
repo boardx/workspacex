@@ -83,8 +83,10 @@ function qualifiedDecisionState(clause: string, start: number, end: number): boo
   if (/(?:无法|不能)确认(?:为)?(?:永久)?(?:搁置|暂停|暂缓|中断)$/u.test(predicate)
     && !/(?:并非|不是)\s*(?:无法|不能)确认/u.test(predicate)
     && !/(?:并非|不是)\s*$/u.test(before)) return true;
-  if (/不证明\s*$/u.test(before)
-    && !/(?:并非|不是|不能|不可|不得|否认|否定)\s*不证明\s*$/u.test(before)) return true;
+  if (/不证明\s*$/u.test(before)) {
+    // Modifiers do not erase the outer negation of the local epistemic denial.
+    return !/(?:并非|不是|不能|不可|不得|否认|否定)(?:\s|真的|明确|直接|确实|完全|说|声称|表示){0,4}不证明\s*$/u.test(before);
+  }
   const doubleDenial = /(?:并非|不是)\s*(?:没有|并未|未曾|从未|并不)/u.test(predicate);
   if (!doubleDenial && (/(?:是否|可能|或许|预计|将|拟|会|尚未|并未|并不|并非|不是|没有|未曾|从未)(?:已|已经|被|处于|将|会|\s)*(?:搁置|暂停|暂缓|中断)/u.test(predicate)
     || /^\s*(?:吗|么|呢|[？?])/u.test(clause.slice(end)))) return true;
