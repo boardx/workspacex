@@ -15,7 +15,7 @@ const { parseMcpToolFullName } = agentRuntime;
 export interface CapabilityGraphSkillNode {
   readonly id: string;
   readonly skillId: string;
-  readonly skillVersion: number;
+  readonly skillVersion: number | string;
   /** 展示名——有已知目录名就用目录名，拿不到时原样退回 skillId（诚实，不臆造）。 */
   readonly label: string;
   readonly href: string;
@@ -62,6 +62,9 @@ export function buildAgentCapabilityGraphModel(
     href: skillEditHref(mount.skillId),
   }));
 
+  for (const pin of data.pinnedSkills ?? []) {
+    skillNodes.push({id:`pin:${pin.versionId}`,skillId:pin.skillId,skillVersion:pin.versionId,label:skillNames.get(pin.skillId) ?? pin.skillId,href:skillEditHref(pin.skillId)});
+  }
   const mcpNodes: CapabilityGraphMcpNode[] = data.toolWhitelist.flatMap((entry) => {
     const parsed = parseMcpToolFullName(entry.toolFullName);
     // 非法/不可解析的工具全名不该出现（不变量本应保证它合法）——跳过而不是硬凑一个假节点。
