@@ -1,0 +1,19 @@
+
+> @repo/api@0.0.0 test:interview-markdown-unit /Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/apps/api
+> vitest run --config vitest.interview-markdown-unit.config.ts
+
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/apps/api
+
+ ✓ tests/itv/interview-report-recovery.test.ts (24 tests) 69ms
+ ✓ tests/itv/interview-report-claim-boundaries.test.ts (154 tests) 63ms
+ ✓ tests/itv/interview-report-grounding.test.ts (76 tests) 43ms
+ ✓ tests/itv/interview-report-diagnostics.test.ts (14 tests) 30ms
+ ✓ tests/itv/interview-markdown-report-stream-controller.test.ts (9 tests) 4ms
+ ✓ tests/itv/interview-model-markdown.test.ts (4 tests) 3ms
+
+ Test Files  6 passed (6)
+      Tests  281 passed (281)
+   Start at  05:53:52
+   Duration  2.40s (transform 583ms, setup 0ms, collect 1.66s, tests 211ms, environment 0ms, prepare 127ms)
+

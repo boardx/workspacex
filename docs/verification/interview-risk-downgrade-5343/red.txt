@@ -1,0 +1,81 @@
+
+> @repo/api@0.0.0 test:interview-markdown-unit /Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/apps/api
+> vitest run --config vitest.interview-markdown-unit.config.ts
+
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/apps/api
+
+ ✓ tests/itv/interview-report-recovery.test.ts (24 tests) 71ms
+ ❯ tests/itv/interview-report-claim-boundaries.test.ts (148 tests | 8 failed) 75ms
+   × finite report claim boundaries > rejects preserved public attempt 1's automatic physical-risk downgrade 20ms
+     → expected [ Array(2) ] to include 'unsupported_physical_risk_downgrade'
+   × finite report claim boundaries > rejects preserved public attempt 2's automatic physical-risk downgrade 9ms
+     → expected [ Array(2) ] to include 'unsupported_physical_risk_downgrade'
+   × finite report claim boundaries > does not treat a changed setup as verified risk reduction: 若办公区采用移动式带线插座或无固定柜体，则该物理冲突风险自动降级。 0ms
+     → expected [] to include 'unsupported_physical_risk_downgrade'
+   × finite report claim boundaries > does not treat a changed setup as verified risk reduction: 改用移动插座后，供电风险自动降低。仍需检查线缆。 0ms
+     → expected [] to include 'unsupported_physical_risk_downgrade'
+   × finite report claim boundaries > does not treat a changed setup as verified risk reduction: 无固定柜体，所以空间风险已经消除。 0ms
+     → expected [] to include 'unsupported_physical_risk_downgrade'
+   × finite report claim boundaries > does not treat a changed setup as verified risk reduction: 不能确认安装成本，但采用移动插座后物理风险必然降低。 0ms
+     → expected [] to include 'unsupported_physical_risk_downgrade'
+   × finite report claim boundaries > does not treat a changed setup as verified risk reduction: 不能否认采用移动插座后供电风险自动降低。 0ms
+     → expected [] to include 'unsupported_physical_risk_downgrade'
+   × finite report claim boundaries > keeps recorded narrow checks separate from other risks and setup proposals 0ms
+     → expected [] to include 'unsupported_physical_risk_downgrade'
+ ✓ tests/itv/interview-report-grounding.test.ts (76 tests) 41ms
+ ✓ tests/itv/interview-report-diagnostics.test.ts (14 tests) 30ms
+ ✓ tests/itv/interview-markdown-report-stream-controller.test.ts (9 tests) 4ms
+ ✓ tests/itv/interview-model-markdown.test.ts (4 tests) 3ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 8 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/itv/interview-report-claim-boundaries.test.ts > finite report claim boundaries > rejects preserved public attempt 1's automatic physical-risk downgrade
+ FAIL  tests/itv/interview-report-claim-boundaries.test.ts > finite report claim boundaries > rejects preserved public attempt 2's automatic physical-risk downgrade
+AssertionError: expected [ Array(2) ] to include 'unsupported_physical_risk_downgrade'
+ ❯ tests/itv/interview-report-claim-boundaries.test.ts:15:58
+     13|   const saved = JSON.parse(readFileSync(new URL("source.json", root), …
+     14|   const index = buildReportEvidenceIndex(saved.documents.find((d: {ste…
+     15|   expect(assessReportClaimBoundaries(raw,index).missing).toContain("un…
+       |                                                          ^
+     16|  });
+     17|  it.each([
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/8]⎯
+
+ FAIL  tests/itv/interview-report-claim-boundaries.test.ts > finite report claim boundaries > does not treat a changed setup as verified risk reduction: 若办公区采用移动式带线插座或无固定柜体，则该物理冲突风险自动降级。
+ FAIL  tests/itv/interview-report-claim-boundaries.test.ts > finite report claim boundaries > does not treat a changed setup as verified risk reduction: 改用移动插座后，供电风险自动降低。仍需检查线缆。
+ FAIL  tests/itv/interview-report-claim-boundaries.test.ts > finite report claim boundaries > does not treat a changed setup as verified risk reduction: 无固定柜体，所以空间风险已经消除。
+ FAIL  tests/itv/interview-report-claim-boundaries.test.ts > finite report claim boundaries > does not treat a changed setup as verified risk reduction: 不能确认安装成本，但采用移动插座后物理风险必然降低。
+ FAIL  tests/itv/interview-report-claim-boundaries.test.ts > finite report claim boundaries > does not treat a changed setup as verified risk reduction: 不能否认采用移动插座后供电风险自动降低。
+AssertionError: expected [] to include 'unsupported_physical_risk_downgrade'
+ ❯ tests/itv/interview-report-claim-boundaries.test.ts:25:98
+     23|  ])("does not treat a changed setup as verified risk reduction: %s", c…
+     24|   const quote = "另一个场景安装顺利，不能推断普遍发生。";
+     25|   expect(assessReportClaimBoundaries(`${claim}[${quote}](#answer-1)`,[…
+       |                                                                                                  ^
+     26|  });
+     27|  it.each([
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/8]⎯
+
+ FAIL  tests/itv/interview-report-claim-boundaries.test.ts > finite report claim boundaries > keeps recorded narrow checks separate from other risks and setup proposals
+AssertionError: expected [] to include 'unsupported_physical_risk_downgrade'
+ ❯ tests/itv/interview-report-claim-boundaries.test.ts:41:101
+     39|   expect(assessReportClaimBoundaries(`${claim}[${quote}](#answer-1)`,[…
+     40|   for (const unsafe of ["改用移动插座后，供电风险已降低。", "改用移动…
+     41|     expect(assessReportClaimBoundaries(`${unsafe}[${quote}](#answer-1)…
+       |                                                                                                     ^
+     42|   expect(assessReportClaimBoundaries(`${claim}[${quote}](#answer-1)`,[…
+     43|   const plan = quote.replace("本次", "计划");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/8]⎯
+
+ Test Files  1 failed | 5 passed (6)
+      Tests  8 failed | 267 passed (275)
+   Start at  05:39:25
+   Duration  2.56s (transform 639ms, setup 0ms, collect 1.81s, tests 224ms, environment 0ms, prepare 133ms)
+
+/Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/apps/api:
+ ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  @repo/api@0.0.0 test:interview-markdown-unit: `vitest run --config vitest.interview-markdown-unit.config.ts`
+Exit status 1

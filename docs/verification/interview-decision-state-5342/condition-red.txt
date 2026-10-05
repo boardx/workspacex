@@ -1,0 +1,45 @@
+
+> @repo/api@0.0.0 test:interview-markdown-unit /Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/apps/api
+> vitest run --config vitest.interview-markdown-unit.config.ts
+
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/apps/api
+
+ ✓ tests/itv/interview-report-recovery.test.ts (24 tests) 73ms
+ ❯ tests/itv/interview-report-claim-boundaries.test.ts (119 tests | 1 failed) 63ms
+   × finite report claim boundaries > preserves a plan, scoped denial, question or conditional state: 若张采购者目前这笔咖啡机采购已暂停，可以先验证替代方案。 3ms
+     → expected false to be true // Object.is equality
+ ✓ tests/itv/interview-report-grounding.test.ts (76 tests) 44ms
+ ✓ tests/itv/interview-report-diagnostics.test.ts (14 tests) 35ms
+ ✓ tests/itv/interview-markdown-report-stream-controller.test.ts (9 tests) 5ms
+ ✓ tests/itv/interview-model-markdown.test.ts (4 tests) 3ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/itv/interview-report-claim-boundaries.test.ts > finite report claim boundaries > preserves a plan, scoped denial, question or conditional state: 若张采购者目前这笔咖啡机采购已暂停，可以先验证替代方案。
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ tests/itv/interview-report-claim-boundaries.test.ts:36:52
+     34|   "当前采购并未搁置。",
+     35|  ])("preserves a plan, scoped denial, question or conditional state: %…
+     36|   expect(assessReportClaimBoundaries(claim,[]).ok).toBe(true);
+       |                                                    ^
+     37|  });
+     38|  it("preserves the same observed person, decision object and current t…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed | 5 passed (6)
+      Tests  1 failed | 245 passed (246)
+   Start at  04:58:32
+   Duration  2.67s (transform 648ms, setup 0ms, collect 1.88s, tests 221ms, environment 0ms, prepare 142ms)
+
+/Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/apps/api:
+ ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  @repo/api@0.0.0 test:interview-markdown-unit: `vitest run --config vitest.interview-markdown-unit.config.ts`
+Exit status 1

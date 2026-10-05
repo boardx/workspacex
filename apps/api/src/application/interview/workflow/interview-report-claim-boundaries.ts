@@ -1,6 +1,6 @@
 import { interviewMarkdown } from "@repo/contracts";
 import type { ReportEvidence } from "./interview-report-grounding";
-export type ReportClaimBoundaryGap = "unsupported_executed_measurement" | "unqualified_defect_exclusion" | "overbroad_physical_check_exemption";
+export type ReportClaimBoundaryGap = "unsupported_executed_measurement" | "unqualified_defect_exclusion" | "overbroad_physical_check_exemption" | "unsupported_current_decision_state" | "unsupported_physical_risk_downgrade";
 type Count = {value: string; unit: string};
 // This is a finite syntax boundary for observed counterexamples, NOT a semantic truth validator.
 // Never mutate candidate bytes, infer source identity, or treat arbitrary nearby quotes as support.
@@ -68,6 +68,54 @@ function scopedObservedExclusion(clause: string, quote: string, start: number, e
   return !!observed && start >= observed.index && end <= observed.index + observed[0].length
     && clauses(quote).some(source => source.trim() === clause.trim());
 }
+const currentDecisionState = /(?:当前|目前|现在)[^，,:：。；;\n]{0,20}?(?:采购|购买|投入)[^，,:：。；;\n]{0,12}?(?:搁置|暂停|暂缓|中断)(?:状态)?|(?:采购(?!者)|购买|投入)(?:决策|计划|流程)?[^，,:：。；;\n]{0,12}?(?:已经|已|仍|正在|处于)[^，,:：。；;\n]{0,6}?(?:搁置|暂停|暂缓|中断)(?:状态)?/gu;
+// A bounded named role may intervene before its own state predicate. This does
+// not exempt a budget proposition, unrelated clause or arbitrary preceding text.
+const decisionSubject = String.raw`(?:[\p{L}·]{0,4}(?:采购者|受访者|用户|专家|研究员|经理|负责人))?`;
+const decisionProhibition = new RegExp(String.raw`(?:不能|不可|无法|不得|不应)(?:据此)?(?:断言|声称|说明|表明|证明|确认|判断|认定)${decisionSubject}\s*$`, "u");
+const deniedPrevention = new RegExp(String.raw`(?:不能|无法|不可|未能|没有|并未|不得|不应)(?:避免|防止)${decisionSubject}\s*$`, "u");
+const decisionPrevention = new RegExp(String.raw`(?:避免|防止)${decisionSubject}\s*$`, "u");
+function qualifiedDecisionState(clause: string, start: number, end: number): boolean {
+  const before = clause.slice(0,start).split(/[，,:：]/u).at(-1)!;
+  const predicate = clause.slice(start,end);
+  const doubleDenial = /(?:并非|不是)\s*(?:没有|并未|未曾|从未|并不)/u.test(predicate);
+  if (!doubleDenial && (/(?:是否|可能|或许|预计|将|拟|会|尚未|并未|并不|并非|不是|没有|未曾|从未)(?:已|已经|被|处于|将|会|\s)*(?:搁置|暂停|暂缓|中断)/u.test(predicate)
+    || /^\s*(?:吗|么|呢|[？?])/u.test(clause.slice(end)))) return true;
+  if (/不能不|不可不|不得不|否认|否定|而(?:要|应|是)|却/u.test(before)) return false;
+  if (deniedPrevention.test(before)) return false;
+  return decisionProhibition.test(before)
+    || /不足以(?:说明|表明|证明|判断)\s*$/u.test(before)
+    || decisionPrevention.test(before)
+    || /^\s*(?:若|如果|假如)[^，,:：]{0,24}$/u.test(before);
+}
+const changedSetup = /移动(?:式)?(?:带线)?插座|移动电源|无固定柜体|免安装|桌面型/u;
+const reducedPhysicalRisk = /(?:物理(?:冲突)?|供电|负荷|承重|线缆|空间|固定孔位(?:冲突)?)风险[^，,:：]{0,12}?(?:(?:自动|必然|已经|已)(?:得到)?)?(?:降级|降低|消除|消失)|(?:消除|降低|降级)(?:了)?[^，,:：]{0,12}?(?:供电|负荷|承重|线缆|空间|固定孔位(?:冲突)?)风险/gu;
+function qualifiedRiskReduction(clause: string, start: number, end: number): boolean {
+  const before = clause.slice(0,start).split(/[，,:：]/u).at(-1)!;
+  const predicate = clause.slice(start,end);
+  if (/(?:并非|不是)\s*(?:没有|尚未|并未|并不|不会|未)/u.test(predicate)) return false;
+  if (/^\s*(?:吗|么|呢|[？?])/u.test(clause.slice(end))) return true;
+  if (/(?:并非|不是|没有|尚未|并未|并不|不会|可能|是否)(?:自动|必然|已经|已)?(?:得到)?(?:降级|降低|消除|消失)/u.test(predicate)) return true;
+  if (/不能不|不可不|不得不|否认|否定/u.test(before) || /(?:并非|不是)\s*(?:没有|尚未|并未|并不|不会|未)\s*$/u.test(before)) return false;
+  return /(?:可能|或许|并非|不是|并不|不会|尚未|并未|没有|未能|未)\s*$/u.test(before)
+    || /^\s*(?:建议|拟|计划)(?:采用|改用)(?:移动(?:式)?(?:带线)?插座|移动电源|无固定柜体|免安装|桌面型)(?:以|来)?\s*$/u.test(before)
+    || /(?:不能|不可|无法|不得|不应)(?:断言|声称|确认|认定)[^，,:：]{0,24}$/u.test(before)
+    || /^\s*(?:若|如果|假如)[^，,:：]{0,24}(?:经|通过)[^，,:：]{0,16}(?:现场复核|负荷检测|安全检测|专项检测)确认[^，,:：]{0,12}$/u.test(before);
+}
+function scopedRecordedRisk(clause: string, quote: string, start: number, end: number): boolean {
+  const observed = /本次对该[^，,:：]{1,24}的(?:现场复核|现场负荷检测|负荷检测|安全检测|专项检测)确认(?:该[^，,:：]{0,24})?(?:供电|负荷|承重|线缆|空间|固定孔位(?:冲突)?)风险已降低/u.exec(clause);
+  return !!observed && start >= observed.index && end <= observed.index + observed[0].length
+    && clauses(quote).some(source => source.trim() === observed[0]);
+}
+function decisionProposition(clause: string): string {
+  // Remove neutral attribution outside the proposition, retaining speaker identity,
+  // decision object, time and predicate. Do not reduce support to the state verb.
+  // Keep trailing qualifications: a source hypothetical must not prove a present fact.
+  return clause.trim()
+    .replace(/^(?:根据|依据)(?:访谈|原文|记录|证据)[，,：:]\s*/u, "")
+    .replace(/^(?:证据事实|已知事实|原文记录|(?:原文|访谈|记录|证据)(?:显示|表明|记载))[：:]\s*/u, "")
+    .replace(/^([^，,:：]{1,24})(?:表示|称|说道)[：:]\s*/u, "$1");
+}
 export function assessReportClaimBoundaries(markdown: string, index: readonly ReportEvidence[]): {ok: boolean; missing: readonly ReportClaimBoundaryGap[]} {
   const missing = new Set<ReportClaimBoundaryGap>();
   const sourceByAnchor = new Map(index.map(entry => [`#${entry.anchor}`,entry]));
@@ -91,7 +139,39 @@ export function assessReportClaimBoundaries(markdown: string, index: readonly Re
           missing.add("unqualified_defect_exclusion");
       }
     }
+    for (const clause of clauses(assertion.text)) {
+      for (const state of clause.matchAll(currentDecisionState)) {
+        if (qualifiedDecisionState(clause,state.index!,state.index!+state[0].length)) continue;
+        const observed = assertion.links.some(link => {
+          const entry = sourceByAnchor.get(link.url);
+          if (!entry?.expertId || !entry.taskKey || entry.quote !== link.text) return false;
+          // Preserve person/object/time together. Plans or observations from another
+          // paragraph, person, decision or past window do not establish this state.
+          return clauses(entry.quote).some(source => [...source.matchAll(currentDecisionState)].some(match =>
+            !qualifiedDecisionState(source,match.index!,match.index!+match[0].length)
+            && decisionProposition(source) === decisionProposition(clause)));
+        });
+        if (!observed) missing.add("unsupported_current_decision_state");
+      }
+    }
     const text = assertion.text.normalize("NFKC");
+    const boundSetup = assertion.links.some(link => {
+      const entry = sourceByAnchor.get(link.url);
+      return entry?.expertId && entry.taskKey && entry.quote === link.text && changedSetup.test(entry.quote);
+    });
+    if (changedSetup.test(text) || boundSetup) {
+      for (const clause of clauses(text)) {
+        for (const risk of clause.matchAll(reducedPhysicalRisk)) {
+          if (qualifiedRiskReduction(clause,risk.index!,risk.index!+risk[0].length)) continue;
+          const observed = assertion.links.some(link => {
+            const entry = sourceByAnchor.get(link.url);
+            return !!entry?.expertId && !!entry.taskKey && entry.quote === link.text
+              && scopedRecordedRisk(clause,entry.quote,risk.index!,risk.index!+risk[0].length);
+          });
+          if (!observed) missing.add("unsupported_physical_risk_downgrade");
+        }
+      }
+    }
     const denial = /(?:(?:不能|不可|无法|不得)(?:说|断言|声称|认为)|不是说)(?:[^，,:：]{0,24})$/u;
     const whole = clauses(text).some(clause => {
       const match = /(?:整套|全部|整个)(?:.{0,12})(?:物理勘测|现场勘测|现场检查)(?:.{0,12})(?:无用|失效|不必要|无需)/u.exec(clause);
