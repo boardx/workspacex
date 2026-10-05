@@ -1,0 +1,61 @@
+## browser-run.log
+  ✓   1 [board-feedback-20261005] › e2e/board-drawing-live-preview.spec.ts:41:5 › Fabric Draw previews before commit, cancels without writes, and commits exactly one drawing (4.7s)
+  ✓   2 [board-feedback-20261005] › e2e/board-drawing-live-preview.spec.ts:88:5 › Eraser hits only unlocked drawings in one undo step and survives peer reload (10.6s)
+  ✓   3 [board-feedback-20261005] › e2e/board-feedback-20261005.spec.ts:42:9 › Board feedback 1440px › 01–04 minimap appears, locates by pointer/keyboard and preserves document (3.0s)
+  ✓   4 [board-feedback-20261005] › e2e/board-feedback-20261005.spec.ts:64:9 › Board feedback 1440px › 05–08 upward submenu, compact instruments, five colors and custom ink (3.2s)
+  ✓   5 [board-feedback-20261005] › e2e/board-feedback-20261005.spec.ts:97:9 › Board feedback 1440px › 09–11 layout categories and native alignment persist after reload (4.4s)
+  ✓   6 [board-feedback-20261005] › e2e/board-feedback-20261005.spec.ts:119:9 › Board feedback 1440px › 12–14 shape categories have icon-only cells and database paints a complete cylinder (4.4s)
+  ✓   7 [board-feedback-20261005] › e2e/board-feedback-20261005.spec.ts:172:9 › Board feedback 1440px › 15–16 transparent note editing and handles adapt to rendered size (4.3s)
+  ✓   8 [board-feedback-20261005] › e2e/board-feedback-20261005.spec.ts:206:9 › Board feedback 1440px › 17 note formatting and text fonts survive canonical save and reload (7.4s)
+  ✓   9 [board-feedback-20261005] › e2e/board-feedback-20261005.spec.ts:244:9 › Board feedback 1440px › 18 nearby native double-click copies note appearance and aligns its new neighbor (4.6s)
+  ✘  10 [board-feedback-20261005] › e2e/board-feedback-20261005.spec.ts:270:9 › Board feedback 1440px › 19 standard tool shortcuts work on canvas while typing stays in the editor (2.7s)
+  ✘  11 [board-feedback-20261005] › e2e/board-feedback-20261005.spec.ts:300:9 › Board feedback 1440px › 21 connector widths are icon-only, single-row and persist through reload (3.1s)
+  ✓  12 [board-feedback-20261005] › e2e/board-feedback-20261005.spec.ts:325:38 › Board feedback 1440px › 20 eraser removes painted pixels before pointer release without early writes (5.4s)
+  ✓  13 [board-feedback-20261005] › e2e/board-feedback-20261005.spec.ts:42:9 › Board feedback 390px › 01–04 minimap appears, locates by pointer/keyboard and preserves document (2.8s)
+  ✓  14 [board-feedback-20261005] › e2e/board-feedback-20261005.spec.ts:64:9 › Board feedback 390px › 05–08 upward submenu, compact instruments, five colors and custom ink (2.5s)
+  ✓  15 [board-feedback-20261005] › e2e/board-feedback-20261005.spec.ts:97:9 › Board feedback 390px › 09–11 layout categories and native alignment persist after reload (3.9s)
+  ✘  16 [board-feedback-20261005] › e2e/board-feedback-20261005.spec.ts:119:9 › Board feedback 390px › 12–14 shape categories have icon-only cells and database paints a complete cylinder (3.3s)
+  ✓  17 [board-feedback-20261005] › e2e/board-feedback-20261005.spec.ts:172:9 › Board feedback 390px › 15–16 transparent note editing and handles adapt to rendered size (3.7s)
+  ✓  18 [board-feedback-20261005] › e2e/board-feedback-20261005.spec.ts:206:9 › Board feedback 390px › 17 note formatting and text fonts survive canonical save and reload (6.2s)
+  ✓  19 [board-feedback-20261005] › e2e/board-feedback-20261005.spec.ts:244:9 › Board feedback 390px › 18 nearby native double-click copies note appearance and aligns its new neighbor (3.7s)
+  ✘  20 [board-feedback-20261005] › e2e/board-feedback-20261005.spec.ts:270:9 › Board feedback 390px › 19 standard tool shortcuts work on canvas while typing stays in the editor (2.1s)
+  ✘  21 [board-feedback-20261005] › e2e/board-feedback-20261005.spec.ts:300:9 › Board feedback 390px › 21 connector widths are icon-only, single-row and persist through reload (2.3s)
+  5 failed
+  16 passed (5.2m)
+  总计：5m16s
+## browser-run-final.log
+Error: Timed out waiting 600000ms from config.webServer.
+  总计：23m6s
+[test-isolation] 零测试执行：Playwright webServer 启动失败。检查端口占用/服务就绪；这不是测试断言失败。
+## browser-run-retry.log
+  ✓   1 [board-feedback-20261005] › e2e/board-drawing-live-preview.spec.ts:41:5 › Fabric Draw previews before commit, cancels without writes, and commits exactly one drawing (5.2s)
+  ✓   2 [board-feedback-20261005] › e2e/board-drawing-live-preview.spec.ts:88:5 › Eraser hits only unlocked drawings in one undo step and survives peer reload (13.3s)
+  ✓   3 [board-feedback-20261005] › e2e/board-feedback-20261005.spec.ts:44:9 › Board feedback 1440px › 01–04 minimap appears, locates by pointer/keyboard and preserves document (3.7s)
+  ✓   4 [board-feedback-20261005] › e2e/board-feedback-20261005.spec.ts:66:9 › Board feedback 1440px › 05–08 upward submenu, compact instruments, five colors and custom ink (3.1s)
+  ✓   5 [board-feedback-20261005] › e2e/board-feedback-20261005.spec.ts:99:9 › Board feedback 1440px › 09–11 layout categories and native alignment persist after reload (5.4s)
+  ✓   6 [board-feedback-20261005] › e2e/board-feedback-20261005.spec.ts:121:9 › Board feedback 1440px › 12–14 shape categories have icon-only cells and database paints a complete cylinder (8.2s)
+  ✓   7 [board-feedback-20261005] › e2e/board-feedback-20261005.spec.ts:178:9 › Board feedback 1440px › 15–16 transparent note editing and handles adapt to rendered size (6.9s)
+  ✓   8 [board-feedback-20261005] › e2e/board-feedback-20261005.spec.ts:212:9 › Board feedback 1440px › 17 note formatting and text fonts survive canonical save and reload (9.7s)
+  ✓   9 [board-feedback-20261005] › e2e/board-feedback-20261005.spec.ts:250:9 › Board feedback 1440px › 18 nearby native double-click copies note appearance and aligns its new neighbor (4.6s)
+  ✓  10 [board-feedback-20261005] › e2e/board-feedback-20261005.spec.ts:276:9 › Board feedback 1440px › 19 standard tool shortcuts work on canvas while typing stays in the editor (5.0s)
+  ✘  11 [board-feedback-20261005] › e2e/board-feedback-20261005.spec.ts:321:9 › Board feedback 1440px › 21 connector widths are icon-only, single-row and persist through reload (4.5s)
+  ✓  12 [board-feedback-20261005] › e2e/board-feedback-20261005.spec.ts:346:38 › Board feedback 1440px › 20 eraser removes painted pixels before pointer release without early writes (5.9s)
+  ✓  13 [board-feedback-20261005] › e2e/board-feedback-20261005.spec.ts:44:9 › Board feedback 390px › 01–04 minimap appears, locates by pointer/keyboard and preserves document (3.8s)
+  ✓  14 [board-feedback-20261005] › e2e/board-feedback-20261005.spec.ts:66:9 › Board feedback 390px › 05–08 upward submenu, compact instruments, five colors and custom ink (2.4s)
+  ✓  15 [board-feedback-20261005] › e2e/board-feedback-20261005.spec.ts:99:9 › Board feedback 390px › 09–11 layout categories and native alignment persist after reload (3.4s)
+  ✓  16 [board-feedback-20261005] › e2e/board-feedback-20261005.spec.ts:121:9 › Board feedback 390px › 12–14 shape categories have icon-only cells and database paints a complete cylinder (3.7s)
+  ✓  17 [board-feedback-20261005] › e2e/board-feedback-20261005.spec.ts:178:9 › Board feedback 390px › 15–16 transparent note editing and handles adapt to rendered size (7.6s)
+  ✓  18 [board-feedback-20261005] › e2e/board-feedback-20261005.spec.ts:212:9 › Board feedback 390px › 17 note formatting and text fonts survive canonical save and reload (11.1s)
+  ✓  19 [board-feedback-20261005] › e2e/board-feedback-20261005.spec.ts:250:9 › Board feedback 390px › 18 nearby native double-click copies note appearance and aligns its new neighbor (6.5s)
+  ✘  20 [board-feedback-20261005] › e2e/board-feedback-20261005.spec.ts:276:9 › Board feedback 390px › 19 standard tool shortcuts work on canvas while typing stays in the editor (4.1s)
+  ✘  21 [board-feedback-20261005] › e2e/board-feedback-20261005.spec.ts:321:9 › Board feedback 390px › 21 connector widths are icon-only, single-row and persist through reload (5.7s)
+  3 failed
+  18 passed (7.7m)
+  总计：7m42s
+## browser-targeted-final.log
+  ✓  1 [board-feedback-20261005] › e2e/board-feedback-20261005.spec.ts:276:9 › Board feedback 1440px › 19 standard tool shortcuts work on canvas while typing stays in the editor (10.7s)
+  ✓  2 [board-feedback-20261005] › e2e/board-feedback-20261005.spec.ts:326:9 › Board feedback 1440px › 21 connector widths are icon-only, single-row and persist through reload (8.2s)
+  ✓  3 [board-feedback-20261005] › e2e/board-feedback-20261005.spec.ts:276:9 › Board feedback 390px › 19 standard tool shortcuts work on canvas while typing stays in the editor (6.2s)
+  ✓  4 [board-feedback-20261005] › e2e/board-feedback-20261005.spec.ts:326:9 › Board feedback 390px › 21 connector widths are icon-only, single-row and persist through reload (7.9s)
+  4 passed (5.9m)
+  总计：5m53s
