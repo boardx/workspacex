@@ -207,3 +207,21 @@ The locked Chromium Blob+anchor download diagnostic also reproduces both quoted
 and `star*.txt` filename normalization with identical bytes. This matches the
 product's download mechanism; changing the API header cannot satisfy the strict
 native suggestedFilename criterion. No contract or assertion was relaxed.
+
+
+### Human-approved browser disk-name contract update (2026-10-05)
+
+The user explicitly accepted browser quote-to-underscore behavior and requested
+updating the contract. This supersedes the earlier exact browser disk-name
+requirement, not the original multipart/metadata/UI/RFC5987 or byte/hash checks.
+The pinned Chromium matrix now expects underscores only for its quote/star disk
+names; all other matrix names stay exact. Tests remain present and execute every
+case. The safe native output is asserted exactly, never accepted arbitrarily.
+The former deferral decision is superseded by this explicit contract amendment.
+No signoff status or suite count was changed. Full product native acceptance is
+still pending the unchanged official runtime/toolchain environment.
+
+The locked Chromium seven-case download diagnostic passed all expected saved
+names and exact-byte checks (2026-10-05). This is a Blob+anchor diagnostic,
+not product runtime acceptance. Playwright Files suite discovery collected all
+six tests in four files successfully; discovery is not test execution.
