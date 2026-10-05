@@ -7,3 +7,5 @@ API 纯单元44项、Web定向38项通过；API/Web完整类型检查exit0。依
 已有合成产物及回读证据在 ../core-output/；已有20模板注册与文件回读在 ../d011-reconstruction/。这些是本地验证，不代表DevApp真实模型、数据库保存或Office视觉验收。原Node像素测试的11项依赖失败保留在已有日志中，不称通过。
 
 部署及组织角色升级尚未执行：部署后需由现有合法身份通过角色升级流程选择目标数字人升级为1.7.0，才会使用新instructions。PDF入口为原生打印另存，需用户确认。实际测试按业务目标进行，不以原16例为此PR的验收门。
+
+CI follow-up: shard 1 found the real DB upgrade test hardcoded the prior 1.6.0 pack version. Updated it to require the current authored pack version while retaining the exact 64-character binding digest assertion. The failed run had 2313 passing tests and one failure; the corrected real DB test awaits CI rerun.
