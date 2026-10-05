@@ -332,11 +332,18 @@ for (const viewport of viewports) {
       await page.getByTestId('board-tool-select').click();
       await page.keyboard.press('ControlOrMeta+z'); await expectBoardSynced(page);
       await expect.poll(async () => (await canonicalBoardSnapshot(request, token, boardId)).objects).toEqual(before.objects);
+      const redoFocus = await page.evaluate(() => ({ tag: document.activeElement?.tagName, testId: (document.activeElement as HTMLElement | null)?.dataset.testid }));
+      await info.attach('nearby-redo-focus', { body: JSON.stringify(redoFocus), contentType: 'application/json' });
+      expect(redoFocus.tag).not.toBe('BODY');
       await page.keyboard.press('ControlOrMeta+Shift+z'); await expectBoardSynced(page);
-      await expect.poll(async () => (await canonicalBoardSnapshot(request, token, boardId)).objects.find(item => item.id === created.id)).toEqual(created);
-
+      // Structural redo intentionally allocates a new ID and records its source lineage.
+      await expect.poll(async () => (await canonicalBoardSnapshot(request, token, boardId)).objects.filter(item => item.restoredFrom === created.id).length).toBe(1);
+      const restored = (await canonicalBoardSnapshot(request, token, boardId)).objects.find(item => item.restoredFrom === created.id)!;
+      expect(restored.id).not.toBe(created.id);
+      expect(restored).toEqual({ ...created, id: restored.id, restoredFrom: created.id });
+      await info.attach('nearby-redo-lineage', { body: JSON.stringify({ original: created, restored }), contentType: 'application/json' });
       await page.reload(); await expectBoardSynced(page);
-      expect((await canonicalBoardSnapshot(request, token, boardId)).objects.find(item => item.id === created.id)).toEqual(created);
+      expect((await canonicalBoardSnapshot(request, token, boardId)).objects.find(item => item.id === restored.id)).toEqual(restored);
     });
 
     test('19 standard tool shortcuts work on canvas while typing stays in the editor', async ({ page, request }, info) => {
