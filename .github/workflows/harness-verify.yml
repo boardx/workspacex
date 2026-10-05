@@ -1,905 +1,151 @@
-# harness-verify.yml — CI 门控
-# 快速迭代策略（2026-07）：
-#   - PR/push 只做轻量门控：受影响模块的 typecheck/lint/test（turbo --affected）+ 生成物漂移检查。
-#     2026-08-15（ADR-106 batch-1/6，#1277）起拆成 `verify-control-plane` +
-#     `verify-affected` 两个并行 job（原来是一个叫 `verify` 的顺序 job）——两段
-#     互不依赖，拆开跑 wall-clock 是两者较慢的那个，不是相加。下面各处提到
-#     "module verify"/"verify job" 指的是这两个 job 加起来那一层门控语义，
-#     不是某个具体 job 名。2026-08-15 用真实历史数据核实（issue #1358）：拆分后
-#     中位数耗时没降反升（98s→104s），因为拆分让"每个 job 各自 setup 一次"的成本
-#     变成了两份，而多数日常 PR 改动小，`--affected` 本来就只要几秒，并行省下的
-#     部分盖不住多付的 setup。
-#     ⚠ 已尝试并放弃的方向（issue #1358 / PR #1359，避免后人重复踩坑）：
-#     以为瓶颈是 pnpm store 下载，给两个 job 加 `actions/cache` 缓存 store——实测
-#     发现 setup-node 的 `cache: pnpm` 已经在缓存 store（`downloaded 0`），瓶颈其实
-#     是 store→node_modules 的 link 步骤（~10-11s）。于是改缓存 node_modules 本身，
-#     真机 miss/hit 对照测出：link 步骤确实从 11.1s 降到 5.5s，但下载/解压这个
-#     ~400MB+ 的 node_modules 缓存本身要花 7-11s——因为 tarball 里是真实文件不是
-#     指向 store 的 symlink，体积和 store 同量级。两头基本抵消，`verify-affected`
-#     样本甚至比不缓存更慢（35s→39s）。净收益约等于零，已回退，不要重复尝试同一
-#     方向；真要降 setup 耗时需要更激进的手段（自建 runner 复用磁盘等），不是这层
-#     GitHub Actions cache 能解决的。
-#   - 全栈烟测(fullstack-smoke)：PR/push 都跑，但只跑 `seeded` project（5 个非 core-loop 的
-#     spec）。**信息性、不阻塞合并**（2026-08-06 人类裁决 #633：module verify 继续阻塞合并，
-#     浏览器 e2e 不再阻塞合并，只阻塞发布）——`continue-on-error: true` 见下方 job。
-#     `core-loop.spec.ts` 已移出本 job：它是唯一真正阻塞发布的 e2e spec，只在
-#     backend-gates.yml 的 `e2e-core-loop` job 里跑（deploy 的前置条件），
-#     理由与 5 分钟合并→上线 SLA 直接相关，见该 job 注释。
-#   - 全量浏览器 e2e(e2e-full)：**不在 PR 上跑**（2026-08-05 人类指令：提高速度）。
-#     它在 tag 发布、main push、以及手动触发时跑；三个独立任务汇总为 e2e-full。
-#   - harness verify / 完整验证由本地开发流程承担（pnpm harness verify、verify:full）。
-
-name: harness-verify
-
+# REVIEW DRAFT ONLY. New diagnostic/* branch replacement of registered harness-verify.yml.
+# Never apply to PR/main; fixed candidate only, targeted success gates the original full suite.
+name: board-focus-fixture-validation
 on:
-  pull_request:
-  # 2026-09-21（#3238 第 1 条）：合并队列的候选组。GitHub 在 `refs/heads/gh-readonly-queue/
-  # <base>/pr-<N>-<base sha>` 上开火，事件里 `github.event.pull_request.*` 与
-  # `github.base_ref` **都是空的**，要读的是 `github.event.merge_group.head_sha` /
-  # `.base_sha`——照抄 PR 分支的写法只会拿到空串，而空串不会报错，只会静悄悄地
-  # 把 diff 基线变成「没有基线」。解析规则在 `.harness/scripts/lib/merge-queue.ts`
-  # （唯一事实源），本文件的表达式由 merge-queue.test.ts 机械核对。
-  #
-  # ⚠ 候选组上跑的是**完整**必需验证，不是快检：它是「这个组合合入 main 之后长什么样」
-  # 的唯一证据。在这里省任何一条，整套队列设计就只剩排队没有验证。
-  # 队列本身要人类在 Settings → Branches 里开——没开时本事件永不触发，这段接线是惰性的。
-  merge_group:
-  push:
-    branches: [main]
-    # tag 发布时跑全量 —— e2e-full 已从 PR 上摘掉，发布前这一趟是它唯一的把关点。
-    tags: ["v*"]
-  # 2026-09-08 人类指令：定时 cron 触发（原每小时全栈烟测 + 每 3 小时 e2e-full）已
-  # 摘掉——它和人工 `workflow_dispatch` 撞车会在同一 SHA 上重复跑一遍完整门控，纯
-  # 浪费跑道（实测一次撞车：手动那条已经 6/7 job 跑完，定时那条才刚起步就被砍）。
-  # main push 本身仍会跑（见上面 `push.branches`），e2e-full 需要覆盖率时用
-  # `workflow_dispatch` 手动勾选 `run_e2e_full` 触发，不再依赖 3 小时定时兜底。
-  # 手动触发 e2e-full（#665）：它此前只在 `30 */3` 那个 cron 跑，改动它的人要等最多
-  # 3 小时才知道结果，验证成本高到没人验证——这正是它连红 12 次无人察觉的一环。
   workflow_dispatch:
-    inputs:
-      fresh_run:
-        description: "重新执行，忽略同 SHA 已有验证证据"
-        type: boolean
-        default: false
-      run_e2e_full:
-        description: "跑全量浏览器 e2e（e2e-full）"
-        type: boolean
-        default: true
-      # issue #2114 —— Chat 任务工作台记分牌车道的开关。默认 false：这批 11 个
-      # `chat-task-workbench-*.spec.ts`（#2068）设计上就该大面积红（把人类对 /chat
-      # 的界面审计转成断言，不是回归门），跑它不是为了看绿灯，是为了拿分数——默认
-      # 关掉，免得每次为 e2e-full 手动 dispatch 的人顺带多付这一趟钱；真要拿分数时
-      # 显式勾选。
-      run_chat_task_workbench:
-        description: "跑 Chat 任务工作台记分牌车道（chat-task-workbench：尚未实现能力的验收断言，设计上会红，仅供打分；条数以 playwright.chat-read.config.ts 的 testMatch 为准，别在这里再声明一份）"
-        type: boolean
-        default: false
-      # 路径覆盖车道的开关（`.harness/instructions/chat-path-coverage-matrix.md`）。
-      # 默认 false 的理由与上面那条**不同**：这批不是记分牌，红是意外状态；默认关掉
-      # 只是因为它们还没在 CI 上跑绿过、尚未搬进阻塞车道（矩阵文档「首跑与搬家」一节）。
-      # 搬家之后这个开关连同下面的 job 一起删掉，别留着。
-      run_chat_path_coverage:
-        description: "跑 Chat 路径覆盖车道（chat-path-coverage，矩阵里此前零覆盖的那批路径）"
-        type: boolean
-        default: false
-
-# Admission policy (#3227, user decision 2026-09-09):
-# - PR: github.ref identifies the PR, including fork PRs; cancel only its older run.
-# - First-attempt automatic main push: one running workflow + one latest pending candidate.
-#   A newer pending run replaces the previous pending run; the running run finishes.
-#   Intermediate main commits may therefore be unverified, never reported as passing.
-# - Native reruns/manual/tag/other events: run_id isolation preserves each requested verification.
-# This supersedes the per-main-SHA preservation decision in #3038/#3177 for this
-# workflow only. backend-gates contains deployment and retains its existing policy.
-# queue: max would retain the backlog instead of retaining only the latest candidate.
 permissions:
   contents: read
   actions: read
   pull-requests: read
   issues: read
-
 concurrency:
-  group: ${{ github.event_name == 'pull_request' && format('harness-verify-{0}', github.ref) || github.event_name == 'push' && github.ref == 'refs/heads/main' && github.run_attempt == 1 && 'harness-verify-main-latest' || format('harness-verify-{0}-{1}', github.ref, github.run_id) }}
-  queue: single
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
-
+  group: board-focus-fixture-validation-${{ github.run_id }}
+  cancel-in-progress: false
 jobs:
-  # ADR-106 batch-1/6（#1277）：原 `verify` job 是一条顺序链——控制平面静态检查
-  # （doctor/lint doctor/harness 自测，全部毫秒级、不碰 DB）与"受影响模块
-  # typecheck/lint/test"（turbo --affected，唯一真正耗时的一步）串在一起跑。
-  # 拆成两个并行 job，wall-clock ≈ 两者中较慢的那个，不是两者之和。
-  #
-  # ⚠ 范围刻意收窄，不是 ADR-106 描述的完整五 job 方案：
-  #   1. 没有新增"全仓 typecheck/lint/build 强制门"（ADR-106 item 8 的 Job B）——
-  #      2026-08-05 人类已经明确指令"PR 上不再跑全仓单测,只跑 affected,提高速度"
-  #      （见下方 e2e-full job 注释），新增全仓强制门会直接推翻这条裁决，需要
-  #      人类重新确认，不该由这个 issue 单方面改回去。
-  #   2. 没有把这里的 control-plane job 换成本 PR 系列 #1273 新增的
-  #      `verify:harness` 命令（尽管语义上更完整，含全部 19 个 lint doctor）——
-  #      dry-run 实测发现 `verify:harness:raw` 里的 `lint:readiness --strict` 在
-  #      当前 main（f4f0c3c5）上就是红的（统一队列引用了已关闭的 issue #750，
-  #      跟本次改动无关，是 main 上已有的过期状态）。把它接进 CI 门控会让**所有**
-  #      PR 立刻卡死，不是本 issue 该单方面承担的决定；已另开 issue 修那条过期
-  #      引用，`lint:readiness` 干净之后再考虑把 control-plane job 换成
-  #      `verify:harness` 一条命令。
-  #   两项差距都是刻意的范围收窄，不是遗漏——本次只做"把已经在跑、已经全绿的
-  #   两段拆成并行 job"这一件事。
-  verify-control-plane:
-    if: github.event_name != 'schedule' && github.event_name != 'workflow_dispatch'
+  targeted:
+    if: github.event_name == 'workflow_dispatch' && startsWith(github.ref, 'refs/heads/diagnostic/')
+    name: board-focus-candidate-targeted
     runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v5
-        with:
-          # --affected 需要能 diff 到 base 分支
-          fetch-depth: 0
-
-      # 不指定 version：pnpm/action-setup 从 package.json 的 packageManager 字段
-      # (pnpm@9.0.0) 读取。两处都写会触发 ERR_PNPM_BAD_PM_VERSION。
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4.4.0
-
-      - name: Setup Node (read .nvmrc)
-        uses: actions/setup-node@v5
-        with:
-          node-version-file: .nvmrc
-          cache: pnpm
-
-      - name: Install
-        run: pnpm install --frozen-lockfile
-
-      - name: Subagent 生成物未漂移
-        run: |
-          pnpm harness gen-subagents
-          git diff --exit-code .claude/agents .codex/agents \
-            || (echo "✗ subagent 生成物与 .harness/agents/*.yaml 不一致：改了 yaml 请重新跑 pnpm harness gen-subagents 并提交" && exit 1)
-
-      # 审计链体检（ADR-012）。放在 PR 门控上的理由（2026-07-29 控制平面审计发现）：
-      # 在此之前 doctor 只出现在 backend-gates.yml，而那份的触发条件是 push to main /
-      # tag —— 即**合并之后**。假 passing、断证据、派生视图漂移全都在合入 main 才被发现，
-      # 那时它已经是 main 的一部分了，属于事后审计而非门控。PR 阶段唯一的防线是本地
-      # pre-push hook，而它装在未随 clone 分发的 .git/hooks 里、可被 --no-verify 一行绕过。
-      #
-      # 这里**不加 --strict**：strict 会把「passing 必须已合入 main」升为 FAIL，而 PR 阶段
-      # 本来就还没合，是鸡生蛋（backend-gates.yml 那份注释里记着同一个坑）。合并后的
-      # backend-gates 仍然跑 --strict，两道互补：PR 拦伪造证据，合并后拦未落地。
-      - name: 审计链体检
-        # Keep the full-repository findings visible on PRs. Only the scoped
-        # doctor below is a PR merge gate; main still requires the global audit.
-        continue-on-error: ${{ github.event_name == 'pull_request' || github.event_name == 'merge_group' }}
-        env:
-          # doctor 的 issue 检查走 gh；没有 token 时它自己降级为 WARN 而非阻断
-          GH_TOKEN: ${{ github.token }}
-        run: pnpm harness doctor
-
-      - name: 本次改动 phase 审计链体检
-        if: github.event_name == 'pull_request' || github.event_name == 'merge_group'
-        env:
-          GH_TOKEN: ${{ github.token }}
-          CI_SCOPE_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}
-        run: node .harness/scripts/ci-change-scope.mjs doctor-soft
-
-      # 签核第 ① 件的材料完整性：ui.md 引用的截图集合 == ui-preview/ 实存集合。
-      # 放在 PR 门控而不是 backend-gates 的理由：它只读 phases/**，不需要 Docker/PG，
-      # 跑一次不到 100ms；而它要挡的失效（加一张图忘了写进索引、改文件名留下死链）
-      # 恰恰发生在写 ui.md 的那个 PR 里，合并后才发现就晚了。
-      # turbo --affected 覆盖不到它：phases/ 不是 workspace 包，改 phases/** 一个包都不 affected。
-      - name: 签核 ① UI 材料完整性（截图引用集 == 实存集）
-        run: node .harness/scripts/lint-ui-material.mjs
-
-      # 签核第 ③ 件（API 契约）必须存在。ADR-023 决策一规定它二选一：
-      #   packages/contracts/src/<束>.ts 存在，**或** domain.md 显式声明本束无对外 HTTP 面
-      #   且 coverage.md 的「API 操作」列填可执行门控命令。「不接受沉默的第三种情况」。
-      # 2026-07-30 实测：`grep "第 ③\|无对外 HTTP" .harness/scripts/` **零命中** ——
-      # 该判定从来没有被执行过，而十一束里十束的契约文件不存在、其中十束已签「三件已确认」。
-      # 架构师反证 CP-1：合规 fixture 阶段故意不建 <bundle>.ts ⇒ auditSignoff fails=0、
-      # verify-uc-coverage exit 0 且打印「✅ 覆盖矩阵完整」。
-      # 与上面两步同源的理由：它只读 phases/** 与 packages/contracts/src/**，毫秒级；
-      # 而 phases/ 不是 workspace 包，turbo --affected 一个包都不 affected ⇒ 必须显式跑。
-      # 标准 skill 包的发货版本（ensure-standard-skill-packs.ts 的 STANDARD_PLATFORM_PACKS）
-      # 必须等于构建版本（skills/<pack>/scripts/build.ts）。两处一直是手写、从没被比对过。
-      # 2026-09-09 实测漂移：standard-web 发货 1.1.1、构建 1.1.2，starter-packs/1.1.2.json
-      # 躺在仓库里从没被 seed，而两版内容确有差异（web-artifact 1.0.1 vs 1.0.2）。
-      # 只读源码文本，毫秒级；skills/ 不是 workspace 包 ⇒ turbo --affected 覆盖不到，必须显式跑。
-      - name: 标准包发货版本 == 构建版本（单一事实源）
-        run: node .harness/scripts/lint-shipped-pack-version.mjs
-
-      # 标准 skill 的 stable_name/version/capability_id 曾在 SKILL.md frontmatter 与
-      # scripts/build.ts 各写一遍（15+ 个 skill，8 个两处都写、7 个只写一处），从没被比对过。
-      # #3154 收敛成 frontmatter 单源，这道门改成钉「build.ts 里不许再长出第二份副本」。
-      # ui-prototyper 的八条硬规则此前在 yaml/SKILL.md/AGENTS.md 三处手写，同样从没被比对过。
-      # 两条都只读文本，毫秒级；skills/ 与 .agents/ 都不是 workspace 包 ⇒ turbo --affected
-      # 覆盖不到，必须显式跑。用 tsx 跑是因为它 import 了那个 TypeScript 写的单源解析器。
-      - name: 标准 skill 元数据只有 SKILL.md frontmatter 一处（metadata 嵌套写法只减不增）
-        run: pnpm exec tsx .harness/scripts/lint-skill-metadata-source.mjs
-
-      - name: ui-prototyper 硬规则只有一份原文（消费方只引用不复述）
-        run: node .harness/scripts/lint-ui-prototyper-single-source.mjs
-
-      # 执行计划可视化（Mermaid + 颜色表进度）：调色板只在 execution-plan.mjs 定义一次，
-      # 模板 / 规范里的通用提示词 / phases/**/*.plan.md 的 classDef 副本逐字核对；
-      # 红必有原因、紫必有证据。只读文本，毫秒级；同上，turbo --affected 覆盖不到。
-      - name: 执行计划图格式与调色板单源（红有原因 / 紫有证据）
-        run: node .harness/scripts/execution-plan.mjs check
-
-      - name: 签核 ③ API 契约必须存在（形态 A 契约文件 / 形态 B 显式声明无 HTTP 面）
-        run: node .harness/scripts/lint-third-artifact.mjs
-
-      # verification 必须真的会红。放在 PR 门控的理由与上一步同源，且更硬：
-      # 2026-07-30 实测 `pnpm --filter web vitest run <任意路径>` **恒 exit 0**
-      # （apps/web 没有 `vitest` 脚本，pnpm 在无匹配脚本时安静退 0），而 verify.ts 只看退出码
-      # ⇒ 当时 21 个 feature / 84 点（已签核的 agent-runtime + skills 两束全部）今天就能
-      # 整套全绿、零实现。这类失效**只在改 feature_list.json 的那个 PR 里产生**，
-      # 而 phases/ 不是 workspace 包，turbo --affected 一个包都不 affected ⇒ 必须显式跑。
-      # 它自带动态探针（每种形态构造必然失败的变体真跑一次），不需要 Docker/PG。
-      - name: verification 必须真的会红（无恒 0 / 无不确定形态）
-        run: node .harness/scripts/lint-verification-can-fail.mjs
-
-      # harness 自己的测试（含上面两道门控的反证套件）。
-
-      # 跨屏可达性：ADR-023 的签核屏必须是产品里走得到的屏，不是只能敲 URL 进的孤岛。
-      # 本轮病根——十一束的 v2 屏全做好却全部孤立、导航连的是旧骨架屏——旧门控（只验单屏七态）
-      # 一个都发现不了。这道门控双向核对「导航树 ↔ 契约束现行路由」，且只读源码/config，毫秒级。
-      - name: 跨屏可达性（导航树 ↔ 契约束现行路由）
-        run: node .harness/scripts/lint-nav-reachability.mjs
-
-      # #2490：controller 路由 ↔ next.config rewrites 成对（#539 的门）。此前它只在
-      # `verify:harness:raw` 链里，而那条链只被 main 的 `e2e-full` 调用——PR 加了不接线的
-      # 路由照样全绿，合入后 `e2e-full` 第 7 步 3 分钟内红，且红在一个本来就没人看的 job 里
-      # （08-31 起连续 30 次）。门的设计初衷是「新增不接线路由当场红」，「当场」必须是 PR。
-      # 只读 controllers/ 与 next.config.mjs，不碰 DB，毫秒级。
-      # `--strict`：扫不全（incomplete）也退出非 0。本地跑 `pnpm run lint:rewrite-coverage`
-      # 时扫不全会降级 WARN，那是只读审计的语义；在 PR 门控上「没做判断」给绿就是 fail-open
-      # ——controller 目录挪走、next.config 读不到，PR 照样绿。反证见
-      # .harness/scripts/lint-rewrite-coverage-strict.test.ts。
-      - name: 路由可达性（controller 路由 ↔ next.config rewrites 成对）
-        run: pnpm exec tsx .harness/scripts/lint-rewrite-coverage.mjs --strict
-
-      # issue #564 解决方案 2 第 1 条：同一条链再往上一格——**契约 → 路由**。
-      # 上面那道守的是「路由有了但前端够不到」，这道守的是「契约签了但根本没接线」：
-      # 实测 253 条已签契约束里声明了 path 的 operation 在 apps/api/src/interface/ 里
-      # 没有对应路由。棘轮（只减不增）：这 253 条记进
-      # .harness/state/contract-route-coverage-allowlist.json，名单只能变短，
-      # 新增一条不接线的 operation 当场红。缺口判据不在这道门里，在
-      # lib/contract-route-coverage.ts（issue #1177）——同一事实不得声明在两处。
-      # 放 PR 门控的理由同上一步（#2490）：「当场红」的「当场」必须是 PR。
-      # 只读 packages/contracts 与 apps/api/src/interface，不碰 DB，秒级。
-      - name: 契约可达性（已交付契约束的 operation ↔ interface 路由，棘轮只减不增）
-        run: pnpm exec tsx .harness/scripts/lint-contract-route-coverage.mjs --strict
-      # #397：屏 → live 适配器 → controller → application 用例这条**跨层接线**必须成立。
-      # 审计（#384 P0）实证过的形状：页面做好了、导航也连上了，而 controller 根本没挂进
-      # kernel 的 controllers[]，用户点进去拿不到任何东西——而在这道门之前，全仓没有任何
-      # 检查会因此变红（ui-material 只管截图、nav-reachability 只管导航走得到、
-      # rewrite-coverage 只管 controller ↔ rewrites 成对）。
-      # 形态是棘轮：mock 豁免清单只减不增，新增 mock 驱动的产品路由当场红。
-      # 放 PR 门控的理由与上面 rewrite-coverage 同：它要挡的失效就发生在加那条屏的 PR 里。
-      # 只读源码（import 闭包 + 装饰器 + kernel 注册表），不碰 DB / 浏览器，秒级。
-      # 反证见 .harness/scripts/lint-ui-wiring.test.ts（真假仓库 + 注入缺陷）。
-      - name: 跨层接线（屏 → 适配器 → controller → application 用例）
-        run: pnpm exec tsx .harness/scripts/lint-ui-wiring.mjs
-      # 测试代码不许对共享角色做无限定 GRANT/REVOKE（#522 的第六种共享可变状态）。
-      # 放在 PR 门控而不是 `verify:harness:raw` 链里的理由，与上一步的 #2490 逐字同源：
-      # 那条链只被 main 的 `e2e-full` 调用，而这类缺陷**只在写下那条 REVOKE 的 PR 里产生**，
-      # 合入之后它伤的是别人——权限是库级的，vitest 四个文件并行跑在同一个 Postgres 上，
-      # 撤销窗口里别的文件的夹具插同一张表就 permission denied，受害者由调度决定 ⇒
-      # 在 CI 上长成 flake，单跑永远是绿的（#522 五组控制变量实测）。「当场红」必须是 PR。
-      # 只读 apps/ 与 packages/ 下的测试源码文本，不碰 DB，毫秒级；反证套件见
-      # .harness/scripts/lint-test-shared-grant.test.ts（下面那步跑）。
-      - name: 测试代码不对共享角色做无限定 GRANT/REVOKE（第六种共享可变状态）
-        run: pnpm exec tsx .harness/scripts/lint-test-shared-grant.mjs
-
-      # 不存在「写了但没人跑」的 e2e spec（#512）。
-      # 2026-08-04 实测：`chat-read.spec.ts` 在 main 上红着且**红了很久无人发现**——
-      # 有 `playwright.chat-read.config.ts`，但零个 npm script / CI job 调它。
-      # 同一次审计还捞出 `responsive.spec.ts`（唯一引用它的是一条 feature verification
-      # 命令，而那条命令不在 CI 里，且其 feature 已 passing ⇒ 永不再跑），
-      # 而 phase-01 有四份 ui-preview/README 正以「它有断言」为由省略响应式截图。
-      # 放在 PR 门控而不是 e2e-full 的理由：它只读 config/scripts/workflow 并跑
-      # `playwright --list`（不起 webServer、不需要浏览器），秒级；而它要挡的失效
-      # ——新加一条 spec 却忘了接进 testMatch——恰恰发生在加那条 spec 的 PR 里。
-      # turbo --affected 覆盖不到：.harness/ 与 .github/ 都不是 workspace 包。
-      - name: 不存在没人跑的 e2e spec（spec ↔ 门控可达性）
-        run: node .harness/scripts/lint-spec-gate-coverage.mjs
-
-      # #400：feature 状态迁移的**出处**。此前三道门（doctor 的 checkPassingEvidence、
-      # feature-evidence-ratchet、evidence-fingerprint）全都只看**最终树**，而两条实测
-      # 可行的绕过在最终树上完全自洽，三道门一条都抓不到：
-      #   ① 把 status 手改成 passing，evidence 指向一份**早就存在、指纹也对得上**的旧日志
-      #      （别的 feature 的，或自己在别的 sprint 留下的）——最终树上 status=passing、
-      #      evidence 是标准路径、指纹 ok，三门全绿；
-      #   ② 改写一份已 passing 的 verify.log 正文（`[exit 1]` → `[exit 0]`），再照着
-      #      evidence-fingerprint.ts 重算 sha256 写回尾行——checkFingerprint 返回 ok。
-      #      该文件自己的头注就写着"读得懂本文件的人就能重算哈希"。
-      # 两条的破绽只在 base→head 的差分里：①"status 翻了但这一步没产出任何新证据"，
-      # ②"日志正文变了但 status/evidence 指针没动"。所以本步必须拿两个 ref，
-      # 也因此只在 PR 上跑——push/tag 事件没有"改动前"这个锚点。
-      # 只读 git 对象，毫秒级；phases/ 不是 workspace 包 ⇒ turbo --affected 覆盖不到。
-      # 反证套件见 .harness/scripts/lint-feature-transition.test.ts（含反向反证：
-      # 真仓库两个真 commit 之间必须退 0，一道永远红的门等于没有门）。
-      - name: feature 状态迁移出处（base→head 差分，不只看最终树）
-        if: github.event_name == 'pull_request'
-        run: |
-          pnpm exec tsx .harness/scripts/cli.ts lint-feature-transition \
-            --base "${{ github.event.pull_request.base.sha }}" \
-            --head "${{ github.sha }}"
-      # 对契约的否定性断言不得说谎（#473）。
-      # 2026-08-04 实测：`chat/live/page.tsx` 里逐字写着「契约里没有这个写端口」，而
-      # `createMessage` 早在 PR #429 就进了 `packages/contracts/src/chat.ts`。那句注释写下
-      # 时是真的，契约变了它没跟着变——coord-main 据它建了不必要的 issue #461、派了不必要
-      # 的高优先级任务、把「签 #461」列为人类第一优先待办，并重排了两条链的优先级（全部已回滚）。
-      # 放在 PR 门控的理由：这类漂移**在改契约的那个 PR 里产生**，而它的代价是别人按一句
-      # 假事实做决策——合并后才发现，误导已经发生过了。
-      # 只读 `packages/contracts/src/**` 与 `apps/{web,api}/**` 的源码文本，毫秒级、不碰 DB；
-      # 且 `.harness/` 不是 workspace 包，turbo --affected 覆盖不到 ⇒ 必须显式跑。
-      - name: 对契约的否定性断言仍然成立（注释不得说谎）
-        run: pnpm exec tsx .harness/scripts/lint-contract-negative-assertion.mjs
-      # #3140：spec / 验收文档里的态名必须是契约枚举里真有的那个名。
-      # 2026-09-08 一天两次同一形态：契约/裁决更新了，下游 spec 与
-      # .harness/instructions/*-acceptance.md 没跟上，于是 spec 对着不存在的态名断言、
-      # 永远红，红的原因还与被测能力无关。放在 PR 门控的理由与上面几步同源、且更硬：
-      # 这类失效**只在改 spec / 改验收文档 / 改契约的那个 PR 里产生**，而
-      # .harness/ 与 phases/ 都不是 workspace 包 ⇒ turbo --affected 一个包都不 affected；
-      # 只挂在 `verify:harness:raw` 上同样不够——那条链只被 main 的 e2e-full 调用
-      # （见上面「路由可达性」那步的注释：门的「当场」必须是 PR）。
-      # 只读源码文本，不需要 Docker/PG/浏览器，毫秒级。
-      # 反证：pnpm harness gate-probe --gate contract-state-names（两条变异全部 CAUGHT）。
-      - name: 态名单源（spec / 验收文档 ↔ 契约枚举）
-        run: node .harness/scripts/lint-contract-state-names.mjs
-      # pnpm override 不许用 `parent>child` 选择器（#2614）。
-      # #2613 实测：那个选择器对**由 peerDependency 自动解析**出来的边不可靠——任何触发
-      # 全仓重新 resolve 的操作都可能把它解析成不满足 range 的版本，而 pnpm 只告警
-      # （`unmet peer`）不报错，lockfile 被悄悄改掉一路提交进 PR，红在一个与依赖毫无
-      # 关系的地方。放在 PR 门控的理由：它要挡的失效**只在改依赖清单的那个 PR 里产生**，
-      # 而根 package.json / pnpm-workspace.yaml 不属于任何 workspace 包，
-      # turbo --affected 一个包都不 affected ⇒ 必须显式跑。只读清单文本，毫秒级。
-      - name: pnpm override 无 parent>child 选择器（peer 边静默装错版本）
-        run: pnpm exec tsx .harness/scripts/lint-pnpm-override-selector.mjs
-
-      # harness 自己的测试（含上面那道门控的反证套件）。
-      # 2026-07-30 发现：.harness/scripts/**.test.ts 共 100+ 条断言，**CI 里一条都没跑过** ——
-      # turbo --affected 只认 workspace 包，.harness/ 不是包，改它一个包都不 affected。
-      # 控制平面的测试不跑，等于控制平面没有测试。
-      - name: harness 控制平面自测（含门控反证）
-        run: pnpm exec vitest run --dir .harness
-
-  # 与 verify-control-plane 并行——两者互不依赖（一个测控制平面本身，一个测
-  # 业务包），拆开跑 wall-clock ≈ 两者较慢的那个，不是相加。这是本 issue
-  # 唯一动的并行拆分，见上面 verify-control-plane 顶部注释里的范围说明。
-  verify-affected:
-    if: github.event_name != 'schedule' && github.event_name != 'workflow_dispatch'
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v5
-        with:
-          # --affected 需要能 diff 到 base 分支
-          fetch-depth: 0
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4.4.0
-
-      - name: Setup Node (read .nvmrc)
-        uses: actions/setup-node@v5
-        with:
-          node-version-file: .nvmrc
-          cache: pnpm
-
-      - name: Install
-        run: pnpm install --frozen-lockfile
-
-      # 2026-09-08（#2972）：本 job 下面那步在 **fork PR** 上会把 @repo/api 留在
-      # `--affected` 集合里跑（因为 `gates-test` 对 fork PR 整体跳过），而 @repo/api 的
-      # 默认套件里有 4 个跨语言取证文件要 spawn `apps/deep-agent-service/.venv/bin/python`。
-      # 同仓 PR 上 @repo/api 被 `--filter='!@repo/api'` 排除，装它纯属浪费 ⇒ 只在
-      # fork PR 这一种场景装。条件写法与下面那步的 `IS_FORK_PR` 同源，理由见那里的注释
-      # （不得写出「event 不等于 pull_request」的字面量模式）。
-      - name: Detect fork PR (Python runtime only needed when @repo/api runs here)
-        id: forkpr
-        run: echo "value=${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository }}" >> "$GITHUB_OUTPUT"
-      - uses: astral-sh/setup-uv@v7.0.0
-        if: steps.forkpr.outputs.value == 'true'
-        with:
-          version: "0.12.5"
-      - name: Install locked Python runtime for cross-language API integration tests
-        if: steps.forkpr.outputs.value == 'true'
-        working-directory: apps/deep-agent-service
-        run: uv sync --frozen --extra dev
-
-      # 只跑受本次改动影响的包（模块只测自己）。
-      # PR：相对 base 分支；push main：相对上一个 commit。
-      #
-      # 2026-09-02（人类实测发现 backend-gates 与本 job 在同一次 push 上各自起一套
-      # Postgres、把 @repo/api 的 vitest 全套跑两遍——`gates-test` 4 分片跑一遍、这里
-      # `turbo run test --affected` 判定 @repo/api 受影响后又完整跑一遍，纯重复、不是
-      # 两道互补的门）：@repo/api 的 `test` 从这里的 `--affected` 集合里显式排除，
-      # 交回 `backend-gates.yml` 的 `gates-test` 分片 job 独家负责。typecheck/lint
-      # 仍然覆盖 @repo/api（这两项 backend-gates 只跑一次、不分片，没有重复问题）。
-      - name: 受影响模块 typecheck/lint
-        env:
-          TURBO_SCM_BASE: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || github.event_name == 'merge_group' && github.event.merge_group.base_sha || github.event.before }}
-        run: pnpm turbo run typecheck lint --affected
-
-      # 2026-09-02 续（独立 review 抓到的真实回归）：上面「排除 @repo/api」的前提是
-      # backend-gates 的 gates-test 会替它把关——但 gates-test 对 **fork PR 整体跳过**
-      # （`backend-gates.yml` 每个 gates job 都带 `head.repo.full_name == github.repository`
-      # 同仓门，本文件历来没有对应的 fork 判断）。无条件排除会让 fork PR 改 apps/api 时
-      # 两边都不跑，零覆盖，不是「转移覆盖」。因此排除只在 gates-test 确实会跑的场景
-      # （非 PR 事件，或同仓 PR）生效；fork PR 上仍然把 @repo/api 留在 --affected 集合里，
-      # 保底覆盖不丢，只是这一种场景下放弃去重收益（fork PR 本就少见，宁可偶尔重复
-      # 跑一遍，不可接受的是不跑）。
-      - name: 受影响模块 test
-        env:
-          TURBO_SCM_BASE: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || github.event_name == 'merge_group' && github.event.merge_group.base_sha || github.event.before }}
-          # #538 隔离门要求显式声明目标库（WORKSPACEX_DB 缺席 ⇒ setup 阶段直接拒绝）。
-          # 这里声明 "workspacex" 是**诚实的**，不是绕门：GitHub 托管 runner 是独占的
-          # 一次性 VM，postgres 由 ensureDatabase() 在本 job 里现起，不存在与任何其它
-          # 会话共享的库——门要挡的「不知情地连上共享库」在这个环境里没有对象。
-          # ⚠ 自建 runner（常驻机器）上**不得**照抄这行：那里的库是真共享的。
-          WORKSPACEX_DB: workspacex
-          PLAYWRIGHT_BROWSERS_PATH: ${{ runner.temp }}/workspacex-web-pixel-browsers
-          # ⚠ 写成"是不是 fork PR"而不是它的反命题——`pr-queue.test.ts`「#848 反证」对
-          # `REQUIRED_CHECKS` 里每个 job 的整段 body 文本做纯字符串匹配，禁止出现
-          # "event 名字 不等于 pull_request 字面量" 这个模式（那是「把 pull_request
-          # 排除在门禁之外」的信号，历史上真的把 e2e-full 挂过五天）。这里的用途完全
-          # 不同——只是判断 gates-test 会不会跑——但那条测试不认语义，只认字面量，
-          # 直接用 `!=` 写会被它当成同一种坏模式误伤（连本条注释都不能逐字写出那个
-          # 模式，同一原因）。用下面的 `==` 表达同一条件，语义不变。
-          IS_FORK_PR: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository }}
-        # Plan with the exact same fork filter/base; install only web's selected pixel dependency.
-        run: |
-          node --test .github/scripts/run-affected-tests.test.mjs
-          node .github/scripts/run-affected-tests.mjs
-
-  # 全仓编译门（ADR-106 S2 / #1333）——人类裁决方案 A（经 coord-main 转达）：
-  # PR 上加一条**全仓** typecheck/lint/build，**不含全量 test**，因此不与
-  # 2026-08-05「PR 上不再跑全仓单测，只跑 affected，提高速度」那条裁决冲突。
-  #
-  # 为什么需要它：#1274 把 feature 门控从恒定跑全仓 verify:base 降到按风险档走
-  # affected 之后，**PR 合并前就不再有任何全仓验证了**——唯一的全仓 job(e2e-full)
-  # 带着 `!= 'pull_request'`，只在 main push / 定时 / tag 上跑。等于把全仓验证挪到
-  # 了合并之后。原始效率提案 item 2 的最后一条「PR 合并前仍必须有完整编译或
-  # release 证明」当时没做，这个 job 就是补它。
-  #
-  # ⚠ 顺序必须是「先 build 再 typecheck」，不能一条 `turbo run typecheck lint build`
-  # 了事：turbo 的 typecheck 是 `dependsOn: ["^build"]`——只构建**上游依赖**，不构建
-  # 包自身。Next.js 应用（devportal/web）的 typecheck 依赖 `next build` 生成的
-  # `.next/types/**`，一条命令跑时 typecheck 可能先于自身 build 执行 ⇒ 冷缓存必红
-  # （报一堆 TS6053 File not found）。本地热缓存时 `.next/` 是上一轮遗留的所以看着
-  # 是绿的——实测：一条命令冷跑退出码 2（29/31），拆成两步冷跑退出码 0（51s）。
-  verify-full-compile:
-    if: github.event_name != 'schedule' && github.event_name != 'workflow_dispatch'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-      - uses: pnpm/action-setup@v4.4.0
-      - uses: actions/setup-node@v5
-        with:
-          node-version-file: .nvmrc
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
-      # 见上：先 build，让 Next.js 生成 .next/types/**，typecheck 才有得可查。
-      - name: 全仓编译（build）
-        run: pnpm turbo run build
-      - name: 全仓 typecheck + lint
-        run: pnpm turbo run typecheck lint --continue
-
-  # 机械合并门禁（#956）——2026-08-11 20:33 CST 事故：`pr-queue` 在 20:32 仍把
-  # #954/#943/#922 裁成 WAITING_REVIEW/MERGE_BLOCKED，repo owner（有 admin bypass
-  # 权限）4 秒内直接合并三项，`latestReviews=[]`、`labels=[]`，#922 body 里连
-  # `Closes #N` 都没有。`pr-queue` 从来是只读建议（不合并、不改 label），门禁
-  # 完全靠 coordinator 自律——admin 一按就绕过。
-  #
-  # 本 job 是"机械阻止"的第一层：对着当前 PR 的**当前 head SHA**跑
-  # `pnpm harness merge-gate`，判定独立 APPROVE / 唯一 verdict label / Closes
-  # 关联三条，任一不满足就报红（.harness/scripts/lib/merge-gate.ts，反证测试见
-  # 同目录 merge-gate.test.ts）。
-  #
-  # ⚠ 这个 job 红了只能挡住 CI 状态与自动化流程里"当前 PR 是否绿"的判断——它
-  # **不能**单靠自己阻止 repo admin 在 GitHub 网页端直接点击合并（2026-08-11
-  # 那三次事故正是管理员 bypass）。要让它真正拦人，需要人类在 GitHub 仓库
-  # Settings → Branches 把 main 分支保护规则里加一条 required status check
-  # 指向这个 job（job 名 `merge-gate`），并勾选 "Include administrators"（或
-  # ruleset 等价设置）——这一步是账号级配置变更，agent 不会代为执行，见本
-  # PR 描述。没有这一步，本 job 仍然只是"CI 报红"，不是"物理挡住合并"。
-  merge-gate:
-    # #3238：候选组（merge_group）上也必须出结论——这是 required check，候选组上
-    # SKIPPED 等于队列永久卡住。候选组里的 PR 号由 lib/merge-queue.ts 的
-    # parseMergeGroupPrNumbers 从队列 ref + 区间 commit 标题解析，解析不出就失败。
-    if: github.event_name == 'pull_request' || github.event_name == 'merge_group'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-        with:
-          # 候选组要 `git log base..head` 拿区间内各 PR 的 commit 标题
-          fetch-depth: 0
-      - uses: pnpm/action-setup@v4.4.0
-      - uses: actions/setup-node@v5
-        with:
-          node-version-file: .nvmrc
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
-      - name: 机械合并门禁（独立 APPROVE + 唯一 verdict label + Closes 关联）
-        if: github.event_name == 'pull_request'
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: pnpm harness merge-gate --pr ${{ github.event.pull_request.number }}
-      - name: 机械合并门禁（合并队列候选组：组里每个 PR 逐个判）
-        if: github.event_name == 'merge_group'
-        env:
-          GH_TOKEN: ${{ github.token }}
-          MERGE_GROUP_BASE_SHA: ${{ github.event.merge_group.base_sha }}
-          MERGE_GROUP_HEAD_SHA: ${{ github.event.merge_group.head_sha }}
-        run: pnpm harness merge-gate --merge-group
-
-  fullstack-smoke:
-    if: github.event_name != 'schedule' || github.event.schedule == '0 * * * *'
-    runs-on: ubuntu-latest
-    # 147 browser cases take ~19m including application startup; installation,
-    # geometry checks and evidence upload also count toward the job deadline.
     timeout-minutes: 35
-    # #633（人类裁决 2026-08-06）：不再阻塞合并——`continue-on-error: true` 让本 job
-    # 无论步骤是否失败，check run 结论都报 success，仅剩信息性价值（红了不拦 PR，
-    # 但 evidence/日志仍然照常上传，供人回看）。真正阻塞发布的是 backend-gates.yml 的
-    # `e2e-core-loop`（deploy 前置条件）。
-    continue-on-error: true
-    # Serialize identical lanes, then reuse retained evidence. Never cancel the producer.
-    concurrency:
-      group: harness-lane-fullstack-smoke-${{ github.sha }}-${{ github.event_name == 'pull_request' && github.ref || 'shared' }}-${{ (inputs.fresh_run || github.run_attempt > 1) && format('{0}-{1}', github.run_id, github.run_attempt) || 'reuse' }}
-      cancel-in-progress: false
-      queue: max
+    env:
+      DIAGNOSTIC_CASE_LABEL: targeted
     steps:
-      - uses: actions/checkout@v5
-        with: { fetch-depth: 0, persist-credentials: false }
-      - name: Find existing verification (same SHA and lane)
-        id: dedup
-        env:
-          GH_TOKEN: ${{ github.token }}
-          CI_FRESH_RUN: ${{ inputs.fresh_run }}
-        run: node .harness/scripts/ci-lane-dedup.mjs
-      - uses: pnpm/action-setup@v4.4.0
-        if: steps.dedup.outputs.run == 'true'
-      - uses: actions/setup-node@v5
-        if: steps.dedup.outputs.run == 'true'
+      - name: Checkout reviewed candidate validation caller
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
         with:
-          node-version-file: .nvmrc
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Preserve caller outside original candidate workspace
+        shell: bash
+        run: |
+          umask 077
+          mkdir -p "$RUNNER_TEMP/wsx-board-candidate-targeted"
+          install -m 600 "$GITHUB_WORKSPACE/ci-receipts/diagnostic-plan-v2/board-candidate-validation.mjs" "$RUNNER_TEMP/wsx-board-candidate-caller.mjs"
+          sha256sum "$GITHUB_WORKSPACE/ci-receipts/diagnostic-plan-v2/board-candidate-validation.mjs" "$RUNNER_TEMP/wsx-board-candidate-caller.mjs" > "$RUNNER_TEMP/wsx-board-candidate-targeted/controller-file.sha256"
+      - name: Checkout exact reviewed eight-line fixture candidate
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          ref: 3677ab3953da24b8d6ba6b5bba027e8cd1663f59
+          fetch-depth: 0
+          clean: true
+          persist-credentials: false
+      - name: Set up original pnpm package
+        uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320
+        with:
+          package_json_file: package.json
+      - name: Set up exact original Node version
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version: 22.23.3
           cache: pnpm
-      - run: pnpm install --frozen-lockfile
-        if: steps.dedup.outputs.run == 'true'
-      - name: Verify dedicated public Skill import authentication (optional)
-        if: steps.dedup.outputs.run == 'true'
+          cache-dependency-path: pnpm-lock.yaml
+      - name: Bind original runner and complete candidate source manifest
+        run: node "$RUNNER_TEMP/wsx-board-candidate-caller.mjs" capture
+      - name: Install unchanged frozen candidate dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Verify complete installed source before optional credential probe
+        run: node "$RUNNER_TEMP/wsx-board-candidate-caller.mjs" verify-source
+      - name: Verify original optional dedicated public import authentication
         env:
           WORKSPACEX_SKILL_IMPORT_GITHUB_TOKEN: ${{ secrets.WORKSPACEX_SKILL_IMPORT_GITHUB_TOKEN }}
-        run: node .harness/scripts/ci-skill-import-auth-probe.mjs
-      # Optional public-repository read-only credential; never substitute github.token.
-      - name: Execute trusted full-stack smoke
-        if: steps.dedup.outputs.run == 'true'
+        shell: bash
+        run: |
+          set -o pipefail
+          node .harness/scripts/ci-skill-import-auth-probe.mjs | tee "$RUNNER_TEMP/wsx-board-candidate-targeted/auth-probe.json"
+      - name: Execute fixed six patched Board cases
         env:
           WORKSPACEX_SKILL_IMPORT_GITHUB_TOKEN: ${{ secrets.WORKSPACEX_SKILL_IMPORT_GITHUB_TOKEN }}
         shell: bash
         run: |
-          mkdir -p phases/phase-01-run-a-project/evidence/ci
-          set +e
-          node .harness/scripts/ci-fullstack-runtime.mjs run -- pnpm run verify:fullstack-smoke 2>&1 | tee phases/phase-01-run-a-project/evidence/ci/runtime.log
-          status=${PIPESTATUS[0]}
-          set -e
-          if [ "$status" -eq 0 ]; then
-            pnpm exec tsx .harness/scripts/record-readiness-evidence.ts \
-              --phase 01 --kind runtime --commit "$GITHUB_SHA" \
-              --command "pnpm run verify:fullstack-smoke" \
-              --log phases/phase-01-run-a-project/evidence/ci/runtime.log \
-              --output phases/phase-01-run-a-project/evidence/ci/runtime-manifest.json
-          fi
-          exit "$status"
-      # #3205: reuse this lane's browser installation and retain independent output.
-      - name: Execute trace disclosure geometry
-        if: always() && steps.dedup.outputs.run == 'true'
-        shell: bash
-        run: |
-          mkdir -p phases/phase-01-run-a-project/evidence/ci
           set -o pipefail
-          node .harness/scripts/ci-fullstack-runtime.mjs geometry -- pnpm --filter web run e2e:trace-geometry 2>&1 | tee phases/phase-01-run-a-project/evidence/ci/trace-geometry.log
-      - name: Upload runtime evidence (success or failure)
-        if: always() && steps.dedup.outputs.run == 'true'
-        uses: actions/upload-artifact@v6
+          node "$RUNNER_TEMP/wsx-board-candidate-caller.mjs" run 2>&1 | tee "$RUNNER_TEMP/wsx-board-candidate-targeted/execution.log"
+      - name: Retain targeted candidate receipts and original Playwright output
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
         with:
-          name: phase-01-fullstack-smoke-evidence-${{ github.run_id }}
+          name: board-focus-candidate-targeted-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
-            phases/phase-01-run-a-project/evidence/ci/
+            ${{ runner.temp }}/wsx-board-candidate-targeted/
             apps/web/test-results/
           if-no-files-found: error
-      - name: Preserve reused verification verdict
-        if: always() && steps.dedup.outputs.run == 'false'
-        env:
-          CI_SOURCE_RESULT: ${{ steps.dedup.outputs.result }}
-        run: node .harness/scripts/ci-lane-dedup.mjs verdict
-
-  # #2084: independent budgets and artifacts; verify:full remains serial internally.
-  # Public journey commands each create and clean their own database isolation scope.
-  full-regression-core:
-    if: github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.run_e2e_full)
+          retention-days: 7
+  full:
+    needs: targeted
+    if: needs.targeted.result == 'success' && github.event_name == 'workflow_dispatch' && startsWith(github.ref, 'refs/heads/diagnostic/')
+    name: board-focus-candidate-fullstack
     runs-on: ubuntu-latest
-    timeout-minutes: 90
-    concurrency:
-      group: harness-lane-full-regression-core-${{ github.sha }}-${{ github.event_name == 'pull_request' && github.ref || 'shared' }}-${{ (inputs.fresh_run || github.run_attempt > 1) && format('{0}-{1}', github.run_id, github.run_attempt) || 'reuse' }}
-      cancel-in-progress: false
-      queue: max
+    timeout-minutes: 35
+    env:
+      DIAGNOSTIC_CASE_LABEL: full
     steps:
-      - uses: actions/checkout@v5
-        with: { fetch-depth: 0 }
-      - name: Find existing verification (same SHA and lane)
-        id: dedup
-        env:
-          GH_TOKEN: ${{ github.token }}
-          CI_FRESH_RUN: ${{ inputs.fresh_run }}
-        run: node .harness/scripts/ci-lane-dedup.mjs
-      - uses: pnpm/action-setup@v4.4.0
-        if: steps.dedup.outputs.run == 'true'
-      - uses: actions/setup-node@v5
-        if: steps.dedup.outputs.run == 'true'
+      - name: Checkout reviewed candidate validation caller
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
         with:
-          node-version-file: .nvmrc
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
-        if: steps.dedup.outputs.run == 'true'
-      - run: pnpm --filter web exec playwright install --with-deps chromium
-        if: steps.dedup.outputs.run == 'true'
-      # 2026-09-08（#2972）：`verify:full` → `verify:base:raw` → `turbo run test` 里包含
-      # @repo/api 的默认 vitest 套件，而其中 4 个文件（standard-memory-real-db /
-      # standard-scheduler-service / standard-sql-database / standard-sql-source-real-db）
-      # 直接 `spawn(apps/deep-agent-service/.venv/bin/python, …)` 跨语言取证。这个 job
-      # 从建立起就没装过 Python 运行时 ⇒ 5 条用例全挂在同一行
-      # `spawn …/.venv/bin/python ENOENT`（run 34135593071）。
-      #
-      # ⚠ 这不是"这几条测试有问题"：`backend-gates.yml` 的 `gates-test` 跑的是同一份
-      #   `vitest.config.ts`，它有这两步，同样这 4 个文件在那里是绿的。缺的只是本车道。
-      #   版本/参数与 `gates-test` 保持逐字一致，避免两条车道的 Python 运行时漂移。
-      #   `lint-ci-python-runtime.test.ts` 机械守住"跑 api 默认套件的 job 必须装它"。
-      - uses: astral-sh/setup-uv@v7.0.0
-        if: steps.dedup.outputs.run == 'true'
-        with:
-          version: "0.12.5"
-      - name: Install locked Python runtime for cross-language API integration tests
-        if: steps.dedup.outputs.run == 'true'
-        working-directory: apps/deep-agent-service
-        run: uv sync --frozen --extra dev
-      - name: Execute uncached trusted full gate
-        timeout-minutes: 80
-        if: steps.dedup.outputs.run == 'true'
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Preserve caller outside original candidate workspace
         shell: bash
         run: |
-          mkdir -p phases/phase-01-run-a-project/evidence/ci
-          set +e
-          TURBO_FORCE=true pnpm run verify:full 2>&1 | tee phases/phase-01-run-a-project/evidence/ci/e2e.log
-          status=${PIPESTATUS[0]}
-          set -e
-          if [ "$status" -eq 0 ]; then
-            pnpm exec tsx .harness/scripts/record-readiness-evidence.ts \
-              --phase 01 --kind e2e --commit "$GITHUB_SHA" \
-              --command "TURBO_FORCE=true pnpm run verify:full" \
-              --log phases/phase-01-run-a-project/evidence/ci/e2e.log \
-              --output phases/phase-01-run-a-project/evidence/ci/e2e-manifest.json
-          fi
-          exit "$status"
-      - name: Upload E2E evidence (success or failure)
-        if: always() && steps.dedup.outputs.run == 'true'
-        uses: actions/upload-artifact@v6
+          umask 077
+          mkdir -p "$RUNNER_TEMP/wsx-board-candidate-full"
+          install -m 600 "$GITHUB_WORKSPACE/ci-receipts/diagnostic-plan-v2/board-candidate-validation.mjs" "$RUNNER_TEMP/wsx-board-candidate-caller.mjs"
+          sha256sum "$GITHUB_WORKSPACE/ci-receipts/diagnostic-plan-v2/board-candidate-validation.mjs" "$RUNNER_TEMP/wsx-board-candidate-caller.mjs" > "$RUNNER_TEMP/wsx-board-candidate-full/controller-file.sha256"
+      - name: Checkout exact reviewed eight-line fixture candidate
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
         with:
-          name: phase-01-e2e-full-evidence-${{ github.run_id }}
-          path: |
-            phases/phase-01-run-a-project/evidence/ci/
-            apps/web/test-results/
-          if-no-files-found: error
-      - name: Preserve reused verification verdict
-        if: always() && steps.dedup.outputs.run == 'false'
-        env:
-          CI_SOURCE_RESULT: ${{ steps.dedup.outputs.result }}
-        run: node .harness/scripts/ci-lane-dedup.mjs verdict
-
-  chat-read:
-    if: github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.run_e2e_full)
-    runs-on: ubuntu-latest
-    timeout-minutes: 60
-    concurrency:
-      group: harness-lane-chat-read-${{ github.sha }}-${{ github.event_name == 'pull_request' && github.ref || 'shared' }}-${{ (inputs.fresh_run || github.run_attempt > 1) && format('{0}-{1}', github.run_id, github.run_attempt) || 'reuse' }}
-      cancel-in-progress: false
-      queue: max
-    steps:
-      - uses: actions/checkout@v5
-        with: { fetch-depth: 0 }
-      - name: Find existing verification (same SHA and lane)
-        id: dedup
-        env:
-          GH_TOKEN: ${{ github.token }}
-          CI_FRESH_RUN: ${{ inputs.fresh_run }}
-        run: node .harness/scripts/ci-lane-dedup.mjs
-      - uses: pnpm/action-setup@v4.4.0
-        if: steps.dedup.outputs.run == 'true'
-      - uses: actions/setup-node@v5
-        if: steps.dedup.outputs.run == 'true'
+          ref: 3677ab3953da24b8d6ba6b5bba027e8cd1663f59
+          fetch-depth: 0
+          clean: true
+          persist-credentials: false
+      - name: Set up original pnpm package
+        uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320
         with:
-          node-version-file: .nvmrc
+          package_json_file: package.json
+      - name: Set up exact original Node version
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version: 22.23.3
           cache: pnpm
-      - run: pnpm install --frozen-lockfile
-        if: steps.dedup.outputs.run == 'true'
-      - run: pnpm --filter web exec playwright install --with-deps chromium
-        if: steps.dedup.outputs.run == 'true'
-      - name: Execute Chat read/write journey (own isolation scope)
-        if: steps.dedup.outputs.run == 'true'
-        timeout-minutes: 50
+          cache-dependency-path: pnpm-lock.yaml
+      - name: Bind original runner and complete candidate source manifest
+        run: node "$RUNNER_TEMP/wsx-board-candidate-caller.mjs" capture
+      - name: Install unchanged frozen candidate dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Verify complete installed source before optional credential probe
+        run: node "$RUNNER_TEMP/wsx-board-candidate-caller.mjs" verify-source
+      - name: Verify original optional dedicated public import authentication
+        env:
+          WORKSPACEX_SKILL_IMPORT_GITHUB_TOKEN: ${{ secrets.WORKSPACEX_SKILL_IMPORT_GITHUB_TOKEN }}
         shell: bash
         run: |
-          mkdir -p phases/phase-01-run-a-project/evidence/ci
           set -o pipefail
-          pnpm run verify:chat-read 2>&1 | tee phases/phase-01-run-a-project/evidence/ci/chat-read.log
-      - name: Upload chat-read evidence (success or failure)
-        if: always() && steps.dedup.outputs.run == 'true'
-        uses: actions/upload-artifact@v6
-        with:
-          name: phase-01-chat-read-evidence-${{ github.run_id }}
-          path: |
-            phases/phase-01-run-a-project/evidence/ci/chat-read.log
-            apps/web/test-results/
-          if-no-files-found: error
-      - name: Preserve reused verification verdict
-        if: always() && steps.dedup.outputs.run == 'false'
+          node .harness/scripts/ci-skill-import-auth-probe.mjs | tee "$RUNNER_TEMP/wsx-board-candidate-full/auth-probe.json"
+      - name: Execute original full-stack command and all project dependencies
         env:
-          CI_SOURCE_RESULT: ${{ steps.dedup.outputs.result }}
-        run: node .harness/scripts/ci-lane-dedup.mjs verdict
-
-  self-service-profile:
-    if: github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.run_e2e_full)
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    concurrency:
-      group: harness-lane-self-service-profile-${{ github.sha }}-${{ github.event_name == 'pull_request' && github.ref || 'shared' }}-${{ (inputs.fresh_run || github.run_attempt > 1) && format('{0}-{1}', github.run_id, github.run_attempt) || 'reuse' }}
-      cancel-in-progress: false
-      queue: max
-    steps:
-      - uses: actions/checkout@v5
-        with: { fetch-depth: 0 }
-      - name: Find existing verification (same SHA and lane)
-        id: dedup
-        env:
-          GH_TOKEN: ${{ github.token }}
-          CI_FRESH_RUN: ${{ inputs.fresh_run }}
-        run: node .harness/scripts/ci-lane-dedup.mjs
-      - uses: pnpm/action-setup@v4.4.0
-        if: steps.dedup.outputs.run == 'true'
-      - uses: actions/setup-node@v5
-        if: steps.dedup.outputs.run == 'true'
-        with:
-          node-version-file: .nvmrc
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
-        if: steps.dedup.outputs.run == 'true'
-      - run: pnpm --filter web exec playwright install --with-deps chromium
-        if: steps.dedup.outputs.run == 'true'
-      - name: Execute self-service profile journey (own isolation scope)
-        if: steps.dedup.outputs.run == 'true'
-        timeout-minutes: 10
+          WORKSPACEX_SKILL_IMPORT_GITHUB_TOKEN: ${{ secrets.WORKSPACEX_SKILL_IMPORT_GITHUB_TOKEN }}
         shell: bash
         run: |
-          mkdir -p phases/phase-01-run-a-project/evidence/ci
           set -o pipefail
-          pnpm run verify:self-service-profile 2>&1 | tee phases/phase-01-run-a-project/evidence/ci/self-service-profile.log
-      - name: Upload self-service-profile evidence (success or failure)
-        if: always() && steps.dedup.outputs.run == 'true'
-        uses: actions/upload-artifact@v6
+          node "$RUNNER_TEMP/wsx-board-candidate-caller.mjs" run 2>&1 | tee "$RUNNER_TEMP/wsx-board-candidate-full/execution.log"
+      - name: Retain full candidate receipts and original Playwright output
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
         with:
-          name: phase-01-self-service-profile-evidence-${{ github.run_id }}
+          name: board-focus-candidate-full-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
-            phases/phase-01-run-a-project/evidence/ci/self-service-profile.log
+            ${{ runner.temp }}/wsx-board-candidate-full/
             apps/web/test-results/
           if-no-files-found: error
-      - name: Preserve reused verification verdict
-        if: always() && steps.dedup.outputs.run == 'false'
-        env:
-          CI_SOURCE_RESULT: ${{ steps.dedup.outputs.result }}
-        run: node .harness/scripts/ci-lane-dedup.mjs verdict
-
-  # Stable full-regression verdict: missing, skipped, failed or canceled lanes cannot pass.
-  e2e-full:
-    if: always() && !cancelled() && (github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.run_e2e_full))
-    needs: [full-regression-core, chat-read, self-service-profile]
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    steps:
-      - uses: actions/checkout@v5
-      - name: Require every full regression lane
-        env:
-          CI_LANE_RESULTS: ${{ toJSON(needs) }}
-        run: node .harness/scripts/ci-full-regression.mjs
-
-  # Optional evidence lanes keep separate dispatch switches and are not aggregate dependencies.
-  # chat-path-coverage is the path-coverage matrix lane; chat-task-workbench is an opt-in scorecard.
-  chat-path-coverage:
-    if: github.event_name == 'workflow_dispatch' && inputs.run_chat_path_coverage
-    runs-on: ubuntu-latest
-    timeout-minutes: 40
-    # Serialize identical lanes, then reuse retained evidence. Never cancel the producer.
-    concurrency:
-      group: harness-lane-chat-path-coverage-${{ github.sha }}-${{ github.event_name == 'pull_request' && github.ref || 'shared' }}-${{ (inputs.fresh_run || github.run_attempt > 1) && format('{0}-{1}', github.run_id, github.run_attempt) || 'reuse' }}
-      cancel-in-progress: false
-      queue: max
-    steps:
-      - uses: actions/checkout@v5
-        with: { fetch-depth: 0 }
-      - name: Find existing verification (same SHA and lane)
-        id: dedup
-        env:
-          GH_TOKEN: ${{ github.token }}
-          CI_FRESH_RUN: ${{ inputs.fresh_run }}
-        run: node .harness/scripts/ci-lane-dedup.mjs
-      - uses: pnpm/action-setup@v4.4.0
-        if: steps.dedup.outputs.run == 'true'
-      - uses: actions/setup-node@v5
-        if: steps.dedup.outputs.run == 'true'
-        with:
-          node-version-file: .nvmrc
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
-        if: steps.dedup.outputs.run == 'true'
-      - run: pnpm --filter web exec playwright install --with-deps chromium
-        if: steps.dedup.outputs.run == 'true'
-      - name: Execute chat path coverage lane (own isolation scope)
-        if: steps.dedup.outputs.run == 'true'
-        run: pnpm run verify:chat-path-coverage
-      - name: Upload chat-path-coverage evidence (success or failure)
-        if: always() && steps.dedup.outputs.run == 'true'
-        uses: actions/upload-artifact@v6
-        with:
-          name: phase-01-chat-path-coverage-evidence-${{ github.run_id }}
-          path: |
-            apps/web/test-results/
-            apps/web/e2e/__evidence__/chat-path-coverage/
-          if-no-files-found: warn
-      - name: Preserve reused verification verdict
-        if: always() && steps.dedup.outputs.run == 'false'
-        env:
-          CI_SOURCE_RESULT: ${{ steps.dedup.outputs.result }}
-        run: node .harness/scripts/ci-lane-dedup.mjs verdict
-
-  chat-task-workbench:
-    if: github.event_name == 'workflow_dispatch' && inputs.run_chat_task_workbench
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    # Serialize identical lanes, then reuse retained evidence. Never cancel the producer.
-    concurrency:
-      group: harness-lane-chat-task-workbench-${{ github.sha }}-${{ github.event_name == 'pull_request' && github.ref || 'shared' }}-${{ (inputs.fresh_run || github.run_attempt > 1) && format('{0}-{1}', github.run_id, github.run_attempt) || 'reuse' }}
-      cancel-in-progress: false
-      queue: max
-    steps:
-      - uses: actions/checkout@v5
-        with: { fetch-depth: 0 }
-      - name: Find existing verification (same SHA and lane)
-        id: dedup
-        env:
-          GH_TOKEN: ${{ github.token }}
-          CI_FRESH_RUN: ${{ inputs.fresh_run }}
-        run: node .harness/scripts/ci-lane-dedup.mjs
-      - uses: pnpm/action-setup@v4.4.0
-        if: steps.dedup.outputs.run == 'true'
-      - uses: actions/setup-node@v5
-        if: steps.dedup.outputs.run == 'true'
-        with:
-          node-version-file: .nvmrc
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
-        if: steps.dedup.outputs.run == 'true'
-      - run: pnpm --filter web exec playwright install --with-deps chromium
-        if: steps.dedup.outputs.run == 'true'
-      - name: Execute Chat task workbench scorecard (own isolation scope)
-        if: steps.dedup.outputs.run == 'true'
-        run: pnpm run verify:chat-task-workbench
-      - name: Upload chat-task-workbench evidence (success or failure)
-        if: always() && steps.dedup.outputs.run == 'true'
-        uses: actions/upload-artifact@v6
-        with:
-          name: phase-01-chat-task-workbench-evidence-${{ github.run_id }}
-          path: apps/web/test-results/
-          if-no-files-found: error
-      - name: Preserve reused verification verdict
-        if: always() && steps.dedup.outputs.run == 'false'
-        env:
-          CI_SOURCE_RESULT: ${{ steps.dedup.outputs.result }}
-        run: node .harness/scripts/ci-lane-dedup.mjs verdict
+          retention-days: 7
