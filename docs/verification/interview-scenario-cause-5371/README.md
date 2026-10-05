@@ -24,3 +24,5 @@ Main review rejected the original head for explicit local 假设 false rejection
 After normal main e097 integration:347/347. External5025b7f82 added local postfix uncertainty (351/351) but readonly rejected source-observation/double-denial bypass. Actual RED4/355; moved postfix after denial frames and excluded explicit confirmation frames, preserving the postfix hypotheses; GREEN355/355.
 
 Root follow-up found inner double-denial could still borrow postfix uncertainty: actual RED2/357, then GREEN358/358 after excluding finite affirmative inner-double frames from suffix qualification. Genuine prohibition of that inner predicate remains allowed.
+
+Main further rejected copular confirmation prefixes: actual RED2/361. A modifier-inserted copular variant additionally produced RED1/362. Confirmation is now bound to the comma-local causal predicate through 是, preserving independent budget confirmation and ordinary uncertainty. GREEN362/362; no new model request.
