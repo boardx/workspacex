@@ -40,11 +40,11 @@ function evidenceId(fact: Pick<GuidedEvidenceLedgerRecord, "questionKey" | "task
  * exact source/chunk/question. Deterministic revalidation adds provenance, not a
  * second semantic model judgement or confidence score. */
 export function recordVerifiedEvidence(state: ResearchRuntime, question: EvidenceQuestion, evidence: VerifiedEvidence,
-  chunk: { chunkId: string; start: number; content: string }, verifiedAt = new Date().toISOString()): GuidedEvidenceLedgerRecord | undefined {
+  chunk: { chunkId: string; start: number; content: string; quoteOffset?: number }, verifiedAt = new Date().toISOString()): GuidedEvidenceLedgerRecord | undefined {
   const original = material(state, evidence.sourceId);
   if (!original || !confirmed(state, question) || original.text.slice(chunk.start, chunk.start + chunk.content.length) !== chunk.content) return;
-  const localStart = chunk.content.indexOf(evidence.quote);
-  if (localStart < 0) return;
+  const localStart = chunk.quoteOffset ?? chunk.content.indexOf(evidence.quote);
+  if (!Number.isInteger(localStart) || localStart < 0 || chunk.content.slice(localStart, localStart + evidence.quote.length) !== evidence.quote) return;
   const basis = ledgerBasis(state, question), questionKey = ledgerQuestionKey(question, basis), quoteStart = chunk.start + localStart;
   const taskId = original.source.taskId;
   if (!state.tasks.some(task => task.id === taskId)) return;
@@ -86,10 +86,8 @@ function ledgerReader(state: ResearchRuntime) {
       if (record.documentHash !== original.documentHash || record.taskId !== original.source.taskId || !taskIds.has(record.taskId)) return false;
       if (record.chunkStart % GUIDED_EVIDENCE_CHUNK_SIZE || record.chunkId !== `source:${record.sourceId}/chunk:${record.chunkStart / GUIDED_EVIDENCE_CHUNK_SIZE}` || record.quoteEnd > Math.min(original.text.length, record.chunkStart + GUIDED_EVIDENCE_CHUNK_SIZE)) return false;
       if (original.text.slice(record.quoteStart, record.quoteEnd) !== record.quote || record.quoteHash !== hash(record.quote)) return false;
-      const chunk = original.text.slice(record.chunkStart, record.chunkStart + GUIDED_EVIDENCE_CHUNK_SIZE);
-      // Preserve the creator's deterministic first exact occurrence within the
-      // proven chunk, without calling its full material/basis validation again.
-      if (chunk.indexOf(record.quote) !== record.quoteStart - record.chunkStart) return false;
+      // Exact span and evidence identity preserve the validated selected occurrence,
+      // including repeated text within one chunk.
       return evidenceId(record) === record.evidenceId;
     });
   };
