@@ -535,11 +535,11 @@ describe("bounded search query recovery", () => {
     expect(saved.sources).toEqual([]);
     expect(saved.outline).toEqual([]);
   });
-  it("allows an explicit retry after transient failures exhausted a previous attempt budget", async () => {
+  it.each(["RESEARCH_SEARCH_UNAVAILABLE", "RESEARCH_EXECUTION_INTERRUPTED", "RESEARCH_SEARCH_REQUEST_TIMEOUT"])("allows an explicit retry after %s exhausted a previous attempt budget", async (errorCode) => {
     const state = seed();
     state.tasks[0]!.status = "failed";
-    state.tasks[0]!.errorCode = "RESEARCH_SEARCH_UNAVAILABLE";
-    state.tasks[0]!.searchAttempts = Array.from({ length: C.GUIDED_RESEARCH_SEARCH_ATTEMPT_LIMIT }, () => ({ query: original, status: "failed" as const, errorCode: "RESEARCH_SEARCH_UNAVAILABLE" }));
+    state.tasks[0]!.errorCode = errorCode;
+    state.tasks[0]!.searchAttempts = Array.from({ length: C.GUIDED_RESEARCH_SEARCH_ATTEMPT_LIMIT }, () => ({ query: original, status: "failed" as const, errorCode }));
     const f = fixture(state);
     f.search.mockResolvedValue([hit]);
     const result = await f.run("retry");

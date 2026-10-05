@@ -567,7 +567,7 @@ export class GuidedRuntimeService {
       // A human retry starts a fresh transport attempt, not an unbounded automatic
       // loop. Keep the bounded recent history and the lifetime attempts counter.
       if (action === "retry") for (const task of state.tasks) {
-        if (task.status === "failed" && ["RESEARCH_SEARCH_UNAVAILABLE", "RESEARCH_EXECUTION_INTERRUPTED"].includes(task.errorCode ?? "")
+        if (task.status === "failed" && ["RESEARCH_SEARCH_UNAVAILABLE", "RESEARCH_EXECUTION_INTERRUPTED", "RESEARCH_SEARCH_REQUEST_TIMEOUT"].includes(task.errorCode ?? "")
           && (task.searchAttempts?.length ?? 0) >= C.GUIDED_RESEARCH_SEARCH_ATTEMPT_LIMIT) task.searchAttempts!.shift();
       }
       // Explicit refresh retries missing reading metadata without resetting successful searches.
