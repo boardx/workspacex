@@ -20,9 +20,10 @@ await owner.evaluate(async()=>{globalThis.db=await new Promise((resolve,reject)=
 await peer.evaluate(async()=>{globalThis.db=await new Promise((resolve,reject)=>{const r=indexedDB.open('diagnostic');r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error);});});
 const cdp=await owned.context.newCDPSession(owner);await cdp.send('Debugger.enable');let paused;cdp.on('Debugger.paused',()=>paused?.());
 const measure=async(expression)=>{const start=Date.now();const pending=peer.evaluate(expression);let done=false;pending.then(()=>done=true,()=>done=true);await new Promise(r=>setTimeout(r,1500));const during=done;await cdp.send('Debugger.resume');const value=await pending;return {completedWhilePaused:during,totalMs:Date.now()-start,value};};
-await new Promise(async resolve=>{paused=resolve;await cdp.send('Debugger.pause');});
+const pauseIdleOwner=async()=>{const observed=new Promise(resolve=>paused=resolve);await cdp.send('Debugger.pause');await observed;};
+await pauseIdleOwner();
 results.push({case:'idle-owner-paused-peer-renderer',...await measure(()=>({ok:true,time:performance.now()}))});
-await new Promise(async resolve=>{paused=resolve;await cdp.send('Debugger.pause');});
+await pauseIdleOwner();
 results.push({case:'idle-owner-paused-peer-idb-readwrite',...await measure(()=>new Promise((resolve,reject)=>{const tx=db.transaction('s','readwrite');tx.objectStore('s').put('peer','k');tx.oncomplete=()=>resolve('committed');tx.onabort=()=>reject(tx.error);} ))});
 const binding='diagnosticQuiescence';await cdp.send('Runtime.addBinding',{name:binding});const bindings=[];cdp.on('Runtime.bindingCalled',event=>{if(event.name===binding)bindings.push(JSON.parse(event.payload));});
 const missing=await cdp.send('Runtime.evaluate',{expression:`(${requestIndexedDbQuiescentPause.toString()})({key:'missing',binding:${JSON.stringify(binding)}})`});results.push({case:'missing-instrumentation-fail-closed',exception:missing.exceptionDetails?.exception?.description});
