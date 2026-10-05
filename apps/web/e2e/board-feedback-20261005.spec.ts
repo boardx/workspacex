@@ -283,7 +283,12 @@ for (const viewport of viewports) {
       const canonical = await canonicalBoardSnapshot(request, token, boardId);
       const diagnostics = [];
       let blank: { x: number; y: number } | undefined;
-      for (const candidate of compactBlankPoints(view, canonical.objects)) {
+      const denseCandidates = [.1, .3, .5, .7, .9].flatMap(x => [.15, .25, .35, .55, .65, .75].map(y => ({ x: view.x + view.width * x, y: view.y + view.height * y }))).filter(point => canonical.objects.every(({ geometry: g }) => {
+        const left = view.x + view.panX + g.x * view.zoom - 20, top = view.y + view.panY + g.y * view.zoom - 20;
+        const right = view.x + view.panX + (g.x + g.width) * view.zoom + 20, bottom = view.y + view.panY + (g.y + g.height) * view.zoom + 20;
+        return point.x < left || point.x > right || point.y < top || point.y > bottom;
+      }));
+      for (const candidate of [...compactBlankPoints(view, canonical.objects), ...denseCandidates]) {
         const hit = await page.evaluate(point => {
           const element = document.elementFromPoint(point.x, point.y) as HTMLElement | null;
           return { canvas: element?.matches('canvas.upper-canvas') === true, tag: element?.tagName, testId: element?.dataset.testid, className: element?.className };
@@ -328,12 +333,20 @@ for (const viewport of viewports) {
       const presets = page.getByRole('group', { name: '连接线粗细预设', exact: true });
       await expect(presets.getByRole('button')).toHaveCount(6);
       const buttons = presets.getByRole('button');
-      const positions: number[] = [];
-      for (let index = 0; index < await buttons.count(); index++) {
-        await expect(buttons.nth(index)).toHaveText('');
-        positions.push((await buttons.nth(index).boundingBox())!.y);
-      }
-      expect(Math.max(...positions) - Math.min(...positions)).toBeLessThan(2);
+      for (let index = 0; index < await buttons.count(); index++) await expect(buttons.nth(index)).toHaveText('');
+      const popover = page.getByTestId('board-tool-popover');
+      await popover.evaluate(async element => {
+        await Promise.all(element.getAnimations({ subtree: true }).filter(animation => animation.effect?.getComputedTiming().iterations !== Infinity).map(animation => animation.finished.catch(() => undefined)));
+        await new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+      });
+      // Read every button in one browser frame: opening animations move the whole popup.
+      const layout = await presets.evaluate(element => {
+        const style = getComputedStyle(element);
+        return { display: style.display, flexWrap: style.flexWrap, buttons: Array.from(element.querySelectorAll('button')).map(button => ({ y: button.getBoundingClientRect().y, height: button.getBoundingClientRect().height })) };
+      });
+      await info.attach('connector-width-atomic-layout', { body: JSON.stringify(layout), contentType: 'application/json' });
+      expect(layout.display).toBe('flex'); expect(layout.flexWrap).toBe('nowrap');
+      expect(Math.max(...layout.buttons.map(button => button.y)) - Math.min(...layout.buttons.map(button => button.y))).toBeLessThan(2);
       await withinViewport(page.getByTestId('board-tool-popover'), viewport.width);
       await page.getByTestId('board-connector-width-8').click();
       await expectBoardSynced(page);
