@@ -1,6 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 import type { Canvas } from "fabric";
-import { extractMermaidBlocks, parseTemplateText, templateToModel } from "@repo/fabric-markdown";
+import { extractMermaidBlocks, parseTemplateText, templateToModel, getTemplate, listTemplates, registerTemplate } from "@repo/fabric-markdown";
+import { canvas as canvasContracts } from "@repo/contracts";
+const { BUILTIN_CANVAS_TEMPLATES } = canvasContracts;
 import { checkCanvasFence } from "@/lib/canvas/canvas-fence";
 import { serializeCanvasMarkdown } from "@/lib/canvas/serialize-canvas-markdown";
 
@@ -56,5 +58,73 @@ describe("template canvas save", () => {
     const block = extractMermaidBlocks(serializeCanvasMarkdown(canvas))[0]!;
     expect(block.lang).toBe("persona");
     expect(checkCanvasFence(block.code, "persona").ok).toBe(true);
+  });
+});
+
+
+describe("all registered canvas templates", () => {
+  it("covers the authoritative built-in template registry", () => {
+    expect(listTemplates().map(spec => spec.key).sort()).toEqual(Object.keys(BUILTIN_CANVAS_TEMPLATES).sort());
+  });
+
+  it.each(Object.keys(BUILTIN_CANVAS_TEMPLATES))("keeps %s identity, fields and moved notes through repeated saves", key => {
+    const spec = getTemplate(key)!;
+    const source = [`模板: ${key}`, ...(spec.fields ?? []).map(field => `${field}: 测试字段`),
+      ...spec.sections.flatMap(section => [`## ${section.name}`, `- 便签：${section.name}`])].join("\n");
+    const model = templateToModel(source);
+    const sections = model.nodes.filter(n => n.data?.role === "section");
+    const moved = model.nodes.find(n => n.data?.role === "sticky")!;
+    const originalLabel = moved.label;
+    const target = sections[sections.length - 1]!;
+    moved.x = target.x;
+    moved.y = target.y;
+    boundary.model = model;
+    const saved = serializeCanvasMarkdown(canvas, `正文\n\n~~~~canvas\n${source}\n~~~~\n尾文`);
+    const block = extractMermaidBlocks(saved)[0]!;
+    expect(block.fence).toBe("~~~~");
+    expect(block.code.startsWith(`模板: ${key}\n`)).toBe(true);
+    expect(checkCanvasFence(block.code, "canvas")).toMatchObject({ ok: true, key });
+    const parsed = parseTemplateText(block.code);
+    expect(parsed.templateKey).toBe(key);
+    expect(parsed.sections.get(String(target.data?.name))?.some(item =>
+      item === originalLabel || item.startsWith(`${originalLabel} #`))).toBe(true);
+    for (const field of spec.fields ?? []) expect(parsed.fields.get(field)).toBe("测试字段");
+    expect([...parsed.sections.values()].flat()).toHaveLength(spec.sections.length);
+    const restored = templateToModel(block.code);
+    const restoredNote = restored.nodes.find(n => n.data?.role === "sticky" && n.label === originalLabel)!;
+    expect(restoredNote.data?.color).toBe(moved.data?.color);
+    boundary.model = restored;
+    expect(serializeCanvasMarkdown(canvas, saved)).toBe(saved);
+  });
+
+  it("uses the same save contract for organization-defined templates", () => {
+    registerTemplate({ key: "save-regression-custom", title: "组织模板", sections: [
+      { name: "来源", x: 200, y: 200, w: 300, h: 300 },
+      { name: "目标", x: 600, y: 200, w: 300, h: 300 },
+    ] });
+    const model = templateToModel("模板: save-regression-custom\n## 来源\n- 自定义便签");
+    const sticky = model.nodes.find(n => n.data?.role === "sticky")!;
+    sticky.x = 600;
+    sticky.y = 200;
+    boundary.model = model;
+    const saved = serializeCanvasMarkdown(canvas);
+    const block = extractMermaidBlocks(saved)[0]!;
+    expect(checkCanvasFence(block.code, "canvas")).toMatchObject({ ok: true, key: "save-regression-custom" });
+    expect(parseTemplateText(block.code).sections.get("目标")).toContain("自定义便签");
+  });
+
+  it("rejects a model without identity instead of saving an unrenderable canvas", () => {
+    const model = movedModel();
+    delete model.meta?.templateKey;
+    boundary.model = model;
+    expect(() => serializeCanvasMarkdown(canvas)).toThrow("without its template key");
+  });
+
+  it("does not use the persona alias for a different template", () => {
+    boundary.model = templateToModel("模板: swot\n## 优势\n- 专业能力");
+    const saved = serializeCanvasMarkdown(canvas, "```persona\n姓名: 林砚\n## 用户描述\n- 教学\n```");
+    const block = extractMermaidBlocks(saved)[0]!;
+    expect(block.lang).toBe("canvas");
+    expect(checkCanvasFence(block.code, "canvas")).toMatchObject({ ok: true, key: "swot" });
   });
 });

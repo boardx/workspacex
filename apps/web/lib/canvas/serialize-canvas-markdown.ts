@@ -29,6 +29,7 @@ import {
   extractModel,
   modelToMermaid,
   serializeTemplate,
+  parseTemplateText,
   serializeUsecase,
   type DiagramModel,
 } from "@repo/fabric-markdown";
@@ -36,14 +37,17 @@ import type { Canvas as FabricCanvas } from "fabric";
 
 function serializeModel(model: DiagramModel, fenceLang?: string): { code: string; lang: string } {
   if (model.kind === "template") {
-    const key = model.meta?.templateKey;
-    const lang = fenceLang ?? (key === "persona" ? "persona" : "canvas");
-    // The vendor omits the persona key because its persona fence implies it.
-    // Existing canvas fences are preserved by replaceMermaidBlock.
+    const key = String(model.meta?.templateKey ?? "").trim();
+    if (!key) throw new Error("Cannot save a template canvas without its template key");
+    const lang = key === "persona" && fenceLang !== "canvas" ? "persona" : "canvas";
+    // The fence and body form one format: canvas needs an explicit key,
+    // whereas persona implies its key. Normalize at the Markdown boundary.
     const body = serializeTemplate(model);
-    const code = lang === "canvas" && key === "persona"
-      ? `模板: ${key}\n${body}`
-      : body;
+    const declaredKey = parseTemplateText(body).templateKey;
+    if (declaredKey && declaredKey !== key) {
+      throw new Error("Serialized template key does not match the canvas model");
+    }
+    const code = lang === "canvas" && !declaredKey ? `模板: ${key}\n${body}` : body;
     return { code, lang };
   }
   if (model.kind === "usecase") {
@@ -64,7 +68,7 @@ export function serializeCanvasMarkdown(
     : extractMermaidBlocks(originalMarkdown)[blockIndex];
   const { code, lang } = serializeModel(model, block?.lang);
   if (originalMarkdown !== undefined) {
-    if (block) return replaceMermaidBlock(originalMarkdown, block, code);
+    if (block) return replaceMermaidBlock(originalMarkdown, { ...block, lang }, code);
     const sep = originalMarkdown.endsWith("\n") ? "" : "\n";
     return originalMarkdown + sep + "\n" + wrapAsMermaidBlock(code, lang) + "\n";
   }
