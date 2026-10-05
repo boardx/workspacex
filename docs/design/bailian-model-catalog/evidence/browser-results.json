@@ -1,0 +1,27 @@
+{
+  "scope": "real-component-public-catalog-fixture-not-authenticated-org-e2e",
+  "checks": [
+    {
+      "width": 375,
+      "overflow": false,
+      "cards": 12,
+      "accessibilityViolations": [],
+      "drawerOverflow": false
+    },
+    {
+      "width": 768,
+      "overflow": false,
+      "cards": 12,
+      "accessibilityViolations": [],
+      "drawerOverflow": false
+    },
+    {
+      "width": 1280,
+      "overflow": false,
+      "cards": 12,
+      "accessibilityViolations": [],
+      "drawerOverflow": false
+    }
+  ],
+  "pageErrors": []
+}

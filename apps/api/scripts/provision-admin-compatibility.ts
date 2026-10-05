@@ -1,4 +1,7 @@
-import { existsSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { join } from "node:path";
+import { migrationFiles, MIGRATIONS_DIR } from "../src/infrastructure/db/migrator";
+import { existsSync, readFileSync } from "node:fs";
 import { Client } from "pg";
 import { appConfig } from "../src/infrastructure/db/pg-config";
 import { initialBootstrapResult, probeBootstrapCompatibility, type BootstrapProbeInput } from "../src/infrastructure/deploy/bootstrap-compatibility";
@@ -15,6 +18,7 @@ const input: BootstrapProbeInput = {
   sourceSha: process.env.CN_BOOTSTRAP_SOURCE_SHA ?? "",
   phase: process.env.CN_BOOTSTRAP_PHASE as BootstrapProbeInput["phase"],
   imageDigest: process.env.CN_BOOTSTRAP_IMAGE_DIGEST,
+  ...(process.env.CN_BOOTSTRAP_PHASE === "preactivate" ? { migrationInventory: migrationFiles().map(name => ({ name, checksum: createHash("sha256").update(readFileSync(join(MIGRATIONS_DIR, name))).digest("hex") })) } : {}),
   email: process.env.PROVISION_ADMIN_EMAIL ?? "", password: process.env.PROVISION_ADMIN_PASSWORD ?? "",
   displayName: process.env.PROVISION_ADMIN_NAME ?? "", orgName: process.env.PROVISION_ORG_NAME ?? "",
 };

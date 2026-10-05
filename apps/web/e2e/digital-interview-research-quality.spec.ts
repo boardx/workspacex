@@ -222,7 +222,7 @@ test("the six-stage workbench restores a direct stage route and updates it from 
   await expect(page.getByTestId("itv-workbench-step-analysis")).toHaveAttribute("aria-current", "step");
 
   await expect(page.getByTestId("itv-analysis-workbench")).toContainText("研究目标");
-  await expect(page.getByTestId("itv-analysis-workbench")).toContainText("文档版本 1");
+  await expect(page.getByTestId("itv-analysis-workbench").getByRole("button", { name: "选择专家", exact: true })).toBeEnabled();
   await expect(page.getByRole("article").filter({ has: page.getByRole("heading", { name: "研究目标", exact: true }) })).toContainText("识别最终采购否决权及决策角色。");
   await expect(page.getByTestId("itv-analysis-suggestion-section-3")).toContainText("先验证采购流程假设，再审阅专家意见。");
   await page.getByTestId("itv-workbench-step-experts").click();
@@ -240,7 +240,7 @@ test("the six-stage workbench restores a direct stage route and updates it from 
   await expect(page.getByTestId("itv-workbench-step-experts")).toHaveAttribute("aria-current", "step");
 });
 
-test("virtual-expert model proposal stays unsaved until structured human review", async ({ page }) => {
+test("virtual-expert model proposal stays unsaved until explicit save", async ({ page }) => {
   test.slow(); // Cold Next route compilation on the isolated browser server can exceed the default navigation budget.
   await page.addInitScript(() => {
     localStorage.setItem("wsx.sessionToken", "e2e-token");
@@ -286,9 +286,8 @@ test("virtual-expert model proposal stays unsaved until structured human review"
   await dialog.getByRole("textbox", { name: "想添加怎样的专家" }).fill("请按已知材料设计一位关注夜班护理交接流程的模拟顾问，不声称真人访谈。");
   await dialog.getByRole("button", { name: "AI 生成专家画像" }).click();
   await expect(dialog.getByRole("textbox", { name: "专家名称" })).toHaveValue("夜班护理顾问");
-  await expect(dialog.getByRole("button", { name: "保存并添加专家" })).toBeDisabled();
+  await expect(dialog.getByRole("button", { name: "保存并添加专家" })).toBeEnabled();
   expect(proposals).toBe(1); expect(writes).toBe(0);
-  await dialog.getByRole("checkbox", { name: "已审阅画像及模拟边界" }).check();
   await dialog.getByRole("button", { name: "保存并添加专家" }).click();
   await expect(page.getByRole("button", { name: "移除专家 夜班护理顾问" })).toBeVisible();
   expect(writes).toBe(1);
@@ -299,7 +298,6 @@ test("virtual-expert model proposal stays unsaved until structured human review"
   await page.getByRole("button", { name: "编辑专家 夜班护理顾问" }).click();
   const editing = page.getByRole("dialog", { name: "编辑虚拟专家" });
   await editing.getByRole("textbox", { name: "专家名称" }).fill("夜班护理顾问（修订）");
-  await editing.getByRole("checkbox", { name: "已审阅画像及模拟边界" }).check();
   await editing.getByRole("button", { name: "保存专家修改" }).click();
   await expect(editing).not.toBeVisible();
   expect(writes).toBe(2);
@@ -352,7 +350,7 @@ test("a completed report separates the decision brief and replaces an empty evid
   await expect(page.getByRole("table")).toHaveCount(0);
 });
 
-test("report summary cards count only saved Markdown items and simulated completed tasks", async ({ page }) => {
+test("report displays saved Markdown without duplicate statistics or review panels", async ({ page }) => {
   test.slow(); // An isolated Next dev server may compile this direct route on first request.
   const markdown = "# 采购研究报告\n\n## 核心发现\n\n- 否决角色待核实。\n- 审批记录待复核。\n\n## 建议行动\n\n正文建议未列为条目。";
   const report = { documentId: "report-metric-e2e", step: "report" as const, version: 2, markdown,
@@ -375,21 +373,10 @@ test("report summary cards count only saved Markdown items and simulated complet
   await page.route("**/interviews/digital/itv-quality-e2e", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ...view, status: "completed", currentStep: "report" }) }));
   await page.route("**/interviews/digital/itv-quality-e2e/markdown", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(reportSource) }));
   await page.goto("/itv/itv-quality-e2e/report", { waitUntil: "domcontentloaded" });
-  await expect(page.getByTestId("itv-source-report-evidence-boundary")).toBeVisible();
-  await expect(page.getByTestId("itv-source-report-evidence-boundary")).toContainText("不代表已批准结论");
-  const details = page.getByTestId("itv-report-details");
-  await expect(page.getByTestId("itv-report-metrics")).toBeHidden();
-  await details.locator("summary").click();
-  await expect(page.getByTestId("itv-report-metrics")).toBeVisible();
-  await expect(page.getByTestId("itv-report-metric-experts")).toContainText("2");
-  await expect(page.getByTestId("itv-report-metric-completed")).toContainText("1");
-  await expect(page.getByTestId("itv-report-metric-findings")).toContainText("2");
-  await expect(page.getByTestId("itv-report-metric-actions")).toContainText("0");
+  await expect(page.getByTestId("itv-report-details")).toHaveCount(0); // testid-gate: absent duplicate report details intentionally removed; assert they stay absent
+  await expect(page.getByTestId("itv-source-report-markdown")).toContainText("正文建议未列为条目。");
   await page.setViewportSize({ width: 390, height: 844 });
-  await expect(page.getByTestId("itv-report-metrics")).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth)).toBe(false);
-  await details.locator("summary").click();
-  await expect(page.getByTestId("itv-report-metrics")).toBeHidden();
 });
 
 test("prototype journey keeps the list shell separate from all six full-screen stages", async ({ page }, testInfo) => {
@@ -528,20 +515,9 @@ test("prototype journey keeps the list shell separate from all six full-screen s
     }
     if (step === "report") {
       await expect(page.getByRole("navigation", { name: "报告目录" }).getByRole("link")).toHaveCount(8);
-      await expect(page.getByTestId("itv-source-report-evidence-boundary")).toBeVisible();
-      await expect(page.getByTestId("itv-report-metrics")).toBeHidden();
-      await page.getByTestId("itv-report-details").locator("summary").click();
-      await expect(page.getByTestId("itv-report-metrics")).toBeVisible();
-      await expect(page.getByTestId("itv-report-metric-experts")).toContainText("5");
-      await expect(page.getByTestId("itv-report-metric-completed")).toContainText("2");
-      await expect(page.getByTestId("itv-report-metric-findings")).toContainText("3");
-      await expect(page.getByTestId("itv-report-metric-actions")).toContainText("0");
-      await expect(page.getByTestId("itv-report-metrics")).toContainText("不代表真人样本");
       const reportBodySize = await page.getByTestId("itv-source-report-markdown").getByText("本报告来自 AI 模拟访谈，不代表真实用户证据。")
         .evaluate((node) => Number.parseFloat(getComputedStyle(node).fontSize));
       expect(reportBodySize, "long-form report body must use the prototype's readable document type size").toBeGreaterThanOrEqual(16);
-      await page.getByTestId("itv-report-details").locator("summary").click();
-      await expect(page.getByTestId("itv-report-metrics")).toBeHidden();
     }
     if (step !== "intake") {
       const headingSize = await page.getByTestId(step === "analysis" ? "itv-analysis-workbench" :
@@ -839,4 +815,81 @@ test("expert confirmation shows question generation then automatically starts sa
   await page.reload();
   await expect(page.getByTestId("itv-workbench-step-runs")).toHaveAttribute("aria-current", "step");
   expect(starts).toBe(1);
+});
+
+test("report repair retains saved candidate through failure and refresh", async ({ page }, testInfo) => {
+  const answers = interviewMarkdown.InterviewMarkdownEnvelope.parse({ ...source, version: 9,
+    documents: [...source.documents, { documentId: "answers-browser-stream", step: "runs", version: 1,
+      markdown: "## [护理](#expert-nurse-7)\n\n已保存的合成回答。", contentHash: "a".repeat(64), evidenceMode: "simulated", references: [] }],
+    states: [...source.states, { documentId: "answers-browser-stream", status: "confirmed", failure: null }],
+    execution: { status: "completed", tasks: [{ expertId: "nurse-7", status: "completed", errorCode: null }] } });
+  await page.addInitScript(() => {
+    localStorage.setItem("wsx.sessionToken", "e2e-token");
+    localStorage.setItem("wsx.session", JSON.stringify({ version: 1, userId: "user-e2e", orgs: ["org-e2e"], currentOrgId: "org-e2e", expiresAt: "2099-01-01T00:00:00.000Z" }));
+    const original = window.fetch.bind(window);
+    let controller: ReadableStreamDefaultController<Uint8Array>;
+    let requests = 0;
+    Object.assign(window, { emitReportFixture: (event: unknown) => controller.enqueue(new TextEncoder().encode(`${JSON.stringify(event)}\n`)), closeReportFixture: () => controller.close(), reportFixtureRequests: () => requests });
+    window.fetch = async (input, init) => {
+      if (String(input).includes("/markdown/report/generate-stream")) {
+        requests++;
+        return new Response(new ReadableStream<Uint8Array>({ start(value) { controller = value; } }), { headers: { "Content-Type": "application/x-ndjson" } });
+      }
+      return original(input, init);
+    };
+  });
+  await page.route("**/identity/me**", route => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ org: { id: "org-e2e", name: "E2E", kind: "organization", team: null, modelPolicy: "any" }, orgRole: "lead", teamId: null, projectRole: null, groupId: null, displayName: "E2E User", avatarUrl: null }) }));
+  await page.route("**/interviews/digital/itv-quality-e2e", route => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ...view, currentStep: "runs" }) }));
+  let current = answers;
+  await page.route("**/interviews/digital/itv-quality-e2e/markdown", route => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(current) }));
+  await page.route("**/interviews/digital/itv-quality-e2e/markdown/initialize", route => route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify(answers) }));
+  await page.goto("/itv/itv-quality-e2e/runs");
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await expect(page.getByTestId("itv-source-runs")).toBeVisible();
+  const geometry = await page.getByTestId("itv-source-runs").evaluate(element => {
+    const right = element.querySelector('[role="region"]')!;
+    const name = element.querySelector("aside h4")!;
+    const probe = document.createElement("span"); probe.textContent = "0".repeat(76); probe.style.font = getComputedStyle(right).font; document.body.append(probe);
+    const result = { viewport: window.innerWidth, rightWidth: right.getBoundingClientRect().width,
+      chars76: probe.getBoundingClientRect().width, nameWidth: name.getBoundingClientRect().width, wordBreak: getComputedStyle(name).wordBreak };
+    probe.remove(); return result;
+  });
+  expect(geometry.rightWidth).toBeGreaterThan(geometry.chars76);
+  expect(geometry.nameWidth).toBeGreaterThan(70);
+  expect(geometry.wordBreak).not.toBe("break-all");
+  if (process.env.INTERVIEW_REVIEW_EVIDENCE_DIR) writeFileSync(path.join(process.env.INTERVIEW_REVIEW_EVIDENCE_DIR, "runs-desktop-geometry.json"), JSON.stringify(geometry, null, 2));
+  await page.getByRole("button", { name: "生成报告", exact: true }).click();
+  await expect(page).toHaveURL(/\/report$/u);
+  await expect(page.getByRole("list", { name: "报告生成进度" })).toBeVisible();
+  await page.evaluate(() => (window as unknown as { emitReportFixture: (event: unknown) => void }).emitReportFixture({ type: "delta", delta: "## 合成输出\n\n首段正在传输。" }));
+  await expect(page.getByTestId("itv-report-stream-markdown")).toContainText("首段正在传输");
+  await captureRuntimeEvidence(page, testInfo, "report-timeline-partial-before-completion.png");
+  await expect(page.getByRole("button", { name: "导出 Word" })).toHaveCount(0);
+  expect(await page.evaluate(() => (window as unknown as { reportFixtureRequests: () => number }).reportFixtureRequests())).toBe(1);
+  const candidate = "# 合成输出\n\n首段正在传输。";
+  const candidateHash = createHash("sha256").update(candidate).digest("hex");
+  current = interviewMarkdown.InterviewMarkdownEnvelope.parse({ ...answers, version: 10,
+    documents: [...answers.documents, { documentId: "saved-browser-report", step: "report", version: 1,
+      markdown: candidate, contentHash: candidateHash, evidenceMode: "simulated", references: [] }],
+    states: [...answers.states, { documentId: "saved-browser-report", status: "failed", failure: { code: "REPORT_ACTION_VALIDATION_REJECTED", retryable: true } }] });
+  await page.evaluate(() => (window as unknown as { emitReportFixture: (event: unknown) => void }).emitReportFixture({ type: "attempt", attempt: 2 }));
+  await expect(page.getByTestId("itv-source-report-markdown")).toContainText("首段正在传输");
+  await expect(page.getByText("正在准备报告…", { exact: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "继续生成报告", exact: true })).toHaveCount(0);
+  await captureRuntimeEvidence(page, testInfo, "report-repair-saved-candidate.png");
+  await page.evaluate(() => (window as unknown as { emitReportFixture: (event: unknown) => void }).emitReportFixture({ type: "delta", delta: "## 新修订\n\n第二次独立正文。" }));
+  await expect(page.getByTestId("itv-report-stream-markdown")).toContainText("第二次独立正文");
+  await expect(page.getByTestId("itv-report-stream-markdown")).not.toContainText("首段正在传输");
+  await page.evaluate(() => {
+    const fixture = window as unknown as { emitReportFixture: (event: unknown) => void; closeReportFixture: () => void };
+    fixture.emitReportFixture({ type: "failed", reasonCode: "REPORT_ACTION_VALIDATION_REJECTED" }); fixture.closeReportFixture();
+  });
+  await expect(page.getByTestId("itv-report-generation")).toHaveCount(0);
+  await expect(page.getByTestId("itv-source-report-markdown")).toContainText("首段正在传输");
+  await expect(page.getByText("行动建议未通过校验，请重试。", { exact: true })).toBeVisible();
+  await captureRuntimeEvidence(page, testInfo, "report-repair-failed-retained.png");
+  await page.reload();
+  await expect(page.getByTestId("itv-source-report-markdown")).toContainText("首段正在传输");
+  expect(current.documents.find(item => item.step === "report")?.contentHash).toBe(candidateHash);
+  await captureRuntimeEvidence(page, testInfo, "report-repair-refresh-retained.png");
 });

@@ -1,4 +1,4 @@
-import { CURRENT_POLICY } from "./ci-check-policy.mjs";
+import { CURRENT_POLICY, validIndependentCheck } from "./ci-check-policy.mjs";
 // pr-queue.ts — coord-main 的 PR 队列状态机（#451）。**唯一事实源**：本文件的
 // `PR_QUEUE_STATES` 是枚举权威，`coordinator-sop.md` 的状态表由 pr-queue.test.ts
 // 机械比对——文档写多一个/少一个状态，测试当场红（AGENTS.md「同一事实不得声明在两处」）。
@@ -135,7 +135,7 @@ const BLOCKING_MERGE_STATES = new Set(["DIRTY", "BLOCKED", "UNKNOWN", "HAS_HOOKS
  * 门禁静默失效"），改完这行再确认转绿——不是先改代码再回头补测试。
  */
 export const REQUIRED_CHECKS: readonly string[] = CURRENT_POLICY.requiredChecks;
-export interface CheckPolicy { version: number; requiredChecks: readonly string[]; }
+export interface CheckPolicy { version: number; requiredChecks: readonly string[]; deferredChecks?: readonly string[]; independentChecks?: readonly string[]; aggregates?: Record<string, readonly string[]>; }
 
 /**
  * 2026-08-16（人类第二次裁决，同一天）：独立 approve 检查（"verdict label 必须
@@ -231,18 +231,42 @@ export function statusContextToCheck(context: string, state: string | null | und
   return { name: context, status: "UNKNOWN", conclusion: `UNKNOWN_STATE(${state ?? "null"})` };
 }
 
-export function classifyChecks(checks: RequiredCheck[], policy: CheckPolicy = CURRENT_POLICY): { blocked: string[]; changes: string[]; waitingCi: string[] } {
+export function classifyChecks(checks: RequiredCheck[], policy: CheckPolicy = CURRENT_POLICY): { blocked: string[]; changes: string[]; waitingCi: string[]; advisories: string[] } {
   const blocked: string[] = [];
   const changes: string[] = [];
   const waitingCi: string[] = [];
+  const advisories: string[] = [];
+  const deferred = [3, 4].includes(policy.version) ? new Set(policy.deferredChecks ?? []) : new Set<string>();
+  const independent = new Set(policy.version === 4 ? policy.independentChecks ?? [] : []);
   const required = new Set<string>(policy.requiredChecks);
+  for (const name of independent) if (!validIndependentCheck(name, policy)) blocked.push(`invalid independent check ${name}`);
   const seen = new Set<string>();
   for (const check of checks) {
     const isRequired = required.has(check.name);
-    if (isRequired) seen.add(check.name);
+    seen.add(check.name);
     const status = check.status.toUpperCase();
     const conclusion = (check.conclusion ?? "").toUpperCase();
     const label = isRequired ? "required check" : "check";
+    if (independent.has(check.name)) {
+      if (!validIndependentCheck(check.name, policy)) continue;
+      const terminal = status === "COMPLETED" && (PASSING_CONCLUSIONS.has(conclusion) || FAILING_CONCLUSIONS.has(conclusion) || VACUOUS_CONCLUSIONS.has(conclusion));
+      const pending = PENDING_STATUSES.has(status) && conclusion === "";
+      if (!terminal && !pending) blocked.push(`independent check ${check.name} has unknown or inconsistent status/conclusion`);
+      else advisories.push(`INDEPENDENT_REVALIDATION: ${check.name} status=${status} conclusion=${conclusion || "PENDING"}; inspect the frozen main batch evidence; never counted as PR acceptance PASS`);
+      continue;
+    }
+    if (deferred.has(check.name)) {
+      // Defense in depth: callers passing unparsed policies only the screenshot category is deferred.
+      if (check.name !== "visual-deferred" || isRequired) {
+        blocked.push(`invalid deferred check ${check.name}`);
+        continue;
+      }
+      const terminal = status === "COMPLETED" && (PASSING_CONCLUSIONS.has(conclusion) || FAILING_CONCLUSIONS.has(conclusion) || VACUOUS_CONCLUSIONS.has(conclusion));
+      const pending = PENDING_STATUSES.has(status) && conclusion === "";
+      if (!terminal && !pending) blocked.push(`deferred check ${check.name} has unknown or inconsistent status/conclusion`);
+      else advisories.push(`DEFERRED: ${check.name} status=${status} conclusion=${conclusion || "PENDING"}; outside this iteration's acceptance, never counted as PASS`);
+      continue;
+    }
     if (PASSING_CONCLUSIONS.has(conclusion)) continue;
     if (conclusion === "" || PENDING_STATUSES.has(status)) {
       // 非必需的 check 还没跑完不该拦着——但必需的必须等
@@ -270,7 +294,11 @@ export function classifyChecks(checks: RequiredCheck[], policy: CheckPolicy = CU
     // 缺席 ≠ 通过。三态纪律与 module-lock 的 queryActiveClaim 一致：问不到不等于空闲。
     if (!seen.has(name)) waitingCi.push(`required check \`${name}\` 根本没有出现在这个 PR 上——没跑不等于绿`);
   }
-  return { blocked, changes, waitingCi };
+  for (const name of deferred) {
+    if (name !== "visual-deferred" || required.has(name)) blocked.push(`invalid deferred check ${name}`);
+    else if (!seen.has(name)) advisories.push(`DEFERRED_NOT_RUN: ${name}; outside this iteration's acceptance, never counted as PASS`);
+  }
+  return { blocked, changes, waitingCi, advisories };
 }
 
 export function classifyPr(facts: PrFacts, policy: CheckPolicy = CURRENT_POLICY): PrClassification {
@@ -320,6 +348,7 @@ export function classifyPr(facts: PrFacts, policy: CheckPolicy = CURRENT_POLICY)
     blocked.push(...gaps.blocked);
     changes.push(...gaps.changes);
     waitingCi.push(...gaps.waitingCi);
+    advisories.push(...gaps.advisories);
   }
 
   // ── 5. 独立 approve（原生 APPROVE 或 review:*-ok 标签，二者取一）+ 禁止自审 ──

@@ -134,7 +134,7 @@ export function IconRail({
                         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
                         "[@media(max-height:640px)]:mt-1 [@media(max-height:640px)]:gap-0 [@media(max-height:640px)]:py-1",
                         active
-                          ? "bg-card text-background-foreground shadow-sm"
+                          ? "bg-accent text-accent-foreground"
                           : "text-muted-foreground hover:bg-muted hover:text-background-foreground",
                       )}
                     >

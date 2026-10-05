@@ -104,28 +104,28 @@
 @layer base {
   :root {
     /* @contrast neutral */
-    --background: 60 11% 98.2%;          /* #FBFBFA 应用画布 */
-    --background-foreground: 240 6% 8.4%; /* #17171A */
+    --background: 40 20% 98%;
+    --background-foreground: 30 6% 12%;
 
     /* @contrast neutral */
-    --card: 0 0% 100%;                    /* #FFFFFF */
-    --card-foreground: 240 6% 8.4%;
+    --card: 0 0% 100%;
+    --card-foreground: 30 6% 12%;
 
     /* @contrast neutral */
     --popover: 0 0% 100%;
-    --popover-foreground: 240 6% 8.4%;
+    --popover-foreground: 30 6% 12%;
 
     /* @contrast neutral */
-    --muted: 60 10% 94.3%;               /* #F2F2EF */
-    --muted-foreground: 240 4% 39%;      /* #5F5F67 ← 实测 #6E6E76，调暗以在 muted 底上过 4.5 */
+    --muted: 36 15% 95%;
+    --muted-foreground: 30 4% 40%;
 
     /* @contrast neutral */
-    --secondary: 40 10% 93.3%;           /* #F0EFEC */
-    --secondary-foreground: 240 5% 24%;  /* #3A3A40 */
+    --secondary: 36 16% 94%;
+    --secondary-foreground: 30 6% 24%;
 
     /* @contrast neutral */
-    --accent: 166 30% 92.2%;             /* #E4F2EF 青绿浅底 */
-    --accent-foreground: 170 82% 21%;    /* #0A6155 */
+    --accent: 346 32% 95%;
+    --accent-foreground: 346 34% 36%;
 
     /*
      * 2026-08-27 人类直接反馈（devapp 实测 + Claude Design 原型 `design.dc.html`）——
@@ -135,7 +135,7 @@
      * 同一件"近黑实心面"的事实不应该在 token 表里出现两份数值。
      */
     /* @contrast neutral */
-    --primary: 240 6% 8.4%;              /* #17171A，与 --inverse 同值（近黑实心面） */
+    --primary: 30 6% 12%;
     --primary-foreground: 0 0% 100%;
     /*
      * issue #2075（TW-A11Y-1）—— 悬停底色是**一个独立的事实**，必须自己过对比度。
@@ -154,20 +154,20 @@
     --disabled-foreground: 0 0% 36.1%;   /* #5C5C5C —— 禁用但可读，5.9:1 */
 
     /* @contrast neutral */
-    --rail: 60 10% 94.3%;                /* #F2F2EF 左侧图标栏（实测 76px 那列）*/
-    --rail-foreground: 240 6% 8.4%;
+    --rail: 36 20% 96%;
+    --rail-foreground: 30 6% 12%;
 
     /* @contrast neutral */
-    --panel: 60 8% 96.1%;                /* #F7F7F5 左侧面板（实测 272px）*/
-    --panel-foreground: 240 6% 8.4%;
+    --panel: 40 20% 98%;
+    --panel-foreground: 30 6% 12%;
 
     /* @contrast neutral */
-    --panel-alt: 60 11% 97.6%;           /* #FAFAF8 右侧面板（实测 300px）*/
-    --panel-alt-foreground: 240 6% 8.4%;
+    --panel-alt: 0 0% 100%;
+    --panel-alt-foreground: 30 6% 12%;
 
     /* @contrast neutral */
-    --inverse: 240 6% 8.4%;              /* #17171A 反色实心面 */
-    --inverse-foreground: 60 11% 98.2%;
+    --inverse: 30 6% 12%;
+    --inverse-foreground: 40 20% 98%;
 
     /* @contrast neutral */
     --ai-tint: 247 79% 95.7%;            /* #E9E7FB AI/agent 浅底 */
@@ -218,13 +218,12 @@
     --brand-warm-foreground: 25 80% 12%;
 
     /* @contrast none —— 结构性，不承载文字 */
-    --border: 47 19% 85.7%;              /* #E0DED5 暖灰主边框（实测 20 处主导）*/
-    --border-subtle: 45 14% 91%;         /* #EBEAE5 */
-    --input: 47 19% 85.7%;
-    --ring: 170 82% 21%;                 /* UIUX r2 横切：焦点/选中环不再是近黑方框（与 --primary 同值时焦点态看起来像"选中的黑框"），
-                                            改用语义强调色（同 --accent-foreground #0A6155，浅底 7:1，满足非文字 3:1） */
+    --border: 36 10% 87%;
+    --border-subtle: 36 12% 92%;
+    --input: 36 10% 82%;
+    --ring: 346 34% 36%;
 
-    --radius: 0.4375rem;                 /* 7px —— 实测主导圆角 */
+    --radius: 0.5rem;
 
     /*
      * issue #2130 —— 人类导入新 UX 设计裁决：阴影档位由三档收敛为两档
@@ -234,35 +233,42 @@
      * 相同——`md`/`lg` 现在渲染完全一致（同一档"elevated"），`sm` 保留独立的
      * 「静止态」轻阴影。三个 Tailwind 类名都还在，视觉档位收敛成两个。
      */
-    --shadow-sm: 0 1px 2px 0 hsl(240 6% 8.4% / 0.04);
-    --shadow-md: 0 6px 24px 0 hsl(0 0% 0% / 0.22);
-    --shadow-lg: 0 6px 24px 0 hsl(0 0% 0% / 0.22);
+    --shadow-sm: 0 1px 2px 0 hsl(30 6% 12% / 0.025);
+    --shadow-md: 0 8px 32px -8px hsl(30 6% 12% / 0.14);
+    --shadow-lg: 0 8px 32px -8px hsl(30 6% 12% / 0.14);
+    /* @contrast neutral — PAPER brand text, separate from decorative logo and status colors */
+    --brand-ink: 346 34% 36%;
+    --brand-ink-foreground: 0 0% 100%;
+    /* @contrast none */
+    --destructive-hover: 9 75% 34%;
+    --ai-tint-hover: 247 60% 92%;
+
   }
 
   .dark {
     /* @contrast neutral */
-    --background: 240 6% 7.1%;           /* #121214 */
-    --background-foreground: 240 5% 93.3%;
+    --background: 30 6% 9%;
+    --background-foreground: 36 16% 94%;
 
     /* @contrast neutral */
-    --card: 240 6% 8.4%;
-    --card-foreground: 240 5% 93.3%;
+    --card: 30 6% 11%;
+    --card-foreground: 36 16% 94%;
 
     /* @contrast neutral */
-    --popover: 240 7% 11%;
-    --popover-foreground: 240 5% 93.3%;
+    --popover: 30 6% 13%;
+    --popover-foreground: 36 16% 94%;
 
     /* @contrast neutral */
-    --muted: 240 6% 15.1%;
-    --muted-foreground: 240 5% 67.5%;
+    --muted: 30 5% 17%;
+    --muted-foreground: 36 7% 70%;
 
     /* @contrast neutral */
-    --secondary: 240 5% 16.3%;
-    --secondary-foreground: 240 5% 84.7%;
+    --secondary: 30 5% 18%;
+    --secondary-foreground: 36 12% 88%;
 
     /* @contrast neutral */
-    --accent: 170 50% 15.3%;
-    --accent-foreground: 168 58% 64.5%;
+    --accent: 346 20% 20%;
+    --accent-foreground: 346 45% 80%;
 
     /*
      * 2026-08-27：跟随浅色主题同一次改版（近黑/白单色主行动色），深色主题镜像成
@@ -270,8 +276,8 @@
      * 数值，不另起字面量。
      */
     /* @contrast neutral */
-    --primary: 240 5% 93.3%;
-    --primary-foreground: 240 6% 8.4%;
+    --primary: 36 16% 94%;
+    --primary-foreground: 30 6% 12%;
     /* 深色主题的 primary 前景是**深**色，所以这里悬停要**提亮**才是「朝对比更高的
        方向」——与浅色主题相反，同一条规则的两个方向。近白底能提亮的终点就是纯白。 */
     --primary-hover: 0 0% 100%;
@@ -281,20 +287,20 @@
     --disabled-foreground: 240 5% 63.5%;   /* 55.7% 时仅 4.15:1，被 checker 拦下，提亮至过线 */
 
     /* @contrast neutral */
-    --rail: 240 6% 9.8%;
-    --rail-foreground: 240 5% 93.3%;
+    --rail: 30 7% 12%;
+    --rail-foreground: 36 16% 94%;
 
     /* @contrast neutral */
-    --panel: 240 6% 9%;
-    --panel-foreground: 240 5% 93.3%;
+    --panel: 30 6% 10%;
+    --panel-foreground: 36 16% 94%;
 
     /* @contrast neutral */
-    --panel-alt: 240 6% 10.6%;
-    --panel-alt-foreground: 240 5% 93.3%;
+    --panel-alt: 30 6% 11%;
+    --panel-alt-foreground: 36 16% 94%;
 
     /* @contrast neutral */
-    --inverse: 240 5% 93.3%;
-    --inverse-foreground: 240 6% 8.4%;
+    --inverse: 36 16% 94%;
+    --inverse-foreground: 30 6% 12%;
 
     /* @contrast neutral */
     --ai-tint: 246 40% 18%;
@@ -329,15 +335,22 @@
     --brand-warm-foreground: 25 80% 12%;
 
     /* @contrast none */
-    --border: 240 5% 20%;
-    --border-subtle: 240 5% 16.3%;
-    --input: 240 5% 20%;
-    --ring: 168 58% 64.5%;               /* 同 light 块：语义强调色（= 暗色 --accent-foreground） */
+    --border: 30 5% 25%;
+    --border-subtle: 30 5% 19%;
+    --input: 30 5% 38%;
+    --ring: 346 45% 80%;
 
     /* 同上（light 块）注释：三档收敛为两档，`--shadow-md` 值改等于 `--shadow-lg`。 */
     --shadow-sm: 0 1px 2px 0 hsl(0 0% 0% / 0.4);
     --shadow-md: 0 6px 24px 0 hsl(0 0% 0% / 0.6);
     --shadow-lg: 0 6px 24px 0 hsl(0 0% 0% / 0.6);
+    /* @contrast neutral — PAPER brand text, separate from decorative logo and status colors */
+    --brand-ink: 346 45% 80%;
+    --brand-ink-foreground: 30 6% 12%;
+    /* @contrast none */
+    --destructive-hover: 11 72% 67%;
+    --ai-tint-hover: 246 40% 24%;
+
   }
 
   /* GENERATED wx-light — 由 scripts/gen-light-scope.mjs 从 :root 生成，勿手改 */
@@ -347,28 +360,28 @@
    */
   .wx-light {
     /* @contrast neutral */
-    --background: 60 11% 98.2%;          /* #FBFBFA 应用画布 */
-    --background-foreground: 240 6% 8.4%; /* #17171A */
+    --background: 40 20% 98%;
+    --background-foreground: 30 6% 12%;
 
     /* @contrast neutral */
-    --card: 0 0% 100%;                    /* #FFFFFF */
-    --card-foreground: 240 6% 8.4%;
+    --card: 0 0% 100%;
+    --card-foreground: 30 6% 12%;
 
     /* @contrast neutral */
     --popover: 0 0% 100%;
-    --popover-foreground: 240 6% 8.4%;
+    --popover-foreground: 30 6% 12%;
 
     /* @contrast neutral */
-    --muted: 60 10% 94.3%;               /* #F2F2EF */
-    --muted-foreground: 240 4% 39%;      /* #5F5F67 ← 实测 #6E6E76，调暗以在 muted 底上过 4.5 */
+    --muted: 36 15% 95%;
+    --muted-foreground: 30 4% 40%;
 
     /* @contrast neutral */
-    --secondary: 40 10% 93.3%;           /* #F0EFEC */
-    --secondary-foreground: 240 5% 24%;  /* #3A3A40 */
+    --secondary: 36 16% 94%;
+    --secondary-foreground: 30 6% 24%;
 
     /* @contrast neutral */
-    --accent: 166 30% 92.2%;             /* #E4F2EF 青绿浅底 */
-    --accent-foreground: 170 82% 21%;    /* #0A6155 */
+    --accent: 346 32% 95%;
+    --accent-foreground: 346 34% 36%;
 
     /*
      * 2026-08-27 人类直接反馈（devapp 实测 + Claude Design 原型 `design.dc.html`）——
@@ -378,7 +391,7 @@
      * 同一件"近黑实心面"的事实不应该在 token 表里出现两份数值。
      */
     /* @contrast neutral */
-    --primary: 240 6% 8.4%;              /* #17171A，与 --inverse 同值（近黑实心面） */
+    --primary: 30 6% 12%;
     --primary-foreground: 0 0% 100%;
     /*
      * issue #2075（TW-A11Y-1）—— 悬停底色是**一个独立的事实**，必须自己过对比度。
@@ -397,20 +410,20 @@
     --disabled-foreground: 0 0% 36.1%;   /* #5C5C5C —— 禁用但可读，5.9:1 */
 
     /* @contrast neutral */
-    --rail: 60 10% 94.3%;                /* #F2F2EF 左侧图标栏（实测 76px 那列）*/
-    --rail-foreground: 240 6% 8.4%;
+    --rail: 36 20% 96%;
+    --rail-foreground: 30 6% 12%;
 
     /* @contrast neutral */
-    --panel: 60 8% 96.1%;                /* #F7F7F5 左侧面板（实测 272px）*/
-    --panel-foreground: 240 6% 8.4%;
+    --panel: 40 20% 98%;
+    --panel-foreground: 30 6% 12%;
 
     /* @contrast neutral */
-    --panel-alt: 60 11% 97.6%;           /* #FAFAF8 右侧面板（实测 300px）*/
-    --panel-alt-foreground: 240 6% 8.4%;
+    --panel-alt: 0 0% 100%;
+    --panel-alt-foreground: 30 6% 12%;
 
     /* @contrast neutral */
-    --inverse: 240 6% 8.4%;              /* #17171A 反色实心面 */
-    --inverse-foreground: 60 11% 98.2%;
+    --inverse: 30 6% 12%;
+    --inverse-foreground: 40 20% 98%;
 
     /* @contrast neutral */
     --ai-tint: 247 79% 95.7%;            /* #E9E7FB AI/agent 浅底 */
@@ -461,12 +474,12 @@
     --brand-warm-foreground: 25 80% 12%;
 
     /* @contrast none —— 结构性，不承载文字 */
-    --border: 47 19% 85.7%;              /* #E0DED5 暖灰主边框（实测 20 处主导）*/
-    --border-subtle: 45 14% 91%;         /* #EBEAE5 */
-    --input: 47 19% 85.7%;
-    --ring: 170 82% 21%;                 /* UIUX r2 横切：焦点/选中环不再是近黑方框（与 --primary 同值时焦点态看起来像"选中的黑框"），
+    --border: 36 10% 87%;
+    --border-subtle: 36 12% 92%;
+    --input: 36 10% 82%;
+    --ring: 346 34% 36%;
 
-    --radius: 0.4375rem;                 /* 7px —— 实测主导圆角 */
+    --radius: 0.5rem;
 
     /*
      * issue #2130 —— 人类导入新 UX 设计裁决：阴影档位由三档收敛为两档
@@ -476,9 +489,16 @@
      * 相同——`md`/`lg` 现在渲染完全一致（同一档"elevated"），`sm` 保留独立的
      * 「静止态」轻阴影。三个 Tailwind 类名都还在，视觉档位收敛成两个。
      */
-    --shadow-sm: 0 1px 2px 0 hsl(240 6% 8.4% / 0.04);
-    --shadow-md: 0 6px 24px 0 hsl(0 0% 0% / 0.22);
-    --shadow-lg: 0 6px 24px 0 hsl(0 0% 0% / 0.22);
+    --shadow-sm: 0 1px 2px 0 hsl(30 6% 12% / 0.025);
+    --shadow-md: 0 8px 32px -8px hsl(30 6% 12% / 0.14);
+    --shadow-lg: 0 8px 32px -8px hsl(30 6% 12% / 0.14);
+    /* @contrast neutral — PAPER brand text, separate from decorative logo and status colors */
+    --brand-ink: 346 34% 36%;
+    --brand-ink-foreground: 0 0% 100%;
+    /* @contrast none */
+    --destructive-hover: 9 75% 34%;
+    --ai-tint-hover: 247 60% 92%;
+
   }
   /* END GENERATED wx-light */
 }
@@ -545,6 +565,7 @@
     @apply bg-background text-background-foreground;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
     -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
   }
   /*
     Mac trackpad 双指横滑手势会被浏览器（Chrome/Edge）解释为"前进/后退"，
@@ -588,7 +609,7 @@
     markdown 渲染的地方（如果将来出现）。
   */
   .copilotkit-message-markdown .copilotKitParagraph {
-    @apply text-12;
+    @apply text-14 leading-relaxed;
   }
 
   /*
@@ -597,7 +618,7 @@
     色彩走 CSS 变量），不写裸数值。间距比例尺沿用既有气泡（gap / p-3）的节奏。
   */
   .chat-markdown > * + * {
-    @apply mt-2;
+    @apply mt-3;
   }
   .chat-markdown h1 {
     @apply text-16 font-bold text-card-foreground;
@@ -626,7 +647,7 @@
     @apply text-11 font-semibold text-card-foreground;
   }
   .chat-markdown p {
-    @apply text-13 leading-relaxed text-card-foreground;
+    @apply text-14 leading-relaxed text-card-foreground;
   }
   .chat-markdown strong {
     @apply font-semibold text-card-foreground;

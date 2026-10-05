@@ -1,0 +1,2 @@
+
+✅ lint-design：全部通过（扫描 components/admin/bailian-model-catalog.tsx components/admin/model-screen.tsx lib/provider-model-catalog-view.ts）

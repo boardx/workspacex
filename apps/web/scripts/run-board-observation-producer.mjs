@@ -1,8 +1,10 @@
 import {spawnSync} from 'node:child_process';
 import {mkdtempSync,readdirSync,readFileSync,writeFileSync,mkdirSync} from 'node:fs';
 import {resolve,join} from 'node:path';
+import {observationMode,observationArtifactKinds} from '../e2e/support/board-observation-categories.mjs';
 const lane=process.argv[2], room=lane==='meeting-room',journeys=lane==='journeys',security=lane==='security';
 if(!['meeting-room','visual','accessibility','journeys','security'].includes(lane))throw new Error('UNKNOWN_OBSERVATION_LANE');
+const mode=['visual','accessibility'].includes(lane)?observationMode():undefined;
 const root=resolve(import.meta.dirname,'../../..'),base=resolve(root,'apps/web/test-results/board-observations');
 mkdirSync(base,{recursive:true});const output=mkdtempSync(join(base,`${lane}-`));
 const config=security?'e2e/board-security-acceptance.config.ts':journeys?'e2e/board-journey-acceptance.config.ts':room?'playwright.board-meeting-room-acceptance.config.ts':'e2e/board-visual-accessibility-acceptance.config.ts';
@@ -11,6 +13,6 @@ if(result.status!==0)process.exit(result.status??1);
 const files=[];function walk(path){for(const entry of readdirSync(path,{withFileTypes:true})){const file=join(path,entry.name);if(entry.isDirectory())walk(file);else if(entry.name===(security?'security-result.json':journeys?'journey-result.json':room?'meeting-room-ledger.json':'visual-accessibility.json'))files.push(file);}}walk(output);
 if(files.length!==(journeys?6:(room||security)?1:3))throw new Error('MISSING_OR_DUPLICATE_BROWSER_REPORTS');
 const reports=files.map(path=>JSON.parse(readFileSync(path,'utf8')));
-const report=security?reports[0]:journeys?{version:1,kind:'board-journey-bundle',reports}:room?reports[0]:{version:1,kind:'board-visual-accessibility-bundle',reports};
+const report=security?reports[0]:journeys?{version:1,kind:'board-journey-bundle',reports}:room?reports[0]:{version:1,kind:observationArtifactKinds(mode).bundle,reports};
 if(!process.env.BOARD_OBSERVATION_REPORT_PATH)throw new Error('REPORT_PATH_REQUIRED');
 writeFileSync(process.env.BOARD_OBSERVATION_REPORT_PATH,JSON.stringify(report,null,2),{mode:0o600});

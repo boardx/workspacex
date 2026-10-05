@@ -1,8 +1,9 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {spawn} from 'node:child_process';
+import {spawn,spawnSync,execFileSync} from 'node:child_process';
 import {mkdtempSync,mkdirSync,writeFileSync,readFileSync,rmSync} from 'node:fs';
 import {join} from 'node:path';
+import {tmpdir} from 'node:os';
 import {resolveInvokedConfigs} from '../../../.harness/scripts/lint-spec-gate-coverage.mjs';
 import {acceptanceCommand,suiteResult,suitePresent,runtimeExitProof,runtimeSpawnState,screenshotProof,safeStartupDiagnostics,startupFailureProof,sameRuntimeProof} from './run-board-native-acceptance.mjs';
 import * as startupReceipts from '../e2e/support/native-runtime/native-startup-receipt.mjs';
@@ -34,7 +35,7 @@ test('R08 requires its metadata when any suite source exists, while whole absenc
   for(const partial of [[`apps/web/${config}`],['apps/web/e2e/board-sync-lifecycle.spec.ts'],['apps/web/e2e/support/r08/r08-native-adapter.mjs']])assert.throws(()=>suitePresent(config,partial));
 });
 test('R08 metadata requires every distinct project case and both viewport screenshot sets',()=>{
-  const root=mkdtempSync('/private/tmp/wsx-r08-registry-'),config='e2e/board-peer-existing-runtime.config.ts';
+  const root=mkdtempSync(join(tmpdir(),'wsx-r08-registry-')),config='e2e/board-peer-existing-runtime.config.ts';
   try{
     const directory=join(root,'apps/web/e2e/support/r08');mkdirSync(directory,{recursive:true});
     const metadata={config,files:['board-peer-origin-close.spec.ts','board-sync-lifecycle.spec.ts'],projects:[{name:'desktop',viewport:{width:1440}},{name:'mobile',viewport:{width:390}}],requiredScreenshotNames:['pending','acked']};
@@ -48,11 +49,11 @@ test('R08 metadata requires every distinct project case and both viewport screen
   }finally{rmSync(root,{recursive:true});}
 });
 test('startup diagnostics expose only literal safe categories, never private log content',()=>{
-  const secret='TOKEN=private-value SQL password=secret /private/machine/path';
-  assert.deepEqual(safeStartupDiagnostics(secret),{matchedFailure:'UNKNOWN',ambiguous:false});
-  assert.deepEqual(safeStartupDiagnostics(`${secret}\nnative-web-build failed; inspect private log`),{matchedFailure:'native-web-build',ambiguous:false});
+  const diagnosticInput='TOKEN=private-value SQL password=secret /private/machine/path';
+  assert.deepEqual(safeStartupDiagnostics(diagnosticInput),{matchedFailure:'UNKNOWN',ambiguous:false});
+  assert.deepEqual(safeStartupDiagnostics(`${diagnosticInput}\nnative-web-build failed; inspect private log`),{matchedFailure:'native-web-build',ambiguous:false});
   assert.deepEqual(safeStartupDiagnostics('native-migrate failed; inspect private log\nnative-web-build failed; inspect private log'),{matchedFailure:'UNKNOWN',ambiguous:true});
-  assert.equal(JSON.stringify(safeStartupDiagnostics(secret)).includes('secret'),false);
+  assert.equal(JSON.stringify(safeStartupDiagnostics(diagnosticInput)).includes('secret'),false);
 });
 test('only complete native connector and file configurations may execute',()=>{
   for(const config of ['e2e/board-connector-existing-runtime.config.ts','e2e/board-files-completion.config.ts'])assert.equal(acceptanceCommand([...base,config])[7],config);
@@ -70,7 +71,7 @@ test('only wholly absent suite is ABSENT; partial config or orphan specs must fa
   for(const partial of [complete.slice(1),complete.slice(0,1),complete.slice(0,-1),complete.slice(1,2)])assert.throws(()=>suitePresent(config,partial));
 });
 test('actual coverage resolver recognizes all three unconditional literal CI configurations',()=>{
-  const root=mkdtempSync('/private/tmp/wsx-native-route-pure-');
+  const root=mkdtempSync(join(tmpdir(),'wsx-native-route-pure-'));
   try{
     mkdirSync(join(root,'.github/workflows'),{recursive:true});mkdirSync(join(root,'apps/web/e2e'),{recursive:true});
     writeFileSync(join(root,'apps/web/package.json'),JSON.stringify({name:'web',scripts:{}}));
@@ -94,4 +95,18 @@ test('all required desktop, mobile, retry and native download PNGs are necessary
   const images=names.map(originalName=>({originalName,width:originalName.includes('390')?390:1440,bytes:100,height:900}));
   screenshotProof('files',images);
   for(const imagesToReject of [[],images.slice(1),images.filter(image=>image.width!==390),images.map(image=>({...image,bytes:0}))])assert.throws(()=>screenshotProof('files',imagesToReject));
+});
+
+test('absent native suite retains truthful receipt and exits nonzero before runtime starts',()=>{
+  const root=mkdtempSync(join(tmpdir(),'wsx-native-absent-')),evidence=mkdtempSync(join(tmpdir(),'wsx-native-receipts-'));
+  try {
+    const support=join(root,'apps/web/e2e/support/native-runtime');mkdirSync(support,{recursive:true});
+    writeFileSync(join(support,'runtime-attestation.mjs'),'export const listRuntimeSourceFiles=()=>[];');
+    execFileSync('git',['init','--quiet'],{cwd:root});execFileSync('git',['add','.'],{cwd:root});
+    execFileSync('git',['-c','user.name=Test','-c','user.email=test@example.invalid','commit','--quiet','-m','fixture'],{cwd:root});
+    const head=execFileSync('git',['rev-parse','HEAD'],{cwd:root,encoding:'utf8'}).trim();
+    const result=spawnSync(process.execPath,[new URL('./run-board-native-acceptance.mjs',import.meta.url).pathname,...base,'e2e/board-files-completion.config.ts'],{cwd:root,env:{...process.env,NATIVE_POSTGRES_TOOL_ROOT:'/unused',BOARD_NATIVE_EVIDENCE:evidence},encoding:'utf8'});
+    assert.notEqual(result.status,0);assert.match(result.stderr,/NATIVE_SUITE_ABSENT/);
+    assert.deepEqual(JSON.parse(readFileSync(join(evidence,'files/receipt.json'),'utf8')),{sourceHead:head,status:'ABSENT',existingSpecsSkipped:0,actualRuntimeExecution:false,requiredSuiteComplete:false});
+  } finally {rmSync(root,{recursive:true});rmSync(evidence,{recursive:true});}
 });

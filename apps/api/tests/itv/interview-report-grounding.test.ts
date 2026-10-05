@@ -1,11 +1,76 @@
 import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import type { interviewMarkdown } from "@repo/contracts";
-import { buildReportEvidenceIndex, validateReportEvidence } from "../../src/application/interview/workflow/interview-report-grounding";
+import { buildReportEvidenceIndex, reportEvidenceContext, validateReportEvidence } from "../../src/application/interview/workflow/interview-report-grounding";
 const hash = (s: string) => createHash("sha256").update(s).digest("hex");
 const raw = "服务端甲回答：支持电话。\n## [客服](#expert-b)\nQ2：反对电话。\nQ2：厨房孔位冲突。";
 const source: interviewMarkdown.InterviewMarkdownDocument = { documentId: "md-runs", version: 2, step: "runs", markdown: raw, contentHash: hash(raw), evidenceMode: "simulated", references: [], answerSpans: [{ taskKey: "rev-a/expert-a", expertId: "expert-a", start: 0, end: raw.length, contentHash: hash(raw) }] };
 describe("report evidence grounding", () => {
+ it.each([
+  "不能把这2个任务说成只有单一问答，也不能将多个回答虚构为多专家共识。",
+  "不应把单个回答虚构成两位专家的共识。",
+  "不得将不同场景的回答虚构为跨角色共识。",
+ ])("preserves a scoped denial of fabricated consensus: %s", claim => {
+  expect(validateReportEvidence(`[服务端甲回答：支持电话。](#answer-1)\n\n${claim}`, buildReportEvidenceIndex(source)).ok).toBe(true);
+ });
+ it.each([
+  "将多个回答虚构为多专家共识。",
+  "不能把回答分开而要虚构为多专家共识。",
+  "不能将回答拆开而是虚构为多专家共识。",
+  "不能把回答分开而应宣称为多专家共识。",
+  "不能不将多个回答虚构为多专家共识。",
+  "不能否认多个回答形成多专家共识。",
+  "不能将预算虚构为零，多专家共识已经形成。",
+  "不能将多个回答虚构为多专家共识，但事实上跨角色共识已经形成。",
+  "不能将多个回答虚构为多专家共识；多专家共识已经形成。",
+  "不能将多个回答虚构为多专家共识;多专家共识已经形成。",
+ ])("does not waive positive consensus with fabrication wording: %s", claim => {
+  expect(validateReportEvidence(`[服务端甲回答：支持电话。](#answer-1)\n\n${claim}`, buildReportEvidenceIndex(source)).reason).toBe("unsupported_cross_expert_consensus");
+ });
+
+ it.each(["安装问题最常见。", "安装问题必然阻止采购。", "不能安装设备意味着安装问题最常见。", "不能断言安装问题不是最常见。", "不能声称安装问题不会必然阻止采购。"])("rejects finite unqualified strength claims despite valid exact quotes: %s", claim => {
+  expect(validateReportEvidence(`[服务端甲回答：支持电话。](#answer-1)\n\n${claim}`,buildReportEvidenceIndex(source)).ok).toBe(false);
+ });
+ it.each(["不能断言安装问题最常见。", "不能声称安装问题必然阻止采购。", "若安装问题必然阻止采购，应重新验证这一假设。"])("preserves scoped qualifications: %s", claim => {
+  expect(validateReportEvidence(`[服务端甲回答：支持电话。](#answer-1)\n\n${claim}`,buildReportEvidenceIndex(source)).ok).toBe(true);
+ });
+ it("describes distinct bound server tasks without treating them as verified human identities", () => {
+  const text = "支持电话。\n反对电话。";
+  const index = buildReportEvidenceIndex({...source,markdown:text,contentHash:hash(text),answerSpans:[
+   {taskKey:"revision/shared-a",expertId:"expert-a",start:0,end:5,contentHash:hash("支持电话。")},
+   {taskKey:"revision/shared-b",expertId:"expert-b",start:6,end:text.length,contentHash:hash("反对电话。")},
+  ]});
+  const context = reportEvidenceContext(index);
+  expect(context).toContain("服务端已绑定任务数：2；画像数：2");
+  expect(context).toContain("归属已绑定不等于真人身份已验证");
+  expect(context).toContain("revision不是任务");
+ });
+ it("does not duplicate every indexed quote in per-anchor syntax hints", () => {
+  const index = buildReportEvidenceIndex(source);
+  const context = reportEvidenceContext(index);
+  expect(context).not.toContain("此条合法逐字引用：");
+  for (const entry of index) { expect(context).toContain(entry.quote); expect(context).toContain(`引用定位：#${entry.anchor}`); }
+ });
+ it("provides complete escaped source examples and explicit invalid citation formats", () => {
+  const quote = "公开合成回答：[安装] *冲突*。";
+  const index = buildReportEvidenceIndex({...source,markdown:quote,contentHash:hash(quote),answerSpans:[{...source.answerSpans![0]!,end:quote.length,contentHash:hash(quote)}]});
+  const context = reportEvidenceContext(index);
+  const example = "[公开合成回答：\\[安装\\] \\*冲突\\*。](#answer-1)";
+  expect(context).toContain(example);
+  expect(validateReportEvidence(example,index).ok).toBe(true);
+  for (const invalid of ["[answer-1](#answer-1)", `“${quote}”（[answer-1](#answer-1)）`, "[source-2](#expert-support)"]) {
+   expect(context).toContain(invalid === `[source-2](#expert-support)` ? invalid : "[answer-1](#answer-1)");
+   expect(validateReportEvidence(invalid,index).ok).toBe(false);
+  }
+  expect(context).toContain("taskKey是任务身份，不等于revisionId");
+ });
+ it.each(["原文：&amp;", "原文：&#65;", "原文：&#x41;"])("keeps literal HTML entities in legal citation examples: %s", quote => {
+  const index = buildReportEvidenceIndex({...source, markdown:quote, contentHash:hash(quote), answerSpans:[{...source.answerSpans![0]!,end:quote.length,contentHash:hash(quote)}]});
+  const context = reportEvidenceContext(index);
+  const examples = context.split("\n").filter(line => line.startsWith("[") && line.endsWith("](#answer-1)"));
+  expect(examples.length).toBeGreaterThan(0);
+  for (const example of examples) expect(validateReportEvidence(example,index).ok).toBe(true);
+ });
  it("does not promote model headings to server task identities; retains counterevidence and duplicate Q numbers", () => {
   const index = buildReportEvidenceIndex(source);
   expect(new Set(index.map(x=>x.expertId))).toEqual(new Set(["expert-a"]));
@@ -77,6 +142,44 @@ describe("report evidence grounding", () => {
  it.each(["不构成", "未构成", "不足以形成", "不足以构成"])("preserves the explicit %s consensus boundary", (negation) => {
   const report = `[服务端甲回答：支持电话。](#answer-1)\n\n上述材料来自单个服务端任务，${negation}跨角色共识；仅用于界面定位测试。`;
   expect(validateReportEvidence(report,buildReportEvidenceIndex(source)).ok).toBe(true);
+ });
+ it.each([
+  "不能将这两个模拟角色的观点宣称为‘跨角色共识’。",
+  "不能将两个分别关注预算限制以及具体安装任务的模拟角色的观点宣称为跨角色共识。",
+  "本节不作肯定跨角色共识断言。",
+  "不应将单个角色的证言断言为跨角色共识。",
+  "不能作为真实用户行为或跨角色共识的依据。",
+  "不可作为跨专家共识的依据。",
+  "不同task下的回答不可合并宣称为跨专家的共识。",
+  "不能将这些观点断言为跨角色共识。",
+  "两位专家并非完全一致。", "两位专家不完全一致。", "两位专家未达成完全一致。",
+  "不能将冷却定义为跨角色共识。",
+ ])("preserves scoped negative consensus across long subjects: %s", (claim) => {
+  expect(validateReportEvidence(`[服务端甲回答：支持电话。](#answer-1)\n\n${claim}`,buildReportEvidenceIndex(source)).ok).toBe(true);
+ });
+ it.each([
+  "不能推断以前的结论，但两位专家一致支持电话。",
+  "没有预算支持，然而跨角色共识已经形成。",
+  "不能否认两位专家一致支持电话。",
+  "并非没有跨角色共识。",
+  "不能不形成跨角色共识。",
+  "无法排除跨角色共识。",
+  "团队否认不能将两个分别关注预算限制以及具体安装任务的模拟角色观点宣称为跨角色共识。",
+  "两位专家共同支持电话。",
+  "可作为真实用户行为或跨角色共识的依据。",
+  "这些回答合并宣称为跨专家的共识。",
+  "不能作为真实用户行为，但可作为跨角色共识的依据。",
+  "并非不能作为跨专家共识的依据。",
+  "并无不能作为跨专家共识的依据的理由。",
+  "绝非不可合并宣称为跨专家共识。",
+  "不能不合并宣称为跨专家的共识。",
+  "不支持别人否定这些证据。跨专家共识已经形成。",
+  "不能作为失败的依据。跨专家共识已经形成。",
+  "不可合并分析；跨专家共识已经形成。",
+  "不能作为跨专家共识。其依据已另行给出。",
+  "不能作为采购结论的依据\n跨专家共识已经形成。",
+ ])("does not waive positive, contrast or double-negative claims: %s", (claim) => {
+  expect(validateReportEvidence(`[服务端甲回答：支持电话。](#answer-1)\n\n${claim}`,buildReportEvidenceIndex(source)).ok).toBe(false);
  });
  it("binds known explicit attribution to server metadata, including legacy and same-name ambiguity", () => {
   const labels = {"expert-a":"教师","expert-b":"校长"};

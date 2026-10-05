@@ -147,4 +147,17 @@ describe("admin-model · 卡片目录 + 面板", () => {
     expect(await screen.findByTestId("admin-model-error")).toHaveTextContent("不退回演示数据");
     expect(screen.queryByTestId("admin-model-list")).toBeNull();
   });
+  it("switches to a distinct public catalog without registering or enabling a tenant model", async () => {
+    render(<ModelScreen state="default" />);
+    await screen.findByTestId(`admin-model-card-${HOSTED.modelId}`);
+    fireEvent.mouseDown(screen.getByRole("tab", { name: "百炼公共目录" }), { button: 0, ctrlKey: false });
+    expect(screen.getByTestId("bailian-catalog")).toBeInTheDocument();
+    expect(screen.queryByTestId(`admin-model-card-${HOSTED.modelId}`)).toBeNull();
+    fireEvent.click(screen.getByTestId("bailian-model-qwen3.8-max"));
+    fireEvent.click(screen.getByRole("button", { name: "查看组织模型池" }));
+    expect(screen.getByTestId(`admin-model-card-${HOSTED.modelId}`)).toBeInTheDocument();
+    expect(screen.queryByTestId("bailian-catalog")).toBeNull();
+    expect(listModels).toHaveBeenCalledTimes(1);
+  });
+
 });

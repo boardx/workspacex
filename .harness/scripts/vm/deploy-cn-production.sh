@@ -2,6 +2,9 @@
 # Trusted root entrypoint used by deploy-cn-production.yml.
 set -euo pipefail
 
+operational=0
+preflight_flags=()
+if [[ ${1:-} == --operational ]]; then operational=1; preflight_flags=(--operational); shift; fi
 mode=deploy
 case ${1:-} in
   --check-prepare-inputs) mode=check-prepare-inputs; shift ;;
@@ -9,7 +12,7 @@ case ${1:-} in
   --rollback) mode=rollback; shift ;;
   --verify-active) mode=verify-active; shift ;;
 esac
-[[ $# -eq 2 && "$1" =~ ^[a-f0-9]{40}$ && "$2" =~ ^[a-z0-9][a-z0-9._-]{0,127}$ ]] || { echo "usage: workspacex-cn-deploy [--check-prepare-inputs|--prepare|--rollback|--verify-active] <40-hex-revision> <attempt-id>" >&2; exit 2; }
+[[ $# -eq 2 && "$1" =~ ^[a-f0-9]{40}$ && "$2" =~ ^[a-z0-9][a-z0-9._-]{0,127}$ ]] || { echo "usage: workspacex-cn-deploy [--operational] [--check-prepare-inputs|--prepare|--rollback|--verify-active] <40-hex-revision> <attempt-id>" >&2; exit 2; }
 [[ ${EUID} -eq 0 ]] || { echo "CN_DEPLOY_REQUIRES_ROOT" >&2; exit 1; }
 revision=$1
 attempt_id=$2
@@ -195,6 +198,11 @@ install -d -o root -g root -m 0700 "$RELEASE_TREE_ROOT"
 exec 9>"$RUNTIME_ROOT/release.lock"
 chown root:root "$RUNTIME_ROOT/release.lock"; chmod 0600 "$RUNTIME_ROOT/release.lock"
 flock -n 9 || fail "another deployment is active"
+# Maintenance admission runs under the canonical release lock before mutations.
+MAINTENANCE_HOLD_HELPER=/usr/local/lib/workspacex-cn/cn_maintenance_hold.py
+[[ -f "$MAINTENANCE_HOLD_HELPER" && ! -L "$MAINTENANCE_HOLD_HELPER" && "$(stat -c '%u:%g:%a:%h' "$MAINTENANCE_HOLD_HELPER")" == 0:0:700:1 ]] || fail "trusted maintenance hold helper unavailable"
+python3 "$MAINTENANCE_HOLD_HELPER" admit "$RUNTIME_ROOT" >/dev/null || fail "maintenance hold blocks ordinary release"
+
 
 release=$(node -e 'process.stdout.write(require(process.argv[1]).release)' "$manifest")
 candidate_config_action() {
@@ -269,7 +277,7 @@ NODE
 if [[ "$mode" == prepare ]]; then
   # The post-build receipt must bind the exact immutable image to the same fresh
   # prebuild evidence before dependency installation, migration, or traffic work.
-  "$PREFLIGHT_VERIFIER" preactivate "$revision" "$(node -e 'const v=require(process.argv[1]);process.stdout.write(v.release)' "$manifest")" "$attempt_id" >/dev/null \
+  "$PREFLIGHT_VERIFIER" ${preflight_flags[@]+"${preflight_flags[@]}"} preactivate "$revision" "$(node -e 'const v=require(process.argv[1]);process.stdout.write(v.release)' "$manifest")" "$attempt_id" >/dev/null \
     || fail "preactivate receipt is missing or invalid"
   record_event preactivate_validated
   record_event prepare_started
@@ -328,7 +336,7 @@ cd "$release_checkout"
 
 # Revalidate freshness immediately before activation. A prepared receipt cannot
 # extend the one-hour evidence TTL or substitute static artifacts for live facts.
-"$PREFLIGHT_VERIFIER" preactivate "$revision" "$(node -e 'const v=require(process.argv[1]);process.stdout.write(v.release)' "$manifest")" "$attempt_id" >/dev/null \
+"$PREFLIGHT_VERIFIER" ${preflight_flags[@]+"${preflight_flags[@]}"} preactivate "$revision" "$(node -e 'const v=require(process.argv[1]);process.stdout.write(v.release)' "$manifest")" "$attempt_id" >/dev/null \
   || fail "preactivate receipt expired or changed after prepare"
 
 current_baseline_dir=$(mktemp -d "$runtime/.baseline-current.XXXXXX")

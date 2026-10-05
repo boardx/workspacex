@@ -115,6 +115,23 @@ for (const [theme, tokens] of Object.entries(themes)) {
         `  ${ratio.toFixed(2)}:1  (${group} ≥ ${min})`,
     );
   }
+  // A hover surface retains the variant's foreground. Test that actual pair,
+  // rather than treating the hover token as a decoration with no text on it.
+  for (const key of Object.keys(tokens).filter((key) => key.endsWith("-hover"))) {
+    const base = key.slice(0, -6);
+    const fg = tokens[`${base}-foreground`];
+    if (!fg) {
+      console.error(`  ✗ ${key} 缺少继承的 --${base}-foreground`);
+      failures++;
+      continue;
+    }
+    const ratio = contrast(tokens[key].rgb, fg.rgb);
+    const min = THRESHOLD[tokens[base]?.group] ?? THRESHOLD.neutral;
+    const ok = ratio >= min;
+    checked++;
+    if (!ok) failures++;
+    console.log(`  ${ok ? "✓" : "✗"} ${key.padEnd(22)} ${ratio.toFixed(2)}:1  (hover ≥ ${min})`);
+  }
 }
 
 console.log(

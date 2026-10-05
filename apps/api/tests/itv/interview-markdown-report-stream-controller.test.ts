@@ -1,3 +1,4 @@
+import { ReportGenerationRejectedError, REPORT_REJECTION_CODES } from "../../src/application/interview/workflow/interview-report-rejection";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Response } from "express";
 import { interviewMarkdown } from "@repo/contracts";
@@ -48,5 +49,22 @@ describe("canonical report NDJSON controller", () => {
  it("rejects malformed request before opening transport", async () => {
   const test = setup(); await expect(test.invoke({ ...body, step: "runs" })).rejects.toMatchObject({ status: 400 });
   expect(test.response.writeHead).not.toHaveBeenCalled();
+ });
+});
+
+describe("controlled report rejection reasons", () => {
+ it.each(REPORT_REJECTION_CODES)("preserves %s in stream and HTTP without exception text", async reason => {
+  const error = new ReportGenerationRejectedError(reason);
+  error.message = "private synthetic text";
+  const test = setup(vi.fn().mockRejectedValue(error));
+  await test.invoke();
+  expect(test.events()).toEqual([{type:"failed",reasonCode:reason}]);
+  const args = Array(12).fill(undefined); args[9] = {}; args[10] = {generate:vi.fn().mockRejectedValue(error)};
+  const controller = new DigitalInterviewController(...args as ConstructorParameters<typeof DigitalInterviewController>);
+  await expect(controller.generateMarkdown({},principal,"itv","report",body)).rejects.toMatchObject({status:503,response:{reasonCode:reason}});
+ });
+ it("does not accept a forged reason property on an ordinary exception", async () => {
+  const test = setup(vi.fn().mockRejectedValue(Object.assign(new Error("private"),{reasonCode:"REPORT_ACTION_VALIDATION_REJECTED"})));
+  await test.invoke(); expect(test.events()).toEqual([{type:"failed",reasonCode:"AI_GENERATION_UNAVAILABLE"}]);
  });
 });

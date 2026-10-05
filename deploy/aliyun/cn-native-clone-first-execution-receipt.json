@@ -1,0 +1,160 @@
+{
+  "kind": "approved-single-native-clone-create-attempt",
+  "approvalSourceThread": "01a100c9-f7e1-7125-971f-0790077400da",
+  "approvalEvidence": "User explicitly agreed: one Shanghai PG16 temporary100GB clone, first4hours,15CNY, existingECSprivateaccess,noPublic/noBusiness/noProductionChanges; deletionrequireslaterconfirmation.",
+  "proposalSha256": "94ba65d0b4253d60ba93d3ab12e5b856056afe10e384dfb859d4dad6c90f15b2",
+  "clientToken": "wsx-native-9b25-s3184466733-first",
+  "request": {
+    "DBInstanceId": "pgm-uf6rg214cp381l49",
+    "BackupId": "3184466733",
+    "BackupType": "FullBackup",
+    "RegionId": "cn-shanghai",
+    "PayType": "Serverless",
+    "DBInstanceClass": "pg.n2.serverless.2c",
+    "DBInstanceStorage": 100,
+    "DBInstanceStorageType": "general_essd",
+    "InstanceNetworkType": "VPC",
+    "VPCId": "vpc-uf6e7vt902oid0p1mwd6q",
+    "VSwitchId": "vsw-uf6rqwne9b3cp48diptx1,vsw-uf6epcojpvdltooni86u8",
+    "ZoneId": "cn-shanghai-e",
+    "ZoneIdSlave1": "cn-shanghai-g",
+    "ServerlessConfig": {
+      "MinCapacity": 0.5,
+      "MaxCapacity": 4
+    },
+    "IoAccelerationEnabled": "0",
+    "BurstingEnabled": false,
+    "DBInstanceDescription": "workspacex-cn-native-9b25-rehearsal-3184466733",
+    "DeletionProtection": true,
+    "ClientToken": "wsx-native-9b25-s3184466733-first"
+  },
+  "t0": "2026-10-03T21:35:03.478961+00:00",
+  "checkAt3h": "2026-10-04T00:35:03.478961+00:00",
+  "deadline4h": "2026-10-04T01:35:03.478961+00:00",
+  "budgetCNY": 15,
+  "status": "PROVIDER_INTERNALERROR_BOTH_ATTEMPTS_NO_TARGET_OBSERVED",
+  "automaticRetryAllowed": false,
+  "targetInstanceId": null,
+  "cliExitCode": 2,
+  "response": {
+    "message": "The request processing has failed due to some unknown error, exception or failure.",
+    "error_code": "InternalError",
+    "status_code": 500,
+    "request_id": "01A103B1-2AF6-5F3C-BF84-FEF26A9F35D1",
+    "recovery": {
+      "action": "diagnose_error_code",
+      "command": "aliyun openapiexplorer GetErrorCodeSolutions --errorCode 'InternalError' --product Rds --acceptLanguage en-US --region cn-hangzhou",
+      "hint": "Look up diagnostic solutions for error code InternalError."
+    }
+  },
+  "responseReceivedAt": "2026-10-03T21:35:04.988906+00:00",
+  "retryStartedAt": "2026-10-03T21:39:49.301525+00:00",
+  "retryReason": "Same exact request/token; first failed audit, zero orders/resources; official InternalError solution recommends later retry; one bounded retry only.",
+  "retryResponse": {
+    "message": "The request processing has failed due to some unknown error, exception or failure.",
+    "error_code": "InternalError",
+    "status_code": 500,
+    "request_id": "01A103B5-846A-5B1F-A014-8A5D897B20F8",
+    "recovery": {
+      "action": "diagnose_error_code",
+      "command": "aliyun openapiexplorer GetErrorCodeSolutions --errorCode 'InternalError' --product Rds --acceptLanguage en-US --region cn-hangzhou",
+      "hint": "Look up diagnostic solutions for error code InternalError."
+    }
+  },
+  "retryCliExitCode": 2,
+  "retryFinishedAt": "2026-10-03T21:39:49.773756+00:00",
+  "finalReconciliation": {
+    "observedAt": "2026-10-03T21:41:34.557641+00:00",
+    "auditRequestId": "01A103B7-1C91-5C98-B609-3EE1B09FFE40",
+    "cloneEvents": [
+      {
+        "eventName": "CloneDBInstance",
+        "eventTime": "2026-10-03T21:39:49Z",
+        "requestId": "01A103B5-846A-5B1F-A014-8A5D897B20F8",
+        "errorCode": "InternalError",
+        "errorMessage": "The request processing has failed due to some unknown error, exception or failure."
+      },
+      {
+        "eventName": "CloneDBInstance",
+        "eventTime": "2026-10-03T21:35:04Z",
+        "requestId": "01A103B1-2AF6-5F3C-BF84-FEF26A9F35D1",
+        "errorCode": "InternalError",
+        "errorMessage": "The request processing has failed due to some unknown error, exception or failure."
+      }
+    ],
+    "ordersQuerySuccess": true,
+    "allProductOrderCount": 0,
+    "ordersRequestId": "01A103B7-1A28-51EA-8E82-192A1741497B",
+    "instancesRequestId": "01A103B7-1C98-5147-8C6F-F7BB365C5983",
+    "instances": [
+      {
+        "DBInstanceId": "pgm-uf6rg214cp381l49",
+        "DBInstanceDescription": "workspacex-cn-prod-postgresql",
+        "DBInstanceStatus": "Running",
+        "CreateTime": "2026-09-11T19:18:58Z"
+      }
+    ]
+  },
+  "noFurtherCreate": true,
+  "lateReconciliation": {
+    "observedAt": "2026-10-03T21:47:47.983501+00:00",
+    "auditRequestId": "01A103BC-CFA2-5A62-A2AF-A99AE1BB07F7",
+    "cloneEvents": [
+      {
+        "eventName": "CloneDBInstance",
+        "eventTime": "2026-10-03T21:39:49Z",
+        "requestId": "01A103B5-846A-5B1F-A014-8A5D897B20F8",
+        "errorCode": "InternalError",
+        "errorMessage": "The request processing has failed due to some unknown error, exception or failure."
+      },
+      {
+        "eventName": "CloneDBInstance",
+        "eventTime": "2026-10-03T21:35:04Z",
+        "requestId": "01A103B1-2AF6-5F3C-BF84-FEF26A9F35D1",
+        "errorCode": "InternalError",
+        "errorMessage": "The request processing has failed due to some unknown error, exception or failure."
+      }
+    ],
+    "ordersQuerySuccess": true,
+    "allProductOrderCount": 0,
+    "ordersRequestId": "01A103BC-D02E-59F4-84F0-A551449AF5C3",
+    "instancesRequestId": "01A103BC-CF9A-5F05-8A63-D073672D9443",
+    "instances": [
+      {
+        "DBInstanceId": "pgm-uf6rg214cp381l49",
+        "DBInstanceDescription": "workspacex-cn-prod-postgresql",
+        "DBInstanceStatus": "Running",
+        "CreateTime": "2026-09-11T19:18:58Z"
+      }
+    ]
+  },
+  "diagnosis": {
+    "officialErrorCode": "InternalError",
+    "officialSolutionRequestId": "01A103B8-B850-5BF6-A1AC-DCF8850899F4",
+    "officialMeaning": "系统内部错误导致请求失败；官方通用建议稍后重试。两次已失败，本次不再重试。",
+    "permissionDenialObserved": false,
+    "causeEstablished": false,
+    "publicIncidentVerified": false,
+    "statusPageReadLimit": "Official status page returned no readable status content; no absence-of-incident conclusion."
+  },
+  "threeHourReconciliation": {
+    "startedAt": "2026-10-04T00:35:43.905525+00:00",
+    "observedAt": "2026-10-04T00:35:45.276712+00:00",
+    "originalCheckAt": "2026-10-04T00:35:03.478961Z",
+    "ordersSuccess": true,
+    "allProductOrderCount": 0,
+    "ordersRequestId": "01A10456-9594-55A7-A957-8199E71D2C90",
+    "instancesRequestId": "01A10456-9568-5673-AA52-8EBEDEA69AC8",
+    "instances": [
+      {
+        "DBInstanceId": "pgm-uf6rg214cp381l49",
+        "DBInstanceDescription": "workspacex-cn-prod-postgresql",
+        "DBInstanceStatus": "Running",
+        "CreateTime": "2026-09-11T19:18:58Z"
+      }
+    ],
+    "furtherCreatePerformed": false,
+    "fourHourDeadlineUnchanged": "2026-10-04T01:35:03.478961Z"
+  },
+  "supportRoute": "cancelled-by-user-not-sent"
+}

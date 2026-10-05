@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { randomUUID } from "node:crypto";
 import { FULLSTACK_E2E } from "./fullstack-smoke-fixture";
-test("research persists all five model-backed steps through the real UI, API and PostgreSQL", async ({ page }, testInfo) => {
+test("research persists the confirmed-question pipeline through the real UI, API and PostgreSQL", async ({ page }, testInfo) => {
   test.setTimeout(180000);
   const researchName = `研究全链路验证 ${randomUUID()}`;
   await page.goto("/login");
@@ -155,8 +155,10 @@ test("research persists all five model-backed steps through the real UI, API and
   expect(runtimeResponse.ok()).toBeTruthy();
   const runtime = await runtimeResponse.json();
   expect(runtime.modelCalls.filter((call: { node: string }) => call.node === "report")).toHaveLength(runtime.outline.filter((section: { enabled: boolean }) => section.enabled).length * 2 + 3);
-  expect(runtime.researchPlan.optimizedQuestion).toBe("哪些并网政策证据支持进入决策？");
-  expect(runtime.tasks[0]).toMatchObject({ objective: "比较官方并网政策与实际执行", deliverables: ["政策依据和执行限制"] });
+  expect(runtime.researchPlan).toBeNull();
+  const questions = runtime.outline.filter((section: { enabled: boolean }) => section.enabled).flatMap((section: { questions: string[]; subsections: { questions: string[] }[] }) => [...new Set([...section.questions, ...(section.subsections ?? []).flatMap(subsection => subsection.questions)])]);
+  expect(runtime.tasks.map((task: { objective: string }) => task.objective)).toEqual(questions.map((question: string) => question.slice(0, 2000)));
+  expect(new Set(runtime.tasks.map((task: { questionId: string }) => task.questionId)).size).toBe(questions.length);
   expect(runtime.reportSourceAliases.length).toBeGreaterThan(0);
   expect(runtime.reportCheckpoint.chapters).toHaveLength(runtime.outline.filter((section: { enabled: boolean }) => section.enabled).length);
   expect(runtime.report.sections.every((section: { sourceIds: string[] }) => section.sourceIds.every((id) => runtime.sources.some((source: { id: string }) => source.id === id)))).toBe(true);
@@ -171,7 +173,8 @@ test("research persists all five model-backed steps through the real UI, API and
   expect(runtime.coverage.every((item: { status: string }) => item.status === "answered")).toBe(true);
   expect(runtime.claimEvidence.length).toBeGreaterThan(0);
   expect(runtime.publicationReadiness.status).toBe("ready");
-  expect(runtime.activity.map((item: { stage: string }) => item.stage)).toEqual(expect.arrayContaining(["planning", "searching", "reading", "writing", "validating"]));
+  expect(runtime.activity.map((item: { stage: string }) => item.stage)).toEqual(expect.arrayContaining(["searching", "reading", "writing", "validating"]));
+  expect(runtime.activity.map((item: { stage: string }) => item.stage)).not.toContain("planning");
   expect(runtime.reportTimeline.map((step: { stage: string }) => step.stage)).toEqual(["evidence", "chapter", "review", "chapter", "review", "synthesis", "validation"]);
   expect(runtime.reportTimeline.every((step: { status: string }) => step.status === "completed")).toBe(true);
   expect(runtime.reportTimeline.find((step: { stage: string }) => step.stage === "evidence").attempts).toBe(2);

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { InterviewMarkdownDocument, PreviewVirtualExpertMarkdown, parseInterviewMarkdown, assessInterviewReportAnalysis } from "../src/interview-markdown";
+import { InterviewMarkdownDocument, PreviewVirtualExpertMarkdown, parseInterviewMarkdown, assessInterviewReportAnalysis, hasInterviewReportVerifiableAction } from "../src/interview-markdown";
 import { DigitalInterviewArtifact } from "../src/interview";
 
 const markdown = "# 教育研究\r\n\r\n## 核心发现\r\n\r\n| 用户 | 观点 |\r\n| --- | --- |\r\n| 学生 | 保留 **自主性** |\r\n\r\n```md\r\n## 不是章节\r\n```\r\n";
@@ -107,6 +107,47 @@ describe("访谈 Markdown 正文单源", () => {
 
 
 describe("formatted report quality", () => {
+  it.each([
+    "反例与边界：同一任务另一个场景安装顺利，不能推断普遍发生。",
+    "- **反例与边界**：\n  同一任务另一个场景安装顺利，不能推断普遍发生。",
+    "## 反例与边界\n\n同一任务另一个场景安装顺利，不能推断普遍发生。",
+    "### 反例与边界\r\n\r\n另一个场景安装顺利，不能推断普遍发生。",
+  ])("recognizes the equivalent counterexample-first boundary label: %s", (report) => {
+    expect(assessInterviewReportAnalysis(report).missing).not.toContain("boundary_or_counterevidence");
+  });
+  it.each([
+    "反例与边界：\n\n另一个场景安装顺利，不能推断普遍发生。",
+    "**反例与边界**：\n\n另一个场景安装顺利，不能推断普遍发生。",
+    "边界与反例：\n\n另一个场景安装顺利，不能推断普遍发生。",
+    "**边界与反例**：\n\n另一个场景安装顺利，不能推断普遍发生。",
+    "- **反例与边界**：\n\n  另一个场景安装顺利，不能推断普遍发生。",
+  ])("accepts boundary prose in a separate paragraph within its section: %s", (report) => {
+    expect(assessInterviewReportAnalysis(report).missing).not.toContain("boundary_or_counterevidence");
+  });
+  it.each([
+    "反例与边界：\n\n```md\n另一个场景安装顺利。\n```",
+    "反例与边界：\n\n> 另一个场景安装顺利。",
+    "反例与边界：\n\n- > 另一个场景安装顺利。",
+    "反例与边界：\n\n下一步验证建议：访谈五位用户，对比安装时长。",
+    "反例与边界：\n\n**下一步验证建议**：\n\n访谈五位用户，对比安装时长。",
+    "- **反例与边界**：\n- 访谈五位用户，对比安装时长。",
+  ])("does not borrow code, quotation or another section for an empty label: %s", (report) => {
+    expect(assessInterviewReportAnalysis(report).missing).toContain("boundary_or_counterevidence");
+  });
+  it.each([
+    "反例与边界：",
+    "- **反例与边界**：   ",
+    "反例与边界：\n\n## 下一步验证建议\n\n访谈五位用户，对比安装时长与购买决策。",
+    "## 反例与边界\n\n## 下一步验证建议\n\n访谈五位用户，对比安装时长与购买决策。",
+    "## 反例与边界\n\n```md\n另一个场景安装顺利。\n```",
+    "```md\n反例与边界：另一个场景安装顺利。\n```",
+    "`反例与边界：另一个场景安装顺利。`",
+    "这次访谈只偶然提到反例与边界：没有给出相关分析。",
+    "[来源](https://example.invalid/反例与边界:)",
+  ])("does not let an empty or incidental counterexample label supply analysis: %s", (report) => {
+    expect(assessInterviewReportAnalysis(report).missing).toContain("boundary_or_counterevidence");
+  });
+
   it.each(["测试用户。", "不应测试用户。"])("rejects empty analysis sections and generic action: %s", (action) => {
     const report = `## 跨回答综合\n\n## 决策影响\n\n## 边界与反例\n\n## 下一步验证建议\n\n${action}`;
     expect(assessInterviewReportAnalysis(report).ok).toBe(false);
@@ -128,4 +169,32 @@ describe("formatted report quality", () => {
     expect(assessInterviewReportAnalysis(report).missing).toContain("boundary_or_counterevidence");
     expect(assessInterviewReportAnalysis(report).missing).toContain("verifiable_action");
   });
+});
+
+
+describe("numbered verifiable action headings (#5289)", () => {
+  const action = "独立访谈五位用户，对比三方证据并验证任务完成时长。";
+  it.each(["6. 下一步验证建议", "六、下一步验证建议", "6. 下一步验证建议（可执行行动）", "六、验证计划(可验证行动)", "行动建议（可执行行动）："])("accepts a concrete action under %s without changing report bytes", (heading) => {
+    const report = `## ${heading}\n\n${action}`;
+    expect(hasInterviewReportVerifiableAction(report)).toBe(true);
+    expect(assessInterviewReportAnalysis(report).missing).not.toContain("verifiable_action");
+    expect(report).toContain(heading);
+  });
+  it.each(["建议优化产品。", "访谈用户。", "测试三次。", "P0：建议优化流程。", "建议行动：建议优化产品流程。", "> 独立访谈五位用户，对比三方证据并验证任务完成时长。", "> P0：独立访谈五位用户，对比三方证据并验证任务完成时长。", "```md\nP0：独立访谈五位用户，对比三方证据并验证任务完成时长。\n```"])("does not let a numbered title or quoted labels manufacture action: %s", (body) => {
+    expect(hasInterviewReportVerifiableAction(`## 6. 下一步验证建议（可执行行动）\n\n${body}`)).toBe(false);
+  });
+  it.each(["answer-1", "source-1"])("does not count controlled %s evidence links as researcher actions", (anchor) => {
+    expect(hasInterviewReportVerifiableAction(`## 6. 下一步验证建议\n\n[${action}](#${anchor})`)).toBe(false);
+    expect(hasInterviewReportVerifiableAction(`## 6. 下一步验证建议\n\n[${action}](#${anchor})\n\n${action}`)).toBe(true);
+  });
+  it.each(["6. 下一步验证建议与后续研究", "六、下一步验证建议（可执行行动", "讨论下一步验证建议", "下一步验证建议（可执行行动）与其他事项"])("does not expand the section scope to %s", (heading) => {
+    expect(hasInterviewReportVerifiableAction(`## ${heading}\n\n${action}`)).toBe(false);
+  });
+});
+
+
+it("rejects arbitrary report stream failure strings at the public boundary", async () => {
+  const { InterviewMarkdownReportStreamEvent } = await import("../src/interview-markdown");
+  expect(InterviewMarkdownReportStreamEvent.safeParse({ type: "failed", reasonCode: "PRIVATE_PROVIDER_SECRET" }).success).toBe(false);
+  expect(InterviewMarkdownReportStreamEvent.safeParse({ type: "failed", reasonCode: "AI_GENERATION_UNAVAILABLE" }).success).toBe(true);
 });

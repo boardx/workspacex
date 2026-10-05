@@ -2,7 +2,7 @@ import { z } from "zod";
 import { unified } from "unified";
 import remarkParse from "remark-parse";
 import remarkGfm from "remark-gfm";
-import { DigitalInterviewArtifact, DigitalInterviewArtifactStep } from "./interview";
+import { DigitalInterviewArtifact, DigitalInterviewArtifactStep, InterviewError, operations } from "./interview";
 import { InterviewMarkdownReportReview } from "./interview-markdown-report-review";
 
 /** Offsets use JavaScript UTF-16 code units into the preserved runs Markdown. */
@@ -54,7 +54,7 @@ const REPORT_DECISION_SIGNALS = [/决策影响(?:[：:]|[。.]|$)/mu, /(?:优先
 // reports from passing solely because they contain a generic “反例/边界” mention.
 const REPORT_BOUNDARY_SIGNALS = [
   /边界与反例(?:[：:。.]|$)/u,
-  /^\s*(?:边界(?:与反例)?|反例|反对证据|相反证据|负面案例)(?:[：:。.]|$)/mu,
+  /^\s*(?:边界(?:与反例)?|反例(?:与边界)?|反对证据|相反证据|负面案例)(?:[：:。.]|$)/mu,
   /^\s*(?:置信度|适用范围|样本边界|仍待验证|尚待验证|不能判断)(?:[：:。.]|$)/mu,
   /(?:置信度|适用范围|样本边界|仍待验证|尚待验证)(?:为|是|需|仍)/u,
 ];
@@ -74,24 +74,39 @@ export function assessInterviewReportAnalysis(markdown: string): InterviewReport
   if (!hasInterviewReportVerifiableAction(markdown)) missing.push("verifiable_action");
   return { ok: missing.length === 0, missing };
 }
+/** Normalize only explicit heading decorations; never rewrite the report itself. */
+function isVerifiableActionHeading(text: string): boolean {
+  const label = text.trim().replace(/^(?:\d+[.．、]|[一二三四五六七八九十百]+[、.．])\s*/u, "");
+  return /^(?:下一步验证建议|建议行动|行动建议|验证计划)(?:（[^（）()\r\n]{1,40}）|\([^（）()\r\n]{1,40}\))?[：:]?$/u.test(label);
+}
+
+/** Quoted examples cannot supply an action, including a P0 label inside a quote. */
+function actionNodeText(node: MarkdownNode): string {
+  if (["blockquote", "html", "code", "inlineCode", "image"].includes(node.type)) return "";
+  if (node.type == "link" && /^#(?:answer-|source-)/u.test(node.url ?? "")) return "";
+  const separator = ["list", "listItem", "root"].includes(node.type) ? "\n" : "";
+  return node.value ?? node.children?.map(actionNodeText).filter(Boolean).join(separator) ?? "";
+}
+function hasConcreteVerifiableAction(line: string): boolean {
+  const action = line.trim();
+  return action.length >= 8 && !/^(?:不应|无需|不要|禁止|不必)/u.test(action)
+    && /(?:访谈|测试|验证|观察|测量|对比|监控|采集)/u.test(action)
+    && /(?:指标|信号|样本|用户|任务|假设|率|时长|次数|角色|证据)/u.test(action)
+    && /(?:对照组|实验组|三角|三方|独立|指标|信号|假设|[一二三四五六七八九十\d]+(?:次|起|位|人|天|周|月)|时长|率)/u.test(action);
+}
 export function hasInterviewReportVerifiableAction(markdown: string): boolean {
-  const text = reportAnalysisText(markdown);
-  if (reportHasAny(text, REPORT_ACTION_SIGNALS)) return true;
   const nodes = (parser.parse(markdown) as MarkdownNode).children ?? [];
+  // Inline labels use the same substantive check as section content, not a keyword shortcut.
+  if (nodes.filter(node => node.type !== "heading").flatMap(node => actionNodeText(node).split("\n"))
+    .some(line => reportHasAny(line, REPORT_ACTION_SIGNALS) && hasConcreteVerifiableAction(line))) return true;
   return nodes.some((node, index) => {
-    if (node.type !== "heading" || !/^(?:下一步验证建议|建议行动|行动建议|验证计划)[：:]?$/u.test(analysisNodeText(node).trim())) return false;
+    if (node.type !== "heading" || !isVerifiableActionHeading(analysisNodeText(node))) return false;
     const following: string[] = [];
     for (const next of nodes.slice(index + 1)) {
       if (next.type === "heading" && (next.depth ?? 0) <= (node.depth ?? 0)) break;
-      following.push(analysisNodeText(next));
+      following.push(actionNodeText(next));
     }
-    return following.join("\n").split("\n").some((line) => {
-      const action = line.trim();
-      return action.length >= 8 && !/^(?:不应|无需|不要|禁止|不必)/u.test(action)
-        && /(?:访谈|测试|验证|观察|测量|对比|监控|采集)/u.test(action)
-        && /(?:指标|信号|样本|用户|任务|假设|率|时长|次数|角色|证据)/u.test(action)
-        && /(?:对照组|实验组|三角|三方|独立|指标|信号|假设|[一二三四五六七八九十\d]+(?:次|起|位|人|天|周|月)|时长|率)/u.test(action);
-    });
+    return following.join("\n").split("\n").some(hasConcreteVerifiableAction);
   });
 }
 
@@ -127,12 +142,18 @@ export const InterviewMarkdownEnvelope = z.object({
   review: InterviewMarkdownReportReview.nullable().default(null),
 }).strict();
 /** Request-local observation; completed is emitted only after authorized canonical storage/read. */
+export const InterviewReportRejectionCode = z.enum(["REPORT_ACTION_VALIDATION_REJECTED", "REPORT_QUALITY_REJECTED", "REPORT_GROUNDING_REJECTED"]);
+export type InterviewReportRejectionCode = z.infer<typeof InterviewReportRejectionCode>;
+
+const interviewOperationErrors = Object.values(operations).flatMap(operation => [...operation.err]);
+export const InterviewMarkdownReportFailureCode = z.enum([...InterviewError.options, ...InterviewReportRejectionCode.options, ...interviewOperationErrors]);
+
 export const InterviewMarkdownReportStreamEvent = z.discriminatedUnion("type", [
   z.object({ type: z.literal("attempt"), attempt: z.number().int().positive() }).strict(),
   z.object({ type: z.literal("stage"), stage: z.enum(["context", "model", "validation", "storage"]) }).strict(),
   z.object({ type: z.literal("delta"), delta: z.string() }).strict(),
   z.object({ type: z.literal("completed"), source: InterviewMarkdownEnvelope }).strict(),
-  z.object({ type: z.literal("failed"), reasonCode: z.string().min(1) }).strict(),
+  z.object({ type: z.literal("failed"), reasonCode: InterviewMarkdownReportFailureCode }).strict(),
 ]);
 export type InterviewMarkdownReportStreamEvent = z.infer<typeof InterviewMarkdownReportStreamEvent>;
 
@@ -198,10 +219,24 @@ const parser = unified().use(remarkParse).use(remarkGfm);
 type MarkdownNode = { type: string; value?: string; depth?: number; url?: string; position?: { start: { offset?: number }; end: { offset?: number } }; children?: MarkdownNode[] };
 
 /** Quality checks read visible prose, never code examples, HTML or link URLs. */
-function analysisNodeText(node: MarkdownNode): string {
+function analysisNodeText(node: MarkdownNode, following: readonly MarkdownNode[] = []): string {
   if (["html", "code", "inlineCode", "image"].includes(node.type)) return "";
   const separator = ["list", "listItem", "root", "blockquote"].includes(node.type) ? "\n" : "";
-  return node.value ?? node.children?.map(analysisNodeText).filter(Boolean).join(separator) ?? "";
+  const text = node.value ?? node.children?.map((child, index, children) => analysisNodeText(child, children.slice(index + 1))).filter(Boolean).join(separator) ?? "";
+  // A standalone label may introduce a separate prose paragraph in the same
+  // section. Stop at a heading or another label; quoted examples are not prose.
+  if (node.type === "paragraph" && /^\s*(?:边界(?:与反例)?|反例(?:与边界)?|反对证据|相反证据|负面案例)[：:。.]\s*$/u.test(text)) {
+    for (const next of following) {
+      if (next.type === "heading") break;
+      if (["blockquote", "html", "code", "image"].includes(next.type)) continue;
+      const prose = actionNodeText(next).trim();
+      if (/^\s*[^：:\n]{1,40}[：:]\s*$/u.test(plainText(next))) break;
+      if (/^\s*(?:下一步验证建议|建议行动|行动建议|验证计划|决策影响|跨回答综合|核心发现)[：:]/u.test(prose)) break;
+      if (prose) return text;
+    }
+    return "";
+  }
+  return text;
 }
 function reportAnalysisText(markdown: string): string {
   const nodes = (parser.parse(markdown) as MarkdownNode).children ?? [];
@@ -214,7 +249,7 @@ function reportAnalysisText(markdown: string): string {
       if (next.type !== "heading" && analysisNodeText(next).trim()) return true;
     }
     return false;
-  }).map(analysisNodeText).filter(Boolean).join("\n");
+  }).map(node => analysisNodeText(node, nodes.slice(nodes.indexOf(node) + 1))).filter(Boolean).join("\n");
 }
 
 function plainText(node: MarkdownNode): string {
@@ -288,21 +323,21 @@ export function parseInterviewEvidenceLinks(markdown: string): ReadonlyArray<{ t
   return links;
 }
 
-/** Visible assertion prose excludes quoted links and code; paragraph scope binds attribution. */
-export function parseInterviewReportAssertions(markdown: string): ReadonlyArray<{text:string;links:ReadonlyArray<{text:string;url:string}>}> {
+/** Visible prose excludes links/code. Default cell scope binds attribution; row grouping is quality-only. */
+export function parseInterviewReportAssertions(markdown: string, options: {groupTableRows?: boolean} = {}): ReadonlyArray<{text:string;links:ReadonlyArray<{text:string;url:string}>}> {
   const assertions: Array<{text:string;links:Array<{text:string;url:string}>}> = [];
   function prose(node:MarkdownNode):string {
     if (["link","code","inlineCode","html","image"].includes(node.type)) return "";
     return node.value ?? node.children?.map(prose).join("") ?? "";
   }
   function visit(node:MarkdownNode):void {
-    if (["paragraph", "heading", "tableCell"].includes(node.type)) {
+    if (["paragraph", "heading", options.groupTableRows ? "tableRow" : "tableCell"].includes(node.type)) {
       const links:Array<{text:string;url:string}>=[];
       function collect(child:MarkdownNode):void {
         if(child.type==="link"&&child.url) links.push({text:plainText(child),url:child.url});
         child.children?.forEach(collect);
       }
-      collect(node); assertions.push({text:prose(node),links});
+      collect(node); assertions.push({text:node.type === "tableRow" ? node.children?.map(prose).join("：") ?? "" : prose(node),links});
     } else node.children?.forEach(visit);
   }
   visit(parser.parse(markdown) as MarkdownNode);

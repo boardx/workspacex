@@ -1,5 +1,9 @@
+import { tasksFromConfirmedQuestions } from "../../src/application/research/guided-task-pipeline";
+import { reportQuestions, extractReportEvidence, selectQuestionEvidence } from "../../src/application/research/guided-report-evidence";
+import { createHash } from "node:crypto";
 import { describe, expect, it, vi } from "vitest";
 import { research as C } from "@repo/contracts";
+import * as relevanceModule from "../../src/application/research/guided-source-relevance";
 import { screenResearchSources } from "../../src/application/research/guided-source-relevance";
 import { GuidedRuntimeService, initialRuntime } from "../../src/application/research/guided-runtime-service";
 import { ResearchRuntimeError, type ResearchRuntime, type GuidedRuntimeStore } from "../../src/application/research/guided-runtime-ports";
@@ -261,7 +265,7 @@ describe("actionable source output repair", () => {
     expect(result.sources).toHaveLength(43);
     expect(result.sources.every((item) => item.relevanceBasis)).toBe(true);
     expect(f.search).not.toHaveBeenCalled();
-    const repair = JSON.parse(f.model.complete.mock.calls[1]![0].user).repair;
+    const repair = f.model.complete.mock.calls.map(([input]) => JSON.parse(input.user).repair).find(Boolean);
     expect(repair.previousOutput).toBeTruthy();
     if (kind === "json") expect(repair.issues).toContainEqual(expect.objectContaining({ code: "invalid_json" }));
     if (kind === "schema") expect(repair.issues).toContainEqual(expect.objectContaining({ path: ["evaluations", 0, "matches"] }));
@@ -298,7 +302,7 @@ describe("actionable source output repair", () => {
     f.model.complete.mockImplementationOnce(async () => ({ text: JSON.stringify({ ["x".repeat(50000)]: true }) }));
     const result = await f.run();
     expect(result.errorCode).toBeNull();
-    const repair = JSON.parse(f.model.complete.mock.calls[1]![0].user).repair;
+    const repair = f.model.complete.mock.calls.map(([input]) => JSON.parse(input.user).repair).find(Boolean);
     expect(JSON.stringify(repair.issues).length).toBeLessThan(16000);
     expect(repair.issues.every((issue: { message: string }) => issue.message.length <= 320)).toBe(true);
     expect(repair.previousOutput.length).toBeLessThanOrEqual(24000);
@@ -340,4 +344,397 @@ it("reevaluates retrieved facts against replacement chapter questions instead of
   expect(input.chunks.every((chunk) => chunk.questionIds.length > 0)).toBe(true);
   expect(input.questions.every((question) => question.sectionId === "replacement")).toBe(true);
   expect(result[0]!.content).toBe(direct.content);
+});
+
+
+describe("bounded source screening batch work", () => {
+  const batches = () => Array.from({ length: 4 }, (_, i) => source(`batch-${i}`, String(i).repeat(24000)));
+  it("computes the same four batches with peak two and two waves of fixed work", async () => {
+    vi.useFakeTimers();
+    try {
+      let active = 0, peak = 0, calls = 0;
+      const model = async (_system: string, input: unknown, validate: (value: unknown) => void) => {
+        calls++; active++; peak = Math.max(peak, active);
+        await new Promise((resolve) => setTimeout(resolve, 40));
+        const value = evaluation(input as Input); validate(value); active--; return value;
+      };
+      const start = Date.now();
+      const operation = screenResearchSources(runtime(), batches(), model);
+      await vi.runAllTimersAsync();
+      const concurrent = await operation;
+      expect(concurrent).toHaveLength(4);
+      expect(calls).toBe(4); expect(peak).toBe(2); expect(Date.now() - start).toBe(80);
+      // Equal-work serial provider control: same four inputs, validator and outputs.
+      active = 0; peak = 0; calls = 0;
+      let lane = Promise.resolve(); const serialStart = Date.now();
+      const serialOperation = screenResearchSources(runtime(), batches(), (system, input, validate) => {
+        const next = lane.then(() => model(system, input, validate));
+        lane = next.then(() => undefined); return next;
+      });
+      await vi.runAllTimersAsync();
+      expect(await serialOperation).toEqual(concurrent);
+      expect(calls).toBe(4); expect(peak).toBe(1); expect(Date.now() - serialStart).toBe(160);
+    } finally { vi.useRealTimers(); }
+  });
+  it("merges reverse completions in original batch order including shared-source task identities and presentation", async () => {
+    vi.useFakeTimers();
+    try {
+      const state = runtime(); state.tasks.push({ ...state.tasks[0]!, id: "task2" });
+      const shared = { ...source("shared", "x".repeat(24000)), taskIds: ["task", "task2"] };
+      const result = screenResearchSources(state, [shared], async (_system, input, validate) => {
+        const batch = input as Input; const first = batch.chunks[0]!.taskId === "task";
+        await new Promise(resolve => setTimeout(resolve, first ? 40 : 10));
+        const value = { evaluations: evaluation(batch).evaluations.map(entry => ({ ...entry, presentation: { title: first ? "first" : "second", summary: "valid summary" } })) };
+        validate(value); return value;
+      });
+      await vi.runAllTimersAsync();
+      expect((await result)[0]).toMatchObject({ taskId: "task", taskIds: ["task", "task2"], presentation: { title: "first" } });
+    } finally { vi.useRealTimers(); }
+  });
+  it("stops dispatch and partner repair on terminal failure, drains the active callback and preserves error identity", async () => {
+    vi.useFakeTimers();
+    try {
+      const failure = new Error("original transport failure");
+      const sources = batches(); const before = structuredClone(sources); let calls = 0, active = 0;
+      const operation = screenResearchSources(runtime(), sources, async (_system, input, validate) => {
+        const index = calls++; active++;
+        await new Promise(resolve => setTimeout(resolve, index === 0 ? 10 : 40));
+        active--;
+        if (index === 0) throw failure;
+        validate({}); return {};
+      });
+      const settled = operation.then(() => ({ error: null }), error => ({ error }));
+      await vi.advanceTimersByTimeAsync(10);
+      expect(active).toBe(1);
+      let returned = false; void settled.then(() => { returned = true; }); await Promise.resolve(); expect(returned).toBe(false);
+      await vi.runAllTimersAsync();
+      expect((await settled).error).toBe(failure); expect(calls).toBe(2); expect(active).toBe(0); expect(sources).toEqual(before);
+    } finally { vi.useRealTimers(); }
+  });
+  it("serializes service attempt admission writes while two source models are in flight", async () => {
+    vi.useFakeTimers();
+    try {
+      const state = runtime(); state.sources = batches(); state.tasks[0]!.status = "succeeded";
+      let writing = 0, peakWrites = 0, active = 0, peakModels = 0; const snapshots: ResearchRuntime[] = [];
+      const store: GuidedRuntimeStore = { read: async () => structuredClone(state), claim: async () => ({ state: structuredClone(state), replay: false }), write: async (_actor, _id, value) => {
+        writing++; peakWrites = Math.max(peakWrites, writing); await new Promise(resolve => setTimeout(resolve, 5)); snapshots.push(structuredClone(value)); writing--;
+      } };
+      const model = { complete: async (input: { user: string }) => {
+        const context = JSON.parse(input.user); if (context.researchStage !== "source_relevance") throw new Error("stop after screening");
+        active++; peakModels = Math.max(peakModels, active); await new Promise(resolve => setTimeout(resolve, 40)); active--;
+        return { text: JSON.stringify(evaluation(context)) };
+      } };
+      const service = new GuidedRuntimeService(store, model, { search: async () => [] }, { provider: "test", id: "test" });
+      const operation = service.execute({ sessionId: session.sessionId, orgId: toOrgId("org"), userId: "user" }, session,
+        { sessionId: session.sessionId, requestId: "concurrent", node: "research", action: "complete", expectedVersion: 0 });
+      await vi.runAllTimersAsync(); await operation;
+      expect(peakWrites).toBe(1); expect(peakModels).toBe(2); expect(active).toBe(0);
+      expect(snapshots.some(snapshot => snapshot.modelCalls.length >= 2)).toBe(true);
+    } finally { vi.useRealTimers(); }
+  });
+  it("does not repair a slow malformed first batch after its partner fatally fails", async () => {
+    vi.useFakeTimers();
+    try {
+      const failure = new Error("partner fatal"); let calls = 0;
+      const operation = screenResearchSources(runtime(), batches(), async (_system, _input, validate) => {
+        const index = calls++; await new Promise(resolve => setTimeout(resolve, index === 0 ? 40 : 10));
+        if (index === 1) throw failure;
+        validate({}); return {};
+      });
+      const outcome = operation.catch(error => error); await vi.runAllTimersAsync();
+      expect(await outcome).toBe(failure); expect(calls).toBe(2);
+    } finally { vi.useRealTimers(); }
+  });
+  it("does not start either provider when serialized pre-call persistence fails", async () => {
+    const state = runtime(); state.sources = batches(); state.tasks[0]!.status = "succeeded";
+    const failure = new Error("attempt persistence failed"); let writes = 0;
+    const model = { complete: vi.fn(async () => ({ text: "{}" })) };
+    const store: GuidedRuntimeStore = { read: async () => structuredClone(state), claim: async () => ({ state: structuredClone(state), replay: false }),
+      write: async () => { if (++writes === 1) throw failure; } };
+    const service = new GuidedRuntimeService(store, model, { search: async () => [] }, { provider: "test", id: "test" });
+    const result = await service.execute({ sessionId: session.sessionId, orgId: toOrgId("org"), userId: "user" }, session,
+      { sessionId: session.sessionId, requestId: "write-failure", node: "research", action: "complete", expectedVersion: 0 });
+    expect(result.errorCode).toBe("RESEARCH_WORKFLOW_UNAVAILABLE"); expect(model.complete).not.toHaveBeenCalled();
+    expect(result.sources).toEqual(state.sources); expect(result.modelCalls).toHaveLength(1);
+  });
+  it("shares the existing report budget, stops queued calls, and ignores late pure provider results", async () => {
+    vi.useFakeTimers();
+    try {
+      const state = runtime(); state.currentNode = "report"; state.availableNodes.push("report"); state.sources = batches(); state.tasks[0]!.status = "succeeded";
+      const late: (() => void)[] = []; const signals: AbortSignal[] = [];
+      const model = { complete: vi.fn(async (input: { user: string; signal?: AbortSignal }) => {
+        signals.push(input.signal!); const context = JSON.parse(input.user);
+        return new Promise<{ text: string }>(resolve => late.push(() => resolve({ text: JSON.stringify(evaluation(context)) })));
+      }) };
+      const snapshots: ResearchRuntime[] = [];
+      const store: GuidedRuntimeStore = { read: async () => structuredClone(state), claim: async () => ({ state: structuredClone(state), replay: false }), write: async (_actor, _id, value) => { snapshots.push(structuredClone(value)); } };
+      const service = new GuidedRuntimeService(store, model, { search: async () => [] }, { provider: "test", id: "test" });
+      const operation = service.execute({ sessionId: session.sessionId, orgId: toOrgId("org"), userId: "user" }, session,
+        { sessionId: session.sessionId, requestId: "budget", node: "report", action: "generate", expectedVersion: 0 });
+      await vi.advanceTimersByTimeAsync(180000); const result = await operation;
+      expect(result.errorCode).toBe("RESEARCH_REPORT_PREPARATION_TIME_BUDGET_EXCEEDED"); expect(result.busy).toBe(false);
+      expect(model.complete).toHaveBeenCalledTimes(2); expect(signals.every(signal => signal.aborted)).toBe(true);
+      const writes = snapshots.length, before = structuredClone(result); late.forEach(resolve => resolve()); await vi.runAllTimersAsync();
+      expect(snapshots).toHaveLength(writes); expect(result).toEqual(before); expect(result.sources).toEqual(state.sources);
+    } finally { vi.useRealTimers(); }
+  });
+  it("does not dispatch a provider after the budget expires while admission persistence is pending", async () => {
+    vi.useFakeTimers();
+    try {
+      const state = runtime(); state.currentNode = "report"; state.availableNodes.push("report"); state.sources = batches(); state.tasks[0]!.status = "succeeded";
+      let writes = 0;
+      const store: GuidedRuntimeStore = { read: async () => structuredClone(state), claim: async () => ({ state: structuredClone(state), replay: false }), write: async () => { if (++writes === 2) await new Promise(resolve => setTimeout(resolve, 200000)); } };
+      const model = { complete: vi.fn(async () => ({ text: "{}" })) };
+      const service = new GuidedRuntimeService(store, model, { search: async () => [] }, { provider: "test", id: "test" });
+      const operation = service.execute({ sessionId: session.sessionId, orgId: toOrgId("org"), userId: "user" }, session,
+        { sessionId: session.sessionId, requestId: "admission-budget", node: "report", action: "generate", expectedVersion: 0 });
+      await vi.runAllTimersAsync(); const result = await operation;
+      expect(result.errorCode).toBe("RESEARCH_REPORT_PREPARATION_TIME_BUDGET_EXCEEDED"); expect(model.complete).not.toHaveBeenCalled();
+      expect(result.modelCalls).toHaveLength(1); const savedWrites = writes; await vi.runAllTimersAsync(); expect(writes).toBe(savedWrites);
+    } finally { vi.useRealTimers(); }
+  });
+
+  it("does not parse or mark a late valid provider success after its partner terminally fails", async () => {
+    vi.useFakeTimers();
+    const parser = vi.spyOn(relevanceModule, "parseSourceRelevanceJson");
+    try {
+      const state = runtime(); state.sources = batches(); state.tasks[0]!.status = "succeeded";
+      let calls = 0;
+      const model = { complete: async (input: { user: string }) => {
+        const index = calls++; await new Promise(resolve => setTimeout(resolve, index === 0 ? 10 : 40));
+        if (index === 0) throw new ResearchRuntimeError("RESEARCH_SEARCH_UNAVAILABLE");
+        return { text: JSON.stringify(evaluation(JSON.parse(input.user))) };
+      } };
+      const snapshots: ResearchRuntime[] = [];
+      const store: GuidedRuntimeStore = { read: async () => structuredClone(state), claim: async () => ({ state: structuredClone(state), replay: false }),
+        write: async (_actor, _id, value) => { snapshots.push(structuredClone(value)); } };
+      const service = new GuidedRuntimeService(store, model, { search: async () => [] }, { provider: "test", id: "test" });
+      const operation = service.execute({ sessionId: session.sessionId, orgId: toOrgId("org"), userId: "user" }, session,
+        { sessionId: session.sessionId, requestId: "late-valid", node: "research", action: "complete", expectedVersion: 0 });
+      await vi.runAllTimersAsync(); const result = await operation;
+      expect(result.errorCode).toBe("RESEARCH_SEARCH_UNAVAILABLE"); expect(calls).toBe(2);
+      expect(parser).not.toHaveBeenCalled();
+      expect(result.modelCalls.map(call => call.status)).toEqual(["failed", "failed"]);
+      expect(result.sources).toEqual(state.sources); const writes = snapshots.length; await vi.runAllTimersAsync(); expect(snapshots).toHaveLength(writes);
+    } finally { parser.mockRestore(); vi.useRealTimers(); }
+  });
+
+});
+
+it.each([false, true])("rejects evidence that answers only a sibling of the task's confirmed question (adaptive=%s)", async (adaptive) => {
+  const state = runtime(); state.outline[0]!.questions = ["赛事收入来自哪里？", "玩家留存如何？"];
+  const questions = reportQuestions(state.outline);
+  state.tasks = tasksFromConfirmedQuestions(state);
+  const candidate = { ...direct, taskId: state.tasks[0]!.id };
+  const model = vi.fn(async (_system: string, input: unknown, validate: (value: unknown) => void) => {
+    const context = input as Input;
+    const output = evaluation(context);
+    output.evaluations[0]!.matches[0]!.questionId = questions[1]!.id;
+    validate(output); return output;
+  });
+  await expect(screenResearchSources(state, [candidate], model, { adaptive })).rejects.toMatchObject({ reasonCode: "RESEARCH_SOURCE_RELEVANCE_INVALID" });
+  expect(state.tasks.map(task => task.questionId)).toEqual(questions.map(question => question.id));
+  expect(model).toHaveBeenCalledTimes(2);
+});
+
+it("preserves question identity when task scheduling order differs from outline array order", async () => {
+  const state = runtime(); state.outline[0]!.order = 1;
+  state.outline.push({ id: "first", title: "优先章节", questions: ["优先问题？"], enabled: true, order: 0 });
+  const questions = reportQuestions(state.outline);
+  state.tasks = tasksFromConfirmedQuestions(state);
+  expect(state.tasks.map(task => task.sectionId)).toEqual(["first", "esports"]);
+  for (const task of state.tasks) expect(task.questionId).toBe(questions.find(question => question.sectionId === task.sectionId)!.id);
+  const sources = state.tasks.map((task, index) => ({ ...direct, id: `source-${index}`, taskId: task.id }));
+  const result = await screenResearchSources(state, sources, complete());
+  expect(result.map(source => source.id)).toEqual(sources.map(source => source.id));
+});
+
+describe("pipeline-only adaptive source evidence", () => {
+  const block = (text: string) => text + "\n\n" + "z".repeat(6000 - text.length - 2);
+  const document = (texts: string[]) => {
+    const text = texts.map(block).join("");
+    return { ...source("adaptive", "Original search excerpt remains intact."), document: { url: "https://example.org/adaptive", text, contentHash: createHash("sha256").update(text).digest("hex"), retrievedAt: "now", contentKind: "text" as const, truncated: false } };
+  };
+  const controlled = (accept: (chunk: Input["chunks"][number]) => boolean) => vi.fn(async (_system: string, input: unknown, validate: (value: unknown) => void, check?: () => void) => {
+    check?.(); const batch = input as Input;
+    const output = { evaluations: batch.chunks.map(chunk => ({ sourceId: chunk.sourceId, chunkId: chunk.chunkId, irrelevant: !accept(chunk),
+      matches: accept(chunk) ? [{ questionId: chunk.questionIds[0]!, quoteRef: chunk.quoteOptions[0]!.quoteRef, insight: "Controlled task-specific evidence.", relevance: "direct" }] : [] })) };
+    validate(output); return output;
+  });
+  it("prioritizes useful original chunks and stops after strict positive evidence without changing document bytes", async () => {
+    const texts = Array.from({ length: 10 }, () => "Unrelated filler paragraph."); texts[7] = direct.content;
+    const long = document(texts), before = structuredClone(long), model = controlled(chunk => chunkText(chunk).includes("KPL"));
+    const result = await screenResearchSources(runtime(), [long], model, { adaptive: true });
+    expect(model).toHaveBeenCalledTimes(1);
+    expect(JSON.parse((model.mock.calls[0]![1] as Input).chunks[0]!.chunkId)[2]).toBe(42000);
+    expect(result[0]!.document).toEqual(before.document); expect(result[0]!.content).toBe(before.content);
+    expect(long).toEqual(before);
+    expect((model.mock.calls[0]![1] as Input).chunks.every(chunk => long.document.text.includes(chunk.quoteOptions[0]!.text))).toBe(true);
+  });
+  it("continues the stable original-order fallback to a late positive with its original offset", async () => {
+    const texts = Array.from({ length: 10 }, () => "Unrelated filler paragraph."); texts[9] = "FINAL_POSITIVE is supported by this actual excerpt.";
+    const long = document(texts), model = controlled(chunk => chunkText(chunk).includes("FINAL_POSITIVE"));
+    const result = await screenResearchSources(runtime(), [long], model, { adaptive: true });
+    expect(model).toHaveBeenCalledTimes(4); expect(result).toHaveLength(1);
+    const last = (model.mock.calls.at(-1)![1] as Input).chunks.find(chunk => chunkText(chunk).includes("FINAL_POSITIVE"))!;
+    expect(JSON.parse(last.chunkId)[2]).toBe(54000); expect(long.document.text.includes(last.quoteOptions[0]!.text)).toBe(true);
+  });
+  it("scans every unmatched chunk before dropping a source and leaves full mode unchanged", async () => {
+    const long = document(Array.from({ length: 10 }, () => "Unrelated filler paragraph."));
+    const none = controlled(() => false);
+    expect(await screenResearchSources(runtime(), [long], none, { adaptive: true })).toEqual([]);
+    expect(none.mock.calls.flatMap(call => (call[1] as Input).chunks)).toHaveLength(10);
+    const full = controlled(() => true);
+    expect(await screenResearchSources(runtime(), [long], full)).toHaveLength(1);
+    expect(full).toHaveBeenCalledTimes(3); expect(full.mock.calls.flatMap(call => (call[1] as Input).chunks)).toHaveLength(10);
+  });
+  it("does not stop another task scope after one task matches a shared source", async () => {
+    const state = runtime(); state.tasks.push({ ...state.tasks[0]!, id: "task2", query: "Other task query" });
+    const texts = Array.from({ length: 10 }, () => "Unrelated filler paragraph."); texts[0] = "EARLY_A evidence."; texts[9] = "LATE_B evidence.";
+    const long = { ...document(texts), taskIds: ["task", "task2"] };
+    const model = controlled(chunk => chunkText(chunk).includes(chunk.taskId === "task" ? "EARLY_A" : "LATE_B"));
+    const result = await screenResearchSources(state, [long], model, { adaptive: true });
+    expect(new Set(result[0]!.taskIds)).toEqual(new Set(["task", "task2"]));
+    const seen = model.mock.calls.flatMap(call => (call[1] as Input).chunks);
+    expect(seen.filter(chunk => chunk.taskId === "task").length).toBeLessThan(10);
+    expect(seen.some(chunk => chunk.taskId === "task2" && JSON.parse(chunk.chunkId)[2] === 54000)).toBe(true);
+  });
+  it("round-robins sources and fully evaluates an unmatched source rather than publishing raw acceptance", async () => {
+    const good = { ...document([direct.content, ...Array.from({ length: 9 }, () => "Unrelated filler paragraph.")]), id: "matched" };
+    const bad = { ...document(Array.from({ length: 10 }, () => "Unrelated filler paragraph.")), id: "unmatched" };
+    const model = controlled(chunk => chunkText(chunk).includes("KPL"));
+    const result = await screenResearchSources(runtime(), [good, bad], model, { adaptive: true });
+    expect(result.map(source => source.id)).toEqual(["matched"]);
+    expect((model.mock.calls[0]![1] as Input).chunks.slice(0, 2).map(chunk => chunk.sourceId)).toEqual(["matched", "unmatched"]);
+    expect(model.mock.calls.flatMap(call => (call[1] as Input).chunks).filter(chunk => chunk.sourceId === "unmatched")).toHaveLength(10);
+    expect(bad.decision).toBe("accepted"); // Input intent is immutable; no false user exclusion.
+  });
+  it("runs at most one local adaptive batch while all-negative scopes continue", async () => {
+    const long = document(Array.from({ length: 10 }, () => "Unrelated filler paragraph."));
+    const base = controlled(() => false); let active = 0, peak = 0;
+    const model = vi.fn(async (...args: Parameters<typeof base>) => {
+      peak = Math.max(peak, ++active);
+      await new Promise(resolve => setTimeout(resolve, 2));
+      try { return await base(...args); } finally { active--; }
+    });
+    expect(await screenResearchSources(runtime(), [long], model, { adaptive: true })).toEqual([]);
+    expect(model).toHaveBeenCalledTimes(4); expect(peak).toBe(1);
+  });
+  it.each([false, true])("keeps exact-quote repair bounded to two attempts (permanent=%s)", async permanent => {
+    const long = document([direct.content, ...Array.from({ length: 9 }, () => "Unrelated filler paragraph.")]);
+    let calls = 0;
+    const model = vi.fn(async (_system: string, input: unknown, validate: (value: unknown) => void) => {
+      const output = evaluation(input as Input);
+      if (++calls === 1 || permanent) output.evaluations[0]!.matches[0]!.quote = "invented text absent from every excerpt";
+      validate(output); return output;
+    });
+    const operation = screenResearchSources(runtime(), [long], model, { adaptive: true });
+    if (permanent) await expect(operation).rejects.toMatchObject({ reasonCode: "RESEARCH_SOURCE_RELEVANCE_INVALID" });
+    else expect(await operation).toHaveLength(1);
+    expect(model).toHaveBeenCalledTimes(2); expect(model.mock.calls[1]![1]).toHaveProperty("repair");
+    expect(long).not.toHaveProperty("relevanceBasis");
+  });
+  it("keeps cached positives unchanged and does not admit another batch after cancellation", async () => {
+    const state = runtime(), long = document([direct.content, ...Array.from({ length: 9 }, () => "Unrelated filler paragraph.")]);
+    const positive = controlled(chunk => chunkText(chunk).includes("KPL"));
+    const approved = await screenResearchSources(state, [long], positive, { adaptive: true });
+    expect(await screenResearchSources(state, approved, positive, { adaptive: true })).toEqual(approved);
+    expect(positive).toHaveBeenCalledTimes(1);
+    const abort = new AbortController(), reason = new Error("cancelled");
+    const base = controlled(() => false); let lateReads = 0;
+    const cancelled = vi.fn(async (...args: Parameters<typeof base>) => {
+      const value = await base(...args); abort.abort(reason);
+      return { get evaluations() { lateReads++; return value.evaluations; } };
+    });
+    await expect(screenResearchSources(state, [long], cancelled, { adaptive: true, signal: abort.signal })).rejects.toBe(reason);
+    expect(cancelled).toHaveBeenCalledTimes(1); expect(lateReads).toBe(0);
+    expect(state.sources).toEqual([]); expect(long).not.toHaveProperty("relevanceBasis");
+  });
+
+  it("admits relevance without claiming complete answers or absence of later contradictory/excluded material", async () => {
+    const state = runtime(); state.outline[0]!.questions.push("赛事版权收入是否持续增长？");
+    const before = structuredClone(state);
+    const long = document([direct.content, ...Array.from({ length: 8 }, () => "Unrelated filler paragraph."), "LATER_CONTRADICTION: sponsorship revenue declined; this material does not answer the allowed question."]);
+    const adaptive = controlled(chunk => chunkText(chunk).includes("KPL"));
+    const full = controlled(chunk => chunkText(chunk).includes("KPL"));
+    const admitted = await screenResearchSources(state, [long], adaptive, { adaptive: true });
+    const fullyScreened = await screenResearchSources(state, [long], full);
+    expect(admitted).toEqual(fullyScreened); // Existing full gate does not revoke an earlier positive on a later negative chunk.
+    expect(adaptive).toHaveBeenCalledTimes(1); expect(full).toHaveBeenCalledTimes(3);
+    expect(full.mock.calls.flatMap(call => (call[1] as Input).chunks).some(chunk => chunkText(chunk).includes("LATER_CONTRADICTION"))).toBe(true);
+    expect((adaptive.mock.calls[0]![1] as Input).questions).toHaveLength(2);
+    expect(admitted[0]).not.toHaveProperty("questionEvidence"); expect(admitted[0]).not.toHaveProperty("coverage");
+    expect(state).toEqual(before); // One quote for question 1 never marks question 2 answered, nor changes user exclusions.
+    const excluded = { ...long, decision: "excluded" as const };
+    expect(await screenResearchSources(state, [excluded], adaptive, { adaptive: true })).toEqual([excluded]);
+    expect(adaptive).toHaveBeenCalledTimes(1);
+  });
+  it("invalidates a cached positive when full document bytes/hash change and cannot reuse its old quote", async () => {
+    const state = runtime(), long = document([direct.content, ...Array.from({ length: 9 }, () => "Unrelated filler paragraph.")]);
+    const positive = controlled(chunk => chunkText(chunk).includes("KPL"));
+    const approved = await screenResearchSources(state, [long], positive, { adaptive: true });
+    const changedBody = document(Array.from({ length: 10 }, () => "Changed unrelated document body."));
+    const changed = { ...approved[0]!, document: changedBody.document };
+    expect(changed.document.contentHash).not.toBe(approved[0]!.document!.contentHash);
+    const none = controlled(() => false);
+    expect(await screenResearchSources(state, [changed], none, { adaptive: true })).toEqual([]);
+    expect(none).toHaveBeenCalledTimes(4);
+    expect(none.mock.calls.flatMap(call => (call[1] as Input).chunks)).toHaveLength(10);
+    expect(approved[0]!.document).toEqual(long.document);
+  });
+
+  it("passes the untouched tail into real report extraction and leaves an unanswered question as a gap", async () => {
+    const state = runtime(); state.outline[0]!.questions.push("赛事版权收入是否持续增长？");
+    const long = document([direct.content, ...Array.from({ length: 8 }, () => "Unrelated filler paragraph."), "REPORT_TAIL_UNANSWERED: there is no supported answer for the second research question here."]);
+    const admission = controlled(chunk => chunkText(chunk).includes("KPL"));
+    state.sources = await screenResearchSources(state, [long], admission, { adaptive: true });
+    expect(admission).toHaveBeenCalledTimes(1);
+    const seen: Input["chunks"] = [];
+    const extracted = await extractReportEvidence(state, { provider: "controlled", id: "mock" }, async (input, validate) => {
+      const batch = JSON.parse(input.user) as Input; seen.push(...batch.chunks);
+      const output = { evaluations: batch.chunks.map(chunk => {
+        const positive = chunkText(chunk).includes("KPL");
+        return { sourceId: chunk.sourceId, chunkId: chunk.chunkId, irrelevant: !positive,
+          matches: positive ? [{ questionId: batch.questions[0]!.id, quoteRef: chunk.quoteOptions[0]!.quoteRef,
+            insight: "Actual excerpt supports the first question only.", relevance: "direct" }] : [] };
+      }) };
+      return validate(JSON.stringify(output));
+    });
+    expect(seen).toHaveLength(10);
+    expect(seen.some(chunk => chunk.chunkId.endsWith("/chunk:9") && chunkText(chunk).includes("REPORT_TAIL_UNANSWERED"))).toBe(true);
+    expect(state.sources[0]!.document).toEqual(long.document);
+    const evidence = selectQuestionEvidence(extracted, state.outline[0]!);
+    expect(evidence[0]).toMatchObject({ gap: false });
+    expect(evidence[1]).toMatchObject({ gap: true, evidence: [] });
+  });
+
+
+  it("probes one highest-ranked original chunk before expanding a negative scope to two then four", async () => {
+    const texts = Array.from({ length: 10 }, () => "Unrelated filler paragraph."); texts[7] = direct.content;
+    const long = document(texts), positive = controlled(chunk => chunkText(chunk).includes("KPL"));
+    await screenResearchSources(runtime(), [long], positive, { adaptive: true });
+    expect((positive.mock.calls[0]![1] as Input).chunks).toHaveLength(1);
+    expect(JSON.parse((positive.mock.calls[0]![1] as Input).chunks[0]!.chunkId)[2]).toBe(42000);
+    const none = controlled(() => false);
+    expect(await screenResearchSources(runtime(), [long], none, { adaptive: true })).toEqual([]);
+    const batches = none.mock.calls.map(call => (call[1] as Input).chunks);
+    expect(batches.map(batch => batch.length)).toEqual([1, 2, 4, 3]);
+    expect(new Set(batches.flat().map(chunk => chunk.chunkId)).size).toBe(10);
+    expect(batches.every(batch => batch.length <= 8 && batch.reduce((n, chunk) => n + long.document.text.slice(JSON.parse(chunk.chunkId)[2], JSON.parse(chunk.chunkId)[2] + 6000).length, 0) <= 24000)).toBe(true);
+  });
+
+  it("keeps first probes fair across more scopes than fit a batch and scans negative scopes without duplicates", async () => {
+    const sources = Array.from({ length: 6 }, (_, index) => ({ ...document([direct.content, ...Array.from({ length: 9 }, () => "Unrelated filler paragraph.")]), id: `scope-${index}` }));
+    const model = controlled(chunk => chunk.sourceId !== "scope-5" && chunkText(chunk).includes("KPL"));
+    const result = await screenResearchSources(runtime(), sources, model, { adaptive: true });
+    expect(result.map(source => source.id)).toEqual(sources.slice(0, 5).map(source => source.id));
+    const batches = model.mock.calls.map(call => (call[1] as Input).chunks);
+    expect(batches[0]!.map(chunk => chunk.sourceId)).toEqual(["scope-0", "scope-1", "scope-2", "scope-3"]);
+    expect(batches[1]!.slice(0, 2).map(chunk => chunk.sourceId)).toEqual(["scope-4", "scope-5"]);
+    for (const source of sources.slice(0, 5)) expect(batches.flat().filter(chunk => chunk.sourceId === source.id)).toHaveLength(1);
+    const negative = batches.flat().filter(chunk => chunk.sourceId === "scope-5");
+    expect(negative).toHaveLength(10); expect(new Set(negative.map(chunk => chunk.chunkId)).size).toBe(10);
+    expect(sources[5]).not.toHaveProperty("relevanceBasis");
+  });
+
 });

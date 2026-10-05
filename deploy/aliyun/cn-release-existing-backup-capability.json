@@ -1,0 +1,76 @@
+{
+  "schemaVersion": 1,
+  "scope": "readonly-existing-production-backup-capability",
+  "productionEcsInstanceId": "i-uf6ga92ewloganobbln6",
+  "productionRdsInstanceId": "pgm-uf6rg214cp381l49",
+  "invokeId": "t-sh06yy17t0nu134",
+  "commandId": "c-sh06yy17t08un0g",
+  "finishedTime": "2026-10-03T17:21:53Z",
+  "providerRequestId": "01A102CC-F905-5875-82FE-8CBBAD0A4ED4",
+  "queryResult": {
+    "kind": "existing-diagnostic-backup-capability-readonly",
+    "observedAt": "2026-10-03T17:21:53.070Z",
+    "databases": {
+      "workspacex": {
+        "database": "workspacex",
+        "role": "app_diag_ro",
+        "tls": false,
+        "roleFlags": {
+          "login": true,
+          "superuser": false,
+          "bypassRls": false,
+          "createRole": false,
+          "createDb": false,
+          "replication": false
+        },
+        "tableCount": 238,
+        "missingTableSelect": 237,
+        "rlsTables": 212,
+        "missingSequenceSelect": 12,
+        "privilegedMembership": false
+      },
+      "workspacex_agent": {
+        "database": "workspacex_agent",
+        "role": "app_diag_ro",
+        "tls": false,
+        "roleFlags": {
+          "login": true,
+          "superuser": false,
+          "bypassRls": false,
+          "createRole": false,
+          "createDb": false,
+          "replication": false
+        },
+        "tableCount": 7,
+        "missingTableSelect": 7,
+        "rlsTables": 0,
+        "missingSequenceSelect": 1,
+        "privilegedMembership": false
+      },
+      "workspacex_memory": {
+        "database": "workspacex_memory",
+        "role": "app_diag_ro",
+        "tls": false,
+        "roleFlags": {
+          "login": true,
+          "superuser": false,
+          "bypassRls": false,
+          "createRole": false,
+          "createDb": false,
+          "replication": false
+        },
+        "tableCount": 2,
+        "missingTableSelect": 2,
+        "rlsTables": 0,
+        "missingSequenceSelect": 0,
+        "privilegedMembership": false
+      }
+    }
+  },
+  "rdsSslReadback": {
+    "observedEnabled": "off",
+    "requestId": "01A102CA-EE14-5174-8411-5538A9EA42C8"
+  },
+  "productionWritesPerformed": false,
+  "ready": false
+}

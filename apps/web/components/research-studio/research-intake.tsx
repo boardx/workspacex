@@ -1,4 +1,5 @@
 "use client";
+import { DEFAULT_RESEARCH_NAME } from "@/lib/guided-research-heading";
 import * as React from "react";
 import { research as researchContract } from "@repo/contracts";
 import { ArrowRight, Upload } from "lucide-react";
@@ -15,7 +16,6 @@ import type { GuidedResearchCreateDraft } from "./create-guided-research-dialog"
 import { createGuidedResearchSession, getResearchRuntime, confirmResearchBrief, executeGuidedResearchNodeCommand, getGuidedResearchSession, runGuidedResearchSkillTurn, type GuidedResearchSession, type GuidedResearchWorkflowProjection } from "@/lib/guided-research-api";
 type Brief = GuidedResearchSession["brief"];
 type Step = "home" | "brief" | "directions" | "outline" | "search" | "report";
-function defaultResearchTitle(topic: string) { return topic.trim().slice(0, researchContract.GuidedResearchMetadata.shape.title.maxLength!); }
 const goalLimit = researchContract.GuidedResearchBrief.shape.goal.maxLength!;
 const EMPTY_BRIEF: Brief = { topic: "", goal: "", timeRange: "", region: "", focus: "" };
 function requestId(prefix: string) { return prefix + "-" + crypto.randomUUID(); }
@@ -105,14 +105,14 @@ export function ResearchIntake({ sessionId, session, workflow, onSession, onWork
   const [createDraft] = React.useState<GuidedResearchCreateDraft>(() => {
     try {
       const stored = window.sessionStorage.getItem(CREATE_DRAFT_KEY);
-      if (!stored) return { title: defaultResearchTitle(initialBrief.topic), tags: [] };
+      if (!stored) return { title: DEFAULT_RESEARCH_NAME, tags: [] };
       const parsed = JSON.parse(stored) as Partial<GuidedResearchCreateDraft>;
       return {
-        title: typeof parsed.title === "string" && parsed.title.trim() ? parsed.title.trim() : defaultResearchTitle(initialBrief.topic),
+        title: typeof parsed.title === "string" && parsed.title.trim() ? parsed.title.trim() : DEFAULT_RESEARCH_NAME,
         tags: Array.isArray(parsed.tags) ? parsed.tags.filter((tag): tag is string => typeof tag === "string").slice(0, 5) : [],
       };
     } catch {
-      return { title: defaultResearchTitle(initialBrief.topic), tags: [] };
+      return { title: DEFAULT_RESEARCH_NAME, tags: [] };
     }
   });
   const [submitting, setSubmitting] = React.useState(false);
@@ -123,9 +123,8 @@ export function ResearchIntake({ sessionId, session, workflow, onSession, onWork
   }, [session]);
   const confirm = async () => {
     if (submitting || voiceBusy || importBusy || brief.goal.length > goalLimit || !brief.goal.trim()) return;
-    // The import screen asks for one description. Until the next screen refines
-    // the topic, use the user's words, not an invented model suggestion.
-    const confirmedBrief = { ...brief, topic: brief.topic.trim() || brief.goal.trim().slice(0, 200) };
+    // Preserve the full requirement as the goal. The saved model brief will supply a topic.
+    const confirmedBrief = { ...brief, topic: brief.topic.trim() || DEFAULT_RESEARCH_NAME };
     if (onConfirmBrief) { onConfirmBrief(confirmedBrief); return; }
     setSubmitting(true);
     onPending(true);
@@ -152,7 +151,7 @@ export function ResearchIntake({ sessionId, session, workflow, onSession, onWork
         return;
       }
       const pending = pendingCreateIdempotencyKey({ ...createDraft, brief: confirmedBrief });
-      const createdSession = await createGuidedResearchSession({ ...createDraft, title: createDraft.title || defaultResearchTitle(confirmedBrief.topic), tags: [...createDraft.tags], idempotencyKey: pending.key, collaboratorUserIds: [], brief: confirmedBrief });
+      const createdSession = await createGuidedResearchSession({ ...createDraft, title: createDraft.title || DEFAULT_RESEARCH_NAME, tags: [...createDraft.tags], idempotencyKey: pending.key, collaboratorUserIds: [], brief: confirmedBrief });
       if (!active.current) return;
       if (onCreated) {
         await onCreated(createdSession.sessionId);
@@ -234,9 +233,8 @@ function useIntakeAssistant(brief: Brief, onApply: (brief: Brief) => void) {
     if (!message.trim() || pending) return;
     setPending(true); setError(false); setProposal(null);
     try {
-      // An empty intake has no saved topic yet. Use only the user's own words
-      // as provisional context; the generated proposal still needs adoption.
-      const value = { ...brief, topic: brief.topic.trim() || message.trim().slice(0, 200), goal: brief.goal.trim() || message.trim() };
+      // Keep the message as the initial goal; the generated proposal still needs adoption.
+      const value = { ...brief, topic: brief.topic.trim() || DEFAULT_RESEARCH_NAME, goal: brief.goal.trim() || message.trim() };
       const result = await runGuidedResearchSkillTurn({ requestId: requestId("intake-skill"), message: message.trim(), draft: { node: "brief", value } });
       setReply(result.assistantMessage);
       if (result.proposal.node === "brief") setProposal(result.proposal.value);

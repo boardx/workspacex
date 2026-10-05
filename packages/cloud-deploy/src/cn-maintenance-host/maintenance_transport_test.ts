@@ -1,0 +1,27 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { verifySealedSessionTransport } from './sealed_runtime';
+import { verifyExistingMaintenanceTransport } from './migration_library';
+import { identityHash, providerIdentityDigest, type SourceIdentityEvidence } from '../cn-migration-source-identity';
+function fixture(){
+ const provider=JSON.parse(readFileSync(new URL('../../../../deploy/aliyun/cn-release-existing-rds-transport.json',import.meta.url),'utf8'));
+ const witness=JSON.parse(readFileSync(new URL('../../../../deploy/aliyun/cn-release-existing-transport-config.json',import.meta.url),'utf8')).decoded;
+ const sourceEvidence:SourceIdentityEvidence={request:{regionId:'cn-shanghai',dbInstanceId:'pgm-uf6rg214cp381l49'},configuration:{sha256:witness.configurationSha256,endpointSha256:identityHash('pgm-uf6rg214cp381l49.rwlb.rds.aliyuncs.com:5432'),regionId:'cn-shanghai',rdsInstanceId:'pgm-uf6rg214cp381l49',host:'pgm-uf6rg214cp381l49.rwlb.rds.aliyuncs.com',port:5432,database:'workspacex',user:'app_diag_ro',sslMode:'disable',rdsTlsException:witness.rdsTlsException},stsResponse:{RequestId:'fixture-not-live-sts',AccountId:'1177216024653153'},attributeResponse:provider.attribute,netInfoResponse:provider.network};
+ const source={accountId:'1177216024653153',regionId:'cn-shanghai',dbInstanceId:'pgm-uf6rg214cp381l49',database:'workspacex',user:'app_diag_ro',endpointSha256:sourceEvidence.configuration.endpointSha256,serverAddressSha256:null,port:null,identityLane:'aliyun-private-endpoint' as const,clientPeerAddressSha256:identityHash('192.168.100.44'),clientPeerPort:5432,configurationSha256:witness.configurationSha256,providerEvidenceSha256:providerIdentityDigest(sourceEvidence),sslMode:'disable' as const,clientEncrypted:false,clientTlsAuthorized:false};
+ return {input:{source,sourceEvidence,approvedRdsTlsException:witness.rdsTlsException,sslResponse:provider.ssl,allowlistResponse:provider.allowlist},observed:{database:'workspacex',user:'app_diag_ro',serverAddress:null,serverPort:5432,remoteAddress:'192.168.100.44',remotePort:5432,encrypted:false,authorized:false,localAddress:'192.168.100.40'}};
+}
+test('maintenance transport reuses source/provider/private network exception without enabling SSL',()=>{const f=fixture();assert.equal(verifyExistingMaintenanceTransport(f.input,f.observed).sslMode,'disable');});
+test('exception declaration alone cannot replace protected approval or socket source proof',()=>{for(const edit of [(f:ReturnType<typeof fixture>)=>{delete f.input.approvedRdsTlsException;},(f:ReturnType<typeof fixture>)=>{f.observed.localAddress='192.168.100.99';},(f:ReturnType<typeof fixture>)=>{f.observed.remoteAddress='192.168.100.45';},(f:ReturnType<typeof fixture>)=>{f.observed.user='migration_admin';}]){const f=fixture();edit(f);assert.throws(()=>verifyExistingMaintenanceTransport(f.input,f.observed));}});
+test('provider non-serverless/public/open allowlist/SSL drift cannot satisfy the existing exception',()=>{for(const edit of [(f:ReturnType<typeof fixture>)=>{f.input.sourceEvidence.attributeResponse.Items.DBInstanceAttribute[0]!.Category='HighAvailability';f.input.source.providerEvidenceSha256=providerIdentityDigest(f.input.sourceEvidence);},(f:ReturnType<typeof fixture>)=>{f.input.sourceEvidence.netInfoResponse.DBInstanceNetInfos.DBInstanceNetInfo[0]!.IPType='Public';f.input.source.providerEvidenceSha256=providerIdentityDigest(f.input.sourceEvidence);},(f:ReturnType<typeof fixture>)=>{f.input.allowlistResponse.Items.DBInstanceIPArray[0].SecurityIPList='0.0.0.0/0';},(f:ReturnType<typeof fixture>)=>{f.input.sslResponse.SSLEnabled='on';}]){const f=fixture();edit(f);assert.throws(()=>verifyExistingMaintenanceTransport(f.input,f.observed));}});
+
+test('sealed plaintext session requires bound authority and actual socket proof',()=>{
+ const f=fixture(),now=Date.now()/1000;
+ const identity={sourceRevision:'9b25bfa65662b96c0826fe67506b562ea46aa6d0',baselineRevision:'ba6343199f3c834d6a198f83d0c771614292c82b',migrationPlanSha256:'a'.repeat(64),attemptId:'source-fixture'},toolRevision='b'.repeat(40);
+ const authority={...f.input,schemaVersion:1,kind:'existing-production-maintenance-transport',identity,toolRevision,notBefore:now-10,expiresAt:now+600,configurationPath:`/etc/workspacex-cn/maintenance-host/${identity.sourceRevision}/${identity.attemptId}/approved-baseline-deployment.json`,configurationSha256:f.input.source.configurationSha256};
+ const session={peer:{database:f.observed.database,serverAddr:null,serverPort:5432},role:f.observed.user,tls:{ssl:false},socket:f.observed,transport:verifyExistingMaintenanceTransport(f.input,f.observed)};
+ verifySealedSessionTransport(session,authority,identity,toolRevision);
+ assert.throws(()=>verifySealedSessionTransport(session,undefined,identity,toolRevision));
+ for(const edit of [(a:typeof authority)=>{a.expiresAt=1;},(a:typeof authority)=>{a.configurationSha256='0'.repeat(64);},(a:typeof authority)=>{a.toolRevision='0'.repeat(40);},(a:typeof authority)=>{a.sourceEvidence.configuration.rdsTlsException!.allowedCidrs=['0.0.0.0/0'];}]){const a=structuredClone(authority);edit(a);assert.throws(()=>verifySealedSessionTransport(session,a,identity,toolRevision));}
+ assert.throws(()=>verifySealedSessionTransport({...session,transport:{...session.transport,providerEvidenceSha256:'0'.repeat(64)}},authority,identity,toolRevision));
+});

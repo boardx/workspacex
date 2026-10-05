@@ -78,9 +78,9 @@ export function ResourceCard({
   const Heading = headingLevel === 2 ? "h2" : "h3";
   const compact = density === "compact";
   const shell = cn(
-    "flex h-full min-w-0 flex-col overflow-hidden transition-all duration-base hover:shadow-md",
+    "flex h-full min-w-0 flex-col overflow-hidden transition-colors duration-base hover:border-input",
     selected && "ring-2 ring-ring",
-    titleHref !== undefined && "group relative hover:border-primary",
+    titleHref !== undefined && "group relative hover:border-input",
     className,
   );
   // 拉伸链接模式下，除标题外的可交互区域抬到 z-10，不被铺满的 <a> 吃掉点击

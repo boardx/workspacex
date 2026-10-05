@@ -1,0 +1,35 @@
+{
+  "scope": "readonly-backup-acl-input-gap-check",
+  "observedAt": "2026-10-03T20:01:36.613Z",
+  "facts": {
+    "actorAuthCatalogSelect": false,
+    "otherPublicConnect": [
+      {
+        "database": "postgres",
+        "allowConnections": true,
+        "publicConnect": true,
+        "publicTemp": true
+      },
+      {
+        "database": "template1",
+        "allowConnections": true,
+        "publicConnect": true,
+        "publicTemp": false
+      },
+      {
+        "database": "template0",
+        "allowConnections": false,
+        "publicConnect": true,
+        "publicTemp": false
+      },
+      {
+        "database": "rdsadmin",
+        "allowConnections": true,
+        "publicConnect": false,
+        "publicTemp": false
+      }
+    ]
+  },
+  "invocationId": "t-sh06yyfgqw49la8",
+  "productionChangesPerformed": false
+}

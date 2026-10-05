@@ -168,7 +168,7 @@ describe("judgeClosingPrGreen（完成定义第 7 条，#2539）", () => {
   });
 
   it("required 全 SUCCESS（合入前完成）、无其他红 → ok", () => {
-    expect(judge([pr()])).toEqual({ kind: "ok", pr: 100 });
+    expect(judge([pr()])).toEqual({ kind: "ok", pr: 100, advisories: [expect.stringContaining("DEFERRED_NOT_RUN: visual-deferred")] });
   });
 
   it("required FAILURE（合入前完成）→ violation，理由带 PR 号、SHA、合入时刻", () => {
@@ -195,4 +195,23 @@ describe("judgeClosingPrGreen（完成定义第 7 条，#2539）", () => {
   it("merged 却没有 mergedAt → unknown（不当绿，交给调用方按 strict 级别处理）", () => {
     expect(judge([pr({ mergedAt: null })]).kind).toBe("unknown");
   });
+});
+
+
+it('retains deferred state in history without retroactively changing v2', () => {
+ const failed=run('visual-deferred','FAILURE',-5);
+ const current=judge([pr({runs:[...greenRuns(),failed]})]);
+ expect(current).toMatchObject({kind:'ok',advisories:[expect.stringContaining('conclusion=FAILURE')]});
+ const old={...CURRENT_POLICY,version:2,deferredChecks:undefined};
+ expect(judge([pr({policy:old,runs:[...greenRuns(),failed]})]).kind).toBe('violation');
+ expect(judge([pr({policy:old})])).toEqual({kind:'ok',pr:100});
+});
+
+it.each(['native-board','meeting-room'])('historical policy governs independent %s failure without false PASS', name => {
+ const failed=run(name,'FAILURE',-5);
+ const current=judge([pr({runs:[...greenRuns(),failed]})]);
+ expect(current).toMatchObject({kind:'ok'});
+ if(current.kind==='ok')expect(current.advisories?.join('\n')).toContain(`INDEPENDENT_REVALIDATION: ${name} status=COMPLETED conclusion=FAILURE`);
+ const old={...CURRENT_POLICY,version:3,independentChecks:undefined};
+ expect(judge([pr({runs:[...greenRuns(),failed],policy:old})]).kind).toBe('violation');
 });

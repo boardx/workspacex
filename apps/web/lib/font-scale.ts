@@ -29,6 +29,7 @@ export const FONT_SCALE = {
   18: ["1.125rem", { lineHeight: "1.625rem" }],
   20: ["1.25rem", { lineHeight: "1.75rem", letterSpacing: "-0.01em" }],
   24: ["1.5rem", { lineHeight: "2rem", letterSpacing: "-0.015em" }],
+  40: ["2.5rem", { lineHeight: "3.25rem", letterSpacing: "-0.025em" }],
   30: ["1.875rem", { lineHeight: "2.375rem", letterSpacing: "-0.02em" }],
 } as const satisfies Record<number, [string, { lineHeight: string; letterSpacing?: string }]>;
 

@@ -1,8 +1,9 @@
 import * as React from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { ApiError } from "@/lib/api-client";
 import { GuidedResearchLive } from "@/components/research-studio/guided-research-live";
-import { getResearchRuntime, getResearchRuntimeProgress, executeResearchRuntime } from "@/lib/guided-research-api";
+import { getResearchRuntime, getResearchRuntimeProgress, executeResearchRuntime, type GuidedResearchRuntime } from "@/lib/guided-research-api";
 import { runtimeFixture } from "../guided-runtime-fixture";
 
 vi.mock("@/lib/guided-research-api", () => ({ getResearchRuntime: vi.fn(), getResearchRuntimeProgress: vi.fn(), executeResearchRuntime: vi.fn() }));
@@ -15,6 +16,7 @@ describe("step-aligned research transitions", () => {
     let finish!: (value: typeof state) => void;
     vi.mocked(getResearchRuntime).mockResolvedValue(state);
     vi.mocked(executeResearchRuntime).mockImplementation(() => new Promise((resolve) => { finish = resolve; }));
+    vi.mocked(getResearchRuntimeProgress).mockRejectedValue(new Error("progress unavailable"));
     render(<GuidedResearchLive sessionId="grs-live" onBack={vi.fn()} />);
     fireEvent.click(await screen.findByRole("button", { name: "更新资料" }));
     await screen.findByTestId("research-step-loading");
@@ -185,5 +187,105 @@ describe("step-aligned research transitions", () => {
     fireEvent.click(screen.getByRole("button", { name: /资料研究/ }));
     expect(await screen.findByTestId("guided-research-source-workspace")).toHaveTextContent("Official policy");
     expect(window.location.pathname).toBe("/research/grs-live/research");
+  });
+});
+
+describe("persisted topic confirmation while the plan generates", () => {
+  beforeEach(() => { vi.useFakeTimers(); vi.mocked(getResearchRuntimeProgress).mockRejectedValue(new Error("offline")); });
+  const topic = () => within(screen.getByTestId("research-flow-progress")).getByRole("button", { name: /确认研究主题/ });
+  const plan = () => within(screen.getByTestId("research-flow-progress")).getByRole("button", { name: /研究计划/ });
+  const runningPlan = (): GuidedResearchRuntime => ({ ...runtimeFixture("outline"), version: 5, revision: 2, busy: true, leaseUntil: "2099-01-01T00:00:00Z", generatedNodes: ["brief", "directions"] });
+  it("marks the topic completed from an already persisted outline/busy snapshot", async () => {
+    const state = { ...runningPlan(), generatedNodes: ["brief", "directions"] as ("brief" | "directions")[] };
+    vi.mocked(getResearchRuntime).mockResolvedValue(state);
+    render(<GuidedResearchLive sessionId={state.sessionId} onBack={vi.fn()} />);
+    await act(async () => {});
+    expect(topic()).toHaveTextContent("已完成");
+    expect(topic()).not.toHaveAttribute("aria-busy", "true");
+    expect(plan()).toHaveAttribute("aria-busy", "true");
+    expect(executeResearchRuntime).not.toHaveBeenCalled();
+  });
+  async function start() {
+    const state = runtimeFixture("directions");
+    vi.mocked(getResearchRuntime).mockResolvedValue(state);
+    let emit: Parameters<typeof executeResearchRuntime>[1]; let signal: AbortSignal | undefined;
+    let fail!: (error: unknown) => void;
+    vi.mocked(executeResearchRuntime).mockImplementation((_input, callback, controller) => { emit = callback; signal = controller; return new Promise((_resolve, reject) => { fail = reject; controller?.addEventListener("abort", () => reject(new DOMException("Aborted", "AbortError")), { once: true }); }); });
+    const view = render(<GuidedResearchLive sessionId={state.sessionId} onBack={vi.fn()} />);
+    await act(async () => {});
+    fireEvent.click(screen.getByRole("button", { name: "下一步：研究计划" }));
+    await act(async () => {});
+    return { state, view, emit: () => emit, signal: () => signal, fail: (error: unknown) => fail(error) };
+  }
+  it("does not mark click as confirmation and immediately follows the persisted streamed outline authority", async () => {
+    const operation = await start();
+    expect(topic()).not.toHaveTextContent("已完成");
+    expect(operation.emit()).toEqual(expect.any(Function));
+    expect(operation.signal()).toBeInstanceOf(AbortSignal);
+    await act(async () => operation.emit()!({ type: "snapshot", state: { ...operation.state, version: 5, busy: true, leaseUntil: "2099-01-01T00:00:00Z" } }));
+    expect(topic()).not.toHaveTextContent("已完成");
+    await act(async () => operation.emit()!({ type: "snapshot", state: { ...runningPlan(), generatedNodes: ["brief", "directions"] } }));
+    expect(topic()).toHaveTextContent("已完成");
+    expect(plan()).toHaveAttribute("aria-busy", "true");
+    expect(getResearchRuntimeProgress).not.toHaveBeenCalled();
+    expect(executeResearchRuntime).toHaveBeenCalledTimes(1);
+  });
+  it("streams an explicitly adopted confirm proposal, while an unadopted proposal never completes the topic", async () => {
+    const state = runtimeFixture("directions");
+    state.proposal = { id: "confirm-topic", version: state.version, draft: { node: "directions", value: state.directions }, action: "confirm" };
+    vi.mocked(getResearchRuntime).mockResolvedValue(state);
+    let emit: Parameters<typeof executeResearchRuntime>[1];
+    vi.mocked(executeResearchRuntime).mockImplementation((_input, callback, signal) => { emit = callback; return new Promise((_resolve, reject) => { signal?.addEventListener("abort", () => reject(new DOMException("Aborted", "AbortError")), { once: true }); }); });
+    render(<GuidedResearchLive sessionId={state.sessionId} onBack={vi.fn()} />);
+    await act(async () => {});
+    expect(topic()).not.toHaveTextContent("已完成");
+    expect(executeResearchRuntime).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "AI 助手" }));
+    fireEvent.click(screen.getByRole("button", { name: "批准确认并继续" }));
+    expect(emit).toEqual(expect.any(Function));
+    expect(vi.mocked(executeResearchRuntime).mock.calls[0]![0]).toMatchObject({ action: "apply", node: "directions" });
+    await act(async () => emit!({ type: "snapshot", state: runningPlan() }));
+    expect(topic()).toHaveTextContent("已完成");
+    expect(plan()).toHaveAttribute("aria-busy", "true");
+  });
+  it.each([false, true])("preserves the persisted confirmation boundary when generation fails (confirmed=%s)", async confirmed => {
+    const operation = await start();
+    expect(operation.emit()).toEqual(expect.any(Function));
+    if (confirmed) await act(async () => operation.emit()!({ type: "snapshot", state: runningPlan() }));
+    const terminal = { ...(confirmed ? runningPlan() : operation.state), version: 5, revision: 3, busy: false, leaseUntil: null, errorCode: "RESEARCH_WORKFLOW_UNAVAILABLE" };
+    vi.mocked(getResearchRuntime).mockResolvedValue(terminal);
+    await act(async () => operation.fail(new ApiError(409, "RESEARCH_WORKFLOW_UNAVAILABLE", null)));
+    expect(screen.getByRole("alert")).toBeInTheDocument();
+    if (confirmed) expect(topic()).toHaveTextContent("已完成");
+    else expect(topic()).not.toHaveTextContent("已完成");
+    expect(executeResearchRuntime).toHaveBeenCalledTimes(1);
+    expect(getResearchRuntime).toHaveBeenCalledTimes(2);
+  });
+  it("ignores wrong-session and old-version snapshots before confirmation authority", async () => {
+    const operation = await start();
+    expect(operation.emit()).toEqual(expect.any(Function));
+    await act(async () => operation.emit()!({ type: "snapshot", state: { ...runningPlan(), sessionId: "another" } }));
+    await act(async () => operation.emit()!({ type: "snapshot", state: { ...runningPlan(), version: operation.state.version } }));
+    expect(topic()).not.toHaveTextContent("已完成");
+    await act(async () => operation.emit()!({ type: "snapshot", state: runningPlan() }));
+    expect(topic()).toHaveTextContent("已完成");
+  });
+  it("ignores older confirmation snapshots after outline authority was persisted", async () => {
+    const operation = await start();
+    expect(operation.emit()).toEqual(expect.any(Function));
+    await act(async () => operation.emit()!({ type: "snapshot", state: { ...runningPlan(), generatedNodes: ["brief", "directions"] } }));
+    await act(async () => operation.emit()!({ type: "snapshot", state: { ...operation.state, version: 5, revision: 1, busy: true, leaseUntil: "2099-01-01T00:00:00Z" } }));
+    expect(topic()).toHaveTextContent("已完成");
+    expect(plan()).toHaveAttribute("aria-busy", "true");
+  });
+  it("cancels the stream on session switch and ignores the abandoned confirmation snapshot", async () => {
+    const operation = await start();
+    expect(operation.signal()).toBeInstanceOf(AbortSignal);
+    vi.mocked(getResearchRuntime).mockResolvedValue(runtimeFixture("directions", "another"));
+    await act(async () => operation.view.rerender(<GuidedResearchLive sessionId="another" onBack={vi.fn()} />));
+    expect(operation.signal()!.aborted).toBe(true);
+    await act(async () => operation.emit()!({ type: "snapshot", state: { ...runningPlan(), generatedNodes: ["brief", "directions"] } }));
+    expect(topic()).not.toHaveTextContent("已完成");
+    expect(executeResearchRuntime).toHaveBeenCalledTimes(1);
   });
 });

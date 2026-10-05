@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 1,
+  "scope": "readonly-cached-image-and-narrow-plan-certificate-metadata",
+  "invokeId": "t-sh06yy98gbrwhz4",
+  "commandId": "c-sh06yy98gbcx3wg",
+  "startTime": "2026-10-03T18:51:46Z",
+  "invocationStatus": "Success",
+  "exitCode": 0,
+  "dropped": 0,
+  "observations": [
+    {
+      "kind": "cached-backup-client-image-metadata",
+      "id": "sha256:eac621400b7b7ff52493883e41e930e3d104695fea5b68cc0c42370cf7880067",
+      "os": "linux",
+      "architecture": "amd64",
+      "repoDigests": [
+        "workspacex-cn-prod-registry-vpc.cn-shanghai.cr.aliyuncs.com/workspacex-prod/base-postgres@sha256:eac621400b7b7ff52493883e41e930e3d104695fea5b68cc0c42370cf7880067"
+      ],
+      "pgVersionEnvironment": [
+        "PG_MAJOR=16",
+        "PG_VERSION=16.15-1.pgdg12+2"
+      ]
+    },
+    {
+      "kind": "backup-existing-plan-certificate-metadata-readonly",
+      "files": []
+    }
+  ],
+  "limitations": [
+    "No client container started or binary executed",
+    "No image pull or installation",
+    "Empty file list only covers bounded named recovery/backup directories",
+    "No credential or private key content read"
+  ]
+}

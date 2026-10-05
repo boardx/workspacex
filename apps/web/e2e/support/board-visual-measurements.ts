@@ -1,3 +1,4 @@
+import {categoryEnabled} from './board-observation-categories.mjs';
 import {createHash} from 'node:crypto';
 import {writeFile} from 'node:fs/promises';
 import {expect, type Page, type TestInfo} from '@playwright/test';
@@ -41,10 +42,15 @@ export async function captureVisual(page:Page,info:TestInfo,label:string,strict=
     const host=surface.getBoundingClientRect(),rendered=canvas.getBoundingClientRect();
     return Math.abs(host.width-rendered.width)<=1&&Math.abs(host.height-rendered.height)<=1;
   })).toBe(true);
-  const measurement=await visualMeasurement(page),bytes=await page.screenshot({fullPage:false}),path=info.outputPath(`${label}.png`);
-  await writeFile(path,bytes);await info.attach(label,{path,contentType:'image/png'});
+  const measurement=await visualMeasurement(page);
+  let screenshot:{path:string;sha256:string}|null=null;
+  if(categoryEnabled('screenshot')){
+    const bytes=await page.screenshot({fullPage:false}),path=info.outputPath(`${label}.png`);
+    await writeFile(path,bytes);await info.attach(label,{path,contentType:'image/png'});
+    screenshot={path,sha256:sha256(bytes)};
+  }
   const failures=strict?validateVisualMeasurement(measurement):[];
   if(measurement.editorReachable===false)failures.push('EDITOR_TEXT_OCCLUDED');
   expect.soft(failures,`${label}: real hit-test/space measurements`).toEqual([]);
-  return{label,strict,screenshot:{path,sha256:sha256(bytes)},measurement,failures,at:new Date().toISOString()};
+  return{label,strict,screenshot,measurement,failures,at:new Date().toISOString()};
 }
