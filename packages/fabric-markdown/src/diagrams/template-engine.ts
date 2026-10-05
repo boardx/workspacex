@@ -245,6 +245,7 @@ export function parseTemplateText(code: string, impliedKey?: string): ParsedTemp
   let templateKey: string | undefined;
   let current: string | null = null;
   let paragraph: string[] = [];
+  let repeatedSection = false;
   // 表头字段行（`字段名: 值`）按格式约定只出现在第一个 `## 分区` 之前——但模型偶尔会
   // 提前手滑写出一个空标题（例如把某个字段本身也格式化成 `## 姓名`）。一旦把"见过标题"
   // 当成一次性开关，这个手滑会让后面本该进 `fields` 的每一行都被当成当前分区的段落文字
@@ -255,7 +256,11 @@ export function parseTemplateText(code: string, impliedKey?: string): ParsedTemp
   let sawBullet = false;
 
   const flush = (): void => {
-    if (current && paragraph.length > 0) sections.get(current)!.push(paragraph.join(' '));
+    if (current && paragraph.length > 0) {
+      const text = paragraph.join(' ');
+      const items = sections.get(current)!;
+      if (!repeatedSection || !items.includes(text)) items.push(text);
+    }
     paragraph = [];
   };
 
@@ -279,6 +284,7 @@ export function parseTemplateText(code: string, impliedKey?: string): ParsedTemp
     if (heading) {
       flush();
       current = heading[1]!.trim();
+      repeatedSection = sections.has(current);
       if (!sections.has(current)) sections.set(current, []);
       continue;
     }
@@ -305,7 +311,9 @@ export function parseTemplateText(code: string, impliedKey?: string): ParsedTemp
       if (bullet) {
         flush();
         sawBullet = true;
-        sections.get(current)!.push(bullet[1]!.trim());
+        const text = bullet[1]!.trim();
+        const items = sections.get(current)!;
+        if (!repeatedSection || !items.includes(text)) items.push(text);
         continue;
       }
     }
@@ -522,6 +530,16 @@ export function lookupSectionItems(sections: Map<string, string[]>, name: string
  */
 export function lookupFieldValue(fields: Map<string, string>, key: string): string | undefined {
   return resolveTolerant(fields, key);
+}
+
+/** Missing editable header values, derived from the registered template's fields. */
+export function missingTemplateFields(code: string, impliedKey?: string): string[] {
+  const parsed = parseTemplateText(code, impliedKey);
+  const spec = templates.get(impliedKey ?? parsed.templateKey ?? '');
+  return (spec?.fields ?? []).filter(key => {
+    const value = lookupFieldValue(parsed.fields, key)?.trim();
+    return !value || value === EMPTY_FIELD;
+  });
 }
 
 // ---------------------------------------------------------------------------

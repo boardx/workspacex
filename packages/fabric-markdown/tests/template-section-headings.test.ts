@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { listTemplates, parseTemplateText, templateToModel, serializeTemplate, registerTemplate } from '../src/templates-entry';
+import { listTemplates, parseTemplateText, templateToModel, serializeTemplate, registerTemplate, missingTemplateFields } from '../src/templates-entry';
 import { normalizeTemplateSectionHeading } from '../src/diagrams/template-section-headings';
 
 const ADLIB = `模板: adlib
@@ -69,5 +69,34 @@ describe('shared template section heading normalization', () => {
   it('does not infer a template identity from unknown content', () => {
     expect(parseTemplateText('模板: unknown\n我们的:\n- 内容').sections.size).toBe(0);
     expect(parseTemplateText('我们的:\n- 内容').sections.size).toBe(0);
+  });
+});
+
+
+describe('reported inline sections and missing journey headers', () => {
+  it.each(['empathy', 'freytag', 'golden-circle', 'burger'])('renders %s inline sections without losing slash-separated text', key => {
+    const spec = listTemplates().find(t => t.key === key)!;
+    const code = [`模板: ${key}`, ...spec.sections.map(s => `${s.name}：动画教育内容（推理） / 第二条内容（推理）`)].join('\n');
+    const parsed = parseTemplateText(code);
+    expect(parsed.sections.size).toBe(spec.sections.length);
+    for (const section of spec.sections) expect(parsed.sections.get(section.name)).toEqual(['动画教育内容（推理） / 第二条内容（推理）']);
+    expect(templateToModel(code).nodes.filter(n => n.data?.role === 'sticky')).toHaveLength(spec.sections.length);
+  });
+
+  it('reports missing journey stage definitions without fabricating their values', () => {
+    const code = '模板: journey-map\n## 阶段5 行为\n- 整理学生作品集\n## 阶段5 行为\n- 整理学生作品集\n- 与企业联合申报课题';
+    const spec = listTemplates().find(t => t.key === 'journey-map')!;
+    expect(missingTemplateFields(code)).toEqual(spec.fields);
+    const parsed = parseTemplateText(code);
+    expect(parsed.sections.get('阶段5 行为')).toEqual(['整理学生作品集', '与企业联合申报课题']);
+    expect(parsed.fields.size).toBe(0);
+    const fields = spec.fields!.map((field, i) => `${field}: 教学阶段${i + 1}`).join('\n');
+    expect(missingTemplateFields(`${code.split('\n')[0]}\n${fields}\n${code.split('\n').slice(1).join('\n')}`)).toEqual([]);
+  });
+
+  it('retains distinct repeated-section notes and intentional identical notes inside a single section', () => {
+    const parsed = parseTemplateText('模板: adlib\n## 帮助\n- 用户甲\n- 用户甲\n## 帮助\n- 用户甲\n- 用户乙\n## 想要实现\n- 用户甲');
+    expect(parsed.sections.get('帮助')).toEqual(['用户甲', '用户甲', '用户乙']);
+    expect(parsed.sections.get('想要实现')).toEqual(['用户甲']);
   });
 });

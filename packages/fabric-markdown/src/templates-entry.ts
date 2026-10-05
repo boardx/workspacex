@@ -25,6 +25,7 @@ export {
   /** `模板: <key>` 围栏 → DiagramModel。纯函数，不需要浏览器（R10 运行环境取舍） */
   templateToModel,
   parseTemplateText,
+  missingTemplateFields,
   serializeTemplate,
   /** 分区名匹配容错（issue #2549），见 template-engine.ts 里的定义与用法。 */
   lookupSectionItems,

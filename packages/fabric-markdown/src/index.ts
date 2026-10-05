@@ -24,6 +24,8 @@ export {
   templateToModel,
   serializeTemplate,
   parseTemplateText,
+  missingTemplateFields,
+  lookupSectionItems,
   setTemplateBackgroundProvider,
   STICKY_COLORS,
 } from './diagrams/template-engine';
