@@ -49,7 +49,7 @@ export function readRealtimeModelConfig(env: NodeJS.ProcessEnv = process.env): R
     baseUrl: workspaceRealtimeUrl(env.KERNEL_MODEL_BASE_URL),
     apiKey: env.KERNEL_MODEL_API_KEY?.trim() || undefined,
     model: REALTIME_CONVERSATION_MODEL,
-    defaultVoice: env.KERNEL_OMNI_REALTIME_VOICE ?? DEFAULT_REALTIME_VOICE,
+    defaultVoice: env.KERNEL_OMNI_REALTIME_VOICE?.trim() || DEFAULT_REALTIME_VOICE,
     voiceMap: parseRealtimeVoiceMap(env.KERNEL_OMNI_REALTIME_VOICE_MAP),
     transcriptionModel: env.KERNEL_OMNI_REALTIME_TRANSCRIPTION_MODEL ?? "gummy-realtime-v1",
   };
@@ -310,6 +310,7 @@ function normaliseUpstreamEvent(value: unknown): Record<string, unknown> | null 
 }
 
 function forwardUpstream(event: Record<string, unknown>, send: (frame: ServerFrame) => void, fail: (reason: ErrorReason) => void): void {
+  const response = typeof event.response_id === "string" ? { responseId: event.response_id } : {};
   const text = typeof event.delta === "string" ? event.delta
     : typeof event.transcript === "string" ? event.transcript
     : typeof event.text === "string" ? event.text : "";
@@ -317,10 +318,10 @@ function forwardUpstream(event: Record<string, unknown>, send: (frame: ServerFra
   if (event.type === "input_audio_buffer.speech_stopped") return send({ type: "user.speech_stopped" });
   if (event.type === "conversation.item.input_audio_transcription.text") return send({ type: "user.transcript", text, final: false });
   if (event.type === "conversation.item.input_audio_transcription.completed") return send({ type: "user.transcript", text, final: true });
-  if (event.type === "response.audio_transcript.delta") return send({ type: "assistant.transcript", text, final: false });
-  if (event.type === "response.audio_transcript.done") return send({ type: "assistant.transcript", text, final: true });
-  if (event.type === "response.audio.delta" && typeof event.delta === "string") return send({ type: "assistant.audio", audio: event.delta });
-  if (event.type === "response.audio.done") return send({ type: "assistant.audio_done" });
+  if (event.type === "response.audio_transcript.delta") return send({ type: "assistant.transcript", text, final: false, ...response });
+  if (event.type === "response.audio_transcript.done") return send({ type: "assistant.transcript", text, final: true, ...response });
+  if (event.type === "response.audio.delta" && typeof event.delta === "string") return send({ type: "assistant.audio", audio: event.delta, ...response });
+  if (event.type === "response.audio.done") return send({ type: "assistant.audio_done", ...response });
   if (event.type === "error") {
     process.stderr.write(`[realtime-digital-human] upstream error: ${JSON.stringify(event.error ?? {})}\n`);
     fail("UPSTREAM_FAILED");

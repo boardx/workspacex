@@ -100,3 +100,47 @@ it('still closes playback when microphone stop rejects on remote close',async()=
  const h=handlers();await openOmniConversation('board-poc',h,{sessionToken:'tok',capture:async()=>({onFrame:vi.fn(),stop:vi.fn().mockRejectedValue(new Error('stop failed')),sourceSampleRate:16000})});
  FakeSocket.last!.emit('message',{data:JSON.stringify({type:'assistant.audio',audio:'AAA='})});FakeSocket.last!.readyState=3;FakeSocket.last!.emit('close',{});await vi.waitFor(()=>expect(h.onClosed).toHaveBeenCalledTimes(1));expect(closeAudio).toHaveBeenCalledTimes(1);
 });
+
+it('keeps speaking until the last scheduled audio source ends, even after upstream audio_done', async () => {
+  vi.stubGlobal('WebSocket', FakeSocket as unknown as typeof WebSocket);
+  const sources: Array<{onended: (() => void) | null; start: ReturnType<typeof vi.fn>}> = [];
+  vi.stubGlobal('AudioContext', class {
+    currentTime = 0; destination = {}; resume = vi.fn(); close = vi.fn();
+    createBuffer(_channels: number, length: number, rate: number) { return {duration: length / rate, getChannelData: () => new Float32Array(length)}; }
+    createBufferSource() { const source = {onended: null as (() => void) | null, connect: vi.fn(), start: vi.fn(), stop: vi.fn()}; sources.push(source); return source; }
+  });
+  const h = handlers();
+  const handle = await openOmniConversation({threadId: 't-1', agentId: 'd011'}, h, {sessionToken: 'tok', capture: async () => ({onFrame: vi.fn(), stop: vi.fn(), sourceSampleRate: 16000})});
+  const audio = btoa(String.fromCharCode(...new Uint8Array(480)));
+  for (let i = 0; i < 2; i++) FakeSocket.last!.emit('message', {data: JSON.stringify({type: 'assistant.audio', audio})});
+  FakeSocket.last!.emit('message', {data: JSON.stringify({type: 'assistant.audio_done'})});
+  expect(h.onAssistantAudio).toHaveBeenLastCalledWith(true);
+  expect(sources[1]!.start).toHaveBeenCalledWith(0.03);
+  sources[0]!.onended!();
+  expect(h.onAssistantAudio).toHaveBeenLastCalledWith(true);
+  sources[1]!.onended!();
+  expect(h.onAssistantAudio).toHaveBeenLastCalledWith(false);
+  await handle.stop();
+});
+
+it('ignores canceled response audio still in transit while accepting the next response', async () => {
+  vi.stubGlobal('WebSocket', FakeSocket as unknown as typeof WebSocket);
+  const start = vi.fn();
+  vi.stubGlobal('AudioContext', class {
+    currentTime = 0; destination = {}; resume = vi.fn(); close = vi.fn();
+    createBuffer() { return {duration: 0.01, getChannelData: () => new Float32Array(1)}; }
+    createBufferSource() { return {connect: vi.fn(), start, stop: vi.fn()}; }
+  });
+  const h = handlers();
+  const handle = await openOmniConversation({threadId:'t',agentId:'d011'}, h, {sessionToken:'tok', capture:async()=>({onFrame:vi.fn(),stop:vi.fn(),sourceSampleRate:16000})});
+  const emitAudio = (responseId: string) => FakeSocket.last!.emit('message', {data:JSON.stringify({type:'assistant.audio', audio:'AAA=', responseId})});
+  emitAudio('old');
+  handle.cancelResponse();
+  emitAudio('old');
+  expect(start).toHaveBeenCalledTimes(1);
+  expect(h.onAssistantAudio).toHaveBeenLastCalledWith(false);
+  emitAudio('new');
+  expect(start).toHaveBeenCalledTimes(2);
+  expect(h.onAssistantAudio).toHaveBeenLastCalledWith(true);
+  await handle.stop();
+});

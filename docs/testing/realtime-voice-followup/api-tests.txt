@@ -1,0 +1,15 @@
+
+ RUN  v2.1.9 /Users/shenyanbin/Documents/Codex/2026-10-04/task-3/realtime-pr/apps/api
+
+[realtime-digital-human] upstream error: {"code":"InvalidApiKey","message":"secret detail"}
+ ✓ tests/chat/realtime-digital-human-gateway.test.ts (33 tests) 3490ms
+   ✓ WS /chat/realtime-digital-human — Chat 语音模式 > upstream close remains bounded when append never resolves, without a false persisted acknowledgement 2013ms
+   ✓ WS /chat/realtime-digital-human — Chat 语音模式 > explicit browser loopback keeps a finite PCM stream actionable and cancels its next chunk 525ms
+   ✓ WS /chat/realtime-digital-human — Chat 语音模式 > loopback omni upstream: readable Chinese user + role-aware assistant turn is relayed as live captions, audio and persisted 641ms
+ ✓ tests/chat/realtime-voice-session.test.ts (14 tests) 8ms
+
+ Test Files  2 passed (2)
+      Tests  47 passed (47)
+   Start at  20:07:42
+   Duration  5.16s (transform 636ms, setup 0ms, collect 1.33s, tests 3.50s, environment 0ms, prepare 87ms)
+

@@ -126,6 +126,8 @@ export interface CaptureHandle {
 }
 
 interface CaptureDeps {
+  /** Smaller frames for interactive voice; recording keeps its existing default. */
+  frameSize?: 1024 | 2048 | 4096;
   getUserMedia?: (constraints: MediaStreamConstraints) => Promise<MediaStream>;
   createAudioContext?: () => AudioContext;
   /**
@@ -250,7 +252,7 @@ export async function startCapture(deps: CaptureDeps = {}): Promise<CaptureHandl
 
   const listeners: Array<(frame: Int16Array) => void> = [];
   const source = context.createMediaStreamSource(stream);
-  const processor = context.createScriptProcessor(4096, 1, 1);
+  const processor = context.createScriptProcessor(deps.frameSize ?? 4096, 1, 1);
   processor.onaudioprocess = (event) => {
     const input = event.inputBuffer.getChannelData(0);
     const frame = toPcm16(input, context.sampleRate);
