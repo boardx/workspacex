@@ -301,9 +301,31 @@ it('actual enterprise root HTTP receipt carries lease/attempt attribution, write
  expect(answer.rows).toEqual([{status:'succeeded',body:'HTTP answer'}]);
  const calls=await f.read.calls(f.org,{...f.query,runId:run});
  expect(calls.calls).toHaveLength(1);expect(calls.calls[0]).toMatchObject({userId:'caller',agentId:root.agent,projectId:f.subject.projectId,threadId:f.subject.threadId,runId:run,executionAttemptId:`${run}:1`,totalTokens:'3',costMicros:'6',priceVersion:f.priceVersion});
- expect((await asApp(f.org,c=>c.query('SELECT execution_lease_epoch FROM model_request_starts WHERE org_id=$1 AND run_id=$2',[f.org,run]))).rows).toEqual([{execution_lease_epoch:1}]);
+ // PostgreSQL bigint is read as a decimal string; preserve the exact lease value.
+ expect((await asApp(f.org,c=>c.query('SELECT execution_lease_epoch::text AS execution_lease_epoch FROM model_request_starts WHERE org_id=$1 AND run_id=$2',[f.org,run]))).rows).toEqual([{execution_lease_epoch:'1'}]);
  const refused=await root.enqueue();await executeQueuedRuns(root.deps,{orgId:f.org});
  expect((await asApp(f.org,c=>c.query('SELECT status,lease_epoch FROM agent_runs WHERE org_id=$1 AND id=$2',[f.org,refused]))).rows).toEqual([{status:'failed',lease_epoch:1}]);
  expect(requests.slice(before)).toHaveLength(1);
  expect((await asApp(f.org,c=>c.query('SELECT id FROM model_request_starts WHERE org_id=$1 AND run_id=$2',[f.org,refused]))).rows).toEqual([]);
+});
+
+it('actual native not-applicable Token receipt preserves image dimension and consumes finite cost before Token admission',async()=>{
+ const f=await fixture('ordinary','10'),before=requests.length,nativeId=randomUUID();
+ // Test-only trusted reported image receipt. No image->Token conversion or claim
+ // that the still-unwired native provider admission/bounds have been validated.
+ await f.deps.usage.record(f.org,{eventId:nativeId,userId:'caller',runId:null,modelProvider:'test-http',modelId:'runtime-image',
+  tokensTotal:0,promptTokens:null,completionTokens:null,totalSource:'not-applicable',outcome:'succeeded',
+  projectId:f.subject.projectId,requestStartedAt:new Date().toISOString(),nativeUsage:{unit:'image',quantity:1n,source:'reported'},
+  costMicros:2n,currency:'CNY',priceVersion:f.priceVersion});
+ // Native cost 2 + bounded Token request cost 8 fits the same finite budget 10.
+ const result=await executePricedModelCall(f.subject,{system:'s',user:'u'},f.deps);
+ expect(result.text).toBe('HTTP answer');expect(requests.slice(before)).toHaveLength(1);
+ const nativeCalls=await f.read.calls(f.org,{...f.query,runId:undefined,modelId:'runtime-image'});
+ expect(nativeCalls.calls).toHaveLength(1);
+ expect(nativeCalls.calls[0]).toMatchObject({id:nativeId,totalSource:'not-applicable',inputTokens:null,outputTokens:null,costMicros:'2',nativeUsage:{unit:'image',quantity:'1',source:'reported'}});
+ // Native cost 2 + settled Token cost 6 leaves 2; neither model change nor
+ // Token non-applicability can free the native cost for a second paid request.
+ await expect(executePricedModelCall({...f.subject,logicalCallId:randomUUID()},{system:'s',user:'u'},f.deps)).rejects.toThrow('COST_LIMIT_REACHED');
+ expect(requests.slice(before)).toHaveLength(1);
+ expect((await asApp(f.org,c=>c.query('SELECT sum(cost_micros)::text AS cost,count(*)::int AS calls FROM effective_token_usage() WHERE org_id=$1 AND user_id=$2',[f.org,'caller']))).rows).toEqual([{cost:'8',calls:2}]);
 });
