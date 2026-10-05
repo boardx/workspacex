@@ -1,3 +1,4 @@
+import { toPublicResearchRuntime } from "./guided-runtime-persistence";
 import { executeComposite } from "./guided-composite-execution";
 import { executeTaskPipeline, tasksFromConfirmedQuestions, normalizedResearchUrl } from "./guided-task-pipeline";
 import { withGuidedThinkingPolicy } from "./guided-thinking-policy";
@@ -173,13 +174,15 @@ export class GuidedRuntimeService {
   constructor(private readonly store: GuidedRuntimeStore, private readonly model: ModelCallPort, private readonly search: GuidedSearchPort,
     private readonly modelConfig = guidedModelConfig(), private readonly reportModel: ModelCallPort = model,
     private readonly internalSourceAccess?: GuidedInternalSourceAccessPort, private readonly debugTrace?: DebugTracePort) { this.model = withGuidedThinkingPolicy(model); this.reportModel = withGuidedThinkingPolicy(reportModel); }
-  get(actor: RuntimeActor, session: GuidedResearchSession) {
+  async get(actor: RuntimeActor, session: GuidedResearchSession) {
     if (actor.sessionId !== session.sessionId) throw new ResearchRuntimeError("RESEARCH_NOT_FOUND");
-    return this.store.read(actor, initialRuntime(session));
+    return toPublicResearchRuntime(await this.store.read(actor, initialRuntime(session)));
   }
   async execute(actor: RuntimeActor, session: GuidedResearchSession, command: RuntimeCommand, observer?: RuntimeObserver, traceId = command.requestId): Promise<ResearchRuntime> {
     const diagnostic: ResearchExecutionDiagnostic = { phase: "state_read", traceId };
-    try { return await this.executeCommand(actor, session, command, observer, diagnostic); }
+    const publicObserver: RuntimeObserver | undefined = observer && (event => observer(
+      event.type === "snapshot" || event.type === "result" ? { ...event, state: toPublicResearchRuntime(event.state) } : event));
+    try { return toPublicResearchRuntime(await this.executeCommand(actor, session, command, publicObserver, diagnostic)); }
     catch (error) { recordResearchFailure(this.debugTrace, diagnostic, actor, command, error); throw error; }
   }
   private async executeCommand(actor: RuntimeActor, session: GuidedResearchSession, command: RuntimeCommand, observer: RuntimeObserver | undefined, diagnostic: ResearchExecutionDiagnostic): Promise<ResearchRuntime> {

@@ -45,6 +45,7 @@
 | ADR-119 | work-stack-eval-and-release-gates | Work Stack 评测与 G0–G6 发布门。**Proposed**（#4534） |
 | ADR-120 | tool-capability-categories | 工具能力分类与官方 Agent 的工具策略。**Proposed**（#4534） |
 | ADR-121 | shared-realtime-digital-human-runtime | 实时数字人共享运行时。**Proposed**（#4534） |
+| ADR-122 | question-bound-evidence-ledger-with-a-single-public-runtime-projection：问题与精确正文证据绑定；内部持久化与公开投影单源（项目实现） | Proposed |
 
 ## 状态说明
 - ADR-004 已被专用协调服务取代（Superseded），保留因为它记录了"为什么 issue 总线
