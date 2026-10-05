@@ -10,6 +10,12 @@ vi.mock('@/components/whiteboard/fabric/board-fabric-surface', () => ({ BoardFab
 globalThis.ResizeObserver = class { observe() {} disconnect() {} } as unknown as typeof ResizeObserver;
 afterEach(() => { cleanup(); harness.props = null; vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
+function boardKey(key: string) {
+  const focused = screen.getByTestId('board-tool-select');
+  focused.focus();
+  expect(document.activeElement).toBe(focused);
+  fireEvent.keyDown(focused, { key });
+}
 function mount() {
   const doc = createWhiteboardDocument();
   render(<CollaborativeEditor boardId="round04" clientId="tools-client" doc={doc} readOnly={false} title="Board" status="Connected" />);
@@ -41,7 +47,7 @@ it.each(['sticky', 'text', 'shape'])('hides stale object chrome while %s placeme
     expect(screen.queryByTestId('board-context-toolbar')).toBeNull();
     expect(screen.queryByTestId(`connector-handle-${original.id}-right`)).toBeNull();
     expect(readObjects(doc)).toEqual([original]);
-    fireEvent.keyDown(window, { key: 'Escape' });
+    boardKey('Escape');
     expect(harness.props!.creationMode).toBe(false);
     expect(screen.getByTestId('board-context-toolbar')).toBeInTheDocument();
     expect(readObjects(doc)).toEqual([original]);
@@ -51,7 +57,7 @@ it('keeps Frame data but removes its creation entry and shortcut', () => {
   const doc = mount();
   try {
     expect(screen.queryByTestId('board-add-frame')).toBeNull();
-    fireEvent.keyDown(window, { key: 'f' });
+    boardKey('f');
     act(() => harness.props!.onCanvasClick?.({ x: 400, y: 350 }));
     expect(readObjects(doc)).toHaveLength(0);
   } finally { cleanup(); doc.destroy(); }
@@ -108,7 +114,7 @@ it.each([{ viewport: 1440, dockLeft: 420, triggerLeft: 650, width: 420, left: 47
     fireEvent.click(screen.getByTestId('board-add-shape'));
     expect(screen.getByTestId('board-tool-picker')).toHaveStyle({ position: 'fixed', left: `${left}px`, width: `${width}px`, bottom: '108px' });
     expect(readObjects(doc)).toHaveLength(0);
-    fireEvent.keyDown(window, { key: 'Escape' });
+    boardKey('Escape');
     act(() => harness.props!.onCanvasClick?.({ x: 400, y: 350 }));
     expect(readObjects(doc)).toHaveLength(0);
   } finally { cleanup(); doc.destroy(); }

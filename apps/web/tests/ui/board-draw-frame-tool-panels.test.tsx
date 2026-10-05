@@ -33,7 +33,7 @@ it("offers all drawing instruments and keeps stroke appearance controls stateful
   expect(screen.getByTestId("board-draw-stroke-8")).toHaveAttribute("aria-pressed","true");
   expect(screen.getByTestId("board-draw-stroke-8").firstChild).toHaveStyle({height:"8px",backgroundColor:"#2563EB",opacity:"0.65"});
   expect(screen.getByTestId("board-draw-color-2563eb")).toHaveAttribute("aria-pressed","true");
-  expect(screen.getByTestId("board-draw-preview-pencil")).toHaveStyle({backgroundColor:"#2563EB",height:"8px",opacity:.65});
+  expect(screen.queryByTestId("board-draw-preview-pencil")).not.toBeInTheDocument();
 });
 
 it("uses the selected instrument defaults rather than inherited opaque pen state",()=>{
@@ -45,11 +45,10 @@ it("uses the selected instrument defaults rather than inherited opaque pen state
   expect(onAppearance).toHaveBeenLastCalledWith({width:2,opacity:.65,color:"#52525B"});
 });
 
-it("previews the same instrument color and alpha that the recorder receives",()=>{
+it("uses compact icon-only instruments while retaining distinct drawing defaults",()=>{
   render(<DrawHarness/>);
   for(const choice of ["pen","marker","pencil","highlighter"] as const){
-    const style=drawingChoiceStyle(choice);
-    expect(screen.getByTestId(`board-draw-preview-${choice}`)).toHaveStyle({backgroundColor:style.color,opacity:style.opacity});
+    expect(screen.queryByTestId(`board-draw-preview-${choice}`)).not.toBeInTheDocument();
   }
   expect(drawingChoiceStyle("highlighter")).toEqual(drawingToolStyle("highlighter"));
   expect(new Set(["pen","marker","pencil","highlighter"].map(choice=>JSON.stringify(drawingChoiceStyle(choice as BoardDrawChoice)))).size).toBe(4);
@@ -115,4 +114,12 @@ it.each([{ width: 375, dockTop: 686 }, { width: 1536, dockTop: 910 }, { width: 1
     expect(panel).toHaveStyle({ top: `${dockTop - 8 - 135}px`, left: `${Math.max(16, width / 2 - 224)}px` });
     expect(Number.parseFloat(panel.style.top) + 135).toBe(dockTop - 8);
   } finally { viewportWidth.mockRestore(); viewportHeight.mockRestore(); scrollHeight.mockRestore(); offsetHeight.mockRestore(); clientHeight.mockRestore(); dock.remove(); }
+});
+
+ it("offers five preset colors and preserves custom color selection", () => {
+  render(<DrawHarness/>);
+  expect(screen.getAllByRole("button", { name: /^Color #/ })).toHaveLength(5);
+  fireEvent.change(screen.getByTestId("board-draw-color-custom"), { target: { value: "#abcdef" } });
+  expect(screen.getByTestId("board-draw-stroke-3").firstChild).toHaveStyle({ backgroundColor: "#ABCDEF" });
+  expect(screen.getByTestId("board-draw-color-custom")).toHaveValue("#abcdef");
 });

@@ -107,7 +107,7 @@ export function ThinkingInputEditor({ object, initialValue, viewport, readOnly, 
   const contentWidth = stickyLayout?.width ?? Math.max(fontSize, geometry.width - inset * 2);
   const textHeight = stickyLayout?.measuredHeight ?? estimatedLineCount(intent.draft, contentWidth, fontSize) * fontSize * lineHeight;
   const contentHeight = stickyLayout ? Math.min(stickyLayout.measuredHeight, stickyLayout.height) : Math.min(textHeight, Math.max(fontSize * lineHeight, geometry.height - inset * 2));
-  const verticalAlignment = object.kind === "text" ? "top" : style.verticalAlignment ?? "middle";
+  const verticalAlignment = style.verticalAlignment ?? (object.kind === "text" ? "top" : "middle");
   const verticalSpace = Math.max(inset, geometry.height - contentHeight - inset);
   const textTop = verticalAlignment === "bottom" ? verticalSpace : verticalAlignment === "middle" ? Math.max(inset, (geometry.height - contentHeight) / 2) : inset;
   const position = scenePointFromLocal(geometry, stickyLayout ? { x: (geometry.width - stickyLayout.width) / 2, y: stickyLayout.overflow ? (geometry.height - stickyLayout.height) / 2 : geometry.height / 2 + stickyLayout.top - contentHeight / 2 } : { x: inset, y: textTop });
@@ -145,6 +145,11 @@ export function ThinkingInputEditor({ object, initialValue, viewport, readOnly, 
     className="absolute z-40 m-0 appearance-none resize-none border-0 bg-transparent p-0 shadow-none outline-none focus-visible:outline-none focus-visible:ring-0"
     style={{
       boxSizing: "border-box",
+      backgroundColor: "transparent",
+      borderWidth: 0,
+      borderStyle: "none",
+      boxShadow: "none",
+      outline: "none",
       left: position.x * zoom + viewport.panX,
       top: position.y * zoom + viewport.panY,
       width: Math.max(1, contentWidth * zoom),

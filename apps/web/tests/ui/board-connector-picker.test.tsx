@@ -33,7 +33,12 @@ it('keeps one gated connector after image without replacing the other dock entri
  for(const id of ids)expect(screen.getAllByTestId(id)).toHaveLength(1);
  const entries=ids.map(id=>screen.getByTestId(id));
  for(let index=1;index<entries.length;index++)expect(entries[index-1]!.compareDocumentPosition(entries[index]!)&Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0);
- expect(screen.getByTestId('board-add-connector').querySelector('svg.lucide-chevron-right')).not.toBeNull();
+ const connector=screen.getByTestId('board-add-connector');
+ expect(connector).toHaveAttribute('aria-expanded','false');
+ const chevron=screen.getByTestId('board-add-connector-submenu');
+ expect(chevron).toHaveClass('lucide-chevron-up');
+ expect(chevron).toHaveAttribute('data-state','closed');
+ expect(chevron).not.toHaveClass('rotate-180');
  view.rerender(<BoardBottomDock {...props} connectorEnabled={false}/>);
  expect(screen.queryAllByTestId('board-add-connector')).toHaveLength(0);
  for(const id of ids.filter(id=>id!=='board-add-connector'))expect(screen.getAllByTestId(id)).toHaveLength(1);

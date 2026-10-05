@@ -33,7 +33,11 @@ it("mounts the approved Connector entry in production without enabling Frame or 
     const connector = screen.getByTestId("board-add-connector");
     expect(screen.getAllByTestId("board-add-connector")).toHaveLength(1);
     expect(connector).toBeEnabled();
-    expect(connector.querySelector(".lucide-chevron-right")).not.toBeNull();
+    expect(connector).toHaveAttribute("aria-expanded", "false");
+    const chevron = screen.getByTestId("board-add-connector-submenu");
+    expect(chevron).toHaveClass("lucide-chevron-up");
+    expect(chevron).toHaveAttribute("data-state", "closed");
+    expect(chevron).not.toHaveClass("rotate-180");
     expect(screen.queryByTestId("board-add-frame")).toBeNull();
     fireEvent.keyDown(window, { key: "f" });
     expect(readObjects(doc)).toHaveLength(0);
@@ -41,6 +45,14 @@ it("mounts the approved Connector entry in production without enabling Frame or 
     fireEvent.click(connector);
     expect(connector).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByTestId("board-tool-picker")).toBeVisible();
+    expect(connector).toHaveAttribute("aria-expanded", "true");
+    expect(chevron).toHaveAttribute("data-state", "open");
+    expect(chevron).toHaveClass("rotate-180");
+    fireEvent.click(connector);
+    expect(screen.queryByTestId("board-tool-picker")).toBeNull();
+    expect(connector).toHaveAttribute("aria-expanded", "false");
+    expect(chevron).toHaveAttribute("data-state", "closed");
+    expect(chevron).not.toHaveClass("rotate-180");
     expect(readObjects(doc)).toHaveLength(0);
 
     view.rerender(<CollaborativeEditor {...props} readOnly />);

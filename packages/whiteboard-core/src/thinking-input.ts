@@ -35,6 +35,7 @@ export interface TextAttributes {
   underline?: boolean;
   color?: string;
   alignment?: TextAlignment;
+  verticalAlignment?: 'top' | 'middle' | 'bottom';
   lineHeight?: number;
   list?: TextListStyle;
   link?: string | null;
@@ -49,6 +50,7 @@ export interface CanonicalTextAttributes {
   underline: boolean;
   color: string;
   alignment: TextAlignment;
+  verticalAlignment: 'top' | 'middle' | 'bottom';
   lineHeight: number;
   list: TextListStyle;
   link: string | null;
@@ -104,6 +106,8 @@ export function validateTextAttributes(input: TextAttributes): CanonicalTextAttr
   }
   const alignment = input.alignment ?? 'left';
   if (!(['left', 'center', 'right'] as const).includes(alignment)) throw new Error('TEXT_ALIGNMENT_INVALID');
+  const verticalAlignment = input.verticalAlignment ?? 'middle';
+  if (!(['top', 'middle', 'bottom'] as const).includes(verticalAlignment)) throw new Error('TEXT_VERTICAL_ALIGNMENT_INVALID');
   const list = input.list ?? 'none';
   if (!(['none', 'bullet', 'number'] as const).includes(list)) throw new Error('TEXT_LIST_INVALID');
   return {
@@ -115,6 +119,7 @@ export function validateTextAttributes(input: TextAttributes): CanonicalTextAttr
     underline: input.underline ?? false,
     color: canonicalHex(input.color ?? '#242424', 'TEXT_COLOR_INVALID'),
     alignment,
+    verticalAlignment,
     lineHeight: finiteInRange(input.lineHeight ?? defaults.lineHeight, 0.8, 3, 'TEXT_LINE_HEIGHT_INVALID'),
     list,
     link,
