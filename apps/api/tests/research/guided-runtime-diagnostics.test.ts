@@ -1,3 +1,4 @@
+import { PersistedResearchRuntimeSchema } from "../../src/application/research/guided-runtime-persistence";
 import { z } from "zod";
 import { sourceRelevanceOutputSchema, sourceRelevanceSemanticCodes } from "../../src/application/research/guided-source-relevance-protocol";
 import { quoteReferenceMatchSchema } from "../../src/application/research/guided-report-quote-references";
@@ -17,7 +18,7 @@ function fixture() {
   const state = initialRuntime(session);
   state.reportCheckpoint = { basis: "saved", chapters: [{ sectionId: "saved", body: "Saved chapter", sourceIds: [] }] };
   const saved = structuredClone(state.reportCheckpoint);
-  const write = vi.fn(async (_actor, _id, value, _done) => { C.GuidedResearchRuntime.parse(value); });
+  const write = vi.fn(async (_actor, _id, value, _done) => { PersistedResearchRuntimeSchema.parse(value); });
   const store: GuidedRuntimeStore = { read: vi.fn(async () => structuredClone(state)), claim: vi.fn(async () => ({ state: structuredClone(state), replay: false })), write };
   const record = vi.fn();
   const debug = { record } as unknown as DebugTracePort;

@@ -180,3 +180,142 @@ describe("finite report claim boundaries", () => {
     expect(assessReportClaimBoundaries(`安装风险不是产品固有缺陷。[${quote}](#answer-1)`, [evidence(quote)]).ok).toBe(false);
   });
 });
+
+const plannedRaw = readFileSync(new URL('./fixtures/planned-count-5364/report.md', import.meta.url), 'utf8');
+const plannedIntro = '以下建议均为待验证的行动方案，需在获取真人证据后方可执行：';
+const plannedRow = plannedRaw.split('\n').find(line => line.includes('方法：实地测绘'))!;
+const plannedTable = '| 目标 | 步骤 | 条件 | 反例 | 指标 |\n|---|---|---|---|---|\n'+plannedRow;
+describe('local planned measurement interpretation', () => {
+ it('keeps the preserved complete raw plan interpretation', () => {
+  expect(assessReportClaimBoundaries(plannedRaw, []).missing).not.toContain('unsupported_executed_measurement');
+ });
+ it.each([
+  '不兼容项为零仅支持本次检测未发现冲突。',
+  plannedRow,
+  '```markdown\n'+plannedIntro+'\n```\n# '+plannedIntro+'\n'+plannedTable,
+  '# '+plannedIntro+'\n'+plannedTable+'\n```markdown\n'+plannedIntro+'\n```',
+  '<!-- '+plannedIntro+' -->\n# '+plannedIntro+'\n'+plannedTable,
+  '# '+plannedIntro+'\n'+plannedTable+'\n<!-- '+plannedIntro+' -->',
+  '```markdown\n'+plannedIntro+'\n'+plannedTable+'\n```\n## 已执行的检测结果\n'+plannedTable,
+  '> '+plannedIntro+'\n\n'+plannedTable,
+  plannedIntro+'\n## 已执行的检测结果\n'+plannedTable,
+  plannedIntro+'\n'+plannedTable+'\n## 检测结果\n'+plannedTable,
+  plannedIntro+'\n## 已执行的检测结果\n'+plannedRow,
+  plannedIntro+'\n普通段落。\n# '+plannedIntro+'\n'+plannedRow,
+  plannedIntro+'\n本次检测结果发现不兼容项为零。',
+  '# '+plannedIntro+'\n'+plannedRow,
+  plannedIntro+'\n本次实际检测不兼容项为零，仅支持本次检测未发现冲突。',
+  plannedIntro+'\n'+plannedRow.replace('注意：', '注意：本次实际检测'),
+  plannedIntro+'\n'+plannedRow+'\n本次检测不兼容项为零。',
+  plannedIntro+'\n'+plannedRow.replace('指标：记录', '指标：本次已完成检测并记录'),
+ ])('does not exempt actual or unscoped counts: %s', text => {
+  expect(assessReportClaimBoundaries(text, []).missing).toContain('unsupported_executed_measurement');
+ });
+ it('preserves exact source-bound actual observations', () => {
+  const quote = '本次检测不兼容项为零。';
+  expect(assessReportClaimBoundaries(quote+'['+quote+'](#answer-1)', [evidence(quote)]).ok).toBe(true);
+  expect(assessReportClaimBoundaries(quote+'['+quote+'](#answer-1)', [{...evidence(quote), taskKey:null}]).missing).toContain('unsupported_executed_measurement');
+ });
+ it('keeps a genuine local conditional', () => {
+  expect(assessReportClaimBoundaries('若检测发现不兼容项为零，则仅支持本次检测未发现冲突。', []).ok).toBe(true);
+ });
+});
+
+const scenarioRoot = new URL('./fixtures/scenario-cause-5371/', import.meta.url);
+const scenarioRaw = readFileSync(new URL('report.md', scenarioRoot), 'utf8');
+const scenarioSource = JSON.parse(readFileSync(new URL('source.json', scenarioRoot), 'utf8'));
+const scenarioEvidence = buildReportEvidenceIndex(scenarioSource.documents.find((d: {step:string}) => d.step === 'runs'));
+describe('finite scenario cause boundaries', () => {
+ it('rejects the preserved raw/source report cause', () => {
+  expect(assessReportClaimBoundaries(scenarioRaw, scenarioEvidence).missing).toContain('unsupported_scenario_cause');
+ });
+ it('rejects actual raw line57 with its original citations', () => {
+  const line = scenarioRaw.split('\n')[56];
+  if (!line) throw new Error('Missing preserved line57');
+  expect(assessReportClaimBoundaries(line, scenarioEvidence).missing).toContain('unsupported_scenario_cause');
+ });
+ it.each([
+  '不同物理环境（如厨房布局差异）带来的情境异质性。',
+  '本次对这两个安装场景逐项对照检测确认厨房布局差异导致安装结果差异，原因尚待验证。',
+  '厨房布局差异并非没有导致安装结果差异这一假设尚待验证。',
+  '厨房布局差异不可能不导致安装结果差异，原因尚待验证。',
+  '不可能不是厨房布局差异导致安装结果差异这一假设尚待验证。',
+  '不能说不是厨房布局差异导致安装结果差异这一假设尚待验证。',
+  '已经确认厨房布局差异导致安装结果差异，原因尚待验证。',
+  '已确认是厨房布局差异导致安装结果差异，原因尚待验证。',
+  '已证实确实是厨房布局差异导致安装结果差异，原因尚待验证。',
+  '已确认明显有充分依据确实就是厨房布局差异导致安装结果差异，原因尚待验证。',
+  '假设预算不足，因此厨房布局差异导致安装结果差异。',
+  '假设厨房布局差异导致安装结果差异，但厨房布局差异决定安装结果差异。',
+  '厨房布局差异导致安装结果差异。',
+  '安装结果差异由厨房布局差异造成。',
+  '可能需要补充预算，但厨房布局差异导致安装结果差异。',
+  '不能否认厨房布局差异导致安装结果差异。',
+  '不能说不是厨房布局差异导致安装结果差异。',
+  '不可能不是厨房布局差异导致安装结果差异。',
+  '不会完全不是厨房布局差异导致安装结果差异。',
+  '不能说完全不是厨房布局差异导致安装结果差异。',
+  '不能说这不是厨房布局差异导致安装结果差异。',
+  '厨房布局差异并非没有导致安装结果差异。',
+  '厨房布局差异不可能不导致安装结果差异。',
+  '并非不能断言厨房布局差异导致安装结果差异。',
+  '并非不能确认是厨房布局差异导致安装结果差异，原因尚待验证。',
+  '不能确认预算充足且已经证实是厨房布局差异导致安装结果差异，原因尚待验证。',
+  '不能确认预算充足并已确认是厨房布局差异导致安装结果差异。',
+  '不能确认预算是否充足然后事实是厨房布局差异导致安装结果差异。',
+  '无法确认预算金额结果是厨房布局差异导致安装失败。',
+  '不能确认明显明显明显明显明显明显明显明显明显是厨房布局差异导致安装失败。',
+  '不能确认明显明显明显明显明显明显明显明显明显是厨房布局差异导致安装失败，原因尚待验证。',
+  '并非完全不能断言厨房布局差异导致安装结果差异。',
+  '预算可能不足，厨房布局差异导致安装结果差异，预算如何呢？',
+  '厨房布局差异导致安装结果差异，预算尚待验证。',
+  '厨房布局差异导致安装结果差异这一假设尚待验证，办公室布局差异决定安装结果差异。',
+  '厨房布局差异可能导致安装结果差异，但是厨房布局差异决定安装结果差异。',
+ ])('rejects an unproved affirmative cause: %s', claim => {
+  const quote = '另一个场景安装顺利，不能推断普遍发生。';
+  expect(assessReportClaimBoundaries(claim+'['+quote+'](#answer-1)', [evidence(quote)]).missing).toContain('unsupported_scenario_cause');
+ });
+ it.each([
+  '厨房布局差异导致安装结果差异这一假设尚待验证',
+  '厨房布局差异导致安装结果差异，原因尚待验证',
+  '已确认预算充足，厨房布局差异导致安装结果差异，原因尚待验证。',
+  '厨房布局差异可能导致安装结果差异，还需核实。',
+  '假设厨房布局差异导致安装结果差异，还需现场验证。',
+  '厨房布局差异导致安装结果差异吗？',
+  '厨房布局差异导致安装结果差异？',
+  '不同物理环境可能带来情境异质性，原因尚待验证。',
+  '不能断言厨房布局差异导致安装结果差异。',
+  '不能断言厨房布局差异并非没有导致安装结果差异。',
+  '并非厨房布局差异导致安装结果差异。',
+  '不是厨房布局差异导致安装结果差异。',
+  '厨房布局差异并非导致安装结果差异。',
+  '尚无法确认厨房布局差异导致安装结果差异。',
+  '尚不能确认是厨房布局差异导致安装结果差异，原因尚待验证。',
+  '尚无法证实确实是厨房布局差异导致安装结果差异，原因尚待验证。',
+  '尚无法确认这一原因是厨房布局差异导致安装结果差异。',
+  '若厨房布局差异导致安装结果差异，则需要进一步验证。',
+  '两个安装场景结果不同，可能与布局、设备或其他未知因素有关，不能确定原因。',
+ ])('keeps local uncertainty or denial: %s', text => {
+  expect(assessReportClaimBoundaries(text, []).missing).not.toContain('unsupported_scenario_cause');
+ });
+ it('keeps only the same source-bound observed comparison', () => {
+  const quote = '本次对这两个安装场景逐项对照检测确认厨房布局差异导致安装结果差异。';
+  const linked = quote+'['+quote+'](#answer-1)';
+  expect(assessReportClaimBoundaries(linked, [evidence(quote)]).missing).not.toContain('unsupported_scenario_cause');
+  expect(assessReportClaimBoundaries(linked, [{...evidence(quote),taskKey:null}]).missing).toContain('unsupported_scenario_cause');
+  expect(assessReportClaimBoundaries('厨房布局差异导致安装结果差异。['+quote+'](#answer-1)', [evidence(quote)]).missing).toContain('unsupported_scenario_cause');
+  expect(assessReportClaimBoundaries(quote+'[另一个场景安装顺利。](#answer-1)', [evidence(quote)]).missing).toContain('unsupported_scenario_cause');
+  const opinion = '我认为'+quote;
+  expect(assessReportClaimBoundaries(opinion+'['+opinion+'](#answer-1)', [evidence(opinion)]).missing).toContain('unsupported_scenario_cause');
+ });
+ it('keeps the existing defect-exclusion boundary on actual line33', () => {
+  const line = scenarioRaw.split('\n')[32];
+  if (!line) throw new Error('Missing preserved line33');
+  expect(assessReportClaimBoundaries(line, scenarioEvidence).missing).toContain('unqualified_defect_exclusion');
+ });
+ it('does not turn a participant opinion into cause proof', () => {
+  const quote = '我认为厨房布局差异导致安装结果差异。';
+  expect(assessReportClaimBoundaries('厨房布局差异导致安装结果差异。['+quote+'](#answer-1)', [evidence(quote)]).missing).toContain('unsupported_scenario_cause');
+  expect(assessReportClaimBoundaries('受访者原话：['+quote+'](#answer-1)。这是未验证观点，原因尚不确定。', [evidence(quote)]).missing).not.toContain('unsupported_scenario_cause');
+ });
+});

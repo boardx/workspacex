@@ -1,0 +1,12 @@
+
+ RUN  v2.1.9 /Users/shenyanbin/Documents/Codex/2026-10-04/task-3/capability-pr/apps/api
+
+ ✓ tests/agent-runtime/create-agent-repo-guard.test.ts (15 tests) 3ms
+ ✓ tests/agent/agent-directory-repo-guard.test.ts (11 tests) 3ms
+ ✓ tests/agent/published-capability-graph-pins.test.ts (2 tests) 2ms
+
+ Test Files  3 passed (3)
+      Tests  28 passed (28)
+   Start at  22:01:46
+   Duration  1.15s (transform 466ms, setup 0ms, collect 869ms, tests 7ms, environment 0ms, prepare 76ms)
+

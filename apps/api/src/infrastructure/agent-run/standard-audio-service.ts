@@ -16,7 +16,7 @@ import {decodeWav} from './audio-wav-decoder';
 import {transcribeAudioChunk} from './audio-asr-chunk';
 const hash=(s:string|Uint8Array)=>createHash('sha256').update(s).digest('hex');
 export class DefaultStandardAudioService implements StandardAudioService {
- constructor(private owner:NativeSessionOwner,private inputs:NativeRunInputs,private sessions:(bound:NativeResolved)=>ImageSession,private authority:Pick<ToolExecutionAuthority,'check'>,private identities:Pick<IdentityRepository,'findOrganization'>,private objects:ObjectStore,private provider:AsrProviderPort){}
+ constructor(private owner:NativeSessionOwner,private inputs:NativeRunInputs,private sessions:(bound:NativeResolved)=>ImageSession,private authority:Pick<ToolExecutionAuthority,'check'>,private identities:Pick<IdentityRepository,'findOrganization'>,private objects:ObjectStore,private provider:AsrProviderPort,private readonly requestAccounting=false){}
  async transcribe(context:AudioContext,raw:z.infer<typeof AudioTranscribeInput>){
   const input=AudioTranscribeInput.parse(raw),signal=AbortSignal.timeout(L.deadlineMs);
   const authorize=async()=>{signal.throwIfAborted();if(!(await this.authority.check({...context,toolName:AUDIO_TRANSCRIBE_TOOL,toolArgs:input})).allowed)throw new Error('audio_transcription_denied');};
@@ -52,7 +52,7 @@ export class DefaultStandardAudioService implements StandardAudioService {
      const index=next++,chunk=decoded.chunks[index];if(!chunk)return;
      try{
       await authorize();await checkSource();await this.owner.resolve(context.bindingId,context);
-      const pcm=await readChunk(chunk),text=await transcribeAudioChunk(this.provider,pcm,AbortSignal.any([signal,cancel.signal]));
+      const pcm=await readChunk(chunk),text=await transcribeAudioChunk(this.provider,pcm,AbortSignal.any([signal,cancel.signal]),this.requestAccounting?{kind:'run',orgId:context.orgId,runId:context.parentRunId,attemptId:context.attemptId,leaseEpoch:context.leaseEpoch}:undefined);
       segments[index]={id:`chunk-${index}`,startMs:chunk.startMs,endMs:chunk.endMs,text};
      }catch(error){firstError??=error;cancel.abort();throw error;}
     }

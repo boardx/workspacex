@@ -116,3 +116,16 @@ export function diagnosticsReaderConfig(): PgConfig {
     password: credential("DIAG_DB_PASSWORD", "app_diag_ro_dev"),
   };
 }
+
+/** Explicit separate catalog credential; absent config disables the catalog, never falls back. */
+export function platformOrgCatalogConfig(): PgConfig | null {
+  if (!process.env.PLATFORM_ORG_CATALOG_DB_USER && !process.env.PLATFORM_ORG_CATALOG_DB_PASSWORD) return null;
+  const user = req("PLATFORM_ORG_CATALOG_DB_USER");
+  if ([process.env.APP_DB_USER ?? "app_rw", process.env.MIGRATION_DB_USER ?? "postgres", process.env.DIAG_DB_USER ?? "app_diag_ro"].includes(user)) {
+    throw new Error("catalog credential must be separate");
+  }
+  const password = req("PLATFORM_ORG_CATALOG_DB_PASSWORD");
+  if (process.env.WORKSPACEX_DEPLOY_PROFILE && password.length < 16) throw new Error("invalid cloud catalog credential");
+  return { ...transport(), host: req("PGHOST", "127.0.0.1"), port: port(), database: req("PGDATABASE", "workspacex"),
+    user, password };
+}

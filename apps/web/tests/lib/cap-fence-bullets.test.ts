@@ -174,3 +174,11 @@ describe("capFenceBulletsToCapacity", () => {
     expect(lines.filter((l) => l.startsWith("- 伙伴"))).toHaveLength(0);
   });
 });
+
+it("shares one capacity across repeated and equivalent journey section headings", () => {
+  const source = "模板: journey-map\n## 阶段5 行为\n- a\n- b\n## 行为 · 阶段5\n- c\n- d\n- e";
+  const result = capFenceBulletsToCapacity(source, new Map([["行为 · 阶段5", 4]]));
+  expect(result).toContain("- d");
+  expect(result).not.toContain("- e");
+  expect(result).toContain("## 阶段5 行为");
+});

@@ -5,7 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { listCapabilities } from "./live-capabilities";
 import { getMyFeedbackDraftCount } from "./live-feedback";
 import type { AdminNavCountSource } from "./admin-nav-counts";
-import type { AdminModuleKey } from "./mock/admin";
+import type { AdminModuleKey } from "./admin-nav-metadata";
 import { queryKeys } from "./query-keys";
 
 /**

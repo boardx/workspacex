@@ -1,0 +1,77 @@
+{
+  "kind": "read-only-public-documentation-snapshot",
+  "models": 297,
+  "observedAt": "2026-10-05T05:28:14Z",
+  "sourceChecks": [
+    {
+      "url": "https://help.aliyun.com/zh/model-studio/text-generation-model",
+      "matches": true,
+      "contentSha256": "3d82b317a81d7251711f3662ce337c1366b4c1f2bb222d14927d81f853cd8eec"
+    },
+    {
+      "url": "https://help.aliyun.com/zh/model-studio/vision-model",
+      "matches": true,
+      "contentSha256": "915b830d4984dd771bc04f970c9630897fb7044a9734f849eae7caa8a2a42e44"
+    },
+    {
+      "url": "https://help.aliyun.com/zh/model-studio/image-model",
+      "matches": true,
+      "contentSha256": "da9ae73c096888a3167551db91a51247df318d89fb719899b8c3178ed805789d"
+    },
+    {
+      "url": "https://help.aliyun.com/zh/model-studio/video-generate-edit-model",
+      "matches": true,
+      "contentSha256": "0bc197661fcbb925152ee0e31dd2afbc9c549eddd7acc1d8983e7d571ba98652"
+    },
+    {
+      "url": "https://help.aliyun.com/zh/model-studio/tts-model",
+      "matches": true,
+      "contentSha256": "d910a4f1e5769400a4ab102092232edcd9d22dfff4ba32d72bfc37f76e5d25e8"
+    },
+    {
+      "url": "https://help.aliyun.com/zh/model-studio/asr-model",
+      "matches": true,
+      "contentSha256": "52a6d2c6216618437248f5da90de1acf5a199f81d8148e52d632cdf58f7b1b13"
+    },
+    {
+      "url": "https://help.aliyun.com/zh/model-studio/embedding-rerank-model",
+      "matches": true,
+      "contentSha256": "23b091a3140c0d8919932ee3abcbdb6624fa1a22155fe6a00bad1e9f4564b82a"
+    },
+    {
+      "url": "https://help.aliyun.com/zh/model-studio/s2s-model",
+      "matches": true,
+      "contentSha256": "255d99c8441dafde0a4caf734629611a4d49b2330088fd5307057835bfa9137a"
+    },
+    {
+      "url": "https://help.aliyun.com/zh/model-studio/omni",
+      "matches": true,
+      "contentSha256": "70f013d4e2b555e87c1efb26bb160579b612530614b5918a27c1df373baf1e4d"
+    },
+    {
+      "url": "https://help.aliyun.com/zh/model-studio/fun-music",
+      "matches": true,
+      "contentSha256": "e8dc76fe19a0d034658a4ceaff2ed7e7b1746e64d64c02e97d5db29e731681f9"
+    },
+    {
+      "url": "https://help.aliyun.com/zh/model-studio/happyoyster-overview",
+      "matches": true,
+      "contentSha256": "aa8bd5b5d26266904134edaef74dba8428155840f499001cbf4fde5b2d20eef9"
+    },
+    {
+      "url": "https://help.aliyun.com/zh/model-studio/tripo-3d-generation-guide",
+      "matches": true,
+      "contentSha256": "cf77c89bfb0f2e0085cb545d0712e33dd3739d291b89ef906d42488d862cc201"
+    },
+    {
+      "url": "https://help.aliyun.com/zh/model-studio/decision-model-preview",
+      "matches": true,
+      "contentSha256": "51a432992d73d035349f5912a51136b11d347cb8c0fde751e6d3b7bf27da8966"
+    },
+    {
+      "url": "https://help.aliyun.com/zh/model-studio/models",
+      "matches": true,
+      "contentSha256": "45b33aadc0577aab26fce4f34b613705f929a57c4947b230b9bca8a842b49a5e"
+    }
+  ]
+}

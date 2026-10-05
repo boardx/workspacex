@@ -62,7 +62,34 @@ docker info >/dev/null 2>&1 || fail "Docker daemon unavailable"
 docker buildx version >/dev/null 2>&1 || fail "Docker buildx unavailable"
 
 work=$(mktemp -d /tmp/workspacex-cn-release.XXXXXX)
-trap 'rm -rf "$work"' EXIT
+# Monitor mode gives each owned background build its own process group, including
+# Docker clients and their descendants. Never kill unrelated host processes.
+set -m
+pids=()
+names=()
+cleanup_owned_builds(){
+  local status=$? pid deadline alive
+  trap - EXIT
+  trap '' TERM INT
+  for pid in "${pids[@]}"; do kill -TERM -- "-$pid" 2>/dev/null || true; done
+  deadline=$(( SECONDS + 2 ))
+  while (( SECONDS < deadline )); do
+    alive=0
+    for pid in "${pids[@]}"; do
+      if kill -0 -- "-$pid" 2>/dev/null; then alive=1; fi
+    done
+    (( alive == 1 )) || break
+    sleep 0.05
+  done
+  for pid in "${pids[@]}"; do kill -KILL -- "-$pid" 2>/dev/null || true; done
+  for pid in "${pids[@]}"; do wait "$pid" 2>/dev/null || true; done
+  pids=(); names=()
+  rm -rf "$work"
+  exit "$status"
+}
+trap cleanup_owned_builds EXIT
+trap 'exit 143' TERM
+trap 'exit 130' INT
 mkdir "$work/agent"
 git -C "$REPOSITORY_DIR" archive "$revision" apps/deep-agent-service | tar -x -C "$work/agent" --strip-components=2
 
@@ -113,13 +140,12 @@ build_and_push(){
   [[ "$published_revision" == "$revision" ]] || fail "published $service image has a different revision"
 }
 cd "$REPOSITORY_DIR"
-pids=()
-names=()
 wait_for_builds(){
   local failed=0 index pid name log
   for index in "${!pids[@]}"; do
     pid=${pids[$index]}; name=${names[$index]}; log="$work/$name.build.log"
     if wait "$pid"; then cat "$log"; else cat "$log" >&2; failed=1; fi
+    unset 'pids[index]' 'names[index]'
   done
   pids=(); names=()
   (( failed == 0 )) || fail "one or more image builds failed"

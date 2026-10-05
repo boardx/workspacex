@@ -1,0 +1,15 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /private/tmp/wsx-model-testbench-core/apps/web
+
+ ✓ tests/lib/model-test-money.test.ts (20 tests) 6ms
+ ✓ tests/lib/live-platform-model-test.test.ts (6 tests) 14ms
+ ✓ tests/ui/platform-model-testbench.test.tsx (23 tests) 3668ms
+   ✓ platform model testbench live API interaction > requires explicit bounds/consent and synchronously prevents duplicate paid starts 313ms
+   ✓ platform model testbench live API interaction > polls queued execution using GET only and displays successful held usage independently 2066ms
+
+ Test Files  3 passed (3)
+      Tests  49 passed (49)
+   Start at  15:13:22
+   Duration  5.29s (transform 237ms, setup 436ms, collect 444ms, tests 3.69s, environment 771ms, prepare 192ms)
+

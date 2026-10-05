@@ -525,6 +525,8 @@ export default {
       // ⚠ 补上之后必须把 `.harness/state/rewrite-coverage-allowlist.json` 里的
       //   `organizations` 删掉：棘轮名单只能变短，留着一条已补好的豁免
       //   等于给未来的回归留一扇没人看守的门（`lint-rewrite-coverage` 会报陈旧并变红）。
+      { source: `${prefix}/organization/core-model/:path*`, destination: `${apiOrigin}/organization/core-model/:path*` },
+      { source: `${prefix}/organization/core-model`, destination: `${apiOrigin}/organization/core-model` },
       { source: `${prefix}/organizations`, destination: `${apiOrigin}/organizations` },
       { source: `${prefix}/organizations/:path*`, destination: `${apiOrigin}/organizations/:path*` },
       // invite-link-and-reads delta ①：激活落地页 `/auth/activate` 现在真的会打

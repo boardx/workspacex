@@ -1,0 +1,95 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/research-5056-fixes/workspacex/apps/api
+
+ ❯ tests/research/guided-supplement-task-scope.test.ts (6 tests | 6 failed) 16ms
+   × binds a sibling supplement to its exact task without crossing sections (crossSection=false) 9ms
+     → expected { …(3) } to deeply equal { …(3) }
+   × binds a sibling supplement to its exact task without crossing sections (crossSection=true) 3ms
+     → expected { …(3) } to deeply equal { …(3) }
+   × does not guess a question/task binding when missing 1ms
+     → expected true to be false // Object.is equality
+   × does not guess a question/task binding when changed-question 1ms
+     → expected true to be false // Object.is equality
+   × does not guess a question/task binding when other-section 1ms
+     → expected true to be false // Object.is equality
+   × does not replay a sibling's already successful identical primary query under the first task 2ms
+     → expected [ [ …(2) ], [ …(2) ] ] to have a length of 1 but got 2
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 6 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/research/guided-supplement-task-scope.test.ts > binds a sibling supplement to its exact task without crossing sections (crossSection=false)
+ FAIL  tests/research/guided-supplement-task-scope.test.ts > binds a sibling supplement to its exact task without crossing sections (crossSection=true)
+AssertionError: expected { …(3) } to deeply equal { …(3) }
+
+- Expected
++ Received
+
+  Object {
+    "questionIds": Array [
+-     "chapter:0/question:1",
++     "chapter:0/question:0",
+    ],
+-   "taskId": "task-1",
++   "taskId": "task-0",
+    "url": "https://example.org/target-supplement",
+  }
+
+ ❯ tests/research/guided-supplement-task-scope.test.ts:47:58
+     45| it.each([false, true])("binds a sibling supplement to its exact task w…
+     46|   const f = fixture(crossSection); await f.run();
+     47|   expect(f.scans.find(scan => scan.url === f.targetUrl)).toEqual({ url…
+       |                                                          ^
+     48|   const source = f.state.sources.find(source => source.url === f.targe…
+     49|   expect(source).toBeDefined(); expect(source.taskId).toBe(f.task.id);…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/6]⎯
+
+ FAIL  tests/research/guided-supplement-task-scope.test.ts > does not guess a question/task binding when missing
+ FAIL  tests/research/guided-supplement-task-scope.test.ts > does not guess a question/task binding when changed-question
+ FAIL  tests/research/guided-supplement-task-scope.test.ts > does not guess a question/task binding when other-section
+AssertionError: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ tests/research/guided-supplement-task-scope.test.ts:66:76
+     64|   f.state.tasks.forEach(task => { task.status = "succeeded"; });
+     65|   await f.run();
+     66|   expect(f.search.mock.calls.some(([query]) => query === f.targetQuery…
+       |                                                                            ^
+     67|   expect(f.scans.some(scan => scan.url === f.targetUrl)).toBe(false);
+     68|   expect(f.state.sources.some(source => source.url === f.targetUrl)).t…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/6]⎯
+
+ FAIL  tests/research/guided-supplement-task-scope.test.ts > does not replay a sibling's already successful identical primary query under the first task
+AssertionError: expected [ [ …(2) ], [ …(2) ] ] to have a length of 1 but got 2
+
+- Expected
++ Received
+
+- 1
++ 2
+
+ ❯ tests/research/guided-supplement-task-scope.test.ts:74:78
+     72|   const hit = f.primary.get(original)!; f.primary.delete(original); f.…
+     73|   await f.run();
+     74|   expect(f.search.mock.calls.filter(([query]) => query === f.targetQue…
+       |                                                                              ^
+     75|   expect(f.state.tasks[0]!.searchAttempts!.some(attempt => attempt.que…
+     76| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/6]⎯
+
+ Test Files  1 failed (1)
+      Tests  6 failed (6)
+   Start at  20:39:55
+   Duration  904ms (transform 448ms, setup 0ms, collect 732ms, tests 16ms, environment 0ms, prepare 44ms)
+
+undefined
+/Users/shenyangjun/.codex/worktrees/research-5056-fixes/workspacex/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run --config /private/tmp/research-5394-unit.config.ts

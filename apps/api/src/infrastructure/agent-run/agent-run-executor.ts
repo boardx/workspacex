@@ -1,3 +1,4 @@
+import {type RunAiAdmission} from "../../application/agent-run/priced-run-model";
 import type { AgentHandoffStore } from "../../application/agent/agent-handoff";
 import { structuredErrorLog } from "../../application/ports/logger.port";
 import type { AgentWorkflowStartPort } from "../../application/agent/request-agent-workflow-start";
@@ -192,6 +193,7 @@ export class AgentRunExecutor implements AgentRunExecutorPort {
     private readonly workflowStarts?: AgentWorkflowStartPort,
     /** AG07 —— `request_handoff` 中断登记 handoff 行的存储。可选，同上面每一个既有理由；生产合成注入 `PgAgentHandoffStore`。 */
     private readonly handoffs?: AgentHandoffStore,
+    private readonly aiAdmission?:RunAiAdmission,
   ) {}
 
   /**
@@ -224,7 +226,7 @@ export class AgentRunExecutor implements AgentRunExecutorPort {
       });
     }
     const executed = await executeQueuedRuns({
-      runs: this.runs, model: this.model, clock: this.clock, log: this.log, usage: this.usage, edition: this.edition,
+      runs: this.runs, model: this.model, aiAdmission:this.aiAdmission, clock: this.clock, log: this.log, usage: this.usage, edition: this.edition,
       files: this.files, knowledge: this.knowledge, memoryCards: this.memoryCards, memoryChange: this.memoryChange, contextSnapshots: this.contextSnapshots, toolTrace: this.toolTrace,
       canvasTemplates: this.canvasTemplates,
       runImages: this.runImages,
@@ -264,7 +266,7 @@ export class AgentRunExecutor implements AgentRunExecutorPort {
       );
       if (carried > 0) {
         await executeQueuedRuns({
-          runs: this.runs, model: this.model, clock: this.clock, log: this.log, usage: this.usage, edition: this.edition,
+          runs: this.runs, model: this.model, aiAdmission:this.aiAdmission, clock: this.clock, log: this.log, usage: this.usage, edition: this.edition,
           files: this.files, knowledge: this.knowledge, memoryCards: this.memoryCards, memoryChange: this.memoryChange, contextSnapshots: this.contextSnapshots, toolTrace: this.toolTrace,
           canvasTemplates: this.canvasTemplates, runImages: this.runImages,
           sandbox: this.sandbox, objects: this.objects, planLedger: this.planLedger,

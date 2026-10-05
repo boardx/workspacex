@@ -57,6 +57,8 @@ export interface RecordingSessionLifecycleState extends RecordingSessionState {
 export interface SessionLifecycleStore extends SessionStore {
   /** The extended read. `session()` stays as F69 declared it so `capture.ts` is untouched. */
   lifecycleSession(sessionId: string): Promise<RecordingSessionLifecycleState | undefined>;
+  /** Accounting admission locks the lifecycle until its durable start commits. */
+  lockedLifecycleSession?(sessionId: string): Promise<RecordingSessionLifecycleState | undefined>;
   /** Ending is one write: `ended_at`, `duration_ms` and `materialize_job_id` together. */
   end(input: {
     readonly sessionId: string;

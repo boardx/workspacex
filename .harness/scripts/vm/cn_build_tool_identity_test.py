@@ -56,6 +56,8 @@ class Identity(unittest.TestCase):
   sys.path.insert(0,str(D.parents[2]/'.agents/skills/workspacex-cn-release/scripts'))
   from test_validate_preflight import fixture
   prebuild=json.loads(json.dumps(fixture()).replace('a'*40,APP).replace('2026.9.15-cn.2',binding['release']).replace('attempt-1',binding['attemptId']))
+  prebuild['phase']='artifact-build'
+  for key in ('baselineSha','migrationPlanSha256','baselineSchemaSha256','baselineLedgerContract','baselineSchemaContract','baselinePermissionContract'):prebuild['checks']['bootstrap.compatibility']['metadata'].pop(key)
   prebuild['issuedAt']=(datetime.datetime.now(datetime.timezone.utc)-datetime.timedelta(minutes=1)).strftime('%Y-%m-%dT%H:%M:%SZ');prebuild['expiresAt']=(datetime.datetime.now(datetime.timezone.utc)+datetime.timedelta(minutes=10)).strftime('%Y-%m-%dT%H:%M:%SZ')
 
   return binding,manifest,seal,prebuild
@@ -185,9 +187,9 @@ class Identity(unittest.TestCase):
   _,_,_,prebuild=self.receipt_fixture();raw=json.dumps(prebuild).encode();stored=validate(prebuild)
   validator=D.parents[2]/'.agents/skills/workspacex-cn-release/scripts/validate_preflight.py'
   with patch.object(m,'private_read',return_value=validator.read_bytes()):
-   self.assertEqual(m.validate_full_prebuild(validator,raw,json.dumps(stored).encode()),stored)
+   self.assertEqual(m.validate_full_prebuild(validator,raw,json.dumps(stored).encode(),artifact_only=True),stored)
    stored['ready']=False
-   with self.assertRaises(ValueError):m.validate_full_prebuild(validator,raw,json.dumps(stored).encode())
+   with self.assertRaises(ValueError):m.validate_full_prebuild(validator,raw,json.dumps(stored).encode(),artifact_only=True)
  def test_full_gate_rejects_missing_schema_or_check(self):
   from validate_preflight import validate,ContractError
   for bad in ('schema','missing-check','failed-check','static-dynamic'):

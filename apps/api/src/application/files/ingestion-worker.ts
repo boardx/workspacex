@@ -108,12 +108,13 @@ export async function replayIngestionRun(
   workerId: string,
   reviewGate: ReviewGate = NEVER_NEEDS_REVIEW,
   respectActiveLease = false,
+  requestedBy?:string,
 ): Promise<IngestionTickResult> {
   const job = respectActiveLease
     ? await deps.outbox.claimForVersion(orgId, artifactVersionId, workerId, true)
     : await deps.outbox.claimForVersion(orgId, artifactVersionId, workerId);
   if (job === null) return { claimed: false };
-  return processClaimedJob(deps, orgId, job, reviewGate);
+  return processClaimedJob(deps, orgId, job, reviewGate,requestedBy);
 }
 
 async function processClaimedJob(
@@ -121,6 +122,7 @@ async function processClaimedJob(
   orgId: OrgId,
   job: { readonly id: string; readonly orgId: OrgId; readonly artifactVersionId: string; readonly step: IngestionStep; readonly attempts: number },
   reviewGate: ReviewGate,
+  requestedBy?:string,
 ): Promise<IngestionTickResult> {
   if (job.attempts > MAX_ATTEMPTS) {
     await deps.outbox.markFailed(orgId, job.id, `giving up after ${job.attempts} attempts`);
@@ -128,7 +130,7 @@ async function processClaimedJob(
   }
 
   try {
-    await runStep(deps, job.orgId, job.artifactVersionId, job.step);
+    await runStep(deps, job.orgId, job.artifactVersionId, job.step,{jobId:job.id,attempt:job.attempts},requestedBy);
   } catch (e) {
     await deps.outbox.markFailed(orgId, job.id, e instanceof Error ? e.message : String(e));
     return { claimed: true, step: job.step, artifactVersionId: job.artifactVersionId };
@@ -152,8 +154,10 @@ async function runStep(
   orgId: OrgId,
   artifactVersionId: string,
   step: IngestionStep,
+  ingestionClaim?:{jobId:string;attempt:number},
+  requestedBy?:string,
 ): Promise<void> {
-  if (step === "INDEXED" && deps.indexer) return deps.indexer.index({orgId,artifactVersionId});
+  if (step === "INDEXED" && deps.indexer) return deps.indexer.index({orgId,artifactVersionId,...(ingestionClaim?{ingestionClaim}:{}),...(requestedBy?{requestedBy}:{})});
   if (step === "EXTRACTED") return runExtractedStep(deps, orgId, artifactVersionId);
   if (step === "SEGMENTED") return runSegmentedStep(deps, orgId, artifactVersionId);
 }

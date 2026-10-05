@@ -1,3 +1,4 @@
+import {inheritRootAssembly} from "./root-input-source-provenance";
 import { bindNativeInvocation } from "./native-invocation";
 import type { NativeSessionOwner } from "./native-session-owner";
 import { assertCurrentRunLease } from "./run-lease";
@@ -37,10 +38,11 @@ export async function invokeKernel(
   onProgress: (event: ModelCallProgressEvent) => Promise<void>,
   onDelta: (delta: string, metadata?: ModelDeltaMetadata) => Promise<void>,
   native?: { owner: NativeSessionOwner; logReleaseFailure: () => void },
+  onInvocationStart?: () => void,
 ): Promise<ModelCallCompletion> {
   await assertCurrentRunLease();
   const bound = native ? await bindNativeInvocation(native.owner, input) : undefined;
-  if (bound) input = bound.input;
+  if (bound) { inheritRootAssembly(input,bound.input); input = bound.input; }
   let retainSession = false;
   try {
   // `supportsProgress`, when the port implements it (today: only `RoutingModelCallPort`),
@@ -53,15 +55,18 @@ export async function invokeKernel(
   const wantsProgress = completeWithProgress !== undefined
     && (model.supportsProgress ? model.supportsProgress(input.modelProvider) : true);
   if (wantsProgress && completeWithProgress) {
+    onInvocationStart?.();
     const completion = await completeWithProgress(input, onProgress, onDelta);
     retainSession = Boolean(completion.interrupted || completion.paused);
     return completion;
   }
   if (model.completeStream) {
+    onInvocationStart?.();
     const completion = await model.completeStream(input, onDelta);
     retainSession = Boolean(completion.interrupted || completion.paused);
     return completion;
   }
+  onInvocationStart?.();
   const completion = await model.complete(input);
   retainSession = Boolean(completion.interrupted || completion.paused);
   return completion;

@@ -260,7 +260,7 @@ function serve(
         // 而不是把一个界面认不出来的字符串转发给浏览器。
         onError: (reason, detail) => fail(asErrorReason(reason), detail),
         onClosed: () => { /* 收尾由 asr.finish 驱动，这里不抢着关客户端连接 */ },
-      }, C.streamOperations.streamAsr.audio).then((session) => {
+      }, C.streamOperations.streamAsr.audio,{accountingContext:{kind:'recording',...principal,sessionId}}).then((session) => {
         // 先把握手期间攒下的帧按**原序**冲进去，再让后续帧直连 —— 顺序颠倒
         // 会把一句话的开头挪到结尾，而识别结果看上去只是「有点怪」，很难归因。
         for (const buffered of pendingAudio ?? []) session.pushAudio(buffered);

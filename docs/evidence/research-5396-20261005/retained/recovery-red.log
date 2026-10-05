@@ -1,0 +1,33 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/research-5056-fixes/workspacex/apps/api
+
+ ❯ tests/research/guided-three-step.test.ts (20 tests | 1 failed) 498ms
+   × three visible stages with durable composite execution > retains successful search tasks on a partial failure and resumes the report chain only on explicit retry 12ms
+     → expected 'research' to be 'report' // Object.is equality
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/research/guided-three-step.test.ts > three visible stages with durable composite execution > retains successful search tasks on a partial failure and resumes the report chain only on explicit retry
+AssertionError: expected 'research' to be 'report' // Object.is equality
+
+Expected: "report"
+Received: "research"
+
+ ❯ tests/research/guided-three-step.test.ts:103:100
+    101|     f.search.mockImplementation(async query => { if (!failed) { failed…
+    102|     const partial = await f.run("generate_report", "outline");
+    103|     expect(partial.errorCode).toBe("RESEARCH_SEARCH_PARTIAL_FAILURE");…
+       |                                                                                                    ^
+    104|     expect(partial.report).toBeNull(); expect(partial.reportPartial).t…
+    105|     const succeeded = partial.tasks.filter(task => task.status === "su…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 19 passed (20)
+   Start at  21:25:14
+   Duration  1.46s (transform 520ms, setup 0ms, collect 847ms, tests 498ms, environment 0ms, prepare 29ms)
+
+undefined
+/Users/shenyangjun/.codex/worktrees/research-5056-fixes/workspacex/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run --config vitest.research-unit.config.ts tests/research/guided-three-step.test.ts

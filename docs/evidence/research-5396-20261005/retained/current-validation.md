@@ -1,0 +1,1 @@
+Current working tree: focused 34 PASS; full pure 495 PASS; API tsc exit 0; API lint exit 0; git diff --check exit 0. Empty type log alone is not an exit-code proof; runner observed exit 0. Isolated persistence 49 PASS and cleanup exit 0. No real model provider.

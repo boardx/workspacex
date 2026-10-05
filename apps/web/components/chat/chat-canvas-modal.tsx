@@ -6,13 +6,13 @@ import { CanvasStage, type CanvasStageHandle } from "@/components/canvas/canvas-
 import { checkCanvasFence, isCanvasFenceLang, type CanvasFenceLang } from "@/lib/canvas/canvas-fence";
 import { tagCanvasArtifactTitle } from "@/lib/canvas/canvas-fence-identity";
 import { capFenceBulletsToCapacity, sectionRenderCapacities } from "@/lib/canvas/cap-fence-bullets";
-import { decodeMermaidEntities } from "@/lib/chat/decode-mermaid-entities";
 import { downloadDataUrl, exportPngAsPdf } from "@/lib/canvas/export-image";
 import { describeMessageFailure, landAsArtifact } from "@/lib/live-chat";
 import type { CanvasTool } from "@/components/canvas/canvas-toolbar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { CanvasFieldCompleteness } from "./canvas-field-completeness";
 import { formatRelativeTime } from "./chat-diagram-canvas-modal";
 
 /**
@@ -148,9 +148,9 @@ export function ChatCanvasModal({
 
   const handleSave = React.useCallback(async () => {
     const block = extractMermaidBlocks(markdown).find((b) => isCanvasFenceLang(b.lang));
-    // 同 mermaid modal 那条既有边界解转义（fabric 文本节点序列化时会把 `<`/`>`/`&`/`"`
-    // 转成 HTML 实体，这是 fabric-markdown 序列化器的既有行为，不是本组件引入的）。
-    const source = decodeMermaidEntities(block?.code ?? markdown);
+    // Template labels are plain text: serializeTemplate does not HTML-encode them.
+    // Preserve literal entity text when saving canvas/persona content.
+    const source = block?.code ?? markdown;
     setSaveError(null);
 
     if (!canPersist) {
@@ -347,6 +347,7 @@ export function ChatCanvasModal({
         </div>
       </header>
       </TooltipProvider>
+      <CanvasFieldCompleteness code={extractMermaidBlocks(markdown)[0]?.code ?? ""} lang={lang} />
 
       {savedSource && viewing === "saved" ? (
         <div

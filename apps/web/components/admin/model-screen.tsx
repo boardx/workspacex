@@ -2,6 +2,10 @@
 import { TagField, commitDraft } from "@/components/ui/tag-input";
 import * as React from "react";
 import { Plus, ShieldCheck, FlaskConical, Check, Ban } from "lucide-react";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { useOptionalSession } from "@/components/session/session-provider";
+import { OrgCoreModelPanel } from "./org-core-model-panel";
+import { BailianModelCatalog } from "./bailian-model-catalog";
 import { AdminScreen } from "./admin-screen";
 import { AdminDrawer, AdminModal, Toast, Field, KV } from "./panel";
 import { DisableDialog, type DisableMode } from "./disable-dialog";
@@ -67,6 +71,8 @@ type PoolState =
   | { readonly status: "ready"; readonly rows: readonly ModelPoolRow[] };
 
 export function ModelScreen({ state }: { state: UiState }) {
+  const session = useOptionalSession()?.session;
+  const [catalogTab, setCatalogTab] = React.useState("organization");
   const [pool, setPool] = React.useState<PoolState>({ status: "loading" });
   const [enabled, setEnabled] = React.useState<Record<string, boolean>>({});
   const [tested, setTested] = React.useState<Set<string>>(new Set());
@@ -175,6 +181,13 @@ export function ModelScreen({ state }: { state: UiState }) {
       denialReason="模型凭据由管理员保管、成员看不到；模型管理仅组织管理员可进入。"
       successMessage="模型『qwen3-72b』五项测试判读通过，已启用并纳入 Ledger 的可选范围"
     >
+      <Tabs value={catalogTab} onValueChange={setCatalogTab}>
+        <TabsList aria-label="模型目录范围">
+          <TabsTrigger value="organization">组织模型池</TabsTrigger>
+          <TabsTrigger value="bailian">百炼公共目录</TabsTrigger>
+        </TabsList>
+        <TabsContent value="organization">
+          {session?.currentOrgId ? <OrgCoreModelPanel key={session.currentOrgId} orgId={session.currentOrgId} /> : null}
       <EntityCatalog<ModelPoolRow>
         prefix="admin-model"
         title="模型池"
@@ -269,6 +282,12 @@ export function ModelScreen({ state }: { state: UiState }) {
           </div>
         )}
       />
+
+        </TabsContent>
+        <TabsContent value="bailian">
+          <BailianModelCatalog onViewOrganizationModels={() => setCatalogTab("organization")} />
+        </TabsContent>
+      </Tabs>
 
       {/* 接入模型 —— #548：唯一真实写路径，打 POST /models */}
       {addOpen && (

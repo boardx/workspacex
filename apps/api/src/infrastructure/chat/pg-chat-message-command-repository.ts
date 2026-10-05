@@ -12,6 +12,9 @@ import type {
   DefaultAgentResolver, MessagePageRow, PublishedAgentReader, PublishedAgentSnapshot,
 } from "../../application/chat/message-command-ports";
 import { agentDefaults } from "@repo/contracts";
+import { DEFAULT_AGENT_STABLE_NAME } from "../../application/agent/ensure-default-agent";
+import { OrgCoreModelError,type OrgCoreModelAvailability,type OrgCoreModelState } from "../../application/model/org-core-model-ports";
+import { readOrgCoreModelIn,coreModelScopedDb,sameCoreModelBinding } from "../model/pg-org-core-model-repository";
 import { DEEP_AGENT_PROVIDER_NAME } from "../agent-run/deep-agent-model-provider";
 import { AttachmentNotPendingError } from "../../application/chat/message-command-ports";
 
@@ -46,7 +49,7 @@ async function findAcceptedIn(
 }
 
 export class PgChatMessageCommandRepository implements ChatMessageCommandRepository {
-  constructor(private readonly db: DatabasePort) {}
+  constructor(private readonly db: DatabasePort,private readonly coreModels?:OrgCoreModelAvailability) {}
 
   async findAccepted(
     orgId: OrgId,
@@ -91,6 +94,23 @@ export class PgChatMessageCommandRepository implements ChatMessageCommandReposit
           FOR UPDATE OF q`, [orgId,input.threadId,input.queuedMessageId,input.actorId,input.clientMessageId,input.text,input.selectedAgentId]);
         if (!ready.rows.length) throw new QueuedMessageNotReadyError();
       }
+      // The system default assistant inherits the organization's explicit core selection.
+      // Other published agents keep their immutable model pins. Replay returns above.
+      let core:OrgCoreModelState|undefined;
+      const system=(await s.query<{stable_name:string|null}>("SELECT stable_name FROM agents WHERE org_id=$1 AND id=$2 AND published_version_id=$3 FOR SHARE",[orgId,input.snapshot.agentId,input.snapshot.agentVersionId])).rows[0];
+      if(system?.stable_name===DEFAULT_AGENT_STABLE_NAME){
+        await s.query("SELECT pg_advisory_xact_lock(hashtext($1))",[String(orgId)]);
+        // Personal/local containers retain their existing runtime and cannot configure this feature.
+        const kind=(await s.query<{kind:string}>("SELECT kind FROM organizations WHERE id=$1",[orgId])).rows[0]?.kind;
+        if(kind==='organization'){
+          const selected=await readOrgCoreModelIn(s,orgId);
+          if(selected.selection){
+            const binding=await this.coreModels?.resolve(orgId,selected.selection.modelId,input.actorId,coreModelScopedDb(s,orgId));
+            if(!binding||!sameCoreModelBinding(binding,selected.selection)||(input.snapshot.modelProvider!==DEEP_AGENT_PROVIDER_NAME&&input.snapshot.modelProvider!==binding.modelProvider))throw new OrgCoreModelError("CORE_MODEL_UNAVAILABLE");
+            core=selected;
+          }
+        }
+      }
       const inserted = await s.query<{ created_at: Date }>(
         `INSERT INTO chat_messages
            (id,org_id,thread_id,author_kind,author_id,body,client_message_id,requested_agent_id,carried_over_from_run_id)
@@ -106,8 +126,13 @@ export class PgChatMessageCommandRepository implements ChatMessageCommandReposit
          VALUES ($1,$2,$3,$4,$5,$6,$7::jsonb,$8,$9,'queued',$10)`,
         [input.runId, orgId, input.threadId, input.messageId, input.snapshot.agentId,
           input.snapshot.agentVersionId, JSON.stringify(input.snapshot.skillVersionIds),
-          input.snapshot.modelProvider, input.snapshot.modelId, input.snapshot.skillScope ?? null],
+          input.snapshot.modelProvider, core?.selection?.runtimeModelId??input.snapshot.modelId, input.snapshot.skillScope ?? null],
       );
+      if(core?.selection){
+        const binding=core.selection;
+        await s.query(`INSERT INTO agent_run_core_model_snapshots(org_id,run_id,selection_version,model_id,model_provider,runtime_model_id,config_revision,private_connection_id,selected_by)
+          VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)`,[orgId,input.runId,core.version,binding.modelId,binding.modelProvider,binding.runtimeModelId,binding.configRevision,binding.privateConnectionId,input.actorId]);
+      }
       if (input.queuedMessageId) {
         await s.query(`UPDATE thread_message_queue SET status='dispatched',run_id=$3
           WHERE org_id=$1 AND id=$2::uuid AND status='pending'`, [orgId,input.queuedMessageId,input.runId]);

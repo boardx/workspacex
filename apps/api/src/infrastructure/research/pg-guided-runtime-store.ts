@@ -1,4 +1,4 @@
-import { research as C } from "@repo/contracts";
+import { PersistedResearchRuntimeSchema } from "../../application/research/guided-runtime-persistence";
 import type { DatabasePort, TenantSession } from "../../application/ports/database.port";
 import { guard } from "../../application/security/permission-filter";
 import { ResearchRuntimeError, type GuidedRuntimeStore, type RuntimeActor, type RuntimeCommand, type ResearchRuntime } from "../../application/research/guided-runtime-ports";
@@ -33,7 +33,7 @@ export class PgGuidedRuntimeStore implements GuidedRuntimeStore {
       await authorize(tx, actor);
       await tx.query(`INSERT INTO guided_research_runtime(org_id,session_id,state) VALUES($1,$2,$3::jsonb) ON CONFLICT DO NOTHING`, [actor.orgId, actor.sessionId, JSON.stringify(initial)]);
       const rows = await tx.query<Row>(`SELECT state FROM guided_research_runtime WHERE org_id=$1 AND session_id=$2`, [actor.orgId, actor.sessionId]);
-      return C.GuidedResearchRuntime.parse(rows.rows[0]?.state);
+      return PersistedResearchRuntimeSchema.parse(rows.rows[0]?.state);
     });
   }
   async claim(actor: RuntimeActor, command: RuntimeCommand, hash: string) {
@@ -42,7 +42,7 @@ export class PgGuidedRuntimeStore implements GuidedRuntimeStore {
       const result = await tx.query<Row>(`SELECT state,active_request_id,requests FROM guided_research_runtime WHERE org_id=$1 AND session_id=$2 FOR UPDATE`, [actor.orgId, actor.sessionId]);
       const row = result.rows[0];
       if (!row) throw new ResearchRuntimeError("RESEARCH_NOT_FOUND");
-      const state = C.GuidedResearchRuntime.parse(row.state);
+      const state = PersistedResearchRuntimeSchema.parse(row.state);
       if (decideRuntimeClaim(state, row.requests, command, hash).replay) return { state, replay: true };
       if (state.busy && Date.parse(state.leaseUntil ?? "") > Date.now()) throw new ResearchRuntimeError("RESEARCH_WORKFLOW_BUSY");
       if (state.version !== command.expectedVersion) throw new ResearchRuntimeError("RESEARCH_GRAPH_VERSION_CONFLICT");
@@ -75,7 +75,7 @@ export class PgGuidedRuntimeStore implements GuidedRuntimeStore {
       const result = await tx.query<Row>(`SELECT state,active_request_id,requests FROM guided_research_runtime WHERE org_id=$1 AND session_id=$2 FOR UPDATE`, [actor.orgId, actor.sessionId]);
       const row = result.rows[0];
       if (!row) throw new ResearchRuntimeError("RESEARCH_NOT_FOUND");
-      const state = C.GuidedResearchRuntime.parse(row.state);
+      const state = PersistedResearchRuntimeSchema.parse(row.state);
       const prior = Object.hasOwn(row.requests, command.requestId) ? row.requests[command.requestId] : undefined;
       if (prior) {
         if (prior.hash !== hash) throw new ResearchRuntimeError("RESEARCH_IDEMPOTENCY_REPLAY_MISMATCH");
@@ -93,7 +93,7 @@ export class PgGuidedRuntimeStore implements GuidedRuntimeStore {
   async write(actor: RuntimeActor, requestId: string, state: ResearchRuntime, done: boolean) {
     return this.db.withTenant(actor.orgId, async (tx) => {
       await authorize(tx, actor);
-      const parsed = C.GuidedResearchRuntime.parse(state);
+      const parsed = PersistedResearchRuntimeSchema.parse(state);
       const result = await tx.query<{ session_id: string; state: unknown }>(`UPDATE guided_research_runtime
         SET state=CASE WHEN coalesce((state->>'planRevision')::int,0) > coalesce(($3::jsonb->>'planRevision')::int,0)
                        THEN $3::jsonb || jsonb_build_object('controlStatus',state->'controlStatus','planRevision',state->'planRevision','activity',state->'activity')
@@ -102,7 +102,7 @@ export class PgGuidedRuntimeStore implements GuidedRuntimeStore {
         WHERE org_id=$1 AND session_id=$2 AND active_request_id=$4 AND (state->>'version')::int=$5 RETURNING session_id,state`,
       [actor.orgId, actor.sessionId, JSON.stringify(parsed), requestId, state.version, done]);
       if (!result.rows[0]) throw new ResearchRuntimeError("RESEARCH_GRAPH_VERSION_CONFLICT");
-      const written = C.GuidedResearchRuntime.parse(result.rows[0].state);
+      const written = PersistedResearchRuntimeSchema.parse(result.rows[0].state);
       const stage = state.currentNode === "research" ? "researching" : state.currentNode;
       await tx.query(`UPDATE guided_research_sessions SET stage=$3,resume_stage=$3,progress=$4,source_count=$5,brief=$6::jsonb,status=$7,report_id=$8,updated_at=now()
         WHERE org_id=$1 AND id=$2`, [actor.orgId,actor.sessionId,stage,state.completed ? 100 : ["brief","directions","outline","research","report"].indexOf(state.currentNode)*20,state.sources.filter((source)=>source.decision==="accepted").length,JSON.stringify(state.brief),state.completed ? "completed" : "active",state.report ? `guided-${actor.sessionId}-${state.revision}` : null]);

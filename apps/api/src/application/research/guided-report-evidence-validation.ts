@@ -1,9 +1,9 @@
 import { extractJson } from "./guided-structured-json";
-import { materializeQuoteReferences } from "./guided-report-quote-references";
+import { materializeQuoteReferences, selectedQuoteOffset } from "./guided-report-quote-references";
 import { research as C } from "@repo/contracts";
 import type { VerifiedEvidence } from "./guided-report-evidence";
 export interface EvidenceChunk { sourceId: string; chunkId: string; content: string }
-export interface EvidenceCandidate { questionId: string; evidence: VerifiedEvidence }
+export interface EvidenceCandidate { questionId: string; evidence: VerifiedEvidence; quoteOffset?: number }
 export type EvidenceFailureReason = "invalid_json" | "invalid_envelope" | "oversized_response" | "invalid_evaluation" | "unknown_source_or_chunk" | "duplicate_chunk" | "missing_chunk" | "inconsistent_irrelevance" | "unknown_question" | "non_verbatim_quote";
 export interface EvidenceAttemptDiagnostic {
   batchIndex: number; attempt: number; suppliedChunks: number; validChunks: number; retryChunks: number;
@@ -36,10 +36,10 @@ export function collectChunkEvidence(text: string, chunks: readonly EvidenceChun
     if (!parsed.success) { fail("invalid_evaluation"); rejected.add(chunk.chunkId); rejectedValues.push(value); continue; }
     if (parsed.data.irrelevant !== (parsed.data.matches.length === 0)) { fail("inconsistent_irrelevance"); rejected.add(chunk.chunkId); rejectedValues.push(value); continue; }
     const candidates: EvidenceCandidate[] = [];
-    for (const match of parsed.data.matches) {
+    for (const [matchIndex, match] of parsed.data.matches.entries()) {
       if (!questionIds.has(match.questionId)) { fail("unknown_question"); rejected.add(chunk.chunkId); continue; }
       if (!chunk.content.includes(match.quote)) { fail("non_verbatim_quote"); rejected.add(chunk.chunkId); continue; }
-      candidates.push({ questionId: match.questionId, evidence: { sourceId: chunk.sourceId, quote: match.quote, insight: match.insight, relevance: match.relevance } });
+      candidates.push({ questionId: match.questionId, quoteOffset: selectedQuoteOffset((identity.matches as unknown[])[matchIndex], chunk), evidence: { sourceId: chunk.sourceId, quote: match.quote, insight: match.insight, relevance: match.relevance } });
     }
     if (rejected.has(chunk.chunkId)) rejectedValues.push(value);
     else valid.set(chunk.chunkId, candidates);

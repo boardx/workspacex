@@ -30,6 +30,24 @@ describe("ThinkingInputEditor", () => {
     expect(onCommit).toHaveBeenCalledWith("修改内容", "enter");
   });
 
+  it("does not receive outline Escape before deferred focus, then cancels from the focused editor", () => {
+    let focusFrame: FrameRequestCallback | undefined;
+    const request = vi.spyOn(window, "requestAnimationFrame").mockImplementation(callback => { focusFrame = callback; return 1; });
+    const cancel = vi.spyOn(window, "cancelAnimationFrame").mockImplementation(() => {});
+    const onCancel = vi.fn();
+    const outline = document.createElement("button");document.body.append(outline);outline.focus();
+    const view = render(<ThinkingInputEditor object={object("text")} initialValue="Shape" viewport={viewport} readOnly={false} onLiveCommit={vi.fn()} onCommit={vi.fn(() => true)} onCancel={onCancel} onContinue={vi.fn()} />);
+    try {
+      const editor = screen.getByTestId("board-thinking-editor");
+      expect(editor).toBeVisible();expect(outline).toHaveFocus();
+      fireEvent.keyDown(document.activeElement!, { key: "Escape" });
+      expect(onCancel).not.toHaveBeenCalled();
+      expect(focusFrame).toBeDefined();focusFrame!(0);
+      expect(editor).toHaveFocus();
+      fireEvent.keyDown(document.activeElement!, { key: "Escape" });
+      expect(onCancel).toHaveBeenCalledTimes(1);expect(editor).toHaveValue("Shape");
+    } finally { view.unmount();outline.remove();request.mockRestore();cancel.mockRestore(); }
+  });
   it.each([
     { rotation: 0, left: "196px", top: "318.05px" },
     { rotation: 90, left: "41.95px", top: "236px" },

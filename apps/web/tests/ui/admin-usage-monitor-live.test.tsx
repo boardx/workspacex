@@ -35,7 +35,9 @@ function jsonResponse(body: unknown, status = 200): Response {
 function routed(usageBody: unknown, usageStatus = 200) {
   return (url: string) =>
     Promise.resolve(
-      String(url).includes("/limit-events")
+      String(url).includes("/ai-usage")
+        ? jsonResponse({reasonCode:"AI_USAGE_FIXTURE_UNAVAILABLE"},503)
+        : String(url).includes("/limit-events")
         ? jsonResponse({ events: [] })
         : jsonResponse(usageBody, usageStatus),
     );
@@ -75,7 +77,9 @@ describe("F161 用量监控 —— 每个窗口一次真实请求", () => {
   it("【核心反证】换窗口发出新请求，且 query 里的 window 跟着变", async () => {
     fetchMock.mockImplementation((url: string) =>
       Promise.resolve(
-        String(url).includes("/limit-events")
+        String(url).includes("/ai-usage")
+        ? jsonResponse({reasonCode:"AI_USAGE_FIXTURE_UNAVAILABLE"},503)
+        : String(url).includes("/limit-events")
           ? jsonResponse({ events: [] })
           : jsonResponse(report({
               window: new URL(url, "http://x").searchParams.get("window"),
@@ -87,7 +91,7 @@ describe("F161 用量监控 —— 每个窗口一次真实请求", () => {
     render(<UsageMonitorTab />);
 
     await waitFor(() => expect(screen.getByTestId("admin-usage-matrix")).toBeTruthy());
-    expect(String(fetchMock.mock.calls[0]?.[0])).toContain("window=week");
+    expect(fetchMock.mock.calls.some(call=>String(call[0]).includes("/usage?window=week"))).toBe(true);
 
     fireEvent.click(screen.getByTestId("admin-usage-window-5h"));
 
@@ -147,7 +151,9 @@ describe("F161 用量监控 —— 每个窗口一次真实请求", () => {
   it("限额事件读失败不把整屏用量拖成错误态（它是附属块）", async () => {
     fetchMock.mockImplementation((url: string) =>
       Promise.resolve(
-        String(url).includes("/limit-events")
+        String(url).includes("/ai-usage")
+        ? jsonResponse({reasonCode:"AI_USAGE_FIXTURE_UNAVAILABLE"},503)
+        : String(url).includes("/limit-events")
           ? jsonResponse({ reasonCode: "AUTH_SERVICE_UNAVAILABLE" }, 503)
           : jsonResponse(report()),
       ),

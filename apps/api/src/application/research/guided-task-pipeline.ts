@@ -1,9 +1,11 @@
+import { scopedSupplementQueries } from "./guided-supplement-task-scope";
 import { fairTaskWork } from "./guided-task-work";
 import { createHash, randomUUID } from "node:crypto";
 import { research as C } from "@repo/contracts";
 import { reportQuestions } from "./guided-report-evidence";
 import { collectSourceDocuments } from "./guided-source-documents";
 import { screenResearchSources, sourceRelevanceBasis, sourceTaskIds } from "./guided-source-relevance";
+import { NegativeSourceScreenCache } from "./guided-negative-screen-cache";
 import { isRecoverableSearchFailure, recoveryQueries } from "./guided-search-recovery";
 import { supplementQuery } from "./guided-supplement-query";
 import { ResearchRuntimeError, type GuidedSearchPort, type ResearchRuntime } from "./guided-runtime-ports";
@@ -63,6 +65,7 @@ export type PipelineMetrics = { durationMs: number; firstSourceMs: number | null
 export async function executeTaskPipeline(state: ResearchRuntime, persist: RuntimePersistence, search: GuidedSearchPort,
   budget: SearchBudget, complete: PipelineComplete, metrics?: (result: PipelineMetrics) => void): Promise<void> {
   const started = Date.now(), initialModels = state.modelCalls.length;
+  const negativeCache = new NegativeSourceScreenCache();
   let firstSourceMs: number | null = null;
   let materialUpgradesRejected = 0;
   let stopped = false, failure: unknown;
@@ -100,7 +103,7 @@ export async function executeTaskPipeline(state: ResearchRuntime, persist: Runti
     }
     const result = await pending; check(); return result;
   };
-  const updateProgress = () => { state.progress = { stage: "searching", completed: state.tasks.filter(task => ["succeeded", "failed"].includes(task.status)).length, total: state.tasks.length }; };
+  const updateProgress = () => { state.progress = { executionVersion: state.version, stage: "searching", completed: state.tasks.filter(task => ["succeeded", "failed"].includes(task.status)).length, total: state.tasks.length }; };
   const save = async () => { updateProgress(); await persist(); persist.observe({ type: "snapshot", state: structuredClone(state) }); };
   const taskError = (error: unknown) => {
     const code = error instanceof ResearchRuntimeError ? error.reasonCode : "RESEARCH_SEARCH_UNAVAILABLE";
@@ -156,7 +159,7 @@ export async function executeTaskPipeline(state: ResearchRuntime, persist: Runti
       source.addedByUser = false;
       delete source.presentation;
     }
-    const screened = await screenResearchSources(state, candidates, model(true), { adaptive: true, signal }); check();
+    const screened = await screenResearchSources(state, candidates, model(true), { adaptive: true, signal, negativeCache }); check();
     const denied = upgraded.filter(source => {
       const retained = screened.find(item => item.id === source.id);
       const required = [...sourceTaskIds(previous.get(source.id)!), ...(task ? [task.id] : [])];
@@ -171,7 +174,7 @@ export async function executeTaskPipeline(state: ResearchRuntime, persist: Runti
       return task && !sourceTaskIds(stored).includes(task.id)
         ? { ...stored, taskId: task.id, taskIds: [task.id], addedByUser: false } : stored;
     });
-    const retained = task ? await screenResearchSources(state, fallback, model(true), { adaptive: true, signal }) : fallback;
+    const retained = task ? await screenResearchSources(state, fallback, model(true), { adaptive: true, signal, negativeCache }) : fallback;
     check();
     return [...screened.filter(source => !denied.some(item => item.id === source.id)), ...retained];
   };
@@ -259,15 +262,11 @@ export async function executeTaskPipeline(state: ResearchRuntime, persist: Runti
     // Keep the existing bounded chapter-gap supplements. They share the same
     // provider/read limits and cannot replace a task failure with apparent success.
     if (search.read) await workers(state.outline.filter(section => section.enabled).sort((a, b) => a.order - b.order), async section => {
-      const task = ordered.find(item => item.sectionId === section.id); if (!task) return;
       const count = () => new Set(state.sources.filter(source => source.decision === "accepted" && source.document && sourceTaskIds(source).some(id => state.tasks.find(item => item.id === id)?.sectionId === section.id)).map(source => normalizedResearchUrl(source.url))).size;
-      const seen = new Set((task.searchAttempts ?? []).map(record => record.query.trim().toLowerCase()));
-      const scope = [state.brief.topic, state.brief.region].filter(Boolean).join(" ");
-      const queries = [...new Set([supplementQuery(scope, task.query, "primary source"), ...section.questions.map(question => supplementQuery(scope, question)), supplementQuery(scope, section.title, "official report"), supplementQuery(scope, section.title, "data study")])].slice(0, 6);
-      for (const query of queries) {
+      for (const { task, query } of scopedSupplementQueries(state, section, ordered)) {
         check(); if (count() >= 3) break;
-        if (seen.has(query.trim().toLowerCase()) || (task.searchAttempts?.length ?? 0) >= C.GUIDED_RESEARCH_SEARCH_ATTEMPT_LIMIT) continue;
-        seen.add(query.trim().toLowerCase()); await attempt(task, query, false);
+        if ((task.searchAttempts ?? []).some(record => record.query.trim().toLowerCase() === query.trim().toLowerCase()) || (task.searchAttempts?.length ?? 0) >= C.GUIDED_RESEARCH_SEARCH_ATTEMPT_LIMIT) continue;
+        await attempt(task, query, false);
       }
     });
     if (state.tasks.some(task => task.status === "failed")) throw new ResearchRuntimeError("RESEARCH_SEARCH_PARTIAL_FAILURE");
@@ -281,6 +280,7 @@ export async function executeTaskPipeline(state: ResearchRuntime, persist: Runti
     }
     throw error;
   } finally {
+    negativeCache.clear();
     // Model diagnostics are metadata only; no queries, excerpts, URLs or response bodies.
     try { metrics?.({ durationMs: Date.now() - started, firstSourceMs, taskCount: state.tasks.length, succeeded: state.tasks.filter(task => task.status === "succeeded").length,
       failed: state.tasks.filter(task => task.status === "failed").length, accepted: state.sources.filter(source => source.decision === "accepted").length,

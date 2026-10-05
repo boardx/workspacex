@@ -1,3 +1,5 @@
+import { normalizeTemplateSectionHeading } from "@repo/fabric-markdown/templates";
+
 /**
  * Deterministic correction of the `模板: <key>` line in ```canvas fences before write-back.
  *
@@ -180,37 +182,15 @@ export function normalizeCanvasFenceSections(text: string, templates: readonly C
     if (!t || (!t.sections?.length && !t.fields?.length)) return whole;
     let seenHeading = false;
     const fixed = lines.map((line, i) => {
-      /**
-       * `情境触发:` followed by bullets is a section heading the model forgot to prefix with
-       * `##`. Everything the user asked for is in the fence; the renderer just cannot find it,
-       * so all six blocks come out blank (eval lane 2026-09-22: 5/5 fences, 2/5 complete —
-       * the two failures had every section written this way). Only a name that resolves to a
-       * real section of THIS template, with nothing after the colon and a bullet underneath,
-       * is rewritten; anything else is left exactly as the model wrote it.
-       */
-      // Three shapes seen from a 4B, all meaning "this is a section" (eval lane 2026-09-22):
-      //   `分区名:` + bullets ／ `分区名：一整段内容` ／ `分区名` on its own line + bullets.
-      // Only a line that resolves to a real section of THIS template is touched.
-      const withColon = /^\s*([^#\-\s][^:：\n]{0,40})\s*[:：][ \t]*(.*)$/.exec(line);
-      const bareLine = withColon ? null : /^\s*([^#\-\s][^:：\n]{0,40})\s*$/.exec(line);
-      const bare = withColon ?? bareLine;
-      if (bare && t.sections?.length) {
-        const name = bare[1]!.trim();
-        const rest = withColon ? (bare[2] ?? "") : "";
-        const next = lines.slice(i + 1).find((l) => l.trim() !== "");
-        const bulletsFollow = next !== undefined && /^\s*[-*]\s+\S/.test(next);
-        // `分区名:` + bullets, or `分区名：一整段内容` on one line — both are a section the
-        // model wrote without `##`. The second form keeps its content, as that section's
-        // first bullet. A name that is a header FIELD of this template is never promoted.
-        const isField = (t.fields ?? []).some((f) => resolveName(name, t.fields ?? []) === f);
-        if (!isField && (rest === "" ? bulletsFollow : rest.length > 0)) {
-          const to = resolveName(name, t.sections);
-          if (to !== null) {
-            seenHeading = true;
-            corrections.push({ template: t.key, kind: "section", from: name, to: `## ${to}` });
-            return rest === "" ? `## ${to}` : `## ${to}\n- ${rest}`;
-          }
-        }
+      const normalized = normalizeTemplateSectionHeading(
+        line, lines.slice(i + 1).find(candidate => candidate.trim() !== ""),
+        name => resolveName(name, t.sections ?? []),
+        name => resolveName(name, t.fields ?? []) !== null,
+      );
+      if (normalized) {
+        seenHeading = true;
+        corrections.push({ template: t.key, kind: "section", from: normalized.from, to: normalized.to });
+        return normalized.text;
       }
       const h = HEADING.exec(line);
       if (h) {

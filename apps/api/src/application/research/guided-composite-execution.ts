@@ -3,6 +3,8 @@ import { ResearchRuntimeError, type ResearchRuntime, type RuntimeCommand, type R
 import { preservePreviousReport } from "./guided-report-history";
 import type { RuntimePersistence } from "./guided-report-stream";
 
+import { canRecoverPartialReport } from "./guided-partial-report-recovery";
+
 type Node = ResearchRuntime["currentNode"];
 type Activity = NonNullable<ResearchRuntime["activity"]>[number];
 export type CompositeSteps = {
@@ -44,12 +46,12 @@ export async function executeComposite(state: ResearchRuntime, command: RuntimeC
   if (goal === "plan") {
     if (state.generatedNodes.includes("outline")) { await enter("outline"); return; }
     steps.activity("planning", "正在分析研究内容并准备研究计划", "started");
-    state.progress = { stage: "planning", completed: 0, total: 3 }; await publish();
+    state.progress = { executionVersion: state.version, stage: "planning", completed: 0, total: 3 }; await publish();
     try {
       for (const node of ["brief", "directions", "outline"] as const) {
         if (!state.generatedNodes.includes(node)) { await enter(node); await steps.generate(node, retry); }
         check();
-        state.progress = { stage: "planning", completed: ["brief", "directions", "outline"].indexOf(node) + 1, total: 3 };
+        state.progress = { executionVersion: state.version, stage: "planning", completed: ["brief", "directions", "outline"].indexOf(node) + 1, total: 3 };
         await publish();
       }
       steps.activity("planning", "研究计划已生成，等待确认", "succeeded"); await publish();
@@ -61,8 +63,8 @@ export async function executeComposite(state: ResearchRuntime, command: RuntimeC
   }
   // A legacy partial publication stays readable as history; it cannot become a
   // full composite publication by clearing its partial flag or skipping search.
-  if (state.reportPartial && state.report) {
-    preservePreviousReport(state); state.report = null;
+  if (state.reportPartial && (state.report || state.reportDraft)) {
+    preservePreviousReport(state); state.report = null; state.reportDraft = null;
     state.generatedNodes = state.generatedNodes.filter(node => node !== "report");
   }
   state.completed = false; state.reportPartial = false;
@@ -71,11 +73,26 @@ export async function executeComposite(state: ResearchRuntime, command: RuntimeC
   // A saved chapter edit may retain successful sources/tasks. Existing source
   // preparation independently checks their new basis before report generation.
   if (!state.tasks.length || state.tasks.some(task => task.status !== "succeeded")) {
-    await enter("research"); await steps.search(retry); check();
+    await enter("research");
+    try { await steps.search(retry); }
+    catch (error) {
+      if (!(error instanceof ResearchRuntimeError) || error.reasonCode !== "RESEARCH_SEARCH_PARTIAL_FAILURE" || !canRecoverPartialReport(state)) throw error;
+      state.reportPartial = true;
+    }
+    check();
   }
   await enter("report");
-  if (!retry || !state.report || !state.generatedNodes.includes("report")) await steps.generate("report", retry);
+  if (!retry || !state.report || !state.generatedNodes.includes("report")) {
+    const previousPublication = state.reportPrevious;
+    try { await steps.generate("report", retry); }
+    finally {
+      // A resumed checkpoint may archive its old chapters again. Do not replace
+      // the preserved publication with that unpublished intermediate attempt.
+      if ((previousPublication?.report && !state.reportPrevious?.report) || (previousPublication?.partial && previousPublication.draft)) state.reportPrevious = previousPublication;
+    }
+  }
   check();
+  if (state.reportPartial && state.reportDraft && !state.reportQualityWarnings?.length) throw new ResearchRuntimeError("RESEARCH_SEARCH_PARTIAL_FAILURE");
   if (!state.report || state.reportQualityWarnings?.length) throw new ResearchRuntimeError(state.reportDraft || state.reportQualityWarnings?.length ? "RESEARCH_REPORT_QUALITY_INSUFFICIENT" : "RESEARCH_NODE_STATE_INVALID");
   // Completion is the old explicit report command: citation, basis and quality
   // requirements are not replaced by a non-null report or optimistic UI state.

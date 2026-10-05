@@ -13,9 +13,10 @@
  * 之前从没有调用点让 `CanvasStage` 在**可编辑**模式下加载过模板围栏（`ChatCanvasFabric`
  * 只读预览、`chat-diagram-fabric` 只处理 mermaid），所以这条分支从未被真正踩到过。
  *
- * ## vendor 纪律：不改 `packages/fabric-markdown/src/**` 一个字
+ * ## 保存边界适配
  *
- * 见其 `VENDOR.md`。因此这里不是「修 bug」，是用它的公开导出
+ * 模板正文继续复用包的序列化器，最终围栏与模板身份由应用层共同决定；
+ * 共享解析器的分区标题兼容改动记录在包的 `VENDOR.md`。这里用公开导出
  * （`extractModel`/`serializeTemplate`/`modelToMermaid`/`serializeUsecase`/
  * `extractMermaidBlocks`/`replaceMermaidBlock`/`wrapAsMermaidBlock`）在包外重新拼一份
  * **正确版本**——`auto-template-layout.ts` 已经是这个模式的先例（组织自建模板的坐标生成
@@ -29,15 +30,26 @@ import {
   extractModel,
   modelToMermaid,
   serializeTemplate,
+  parseTemplateText,
   serializeUsecase,
   type DiagramModel,
 } from "@repo/fabric-markdown";
 import type { Canvas as FabricCanvas } from "fabric";
 
-function serializeModel(model: DiagramModel): { code: string; lang: string } {
+function serializeModel(model: DiagramModel, fenceLang?: string): { code: string; lang: string } {
   if (model.kind === "template") {
-    const lang = model.meta?.templateKey === "persona" ? "persona" : "canvas";
-    return { code: serializeTemplate(model), lang };
+    const key = String(model.meta?.templateKey ?? "").trim();
+    if (!key) throw new Error("Cannot save a template canvas without its template key");
+    const lang = key === "persona" && fenceLang !== "canvas" ? "persona" : "canvas";
+    // The fence and body form one format: canvas needs an explicit key,
+    // whereas persona implies its key. Normalize at the Markdown boundary.
+    const body = serializeTemplate(model);
+    const declaredKey = parseTemplateText(body).templateKey;
+    if (declaredKey && declaredKey !== key) {
+      throw new Error("Serialized template key does not match the canvas model");
+    }
+    const code = lang === "canvas" && !declaredKey ? `模板: ${key}\n${body}` : body;
+    return { code, lang };
   }
   if (model.kind === "usecase") {
     return { code: serializeUsecase(model), lang: "usecase" };
@@ -52,11 +64,12 @@ export function serializeCanvasMarkdown(
   blockIndex = 0,
 ): string {
   const model = extractModel(canvas);
-  const { code, lang } = serializeModel(model);
+  const block = originalMarkdown === undefined
+    ? undefined
+    : extractMermaidBlocks(originalMarkdown)[blockIndex];
+  const { code, lang } = serializeModel(model, block?.lang);
   if (originalMarkdown !== undefined) {
-    const blocks = extractMermaidBlocks(originalMarkdown);
-    const block = blocks[blockIndex];
-    if (block) return replaceMermaidBlock(originalMarkdown, block, code);
+    if (block) return replaceMermaidBlock(originalMarkdown, { ...block, lang }, code);
     const sep = originalMarkdown.endsWith("\n") ? "" : "\n";
     return originalMarkdown + sep + "\n" + wrapAsMermaidBlock(code, lang) + "\n";
   }

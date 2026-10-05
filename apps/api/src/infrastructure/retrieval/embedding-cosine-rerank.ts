@@ -1,4 +1,4 @@
-import type { EmbeddingPort, RerankPort } from "../../application/retrieval/ports";
+import type { EmbeddingPort, RerankPort, RetrievalAccountingContext } from "../../application/retrieval/ports";
 
 /**
  * Rerank by cosine similarity of the SAME embedding model that indexed the segments.
@@ -11,10 +11,10 @@ import type { EmbeddingPort, RerankPort } from "../../application/retrieval/port
 export class EmbeddingCosineRerank implements RerankPort {
   constructor(private readonly embeddings: EmbeddingPort) {}
 
-  async rerank(query: string, candidates: readonly { id: string; content: string }[]): Promise<readonly string[]> {
+  async rerank(query: string, candidates: readonly { id: string; content: string }[], accounting?: RetrievalAccountingContext): Promise<readonly string[]> {
     if (candidates.length === 0) return [];
-    const q = await this.embeddings.embed(query);
-    const scored = await Promise.all(candidates.map(async (c, i) => ({ id: c.id, i, score: cosine(q, await this.embeddings.embed(c.content)) })));
+    const q = await this.embeddings.embed(query, accounting);
+    const scored = await Promise.all(candidates.map(async (c, i) => ({ id: c.id, i, score: cosine(q, await this.embeddings.embed(c.content, accounting)) })));
     scored.sort((a, b) => b.score - a.score || a.i - b.i);
     return scored.map((s) => s.id);
   }

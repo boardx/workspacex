@@ -44,3 +44,5 @@ description: 实时录音、ASR 流式转录、停止收尾和逐字稿持久化
 - 2026-10-01：访谈语音输入对临时 ASR 故障启用有限重连，确认文本跨连接保留、临时文本不重放；启动取消信号在取得录音句柄后必须解绑，已连接流仍通过 `stop()` 刷新尾帧，避免离页收尾退化为硬断线（issue #4801，`asr-draft-reconnect` / `asr-draft-cleanup` 回归）。
 
 谁修改本模块，谁在 PR 中追加一条可验证经验；不删除旧条目，推翻时标明替代来源。
+
+- 2026-10-04：ASR gateway 测试须完整断言服务器计量身份，并在 afterEach 无条件清理客户端与 gateway WebSocket；仅末尾 close 会在身份断言失败后使 HTTP server.close 等待至超时（issue #5261 / PR #5269，故意不匹配本地断言 1.39s 退出反证）。

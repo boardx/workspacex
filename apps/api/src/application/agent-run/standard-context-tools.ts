@@ -4,7 +4,7 @@ import {STANDARD_CONTEXT_TOOLS as C,ProjectListOutput,ProjectReadOutput} from '@
 import {listProjects,type ListProjectsDeps} from '../project/list-projects';
 import {getProjectOverview,type GetProjectOverviewDeps} from '../project/get-project-overview';
 import {citeSources,type RunCitationLedger} from './standard-cite';
-export interface TrustedContextActor {readonly orgId:OrgId;readonly userId:string;readonly threadId:string;readonly projectId:string|null;}
+export interface TrustedContextActor {readonly orgId:OrgId;readonly userId:string;readonly threadId:string;readonly projectId:string|null;readonly modelRequestAccounting?:import("@repo/contracts/retrieval-accounting").RetrievalAccountingContext;}
 export interface StandardKnowledgeSource {
  search(actor:TrustedContextActor,input:z.infer<typeof C.wx_knowledge_search.input>):Promise<z.infer<typeof C.wx_knowledge_search.output>>;
  read(actor:TrustedContextActor,input:z.infer<typeof C.wx_knowledge_read.input>):Promise<z.infer<typeof C.wx_knowledge_read.output>>;

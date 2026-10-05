@@ -1,0 +1,39 @@
+{
+  "webRegression": {
+    "tests": 37,
+    "exitCode": 0
+  },
+  "canvasSaveRegression": {
+    "tests": 17,
+    "exitCode": 0
+  },
+  "wordIntegratedGeneration": {
+    "tests": 2,
+    "exitCode": 0
+  },
+  "pptGeneration": {
+    "tests": 3,
+    "exitCode": 0
+  },
+  "webTypecheck": {
+    "exitCode": 0
+  },
+  "canvasNativeNodeEnvironment": {
+    "failedTests": 11,
+    "reason": "jsdom missing node-canvas native package",
+    "notClaimedPassing": true
+  },
+  "offlineChromiumPdf": {
+    "exitCode": 0,
+    "pages": 3
+  },
+  "offlineFabricCanvas": {
+    "exitCode": 0,
+    "png": true,
+    "pdfPages": 1
+  },
+  "modelCalls": 0,
+  "realDatabaseWrites": 0,
+  "deployment": false,
+  "scope": "local synthetic output integration only"
+}

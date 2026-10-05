@@ -48,3 +48,11 @@ prebuild 必须提供验证脚本 `REQUIRED` 集合中的全部 20 项检查；p
 本修复只解除 build 门。`deploy-cn-production.sh:269–274` 的 prepare 仍在依赖/迁移前要求 preactivate，collector 动态镜像 probe 仍连接当前生产。隔离动态验收没有直接注入 production preactivate 的消费入口，不能换绑为生产证明。首次不兼容迁移仍需独立维护 lane：隔离验收 → 人类维护窗口 → 停写/排空与新备份 → 生产迁移 → 生产动态 bootstrap 检查 → prepare/activate。该 lane 未由本修复实现，未验收不声明 READY。
 
 `verify-cn-release-preflight.sh` 通过 `git show "$revision:.../validate_preflight.py"` 加载候选内验证器，collector 同样验证候选内脚本身份。因此仅合入 main 不改变旧候选 9b25 的运行行为；现有入口没有独立 operational validator override。正式使用需新 exact candidate 包含该修复并重新 freeze/build/Devapp gates，或先另行实现、审阅与授权绑定独立 operational 身份的加载机制。本修复不偷偷更换 app candidate 或跳过旧验证器。
+
+## Artifact-only stage boundary (#5319)
+
+The trusted `--build-only` entry uses `phase=artifact-build` after full exact tool/source binding verification. Existing source, input, registry, lock, tool hash and runtime probes remain mandatory. This phase does not require the migration plan or baseline schema catalog and cannot claim database compatibility. Immutable `artifact-build.json` and `artifact-build.validated.json` have separate paths from full `prebuild.json`. After manifest/seal and registry readback, the build-only receipt remains `ready=false`, `prepared=false`, `productionActivated=false`; it does not run prepare, SQL or activation.
+
+Normal `prebuild` retains baseline schema, grants and exact migration ledger/plan checks. Before the first production migration call, both the maintenance transport and the innermost existing-session control helper consume root-private full prebuild evidence plus its validated receipt. They verify canonical hash, source/baseline/attempt/plan identity and a fresh TTL of at most one hour. Missing, tampered, expired or artifact-only evidence stops before DDL. Existing migration risk and maintenance authorization gates are unchanged. `preactivate` and operational lineage require full `prebuild`; the artifact receipt cannot substitute it. Post-migration dynamic candidate checks remain mandatory.
+
+Merging source does not update an old candidate or installed host tools. Reviewed exact operational closure installation and fixed application binding require their own concrete approval before this artifact-only stage is used on the host.

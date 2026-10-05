@@ -1012,6 +1012,7 @@ export const GuidedResearchSourcePolicy = z.object({
   revision: z.number().int().nonnegative(),
 }).strict().refine((value) => value.mode !== "restrict" || value.domains.length > 0, "restrict mode requires at least one domain");
 export const GuidedResearchActivityEvent = z.object({
+  executionVersion: z.number().int().nonnegative().optional(),
   id: z.string().min(1), sequence: z.number().int().nonnegative(),
   stage: z.enum(["planning", "searching", "reading", "validating", "writing"]),
   taskId: z.string().min(1).nullable(), summary: z.string().trim().min(1).max(1000),
@@ -1058,7 +1059,7 @@ export const GuidedResearchRuntime = z.object({
   researchPlan: GuidedResearchPlanDescription.nullable().optional(),
   // Durable composite intent; absence preserves legacy single-node execution.
   executionGoal: z.enum(["plan", "report"]).optional(),
-  progress: z.object({ stage: z.enum(["planning", "searching", "organizing", "writing", "reviewing", "synthesizing"]), completed: z.number().int().nonnegative(), total: z.number().int().nonnegative(), sectionId: z.string().optional() }).strict().nullable().optional(),
+  progress: z.object({ executionVersion: z.number().int().nonnegative().optional(), stage: z.enum(["planning", "searching", "organizing", "writing", "reviewing", "synthesizing"]), completed: z.number().int().nonnegative(), total: z.number().int().nonnegative(), sectionId: z.string().optional() }).strict().nullable().optional(),
   reportCheckpoint: z.object({ basis: z.string().min(1), instruction: z.string().max(10000).optional(), chapters: GuidedResearchReport.shape.sections.min(0) }).strict().nullable().optional(),
   reportSourceAliases: z.array(z.object({ alias: z.string().min(1), sourceId: z.string().min(1) }).strict()).optional(),
   reportPartial: z.boolean().optional(),

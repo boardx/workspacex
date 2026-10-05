@@ -24,6 +24,7 @@ export function useAuthedImageSrc(url: string | null): { src: string | null; fai
     }
     let cancelled = false;
     let objectUrl: string | null = null;
+    setSrc(null);
     setFailed(false);
     (async () => {
       try {

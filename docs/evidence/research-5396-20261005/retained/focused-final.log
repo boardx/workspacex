@@ -1,0 +1,11 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/research-5056-fixes/workspacex/apps/api
+
+ ✓ tests/research/guided-three-step.test.ts (23 tests) 805ms
+ ✓ tests/research/guided-partial-report-recovery.test.ts (11 tests) 14ms
+
+ Test Files  2 passed (2)
+      Tests  34 passed (34)
+   Start at  21:51:49
+   Duration  2.09s (transform 544ms, setup 0ms, collect 1.06s, tests 819ms, environment 0ms, prepare 54ms)
+

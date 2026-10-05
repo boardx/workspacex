@@ -151,6 +151,7 @@ describe("chapter-based report generation", () => {
     } };
     const report = await generateReportChapters(f.state, model, config, persist);
     expect(peak).toBe(3); expect(writePeak).toBe(1);
+    expect(f.writes.filter(state => state.progress?.stage === "organizing").every(state => state.progress?.executionVersion === f.state.version)).toBe(true);
     const progress = f.writes.filter((state) => state.progress?.stage === "organizing").map((state) => state.progress!.completed);
     expect(progress).toEqual([...progress].sort((a, b) => a - b));
     expect(Math.max(...progress)).toBe(3);
@@ -754,7 +755,7 @@ describe("post-research chapter structure saves (#5081)", () => {
   it.each(["save_chapters", "save"])("%s keeps the appropriate invalidation boundary", async (action) => {
     const f = fixture(); f.state.busy = false; f.state.availableNodes = ["brief", "directions", "outline", "research", "report"];
     f.state.sources[1]!.decision = "excluded";
-    f.state.reportDraft = { title: "Old draft", summary: "Old", sections: [] };
+    f.state.reportDraft = { title: "Old draft", summary: "Old", sections: [{ sectionId: "b", body: body("source-b"), sourceIds: ["source-b"] }] };
     const beforeSources = structuredClone(f.state.sources), beforeTasks = structuredClone(f.state.tasks);
     const value = f.state.outline.map((item) => ({ ...item, title: `${item.title} edited`, questions: [...item.questions, "New unsupported question?"] }));
     const store: GuidedRuntimeStore = { read: async () => f.state, claim: async () => ({ state: f.state, replay: false }), write: async (_actor, _request, state) => { f.writes.push(structuredClone(state)); } };
@@ -1116,7 +1117,7 @@ it("publishes confirmed report destination before reading sources and does not r
   expect(read).toHaveBeenCalledWith("https://example.com/a", { signal: expect.any(AbortSignal) });
 });
 
-it("finalizes stalled report source preparation after three minutes", async () => {
+it("bounds a stalled report preparation model request at ninety seconds", async () => {
   vi.useFakeTimers();
   try {
     const f = fixture();
@@ -1125,10 +1126,10 @@ it("finalizes stalled report source preparation after three minutes", async () =
     const operation = service.execute({ sessionId: "s", orgId: "org", userId: "u" } as RuntimeActor,
       { sessionId: "s", brief: f.state.brief, directions: { versions: [] }, outline: { versions: [] } } as any,
       { sessionId: "s", node: "report", action: "generate", requestId: "deadline", expectedVersion: 4 });
-    await vi.advanceTimersByTimeAsync(180_000);
+    await vi.advanceTimersByTimeAsync(90_000);
     const result = await operation;
     expect(result.busy).toBe(false);
-    expect(result.errorCode).toBe("RESEARCH_REPORT_PREPARATION_TIME_BUDGET_EXCEEDED");
+    expect(result.errorCode).toBe("RESEARCH_REPORT_MODEL_TIME_BUDGET_EXCEEDED");
   } finally { vi.useRealTimers(); }
 });
 

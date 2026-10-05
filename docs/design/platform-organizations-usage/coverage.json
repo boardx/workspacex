@@ -1,0 +1,588 @@
+{
+  "version": 1,
+  "issue": 5261,
+  "productionEnforcement": false,
+  "routes": [
+    {
+      "id": "executor-configured-primary",
+      "status": "connected-injected",
+      "sources": [
+        "apps/api/src/infrastructure/agent-run/agent-run-executor.ts",
+        "apps/api/src/application/agent-run/runtime-profile-routing.ts",
+        "apps/api/src/application/agent-run/priced-run-model.ts",
+        "apps/api/src/infrastructure/agent-run/configured-model-provider.ts",
+        "apps/api/src/infrastructure/agent-run/ai-runtime-wiring.ts",
+        "apps/api/src/application/agent-run/context-pack-ai-facts.ts"
+      ],
+      "tests": [
+        "apps/api/tests/agent-runtime/configured-model-provider-max-output.test.ts",
+        "apps/api/tests/auth/ai-context-runtime-wiring.test.ts"
+      ],
+      "remaining": [
+        "Actual whole-input metadata binding is wired; authoritative source classification and final root/child assembler source mapping remain incomplete.",
+        "Explicit finite spend policy and ordinary per-user amount/window/timezone; no defaults enabled.",
+        "Verified exact physical model registration, input/output bounds and pricing unit/rate.",
+        "Isolated PostgreSQL/tenant integration for the new batch.",
+        "Actual deployed provider/cancellation/retry evidence for this family.",
+        "New operator catalog/policy browser screenshots and permission-negative flow."
+      ],
+      "sourceMissing": [
+        "Actual whole-input metadata binding is wired; authoritative source classification and final root/child assembler source mapping remain incomplete."
+      ],
+      "configurationMissing": [
+        "Explicit finite spend policy and ordinary per-user amount/window/timezone; no defaults enabled.",
+        "Verified exact physical model registration, input/output bounds and pricing unit/rate."
+      ],
+      "acceptanceMissing": [
+        "Isolated PostgreSQL/tenant integration for the new batch.",
+        "Actual deployed provider/cancellation/retry evidence for this family.",
+        "New operator catalog/policy browser screenshots and permission-negative flow."
+      ]
+    },
+    {
+      "id": "executor-history-summary",
+      "status": "connected-injected",
+      "sources": [
+        "apps/api/src/application/agent-run/meter-model-completion.ts",
+        "apps/api/src/application/agent-run/priced-run-model.ts",
+        "apps/api/src/infrastructure/agent-run/ai-runtime-wiring.ts",
+        "apps/api/src/application/agent-run/context-pack-ai-facts.ts"
+      ],
+      "tests": [
+        "apps/api/tests/agent-runtime/configured-model-provider-max-output.test.ts",
+        "apps/api/tests/auth/ai-context-runtime-wiring.test.ts"
+      ],
+      "remaining": [
+        "Actual whole-input metadata binding is wired; authoritative source classification and final root/child assembler source mapping remain incomplete.",
+        "Distinct semantic identity for repeated identical auxiliary operations.",
+        "Explicit finite spend policy and ordinary per-user amount/window/timezone; no defaults enabled.",
+        "Verified exact physical model registration, input/output bounds and pricing unit/rate.",
+        "Isolated PostgreSQL/tenant integration for the new batch.",
+        "Actual deployed provider/cancellation/retry evidence for this family."
+      ],
+      "sourceMissing": [
+        "Actual whole-input metadata binding is wired; authoritative source classification and final root/child assembler source mapping remain incomplete.",
+        "Distinct semantic identity for repeated identical auxiliary operations."
+      ],
+      "configurationMissing": [
+        "Explicit finite spend policy and ordinary per-user amount/window/timezone; no defaults enabled.",
+        "Verified exact physical model registration, input/output bounds and pricing unit/rate."
+      ],
+      "acceptanceMissing": [
+        "Isolated PostgreSQL/tenant integration for the new batch.",
+        "Actual deployed provider/cancellation/retry evidence for this family."
+      ]
+    },
+    {
+      "id": "executor-script-regeneration",
+      "status": "connected-injected",
+      "sources": [
+        "apps/api/src/application/agent-run/meter-model-completion.ts",
+        "apps/api/src/application/agent-run/priced-run-model.ts",
+        "apps/api/src/infrastructure/agent-run/ai-runtime-wiring.ts",
+        "apps/api/src/application/agent-run/context-pack-ai-facts.ts"
+      ],
+      "tests": [
+        "apps/api/tests/agent-runtime/configured-model-provider-max-output.test.ts",
+        "apps/api/tests/auth/ai-context-runtime-wiring.test.ts"
+      ],
+      "remaining": [
+        "Actual whole-input metadata binding is wired; authoritative source classification and final root/child assembler source mapping remain incomplete.",
+        "Distinct semantic identity for repeated identical auxiliary operations.",
+        "Explicit finite spend policy and ordinary per-user amount/window/timezone; no defaults enabled.",
+        "Verified exact physical model registration, input/output bounds and pricing unit/rate.",
+        "Isolated PostgreSQL/tenant integration for the new batch.",
+        "Actual deployed provider/cancellation/retry evidence for this family."
+      ],
+      "sourceMissing": [
+        "Actual whole-input metadata binding is wired; authoritative source classification and final root/child assembler source mapping remain incomplete.",
+        "Distinct semantic identity for repeated identical auxiliary operations."
+      ],
+      "configurationMissing": [
+        "Explicit finite spend policy and ordinary per-user amount/window/timezone; no defaults enabled.",
+        "Verified exact physical model registration, input/output bounds and pricing unit/rate."
+      ],
+      "acceptanceMissing": [
+        "Isolated PostgreSQL/tenant integration for the new batch.",
+        "Actual deployed provider/cancellation/retry evidence for this family."
+      ]
+    },
+    {
+      "id": "digital-agent-skills-workflow-python",
+      "status": "connected-injected",
+      "sources": [
+        "apps/api/src/infrastructure/agent-run/deep-agent-model-provider.ts",
+        "apps/deep-agent-service/src/deep_agent_service/model.py",
+        "apps/deep-agent-service/src/deep_agent_service/model_request_accounting.py",
+        "apps/api/src/infrastructure/auth/pg-ai-admission-repository.ts",
+        "apps/api/src/interface/controllers/runtime-model-usage.controller.ts",
+        "apps/api/src/infrastructure/agent-run/ai-runtime-wiring.ts",
+        "apps/api/src/application/agent-run/context-pack-ai-facts.ts"
+      ],
+      "tests": [
+        "apps/deep-agent-service/tests/test_model_request_accounting.py",
+        "apps/api/tests/auth/runtime-admission-composition.test.ts",
+        "apps/api/tests/auth/ai-context-runtime-wiring.test.ts"
+      ],
+      "remaining": [
+        "Actual whole-input metadata binding is wired; authoritative source classification and final root/child assembler source mapping remain incomplete.",
+        "Native gateway routing must delegate to the private per-HTTP admission protocol without pinned-provider mismatch.",
+        "Semantic logical operation identity and authorized private fallback beyond primary-only hard stop.",
+        "Explicit finite spend policy and ordinary per-user amount/window/timezone; no defaults enabled.",
+        "Verified exact physical model registration, input/output bounds and pricing unit/rate.",
+        "Isolated PostgreSQL/tenant integration for the new batch.",
+        "Actual deployed provider/cancellation/retry evidence for this family."
+      ],
+      "sourceMissing": [
+        "Actual whole-input metadata binding is wired; authoritative source classification and final root/child assembler source mapping remain incomplete.",
+        "Native gateway routing must delegate to the private per-HTTP admission protocol without pinned-provider mismatch.",
+        "Semantic logical operation identity and authorized private fallback beyond primary-only hard stop."
+      ],
+      "configurationMissing": [
+        "Explicit finite spend policy and ordinary per-user amount/window/timezone; no defaults enabled.",
+        "Verified exact physical model registration, input/output bounds and pricing unit/rate."
+      ],
+      "acceptanceMissing": [
+        "Isolated PostgreSQL/tenant integration for the new batch.",
+        "Actual deployed provider/cancellation/retry evidence for this family."
+      ]
+    },
+    {
+      "id": "subtask-text-file",
+      "status": "connected-injected",
+      "sources": [
+        "apps/api/src/application/agent-run/runtime-model-usage.ts",
+        "apps/api/src/infrastructure/auth/pg-runtime-model-usage-repository.ts",
+        "apps/api/src/infrastructure/auth/pg-ai-admission-repository.ts",
+        "apps/api/src/interface/controllers/runtime-model-usage.controller.ts",
+        "apps/api/src/infrastructure/agent-run/ai-runtime-wiring.ts",
+        "apps/api/src/application/agent-run/context-pack-ai-facts.ts"
+      ],
+      "tests": [
+        "apps/api/tests/auth/runtime-model-usage.test.ts",
+        "apps/api/tests/agent-runtime/subtask-tool-calls.test.ts",
+        "apps/api/tests/auth/runtime-admission-composition.test.ts",
+        "apps/api/tests/auth/ai-context-runtime-wiring.test.ts"
+      ],
+      "remaining": [
+        "Actual whole-input metadata binding is wired; authoritative source classification and final root/child assembler source mapping remain incomplete.",
+        "Semantic logical operation identity and authorized private fallback beyond primary-only hard stop.",
+        "Explicit finite spend policy and ordinary per-user amount/window/timezone; no defaults enabled.",
+        "Verified exact physical model registration, input/output bounds and pricing unit/rate.",
+        "Isolated PostgreSQL/tenant integration for the new batch.",
+        "Actual deployed provider/cancellation/retry evidence for this family.",
+        "Prove existing durable-child contract: own running epoch/attempt and parent cancellation, including cancellation/tenant negative cases; parent running/active lease is not a required business gate."
+      ],
+      "sourceMissing": [
+        "Actual whole-input metadata binding is wired; authoritative source classification and final root/child assembler source mapping remain incomplete.",
+        "Semantic logical operation identity and authorized private fallback beyond primary-only hard stop."
+      ],
+      "configurationMissing": [
+        "Explicit finite spend policy and ordinary per-user amount/window/timezone; no defaults enabled.",
+        "Verified exact physical model registration, input/output bounds and pricing unit/rate."
+      ],
+      "acceptanceMissing": [
+        "Isolated PostgreSQL/tenant integration for the new batch.",
+        "Actual deployed provider/cancellation/retry evidence for this family.",
+        "Prove existing durable-child contract: own running epoch/attempt and parent cancellation, including cancellation/tenant negative cases; parent running/active lease is not a required business gate."
+      ]
+    },
+    {
+      "id": "digital-interview-research",
+      "status": "not-connected",
+      "sources": [
+        "apps/api/src/infrastructure/agent-run/deep-research-model-provider.ts"
+      ],
+      "tests": [],
+      "remaining": [
+        "Trusted original requester attribution and actual per-HTTP admission/ledger hooks.",
+        "Explicit finite spend policy and ordinary per-user amount/window/timezone; no defaults enabled.",
+        "Verified exact physical model registration, input/output bounds and pricing unit/rate.",
+        "Isolated PostgreSQL/tenant integration for the new batch.",
+        "Actual deployed provider/cancellation/retry evidence for this family."
+      ],
+      "sourceMissing": [
+        "Trusted original requester attribution and actual per-HTTP admission/ledger hooks."
+      ],
+      "configurationMissing": [
+        "Explicit finite spend policy and ordinary per-user amount/window/timezone; no defaults enabled.",
+        "Verified exact physical model registration, input/output bounds and pricing unit/rate."
+      ],
+      "acceptanceMissing": [
+        "Isolated PostgreSQL/tenant integration for the new batch.",
+        "Actual deployed provider/cancellation/retry evidence for this family."
+      ]
+    },
+    {
+      "id": "embedding-rerank-kg-background",
+      "status": "partial-run-retrieval-default-off",
+      "sources": [
+        "apps/api/src/infrastructure/retrieval/langchain-rerank-client.ts",
+        "apps/deep-agent-service/src/deep_agent_service/retrieval_embeddings.py",
+        "apps/deep-agent-service/src/deep_agent_service/retrieval_rerank.py",
+        "apps/api/src/infrastructure/retrieval/langchain-embedding-client.ts",
+        "packages/contracts/src/retrieval-accounting.ts",
+        "apps/api/src/application/agent-run/admit-priced-input-only-call.ts",
+        "apps/api/src/application/agent-run/verified-input-only-bound-registry.ts",
+        "apps/api/src/infrastructure/retrieval/pg-artifact-embedding-accounting.ts"
+      ],
+      "tests": [
+        "apps/api/tests/auth/retrieval-accounting-forwarding.test.ts",
+        "apps/deep-agent-service/tests/test_retrieval_request_accounting.py",
+        "apps/api/tests/agent-runtime/organization-hybrid-retrieval.test.ts",
+        "apps/api/tests/auth/ai-input-only-bound.test.ts",
+        "apps/api/tests/auth/input-only-admission-composition.test.ts",
+        "apps/api/tests/auth/artifact-embedding-accounting.test.ts"
+      ],
+      "remaining": [
+        "Trusted infrastructure spend owner for service warmup remains unconnected. KG, artifact indexing and cosine references are source-connected; real PG composition remains pending.",
+        "Cross-worker business-level semantic dedup/retry authority and complete-input binding producer remain missing. Input-only max_retries=0 uses distinct actual HTTP request UUIDs/body/path and physical replay denies dispatch; real deployment body measurer/registrations are missing.",
+        "Explicit finite spend policy and ordinary per-user amount/window/timezone; no defaults enabled.",
+        "Verified exact physical model registration, input/output bounds and pricing unit/rate.",
+        "Isolated PostgreSQL/tenant integration for the new batch.",
+        "Actual deployed provider/cancellation/retry evidence for this family."
+      ],
+      "sourceMissing": [
+        "Trusted infrastructure spend owner for service warmup remains unconnected. KG, artifact indexing and cosine references are source-connected; real PG composition remains pending.",
+        "Cross-worker business-level semantic dedup/retry authority and complete-input binding producer remain missing. Input-only max_retries=0 uses distinct actual HTTP request UUIDs/body/path and physical replay denies dispatch; real deployment body measurer/registrations are missing."
+      ],
+      "configurationMissing": [
+        "Explicit finite spend policy and ordinary per-user amount/window/timezone; no defaults enabled.",
+        "Verified exact physical model registration, input/output bounds and pricing unit/rate."
+      ],
+      "acceptanceMissing": [
+        "Isolated PostgreSQL/tenant integration for the new batch.",
+        "Actual deployed provider/cancellation/retry evidence for this family."
+      ]
+    },
+    {
+      "id": "native-audio-image",
+      "status": "partial-ledger-default-off",
+      "sources": [
+        "apps/api/src/domain/agent-run/ai-billable-unit.ts",
+        "apps/api/src/infrastructure/agent-run/openai-image-provider.ts",
+        "apps/api/src/infrastructure/recording/configured-realtime-asr-provider.ts",
+        "apps/api/src/infrastructure/auth/pg-token-usage-repository.ts",
+        "apps/api/src/infrastructure/recording/pg-realtime-asr-repository.ts",
+        "apps/api/src/infrastructure/auth/pg-image-request-accounting.ts",
+        "apps/api/src/infrastructure/auth/pg-asr-request-accounting.ts"
+      ],
+      "tests": [
+        "apps/api/tests/auth/ai-native-unit.test.ts",
+        "apps/api/tests/auth/ai-native-ledger.test.ts",
+        "apps/api/tests/auth/ai-usage-repository.test.ts",
+        "apps/api/tests/auth/image-request-accounting.test.ts",
+        "apps/api/tests/auth/asr-request-accounting.test.ts"
+      ],
+      "remaining": [
+        "Native price snapshots/admission/cap hooks and actual audio/Bailian image provider receipts; OpenAI receipt is trusted-standard-tool subset only.",
+        "ASR actual WS start/terminal is default-off for four known trusted server contexts; vendor-reported units, native admission and durable cross-process repair remain missing.",
+        "Explicit finite spend policy and ordinary per-user amount/window/timezone; no defaults enabled.",
+        "Verified exact physical model registration, input/output bounds and pricing unit/rate.",
+        "Isolated PostgreSQL/tenant integration for the new batch.",
+        "Actual deployed provider/cancellation/retry evidence for this family."
+      ],
+      "sourceMissing": [
+        "Native price snapshots/admission/cap hooks and actual audio/Bailian image provider receipts; OpenAI receipt is trusted-standard-tool subset only.",
+        "ASR actual WS start/terminal is default-off for four known trusted server contexts; vendor-reported units, native admission and durable cross-process repair remain missing."
+      ],
+      "configurationMissing": [
+        "Explicit finite spend policy and ordinary per-user amount/window/timezone; no defaults enabled.",
+        "Verified exact physical model registration, input/output bounds and pricing unit/rate."
+      ],
+      "acceptanceMissing": [
+        "Isolated PostgreSQL/tenant integration for the new batch.",
+        "Actual deployed provider/cancellation/retry evidence for this family."
+      ]
+    },
+    {
+      "id": "trial-local-model",
+      "status": "partial-trusted-trial-default-off",
+      "sources": [
+        "apps/api/src/infrastructure/identity/http-local-model-runtime.ts",
+        "apps/api/src/infrastructure/auth/pg-local-request-accounting.ts",
+        "apps/api/src/application/identity/invoke-local-model.ts"
+      ],
+      "tests": [
+        "apps/api/tests/auth/local-request-accounting.test.ts",
+        "apps/api/tests/kernel/http-local-model-runtime.test.ts",
+        "apps/api/tests/kernel/local-org-zero-egress.test.ts"
+      ],
+      "remaining": [
+        "Verified local model admission/bounds and durable cross-process terminal repair; trusted trial receipt source is connected.",
+        "Explicit finite spend policy and ordinary per-user amount/window/timezone; no defaults enabled.",
+        "Verified exact physical model registration, input/output bounds and pricing unit/rate.",
+        "Isolated PostgreSQL/tenant integration for the new batch.",
+        "Actual deployed provider/cancellation/retry evidence for this family."
+      ],
+      "sourceMissing": [
+        "Verified local model admission/bounds and durable cross-process terminal repair; trusted trial receipt source is connected."
+      ],
+      "configurationMissing": [
+        "Explicit finite spend policy and ordinary per-user amount/window/timezone; no defaults enabled.",
+        "Verified exact physical model registration, input/output bounds and pricing unit/rate."
+      ],
+      "acceptanceMissing": [
+        "Isolated PostgreSQL/tenant integration for the new batch.",
+        "Actual deployed provider/cancellation/retry evidence for this family."
+      ]
+    },
+    {
+      "id": "terminal-crash-repair",
+      "status": "partial",
+      "sources": [
+        "apps/deep-agent-service/src/deep_agent_service/model_request_accounting.py",
+        "apps/deep-agent-service/src/deep_agent_service/http_app.py"
+      ],
+      "tests": [
+        "apps/deep-agent-service/tests/test_model_request_accounting.py"
+      ],
+      "remaining": [
+        "ACK-to-intent crash leaves an undispatched unmatched start; already-passed concurrent checks and complete storage failure remain open. Pre-vendor metadata intent/flock and bounded lock GC are source-implemented; actual production filesystem acceptance and legacy unregistered lock cleanup remain open.",
+        "Isolated PostgreSQL/tenant integration for the new batch.",
+        "Actual deployed provider/cancellation/retry evidence for this family."
+      ],
+      "sourceMissing": [
+        "ACK-to-intent crash leaves an undispatched unmatched start; already-passed concurrent checks and complete storage failure remain open. Pre-vendor metadata intent/flock and bounded lock GC are source-implemented; actual production filesystem acceptance and legacy unregistered lock cleanup remain open."
+      ],
+      "configurationMissing": [],
+      "acceptanceMissing": [
+        "Isolated PostgreSQL/tenant integration for the new batch.",
+        "Actual deployed provider/cancellation/retry evidence for this family."
+      ]
+    }
+  ],
+  "inventoryGranularity": "10 grouped call families; not an exhaustive count of vendor HTTP call sites",
+  "gapFamilyCounts": {
+    "sourceMissing": 10,
+    "configurationMissing": 9,
+    "acceptanceMissing": 10
+  },
+  "dispatchInventory": "docs/design/platform-organizations-usage/dispatch-inventory.json",
+  "localIterationChecklist": {
+    "ownerMeaning": "Named agent responsible for implementation/verification; no claim of whole-repository coverage.",
+    "remoteHead": "ebf9f749057528c8a7156b3b5883c77ed54ba636",
+    "items": [
+      {
+        "id": "catalog-plans-audit",
+        "owner": "/root",
+        "status": "remote-implemented",
+        "terminal": "Formal empty organizations, operator permission/search/pagination/detail, audited separate plans; no deletion."
+      },
+      {
+        "id": "ordinary-enterprise-admission",
+        "owner": "/root",
+        "status": "remote-implemented",
+        "terminal": "Per-original-user token reservation; enterprise token exemption retains finite safety/spend. Default-off."
+      },
+      {
+        "id": "root-history-source-binding",
+        "owner": "/root/ledger_review",
+        "status": "local-verified",
+        "terminal": "Actual root assembler original message IDs/hash -> exact final history component hashes."
+      },
+      {
+        "id": "root-attachment-source-binding",
+        "owner": "/root/ledger_review",
+        "status": "local-verified",
+        "terminal": "Existing repository attachment row ID/message ID -> exact notice/metadata final component hash."
+      },
+      {
+        "id": "root-skill-source-binding",
+        "owner": "/root/ledger_review",
+        "status": "local-verified",
+        "terminal": "Pinned skill version/content hash -> final system/structured skill hashes."
+      },
+      {
+        "id": "root-summary-source-binding",
+        "owner": "/root/ledger_review",
+        "status": "local-verified",
+        "terminal": "Used persisted summary version/cursor or generated summary original inputs -> exact final component hashes."
+      },
+      {
+        "id": "root-history-classification",
+        "owner": "/root",
+        "status": "source-missing",
+        "terminal": "Authoritative original message and historical material classification producer; no C_CHAT_7 guess."
+      },
+      {
+        "id": "root-attachment-classification",
+        "owner": "/root",
+        "status": "source-missing",
+        "terminal": "Authoritative standalone chat attachment classification; visibility/filename is insufficient."
+      },
+      {
+        "id": "root-skill-classification",
+        "owner": "/root",
+        "status": "source-missing",
+        "terminal": "Authoritative pinned instructions/skill classification, including trusted package extensions."
+      },
+      {
+        "id": "root-summary-classification",
+        "owner": "/root",
+        "status": "source-missing",
+        "terminal": "Persisted/generated summaries preserve classification of every original source; no declassification by compression."
+      },
+      {
+        "id": "child-source-classification",
+        "owner": "/root",
+        "status": "source-missing",
+        "terminal": "Child own assembler provenance/classification then exact private SDK transformed input."
+      },
+      {
+        "id": "private-tools-source-classification",
+        "owner": "/root",
+        "status": "source-missing",
+        "terminal": "Actual SDK graph/history/tool middleware maintains exact transformed source lineage."
+      },
+      {
+        "id": "artifact-text-classification",
+        "owner": "/root",
+        "status": "remote-implemented",
+        "terminal": "Current authorized non-confidential original artifact segment hashes match entire actual embedding text bodies."
+      },
+      {
+        "id": "artifact-tokenized-proof",
+        "owner": "/root",
+        "status": "source-missing",
+        "terminal": "Trusted tokenizer/transformation proof for token arrays; unknown transformed inputs remain denied."
+      },
+      {
+        "id": "warmup-spend-owner",
+        "owner": "/root",
+        "status": "decision-and-source-missing",
+        "terminal": "Explicit authorized service spend owner/policy, actual warmup admission and receipts."
+      },
+      {
+        "id": "image-native-admission",
+        "owner": "/root",
+        "status": "source-missing",
+        "terminal": "Original verified native units/caps and immutable prices/shared finite-cost admission; Bailian actual hooks."
+      },
+      {
+        "id": "asr-native-admission",
+        "owner": "/root",
+        "status": "source-missing",
+        "terminal": "Verified billed units/caps, lifecycle-preserving pre-dispatch admission and settlement; no estimated Tokens."
+      },
+      {
+        "id": "ollama-local-admission",
+        "owner": "/root",
+        "status": "source-missing",
+        "terminal": "Authenticated original local counter bounds and finite-cost admission."
+      },
+      {
+        "id": "research-actual-dispatch",
+        "owner": "/root",
+        "status": "source-missing",
+        "terminal": "Account actual external graph vendor dispatch, not graph envelope."
+      },
+      {
+        "id": "semantic-retry-authority",
+        "owner": "/root",
+        "status": "source-missing",
+        "terminal": "Cross-worker business-intent identity/retry authority; preserve legitimate repeated-body batches."
+      },
+      {
+        "id": "python-unmatched-start-repair",
+        "owner": "/root",
+        "status": "source-missing",
+        "terminal": "ACK-to-intent crash and total metadata storage failure reconciliation; no guessed vendor retry."
+      },
+      {
+        "id": "native-crash-repair",
+        "owner": "/root",
+        "status": "source-missing",
+        "terminal": "Image/ASR/local durable cross-process repair beyond existing instance fault blocks."
+      },
+      {
+        "id": "ordinary-production-config",
+        "owner": "/root",
+        "status": "decision-missing",
+        "terminal": "User-specified per-user amount/window/timezone. No default quota activation."
+      },
+      {
+        "id": "finite-spend-production-config",
+        "owner": "/root",
+        "status": "decision-missing",
+        "terminal": "User-authorized finite currency/amount and immutable rates; enterprise is not unlimited supplier spend."
+      },
+      {
+        "id": "verified-deployment-bindings",
+        "owner": "/root",
+        "status": "deployment-evidence-missing",
+        "terminal": "Verified exact physical model implementation/version/unit bounds and body measurement registrations."
+      },
+      {
+        "id": "operator-authenticated-screenshots",
+        "owner": "/root",
+        "status": "environment-missing",
+        "terminal": "Existing isolated PR environment and normal operator session; preserve404 evidence, no new grants."
+      },
+      {
+        "id": "deployed-call-acceptance",
+        "owner": "/root",
+        "status": "deployment-evidence-missing",
+        "terminal": "Actual deployed cancellation/retry/provider counters and receipt filesystem acceptance."
+      },
+      {
+        "id": "cp-selected-source-lineage",
+        "owner": "/root/ledger_review",
+        "status": "local-verified",
+        "terminal": "Selected replay/current union exact component source metadata; historical evidence cannot authorize new dispatch."
+      },
+      {
+        "id": "root-guidance-source-binding",
+        "owner": "/root",
+        "status": "source-missing",
+        "terminal": "Canvas/template guidance source coordinates and classifications survive final system assembly."
+      },
+      {
+        "id": "root-l3-file-source-binding",
+        "owner": "/root",
+        "status": "source-missing",
+        "terminal": "Actual file-retrieval hits retain source coordinates through windowing and final history field."
+      },
+      {
+        "id": "root-tool-trace-source-binding",
+        "owner": "/root",
+        "status": "source-missing",
+        "terminal": "Actual tool-step arguments/results retain original run/step and source classifications."
+      },
+      {
+        "id": "root-kg-memory-source-binding",
+        "owner": "/root",
+        "status": "source-missing",
+        "terminal": "Actual knowledge/memory notes retain selected source identities and classification through history injection."
+      },
+      {
+        "id": "root-vision-source-binding",
+        "owner": "/root",
+        "status": "source-missing",
+        "terminal": "Selected original image attachment identities/byte hashes bind exact final image payload and notices."
+      },
+      {
+        "id": "root-interjection-source-binding",
+        "owner": "/root",
+        "status": "source-missing",
+        "terminal": "Consumed interjection source identity/classification binds actual edited input."
+      },
+      {
+        "id": "root-resume-source-binding",
+        "owner": "/root",
+        "status": "source-missing",
+        "terminal": "Original decision/edited action input identity/classification binds actual resumed request."
+      },
+      {
+        "id": "root-continuation-source-binding",
+        "owner": "/root",
+        "status": "source-missing",
+        "terminal": "Authorized artifact continuation source identity/classification binds final user instruction."
+      }
+    ],
+    "counts": {
+      "implemented": 8,
+      "remainingMinimum": 28
+    }
+  }
+}

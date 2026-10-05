@@ -228,3 +228,12 @@ describe("#466 本模块不认识任何上游 ASR 端点", () => {
     expect(code).not.toMatch(/API_KEY|apiKey|Authorization/);
   });
 });
+
+it('uses 1024-sample interactive frames without changing the recording default', async () => {
+  for (const frameSize of [undefined, 1024] as const) {
+    const {stream, context} = fakeCaptureEnv();
+    const handle = await startCapture({getUserMedia: async () => stream, createAudioContext: () => context, frameSize});
+    expect(context.createScriptProcessor).toHaveBeenCalledWith(frameSize ?? 4096, 1, 1);
+    await handle.stop();
+  }
+});

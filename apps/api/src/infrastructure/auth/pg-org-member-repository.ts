@@ -19,6 +19,7 @@ export class PgOrgMemberRepository implements OrgMemberRepository {
 
   async remove(orgId: OrgId, userId: string): Promise<RemoveOrgMemberResult> {
     return this.db.withTenant(orgId, async (s) => {
+      await s.query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))",[JSON.stringify(["ai-limit-rules",String(orgId)])]);
       // (1) 删成员行本身。RETURNING 判断「这一行本来就在吗」——幂等重放的分界点。
       // ⚠ 不是 UPDATE 一个 `removedAt` 标记：与 F03/auth 的会话不同，`org_memberships`
       //   没有「保留行、只翻状态」的既有约定（它是判定输入，见 identity 的
@@ -59,12 +60,13 @@ export class PgOrgMemberRepository implements OrgMemberRepository {
   /**
    * member-role-management delta。见端口文档：锁 → 判 → 写，同一事务。
    *
-   * 锁的顺序：先锁目标行，再锁全部 admin 行（`FOR UPDATE`，按 user_id 排序避免死锁）。
+   * 锁的顺序：先共用组织规则锁，再锁目标行，再锁全部 admin 行（`FOR UPDATE`，按 user_id 排序避免死锁）。
    * 目标本人若是 admin 会被锁两次——同一事务里重复 `FOR UPDATE` 是无害的。
    * 计数用锁到的行数而不是再发一条 `COUNT(*)`：数的正是锁住的那批行，没有第二次快照。
    */
   async changeRole(orgId: OrgId, userId: string, nextRole: OrgRoleValue): Promise<ChangeOrgMemberRoleResult> {
     return this.db.withTenant(orgId, async (s) => {
+      await s.query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))",[JSON.stringify(["ai-limit-rules",String(orgId)])]);
       const target = await s.query<{ org_role: string }>(
         `SELECT org_role FROM org_memberships WHERE org_id = $1 AND user_id = $2 FOR UPDATE`,
         [orgId, userId],

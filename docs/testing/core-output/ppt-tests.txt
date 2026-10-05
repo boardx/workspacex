@@ -1,0 +1,9 @@
+RUN  v2.1.9 /private/tmp/core-output-ppt
+
+ ✓ ppt-smoke.test.ts (3 tests) 5122ms
+   ✓ actual sandbox creates native editable binary with preinstalled modules 4916ms
+
+ Test Files  1 passed (1)
+      Tests  3 passed (3)
+   Start at  18:51:58
+   Duration  7.10s (transform 1.21s, setup 0ms, collect 1.69s, tests 5.12s, environment 0ms, prepare 73ms)

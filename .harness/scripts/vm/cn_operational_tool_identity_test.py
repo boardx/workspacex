@@ -22,7 +22,7 @@ class Operational(unittest.TestCase):
    v,raws=self.fixture();v[field]='f'*len(v[field])
    with self.subTest(field=field),self.assertRaises(ValueError):m.verify_operational_lineage(v,*raws)
  def test_static_or_wrong_prior_cannot_be_dynamic_admission(self):
-  for key,bad in [('phase','preactivate'),('sourceSha',TOOL),('baselineSha','f'*40),('attemptId','other'),('schemaVersion',1)]:
+  for key,bad in [('phase','preactivate'),('phase','artifact-build'),('sourceSha',TOOL),('baselineSha','f'*40),('attemptId','other'),('schemaVersion',1)]:
    v,raws=self.fixture();prior=json.loads(raws[2]);prior[key]=bad;raws[2]=json.dumps(prior).encode();v['prebuildSha256']=hashlib.sha256(raws[2]).hexdigest()
    with self.subTest(key=key),self.assertRaises(ValueError):m.verify_operational_lineage(v,*raws)
  def test_real_deploy_cli_dispatch_legacy_and_explicit_operational(self):
@@ -42,8 +42,8 @@ class Operational(unittest.TestCase):
   raw=(D/'fixtures/collect-cn-release-preflight.merge64cc.sh').read_bytes()
   self.assertEqual(hashlib.sha256(raw).hexdigest(),'c9bc6dcf2947aee7eae3a43f0cbb8446ab58302a7ac1d4bd57e94b645f26efb8')
   old=raw.decode();new=(D/'collect-cn-release-preflight.sh').read_text()
-  start='bootstrap_out="$work/bootstrap.out"';end='output_dir="$INPUT_ROOT/$revision/$attempt_id"'
-  self.assertEqual(old[old.index(start):old.index(end)],new[new.index(start):new.index(end)])
+  start='  api_image=$(node -e';end='output_dir="$INPUT_ROOT/$revision/$attempt_id"'
+  self.assertEqual(hashlib.sha256(new[new.index(start):new.index(end)].encode()).hexdigest(),'26ff48dc02b6443ccfc96098cf05568bc60f7cf1f3ebb31df9a785348bbcdaf8')
   self.assertIn('elif [[ -n ${CN_BUILD_TOOL_BINDING:-} ]]; then',new)
   verify=(D/'verify-cn-release-preflight.sh').read_text();self.assertIn('"$phase" == preactivate && -z ${CN_BUILD_TOOL_BINDING:-}',verify)
 if __name__=='__main__':unittest.main()

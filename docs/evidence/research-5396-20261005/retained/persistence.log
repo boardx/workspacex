@@ -1,0 +1,30 @@
+[stack-admission] load1=2.99 cores=10 perCore=0.30 running=0/2
+[test-isolation] id=run-muvavxdd-da294e7e-cde49f2af9b3 db=wsx_cde49f2af9b3494988ba compose=wsx-cde49f2af9b3494988ba pg=20234 redis=21234 api=24234 web=25234 sandbox=26234 model=27234 deep-agent=28234 asr=29234 vision=30234 loopback-sandbox=31234 mail=19234
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/research-5056-fixes/workspacex/apps/api
+
+[db-isolation] db=wsx_cde49f2af9b3494988ba capacity=100 current=6 required=32
+{"level":"info","msg":"instance telemetry disabled (endpoint_unset)","traceId":"instance-telemetry"}
+{"level":"info","msg":"dev-process projection sync disabled (WSX_DEV_PROJECTION_SYNC_ORG unset)","traceId":"dev-process-projection-sync"}
+{"level":"info","msg":"kg embedding worker not started: no embedding model configured; memory recall uses text + graph only","traceId":"kg-embedding","code":"embedding_not_configured"}
+stdout | tests/research/guided-runtime-persistence.test.ts > durable research runtime with real PostgreSQL and controlled provider doubles > uses full state for restoration and changed fields for commands and polling
+research-delta-bytes snapshot=1237 unchanged=118 command=1005
+
+{"level":"error","msg":"http exception","traceId":"53ffef49-217a-466d-8ce6-7aaddd8d30b5","detail":{"name":"NotFoundException","message":"Not Found Exception","stack":"NotFoundException: Not Found Exception\n    at GuidedResearchController.current (/Users/shenyangjun/.codex/worktrees/research-5056-fixes/workspacex/apps/api/src/interface/controllers/guided-research.controller.ts:232:23)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at GuidedResearchController.getRuntime (/Users/shenyangjun/.codex/worktrees/research-5056-fixes/workspacex/apps/api/src/interface/controllers/guided-research.controller.ts:49:21)\n    at /Users/shenyangjun/.codex/worktrees/research-5056-fixes/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_sgffei4zmw63aa4v2dkhbu25m4/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /Users/shenyangjun/.codex/worktrees/research-5056-fixes/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_sgffei4zmw63aa4v2dkhbu25m4/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+{"level":"error","msg":"http exception","traceId":"482fa269-6a5c-4e25-a9ed-f6c4965befde","detail":{"name":"BadRequestException","message":"Bad Request","stack":"BadRequestException: Bad Request\n    at GuidedResearchController.executeRuntime (/Users/shenyangjun/.codex/worktrees/research-5056-fixes/workspacex/apps/api/src/interface/controllers/guided-research.controller.ts:68:31)\n    at /Users/shenyangjun/.codex/worktrees/research-5056-fixes/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_sgffei4zmw63aa4v2dkhbu25m4/node_modules/@nestjs/core/router/router-execution-context.js:38:29\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at /Users/shenyangjun/.codex/worktrees/research-5056-fixes/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_sgffei4zmw63aa4v2dkhbu25m4/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /Users/shenyangjun/.codex/worktrees/research-5056-fixes/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_sgffei4zmw63aa4v2dkhbu25m4/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+{"level":"error","msg":"http exception","traceId":"5aa632c9-ec3a-4de8-944c-eeceffde6b68","detail":{"name":"NotFoundException","message":"Not Found Exception","stack":"NotFoundException: Not Found Exception\n    at GuidedResearchController.current (/Users/shenyangjun/.codex/worktrees/research-5056-fixes/workspacex/apps/api/src/interface/controllers/guided-research.controller.ts:232:23)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at GuidedResearchController.streamRuntime (/Users/shenyangjun/.codex/worktrees/research-5056-fixes/workspacex/apps/api/src/interface/controllers/guided-research.controller.ts:83:21)\n    at /Users/shenyangjun/.codex/worktrees/research-5056-fixes/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_sgffei4zmw63aa4v2dkhbu25m4/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /Users/shenyangjun/.codex/worktrees/research-5056-fixes/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_sgffei4zmw63aa4v2dkhbu25m4/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+ ✓ tests/research/guided-runtime-persistence.test.ts (49 tests) 20155ms
+
+ Test Files  1 passed (1)
+      Tests  49 passed (49)
+   Start at  21:43:37
+   Duration  23.72s (transform 3.30s, setup 5ms, collect 809ms, tests 20.16s, environment 0ms, prepare 30ms)
+
+[db-isolation] db=wsx_cde49f2af9b3494988ba peak_connections=5
+[timing] pnpm --filter @repo/api exec vitest run tests/research/guided-runtime-persistence.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：24s
+  清理：0s
+  总计：25s

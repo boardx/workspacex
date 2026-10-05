@@ -38,6 +38,9 @@ class ReplayTests(unittest.TestCase):
  def run_replay(self):return m.replay(self.evidence,self.manifest,self.reader())
  def mutate(self,key,change,db='workspacex'):
   refs=self.manifest['databases'][db];ref=refs[key];value=json.loads(pathlib.Path(ref['path']).read_bytes());change(value);refs[key]=self.write_json(pathlib.Path(ref['path']).name,value)
+ def test_production_root_owner_check_is_not_relaxed_by_fixture_override(self):
+  if os.getuid()==0:self.skipTest('non-root disposable fixture boundary only')
+  with self.assertRaisesRegex(m.Rejected,'ARTIFACT_PARENT_TRUST'):m.ProtectedArtifacts(self.root)
  def test_actual_file_comparison_not_receipt_flags(self):
   result=self.run_replay();self.assertEqual(result['rows'],9);self.assertEqual(result['tables'],3);self.assertEqual(result['sequences'],3);self.assertFalse(result['ready']);self.assertFalse(result['productionRecoveryVerified'])
   with self.assertRaisesRegex(m.Rejected,'PRODUCTION_RECOVERY_EXECUTOR_NOT_IMPLEMENTED'):m.admission_result(result)

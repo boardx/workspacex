@@ -1,7 +1,8 @@
 import type { research as C } from "@repo/contracts";
 import type { z } from "zod";
 import type { OrgId } from "../../domain/org-id";
-export type ResearchRuntime = z.infer<typeof C.GuidedResearchRuntime>;
+import type { PersistedResearchRuntimeSchema } from "./guided-runtime-persistence";
+export type ResearchRuntime = z.infer<typeof PersistedResearchRuntimeSchema>;
 export type RuntimeCommand = z.infer<typeof C.GuidedResearchRuntimeCommand>;
 export type RuntimeDraft = z.infer<typeof C.GuidedResearchRuntimeDraft>;
 export interface RuntimeActor { orgId: OrgId; userId: string; sessionId: string }

@@ -8,6 +8,7 @@ import { addChatMessage, addChatThread } from "../support/chat-db";
 import { PgDatabase } from "../../src/infrastructure/db/pg-database";
 import { appConfig } from "../../src/infrastructure/db/pg-config";
 import { toOrgId } from "../../src/domain/org-id";
+import {resolveRuntimeModelOwner} from "../../src/infrastructure/auth/pg-runtime-model-usage-repository";
 import { PgSubtaskRunStore } from "../../src/infrastructure/agent-run/pg-subtask-run-store";
 import { SubtaskRunExecutor } from "../../src/infrastructure/agent-run/subtask-run-executor";
 import { SubtaskRunController } from "../../src/interface/controllers/subtask-run.controller";
@@ -53,6 +54,32 @@ beforeAll(async () => { await ensureDatabase(); await migrateOnce(); db = new Pg
 afterAll(async () => { await db?.close(); });
 
 describe("WX-T042 durable queue", () => {
+  it("private model ownership follows durable child epoch/attempt and parent cancellation without inheriting parent lease",async()=>{
+    const scope=toOrgId(`org-child-usage-${randomUUID()}`),parentId=`parent-child-usage-${randomUUID()}`;
+    await seed(scope,parentId);
+    const store=new PgSubtaskRunStore(db);
+    const queued=await store.enqueue(scope,{parentRunId:parentId,description:"independent child"});
+    const child=(await store.claimQueued(scope,1))[0]!;
+    expect(child.id).toBe(queued.id);
+    const execution=(await store.readExecution(scope,child.id))!;expect(execution.executionAttemptId).toBeTruthy();
+    const resolve=(tenant:typeof scope,epoch=execution.leaseEpoch,attempt=execution.executionAttemptId!)=>db.withTenant(tenant,s=>resolveRuntimeModelOwner(s,tenant,child.id,epoch,attempt,"primary"));
+    // The original parent is queued with no active execution lease. Durable child authority
+    // is its own running epoch/attempt, as in existing scheduling/tool-authority contracts.
+    const owner=await resolve(scope);
+    expect(owner).toMatchObject({user_id:"actor",root_run_id:parentId,subtask_id:child.id});
+    expect(await resolve(scope,execution.leaseEpoch+1)).toBeUndefined();
+    expect(await resolve(scope,execution.leaseEpoch,"foreign-attempt")).toBeUndefined();
+    expect(await resolve(other)).toBeUndefined();
+    await asApp(scope,c=>c.query("UPDATE subtask_runs SET status='pending' WHERE id=$1",[child.id]));
+    expect(await resolve(scope)).toBeUndefined();
+    await asApp(scope,c=>c.query("UPDATE subtask_runs SET status='running' WHERE id=$1",[child.id]));
+    await asApp(scope,c=>c.query("UPDATE subtask_runs SET cancel_requested_at=now(),cancellation_state='pending' WHERE id=$1",[child.id]));
+    expect(await resolve(scope)).toBeUndefined();
+    await asApp(scope,c=>c.query("UPDATE subtask_runs SET cancel_requested_at=NULL,cancellation_state=NULL WHERE id=$1",[child.id]));
+    await asApp(scope,c=>c.query("UPDATE agent_runs SET cancel_requested_at=now() WHERE id=$1",[parentId]));
+    expect(await resolve(scope)).toBeUndefined();
+  });
+
   it('replays the artifact handoff migration without weakening RLS',async()=>{
     const sql=await readFile(new URL('../../migrations/20260910010000_subtask_artifact_handoff.sql',import.meta.url),'utf8');
     await asOwner(async c=>{await c.query(sql);await c.query(sql);const state=await c.query("SELECT relrowsecurity,relforcerowsecurity FROM pg_class WHERE oid='subtask_runs'::regclass");expect(state.rows[0]).toEqual({relrowsecurity:true,relforcerowsecurity:true});});

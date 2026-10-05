@@ -11,6 +11,7 @@ import { readProductionValidatedReceipt } from './dynamic_gate';
 import { createPersistentWriterLifecycle, runtimeDigest } from './sealed_runtime';
 import { writerCallbacks } from './controller';
 import { verifyOfflineManifest } from './offline_artifacts';
+import {createSourceProductionConsumers} from './source_production_consumers';
 const hash=z.string().regex(/^[a-f0-9]{64}$/);
 const path=z.string().startsWith('/etc/workspacex-cn/').refine(v=>!v.split('/').includes('..'));
 const ref=z.object({path,sha256:hash}).strict();
@@ -32,7 +33,9 @@ const actualRuntime:ConsumerRuntime={assertActivationCapability:assertMaintenanc
 // Fixture substitutions are source-code arguments, never private-plan fields.
 export async function createProductionConsumers(plan:EntryPlan,profile:any,fixture?:Partial<ConsumerRuntime>) {
  const io={...actualRuntime,...fixture};
- const v=schema.parse(io.readJson(plan.consumerInputsPath,plan.consumerInputsSha256));
+ const raw=io.readJson(plan.consumerInputsPath,plan.consumerInputsSha256);
+ if((raw as any)?.schemaVersion===2)return createSourceProductionConsumers(plan,profile,raw,{readJson:io.readJson,readBytes:io.readBytes,verifyExecutable:io.verifyExecutable,lifecycle:io.lifecycle,migration:io.migration,acquireLock:io.acquireLock});
+ const v=schema.parse(raw);
  if(!same(v.identity,plan.identity)||v.toolRevision!==plan.production.toolRevision)throw Error('CONSUMER_INPUT_IDENTITY');
  io.assertActivationCapability();
  const verify=(c:TrustedExecutable)=>{if(profile.installedFilesSha256?.[c.path]!==c.sha256)throw Error('CONSUMER_PROFILE_BINDING');io.verifyExecutable(c);};

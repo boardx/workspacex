@@ -1,0 +1,21 @@
+{
+  "base": "d3a17fddf",
+  "branch": "worker/d011-role-core-outputs-20261005",
+  "apiUnitTests": {
+    "count": 44,
+    "exitCode": 0
+  },
+  "webTests": {
+    "count": 38,
+    "exitCode": 0
+  },
+  "apiTypecheck": {
+    "exitCode": 0
+  },
+  "webTypecheck": {
+    "exitCode": 0
+  },
+  "excluded": "earlier D011 repairs remain on original integration branch",
+  "devappDeployed": false,
+  "roleVersion": "1.7.0"
+}

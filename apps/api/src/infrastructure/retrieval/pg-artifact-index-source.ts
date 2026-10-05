@@ -43,6 +43,6 @@ export class PgArtifactIndexSource implements ArtifactIndexSource {
    if(segment.ordinal!==ordinal||segment.kind!==unit.segmentKind||!segment.anchors.some(a=>a.kind===unit.anchorKind&&a.locator===unit.locator)||!unit.text.trim()||Buffer.byteLength(unit.text)>L.maxTextBytes)throw new Error('artifact_index_unavailable');
    return {segmentId:segment.id,content:unit.text};
   });
-  return {artifactVersionId:version.id,artifactId:version.artifactId,contentHash:version.contentHash,projectId:source.project_id,externalEmbeddingAllowed:!isLocalOrg(organization.kind),requiresReview:hasPii(extraction.derivedText),segments:mapped};
+  return {publisherUserId:version.pinnedBy,artifactVersionId:version.id,artifactId:version.artifactId,contentHash:version.contentHash,projectId:source.project_id,externalEmbeddingAllowed:!isLocalOrg(organization.kind),requiresReview:hasPii(extraction.derivedText),segments:mapped};
  }
 }

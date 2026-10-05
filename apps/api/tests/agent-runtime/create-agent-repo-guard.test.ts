@@ -25,7 +25,13 @@ const repoSource = readFileSync(REPO, "utf8");
 const useCaseSource = readFileSync(USE_CASE, "utf8");
 
 /** 本仓储**允许**命名的租户表。多一张就说明这个文件长出了新的读面。 */
-const ALLOWED_TABLES = new Set(["agents"]);
+const ALLOWED_TABLES = new Set(["agents", "agent_versions"]);
+const graphStart = repoSource.indexOf("  async findForCapabilityGraph(");
+const graphEnd = repoSource.indexOf("  async list(", graphStart);
+const graphSource = repoSource.slice(graphStart, graphEnd);
+const nonGraphSource = repoSource.slice(0, graphStart) + repoSource.slice(graphEnd);
+const directorySource = readFileSync(new URL("../../src/infrastructure/agent/pg-agent-directory-repository.ts", import.meta.url), "utf8");
+const pinSource = directorySource.slice(directorySource.indexOf("export async function readPublishedSkillPins("));
 
 function tablesNamedIn(source: string): Set<string> {
   const found = new Set<string>();
@@ -38,9 +44,37 @@ function tablesNamedIn(source: string): Set<string> {
 }
 
 describe("白名单条目的前提：仓储侧", () => {
-  it("只命名允许的一张租户表（agents）", () => {
+  it("只命名 agents 与当前发布版本元数据表", () => {
     const unexpected = [...tablesNamedIn(repoSource)].filter((t) => !ALLOWED_TABLES.has(t));
     expect(unexpected).toEqual([]);
+  });
+
+  it("新增版本读取只属于能力图；创建、克隆、列表与指令写路径仍只允许 agents", () => {
+    expect(graphStart).toBeGreaterThan(-1);
+    expect(graphEnd).toBeGreaterThan(graphStart);
+    expect(tablesNamedIn(graphSource)).toEqual(new Set(["agents", "agent_versions"]));
+    expect(tablesNamedIn(nonGraphSource)).toEqual(new Set(["agents"]));
+  });
+
+  it("能力图只选当前发布元数据，agent/version/org 三个关联均不可省略", () => {
+    expect(graphSource).toContain("this.db.withTenant(toOrgId(orgId)");
+    expect(graphSource).toContain("v.id=a.published_version_id AND v.agent_id=a.id AND v.org_id=a.org_id");
+    expect(graphSource).toContain("WHERE a.id = $1 AND a.org_id = $2");
+    expect(graphSource).toContain("[agentId, orgId]");
+    const projection = /SELECT ([\s\S]*?)FROM agents/.exec(graphSource)?.[1];
+    expect(projection?.replace(/\s+/g, " ").trim()).toBe("a.id, a.name, a.role_label, a.skill_mounts, a.tool_whitelist, v.id AS published_version_id, v.skill_version_ids, v.pending_skill_bindings");
+  });
+
+  it("共享 pin 查询只能回传已发布版本坐标，不增加内容、写入或租户绕过", () => {
+    expect(pinSource).toContain("export async function readPublishedSkillPins(");
+    expect(tablesNamedIn(pinSource)).toEqual(new Set(["skill_versions", "skills"]));
+    const projection = /SELECT ([\s\S]*?)FROM skill_versions/.exec(pinSource)?.[1];
+    expect(projection?.replace(/\s+/g, " ").trim()).toBe("sk.id AS skill_id, sv.id AS version_id");
+    expect(pinSource).toContain("sk.id=sv.skill_id AND sk.org_id=sv.org_id");
+    expect(pinSource).toContain("(sv.org_id=$1 OR sv.org_id=$3) AND sv.id=ANY($2::text[]) AND sv.published");
+    expect(pinSource).toContain("[orgId, versions, PLATFORM_ORG_ID]");
+    expect(pinSource).not.toMatch(/\b(?:INSERT|UPDATE|DELETE|withoutTenant)\b/);
+    expect(pinSource).not.toMatch(/sv\.(?:content|body|instructions)/);
   });
 
   /** 正样本：尺子有效——它确实认得出表名，不是恒返回空集。 */
@@ -142,5 +176,19 @@ describe("白名单条目的前提：授权确实存在，且在仓储调用之�
     expect(insertAt).toBeGreaterThan(-1);
     expect(authAt).toBeLessThan(findForCloneAt);
     expect(authAt).toBeLessThan(insertAt);
+  });
+});
+
+
+describe("能力图 principal-derived 组织边界", () => {
+  it("入口先验证 principal，再仅以 principal.orgId 读取；不信任客户端组织参数", () => {
+    const source = readFileSync(new URL("../../src/interface/controllers/agent.controller.ts", import.meta.url), "utf8");
+    const start = source.indexOf("  async getCapabilityGraph(");
+    const body = source.slice(start, source.indexOf("\n  }\n", start + 1) + 5);
+    expect(start).toBeGreaterThan(-1);
+    expect(body.indexOf("assertPrincipal(principal)")).toBeGreaterThan(-1);
+    expect(body.indexOf("assertPrincipal(principal)")).toBeLessThan(body.indexOf("await getAgentCapabilityGraph("));
+    expect(body).toContain("{ orgId: principal.orgId, agentId }");
+    expect(body).not.toMatch(/@(?:Body|Query)\(/);
   });
 });

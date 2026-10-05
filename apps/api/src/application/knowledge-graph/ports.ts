@@ -1,3 +1,4 @@
+import type {RetrievalAccountingContext} from "../retrieval/ports";
 /**
  * Phase 18 知识图谱的端口。应用层定义、基础设施实现（依赖倒置）。
  */
@@ -270,7 +271,7 @@ export interface KnowledgeRecallPort {
    * 可选：没有实现它的端口 ⇒ 等同未配置。
    */
   vectorNeighbors?(
-    orgId: OrgId, userId: string, query: string, claimIds: readonly string[] | Promise<readonly string[]>, limit: number,
+    orgId: OrgId, userId: string, query: string, claimIds: readonly string[] | Promise<readonly string[]>, limit: number, accounting?: RetrievalAccountingContext,
   ): Promise<readonly VectorHit[] | null>;
   /** F13：记下这一轮用到了哪些记忆（只存 id 与召回理由），回答下方的引用从这里读。 */
   recordTurn(orgId: OrgId, record: TurnRecallRecord): Promise<void>;

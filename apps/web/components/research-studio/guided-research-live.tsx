@@ -73,7 +73,7 @@ function ProposalPreview({ draft }: { draft: Draft }) {
   return <p>建议保留 {draft.value.filter((item) => item.decision === "accepted").length} 个来源、排除 {draft.value.filter((item) => item.decision === "excluded").length} 个来源。</p>;
 }
 const errors: Record<string, string> = {
-  RESEARCH_REPORT_PREPARATION_TIME_BUDGET_EXCEEDED: "报告来源准备超时，已保存章节仍保留，请重试继续生成。",
+  RESEARCH_REPORT_PREPARATION_TIME_BUDGET_EXCEEDED: "上次报告来源准备已中断，已保存章节仍保留，请重试继续生成。",
   RESEARCH_REPORT_MODEL_TIME_BUDGET_EXCEEDED: "报告模型响应超时，已保存章节仍保留，请重试继续生成。",
   RESEARCH_EVIDENCE_BUDGET_EXCEEDED: "大纲问题或来源内容超出本次分析容量，请精简后重试。",
   RESEARCH_REPORT_QUALITY_INSUFFICIENT: "报告修订后仍未通过证据与分析质量检查，请完善大纲或补充来源后重试。",
@@ -90,10 +90,13 @@ const errors: Record<string, string> = {
   RESEARCH_SEARCH_NO_RELEVANT_SOURCES: "未找到能支持当前主题和研究问题的资料，请调整研究计划后重试。",
   RESEARCH_SOURCE_RELEVANCE_INVALID: "资料相关性评估未通过校验，尚未纳入新的资料，请重试。",
   RESEARCH_SEARCH_EMPTY: "检索服务未返回来源，请调整研究计划后重试。",
+  RESEARCH_SEARCH_REQUEST_TIMEOUT: "本次检索请求超时，已保存成功结果，请重试未完成任务。",
+  RESEARCH_DOCUMENT_TIMEOUT: "本次来源读取超时，请重试未完成任务。",
+  RESEARCH_SOURCE_MODEL_TIMEOUT: "本次资料评估响应超时，已保存成功结果，请重试未完成任务。",
   RESEARCH_SEARCH_UNAVAILABLE: "检索服务暂时不可用，请重试。",
   RESEARCH_SEARCH_CONTENT_EMPTY: "检索结果缺少可用正文，请重试。",
   RESEARCH_EXECUTION_INTERRUPTED: "上次检索已中断，请重试。",
-  RESEARCH_SEARCH_TIME_BUDGET_EXCEEDED: "本轮资料研究已达到 3 分钟上限，已保存有效来源。可重试补充资料，或基于已有来源继续。",
+  RESEARCH_SEARCH_TIME_BUDGET_EXCEEDED: "上次资料研究已中断，已保存有效来源。请重试未完成任务。",
   RESEARCH_SEARCH_PARTIAL_FAILURE: "部分检索失败，已保存成功结果。请重试失败任务。",
   RESEARCH_SOURCES_REQUIRED: "请先添加至少一个真实来源。",
   RESEARCH_SOURCE_URL_INVALID: "请输入有效的公开网页链接。",
@@ -514,7 +517,7 @@ return <GuidedResearchSixStepShell researchName={guidedResearchHeading(state, re
           plan={<GuidedResearchPlanEditor value={draft.value} disabled={busy || Boolean(proposal)} onDirtyChange={setMarkdownDirty} onSave={async (value) => Boolean(await run("save", { draft: { node: "outline", value } }))} />}
         />}
         {reportVisible && state.sources.length > 0 && <details><summary className="cursor-pointer text-sm font-medium">查看研究资料 · {state.sources.filter(source => source.decision !== "excluded").length} 个来源</summary><div className="mt-3"><GuidedResearchSourceWorkspace state={draft?.node === "research" ? { ...state, sources: state.sources.map(source => ({ ...source, decision: draft.value.find(entry => entry.id === source.id)?.decision ?? source.decision })) } : state} actions={null} /></div></details>}
-        {viewedNode === "research" && !waiting && researchFailed && <details data-testid="research-failed-tasks" className="text-sm"><summary className="cursor-pointer text-muted-foreground">查看未完成检索 · {state.tasks.filter((task) => task.status === "failed").length} 项</summary><ul className="mt-2 space-y-2">{state.tasks.filter((task) => task.status === "failed").map((task) => <li key={task.id}><span className="font-medium">{task.title || task.query}</span><p className="text-muted-foreground">{task.errorCode === "RESEARCH_SEARCH_TIME_BUDGET_EXCEEDED" ? "本任务超时，尚未完成。" : errors[task.errorCode ?? ""] ?? "检索未完成，请重试或调整研究计划。"}</p></li>)}</ul></details>}
+        {viewedNode === "research" && !waiting && researchFailed && <details data-testid="research-failed-tasks" className="text-sm"><summary className="cursor-pointer text-muted-foreground">查看未完成检索 · {state.tasks.filter((task) => task.status === "failed").length} 项</summary><ul className="mt-2 space-y-2">{state.tasks.filter((task) => task.status === "failed").map((task) => <li key={task.id}><span className="font-medium">{task.title || task.query}</span><p className="text-muted-foreground">{task.errorCode === "RESEARCH_SEARCH_TIME_BUDGET_EXCEEDED" ? "上次检索已中断，尚未完成。" : errors[task.errorCode ?? ""] ?? "检索未完成，请重试或调整研究计划。"}</p></li>)}</ul></details>}
         {reportVisible && !processing && state.availableNodes.includes("research") && <details open={chapterDetailsOpen} onToggle={(event) => { const open = event.currentTarget.open; setChapterDetailsOpen(open); if (open) setChapterDetailsMounted(true); }}><summary className="cursor-pointer text-sm font-medium">调整报告章节</summary>{chapterDetailsMounted && <ResearchChaptersWorkspace onDirtyChange={setChaptersDirty} runtime={state} disabled={busy} onSave={(value) => void run("save_chapters", { node: "outline", draft: { node: "outline", value } })} onOptimize={(value) => void run("message", { node: "outline", draft: { node: "outline", value }, message: "基于当前章节和已有研究证据优化章节结构、目标与小节，保留来源和证据局限。" })} />}</details>}
         {node === "report" && !chaptersOpen && !waiting && reportDocument && <GuidedResearchReportWorkspace
           actions={null}

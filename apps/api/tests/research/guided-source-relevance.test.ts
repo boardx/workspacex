@@ -457,7 +457,7 @@ describe("bounded source screening batch work", () => {
     expect(result.errorCode).toBe("RESEARCH_WORKFLOW_UNAVAILABLE"); expect(model.complete).not.toHaveBeenCalled();
     expect(result.sources).toEqual(state.sources); expect(result.modelCalls).toHaveLength(1);
   });
-  it("shares the existing report budget, stops queued calls, and ignores late pure provider results", async () => {
+  it("bounds each report preparation model call, stops queued calls, and ignores late pure provider results", async () => {
     vi.useFakeTimers();
     try {
       const state = runtime(); state.currentNode = "report"; state.availableNodes.push("report"); state.sources = batches(); state.tasks[0]!.status = "succeeded";
@@ -471,14 +471,38 @@ describe("bounded source screening batch work", () => {
       const service = new GuidedRuntimeService(store, model, { search: async () => [] }, { provider: "test", id: "test" });
       const operation = service.execute({ sessionId: session.sessionId, orgId: toOrgId("org"), userId: "user" }, session,
         { sessionId: session.sessionId, requestId: "budget", node: "report", action: "generate", expectedVersion: 0 });
-      await vi.advanceTimersByTimeAsync(180000); const result = await operation;
-      expect(result.errorCode).toBe("RESEARCH_REPORT_PREPARATION_TIME_BUDGET_EXCEEDED"); expect(result.busy).toBe(false);
+      await vi.advanceTimersByTimeAsync(90000); const result = await operation;
+      expect(result.errorCode).toBe("RESEARCH_REPORT_MODEL_TIME_BUDGET_EXCEEDED"); expect(result.busy).toBe(false);
       expect(model.complete).toHaveBeenCalledTimes(2); expect(signals.every(signal => signal.aborted)).toBe(true);
       const writes = snapshots.length, before = structuredClone(result); late.forEach(resolve => resolve()); await vi.runAllTimersAsync();
       expect(snapshots).toHaveLength(writes); expect(result).toEqual(before); expect(result.sources).toEqual(state.sources);
     } finally { vi.useRealTimers(); }
   });
-  it("does not dispatch a provider after the budget expires while admission persistence is pending", async () => {
+  it("finishes source preparation after more than 600s of individually bounded relevance calls", async () => {
+    vi.useFakeTimers();
+    try {
+      const state = runtime(); state.currentNode = "report"; state.availableNodes.push("report"); state.tasks[0]!.status = "succeeded";
+      state.sources = Array.from({ length: 24 }, (_, index) => source(`long-${index}`, `${index} evidence `.repeat(2000)));
+      const inputs: Record<string, unknown>[] = [], writes: ResearchRuntime[] = [];
+      const model = { complete: async (input: { user: string }) => {
+        const context = JSON.parse(input.user); inputs.push(context);
+        if (context.researchStage !== "source_relevance") throw new ResearchRuntimeError("RESEARCH_REPORT_EVIDENCE_INVALID");
+        await new Promise(resolve => setTimeout(resolve, 60000)); return { text: JSON.stringify(evaluation(context)) };
+      } };
+      const store: GuidedRuntimeStore = { read: async () => structuredClone(state), claim: async () => ({ state: structuredClone(state), replay: false }), write: async (_a, _r, next) => { writes.push(structuredClone(next)); } };
+      const service = new GuidedRuntimeService(store, model, { search: async () => [], read: async url => ({ text: state.sources.find(source => source.url === url)!.content, contentKind: "text", truncated: false }) }, { provider: "test", id: "test" });
+      const started = Date.now(), operation = service.execute({ sessionId: session.sessionId, orgId: toOrgId("org"), userId: "user" }, session,
+        { sessionId: session.sessionId, requestId: "long-preparation", node: "report", action: "generate", expectedVersion: 0 });
+      await vi.runAllTimersAsync(); const result = await operation;
+      expect(Date.now() - started).toBeGreaterThan(600000);
+      expect(result.errorCode).not.toBe("RESEARCH_REPORT_PREPARATION_TIME_BUDGET_EXCEEDED");
+      expect(writes.some(write => write.activity?.some(event => event.stage === "reading" && event.status === "succeeded"))).toBe(true);
+      expect(inputs.some(input => input.reportStage === "evidence")).toBe(true);
+      expect(result.completed).toBe(false); // Controlled evidence failure still cannot promote a report.
+    } finally { vi.useRealTimers(); }
+  });
+
+  it("keeps report preparation alive while admission persistence exceeds the old round deadline", async () => {
     vi.useFakeTimers();
     try {
       const state = runtime(); state.currentNode = "report"; state.availableNodes.push("report"); state.sources = batches(); state.tasks[0]!.status = "succeeded";
@@ -489,8 +513,8 @@ describe("bounded source screening batch work", () => {
       const operation = service.execute({ sessionId: session.sessionId, orgId: toOrgId("org"), userId: "user" }, session,
         { sessionId: session.sessionId, requestId: "admission-budget", node: "report", action: "generate", expectedVersion: 0 });
       await vi.runAllTimersAsync(); const result = await operation;
-      expect(result.errorCode).toBe("RESEARCH_REPORT_PREPARATION_TIME_BUDGET_EXCEEDED"); expect(model.complete).not.toHaveBeenCalled();
-      expect(result.modelCalls).toHaveLength(1); const savedWrites = writes; await vi.runAllTimersAsync(); expect(writes).toBe(savedWrites);
+      expect(result.errorCode).toBe("RESEARCH_SOURCE_RELEVANCE_INVALID"); expect(model.complete).toHaveBeenCalled();
+      expect(result.modelCalls.length).toBeGreaterThan(0); const savedWrites = writes; await vi.runAllTimersAsync(); expect(writes).toBe(savedWrites);
     } finally { vi.useRealTimers(); }
   });
 

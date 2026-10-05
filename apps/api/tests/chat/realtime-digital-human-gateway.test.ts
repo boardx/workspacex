@@ -444,11 +444,11 @@ describe("WS /chat/realtime-digital-human — Chat 语音模式", () => {
   it("reads voice map + default voice from env (single deployment source)", () => {
     const parsed = readRealtimeModelConfig({
       KERNEL_OMNI_REALTIME_API_KEY: "k", KERNEL_OMNI_REALTIME_BASE_URL: "wss://x",
-      KERNEL_OMNI_REALTIME_VOICE_MAP: JSON.stringify({ research: "Cherry", "dh-02": "bad voice!" }),
+      KERNEL_OMNI_REALTIME_VOICE_MAP: JSON.stringify({ research: "Cherry", "dh-02": "bad voice!", education: "Theo Calm" }),
     } as never);
     expect(parsed.defaultVoice).toBe("Maia");
     expect(parsed.model).toBe("qwen3.8-omni-flash-realtime");
-    expect(parsed.voiceMap).toEqual({ research: "Cherry" });
+    expect(parsed.voiceMap).toEqual({ research: "Cherry", education: "Theo Calm" });
   });
 
   it("pins the POC realtime model despite unrelated deployment model overrides", async () => {
@@ -523,3 +523,7 @@ describe("WS /chat/realtime-digital-human — Chat 语音模式", () => {
     ws.close();
   });
 });
+
+ it('falls back from a whitespace voice override instead of sending an invalid empty voice', () => {
+   expect(readRealtimeModelConfig({KERNEL_OMNI_REALTIME_VOICE: '   '}).defaultVoice).toBe('Maia');
+ });

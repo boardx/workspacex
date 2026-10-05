@@ -77,6 +77,10 @@ const DEFAULT_DEGRADE_POLICY: DegradePolicyName = "跟随组织级";
  * 见 `pg-create-agent-repository.ts` 的 `findForCapabilityGraph`。
  */
 export interface AgentCapabilityGraphRow {
+  readonly publishedVersionId?: string | null;
+  readonly pinnedSkills?: readonly {skillId:string;versionId:string}[];
+  readonly unresolvedSkillVersionIds?: readonly string[];
+  readonly pendingSkillBindings?: readonly import("@repo/contracts/agent-role").PendingSkillBinding[];
   readonly agentId: string;
   readonly name: string;
   readonly roleLabel: string;

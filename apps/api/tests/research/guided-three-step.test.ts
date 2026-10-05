@@ -1,3 +1,4 @@
+import { PersistedResearchRuntimeSchema } from "../../src/application/research/guided-runtime-persistence";
 import { describe, expect, it, vi } from "vitest";
 import { research as C } from "@repo/contracts";
 import { createHash } from "node:crypto";
@@ -19,7 +20,7 @@ function fixture() {
     requests.set(command.requestId, hash); state.version++; state.busy = true; state.errorCode = null;
     return { state: structuredClone(state), replay: false };
   });
-  const write = vi.fn(async (_actor, _request, next: ResearchRuntime) => { state = C.GuidedResearchRuntime.parse(structuredClone(next)); writes.push(structuredClone(state)); });
+  const write = vi.fn(async (_actor, _request, next: ResearchRuntime) => { state = PersistedResearchRuntimeSchema.parse(structuredClone(next)); writes.push(structuredClone(state)); });
   const store: GuidedRuntimeStore = { read: async () => structuredClone(state), claim, write };
   const model = { complete: vi.fn(async (input: { system: string; user: string }) => ({ text: guidedResearchReply(input.system, input.user)! })) };
   const search = vi.fn(async (query: string) => [{ title: "Official policy", url: `https://example.org/${createHash("sha256").update(query).digest("hex")}`, content: "Grid policy requires documented permits and local verification." }]);
@@ -94,13 +95,23 @@ describe("three visible stages with durable composite execution", () => {
     expect(result.errorCode).toBeNull(); expect(result.controlStatus).toBe("paused"); expect(result.executionGoal).toBe("report"); expect(result.completed).toBe(false); expect(f.search).not.toHaveBeenCalled();
     expect(f.model.complete).toHaveBeenCalledTimes(calls);
   });
-  it("retains successful search tasks on a partial failure and resumes the report chain only on explicit retry", async () => {
+  it.each(["Chinese", "English"] as const)("retains successful tasks and a limited %s draft until explicit retry", async language => {
     const f = fixture(); await f.run("prepare_plan");
+    f.set({ ...f.latest(), brief: { ...f.latest().brief, topic: language === "Chinese" ? "并网政策研究" : "Grid policy", goal: "Compare entry requirements", focus: "Evidence" } });
     const search = f.search.getMockImplementation()!; let failed = false;
     f.search.mockImplementation(async query => { if (!failed) { failed = true; throw new Error("one task unavailable"); } return search(query); });
     const partial = await f.run("generate_report", "outline");
-    expect(partial.errorCode).toBe("RESEARCH_SEARCH_PARTIAL_FAILURE"); expect(partial.currentNode).toBe("research"); expect(partial.completed).toBe(false);
-    expect(partial.report).toBeNull(); expect(partial.reportPartial).toBe(false);
+    expect(partial.errorCode).toBe("RESEARCH_SEARCH_PARTIAL_FAILURE"); expect(partial.currentNode).toBe("report"); expect(partial.completed).toBe(false);
+    expect(partial.report).toBeNull(); expect(partial.reportPartial).toBe(true); expect(partial.reportDraft).toBeTruthy();
+    expect(partial.reportDraft?.introduction).toContain(language === "Chinese" ? "搜索局限" : "Search limitation:");
+    expect(partial.reportDraft?.introduction).toContain(language === "Chinese" ? "不是正式完成报告" : "not a completed report");
+    expect(partial.reportDraft?.introduction).not.toContain(language === "Chinese" ? "Search limitation:" : "搜索局限");
+    const draftBeforeSave = partial.reportDraft;
+    const rejectedSave = await f.run("save", "report", { draft: { node: "report", value: draftBeforeSave } });
+    expect(rejectedSave.errorCode).toBe("RESEARCH_TASKS_INCOMPLETE"); expect(rejectedSave.reportDraft).toEqual(draftBeforeSave);
+    expect(rejectedSave.report).toBeNull(); expect(rejectedSave.completed).toBe(false);
+    const rejectedComplete = await f.run("complete", "report");
+    expect(rejectedComplete.errorCode).toBe("RESEARCH_TASKS_INCOMPLETE"); expect(rejectedComplete.completed).toBe(false);
     const succeeded = partial.tasks.filter(task => task.status === "succeeded"); expect(succeeded.length).toBeGreaterThan(0);
     const ids = partial.sources.map(source => source.id), queries = succeeded.map(task => task.query);
     f.search.mockClear(); f.search.mockImplementation(search);
@@ -109,6 +120,42 @@ describe("three visible stages with durable composite execution", () => {
     expect(f.search.mock.calls.some(([query]) => queries.includes(query))).toBe(false);
     expect(ids.every(id => result.sources.some(source => source.id === id))).toBe(true);
   });
+  it("refuses all-invalid strict report evidence after terminal partial search", async () => {
+    const f = fixture(); await f.run("prepare_plan");
+    const search = f.search.getMockImplementation()!; let failed = false;
+    f.search.mockImplementation(async query => { if (!failed) { failed = true; throw new Error("controlled partial"); } return search(query); });
+    const complete = f.model.complete.getMockImplementation()!;
+    f.model.complete.mockImplementation(async input => ["evidence", "evidence_revision"].includes(JSON.parse(input.user).reportStage) ? { text: JSON.stringify({ evaluations: [] }) } : complete(input));
+    const result = await f.run("generate_report", "outline");
+    expect(result.errorCode).toBe("RESEARCH_CONTENT_REFERENCE_INVALID"); expect(result.reportDraft).toBeNull(); expect(result.report).toBeNull(); expect(result.completed).toBe(false);
+    expect(result.tasks.some(task => task.status === "failed")).toBe(true);
+    expect(f.model.complete.mock.calls.some(([input]) => JSON.parse(input.user).reportStage === "chapter")).toBe(false);
+  });
+
+  it("keeps mixed partial quality warnings out of synthesis and never completes failed tasks", async () => {
+    const f = fixture(); await f.run("prepare_plan"); const warnedId = f.latest().outline[0]!.id;
+    const search = f.search.getMockImplementation()!; let failed = false;
+    f.search.mockImplementation(async query => { if (!failed) { failed = true; throw new Error("controlled partial"); } return search(query); });
+    const complete = f.model.complete.getMockImplementation()!;
+    f.model.complete.mockImplementation(async input => {
+      const result = await complete(input), context = JSON.parse(input.user);
+      if (context.section?.id === warnedId && ["chapter", "chapter_revision"].includes(context.reportStage)) {
+        const value = JSON.parse(result.text); value.body += "\n\nUNVERIFIED_BODY_SENTINEL unsupported claim."; return { text: JSON.stringify(value) };
+      }
+      if (context.section?.id === warnedId && context.reportStage === "quality") {
+        const value = JSON.parse(result.text); value.supported = false; value.issues = ["UNVERIFIED_AUDIT_SENTINEL"]; return { text: JSON.stringify(value) };
+      }
+      return result;
+    });
+    const result = await f.run("generate_report", "outline");
+    expect(result.reportDraft).toBeTruthy(); expect(result.report).toBeNull(); expect(result.completed).toBe(false);
+    expect(result.errorCode).toBe("RESEARCH_REPORT_QUALITY_INSUFFICIENT"); expect(result.tasks.some(task => task.status === "failed")).toBe(true);
+    expect(result.reportQualityWarnings?.some(warning => warning.sectionId === warnedId)).toBe(true);
+    const synthesis = f.model.complete.mock.calls.filter(([input]) => JSON.parse(input.user).reportStage?.startsWith("synthesis"));
+    expect(synthesis.length).toBeGreaterThan(0);
+    for (const [input] of synthesis) { expect(input.user).not.toContain("UNVERIFIED_BODY_SENTINEL"); expect(input.user).not.toContain("UNVERIFIED_AUDIT_SENTINEL"); }
+  });
+
   it("does not promote quality-warned drafts or automatically restart their report generation", async () => {
     const f = fixture(); await f.run("prepare_plan");
     const complete = f.model.complete.getMockImplementation()!;
@@ -193,8 +240,10 @@ describe("three visible stages with durable composite execution", () => {
     const calls = f.model.complete.mock.calls.length;
     const result = await f.run("retry", "report");
     expect(result.errorCode).toBe("RESEARCH_SEARCH_PARTIAL_FAILURE"); expect(result.completed).toBe(false);
-    expect(result.currentNode).toBe("research"); expect(result.sources.map(source => source.id)).toEqual(ids);
-    expect(f.model.complete).toHaveBeenCalledTimes(calls);
+    expect(result.currentNode).toBe("report"); expect(result.sources.map(source => source.id)).toEqual(ids);
+    expect(result.reportDraft).toBeTruthy(); expect(result.report).toBeNull();
+    expect(result.tasks.every(task => task.status === "failed")).toBe(true);
+    expect(f.model.complete.mock.calls.length).toBeGreaterThan(calls);
     if (partial) { expect(result.report).toBeNull(); expect(result.reportPrevious?.partial).toBe(true); expect(result.reportPrevious?.report).toEqual(saved.report); }
   });
 
@@ -215,6 +264,35 @@ describe("three visible stages with durable composite execution", () => {
       expect(fresh[0]?.reportPrevious?.report).toEqual(previous.report);
       expect(fresh[0]?.sources).toEqual(previous.sources);
     } finally { unblock(); await pending; }
+  });
+
+  it("stamps new planning and reading activity with the claim version without relabelling old attempt history", async () => {
+    const f = fixture();
+    f.set({ ...f.latest(), activity: [{ id: "historical", sequence: 1, stage: "reading", taskId: null, summary: "Old reading", occurredAt: "now", status: "started", executionVersion: 0 }] });
+    const plan = await f.run("prepare_plan");
+    expect(plan.activity?.find(event => event.id === "historical")?.executionVersion).toBe(0);
+    expect(f.writes.filter(write => write.progress?.stage === "planning").every(write => write.progress?.executionVersion === plan.version)).toBe(true);
+    const report = await f.run("generate_report", "outline");
+    expect(report.activity?.filter(event => event.stage === "reading" && event.id !== "historical").every(event => event.executionVersion === report.version)).toBe(true);
+    expect(report.activity?.find(event => event.id === "historical")?.executionVersion).toBe(0);
+    const searchWrites = f.writes.filter(write => write.progress?.stage === "searching");
+    expect(searchWrites.length).toBeGreaterThan(0);
+    expect(searchWrites.every(write => write.progress?.executionVersion === report.version)).toBe(true);
+  });
+  it("stamps retried report work with the new claim version and retains the original event versions", async () => {
+    const f = fixture(); await f.run("prepare_plan"); const complete = f.model.complete.getMockImplementation()!;
+    let fail = true;
+    f.model.complete.mockImplementation(async input => { if (fail && JSON.parse(input.user).reportStage === "synthesis") throw new Error("controlled synthesis failure"); return complete(input); });
+    const first = await f.run("generate_report", "outline"), previous = new Map(first.activity?.map(event => [event.id, event.executionVersion]));
+    f.set({ ...f.latest(), progress: { stage: "organizing", completed: 1, total: 3, executionVersion: first.version } });
+    fail = false; const offset = f.writes.length, retried = await f.run("retry", "report");
+    expect(retried.version).toBeGreaterThan(first.version);
+    for (const event of retried.activity ?? []) expect(event.executionVersion).toBe(previous.has(event.id) ? previous.get(event.id) : retried.version);
+    expect(f.writes[offset]?.progress?.executionVersion).toBe(first.version);
+    const newWork = f.writes.slice(offset).filter(write => write.progress?.stage === "synthesizing");
+    expect(newWork.length).toBeGreaterThan(0);
+    expect(newWork.every(write => write.progress?.executionVersion === retried.version)).toBe(true);
+    expect(new Set(f.writes.slice(offset).map(write => write.version))).toEqual(new Set([retried.version]));
   });
 
 });

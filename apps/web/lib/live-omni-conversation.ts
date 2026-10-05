@@ -78,9 +78,15 @@ export async function openOmniConversation(
   const socket = new WebSocket(apiWebSocketUrl(STREAM.path), [`${STREAM.bearerSubprotocolPrefix}${token}`]);
   await waitForSocketOpen(socket, () => new OmniConversationStartError("connect-failed"));
 
-  const player = new Pcm16Player(STREAM.audio.outputSampleRate);
+  const player = new Pcm16Player(STREAM.audio.outputSampleRate, handlers.onAssistantAudio);
   let capture: CaptureHandle | null = null;
   let closed = false;
+  let activeResponseId: string | undefined;
+  const canceledResponses = new Set<string>();
+  const cancelActiveResponse = () => {
+    if (activeResponseId) canceledResponses.add(activeResponseId);
+    player.interrupt();
+  };
   let muted = false;
   let settle: (() => void) | null = null;
   let captureStop: Promise<void> | null = null;
@@ -102,9 +108,13 @@ export async function openOmniConversation(
     const parsed = STREAM.server.safeParse(safeJson(String(event.data)));
     if (!parsed.success) return handlers.onError("实时模型返回了无法识别的数据");
     const frame = parsed.data;
+    if ("responseId" in frame && frame.responseId) {
+      if (canceledResponses.has(frame.responseId)) return;
+      activeResponseId = frame.responseId;
+    }
     if (frame.type === "session.ready") return handlers.onReady(frame.model);
     if (frame.type === "user.speech_started") {
-      player.interrupt();
+      cancelActiveResponse();
       handlers.onAssistantAudio(false);
       return handlers.onUserSpeech(true);
     }
@@ -113,11 +123,10 @@ export async function openOmniConversation(
     if (frame.type === "assistant.transcript") return handlers.onAssistantTranscript(frame.text, frame.final);
     if (frame.type === "assistant.audio") {
       if (closed) return; // 挂断收尾期间不再出声
-      handlers.onAssistantAudio(true);
       player.enqueue(frame.audio);
       return;
     }
-    if (frame.type === "assistant.audio_done") return handlers.onAssistantAudio(false);
+    if (frame.type === "assistant.audio_done") return; // Playback ends when the queued sources drain.
     if (frame.type === "session.error") return handlers.onError(frame.message, frame.reason);
     if (frame.type === "turn.persisted") return handlers.onTurnPersisted?.(frame.role, frame.messageId);
     if (settle) return settle();
@@ -136,7 +145,7 @@ export async function openOmniConversation(
   socket.send(JSON.stringify({ type: "session.start", ...start }));
 
   try {
-    capture = await (deps.capture?.() ?? startCapture());
+    capture = await (deps.capture?.() ?? startCapture({ frameSize: 1024 }));
   } catch (error) {
     closed = true;
     socket.close();
@@ -158,7 +167,7 @@ export async function openOmniConversation(
   return {
     setMuted: (value) => { muted = value; },
     cancelResponse: () => {
-      player.interrupt();
+      cancelActiveResponse();
       if (socket.readyState === WebSocket.OPEN) socket.send(JSON.stringify({ type: "response.cancel" }));
       handlers.onAssistantAudio(false);
     },
@@ -183,7 +192,7 @@ class Pcm16Player {
   private context: AudioContext | null = null;
   private nextStart = 0;
   private sources = new Set<AudioBufferSourceNode>();
-  constructor(private readonly sampleRate: number) {}
+  constructor(private readonly sampleRate: number, private readonly onPlayback: (speaking: boolean) => void) {}
 
   enqueue(base64: string): void {
     this.context ??= new AudioContext();
@@ -196,16 +205,21 @@ class Pcm16Player {
     const source = this.context.createBufferSource();
     source.buffer = audio;
     source.connect(this.context.destination);
-    source.onended = () => this.sources.delete(source);
-    const startAt = Math.max(this.context.currentTime + 0.02, this.nextStart);
+    source.onended = () => {
+      if (this.sources.delete(source) && this.sources.size === 0) this.onPlayback(false);
+    };
+    const startAt = Math.max(this.context.currentTime + (this.sources.size === 0 ? 0.02 : 0), this.nextStart);
     source.start(startAt);
     this.nextStart = startAt + audio.duration;
     this.sources.add(source);
+    this.onPlayback(true);
   }
 
   interrupt(): void {
     for (const source of this.sources) try { source.stop(); } catch { /* already ended */ }
+    const wasPlaying = this.sources.size > 0;
     this.sources.clear();
+    if (wasPlaying) this.onPlayback(false);
     this.nextStart = this.context?.currentTime ?? 0;
   }
 

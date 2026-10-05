@@ -129,17 +129,27 @@ describe("reference research workflow", () => {
     expect(screen.getByRole("button", { name: "下一步：生成报告" })).toBeEnabled();
     expect(screen.getByRole("button", { name: "上一步" })).toBeEnabled();
   });
-  it("explains a search budget stop and keeps sources and next actions available", async () => {
+  it.each(["RESEARCH_SEARCH_REQUEST_TIMEOUT", "RESEARCH_DOCUMENT_TIMEOUT", "RESEARCH_SOURCE_MODEL_TIMEOUT"])("distinguishes a bounded request failure from a round deadline: %s", async (errorCode) => {
+    const initial = { ...runtimeFixture("research"), errorCode };
+    vi.mocked(getResearchRuntime).mockResolvedValue(initial);
+    render(<GuidedResearchLive sessionId={initial.sessionId} onBack={vi.fn()} />);
+    expect(await screen.findByRole("alert")).toHaveTextContent(/本次.*超时/);
+    expect(screen.getByRole("alert")).not.toHaveTextContent(/3 分钟|10 分钟|上限/);
+    expect(screen.getByRole("button", { name: "继续生成" })).toBeEnabled();
+    expect(executeResearchRuntime).not.toHaveBeenCalled();
+  });
+  it("recovers a historical round deadline without claiming an active three-minute limit", async () => {
     const initial = { ...runtimeFixture("research"), errorCode: "RESEARCH_SEARCH_TIME_BUDGET_EXCEEDED" };
     vi.mocked(getResearchRuntime).mockResolvedValue(initial);
     render(<GuidedResearchLive sessionId={initial.sessionId} onBack={vi.fn()} />);
-    expect(await screen.findByRole("alert")).toHaveTextContent("3 分钟上限");
+    expect(await screen.findByRole("alert")).toHaveTextContent("上次资料研究已中断");
+    expect(screen.getByRole("alert")).not.toHaveTextContent(/3 分钟|10 分钟|上限/);
     expect(screen.getByRole("button", { name: "继续生成" })).toBeEnabled();
     expect(screen.queryByRole("button", { name: "确认并继续" })).not.toBeInTheDocument();
     expect(screen.getByTestId("research-source-description-source1")).toHaveAttribute("href", initial.sources[0]!.url);
     expect(executeResearchRuntime).not.toHaveBeenCalled();
   });
-  it("explains a timeout once while retaining all 17 unfinished tasks and five sources", async () => {
+  it("explains a historical interruption once while retaining all 17 unfinished tasks and five sources", async () => {
     const base = runtimeFixture("research");
     const initial = { ...base, errorCode: "RESEARCH_SEARCH_TIME_BUDGET_EXCEEDED",
       tasks: Array.from({ length: 22 }, (_, index) => ({ ...base.tasks[0]!, id: `task-${index}`, title: `公开研究任务 ${index + 1}`,
@@ -149,12 +159,12 @@ describe("reference research workflow", () => {
     };
     vi.mocked(getResearchRuntime).mockResolvedValue(initial);
     render(<GuidedResearchLive sessionId={initial.sessionId} onBack={vi.fn()} />);
-    expect(await screen.findByRole("alert")).toHaveTextContent("3 分钟上限");
+    expect(await screen.findByRole("alert")).toHaveTextContent("上次资料研究已中断");
     const failed = screen.getByTestId("research-failed-tasks");
     fireEvent.click(within(failed).getByText("查看未完成检索 · 17 项"));
-    expect(screen.getAllByText(/本轮资料研究已达到 3 分钟上限/)).toHaveLength(1);
+    expect(screen.getAllByText(/上次资料研究已中断/)).toHaveLength(1);
     expect(within(failed).getAllByRole("listitem")).toHaveLength(17);
-    expect(within(failed).getAllByText("本任务超时，尚未完成。")).toHaveLength(17);
+    expect(within(failed).getAllByText("上次检索已中断，尚未完成。")).toHaveLength(17);
     expect(screen.getByRole("button", { name: "继续生成" })).toBeEnabled();
     expect(screen.queryByRole("button", { name: "基于已有来源继续" })).not.toBeInTheDocument();
     expect(screen.getByTestId("research-report-primary-action")).toBeEnabled();

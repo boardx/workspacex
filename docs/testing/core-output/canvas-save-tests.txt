@@ -1,0 +1,21 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyanbin/Documents/Codex/2026-10-04/task-3/d011-active/apps/web
+
+ ✓ tests/canvas-instance-save-scope.test.tsx (16 tests) 285ms
+stderr | tests/ui/chat-canvas-literal-save.test.tsx > preserves literal HTML entities in saved canvas text and the close callback
+Warning: Function components cannot be given refs. Attempts to access this ref will fail. Did you mean to use React.forwardRef()?
+
+Check the render method of `ChatCanvasModal`.
+    at CanvasStage
+    at div
+    at div
+    at div
+    at ChatCanvasModal (/Users/shenyanbin/Documents/Codex/2026-10-04/task-3/d011-active/apps/web/components/chat/chat-canvas-modal.tsx:31:3)
+
+ ✓ tests/ui/chat-canvas-literal-save.test.tsx (1 test) 116ms
+
+ Test Files  2 passed (2)
+      Tests  17 passed (17)
+   Start at  18:55:14
+   Duration  7.16s (transform 1.79s, setup 622ms, collect 3.51s, tests 401ms, environment 3.65s, prepare 269ms)

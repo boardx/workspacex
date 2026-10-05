@@ -17,6 +17,10 @@
  * enforcement points, one rule.
  */
 import http from "node:http";
+import {randomUUID} from "node:crypto";
+import {Logger} from "@nestjs/common";
+import type {LocalRequestAccounting,LocalModelAccountingContext} from "../../application/identity/local-request-accounting";
+import type {ReportedUsage} from "../../application/agent-run/ports";
 import { isLocalEndpoint } from "../../domain/identity/local-org";
 import type { LocalModelRuntime } from "../../application/identity/local-org-ports";
 
@@ -38,10 +42,12 @@ export function localRuntimeModelId(env: NodeJS.ProcessEnv = process.env): strin
 }
 
 export class HttpLocalModelRuntime implements LocalModelRuntime {
+  private accountingFault=false;
+  private readonly logger=new Logger(HttpLocalModelRuntime.name);
   readonly endpoint: string;
   readonly modelId: string;
 
-  constructor(endpoint: string = localRuntimeEndpoint(), modelId: string = localRuntimeModelId()) {
+  constructor(endpoint: string = localRuntimeEndpoint(), modelId: string = localRuntimeModelId(),private readonly accounting?:LocalRequestAccounting,private readonly productQuotaEnabled=false) {
     this.modelId = modelId;
     if (!isLocalEndpoint(endpoint)) {
       // Fails at construction, i.e. at boot, not on the first user request. A process that
@@ -65,36 +71,48 @@ export class HttpLocalModelRuntime implements LocalModelRuntime {
     }
   }
 
-  async complete(prompt: string): Promise<string> {
+  async complete(prompt: string,context?:LocalModelAccountingContext): Promise<string> {
+    if(this.accountingFault)throw new Error("LOCAL_ACCOUNTING_REPAIR_REQUIRED");
+    if(this.productQuotaEnabled)throw new Error("LOCAL_MODEL_ADMISSION_REQUIRED");
+    if(this.accounting&&!context)throw new Error("LOCAL_ACCOUNTING_CONTEXT_REQUIRED");
+    context?.signal?.throwIfAborted();
+    const receipt=this.accounting?await this.accounting.start(context!,{requestId:randomUUID(),modelId:this.modelId,startedAt:new Date().toISOString()}):undefined;
+    let usage:ReportedUsage={},outcome:"succeeded"|"failed"="failed";
+    try {
     // No retry, no fallback endpoint, no "if this fails try the other one". The absence is
     // the feature: every one of those is a place a cloud call could be added later and still
     // read as local-first.
     const raw = await this.request(
       "POST", "/api/generate",
       JSON.stringify({ model: this.modelId, prompt, stream: false }),
-      120_000,
+      120_000,context?.signal,receipt?(status,raw)=>{usage=readLocalUsage(raw);if(status>=200&&status<300)outcome="succeeded";}:undefined,
     );
     // `{ "response": "..." }` on success; anything else (an `error` object, a non-JSON body) is
     // surfaced verbatim so the operator sees what the runtime actually said.
     try {
       const parsed = JSON.parse(raw) as { response?: unknown; error?: unknown };
       if (typeof parsed.response === "string") return parsed.response;
-      if (parsed.error !== undefined) throw new Error(`local runtime error: ${String(parsed.error)}`);
+      if (parsed.error !== undefined) {outcome="failed";throw new Error(`local runtime error: ${String(parsed.error)}`);}
     } catch (e) {
       if (e instanceof Error && e.message.startsWith("local runtime error")) throw e;
     }
     return raw;
+    } finally {
+      if(receipt)try{await receipt.terminal({endedAt:new Date().toISOString(),outcome,usage});}catch{this.accountingFault=true;this.logger.warn("LOCAL_USAGE_TERMINAL_FAILED: unmatched durable start; subsequent inference blocked in this instance");}
+    }
   }
 
-  private request(method: string, path: string, body: string | undefined, timeoutMs: number): Promise<string> {
+  private request(method: string, path: string, body: string | undefined, timeoutMs: number,signal?:AbortSignal,received?:(status:number,raw:string)=>void): Promise<string> {
     const url = new URL(path, this.endpoint);
     return new Promise<string>((resolve, reject) => {
       const req = http.request(
-        { method, hostname: url.hostname, port: url.port, path: url.pathname, timeout: timeoutMs },
+        { method, hostname: url.hostname, port: url.port, path: url.pathname, timeout: timeoutMs,signal },
         (res) => {
           const chunks: Buffer[] = [];
           res.on("data", (c: Buffer) => chunks.push(c));
-          res.on("end", () => resolve(Buffer.concat(chunks).toString("utf8")));
+          res.on("error",reject);
+          res.on("aborted",()=>reject(new Error("local runtime response aborted")));
+          res.on("end", () => {const raw=Buffer.concat(chunks).toString("utf8");received?.(res.statusCode??0,raw);resolve(raw);});
         },
       );
       req.on("timeout", () => req.destroy(new Error("local runtime timed out")));
@@ -109,4 +127,11 @@ export class HttpLocalModelRuntime implements LocalModelRuntime {
 function describe(e: unknown): string {
   const code = (e as NodeJS.ErrnoException | undefined)?.code;
   return code ? `local runtime unreachable (${code})` : "local runtime unreachable";
+}
+
+/** Original Ollama counters only. No total, native unit or free price is inferred. */
+export function readLocalUsage(raw:string):ReportedUsage{
+ try{const u=JSON.parse(raw) as Record<string,unknown>,count=(v:unknown)=>typeof v==="number"&&Number.isSafeInteger(v)&&v>=0?v:undefined;
+  return Object.fromEntries(Object.entries({prompt:count(u.prompt_eval_count),completion:count(u.eval_count)}).filter(([,v])=>v!==undefined));
+ }catch{return {};}
 }

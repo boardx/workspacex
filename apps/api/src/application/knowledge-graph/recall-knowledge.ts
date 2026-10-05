@@ -1,3 +1,4 @@
+import type {RetrievalAccountingContext} from "../retrieval/ports";
 /**
  * Phase 18 F08 —— 对话一轮开始前，召回本会话记下的相关知识（uc-18-2）。
  *
@@ -25,7 +26,7 @@ export async function recallThreadKnowledge(
   input: {
     readonly orgId: OrgId; readonly userId: string; readonly threadId: string; readonly query: string;
     /** issue #4360：这一轮在发起人本人的个人对话里 ⇒ 另带画像摘要（有界，见 domain/knowledge-graph/profile.ts）。 */
-    readonly personalThread?: boolean;
+    readonly personalThread?: boolean; readonly accounting?: RetrievalAccountingContext;
   },
   log: (message: string, detail: Record<string, unknown>) => void,
 ): Promise<KnowledgeRecall> {
@@ -71,7 +72,7 @@ export const KG_VECTOR_RECALL_TIMEOUT_MS = 400;
  */
 async function vectorChannel(
   port: KnowledgeRecallPort,
-  input: { readonly orgId: OrgId; readonly userId: string; readonly threadId: string; readonly query: string },
+  input: { readonly orgId: OrgId; readonly userId: string; readonly threadId: string; readonly query: string; readonly accounting?: RetrievalAccountingContext },
   claimIds: Promise<readonly string[]>,
   log: (message: string, detail: Record<string, unknown>) => void,
 ): Promise<readonly VectorHit[] | null | undefined> {
@@ -85,7 +86,7 @@ async function vectorChannel(
   timeout.catch(() => undefined);
   try {
     const hits = await Promise.race([
-      port.vectorNeighbors(input.orgId, input.userId, input.query, claimIds, VECTOR_RECALL_TOP_K),
+      port.vectorNeighbors(input.orgId, input.userId, input.query, claimIds, VECTOR_RECALL_TOP_K, input.accounting),
       timeout,
     ]);
     return hits === null ? undefined : hits;
@@ -111,7 +112,7 @@ async function vectorChannel(
  */
 export async function knowledgeMemoryFor(
   port: KnowledgeRecallPort,
-  input: { readonly orgId: OrgId; readonly userId: string; readonly threadId: string; readonly query: string; readonly runId: string; readonly personalThread?: boolean },
+  input: { readonly orgId: OrgId; readonly userId: string; readonly threadId: string; readonly query: string; readonly runId: string; readonly personalThread?: boolean; readonly accounting?: RetrievalAccountingContext },
   log: (message: string, detail: Record<string, unknown>) => void,
 ): Promise<string | null> {
   try {
@@ -304,6 +305,7 @@ export async function turnKnowledgeContext(
   cards: MemoryCardPort | undefined,
   input: {
     readonly orgId: OrgId;
+    readonly accounting?: RetrievalAccountingContext;
     readonly run: {
       readonly requesterUserId: string; readonly threadId: string; readonly inputText: string;
       readonly runId: string; readonly inputMessageId: string;
@@ -320,6 +322,6 @@ export async function turnKnowledgeContext(
     orgId, userId: run.requesterUserId, threadId: run.threadId, runId: run.runId, messageId: run.inputMessageId, text: run.inputText,
   }, log, change);
   // issue #4360：画像摘要只进个人对话（run.projectId 为空，同 execute-run.ts 的判法）；这个判断同样只取自 run。
-  const memory = await knowledgeMemoryFor(knowledge, { orgId, userId: run.requesterUserId, threadId: run.threadId, query: run.inputText, runId: run.runId, personalThread: run.projectId === null || run.projectId === "" }, log);
+  const memory = await knowledgeMemoryFor(knowledge, { orgId, userId: run.requesterUserId, threadId: run.threadId, query: run.inputText, runId: run.runId, accounting: input.accounting, personalThread: run.projectId === null || run.projectId === "" }, log);
   return [card, memory].filter((x): x is string => x !== null);
 }

@@ -21,7 +21,7 @@ async function setup(){
  const authority={check:vi.fn(async()=>({allowed:true}))},identities={findOrganization:vi.fn(async()=>({kind:'organization'}))};
  const intent=`audio-transcription/${hash(context.orgId)}/${hash(context.parentRunId)}/${hash(JSON.stringify(args))}/intent.json`;
  const provider={modelRef:'actual-fixture-model',isConfigured:()=>true,open:vi.fn<AsrProviderPort['open']>(async handlers=>{expect(await objects.get(intent)).not.toBeNull();return{pushAudio:()=>{},commit:()=>{},abort:()=>{},finish:async()=>{handlers.onFinal({itemId:'1',eventId:'1',text:'你好 hello',confidence:null});}};})};
- const service=()=>new DefaultStandardAudioService(owner as never,inputs,()=>session,authority as never,identities as never,objects,provider);
+ const service=(accounting=false)=>new DefaultStandardAudioService(owner as never,inputs,()=>session,authority as never,identities as never,objects,provider,accounting);
  return{source,owner,inputs,session,authority,identities,provider,service,files,objects};
 }
 it('durably records intent before ASR and replays exact JSON without duplicate remote transcription',async()=>{
@@ -74,4 +74,9 @@ it('marks individual unrecognized chunks without inventing missing speech',async
  f.session.execute.mockImplementation(async e=>({executionId:e.executionId,exitCode:0,output:JSON.stringify(chunks),timedOut:false,truncated:false,cancelled:false}));let opened=0;
  f.provider.open.mockImplementation(async h=>{const i=opened++;return{pushAudio:()=>{},commit:()=>{},abort:()=>{},finish:async()=>{if(i)h.onFinal({itemId:'known',text:'known speech',confidence:null});}};});
  const out=await f.service().transcribe(context,args);expect(out.segments[0]?.text).toBe('');expect(out.warnings).toContain('some_chunks_without_recognized_speech');expect(out.warnings).not.toContain('no_recognized_speech');
+});
+
+it('passes exact trusted org/run/attempt/epoch to actual ASR chunk when accounting is enabled',async()=>{
+ const f=await setup();await f.service(true).transcribe(context,args);
+ expect(f.provider.open.mock.calls[0]?.[2]).toEqual({turnDetection:'manual',signal:expect.any(AbortSignal),accountingContext:{kind:'run',orgId:context.orgId,runId:context.parentRunId,attemptId:context.attemptId,leaseEpoch:context.leaseEpoch}});
 });

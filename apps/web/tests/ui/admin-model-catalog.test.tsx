@@ -12,7 +12,9 @@ import * as React from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 
-const { listModels } = vi.hoisted(() => ({ listModels: vi.fn() }));
+const { listModels, currentSession } = vi.hoisted(() => ({ listModels: vi.fn(), currentSession: { value: null as null | {session:{currentOrgId:string}} } }));
+vi.mock("@/components/session/session-provider",()=>({useOptionalSession:()=>currentSession.value}));
+vi.mock("@/components/admin/org-core-model-panel",()=>({OrgCoreModelPanel:({orgId}:{orgId:string})=><div data-testid="core-model-host">{orgId}</div>}));
 
 vi.mock("@/lib/live-model", async () => {
   const actual = await vi.importActual<typeof import("@/lib/live-model")>("@/lib/live-model");
@@ -21,7 +23,7 @@ vi.mock("@/lib/live-model", async () => {
 
 import { ModelScreen } from "@/components/admin/model-screen";
 
-afterEach(() => cleanup());
+afterEach(() => {cleanup();currentSession.value=null;});
 
 const HOSTED = {
   modelId: "m-sonnet46",
@@ -147,4 +149,20 @@ describe("admin-model · 卡片目录 + 面板", () => {
     expect(await screen.findByTestId("admin-model-error")).toHaveTextContent("不退回演示数据");
     expect(screen.queryByTestId("admin-model-list")).toBeNull();
   });
+  it("switches to a distinct public catalog without registering or enabling a tenant model", async () => {
+    render(<ModelScreen state="default" />);
+    await screen.findByTestId(`admin-model-card-${HOSTED.modelId}`);
+    fireEvent.mouseDown(screen.getByRole("tab", { name: "百炼公共目录" }), { button: 0, ctrlKey: false });
+    expect(screen.getByTestId("bailian-catalog")).toBeInTheDocument();
+    expect(screen.queryByTestId(`admin-model-card-${HOSTED.modelId}`)).toBeNull();
+    fireEvent.click(screen.getByTestId("bailian-model-qwen3.8-max"));
+    fireEvent.click(screen.getByRole("button", { name: "查看组织模型池" }));
+    expect(screen.getByTestId(`admin-model-card-${HOSTED.modelId}`)).toBeInTheDocument();
+    expect(screen.queryByTestId("bailian-catalog")).toBeNull();
+    expect(listModels).toHaveBeenCalledTimes(1);
+  });
+
 });
+
+it("core model host uses only the actual session organization",async()=>{currentSession.value={session:{currentOrgId:"actual-current-org"}};listModels.mockResolvedValue([]);render(<ModelScreen state="default"/>);expect(await screen.findByTestId("core-model-host")).toHaveTextContent("actual-current-org");});
+it("core model setting is absent without an authenticated organization session",()=>{listModels.mockResolvedValue([]);render(<ModelScreen state="default"/>);expect(screen.queryByTestId("core-model-host")).not.toBeInTheDocument();});

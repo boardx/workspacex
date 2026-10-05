@@ -77,6 +77,29 @@ class TestValidatePreflight(unittest.TestCase):
         with self.assertRaises(ContractError):
             validate(data, NOW)
 
+    def artifact(self):
+        value=fixture();value['phase']='artifact-build'
+        boot=value['checks']['bootstrap.compatibility']['metadata']
+        for key in ('baselineSha','migrationPlanSha256','baselineSchemaSha256','baselineLedgerContract','baselineSchemaContract','baselinePermissionContract'): boot.pop(key)
+        return value
+
+    def test_artifact_build_without_baseline_is_scoped_only_to_build(self):
+        value=self.artifact();self.assertTrue(validate(value,NOW)['ready'])
+        value['phase']='prebuild';self.reject(value)
+
+    def test_artifact_receipt_cannot_substitute_activation_lineage(self):
+        value=fixture('preactivate');value['prebuildEvidence']=self.artifact()
+        value['prebuildReceiptSha256']=receipt_hash(value['prebuildEvidence']);self.reject(value)
+
+    def test_artifact_still_requires_exact_source_lock_and_trusted_tools(self):
+        for key,field in [('source.exact_sha','mirrorHead'),('runtime.release_lock','heldByAttempt'),('deploy.trusted_copy','hashesMatch')]:
+            value=self.artifact();value['checks'][key]['metadata'][field]=False
+            self.reject(value)
+
+    def test_artifact_cannot_claim_baseline_database_readiness(self):
+        value=self.artifact();value['checks']['bootstrap.compatibility']['metadata']['baselineLedgerContract']=True
+        self.reject(value)
+
     def test_prebuild_without_image_is_ready_to_build(self) -> None:
         result = validate(fixture(), NOW)
         self.assertTrue(result["ready"])
