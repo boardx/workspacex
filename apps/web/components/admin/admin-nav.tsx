@@ -47,6 +47,7 @@ const ICONS: Record<AdminModuleKey, LucideIcon> = {
   // 地球：跨组织的全平台视角，与「组织」组的 Users（一个组织里的人）刻意不同符号。
   platform: Globe,
   organizations: Globe,
+  "model-tests": Cpu,
   // UC-17.8 研发闭环三面。
   "feedback-drafts": FileEdit,
   inbox: Inbox,

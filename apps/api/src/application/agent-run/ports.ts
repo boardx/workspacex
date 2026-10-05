@@ -1536,7 +1536,7 @@ export interface TokenUsageRecord {
   readonly subtaskId?: string | null;
   readonly modelProvider: string;
   readonly modelId: string;
-  /** 上游没报总数时是 0——总数是必填维度，缺失按 0 记而不是猜一个估值。 */
+  /** Missing total uses a sentinel 0: totalSource unknown is unreported; not-applicable is native billing N/A, never reported zero or Token pricing. Reported partials remain independent observations. */
   readonly tokensTotal: number;
   /** null = 上游没报。 */
   readonly promptTokens: number | null;
@@ -1575,6 +1575,8 @@ export interface TokenUsageMeterPort {
   startRequest?(orgId: OrgId, input: {
     readonly requestId: string; readonly userId: string; readonly runId: string|null;
     readonly executionLeaseEpoch?:number; readonly artifactOperationId?:string; readonly subtaskId?:string|null;
+    /** Private platform test authority; same tenant/member provenance is enforced in SQL. */
+    readonly platformTestId?:string;
     readonly modelProvider: string; readonly modelId: string; readonly startedAt: string;
     readonly executionAttemptId: string | null; readonly projectId: string | null;
     readonly threadId?: string | null; readonly agentId?: string | null; readonly callPurpose?: TokenUsageRecord["callPurpose"];

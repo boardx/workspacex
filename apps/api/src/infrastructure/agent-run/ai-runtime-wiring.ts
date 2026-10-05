@@ -1,3 +1,5 @@
+import {assertRunCoreModelSnapshot} from "../model/pg-org-core-model-repository";
+import type {OrgCoreModelAvailability} from "../../application/model/org-core-model-ports";
 import type {NativeBoundRegistration} from "./native-quota-wiring";
 import {readPrivateChildSources} from "./private-child-source-reader";
 import type {ChildSdkEvidence} from "../../application/agent-run/child-input-source-provenance";
@@ -26,6 +28,8 @@ import {IdentityModelConstraint} from "../context-pack/identity-model-constraint
  * no public config endpoint, dynamic code loader, guessed price/model/count or public default.
  */
 export interface AiQuotaRuntimeConfiguration {
+ /** Trusted text-purpose requirements for organization core selection; absent/empty fails closed. */
+ readonly coreModelRequiredCapabilities?:readonly string[];
  /** Native tariffs require separately verified endpoint/account bounds; catalog entries cannot grant dispatch. */
  readonly nativeBounds?:readonly NativeBoundRegistration[];
  readonly inputOnlyModelBounds?:readonly InputOnlyModelBoundRegistration[];
@@ -41,6 +45,7 @@ export const AI_QUOTA_RUNTIME_WIRING=Symbol("AiQuotaRuntimeWiring");
 export const NATIVE_AI_QUOTA_RUNTIME_WIRING=Symbol("NativeAiQuotaRuntimeWiring");
 export interface AiQuotaRuntimeWiring {readonly run:RunAiAdmission;readonly runtime:RuntimeAiAdmissionOptions;readonly inputOnly?:InputOnlyRuntimeAdmissionOptions;}
 export function createAiQuotaRuntimeWiring(enabled:boolean,configuration:AiQuotaRuntimeConfiguration|null,deps:{
+ readonly coreModels?:OrgCoreModelAvailability;
  readonly db:DatabasePort;readonly identity:IdentityRepository;readonly pool:ModelPoolRepository;
  readonly model:ModelCallPort;readonly usage:TokenUsageMeterPort;
 }):AiQuotaRuntimeWiring|null{
@@ -55,6 +60,7 @@ export function createAiQuotaRuntimeWiring(enabled:boolean,configuration:AiQuota
  const facts=async(subject:WholeInputSubject,serializedInput:string,scopedDb?:DatabasePort,assemblyEvidence?:RootAssemblyEvidence|null,childEvidence?:ChildSdkEvidence|null)=>{
   const {orgId,userId,runId}=subject;
   const db=scopedDb??deps.db;
+  await assertRunCoreModelSnapshot(db,deps.coreModels,orgId,subject.rootRunId);
   const constraints=new IdentityModelConstraint(scopedDb?new PgIdentityRepository(scopedDb):deps.identity);
   const store=new PgContextPackStore(db,orgId,constraints,userId);
   const lineage=configuration.contextBindings?await readSelectedContextSourceLineage({orgId,userId,runId,serializedInput},{bindings:configuration.contextBindings,store,constraints}):null;

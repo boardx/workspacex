@@ -16,6 +16,24 @@ describe("native dimensions in the single immutable AI ledger",()=>{
   for(const bad of [{...native,totalSource:undefined},{...native,tokensTotal:1},{...native,nativeUsage:{unit:"image",quantity:1n,source:"unknown"}},{...native,costMicros:1n,currency:"CNY",priceVersion:"p",nativeUsage:{unit:"image",quantity:1n,source:"estimated"}}])await expect(repo.record(org,bad as TokenUsageRecord)).rejects.toThrow();
   expect(query).not.toHaveBeenCalled();
  });
+ it("keeps ASR reported seconds and output detail without claiming a Token total",async()=>{
+  const query=vi.fn().mockResolvedValue({rows:[]});
+  await new PgTokenUsageRepository(db(query) as never).record(org,{...native,completionTokens:6,nativeUsage:{unit:"millisecond",quantity:1500n,source:"reported"},costMicros:14n,currency:"CNY",priceVersion:"immutable-native-price"});
+  const params=query.mock.calls[0]?.[1];expect(params.slice(6,9)).toEqual([0,null,6]);expect(params[10]).toBe("not-applicable");expect(params.slice(24)).toEqual(["millisecond","1500","reported"]);expect(params.slice(18,21)).toEqual(["14","CNY","immutable-native-price"]);
+ });
+ it.each([
+  {completionTokens:-1},{completionTokens:NaN},{completionTokens:6,reasoningOutputTokens:7},
+  {promptTokens:2,cacheInputTokens:3},{completionTokens:6,tokensTotal:6},
+  {completionTokens:6,nativeUsage:{unit:"millisecond",quantity:1500n,source:"estimated"},costMicros:14n,currency:"CNY",priceVersion:"p"},
+  {completionTokens:6,nativeUsage:{unit:"millisecond",quantity:null,source:"unknown"},costMicros:14n,currency:"CNY",priceVersion:"p"},
+  {completionTokens:6,totalSource:"native-reported"}
+ ])("partial native diagnostics cannot bypass total/subset/source/cost validation %#",async bad=>{
+  const query=vi.fn().mockResolvedValue({rows:[]});await expect(new PgTokenUsageRepository(db(query) as never).record(org,{...native,...bad} as TokenUsageRecord)).rejects.toThrow();expect(query).not.toHaveBeenCalled();
+ });
+ it("estimated ASR duration may retain real output detail but cannot claim a known native charge",async()=>{
+  const query=vi.fn().mockResolvedValue({rows:[]});await new PgTokenUsageRepository(db(query) as never).record(org,{...native,completionTokens:6,nativeUsage:{unit:"millisecond",quantity:1500n,source:"estimated"}});
+  expect(query.mock.calls[0]?.[1].slice(6,9)).toEqual([0,null,6]);expect(query.mock.calls[0]?.[1][18]).toBeNull();
+ });
  it("can preserve real provider Tokens and native side dimensions in one receipt",async()=>{
   const query=vi.fn().mockResolvedValue({rows:[]});await new PgTokenUsageRepository(db(query) as never).record(org,{...native,totalSource:"reported",tokensTotal:12,promptTokens:10,completionTokens:2});
   expect(query.mock.calls[0]?.[1].slice(6,9)).toEqual([12,10,2]);expect(query.mock.calls[0]?.[1].slice(24)).toEqual(["image","1","reported"]);

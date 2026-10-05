@@ -1,3 +1,12 @@
+import {CORE_MODEL_RUNTIME_GUARD,createCoreModelRuntimeGuard,guardCoreModelCalls,type CoreModelRuntimeGuard} from "./infrastructure/model/core-model-runtime-guard";
+import {MODEL_TESTBENCH_PROVIDERS,PLATFORM_MODEL_TEST_CONFIGURATION} from "./infrastructure/model/model-testbench-providers";
+import type {PlatformModelTestWiringConfig} from "./infrastructure/model/platform-test-wiring";
+import {PlatformModelTestController} from "./interface/controllers/platform-model-test.controller";
+import {OrgCoreModelController} from "./interface/controllers/org-core-model.controller";
+import {ORG_CORE_MODEL_REPOSITORY,ORG_CORE_MODEL_AVAILABILITY,type OrgCoreModelAvailability} from "./application/model/org-core-model-ports";
+import {ORG_CORE_MODEL_CANDIDATE_READER} from "./application/model/org-core-model-candidates";
+import {VerifiedOrgCoreModelAvailability} from "./infrastructure/model/org-core-model-availability";
+import {PgOrgCoreModelRepository} from "./infrastructure/model/pg-org-core-model-repository";
 import {AI_NATIVE_POLICY_PROVIDERS} from "./application/agent-run/ai-admission-ports";
 import {ArtifactEmbeddingUsageController} from "./interface/controllers/artifact-embedding-usage.controller";
 import {ARTIFACT_EMBEDDING_USAGE} from "./application/retrieval/artifact-embedding-accounting";
@@ -1261,6 +1270,8 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
     PlatformAccessController,
     PlatformMemberController,
     PlatformOrganizationController,
+    OrgCoreModelController,
+    PlatformModelTestController,
     AiUsageController,
     FilesBrowserController, FilesDeletionController,
     FilesDeliveryController,
@@ -2087,8 +2098,8 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
     },
     {
       provide: CHAT_MESSAGE_COMMAND_REPOSITORY,
-      useFactory: (db: DatabasePort) => new PgChatMessageCommandRepository(db),
-      inject: [DATABASE_PORT],
+      useFactory: (db: DatabasePort,availability:OrgCoreModelAvailability) => new PgChatMessageCommandRepository(db,availability),
+      inject: [DATABASE_PORT,ORG_CORE_MODEL_AVAILABILITY],
     },
     {
       // #946 · V9-a F150：附件 pending 计数 + 落行。复用 OBJECT_STORE / ID_FACTORY / CLOCK
@@ -2230,7 +2241,7 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
       // `modelProvider` 字符串分派，不是"配一个、其它 fallback 过去"——见该类头注，这是
       // `ConfiguredModelProvider` "no fallback" 纪律在多 provider 场景下的延伸，不是放弃它。
       provide: MODEL_CALL_PORT,
-      useFactory: () => {
+      useFactory: (db:DatabasePort,configuration:AiQuotaRuntimeConfiguration|null) => {
         const chatConfig = readModelProviderConfig();
         const loopbackAliases = readLoopbackProviderAliases(process.env, chatConfig);
         const chatPort = new ConfiguredModelProvider(chatConfig, loopbackAliases);
@@ -2239,7 +2250,7 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
         const deepAgentConfig = readDeepAgentProviderConfig();
         const kernelServed = kernelServedProviders(chatConfig.provider, loopbackAliases, deepAgentConfig.baseUrl);
         // 回环/开发/CI 专用别名（生产无效：需显式 env + 回环 baseUrl），见 loopback-provider-aliases.ts。
-        return new RoutingModelCallPort(new Map<string, ModelCallPort>(withLoopbackProviderAliases<ModelCallPort>([
+        const raw = new RoutingModelCallPort(new Map<string, ModelCallPort>(withLoopbackProviderAliases<ModelCallPort>([
           [chatConfig.provider, chatPort],
           [DEEP_RESEARCH_PROVIDER_NAME, new DeepResearchModelProvider(readDeepResearchProviderConfig())],
           [DEEP_AGENT_PROVIDER_NAME, new DeepAgentModelProvider(deepAgentConfig)],
@@ -2255,7 +2266,9 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
             ? []
             : [[BAILIAN_IMAGE_PROVIDER_NAME, new BailianImageProvider(readBailianImageProviderConfig(),undefined,process.env.KERNEL_AI_PRODUCT_QUOTA_ENABLED==="1")] as const]),
         ], loopbackAliases, chatPort)), kernelServed);
+        return guardCoreModelCalls(raw,createCoreModelRuntimeGuard(db,new VerifiedOrgCoreModelAvailability(db,configuration,raw)));
       },
+      inject:[DATABASE_PORT,AI_QUOTA_RUNTIME_CONFIGURATION],
     },
     {
       // 追问建议（`ChatFollowUpSuggestionsController`）固定走这个标准 provider，不看
@@ -2462,7 +2475,12 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
     { provide: INTERJECTION_CARRY_OVER_DELIVERY, useClass: AcceptMessageCarryOverDelivery },
     // F159. 计量的唯一写入实现。挂在执行器上而不是 provider 上：provider 只知道
     // 「这次返回了多少 token」，不知道这次调用属于哪个组织的哪个人——那是 run 才有的事实。
+    ...MODEL_TESTBENCH_PROVIDERS,
     {provide:AI_QUOTA_RUNTIME_CONFIGURATION,useValue:null},
+    {provide:ORG_CORE_MODEL_AVAILABILITY,useFactory:(db:DatabasePort,configuration:AiQuotaRuntimeConfiguration|null,model:ModelCallPort)=>new VerifiedOrgCoreModelAvailability(db,configuration,model),inject:[DATABASE_PORT,AI_QUOTA_RUNTIME_CONFIGURATION,MODEL_CALL_PORT]},
+    {provide:ORG_CORE_MODEL_CANDIDATE_READER,useExisting:ORG_CORE_MODEL_AVAILABILITY},
+    {provide:CORE_MODEL_RUNTIME_GUARD,useFactory:(db:DatabasePort,availability:OrgCoreModelAvailability)=>createCoreModelRuntimeGuard(db,availability),inject:[DATABASE_PORT,ORG_CORE_MODEL_AVAILABILITY]},
+    {provide:ORG_CORE_MODEL_REPOSITORY,useFactory:(db:DatabasePort,availability:OrgCoreModelAvailability)=>new PgOrgCoreModelRepository(db,availability,scoped=>new PgIdentityRepository(scoped)),inject:[DATABASE_PORT,ORG_CORE_MODEL_AVAILABILITY]},
     {provide:AI_NATIVE_POLICY_PROVIDERS,useFactory:(configuration:AiQuotaRuntimeConfiguration|null)=>
       [...new Set((configuration?.nativeBounds??[]).map(bound=>bound.modelProvider))],inject:[AI_QUOTA_RUNTIME_CONFIGURATION]},
     // Native admission owns no ModelCallPort: image/ASR providers may depend on this factory safely.
@@ -2471,10 +2489,10 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
         createNativeQuotaWiring(process.env.KERNEL_AI_PRODUCT_QUOTA_ENABLED==="1",configuration?.nativeBounds?{nativeBounds:configuration.nativeBounds}:null,
           {db,usage,asrRepositories:scoped=>({identities:new PgIdentityRepository(scoped),recording:new PgRecordingUnitOfWork(scoped,policies,ids)})}),
       inject:[AI_QUOTA_RUNTIME_CONFIGURATION,DATABASE_PORT,TOKEN_USAGE_METER,RETENTION_POLICY_REPOSITORY,RECORDING_ID_GENERATOR]},
-    {provide:AI_QUOTA_RUNTIME_WIRING,useFactory:(configuration:AiQuotaRuntimeConfiguration|null,db:DatabasePort,identity:IdentityRepository,pool:ModelPoolRepository,model:ModelCallPort,usage:TokenUsageMeterPort)=>
-      createAiQuotaRuntimeWiring(process.env.KERNEL_AI_PRODUCT_QUOTA_ENABLED==="1",configuration,{db,identity,pool,model,usage}),
-      inject:[AI_QUOTA_RUNTIME_CONFIGURATION,DATABASE_PORT,IDENTITY_REPOSITORY,MODEL_POOL_REPOSITORY,MODEL_CALL_PORT,TOKEN_USAGE_METER]},
-    {provide:RUNTIME_MODEL_USAGE,useFactory:(db:DatabasePort,usage:TokenUsageMeterPort,wiring:AiQuotaRuntimeWiring|null)=>new PgRuntimeModelUsageRepository(db,usage,new PgAiAdmissionRepository(db),wiring?.runtime),inject:[DATABASE_PORT,TOKEN_USAGE_METER,AI_QUOTA_RUNTIME_WIRING]},
+    {provide:AI_QUOTA_RUNTIME_WIRING,useFactory:(configuration:AiQuotaRuntimeConfiguration|null,db:DatabasePort,identity:IdentityRepository,pool:ModelPoolRepository,model:ModelCallPort,usage:TokenUsageMeterPort,coreModels:OrgCoreModelAvailability)=>
+      createAiQuotaRuntimeWiring(process.env.KERNEL_AI_PRODUCT_QUOTA_ENABLED==="1",configuration,{db,identity,pool,model,usage,coreModels}),
+      inject:[AI_QUOTA_RUNTIME_CONFIGURATION,DATABASE_PORT,IDENTITY_REPOSITORY,MODEL_POOL_REPOSITORY,MODEL_CALL_PORT,TOKEN_USAGE_METER,ORG_CORE_MODEL_AVAILABILITY]},
+    {provide:RUNTIME_MODEL_USAGE,useFactory:(db:DatabasePort,usage:TokenUsageMeterPort,wiring:AiQuotaRuntimeWiring|null,guard:CoreModelRuntimeGuard)=>new PgRuntimeModelUsageRepository(db,usage,new PgAiAdmissionRepository(db),wiring?.runtime,guard),inject:[DATABASE_PORT,TOKEN_USAGE_METER,AI_QUOTA_RUNTIME_WIRING,CORE_MODEL_RUNTIME_GUARD]},
     {
       provide: TOKEN_USAGE_METER,
       useFactory: (db: DatabasePort) => new PgTokenUsageRepository(db),
@@ -3694,6 +3712,9 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
   ],
 })
 export class KernelModule {
+  static withPlatformModelTests(configuration:PlatformModelTestWiringConfig):DynamicModule{
+    return {module:KernelModule,providers:[{provide:PLATFORM_MODEL_TEST_CONFIGURATION,useValue:configuration}]};
+  }
   /** Optional trusted deployment composition; the environment enforcement flag remains off by default. */
   static withAiQuotaRuntime(configuration:AiQuotaRuntimeConfiguration):DynamicModule{
     return {module:KernelModule,providers:[{provide:AI_QUOTA_RUNTIME_CONFIGURATION,useValue:configuration}]};

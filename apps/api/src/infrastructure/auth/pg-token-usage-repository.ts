@@ -27,10 +27,10 @@ export class PgTokenUsageRepository implements TokenUsageMeterPort {
   async startRequest(orgId: OrgId, input: Parameters<NonNullable<TokenUsageMeterPort["startRequest"]>>[1]): Promise<void> {
     await this.db.withTenant(orgId, async s => {
       await s.query(`INSERT INTO model_request_starts
-        (id,org_id,user_id,run_id,execution_attempt_id,project_id,model_provider,model_id,started_at,thread_id,agent_id,call_purpose,execution_lease_epoch,subtask_id,artifact_operation_id)
-        VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15) ON CONFLICT(id) DO NOTHING`,
+        (id,org_id,user_id,run_id,execution_attempt_id,project_id,model_provider,model_id,started_at,thread_id,agent_id,call_purpose,execution_lease_epoch,subtask_id,artifact_operation_id${input.platformTestId!==undefined?",platform_test_id":""})
+        VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15${input.platformTestId!==undefined?",$16":""}) ON CONFLICT(id) DO NOTHING`,
         [input.requestId, orgId, input.userId, input.runId, input.executionAttemptId,
-          input.projectId, input.modelProvider, input.modelId, input.startedAt, input.threadId ?? null, input.agentId ?? null, input.callPurpose ?? null,input.executionLeaseEpoch??null,input.subtaskId??null,input.artifactOperationId??null]);
+          input.projectId, input.modelProvider, input.modelId, input.startedAt, input.threadId ?? null, input.agentId ?? null, input.callPurpose ?? null,input.executionLeaseEpoch??null,input.subtaskId??null,input.artifactOperationId??null,...(input.platformTestId!==undefined?[input.platformTestId]:[])]);
     });
   }
 
@@ -46,13 +46,15 @@ export class PgTokenUsageRepository implements TokenUsageMeterPort {
     if (usage.costMicros === undefined && (usage.currency !== undefined || usage.priceVersion !== undefined)) throw new Error("incomplete token usage price");
     if (usage.cacheInputTokens != null && usage.promptTokens != null && usage.cacheInputTokens > usage.promptTokens) throw new Error("invalid cache input subset");
     if (usage.reasoningOutputTokens != null && usage.completionTokens != null && usage.reasoningOutputTokens > usage.completionTokens) throw new Error("invalid reasoning output subset");
+    // Native billing has no Token total. Its zero sentinel is N/A, never reported zero:
+    // independently reported partial Token observations are diagnostics, not a sum or tariff.
     const native=usage.nativeUsage;
     if(native){
       if(!AI_NATIVE_UNITS.includes(native.unit)||!["reported","estimated","unknown"].includes(native.source)
         ||(native.quantity!==null&&(native.quantity<0n||native.quantity>9_223_372_036_854_775_807n))
         ||(native.source==="unknown"?native.quantity!==null:native.quantity===null)
         ||!["reported","unknown","not-applicable"].includes(usage.totalSource??"")
-        ||(usage.totalSource==="not-applicable"&&(usage.tokensTotal!==0||usage.promptTokens!==null||usage.completionTokens!==null||usage.cacheInputTokens!=null||usage.reasoningOutputTokens!=null))
+        ||(usage.totalSource==="not-applicable"&&usage.tokensTotal!==0)
         ||(native.source!=="reported"&&usage.totalSource!=="reported"&&usage.costMicros!==undefined))throw new Error("invalid native usage dimension");
     }else if(usage.totalSource==="not-applicable")throw new Error("native usage dimension missing");
     const params = [eventId, orgId, usage.userId, usage.runId, usage.modelProvider, usage.modelId,

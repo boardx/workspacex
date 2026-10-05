@@ -3,6 +3,8 @@ import { TagField, commitDraft } from "@/components/ui/tag-input";
 import * as React from "react";
 import { Plus, ShieldCheck, FlaskConical, Check, Ban } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { useOptionalSession } from "@/components/session/session-provider";
+import { OrgCoreModelPanel } from "./org-core-model-panel";
 import { BailianModelCatalog } from "./bailian-model-catalog";
 import { AdminScreen } from "./admin-screen";
 import { AdminDrawer, AdminModal, Toast, Field, KV } from "./panel";
@@ -69,6 +71,7 @@ type PoolState =
   | { readonly status: "ready"; readonly rows: readonly ModelPoolRow[] };
 
 export function ModelScreen({ state }: { state: UiState }) {
+  const session = useOptionalSession()?.session;
   const [catalogTab, setCatalogTab] = React.useState("organization");
   const [pool, setPool] = React.useState<PoolState>({ status: "loading" });
   const [enabled, setEnabled] = React.useState<Record<string, boolean>>({});
@@ -184,6 +187,7 @@ export function ModelScreen({ state }: { state: UiState }) {
           <TabsTrigger value="bailian">百炼公共目录</TabsTrigger>
         </TabsList>
         <TabsContent value="organization">
+          {session?.currentOrgId ? <OrgCoreModelPanel key={session.currentOrgId} orgId={session.currentOrgId} /> : null}
       <EntityCatalog<ModelPoolRow>
         prefix="admin-model"
         title="模型池"

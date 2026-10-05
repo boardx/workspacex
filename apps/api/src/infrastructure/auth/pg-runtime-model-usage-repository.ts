@@ -1,3 +1,5 @@
+import type {CoreModelRuntimeGuard} from "../model/core-model-runtime-guard";
+import {coreModelScopedDb} from "../model/pg-org-core-model-repository";
 import {recoverAiReceiptSettlement,type AiReceiptRecoveryPort} from "../../application/agent-run/stage-two-receipt-recovery";
 import {withCommittedAiPolicyDecision} from "../../application/agent-run/committed-ai-policy-decision";
 import {admitPricedInputOnlyCall,inputOnlyReceiptCost,type InputOnlyRuntimeAdmissionOptions} from '../../application/agent-run/admit-priced-input-only-call';
@@ -23,7 +25,7 @@ export interface RuntimeAiAdmissionOptions {
  readonly facts:(orgId:OrgId,owner:RuntimeModelOwner,serializedInput:string,identity:{readonly runId:string;readonly attemptId:string;readonly leaseEpoch:number},scopedDb?:DatabasePort)=>Promise<{confidentiality:"confidential"|"non-confidential"|"unknown";requiredCapabilities:readonly string[]}>;
 }
 export class PgRuntimeModelUsageRepository implements RuntimeModelUsagePort {
- constructor(private readonly db:DatabasePort,private readonly usage:TokenUsageMeterPort,private readonly admission?:(AiAdmissionPort&AiReservedPricePort&Partial<AiReceiptRecoveryPort>),private readonly runtimeAdmission?:RuntimeAiAdmissionOptions){}
+ constructor(private readonly db:DatabasePort,private readonly usage:TokenUsageMeterPort,private readonly admission?:(AiAdmissionPort&AiReservedPricePort&Partial<AiReceiptRecoveryPort>),private readonly runtimeAdmission?:RuntimeAiAdmissionOptions,private readonly coreModelGuard?:CoreModelRuntimeGuard){}
   async admitRuntimeRequest(orgId:OrgId,runId:string,input:Parameters<NonNullable<RuntimeModelUsagePort["admitRuntimeRequest"]>>[2]){
     if(!this.runtimeAdmission)throw new Error("RUNTIME_AI_ADMISSION_DISABLED");
     if("billingMode" in input)return this.admitInputOnlyRuntimeRequest(orgId,runId,input);
@@ -121,9 +123,10 @@ export class PgRuntimeModelUsageRepository implements RuntimeModelUsagePort {
       const existing=await s.query<{run_id:string;subtask_id:string|null;execution_attempt_id:string;execution_lease_epoch:string;model_id:string;call_purpose:string;started_at:Date}>(
         "SELECT run_id,subtask_id,execution_attempt_id,execution_lease_epoch,model_id,call_purpose,started_at FROM model_request_starts WHERE id=$1",[input.requestId]);
       const replay=existing.rows[0];
-      if(replay){if((replay.subtask_id??replay.run_id)!==runId||replay.execution_attempt_id!==input.attemptId||Number(replay.execution_lease_epoch)!==input.leaseEpoch||replay.model_id!==input.modelId||replay.call_purpose!==input.callPurpose||replay.started_at.toISOString()!==new Date(input.startedAt).toISOString())throw new RuntimeUsageOwnershipDenied();return;}
+      if(replay){if((replay.subtask_id??replay.run_id)!==runId||replay.execution_attempt_id!==input.attemptId||Number(replay.execution_lease_epoch)!==input.leaseEpoch||replay.model_id!==input.modelId||replay.call_purpose!==input.callPurpose||replay.started_at.toISOString()!==new Date(input.startedAt).toISOString())throw new RuntimeUsageOwnershipDenied();await this.coreModelGuard?.assertAccepted(orgId,replay.run_id,coreModelScopedDb(s,orgId));return;}
       const owner=await resolveRuntimeModelOwner(s,orgId,runId,input.leaseEpoch,input.attemptId,input.callPurpose);
       if(!owner?.user_id)throw new RuntimeUsageOwnershipDenied();
+      await this.coreModelGuard?.assertAccepted(orgId,owner.root_run_id,coreModelScopedDb(s,orgId));
       await this.insertStart(s,orgId,{requestId:input.requestId,userId:owner.user_id,runId:owner.root_run_id,subtaskId:owner.subtask_id,executionAttemptId:input.attemptId,
         projectId:owner.project_id,threadId:owner.thread_id,agentId:owner.agent_id,callPurpose:input.callPurpose,modelProvider:provider,
         modelId:input.modelId,startedAt:input.startedAt,executionLeaseEpoch:input.leaseEpoch});

@@ -12,7 +12,9 @@ import * as React from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 
-const { listModels } = vi.hoisted(() => ({ listModels: vi.fn() }));
+const { listModels, currentSession } = vi.hoisted(() => ({ listModels: vi.fn(), currentSession: { value: null as null | {session:{currentOrgId:string}} } }));
+vi.mock("@/components/session/session-provider",()=>({useOptionalSession:()=>currentSession.value}));
+vi.mock("@/components/admin/org-core-model-panel",()=>({OrgCoreModelPanel:({orgId}:{orgId:string})=><div data-testid="core-model-host">{orgId}</div>}));
 
 vi.mock("@/lib/live-model", async () => {
   const actual = await vi.importActual<typeof import("@/lib/live-model")>("@/lib/live-model");
@@ -21,7 +23,7 @@ vi.mock("@/lib/live-model", async () => {
 
 import { ModelScreen } from "@/components/admin/model-screen";
 
-afterEach(() => cleanup());
+afterEach(() => {cleanup();currentSession.value=null;});
 
 const HOSTED = {
   modelId: "m-sonnet46",
@@ -161,3 +163,6 @@ describe("admin-model · 卡片目录 + 面板", () => {
   });
 
 });
+
+it("core model host uses only the actual session organization",async()=>{currentSession.value={session:{currentOrgId:"actual-current-org"}};listModels.mockResolvedValue([]);render(<ModelScreen state="default"/>);expect(await screen.findByTestId("core-model-host")).toHaveTextContent("actual-current-org");});
+it("core model setting is absent without an authenticated organization session",()=>{listModels.mockResolvedValue([]);render(<ModelScreen state="default"/>);expect(screen.queryByTestId("core-model-host")).not.toBeInTheDocument();});

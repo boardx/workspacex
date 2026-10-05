@@ -70,7 +70,7 @@ export type AdminModuleKey =
   // 单独一组「平台」而不是塞进「组织」组：它的授权面是平台超管（部署白名单），不是组织角色，
   // 与「组织」组里每一项「本组织 admin 可见」的语义不同——同一组里混两种授权面会让人以为
   // 组织 admin 也能看全平台。
-  | "platform" | "organizations";
+  | "platform" | "organizations" | "model-tests";
 
 /**
  * 「AI 能力」组的组名 —— 单点声明。
@@ -219,6 +219,7 @@ export const ADMIN_NAV: AdminNavGroup[] = [
       // 仅平台超管可见内容；非超管点进去看到的是「仅平台运维可见」的说明，不是隐藏入口——
       // 「存在但你看不到」和「不存在」是两件事（UC-0.3 R8），同反馈屏系统异常区的处置。
       // 2026-09-02：路由从 `/admin/platform` 迁到 `/platform-admin/members`（旧路由重定向）。
+      { key: "model-tests", label: "模型能力测试", href: "/platform-admin/model-tests", ucRefs: [] },
       { key: "organizations", label: "组织与套餐", href: "/platform-admin/organizations", ucRefs: [] },
       { key: "platform", label: "平台成员", href: "/platform-admin/members", ucRefs: ["17-gov/uc-17-5"] },
     ],
@@ -784,6 +785,7 @@ export const ADMIN_NAV_COUNT_SOURCES: Record<AdminModuleKey, AdminNavCountSource
   // 生产左栏的来源是 `live-admin-nav-counts.ts`，那里没接的项一律「—」。
   platform: () => 0,
   organizations: () => 0,
+  "model-tests": () => { throw new Error("TEST_COUNT_UNAVAILABLE"); },
   // 「运营状态」是运维自查工具（测试邮件……），不是一份清单，没有一个有意义的
   // 「条目数」。⚠ 这里**不能**照抄「组织管理」项的抛错语义——`admin-nav-count-unavailable
   // .test.tsx` §1 直接对平台面（`adminNavForScope("platform")`）每一项裸调用数据源，

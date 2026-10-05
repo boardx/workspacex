@@ -1,0 +1,30 @@
+{
+  "scope": "actual-testbench-component-with-explicit-substituted-API-not-authenticated-not-provider-acceptance",
+  "checks": [
+    {
+      "width": 375,
+      "overflow": false,
+      "heldOverflow": false,
+      "heldHistoryOverflow": false,
+      "accessibilityViolations": [],
+      "heldAccessibilityViolations": []
+    },
+    {
+      "width": 768,
+      "overflow": false,
+      "heldOverflow": false,
+      "heldHistoryOverflow": false,
+      "accessibilityViolations": [],
+      "heldAccessibilityViolations": []
+    },
+    {
+      "width": 1280,
+      "overflow": false,
+      "heldOverflow": false,
+      "heldHistoryOverflow": false,
+      "accessibilityViolations": [],
+      "heldAccessibilityViolations": []
+    }
+  ],
+  "pageErrors": []
+}

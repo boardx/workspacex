@@ -1,0 +1,10 @@
+
+ RUN  v2.1.9 /private/tmp/wsx-model-testbench-core/apps/api
+
+ ✓ tests/model/platform-model-test-speech-client.test.ts (26 tests) 150ms
+
+ Test Files  1 passed (1)
+      Tests  26 passed (26)
+   Start at  14:57:21
+   Duration  1.63s (transform 847ms, setup 0ms, collect 1.29s, tests 150ms, environment 0ms, prepare 55ms)
+
