@@ -13,7 +13,7 @@
  * 一个 `toolWhitelist` 恒为空、`发布` 都还没提交的 草稿态 agent 不应该出现在那张表里
  * （否则会在未来某条 `listAgents`/能力目录读取路径上让一个不可用的 agent 看起来可用）。
  */
-import { readPublishedSkillPins } from "./read-published-skill-pins";
+import { readPublishedSkillPins } from "./pg-agent-directory-repository";
 import { PendingSkillBinding } from "@repo/contracts/agent-role";
 import type { DatabasePort } from "../../application/ports/database.port";
 import { toOrgId } from "../../domain/org-id";

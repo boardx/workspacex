@@ -25,7 +25,7 @@ import { toOrgId } from "../../src/domain/org-id";
 const REPO = new URL("../../src/infrastructure/agent/pg-agent-directory-repository.ts", import.meta.url);
 const USE_CASE = new URL("../../src/application/agent/list-agent-directory.ts", import.meta.url);
 
-const repoSource = readFileSync(REPO, "utf8") + readFileSync(new URL("../../src/infrastructure/agent/read-published-skill-pins.ts", import.meta.url), "utf8");
+const repoSource = readFileSync(REPO, "utf8");
 const useCaseSource = readFileSync(USE_CASE, "utf8");
 
 /** 本仓储只允许命名的五张租户表——多一张就说明长出了新的读面。 */
