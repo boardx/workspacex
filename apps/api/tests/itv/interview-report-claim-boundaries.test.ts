@@ -180,3 +180,32 @@ describe("finite report claim boundaries", () => {
     expect(assessReportClaimBoundaries(`安装风险不是产品固有缺陷。[${quote}](#answer-1)`, [evidence(quote)]).ok).toBe(false);
   });
 });
+
+const plannedRaw = readFileSync(new URL('./fixtures/planned-count-5364/report.md', import.meta.url), 'utf8');
+const plannedIntro = '以下建议均为待验证的行动方案，需在获取真人证据后方可执行：';
+const plannedRow = plannedRaw.split('\n').find(line => line.includes('方法：实地测绘'))!;
+describe('local planned measurement interpretation', () => {
+ it('keeps the preserved complete raw plan interpretation', () => {
+  expect(assessReportClaimBoundaries(plannedRaw, []).missing).not.toContain('unsupported_executed_measurement');
+ });
+ it.each([
+  '不兼容项为零仅支持本次检测未发现冲突。',
+  plannedRow,
+  plannedIntro+'\n本次检测结果发现不兼容项为零。',
+  '# '+plannedIntro+'\n'+plannedRow,
+  plannedIntro+'\n本次实际检测不兼容项为零，仅支持本次检测未发现冲突。',
+  plannedIntro+'\n'+plannedRow.replace('注意：', '注意：本次实际检测'),
+  plannedIntro+'\n'+plannedRow+'\n本次检测不兼容项为零。',
+  plannedIntro+'\n'+plannedRow.replace('指标：记录', '指标：本次已完成检测并记录'),
+ ])('does not exempt actual or unscoped counts: %s', text => {
+  expect(assessReportClaimBoundaries(text, []).missing).toContain('unsupported_executed_measurement');
+ });
+ it('preserves exact source-bound actual observations', () => {
+  const quote = '本次检测不兼容项为零。';
+  expect(assessReportClaimBoundaries(quote+'['+quote+'](#answer-1)', [evidence(quote)]).ok).toBe(true);
+  expect(assessReportClaimBoundaries(quote+'['+quote+'](#answer-1)', [{...evidence(quote), taskKey:null}]).missing).toContain('unsupported_executed_measurement');
+ });
+ it('keeps a genuine local conditional', () => {
+  expect(assessReportClaimBoundaries('若检测发现不兼容项为零，则仅支持本次检测未发现冲突。', []).ok).toBe(true);
+ });
+});

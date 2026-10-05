@@ -37,10 +37,10 @@ function conditionalMeasurement(proposition: string): boolean {
   // conditional object (e.g. budget) or another clause cannot waive a measurement.
   return /^不兼容项(?:数量|数)?(?:在(?:本次|此次|这次)(?:检测|测量|检查)(?:中|时))?\s*(?:若|如果|假如)\s*(?:为|是|发现(?:了)?|记录(?:了)?|:)/u.test(proposition);
 }
-function observations(text: string): Count[] {
+function observations(text: string, planned = false): Count[] {
   return clauses(text).flatMap(clause => [...clause.matchAll(count)].flatMap(match => {
     const proposition = clause.slice(0, match.index!).split(/[，,]/u).at(-1)! + match[0] + clause.slice(match.index! + match[0].length).split(/[，,]/u)[0]!;
-    if (/[？?]|是否|(?:吗|么|呢)\s*$/u.test(proposition) || !executed.test(clause) || conditionalMeasurement(match[0]) || qualified(clause,match.index!,match.index!+match[0].length)) return [];
+    if ((planned && /^注意:\s*不兼容项为(?:零|〇|0)(?:项|个)?仅支持本次检测未发现冲突(?:,不能推翻一般安装风险)?$/u.test(clause.trim())) || /[？?]|是否|(?:吗|么|呢)\s*$/u.test(proposition) || !executed.test(clause) || conditionalMeasurement(match[0]) || qualified(clause,match.index!,match.index!+match[0].length)) return [];
     const raw = match[1]!.toLowerCase().replaceAll(",", "");
     const small: Record<string,number> = {零:0,〇:0,一:1,二:2,两:2,三:3,四:4,五:5,六:6,七:7,八:8,九:9,十:10};
     const numeric = small[raw] ?? (/^[零〇一二两三四五六七八九十百千万]+$/u.test(raw) ? chineseCount(raw) : Number(raw));
@@ -71,8 +71,19 @@ function scopedObservedExclusion(clause: string, quote: string, start: number, e
 export function assessReportClaimBoundaries(markdown: string, index: readonly ReportEvidence[]): {ok: boolean; missing: readonly ReportClaimBoundaryGap[]} {
   const missing = new Set<ReportClaimBoundaryGap>();
   const sourceByAnchor = new Map(index.map(entry => [`#${entry.anchor}`,entry]));
+  // Only a plain future-plan introduction and the immediately following method row
+  // qualify this finite interpretation. Headings and arbitrary plan wrappers do not.
+  const intro = "以下建议均为待验证的行动方案,需在获取真人证据后方可执行:";
+  const hasPlainIntro = markdown.normalize("NFKC").split("\n").some(line => line.trim() === intro);
+  let planDistance = 4;
   for (const assertion of interviewMarkdown.parseInterviewReportAssertions(markdown, {groupTableRows:true})) {
-    const claims = observations(assertion.text);
+    const local = assertion.text.normalize("NFKC");
+    planDistance = hasPlainIntro && local === intro ? 0 : planDistance + 1;
+    const note = local.indexOf("注意:");
+    const planned = planDistance > 0 && planDistance <= 2 && note >= 0
+      && /方法:实地测绘。指标:记录不兼容项数量。注意:/u.test(local)
+      && !executed.test(local.slice(0, note));
+    const claims = observations(assertion.text, planned);
     const supported = assertion.links.flatMap(link => {
       const entry = sourceByAnchor.get(link.url);
       // Source must be a server-bound answer with an exact quote, not a prose-created role.
