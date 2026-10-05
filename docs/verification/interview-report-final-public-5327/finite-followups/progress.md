@@ -9,3 +9,5 @@ The preserved public real-model trial #5327 remains OPEN FAIL. No new model requ
 - #5375 scenario cause: e9e852e1c13554f5c16bd48b55f87c4b0b6b385f; root372/372; readonly exact ACCEPT. Main exact ACCEPT independently ran372/372 plus13 scope controls; current exact classifyChecks GREEN: blocked/changes/waitingCi all empty. visual-deferred SKIPPED is advisory, never PASS.
 
 Copied CI receipts for5360/5361/5362/5372 bind the named historical heads and returned classifier GREEN; they are snapshots, not claims about current remote state. Prior rejected heads and meaningful RED/GREEN outputs are preserved as .txt. Finite syntax acceptance does not establish whole-report semantic quality.
+
+Final live same-head follow-up: fullstack-smoke SUCCESS at 2026-10-05 15:19:49 Asia/Shanghai; no pending or failed checks. classifyChecks remains GREEN. Skipped advisory lanes remain SKIPPED, never PASS. Local gh-run watcher exited0; no owned watcher remains. #5327 remains OPEN FAIL.
