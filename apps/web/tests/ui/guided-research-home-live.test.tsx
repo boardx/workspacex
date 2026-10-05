@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { GuidedResearchFlow } from "@/components/research-studio/guided-research-flow";
 
-const { executeResearchRuntime, getResearchRuntime, listGuidedResearchSessions, createGuidedResearchSession, getGuidedResearchSession, finishGuidedResearchCollection, completeGuidedResearchSession } = vi.hoisted(() => ({
+const { executeResearchRuntime, getResearchRuntime, listGuidedResearchSessions, createGuidedResearchSession, getGuidedResearchSession, finishGuidedResearchCollection, completeGuidedResearchSession, updateGuidedResearchMetadata } = vi.hoisted(() => ({
   executeResearchRuntime: vi.fn(),
   getResearchRuntime: vi.fn(),
   listGuidedResearchSessions: vi.fn(),
@@ -11,6 +11,7 @@ const { executeResearchRuntime, getResearchRuntime, listGuidedResearchSessions, 
   getGuidedResearchSession: vi.fn(),
   finishGuidedResearchCollection: vi.fn(),
   completeGuidedResearchSession: vi.fn(),
+  updateGuidedResearchMetadata: vi.fn(),
 }));
 
 vi.mock("@/lib/guided-research-api", () => ({
@@ -20,6 +21,7 @@ vi.mock("@/lib/guided-research-api", () => ({
   getGuidedResearchSession,
   finishGuidedResearchCollection,
   completeGuidedResearchSession,
+  updateGuidedResearchMetadata,
 }));
 
 function createdSession(sessionId: string) {
@@ -61,6 +63,8 @@ beforeEach(() => {
   executeResearchRuntime.mockImplementation(async ({ sessionId }: { sessionId: string }) => runtimeFixture("directions", sessionId));
   finishGuidedResearchCollection.mockReset();
   completeGuidedResearchSession.mockReset();
+  updateGuidedResearchMetadata.mockReset();
+  updateGuidedResearchMetadata.mockResolvedValue(undefined);
   listGuidedResearchSessions.mockResolvedValue({ items: [] });
 });
 
@@ -441,11 +445,65 @@ it("returns a URL-opened report to history without reopening the stale session p
 });
 
 it("shows and searches the canonical generated topic for default-named list entries", async () => {
-  const item = { ...createdSession("generated-name"), title: "新建研究" };
+  const item = { ...createdSession("generated-name"), title: "已生成的独特主题" };
   listGuidedResearchSessions.mockResolvedValue({ items: [item] });
   getResearchRuntime.mockResolvedValue({ ...runtimeFixture("directions", item.sessionId), brief: { ...runtimeFixture().brief, topic: "已生成的独特主题" } });
   render(<GuidedResearchFlow step="home" onStepChange={vi.fn()} />);
   expect(await screen.findByText("已生成的独特主题")).toBeInTheDocument();
   fireEvent.change(screen.getByTestId("research-history-search"), { target: { value: "独特主题" } });
   expect(screen.getByTestId("research-history-generated-name")).toBeInTheDocument();
+});
+
+const legacyGoal = "公开合成需求。".repeat(30);
+function legacyListItem(id: string) {
+  return { ...createdSession(id), title: legacyGoal.slice(0, 100), brief: { ...createdSession(id).brief, goal: legacyGoal } };
+}
+it("keeps ambiguous historical names and renders default metadata fallback without hydration", async () => {
+  const legacy = legacyListItem("legacy-name");
+  const fallback = { ...createdSession("fallback"), title: "新建研究" };
+  listGuidedResearchSessions.mockResolvedValue({ items: [legacy, fallback] });
+  render(<GuidedResearchFlow step="home" />);
+  expect(await screen.findByText(legacy.title)).toBeInTheDocument();
+  expect(screen.getByTestId("research-history-fallback")).toHaveTextContent("新建研究");
+  expect(getResearchRuntime).not.toHaveBeenCalled();
+});
+it("ignores a projected list response after unmount", async () => {
+  let resolve!: (value: { items: ReturnType<typeof createdSession>[] }) => void;
+  listGuidedResearchSessions.mockImplementation(() => new Promise(done => { resolve = done; }));
+  const view = render(<GuidedResearchFlow step="home" />);
+  view.unmount();
+  await act(async () => resolve({ items: [{ ...createdSession("late"), title: "迟到标题" }] }));
+  expect(screen.queryByText("迟到标题")).not.toBeInTheDocument();
+  expect(getResearchRuntime).not.toHaveBeenCalled();
+});
+it("keeps a newly saved explicit name after refreshing the projected list", async () => {
+  const item = { ...createdSession("renamed-runtime"), title: "旧生成名称" };
+  listGuidedResearchSessions.mockResolvedValueOnce({ items: [item] }).mockResolvedValue({ items: [{ ...item, title: "新显式名称" }] });
+  render(<GuidedResearchFlow step="home" />);
+  const trigger = await screen.findByTestId("research-history-actions-renamed-runtime");
+  fireEvent.pointerDown(trigger, { button: 0, ctrlKey: false });
+  fireEvent.pointerUp(trigger, { button: 0, ctrlKey: false });
+  fireEvent.click(trigger);
+  fireEvent.click(await screen.findByTestId("research-history-edit-renamed-runtime"));
+  fireEvent.change(screen.getByTestId("research-edit-name"), { target: { value: "新显式名称" } });
+  fireEvent.click(screen.getByTestId("research-edit-submit"));
+  expect(await screen.findByText("新显式名称")).toBeInTheDocument();
+  expect(screen.getByTestId("research-history-renamed-runtime")).toHaveTextContent("新显式名称");
+  expect(screen.queryByText("旧生成名称")).not.toBeInTheDocument();
+  expect(getResearchRuntime).not.toHaveBeenCalled();
+});
+
+it("preserves explicitly renamed goal-prefix titles and makes no per-card runtime requests", async () => {
+  const item = legacyListItem("explicit-prefix");
+  listGuidedResearchSessions.mockResolvedValue({ items: [item] });
+  render(<GuidedResearchFlow step="home" />);
+  expect(await screen.findByText(item.title)).toBeInTheDocument();
+  expect(getResearchRuntime).not.toHaveBeenCalled();
+});
+it("renders projected default-name topics without full runtime fan-out", async () => {
+  const items = Array.from({ length: 50 }, (_, i) => ({ ...createdSession(`projected-${i}`), title: `保存的主题${i}` }));
+  listGuidedResearchSessions.mockResolvedValue({ items });
+  render(<GuidedResearchFlow step="home" />);
+  expect(await screen.findByText("保存的主题49")).toBeInTheDocument();
+  expect(getResearchRuntime).not.toHaveBeenCalled();
 });

@@ -35,6 +35,8 @@ describe("bounded report quality recovery", () => {
   const result = await generateInterviewMarkdown(deps(),input);
   expect(save.mock.calls[0]?.[0]).toMatchObject({markdown:wrong,failure:{code:"REPORT_GROUNDING_REJECTED",retryable:true}});
   expect(complete.mock.calls[1]?.[0].user).toContain("exact_source_grounding");
+  expect(complete.mock.calls[1]?.[0].user).toContain("引用修复：对照服务端原文定位索引");
+  expect(complete.mock.calls[1]?.[0].user).toContain("不能用answer-N作链接文字");
   const refs = result.documents.find(d=>d.step==="report")!.references.filter(r=>r.locator);
   expect(refs).toHaveLength(2);
   const runs = result.documents.find(d=>d.step==="runs")!;
@@ -139,6 +141,32 @@ describe("canonical report observation", () => {
 
 
 describe("saved report recovery", () => {
+ it("retains unsupported executed measurement bytes and hash after the same bounded gate rejects both attempts", async () => {
+  const report = GOOD + "\n\n不兼容项在本次检测中为零。";
+  complete.mockResolvedValue({text:report});
+  await expect(generateInterviewMarkdown(deps(),input)).rejects.toMatchObject({reasonCode:"REPORT_QUALITY_REJECTED"});
+  expect(complete).toHaveBeenCalledTimes(2); expect(save).toHaveBeenCalledTimes(2);
+  expect(complete.mock.calls[1]?.[0].user).toContain("unsupported_executed_measurement");
+  expect(snapshot.documents.find(d=>d.step==="report")).toMatchObject({markdown:report,contentHash:createHash("sha256").update(report).digest("hex"),version:2});
+  expect(snapshot.states.at(-1)).toMatchObject({status:"failed",failure:{code:"REPORT_QUALITY_REJECTED",retryable:true}});
+ });
+ it("rejects an existing failed unsupported claim without a model, write, byte rewrite or version change", async () => {
+  const report = GOOD + "\n\n安装风险不是产品固有缺陷。";
+  await save({expectedVersion:7,expectedDocumentVersion:0,markdown:report,failure:{code:"REPORT_QUALITY_REJECTED",retryable:true},references:[{anchor:"source-1",documentId:"md-runs",version:1}]});
+  save.mockClear();
+  await expect(generateInterviewMarkdown({...deps(),modelProvider:"",modelId:""},{...input,expectedVersion:8,expectedDocumentVersion:1})).rejects.toMatchObject({reasonCode:"REPORT_QUALITY_REJECTED"});
+  expect(complete).not.toHaveBeenCalled(); expect(save).not.toHaveBeenCalled();
+  expect(snapshot.documents.find(d=>d.step==="report")).toMatchObject({markdown:report,version:1});
+  expect(snapshot.states.at(-1)?.status).toBe("failed");
+ });
+ it("repairs the saved unsupported claim once into a conditional actionable report", async () => {
+  const report = GOOD + "\n\n安装风险不是产品固有缺陷。";
+  await save({expectedVersion:7,expectedDocumentVersion:0,markdown:report,failure:{code:"REPORT_QUALITY_REJECTED",retryable:true},references:[{anchor:"source-1",documentId:"md-runs",version:1}]});
+  save.mockClear(); complete.mockResolvedValue({text:GOOD + "\n\n安装风险尚不能排除产品固有缺陷。若未来检测不兼容项为零，可考虑试点；供电、承重与空间仍需核对。"});
+  const result = await generateInterviewMarkdown(deps(),{...input,expectedVersion:8,expectedDocumentVersion:1});
+  expect(complete).toHaveBeenCalledTimes(1); expect(save).toHaveBeenCalledTimes(1);
+  expect(result.states.at(-1)?.status).toBe("draft");
+ });
  it("recovers a numbered action section without a model call and repeated recovery creates no extra version", async () => {
   const report = GOOD.replace("建议行动：P0：用独立真人任务验证渠道假设，以完成时长和再次进线率为指标。", "## 6. 下一步验证建议（可执行行动）\n\n独立访谈五位用户，对比任务完成时长。");
   await save({expectedVersion:7,expectedDocumentVersion:0,markdown:report,failure:{code:"AI_GENERATION_UNAVAILABLE",retryable:true},references:[{anchor:"source-1",documentId:"md-runs",version:1}]});

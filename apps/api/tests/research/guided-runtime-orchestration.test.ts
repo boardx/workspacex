@@ -97,12 +97,14 @@ describe("durable research orchestration", () => {
     const service = new GuidedRuntimeService(f.store, model, { search }, { provider: "test", id: "test" });
     const execute = (action: "start" | "retry") => service.execute(f.actor, f.session, { sessionId: "session", node: "research", action, requestId: action, expectedVersion: f.latest().version });
     const first = await execute("start");
-    expect(maxActive).toBe(3);
+    // Two primary lanes leave the third slot available for recoverable failures.
+    // This provider failure is not recoverable, so only primary lanes are used.
+    expect(maxActive).toBe(2);
     expect(first.tasks.filter((t) => t.status === "succeeded")).toHaveLength(6);
     expect(first.errorCode).toBe("RESEARCH_SEARCH_PARTIAL_FAILURE");
     expect(first.sources.find((s) => s.id === "excluded")).toMatchObject({ decision: "excluded", taskId: "older" });
     expect(first.sources.find((s) => s.id === "excluded")?.taskIds).toBeUndefined();
-    expect(f.writes.some((s) => s.progress?.stage === "searching" && s.tasks.filter((t) => t.status === "running").length === 3)).toBe(true);
+    expect(f.writes.some((s) => s.progress?.stage === "searching" && s.tasks.filter((t) => t.status === "running").length === 2)).toBe(true);
     fail = false;
     const second = await execute("retry");
     expect(search).toHaveBeenCalledTimes(8);

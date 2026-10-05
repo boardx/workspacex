@@ -1,3 +1,4 @@
+import {primaryFailure,acceptanceFailureSecrets} from './support/board-primary-failure';
 import {test, expect} from '@playwright/test';
 import {createHash, randomUUID} from 'node:crypto';
 import {WhiteboardFileMetadata} from '@repo/contracts/whiteboard-file';
@@ -40,8 +41,10 @@ for (const width of [1440, 390]) test(`R09 ordinary-file drop after real pan and
     const response = await uploaded; expect(response.status()).toBe(201);
     const metadata = WhiteboardFileMetadata.parse(await response.json());
     expect(metadata.fileName).toBe(fileName); expect(metadata.contentDigest).toBe(`sha256:${createHash('sha256').update(bytes).digest('hex')}`);
+    await expect(page.getByTestId('board-a11y-mirror').locator('li[data-object-id]')).toHaveCount(1);
+    await expect(page.getByTestId('board-a11y-mirror').locator('li[data-object-id]')).toHaveAttribute('data-object-text', fileName);
     await expectBoardSynced(page, 30_000);
-    expect(await boardHead(request, owner, board)).toEqual({epoch: initial.epoch, seq: initial.seq + 1});
+    await expect.poll(() => boardHead(request, owner, board)).toEqual({epoch: initial.epoch, seq: initial.seq + 1});
     const rows = await canonicalRows(page); expect(rows).toHaveLength(1); expect(rows[0]!.text).toBe(fileName);
     expect(rows[0]!.geometry.width).toBe(280); expect(rows[0]!.geometry.height).toBe(170);
     expect(rows[0]!.geometry.x + rows[0]!.geometry.width / 2).toBeCloseTo(scene.x, 4);
@@ -51,7 +54,7 @@ for (const width of [1440, 390]) test(`R09 ordinary-file drop after real pan and
     await page.screenshot({path: info.outputPath(`R09-placement-${width}.png`), fullPage: true});
     await page.reload(); await expectBoardSynced(page, 30_000);
     expect(await canonicalRows(page)).toEqual(rows);
-    expect(await boardHead(request, owner, board)).toEqual({epoch: initial.epoch, seq: initial.seq + 1});
+    await expect.poll(() => boardHead(request, owner, board)).toEqual({epoch: initial.epoch, seq: initial.seq + 1});
     const beforeTransfer = await canonicalBoardSnapshot(request, owner, board);
     expect(beforeTransfer.objects).toHaveLength(1);
     const content = readContentObject(beforeTransfer.objects[0]!);
@@ -68,7 +71,7 @@ for (const width of [1440, 390]) test(`R09 ordinary-file drop after real pan and
     const targets = await (await boardApi(request, owner, 'GET', `/whiteboards?query=${encodeURIComponent(targetName)}&archived=all`)).json();
     expect(targets).toEqual({items: [], nextCursor: null});
     expect(await canonicalRows(page)).toEqual(rows);
-    expect(await boardHead(request, owner, board)).toEqual({epoch: initial.epoch, seq: initial.seq + 1});
+    await expect.poll(() => boardHead(request, owner, board)).toEqual({epoch: initial.epoch, seq: initial.seq + 1});
     expect(await fileAssetRows(F.orgId, board)).toEqual([{asset_id: metadata.assetId, metadata, state: 'active'}]);
     expect(await canonicalBoardSnapshot(request, owner, board)).toEqual(beforeTransfer);
     await page.screenshot({path: info.outputPath(`R09-reloaded-${width}.png`), fullPage: true});
@@ -78,5 +81,6 @@ for (const width of [1440, 390]) test(`R09 ordinary-file drop after real pan and
     try { await deleteOwnedConnectorFixture(request, owner, board, F.userId, name); } catch (error) { failures.push(error); }
     try { await verifyConnectorRuntimeManifest(beforeProof); } catch (error) { failures.push(error); }
   }
+  if (failures.length) { try { await info.attach('R09 placement primary failure', {body: JSON.stringify(failures.map(error=>primaryFailure(error,acceptanceFailureSecrets(F,owner)))), contentType: 'application/json'}); } catch (error) { failures.push(error); } }
   if (failures.length) throw new AggregateError(failures, 'R09 placement acceptance or owned cleanup failed');
 });

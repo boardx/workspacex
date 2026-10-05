@@ -1,3 +1,5 @@
+import {primaryFailure,acceptanceFailureSecrets} from './support/board-primary-failure';
+import {captureBoardLogin} from './support/board-login-capture.mjs';
 import {connectorLoginDiagnostic} from './support/connector-login-diagnostic.mjs';
 import {test,expect,type Page,type BrowserContext} from '@playwright/test';
 import {randomUUID} from 'node:crypto';
@@ -22,6 +24,7 @@ test('C06 valid Connector permissions and held gesture authority lifecycle',asyn
  test.setTimeout(300_000);expect(baseURL).toBeTruthy();const source=runtimeSourceIdentity();
  const contexts:BrowserContext[]=[],pages:Page[]=[],transport=connectorAuthorityTransport(),identities=new Map<Page,string>();let editor!:Page,viewer!:Page,commenter!:Page,outsider!:Page;
  const boards:Array<{id:string;name:string}>=[],records:unknown[]=[],screenshots:unknown[]=[],cleanup:unknown[]=[],cleanupErrors:unknown[]=[],raceProofs:Array<{id:string;durable:Awaited<ReturnType<typeof connectorDurableState>>;frameOffset:number}>=[];let foreign:Awaited<ReturnType<typeof securityFixture>>|undefined,ownerToken='',failure:unknown;
+ const privateSecrets=acceptanceFailureSecrets(F);
  const capture=async(phase:string,page=editor)=>{const path=info.outputPath(`${phase}.png`),bytes=await page.screenshot({path});screenshots.push({phase,path,sha256:sha256(bytes)});};
  let manifestBefore:Awaited<ReturnType<typeof verifyConnectorRuntimeManifest>>|undefined;
  try{
@@ -30,15 +33,15 @@ test('C06 valid Connector permissions and held gesture authority lifecycle',asyn
   for(let index=0;index<4;index++){const context=await browser.newContext({baseURL,viewport:{width:1440,height:900}});contexts.push(context);pages.push(await context.newPage());}
   [editor,viewer,commenter,outsider]=pages as [Page,Page,Page,Page];const chunks=[owner,...pages].map(observeRuntimeChunks);transport.observe(editor,'original',()=>identities.get(editor)!);transport.observe(owner,'peer',()=>identities.get(owner)!);
   const login=async(page:Page,email:string,password:string,userId:string)=>{
-   const response=page.waitForResponse(response=>new URL(response.url()).pathname.endsWith('/auth/login')&&response.request().method()==='POST');
-   const token=await boardLogin(page,email,password),authenticated=await response;
-   let body:unknown,jsonParsed=false;
-   try{body=await authenticated.json();jsonParsed=true;}catch{/* Never retain or print response text. */}
-   const diagnostic=connectorLoginDiagnostic(authenticated.status(),body,userId,token,jsonParsed);
+   privateSecrets.push(password);
+   const {token,status,body,jsonParsed,posts}=await captureBoardLogin(page,()=>boardLogin(page,email,password));
+   privateSecrets.push(token);
+   const diagnostic=connectorLoginDiagnostic(status,body,userId,token,jsonParsed);
    const diagnosticPath=info.outputPath(`c06-login-${identities.size}.json`);
    await writeFile(diagnosticPath,JSON.stringify({stage:'C06_LOGIN',sourceHead:source,...diagnostic}),{mode:0o600,flag:'wx'});
    await info.attach('c06-login-fixed-diagnostic',{path:diagnosticPath,contentType:'application/json'});
-   expect(authenticated.ok(),'C06_LOGIN_HTTP_OK').toBe(true);
+   expect(status,'C06_LOGIN_HTTP_OK').toBe(200);
+   expect(posts,'C06_LOGIN_SINGLE_POST').toBe(1);
    expect(diagnostic.jsonParsed,'C06_LOGIN_JSON_PARSE').toBe(true);
    expect(diagnostic.objectSchema&&diagnostic.actorString&&diagnostic.tokenString,'C06_LOGIN_JSON_SCHEMA').toBe(true);
    expect(diagnostic.actorMatches,'C06_LOGIN_FIXTURE_ACTOR').toBe(true);
@@ -108,7 +111,7 @@ test('C06 valid Connector permissions and held gesture authority lifecycle',asyn
   if(foreign){try{await foreign.cleanup();}catch(error){cleanupErrors.push(error);}}
   try{expect(manifestBefore).toBeTruthy();records.push({phase:'runtime-manifest-after',...await verifyConnectorRuntimeManifest(manifestBefore)});}catch(error){cleanupErrors.push(error);}
   if(cleanupErrors.length)failure=new AggregateError([...(failure?[failure]:[]),...cleanupErrors],'Connector authority execution/cleanup failures');
-  const path=info.outputPath('connector-authority-result.json');await writeFile(path,JSON.stringify({source,status:failure?'failed':'C06-authority-subcases-passed',requiredRoundComplete:false,records,screenshots,cleanup,pending:['actual production runtime execution and independent visual review','C07 history','C08 interchange','390px authority cases']},null,2),{mode:0o600});await info.attach('connector-authority-result',{path,contentType:'application/json'});
+  const path=info.outputPath('connector-authority-result.json');try{await writeFile(path,JSON.stringify({source,primaryFailure:primaryFailure(failure,privateSecrets),status:failure?'failed':'C06-authority-subcases-passed',requiredRoundComplete:false,records,screenshots,cleanup,pending:['actual production runtime execution and independent visual review','C07 history','C08 interchange','390px authority cases']},null,2),{mode:0o600});await info.attach('connector-authority-result',{path,contentType:'application/json'});}catch(error){failure=new AggregateError([...(failure?[failure]:[]),error],'Connector authority result export failed');}
  }
  if(failure)throw failure;
 });

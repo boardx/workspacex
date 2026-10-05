@@ -1,3 +1,4 @@
+import {primaryFailure,acceptanceFailureSecrets} from './support/board-primary-failure';
 import {test,expect,chromium,type Page,type Browser,type BrowserContext} from '@playwright/test';
 import {randomUUID} from 'node:crypto';
 import {readFile,writeFile} from 'node:fs/promises';
@@ -21,11 +22,13 @@ test('S01-S03 independent processes and users prove pending ACK, offline converg
  const sourceSha=runtimeSourceIdentity(),chunks=observeRuntimeChunks(owner);
  let secondBrowser:Browser|undefined,peerContext:BrowserContext|undefined;
  const transport=createSpatialWsMetadataRecorder();transport.observe(owner,'original');
- const errors:unknown[]=[];let failureCaptured=false;let failureStage='SETUP';let failure:unknown,ownerToken='',boardId='',runtimeBefore:Awaited<ReturnType<typeof verifyRuntimeIdentity>>|undefined;
+ const errors:unknown[]=[];let failureCaptured=false;let stage='setup';let failureStage='SETUP';let failure:unknown,ownerToken='',boardId='',runtimeBefore:Awaited<ReturnType<typeof verifyRuntimeIdentity>>|undefined;
  let proxy:{dispose:()=>Promise<void>}|undefined;
  const observations:Array<Record<string,unknown>>=[];
+ const privateSecrets=acceptanceFailureSecrets(F);
  const title=`R08 closed origin lifecycle ${randomUUID()}`;let cleanupPending=false;
  const proxyUrl=process.env.BOARD_SYNC_FAULT_PROXY_URL,secret=process.env.BOARD_SYNC_FAULT_CONTROL_SECRET;
+ if(typeof secret==='string')privateSecrets.push(secret);
  const bridgePath=process.env.BOARD_SYNC_FAULT_BRIDGE_PATH,templatePath=process.env.BOARD_SYNC_FAULT_TEMPLATE_PATH;
  let expectedSources:Record<string,string>|null=null;
  const names=['wsx-r08-owned-proxy-bridge.mjs','wsx-r08-fault-proxy.mjs','wsx-r08-proxy-policy.mjs'];
@@ -52,12 +55,12 @@ test('S01-S03 independent processes and users prove pending ACK, offline converg
   await sourceProof();
   secondBrowser=await chromium.launch();peerContext=await secondBrowser.newContext({baseURL,viewport:owner.viewportSize()!});const peer=await peerContext.newPage();transport.observe(peer,'peer');
   for(const page of [owner,peer])page.on('websocket',socket=>{const observed=new URL(socket.url());if(observed.pathname===`/v1/whiteboards/${boardId}/sync`)bindings.push(observed.protocol==='ws:'&&observed.hostname===url.hostname&&observed.port===url.port&&!observed.search&&!observed.hash&&!observed.username&&!observed.password);});
-  ownerToken=await boardLogin(owner);const peerToken=await boardLogin(peer,F.leadEmail,F.leadPassword);
+  stage='login-owner';ownerToken=await boardLogin(owner);privateSecrets.push(ownerToken);stage='login-peer';const peerToken=await boardLogin(peer,F.leadEmail,F.leadPassword);privateSecrets.push(peerToken);
   const identities=[];for(const token of [ownerToken,peerToken]){const response=await api.get(`${apiOrigin()}/kernel/probe/whoami`,{headers:{authorization:`Bearer ${token}`}});expect(response.status()).toBe(200);identities.push(await response.json());}
   expect(identities.map(identity=>identity.userId)).toEqual([F.userId,F.leadUserId]);expect(F.userId).not.toBe(F.leadUserId);expect(peerToken).not.toBe(ownerToken);
-  boardId=await createAcceptanceBoard(api,ownerToken,title);
+  stage='create-board';boardId=await createAcceptanceBoard(api,ownerToken,title);
   await boardApi(api,ownerToken,'PUT',`/whiteboards/${boardId}/members`,{userId:F.leadUserId,role:'editor'});
-  const bridge=await import(pathToFileURL(bridgePath).href);proxy=await bridge.prepareOwnedProxy({templatePath,boardId,userId:F.userId,title,tokens:[ownerToken,peerToken],participantUserIds:[F.userId,F.leadUserId]});
+  stage='proxy-start';const bridge=await import(pathToFileURL(bridgePath).href);proxy=await bridge.prepareOwnedProxy({templatePath,boardId,userId:F.userId,title,tokens:[ownerToken,peerToken],participantUserIds:[F.userId,F.leadUserId]});
   const objectId=randomUUID(),initial=await boardHead(api,ownerToken,boardId);
   await boardApi(api,ownerToken,'POST',`/whiteboards/${boardId}/commands`,{requestId:randomUUID(),epoch:initial.epoch,commands:[{type:'create',object:{id:objectId,kind:'sticky',schemaVersion:1,geometry:{x:100,y:160,width:180,height:140,rotation:0},text:'Lifecycle baseline',style:{},parentId:null,orderKey:''}}]});
   for(const page of [owner,peer]){failureStage=page===owner?'INITIAL_ORIGIN_SYNC':'INITIAL_PEER_SYNC';await page.goto(`/studio/board/${boardId}`);await expectBoardSynced(page);}
@@ -125,7 +128,7 @@ test('S01-S03 independent processes and users prove pending ACK, offline converg
   try{await sourceProof();}catch(error){errors.push(error);}
   let runtimeAfter:Awaited<ReturnType<typeof verifyRuntimeIdentity>>|undefined;
   if(runtimeBefore)try{runtimeAfter=await verifyRuntimeIdentity(api,sourceSha,runtimeBefore.chunks);}catch(error){errors.push(error);}
-  try{await writeFile(info.outputPath('sync-lifecycle-result.json'),JSON.stringify({sourceSha,status:failureCaptured||errors.length?'failed':'functional-cases-passed',completed:false,runtimeBefore:runtimeBefore??null,runtimeAfter:runtimeAfter??null,observations,cleanupPending,independentBrowserProcesses:Boolean(runtimeBefore),independentUsers:Boolean(runtimeBefore),approved:false},null,2),{mode:0o600});}catch(error){errors.push(error);}
+  try{await writeFile(info.outputPath('sync-lifecycle-result.json'),JSON.stringify({sourceSha,stage,primaryFailure:primaryFailure(failure,privateSecrets),secondaryErrors:errors.map(error=>primaryFailure(error,privateSecrets)),status:failureCaptured||errors.length?'failed':'functional-cases-passed',completed:false,runtimeBefore:runtimeBefore??null,runtimeAfter:runtimeAfter??null,observations,cleanupPending,independentBrowserProcesses:Boolean(runtimeBefore),independentUsers:Boolean(runtimeBefore),approved:false},null,2),{mode:0o600});}catch(error){errors.push(error);}
  }
  if(failureCaptured||errors.length)throw new AggregateError([...(failureCaptured?[failure]:[]),...errors],'SYNC_LIFECYCLE_OR_CLEANUP_FAILED');
 });

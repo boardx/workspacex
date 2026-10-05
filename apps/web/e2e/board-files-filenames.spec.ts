@@ -1,4 +1,5 @@
 import {fixedFilesFailure, type FilesFailurePhase} from './support/board-files-failure-diagnostic.mjs';
+import {primaryFailure,acceptanceFailureSecrets} from './support/board-primary-failure';
 import {test, expect} from '@playwright/test';
 import {createHash, randomUUID} from 'node:crypto';
 import {readFile} from 'node:fs/promises';
@@ -11,15 +12,7 @@ import {fileAssetRows, fileNativeDatabaseProof} from './support/board-files-stor
 import {deleteOwnedConnectorFixture} from './support/connector-acceptance-fixture';
 import {verifyConnectorRuntimeManifest} from './support/connector-runtime-manifest';
 
-const filenames = [
-  ['plain.txt', 'plain.txt'],
-  ["O'Brien.txt", 'O%27Brien.txt'],
-  ['brackets[1].txt', 'brackets%5B1%5D.txt'],
-  ['star*.txt', 'star%2A.txt'],
-  ['中文.txt', '%E4%B8%AD%E6%96%87.txt'],
-  ['100%.txt', '100%25.txt'],
-  ['"quoted".txt', '%22quoted%22.txt'],
-] as const;
+import {boardFileFilenameCases as filenames} from './support/board-file-filename-matrix.mjs';
 
 test('R09 real multipart original filename matrix and literal RFC5987 download headers', async ({page, request}, info) => {
   const beforeProof = await verifyConnectorRuntimeManifest();
@@ -31,7 +24,7 @@ test('R09 real multipart original filename matrix and literal RFC5987 download h
     phase = 'HEAD_BEFORE';
     const initialHead = await boardHead(request, owner, board), observations = [];
     const assets = new Set<string>();
-    for (const [fileName, encodedName] of filenames) {
+    for (const {fileName, encodedName} of filenames) {
       ordinal++;
       const bytes = Buffer.from(`unique filename ${fileName} ${randomUUID()}`);
       phase = 'UPLOAD';
@@ -65,21 +58,22 @@ test('R09 real multipart original filename matrix and literal RFC5987 download h
     phase = 'ROW_COUNT';
       expect(await fileAssetRows(F.orgId, board)).toHaveLength(filenames.length);
     phase = 'SERVER_EVIDENCE';
-      await info.attach('R09 filename server evidence', {body: JSON.stringify({observations, nativeDatabase, browserSavedFilenameVerified: false, originalQuotedBrowserDownloadCriterionSatisfied: false, requiredSuiteComplete: false}, null, 2), contentType: 'application/json'});
+      await info.attach('R09 filename server evidence', {body: JSON.stringify({observations, nativeDatabase, browserSavedFilenameVerified: false, browserDownloadCriterion: 'browser-safe-normalization', requiredSuiteComplete: false}, null, 2), contentType: 'application/json'});
   } catch (error) { primaryPhase = phase; primaryOrdinal = ordinal; failures.push(error); }
   finally {
+    if(failures.length)try{await info.attach('R09 filename primary failures',{body:JSON.stringify(failures.map(error=>primaryFailure(error,acceptanceFailureSecrets(F,owner)))),contentType:'application/json'});}catch(error){failures.push(error);}
     try { await deleteOwnedConnectorFixture(request, owner, board, F.userId, name); } catch (error) { deleteFailures++; failures.push(error); }
     try { await verifyConnectorRuntimeManifest(beforeProof); } catch (error) { identityFailures++; failures.push(error); }
   }
   if (failures.length) throw new AggregateError(failures, fixedFilesFailure(primaryPhase, primaryOrdinal, deleteFailures, identityFailures));
 });
 
-test('R09 native UI downloads retain literal filenames and bytes after refresh', async ({page, request, baseURL}, info) => {
+test('R09 native UI downloads preserve browser-safe filenames and exact bytes after refresh', async ({page, request, baseURL}, info) => {
   if (!baseURL) throw new Error('FILES_REQUIRE_EXISTING_RUNTIME_URLS');
   const beforeProof = await verifyConnectorRuntimeManifest();
   const nativeDatabase = await fileNativeDatabaseProof(F.orgId);
   const owner = await boardLogin(page), failures: unknown[] = [], observations: Array<Record<string, unknown>> = [];
-  try { for (const [fileName] of filenames) {
+  try { for (const {fileName, chromiumSavedName} of filenames) {
     const name = `R09 native filename ${randomUUID()}`, board = await createAcceptanceBoard(request, owner, name);
     try {
       await openBoard(page, board, 0);
@@ -107,9 +101,11 @@ test('R09 native UI downloads retain literal filenames and bytes after refresh',
           }),
         };
       }).toEqual({head: {epoch: initial.epoch, seq: initial.seq + 1}, files: [Object.fromEntries(Object.entries(metadata).map(([key, value]) => [key, String(value)]))]});
+      await expect(page.getByTestId('board-a11y-mirror').locator('li[data-object-id]')).toHaveCount(1);
+      await expect(page.getByTestId('board-a11y-mirror').locator('li[data-object-id]')).toHaveAttribute('data-object-text', fileName);
       await expectBoardSynced(page);
+      await expect.poll(() => boardHead(request, owner, board)).toEqual({epoch: initial.epoch, seq: initial.seq + 1});
       const committed = await canonicalBoardSnapshot(request, owner, board);
-      expect(await boardHead(request, owner, board)).toEqual({epoch: initial.epoch, seq: initial.seq + 1});
       await page.reload(); await expectBoardSynced(page);
       const row = page.getByTestId('board-a11y-mirror').locator('li[data-object-id]');
       await expect(row).toHaveCount(1); await expect(row).toHaveAttribute('data-object-text', fileName);
@@ -119,17 +115,17 @@ test('R09 native UI downloads retain literal filenames and bytes after refresh',
       const saved = await readFile(path!); expect(saved).toEqual(bytes);
       expect(createHash('sha256').update(saved).digest('hex')).toBe(createHash('sha256').update(bytes).digest('hex'));
       expect(await canonicalBoardSnapshot(request, owner, board)).toEqual(committed);
-      expect(await boardHead(request, owner, board)).toEqual({epoch: initial.epoch, seq: initial.seq + 1});
+      await expect.poll(() => boardHead(request, owner, board)).toEqual({epoch: initial.epoch, seq: initial.seq + 1});
       await page.screenshot({path: info.outputPath(`R09-native-download-${observations.length}.png`), fullPage: true});
-      observations.push({fileName, suggestedFilename: download.suggestedFilename(), literalNamePreserved: download.suggestedFilename() === fileName, bytesVerified: true, metadata});
-      // The original criterion remains strict even when a platform sanitizes a name.
-      expect(download.suggestedFilename()).toBe(fileName);
+      observations.push({fileName, suggestedFilename: download.suggestedFilename(), expectedSavedFilename: chromiumSavedName, literalNamePreserved: download.suggestedFilename() === fileName, bytesVerified: true, metadata});
+      // Human-approved disk-name normalization; metadata/UI/headers/bytes stay exact.
+      expect(download.suggestedFilename()).toBe(chromiumSavedName);
     } catch (error) { failures.push(error); }
     finally { try { await deleteOwnedConnectorFixture(request, owner, board, F.userId, name); } catch (error) { failures.push(error); } }
   } } catch (error) { failures.push(error); }
   finally {
-    try { await info.attach('R09 native download evidence', {body: JSON.stringify({observations, nativeDatabase, syntheticUploadNotOsDrop: true, requiredSuiteComplete: false}, null, 2), contentType: 'application/json'}); } catch (error) { failures.push(error); }
+    try { await info.attach('R09 native download evidence', {body: JSON.stringify({observations, failures:failures.map(error=>primaryFailure(error,acceptanceFailureSecrets(F,owner))), nativeDatabase, syntheticUploadNotOsDrop: true, requiredSuiteComplete: false}, null, 2), contentType: 'application/json'}); } catch (error) { failures.push(error); }
     try { await verifyConnectorRuntimeManifest(beforeProof); } catch (error) { failures.push(error); }
   }
-  if (failures.length) throw new AggregateError(failures, 'R09 literal native download criteria or owned cleanup failed');
+  if (failures.length) throw new AggregateError(failures, 'R09 browser-safe native download criteria or owned cleanup failed');
 });

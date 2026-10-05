@@ -137,6 +137,29 @@ describe("reference research workflow", () => {
     expect(screen.getByTestId("research-source-description-source1")).toHaveAttribute("href", initial.sources[0]!.url);
     expect(executeResearchRuntime).not.toHaveBeenCalled();
   });
+  it("explains a timeout once while retaining all 17 unfinished tasks and five sources", async () => {
+    const base = runtimeFixture("research");
+    const initial = { ...base, errorCode: "RESEARCH_SEARCH_TIME_BUDGET_EXCEEDED",
+      tasks: Array.from({ length: 22 }, (_, index) => ({ ...base.tasks[0]!, id: `task-${index}`, title: `公开研究任务 ${index + 1}`,
+        status: index < 5 ? "succeeded" as const : "failed" as const,
+        errorCode: index < 5 ? null : "RESEARCH_SEARCH_TIME_BUDGET_EXCEEDED" })),
+      sources: Array.from({ length: 5 }, (_, index) => ({ ...base.sources[0]!, id: `source-${index}`, taskId: `task-${index}`, title: `公开有效来源 ${index + 1}` })),
+    };
+    vi.mocked(getResearchRuntime).mockResolvedValue(initial);
+    render(<GuidedResearchLive sessionId={initial.sessionId} onBack={vi.fn()} />);
+    expect(await screen.findByRole("alert")).toHaveTextContent("3 分钟上限");
+    const failed = screen.getByTestId("research-failed-tasks");
+    fireEvent.click(within(failed).getByText("查看未完成检索 · 17 项"));
+    expect(screen.getAllByText(/本轮资料研究已达到 3 分钟上限/)).toHaveLength(1);
+    expect(within(failed).getAllByRole("listitem")).toHaveLength(17);
+    expect(within(failed).getAllByText("本任务超时，尚未完成。")).toHaveLength(17);
+    expect(screen.getByRole("button", { name: "继续重试" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "基于已有来源继续" })).toBeEnabled();
+    expect(within(screen.getByRole("button", { name: /资料研究/ })).queryByText("已完成")).not.toBeInTheDocument();
+    for (const source of initial.sources) expect(screen.getByTestId(`research-source-description-${source.id}`)).toHaveAttribute("href", source.url);
+    expect(screen.queryByTestId("research-report")).not.toBeInTheDocument();
+    expect(executeResearchRuntime).not.toHaveBeenCalled();
+  });
   it("shows only searched source descriptions while research is busy", async () => {
     const initial = runtimeFixture("research");
     vi.mocked(getResearchRuntime).mockResolvedValue({ ...initial, busy: true, leaseUntil: "2099-01-01T00:00:00.000Z", progress: { stage: "searching", completed: 2, total: 5 }, researchPlan: { overview: "先对比政策，再核查进入门槛", optimizedQuestion: "哪些市场值得优先进入？" }, tasks: [{ ...initial.tasks[0]!, status: "succeeded", title: "政策与准入核查", objective: "核实补贴和并网要求", deliverables: ["政策对比表", "准入风险清单"] }, ...Array.from({ length: 4 }, (_, index) => ({ ...initial.tasks[0]!, id: `extra-${index}`, status: index === 0 ? "succeeded" as const : "pending" as const }))] });

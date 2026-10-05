@@ -14,4 +14,4 @@ export function parseFilesFailure(message, location) {
   if (!value || typeof value !== 'object' || Array.isArray(value) || Object.keys(value).sort().join(',') !== 'deleteFailures,identityFailures,ordinal,phase') return null;
   return fixedFilesFailure(value.phase,value.ordinal,value.deleteFailures,value.identityFailures) === `R09_FILES_FAILURE ${match[1]}` ? value : null;
 }
-export const FILES_FAILURE_AGGREGATE_LINE = 74;
+export const FILES_FAILURE_AGGREGATE_LINE = 68;

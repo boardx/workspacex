@@ -1,0 +1,53 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/apps/api
+
+ ❯ tests/itv/interview-report-claim-boundaries.test.ts (64 tests | 3 failed) 35ms
+   × finite report claim boundaries > rejects executed count without matching evidence: 前述只是虚构例子，实际本次检测不兼容项为零。 3ms
+     → expected [] to include 'unsupported_executed_measurement'
+   × finite report claim boundaries > rejects executed count without matching evidence: 不兼容项在本次检测中为零，这里的虚构例子指的是预算为零。 0ms
+     → expected [] to include 'unsupported_executed_measurement'
+   × finite report claim boundaries > allows bounded or unrelated prose without imposing a writing template: 例如，本次检测不兼容项为零。 1ms
+     → expected false to be true // Object.is equality
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/itv/interview-report-claim-boundaries.test.ts > finite report claim boundaries > rejects executed count without matching evidence: 前述只是虚构例子，实际本次检测不兼容项为零。
+ FAIL  tests/itv/interview-report-claim-boundaries.test.ts > finite report claim boundaries > rejects executed count without matching evidence: 不兼容项在本次检测中为零，这里的虚构例子指的是预算为零。
+AssertionError: expected [] to include 'unsupported_executed_measurement'
+ ❯ tests/itv/interview-report-claim-boundaries.test.ts:28:59
+     26|     "不兼容项在本次检测中为零，这里的虚构例子指的是预算为零。",
+     27|   ])("rejects executed count without matching evidence: %s", text => {
+     28|     expect(assessReportClaimBoundaries(text, []).missing).toContain("u…
+       |                                                           ^
+     29|   });
+     30|   it.each([
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
+
+ FAIL  tests/itv/interview-report-claim-boundaries.test.ts > finite report claim boundaries > allows bounded or unrelated prose without imposing a writing template: 例如，本次检测不兼容项为零。
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ tests/itv/interview-report-claim-boundaries.test.ts:47:54
+     45|     "`不兼容项在本次检测中为零。`\n\n```text\n安装风险不是产品固有缺陷…
+     46|   ])("allows bounded or unrelated prose without imposing a writing tem…
+     47|     expect(assessReportClaimBoundaries(text, []).ok).toBe(true);
+       |                                                      ^
+     48|   });
+     49|   it.each(["零", "０", "0.0", "0e0", "一", "1", "１", "1.5", "１．５",…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/3]⎯
+
+ Test Files  1 failed (1)
+      Tests  3 failed | 61 passed (64)
+   Start at  23:48:59
+   Duration  814ms (transform 430ms, setup 0ms, collect 675ms, tests 35ms, environment 0ms, prepare 28ms)
+
+undefined
+/Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run --config vitest.interview-markdown-unit.config.ts tests/itv/interview-report-claim-boundaries.test.ts

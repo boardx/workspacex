@@ -30,6 +30,14 @@ beforeEach(() => {
  });
 });
 describe("report diagnostics without research or credential disclosure", () => {
+ it("records safe claim-boundary categories without rejected prose or quote bytes", async () => {
+  const report = VALID + "\n\n不兼容项在本次检测中为零。\n\n安装风险不是产品固有缺陷。\n\n整套现场检查完全无用。";
+  complete.mockResolvedValue({text:report});
+  await expect(generateInterviewMarkdown(deps(), input)).rejects.toMatchObject({reasonCode:"REPORT_QUALITY_REJECTED"});
+  expect(terminal()).toMatchObject({data:{reason:"quality_rejected",modelCalls:2,missing:["unsupported_executed_measurement","unqualified_defect_exclusion","overbroad_physical_check_exemption"]}});
+  expect(JSON.stringify(events)).not.toContain(report);
+  expect(JSON.stringify(events)).not.toContain("不兼容项在本次检测中为零");
+ });
  it.each([
  ["empty_output", { text: "" }], ["cancelled", { text: PRIVATE, cancelled: true }], ["paused", { text: PRIVATE, paused: true }],
  ["interrupted", { text: PRIVATE, interrupted: true }], ["truncated", { text: PRIVATE, truncated: true }],

@@ -1,9 +1,10 @@
 import {createHash} from 'node:crypto';
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {spawn} from 'node:child_process';
-import {mkdtempSync,mkdirSync,writeFileSync,readFileSync,rmSync} from 'node:fs';
+import {spawn,spawnSync,execFileSync} from 'node:child_process';
+import {mkdtempSync,mkdirSync,writeFileSync,readFileSync,rmSync,realpathSync} from 'node:fs';
 import {join} from 'node:path';
+import {tmpdir} from 'node:os';
 import {resolveInvokedConfigs} from '../../../.harness/scripts/lint-spec-gate-coverage.mjs';
 import {acceptanceCommand,suiteDefinition,suiteResult,suitePresent,runtimeExitProof,runtimeSpawnState,screenshotProof,safeStartupDiagnostics,startupFailureProof,sameRuntimeProof,r01ResultSummary,r01ReportReceipts} from './run-board-native-acceptance.mjs';
 import * as startupReceipts from '../e2e/support/native-runtime/native-startup-receipt.mjs';
@@ -35,7 +36,7 @@ test('R08 requires its metadata when any suite source exists, while whole absenc
   for(const partial of [[`apps/web/${config}`],['apps/web/e2e/board-sync-lifecycle.spec.ts'],['apps/web/e2e/support/r08/r08-native-adapter.mjs']])assert.throws(()=>suitePresent(config,partial));
 });
 test('R08 metadata requires every distinct project case and both viewport screenshot sets',()=>{
-  const root=mkdtempSync('/private/tmp/wsx-r08-registry-'),config='e2e/board-peer-existing-runtime.config.ts';
+  const root=mkdtempSync(join(tmpdir(),'wsx-r08-registry-')),config='e2e/board-peer-existing-runtime.config.ts';
   try{
     const directory=join(root,'apps/web/e2e/support/r08');mkdirSync(directory,{recursive:true});
     const metadata={config,files:['board-peer-origin-close.spec.ts','board-sync-lifecycle.spec.ts'],projects:[{name:'desktop',viewport:{width:1440}},{name:'mobile',viewport:{width:390}}],requiredScreenshotNames:['pending','acked']};
@@ -71,7 +72,7 @@ test('only wholly absent suite is ABSENT; partial config or orphan specs must fa
   for(const partial of [complete.slice(1),complete.slice(0,1),complete.slice(0,-1),complete.slice(1,2)])assert.throws(()=>suitePresent(config,partial));
 });
 test('actual coverage resolver recognizes all four unconditional literal CI configurations',()=>{
-  const root=mkdtempSync('/private/tmp/wsx-native-route-pure-');
+  const root=mkdtempSync(join(tmpdir(),'wsx-native-route-pure-'));
   try{
     mkdirSync(join(root,'.github/workflows'),{recursive:true});mkdirSync(join(root,'apps/web/e2e'),{recursive:true});
     writeFileSync(join(root,'apps/web/package.json'),JSON.stringify({name:'web',scripts:{}}));
@@ -122,7 +123,7 @@ test('R01 final projection never publishes private fields or treats preserved bo
  for(const mutate of [r=>delete r[0].beforeProof,r=>r[0].beforeProof.identity.head='b'.repeat(40),r=>r[0].afterProof.identity.head='b'.repeat(40),r=>r[0].afterProof.selectorHash='4'.repeat(64),r=>{r[0].beforeProof.verifierHash='bad';r[0].afterProof.verifierHash='bad';}]){const invalid=structuredClone(receipts);mutate(invalid);assert.throws(()=>r01ResultSummary(invalid,head,'all'));}
 });
 test('R01 receipts bind each real report result attachment, rejecting reused, foreign and missing paths',()=>{
- const directory=mkdtempSync('/private/tmp/wsx-r01-report-'),head='a'.repeat(40),definition=suiteDefinition('e2e/board-r01-existing-runtime.config.ts');
+ const directory=mkdtempSync(join(tmpdir(),'wsx-r01-report-')),head='a'.repeat(40),definition=suiteDefinition('e2e/board-r01-existing-runtime.config.ts');
  try{
   const specs=definition.titles.map((title,index)=>({title,tests:definition.projects.map((projectName,project)=>{const path=join(directory,`${index}-${project}`);mkdirSync(path);const attachmentDirectory=join(path,'attachments');mkdirSync(attachmentDirectory);const receiptPath=join(attachmentDirectory,'r01-result-'+ 'a'.repeat(40)+'.json');writeFileSync(receiptPath,JSON.stringify({source:head,testIdentity:{title,project:projectName},screenshots:[]}));return{projectName,results:[{attachments:[{name:'r01-result',path:receiptPath}]}]};})})),report={suites:[{specs}]};
   assert.equal(r01ReportReceipts(report,directory,head).length,8);
@@ -157,7 +158,7 @@ test('real R08 screenshot metadata includes its 503 case and rejects unsafe base
   assert.equal(real.count,4);assert.equal(real.screenshots.length,24);
   assert(real.screenshots.includes('peer-real-503-recovered-390.png'));
   assert(real.screenshots.includes('peer-real-503-recovered-1440.png'));
-  const root=mkdtempSync('/private/tmp/wsx-r08-basename-');
+  const root=mkdtempSync(join(tmpdir(),'wsx-r08-basename-'));
   try{
     const directory=join(root,'apps/web/e2e/support/r08');mkdirSync(directory,{recursive:true});
     const metadata=JSON.parse(readFileSync('apps/web/e2e/support/r08/r08-native-suite.json','utf8'));
@@ -308,8 +309,13 @@ test('safe acceptance source location uses known source fields only, preserving 
 
 test('Connector fixed login markers preserve exact assertion identity without private operands',async()=>{
  const {safeAcceptanceDiagnostics}=await import('./run-board-native-acceptance.mjs');
- const inspect=(message,file='board-connector-authority.spec.ts',line=41)=>safeAcceptanceDiagnostics('e2e/board-connector-existing-runtime.config.ts',{suites:[{specs:[{file,line:19,tests:[{results:[{status:'failed',errors:[{message,location:{file,line},stack:'PRIVATE'}]}]}]}]}]}).firstFailure;
- for(const [line,marker] of [[41,'C06_LOGIN_HTTP_OK'],[42,'C06_LOGIN_JSON_PARSE'],[43,'C06_LOGIN_JSON_SCHEMA'],[44,'C06_LOGIN_FIXTURE_ACTOR'],[45,'C06_LOGIN_SESSION_TOKEN']]){
+ const sourceLines=readFileSync(new URL('../e2e/board-connector-authority.spec.ts',import.meta.url),'utf8').split(/\r?\n/);
+ const markers=['C06_LOGIN_HTTP_OK','C06_LOGIN_SINGLE_POST','C06_LOGIN_JSON_PARSE','C06_LOGIN_JSON_SCHEMA','C06_LOGIN_FIXTURE_ACTOR','C06_LOGIN_SESSION_TOKEN'];
+ const markerLines=markers.map(marker=>[sourceLines.findIndex(line=>line.includes(`'${marker}'`))+1,marker]);
+ assert(markerLines.every(([line])=>line>0));
+ const httpLine=markerLines[0][0];
+ const inspect=(message,file='board-connector-authority.spec.ts',line=httpLine)=>safeAcceptanceDiagnostics('e2e/board-connector-existing-runtime.config.ts',{suites:[{specs:[{file,line:19,tests:[{results:[{status:'failed',errors:[{message,location:{file,line},stack:'PRIVATE'}]}]}]}]}]}).firstFailure;
+ for(const [line,marker] of markerLines){
   const output=inspect(`Error: ${marker}\nExpected: PRIVATE_ACTOR\nReceived: PRIVATE_TOKEN`,undefined,line);
   assert.equal(output.assertionId,marker);assert.equal(output.matchedFailure,'ASSERTION');assert.equal(output.ambiguous,false);assert(!JSON.stringify(output).includes('PRIVATE'));
  }
@@ -319,7 +325,7 @@ test('Connector fixed login markers preserve exact assertion identity without pr
  assert.equal(inspect('C06_LOGIN_HTTP_OK','board-connector-history.spec.ts').assertionId,undefined);
  for(const line of [undefined,19,35,38])assert.equal(inspect('C06_LOGIN_SESSION_TOKEN',undefined,line).matchedFailure,'UNKNOWN');
  assert.equal(inspect('Expected: PRIVATE\nC06_LOGIN_HTTP_OK').matchedFailure,'UNKNOWN');
- assert.equal(inspect('C06_LOGIN_SESSION_TOKEN',undefined,41).matchedFailure,'UNKNOWN');
+ assert.equal(inspect('C06_LOGIN_SESSION_TOKEN',undefined,httpLine).matchedFailure,'UNKNOWN');
  let reads=0;const report={suites:[{specs:[{file:'board-connector-authority.spec.ts',line:19,tests:[{results:[{status:'failed',errors:[Object.defineProperty({},'message',{get(){reads++;return 'C06_LOGIN_HTTP_OK';}})]}]}]}]}]};
  assert.equal(safeAcceptanceDiagnostics('e2e/board-connector-existing-runtime.config.ts',report).firstFailure.assertionId,undefined);assert.equal(reads,0);
  const hostile=new Proxy({},{getOwnPropertyDescriptor(target,key){if(key==='message')throw new Error('PRIVATE');return Reflect.getOwnPropertyDescriptor(target,key);}});
@@ -345,4 +351,36 @@ test('Files fixed phase diagnostics bind actual aggregate source and preserve fa
  assert.equal(inspect(message,FILES_FAILURE_AGGREGATE_LINE,'board-files-retry.spec.ts').filesFailure,undefined);
  let reads=0;const error={location:{file,line:FILES_FAILURE_AGGREGATE_LINE}};Object.defineProperty(error,'message',{get(){reads++;throw Error('PRIVATE');}});
  const result=inspectError(error);assert.equal(result.filesFailure,undefined);assert.equal(reads,0);
+});
+
+test('login marker follows moved source assertions and fails closed on missing or unsafe source',async()=>{
+ const {safeAcceptanceDiagnostics}=await import('./run-board-native-acceptance.mjs');
+ const root=realpathSync(mkdtempSync(join(tmpdir(),'wsx-c06-marker-'))),file='board-connector-authority.spec.ts',directory=join(root,'apps/web/e2e'),path=join(directory,file);
+ const inspect=(line=21)=>safeAcceptanceDiagnostics('e2e/board-connector-existing-runtime.config.ts',{suites:[{specs:[{file,line:1,tests:[{results:[{status:'failed',errors:[{message:'C06_LOGIN_SINGLE_POST',location:{file,line}}]}]}]}]}]},root).firstFailure;
+ try{
+  assert.equal(inspect().matchedFailure,'UNKNOWN');
+  mkdirSync(directory,{recursive:true});
+  const assertion="expect(posts,'C06_LOGIN_SINGLE_POST').toBe(1);";
+  writeFileSync(path,'\n'.repeat(20)+assertion+'\n');
+  assert.equal(inspect().assertionId,'C06_LOGIN_SINGLE_POST');
+  assert.equal(inspect(20).matchedFailure,'UNKNOWN');
+  for(const line of ['// '+assertion,`const text="${assertion}";`,assertion+' // private', assertion+assertion, "expect('C06_LOGIN_HTTP_OK','C06_LOGIN_SINGLE_POST').toBe(1);", ' '.repeat(2049)+assertion]){
+   writeFileSync(path,'\n'.repeat(20)+line+'\n');assert.equal(inspect().matchedFailure,'UNKNOWN');
+  }
+  writeFileSync(path,'x'.repeat(512*1024+1));assert.equal(inspect().matchedFailure,'UNKNOWN');
+ }finally{rmSync(root,{recursive:true});}
+});
+
+test('absent native suite retains truthful receipt and exits nonzero before runtime starts',()=>{
+  const root=mkdtempSync(join(tmpdir(),'wsx-native-absent-')),evidence=mkdtempSync(join(tmpdir(),'wsx-native-receipts-'));
+  try {
+    const support=join(root,'apps/web/e2e/support/native-runtime');mkdirSync(support,{recursive:true});
+    writeFileSync(join(support,'runtime-attestation.mjs'),'export const listRuntimeSourceFiles=()=>[];');
+    execFileSync('git',['init','--quiet'],{cwd:root});execFileSync('git',['add','.'],{cwd:root});
+    execFileSync('git',['-c','user.name=Test','-c','user.email=test@example.invalid','commit','--quiet','-m','fixture'],{cwd:root});
+    const head=execFileSync('git',['rev-parse','HEAD'],{cwd:root,encoding:'utf8'}).trim();
+    const result=spawnSync(process.execPath,[new URL('./run-board-native-acceptance.mjs',import.meta.url).pathname,...base,'e2e/board-files-completion.config.ts'],{cwd:root,env:{...process.env,NATIVE_POSTGRES_TOOL_ROOT:'/unused',BOARD_NATIVE_EVIDENCE:evidence},encoding:'utf8'});
+    assert.notEqual(result.status,0);assert.match(result.stderr,/NATIVE_SUITE_ABSENT/);
+    assert.deepEqual(JSON.parse(readFileSync(join(evidence,'files/receipt.json'),'utf8')),{sourceHead:head,status:'ABSENT',existingSpecsSkipped:0,actualRuntimeExecution:false,requiredSuiteComplete:false});
+  } finally {rmSync(root,{recursive:true});rmSync(evidence,{recursive:true});}
 });

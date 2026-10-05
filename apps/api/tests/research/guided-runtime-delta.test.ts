@@ -1,3 +1,4 @@
+import type { ResearchRuntime } from "../../src/application/research/guided-runtime-ports";
 import { expect, it } from "vitest";
 import { research as C } from "@repo/contracts";
 import { fieldFingerprint, runtimeDelta, rememberRuntimeDelta } from "../../src/interface/controllers/guided-research-delta";
@@ -88,4 +89,96 @@ it("keeps active research polling compact as large source bodies accumulate", as
   const terminal = runtimePollingDelta({ ...growing, busy: false }, fingerprints());
   expect(terminal.changes).not.toHaveProperty("sources");
   expect(JSON.stringify(terminal)).not.toContain("BODY");
+});
+
+async function outlineResponse(next: ResearchRuntime, action: "save" | "save_chapters" | "generate" | "confirm" | "apply" | "message" = "save", knownFields?: ReturnType<typeof fingerprints>) {
+  const { GuidedResearchController } = await import("../../src/interface/controllers/guided-research.controller");
+  const { vi } = await import("vitest");
+  const controller = new GuidedResearchController({} as never, {} as never, {} as never, {} as never, {} as never, { execute: vi.fn(async () => next) } as never);
+  vi.spyOn(controller as never, "current" as never).mockResolvedValue({} as never);
+  return controller.executeRuntime({ userId: "u", orgId: "org" as never }, "s", { requestId: "stage", expectedVersion: 2, node: "outline", action,
+    ...(action === "message" ? { message: "Edit the plan" } : { draft: { node: "outline", value: [{ id: "o", title: "chapter", questions: ["q"], enabled: true, order: 0 }] } }),
+    ...(knownFields ? { knownFields } : {}) }, {} as never);
+}
+
+it.each(["save", "generate", "confirm", "apply", "message"] as const)("returns a real plan-stage patch without cache hints for %s, including a legal null researchPlan", async action => {
+  const next = { ...state, researchPlan: null, version: 3, revision: 2 };
+  const response = await outlineResponse(next, action);
+  const patch = C.GuidedResearchRuntimePatch.parse(response);
+  expect(patch).toMatchObject({ sessionId: "s", version: 3, revision: 2, changes: { currentNode: "outline", directions: [], outline: [], researchPlan: null, busy: false } });
+  for (const key of ["brief", "messages", "modelCalls"]) { expect(patch.changes).not.toHaveProperty(key); expect(patch.removed).not.toContain(key); }
+});
+
+it("omits large saved source/report/history bodies while preserving authoritative plan failure and recovery controls", async () => {
+  const report = { title: "Saved report", summary: "SAVED_REPORT_BODY".repeat(500), sections: [{ sectionId: "o", body: "SAVED_REPORT_BODY".repeat(1000), sourceIds: ["source"] }] };
+  const source = { id: "source", taskId: "task", title: "Evidence", url: "https://example.org/evidence", content: "SAVED_SOURCE_BODY".repeat(1000), retrievedAt: "now", decision: "accepted" as const };
+  const next = C.GuidedResearchRuntime.parse({ ...state, sources: [source], report, reportDraft: report,
+    reportCheckpoint: { basis: "basis", chapters: report.sections }, reportPrevious: { title: "Previous", createdAt: "now", report, text: "PREVIOUS_BODY".repeat(10000), chapters: report.sections, sources: [source], outline: [], aliases: [] },
+    busy: true, leaseUntil: "future", errorCode: "RESEARCH_NODE_STATE_INVALID", controlStatus: "paused", planRevision: 3,
+    reportTimeline: [{ id: "old-step", stage: "evidence", status: "failed", attempts: 1 }], reportPartial: true,
+    reportSourceAliases: [{ alias: "s1", sourceId: "source" }], reportQualityWarnings: [{ sectionId: "o", issues: ["OLD_METADATA"] }],
+    reportEvidenceWarnings: [{ batchIndex: 0, sourceIds: ["source"], questionIds: ["q"], reason: "invalid_model_evidence" }],
+    coverage: [{sectionId:"o",questionId:"new-question",status:"weak",evidenceIds:["e"],reasons:["partial"]}],
+    claimEvidence: [{claimId:"claim",evidenceId:"e",quote:"bounded excerpt",sourceId:"source",retrievedAt:"now",confidence:"low",traceIds:[]}],
+    conflicts: [{id:"conflict",claimIds:["a","b"],sourceIds:["source","other"],severity:"moderate",status:"open",resolution:null}],
+    qualityScore: { citationCoverage: null, authority: null, recency: null, crossValidation: null, openGapCount: 1, overall: null, explanations: ["OLD_METADATA"] },
+    publicationReadiness: { status: "limited", blockers: ["OLD_METADATA"], warnings: [] } });
+  const patch = C.GuidedResearchRuntimePatch.parse(await outlineResponse(next));
+  for (const key of ["coverage", "claimEvidence", "conflicts", "qualityScore", "publicationReadiness"] as const) expect(patch.changes[key]).toEqual(next[key]);
+  expect(JSON.stringify(patch)).not.toMatch(/SAVED_REPORT_BODY|SAVED_SOURCE_BODY|PREVIOUS_BODY|历史内容/);
+  expect(patch.changes).toMatchObject({ busy: true, leaseUntil: "future", errorCode: "RESEARCH_NODE_STATE_INVALID", controlStatus: "paused", planRevision: 3 });
+  for (const key of ["sources", "report", "reportDraft", "reportCheckpoint", "reportPrevious", "reportTimeline", "reportPartial", "reportSourceAliases", "reportQualityWarnings", "reportEvidenceWarnings"]) { expect(patch.changes).not.toHaveProperty(key); expect(patch.removed).not.toContain(key); }
+});
+
+it("explicitly clears actual downstream resets, including absent previous reports, even with matching cache hints", async () => {
+  const next = { ...state, sources: [], tasks: [], report: null, reportDraft: null, reportCheckpoint: null, reportStream: null, questionEvidence: [], reportTimeline: [], reportPartial: false };
+  const patch = C.GuidedResearchRuntimePatch.parse(await outlineResponse(next, "save", fingerprints()));
+  expect(patch.changes).toMatchObject({ sources: [], tasks: [], report: null, reportDraft: null, reportCheckpoint: null, reportStream: null, questionEvidence: [], reportTimeline: [], reportPartial: false });
+  expect(patch.removed).toContain("reportPrevious");
+});
+
+it("keeps saved chapter sources in the client baseline rather than falsely clearing them", async () => {
+  const source = { id: "source", taskId: "task", title: "Evidence", url: "https://example.org/evidence", content: "retained-source-body", retrievedAt: "now", decision: "accepted" as const };
+  const next = { ...state, sources: [source], currentNode: "research" as const, availableNodes: ["brief", "directions", "outline", "research"] as ResearchRuntime["availableNodes"], report: null };
+  const patch = C.GuidedResearchRuntimePatch.parse(await outlineResponse(next, "save_chapters"));
+  expect(patch.changes).not.toHaveProperty("sources"); expect(patch.removed).not.toContain("sources");
+  expect(patch.changes).toMatchObject({ currentNode: "research", report: null });
+  const merged = C.GuidedResearchRuntime.parse({ ...next, ...patch.changes });
+  expect(merged.sources).toEqual([source]);
+});
+
+it.each(["save", "save_chapters"] as const)("projects the real service's %s invalidation without inventing source resets", async action => {
+  const { GuidedRuntimeService } = await import("../../src/application/research/guided-runtime-service");
+  const { GuidedResearchController } = await import("../../src/interface/controllers/guided-research.controller");
+  const { vi } = await import("vitest");
+  const session = C.GuidedResearchSession.parse({ sessionId: "s", title: "Study", brief: state.brief, stage: "report", resumeStage: "report", status: "active", progress: 100, sourceCount: 1, reportId: null, createdAt: "now", updatedAt: "now" });
+  const source = { id: "source", taskId: "task", title: "Evidence", url: "https://example.org/evidence", content: "retained real evidence", retrievedAt: "now", decision: "accepted" as const };
+  let saved = C.GuidedResearchRuntime.parse({ ...state, currentNode: "report", availableNodes: ["brief", "directions", "outline", "research", "report"], generatedNodes: ["brief", "directions", "outline", "research", "report"], sources: [source],
+    tasks: [{ id: "task", sectionId: "o", query: "q", status: "succeeded", attempts: 1, errorCode: null }], outline: [{ id: "o", title: "Old", questions: ["q"], enabled: true, order: 0 }],
+    report: { title: "Old", summary: "Saved summary", sections: [{ sectionId: "o", body: "Saved report body", sourceIds: ["source"] }] } });
+  const model = { complete: vi.fn(async () => { throw new Error("save must not invoke models"); }) };
+  const service = new GuidedRuntimeService({ read: async () => structuredClone(saved), claim: async () => { saved.version++; saved.busy = true; return { state: structuredClone(saved), replay: false }; },
+    write: async (_actor, _request, next) => { saved = structuredClone(next); } }, model, { search: async () => [] }, { provider: "controlled", id: "test" });
+  const controller = new GuidedResearchController({} as never, {} as never, {} as never, {} as never, {} as never, service);
+  vi.spyOn(controller as never, "current" as never).mockResolvedValue(session as never);
+  const patch = C.GuidedResearchRuntimePatch.parse(await controller.executeRuntime({ userId: "u", orgId: "org" as never }, "s", { requestId: "real-save", expectedVersion: 2, node: "outline", action,
+    draft: { node: "outline", value: [{ id: "o", title: "Edited", questions: ["q"], enabled: true, order: 0 }] } }, {} as never));
+  expect(saved.errorCode).toBeNull(); expect(saved.report).toBeNull(); expect(saved.reportPrevious).toBeTruthy();
+  expect(patch.changes).toHaveProperty("report", null); expect(patch.changes).not.toHaveProperty("reportPrevious"); expect(patch.removed).not.toContain("reportPrevious");
+  if (action === "save") { expect(saved.sources).toEqual([]); expect(patch.changes).toHaveProperty("sources", []); }
+  else { expect(saved.sources).toEqual([source]); expect(patch.changes).not.toHaveProperty("sources"); expect(patch.removed).not.toContain("sources"); }
+  expect(model.complete).not.toHaveBeenCalled();
+});
+
+
+it("keeps non-outline ordinary commands on their existing full-or-fingerprint response paths", async () => {
+  const { GuidedResearchController } = await import("../../src/interface/controllers/guided-research.controller");
+  const { vi } = await import("vitest");
+  const next = { ...state, busy: true };
+  const controller = new GuidedResearchController({} as never, {} as never, {} as never, {} as never, {} as never, { execute: vi.fn(async () => next) } as never);
+  vi.spyOn(controller as never, "current" as never).mockResolvedValue({} as never);
+  const command = { requestId: "other-node", expectedVersion: 2, node: "brief", action: "generate" };
+  expect(await controller.executeRuntime({ userId: "u", orgId: "org" as never }, "s", command, {} as never)).toEqual(next);
+  const patch = C.GuidedResearchRuntimePatch.parse(await controller.executeRuntime({ userId: "u", orgId: "org" as never }, "s", { ...command, knownFields: fingerprints() }, {} as never));
+  expect(patch.changes).toEqual({ busy: true }); expect(patch.removed).toEqual([]);
 });

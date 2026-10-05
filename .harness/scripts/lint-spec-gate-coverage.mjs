@@ -289,7 +289,6 @@ const CONDITIONAL_COVERAGE_EXEMPTIONS = [
     "board-final-acceptance.spec.ts",
     "board-import-report.spec.ts",
     "board-maintenance.spec.ts",
-    "board-meeting-room-acceptance.spec.ts",
     "board-portable-real.spec.ts",
     "board-security-acceptance.spec.ts",
     "board-vendor-schema-migration.spec.ts",

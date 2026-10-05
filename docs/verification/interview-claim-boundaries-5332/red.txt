@@ -1,0 +1,154 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/apps/api
+
+ ❯ tests/itv/interview-report-claim-boundaries.test.ts (41 tests | 16 failed) 9ms
+   × finite report claim boundaries > rejects all three actual failures even with valid unrelated exact quotations and conditional recommendations nearby 4ms
+     → expected [] to deeply equal [ …(3) ]
+   × finite report claim boundaries > rejects executed count without matching evidence: 不兼容项在本次检测中为零。 1ms
+     → expected [] to include 'unsupported_executed_measurement'
+   × finite report claim boundaries > rejects executed count without matching evidence: 本次检测的不兼容项数量为０。 0ms
+     → expected [] to include 'unsupported_executed_measurement'
+   × finite report claim boundaries > rejects executed count without matching evidence: 本次检测发现不兼容项为0.0。 0ms
+     → expected [] to include 'unsupported_executed_measurement'
+   × finite report claim boundaries > rejects executed count without matching evidence: 本次检测：不兼容项数量为0e0。 0ms
+     → expected [] to include 'unsupported_executed_measurement'
+   × finite report claim boundaries > rejects executed count without matching evidence: 本次检测的不兼容项数量为一。 0ms
+     → expected [] to include 'unsupported_executed_measurement'
+   × finite report claim boundaries > rejects executed count without matching evidence: 假设采购条件满足，但不兼容项在本次检测中为零。 0ms
+     → expected [] to include 'unsupported_executed_measurement'
+   × finite report claim boundaries > rejects executed count without matching evidence: 尚未检测，不过本次检测不兼容项为零。 0ms
+     → expected [] to include 'unsupported_executed_measurement'
+   × finite report claim boundaries > does not waive measurement with arbitrary valid quote, wrong count, hypothetical source or unbound quote 0ms
+     → expected true to be false // Object.is equality
+   × finite report claim boundaries > rejects unqualified exclusion or whole-check exemption: 安装风险不是产品固有缺陷，而是环境交互的结果。 0ms
+     → expected true to be false // Object.is equality
+   × finite report claim boundaries > rejects unqualified exclusion or whole-check exemption: 尚不能排除缺陷，但确定安装风险不是产品固有缺陷。 0ms
+     → expected true to be false // Object.is equality
+   × finite report claim boundaries > rejects unqualified exclusion or whole-check exemption: 假设需要核对供电，但安装风险不是产品固有缺陷。 0ms
+     → expected true to be false // Object.is equality
+   × finite report claim boundaries > rejects unqualified exclusion or whole-check exemption: 免安装桌面型咖啡机使整套物理勘测完全无用。 0ms
+     → expected true to be false // Object.is equality
+   × finite report claim boundaries > rejects unqualified exclusion or whole-check exemption: 供电仍需检查，不过整套物理勘测完全无用。 0ms
+     → expected true to be false // Object.is equality
+   × finite report claim boundaries > rejects unqualified exclusion or whole-check exemption: | 步骤 | 反例 |
+|---|---|
+| 核对插座、承重与柜体孔位的物理勘测 | 若采购免安装桌面型咖啡机，此步骤失效。 | 0ms
+     → expected true to be false // Object.is equality
+   × finite report claim boundaries > does not turn a statement quoted by a participant into a verified defect exclusion 0ms
+     → expected true to be false // Object.is equality
+
+⎯⎯⎯⎯⎯⎯ Failed Tests 16 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/itv/interview-report-claim-boundaries.test.ts > finite report claim boundaries > rejects all three actual failures even with valid unrelated exact quotations and conditional recommendations nearby
+AssertionError: expected [] to deeply equal [ …(3) ]
+
+- Expected
++ Received
+
+- Array [
+-   "unsupported_executed_measurement",
+-   "unqualified_defect_exclusion",
+-   "overbroad_physical_check_exemption",
+- ]
++ Array []
+
+ ❯ tests/itv/interview-report-claim-boundaries.test.ts:14:64
+     12|     const source = JSON.parse(readFileSync(new URL("source.json", root…
+     13|     const index = buildReportEvidenceIndex(source.documents.find((d: {…
+     14|     expect(assessReportClaimBoundaries(report, index).missing).toEqual…
+       |                                                                ^
+     15|       "unsupported_executed_measurement", "unqualified_defect_exclusio…
+     16|     ]);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/16]⎯
+
+ FAIL  tests/itv/interview-report-claim-boundaries.test.ts > finite report claim boundaries > rejects executed count without matching evidence: 不兼容项在本次检测中为零。
+ FAIL  tests/itv/interview-report-claim-boundaries.test.ts > finite report claim boundaries > rejects executed count without matching evidence: 本次检测的不兼容项数量为０。
+ FAIL  tests/itv/interview-report-claim-boundaries.test.ts > finite report claim boundaries > rejects executed count without matching evidence: 本次检测发现不兼容项为0.0。
+ FAIL  tests/itv/interview-report-claim-boundaries.test.ts > finite report claim boundaries > rejects executed count without matching evidence: 本次检测：不兼容项数量为0e0。
+ FAIL  tests/itv/interview-report-claim-boundaries.test.ts > finite report claim boundaries > rejects executed count without matching evidence: 本次检测的不兼容项数量为一。
+ FAIL  tests/itv/interview-report-claim-boundaries.test.ts > finite report claim boundaries > rejects executed count without matching evidence: 假设采购条件满足，但不兼容项在本次检测中为零。
+ FAIL  tests/itv/interview-report-claim-boundaries.test.ts > finite report claim boundaries > rejects executed count without matching evidence: 尚未检测，不过本次检测不兼容项为零。
+AssertionError: expected [] to include 'unsupported_executed_measurement'
+ ❯ tests/itv/interview-report-claim-boundaries.test.ts:24:59
+     22|     "尚未检测，不过本次检测不兼容项为零。",
+     23|   ])("rejects executed count without matching evidence: %s", text => {
+     24|     expect(assessReportClaimBoundaries(text, []).missing).toContain("u…
+       |                                                           ^
+     25|   });
+     26|   it.each([
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/16]⎯
+
+ FAIL  tests/itv/interview-report-claim-boundaries.test.ts > finite report claim boundaries > does not waive measurement with arbitrary valid quote, wrong count, hypothetical source or unbound quote
+AssertionError: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ tests/itv/interview-report-claim-boundaries.test.ts:44:103
+     42|   it("does not waive measurement with arbitrary valid quote, wrong cou…
+     43|     for (const quote of ["另一个场景安装顺利。", "本次检测不兼容项为一…
+     44|       expect(assessReportClaimBoundaries(`不兼容项在本次检测中为零。[$…
+       |                                                                                                       ^
+     45|     expect(assessReportClaimBoundaries("不兼容项在本次检测中为零。[本…
+     46|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/16]⎯
+
+ FAIL  tests/itv/interview-report-claim-boundaries.test.ts > finite report claim boundaries > rejects unqualified exclusion or whole-check exemption: 安装风险不是产品固有缺陷，而是环境交互的结果。
+ FAIL  tests/itv/interview-report-claim-boundaries.test.ts > finite report claim boundaries > rejects unqualified exclusion or whole-check exemption: 尚不能排除缺陷，但确定安装风险不是产品固有缺陷。
+ FAIL  tests/itv/interview-report-claim-boundaries.test.ts > finite report claim boundaries > rejects unqualified exclusion or whole-check exemption: 假设需要核对供电，但安装风险不是产品固有缺陷。
+ FAIL  tests/itv/interview-report-claim-boundaries.test.ts > finite report claim boundaries > rejects unqualified exclusion or whole-check exemption: 免安装桌面型咖啡机使整套物理勘测完全无用。
+ FAIL  tests/itv/interview-report-claim-boundaries.test.ts > finite report claim boundaries > rejects unqualified exclusion or whole-check exemption: 供电仍需检查，不过整套物理勘测完全无用。
+ FAIL  tests/itv/interview-report-claim-boundaries.test.ts > finite report claim boundaries > rejects unqualified exclusion or whole-check exemption: | 步骤 | 反例 |
+|---|---|
+| 核对插座、承重与柜体孔位的物理勘测 | 若采购免安装桌面型咖啡机，此步骤失效。 |
+AssertionError: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ tests/itv/interview-report-claim-boundaries.test.ts:56:125
+     54|     "免安装桌面型咖啡机使整套物理勘测完全无用。", "供电仍需检查，不过…
+     55|     "| 步骤 | 反例 |\n|---|---|\n| 核对插座、承重与柜体孔位的物理勘测 …
+     56|   ])("rejects unqualified exclusion or whole-check exemption: %s", tex…
+       |                                                                                                                             ^
+     57|   it("does not turn a statement quoted by a participant into a verifie…
+     58|     const quote = "安装风险不是产品固有缺陷。";
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/16]⎯
+
+ FAIL  tests/itv/interview-report-claim-boundaries.test.ts > finite report claim boundaries > does not turn a statement quoted by a participant into a verified defect exclusion
+AssertionError: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ tests/itv/interview-report-claim-boundaries.test.ts:60:101
+     58|     const quote = "安装风险不是产品固有缺陷。";
+     59|     expect(assessReportClaimBoundaries(`原话：[${quote}](#answer-1)。…
+     60|     expect(assessReportClaimBoundaries(`安装风险不是产品固有缺陷。[${q…
+       |                                                                                                     ^
+     61|   });
+     62| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/16]⎯
+
+ Test Files  1 failed (1)
+      Tests  16 failed | 25 passed (41)
+   Start at  23:20:10
+   Duration  747ms (transform 400ms, setup 0ms, collect 638ms, tests 9ms, environment 0ms, prepare 22ms)
+
+undefined
+/Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run --config vitest.interview-markdown-unit.config.ts tests/itv/interview-report-claim-boundaries.test.ts

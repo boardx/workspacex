@@ -13,6 +13,7 @@ import { verifyTlsPreflight } from "../src/tls-preflight";
 import { assertTrustedPath } from "../src/trusted-path";
 vi.mock("../src/command", async original => ({ ...await original<typeof import("../src/command")>(), captureProvisionCommand: vi.fn() }));
 vi.mock("../src/preflight", () => ({ verifyEcsIdentity: vi.fn(), verifyHttpsEndpoint: vi.fn(), requireComposeVersion: vi.fn() }));
+vi.mock("../src/managed-data-preflight", () => ({ verifyManagedDataPreflight: vi.fn(async () => ({ passed: true })) }));
 vi.mock("../src/tls-preflight", () => ({ verifyTlsPreflight: vi.fn() }));
 vi.mock("../src/verify-prepared-host", () => ({ verifyPreparedHost: vi.fn() }));
 vi.mock("../src/trusted-path", () => ({ assertTrustedPath: vi.fn() }));
@@ -29,8 +30,11 @@ vi.mock("node:fs/promises", async original => {
 });
 const uidDescriptor = Object.getOwnPropertyDescriptor(process, "getuid");
 const platform = Object.getOwnPropertyDescriptor(process, "platform")!;
-const roots: string[] = []; let failedScript = ""; let cleanupUnknown = false; let remoteExitCode: number | undefined;
+const roots: string[] = []; let failedScript = ""; let cleanupUnknown = false; let remoteExitCode: number | undefined; let compatibilitySchemaMissing = false;
 beforeEach(() => {
+  vi.stubEnv("WORKSPACEX_DATABASE", JSON.stringify({ host: "db.example.test", database: "workspacex", user: "app_rw", password: "fixture-app-password", diagnosticsUser: "app_diag_ro", diagnosticsPassword: "fixture-diag-password" }));
+  vi.stubEnv("WORKSPACEX_REDIS", JSON.stringify({ host: "redis.example.test", password: "fixture-redis-password", caFile: "/fixture/redis-ca.pem" }));
+  compatibilitySchemaMissing = false;
   vi.stubEnv("WORKSPACEX_BACKUP_TARGET", JSON.stringify({ backend: "oss", region: "cn-hangzhou", bucket: "backups-example", endpoint: "https://oss-cn-hangzhou-internal.aliyuncs.com", prefix: "backups/example", authMode: "ecs-role", roleName: "workspacex-runtime" }));
   Object.defineProperty(process, "platform", { value: "linux", configurable: true });
   Object.defineProperty(process, "getuid", { value: () => 0, configurable: true }); failedScript = ""; cleanupUnknown = false; remoteExitCode = undefined;
@@ -45,6 +49,12 @@ beforeEach(() => {
     if (args.at(-1) === "redis") return "999";
     if (args.at(-1) === "scripts/cloud-business-probe.ts" && remoteExitCode !== undefined) throw new CommandExecutionError(remoteExitCode);
     if (args.at(-1) === failedScript) throw new Error("private failure details");
+    if (args.at(-1) === "scripts/provision-admin-compatibility.ts") return "CN_BOOTSTRAP_COMPAT_JSON=" + JSON.stringify({
+      schemaVersion: 1, phase: "preactivate", sourceSha: "a".repeat(40), imageDigest: `sha256:${"b".repeat(64)}`,
+      ready: !compatibilitySchemaMissing, readOnlyTransaction: true, productionWriteStatements: 0, stateClass: "matching-existing",
+      blockers: compatibilitySchemaMissing ? ["BOOTSTRAP_DB_SCHEMA_INCOMPATIBLE"] : [],
+      checks: { imageEntrypoint: true, inputContract: true, schemaContract: !compatibilitySchemaMissing, permissionContract: true, agentSeedContract: true, migrationLedgerContract: true },
+    }) + "\n";
     if (args.at(-1) === "scripts/provision-admin.ts") return JSON.stringify({ ok: true, userId: "user", orgId: "org", defaultAgentId: "agent" });
     if (args.at(-1) === "scripts/backup-target-readiness.ts") return '{"backupTargetVerified":true}';
     if (args.at(-1) === "scripts/verify-oss-storage.ts") return '{"ossVerified":true}';
@@ -58,10 +68,10 @@ afterEach(async () => {
   vi.restoreAllMocks(); vi.clearAllMocks(); vi.unstubAllEnvs();
   await Promise.all(roots.splice(0).map(path => rm(path, { recursive: true, force: true })));
 });
-async function execute() {
+async function execute(profile: "starter" | "production" = "starter") {
   const runtimeDirectory = await mkdtemp(join(tmpdir(), "cloud-runner-")); roots.push(runtimeDirectory);
   const image = { image: `registry.example/team/app@sha256:${"b".repeat(64)}` };
-  return provisionCloud(deploymentExample("starter"), { schemaVersion: 1, release: "1.0.0", sourceRevision: "a".repeat(40), platform: "linux/amd64", images: { web: image, api: image, agent: image, sandbox: image, postgres: image, redis: image } },
+  return provisionCloud(deploymentExample(profile), { schemaVersion: 1, release: "1.0.0", sourceRevision: "a".repeat(40), platform: "linux/amd64", images: { web: image, api: image, agent: image, sandbox: image, postgres: image, redis: image } },
     { projectName: "example", runtimeDirectory, agentEnvironmentSecretRef: "env:AGENT_SERVER" });
 }
 it("wires real command stages without build/pull or credential argv; this is a mocked orchestration test", async () => {
@@ -133,4 +143,24 @@ it("does not create a provision lock in an untrusted runtime path", async () => 
   vi.mocked(assertTrustedPath).mockRejectedValueOnce(new Error("UNTRUSTED_HOST_PATH"));
   await expect(execute()).rejects.toThrow("UNTRUSTED_HOST_PATH");
   expect(captureProvisionCommand).not.toHaveBeenCalled();
+});
+
+it("production checks migrated candidate before bootstrap and starts no service on failure", async () => {
+  compatibilitySchemaMissing = true;
+  const result = await execute("production");
+  expect(result.status).toBe("failed"); expect(result.stages.at(-1)?.name).toBe("bootstrap");
+  const calls = vi.mocked(captureProvisionCommand).mock.calls.map(([command]) => command.args);
+  const jobs = calls.filter(args => args[0] === "run" && args.includes("--env-file")).map(args => args.at(-1));
+  expect(jobs).toContain("src/infrastructure/db/migrate-cli.ts");
+  expect(jobs).toContain("scripts/provision-admin-compatibility.ts");
+  expect(jobs).not.toContain("scripts/provision-admin.ts");
+  expect(calls.some(args => args[0] === "compose" && args.includes("up"))).toBe(false);
+  expect(verifyRunningRelease).not.toHaveBeenCalled();
+});
+it("production orders migrate then readonly candidate check then bootstrap", async () => {
+  expect((await execute("production")).status).toBe("passed");
+  const jobs = vi.mocked(captureProvisionCommand).mock.calls.map(([c]) => c.args)
+    .filter(args => args[0] === "run" && args.includes("--env-file")).map(args => args.at(-1));
+  expect(jobs.indexOf("src/infrastructure/db/migrate-cli.ts")).toBeLessThan(jobs.indexOf("scripts/provision-admin-compatibility.ts"));
+  expect(jobs.indexOf("scripts/provision-admin-compatibility.ts")).toBeLessThan(jobs.indexOf("scripts/provision-admin.ts"));
 });

@@ -97,3 +97,131 @@ This is a source recovery draft, not an accepted ten-round iteration or a releas
 - Layout preview locking incorrectly allowed N/T/S/P to arm creation and hide its toolbar. The mutationBlocked guard now prevents this while retaining H/V navigation. The old failure was reproduced; 29 targeted tests pass.
 - #5079 remains open and is repaired independently on its existing branch, head fcab14006b15580d8a65ff451ae60896261e457b. Both trees share the reviewed native Cancel-selection focus/Enter and geometry/diagnostic helper patch; no old branch is silently closed. 20 targeted tests and normal hooks pass; new three-browser CI is pending.
 - Original-page suspension uses target page lifecycle freeze/resume with trusted native events and independently executing peer sync/replay; no synthetic lifecycle events are used. Only source review/typechecks establish this wiring until real CI executes it. Full scaled-paper footprint is not certified by viewport-visible clearance.
+
+
+## Cloud continuation, 2026-10-04
+
+The cloud checkout fetched PR 5245 at `f529a4acc481ec2137b1d3d4dfe5af0a28642ccf`
+and main at `64a92bf6c795a080c36c79207799ceded8b1456d`. The unpushed Mac
+objects `9fb4c32de` and `5a301c` were not available (`git cat-file` failed);
+no Mac checkout was modified. Merge commit `7abed5ace` retains main's independent
+heavy batch workflow, including guards on the newly recovered R01/listener steps.
+
+Changes in this continuation:
+
+- C06 and origin-close read the real upstream login body before releasing the
+  response to the page's full navigation. The capture forwards the upstream
+  response, forbids redirect replay, requires exactly one browser POST, drains
+  in-flight handlers, and retains the original error before cleanup errors.
+- Files wait for the actual tile and durable head increment after upload 201,
+  before reading the committed snapshot. A delayed GET-content test demonstrates
+  that the existing upload implementation completes only after byte verification.
+- Private failure receipts preserve nested first errors, redact fixture passwords
+  and captured tokens, and record Sync stages. Blank-peer diagnostics use an
+  immediate DOM read and a bounded screenshot rather than waiting for a locator.
+- R01 pure fixture tests explicitly bind observation mode, independent of the
+  functional-mode CI environment. Pure test temp directories use the OS temp root.
+
+Actual verification in this cloud session:
+
+- `./init.sh`: exit 0 using pnpm 9.15.0 and writable `/tmp` cache paths.
+- Login capture/diagnostic/safe-export Node tests: 14 tests pass (6 capture cases).
+- Chromium loopback diagnostic: HTTP 200, actor/token match, exactly one upstream
+  POST, full navigation, and HttpOnly Set-Cookie preserved; exit 0. This is a
+  diagnostic fixture, not the product API/runtime or C06 functional acceptance.
+- Focused Files/drop/upload/first-failure Vitest tests: 5 files, 29 tests pass.
+- Native runner pure tests under `BOARD_OBSERVATION_MODE=functional`: 26 pass.
+- Main's heavy-batch tests: 22 pass. R08 proxy loopback tests: 13 pass.
+- Native listener ownership tests: 20 pass. Final web typecheck and targeted ESLint: exit 0.
+
+Remaining acceptance boundaries: the cloud environment has no exact PostgreSQL
+16.15/vector 0.8.6 toolchain, and `/private/tmp` could not be created because its
+parent is read-only. No complete signed native suite ran in this session. Sync's
+actual lifecycle failure stage remains unconfirmed pending native runtime logs.
+The literal quoted-download filename criterion stays strict and is not claimed
+passed. Native visual/hardware acceptance remains deferred. ABSENT is never a
+passing outcome. No merge, deployment, production permission change, or forced
+push is authorized by this continuation.
+
+
+### Continued independent review and diagnostics
+
+An independent implementation review initially blocked on missing redaction of
+`BOARD_SYNC_FAULT_CONTROL_SECRET` in the new private error receipts. The follow-up
+adds the secret to both Sync diagnostic redaction sets immediately after reading
+it, with a real error-header regression test. Five failure-diagnostic tests pass;
+independent review of this correction reports implementation PASS, while formal
+functional acceptance remains BLOCK.
+
+A real Chromium 151.0.7922.173 loopback download with
+`attachment; filename*=UTF-8''%22quoted%22.txt` returned suggested filename
+`_quoted_.txt` with identical bytes. This disproves the literal filename criterion
+for that browser fixture, not a product-runtime test. The strict acceptance
+assertion remains unchanged; changing its contract requires an explicit decision.
+
+Native environment inventory: all PostgreSQL executables and vector extension
+are absent, as are bison/flex and readline/ICU headers. gcc/make/curl/lsof/Chromium
+are available. The sole formal producer hardcodes `/private/tmp`; lower-level
+prepare/start accept OS temp roots but are diagnostic entry points, not a passing
+replacement for the complete signed suite. No existing attested runtime or runner
+environment was found. No filesystem permission restriction was bypassed.
+
+
+### Main receipt-gate integration (2026-10-04)
+
+Merged main `ea1576a6aa4bddaa688ef7e3f6c19089e9703439` after #5335.
+Resolved only the native runner/test conflicts: connectors/files/sync use the
+shared suite authority and versioned exact-source receipts; R01 retains its own
+signed matrix and functional-only visual deferral. Statistics are assigned to
+the final receipt state, and suite completion is set only after all required
+proofs pass. ABSENT now exits nonzero. The R08 basename fence still accepts its
+real `503` screenshot names while rejecting unsafe names. The independent
+heavy-batch remeasurement/reuse gate and workflow receipt verifier remain intact.
+
+Actual focused regression: native/login/safe-export Node tests 37 passed,
+receipt/heavy-batch Vitest tests 31 passed. These are unit/loopback checks, not
+complete product native acceptance. Exact pushed-head CI is tracked in the PR.
+
+Official Node 22.23.3 and locked Chromium 151.0.7922.34 were installed in owned
+cloud temp storage; PG16.15/vector0.8.6 source hashes matched the workflow pins.
+Default PG configure failed because ICU development libraries are absent.
+Escalated `/private/tmp` creation exited 1 and apt update exited 100 with Unix
+permission denial. Installation requires environment administrator support; no
+runner path was substituted and no permission workaround attempted. The locked
+Chromium download fixture also returned `_quoted_.txt` for `"quoted".txt` with
+verified bytes. The strict filename criterion remains unchanged and unpassed.
+
+
+### C06 diagnostic source-line regression
+
+A real-source test disproved the old fixed line-number classifier (exit 1): login
+assertions had moved and the single-POST assertion was missing from its registry.
+The bounded diagnostic reader now checks the actual verified authority assertion
+line against six fixed markers, including SINGLE_POST. Missing/oversized source,
+comments, ordinary strings and wrong locations fail closed to UNKNOWN. It never
+executes or exports source code. Real-source and moved-source regressions plus
+runner/login/export tests pass 38/38; this improves failure attribution only and
+does not attest C06 functional acceptance.
+
+The locked Chromium Blob+anchor download diagnostic also reproduces both quoted
+and `star*.txt` filename normalization with identical bytes. This matches the
+product's download mechanism; changing the API header cannot satisfy the strict
+native suggestedFilename criterion. No contract or assertion was relaxed.
+
+
+### Human-approved browser disk-name contract update (2026-10-05)
+
+The user explicitly accepted browser quote-to-underscore behavior and requested
+updating the contract. This supersedes the earlier exact browser disk-name
+requirement, not the original multipart/metadata/UI/RFC5987 or byte/hash checks.
+The pinned Chromium matrix now expects underscores only for its quote/star disk
+names; all other matrix names stay exact. Tests remain present and execute every
+case. The safe native output is asserted exactly, never accepted arbitrarily.
+The former deferral decision is superseded by this explicit contract amendment.
+No signoff status or suite count was changed. Full product native acceptance is
+still pending the unchanged official runtime/toolchain environment.
+
+The locked Chromium seven-case download diagnostic passed all expected saved
+names and exact-byte checks (2026-10-05). This is a Blob+anchor diagnostic,
+not product runtime acceptance. Playwright Files suite discovery collected all
+six tests in four files successfully; discovery is not test execution.
