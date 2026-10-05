@@ -33,6 +33,9 @@ function material(state: ResearchRuntime, sourceId: string) {
   try { sourceUrl = new URL(source.url).href; documentUrl = new URL(source.document.url).href; } catch { return; }
   return { source, text: source.document.text, documentHash, sourceUrl, documentUrl, sourceRetrievedAt: source.retrievedAt, documentRetrievedAt: source.document.retrievedAt };
 }
+function evidenceId(fact: Pick<GuidedEvidenceLedgerRecord, "questionKey" | "taskId" | "sourceId" | "documentHash" | "sourceUrl" | "documentUrl" | "sourceRetrievedAt" | "documentRetrievedAt" | "chunkId" | "quoteStart" | "quoteHash" | "relevance">) {
+  return `evidence:${hash(JSON.stringify([fact.questionKey, fact.taskId, fact.sourceId, fact.documentHash, fact.sourceUrl, fact.documentUrl, fact.sourceRetrievedAt, fact.documentRetrievedAt, fact.chunkId, fact.quoteStart, fact.quoteHash, fact.relevance]))}`;
+}
 /** Only call after the existing collectChunkEvidence validator accepted this
  * exact source/chunk/question. Deterministic revalidation adds provenance, not a
  * second semantic model judgement or confidence score. */
@@ -50,26 +53,58 @@ export function recordVerifiedEvidence(state: ResearchRuntime, question: Evidenc
     documentHash: original.documentHash, materialKind: "fetched_document" as const, chunkId: chunk.chunkId, chunkStart: chunk.start,
     quoteStart, quoteEnd: quoteStart + evidence.quote.length, quote: evidence.quote, quoteHash: hash(evidence.quote), insight: evidence.insight,
     relevance: evidence.relevance, verifiedAt, validatorVersion: GUIDED_EVIDENCE_VALIDATOR_VERSION };
-  return GuidedEvidenceLedgerRecord.parse({ ...fact, evidenceId: `evidence:${hash(JSON.stringify([questionKey, taskId, fact.sourceId, fact.documentHash, fact.sourceUrl, fact.documentUrl, fact.sourceRetrievedAt, fact.documentRetrievedAt, fact.chunkId, quoteStart, fact.quoteHash, fact.relevance]))}` });
+  return GuidedEvidenceLedgerRecord.parse({ ...fact, evidenceId: evidenceId(fact) });
 }
-function valid(state: ResearchRuntime, question: EvidenceQuestion, record: GuidedEvidenceLedgerRecord) {
-  if (!GuidedEvidenceLedgerRecord.safeParse(record).success || !confirmed(state, question)) return false;
-  const original = material(state, record.sourceId);
-  const basis = ledgerBasis(state, question);
-  if (!original || record.basis !== basis || record.questionKey !== ledgerQuestionKey(question, basis) || record.sectionId !== question.sectionId || record.questionTextHash !== hash(question.question)) return false;
-  if (record.sourceUrl !== original.sourceUrl || record.documentUrl !== original.documentUrl || record.sourceRetrievedAt !== original.sourceRetrievedAt || record.documentRetrievedAt !== original.documentRetrievedAt) return false;
-  if (record.documentHash !== original.documentHash || ![original.source.taskId, ...(original.source.taskIds ?? [])].includes(record.taskId)) return false;
-  if (record.chunkStart % GUIDED_EVIDENCE_CHUNK_SIZE || record.chunkId !== `source:${record.sourceId}/chunk:${record.chunkStart / GUIDED_EVIDENCE_CHUNK_SIZE}` || record.quoteEnd > Math.min(original.text.length, record.chunkStart + GUIDED_EVIDENCE_CHUNK_SIZE)) return false;
-  if (original.text.slice(record.quoteStart, record.quoteEnd) !== record.quote || record.quoteHash !== hash(record.quote)) return false;
-  const expected = recordVerifiedEvidence(state, question, record, { chunkId: record.chunkId, start: record.chunkStart, content: original.text.slice(record.chunkStart, record.chunkStart + GUIDED_EVIDENCE_CHUNK_SIZE) }, record.verifiedAt);
-  return expected?.evidenceId === record.evidenceId && expected.quoteStart === record.quoteStart;
+/** One immutable validation pass: envelope once, question identity once, and
+ * original material once per source. Caches never survive a call/state change. */
+function ledgerReader(state: ResearchRuntime) {
+  const parsed = GuidedEvidenceLedger.safeParse(state.privateLedger);
+  const buckets = new Map<string, GuidedEvidenceLedgerRecord[]>();
+  const bucketKey = (sectionId: string, questionTextHash: string, questionKey: string) => JSON.stringify([sectionId, questionTextHash, questionKey]);
+  if (parsed.success) for (const record of parsed.data.records) {
+    const key = bucketKey(record.sectionId, record.questionTextHash, record.questionKey);
+    const bucket = buckets.get(key) ?? []; bucket.push(record); buckets.set(key, bucket);
+  }
+  const materials = new Map<string, ReturnType<typeof material>>();
+  const taskIds = new Set(state.tasks.map(task => task.id));
+  const identities = new Map<string, { basis: string; key: string; textHash: string }>();
+  return (question: EvidenceQuestion) => {
+    if (!confirmed(state, question)) return [];
+    const identityKey = JSON.stringify([question.sectionId, question.question]);
+    let identity = identities.get(identityKey);
+    if (!identity) {
+      const basis = ledgerBasis(state, question), textHash = hash(question.question);
+      identity = { basis, textHash, key: hash(JSON.stringify([question.sectionId, textHash, basis])) };
+      identities.set(identityKey, identity);
+    }
+    return (buckets.get(bucketKey(question.sectionId, identity.textHash, identity.key)) ?? []).filter(record => {
+      // Reject unrelated/stale identities before hashing any document body.
+      if (record.basis !== identity!.basis) return false;
+      if (!materials.has(record.sourceId)) materials.set(record.sourceId, material(state, record.sourceId));
+      const original = materials.get(record.sourceId);
+      if (!original || record.sourceUrl !== original.sourceUrl || record.documentUrl !== original.documentUrl || record.sourceRetrievedAt !== original.sourceRetrievedAt || record.documentRetrievedAt !== original.documentRetrievedAt) return false;
+      if (record.documentHash !== original.documentHash || record.taskId !== original.source.taskId || !taskIds.has(record.taskId)) return false;
+      if (record.chunkStart % GUIDED_EVIDENCE_CHUNK_SIZE || record.chunkId !== `source:${record.sourceId}/chunk:${record.chunkStart / GUIDED_EVIDENCE_CHUNK_SIZE}` || record.quoteEnd > Math.min(original.text.length, record.chunkStart + GUIDED_EVIDENCE_CHUNK_SIZE)) return false;
+      if (original.text.slice(record.quoteStart, record.quoteEnd) !== record.quote || record.quoteHash !== hash(record.quote)) return false;
+      const chunk = original.text.slice(record.chunkStart, record.chunkStart + GUIDED_EVIDENCE_CHUNK_SIZE);
+      // Preserve the creator's deterministic first exact occurrence within the
+      // proven chunk, without calling its full material/basis validation again.
+      if (chunk.indexOf(record.quote) !== record.quoteStart - record.chunkStart) return false;
+      return evidenceId(record) === record.evidenceId;
+    });
+  };
 }
 export function readQuestionLedger(state: ResearchRuntime, question: EvidenceQuestion): GuidedEvidenceLedgerRecord[] {
-  const parsed = GuidedEvidenceLedger.safeParse(state.privateLedger);
-  return parsed.success ? parsed.data.records.filter(record => valid(state, question, record)) : [];
+  return ledgerReader(state)(question);
 }
 /** Drop invalid facts rather than relabelling old records as newly verified. */
 export function reconcileEvidenceLedger(state: ResearchRuntime): GuidedEvidenceLedger {
+  const read = ledgerReader(state), seen = new Set<string>();
   const questions: EvidenceQuestion[] = state.outline.filter(section => section.enabled).flatMap(section => sorted([...section.questions, ...(section.subsections ?? []).flatMap(subsection => subsection.questions)]).map(question => ({ id: "", sectionId: section.id, question })));
-  return GuidedEvidenceLedger.parse({ validatorVersion: GUIDED_EVIDENCE_VALIDATOR_VERSION, records: questions.flatMap(question => readQuestionLedger(state, question)).filter((record, index, records) => records.findIndex(item => item.evidenceId === record.evidenceId) === index) });
+  const records = questions.flatMap(read).filter(record => {
+    if (seen.has(record.evidenceId)) return false;
+    seen.add(record.evidenceId); return true;
+  });
+  // Every returned record already passed the single authoritative schema parse.
+  return { validatorVersion: GUIDED_EVIDENCE_VALIDATOR_VERSION, records };
 }

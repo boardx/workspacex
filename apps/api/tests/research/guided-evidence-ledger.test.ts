@@ -1,8 +1,21 @@
 import { createHash } from "node:crypto";
 import { expect, it, vi } from "vitest";
 import { extractReportEvidence, reportQuestions, selectQuestionEvidence } from "../../src/application/research/guided-report-evidence";
-import { ledgerBasis, ledgerQuestionKey, readQuestionLedger, reconcileEvidenceLedger } from "../../src/application/research/guided-evidence-ledger";
+import { ledgerBasis, ledgerQuestionKey, readQuestionLedger, reconcileEvidenceLedger, recordVerifiedEvidence } from "../../src/application/research/guided-evidence-ledger";
+import { GuidedEvidenceLedger } from "../../src/application/research/guided-evidence-ledger-record";
 import type { ResearchRuntime } from "../../src/application/research/guided-runtime-ports";
+const hashWork = vi.hoisted(() => ({ fullBodies: 0 }));
+vi.mock("node:crypto", async importOriginal => {
+  const original = await importOriginal<typeof import("node:crypto")>();
+  return { ...original, createHash: (...args: Parameters<typeof original.createHash>) => {
+    const result = original.createHash(...args), update = result.update.bind(result);
+    result.update = ((data: Parameters<typeof result.update>[0], ...rest: any[]) => {
+      if (typeof data === "string" && data.length === 60000) hashWork.fullBodies++;
+      return (update as any)(data, ...rest);
+    }) as typeof result.update;
+    return result;
+  } };
+});
 const hash = (text: string) => createHash("sha256").update(text).digest("hex");
 function state(): ResearchRuntime {
   const text = " ".repeat(6000) + "Exact original evidence supports this comparison.";
@@ -123,4 +136,26 @@ it.each(["sourceUrl", "documentUrl", "sourceRetrievedAt", "documentRetrievedAt",
   if (change === "expectedOutput") current.outline[0]!.expectedOutput = "Another expected output";
   expect(readQuestionLedger(current, q)).toEqual([]);
   expect(reconcileEvidenceLedger(current).records).toEqual([]);
+});
+
+it("reconciles 128 questions and 256 records with one original-body hash per source", () => {
+  const current = state(); current.outline = Array.from({ length: 4 }, (_, section) => ({ ...current.outline[0]!, id: `section-${section}`, order: section, questions: Array.from({ length: 32 }, (_, i) => `Question ${section * 32 + i}?`) }));
+  const text = "Exact original evidence supports this comparison.".padEnd(60000, " ");
+  current.sources = ["source", "second"].map(id => ({ ...current.sources[0]!, id, url: `https://example.org/${id}`,
+    document: { ...current.sources[0]!.document!, url: `https://example.org/${id}`, text, contentHash: hash(text) } }));
+  const records = reportQuestions(current.outline).flatMap(question => current.sources.map(source => recordVerifiedEvidence(current, question,
+    { sourceId: source.id, quote: text.trim(), insight: "Literal validated support", relevance: "direct" },
+    { chunkId: `source:${source.id}/chunk:0`, start: 0, content: text.slice(0, 6000) })!));
+  current.privateLedger = { validatorVersion: 1, records };
+  hashWork.fullBodies = 0;
+  const parse = vi.spyOn(GuidedEvidenceLedger, "safeParse");
+  try {
+    expect(reconcileEvidenceLedger(current).records).toHaveLength(256);
+    expect(hashWork.fullBodies).toBe(2);
+    expect(parse).toHaveBeenCalledTimes(1);
+    current.outline.forEach(section => { section.objective = "A changed confirmed decision"; });
+    hashWork.fullBodies = 0;
+    expect(reconcileEvidenceLedger(current).records).toEqual([]);
+    expect(hashWork.fullBodies).toBe(0);
+  } finally { parse.mockRestore(); }
 });
