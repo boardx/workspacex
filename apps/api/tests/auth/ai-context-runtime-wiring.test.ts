@@ -1,3 +1,4 @@
+import type {QueryResult} from "../../src/application/ports/database.port";
 import {describe,it,expect,vi} from "vitest";
 import {readContextPackAiFacts,aiContextInputHash} from "../../src/application/agent-run/context-pack-ai-facts";
 import {createAiQuotaRuntimeWiring} from "../../src/infrastructure/agent-run/ai-runtime-wiring";
@@ -61,7 +62,7 @@ it('raw envelope covers duplicate keys/extra fields and cannot accept public or 
 function wholeFixture(child=false,contextBindings?:import("../../src/application/agent-run/context-pack-ai-facts").AiContextPackBindingPort,recordedRow?:ReturnType<typeof selectedFixture>["row"],outsideReject=false){
  const config={window:{start:'2026-10-01T00:00:00Z',end:'2026-11-01T00:00:00Z',timezone:'Etc/UTC'},ordinaryTokensPerUser:'100',costMicrosPerUser:'100',currency:'CNY',prices:[{modelId:'formal',modelProvider:'route',runtimeModelId:'actual',inputMicrosPerMillion:'1',outputMicrosPerMillion:'1',cachedInputMicrosPerMillion:'1',maxInputTokens:10,maxOutputTokens:10}],fallbackModelIds:[],maxAttempts:1};
  const owner={user_id:'u',root_run_id:'root',subtask_id:child?'child':null,project_id:null,thread_id:'thread',agent_id:'agent'};
- const query=vi.fn(async(sql:string)=>{
+ const query=vi.fn(async(sql:string):Promise<QueryResult>=>{
   // Parent lookup inside the core-snapshot query is not a child ownership result.
   if(sql.includes('FROM agent_run_core_model_snapshots'))return {rows:[]};
   if(sql.includes('FROM context_packs'))return {rows:recordedRow?[{run_id:'context-run',org_id:String(org),status:'assembled',recorded:recordedRow.run,content_hash:recordedRow.contentHash,threshold_used:recordedRow.run.thresholdUsed,pinned_snapshot_id:null}]:[]};
@@ -242,7 +243,7 @@ it('a real frozen core snapshot without trusted availability blocks before whole
  f.query.mockImplementation(async(sql:string)=>sql.includes('FROM agent_run_core_model_snapshots')?{rows:[{model_id:'formal',model_provider:'route',runtime_model_id:'actual',config_revision:'immutable',private_connection_id:'trusted-deployment',selected_by:'u'}]}:original(sql));
  try{
   const body=JSON.stringify({model:'actual',max_tokens:5,messages:[{role:'user',content:'raw-private'}]});
-  await expect(f.wiring.runtime.facts(org,{user_id:'u',root_run_id:'root',subtask_id:'child',project_id:null,thread_id:'thread',agent_id:'agent'},body,{runId:'child',attemptId:'child:1',leaseEpoch:1},f.db as never)).rejects.toThrow('CORE_MODEL_UNAVAILABLE');
+  await expect(f.wiring.runtime.facts(org,{user_id:'u',root_run_id:'root',subtask_id:'child',project_id:'project',thread_id:'thread',agent_id:'agent'},body,{runId:'child',attemptId:'child:1',leaseEpoch:1},f.db as never)).rejects.toThrow('CORE_MODEL_UNAVAILABLE');
   expect(spy).not.toHaveBeenCalled();expect(f.vendors).toBe(0);expect(f.usage.startRequest).not.toHaveBeenCalled();
  }finally{spy.mockRestore();}
 });
