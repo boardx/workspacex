@@ -74,7 +74,7 @@ export async function searchWithSourcePolicy(search: GuidedSearchPort, query: st
 function appendActivity(state: ResearchRuntime, stage: NonNullable<ResearchRuntime["activity"]>[number]["stage"], summary: string, status: NonNullable<ResearchRuntime["activity"]>[number]["status"], taskId: string | null = null): void {
   const activity = state.activity ?? (state.activity = []);
   activity.push({ id: randomUUID(), sequence: activity.length ? Math.max(...activity.map((event) => event.sequence)) + 1 : 1,
-    stage, taskId, summary, occurredAt: new Date().toISOString(), status });
+    executionVersion: state.version, stage, taskId, summary, occurredAt: new Date().toISOString(), status });
   if (activity.length > 1000) activity.splice(0, activity.length - 1000);
 }
 export function applyResearchSteering(state: ResearchRuntime, command: RuntimeCommand, occurredAt = new Date().toISOString()): void {
@@ -105,7 +105,7 @@ export function applyResearchSteering(state: ResearchRuntime, command: RuntimeCo
   }
   state.planRevision = (state.planRevision ?? 0) + 1;
   const activity = state.activity ?? (state.activity = []);
-  activity.push({ id: command.idempotencyKey, sequence: activity.length ? Math.max(...activity.map((event) => event.sequence)) + 1 : 1,
+  activity.push({ executionVersion: state.version, id: command.idempotencyKey, sequence: activity.length ? Math.max(...activity.map((event) => event.sequence)) + 1 : 1,
     stage: "planning", taskId: null,
     summary: command.action === "pause" ? "研究已暂停" : command.action === "resume" ? "研究已继续" : command.action === "refine_scope" ? "研究范围已更新" : command.action === "resolve_conflict" ? "冲突已由人工裁决" : "来源策略已更新",
     occurredAt, status: command.action === "pause" ? "paused" : "succeeded" });
@@ -333,7 +333,7 @@ export class GuidedRuntimeService {
   }
   private async plan(state: ResearchRuntime, persist: RuntimePersistence, budget?: SearchBudget) {
     appendActivity(state, "planning", "生成可执行研究计划", "started");
-    state.progress = { stage: "planning", completed: 0, total: 1 };
+    state.progress = { executionVersion: state.version, stage: "planning", completed: 0, total: 1 };
     await persist();
     const planningBudget = new SearchBudget(GUIDED_PLAN_BUDGET_MS, "RESEARCH_PLAN_TIME_BUDGET_EXCEEDED", budget?.signal);
     let result: Awaited<ReturnType<typeof generateResearchPlan>>;

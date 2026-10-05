@@ -118,7 +118,7 @@ describe("step-aligned research transitions", () => {
       expect(screen.getByTestId("execution-search")).toHaveTextContent("待执行");
       expect(screen.queryByTestId("research-step-loading")).not.toBeInTheDocument();
       const researching = runtimeFixture("research");
-      await act(async()=>emit!({type:"snapshot",state:{...researching,version:5,busy:true,leaseUntil:"2099-01-01T00:00:00Z",executionGoal:"report",tasks:researching.tasks.map(task=>({...task,status:"running" as const})),sources:[]}}));
+      await act(async()=>emit!({type:"snapshot",state:{...researching,version:5,busy:true,leaseUntil:"2099-01-01T00:00:00Z",executionGoal:"report",progress:{stage:"searching",executionVersion:5,completed:0,total:researching.tasks.length},tasks:researching.tasks.map(task=>({...task,status:"running" as const})),sources:[]}}));
       expect(screen.getByTestId("research-step-loading")).toHaveTextContent(loading);
       expect(screen.getByTestId("execution-search")).toHaveTextContent("执行中");
     } else expect(await screen.findByTestId("research-step-loading")).toHaveTextContent(loading);

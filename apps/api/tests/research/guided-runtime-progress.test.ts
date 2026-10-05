@@ -46,3 +46,28 @@ it("projects durable saved chapter count without chapter bodies", () => {
   expect(result).not.toHaveProperty("reportCheckpoint");
   expect(JSON.stringify(result).length).toBeLessThan(600);
 });
+
+it("accepts legacy activity/progress without an execution stamp, validates optional stamps and preserves historical versions", async () => {
+  const { research: C } = await import("@repo/contracts");
+  const event = { id: "old", sequence: 1, stage: "reading", taskId: null, summary: "Saved source preparation", occurredAt: "now", status: "started" };
+  expect(C.GuidedResearchActivityEvent.safeParse(event).success).toBe(true);
+  expect(C.GuidedResearchActivityEvent.parse({ ...event, executionVersion: 0 }).executionVersion).toBe(0);
+  for (const executionVersion of [-1, 1.5, "2"]) expect(C.GuidedResearchActivityEvent.safeParse({ ...event, executionVersion }).success).toBe(false);
+  const progress = { stage: "organizing", completed: 0, total: 1 };
+  expect(C.GuidedResearchRuntime.shape.progress.safeParse(progress).success).toBe(true);
+  expect(C.GuidedResearchRuntime.shape.progress.parse({ ...progress, executionVersion: 1 })?.executionVersion).toBe(1);
+  for (const executionVersion of [-1, 1.5, "2"]) expect(C.GuidedResearchRuntime.shape.progress.safeParse({ ...progress, executionVersion }).success).toBe(false);
+  const projected = runtimeProgress({ ...state, activity: [{ ...event, stage: "reading", status: "started", executionVersion: 0 }], progress: { ...progress, stage: "organizing", executionVersion: 1 } } as ResearchRuntime);
+  expect(projected.activity?.[0]?.executionVersion).toBe(0); expect(projected.progress?.executionVersion).toBe(1);
+});
+
+it("keeps the run version stable during pause/resume and never stamps an inherited progress object", async () => {
+  const { research: C } = await import("@repo/contracts");
+  const { applyResearchSteering } = await import("../../src/application/research/guided-runtime-service");
+  const current = { ...state, activity: [], progress: { stage: "organizing", completed: 1, total: 2, executionVersion: 1 } } as ResearchRuntime;
+  for (const [index, action] of ["pause", "resume"].entries()) {
+    applyResearchSteering(current, C.GuidedResearchRuntimeCommand.parse({ sessionId: "s", requestId: action, expectedVersion: 2, node: "report", action, expectedRevision: index, idempotencyKey: action }));
+    expect(current.version).toBe(2); expect(current.progress?.executionVersion).toBe(1);
+    expect(current.activity?.at(-1)?.executionVersion).toBe(2);
+  }
+});
