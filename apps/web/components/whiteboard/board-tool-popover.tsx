@@ -67,7 +67,7 @@ export function BoardToolPopover({ label, children, trigger, open, onOpenChange,
       pointerEvents: anchor.maxHeight < 2 ? "none" : undefined,
     }} aria-describedby={undefined} onEscapeKeyDown={onEscapeKeyDown} className={`fixed z-50 max-h-[calc(100dvh-12rem)] w-80 max-w-[calc(100vw-2rem)] overflow-y-auto [&_button]:min-h-11 [&_button]:min-w-11 [&_input]:min-h-11 [&_select]:min-h-11 rounded-2xl border border-border bg-card text-foreground shadow-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-ring motion-safe:animate-in motion-safe:fade-in`}>
       <div ref={setContent} className={compact ? "p-2" : "p-4"}>
-        <div className={compact ? "mb-1 flex items-center justify-between gap-2" : "mb-4 flex items-center justify-between gap-2"}><Dialog.Title className={hideTitle ? "sr-only" : compact ? "text-12 font-medium" : "text-14 font-semibold"}>{label}</Dialog.Title><Dialog.Close asChild><Button variant="ghost" size="icon" aria-label={`关闭${label}`} className={compact ? "h-6 w-6 !min-h-6 !min-w-6" : "min-h-11 min-w-11"}><X className="h-4 w-4" /></Button></Dialog.Close></div>
+        <div className={compact ? "mb-1 flex items-center justify-between gap-2" : "mb-4 flex items-center justify-between gap-2"}><Dialog.Title className={hideTitle ? "sr-only" : compact ? "text-12 font-medium" : "text-14 font-semibold"}>{label}</Dialog.Title><Dialog.Close asChild><Button variant="ghost" size="icon" aria-label={`关闭${label}`} className={`${hideTitle ? "ml-auto " : ""}${compact ? "h-6 w-6 !min-h-6 !min-w-6" : "min-h-11 min-w-11"}`}><X className="h-4 w-4" /></Button></Dialog.Close></div>
         {children}
       </div>
     </Dialog.Content></Dialog.Portal>

@@ -35,7 +35,7 @@ export function BoardTextFormatControls({ text, disabled = false, sticky = false
     } catch { if(active.current) setError("未找到该字体，请先在设备上安装后重试"); } finally { if(active.current) setPending(false); }
   };
   return <div data-testid="board-text-format-controls" className="space-y-2">
-    <div role="group" aria-label="文字格式" className="flex flex-wrap gap-1">
+    <div role="group" aria-label="文字格式" className="flex flex-nowrap gap-1">
       {action("切换粗体", text.bold === true, <Bold className="h-4 w-4" />, { bold: !text.bold })}
       {action("切换斜体", text.italic === true, <Italic className="h-4 w-4" />, { italic: !text.italic })}
       {([ ["left", "左对齐", AlignLeft], ["center", "水平居中", AlignCenter], ["right", "右对齐", AlignRight] ] as const).map(([alignment, label, Icon]) => action(label, (text.alignment ?? "left") === alignment, <Icon className="h-4 w-4" />, { alignment }))}

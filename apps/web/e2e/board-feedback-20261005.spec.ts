@@ -1,6 +1,8 @@
 import { expect, test, type Page, type TestInfo, type Locator } from '@playwright/test';
 import { archiveAcceptanceBoard, boardLogin, canonicalBoardSnapshot, createAcceptanceBoard, createCommands, object, openBoard, operate, selectAll, objectPoint } from './board-acceptance-support';
 import { expectBoardSynced } from './support/board-sync-status';
+import { compactBlankPoints } from './support/board-compact-blank';
+import { WhiteboardObject } from '@repo/whiteboard-core';
 
 const viewports = [{ width: 1440, height: 1000 }, { width: 390, height: 844 }] as const;
 async function screenshot(page: Page, info: TestInfo, name: string) {
@@ -140,7 +142,11 @@ for (const viewport of viewports) {
       expect(created.extensionData?.contentObject).toMatchObject({ type: 'shape', variant: 'database' });
       await page.getByTestId('board-tool-select').click();
       await page.getByTestId('board-zoom-fit-board').click();
-      await objectPoint(page, created.id);
+      await selectNote(page, created.id);
+      await page.getByTestId('board-zoom-menu').click();
+      await page.getByTestId('board-zoom-fit-selection').click();
+      await expect.poll(async () => Number(await surface.getAttribute('data-viewport-zoom'))).toBeGreaterThan(.8);
+      await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
       // Top and bottom cylinder outlines must both paint dark pixels on the native canvas.
       const ink = await surface.evaluate((node, id) => {
         const canvas = node.querySelector<HTMLCanvasElement>('canvas.lower-canvas')!;
@@ -269,10 +275,25 @@ for (const viewport of viewports) {
 
     test('19 standard tool shortcuts work on canvas while typing stays in the editor', async ({ page, request }, info) => {
       const surface = page.getByTestId('board-fabric-surface');
-      const bounds = (await surface.boundingBox())!;
-      const blank = { x: bounds.x + 20, y: bounds.y + 60 };
-      expect(await page.evaluate(point => document.elementFromPoint(point.x, point.y)?.matches('canvas.upper-canvas'), blank)).toBe(true);
-      await page.mouse.click(blank.x, blank.y);
+      const view = await surface.evaluate(node => {
+        const canvas = node.querySelector<HTMLCanvasElement>('canvas.upper-canvas')!;
+        const rect = canvas.getBoundingClientRect();
+        return { x: rect.x, y: rect.y, width: rect.width, height: rect.height, zoom: Number(node.getAttribute('data-viewport-zoom')), panX: Number(node.getAttribute('data-viewport-pan-x')), panY: Number(node.getAttribute('data-viewport-pan-y')) };
+      });
+      const canonical = await canonicalBoardSnapshot(request, token, boardId);
+      const diagnostics = [];
+      let blank: { x: number; y: number } | undefined;
+      for (const candidate of compactBlankPoints(view, canonical.objects)) {
+        const hit = await page.evaluate(point => {
+          const element = document.elementFromPoint(point.x, point.y) as HTMLElement | null;
+          return { canvas: element?.matches('canvas.upper-canvas') === true, tag: element?.tagName, testId: element?.dataset.testid, className: element?.className };
+        }, candidate);
+        diagnostics.push({ candidate, hit });
+        if (!blank && hit.canvas) blank = candidate;
+      }
+      await info.attach('native-blank-hit-diagnostics', { body: JSON.stringify({ view, diagnostics }), contentType: 'application/json' });
+      expect(blank, 'Canonical geometry and live hit testing must agree on an unobstructed native canvas point').toBeDefined();
+      await page.mouse.click(blank!.x, blank!.y);
       const focus = await page.evaluate(() => ({ tag: document.activeElement?.tagName, testId: (document.activeElement as HTMLElement | null)?.dataset.testid }));
       expect(focus.tag).not.toBe('BODY');
       await info.attach('native-canvas-shortcut-focus', { body: JSON.stringify(focus), contentType: 'application/json' });
@@ -298,7 +319,7 @@ for (const viewport of viewports) {
     });
 
     test('21 connector widths are icon-only, single-row and persist through reload', async ({ page, request }, info) => {
-      const connector = { ...object('feedback-edge', 'connector', 120, 500, '', 600, 0), style: { stroke: '#27272A' }, connector: { fromPoint: { x: 120, y: 500 }, toPoint: { x: 720, y: 500 }, fromAnchor: 'right' as const, toAnchor: 'left' as const, type: 'straight' as const, strokeWidth: 4 } };
+      const connector = WhiteboardObject.parse({ ...object('feedback-edge', 'connector', 120, 500, '', 600, 1), style: { stroke: '#27272A' }, connector: { fromPoint: { x: 120, y: 500 }, toPoint: { x: 720, y: 500 }, fromAnchor: 'right' as const, toAnchor: 'left' as const, type: 'straight' as const, strokeWidth: 4 } });
       await operate(request, token, boardId, createCommands([connector]));
       const row = page.getByTestId('board-a11y-object-feedback-edge');
       await expect(row).toBeVisible(); await row.focus(); await row.press('Enter');
