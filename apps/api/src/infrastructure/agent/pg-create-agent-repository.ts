@@ -13,6 +13,8 @@
  * 一个 `toolWhitelist` 恒为空、`发布` 都还没提交的 草稿态 agent 不应该出现在那张表里
  * （否则会在未来某条 `listAgents`/能力目录读取路径上让一个不可用的 agent 看起来可用）。
  */
+import { readPublishedSkillPins } from "./read-published-skill-pins";
+import { PendingSkillBinding } from "@repo/contracts/agent-role";
 import type { DatabasePort } from "../../application/ports/database.port";
 import { toOrgId } from "../../domain/org-id";
 import type { AgentDefinition } from "../../domain/agent/definition";
@@ -64,6 +66,9 @@ export interface AgentDefinitionRow extends AgentRoleColumnsRow {
  * 混进同一个类型容易让人以为能力图也要过那组判据。
  */
 interface CapabilityGraphColumnsRow {
+  published_version_id?: string | null;
+  skill_version_ids?: string[] | null;
+  pending_skill_bindings?: unknown;
   readonly id: string;
   readonly name: string;
   readonly role_label: string | null;
@@ -165,14 +170,22 @@ export class PgCreateAgentRepository implements CreateAgentRepository, ListAgent
   async findForCapabilityGraph(orgId: string, agentId: string): Promise<AgentCapabilityGraphRow | null> {
     return this.db.withTenant(toOrgId(orgId), async (session) => {
       const found = await session.query<CapabilityGraphColumnsRow>(
-        `SELECT id, name, role_label, skill_mounts, tool_whitelist
-           FROM agents
-          WHERE id = $1 AND org_id = $2`,
+        `SELECT a.id, a.name, a.role_label, a.skill_mounts, a.tool_whitelist, v.id AS published_version_id, v.skill_version_ids, v.pending_skill_bindings
+           FROM agents a LEFT JOIN agent_versions v
+             ON v.id=a.published_version_id AND v.agent_id=a.id AND v.org_id=a.org_id
+          WHERE a.id = $1 AND a.org_id = $2`,
         [agentId, orgId],
       );
       const row = found.rows[0];
       if (row === undefined) return null;
+      const ids = Array.isArray(row.skill_version_ids) ? row.skill_version_ids.filter(id => typeof id === "string") : [];
+      const pinnedSkills = await readPublishedSkillPins(session, orgId, ids);
+      const resolved = new Set(pinnedSkills.map(pin => pin.versionId));
       return {
+        publishedVersionId: row.published_version_id ?? null,
+        pinnedSkills,
+        unresolvedSkillVersionIds: [...new Set(ids)].filter(id => !resolved.has(id)),
+        pendingSkillBindings: Array.isArray(row.pending_skill_bindings) ? row.pending_skill_bindings.flatMap(binding => {const parsed=PendingSkillBinding.safeParse(binding);return parsed.success ? [parsed.data] : [];}) : [],
         agentId: row.id,
         name: row.name,
         roleLabel: row.role_label ?? "",

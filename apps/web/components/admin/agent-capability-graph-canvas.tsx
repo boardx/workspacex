@@ -129,7 +129,7 @@ export default function AgentCapabilityGraphCanvas({
           index * 80,
           {
             label: skill.label,
-            sublabel: `Skill · v${skill.skillVersion}`,
+            sublabel: typeof skill.skillVersion === "number" ? `Skill · v${skill.skillVersion}` : `Skill · 固定版本 ${skill.skillVersion}`,
             href: skill.href,
             variant: "skill",
             testId: `agent-capability-graph-node-skill-${skill.skillId}`,

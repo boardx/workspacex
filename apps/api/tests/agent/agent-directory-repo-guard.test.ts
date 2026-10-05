@@ -25,7 +25,7 @@ import { toOrgId } from "../../src/domain/org-id";
 const REPO = new URL("../../src/infrastructure/agent/pg-agent-directory-repository.ts", import.meta.url);
 const USE_CASE = new URL("../../src/application/agent/list-agent-directory.ts", import.meta.url);
 
-const repoSource = readFileSync(REPO, "utf8");
+const repoSource = readFileSync(REPO, "utf8") + readFileSync(new URL("../../src/infrastructure/agent/read-published-skill-pins.ts", import.meta.url), "utf8");
 const useCaseSource = readFileSync(USE_CASE, "utf8");
 
 /** 本仓储只允许命名的五张租户表——多一张就说明长出了新的读面。 */
@@ -54,7 +54,7 @@ describe("AG04 白名单条目的前提：仓储侧", () => {
 
   it("pin metadata is limited to exact published versions in tenant or platform, never skill content", () => {
     expect(repoSource).toContain("sk.org_id=sv.org_id");
-    expect(repoSource).toContain("(sv.org_id=$1 OR sv.org_id=$3) AND sv.id=ANY($2::text[]) AND sv.published");
+    expect(repoSource.replace(/\s+/g, "")).toContain("(sv.org_id=$1ORsv.org_id=$3)ANDsv.id=ANY($2::text[])ANDsv.published");
     expect(repoSource).toContain("row.skill_version_ids ?? []");
     expect(repoSource).not.toMatch(/SELECT[^;]*sv\.(?:content|instructions|body)/s);
   });
