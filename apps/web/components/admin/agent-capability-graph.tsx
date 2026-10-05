@@ -46,7 +46,9 @@ type LoadState =
 export function AgentCapabilityGraph({ orgId, agentId }: { orgId: string; agentId: string }) {
   const [state, setState] = React.useState<LoadState>({ status: "loading" });
 
+  const requestEpoch = React.useRef(0);
   const load = React.useCallback(async () => {
+    const epoch = ++requestEpoch.current;
     setState({ status: "loading" });
     try {
       const [data, skills] = await Promise.all([
@@ -55,14 +57,15 @@ export function AgentCapabilityGraph({ orgId, agentId }: { orgId: string; agentI
         listCapabilities(orgId, "skill").catch(() => []),
       ]);
       const skillNames = new Map(skills.map((s) => [s.id, s.name]));
-      setState({ status: "ready", data, skillNames });
+      if (requestEpoch.current === epoch) setState({ status: "ready", data, skillNames });
     } catch (error) {
-      setState({ status: "error", message: describeError(error) });
+      if (requestEpoch.current === epoch) setState({ status: "error", message: describeError(error) });
     }
   }, [orgId, agentId]);
 
   React.useEffect(() => {
     void load();
+    return () => { requestEpoch.current += 1; };
   }, [load]);
 
   return (
@@ -91,7 +94,11 @@ export function AgentCapabilityGraph({ orgId, agentId }: { orgId: string; agentI
         </div>
       ) : null}
 
-      {state.status === "ready" ? <ReadyGraph agentId={agentId} state={state} /> : null}
+      {state.status === "ready" ? <>
+        <ReadyGraph agentId={agentId} state={state} />
+        {(state.data.unresolvedSkillVersionIds ?? []).length > 0 ? <p role="status">已发布版本含有无法解析的 Skill 固定绑定：{state.data.unresolvedSkillVersionIds!.join("、")}。这些绑定不代表可执行能力。</p> : null}
+        {(state.data.pendingSkillBindings ?? []).length > 0 ? <p role="status">待绑定方法：{state.data.pendingSkillBindings!.map(binding => binding.displayName ?? binding.stableId).join("、")}。尚未就绪。</p> : null}
+      </> : null}
     </section>
   );
 }
@@ -111,7 +118,7 @@ function ReadyGraph({
         data-testid="agent-capability-graph-empty"
         className="rounded-lg border border-dashed border-border py-10 text-center text-12 text-muted-foreground"
       >
-        还没有挂载任何能力——这个 Agent 目前没有挂载 Skill，也没有被授权调用任何 MCP 工具。
+        当前能力图未读取到直接挂载的 Skill 或 MCP 工具记录；已发布版本的固定绑定及待绑定记录在下方单独标明；能力就绪仍需运行验证。
       </div>
     );
   }

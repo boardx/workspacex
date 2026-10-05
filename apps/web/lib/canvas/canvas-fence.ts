@@ -33,7 +33,7 @@ export type CanvasFenceCheck =
   | { readonly ok: false; readonly detail: string };
 
 export function checkCanvasFence(code: string, lang: CanvasFenceLang): CanvasFenceCheck {
-  const parsed = parseTemplateText(code);
+  const parsed = parseTemplateText(code, lang === "persona" ? "persona" : undefined);
   // ```persona 是 `模板: persona` 的别名（见 template-engine 文件头），围栏语言即 key。
   const key = lang === "persona" ? "persona" : (parsed.templateKey ?? "").trim();
   if (!key) {
