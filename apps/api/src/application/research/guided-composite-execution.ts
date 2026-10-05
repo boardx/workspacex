@@ -63,8 +63,8 @@ export async function executeComposite(state: ResearchRuntime, command: RuntimeC
   }
   // A legacy partial publication stays readable as history; it cannot become a
   // full composite publication by clearing its partial flag or skipping search.
-  if (state.reportPartial && state.report) {
-    preservePreviousReport(state); state.report = null;
+  if (state.reportPartial && (state.report || state.reportDraft)) {
+    preservePreviousReport(state); state.report = null; state.reportDraft = null;
     state.generatedNodes = state.generatedNodes.filter(node => node !== "report");
   }
   state.completed = false; state.reportPartial = false;
@@ -88,7 +88,7 @@ export async function executeComposite(state: ResearchRuntime, command: RuntimeC
     finally {
       // A resumed checkpoint may archive its old chapters again. Do not replace
       // the preserved publication with that unpublished intermediate attempt.
-      if (previousPublication?.report && !state.reportPrevious?.report) state.reportPrevious = previousPublication;
+      if ((previousPublication?.report && !state.reportPrevious?.report) || (previousPublication?.partial && previousPublication.draft)) state.reportPrevious = previousPublication;
     }
   }
   check();
