@@ -1,0 +1,55 @@
+name: ci-candidate-shadow
+
+on:
+  workflow_run:
+    workflows: [harness-verify, backend-gates, Board acceptance lanes]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      source_run_id:
+        description: 'Read-only observation of one existing validation run; this never reruns or deploys it'
+        required: true
+        type: string
+
+# Subset of harness-verify's existing read-only permissions. No write/OIDC,
+# secrets, privileged runner, candidate checkout or candidate code execution.
+permissions:
+  contents: read
+  actions: read
+  pull-requests: read
+
+concurrency:
+  group: ci-candidate-shadow-${{ github.event.workflow_run.id || github.run_id }}-${{ github.run_attempt }}
+  cancel-in-progress: false
+
+jobs:
+  observe:
+    # workflow_run executes the default-branch definition. Dispatch from a PR
+    # branch is rejected; local fixture tests are the PR validation surface.
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout protected observer
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+      - name: Observe candidate evidence (always execute validation)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CI_CANDIDATE_MODE: ${{ vars.CI_CANDIDATE_MODE || 'shadow' }}
+          CI_CANDIDATE_SOURCE_RUN_ID: ${{ inputs.source_run_id || github.event.workflow_run.id }}
+          CI_CANDIDATE_OUTPUT_DIR: ${{ runner.temp }}/ci-candidate-shadow
+        run: node .harness/scripts/ci-candidate-observer.mjs
+      - name: Retain trusted observer receipts
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: ci-candidate-shadow-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/ci-candidate-shadow/
+          if-no-files-found: error
+          retention-days: 14

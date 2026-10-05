@@ -1,0 +1,1270 @@
+{
+  "version": 1,
+  "mode": "shadow",
+  "baselineSha": "d4f15668ace9883fc6ce3a20ab87032a18ec4a9d",
+  "purpose": "Single logical suite ownership and observed trusted candidate eligibility. Phase 1 keeps every existing validation and deployment; this file never authorizes skipping.",
+  "identityPaths": [
+    "pnpm-lock.yaml",
+    "package.json",
+    "pnpm-workspace.yaml",
+    ".nvmrc",
+    "turbo.json",
+    "apps/deep-agent-service/uv.lock",
+    "apps/deep-agent-service/pyproject.toml",
+    ".harness/playwright-runtime-images.json",
+    ".harness/config/ci-suite-ownership.json"
+  ],
+  "sourcePolicy": {
+    "requiresTrustedGithubRunAndLogs": true,
+    "acceptPrSelfReportedJson": false,
+    "requiresActualCheckoutMarkerBeforeInstall": true,
+    "requiresCandidateBaseHeadAndFullTree": true,
+    "requiresDefinitionsUnchangedFromTrustedBase": true,
+    "requiresLockedDependenciesAndEnvironment": true,
+    "requiresEveryExecutionStepSuccess": true,
+    "requiresArtifactDigest": true,
+    "newerFailureInvalidatesOlderSuccess": true,
+    "unavailableOrMalformedEvidence": "run-full",
+    "freshRun": "run-full",
+    "squashShaEqualityIsEvidence": false,
+    "requiresSameRepositorySource": true
+  },
+  "suites": [
+    {
+      "id": "verify-control-plane",
+      "owner": {
+        "workflow": ".github/workflows/harness-verify.yml",
+        "job": "verify-control-plane"
+      },
+      "role": "validation",
+      "coverageKind": "event-dependent",
+      "eligibleSourceEvents": [],
+      "phase1": "retain",
+      "execution": {
+        "actualStepNames": [
+          "Subagent 生成物未漂移",
+          "审计链体检",
+          "签核 ① UI 材料完整性（截图引用集 == 实存集）",
+          "标准包发货版本 == 构建版本（单一事实源）",
+          "标准 skill 元数据只有 SKILL.md frontmatter 一处（metadata 嵌套写法只减不增）",
+          "ui-prototyper 硬规则只有一份原文（消费方只引用不复述）",
+          "执行计划图格式与调色板单源（红有原因 / 紫有证据）",
+          "签核 ③ API 契约必须存在（形态 A 契约文件 / 形态 B 显式声明无 HTTP 面）",
+          "verification 必须真的会红（无恒 0 / 无不确定形态）",
+          "跨屏可达性（导航树 ↔ 契约束现行路由）",
+          "路由可达性（controller 路由 ↔ next.config rewrites 成对）",
+          "契约可达性（已交付契约束的 operation ↔ interface 路由，棘轮只减不增）",
+          "跨层接线（屏 → 适配器 → controller → application 用例）",
+          "测试代码不对共享角色做无限定 GRANT/REVOKE（第六种共享可变状态）",
+          "不存在没人跑的 e2e spec（spec ↔ 门控可达性）",
+          "对契约的否定性断言仍然成立（注释不得说谎）",
+          "态名单源（spec / 验收文档 ↔ 契约枚举）",
+          "pnpm override 无 parent>child 选择器（peer 边静默装错版本）",
+          "harness 控制平面自测（含门控反证）"
+        ],
+        "actualStepNamePatterns": [],
+        "artifactNamePatterns": [],
+        "allMatrixChildrenMustExecute": false,
+        "scopeOrReusedVerdictIsExecution": false
+      },
+      "duplicates": [
+        {
+          "workflow": ".github/workflows/harness-verify.yml",
+          "job": "full-regression-core",
+          "relation": "partial-overlap",
+          "reason": "verify:harness:raw overlaps many static checks but has extra checks; doctor severity and PR transition semantics differ."
+        }
+      ],
+      "definitionPaths": [
+        ".github/workflows/harness-verify.yml",
+        ".harness/scripts/",
+        "phases/",
+        "packages/contracts/",
+        ".harness/agents/"
+      ],
+      "nextAction": "Keep main global doctor and PR/merge_group scoped doctor semantics. Separate tree-only checks from live audit before any reuse."
+    },
+    {
+      "id": "verify-affected",
+      "owner": {
+        "workflow": ".github/workflows/harness-verify.yml",
+        "job": "verify-affected"
+      },
+      "role": "validation",
+      "coverageKind": "event-dependent",
+      "eligibleSourceEvents": [],
+      "phase1": "retain",
+      "execution": {
+        "actualStepNames": [
+          "受影响模块 typecheck/lint",
+          "受影响模块 test"
+        ],
+        "actualStepNamePatterns": [],
+        "artifactNamePatterns": [],
+        "allMatrixChildrenMustExecute": false,
+        "scopeOrReusedVerdictIsExecution": false
+      },
+      "duplicates": [
+        {
+          "workflow": ".github/workflows/harness-verify.yml",
+          "job": "verify-full-compile",
+          "relation": "partial-overlap",
+          "reason": "Affected typecheck/lint is a subset of full-repository compile validation; affected test planning is event/base-dependent."
+        },
+        {
+          "workflow": ".github/workflows/backend-gates.yml",
+          "job": "gates-test",
+          "relation": "conditional-overlap",
+          "reason": "Same-repository affected tests exclude API; fork PR affected tests own API because backend lanes are skipped."
+        },
+        {
+          "workflow": ".github/workflows/harness-verify.yml",
+          "job": "full-regression-core",
+          "relation": "subset-coverage",
+          "reason": "Full base tests include all packages; affected tests do not prove full discovery or exclusive API tests."
+        }
+      ],
+      "definitionPaths": [
+        ".github/workflows/harness-verify.yml",
+        ".github/scripts/run-affected-tests.mjs",
+        "turbo.json",
+        "pnpm-workspace.yaml"
+      ],
+      "nextAction": "Retain affected execution until exact Turbo task discovery, base/head scope, fork behavior and empty/no-op semantics have trusted evidence."
+    },
+    {
+      "id": "verify-full-compile",
+      "owner": {
+        "workflow": ".github/workflows/harness-verify.yml",
+        "job": "verify-full-compile"
+      },
+      "role": "validation",
+      "coverageKind": "same-command",
+      "eligibleSourceEvents": [],
+      "phase1": "retain",
+      "execution": {
+        "actualStepNames": [
+          "全仓编译（build）",
+          "全仓 typecheck + lint"
+        ],
+        "actualStepNamePatterns": [],
+        "artifactNamePatterns": [],
+        "allMatrixChildrenMustExecute": false,
+        "scopeOrReusedVerdictIsExecution": false
+      },
+      "duplicates": [
+        {
+          "workflow": ".github/workflows/harness-verify.yml",
+          "job": "full-regression-core",
+          "relation": "partial-overlap",
+          "reason": "verify:base:raw runs all typecheck/lint/test but does not explicitly run the full build task."
+        }
+      ],
+      "definitionPaths": [
+        ".github/workflows/harness-verify.yml",
+        "turbo.json",
+        "pnpm-workspace.yaml"
+      ],
+      "nextAction": "Retain: there is no dedicated suite artifact. Do not claim base validation replaces full build."
+    },
+    {
+      "id": "merge-gate",
+      "owner": {
+        "workflow": ".github/workflows/harness-verify.yml",
+        "job": "merge-gate"
+      },
+      "role": "governance",
+      "coverageKind": "event-dependent",
+      "eligibleSourceEvents": [],
+      "phase1": "retain",
+      "execution": {
+        "actualStepNames": [],
+        "actualStepNamePatterns": [],
+        "artifactNamePatterns": [],
+        "allMatrixChildrenMustExecute": false,
+        "scopeOrReusedVerdictIsExecution": false
+      },
+      "duplicates": [],
+      "definitionPaths": [
+        ".github/workflows/harness-verify.yml",
+        ".harness/scripts/lib/merge-queue.ts",
+        ".harness/scripts/lib/pr-queue.ts",
+        ".harness/config/ci-check-policy.json"
+      ],
+      "nextAction": "Always evaluate current reviews, verdict label, issue linkage and merge-group PR set; never reuse stale governance state."
+    },
+    {
+      "id": "fullstack-smoke",
+      "owner": {
+        "workflow": ".github/workflows/harness-verify.yml",
+        "job": "fullstack-smoke"
+      },
+      "role": "validation",
+      "coverageKind": "same-command",
+      "eligibleSourceEvents": [
+        "pull_request",
+        "merge_group"
+      ],
+      "phase1": "observe-and-run",
+      "execution": {
+        "actualStepNames": [
+          "Execute trusted full-stack smoke",
+          "Execute trace disclosure geometry"
+        ],
+        "actualStepNamePatterns": [],
+        "artifactNamePatterns": [
+          "^phase\\-01\\-fullstack\\-smoke\\-evidence\\-[0-9]+$"
+        ],
+        "allMatrixChildrenMustExecute": false,
+        "scopeOrReusedVerdictIsExecution": false
+      },
+      "duplicates": [
+        {
+          "workflow": ".github/workflows/harness-verify.yml",
+          "job": "full-regression-core",
+          "relation": "partial-overlap",
+          "reason": "Browser command verify:fullstack-smoke:raw is also in verify:full; this job additionally runs geometry and uses a sealed container runtime."
+        },
+        {
+          "workflow": ".github/workflows/board-acceptance.yml",
+          "job": "api-ws-objectstore",
+          "relation": "spec-overlap",
+          "reason": "board-shared-outbox.spec.ts appears in both project closures, with different config/runtime context."
+        },
+        {
+          "workflow": ".github/workflows/skill-files-e2e.yml",
+          "job": "skill-files-e2e",
+          "relation": "behavior-overlap",
+          "reason": "Skill import/lifecycle journeys overlap behavior; dedicated multi-file/pin recovery config is not an equivalent full suite."
+        }
+      ],
+      "definitionPaths": [
+        ".github/workflows/harness-verify.yml",
+        ".harness/scripts/ci-fullstack-runtime.mjs",
+        ".harness/playwright-runtime-images.json",
+        "apps/web/playwright.fullstack-smoke.config.ts",
+        "apps/web/e2e/",
+        ".harness/scripts/with-test-isolation.ts"
+      ],
+      "nextAction": "Observe trusted exact candidate evidence; retain execution until a separately approved rollout."
+    },
+    {
+      "id": "full-regression-core",
+      "owner": {
+        "workflow": ".github/workflows/harness-verify.yml",
+        "job": "full-regression-core"
+      },
+      "role": "validation",
+      "coverageKind": "same-command",
+      "eligibleSourceEvents": [
+        "merge_group"
+      ],
+      "phase1": "observe-and-run",
+      "execution": {
+        "actualStepNames": [
+          "Execute uncached trusted full gate"
+        ],
+        "actualStepNamePatterns": [],
+        "artifactNamePatterns": [
+          "^phase\\-01\\-e2e\\-full\\-evidence\\-[0-9]+$"
+        ],
+        "allMatrixChildrenMustExecute": false,
+        "scopeOrReusedVerdictIsExecution": false
+      },
+      "duplicates": [
+        {
+          "workflow": ".github/workflows/harness-verify.yml",
+          "job": "verify-control-plane",
+          "relation": "partial-overlap",
+          "reason": "Full base harness lints overlap but are not identical to control-plane doctor/generated drift/transition checks."
+        },
+        {
+          "workflow": ".github/workflows/harness-verify.yml",
+          "job": "verify-affected",
+          "relation": "superset-coverage",
+          "reason": "Full base owns all package tests including API exclusive; affected tests own only discovered affected tasks."
+        },
+        {
+          "workflow": ".github/workflows/backend-gates.yml",
+          "job": "gates-test",
+          "relation": "superset-coverage",
+          "reason": "Full base turbo API test executes default Vitest plus exclusive persistence tests; backend shards cover default discovery only."
+        },
+        {
+          "workflow": ".github/workflows/harness-verify.yml",
+          "job": "fullstack-smoke",
+          "relation": "partial-overlap",
+          "reason": "Same smoke raw browser closure, but no geometry step and different runtime envelope."
+        }
+      ],
+      "definitionPaths": [
+        ".github/workflows/harness-verify.yml",
+        ".harness/scripts/run-verify-lanes.ts",
+        "apps/api/vitest.config.ts",
+        "apps/api/vitest.exclusive.config.ts",
+        "apps/web/playwright.fullstack-smoke.config.ts",
+        "apps/web/e2e/",
+        "turbo.json"
+      ],
+      "nextAction": "Keep main/tag/manual and existing merge_group run. Ordinary PR has no full-regression-core evidence; migrate full candidate coverage only with explicit future approval."
+    },
+    {
+      "id": "chat-read",
+      "owner": {
+        "workflow": ".github/workflows/harness-verify.yml",
+        "job": "chat-read"
+      },
+      "role": "validation",
+      "coverageKind": "same-command",
+      "eligibleSourceEvents": [
+        "merge_group"
+      ],
+      "phase1": "observe-and-run",
+      "execution": {
+        "actualStepNames": [
+          "Execute Chat read/write journey (own isolation scope)"
+        ],
+        "actualStepNamePatterns": [],
+        "artifactNamePatterns": [
+          "^phase\\-01\\-chat\\-read\\-evidence\\-[0-9]+$"
+        ],
+        "allMatrixChildrenMustExecute": false,
+        "scopeOrReusedVerdictIsExecution": false
+      },
+      "duplicates": [],
+      "definitionPaths": [
+        ".github/workflows/harness-verify.yml",
+        "apps/web/playwright.chat-read.config.ts",
+        "apps/web/e2e/"
+      ],
+      "nextAction": "Keep main/tag/manual/merge_group coverage. Ordinary PR lacks this lane; future candidate ownership must run the entire selected chat-read project."
+    },
+    {
+      "id": "self-service-profile",
+      "owner": {
+        "workflow": ".github/workflows/harness-verify.yml",
+        "job": "self-service-profile"
+      },
+      "role": "validation",
+      "coverageKind": "same-command",
+      "eligibleSourceEvents": [
+        "merge_group"
+      ],
+      "phase1": "observe-and-run",
+      "execution": {
+        "actualStepNames": [
+          "Execute self-service profile journey (own isolation scope)"
+        ],
+        "actualStepNamePatterns": [],
+        "artifactNamePatterns": [
+          "^phase\\-01\\-self\\-service\\-profile\\-evidence\\-[0-9]+$"
+        ],
+        "allMatrixChildrenMustExecute": false,
+        "scopeOrReusedVerdictIsExecution": false
+      },
+      "duplicates": [],
+      "definitionPaths": [
+        ".github/workflows/harness-verify.yml",
+        "apps/web/playwright.self-service-profile.config.ts",
+        "apps/web/e2e/"
+      ],
+      "nextAction": "Keep main/tag/manual/merge_group coverage. Ordinary PR lacks profile/account/org fidelity and keyboard journeys."
+    },
+    {
+      "id": "e2e-full",
+      "owner": {
+        "workflow": ".github/workflows/harness-verify.yml",
+        "job": "e2e-full"
+      },
+      "role": "aggregate",
+      "coverageKind": "aggregate",
+      "eligibleSourceEvents": [],
+      "phase1": "retain",
+      "execution": {
+        "actualStepNames": [
+          "Require every full regression lane"
+        ],
+        "actualStepNamePatterns": [],
+        "artifactNamePatterns": [],
+        "allMatrixChildrenMustExecute": false,
+        "scopeOrReusedVerdictIsExecution": false
+      },
+      "duplicates": [],
+      "definitionPaths": [
+        ".github/workflows/harness-verify.yml",
+        ".harness/scripts/ci-full-regression.mjs",
+        ".harness/scripts/ci-lane-dedup.mjs"
+      ],
+      "nextAction": "Keep stable verdict requiring successful core, chat-read and profile. Missing/skipped/cancelled is not passing."
+    },
+    {
+      "id": "chat-path-coverage",
+      "owner": {
+        "workflow": ".github/workflows/harness-verify.yml",
+        "job": "chat-path-coverage"
+      },
+      "role": "validation",
+      "coverageKind": "manual-only",
+      "eligibleSourceEvents": [],
+      "phase1": "retain",
+      "execution": {
+        "actualStepNames": [
+          "Execute chat path coverage lane (own isolation scope)"
+        ],
+        "actualStepNamePatterns": [],
+        "artifactNamePatterns": [
+          "^phase\\-01\\-chat\\-path\\-coverage\\-evidence\\-[0-9]+$"
+        ],
+        "allMatrixChildrenMustExecute": false,
+        "scopeOrReusedVerdictIsExecution": false
+      },
+      "duplicates": [],
+      "definitionPaths": [
+        ".github/workflows/harness-verify.yml",
+        "apps/web/playwright.chat-read.config.ts",
+        "apps/web/e2e/"
+      ],
+      "nextAction": "Keep opt-in independent manual coverage; do not treat it as ordinary chat-read coverage."
+    },
+    {
+      "id": "chat-task-workbench",
+      "owner": {
+        "workflow": ".github/workflows/harness-verify.yml",
+        "job": "chat-task-workbench"
+      },
+      "role": "validation",
+      "coverageKind": "manual-only",
+      "eligibleSourceEvents": [],
+      "phase1": "retain",
+      "execution": {
+        "actualStepNames": [
+          "Execute Chat task workbench scorecard (own isolation scope)"
+        ],
+        "actualStepNamePatterns": [],
+        "artifactNamePatterns": [
+          "^phase\\-01\\-chat\\-task\\-workbench\\-evidence\\-[0-9]+$"
+        ],
+        "allMatrixChildrenMustExecute": false,
+        "scopeOrReusedVerdictIsExecution": false
+      },
+      "duplicates": [],
+      "definitionPaths": [
+        ".github/workflows/harness-verify.yml",
+        "apps/web/playwright.chat-read.config.ts",
+        "apps/web/e2e/"
+      ],
+      "nextAction": "Keep opt-in scorecard; its intentionally unimplemented acceptance cases are not a normal regression verdict."
+    },
+    {
+      "id": "gates-fast",
+      "owner": {
+        "workflow": ".github/workflows/backend-gates.yml",
+        "job": "gates-fast"
+      },
+      "role": "validation",
+      "coverageKind": "event-dependent",
+      "eligibleSourceEvents": [],
+      "phase1": "retain",
+      "execution": {
+        "actualStepNames": [
+          "Verify full disjoint API shard discovery",
+          "typecheck / lint",
+          "审计链体检（严格模式）",
+          "契约单源 / 洋葱分层"
+        ],
+        "actualStepNamePatterns": [],
+        "artifactNamePatterns": [],
+        "allMatrixChildrenMustExecute": false,
+        "scopeOrReusedVerdictIsExecution": false
+      },
+      "duplicates": [
+        {
+          "workflow": ".github/workflows/harness-verify.yml",
+          "job": "verify-full-compile",
+          "relation": "subset-coverage",
+          "reason": "API typecheck/lint overlaps full repository compilation; strict scoped doctor/contract/architecture checks add coverage."
+        }
+      ],
+      "definitionPaths": [
+        ".github/workflows/backend-gates.yml",
+        ".harness/scripts/ci-api-shards.mjs",
+        ".harness/api-test-shards.json",
+        ".harness/scripts/ci-change-scope.mjs",
+        ".harness/scripts/lint-contract-source.mjs",
+        ".harness/scripts/lint-arch-deps.mjs",
+        ".harness/scripts/lint-edition-capabilities.mjs"
+      ],
+      "nextAction": "Retain current execution; shadow eligibility never skips this suite."
+    },
+    {
+      "id": "api-test-plan",
+      "owner": {
+        "workflow": ".github/workflows/backend-gates.yml",
+        "job": "api-test-plan"
+      },
+      "role": "plan",
+      "coverageKind": "aggregate",
+      "eligibleSourceEvents": [],
+      "phase1": "retain",
+      "execution": {
+        "actualStepNames": [],
+        "actualStepNamePatterns": [],
+        "artifactNamePatterns": [],
+        "allMatrixChildrenMustExecute": false,
+        "scopeOrReusedVerdictIsExecution": false
+      },
+      "duplicates": [],
+      "definitionPaths": [
+        ".github/workflows/backend-gates.yml",
+        ".harness/scripts/ci-api-shards.mjs",
+        ".harness/api-test-shards.json"
+      ],
+      "nextAction": "Keep plan generation and full disjoint discovery verification; a plan is not test execution."
+    },
+    {
+      "id": "gates-test",
+      "owner": {
+        "workflow": ".github/workflows/backend-gates.yml",
+        "job": "gates-test"
+      },
+      "role": "validation",
+      "coverageKind": "same-command",
+      "eligibleSourceEvents": [],
+      "phase1": "retain",
+      "execution": {
+        "actualStepNames": [
+          "Install locked Python runtime for cross-language API integration tests",
+          "起 postgres"
+        ],
+        "actualStepNamePatterns": [
+          "^单元与集成测试（含 RLS、两层交集、契约响应校验）—— shard [0-9]+/[0-9]+$"
+        ],
+        "artifactNamePatterns": [],
+        "allMatrixChildrenMustExecute": true,
+        "scopeOrReusedVerdictIsExecution": false
+      },
+      "duplicates": [
+        {
+          "workflow": ".github/workflows/harness-verify.yml",
+          "job": "full-regression-core",
+          "relation": "subset-coverage",
+          "reason": "Default API shard union is covered by API test in full base; exclusive API persistence and native excluded configs are not in the shard union."
+        }
+      ],
+      "definitionPaths": [
+        ".github/workflows/backend-gates.yml",
+        "apps/api/vitest.config.ts",
+        "apps/api/tests/",
+        ".harness/api-test-shards.json",
+        ".harness/scripts/ci-api-shards.mjs",
+        "apps/deep-agent-service/uv.lock",
+        "apps/deep-agent-service/pyproject.toml"
+      ],
+      "nextAction": "Retain: no dedicated artifact. Future evidence must prove every planned shard actually ran, disjoint full discovery and exact environment; never accept only api-test-plan."
+    },
+    {
+      "id": "native-document-chain",
+      "owner": {
+        "workflow": ".github/workflows/backend-gates.yml",
+        "job": "native-document-chain"
+      },
+      "role": "validation",
+      "coverageKind": "same-command",
+      "eligibleSourceEvents": [],
+      "phase1": "retain",
+      "execution": {
+        "actualStepNames": [
+          "Load dedicated session AppArmor policy",
+          "Build and start the actual isolated document sandbox",
+          "Verify actual policy and user-code isolation",
+          "Start isolated PostgreSQL",
+          "Actual document parse and cached-source revocation"
+        ],
+        "actualStepNamePatterns": [],
+        "artifactNamePatterns": [],
+        "allMatrixChildrenMustExecute": false,
+        "scopeOrReusedVerdictIsExecution": false
+      },
+      "duplicates": [],
+      "definitionPaths": [
+        ".github/workflows/backend-gates.yml",
+        "apps/api/vitest.native-document.config.ts",
+        "apps/api/tests/agent-runtime/standard-document-locators-http.test.ts",
+        "apps/skill-sandbox/"
+      ],
+      "nextAction": "Retain dedicated actual AppArmor/container document lane; it is excluded from default API discovery and has no dedicated artifact."
+    },
+    {
+      "id": "native-runtime-lane",
+      "owner": {
+        "workflow": ".github/workflows/backend-gates.yml",
+        "job": "native-runtime-lane"
+      },
+      "role": "validation",
+      "coverageKind": "same-command",
+      "eligibleSourceEvents": [],
+      "phase1": "retain",
+      "execution": {
+        "actualStepNames": [
+          "Load dedicated session AppArmor policy",
+          "起真实的隔离原生会话沙箱容器",
+          "起隔离 PostgreSQL",
+          "原生准入下的真实 pins → 真实沙箱会话（#3051 /",
+          "真实沙箱发现上游前言名的 skill（#3065 的数据形态）"
+        ],
+        "actualStepNamePatterns": [],
+        "artifactNamePatterns": [],
+        "allMatrixChildrenMustExecute": false,
+        "scopeOrReusedVerdictIsExecution": false
+      },
+      "duplicates": [
+        {
+          "workflow": ".github/workflows/deep-agent-tests.yml",
+          "job": "pytest",
+          "relation": "subset-coverage",
+          "reason": "Native skill activity pytest overlaps the full Python test directory but requires this lane actual sandbox/admission environment."
+        }
+      ],
+      "definitionPaths": [
+        ".github/workflows/backend-gates.yml",
+        "apps/api/vitest.native-runtime-lane.config.ts",
+        "apps/api/tests/agent-runtime/native-runtime-lane.test.ts",
+        "apps/deep-agent-service/tests/test_native_skill_activity.py",
+        "apps/skill-sandbox/"
+      ],
+      "nextAction": "Retain dedicated actual AppArmor/container/admission lane and Python integration; default API config excludes it and has no dedicated artifact."
+    },
+    {
+      "id": "gates-runtime",
+      "owner": {
+        "workflow": ".github/workflows/backend-gates.yml",
+        "job": "gates-runtime"
+      },
+      "role": "validation",
+      "coverageKind": "same-command",
+      "eligibleSourceEvents": [],
+      "phase1": "retain",
+      "execution": {
+        "actualStepNames": [
+          "RLS 强制隔离（反证：绕过应用层过滤跨租户读 0 行）",
+          "三道运行时门控（双向断言 + 生产不可达）",
+          "迁移幂等（无视版本表强制重放）"
+        ],
+        "actualStepNamePatterns": [],
+        "artifactNamePatterns": [],
+        "allMatrixChildrenMustExecute": false,
+        "scopeOrReusedVerdictIsExecution": false
+      },
+      "duplicates": [],
+      "definitionPaths": [
+        ".github/workflows/backend-gates.yml",
+        "apps/api/scripts/verify-rls.sh",
+        "apps/api/scripts/verify-runtime-gates.sh",
+        "apps/api/scripts/verify-migrations.sh",
+        "apps/api/scripts/lib.sh",
+        "apps/api/migrations/"
+      ],
+      "nextAction": "Retain RLS/runtime/migration shell gates; unit-test coverage is not a replacement and there is no dedicated artifact."
+    },
+    {
+      "id": "e2e-core-loop",
+      "owner": {
+        "workflow": ".github/workflows/backend-gates.yml",
+        "job": "e2e-core-loop"
+      },
+      "role": "validation",
+      "coverageKind": "same-command",
+      "eligibleSourceEvents": [
+        "pull_request",
+        "merge_group"
+      ],
+      "phase1": "observe-and-run",
+      "execution": {
+        "actualStepNames": [
+          "核心闭环八步（唯一接入发布门的浏览器 e2e spec）"
+        ],
+        "actualStepNamePatterns": [],
+        "artifactNamePatterns": [
+          "^backend\\-gates\\-core\\-loop\\-evidence\\-[0-9]+$"
+        ],
+        "allMatrixChildrenMustExecute": false,
+        "scopeOrReusedVerdictIsExecution": false
+      },
+      "duplicates": [],
+      "definitionPaths": [
+        ".github/workflows/backend-gates.yml",
+        "apps/web/playwright.fullstack-smoke.config.ts",
+        "apps/web/e2e/core-loop.spec.ts",
+        "apps/web/e2e/core-loop-fixture.ts",
+        "apps/web/e2e/core-loop-reset.setup.ts"
+      ],
+      "nextAction": "Keep deployment dependency. verify:full currently does not invoke this separate core-loop project chain."
+    },
+    {
+      "id": "prototype-audit",
+      "owner": {
+        "workflow": ".github/workflows/backend-gates.yml",
+        "job": "prototype-audit"
+      },
+      "role": "validation",
+      "coverageKind": "same-command",
+      "eligibleSourceEvents": [
+        "pull_request",
+        "merge_group"
+      ],
+      "phase1": "observe-and-run",
+      "execution": {
+        "actualStepNames": [
+          "原型截图审计（机器硬判 ≥ 80）"
+        ],
+        "actualStepNamePatterns": [],
+        "artifactNamePatterns": [
+          "^prototype\\-audit\\-[0-9]+$"
+        ],
+        "allMatrixChildrenMustExecute": false,
+        "scopeOrReusedVerdictIsExecution": false
+      },
+      "duplicates": [],
+      "definitionPaths": [
+        ".github/workflows/backend-gates.yml",
+        "apps/web/playwright.prototype-audit.config.ts",
+        "apps/web/e2e/"
+      ],
+      "nextAction": "Observe trusted exact candidate evidence; retain execution until a separately approved rollout."
+    },
+    {
+      "id": "design-loop-e2e",
+      "owner": {
+        "workflow": ".github/workflows/backend-gates.yml",
+        "job": "design-loop-e2e"
+      },
+      "role": "validation",
+      "coverageKind": "same-command",
+      "eligibleSourceEvents": [
+        "pull_request",
+        "merge_group"
+      ],
+      "phase1": "observe-and-run",
+      "execution": {
+        "actualStepNames": [
+          "设计工作台 e2e（响应式 / 原型主链路 / 分享）"
+        ],
+        "actualStepNamePatterns": [],
+        "artifactNamePatterns": [
+          "^design\\-loop\\-e2e\\-[0-9]+$"
+        ],
+        "allMatrixChildrenMustExecute": false,
+        "scopeOrReusedVerdictIsExecution": false
+      },
+      "duplicates": [
+        {
+          "workflow": ".github/workflows/harness-verify.yml",
+          "job": "fullstack-smoke",
+          "relation": "registration-only",
+          "reason": "Design projects are registered in fullstack config but not selected by seeded-github-import dependency closure; this is not executed duplicate coverage."
+        }
+      ],
+      "definitionPaths": [
+        ".github/workflows/backend-gates.yml",
+        "apps/web/playwright.design-loop.config.ts",
+        "apps/web/e2e/",
+        "apps/web/scripts/lib/design-loop-fixtures.mjs"
+      ],
+      "nextAction": "Observe trusted exact candidate evidence; retain execution until a separately approved rollout."
+    },
+    {
+      "id": "backend-required",
+      "owner": {
+        "workflow": ".github/workflows/backend-gates.yml",
+        "job": "backend-required"
+      },
+      "role": "aggregate",
+      "coverageKind": "aggregate",
+      "eligibleSourceEvents": [],
+      "phase1": "retain",
+      "execution": {
+        "actualStepNames": [
+          "Require applicable backend verification"
+        ],
+        "actualStepNamePatterns": [],
+        "artifactNamePatterns": [],
+        "allMatrixChildrenMustExecute": false,
+        "scopeOrReusedVerdictIsExecution": false
+      },
+      "duplicates": [],
+      "definitionPaths": [
+        ".github/workflows/backend-gates.yml",
+        ".harness/scripts/ci-backend-required.mjs",
+        ".harness/config/ci-check-policy.json"
+      ],
+      "nextAction": "Keep current required-check name/dependencies and fork rules. core-loop remains separate release dependency even though not in this aggregate."
+    },
+    {
+      "id": "devapp-deploy-and-runtime",
+      "owner": {
+        "workflow": ".github/workflows/backend-gates.yml",
+        "job": "deploy"
+      },
+      "role": "deployment",
+      "coverageKind": "deployment",
+      "eligibleSourceEvents": [],
+      "phase1": "retain",
+      "execution": {
+        "actualStepNames": [
+          "部署并冒烟"
+        ],
+        "actualStepNamePatterns": [],
+        "artifactNamePatterns": [],
+        "allMatrixChildrenMustExecute": false,
+        "scopeOrReusedVerdictIsExecution": false
+      },
+      "duplicates": [],
+      "definitionPaths": [
+        ".github/workflows/backend-gates.yml",
+        ".harness/scripts/vm/deploy-gate.sh",
+        ".harness/scripts/vm/deploy.sh",
+        ".harness/scripts/vm/deploy-readiness.sh",
+        ".harness/scripts/vm/devapp-runtime-identity.mjs"
+      ],
+      "nextAction": "Always execute actual deployment, migrations, running version identity and post-restart/public route checks; never reuse these from pre-merge CI."
+    },
+    {
+      "id": "board-scope",
+      "owner": {
+        "workflow": ".github/workflows/board-acceptance.yml",
+        "job": "scope"
+      },
+      "role": "scope",
+      "coverageKind": "aggregate",
+      "eligibleSourceEvents": [],
+      "phase1": "retain",
+      "execution": {
+        "actualStepNames": [],
+        "actualStepNamePatterns": [],
+        "artifactNamePatterns": [],
+        "allMatrixChildrenMustExecute": false,
+        "scopeOrReusedVerdictIsExecution": false
+      },
+      "duplicates": [],
+      "definitionPaths": [
+        ".github/workflows/board-acceptance.yml",
+        ".harness/scripts/ci-change-scope.mjs"
+      ],
+      "nextAction": "Keep fail-closed scope calculation. board=false or a skipped lane is not execution evidence."
+    },
+    {
+      "id": "board-journeys",
+      "owner": {
+        "workflow": ".github/workflows/board-acceptance.yml",
+        "job": "journeys"
+      },
+      "role": "validation",
+      "coverageKind": "same-command",
+      "eligibleSourceEvents": [
+        "pull_request"
+      ],
+      "phase1": "observe-and-run",
+      "execution": {
+        "actualStepNames": [
+          "Run real isolated journeys and verify its evidence"
+        ],
+        "actualStepNamePatterns": [],
+        "artifactNamePatterns": [
+          "^board\\-journeys\\-[0-9]+\\-[0-9]+$"
+        ],
+        "allMatrixChildrenMustExecute": false,
+        "scopeOrReusedVerdictIsExecution": false
+      },
+      "duplicates": [],
+      "definitionPaths": [
+        ".github/workflows/board-acceptance.yml",
+        "apps/web/scripts/run-board-ci-lane.mjs",
+        "apps/web/e2e/board-journey-acceptance.config.ts",
+        "apps/web/e2e/board-final-acceptance.spec.ts"
+      ],
+      "nextAction": "Retain scoped PR/main execution; no existing merge_group hook. Evidence requires board=true and actual suite steps/artifacts. Do not infer native/meeting or pixel capture coverage."
+    },
+    {
+      "id": "board-security",
+      "owner": {
+        "workflow": ".github/workflows/board-acceptance.yml",
+        "job": "security"
+      },
+      "role": "validation",
+      "coverageKind": "same-command",
+      "eligibleSourceEvents": [
+        "pull_request"
+      ],
+      "phase1": "observe-and-run",
+      "execution": {
+        "actualStepNames": [
+          "Run real isolated security and verify its evidence"
+        ],
+        "actualStepNamePatterns": [],
+        "artifactNamePatterns": [
+          "^board\\-security\\-[0-9]+\\-[0-9]+$"
+        ],
+        "allMatrixChildrenMustExecute": false,
+        "scopeOrReusedVerdictIsExecution": false
+      },
+      "duplicates": [],
+      "definitionPaths": [
+        ".github/workflows/board-acceptance.yml",
+        "apps/web/scripts/run-board-ci-lane.mjs",
+        "apps/web/e2e/board-security-acceptance.config.ts",
+        "apps/web/e2e/board-security-acceptance.spec.ts"
+      ],
+      "nextAction": "Retain scoped PR/main execution; no existing merge_group hook. Evidence requires board=true and actual suite steps/artifacts. Do not infer native/meeting or pixel capture coverage."
+    },
+    {
+      "id": "board-ui-functional",
+      "owner": {
+        "workflow": ".github/workflows/board-acceptance.yml",
+        "job": "board-ui-functional"
+      },
+      "role": "validation",
+      "coverageKind": "same-command",
+      "eligibleSourceEvents": [
+        "pull_request"
+      ],
+      "phase1": "observe-and-run",
+      "execution": {
+        "actualStepNames": [
+          "Verify screenshot-only category and evidence contracts",
+          "Run all Board UI functionality without pixel capture and verify its evidence"
+        ],
+        "actualStepNamePatterns": [],
+        "artifactNamePatterns": [
+          "^board\\-ui\\-functional\\-[0-9]+\\-[0-9]+$"
+        ],
+        "allMatrixChildrenMustExecute": false,
+        "scopeOrReusedVerdictIsExecution": false
+      },
+      "duplicates": [],
+      "definitionPaths": [
+        ".github/workflows/board-acceptance.yml",
+        "apps/web/scripts/run-board-ci-lane.mjs",
+        "apps/web/e2e/board-visual-accessibility-acceptance.config.ts",
+        "apps/web/e2e/support/board-observation-categories.mjs",
+        "apps/web/scripts/board-observation-policy.mjs"
+      ],
+      "nextAction": "Retain scoped PR/main execution; no existing merge_group hook. Evidence requires board=true and actual suite steps/artifacts. Do not infer native/meeting or pixel capture coverage."
+    },
+    {
+      "id": "board-storage",
+      "owner": {
+        "workflow": ".github/workflows/board-acceptance.yml",
+        "job": "storage"
+      },
+      "role": "validation",
+      "coverageKind": "same-command",
+      "eligibleSourceEvents": [
+        "pull_request"
+      ],
+      "phase1": "observe-and-run",
+      "execution": {
+        "actualStepNames": [
+          "Run real isolated storage and verify its evidence"
+        ],
+        "actualStepNamePatterns": [],
+        "artifactNamePatterns": [
+          "^board\\-storage\\-[0-9]+\\-[0-9]+$"
+        ],
+        "allMatrixChildrenMustExecute": false,
+        "scopeOrReusedVerdictIsExecution": false
+      },
+      "duplicates": [],
+      "definitionPaths": [
+        ".github/workflows/board-acceptance.yml",
+        "apps/web/scripts/run-board-ci-lane.mjs",
+        "apps/web/playwright.board-storage-ci.config.ts",
+        "apps/web/e2e/"
+      ],
+      "nextAction": "Retain scoped PR/main execution; no existing merge_group hook. Evidence requires board=true and actual suite steps/artifacts. Do not infer native/meeting or pixel capture coverage."
+    },
+    {
+      "id": "board-import",
+      "owner": {
+        "workflow": ".github/workflows/board-acceptance.yml",
+        "job": "import"
+      },
+      "role": "validation",
+      "coverageKind": "same-command",
+      "eligibleSourceEvents": [
+        "pull_request"
+      ],
+      "phase1": "observe-and-run",
+      "execution": {
+        "actualStepNames": [
+          "Run synthetic import report regression"
+        ],
+        "actualStepNamePatterns": [],
+        "artifactNamePatterns": [
+          "^board\\-import\\-[0-9]+\\-[0-9]+$"
+        ],
+        "allMatrixChildrenMustExecute": false,
+        "scopeOrReusedVerdictIsExecution": false
+      },
+      "duplicates": [],
+      "definitionPaths": [
+        ".github/workflows/board-acceptance.yml",
+        "apps/web/scripts/run-board-ci-lane.mjs",
+        "apps/web/e2e/support/board-import-report-fullstack.config.ts",
+        "apps/web/e2e/"
+      ],
+      "nextAction": "Retain scoped PR/main execution; no existing merge_group hook. Evidence requires board=true and actual suite steps/artifacts. Do not infer native/meeting or pixel capture coverage."
+    },
+    {
+      "id": "board-api-ws-objectstore",
+      "owner": {
+        "workflow": ".github/workflows/board-acceptance.yml",
+        "job": "api-ws-objectstore"
+      },
+      "role": "validation",
+      "coverageKind": "same-command",
+      "eligibleSourceEvents": [
+        "pull_request"
+      ],
+      "phase1": "observe-and-run",
+      "execution": {
+        "actualStepNames": [
+          "Run public API, WebSocket and ObjectStore acceptance"
+        ],
+        "actualStepNamePatterns": [],
+        "artifactNamePatterns": [
+          "^board\\-api\\-ws\\-objectstore\\-[0-9]+\\-[0-9]+$"
+        ],
+        "allMatrixChildrenMustExecute": false,
+        "scopeOrReusedVerdictIsExecution": false
+      },
+      "duplicates": [
+        {
+          "workflow": ".github/workflows/harness-verify.yml",
+          "job": "fullstack-smoke",
+          "relation": "spec-overlap",
+          "reason": "board-shared-outbox.spec.ts appears in both selected contexts; other Board public API/ObjectStore specs are additional coverage."
+        }
+      ],
+      "definitionPaths": [
+        ".github/workflows/board-acceptance.yml",
+        "apps/web/scripts/run-board-ci-lane.mjs",
+        "apps/web/playwright.board-api-ws-objectstore-acceptance.config.ts",
+        "apps/web/e2e/"
+      ],
+      "nextAction": "Retain scoped PR/main execution; no existing merge_group hook. Evidence requires board=true and actual suite steps/artifacts. Do not infer native/meeting or pixel capture coverage."
+    },
+    {
+      "id": "board-visual-deferred",
+      "owner": {
+        "workflow": ".github/workflows/board-acceptance.yml",
+        "job": "visual-deferred"
+      },
+      "role": "validation",
+      "coverageKind": "manual-only",
+      "eligibleSourceEvents": [],
+      "phase1": "retain",
+      "execution": {
+        "actualStepNames": [
+          "Run real isolated visual and verify its evidence"
+        ],
+        "actualStepNamePatterns": [],
+        "artifactNamePatterns": [
+          "^board\\-visual\\-deferred\\-[0-9]+\\-[0-9]+$"
+        ],
+        "allMatrixChildrenMustExecute": false,
+        "scopeOrReusedVerdictIsExecution": false
+      },
+      "duplicates": [],
+      "definitionPaths": [
+        ".github/workflows/board-acceptance.yml",
+        "apps/web/scripts/run-board-ci-lane.mjs",
+        "apps/web/e2e/board-visual-accessibility-acceptance.config.ts"
+      ],
+      "nextAction": "Keep existing manual entry and deferred category boundary; this acceptance is not implied by automatic Board lanes."
+    },
+    {
+      "id": "board-import-captured",
+      "owner": {
+        "workflow": ".github/workflows/board-acceptance.yml",
+        "job": "import-captured"
+      },
+      "role": "validation",
+      "coverageKind": "manual-only",
+      "eligibleSourceEvents": [],
+      "phase1": "retain",
+      "execution": {
+        "actualStepNames": [
+          "Run captured-account Miro and Mural import acceptance"
+        ],
+        "actualStepNamePatterns": [],
+        "artifactNamePatterns": [
+          "^board\\-import\\-captured\\-[0-9]+\\-[0-9]+$"
+        ],
+        "allMatrixChildrenMustExecute": false,
+        "scopeOrReusedVerdictIsExecution": false
+      },
+      "duplicates": [],
+      "definitionPaths": [
+        ".github/workflows/board-acceptance.yml",
+        "apps/web/scripts/run-board-ci-lane.mjs",
+        "apps/web/e2e/support/board-vendor-captured-fullstack.config.ts"
+      ],
+      "nextAction": "Keep existing manual entry and deferred category boundary; this acceptance is not implied by automatic Board lanes."
+    },
+    {
+      "id": "board-performance",
+      "owner": {
+        "workflow": ".github/workflows/board-acceptance.yml",
+        "job": "performance"
+      },
+      "role": "validation",
+      "coverageKind": "manual-only",
+      "eligibleSourceEvents": [],
+      "phase1": "retain",
+      "execution": {
+        "actualStepNames": [
+          "Run real isolated performance and verify its evidence"
+        ],
+        "actualStepNamePatterns": [],
+        "artifactNamePatterns": [
+          "^board\\-performance\\-[0-9]+\\-[0-9]+$"
+        ],
+        "allMatrixChildrenMustExecute": false,
+        "scopeOrReusedVerdictIsExecution": false
+      },
+      "duplicates": [],
+      "definitionPaths": [
+        ".github/workflows/board-acceptance.yml",
+        "apps/web/scripts/run-board-ci-lane.mjs",
+        "apps/web/e2e/board-performance-acceptance.config.ts"
+      ],
+      "nextAction": "Keep existing manual entry and deferred category boundary; this acceptance is not implied by automatic Board lanes."
+    },
+    {
+      "id": "board-collaboration-50",
+      "owner": {
+        "workflow": ".github/workflows/board-acceptance.yml",
+        "job": "collaboration-50"
+      },
+      "role": "validation",
+      "coverageKind": "manual-only",
+      "eligibleSourceEvents": [],
+      "phase1": "retain",
+      "execution": {
+        "actualStepNames": [
+          "Run real isolated collaboration-50 and verify its evidence"
+        ],
+        "actualStepNamePatterns": [],
+        "artifactNamePatterns": [
+          "^board\\-collaboration\\-50\\-[0-9]+\\-[0-9]+$"
+        ],
+        "allMatrixChildrenMustExecute": false,
+        "scopeOrReusedVerdictIsExecution": false
+      },
+      "duplicates": [],
+      "definitionPaths": [
+        ".github/workflows/board-acceptance.yml",
+        "apps/web/scripts/run-board-ci-lane.mjs",
+        "apps/web/playwright.board-soak-acceptance.config.ts"
+      ],
+      "nextAction": "Keep existing manual entry and deferred category boundary; this acceptance is not implied by automatic Board lanes."
+    },
+    {
+      "id": "board-heavy-batch",
+      "owner": {
+        "workflow": ".github/workflows/board-native-acceptance.yml",
+        "job": "batch"
+      },
+      "role": "plan",
+      "coverageKind": "aggregate",
+      "eligibleSourceEvents": [],
+      "phase1": "retain",
+      "execution": {
+        "actualStepNames": [
+          "Freeze admitted main and coverage; inspect exact batch evidence"
+        ],
+        "actualStepNamePatterns": [],
+        "artifactNamePatterns": [
+          "^board\\-heavy\\-batch\\-[0-9]+\\-[0-9]+$"
+        ],
+        "allMatrixChildrenMustExecute": false,
+        "scopeOrReusedVerdictIsExecution": false
+      },
+      "duplicates": [],
+      "definitionPaths": [
+        ".github/workflows/board-native-acceptance.yml",
+        ".harness/scripts/board-heavy-batch.mjs",
+        ".harness/scripts/lib/board-native-receipts.mjs"
+      ],
+      "nextAction": "Preserve independent exact-main batch snapshot/history; a batch plan is not an actual native or meeting measurement."
+    },
+    {
+      "id": "board-native",
+      "owner": {
+        "workflow": ".github/workflows/board-native-acceptance.yml",
+        "job": "native-board"
+      },
+      "role": "validation",
+      "coverageKind": "main-only",
+      "eligibleSourceEvents": [],
+      "phase1": "retain",
+      "execution": {
+        "actualStepNames": [
+          "Run complete native connector acceptance",
+          "Run complete native ordinary-file acceptance",
+          "Run complete native sync lifecycle acceptance",
+          "Verify complete native receipts match frozen source"
+        ],
+        "actualStepNamePatterns": [],
+        "artifactNamePatterns": [
+          "^board\\-native\\-acceptance\\-[0-9]+\\-[0-9]+$"
+        ],
+        "allMatrixChildrenMustExecute": false,
+        "scopeOrReusedVerdictIsExecution": false
+      },
+      "duplicates": [],
+      "definitionPaths": [
+        ".github/workflows/board-native-acceptance.yml",
+        "apps/web/scripts/run-board-native-acceptance.mjs",
+        ".harness/scripts/lib/board-native-receipts.mjs"
+      ],
+      "nextAction": "Retain independent main/manual lane; baseline lacks all three required native configs, so run-board-native-acceptance fails closed with NATIVE_SUITE_ABSENT. Coordinate restoration with existing PR #5245; no reuse eligibility.",
+      "requiredCoveragePaths": [
+        "apps/web/e2e/board-connector-existing-runtime.config.ts",
+        "apps/web/e2e/board-files-completion.config.ts",
+        "apps/web/e2e/board-peer-existing-runtime.config.ts"
+      ],
+      "coverageStatusAtBaseline": "registered-but-required-suite-source-absent"
+    },
+    {
+      "id": "board-meeting-room",
+      "owner": {
+        "workflow": ".github/workflows/board-native-acceptance.yml",
+        "job": "meeting-room"
+      },
+      "role": "validation",
+      "coverageKind": "main-only",
+      "eligibleSourceEvents": [],
+      "phase1": "retain",
+      "execution": {
+        "actualStepNames": [
+          "Run real isolated meeting-room and verify its evidence"
+        ],
+        "actualStepNamePatterns": [],
+        "artifactNamePatterns": [
+          "^board\\-meeting\\-room\\-[0-9]+\\-[0-9]+$"
+        ],
+        "allMatrixChildrenMustExecute": false,
+        "scopeOrReusedVerdictIsExecution": false
+      },
+      "duplicates": [],
+      "definitionPaths": [
+        ".github/workflows/board-native-acceptance.yml",
+        "apps/web/playwright.board-meeting-room-acceptance.config.ts",
+        "apps/web/e2e/board-meeting-room-acceptance.spec.ts",
+        "apps/web/scripts/run-board-ci-lane.mjs"
+      ],
+      "nextAction": "Keep independent main/manual real 30-minute meeting acceptance. Native batch owns this suite; no PR/merge_group source exists."
+    }
+  ]
+}

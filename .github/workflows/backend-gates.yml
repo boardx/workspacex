@@ -134,6 +134,8 @@ jobs:
           # ⚠ 必须全深度：doctor --strict 用 `git merge-base --is-ancestor <commit> origin/main`
           # 判「passing 的实现是否已在 main 上」（doctor.ts:358）。见下方历史事故记录。
           fetch-depth: 0
+      - name: Record candidate checkout and runtime identity
+        uses: ./.github/actions/ci-candidate-identity
       - name: Setup pnpm
         uses: pnpm/action-setup@v4.4.0
       - name: Setup Node
@@ -214,6 +216,8 @@ jobs:
     steps:
       - uses: actions/checkout@v5
         with: { fetch-depth: 0 }
+      - name: Record candidate checkout and runtime identity
+        uses: ./.github/actions/ci-candidate-identity
       - name: Setup pnpm
         uses: pnpm/action-setup@v4.4.0
       - name: Setup Node
@@ -253,6 +257,8 @@ jobs:
       WX_NATIVE_SANDBOX_CONTAINER: wx-native-document-skill-sandbox-sessions-1
     steps:
       - uses: actions/checkout@v5
+      - name: Record candidate checkout and runtime identity
+        uses: ./.github/actions/ci-candidate-identity
       - uses: pnpm/action-setup@v4.4.0
       - uses: actions/setup-node@v5
         with:
@@ -325,6 +331,8 @@ jobs:
       KERNEL_NATIVE_RUNTIME: "1"
     steps:
       - uses: actions/checkout@v5
+      - name: Record candidate checkout and runtime identity
+        uses: ./.github/actions/ci-candidate-identity
       - uses: pnpm/action-setup@v4.4.0
       - uses: actions/setup-node@v5
         with:
@@ -378,6 +386,8 @@ jobs:
     steps:
       - uses: actions/checkout@v5
         with: { fetch-depth: 0 }
+      - name: Record candidate checkout and runtime identity
+        uses: ./.github/actions/ci-candidate-identity
       - name: Setup pnpm
         uses: pnpm/action-setup@v4.4.0
       - name: Setup Node
@@ -435,6 +445,8 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Record candidate checkout and runtime identity
+        uses: ./.github/actions/ci-candidate-identity
       - name: Setup pnpm
         uses: pnpm/action-setup@v4.4.0
       - name: Setup Node
@@ -474,6 +486,8 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
+      - name: Record candidate checkout and runtime identity
+        uses: ./.github/actions/ci-candidate-identity
       - name: Setup pnpm
         uses: pnpm/action-setup@v4.4.0
       - name: Setup Node
@@ -509,6 +523,8 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
+      - name: Record candidate checkout and runtime identity
+        uses: ./.github/actions/ci-candidate-identity
       - name: Setup pnpm
         uses: pnpm/action-setup@v4.4.0
       - name: Setup Node

@@ -35,6 +35,8 @@ jobs:
     steps:
       - uses: actions/checkout@v5
         with: {fetch-depth: 0}
+      - name: Record candidate checkout and runtime identity
+        uses: ./.github/actions/ci-candidate-identity
       - uses: pnpm/action-setup@v4.4.0
       - uses: actions/setup-node@v5
         with:
@@ -62,6 +64,8 @@ jobs:
     steps:
       - uses: actions/checkout@v5
         with: {fetch-depth: 0}
+      - name: Record candidate checkout and runtime identity
+        uses: ./.github/actions/ci-candidate-identity
       - uses: pnpm/action-setup@v4.4.0
       - uses: actions/setup-node@v5
         with:
@@ -89,6 +93,8 @@ jobs:
     steps:
       - uses: actions/checkout@v5
         with: {fetch-depth: 0}
+      - name: Record candidate checkout and runtime identity
+        uses: ./.github/actions/ci-candidate-identity
       - uses: pnpm/action-setup@v4.4.0
       - uses: actions/setup-node@v5
         with:
@@ -120,6 +126,8 @@ jobs:
     steps:
       - uses: actions/checkout@v5
         with: {fetch-depth: 0}
+      - name: Record candidate checkout and runtime identity
+        uses: ./.github/actions/ci-candidate-identity
       - uses: pnpm/action-setup@v4.4.0
       - uses: actions/setup-node@v5
         with:
@@ -150,6 +158,8 @@ jobs:
     steps:
       - uses: actions/checkout@v5
         with: {fetch-depth: 0}
+      - name: Record candidate checkout and runtime identity
+        uses: ./.github/actions/ci-candidate-identity
       - uses: pnpm/action-setup@v4.4.0
       - uses: actions/setup-node@v5
         with:
@@ -177,6 +187,8 @@ jobs:
     steps:
       - uses: actions/checkout@v5
         with: {fetch-depth: 0}
+      - name: Record candidate checkout and runtime identity
+        uses: ./.github/actions/ci-candidate-identity
       - uses: pnpm/action-setup@v4.4.0
       - uses: actions/setup-node@v5
         with:
@@ -204,6 +216,8 @@ jobs:
     steps:
       - uses: actions/checkout@v5
         with: {fetch-depth: 0}
+      - name: Record candidate checkout and runtime identity
+        uses: ./.github/actions/ci-candidate-identity
       - uses: pnpm/action-setup@v4.4.0
       - uses: actions/setup-node@v5
         with:
@@ -232,6 +246,8 @@ jobs:
     steps:
       - uses: actions/checkout@v5
         with: {fetch-depth: 0}
+      - name: Record candidate checkout and runtime identity
+        uses: ./.github/actions/ci-candidate-identity
       - uses: pnpm/action-setup@v4.4.0
       - uses: actions/setup-node@v5
         with:
@@ -260,6 +276,8 @@ jobs:
     steps:
       - uses: actions/checkout@v5
         with: {fetch-depth: 0}
+      - name: Record candidate checkout and runtime identity
+        uses: ./.github/actions/ci-candidate-identity
       - uses: pnpm/action-setup@v4.4.0
       - uses: actions/setup-node@v5
         with:
@@ -288,6 +306,8 @@ jobs:
     steps:
       - uses: actions/checkout@v5
         with: {fetch-depth: 0}
+      - name: Record candidate checkout and runtime identity
+        uses: ./.github/actions/ci-candidate-identity
       - uses: pnpm/action-setup@v4.4.0
       - uses: actions/setup-node@v5
         with:

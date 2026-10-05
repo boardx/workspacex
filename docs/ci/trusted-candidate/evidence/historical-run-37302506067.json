@@ -1,0 +1,162 @@
+{
+  "conclusion": "success",
+  "createdAt": "2026-10-05T11:22:23Z",
+  "event": "push",
+  "headSha": "d3a17fddf57d43427b3e285bd0c3b3c390378f03",
+  "jobs": [
+    {
+      "completedAt": "2026-10-05T11:29:36Z",
+      "conclusion": "success",
+      "name": "e2e-core-loop",
+      "startedAt": "2026-10-05T11:22:26Z",
+      "url": "https://github.com/boardx/workspacex/actions/runs/37302506067/job/111738330147"
+    },
+    {
+      "completedAt": "2026-10-05T11:25:52Z",
+      "conclusion": "success",
+      "name": "gates-runtime",
+      "startedAt": "2026-10-05T11:22:26Z",
+      "url": "https://github.com/boardx/workspacex/actions/runs/37302506067/job/111738330276"
+    },
+    {
+      "completedAt": "2026-10-05T11:28:26Z",
+      "conclusion": "success",
+      "name": "native-runtime-lane",
+      "startedAt": "2026-10-05T11:22:27Z",
+      "url": "https://github.com/boardx/workspacex/actions/runs/37302506067/job/111738330344"
+    },
+    {
+      "completedAt": "2026-10-05T11:25:58Z",
+      "conclusion": "success",
+      "name": "prototype-audit",
+      "startedAt": "2026-10-05T11:22:26Z",
+      "url": "https://github.com/boardx/workspacex/actions/runs/37302506067/job/111738330395"
+    },
+    {
+      "completedAt": "2026-10-05T11:25:19Z",
+      "conclusion": "success",
+      "name": "gates-fast",
+      "startedAt": "2026-10-05T11:22:34Z",
+      "url": "https://github.com/boardx/workspacex/actions/runs/37302506067/job/111738330450"
+    },
+    {
+      "completedAt": "2026-10-05T11:23:16Z",
+      "conclusion": "success",
+      "name": "api-test-plan",
+      "startedAt": "2026-10-05T11:23:02Z",
+      "url": "https://github.com/boardx/workspacex/actions/runs/37302506067/job/111738330461"
+    },
+    {
+      "completedAt": "2026-10-05T11:27:43Z",
+      "conclusion": "success",
+      "name": "native-document-chain",
+      "startedAt": "2026-10-05T11:22:27Z",
+      "url": "https://github.com/boardx/workspacex/actions/runs/37302506067/job/111738330478"
+    },
+    {
+      "completedAt": "2026-10-05T11:26:52Z",
+      "conclusion": "success",
+      "name": "design-loop-e2e",
+      "startedAt": "2026-10-05T11:22:27Z",
+      "url": "https://github.com/boardx/workspacex/actions/runs/37302506067/job/111738330520"
+    },
+    {
+      "completedAt": "2026-10-05T11:33:34Z",
+      "conclusion": "success",
+      "name": "gates-test (4)",
+      "startedAt": "2026-10-05T11:23:20Z",
+      "url": "https://github.com/boardx/workspacex/actions/runs/37302506067/job/111738634862"
+    },
+    {
+      "completedAt": "2026-10-05T11:33:18Z",
+      "conclusion": "success",
+      "name": "gates-test (7)",
+      "startedAt": "2026-10-05T11:23:19Z",
+      "url": "https://github.com/boardx/workspacex/actions/runs/37302506067/job/111738634866"
+    },
+    {
+      "completedAt": "2026-10-05T11:35:12Z",
+      "conclusion": "success",
+      "name": "gates-test (5)",
+      "startedAt": "2026-10-05T11:23:19Z",
+      "url": "https://github.com/boardx/workspacex/actions/runs/37302506067/job/111738634928"
+    },
+    {
+      "completedAt": "2026-10-05T11:33:02Z",
+      "conclusion": "success",
+      "name": "gates-test (2)",
+      "startedAt": "2026-10-05T11:23:20Z",
+      "url": "https://github.com/boardx/workspacex/actions/runs/37302506067/job/111738634943"
+    },
+    {
+      "completedAt": "2026-10-05T11:35:40Z",
+      "conclusion": "success",
+      "name": "gates-test (6)",
+      "startedAt": "2026-10-05T11:23:21Z",
+      "url": "https://github.com/boardx/workspacex/actions/runs/37302506067/job/111738634948"
+    },
+    {
+      "completedAt": "2026-10-05T11:32:46Z",
+      "conclusion": "success",
+      "name": "gates-test (3)",
+      "startedAt": "2026-10-05T11:23:20Z",
+      "url": "https://github.com/boardx/workspacex/actions/runs/37302506067/job/111738634970"
+    },
+    {
+      "completedAt": "2026-10-05T11:35:41Z",
+      "conclusion": "success",
+      "name": "gates-test (1)",
+      "startedAt": "2026-10-05T11:23:20Z",
+      "url": "https://github.com/boardx/workspacex/actions/runs/37302506067/job/111738634971"
+    },
+    {
+      "completedAt": "2026-10-05T11:35:05Z",
+      "conclusion": "success",
+      "name": "gates-test (8)",
+      "startedAt": "2026-10-05T11:23:20Z",
+      "url": "https://github.com/boardx/workspacex/actions/runs/37302506067/job/111738634994"
+    },
+    {
+      "completedAt": "2026-10-05T11:46:57Z",
+      "conclusion": "success",
+      "name": "deploy",
+      "startedAt": "2026-10-05T11:35:43Z",
+      "url": "https://github.com/boardx/workspacex/actions/runs/37302506067/job/111742962568"
+    },
+    {
+      "completedAt": "2026-10-05T11:35:41Z",
+      "conclusion": "skipped",
+      "name": "backend-required",
+      "startedAt": "2026-10-05T11:35:41Z",
+      "url": "https://github.com/boardx/workspacex/actions/runs/37302506067/job/111742964231"
+    }
+  ],
+  "updatedAt": "2026-10-05T11:46:58Z",
+  "url": "https://github.com/boardx/workspacex/actions/runs/37302506067",
+  "observedAt": "2026-10-05T13:35:57.188Z",
+  "kind": "read-only historical shadow negative probe",
+  "measurement": {
+    "totalSeconds": 1475,
+    "gatesUntilDeploySeconds": 800,
+    "deploySeconds": 674,
+    "phase1ValidationSecondsSaved": 0,
+    "estimatedFutureCompatiblePathSavingSeconds": 800
+  },
+  "probe": {
+    "jobId": 111738330147,
+    "jobName": "e2e-core-loop",
+    "logBytes": 590854,
+    "logDigest": "sha256:206ecc0dc473939d7f03049e599b63ecc045a2b0a1e016a54d588fe0ec78584d",
+    "skip": false,
+    "runFull": true,
+    "wouldReuse": false,
+    "reasons": [
+      "identity_step_missing_or_not_successful"
+    ]
+  },
+  "limitations": [
+    "Source predates fixed checkout identity marker; existing run success is not transferable evidence.",
+    "This local read-only probe is not a protected main observer workflow_run receipt.",
+    "Approximately 13 minutes is an estimate for this specific future compatible deployment path, not measured savings."
+  ]
+}

@@ -1,0 +1,33 @@
+name: CI candidate identity
+description: Record checkout and hosted runtime before installing or executing candidate code
+runs:
+  using: composite
+  steps:
+    - name: Record candidate checkout and runtime identity
+      shell: bash
+      run: |
+        # Time padding lets the observer distinguish this pre-install step from
+        # later test output using GitHub's independently supplied step timestamps.
+        sleep 2
+        node <<'NODE'
+        const {execFileSync} = require('node:child_process');
+        const {readFileSync} = require('node:fs');
+        const command = (bin, args) => {
+          try { return execFileSync(bin, args, {encoding:'utf8', timeout:10000, stdio:['ignore','pipe','pipe']}).trim(); }
+          catch { return 'unavailable'; }
+        };
+        const git = args => command('git', args);
+        const event = JSON.parse(readFileSync(process.env.GITHUB_EVENT_PATH, 'utf8'));
+        const sha = git(['rev-parse', 'HEAD']);
+        const parents = git(['show', '-s', '--format=%P', 'HEAD']).split(' ').filter(Boolean);
+        const pr = event.pull_request;
+        const value = {
+          schemaVersion: 1, sha, tree: git(['rev-parse', 'HEAD^{tree}']), parents,
+          workflowRef: process.env.GITHUB_WORKFLOW_REF, workflowSha: process.env.GITHUB_WORKFLOW_SHA,
+          candidate: {prNumber: pr?.number ?? null, baseSha: pr?.base?.sha ?? event.merge_group?.base_sha ?? null, headSha: pr?.head?.sha ?? event.merge_group?.head_sha ?? null},
+          toolchain: {node: process.version, pnpm: command('pnpm',['--version']), python: command('python3',['--version']), docker: command('docker',['--version'])},
+          environment: {platform: process.platform, arch: process.arch, imageOS: process.env.ImageOS ?? '', imageVersion: process.env.ImageVersion ?? '', runnerEnvironment: process.env.RUNNER_ENVIRONMENT ?? '', runnerOS: process.env.RUNNER_OS ?? ''},
+        };
+        console.log('CI_CANDIDATE_IDENTITY_V1:' + Buffer.from(JSON.stringify(value)).toString('base64'));
+        NODE
+        sleep 2

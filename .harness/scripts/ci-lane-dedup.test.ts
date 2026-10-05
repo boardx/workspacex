@@ -56,7 +56,14 @@ describe('workflow and executable reuse contract', () => {
     expect(job.concurrency.group).toContain('inputs.fresh_run');
     expect(job.concurrency.group).toContain('github.run_attempt > 1');
     const guard = job.steps.findIndex((s: { id?: string }) => s.id === 'dedup');
-    expect(guard).toBe(1);
+    // The fixed checkout recorder is observation only; it must run before any
+    // candidate script, while every heavy setup/execution still follows dedup.
+    expect(guard).toBe(2);
+    expect(job.steps[0].uses).toBe('actions/checkout@v5');
+    expect(job.steps[1]).toEqual({
+      name: 'Record candidate checkout and runtime identity',
+      uses: './.github/actions/ci-candidate-identity',
+    });
     for (const step of job.steps.slice(guard + 1)) expect(step.if).toContain('steps.dedup.outputs.run');
     for (const name of [...LANES[lane].execute, LANES[lane].upload]) expect(job.steps.filter((s: {name?: string}) => s.name === name)).toHaveLength(1);
     expect(job.steps.at(-1).run).toContain('ci-lane-dedup.mjs verdict');

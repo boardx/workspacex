@@ -136,6 +136,8 @@ jobs:
 
       # 不指定 version：pnpm/action-setup 从 package.json 的 packageManager 字段
       # (pnpm@9.0.0) 读取。两处都写会触发 ERR_PNPM_BAD_PM_VERSION。
+      - name: Record candidate checkout and runtime identity
+        uses: ./.github/actions/ci-candidate-identity
       - name: Setup pnpm
         uses: pnpm/action-setup@v4.4.0
 
@@ -359,6 +361,12 @@ jobs:
       # 2026-07-30 发现：.harness/scripts/**.test.ts 共 100+ 条断言，**CI 里一条都没跑过** ——
       # turbo --affected 只认 workspace 包，.harness/ 不是包，改它一个包都不 affected。
       # 控制平面的测试不跑，等于控制平面没有测试。
+      - name: Candidate evidence and ownership regression tests
+        run: node --test .harness/scripts/ci-candidate-*.test.mjs
+
+      - name: Validate single suite ownership (shadow only)
+        run: node .harness/scripts/lint-ci-suite-ownership.mjs
+
       - name: harness 控制平面自测（含门控反证）
         run: pnpm exec vitest run --dir .harness
 
@@ -375,6 +383,8 @@ jobs:
           # --affected 需要能 diff 到 base 分支
           fetch-depth: 0
 
+      - name: Record candidate checkout and runtime identity
+        uses: ./.github/actions/ci-candidate-identity
       - name: Setup pnpm
         uses: pnpm/action-setup@v4.4.0
 
@@ -471,6 +481,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+      - name: Record candidate checkout and runtime identity
+        uses: ./.github/actions/ci-candidate-identity
       - uses: pnpm/action-setup@v4.4.0
       - uses: actions/setup-node@v5
         with:
@@ -512,6 +524,8 @@ jobs:
         with:
           # 候选组要 `git log base..head` 拿区间内各 PR 的 commit 标题
           fetch-depth: 0
+      - name: Record candidate checkout and runtime identity
+        uses: ./.github/actions/ci-candidate-identity
       - uses: pnpm/action-setup@v4.4.0
       - uses: actions/setup-node@v5
         with:
@@ -550,6 +564,8 @@ jobs:
     steps:
       - uses: actions/checkout@v5
         with: { fetch-depth: 0, persist-credentials: false }
+      - name: Record candidate checkout and runtime identity
+        uses: ./.github/actions/ci-candidate-identity
       - name: Find existing verification (same SHA and lane)
         id: dedup
         env:
@@ -626,6 +642,8 @@ jobs:
     steps:
       - uses: actions/checkout@v5
         with: { fetch-depth: 0 }
+      - name: Record candidate checkout and runtime identity
+        uses: ./.github/actions/ci-candidate-identity
       - name: Find existing verification (same SHA and lane)
         id: dedup
         env:
@@ -706,6 +724,8 @@ jobs:
     steps:
       - uses: actions/checkout@v5
         with: { fetch-depth: 0 }
+      - name: Record candidate checkout and runtime identity
+        uses: ./.github/actions/ci-candidate-identity
       - name: Find existing verification (same SHA and lane)
         id: dedup
         env:
@@ -757,6 +777,8 @@ jobs:
     steps:
       - uses: actions/checkout@v5
         with: { fetch-depth: 0 }
+      - name: Record candidate checkout and runtime identity
+        uses: ./.github/actions/ci-candidate-identity
       - name: Find existing verification (same SHA and lane)
         id: dedup
         env:
@@ -824,6 +846,8 @@ jobs:
     steps:
       - uses: actions/checkout@v5
         with: { fetch-depth: 0 }
+      - name: Record candidate checkout and runtime identity
+        uses: ./.github/actions/ci-candidate-identity
       - name: Find existing verification (same SHA and lane)
         id: dedup
         env:
@@ -871,6 +895,8 @@ jobs:
     steps:
       - uses: actions/checkout@v5
         with: { fetch-depth: 0 }
+      - name: Record candidate checkout and runtime identity
+        uses: ./.github/actions/ci-candidate-identity
       - name: Find existing verification (same SHA and lane)
         id: dedup
         env:
