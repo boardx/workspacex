@@ -9,6 +9,7 @@ const evidence = (quote: string): ReportEvidence => ({ anchor: "answer-1", docum
 describe("finite report claim boundaries", () => {
  it.each([15,64])("preserves byte-exact final public state denial at line %s", line => {
   const raw = readFileSync(new URL("./fixtures/decision-denial-5342/report.md", import.meta.url), "utf8").split("\n")[line-1];
+  if (raw === undefined) throw new Error(`Missing public raw line ${line}`);
   expect(assessReportClaimBoundaries(raw,[]).missing).not.toContain("unsupported_current_decision_state");
  });
  it.each(["当前采购状态无法确认为永久搁置。", "不证明当前真实采购已经搁置。"])("preserves local epistemic state denial: %s", raw => {
