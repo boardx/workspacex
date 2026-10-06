@@ -60,6 +60,7 @@ describe("bounded report quality recovery", () => {
   expect(complete).toHaveBeenCalledTimes(1);
   expect(complete.mock.calls[0]![0].user).not.toContain(previous.markdown);
   expect(complete.mock.calls[0]![0].user).not.toContain(original);
+  expect(complete.mock.calls[0]![0].user).not.toContain("安装问题最常见。");
   expect(complete.mock.calls[0]![0].user).toContain("已确认来源");
   expect(save.mock.calls[0]![0]).toMatchObject({markdown:candidate,failure:{code:"REPORT_GROUNDING_REJECTED",retryable:true}});
  });
