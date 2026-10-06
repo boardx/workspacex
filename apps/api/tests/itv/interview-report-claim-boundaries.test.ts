@@ -7,6 +7,36 @@ import { interviewMarkdown } from "@repo/contracts";
 const evidence = (quote: string): ReportEvidence => ({ anchor: "answer-1", documentId: "runs", version: 1,
   sourceHash: "a".repeat(64), start: 0, end: quote.length, quote, expertId: "expert", taskKey: "task", evidenceMode: "simulated", expertLabel: "甲" });
 describe("finite report claim boundaries", () => {
+ it.each([1,2])("keeps actual1n local negation scoped without semantic approval (attempt%s)",attempt=>{
+  const root=new URL("./fixtures/local-negation-5474/",import.meta.url);
+  const raw=readFileSync(new URL(`attempt${attempt}.md`,root),"utf8");
+  const source=JSON.parse(readFileSync(new URL("source.json",root),"utf8"));
+  const index=buildReportEvidenceIndex(source.documents.find((d:{step:string})=>d.step==="runs"),{support:"体验研究员",purchase:"决策研究员"});
+  expect(assessReportClaimBoundaries(raw,index).missing).not.toContain("unqualified_defect_exclusion");
+ });
+ it.each([
+  "未排除设备设计缺陷。",
+  "不能推断该设备在所有场景下无固有缺陷。",
+  "无法据此推断所有设备无固有缺陷。",
+  "无法推断该设备无固有缺陷。",
+  "不能据此得出整机或所有设备无固有缺陷的事实结论。",
+ ])("preserves the observed local denial %s",claim=>expect(assessReportClaimBoundaries(claim,[]).ok).toBe(true));
+ it.each([
+  "未排除设备设计缺陷这一判断并不成立。",
+  "不能推断整机无固有缺陷是不正确的。",
+  "无法推断该设备无固有缺陷这一说法是错误的。",
+  "不能未排除设备设计缺陷。",
+  "不是未排除设备设计缺陷。",
+  "不能不推断该设备在所有场景下无固有缺陷。",
+  "不能否认该设备在所有场景下无固有缺陷。",
+  "无法否认该设备无固有缺陷。",
+  "无法不承认该设备无固有缺陷。",
+  "无法推断预算缺口，所有设备无固有缺陷。",
+  "不能据此得出整机不合格，所以所有设备无固有缺陷。",
+  "不能推断预算缺口，整机或所有设备无固有缺陷。",
+  "不能据此得出整机或所有设备的预算，设备无固有缺陷。",
+  "未排除环境问题，设备无固有缺陷。",
+ ])("does not let unrelated or double negation waive an affirmative %s",claim=>expect(assessReportClaimBoundaries(claim,[]).missing).toContain("unqualified_defect_exclusion"));
  it("retains the real public zero-count rejection while accepting an explicitly future conditional plan", () => {
   const root = new URL("./fixtures/measurement-guidance-5413/", import.meta.url);
   const report = readFileSync(new URL("report.md", root), "utf8");

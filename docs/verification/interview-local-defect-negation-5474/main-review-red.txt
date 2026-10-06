@@ -1,0 +1,39 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/apps/api
+
+ ❯ tests/itv/interview-report-claim-boundaries.test.ts (214 tests | 2 failed) 162ms
+   × finite report claim boundaries > preserves the observed local denial 无法据此推断所有设备无固有缺陷。 4ms
+     → expected false to be true // Object.is equality
+   × finite report claim boundaries > preserves the observed local denial 无法推断该设备无固有缺陷。 1ms
+     → expected false to be true // Object.is equality
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/itv/interview-report-claim-boundaries.test.ts > finite report claim boundaries > preserves the observed local denial 无法据此推断所有设备无固有缺陷。
+ FAIL  tests/itv/interview-report-claim-boundaries.test.ts > finite report claim boundaries > preserves the observed local denial 无法推断该设备无固有缺陷。
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ tests/itv/interview-report-claim-boundaries.test.ts:23:102
+     21|   "无法推断该设备无固有缺陷。",
+     22|   "不能据此得出整机或所有设备无固有缺陷的事实结论。",
+     23|  ])("preserves the observed local denial %s",claim=>expect(assessRepor…
+       |                                                                                                      ^
+     24|  it.each([
+     25|   "不能未排除设备设计缺陷。",
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 212 passed (214)
+   Start at  18:30:19
+   Duration  976ms (transform 436ms, setup 0ms, collect 700ms, tests 162ms, environment 0ms, prepare 31ms)
+
+undefined
+/Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run --config vitest.interview-markdown-unit.config.ts tests/itv/interview-report-claim-boundaries.test.ts
