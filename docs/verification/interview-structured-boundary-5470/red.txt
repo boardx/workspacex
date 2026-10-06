@@ -1,0 +1,63 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/packages/contracts
+
+ ❯ tests/interview-structured-boundary.test.ts (14 tests | 4 failed) 39ms
+   × structured boundary recognition #5470 > recognizes actual1m boundary dimension without asserting semantic quality or modifying bytes 31ms
+     → expected true to be false // Object.is equality
+   × structured boundary recognition #5470 > recognizes substantive section 不确定性与限制 1ms
+     → expected true to be false // Object.is equality
+   × structured boundary recognition #5470 > recognizes substantive section 分歧与反例 1ms
+     → expected true to be false // Object.is equality
+   × structured boundary recognition #5470 > recognizes substantive section 2. 不确定性与限制 1ms
+     → expected true to be false // Object.is equality
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 4 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/interview-structured-boundary.test.ts > structured boundary recognition #5470 > recognizes actual1m boundary dimension without asserting semantic quality or modifying bytes
+AssertionError: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ tests/interview-structured-boundary.test.ts:10:30
+      8|   const raw=readFileSync(new URL("./fixtures/structured-boundary-5470/…
+      9|   expect(createHash("sha256").update(raw).digest("hex")).toBe("8101219…
+     10|   expect(lacksBoundary(raw)).toBe(false);
+       |                              ^
+     11|  });
+     12|  it.each(["不确定性与限制","分歧与反例","2. 不确定性与限制"])("recogni…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/4]⎯
+
+ FAIL  tests/interview-structured-boundary.test.ts > structured boundary recognition #5470 > recognizes substantive section 不确定性与限制
+ FAIL  tests/interview-structured-boundary.test.ts > structured boundary recognition #5470 > recognizes substantive section 分歧与反例
+ FAIL  tests/interview-structured-boundary.test.ts > structured boundary recognition #5470 > recognizes substantive section 2. 不确定性与限制
+AssertionError: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ tests/interview-structured-boundary.test.ts:13:75
+     11|  });
+     12|  it.each(["不确定性与限制","分歧与反例","2. 不确定性与限制"])("recogni…
+     13|   expect(lacksBoundary(`## ${heading}\n\n材料未提供型号与排查记录，不…
+       |                                                                           ^
+     14|  });
+     15|  it.each([
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/4]⎯
+
+ Test Files  1 failed (1)
+      Tests  4 failed | 10 passed (14)
+   Start at  17:59:05
+   Duration  579ms (transform 164ms, setup 0ms, collect 302ms, tests 39ms, environment 0ms, prepare 44ms)
+
+undefined
+/Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/packages/contracts:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/interview-structured-boundary.test.ts
