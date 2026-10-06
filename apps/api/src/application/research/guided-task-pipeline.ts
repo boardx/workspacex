@@ -11,12 +11,13 @@ import { supplementQuery } from "./guided-supplement-query";
 import { ResearchRuntimeError, type GuidedSearchPort, type ResearchRuntime } from "./guided-runtime-ports";
 import type { RuntimePersistence } from "./guided-report-stream";
 import type { SearchBudget } from "./guided-search-budget";
+import type { ModelResponseSchema } from "../agent-run/ports";
 
 type Task = ResearchRuntime["tasks"][number];
 type Source = ResearchRuntime["sources"][number];
 type Attempt = NonNullable<Task["searchAttempts"]>[number];
 export type PipelineComplete = (system: string, context: unknown, validate: (value: unknown) => void,
-  admit: (work: () => Promise<void>) => Promise<void>, check: () => void, signal: AbortSignal, relevance: boolean) => Promise<unknown>;
+  admit: (work: () => Promise<void>) => Promise<void>, check: () => void, signal: AbortSignal, relevance: boolean, responseSchema?: ModelResponseSchema) => Promise<unknown>;
 // Conservative execution caps reuse the existing search/read limit and screening limit.
 const TASK_WORKERS = 3;
 const MODEL_WORKERS = 2;
@@ -86,8 +87,8 @@ export async function executeTaskPipeline(state: ResearchRuntime, persist: Runti
     return next;
   };
   const modelPermit = permits(MODEL_WORKERS, check), readPermit = permits(READ_WORKERS, check);
-  const model = (relevance: boolean) => (system: string, context: unknown, validate: (value: unknown) => void, batchCheck?: () => void) =>
-    modelPermit(() => complete(system, context, validate, commit, () => { check(); batchCheck?.(); }, signal, relevance));
+  const model = (relevance: boolean, responseSchema?: ModelResponseSchema) => (system: string, context: unknown, validate: (value: unknown) => void, batchCheck?: () => void) =>
+    modelPermit(() => complete(system, context, validate, commit, () => { check(); batchCheck?.(); }, signal, relevance, responseSchema));
   const documents = new Map<string, Promise<Awaited<ReturnType<NonNullable<GuidedSearchPort["read"]>>>>>();
   const read = async (url: string) => {
     const key = normalizedResearchUrl(url);
@@ -230,7 +231,7 @@ export async function executeTaskPipeline(state: ResearchRuntime, persist: Runti
   };
   const recover = async (task: Task) => {
     let queries: string[];
-    try { queries = await recoveryQueries(state, task, model(false)); check(); }
+    try { queries = await recoveryQueries(state, task, (system, context, validate, responseSchema) => model(false, responseSchema)(system, context, validate)); check(); }
     catch (error) {
       check(); await commit(async () => { task.status = "failed"; task.errorCode = taskError(error); await save(); }); return;
     }
