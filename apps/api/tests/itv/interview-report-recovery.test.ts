@@ -29,6 +29,27 @@ beforeEach(() => {
  });
 });
 describe("bounded report quality recovery", () => {
+ it("gives action-only rejection concrete repair criteria before a bounded full rewrite", async () => {
+  const missingAction = GOOD.replace(/^建议行动：.*$/mu, "").replace("决策影响：应优先验证客户偏好，暂缓统一渠道。", "决策影响：暂缓统一渠道，因为证据不足。");
+  complete.mockResolvedValueOnce({text:missingAction}).mockResolvedValueOnce({text:GOOD});
+  const result = await generateInterviewMarkdown(deps(),input);
+  expect(complete).toHaveBeenCalledTimes(2);
+  expect(complete.mock.calls[1]![0].user).toContain("行动建议修复");
+  expect(complete.mock.calls[1]![0].user).toContain("## 下一步验证建议");
+  expect(complete.mock.calls[1]![0].user).toContain("同一条行动");
+  expect(complete.mock.calls[1]![0].user).toContain("不可用引用、代码块或空标题");
+  expect(save.mock.calls[0]![0].failure.code).toBe("REPORT_ACTION_VALIDATION_REJECTED");
+  expect(result.documents.find(d=>d.step==="report")?.markdown).toBe(GOOD);
+  expect(result.states.find(s=>s.documentId==="md-report")?.status).toBe("draft");
+ });
+ it("accepts hierarchical action headings immediately without spending a repair call", async () => {
+  const report = GOOD.replace("建议行动：P0：用独立真人任务验证渠道假设，以完成时长和再次进线率为指标。", "## 6.1 下一步验证建议\n\n独立访谈五位用户，对比任务完成时长。");
+  complete.mockResolvedValue({text:report});
+  const result = await generateInterviewMarkdown(deps(),input);
+  expect(complete).toHaveBeenCalledTimes(1); expect(save).toHaveBeenCalledTimes(1);
+  expect(result.documents.find(d=>d.step==="report")?.markdown).toBe(report);
+  expect(result.states.find(s=>s.documentId==="md-report")?.status).toBe("draft");
+ });
  it("rejects exact-quote overclaims before saving and uses the existing bounded repair", async () => {
   const wrong = `${GOOD}\n\n安装问题最常见且必然阻止采购。`;
   complete.mockResolvedValueOnce({text:wrong}).mockResolvedValueOnce({text:GOOD});
