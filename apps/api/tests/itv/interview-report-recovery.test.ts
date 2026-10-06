@@ -94,17 +94,20 @@ describe("bounded report quality recovery", () => {
   expect(save.mock.calls[0]![0].failure.code).toBe("REPORT_QUALITY_REJECTED");
   expect(snapshot.states.find(s=>s.documentId==="md-report")?.status).toBe("draft");
  });
- it("excludes historical prose plus an unsupported affirmative consensus from recovery input and rejects the candidate",async()=>{
+ it("excludes a rejected candidate derived from observed prose and rejects a new affirmative claim",async()=>{
   snapshot=JSON.parse(readFileSync(resolve(process.cwd(),"../../docs/verification/interview-source-regeneration-5430/source.json"),"utf8"));
   const previous=snapshot.documents.find(document=>document.step==="report")!;
-  // The coordinated denial is now valid; retain the historical body and add a genuinely unsupported positive claim.
-  previous.markdown+="\n跨专家共识已经形成。";
+  // Preserve the on-disk actual raw; this controlled variant has a real affirmative gap.
+  const original=previous.markdown;
+  previous.markdown=original+"\n\n安装问题最常见。";
   previous.contentHash=createHash("sha256").update(previous.markdown).digest("hex");
-  const candidate=previous.markdown;
+  const candidate=original+"\n\n预算必然阻止采购。";
   complete.mockResolvedValue({text:candidate});
   await expect(generateInterviewMarkdown(deps(),{...input,interviewId:snapshot.interviewId,expectedVersion:snapshot.version,expectedDocumentVersion:previous.version})).rejects.toThrow("AI_GENERATION_UNAVAILABLE");
   expect(complete).toHaveBeenCalledTimes(1);
   expect(complete.mock.calls[0]![0].user).not.toContain(previous.markdown);
+  expect(complete.mock.calls[0]![0].user).not.toContain(original);
+  expect(complete.mock.calls[0]![0].user).not.toContain("安装问题最常见。");
   expect(complete.mock.calls[0]![0].user).toContain("已确认来源");
   expect(save.mock.calls[0]![0]).toMatchObject({markdown:candidate,failure:{code:"REPORT_GROUNDING_REJECTED",retryable:true}});
  });
