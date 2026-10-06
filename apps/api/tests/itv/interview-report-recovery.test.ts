@@ -31,6 +31,15 @@ beforeEach(() => {
  });
 });
 describe("bounded report quality recovery", () => {
+ it("requests report findings instead of copying forbidden writing-policy examples", async () => {
+  complete.mockResolvedValue({text:GOOD});
+  await generateInterviewMarkdown(deps(),input);
+  const request=complete.mock.calls[0]![0];
+  expect(request.system).toContain("仅输出研究报告正文");
+  expect(request.system).toContain("不复述生成指令、写作规则或校验约束");
+  expect(request.system).not.toContain("不断言最常见");
+  expect(request.system).not.toContain("不得写“而非设备的固有缺陷”");
+ });
  it("never instructs a naked zero-count observation without a source and gives precise measurement repair feedback", async () => {
   const wrong = GOOD + "\n\n不兼容项为零只支持本次检测未发现该冲突，不能推翻一般安装风险。";
   complete.mockResolvedValueOnce({text:wrong}).mockResolvedValueOnce({text:GOOD});
@@ -54,6 +63,13 @@ describe("bounded report quality recovery", () => {
   previous.markdown=original+"\n\n安装问题最常见。";
   previous.contentHash=createHash("sha256").update(previous.markdown).digest("hex");
   const candidate=original+"\n\n预算必然阻止采购。";
+ it("excludes historical prose plus an unsupported affirmative consensus from recovery input and rejects the candidate",async()=>{
+  snapshot=JSON.parse(readFileSync(resolve(process.cwd(),"../../docs/verification/interview-source-regeneration-5430/source.json"),"utf8"));
+  const previous=snapshot.documents.find(document=>document.step==="report")!;
+  // The coordinated denial is now valid; retain the historical body and add a genuinely unsupported positive claim.
+  previous.markdown+="\n跨专家共识已经形成。";
+  previous.contentHash=createHash("sha256").update(previous.markdown).digest("hex");
+  const candidate=previous.markdown;
   complete.mockResolvedValue({text:candidate});
   await expect(generateInterviewMarkdown(deps(),{...input,interviewId:snapshot.interviewId,expectedVersion:snapshot.version,expectedDocumentVersion:previous.version})).rejects.toThrow("AI_GENERATION_UNAVAILABLE");
   expect(complete).toHaveBeenCalledTimes(1);
@@ -264,15 +280,28 @@ describe("saved report recovery", () => {
   expect(complete).toHaveBeenCalledTimes(1); expect(save).toHaveBeenCalledTimes(1);
   expect(result.states.at(-1)?.status).toBe("draft");
  });
- it("recovers a numbered action section without a model call and repeated recovery creates no extra version", async () => {
+ it("regenerates a qualified historical failed body once before allowing normal reuse", async () => {
   const report = GOOD.replace("建议行动：P0：用独立真人任务验证渠道假设，以完成时长和再次进线率为指标。", "## 6. 下一步验证建议（可执行行动）\n\n独立访谈五位用户，对比任务完成时长。");
   await save({expectedVersion:7,expectedDocumentVersion:0,markdown:report,failure:{code:"AI_GENERATION_UNAVAILABLE",retryable:true},references:[{anchor:"source-1",documentId:"md-runs",version:1}]});
-  save.mockClear(); complete.mockClear();
-  const recovered = await generateInterviewMarkdown({...deps(),modelProvider:"",modelId:""},{...input,expectedVersion:8,expectedDocumentVersion:1});
-  expect(complete).not.toHaveBeenCalled(); expect(save).toHaveBeenCalledTimes(1);
-  expect(recovered.documents.find(d=>d.step==="report")).toMatchObject({markdown:report,contentHash:createHash("sha256").update(report).digest("hex"),version:2});
+  save.mockClear(); complete.mockClear(); complete.mockResolvedValue({text:GOOD});
+  const recovered = await generateInterviewMarkdown(deps(),{...input,expectedVersion:8,expectedDocumentVersion:1});
+  expect(complete).toHaveBeenCalledTimes(1); expect(save).toHaveBeenCalledTimes(1);
+  expect(recovered.documents.find(d=>d.step==="report")).toMatchObject({markdown:GOOD,contentHash:createHash("sha256").update(GOOD).digest("hex"),version:2});
   await generateInterviewMarkdown(deps(),{...input,expectedVersion:9,expectedDocumentVersion:2});
-  expect(save).toHaveBeenCalledTimes(1); expect(complete).not.toHaveBeenCalled();
+  expect(save).toHaveBeenCalledTimes(1); expect(complete).toHaveBeenCalledTimes(1);
+ });
+ it("does not promote a qualified failed body when no provider is configured", async () => {
+  await save({expectedVersion:7,expectedDocumentVersion:0,markdown:GOOD,failure:{code:"AI_GENERATION_UNAVAILABLE",retryable:true},references:[{anchor:"source-1",documentId:"md-runs",version:1}]});
+  save.mockClear(); complete.mockClear(); const previous = structuredClone(snapshot);
+  await expect(generateInterviewMarkdown({...deps(),modelProvider:"",modelId:""},{...input,expectedVersion:8,expectedDocumentVersion:1})).rejects.toThrow("AI_GENERATION_UNAVAILABLE");
+  expect(complete).not.toHaveBeenCalled(); expect(save).not.toHaveBeenCalled(); expect(snapshot).toEqual(previous);
+ });
+ it("preserves qualified failed bytes and version when the single recovery provider call fails", async () => {
+  await save({expectedVersion:7,expectedDocumentVersion:0,markdown:GOOD,failure:{code:"AI_GENERATION_UNAVAILABLE",retryable:true},references:[{anchor:"source-1",documentId:"md-runs",version:1}]});
+  save.mockClear(); complete.mockClear(); const previous = structuredClone(snapshot);
+  complete.mockRejectedValue(new ModelCallError("MODEL_CALL_FAILED", "provider failure fixture"));
+  await expect(generateInterviewMarkdown(deps(),{...input,expectedVersion:8,expectedDocumentVersion:1})).rejects.toThrow();
+  expect(complete).toHaveBeenCalledTimes(1); expect(save).not.toHaveBeenCalled(); expect(snapshot).toEqual(previous);
  });
  it("preserves specific action-only rejection rather than a generic provider failure", async () => {
   complete.mockResolvedValue({text:GOOD.replace(/^建议行动：.*$/mu,"").replace("决策影响：应优先验证客户偏好，暂缓统一渠道。","决策影响：暂缓统一渠道，因为证据不足。")});
@@ -290,9 +319,10 @@ describe("saved report source safety", () => {
  });
  it("does not convert a failed candidate to success when CAS rejects its recovery", async () => {
   await save({expectedVersion:7,expectedDocumentVersion:0,markdown:GOOD,failure:{code:"AI_GENERATION_UNAVAILABLE",retryable:true},references:[{anchor:"source-1",documentId:"md-runs",version:1}]});
+  complete.mockResolvedValue({text:GOOD});
   save.mockRejectedValueOnce(new DigitalInterviewWorkflowError("CONCURRENT_MODIFICATION"));
   await expect(generateInterviewMarkdown(deps(),{...input,expectedVersion:8,expectedDocumentVersion:1})).rejects.toThrow("CONCURRENT_MODIFICATION");
-  expect(complete).not.toHaveBeenCalled(); expect(snapshot.states.at(-1)?.status).toBe("failed");
+  expect(complete).toHaveBeenCalledTimes(1); expect(snapshot.states.at(-1)?.status).toBe("failed");
  });
 });
 
