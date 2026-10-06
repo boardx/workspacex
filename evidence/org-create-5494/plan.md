@@ -31,13 +31,14 @@ flowchart TD
   classDef tested fill:#ddd6fe,stroke:#7c3aed,color:#111827
   classDef blocked fill:#fecaca,stroke:#dc2626,color:#111827
 
-  class G doing
+  class G blocked
+  %% blocked G: draft PR 已交付；全局颜色 token 门在干净 main 仍失败，CI 尚未确认全绿
   class S1 done
   class S2 done
   class S3 done
   class S4 blocked
   %% blocked S4: 定向测试通过；全局 token 检查在干净 main 重现；Web 全套仍在执行，见 README 和日志
-  class S5 doing
+  class S5 done
 ```
 
 ## 进度日志（append-only，每次改颜色追加一行）
