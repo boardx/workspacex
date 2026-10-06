@@ -507,7 +507,7 @@ describe("bounded search query recovery", () => {
     expect(f.search.mock.calls.length).toBeGreaterThan(0);
     expect(f.search.mock.calls.some(([query]) => query === original)).toBe(false);
   });
-  it("dispatches confirmed scopes in order with bounded overlapping directions", async () => {
+  it("settles each confirmed scope before dispatching the next direction", async () => {
     const state = seed();
     state.outline.push({ id: "second", title: "第二方向", questions: ["第二方向证据？"], enabled: true, order: 1 });
     state.tasks = [{ ...state.tasks[0]!, id: "later", sectionId: "second", query: "second-query" }, { ...state.tasks[0]!, id: "first", query: "first-query" }];
@@ -519,10 +519,12 @@ describe("bounded search query recovery", () => {
     try {
       await began;
       await new Promise(resolve => setTimeout(resolve, 10));
-      expect(f.search.mock.calls.map(([query]) => query)).toEqual(["first-query", "second-query"]);
-      expect(f.writes.some(snapshot => snapshot.tasks[0]?.status === "succeeded" && snapshot.tasks[1]?.status === "running")).toBe(true);
+      expect(f.search.mock.calls.map(([query]) => query)).toEqual(["first-query"]);
+      expect(f.writes.some(snapshot => snapshot.tasks[0]?.status === "pending" && snapshot.tasks[1]?.status === "running")).toBe(true);
     }
     finally { release?.(); await operation; }
+    expect(f.search.mock.calls.map(([query]) => query)).toEqual(["first-query", "second-query"]);
+    expect(f.writes.some(snapshot => snapshot.tasks[0]?.status === "running" && snapshot.tasks[1]?.status === "succeeded")).toBe(true);
   });
   it("persists edited topic information without sending the user back to import", async () => {
     const state = seed();

@@ -258,17 +258,31 @@ export async function executeTaskPipeline(state: ResearchRuntime, persist: Runti
         await commit(async () => { merge(reviewed); await save(); });
       } finally { release(); }
     });
-    await fairTaskWork(ordered, TASK_WORKERS, work, recover, check, stop);
-    // Keep the existing bounded chapter-gap supplements. They share the same
-    // provider/read limits and cannot replace a task failure with apparent success.
-    if (search.read) await workers(state.outline.filter(section => section.enabled).sort((a, b) => a.order - b.order), async section => {
-      const count = () => new Set(state.sources.filter(source => source.decision === "accepted" && source.document && sourceTaskIds(source).some(id => state.tasks.find(item => item.id === id)?.sectionId === section.id)).map(source => normalizedResearchUrl(source.url))).size;
-      for (const { task, query } of scopedSupplementQueries(state, section, ordered)) {
-        check(); if (count() >= 3) break;
-        if ((task.searchAttempts ?? []).some(record => record.query.trim().toLowerCase() === query.trim().toLowerCase()) || (task.searchAttempts?.length ?? 0) >= C.GUIDED_RESEARCH_SEARCH_ATTEMPT_LIMIT) continue;
-        await attempt(task, query, false);
+    // Stable plan order is an execution boundary, not only a dispatch sort.
+    // Unknown/legacy task sections remain in the tail rather than disappearing.
+    const groups = new Map<string, { section?: ResearchRuntime["outline"][number]; tasks: Task[] }>();
+    for (const section of [...state.outline].sort((a, b) => a.order - b.order)) {
+      if (!groups.has(section.id)) groups.set(section.id, { section, tasks: [] });
+    }
+    for (const task of ordered) {
+      if (!groups.has(task.sectionId)) groups.set(task.sectionId, { tasks: [] });
+      groups.get(task.sectionId)!.tasks.push(task);
+    }
+    for (const { section, tasks } of groups.values()) {
+      check();
+      await fairTaskWork(tasks, TASK_WORKERS, work, recover, check, stop);
+      // The chapter's existing supplements finish in the same boundary. Shared
+      // provider/read/cache limits still belong to the entire execution.
+      if (search.read && section?.enabled) {
+        const count = () => new Set(state.sources.filter(source => source.decision === "accepted" && source.document && sourceTaskIds(source).some(id => state.tasks.find(item => item.id === id)?.sectionId === section.id)).map(source => normalizedResearchUrl(source.url))).size;
+        for (const { task, query } of scopedSupplementQueries(state, section, ordered)) {
+          check(); if (count() >= 3) break;
+          if ((task.searchAttempts ?? []).some(record => record.query.trim().toLowerCase() === query.trim().toLowerCase()) || (task.searchAttempts?.length ?? 0) >= C.GUIDED_RESEARCH_SEARCH_ATTEMPT_LIMIT) continue;
+          await attempt(task, query, false);
+        }
       }
-    });
+      await writes; check();
+    }
     if (state.tasks.some(task => task.status === "failed")) throw new ResearchRuntimeError("RESEARCH_SEARCH_PARTIAL_FAILURE");
   } catch (error) {
     // All workers have drained. Mark issued work interrupted before the service's
