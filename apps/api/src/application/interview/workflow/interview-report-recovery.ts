@@ -68,14 +68,18 @@ export async function generateReportWithRecovery(
       const hashesUnchanged = saved.references.every(reference => !reference.locator || options.evidenceIndex.some(evidence =>
         evidence.documentId === reference.documentId && evidence.version === reference.version && evidence.sourceHash === reference.locator!.sourceHash));
       if (!sourcesUnchanged || !hashesUnchanged) throw new DigitalInterviewWorkflowError("CONCURRENT_MODIFICATION");
-      const groundedReferences = [...references, ...grounding.references];
-      if (!options.retry && isDeepStrictEqual(saved.references, groundedReferences)) return options.snapshot;
-      // Storage reauthorizes and applies the same source/project CAS as generation.
-      await measure("storage", () => deps.reader.saveDraft({
-        ...input, step: "report", actorId: input.viewerUserId, expectedVersion, expectedDocumentVersion,
-        markdown: saved.markdown, references: groundedReferences,
-      }));
-      return measure("storage", () => readInterviewMarkdown(deps, input));
+      // A historical failed body is audit material, never a successful zero-call recovery.
+      // Source checks above still reject changed inputs before its single regeneration.
+      if (!options.retry && options.snapshot.states.find(state => state.documentId === saved.documentId)?.status !== "failed") {
+        const groundedReferences = [...references, ...grounding.references];
+        if (isDeepStrictEqual(saved.references, groundedReferences)) return options.snapshot;
+        // Storage reauthorizes and applies the same source/project CAS as generation.
+        await measure("storage", () => deps.reader.saveDraft({
+          ...input, step: "report", actorId: input.viewerUserId, expectedVersion, expectedDocumentVersion,
+          markdown: saved.markdown, references: groundedReferences,
+        }));
+        return measure("storage", () => readInterviewMarkdown(deps, input));
+      }
     }
   }
   if (!deps.modelProvider || !deps.modelId) throw savedRejection ?? new DigitalInterviewWorkflowError("AI_GENERATION_UNAVAILABLE");
