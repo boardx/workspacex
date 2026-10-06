@@ -1,0 +1,18 @@
+{
+  "rawHash": "b97b808a9329eb7a4d8f469e2ade330e840ecf6045b687900636a92584dc7fb5",
+  "sourceHash": "8724c64d8d7c572530b99a2346ab2a3cfddb8346eaaaba73ec0cc16239cd0883",
+  "actualSourceRead": true,
+  "claims": [
+    {
+      "text": "至少30个真实询价记录",
+      "startUtf16": 2683,
+      "endUtf16": 2694
+    },
+    {
+      "text": "两种安装任务方案",
+      "startUtf16": 2436,
+      "endUtf16": 2444
+    }
+  ],
+  "status": "whole actual report semantic FAIL; finite gate is not oracle"
+}

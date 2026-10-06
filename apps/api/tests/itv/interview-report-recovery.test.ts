@@ -31,6 +31,44 @@ beforeEach(() => {
  });
 });
 describe("bounded report quality recovery", () => {
+ it.each([false,true])("separates observed outcomes and measurement dimensions in real-source requests (derived failed: %s)",async derivedFailed=>{
+  snapshot=JSON.parse(readFileSync(new URL("./fixtures/inference-dimensions-5459/source.json",import.meta.url),"utf8"));
+  const previous=snapshot.documents.find(d=>d.step==="report")!;const raw=previous.markdown;
+  if(derivedFailed){
+   // The actual1k draft remains unchanged on disk; this deliberately invalid citation is only a control.
+   previous.markdown=raw+"\n\n[非原文](#answer-5)";previous.contentHash=createHash("sha256").update(previous.markdown).digest("hex");
+   snapshot.states.find(s=>s.documentId===previous.documentId)!.status="failed";
+   snapshot.states.find(s=>s.documentId===previous.documentId)!.failure={code:"REPORT_GROUNDING_REJECTED",retryable:true};
+  }else{snapshot.documents=snapshot.documents.filter(d=>d.step!=="report");snapshot.states=snapshot.states.filter(s=>s.documentId!==previous.documentId);}
+  const before=structuredClone(snapshot);save.mockClear();complete.mockImplementationOnce(async request=>{
+   expect(request.user).toContain("分别记录已观察结果与待核实的解释变量");
+   expect(request.user).toContain("场景之间的条件差异由条件记录支持");
+   expect(request.user).toContain("发生频率对应发生率，解决难度对应解决率与耗时，决策影响对应购买、暂缓或取消的变化");
+   expect(request.user).toContain("缺少另一维度的数据时保留该维度未知，并安排对应的观察");
+   expect(request.user).toContain("公开合成反例：一个场景安装顺利，不能推断所有场景都顺利。");
+   expect(request.user).not.toContain(raw);expect(request.user).not.toContain(previous.markdown);
+   throw new ModelCallError("MODEL_CALL_FAILED","controlled inspection stops before provider");
+  });
+  await expect(generateInterviewMarkdown(deps(),{...input,interviewId:snapshot.interviewId,expectedVersion:snapshot.version,expectedDocumentVersion:derivedFailed?previous.version:0})).rejects.toThrow("AI_GENERATION_UNAVAILABLE");
+  expect(complete).toHaveBeenCalledTimes(1);expect(save).not.toHaveBeenCalled();expect(snapshot).toEqual(before);
+ });
+ it.each([false,true])("keeps original plan identity and explicit numerical design assumptions (saved: %s)",async savedFailure=>{
+  snapshot=JSON.parse(readFileSync(new URL("./fixtures/action-design-provenance-5454/source.json",import.meta.url),"utf8"));
+  const previous=snapshot.documents.find(d=>d.step==="report")!;const raw=previous.markdown;
+  if(!savedFailure){snapshot.documents=snapshot.documents.filter(d=>d.step!=="report");snapshot.states=snapshot.states.filter(s=>s.documentId!==previous.documentId);}
+  const before=structuredClone(snapshot);save.mockClear();complete.mockImplementationOnce(async request=>{
+   expect(request.user).toContain("已有验证计划保持原文的行动对象、比较单位与执行状态");
+   expect(request.user).toContain("新提出的任务细化另列为研究者设计，说明待确认的依据");
+   expect(request.user).toContain("数值参数区分原文已给定参数与新设计假设");
+   expect(request.user).toContain("统计判断说明比较目标、分析方法、预期差异、变异及误差容忍");
+   expect(request.user).toContain("缺少这些信息时将样本量和判断阈值列为待设计参数");
+   expect(request.user).toContain("公开合成回答：未来计划访谈五位用户，比较两种任务方案，记录任务完成时间和中途退出原因，再决定投入。这是计划，尚未执行。");
+   expect(request.user).not.toContain(raw);
+   throw new ModelCallError("MODEL_CALL_FAILED","controlled inspection stops before provider dispatch");
+  });
+  await expect(generateInterviewMarkdown(deps(),{...input,interviewId:snapshot.interviewId,expectedVersion:snapshot.version,expectedDocumentVersion:savedFailure?previous.version:0})).rejects.toThrow("AI_GENERATION_UNAVAILABLE");
+  expect(complete).toHaveBeenCalledTimes(1);expect(save).not.toHaveBeenCalled();expect(snapshot).toEqual(before);
+ });
  it.each([false,true])("guides every repeated citation occurrence from actual source without failed prose (saved: %s)",async savedFailure=>{
   snapshot=JSON.parse(readFileSync(new URL("./fixtures/repeated-citations-5453/source.json",import.meta.url),"utf8"));
   const previous=snapshot.documents.find(d=>d.step==="report")!;const raw=previous.markdown;
