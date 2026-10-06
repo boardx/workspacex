@@ -356,3 +356,31 @@ describe("generated brief subject authority", () => {
     expect(f.model.complete).toHaveBeenCalledTimes(3); expect(f.search).not.toHaveBeenCalled();
   });
 });
+
+
+describe("substantive planning prompt at the actual service boundary", () => {
+  it("reorganizes a controlled mixed summary request into external questions and retains genuine methods research without extra model calls", async () => {
+    const f = fixture(); const complete = f.model.complete.getMockImplementation()!;
+    const goal = "Compare enterprise retrieval practices and published evaluation methods; include an executive summary, scope introduction and final recommendations.";
+    f.set({ ...f.latest(), brief: { ...f.latest().brief, goal } });
+    const chapters = [
+      { id: "practices", title: "Enterprise retrieval practices", question: "Which enterprise retrieval practices improve precision?" },
+      { id: "methods", title: "Published evaluation methods", question: "How do published retrieval evaluation methods compare?" },
+    ].map(({ id, title, question }, order) => ({ id, title, questions: [question], objective: `Compare ${title}`, analysisApproach: "Compare public studies and their limitations", expectedOutput: "An evidence-grounded comparison", subsections: ["Measures", "Comparisons", "Limitations"].map((heading, i) => ({ id: `${id}-${i}`, title: heading, questions: [question] })), order, enabled: true }));
+    f.model.complete.mockImplementation(async input => {
+      if (input.system.includes("Generate the directions step") || input.system.includes("Generate the outline step")) {
+        for (const requirement of ["externally answerable", "report.summary", "report.introduction", "report.conclusion", "mixed", "retain", "methods themselves"]) expect(input.system).toContain(requirement);
+        expect(JSON.parse(input.user).brief.goal).toBe(goal);
+      }
+      if (input.system.includes("Generate the outline step")) return { text: JSON.stringify(chapters) };
+      return complete(input);
+    });
+    const result = await f.run("prepare_plan");
+    expect(result.errorCode).toBeNull(); expect(result.currentNode).toBe("outline"); expect(result.outline).toEqual(chapters);
+    expect(result.brief.goal).toBe(goal); expect(result.generatedNodes).toEqual(["brief", "directions", "outline"]);
+    expect(f.model.complete).toHaveBeenCalledTimes(3); expect(f.search).not.toHaveBeenCalled();
+    const tasks = tasksFromConfirmedQuestions(f.latest());
+    expect(tasks.some(task => task.sectionId === "practices")).toBe(true); expect(tasks.some(task => task.sectionId === "methods")).toBe(true);
+    expect(tasks.every(task => chapters.some(chapter => chapter.id === task.sectionId && chapter.questions.includes(task.objective!)))).toBe(true);
+  });
+});
