@@ -1,0 +1,11 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/packages/contracts
+
+ ✓ tests/interview-structured-boundary.test.ts (16 tests) 50ms
+ ✓ tests/interview-markdown.test.ts (70 tests) 64ms
+
+ Test Files  2 passed (2)
+      Tests  86 passed (86)
+   Start at  18:01:00
+   Duration  606ms (transform 166ms, setup 0ms, collect 546ms, tests 114ms, environment 0ms, prepare 88ms)
+

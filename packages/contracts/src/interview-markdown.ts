@@ -84,7 +84,10 @@ function hasStructuredBoundary(markdown: string): boolean {
     if (!/^(?:不确定性与限制|分歧与反例)[：:]?$/u.test(heading)) return false;
     for (const next of nodes.slice(index + 1)) {
       if (next.type === "heading" && (next.depth ?? 0) <= (node.depth ?? 0)) break;
-      if (next.type === "heading") continue;
+      if (next.type === "heading") {
+        if (!/^(?:证据范围|适用范围|未知条件|反例|样本限制)[：:]?$/u.test(analysisNodeText(next).trim())) break;
+        continue;
+      }
       // Source quotes, code and metadata cannot stand in for researcher analysis.
       const prose = actionNodeText(next);
       if (/(?:未提供|未说明|未记录|缺少|未知|不能判断|无法判断|无法推断|不能推断|不足以|尚待验证)[^。\n]{2,}/u.test(prose)) return true;

@@ -12,7 +12,9 @@ describe("structured boundary recognition #5470",()=>{
  it.each(["不确定性与限制","分歧与反例","2. 不确定性与限制"])("recognizes substantive section %s",heading=>{
   expect(lacksBoundary(`## ${heading}\n\n材料未提供型号与排查记录，不能判断发生率；需采集条件记录。`)).toBe(false);
  });
+ it("accepts a substantive boundary child section",()=>expect(lacksBoundary("## 不确定性与限制\n\n### 证据范围\n\n材料未提供条件，不能判断发生率。")).toBe(false));
  it.each([
+  "## 不确定性与限制\n\n### 下一步验证建议\n\n系统未记录待办提醒，需新增日历通知。",
   "## 不确定性与限制",
   "## 不确定性与限制\n\n待补充。",
   "## 不确定性与限制\n\n改进产品体验。",
