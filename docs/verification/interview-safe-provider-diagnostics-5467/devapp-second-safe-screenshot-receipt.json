@@ -1,0 +1,33 @@
+{
+  "source": "new human screenshot relayed by authorized main task",
+  "screenshotSha256": "3a255390fb9c9e15fa0a7912d6b8f7fd9876561cc4a813421cd9e72ae04845bd",
+  "binding": "Same Tiananmen revised-report title and roles as prior screenshot; URL not visible in this screenshot. Main associates prior itv session, not independently verified URL.",
+  "observedResponse": [
+    {
+      "type": "stage",
+      "stage": "validation"
+    },
+    {
+      "type": "attempt",
+      "attempt": 1
+    },
+    {
+      "type": "stage",
+      "stage": "model"
+    },
+    {
+      "type": "failed",
+      "reasonCode": "AI_GENERATION_UNAVAILABLE"
+    }
+  ],
+  "visibleDeltaEvents": 0,
+  "phaseEvidence": "Application model stage entered; no proof of physical provider HTTP dispatch.",
+  "requestId": null,
+  "providerStatus": null,
+  "providerFailureClass": null,
+  "deploymentSha": null,
+  "savedBodyHash": null,
+  "refreshHashEquality": null,
+  "rootCause": "UNKNOWN",
+  "noNewRetry": true
+}
