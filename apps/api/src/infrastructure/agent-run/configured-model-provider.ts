@@ -526,7 +526,7 @@ export class ConfiguredModelProvider implements ModelCallPort {
     return this.accountRequest(input, bound => this.completeImpl(bound));
   }
 
-  private async postCompletions(input: ModelCallInput, stream: boolean): Promise<UndiciResponse> {
+  private async postCompletions<T>(input: ModelCallInput, stream: boolean, consume: (response: UndiciResponse) => Promise<T>): Promise<T> {
     const { baseUrl, apiKey, timeoutMs } = this.config;
     if (input.outputTokenLimit !== undefined && (!Number.isSafeInteger(input.outputTokenLimit) || input.outputTokenLimit <= 0 || input.outputTokenLimit > 2147483647)) {
       throw new Error("INVALID_AI_OUTPUT_LIMIT");
@@ -570,9 +570,9 @@ export class ConfiguredModelProvider implements ModelCallPort {
         serializedBody: options.body, outputTokenLimit });
       await input.onProviderRequest?.({ phase: "started", requestId, startedAt: new Date().toISOString() });
       preparing = false;
-      return await undiciFetch(`${baseUrl}/chat/completions`, options);
+      return await consume(await undiciFetch(`${baseUrl}/chat/completions`, options));
     } catch (err) {
-      if (preparing) throw err; // Safety/quota/ledger rejection cannot become a retryable transport failure.
+      if (preparing || err instanceof ModelCallError) throw err; // Preserve admission failures and classified body errors.
       // 传输错误对象**只**被读一个枚举字段（见 `classifyTransportError`）。`message`
       // 一个字都不读：它常含主机、端口，有时是带凭据的 URL。枚举 token 进的是
       // `detail`，而 `detail` 只进服务端日志，从不进响应（见本文件头注）。
@@ -623,50 +623,51 @@ export class ConfiguredModelProvider implements ModelCallPort {
       );
     }
 
-    const response = await this.postCompletions(input, false);
+    return this.postCompletions(input, false, async response => {
 
-    if (!response.ok) {
-      /*
-       * F159（coord-main 裁决②修正）—— 失败体里**只**取 `usage` 的三个数字。
-       *
-       * 这里原本一个字节都不读，理由写在原注释里：错误体常带 host / port / 有时是带
-       * 凭据的 URL。那条纪律没有松动——下面读出来的只有 `usage` 里的数字，错误文本
-       * 依然不进 `detail`、不进日志、不进任何响应。之所以要读：部分 4xx 上游照样计费
-       * prompt tokens 并把 usage 放在错误体里，一律记 0 会让那部分钱在账上凭空消失。
-       * 读不动（非 JSON / 体已被消费）就当没报，不让它影响失败本身。
-       */
-      let failedUsage: ReportedUsage | undefined;
-      try {
-        failedUsage = readUsage(((await response.json()) as CompletionResponse).usage);
-      } catch {
-        failedUsage = undefined;
+      if (!response.ok) {
+        /*
+         * F159（coord-main 裁决②修正）—— 失败体里**只**取 `usage` 的三个数字。
+         *
+         * 这里原本一个字节都不读，理由写在原注释里：错误体常带 host / port / 有时是带
+         * 凭据的 URL。那条纪律没有松动——下面读出来的只有 `usage` 里的数字，错误文本
+         * 依然不进 `detail`、不进日志、不进任何响应。之所以要读：部分 4xx 上游照样计费
+         * prompt tokens 并把 usage 放在错误体里，一律记 0 会让那部分钱在账上凭空消失。
+         * 读不动（非 JSON / 体已被消费）就当没报，不让它影响失败本身。
+         */
+        let failedUsage: ReportedUsage | undefined;
+        try {
+          failedUsage = readUsage(((await response.json()) as CompletionResponse).usage);
+        } catch {
+          failedUsage = undefined;
+        }
+        throw new ModelCallError(
+          "MODEL_CALL_FAILED",
+          `model provider responded with HTTP ${response.status}`,
+          failedUsage,
+          response.status === 429 ? "rate-limited" : response.status === 503 ? "temporarily-unavailable" : undefined,
+        );
       }
-      throw new ModelCallError(
-        "MODEL_CALL_FAILED",
-        `model provider responded with HTTP ${response.status}`,
-        failedUsage,
-        response.status === 429 ? "rate-limited" : response.status === 503 ? "temporarily-unavailable" : undefined,
-      );
-    }
 
-    let parsed: CompletionResponse;
-    try {
-      parsed = await response.json() as CompletionResponse;
-    } catch {
-      throw new ModelCallError("MODEL_CALL_FAILED", "model provider response was not JSON");
-    }
-    const message = parsed.choices?.[0]?.message;
-    const content = message?.content;
-    if (typeof content !== "string" || content.trim() === "") {
-      throw new ModelCallError("MODEL_CALL_FAILED", "model provider returned no content", readUsage(parsed.usage));
-    }
-    // Read straight off the wire response, never computed. Absent or non-numeric ⇒
-    // `undefined` (the port's "not reported" state) -- not `0` invented at this layer.
-    const usage = readUsage(parsed.usage);
-    // 迭代 12：`finish_reason === "length"` 是模型**自己说**没说完。此前上层只能靠
-    // 「JSON 解析失败」反推截断——那把"输出不合语法"和"输出被切断"混成同一件事。
-    const truncated = parsed.choices?.[0]?.finish_reason === "length";
-    return { text: content, tokens: usage.total, promptTokens: usage.prompt, completionTokens: usage.completion, cacheInputTokens: usage.cacheInput, reasoningOutputTokens: usage.reasoningOutput, ...(truncated ? { truncated: true } : {}) };
+      let parsed: CompletionResponse;
+      try {
+        parsed = await response.json() as CompletionResponse;
+      } catch (error) {
+        throw new ModelCallError("MODEL_CALL_FAILED", `model provider response was not JSON (${classifyTransportError(error)})`);
+      }
+      const message = parsed.choices?.[0]?.message;
+      const content = message?.content;
+      if (typeof content !== "string" || content.trim() === "") {
+        throw new ModelCallError("MODEL_CALL_FAILED", "model provider returned no content", readUsage(parsed.usage));
+      }
+      // Read straight off the wire response, never computed. Absent or non-numeric ⇒
+      // `undefined` (the port's "not reported" state) -- not `0` invented at this layer.
+      const usage = readUsage(parsed.usage);
+      // 迭代 12：`finish_reason === "length"` 是模型**自己说**没说完。此前上层只能靠
+      // 「JSON 解析失败」反推截断——那把"输出不合语法"和"输出被切断"混成同一件事。
+      const truncated = parsed.choices?.[0]?.finish_reason === "length";
+      return { text: content, tokens: usage.total, promptTokens: usage.prompt, completionTokens: usage.completion, cacheInputTokens: usage.cacheInput, reasoningOutputTokens: usage.reasoningOutput, ...(truncated ? { truncated: true } : {}) };
+    });
   }
 
   /**
@@ -698,107 +699,111 @@ export class ConfiguredModelProvider implements ModelCallPort {
       );
     }
 
-    const response = await this.postCompletions(input, true);
+    return this.postCompletions(input, true, async response => {
 
-    if (!response.ok) {
-      let failedUsage: ReportedUsage | undefined;
-      try { failedUsage = readUsage(((await response.json()) as CompletionResponse).usage); }
-      catch { failedUsage = undefined; }
-      throw new ModelCallError(
-        "MODEL_CALL_FAILED",
-        `model provider responded with HTTP ${response.status}`,
-        failedUsage,
-        response.status === 429 ? "rate-limited" : response.status === 503 ? "temporarily-unavailable" : undefined,
-      );
-    }
-    if (response.body === null) {
-      throw new ModelCallError("MODEL_CALL_FAILED", "model provider returned no stream body");
-    }
+      if (!response.ok) {
+        let failedUsage: ReportedUsage | undefined;
+        try { failedUsage = readUsage(((await response.json()) as CompletionResponse).usage); }
+        catch { failedUsage = undefined; }
+        throw new ModelCallError(
+          "MODEL_CALL_FAILED",
+          `model provider responded with HTTP ${response.status}`,
+          failedUsage,
+          response.status === 429 ? "rate-limited" : response.status === 503 ? "temporarily-unavailable" : undefined,
+        );
+      }
+      if (response.body === null) {
+        throw new ModelCallError("MODEL_CALL_FAILED", "model provider returned no stream body");
+      }
 
-    // This adapter emits one assistant message per completion, unlike a tool graph.
-    // The same identity binds every streamed fragment to its final completion.
-    const finalMessageId = randomUUID();
-    let text = "";
-    let usage: ReportedUsage = {};
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder();
-    let buffer = "";
-    try {
-      for (;;) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        // issue #2104 —— **先归一化行尾，再找帧边界**。SSE 规范（WHATWG）允许行以
-        // CRLF / CR / LF 结束；上游一旦说 CRLF（任何基于 sse-starlette 的实现，其默认
-        // 分隔符就是 `\r\n`），真实帧分隔符是 `\r\n\r\n`——里面**不含** `\n\n` 子串。
-        // 下面那句 `indexOf("\n\n")` 于是一帧都切不出来：整条流被读完却零个事件被解析，
-        // 不抛错也不告警（HTTP 200、body 正常读完、reader 正常 done），流式静默降级成
-        // 一次性整段回复。这与 #2098 在 `deep-agent-model-provider.ts` 上的根因同形。
-        //
-        // ⚠ 今天这里没炸，只是因为现接的 OpenAI 兼容上游都发 LF——那是「只对一种方言
-        //   正确」，不是「正确」。#2098 那个 bug 能在一套**显式断言 token 级流式**的反证
-        //   套件下存活整年，正是因为所有替身都只说 LF。
-        //
-        // 归一化放在**每轮对整个剩余 buffer** 做，而不是只对本次 decode 的分片做：
-        // 一个 `\r\n` 可能被 TCP 分片从中间劈开（`\r` 落在上一片尾、`\n` 落在下一片头），
-        // 只归一化分片会漏掉它；对整个 buffer 重复归一化是幂等的，那个残留的 `\r` 会在
-        // 下一轮与新到的 `\n` 合并后被正确吃掉。
-        //
-        // 逐行解析那侧不需要动：`line.trim()` 本来就会吃掉行尾残留的 `\r`，坏掉的
-        // **只有帧边界**这一处。
-        buffer = (buffer + decoder.decode(value, { stream: true })).replace(/\r\n/g, "\n");
-        // SSE frames are separated by a blank line; a frame may still be incomplete at the
-        // end of `buffer` (the socket delivered a partial frame), so only fully-terminated
-        // ones are consumed here and the remainder stays for the next read.
-        let boundary = buffer.indexOf("\n\n");
-        while (boundary !== -1) {
-          const frame = buffer.slice(0, boundary);
-          buffer = buffer.slice(boundary + 2);
-          boundary = buffer.indexOf("\n\n");
-          for (const line of frame.split("\n")) {
-            const trimmed = line.trim();
-            if (!trimmed.startsWith("data:")) continue; // SSE comments/keep-alives: not data.
-            const payload = trimmed.slice("data:".length).trim();
-            if (payload === "[DONE]") continue;
-            let chunk: CompletionChunk;
-            try {
-              chunk = JSON.parse(payload) as CompletionChunk;
-            } catch {
-              // A malformed frame is a wire hiccup, not proof the whole call failed --
-              // `complete()` already treats "not JSON" as fatal for the ONE reply it gets;
-              // here one bad frame among dozens is not that same signal, so it is skipped.
-              continue;
-            }
-            // 流式的 usage 通常只在最后一帧出现；每帧覆盖式合并，缺的维度保留上一次的值，
-            // 不用后来的 undefined 把已经报过的数抹掉。
-            const framed = readUsage(chunk.usage);
-            usage = validUsageDetails({
-              total: framed.total ?? usage.total,
-              prompt: framed.prompt ?? usage.prompt,
-              completion: framed.completion ?? usage.completion,
-              cacheInput: framed.cacheInput ?? usage.cacheInput, reasoningOutput: framed.reasoningOutput ?? usage.reasoningOutput,
-            });
-            const delta = chunk.choices?.[0]?.delta?.content;
-            if (typeof delta === "string" && delta !== "") {
-              text += delta;
-              await onDelta(delta, { messageId: finalMessageId });
+      // This adapter emits one assistant message per completion, unlike a tool graph.
+      // The same identity binds every streamed fragment to its final completion.
+      const finalMessageId = randomUUID();
+      let text = "";
+      let usage: ReportedUsage = {};
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      try {
+        for (;;) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          // issue #2104 —— **先归一化行尾，再找帧边界**。SSE 规范（WHATWG）允许行以
+          // CRLF / CR / LF 结束；上游一旦说 CRLF（任何基于 sse-starlette 的实现，其默认
+          // 分隔符就是 `\r\n`），真实帧分隔符是 `\r\n\r\n`——里面**不含** `\n\n` 子串。
+          // 下面那句 `indexOf("\n\n")` 于是一帧都切不出来：整条流被读完却零个事件被解析，
+          // 不抛错也不告警（HTTP 200、body 正常读完、reader 正常 done），流式静默降级成
+          // 一次性整段回复。这与 #2098 在 `deep-agent-model-provider.ts` 上的根因同形。
+          //
+          // ⚠ 今天这里没炸，只是因为现接的 OpenAI 兼容上游都发 LF——那是「只对一种方言
+          //   正确」，不是「正确」。#2098 那个 bug 能在一套**显式断言 token 级流式**的反证
+          //   套件下存活整年，正是因为所有替身都只说 LF。
+          //
+          // 归一化放在**每轮对整个剩余 buffer** 做，而不是只对本次 decode 的分片做：
+          // 一个 `\r\n` 可能被 TCP 分片从中间劈开（`\r` 落在上一片尾、`\n` 落在下一片头），
+          // 只归一化分片会漏掉它；对整个 buffer 重复归一化是幂等的，那个残留的 `\r` 会在
+          // 下一轮与新到的 `\n` 合并后被正确吃掉。
+          //
+          // 逐行解析那侧不需要动：`line.trim()` 本来就会吃掉行尾残留的 `\r`，坏掉的
+          // **只有帧边界**这一处。
+          buffer = (buffer + decoder.decode(value, { stream: true })).replace(/\r\n/g, "\n");
+          // SSE frames are separated by a blank line; a frame may still be incomplete at the
+          // end of `buffer` (the socket delivered a partial frame), so only fully-terminated
+          // ones are consumed here and the remainder stays for the next read.
+          let boundary = buffer.indexOf("\n\n");
+          while (boundary !== -1) {
+            const frame = buffer.slice(0, boundary);
+            buffer = buffer.slice(boundary + 2);
+            boundary = buffer.indexOf("\n\n");
+            for (const line of frame.split("\n")) {
+              const trimmed = line.trim();
+              if (!trimmed.startsWith("data:")) continue; // SSE comments/keep-alives: not data.
+              const payload = trimmed.slice("data:".length).trim();
+              if (payload === "[DONE]") continue;
+              let chunk: CompletionChunk;
+              try {
+                chunk = JSON.parse(payload) as CompletionChunk;
+              } catch {
+                // A malformed frame is a wire hiccup, not proof the whole call failed --
+                // `complete()` already treats "not JSON" as fatal for the ONE reply it gets;
+                // here one bad frame among dozens is not that same signal, so it is skipped.
+                continue;
+              }
+              // 流式的 usage 通常只在最后一帧出现；每帧覆盖式合并，缺的维度保留上一次的值，
+              // 不用后来的 undefined 把已经报过的数抹掉。
+              const framed = readUsage(chunk.usage);
+              usage = validUsageDetails({
+                total: framed.total ?? usage.total,
+                prompt: framed.prompt ?? usage.prompt,
+                completion: framed.completion ?? usage.completion,
+                cacheInput: framed.cacheInput ?? usage.cacheInput, reasoningOutput: framed.reasoningOutput ?? usage.reasoningOutput,
+              });
+              const delta = chunk.choices?.[0]?.delta?.content;
+              if (typeof delta === "string" && delta !== "") {
+                text += delta;
+                await onDelta(delta, { messageId: finalMessageId });
+              }
             }
           }
         }
+      } catch (e) {
+        if (e instanceof ModelCallError) throw new ModelCallError(e.code, e.detail, validUsageDetails({
+          total: e.usage?.total ?? usage.total, prompt: e.usage?.prompt ?? usage.prompt,
+          completion: e.usage?.completion ?? usage.completion,
+          cacheInput: e.usage?.cacheInput ?? usage.cacheInput, reasoningOutput: e.usage?.reasoningOutput ?? usage.reasoningOutput,
+        }));
+        // 同 `postCompletions`：只取枚举 token，`message` 不读。
+        throw new ModelCallError(
+          "MODEL_CALL_FAILED",
+          `model provider stream transport failure (${classifyTransportError(e)})`,
+          usage,
+        );
+      } finally {
+        await reader.cancel().catch(() => {});
+        reader.releaseLock();
       }
-    } catch (e) {
-      if (e instanceof ModelCallError) throw new ModelCallError(e.code, e.detail, validUsageDetails({
-        total: e.usage?.total ?? usage.total, prompt: e.usage?.prompt ?? usage.prompt,
-        completion: e.usage?.completion ?? usage.completion,
-        cacheInput: e.usage?.cacheInput ?? usage.cacheInput, reasoningOutput: e.usage?.reasoningOutput ?? usage.reasoningOutput,
-      }));
-      // 同 `postCompletions`：只取枚举 token，`message` 不读。
-      throw new ModelCallError(
-        "MODEL_CALL_FAILED",
-        `model provider stream transport failure (${classifyTransportError(e)})`,
-        usage,
-      );
-    }
 
-    return { text, finalMessageId, tokens: usage.total, promptTokens: usage.prompt, completionTokens: usage.completion, cacheInputTokens: usage.cacheInput, reasoningOutputTokens: usage.reasoningOutput };
+      return { text, finalMessageId, tokens: usage.total, promptTokens: usage.prompt, completionTokens: usage.completion, cacheInputTokens: usage.cacheInput, reasoningOutputTokens: usage.reasoningOutput };
+    });
   }
 }
