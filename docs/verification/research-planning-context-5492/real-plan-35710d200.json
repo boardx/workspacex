@@ -1,0 +1,44 @@
+{
+  "sha": "35710d200478b567b6c6081b146a87d5e24dc36e",
+  "startedAt": "2026-10-06T18:00:22.759Z",
+  "calls": [
+    {
+      "id": "f48836aa-71a2-43f5-b83c-edb4ccd8f53c",
+      "node": "brief",
+      "startedAt": "2026-10-06T18:00:22.766Z",
+      "inputChars": 198,
+      "outputChars": 38,
+      "providerSucceeded": true,
+      "durationMs": 1706,
+      "finishedAt": "2026-10-06T18:00:24.472Z"
+    },
+    {
+      "id": "d22a9db4-2e49-413b-8e4d-534f089c33df",
+      "node": "directions",
+      "startedAt": "2026-10-06T18:00:24.474Z",
+      "inputChars": 220,
+      "outputChars": 4817,
+      "providerSucceeded": true,
+      "durationMs": 52420,
+      "finishedAt": "2026-10-06T18:01:16.894Z"
+    },
+    {
+      "id": "487ccb74-c2b3-43e4-8f7e-8b9be529fa25",
+      "node": "outline",
+      "startedAt": "2026-10-06T18:01:16.896Z",
+      "inputChars": 5051,
+      "durationMs": 56344,
+      "finishedAt": "2026-10-06T18:02:13.240Z"
+    }
+  ],
+  "scope": "one real prepare_plan; in-memory persistence; no HTTP/browser/DB or report acceptance",
+  "finishedAt": "2026-10-06T18:02:13.243Z",
+  "totalMs": 110484,
+  "errorCode": "RESEARCH_PLAN_TIME_BUDGET_EXCEEDED",
+  "modelId": "qwen3.8-max",
+  "chapters": 0,
+  "directions": 6,
+  "scopePreserved": true,
+  "topicNamed": true,
+  "questions": 0
+}

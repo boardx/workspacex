@@ -1,0 +1,46 @@
+{
+  "sha": "48d906fa161295eeedee85b83b745d3deb5a970f",
+  "startedAt": "2026-10-06T20:39:21.610Z",
+  "calls": [
+    {
+      "id": "80e94d5a-cde5-44f9-b13d-4839313177d8",
+      "node": "brief",
+      "startedAt": "2026-10-06T20:39:21.619Z",
+      "inputChars": 198,
+      "outputChars": 38,
+      "providerSucceeded": true,
+      "durationMs": 1514,
+      "finishedAt": "2026-10-06T20:39:23.133Z"
+    },
+    {
+      "id": "ecc0715c-0a06-4dea-a492-096749e955ad",
+      "node": "directions",
+      "startedAt": "2026-10-06T20:39:23.134Z",
+      "inputChars": 220,
+      "outputChars": 2510,
+      "providerSucceeded": true,
+      "durationMs": 23113,
+      "finishedAt": "2026-10-06T20:39:46.247Z"
+    },
+    {
+      "id": "510bdc21-cfe7-4856-8224-16df29b8fccb",
+      "node": "outline",
+      "startedAt": "2026-10-06T20:39:46.251Z",
+      "inputChars": 2744,
+      "outputChars": 3904,
+      "providerSucceeded": true,
+      "durationMs": 34530,
+      "finishedAt": "2026-10-06T20:40:20.781Z"
+    }
+  ],
+  "scope": "one real prepare_plan; in-memory persistence; no HTTP/browser/DB or report acceptance",
+  "finishedAt": "2026-10-06T20:40:20.790Z",
+  "totalMs": 59180,
+  "errorCode": null,
+  "modelId": "qwen3.8-max",
+  "chapters": 5,
+  "directions": 5,
+  "scopePreserved": true,
+  "topicNamed": true,
+  "questions": 40
+}
