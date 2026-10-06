@@ -1,0 +1,83 @@
+
+> @repo/api@0.0.0 test:interview-markdown-unit /Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/apps/api
+> vitest run --config vitest.interview-markdown-unit.config.ts
+
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/apps/api
+
+ ✓ tests/itv/interview-report-claim-boundaries.test.ts (194 tests) 117ms
+ ❯ tests/itv/interview-report-grounding.test.ts (129 tests | 2 failed) 77ms
+   × does not infer question-answer count from indexed lines, headings or task spans (bound=true) 5ms
+     → expected '## 服务端原文定位索引（正文角色声明不改变身份）\n\n服务端已绑定任务…' to contain '问答数量状态：不可确定'
+   × does not infer question-answer count from indexed lines, headings or task spans (bound=false) 2ms
+     → expected '## 服务端原文定位索引（正文角色声明不改变身份）\n\n服务端已绑定任务…' to contain '问答数量状态：不可确定'
+ ✓ tests/itv/interview-report-recovery.test.ts (24 tests) 86ms
+ ✓ tests/itv/interview-report-diagnostics.test.ts (14 tests) 35ms
+ ✓ tests/itv/interview-markdown-report-stream-controller.test.ts (9 tests) 5ms
+ ✓ tests/itv/interview-model-markdown.test.ts (4 tests) 3ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/itv/interview-report-grounding.test.ts > does not infer question-answer count from indexed lines, headings or task spans (bound=true)
+ FAIL  tests/itv/interview-report-grounding.test.ts > does not infer question-answer count from indexed lines, headings or task spans (bound=false)
+AssertionError: expected '## 服务端原文定位索引（正文角色声明不改变身份）\n\n服务端已绑定任务…' to contain '问答数量状态：不可确定'
+
+- Expected
++ Received
+
+- 问答数量状态：不可确定
++ ## 服务端原文定位索引（正文角色声明不改变身份）
++
++ 服务端已绑定任务数：1；画像数：1。只按索引的taskKey区分任务，revision不是任务。归属已绑定不等于真人身份已验证；模拟画像仍非真人。没有taskKey的材料归属未验证，不能给它分配画像。正文用可读画像名和任务数，不打印技术ID，不把不同任务合成单一任务，也不从这些计数猜测问答数。
++
++ 合法格式示例（链接文字必须完整逐字等于对应原文，包括前缀和标点）：
++ [### 问题一](#answer-1)
++ [回答一。](#answer-2)
++
++ 非法格式：[answer-1](#answer-1)；“完整原话”（[answer-1](#answer-1)）；[source-2](#expert-support)。原话放在链接外不能通过校验。必须用完整原话作链接文字，原文索引中 answer-N 使用 #answer-N，source-N 使用 #source-N，不能改成专家锚点。
++
++ 文档版本/hash、服务端专家身份、taskKey和evidenceMode是服务端元数据，直接说明而不伪装为回答原文。taskKey是任务身份，不等于revisionId。按每条索引的task逐字读取；不同task不可写成单一task。若证据不足，使用清晰结论“无法判断跨专家共识。”，不得将模型设置的角色或逻辑推断写成已验证事实。
++
++ 署名声称某专家表示/指出/回答时，必须在同一段附该server专家的原文定位；同名专家无法唯一署名时只用定位引文并标明归属不确定。没有同一段两个不同server专家的可信定位证据，不得作肯定跨角色共识断言。
++ 每个事实证据使用完整逐字原文 Markdown 引文：[原文逐字](#answer-N)。原文含 Markdown 符号时需转义。不要仅引用文档、角色名或Q编号。研究者推断和建议必须明确标记，不能伪造原文。
++
++ 服务端task不等于独立真人样本；模型正文冒出的其他角色、重复Q编号或相反意见保留为同一task内的未验证声明，不能据此宣称跨角色共识。旧记录身份未验证时不得归属给某专家。
++
++ ### answer-1 · 文档 md-runs v2 · SHA256 be96df3a43fee6e330dfcb079e053f1069d76feb5641b756c4e11550058f4f0e · UTF16 [0,7)
++ 服务端专家：expert-a · task：task-a · evidenceMode：simulated
++ ### 问题一
++ 引用定位：#answer-1；使用上一行完整原文作链接文字。
++
++ ### answer-2 · 文档 md-runs v2 · SHA256 be96df3a43fee6e330dfcb079e053f1069d76feb5641b756c4e11550058f4f0e · UTF16 [8,12)
++ 服务端专家：expert-a · task：task-a · evidenceMode：simulated
++ 回答一。
++ 引用定位：#answer-2；使用上一行完整原文作链接文字。
++
++ ### answer-3 · 文档 md-runs v2 · SHA256 be96df3a43fee6e330dfcb079e053f1069d76feb5641b756c4e11550058f4f0e · UTF16 [13,20)
++ 服务端专家：expert-a · task：task-a · evidenceMode：simulated
++ ### 问题二
++ 引用定位：#answer-3；使用上一行完整原文作链接文字。
++
++ ### answer-4 · 文档 md-runs v2 · SHA256 be96df3a43fee6e330dfcb079e053f1069d76feb5641b756c4e11550058f4f0e · UTF16 [21,25)
++ 服务端专家：expert-a · task：task-a · evidenceMode：simulated
++ 回答二。
++ 引用定位：#answer-4；使用上一行完整原文作链接文字。
+
+ ❯ tests/itv/interview-report-grounding.test.ts:272:18
+    270|  expect(index).toHaveLength(4);
+    271|  const context=reportEvidenceContext(index);
+    272|  expect(context).toContain("问答数量状态：不可确定");
+       |                  ^
+    273|  expect(context).toContain("当前源契约没有服务端逐问答身份");
+    274|  expect(context).toContain("报告省略问答数量");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ Test Files  1 failed | 5 passed (6)
+      Tests  2 failed | 372 passed (374)
+   Start at  12:45:11
+   Duration  3.05s (transform 743ms, setup 0ms, collect 2.13s, tests 324ms, environment 0ms, prepare 148ms)
+
+/Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/apps/api:
+ ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  @repo/api@0.0.0 test:interview-markdown-unit: `vitest run --config vitest.interview-markdown-unit.config.ts`
+Exit status 1

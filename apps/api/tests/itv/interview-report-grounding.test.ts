@@ -262,3 +262,17 @@ it.each(["教师和校长均表示", "教师、校长都认为", "教师与校�
  const index = buildReportEvidenceIndex(source, labels);
  expect(validateReportEvidence(`${claim}：[服务端甲回答：支持电话。](#answer-1)`, index, labels).ok).toBe(false);
 });
+
+it.each([true,false])("does not infer question-answer count from indexed lines, headings or task spans (bound=%s)", bound => {
+ const text="### 问题一\n回答一。\n### 问题二\n回答二。";
+ const document={...source,markdown:text,contentHash:hash(text),answerSpans:bound?[{taskKey:"task-a",expertId:"expert-a",start:0,end:text.length,contentHash:hash(text)}]:[]};
+ const index=buildReportEvidenceIndex(document);
+ expect(index).toHaveLength(4);
+ const context=reportEvidenceContext(index);
+ expect(context).toContain("问答数量状态：不可确定");
+ expect(context).toContain("当前源契约没有服务端逐问答身份");
+ expect(context).toContain("报告省略问答数量");
+ expect(context).not.toContain("服务端已确认问答数：4");
+ expect(context).not.toContain("每个任务仅包含单次问答");
+ expect(context).toContain(bound?"服务端已绑定任务数：1；画像数：1":"服务端已绑定任务数：0；画像数：0");
+});
