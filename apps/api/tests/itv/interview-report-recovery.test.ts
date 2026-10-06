@@ -1,3 +1,4 @@
+import { REPORT_OUTCOME_GUIDANCE } from "../../src/application/interview/workflow/interview-report-outcome-guidance";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
@@ -40,6 +41,8 @@ describe("bounded report quality recovery", () => {
    snapshot.states=snapshot.states.map(state=>state.documentId===previous.documentId?{...state,status:"failed",failure:{code:"REPORT_GROUNDING_REJECTED",retryable:true}}:state);
   }else{snapshot.documents=snapshot.documents.filter(d=>d.step!=="report");snapshot.states=snapshot.states.filter(state=>state.documentId!==previous.documentId);}
   const before=structuredClone(snapshot);save.mockClear();complete.mockImplementationOnce(async request=>{
+   expect(request.system).toContain(REPORT_OUTCOME_GUIDANCE);
+   expect(request.user).toContain(REPORT_OUTCOME_GUIDANCE);
    expect(request.user).toContain("每条验证的结果解释就地列明所测指标、可支持的结论范围与尚未测得的结果");
    expect(request.user).toContain("任务完成时间、退出率及其与约束的相关性支持任务表现或待验证机制");
    expect(request.user).toContain("购买、暂缓或取消的实际变化以及对照条件与替代解释");
@@ -270,6 +273,8 @@ describe("bounded report quality recovery", () => {
   await generateInterviewMarkdown(deps(),input);
   expect(complete).toHaveBeenCalledTimes(2);
   for (const [request] of complete.mock.calls) {
+   expect(request.system).toContain(REPORT_OUTCOME_GUIDANCE);
+   expect(request.user).toContain(REPORT_OUTCOME_GUIDANCE);
    expect(request.system).toContain("事实证据、研究者推论、待验证方案");
    expect(request.system).toContain("频率、排名、成本量级和因果必然性");
    expect(request.system).toContain("不同场景的成功与失败属于情境差异");
