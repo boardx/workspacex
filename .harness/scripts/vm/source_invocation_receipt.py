@@ -197,9 +197,26 @@ def publish(path, raw):
     return {'path': str(path), 'sha256': sha(raw)}
 
 
+def fixture_authority(operation, identity, isolation, release):
+    # Import-only non-root fixtures cannot grant root production authority.
+    require(os.geteuid() != 0, 'INVOCATION_ROOT_REQUIRES_PROTECTED_AUTHORITY')
+    require(type(identity) is dict and set(identity) == {'sourceRevision', 'baselineRevision', 'migrationPlanSha256', 'attemptId'}, 'INVOCATION_EXPECTED_IDENTITY')
+    require(all(type(identity[k]) is str and re.fullmatch('[a-f0-9]{40}', identity[k]) for k in ('sourceRevision', 'baselineRevision')) and type(identity['migrationPlanSha256']) is str and re.fullmatch('[a-f0-9]{64}', identity['migrationPlanSha256']) and type(identity['attemptId']) is str and re.fullmatch('[A-Za-z0-9-]{1,32}', identity['attemptId']), 'INVOCATION_EXPECTED_IDENTITY')
+    from isolated_conservation_evidence_producer import FIXED_BASE
+    require(identity['baselineRevision'] == FIXED_BASE, 'INVOCATION_EXPECTED_BASELINE')
+    if operation == 'conservation':
+        require(type(isolation) is dict and set(isolation) == {'candidateSha', 'attemptId', 'targetInstanceId'} and isolation['candidateSha'] == identity['sourceRevision'] and all(type(isolation[k]) is str and re.fullmatch('[A-Za-z0-9-]{1,128}', isolation[k]) for k in ('attemptId', 'targetInstanceId')) and type(release) is str and re.fullmatch('[A-Za-z0-9][A-Za-z0-9._-]{0,127}', release), 'INVOCATION_EXPECTED_ISOLATION')
+    else:
+        require(operation == 'collection' and isolation is None and release is None, 'INVOCATION_OPERATION_AUTHORITY')
+    return {'identity': dict(identity), 'isolation': None if isolation is None else dict(isolation), 'release': release}
+
+
 def invoke(operation, binding, producer_id, input_reference, output_root,
-           source_sha256, executable_sha256, module_closure, executable_reference, timeout_seconds=30, *, local_fixture_root=None):
-    """Return actual receipt and refs. Caller still needs externally approved policy.
+           source_sha256, executable_sha256, module_closure, executable_reference, timeout_seconds=30, *, local_fixture_root=None, expected_identity=None, expected_isolation_binding=None, expected_release=None):
+    """Run explicit non-root fixtures only; root requires protected authority.
+
+    Production uses parent_source_invocation_receipt.record_production.
+    This fixture interface cannot grant production authority.
 
     Pins are independent source/executable review inputs, not authorization.
     Every file and non-root ancestor must match effective UID/GID (root in
@@ -210,6 +227,7 @@ def invoke(operation, binding, producer_id, input_reference, output_root,
     No caller can choose command, callback, PID, timestamps or exit outcome.
     """
     source_path(operation)
+    authority = fixture_authority(operation, expected_identity, expected_isolation_binding, expected_release)
     require(type(module_closure) is dict and set(module_closure) == set(MODULES), 'INVOCATION_FIXED_MODULE_CLOSURE')
     source = Path(module_closure['source_invocation_receipt']['path'])
     require(type(binding) is dict and type(binding.get('providerBindingSha256')) is str and re.fullmatch('[a-f0-9]{64}', binding['providerBindingSha256']), 'INVOCATION_PROVIDER_BINDING')
@@ -274,7 +292,7 @@ def invoke(operation, binding, producer_id, input_reference, output_root,
             process_start, namespaces, actual_exe = proc_identity(child)
             require(actual_exe == exe, 'INVOCATION_ACTUAL_EXECUTABLE')
             # Worker receives exact bytes through the owned pipe, not a callback path.
-            envelope = json.dumps({'input': json.loads(raw), 'inputReference': input_reference}, sort_keys=True, allow_nan=False).encode()
+            envelope = json.dumps({'input': json.loads(raw), 'inputReference': input_reference, 'expectedAuthority': authority}, sort_keys=True, allow_nan=False).encode()
             require(len(envelope) <= MAX_BYTES, 'INVOCATION_INPUT_LIMIT')
             child.stdin.write(envelope)
             child.stdin.close()
@@ -328,11 +346,16 @@ def owned_worker(operation, ready_fd):
     # All repository imports are resolved by the independently pinned FD finder.
     require(type(globals().get('PINNED_SOURCES')) is dict and set(PINNED_SOURCES) == set(MODULES), 'INVOCATION_FD_CLOSURE_REQUIRED')
     source_path(operation)
+    require(os.geteuid() != 0, 'INVOCATION_ROOT_REQUIRES_PROTECTED_AUTHORITY')
     os.write(ready_fd, b'R')
     os.close(ready_fd)
     raw = sys.stdin.buffer.read(MAX_BYTES + 1)
     require(len(raw) <= MAX_BYTES, 'INVOCATION_WORKER_INPUT_LIMIT')
     envelope = json.loads(raw)
+    require(type(envelope) is dict and set(envelope) == {'input', 'inputReference', 'expectedAuthority'}, 'INVOCATION_WORKER_ENVELOPE')
+    a = envelope['expectedAuthority']
+    require(type(a) is dict and set(a) == {'identity', 'isolation', 'release'}, 'INVOCATION_WORKER_AUTHORITY')
+    authority = fixture_authority(operation, a['identity'], a['isolation'], a['release'])
     refs = [envelope['inputReference']] + [PINNED_SOURCES[name] for name in MODULES if name != 'source_invocation_receipt']
 
     def reader(path, digest):
@@ -345,11 +368,11 @@ def owned_worker(operation, ready_fd):
     if operation == 'collection':
         from current_held_epoch_evidence_producer import produce
         # Complete raw ciphertext refs are still verified, never replayed.
-        output = produce(envelope['input'], reader=reader,
+        output = produce(envelope['input'], expected_identity=authority['identity'], reader=reader,
                          large_reader=lambda ref: [reader(ref['path'], ref['sha256'])])
     elif operation == 'conservation':
         from isolated_conservation_evidence_producer import produce
-        output = produce(envelope['input'], reader=reader)
+        output = produce(envelope['input'], reader=reader, expected_identity=authority['identity'], expected_isolation_binding=authority['isolation'], expected_release=authority['release'])
     else:
         raise ValueError('INVOCATION_OPERATION_UNSUPPORTED')
     sys.stdout.buffer.write(json.dumps({'output': output, 'inputs': refs}, sort_keys=True, separators=(',', ':'), allow_nan=False).encode())

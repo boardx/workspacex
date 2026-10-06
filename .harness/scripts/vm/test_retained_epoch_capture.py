@@ -12,7 +12,7 @@ class CaptureTests(unittest.TestCase):
  def setUp(self):
   self.root_patch=patch('retained_epoch_capture.EVIDENCE_ROOT',Path('/private'));self.root_patch.start();self.addCleanup(self.root_patch.stop)
   self.p,_=fixture();self.b={'identity':self.p['identity'],'toolRevision':self.p['toolRevision'],'host':{'instanceId':'i-uf6ga92ewloganobbln6','bootId':'12345678-1234-1234-1234-123456789012'},'epoch':'c'*64,'holdGeneration':'d'*32,'targetInstanceId':'pgm-isolated','providerBindingSha256':self.p['providerBindingSha256']};self.saved={}
-  actor=types.SimpleNamespace(plan={'holdGeneration':self.b['holdGeneration']},hold=lambda:None,observe=lambda:{'host':self.b['host'],'sourceActualObservation':True},assert_blocked=lambda actual:None,journal=types.SimpleNamespace(value={'events':[{'state':'held'}]}))
+  actor=types.SimpleNamespace(identity=self.b['identity'],plan={'holdGeneration':self.b['holdGeneration']},hold=lambda:None,observe=lambda:{'host':self.b['host'],'sourceActualObservation':True},assert_blocked=lambda actual:None,journal=types.SimpleNamespace(value={'events':[{'state':'held'}]}))
   host=CaptureRetainedBackupHost.__new__(CaptureRetainedBackupHost);host.actor=actor;host.plan=self.p;host.root=Path('/private/backup');host.permission_captures={db:{'facts':{'database':db},'scope':{}} for db in DATABASES};host.relays=[]
   self.result={'cleanupVerified':True,'currentEpochVerified':False,'databases':{}}
   for db in DATABASES:
