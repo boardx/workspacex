@@ -46,6 +46,7 @@ describe("bounded report quality recovery", () => {
   expect(repair.user).not.toContain("引用修复：对照服务端原文定位索引");
   expect(repair.user).not.toContain(wrong);
   expect(snapshot.documents.find(d=>d.step==="report")?.markdown).toBe(GOOD);
+ });
  it("requests report findings instead of copying forbidden writing-policy examples", async () => {
   complete.mockResolvedValue({text:GOOD});
   await generateInterviewMarkdown(deps(),input);
