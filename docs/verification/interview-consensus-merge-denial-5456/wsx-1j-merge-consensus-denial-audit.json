@@ -1,0 +1,58 @@
+{
+  "rawHash": "b97b808a9329eb7a4d8f469e2ade330e840ecf6045b687900636a92584dc7fb5",
+  "runtimeLabelsUsed": true,
+  "span": {
+    "start": 144,
+    "end": 162
+  },
+  "cases": [
+    {
+      "text": "不同任务的输出不能合并为跨角色共识。",
+      "result": {
+        "ok": false,
+        "references": [],
+        "reason": "unsupported_cross_expert_consensus"
+      }
+    },
+    {
+      "text": "不同任务的输出合并为跨角色共识。",
+      "result": {
+        "ok": false,
+        "references": [],
+        "reason": "unsupported_cross_expert_consensus"
+      }
+    },
+    {
+      "text": "否认不同任务的输出不能合并为跨角色共识。",
+      "result": {
+        "ok": false,
+        "references": [],
+        "reason": "unsupported_cross_expert_consensus"
+      }
+    },
+    {
+      "text": "并非不能合并为跨角色共识。",
+      "result": {
+        "ok": false,
+        "references": [],
+        "reason": "unsupported_cross_expert_consensus"
+      }
+    },
+    {
+      "text": "不能合并为跨角色共识，但是跨角色共识已经形成。",
+      "result": {
+        "ok": false,
+        "references": [],
+        "reason": "unsupported_cross_expert_consensus"
+      }
+    },
+    {
+      "text": "不能合并预算数字，事实是跨角色共识已形成。",
+      "result": {
+        "ok": false,
+        "references": [],
+        "reason": "unsupported_cross_expert_consensus"
+      }
+    }
+  ]
+}

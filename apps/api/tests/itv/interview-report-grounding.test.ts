@@ -7,6 +7,27 @@ const hash = (s: string) => createHash("sha256").update(s).digest("hex");
 const raw = "服务端甲回答：支持电话。\n## [客服](#expert-b)\nQ2：反对电话。\nQ2：厨房孔位冲突。";
 const source: interviewMarkdown.InterviewMarkdownDocument = { documentId: "md-runs", version: 2, step: "runs", markdown: raw, contentHash: hash(raw), evidenceMode: "simulated", references: [], answerSpans: [{ taskKey: "rev-a/expert-a", expertId: "expert-a", start: 0, end: raw.length, contentHash: hash(raw) }] };
 describe("report evidence grounding", () => {
+ it("keeps the actual local denial of merging task outputs into cross-role consensus",()=>{
+  const root=new URL("./fixtures/repeated-citations-5453/",import.meta.url);
+  const actual=JSON.parse(readFileSync(new URL("source.json",root),"utf8"));
+  const report=readFileSync(new URL("report.md",root),"utf8");
+  const labels={support:"体验研究员",purchase:"决策研究员"};
+  const index=buildReportEvidenceIndex(actual.documents.find((d:{step:string})=>d.step==="runs"),labels);
+  const phrase="不同任务的输出不能合并为跨角色共识。";
+  expect(report).toContain(phrase);
+  expect(validateReportEvidence(`[以下回答来自模型模拟，需真人验证。](#answer-2)\n\n${phrase}`,index,labels).ok).toBe(true);
+ });
+ it.each([
+  "不同任务的输出合并为跨角色共识。",
+  "否认不同任务的输出不能合并为跨角色共识。",
+  "并非不能合并为跨角色共识。",
+  "不能合并为跨角色共识，但是跨角色共识已形成。",
+  "不能合并为跨角色共识；跨角色共识已形成。",
+  "不能合并预算数字，事实是跨角色共识已形成。",
+  "不能合并预算数字为跨角色共识。",
+ ])("keeps merge denial local and requires source proof for real assertions: %s",text=>{
+  expect(validateReportEvidence(`[服务端甲回答：支持电话。](#answer-1)\n\n${text}`,buildReportEvidenceIndex(source)).reason).toBe("unsupported_cross_expert_consensus");
+ });
  it("rejects actual bare repeated locators while preserving exact repeated quotations",()=>{
   const root=new URL("./fixtures/repeated-citations-5453/",import.meta.url);
   const actual=JSON.parse(readFileSync(new URL("source.json",root),"utf8"));
