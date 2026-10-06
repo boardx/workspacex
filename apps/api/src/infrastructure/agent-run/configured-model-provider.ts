@@ -388,8 +388,8 @@ export function classifyTransportError(err: unknown): string {
 function transportFailure(error: unknown, deadlineExpired = false): ModelProviderFailure {
   try {
     const token = classifyTransportError(error);
-    if (deadlineExpired || ["UND_ERR_HEADERS_TIMEOUT", "UND_ERR_BODY_TIMEOUT", "UND_ERR_CONNECT_TIMEOUT", "ETIMEDOUT"].includes(token)) return { kind: "timeout" };
-    if (token === "ABORTED" || token === "UND_ERR_ABORTED") return { kind: "abort" };
+    if (["UND_ERR_HEADERS_TIMEOUT", "UND_ERR_BODY_TIMEOUT", "UND_ERR_CONNECT_TIMEOUT", "ETIMEDOUT"].includes(token)) return { kind: "timeout" };
+    if (token === "ABORTED" || token === "UND_ERR_ABORTED") return { kind: deadlineExpired ? "timeout" : "abort" };
     return { kind: token === "UNCLASSIFIED" ? "unknown" : "transport" };
   } catch { return { kind: "unknown" }; }
 }
@@ -553,12 +553,13 @@ export class ConfiguredModelProvider implements ModelCallPort {
     // AbortSignal 保留：它管的是整通调用的 wall-clock 上限，与 headersTimeout /
     // bodyTimeout（「多久没有新字节」）互补，不是同一件事，删掉任何一个都会留下缺口。
     const abort = new AbortController();
+    const callerSignal = input.signal;
     let deadlineExpired = false;
-    const timer = setTimeout(() => { deadlineExpired = true; abort.abort(); }, timeoutMs + ABORT_GRACE_MS);
+    const timer = setTimeout(() => { deadlineExpired = !callerSignal?.aborted; abort.abort(); }, timeoutMs + ABORT_GRACE_MS);
     try {
       const options = {
         method: "POST",
-        signal: input.signal ? AbortSignal.any([abort.signal, input.signal]) : abort.signal,
+        signal: callerSignal ? AbortSignal.any([abort.signal, callerSignal]) : abort.signal,
         dispatcher: this.dispatcher(),
         headers: {
           "content-type": "application/json",

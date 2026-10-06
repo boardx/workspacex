@@ -232,6 +232,13 @@ describe("full response deadline", () => {
     expect(closed).toBe(true);
   });
 
+  it("retains caller-abort classification when a slow delta consumer outlasts the owned deadline",async()=>{
+    const controller=new AbortController();
+    const base=await startServer((_req,res)=>{res.writeHead(200,{"content-type":"text/event-stream"});res.write('data: {"choices":[{"delta":{"content":"partial"}}]}\n\n');});
+    const provider=makeProvider({baseUrl:base,timeoutMs:100,streamEnabled:true});
+    const error=await provider.completeStream!({modelProvider:PROVIDER,modelId:MODEL_ID,system:"s",user:"u",signal:controller.signal},async()=>{controller.abort();await new Promise(resolve=>setTimeout(resolve,2300));}).then(()=>null,e=>e);
+    expect(error).toBeInstanceOf(ModelCallError);expect(error.providerFailure).toEqual({kind:"abort"});
+  },10000);
   it("rejects a disconnected body while preserving already delivered content", async () => {
     const base = await startServer((_req, res) => {
       res.writeHead(200, { "content-type": "text/event-stream" });
