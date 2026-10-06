@@ -31,10 +31,10 @@ class ChannelTests(unittest.TestCase):
   from cn_backup_channel import mutation_table
   from test_cn_backup_package import fixture
   from unittest.mock import patch
-  p,scope=fixture();frozen=mutation_table(p,scope)
+  p,scope=fixture();frozen=mutation_table(p,scope,expected_identity=p['identity'])
   with patch('cn_backup_package.time.time',return_value=p['authorization']['expiresAt']+1):
-   self.assertEqual(mutation_table(p,scope,cleanup_only=True),frozen)
-   with self.assertRaisesRegex(RuntimeError,'LEASE'):mutation_table(p,scope)
+   self.assertEqual(mutation_table(p,scope,cleanup_only=True,expected_identity=p['identity']),frozen)
+   with self.assertRaisesRegex(RuntimeError,'LEASE'):mutation_table(p,scope,expected_identity=p['identity'])
 
  def test_term_resistant_owned_channel_is_killed_joined_and_pipes_closed(self):
   channel=BackupChannel.__new__(BackupChannel);channel.process=ResistantProcess()

@@ -3,9 +3,9 @@ import hashlib,json,os,pathlib,stat,re
 from host_transport import private
 from writer_fence import require
 APP='9b25bfa65662b96c0826fe67506b562ea46aa6d0'
-def publish_receipt(identity,lane,value):
-    require(os.geteuid()==0 and lane in ('canonical','browser','services') and identity['sourceRevision']==APP and re.fullmatch('[A-Za-z0-9-]{1,128}',identity['attemptId']) and value['identity']==identity,'RECEIPT_STORAGE_SCOPE')
-    path=pathlib.Path(f"/etc/workspacex-cn/maintenance-acceptance/{APP}/{identity['attemptId']}/{lane}.json")
+def publish_receipt(identity,lane,value,*,expected_identity):
+    require(os.geteuid()==0 and lane in ('canonical','browser','services') and identity==expected_identity and re.fullmatch('[a-f0-9]{40}',identity['sourceRevision']) and re.fullmatch('[A-Za-z0-9-]{1,128}',identity['attemptId']) and value['identity']==identity,'RECEIPT_STORAGE_SCOPE')
+    path=pathlib.Path(f"/etc/workspacex-cn/maintenance-acceptance/{identity['sourceRevision']}/{identity['attemptId']}/{lane}.json")
     require('..' not in path.parts and '/' not in identity['attemptId'],'RECEIPT_STORAGE_PATH')
     # Deployment prepares the private attempt directory; storage cannot create
     # production configuration trees or follow symlink parents.

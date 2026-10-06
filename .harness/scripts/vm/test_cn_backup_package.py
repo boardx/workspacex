@@ -20,22 +20,22 @@ def fixture():
 
 class BackupPackageTests(unittest.TestCase):
  def test_fixed_no_secret_commands_and_preserved_acl(self):
-  p,o=fixture();sql=compile_role_sql(p,o)
+  p,o=fixture();sql=compile_role_sql(p,o,expected_identity=p['identity'])
   self.assertIn('NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE',sql['create'])
   self.assertIn('BYPASSRLS CONNECTION LIMIT 1',sql['create'])
   self.assertIn('PASSWORD NULL NOBYPASSRLS',sql['close'])
   all_sql=str(sql);self.assertNotIn('PUBLIC',all_sql);self.assertNotIn('CASCADE',all_sql)
   self.assertNotIn('DROP ',all_sql);self.assertNotIn('DEFAULT PRIVILEGES',all_sql)
-  cmd=dump_command(p,DATABASES[0],'wsx-backup-'+'a'*32,'b'*32)
+  cmd=dump_command(p,DATABASES[0],'wsx-backup-'+'a'*32,'b'*32,expected_identity=p['identity'])
   self.assertIn('--pull=never',cmd);self.assertIn('--network=host',cmd)
   self.assertIn('--serializable-deferrable',cmd[-1]);self.assertIn('default_transaction_read_only=on',cmd[-1])
   self.assertNotIn('--enable-row-security',cmd[-1]);self.assertNotIn('--jobs',cmd[-1])
-  self.assertNotIn('key.pem',str(encrypt_command(p)))
+  self.assertNotIn('key.pem',str(encrypt_command(p,expected_identity=p['identity'])))
 
  def test_exact_object_quoting_and_scope(self):
   p,o=fixture();o[DATABASES[0]]['tables'][0]['name']='quoted"table';p['objectScopeSha256']=digest(o)
-  self.assertIn('"quoted""table"',compile_role_sql(p,o)['grants'][DATABASES[0]])
-  o[DATABASES[0]]['tables'][0]['name']='new';self.assertRaisesRegex(RuntimeError,'SCOPE_DRIFT',compile_role_sql,p,o)
+  self.assertIn('"quoted""table"',compile_role_sql(p,o,expected_identity=p['identity'])['grants'][DATABASES[0]])
+  o[DATABASES[0]]['tables'][0]['name']='new';self.assertRaisesRegex(RuntimeError,'SCOPE_DRIFT',compile_role_sql,p,o,expected_identity=p['identity'])
 
  def test_authorization_and_input_faults_before_mutation(self):
   faults=[lambda p:p['authorization'].pop('publicCapabilityApprovalSha256'),
@@ -47,11 +47,11 @@ class BackupPackageTests(unittest.TestCase):
           lambda p:p['authorization'].update(ecsInstanceId='other')]
   for fault in faults:
    p,o=fixture();fault(p)
-   with self.subTest(fault=fault),self.assertRaises((RuntimeError,KeyError,TypeError)):validate(p)
+   with self.subTest(fault=fault),self.assertRaises((RuntimeError,KeyError,TypeError)):validate(p,expected_identity=p['identity'])
 
  def test_large_objects_require_new_exact_scope(self):
   p,o=fixture();o[DATABASES[0]]['largeObjects']=[123];p['objectScopeSha256']=digest(o)
-  self.assertRaisesRegex(RuntimeError,'LARGE_OBJECT_SCOPE_REQUIRED',compile_role_sql,p,o)
+  self.assertRaisesRegex(RuntimeError,'LARGE_OBJECT_SCOPE_REQUIRED',compile_role_sql,p,o,expected_identity=p['identity'])
 
  def run_case(self,fault=None):
   p,o=fixture();calls=[];events=[]
@@ -84,7 +84,7 @@ class BackupPackageTests(unittest.TestCase):
    events.append(state)
    if fault=='journal-cleanup' and state=='backup-cleanup-intent':raise OSError('fixture full disk')
   journal=types.SimpleNamespace(record=record)
-  executor=BackupLease(p,host,journal)
+  executor=BackupLease(p,host,journal,expected_identity=p['identity'])
   if fault:
    with self.assertRaises(RuntimeError):executor.run()
   else:
@@ -109,9 +109,9 @@ class BackupPackageTests(unittest.TestCase):
 
  def test_exact_existing_recipient_pair_is_accepted_but_paths_cannot_swap(self):
   p,_=fixture();p['recipientCertificate']['path']='/etc/workspacex-cn/rehearsal/backup-recipient.pem';p['recipientKey']['path']='/etc/workspacex-cn/rehearsal/keys/backup-key.pem'
-  validate(p)
+  validate(p,expected_identity=p['identity'])
   p['recipientKey']['path']=p['recipientCertificate']['path']
-  self.assertRaises(RuntimeError,validate,p)
+  self.assertRaises(RuntimeError,validate,p,expected_identity=p['identity'])
 
  def test_foreign_role_not_modified(self):
   calls,events=self.run_case('existing-role');self.assertNotIn('create',calls);self.assertNotIn('cleanup',calls)
@@ -142,3 +142,17 @@ print('workspacex|wsx_release_backup_ro|on')
   calls,events=self.run_case('cleanup');self.assertNotIn('backup-cleanup-verified',events)
 
 if __name__=='__main__':unittest.main()
+
+class GenericBackupIdentityTests(unittest.TestCase):
+ def test_exact_new_candidate_and_distinct_tool(self):
+  p,_=fixture();approved=dict(p['identity'],sourceRevision='a1cb4c7683768566b0cf38ffe6a27b0a8c13f4f0')
+  p['identity']=dict(approved);p['authorization']['identity']=dict(approved)
+  self.assertEqual(validate(p,expected_identity=approved),approved)
+  self.assertNotEqual(p['toolRevision'],approved['sourceRevision'])
+ def test_missing_or_wrong_authority_does_not_admit_request(self):
+  p,o=fixture();approved=dict(p['identity']);p['identity']=dict(approved,sourceRevision='a'*40);p['authorization']['identity']=dict(p['identity'])
+  with self.assertRaisesRegex(RuntimeError,'FIXED_IDENTITY'):validate(p,expected_identity=approved)
+  with self.assertRaises(TypeError):validate(p)
+  with self.assertRaisesRegex(RuntimeError,'FIXED_IDENTITY'):compile_role_sql(p,o,expected_identity=approved)
+  with self.assertRaisesRegex(RuntimeError,'FIXED_IDENTITY'):dump_command(p,DATABASES[0],'wsx-backup-'+'a'*32,'b'*32,expected_identity=approved)
+  with self.assertRaisesRegex(RuntimeError,'FIXED_IDENTITY'):encrypt_command(p,expected_identity=approved)

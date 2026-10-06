@@ -23,9 +23,14 @@ def fidelity(proof,b,database):
  for key in ('backupReceiptSha256','ciphertextSha256'):
   if not re.fullmatch('[a-f0-9]{64}',proof.get(key,'')):reject('ARCHIVE_HASH_REQUIRED')
 
-def produce(payload,reader=private_bytes):
+def produce(payload,reader=private_bytes,*,expected_identity,expected_isolation_binding,expected_release):
  b=validate_binding(payload['binding'])
- if b['candidateSha']!=FIXED_APP or payload.get('baselineSha')!=FIXED_BASE or payload.get('release')!=FIXED_RELEASE:reject('FIXED_RELEASE_IDENTITY')
+ if type(expected_identity) is not dict or set(expected_identity)!={'sourceRevision','baselineRevision','migrationPlanSha256','attemptId'}:reject('CONSERVATION_AUTHORITY_IDENTITY')
+ if type(expected_isolation_binding) is not dict or set(expected_isolation_binding)!={'candidateSha','attemptId','targetInstanceId'}:reject('CONSERVATION_CHILD_AUTHORITY')
+ if any(type(expected_identity[k]) is not str or not re.fullmatch('[a-f0-9]{40}',expected_identity[k]) for k in ('sourceRevision','baselineRevision')) or type(expected_identity['migrationPlanSha256']) is not str or not re.fullmatch('[a-f0-9]{64}',expected_identity['migrationPlanSha256']):reject('CONSERVATION_AUTHORITY_IDENTITY')
+ if expected_identity['baselineRevision']!=FIXED_BASE or type(expected_identity['attemptId']) is not str or not re.fullmatch('[A-Za-z0-9-]{1,32}',expected_identity['attemptId']):reject('CONSERVATION_AUTHORITY_IDENTITY')
+ if type(expected_release) is not str or not re.fullmatch('[A-Za-z0-9][A-Za-z0-9._-]{0,127}',expected_release):reject('CONSERVATION_RELEASE_AUTHORITY')
+ if expected_isolation_binding['candidateSha']!=expected_identity['sourceRevision'] or any(b[k]!=expected_isolation_binding[k] for k in expected_isolation_binding) or payload.get('baselineSha')!=expected_identity['baselineRevision'] or payload.get('release')!=expected_release:reject('FIXED_RELEASE_IDENTITY')
  refs=payload['stageReceipts']
  if set(refs)!=set(STAGES):reject('COMPLETE_STAGE_SET_REQUIRED')
  collected={};nested={};snapshot_hashes={}
@@ -53,7 +58,7 @@ def produce(payload,reader=private_bytes):
     elif not re.fullmatch('[a-f0-9]{64}',proof.get('ciphertextSha256','')):reject('SNAPSHOT_HASH_REQUIRED')
     else:snapshot_hashes[database]=proof['ciphertextSha256']
   collected[stage]=refs[stage]['sha256'];nested[stage]=proofs
- result={'schemaVersion':1,'kind':'isolated-conservation-evidence-collection','attemptId':b['attemptId'],'targetInstanceId':b['targetInstanceId'],'candidateSha':b['candidateSha'],'baselineSha':payload['baselineSha'],'release':payload['release'],'stageReceiptSha256':collected,'nestedProofSha256':nested,'collectionVerified':True,'qualified':False,'prepared':False,'fullReady':False}
+ result={'schemaVersion':1,'kind':'isolated-conservation-evidence-collection','attemptId':b['attemptId'],'targetInstanceId':b['targetInstanceId'],'candidateSha':b['candidateSha'],'baselineSha':payload['baselineSha'],'release':payload['release'],'parentIdentity':dict(expected_identity),'migrationPlanSha256':expected_identity['migrationPlanSha256'],'stageReceiptSha256':collected,'nestedProofSha256':nested,'collectionVerified':True,'qualified':False,'prepared':False,'fullReady':False}
  result['receiptSha256']=hashlib.sha256(json.dumps(result,sort_keys=True,separators=(',',':')).encode()).hexdigest()
  return result
 

@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 # Validate and persist one exact, root-protected CN release preflight receipt.
 set -euo pipefail
+# Git location/config overrides cannot redirect the protected checkout authority.
+unset GIT_DIR GIT_WORK_TREE GIT_COMMON_DIR GIT_INDEX_FILE GIT_CONFIG GIT_CONFIG_COUNT GIT_CONFIG_PARAMETERS GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES
+export GIT_CONFIG_NOSYSTEM=1 GIT_CONFIG_GLOBAL=/dev/null GIT_NO_REPLACE_OBJECTS=1 GIT_NO_LAZY_FETCH=1
 operational=0
 admission_flag=--operational
 source_admission_flag=--operational-source
@@ -27,6 +30,9 @@ if [[ "$phase" == artifact-build ]]; then
   identity_phase=prebuild
 fi
 REPOSITORY_DIR=/opt/workspacex-cn/repository
+if [[ "$phase" == artifact-build ]]; then
+  REPOSITORY_DIR=$(python3 /usr/local/lib/workspacex-cn/cn-build-tool-identity.py --verify-build-checkout "$CN_BUILD_TOOL_BINDING" "$revision" "$release" "$attempt_id" prebuild) || exit 1
+fi
 INPUT_ROOT=/etc/workspacex-cn/preflights
 RECEIPT_ROOT=/var/lib/workspacex-cn/preflight-receipts
 LOCK_FILE=/var/lib/workspacex-cn/runtime/release.lock
@@ -63,7 +69,8 @@ install -d -o root -g root -m 0700 "$RECEIPT_ROOT" "$RECEIPT_ROOT/$revision" "$r
 # fail while the parent holds flock, otherwise the receipt is rejected.
 [[ "$(readlink "/proc/$PPID/fd/9" 2>/dev/null || true)" == "$LOCK_FILE" ]] \
   || fail "caller does not expose the canonical release lock"
-exec 8>"$LOCK_FILE"
+[[ -f "$LOCK_FILE" && ! -L "$LOCK_FILE" && "$(stat -c '%u:%g:%a:%h' "$LOCK_FILE")" == 0:0:600:1 ]] || fail "canonical release lock is not protected"
+exec 8<>"$LOCK_FILE"
 if flock -n 8; then
   flock -u 8
   fail "canonical release lock is not held by the caller"

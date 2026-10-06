@@ -371,7 +371,7 @@ class CandidateStageHost:
             need(ref['path']==expected and ref['sha256']==profile['filesSha256'].get(source),'CANDIDATE_EPOCH_INSTALLED_SOURCE_PIN')
             source_pins[source]=dict(path=expected,sha256=ref['sha256'])
         code_authority=q.QualificationCodeAuthority(source_pins,entry['executablePins'])
-        verified=q.verify_existing_qualification(p,reader,entry['sourcePolicy'],code_authority=code_authority)
+        verified=q.verify_existing_qualification(p,reader,entry['sourcePolicy'],expected_identity=self.host.plan['identity'],expected_release=q.approved_release(profile,self.host.plan['identity'],private),code_authority=code_authority)
         need(verified['epoch']==refs['manifest'],'CANDIDATE_EPOCH_MANIFEST_HASH')
         acceptance=self.host.plan['acceptanceEvidence']
         acceptance_raw=private(acceptance['path']);actual=json.loads(acceptance_raw)

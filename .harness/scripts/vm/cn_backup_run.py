@@ -48,7 +48,7 @@ def run(reference):
  require(h['journalDirectory']==directory,'BACKUP_RUN_JOURNAL_PATH')
  journal=Journal(directory,h['identity']);host=None
  try:
-  host=BackupHost(reference);receipt=BackupLease(h['backup'],host,journal).run()
+  host=BackupHost(reference);receipt=BackupLease(h['backup'],host,journal,expected_identity=host.expected_identity).run()
   require(receipt['productionReleaseReady'] is False and receipt['currentEpochVerified'] is False,'BACKUP_RUN_SCOPE')
   return receipt
  finally:

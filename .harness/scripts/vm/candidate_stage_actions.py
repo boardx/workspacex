@@ -42,9 +42,9 @@ def safe_inspection(containers):
         HostConfig=dict(NetworkMode=c['HostConfig']['NetworkMode'])) for c in containers]
 
 
-def prepare(inputs,source=None,reader=private_bytes):
+def prepare(inputs,source=None,reader=private_bytes,*,expected_identity):
     exact(inputs,('identity','toolRevision','host','epoch','holdGeneration','manifest','compose'),'CANDIDATE_STAGE_INPUT_SCHEMA')
-    bound=binding(inputs)
+    bound=binding(inputs,expected_identity=expected_identity)
     methods=('require_lock','observe_hold','observe_admission','observe_baseline','verify_frozen_compose',
              'run_docker','inspect_stage','verify_stage_configuration','record_stage_intent')
     require(source is not None and all(callable(getattr(source,k,None)) for k in methods),'CANDIDATE_STAGE_SOURCE_TRANSPORT_REQUIRED')
@@ -139,9 +139,9 @@ def start_paused(inputs,source=None):
     raise RuntimeError('CANDIDATE_STAGE_ATOMIC_START_PAUSED_NOT_IMPLEMENTED')
 
 
-def held_readback(inputs,source=None,reader=private_bytes):
+def held_readback(inputs,source=None,reader=private_bytes,*,expected_identity):
     exact(inputs,('identity','toolRevision','host','epoch','holdGeneration','expectedReadbackRef'),'CANDIDATE_HELD_READBACK_INPUT_SCHEMA')
-    bound=binding(inputs)
+    bound=binding(inputs,expected_identity=expected_identity)
     require(source is not None and all(callable(getattr(source,k,None)) for k in
         ('require_lock','observe_hold','observe_admission','retained_diagnostic_binding','retained_query','verify_expected_readback')),
         'CANDIDATE_HELD_READBACK_TRANSPORT_REQUIRED')

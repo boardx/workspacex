@@ -119,14 +119,14 @@ class MaintenanceSourceOperations:
     authority=q.QualificationCodeAuthority(pins,entry['executablePins'])
     if action=='verify-qualified-current-epoch':require(self.qualified is not None,'SOURCE_EPOCH_VERIFY_BEFORE_QUALIFICATION')
     consumer=q.verify_existing_qualification if action=='verify-qualified-current-epoch' else q.qualify
-    result=consumer(p,reader,entry['sourcePolicy'],code_authority=authority);reader.finish()
+    result=consumer(p,reader,entry['sourcePolicy'],expected_identity=self.host.plan['identity'],expected_release=q.approved_release(self.profile,self.host.plan['identity'],self.read),code_authority=authority);reader.finish()
     if self.qualified is not None:require(result==self.qualified,'SOURCE_EPOCH_QUALIFICATION_DRIFT')
     self.qualified=result;self.qualification_input=copy.deepcopy(p);value=self.qualified
    elif action=='held-candidate-readback':
     require(self.qualified is not None,'SOURCE_READBACK_BEFORE_QUALIFICATION')
     from candidate_stage_host import CandidateStageHost
     from candidate_stage_actions import held_readback
-    value=held_readback(data,CandidateStageHost(self.host,self.journal))
+    value=held_readback(data,CandidateStageHost(self.host,self.journal),expected_identity=self.host.plan['identity'])
    elif action=='stage-candidate-and-seal':
     require(self.qualified is not None and 'held-candidate-readback' in self.finished and set(data)=={'prepare','producer'},'SOURCE_CANDIDATE_STAGE_ORDER')
     from candidate_stage_host import CandidateStageHost
@@ -137,7 +137,7 @@ class MaintenanceSourceOperations:
     require(all(data['prepare'][k]==bound[k] for k in bound),'SOURCE_CANDIDATE_CAPTURE_BINDING')
     require(type(data['producer']) is dict and set(data['producer'])=={*bound,'refs'} and
             all(data['producer'][k]==bound[k] for k in bound),'SOURCE_CANDIDATE_PRODUCER_BINDING')
-    source=CandidateStageHost(self.host,self.journal);prepare(data['prepare'],source)
+    source=CandidateStageHost(self.host,self.journal);prepare(data['prepare'],source,expected_identity=self.host.plan['identity'])
     # Capture/runtime evidence uses the semantic epoch; the immutable candidate
     # stage and final candidate plan bind the qualified manifest byte hash.
     stage_bound=copy.deepcopy(bound);stage_bound['epoch']=self.qualified['epoch']['sha256']
@@ -146,21 +146,21 @@ class MaintenanceSourceOperations:
     inputs=copy.deepcopy(data['producer']);require(all(inputs[k]==bound[k] for k in bound),'SOURCE_CANDIDATE_PRODUCER_BINDING')
     inputs['refs'].update(template=template,epochManifest=self.qualified['epoch'],
                          epochInput=self.qualification_input['collectionInput'],epochCollection=self.qualification_input['collection'],**late)
-    wrapper=produce(inputs,source)
+    wrapper=produce(inputs,source,expected_identity=self.host.plan['identity'])
     path='/etc/workspacex-cn/maintenance-candidate/'+identity['sourceRevision']+'/'+identity['attemptId']+'/candidate-plan.json'
     self.candidate=write_candidate(path,wrapper);value={'reference':self.candidate,'stageSnapshot':snapshot}
    else:
     require(self.candidate is not None and candidate_actor is not None and candidate_actor.reference==self.candidate,'SOURCE_CANONICAL_CANDIDATE_BINDING')
     if action=='canonical-candidate-acceptance':
      from candidate_canonical_acceptance import persist_candidate_canonical_receipt
-     value={'receipt':persist_candidate_canonical_receipt(candidate_actor.transport,data)}
+     value={'receipt':persist_candidate_canonical_receipt(candidate_actor.transport,data,expected_identity=self.host.plan['identity'])}
     elif action=='browser-candidate-acceptance':
      from candidate_browser_acceptance import persist_candidate_browser_receipt
-     value={'receipt':persist_candidate_browser_receipt(candidate_actor.transport,data)}
+     value={'receipt':persist_candidate_browser_receipt(candidate_actor.transport,data,expected_identity=self.host.plan['identity'])}
     elif action=='read-public-candidate-identity':
      from opened_service_health import collect_service_health
      require(set(data)=={'deploymentMarker'},'SOURCE_PUBLIC_MARKER_INPUT')
-     proof=collect_service_health(candidate_actor.transport,data['deploymentMarker'])
+     proof=collect_service_health(candidate_actor.transport,data['deploymentMarker'],expected_identity=self.host.plan['identity'])
      value=dict(sourceRevision=identity['sourceRevision'],deploymentMarker=proof['deploymentMarker'],trustworthy=True)
     else:
      from opened_host_evidence import collect_opened_host_evidence
@@ -169,7 +169,7 @@ class MaintenanceSourceOperations:
      binding=dict(identity=identity,deploymentMarker=data['deploymentMarker'],
                   canonicalReceipt=self.finished['canonical-candidate-acceptance']['receipt'],
                   browserReceipt=self.finished['browser-candidate-acceptance']['receipt'])
-     proof=collect_opened_host_evidence(candidate_actor.transport,binding)
+     proof=collect_opened_host_evidence(candidate_actor.transport,binding,expected_identity=self.host.plan['identity'])
      value=dict(identity=identity,deploymentMarker=proof['deploymentMarker'],holdPresent=False,**proof['queue'],
                 failedOwnedRuns=sum(r['status']!='succeeded' for r in proof['ownedRuns']),
                 unhealthyServices=sum(status!='healthy' for status in proof['services'].values()))
