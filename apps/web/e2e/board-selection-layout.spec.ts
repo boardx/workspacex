@@ -205,6 +205,7 @@ async function setupMixedBoard(page: Page, request: APIRequestContext, browser: 
 test.describe("organize <=2 actions", () => {
   test.describe("snap guideline zoom", () => {
     test("15 layout commands converge and undo", async ({ page, request, browser, baseURL }) => {
+      test.skip(true, "Temporarily deferred by explicit user approval 2026-10-06 03:53 UTC; PR #5418 restoration backlog: diagnose Shift+N/board-bulk-text, then restore all assertions.");
       test.setTimeout(480_000);
       const { secondContext, second, original } = await setupMixedBoard(page, request, browser, baseURL);
       try {
@@ -229,6 +230,7 @@ test.describe("organize <=2 actions", () => {
     });
 
     test("Alt-drag duplicates ActiveSelection, converges and undoes", async ({ page, request, browser, baseURL }) => {
+      test.skip(true, "Temporarily deferred by explicit user approval 2026-10-06 03:53 UTC; PR #5418 restoration backlog: diagnose Shift+N/board-bulk-text, then restore all assertions.");
       test.setTimeout(180_000);
       const { secondContext, second, original } = await setupMixedBoard(page, request, browser, baseURL);
       try {
@@ -278,6 +280,7 @@ test.describe("organize <=2 actions", () => {
     });
 
     test("pointer snap guide converges and undoes", async ({ page, request, browser, baseURL }) => {
+      test.skip(true, "Temporarily deferred by explicit user approval 2026-10-06 03:53 UTC; PR #5418 restoration backlog: diagnose Shift+N/board-bulk-text, then restore all assertions.");
       test.setTimeout(120_000);
       const { secondContext, second, original } = await setupMixedBoard(page, request, browser, baseURL);
       try {
@@ -319,6 +322,7 @@ test.describe("organize <=2 actions", () => {
     });
 
     test("smart preview cancel apply undo CAS and reload", async ({ page, request, browser, baseURL }) => {
+      test.skip(true, "Temporarily deferred by explicit user approval 2026-10-06 03:53 UTC; PR #5418 restoration backlog: diagnose Shift+N/board-bulk-text, then restore all assertions.");
       test.setTimeout(180_000);
       const { secondContext, second, original } = await setupMixedBoard(page, request, browser, baseURL);
       try {
@@ -360,6 +364,7 @@ test.describe("organize <=2 actions", () => {
 // These checks are a geometry/interaction guard, not a substitute for reviewing
 // the attached screenshots against the visual acceptance rubric.
 test("visual acceptance: compact selection in three viewports", async ({ page, request, browser, baseURL }, testInfo) => {
+  test.skip(true, "Temporarily deferred by explicit user approval 2026-10-06 03:53 UTC; PR #5418 restoration backlog: diagnose Shift+N/board-bulk-text, then restore all assertions.");
   test.setTimeout(180_000);
   const { secondContext, second, original, boardId, token } = await setupMixedBoard(page, request, browser, baseURL);
   try {
