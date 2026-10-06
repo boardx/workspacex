@@ -1,0 +1,45 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/apps/api
+
+ ❯ tests/itv/interview-report-claim-boundaries.test.ts (203 tests | 2 failed) 135ms
+   × finite report claim boundaries > keeps the observed immediate automatic-proof denial: 不自动证明设备无固有缺陷。 4ms
+     → expected { ok: false, …(1) } to deeply equal { ok: true, missing: [] }
+   × finite report claim boundaries > keeps the observed immediate automatic-proof denial: **反例比较**：安装顺利的场景与冲突场景属于情境差异，不自动证明设备无固有缺陷，也不证明冲突场景的风险已消除。 1ms
+     → expected { ok: false, …(1) } to deeply equal { ok: true, missing: [] }
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/itv/interview-report-claim-boundaries.test.ts > finite report claim boundaries > keeps the observed immediate automatic-proof denial: 不自动证明设备无固有缺陷。
+ FAIL  tests/itv/interview-report-claim-boundaries.test.ts > finite report claim boundaries > keeps the observed immediate automatic-proof denial: **反例比较**：安装顺利的场景与冲突场景属于情境差异，不自动证明设备无固有缺陷，也不证明冲突场景的风险已消除。
+AssertionError: expected { ok: false, …(1) } to deeply equal { ok: true, missing: [] }
+
+- Expected
++ Received
+
+  Object {
+-   "missing": Array [],
+-   "ok": true,
++   "missing": Array [
++     "unqualified_defect_exclusion",
++   ],
++   "ok": false,
+  }
+
+ ❯ tests/itv/interview-report-claim-boundaries.test.ts:62:48
+     60|   "**反例比较**：安装顺利的场景与冲突场景属于情境差异，不自动证明设备…
+     61|  ])("keeps the observed immediate automatic-proof denial: %s", text =>…
+     62|   expect(assessReportClaimBoundaries(text,[])).toEqual({ok:true,missin…
+       |                                                ^
+     63|  });
+     64|  it.each([
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 201 passed (203)
+   Start at  14:57:35
+   Duration  874ms (transform 421ms, setup 0ms, collect 634ms, tests 135ms, environment 0ms, prepare 23ms)
+
+undefined
+/Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run --config vitest.interview-markdown-unit.config.ts tests/itv/interview-report-claim-boundaries.test.ts

@@ -54,6 +54,9 @@ function qualifiedDefectExclusion(clause: string, start: number, end: number): b
   // Denying the absence of defects is not a positive defect exclusion.
   if (/(?:并非|不是)\s*(?:不存在|没有|不含|并无|无)/u.test(predicate)) return true;
   if (/否认|否定|不是(?!说)|并非|不会|不可能|不能不|不可不|不得不|而(?:要|应|是)|却/u.test(before)) return false;
+  // Immediate denial of automatic proof is uncertainty, not a defect exclusion.
+  if (/不自动证明设备\s*$/u.test(before)
+    || (/不自动证明\s*$/u.test(before) && /^产品无固有缺陷$/u.test(predicate))) return true;
   if (/^(?:安装风险|安装问题|产品)?(?:没有|无)证据排除/u.test(predicate)) return true;
   if (/^排除(?:了)?/u.test(predicate) && /(?:尚未|未能|没有证据)\s*$/u.test(before)) return true;
   return qualified(clause,start,end)

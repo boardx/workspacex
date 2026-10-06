@@ -1,0 +1,42 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/apps/api
+
+ ❯ tests/itv/interview-report-claim-boundaries.test.ts (207 tests | 1 failed) 133ms
+   × finite report claim boundaries > keeps the observed immediate automatic-proof denial: 不自动证明产品无固有缺陷。 4ms
+     → expected { ok: false, …(1) } to deeply equal { ok: true, missing: [] }
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/itv/interview-report-claim-boundaries.test.ts > finite report claim boundaries > keeps the observed immediate automatic-proof denial: 不自动证明产品无固有缺陷。
+AssertionError: expected { ok: false, …(1) } to deeply equal { ok: true, missing: [] }
+
+- Expected
++ Received
+
+  Object {
+-   "missing": Array [],
+-   "ok": true,
++   "missing": Array [
++     "unqualified_defect_exclusion",
++   ],
++   "ok": false,
+  }
+
+ ❯ tests/itv/interview-report-claim-boundaries.test.ts:63:48
+     61|   "**反例比较**：安装顺利的场景与冲突场景属于情境差异，不自动证明设备…
+     62|  ])("keeps the observed immediate automatic-proof denial: %s", text =>…
+     63|   expect(assessReportClaimBoundaries(text,[])).toEqual({ok:true,missin…
+       |                                                ^
+     64|  });
+     65|  it.each([
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 206 passed (207)
+   Start at  14:59:02
+   Duration  834ms (transform 402ms, setup 0ms, collect 600ms, tests 133ms, environment 0ms, prepare 22ms)
+
+undefined
+/Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run --config vitest.interview-markdown-unit.config.ts tests/itv/interview-report-claim-boundaries.test.ts
