@@ -1,0 +1,27 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/apps/api
+
+ ❯ tests/agent-runtime/configured-model-provider-timeout.test.ts (5 tests | 1 failed) 5559ms
+   ✓ #1611 configured model provider timeouts + transport error classification > T1: headersTimeout 取自 config.timeoutMs（上游永不回响应头 ⇒ 按配置的 1.5s 失败，不是 undici 默认 300s） 2027ms
+   × full response deadline > bounds heartbeat-only SSE after headers without emitting content 3513ms
+     → expected null to be an instance of ModelCallError
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/agent-runtime/configured-model-provider-timeout.test.ts > full response deadline > bounds heartbeat-only SSE after headers without emitting content
+AssertionError: expected null to be an instance of ModelCallError
+ ❯ tests/agent-runtime/configured-model-provider-timeout.test.ts:182:19
+    180|     const started = Date.now();
+    181|     const error = await provider.completeStream!({ modelProvider: PROV…
+    182|     expect(error).toBeInstanceOf(ModelCallError);
+       |                   ^
+    183|     expect(error.detail).toContain("ABORTED");
+    184|     expect(Date.now() - started).toBeLessThan(3_000);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 4 passed (5)
+   Start at  12:22:59
+   Duration  6.42s (transform 438ms, setup 0ms, collect 741ms, tests 5.56s, environment 0ms, prepare 30ms)
+
