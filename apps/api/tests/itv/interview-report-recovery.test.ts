@@ -123,6 +123,29 @@ describe("bounded report quality recovery", () => {
   expect(complete).toHaveBeenCalledTimes(1);expect(save).not.toHaveBeenCalled();expect(snapshot).toEqual(before);
  });
 
+ it.each([false,true].flatMap(existing=>["反例的存在表明，该冲突并非设备固有缺陷的必然结果，而是特定空间条件下的情境差异。","不同物理环境带来的情境异质性。"].map(claim=>({existing,claim}))))("gives an actual defect/scenario gap precise source-based repair guidance ($existing: $claim)",async ({existing,claim})=>{
+  const wrong=GOOD+"\n\n"+claim;
+  const repaired=GOOD+"\n\n该冲突由设备固有缺陷导致的可能性尚未排除；特定空间条件只是待验证的并存解释。";
+  if(existing){
+   snapshot.documents.push({documentId:"md-report",step:"report",version:1,markdown:wrong,contentHash:createHash("sha256").update(wrong).digest("hex"),evidenceMode:"simulated",references:[]});
+   snapshot.states.push({documentId:"md-report",status:"failed",failure:{code:"REPORT_QUALITY_REJECTED",retryable:true}});
+   complete.mockResolvedValueOnce({text:repaired});
+  }else complete.mockResolvedValueOnce({text:wrong}).mockResolvedValueOnce({text:repaired});
+  await generateInterviewMarkdown(deps(),{...input,expectedDocumentVersion:existing?1:0});
+  const request=complete.mock.calls[existing?0:1]![0];
+  expect(request.user).toContain("缺陷归因修复");
+  expect(request.user).toContain("未排除的并存解释");
+  expect(request.user).toContain("不能由一次成功反例确认空间条件是原因");
+  expect(request.user).toContain("不复述本段修复规则");
+  expect(complete).toHaveBeenCalledTimes(existing?1:2);
+  expect(snapshot.documents.find(d=>d.step==="report")?.markdown).toBe(repaired);
+  expect(snapshot.states.find(s=>s.documentId==="md-report")?.status).toBe("draft");
+ });
+ it("does not send defect-exclusion repair guidance for an unrelated analysis gap",async()=>{
+  complete.mockResolvedValueOnce({text:BAD}).mockResolvedValueOnce({text:GOOD});
+  await generateInterviewMarkdown(deps(),input);
+  expect(complete.mock.calls[1]![0].user).not.toContain("缺陷归因修复");
+ });
  it.each([false, true])("passes actual evidence-strength rejection to bounded repair (existing failure: %s)", async (existing) => {
   const wrong = GOOD + "\n\n安装问题最常见且必然阻止采购。";
   if (existing) {

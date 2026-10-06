@@ -10,7 +10,7 @@ import { GuidedRuntimeService, initialRuntime } from "../../src/application/rese
 import { ResearchRuntimeError, type GuidedRuntimeStore, type RuntimeCommand } from "../../src/application/research/guided-runtime-ports";
 import { toOrgId } from "../../src/domain/org-id";
 import { recordResearchFailure, recordSourceRelevanceFailure } from "../../src/application/research/guided-runtime-diagnostics";
-import { parseSourceRelevanceJson, screenResearchSources } from "../../src/application/research/guided-source-relevance";
+import { parseSourceRelevanceJson, screenResearchSources, sourceRelevanceResponseSchema } from "../../src/application/research/guided-source-relevance";
 import { ModelCallError } from "../../src/application/agent-run/ports";
 
 function fixture() {
@@ -54,6 +54,7 @@ describe("traceable research execution failures", () => {
   it("distinguishes a persisted model failure result from a rejected execution", async () => {
     const f = fixture();
     const result = await f.service.execute(f.actor, f.session, { ...f.command, action: "message", message: "Synthetic revision" }, undefined, f.traceId);
+    expect((f.model.complete.mock.calls as unknown as unknown[][])[0]![0]).not.toHaveProperty("responseSchema");
     expect(result.errorCode).toBe("RESEARCH_WORKFLOW_UNAVAILABLE");
     expect(result.busy).toBe(false);
     expect(result.reportCheckpoint).toEqual(f.saved);
@@ -153,6 +154,16 @@ describe("safe source relevance validation diagnostics", () => {
     expect(result.sources).toEqual(sources);
     expect(result.reportTimeline).toEqual([]);
     expect(model.complete).toHaveBeenCalledTimes(2);
+    const inputs = model.complete.mock.calls as unknown as [{ responseSchema?: { name: string; policy: string; schema: { required: string[]; properties: { evaluations: { items: { properties: { matches: { items: { required: string[]; properties: Record<string, unknown> } } } } } } } } }][];
+    for (const [input] of inputs) {
+      expect(input.responseSchema).toBe(sourceRelevanceResponseSchema);
+      expect(input.responseSchema).toMatchObject({ name: "source_relevance", policy: "strict-if-supported" });
+      expect(input.responseSchema!.schema.required).toContain("evaluations");
+      const match = input.responseSchema!.schema.properties.evaluations.items.properties.matches.items;
+      expect(match.required).toContain("quoteRef"); expect(match.properties).not.toHaveProperty("quote");
+    }
+
+
     expect(f.record).toHaveBeenCalledTimes(3);
     const terminal = f.record.mock.calls.map(([event]) => event).filter(event => event.kind === "research.runtime.failed");
     expect(terminal).toHaveLength(1);
@@ -318,5 +329,34 @@ describe("per-call relevance diagnostic privacy boundary", () => {
     const unreadable = Object.defineProperty(new ResearchRuntimeError("RESEARCH_SOURCE_RELEVANCE_INVALID"), "issues", { get() { throw new Error("PRIVATE_GETTER_SECRET"); } });
     expect(() => recordSourceRelevanceFailure({ record } as unknown as DebugTracePort, { sessionId: "session", callId: "call" }, unreadable)).not.toThrow();
     expect(record).toHaveBeenCalledTimes(1);
+  });
+});
+
+
+describe("structured source schema preserves local evidence authority", () => {
+  it.each(["negative", "wrong-question", "wrong-reference"] as const)("keeps %s output under the original strict gate and finite attempts", async kind => {
+    const f = fixture();
+    f.state.currentNode = "research"; f.state.availableNodes = ["brief", "directions", "outline", "research"];
+    f.state.outline = [{ id: "section", title: "Grid", questions: ["Policy?"], order: 0, enabled: true }];
+    f.state.tasks = [{ id: "task", sectionId: "section", query: "Grid policy", status: "succeeded", attempts: 1, errorCode: null }];
+    f.state.sources = [{ id: "source", taskId: "task", title: "Grid", url: "https://example.org", content: "Synthetic grid policy.", retrievedAt: "now", decision: "accepted" }];
+    const model = { complete: vi.fn(async (input: { user: string; responseSchema?: unknown }) => {
+      expect(input.responseSchema).toBe(sourceRelevanceResponseSchema);
+      const context = JSON.parse(input.user);
+      return { text: JSON.stringify({ evaluations: context.chunks.map((chunk: { sourceId: string; chunkId: string; questionIds: string[]; quoteOptions: { quoteRef: string }[] }) => ({
+        sourceId: chunk.sourceId, chunkId: chunk.chunkId, irrelevant: kind === "negative", matches: kind === "negative" ? [] : [{
+          questionId: kind === "wrong-question" ? "not-an-allowed-question" : chunk.questionIds[0],
+          quoteRef: kind === "wrong-reference" ? "foreign-chunk#quote:0" : chunk.quoteOptions[0]!.quoteRef,
+          insight: "Controlled evidence", relevance: "direct",
+        }],
+      })) }) };
+    }) };
+    const service = new GuidedRuntimeService(f.store, model, { search: vi.fn(async () => []) }, { provider: "test", id: "test" }, model, f.access);
+    const result = await service.execute(f.actor, f.session, { ...f.command, node: "research", action: "complete" });
+    expect(result).toMatchObject({ currentNode: "research", completed: false, busy: false });
+    expect(result.errorCode).toBe(kind === "negative" ? "RESEARCH_TASKS_INCOMPLETE" : "RESEARCH_SOURCE_RELEVANCE_INVALID");
+    expect(model.complete).toHaveBeenCalledTimes(kind === "negative" ? 1 : 2);
+    expect(result.modelCalls.every(call => call.status === (kind === "negative" ? "succeeded" : "failed"))).toBe(true);
+    expect(result.sources).toEqual(kind === "negative" ? [] : f.state.sources);
   });
 });

@@ -978,6 +978,9 @@ export interface ModelCallImage {
 export interface ModelResponseSchema {
   readonly name: string;
   readonly schema: Record<string, unknown>;
+  /** Trusted call policy; only a documented adapter/model/endpoint capability
+   * may enforce this independently of the deployment's legacy schema flag. */
+  readonly policy?: "strict-if-supported";
 }
 
 export interface ModelCallInput {
@@ -997,8 +1000,9 @@ export interface ModelCallInput {
   /**
    * #3749 B1.4：要求模型输出恰好符合这份 JSON schema。OPTIONAL——只有开启了
    * `KERNEL_MODEL_JSON_SCHEMA=1` 的 `ConfiguredModelProvider` 会把它作为 `response_format`
-   * 发出（Ollama / llama.cpp 用语法约束解码，不再靠 prompt-and-parse）；其余 provider 与未开
-   * 开关的部署忽略它，请求逐字节不变。
+   * 发出（Ollama / llama.cpp 用语法约束解码，不再靠 prompt-and-parse）。可信逐调用
+   * strict-if-supported 策略仅在明确支持的 adapter/model/endpoint 上独立生效；
+   * 其余 provider 与未开开关且无支持策略的部署忽略它，请求逐字节不变。
    */
   readonly responseSchema?: ModelResponseSchema;
   /**
