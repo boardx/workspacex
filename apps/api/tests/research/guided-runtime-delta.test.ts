@@ -59,6 +59,40 @@ it("streams changed snapshots and does not resend report text after token deltas
 });
 
 
+it("streams research metadata once per change and hydrates source bodies only in the final result", async () => {
+  const { GuidedResearchController } = await import("../../src/interface/controllers/guided-research.controller");
+  const { vi } = await import("vitest");
+  const source = { id: "source", taskId: "task", title: "Evidence", url: "https://example.org/evidence", content: "REAL_SOURCE_BODY".repeat(1000), retrievedAt: "now", decision: "accepted" as const };
+  const busy = { ...state, version: 3, currentNode: "research" as const, busy: true, sources: [source] };
+  const changed = { ...busy, sources: [{ ...source, title: "Updated evidence" }] };
+  const final = { ...changed, busy: false };
+  const execute = vi.fn(async (_scope, _session, _command, send) => {
+    send({ type: "snapshot", state: busy });
+    send({ type: "snapshot", state: { ...busy, leaseUntil: "later" } });
+    send({ type: "snapshot", state: changed });
+    send({ type: "snapshot", state: { ...changed, sources: [] } });
+    send({ type: "snapshot", state: changed });
+    send({ type: "result", state: final });
+  });
+  const controller = new GuidedResearchController({} as never, {} as never, {} as never, {} as never, {} as never, { execute } as never);
+  vi.spyOn(controller as never, "current" as never).mockResolvedValue({} as never);
+  const frames: string[] = [];
+  const response = { setHeader: vi.fn(), flushHeaders: vi.fn(), on: vi.fn(), off: vi.fn(), end: vi.fn(), write: (frame: string) => frames.push(frame), writableLength: 0, destroyed: false };
+  await controller.streamRuntime({ userId: "u", orgId: "org" as never }, "s", { requestId: "r", expectedVersion: 2, node: "research", action: "start", knownFields: fingerprints() }, response as never, {} as never);
+  const events = frames.map(frame => C.GuidedResearchRuntimeStreamEvent.parse(JSON.parse(frame.slice(6))));
+  for (const event of events.slice(0, -1)) {
+    expect(event.type).toBe("patch");
+    expect(JSON.stringify(event)).not.toContain("REAL_SOURCE_BODY");
+    if (event.type === "patch") expect(event.state.changes).not.toHaveProperty("sources");
+  }
+  expect(events[0]).toMatchObject({ state: { research: { sources: [{ id: "source", title: "Evidence" }] } } });
+  expect(events[1]).not.toHaveProperty("state.research");
+  expect(events[2]).toMatchObject({ state: { research: { sources: [{ title: "Updated evidence" }] } } });
+  expect(events[3]).toMatchObject({ state: { research: { sources: [] } } });
+  expect(events.at(-1)).toMatchObject({ type: "result_patch", state: { changes: { sources: final.sources, busy: false } } });
+  expect(JSON.stringify(events.slice(0, -1)).length).toBeLessThan(4000);
+});
+
 it("keeps polling compact even when field fingerprints are supplied", async () => {
   const { GuidedResearchController } = await import("../../src/interface/controllers/guided-research.controller");
   const { vi } = await import("vitest");
