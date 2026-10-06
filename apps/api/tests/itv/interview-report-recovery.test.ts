@@ -31,6 +31,23 @@ beforeEach(() => {
  });
 });
 describe("bounded report quality recovery", () => {
+ it.each([false,true])("keeps original plan identity and explicit numerical design assumptions (saved: %s)",async savedFailure=>{
+  snapshot=JSON.parse(readFileSync(new URL("./fixtures/action-design-provenance-5454/source.json",import.meta.url),"utf8"));
+  const previous=snapshot.documents.find(d=>d.step==="report")!;const raw=previous.markdown;
+  if(!savedFailure){snapshot.documents=snapshot.documents.filter(d=>d.step!=="report");snapshot.states=snapshot.states.filter(s=>s.documentId!==previous.documentId);}
+  const before=structuredClone(snapshot);save.mockClear();complete.mockImplementationOnce(async request=>{
+   expect(request.user).toContain("已有验证计划保持原文的行动对象、比较单位与执行状态");
+   expect(request.user).toContain("新提出的任务细化另列为研究者设计，说明待确认的依据");
+   expect(request.user).toContain("数值参数区分原文已给定参数与新设计假设");
+   expect(request.user).toContain("统计判断说明比较目标、分析方法、预期差异、变异及误差容忍");
+   expect(request.user).toContain("缺少这些信息时将样本量和判断阈值列为待设计参数");
+   expect(request.user).toContain("公开合成回答：未来计划访谈五位用户，比较两种任务方案，记录任务完成时间和中途退出原因，再决定投入。这是计划，尚未执行。");
+   expect(request.user).not.toContain(raw);
+   throw new ModelCallError("MODEL_CALL_FAILED","controlled inspection stops before provider dispatch");
+  });
+  await expect(generateInterviewMarkdown(deps(),{...input,interviewId:snapshot.interviewId,expectedVersion:snapshot.version,expectedDocumentVersion:savedFailure?previous.version:0})).rejects.toThrow("AI_GENERATION_UNAVAILABLE");
+  expect(complete).toHaveBeenCalledTimes(1);expect(save).not.toHaveBeenCalled();expect(snapshot).toEqual(before);
+ });
  it.each([false,true])("uses actual confirmed-source observation scope for initial and saved report requests (saved: %s)",async savedFailure=>{
   snapshot=JSON.parse(readFileSync(resolve(process.cwd(),"../../docs/verification/interview-source-fact-scope-5443/wsx-5441-round1i-source.json"),"utf8"));
   const previous=snapshot.documents.find(d=>d.step==="report")!;

@@ -1,0 +1,7 @@
+# Future action design provenance (issue 5454)
+
+Actual1j source/report full bytes are preserved in fixture action-design-provenance-5454. A source future plan says compare two task plans; report narrows this to installation plans [2436,2444). The proposed action presents at least 30 inquiry records as a prerequisite to statistical significance [2683,2694) without an inference design. Source includes neither specification. Whole original remains semantic FAIL. String absence alone is not the review oracle: original entire source and report were read.
+
+Positive responsibilities: retain original plan object/comparison unit/execution state; present proposed refinements as a separate researcher design awaiting confirmation. Separate source-given parameters from proposed assumptions. Match numerical inference to target/method/difference/variation/error tolerance; leave missing parameters for design and propose information-gathering next steps. No blacklist, fixed report paragraph, source/raw/CAS/validator/call-budget changes.
+
+Actual-source initial/saved request controls stop before provider, preserve full source/raw/state/version and require exact original plan in context. RED2 then GREEN397; typecheck0. These establish guidance, not actual model compliance, not a numerical-statistics oracle or whole-report PASS. Requires real source/report semantic acceptance after exact review. Stack base independently reviewed PR5449.
