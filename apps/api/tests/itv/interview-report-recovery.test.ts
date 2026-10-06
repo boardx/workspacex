@@ -63,13 +63,6 @@ describe("bounded report quality recovery", () => {
   previous.markdown=original+"\n\n安装问题最常见。";
   previous.contentHash=createHash("sha256").update(previous.markdown).digest("hex");
   const candidate=original+"\n\n预算必然阻止采购。";
- it("excludes historical prose plus an unsupported affirmative consensus from recovery input and rejects the candidate",async()=>{
-  snapshot=JSON.parse(readFileSync(resolve(process.cwd(),"../../docs/verification/interview-source-regeneration-5430/source.json"),"utf8"));
-  const previous=snapshot.documents.find(document=>document.step==="report")!;
-  // The coordinated denial is now valid; retain the historical body and add a genuinely unsupported positive claim.
-  previous.markdown+="\n跨专家共识已经形成。";
-  previous.contentHash=createHash("sha256").update(previous.markdown).digest("hex");
-  const candidate=previous.markdown;
   complete.mockResolvedValue({text:candidate});
   await expect(generateInterviewMarkdown(deps(),{...input,interviewId:snapshot.interviewId,expectedVersion:snapshot.version,expectedDocumentVersion:previous.version})).rejects.toThrow("AI_GENERATION_UNAVAILABLE");
   expect(complete).toHaveBeenCalledTimes(1);
