@@ -36,7 +36,7 @@ flowchart TD
   class S2 done
   class S3 done
   class S4 tested
-  %% evidence S4: web-tests.log / api-tests.log / contracts-tests.log / browser-results.json
+  %% evidence S4: web-tests.txt / api-tests.txt / contracts-tests.txt / browser-results.json
   class S5 doing
 ```
 

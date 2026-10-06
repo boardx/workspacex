@@ -1,0 +1,10 @@
+
+ RUN  v2.1.9 /private/tmp/wsx-chat-board-insert-20261006/packages/contracts
+
+ ✓ tests/whiteboard-operation.test.ts (4 tests) 4ms
+
+ Test Files  1 passed (1)
+      Tests  4 passed (4)
+   Start at  23:55:40
+   Duration  182ms (transform 37ms, setup 0ms, collect 45ms, tests 4ms, environment 0ms, prepare 26ms)
+

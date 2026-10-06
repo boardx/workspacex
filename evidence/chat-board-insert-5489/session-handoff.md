@@ -1,6 +1,6 @@
 # 当前已验证
 
-见 progress.md、web-tests.log、api-tests.log、contracts-tests.log、browser-results.json 及 placement-*.png。初始化 ./init.sh 快速路径通过。隔离工作树 /private/tmp/wsx-chat-board-insert-20261006，分支 codex/chat-board-insert-preview；用户原始工作区未修改业务文件。
+见 progress.md、web-tests.txt、api-tests.txt、contracts-tests.txt、browser-results.json 及 placement-*.png。初始化 ./init.sh 快速路径通过。隔离工作树 /private/tmp/wsx-chat-board-insert-20261006，分支 codex/chat-board-insert-preview；用户原始工作区未修改业务文件。
 
 # 本轮改动
 
