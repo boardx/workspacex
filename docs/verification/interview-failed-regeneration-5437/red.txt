@@ -1,0 +1,258 @@
+
+> @repo/api@0.0.0 test:interview-markdown-unit /Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/apps/api
+> vitest run --config vitest.interview-markdown-unit.config.ts
+
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/apps/api
+
+ ✓ tests/itv/interview-report-claim-boundaries.test.ts (194 tests) 156ms
+ ❯ tests/itv/interview-report-recovery.test.ts (28 tests | 4 failed) 123ms
+   × saved report recovery > regenerates a qualified historical failed body once before allowing normal reuse 6ms
+     → expected "spy" to be called 1 times, but got 0 times
+   × saved report recovery > does not promote a qualified failed body when no provider is configured 10ms
+     → promise resolved "{ interviewId: 'itv-recovery', …(6) }" instead of rejecting
+   × saved report recovery > preserves qualified failed bytes and version when the single recovery provider call fails 4ms
+     → promise resolved "{ interviewId: 'itv-recovery', …(6) }" instead of rejecting
+   × saved report source safety > does not convert a failed candidate to success when CAS rejects its recovery 3ms
+     → expected "spy" to be called 1 times, but got 0 times
+ ✓ tests/itv/interview-report-grounding.test.ts (129 tests) 76ms
+ ✓ tests/itv/interview-report-diagnostics.test.ts (14 tests) 42ms
+ ✓ tests/itv/interview-markdown-report-stream-controller.test.ts (9 tests) 5ms
+ ✓ tests/itv/interview-model-markdown.test.ts (4 tests) 3ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 4 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/itv/interview-report-recovery.test.ts > saved report recovery > regenerates a qualified historical failed body once before allowing normal reuse
+AssertionError: expected "spy" to be called 1 times, but got 0 times
+ ❯ tests/itv/interview-report-recovery.test.ts:219:20
+    217|   save.mockClear(); complete.mockClear(); complete.mockResolvedValue({…
+    218|   const recovered = await generateInterviewMarkdown(deps(),{...input,e…
+    219|   expect(complete).toHaveBeenCalledTimes(1); expect(save).toHaveBeenCa…
+       |                    ^
+    220|   expect(recovered.documents.find(d=>d.step==="report")).toMatchObject…
+    221|   await generateInterviewMarkdown(deps(),{...input,expectedVersion:9,e…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/4]⎯
+
+ FAIL  tests/itv/interview-report-recovery.test.ts > saved report recovery > does not promote a qualified failed body when no provider is configured
+AssertionError: promise resolved "{ interviewId: 'itv-recovery', …(6) }" instead of rejecting
+
+- Expected
++ Received
+
+- [Error: rejected promise]
++ Object {
++   "documents": Array [
++     Object {
++       "contentHash": "5196e166524a90981d898e0f8b8e23e9ecd195cb1446db0d6ac3228e047f7c5c",
++       "documentId": "md-runs",
++       "evidenceMode": "simulated",
++       "markdown": "## [甲](#expert-a)
++ 反对电话。
++ ## [乙](#expert-b)
++ 支持电话。",
++       "references": Array [],
++       "step": "runs",
++       "version": 1,
++     },
++     Object {
++       "contentHash": "f20769e1df7e50037ea96fdd28462c899b98bcce77807bbf46755eec7302351c",
++       "documentId": "md-report",
++       "evidenceMode": "simulated",
++       "markdown": "# 探索性结论
++
++ 证据：[反对电话。](#answer-2) 与 [支持电话。](#answer-4)；旧记录角色归属未验证。
++
++ 跨回答综合：两位专家意见相反，应分层验证而非多数表决。
++ 决策影响：应优先验证客户偏好，暂缓统一渠道。
++ 边界与反例：仅模拟角色，不代表真人证据。
++ 建议行动：P0：用独立真人任务验证渠道假设，以完成时长和再次进线率为指标。",
++       "references": Array [
++         Object {
++           "anchor": "source-1",
++           "documentId": "md-runs",
++           "version": 1,
++         },
++         Object {
++           "anchor": "answer-2",
++           "documentId": "md-runs",
++           "locator": Object {
++             "end": 23,
++             "evidenceMode": "simulated",
++             "expertId": null,
++             "quote": "反对电话。",
++             "sourceHash": "5196e166524a90981d898e0f8b8e23e9ecd195cb1446db0d6ac3228e047f7c5c",
++             "start": 18,
++             "taskKey": null,
++           },
++           "version": 1,
++         },
++         Object {
++           "anchor": "answer-4",
++           "documentId": "md-runs",
++           "locator": Object {
++             "end": 47,
++             "evidenceMode": "simulated",
++             "expertId": null,
++             "quote": "支持电话。",
++             "sourceHash": "5196e166524a90981d898e0f8b8e23e9ecd195cb1446db0d6ac3228e047f7c5c",
++             "start": 42,
++             "taskKey": null,
++           },
++           "version": 1,
++         },
++       ],
++       "step": "report",
++       "version": 2,
++     },
++   ],
++   "execution": null,
++   "interviewId": "itv-recovery",
++   "review": null,
++   "revisionId": "rev-recovery",
++   "states": Array [
++     Object {
++       "documentId": "md-runs",
++       "failure": null,
++       "status": "completed",
++     },
++     Object {
++       "documentId": "md-report",
++       "failure": null,
++       "status": "draft",
++     },
++   ],
++   "version": 9,
++ }
+
+ ❯ tests/itv/interview-report-recovery.test.ts:227:137
+    225|   await save({expectedVersion:7,expectedDocumentVersion:0,markdown:GOO…
+    226|   save.mockClear(); complete.mockClear(); const previous = structuredC…
+    227|   await expect(generateInterviewMarkdown({...deps(),modelProvider:"",m…
+       |                                                                                                                                         ^
+    228|   expect(complete).not.toHaveBeenCalled(); expect(save).not.toHaveBeen…
+    229|  });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/4]⎯
+
+ FAIL  tests/itv/interview-report-recovery.test.ts > saved report recovery > preserves qualified failed bytes and version when the single recovery provider call fails
+AssertionError: promise resolved "{ interviewId: 'itv-recovery', …(6) }" instead of rejecting
+
+- Expected
++ Received
+
+- [Error: rejected promise]
++ Object {
++   "documents": Array [
++     Object {
++       "contentHash": "5196e166524a90981d898e0f8b8e23e9ecd195cb1446db0d6ac3228e047f7c5c",
++       "documentId": "md-runs",
++       "evidenceMode": "simulated",
++       "markdown": "## [甲](#expert-a)
++ 反对电话。
++ ## [乙](#expert-b)
++ 支持电话。",
++       "references": Array [],
++       "step": "runs",
++       "version": 1,
++     },
++     Object {
++       "contentHash": "f20769e1df7e50037ea96fdd28462c899b98bcce77807bbf46755eec7302351c",
++       "documentId": "md-report",
++       "evidenceMode": "simulated",
++       "markdown": "# 探索性结论
++
++ 证据：[反对电话。](#answer-2) 与 [支持电话。](#answer-4)；旧记录角色归属未验证。
++
++ 跨回答综合：两位专家意见相反，应分层验证而非多数表决。
++ 决策影响：应优先验证客户偏好，暂缓统一渠道。
++ 边界与反例：仅模拟角色，不代表真人证据。
++ 建议行动：P0：用独立真人任务验证渠道假设，以完成时长和再次进线率为指标。",
++       "references": Array [
++         Object {
++           "anchor": "source-1",
++           "documentId": "md-runs",
++           "version": 1,
++         },
++         Object {
++           "anchor": "answer-2",
++           "documentId": "md-runs",
++           "locator": Object {
++             "end": 23,
++             "evidenceMode": "simulated",
++             "expertId": null,
++             "quote": "反对电话。",
++             "sourceHash": "5196e166524a90981d898e0f8b8e23e9ecd195cb1446db0d6ac3228e047f7c5c",
++             "start": 18,
++             "taskKey": null,
++           },
++           "version": 1,
++         },
++         Object {
++           "anchor": "answer-4",
++           "documentId": "md-runs",
++           "locator": Object {
++             "end": 47,
++             "evidenceMode": "simulated",
++             "expertId": null,
++             "quote": "支持电话。",
++             "sourceHash": "5196e166524a90981d898e0f8b8e23e9ecd195cb1446db0d6ac3228e047f7c5c",
++             "start": 42,
++             "taskKey": null,
++           },
++           "version": 1,
++         },
++       ],
++       "step": "report",
++       "version": 2,
++     },
++   ],
++   "execution": null,
++   "interviewId": "itv-recovery",
++   "review": null,
++   "revisionId": "rev-recovery",
++   "states": Array [
++     Object {
++       "documentId": "md-runs",
++       "failure": null,
++       "status": "completed",
++     },
++     Object {
++       "documentId": "md-report",
++       "failure": null,
++       "status": "draft",
++     },
++   ],
++   "version": 9,
++ }
+
+ ❯ tests/itv/interview-report-recovery.test.ts:234:104
+    232|   save.mockClear(); complete.mockClear(); const previous = structuredC…
+    233|   complete.mockRejectedValue(new ModelCallError("provider-failed"));
+    234|   await expect(generateInterviewMarkdown(deps(),{...input,expectedVers…
+       |                                                                                                        ^
+    235|   expect(complete).toHaveBeenCalledTimes(1); expect(save).not.toHaveBe…
+    236|  });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/4]⎯
+
+ FAIL  tests/itv/interview-report-recovery.test.ts > saved report source safety > does not convert a failed candidate to success when CAS rejects its recovery
+AssertionError: expected "spy" to be called 1 times, but got 0 times
+ ❯ tests/itv/interview-report-recovery.test.ts:256:20
+    254|   save.mockRejectedValueOnce(new DigitalInterviewWorkflowError("CONCUR…
+    255|   await expect(generateInterviewMarkdown(deps(),{...input,expectedVers…
+    256|   expect(complete).toHaveBeenCalledTimes(1); expect(snapshot.states.at…
+       |                    ^
+    257|  });
+    258| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/4]⎯
+
+ Test Files  1 failed | 5 passed (6)
+      Tests  4 failed | 374 passed (378)
+   Start at  13:58:23
+   Duration  3.50s (transform 933ms, setup 0ms, collect 2.50s, tests 405ms, environment 0ms, prepare 170ms)
+
+/Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/apps/api:
+ ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  @repo/api@0.0.0 test:interview-markdown-unit: `vitest run --config vitest.interview-markdown-unit.config.ts`
+Exit status 1
