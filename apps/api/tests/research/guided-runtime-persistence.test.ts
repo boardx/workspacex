@@ -132,13 +132,15 @@ describe("durable research runtime with real PostgreSQL and controlled provider 
     const reloaded = await service.get(actor, session);
     expect(reloaded.errorCode).toBeNull();
     expect(reloaded.tasks).toHaveLength(1);
+    expect(reloaded.tasks[0]).toMatchObject({ sectionId: "o1", objective: "明确政策约束对进入决策的影响" });
+    expect(reloaded.tasks[0]!.questionId).toBeUndefined();
+    expect(reloaded.tasks[0]).not.toHaveProperty("questionId");
+    expect(reloaded.outline[0]!.questions).toHaveLength(1);
+    expect(reloaded.outline[0]!.subsections).toHaveLength(3);
     for (const task of reloaded.tasks) expect(task).toMatchObject({ status: "succeeded", searchAttempts: [
       { query: task.query, status: "failed" },
       { query: recoveryQuery, status: "succeeded" },
     ] });
-    expect(reloaded.tasks[0]).not.toHaveProperty("questionId");
-    expect(reloaded.outline[0]!.questions).toHaveLength(1);
-    expect(reloaded.outline[0]!.subsections).toHaveLength(3);
     expect(searchCalls).toBe(2);
     state = reloaded;
     await run("start");
@@ -149,6 +151,10 @@ describe("durable research runtime with real PostgreSQL and controlled provider 
     expect(state.report).not.toBeNull();
     const reportReloaded = await service.get(actor, session);
     expect(reportReloaded.report).toEqual(state.report);
+    expect(reportReloaded.coverage).toHaveLength(4);
+    expect(new Set(reportReloaded.coverage!.map(item => item.questionId)).size).toBe(4);
+    expect(reportReloaded.coverage!.every(item => item.sectionId === "o1" && item.status === "answered" && item.evidenceIds.length > 0)).toBe(true);
+    expect(reportReloaded.coverage!.every(item => reportReloaded.questionEvidence!.some(evidence => evidence.questionId === item.questionId && evidence.sectionId === item.sectionId && evidence.relevance === "direct"))).toBe(true);
     expect(reportReloaded.tasks.map(task => task.query)).toEqual(reloaded.tasks.map(task => task.query));
     expect(reportReloaded.tasks.map(task => task.searchAttempts)).toEqual(reloaded.tasks.map(task => task.searchAttempts));
   });
@@ -474,6 +480,8 @@ describe("durable research runtime with real PostgreSQL and controlled provider 
     expect(state.sources).toHaveLength(1); expect(state.sources[0]!.decision).toBe("accepted"); expect(searchCalls).toBe(before);
     await run("add_source", { sourceUrl: source.url });
     expect(state.sources).toHaveLength(1); expect(state.tasks).toHaveLength(1);
+    expect(state.tasks[0]).toMatchObject({ sectionId: "o1", objective: "明确政策约束对进入决策的影响" });
+    expect(state.tasks[0]!.questionId).toBeUndefined();
     expect((await service.get(actor, session)).sources).toEqual(state.sources);
   });
   it("adds only matching retrieved URL evidence with succeeded provenance and idempotent replay", async () => {
@@ -550,7 +558,10 @@ describe("durable research runtime with real PostgreSQL and controlled provider 
   it("persists failed searches and retries without fabricating sources", async () => {
     failSearch = true; await run("confirm"); await run("confirm"); await run("confirm");
     expect(state.errorCode).toBe("RESEARCH_SEARCH_PARTIAL_FAILURE"); expect(state.sources).toEqual([]); expect(state.tasks).toHaveLength(1); expect(state.tasks.every(task => task.status === "failed")).toBe(true);
+    const failedTaskIds = state.tasks.map(task => task.id);
     failSearch = false; await run("retry"); expect(state.errorCode).toBeNull(); expect(state.tasks.every(task => task.status === "succeeded" && task.attempts === 2)).toBe(true); expect(searchCalls).toBe(2);
+    expect(state.tasks.map(task => task.id)).toEqual(failedTaskIds);
+    expect((await service.get(actor, session)).tasks).toEqual(state.tasks);
   });
   it("rejects nonexistent sources, unknown citations and cross-node drafts", async () => {
     await reachResearch(); await run("start");
