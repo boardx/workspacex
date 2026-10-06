@@ -1,0 +1,14 @@
+{
+  "recovery": true,
+  "interviewId": "itv-c7b4fde8-b1cf-4586-b50a-60369d86405b",
+  "runtimeSha": "48a752bbe1e885d132248372ffa8895e28d16476",
+  "syntheticSource": true,
+  "providerHealthReceipt": "/tmp/wsx-5419-provider-health.json",
+  "phase": "click_report",
+  "navigationMs": 261,
+  "generationUiVisible": true,
+  "httpStatus": 200,
+  "firstVisibleDeltaMs": 2660,
+  "success": false,
+  "browserError": "Error"
+}
