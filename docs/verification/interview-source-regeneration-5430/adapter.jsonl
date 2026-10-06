@@ -1,0 +1,7 @@
+{"type":"observer_ready","productionSemanticsUnchanged":true,"noNetworkInterception":true}
+{"type":"observer_ready","productionSemanticsUnchanged":true,"noNetworkInterception":true}
+{"type":"report_adapter_entry","observationId":"8074c42b-4a08-4982-ad9b-2023f242d797","provider":"dashscope","model":"qwen3.8-max","systemHash":"7e224faafbf8c0bd537fd0b0ac32d4b3901dcf61d66a0349130bba8c98938410","userHash":"58da808831842d0d55af9b3aefa3677550433efd46409a631da0167081b50bf1","systemCharacters":1853,"userCharacters":9874,"failedCandidatePresent":true,"strengthFeedbackPresent":true,"feedbackBeforeCandidate":true}
+{"type":"provider_dispatch","observationId":"8074c42b-4a08-4982-ad9b-2023f242d797","requestId":"e3526b24-7a12-4d28-8d57-2543c249061e","phase":"started","elapsedMs":1,"usage":{}}
+{"type":"adapter_stream","deltaCount":616,"characters":3586,"streamHash":"26493f1bd138684f703938d00fd8a41394ed0b551a4db522745eabd0282b4b6a"}
+{"type":"provider_dispatch","observationId":"8074c42b-4a08-4982-ad9b-2023f242d797","requestId":"e3526b24-7a12-4d28-8d57-2543c249061e","phase":"terminal","outcome":"succeeded","elapsedMs":37274,"usage":{"total":8949,"prompt":6932,"completion":2017,"cacheInput":6144}}
+{"type":"adapter_output","observationId":"8074c42b-4a08-4982-ad9b-2023f242d797","outputHash":"26493f1bd138684f703938d00fd8a41394ed0b551a4db522745eabd0282b4b6a","outputCharacters":3586,"equalsPreviousFailedBody":false,"elapsedMs":37274}
