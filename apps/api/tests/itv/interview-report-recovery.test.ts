@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createHash } from "node:crypto";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { toOrgId } from "../../src/domain/org-id";
 import { generateInterviewMarkdown } from "../../src/application/interview/generate-interview-markdown";
 import { DigitalInterviewWorkflowError } from "../../src/application/interview/workflow/digital-interview-runtime.port";
@@ -64,6 +66,31 @@ describe("bounded report quality recovery", () => {
   expect(repair.user).toContain("证据强度修复");
   expect(complete).toHaveBeenCalledTimes(2);
   expect(save.mock.calls[0]![0]).toMatchObject({markdown:wrong,failure:{code:"REPORT_ACTION_VALIDATION_REJECTED"}});
+ });
+ it("public failed-version recovery dispatches once and persists its new rejected streamed body, not the previous draft", async () => {
+  const fixture = resolve(process.cwd(), "../../docs/verification/interview-grounding-repair-5426");
+  snapshot = JSON.parse(readFileSync(resolve(fixture,"source.json"),"utf8"));
+  const previous = snapshot.documents.find(document=>document.step==="report")!;
+  const oldBody = previous.markdown;
+  const newBody = oldBody + "\n\n后续验证方案仍待执行。\n";
+  const events: any[] = [];
+  const streaming = deps();
+  const dispatch = vi.fn(async (request, onDelta) => {
+   expect(request.user).toContain("实际证据校验原因：unsupported_evidence_strength");
+   expect(request.user).toContain("证据强度修复");
+   expect(request.user).toContain(oldBody);
+   expect(request.user.slice(0,request.user.indexOf("## 未确认的失败候选"))).not.toContain(oldBody);
+   await onDelta(newBody.slice(0,100)); await onDelta(newBody.slice(100));
+   return {text:newBody};
+  });
+  streaming.model.completeStream=dispatch;
+  await expect(generateInterviewMarkdown(streaming,{...input,interviewId:snapshot.interviewId,expectedVersion:snapshot.version,expectedDocumentVersion:previous.version,onProgress:event=>{events.push(event);}})).rejects.toThrow("AI_GENERATION_UNAVAILABLE");
+  expect(dispatch).toHaveBeenCalledTimes(1); expect(complete).not.toHaveBeenCalled();
+  expect(events.filter(event=>event.type==="delta").map(event=>event.delta).join("")).toBe(newBody);
+  expect(save).toHaveBeenCalledTimes(1);
+  expect(save.mock.calls[0]![0]).toMatchObject({markdown:newBody,failure:{code:"REPORT_GROUNDING_REJECTED",retryable:true}});
+  expect(snapshot.documents.find(document=>document.step==="report")).toMatchObject({markdown:newBody,version:previous.version+1,contentHash:createHash("sha256").update(newBody).digest("hex")});
+  expect(oldBody).not.toBe(newBody);
  });
  it("requires evidence strength and conditional recommendations on every bounded attempt", async () => {
   complete.mockResolvedValueOnce({text:BAD}).mockResolvedValueOnce({text:GOOD});

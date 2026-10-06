@@ -9,3 +9,5 @@ Standard isolated test script RED2/382 then GREEN382/382, new regressions cover 
 Isolated PR rebased by applying only this issue delta onto origin/main 8d0ffff2da8a22e10a8494540c3085f486cdaf62: GREEN375/375. The 382 integration suite includes separately reviewed pending fixes and is not represented as this PR scope.
 
 Simultaneous analysis and grounding rejection retains both feedback channels while preserving existing failure classification. All validator/source/CAS/raw persistence and call-budget regressions still pass. Duplicate open-issue search returned only #5426.
+
+Follow-up controlled public fixture: GREEN376/376. Saved-failure recovery dispatches once with correct reason, candidate isolated from confirmed-source region; a different rejected streamed body is saved as a different failed version/hash. This only establishes controlled behavior, not actual round1e provider output. Actual round1e retained identical raw hash and still failed; real report PASS remains0/3. Production code unchanged by this test-only follow-up.
