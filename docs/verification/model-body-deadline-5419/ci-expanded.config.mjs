@@ -1,0 +1,1 @@
+export default {test:{include:['tests/agent-runtime/configured-model-provider*.test.ts','tests/agent-runtime/workbench-configured-stream-identity.test.ts','tests/auth/ai-dispatch-inventory.test.ts'],environment:'node',maxWorkers:1,minWorkers:1}};
