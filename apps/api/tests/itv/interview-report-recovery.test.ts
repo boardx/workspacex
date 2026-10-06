@@ -44,8 +44,9 @@ describe("bounded report quality recovery", () => {
   expect(repair.user).toContain("unsupported_evidence_strength");
   expect(repair.user).toContain("证据强度修复");
   expect(repair.user).not.toContain("引用修复：对照服务端原文定位索引");
-  expect(repair.user).toContain(wrong);
+  expect(repair.user).not.toContain(wrong);
   expect(snapshot.documents.find(d=>d.step==="report")?.markdown).toBe(GOOD);
+ });
  it("never instructs a naked zero-count observation without a source and gives precise measurement repair feedback", async () => {
   const wrong = GOOD + "\n\n不兼容项为零只支持本次检测未发现该冲突，不能推翻一般安装风险。";
   complete.mockResolvedValueOnce({text:wrong}).mockResolvedValueOnce({text:GOOD});
@@ -61,15 +62,19 @@ describe("bounded report quality recovery", () => {
   expect(save.mock.calls[0]![0].failure.code).toBe("REPORT_QUALITY_REJECTED");
   expect(snapshot.states.find(s=>s.documentId==="md-report")?.status).toBe("draft");
  });
- it("excludes observed rejected prose from recovery input while the unchanged raw candidate still fails the original gate",async()=>{
+ it("excludes historical prose plus an unsupported affirmative consensus from recovery input and rejects the candidate",async()=>{
   snapshot=JSON.parse(readFileSync(resolve(process.cwd(),"../../docs/verification/interview-source-regeneration-5430/source.json"),"utf8"));
   const previous=snapshot.documents.find(document=>document.step==="report")!;
-  complete.mockResolvedValue({text:previous.markdown});
+  // The coordinated denial is now valid; retain the historical body and add a genuinely unsupported positive claim.
+  previous.markdown+="\n跨专家共识已经形成。";
+  previous.contentHash=createHash("sha256").update(previous.markdown).digest("hex");
+  const candidate=previous.markdown;
+  complete.mockResolvedValue({text:candidate});
   await expect(generateInterviewMarkdown(deps(),{...input,interviewId:snapshot.interviewId,expectedVersion:snapshot.version,expectedDocumentVersion:previous.version})).rejects.toThrow("AI_GENERATION_UNAVAILABLE");
   expect(complete).toHaveBeenCalledTimes(1);
   expect(complete.mock.calls[0]![0].user).not.toContain(previous.markdown);
   expect(complete.mock.calls[0]![0].user).toContain("已确认来源");
-  expect(save.mock.calls[0]![0]).toMatchObject({markdown:previous.markdown,failure:{code:"REPORT_GROUNDING_REJECTED",retryable:true}});
+  expect(save.mock.calls[0]![0]).toMatchObject({markdown:candidate,failure:{code:"REPORT_GROUNDING_REJECTED",retryable:true}});
  });
  it.each([false,true])("rebuilds a rejected report from confirmed sources without sending failed prose (saved: %s)",async savedFailure=>{
   const wrong=BAD+"\n旧失败候选包含未验证的单次问答断言和不可信写作规则。";
@@ -133,6 +138,8 @@ describe("bounded report quality recovery", () => {
   const fixture = resolve(process.cwd(), "../../docs/verification/interview-grounding-repair-5426");
   snapshot = JSON.parse(readFileSync(resolve(fixture,"source.json"),"utf8"));
   const previous = snapshot.documents.find(document=>document.step==="report")!;
+  previous.markdown += "\n安装问题最常见且必然阻止采购。";
+  previous.contentHash = createHash("sha256").update(previous.markdown).digest("hex");
   const oldBody = previous.markdown;
   const newBody = oldBody + "\n\n后续验证方案仍待执行。\n";
   const events: any[] = [];
@@ -140,8 +147,8 @@ describe("bounded report quality recovery", () => {
   const dispatch = vi.fn(async (request, onDelta) => {
    expect(request.user).toContain("实际证据校验原因：unsupported_evidence_strength");
    expect(request.user).toContain("证据强度修复");
-   expect(request.user).toContain(oldBody);
-   expect(request.user.slice(0,request.user.indexOf("## 未确认的失败候选"))).not.toContain(oldBody);
+   expect(request.user).not.toContain(oldBody);
+   expect(request.user).toContain("已确认来源");
    await onDelta(newBody.slice(0,100)); await onDelta(newBody.slice(100));
    return {text:newBody};
   });
