@@ -1,0 +1,14 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyanbin/Documents/Codex/2026-10-07/task-3/workspacex/apps/web
+
+ ✓ tests/ui/blueprint-duration-form.test.tsx (20 tests) 1588ms
+   ✓ 时长档位目录来自定义表（而不是前端自己列的一份 7/11/14/19） > 生成的档位目录与后端定义表没有漂移（机械门控，不是靠人看） 1120ms
+ ✓ tests/ui/blueprint-designer-shell.test.tsx (20 tests) 2117ms
+   ✓ 目录来自配置项定义表（而不是前端自己列的一份） > 生成的目录与后端定义表没有漂移（机械门控，不是靠人看） 1094ms
+
+ Test Files  2 passed (2)
+      Tests  40 passed (40)
+   Start at  04:55:02
+   Duration  7.43s (transform 642ms, setup 820ms, collect 1.34s, tests 3.71s, environment 4.56s, prepare 366ms)
+

@@ -1,0 +1,14 @@
+
+ RUN  v2.1.9 /Users/shenyanbin/Documents/Codex/2026-10-07/task-3/workspacex/apps/api
+
+[db-isolation] db=wsx_org_create_5494 capacity=100 current=6 required=32
+ ✓ tests/auth/create-organization-repository.test.ts (7 tests) 6ms
+ ✓ tests/auth/create-organization-atomic.test.ts (2 tests) 294ms
+ ✓ tests/auth/create-organization-http.test.ts (3 tests) 103ms
+
+ Test Files  3 passed (3)
+      Tests  12 passed (12)
+   Start at  04:51:39
+   Duration  2.32s (transform 562ms, setup 8ms, collect 1.17s, tests 402ms, environment 0ms, prepare 69ms)
+
+[db-isolation] db=wsx_org_create_5494 peak_connections=5

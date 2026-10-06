@@ -1,0 +1,5 @@
+
+> agentic-harness-template@ lint:contract-route-coverage /Users/shenyanbin/Documents/Codex/2026-10-07/task-3/workspacex
+> pnpm exec tsx .harness/scripts/lint-contract-route-coverage.mjs
+
+✓ [contract-route-ratchet] 没有新增的「契约有、路由没有」：名单 249 条，其中 249 条今天仍是缺口。

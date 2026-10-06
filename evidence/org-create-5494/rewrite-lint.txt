@@ -1,0 +1,7 @@
+
+> agentic-harness-template@ lint:rewrite-coverage /Users/shenyanbin/Documents/Codex/2026-10-07/task-3/workspacex
+> pnpm exec tsx .harness/scripts/lint-rewrite-coverage.mjs
+
+✓ [rewrite-coverage] 431 条路由、85 条 rewrite 覆盖一致（5 条历史缺口在棘轮名单里，只能变短）
+✓ [rewrite-shadow] 36 条动态页面路由（共 133 个 page.tsx）、211 条 afterFiles 规则，没有新的遮蔽（4 条既有遮蔽在棘轮名单里，只能变短）
+✓ [contract-rewrite-coverage] 908 条契约路由全部有同源代理规则

@@ -1,0 +1,176 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyanbin/Documents/Codex/2026-10-07/task-3/org-create-baseline/apps/web
+
+node:net:1919
+      const error = new UVExceptionWithHostPort(rval, 'listen', address, port);
+                    ^
+
+Error: listen EPERM: operation not permitted /var/folders/ph/ns5lvrqn6v5d1wcg8wbcpw500000gn/T/tsx-501/85862.pipe
+    at Server.setupListenHandle [as _listen2] (node:net:1919:21)
+    at listenInCluster (node:net:1998:12)
+    at Server.listen (node:net:2120:5)
+    at file:///Users/shenyanbin/Documents/Codex/2026-10-07/task-3/workspacex/node_modules/.pnpm/tsx@4.23.1/node_modules/tsx/dist/cli.mjs:53:31472
+    at new Promise (<anonymous>)
+    at createIpcServer (file:///Users/shenyanbin/Documents/Codex/2026-10-07/task-3/workspacex/node_modules/.pnpm/tsx@4.23.1/node_modules/tsx/dist/cli.mjs:53:31450)
+    at async file:///Users/shenyanbin/Documents/Codex/2026-10-07/task-3/workspacex/node_modules/.pnpm/tsx@4.23.1/node_modules/tsx/dist/cli.mjs:55:500 {
+  code: 'EPERM',
+  errno: -1,
+  syscall: 'listen',
+  address: '/var/folders/ph/ns5lvrqn6v5d1wcg8wbcpw500000gn/T/tsx-501/85862.pipe',
+  port: -1
+}
+
+Node.js v22.23.1
+ ❯ tests/ui/blueprint-duration-form.test.tsx (20 tests | 1 failed) 1826ms
+   × 时长档位目录来自定义表（而不是前端自己列的一份 7/11/14/19） > 生成的档位目录与后端定义表没有漂移（机械门控，不是靠人看） 1014ms
+     → Command failed: pnpm exec tsx scripts/gen-agenda-tier-catalog.ts --check
+node:net:1919
+      const error = new UVExceptionWithHostPort(rval, 'listen', address, port);
+                    ^
+
+Error: listen EPERM: operation not permitted /var/folders/ph/ns5lvrqn6v5d1wcg8wbcpw500000gn/T/tsx-501/85862.pipe
+    at Server.setupListenHandle [as _listen2] (node:net:1919:21)
+    at listenInCluster (node:net:1998:12)
+    at Server.listen (node:net:2120:5)
+    at file:///Users/shenyanbin/Documents/Codex/2026-10-07/task-3/workspacex/node_modules/.pnpm/tsx@4.23.1/node_modules/tsx/dist/cli.mjs:53:31472
+    at new Promise (<anonymous>)
+    at createIpcServer (file:///Users/shenyanbin/Documents/Codex/2026-10-07/task-3/workspacex/node_modules/.pnpm/tsx@4.23.1/node_modules/tsx/dist/cli.mjs:53:31450)
+    at async file:///Users/shenyanbin/Documents/Codex/2026-10-07/task-3/workspacex/node_modules/.pnpm/tsx@4.23.1/node_modules/tsx/dist/cli.mjs:55:500 {
+  code: 'EPERM',
+  errno: -1,
+  syscall: 'listen',
+  address: '/var/folders/ph/ns5lvrqn6v5d1wcg8wbcpw500000gn/T/tsx-501/85862.pipe',
+  port: -1
+}
+
+Node.js v22.23.1
+
+   ✓ 形式三选一：选『全线上』展示自动追加的两个环节 > 『全线上』但自动环节尚未生效时显式空态，不是假装什么都没发生 359ms
+node:net:1919
+      const error = new UVExceptionWithHostPort(rval, 'listen', address, port);
+                    ^
+
+Error: listen EPERM: operation not permitted /var/folders/ph/ns5lvrqn6v5d1wcg8wbcpw500000gn/T/tsx-501/85886.pipe
+    at Server.setupListenHandle [as _listen2] (node:net:1919:21)
+    at listenInCluster (node:net:1998:12)
+    at Server.listen (node:net:2120:5)
+    at file:///Users/shenyanbin/Documents/Codex/2026-10-07/task-3/workspacex/node_modules/.pnpm/tsx@4.23.1/node_modules/tsx/dist/cli.mjs:53:31472
+    at new Promise (<anonymous>)
+    at createIpcServer (file:///Users/shenyanbin/Documents/Codex/2026-10-07/task-3/workspacex/node_modules/.pnpm/tsx@4.23.1/node_modules/tsx/dist/cli.mjs:53:31450)
+    at async file:///Users/shenyanbin/Documents/Codex/2026-10-07/task-3/workspacex/node_modules/.pnpm/tsx@4.23.1/node_modules/tsx/dist/cli.mjs:55:500 {
+  code: 'EPERM',
+  errno: -1,
+  syscall: 'listen',
+  address: '/var/folders/ph/ns5lvrqn6v5d1wcg8wbcpw500000gn/T/tsx-501/85886.pipe',
+  port: -1
+}
+
+Node.js v22.23.1
+ ❯ tests/ui/blueprint-designer-shell.test.tsx (20 tests | 1 failed) 3490ms
+   × 目录来自配置项定义表（而不是前端自己列的一份） > 生成的目录与后端定义表没有漂移（机械门控，不是靠人看） 1340ms
+     → Command failed: pnpm exec tsx scripts/gen-design-facet-catalog.ts --check
+node:net:1919
+      const error = new UVExceptionWithHostPort(rval, 'listen', address, port);
+                    ^
+
+Error: listen EPERM: operation not permitted /var/folders/ph/ns5lvrqn6v5d1wcg8wbcpw500000gn/T/tsx-501/85886.pipe
+    at Server.setupListenHandle [as _listen2] (node:net:1919:21)
+    at listenInCluster (node:net:1998:12)
+    at Server.listen (node:net:2120:5)
+    at file:///Users/shenyanbin/Documents/Codex/2026-10-07/task-3/workspacex/node_modules/.pnpm/tsx@4.23.1/node_modules/tsx/dist/cli.mjs:53:31472
+    at new Promise (<anonymous>)
+    at createIpcServer (file:///Users/shenyanbin/Documents/Codex/2026-10-07/task-3/workspacex/node_modules/.pnpm/tsx@4.23.1/node_modules/tsx/dist/cli.mjs:53:31450)
+    at async file:///Users/shenyanbin/Documents/Codex/2026-10-07/task-3/workspacex/node_modules/.pnpm/tsx@4.23.1/node_modules/tsx/dist/cli.mjs:55:500 {
+  code: 'EPERM',
+  errno: -1,
+  syscall: 'listen',
+  address: '/var/folders/ph/ns5lvrqn6v5d1wcg8wbcpw500000gn/T/tsx-501/85886.pipe',
+  port: -1
+}
+
+Node.js v22.23.1
+
+   ✓ 目录来自配置项定义表（而不是前端自己列的一份） > 每一项都带着它在表里的标题（key 对上而文字对不上也算漂移） 530ms
+   ✓ 目录来自配置项定义表（而不是前端自己列的一份） > 五个分组标题都在，空组也出现（「本组没有项」与「不分这一组」必须可分辨） 320ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/ui/blueprint-designer-shell.test.tsx > 目录来自配置项定义表（而不是前端自己列的一份） > 生成的目录与后端定义表没有漂移（机械门控，不是靠人看）
+Error: Command failed: pnpm exec tsx scripts/gen-design-facet-catalog.ts --check
+node:net:1919
+      const error = new UVExceptionWithHostPort(rval, 'listen', address, port);
+                    ^
+
+Error: listen EPERM: operation not permitted /var/folders/ph/ns5lvrqn6v5d1wcg8wbcpw500000gn/T/tsx-501/85886.pipe
+    at Server.setupListenHandle [as _listen2] (node:net:1919:21)
+    at listenInCluster (node:net:1998:12)
+    at Server.listen (node:net:2120:5)
+    at file:///Users/shenyanbin/Documents/Codex/2026-10-07/task-3/workspacex/node_modules/.pnpm/tsx@4.23.1/node_modules/tsx/dist/cli.mjs:53:31472
+    at new Promise (<anonymous>)
+    at createIpcServer (file:///Users/shenyanbin/Documents/Codex/2026-10-07/task-3/workspacex/node_modules/.pnpm/tsx@4.23.1/node_modules/tsx/dist/cli.mjs:53:31450)
+    at async file:///Users/shenyanbin/Documents/Codex/2026-10-07/task-3/workspacex/node_modules/.pnpm/tsx@4.23.1/node_modules/tsx/dist/cli.mjs:55:500 {
+  code: 'EPERM',
+  errno: -1,
+  syscall: 'listen',
+  address: '/var/folders/ph/ns5lvrqn6v5d1wcg8wbcpw500000gn/T/tsx-501/85886.pipe',
+  port: -1
+}
+
+Node.js v22.23.1
+
+ ❯ ../../../workspacex/node_modules/.pnpm/tsx@4.23.1/node_modules/tsx/dist/cli.mjs:53:31472
+ ❯ createIpcServer ../../../workspacex/node_modules/.pnpm/tsx@4.23.1/node_modules/tsx/dist/cli.mjs:53:31450
+ ❯ tests/ui/blueprint-designer-shell.test.tsx:98:17
+     96|     // cwd 是 apps/web（vitest 的 root）；不用 import.meta.url 是因为 …
+     97|     const apiDir = join(process.cwd(), "..", "api");
+     98|     const out = execFileSync("pnpm", ["exec", "tsx", "scripts/gen-desi…
+       |                 ^
+     99|       cwd: apiDir,
+    100|       encoding: "utf8",
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  tests/ui/blueprint-duration-form.test.tsx > 时长档位目录来自定义表（而不是前端自己列的一份 7/11/14/19） > 生成的档位目录与后端定义表没有漂移（机械门控，不是靠人看）
+Error: Command failed: pnpm exec tsx scripts/gen-agenda-tier-catalog.ts --check
+node:net:1919
+      const error = new UVExceptionWithHostPort(rval, 'listen', address, port);
+                    ^
+
+Error: listen EPERM: operation not permitted /var/folders/ph/ns5lvrqn6v5d1wcg8wbcpw500000gn/T/tsx-501/85862.pipe
+    at Server.setupListenHandle [as _listen2] (node:net:1919:21)
+    at listenInCluster (node:net:1998:12)
+    at Server.listen (node:net:2120:5)
+    at file:///Users/shenyanbin/Documents/Codex/2026-10-07/task-3/workspacex/node_modules/.pnpm/tsx@4.23.1/node_modules/tsx/dist/cli.mjs:53:31472
+    at new Promise (<anonymous>)
+    at createIpcServer (file:///Users/shenyanbin/Documents/Codex/2026-10-07/task-3/workspacex/node_modules/.pnpm/tsx@4.23.1/node_modules/tsx/dist/cli.mjs:53:31450)
+    at async file:///Users/shenyanbin/Documents/Codex/2026-10-07/task-3/workspacex/node_modules/.pnpm/tsx@4.23.1/node_modules/tsx/dist/cli.mjs:55:500 {
+  code: 'EPERM',
+  errno: -1,
+  syscall: 'listen',
+  address: '/var/folders/ph/ns5lvrqn6v5d1wcg8wbcpw500000gn/T/tsx-501/85862.pipe',
+  port: -1
+}
+
+Node.js v22.23.1
+
+ ❯ ../../../workspacex/node_modules/.pnpm/tsx@4.23.1/node_modules/tsx/dist/cli.mjs:53:31472
+ ❯ createIpcServer ../../../workspacex/node_modules/.pnpm/tsx@4.23.1/node_modules/tsx/dist/cli.mjs:53:31450
+ ❯ tests/ui/blueprint-duration-form.test.tsx:42:17
+     40|   it("生成的档位目录与后端定义表没有漂移（机械门控，不是靠人看）", () …
+     41|     const apiDir = join(process.cwd(), "..", "api");
+     42|     const out = execFileSync("pnpm", ["exec", "tsx", "scripts/gen-agen…
+       |                 ^
+     43|       cwd: apiDir,
+     44|       encoding: "utf8",
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+ Test Files  2 failed (2)
+      Tests  2 failed | 38 passed (40)
+   Start at  04:53:52
+   Duration  8.88s (transform 738ms, setup 1.01s, collect 1.47s, tests 5.32s, environment 4.61s, prepare 226ms)
+
+undefined
+/Users/shenyanbin/Documents/Codex/2026-10-07/task-3/org-create-baseline/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/ui/blueprint-designer-shell.test.tsx tests/ui/blueprint-duration-form.test.tsx
