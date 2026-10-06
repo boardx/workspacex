@@ -31,6 +31,26 @@ beforeEach(() => {
  });
 });
 describe("bounded report quality recovery", () => {
+ it.each([["inference-dimensions-5459",false],["inference-dimensions-5459",true],["local-outcome-alignment-5464",false],["local-outcome-alignment-5464",true]] as const)("aligns result interpretation with measured outcomes using %s (derived failure: %s)",async (fixture,derivedFailed)=>{
+  snapshot=JSON.parse(readFileSync(new URL(`./fixtures/${fixture}/source.json`,import.meta.url),"utf8"));
+  const previous=snapshot.documents.find(d=>d.step==="report")!;const raw=previous.markdown;
+  if(derivedFailed){
+   // Actual round1l remains draft on disk; only this controlled input is deliberately invalid.
+   previous.markdown=raw+"\n\n[非原文](#answer-5)";previous.contentHash=createHash("sha256").update(previous.markdown).digest("hex");
+   snapshot.states=snapshot.states.map(state=>state.documentId===previous.documentId?{...state,status:"failed",failure:{code:"REPORT_GROUNDING_REJECTED",retryable:true}}:state);
+  }else{snapshot.documents=snapshot.documents.filter(d=>d.step!=="report");snapshot.states=snapshot.states.filter(state=>state.documentId!==previous.documentId);}
+  const before=structuredClone(snapshot);save.mockClear();complete.mockImplementationOnce(async request=>{
+   expect(request.user).toContain("每条验证的结果解释就地列明所测指标、可支持的结论范围与尚未测得的结果");
+   expect(request.user).toContain("任务完成时间、退出率及其与约束的相关性支持任务表现或待验证机制");
+   expect(request.user).toContain("购买、暂缓或取消的实际变化以及对照条件与替代解释");
+   expect(request.user).toContain("关联性保留为待核实解释，因果判断说明识别方法和仍未排除的因素");
+   expect(request.user).toContain("未来计划访谈五位用户，比较两种任务方案");
+   expect(request.user).not.toContain(raw);
+   throw new ModelCallError("MODEL_CALL_FAILED","controlled request inspection stops before provider dispatch");
+  });
+  await expect(generateInterviewMarkdown(deps(),{...input,interviewId:snapshot.interviewId,expectedVersion:snapshot.version,expectedDocumentVersion:derivedFailed?previous.version:0})).rejects.toThrow("AI_GENERATION_UNAVAILABLE");
+  expect(complete).toHaveBeenCalledTimes(1);expect(save).not.toHaveBeenCalled();expect(snapshot).toEqual(before);
+ });
  it.each([false,true])("separates observed outcomes and measurement dimensions in real-source requests (derived failed: %s)",async derivedFailed=>{
   snapshot=JSON.parse(readFileSync(new URL("./fixtures/inference-dimensions-5459/source.json",import.meta.url),"utf8"));
   const previous=snapshot.documents.find(d=>d.step==="report")!;const raw=previous.markdown;

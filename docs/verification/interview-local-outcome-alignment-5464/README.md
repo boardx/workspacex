@@ -1,0 +1,9 @@
+# Local verification outcome alignment — issue 5464
+
+Actual round1l raw hash 877e7bc79720a0bbe272d23edac48736c633a752b0e0e3e50881cf9b05946bcf, runtime a2399b3a78ae133379c3604f74ae56bcf2c42a73. Whole semantic FAIL at line57 UTF-16 [2578,2629): task time/exit differences and correlation do not support purchase effects without actual decision outcomes. Original report remains a draft; no actual state was relabeled failed.
+
+Single positive context instruction defines conclusion→direct outcomes→competing explanations locally for every validation result. No validator, raw candidate, locator/hash/CAS, storage policy or max2 initial/max1 saved repair changes. No claimed semantic oracle or real-model acceptance.
+
+Four controlled request-contract cases use actual full1k and1l source envelopes. Initial inputs remove only existing report in memory. Saved-failure controls explicitly derive an invalid quotation in memory and update its hash/state; fixture files remain original drafts. Both paths stop before physical provider dispatch, require confirmed source content, exclude historical raw and preserve bytes/version/state with no saves. Requests express task metrics support task performance/possible mechanism, actual purchase/defer/cancel+comparison/alternatives required for decision conclusions, correlation remains unverified. Original source-plan5users/2taskplans preserved. These are generation-context contracts, not proof future generated prose will satisfy semantic quality.
+
+RED four new contract tests fail with420 existing pass; GREEN427 standard interview unit tests, API typecheck0. Initial attempt used nonexistent vitest.itv-unit.config.ts from repo root and failed setup; that is not counted as RED. Correct scoped configuration then produced actual4failure RED. Additional whole real report review required; normal0. Private devapp failure remains UNKNOWN without safe deployment/request/provider receipt; no retry or guard bypass.

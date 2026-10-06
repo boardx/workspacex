@@ -1,0 +1,16 @@
+{
+  "verdict": "FAIL",
+  "runtimeSha": "a2399b3a78ae133379c3604f74ae56bcf2c42a73",
+  "rawHash": "877e7bc79720a0bbe272d23edac48736c633a752b0e0e3e50881cf9b05946bcf",
+  "normalReportsAccepted": 0,
+  "findings": [
+    {
+      "priority": "P2",
+      "line": 57,
+      "startUtf16": 2578,
+      "endUtf16": 2629,
+      "quote": "若两种方案在完成时间和退出率上出现可观察差异，且差异与安装或预算约束相关，则支持对应约束的决策影响假设",
+      "reason": "Task completion time/exit rate differences and correlation do not establish purchase decision effects without purchase/defer/cancel indicators and competing explanations. Global caveat does not constrain this local claim."
+    }
+  ]
+}
