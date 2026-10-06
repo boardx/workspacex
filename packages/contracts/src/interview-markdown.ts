@@ -70,9 +70,33 @@ export function assessInterviewReportAnalysis(markdown: string): InterviewReport
   const missing: InterviewReportAnalysisGap[] = [];
   if (!reportHasAny(text, REPORT_SYNTHESIS_SIGNALS)) missing.push("cross_answer_synthesis");
   if (!reportHasAny(text, REPORT_DECISION_SIGNALS)) missing.push("decision_implication");
-  if (!reportHasAny(text, REPORT_BOUNDARY_SIGNALS)) missing.push("boundary_or_counterevidence");
+  if (!reportHasAny(text, REPORT_BOUNDARY_SIGNALS) && !hasStructuredBoundary(markdown)) missing.push("boundary_or_counterevidence");
   if (!hasInterviewReportVerifiableAction(markdown)) missing.push("verifiable_action");
   return { ok: missing.length === 0, missing };
+}
+/** Recognize the dimension, not the truth of its claims; other gates remain independent. */
+function hasStructuredBoundary(markdown: string): boolean {
+  const nodes = (parser.parse(markdown) as MarkdownNode).children ?? [];
+  return nodes.some((node, index) => {
+    if (node.type !== "heading") return false;
+    const heading = analysisNodeText(node).normalize("NFKC").trim()
+      .replace(/^\d+(?:\.\d+)*(?:[.、]|\s+)\s*/u, "");
+    if (!/^(?:不确定性与限制|分歧与反例)[：:]?$/u.test(heading)) return false;
+    for (const next of nodes.slice(index + 1)) {
+      if (next.type === "heading" && (next.depth ?? 0) <= (node.depth ?? 0)) break;
+      if (next.type === "heading") {
+        if (!/^(?:证据范围|适用范围|未知条件|反例|样本限制)[：:]?$/u.test(analysisNodeText(next).trim())) break;
+        continue;
+      }
+      // Source quotes, code and metadata cannot stand in for researcher analysis.
+      const prose = actionNodeText(next).split("\n")
+        .filter(line => !/^[^:：。！？\n]{1,40}[：:]\s*[。；;]?$/u.test(line.trim())
+          && !/^(?:未知因素|未知条件|未知信息)[。；;]?$/u.test(line.trim()))
+        .join("\n");
+      if (/(?:未提供|未说明|未记录|缺少|未知|不能判断|无法判断|无法推断|不能推断|不足以|尚待验证)[^。\n]{2,}/u.test(prose)) return true;
+    }
+    return false;
+  });
 }
 /** Normalize only explicit heading decorations; never rewrite the report itself. */
 function isVerifiableActionHeading(text: string): boolean {
