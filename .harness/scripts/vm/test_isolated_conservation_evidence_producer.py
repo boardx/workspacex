@@ -9,6 +9,7 @@ class CollectionTests(unittest.TestCase):
   self.bytes={};self.counter=0
   b={'accountId':'1177216024653153','regionId':'cn-shanghai','attemptId':'12345678-1234-1234-1234-123456789012','candidateSha':FIXED_APP,'sourceInstanceId':'pgm-uf6rg214cp381l49','targetInstanceId':'pgm-isolated','host':'pgm-isolated.rwlb.rds.aliyuncs.com','peer':'192.168.1.2','peerSha256':hashlib.sha256(b'192.168.1.2').hexdigest(),'providerCreatedUtc':'2026-10-04T00:00:00Z','providerDescription':'wsx-cn-isolated-12345678-1234-1234-1234-123456789012'}
   b['tls']={'sslmode':'disable','approvedException':'aliyun-postgresql-serverless-no-tls','providerSslEvidence':{'targetInstanceId':b['targetInstanceId'],'sslEnabled':False,'providerCreatedUtc':b['providerCreatedUtc']}}
+  self.authority={'sourceRevision':FIXED_APP,'baselineRevision':FIXED_BASE,'migrationPlanSha256':'a'*64,'attemptId':'parent-release'};self.child_authority={k:b[k] for k in ('candidateSha','attemptId','targetInstanceId')}
   self.payload={'binding':b,'baselineSha':FIXED_BASE,'release':FIXED_RELEASE,'stageReceipts':{}}
   self.outers={}
   for stage in STAGES:
@@ -36,7 +37,7 @@ class CollectionTests(unittest.TestCase):
   raw=self.bytes[path]
   if hashlib.sha256(raw).hexdigest()!=digest:raise ValueError('INPUT_HASH_DRIFT')
   return raw
- def run_it(self):return produce(self.payload,self.reader)
+ def run_it(self):return produce(self.payload,self.reader,expected_identity=self.authority,expected_isolation_binding=self.child_authority,expected_release=FIXED_RELEASE)
  def mutate(self,stage,change):
   out=copy.deepcopy(self.outers[stage]);change(out);self.payload['stageReceipts'][stage]=self.ref(out)
  def test_complete_collection_is_deterministic_but_not_admission(self):
@@ -76,4 +77,27 @@ class CollectionTests(unittest.TestCase):
  def test_production_target(self):
   self.payload['binding']['targetInstanceId']=self.payload['binding']['sourceInstanceId']
   with self.assertRaisesRegex(ValueError,'PRODUCTION_TARGET'):self.run_it()
+
+ def test_a1cb_approved_parent_and_independent_child_uuid_succeed(self):
+  app='a1cb4c7683768566b0cf38ffe6a27b0a8c13f4f0';self.authority['sourceRevision']=app;self.child_authority['candidateSha']=app;self.payload['binding']['candidateSha']=app
+  for path,raw in list(self.bytes.items()):
+   value=json.loads(raw)
+   if value.get('candidateSha')==FIXED_APP:
+    value['candidateSha']=app;self.bytes[path]=json.dumps(value).encode()
+  for outer in self.outers.values():
+   outer['candidateSha']=app
+   for key in ('baselineProofRefs','proofRefs'):
+    for ref in outer.get(key,{}).values():ref['sha256']=hashlib.sha256(self.bytes[ref['path']]).hexdigest()
+  for stage,outer in self.outers.items():self.payload['stageReceipts'][stage]=self.ref(outer)
+  result=self.run_it();self.assertEqual(result['parentIdentity'],self.authority);self.assertEqual(result['attemptId'],self.child_authority['attemptId']);self.assertNotEqual(result['attemptId'],self.authority['attemptId'])
+ def test_independent_child_parent_baseline_and_release_cannot_self_authorize(self):
+  for kind in ('child','parent','baseline','release'):
+   with self.subTest(kind=kind):
+    self.setUp()
+    if kind=='child':self.payload['binding']['attemptId']='22345678-1234-1234-1234-123456789012'
+    if kind=='parent':self.authority['sourceRevision']='f'*40
+    if kind=='baseline':self.authority['baselineRevision']='f'*40;self.payload['baselineSha']='f'*40
+    if kind=='release':self.payload['release']='self-approved'
+    with self.assertRaises(ValueError):self.run_it()
+
 if __name__=='__main__':unittest.main()

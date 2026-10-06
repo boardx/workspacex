@@ -47,6 +47,9 @@ class InvocationTests(unittest.TestCase):
         self.output.mkdir(mode=0o700)
         sample = fixture.CollectionTests()
         sample.setUp()
+        self.authority = dict(sample.authority)
+        self.isolation_authority = dict(sample.child_authority)
+        self.expected_release = fixture.FIXED_RELEASE
         # Convert in-memory mock refs into actual private files. This executes the
         # real offline source collector, never the replay/SQL operations.
         def materialize(value):
@@ -86,8 +89,38 @@ class InvocationTests(unittest.TestCase):
         return m.reference(path)
 
     def run_source(self, **kwargs):
+        authority = dict(expected_identity=self.authority, expected_isolation_binding=self.isolation_authority, expected_release=self.expected_release)
+        authority.update(kwargs)
         return m.invoke('conservation', self.binding, 'local-source', self.input,
-                        self.output, self.source_pin, self.exe_pin, self.closure, self.executable, local_fixture_root=self.root, **kwargs)
+                        self.output, self.source_pin, self.exe_pin, self.closure, self.executable, local_fixture_root=self.root, **authority)
+
+    def test_missing_malformed_and_root_authority_reject_before_spawn(self):
+        with patch.object(m.subprocess, 'Popen') as spawn:
+            for identity in (None, {}, dict(self.authority, unexpected=True), dict(self.authority, migrationPlanSha256='wrong')):
+                with self.assertRaisesRegex(ValueError, 'EXPECTED_IDENTITY'):
+                    m.invoke('conservation', self.binding, 'local-source', self.input, self.output, self.source_pin, self.exe_pin, self.closure, self.executable, local_fixture_root=self.root, expected_identity=identity)
+            with patch.object(m.os, 'geteuid', return_value=0), self.assertRaisesRegex(ValueError, 'ROOT_REQUIRES_PROTECTED_AUTHORITY'):
+                self.run_source()
+            spawn.assert_not_called()
+
+    def test_valid_but_foreign_authority_is_rejected_by_actual_child(self):
+        variants = [
+            dict(expected_isolation_binding=dict(self.isolation_authority, attemptId='foreign-child')),
+            dict(expected_identity=dict(self.authority, sourceRevision='f' * 40), expected_isolation_binding=dict(self.isolation_authority, candidateSha='f' * 40)),
+            dict(expected_isolation_binding=dict(self.isolation_authority, targetInstanceId='foreign-instance')),
+            dict(expected_release='foreign-release'),
+        ]
+        for authority in variants:
+            with self.subTest(authority=authority), self.assertRaisesRegex(ValueError, 'SOURCE_FAILED'):
+                self.run_source(**authority)
+            self.assertEqual(list(self.output.iterdir()), [])
+
+    def test_child_rejects_extra_envelope_fields_before_produce(self):
+        import io
+        import types
+        with patch.object(m, 'PINNED_SOURCES', {name: {} for name in m.MODULES}, create=True), patch.object(m.os, 'write'), patch.object(m.os, 'close'), patch.object(m.sys, 'stdin', types.SimpleNamespace(buffer=io.BytesIO(b'{"input":{},"unexpected":true}'))):
+            with self.assertRaisesRegex(ValueError, 'WORKER_ENVELOPE'):
+                m.owned_worker('conservation', 123)
 
     def test_actual_child_proc_source_and_raw_output_binding(self):
         result = self.run_source()
@@ -116,7 +149,7 @@ class InvocationTests(unittest.TestCase):
         with patch.object(m.subprocess, 'Popen') as spawn:
             for operation, src, exe in [('unknown', self.source_pin, self.exe_pin), ('conservation', '0' * 64, self.exe_pin), ('conservation', self.source_pin, '0' * 64)]:
                 with self.assertRaises(ValueError):
-                    m.invoke(operation, self.binding, 'local-source', self.input, self.output, src, exe, self.closure, self.executable, local_fixture_root=self.root)
+                    m.invoke(operation, self.binding, 'local-source', self.input, self.output, src, exe, self.closure, self.executable, local_fixture_root=self.root, expected_identity=self.authority, expected_isolation_binding=self.isolation_authority, expected_release=self.expected_release)
             Path(self.input['path']).write_text('{}')
             with self.assertRaisesRegex(ValueError, 'INPUT_HASH'):
                 self.run_source()

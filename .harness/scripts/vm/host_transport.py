@@ -42,8 +42,8 @@ class HostTransport:
   self.control_connections={};self.diagnostic_connections={};base=digest(self.plan)
   try:
    for db in DATABASES:
-    self.control_connections[db]=PersistentControlConnection(self.plan,db,bootstrap=True)
-    self.diagnostic_connections[db]=PersistentControlConnection(self.plan,db,mode='diagnostic',bootstrap=True)
+    self.control_connections[db]=PersistentControlConnection(self.plan,db,bootstrap=True,original_plan_ref=self.reviewed_plan_ref)
+    self.diagnostic_connections[db]=PersistentControlConnection(self.plan,db,mode='diagnostic',bootstrap=True,original_plan_ref=self.reviewed_plan_ref)
    return {'sourcePlanSha256':base,'identity':self.plan['identity'],'controlSessions':{db:c.binding for db,c in self.control_connections.items()},'diagnosticSessions':{db:c.binding for db,c in self.diagnostic_connections.items()},'ready':False}
   except BaseException:self.close_control_connections();raise
  def bindRuntimeSessions(self,proof):
@@ -67,7 +67,7 @@ class HostTransport:
   from control_connection import PersistentControlConnection
   require(not getattr(self,'control_connections',{}),'CONTROL_ALREADY_OPEN');self.control_connections={}
   try:
-   for db in DATABASES:self.control_connections[db]=PersistentControlConnection(self.plan,db)
+   for db in DATABASES:self.control_connections[db]=PersistentControlConnection(self.plan,db,original_plan_ref=self.reviewed_plan_ref)
   except BaseException:self.close_control_connections();raise
  def close_control_connections(self):
   for connection in [*getattr(self,'control_connections',{}).values(),*getattr(self,'diagnostic_connections',{}).values()]:connection.close()
@@ -230,7 +230,9 @@ class HostTransport:
 def seal_runtime_plan(transport,source_path,source_sha,read_private=private,uid=0,boundary=None):
  from writer_fence import digest
  require(source_sha==transport.manifest_sha,'RUNTIME_SOURCE_RAW_PIN')
- source=json.loads(read_private(source_path));require(source==transport.plan,'RUNTIME_SOURCE_CONTENT')
+ source_raw=read_private(source_path);require(hashlib.sha256(source_raw).hexdigest()==source_sha,'RUNTIME_SOURCE_RAW_BYTES_PIN')
+ source=json.loads(source_raw);require(source==transport.plan,'RUNTIME_SOURCE_CONTENT')
+ transport.reviewed_plan_ref={'path':source_path,'sha256':source_sha}
  if source.get('holdGenerationPolicy')=='bind-held-at-runtime':
   held=transport.read_hold();require(held['state']=='held' and held['identity']==source['identity'] and isinstance(held['generation'],str) and re.fullmatch('[a-f0-9]{32}',held['generation']),'RUNTIME_HELD_IDENTITY');transport.startup_hold=held
  proof=transport.openBoth();bound=transport.bindRuntimeSessions(proof)
@@ -261,7 +263,12 @@ def recover_retained_databases(transport,adapter,journal,identity,reference,read
  auth=transport.plan.get('recoveryAuthorization');require(type(auth) is dict and auth.get('identity')==identity,'RETAINED_RECOVERY_AUTHORITY')
  expected={'path':auth['planPath'],'sha256':auth['planSha256']};require(reference==expected,'RETAINED_RECOVERY_PLAN_BINDING')
  require(reference['path']=='/etc/workspacex-cn/maintenance-recovery/'+identity['sourceRevision']+'/'+identity['attemptId']+'/recovery-plan.json','RETAINED_RECOVERY_PATH')
- require(identity['sourceRevision']=='9b25bfa65662b96c0826fe67506b562ea46aa6d0' and identity['baselineRevision']=='ba6343199f3c834d6a198f83d0c771614292c82b','RETAINED_RECOVERY_FROZEN_SOURCE')
+ original_ref=getattr(transport,'reviewed_plan_ref',None)
+ require(type(original_ref) is dict and set(original_ref)=={'path','sha256'} and original_ref['sha256']==transport.manifest_sha,'RETAINED_RECOVERY_ORIGINAL_AUTHORITY')
+ original_raw=read_private(original_ref['path']);require(hashlib.sha256(original_raw).hexdigest()==original_ref['sha256'],'RETAINED_RECOVERY_ORIGINAL_PIN');original=json.loads(original_raw)
+ require(original.get('schemaVersion')==1 and original.get('mode')=='maintenance-all-writer-fence' and original.get('productionActionsAuthorized') is True and not any(k in original for k in ('runtimeSourcePlanSha256','controlSessions','diagnosticSessions')),'RETAINED_RECOVERY_ORIGINAL_PLAN')
+ require(type(identity) is dict and set(identity)=={'sourceRevision','baselineRevision','migrationPlanSha256','attemptId'} and original.get('identity')==identity==transport.plan['identity'] and original.get('toolRevision')==transport.plan['toolRevision'] and original.get('recoveryAuthorization')==auth,'RETAINED_RECOVERY_ORIGINAL_IDENTITY')
+ require(type(identity['sourceRevision']) is str and re.fullmatch('[a-f0-9]{40}',identity['sourceRevision']) and identity['baselineRevision']=='ba6343199f3c834d6a198f83d0c771614292c82b' and re.fullmatch('[a-f0-9]{64}',identity['migrationPlanSha256']) and re.fullmatch('[A-Za-z0-9-]{1,32}',identity['attemptId']),'RETAINED_RECOVERY_FROZEN_SOURCE')
  raw=read_private(reference['path']);require(hashlib.sha256(raw).hexdigest()==reference['sha256'],'RETAINED_RECOVERY_PIN');p=json.loads(raw)
  require(p['identity']==identity and p['toolRevision']==transport.plan['toolRevision'] and p['production']['instanceId']=='pgm-uf6rg214cp381l49' and p['production']['databasePeers']==transport.plan['databasePeers'] and set(p['databases'])==set(DATABASES),'RETAINED_RECOVERY_DATA_SCOPE')
  a=p['authorization'];require(a['identity']==identity and a['productionInstanceId']==p['production']['instanceId'] and a['action']=='replace-three-production-databases-with-exact-baseline' and a['notBefore']<=time.time()<a['expiresAt'] and a['expiresAt']-a['notBefore']<=3600,'RETAINED_RECOVERY_DATA_AUTHORIZATION')
@@ -272,7 +279,7 @@ def recover_retained_databases(transport,adapter,journal,identity,reference,read
  results={}
  try:
   for db in DATABASES:
-   adapter.verifyWritesBlocked(identity);require(hashlib.sha256(read_private(reference['path'])).hexdigest()==reference['sha256'],'RETAINED_RECOVERY_PLAN_DRIFT')
+   adapter.verifyWritesBlocked(identity);require(hashlib.sha256(read_private(original_ref['path'])).hexdigest()==original_ref['sha256'],'RETAINED_RECOVERY_ORIGINAL_DRIFT');require(hashlib.sha256(read_private(reference['path'])).hexdigest()==reference['sha256'],'RETAINED_RECOVERY_PLAN_DRIFT')
    journal.record('retained-recovery-database-intent',database=db);r=transport.control_connections[db].recover_existing_session(identity);item=p['databases'][db]
    require(r.get('database')==db and r.get('targetRdsInstanceId')=='pgm-uf6rg214cp381l49' and r.get('ciphertextSha256')==item['ciphertext']['sha256'] and r.get('backupReceiptSha256')==item['backupReceiptSha256'] and r.get('catalogSha256')==item['sourceCatalogSha256'] and all(r.get(k) is True for k in ('dataFidelityVerified','existingSession','precommitFidelityVerified','restoreCommitted','decoderJoined')) and r.get('ready') is False,'RETAINED_RECOVERY_ACTUAL_RESULT')
    adapter.verifyWritesBlocked(identity);results[db]=r;journal.record('retained-recovery-database-response',database=db,resultSha256=digest(r))
@@ -293,7 +300,7 @@ def serve_reviewed_fence(source_path,source_sha):
  raw=private(source_path);require(hashlib.sha256(raw).hexdigest()==source_sha,'REVIEWED_PLAN_PIN');plan=json.loads(raw)
  require(plan.get('schemaVersion')==1 and plan.get('mode')=='maintenance-all-writer-fence' and plan.get('productionActionsAuthorized') is True,'ACTION_PLAN_NOT_AUTHORIZED')
  require(re.fullmatch('[a-zA-Z0-9-]{1,128}',plan['identity']['attemptId']),'ATTEMPT_IDENTITY')
- transport=HostTransport(plan,source_sha,'apply-reviewed-all-writer-fence');transport.require_lock();transport.verify_capabilities(plan);unknown=False;mutated=False;migration_completed=False;journal=None;candidate_actor=None;baseline_cancel=None;source_operations=None
+ transport=HostTransport(plan,source_sha,'apply-reviewed-all-writer-fence');transport.reviewed_plan_ref={'path':source_path,'sha256':source_sha};transport.require_lock();transport.verify_capabilities(plan);unknown=False;mutated=False;migration_completed=False;journal=None;candidate_actor=None;baseline_cancel=None;source_operations=None
  try:
   sealed,receipt=seal_runtime_plan(transport,source_path,source_sha)
   journal=Journal(transport.plan['journalDirectory'],plan['identity']);adapter=WriterFenceAdapter(plan['identity'],transport.plan,transport,journal)

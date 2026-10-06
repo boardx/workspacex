@@ -589,6 +589,9 @@ export function r08DiscoveryEnvironment(args, environment = process.env) {
   if (!args.includes("--list")) throw new Error("Coverage placeholders require Playwright --list");
   return {
     ...environment,
+    BOARD_R01_WEB_URL: environment.BOARD_R01_WEB_URL ?? "http://127.0.0.1:39002",
+    BOARD_R01_OUTPUT_DIR: environment.BOARD_R01_OUTPUT_DIR ?? "spec-gate-discovery-only",
+    BOARD_CONNECTOR_RUNTIME_MANIFEST: environment.BOARD_CONNECTOR_RUNTIME_MANIFEST ?? "spec-gate-discovery-only/no-runtime-manifest.json",
     BOARD_PEER_WEB_URL: environment.BOARD_PEER_WEB_URL ?? "http://127.0.0.1:39002",
     BOARD_PEER_OUTPUT_DIR: environment.BOARD_PEER_OUTPUT_DIR ?? "spec-gate-discovery-only",
     BOARD_ACCEPTANCE_SHA: environment.BOARD_ACCEPTANCE_SHA ?? "discovery-not-runtime",

@@ -1,0 +1,16 @@
+import assert from 'node:assert/strict';
+import {readFileSync,realpathSync,statSync} from 'node:fs';
+import {basename,relative,isAbsolute} from 'node:path';
+const title='S01-S03 independent processes and users prove pending ACK, offline convergence and no late lifecycle writes';
+const stages=new Set(['SETUP','INITIAL_ORIGIN_SYNC','INITIAL_PEER_SYNC','PEER_OFFLINE','PEER_RECOVERY','VIEWER_UNMOUNT','OWNER_UNMOUNT',...['DRAG','TEXT','UNDO'].flatMap(g=>['READY','HOLD','PENDING','ACK'].map(s=>`${g}_${s}`))]);
+function snapshot(value,budget={nodes:0},depth=0){assert(++budget.nodes<=10000&&depth<=20);if(value===null||typeof value!=='object'){assert(['string','boolean','number','undefined'].includes(typeof value)||value===null);return value;}assert(Object.getPrototypeOf(value)===(Array.isArray(value)?Array.prototype:Object.prototype));const out=Array.isArray(value)?[]:{};for(const key of Object.keys(value)){const d=Object.getOwnPropertyDescriptor(value,key);assert(d&&Object.hasOwn(d,'value'));Object.defineProperty(out,key,{value:snapshot(d.value,budget,depth+1),enumerable:true,writable:true,configurable:true});}return out;}
+export function safeSyncLifecycleStageExport(input,artifacts,head,config){
+ try{
+ assert.equal(config,'e2e/board-peer-existing-runtime.config.ts');assert.match(head,/^[a-f0-9]{40}$/);const report=snapshot(input);assert(Buffer.byteLength(JSON.stringify(report))<=8*1024*1024);const root=realpathSync(artifacts);let cases=0;const diagnostics=[];
+ function visit(suite){for(const spec of suite.specs??[])for(const test of spec.tests??[])for(const result of test.results??[]){const receipts=(result.attachments??[]).filter(a=>a.name==='sync-lifecycle-failure-stage');const match=basename(spec.file??'')==='board-sync-lifecycle.spec.ts'&&spec.title===title;if(!match){assert.equal(receipts.length,0);continue;}cases++;assert(receipts.length<=1);if(!receipts.length)continue;const a=receipts[0];assert.equal(a.contentType,'application/json');let bytes;
+ if(typeof a.body==='string'){assert(a.body.length<=1024&&/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(a.body));bytes=Buffer.from(a.body,'base64');assert.equal(bytes.toString('base64'),a.body);}else{assert.equal(typeof a.path,'string');const path=realpathSync(a.path),inside=relative(root,path);assert(inside&&!inside.startsWith('..')&&!isAbsolute(inside));assert.match(basename(path),/^sync-lifecycle-failure-stage-[a-f0-9]{40}\.json$/);assert.equal(basename(path.slice(0,path.lastIndexOf('/'))),'attachments');const stat=statSync(path);assert(stat.isFile()&&stat.size>0&&stat.size<=512);bytes=readFileSync(path);}
+ assert(bytes.length>0&&bytes.length<=512);const row=JSON.parse(bytes.toString('utf8'));assert.deepEqual(Object.keys(row).sort(),['failureCaptured','schemaVersion','sourceHead','stage']);assert.equal(row.schemaVersion,1);assert.equal(row.sourceHead,head);assert.equal(typeof row.failureCaptured,'boolean');assert(stages.has(row.stage));diagnostics.push(row);
+ }for(const child of suite.suites??[])visit(child);}
+ visit(report);assert(cases<=1);return{schemaVersion:1,sourceHead:head,status:diagnostics.length?'EXPORTED':'NOT_AVAILABLE',diagnostics};
+ }catch{return{schemaVersion:1,sourceHead:typeof head==='string'&&/^[a-f0-9]{40}$/.test(head)?head:null,status:'EXPORT_INVALID',diagnostics:[]};}
+}

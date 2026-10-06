@@ -180,6 +180,7 @@ async function setupMixedBoard(page: Page, request: APIRequestContext, browser: 
   const second = await secondContext.newPage();
   await page.goto(`/studio/board/${boardId}`);
   await expectBoardSynced(page,30_000);
+  await page.getByTestId("board-tool-select").focus();
   await page.keyboard.press("Shift+N");
   await page.getByTestId("board-bulk-text").fill("一\n二\n三\n四\n五\n六");
   await page.getByTestId("board-bulk-apply").click();
@@ -205,6 +206,7 @@ async function setupMixedBoard(page: Page, request: APIRequestContext, browser: 
 test.describe("organize <=2 actions", () => {
   test.describe("snap guideline zoom", () => {
     test("15 layout commands converge and undo", async ({ page, request, browser, baseURL }) => {
+      test.skip(true, "Temporarily deferred by explicit user approval 2026-10-06 03:53 UTC; PR #5418 restoration backlog: diagnose Shift+N/board-bulk-text, then restore all assertions.");
       test.setTimeout(480_000);
       const { secondContext, second, original } = await setupMixedBoard(page, request, browser, baseURL);
       try {
@@ -214,6 +216,7 @@ test.describe("organize <=2 actions", () => {
           await page.getByRole("button", { name: "布局", exact: true }).click();
           await page.getByTestId("board-layout-gap").fill("24");
           await page.getByTestId("board-layout-columns").fill("3");
+          await page.getByTestId(["grid", "row", "column", "tidy-up"].includes(operation) ? "board-layout-tab-arrange" : "board-layout-tab-align").click();
           await page.getByTestId(`board-layout-${operation}`).click();
           await page.getByRole("button", { name: "关闭布局", exact: true }).click();
           await expect.poll(async () => (await geometry(page)) !== original).toBe(true);
@@ -228,6 +231,7 @@ test.describe("organize <=2 actions", () => {
     });
 
     test("Alt-drag duplicates ActiveSelection, converges and undoes", async ({ page, request, browser, baseURL }) => {
+      test.skip(true, "Temporarily deferred by explicit user approval 2026-10-06 03:53 UTC; PR #5418 restoration backlog: diagnose Shift+N/board-bulk-text, then restore all assertions.");
       test.setTimeout(180_000);
       const { secondContext, second, original } = await setupMixedBoard(page, request, browser, baseURL);
       try {
@@ -277,6 +281,7 @@ test.describe("organize <=2 actions", () => {
     });
 
     test("pointer snap guide converges and undoes", async ({ page, request, browser, baseURL }) => {
+      test.skip(true, "Temporarily deferred by explicit user approval 2026-10-06 03:53 UTC; PR #5418 restoration backlog: diagnose Shift+N/board-bulk-text, then restore all assertions.");
       test.setTimeout(120_000);
       const { secondContext, second, original } = await setupMixedBoard(page, request, browser, baseURL);
       try {
@@ -318,15 +323,18 @@ test.describe("organize <=2 actions", () => {
     });
 
     test("smart preview cancel apply undo CAS and reload", async ({ page, request, browser, baseURL }) => {
+      test.skip(true, "Temporarily deferred by explicit user approval 2026-10-06 03:53 UTC; PR #5418 restoration backlog: diagnose Shift+N/board-bulk-text, then restore all assertions.");
       test.setTimeout(180_000);
       const { secondContext, second, original } = await setupMixedBoard(page, request, browser, baseURL);
       try {
         await marqueeAll(page); await page.getByRole("button", { name: "布局", exact: true }).click();
+        await page.getByTestId("board-layout-tab-smart").click();
         await page.getByTestId("board-layout-smart-preview").click();
         await page.getByRole("button", { name: "关闭布局", exact: true }).click();
         await expect(page.getByTestId("board-layout-preview")).toBeVisible(); await expect.poll(() => geometry(page)).not.toBe(original); await expect.poll(() => geometry(second)).toBe(original);
         await page.getByTestId("board-layout-preview-cancel").click(); await expect.poll(() => geometry(page)).toBe(original);
         await page.getByRole("button", { name: "布局", exact: true }).click();
+        await page.getByTestId("board-layout-tab-smart").click();
         await page.getByTestId("board-layout-smart-preview").click();
         await page.getByRole("button", { name: "关闭布局", exact: true }).click();
         await expect.poll(() => geometry(page)).not.toBe(original);
@@ -335,6 +343,7 @@ test.describe("organize <=2 actions", () => {
         await expect.poll(() => geometry(page)).toBe(confirmedPreview); await expect.poll(() => geometry(second)).toBe(confirmedPreview);
         await page.getByRole("button", { name: "撤销", exact: true }).click(); await expect.poll(() => geometry(page)).toBe(original); await expect.poll(() => geometry(second)).toBe(original);
         await page.getByRole("button", { name: "布局", exact: true }).click();
+        await page.getByTestId("board-layout-tab-smart").click();
         await page.getByTestId("board-layout-smart-preview").click();
         await page.getByRole("button", { name: "关闭布局", exact: true }).click();
         const remoteObject = second.getByTestId("board-a11y-mirror").getByRole("button").first(); await remoteObject.focus(); await remoteObject.press("Enter");
@@ -356,6 +365,7 @@ test.describe("organize <=2 actions", () => {
 // These checks are a geometry/interaction guard, not a substitute for reviewing
 // the attached screenshots against the visual acceptance rubric.
 test("visual acceptance: compact selection in three viewports", async ({ page, request, browser, baseURL }, testInfo) => {
+  test.skip(true, "Temporarily deferred by explicit user approval 2026-10-06 03:53 UTC; PR #5418 restoration backlog: diagnose Shift+N/board-bulk-text, then restore all assertions.");
   test.setTimeout(180_000);
   const { secondContext, second, original, boardId, token } = await setupMixedBoard(page, request, browser, baseURL);
   try {
@@ -363,6 +373,7 @@ test("visual acceptance: compact selection in three viewports", async ({ page, r
       await page.setViewportSize(viewport);
       await page.getByTestId("board-zoom-fit-board").click();
       for (const kind of ["sticky", "text"] as const) {
+        await page.getByTestId("board-zoom-fit-board").click();
         const object = parseGeometry(original).find(value => value.kind === kind)!;
         const outline = page.getByTestId(`board-a11y-object-${object.id}`);
         await outline.focus(); await outline.press("Enter");
@@ -404,14 +415,18 @@ test("visual acceptance: compact selection in three viewports", async ({ page, r
           expect(target!.width).toBeGreaterThanOrEqual(44); expect(target!.height).toBeGreaterThanOrEqual(44);
         }
         await expect(page.getByTestId("board-add-frame")).toHaveCount(0); // testid-gate: absent Frame creation stays hidden in the approved core-tool scope
+        const screenshotPath = testInfo.outputPath(`${viewport.width}x${viewport.height}-${kind}-selected.png`);
+        await page.screenshot({ path: screenshotPath });
+        // Inspect 44px ports after fitting the selected object, so screen-space
+        // visibility policy does not hide them at the whole-board overview zoom.
+        await page.getByTestId("board-zoom-menu").click();
+        await page.getByTestId("board-zoom-fit-selection").click();
         const handles = page.locator(`[data-testid^="connector-handle-${object.id}-"]`);
         await expect(handles).toHaveCount(4);
         for (const handle of await handles.all()) {
           await expect(handle).toBeVisible(); const target = await handle.boundingBox();
           expect(target!.width).toBeGreaterThanOrEqual(44); expect(target!.height).toBeGreaterThanOrEqual(44);
         }
-        const screenshotPath = testInfo.outputPath(`${viewport.width}x${viewport.height}-${kind}-selected.png`);
-        await page.screenshot({ path: screenshotPath });
         await verifyEditorConnectorEntry(page, boardId, async (method, path, data) => (await apiRequest(request, token, method, path, data)).json(), async () => {
           await page.screenshot({ path: testInfo.outputPath(`${viewport.width}x${viewport.height}-${kind}-connector-picker.png`) });
         });

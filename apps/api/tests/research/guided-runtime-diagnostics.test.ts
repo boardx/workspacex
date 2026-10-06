@@ -9,8 +9,8 @@ import type { DebugTracePort } from "../../src/application/ports/debug-trace.por
 import { GuidedRuntimeService, initialRuntime } from "../../src/application/research/guided-runtime-service";
 import { ResearchRuntimeError, type GuidedRuntimeStore, type RuntimeCommand } from "../../src/application/research/guided-runtime-ports";
 import { toOrgId } from "../../src/domain/org-id";
-import { recordResearchFailure } from "../../src/application/research/guided-runtime-diagnostics";
-import { parseSourceRelevanceJson, screenResearchSources } from "../../src/application/research/guided-source-relevance";
+import { recordResearchFailure, recordSourceRelevanceFailure } from "../../src/application/research/guided-runtime-diagnostics";
+import { parseSourceRelevanceJson, screenResearchSources, sourceRelevanceResponseSchema } from "../../src/application/research/guided-source-relevance";
 import { ModelCallError } from "../../src/application/agent-run/ports";
 
 function fixture() {
@@ -54,6 +54,7 @@ describe("traceable research execution failures", () => {
   it("distinguishes a persisted model failure result from a rejected execution", async () => {
     const f = fixture();
     const result = await f.service.execute(f.actor, f.session, { ...f.command, action: "message", message: "Synthetic revision" }, undefined, f.traceId);
+    expect((f.model.complete.mock.calls as unknown as unknown[][])[0]![0]).not.toHaveProperty("responseSchema");
     expect(result.errorCode).toBe("RESEARCH_WORKFLOW_UNAVAILABLE");
     expect(result.busy).toBe(false);
     expect(result.reportCheckpoint).toEqual(f.saved);
@@ -153,8 +154,20 @@ describe("safe source relevance validation diagnostics", () => {
     expect(result.sources).toEqual(sources);
     expect(result.reportTimeline).toEqual([]);
     expect(model.complete).toHaveBeenCalledTimes(2);
-    expect(f.record).toHaveBeenCalledTimes(1);
-    expect(f.record.mock.calls[0]![0].data).toMatchObject({ phase: "perform", node: "research", action: "complete", errors: [
+    const inputs = model.complete.mock.calls as unknown as [{ responseSchema?: { name: string; policy: string; schema: { required: string[]; properties: { evaluations: { items: { properties: { matches: { items: { required: string[]; properties: Record<string, unknown> } } } } } } } } }][];
+    for (const [input] of inputs) {
+      expect(input.responseSchema).toBe(sourceRelevanceResponseSchema);
+      expect(input.responseSchema).toMatchObject({ name: "source_relevance", policy: "strict-if-supported" });
+      expect(input.responseSchema!.schema.required).toContain("evaluations");
+      const match = input.responseSchema!.schema.properties.evaluations.items.properties.matches.items;
+      expect(match.required).toContain("quoteRef"); expect(match.properties).not.toHaveProperty("quote");
+    }
+
+
+    expect(f.record).toHaveBeenCalledTimes(3);
+    const terminal = f.record.mock.calls.map(([event]) => event).filter(event => event.kind === "research.runtime.failed");
+    expect(terminal).toHaveLength(1);
+    expect(terminal[0]!.data).toMatchObject({ phase: "perform", node: "research", action: "complete", errors: [
       { type: "ResearchRuntimeError", reasonCode: "RESEARCH_SOURCE_RELEVANCE_INVALID", issues: [{ code: "invalid_json", path: [] }] },
     ] });
     expect(JSON.stringify(f.record.mock.calls)).not.toMatch(/PRIVATE_|rawOutput|message/);
@@ -216,5 +229,134 @@ describe("safe source relevance validation diagnostics", () => {
     expect(record(error).issues.length).toBe(16);
     expect(record(Object.assign(new Error("PRIVATE_SECRET"), { issues }))).not.toHaveProperty("issues");
     expect(record(Object.assign(new ResearchRuntimeError("RESEARCH_SOURCE_RELEVANCE_INVALID"), { issues: [null, "PRIVATE_SECRET", { code: "count", path: Array(7).fill("evaluations") }] })).issues).toEqual([{ code: "count" }]);
+  });
+});
+
+
+describe("per-call source screening diagnostics", () => {
+  function screeningFixture(mode: "invalid" | "repair" | "provider" | "schema" | "semantic", pipeline = false, sinkFails = false) {
+    const f = fixture();
+    f.state.currentNode = "research";
+    f.state.reportTimeline = [];
+    f.state.availableNodes = ["brief", "directions", "outline", "research"];
+    f.state.outline = [{ id: "section", title: "Grid", questions: ["Policy?"], order: 0, enabled: true }];
+    f.state.tasks = [{ id: "task", sectionId: "section", query: "Grid policy", status: pipeline ? "pending" : "succeeded", attempts: pipeline ? 0 : 1, errorCode: null }];
+    const source = { id: "source", taskId: "task", title: "Grid", url: "https://example.org", content: "Synthetic grid policy.", retrievedAt: "now", decision: "accepted" as const };
+    f.state.sources = pipeline ? [] : [source];
+    if (sinkFails) f.record.mockImplementation(() => { throw new Error("PRIVATE_SINK_SECRET"); });
+    let relevanceCalls = 0;
+    const model = { complete: vi.fn(async (input: { user: string }) => {
+      const context = JSON.parse(input.user);
+      if (context.researchStage !== "source_relevance" || mode === "provider") throw new ModelCallError("MODEL_CALL_FAILED", "PRIVATE_PROVIDER_SECRET");
+      relevanceCalls++;
+      if (mode === "invalid" || (mode === "repair" && relevanceCalls === 1)) return { text: '{"PRIVATE_BODY_SECRET":' };
+      return { text: JSON.stringify({ evaluations: context.chunks.map((chunk: { sourceId: string; chunkId: string; questionIds: string[]; quoteOptions: { quoteRef: string }[] }) => ({
+        sourceId: chunk.sourceId, chunkId: chunk.chunkId, irrelevant: mode !== "semantic",
+        matches: mode === "schema" ? null : mode === "semantic" ? [{ questionId: "PRIVATE_QUESTION_SECRET", quoteRef: chunk.quoteOptions[0]!.quoteRef, insight: "Policy evidence", relevance: "direct" }] : [],
+      })) }) };
+    }) };
+    const service = new GuidedRuntimeService(f.store, model, { search: vi.fn(async () => [source]) }, { provider: "test", id: "test" }, model, f.access, { record: f.record } as unknown as DebugTracePort);
+    const command: RuntimeCommand = { ...f.command, node: "research", action: pipeline ? "start" : "complete" };
+    return { ...f, command, model, service, events: () => f.record.mock.calls.map(([event]) => event).filter(event => event.kind === "research.source_relevance.failed") };
+  }
+  it("records both strict failures from the real task pipeline without changing partial failure", async () => {
+    const f = screeningFixture("invalid", true);
+    const result = await f.service.execute(f.actor, f.session, f.command, undefined, f.traceId);
+    expect(result.errorCode).toBe("RESEARCH_SEARCH_PARTIAL_FAILURE");
+    expect(result.tasks[0]?.status).toBe("failed");
+    expect(result.sources).toEqual([]);
+    expect(f.events()).toHaveLength(2);
+    expect(f.traceId).not.toBe(f.command.requestId);
+    expect(f.events().map(event => event.traceId)).toEqual([f.traceId, f.traceId]);
+    for (const event of f.events()) expect(event.data).toMatchObject({ sessionId: f.session.sessionId, requestId: f.command.requestId, callId: expect.any(String), errors: [{ type: "ResearchRuntimeError", reasonCode: "RESEARCH_SOURCE_RELEVANCE_INVALID", issues: [{ code: "invalid_json", path: [] }] }] });
+    expect(new Set(f.events().map(event => event.data.callId)).size).toBe(2);
+    expect(JSON.stringify(f.record.mock.calls)).not.toMatch(/PRIVATE_|rawOutput|quote|context/);
+  });
+  it("retains the initial failed call when the finite repair succeeds", async () => {
+    const f = screeningFixture("repair");
+    const result = await f.service.execute(f.actor, f.session, f.command, undefined, f.traceId);
+    expect(result.errorCode).toBe("RESEARCH_TASKS_INCOMPLETE");
+    expect(result.currentNode).toBe("research");
+    expect(result.sources).toEqual([]);
+    expect(f.model.complete).toHaveBeenCalledTimes(2);
+    expect(f.events()).toHaveLength(1);
+    expect(result.modelCalls.map(call => call.status)).toEqual(["failed", "succeeded"]);
+    expect(f.events()[0]!.data.callId).toBe(result.modelCalls[0]!.id);
+  });
+  it.each(["schema", "semantic"] as const)("records strict %s failures with only safe code/path", async mode => {
+    const f = screeningFixture(mode);
+    const result = await f.service.execute(f.actor, f.session, f.command, undefined, f.traceId);
+    expect(result.errorCode).toBe("RESEARCH_SOURCE_RELEVANCE_INVALID");
+    expect(f.model.complete).toHaveBeenCalledTimes(2);
+    expect(f.events()).toHaveLength(2);
+    expect(f.events()[0]!.data.errors[0].issues).toContainEqual(mode === "schema" ? { code: "invalid_type", path: ["evaluations", 0, "matches"] } : { code: "task_question", path: ["evaluations", 0, "matches", 0, "questionId"] });
+    expect(JSON.stringify(f.record.mock.calls)).not.toMatch(/PRIVATE_|rawOutput|message/);
+  });
+  it("does not label provider failures as source validation failures", async () => {
+    const f = screeningFixture("provider");
+    const result = await f.service.execute(f.actor, f.session, f.command, undefined, f.traceId);
+    expect(result.errorCode).toBe("RESEARCH_WORKFLOW_UNAVAILABLE");
+    expect(f.events()).toEqual([]);
+    expect(f.model.complete).toHaveBeenCalledTimes(1);
+  });
+  it("a throwing sink preserves repair exhaustion, calls and saved source bytes", async () => {
+    const f = screeningFixture("invalid", false, true);
+    const result = await f.service.execute(f.actor, f.session, f.command, undefined, f.traceId);
+    expect(result.errorCode).toBe("RESEARCH_SOURCE_RELEVANCE_INVALID");
+    expect(result.sources).toEqual(f.state.sources);
+    expect(f.model.complete).toHaveBeenCalledTimes(2);
+    expect(f.events()).toHaveLength(2);
+  });
+});
+
+
+describe("per-call relevance diagnostic privacy boundary", () => {
+  it("selects only safe structural categories from attacker-controlled errors", () => {
+    const record = vi.fn();
+    const error = Object.assign(new ResearchRuntimeError("RESEARCH_SOURCE_RELEVANCE_INVALID"), { rawOutput: "PRIVATE_RAW_SECRET", issues: [
+      { code: "task_question", path: ["evaluations", 0, "matches", 0, "questionId"], message: "PRIVATE_MESSAGE_SECRET" },
+      { code: "invalid_type", path: ["evaluations", 0, "PRIVATE_PATH_SECRET"], message: "PRIVATE_MESSAGE_SECRET" },
+      { code: "PRIVATE_CODE_SECRET", path: [] },
+      { code: "count", path: ["evaluations", 256] },
+    ] });
+    recordSourceRelevanceFailure({ record } as unknown as DebugTracePort, { sessionId: "session", callId: "call", requestId: "request" }, error);
+    expect(record.mock.calls[0]![0].data).toEqual({ sessionId: "session", callId: "call", requestId: "request", errors: [{ type: "ResearchRuntimeError", reasonCode: "RESEARCH_SOURCE_RELEVANCE_INVALID", issues: [
+      { code: "task_question", path: ["evaluations", 0, "matches", 0, "questionId"] }, { code: "invalid_type" }, { code: "count" },
+    ] }] });
+    expect(JSON.stringify(record.mock.calls)).not.toMatch(/PRIVATE_|rawOutput|message/);
+    recordSourceRelevanceFailure({ record } as unknown as DebugTracePort, { sessionId: "session", callId: "call" }, new Error("PRIVATE_SECRET"));
+    expect(record).toHaveBeenCalledTimes(1);
+    const unreadable = Object.defineProperty(new ResearchRuntimeError("RESEARCH_SOURCE_RELEVANCE_INVALID"), "issues", { get() { throw new Error("PRIVATE_GETTER_SECRET"); } });
+    expect(() => recordSourceRelevanceFailure({ record } as unknown as DebugTracePort, { sessionId: "session", callId: "call" }, unreadable)).not.toThrow();
+    expect(record).toHaveBeenCalledTimes(1);
+  });
+});
+
+
+describe("structured source schema preserves local evidence authority", () => {
+  it.each(["negative", "wrong-question", "wrong-reference"] as const)("keeps %s output under the original strict gate and finite attempts", async kind => {
+    const f = fixture();
+    f.state.currentNode = "research"; f.state.availableNodes = ["brief", "directions", "outline", "research"];
+    f.state.outline = [{ id: "section", title: "Grid", questions: ["Policy?"], order: 0, enabled: true }];
+    f.state.tasks = [{ id: "task", sectionId: "section", query: "Grid policy", status: "succeeded", attempts: 1, errorCode: null }];
+    f.state.sources = [{ id: "source", taskId: "task", title: "Grid", url: "https://example.org", content: "Synthetic grid policy.", retrievedAt: "now", decision: "accepted" }];
+    const model = { complete: vi.fn(async (input: { user: string; responseSchema?: unknown }) => {
+      expect(input.responseSchema).toBe(sourceRelevanceResponseSchema);
+      const context = JSON.parse(input.user);
+      return { text: JSON.stringify({ evaluations: context.chunks.map((chunk: { sourceId: string; chunkId: string; questionIds: string[]; quoteOptions: { quoteRef: string }[] }) => ({
+        sourceId: chunk.sourceId, chunkId: chunk.chunkId, irrelevant: kind === "negative", matches: kind === "negative" ? [] : [{
+          questionId: kind === "wrong-question" ? "not-an-allowed-question" : chunk.questionIds[0],
+          quoteRef: kind === "wrong-reference" ? "foreign-chunk#quote:0" : chunk.quoteOptions[0]!.quoteRef,
+          insight: "Controlled evidence", relevance: "direct",
+        }],
+      })) }) };
+    }) };
+    const service = new GuidedRuntimeService(f.store, model, { search: vi.fn(async () => []) }, { provider: "test", id: "test" }, model, f.access);
+    const result = await service.execute(f.actor, f.session, { ...f.command, node: "research", action: "complete" });
+    expect(result).toMatchObject({ currentNode: "research", completed: false, busy: false });
+    expect(result.errorCode).toBe(kind === "negative" ? "RESEARCH_TASKS_INCOMPLETE" : "RESEARCH_SOURCE_RELEVANCE_INVALID");
+    expect(model.complete).toHaveBeenCalledTimes(kind === "negative" ? 1 : 2);
+    expect(result.modelCalls.every(call => call.status === (kind === "negative" ? "succeeded" : "failed"))).toBe(true);
+    expect(result.sources).toEqual(kind === "negative" ? [] : f.state.sources);
   });
 });

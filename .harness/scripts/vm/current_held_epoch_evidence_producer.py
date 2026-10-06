@@ -14,18 +14,18 @@ BIND_FIELDS=('identity','toolRevision','host','epoch','holdGeneration')
 def exact(value,keys,code):require(type(value) is dict and set(value)==set(keys),code)
 def hash_shape(value):return type(value) is str and re.fullmatch('[a-f0-9]{64}',value) is not None
 
-def binding(p):
+def binding(p,*,expected_identity):
  exact(p['identity'],('sourceRevision','baselineRevision','migrationPlanSha256','attemptId'),'EPOCH_IDENTITY_SHAPE')
- i=p['identity'];require(i['sourceRevision']==APP and i['baselineRevision']==BASE and hash_shape(i['migrationPlanSha256']) and type(i['attemptId']) is str and re.fullmatch('[A-Za-z0-9-]{1,32}',i['attemptId']),'EPOCH_FIXED_IDENTITY')
+ i=p['identity'];exact(expected_identity,('sourceRevision','baselineRevision','migrationPlanSha256','attemptId'),'EPOCH_AUTHORITY_IDENTITY');require(i==expected_identity and type(i['sourceRevision']) is str and re.fullmatch('[a-f0-9]{40}',i['sourceRevision']) and i['baselineRevision']==BASE and hash_shape(i['migrationPlanSha256']) and type(i['attemptId']) is str and re.fullmatch('[A-Za-z0-9-]{1,32}',i['attemptId']),'EPOCH_FIXED_IDENTITY')
  require(type(p['toolRevision']) is str and re.fullmatch('[a-f0-9]{40}',p['toolRevision']),'EPOCH_TOOL_REVISION')
  exact(p['host'],('instanceId','bootId'),'EPOCH_HOST_SHAPE');require(p['host']['instanceId']==ECS and type(p['host']['bootId']) is str and re.fullmatch('[a-f0-9-]{36}',p['host']['bootId']),'EPOCH_HOST')
  require(hash_shape(p['epoch']) and type(p['holdGeneration']) is str and re.fullmatch('[a-f0-9]{32}',p['holdGeneration']),'EPOCH_GENERATION')
  return {k:p[k] for k in BIND_FIELDS}
 
-def produce(p,reader=private_bytes,large_reader=None):
+def produce(p,reader=private_bytes,large_reader=None,*,expected_identity):
  exact(p,(*BIND_FIELDS,'kind','before','after','databases','objects','cleanup','isolation'),'EPOCH_INPUT_SHAPE')
  require(p['kind']=='current-held-epoch-evidence-input','ONLINE_BACKUP_NOT_EPOCH')
- b=binding(p);refs={};seen=set();protected=Protected()
+ b=binding(p,expected_identity=expected_identity);refs={};seen=set();protected=Protected()
  def collect(ref,kind,database=None,target=None):
   value=read_ref(ref,reader)
   # Only this explicit cleanup boolean is a safe credential-named field.
@@ -97,8 +97,27 @@ def write_collection(path,value):
  finally:os.close(fd)
  return {'path':str(p),'sha256':hashlib.sha256(raw).hexdigest()}
 
+def protected_collection_identity(original_ref,payload,read_private):
+ """Root-private original plan and installed source pin, not stdin approval."""
+ exact(original_ref,('path','sha256'),'EPOCH_ORIGINAL_REFERENCE')
+ require(hash_shape(original_ref['sha256']),'EPOCH_ORIGINAL_PIN_SHAPE')
+ raw=read_private(original_ref['path']);require(len(raw)<=1024*1024 and hashlib.sha256(raw).hexdigest()==original_ref['sha256'],'EPOCH_ORIGINAL_PIN')
+ original=json.loads(raw)
+ require(original.get('schemaVersion')==1 and original.get('mode')=='maintenance-all-writer-fence' and original.get('productionActionsAuthorized') is True and not any(k in original for k in ('runtimeSourcePlanSha256','controlSessions','diagnosticSessions')),'EPOCH_ORIGINAL_PLAN')
+ profile_raw=read_private('/etc/workspacex-cn/trusted-tool-binding.json');profile=json.loads(profile_raw)
+ require(original.get('toolRevision')==payload.get('toolRevision')==profile.get('toolRevision') and profile.get('filesSha256',{}).get('.harness/scripts/vm/current_held_epoch_evidence_producer.py')==hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),'EPOCH_ORIGINAL_TOOL_SOURCE')
+ identity=original.get('identity');binding(payload,expected_identity=identity)
+ require(read_private(original_ref['path'])==raw and read_private('/etc/workspacex-cn/trusted-tool-binding.json')==profile_raw,'EPOCH_ORIGINAL_AUTHORITY_DRIFT')
+ return dict(identity)
+
 if __name__=='__main__':
  try:
-  require(len(sys.argv)==2,'EPOCH_OUTPUT_REQUIRED');raw=sys.stdin.buffer.read(16*1024*1024+1);require(len(raw)<=16*1024*1024,'EPOCH_INPUT_LIMIT')
-  print(json.dumps(write_collection(sys.argv[1],produce(json.loads(raw))),sort_keys=True))
+  require(os.geteuid()==0 and os.getegid()==0,'EPOCH_ROOT_ONLY')
+  require(len(sys.argv)==5 and sys.argv[1]=='--protected-collection','EPOCH_PROTECTED_COLLECTION_USAGE')
+  raw=sys.stdin.buffer.read(16*1024*1024+1);require(len(raw)<=16*1024*1024,'EPOCH_INPUT_LIMIT');payload=json.loads(raw)
+  from host_transport import private
+  identity=protected_collection_identity({'path':sys.argv[3],'sha256':sys.argv[4]},payload,private)
+  output='/etc/workspacex-cn/maintenance-evidence/'+identity['sourceRevision']+'/'+identity['attemptId']+'/epoch-collection.json'
+  require(sys.argv[2]==output,'EPOCH_APPROVED_COLLECTION_OUTPUT')
+  print(json.dumps(write_collection(output,produce(payload,expected_identity=identity)),sort_keys=True))
  except Exception:print('CURRENT_HELD_EPOCH_COLLECTION_REJECTED',file=sys.stderr);sys.exit(1)

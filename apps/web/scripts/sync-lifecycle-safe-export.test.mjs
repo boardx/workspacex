@@ -1,0 +1,9 @@
+import{test}from'node:test';import assert from'node:assert/strict';import{safeSyncLifecycleStageExport as safe}from'./sync-lifecycle-safe-export.mjs';
+const run=(...args)=>safe(...args,'e2e/board-peer-existing-runtime.config.ts');
+const head='a'.repeat(40),title='S01-S03 independent processes and users prove pending ACK, offline convergence and no late lifecycle writes';
+function report(row={schemaVersion:1,sourceHead:head,failureCaptured:true,stage:'DRAG_PENDING'}){return{specs:[{file:'board-sync-lifecycle.spec.ts',title,tests:[{results:[{attachments:[{name:'sync-lifecycle-failure-stage',contentType:'application/json',body:Buffer.from(JSON.stringify(row)).toString('base64')}]}]}]}]};}
+test('failed suite exports fixed phase without changing primary status',()=>{const r=report();r.specs[0].tests[0].results[0].status='failed';assert.equal(run(r,'/tmp',head).status,'EXPORTED')});
+test('unknown fields/stage/source/type reject',()=>{for(const delta of[{private:'secret'},{stage:'URL'},{sourceHead:'b'.repeat(40)},{failureCaptured:1}])assert.equal(run(report({schemaVersion:1,sourceHead:head,failureCaptured:true,stage:'DRAG_PENDING',...delta}),'/tmp',head).status,'EXPORT_INVALID')});
+test('foreign case and duplicate receipt reject',()=>{const r=report();r.specs[0].title='foreign';assert.equal(run(r,'/tmp',head).status,'EXPORT_INVALID');const d=report();d.specs.push(d.specs[0]);assert.equal(run(d,'/tmp',head).status,'EXPORT_INVALID')});
+test('accessor never evaluated',()=>{let reads=0;const r={};Object.defineProperty(r,'specs',{enumerable:true,get(){reads++;throw Error('private')}});assert.equal(run(r,'/tmp',head).status,'EXPORT_INVALID');assert.equal(reads,0)});
+test('absent fixed receipt remains unknown not success',()=>assert.equal(run({specs:[]},'/tmp',head).status,'NOT_AVAILABLE'));

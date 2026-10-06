@@ -1,0 +1,14 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyanbin/Documents/Codex/2026-10-04/task-3/capability-pr/apps/web
+
+ ✓ tests/ui/agent-capability-graph.test.tsx (3 tests) 140ms
+ ✓ tests/ui/agent-capability-graph-published-pins-race.test.tsx (3 tests) 21ms
+ ✓ tests/lib/agent-capability-graph-model.test.ts (5 tests) 2ms
+ ✓ tests/lib/agent-capability-graph-published-pins.test.ts (5 tests) 2ms
+
+ Test Files  4 passed (4)
+      Tests  16 passed (16)
+   Start at  20:06:18
+   Duration  3.09s (transform 865ms, setup 228ms, collect 1.52s, tests 165ms, environment 634ms, prepare 91ms)
+

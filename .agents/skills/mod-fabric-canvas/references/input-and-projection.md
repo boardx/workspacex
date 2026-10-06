@@ -65,15 +65,17 @@ canonical geometry 的旋转基点是 top-left，不是 CSS 默认 center；DOM 
 `fabric/connector-interaction.ts` 当前使用 perPixelTargetFind、禁 bbox transform，避免透明连接线框
 拦截下层 Sticky；新端点/路径手柄不要沿用整体对象矩形拖动。
 
-本轮未合入 Connector 实现入口是 `connector-gesture.ts`、`use-board-connector-gesture.ts` 与
-core `connector-path.ts`。路径以 resolved world geometry 绘制，不把 path 拉伸进另算的 bbox；
+Connector 实现入口是 `connector-gesture.ts`、`use-board-connector-gesture.ts` 与
+core `connector-path.ts`；已核验这些源码存在于 main 对象 `4ce93be32d71cabe38585c61c1a77a13a7b98c02`，
+不代表当前候选的原生验收已通过。路径以 resolved world geometry 绘制，不把 path 拉伸进另算的 bbox；
 bbox 是 bounds/hit/cache 边界，不是第二个缩放坐标系。旧 route 缺省板保留兼容行为，不能为了
 统一新路径模型静默改写旧数据。release 前读取最新 Y.Doc 对象并执行命令端 CAS/preconditions；
 React render snapshot 或仅 UI 的 lock 检查不能消除远端删除、锁定、权限变化的提交窗口。
 
 ## Sticky 文字与字体
 
-本轮未合入 helper `fabric/sticky-text-layout.ts` 是文字布局来源；Fabric 与 DOM 使用同一结果，
+helper `fabric/sticky-text-layout.ts` 是文字布局来源，已核验存在于上述 main 对象，
+不代表完整 S01-S18 或原生 IME 验收已通过；Fabric 与 DOM 使用同一结果，
 不复制 font-size 档位或内接几何公式。圆形使用实际最小直径确定内接文字范围；溢出编辑时要缩小
 真实可滚动视口，而不是给整圆 textarea 加 padding（scroll 后文字仍会越界）。完整文字保存在
 canonical，画布布局不应截断数据；最终长文本与窄屏验收仍分别记录。

@@ -21,12 +21,15 @@ class Identity(unittest.TestCase):
    if change=='missing':v['filesSha256'].pop(next(iter(m.FILES)))
    else:v['filesSha256']['arbitrary']='b'*64
    with self.assertRaises(ValueError):m.validate_identity(v,APP,'2026.10.3-cn.1','fixture','prebuild')
+ def test_original_authority_is_required_source_closure(self):
+  source='packages/cloud-deploy/src/cn-maintenance-host/source_plan_authority.ts';self.assertIn(source,m.FILES);self.assertIsNone(m.FILES[source]);v=self.fixture();v['filesSha256'].pop(source)
+  with self.assertRaisesRegex(ValueError,'TOOL_CLOSURE'):m.validate_identity(v,APP,'2026.10.3-cn.1','fixture','prebuild')
  def test_actual_comparison_rejects_installed_or_object_drift(self):
   import json
   for drift in ['none','installed','object','head','dirty','hash']:
    with self.subTest(drift=drift):
     v=self.fixture();data={k:('file:'+k).encode() for k in m.FILES};v['filesSha256']={k:hashlib.sha256(b).hexdigest() for k,b in data.items()}
-    if drift=='hash':v['filesSha256'][next(iter(data))]='0'*64
+    if drift=='hash':v['filesSha256']['packages/cloud-deploy/src/cn-maintenance-host/source_plan_authority.ts']='0'*64
     def read(path,mode=None):
      if str(path)=='/manifest':return json.dumps(v).encode()
      for k,installed in m.FILES.items():
@@ -213,4 +216,93 @@ class Identity(unittest.TestCase):
   self.assertIn('source_path="$TOOL_SOURCE_DIR/${pair%%:*}"',collector)
   self.assertIn('show "$revision:.agents/skills/workspacex-cn-release/scripts/validate_preflight.py"',verifier)
   self.assertNotIn('CN_BUILD_TOOL_BINDING',(D/'deploy-cn-production.sh').read_text())
+
+
+class IndependentBuildCheckout(unittest.TestCase):
+ def fixture(self,root):
+  def git(where,*args):return subprocess.check_output(['/usr/bin/git',*m.GIT_OPTIONS,'-C',str(where),*args],stderr=subprocess.DEVNULL)
+  original=root/'original';original.mkdir();git(original,'init','--initial-branch=main');git(original,'config','user.email','fixture@example.invalid');git(original,'config','user.name','Fixture')
+  (original/'source.txt').write_text('baseline');git(original,'add','.');git(original,'commit','-qm','baseline');old=git(original,'rev-parse','HEAD').decode().strip()
+  (original/'source.txt').write_text('candidate');git(original,'commit','-qam','candidate');app=git(original,'rev-parse','HEAD').decode().strip();git(original,'branch','candidate',app)
+  (root/'build-sources').mkdir();cache=root/'build-sources'/(app+'.git');subprocess.check_output(['/usr/bin/git','clone','--bare','--no-local','--no-hardlinks',str(original),str(cache)],stderr=subprocess.DEVNULL)
+  binding={'applicationSource':{'path':str(cache),'ref':'refs/heads/candidate','treeSha':git(cache,'rev-parse',app+'^{tree}').decode().strip(),'inventorySha256':hashlib.sha256(git(cache,'ls-tree','-r','-z',app)).hexdigest()},'mainSource':{'ref':'refs/heads/main','revision':app,'repository':str(cache)}}
+  return binding,app,old,git
+ def checkout(self,root,binding,app,create=True,base=None):
+  return m.build_checkout(binding,app,'attempt-1',create,base=str(base or root/'build-checkouts'),expected_uid=os.getuid(),boundary=root)
+ def test_actual_complete_cache_success_and_immutable_reuse(self):
+  with tempfile.TemporaryDirectory() as tmp:
+   root=pathlib.Path(tmp).resolve();binding,app,old,git=self.fixture(root);checkout=self.checkout(root,binding,app)
+   self.assertEqual(checkout,str(root/'build-checkouts'/app/'attempt-1'));self.assertEqual(git(checkout,'rev-parse','HEAD').decode().strip(),app)
+   self.assertEqual((pathlib.Path(checkout)/'source.txt').read_text(),'candidate')
+   self.assertEqual(self.checkout(root,binding,app,False),checkout)
+   self.assertEqual(git(root/'original','rev-parse','HEAD').decode().strip(),app)
+ def test_wrong_cache_hash_shared_path_and_missing_main_fail_closed(self):
+  for fault in ('hash','cache-path','shared-checkout','missing-main','wrong-main','old-main'):
+   with self.subTest(fault=fault),tempfile.TemporaryDirectory() as tmp:
+    root=pathlib.Path(tmp).resolve();binding,app,old,git=self.fixture(root)
+    if fault=='hash':binding['applicationSource']['inventorySha256']='0'*64
+    if fault=='cache-path':binding['applicationSource']['path']=str(root/'original')
+    if fault=='missing-main':binding.pop('mainSource')
+    if fault=='wrong-main':binding['mainSource']['revision']=old
+    if fault=='old-main':git(binding['applicationSource']['path'],'update-ref','refs/heads/main',old);binding['mainSource']['revision']=old
+    with self.assertRaises((ValueError,subprocess.CalledProcessError)):
+     self.checkout(root,binding,app,base=root/'original' if fault=='shared-checkout' else None)
+    self.assertFalse((root/'build-checkouts'/app/'attempt-1').exists())
+ def test_symlink_cache_or_checkout_and_dirty_reuse_rejected_without_reset(self):
+  for fault in ('cache-link','checkout-link','dirty'):
+   with self.subTest(fault=fault),tempfile.TemporaryDirectory() as tmp:
+    root=pathlib.Path(tmp).resolve();binding,app,old,git=self.fixture(root)
+    if fault=='cache-link':
+     cache=pathlib.Path(binding['applicationSource']['path']);real=cache.with_suffix('.saved');cache.rename(real);cache.symlink_to(real,target_is_directory=True)
+    else:
+     checkout=pathlib.Path(self.checkout(root,binding,app))
+     if fault=='checkout-link':
+      real=checkout.with_name('saved');checkout.rename(real);checkout.symlink_to(real,target_is_directory=True)
+     else:(checkout/'source.txt').write_text('retain-local-change')
+    with self.assertRaises(ValueError):self.checkout(root,binding,app)
+    if fault=='dirty':self.assertEqual((checkout/'source.txt').read_text(),'retain-local-change')
+ def test_independent_tool_repository_main_proof_does_not_relabel_candidate_cache(self):
+  with tempfile.TemporaryDirectory() as tmp:
+   root=pathlib.Path(tmp).resolve();binding,app,old,git=self.fixture(root)
+   original=root/'original';(original/'next.txt').write_text('later-main');git(original,'add','.');git(original,'commit','-qm','later-main');main=git(original,'rev-parse','HEAD').decode().strip()
+   tool=root/'tool';subprocess.check_output(['/usr/bin/git','clone','--no-local','--no-hardlinks',str(original),str(tool)],stderr=subprocess.DEVNULL)
+   binding['toolRoot']=str(tool);binding['mainSource']={'repository':str(tool),'ref':'refs/remotes/origin/main','revision':main}
+   with self.assertRaises(subprocess.CalledProcessError):git(binding['applicationSource']['path'],'cat-file','-e',main+'^{commit}')
+   checkout=self.checkout(root,binding,app);self.assertEqual(git(checkout,'rev-parse','HEAD').decode().strip(),app)
+   self.assertEqual(git(binding['applicationSource']['path'],'rev-parse','refs/heads/main').decode().strip(),app)
+   binding['mainSource']['repository']=str(original)
+   with self.assertRaises(ValueError):self.checkout(root,binding,app)
+ def test_shell_build_only_routes_through_original_binding_without_shared_mutation(self):
+  shell=(D/'build-cn-release-candidate.sh').read_text();publisher=(D/'publish-cn-release.sh').read_text()
+  self.assertIn('--build-checkout "$tool_binding"',shell);self.assertIn('--verify-build-checkout "$tool_binding"',publisher)
+  self.assertNotIn('exec 9>"',shell);self.assertIn('exec 9<>',shell)
+  block=shell[shell.index('if [[ "$build_only" == 0 ]]; then\ngit -C'):shell.index('# Candidate config')]
+  self.assertIn('reset --quiet --hard',block);self.assertIn('clean -ffd',block)
+  self.assertNotIn('fetch --no-tags "$source_cache"',shell)
+
+class ShellCheckoutAuthorityRouting(unittest.TestCase):
+ def test_actual_shell_authority_statements_route_same_binding_and_reject_failure(self):
+  # Execute each actual shell authority command. The test-only dispatcher is the
+  # already verified checkout reader, not an arbitrary environment path in product.
+  with tempfile.TemporaryDirectory() as tmp:
+   root=pathlib.Path(tmp).resolve();case=IndependentBuildCheckout();binding,app,old,git=case.fixture(root)
+   checkout=case.checkout(root,binding,app)
+   for name,mode in [('build-cn-release-candidate.sh','--build-checkout'),('publish-cn-release.sh','--verify-build-checkout'),('collect-cn-release-preflight.sh','--verify-build-checkout'),('verify-cn-release-preflight.sh','--verify-build-checkout')]:
+    with self.subTest(name=name):
+     lines=(D/name).read_text().splitlines();line=next(x.strip() for x in lines if 'REPOSITORY_DIR=$(python3' in x and mode in x)
+     binding_var='CN_BUILD_TOOL_BINDING' if 'preflight' in name else 'tool_binding'
+     for reject in (False,True):
+      prelude='set -euo pipefail\nrevision='+app+'\nrelease=2026.10.6-cn.1\nattempt_id=attempt-1\n'+binding_var+'=/protected/binding\n'
+      dispatcher='python3(){ [[ "$1" == /usr/local/lib/workspacex-cn/cn-build-tool-identity.py && "$2" == '+mode+' && "$3" == /protected/binding && "$4" == '+app+' && "$5" == 2026.10.6-cn.1 && "$6" == attempt-1 && "$7" == prebuild ]] || return 2; '
+      dispatcher+=('return 1; }\n' if reject else 'printf "%s\\n" "'+checkout+'"; }\n')
+      script=prelude+dispatcher+'fail(){ return 1; }\n'+line+'\n[[ "$REPOSITORY_DIR" == "'+checkout+'" ]]\ngit -C "$REPOSITORY_DIR" diff --exit-code\n'
+      result=subprocess.run(['/bin/bash','-c',script],stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+      self.assertEqual(result.returncode==0,not reject,(name,result.stderr.decode()))
+     self.assertEqual(git(root/'original','rev-parse','HEAD').decode().strip(),app)
+ def test_artifact_preflight_reuses_checkout_and_never_truncates_lock(self):
+  for name in ('collect-cn-release-preflight.sh','verify-cn-release-preflight.sh'):
+   shell=(D/name).read_text()
+   self.assertIn('if [[ "$phase" == artifact-build ]]; then\n  REPOSITORY_DIR=$(python3',shell)
+   self.assertNotIn('exec 8>"',shell);self.assertIn('exec 8<>"',shell)
+
 if __name__=='__main__':unittest.main()

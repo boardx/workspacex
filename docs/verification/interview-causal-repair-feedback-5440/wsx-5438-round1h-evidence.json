@@ -1,0 +1,42 @@
+{
+  "recovery": true,
+  "interviewId": "itv-c7b4fde8-b1cf-4586-b50a-60369d86405b",
+  "runtimeSha": "33eaeb1200356cef391a4b58624f557cfca0a52a",
+  "syntheticSource": true,
+  "providerHealthReceipt": "/tmp/wsx-5419-provider-health.json",
+  "phase": "reading_stream_body",
+  "navigationMs": 67,
+  "generationUiVisible": true,
+  "httpStatus": 200,
+  "firstVisibleDeltaMs": 2185,
+  "elapsedMs": 46984,
+  "uiStages": [
+    {
+      "stage": "整理访谈材料",
+      "elapsedMs": 154
+    },
+    {
+      "stage": "撰写研究报告",
+      "elapsedMs": 559
+    }
+  ],
+  "terminal": "failed",
+  "reason": "REPORT_QUALITY_REJECTED",
+  "attempts": 1,
+  "deltaCount": 625,
+  "reportVersion": 6,
+  "reportState": {
+    "documentId": "md-464c6069-c646-4e3b-a72d-0ca37aec774f",
+    "status": "failed",
+    "failure": {
+      "code": "REPORT_QUALITY_REJECTED",
+      "retryable": true
+    }
+  },
+  "streamHash": "a2d0d351013687e9a6b15643f8279bbe87d3e0fc6362bcafd9942e3a689165c5",
+  "savedHash": "a2d0d351013687e9a6b15643f8279bbe87d3e0fc6362bcafd9942e3a689165c5",
+  "streamEqualsSaved": true,
+  "refreshEqual": true,
+  "reentryEqual": true,
+  "success": false
+}

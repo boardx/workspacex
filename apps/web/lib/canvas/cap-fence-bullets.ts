@@ -28,7 +28,7 @@
  * 保留前 `capacity` 条、按原有顺序，只丢弃超出的部分——不重排、不截断单条文字
  * （那是 `noteFontSizePx`/`template-canvas-grid.tsx` 管的另一层，见其文档）。
  */
-import type { TemplateSpec } from "@repo/fabric-markdown";
+import { lookupSectionItems, type TemplateSpec } from "@repo/fabric-markdown";
 import { ENGINE_STICKY, renderStickyCapacity } from "./auto-template-layout";
 
 /**
@@ -62,7 +62,8 @@ export function sectionRenderCapacities(spec: TemplateSpec): ReadonlyMap<string,
  * 超出的行整行丢弃，不改动其它任何内容（表头 `字段: 值` 行、未知分区名、
  * 找不到容量信息的分区都原样保留）。
  *
- * 只在遇到 `## 分区名` 标题时切换「当前分区」、遇到空行/新标题时重置计数——
+ * `## 分区名` 通过共享 lookupSectionItems 匹配容量；同一分区重复或等价标题
+ * 共用计数，不因重开标题再次获得完整容量。
  * 与引擎自己的 `parseTemplateText` 认的是同一套边界（`##` 开头即标题，`-`/`*`
  * 开头即要点），但这里不需要处理表头 `字段: 值` 行、段落续行这些细节，因为它们
  * 从不计入容量、也从不被丢弃。
@@ -75,19 +76,24 @@ export function capFenceBulletsToCapacity(
   let current: string | null = null;
   let cap: number | null = null;
   let count = 0;
+  const counts = new Map<string, number>();
   for (const raw of lines) {
     const trimmed = raw.trim();
     const heading = /^##\s*(.+)$/.exec(trimmed);
     if (heading) {
-      current = heading[1]!.trim();
+      const name = heading[1]!.trim();
+      const probe = new Map([[name, ["match"]]]);
+      const matches = [...capacities.keys()].filter(key => lookupSectionItems(probe, key).length > 0);
+      current = matches.length === 1 ? matches[0]! : name;
       cap = capacities.get(current) ?? null;
-      count = 0;
+      count = counts.get(current) ?? 0;
       out.push(raw);
       continue;
     }
     const bullet = /^[-*]\s+/.exec(trimmed);
     if (bullet && current !== null && cap !== null) {
       count += 1;
+      counts.set(current, count);
       if (count > cap) continue; // 超出这个分区的真实渲染容量——整行丢弃，不画。
     }
     out.push(raw);

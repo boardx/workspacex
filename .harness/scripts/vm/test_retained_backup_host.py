@@ -8,7 +8,7 @@ from cn_backup_channel import query_table
 from writer_fence import digest
 class HostTests(unittest.TestCase):
  def host(self):
-  p,scope=fixture();h=RetainedBackupHost.__new__(RetainedBackupHost);h.plan=p;h.scope=scope;h.reference={'path':'/protected/host','sha256':'e'*64};h.host={'backup':p,'objectScope':scope,'statements':mutation_table(p,scope),'databasePeers':{db:{'database':db} for db in DATABASES}};h.channels={};h.mutex=threading.RLock();h.closing=False;h.password='private';h.clock=time.time;h.deadline=time.time()+100;h.owner='a'*32;h.read=lambda path:b'';h.stream_attempts=0;h.joined_streams=0;h.relays=[]
+  p,scope=fixture();h=RetainedBackupHost.__new__(RetainedBackupHost);h.plan=p;h.expected_identity=dict(p['identity']);h.scope=scope;h.reference={'path':'/protected/host','sha256':'e'*64};h.host={'backup':p,'objectScope':scope,'statements':mutation_table(p,scope,expected_identity=p['identity']),'databasePeers':{db:{'database':db} for db in DATABASES}};h.channels={};h.mutex=threading.RLock();h.closing=False;h.password='private';h.clock=time.time;h.deadline=time.time()+100;h.owner='a'*32;h.read=lambda path:b'';h.stream_attempts=0;h.joined_streams=0;h.relays=[]
   h.bindings={db:{'peer':{'database':db},'role':'migration_admin','pid':10+n,'backendStart':'fixed'} for n,db in enumerate(DATABASES)}
   h.requests=[]
   def ch(db):

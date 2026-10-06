@@ -70,6 +70,7 @@ test.afterEach(async () => {
 });
 
 test("brainstorm input creates twenty connected ideas and one-operation bulk undo", async ({ page, request: api, context }) => {
+  test.skip(true, "Temporarily deferred by explicit user approval 2026-10-06 03:53 UTC; PR #5418 restoration backlog: diagnose Shift+N/board-bulk-text, then restore all assertions.");
   await page.setViewportSize({ width: 1280, height: 800 });
   const token = await login(page);
   const created = await apiFetch(api, token, "POST", "/whiteboards", { requestId: randomUUID(), name: `Thinking input ${randomUUID()}` });
@@ -102,6 +103,7 @@ test("brainstorm input creates twenty connected ideas and one-operation bulk und
   const beforeLastCreation = await readBoardProjection(page);
   const beforeLastCreationIds = new Set(beforeLastCreation.map(object => object.id));
   await expect.poll(() => readBoardProjection(peer)).toEqual(beforeLastCreation);
+  await page.getByTestId("board-tool-select").focus();
   await page.keyboard.press("Shift+N");
   await page.getByTestId("board-bulk-text").fill("Research\nDesign\nPrototype");
   await page.getByTestId("board-bulk-apply").click();

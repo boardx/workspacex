@@ -54,14 +54,15 @@ class RetainedObserverSource:
   self.remaining();return result is True
 
 class RetainedBackendObserver:
- def __init__(self,plan,channels,authority,proc_root='/proc'):
-  validate(plan);require(set(channels)==set(DATABASES),'RETAINED_OBSERVER_THREE_CHANNELS')
+ def __init__(self,plan,channels,authority,proc_root='/proc',*,expected_identity):
+  validate(plan,expected_identity=expected_identity);
+  self.expected_identity=dict(expected_identity);require(set(channels)==set(DATABASES),'RETAINED_OBSERVER_THREE_CHANNELS')
   self.plan=plan;self.channels=channels;self.authority=authority;self.proc=proc_root;self.pid=os.getpid();self.deadline=None
  def collect(self,db,container_id,process_pid,application_name):
   require(os.getpid()==self.pid,'RETAINED_OBSERVER_PARENT_ONLY')
   require(db in DATABASES,'RETAINED_OBSERVER_DATABASE')
   source=RetainedObserverSource(self.plan,self.channels[db],self.authority,self.deadline)
-  return BackupBackendCollector(source,self.proc).collect(self.plan,db,container_id,process_pid,application_name)
+  return BackupBackendCollector(source,self.proc).collect(self.plan,db,container_id,process_pid,application_name,expected_identity=self.expected_identity)
 
 class SourceOwnedParentObservation:
  """Source-only direct stream observer. Never suitable for fork callbacks.
@@ -81,7 +82,7 @@ class SourceOwnedParentObservation:
   require(type(deadline_monotonic) in (int,float) and math.isfinite(deadline_monotonic) and time.monotonic()<deadline_monotonic<=time.monotonic()+330,'PARENT_OBSERVATION_DEADLINE')
   require(re.fullmatch('[a-f0-9]{64}',helper_sha256 or ''),'PARENT_OBSERVATION_HELPER_HASH')
   self.observer=observer;self.database=database;self.container_id=container_id;self.backend_pid=backend_process_pid;self.application_name=application_name
-  self.command=dump_command(observer.plan,database,container_name,owner)
+  self.command=dump_command(observer.plan,database,container_name,owner,expected_identity=observer.expected_identity)
   self.helper_sha256=helper_sha256;self.deadline=deadline_monotonic;self.proof_path=Path(proof_path)
   self.pid=os.getpid();self.receipts=[];self.proof=None;self.helper_pid=None;self.deferred=deferred
  def __call__(self,producerPID):

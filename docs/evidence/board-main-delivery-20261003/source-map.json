@@ -1,0 +1,487 @@
+{
+  "main": "7c92665b94711889255c449bd2101c71e563c7cd",
+  "integration_owner": "01a0ffe1-0b39-771b-a431-f394760a401a",
+  "original_committed_candidate": "0f35b9232a4bd4f7cd4f94ec9fa8d6dee143bca9",
+  "status": "DRAFT_BLOCKED_R01_PIXEL_AND_RUNTIME_ACCEPTANCE",
+  "sources": [
+    {
+      "pr": 5201,
+      "head": "dc384a3e11156e2c4053b77d2663ccd33bd6dad9",
+      "base": "codex/board-r04-native-union-base",
+      "parent_only_merge": "c190b454c2f8db631df12678b0a480ec6fca56b7",
+      "paths": [
+        {
+          "path": "apps/web/e2e/board-r04-native-matrix-driver.ts",
+          "source_blob": "69763d01c79f84e96ea25d3d225748bcf332f7bd",
+          "candidate_blob": "69763d01c79f84e96ea25d3d225748bcf332f7bd",
+          "status": "EXACT_SOURCE_BLOB"
+        },
+        {
+          "path": "apps/web/e2e/support/board-native-sticky-create.ts",
+          "source_blob": "35a7bf31b1eacd1a8d058cd8ab2c31fea486e21e",
+          "candidate_blob": "84c5d55e3aebeb7302c0a28606395fd16d25e306",
+          "status": "HUNK_UNION_OR_REVIEWED_MAIN_PRESERVATION"
+        },
+        {
+          "path": "apps/web/tests/ui/board-creation-preview-authority.test.tsx",
+          "source_blob": "04595392faa0e39dedc3a0c17a38ec4770abf3b9",
+          "candidate_blob": "a00842af11233aa00b54f85b3acf2b29bf1d44dc",
+          "status": "HUNK_UNION_OR_REVIEWED_MAIN_PRESERVATION"
+        },
+        {
+          "path": "apps/web/tests/ui/board-r04-native-selector-contract.test.tsx",
+          "source_blob": "5c4e1b3d454523511e25a62c8ff2160842edaf98",
+          "candidate_blob": "5c4e1b3d454523511e25a62c8ff2160842edaf98",
+          "status": "EXACT_SOURCE_BLOB"
+        },
+        {
+          "path": "apps/web/tests/whiteboard/native-sticky-placement.test.ts",
+          "source_blob": "b0deada8147ffae7472541d8e81d253f955b2df0",
+          "candidate_blob": "b0deada8147ffae7472541d8e81d253f955b2df0",
+          "status": "EXACT_SOURCE_BLOB"
+        }
+      ],
+      "disposition": "INTEGRATED_WITH_REVIEWED_MAIN_PRESERVATION_RUNTIME_NOT_RUN"
+    },
+    {
+      "pr": 5137,
+      "head": "05aabb5c2981550ccdb4d64c730ee088f69d0fb1",
+      "base": "codex/native-sync-ci-5147",
+      "parent_only_merge": "6f5d3de65ed8fbf9ebcfd86960eb54bb634143ea",
+      "paths": [
+        {
+          "path": "apps/web/e2e/board-peer-existing-runtime.config.ts",
+          "source_blob": "c9caa438cda3f6bbed99e2f707048ae9bfd3f2cb",
+          "candidate_blob": "c9caa438cda3f6bbed99e2f707048ae9bfd3f2cb",
+          "status": "EXACT_SOURCE_BLOB"
+        },
+        {
+          "path": "apps/web/e2e/board-peer-origin-close.spec.ts",
+          "source_blob": "d008d6c594d8c5ebe9a3efde84c1d4df048e69aa",
+          "candidate_blob": "d008d6c594d8c5ebe9a3efde84c1d4df048e69aa",
+          "status": "EXACT_SOURCE_BLOB"
+        },
+        {
+          "path": "apps/web/e2e/board-shared-outbox.spec.ts",
+          "source_blob": "b69077aa7f80000951ad680fff8b5e32eeb3d3de",
+          "candidate_blob": "7f17b314025096b375a67c6141556cdc5cc85760",
+          "status": "EXACT_SOURCE_BLOB"
+        },
+        {
+          "path": "apps/web/e2e/board-sync-lifecycle.spec.ts",
+          "source_blob": "01a4dd2f17def9132c85dd6dbd2c623c5b1f38e5",
+          "candidate_blob": "01a4dd2f17def9132c85dd6dbd2c623c5b1f38e5",
+          "status": "EXACT_SOURCE_BLOB"
+        },
+        {
+          "path": "apps/web/e2e/support/board-shared-outbox-proof.ts",
+          "source_blob": "9a1d46ccc8d9805dd61753dfbc7385406f86a127",
+          "candidate_blob": "9a1d46ccc8d9805dd61753dfbc7385406f86a127",
+          "status": "EXACT_SOURCE_BLOB"
+        },
+        {
+          "path": "apps/web/e2e/support/native-runtime/native-process-cwd.test.mjs",
+          "source_blob": "f2ada47515a8e6c4287a294dbdfc8ee8795c3964",
+          "candidate_blob": "f2ada47515a8e6c4287a294dbdfc8ee8795c3964",
+          "status": "EXACT_SOURCE_BLOB"
+        },
+        {
+          "path": "apps/web/e2e/support/native-runtime/native-process-listeners.mjs",
+          "source_blob": "1d79b2a43026c972e60f4f0edd9979d9faacb083",
+          "candidate_blob": "1d79b2a43026c972e60f4f0edd9979d9faacb083",
+          "status": "EXACT_SOURCE_BLOB"
+        },
+        {
+          "path": "apps/web/e2e/support/native-runtime/native-process-listeners.test.mjs",
+          "source_blob": "531f073cdd9c4770d15be83da0052157a80d7485",
+          "candidate_blob": "531f073cdd9c4770d15be83da0052157a80d7485",
+          "status": "EXACT_SOURCE_BLOB"
+        },
+        {
+          "path": "apps/web/e2e/support/native-runtime/runtime-attestation.mjs",
+          "source_blob": "ba60d034d0236e5ae7ac0980a0f8eebfb4474aca",
+          "candidate_blob": "212555443cfb44abcf044dae8b58b547fd4f473b",
+          "status": "HUNK_UNION_OR_REVIEWED_MAIN_PRESERVATION"
+        },
+        {
+          "path": "apps/web/e2e/support/r08/r08-native-adapter.mjs",
+          "source_blob": "c67de7b6d784e1f7feb6a73149d8b633ede5de37",
+          "candidate_blob": "c67de7b6d784e1f7feb6a73149d8b633ede5de37",
+          "status": "EXACT_SOURCE_BLOB"
+        },
+        {
+          "path": "apps/web/e2e/support/r08/r08-native-adapter.test.mjs",
+          "source_blob": "e90b71d2feaf86c836d9f4c6d1b2a1d7d955ffe4",
+          "candidate_blob": "e90b71d2feaf86c836d9f4c6d1b2a1d7d955ffe4",
+          "status": "EXACT_SOURCE_BLOB"
+        },
+        {
+          "path": "apps/web/e2e/support/r08/r08-native-suite.json",
+          "source_blob": "1d7b9ce7c1f048ebb7ba1773cca1dc65d23d40b6",
+          "candidate_blob": "1d7b9ce7c1f048ebb7ba1773cca1dc65d23d40b6",
+          "status": "EXACT_SOURCE_BLOB"
+        },
+        {
+          "path": "apps/web/e2e/support/r08/wsx-r08-fault-proxy.mjs",
+          "source_blob": "91f7794baad6d9c0673c524f2b646d45cde98240",
+          "candidate_blob": "91f7794baad6d9c0673c524f2b646d45cde98240",
+          "status": "EXACT_SOURCE_BLOB"
+        },
+        {
+          "path": "apps/web/e2e/support/r08/wsx-r08-owned-proxy-bridge.mjs",
+          "source_blob": "b7b086a77565671625c9165ead3466843bab092c",
+          "candidate_blob": "b7b086a77565671625c9165ead3466843bab092c",
+          "status": "EXACT_SOURCE_BLOB"
+        },
+        {
+          "path": "apps/web/e2e/support/r08/wsx-r08-owned-proxy-bridge.test.mjs",
+          "source_blob": "3d01b5b53b9d5220b02350cff78d1549ff022f5c",
+          "candidate_blob": "3d01b5b53b9d5220b02350cff78d1549ff022f5c",
+          "status": "EXACT_SOURCE_BLOB"
+        },
+        {
+          "path": "apps/web/e2e/support/r08/wsx-r08-proxy-config.test.mjs",
+          "source_blob": "022a4038a1043c7baa6103bc8358b624c251db48",
+          "candidate_blob": "022a4038a1043c7baa6103bc8358b624c251db48",
+          "status": "EXACT_SOURCE_BLOB"
+        },
+        {
+          "path": "apps/web/e2e/support/r08/wsx-r08-proxy-policy.mjs",
+          "source_blob": "c69ed014a920f29272412e146407d0b0a8be558f",
+          "candidate_blob": "c69ed014a920f29272412e146407d0b0a8be558f",
+          "status": "EXACT_SOURCE_BLOB"
+        },
+        {
+          "path": "apps/web/e2e/support/r08/wsx-r08-proxy-policy.test.mjs",
+          "source_blob": "38d03c98447817281d580df2497f128c42a830e1",
+          "candidate_blob": "38d03c98447817281d580df2497f128c42a830e1",
+          "status": "EXACT_SOURCE_BLOB"
+        },
+        {
+          "path": "apps/web/e2e/support/r08/wsx-r08-proxy-transport.test.mjs",
+          "source_blob": "5fd03277a55ffd3dffce576a8a19a60abb32b933",
+          "candidate_blob": "5fd03277a55ffd3dffce576a8a19a60abb32b933",
+          "status": "EXACT_SOURCE_BLOB"
+        },
+        {
+          "path": "apps/web/lib/whiteboard-outbox.ts",
+          "source_blob": "2c0295d3b697d28bbc2d3eb20aaddcd4453b475e",
+          "candidate_blob": "2c0295d3b697d28bbc2d3eb20aaddcd4453b475e",
+          "status": "EXACT_SOURCE_BLOB"
+        },
+        {
+          "path": "apps/web/lib/whiteboard-provider.ts",
+          "source_blob": "5baf75b949312fd40ef1cd93baf1478526e3fe7d",
+          "candidate_blob": "dd04b5bb923c6e0681d256364b8d273809c3d196",
+          "status": "EXACT_SOURCE_BLOB"
+        },
+        {
+          "path": "apps/web/scripts/run-board-native-acceptance.mjs",
+          "source_blob": "e80f9e2ec47bdebb4f152344b3c293a84b9741c0",
+          "candidate_blob": "7108d8683171c9989626ecddd5c51133e31f3598",
+          "status": "HUNK_UNION_OR_REVIEWED_MAIN_PRESERVATION"
+        },
+        {
+          "path": "apps/web/scripts/run-board-native-acceptance.test.mjs",
+          "source_blob": "56e2f7d0e847559e0421e3b4af425ee6920c15a0",
+          "candidate_blob": "bcd7e0c4a1bdcd0d6a42c0aa14028d5c0f2d325d",
+          "status": "HUNK_UNION_OR_REVIEWED_MAIN_PRESERVATION"
+        },
+        {
+          "path": "apps/web/tests/whiteboard/board-shared-outbox-proof.test.ts",
+          "source_blob": "7112083df9edd131179dd0173176e8048a914752",
+          "candidate_blob": "7112083df9edd131179dd0173176e8048a914752",
+          "status": "EXACT_SOURCE_BLOB"
+        },
+        {
+          "path": "apps/web/tests/whiteboard/whiteboard-outbox-indexeddb.test.ts",
+          "source_blob": "6da345a64f0ff8632202d873d83d3218ce9cf9e4",
+          "candidate_blob": "6da345a64f0ff8632202d873d83d3218ce9cf9e4",
+          "status": "EXACT_SOURCE_BLOB"
+        },
+        {
+          "path": "apps/web/tests/whiteboard/whiteboard-provider.test.ts",
+          "source_blob": "17180a20ceaa0b23cca3effeb1c5ed48bb526528",
+          "candidate_blob": "de0b4b6c302107aa3391379c37a645cf20c97bcd",
+          "status": "EXACT_SOURCE_BLOB"
+        }
+      ],
+      "disposition": "INTEGRATED_WITH_REVIEWED_MAIN_PRESERVATION_RUNTIME_NOT_RUN"
+    },
+    {
+      "pr": 5136,
+      "head": "7276f64459dbd088586b069f90c9e69f47b36b1d",
+      "base": "codex/connector-full-acceptance-5092",
+      "parent_only_merge": "756078145401e919b0abed33f467a62ebe69bf59",
+      "paths": [
+        {
+          "path": "apps/web/e2e/board-files-boundaries.spec.ts",
+          "source_blob": "ae2a542bace3ed7f1a2d9f5be8cfeb0183244e43",
+          "candidate_blob": "ae2a542bace3ed7f1a2d9f5be8cfeb0183244e43",
+          "status": "EXACT_SOURCE_BLOB"
+        },
+        {
+          "path": "apps/web/e2e/board-files-completion.config.ts",
+          "source_blob": "c41f20c9a80de0f909713f0b532c404ad2e389d7",
+          "candidate_blob": "c41f20c9a80de0f909713f0b532c404ad2e389d7",
+          "status": "EXACT_SOURCE_BLOB"
+        },
+        {
+          "path": "apps/web/e2e/board-files-filenames.spec.ts",
+          "source_blob": "5bf288508d0a0d508f0ee7b47efd8183883a8894",
+          "candidate_blob": "5bf288508d0a0d508f0ee7b47efd8183883a8894",
+          "status": "EXACT_SOURCE_BLOB"
+        },
+        {
+          "path": "apps/web/e2e/board-files-placement.spec.ts",
+          "source_blob": "6e84ac8c6878f6f864942f2fd0eb0bee3489c431",
+          "candidate_blob": "6e84ac8c6878f6f864942f2fd0eb0bee3489c431",
+          "status": "EXACT_SOURCE_BLOB"
+        },
+        {
+          "path": "apps/web/e2e/board-files-retry.spec.ts",
+          "source_blob": "10e59549928f6f592813a3aa042073bab6129371",
+          "candidate_blob": "10e59549928f6f592813a3aa042073bab6129371",
+          "status": "EXACT_SOURCE_BLOB"
+        },
+        {
+          "path": "apps/web/e2e/support/board-files-storage.ts",
+          "source_blob": "d2af2fbc29a7d4227e16e63ddfadeb9a048a7f75",
+          "candidate_blob": "d2af2fbc29a7d4227e16e63ddfadeb9a048a7f75",
+          "status": "EXACT_SOURCE_BLOB"
+        },
+        {
+          "path": "apps/web/e2e/support/connector-runtime-manifest.ts",
+          "source_blob": "d9db78d23c41208bb64136869c08f28875ca2a93",
+          "candidate_blob": "c7d79a0f3de9220c2677a6c6e7f1b1ac990211c2",
+          "status": "HUNK_UNION_OR_REVIEWED_MAIN_PRESERVATION"
+        },
+        {
+          "path": "apps/web/e2e/support/file-storage-runtime.d.mts",
+          "source_blob": "c2cf93e149ca3e6189d729a11832d4bc5137cf6e",
+          "candidate_blob": "c2cf93e149ca3e6189d729a11832d4bc5137cf6e",
+          "status": "EXACT_SOURCE_BLOB"
+        },
+        {
+          "path": "apps/web/e2e/support/file-storage-runtime.mjs",
+          "source_blob": "d88babd159ab6a4ba59672a52e1e0c47849882c9",
+          "candidate_blob": "d88babd159ab6a4ba59672a52e1e0c47849882c9",
+          "status": "EXACT_SOURCE_BLOB"
+        },
+        {
+          "path": "apps/web/e2e/support/file-storage-runtime.test.mjs",
+          "source_blob": "618f0e720972636ffdeaefc063cd4f26d4d48026",
+          "candidate_blob": "618f0e720972636ffdeaefc063cd4f26d4d48026",
+          "status": "EXACT_SOURCE_BLOB"
+        },
+        {
+          "path": "apps/web/e2e/support/native-runtime/native-process-listeners.mjs",
+          "source_blob": "1d79b2a43026c972e60f4f0edd9979d9faacb083",
+          "candidate_blob": "1d79b2a43026c972e60f4f0edd9979d9faacb083",
+          "status": "EXACT_SOURCE_BLOB"
+        },
+        {
+          "path": "apps/web/e2e/support/native-runtime/native-process-listeners.test.mjs",
+          "source_blob": "531f073cdd9c4770d15be83da0052157a80d7485",
+          "candidate_blob": "531f073cdd9c4770d15be83da0052157a80d7485",
+          "status": "EXACT_SOURCE_BLOB"
+        },
+        {
+          "path": "apps/web/e2e/support/native-runtime/native-startup-receipt.mjs",
+          "source_blob": "574c2feac02caea49dd10d23f44a1d598638276d",
+          "candidate_blob": "c252351e4c629fe50a9892695c0403cde1a6b637",
+          "status": "HUNK_UNION_OR_REVIEWED_MAIN_PRESERVATION"
+        },
+        {
+          "path": "apps/web/e2e/support/native-runtime/native-startup-receipt.test.mjs",
+          "source_blob": "ef96801e37fbe874455fdec703d3a978851682f7",
+          "candidate_blob": "15d9cf81e4bcca6ba54e02a1ced30e5fb00e5040",
+          "status": "HUNK_UNION_OR_REVIEWED_MAIN_PRESERVATION"
+        },
+        {
+          "path": "apps/web/e2e/support/native-runtime/runtime-attestation.mjs",
+          "source_blob": "0988d23627f3ded2ace23f8d0406278b150c0b5f",
+          "candidate_blob": "212555443cfb44abcf044dae8b58b547fd4f473b",
+          "status": "HUNK_UNION_OR_REVIEWED_MAIN_PRESERVATION"
+        },
+        {
+          "path": "apps/web/e2e/support/native-runtime/wsx-board-native-runtime-start.mjs",
+          "source_blob": "1f7486dd8246686528c3948b8de9d3750a466f5b",
+          "candidate_blob": "624acae69e313020638c102d304b012a59433cde",
+          "status": "HUNK_UNION_OR_REVIEWED_MAIN_PRESERVATION"
+        }
+      ],
+      "disposition": "INTEGRATED_WITH_REVIEWED_MAIN_PRESERVATION_RUNTIME_NOT_RUN"
+    },
+    {
+      "pr": 5079,
+      "head": "ccce5603316d3ae3b127177a131885396c7cea27",
+      "base": "main",
+      "parent_only_merge": null,
+      "paths": [
+        {
+          "path": "apps/web/e2e/board-compact-chrome-acceptance.spec.ts",
+          "source_blob": "a7ffd5f670c1eb4811777fb150f05e2d14a93306",
+          "candidate_blob": "22970b423c198880272151d69d38cb66e91752c0",
+          "status": "EXACT_SOURCE_BLOB"
+        },
+        {
+          "path": "apps/web/e2e/board-visual-accessibility-acceptance.spec.ts",
+          "source_blob": "288153b28f383fa65b46408c9a50d6600de86193",
+          "candidate_blob": "e16023bf735808cd60d76c21dc3e5c4472f306e3",
+          "status": "HUNK_UNION_OR_REVIEWED_MAIN_PRESERVATION"
+        },
+        {
+          "path": "apps/web/e2e/support/board-compact-blank.ts",
+          "source_blob": "5f3c542ba916fbdfa8eedd43ac67d701a9ef8bf3",
+          "candidate_blob": "5f3c542ba916fbdfa8eedd43ac67d701a9ef8bf3",
+          "status": "EXACT_SOURCE_BLOB"
+        },
+        {
+          "path": "apps/web/e2e/support/board-native-sticky-create.ts",
+          "source_blob": "4370fb875db6855dca021b66a24f032c3272bc67",
+          "candidate_blob": "84c5d55e3aebeb7302c0a28606395fd16d25e306",
+          "status": "HUNK_UNION_OR_REVIEWED_MAIN_PRESERVATION"
+        },
+        {
+          "path": "apps/web/tests/whiteboard/native-sticky-placement.test.ts",
+          "source_blob": "b0deada8147ffae7472541d8e81d253f955b2df0",
+          "candidate_blob": "b0deada8147ffae7472541d8e81d253f955b2df0",
+          "status": "EXACT_SOURCE_BLOB"
+        }
+      ],
+      "disposition": "INTEGRATED_WITH_REVIEWED_MAIN_PRESERVATION_RUNTIME_NOT_RUN"
+    },
+    {
+      "pr": 5129,
+      "head": "c9807330753f067bc45f23481b04233828802762",
+      "base": "main",
+      "parent_only_merge": null,
+      "paths": [
+        {
+          "path": "apps/web/components/whiteboard/board-bottom-dock.tsx",
+          "source_blob": "8d6645cf5f58f60477e684f0277b4e6c67e3d68d",
+          "candidate_blob": "8d6645cf5f58f60477e684f0277b4e6c67e3d68d",
+          "status": "EXACT_SOURCE_BLOB"
+        },
+        {
+          "path": "apps/web/components/whiteboard/board-sticky-picker.tsx",
+          "source_blob": "81674de963ed15119c2d9732f424359a24e76c66",
+          "candidate_blob": "81674de963ed15119c2d9732f424359a24e76c66",
+          "status": "EXACT_SOURCE_BLOB"
+        },
+        {
+          "path": "apps/web/e2e/board-final-acceptance.spec.ts",
+          "source_blob": "96a9d5900a5611e970975a840cda9c7182e73459",
+          "candidate_blob": "96a9d5900a5611e970975a840cda9c7182e73459",
+          "status": "EXACT_SOURCE_BLOB"
+        },
+        {
+          "path": "apps/web/e2e/board-visual-accessibility-acceptance.spec.ts",
+          "source_blob": "53ad1f4bc310d136056f223f1592eeb164441aea",
+          "candidate_blob": "e16023bf735808cd60d76c21dc3e5c4472f306e3",
+          "status": "HUNK_UNION_OR_REVIEWED_MAIN_PRESERVATION"
+        },
+        {
+          "path": "apps/web/e2e/support/board-native-sticky-create.ts",
+          "source_blob": "da5f9fcfe8472e4159c0e5b743cda97a5dbe96a7",
+          "candidate_blob": "84c5d55e3aebeb7302c0a28606395fd16d25e306",
+          "status": "HUNK_UNION_OR_REVIEWED_MAIN_PRESERVATION"
+        },
+        {
+          "path": "apps/web/tests/ui/board-tool-pointer-cancel.test.tsx",
+          "source_blob": "1e04c9ed1f5a0330b78ce3fec85a4c6ba0466687",
+          "candidate_blob": "1e04c9ed1f5a0330b78ce3fec85a4c6ba0466687",
+          "status": "EXACT_SOURCE_BLOB"
+        }
+      ],
+      "disposition": "INTEGRATED_WITH_REVIEWED_MAIN_PRESERVATION_RUNTIME_NOT_RUN"
+    },
+    {
+      "pr": 5145,
+      "head": "fbc23e66d65a6d56d898133c2a745fd4413e33be",
+      "base": "main",
+      "parent_only_merge": null,
+      "paths": [
+        {
+          "path": ".harness/scripts/with-test-isolation-port-leases.test.ts",
+          "source_blob": "44598448edd9c68203d90bb8d9f459bbd94de837",
+          "candidate_blob": "44598448edd9c68203d90bb8d9f459bbd94de837",
+          "status": "HUNK_UNION_OR_REVIEWED_MAIN_PRESERVATION"
+        },
+        {
+          "path": "apps/web/components/whiteboard/collaborative-thinking-editor.tsx",
+          "source_blob": "8b7b9636652f3144aab2303d83e514e95d4ac47e",
+          "candidate_blob": "a0defee68ecc69cf987f67ba8951c95671b6ff16",
+          "status": "HUNK_UNION_OR_REVIEWED_MAIN_PRESERVATION"
+        },
+        {
+          "path": "apps/web/e2e/board-acceptance-support.ts",
+          "source_blob": "cbaeb17c4284dfedf449a6bc83b80f9cd5eed38c",
+          "candidate_blob": "24e693d7530bccc138bdfb971d6d1da1ca1a2a10",
+          "status": "HUNK_UNION_OR_REVIEWED_MAIN_PRESERVATION"
+        },
+        {
+          "path": "apps/web/e2e/board-compact-chrome-acceptance.spec.ts",
+          "source_blob": "d422632beda8601cac7470a8e090435994e63dcd",
+          "candidate_blob": "22970b423c198880272151d69d38cb66e91752c0",
+          "status": "HUNK_UNION_OR_REVIEWED_MAIN_PRESERVATION"
+        },
+        {
+          "path": "apps/web/e2e/board-selection-layout.spec.ts",
+          "source_blob": "2efc6350fdf6c16c90c5a8c4fb8fde225358aa2b",
+          "candidate_blob": "2efc6350fdf6c16c90c5a8c4fb8fde225358aa2b",
+          "status": "HUNK_UNION_OR_REVIEWED_MAIN_PRESERVATION"
+        },
+        {
+          "path": "apps/web/e2e/board-visual-accessibility-acceptance.spec.ts",
+          "source_blob": "c611c21e887e70d37932941a7877d8ba375b7c13",
+          "candidate_blob": "e16023bf735808cd60d76c21dc3e5c4472f306e3",
+          "status": "HUNK_UNION_OR_REVIEWED_MAIN_PRESERVATION"
+        },
+        {
+          "path": "apps/web/e2e/support/board-editor-connector-entry.ts",
+          "source_blob": "fecf7aa03b0ef7840556454010a418a56b5031c0",
+          "candidate_blob": "fecf7aa03b0ef7840556454010a418a56b5031c0",
+          "status": "INHERITED_EXTERNAL_MAIN_NEWER_HEAD",
+          "initial_snapshot_status": "ABSENT"
+        },
+        {
+          "path": "apps/web/tests/whiteboard/board-content-tools.test.tsx",
+          "source_blob": "a2b39388a446181f997abda9dde03ca030b3be0f",
+          "candidate_blob": "a2b39388a446181f997abda9dde03ca030b3be0f",
+          "status": "HUNK_UNION_OR_REVIEWED_MAIN_PRESERVATION"
+        },
+        {
+          "path": "apps/web/tests/whiteboard/board-production-connector-entry.node.test.mjs",
+          "source_blob": "76f800b2b07cd070846bebe6c81c1ed1e7d70e79",
+          "candidate_blob": "76f800b2b07cd070846bebe6c81c1ed1e7d70e79",
+          "status": "INHERITED_EXTERNAL_MAIN_NEWER_HEAD",
+          "initial_snapshot_status": "ABSENT"
+        },
+        {
+          "path": "apps/web/tests/whiteboard/board-production-connector-entry.test.tsx",
+          "source_blob": "4562a376d024529bbda50c46b8a8fe1b889e5b47",
+          "candidate_blob": "4562a376d024529bbda50c46b8a8fe1b889e5b47",
+          "status": "INHERITED_EXTERNAL_MAIN_NEWER_HEAD",
+          "initial_snapshot_status": "ABSENT"
+        },
+        {
+          "path": "apps/web/tests/whiteboard/connector-menu-resolved-bounds.test.tsx",
+          "source_blob": "c50f81fe3470d6f4bac1175f1a13be043e034434",
+          "candidate_blob": "c50f81fe3470d6f4bac1175f1a13be043e034434",
+          "status": "EXACT_SOURCE_BLOB"
+        }
+      ],
+      "disposition": "EXTERNAL_MAIN_MERGE_VERIFIED_NEW_HEAD_NOT_COVERED_BY_SNAPSHOT_REVIEW",
+      "snapshot_head": "fbc23e66d65a6d56d898133c2a745fd4413e33be",
+      "live_head": "368220f4a164cdcba2702ab1d2056b0a74fbb16c",
+      "live_state": "MERGED",
+      "main_merge": "ea9ec522a9d000a78e269eb88bfbcb520379d872",
+      "merged_at": "2026-10-03T10:23:44Z",
+      "approval_boundary": "Main merge does not prove human exposure signoff, native acceptance or production deployment."
+    }
+  ],
+  "integration_branch": "codex/board-main-delivery-20261003",
+  "current_main_inherited": "492a9dc147d79f8c48833be8552964b6a916787f"
+}

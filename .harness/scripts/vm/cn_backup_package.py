@@ -51,14 +51,14 @@ def identifier(value):
  return '"' + value.replace('"', '""') + '"'
 
 
-def validate(plan, now=None):
+def validate(plan, now=None, *, expected_identity):
  now = time.time() if now is None else now
  exact(plan, ('identity','toolRevision','clientImage','configurationSha256',
               'providerBindingSha256','objectScopeSha256','functionBodies','authorization',
               'recipientCertificate','recipientKey','outputRoot','timeoutSeconds'), 'BACKUP_PLAN')
  i = plan['identity']
  exact(i, ('sourceRevision','baselineRevision','migrationPlanSha256','attemptId'), 'BACKUP_IDENTITY')
- require(i['sourceRevision'] == APP and i['baselineRevision'] == BASE and
+ require(i == expected_identity and type(i['sourceRevision']) is str and re.fullmatch('[a-f0-9]{40}', i['sourceRevision']) and i['baselineRevision'] == BASE and
          re.fullmatch('[a-f0-9]{64}', i['migrationPlanSha256']) and
          re.fullmatch('[A-Za-z0-9-]{1,32}', i['attemptId']), 'BACKUP_FIXED_IDENTITY')
  require(re.fullmatch('[a-f0-9]{40}', plan['toolRevision']) and plan['clientImage'] == IMAGE,
@@ -89,11 +89,11 @@ def validate(plan, now=None):
  return i
 
 
-def compile_role_sql(plan, objects, now=None):
+def compile_role_sql(plan, objects, now=None, *, expected_identity):
  """Exact reviewable GRANT/REVOKE lists from a fresh host-owned catalog capture.
  Does not read a password or execute SQL; password must use private host stdin.
  """
- validate(plan,now)
+ validate(plan,now,expected_identity=expected_identity)
  exact(objects, DATABASES, 'BACKUP_DATABASE_CLOSURE')
  require(digest(objects) == plan['objectScopeSha256'], 'BACKUP_OBJECT_SCOPE_DRIFT')
  grants, revokes = {}, {}
@@ -127,8 +127,8 @@ def compile_role_sql(plan, objects, now=None):
  return {'create':create,'grants':grants,'close':close,'revokes':revokes}
 
 
-def dump_command(plan, db, container_name, owner):
- validate(plan)
+def dump_command(plan, db, container_name, owner, *, expected_identity):
+ validate(plan,expected_identity=expected_identity)
  require(db in DATABASES and re.fullmatch('wsx-backup-[a-f0-9]{32}', container_name) and
          re.fullmatch('[a-f0-9]{32}', owner), 'BACKUP_CONTAINER_OWNER')
  # Reuses existing host private source .40; no new network/whitelist is created.
@@ -142,8 +142,8 @@ def dump_command(plan, db, container_name, owner):
          '--entrypoint','bash',IMAGE,'-c',EXPORT]
 
 
-def encrypt_command(plan):
- validate(plan)
+def encrypt_command(plan, *, expected_identity):
+ validate(plan,expected_identity=expected_identity)
  return ['/usr/bin/openssl','cms','-encrypt','-binary','-aes256','-stream',
          '-outform','DER','-recip',plan['recipientCertificate']['path']]
 
@@ -161,15 +161,16 @@ class BackupLease:
  prove absence of role sessions, NOLOGIN/PASSWORD NULL/NOBYPASSRLS, exact REVOKE,
  zero owned credential files; recipient private key is retained, never deleted.
  """
- def __init__(self, plan, host, journal):
+ def __init__(self, plan, host, journal, *, expected_identity):
   self.plan, self.host, self.journal = plan, host, journal
+  self.expected_identity = dict(expected_identity)
 
  def run(self):
-  identity = validate(self.plan)
+  identity = validate(self.plan,expected_identity=self.expected_identity)
   self.host.require_lock(identity)
   # All static/live input and approval checks before any role mutation.
   objects = self.host.verify_inputs(self.plan)
-  sql = compile_role_sql(self.plan, objects)
+  sql = compile_role_sql(self.plan, objects,expected_identity=self.expected_identity)
   require(self.host.role_absent(ROLE), 'BACKUP_EXISTING_ROLE_REQUIRES_RECONCILIATION')
   attempted = False
   receipts = {}
@@ -180,7 +181,7 @@ class BackupLease:
    self.host.verify_effective_permissions(self.plan, objects)
    self.host.open_private_credential(self.plan)
    for db in DATABASES:
-    validate(self.plan)
+    validate(self.plan,expected_identity=self.expected_identity)
     self.host.recheck_inputs(self.plan, objects)
     self.journal.record('backup-export-intent', database=db)
     result = self.host.export_owned_ciphertext(self.plan, db)

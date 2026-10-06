@@ -220,7 +220,7 @@ export function templateSectionNames(t: CanvasTemplateGuidanceInfo): { readonly 
  * The worked example in the format block.
  *
  * With exactly one template in the guidance (the local `matched` mode), the example uses THAT
- * template's real key, first header field and first section. A 4B copied the abstract
+ * template's real key, every header field and first section. A 4B copied the abstract
  * placeholder verbatim — nine lines reading `字段名: 姓名`, i.e. the spec where the values
  * belonged (eval lane 2026-09-22) — the same shape as the 2026-09-10 `（最多4条）` loss, where
  * the guidance itself was the trap. A concrete example cannot be copied wrongly: copying it
@@ -230,11 +230,10 @@ export function formatExample(templates: readonly CanvasTemplateGuidanceInfo[]):
   const only = templates.length === 1 ? templates[0] : undefined;
   if (only === undefined) return ["模板: <模板key>", "<表头字段名>: <该字段的值>", "## <分区名>", "- <这个分区的一条要点>"];
   const { fields, sections } = templateSectionNames(only);
-  const field = fields[0];
   const section = sections[0] ?? "分区名";
   return [
     `模板: ${only.key}`,
-    ...(field === undefined ? [] : [`${field}: （这里写 ${field} 的实际内容，不要写「${field}」四个字本身）`]),
+    ...fields.map(field => `${field}: （这里写 ${field} 的实际内容，不要写「${field}」四个字本身）`),
     `## ${section}`,
     "- （这个分区的一条要点）",
   ];
@@ -265,7 +264,6 @@ export function buildCanvasTemplateGuidance(
         : t.sections;
       // 表头 vs 正文的**唯一**切分处。判据是分区自己的 `type`（库里的事实），
       // 不是另一份清单——见 `CanvasTemplateGuidanceInfo.fields` 的注释。
-      const header = placed.filter((s) => s.type === "短文本").map((s) => s.name);
       // 「文本对象」（标题/固定文案块）是设计时静态装帧，不是要 AI 填的正文分区
       // （同 `SectionDef.content` 文档），不进 `bodySections`，也不要求 AI 产出它的内容。
       const bodySections = placed.filter((s) => s.type !== "短文本" && s.type !== "文本对象");
@@ -281,7 +279,7 @@ export function buildCanvasTemplateGuidance(
        *   改法：〔〕里**只放真名**，条数上限另起一行单独说（下面 `capsNote`）。
        *   名字这件事从此只有一个写法，模型没有第二种可复制的形态。
        */
-      const body = bodySections.map((s) => s.name);
+      const { fields, sections: body } = templateSectionNames(t);
       const caps = bodySections
         .map((s) => ({ name: s.name, max: s.layout?.max }))
         .filter((c): c is { name: string; max: number } => c.max != null && c.max > 0);
@@ -290,9 +288,9 @@ export function buildCanvasTemplateGuidance(
         : "";
       // 兼容 2026-08-26 回填之前建的模板：它们的分区没有 `type`，全部落进 `body`，
       // 于是 `fields` 仍可由调用方显式给（老路径），拼接行为与改动前逐字一致。
-      const fields = header.length > 0 ? header : (t.fields ?? []);
       const fieldsNote = fields.length > 0 ? `，表头字段〔${fields.join("/")}〕` : "";
-      return `- ${t.key}〔${body.join("/")}〕${fieldsNote}${capsNote}`;
+      return `- ${t.key}〔${body.join("/")}〕${fieldsNote}${capsNote}`
+        + (fields.length ? `\n  表头必须逐行填写：\n${fields.map(field => `  ${field}: <实际内容，不可留空>`).join("\n")}` : "");
     }),
     "格式：",
     "```canvas",

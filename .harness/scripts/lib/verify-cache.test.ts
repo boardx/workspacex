@@ -153,6 +153,9 @@ describe("verify-cache", () => {
       const g = (args: string) =>
         execFileSync("git", args.split(" "), { cwd: tmp, encoding: "utf8" }).trim();
       execFileSync("git", ["init", "-q", "."], { cwd: tmp });
+      // This disposable fixture must not leave Git maintenance writing after a command exits.
+      g("config gc.auto 0");
+      g("config maintenance.auto false");
       // ⚠ 不要硬编码 "main"：`git init` 的默认分支名取决于环境的
       // init.defaultBranch（本机是 main，GitHub runner 上不是）——这条测试第一次
       // 提交时就是这么在 CI 上红的，本地全绿。取实际分支名，不假设。

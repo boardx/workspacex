@@ -79,7 +79,7 @@ class ParentOwnedDeadlineWatchdog:
 
 class RetainedBackupHost(BackupHost):
  def __init__(self,reference,retained_actor,read=original.private,clock=time.time):
-  super().__init__(reference,read=read,channel=None,clock=clock)
+  super().__init__(reference,read=read,channel=None,clock=clock,expected_identity=retained_actor.identity)
   self.actor=retained_actor;self.mutex=threading.RLock();self.closing=False;self.watchdog=None;self.relays=[];self.stream_attempts=0;self.joined_streams=0
   require(retained_actor.identity==self.plan['identity'],'RETAINED_HOST_ACTOR_IDENTITY')
   self.retained=retained_actor.transport.control_connections
@@ -90,7 +90,7 @@ class RetainedBackupHost(BackupHost):
    channel=self.retained[db];expected=self.actor.plan['controlSessions'][db]
    require(channel.binding==expected and channel.binding['peer']==self.host['databasePeers'][db],'RETAINED_HOST_EXISTING_SESSION')
    channel.bind_retained_backup(self.reference)
-   self.channels[db]=SerializedRetainedChannel(self,RetainedBackupChannel(channel,db,self.host,expected))
+   self.channels[db]=SerializedRetainedChannel(self,RetainedBackupChannel(channel,db,self.host,expected,expected_identity=self.expected_identity))
  def close_channels(self):
   # Retained clients belong to maintenance actor; never close/end/reconnect them.
   require(all(not c.transaction for c in self.channels.values()),'RETAINED_HOST_TRANSACTION_NOT_RELEASED');self.channels={}
@@ -109,10 +109,10 @@ class RetainedBackupHost(BackupHost):
  def verify_inputs(self,plan):
   require(plan==self.plan and not self.closing,'RETAINED_HOST_PLAN')
   self.actor.hold();self.actor.assert_blocked(self.actor.observe())
-  self.authorization=protected_authorization(plan);verify_custody(self);self.certificate_preflight();canary(self);self.client_observation=verify_cached_clients(self)
+  self.authorization=protected_authorization(plan,expected_identity=self.expected_identity);verify_custody(self);self.certificate_preflight();canary(self);self.client_observation=verify_cached_clients(self)
   self.owner=digest(self.reference)[:32];self.root=pathlib.Path(plan['outputRoot']);self.root.mkdir(mode=0o700,exist_ok=False);self.registry=self.root/'owned-containers.json'
   atomic_metadata(self.registry,{'identity':plan['identity'],'owner':self.owner,'containers':[]})
-  self.open_channels();self.scope=self.capture_inputs();self.compiled_sql=compile_role_sql(plan,self.scope)
+  self.open_channels();self.scope=self.capture_inputs();self.compiled_sql=compile_role_sql(plan,self.scope,expected_identity=self.expected_identity)
   ref=self.host['pgRestoreCanary'];raw=self.read(ref['path']);require(hashlib.sha256(raw).hexdigest()==ref['sha256'],'RETAINED_HOST_TOC_CANARY_HASH')
   name='wsx-backup-'+uuid.uuid4().hex
   try:
@@ -130,11 +130,11 @@ class RetainedBackupHost(BackupHost):
   require(plan==self.plan and db in DATABASES and self.password is not None and not self.closing,'RETAINED_HOST_EXPORT_CONTEXT')
   self.recheck_inputs(plan);self.actor.hold();self.actor.assert_blocked(self.actor.observe())
   name='wsx-backup-'+uuid.uuid4().hex;app='wsx-backup-'+plan['identity']['attemptId']+'-'+db
-  authority=RetainedBackupHostObserverAuthority(self,db,name);observer=RetainedBackendObserver(plan,self.channels,authority)
+  authority=RetainedBackupHostObserverAuthority(self,db,name);observer=RetainedBackendObserver(plan,self.channels,authority,expected_identity=self.expected_identity)
   helperhash=self.host.get('dockerClientSha256');require(type(helperhash) is str and re.fullmatch('[a-f0-9]{64}',helperhash),'RETAINED_HOST_DOCKER_CLIENT_PIN_REQUIRED')
   deadline=time.monotonic()+min(330,self.deadline-self.clock());relay=SourceOwnedParentObservation(observer,db,None,None,app,name,self.owner,helperhash,deadline,self.root/(db+'.backend'))
   self.stream_attempts+=1
-  result=stream_ciphertext(dump_command(plan,db,name,self.owner),encrypt_command(plan),(db+'\n'+self.password+'\n'+app+'\n').encode(),str(self.root/(db+'.dump.cms')),relay,timeout_seconds=min(330,self.deadline-self.clock()))
+  result=stream_ciphertext(dump_command(plan,db,name,self.owner,expected_identity=self.expected_identity),encrypt_command(plan,expected_identity=self.expected_identity),(db+'\n'+self.password+'\n'+app+'\n').encode(),str(self.root/(db+'.dump.cms')),relay,timeout_seconds=min(330,self.deadline-self.clock()))
   require(result.get('ownedProcessesJoined') is True,'RETAINED_HOST_STREAM_JOIN');self.joined_streams+=1
   require(relay.proof is not None and relay.receipts,'RETAINED_HOST_ACTUAL_BACKEND_PROOF');self.relays.append(relay)
   proof=relay.proof['backendProof'];return dict(result,database=db,role=ROLE,sourceAddress=proof['facts']['session']['clientAddr'],peerAddress=proof['facts']['peer']['serverAddr'],applicationName=app,recipientCertificateSha256=plan['recipientCertificate']['sha256'],readOnlyEvidence=proof['readOnlyEvidence'])

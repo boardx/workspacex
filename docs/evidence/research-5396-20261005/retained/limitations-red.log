@@ -1,0 +1,33 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/research-5056-fixes/workspacex/apps/api
+
+ ❯ tests/research/guided-three-step.test.ts (22 tests | 1 failed | 21 skipped) 67ms
+   × three visible stages with durable composite execution > retains successful search tasks on a partial failure and resumes the report chain only on explicit retry 66ms
+     → expected '本研究核对已确认范围内的政策证据，依据检索摘要比较政策要求及实施约束，并说…' to contain '搜索局限'
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/research/guided-three-step.test.ts > three visible stages with durable composite execution > retains successful search tasks on a partial failure and resumes the report chain only on explicit retry
+AssertionError: expected '本研究核对已确认范围内的政策证据，依据检索摘要比较政策要求及实施约束，并说…' to contain '搜索局限'
+
+Expected: "搜索局限"
+Received: "本研究核对已确认范围内的政策证据，依据检索摘要比较政策要求及实施约束，并说明尚未覆盖的政策原文与审批数据。"
+
+ ❯ tests/research/guided-three-step.test.ts:105:47
+    103|     expect(partial.errorCode).toBe("RESEARCH_SEARCH_PARTIAL_FAILURE");…
+    104|     expect(partial.report).toBeNull(); expect(partial.reportPartial).t…
+    105|     expect(partial.reportDraft?.introduction).toContain("搜索局限");
+       |                                               ^
+    106|     expect(partial.reportDraft?.introduction).toContain("不是正式完成…
+    107|     const draftBeforeSave = partial.reportDraft;
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 21 skipped (22)
+   Start at  21:36:06
+   Duration  1.08s (transform 568ms, setup 0ms, collect 895ms, tests 67ms, environment 0ms, prepare 31ms)
+
+undefined
+/Users/shenyangjun/.codex/worktrees/research-5056-fixes/workspacex/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run --config vitest.research-unit.config.ts tests/research/guided-three-step.test.ts -t retains successful search tasks

@@ -1,12 +1,22 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { assessReportClaimBoundaries } from "../../src/application/interview/workflow/interview-report-claim-boundaries";
-import { buildReportEvidenceIndex, type ReportEvidence } from "../../src/application/interview/workflow/interview-report-grounding";
+import { buildReportEvidenceIndex, validateReportEvidence, type ReportEvidence } from "../../src/application/interview/workflow/interview-report-grounding";
 import { interviewMarkdown } from "@repo/contracts";
 
 const evidence = (quote: string): ReportEvidence => ({ anchor: "answer-1", documentId: "runs", version: 1,
   sourceHash: "a".repeat(64), start: 0, end: quote.length, quote, expertId: "expert", taskKey: "task", evidenceMode: "simulated", expertLabel: "甲" });
 describe("finite report claim boundaries", () => {
+ it("retains the real public zero-count rejection while accepting an explicitly future conditional plan", () => {
+  const root = new URL("./fixtures/measurement-guidance-5413/", import.meta.url);
+  const report = readFileSync(new URL("report.md", root), "utf8");
+  const source = interviewMarkdown.InterviewMarkdownEnvelope.parse(JSON.parse(readFileSync(new URL("source.json", root), "utf8")));
+  const runs = source.documents.find(document => document.step === "runs")!;
+  const index = buildReportEvidenceIndex(runs, {support:"技术教育用户研究员（Technical Education UX Researcher）",purchase:"采购研究员"});
+  expect(assessReportClaimBoundaries(report,index)).toEqual({ok:false,missing:["unsupported_executed_measurement"]});
+  const future = report.replace("不兼容项为零只支持本次检测未发现该冲突", "若未来检测不兼容项为零，仅支持本次检查未发现该冲突");
+  expect(assessReportClaimBoundaries(future,index)).toEqual({ok:true,missing:[]});
+ });
  it.each([1,2])("rejects the preserved public attempt %s's unsupported defect exclusion", attempt => {
   const root = new URL("./fixtures/defect-exclusion-5341/", import.meta.url);
   const raw = readFileSync(new URL(`attempt-${attempt}.md`, root), "utf8");
@@ -318,4 +328,17 @@ describe('finite scenario cause boundaries', () => {
   expect(assessReportClaimBoundaries('厨房布局差异导致安装结果差异。['+quote+'](#answer-1)', [evidence(quote)]).missing).toContain('unsupported_scenario_cause');
   expect(assessReportClaimBoundaries('受访者原话：['+quote+'](#answer-1)。这是未验证观点，原因尚不确定。', [evidence(quote)]).missing).not.toContain('unsupported_scenario_cause');
  });
+});
+
+it("keeps the actual instruction-copy candidate rejected by the claim gate after finite negation parsing", () => {
+ const root=new URL("./fixtures/instruction-copy-5422/",import.meta.url);
+ const report=readFileSync(new URL("report.md",root),"utf8");
+ const source=JSON.parse(readFileSync(new URL("source.json",root),"utf8"));
+ const capturedReport=source.documents.find((document: {step: string})=>document.step==="report");
+ expect(capturedReport).toBeDefined();
+ expect(report).toBe(capturedReport.markdown);
+ const runs=source.documents.find((document: {step: string})=>document.step==="runs");
+ const index=buildReportEvidenceIndex(runs);
+ expect(assessReportClaimBoundaries(report,index).missing).toContain("unqualified_defect_exclusion");
+ expect(validateReportEvidence(report,index).reason).toBe("exact_quotes_only_not_semantic_approval");
 });

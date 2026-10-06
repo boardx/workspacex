@@ -109,7 +109,7 @@ describe("AgentCapabilityGraph", () => {
       { timeout: 10_000 },
     );
     expect(screen.getByTestId("agent-capability-graph-empty")).toHaveTextContent(
-      "还没有挂载任何能力",
+      "当前能力图未读取到直接挂载",
     );
     expect(screen.queryByTestId("xyflow-stub-canvas")).not.toBeInTheDocument();
   });

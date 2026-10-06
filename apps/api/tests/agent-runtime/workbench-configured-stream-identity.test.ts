@@ -6,7 +6,8 @@ for (const fragments of [["one"], ["The ","answer ","streams ","now."]]) it(`bin
   const provider=new ConfiguredModelProvider({provider:"test",baseUrl:"http://unused.invalid",apiKey:"test",streamEnabled:true,timeoutMs:1000,visionModelIds:new Set(),thinkingDisableModelIds:new Set(),bailianExtensionsEnabled:false});
   const frames=fragments.map(content=>`data: ${JSON.stringify({choices:[{delta:{content}}]})}\n\n`).join("")+"data: [DONE]\n\n";
   // Replace transport only; exercise the actual production SSE parser without a server.
-  vi.spyOn(provider as unknown as {postCompletions:()=>Promise<Response>},"postCompletions").mockResolvedValue(new Response(frames));
+  const transport=vi.spyOn(provider as unknown as {postCompletions:(input:unknown,stream:boolean,consume:(response:Response)=>Promise<unknown>)=>Promise<unknown>},"postCompletions").mockImplementation(async (_input,_stream,consume)=>consume(new Response(frames)));
+  try {
   const received:{delta:string;id?:string}[]=[];
   const result=await provider.completeStream!({modelProvider:"test",modelId:"model",system:"",user:"hi"},async(delta,metadata)=>{received.push({delta,id:metadata?.messageId});});
   expect(result.finalMessageId).toBeTruthy();
@@ -19,5 +20,5 @@ for (const fragments of [["one"], ["The ","answer ","streams ","now."]]) it(`bin
   relay.accept({...base,seq:received.length,kind:"final_message",messageId:`attempt:${result.finalMessageId}`});
   relay.finish("persisted",result.text);
   expect(wire.filter(event=>event.type===EventType.TEXT_MESSAGE_CONTENT)).toHaveLength(fragments.length);
-
+  } finally { transport.mockRestore(); await provider.close(); }
 });

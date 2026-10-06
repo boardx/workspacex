@@ -2,7 +2,8 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { createWhiteboardDocument } from "@repo/whiteboard-core";
 import { CollaborativeThinkingEditor } from "@/components/whiteboard/collaborative-thinking-editor";
-import { boardToolbarPosition } from "@/components/whiteboard/use-board-toolbar-position";
+import { boardToolbarPosition, useBoardToolbarPosition } from "@/components/whiteboard/use-board-toolbar-position";
+import { BoardToolPopover } from "@/components/whiteboard/board-tool-popover";
 import type { BoardViewport } from "@/components/whiteboard/fabric/board-fabric-object";
 
 let camera: BoardViewport;
@@ -50,4 +51,89 @@ it.each([{ width: 1440, height: 900 }, { width: 1280, height: 720 }, { width: 10
   const style = boardToolbarPosition(geometry, viewport, size, { width: 440, height: 54 }, controls);
   const rect = { x: Number(style.left), y: Number(style.top), width: 440, height: 54 };
   for (const obstacle of [...controls, geometry]) expect(intersects(rect, obstacle)).toBe(false);
+});
+
+it.each([{width:1440,height:900},{width:390,height:844}])('reserves measured above submenu space without crossing the dock at $width',size=>{
+ const viewport={zoom:1,panX:0,panY:0,fitRequest:0};
+ const toolbar={width:350,height:54};
+ for(const contentHeight of [180,1200]){
+  const style=boardToolbarPosition({x:100,y:0,width:80,height:20},viewport,size,toolbar,[],contentHeight);
+  expect(Number(style.top)).toBeGreaterThanOrEqual(72+12+Math.min(contentHeight,size.height-112-54-72-12));
+  expect(Number(style.top)+toolbar.height).toBeLessThanOrEqual(size.height-112);
+ }
+});
+
+function SubmenuToolbar({label,shown=true}:{label:string;shown?:boolean}){
+ const position=useBoardToolbarPosition({x:100,y:0,width:80,height:20},{zoom:1,panX:0,panY:0,fitRequest:0});
+ return <section ref={position.ref} style={position.style} data-testid="reserved-toolbar">{shown&&<BoardToolPopover label={label} placement="above" trigger={<button data-testid="reserved-trigger">Open</button>}><button>Action</button></BoardToolPopover>}</section>;
+}
+
+function SwitchingSubmenuToolbar(){
+ const position=useBoardToolbarPosition({x:100,y:0,width:80,height:20},{zoom:1,panX:0,panY:0,fitRequest:0});
+ return <section ref={position.ref} style={position.style} data-testid="reserved-toolbar">{['first','second'].map(name=><BoardToolPopover key={name} label={name} placement="above" trigger={<button data-testid={name}>Open {name}</button>}><button>Action {name}</button></BoardToolPopover>)}</section>;
+}
+
+it('switches actual open popovers and releases the final reservation on close',()=>{
+ vi.spyOn(HTMLElement.prototype,'scrollHeight','get').mockImplementation(function(this:HTMLElement){return this.classList.contains('p-4')?180:0;});
+ render(<SwitchingSubmenuToolbar/>);
+ const toolbar=screen.getByTestId('reserved-toolbar');
+ const ordinary=toolbar.style.top;
+ for(const name of ['first','second']){
+  const trigger=screen.getByTestId(name);
+  vi.spyOn(trigger,'getBoundingClientRect').mockImplementation(()=>{
+   const top=Number.parseFloat(toolbar.style.top);
+   return {left:100,top,bottom:top+44,right:144,x:100,y:top,width:44,height:44,toJSON:()=>({})};
+  });
+  fireEvent.click(trigger);
+  expect(Number.parseFloat(toolbar.style.top)).toBeGreaterThanOrEqual(264);
+  expect(screen.getAllByRole('dialog',{hidden:true})).toHaveLength(1);
+ }
+ fireEvent.click(screen.getByRole('button',{name:'关闭second'}));
+ expect(toolbar.style.top).toBe(ordinary);
+});
+
+it.each(['连接线路径','连接线粗细','连接线型','端点样式','连接标签'])('only moves the owning %s toolbar and restores ordinary positioning when the submenu closes',label=>{
+ render(<SubmenuToolbar label={label}/>);
+ const toolbar=screen.getByTestId('reserved-toolbar'),trigger=screen.getByTestId('reserved-trigger');
+ const ordinary=toolbar.style.top;
+ fireEvent(window,new CustomEvent('board-inspector-space',{detail:{trigger:document.body,height:180}}));
+ expect(toolbar.style.top).toBe(ordinary);
+ fireEvent(window,new CustomEvent('board-inspector-space',{detail:{trigger,height:180}}));
+ expect(Number.parseFloat(toolbar.style.top)).toBeGreaterThanOrEqual(264);
+ fireEvent(window,new CustomEvent('board-inspector-space',{detail:{trigger,height:0}}));
+ expect(toolbar.style.top).toBe(ordinary);
+});
+
+it.each(['连接线路径','连接线粗细','连接线型','端点样式','连接标签'])('opens the actual managed %s popover and releases its reservation on removal',label=>{
+ vi.spyOn(HTMLElement.prototype,'scrollHeight','get').mockImplementation(function(this:HTMLElement){return this.classList.contains('p-4')?180:0;});
+ const view=render(<SubmenuToolbar label={label}/>);
+ const toolbar=screen.getByTestId('reserved-toolbar'),trigger=screen.getByTestId('reserved-trigger');
+ const ordinary=toolbar.style.top;
+ vi.spyOn(trigger,'getBoundingClientRect').mockImplementation(()=>{
+  const top=Number.parseFloat(toolbar.style.top);
+  return {left:100,top,bottom:top+44,right:144,x:100,y:top,width:44,height:44,toJSON:()=>({})};
+ });
+ fireEvent.click(trigger);
+ expect(screen.getByRole('dialog',{hidden:true})).toHaveAttribute('data-board-popover-placement','above');
+ expect(Number.parseFloat(toolbar.style.top)).toBeGreaterThanOrEqual(264);
+ fireEvent(window,new Event('resize'));
+ expect(screen.getByRole('dialog')).toHaveStyle({maxHeight:'184px'});
+ view.rerender(<SubmenuToolbar label={label} shown={false}/>);
+ expect(screen.queryByRole('dialog')).toBeNull();
+ expect(trigger.isConnected).toBe(false);
+ expect(toolbar.style.top).toBe(ordinary);
+});
+
+it('does not let a detached previous owner clear a newer popover reservation',()=>{
+ render(<SubmenuToolbar label="连接线路径"/>);
+ const toolbar=screen.getByTestId('reserved-toolbar'),first=screen.getByTestId('reserved-trigger');
+ const second=document.createElement('button');toolbar.append(second);
+ fireEvent(window,new CustomEvent('board-inspector-space',{detail:{trigger:first,height:180}}));
+ fireEvent(window,new CustomEvent('board-inspector-space',{detail:{trigger:second,height:240}}));
+ const current=toolbar.style.top;
+ fireEvent(window,new CustomEvent('board-inspector-space',{detail:{trigger:first,height:0}}));
+ expect(toolbar.style.top).toBe(current);
+ second.remove();
+ fireEvent(window,new CustomEvent('board-inspector-space',{detail:{trigger:second,height:0}}));
+ expect(Number.parseFloat(toolbar.style.top)).toBe(72);
 });

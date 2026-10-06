@@ -1,0 +1,17 @@
+{
+  "testedHead": "f2363bd58acafda2d97f896295e1bec86f1e84bd",
+  "sha256": {
+    "apps/web/e2e/board-connector-authority.spec.ts": "c81229d517a23ccbdb093ed52e860261b935a4ee496813440e7b31728ec1714f",
+    "apps/web/e2e/board-files-filenames.spec.ts": "e87db66323eb117a4e3874dfc882867981a6093223af053af880baf53cd48bae",
+    "apps/web/e2e/board-sync-lifecycle.spec.ts": "9e20cfcedd7673f8c0a414372401591540238b6aa3b6d7ad8ca52cc90838a3c1",
+    "apps/web/e2e/board-peer-origin-close.spec.ts": "ad9a5102bf7b290ec13a0db0e15610771084eacc2d954b253d3a939583c2c65f",
+    "apps/web/scripts/run-board-native-acceptance.mjs": "bc5c82b2ef2ebf4a3bb60c5eafd8b31643478793335e4b98d899dad5a588db4b",
+    "apps/web/scripts/run-board-native-acceptance.test.mjs": "d367ff36a990b57a9cda2e2d8a90a0d1a42837679440465ae9dd155a839fb52a",
+    "apps/web/e2e/support/board-login-capture.mjs": "b8595a482f7dfeb043b3fe522b6485ae113514ca47270f8e55f33a0544433d2f",
+    "apps/web/tests/ui/board-file-upload.test.tsx": "13ce5b2b6efa2a3db7ed4554eedec92c6966555925d6fa95b310a7fc1a400997",
+    "apps/web/tests/ui/board-file-upload-response.test.ts": "a8b51f9a5344b68884302a3e13742b5e8d822bc98d74a713a17f8cd979414691",
+    "apps/web/tests/whiteboard/board-primary-failure.test.ts": "797f4e85f7883046686efb3d81fa69016f3afed07f232134a5838ff5b4aaf6e7"
+  },
+  "productNativeAcceptance": "NOT_RUN",
+  "requiredSuiteComplete": false
+}

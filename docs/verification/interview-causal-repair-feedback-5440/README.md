@@ -1,0 +1,9 @@
+# Precise causal repair feedback (#5440)
+
+The public synthetic same-input coffee recovery produced raw SHA256 a2d0d351013687e9a6b15643f8279bbe87d3e0fc6362bcafd9942e3a689165c5 at runtime33eaeb120. Real dashscope/qwen3.8-max dispatched once and succeeded, but the candidate remained failed. Exact quoted source grounding passes; claim gate rejects the unsupported defect/space explanation at UTF16[744,784). Whole report normal acceptance remains 0/3.
+
+Existing #5341/#5371 implement generic system guidance and finite gates. Recovery previously passed the claim-gap enum without local corrective directions. The new feedback triggers only for actual unqualified_defect_exclusion or unsupported_scenario_cause gaps. It preserves source quotations and counterexamples, keeps defect/space/other factors as unexcluded parallel possibilities, distinguishes no proof of a cause from proof of its absence, and forbids treating a successful counterexample as confirmation of space causation. It requires local uncertainty and real comparison methods, not repeating the writing rules.
+
+No validator/claim grammar is relaxed: the full actual sentence still rejects. Standalone negation of necessary defect causation may require separate finite semantic assessment; the following affirmative alternative cause cannot be silently allowed. The offline audit records this distinction. No broad exemption or model call was added.
+
+RED two automatic/saved defect feedback assertions failed before the production change. GREEN381 unit tests including four defect/scenario automatic/saved cases and an unrelated-gap negative control. New bounded candidates preserving equipment/space uncertainty pass unchanged gates. Independent recovery31/31. API typecheck and normal push hooks tracked separately. Max2 initial/max1 saved repair, original raw preservation, source identity and CAS unchanged. Source-only regeneration and failed-state safeguards remain independent PRs #5433/#5438.

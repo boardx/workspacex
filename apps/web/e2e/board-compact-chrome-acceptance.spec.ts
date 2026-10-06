@@ -63,7 +63,7 @@ test('real thirty-note Board keeps compact chrome and intentional connection han
    expect(drawBounds.width).toBeLessThanOrEqual(640);expect(drawBounds.height).toBeGreaterThanOrEqual(110);expect(drawBounds.height).toBeLessThanOrEqual(180);expect(drawBounds.x).toBeGreaterThanOrEqual(16);expect(drawBounds.x+drawBounds.width).toBeLessThanOrEqual(width-16);expect(drawBounds.y+drawBounds.height).toBeLessThanOrEqual(dock.y-2);
    for(const id of ['board-draw-pen','board-draw-marker','board-draw-pencil','board-draw-highlighter','board-draw-eraser','board-draw-stroke-8','board-draw-color-custom'])await expect(page.getByTestId(id)).toBeVisible();
    await expect(page.locator('[data-testid^="board-draw-opacity-"]')).toHaveCount(0);
-   for(const choice of ['pen','marker','pencil','highlighter'])await expect(page.getByTestId(`board-draw-preview-${choice}`)).toBeVisible();
+   for(const choice of ['pen','marker','pencil','highlighter'])await expect(page.getByTestId(`board-draw-preview-${choice}`)).toHaveCount(0);
    await captureReference(page,info,`reference-draw-panel-${label}`);await page.getByTestId('board-draw-select').click();await expect(drawPanel).toBeHidden();
 
    // R04 hides the new Frame palette; retain its historical geometry reference

@@ -68,7 +68,7 @@ class Tests(unittest.TestCase):
     def test_offline_create_only_keeps_frozen_bridge_loopback_dns_and_sandbox_none(self):
         i,m,c,r,reader,s,calls,inspect=fixture()
         inspect[0]['Config']['Env']=['TOKEN=fixture-sensitive-marker']
-        out=prepare(i,s,reader)
+        out=prepare(i,s,reader,expected_identity=fixture()[0]['identity'])
         self.assertNotIn('fixture-sensitive-marker',json.dumps(out))
         self.assertEqual(out['containers'][0]['configSha256'],hashlib.sha256(json.dumps(inspect[0]['Config'],sort_keys=True,separators=(',',':')).encode()).hexdigest())
         self.assertEqual(out['kind'],'candidate-staged-container-inspection')
@@ -93,7 +93,7 @@ class Tests(unittest.TestCase):
             if variant=='image':c['services']['api']['image']='mutable:latest'
             if variant=='source-compose':s.verify_frozen_compose=lambda i,m:{}
             raw=json.dumps(c,sort_keys=True).encode();r[i['compose']['path']]=raw;i['compose']['sha256']=hashlib.sha256(raw).hexdigest()
-            with self.assertRaises(RuntimeError):prepare(i,s,reader)
+            with self.assertRaises(RuntimeError):prepare(i,s,reader,expected_identity=fixture()[0]['identity'])
             self.assertFalse(any(isinstance(call,list) and 'create' in call for call in calls))
 
     def test_stage_actual_inspection_admission_baseline_and_late_races_reject(self):
@@ -131,11 +131,11 @@ class Tests(unittest.TestCase):
                     if 'create' in args:raise RuntimeError('COMMAND_OUTCOME_UNKNOWN')
                     return original(args)
                 s.run_docker=run
-            with self.assertRaises(RuntimeError):prepare(i,s,reader)
+            with self.assertRaises(RuntimeError):prepare(i,s,reader,expected_identity=fixture()[0]['identity'])
 
     def test_missing_atomic_start_transport_never_runs_standard_start_then_pause(self):
         i,m,c,r,reader,s,calls,inspect=fixture()
-        with self.assertRaisesRegex(RuntimeError,'SOURCE_TRANSPORT_REQUIRED'):prepare(i,None,reader)
+        with self.assertRaisesRegex(RuntimeError,'SOURCE_TRANSPORT_REQUIRED'):prepare(i,None,reader,expected_identity=fixture()[0]['identity'])
         with self.assertRaisesRegex(RuntimeError,'ATOMIC_START_PAUSED'):start_paused(i,s)
         self.assertEqual(calls,[])
 
@@ -152,7 +152,7 @@ class Tests(unittest.TestCase):
             source_result=copy.deepcopy(expected)
             if variant!='unverified-source':s.verify_expected_readback=lambda ref,b:copy.deepcopy(source_result)
             request={**{k:i[k] for k in ('identity','toolRevision','host','epoch','holdGeneration')},'expectedReadbackRef':s.expected_ref}
-            with self.assertRaises(RuntimeError):held_readback(request,s,reader)
+            with self.assertRaises(RuntimeError):held_readback(request,s,reader,expected_identity=fixture()[0]['identity'])
             self.assertFalse(any(isinstance(call,tuple) for call in calls))
 
     def test_three_source_seed_keys_share_fixed_target_id_and_duplicate_keys_reject(self):
@@ -164,11 +164,11 @@ class Tests(unittest.TestCase):
             s.verify_expected_readback=lambda ref,b:copy.deepcopy(expected)
             request={**{k:i[k] for k in ('identity','toolRevision','host','epoch','holdGeneration')},'expectedReadbackRef':s.expected_ref}
             if duplicate:
-                with self.assertRaisesRegex(RuntimeError,'TARGET_DUPLICATE'):held_readback(request,s,reader)
-            else:self.assertFalse(held_readback(request,s,reader)['ready'])
+                with self.assertRaisesRegex(RuntimeError,'TARGET_DUPLICATE'):held_readback(request,s,reader,expected_identity=fixture()[0]['identity'])
+            else:self.assertFalse(held_readback(request,s,reader,expected_identity=fixture()[0]['identity'])['ready'])
 
     def test_retained_three_db_nine_probes_all_rollback_and_no_legacy_bootstrap(self):
-        i,m,c,r,reader,s,calls,inspect=fixture();out=held_readback({**{k:i[k] for k in ('identity','toolRevision','host','epoch','holdGeneration')},'expectedReadbackRef':s.expected_ref},s,reader)
+        i,m,c,r,reader,s,calls,inspect=fixture();out=held_readback({**{k:i[k] for k in ('identity','toolRevision','host','epoch','holdGeneration')},'expectedReadbackRef':s.expected_ref},s,reader,expected_identity=fixture()[0]['identity'])
         self.assertFalse(out['ready'])
         self.assertEqual([call for call in calls if isinstance(call,tuple)],[(db,p) for db in DATABASES for p in PROBES])
         for field in ('verified','readOnlyTransaction','rollbackComplete','connection','probe','identity','evidenceSha256'):
@@ -177,6 +177,6 @@ class Tests(unittest.TestCase):
                 value=original(db,p,params);value[field]=False
                 return value
             s.retained_query=bad
-            with self.assertRaises(RuntimeError):held_readback({**{k:i[k] for k in ('identity','toolRevision','host','epoch','holdGeneration')},'expectedReadbackRef':s.expected_ref},s,reader)
+            with self.assertRaises(RuntimeError):held_readback({**{k:i[k] for k in ('identity','toolRevision','host','epoch','holdGeneration')},'expectedReadbackRef':s.expected_ref},s,reader,expected_identity=fixture()[0]['identity'])
 
 if __name__=='__main__':unittest.main()

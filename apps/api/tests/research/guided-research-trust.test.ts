@@ -33,6 +33,13 @@ function readyFixture() {
 }
 
 describe("research trust projection", () => {
+  it.each(["partial", "failed-task"])("never publishes a fully covered recovered draft with %s provenance", mode => {
+    const state = { ...readyFixture(), report: null, reportDraft: readyFixture().report, completed: false, reportPartial: mode === "partial" };
+    if (mode === "failed-task") state.tasks[0]!.status = "failed" as any;
+    expect(projectResearchTrust(state).coverage.every(item => item.status === "answered")).toBe(true);
+    expect(projectResearchTrust(state).publicationReadiness.status).toBe("limited");
+  });
+
   it("marks covered questions ready with traceable evidence", () => {
     const result = projectResearchTrust(readyFixture());
     expect(result.coverage[0]).toMatchObject({ status: "answered", evidenceIds: ["src1", "src2"] });

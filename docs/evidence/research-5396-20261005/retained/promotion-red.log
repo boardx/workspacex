@@ -1,0 +1,36 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/research-5056-fixes/workspacex/apps/api
+
+ ❯ tests/research/guided-three-step.test.ts (22 tests | 1 failed | 21 skipped) 60ms
+   × three visible stages with durable composite execution > retains successful search tasks on a partial failure and resumes the report chain only on explicit retry 59ms
+     → expected null to be 'RESEARCH_TASKS_INCOMPLETE' // Object.is equality
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/research/guided-three-step.test.ts > three visible stages with durable composite execution > retains successful search tasks on a partial failure and resumes the report chain only on explicit retry
+AssertionError: expected null to be 'RESEARCH_TASKS_INCOMPLETE' // Object.is equality
+
+- Expected: 
+"RESEARCH_TASKS_INCOMPLETE"
+
++ Received: 
+null
+
+ ❯ tests/research/guided-three-step.test.ts:107:36
+    105|     const draftBeforeSave = partial.reportDraft;
+    106|     const rejectedSave = await f.run("save", "report", { draft: { node…
+    107|     expect(rejectedSave.errorCode).toBe("RESEARCH_TASKS_INCOMPLETE"); …
+       |                                    ^
+    108|     expect(rejectedSave.report).toBeNull(); expect(rejectedSave.comple…
+    109|     const rejectedComplete = await f.run("complete", "report");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 21 skipped (22)
+   Start at  21:33:10
+   Duration  956ms (transform 500ms, setup 0ms, collect 790ms, tests 60ms, environment 0ms, prepare 28ms)
+
+undefined
+/Users/shenyangjun/.codex/worktrees/research-5056-fixes/workspacex/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run --config vitest.research-unit.config.ts tests/research/guided-three-step.test.ts -t retains successful search tasks

@@ -6,6 +6,7 @@ class HeldEpoch(unittest.TestCase):
  def setUp(self):
   self.store={};self.serial=0;self.large=[]
   self.p={'identity':{'sourceRevision':m.APP,'baselineRevision':m.BASE,'migrationPlanSha256':'a'*64,'attemptId':'fixture'},'toolRevision':'b'*40,'host':{'instanceId':m.ECS,'bootId':'12345678-1234-1234-1234-123456789012'},'epoch':'c'*64,'holdGeneration':'d'*32,'kind':'current-held-epoch-evidence-input'}
+  self.authority=copy.deepcopy(self.p['identity'])
   self.p.update(before={k:self.ref('before-'+k,{'state':'held','allWritersDrained':True,'sample':1,'observedAt':1}) for k in ('held','drained')},after={k:self.ref('after-'+k,{'state':'held','allWritersDrained':True,'sample':2,'observedAt':2}) for k in ('held','drained')})
   self.p['databases']={db:{k:self.ref('database-'+k,{'database':db,'complete':True,'sourceRdsInstanceId':m.RDS,**({'artifact':{'path':'/private/'+db+'.cms','sha256':'e'*64,'bytes':10}} if k=='ciphertext' else {})}) for k in m.DB_FIELDS} for db in m.DATABASES}
   self.p['objects']={k:self.ref('objects-'+k,{'objectScopeSha256':'f'*64,'inventorySha256':'e'*64,'complete':True}) for k in ('inventory','version','recovery')}
@@ -19,7 +20,7 @@ class HeldEpoch(unittest.TestCase):
   raw=self.store[path]
   if hashlib.sha256(raw).hexdigest()!=digest:raise ValueError('HASH_DRIFT')
   return raw
- def run_it(self):return m.produce(self.p,self.read,lambda ref:self.large.append(ref))
+ def run_it(self):return m.produce(self.p,self.read,lambda ref:self.large.append(ref),expected_identity=self.authority)
  def test_success_ready_false_deterministic(self):
   a=self.run_it();self.assertEqual(a,self.run_it());self.assertFalse(a['ready']);self.assertFalse(a['qualified']);self.assertEqual(len(self.large),6)
  def test_online_backup_rejected(self):
@@ -70,3 +71,34 @@ class HeldEpoch(unittest.TestCase):
     self.assertEqual(stat.S_IMODE(path.stat().st_mode),0o600);self.assertEqual(ref['sha256'],hashlib.sha256(path.read_bytes()).hexdigest())
     with self.assertRaises(FileExistsError):m.write_collection(str(path),value)
 if __name__=='__main__':unittest.main()
+
+class ProtectedCollectionAuthority(unittest.TestCase):
+ def fixture(self):
+  identity={'sourceRevision':'a1cb4c7683768566b0cf38ffe6a27b0a8c13f4f0','baselineRevision':m.BASE,'migrationPlanSha256':'a'*64,'attemptId':'independent-approved'}
+  payload={'identity':copy.deepcopy(identity),'toolRevision':'b'*40,'host':{'instanceId':m.ECS,'bootId':'12345678-1234-1234-1234-123456789012'},'epoch':'c'*64,'holdGeneration':'d'*32}
+  original={'schemaVersion':1,'mode':'maintenance-all-writer-fence','productionActionsAuthorized':True,'identity':identity,'toolRevision':'b'*40}
+  profile={'toolRevision':'b'*40,'filesSha256':{'.harness/scripts/vm/current_held_epoch_evidence_producer.py':hashlib.sha256(Path(m.__file__).read_bytes()).hexdigest()}}
+  return original,profile,payload
+ def invoke(self,original,profile,payload,wrong_pin=False,drift=False):
+  raw=json.dumps(original).encode();profile_raw=json.dumps(profile).encode();count={}
+  def read(path):
+   count[path]=count.get(path,0)+1
+   if drift and count[path]>1:return b'changed'
+   return raw if path=='/etc/workspacex-cn/original.json' else profile_raw
+  return m.protected_collection_identity({'path':'/etc/workspacex-cn/original.json','sha256':'f'*64 if wrong_pin else hashlib.sha256(raw).hexdigest()},payload,read)
+ def test_independently_pinned_a1cb_original_succeeds(self):
+  original,profile,payload=self.fixture();self.assertEqual(self.invoke(original,profile,payload),original['identity'])
+ def test_foreign_payload_cannot_self_approve(self):
+  for field,value in [('sourceRevision','f'*40),('attemptId','foreign'),('migrationPlanSha256','f'*64),('baselineRevision','f'*40)]:
+   with self.subTest(field=field):
+    original,profile,payload=self.fixture();payload['identity'][field]=value
+    with self.assertRaises(RuntimeError):self.invoke(original,profile,payload)
+ def test_runtime_unapproved_wrong_tool_source_and_raw_pin_reject(self):
+  for kind in ('runtime','unapproved','tool','source','pin','drift'):
+   with self.subTest(kind=kind):
+    original,profile,payload=self.fixture()
+    if kind=='runtime':original['runtimeSourcePlanSha256']='e'*64
+    if kind=='unapproved':original['productionActionsAuthorized']=False
+    if kind=='tool':payload['toolRevision']='e'*40
+    if kind=='source':profile['filesSha256']['.harness/scripts/vm/current_held_epoch_evidence_producer.py']='e'*64
+    with self.assertRaises(RuntimeError):self.invoke(original,profile,payload,wrong_pin=kind=='pin',drift=kind=='drift')

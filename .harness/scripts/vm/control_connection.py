@@ -13,9 +13,17 @@ def verify_bound_transport(plan,db,mode,binding):
  require(binding.get('tls',{}).get('ssl') is False and binding.get('transport')=={'sslMode':'disable','configurationSha256':source.get('configurationSha256'),'providerEvidenceSha256':source.get('providerEvidenceSha256')} and socket.get('encrypted') is False and socket.get('authorized') is False and socket.get('localAddress')=='192.168.100.40' and hashlib.sha256(socket.get('remoteAddress','').encode()).hexdigest()==source.get('clientPeerAddressSha256') and socket.get('remotePort')==source.get('clientPeerPort'),'BOUND_SESSION_OBSERVED_PROOF')
  return False
 class PersistentControlConnection:
- def __init__(self,plan,db,spawn=None,read_private=None,runtime_inventory=None,mode="control",bootstrap=False):
+ def __init__(self,plan,db,spawn=None,read_private=None,runtime_inventory=None,mode="control",bootstrap=False,original_plan_ref=None):
   from host_transport import private,SAFE_ENV
   read_private=read_private or private
+  import copy,json
+  require(type(original_plan_ref) is dict and set(original_plan_ref)=={'path','sha256'},'CONTROL_ORIGINAL_PLAN_REFERENCE')
+  profile=json.loads(read_private('/etc/workspacex-cn/trusted-tool-binding.json'))
+  require(profile.get('originalWriterPlan')==original_plan_ref,'CONTROL_ORIGINAL_PROFILE_PIN')
+  original_raw=read_private(original_plan_ref['path']);require(hashlib.sha256(original_raw).hexdigest()==original_plan_ref['sha256'],'CONTROL_ORIGINAL_RAW_PIN')
+  original=json.loads(original_raw)
+  require(original.get('identity')==plan['identity'] and original.get('toolRevision')==plan.get('toolRevision') and original.get('mode')=='maintenance-all-writer-fence' and original.get('productionActionsAuthorized') is True and original.get('runtimeSessionBootstrapAuthorized') is True and not any(k in original for k in ('runtimeSourcePlanSha256','controlSessions','diagnosticSessions')),'CONTROL_ORIGINAL_PLAN_IDENTITY')
+  self.original_plan_ref=copy.deepcopy(original_plan_ref)
   spec=plan['persistentControlHelper'];raw=read_private(spec['path'],0o700)
   require(hashlib.sha256(raw).hexdigest()==spec['sha256'],'CONTROL_HELPER_PIN')
   require(db in plan['databasePeers'],'CONTROL_DATABASE')
@@ -53,7 +61,7 @@ class PersistentControlConnection:
    os.fstat(9);recovery_descriptors=(9,)
   self.process=(spawn or subprocess.Popen)([runtime['nodePath'],spec['path'],'--persistent-control-json'],stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,env=env,pass_fds=recovery_descriptors)
   try:
-   hello=self.request({'operation':'connect','toolRevision':plan.get('toolRevision'),'migrationAuthorization':plan.get('migrationAuthorization'),'backupHostReference':plan.get('backupHostReference'),'recoveryAuthorization':plan.get('recoveryAuthorization'),'diagnosticRole':plan['diagnosticRole'],'roleTargets':plan['databaseWriterRoles'][db],'database':db,'mode':mode,'serviceFile':probe['serviceFile'],'caFile':probe['caFile'],'sslMode':'disable' if auth else 'verify-full',**({'connectionTransport':auth} if auth else {}),'applicationName':'wsx-maintenance-'+mode+'-'+plan['identity']['attemptId'],'identity':plan['identity']},bind=False)
+   hello=self.request({'operation':'connect','originalPlanReference':self.original_plan_ref,'toolRevision':plan.get('toolRevision'),'migrationAuthorization':plan.get('migrationAuthorization'),'backupHostReference':plan.get('backupHostReference'),'recoveryAuthorization':plan.get('recoveryAuthorization'),'diagnosticRole':plan['diagnosticRole'],'roleTargets':plan['databaseWriterRoles'][db],'database':db,'mode':mode,'serviceFile':probe['serviceFile'],'caFile':probe['caFile'],'sslMode':'disable' if auth else 'verify-full',**({'connectionTransport':auth} if auth else {}),'applicationName':'wsx-maintenance-'+mode+'-'+plan['identity']['attemptId'],'identity':plan['identity']},bind=False)
    binding=hello['connection'];expected=plan['controlSessions' if mode=='control' else 'diagnosticSessions'][db] if not bootstrap else binding
    require(binding==expected and binding['peer']==plan['databasePeers'][db] and binding['tls']['ssl'] is (auth is None) and (binding['role'] in plan['databaseWriterRoles'][db] if mode=='control' else binding['role']==plan['diagnosticRole']) and type(binding['pid']) is int and binding['pid']>1,'CONTROL_CONNECTION_IDENTITY')
    if auth:

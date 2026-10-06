@@ -10,7 +10,7 @@ const commentHarness=vi.hoisted(()=>({threads:[] as unknown[],dispatch:vi.fn()})
 vi.mock('@/components/whiteboard/board-comments',()=>({listBoardMentionableMembers:async()=>[{userId:"other",displayName:"李四"}],listBoardCommentThreads:async()=>commentHarness.threads,dispatchBoardCommentCommand:(...args:unknown[])=>commentHarness.dispatch(...args)}));
 beforeEach(()=>{commentHarness.threads=[];commentHarness.dispatch.mockReset().mockResolvedValue({operationId:'accepted',replayed:false,threads:[]});});
 vi.mock('@/components/whiteboard/fabric/board-fabric-surface', () => ({
-  BoardFabricSurface: ({ objects, selectedObjectIds, onCanvasClick, onObjectTransform, onSelectionChange, onViewportChange, viewport }: { selectedObjectIds:readonly string[]; onCanvasClick:(point:{x:number;y:number})=>void;objects: readonly BoardFabricObject[]; viewport: BoardViewport; onViewportChange:(viewport:BoardViewport,source:BoardViewportSource)=>void; onObjectTransform: (id: string, geometry: BoardFabricGeometry) => boolean | Promise<boolean>; onSelectionChange: (ids: string[], source: 'canvas') => void }) => <div data-testid="board-fabric-surface"><output data-testid="mock-selected">{JSON.stringify(selectedObjectIds)}</output><canvas data-testid="board-fabric-canvas" /><button data-testid="fabric-place" onClick={()=>onCanvasClick({x:400,y:300})}>place</button><output data-testid="mock-viewport">{JSON.stringify(viewport)}</output>{(["pan","wheel","controlled","fit"] as const).map(source=><button key={source} data-testid={`viewport-${source}`} onClick={()=>onViewportChange({...viewport,panX:99},source)}>{source}</button>)}{objects.map((object) => <span key={object.id} data-projected-id={object.id} />)}{objects[0] ? <button data-testid="fabric-transform-first" onClick={(event) => { const result = onObjectTransform(objects[0]!.id, { ...objects[0]!.geometry, x: 345 }); event.currentTarget.dataset.accepted = String(result); }}>transform</button> : null}<button data-testid="fabric-select-all" onClick={() => onSelectionChange(objects.map((object) => object.id), 'canvas')}>select all</button></div>,
+  BoardFabricSurface: ({ objects, selectedObjectIds, onCanvasClick, onCanvasDoubleClick, onObjectTransform, onSelectionChange, onViewportChange, viewport }: { selectedObjectIds:readonly string[]; onCanvasDoubleClick:(point:{x:number;y:number})=>void; onCanvasClick:(point:{x:number;y:number})=>void;objects: readonly BoardFabricObject[]; viewport: BoardViewport; onViewportChange:(viewport:BoardViewport,source:BoardViewportSource)=>void; onObjectTransform: (id: string, geometry: BoardFabricGeometry) => boolean | Promise<boolean>; onSelectionChange: (ids: string[], source: 'canvas') => void }) => <div data-testid="board-fabric-surface"><output data-testid="mock-selected">{JSON.stringify(selectedObjectIds)}</output><canvas data-testid="board-fabric-canvas" /><button data-testid="fabric-double-nearby" onClick={()=>onCanvasDoubleClick({x:200,y:100})}>double near</button><button data-testid="fabric-place" onClick={()=>onCanvasClick({x:400,y:300})}>place</button><output data-testid="mock-viewport">{JSON.stringify(viewport)}</output>{(["pan","wheel","controlled","fit"] as const).map(source=><button key={source} data-testid={`viewport-${source}`} onClick={()=>onViewportChange({...viewport,panX:99},source)}>{source}</button>)}{objects.map((object) => <span key={object.id} data-projected-id={object.id} />)}{objects[0] ? <button data-testid="fabric-transform-first" onClick={(event) => { const result = onObjectTransform(objects[0]!.id, { ...objects[0]!.geometry, x: 345 }); event.currentTarget.dataset.accepted = String(result); }}>transform</button> : null}<button data-testid="fabric-select-all" onClick={() => onSelectionChange(objects.map((object) => object.id), 'canvas')}>select all</button></div>,
 }));
 class ResizeObserverMock { observe() {} disconnect() {} }
 globalThis.ResizeObserver = ResizeObserverMock as unknown as typeof ResizeObserver;
@@ -117,7 +117,10 @@ it('exposes every multi-selection layout action and commits grid as one canonica
   render(<CollaborativeEditor boardId="board-test" clientId="client-test" doc={doc} readOnly={false} title="白板" status="已连接" />);
   fireEvent.click(screen.getByTestId('fabric-select-all'));
   fireEvent.click(screen.getByRole('button', {name: '布局'}));
-  for (const kind of ['align-left', 'align-center', 'align-right', 'align-top', 'align-middle', 'align-bottom', 'distribute-horizontal', 'distribute-vertical', 'equal-width', 'equal-height', 'equal-size', 'grid', 'row', 'column', 'tidy-up']) expect(screen.getByTestId(`board-layout-${kind}`)).toBeEnabled();
+  for (const kind of ['align-left', 'align-center', 'align-right', 'align-top', 'align-middle', 'align-bottom', 'distribute-horizontal', 'distribute-vertical', 'equal-width', 'equal-height', 'equal-size', 'grid', 'row', 'column', 'tidy-up']) {
+    fireEvent.mouseDown(screen.getByTestId(['grid', 'row', 'column', 'tidy-up'].includes(kind) ? 'board-layout-tab-arrange' : 'board-layout-tab-align'), { button: 0, ctrlKey: false });
+    expect(screen.getByTestId(`board-layout-${kind}`)).toBeEnabled();
+  }
   fireEvent.change(screen.getByLabelText('布局间距'), { target: { value: '24' } });
   fireEvent.change(screen.getByLabelText('网格列数'), { target: { value: '2' } });
   const transactions: Y.Transaction[] = [];
@@ -138,6 +141,7 @@ it('smart layout preview is zero-write, cancelable, applicable and conflict guar
   fireEvent.click(screen.getByTestId('fabric-select-all'));
   fireEvent.click(screen.getByRole('button', {name: '布局'}));
   const before = readObjects(doc);
+  fireEvent.mouseDown(screen.getByTestId('board-layout-tab-smart'), { button: 0, ctrlKey: false });
   fireEvent.click(screen.getByTestId('board-layout-smart-preview'));
   expect(screen.getByTestId('board-layout-preview')).toBeVisible();
   expect(readObjects(doc)).toEqual(before);
@@ -147,19 +151,32 @@ it('smart layout preview is zero-write, cancelable, applicable and conflict guar
   fireEvent.keyDown(document,{key:'Escape'});
   expect(screen.getByTestId('board-add-sticky')).toBeDisabled();
   fireEvent.click(screen.getByRole('button',{name:'布局'}));
+  fireEvent.mouseDown(screen.getByTestId('board-layout-tab-arrange'), { button: 0, ctrlKey: false });
   expect(screen.getByTestId('board-layout-grid')).toBeDisabled();
   fireEvent.click(screen.getByTestId('fabric-transform-first'));
-  fireEvent.keyDown(window, { key: 'n' });
-  fireEvent.keyDown(window, { key: 't' });
+  for (const key of ['n', 't', 's', 'p']) {
+    fireEvent.keyDown(screen.getByTestId('board-fabric-canvas'), { key });
+    expect(screen.getByTestId('board-selection-layout-toolbar')).toBeVisible();
+    for (const kind of ['sticky', 'text', 'shape', 'draw']) expect(screen.getByTestId(`board-add-${kind}`)).toHaveAttribute('aria-pressed', 'false');
+    expect(readObjects(doc)).toEqual(before);
+  }
+  fireEvent.keyDown(screen.getByTestId('board-fabric-canvas'), { key: 'n', shiftKey: true });
+  expect(screen.queryByRole('dialog', {name: '批量创建便利贴'})).toBeNull();
+  fireEvent.keyDown(screen.getByTestId('board-fabric-canvas'), { key: 'h' });
+  expect(screen.getByTestId('board-tool-hand')).toHaveAttribute('aria-pressed', 'true');
+  fireEvent.keyDown(screen.getByTestId('board-fabric-canvas'), { key: 'v' });
+  expect(screen.getByTestId('board-tool-select')).toHaveAttribute('aria-pressed', 'true');
   expect(readObjects(doc)).toEqual(before);
   fireEvent.click(screen.getByTestId('board-layout-preview-cancel'));
   expect(readObjects(doc)).toEqual(before);
+  fireEvent.mouseDown(screen.getByTestId('board-layout-tab-smart'), { button: 0, ctrlKey: false });
   for (const suggestion of ['grid', 'cards', 'cluster', 'journey', 'mind-map', 'flow', 'timeline']) {
     fireEvent.click(screen.getByTestId(`board-smart-${suggestion}`));
     expect(screen.getByTestId('board-layout-preview')).toBeVisible();
     expect(readObjects(doc)).toEqual(before);
     fireEvent.click(screen.getByTestId('board-layout-preview-cancel'));
   }
+  fireEvent.mouseDown(screen.getByTestId('board-layout-tab-smart'), { button: 0, ctrlKey: false });
   fireEvent.click(screen.getByTestId('board-layout-smart-preview'));
   executeCommands(doc, [{ type: 'style', id: 'smart-0', style: { fill: '#112233' } }], 'remote');
   fireEvent.click(screen.getByTestId('board-layout-preview-apply'));
@@ -176,8 +193,10 @@ it('disables contextual layout when the board or any selected object is locked',
   const view = render(<CollaborativeEditor boardId="board-test" clientId="client-test" doc={doc} readOnly={false} title="白板" status="已连接" />);
   fireEvent.click(screen.getByTestId('fabric-select-all'));
   fireEvent.click(screen.getByRole('button', {name: '布局'}));
+  fireEvent.mouseDown(screen.getByTestId('board-layout-tab-arrange'), { button: 0, ctrlKey: false });
   expect(screen.getByTestId('board-layout-grid')).toBeDisabled();
   view.rerender(<CollaborativeEditor boardId="board-test" clientId="client-test" doc={doc} readOnly title="白板" status="已连接" />);
+  fireEvent.mouseDown(screen.getByTestId('board-layout-tab-align'), { button: 0, ctrlKey: false });
   expect(screen.getByTestId('board-layout-align-left')).toBeDisabled();
   doc.destroy();
 });
@@ -288,7 +307,7 @@ it.each([744,680])('uses measured frame height %i for viewport presence and arms
  try{
   render(<CollaborativeEditor boardId="board-test" clientId="client-test" doc={doc} readOnly={false} title="Board" status="online" onAwareness={awareness}/>);
   expect(awareness.mock.calls.at(-1)?.[3].viewport).toMatchObject({centerX:600,centerY:height/2});
-  fireEvent.keyDown(window,{key:'n'});
+  fireEvent.keyDown(screen.getByTestId('board-fabric-canvas'),{key:'n'});
   expect(readObjects(doc)).toHaveLength(0);fireEvent.click(screen.getByTestId('fabric-place'));
   const note=readObjects(doc)[0]!;expect(note.geometry.x+note.geometry.width/2).toBe(400);expect(note.geometry.y+note.geometry.height/2).toBe(300);
   expect(screen.getByTestId('board-tool-select')).toHaveAttribute('aria-pressed','true');
@@ -304,4 +323,20 @@ it.each(['connecting','pending','offline','synced'] as const)('projects actual e
  if(phase==='offline'){fireEvent.click(screen.getByTestId('board-retry-sync'));expect(retry).toHaveBeenCalledOnce();}
  else expect(screen.queryByTestId('board-retry-sync')).toBeNull();
  doc.destroy();
+});
+
+it('creates an aligned nearby sticky with inherited appearance in one transaction',()=>{
+ const doc=createWhiteboardDocument();const source={id:'styled-note',schemaVersion:1 as const,kind:'sticky' as const,geometry:{x:10,y:20,width:180,height:140,rotation:0},text:'original',style:{fill:'#abcdef',color:'#123456',fontSize:28},parentId:null,orderKey:'',extensionData:{thinkingInput:{sticky:{variant:'rectangle',sizing:'fixed',color:'#abcdef'},text:{preset:'body',fontSize:28,fontFamily:'serif',bold:true,alignment:'right',verticalAlignment:'bottom'}}}};
+ executeCommands(doc,[{type:'create',object:source}],'seed');render(<CollaborativeEditor boardId="board-test" clientId="client-test" doc={doc} readOnly={false} title="白板" status="已连接"/>);
+ const transactions:Y.Transaction[]=[];doc.on('afterTransaction',transaction=>{if(transaction.origin instanceof WhiteboardCommandOrigin)transactions.push(transaction);});
+ fireEvent.click(screen.getByTestId('fabric-double-nearby'));const created=readObjects(doc).find(object=>object.id!==source.id)!;
+ expect(created.geometry).toEqual({...source.geometry,x:214});expect(created.style).toEqual(source.style);expect(created.extensionData?.thinkingInput).toEqual(source.extensionData.thinkingInput);expect(created.text).toBe('');expect(transactions).toHaveLength(1);doc.destroy();
+});
+it('scopes connector and eraser shortcuts to the board and ignores IME/repeats',()=>{
+ const doc=createWhiteboardDocument();render(<CollaborativeEditor boardId="board-test" clientId="client-test" doc={doc} readOnly={false} title="白板" status="已连接"/>);
+ fireEvent.keyDown(document.body,{key:'l'});expect(screen.getByTestId('board-add-connector')).toHaveAttribute('aria-pressed','false');
+ const canvas=screen.getByTestId('board-fabric-canvas');fireEvent.keyDown(canvas,{key:'l',isComposing:true});expect(screen.getByTestId('board-add-connector')).toHaveAttribute('aria-pressed','false');
+ fireEvent.keyDown(canvas,{key:'l'});expect(screen.getByTestId('board-add-connector')).toHaveAttribute('aria-pressed','true');
+ fireEvent.keyDown(canvas,{key:'e',repeat:true});expect(screen.getByTestId('board-add-connector')).toHaveAttribute('aria-pressed','true');
+ fireEvent.keyDown(canvas,{key:'e'});expect(screen.getByTestId('board-draw-tool-panel')).toBeVisible();expect(screen.getByTestId('board-add-connector')).toHaveAttribute('aria-pressed','false');doc.destroy();
 });

@@ -25,13 +25,42 @@ pnpm --filter @repo/whiteboard-core exec vitest run
 ```
 
 运行前核 package scripts 与测试配置；命令成功不意味着所有白板场景已经覆盖。
-本候选的 [navigation runner](../../../../scripts/local-session/board-navigation-acceptance.mjs)
-使用 [运行来源门](../../../../scripts/local-session/board-acceptance-runtime.mjs) 与
+历史 [navigation runner](../../../../scripts/local-session/board-navigation-acceptance.mjs)
+使用旧 [运行来源门](../../../../scripts/local-session/board-acceptance-runtime.mjs) 与
 [请求节流](../../../../scripts/local-session/board-navigation-acceptance-scheduler.mjs)。
+这些是历史诊断入口，不是下述 strong native PostgreSQL 运行来源证明。
 旧分支的 `board-acceptance-suite.mjs` 和 Connector runner 是条件入口：先确认当前候选存在、
 来源和 CLI，缺失时不复制算法来制造存在性。不要复制临时账号密码或安装未经授权的服务。
 新 out 目录、防源文件变化 hash、子进程 exit/report.ok、console/pageerror/requestfail、
 截图 PNG 签名/hash 和清理结果均需核实；主脚本 exit0 不能掩盖子报告失败。
+
+<a id="formal-native-acceptance"></a>
+
+### 正式 Native 验收导航
+
+基础设施来源是 [PR #5234](https://github.com/boardx/workspacex/pull/5234)，不代表业务 suites 已通过。
+从唯一 [native caller](../../../../apps/web/scripts/run-board-native-acceptance.mjs) 的
+`acceptanceCommand`、`suiteDefinition` 与 `run` 读取当前 CLI、允许的完整 suite 和环境要求，
+不要另写一套命令或 case 枚举。候选 caller 包含 R01、Connector、Files、Sync 四个入口；
+[R01 config](../../../../apps/web/e2e/board-r01-existing-runtime.config.ts) 与
+[原生矩阵](../../../../apps/web/e2e/board-r01-native-matrix.spec.ts) 定义八个软件用例，
+源码可导航不代表这些用例已经实际运行。
+
+运行来源读 [runtime attestation](../../../../apps/web/e2e/support/native-runtime/runtime-attestation.mjs)
+与其调用的 [source selector](../../../../scripts/local-session/board-runtime-source-files.mjs)：
+当前文件、完整源码闭包与 exact Git blob/hash 必须一致，还要核真实 PID/CWD、监听器与产物身份。
+[producer prepare](../../../../apps/web/e2e/support/native-runtime/wsx-board-native-runtime-prepare.mjs)
+与 [producer start](../../../../apps/web/e2e/support/native-runtime/wsx-board-native-runtime-start.mjs)
+是 PostgreSQL 16.15/vector 0.8.6、独立非 owner 的 `app_rw` 和 RLS 身份证明入口，
+不能用 manifest 字符串或旧运行环境替代实际角色与运行来源核验。
+迁移、seed、build 的退出与日志关闭由
+[owned lifecycle](../../../../apps/web/e2e/support/native-runtime/native-owned-one-shot.mjs) 管理；
+startup 或 lifecycle 纯测试通过不是产品浏览器/API/刷新证明。
+
+caller 的原始 report、R01 receipts 与 owned stop 结果分别核验；`cleanupPending` 是失败边界，
+不能因业务断言通过就改成整轮完成。Trackpad、OS IME 等原生硬件仍需人工验收；
+R01 receipt 的 `completed: false`、`hardwareTrackpad: unverified` 不得转述成原生通过。
+工具链、依赖、机器资源和新候选执行结果必须实际检查，本导航不宣称环境可运行。
 
 ## 反假绿检查
 

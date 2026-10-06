@@ -15,6 +15,8 @@ const fabricHarness = vi.hoisted(() => {
     scaleX = 1;
     scaleY = 1;
     angle = 0;
+    originX: "left" | "center" | "right" = "left";
+    originY: "top" | "center" | "bottom" = "top";
     selectable = true;
     evented = true;
     lockMovementX = false;
@@ -26,15 +28,25 @@ const fabricHarness = vi.hoisted(() => {
     set(values: Record<string, unknown>) { Object.assign(this, values); return this; }
     setControlsVisibility() { return this; }
     setCoords() {}
-    // Fabric matrices use the object's center; left/top remain the top-left
-    // origin used by this fixture. Retain the real qrDecompose implementation.
-    calcTransformMatrix() {
+    calcTransformMatrix(): [number, number, number, number, number, number] {
       const radians = this.angle * Math.PI / 180, cos = Math.cos(radians), sin = Math.sin(radians);
-      const width = this.width * this.scaleX, height = this.height * this.scaleY;
+      const offsetX = this.width * this.scaleX * (this.originX === "left" ? .5 : this.originX === "right" ? -.5 : 0);
+      const offsetY = this.height * this.scaleY * (this.originY === "top" ? .5 : this.originY === "bottom" ? -.5 : 0);
       return [cos * this.scaleX, sin * this.scaleX, -sin * this.scaleY, cos * this.scaleY,
-        this.left + cos * width / 2 - sin * height / 2, this.top + sin * width / 2 + cos * height / 2];
+        this.left + cos * offsetX - sin * offsetY, this.top + sin * offsetX + cos * offsetY];
     }
-    getBoundingRect() { return { left: this.left, top: this.top, width: this.width * this.scaleX, height: this.height * this.scaleY }; }
+    getCoords() {
+      const [a, b, c, d, e, f] = this.calcTransformMatrix();
+      return [[-.5, -.5], [.5, -.5], [.5, .5], [-.5, .5]].map(([x, y]) => ({
+        x: a * x! * this.width + c * y! * this.height + e,
+        y: b * x! * this.width + d * y! * this.height + f,
+      }));
+    }
+    getBoundingRect() {
+      const corners = this.getCoords(), xs = corners.map(point => point.x), ys = corners.map(point => point.y);
+      const left = Math.min(...xs), top = Math.min(...ys);
+      return { left, top, width: Math.max(...xs) - left, height: Math.max(...ys) - top };
+    }
   }
   interface MockCanvas {
     objects: MockFabricObject[];
@@ -148,6 +160,23 @@ const firstProjected = (canvas: ReturnType<typeof mountedCanvas>) => {
 
 describe("Board Fabric event-to-command boundary", () => {
   beforeEach(() => { fabricHarness.state.canvases.length = 0; });
+
+  it("preserves rotated nonuniform geometry in the scene mock", () => {
+    const projected = new fabricHarness.MockFabricObject(undefined, {
+      left: 10, top: 20, width: 20, height: 10, scaleX: 2, scaleY: 3, angle: 90,
+      originX: "left", originY: "top",
+    });
+    const expectedMatrix = [0, 2, -3, 0, -5, 40];
+    projected.calcTransformMatrix().forEach((value, index) => expect(value).toBeCloseTo(expectedMatrix[index]!, 10));
+    const expectedCorners = [{x:10,y:20},{x:10,y:60},{x:-20,y:60},{x:-20,y:20}];
+    projected.getCoords().forEach((point, index) => {
+      expect(point.x).toBeCloseTo(expectedCorners[index]!.x, 10);
+      expect(point.y).toBeCloseTo(expectedCorners[index]!.y, 10);
+    });
+    const bounds = projected.getBoundingRect();
+    expect(bounds.left).toBeCloseTo(-20, 10); expect(bounds.top).toBeCloseTo(20, 10);
+    expect(bounds.width).toBeCloseTo(30, 10); expect(bounds.height).toBeCloseTo(40, 10);
+  });
 
   it("proves real Fabric Group path endpoints stay in world coordinates despite stroke bounds", async () => {
     const { Group, Path, Point, util } = await vi.importActual<typeof import("fabric")>("fabric");

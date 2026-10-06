@@ -30,6 +30,19 @@ export async function fileAssetRows(tenant: string | null, boardId: string) {
   });
 }
 
+/** Query the connected database, not a producer's claimed version or SET ROLE identity. */
+export async function fileNativeDatabaseProof(tenant: string) {
+  const fixture = await fileDatabase();
+  return fixture.asApp(tenant, async db => {
+    const role = await appRoleProof(db, tenant);
+    const native = (await db.query<{server_version_num: string; authenticated_role: string; vector_version: string; owner_membership: boolean}>(
+      "SELECT current_setting('server_version_num') AS server_version_num,session_user AS authenticated_role,(SELECT extversion FROM pg_extension WHERE extname='vector') AS vector_version,pg_has_role(current_user,'postgres','MEMBER') AS owner_membership",
+    )).rows[0];
+    if (!native || native.server_version_num !== '160015' || native.vector_version !== '0.8.6' || native.authenticated_role !== 'app_rw' || native.owner_membership) throw new Error('FILES_REQUIRE_NATIVE_AUTHENTICATED_NONOWNER_POSTGRES');
+    return {role, native};
+  });
+}
+
 /** Every attempted write is rolled back, even if a broken policy unexpectedly permits it. */
 export async function fileWriteCounterproof(tenant: string | null, ownerOrg: string, boardId: string, assetId: string) {
   const fixture = await fileDatabase();

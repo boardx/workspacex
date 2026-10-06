@@ -57,11 +57,11 @@ class Tests(unittest.TestCase):
  def test_no_public_acl_mutation_ever_compiled(self):
   f,p,o=facts();sql=' '.join(m.grant_statements(o,'workspacex')+m.grant_statements(o,'workspacex',True));self.assertNotIn(' PUBLIC',sql);self.assertNotIn('CASCADE',sql);self.assertNotIn('ALL ',sql)
  def test_login_requires_actual_fresh_three_db_permissions(self):
-  f,p,o=facts();f['role'][0]['valid_until']=datetime.datetime.fromtimestamp(p['authorization']['expiresAt'],datetime.timezone.utc).isoformat();auth=m.ProtectedAuthorization(m.plan_digest(p),p['authorization']['expiresAt'],(),m._AUTH_SEAL);c=Cursor(f)
+  f,p,o=facts();f['role'][0]['valid_until']=datetime.datetime.fromtimestamp(p['authorization']['expiresAt'],datetime.timezone.utc).isoformat();auth=m.ProtectedAuthorization(m.plan_digest(p),p['authorization']['expiresAt'],(),m._AUTH_SEAL,p['identity']);c=Cursor(f)
   with self.assertRaisesRegex(RuntimeError,'MUTATION_REJECTED'):m.dispatch(Connection(c),p,o,auth,'login',password='s'*64)
   self.assertFalse(any('PASSWORD %s LOGIN' in sql for sql,_ in c.calls))
  def test_cleanup_close_runs_after_expiry_and_no_secret_output(self):
-  f,p,o=facts(closed=True);p['authorization']['expiresAt']=time.time()-10;auth=m.ProtectedAuthorization(m.plan_digest(p),p['authorization']['expiresAt'],(),m._AUTH_SEAL);c=Cursor(f);result=m.dispatch(Connection(c),p,o,auth,'close');self.assertEqual(result,{'action':'close','database':None,'readAfterVerified':True});self.assertIn(('COMMIT',()),c.calls)
+  f,p,o=facts(closed=True);p['authorization']['expiresAt']=time.time()-10;auth=m.ProtectedAuthorization(m.plan_digest(p),p['authorization']['expiresAt'],(),m._AUTH_SEAL,p['identity']);c=Cursor(f);result=m.dispatch(Connection(c),p,o,auth,'close');self.assertEqual(result,{'action':'close','database':None,'readAfterVerified':True});self.assertIn(('COMMIT',()),c.calls)
  def test_existing_password_or_wrong_validuntil_blocks_login(self):
   f,p,o=facts();c=Cursor(f);f['password'][0]['password_null']=False
   with self.assertRaisesRegex(RuntimeError,'NOLOGIN_ATTRIBUTES'):m.no_login_state(c)
@@ -80,7 +80,7 @@ class Tests(unittest.TestCase):
   return [base,dict(base,allowedPublicTemp=delta)]
  def test_independent_exact_public_delta_issued_and_consumed(self):
   f,p,o=facts()
-  with patch.object(m,'protected_json',side_effect=self.approval_records(p,list(m.DATABASES))):auth=m.protected_authorization(p)
+  with patch.object(m,'protected_json',side_effect=self.approval_records(p,list(m.DATABASES))):auth=m.protected_authorization(p,expected_identity=p['identity'])
   self.assertEqual(auth.allowed_public_temp,m.DATABASES)
   for d in f['databases']:d['public_temp']=True
   self.assertEqual(m.public_capability_gaps(f,auth),[])
@@ -90,16 +90,16 @@ class Tests(unittest.TestCase):
   f,p,o=facts()
   for delta in ([m.DATABASES[0]],list(m.DATABASES)+['postgres'],list(m.DATABASES)+[m.DATABASES[0]],True):
    with patch.object(m,'protected_json',side_effect=self.approval_records(p,delta)):
-    with self.assertRaisesRegex(RuntimeError,'PUBLIC_TEMP_APPROVAL_SCOPE'):m.protected_authorization(p)
+    with self.assertRaisesRegex(RuntimeError,'PUBLIC_TEMP_APPROVAL_SCOPE'):m.protected_authorization(p,expected_identity=p['identity'])
   records=self.approval_records(p,list(m.DATABASES));records[0]['allowedPublicTemp']=list(m.DATABASES)
   with patch.object(m,'protected_json',side_effect=records):
-   with self.assertRaisesRegex(RuntimeError,'PUBLIC_TEMP_APPROVAL_SCOPE'):m.protected_authorization(p)
+   with self.assertRaisesRegex(RuntimeError,'PUBLIC_TEMP_APPROVAL_SCOPE'):m.protected_authorization(p,expected_identity=p['identity'])
  def test_public_approval_identity_functions_expiry_bound(self):
   f,p,o=facts()
   for key,value in (('identity',{}),('functions',{}),('expiresAt',p['authorization']['expiresAt']+1)):
    records=self.approval_records(p,list(m.DATABASES));records[1][key]=value
    with patch.object(m,'protected_json',side_effect=records):
-    with self.assertRaises(RuntimeError):m.protected_authorization(p)
+    with self.assertRaises(RuntimeError):m.protected_authorization(p,expected_identity=p['identity'])
  def test_public_auth_raw_bool_tuple_and_forged_seal_rejected(self):
   f,p,o=facts()
   forged=object.__new__(m.ProtectedAuthorization);forged._seal=object()
@@ -141,7 +141,7 @@ class Tests(unittest.TestCase):
   self.assertIn('grantor grantor_oid',m.QUERIES['memberships'][0]);self.assertIn('oid=10',m.QUERIES['bootstrapRole'][0])
  def test_create_actor_false_rejects_before_ddl(self):
   f,p,o=facts();f['role']=[];f['password']=[];f['actor']=[{'name':'migration_admin','session_user':'migration_admin','create_role':False,'superuser':False}]
-  auth=m.ProtectedAuthorization(m.plan_digest(p),p['authorization']['expiresAt'],(),m._AUTH_SEAL);c=Cursor(f)
+  auth=m.ProtectedAuthorization(m.plan_digest(p),p['authorization']['expiresAt'],(),m._AUTH_SEAL,p['identity']);c=Cursor(f)
   with self.assertRaisesRegex(RuntimeError,'MUTATION_REJECTED'):m.dispatch(Connection(c),p,o,auth,'create')
   self.assertFalse(any(sql.startswith('CREATE ROLE') for sql,_ in c.calls))
 if __name__=='__main__':unittest.main()

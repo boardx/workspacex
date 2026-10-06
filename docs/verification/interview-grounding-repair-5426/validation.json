@@ -1,0 +1,16 @@
+{
+  "analysis": {
+    "ok": true,
+    "missing": []
+  },
+  "claims": {
+    "ok": true,
+    "missing": []
+  },
+  "grounding": {
+    "ok": false,
+    "references": [],
+    "reason": "unsupported_evidence_strength"
+  },
+  "evidenceCount": 12
+}

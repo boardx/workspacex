@@ -1,0 +1,226 @@
+TAP version 13
+# Subtest: matching identity and session report fixed booleans only
+ok 1 - matching identity and session report fixed booleans only
+  ---
+  duration_ms: 0.344667
+  type: 'test'
+  ...
+# Subtest: parse, schema and equality failures stay distinct
+ok 2 - parse, schema and equality failures stay distinct
+  ---
+  duration_ms: 0.071625
+  type: 'test'
+  ...
+# Subtest: invalid status and attacker extras cannot leak
+ok 3 - invalid status and attacker extras cannot leak
+  ---
+  duration_ms: 0.079541
+  type: 'test'
+  ...
+# Subtest: own data snapshot rejects accessors and inherited identity without reading getters
+ok 4 - own data snapshot rejects accessors and inherited identity without reading getters
+  ---
+  duration_ms: 0.054625
+  type: 'test'
+  ...
+# Subtest: startup failure uses sole parser and rejects missing, malformed and foreign-source receipts
+ok 5 - startup failure uses sole parser and rejects missing, malformed and foreign-source receipts
+  ---
+  duration_ms: 1.35
+  type: 'test'
+  ...
+# Subtest: before/end sole runtime identity and manifest digest cannot drift
+ok 6 - before/end sole runtime identity and manifest digest cannot drift
+  ---
+  duration_ms: 0.53125
+  type: 'test'
+  ...
+# Subtest: each workflow suite has its own exact checkout without discarding failed build evidence
+ok 7 - each workflow suite has its own exact checkout without discarding failed build evidence
+  ---
+  duration_ms: 0.245208
+  type: 'test'
+  ...
+# Subtest: R08 requires its metadata when any suite source exists, while whole absence is explicit
+ok 8 - R08 requires its metadata when any suite source exists, while whole absence is explicit
+  ---
+  duration_ms: 0.236333
+  type: 'test'
+  ...
+# Subtest: R08 metadata requires every distinct project case and both viewport screenshot sets
+ok 9 - R08 metadata requires every distinct project case and both viewport screenshot sets
+  ---
+  duration_ms: 1.956083
+  type: 'test'
+  ...
+# Subtest: startup diagnostics expose only literal safe categories, never private log content
+ok 10 - startup diagnostics expose only literal safe categories, never private log content
+  ---
+  duration_ms: 0.071625
+  type: 'test'
+  ...
+# Subtest: only complete native connector and file configurations may execute
+ok 11 - only complete native connector and file configurations may execute
+  ---
+  duration_ms: 2.037458
+  type: 'test'
+  ...
+# Subtest: empty, skipped, missing, foreign and unsuccessful reports cannot satisfy full suite
+ok 12 - empty, skipped, missing, foreign and unsuccessful reports cannot satisfy full suite
+  ---
+  duration_ms: 0.412875
+  type: 'test'
+  ...
+# Subtest: only wholly absent suite is ABSENT; partial config or orphan specs must fail
+ok 13 - only wholly absent suite is ABSENT; partial config or orphan specs must fail
+  ---
+  duration_ms: 0.269208
+  type: 'test'
+  ...
+# Subtest: actual coverage resolver recognizes all four unconditional literal CI configurations
+ok 14 - actual coverage resolver recognizes all four unconditional literal CI configurations
+  ---
+  duration_ms: 13.97575
+  type: 'test'
+  ...
+# Subtest: R01 requires eight distinct signed title-project cases, not a repeated passing count
+ok 15 - R01 requires eight distinct signed title-project cases, not a repeated passing count
+  ---
+  duration_ms: 1.540125
+  type: 'test'
+  ...
+# Subtest: R01 final projection never publishes private fields or treats preserved boards and hardware as completed
+ok 16 - R01 final projection never publishes private fields or treats preserved boards and hardware as completed
+  ---
+  duration_ms: 1.451917
+  type: 'test'
+  ...
+# Subtest: R01 receipts bind each real report result attachment, rejecting reused, foreign and missing paths
+ok 17 - R01 receipts bind each real report result attachment, rejecting reused, foreign and missing paths
+  ---
+  duration_ms: 4.81275
+  type: 'test'
+  ...
+# Subtest: early runtime exit, failed stop and signal cannot prove cleanup
+ok 18 - early runtime exit, failed stop and signal cannot prove cleanup
+  ---
+  duration_ms: 0.084791
+  type: 'test'
+  ...
+# Subtest: actual missing runtime executable has a handled fail-closed spawn state
+ok 19 - actual missing runtime executable has a handled fail-closed spawn state
+  ---
+  duration_ms: 0.989583
+  type: 'test'
+  ...
+# Subtest: all required desktop, mobile, retry and native download PNGs are necessary
+ok 20 - all required desktop, mobile, retry and native download PNGs are necessary
+  ---
+  duration_ms: 0.471625
+  type: 'test'
+  ...
+# Subtest: real R08 screenshot metadata includes its 503 case and rejects unsafe basenames
+ok 21 - real R08 screenshot metadata includes its 503 case and rejects unsafe basenames
+  ---
+  duration_ms: 2.397666
+  type: 'test'
+  ...
+# Subtest: private reporter first failure exposes fixed categories and bounded ordinal only
+ok 22 - private reporter first failure exposes fixed categories and bounded ordinal only
+  ---
+  duration_ms: 0.575958
+  type: 'test'
+  ...
+# Subtest: reporter diagnostics retain first observed failure and never turn missing or failed cases into acceptance
+ok 23 - reporter diagnostics retain first observed failure and never turn missing or failed cases into acceptance
+  ---
+  duration_ms: 0.236958
+  type: 'test'
+  ...
+# Subtest: safe diagnostics use the main metadata suite authority for sync case ordinals
+ok 24 - safe diagnostics use the main metadata suite authority for sync case ordinals
+  ---
+  duration_ms: 1.099333
+  type: 'test'
+  ...
+# Subtest: end verification retains fixed cause and bounded facts without changing the cleanup block
+ok 25 - end verification retains fixed cause and bounded facts without changing the cleanup block
+  ---
+  duration_ms: 0.656917
+  type: 'test'
+  ...
+# Subtest: private first errors classify fixed identity causes without exporting messages
+ok 26 - private first errors classify fixed identity causes without exporting messages
+  ---
+  duration_ms: 0.172459
+  type: 'test'
+  ...
+# Subtest: end identity diagnostics never execute changing code or nested context accessors
+ok 27 - end identity diagnostics never execute changing code or nested context accessors
+  ---
+  duration_ms: 0.169
+  type: 'test'
+  ...
+# Subtest: fixed listener probe stages survive end receipts without exposing causes or accessors
+ok 28 - fixed listener probe stages survive end receipts without exposing causes or accessors
+  ---
+  duration_ms: 0.62375
+  type: 'test'
+  ...
+# Subtest: safe acceptance source location uses known source fields only, preserving definition provenance
+ok 29 - safe acceptance source location uses known source fields only, preserving definition provenance
+  ---
+  duration_ms: 0.681375
+  type: 'test'
+  ...
+# Subtest: Connector fixed login markers preserve exact assertion identity without private operands
+ok 30 - Connector fixed login markers preserve exact assertion identity without private operands
+  ---
+  duration_ms: 1.470042
+  type: 'test'
+  ...
+# Subtest: Files fixed phase diagnostics bind actual aggregate source and preserve failure gates
+ok 31 - Files fixed phase diagnostics bind actual aggregate source and preserve failure gates
+  ---
+  duration_ms: 0.667667
+  type: 'test'
+  ...
+# Subtest: login marker follows moved source assertions and fails closed on missing or unsafe source
+not ok 32 - login marker follows moved source assertions and fails closed on missing or unsafe source
+  ---
+  duration_ms: 0.9375
+  type: 'test'
+  location: '/private/tmp/wsx-board-main-delivery-20261003/apps/web/scripts/run-board-native-acceptance.test.mjs:356:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    + actual - expected
+    
+    + undefined
+    - 'C06_LOGIN_SINGLE_POST'
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 'C06_LOGIN_SINGLE_POST'
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///private/tmp/wsx-board-main-delivery-20261003/apps/web/scripts/run-board-native-acceptance.test.mjs:365:10)
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: absent native suite retains truthful receipt and exits nonzero before runtime starts
+ok 33 - absent native suite retains truthful receipt and exits nonzero before runtime starts
+  ---
+  duration_ms: 85.098958
+  type: 'test'
+  ...
+1..33
+# tests 33
+# suites 0
+# pass 32
+# fail 1
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 183.752208

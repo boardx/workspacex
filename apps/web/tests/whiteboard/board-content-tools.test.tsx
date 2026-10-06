@@ -1,3 +1,4 @@
+import { CollaborativeEditor } from "@/components/whiteboard/collaborative-editor";
 import { createHash } from 'node:crypto';
 import { act, cleanup, createEvent, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
@@ -91,7 +92,6 @@ function webp(kind: "VP8" | "VP8L" | "VP8X", width: number, height: number): Uin
 const byteBuffer = (bytes: Uint8Array): ArrayBuffer => new Uint8Array(bytes).buffer;
 
 async function setupView() {
-  const { CollaborativeEditor } = await import("@/components/whiteboard/collaborative-editor");
   const doc = createWhiteboardDocument();
   const view = render(<CollaborativeEditor boardId="content-board" clientId="content-client" doc={doc} readOnly={false} title="内容板" status="已连接" />);
   return { doc, ...view };
@@ -132,7 +132,15 @@ it("creates a real shape and structured Tile from the touch-first dock", async (
 it("makes all fifteen canonical shape variants reachable from the dock", async () => {
   const doc = await setup();
   fireEvent.click(screen.getByTestId("board-add-shape"));
-  for (const variant of ["rectangle", "rounded-rectangle", "circle", "ellipse", "diamond", "triangle", "hexagon", "cloud", "database", "document", "process", "decision", "terminator", "data", "predefined-process"]) expect(screen.getByTestId(`board-shape-${variant}`)).toBeVisible();
+  for (const [category, variants] of [
+    ["基础", ["rectangle", "rounded-rectangle", "circle", "ellipse", "diamond", "triangle", "hexagon"]],
+    ["资料", ["cloud", "database", "document"]],
+    ["流程", ["process", "decision", "terminator", "data", "predefined-process"]],
+  ] as const) {
+    fireEvent.click(screen.getByRole("tab", { name: category }));
+    expect(screen.getByRole("tab", { name: category })).toHaveAttribute("aria-selected", "true");
+    for (const variant of variants) expect(screen.getByTestId(`board-shape-${variant}`)).toBeVisible();
+  }
   doc.destroy();
 });
 

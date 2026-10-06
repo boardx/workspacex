@@ -4,6 +4,7 @@ import { createRef } from "react";
 import { createWhiteboardDocument, executeCommands, readObjects, type WhiteboardObject } from "@repo/whiteboard-core";
 import { ObjectContextToolbar } from "@/components/whiteboard/object-context-toolbar";
 import { CollaborativeThinkingEditor } from "@/components/whiteboard/collaborative-thinking-editor";
+import { toBoardFabricObjects } from "@/components/whiteboard/whiteboard-fabric-projection";
 import { BOARD_FILL_COLORS } from "@/components/whiteboard/board-color-palette";
 import { BoardSelectedObjectPanel } from "@/components/whiteboard/board-selected-object-panel";
 import { BoardContentObjectInspector } from "@/components/whiteboard/board-content-object-inspector";
@@ -189,8 +190,12 @@ it("exposes the selected Text's common formatting and object actions before deta
   const onTextChange = vi.fn();
   render(<ObjectContextToolbar object={text} readOnly={false} actorId="me" onStickyChange={vi.fn()} onTextChange={onTextChange} onExperienceChange={vi.fn()} onGeometryChange={vi.fn()} onClose={vi.fn()} onFutureAction={vi.fn()} onDuplicate={vi.fn()} onDelete={vi.fn()} />);
   expect(screen.getByTestId("board-widget-quick-format")).toBeVisible();
-  expect(screen.getByTestId("board-text-quick-bold")).toBeVisible();
-  expect(screen.getByTestId("board-text-quick-align")).toBeVisible();
+  fireEvent.click(screen.getByTestId("board-inspector-text"));
+  expect(screen.getByTestId("board-text-format-controls")).toBeVisible();
+  expect(screen.getByTestId("board-format-font-size")).toBeVisible();
+  expect(screen.getByTestId("board-format-font-family")).toBeVisible();
+  fireEvent.click(screen.getByRole("button", { name: "切换粗体" }));
+  expect(onTextChange).toHaveBeenCalledWith({ preset: "body", bold: true });
   openProperties();
   expect(screen.getByTestId("board-widget-advanced-format")).not.toHaveAttribute("open");
   fireEvent.click(screen.getByTestId("board-widget-advanced-format").querySelector("summary")!);
@@ -205,7 +210,8 @@ it("keeps duplicate and delete available across a transient mutation block while
   const props = { object: text, readOnly: true, objectActionsDisabled: false, actorId: "me", onStickyChange: vi.fn(), onTextChange: vi.fn(), onExperienceChange: vi.fn(), onGeometryChange: vi.fn(), onClose: vi.fn(), onFutureAction: vi.fn(), onDuplicate, onDelete };
   const { rerender } = render(<ObjectContextToolbar {...props} />);
 
-  expect(screen.getByTestId("board-text-quick-bold")).toBeDisabled();
+  fireEvent.click(screen.getByTestId("board-inspector-text"));
+  expect(screen.getByRole("button", { name: "切换粗体" })).toBeDisabled();
   expect(screen.getByRole("button", { name: "复制对象" })).toBeEnabled();
   expect(screen.getByRole("button", { name: "删除对象" })).toBeEnabled();
   fireEvent.click(screen.getByRole("button", { name: "复制对象" }));
@@ -352,7 +358,21 @@ it('persists Sticky compact text formatting and projects it after rerender',()=>
  expect(screen.getByRole('button',{name:'切换粗体'})).toHaveAttribute('aria-pressed','true');
  fireEvent.click(screen.getByRole('button',{name:'切换斜体'}));
  expect(readObjects(doc)[0]?.extensionData).toMatchObject({thinkingInput:{text:{bold:true,italic:true}}});
- fireEvent.click(screen.getByRole('button',{name:'切换文字对齐'}));
+ fireEvent.click(screen.getByRole('button',{name:'水平居中'}));
  expect(readObjects(doc)[0]?.extensionData).toMatchObject({thinkingInput:{text:{alignment:'center'}}});
  doc.destroy();
+});
+
+it.each(["sticky", "text"] as const)("shows the rendered legacy %s font size without writing attributes or visible submenu titles", kind => {
+  const object: WhiteboardObject = { ...sticky, kind, style: { ...sticky.style, fontSize: 28 }, extensionData: {} };
+  const before = structuredClone(object);
+  const onTextChange = vi.fn();
+  render(<ObjectContextToolbar object={object} readOnly={false} actorId="me" onStickyChange={vi.fn()} onTextChange={onTextChange} onExperienceChange={vi.fn()} onGeometryChange={vi.fn()} onClose={vi.fn()} onFutureAction={vi.fn()} />);
+  fireEvent.click(screen.getByTestId(kind === "sticky" ? "board-sticky-text-open" : "board-inspector-text"));
+  expect(screen.getByTestId("board-format-font-size")).toHaveValue(toBoardFabricObjects([object])[0]!.style.fontSize);
+  const dialog = screen.getByRole("dialog", { name: kind === "sticky" ? "便利贴文字" : "文字样式" });
+  expect(within(dialog).getByText(kind === "sticky" ? "便利贴文字" : "文字样式")).toHaveClass("sr-only");
+  expect(within(dialog).getByRole("button", { name: kind === "sticky" ? "关闭便利贴文字" : "关闭文字样式" })).toBeVisible();
+  expect(onTextChange).not.toHaveBeenCalled();
+  expect(object).toEqual(before);
 });

@@ -1,0 +1,18 @@
+{
+  "quality": {
+    "ok": true,
+    "missing": []
+  },
+  "boundaries": {
+    "ok": false,
+    "missing": [
+      "unsupported_executed_measurement"
+    ]
+  },
+  "grounding": {
+    "ok": true,
+    "reason": "exact_quotes_only_not_semantic_approval",
+    "exactReferenceCount": 5
+  },
+  "scope": "exact quotes and finite claim syntax only; independent semantic review required"
+}

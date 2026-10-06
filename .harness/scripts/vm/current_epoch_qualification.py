@@ -132,21 +132,21 @@ class _QualificationPublication:
  def finish(self):
   need(set(self.emitted)=={*(db+'.json' for db in DBS),'objects.json','epoch.json'},'EPOCH_FIVE_OUTPUT_CLOSURE')
   self.reader.finish()
-def qualify(p,reader,source_policy_reference,*,code_authority=None):
- return _qualification(p,reader,source_policy_reference,False,code_authority)
-def verify_existing_qualification(p,reader,source_policy_reference,*,code_authority=None):
+def qualify(p,reader,source_policy_reference,*,expected_identity,expected_release,code_authority=None):
+ return _qualification(p,reader,source_policy_reference,False,code_authority,expected_identity,expected_release)
+def verify_existing_qualification(p,reader,source_policy_reference,*,expected_identity,expected_release,code_authority=None):
  """Repeat every source qualification check; read exactly five existing outputs.
  No creation, overwrite, rename, producer execution or freely injected emitter.
  """
- return _qualification(p,reader,source_policy_reference,True,code_authority)
-def _qualification(p,reader,source_policy_reference,existing,code_authority):
+ return _qualification(p,reader,source_policy_reference,True,code_authority,expected_identity,expected_release)
+def _qualification(p,reader,source_policy_reference,existing,code_authority,expected_identity,expected_release):
  reader=QualificationReader(reader,code_authority)
  need(p.get('sourcePolicy')==source_policy_reference,'EPOCH_EXTERNAL_SOURCE_POLICY_BINDING')
  exact(p,('schemaVersion','kind','binding','sourcePolicy','collection','collectionInput','recoveryEvidence','recoveryManifest','before','after','heldJournal','permissions','dumpLanes','objects','isolation','journeys','outputRoot'),'EPOCH_SCHEMA2')
  need(p['schemaVersion']==2 and p['kind']=='current-held-epoch-qualification','EPOCH_SCHEMA2')
  b=p['binding'];exact(b,('identity','toolRevision','host','epoch','holdGeneration','targetInstanceId','providerBindingSha256'),'EPOCH_BINDING')
  i=b['identity'];exact(i,('sourceRevision','baselineRevision','migrationPlanSha256','attemptId'),'EPOCH_IDENTITY')
- need(i['sourceRevision']==APP and i['baselineRevision']==BASE and hashok(i['migrationPlanSha256']) and re.fullmatch('[A-Za-z0-9-]{1,32}',i['attemptId']),'EPOCH_FROZEN_RELEASE')
+ exact(expected_identity,('sourceRevision','baselineRevision','migrationPlanSha256','attemptId'),'EPOCH_AUTHORITY_IDENTITY');need(i==expected_identity and type(i['sourceRevision']) is str and re.fullmatch('[a-f0-9]{40}',i['sourceRevision']) and i['baselineRevision']==BASE and hashok(i['migrationPlanSha256']) and re.fullmatch('[A-Za-z0-9-]{1,32}',i['attemptId']),'EPOCH_FROZEN_RELEASE')
  exact(b['host'],('instanceId','bootId'),'EPOCH_HOST');need(b['host']['instanceId']==ECS and re.fullmatch('[a-f0-9-]{36}',b['host']['bootId']),'EPOCH_HOST')
  need(re.fullmatch('[a-f0-9]{40}',b['toolRevision']) and hashok(b['epoch']) and re.fullmatch('[a-f0-9]{32}',b['holdGeneration']) and hashok(b['providerBindingSha256']),'EPOCH_DIGEST')
  need(re.fullmatch('pgm-[a-z0-9]+',b['targetInstanceId']) and b['targetInstanceId']!=RDS,'EPOCH_TARGET')
@@ -196,7 +196,7 @@ def _qualification(p,reader,source_policy_reference,existing,code_authority):
  collected_input=reader.json(p['collectionInput'])
  def raw_reader(path,h):
   r=reader.reference(path);need(r['sha256']==h,'EPOCH_NESTED_RAW_HASH');return b''.join(reader.blocks(r))
- generated=collect_epoch(collected_input,reader=raw_reader,large_reader=lambda r:list(reader.blocks(r)))
+ generated=collect_epoch(collected_input,reader=raw_reader,large_reader=lambda r:list(reader.blocks(r)),expected_identity=expected_identity)
  need(collection==generated,'EPOCH_ACTUAL_COLLECTION_REPRODUCTION');need(collection.get('kind')=='current-held-epoch-evidence-collection' and collection.get('qualified') is False and collection.get('ready') is False,'EPOCH_COLLECTION_NOT_QUALIFICATION')
  for k in ('identity','toolRevision','host','epoch','holdGeneration'):need(collection.get(k)==b[k],'EPOCH_COLLECTION_BINDING')
  need(collection.get('sourceRdsInstanceId')==RDS and collection.get('isolatedTargetInstanceId')==b['targetInstanceId'],'EPOCH_COLLECTION_TARGET')
@@ -234,16 +234,19 @@ def _qualification(p,reader,source_policy_reference,existing,code_authority):
    raw=b''.join(reader.blocks(item['content']));need(len(raw)==item['bytes'] and sha(raw)==item['sha256'],'EPOCH_OBJECT_RESTORE_BYTES');keys.append((item['bucket'],item['key'],item['versionId']))
   need(len(keys)==len(set(keys)) and keys==sorted(keys),'EPOCH_OBJECT_INVENTORY_ORDER');objectvalues[side]=o
  need(objectvalues['before']==objectvalues['after']==objectvalues['restored'],'EPOCH_OBJECT_RESTORE_DRIFT')
- iso=p['isolation'];exact(iso,('binding','baselineSha','release','stageReceipts'),'EPOCH_ISOLATION_SCHEMA');need(iso['binding']['candidateSha']==APP and iso['binding']['targetInstanceId']==b['targetInstanceId'] and iso['baselineSha']==BASE,'EPOCH_ISOLATION_TARGET')
+ iso=p['isolation'];exact(iso,('binding','baselineSha','release','stageReceipts'),'EPOCH_ISOLATION_SCHEMA');need(iso['binding']['candidateSha']==i['sourceRevision'] and iso['binding']['targetInstanceId']==b['targetInstanceId'] and iso['baselineSha']==BASE,'EPOCH_ISOLATION_TARGET')
  need(set(iso['stageReceipts'])==set(STAGES),'EPOCH_EIGHT_STAGES')
+ approved_isolation=None
  for stage,r in iso['stageReceipts'].items():
-  outer=actual(r,'stage:'+stage);verify_outer(outer,iso['binding'],stage)
+  outer=actual(r,'stage:'+stage)
+  if stage=='migrate':approved_isolation={k:outer[k] for k in ('candidateSha','attemptId','targetInstanceId')}
+  verify_outer(outer,iso['binding'],stage)
   if stage in ('before','after','canonical-setup'):
    for db,nested in outer['proofRefs'].items():verify_result(reader.json(nested),iso['binding'],stage,None if db=='canonical' else db)
- conservation(iso,reader=lambda path,h:b''.join(reader.blocks(reader.reference(path))) if reader.reference(path)['sha256']==h else (_ for _ in ()).throw(ValueError('EPOCH_NESTED_HASH')))
+ conservation(iso,reader=lambda path,h:b''.join(reader.blocks(reader.reference(path))) if reader.reference(path)['sha256']==h else (_ for _ in ()).throw(ValueError('EPOCH_NESTED_HASH')),expected_identity=expected_identity,expected_isolation_binding=approved_isolation,expected_release=expected_release)
  exact(p['journeys'],JOURNEYS,'EPOCH_SIX_JOURNEYS')
  for journey,r in p['journeys'].items():
-  j=actual(r,'journey:'+journey);exact(j,('binding','request','response','body'),'EPOCH_JOURNEY_RAW_OUTPUT');need(j['binding']==b and j['request']['targetInstanceId']==b['targetInstanceId'] and j['request']['candidateSha']==APP and j['response']['status']==200,'EPOCH_JOURNEY_TARGET_STATUS')
+  j=actual(r,'journey:'+journey);exact(j,('binding','request','response','body'),'EPOCH_JOURNEY_RAW_OUTPUT');need(j['binding']==b and j['request']['targetInstanceId']==b['targetInstanceId'] and j['request']['candidateSha']==i['sourceRevision'] and j['response']['status']==200,'EPOCH_JOURNEY_TARGET_STATUS')
   body=b''.join(reader.blocks(j['body']));need(j['response']['bodySha256']==sha(body),'EPOCH_JOURNEY_BODY_HASH')
   if journey=='pdfDownload':need(body.startswith(b'%PDF-') and len(body)>8,'EPOCH_PDF_CONTENT')
   else:
@@ -278,6 +281,19 @@ def _qualification(p,reader,source_policy_reference,existing,code_authority):
  return {**result,'kind':'held-current-epoch-evidence','epoch':epoch}
 
 
+def approved_release(profile,expected_identity,read_private):
+ """Read independently root-profile pinned manifest/config; never request fields."""
+ entry=profile.get('candidateComposeEmitter');need(type(entry) is dict,'EPOCH_RELEASE_CAPABILITY')
+ refs=[]
+ def pinned(ref):
+  exact(ref,('path','sha256'),'EPOCH_RELEASE_REF')
+  need(type(ref['path']) is str and ref['path'].startswith('/etc/workspacex-cn/') and '..' not in Path(ref['path']).parts and hashok(ref['sha256']),'EPOCH_RELEASE_REF')
+  raw=read_private(ref['path']);need(sha(raw)==ref['sha256'],'EPOCH_RELEASE_PIN');refs.append((ref,raw));return json.loads(raw)
+ options=pinned(entry['optionsRef']);manifest=pinned(options['manifestRef']);config=pinned(entry['configRef'])
+ need(manifest.get('sourceRevision')==expected_identity['sourceRevision'] and type(manifest.get('release')) is str and re.fullmatch('[A-Za-z0-9][A-Za-z0-9._-]{0,127}',manifest['release']) and config.get('release')==manifest['release'],'EPOCH_RELEASE_IDENTITY')
+ for ref,raw in refs:need(read_private(ref['path'])==raw,'EPOCH_RELEASE_DRIFT')
+ return manifest['release']
+
 def main():
  # Fixed entry only reads root-private source-approved inputs. It never issues
  # SQL, provider calls, captures, replays workloads or releases a hold/lock.
@@ -305,7 +321,7 @@ def main():
  code_authority=QualificationCodeAuthority(source_pins,entry['executablePins'])
  authority.finish()
  consumer=verify_existing_qualification if prehold else qualify
- result=consumer(p,reader,entry['sourcePolicy'],code_authority=code_authority)
+ result=consumer(p,reader,entry['sourcePolicy'],expected_identity=approved['binding']['identity'],expected_release=approved_release(profile,approved['binding']['identity'],lambda path:b''.join(authority.blocks(authority.reference(path)))),code_authority=code_authority)
  authority.finish();reader.finish()
  print(json.dumps(result,sort_keys=True,separators=(',',':')))
 if __name__=='__main__':

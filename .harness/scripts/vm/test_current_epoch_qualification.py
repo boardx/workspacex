@@ -71,7 +71,7 @@ class QualificationTests(unittest.TestCase):
   ci=rebind(held.p);ci.update({k:self.b[k] for k in ('identity','toolRevision','host','epoch','holdGeneration')});ci['isolation']['targetInstanceId']=self.b['targetInstanceId'];self.p['collectionInput']=self.put(ci)
   protected=self.r.reader()
   def raw_reader(path,h):return b''.join(protected.blocks(protected.reference(path)))
-  co=q.collect_epoch(ci,reader=raw_reader,large_reader=lambda r:list(protected.blocks(r)))
+  co=q.collect_epoch(ci,reader=raw_reader,large_reader=lambda r:list(protected.blocks(r)),expected_identity=self.b['identity'])
   self.p['collection']=self.actual('collection',co)
   (self.root/'output').mkdir(mode=0o700);self.seal()
  def backend(self,db,exe):
@@ -108,7 +108,7 @@ class QualificationTests(unittest.TestCase):
    if path in self.root.parents:
     fields=list(value);fields[0]&=~0o022;fields[4:6]=[os.geteuid(),os.getegid()];return os.stat_result(fields)
    return value
-  with patch.object(pathlib.Path,'lstat',local_lstat):return consumer(self.p,self.r.reader(),self.p['sourcePolicy'],code_authority=getattr(self,'code_authority',None))
+  with patch.object(pathlib.Path,'lstat',local_lstat):return consumer(self.p,self.r.reader(),self.p['sourcePolicy'],expected_identity=self.b['identity'],expected_release=isolation_fixture.FIXED_RELEASE,code_authority=getattr(self,'code_authority',None))
  def change(self,key,edit):
   inv=json.loads(pathlib.Path(self.policy['invocations'][key]['path']).read_bytes());value=json.loads(pathlib.Path(inv['output']['path']).read_bytes());edit(value);r=self.put(value);inv['output']=r;inv['inputs']=self.nested(value);self.policy['invocations'][key]=self.put(inv);self.seal();return r
  def test_complete_mock_actual_bytes_qualify_and_persist_private_exact_manifest(self):
@@ -181,9 +181,9 @@ def local_lstat(path):
   fields=list(value);fields[0]&=~0o022;fields[4:6]=[os.geteuid(),os.getegid()];return os.stat_result(fields)
  return value
 with patch.object(pathlib.Path,'lstat',local_lstat):
- result=code['qualify'](payload['input'],reader,payload['input']['sourcePolicy'],code_authority=authority)
+ result=code['qualify'](payload['input'],reader,payload['input']['sourcePolicy'],expected_identity=payload['input']['binding']['identity'],expected_release=payload['input']['isolation']['release'],code_authority=authority)
  rereader=code['recovery'].ProtectedArtifacts(payload['root'],os.getuid(),os.getgid())
- assert code['verify_existing_qualification'](payload['input'],rereader,payload['input']['sourcePolicy'],code_authority=authority)==result
+ assert code['verify_existing_qualification'](payload['input'],rereader,payload['input']['sourcePolicy'],expected_identity=payload['input']['binding']['identity'],expected_release=payload['input']['isolation']['release'],code_authority=authority)==result
 print(json.dumps({'qualifiedFilesVerified':5,'moduleCount':len(payload['moduleMap'])}))
 """
    payload={'moduleMap':module_map,'entry':'/proc/self/fd/'+str(entry),'root':str(self.root),'sourcePins':pins,'executablePins':{exe['path']:exe['sha256']},'codeRoot':str(root),'input':self.p}
@@ -265,9 +265,16 @@ print(json.dumps({'qualifiedFilesVerified':5,'moduleCount':len(payload['moduleMa
   source_ref={**p['sourcePolicy'],'path':str(root/'source-policy.json')};p['sourcePolicy']=source_ref
   hashes={source:r['sha256'] for source,r in approved['sources'].items()};entry={'schemaVersion':2,'sourcePath':'.harness/scripts/vm/current_epoch_qualification.py','sha256':hashes['.harness/scripts/vm/current_epoch_qualification.py'],'input':input_ref,'sourcePolicy':source_ref,'executablePins':{str(pathlib.Path('/usr/bin/python3').resolve()):'2'*64}}
   profile={'toolRevision':p['binding']['toolRevision'],'filesSha256':hashes,('preholdEpochQualification' if prehold else 'currentEpochQualification'):entry}
+  rawfiles={}
+  def rootref(name,value):
+   raw=q.canonical(value);path='/etc/workspacex-cn/epoch-fixture/'+name;rawfiles[path]=raw;return {'path':path,'sha256':q.sha(raw)}
+  manifest=rootref('manifest.json',{'sourceRevision':p['binding']['identity']['sourceRevision'],'release':isolation_fixture.FIXED_RELEASE})
+  profile['candidateComposeEmitter']={'configRef':rootref('config.json',{'release':isolation_fixture.FIXED_RELEASE}),'optionsRef':rootref('options.json',{'manifestRef':manifest})}
   class Reads:
    def __init__(self,root):pass
-   def reference(self,path):return {'path':str(path),'sha256':'3'*64,'bytes':100}
+   def blocks(self,r):
+    raw=rawfiles[r['path']];assert q.sha(raw)==r['sha256'];yield raw
+   def reference(self,path):return {'path':str(path),'sha256':q.sha(rawfiles[str(path)]) if str(path) in rawfiles else '3'*64,'bytes':len(rawfiles[str(path)]) if str(path) in rawfiles else 100}
    def json(self,r):
     if r['path']=='/etc/workspacex-cn/trusted-tool-binding.json':return profile
     if r==input_ref:return p
@@ -313,7 +320,7 @@ print(json.dumps({'qualifiedFilesVerified':5,'moduleCount':len(payload['moduleMa
  def test_invocation_cannot_falsely_attribute_to_other_pinned_producer(self):
   src=self.approve_extra_source();key='journey:login';inv=json.loads(pathlib.Path(self.policy['invocations'][key]['path']).read_bytes());inv['source']=src;self.policy['invocations'][key]=self.put(inv);self.seal();self.assertReject('PRODUCER_IDENTITY')
  def test_external_source_policy_required(self):
-  with self.assertRaisesRegex(ValueError,'EXTERNAL_SOURCE_POLICY'):q.qualify(self.p,self.r.reader(),self.raw(b'unapproved policy'))
+  with self.assertRaisesRegex(ValueError,'EXTERNAL_SOURCE_POLICY'):q.qualify(self.p,self.r.reader(),self.raw(b'unapproved policy'),expected_identity=self.b['identity'],expected_release=isolation_fixture.FIXED_RELEASE)
  def test_legacy_schema_not_qualified(self):self.p['schemaVersion']=1;self.assertReject('SCHEMA2')
  def assertReject(self,code):
   with self.assertRaisesRegex((ValueError,q.recovery.Rejected),code):self.run_it()
@@ -340,3 +347,29 @@ print(json.dumps({'qualifiedFilesVerified':5,'moduleCount':len(payload['moduleMa
   key='journey:asr';v=json.loads(pathlib.Path(self.policy['invocations'][key]['path']).read_bytes());v['processStart']='unknown';self.policy['invocations'][key]=self.put(v);self.seal();self.assertReject('PROCESS_IDENTITY')
  def test_producer_namespaces(self):key='journey:login';v=json.loads(pathlib.Path(self.policy['invocations'][key]['path']).read_bytes());v['namespaces']={**v['namespaces'],'net':'999'};self.policy['invocations'][key]=self.put(v);self.seal();self.assertReject('PRODUCER_IDENTITY')
 if __name__=='__main__':unittest.main()
+
+class ApprovedReleaseAuthority(unittest.TestCase):
+ def fixture(self):
+  identity={'sourceRevision':'a1cb4c7683768566b0cf38ffe6a27b0a8c13f4f0'};store={}
+  def put(name,value):
+   path='/etc/workspacex-cn/'+name;raw=json.dumps(value).encode();store[path]=raw;return {'path':path,'sha256':hashlib.sha256(raw).hexdigest()}
+  manifest=put('manifest.json',{'sourceRevision':identity['sourceRevision'],'release':'2026.10.6-cn.1'})
+  profile={'candidateComposeEmitter':{'optionsRef':put('options.json',{'manifestRef':manifest}),'configRef':put('config.json',{'release':'2026.10.6-cn.1'})}}
+  return identity,profile,store
+ def test_pinned_manifest_release_succeeds(self):
+  identity,profile,store=self.fixture();self.assertEqual(q.approved_release(profile,identity,store.__getitem__),'2026.10.6-cn.1')
+ def test_source_rawpin_config_scope_and_drift_reject(self):
+  for kind in ('source','pin','config','scope','drift','missing'):
+   with self.subTest(kind=kind):
+    identity,profile,store=self.fixture()
+    if kind=='source':identity['sourceRevision']='f'*40
+    if kind=='pin':profile['candidateComposeEmitter']['optionsRef']['sha256']='f'*64
+    if kind=='config':
+     ref=profile['candidateComposeEmitter']['configRef'];store[ref['path']]=json.dumps({'release':'foreign'}).encode();ref['sha256']=hashlib.sha256(store[ref['path']]).hexdigest()
+    if kind=='scope':profile['candidateComposeEmitter']['optionsRef']['path']='/tmp/self-approved.json'
+    if kind=='missing':profile={}
+    count={}
+    def read(path):
+     count[path]=count.get(path,0)+1
+     return b'changed' if kind=='drift' and count[path]>1 else store[path]
+    with self.assertRaises(ValueError):q.approved_release(profile,identity,read)

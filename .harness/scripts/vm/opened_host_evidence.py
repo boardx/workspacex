@@ -9,16 +9,16 @@ SERVICES=('web','api','agent','sandbox')
 ID=re.compile(r'^[A-Za-z0-9_-]{1,128}$')
 MAX_SAFE=9007199254740991
 
-def collect_opened_host_evidence(transport,binding,read_private=private,now=time.time):
+def collect_opened_host_evidence(transport,binding,read_private=private,now=time.time,*,expected_identity):
     require(type(binding) is dict and set(binding)=={'identity','deploymentMarker','canonicalReceipt','browserReceipt'},'OPENED_BINDING_SCHEMA')
     identity=binding['identity'];plan=transport.plan
-    require(type(identity) is dict and set(identity)=={'sourceRevision','baselineRevision','migrationPlanSha256','attemptId'} and identity==plan['identity'] and identity['sourceRevision']==APP and identity['baselineRevision']==BASE and re.fullmatch('[a-f0-9]{64}',identity['migrationPlanSha256']) and ID.fullmatch(identity['attemptId']),'OPENED_IDENTITY')
+    require(type(identity) is dict and set(identity)=={'sourceRevision','baselineRevision','migrationPlanSha256','attemptId'} and identity==expected_identity and identity==plan['identity'] and type(identity['sourceRevision']) is str and re.fullmatch('[a-f0-9]{40}',identity['sourceRevision']) and identity['baselineRevision']==BASE and re.fullmatch('[a-f0-9]{64}',identity['migrationPlanSha256']) and ID.fullmatch(identity['attemptId']),'OPENED_IDENTITY')
     require(type(binding['deploymentMarker']) is str and binding['deploymentMarker'],'OPENED_MARKER')
     transport.require_lock()
     owned=[]
     for lane in ('canonical','browser'):
         ref=binding[lane+'Receipt']
-        path=f"/etc/workspacex-cn/maintenance-acceptance/{APP}/{identity['attemptId']}/{lane}.json"
+        path=f"/etc/workspacex-cn/maintenance-acceptance/{identity['sourceRevision']}/{identity['attemptId']}/{lane}.json"
         require(type(ref) is dict and set(ref)=={'path','sha256'} and ref['path']==path and re.fullmatch('[a-f0-9]{64}',ref['sha256']),'OPENED_RECEIPT_BINDING')
         raw=read_private(path);require(type(raw) is bytes and 0<len(raw)<=1024*1024 and hashlib.sha256(raw).hexdigest()==ref['sha256'],'OPENED_RECEIPT_HASH')
         value=json.loads(raw)
@@ -42,7 +42,7 @@ def collect_opened_host_evidence(transport,binding,read_private=private,now=time
         b=writers[0]['binding'];matches=[v for v in inventory if v.get('Id')==b['containerId']];require(len(matches)==1,'OPENED_CONTAINER_MISSING')
         v=matches[0];require(v.get('Image')==b['imageId'] and digest(v['Config'])==b['configSha256'] and v['Config']['Labels'].get('com.docker.compose.service')==service and v['State'].get('Status')=='running','OPENED_SERVICE_UNHEALTHY')
         health[service]='running-identity-verified'
-    service_proof=collect_service_health(transport,binding['deploymentMarker'],now)
+    service_proof=collect_service_health(transport,binding['deploymentMarker'],now,expected_identity=expected_identity)
     health=service_proof['services']
     connection=transport.host.diagnostic_connections['workspacex']
     # The fixed helper must implement this parameterized operation; missing helper

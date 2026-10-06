@@ -1,3 +1,4 @@
+import { scopedSupplementQueries } from "./guided-supplement-task-scope";
 import { fairTaskWork } from "./guided-task-work";
 import { createHash, randomUUID } from "node:crypto";
 import { research as C } from "@repo/contracts";
@@ -250,28 +251,54 @@ export async function executeTaskPipeline(state: ResearchRuntime, persist: Runti
     check();
   };
   try {
-    if (search.read) await workers(state.sources.filter(source => source.decision === "accepted" && !source.document && (!source.documentError || source.documentError === "unavailable")), async source => {
-      const release = await lockUrls([source.url]);
-      try {
-        const reviewed = await readAndScreen([structuredClone(source)]);
-        await commit(async () => { merge(reviewed); await save(); });
-      } finally { release(); }
-    });
-    await fairTaskWork(ordered, TASK_WORKERS, work, recover, check, stop);
-    // Keep the existing bounded chapter-gap supplements. They share the same
-    // provider/read limits and cannot replace a task failure with apparent success.
-    if (search.read) await workers(state.outline.filter(section => section.enabled).sort((a, b) => a.order - b.order), async section => {
-      const task = ordered.find(item => item.sectionId === section.id); if (!task) return;
-      const count = () => new Set(state.sources.filter(source => source.decision === "accepted" && source.document && sourceTaskIds(source).some(id => state.tasks.find(item => item.id === id)?.sectionId === section.id)).map(source => normalizedResearchUrl(source.url))).size;
-      const seen = new Set((task.searchAttempts ?? []).map(record => record.query.trim().toLowerCase()));
-      const scope = [state.brief.topic, state.brief.region].filter(Boolean).join(" ");
-      const queries = [...new Set([supplementQuery(scope, task.query, "primary source"), ...section.questions.map(question => supplementQuery(scope, question)), supplementQuery(scope, section.title, "official report"), supplementQuery(scope, section.title, "data study")])].slice(0, 6);
-      for (const query of queries) {
-        check(); if (count() >= 3) break;
-        if (seen.has(query.trim().toLowerCase()) || (task.searchAttempts?.length ?? 0) >= C.GUIDED_RESEARCH_SEARCH_ATTEMPT_LIMIT) continue;
-        seen.add(query.trim().toLowerCase()); await attempt(task, query, false);
+    // Stable plan order is an execution boundary, not only a dispatch sort.
+    // Unknown/legacy task sections remain in the tail rather than disappearing.
+    const groups = new Map<string, { section?: ResearchRuntime["outline"][number]; tasks: Task[] }>();
+    for (const section of [...state.outline].sort((a, b) => a.order - b.order)) {
+      if (!groups.has(section.id)) groups.set(section.id, { section, tasks: [] });
+    }
+    for (const task of ordered) {
+      if (!groups.has(task.sectionId)) groups.set(task.sectionId, { tasks: [] });
+      groups.get(task.sectionId)!.tasks.push(task);
+    }
+    const pendingSources = state.sources.filter(source => source.decision === "accepted" && !source.document && (!source.documentError || source.documentError === "unavailable"));
+    const sourceGroups = new Map([...groups.keys()].map(id => [id, [] as Source[]]));
+    const unscopedSources: Source[] = [];
+    for (const source of pendingSources) {
+      // Shared material belongs to its earliest associated plan; review it once.
+      const ids = new Set(sourceTaskIds(source));
+      const owner = [...groups].find(([, group]) => group.tasks.some(task => ids.has(task.id)));
+      if (owner) sourceGroups.get(owner[0])!.push(source);
+      else unscopedSources.push(source);
+    }
+    const reviewPersisted = async (sources: Source[]) => {
+      if (!search.read) return;
+      await workers(sources, async source => {
+        const release = await lockUrls([source.url]);
+        try {
+          const reviewed = await readAndScreen([structuredClone(source)]);
+          await commit(async () => { merge(reviewed); await save(); });
+        } finally { release(); }
+      });
+    };
+    for (const [sectionId, { section, tasks }] of groups) {
+      check();
+      await reviewPersisted(sourceGroups.get(sectionId)!);
+      await fairTaskWork(tasks, TASK_WORKERS, work, recover, check, stop);
+      // The chapter's existing supplements finish in the same boundary. Shared
+      // provider/read/cache limits still belong to the entire execution.
+      if (search.read && section?.enabled) {
+        const count = () => new Set(state.sources.filter(source => source.decision === "accepted" && source.document && sourceTaskIds(source).some(id => state.tasks.find(item => item.id === id)?.sectionId === section.id)).map(source => normalizedResearchUrl(source.url))).size;
+        for (const { task, query } of scopedSupplementQueries(state, section, ordered)) {
+          check(); if (count() >= 3) break;
+          if ((task.searchAttempts ?? []).some(record => record.query.trim().toLowerCase() === query.trim().toLowerCase()) || (task.searchAttempts?.length ?? 0) >= C.GUIDED_RESEARCH_SEARCH_ATTEMPT_LIMIT) continue;
+          await attempt(task, query, false);
+        }
       }
-    });
+      await writes; check();
+    }
+    // Legacy/user sources without a task association must not preempt plan work.
+    await reviewPersisted(unscopedSources);
     if (state.tasks.some(task => task.status === "failed")) throw new ResearchRuntimeError("RESEARCH_SEARCH_PARTIAL_FAILURE");
   } catch (error) {
     // All workers have drained. Mark issued work interrupted before the service's

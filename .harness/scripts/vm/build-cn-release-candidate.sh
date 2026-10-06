@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 # Trusted root entrypoint that turns an exact main commit into one sealed release candidate.
 set -euo pipefail
+# Git location/config overrides cannot redirect the protected checkout authority.
+unset GIT_DIR GIT_WORK_TREE GIT_COMMON_DIR GIT_INDEX_FILE GIT_CONFIG GIT_CONFIG_COUNT GIT_CONFIG_PARAMETERS GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES
+export GIT_CONFIG_NOSYSTEM=1 GIT_CONFIG_GLOBAL=/dev/null GIT_NO_REPLACE_OBJECTS=1 GIT_NO_LAZY_FETCH=1
 
 build_only=0
 if [[ ${1:-} == --build-only ]]; then
@@ -32,15 +35,27 @@ fail(){ echo "CN_CANDIDATE_REJECTED: $1" >&2; exit 1; }
 [[ -x "$PUBLISHER" && ! -L "$PUBLISHER" ]] || fail "trusted publisher is unavailable"
 [[ -x "$PREFLIGHT_VERIFIER" && ! -L "$PREFLIGHT_VERIFIER" ]] || fail "trusted preflight verifier is unavailable"
 [[ -x "$PREFLIGHT_COLLECTOR" && ! -L "$PREFLIGHT_COLLECTOR" ]] || fail "trusted preflight collector is unavailable"
-install -d -o root -g root -m 0700 "$RUNTIME_ROOT" "$EVENTS_ROOT"
-exec 9>"$RUNTIME_ROOT/release.lock"
-chown root:root "$RUNTIME_ROOT/release.lock"; chmod 0600 "$RUNTIME_ROOT/release.lock"
+# Never truncate, replace or chmod a lock before acquiring it.
+[[ -d "$RUNTIME_ROOT" && ! -L "$RUNTIME_ROOT" && "$(stat -c '%u:%g:%a' "$RUNTIME_ROOT")" == 0:0:700 ]] || fail "runtime root is not protected"
+[[ -f "$RUNTIME_ROOT/release.lock" && ! -L "$RUNTIME_ROOT/release.lock" && "$(stat -c '%u:%g:%a:%h' "$RUNTIME_ROOT/release.lock")" == 0:0:600:1 ]] || fail "release lock is not protected"
+exec 9<>"$RUNTIME_ROOT/release.lock"
+python3 - "$RUNTIME_ROOT/release.lock" <<'PYLOCK' || fail "release lock descriptor differs"
+import os,stat,sys
+opened=os.fstat(9);actual=os.lstat(sys.argv[1])
+assert stat.S_ISREG(opened.st_mode) and (opened.st_uid,opened.st_gid,stat.S_IMODE(opened.st_mode),opened.st_nlink)==(0,0,0o600,1)
+assert (opened.st_dev,opened.st_ino)==(actual.st_dev,actual.st_ino) and not stat.S_ISLNK(actual.st_mode)
+PYLOCK
 flock -n 9 || fail "another release operation is active"
+[[ ! -L "$EVENTS_ROOT" ]] || fail "event root is unsafe"
+install -d -o root -g root -m 0700 "$EVENTS_ROOT"
 # Maintenance admission runs under the canonical release lock before mutations.
 MAINTENANCE_HOLD_HELPER=/usr/local/lib/workspacex-cn/cn_maintenance_hold.py
 [[ -f "$MAINTENANCE_HOLD_HELPER" && ! -L "$MAINTENANCE_HOLD_HELPER" && "$(stat -c '%u:%g:%a:%h' "$MAINTENANCE_HOLD_HELPER")" == 0:0:700:1 ]] || fail "trusted maintenance hold helper unavailable"
 python3 "$MAINTENANCE_HOLD_HELPER" admit "$RUNTIME_ROOT" >/dev/null || fail "maintenance hold blocks ordinary release"
 
+if [[ "$build_only" == 1 ]]; then
+  REPOSITORY_DIR=$(python3 /usr/local/lib/workspacex-cn/cn-build-tool-identity.py --build-checkout "$tool_binding" "$revision" "$release" "$attempt_id" prebuild) || fail "bound independent checkout rejected"
+fi
 baseline_head=$(git -C "$REPOSITORY_DIR" rev-parse HEAD)
 baseline_ref=$(git -C "$REPOSITORY_DIR" symbolic-ref -q HEAD || true)
 [[ -z "$(git -C "$REPOSITORY_DIR" status --porcelain)" ]] || fail "release checkout is dirty before build"
@@ -79,8 +94,7 @@ NODE
   chown root:root "$EVENTS_ROOT/$revision.jsonl"; chmod 0600 "$EVENTS_ROOT/$revision.jsonl"
 }
 if [[ "$build_only" == 1 ]]; then
-  source_cache=$(python3 /usr/local/lib/workspacex-cn/cn-build-tool-identity.py --source "$tool_binding" "$revision" "$release" "$attempt_id" prebuild) || exit 1
-  GIT_NO_LAZY_FETCH=1 git -C "$REPOSITORY_DIR" fetch --no-tags "$source_cache" refs/heads/candidate || fail "bound offline application fetch failed"
+  [[ "$(python3 /usr/local/lib/workspacex-cn/cn-build-tool-identity.py --verify-build-checkout "$tool_binding" "$revision" "$release" "$attempt_id" prebuild)" == "$REPOSITORY_DIR" ]] || fail "independent checkout verification failed"
 else
 for attempt in 1 2 3 4 5; do
   git -C "$REPOSITORY_DIR" fetch --quiet origin main && break
@@ -89,11 +103,13 @@ for attempt in 1 2 3 4 5; do
 done
 fi
 git -C "$REPOSITORY_DIR" cat-file -e "$revision^{commit}" 2>/dev/null || fail "revision is unavailable"
+if [[ "$build_only" == 0 ]]; then
 git -C "$REPOSITORY_DIR" merge-base --is-ancestor "$revision" origin/main || fail "revision is not contained in origin/main"
 checkout_changed=1
 git -C "$REPOSITORY_DIR" checkout --quiet --detach "$revision"
 git -C "$REPOSITORY_DIR" reset --quiet --hard "$revision"
 git -C "$REPOSITORY_DIR" clean -ffd
+fi
 [[ -z "$(git -C "$REPOSITORY_DIR" status --porcelain)" ]] || fail "release checkout is dirty"
 
 # Candidate config is generated under the same lock without replacing live config.
@@ -136,14 +152,18 @@ printf '%s' "$token" | docker login --username "$username" --password-stdin "$re
 rm -f "$credentials_file"
 unset token
 
-"$PUBLISHER" "$revision" "$release"
+if [[ "$build_only" == 1 ]]; then
+  "$PUBLISHER" --build-only "$tool_binding" "$attempt_id" "$revision" "$release"
+else
+  "$PUBLISHER" "$revision" "$release"
+fi
 if [[ "$build_only" == 0 ]]; then
 "$PREFLIGHT_COLLECTOR" preactivate "$revision" "$release" "$attempt_id" >/dev/null \
   || fail "preactivate evidence collection failed"
 "$PREFLIGHT_VERIFIER" preactivate "$revision" "$release" "$attempt_id" >/dev/null \
   || fail "preactivate receipt is missing or invalid"
 fi
-restore_checkout || fail "baseline checkout restoration failed"
+if [[ "$checkout_changed" == 1 ]]; then restore_checkout || fail "baseline checkout restoration failed"; fi
 checkout_changed=0
 record_event candidate_sealed
 if [[ "$build_only" == 1 ]]; then

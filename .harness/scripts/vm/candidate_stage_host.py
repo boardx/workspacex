@@ -120,13 +120,13 @@ class CandidateStageHost:
         raw=private('/etc/workspacex-cn/trusted-tool-binding.json');p=json.loads(raw)
         entry=p.get('candidateComposeEmitter')
         require(type(entry) is dict and set(entry)=={'schemaVersion','path','sha256','nodePath','nodeSha256',
-            'sourceClosureRef','configRef','optionsRef','dockerPath','dockerSha256','dockerSocket'},'CANDIDATE_STAGE_SOURCE_CAPABILITY')
-        require(entry['schemaVersion']==1 and p['toolRevision']==self.host.plan['toolRevision'] and
+            'sourceClosureRef','configRef','optionsRef','originalEntryPlanRef','dockerPath','dockerSha256','dockerSocket'},'CANDIDATE_STAGE_SOURCE_CAPABILITY')
+        require(entry['schemaVersion']==2 and p['toolRevision']==self.host.plan['toolRevision'] and
             entry['dockerPath']=='/usr/bin/docker','CANDIDATE_STAGE_SOURCE_PROFILE')
         require(entry['nodePath']=='/usr/bin/node' or
             re.fullmatch('/opt/workspacex/releases/[a-f0-9]{40}/release-tools/node',entry['nodePath']),
             'CANDIDATE_STAGE_NODE_PATH')
-        for refname in ('sourceClosureRef','configRef','optionsRef'):
+        for refname in ('sourceClosureRef','configRef','optionsRef','originalEntryPlanRef'):
             r=entry[refname];require(type(r) is dict and set(r)=={'path','sha256'} and
                 r['path'].startswith('/etc/workspacex-cn/') and '..' not in pathlib.Path(r['path']).parts,
                 'CANDIDATE_STAGE_PROFILE_REFERENCE')
@@ -160,16 +160,38 @@ class CandidateStageHost:
         self.require_lock();raw,profile,e=self._profile();self.profile_raw=raw;self.source_reads=[]
         def read(r):
             b=self._read_ref(r);self.source_reads.append((copy.deepcopy(r),b));return json.loads(b)
+        original_ref=getattr(self.host,'reviewed_plan_ref',None)
+        require(type(original_ref) is dict and set(original_ref)=={'path','sha256'} and
+            original_ref==profile.get('originalWriterPlan') and original_ref['sha256']==self.host.manifest_sha,
+            'CANDIDATE_STAGE_ORIGINAL_RAW_AUTHORITY')
+        original=read(original_ref)
+        require(original.get('schemaVersion')==1 and original.get('mode')=='maintenance-all-writer-fence' and
+            original.get('productionActionsAuthorized') is True and original.get('runtimeSessionBootstrapAuthorized') is True and
+            not any(k in original for k in ('runtimeSourcePlanSha256','runtimePlan','controlSessions','diagnosticSessions')) and
+            original.get('identity')==self.host.plan['identity']==inputs['identity'] and
+            original.get('toolRevision')==self.host.plan['toolRevision']==profile['toolRevision']==inputs['toolRevision'],
+            'CANDIDATE_STAGE_ORIGINAL_IDENTITY')
+        entry_plan=read(e['originalEntryPlanRef']);entry_host=entry_plan.get('host',{})
+        require(entry_plan.get('schemaVersion')==1 and entry_plan.get('productionActionsAuthorized') is True and
+            entry_plan.get('identity')==original['identity']==entry_host.get('identity') and
+            entry_host.get('writerPlanPath')==original_ref['path'] and entry_host.get('writerPlanSha256')==original_ref['sha256'] and
+            entry_plan.get('production',{}).get('toolRevision')==profile['toolRevision'],
+            'CANDIDATE_STAGE_ENTRY_ORIGINAL_LINK')
         closure=read(e['sourceClosureRef'])
-        require(closure['schemaVersion']==1 and closure['sourceRevision']==APP and
+        require(closure['schemaVersion']==2 and closure['sourceRevision']==original['identity']['sourceRevision'] and
+            closure['identity']==original['identity'] and closure['toolRevision']==profile['toolRevision'] and
+            closure['originalPlanSha256']==original_ref['sha256'] and re.fullmatch('[a-f0-9]{40}',closure['emitterSourceRevision']) and
             closure['bundleSha256']==e['sha256'] and type(closure['sources']) is dict and
             type(closure['dependencies']) is dict and
-            set(closure)=={'schemaVersion','sourceRevision','compiler','sources','dependencies','lockfileSha256','bundleSha256','bundledInputs'},'CANDIDATE_STAGE_EMITTER_CLOSURE')
+            set(closure)=={'schemaVersion','sourceRevision','identity','toolRevision','originalPlanSha256','emitterSourceRevision','release','compiler','sources','dependencies','lockfileSha256','bundleSha256','bundledInputs'},'CANDIDATE_STAGE_EMITTER_CLOSURE')
         native=('compose.ts','config.ts','storage-config.ts','release.ts','image-reference.ts','runtime-bundle.ts')
-        require(all('packages/cloud-deploy/src/'+name in closure['sources'] for name in native),
+        require(all('packages/cloud-deploy/src/'+name in closure['sources'] and re.fullmatch('[a-f0-9]{40}',closure['sources']['packages/cloud-deploy/src/'+name].get('gitBlob','')) for name in native) and
+            all(path in closure['sources'] for path in ('packages/cloud-deploy/src/cn-maintenance-host/source_plan_authority.ts',
+                'packages/cloud-deploy/src/cn-candidate-compose-source.ts','packages/cloud-deploy/src/cn-candidate-compose-source-cli.ts',
+                '.harness/scripts/vm/build-cn-candidate-compose-source.mjs')),
             'CANDIDATE_STAGE_NATIVE_SOURCE_CLOSURE')
         for path,value in closure['sources'].items():
-            require(profile['filesSha256'].get(path)==value['sha256'],'CANDIDATE_STAGE_ROOT_SOURCE_CLOSURE')
+            require(re.fullmatch('[a-f0-9]{40}',value.get('gitBlob','')) and profile['filesSha256'].get(path)==value['sha256'],'CANDIDATE_STAGE_ROOT_SOURCE_CLOSURE')
         for path,value in closure['dependencies'].items():
             require(profile['filesSha256'].get(path)==value,'CANDIDATE_STAGE_DEPENDENCY_CLOSURE')
         require(profile['filesSha256'].get('pnpm-lock.yaml')==closure['lockfileSha256'] and
@@ -183,6 +205,11 @@ class CandidateStageHost:
             '..' not in pathlib.Path(options['runtimeDirectory']).parts,'CANDIDATE_STAGE_RUNTIME_PATH')
         require(options['manifestRef']==inputs['manifest'] and options['composeRef']==inputs['compose'],
             'CANDIDATE_STAGE_ROOT_INPUT_REFS')
+        approved_manifest=read(options['manifestRef'])
+        require(approved_manifest==manifest and manifest.get('sourceRevision')==original['identity']['sourceRevision'] and
+            manifest.get('release')==closure['release']==config.get('provision',{}).get('release') and
+            type(closure['release']) is str and re.fullmatch('[A-Za-z0-9][A-Za-z0-9._-]{0,127}',closure['release']),
+            'CANDIDATE_STAGE_APPROVED_MANIFEST')
         self.approved_network=read(options['networkRef'])
         require(set(self.approved_network)=={'Id','Name','Driver','Internal','IPAM','Options'} and
             self.approved_network['Name']==options['projectName']+'-runtime' and
@@ -194,7 +221,7 @@ class CandidateStageHost:
             require(path==ref['path'] and path.startswith(options['runtimeDirectory']+'/') and
                 '..' not in pathlib.Path(path).parts,'CANDIDATE_STAGE_RUNTIME_FILE_PATH')
             b=self._read_ref(ref);self.source_reads.append((copy.deepcopy(ref),b));self.runtime_files[path]=b
-        request=dict(schemaVersion=1,sourceRevision=APP,config=config,manifest=manifest,
+        request=dict(schemaVersion=1,sourceRevision=original['identity']['sourceRevision'],config=config,manifest=manifest,
             options={k:options[k] for k in ('projectName','runtimeDirectory')})
         nodefd=self._open_executable(e['nodePath'],e['nodeSha256'],0o755)
         try:
@@ -371,7 +398,7 @@ class CandidateStageHost:
             need(ref['path']==expected and ref['sha256']==profile['filesSha256'].get(source),'CANDIDATE_EPOCH_INSTALLED_SOURCE_PIN')
             source_pins[source]=dict(path=expected,sha256=ref['sha256'])
         code_authority=q.QualificationCodeAuthority(source_pins,entry['executablePins'])
-        verified=q.verify_existing_qualification(p,reader,entry['sourcePolicy'],code_authority=code_authority)
+        verified=q.verify_existing_qualification(p,reader,entry['sourcePolicy'],expected_identity=self.host.plan['identity'],expected_release=q.approved_release(profile,self.host.plan['identity'],private),code_authority=code_authority)
         need(verified['epoch']==refs['manifest'],'CANDIDATE_EPOCH_MANIFEST_HASH')
         acceptance=self.host.plan['acceptanceEvidence']
         acceptance_raw=private(acceptance['path']);actual=json.loads(acceptance_raw)

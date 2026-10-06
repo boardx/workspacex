@@ -164,3 +164,85 @@ describe("#1611 configured model provider timeouts + transport error classificat
     }
   }, 20_000);
 });
+
+
+describe("full response deadline", () => {
+  it("bounds heartbeat-only SSE after headers without emitting content", async () => {
+    const base = await startServer((_req, res) => {
+      res.writeHead(200, { "content-type": "text/event-stream" });
+      res.write(": heartbeat\n\n");
+      const heartbeat = setInterval(() => res.write(": heartbeat\n\n"), 25);
+      const end = setTimeout(() => res.end(), 3_500);
+      res.on("close", () => { clearInterval(heartbeat); clearTimeout(end); });
+    });
+    const provider = makeProvider({ baseUrl: base, timeoutMs: 100, streamEnabled: true });
+    const deltas: string[] = [];
+    const started = Date.now();
+    const error = await provider.completeStream!({ modelProvider: PROVIDER, modelId: MODEL_ID, system: "s", user: "u" }, async delta => { deltas.push(delta); }).then(() => null, error => error);
+    expect(error).toBeInstanceOf(ModelCallError);
+    expect(error.detail).toContain("ABORTED");
+    expect(Date.now() - started).toBeLessThan(3_000);
+    expect(deltas).toEqual([]);
+  }, 10_000);
+  it("retains streamed content and usage when the body finishes within the deadline", async () => {
+    const base = await startServer((_req, res) => {
+      res.writeHead(200, { "content-type": "text/event-stream" });
+      res.write(": ready\n\n");
+      setTimeout(() => res.end('data: {"choices":[{"delta":{"content":"complete"}}],"usage":{"total_tokens":7}}\n\ndata: [DONE]\n\n'), 50);
+    });
+    const provider = makeProvider({ baseUrl: base, timeoutMs: 500, streamEnabled: true });
+    const deltas: string[] = [];
+    const result = await provider.completeStream!({ modelProvider: PROVIDER, modelId: MODEL_ID, system: "s", user: "u" }, async delta => { deltas.push(delta); });
+    expect(result.text).toBe("complete");
+    expect(result.tokens).toBe(7);
+    expect(deltas).toEqual(["complete"]);
+  });
+
+  it("honors caller cancellation after headers and closes the stream", async () => {
+    let closed = false;
+    const controller = new AbortController();
+    const base = await startServer((_req, res) => {
+      res.writeHead(200, { "content-type": "text/event-stream" });
+      res.write(": ready\n\n");
+      res.on("close", () => { closed = true; });
+      setTimeout(() => controller.abort(), 50);
+    });
+    const provider = makeProvider({ baseUrl: base, timeoutMs: 500, streamEnabled: true });
+    const error = await provider.completeStream!({ modelProvider: PROVIDER, modelId: MODEL_ID, system: "s", user: "u", signal: controller.signal }, async () => {}).then(() => null, error => error);
+    expect(error).toBeInstanceOf(ModelCallError);
+    expect(error.detail).toContain("ABORTED");
+    await new Promise(resolve => setTimeout(resolve, 25));
+    expect(closed).toBe(true);
+  });
+
+  it("rejects a disconnected body while preserving already delivered content", async () => {
+    const base = await startServer((_req, res) => {
+      res.writeHead(200, { "content-type": "text/event-stream" });
+      res.write('data: {"choices":[{"delta":{"content":"partial"}}]}\n\n');
+      setTimeout(() => res.destroy(), 50);
+    });
+    const provider = makeProvider({ baseUrl: base, timeoutMs: 500, streamEnabled: true });
+    const deltas: string[] = [];
+    const error = await provider.completeStream!({ modelProvider: PROVIDER, modelId: MODEL_ID, system: "s", user: "u" }, async delta => { deltas.push(delta); }).then(() => null, error => error);
+    expect(error).toBeInstanceOf(ModelCallError);
+    expect(error.detail).toContain("UND_ERR_SOCKET");
+    expect(deltas).toEqual(["partial"]);
+  });
+
+  it("bounds a slowly delivered JSON body after headers", async () => {
+    const base = await startServer((_req, res) => {
+      res.writeHead(200, { "content-type": "application/json" });
+      res.write(" ");
+      const heartbeat = setInterval(() => res.write(" "), 25);
+      const end = setTimeout(() => res.end('{"choices":[{"message":{"content":"late"}}]}'), 3_500);
+      res.on("close", () => { clearInterval(heartbeat); clearTimeout(end); });
+    });
+    const provider = makeProvider({ baseUrl: base, timeoutMs: 100 });
+    const started = Date.now();
+    const error = await call(provider).then(() => null, error => error);
+    expect(error).toBeInstanceOf(ModelCallError);
+    expect(error.detail).toContain("ABORTED");
+    expect(Date.now() - started).toBeLessThan(3_000);
+  }, 10_000);
+
+});

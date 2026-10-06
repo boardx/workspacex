@@ -26,8 +26,8 @@ class BackupBackendCollector:
         self.source=source; self.proc=pathlib.Path(proc_root)
 
     def collect(self, plan, db, container_id, process_pid, application_name,
-                require_sql_observed_read_only=False):
-        started=time.time();identity=validate(plan)
+                require_sql_observed_read_only=False,*,expected_identity):
+        started=time.time();identity=validate(plan,expected_identity=expected_identity)
         require(require_sql_observed_read_only is False, 'BACKUP_OTHER_SESSION_READONLY_NOT_OBSERVABLE')
         require(db in DATABASES and type(process_pid) is int and process_pid>1 and
                 type(container_id) is str and re.fullmatch('[a-f0-9]{64}',container_id) and

@@ -329,6 +329,11 @@ describe("chapter-based report generation", () => {
       if (context.reportStage === "chapter") return { text: failure === "json" ? '{"sectionId":' : JSON.stringify({ sectionId: context.section.id, body: body("S999"), sourceIds: ["S999"] }) };
       if (context.reportStage === "chapter_revision") {
         revisions++; expect(context.rawOutput).toBeTruthy();
+        if (failure === "json") expect(context.review.validationIssues).toEqual([{ code: "chapter_json_invalid", path: [] }]);
+        if (failure === "unknown citation") {
+          expect(context.review.validationIssues).toEqual([{ code: "citation_unknown", path: ["body"] }]);
+          expect(context.citationScope).toEqual({ expectedSectionId: context.section.id, allowedSources: context.sources.map((source: any) => ({ sourceId: source.id, alias: source.alias })) });
+        }
         const alias = context.sources[0].alias;
         return { text: JSON.stringify({ sectionId: context.section.id, body: body(alias), sourceIds: [alias] }) };
       }
@@ -369,6 +374,102 @@ describe("chapter-based report generation", () => {
     await generateReportChapters(f.state, model, config, f.persist, undefined, true);
     expect(generated).toEqual(["b", "a"]);
   });
+  it("retains same-basis warned checkpoint repair context after another citation failure", async () => {
+    const f = fixture(); f.state.outline = [f.state.outline[0]!]; let mode: "warn" | "bad" | "fixed" = "warn";
+    let writes = 0; const calls: any[] = [];
+    const model: ModelCallPort = { complete: async input => {
+      const context = JSON.parse(input.user); calls.push(context);
+      const value = answer(context);
+      if (mode === "warn" && context.reportStage === "quality") Object.assign(value, { supported: false, issues: ["Correct the proxy subject using current evidence."] });
+      if (mode === "bad" && ["chapter", "chapter_revision"].includes(context.reportStage)) {
+        writes++; return { text: JSON.stringify({ sectionId: context.section.id, body: body("S999"), sourceIds: ["S999"] }) };
+      }
+      return { text: JSON.stringify(value) };
+    } };
+    await generateReportChapters(f.state, model, config, f.persist);
+    const evidenceWarnings = [{ batchIndex: 0, sourceIds: ["source-a"], questionIds: ["question-b"], reason: "invalid_model_evidence" as const }];
+    f.state.reportEvidenceWarnings = structuredClone(evidenceWarnings);
+    const previous = structuredClone(f.state.reportCheckpoint), warnings = structuredClone(f.state.reportQualityWarnings);
+    const persistenceFailure = new Error("controlled persistence failure"), callsBeforePersist = calls.length;
+    const failingPersist = Object.assign(async () => { throw persistenceFailure; }, { requestId: "persist-failure", observe: f.persist.observe });
+    await expect(generateReportChapters(f.state, model, config, failingPersist, undefined, true)).rejects.toBe(persistenceFailure);
+    expect(calls).toHaveLength(callsBeforePersist);
+    expect(f.state.reportCheckpoint).toEqual(previous); expect(f.state.reportQualityWarnings).toEqual(warnings);
+    expect(f.state.reportEvidenceWarnings).toEqual(evidenceWarnings);
+    mode = "bad"; calls.length = 0;
+    await expect(generateReportChapters(f.state, model, config, f.persist, undefined, true)).rejects.toThrow("RESEARCH_CONTENT_REFERENCE_INVALID");
+    expect(writes).toBe(2); expect(f.state.reportCheckpoint).toEqual(previous); expect(f.state.reportQualityWarnings).toEqual(warnings);
+    expect(f.state.reportEvidenceWarnings).toEqual(evidenceWarnings);
+    mode = "fixed"; calls.length = 0;
+    await generateReportChapters(f.state, model, config, f.persist, undefined, true);
+    const rewrite = calls.find(context => context.reportStage === "chapter");
+    expect(rewrite.previousReview.issues).toEqual(warnings![0]!.issues);
+    expect(rewrite.previousChapter).toEqual(previous!.chapters[0]);
+    expect(f.state.reportQualityWarnings).toEqual([]);
+  });
+
+  it("keeps two passed chapters when the third chapter fails both citation attempts, then resumes only remaining chapters", async () => {
+    const f = fixture(), ids = ["a", "b", "key_players", "d", "e"];
+    f.state.outline = ids.map((id, index) => section(id, id, index));
+    f.state.tasks = ids.map(id => ({ id: `task-${id}`, sectionId: id, query: `${id} policy`, status: "succeeded", attempts: 1, errorCode: null }));
+    f.state.sources = ids.map(id => ({ id: `source-${id}`, taskId: `task-${id}`, title: id, content: `Evidence for ${id}`, url: `https://example.com/${id}`, retrievedAt: "now", decision: "accepted" }));
+    let broken = true; const calls: any[] = [];
+    const model: ModelCallPort = { complete: async input => {
+      const context = JSON.parse(input.user); calls.push(context);
+      if (broken && context.section?.id === "key_players" && ["chapter", "chapter_revision"].includes(context.reportStage)) return { text: JSON.stringify({ sectionId: "key_players", body: body("S999"), sourceIds: ["S999"] }) };
+      return { text: JSON.stringify(answer(context)) };
+    } };
+    await expect(generateReportChapters(f.state, model, config, f.persist)).rejects.toThrow("RESEARCH_CONTENT_REFERENCE_INVALID");
+    expect(f.state.reportCheckpoint?.chapters.map(chapter => chapter.sectionId)).toEqual(["a", "b"]);
+    expect(calls.filter(context => context.section?.id === "key_players" && ["chapter", "chapter_revision"].includes(context.reportStage))).toHaveLength(2);
+    expect(calls.some(context => context.section?.id === "key_players" && context.reportStage === "quality")).toBe(false);
+    expect(calls.some(context => context.reportStage.startsWith("synthesis"))).toBe(false);
+    const prefix = structuredClone(f.state.reportCheckpoint!.chapters), sources = structuredClone(f.state.sources);
+    broken = false; calls.length = 0;
+    const report = await generateReportChapters(f.state, model, config, f.persist, undefined, true);
+    expect(report.sections.slice(0, 2)).toEqual(prefix); expect(f.state.sources).toEqual(sources);
+    expect(calls.filter(context => ["chapter", "chapter_revision", "quality"].includes(context.reportStage)).some(context => ["a", "b"].includes(context.section.id))).toBe(false);
+    expect(report.sections.map(chapter => chapter.sectionId)).toEqual(ids);
+  });
+
+  it("keeps a newly passed replacement ahead of restored warned material after a later citation failure", async () => {
+    const f = fixture(); let mode: "warn" | "mixed" | "fixed" = "warn"; const calls: any[] = [];
+    const model: ModelCallPort = { complete: async input => {
+      const context = JSON.parse(input.user); calls.push(context); const value = answer(context);
+      if (mode === "warn" && context.reportStage === "quality") Object.assign(value, { supported: false, issues: [`Old ${context.section.id} scope needs verification`] });
+      if (mode === "mixed" && context.section?.id === "a" && ["chapter", "chapter_revision"].includes(context.reportStage)) return { text: JSON.stringify({ sectionId: "a", body: body("S999"), sourceIds: ["S999"] }) };
+      if (mode !== "warn" && context.section?.id === "b" && ["chapter", "chapter_revision"].includes(context.reportStage)) value.body += "\n\nNEW_VERIFIED_REPLACEMENT: retain uncertainty while checking the local scope.";
+      return { text: JSON.stringify(value) };
+    } };
+    await generateReportChapters(f.state, model, config, f.persist);
+    const oldTail = structuredClone(f.state.reportCheckpoint!.chapters[1]);
+    mode = "mixed";
+    await expect(generateReportChapters(f.state, model, config, f.persist, undefined, true)).rejects.toThrow("RESEARCH_CONTENT_REFERENCE_INVALID");
+    expect(f.state.reportCheckpoint?.chapters[0]?.body).toContain("NEW_VERIFIED_REPLACEMENT");
+    expect(f.state.reportCheckpoint?.chapters[1]).toEqual(oldTail);
+    expect(f.state.reportQualityWarnings?.map(warning => warning.sectionId)).toEqual(["a"]);
+    mode = "fixed"; calls.length = 0;
+    const result = await generateReportChapters(f.state, model, config, f.persist, undefined, true);
+    expect(calls.some(context => context.section?.id === "b" && ["chapter", "chapter_revision", "quality"].includes(context.reportStage))).toBe(false);
+    expect(result.sections[0]?.body).toContain("NEW_VERIFIED_REPLACEMENT");
+  });
+
+  it("never restores warned checkpoint material or feedback after its basis changes", async () => {
+    const f = fixture(); f.state.outline = [f.state.outline[0]!]; let broken = false; const calls: any[] = [];
+    const model: ModelCallPort = { complete: async input => {
+      const context = JSON.parse(input.user); calls.push(context); const value = answer(context);
+      if (broken && ["chapter", "chapter_revision"].includes(context.reportStage)) return { text: JSON.stringify({ sectionId: context.section.id, body: body("S999"), sourceIds: ["S999"] }) };
+      if (context.reportStage === "quality") Object.assign(value, { supported: false, issues: ["Old scope warning"] });
+      return { text: JSON.stringify(value) };
+    } };
+    await generateReportChapters(f.state, model, config, f.persist);
+    expect(f.state.reportQualityWarnings?.length).toBe(1);
+    f.state.brief.focus = "A newly confirmed scope"; broken = true; calls.length = 0;
+    await expect(generateReportChapters(f.state, model, config, f.persist, undefined, true)).rejects.toThrow("RESEARCH_CONTENT_REFERENCE_INVALID");
+    expect(f.state.reportCheckpoint?.chapters).toEqual([]); expect(f.state.reportQualityWarnings).toEqual([]);
+    expect(calls.filter(context => ["chapter", "chapter_revision"].includes(context.reportStage)).every(context => context.previousReview === undefined && context.previousChapter === undefined)).toBe(true);
+  });
+
   it("binds checkpoints to session and all research inputs and validates stored prefixes", async () => {
     const f = fixture(); const baseline = reportBasis(f.state, config);
     for (const change of [
@@ -664,18 +765,23 @@ describe("chapter-based report generation", () => {
   });
 
   it.each(["chapter", "synthesis"])("re-reviews warned checkpoints on the first retry after interruption during %s", async (interruption) => {
-    const f = fixture(); let retry = false; const calls: string[] = [];
+    const f = fixture(); let retry = false; const calls: string[] = []; let previousIssues: string[] = [];
     const model: ModelCallPort = { complete: async (input) => {
       const context = JSON.parse(input.user);
       calls.push(`${context.reportStage}:${context.section?.id ?? ""}`);
       if (!retry && (interruption === "synthesis" ? context.reportStage === "synthesis" : context.reportStage === "chapter" && context.section.id === "a")) throw new Error("interrupted");
       const value = answer(context);
       if (!retry && context.reportStage === "quality" && context.section.id === "b") Object.assign(value, { supported: false, issues: ["Verify policy claims."] });
+      if (retry && context.reportStage === "chapter" && context.section.id === "b") {
+        expect(context.previousReview.issues).toEqual(previousIssues);
+        expect(context.previousChapter.sectionId).toBe("b");
+      }
       return { text: JSON.stringify(value) };
     } };
     await expect(generateReportChapters(f.state, model, config, f.persist)).rejects.toThrow("interrupted");
     expect(f.state.reportDraft).toBeFalsy();
     expect(f.state.reportQualityWarnings).toEqual([expect.objectContaining({ sectionId: "b" })]);
+    previousIssues = [...f.state.reportQualityWarnings![0]!.issues]; expect(previousIssues).toContain("Verify policy claims.");
     retry = true; calls.length = 0;
     const report = await generateReportChapters(f.state, model, config, f.persist, undefined, true);
     expect(calls).toContain("chapter:b"); expect(calls).toContain("quality:b");

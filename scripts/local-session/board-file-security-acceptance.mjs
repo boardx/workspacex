@@ -5,6 +5,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { multipart } from './board-file-security-multipart.mjs';
 
 const arg = (name, fallback) => process.argv.includes(`--${name}`) ? process.argv[process.argv.indexOf(`--${name}`) + 1] : fallback;
 const base = arg('base', 'http://127.0.0.1:3317'), apiOrigin = arg('api', 'http://127.0.0.1:3320');
@@ -15,7 +16,7 @@ for (const url of [base, apiOrigin]) assert(['127.0.0.1', 'localhost', '[::1]'].
 assert(!existsSync(out), 'Use a fresh evidence directory.');
 const script = fileURLToPath(import.meta.url), root = resolve(dirname(script), '../..');
 function sourceHash() {
-  const files = [script];
+  const files = [script, fileURLToPath(new URL('./board-file-security-multipart.mjs', import.meta.url))];
   const visit = path => { for (const entry of readdirSync(path, { withFileTypes: true })) { const child = join(path, entry.name); if (entry.isDirectory()) visit(child); else if (entry.isFile()) files.push(child); } };
   for (const path of ['apps/api/src', 'apps/api/migrations', 'packages/whiteboard-core/src', 'packages/contracts/src']) visit(join(root, path));
   const hash = createHash('sha256');
@@ -56,9 +57,6 @@ async function json(response, expected = 200) {
   assert.equal(response.status, expected, `Unexpected HTTP status: ${response.status}`);
   return response.json();
 }
-function multipart(payload, name = 'proof.txt', mime = 'text/plain') {
-  const body = new FormData(); body.append('file', new Blob([payload], { type: mime }), name); return body;
-}
 async function createBoard(credential, label) {
   const response = await request('POST', '/whiteboards', { json: { requestId: randomUUID(), name: `File security ${label} ${randomUUID()}` } }, credential);
   assert.equal(response.status, 201); const board = await response.json();
@@ -86,10 +84,10 @@ try {
     }
   } else {
   boardA = await createBoard(token, 'A'); boardB = await createBoard(token, 'B');
-  await check('ordinary file upload persists and downloads exactly the submitted bytes', async () => {
+  await check('legacy multipart without fileName persists and downloads exactly the submitted bytes', async () => {
     metadata = await json(await request('POST', `/whiteboards/${boardA.id}/files`, { body: multipart(bytes) }), 201);
     assert.equal(metadata.assetId, `board-file-${hash}`); assert.equal(metadata.contentDigest, `sha256:${hash}`);
-    assert.equal(metadata.byteSize, bytes.length); assert.equal(metadata.persistence, 'durable');
+    assert.equal(metadata.byteSize, bytes.length); assert.equal(metadata.persistence, 'durable'); assert.equal(metadata.fileName, 'proof.txt');
     const response = await request('GET', `/whiteboards/${boardA.id}/files/${metadata.assetId}/content`);
     assert.equal(response.status, 200); assert.equal(response.headers.get('content-type'), 'application/octet-stream');
     assert.equal(response.headers.get('x-content-type-options'), 'nosniff'); assert.match(response.headers.get('content-disposition') ?? '', /^attachment;/);
@@ -101,10 +99,10 @@ try {
     return { status: response.status, bothBoardsAccessible: true };
   });
   await check('special filenames produce valid RFC 5987 attachment headers through real HTTP', async () => {
-    const names = ["it's.txt", 'final(1).txt', 'star*.txt', '普通便利贴.txt', '100%.txt', '"quoted".txt'];
+    const names = ["it's.txt", 'final(1).txt', 'star*.txt', '普通便利贴.txt', '100%.txt', '"quoted".txt', 'literal%22.txt'];
     for (const name of names) {
       const payload = Buffer.concat([bytes, Buffer.from(name)]);
-      const file = await json(await request('POST', `/whiteboards/${boardB.id}/files`, { body: multipart(payload, name, 'text/html') }), 201);
+      const file = await json(await request('POST', `/whiteboards/${boardB.id}/files`, { body: multipart(payload, name, 'text/html', true) }), 201);
       assert.equal(file.fileName, name);
       const response = await request('GET', `/whiteboards/${boardB.id}/files/${file.assetId}/content`);
       assert.equal(response.status, 200);
