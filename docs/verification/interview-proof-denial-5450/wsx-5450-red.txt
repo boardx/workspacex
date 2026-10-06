@@ -1,0 +1,37 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/apps/api
+
+
+ Test Files  no tests
+      Tests  no tests
+   Start at  14:56:42
+   Duration  169ms (transform 117ms, setup 0ms, collect 0ms, tests 0ms, environment 0ms, prepare 0ms)
+
+
+⎯⎯⎯⎯⎯⎯ Unhandled Error ⎯⎯⎯⎯⎯⎯⎯
+Error: [test-isolation] 未在隔离外壳里运行：环境里没有 WORKSPACEX_DB，本进程会连 "workspacex"。拒绝在共享库上跑测试。
+  正确跑法：pnpm exec tsx .harness/scripts/with-test-isolation.ts -- <你的命令>
+  （裸跑 turbo/vitest 会连上共享库，产生彼此踩踏的幻影失败——唯一线索只有一行 db=workspacex，看起来跟正常输出一模一样）
+ ❯ Module.assertIsolatedDatabase ../../.harness/scripts/lib/test-isolation.ts:37:11
+     35|   "WORKSPACEX_ISOLATION_ID",
+     36|   "WORKSPACEX_DB",
+     37|   "PGDATABASE",
+       |           ^
+     38|   "PGHOST",
+     39|   "PGPORT",
+ ❯ Object.databaseGlobalSetup [as setup] tests/support/db-global-setup.ts:19:25
+ ❯ WorkspaceProject.initializeGlobalSetup ../../node_modules/.pnpm/vitest@2.1.9_@edge-runtime+vm@3.2.0_@types+node@22.20.1_jsdom@30.0.1_canvas@3.2.3__terser@5.50.0/node_modules/vitest/dist/chunks/cli-api.DqsSTaIi.js:9926:53
+ ❯ Vitest.initializeGlobalSetup ../../node_modules/.pnpm/vitest@2.1.9_@edge-runtime+vm@3.2.0_@types+node@22.20.1_jsdom@30.0.1_canvas@3.2.3__terser@5.50.0/node_modules/vitest/dist/chunks/cli-api.DqsSTaIi.js:10794:7
+ ❯ ../../node_modules/.pnpm/vitest@2.1.9_@edge-runtime+vm@3.2.0_@types+node@22.20.1_jsdom@30.0.1_canvas@3.2.3__terser@5.50.0/node_modules/vitest/dist/chunks/cli-api.DqsSTaIi.js:10816:7
+ ❯ Vitest.runFiles ../../node_modules/.pnpm/vitest@2.1.9_@edge-runtime+vm@3.2.0_@types+node@22.20.1_jsdom@30.0.1_canvas@3.2.3__terser@5.50.0/node_modules/vitest/dist/chunks/cli-api.DqsSTaIi.js:10840:12
+ ❯ Vitest.start ../../node_modules/.pnpm/vitest@2.1.9_@edge-runtime+vm@3.2.0_@types+node@22.20.1_jsdom@30.0.1_canvas@3.2.3__terser@5.50.0/node_modules/vitest/dist/chunks/cli-api.DqsSTaIi.js:10682:7
+ ❯ startVitest ../../node_modules/.pnpm/vitest@2.1.9_@edge-runtime+vm@3.2.0_@types+node@22.20.1_jsdom@30.0.1_canvas@3.2.3__terser@5.50.0/node_modules/vitest/dist/chunks/cli-api.DqsSTaIi.js:11848:7
+ ❯ start ../../node_modules/.pnpm/vitest@2.1.9_@edge-runtime+vm@3.2.0_@types+node@22.20.1_jsdom@30.0.1_canvas@3.2.3__terser@5.50.0/node_modules/vitest/dist/chunks/cac.CB_9Zo9Q.js:1506:17
+ ❯ CAC.run ../../node_modules/.pnpm/vitest@2.1.9_@edge-runtime+vm@3.2.0_@types+node@22.20.1_jsdom@30.0.1_canvas@3.2.3__terser@5.50.0/node_modules/vitest/dist/chunks/cac.CB_9Zo9Q.js:1486:3
+
+
+
+
+undefined
+/Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/itv/interview-report-claim-boundaries.test.ts

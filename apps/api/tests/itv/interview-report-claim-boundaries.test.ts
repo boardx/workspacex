@@ -55,6 +55,22 @@ describe("finite report claim boundaries", () => {
  ])("keeps scoped uncertainty or hypothetical exclusion: %s", claim => {
   expect(assessReportClaimBoundaries(claim,[]).ok).toBe(true);
  });
+ it.each([
+  "不自动证明设备无固有缺陷。",
+  "**反例比较**：安装顺利的场景与冲突场景属于情境差异，不自动证明设备无固有缺陷，也不证明冲突场景的风险已消除。",
+ ])("keeps the observed immediate automatic-proof denial: %s", text => {
+  expect(assessReportClaimBoundaries(text,[])).toEqual({ok:true,missing:[]});
+ });
+ it.each([
+  "自动证明设备无固有缺陷。",
+  "并非不自动证明设备无固有缺陷。",
+  "不能否认不自动证明设备无固有缺陷。",
+  "不自动证明设备无固有缺陷，但是设备不存在固有缺陷。",
+  "不自动证明预算充足，所以设备无固有缺陷。",
+  "不自动证明设备无固有缺陷，设备不存在设计缺陷。",
+ ])("does not extend proof denial to affirmative or unrelated exclusions: %s", text => {
+  expect(assessReportClaimBoundaries(text,[]).missing).toContain("unqualified_defect_exclusion");
+ });
  it("allows only a source-bound observed exclusion within the same inspected scope", () => {
   const quote = "本次对该设备的供电模块拆机检测确认该设备的供电模块不存在供电设计缺陷。";
   expect(assessReportClaimBoundaries(`${quote}[${quote}](#answer-1)`,[evidence(quote)]).ok).toBe(true);
