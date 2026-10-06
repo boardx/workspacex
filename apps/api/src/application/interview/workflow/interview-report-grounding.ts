@@ -115,6 +115,8 @@ export function validateReportEvidence(markdown: string, index: readonly ReportE
         // assertion, but not a contrast or unrelated earlier disclaimer.
         const qualified = /(?:不能|不可|无法|不应|不得)(?:凭空)?(?:补充|编造|虚构)(?:样本)?统计来(?:断言|声称|认为|证明|说)[^，,。；;]{0,16}$/u.test(before)
           || /(?:不能|不可|无法|不应|不得)(?:断言|声称|认为|证明|说)[^，,。；;]{0,16}$/u.test(before)
+          // Bare 不断言 only scopes this finite predicate coordination, never an unrelated object or a new assertion frame.
+          || /^\s*不断言(?:(?:最常见|极高风险)(?:、|或|及|与|和|\s)*)*(?:某条件)?$/u.test(before)
           || /(?:不能|不可|无法|不应|不得)\s*$/u.test(before)
           || qualifiedConclusion
           || /^\s*(?:若|如果|假如)[^，,。；;]*$/u.test(before);
