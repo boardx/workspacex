@@ -1,0 +1,9 @@
+# Serial research plan boundaries — #5417
+
+Based on fetched main 052f35625. The task queue previously sorted sections but dispatched across sections and supplemented multiple sections concurrently. It now completes a section's primary work, existing bounded recoveries, supplements and pending persistence before moving to the next section. Same-plan task/model/read limits and execution-local URL/read/negative caches remain unchanged. Normal failed tasks remain failed and do not drop later plans; fatal cancellation drains issued work. Empty, disabled and unknown sections and duplicate order values retain their prior task handling.
+
+RED: three held-promise counterexamples showed later section searches started during prior section primary/recovery/supplement work. Final new focused tests: 7 PASS. An existing cross-section concurrency expectation initially failed (527 PASS/1 FAIL); it was updated to the user's new serial contract, retaining persisted state and final query-order checks. Final pure suite: 24 files, 528 PASS, actual exit 0, 12.99s. API typecheck/lint/diff check exit 0. Logs /private/tmp/research-5417-{red,full,focused,type,lint,full-final}.log.
+
+This verifies scheduling, not faster real execution. No extra recovery budget, whole-run cutoff, RAG or evidence/quality gate relaxation is introduced. Real call counts, phase timing and formal complete reports remain acceptance requirements.
+
+Real acceptance setup: Docker initialization blocked before any research calls; owned children stopped and compose cleanup unverified. A separate standard local-runtime PGlite instance uses its own data directory and reserved ports, completed standard migrations/owner seeds and reopened as app_rw. PGlite is not cloud PostgreSQL compatibility evidence. Three new real browser/search/model topics, original devapp recovery and refresh/re-entry verification are still pending; saved warned/partial drafts do not count as success.
