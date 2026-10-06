@@ -47,7 +47,7 @@ function observations(text: string, planned = false): Count[] {
     return [{value: Number.isFinite(numeric) ? String(numeric) : raw, unit: match[2] === "%" ? "%" : "count"}];
   }));
 }
-const defectExclusion = /(?:安装风险|安装问题|产品)(?:.{0,16}?)(?:不是|并非|没有|不存在|不含|并无|无)(?:.{0,8}?)(?:产品固有缺陷|产品缺陷|固有缺陷|缺陷|产品问题)|(?:而非|并非|不是|没有|不存在|不含|并无|无|排除(?:了)?)(?:[^，,:：]{0,16}?)(?:固有缺陷|设计缺陷|产品缺陷)/gu;
+const defectExclusion = /(?:安装风险|安装问题|产品)(?:.{0,16}?)(?:不是|并非|没有|不存在|不含|并无(?!法)|无(?!法))(?:.{0,8}?)(?:产品固有缺陷|产品缺陷|固有缺陷|缺陷|产品问题)|(?:而非|并非|不是|没有|不存在|不含|并无(?!法)|无(?!法)|排除(?:了)?)(?:[^，,:：]{0,16}?)(?:固有缺陷|设计缺陷|产品缺陷)/gu;
 function qualifiedDefectExclusion(clause: string, start: number, end: number): boolean {
   const before = clause.slice(0,start).split(/[，,:：]/u).at(-1)!;
   const predicate = clause.slice(start,end);

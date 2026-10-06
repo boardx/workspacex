@@ -1,0 +1,15 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/apps/api
+
+ ✓ tests/itv/interview-report-recovery.test.ts (51 tests) 493ms
+ ✓ tests/itv/interview-report-claim-boundaries.test.ts (214 tests) 160ms
+ ✓ tests/itv/interview-report-grounding.test.ts (155 tests) 75ms
+ ✓ tests/itv/interview-report-diagnostics.test.ts (14 tests) 36ms
+ ✓ tests/itv/interview-markdown-report-stream-controller.test.ts (9 tests) 5ms
+ ✓ tests/itv/interview-model-markdown.test.ts (4 tests) 3ms
+
+ Test Files  6 passed (6)
+      Tests  447 passed (447)
+   Start at  18:30:43
+   Duration  3.30s (transform 699ms, setup 0ms, collect 1.97s, tests 772ms, environment 0ms, prepare 138ms)
+
