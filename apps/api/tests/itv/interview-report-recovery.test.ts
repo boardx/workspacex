@@ -44,6 +44,16 @@ describe("bounded report quality recovery", () => {
    expect(request.user).toContain("公开合成回答：未来计划访谈五位用户，比较两种任务方案，记录任务完成时间和中途退出原因，再决定投入。这是计划，尚未执行。");
    expect(request.user).not.toContain(raw);
    throw new ModelCallError("MODEL_CALL_FAILED","controlled inspection stops before provider dispatch");
+ it.each([false,true])("guides every repeated citation occurrence from actual source without failed prose (saved: %s)",async savedFailure=>{
+  snapshot=JSON.parse(readFileSync(new URL("./fixtures/repeated-citations-5453/source.json",import.meta.url),"utf8"));
+  const previous=snapshot.documents.find(d=>d.step==="report")!;const raw=previous.markdown;
+  if(!savedFailure){snapshot.documents=snapshot.documents.filter(d=>d.step!=="report");snapshot.states=snapshot.states.filter(s=>s.documentId!==previous.documentId);}
+  const before=structuredClone(snapshot);save.mockClear();complete.mockImplementationOnce(async request=>{
+   expect(request.user).toContain("正文每次引用，包括反例比较和跨回答综合中再次引用");
+   expect(request.user).toContain("复用索引对应的完整逐字原文及同一定位链接");
+   expect(request.user).toContain("公开合成反例：一个场景安装顺利，不能推断所有场景都顺利。");
+   expect(request.user).not.toContain(raw);
+   throw new ModelCallError("MODEL_CALL_FAILED","controlled request inspection, no provider dispatch");
   });
   await expect(generateInterviewMarkdown(deps(),{...input,interviewId:snapshot.interviewId,expectedVersion:snapshot.version,expectedDocumentVersion:savedFailure?previous.version:0})).rejects.toThrow("AI_GENERATION_UNAVAILABLE");
   expect(complete).toHaveBeenCalledTimes(1);expect(save).not.toHaveBeenCalled();expect(snapshot).toEqual(before);
@@ -68,6 +78,21 @@ describe("bounded report quality recovery", () => {
   expect(complete).toHaveBeenCalledTimes(1);expect(save).not.toHaveBeenCalled();expect(snapshot).toEqual(before);
  });
 
+ it("never instructs a naked zero-count observation without a source and gives precise measurement repair feedback", async () => {
+  const wrong = GOOD + "\n\n不兼容项为零只支持本次检测未发现该冲突，不能推翻一般安装风险。";
+  complete.mockResolvedValueOnce({text:wrong}).mockResolvedValueOnce({text:GOOD});
+  await generateInterviewMarkdown(deps(),input);
+  expect(complete).toHaveBeenCalledTimes(2);
+  for (const [request] of complete.mock.calls) {
+   expect(request.system).not.toContain("不兼容项为零只支持本次检测未发现该冲突");
+   expect(request.system).toContain("若未来检测不兼容项为零");
+  }
+  expect(complete.mock.calls[1]![0].user).toContain("测量声明修复");
+  expect(complete.mock.calls[1]![0].user).toContain("没有实际测量来源");
+  expect(complete.mock.calls[1]![0].user).toContain("不得编造已完成检查");
+  expect(save.mock.calls[0]![0].failure.code).toBe("REPORT_QUALITY_REJECTED");
+  expect(snapshot.states.find(s=>s.documentId==="md-report")?.status).toBe("draft");
+ });
  it("excludes a rejected candidate derived from observed prose and rejects a new affirmative claim",async()=>{
   snapshot=JSON.parse(readFileSync(resolve(process.cwd(),"../../docs/verification/interview-source-regeneration-5430/source.json"),"utf8"));
   const previous=snapshot.documents.find(document=>document.step==="report")!;
@@ -81,6 +106,7 @@ describe("bounded report quality recovery", () => {
   expect(complete).toHaveBeenCalledTimes(1);
   expect(complete.mock.calls[0]![0].user).not.toContain(previous.markdown);
   expect(complete.mock.calls[0]![0].user).not.toContain(original);
+  expect(complete.mock.calls[0]![0].user).not.toContain("安装问题最常见。");
   expect(complete.mock.calls[0]![0].user).toContain("已确认来源");
   expect(save.mock.calls[0]![0]).toMatchObject({markdown:candidate,failure:{code:"REPORT_GROUNDING_REJECTED",retryable:true}});
  });

@@ -7,6 +7,21 @@ const hash = (s: string) => createHash("sha256").update(s).digest("hex");
 const raw = "服务端甲回答：支持电话。\n## [客服](#expert-b)\nQ2：反对电话。\nQ2：厨房孔位冲突。";
 const source: interviewMarkdown.InterviewMarkdownDocument = { documentId: "md-runs", version: 2, step: "runs", markdown: raw, contentHash: hash(raw), evidenceMode: "simulated", references: [], answerSpans: [{ taskKey: "rev-a/expert-a", expertId: "expert-a", start: 0, end: raw.length, contentHash: hash(raw) }] };
 describe("report evidence grounding", () => {
+ it("rejects actual bare repeated locators while preserving exact repeated quotations",()=>{
+  const root=new URL("./fixtures/repeated-citations-5453/",import.meta.url);
+  const actual=JSON.parse(readFileSync(new URL("source.json",root),"utf8"));
+  const report=readFileSync(new URL("report.md",root),"utf8");
+  const labels={support:"体验研究员",purchase:"决策研究员"};
+  const index=buildReportEvidenceIndex(actual.documents.find((d:{step:string})=>d.step==="runs"),labels);
+  const before=structuredClone(actual);
+  expect(validateReportEvidence(report,index,labels).reason).toBe("invalid_answer_quote_or_locator");
+  const repeated=report.split("\n").find((line:string)=>line.startsWith("关于安装风险，"))!;
+  const quoted=repeated.replaceAll("[#answer-5](#answer-5)","[公开合成回答：厨房插座位置与柜体孔位冲突，暂缓购买。](#answer-5)")
+   .replaceAll("[#answer-7](#answer-7)","[公开合成反例：一个场景安装顺利，不能推断所有场景都顺利。](#answer-7)");
+  expect(validateReportEvidence(quoted,index,labels).ok).toBe(true);
+  expect(validateReportEvidence(quoted.replace("[公开合成反例：一个场景安装顺利，不能推断所有场景都顺利。](#answer-7)","[不存在的原文](#answer-7)"),index,labels).reason).toBe("invalid_answer_quote_or_locator");
+  expect(actual).toEqual(before);
+ });
  it.each(["不断言最常见。","不断言最常见、极高风险或某条件必然阻止购买。","不断言必然阻止购买。"])('recognizes a direct local bare-negation clause: %s',line=>{
   expect(validateReportEvidence(`[服务端甲回答：支持电话。](#answer-1)\n\n${line}`,buildReportEvidenceIndex(source)).ok).toBe(true);
  });
