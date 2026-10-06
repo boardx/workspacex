@@ -1,0 +1,93 @@
+{
+  "testedSHA": "119e1c450b3eff998a805e3b538b038505ed1cda",
+  "sessionId": "grs_2ff352b9fac043d998984f4df7db92be",
+  "inputChars": 258,
+  "plans": 7,
+  "tasks": 40,
+  "progress": null,
+  "busy": false,
+  "controlStatus": "paused",
+  "errorCode": null,
+  "completed": false,
+  "modelCounts": {
+    "brief:succeeded": 1,
+    "directions:succeeded": 1,
+    "outline:succeeded": 1,
+    "research:failed": 54,
+    "research:succeeded": 49
+  },
+  "taskFailures": {
+    "RESEARCH_SEARCH_UNAVAILABLE": 1,
+    "RESEARCH_SOURCE_RELEVANCE_INVALID": 9,
+    "RESEARCH_SOURCE_MODEL_TIMEOUT": 2,
+    "RESEARCH_WORKFLOW_UNAVAILABLE": 2,
+    "RESEARCH_NODE_STATE_INVALID": 2,
+    "RESEARCH_WORKFLOW_PAUSED": 2
+  },
+  "sources": [
+    {
+      "id": "af18fa92-e622-4fc9-a872-98fb49573b3d",
+      "documentHash": "2d44ecbc0ff2bb94c0d0f1469f000d29b3670cba7a338c9fb080660b443d2c5e",
+      "decision": "accepted"
+    },
+    {
+      "id": "e3f73ee8-42b0-401e-bc60-9591c259bdd7",
+      "documentHash": "8a780d32e13a900e662ae6bfd80f5983d64b704484af2e9c36392762ad71ff49",
+      "decision": "accepted"
+    },
+    {
+      "id": "b4d098da-c804-4499-b7de-f3cb7a6c9c2c",
+      "documentHash": "756b14488e3f7bf26b5a0cc0f5f3b36468336943a77c75e5624cbbbf4cba0fff",
+      "decision": "accepted"
+    },
+    {
+      "id": "619979eb-54f3-4cba-bb14-fdefd3c512be",
+      "documentHash": "e291080459ccd1f34d24546260dcf88a42170991d8bd5ed2225ad68160763e43",
+      "decision": "accepted"
+    },
+    {
+      "id": "c7dfb57b-87b6-4886-bafe-47b29636380c",
+      "documentHash": "701862ea660456b59f203d9329025da0876bc629c8dd12194c692e796f9f9a0c",
+      "decision": "accepted"
+    },
+    {
+      "id": "16e037c9-7a1e-4576-a531-00704866cde2",
+      "documentHash": "92248b50abb0428f1daa3e347d05e6ec3fa037ac9567715026e0921ac86f6af8",
+      "decision": "accepted"
+    },
+    {
+      "id": "07ffd002-a811-4a94-b468-bf780404f99d",
+      "documentHash": "a3596fbc101e9401bb3bedccb1d3ed9cb2ca1be818d950502b734bedb6c7c89d",
+      "decision": "accepted"
+    },
+    {
+      "id": "a858396f-3357-4144-bfbb-7deb05ac3fa5",
+      "documentHash": "38eb56466e0222daede22485b1219ed60e5c04be7b8e5d3a4e1916e3b5f035b6",
+      "decision": "accepted"
+    }
+  ],
+  "activity": [
+    {
+      "stage": "planning",
+      "status": "started",
+      "occurredAt": "2026-10-06T04:40:41.499Z"
+    },
+    {
+      "stage": "planning",
+      "status": "succeeded",
+      "occurredAt": "2026-10-06T04:42:07.872Z"
+    },
+    {
+      "stage": "searching",
+      "status": "started",
+      "occurredAt": "2026-10-06T04:43:22.199Z"
+    },
+    {
+      "stage": "planning",
+      "status": "paused",
+      "occurredAt": "2026-10-06T05:09:18.208Z"
+    }
+  ],
+  "badField": "UNKNOWN",
+  "notCloudPostgres": true
+}

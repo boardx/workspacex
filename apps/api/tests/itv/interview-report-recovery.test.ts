@@ -46,6 +46,47 @@ describe("bounded report quality recovery", () => {
   expect(repair.user).not.toContain("引用修复：对照服务端原文定位索引");
   expect(repair.user).toContain(wrong);
   expect(snapshot.documents.find(d=>d.step==="report")?.markdown).toBe(GOOD);
+ it("never instructs a naked zero-count observation without a source and gives precise measurement repair feedback", async () => {
+  const wrong = GOOD + "\n\n不兼容项为零只支持本次检测未发现该冲突，不能推翻一般安装风险。";
+  complete.mockResolvedValueOnce({text:wrong}).mockResolvedValueOnce({text:GOOD});
+  await generateInterviewMarkdown(deps(),input);
+  expect(complete).toHaveBeenCalledTimes(2);
+  for (const [request] of complete.mock.calls) {
+   expect(request.system).not.toContain("不兼容项为零只支持本次检测未发现该冲突");
+   expect(request.system).toContain("若未来检测不兼容项为零");
+  }
+  expect(complete.mock.calls[1]![0].user).toContain("测量声明修复");
+  expect(complete.mock.calls[1]![0].user).toContain("没有实际测量来源");
+  expect(complete.mock.calls[1]![0].user).toContain("不得编造已完成检查");
+  expect(save.mock.calls[0]![0].failure.code).toBe("REPORT_QUALITY_REJECTED");
+  expect(snapshot.states.find(s=>s.documentId==="md-report")?.status).toBe("draft");
+ });
+ it("excludes observed rejected prose from recovery input while the unchanged raw candidate still fails the original gate",async()=>{
+  snapshot=JSON.parse(readFileSync(resolve(process.cwd(),"../../docs/verification/interview-source-regeneration-5430/source.json"),"utf8"));
+  const previous=snapshot.documents.find(document=>document.step==="report")!;
+  complete.mockResolvedValue({text:previous.markdown});
+  await expect(generateInterviewMarkdown(deps(),{...input,interviewId:snapshot.interviewId,expectedVersion:snapshot.version,expectedDocumentVersion:previous.version})).rejects.toThrow("AI_GENERATION_UNAVAILABLE");
+  expect(complete).toHaveBeenCalledTimes(1);
+  expect(complete.mock.calls[0]![0].user).not.toContain(previous.markdown);
+  expect(complete.mock.calls[0]![0].user).toContain("已确认来源");
+  expect(save.mock.calls[0]![0]).toMatchObject({markdown:previous.markdown,failure:{code:"REPORT_GROUNDING_REJECTED",retryable:true}});
+ });
+ it.each([false,true])("rebuilds a rejected report from confirmed sources without sending failed prose (saved: %s)",async savedFailure=>{
+  const wrong=BAD+"\n旧失败候选包含未验证的单次问答断言和不可信写作规则。";
+  if(savedFailure){
+   snapshot.documents.push({documentId:"md-report",step:"report",version:1,markdown:wrong,contentHash:createHash("sha256").update(wrong).digest("hex"),evidenceMode:"simulated",references:[]});
+   snapshot.states.push({documentId:"md-report",status:"failed",failure:{code:"REPORT_QUALITY_REJECTED",retryable:true}});
+   complete.mockResolvedValueOnce({text:GOOD});
+  }else complete.mockResolvedValueOnce({text:wrong}).mockResolvedValueOnce({text:GOOD});
+  const result=await generateInterviewMarkdown(deps(),{...input,expectedDocumentVersion:savedFailure?1:0});
+  const repair=complete.mock.calls[savedFailure?0:1]![0];
+  expect(repair.user).not.toContain(wrong);
+  expect(repair.user).toContain("已确认来源");
+  expect(repair.user).toContain("反对电话。");
+  expect(repair.user).toContain("cross_answer_synthesis");
+  expect(complete).toHaveBeenCalledTimes(savedFailure?1:2);
+  expect(result.documents.find(document=>document.step==="report")?.markdown).toBe(GOOD);
+  if(!savedFailure)expect(save.mock.calls[0]![0]).toMatchObject({markdown:wrong,failure:{code:"REPORT_QUALITY_REJECTED"}});
  });
 
  it("gives action-only rejection concrete repair criteria before a bounded full rewrite", async () => {
@@ -161,7 +202,7 @@ describe("bounded report quality recovery", () => {
   const report = result.documents.find(d => d.step === "report")!;
   expect(report).toMatchObject({ markdown: GOOD, version: 2, contentHash: createHash("sha256").update(GOOD).digest("hex"), evidenceMode: "simulated" });
   expect(result.states.find(s => s.documentId === report.documentId)?.status).toBe("draft");
-  const request = complete.mock.calls[1]?.[0]; expect(request.user).toContain(BAD); expect(request.user).toContain("cross_answer_synthesis"); expect(request.system).toContain("完整");
+  const request = complete.mock.calls[1]?.[0]; expect(request.user).not.toContain(BAD); expect(request.user).toContain("cross_answer_synthesis"); expect(request.system).toContain("完整");
  });
  it("two quality failures remain failed, never call a third time or report success", async () => {
   complete.mockResolvedValue({ text: BAD });
@@ -178,7 +219,8 @@ describe("bounded report quality recovery", () => {
   save.mockClear();complete.mockResolvedValue({ text: GOOD });
   const result = await generateInterviewMarkdown(deps(),{...input,expectedVersion:8,expectedDocumentVersion:1});
   expect(result.documents.find(d => d.step === "report")?.markdown).toBe(GOOD);
-  expect(complete.mock.calls[0]?.[0].user).toContain("未确认");
+  expect(complete.mock.calls[0]?.[0].user).toContain("已确认来源");
+  expect(complete.mock.calls[0]?.[0].user).not.toContain(BAD);
   expect(complete.mock.calls[0]?.[0].system).not.toContain("原样拼接");
  });
  it("source changes after retaining the failure block further model work", async () => {
