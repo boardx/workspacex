@@ -1,6 +1,6 @@
 import type { ModelCallInput, ModelCallPort } from "../agent-run/ports";
 import { ResearchRuntimeError, type ResearchRuntime, type RuntimeObserver } from "./guided-runtime-ports";
-export type RuntimePersistence = (() => Promise<void>) & { requestId: string; observe: RuntimeObserver };
+export type RuntimePersistence = (() => Promise<void>) & { requestId: string; traceId?: string; observe: RuntimeObserver };
 
 // Provider fragments are persisted before publication. The observer never owns execution.
 export async function streamReport(model: ModelCallPort, input: ModelCallInput, state: ResearchRuntime, persist: RuntimePersistence, onResetReady?: (reset: () => Promise<void>) => void) {
