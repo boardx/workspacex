@@ -39,6 +39,20 @@ describe("bounded report quality recovery", () => {
   expect(request.system).toContain("不复述生成指令、写作规则或校验约束");
   expect(request.system).not.toContain("不断言最常见");
   expect(request.system).not.toContain("不得写“而非设备的固有缺陷”");
+ it("never instructs a naked zero-count observation without a source and gives precise measurement repair feedback", async () => {
+  const wrong = GOOD + "\n\n不兼容项为零只支持本次检测未发现该冲突，不能推翻一般安装风险。";
+  complete.mockResolvedValueOnce({text:wrong}).mockResolvedValueOnce({text:GOOD});
+  await generateInterviewMarkdown(deps(),input);
+  expect(complete).toHaveBeenCalledTimes(2);
+  for (const [request] of complete.mock.calls) {
+   expect(request.system).not.toContain("不兼容项为零只支持本次检测未发现该冲突");
+   expect(request.system).toContain("若未来检测不兼容项为零");
+  }
+  expect(complete.mock.calls[1]![0].user).toContain("测量声明修复");
+  expect(complete.mock.calls[1]![0].user).toContain("没有实际测量来源");
+  expect(complete.mock.calls[1]![0].user).toContain("不得编造已完成检查");
+  expect(save.mock.calls[0]![0].failure.code).toBe("REPORT_QUALITY_REJECTED");
+  expect(snapshot.states.find(s=>s.documentId==="md-report")?.status).toBe("draft");
  });
  it("excludes observed rejected prose from recovery input while the unchanged raw candidate still fails the original gate",async()=>{
   snapshot=JSON.parse(readFileSync(resolve(process.cwd(),"../../docs/verification/interview-source-regeneration-5430/source.json"),"utf8"));

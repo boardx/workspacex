@@ -7,6 +7,16 @@ import { interviewMarkdown } from "@repo/contracts";
 const evidence = (quote: string): ReportEvidence => ({ anchor: "answer-1", documentId: "runs", version: 1,
   sourceHash: "a".repeat(64), start: 0, end: quote.length, quote, expertId: "expert", taskKey: "task", evidenceMode: "simulated", expertLabel: "甲" });
 describe("finite report claim boundaries", () => {
+ it("retains the real public zero-count rejection while accepting an explicitly future conditional plan", () => {
+  const root = new URL("./fixtures/measurement-guidance-5413/", import.meta.url);
+  const report = readFileSync(new URL("report.md", root), "utf8");
+  const source = interviewMarkdown.InterviewMarkdownEnvelope.parse(JSON.parse(readFileSync(new URL("source.json", root), "utf8")));
+  const runs = source.documents.find(document => document.step === "runs")!;
+  const index = buildReportEvidenceIndex(runs, {support:"技术教育用户研究员（Technical Education UX Researcher）",purchase:"采购研究员"});
+  expect(assessReportClaimBoundaries(report,index)).toEqual({ok:false,missing:["unsupported_executed_measurement"]});
+  const future = report.replace("不兼容项为零只支持本次检测未发现该冲突", "若未来检测不兼容项为零，仅支持本次检查未发现该冲突");
+  expect(assessReportClaimBoundaries(future,index)).toEqual({ok:true,missing:[]});
+ });
  it.each([1,2])("rejects the preserved public attempt %s's unsupported defect exclusion", attempt => {
   const root = new URL("./fixtures/defect-exclusion-5341/", import.meta.url);
   const raw = readFileSync(new URL(`attempt-${attempt}.md`, root), "utf8");
