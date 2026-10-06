@@ -31,7 +31,6 @@ beforeEach(() => {
  });
 });
 describe("bounded report quality recovery", () => {
- it("excludes a rejected candidate derived from observed prose and rejects a new affirmative claim",async()=>{
  it("never instructs a naked zero-count observation without a source and gives precise measurement repair feedback", async () => {
   const wrong = GOOD + "\n\n不兼容项为零只支持本次检测未发现该冲突，不能推翻一般安装风险。";
   complete.mockResolvedValueOnce({text:wrong}).mockResolvedValueOnce({text:GOOD});
@@ -47,7 +46,7 @@ describe("bounded report quality recovery", () => {
   expect(save.mock.calls[0]![0].failure.code).toBe("REPORT_QUALITY_REJECTED");
   expect(snapshot.states.find(s=>s.documentId==="md-report")?.status).toBe("draft");
  });
- it("excludes observed rejected prose from recovery input while the unchanged raw candidate still fails the original gate",async()=>{
+ it("excludes a rejected candidate derived from observed prose and rejects a new affirmative claim",async()=>{
   snapshot=JSON.parse(readFileSync(resolve(process.cwd(),"../../docs/verification/interview-source-regeneration-5430/source.json"),"utf8"));
   const previous=snapshot.documents.find(document=>document.step==="report")!;
   // Preserve the on-disk actual raw; this controlled variant has a real affirmative gap.
