@@ -22,6 +22,9 @@ describe("finite report claim boundaries", () => {
   "不能据此得出整机或所有设备无固有缺陷的事实结论。",
  ])("preserves the observed local denial %s",claim=>expect(assessReportClaimBoundaries(claim,[]).ok).toBe(true));
  it.each([
+  "未排除设备设计缺陷这一判断并不成立。",
+  "不能推断整机无固有缺陷是不正确的。",
+  "无法推断该设备无固有缺陷这一说法是错误的。",
   "不能未排除设备设计缺陷。",
   "不是未排除设备设计缺陷。",
   "不能不推断该设备在所有场景下无固有缺陷。",

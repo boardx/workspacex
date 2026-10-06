@@ -51,6 +51,9 @@ const defectExclusion = /(?:安装风险|安装问题|产品)(?:.{0,16}?)(?:不�
 function qualifiedDefectExclusion(clause: string, start: number, end: number): boolean {
   const before = clause.slice(0,start).split(/[，,:：]/u).at(-1)!;
   const predicate = clause.slice(start,end);
+  const after = clause.slice(end).split(/[，,:：]/u)[0]!;
+  // A local suffix can reject the denial itself; it must not borrow a prefix waiver.
+  if (/^(?:的事实结论)?(?:这一(?:判断|说法|结论))?(?:(?:并)?不成立|是(?:不正确|错误|不成立)的?)/u.test(after.trim())) return false;
   // Denying the absence of defects is not a positive defect exclusion.
   if (/(?:并非|不是)\s*(?:不存在|没有|不含|并无|无)/u.test(predicate)) return true;
   if (/否认|否定|不是(?!说)|并非|不会|不可能|不能不|不可不|不得不|而(?:要|应|是)|却/u.test(before)) return false;
