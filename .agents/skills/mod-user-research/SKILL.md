@@ -51,6 +51,8 @@ description: 用户研究计划、资料检索、来源证据和研究报告；�
 
 ## 知识回流规则
 
+- 2026-10-07：brief 生成只需派生 topic；不要要求模型复述最终被服务丢弃的完整 goal/focus。公共 brief 仍校验完整原需求，directions 仅传 brief+明确 instruction，outline 保留启用方向；输入输出收敛不等于模型调用次数或线上耗时已下降（出处：issue #5492）。
+
 谁修改本模块，谁在 PR 中追加可验证经验；不删除旧条目，推翻时注明替代来源。
 
 - 2026-10-03：报告确认后的目的步骤需在外部读取前持久化并推送 snapshot；证据 timeline attempts 是跨批次调用计数，显示 completed/total 批次。生成报告复用已读取正文，不自动重试已失败网页；单调用限时由 `apps/api/src/application/research/guided-search-budget.ts` 的 `GUIDED_REPORT_MODEL_BUDGET_MS` 定义；限时与关闭回调共同防止迟到流写入（出处：issue #5243）。
@@ -60,5 +62,3 @@ description: 用户研究计划、资料检索、来源证据和研究报告；�
 - 2026-10-03：关闭深度思考需覆盖流式正文以及兼容 checkpoint direction/outline 接口；可信任务策略经 ModelCallInput 显式传递，provider 双维兼容门才转为厂商参数。真实 qwen3.8-max 方向16.1秒/大纲7.6秒/短正文首段0.52秒，不能代替完整报告质量验收（出处：issue #5249）。
 
 - 2026-10-05：用户以「约十分钟完成报告」软性能目标覆盖旧整轮三分钟 deadline。搜索与报告来源准备使用无整轮计时的作用域，逐次 search/read/model 请求仍限时且透传取消；达到 180 秒或 600 秒不得自动把整轮/剩余任务标失败。旧持久化预算失败仅显示上次中断，保留来源与任务，显式重试恢复；plan/model 单调用限时不等同整轮 deadline（替代旧整轮限时约定，出处：issue #5359）。
-
-- 2026-10-07：brief 生成只需派生 topic；不要要求模型复述最终被服务丢弃的完整 goal/focus。公共 brief 仍校验完整原需求，directions 仅传 brief+明确 instruction，outline 保留启用方向；输入输出收敛不等于模型调用次数或线上耗时已下降（出处：issue #5492）。
