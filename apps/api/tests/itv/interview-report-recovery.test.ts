@@ -31,6 +31,20 @@ beforeEach(() => {
  });
 });
 describe("bounded report quality recovery", () => {
+ it.each([false,true])("guides every repeated citation occurrence from actual source without failed prose (saved: %s)",async savedFailure=>{
+  snapshot=JSON.parse(readFileSync(new URL("./fixtures/repeated-citations-5453/source.json",import.meta.url),"utf8"));
+  const previous=snapshot.documents.find(d=>d.step==="report")!;const raw=previous.markdown;
+  if(!savedFailure){snapshot.documents=snapshot.documents.filter(d=>d.step!=="report");snapshot.states=snapshot.states.filter(s=>s.documentId!==previous.documentId);}
+  const before=structuredClone(snapshot);save.mockClear();complete.mockImplementationOnce(async request=>{
+   expect(request.user).toContain("正文每次引用，包括反例比较和跨回答综合中再次引用");
+   expect(request.user).toContain("复用索引对应的完整逐字原文及同一定位链接");
+   expect(request.user).toContain("公开合成反例：一个场景安装顺利，不能推断所有场景都顺利。");
+   expect(request.user).not.toContain(raw);
+   throw new ModelCallError("MODEL_CALL_FAILED","controlled request inspection, no provider dispatch");
+  });
+  await expect(generateInterviewMarkdown(deps(),{...input,interviewId:snapshot.interviewId,expectedVersion:snapshot.version,expectedDocumentVersion:savedFailure?previous.version:0})).rejects.toThrow("AI_GENERATION_UNAVAILABLE");
+  expect(complete).toHaveBeenCalledTimes(1);expect(save).not.toHaveBeenCalled();expect(snapshot).toEqual(before);
+ });
  it.each([false,true])("uses actual confirmed-source observation scope for initial and saved report requests (saved: %s)",async savedFailure=>{
   snapshot=JSON.parse(readFileSync(resolve(process.cwd(),"../../docs/verification/interview-source-fact-scope-5443/wsx-5441-round1i-source.json"),"utf8"));
   const previous=snapshot.documents.find(d=>d.step==="report")!;
