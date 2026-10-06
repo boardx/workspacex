@@ -324,6 +324,9 @@ it("keeps the actual instruction-copy candidate rejected by unchanged claim and 
  const root=new URL("./fixtures/instruction-copy-5422/",import.meta.url);
  const report=readFileSync(new URL("report.md",root),"utf8");
  const source=JSON.parse(readFileSync(new URL("source.json",root),"utf8"));
+ const capturedReport=source.documents.find((document: {step: string})=>document.step==="report");
+ expect(capturedReport).toBeDefined();
+ expect(report).toBe(capturedReport.markdown);
  const runs=source.documents.find((document: {step: string})=>document.step==="runs");
  const index=buildReportEvidenceIndex(runs);
  expect(assessReportClaimBoundaries(report,index).missing).toContain("unqualified_defect_exclusion");
