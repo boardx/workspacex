@@ -46,15 +46,21 @@ describe("bounded report quality recovery", () => {
   expect(save.mock.calls[0]![0].failure.code).toBe("REPORT_QUALITY_REJECTED");
   expect(snapshot.states.find(s=>s.documentId==="md-report")?.status).toBe("draft");
  });
- it("excludes observed rejected prose from recovery input while the unchanged raw candidate still fails the original gate",async()=>{
+ it("excludes a rejected candidate derived from observed prose and rejects a new affirmative claim",async()=>{
   snapshot=JSON.parse(readFileSync(resolve(process.cwd(),"../../docs/verification/interview-source-regeneration-5430/source.json"),"utf8"));
   const previous=snapshot.documents.find(document=>document.step==="report")!;
-  complete.mockResolvedValue({text:previous.markdown});
+  // Preserve the on-disk actual raw; this controlled variant has a real affirmative gap.
+  const original=previous.markdown;
+  previous.markdown=original+"\n\n安装问题最常见。";
+  previous.contentHash=createHash("sha256").update(previous.markdown).digest("hex");
+  const candidate=original+"\n\n预算必然阻止采购。";
+  complete.mockResolvedValue({text:candidate});
   await expect(generateInterviewMarkdown(deps(),{...input,interviewId:snapshot.interviewId,expectedVersion:snapshot.version,expectedDocumentVersion:previous.version})).rejects.toThrow("AI_GENERATION_UNAVAILABLE");
   expect(complete).toHaveBeenCalledTimes(1);
   expect(complete.mock.calls[0]![0].user).not.toContain(previous.markdown);
+  expect(complete.mock.calls[0]![0].user).not.toContain(original);
   expect(complete.mock.calls[0]![0].user).toContain("已确认来源");
-  expect(save.mock.calls[0]![0]).toMatchObject({markdown:previous.markdown,failure:{code:"REPORT_GROUNDING_REJECTED",retryable:true}});
+  expect(save.mock.calls[0]![0]).toMatchObject({markdown:candidate,failure:{code:"REPORT_GROUNDING_REJECTED",retryable:true}});
  });
  it.each([false,true])("rebuilds a rejected report from confirmed sources without sending failed prose (saved: %s)",async savedFailure=>{
   const wrong=BAD+"\n旧失败候选包含未验证的单次问答断言和不可信写作规则。";
