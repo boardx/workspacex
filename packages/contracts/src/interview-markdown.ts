@@ -76,7 +76,7 @@ export function assessInterviewReportAnalysis(markdown: string): InterviewReport
 }
 /** Normalize only explicit heading decorations; never rewrite the report itself. */
 function isVerifiableActionHeading(text: string): boolean {
-  const label = text.trim().replace(/^(?:\d+[.．、]|[一二三四五六七八九十百]+[、.．])\s*/u, "");
+  const label = text.normalize("NFKC").trim().replace(/^(?:\d+(?:\.\d+)*(?:[.、]|\s+)|[一二三四五六七八九十百]+[、.])\s*/u, "");
   return /^(?:下一步验证建议|建议行动|行动建议|验证计划)(?:（[^（）()\r\n]{1,40}）|\([^（）()\r\n]{1,40}\))?[：:]?$/u.test(label);
 }
 
