@@ -548,7 +548,7 @@ describe("bounded source screening batch work", () => {
 it.each([false, true])("rejects evidence that answers only a sibling of the task's confirmed question (adaptive=%s)", async (adaptive) => {
   const state = runtime(); state.outline[0]!.questions = ["赛事收入来自哪里？", "玩家留存如何？"];
   const questions = reportQuestions(state.outline);
-  state.tasks = tasksFromConfirmedQuestions(state);
+  state.tasks = questions.map((question, index) => ({ ...state.tasks[0]!, id: `precise-${index}`, sectionId: question.sectionId, questionId: question.id, objective: question.question }));
   const candidate = { ...direct, taskId: state.tasks[0]!.id };
   const model = vi.fn(async (_system: string, input: unknown, validate: (value: unknown) => void) => {
     const context = input as Input;
@@ -567,7 +567,8 @@ it("preserves question identity when task scheduling order differs from outline 
   const questions = reportQuestions(state.outline);
   state.tasks = tasksFromConfirmedQuestions(state);
   expect(state.tasks.map(task => task.sectionId)).toEqual(["first", "esports"]);
-  for (const task of state.tasks) expect(task.questionId).toBe(questions.find(question => question.sectionId === task.sectionId)!.id);
+  for (const task of state.tasks) expect(task).not.toHaveProperty("questionId");
+  expect(reportQuestions(state.outline)).toEqual(questions);
   const sources = state.tasks.map((task, index) => ({ ...direct, id: `source-${index}`, taskId: task.id }));
   const result = await screenResearchSources(state, sources, complete());
   expect(result.map(source => source.id)).toEqual(sources.map(source => source.id));
@@ -761,4 +762,61 @@ describe("pipeline-only adaptive source evidence", () => {
     expect(sources[5]).not.toHaveProperty("relevanceBasis");
   });
 
+});
+
+
+describe("initial chapter-shared search tasks", () => {
+  function planned() {
+    const state = runtime(); state.tasks = [];
+    state.outline = Array.from({ length: 5 }, (_, i) => ({ id: `section-${i}`, title: `External scope ${i}`, objective: `Compare public practices for scope ${i}`, questions: Array.from({ length: 3 }, (_, q) => `Core ${i}/${q}?`),
+      subsections: Array.from({ length: 3 }, (_, sub) => ({ id: `sub-${i}-${sub}`, title: `Dimension ${sub}`, questions: Array.from({ length: 3 }, (_, q) => `Detail ${i}/${sub}/${q}?`) })), order: i, enabled: true }));
+    return state;
+  }
+  it("derives five chapter tasks without changing the sixty confirmed evidence questions", () => {
+    const state = planned(); const before = structuredClone(state.outline); const questions = reportQuestions(state.outline);
+    state.tasks = tasksFromConfirmedQuestions(state);
+    expect(state.tasks).toHaveLength(5); expect(state.outline).toEqual(before); expect(reportQuestions(state.outline)).toEqual(questions); expect(questions).toHaveLength(60);
+    for (const task of state.tasks) {
+      const section = state.outline.find(section => section.id === task.sectionId)!;
+      expect(task).not.toHaveProperty("questionId"); expect(task.objective).toBe(section.objective);
+      expect(task.query).toContain(state.brief.topic); expect(task.query).toContain(state.brief.region); expect(task.query).toContain(section.title);
+    }
+  });
+  it("screens each chapter against all twelve exact question IDs rather than declaring whole-chapter coverage", async () => {
+    const state = planned(); state.tasks = tasksFromConfirmedQuestions(state); const questions = reportQuestions(state.outline);
+    const seen: Input[] = [];
+    const candidates = state.tasks.map((task, index) => ({ ...direct, id: `shared-${index}`, taskId: task.id }));
+    const retained = await screenResearchSources(state, candidates, async (_system, value, validate) => {
+      const input = value as Input; seen.push(input);
+      for (const chunk of input.chunks) {
+        const task = state.tasks.find(task => task.id === chunk.taskId)!;
+        expect(chunk.questionIds).toEqual(questions.filter(question => question.sectionId === task.sectionId).map(question => question.id));
+        expect(chunk.questionIds).toHaveLength(12);
+      }
+      const output = evaluation(input); validate(output); return output;
+    });
+    expect(retained).toHaveLength(5); expect(new Set(seen.flatMap(input => input.chunks.flatMap(chunk => chunk.questionIds))).size).toBe(60);
+    state.sources = retained;
+    const extracted = await extractReportEvidence(state, { provider: "controlled", id: "mock" }, async (input, validate) => {
+      const batch = JSON.parse(input.user) as Input;
+      return validate(JSON.stringify({ evaluations: batch.chunks.map(chunk => {
+        const source = state.sources.find(source => source.id === chunk.sourceId)!;
+        const task = state.tasks.find(task => task.id === source.taskId)!;
+        return { sourceId: chunk.sourceId, chunkId: chunk.chunkId, irrelevant: false, matches: [{ questionId: questions.find(question => question.sectionId === task.sectionId)!.id,
+          quoteRef: chunk.quoteOptions[0]!.quoteRef, insight: "This actual excerpt answers one question only.", relevance: "direct" }] };
+      }) }));
+    });
+    const coverage = selectQuestionEvidence(extracted, state.outline[0]!);
+    expect(coverage).toHaveLength(12); expect(coverage.filter(question => !question.gap)).toHaveLength(1); expect(coverage.filter(question => question.gap)).toHaveLength(11);
+  });
+  it.each(["foreign-question", "foreign-reference"] as const)("retains strict rejection for %s in a chapter-shared scope", async mode => {
+    const state = planned(); state.tasks = tasksFromConfirmedQuestions(state);
+    const model = vi.fn(async (_system: string, value: unknown, validate: (output: unknown) => void) => {
+      const input = value as Input; const chunk = input.chunks[0]!;
+      const output = { evaluations: [{ sourceId: chunk.sourceId, chunkId: chunk.chunkId, irrelevant: false, matches: [{ questionId: mode === "foreign-question" ? "chapter:1/question:0" : chunk.questionIds[0], quoteRef: mode === "foreign-reference" ? "foreign-chunk#quote:0" : chunk.quoteOptions[0]!.quoteRef, insight: "Controlled evidence", relevance: "direct" }] }] };
+      validate(output); return output;
+    });
+    await expect(screenResearchSources(state, [{ ...direct, taskId: state.tasks[0]!.id }], model)).rejects.toMatchObject({ reasonCode: "RESEARCH_SOURCE_RELEVANCE_INVALID" });
+    expect(model).toHaveBeenCalledTimes(2); expect(state.sources).toEqual([]);
+  });
 });

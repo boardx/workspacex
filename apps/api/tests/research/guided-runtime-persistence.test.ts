@@ -131,21 +131,28 @@ describe("durable research runtime with real PostgreSQL and controlled provider 
     await reachResearch();
     const reloaded = await service.get(actor, session);
     expect(reloaded.errorCode).toBeNull();
-    expect(reloaded.tasks).toHaveLength(4);
-    for (const task of reloaded.tasks) expect(task).toMatchObject({ status: "succeeded", questionId: expect.any(String), searchAttempts: [
+    expect(reloaded.tasks).toHaveLength(1);
+    for (const task of reloaded.tasks) expect(task).toMatchObject({ status: "succeeded", searchAttempts: [
       { query: task.query, status: "failed" },
       { query: recoveryQuery, status: "succeeded" },
     ] });
-    expect(searchCalls).toBe(8);
+    expect(reloaded.tasks[0]).not.toHaveProperty("questionId");
+    expect(reloaded.outline[0]!.questions).toHaveLength(1);
+    expect(reloaded.outline[0]!.subsections).toHaveLength(3);
+    expect(searchCalls).toBe(2);
     state = reloaded;
     await run("start");
     expect(state.errorCode).toBeNull();
-    expect(searchCalls).toBe(8);
+    expect(searchCalls).toBe(2);
     await run("complete");
     expect(state.errorCode).toBeNull();
     expect(state.report).not.toBeNull();
     const reportReloaded = await service.get(actor, session);
     expect(reportReloaded.report).toEqual(state.report);
+    expect(reportReloaded.coverage).toHaveLength(4);
+    expect(new Set(reportReloaded.coverage!.map(item => item.questionId)).size).toBe(4);
+    expect(reportReloaded.coverage!.every(item => item.sectionId === "o1" && item.status === "answered" && item.evidenceIds.length > 0)).toBe(true);
+    expect(reportReloaded.coverage!.every(item => reportReloaded.questionEvidence!.some(evidence => evidence.questionId === item.questionId && evidence.sectionId === item.sectionId && evidence.relevance === "direct"))).toBe(true);
     expect(reportReloaded.tasks.map(task => task.query)).toEqual(reloaded.tasks.map(task => task.query));
     expect(reportReloaded.tasks.map(task => task.searchAttempts)).toEqual(reloaded.tasks.map(task => task.searchAttempts));
   });
@@ -470,7 +477,7 @@ describe("durable research runtime with real PostgreSQL and controlled provider 
     await run("add_source", { sourceUrl: source.url + "#section" });
     expect(state.sources).toHaveLength(1); expect(state.sources[0]!.decision).toBe("accepted"); expect(searchCalls).toBe(before);
     await run("add_source", { sourceUrl: source.url });
-    expect(state.sources).toHaveLength(1); expect(state.tasks).toHaveLength(4);
+    expect(state.sources).toHaveLength(1); expect(state.tasks).toHaveLength(1);
     expect((await service.get(actor, session)).sources).toEqual(state.sources);
   });
   it("adds only matching retrieved URL evidence with succeeded provenance and idempotent replay", async () => {
@@ -546,8 +553,11 @@ describe("durable research runtime with real PostgreSQL and controlled provider 
   });
   it("persists failed searches and retries without fabricating sources", async () => {
     failSearch = true; await run("confirm"); await run("confirm"); await run("confirm");
-    expect(state.errorCode).toBe("RESEARCH_SEARCH_PARTIAL_FAILURE"); expect(state.sources).toEqual([]); expect(state.tasks).toHaveLength(4); expect(state.tasks.every(task => task.status === "failed")).toBe(true);
-    failSearch = false; await run("retry"); expect(state.errorCode).toBeNull(); expect(state.tasks.every(task => task.status === "succeeded" && task.attempts === 2)).toBe(true); expect(searchCalls).toBe(8);
+    expect(state.errorCode).toBe("RESEARCH_SEARCH_PARTIAL_FAILURE"); expect(state.sources).toEqual([]); expect(state.tasks).toHaveLength(1); expect(state.tasks.every(task => task.status === "failed")).toBe(true);
+    const failedTaskIds = state.tasks.map(task => task.id);
+    failSearch = false; await run("retry"); expect(state.errorCode).toBeNull(); expect(state.tasks.every(task => task.status === "succeeded" && task.attempts === 2)).toBe(true); expect(searchCalls).toBe(2);
+    expect(state.tasks.map(task => task.id)).toEqual(failedTaskIds);
+    expect((await service.get(actor, session)).tasks).toEqual(state.tasks);
   });
   it("rejects nonexistent sources, unknown citations and cross-node drafts", async () => {
     await reachResearch(); await run("start");

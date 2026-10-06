@@ -31,16 +31,16 @@ export function normalizedResearchUrl(value: string): string {
   } catch { throw new ResearchRuntimeError("RESEARCH_SOURCE_URL_INVALID"); }
 }
 
-/** The confirmed question remains in the outline and in the task objective;
- * derived provider query text alone has the existing 1000-character wire bound. */
+/** Initial search is shared within each chapter; confirmed questions remain
+ * untouched and evidence screening still receives every question in that scope. */
 export function tasksFromConfirmedQuestions(state: ResearchRuntime): Task[] {
   const sections = state.outline.filter(section => section.enabled);
-  const sectionOrder = new Map(sections.map(section => [section.id, section.order]));
-  // Derive question IDs from the same outline order used by evidence screening;
-  // scheduling order must not change the identity of a confirmed question.
-  return reportQuestions(sections).sort((a, b) => sectionOrder.get(a.sectionId)! - sectionOrder.get(b.sectionId)!).map(({ id: questionId, sectionId, question }) => C.GuidedResearchTask.parse({
-    id: randomUUID(), sectionId, questionId, title: sections.find(section => section.id === sectionId)!.title,
-    objective: question.slice(0, 2000), query: supplementQuery(state.brief.topic, state.brief.region, question),
+  reportQuestions(sections); // Preserve the existing confirmed-question budget validation.
+  const objectiveLimit = C.GuidedResearchTask.shape.objective.unwrap().maxLength!;
+  return [...sections].sort((a, b) => a.order - b.order).map(section => C.GuidedResearchTask.parse({
+    id: randomUUID(), sectionId: section.id, title: section.title,
+    objective: (section.objective || section.title).slice(0, objectiveLimit),
+    query: supplementQuery(state.brief.topic, state.brief.region, section.title),
     status: "pending", attempts: 0, errorCode: null,
   }));
 }
