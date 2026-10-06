@@ -9,6 +9,12 @@ class Producer(unittest.TestCase):
   def git(*args):return subprocess.check_output(['git','-C',str(repo),*args],stderr=subprocess.DEVNULL).decode().strip()
   git('add','.');git('-c','user.name=Fixture','-c','user.email=fixture@example.test','commit','-qm','fixture');head=git('rev-parse','HEAD')
   inv=p/'inventory.json';value={'schemaVersion':1,'observedAt':'2026-10-03T00:00:00Z','sourceInvocation':'untrusted-fixture','files':{source:{'target':'/usr/local/bin/fixture','present':True,'uid':0,'gid':0,'links':1,'regular':True,'symlink':False,'mode':'0755','sha256':'a'*64}}};inv.write_text(json.dumps(value));return repo,head,inv,value
+ def test_old_profile_allowlist_is_independent_and_complete(self):
+  files={'schema':None,'script':'/usr/local/lib/old.py'};content={'filesSha256':{'schema':'a'*64,'script':'b'*64}};inv={'files':{'schema':{'target':None},'script':{'target':'/usr/local/lib/old.py'}}}
+  m.old_profile_allowlist(content,files,inv)
+  for missing in files:
+   with self.subTest(missing=missing),self.assertRaises(Exception):m.old_profile_allowlist({'filesSha256':{k:v for k,v in content['filesSha256'].items() if k!=missing}},files,inv)
+  with self.assertRaises(Exception):m.old_profile_allowlist(content,files,{'files':{'schema':{'target':None},'script':{'target':'/usr/local/lib/foreign.py'}}})
  def test_review_only_package_and_readback(self):
   with tempfile.TemporaryDirectory(dir=pathlib.Path(tempfile.gettempdir()).resolve()) as d:
    p=pathlib.Path(d);repo,h,inv,v=self.fixture(p);out=p/'out';r=m.produce(repo,h,h,h,inv,out)
@@ -121,7 +127,19 @@ class Producer(unittest.TestCase):
   self.assertFalse(r['providerSuccessIndependentlyVerified']);self.assertFalse(r['installationAuthorized']);self.assertFalse(r['ready'])
   for key,value in [('present',True),('sha256','f'*64),('symlink',True)]:
    changed=json.loads(json.dumps(inv));changed['profiles'][r['target']][key]=value
-   with self.assertRaisesRegex(ValueError,'PROFILE_OLD_ABSENCE_REQUIRED'):m.profile_transaction('a'*40,rows,{source:raw},changed,json.dumps(changed).encode())
+   with self.assertRaisesRegex(ValueError,'PROFILE_OLD_(ABSENCE_REQUIRED|PRESENT_TRUST)'):m.profile_transaction('a'*40,rows,{source:raw},changed,json.dumps(changed).encode())
+ def test_profile_replace_recomputes_old_authority_and_rejects_expansion(self):
+  import base64,copy
+  source='.harness/scripts/vm/cn_maintenance_hold.py';raw=b"profile=Path('/etc/fixture/profile.json')\nread(profile,0o600)\n";digest=m.sha(raw);rows={source:{'newSha256':digest}}
+  content={'toolRevision':'b'*40,'filesSha256':{source:digest}};oldraw=(json.dumps(content,sort_keys=True)+'\n').encode()
+  old={'present':True,'regular':True,'symlink':False,'sha256':m.sha(oldraw),'mode':'0600','uid':0,'gid':0,'links':1,'rawBase64':base64.b64encode(oldraw).decode()}
+  inv={'profiles':{'/etc/fixture/profile.json':old},'files':{source:{'target':None}},'readOnly':True,'ready':False,'observedAt':'fixture-time','sourceInvocation':'fixture-provider'}
+  proposal=m.profile_transaction('a'*40,rows,{source:raw},inv,json.dumps(inv).encode());self.assertEqual(proposal['kind'],'reviewed-profile-replace-proposal');self.assertTrue(proposal['oldPresent']);self.assertEqual(proposal['oldIdentity'],old)
+  for key,value in [('uid',1000),('gid',1000),('links',2),('mode','0644'),('symlink',True),('sha256','0'*64),('rawBase64','invalid')]:
+   bad=copy.deepcopy(inv);bad['profiles']['/etc/fixture/profile.json'][key]=value
+   with self.subTest(key=key),self.assertRaises(ValueError):m.profile_transaction('a'*40,rows,{source:raw},bad,json.dumps(bad).encode())
+  bad=copy.deepcopy(inv);expanded=dict(content,backupPrivilege=True);data=(json.dumps(expanded,sort_keys=True)+'\n').encode();bad['profiles']['/etc/fixture/profile.json'].update(rawBase64=base64.b64encode(data).decode(),sha256=m.sha(data))
+  with self.assertRaisesRegex(ValueError,'OLD_CONTENT_AUTHORITY'):m.profile_transaction('a'*40,rows,{source:raw},bad,json.dumps(bad).encode())
  def test_profile_without_exact_consumer_contract_is_rejected(self):
   source='.harness/scripts/vm/cn_maintenance_hold.py';rows={source:{'newSha256':'a'*64}}
   with self.assertRaisesRegex(ValueError,'PROFILE_CONSUMER_CONTRACT'):m.profile_transaction('a'*40,rows,{source:b'profile="guessed"'}, {},b'{}')

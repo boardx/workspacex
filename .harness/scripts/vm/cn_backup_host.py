@@ -7,8 +7,8 @@ from cn_backup_sql import protected_authorization,capture,capture_scope,public_c
 from cn_backup_channel import BackupChannel
 from host_transport import private,SAFE_ENV
 
-def freshness_budget(host,now=None):
- now=time.time() if now is None else now;p=host['backup'];validate(p,now)
+def freshness_budget(host,now=None,*,expected_identity):
+ now=time.time() if now is None else now;p=host['backup'];validate(p,now,expected_identity=expected_identity)
  ts=host['connection']['transport'];require(set(ts)==set(DATABASES),'BACKUP_HOST_TRANSPORT_CLOSURE')
  deadlines=[]
  for t in ts.values():
@@ -19,16 +19,19 @@ def freshness_budget(host,now=None):
  require(deadline-now>120,'BACKUP_HOST_FRESHNESS_RESERVE');return deadline-120
 
 class BackupHost:
- def __init__(self,reference,read=private,channel=BackupChannel,clock=time.time):
+ def __init__(self,reference,read=private,channel=BackupChannel,clock=time.time,*,expected_identity=None):
   require(type(reference) is dict and set(reference)=={'path','sha256'},'BACKUP_HOST_REFERENCE')
   self.reference=reference;self.read=read;self.channel_factory=channel;self.clock=clock
   raw=read(reference['path']);require(hashlib.sha256(raw).hexdigest()==reference['sha256'],'BACKUP_HOST_PIN')
-  self.host=json.loads(raw);self.plan=self.host['backup'];validate(self.plan)
+  self.host=json.loads(raw);self.plan=self.host['backup']
   expected='/etc/workspacex-cn/maintenance-backup/'+self.plan['identity']['sourceRevision']+'/'+self.plan['identity']['attemptId']+'/host-plan.json'
   require(reference['path']==expected,'BACKUP_HOST_FIXED_PATH')
   profile=json.loads(read('/etc/workspacex-cn/trusted-tool-binding.json'))
   require(profile['backupHostPlan']==reference and profile['toolRevision']==self.plan['toolRevision'],'BACKUP_HOST_PROFILE')
-  self.deadline=freshness_budget(self.host,clock());self.channels={};self.password=None;self.authorization=None;self.scope=None
+  self.expected_identity=dict(self.host['identity'])
+  require(expected_identity is None or expected_identity==self.expected_identity,'BACKUP_HOST_EXPECTED_IDENTITY')
+  validate(self.plan,expected_identity=self.expected_identity)
+  self.deadline=freshness_budget(self.host,clock(),expected_identity=self.expected_identity);self.channels={};self.password=None;self.authorization=None;self.scope=None
  def require_lock(self,identity):
   require(identity==self.plan['identity'],'BACKUP_HOST_IDENTITY')
   from cn_maintenance_hold import require_canonical_lock
@@ -37,7 +40,7 @@ class BackupHost:
   require(not self.channels,'BACKUP_HOST_CHANNELS_ALREADY_OPEN')
   try:
    for db in DATABASES:
-    ch=self.channel_factory(self.reference,db);self.channels[db]=ch
+    ch=self.channel_factory(self.reference,db,expected_identity=self.expected_identity);self.channels[db]=ch
     require(ch.binding['peer']==self.host['databasePeers'][db] and ch.binding['role']=='migration_admin','BACKUP_HOST_ACTUAL_PEER')
    require(self.clock()<self.deadline,'BACKUP_HOST_CHANNEL_START_BUDGET')
   except BaseException:self.close_channels();raise
@@ -108,14 +111,14 @@ def docker_inventory(self):
 def canary(self):
  plain=b'WorkSpaceX protected backup CMS canary schemaVersion=1\n'
  cert=self.plan['recipientCertificate']['path'];key=self.plan['recipientKey']['path']
- enc=subprocess.run(encrypt_command(self.plan),input=plain,stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,env=SAFE_ENV,timeout=10,check=True).stdout
+ enc=subprocess.run(encrypt_command(self.plan,expected_identity=self.expected_identity),input=plain,stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,env=SAFE_ENV,timeout=10,check=True).stdout
  dec=subprocess.run(['/usr/bin/openssl','cms','-decrypt','-binary','-inform','DER','-recip',cert,'-inkey',key],input=enc,stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,env=SAFE_ENV,timeout=10,check=True).stdout
  require(dec==plain and hashlib.sha256(dec).digest()==hashlib.sha256(plain).digest(),'BACKUP_HOST_CMS_CANARY')
  return {'plaintextSha256':hashlib.sha256(plain).hexdigest(),'ciphertextSha256':hashlib.sha256(enc).hexdigest()}
 
 def verify_inputs(self,plan):
  require(plan==self.plan,'BACKUP_HOST_PLAN_DRIFT')
- self.authorization=protected_authorization(plan);verify_custody(self);self.certificate_preflight();canary(self)
+ self.authorization=protected_authorization(plan,expected_identity=self.expected_identity);verify_custody(self);self.certificate_preflight();canary(self)
  self.client_observation=verify_cached_clients(self)
  self.owner=hashlib.sha256(self.reference['sha256'].encode()).hexdigest()[:32];self.root=pathlib.Path(plan['outputRoot'])
  # No mkdir parents: installed root-private hierarchy is a required input.
@@ -139,7 +142,7 @@ def verify_inputs(self,plan):
   for row in docker_inventory(self):fixed_docker(self,['rm','-f',row['Id']])
  require(toc and hashlib.sha256(toc).hexdigest()==ref['tocSha256'],'BACKUP_HOST_PGRESTORE_CANARY_TOC')
  from cn_backup_watchdog import BackupWatchdog
- self.watchdog=BackupWatchdog(self.reference);self.compiled_sql=compile_role_sql(plan,self.scope);return self.scope
+ self.watchdog=BackupWatchdog(self.reference);self.compiled_sql=compile_role_sql(plan,self.scope,expected_identity=self.expected_identity);return self.scope
 
 def recheck_inputs(self,plan,objects=None):
  require(plan==self.plan and self.clock()<self.deadline,'BACKUP_HOST_EXPORT_BUDGET')
@@ -173,10 +176,10 @@ def export_owned_ciphertext(self,plan,db):
    if not pids:return None
    require(len(pids)==1,'BACKUP_HOST_PGDUMP_PID_UNIQUE')
    source=ObserverSource(self,ch,db,name,cid)
-   proof=BackupBackendCollector(source).collect(plan,db,cid,pids[0],app)
+   proof=BackupBackendCollector(source).collect(plan,db,cid,pids[0],app,expected_identity=self.expected_identity)
    atomic_metadata(proofpath,proof,replace=proofpath.exists());return True
   finally:ch.close()
- result=stream_ciphertext(dump_command(plan,db,name,self.owner),encrypt_command(plan),(db+'\n'+self.password+'\n'+app+'\n').encode(),str(self.root/(db+'.dump.cms')),observe,timeout_seconds=min(330,self.deadline-self.clock()))
+ result=stream_ciphertext(dump_command(plan,db,name,self.owner,expected_identity=self.expected_identity),encrypt_command(plan,expected_identity=self.expected_identity),(db+'\n'+self.password+'\n'+app+'\n').encode(),str(self.root/(db+'.dump.cms')),observe,timeout_seconds=min(330,self.deadline-self.clock()))
  proof=json.loads(self.read(str(proofpath)))
  require(proof['identity']==plan['identity'] and proof['kind']=='live-owned-pgdump-backend' and digest(proof['facts'])==proof['evidenceSha256'] and proof['facts']['applicationName']==app,'BACKUP_HOST_BACKEND_RECEIPT')
  return dict(result,database=db,role=ROLE,sourceAddress=proof['facts']['session']['clientAddr'],peerAddress=proof['facts']['peer']['serverAddr'],applicationName=app,recipientCertificateSha256=plan['recipientCertificate']['sha256'],readOnlyEvidence=proof['readOnlyEvidence'])
@@ -196,7 +199,7 @@ class ObserverSource:
  def verify_existing_no_tls_exception(self,plan,facts):return self.channel.verify_backup_transport(facts) is True
 
 def create_role_and_grants(self,plan,sql):
- require(plan==self.plan and sql==compile_role_sql(plan,self.scope) and self.clock()<self.deadline,'BACKUP_HOST_MUTATION_ADMISSION')
+ require(plan==self.plan and sql==compile_role_sql(plan,self.scope,expected_identity=self.expected_identity) and self.clock()<self.deadline,'BACKUP_HOST_MUTATION_ADMISSION')
  atomic_metadata(self.root/'parent-admin-sessions.json',{'identity':plan['identity'],'owner':self.owner,'sessions':{db:self.channels[db].binding for db in DATABASES}})
  self.watchdog.start()
  require(self.clock()<self.deadline and self.watchdog.process.poll() is None,'BACKUP_HOST_WATCHDOG_BUDGET_EXHAUSTED')

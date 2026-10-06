@@ -20,13 +20,13 @@ class RetainedBackupChannel:
  Existing control_connection.cjs rejects this operation; negotiated capability
  is mandatory. No fallback, constructor factory, reconnect, close or raw SQL.
  """
- def __init__(self,channel,db,host_plan,expected_binding):
+ def __init__(self,channel,db,host_plan,expected_binding,*,expected_identity):
   self.channel=channel;self.database=db;self.host=host_plan
   self.pinned=copy.deepcopy(expected_binding)
   require(channel.binding==self.pinned and channel.mode=='control','RETAINED_BACKUP_SESSION_BINDING')
   self.protocol={'kind':PROTOCOL,'identity':host_plan['backup']['identity'],
     'toolRevision':host_plan['backup']['toolRevision'],'database':db,
-    'queriesSha256':digest(query_table()),'mutationsSha256':digest(mutation_table(host_plan['backup'],host_plan['objectScope']))}
+    'queriesSha256':digest(query_table()),'mutationsSha256':digest(mutation_table(host_plan['backup'],host_plan['objectScope'],expected_identity=expected_identity))}
   require(getattr(channel,'retained_backup_protocol',None)==self.protocol,'RETAINED_BACKUP_PROTOCOL_NOT_INSTALLED')
  def cursor(self):return Cursor(self)
  def request(self,message,deadline_seconds=10):
@@ -56,9 +56,9 @@ class RetainedEpochAcquisition:
  """
  def __init__(self,backup_plan,approved_host_plan,actor,epoch_binding,runtime_sessions,approved_host_reference=None):
   self.backup=copy.deepcopy(backup_plan);self.host=copy.deepcopy(approved_host_plan);self.approved_host_reference=copy.deepcopy(approved_host_reference)
-  self.actor=actor;self.b=binding(epoch_binding);self.sessions=copy.deepcopy(runtime_sessions)
-  require(validate(self.backup)==self.b['identity'] and self.backup['toolRevision']==self.b['toolRevision'],'RETAINED_BACKUP_FIXED_IDENTITY')
-  require(self.host['backup']==self.backup and self.host['statements']==mutation_table(self.backup,self.host['objectScope']),'RETAINED_BACKUP_APPROVED_PLAN')
+  self.actor=actor;self.b=binding(epoch_binding,expected_identity=actor.identity);self.sessions=copy.deepcopy(runtime_sessions)
+  require(validate(self.backup,expected_identity=self.actor.identity)==self.b['identity'] and self.backup['toolRevision']==self.b['toolRevision'],'RETAINED_BACKUP_FIXED_IDENTITY')
+  require(self.host['backup']==self.backup and self.host['statements']==mutation_table(self.backup,self.host['objectScope'],expected_identity=self.actor.identity),'RETAINED_BACKUP_APPROVED_PLAN')
   require(set(self.sessions)=={'control','diagnostic'} and all(set(v)==set(DATABASES) for v in self.sessions.values()),'RETAINED_SIX_SESSION_CLOSURE')
   transport=actor.transport;self.transport=transport
   require(actor.identity==self.b['identity'] and actor.plan['holdGeneration']==self.b['holdGeneration'],'RETAINED_ACTOR_IDENTITY')
@@ -81,10 +81,10 @@ class RetainedEpochAcquisition:
   return refs
  def fixed_recipe(self):
   """Uses exact existing compiler; recipes are instructions, never success proof."""
-  sql=compile_role_sql(self.backup,self.host['objectScope']);owner=digest(self.b)[:32]
+  sql=compile_role_sql(self.backup,self.host['objectScope'],expected_identity=self.actor.identity);owner=digest(self.b)[:32]
   return {'fixedQueries':query_table(),'fixedMutations':self.host['statements'],'sqlSha256':digest(sql),
-    'dumpCommands':{db:dump_command(self.backup,db,'wsx-backup-'+owner,owner) for db in DATABASES},
-    'encryptCommand':encrypt_command(self.backup),'ready':False,'blockers':list(BLOCKERS)}
+    'dumpCommands':{db:dump_command(self.backup,db,'wsx-backup-'+owner,owner,expected_identity=self.actor.identity) for db in DATABASES},
+    'encryptCommand':encrypt_command(self.backup,expected_identity=self.actor.identity),'ready':False,'blockers':list(BLOCKERS)}
  def acquire(self,journal=None):
   """Explicit source-only acquisition using the protected retained host reference."""
   self.check_retained()
@@ -92,7 +92,7 @@ class RetainedEpochAcquisition:
   from retained_backup_host import RetainedBackupHost
   host=RetainedBackupHost(self.approved_host_reference,self.actor)
   require(host.plan==self.backup and host.host==self.host,'RETAINED_EPOCH_APPROVED_HOST_DRIFT')
-  return BackupLease(self.backup,host,journal).run()
+  return BackupLease(self.backup,host,journal,expected_identity=self.actor.identity).run()
  def collect_complete_refs(self,payload,reader,large_reader):
   require(all(payload[k]==self.b[k] for k in self.b),'RETAINED_COLLECTION_BINDING')
-  self.check_retained();return produce(payload,reader,large_reader)
+  self.check_retained();return produce(payload,reader,large_reader,expected_identity=self.actor.identity)

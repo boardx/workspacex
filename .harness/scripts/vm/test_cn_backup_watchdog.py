@@ -49,7 +49,7 @@ class WatchdogTests(unittest.TestCase):
  def test_parent_quiesce_failure_still_contains_without_verified_receipt(self):
   for close_fails in (False,True):
    with self.subTest(close_fails=close_fails):
-    host={'backup':{'authorization':{'notBefore':100,'expiresAt':1000},'timeoutSeconds':330},'connection':{'transport':{db:{'notBefore':100} for db in w.DATABASES}},'objectScope':{}}
+    host={'identity':{},'backup':{'toolRevision':'b'*40,'authorization':{'notBefore':100,'expiresAt':1000},'timeoutSeconds':330},'connection':{'transport':{db:{'notBefore':100} for db in w.DATABASES}},'objectScope':{}}
     raw=json.dumps(host).encode();reference={'path':'/fixture','sha256':hashlib.sha256(raw).hexdigest()}
     events=[];journal=[];closed=[];inventory_calls=[0];stdout=io.StringIO()
     def channel(reference,db,**kwargs):
@@ -61,14 +61,14 @@ class WatchdogTests(unittest.TestCase):
     def dispatch(*args,**kwargs):
      events.append(('dispatch',args[4]))
      if close_fails:raise RuntimeError('fixture close failed')
-    with patch.object(w,'private',return_value=raw),patch.object(w,'validate'),patch.object(w,'protected_authorization',return_value=SimpleNamespace(allowed_public_temp=())),patch.object(w,'BackupChannel',side_effect=channel),patch.object(w,'capture',return_value={'role':[],'sessions':[]}),patch.object(w,'dispatch',side_effect=dispatch),patch.object(w,'owned_inventory',side_effect=inventory),patch.object(w,'docker',side_effect=lambda args:events.append(('docker',args))),patch.object(w,'quiesce_parent_admin',side_effect=RuntimeError('fixture parent not joined')),patch.object(w.time,'time',return_value=100),patch.object(w.select,'select',return_value=([object()],[],[])),patch.object(w.sys,'stdin',SimpleNamespace(buffer=SimpleNamespace(fileno=lambda:123))),patch.object(w.os,'read',return_value=b''),patch.object(w,'journal_event',side_effect=lambda plan,state:journal.append(state)),patch.object(w.sys,'stdout',stdout):
+    with patch.object(w,'private',side_effect=lambda path: json.dumps({'backupHostPlan':reference,'toolRevision':'b'*40}).encode() if path=='/etc/workspacex-cn/trusted-tool-binding.json' else raw),patch.object(w,'validate'),patch.object(w,'protected_authorization',return_value=SimpleNamespace(allowed_public_temp=())),patch.object(w,'BackupChannel',side_effect=channel),patch.object(w,'capture',return_value={'role':[],'sessions':[]}),patch.object(w,'dispatch',side_effect=dispatch),patch.object(w,'owned_inventory',side_effect=inventory),patch.object(w,'docker',side_effect=lambda args:events.append(('docker',args))),patch.object(w,'quiesce_parent_admin',side_effect=RuntimeError('fixture parent not joined')),patch.object(w.time,'time',return_value=100),patch.object(w.select,'select',return_value=([object()],[],[])),patch.object(w.sys,'stdin',SimpleNamespace(buffer=SimpleNamespace(fileno=lambda:123))),patch.object(w.os,'read',return_value=b''),patch.object(w,'journal_event',side_effect=lambda plan,state:journal.append(state)),patch.object(w.sys,'stdout',stdout):
      with self.assertRaisesRegex(RuntimeError,'PARENT_ADMIN_LATE_COMMIT_UNKNOWN'):w.serve(reference)
     self.assertEqual(events,[('dispatch','close'),('docker',['rm','--force','a'*64])])
     self.assertEqual(journal,['cleanup-owner-preopened','cleanup-intent'])
     self.assertEqual(stdout.getvalue(),'{"kind":"backup-watchdog-ready"}\n')
     self.assertEqual(closed,list(w.DATABASES))
  def serve_fixture(self,message,expired=False,journal_error=False):
-  host={'backup':{'authorization':{'notBefore':100,'expiresAt':1000},'timeoutSeconds':330},'connection':{'transport':{db:{'expiresAt':1000,'notBefore':100} for db in w.DATABASES}},'objectScope':{}}
+  host={'identity':{},'backup':{'toolRevision':'b'*40,'authorization':{'notBefore':100,'expiresAt':1000},'timeoutSeconds':330},'connection':{'transport':{db:{'expiresAt':1000,'notBefore':100} for db in w.DATABASES}},'objectScope':{}}
   raw=json.dumps(host).encode();reference={'path':'/fixture','sha256':hashlib.sha256(raw).hexdigest()}
   channels=[]
   def channel(*args,**kwargs):
@@ -77,7 +77,7 @@ class WatchdogTests(unittest.TestCase):
   def cleaned(*args):cleanup.calls+=1;return {'kind':'owned-backup-cleanup-verified'}
   def event(plan,state):
    if journal_error and state=='cleanup-intent':raise OSError('fixture audit full disk')
-  with patch.object(w,'private',return_value=raw),patch.object(w,'validate'),patch.object(w,'protected_authorization',return_value=object()),patch.object(w,'BackupChannel',side_effect=channel),patch.object(w,'capture',return_value={'role':[]}),patch.object(w,'cleanup',side_effect=cleaned),patch.object(w,'quiesce_parent_admin'),patch.object(w.time,'time',side_effect=[100,100]+[1250]*20 if expired else None,return_value=100),patch.object(w.select,'select',return_value=([object()],[],[])),patch.object(w.sys,'stdin',SimpleNamespace(buffer=SimpleNamespace(fileno=lambda:123))),patch.object(w.os,'read',side_effect=[message,b'']),patch.object(w,'journal_event',side_effect=event),patch.object(w.sys,'stdout',io.StringIO()):
+  with patch.object(w,'private',side_effect=lambda path: json.dumps({'backupHostPlan':reference,'toolRevision':'b'*40}).encode() if path=='/etc/workspacex-cn/trusted-tool-binding.json' else raw),patch.object(w,'validate'),patch.object(w,'protected_authorization',return_value=object()),patch.object(w,'BackupChannel',side_effect=channel),patch.object(w,'capture',return_value={'role':[]}),patch.object(w,'cleanup',side_effect=cleaned),patch.object(w,'quiesce_parent_admin'),patch.object(w.time,'time',side_effect=[100,100]+[1250]*20 if expired else None,return_value=100),patch.object(w.select,'select',return_value=([object()],[],[])),patch.object(w.sys,'stdin',SimpleNamespace(buffer=SimpleNamespace(fileno=lambda:123))),patch.object(w.os,'read',side_effect=[message,b'']),patch.object(w,'journal_event',side_effect=event),patch.object(w.sys,'stdout',io.StringIO()):
    try:w.serve(reference)
    except (RuntimeError,OSError):
     if not journal_error and message in (b'',b'finish\n') or expired:raise

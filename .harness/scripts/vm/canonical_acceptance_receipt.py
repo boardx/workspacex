@@ -4,7 +4,8 @@ Canonical checks create no agent runs. No sibling source fallback.
 import datetime,time
 from writer_fence import require
 
-def canonical_receipt(plan,now=time.time):
+def canonical_receipt(plan,now=time.time,*,expected_identity):
+    require(plan.get('identity')==expected_identity,'CANONICAL_ORIGINAL_IDENTITY')
     # No arbitrary callback or supplied passed object; execute existing source.
     # Root FD loader supplies this exact byte-pinned compiled module.
     # Local tests must explicitly preload it; no sibling-path fallback.
@@ -14,7 +15,7 @@ def canonical_receipt(plan,now=time.time):
     browser=module.json.loads(module.private(plan['browserPlan']['path'],plan['browserPlan']['sha256']))
     return dict(schemaVersion=1,kind='canonical-acceptance-completed',identity=plan['identity'],deploymentMarker=browser['deploymentMarker'],observedAt=datetime.datetime.fromtimestamp(now(),datetime.timezone.utc).isoformat().replace('+00:00','Z'),ownedAcceptanceRunIds=[],checks=checks)
 
-def persist_canonical_receipt(plan,now=time.time):
+def persist_canonical_receipt(plan,now=time.time,*,expected_identity):
     from acceptance_receipt_store import publish_receipt
     # Calls actual source first; no supplied status/result argument.
-    return publish_receipt(plan['identity'],'canonical',canonical_receipt(plan,now))
+    return publish_receipt(plan['identity'],'canonical',canonical_receipt(plan,now,expected_identity=expected_identity),expected_identity=expected_identity)

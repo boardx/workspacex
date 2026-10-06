@@ -219,11 +219,12 @@ class EpochAuthorityWiringTests(unittest.TestCase):
         host=SimpleNamespace(plan={'identity':b['identity'],'acceptanceEvidence':accept},require_lock=lambda:None)
         t=CandidateStageHost(host,SimpleNamespace(value={'identity':b['identity']}));t.observe_hold=lambda:dict(schemaVersion=1,state='held',identity=b['identity'],host=b['host'],generation=b['holdGeneration'])
         private=lambda path:raw if path.endswith('trusted-tool-binding.json') else acceptance_raw
+        release_mock=patch.object(q,'approved_release',return_value='2026.10.3-cn.1');release_mock.start();self.addCleanup(release_mock.stop)
         authority=object()
         with patch('host_transport.private',side_effect=private),patch.object(q.recovery,'ProtectedArtifacts',return_value=reader),patch.object(q,'QualificationCodeAuthority',return_value=authority) as ctor,patch.object(q,'verify_existing_qualification',return_value={'epoch':inputs['refs']['epochManifest']}) as verify:
             result=t.verify_current_epoch(dict(collection=inputs['refs']['epochCollection'],manifest=inputs['refs']['epochManifest']),b)
         ctor.assert_called_once_with({sr:sourcepin},exe)
-        verify.assert_called_once_with(p,reader,entry['sourcePolicy'],code_authority=authority)
+        verify.assert_called_once_with(p,reader,entry['sourcePolicy'],expected_identity=b['identity'],expected_release='2026.10.3-cn.1',code_authority=authority)
         self.assertEqual(result['epochManifestSha256'],inputs['refs']['epochManifest']['sha256'])
         # Evidence cannot move an independently pinned source back inside its
         # private artifact tree or nominate a different runtime executable.

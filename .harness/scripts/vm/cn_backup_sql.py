@@ -155,9 +155,9 @@ def permission_gaps(facts,scope,phase='open',allowed_public_temp=()):
  return sorted(gaps)
 
 class ProtectedAuthorization:
- __slots__=('plan_sha256','expires_at','allowed_public_temp','_seal','_permissions')
- def __init__(self,plan_sha256,expires_at,allowed_public_temp,seal):
-  need(seal is _AUTH_SEAL,'BACKUP_SQL_AUTHORIZATION_ISSUER');self.plan_sha256=plan_sha256;self.expires_at=expires_at;self.allowed_public_temp=tuple(allowed_public_temp);self._seal=seal;self._permissions=None
+ __slots__=('plan_sha256','expires_at','allowed_public_temp','_seal','_permissions','expected_identity')
+ def __init__(self,plan_sha256,expires_at,allowed_public_temp,seal,expected_identity):
+  need(seal is _AUTH_SEAL,'BACKUP_SQL_AUTHORIZATION_ISSUER');self.plan_sha256=plan_sha256;self.expires_at=expires_at;self.allowed_public_temp=tuple(allowed_public_temp);self._seal=seal;self._permissions=None;self.expected_identity=dict(expected_identity)
 _AUTH_SEAL=object()
 def plan_digest(plan):return hashlib.sha256(json.dumps(plan,sort_keys=True,separators=(',',':')).encode()).hexdigest()
 def protected_json(path,expected):
@@ -168,8 +168,8 @@ def protected_json(path,expected):
  with os.fdopen(fd,'rb') as f:
   st=os.fstat(f.fileno());need(stat.S_ISREG(st.st_mode) and st.st_uid==0 and st.st_gid==0 and st.st_nlink==1 and stat.S_IMODE(st.st_mode)==0o600 and st.st_size<=65536,'BACKUP_APPROVAL_FILE');raw=f.read(65537)
  need(hashlib.sha256(raw).hexdigest()==expected,'BACKUP_APPROVAL_HASH');return json.loads(raw)
-def protected_authorization(plan):
- validate(plan);a=plan['authorization'];base=pathlib.Path('/etc/workspacex-cn/backup-approvals')/plan['identity']['attemptId']
+def protected_authorization(plan,*,expected_identity):
+ validate(plan,expected_identity=expected_identity);a=plan['authorization'];base=pathlib.Path('/etc/workspacex-cn/backup-approvals')/plan['identity']['attemptId']
  allowed=()
  for kind,key in (('role','roleApprovalSha256'),('public-capability','publicCapabilityApprovalSha256')):
   value=protected_json(base/(kind+'.json'),a[key]);required={'schemaVersion','identity','action','rdsInstanceId','ecsInstanceId','role','notBefore','expiresAt','functions','allowedPublicTemp'}
@@ -178,10 +178,10 @@ def protected_authorization(plan):
   delta=value['allowedPublicTemp']
   need(type(delta) is list and (delta==[] or (kind=='public-capability' and delta==list(DATABASES))),'BACKUP_PUBLIC_TEMP_APPROVAL_SCOPE')
   if kind=='public-capability':allowed=tuple(delta)
- return ProtectedAuthorization(plan_digest(plan),a['expiresAt'],allowed,_AUTH_SEAL)
+ return ProtectedAuthorization(plan_digest(plan),a['expiresAt'],allowed,_AUTH_SEAL,expected_identity)
 def authorization_check(auth,plan,cleanup=False):
  need(type(auth) is ProtectedAuthorization and auth._seal is _AUTH_SEAL and auth.plan_sha256==plan_digest(plan),'BACKUP_SQL_PROTECTED_AUTHORIZATION_REQUIRED')
- if not cleanup:need(time.time()<auth.expires_at,'BACKUP_SQL_AUTHORIZATION_EXPIRED');validate(plan)
+ if not cleanup:need(time.time()<auth.expires_at,'BACKUP_SQL_AUTHORIZATION_EXPIRED');validate(plan,expected_identity=auth.expected_identity)
 
 def verify_fresh_permissions(auth,plan,scope,connections):
  authorization_check(auth,plan)

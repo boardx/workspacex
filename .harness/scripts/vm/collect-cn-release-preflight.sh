@@ -2,6 +2,9 @@
 # Root-only aggregate collector. It performs live probes and atomically installs
 # one immutable attempt-scoped template for the lock-aware verifier.
 set -euo pipefail
+# Git location/config overrides cannot redirect the protected checkout authority.
+unset GIT_DIR GIT_WORK_TREE GIT_COMMON_DIR GIT_INDEX_FILE GIT_CONFIG GIT_CONFIG_COUNT GIT_CONFIG_PARAMETERS GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES
+export GIT_CONFIG_NOSYSTEM=1 GIT_CONFIG_GLOBAL=/dev/null GIT_NO_REPLACE_OBJECTS=1 GIT_NO_LAZY_FETCH=1
 operational=0
 admission_flag=--operational
 source_admission_flag=--operational-source
@@ -37,6 +40,9 @@ elif [[ -n ${CN_BUILD_TOOL_BINDING:-} ]]; then
   TOOL_SOURCE_DIR=$(python3 /usr/local/lib/workspacex-cn/cn-build-tool-identity.py "$CN_BUILD_TOOL_BINDING" "$revision" "$release" "$attempt_id" "$identity_phase") || exit 1
   [[ "$TOOL_SOURCE_DIR" == "${CN_BUILD_TOOL_ROOT:-}" ]] || exit 1
 fi
+if [[ "$phase" == artifact-build ]]; then
+  REPOSITORY_DIR=$(python3 /usr/local/lib/workspacex-cn/cn-build-tool-identity.py --verify-build-checkout "$CN_BUILD_TOOL_BINDING" "$revision" "$release" "$attempt_id" prebuild) || exit 1
+fi
 SOURCE_MIRROR=/opt/workspacex-cn/release-origin-cache.git
 CONFIG_FILE="/etc/workspacex-cn/candidate-configs/$revision/$attempt_id/deployment.json"
 PUBLISH_ENV=/etc/workspacex-cn/publish.env
@@ -55,7 +61,8 @@ private_root_file(){
 }
 
 [[ "$(readlink "/proc/$PPID/fd/9" 2>/dev/null || true)" == "$LOCK_FILE" ]] || fail "caller does not expose the canonical release lock"
-exec 8>"$LOCK_FILE"
+[[ -f "$LOCK_FILE" && ! -L "$LOCK_FILE" && "$(stat -c '%u:%g:%a:%h' "$LOCK_FILE")" == 0:0:600:1 ]] || fail "canonical release lock is not protected"
+exec 8<>"$LOCK_FILE"
 if flock -n 8; then flock -u 8; fail "canonical release lock is not held by this attempt"; fi
 
 [[ -d "$REPOSITORY_DIR/.git" && "$(git -C "$REPOSITORY_DIR" rev-parse HEAD)" == "$revision" ]] ||

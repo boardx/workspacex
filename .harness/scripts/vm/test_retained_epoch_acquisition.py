@@ -10,7 +10,7 @@ class RetainedTests(unittest.TestCase):
  def setUp(self):
   backup,scope=fixture();self.backup=backup
   self.b={'identity':backup['identity'],'toolRevision':backup['toolRevision'],'host':{'instanceId':'i-uf6ga92ewloganobbln6','bootId':'12345678-1234-1234-1234-123456789012'},'epoch':'c'*64,'holdGeneration':'d'*32}
-  self.host={'backup':backup,'objectScope':scope,'statements':mutation_table(backup,scope)}
+  self.host={'backup':backup,'objectScope':scope,'statements':mutation_table(backup,scope,expected_identity=backup['identity'])}
   self.sessions={mode:{db:{'pid':10+n+(100 if mode=='diagnostic' else 0),'backendStart':'start','peer':{'database':db},'role':'retained'} for n,db in enumerate(m.DATABASES)} for mode in ('control','diagnostic')}
   self.created=[];self.requests=[]
   self.transport=types.SimpleNamespace(**{mode+'_connections':{db:types.SimpleNamespace(binding=b,mode=mode,request=lambda payload:self.requests.append(payload)) for db,b in group.items()} for mode,group in self.sessions.items()})
@@ -19,7 +19,7 @@ class RetainedTests(unittest.TestCase):
  def test_existing_protocol_missing_fails_without_spawn(self):
   channel=self.transport.control_connections[m.DATABASES[0]]
   with patch('cn_backup_channel.subprocess.Popen',side_effect=AssertionError('new-admin-forbidden')):
-   with self.assertRaisesRegex(RuntimeError,'PROTOCOL_NOT_INSTALLED'):m.RetainedBackupChannel(channel,m.DATABASES[0],self.host,channel.binding)
+   with self.assertRaisesRegex(RuntimeError,'PROTOCOL_NOT_INSTALLED'):m.RetainedBackupChannel(channel,m.DATABASES[0],self.host,channel.binding,expected_identity=self.actor.identity)
   self.assertEqual(self.requests,[])
  def test_acquisition_blocked_before_any_backup(self):
   adapter=self.adapter()
@@ -42,8 +42,8 @@ class RetainedTests(unittest.TestCase):
   self.assertEqual(set(refs),{'held','drained'});self.assertEqual(len(writes),2);self.assertTrue(writes[1]['facts']['allWritersDrained']);self.assertEqual(self.requests,[])
  def test_fixed_cursor_rejects_arbitrary_sql(self):
   db=m.DATABASES[0];ch=self.transport.control_connections[db]
-  ch.retained_backup_protocol={'kind':m.PROTOCOL,'identity':self.backup['identity'],'toolRevision':self.backup['toolRevision'],'database':db,'queriesSha256':digest(query_table()),'mutationsSha256':digest(mutation_table(self.backup,self.host['objectScope']))}
-  adapter=m.RetainedBackupChannel(ch,db,self.host,ch.binding)
+  ch.retained_backup_protocol={'kind':m.PROTOCOL,'identity':self.backup['identity'],'toolRevision':self.backup['toolRevision'],'database':db,'queriesSha256':digest(query_table()),'mutationsSha256':digest(mutation_table(self.backup,self.host['objectScope'],expected_identity=self.actor.identity))}
+  adapter=m.RetainedBackupChannel(ch,db,self.host,ch.binding,expected_identity=self.actor.identity)
   with self.assertRaisesRegex(RuntimeError,'ARBITRARY_SQL'):adapter.cursor().execute('SELECT user_content FROM private')
   self.assertEqual(self.requests,[])
 if __name__=='__main__':unittest.main()

@@ -5,13 +5,13 @@ from writer_fence import digest
 def mock_call(transport,operation,*args):
  profile=json.dumps(dict(candidateComposeEmitter=dict(dockerPath='/usr/bin/docker',dockerSha256='d'*64,dockerSocket=dict(device=1,inode=2,uid=0,gid=0,mode=0o660)))).encode()
  source=types.SimpleNamespace(private=lambda _:profile,invoke=lambda _plan,_binary,cmd,*_:transport.host.run(['/usr/bin/docker',*cmd[4:]]))
- with patch.dict(sys.modules,{'compiled_maintenance_activation':source}),patch('candidate_readonly_docker.socket_authority',lambda e:e['dockerSocket']):return operation(*args)
+ with patch.dict(sys.modules,{'compiled_maintenance_activation':source}),patch('candidate_readonly_docker.socket_authority',lambda e:e['dockerSocket']):return operation(*args,expected_identity=transport.plan['identity'])
 class Tests(unittest.TestCase):
- def fixture(self):
-  n=1791133200.0;i=dict(sourceRevision=m.APP,baselineRevision=m.BASE,migrationPlanSha256='a'*64,attemptId='owned');p=dict(identity=i,holdGeneration='b'*32,candidateWriters=[]);f={};b=dict(identity=i,deploymentMarker='marker')
+ def fixture(self,source_revision=None):
+  n=1791133200.0;i=dict(sourceRevision=source_revision or m.APP,baselineRevision=m.BASE,migrationPlanSha256='a'*64,attemptId='owned');p=dict(identity=i,holdGeneration='b'*32,candidateWriters=[]);f={};b=dict(identity=i,deploymentMarker='marker')
   for lane in ('canonical','browser'):
    v=dict(schemaVersion=1,kind=lane+'-acceptance-completed',identity=i,deploymentMarker='marker',observedAt=datetime.datetime.fromtimestamp(n,datetime.timezone.utc).isoformat(),ownedAcceptanceRunIds=[] if lane=='canonical' else [lane+'-run'],checks={'status':'passed','lockRetained':True,'passedStages':8} if lane=='canonical' else {k:True for k in ('login','hello','asr','githubFeedbackRead','skillTool','pdfDownload')})
-   path=f'/etc/workspacex-cn/maintenance-acceptance/{m.APP}/owned/{lane}.json';raw=json.dumps(v).encode();f[path]=raw;b[lane+'Receipt']=dict(path=path,sha256=hashlib.sha256(raw).hexdigest())
+   path=f"/etc/workspacex-cn/maintenance-acceptance/{i['sourceRevision']}/owned/{lane}.json";raw=json.dumps(v).encode();f[path]=raw;b[lane+'Receipt']=dict(path=path,sha256=hashlib.sha256(raw).hexdigest())
   h=dict(schemaVersion=1,state='cleared',identity=i,generation='b'*32,sha256='c'*64,device=1,inode=2);d=[];calls=[]
   for x,s in enumerate(m.SERVICES):
    config=dict(Labels={'com.docker.compose.service':s});binding=dict(service=s,containerId=str(x)*64,imageId='image'+s,configSha256=digest(config));p['candidateWriters'].append(dict(binding=binding));d.append(dict(Id=binding['containerId'],Image=binding['imageId'],Config=config,State=dict(Status='running',Health=dict(Status='healthy'))))
@@ -46,4 +46,10 @@ class Tests(unittest.TestCase):
    count+=1;return dict(h,inode=2 if count==1 else 3)
   t.host.read_hold=hold
   with self.assertRaises(Exception):mock_call(t,m.collect_opened_host_evidence,t,b,f.__getitem__,lambda:n)
+ def test_a1cb_opened_receipts_and_readonly_health(self):
+  t,b,f,h,d,c,n=self.fixture('a1cb4c7683768566b0cf38ffe6a27b0a8c13f4f0');v=mock_call(t,m.collect_opened_host_evidence,t,b,f.__getitem__,lambda:n);self.assertEqual(v['identity'],b['identity'])
+ def test_mixed_original_identity_rejected_before_observation(self):
+  t,b,f,h,d,c,n=self.fixture();approved=dict(b['identity'],sourceRevision='e'*40)
+  with self.assertRaisesRegex(RuntimeError,'OPENED_IDENTITY'):m.collect_opened_host_evidence(t,b,f.__getitem__,lambda:n,expected_identity=approved)
+  self.assertEqual(c,[])
 if __name__=='__main__':unittest.main()

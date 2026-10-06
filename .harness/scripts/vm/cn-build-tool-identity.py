@@ -282,13 +282,71 @@ def sealed_receipt(binding,manifest_raw,seal_raw,prebuild_raw,inspect,validate_p
   actual=re.search(r'^Digest:\s+(sha256:[a-f0-9]{64})\s*$',inspect(image),re.M)
   require(actual and actual.group(1)==match.group(1),'REGISTRY_DIGEST_MISMATCH');digests[service]=image
  return {'schemaVersion':1,'mode':'build-only','applicationRevision':app,'toolRevision':binding['toolRevision'],'release':binding['release'],'attemptId':binding['attemptId'],'filesSha256':binding['filesSha256'],'applicationSource':binding['applicationSource'],'manifestSha256':hashlib.sha256(manifest_raw).hexdigest(),'sealSha256':hashlib.sha256(seal_raw).hexdigest(),'prebuildSha256':hashlib.sha256(prebuild_raw).hexdigest(),'images':digests,'registryReadbackVerified':True,'prepared':False,'productionActivated':False,'ready':False}
+
+def build_checkout(binding,app,attempt,create=False,*,base='/var/lib/workspacex-cn/build-checkouts',expected_uid=0,boundary=None):
+ """Fixed derived checkout only; CLI never accepts a checkout path or test boundary.
+ Caller has verified the protected binding and complete tool/installed closure.
+ Independent protected main pin is checked against the complete offline cache.
+ """
+ require(re.fullmatch('[a-f0-9]{40}',app) and re.fullmatch('[a-z0-9][a-z0-9._-]{0,127}',attempt),'BUILD_CHECKOUT_ARGUMENTS')
+ source=binding['applicationSource'];cache=pathlib.Path(source['path'])
+ expected_cache=(pathlib.Path(boundary)/'build-sources' if boundary is not None else pathlib.Path('/var/lib/workspacex-cn/build-sources'))/(app+'.git')
+ require(cache==expected_cache,'BUILD_CACHE_PATH')
+ expected_base=str(pathlib.Path(boundary)/'build-checkouts') if boundary is not None else '/var/lib/workspacex-cn/build-checkouts'
+ require(str(base)==expected_base,'BUILD_CHECKOUT_PATH')
+ trust_git_root(cache,True,expected_uid,boundary)
+ env={'PATH':'/usr/bin:/bin','HOME':'/nonexistent','GIT_CONFIG_NOSYSTEM':'1','GIT_CONFIG_GLOBAL':'/dev/null','GIT_NO_LAZY_FETCH':'1','GIT_NO_REPLACE_OBJECTS':'1','GIT_TERMINAL_PROMPT':'0'}
+ def git(root,*args):return subprocess.check_output(['/usr/bin/git',*GIT_OPTIONS,'-C',str(root),*args],env=env,stderr=subprocess.DEVNULL)
+ require(git(cache,'rev-parse','--is-bare-repository').strip()==b'true','BUILD_CACHE_BARE')
+ require(source.get('ref')=='refs/heads/candidate' and git(cache,'rev-parse',source['ref']+'^{commit}').decode().strip()==app,'BUILD_CACHE_CANDIDATE')
+ require(git(cache,'rev-parse',app+'^{tree}').decode().strip()==source['treeSha'] and hashlib.sha256(git(cache,'ls-tree','-r','-z',app)).hexdigest()==source['inventorySha256'],'BUILD_CACHE_HASH')
+ require(not os.path.lexists(cache/'shallow') and not list((cache/'objects/pack').glob('*.promisor')),'BUILD_CACHE_INCOMPLETE')
+ partial=subprocess.run(['/usr/bin/git',*GIT_OPTIONS,'-C',str(cache),'config','--local','--get-regexp','remote\\..*\\.promisor|extensions\\.partialclone'],env=env,stdout=subprocess.PIPE,stderr=subprocess.DEVNULL)
+ require(partial.returncode==1 and not partial.stdout,'BUILD_CACHE_PARTIAL')
+ git(cache,'fsck','--full','--no-reflogs')
+ main=binding.get('mainSource')
+ require(type(main) is dict and set(main)=={'ref','revision','repository'} and main['repository'] in (str(cache),binding.get('toolRoot')) and main['ref']==('refs/heads/main' if main['repository']==str(cache) else 'refs/remotes/origin/main') and type(main['revision']) is str and re.fullmatch('[a-f0-9]{40}',main['revision']),'BUILD_MAIN_AUTHORITY_REQUIRED')
+ main_repo=pathlib.Path(main['repository']);main_bare=main_repo==cache
+ trust_git_root(main_repo,main_bare,expected_uid,boundary)
+ main_gitdir=main_repo if main_bare else main_repo/'.git'
+ require(not os.path.lexists(main_gitdir/'shallow') and not list((main_gitdir/'objects/pack').glob('*.promisor')),'BUILD_MAIN_INCOMPLETE')
+ main_partial=subprocess.run(['/usr/bin/git',*GIT_OPTIONS,'-C',str(main_repo),'config','--local','--get-regexp','remote\\..*\\.promisor|extensions\\.partialclone'],env=env,stdout=subprocess.PIPE,stderr=subprocess.DEVNULL)
+ require(main_partial.returncode==1 and not main_partial.stdout,'BUILD_MAIN_PARTIAL')
+ git(main_repo,'fsck','--full','--no-reflogs')
+ require(git(main_repo,'rev-parse',main['ref']+'^{commit}').decode().strip()==main['revision'],'BUILD_MAIN_REF_DRIFT')
+ git(main_repo,'merge-base','--is-ancestor',app,main['revision'])
+ base=pathlib.Path(base);checkout=base/app/attempt
+ # All ancestors must already be protected; only owned derived directories are created.
+ def protected_dir(path):
+  s=path.lstat();require(stat.S_ISDIR(s.st_mode) and s.st_uid==expected_uid and not s.st_mode&0o022,'BUILD_CHECKOUT_PARENT_TRUST')
+ ancestors=list(base.parents)
+ for parent in ancestors:
+  if boundary is not None and parent==pathlib.Path(boundary).parent:break
+  protected_dir(parent)
+ for directory in (base,base/app):
+  if not os.path.lexists(directory):
+   require(create,'BUILD_CHECKOUT_MISSING');directory.mkdir(mode=0o700)
+  protected_dir(directory)
+ if not os.path.lexists(checkout):
+  require(create,'BUILD_CHECKOUT_MISSING')
+  # Clone into a new leaf without borrowing/shared objects; never reset/clean an existing tree.
+  subprocess.check_output(['/usr/bin/git',*GIT_OPTIONS,'clone','--no-local','--no-hardlinks','--no-checkout','--branch','candidate',str(cache),str(checkout)],env=env,stderr=subprocess.DEVNULL)
+  git(checkout,'checkout','--quiet','--detach',app)
+ trust_git_root(checkout,False,expected_uid,boundary)
+ require(git(checkout,'rev-parse','--show-toplevel').decode().strip()==str(checkout),'BUILD_CHECKOUT_WORKTREE')
+ require(git(checkout,'rev-parse','HEAD').decode().strip()==app and not git(checkout,'status','--porcelain'),'BUILD_CHECKOUT_IDENTITY')
+ require(git(checkout,'rev-parse','refs/remotes/origin/candidate^{commit}').decode().strip()==app,'BUILD_CHECKOUT_CANDIDATE_REF')
+ git(checkout,'fsck','--full','--no-reflogs')
+ return str(checkout)
+
 def main():
  completion_mode=len(sys.argv)>1 and sys.argv[1]=='--completion-checkout'
  receipt_mode=len(sys.argv)>1 and sys.argv[1]=='--receipt'
+ checkout_mode=len(sys.argv)>1 and sys.argv[1] in ('--build-checkout','--verify-build-checkout')
  source_mode=len(sys.argv)>1 and sys.argv[1] in ('--source','--operational-source','--maintenance-source')
  maintenance_mode=len(sys.argv)>1 and sys.argv[1] in ('--maintenance','--maintenance-source')
  operational_mode=len(sys.argv)>1 and sys.argv[1] in ('--operational','--operational-source')
- args=sys.argv[2:] if receipt_mode or source_mode or operational_mode or maintenance_mode else sys.argv[1:]
+ args=sys.argv[2:] if receipt_mode or source_mode or operational_mode or maintenance_mode or checkout_mode else sys.argv[1:]
  if completion_mode:
   require(len(sys.argv)==4 and re.fullmatch('[a-f0-9]{40}',sys.argv[2]) and re.fullmatch('[a-zA-Z0-9-]{1,128}',sys.argv[3]),'COMPLETION_ARGUMENTS')
   completion_app,completion_attempt=sys.argv[2:]
@@ -316,6 +374,10 @@ def main():
  require(config.returncode==1 and not config.stdout,'APPLICATION_PARTIAL_CONFIG')
  source_git('fsck','--full','--no-reflogs')
  require(hashlib.sha256(source_git('ls-tree','-r','-z',app)).hexdigest()==source['inventorySha256'],'APPLICATION_INVENTORY_DRIFT')
+ if checkout_mode:
+  from cn_maintenance_hold import require_canonical_lock
+  require_canonical_lock()
+  print(build_checkout(value,app,attempt,create=sys.argv[1]=='--build-checkout'));return
  if completion_mode:
   from cn_maintenance_hold import require_canonical_lock
   require_canonical_lock()

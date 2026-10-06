@@ -80,13 +80,13 @@ def _verify_network_transition(actual,frozen,candidate,approved=None,source_none
                     require(len(matches)==1 and value[prefix]==ipaddress.ip_network(matches[0]['Subnet']).prefixlen and value.get(gateway)==matches[0].get('Gateway',''),'CANDIDATE_CANONICAL_ENDPOINT_SUBNET')
                 else:require(value[prefix]==0 and value.get(gateway,'')=='','CANDIDATE_CANONICAL_EMPTY_ADDRESS')
 
-def candidate_canonical_receipt(transport,binding,now=time.time):
+def candidate_canonical_receipt(transport,binding,now=time.time,*,expected_identity):
     # Root FD closure supplies exact compiled helper bytes. It is used solely for
     # protected file/source reads and pinned Node execution, not legacy layout ops.
     import compiled_maintenance_activation as source
     require(type(binding) is dict and set(binding)=={'identity','candidateConfig','candidateNginx','stageInspection','browserPlan','nodeBinary'},'CANDIDATE_CANONICAL_BINDING')
     identity=binding['identity'];plan=transport.plan
-    require(identity==plan['identity'] and identity['sourceRevision']==APP and identity['baselineRevision']==BASE,'CANDIDATE_CANONICAL_IDENTITY')
+    require(identity==expected_identity and identity==plan['identity'] and type(identity['sourceRevision']) is str and re.fullmatch('[a-f0-9]{40}',identity['sourceRevision']) and identity['baselineRevision']==BASE,'CANDIDATE_CANONICAL_IDENTITY')
     transport.require_lock();transport._guard(copy.deepcopy(plan))
     stages=[]
     def read(ref,expected=None):
@@ -98,7 +98,7 @@ def candidate_canonical_receipt(transport,binding,now=time.time):
     # Nginx is a fixed protected path outside the configuration tree.
     ref=binding['candidateNginx'];require(type(ref) is dict and set(ref)=={'path','sha256'} and ref['path']=='/etc/nginx/conf.d/workspacex-cn.conf' and re.fullmatch('[a-f0-9]{64}',ref['sha256']),'CANDIDATE_CANONICAL_NGINX_REF')
     nginx=source.private(ref['path'],ref['sha256']);stages.append('candidate-nginx')
-    stage=json.loads(read(binding['stageInspection'],f"/etc/workspacex-cn/maintenance-candidate/{APP}/{identity['attemptId']}/stage-snapshot.json"))
+    stage=json.loads(read(binding['stageInspection'],f"/etc/workspacex-cn/maintenance-candidate/{identity['sourceRevision']}/{identity['attemptId']}/stage-snapshot.json"))
     require(type(stage) is dict and set(stage)=={'schemaVersion','kind','binding','sourceProfileSha256','composeRef','manifestRef','containers','candidateContainerIds','baselineContainerIds'} and stage['schemaVersion']==1 and stage['kind']=='source-inspected-candidate-stage-snapshot' and type(stage['containers']) is list,'CANDIDATE_CANONICAL_STAGE_PROOF')
     expected_bound=dict(identity=identity,toolRevision=transport.host.plan['toolRevision'],host=plan['host'],epoch=plan['epoch'],holdGeneration=plan['holdGeneration'])
     require(stage['binding']==expected_bound,'CANDIDATE_CANONICAL_STAGE_BINDING')
@@ -127,7 +127,7 @@ def candidate_canonical_receipt(transport,binding,now=time.time):
         if w in plan['candidateWriters']:
             require(b['composePath']==stage['composeRef']['path'] and b['composeSha256']==stage['composeRef']['sha256'],'CANDIDATE_CANONICAL_CANDIDATE_COMPOSE_REF')
             require(writers[w['key']]['state']=='running','CANDIDATE_CANONICAL_NOT_RUNNING');candidate_projects.add(labels.get('com.docker.compose.project'))
-            require(actual['Config']['Labels'].get('org.opencontainers.image.revision')==APP,'CANDIDATE_CANONICAL_IMAGE_SOURCE')
+            require(actual['Config']['Labels'].get('org.opencontainers.image.revision')==identity['sourceRevision'],'CANDIDATE_CANONICAL_IMAGE_SOURCE')
             if b['service']=='api':apis.append(b)
             if b['service'] in ('sandbox','sandbox-sessions'):require(actual['HostConfig']['NetworkMode']=='none' and set(actual['NetworkSettings']['Networks'])=={'none'},'CANDIDATE_CANONICAL_SANDBOX_NETWORK')
         else:
@@ -155,6 +155,6 @@ def candidate_canonical_receipt(transport,binding,now=time.time):
     require(len(stages)==8,'CANDIDATE_CANONICAL_STAGE_COUNT')
     return dict(schemaVersion=1,kind='canonical-acceptance-completed',identity=identity,deploymentMarker=browser['deploymentMarker'],observedAt=datetime.datetime.fromtimestamp(now(),datetime.timezone.utc).isoformat().replace('+00:00','Z'),ownedAcceptanceRunIds=[],checks=dict(status='passed',lockRetained=True,passedStages=8))
 
-def persist_candidate_canonical_receipt(transport,binding,now=time.time):
+def persist_candidate_canonical_receipt(transport,binding,now=time.time,*,expected_identity):
     from acceptance_receipt_store import publish_receipt
-    return publish_receipt(binding['identity'],'canonical',candidate_canonical_receipt(transport,binding,now))
+    return publish_receipt(binding['identity'],'canonical',candidate_canonical_receipt(transport,binding,now,expected_identity=expected_identity),expected_identity=expected_identity)

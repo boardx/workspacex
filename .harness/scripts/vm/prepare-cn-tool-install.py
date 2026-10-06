@@ -164,7 +164,28 @@ def profile_content(tool,rows,schema_raw=None,runtime=None):
  exec(compile(schema_raw,PROFILE_SCHEMA_SOURCE,'exec'),namespace)
  return namespace['build_profile'](tool,rows,runtime)
 
-def profile_transaction(tool,rows,payload,previous,previous_raw,receipt_binding=None):
+def old_profile_allowlist(content,old_files,inventory):
+ require(isinstance(old_files,dict) and old_files and set(content['filesSha256'])==set(old_files),'PROFILE_OLD_ALLOWLIST_CLOSURE')
+ require(all(inventory.get('files',{}).get(source,{}).get('target')==target for source,target in old_files.items()),'PROFILE_OLD_TARGET_AUTHORITY')
+
+def old_profile_binding(old,previous,old_schema_raw=None):
+ import base64,re
+ require(old.get('present') is True and old.get('regular') is True and old.get('symlink') is False and old.get('mode')=='0600' and all(type(old.get(k)) is int for k in ('uid','gid','links')) and (old['uid'],old['gid'],old['links'])==(0,0,1) and re.fullmatch('[a-f0-9]{64}',old.get('sha256','') or ''),'PROFILE_OLD_PRESENT_TRUST')
+ try:raw=base64.b64decode(old['rawBase64'],validate=True);content=json.loads(raw)
+ except Exception:require(False,'PROFILE_OLD_RAW')
+ require(len(raw)<=8000000 and sha(raw)==old['sha256'] and raw==(json.dumps(content,sort_keys=True)+'\n').encode(),'PROFILE_OLD_RAW_BINDING')
+ tool=content.get('toolRevision');require(re.fullmatch('[a-f0-9]{40}',tool or ''),'PROFILE_OLD_TOOL')
+ hashes=content.get('filesSha256');require(isinstance(hashes,dict) and hashes,'PROFILE_OLD_CLOSURE')
+ rows={}
+ for source,digest in hashes.items():
+  before=previous.get('files',{}).get(source);require(isinstance(before,dict),'PROFILE_OLD_SOURCE_INVENTORY')
+  target=before.get('target')
+  if target is not None:require(before.get('present') is True and before.get('regular') is True and before.get('symlink') is False and before.get('sha256')==digest and before.get('uid')==0 and before.get('gid')==0 and before.get('links')==1,'PROFILE_OLD_INSTALLED_BINDING')
+  rows[source]={'target':target,'newSha256':digest}
+ require(content==profile_content(tool,rows,old_schema_raw,previous.get('runtimes',{}).get('node')),'PROFILE_OLD_CONTENT_AUTHORITY')
+ return tool,rows
+
+def profile_transaction(tool,rows,payload,previous,previous_raw,receipt_binding=None,old_schema_raw=None):
  # Existing hold consumer is the authority for the profile location and mode.
  hold=[source for source in rows if pathlib.PurePosixPath(source).name=='cn_maintenance_hold.py']
  if len(hold)!=1:return None
@@ -178,10 +199,11 @@ def profile_transaction(tool,rows,payload,previous,previous_raw,receipt_binding=
  old=previous.get('profiles',{}).get(target)
  if old is None:return None
  require(previous.get('readOnly') is True and previous.get('ready') is False,'PROFILE_INVENTORY_READ_ONLY')
- require(old.get('present') is False and old.get('regular') is False and old.get('symlink') is False and all(old.get(k) is None for k in ('sha256','mode','uid','gid','links')),'PROFILE_OLD_ABSENCE_REQUIRED')
+ if old.get('present') is True:old_profile_binding(old,previous,old_schema_raw)
+ else:require(old.get('present') is False and old.get('regular') is False and old.get('symlink') is False and all(old.get(k) is None for k in ('sha256','mode','uid','gid','links')),'PROFILE_OLD_ABSENCE_REQUIRED')
  content=profile_content(tool,rows,payload.get(PROFILE_SCHEMA_SOURCE),previous.get('runtimes',{}).get('node'))
  content_raw=(json.dumps(content,sort_keys=True)+'\n').encode()
- return {'schemaVersion':1,'kind':'reviewed-profile-create-proposal','target':target,'mode':format(mode,'04o'),'uid':0,'gid':0,'links':1,'oldPresent':False,'oldIdentity':old,'previousInventorySha256':sha(previous_raw),'inventoryObservedAt':previous['observedAt'],'inventorySourceInvocation':previous['sourceInvocation'],'consumerSource':source,'consumerSha256':sha(raw),'consumerContract':'Python AST profile=Path(...) and read(profile,mode)','content':content,'newSha256':sha(content_raw),'bytes':len(content_raw),'inventoryEvidenceRef':'inventoryEvidenceV1' if receipt_binding else None,'providerSuccessIndependentlyVerified':False,'installationAuthorized':False,'ready':False}
+ return {'schemaVersion':1,'kind':'reviewed-profile-replace-proposal' if old['present'] else 'reviewed-profile-create-proposal','target':target,'mode':format(mode,'04o'),'uid':0,'gid':0,'links':1,'oldPresent':old['present'],'oldIdentity':old,'previousInventorySha256':sha(previous_raw),'inventoryObservedAt':previous['observedAt'],'inventorySourceInvocation':previous['sourceInvocation'],'consumerSource':source,'consumerSha256':sha(raw),'consumerContract':'Python AST profile=Path(...) and read(profile,mode)','content':content,'newSha256':sha(content_raw),'bytes':len(content_raw),'inventoryEvidenceRef':'inventoryEvidenceV1' if receipt_binding else None,'providerSuccessIndependentlyVerified':False,'installationAuthorized':False,'ready':False}
 def produce(repo,tool,app,main,inventory,output,provider_receipt=None,expected_provider=None,now=None):
  for value in (tool,app,main):require(re.fullmatch('[a-f0-9]{40}',value),'EXACT_REVISION')
  metadata_hash=trusted_local_git(repo)
@@ -217,7 +239,17 @@ def produce(repo,tool,app,main,inventory,output,provider_receipt=None,expected_p
  if provider_receipt is not None:
   receipt_raw=safe_file(provider_receipt);receipt_binding=verify_inventory_receipt(previous_raw,receipt_raw,expected_provider,now)
   evidence_payload={'inventory.json':previous_raw,'provider-receipt.json':receipt_raw}
- profile=profile_transaction(tool,rows,payload,previous,previous_raw,receipt_binding)
+ old_schema_raw=None
+ for old in previous.get('profiles',{}).values():
+  if old.get('present') is True:
+   import base64
+   old_content=json.loads(base64.b64decode(old['rawBase64'],validate=True));old_tool=old_content['toolRevision']
+   old_files=allowlist(git(repo,'show',old_tool+':.harness/scripts/vm/cn-build-tool-identity.py'))
+   old_profile_allowlist(old_content,old_files,previous)
+   old_schema_raw=git(repo,'show',old_tool+':'+PROFILE_SCHEMA_SOURCE) if PROFILE_SCHEMA_SOURCE in old_files else None
+   unused,old_rows=old_profile_binding(old,previous,old_schema_raw)
+   for source,row in old_rows.items():require(sha(git(repo,'show',old_tool+':'+source))==row['newSha256'],'PROFILE_OLD_GIT_CLOSURE')
+ profile=profile_transaction(tool,rows,payload,previous,previous_raw,receipt_binding,old_schema_raw)
  blockers=['TOOL_ROOT_GIT_ARTIFACT_NOT_PACKAGED','PRODUCTION_INSTALL_APPROVAL_MISSING']
  blockers.append('PROFILE_TRANSACTION_REVIEW_PENDING' if profile else 'ROOT_PROFILE_OLD_INVENTORY_MISSING')
  if profile and not receipt_binding:blockers.append('PROVIDER_RECEIPT_BINDING_MISSING')

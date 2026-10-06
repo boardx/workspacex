@@ -16,6 +16,12 @@ class Tests(unittest.TestCase):
     self.assertFalse(b.exists())
     if kind=='fault':self.assertEqual(a.read_bytes(),b'old')
     else:self.assertEqual(a.read_bytes(),b'new');self.assertTrue((backup/'diagnosis.json').exists())
+ def test_old_profile_allowlist_is_independent_and_complete(self):
+  files={'schema':None,'script':'/usr/local/lib/old.py'};content={'filesSha256':{'schema':'a'*64,'script':'b'*64}};inv={'files':{'schema':{'target':None},'script':{'target':'/usr/local/lib/old.py'}}}
+  m.old_profile_allowlist(content,files,inv)
+  for missing in files:
+   with self.subTest(missing=missing),self.assertRaises(Exception):m.old_profile_allowlist({'filesSha256':{k:v for k,v in content['filesSha256'].items() if k!=missing}},files,inv)
+  with self.assertRaises(Exception):m.old_profile_allowlist(content,files,{'files':{'schema':{'target':None},'script':{'target':'/usr/local/lib/foreign.py'}}})
  def test_success(self):self.run_case('success')
  def test_late_failure_restores_old_and_absent(self):self.run_case('fault')
  def test_same_bytes_foreign_inode_preserved(self):self.run_case('foreign')
@@ -130,6 +136,18 @@ class Tests(unittest.TestCase):
    with self.assertRaisesRegex(RuntimeError,'FRESHNESS'):m.profile_transaction(manifest,consumer,ir,rr,expected,now+3601)
    bad=dict(manifest,toolRevision=None)
    with self.assertRaisesRegex(RuntimeError,'EXACT_TOOL'):m.profile_transaction(bad,consumer,ir,rr,expected,now)
+   # Replacement uses fresh raw old bytes and flows into existing durable CAS/rollback.
+   import base64
+   oldcontent={'toolRevision':'a'*40,'filesSha256':{source:m.sha(consumer)}};oldraw=(json.dumps(oldcontent,sort_keys=True)+'\n').encode()
+   present={'present':True,'regular':True,'symlink':False,'sha256':m.sha(oldraw),'mode':'0600','uid':0,'gid':0,'links':1,'rawBase64':base64.b64encode(oldraw).decode()}
+   inv['profiles'][target]=present;inv['files'][source].update(present=True,regular=True,sha256=m.sha(consumer),mode='0700',uid=0,gid=0,links=1)
+   oldcontent={'toolRevision':'a'*40,'filesSha256':{source:m.sha(consumer)}}
+   ir=(json.dumps(inv,sort_keys=True)+'\n').encode();remote=dict(inv);del remote['sourceInvocation'];receipt.update(localInventorySha256=m.sha(ir),outputSha256=m.sha((json.dumps(remote,sort_keys=True)+'\n').encode()));rr=json.dumps(receipt).encode()
+   row.update(oldPresent=True,oldSha256=m.sha(consumer),oldMode='0700',oldUid=0,oldGid=0,oldNlink=1)
+   p.update(kind='reviewed-profile-replace-proposal',oldPresent=True,oldIdentity=present,previousInventorySha256=m.sha(ir));manifest['previousInventorySha256']=m.sha(ir)
+   replaced,unused=m.profile_transaction(manifest,consumer,ir,rr,expected,now);self.assertEqual(replaced['before'],{'sha256':m.sha(oldraw),'mode':0o600,'uid':0,'gid':0,'nlink':1})
+   bad=copy.deepcopy(manifest);bad['profileTransactionsV1'][0]['kind']='reviewed-profile-create-proposal'
+   with self.assertRaisesRegex(RuntimeError,'PROFILE_OPERATION'):m.profile_transaction(bad,consumer,ir,rr,expected,now)
    # Profile is an ordinary member of the exact same transaction and recovery journal.
    backup=root/'backup';backup.mkdir(mode=0o700);script=root/'script';script.write_bytes(b'old');script.chmod(0o600);uid=os.getuid();gid=os.getgid();pt=dict(pt,uid=uid,gid=gid)
    x={'destination':str(script),'payload':'script','before':{'sha256':m.sha(b'old'),'uid':uid,'gid':gid,'mode':0o600,'nlink':1},'sha256':m.sha(b'new'),'mode':0o700,'uid':uid,'gid':gid}
@@ -165,6 +183,12 @@ class Tests(unittest.TestCase):
    jp.write_bytes(original);bp.write_bytes(originalbinding)
    self.assertTrue(m.reviewed_recovery(backups,backup2.name,m.sha(original),admitted,[x,pt],uid,gid,root)['recovered'])
    self.assertFalse(pathlib.Path(target).exists());self.assertEqual(script.read_bytes(),b'old')
+   # Exact existing profile bytes are durably retained and restored on failed replacement.
+   path=pathlib.Path(target);path.write_bytes(oldraw);path.chmod(0o600);backup3=root/'replace-backup';backup3.mkdir(mode=0o700)
+   replaced=dict(replaced,uid=uid,gid=gid,before=dict(replaced['before'],uid=uid,gid=gid))
+   def fail_replace(i):raise RuntimeError('replacement-fixture-interrupt')
+   with self.assertRaisesRegex(RuntimeError,'replacement-fixture-interrupt'):m.transaction([replaced],{replaced['payload']:raw},backup3,uid,gid,root,fail_replace)
+   self.assertEqual(path.read_bytes(),oldraw);self.assertEqual((backup3/'0.before').read_bytes(),oldraw);self.assertEqual(json.loads((backup3/'journal.json').read_text())['state'],'recovered')
 
  def test_exclusive_absent_create_link_window_recovery(self):
   import signal

@@ -2,9 +2,9 @@
 // Source wrapper calls the actual six-journey runner; supplied passed JSON cannot
 // produce a receipt. It records the same SSE/persisted reads the runner consumes.
 const {run,finishedRun}=require('compiled_maintenance_browser');
-async function browserReceipt(plan,identity,chromium,now=()=>new Date()) {
+async function browserReceipt(plan,identity,chromium,now=()=>new Date(),expectedIdentity) {
  const keys=['sourceRevision','baselineRevision','migrationPlanSha256','attemptId'];
- if(!identity||Object.keys(identity).sort().join('|')!==keys.sort().join('|')||identity.sourceRevision!=='9b25bfa65662b96c0826fe67506b562ea46aa6d0'||identity.baselineRevision!=='ba6343199f3c834d6a198f83d0c771614292c82b'||!/^[a-f0-9]{64}$/.test(identity.migrationPlanSha256)||!/^[A-Za-z0-9-]{1,128}$/.test(identity.attemptId))throw Error('BROWSER_RECEIPT_FIXED_IDENTITY');
+ if(!identity||Object.keys(identity).sort().join('|')!==keys.sort().join('|')||!expectedIdentity||Object.keys(expectedIdentity).sort().join('|')!==keys.sort().join('|')||keys.some(k=>identity[k]!==expectedIdentity[k])||!/^[a-f0-9]{40}$/.test(identity.sourceRevision)||identity.baselineRevision!=='ba6343199f3c834d6a198f83d0c771614292c82b'||!/^[a-f0-9]{64}$/.test(identity.migrationPlanSha256)||!/^[A-Za-z0-9-]{1,128}$/.test(identity.attemptId))throw Error('BROWSER_RECEIPT_FIXED_IDENTITY');
  identity=Object.freeze({...identity}); plan=Object.freeze({...plan});
  const streamRuns=new Set(),persistedRuns=new Set();
  const wrapped={launch:async options=>{
