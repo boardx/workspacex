@@ -70,10 +70,10 @@ export function recordResearchFailure(debug: DebugTracePort | undefined, context
 
 /** A private, per-call validation event. Repairs may subsequently succeed.
  * Reuse the same allowlist as terminal diagnostics; never copy model output. */
-export function recordSourceRelevanceFailure(debug: DebugTracePort | undefined, context: { sessionId: string; callId: string; requestId?: string }, error: unknown) {
+export function recordSourceRelevanceFailure(debug: DebugTracePort | undefined, context: { sessionId: string; callId: string; requestId?: string; traceId?: string }, error: unknown) {
   try {
     if (!safeRelevanceIssues(error).length) return;
-    debug?.record({ traceId: context.requestId ?? context.sessionId, kind: "research.source_relevance.failed", level: "warn", msg: "Source relevance validation failed",
+    debug?.record({ traceId: context.traceId ?? context.requestId ?? context.sessionId, kind: "research.source_relevance.failed", level: "warn", msg: "Source relevance validation failed",
       data: { sessionId: context.sessionId, callId: context.callId, ...(context.requestId ? { requestId: context.requestId } : {}), errors: safeErrors(error) } });
   } catch { /* Diagnostic sink failure cannot replace the validation error. */ }
 }

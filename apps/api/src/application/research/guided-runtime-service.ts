@@ -215,7 +215,7 @@ export class GuidedRuntimeService {
         Object.assign(state, written);
         throw new ResearchRuntimeError("RESEARCH_WORKFLOW_PAUSED");
       }
-    }, { requestId: command.requestId, observe });
+    }, { requestId: command.requestId, traceId: diagnostic.traceId, observe });
     diagnostic.phase = "perform";
     try {
       await this.perform(state, command, persist, internalSources);
@@ -274,7 +274,7 @@ export class GuidedRuntimeService {
           value = parseOutput(result.text);
           validate?.(value);
         } catch (error) {
-          if (parseOutput === parseSourceRelevanceJson) recordSourceRelevanceFailure(this.debugTrace, { sessionId: state.sessionId, callId: call.id, requestId: persist.requestId }, error);
+          if (parseOutput === parseSourceRelevanceJson) recordSourceRelevanceFailure(this.debugTrace, { sessionId: state.sessionId, callId: call.id, requestId: persist.requestId, traceId: persist.traceId }, error);
           throw error;
         }
         const succeed = async () => { budget?.check(); check?.(); call.status = "succeeded"; };

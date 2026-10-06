@@ -255,6 +255,8 @@ describe("per-call source screening diagnostics", () => {
     expect(result.tasks[0]?.status).toBe("failed");
     expect(result.sources).toEqual([]);
     expect(f.events()).toHaveLength(2);
+    expect(f.traceId).not.toBe(f.command.requestId);
+    expect(f.events().map(event => event.traceId)).toEqual([f.traceId, f.traceId]);
     for (const event of f.events()) expect(event.data).toMatchObject({ sessionId: f.session.sessionId, requestId: f.command.requestId, callId: expect.any(String), errors: [{ type: "ResearchRuntimeError", reasonCode: "RESEARCH_SOURCE_RELEVANCE_INVALID", issues: [{ code: "invalid_json", path: [] }] }] });
     expect(new Set(f.events().map(event => event.data.callId)).size).toBe(2);
     expect(JSON.stringify(f.record.mock.calls)).not.toMatch(/PRIVATE_|rawOutput|quote|context/);
