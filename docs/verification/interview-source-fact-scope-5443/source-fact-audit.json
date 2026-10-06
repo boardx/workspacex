@@ -1,0 +1,64 @@
+{
+  "rawHash": "0b430025ae6be474818d35d76557ee5f3603a81ccb7bce1ab4ca74378fe22ff8",
+  "canonicalTaskCount": 2,
+  "canonicalPersonaCount": 2,
+  "qaCount": "UNKNOWN",
+  "claims": [
+    {
+      "text": "财务审批节点被阻断",
+      "utf16Start": 1490,
+      "utf16End": 1499,
+      "literalInConfirmedSources": false,
+      "scopeReview": "原文只记录预算低于报价，需要比较低成本方案；没有审批节点或审批行为记录。"
+    },
+    {
+      "text": "该约束通常由财务或采购负责人施加",
+      "utf16Start": 1530,
+      "utf16End": 1546,
+      "literalInConfirmedSources": false,
+      "scopeReview": "原文没有财务/采购负责人的归属、角色或施加约束行为，也没有发生频率。"
+    },
+    {
+      "text": "冲突表明现有产品尺寸或接口标准与特定厨房布局不兼容",
+      "utf16Start": 683,
+      "utf16End": 708,
+      "literalInConfirmedSources": false,
+      "scopeReview": "原文只记录插座位置与柜体孔位冲突；未记录产品尺寸、接口标准或兼容性检测。"
+    },
+    {
+      "text": "说明不同厨房条件下结果不同",
+      "utf16Start": 785,
+      "utf16End": 798,
+      "literalInConfirmedSources": false,
+      "scopeReview": "反例只记录一个场景安装顺利，没有确认厨房条件差异。"
+    }
+  ],
+  "confirmedSources": [
+    {
+      "documentId": "md-596da56b-fdb4-4cb8-a45b-4cca82fb2058",
+      "version": 1,
+      "contentHash": "5ada029be230b6b7ddb4791cf3ae846505c9bfc1a53dd632387028eeddf332b9"
+    },
+    {
+      "documentId": "md-36137985-bce9-44f2-8805-59155a2b926b",
+      "version": 1,
+      "contentHash": "a7c98c9aa5c121b126ae4d4ed62987020348df95005ddba12faabb2350343184"
+    },
+    {
+      "documentId": "md-d52f85d1-2b54-48ef-a0f5-681990cd6968",
+      "version": 1,
+      "contentHash": "5011b5ff0503eb5ab4ad29366cd027a269efefad949b77f98fc57095b369b643"
+    },
+    {
+      "documentId": "md-f4b1dc63-2df7-4a8d-a809-b27bc73d6fc9",
+      "version": 1,
+      "contentHash": "df0651dc54b2ace5d0bc7cb04409fefe2fe3644714076dfcd7cf959a96add5e8"
+    },
+    {
+      "documentId": "md-f637429d-b1dd-436b-bbc4-71b1ea486264",
+      "version": 1,
+      "contentHash": "8724c64d8d7c572530b99a2346ab2a3cfddb8346eaaaba73ec0cc16239cd0883"
+    }
+  ],
+  "meaningLimit": "Literal absence alone is not a semantic truth oracle; read the preserved source and report together. These concrete role/process/parameter claims exceed the recorded observation scope. No model, storage or raw rewriting."
+}

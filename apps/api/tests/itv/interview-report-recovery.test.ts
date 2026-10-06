@@ -31,6 +31,26 @@ beforeEach(() => {
  });
 });
 describe("bounded report quality recovery", () => {
+ it.each([false,true])("uses actual confirmed-source observation scope for initial and saved report requests (saved: %s)",async savedFailure=>{
+  snapshot=JSON.parse(readFileSync(resolve(process.cwd(),"../../docs/verification/interview-source-fact-scope-5443/wsx-5441-round1i-source.json"),"utf8"));
+  const previous=snapshot.documents.find(d=>d.step==="report")!;
+  const originalReport=previous.markdown;
+  if(!savedFailure){snapshot.documents=snapshot.documents.filter(d=>d.step!=="report");snapshot.states=snapshot.states.filter(s=>s.documentId!==previous.documentId);}
+  const before=structuredClone(snapshot);save.mockClear();complete.mockImplementationOnce(async request=>{
+   expect(request.user).toContain("原文观察→机制假设→未来行动");
+   expect(request.user).toContain("保留原文记录的对象、动作、条件和结果");
+   expect(request.user).toContain("信息空缺直接说明未知");
+   expect(request.user).toContain("补充机制就地标为待验证假设");
+   expect(request.user).toContain("服务端已绑定任务数：2；画像数：2");
+   expect(request.user).toContain("问答数量状态：不可确定");
+   expect(request.user).toContain("公开合成回答：预算低于报价，需要比较低成本方案。");
+   expect(request.user).not.toContain(originalReport);
+   throw new ModelCallError("MODEL_CALL_FAILED","controlled request inspection stops before any provider");
+  });
+  await expect(generateInterviewMarkdown(deps(),{...input,interviewId:snapshot.interviewId,expectedVersion:snapshot.version,expectedDocumentVersion:savedFailure?previous.version:0})).rejects.toThrow("AI_GENERATION_UNAVAILABLE");
+  expect(complete).toHaveBeenCalledTimes(1);expect(save).not.toHaveBeenCalled();expect(snapshot).toEqual(before);
+ });
+
  it("excludes a rejected candidate derived from observed prose and rejects a new affirmative claim",async()=>{
   snapshot=JSON.parse(readFileSync(resolve(process.cwd(),"../../docs/verification/interview-source-regeneration-5430/source.json"),"utf8"));
   const previous=snapshot.documents.find(document=>document.step==="report")!;
