@@ -320,7 +320,10 @@ export class GuidedRuntimeService {
       validateGeneratedResearchDesign(node, candidate.data.value);
     });
     if (node === "report") { updateReportTimeline(state, "validation", "running", { attempt: true }); await persist(); }
-    const draft = C.GuidedResearchRuntimeDraft.safeParse({ node, value });
+    // Model-generated brief metadata cannot rewrite the user's supplied scope.
+    const generatedValue = node === "brief" ? { ...state.brief,
+      topic: state.brief.topic.trim() === C.DEFAULT_RESEARCH_NAME ? (value as ResearchRuntime["brief"]).topic : state.brief.topic } : value;
+    const draft = C.GuidedResearchRuntimeDraft.safeParse({ node, value: generatedValue });
     if (!draft.success) throw new ResearchRuntimeError("RESEARCH_NODE_STATE_INVALID");
     validateGeneratedResearchDesign(node, draft.data.value);
     if (node === "report" && draft.data.node === "report" && (state.reportQualityWarnings?.length || (state.executionGoal === "report" && state.reportPartial))) {
