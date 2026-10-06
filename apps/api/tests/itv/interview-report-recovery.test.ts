@@ -32,6 +32,24 @@ beforeEach(() => {
  });
 });
 describe("bounded report quality recovery", () => {
+ it.each([false,true])("preserves actual source and aligns hypothesis updates across request layers (saved failure: %s)",async savedFailure=>{
+  snapshot=JSON.parse(readFileSync(new URL("./fixtures/hypothesis-update-5469/source.json",import.meta.url),"utf8"));
+  const previous=snapshot.documents.find(d=>d.step==="report")!;
+  if(!savedFailure){snapshot.documents=snapshot.documents.filter(d=>d.step!=="report");snapshot.states=snapshot.states.filter(state=>state.documentId!==previous.documentId);}
+  const before=structuredClone(snapshot);save.mockClear();complete.mockImplementationOnce(async request=>{
+   for(const layer of [request.system,request.user]){
+    expect(layer).toContain("反例首先检验所针对命题的范围");
+    expect(layer).toContain("削弱一个解释只调整该解释，其他解释的优先级依据其各自观测与比较条件");
+    expect(layer).toContain("已有计划中未指定的招募条件、任务内容和场地保持未指定");
+    expect(layer).not.toContain("不同场景的成功与失败属于情境差异");
+   }
+   expect(request.user).toContain("未来计划访谈五位用户，比较两种任务方案");
+   expect(request.user).not.toContain(previous.markdown);
+   throw new ModelCallError("MODEL_CALL_FAILED","controlled request inspection stops before provider dispatch");
+  });
+  await expect(generateInterviewMarkdown(deps(),{...input,interviewId:snapshot.interviewId,expectedVersion:snapshot.version,expectedDocumentVersion:savedFailure?previous.version:0})).rejects.toThrow("AI_GENERATION_UNAVAILABLE");
+  expect(complete).toHaveBeenCalledTimes(1);expect(save).not.toHaveBeenCalled();expect(snapshot).toEqual(before);
+ });
  it.each([["inference-dimensions-5459",false],["inference-dimensions-5459",true],["local-outcome-alignment-5464",false],["local-outcome-alignment-5464",true]] as const)("aligns result interpretation with measured outcomes using %s (derived failure: %s)",async (fixture,derivedFailed)=>{
   snapshot=JSON.parse(readFileSync(new URL(`./fixtures/${fixture}/source.json`,import.meta.url),"utf8"));
   const previous=snapshot.documents.find(d=>d.step==="report")!;const raw=previous.markdown;
@@ -64,8 +82,8 @@ describe("bounded report quality recovery", () => {
    snapshot.states.find(s=>s.documentId===previous.documentId)!.failure={code:"REPORT_GROUNDING_REJECTED",retryable:true};
   }else{snapshot.documents=snapshot.documents.filter(d=>d.step!=="report");snapshot.states=snapshot.states.filter(s=>s.documentId!==previous.documentId);}
   const before=structuredClone(snapshot);save.mockClear();complete.mockImplementationOnce(async request=>{
-   expect(request.user).toContain("分别记录已观察结果与待核实的解释变量");
-   expect(request.user).toContain("场景之间的条件差异由条件记录支持");
+   expect(request.user).toContain("反例首先检验所针对命题的范围");
+   expect(request.user).toContain("不同结果是否源于条件差异仍由条件记录和排查证据决定");
    expect(request.user).toContain("发生频率对应发生率，解决难度对应解决率与耗时，决策影响对应购买、暂缓或取消的变化");
    expect(request.user).toContain("缺少另一维度的数据时保留该维度未知，并安排对应的观察");
    expect(request.user).toContain("公开合成反例：一个场景安装顺利，不能推断所有场景都顺利。");
@@ -277,7 +295,7 @@ describe("bounded report quality recovery", () => {
    expect(request.user).toContain(REPORT_OUTCOME_GUIDANCE);
    expect(request.system).toContain("事实证据、研究者推论、待验证方案");
    expect(request.system).toContain("频率、排名、成本量级和因果必然性");
-   expect(request.system).toContain("不同场景的成功与失败属于情境差异");
+   expect(request.system).toContain("不同结果是否源于条件差异仍由条件记录和排查证据决定");
    expect(request.system).toContain("适用条件、反例或失效条件、具体验证方法");
    expect(request.system).toContain("按服务端任务与实际问答数量描述样本");
    expect(request.system).toContain("每条推论就地写成立条件");

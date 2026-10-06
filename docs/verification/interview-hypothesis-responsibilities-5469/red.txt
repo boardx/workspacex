@@ -1,0 +1,31 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/apps/api
+
+ ❯ tests/itv/interview-report-recovery.test.ts (51 tests | 2 failed) 809ms
+   × bounded report quality recovery > preserves actual source and aligns hypothesis updates across request layers (saved failure: false) 12ms
+     → expected [Function] to throw error including 'AI_GENERATION_UNAVAILABLE' but got 'expected \'你是专业用户研究员。只输出 Markdown 正文，…'
+   × bounded report quality recovery > preserves actual source and aligns hypothesis updates across request layers (saved failure: true) 102ms
+     → expected [Function] to throw error including 'AI_GENERATION_UNAVAILABLE' but got 'expected \'你是专业用户研究员。只输出 Markdown 正文，…'
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/itv/interview-report-recovery.test.ts > bounded report quality recovery > preserves actual source and aligns hypothesis updates across request layers (saved failure: false)
+ FAIL  tests/itv/interview-report-recovery.test.ts > bounded report quality recovery > preserves actual source and aligns hypothesis updates across request layers (saved failure: true)
+AssertionError: expected [Function] to throw error including 'AI_GENERATION_UNAVAILABLE' but got 'expected \'你是专业用户研究员。只输出 Markdown 正文，…'
+
+Expected: "AI_GENERATION_UNAVAILABLE"
+Received: "expected '你是专业用户研究员。只输出 Markdown 正文，不输出 JSON，不执…' to contain '反例首先检验所针对命题的范围'"
+
+ ❯ tests/itv/interview-report-recovery.test.ts:50:3
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 49 passed (51)
+   Start at  18:03:03
+   Duration  2.27s (transform 832ms, setup 0ms, collect 1.30s, tests 809ms, environment 0ms, prepare 41ms)
+
+undefined
+/Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run --config vitest.interview-markdown-unit.config.ts tests/itv/interview-report-recovery.test.ts
