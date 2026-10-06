@@ -1,3 +1,4 @@
+import { searchRecoveryResponseSchema } from "../../src/application/research/guided-search-recovery";
 import { fairTaskWork } from "../../src/application/research/guided-task-work";
 import { createHash } from "node:crypto";
 import { executeTaskPipeline } from "../../src/application/research/guided-task-pipeline";
@@ -877,5 +878,51 @@ describe("fair local primary/recovery task queues", () => {
       release(); expect(await operation).toBe(failure);
       const dispatched = [...starts]; await Promise.resolve(); expect(starts).toEqual(dispatched);
     } finally { release(); await operation; }
+  });
+});
+
+
+describe("saved negative-attempt recovery schema boundary", () => {
+  function savedNegative(questionIndex: 1 | 5) {
+    const state = seed();
+    state.outline[0]!.questions = Array.from({ length: 6 }, (_, index) => `Controlled public evidence question ${index}?`);
+    state.tasks = [{ ...state.tasks[0]!, questionId: `chapter:0/question:${questionIndex}`, objective: state.outline[0]!.questions[questionIndex], status: "failed", attempts: 1, errorCode: "RESEARCH_NODE_STATE_INVALID",
+      searchAttempts: [{ query: original, status: "failed", errorCode: "RESEARCH_SEARCH_NO_RELEVANT_SOURCES" }] }];
+    return state;
+  }
+  it.each([[1, {}], [5, { queries: [] }]] as const)("preserves question %s negative history when the recovery envelope is invalid", async (index, output) => {
+    const state = savedNegative(index); const f = fixture(state);
+    f.model.complete.mockResolvedValue({ text: JSON.stringify(output) });
+    const result = await f.run("retry");
+    expect(result.tasks[0]).toMatchObject({ status: "failed", errorCode: "RESEARCH_NODE_STATE_INVALID", questionId: state.tasks[0]!.questionId, searchAttempts: state.tasks[0]!.searchAttempts });
+    expect(result.errorCode).toBe("RESEARCH_SEARCH_PARTIAL_FAILURE"); expect(result.sources).toEqual([]);
+    expect(f.search).not.toHaveBeenCalled(); expect(f.model.complete).toHaveBeenCalledTimes(1);
+    const request = f.model.complete.mock.calls[0]![0] as unknown as { responseSchema?: { name: string; policy: string; schema: unknown } };
+    expect(request.responseSchema).toBe(searchRecoveryResponseSchema);
+    expect(request.responseSchema).toMatchObject({ name: "search_recovery", policy: "strict-if-supported" });
+    expect(C.GuidedResearchSearchRecoveryModelOutput.safeParse(output).success).toBe(false);
+  });
+  it.each(["positive", "negative", "wrong-question", "wrong-reference"] as const)("a valid recovery query requires strict %s evidence and retains the old negative attempt", async mode => {
+    const state = savedNegative(1); const f = fixture(state);
+    f.model.complete.mockImplementation(async input => {
+      const context = JSON.parse(input.user);
+      const request = input as unknown as { responseSchema?: { name: string; policy: string } };
+      if (context.researchStage === "search_recovery") {
+        expect(request.responseSchema).toMatchObject({ name: "search_recovery", policy: "strict-if-supported" });
+        return { text: JSON.stringify({ queries: [short] }) };
+      }
+      expect(request.responseSchema).toMatchObject({ name: "source_relevance", policy: "strict-if-supported" });
+      return { text: JSON.stringify({ evaluations: context.chunks.map((chunk: { sourceId: string; chunkId: string; questionIds: string[]; quoteOptions: { quoteRef: string }[] }) => ({ sourceId: chunk.sourceId, chunkId: chunk.chunkId, irrelevant: mode === "negative",
+        matches: mode === "negative" ? [] : [{ questionId: mode === "wrong-question" ? "foreign-question" : chunk.questionIds[0], quoteRef: mode === "wrong-reference" ? "foreign-chunk#quote:0" : chunk.quoteOptions[0]!.quoteRef, insight: "Controlled public evidence", relevance: "direct" }] })) }) };
+    });
+    const result = await f.run("retry");
+    expect(f.search.mock.calls.map(([query]) => query)).toEqual([short]);
+    expect(result.tasks[0]!.searchAttempts![0]).toEqual(state.tasks[0]!.searchAttempts![0]);
+    expect(result.tasks[0]!.questionId).toBe("chapter:0/question:1");
+    expect(result.tasks[0]!.status).toBe(mode === "positive" ? "succeeded" : "failed");
+    expect(result.tasks[0]!.searchAttempts![1]).toMatchObject({ query: short, status: mode === "positive" ? "succeeded" : "failed", errorCode: mode === "positive" ? null : mode === "negative" ? "RESEARCH_SEARCH_NO_RELEVANT_SOURCES" : "RESEARCH_SOURCE_RELEVANCE_INVALID" });
+    expect(result.sources.length).toBe(mode === "positive" ? 1 : 0);
+    expect(result.errorCode).toBe(mode === "positive" ? null : "RESEARCH_SEARCH_PARTIAL_FAILURE");
+    expect(f.model.complete).toHaveBeenCalledTimes(mode === "positive" || mode === "negative" ? 2 : 3);
   });
 });
