@@ -368,6 +368,7 @@ test("visual acceptance: compact selection in three viewports", async ({ page, r
       await page.setViewportSize(viewport);
       await page.getByTestId("board-zoom-fit-board").click();
       for (const kind of ["sticky", "text"] as const) {
+        await page.getByTestId("board-zoom-fit-board").click();
         const object = parseGeometry(original).find(value => value.kind === kind)!;
         const outline = page.getByTestId(`board-a11y-object-${object.id}`);
         await outline.focus(); await outline.press("Enter");
@@ -409,14 +410,18 @@ test("visual acceptance: compact selection in three viewports", async ({ page, r
           expect(target!.width).toBeGreaterThanOrEqual(44); expect(target!.height).toBeGreaterThanOrEqual(44);
         }
         await expect(page.getByTestId("board-add-frame")).toHaveCount(0); // testid-gate: absent Frame creation stays hidden in the approved core-tool scope
+        const screenshotPath = testInfo.outputPath(`${viewport.width}x${viewport.height}-${kind}-selected.png`);
+        await page.screenshot({ path: screenshotPath });
+        // Inspect 44px ports after fitting the selected object, so screen-space
+        // visibility policy does not hide them at the whole-board overview zoom.
+        await page.getByTestId("board-zoom-menu").click();
+        await page.getByTestId("board-zoom-fit-selection").click();
         const handles = page.locator(`[data-testid^="connector-handle-${object.id}-"]`);
         await expect(handles).toHaveCount(4);
         for (const handle of await handles.all()) {
           await expect(handle).toBeVisible(); const target = await handle.boundingBox();
           expect(target!.width).toBeGreaterThanOrEqual(44); expect(target!.height).toBeGreaterThanOrEqual(44);
         }
-        const screenshotPath = testInfo.outputPath(`${viewport.width}x${viewport.height}-${kind}-selected.png`);
-        await page.screenshot({ path: screenshotPath });
         await verifyEditorConnectorEntry(page, boardId, async (method, path, data) => (await apiRequest(request, token, method, path, data)).json(), async () => {
           await page.screenshot({ path: testInfo.outputPath(`${viewport.width}x${viewport.height}-${kind}-connector-picker.png`) });
         });
