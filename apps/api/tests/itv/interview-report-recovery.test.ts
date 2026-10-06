@@ -35,7 +35,9 @@ describe("bounded report quality recovery", () => {
   snapshot=JSON.parse(readFileSync(resolve(process.cwd(),"../../docs/verification/interview-source-regeneration-5430/source.json"),"utf8"));
   const previous=snapshot.documents.find(document=>document.step==="report")!;
   // The coordinated denial is now valid; retain the historical body and add a genuinely unsupported positive claim.
-  const candidate=previous.markdown+"\n跨专家共识已经形成。";
+  previous.markdown+="\n跨专家共识已经形成。";
+  previous.contentHash=createHash("sha256").update(previous.markdown).digest("hex");
+  const candidate=previous.markdown;
   complete.mockResolvedValue({text:candidate});
   await expect(generateInterviewMarkdown(deps(),{...input,interviewId:snapshot.interviewId,expectedVersion:snapshot.version,expectedDocumentVersion:previous.version})).rejects.toThrow("AI_GENERATION_UNAVAILABLE");
   expect(complete).toHaveBeenCalledTimes(1);
