@@ -59,13 +59,13 @@ it("streams changed snapshots and does not resend report text after token deltas
 });
 
 
-it("streams research metadata once per change and hydrates source bodies only in the final result", async () => {
+it.each(["research", "report"] as const)("streams research metadata and restores baseline source bodies at final %s", async finalNode => {
   const { GuidedResearchController } = await import("../../src/interface/controllers/guided-research.controller");
   const { vi } = await import("vitest");
   const source = { id: "source", taskId: "task", title: "Evidence", url: "https://example.org/evidence", content: "REAL_SOURCE_BODY".repeat(1000), retrievedAt: "now", decision: "accepted" as const };
   const busy = { ...state, version: 3, currentNode: "research" as const, busy: true, sources: [source] };
   const changed = { ...busy, sources: [{ ...source, title: "Updated evidence" }] };
-  const final = { ...busy, busy: false };
+  const final = { ...busy, currentNode: finalNode, busy: false };
   const execute = vi.fn(async (_scope, _session, _command, send) => {
     send({ type: "snapshot", state: busy });
     send({ type: "snapshot", state: { ...busy, leaseUntil: "later" } });
