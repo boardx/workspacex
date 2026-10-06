@@ -162,10 +162,6 @@ const ALLOWLIST = new Map([
     "schema/DDL machinery; its rls_probe row count feeds the migration idempotency digest, not a response",
   ],
   [
-    "src/infrastructure/auth/pg-organization-creation-repository.ts",
-    "Authenticated bootstrap: organizations/memberships INSERT-only; only creator-owned retry receipt is read, filtered by derived tenant/user/request. Returns only orgId and original request name. tests/auth/create-organization-repository.test.ts verifies isolation and atomic initialization.",
-  ],
-  [
     "src/infrastructure/auth/pg-registration-repository.ts",
     "F19 registration: WRITE-ONLY against tenant tables. `Guarded<T>` protects DISCLOSURE -- it makes it impossible to hand tenant content to a requester without a decision. This path discloses nothing: at the moment it runs the organization does not exist yet and there is no requester to judge, because the caller is an anonymous visitor holding an invite code. Wrapping an INSERT in a permission decision would mean asking 'may this person read the row they are creating', which has no answer. ⚠ The exemption is valid ONLY while the file stays write-only, so it is not left as a claim: tests/auth/registration-repo-is-write-only.test.ts parses the file and fails if any statement naming a tenant table is not an INSERT. If that test is ever deleted, this entry must go with it.",
   ],

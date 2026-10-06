@@ -58,6 +58,15 @@ export const validateSessionMock: z.infer<typeof auth.operations.validateSession
 /** validateSession 的失败模式全集——界面的异常态必须逐个覆盖 */
 export const validateSessionErrors = ["SESSION_EXPIRED","SESSION_REVOKED","AUTH_SERVICE_UNAVAILABLE"] as const;
 
+/** createOrganization 的成功响应样例（由契约生成） */
+export const createOrganizationMock: z.infer<typeof auth.operations.createOrganization.out> = {
+  "orgId": "orgId-1",
+  "orgName": "orgName-1"
+};
+
+/** createOrganization 的失败模式全集——界面的异常态必须逐个覆盖 */
+export const createOrganizationErrors = ["SESSION_REVOKED","EMAIL_NOT_VERIFIED","ORGANIZATION_CREATION_CONFLICT"] as const;
+
 /** registerNewAccount 的成功响应样例（由契约生成） */
 export const registerNewAccountMock: z.infer<typeof auth.operations.registerNewAccount.out> = {
   "userId": "userId-1",

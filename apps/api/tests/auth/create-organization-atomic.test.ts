@@ -1,3 +1,5 @@
+import { createOrganization, type CreateOrganizationInput } from "../../src/application/auth/create-organization";
+import type { CredentialRepository } from "../../src/application/auth/ports";
 // @global-scope-fixture table:credentials: only org-create-5494-* users; removed in afterAll.
 import { beforeAll, afterAll, describe, it, expect } from "vitest";
 import { randomUUID } from "node:crypto";
@@ -20,6 +22,9 @@ afterAll(async () => {
   });
   await db?.close();
 });
+function create(repo: PgOrganizationCreationRepository, value: CreateOrganizationInput) {
+  return createOrganization({ repo, credentials: { findByUserId: async () => ({ emailVerifiedAt: new Date() }) } as unknown as CredentialRepository }, value);
+}
 function input() {
   const value = { userId, orgName: "Atomic organization", requestId: randomUUID() };
   orgs.push(organizationCreationId(value.userId, value.requestId)); return value;
@@ -27,7 +32,7 @@ function input() {
 describe("real PostgreSQL organization creation", () => {
   it("concurrent retries create one organization, one owner and three standard agents; no account or tenant data copied", async () => {
     const value = input(); const repo = new PgOrganizationCreationRepository(db);
-    const results = await Promise.all(Array.from({ length: 4 }, () => repo.create(value)));
+    const results = await Promise.all(Array.from({ length: 4 }, () => create(repo, value)));
     expect(new Set(results.map(r => r.orgId)).size).toBe(1);
     await asOwner(async c => {
       const org = results[0]!.orgId;
@@ -43,7 +48,7 @@ describe("real PostgreSQL organization creation", () => {
     await db.withTenant(organizationCreationId(other.userId, other.requestId), async s => {
       expect((await s.query("SELECT * FROM organization_creation_requests")).rows).toHaveLength(0);
     });
-    await expect(repo.create({ ...value, orgName: "different" })).rejects.toThrow();
+    await expect(create(repo, { ...value, orgName: "different" })).rejects.toThrow();
   });
   it("agent initialization failure rolls back all writes; identical request succeeds on retry", async () => {
     const value = input();
@@ -58,6 +63,6 @@ describe("real PostgreSQL organization creation", () => {
     await asOwner(async c => {
       expect((await c.query("SELECT id FROM organizations WHERE id=$1", [organizationCreationId(value.userId, value.requestId)])).rowCount).toBe(0);
     });
-    await expect(new PgOrganizationCreationRepository(db).create(value)).resolves.toMatchObject({ orgName: value.orgName });
+    await expect(create(new PgOrganizationCreationRepository(db), value)).resolves.toMatchObject({ orgName: value.orgName });
   });
 });

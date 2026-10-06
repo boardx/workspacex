@@ -21,6 +21,15 @@ function database({ receipt, failAt }: { receipt?: string; failAt?: string } = {
   return { db, query, statements, tenant };
 }
 describe("existing account organization creation", () => {
+  it("withholds a receipt bound to another creator or retry request", async () => {
+    const { db } = database();
+    const receipt = await new PgOrganizationCreationRepository(db).create(input);
+    const credentials = { findByUserId: async () => ({ emailVerifiedAt: new Date() }) } as unknown as CredentialRepository;
+    for (const mismatch of [{ creatorId: "other-user" }, { requestId: "other-request" }]) {
+      await expect(createOrganization({ credentials, repo: { create: async () => ({ ...receipt, ...mismatch }) } }, input)).rejects.toThrow("SESSION_REVOKED");
+    }
+    expect("orgName" in receipt.result).toBe(false);
+  });
   it("validates name and forbids body nominated identities/tenants", () => {
     const schema = auth.operations.createOrganization.in;
     expect(schema.parse({ orgName: " 名称 ", requestId: input.requestId }).orgName).toBe("名称");
@@ -40,7 +49,7 @@ describe("existing account organization creation", () => {
   });
   it("uses one transaction for membership, standard agents and receipt without copying a tenant", async () => {
     const { db, tenant, statements, query } = database();
-    const result = await new PgOrganizationCreationRepository(db).create(input);
+    const result = await createOrganization({ credentials: { findByUserId: async () => ({ emailVerifiedAt: new Date() }) } as unknown as CredentialRepository, repo: new PgOrganizationCreationRepository(db) }, input);
     expect(result.orgName).toBe(input.orgName); expect(tenant).toHaveBeenCalledTimes(1);
     expect(tenant.mock.calls[0]![0]).toBe(result.orgId);
     expect(query.mock.calls.find(c => c[0].includes("SELECT org_name"))?.[1]).toEqual([result.orgId, input.userId, input.requestId]);

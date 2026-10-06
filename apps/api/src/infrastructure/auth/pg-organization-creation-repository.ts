@@ -1,7 +1,8 @@
+import { guard } from "../../application/security/permission-filter";
 import { createHash } from "node:crypto";
 import type { DatabasePort, TenantSession } from "../../application/ports/database.port";
 import { AuthError } from "../../application/auth/errors";
-import { OrganizationCreationConflict, type CreateOrganizationInput, type CreateOrganizationOutput, type OrganizationCreationRepository } from "../../application/auth/create-organization";
+import { OrganizationCreationConflict, type CreateOrganizationInput, type OrganizationCreationReceipt, type OrganizationCreationRepository } from "../../application/auth/create-organization";
 import { toOrgId, type OrgId } from "../../domain/org-id";
 import { BOOTSTRAP_WRITE_COLUMNS } from "../deploy/bootstrap-write-columns";
 import { ensureSystemAgent } from "../agent/pg-system-agent-repository";
@@ -26,7 +27,7 @@ function transactionDatabase(orgId: OrgId, session: TenantSession): DatabasePort
 }
 export class PgOrganizationCreationRepository implements OrganizationCreationRepository {
   constructor(private readonly db: DatabasePort) {}
-  async create(input: CreateOrganizationInput): Promise<CreateOrganizationOutput> {
+  async create(input: CreateOrganizationInput): Promise<OrganizationCreationReceipt> {
     const orgId = organizationCreationId(input.userId, input.requestId);
     return this.db.withTenant(orgId, async (s) => {
       await s.query("SELECT pg_advisory_xact_lock(hashtextextended($1, 5494))", [orgId]);
@@ -42,7 +43,7 @@ export class PgOrganizationCreationRepository implements OrganizationCreationRep
       );
       if (receipt.rows[0]) {
         if (receipt.rows[0].org_name !== input.orgName) throw new OrganizationCreationConflict();
-        return { orgId, orgName: receipt.rows[0].org_name };
+        return { creatorId: input.userId, requestId: input.requestId, result: guard({ kind: "organization", id: orgId }, { orgId, orgName: receipt.rows[0].org_name }) };
       }
       await s.query(
         `INSERT INTO organizations (${BOOTSTRAP_WRITE_COLUMNS.organization.join(", ")}) VALUES ($1,$2,'organization')`,
@@ -62,7 +63,7 @@ export class PgOrganizationCreationRepository implements OrganizationCreationRep
         "INSERT INTO organization_creation_requests (org_id,user_id,request_id,org_name) VALUES ($1,$2,$3,$4)",
         [orgId, input.userId, input.requestId, input.orgName],
       );
-      return { orgId, orgName: input.orgName };
+      return { creatorId: input.userId, requestId: input.requestId, result: guard({ kind: "organization", id: orgId }, { orgId, orgName: input.orgName }) };
     });
   }
 }

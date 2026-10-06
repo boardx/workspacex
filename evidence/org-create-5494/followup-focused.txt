@@ -1,0 +1,24 @@
+[stack-admission] load1=7.92 cores=10 perCore=0.79 running=1/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mux6epfl-30e6284d-e81fb88c6239 db=wsx_e81fb88c6239c9422e3f compose=wsx-e81fb88c6239c9422e3f pg=20972 redis=21972 api=24972 web=25972 sandbox=26972 model=27972 deep-agent=28972 asr=29972 vision=30972 loopback-sandbox=31972 mail=19972
+
+ RUN  v2.1.9 /Users/shenyanbin/Documents/Codex/2026-10-07/task-3/workspacex/apps/api
+
+[db-isolation] db=wsx_e81fb88c6239c9422e3f capacity=100 current=6 required=32
+ ✓ tests/auth/create-organization-repository.test.ts (8 tests) 12ms
+ ✓ tests/auth/create-organization-atomic.test.ts (2 tests) 12772ms
+ ✓ tests/auth/create-organization-http.test.ts (3 tests) 114ms
+
+ Test Files  3 passed (3)
+      Tests  13 passed (13)
+   Start at  05:13:48
+   Duration  18.58s (transform 1.13s, setup 15ms, collect 2.18s, tests 12.90s, environment 0ms, prepare 122ms)
+
+[db-isolation] db=wsx_e81fb88c6239c9422e3f peak_connections=6
+[timing] pnpm --filter @repo/api exec vitest run tests/auth/create-organization-repository.test.ts tests/auth/create-organization-atomic.test.ts tests/auth/create-organization-http.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：19s
+  清理：1s
+  总计：20s

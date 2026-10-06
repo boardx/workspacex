@@ -1,3 +1,4 @@
+import { guard } from "../../src/application/security/permission-filter";
 import "reflect-metadata";
 import { beforeAll, afterAll, describe, it, expect, vi } from "vitest";
 import { Module } from "@nestjs/common";
@@ -11,7 +12,7 @@ import * as ports from "../../src/application/auth/ports";
 import * as identity from "../../src/application/identity/ports";
 import { CAPABILITY_REPOSITORY } from "../../src/application/identity/capability-ports";
 import { OrganizationCreationConflict, ORGANIZATION_CREATION_REPOSITORY } from "../../src/application/auth/create-organization";
-const create = vi.fn(async () => ({ orgId: "org-new", orgName: "新组织" }));
+const create = vi.fn(async (input: { userId: string; requestId: string }) => ({ creatorId: input.userId, requestId: input.requestId, result: guard({ kind: "organization", id: "org-new" }, { orgId: "org-new", orgName: "新组织" }) }));
 const credentials = { findByUserId: vi.fn(async () => ({ emailVerifiedAt: new Date() })) };
 const tokens = [ports.SESSION_TOKEN_STORE, ports.CLOCK, identity.IDENTITY_REPOSITORY, identity.SESSION_STORE, identity.AUTHORIZATION_CACHE, CAPABILITY_REPOSITORY, identity.DECISION_ID_FACTORY, ports.REGISTRATION_REPOSITORY, ports.ORG_LIFECYCLE_REPOSITORY];
 @Module({ controllers: [AuthOrgController], providers: [
