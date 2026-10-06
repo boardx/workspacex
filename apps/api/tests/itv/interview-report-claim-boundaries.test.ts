@@ -57,12 +57,16 @@ describe("finite report claim boundaries", () => {
  });
  it.each([
   "不自动证明设备无固有缺陷。",
+  "不自动证明产品无固有缺陷。",
   "**反例比较**：安装顺利的场景与冲突场景属于情境差异，不自动证明设备无固有缺陷，也不证明冲突场景的风险已消除。",
  ])("keeps the observed immediate automatic-proof denial: %s", text => {
   expect(assessReportClaimBoundaries(text,[])).toEqual({ok:true,missing:[]});
  });
  it.each([
   "自动证明设备无固有缺陷。",
+  "自动证明产品无固有缺陷。",
+  "并非不自动证明产品无固有缺陷。",
+  "不能否认不自动证明产品无固有缺陷。",
   "并非不自动证明设备无固有缺陷。",
   "不能否认不自动证明设备无固有缺陷。",
   "不自动证明设备无固有缺陷，但是设备不存在固有缺陷。",
