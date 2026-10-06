@@ -1,0 +1,7 @@
+# Structured boundary recognition #5470
+
+Actual1m attempt1 raw hash 81012196a1fdd3618b6dbfd32bf692ce9efbbf157ada3b8e20192f68a4b016ac is preserved as a public fixture. It has substantive uncertainty paragraphs under headings omitted by the finite analysis labels. RED: four missing-dimension assertions fail and ten exclusion controls pass. GREEN: fourteen controls plus seventy existing Markdown tests pass; contracts typecheck passes.
+
+Only the boundary-dimension recognizer changes. Two explicit heading labels require unquoted researcher limitation prose inside their section. Empty, incidental, quoted, code, source-citation-only and sibling content fail. This does not validate factual or causal claims; actual whole-semantic FAIL remains recorded. Strict claim/grounding/CAS/call limits, original bytes and retry policy are unchanged. No model calls performed.
+
+Context audit: automatic repair excludes failed candidate as fact material and receives the finite missing enum; dedicated guidance exists for action/measurement/grounding but not boundary headings. Writer has multiple overlapping source/causal instructions. The observed first mechanical missing label does not prove these instructions cause semantic errors. Fixing AST dimension recognition is independently measurable; semantic hypothesis/plan responsibilities remain issue5469. No failed-candidate full text is injected as source.
