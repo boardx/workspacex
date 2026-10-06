@@ -4,10 +4,10 @@
 
  ✓ tests/whiteboard/board-insertion-placement.test.ts (2 tests) 1ms
  ✓ tests/whiteboard/chat-board-diagram-layout.test.ts (31 tests) 132ms
- ✓ tests/whiteboard/chat-board-handoff-retry.test.tsx (7 tests) 84ms
+ ✓ tests/whiteboard/chat-board-handoff-retry.test.tsx (7 tests) 83ms
 
  Test Files  3 passed (3)
       Tests  40 passed (40)
-   Start at  23:55:37
-   Duration  1.02s (transform 287ms, setup 229ms, collect 603ms, tests 217ms, environment 388ms, prepare 85ms)
+   Start at  00:00:36
+   Duration  969ms (transform 304ms, setup 259ms, collect 636ms, tests 217ms, environment 423ms, prepare 115ms)
 
