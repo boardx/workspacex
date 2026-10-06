@@ -52,6 +52,13 @@ try{
     await page.screenshot({path:join(out,`placement-${width}.png`),fullPage:true});
     expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
     const preview=page.getByTestId('chat-board-placement-preview'),box=await preview.boundingBox();
+    const range=page.getByTestId('chat-board-placement-range'),rangeBox=await range.boundingBox(),before=await range.getAttribute('x');
+    await page.mouse.move(rangeBox.x+rangeBox.width*.2,rangeBox.y+rangeBox.height*.2);await page.mouse.down();
+    expect(Number(await range.getAttribute('x'))).toBeCloseTo(Number(before),6);
+    await page.mouse.move(rangeBox.x+rangeBox.width*.2+15,rangeBox.y+rangeBox.height*.2+10,{steps:3});
+    expect(Number(await range.getAttribute('x'))).toBeGreaterThan(Number(before));
+    await preview.dispatchEvent('pointercancel');await page.mouse.up();
+    expect(Number(await range.getAttribute('x'))).toBeCloseTo(Number(before),6);
     await page.mouse.move(box.x+box.width*.75,box.y+box.height*.5);await page.mouse.down();
     await page.mouse.move(box.x+box.width*.7,box.y+box.height*.55,{steps:4});await page.mouse.up();
     const moved=await page.getByTestId('chat-board-placement-range').getAttribute('x');
@@ -68,6 +75,6 @@ try{
     expect(inserted.layout.objects.some(object=>object.text==='寻找实习')).toBe(true);
   }
   expect(errors).toEqual([]);
-  await writeFile(join(out,'browser-results.json'),JSON.stringify({fixture:'production UI, mocked Board API',viewports:[1280,768,375],checks:['no coordinate inputs','pointer drag','keyboard placement','cancel does not insert','target switch','JTBD submission','no horizontal overflow','no browser exceptions'],errors},null,2));
+  await writeFile(join(out,'browser-results.json'),JSON.stringify({fixture:'production UI, mocked Board API',viewports:[1280,768,375],checks:['no coordinate inputs','pointer drag without grab jump','pointer cancellation restores placement','keyboard placement','cancel does not insert','target switch','JTBD submission','no horizontal overflow','no browser exceptions'],errors},null,2));
   console.log('Browser placement checks passed at 1280 / 768 / 375.');
 }finally{await browser.close();await new Promise(resolve=>server.close(resolve));await rm(temp,{recursive:true,force:true});}

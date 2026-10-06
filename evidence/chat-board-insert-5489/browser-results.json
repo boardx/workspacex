@@ -7,7 +7,8 @@
   ],
   "checks": [
     "no coordinate inputs",
-    "pointer drag",
+    "pointer drag without grab jump",
+    "pointer cancellation restores placement",
     "keyboard placement",
     "cancel does not insert",
     "target switch",
