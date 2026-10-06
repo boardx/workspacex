@@ -58,6 +58,24 @@ describe("BoardX Google guided research search", () => {
   it.each([{}, { results: [{ ...hit, snippet: undefined }] }, { results: "invalid" }])("rejects malformed payload %j", async (body) => {
     await expect(new GoogleGuidedSearch(provider(body)).search("policy")).rejects.toMatchObject({ reasonCode: "RESEARCH_SEARCH_UNAVAILABLE" });
   });
+  it.each([null, undefined, 42])("isolates an invalid snippet %s while preserving a valid excerpt", async snippet => {
+    const fetcher = provider({ results: [{ ...hit, snippet }, hit] });
+    expect(await new GoogleGuidedSearch(fetcher).search("policy")).toEqual([{ title: hit.title, url: hit.url, content: hit.snippet }]);
+    expect(fetcher).toHaveBeenCalledTimes(1);
+  });
+  it("isolates malformed candidate shapes before deduplicating and limiting valid evidence", async () => {
+    const valid = Array.from({ length: 12 }, (_, index) => ({ ...hit, url: `https://example.org/${index}#section`, snippet: `Actual excerpt ${index}` }));
+    const result = await new GoogleGuidedSearch(provider({ results: [null, {}, { ...hit, title: null }, { ...hit, title: " " }, { ...hit, url: "not a URL" }, ...valid, valid[0]] })).search("policy");
+    expect(result).toEqual(valid.slice(0, 10).map(item => ({ title: item.title, url: item.url.split("#")[0], content: item.snippet })));
+  });
+  it.each(["javascript:alert(1)", "https://user:password@example.org/policy"])("does not admit unsafe %s alongside a valid result", async url => {
+    const fetcher = provider({ results: [hit, { ...hit, url }] });
+    await expect(new GoogleGuidedSearch(fetcher).search("policy")).rejects.toMatchObject({ reasonCode: "RESEARCH_CONTENT_REFERENCE_INVALID" });
+    expect(fetcher).toHaveBeenCalledTimes(1); expect(lookup).not.toHaveBeenCalled();
+  });
+  it("fails when every candidate is malformed rather than fabricating an empty success", async () => {
+    await expect(new GoogleGuidedSearch(provider({ results: [null, {}, { ...hit, snippet: null }] })).search("policy")).rejects.toMatchObject({ reasonCode: "RESEARCH_SEARCH_UNAVAILABLE" });
+  });
   it("returns empty search results for the runtime to persist as a failed task", async () => {
     expect(await new GoogleGuidedSearch(provider({ results: [] })).search("policy")).toEqual([]);
   });
