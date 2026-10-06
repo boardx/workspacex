@@ -43,6 +43,7 @@ describe("bounded report quality recovery", () => {
   expect(complete.mock.calls[1]![0].user).toContain("不得编造已完成检查");
   expect(save.mock.calls[0]![0].failure.code).toBe("REPORT_QUALITY_REJECTED");
   expect(snapshot.states.find(s=>s.documentId==="md-report")?.status).toBe("draft");
+ });
  it("gives action-only rejection concrete repair criteria before a bounded full rewrite", async () => {
   const missingAction = GOOD.replace(/^建议行动：.*$/mu, "").replace("决策影响：应优先验证客户偏好，暂缓统一渠道。", "决策影响：暂缓统一渠道，因为证据不足。");
   complete.mockResolvedValueOnce({text:missingAction}).mockResolvedValueOnce({text:GOOD});
