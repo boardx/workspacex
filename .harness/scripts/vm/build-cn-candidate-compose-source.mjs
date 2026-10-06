@@ -1,44 +1,55 @@
 #!/usr/bin/env node
-// Local source compilation only. No installation, Docker, network or host changes.
+// Local compilation/provenance only. Generated metadata does not grant production authority.
 import {createHash} from 'node:crypto';
-import {readFileSync,writeFileSync} from 'node:fs';
+import {readFileSync,writeFileSync,realpathSync} from 'node:fs';
+import {execFileSync} from 'node:child_process';
 import {createRequire} from 'node:module';
-import {resolve,isAbsolute} from 'node:path';
+import {resolve,isAbsolute,relative,sep} from 'node:path';
 import {fileURLToPath} from 'node:url';
 const root=fileURLToPath(new URL('../../../',import.meta.url));
-const output=process.argv[2];
-if(process.argv.length!==3||!isAbsolute(output)||!output.endsWith('.cjs'))throw Error('CANDIDATE_COMPOSE_BUILD_USAGE');
-const frozen={
- 'packages/cloud-deploy/src/compose.ts':'d9dc2c92e756009e1c8ce0f5bfcc97fb5344a982',
- 'packages/cloud-deploy/src/config.ts':'557e16d925acd1d564c05d3ed33cfcf1542947b8',
- 'packages/cloud-deploy/src/storage-config.ts':'648f2e64f8fba8bdeb6f3b10bd4a6c30a1239aa3',
- 'packages/cloud-deploy/src/release.ts':'e3961929b341788378d8225c1433ea64039fdef8',
- 'packages/cloud-deploy/src/image-reference.ts':'ee0dc00425423728d820360869cf8401890d0ad0',
- 'packages/cloud-deploy/src/runtime-bundle.ts':'17cfea0b613b86a8c53edaa37d80ae6788ae6bbe',
-};
+const [output,originalPath,originalSha,manifestPath,manifestSha,candidateGit]=process.argv.slice(2);
+if(process.argv.length!==8||![output,originalPath,manifestPath,candidateGit].every(p=>typeof p==='string'&&isAbsolute(p))||!output.endsWith('.cjs'))throw Error('CANDIDATE_COMPOSE_BUILD_USAGE');
+const hash=raw=>createHash('sha256').update(raw).digest('hex');
+const blob=raw=>createHash('sha1').update(`blob ${raw.length}\0`).update(raw).digest('hex');
+const pinned=(path,sha)=>{if(!/^[a-f0-9]{64}$/.test(sha))throw Error('CANDIDATE_COMPOSE_BUILD_PIN');const raw=readFileSync(path);if(hash(raw)!==sha)throw Error('CANDIDATE_COMPOSE_BUILD_PIN');return{raw,value:JSON.parse(raw)};};
+const original=pinned(originalPath,originalSha),manifest=pinned(manifestPath,manifestSha),plan=original.value,id=plan.identity;
+if(plan.schemaVersion!==1||plan.mode!=='maintenance-all-writer-fence'||plan.productionActionsAuthorized!==true||plan.runtimeSessionBootstrapAuthorized!==true||['runtimeSourcePlanSha256','runtimePlan','controlSessions','diagnosticSessions'].some(k=>k in plan)||!id||Object.keys(id).sort().join(',')!=='attemptId,baselineRevision,migrationPlanSha256,sourceRevision'||!/^[a-f0-9]{40}$/.test(id.sourceRevision)||id.baselineRevision!=='ba6343199f3c834d6a198f83d0c771614292c82b'||!/^[a-f0-9]{64}$/.test(id.migrationPlanSha256)||!/^[A-Za-z0-9-]{1,128}$/.test(id.attemptId)||!/^[a-f0-9]{40}$/.test(plan.toolRevision)||manifest.value.sourceRevision!==id.sourceRevision||manifest.value.platform!=='linux/amd64'||!/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(manifest.value.release))throw Error('CANDIDATE_COMPOSE_BUILD_IDENTITY');
+// External Git environment must never redirect the selected ordinary repository.
+const gitEnv=Object.fromEntries(Object.entries(process.env).filter(([key])=>!key.startsWith('GIT_')));
+Object.assign(gitEnv,{GIT_CONFIG_NOSYSTEM:'1',GIT_CONFIG_GLOBAL:'/dev/null',GIT_CONFIG_SYSTEM:'/dev/null',GIT_NO_REPLACE_OBJECTS:'1',GIT_NO_LAZY_FETCH:'1',GIT_TERMINAL_PROMPT:'0'});
+const git=(cwd,args)=>execFileSync('git',['--no-replace-objects','-c','core.fsmonitor=false','-c','core.hooksPath=/dev/null','-C',cwd,...args],{env:gitEnv,maxBuffer:16*1024*1024});
+if(git(candidateGit,['rev-parse',id.sourceRevision+'^{commit}']).toString().trim()!==id.sourceRevision)throw Error('CANDIDATE_COMPOSE_APP_GIT');
+const emitterSourceRevision=git(root,['rev-parse','HEAD']).toString().trim();
 const sources={};
-for(const [path,blob]of Object.entries(frozen)){
- const raw=readFileSync(resolve(root,path));
- const actual=createHash('sha1').update(`blob ${raw.length}\0`).update(raw).digest('hex');
- if(actual!==blob)throw Error('CANDIDATE_COMPOSE_FROZEN_SOURCE_DRIFT');
- sources[path]={gitBlob:blob,sha256:createHash('sha256').update(raw).digest('hex')};
-}
+const recordTool=path=>{
+ const raw=readFileSync(resolve(root,path)),committed=git(root,['show',emitterSourceRevision+':'+path]);
+ if(!raw.equals(committed))throw Error('CANDIDATE_COMPOSE_UNCOMMITTED_TOOL_SOURCE');
+ sources[path]={gitBlob:blob(raw),sha256:hash(raw)};
+};
+const native=['compose.ts','config.ts','storage-config.ts','release.ts','image-reference.ts','runtime-bundle.ts'];
+for(const name of native){const path='packages/cloud-deploy/src/'+name;const raw=git(candidateGit,['show',id.sourceRevision+':'+path]);if(!readFileSync(resolve(root,path)).equals(raw))throw Error('CANDIDATE_COMPOSE_NATIVE_SOURCE_DRIFT');sources[path]={gitBlob:blob(raw),sha256:hash(raw)};}
 const entry='packages/cloud-deploy/src/cn-candidate-compose-source-cli.ts';
-const local=['packages/cloud-deploy/src/cn-candidate-compose-source.ts',entry,'.harness/scripts/vm/build-cn-candidate-compose-source.mjs'];
-for(const path of local)sources[path]={sha256:createHash('sha256').update(readFileSync(resolve(root,path))).digest('hex')};
-// Reuse the frozen workspace's existing desktop esbuild dependency, never download.
-const require=createRequire(resolve(root,'apps/desktop/package.json'));
-const esbuild=require('esbuild');
+for(const path of ['packages/cloud-deploy/src/cn-candidate-compose-source.ts',entry,'.harness/scripts/vm/build-cn-candidate-compose-source.mjs'])recordTool(path);
+const require=createRequire(resolve(root,'apps/desktop/package.json')),esbuild=require('esbuild');
 if(esbuild.version!=='0.24.2')throw Error('CANDIDATE_COMPOSE_COMPILER_VERSION');
-const result=await esbuild.build({absWorkingDir:root,entryPoints:[entry],bundle:true,platform:'node',format:'cjs',
- target:'node22',outfile:output,write:false,metafile:true,logLevel:'silent'});
-for(const path of Object.keys(result.metafile.inputs))if(!path.startsWith('node_modules/') && !sources[path])throw Error('CANDIDATE_COMPOSE_UNPINNED_SOURCE');
-const dependencies={};
-for(const path of Object.keys(result.metafile.inputs))if(path.startsWith('node_modules/'))dependencies[path]=createHash('sha256').update(readFileSync(resolve(root,path))).digest('hex');
-const raw=result.outputFiles[0].contents;
-const closure={schemaVersion:1,sourceRevision:'9b25bfa65662b96c0826fe67506b562ea46aa6d0',compiler:{name:'esbuild',version:esbuild.version},
- sources,dependencies,lockfileSha256:createHash('sha256').update(readFileSync(resolve(root,'pnpm-lock.yaml'))).digest('hex'),bundleSha256:createHash('sha256').update(raw).digest('hex'),bundledInputs:Object.keys(result.metafile.inputs).sort()};
-// Create-once local output. Root installation/profile binding is a separate reviewed action.
-writeFileSync(output,raw,{flag:'wx',mode:0o600});
-writeFileSync(output+'.source-closure.json',JSON.stringify(closure,null,2)+'\n',{flag:'wx',mode:0o600});
-console.log(JSON.stringify({bundleSha256:closure.bundleSha256,sourceClosure:output+'.source-closure.json'}));
+const result=await esbuild.build({absWorkingDir:root,entryPoints:[entry],bundle:true,platform:'node',format:'cjs',target:'node22',outfile:output,write:false,metafile:true,logLevel:'silent'});
+const dependencies={},bundledInputs=[],dependencyRoot=realpathSync(resolve(root,'node_modules'));
+for(const path of Object.keys(result.metafile.inputs)){
+ const actual=realpathSync(resolve(root,path)),dep=relative(dependencyRoot,actual);
+ if(dep!==''&&!dep.startsWith('..'+sep)&&dep!=='..'&&!isAbsolute(dep)){
+  const canonical='node_modules/'+dep.split(sep).join('/');dependencies[canonical]=hash(readFileSync(actual));bundledInputs.push(canonical);
+ }else{
+  if(!path.startsWith('packages/cloud-deploy/src/'))throw Error('CANDIDATE_COMPOSE_UNPINNED_SOURCE');
+  if(!sources[path])recordTool(path);bundledInputs.push(path);
+ }
+}
+
+if(!sources['packages/cloud-deploy/src/cn-maintenance-host/source_plan_authority.ts'])throw Error('CANDIDATE_COMPOSE_AUTHORITY_SOURCE_MISSING');
+const raw=result.outputFiles[0].contents,lockfile=readFileSync(resolve(root,'pnpm-lock.yaml'));
+if(!lockfile.equals(git(root,['show',emitterSourceRevision+':pnpm-lock.yaml'])))throw Error('CANDIDATE_COMPOSE_UNCOMMITTED_LOCKFILE');
+const closure={schemaVersion:2,sourceRevision:id.sourceRevision,identity:id,toolRevision:plan.toolRevision,originalPlanSha256:originalSha,emitterSourceRevision,release:manifest.value.release,compiler:{name:'esbuild',version:esbuild.version},sources,dependencies,lockfileSha256:hash(lockfile),bundleSha256:hash(raw),bundledInputs:[...new Set(bundledInputs)].sort()};
+if(!readFileSync(originalPath).equals(original.raw)||!readFileSync(manifestPath).equals(manifest.raw))throw Error('CANDIDATE_COMPOSE_BUILD_AUTHORITY_DRIFT');
+for(const [path,pin]of Object.entries(sources))if(hash(readFileSync(resolve(root,path)))!==pin.sha256)throw Error('CANDIDATE_COMPOSE_BUILD_SOURCE_DRIFT');
+for(const [path,pin]of Object.entries(dependencies))if(hash(readFileSync(resolve(root,path)))!==pin)throw Error('CANDIDATE_COMPOSE_BUILD_DEPENDENCY_DRIFT');
+writeFileSync(output,raw,{flag:'wx',mode:0o600});writeFileSync(output+'.source-closure.json',JSON.stringify(closure,null,2)+'\n',{flag:'wx',mode:0o600});
+console.log(JSON.stringify({bundleSha256:closure.bundleSha256,sourceClosure:output+'.source-closure.json',productionAuthorized:false}));

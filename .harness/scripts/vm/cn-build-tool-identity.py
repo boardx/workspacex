@@ -127,6 +127,7 @@ FILES={
  'packages/cloud-deploy/src/cn-maintenance-host/reused_actions.ts':None,
  'packages/cloud-deploy/src/cn-maintenance-host/sealed_runtime.ts':None,
  'packages/cloud-deploy/src/cn-maintenance-host/source_production_consumers.ts':None,
+ 'packages/cloud-deploy/src/cn-maintenance-host/source_plan_authority.ts':None,
  'packages/cloud-deploy/src/cn-maintenance-host/typed_operations.ts':None,
  'packages/cloud-deploy/src/cn-migration-completion-cli.ts':None,
  'packages/cloud-deploy/src/cn-migration-completion.ts':None,

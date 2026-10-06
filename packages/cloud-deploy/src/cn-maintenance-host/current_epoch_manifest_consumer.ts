@@ -1,3 +1,4 @@
+import {assertSourcePlanAuthority,assertPreholdArchiveAuthority,type OriginalPlanAuthority} from './source_plan_authority';
 import { z } from 'zod';
 import { protectedPrivateJson, runFixedPython, type CommandRunner, type TrustedExecutable } from './fixed_transport';
 import type { CurrentEpochEvidence, FactoryRef } from './a_route_factory';
@@ -5,7 +6,7 @@ import { runtimeDigest } from './sealed_runtime';
 
 const digest = z.string().regex(/^[a-f0-9]{64}$/);
 const ref = z.object({path:z.string().startsWith('/etc/workspacex-cn/').refine(p=>!p.split('/').includes('..')),sha256:digest}).strict();
-const identity = z.object({sourceRevision:z.literal('9b25bfa65662b96c0826fe67506b562ea46aa6d0'),baselineRevision:z.literal('ba6343199f3c834d6a198f83d0c771614292c82b'),migrationPlanSha256:digest,attemptId:z.string().regex(/^[A-Za-z0-9-]{1,32}$/)}).strict();
+const identity = z.object({sourceRevision:z.string().regex(/^[a-f0-9]{40}$/),baselineRevision:z.literal('ba6343199f3c834d6a198f83d0c771614292c82b'),migrationPlanSha256:digest,attemptId:z.string().regex(/^[A-Za-z0-9-]{1,32}$/)}).strict();
 const binding = z.object({identity,toolRevision:z.string().regex(/^[a-f0-9]{40}$/),host:z.object({instanceId:z.string().min(1),bootId:z.string().uuid()}).strict(),epoch:digest,holdGeneration:z.string().regex(/^[a-f0-9]{32}$/),targetInstanceId:z.string().regex(/^pgm-[a-z0-9]+$/)}).strict();
 const collection = binding.omit({targetInstanceId:true}).extend({schemaVersion:z.literal(1),kind:z.literal('current-held-epoch-evidence-collection'),sourceRdsInstanceId:z.literal('pgm-uf6rg214cp381l49'),isolatedTargetInstanceId:z.string(),evidenceRefs:z.record(z.string(),ref.or(ref.extend({bytes:z.number().int().positive()}).strict())),collectionVerified:z.literal(true),ready:z.literal(false),qualified:z.literal(false),prepared:z.literal(false),remainingTransport:z.literal('retained-scoped-backup-transport-required')}).strict();
 export interface CurrentEpochSourcePolicy {
@@ -27,8 +28,8 @@ const need=(v:unknown,c:string):void=>{if(!v)throw new Error(c);};
  * fixture callbacks nor JSON "qualified" flags can mint an epoch manifest.
  * Once a source-owned common-epoch/object/journey qualification consumer exists,
  * it must be explicitly composed here before any O_EXCL manifest publication. */
-export async function consumeCurrentEpochManifest(policy:CurrentEpochSourcePolicy,io:{read?:(ref:FactoryRef)=>Promise<unknown>;run?:CommandRunner}={}):Promise<CurrentEpochEvidence>{
- const b=binding.parse(policy.binding);
+export async function consumeCurrentEpochManifest(policy:CurrentEpochSourcePolicy,io:{read?:(ref:FactoryRef)=>Promise<unknown>;run?:CommandRunner}={},authority?:OriginalPlanAuthority):Promise<CurrentEpochEvidence>{
+ const b=binding.parse(policy.binding);assertSourcePlanAuthority(authority,b.identity,b.toolRevision);
  const refs=[policy.collection,policy.recoveryEvidence,policy.recoveryManifest,policy.canonicalSetup,policy.formalJourneys,policy.objectRecovery].map(r=>ref.parse(r));
  const command=Object.freeze({...policy.recoveryVerifier});
  need(command.path==='/usr/local/lib/workspacex-cn/cn-maintenance-recovery-evidence-verifier.py'&&digest.safeParse(command.sha256).success&&policy.filesSha256[VERIFIER_SOURCE]===command.sha256&&!command.writerFenceModule,'EPOCH_SOURCE_VERIFIER_BINDING');
@@ -46,6 +47,7 @@ export async function consumeCurrentEpochManifest(policy:CurrentEpochSourcePolic
  // The real command independently rereads protected raw bytes, full backup
  // metadata/ciphertext, restore receipts/catalog/ACL/sequence/version/row streams,
  // installed source and actual hold. No passed flag bypasses that consumer.
+ assertSourcePlanAuthority(authority,b.identity,b.toolRevision);
  await (io.run??runFixedPython)(command,['--maintenance-evidence-replay',fixedPath]);
  // Even a mocked zero exit cannot extend the source verifier's admission scope.
  // Existing admission_result() always rejects; recording extra files cannot
@@ -66,16 +68,19 @@ const epochEvidence=z.object({schemaVersion:z.literal(1),kind:z.literal('held-cu
 /** Schema2 admits only the fixed source-owned Python qualification consumer.
  * The root launcher must supply its installed hash-bound dependency bundle;
  * the old recovery CLI path and old schema remain hard rejecting. */
-export async function consumeQualifiedCurrentEpochManifest(policy:QualifiedCurrentEpochSourcePolicy,io:{read?:(ref:FactoryRef)=>Promise<unknown>;run?:CommandRunner}={}):Promise<CurrentEpochEvidence>{
- return consumeQualifiedEpoch(policy,io,'--qualify-current-epoch');
+export async function consumeQualifiedCurrentEpochManifest(policy:QualifiedCurrentEpochSourcePolicy,io:{read?:(ref:FactoryRef)=>Promise<unknown>;run?:CommandRunner}={},authority?:OriginalPlanAuthority):Promise<CurrentEpochEvidence>{
+ return consumeQualifiedEpoch(policy,io,'--qualify-current-epoch',authority);
 }
 /** The binding belongs to the root-approved archive and may use an earlier
  * attempt. Current capture still runs separately after actual writers hold. */
-export async function consumePreholdEpochManifest(policy:QualifiedCurrentEpochSourcePolicy,io:{read?:(ref:FactoryRef)=>Promise<unknown>;run?:CommandRunner}={}):Promise<CurrentEpochEvidence>{
- return consumeQualifiedEpoch(policy,io,'--verify-prehold-epoch');
+export async function consumePreholdEpochManifest(policy:QualifiedCurrentEpochSourcePolicy,io:{read?:(ref:FactoryRef)=>Promise<unknown>;run?:CommandRunner}={},authority?:OriginalPlanAuthority):Promise<CurrentEpochEvidence>{
+ return consumeQualifiedEpoch(policy,io,'--verify-prehold-epoch',authority);
 }
-async function consumeQualifiedEpoch(policy:QualifiedCurrentEpochSourcePolicy,io:{read?:(ref:FactoryRef)=>Promise<unknown>;run?:CommandRunner},operation:'--qualify-current-epoch'|'--verify-prehold-epoch'):Promise<CurrentEpochEvidence>{
- const b=binding.parse(policy.binding),inputRef=ref.parse(policy.input),sourcePolicy=ref.parse(policy.sourcePolicy);
+async function consumeQualifiedEpoch(policy:QualifiedCurrentEpochSourcePolicy,io:{read?:(ref:FactoryRef)=>Promise<unknown>;run?:CommandRunner},operation:'--qualify-current-epoch'|'--verify-prehold-epoch',authority?:OriginalPlanAuthority):Promise<CurrentEpochEvidence>{
+ const b=binding.parse(policy.binding);
+ const admit=()=>operation==='--verify-prehold-epoch'?assertPreholdArchiveAuthority(authority,policy):assertSourcePlanAuthority(authority,b.identity,b.toolRevision);
+ admit();
+ const inputRef=ref.parse(policy.input),sourcePolicy=ref.parse(policy.sourcePolicy);
  const modules=policy.qualificationExecutable.pythonModules;
  need(modules&&Object.keys(modules).sort().join(',')===Object.keys(CURRENT_EPOCH_PYTHON_MODULES).sort().join(','),'EPOCH_QUALIFICATION_MODULE_CLOSURE');
  for(const [name,file] of Object.entries(CURRENT_EPOCH_PYTHON_MODULES)){
@@ -94,6 +99,7 @@ async function consumeQualifiedEpoch(policy:QualifiedCurrentEpochSourcePolicy,io
  const rawRef=input.sourcePolicy as Record<string,unknown>;
  need(rawRef&&rawRef.path===sourcePolicy.path&&rawRef.sha256===sourcePolicy.sha256,'EPOCH_QUALIFICATION_EXTERNAL_POLICY');
  await read(sourcePolicy);
+ admit();
  const response=await (io.run??runFixedPython)(command,[operation,inputRef.path]);
  let parsed:unknown;try{parsed=JSON.parse(response.stdout);}catch{throw Error('EPOCH_QUALIFICATION_OUTPUT_JSON');}
  const evidence=epochEvidence.parse(parsed);

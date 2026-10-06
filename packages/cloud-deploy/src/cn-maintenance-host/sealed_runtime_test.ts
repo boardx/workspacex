@@ -28,7 +28,7 @@ import host_transport as h
 from writer_fence import digest
 source={'identity':{'attemptId':'fixture'},'toolRevision':'a'*40,'runtimeSealPath':'/var/lib/workspacex-cn/runtime/fixture/sealed-writer-runtime.json'}
 class Transport:
- manifest_sha='b'*64
+ manifest_sha=hashlib.sha256(json.dumps(source).encode()).hexdigest()
  def __init__(self):self.plan=source
  def openBoth(self):return {'controlSessions':{'db':{'pid':10}},'diagnosticSessions':{'db':{'pid':11}}}
  def bindRuntimeSessions(self,p):self.plan=dict(source,controlSessions=p['controlSessions'],diagnosticSessions=p['diagnosticSessions']);return self.plan
@@ -51,13 +51,13 @@ h.pathlib=types.SimpleNamespace(Path=P)
 h.proc_binding=lambda pid:{'kind':'process','uid':0,'pid':pid}
 fake=types.SimpleNamespace(O_RDONLY=1,O_DIRECTORY=2,O_NOFOLLOW=4,O_WRONLY=8,O_CREAT=16,O_EXCL=32,getpid=lambda:123,urandom=lambda n:b'a'*n,open=lambda *a,**k:10,fdopen=lambda *a,**k:sink,fsync=lambda *a:None,close=lambda *a:None,unlink=lambda *a,**k:events.append('unlink'),link=lambda *a,**k:events.append('exclusive-link'))
 h.os=fake
-value,receipt=h.seal_runtime_plan(Transport(),'/etc/workspacex-cn/source.json','b'*64,read_private=lambda path:json.dumps(source).encode())
+value,receipt=h.seal_runtime_plan(Transport(),'/etc/workspacex-cn/source.json',Transport.manifest_sha,read_private=lambda path:json.dumps(source).encode())
 assert value['runtimePlan']['controlSessions']['db']['pid']==10
 assert receipt['sealedPlanSha256']==hashlib.sha256(sink.saved).hexdigest()
 assert 'exclusive-link' in events
 h.os.link=lambda *a,**k:(_ for _ in ()).throw(FileExistsError('existing-seal'))
 sink=Sink()
-try:h.seal_runtime_plan(Transport(),'/etc/workspacex-cn/source.json','b'*64,read_private=lambda path:json.dumps(source).encode())
+try:h.seal_runtime_plan(Transport(),'/etc/workspacex-cn/source.json',Transport.manifest_sha,read_private=lambda path:json.dumps(source).encode())
 except FileExistsError:pass
 else:raise AssertionError('existing seal overwritten')
 print('pure-seal-fixture-pass')

@@ -21,12 +21,15 @@ class Identity(unittest.TestCase):
    if change=='missing':v['filesSha256'].pop(next(iter(m.FILES)))
    else:v['filesSha256']['arbitrary']='b'*64
    with self.assertRaises(ValueError):m.validate_identity(v,APP,'2026.10.3-cn.1','fixture','prebuild')
+ def test_original_authority_is_required_source_closure(self):
+  source='packages/cloud-deploy/src/cn-maintenance-host/source_plan_authority.ts';self.assertIn(source,m.FILES);self.assertIsNone(m.FILES[source]);v=self.fixture();v['filesSha256'].pop(source)
+  with self.assertRaisesRegex(ValueError,'TOOL_CLOSURE'):m.validate_identity(v,APP,'2026.10.3-cn.1','fixture','prebuild')
  def test_actual_comparison_rejects_installed_or_object_drift(self):
   import json
   for drift in ['none','installed','object','head','dirty','hash']:
    with self.subTest(drift=drift):
     v=self.fixture();data={k:('file:'+k).encode() for k in m.FILES};v['filesSha256']={k:hashlib.sha256(b).hexdigest() for k,b in data.items()}
-    if drift=='hash':v['filesSha256'][next(iter(data))]='0'*64
+    if drift=='hash':v['filesSha256']['packages/cloud-deploy/src/cn-maintenance-host/source_plan_authority.ts']='0'*64
     def read(path,mode=None):
      if str(path)=='/manifest':return json.dumps(v).encode()
      for k,installed in m.FILES.items():
