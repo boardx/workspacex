@@ -1,0 +1,24 @@
+{
+  "source": "human screenshot supplied to authorized main task",
+  "screenshotSha256": "fb17f28a413541d1dbab212146ca240e2be8ea2d83e7e392274551357a9ec53e",
+  "interviewId": "itv-0d58d8d2-e659-4647-8bc8-8e79880be021",
+  "observedResponse": {
+    "type": "failed",
+    "reasonCode": "AI_GENERATION_UNAVAILABLE"
+  },
+  "observedUi": "report incomplete; Continue report action remains; existing report visible",
+  "timelineScaleMs": 200000,
+  "exactRequestDurationMs": null,
+  "requestId": null,
+  "httpStatus": null,
+  "deploymentSha": null,
+  "modelProvider": null,
+  "providerStatus": null,
+  "providerTimeoutClass": null,
+  "modelCalls": null,
+  "savedBodyHash": null,
+  "refreshHashEquality": null,
+  "rootCause": "UNKNOWN",
+  "browserInventoryFailure": "Statsig values timeout; tabs[] not proof no tab",
+  "actions": "No private body read/cookie/header exposure/debug bypass/retry performed"
+}

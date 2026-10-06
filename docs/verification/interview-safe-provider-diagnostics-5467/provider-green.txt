@@ -1,0 +1,19 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/apps/api
+
+ ✓ tests/agent-runtime/configured-model-provider-stream.test.ts (20 tests) 226ms
+ ✓ tests/agent-runtime/configured-model-provider-max-output.test.ts (13 tests) 38ms
+ ✓ tests/agent-runtime/configured-model-provider-thinking.test.ts (18 tests) 29ms
+ ✓ tests/agent-runtime/configured-model-provider-timeout.test.ts (12 tests) 6479ms
+   ✓ #1611 configured model provider timeouts + transport error classification > T1: headersTimeout 取自 config.timeoutMs（上游永不回响应头 ⇒ 按配置的 1.5s 失败，不是 undici 默认 300s） 2026ms
+   ✓ full response deadline > bounds heartbeat-only SSE after headers without emitting content 2107ms
+   ✓ full response deadline > bounds a slowly delivered JSON body after headers 2104ms
+ ✓ tests/agent-runtime/configured-model-provider-vision.test.ts (5 tests) 22ms
+ ✓ tests/agent-runtime/configured-model-provider-loopback-alias.test.ts (3 tests) 18ms
+ ✓ tests/agent-runtime/configured-model-provider-reasoning-effort.test.ts (3 tests) 17ms
+
+ Test Files  7 passed (7)
+      Tests  74 passed (74)
+   Start at  17:30:18
+   Duration  9.80s (transform 671ms, setup 0ms, collect 2.23s, tests 6.83s, environment 1ms, prepare 177ms)
+

@@ -1,3 +1,4 @@
+import { InterviewReportDiagnostics } from "../../src/application/interview/workflow/interview-report-diagnostics";
 import { createHash } from "node:crypto";
 import { interviewMarkdown } from "@repo/contracts";
 import type { z } from "zod";
@@ -52,6 +53,36 @@ describe("report diagnostics without research or credential disclosure", () => {
  complete.mockRejectedValue(new ModelCallError("MODEL_CALL_FAILED", PRIVATE));
  await expect(generateInterviewMarkdown(deps(), input)).rejects.toThrow("AI_GENERATION_UNAVAILABLE");
  expect(terminal()).toMatchObject({ data: { reason: "provider_error", providerCode: "MODEL_CALL_FAILED" } }); expect(JSON.stringify(events)).not.toContain(PRIVATE);
+ });
+ it.each([{kind:"configuration"},{kind:"http",status:429},{kind:"timeout"},{kind:"abort"},{kind:"transport"},{kind:"empty_output"},{kind:"invalid_response"},{kind:"unknown"}])("records only safe typed provider failure %j and preserves the error",async failure=>{
+  const error=new ModelCallError("MODEL_CALL_FAILED",PRIVATE,undefined,undefined,failure as never);
+  complete.mockRejectedValue(error);await expect(generateInterviewMarkdown(deps(),input)).rejects.toThrow("AI_GENERATION_UNAVAILABLE");
+  expect(terminal()).toMatchObject({traceId:input.traceId,data:{reason:"provider_error",stage:"model",modelCalls:1,providerFailure:failure}});
+  expect(save).not.toHaveBeenCalled();expect(JSON.stringify(events)).not.toContain(PRIVATE);
+ });
+ it.each([{kind:PRIVATE,status:401},{kind:"http",status:PRIVATE},{kind:"http",status:700},{kind:"transport",message:PRIVATE,header:PRIVATE}])("drops unsafe failure metadata %j",async failure=>{
+  const error=new ModelCallError("MODEL_CALL_FAILED",PRIVATE,undefined,undefined,failure as never);
+  complete.mockRejectedValue(error);await expect(generateInterviewMarkdown(deps(),input)).rejects.toThrow("AI_GENERATION_UNAVAILABLE");
+  expect(terminal()).toMatchObject({data:{providerFailure:failure.kind==="transport"?{kind:"transport"}:{kind:"unknown"}}});
+  expect(JSON.stringify(events)).not.toContain(PRIVATE);
+ });
+ it("reads metadata kind once so a changing getter cannot leak an untrusted second value",async()=>{
+  let reads=0;const failure={get kind(){reads++;return reads===1?"transport":PRIVATE;}};
+  complete.mockRejectedValue(new ModelCallError("MODEL_CALL_FAILED",PRIVATE,undefined,undefined,failure as never));
+  await expect(generateInterviewMarkdown(deps(),input)).rejects.toThrow("AI_GENERATION_UNAVAILABLE");
+  expect(terminal()).toMatchObject({data:{providerFailure:{kind:"transport"}}});expect(reads).toBe(1);expect(JSON.stringify(events)).not.toContain(PRIVATE);
+ });
+ it("derives configuration classification only from the configured failure code",async()=>{
+  complete.mockRejectedValue(new ModelCallError("MODEL_PROVIDER_NOT_CONFIGURED",PRIVATE));
+  await expect(generateInterviewMarkdown(deps(),input)).rejects.toThrow("AI_GENERATION_UNAVAILABLE");
+  expect(terminal()).toMatchObject({data:{providerFailure:{kind:"configuration"}}});expect(JSON.stringify(events)).not.toContain(PRIVATE);
+ });
+ it("metadata getters and a failed diagnostic sink cannot replace the original provider error",async()=>{
+  const failure=Object.defineProperty({},"kind",{get(){throw new Error(PRIVATE);}});
+  const error=new ModelCallError("MODEL_CALL_FAILED",PRIVATE,undefined,undefined,failure as never);
+  complete.mockRejectedValue(error);recorder.record.mockImplementation(()=>{throw new Error(PRIVATE);});
+  const diagnostics=new InterviewReportDiagnostics(recorder,input.traceId,true);
+  await expect(diagnostics.run(()=>diagnostics.measure("model",async()=>{throw error;}))).rejects.toBe(error);expect(save).not.toHaveBeenCalled();
  });
  it("records missing quality dimensions", async () => {
  complete.mockResolvedValue({ text: PRIVATE }); await expect(generateInterviewMarkdown(deps(), input)).rejects.toThrow();

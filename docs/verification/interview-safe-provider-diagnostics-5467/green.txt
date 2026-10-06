@@ -1,0 +1,15 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/apps/api
+
+ ✓ tests/itv/interview-report-recovery.test.ts (54 tests) 808ms
+ ✓ tests/agent-runtime/configured-model-provider-timeout.test.ts (13 tests) 6493ms
+   ✓ #1611 configured model provider timeouts + transport error classification > T1: headersTimeout 取自 config.timeoutMs（上游永不回响应头 ⇒ 按配置的 1.5s 失败，不是 undici 默认 300s） 2028ms
+   ✓ full response deadline > bounds heartbeat-only SSE after headers without emitting content 2126ms
+   ✓ full response deadline > bounds a slowly delivered JSON body after headers 2109ms
+ ✓ tests/itv/interview-report-diagnostics.test.ts (29 tests) 53ms
+
+ Test Files  3 passed (3)
+      Tests  96 passed (96)
+   Start at  17:32:19
+   Duration  11.27s (transform 1.19s, setup 0ms, collect 3.20s, tests 7.35s, environment 0ms, prepare 252ms)
+
