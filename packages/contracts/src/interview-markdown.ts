@@ -89,7 +89,10 @@ function hasStructuredBoundary(markdown: string): boolean {
         continue;
       }
       // Source quotes, code and metadata cannot stand in for researcher analysis.
-      const prose = actionNodeText(next);
+      const prose = actionNodeText(next).split("\n")
+        .filter(line => !/^[^:：。！？\n]{1,40}[：:]\s*[。；;]?$/u.test(line.trim())
+          && !/^(?:未知因素|未知条件|未知信息)[。；;]?$/u.test(line.trim()))
+        .join("\n");
       if (/(?:未提供|未说明|未记录|缺少|未知|不能判断|无法判断|无法推断|不能推断|不足以|尚待验证)[^。\n]{2,}/u.test(prose)) return true;
     }
     return false;

@@ -14,6 +14,14 @@ describe("structured boundary recognition #5470",()=>{
  });
  it("accepts a substantive boundary child section",()=>expect(lacksBoundary("## 不确定性与限制\n\n### 证据范围\n\n材料未提供条件，不能判断发生率。")).toBe(false));
  it.each([
+  "- **未知因素**：[材料未提供条件](#answer-7)",
+  "- 未知条件：[材料未提供条件](#source-1)",
+  "**未知信息：** [材料未提供条件](#answer-7)。",
+  "未知因素：\n\n[材料未提供条件](#answer-7)",
+  "- **未知因素**：[材料未提供条件](#answer-7)\n- **未知条件**：[材料未提供条件](#source-1)",
+ ])("rejects residual labels after source removal: %s",body=>expect(lacksBoundary(`## 不确定性与限制\n\n${body}`)).toBe(true));
+ it("retains substantive analysis after a limitation label",()=>expect(lacksBoundary("## 不确定性与限制\n\n- **未知因素**：材料未提供设备型号，不能判断原因。[材料未提供条件](#answer-7)")).toBe(false));
+ it.each([
   "## 不确定性与限制\n\n### 下一步验证建议\n\n系统未记录待办提醒，需新增日历通知。",
   "## 不确定性与限制",
   "## 不确定性与限制\n\n待补充。",
