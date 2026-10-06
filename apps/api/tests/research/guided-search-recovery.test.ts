@@ -339,12 +339,14 @@ describe("bounded search query recovery", () => {
       expect(f.writes.some(snapshot => snapshot.sources.some(source => source.taskId === "task-1"))).toBe(true);
     } finally { release?.(); await operation; }
   });
-  it("maps confirmed questions directly into executable tasks without an extra planning model", async () => {
+  it("maps a confirmed chapter into one shared executable task without an extra planning model", async () => {
     const state = seed(); state.tasks = []; state.generatedNodes = ["brief", "directions", "outline"];
     state.outline[0]!.questions = ["国际版如何本地化？", "国际版上线时间？"];
     const f = fixture(state); f.search.mockResolvedValue([hit]);
     const result = await f.run();
-    expect(result.tasks).toHaveLength(2);
+    expect(result.tasks).toHaveLength(1);
+    expect(result.tasks[0]).not.toHaveProperty("questionId");
+    expect(result.outline[0]!.questions).toEqual(state.outline[0]!.questions);
     expect(result.tasks.every(task => task.sectionId === "market" && task.status === "succeeded")).toBe(true);
     expect(f.model.complete.mock.calls.every(([input]) => JSON.parse(input.user).researchStage === "source_relevance")).toBe(true);
   });
@@ -824,8 +826,9 @@ describe("bounded search query recovery", () => {
 });
 
 it("keeps a per-question task failed when every source answers only its sibling", async () => {
-  const state = seed(); state.tasks = []; state.generatedNodes = ["brief", "directions", "outline"];
+  const state = seed(); state.generatedNodes = ["brief", "directions", "outline"];
   state.outline[0]!.questions = ["A evidence?", "B evidence?"];
+  state.tasks = state.outline[0]!.questions.map((question, index) => ({ ...state.tasks[0]!, id: `precise-${index}`, questionId: `chapter:0/question:${index}`, objective: question, query: `${question} public evidence` }));
   const f = fixture(state); f.search.mockResolvedValue([hit]);
   f.model.complete.mockImplementation(async input => {
     const output = JSON.parse(guidedResearchReply(input.system, input.user)!);
@@ -925,4 +928,11 @@ describe("saved negative-attempt recovery schema boundary", () => {
     expect(result.errorCode).toBe(mode === "positive" ? null : "RESEARCH_SEARCH_PARTIAL_FAILURE");
     expect(f.model.complete).toHaveBeenCalledTimes(mode === "positive" || mode === "negative" ? 2 : 3);
   });
+});
+
+
+it("does not rebuild existing per-question tasks on retry after chapter-shared initial derivation", async () => {
+  const state = seed(); state.tasks[0] = { ...state.tasks[0]!, questionId: "chapter:0/question:0", status: "succeeded", attempts: 3, searchAttempts: [{ query: original, status: "succeeded", errorCode: null }] };
+  const prior = structuredClone(state.tasks); const f = fixture(state); const result = await f.run("retry");
+  expect(result.tasks).toEqual(prior); expect(f.search).not.toHaveBeenCalled(); expect(f.model.complete).not.toHaveBeenCalled();
 });
