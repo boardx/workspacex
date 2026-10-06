@@ -330,7 +330,7 @@ describe('finite scenario cause boundaries', () => {
  });
 });
 
-it("keeps the actual instruction-copy candidate rejected by unchanged claim and grounding gates", () => {
+it("keeps the actual instruction-copy candidate rejected by the claim gate after finite negation parsing", () => {
  const root=new URL("./fixtures/instruction-copy-5422/",import.meta.url);
  const report=readFileSync(new URL("report.md",root),"utf8");
  const source=JSON.parse(readFileSync(new URL("source.json",root),"utf8"));
@@ -340,5 +340,5 @@ it("keeps the actual instruction-copy candidate rejected by unchanged claim and 
  const runs=source.documents.find((document: {step: string})=>document.step==="runs");
  const index=buildReportEvidenceIndex(runs);
  expect(assessReportClaimBoundaries(report,index).missing).toContain("unqualified_defect_exclusion");
- expect(validateReportEvidence(report,index).reason).toBe("unsupported_evidence_strength");
+ expect(validateReportEvidence(report,index).reason).toBe("exact_quotes_only_not_semantic_approval");
 });
