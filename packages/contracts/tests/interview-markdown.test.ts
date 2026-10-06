@@ -174,6 +174,12 @@ describe("formatted report quality", () => {
 
 describe("numbered verifiable action headings (#5289)", () => {
   const action = "独立访谈五位用户，对比三方证据并验证任务完成时长。";
+  it.each(["6.1 下一步验证建议", "6.1. 下一步验证建议", "6.1.2 验证计划（可执行行动）", "６．１ 下一步验证建议"])("accepts hierarchical heading %s with substantive action", heading => {
+    expect(hasInterviewReportVerifiableAction(`## ${heading}\n\n${action}`)).toBe(true);
+  });
+  it.each(["访谈用户。", "> 独立访谈五位用户，对比三方证据并验证任务完成时长。", "```md\n独立访谈五位用户，对比三方证据并验证任务完成时长。\n```", "[独立访谈五位用户，对比三方证据并验证任务完成时长。](#answer-1)"])("hierarchical headings cannot supply missing action: %s", body => {
+    expect(hasInterviewReportVerifiableAction(`## 6.1 下一步验证建议\n\n${body}`)).toBe(false);
+  });
   it.each(["6. 下一步验证建议", "六、下一步验证建议", "6. 下一步验证建议（可执行行动）", "六、验证计划(可验证行动)", "行动建议（可执行行动）："])("accepts a concrete action under %s without changing report bytes", (heading) => {
     const report = `## ${heading}\n\n${action}`;
     expect(hasInterviewReportVerifiableAction(report)).toBe(true);
