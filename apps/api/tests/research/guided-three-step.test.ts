@@ -4,6 +4,7 @@ import { research as C } from "@repo/contracts";
 import { createHash } from "node:crypto";
 import { GuidedRuntimeService, initialRuntime } from "../../src/application/research/guided-runtime-service";
 import { ResearchRuntimeError, type GuidedRuntimeStore, type ResearchRuntime, type RuntimeCommand } from "../../src/application/research/guided-runtime-ports";
+import { tasksFromConfirmedQuestions } from "../../src/application/research/guided-task-pipeline";
 import { guidedResearchReply } from "../../scripts/loopback-guided-research";
 import { toOrgId } from "../../src/domain/org-id";
 
@@ -295,4 +296,63 @@ describe("three visible stages with durable composite execution", () => {
     expect(new Set(f.writes.slice(offset).map(write => write.version))).toEqual(new Set([retried.version]));
   });
 
+});
+
+
+describe("generated brief subject authority", () => {
+  it("rejects the default display-name topic before any downstream planning while preserving input and saved facts", async () => {
+    const f = fixture();
+    const brief = { ...f.latest().brief, topic: C.DEFAULT_RESEARCH_NAME, goal: "评估中国中小企业知识库的权限与检索方案。".repeat(1000) };
+    const source = { id: "saved", taskId: "saved-task", title: "Saved", url: "https://example.org", content: "Saved material", retrievedAt: "now", decision: "accepted" as const };
+    const checkpoint = { basis: "saved", chapters: [{ sectionId: "saved", body: "Saved chapter", sourceIds: [] }] };
+    f.set({ ...f.latest(), brief, sources: [source], reportCheckpoint: checkpoint });
+    f.model.complete.mockResolvedValue({ text: JSON.stringify(brief) });
+    const result = await f.run("prepare_plan");
+    expect(result).toMatchObject({ currentNode: "brief", errorCode: "RESEARCH_NODE_STATE_INVALID", completed: false, busy: false });
+    expect(result.generatedNodes).toEqual([]); expect(result.availableNodes).toEqual(["brief"]);
+    expect(result.directions).toEqual([]); expect(result.outline).toEqual([]); expect(result.tasks).toEqual([]);
+    expect(result.brief).toEqual(brief); expect(result.sources).toEqual([source]); expect(result.reportCheckpoint).toEqual(checkpoint);
+    expect(f.model.complete).toHaveBeenCalledTimes(1); expect(f.search).not.toHaveBeenCalled();
+    expect(f.writes.every(state => !state.generatedNodes.length && !state.directions.length && !state.outline.length)).toBe(true);
+  });
+  it("recovers rejected placeholder generation only through an explicit retry without losing the 40000-character goal", async () => {
+    const f = fixture(); const complete = f.model.complete.getMockImplementation()!;
+    const goal = "评估中小企业知识库的权限与检索方案。".repeat(4000).slice(0, 40000);
+    const brief = { ...f.latest().brief, topic: C.DEFAULT_RESEARCH_NAME, goal };
+    const source = { id: "saved", taskId: "saved-task", title: "Saved", url: "https://example.org", content: "Saved material", retrievedAt: "now", decision: "accepted" as const };
+    const checkpoint = { basis: "saved", chapters: [{ sectionId: "saved", body: "Saved chapter", sourceIds: [] }] };
+    f.set({ ...f.latest(), brief, sources: [source], reportCheckpoint: checkpoint });
+    f.model.complete.mockResolvedValue({ text: JSON.stringify(brief) });
+    const failed = await f.run("prepare_plan");
+    expect(failed).toMatchObject({ currentNode: "brief", errorCode: "RESEARCH_NODE_STATE_INVALID", generatedNodes: [] });
+    expect(failed.brief).toEqual(brief); expect(failed.sources).toEqual([source]); expect(failed.reportCheckpoint).toEqual(checkpoint);
+    expect(f.model.complete).toHaveBeenCalledTimes(1); expect(f.search).not.toHaveBeenCalled();
+    await f.service.get(f.actor, f.session);
+    expect(f.model.complete).toHaveBeenCalledTimes(1);
+    f.model.complete.mockImplementation(async input => input.system.includes("Generate the brief step")
+      ? { text: JSON.stringify({ ...brief, topic: "中小企业知识库" }) } : complete(input));
+    const recovered = await f.run("retry", "brief");
+    expect(recovered).toMatchObject({ currentNode: "outline", errorCode: null, generatedNodes: ["brief", "directions", "outline"], completed: false });
+    expect(recovered.brief.goal).toBe(goal); expect(recovered.brief.goal).toHaveLength(40000);
+    expect(recovered.brief.topic).toBe("中小企业知识库"); expect(f.session.title).toBe("Research");
+    const tasks = tasksFromConfirmedQuestions(f.latest());
+    expect(tasks.length).toBeGreaterThan(0); expect(tasks.every(task => task.query.includes("中小企业知识库") && !task.query.includes(C.DEFAULT_RESEARCH_NAME))).toBe(true);
+    expect(f.model.complete).toHaveBeenCalledTimes(4); expect(f.search).not.toHaveBeenCalled(); expect(f.claim).toHaveBeenCalledTimes(2);
+  });
+  it.each([C.DEFAULT_RESEARCH_NAME, "企业知识库"])("uses a valid generated subject from %s without changing the display name or long original requirements", async inputTopic => {
+    const f = fixture(); const complete = f.model.complete.getMockImplementation()!;
+    const goal = "企业知识库权限与检索方案。".repeat(4000).slice(0, 40000);
+    expect(goal).toHaveLength(40000);
+    f.set({ ...f.latest(), brief: { ...f.latest().brief, topic: inputTopic, goal, region: "中国", timeRange: "2026" } });
+    f.model.complete.mockImplementation(async input => input.system.includes("Generate the brief step")
+      ? { text: JSON.stringify({ ...f.latest().brief, topic: "企业知识库" }) } : complete(input));
+    const result = await f.run("prepare_plan");
+    expect(result.errorCode).toBeNull(); expect(result.generatedNodes).toEqual(["brief", "directions", "outline"]);
+    expect(result.brief).toMatchObject({ topic: "企业知识库", goal, region: "中国", timeRange: "2026" });
+    expect(f.session.title).toBe("Research"); expect(f.session.brief.topic).toBe("Grid policy");
+    const tasks = tasksFromConfirmedQuestions(f.latest());
+    expect(tasks.length).toBeGreaterThan(0); expect(tasks.every(task => task.query.includes("企业知识库"))).toBe(true);
+    expect(tasks.some(task => task.query.includes(C.DEFAULT_RESEARCH_NAME))).toBe(false);
+    expect(f.model.complete).toHaveBeenCalledTimes(3); expect(f.search).not.toHaveBeenCalled();
+  });
 });
