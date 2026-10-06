@@ -102,6 +102,7 @@ test("brainstorm input creates twenty connected ideas and one-operation bulk und
   const beforeLastCreation = await readBoardProjection(page);
   const beforeLastCreationIds = new Set(beforeLastCreation.map(object => object.id));
   await expect.poll(() => readBoardProjection(peer)).toEqual(beforeLastCreation);
+  await page.getByTestId("board-tool-select").focus();
   await page.keyboard.press("Shift+N");
   await page.getByTestId("board-bulk-text").fill("Research\nDesign\nPrototype");
   await page.getByTestId("board-bulk-apply").click();
