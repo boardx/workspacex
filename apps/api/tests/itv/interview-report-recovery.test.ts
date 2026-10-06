@@ -53,6 +53,7 @@ describe("bounded report quality recovery", () => {
   complete.mockResolvedValueOnce({text:BAD}).mockResolvedValueOnce({text:GOOD});
   await generateInterviewMarkdown(deps(),input);
   expect(complete.mock.calls[1]![0].user).not.toContain("缺陷归因修复");
+ });
  it("requests report findings instead of copying forbidden writing-policy examples", async () => {
   complete.mockResolvedValue({text:GOOD});
   await generateInterviewMarkdown(deps(),input);
