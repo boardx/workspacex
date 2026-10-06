@@ -1,0 +1,40 @@
+
+> @repo/api@0.0.0 test:interview-markdown-unit /Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/apps/api
+> vitest run --config vitest.interview-markdown-unit.config.ts
+
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/apps/api
+
+ ❯ tests/itv/interview-report-recovery.test.ts (35 tests | 2 failed) 255ms
+   × bounded report quality recovery > separates observed outcomes and measurement dimensions in real-source requests (derived failed: false) 8ms
+     → expected [Function] to throw error including 'AI_GENERATION_UNAVAILABLE' but got 'expected \'# 访谈模型上下文\n\n操作：generate_r…'
+   × bounded report quality recovery > separates observed outcomes and measurement dimensions in real-source requests (derived failed: true) 47ms
+     → expected [Function] to throw error including 'AI_GENERATION_UNAVAILABLE' but got 'expected \'# 访谈模型上下文\n\n操作：generate_r…'
+ ✓ tests/itv/interview-report-claim-boundaries.test.ts (194 tests) 114ms
+ ✓ tests/itv/interview-report-grounding.test.ts (143 tests) 63ms
+ ✓ tests/itv/interview-report-diagnostics.test.ts (14 tests) 34ms
+ ✓ tests/itv/interview-markdown-report-stream-controller.test.ts (9 tests) 5ms
+ ✓ tests/itv/interview-model-markdown.test.ts (4 tests) 3ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/itv/interview-report-recovery.test.ts > bounded report quality recovery > separates observed outcomes and measurement dimensions in real-source requests (derived failed: false)
+ FAIL  tests/itv/interview-report-recovery.test.ts > bounded report quality recovery > separates observed outcomes and measurement dimensions in real-source requests (derived failed: true)
+AssertionError: expected [Function] to throw error including 'AI_GENERATION_UNAVAILABLE' but got 'expected \'# 访谈模型上下文\n\n操作：generate_r…'
+
+Expected: "AI_GENERATION_UNAVAILABLE"
+Received: "expected '# 访谈模型上下文\n\n操作：generate_report\n\n以下…' to contain '分别记录已观察结果与待核实的解释变量'"
+
+ ❯ tests/itv/interview-report-recovery.test.ts:52:3
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ Test Files  1 failed | 5 passed (6)
+      Tests  2 failed | 397 passed (399)
+   Start at  15:50:27
+   Duration  3.03s (transform 724ms, setup 0ms, collect 1.99s, tests 474ms, environment 0ms, prepare 140ms)
+
+/Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/apps/api:
+ ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  @repo/api@0.0.0 test:interview-markdown-unit: `vitest run --config vitest.interview-markdown-unit.config.ts`
+Exit status 1
