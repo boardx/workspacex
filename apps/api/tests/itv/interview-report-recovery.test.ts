@@ -51,6 +51,21 @@ describe("bounded report quality recovery", () => {
   expect(complete).toHaveBeenCalledTimes(1);expect(save).not.toHaveBeenCalled();expect(snapshot).toEqual(before);
  });
 
+ it("never instructs a naked zero-count observation without a source and gives precise measurement repair feedback", async () => {
+  const wrong = GOOD + "\n\n不兼容项为零只支持本次检测未发现该冲突，不能推翻一般安装风险。";
+  complete.mockResolvedValueOnce({text:wrong}).mockResolvedValueOnce({text:GOOD});
+  await generateInterviewMarkdown(deps(),input);
+  expect(complete).toHaveBeenCalledTimes(2);
+  for (const [request] of complete.mock.calls) {
+   expect(request.system).not.toContain("不兼容项为零只支持本次检测未发现该冲突");
+   expect(request.system).toContain("若未来检测不兼容项为零");
+  }
+  expect(complete.mock.calls[1]![0].user).toContain("测量声明修复");
+  expect(complete.mock.calls[1]![0].user).toContain("没有实际测量来源");
+  expect(complete.mock.calls[1]![0].user).toContain("不得编造已完成检查");
+  expect(save.mock.calls[0]![0].failure.code).toBe("REPORT_QUALITY_REJECTED");
+  expect(snapshot.states.find(s=>s.documentId==="md-report")?.status).toBe("draft");
+ });
  it("excludes a rejected candidate derived from observed prose and rejects a new affirmative claim",async()=>{
   snapshot=JSON.parse(readFileSync(resolve(process.cwd(),"../../docs/verification/interview-source-regeneration-5430/source.json"),"utf8"));
   const previous=snapshot.documents.find(document=>document.step==="report")!;
@@ -64,6 +79,7 @@ describe("bounded report quality recovery", () => {
   expect(complete).toHaveBeenCalledTimes(1);
   expect(complete.mock.calls[0]![0].user).not.toContain(previous.markdown);
   expect(complete.mock.calls[0]![0].user).not.toContain(original);
+  expect(complete.mock.calls[0]![0].user).not.toContain("安装问题最常见。");
   expect(complete.mock.calls[0]![0].user).toContain("已确认来源");
   expect(save.mock.calls[0]![0]).toMatchObject({markdown:candidate,failure:{code:"REPORT_GROUNDING_REJECTED",retryable:true}});
  });

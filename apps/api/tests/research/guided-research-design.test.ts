@@ -1,3 +1,4 @@
+import { research as C } from "@repo/contracts";
 import { describe, expect, it } from "vitest";
 import { validateGeneratedResearchDesign, preserveResearchDesign, researchDesignInstruction } from "../../src/application/research/guided-research-design";
 
@@ -36,5 +37,15 @@ describe("formal report proposal preservation", () => {
   it("retains omitted front matter while respecting explicit replacements", () => {
     const prior = { title: "Report", summary: "Old summary", introduction: "Scope", conclusion: "Decisions" };
     expect(preserveResearchDesign("report", { title: "Revised", summary: "New summary", conclusion: "Revised decisions" }, prior)).toEqual({ title: "Revised", summary: "New summary", introduction: "Scope", conclusion: "Revised decisions" });
+  });
+});
+
+
+describe("generated brief topic validation", () => {
+  it("rejects the shared placeholder only at generation while manual and legacy schemas remain valid", () => {
+    const brief = C.GuidedResearchBrief.parse({ topic: C.DEFAULT_RESEARCH_NAME, goal: "Research enterprise knowledge bases", region: "China", focus: "Access control", timeRange: "2026" });
+    expect(() => validateGeneratedResearchDesign("brief", brief)).toThrow();
+    expect(C.GuidedResearchRuntimeDraft.safeParse({ node: "brief", value: brief }).success).toBe(true);
+    expect(() => validateGeneratedResearchDesign("brief", { ...brief, topic: "企业知识库" })).not.toThrow();
   });
 });
