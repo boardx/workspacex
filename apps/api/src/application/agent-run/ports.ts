@@ -1,3 +1,4 @@
+import type { ModelProviderFailure } from "./model-provider-failure";
 import type { NewAssistantCitation } from "../chat/persist-assistant-citations";
 import type { RunCitation } from "./standard-cite";
 import type { RestorableInterrupt } from "@repo/contracts/agent-interrupts";
@@ -1234,6 +1235,8 @@ export class ModelCallError extends Error {
     readonly usage?: ReportedUsage,
     /** Adapter-owned HTTP classification; absent means no automatic fallback. */
     readonly retryDisposition?: "rate-limited" | "temporarily-unavailable",
+    /** Safe adapter-origin metadata only; does not alter failure identity or retry policy. */
+    readonly providerFailure?: ModelProviderFailure,
   ) {
     super(code);
     this.name = "ModelCallError";

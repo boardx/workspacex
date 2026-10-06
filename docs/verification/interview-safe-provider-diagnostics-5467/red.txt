@@ -1,0 +1,288 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/apps/api
+
+ ✓ tests/itv/interview-report-recovery.test.ts (54 tests) 483ms
+ ❯ tests/agent-runtime/configured-model-provider-timeout.test.ts (12 tests | 8 failed) 6437ms
+   × #1611 configured model provider timeouts + transport error classification > T1: headersTimeout 取自 config.timeoutMs（上游永不回响应头 ⇒ 按配置的 1.5s 失败，不是 undici 默认 300s） 2021ms
+     → expected undefined to deeply equal { kind: 'timeout' }
+   × #1611 configured model provider timeouts + transport error classification > retains actual HTTP status without provider body or credentials (stream: false) 11ms
+     → expected undefined to deeply equal { kind: 'http', status: 429 }
+   × #1611 configured model provider timeouts + transport error classification > retains actual HTTP status without provider body or credentials (stream: true) 4ms
+     → expected undefined to deeply equal { kind: 'http', status: 429 }
+   × #1611 configured model provider timeouts + transport error classification > marks no-content output at the actual adapter boundary 2ms
+     → expected undefined to deeply equal { kind: 'empty_output' }
+   × full response deadline > bounds heartbeat-only SSE after headers without emitting content 2112ms
+     → expected undefined to deeply equal { kind: 'timeout' }
+   × full response deadline > honors caller cancellation after headers and closes the stream 65ms
+     → expected undefined to deeply equal { kind: 'abort' }
+   × full response deadline > rejects a disconnected body while preserving already delivered content 56ms
+     → expected undefined to deeply equal { kind: 'transport' }
+   × full response deadline > bounds a slowly delivered JSON body after headers 2104ms
+     → expected undefined to deeply equal { kind: 'timeout' }
+ ❯ tests/itv/interview-report-diagnostics.test.ts (27 tests | 12 failed) 46ms
+   × report diagnostics without research or credential disclosure > records only safe typed provider failure {"kind":"configuration"} and preserves the error 4ms
+     → expected { traceId: 'http-trace-diag', …(5) } to match object { traceId: 'http-trace-diag', …(1) }
+(12 matching properties omitted from actual)
+   × report diagnostics without research or credential disclosure > records only safe typed provider failure {"kind":"http","status":429} and preserves the error 1ms
+     → expected { traceId: 'http-trace-diag', …(5) } to match object { traceId: 'http-trace-diag', …(1) }
+(12 matching properties omitted from actual)
+   × report diagnostics without research or credential disclosure > records only safe typed provider failure {"kind":"timeout"} and preserves the error 0ms
+     → expected { traceId: 'http-trace-diag', …(5) } to match object { traceId: 'http-trace-diag', …(1) }
+(12 matching properties omitted from actual)
+   × report diagnostics without research or credential disclosure > records only safe typed provider failure {"kind":"abort"} and preserves the error 0ms
+     → expected { traceId: 'http-trace-diag', …(5) } to match object { traceId: 'http-trace-diag', …(1) }
+(12 matching properties omitted from actual)
+   × report diagnostics without research or credential disclosure > records only safe typed provider failure {"kind":"transport"} and preserves the error 0ms
+     → expected { traceId: 'http-trace-diag', …(5) } to match object { traceId: 'http-trace-diag', …(1) }
+(12 matching properties omitted from actual)
+   × report diagnostics without research or credential disclosure > records only safe typed provider failure {"kind":"empty_output"} and preserves the error 0ms
+     → expected { traceId: 'http-trace-diag', …(5) } to match object { traceId: 'http-trace-diag', …(1) }
+(12 matching properties omitted from actual)
+   × report diagnostics without research or credential disclosure > records only safe typed provider failure {"kind":"invalid_response"} and preserves the error 0ms
+     → expected { traceId: 'http-trace-diag', …(5) } to match object { traceId: 'http-trace-diag', …(1) }
+(12 matching properties omitted from actual)
+   × report diagnostics without research or credential disclosure > records only safe typed provider failure {"kind":"unknown"} and preserves the error 0ms
+     → expected { traceId: 'http-trace-diag', …(5) } to match object { traceId: 'http-trace-diag', …(1) }
+(12 matching properties omitted from actual)
+   × report diagnostics without research or credential disclosure > drops unsafe failure metadata {"kind":"PRIVATE_SYNTHETIC_RESEARCH_DO_NOT_LOG","status":401} 1ms
+     → expected { traceId: 'http-trace-diag', …(5) } to match object { data: { providerFailure: { …(1) } } }
+(16 matching properties omitted from actual)
+   × report diagnostics without research or credential disclosure > drops unsafe failure metadata {"kind":"http","status":"PRIVATE_SYNTHETIC_RESEARCH_DO_NOT_LOG"} 0ms
+     → expected { traceId: 'http-trace-diag', …(5) } to match object { data: { providerFailure: { …(1) } } }
+(16 matching properties omitted from actual)
+   × report diagnostics without research or credential disclosure > drops unsafe failure metadata {"kind":"http","status":700} 0ms
+     → expected { traceId: 'http-trace-diag', …(5) } to match object { data: { providerFailure: { …(1) } } }
+(16 matching properties omitted from actual)
+   × report diagnostics without research or credential disclosure > drops unsafe failure metadata {"kind":"transport","message":"PRIVATE_SYNTHETIC_RESEARCH_DO_NOT_LOG","header":"PRIVATE_SYNTHETIC_RESEARCH_DO_NOT_LOG"} 0ms
+     → expected { traceId: 'http-trace-diag', …(5) } to match object { data: { providerFailure: { …(1) } } }
+(16 matching properties omitted from actual)
+
+⎯⎯⎯⎯⎯⎯ Failed Tests 20 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/agent-runtime/configured-model-provider-timeout.test.ts > #1611 configured model provider timeouts + transport error classification > T1: headersTimeout 取自 config.timeoutMs（上游永不回响应头 ⇒ 按配置的 1.5s 失败，不是 undici 默认 300s）
+AssertionError: expected undefined to deeply equal { kind: 'timeout' }
+
+- Expected: 
+Object {
+  "kind": "timeout",
+}
+
++ Received: 
+undefined
+
+ ❯ tests/agent-runtime/configured-model-provider-timeout.test.ts:105:53
+    103|     // 这里就会读到 "ABORTED"。分类不同 ⇒ 测试红，且几秒内就红。
+    104|     expect((err as ModelCallError).detail).toContain("UND_ERR_HEADERS_…
+    105|     expect((err as ModelCallError).providerFailure).toEqual({kind:"tim…
+       |                                                     ^
+    106|     // 配置的 1.5s 真的是上限：远小于 undici 默认的 300s，也小于 abort…
+    107|     expect(elapsed).toBeLessThan(3_000);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/20]⎯
+
+ FAIL  tests/agent-runtime/configured-model-provider-timeout.test.ts > #1611 configured model provider timeouts + transport error classification > retains actual HTTP status without provider body or credentials (stream: false)
+ FAIL  tests/agent-runtime/configured-model-provider-timeout.test.ts > #1611 configured model provider timeouts + transport error classification > retains actual HTTP status without provider body or credentials (stream: true)
+AssertionError: expected undefined to deeply equal { kind: 'http', status: 429 }
+
+- Expected: 
+Object {
+  "kind": "http",
+  "status": 429,
+}
+
++ Received: 
+undefined
+
+ ❯ tests/agent-runtime/configured-model-provider-timeout.test.ts:115:80
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/20]⎯
+
+ FAIL  tests/agent-runtime/configured-model-provider-timeout.test.ts > #1611 configured model provider timeouts + transport error classification > marks no-content output at the actual adapter boundary
+AssertionError: expected undefined to deeply equal { kind: 'empty_output' }
+
+- Expected: 
+Object {
+  "kind": "empty_output",
+}
+
++ Received: 
+undefined
+
+ ❯ tests/agent-runtime/configured-model-provider-timeout.test.ts:119:108
+    117|   it("marks no-content output at the actual adapter boundary",async()=…
+    118|     const base=await startServer((_req,res)=>{res.writeHead(200,{"cont…
+    119|     const error=await call(makeProvider({baseUrl:base})).then(()=>null…
+       |                                                                                                            ^
+    120|   });
+    121|   it("T2: cause.code 被白名单映射成不同分类，而不是塌缩成同一个 token"…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/20]⎯
+
+ FAIL  tests/agent-runtime/configured-model-provider-timeout.test.ts > full response deadline > bounds heartbeat-only SSE after headers without emitting content
+AssertionError: expected undefined to deeply equal { kind: 'timeout' }
+
+- Expected: 
+Object {
+  "kind": "timeout",
+}
+
++ Received: 
+undefined
+
+ ❯ tests/agent-runtime/configured-model-provider-timeout.test.ts:195:35
+    193|     expect(error).toBeInstanceOf(ModelCallError);
+    194|     expect(error.detail).toContain("ABORTED");
+    195|     expect(error.providerFailure).toEqual({kind:"timeout"});
+       |                                   ^
+    196|     expect(Date.now() - started).toBeLessThan(3_000);
+    197|     expect(deltas).toEqual([]);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/20]⎯
+
+ FAIL  tests/agent-runtime/configured-model-provider-timeout.test.ts > full response deadline > honors caller cancellation after headers and closes the stream
+AssertionError: expected undefined to deeply equal { kind: 'abort' }
+
+- Expected: 
+Object {
+  "kind": "abort",
+}
+
++ Received: 
+undefined
+
+ ❯ tests/agent-runtime/configured-model-provider-timeout.test.ts:226:35
+    224|     expect(error).toBeInstanceOf(ModelCallError);
+    225|     expect(error.detail).toContain("ABORTED");
+    226|     expect(error.providerFailure).toEqual({kind:"abort"});
+       |                                   ^
+    227|     await new Promise(resolve => setTimeout(resolve, 25));
+    228|     expect(closed).toBe(true);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/20]⎯
+
+ FAIL  tests/agent-runtime/configured-model-provider-timeout.test.ts > full response deadline > rejects a disconnected body while preserving already delivered content
+AssertionError: expected undefined to deeply equal { kind: 'transport' }
+
+- Expected: 
+Object {
+  "kind": "transport",
+}
+
++ Received: 
+undefined
+
+ ❯ tests/agent-runtime/configured-model-provider-timeout.test.ts:242:35
+    240|     expect(error).toBeInstanceOf(ModelCallError);
+    241|     expect(error.detail).toContain("UND_ERR_SOCKET");
+    242|     expect(error.providerFailure).toEqual({kind:"transport"});
+       |                                   ^
+    243|     expect(deltas).toEqual(["partial"]);
+    244|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/20]⎯
+
+ FAIL  tests/agent-runtime/configured-model-provider-timeout.test.ts > full response deadline > bounds a slowly delivered JSON body after headers
+AssertionError: expected undefined to deeply equal { kind: 'timeout' }
+
+- Expected: 
+Object {
+  "kind": "timeout",
+}
+
++ Received: 
+undefined
+
+ ❯ tests/agent-runtime/configured-model-provider-timeout.test.ts:259:35
+    257|     expect(error).toBeInstanceOf(ModelCallError);
+    258|     expect(error.detail).toContain("ABORTED");
+    259|     expect(error.providerFailure).toEqual({kind:"timeout"});
+       |                                   ^
+    260|     expect(Date.now() - started).toBeLessThan(3_000);
+    261|   }, 10_000);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/20]⎯
+
+ FAIL  tests/itv/interview-report-diagnostics.test.ts > report diagnostics without research or credential disclosure > records only safe typed provider failure {"kind":"configuration"} and preserves the error
+ FAIL  tests/itv/interview-report-diagnostics.test.ts > report diagnostics without research or credential disclosure > records only safe typed provider failure {"kind":"http","status":429} and preserves the error
+ FAIL  tests/itv/interview-report-diagnostics.test.ts > report diagnostics without research or credential disclosure > records only safe typed provider failure {"kind":"timeout"} and preserves the error
+ FAIL  tests/itv/interview-report-diagnostics.test.ts > report diagnostics without research or credential disclosure > records only safe typed provider failure {"kind":"abort"} and preserves the error
+ FAIL  tests/itv/interview-report-diagnostics.test.ts > report diagnostics without research or credential disclosure > records only safe typed provider failure {"kind":"transport"} and preserves the error
+ FAIL  tests/itv/interview-report-diagnostics.test.ts > report diagnostics without research or credential disclosure > records only safe typed provider failure {"kind":"empty_output"} and preserves the error
+ FAIL  tests/itv/interview-report-diagnostics.test.ts > report diagnostics without research or credential disclosure > records only safe typed provider failure {"kind":"invalid_response"} and preserves the error
+ FAIL  tests/itv/interview-report-diagnostics.test.ts > report diagnostics without research or credential disclosure > records only safe typed provider failure {"kind":"unknown"} and preserves the error
+AssertionError: expected { traceId: 'http-trace-diag', …(5) } to match object { traceId: 'http-trace-diag', …(1) }
+(12 matching properties omitted from actual)
+
+- Expected
++ Received
+
+  Object {
+    "data": Object {
+      "modelCalls": 1,
+-     "providerFailure": Object {
+-       "kind": "configuration",
+-     },
+      "reason": "provider_error",
+      "stage": "model",
+    },
+    "traceId": "http-trace-diag",
+  }
+
+ ❯ tests/itv/interview-report-diagnostics.test.ts:60:22
+     58|   const error=new ModelCallError("MODEL_CALL_FAILED",PRIVATE,undefined…
+     59|   complete.mockRejectedValue(error);await expect(generateInterviewMark…
+     60|   expect(terminal()).toMatchObject({traceId:input.traceId,data:{reason…
+       |                      ^
+     61|   expect(save).not.toHaveBeenCalled();expect(JSON.stringify(events)).n…
+     62|  });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/20]⎯
+
+ FAIL  tests/itv/interview-report-diagnostics.test.ts > report diagnostics without research or credential disclosure > drops unsafe failure metadata {"kind":"PRIVATE_SYNTHETIC_RESEARCH_DO_NOT_LOG","status":401}
+ FAIL  tests/itv/interview-report-diagnostics.test.ts > report diagnostics without research or credential disclosure > drops unsafe failure metadata {"kind":"http","status":"PRIVATE_SYNTHETIC_RESEARCH_DO_NOT_LOG"}
+ FAIL  tests/itv/interview-report-diagnostics.test.ts > report diagnostics without research or credential disclosure > drops unsafe failure metadata {"kind":"http","status":700}
+ FAIL  tests/itv/interview-report-diagnostics.test.ts > report diagnostics without research or credential disclosure > drops unsafe failure metadata {"kind":"transport","message":"PRIVATE_SYNTHETIC_RESEARCH_DO_NOT_LOG","header":"PRIVATE_SYNTHETIC_RESEARCH_DO_NOT_LOG"}
+AssertionError: expected { traceId: 'http-trace-diag', …(5) } to match object { data: { providerFailure: { …(1) } } }
+(16 matching properties omitted from actual)
+
+- Expected
++ Received
+
+  Object {
+    "data": Object {
+-     "providerFailure": Object {
+-       "kind": "unknown",
++     "missing": Array [],
++     "modelCalls": 1,
++     "outputCharacters": 0,
++     "providerCode": "MODEL_CALL_FAILED",
++     "reason": "provider_error",
++     "stage": "model",
++     "timings": Object {
++       "context": 0.014958000000035554,
++       "model": 0.005249999999989541,
++       "storage": 0,
++       "validation": 0,
+      },
+    },
+  }
+
+ ❯ tests/itv/interview-report-diagnostics.test.ts:66:22
+     64|   const error=new ModelCallError("MODEL_CALL_FAILED",PRIVATE,undefined…
+     65|   complete.mockRejectedValue(error);await expect(generateInterviewMark…
+     66|   expect(terminal()).toMatchObject({data:{providerFailure:failure.kind…
+       |                      ^
+     67|   expect(JSON.stringify(events)).not.toContain(PRIVATE);
+     68|  });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[9/20]⎯
+
+ Test Files  2 failed | 1 passed (3)
+      Tests  20 failed | 73 passed (93)
+   Start at  17:29:54
+   Duration  8.55s (transform 559ms, setup 0ms, collect 1.23s, tests 6.97s, environment 0ms, prepare 79ms)
+
+undefined
+/Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run --config /tmp/wsx-restore-timeout-diagnostics-vitest.mjs

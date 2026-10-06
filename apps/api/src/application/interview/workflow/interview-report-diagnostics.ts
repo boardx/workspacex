@@ -1,3 +1,4 @@
+import { safeModelProviderFailure, type ModelProviderFailure } from "../../agent-run/model-provider-failure";
 import type { DebugTracePort } from "../../ports/debug-trace.port";
 import { ModelCallError, type ModelCallCompletion } from "../../agent-run/ports";
 import type { InterviewReportAnalysisGap } from "./digital-report-quality";
@@ -49,14 +50,16 @@ export class InterviewReportDiagnostics {
       return result;
     } catch (error) {
       const reason = this.reason ?? (this.stage === "context" ? "context_error" : this.stage === "model" ? "provider_error" : this.stage === "storage" ? "storage_error" : "unexpected_error");
-      this.finish(reason, error instanceof ModelCallError ? error.code : undefined);
+      try { this.finish(reason, error instanceof ModelCallError ? error.code : undefined,
+        reason === "provider_error" ? safeModelProviderFailure(error instanceof ModelCallError
+          ? error.providerFailure ?? (error.code === "MODEL_PROVIDER_NOT_CONFIGURED" ? { kind: "configuration" } : undefined) : undefined) : undefined); } catch { /* Diagnostic metadata cannot replace the original error. */ }
       throw error;
     }
   }
-  private finish(reason: Reason, providerCode?: ModelCallError["code"]): void {
+  private finish(reason: Reason, providerCode?: ModelCallError["code"], providerFailure?: ModelProviderFailure): void {
     this.record(`interview.report_generation.${reason === "completed" ? "completed" : "failed"}`, reason === "completed" ? "info" : "warn", {
       reason, stage: reason === "completed" ? this.stage : this.reasonStage ?? this.stage, modelCalls: this.modelCalls, outputCharacters: this.outputCharacters,
-      missing: this.missing, timings: { ...this.timings }, ...(providerCode ? { providerCode } : {}),
+      missing: this.missing, timings: { ...this.timings }, ...(providerCode ? { providerCode } : {}), ...(providerFailure ? { providerFailure } : {}),
     }, performance.now() - this.started);
   }
   private record(kind: string, level: "info" | "warn", data: unknown, durationMs?: number): void {

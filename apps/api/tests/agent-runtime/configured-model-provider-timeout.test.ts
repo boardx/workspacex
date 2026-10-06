@@ -102,11 +102,26 @@ describe("#1611 configured model provider timeouts + transport error classificat
     // ⭐ 反证锚点：没有 dispatcher 时 headersTimeout 是 300s，先触发的会是 AbortSignal，
     // 这里就会读到 "ABORTED"。分类不同 ⇒ 测试红，且几秒内就红。
     expect((err as ModelCallError).detail).toContain("UND_ERR_HEADERS_TIMEOUT");
+    expect((err as ModelCallError).providerFailure).toEqual({kind:"timeout"});
     // 配置的 1.5s 真的是上限：远小于 undici 默认的 300s，也小于 abort 宽限后的 3.5s。
     expect(elapsed).toBeLessThan(3_000);
     expect(elapsed).toBeGreaterThanOrEqual(1_000);
   }, 20_000);
 
+  it.each([false,true])("retains actual HTTP status without provider body or credentials (stream: %s)",async stream=>{
+    const base=await startServer((_req,res)=>{res.writeHead(429,{"content-type":"application/json"});res.end(JSON.stringify({error:{message:API_KEY},usage:{total_tokens:3}}));});
+    const provider=makeProvider({baseUrl:base,streamEnabled:stream});
+    const error=await (stream?provider.completeStream!({modelProvider:PROVIDER,modelId:MODEL_ID,system:"s",user:"u"},async()=>{}):call(provider)).then(()=>null,e=>e);
+    expect(error).toBeInstanceOf(ModelCallError);expect(error.providerFailure).toEqual({kind:"http",status:429});expect(error.retryDisposition).toBe("rate-limited");expect(error.usage.total).toBe(3);expect(JSON.stringify(error.providerFailure)).not.toContain(API_KEY);
+  });
+  it("marks actually malformed JSON as invalid response",async()=>{
+    const base=await startServer((_req,res)=>{res.writeHead(200,{"content-type":"application/json"});res.end("not json "+API_KEY);});
+    const error=await call(makeProvider({baseUrl:base})).then(()=>null,e=>e);expect(error.providerFailure).toEqual({kind:"invalid_response"});expect(error.detail).not.toContain(API_KEY);
+  });
+  it("marks no-content output at the actual adapter boundary",async()=>{
+    const base=await startServer((_req,res)=>{res.writeHead(200,{"content-type":"application/json"});res.end(JSON.stringify({choices:[{message:{content:""}}]}));});
+    const error=await call(makeProvider({baseUrl:base})).then(()=>null,e=>e);expect(error.providerFailure).toEqual({kind:"empty_output"});
+  });
   it("T2: cause.code 被白名单映射成不同分类，而不是塌缩成同一个 token", () => {
     const withCause = (code: unknown): unknown => Object.assign(new Error("fetch failed"), { cause: { code } });
 
@@ -181,6 +196,7 @@ describe("full response deadline", () => {
     const error = await provider.completeStream!({ modelProvider: PROVIDER, modelId: MODEL_ID, system: "s", user: "u" }, async delta => { deltas.push(delta); }).then(() => null, error => error);
     expect(error).toBeInstanceOf(ModelCallError);
     expect(error.detail).toContain("ABORTED");
+    expect(error.providerFailure).toEqual({kind:"timeout"});
     expect(Date.now() - started).toBeLessThan(3_000);
     expect(deltas).toEqual([]);
   }, 10_000);
@@ -211,6 +227,7 @@ describe("full response deadline", () => {
     const error = await provider.completeStream!({ modelProvider: PROVIDER, modelId: MODEL_ID, system: "s", user: "u", signal: controller.signal }, async () => {}).then(() => null, error => error);
     expect(error).toBeInstanceOf(ModelCallError);
     expect(error.detail).toContain("ABORTED");
+    expect(error.providerFailure).toEqual({kind:"abort"});
     await new Promise(resolve => setTimeout(resolve, 25));
     expect(closed).toBe(true);
   });
@@ -226,6 +243,7 @@ describe("full response deadline", () => {
     const error = await provider.completeStream!({ modelProvider: PROVIDER, modelId: MODEL_ID, system: "s", user: "u" }, async delta => { deltas.push(delta); }).then(() => null, error => error);
     expect(error).toBeInstanceOf(ModelCallError);
     expect(error.detail).toContain("UND_ERR_SOCKET");
+    expect(error.providerFailure).toEqual({kind:"transport"});
     expect(deltas).toEqual(["partial"]);
   });
 
@@ -242,6 +260,7 @@ describe("full response deadline", () => {
     const error = await call(provider).then(() => null, error => error);
     expect(error).toBeInstanceOf(ModelCallError);
     expect(error.detail).toContain("ABORTED");
+    expect(error.providerFailure).toEqual({kind:"timeout"});
     expect(Date.now() - started).toBeLessThan(3_000);
   }, 10_000);
 

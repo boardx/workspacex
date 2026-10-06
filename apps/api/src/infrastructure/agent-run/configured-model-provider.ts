@@ -1,3 +1,4 @@
+import type { ModelProviderFailure } from "../../application/agent-run/model-provider-failure";
 /**
  * The ONE configured model provider (Wave 2 delta §5).
  *
@@ -384,6 +385,19 @@ export function classifyTransportError(err: unknown): string {
   return "UNCLASSIFIED";
 }
 
+function transportFailure(error: unknown, deadlineExpired = false): ModelProviderFailure {
+  try {
+    const token = classifyTransportError(error);
+    if (deadlineExpired || ["UND_ERR_HEADERS_TIMEOUT", "UND_ERR_BODY_TIMEOUT", "UND_ERR_CONNECT_TIMEOUT", "ETIMEDOUT"].includes(token)) return { kind: "timeout" };
+    if (token === "ABORTED" || token === "UND_ERR_ABORTED") return { kind: "abort" };
+    return { kind: token === "UNCLASSIFIED" ? "unknown" : "transport" };
+  } catch { return { kind: "unknown" }; }
+}
+
+function inheritedFailure(error: ModelCallError): ModelProviderFailure | undefined {
+  try { return error.providerFailure; } catch { return { kind: "unknown" }; }
+}
+
 export class ConfiguredModelProvider implements ModelCallPort {
   private readonly config: ConfiguredModelProviderConfig;
 
@@ -527,7 +541,7 @@ export class ConfiguredModelProvider implements ModelCallPort {
     return this.accountRequest(input, bound => this.completeImpl(bound));
   }
 
-  private async postCompletions<T>(input: ModelCallInput, stream: boolean, consume: (response: UndiciResponse) => Promise<T>): Promise<T> {
+  private async postCompletions<T>(input: ModelCallInput, stream: boolean, consume: (response: UndiciResponse, deadlineExpired: () => boolean) => Promise<T>): Promise<T> {
     const { baseUrl, apiKey, timeoutMs } = this.config;
     if (input.outputTokenLimit !== undefined && (!Number.isSafeInteger(input.outputTokenLimit) || input.outputTokenLimit <= 0 || input.outputTokenLimit > 2147483647)) {
       throw new Error("INVALID_AI_OUTPUT_LIMIT");
@@ -539,7 +553,8 @@ export class ConfiguredModelProvider implements ModelCallPort {
     // AbortSignal 保留：它管的是整通调用的 wall-clock 上限，与 headersTimeout /
     // bodyTimeout（「多久没有新字节」）互补，不是同一件事，删掉任何一个都会留下缺口。
     const abort = new AbortController();
-    const timer = setTimeout(() => abort.abort(), timeoutMs + ABORT_GRACE_MS);
+    let deadlineExpired = false;
+    const timer = setTimeout(() => { deadlineExpired = true; abort.abort(); }, timeoutMs + ABORT_GRACE_MS);
     try {
       const options = {
         method: "POST",
@@ -572,7 +587,7 @@ export class ConfiguredModelProvider implements ModelCallPort {
         serializedBody: options.body, outputTokenLimit });
       await input.onProviderRequest?.({ phase: "started", requestId, startedAt: new Date().toISOString() });
       preparing = false;
-      return await consume(await undiciFetch(`${baseUrl}/chat/completions`, options));
+      return await consume(await undiciFetch(`${baseUrl}/chat/completions`, options), () => deadlineExpired);
     } catch (err) {
       if (preparing || err instanceof ModelCallError) throw err; // Preserve admission failures and classified body errors.
       // 传输错误对象**只**被读一个枚举字段（见 `classifyTransportError`）。`message`
@@ -581,6 +596,7 @@ export class ConfiguredModelProvider implements ModelCallPort {
       throw new ModelCallError(
         "MODEL_CALL_FAILED",
         `model provider transport failure (${classifyTransportError(err)})`,
+        undefined, undefined, transportFailure(err, deadlineExpired),
       );
     } finally {
       clearTimeout(timer);
@@ -625,7 +641,7 @@ export class ConfiguredModelProvider implements ModelCallPort {
       );
     }
 
-    return this.postCompletions(input, false, async response => {
+    return this.postCompletions(input, false, async (response, deadlineExpired) => {
 
       if (!response.ok) {
         /*
@@ -648,6 +664,7 @@ export class ConfiguredModelProvider implements ModelCallPort {
           `model provider responded with HTTP ${response.status}`,
           failedUsage,
           response.status === 429 ? "rate-limited" : response.status === 503 ? "temporarily-unavailable" : undefined,
+          { kind: "http", status: response.status },
         );
       }
 
@@ -655,12 +672,13 @@ export class ConfiguredModelProvider implements ModelCallPort {
       try {
         parsed = await response.json() as CompletionResponse;
       } catch (error) {
-        throw new ModelCallError("MODEL_CALL_FAILED", `model provider response was not JSON (${classifyTransportError(error)})`);
+        throw new ModelCallError("MODEL_CALL_FAILED", `model provider response was not JSON (${classifyTransportError(error)})`, undefined, undefined,
+          error instanceof SyntaxError && !deadlineExpired() ? { kind: "invalid_response" } : transportFailure(error, deadlineExpired()));
       }
       const message = parsed.choices?.[0]?.message;
       const content = message?.content;
       if (typeof content !== "string" || content.trim() === "") {
-        throw new ModelCallError("MODEL_CALL_FAILED", "model provider returned no content", readUsage(parsed.usage));
+        throw new ModelCallError("MODEL_CALL_FAILED", "model provider returned no content", readUsage(parsed.usage), undefined, { kind: "empty_output" });
       }
       // Read straight off the wire response, never computed. Absent or non-numeric ⇒
       // `undefined` (the port's "not reported" state) -- not `0` invented at this layer.
@@ -701,7 +719,7 @@ export class ConfiguredModelProvider implements ModelCallPort {
       );
     }
 
-    return this.postCompletions(input, true, async response => {
+    return this.postCompletions(input, true, async (response, deadlineExpired) => {
 
       if (!response.ok) {
         let failedUsage: ReportedUsage | undefined;
@@ -712,10 +730,11 @@ export class ConfiguredModelProvider implements ModelCallPort {
           `model provider responded with HTTP ${response.status}`,
           failedUsage,
           response.status === 429 ? "rate-limited" : response.status === 503 ? "temporarily-unavailable" : undefined,
+          { kind: "http", status: response.status },
         );
       }
       if (response.body === null) {
-        throw new ModelCallError("MODEL_CALL_FAILED", "model provider returned no stream body");
+        throw new ModelCallError("MODEL_CALL_FAILED", "model provider returned no stream body", undefined, undefined, { kind: "invalid_response" });
       }
 
       // This adapter emits one assistant message per completion, unlike a tool graph.
@@ -793,12 +812,12 @@ export class ConfiguredModelProvider implements ModelCallPort {
           total: e.usage?.total ?? usage.total, prompt: e.usage?.prompt ?? usage.prompt,
           completion: e.usage?.completion ?? usage.completion,
           cacheInput: e.usage?.cacheInput ?? usage.cacheInput, reasoningOutput: e.usage?.reasoningOutput ?? usage.reasoningOutput,
-        }));
+        }), undefined, inheritedFailure(e));
         // 同 `postCompletions`：只取枚举 token，`message` 不读。
         throw new ModelCallError(
           "MODEL_CALL_FAILED",
           `model provider stream transport failure (${classifyTransportError(e)})`,
-          usage,
+          usage, undefined, transportFailure(e, deadlineExpired()),
         );
       } finally {
         await reader.cancel().catch(() => {});
