@@ -1,3 +1,4 @@
+import {assertSourcePlanAuthority,type OriginalPlanAuthority} from './source_plan_authority';
 import { createHash } from 'node:crypto';
 import { closeSync,openSync,constants,lstatSync,fstatSync,writeFileSync,fsyncSync,linkSync,unlinkSync } from 'node:fs';
 import { dirname } from 'node:path';
@@ -36,7 +37,7 @@ export interface PersistentMigrationLifecycle {
  readDiagnosticLedger(identity:MaintenanceIdentity):Promise<{ledger:Array<{name:string;checksum:string;appliedAt?:string}>;rowCount:number;connection:any}>;
 }
 interface Runtime { read(path:string):Buffer; runBash:CommandRunner; runWriter:CommandRunner; verifyExecutable(value:TrustedExecutable):void; now():number; verifyCompletion:typeof verifyMigrationCompletion; persist(path:string,bytes:Buffer):Promise<void> }
-const defaults: Runtime={read:readProtectedCompletionBytes,runBash:runFixedPython,runWriter:undefined as never,verifyExecutable:command=>{const fd=protectedExecutable(command);closeSync(fd);},now:Date.now,verifyCompletion:verifyMigrationCompletion,persist:async(path,bytes)=>{await inheritedFd9Lock();publishMigrationReceipt(path,bytes);}};
+const defaults: Runtime={read:readProtectedCompletionBytes,runBash:runFixedPython,runWriter:undefined as never,verifyExecutable:command=>{const fd=protectedExecutable(command);closeSync(fd);},now:Date.now,verifyCompletion:verifyMigrationCompletion,persist:undefined as never};
 /** Production callers supply runWriter = runFixedPython, not plan-selected JS.
  * fixture overrides are local test API; the installed entry never deserializes them. */
 /** Consume only immutable, root-protected FULL prebuild evidence before DDL.
@@ -49,11 +50,11 @@ export function verifyBaselineMigrationAdmission(raw:Buffer,validatedRaw:Buffer,
  const b=evidence.checks?.['bootstrap.compatibility'];const proof=b?.metadata;
  if(evidence.schemaVersion!==2||evidence.phase!=='prebuild'||evidence.buildStarted!==false||evidence.sourceSha!==id.sourceRevision||evidence.baselineSha!==id.baselineRevision||evidence.attemptId!==id.attemptId||!Number.isFinite(issued)||!Number.isFinite(expires)||issued>now||expires<=now||expires-issued<=0||expires-issued>3600000||validated.schemaVersion!==2||validated.phase!=='prebuild'||validated.ready!==true||!Array.isArray(validated.blockers)||validated.blockers.length||validated.receiptSha256!==hash||['sourceSha','baselineSha','attemptId','release','issuedAt','expiresAt'].some(k=>validated[k]!==evidence[k])||b?.status!=='passed'||!hex.safeParse(b?.evidenceSha256).success||proof?.evidenceMode!=='source-static'||proof?.baselineSha!==id.baselineRevision||proof?.migrationPlanSha256!==id.migrationPlanSha256||!hex.safeParse(proof?.baselineSchemaSha256).success||proof?.baselineLedgerContract!==true||proof?.baselineSchemaContract!==true||proof?.baselinePermissionContract!==true||proof?.candidateSchemaContract!==false||proof?.buildAdmissionOnly!==true||proof?.productionWriteStatements!==0)throw Error('MIGRATION_BASELINE_ADMISSION_INVALID');
 }
-export function createMigrationTransport(inputs:ExactMigrationInputs,binding:MigrationHostBinding,runWriter:CommandRunner,lifecycle:PersistentMigrationLifecycle,fixture?:Partial<Runtime>):ExactMigrationTransport {
+export function createMigrationTransport(inputs:ExactMigrationInputs,binding:MigrationHostBinding,runWriter:CommandRunner,lifecycle:PersistentMigrationLifecycle,fixture?:Partial<Runtime>,authority?:OriginalPlanAuthority):ExactMigrationTransport {
  if(!lifecycle||typeof lifecycle.migrateExactPlan!=='function'||typeof lifecycle.readDiagnosticLedger!=='function'||typeof lifecycle.recordMigrationCompletion!=='function')throw new Error('PERSISTENT_MIGRATION_LIFECYCLE_REQUIRED');
- const runtime={...defaults,runWriter,...fixture};
- const id=binding.identity;const root=`/etc/workspacex-cn/maintenance-migration/${id.sourceRevision}/${id.attemptId}`;
- if(id.sourceRevision!=='9b25bfa65662b96c0826fe67506b562ea46aa6d0'||id.baselineRevision!=='ba6343199f3c834d6a198f83d0c771614292c82b'||!/^[A-Za-z0-9-]{1,128}$/.test(id.attemptId)||!hex.safeParse(id.migrationPlanSha256).success||binding.configPath!==root+'/config.json'||binding.completionPath!==`/etc/workspacex-cn/migration-completion-inputs/${id.sourceRevision}/${id.attemptId}.json`||!/^[a-f0-9]{40}$/.test(binding.toolRevision)||!hex.safeParse(binding.configSha256).success||!hex.safeParse(binding.writerPlanCanonicalSha256).success||binding.collector.path!=='/usr/local/lib/workspacex-cn/collect-cn-migration-snapshot.py'||binding.writerFence.path!=='/usr/local/lib/workspacex-cn/host_transport.py'||!Number.isSafeInteger(binding.lockTimeoutMs)||binding.lockTimeoutMs<1||binding.lockTimeoutMs>300000)throw new Error('MIGRATION_HOST_BINDING_INVALID');
+ const runtime={...defaults,runWriter,persist:async(path:string,bytes:Buffer)=>{assertSourcePlanAuthority(authority,binding.identity,binding.toolRevision);await inheritedFd9Lock();publishMigrationReceipt(path,bytes,undefined,authority);},...fixture};
+ const id=binding.identity;assertSourcePlanAuthority(authority,id,binding.toolRevision);const root=`/etc/workspacex-cn/maintenance-migration/${id.sourceRevision}/${id.attemptId}`;
+ if(!/^[a-f0-9]{40}$/.test(id.sourceRevision)||id.baselineRevision!=='ba6343199f3c834d6a198f83d0c771614292c82b'||!/^[A-Za-z0-9-]{1,128}$/.test(id.attemptId)||!hex.safeParse(id.migrationPlanSha256).success||binding.configPath!==root+'/config.json'||binding.completionPath!==`/etc/workspacex-cn/migration-completion-inputs/${id.sourceRevision}/${id.attemptId}.json`||!/^[a-f0-9]{40}$/.test(binding.toolRevision)||!hex.safeParse(binding.configSha256).success||!hex.safeParse(binding.writerPlanCanonicalSha256).success||binding.collector.path!=='/usr/local/lib/workspacex-cn/collect-cn-migration-snapshot.py'||binding.writerFence.path!=='/usr/local/lib/workspacex-cn/host_transport.py'||!Number.isSafeInteger(binding.lockTimeoutMs)||binding.lockTimeoutMs<1||binding.lockTimeoutMs>300000)throw new Error('MIGRATION_HOST_BINDING_INVALID');
  const source=migrationSourceSchema.parse(inputs.expectedCompletion.productionSource);
  const ddlSource=migrationSourceSchema.parse(binding.ddlSource);const ddlEvidence=sourceEvidenceSchema.parse(binding.ddlSourceEvidence);
  if(!verifyExternalSourceIdentity(ddlSource,ddlEvidence)||ddlSource.user===source.user||['accountId','regionId','dbInstanceId','database','endpointSha256','serverAddressSha256','port','identityLane','clientPeerAddressSha256','clientPeerPort','sslMode','clientEncrypted','clientTlsAuthorized'].some(key=>(ddlSource as any)[key]!==(source as any)[key]))throw new Error('MIGRATION_DDL_DIAGNOSTIC_TARGET_MISMATCH');
@@ -77,6 +78,7 @@ export function createMigrationTransport(inputs:ExactMigrationInputs,binding:Mig
   return report.ledger.map(({name,checksum})=>({name,checksum})).sort((a,b)=>a.name<b.name?-1:a.name>b.name?1:0);
  };
  const barrier=async()=>{
+  assertSourcePlanAuthority(authority,id,binding.toolRevision);
   const result=await runtime.runWriter(binding.writerFence,['--apply-reviewed-fence',binding.writerPlanPath,binding.writerPlanSha256,'verifyWritesBlocked']);
   const fact=JSON.parse(result.stdout);const now=runtime.now()/1000;
   if(fact.schemaVersion!==1||fact.kind!=='maintenance-writers-held'||fact.ready!==false||!fact.identity||Object.entries(id).some(([k,v])=>fact.identity[k]!==v)||Object.keys(fact.identity).length!==4||!hex.safeParse(fact.planSha256).success||fact.planSha256!==binding.writerPlanCanonicalSha256||typeof fact.observedAt!=='number'||fact.observedAt>now||now-fact.observedAt>30||!hex.safeParse(fact.databaseSessionsSha256).success||!Array.isArray(fact.families)||fact.families.join(',')!=='http,socket,queue,background,agent,checkpoint,memory,privileged')throw new Error('MIGRATION_LIVE_WRITER_BARRIER_INVALID');
@@ -84,6 +86,7 @@ export function createMigrationTransport(inputs:ExactMigrationInputs,binding:Mig
  return {
   verifyLiveWriterBarrier:barrier,
   migrate:async()=>{
+   assertSourcePlanAuthority(authority,id,binding.toolRevision);
    if(startedAt!==undefined)throw new Error('MIGRATION_REENTRY_FORBIDDEN');
    // Missing collector/credentials reject before any DDL. No provision/force.
    runtime.verifyExecutable(binding.collector);runtime.verifyExecutable(binding.writerFence);
@@ -118,12 +121,13 @@ export function createMigrationTransport(inputs:ExactMigrationInputs,binding:Mig
   },
  };
 }
-export function boundExactMigrationAction(inputs:ExactMigrationInputs,binding:MigrationHostBinding,runWriter:CommandRunner,lifecycle:PersistentMigrationLifecycle){return exactMigrationAction(inputs,createMigrationTransport(inputs,binding,runWriter,lifecycle));}
+export function boundExactMigrationAction(inputs:ExactMigrationInputs,binding:MigrationHostBinding,runWriter:CommandRunner,lifecycle:PersistentMigrationLifecycle,authority:OriginalPlanAuthority){return exactMigrationAction(inputs,createMigrationTransport(inputs,binding,runWriter,lifecycle,undefined,authority));}
 
 /** Atomic no-overwrite publication; fixture ownership override is not CLI input.
  * A crash leaving the temporary hardlink makes nlink=2 and readers fail closed. */
-export function publishMigrationReceipt(path:string,bytes:Buffer,fixture?:{uid:number;gid:number;boundary:string}):void{
- if(!fixture&&!/^\/etc\/workspacex-cn\/migration-completion-inputs\/9b25bfa65662b96c0826fe67506b562ea46aa6d0\/[A-Za-z0-9-]{1,128}\.completed\.json$/.test(path))throw new Error('MIGRATION_RECEIPT_PATH');
+export function publishMigrationReceipt(path:string,bytes:Buffer,fixture?:{uid:number;gid:number;boundary:string},authority?:OriginalPlanAuthority):void{
+ if(!fixture){if(!authority)throw Error('ORIGINAL_PLAN_AUTHORITY_REQUIRED');assertSourcePlanAuthority(authority,authority.identity,authority.toolRevision);if(path!==`/etc/workspacex-cn/migration-completion-inputs/${authority!.identity.sourceRevision}/${authority!.identity.attemptId}.completed.json`)throw Error('MIGRATION_RECEIPT_AUTHORITY_PATH');readNativeCompletion(JSON.parse(bytes.toString('utf8')),authority!.identity);}
+ if(!fixture&&!/^\/etc\/workspacex-cn\/migration-completion-inputs\/[a-f0-9]{40}\/[A-Za-z0-9-]{1,128}\.completed\.json$/.test(path))throw new Error('MIGRATION_RECEIPT_PATH');
  if(bytes.length>8*1024*1024)throw new Error('MIGRATION_RECEIPT_BOUND');
  const uid=fixture?.uid??0,gid=fixture?.gid??0;const parent=dirname(path);
  for(let directory=parent;;directory=dirname(directory)){const info=lstatSync(directory);if(!info.isDirectory()||info.uid!==uid||info.gid!==gid||(info.mode&0o022))throw new Error('MIGRATION_RECEIPT_PARENT');if(directory===(fixture?.boundary??'/'))break;}

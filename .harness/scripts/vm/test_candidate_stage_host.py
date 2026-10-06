@@ -90,28 +90,33 @@ class ActualConfigurationTests(StageHostTests):
             'create','--no-build','--pull','never','--no-deps','web','api','agent','sandbox','sandbox-sessions'])
 
 class EmitterAndIntentTests(StageHostTests):
-    def emitter_fixture(self):
+    def emitter_fixture(self,source_revision=None):
         import copy,json,hashlib,os
         from test_candidate_stage_actions import fixture
         inputs,manifest,compose,_,_,_,_,_=fixture();t,c=self.fixture()
+        if source_revision:inputs['identity']=dict(inputs['identity'],sourceRevision=source_revision);manifest['sourceRevision']=source_revision
         t.host.plan['toolRevision']=inputs['toolRevision'];t.host.plan['identity']=inputs['identity'];t.host.plan['host']=inputs['host'];t.host.plan['holdGeneration']=inputs['holdGeneration']
         t.journal.value['identity']=inputs['identity']
         events=[];t.journal.record=lambda state,**kw:events.append((state,kw))
         paths=('compose.ts','config.ts','storage-config.ts','release.ts','image-reference.ts','runtime-bundle.ts')
-        sources={'packages/cloud-deploy/src/'+n:{'sha256':'a'*64} for n in paths}
-        closure={'schemaVersion':1,'sourceRevision':inputs['identity']['sourceRevision'],'bundleSha256':'b'*64,'sources':sources,
+        sources={'packages/cloud-deploy/src/'+n:{'sha256':'a'*64,'gitBlob':'a'*40} for n in paths}
+        for name in ('packages/cloud-deploy/src/cn-maintenance-host/source_plan_authority.ts','packages/cloud-deploy/src/cn-candidate-compose-source.ts','packages/cloud-deploy/src/cn-candidate-compose-source-cli.ts','.harness/scripts/vm/build-cn-candidate-compose-source.mjs'):sources[name]={'sha256':'a'*64,'gitBlob':'a'*40}
+        original_ref={'path':'/etc/workspacex-cn/original-writer-plan','sha256':'7'*64};t.host.reviewed_plan_ref=original_ref;t.host.manifest_sha=original_ref['sha256']
+        original={'schemaVersion':1,'mode':'maintenance-all-writer-fence','productionActionsAuthorized':True,'runtimeSessionBootstrapAuthorized':True,'identity':inputs['identity'],'toolRevision':inputs['toolRevision']}
+        entry_plan={'schemaVersion':1,'productionActionsAuthorized':True,'identity':inputs['identity'],'host':{'identity':inputs['identity'],'writerPlanPath':original_ref['path'],'writerPlanSha256':original_ref['sha256']},'production':{'toolRevision':inputs['toolRevision']}}
+        closure={'schemaVersion':2,'sourceRevision':inputs['identity']['sourceRevision'],'identity':inputs['identity'],'toolRevision':inputs['toolRevision'],'originalPlanSha256':original_ref['sha256'],'emitterSourceRevision':'8'*40,'release':manifest['release'],'bundleSha256':'b'*64,'sources':sources,
             'dependencies':{'node_modules/zod.js':'c'*64},'lockfileSha256':'d'*64,'bundledInputs':list(sources)+['node_modules/zod.js'],
             'compiler':{'name':'esbuild','version':'0.24.2'}}
         network={'Id':'e'*64,'Name':compose['name']+'-runtime','Driver':'bridge','Internal':False,'IPAM':{},'Options':{}}
         options={'projectName':compose['name'],'runtimeDirectory':'/etc/workspacex-cn/native','runtimeFiles':{},
             'manifestRef':inputs['manifest'],'composeRef':inputs['compose'],'networkRef':{'path':'/etc/network','sha256':'e'*64}}
-        refs={k:{'path':'/etc/workspacex-cn/'+k,'sha256':str(n)*64} for n,k in enumerate(('sourceClosureRef','configRef','optionsRef'),1)}
-        e={'schemaVersion':1,'path':'/usr/local/lib/emitter.cjs','sha256':'b'*64,'nodePath':'/usr/bin/node','nodeSha256':'f'*64,
+        refs={k:{'path':'/etc/workspacex-cn/'+k,'sha256':str(n)*64} for n,k in enumerate(('sourceClosureRef','configRef','optionsRef','originalEntryPlanRef'),1)}
+        e={'schemaVersion':2,'path':'/usr/local/lib/emitter.cjs','sha256':'b'*64,'nodePath':'/usr/bin/node','nodeSha256':'f'*64,
             **refs,'dockerPath':'/usr/bin/docker','dockerSha256':'a'*64,'dockerSocket':{}}
         files={k:v['sha256'] for k,v in sources.items()};files.update({'node_modules/zod.js':'c'*64,'pnpm-lock.yaml':'d'*64})
-        p={'toolRevision':inputs['toolRevision'],'filesSha256':files,'candidateComposeEmitter':e}
-        data={refs['sourceClosureRef']['path']:closure,refs['configRef']['path']:{'fixture':'sourceconfig'},refs['optionsRef']['path']:options,
-            '/etc/network':network}
+        p={'toolRevision':inputs['toolRevision'],'filesSha256':files,'candidateComposeEmitter':e,'originalWriterPlan':original_ref}
+        data={refs['sourceClosureRef']['path']:closure,refs['configRef']['path']:{'provision':{'release':manifest['release']}},refs['optionsRef']['path']:options,
+            '/etc/network':network,original_ref['path']:original,refs['originalEntryPlanRef']['path']:entry_plan,inputs['manifest']['path']:manifest}
         t._profile=lambda:(b'root-profile',p,e)
         t._read_ref=lambda r:json.dumps(data[r['path']],sort_keys=True).encode()
         t._open_executable=lambda path,sha,mode:os.open('/dev/null',os.O_RDONLY)
@@ -135,6 +140,25 @@ class EmitterAndIntentTests(StageHostTests):
         self.assertEqual(events[0][0],'candidate-stage-intent')
         self.assertTrue(t.intent_recorded)
         self.assertNotIn('fixture',json.dumps(t.journal.value))
+    def test_a1cb_compose_uses_original_authority(self):
+        t,i,m,c,data,calls,events=self.emitter_fixture('a1cb4c7683768566b0cf38ffe6a27b0a8c13f4f0')
+        self.assertEqual(t.verify_frozen_compose(i,m),c)
+        import json
+        self.assertEqual(json.loads(calls[0][1])['sourceRevision'],i['identity']['sourceRevision'])
+    def test_original_raw_source_tool_release_entry_and_compiler_pin_reject(self):
+        for variant in ('raw','source','tool','release','entry','candidateclosure','sourcehash','blob'):
+            t,i,m,c,data,calls,events=self.emitter_fixture('a1cb4c7683768566b0cf38ffe6a27b0a8c13f4f0')
+            closure=data['/etc/workspacex-cn/sourceClosureRef']
+            if variant=='raw':t.host.manifest_sha='0'*64
+            elif variant=='source':closure['sourceRevision']='9b25bfa65662b96c0826fe67506b562ea46aa6d0'
+            elif variant=='tool':closure['toolRevision']='0'*40
+            elif variant=='release':closure['release']='2026.10.3-foreign'
+            elif variant=='entry':data['/etc/workspacex-cn/originalEntryPlanRef']['host']['writerPlanSha256']='0'*64
+            elif variant=='candidateclosure':closure['identity']=dict(closure['identity'],attemptId='foreign')
+            elif variant=='sourcehash':closure['sources']['packages/cloud-deploy/src/cn-maintenance-host/source_plan_authority.ts']['sha256']='0'*64
+            else:closure['sources']['packages/cloud-deploy/src/compose.ts'].pop('gitBlob')
+            with self.assertRaises(RuntimeError):t.verify_frozen_compose(i,m)
+            self.assertFalse(calls)
     def test_source_closure_root_ref_and_network_drift_reject(self):
         for case in ('deps','manifest','network','profile-drift'):
             t,i,m,c,data,calls,events=self.emitter_fixture()

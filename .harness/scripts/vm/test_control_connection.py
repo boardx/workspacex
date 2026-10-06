@@ -4,6 +4,14 @@ class Dummy:
  stdin=None;stdout=None
  def wait(self,timeout):pass
 class Fixture(PersistentControlConnection):
+ def __init__(self,plan,*args,**kwargs):
+  import json,copy
+  original=copy.deepcopy(plan);original.pop('controlSessions',None);original.pop('diagnosticSessions',None);original.update(schemaVersion=1,mode='maintenance-all-writer-fence',productionActionsAuthorized=True,runtimeSessionBootstrapAuthorized=True)
+  raw=json.dumps(original).encode();ref={'path':'/etc/workspacex-cn/test-original.json','sha256':hashlib.sha256(raw).hexdigest()};read=kwargs.get('read_private',lambda *a:b'fixture')
+  kwargs['original_plan_ref']=ref
+  kwargs['read_private']=lambda path,*a:json.dumps({'originalWriterPlan':ref}).encode() if path=='/etc/workspacex-cn/trusted-tool-binding.json' else raw if path==ref['path'] else read(path,*a)
+  super().__init__(plan,*args,**kwargs)
+
  def request(self,payload,bind=True):
   self.requests=getattr(self,'requests',[])+[payload]
   return {'connection':self.plan['controlSessions' if self.mode=='control' else 'diagnosticSessions'][self.db],'value':{'fixed':True},'capabilities':{'catalogLockAuthority':True,'alterRoleAuthority':True}}

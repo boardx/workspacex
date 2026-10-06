@@ -5,14 +5,14 @@ import {readFileSync} from 'node:fs';
 import {fileURLToPath} from 'node:url';
 import {resolve,join} from 'node:path';
 import {createSourceProductionConsumers,type SourceConsumerRuntime} from './source_production_consumers';
-import {persistentSourceModules} from './sealed_runtime';
+import {persistentSourceModules,runtimeDigest} from './sealed_runtime';
 import {CURRENT_EPOCH_PYTHON_MODULES} from './current_epoch_manifest_consumer';
 import type {EntryPlan} from './entry';
 
 /** Root authority/host execution are local source mocks. Actual repository bytes
  * define this bundle, but no test claims they are installed on a real host. */
-function fixture(){
- const identity={sourceRevision:'9b25bfa65662b96c0826fe67506b562ea46aa6d0',baselineRevision:'ba6343199f3c834d6a198f83d0c771614292c82b',migrationPlanSha256:'a'.repeat(64),attemptId:'source-local'};
+function fixture(sourceRevision='9b25bfa65662b96c0826fe67506b562ea46aa6d0'){
+ const identity={sourceRevision,baselineRevision:'ba6343199f3c834d6a198f83d0c771614292c82b',migrationPlanSha256:'a'.repeat(64),attemptId:'source-local'};
  const revision='b'.repeat(40),hash='c'.repeat(64),events:string[]=[];
  const vm=resolve(fileURLToPath(new URL('../../../../.harness/scripts/vm/',import.meta.url)));
  const files:Record<string,string>={},installed:Record<string,string>={};
@@ -25,8 +25,10 @@ function fixture(){
  const qualification={...command('current_epoch_qualification.py'),pythonModules:Object.fromEntries(Object.entries(CURRENT_EPOCH_PYTHON_MODULES).map(([key,file])=>[key,command(file+'.py')]))};
  const data:any={schemaVersion:2,identity,toolRevision:revision,prepared:{receipt:{path:'/etc/workspacex-cn/mock-receipt.json',sha256:hash},manifest:{path:'/etc/workspacex-cn/mock-manifest.json',sha256:hash}},migration:{inputs:{path:'/etc/workspacex-cn/mock-migration.json',sha256:hash},binding:{identity,toolRevision:revision,collector}},writerModules,candidateModules,sourceOperationModules:modules,prehold:{qualificationExecutable:qualification,filesSha256:files},dockerRuntime:{path:'/usr/bin/docker',sha256:hash},publicPolicy:{deploymentMarker:'local-mock',observationSamples:2,maximumOutstandingRuns:0}};
  const profile:any={toolRevision:revision,filesSha256:files,installedFilesSha256:installed,maintenanceSourceOperations:{schemaVersion:1,sourcePath:'.harness/scripts/vm/maintenance_source_operations.py',sha256:modules.maintenance_source_operations!.sha256,inputs:{}},parentCaptureInvocation:{schemaVersion:1,producerId:'retained-capture',executablePins:{'/usr/bin/python3':hash}},currentEpochQualification:{schemaVersion:2,sourcePath:'.harness/scripts/vm/current_epoch_qualification.py',sha256:modules.current_epoch_qualification!.sha256}};
+ const sourcePlan={schemaVersion:1,mode:'maintenance-all-writer-fence',productionActionsAuthorized:true,runtimeSessionBootstrapAuthorized:true,identity,toolRevision:revision};
+ const sourceRaw=Buffer.from(JSON.stringify(sourcePlan)+'\n');host.writerPlanSha256=createHash('sha256').update(sourceRaw).digest('hex');host.writerPlanCanonicalSha256=runtimeDigest(sourcePlan);profile.originalWriterPlan={path:host.writerPlanPath,sha256:host.writerPlanSha256};
  const plan={identity,host,production:{toolRevision:revision},consumerInputsPath:'/etc/workspacex-cn/mock-consumer.json',consumerInputsSha256:hash} as EntryPlan;
- const io:Partial<SourceConsumerRuntime>={readJson:path=>{events.push('read:'+path);if(path===host.writerPlanPath)return {identity,toolRevision:revision};if(path==='/etc/workspacex-cn/trusted-tool-binding.json')return profile;return {};},readBytes:()=>Buffer.from('{}'),verifyExecutable:()=>{},acquireLock:async()=>{events.push('lock');return async()=>{events.push('unlock');};},lifecycle:()=>{events.push('construct-retained');return {start:async()=>{events.push('start-retained');return host;},invoke:async()=>({stdout:'{}'}),baselineCancellation:async()=>{},bindCandidateReference:async()=>{},candidateOperation:async()=>{},sourceOperation:async()=>{throw Error('ACTUAL_EVIDENCE_MISSING');},migrateExactPlan:async()=>({applied:[],skipped:[]}),recordMigrationCompletion:async()=>{},readDiagnosticLedger:async()=>({ledger:[],rowCount:0,connection:{},observedAt:0}),readRunDrain:async()=>({queued:0,running:0,writebackPending:0}),recoverRetainedBaseline:async()=>{throw Error('LEGACY_RECOVERY_MUST_NOT_RUN');},closeAfterAccepted:async()=>{},retainUnknown:()=>{events.push('retain');}};},migration:()=>({migrate:async()=>({applied:[],skipped:[]}),readFreshCompletion:async()=>({snapshot:{},binding:{}}),verifyLiveWriterBarrier:async()=>{}})};
+ const io:Partial<SourceConsumerRuntime>={readJson:path=>{events.push('read:'+path);if(path===host.writerPlanPath)return {identity,toolRevision:revision};if(path==='/etc/workspacex-cn/trusted-tool-binding.json')return profile;return {};},readBytes:path=>path===host.writerPlanPath?sourceRaw:path==='/etc/workspacex-cn/trusted-tool-binding.json'?Buffer.from(JSON.stringify(profile)):Buffer.from('{}'),verifyExecutable:()=>{},acquireLock:async()=>{events.push('lock');return async()=>{events.push('unlock');};},lifecycle:()=>{events.push('construct-retained');return {start:async()=>{events.push('start-retained');return host;},invoke:async()=>({stdout:'{}'}),baselineCancellation:async()=>{},bindCandidateReference:async()=>{},candidateOperation:async()=>{},sourceOperation:async()=>{throw Error('ACTUAL_EVIDENCE_MISSING');},migrateExactPlan:async()=>({applied:[],skipped:[]}),recordMigrationCompletion:async()=>{},readDiagnosticLedger:async()=>({ledger:[],rowCount:0,connection:{},observedAt:0}),readRunDrain:async()=>({queued:0,running:0,writebackPending:0}),recoverRetainedBaseline:async()=>{throw Error('LEGACY_RECOVERY_MUST_NOT_RUN');},closeAfterAccepted:async()=>{},retainUnknown:()=>{events.push('retain');}};},migration:()=>({migrate:async()=>({applied:[],skipped:[]}),readFreshCompletion:async()=>({snapshot:{},binding:{}}),verifyLiveWriterBarrier:async()=>{}})};
  return {plan,data,profile,io,events};
 }
 test('schema2 constructs the compiled A route without starting retained SQL or legacy activation',async()=>{
@@ -55,3 +57,5 @@ test('prehold missing qualified archive releases only the inherited lock and sta
  await assert.rejects(ops.verifyPreholdRecoveryCapability(f.plan.identity));await release();
  assert.equal(f.events.includes('start-retained'),false);assert.equal(f.events.at(-1),'unlock');
 });
+
+test('a1cb actual composition retains pinned original authority without starting writers',async()=>{const f=fixture('a1cb4c7683768566b0cf38ffe6a27b0a8c13f4f0');const c=await createSourceProductionConsumers(f.plan,f.profile,f.data,f.io);assert.ok(c.inputs.admittedARoute);assert.equal(f.events.includes('start-retained'),false);});

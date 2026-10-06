@@ -1,3 +1,4 @@
+import {readOriginalPlanAuthority,assertSourcePlanAuthority} from './source_plan_authority';
 /** Fixed 9b source composition. Root inputs contain only protected data refs;
  * all executable operations are assembled here, never from a JSON registry. */
 import {z} from 'zod';
@@ -17,7 +18,7 @@ import {readNativeCompletion} from './native_completion';
 const hash=z.string().regex(/^[a-f0-9]{64}$/);
 const ref=z.object({path:z.string().startsWith('/etc/workspacex-cn/').refine(v=>!v.split('/').includes('..')),sha256:hash}).strict();
 const command=z.object({path:z.string().startsWith('/usr/local/lib/workspacex-cn/'),sha256:hash}).strict();
-const schema=z.object({schemaVersion:z.literal(2),identity:z.object({sourceRevision:z.literal('9b25bfa65662b96c0826fe67506b562ea46aa6d0'),baselineRevision:z.literal('ba6343199f3c834d6a198f83d0c771614292c82b'),migrationPlanSha256:hash,attemptId:z.string().regex(/^[A-Za-z0-9-]{1,32}$/)}).strict(),toolRevision:z.string().regex(/^[a-f0-9]{40}$/),
+const schema=z.object({schemaVersion:z.literal(2),identity:z.object({sourceRevision:z.string().regex(/^[a-f0-9]{40}$/),baselineRevision:z.literal('ba6343199f3c834d6a198f83d0c771614292c82b'),migrationPlanSha256:hash,attemptId:z.string().regex(/^[A-Za-z0-9-]{1,32}$/)}).strict(),toolRevision:z.string().regex(/^[a-f0-9]{40}$/),
  prepared:z.object({receipt:ref,manifest:ref}).strict(),migration:z.object({inputs:ref,binding:z.unknown()}).strict(),
  writerModules:z.object({writer_fence:command,fixed_probes:command,control_connection:command}).strict(),
  candidateModules:z.object({candidate_writer:command,candidate_backend_collector:command,candidate_host_transport:command}).strict(),
@@ -54,7 +55,8 @@ export async function createSourceProductionConsumers(plan:EntryPlan,profile:any
  const migrationInputs=io.readJson(v.migration.inputs.path,v.migration.inputs.sha256) as ExactMigrationInputs;
  const migrationBinding=v.migration.binding as MigrationHostBinding;
  need(same(migrationBinding?.identity,identity)&&migrationBinding.toolRevision===toolRevision,'SOURCE_MIGRATION_BINDING');verify(migrationBinding.collector);
- const sourcePlan=io.readJson(plan.host.writerPlanPath,plan.host.writerPlanSha256) as Record<string,any>;
+ const authority=readOriginalPlanAuthority(plan.host,toolRevision,profile,io.readBytes);
+ const sourcePlan=authority.sourcePlan;
  const lifecycle=io.lifecycle({identity,toolRevision,sourcePlanPath:plan.host.writerPlanPath,sourcePlanSha256:plan.host.writerPlanSha256,sourcePlan,host:plan.host,modules:v.writerModules,candidate:{modules:v.candidateModules},sourceOperationModules:v.sourceOperationModules});
  const boundMigration={...migrationBinding};let heldHost:import('./controller').HostBinding|undefined;
  const start=lifecycle.start.bind(lifecycle);
@@ -64,9 +66,10 @@ export async function createSourceProductionConsumers(plan:EntryPlan,profile:any
   need(heldHost&&args.length===4&&args[0]==='--apply-reviewed-fence'&&args[1]===heldHost!.writerPlanPath&&args[2]===heldHost!.writerPlanSha256&&args[3]==='verifyWritesBlocked','SOURCE_PERSISTENT_WRITER_ROUTING');
   return lifecycle.invoke('verifyWritesBlocked',identity);
  };
- const transport=io.migration(migrationInputs,boundMigration,runWriter,{migrateExactPlan:id=>lifecycle.migrateExactPlan(id),readDiagnosticLedger:id=>lifecycle.readDiagnosticLedger(id),recordMigrationCompletion:(id,stage,receipt)=>lifecycle.recordMigrationCompletion(id,stage,receipt)});
+ const transport=io.migration(migrationInputs,boundMigration,runWriter,{migrateExactPlan:id=>lifecycle.migrateExactPlan(id),readDiagnosticLedger:id=>lifecycle.readDiagnosticLedger(id),recordMigrationCompletion:(id,stage,receipt)=>lifecycle.recordMigrationCompletion(id,stage,receipt)},undefined,authority);
  const operationSource=v.sourceOperationModules.maintenance_source_operations!;
  const op=async(action:MaintenanceSourceAction)=>{
+  assertSourcePlanAuthority(authority,identity,toolRevision);
   const live=io.readJson('/etc/workspacex-cn/trusted-tool-binding.json') as any;
   need(live.toolRevision===toolRevision&&same(live.filesSha256,profile.filesSha256)&&same(live.installedFilesSha256,profile.installedFilesSha256),'SOURCE_OPERATION_AUTHORITY_CHANGED');
   const r=ref.parse(live.maintenanceSourceOperations?.inputs?.[action]);
@@ -85,7 +88,7 @@ export async function createSourceProductionConsumers(plan:EntryPlan,profile:any
  const route=await createARouteFactory({binding:plan.host,toolRevision,installedFilesSha256:profile.installedFilesSha256,run:io.run,
   acquireReleaseLock:async()=>{const release=await io.acquireLock();return async()=>{await release();};},assertInstalledSource:async c=>verify(c),readEvidence:async r=>io.readJson(r.path,r.sha256),consumers:{
   offline:{...common(operationSource),prepare:offline},
-  prehold:{...common(prehold.qualificationExecutable),verifyRecoveryCapability:async()=>{archived=await consumePreholdEpochManifest(prehold,{read:async r=>io.readJson(r.path,r.sha256),run:io.run});},verifyIsolatedAcceptance:async()=>{need(archived,'SOURCE_PREHOLD_NOT_VERIFIED');await consumePreholdEpochManifest(prehold,{read:async r=>io.readJson(r.path,r.sha256),run:io.run});}},
+  prehold:{...common(prehold.qualificationExecutable),verifyRecoveryCapability:async()=>{archived=await consumePreholdEpochManifest(prehold,{read:async r=>io.readJson(r.path,r.sha256),run:io.run},authority);},verifyIsolatedAcceptance:async()=>{need(archived,'SOURCE_PREHOLD_NOT_VERIFIED');await consumePreholdEpochManifest(prehold,{read:async r=>io.readJson(r.path,r.sha256),run:io.run},authority);}},
   epoch:{...common(operationSource),captureAndVerify:async()=>{await op('capture-current-epoch-draft');await op('stage-epoch-external-evidence');await op('finalize-epoch-input');current=await op('qualify-current-epoch');return current!;},verifyCurrentEpochIsolatedAcceptance:async(_id,e)=>{need(same(await op('verify-qualified-current-epoch'),e),'SOURCE_CURRENT_EPOCH_RECHECK');}},
   migration:{...common(migrationBinding.collector),migrateExactPlan:async(id,e)=>{await exactMigrationAction(migrationInputs,transport)(id);const path=boundMigration.completionPath.replace(/\.json$/,'.completed.json');const bytes=io.readBytes(path);readNativeCompletion(JSON.parse(bytes.toString('utf8')),id);return {identity,toolRevision,holdGeneration:e.holdGeneration,epochSha256:e.epoch.sha256,completion:{path,sha256:createHash('sha256').update(bytes).digest('hex')}};}},
   heldReadback:{...common(operationSource),verify:async()=>{await op('held-candidate-readback');}},

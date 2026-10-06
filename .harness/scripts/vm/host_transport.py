@@ -42,8 +42,8 @@ class HostTransport:
   self.control_connections={};self.diagnostic_connections={};base=digest(self.plan)
   try:
    for db in DATABASES:
-    self.control_connections[db]=PersistentControlConnection(self.plan,db,bootstrap=True)
-    self.diagnostic_connections[db]=PersistentControlConnection(self.plan,db,mode='diagnostic',bootstrap=True)
+    self.control_connections[db]=PersistentControlConnection(self.plan,db,bootstrap=True,original_plan_ref=self.reviewed_plan_ref)
+    self.diagnostic_connections[db]=PersistentControlConnection(self.plan,db,mode='diagnostic',bootstrap=True,original_plan_ref=self.reviewed_plan_ref)
    return {'sourcePlanSha256':base,'identity':self.plan['identity'],'controlSessions':{db:c.binding for db,c in self.control_connections.items()},'diagnosticSessions':{db:c.binding for db,c in self.diagnostic_connections.items()},'ready':False}
   except BaseException:self.close_control_connections();raise
  def bindRuntimeSessions(self,proof):
@@ -67,7 +67,7 @@ class HostTransport:
   from control_connection import PersistentControlConnection
   require(not getattr(self,'control_connections',{}),'CONTROL_ALREADY_OPEN');self.control_connections={}
   try:
-   for db in DATABASES:self.control_connections[db]=PersistentControlConnection(self.plan,db)
+   for db in DATABASES:self.control_connections[db]=PersistentControlConnection(self.plan,db,original_plan_ref=self.reviewed_plan_ref)
   except BaseException:self.close_control_connections();raise
  def close_control_connections(self):
   for connection in [*getattr(self,'control_connections',{}).values(),*getattr(self,'diagnostic_connections',{}).values()]:connection.close()
