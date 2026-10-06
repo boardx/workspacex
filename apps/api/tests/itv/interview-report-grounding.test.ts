@@ -270,7 +270,7 @@ it.each([true,false])("does not infer question-answer count from indexed lines, 
  expect(index).toHaveLength(4);
  const context=reportEvidenceContext(index);
  expect(context).toContain("问答数量状态：不可确定");
- expect(context).toContain("当前源契约没有服务端逐问答身份");
+ expect(context).toContain("当前源契约绑定整段任务输出与原文行定位，逐问答身份未验证");
  expect(context).toContain("报告省略问答数量");
  expect(context).not.toContain("服务端已确认问答数：4");
  expect(context).not.toContain("每个任务仅包含单次问答");
