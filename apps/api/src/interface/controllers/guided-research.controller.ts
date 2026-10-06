@@ -104,7 +104,13 @@ export class GuidedResearchController {
         const patch = event.type === "snapshot" && event.state.currentNode === "research"
           ? runtimePollingDelta(event.state, knownFields, undefined, 0, undefined, sourceCursor)
           : runtimeDelta(event.state, knownFields);
-        if (patch.research) sourceCursor = patch.research.cursor;
+        if (patch.research) {
+          sourceCursor = patch.research.cursor;
+          // Metadata may remove/change a baseline source then restore it.
+          // It is not a complete-source fingerprint: force the next full
+          // result/report snapshot to hydrate authoritative contents.
+          delete knownFields.sources;
+        }
         rememberRuntimeDelta(knownFields, patch);
         if (Object.hasOwn(patch.changes, "reportStream")) clientStream = patch.changes.reportStream;
         else if (!clientStream) clientStream = event.state.reportStream;

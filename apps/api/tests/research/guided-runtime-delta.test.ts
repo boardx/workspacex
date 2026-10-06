@@ -65,7 +65,7 @@ it("streams research metadata once per change and hydrates source bodies only in
   const source = { id: "source", taskId: "task", title: "Evidence", url: "https://example.org/evidence", content: "REAL_SOURCE_BODY".repeat(1000), retrievedAt: "now", decision: "accepted" as const };
   const busy = { ...state, version: 3, currentNode: "research" as const, busy: true, sources: [source] };
   const changed = { ...busy, sources: [{ ...source, title: "Updated evidence" }] };
-  const final = { ...changed, busy: false };
+  const final = { ...busy, busy: false };
   const execute = vi.fn(async (_scope, _session, _command, send) => {
     send({ type: "snapshot", state: busy });
     send({ type: "snapshot", state: { ...busy, leaseUntil: "later" } });
@@ -78,7 +78,7 @@ it("streams research metadata once per change and hydrates source bodies only in
   vi.spyOn(controller as never, "current" as never).mockResolvedValue({} as never);
   const frames: string[] = [];
   const response = { setHeader: vi.fn(), flushHeaders: vi.fn(), on: vi.fn(), off: vi.fn(), end: vi.fn(), write: (frame: string) => frames.push(frame), writableLength: 0, destroyed: false };
-  await controller.streamRuntime({ userId: "u", orgId: "org" as never }, "s", { requestId: "r", expectedVersion: 2, node: "research", action: "start", knownFields: fingerprints() }, response as never, {} as never);
+  await controller.streamRuntime({ userId: "u", orgId: "org" as never }, "s", { requestId: "r", expectedVersion: 2, node: "research", action: "start", knownFields: { ...fingerprints(), sources: fieldFingerprint([source]) } }, response as never, {} as never);
   const events = frames.map(frame => C.GuidedResearchRuntimeStreamEvent.parse(JSON.parse(frame.slice(6))));
   for (const event of events.slice(0, -1)) {
     expect(event.type).toBe("patch");
