@@ -339,19 +339,19 @@ describe("generated brief subject authority", () => {
     expect(tasks.length).toBeGreaterThan(0); expect(tasks.every(task => task.query.includes("中小企业知识库") && !task.query.includes(C.DEFAULT_RESEARCH_NAME))).toBe(true);
     expect(f.model.complete).toHaveBeenCalledTimes(4); expect(f.search).not.toHaveBeenCalled(); expect(f.claim).toHaveBeenCalledTimes(2);
   });
-  it.each([C.DEFAULT_RESEARCH_NAME, "企业知识库"])("uses a valid generated subject from %s without changing the display name or long original requirements", async inputTopic => {
+  it.each([C.DEFAULT_RESEARCH_NAME, "原始企业知识库"])("uses a valid generated subject from %s without changing the display name or long original requirements", async inputTopic => {
     const f = fixture(); const complete = f.model.complete.getMockImplementation()!;
     const goal = "企业知识库权限与检索方案。".repeat(4000).slice(0, 40000);
     expect(goal).toHaveLength(40000);
-    f.set({ ...f.latest(), brief: { ...f.latest().brief, topic: inputTopic, goal, region: "中国", timeRange: "2026" } });
+    f.set({ ...f.latest(), brief: { ...f.latest().brief, topic: inputTopic, goal, focus: "保留精确权限边界", region: "中国", timeRange: "2026" } });
     f.model.complete.mockImplementation(async input => input.system.includes("Generate the brief step")
-      ? { text: JSON.stringify({ ...f.latest().brief, topic: "企业知识库" }) } : complete(input));
+      ? { text: JSON.stringify({ ...f.latest().brief, topic: "企业知识库", goal: "model summary", focus: "changed focus", region: "changed region", timeRange: "2030" }) } : complete(input));
     const result = await f.run("prepare_plan");
     expect(result.errorCode).toBeNull(); expect(result.generatedNodes).toEqual(["brief", "directions", "outline"]);
-    expect(result.brief).toMatchObject({ topic: "企业知识库", goal, region: "中国", timeRange: "2026" });
+    expect(result.brief).toMatchObject({ topic: inputTopic === C.DEFAULT_RESEARCH_NAME ? "企业知识库" : inputTopic, goal, focus: "保留精确权限边界", region: "中国", timeRange: "2026" });
     expect(f.session.title).toBe("Research"); expect(f.session.brief.topic).toBe("Grid policy");
     const tasks = tasksFromConfirmedQuestions(f.latest());
-    expect(tasks.length).toBeGreaterThan(0); expect(tasks.every(task => task.query.includes("企业知识库"))).toBe(true);
+    expect(tasks.length).toBeGreaterThan(0); expect(tasks.every(task => task.query.includes(result.brief.topic))).toBe(true);
     expect(tasks.some(task => task.query.includes(C.DEFAULT_RESEARCH_NAME))).toBe(false);
     expect(f.model.complete).toHaveBeenCalledTimes(3); expect(f.search).not.toHaveBeenCalled();
   });
