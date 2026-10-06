@@ -131,16 +131,19 @@ describe("durable research runtime with real PostgreSQL and controlled provider 
     await reachResearch();
     const reloaded = await service.get(actor, session);
     expect(reloaded.errorCode).toBeNull();
-    expect(reloaded.tasks).toHaveLength(4);
-    for (const task of reloaded.tasks) expect(task).toMatchObject({ status: "succeeded", questionId: expect.any(String), searchAttempts: [
+    expect(reloaded.tasks).toHaveLength(1);
+    for (const task of reloaded.tasks) expect(task).toMatchObject({ status: "succeeded", searchAttempts: [
       { query: task.query, status: "failed" },
       { query: recoveryQuery, status: "succeeded" },
     ] });
-    expect(searchCalls).toBe(8);
+    expect(reloaded.tasks[0]).not.toHaveProperty("questionId");
+    expect(reloaded.outline[0]!.questions).toHaveLength(1);
+    expect(reloaded.outline[0]!.subsections).toHaveLength(3);
+    expect(searchCalls).toBe(2);
     state = reloaded;
     await run("start");
     expect(state.errorCode).toBeNull();
-    expect(searchCalls).toBe(8);
+    expect(searchCalls).toBe(2);
     await run("complete");
     expect(state.errorCode).toBeNull();
     expect(state.report).not.toBeNull();
@@ -470,7 +473,7 @@ describe("durable research runtime with real PostgreSQL and controlled provider 
     await run("add_source", { sourceUrl: source.url + "#section" });
     expect(state.sources).toHaveLength(1); expect(state.sources[0]!.decision).toBe("accepted"); expect(searchCalls).toBe(before);
     await run("add_source", { sourceUrl: source.url });
-    expect(state.sources).toHaveLength(1); expect(state.tasks).toHaveLength(4);
+    expect(state.sources).toHaveLength(1); expect(state.tasks).toHaveLength(1);
     expect((await service.get(actor, session)).sources).toEqual(state.sources);
   });
   it("adds only matching retrieved URL evidence with succeeded provenance and idempotent replay", async () => {
@@ -546,8 +549,8 @@ describe("durable research runtime with real PostgreSQL and controlled provider 
   });
   it("persists failed searches and retries without fabricating sources", async () => {
     failSearch = true; await run("confirm"); await run("confirm"); await run("confirm");
-    expect(state.errorCode).toBe("RESEARCH_SEARCH_PARTIAL_FAILURE"); expect(state.sources).toEqual([]); expect(state.tasks).toHaveLength(4); expect(state.tasks.every(task => task.status === "failed")).toBe(true);
-    failSearch = false; await run("retry"); expect(state.errorCode).toBeNull(); expect(state.tasks.every(task => task.status === "succeeded" && task.attempts === 2)).toBe(true); expect(searchCalls).toBe(8);
+    expect(state.errorCode).toBe("RESEARCH_SEARCH_PARTIAL_FAILURE"); expect(state.sources).toEqual([]); expect(state.tasks).toHaveLength(1); expect(state.tasks.every(task => task.status === "failed")).toBe(true);
+    failSearch = false; await run("retry"); expect(state.errorCode).toBeNull(); expect(state.tasks.every(task => task.status === "succeeded" && task.attempts === 2)).toBe(true); expect(searchCalls).toBe(2);
   });
   it("rejects nonexistent sources, unknown citations and cross-node drafts", async () => {
     await reachResearch(); await run("start");
