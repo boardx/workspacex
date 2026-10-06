@@ -7,7 +7,7 @@
     {
       "id": "configured-http",
       "source": "apps/api/src/infrastructure/agent-run/configured-model-provider.ts",
-      "anchor": "return await undiciFetch",
+      "anchor": "await undiciFetch(",
       "receiptHook": "implemented",
       "admissionHook": "implemented"
     },
