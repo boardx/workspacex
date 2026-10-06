@@ -162,6 +162,6 @@ function negatesConsensus(text: string, start: number, match: string): boolean {
   const basisDenied = basis.test(tail) && /^[”’"' \t]*的依据/u.test(after);
   const merged = new RegExp(String.raw`^合并(?:宣称|声称|断言)(?:为|成)?${predicate}$`, "u");
   // The observed coordination shares one local denied judgment, with no object scanning.
-  const taskExpertJudgment = /^判断跨任务或跨专家(?:的)?共识$/u.test(tail);
+  const taskExpertJudgment = /^判断跨任务(?:或|和)跨专家(?:的)?共识$/u.test(tail);
   return direct.test(tail) || taskExpertJudgment || object.test(tail) || basisDenied || merged.test(tail);
 }
