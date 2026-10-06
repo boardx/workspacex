@@ -1,0 +1,45 @@
+
+> @repo/api@0.0.0 test:interview-markdown-unit /Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/apps/api
+> vitest run --config vitest.interview-markdown-unit.config.ts
+
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/apps/api
+
+ ✓ tests/itv/interview-report-recovery.test.ts (33 tests) 359ms
+ ❯ tests/itv/interview-report-grounding.test.ts (144 tests | 1 failed) 84ms
+   × report evidence grounding > rejects actual bare repeated locators while preserving exact repeated quotations 31ms
+     → expected false to be true // Object.is equality
+ ✓ tests/itv/interview-report-claim-boundaries.test.ts (194 tests) 121ms
+ ✓ tests/itv/interview-report-diagnostics.test.ts (14 tests) 37ms
+ ✓ tests/itv/interview-markdown-report-stream-controller.test.ts (9 tests) 5ms
+ ✓ tests/itv/interview-model-markdown.test.ts (4 tests) 3ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/itv/interview-report-grounding.test.ts > report evidence grounding > rejects actual bare repeated locators while preserving exact repeated quotations
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ tests/itv/interview-report-grounding.test.ts:20:58
+     18|   const quoted=report.replaceAll("[#answer-5](#answer-5)","[公开合成回…
+     19|    .replaceAll("[#answer-7](#answer-7)","[公开合成反例：一个场景安装顺…
+     20|   expect(validateReportEvidence(quoted,index,labels).ok).toBe(true);
+       |                                                          ^
+     21|   expect(validateReportEvidence(quoted.replace("[公开合成反例：一个场…
+     22|   expect(actual).toEqual(before);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed | 5 passed (6)
+      Tests  1 failed | 397 passed (398)
+   Start at  15:02:35
+   Duration  3.43s (transform 788ms, setup 0ms, collect 2.14s, tests 609ms, environment 0ms, prepare 146ms)
+
+/Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/apps/api:
+ ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  @repo/api@0.0.0 test:interview-markdown-unit: `vitest run --config vitest.interview-markdown-unit.config.ts`
+Exit status 1
