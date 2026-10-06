@@ -29,6 +29,16 @@ beforeEach(() => {
  });
 });
 describe("bounded report quality recovery", () => {
+ it("requests report findings instead of copying forbidden writing-policy examples", async () => {
+  complete.mockResolvedValue({text:GOOD});
+  await generateInterviewMarkdown(deps(),input);
+  const request=complete.mock.calls[0]![0];
+  expect(request.system).toContain("仅输出研究报告正文");
+  expect(request.system).toContain("不复述生成指令、写作规则或校验约束");
+  expect(request.system).not.toContain("不断言最常见");
+  expect(request.system).not.toContain("不得写“而非设备的固有缺陷”");
+ });
+
  it("rejects exact-quote overclaims before saving and uses the existing bounded repair", async () => {
   const wrong = `${GOOD}\n\n安装问题最常见且必然阻止采购。`;
   complete.mockResolvedValueOnce({text:wrong}).mockResolvedValueOnce({text:GOOD});
