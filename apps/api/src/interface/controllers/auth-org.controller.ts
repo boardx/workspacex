@@ -16,6 +16,7 @@
  */
 import {
   Body,
+  ConflictException,
   Controller,
   Get,
   HttpCode,
@@ -51,6 +52,8 @@ import { assertPrincipal } from "../../domain/principal";
 import { CurrentPrincipal } from "../current-principal.decorator";
 import { ZodBodyPipe } from "../pipes/zod-body.pipe";
 
+import { createOrganization, ORGANIZATION_CREATION_REPOSITORY, OrganizationCreationConflict, type OrganizationCreationRepository } from "../../application/auth/create-organization";
+export const CREATE_ORGANIZATION_SCHEMA = C.operations.createOrganization.in;
 export const SWITCH_ORG_AT_LOGIN_SCHEMA = C.operations.switchOrgAtLogin.in;
 export const JOIN_ORG_SCHEMA = C.operations.joinOrgWithInvite.in;
 
@@ -93,7 +96,26 @@ export class AuthOrgController {
     @Inject(REGISTRATION_REPOSITORY) private readonly registration: RegistrationRepository,
     @Inject(CREDENTIAL_REPOSITORY) private readonly credentials: CredentialRepository,
     @Inject(ORG_LIFECYCLE_REPOSITORY) private readonly orgs: OrgLifecycleRepository,
+    @Inject(ORGANIZATION_CREATION_REPOSITORY) private readonly creation: OrganizationCreationRepository,
   ) {}
+
+  /** Global PrincipalGuard authenticates. Body cannot nominate an account or tenant. */
+  @Post("/auth/organizations")
+  async createOrg(
+    @CurrentPrincipal() principal: Principal,
+    @Body(new ZodBodyPipe(CREATE_ORGANIZATION_SCHEMA)) body: { orgName: string; requestId: string },
+  ) {
+    try {
+      return await createOrganization(
+        { repo: this.creation, credentials: this.credentials },
+        { userId: requireUser(principal), orgName: body.orgName, requestId: body.requestId },
+      );
+    } catch (e) {
+      if (e instanceof OrganizationCreationConflict) throw new ConflictException({ reasonCode: e.reasonCode });
+      if (e instanceof AuthError) throw new UnauthorizedException({ reasonCode: e.reason });
+      throw e;
+    }
+  }
 
   /**
    * 200，不是 201：没有任何东西被创建，当前会话换了个指向。

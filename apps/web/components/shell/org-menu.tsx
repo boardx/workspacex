@@ -1,7 +1,8 @@
 "use client";
 import * as React from "react";
 import Link from "next/link";
-import { Settings } from "lucide-react";
+import { CreateOrganizationDialog } from "./create-organization-dialog";
+import { Settings, Plus } from "lucide-react";
 import { isLocalOrg, LOCAL_ORG_GUARANTEES, type Identity } from "@/lib/identity";
 import { useIsLocalEdition } from "@/lib/edition";
 import { HardDrive } from "lucide-react";
@@ -130,6 +131,7 @@ export function OrgMenu({
   testIdSuffix?: string;
 }) {
   const session = useOptionalSession();
+  const [creating, setCreating] = React.useState(false);
 
   /**
    * 「这个工作区在不在本机」——**两种成立方式，缺一不可**（#3872 R1 实测修正）。
@@ -158,6 +160,7 @@ export function OrgMenu({
   const orgInitial = orgName.charAt(0) || "X";
 
   return (
+    <>
     <Menu>
       <MenuTrigger asChild>
         <button
@@ -240,6 +243,12 @@ export function OrgMenu({
           </>
         )}
 
+        {session?.status === "authenticated" && <>
+          <MenuSeparator />
+          <MenuItem data-testid={`create-organization-entry${testIdSuffix}`} onSelect={() => setCreating(true)}>
+            <Plus aria-hidden className="mr-2 h-3.5 w-3.5" />新建组织
+          </MenuItem>
+        </>}
         {isOrgAdmin && <MenuSeparator />}
 
         {/*
@@ -266,5 +275,8 @@ export function OrgMenu({
         )}
       </MenuContent>
     </Menu>
+    {session?.status === "authenticated" && <CreateOrganizationDialog open={creating} onOpenChange={setCreating}
+      create={session.createOrganization} onSelect={onSelect} />}
+    </>
   );
 }

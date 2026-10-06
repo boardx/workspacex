@@ -1,3 +1,5 @@
+import { ORGANIZATION_CREATION_REPOSITORY } from "./application/auth/create-organization";
+import { PgOrganizationCreationRepository } from "./infrastructure/auth/pg-organization-creation-repository";
 import {CORE_MODEL_RUNTIME_GUARD,createCoreModelRuntimeGuard,guardCoreModelCalls,type CoreModelRuntimeGuard} from "./infrastructure/model/core-model-runtime-guard";
 import {MODEL_TESTBENCH_PROVIDERS,PLATFORM_MODEL_TEST_CONFIGURATION} from "./infrastructure/model/model-testbench-providers";
 import type {PlatformModelTestWiringConfig} from "./infrastructure/model/platform-test-wiring";
@@ -2064,6 +2066,11 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
     // binding above is the one that exists. Two features each providing it would be two
     // session stores, which is indistinguishable from one until a user is logged out at
     // random.
+    {
+      provide: ORGANIZATION_CREATION_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgOrganizationCreationRepository(db),
+      inject: [DATABASE_PORT],
+    },
     {
       provide: REGISTRATION_REPOSITORY,
       useFactory: (db: DatabasePort) => new PgRegistrationRepository(db),
