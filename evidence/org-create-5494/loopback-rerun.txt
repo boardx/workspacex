@@ -1,0 +1,25 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyanbin/Documents/Codex/2026-10-07/task-3/workspacex/apps/web
+
+stderr | tests/session/copilotkit-agui-httpagent.test.ts > @ag-ui/client HttpAgent against this repo's real AG-UI SSE wire format > DA-19a: an HTTP 401 rejected before any SSE bytes (missing/expired bearer token) makes runAgent() REJECT -- not resolve silently with no assistant reply and no error
+Agent execution failed: Error: HTTP 401: {"statusCode":401,"message":"Unauthorized"}
+    at file:///Users/shenyanbin/Documents/Codex/2026-10-07/task-3/workspacex/node_modules/.pnpm/@ag-ui+client@0.0.57/node_modules/@ag-ui/client/src/run/http-request.ts:37:34
+    at doInnerSub (/Users/shenyanbin/Documents/Codex/2026-10-07/task-3/workspacex/node_modules/.pnpm/rxjs@7.8.1/node_modules/rxjs/src/internal/operators/mergeInternals.ts:71:15)
+    at outerNext (/Users/shenyanbin/Documents/Codex/2026-10-07/task-3/workspacex/node_modules/.pnpm/rxjs@7.8.1/node_modules/rxjs/src/internal/operators/mergeInternals.ts:53:58)
+    at OperatorSubscriber._this._next (/Users/shenyanbin/Documents/Codex/2026-10-07/task-3/workspacex/node_modules/.pnpm/rxjs@7.8.1/node_modules/rxjs/src/internal/operators/OperatorSubscriber.ts:70:13)
+    at OperatorSubscriber.Subscriber.next (/Users/shenyanbin/Documents/Codex/2026-10-07/task-3/workspacex/node_modules/.pnpm/rxjs@7.8.1/node_modules/rxjs/src/internal/Subscriber.ts:75:12)
+    at /Users/shenyanbin/Documents/Codex/2026-10-07/task-3/workspacex/node_modules/.pnpm/rxjs@7.8.1/node_modules/rxjs/src/internal/observable/innerFrom.ts:90:24
+    at processTicksAndRejections (node:internal/process/task_queues:103:5) {
+  status: 401,
+  payload: { statusCode: 401, message: 'Unauthorized' }
+}
+
+ ✓ tests/session/copilotkit-agui-httpagent.test.ts (4 tests) 35ms
+ ✓ tests/chat-route-warmup.test.ts (3 tests) 378ms
+
+ Test Files  2 passed (2)
+      Tests  7 passed (7)
+   Start at  05:00:26
+   Duration  818ms (transform 39ms, setup 215ms, collect 128ms, tests 413ms, environment 0ms, prepare 64ms)
+

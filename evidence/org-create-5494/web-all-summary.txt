@@ -1,0 +1,345 @@
+Command: pnpm --filter web test (sandbox)
+Full log retained locally at /tmp/org-web-all-tests.log
+
+ests) 4ms
+ ✓ tests/ui/decode-mermaid-entities.test.ts (4 tests) 4ms
+ ✓ tests/entry/local-session-handoff.test.ts (2 tests) 8ms
+ ✓ tests/whiteboard/board-select-all.test.ts (2 tests) 5ms
+ ✓ tests/api-client-error-envelope.test.ts (2 tests) 8ms
+ ✓ tests/lib/panel-width-defaults.test.ts (4 tests) 4ms
+ ✓ tests/skill-import-diagnostics.test.ts (4 tests) 3ms
+ ✓ tests/lib/hmw-field-fence.test.ts (8 tests) 7ms
+ ✓ tests/ui/board-drawing-eraser.test.ts (2 tests) 3ms
+ ✓ tests/board-workspace-preview/viewport.test.ts (5 tests) 9ms
+ ✓ tests/whiteboard/presentation-read-signal.test.ts (2 tests) 8ms
+ ✓ tests/lib/return-to.test.ts (5 tests) 3ms
+ ✓ tests/ui/design-loop-file-size.test.ts (1 test) 9ms
+ ✓ tests/whiteboard/whiteboard-rewrite.test.ts (1 test) 3ms
+ ✓ tests/whiteboard/board-meeting-reconnect-projection.test.ts (1 test) 2ms
+ ✓ tests/lib/copilotkit-v2-banner-retry.test.ts (3 tests) 9ms
+ ✓ tests/ui/provenance-labels.test.ts (2 tests) 5ms
+ ✓ tests/guided-research-stage.test.ts (2 tests) 6ms
+ ✓ tests/ui/board-spacing-measurement.test.ts (2 tests) 3ms
+ ✓ tests/lib/model-test-money.test.ts (20 tests) 6ms
+ ✓ tests/lib/chat-workbench/history-pagination.test.ts (2 tests) 8ms
+ ✓ tests/whiteboard/connection-handle-visibility.test.ts (3 tests) 9ms
+ ✓ tests/lib/work-skill-display-copy-single-source.test.ts (1 test) 58ms
+ ✓ tests/cloud-deployment-marker.test.ts (2 tests) 13ms
+ ✓ tests/lib/artifact-download.test.ts (5 tests) 6ms
+ ✓ tests/workflow-display-copy-batch2.test.ts (2 tests) 5ms
+ ✓ tests/ui/board-screen-control-visibility.test.ts (4 tests) 5ms
+ ✓ tests/ui/survey-creation-draft.test.ts (3 tests) 3ms
+ ✓ tests/whiteboard/live-whiteboard.test.ts (1 test) 5ms
+ ✓ tests/lib/board-text-attributes.test.ts (3 tests) 4ms
+ ✓ tests/lib/interview-report-failure.test.ts (2 tests) 3ms
+ ✓ tests/board-workspace-preview/sticky-viewport.test.ts (2 tests) 2ms
+ ✓ tests/lib/realtime-asr-flow.test.ts (2 tests) 4ms
+ ✓ tests/lib/chat-workbench/artifact-diff.test.ts (3 tests) 6ms
+ ✓ tests/unit/project-context.test.ts (8 tests) 6ms
+ ✓ tests/ui/copilotkit-v2-thread-agent-restore.test.ts (2 tests) 2ms
+ ✓ tests/performance/board-fabric-10k-report.test.ts (1 test) 7ms
+ ✓ tests/whiteboard/board-chrome-fit.test.ts (3 tests) 2ms
+ ✓ tests/workflow-stage-failure-copy.test.ts (2 tests) 2ms
+ ✓ tests/chat-pending-attachment-api.test.ts (1 test) 6ms
+ ✓ tests/ui/guided-research-recovery-client.test.ts (1 test) 10ms
+ ✓ tests/ui/workflow-format-date-time.test.ts (2 tests) 3ms
+ ✓ tests/performance/board-fabric-5k-mixed.test.ts (1 test) 76ms
+ ✓ tests/ui/research-prototype-fixture.test.ts (1 test) 9ms
+ ✓ tests/ui/board-atomic-layout-commands.test.ts (16 tests) 23408ms
+   ✓ arranges 500 objects in one canonical transaction without per-object dispatch 23100ms
+ ✓ tests/lint-image-alt-nextimage.test.ts (3 tests) 13756ms
+   ✓ U7a 覆盖 next/image 的 <Image>（F08） > 缺 alt 的 <Image> 被 U7a 拦截 561ms
+   ✓ U7a 覆盖 next/image 的 <Image>（F08） > 带 alt 的 <Image> 与合规 <img> 一起放行（exit 0） 358ms
+   ✓ U7a 覆盖 next/image 的 <Image>（F08） > 全仓真实扫描（app/components/lib）U7a 全绿——已补齐 avatar/附件预览/组织头像的 alt 或 aria-hidden 12836ms
+ ❯ tests/session/copilotkit-agui-httpagent.test.ts (4 tests | 4 failed) 60023ms
+   × @ag-ui/client HttpAgent against this repo's real AG-UI SSE wire format > lands the assistant's real text in agent.messages -- what the preview panel renders 15009ms
+     → Test timed out in 15000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+   × @ag-ui/client HttpAgent against this repo's real AG-UI SSE wire format > surfaces a RUN_ERROR event (not a fabricated success) when the bridge refuses the turn 15007ms
+     → Test timed out in 15000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+   × @ag-ui/client HttpAgent against this repo's real AG-UI SSE wire format > DA-19a: forwardedProps.chatThreadId round-trips through a real CUSTOM chat_thread_id event -- the same mechanism copilotkit-preview-panel.tsx uses for cross-turn continuation 15003ms
+     → Test timed out in 15000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+   × @ag-ui/client HttpAgent against this repo's real AG-UI SSE wire format > DA-19a: an HTTP 401 rejected before any SSE bytes (missing/expired bearer token) makes runAgent() REJECT -- not resolve silently with no assistant reply and no error 15003ms
+     → Test timed out in 15000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+ ❯ tests/chat-route-warmup.test.ts (3 tests | 3 failed) 45022ms
+   × aborts a real hanging request without closing the server to unblock it 15017ms
+     → Test timed out in 15000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+   × keeps retrying 5xx within one budget and accepts a manual redirect 15003ms
+     → Test timed out in 15000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+   × reports persistent server failures with route and final HTTP status 15001ms
+     → Test timed out in 15000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+
+⎯⎯⎯⎯⎯⎯ Failed Tests 11 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/chat-route-warmup.test.ts > aborts a real hanging request without closing the server to unblock it
+ FAIL  tests/chat-route-warmup.test.ts > keeps retrying 5xx within one budget and accepts a manual redirect
+ FAIL  tests/chat-route-warmup.test.ts > reports persistent server failures with route and final HTTP status
+ FAIL  tests/session/copilotkit-agui-httpagent.test.ts > @ag-ui/client HttpAgent against this repo's real AG-UI SSE wire format > lands the assistant's real text in agent.messages -- what the preview panel renders
+ FAIL  tests/session/copilotkit-agui-httpagent.test.ts > @ag-ui/client HttpAgent against this repo's real AG-UI SSE wire format > surfaces a RUN_ERROR event (not a fabricated success) when the bridge refuses the turn
+ FAIL  tests/session/copilotkit-agui-httpagent.test.ts > @ag-ui/client HttpAgent against this repo's real AG-UI SSE wire format > DA-19a: forwardedProps.chatThreadId round-trips through a real CUSTOM chat_thread_id event -- the same mechanism copilotkit-preview-panel.tsx uses for cross-turn continuation
+ FAIL  tests/session/copilotkit-agui-httpagent.test.ts > @ag-ui/client HttpAgent against this repo's real AG-UI SSE wire format > DA-19a: an HTTP 401 rejected before any SSE bytes (missing/expired bearer token) makes runAgent() REJECT -- not resolve silently with no assistant reply and no error
+Error: Test timed out in 15000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/11]⎯
+
+ FAIL  tests/ui/blueprint-designer-shell.test.tsx > 目录来自配置项定义表（而不是前端自己列的一份） > 生成的目录与后端定义表没有漂移（机械门控，不是靠人看）
+Error: Command failed: pnpm exec tsx scripts/gen-design-facet-catalog.ts --check
+node:net:1919
+      const error = new UVExceptionWithHostPort(rval, 'listen', address, port);
+                    ^
+
+Error: listen EPERM: operation not permitted /var/folders/ph/ns5lvrqn6v5d1wcg8wbcpw500000gn/T/tsx-501/83839.pipe
+    at Server.setupListenHandle [as _listen2] (node:net:1919:21)
+    at listenInCluster (node:net:1998:12)
+    at Server.listen (node:net:2120:5)
+    at file:///Users/shenyanbin/Documents/Codex/2026-10-07/task-3/workspacex/node_modules/.pnpm/tsx@4.23.1/node_modules/tsx/dist/cli.mjs:53:31472
+    at new Promise (<anonymous>)
+    at createIpcServer (file:///Users/shenyanbin/Documents/Codex/2026-10-07/task-3/workspacex/node_modules/.pnpm/tsx@4.23.1/node_modules/tsx/dist/cli.mjs:53:31450)
+    at async file:///Users/shenyanbin/Documents/Codex/2026-10-07/task-3/workspacex/node_modules/.pnpm/tsx@4.23.1/node_modules/tsx/dist/cli.mjs:55:500 {
+  code: 'EPERM',
+  errno: -1,
+  syscall: 'listen',
+  address: '/var/folders/ph/ns5lvrqn6v5d1wcg8wbcpw500000gn/T/tsx-501/83839.pipe',
+  port: -1
+}
+
+Node.js v22.23.1
+
+ ❯ ../../node_modules/.pnpm/tsx@4.23.1/node_modules/tsx/dist/cli.mjs:53:31472
+ ❯ createIpcServer ../../node_modules/.pnpm/tsx@4.23.1/node_modules/tsx/dist/cli.mjs:53:31450
+ ❯ tests/ui/blueprint-designer-shell.test.tsx:98:17
+     96|     // cwd 是 apps/web（vitest 的 root）；不用 import.meta.url 是因为 …
+     97|     const apiDir = join(process.cwd(), "..", "api");
+     98|     const out = execFileSync("pnpm", ["exec", "tsx", "scripts/gen-desi…
+       |                 ^
+     99|       cwd: apiDir,
+    100|       encoding: "utf8",
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/11]⎯
+
+ FAIL  tests/ui/blueprint-duration-form.test.tsx > 时长档位目录来自定义表（而不是前端自己列的一份 7/11/14/19） > 生成的档位目录与后端定义表没有漂移（机械门控，不是靠人看）
+Error: Command failed: pnpm exec tsx scripts/gen-agenda-tier-catalog.ts --check
+node:net:1919
+      const error = new UVExceptionWithHostPort(rval, 'listen', address, port);
+                    ^
+
+Error: listen EPERM: operation not permitted /var/folders/ph/ns5lvrqn6v5d1wcg8wbcpw500000gn/T/tsx-501/84964.pipe
+    at Server.setupListenHandle [as _listen2] (node:net:1919:21)
+    at listenInCluster (node:net:1998:12)
+    at Server.listen (node:net:2120:5)
+    at file:///Users/shenyanbin/Documents/Codex/2026-10-07/task-3/workspacex/node_modules/.pnpm/tsx@4.23.1/node_modules/tsx/dist/cli.mjs:53:31472
+    at new Promise (<anonymous>)
+    at createIpcServer (file:///Users/shenyanbin/Documents/Codex/2026-10-07/task-3/workspacex/node_modules/.pnpm/tsx@4.23.1/node_modules/tsx/dist/cli.mjs:53:31450)
+    at async file:///Users/shenyanbin/Documents/Codex/2026-10-07/task-3/workspacex/node_modules/.pnpm/tsx@4.23.1/node_modules/tsx/dist/cli.mjs:55:500 {
+  code: 'EPERM',
+  errno: -1,
+  syscall: 'listen',
+  address: '/var/folders/ph/ns5lvrqn6v5d1wcg8wbcpw500000gn/T/tsx-501/84964.pipe',
+  port: -1
+}
+
+Node.js v22.23.1
+
+ ❯ ../../node_modules/.pnpm/tsx@4.23.1/node_modules/tsx/dist/cli.mjs:53:31472
+ ❯ createIpcServer ../../node_modules/.pnpm/tsx@4.23.1/node_modules/tsx/dist/cli.mjs:53:31450
+ ❯ tests/ui/blueprint-duration-form.test.tsx:42:17
+     40|   it("生成的档位目录与后端定义表没有漂移（机械门控，不是靠人看）", () …
+     41|     const apiDir = join(process.cwd(), "..", "api");
+     42|     const out = execFileSync("pnpm", ["exec", "tsx", "scripts/gen-agen…
+       |                 ^
+     43|       cwd: apiDir,
+     44|       encoding: "utf8",
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/11]⎯
+
+ FAIL  tests/ui/board-drawing-choice-style.test.ts > uses instrument alpha once within a stroke and source-over between independent strokes
+Error: browserType.launch: Target page, context or browser has been closed
+Browser logs:
+
+<launching> /Users/shenyanbin/Library/Caches/ms-playwright/chromium_headless_shell-1234/chrome-headless-shell-mac-arm64/chrome-headless-shell --disable-field-trial-config --disable-background-networking --disable-background-timer-throttling --disable-backgrounding-occluded-windows --disable-back-forward-cache --disable-breakpad --disable-client-side-phishing-detection --disable-component-extensions-with-background-pages --disable-component-update --no-default-browser-check --disable-default-apps --disable-dev-shm-usage --disable-edgeupdater --disable-extensions --disable-features=AvoidUnnecessaryBeforeUnloadCheckSync,BoundaryEventDispatchTracksNodeRemoval,DestroyProfileOnBrowserClose,DialMediaRouteProvider,GlobalMediaControls,HttpsUpgrades,LensOverlay,MediaRouter,PaintHolding,ThirdPartyStoragePartitioning,BlockOriginHeaderModificationOnRedirect,Translate,AutoDeElevate,OptimizationHints,msForceBrowserSignIn,msEdgeUpdateLaunchServicesPreferredVersion --enable-features=CDPScreenshotNewSurface --allow-pre-commit-input --disable-hang-monitor --disable-ipc-flooding-protection --disable-popup-blocking --disable-prompt-on-repost --disable-renderer-backgrounding --disable-updater-scheduler --force-color-profile=srgb --metrics-recording-only --no-first-run --password-store=basic --use-mock-keychain --no-service-autorun --export-tagged-pdf --disable-search-engine-choice-screen --unsafely-disable-devtools-self-xss-warnings --edge-skip-compat-layer-relaunch --disable-infobars --disable-search-engine-choice-screen --disable-sync --enable-unsafe-swiftshader --headless --hide-scrollbars --mute-audio --blink-settings=primaryHoverType=2,availableHoverTypes=2,primaryPointerType=4,availablePointerTypes=4 --no-sandbox --user-data-dir=/var/folders/ph/ns5lvrqn6v5d1wcg8wbcpw500000gn/T/playwright_chromiumdev_profile-IDO8dc --remote-debugging-pipe --no-startup-window
+<launched> pid=92866
+[pid=92866][err] [1007/045828.743270:ERROR:base/power_monitor/thermal_state_observer_mac.mm:140] ThermalStateObserverMac unable to register to power notifications. Result: 9
+[pid=92866][err] [1007/045828.747580:ERROR:net/dns/dns_config_service_posix.cc:138] DNS config watch failed to start.
+[pid=92866][err] [1007/045828.749468:WARNING:net/dns/dns_config_service_posix.cc:197] Failed to read DnsConfig.
+[pid=92866][err] [1007/045828.749956:FATAL:base/apple/mach_port_rendezvous_mac.cc:159] Check failed: kr == KERN_SUCCESS. bootstrap_check_in org.chromium.Chromium.MachPortRendezvousServer.92866: Permission denied (1100)
+Call log:
+[2m  - <launching> /Users/shenyanbin/Library/Caches/ms-playwright/chromium_headless_shell-1234/chrome-headless-shell-mac-arm64/chrome-headless-shell --disable-field-trial-config --disable-background-networking --disable-background-timer-throttling --disable-backgrounding-occluded-windows --disable-back-forward-cache --disable-breakpad --disable-client-side-phishing-detection --disable-component-extensions-with-background-pages --disable-component-update --no-default-browser-check --disable-default-apps --disable-dev-shm-usage --disable-edgeupdater --disable-extensions --disable-features=AvoidUnnecessaryBeforeUnloadCheckSync,BoundaryEventDispatchTracksNodeRemoval,DestroyProfileOnBrowserClose,DialMediaRouteProvider,GlobalMediaControls,HttpsUpgrades,LensOverlay,MediaRouter,PaintHolding,ThirdPartyStoragePartitioning,BlockOriginHeaderModificationOnRedirect,Translate,AutoDeElevate,OptimizationHints,msForceBrowserSignIn,msEdgeUpdateLaunchServicesPreferredVersion --enable-features=CDPScreenshotNewSurface --allow-pre-commit-input --disable-hang-monitor --disable-ipc-flooding-protection --disable-popup-blocking --disable-prompt-on-repost --disable-renderer-backgrounding --disable-updater-scheduler --force-color-profile=srgb --metrics-recording-only --no-first-run --password-store=basic --use-mock-keychain --no-service-autorun --export-tagged-pdf --disable-search-engine-choice-screen --unsafely-disable-devtools-self-xss-warnings --edge-skip-compat-layer-relaunch --disable-infobars --disable-search-engine-choice-screen --disable-sync --enable-unsafe-swiftshader --headless --hide-scrollbars --mute-audio --blink-settings=primaryHoverType=2,availableHoverTypes=2,primaryPointerType=4,availablePointerTypes=4 --no-sandbox --user-data-dir=/var/folders/ph/ns5lvrqn6v5d1wcg8wbcpw500000gn/T/playwright_chromiumdev_profile-IDO8dc --remote-debugging-pipe --no-startup-window[22m
+[2m  - <launched> pid=92866[22m
+[2m  - [pid=92866][err] [1007/045828.743270:ERROR:base/power_monitor/thermal_state_observer_mac.mm:140] ThermalStateObserverMac unable to register to power notifications. Result: 9[22m
+[2m  - [pid=92866][err] [1007/045828.747580:ERROR:net/dns/dns_config_service_posix.cc:138] DNS config watch failed to start.[22m
+[2m  - [pid=92866][err] [1007/045828.749468:WARNING:net/dns/dns_config_service_posix.cc:197] Failed to read DnsConfig.[22m
+[2m  - [pid=92866][err] [1007/045828.749956:FATAL:base/apple/mach_port_rendezvous_mac.cc:159] Check failed: kr == KERN_SUCCESS. bootstrap_check_in org.chromium.Chromium.MachPortRendezvousServer.92866: Permission denied (1100)[22m
+[2m  - [pid=92866] <gracefully close start>[22m
+[2m  - [pid=92866] <kill>[22m
+[2m  - [pid=92866] <will force kill>[22m
+[2m  - [pid=92866] exception while trying to kill process: Error: kill EPERM[22m
+[2m  - [pid=92866] <process did exit: exitCode=null, signal=SIGTRAP>[22m
+[2m  - [pid=92866] starting temporary directories cleanup[22m
+[2m  - [pid=92866] finished temporary directories cleanup[22m
+[2m  - [pid=92866] <gracefully close end>[22m
+
+ ❯ tests/ui/board-drawing-choice-style.test.ts:7:34
+      5| 
+      6| it("uses instrument alpha once within a stroke and source-over between…
+      7|   const browser = await chromium.launch(process.env.PW_EXECUTABLE ? { …
+       |                                  ^
+      8|   try {
+      9|     const page = await browser.newPage();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/11]⎯
+
+ FAIL  tests/ui/board-drawing-stroke-path.test.ts > composites joint alpha once in real browser pixels and retains scaled eraser masks
+Error: browserType.launch: Target page, context or browser has been closed
+Browser logs:
+
+<launching> /Users/shenyanbin/Library/Caches/ms-playwright/chromium_headless_shell-1234/chrome-headless-shell-mac-arm64/chrome-headless-shell --disable-field-trial-config --disable-background-networking --disable-background-timer-throttling --disable-backgrounding-occluded-windows --disable-back-forward-cache --disable-breakpad --disable-client-side-phishing-detection --disable-component-extensions-with-background-pages --disable-component-update --no-default-browser-check --disable-default-apps --disable-dev-shm-usage --disable-edgeupdater --disable-extensions --disable-features=AvoidUnnecessaryBeforeUnloadCheckSync,BoundaryEventDispatchTracksNodeRemoval,DestroyProfileOnBrowserClose,DialMediaRouteProvider,GlobalMediaControls,HttpsUpgrades,LensOverlay,MediaRouter,PaintHolding,ThirdPartyStoragePartitioning,BlockOriginHeaderModificationOnRedirect,Translate,AutoDeElevate,OptimizationHints,msForceBrowserSignIn,msEdgeUpdateLaunchServicesPreferredVersion --enable-features=CDPScreenshotNewSurface --allow-pre-commit-input --disable-hang-monitor --disable-ipc-flooding-protection --disable-popup-blocking --disable-prompt-on-repost --disable-renderer-backgrounding --disable-updater-scheduler --force-color-profile=srgb --metrics-recording-only --no-first-run --password-store=basic --use-mock-keychain --no-service-autorun --export-tagged-pdf --disable-search-engine-choice-screen --unsafely-disable-devtools-self-xss-warnings --edge-skip-compat-layer-relaunch --disable-infobars --disable-search-engine-choice-screen --disable-sync --enable-unsafe-swiftshader --headless --hide-scrollbars --mute-audio --blink-settings=primaryHoverType=2,availableHoverTypes=2,primaryPointerType=4,availablePointerTypes=4 --no-sandbox --user-data-dir=/var/folders/ph/ns5lvrqn6v5d1wcg8wbcpw500000gn/T/playwright_chromiumdev_profile-ve4g3f --remote-debugging-pipe --no-startup-window
+<launched> pid=92546
+[pid=92546][err] [1007/045816.751488:ERROR:base/power_monitor/thermal_state_observer_mac.mm:140] ThermalStateObserverMac unable to register to power notifications. Result: 9
+[pid=92546][err] [1007/045816.772807:ERROR:net/dns/dns_config_service_posix.cc:138] DNS config watch failed to start.
+[pid=92546][err] [1007/045816.776034:WARNING:net/dns/dns_config_service_posix.cc:197] Failed to read DnsConfig.
+[pid=92546][err] [1007/045816.783329:FATAL:base/apple/mach_port_rendezvous_mac.cc:159] Check failed: kr == KERN_SUCCESS. bootstrap_check_in org.chromium.Chromium.MachPortRendezvousServer.92546: Permission denied (1100)
+Call log:
+[2m  - <launching> /Users/shenyanbin/Library/Caches/ms-playwright/chromium_headless_shell-1234/chrome-headless-shell-mac-arm64/chrome-headless-shell --disable-field-trial-config --disable-background-networking --disable-background-timer-throttling --disable-backgrounding-occluded-windows --disable-back-forward-cache --disable-breakpad --disable-client-side-phishing-detection --disable-component-extensions-with-background-pages --disable-component-update --no-default-browser-check --disable-default-apps --disable-dev-shm-usage --disable-edgeupdater --disable-extensions --disable-features=AvoidUnnecessaryBeforeUnloadCheckSync,BoundaryEventDispatchTracksNodeRemoval,DestroyProfileOnBrowserClose,DialMediaRouteProvider,GlobalMediaControls,HttpsUpgrades,LensOverlay,MediaRouter,PaintHolding,ThirdPartyStoragePartitioning,BlockOriginHeaderModificationOnRedirect,Translate,AutoDeElevate,OptimizationHints,msForceBrowserSignIn,msEdgeUpdateLaunchServicesPreferredVersion --enable-features=CDPScreenshotNewSurface --allow-pre-commit-input --disable-hang-monitor --disable-ipc-flooding-protection --disable-popup-blocking --disable-prompt-on-repost --disable-renderer-backgrounding --disable-updater-scheduler --force-color-profile=srgb --metrics-recording-only --no-first-run --password-store=basic --use-mock-keychain --no-service-autorun --export-tagged-pdf --disable-search-engine-choice-screen --unsafely-disable-devtools-self-xss-warnings --edge-skip-compat-layer-relaunch --disable-infobars --disable-search-engine-choice-screen --disable-sync --enable-unsafe-swiftshader --headless --hide-scrollbars --mute-audio --blink-settings=primaryHoverType=2,availableHoverTypes=2,primaryPointerType=4,availablePointerTypes=4 --no-sandbox --user-data-dir=/var/folders/ph/ns5lvrqn6v5d1wcg8wbcpw500000gn/T/playwright_chromiumdev_profile-ve4g3f --remote-debugging-pipe --no-startup-window[22m
+[2m  - <launched> pid=92546[22m
+[2m  - [pid=92546][err] [1007/045816.751488:ERROR:base/power_monitor/thermal_state_observer_mac.mm:140] ThermalStateObserverMac unable to register to power notifications. Result: 9[22m
+[2m  - [pid=92546][err] [1007/045816.772807:ERROR:net/dns/dns_config_service_posix.cc:138] DNS config watch failed to start.[22m
+[2m  - [pid=92546][err] [1007/045816.776034:WARNING:net/dns/dns_config_service_posix.cc:197] Failed to read DnsConfig.[22m
+[2m  - [pid=92546][err] [1007/045816.783329:FATAL:base/apple/mach_port_rendezvous_mac.cc:159] Check failed: kr == KERN_SUCCESS. bootstrap_check_in org.chromium.Chromium.MachPortRendezvousServer.92546: Permission denied (1100)[22m
+[2m  - [pid=92546] <gracefully close start>[22m
+[2m  - [pid=92546] <kill>[22m
+[2m  - [pid=92546] <will force kill>[22m
+[2m  - [pid=92546] exception while trying to kill process: Error: kill EPERM[22m
+[2m  - [pid=92546] <process did exit: exitCode=null, signal=SIGTRAP>[22m
+[2m  - [pid=92546] starting temporary directories cleanup[22m
+[2m  - [pid=92546] finished temporary directories cleanup[22m
+[2m  - [pid=92546] <gracefully close end>[22m
+
+ ❯ tests/ui/board-drawing-stroke-path.test.ts:31:34
+     29| 
+     30| it("composites joint alpha once in real browser pixels and retains sca…
+     31|   const browser = await chromium.launch(process.env.PW_EXECUTABLE ? {e…
+       |                                  ^
+     32|   try {
+     33|     const page = await browser.newPage();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/11]⎯
+
+⎯⎯⎯⎯⎯⎯ Unhandled Errors ⎯⎯⎯⎯⎯⎯
+
+Vitest caught 7 unhandled errors during the test run.
+This might cause false positive tests. Resolve unhandled errors to make sure your tests are not affected.
+
+⎯⎯⎯⎯⎯ Uncaught Exception ⎯⎯⎯⎯⎯
+Error: listen EPERM: operation not permitted 127.0.0.1
+ ❯ Server.setupListenHandle [as _listen2] node:net:1919:21
+ ❯ listenInCluster node:net:1998:12
+ ❯ node:net:2207:7
+ ❯ processTicksAndRejections node:internal/process/task_queues:89:21
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯
+Serialized Error: { code: 'EPERM', errno: -1, syscall: 'listen', address: '127.0.0.1' }
+This error originated in "tests/session/copilotkit-agui-httpagent.test.ts" test file. It doesn't mean the error was thrown inside the file itself, but while it was running.
+The latest test that might've caused the error is "lands the assistant's real text in agent.messages -- what the preview panel renders". It might mean one of the following:
+- The error was thrown, while Vitest was running this test.
+- If the error occurred after the test had been completed, this was the last documented test before it was thrown.
+
+⎯⎯⎯⎯⎯ Uncaught Exception ⎯⎯⎯⎯⎯
+Error: listen EPERM: operation not permitted 127.0.0.1
+ ❯ Server.setupListenHandle [as _listen2] node:net:1919:21
+ ❯ listenInCluster node:net:1998:12
+ ❯ node:net:2207:7
+ ❯ processTicksAndRejections node:internal/process/task_queues:89:21
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯
+Serialized Error: { code: 'EPERM', errno: -1, syscall: 'listen', address: '127.0.0.1' }
+This error originated in "tests/session/copilotkit-agui-httpagent.test.ts" test file. It doesn't mean the error was thrown inside the file itself, but while it was running.
+The latest test that might've caused the error is "surfaces a RUN_ERROR event (not a fabricated success) when the bridge refuses the turn". It might mean one of the following:
+- The error was thrown, while Vitest was running this test.
+- If the error occurred after the test had been completed, this was the last documented test before it was thrown.
+
+⎯⎯⎯⎯⎯ Uncaught Exception ⎯⎯⎯⎯⎯
+Error: listen EPERM: operation not permitted 127.0.0.1
+ ❯ Server.setupListenHandle [as _listen2] node:net:1919:21
+ ❯ listenInCluster node:net:1998:12
+ ❯ node:net:2207:7
+ ❯ processTicksAndRejections node:internal/process/task_queues:89:21
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯
+Serialized Error: { code: 'EPERM', errno: -1, syscall: 'listen', address: '127.0.0.1' }
+This error originated in "tests/chat-route-warmup.test.ts" test file. It doesn't mean the error was thrown inside the file itself, but while it was running.
+The latest test that might've caused the error is "aborts a real hanging request without closing the server to unblock it". It might mean one of the following:
+- The error was thrown, while Vitest was running this test.
+- If the error occurred after the test had been completed, this was the last documented test before it was thrown.
+
+⎯⎯⎯⎯⎯ Uncaught Exception ⎯⎯⎯⎯⎯
+Error: listen EPERM: operation not permitted 127.0.0.1
+ ❯ Server.setupListenHandle [as _listen2] node:net:1919:21
+ ❯ listenInCluster node:net:1998:12
+ ❯ node:net:2207:7
+ ❯ processTicksAndRejections node:internal/process/task_queues:89:21
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯
+Serialized Error: { code: 'EPERM', errno: -1, syscall: 'listen', address: '127.0.0.1' }
+This error originated in "tests/session/copilotkit-agui-httpagent.test.ts" test file. It doesn't mean the error was thrown inside the file itself, but while it was running.
+The latest test that might've caused the error is "DA-19a: forwardedProps.chatThreadId round-trips through a real CUSTOM chat_thread_id event -- the same mechanism copilotkit-preview-panel.tsx uses for cross-turn continuation". It might mean one of the following:
+- The error was thrown, while Vitest was running this test.
+- If the error occurred after the test had been completed, this was the last documented test before it was thrown.
+
+⎯⎯⎯⎯⎯ Uncaught Exception ⎯⎯⎯⎯⎯
+Error: listen EPERM: operation not permitted 127.0.0.1
+ ❯ Server.setupListenHandle [as _listen2] node:net:1919:21
+ ❯ listenInCluster node:net:1998:12
+ ❯ node:net:2207:7
+ ❯ processTicksAndRejections node:internal/process/task_queues:89:21
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯
+Serialized Error: { code: 'EPERM', errno: -1, syscall: 'listen', address: '127.0.0.1' }
+This error originated in "tests/chat-route-warmup.test.ts" test file. It doesn't mean the error was thrown inside the file itself, but while it was running.
+The latest test that might've caused the error is "keeps retrying 5xx within one budget and accepts a manual redirect". It might mean one of the following:
+- The error was thrown, while Vitest was running this test.
+- If the error occurred after the test had been completed, this was the last documented test before it was thrown.
+
+⎯⎯⎯⎯⎯ Uncaught Exception ⎯⎯⎯⎯⎯
+Error: listen EPERM: operation not permitted 127.0.0.1
+ ❯ Server.setupListenHandle [as _listen2] node:net:1919:21
+ ❯ listenInCluster node:net:1998:12
+ ❯ node:net:2207:7
+ ❯ processTicksAndRejections node:internal/process/task_queues:89:21
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯
+Serialized Error: { code: 'EPERM', errno: -1, syscall: 'listen', address: '127.0.0.1' }
+This error originated in "tests/session/copilotkit-agui-httpagent.test.ts" test file. It doesn't mean the error was thrown inside the file itself, but while it was running.
+The latest test that might've caused the error is "DA-19a: an HTTP 401 rejected before any SSE bytes (missing/expired bearer token) makes runAgent() REJECT -- not resolve silently with no assistant reply and no error". It might mean one of the following:
+- The error was thrown, while Vitest was running this test.
+- If the error occurred after the test had been completed, this was the last documented test before it was thrown.
+
+⎯⎯⎯⎯⎯ Uncaught Exception ⎯⎯⎯⎯⎯
+Error: listen EPERM: operation not permitted 127.0.0.1
+ ❯ Server.setupListenHandle [as _listen2] node:net:1919:21
+ ❯ listenInCluster node:net:1998:12
+ ❯ node:net:2207:7
+ ❯ processTicksAndRejections node:internal/process/task_queues:89:21
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯
+Serialized Error: { code: 'EPERM', errno: -1, syscall: 'listen', address: '127.0.0.1' }
+This error originated in "tests/chat-route-warmup.test.ts" test file. It doesn't mean the error was thrown inside the file itself, but while it was running.
+The latest test that might've caused the error is "reports persistent server failures with route and final HTTP status". It might mean one of the following:
+- The error was thrown, while Vitest was running this test.
+- If the error occurred after the test had been completed, this was the last documented test before it was thrown.
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯
+
+ Test Files  6 failed | 901 passed (907)
+      Tests  11 failed | 7811 passed | 5 skipped (7827)
+     Errors  7 errors
+   Start at  04:51:57
+   Duration  436.94s (transform 38.83s, setup 309.22s, collect 971.50s, tests 848.06s, environment 1254.16s, prepare 102.08s)
+
+/Users/shenyanbin/Documents/Codex/2026-10-07/task-3/workspacex/apps/web:
+ ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  web@0.1.0 test: `vitest run`
+Exit status 1
