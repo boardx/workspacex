@@ -22,6 +22,12 @@ describe("report evidence grounding", () => {
   expect(validateReportEvidence(quoted.replace("[公开合成反例：一个场景安装顺利，不能推断所有场景都顺利。](#answer-7)","[不存在的原文](#answer-7)"),index,labels).reason).toBe("invalid_answer_quote_or_locator");
   expect(actual).toEqual(before);
  });
+ it.each(["无法判断跨任务或跨专家的共识边界。","不能判断跨任务或跨专家共识。","无法判断跨任务和跨专家的共识边界。"])("recognizes the finite coordinated task/expert denial: %s",line=>{
+  expect(validateReportEvidence(`[服务端甲回答：支持电话。](#answer-1)\n\n${line}`,buildReportEvidenceIndex(source)).ok).toBe(true);
+ });
+ it.each(["跨任务和跨专家的共识边界已经形成。","无法判断跨任务和跨专家共识，但是跨专家共识已经形成。","跨任务或跨专家的共识边界已经形成。","无法判断跨任务或跨专家的共识边界，但是跨专家共识已经形成。","否认无法判断跨任务或跨专家的共识边界。","并非无法判断跨任务或跨专家的共识边界。","无法判断跨任务成功并已确认跨专家的共识边界。","无法判断跨任务或跨专家的共识边界。事实上跨专家共识已经形成。"])("keeps affirmative, contrast, unrelated-object and double-denial consensus rejected: %s",line=>{
+  expect(validateReportEvidence(`[服务端甲回答：支持电话。](#answer-1)\n\n${line}`,buildReportEvidenceIndex(source)).reason).toBe("unsupported_cross_expert_consensus");
+ });
  it.each(["不断言最常见。","不断言最常见、极高风险或某条件必然阻止购买。","不断言必然阻止购买。"])('recognizes a direct local bare-negation clause: %s',line=>{
   expect(validateReportEvidence(`[服务端甲回答：支持电话。](#answer-1)\n\n${line}`,buildReportEvidenceIndex(source)).ok).toBe(true);
  });
