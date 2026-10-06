@@ -6,7 +6,7 @@ import { withGuidedThinkingPolicy } from "./guided-thinking-policy";
 import { reportBasis } from "./guided-report-checkpoint";
 import { GUIDED_PLAN_BUDGET_MS, GUIDED_REPORT_MODEL_BUDGET_MS, GUIDED_SEARCH_CALL_BUDGET_MS, GUIDED_READ_CALL_BUDGET_MS, SearchBudget } from "./guided-search-budget";
 import type { DebugTracePort } from "../ports/debug-trace.port";
-import { recordResearchFailure, type ResearchExecutionDiagnostic } from "./guided-runtime-diagnostics";
+import { recordResearchFailure, recordSourceRelevanceFailure, type ResearchExecutionDiagnostic } from "./guided-runtime-diagnostics";
 import { sourceAllowedByPolicy, sourcePolicyDomains, internalSourceReference } from "./guided-source-policy";
 import { parseSourceRelevanceJson, screenResearchSources, sourceRelevanceBasis, sourceTaskIds } from "./guided-source-relevance";
 import { generateResearchPlan } from "./guided-research-plan";
@@ -215,7 +215,7 @@ export class GuidedRuntimeService {
         Object.assign(state, written);
         throw new ResearchRuntimeError("RESEARCH_WORKFLOW_PAUSED");
       }
-    }, { requestId: command.requestId, observe });
+    }, { requestId: command.requestId, traceId: diagnostic.traceId, observe });
     diagnostic.phase = "perform";
     try {
       await this.perform(state, command, persist, internalSources);
@@ -269,8 +269,14 @@ export class GuidedRuntimeService {
           user: JSON.stringify(context), ...(signal || budget ? { signal: signal ?? budget!.signal } : {}) };
         const result = budget ? await budget.run(child => this.model.complete({ ...input, signal: child }), undefined, undefined, signal) : await this.model.complete(input);
         budget?.check(); check?.();
-        const value = parseOutput(result.text);
-        validate?.(value);
+        let value: unknown;
+        try {
+          value = parseOutput(result.text);
+          validate?.(value);
+        } catch (error) {
+          if (parseOutput === parseSourceRelevanceJson) recordSourceRelevanceFailure(this.debugTrace, { sessionId: state.sessionId, callId: call.id, requestId: persist.requestId, traceId: persist.traceId }, error);
+          throw error;
+        }
         const succeed = async () => { budget?.check(); check?.(); call.status = "succeeded"; };
         if (admit) await admit(succeed); else await succeed();
         return value;
@@ -314,7 +320,10 @@ export class GuidedRuntimeService {
       validateGeneratedResearchDesign(node, candidate.data.value);
     });
     if (node === "report") { updateReportTimeline(state, "validation", "running", { attempt: true }); await persist(); }
-    const draft = C.GuidedResearchRuntimeDraft.safeParse({ node, value });
+    // Model-generated brief metadata cannot rewrite the user's supplied scope.
+    const generatedValue = node === "brief" ? { ...state.brief,
+      topic: state.brief.topic.trim() === C.DEFAULT_RESEARCH_NAME ? (value as ResearchRuntime["brief"]).topic : state.brief.topic } : value;
+    const draft = C.GuidedResearchRuntimeDraft.safeParse({ node, value: generatedValue });
     if (!draft.success) throw new ResearchRuntimeError("RESEARCH_NODE_STATE_INVALID");
     validateGeneratedResearchDesign(node, draft.data.value);
     if (node === "report" && draft.data.node === "report" && (state.reportQualityWarnings?.length || (state.executionGoal === "report" && state.reportPartial))) {

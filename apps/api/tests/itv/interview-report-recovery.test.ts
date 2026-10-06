@@ -69,6 +69,20 @@ describe("bounded report quality recovery", () => {
   await expect(generateInterviewMarkdown(deps(),{...input,interviewId:snapshot.interviewId,expectedVersion:snapshot.version,expectedDocumentVersion:savedFailure?previous.version:0})).rejects.toThrow("AI_GENERATION_UNAVAILABLE");
   expect(complete).toHaveBeenCalledTimes(1);expect(save).not.toHaveBeenCalled();expect(snapshot).toEqual(before);
  });
+ it.each([false,true])("guides every repeated citation occurrence from actual source without failed prose (saved: %s)",async savedFailure=>{
+  snapshot=JSON.parse(readFileSync(new URL("./fixtures/repeated-citations-5453/source.json",import.meta.url),"utf8"));
+  const previous=snapshot.documents.find(d=>d.step==="report")!;const raw=previous.markdown;
+  if(!savedFailure){snapshot.documents=snapshot.documents.filter(d=>d.step!=="report");snapshot.states=snapshot.states.filter(s=>s.documentId!==previous.documentId);}
+  const before=structuredClone(snapshot);save.mockClear();complete.mockImplementationOnce(async request=>{
+   expect(request.user).toContain("正文每次引用，包括反例比较和跨回答综合中再次引用");
+   expect(request.user).toContain("复用索引对应的完整逐字原文及同一定位链接");
+   expect(request.user).toContain("公开合成反例：一个场景安装顺利，不能推断所有场景都顺利。");
+   expect(request.user).not.toContain(raw);
+   throw new ModelCallError("MODEL_CALL_FAILED","controlled request inspection, no provider dispatch");
+  });
+  await expect(generateInterviewMarkdown(deps(),{...input,interviewId:snapshot.interviewId,expectedVersion:snapshot.version,expectedDocumentVersion:savedFailure?previous.version:0})).rejects.toThrow("AI_GENERATION_UNAVAILABLE");
+  expect(complete).toHaveBeenCalledTimes(1);expect(save).not.toHaveBeenCalled();expect(snapshot).toEqual(before);
+ });
  it.each([false,true])("uses actual confirmed-source observation scope for initial and saved report requests (saved: %s)",async savedFailure=>{
   snapshot=JSON.parse(readFileSync(resolve(process.cwd(),"../../docs/verification/interview-source-fact-scope-5443/wsx-5441-round1i-source.json"),"utf8"));
   const previous=snapshot.documents.find(d=>d.step==="report")!;
@@ -89,6 +103,46 @@ describe("bounded report quality recovery", () => {
   expect(complete).toHaveBeenCalledTimes(1);expect(save).not.toHaveBeenCalled();expect(snapshot).toEqual(before);
  });
 
+ it.each([false, true])("passes actual evidence-strength rejection to bounded repair (existing failure: %s)", async (existing) => {
+  const wrong = GOOD + "\n\n安装问题最常见且必然阻止采购。";
+  if (existing) {
+   snapshot.documents.push({ documentId: "md-report", step: "report", version: 1, markdown: wrong, contentHash: createHash("sha256").update(wrong).digest("hex"), evidenceMode: "simulated", references: [] });
+   snapshot.states.push({ documentId: "md-report", status: "failed", failure: { code: "REPORT_GROUNDING_REJECTED", retryable: true } });
+   complete.mockResolvedValueOnce({text:GOOD});
+  } else complete.mockResolvedValueOnce({text:wrong}).mockResolvedValueOnce({text:GOOD});
+  await generateInterviewMarkdown(deps(), {...input, expectedDocumentVersion: existing ? 1 : 0});
+  expect(complete).toHaveBeenCalledTimes(existing ? 1 : 2);
+  const repair = complete.mock.calls[existing ? 0 : 1]![0];
+  expect(repair.user).toContain("unsupported_evidence_strength");
+  expect(repair.user).toContain("证据强度修复");
+  expect(repair.user).not.toContain("引用修复：对照服务端原文定位索引");
+  expect(repair.user).not.toContain(wrong);
+  expect(snapshot.documents.find(d=>d.step==="report")?.markdown).toBe(GOOD);
+ });
+ it("requests report findings instead of copying forbidden writing-policy examples", async () => {
+  complete.mockResolvedValue({text:GOOD});
+  await generateInterviewMarkdown(deps(),input);
+  const request=complete.mock.calls[0]![0];
+  expect(request.system).toContain("仅输出研究报告正文");
+  expect(request.system).toContain("不复述生成指令、写作规则或校验约束");
+  expect(request.system).not.toContain("不断言最常见");
+  expect(request.system).not.toContain("不得写“而非设备的固有缺陷”");
+ });
+ it("never instructs a naked zero-count observation without a source and gives precise measurement repair feedback", async () => {
+  const wrong = GOOD + "\n\n不兼容项为零只支持本次检测未发现该冲突，不能推翻一般安装风险。";
+  complete.mockResolvedValueOnce({text:wrong}).mockResolvedValueOnce({text:GOOD});
+  await generateInterviewMarkdown(deps(),input);
+  expect(complete).toHaveBeenCalledTimes(2);
+  for (const [request] of complete.mock.calls) {
+   expect(request.system).not.toContain("不兼容项为零只支持本次检测未发现该冲突");
+   expect(request.system).toContain("若未来检测不兼容项为零");
+  }
+  expect(complete.mock.calls[1]![0].user).toContain("测量声明修复");
+  expect(complete.mock.calls[1]![0].user).toContain("没有实际测量来源");
+  expect(complete.mock.calls[1]![0].user).toContain("不得编造已完成检查");
+  expect(save.mock.calls[0]![0].failure.code).toBe("REPORT_QUALITY_REJECTED");
+  expect(snapshot.states.find(s=>s.documentId==="md-report")?.status).toBe("draft");
+ });
  it("excludes a rejected candidate derived from observed prose and rejects a new affirmative claim",async()=>{
   snapshot=JSON.parse(readFileSync(resolve(process.cwd(),"../../docs/verification/interview-source-regeneration-5430/source.json"),"utf8"));
   const previous=snapshot.documents.find(document=>document.step==="report")!;
@@ -102,6 +156,7 @@ describe("bounded report quality recovery", () => {
   expect(complete).toHaveBeenCalledTimes(1);
   expect(complete.mock.calls[0]![0].user).not.toContain(previous.markdown);
   expect(complete.mock.calls[0]![0].user).not.toContain(original);
+  expect(complete.mock.calls[0]![0].user).not.toContain("安装问题最常见。");
   expect(complete.mock.calls[0]![0].user).toContain("已确认来源");
   expect(save.mock.calls[0]![0]).toMatchObject({markdown:candidate,failure:{code:"REPORT_GROUNDING_REJECTED",retryable:true}});
  });
@@ -151,6 +206,44 @@ describe("bounded report quality recovery", () => {
   expect(complete).toHaveBeenCalledTimes(2);
   expect(save.mock.calls[0]![0]).toMatchObject({markdown:wrong, failure:{code:"REPORT_GROUNDING_REJECTED",retryable:true}});
   expect(snapshot.documents.find(document => document.step === "report")?.markdown).toBe(GOOD);
+ });
+ it("keeps both analysis and grounding feedback when a candidate fails both gates", async () => {
+  const wrong = GOOD.replace(/^建议行动：.*$/mu, "").replace("决策影响：应优先验证客户偏好，暂缓统一渠道。", "决策影响：暂缓统一渠道，因为证据不足。") + "\n安装问题最常见且必然阻止采购。";
+  complete.mockResolvedValueOnce({text:wrong}).mockResolvedValueOnce({text:GOOD});
+  await generateInterviewMarkdown(deps(),input);
+  const repair = complete.mock.calls[1]![0];
+  expect(repair.user).toContain("verifiable_action");
+  expect(repair.user).toContain("unsupported_evidence_strength");
+  expect(repair.user).toContain("证据强度修复");
+  expect(complete).toHaveBeenCalledTimes(2);
+  expect(save.mock.calls[0]![0]).toMatchObject({markdown:wrong,failure:{code:"REPORT_ACTION_VALIDATION_REJECTED"}});
+ });
+ it("public failed-version recovery dispatches once and persists its new rejected streamed body, not the previous draft", async () => {
+  const fixture = resolve(process.cwd(), "../../docs/verification/interview-grounding-repair-5426");
+  snapshot = JSON.parse(readFileSync(resolve(fixture,"source.json"),"utf8"));
+  const previous = snapshot.documents.find(document=>document.step==="report")!;
+  previous.markdown += "\n安装问题最常见且必然阻止采购。";
+  previous.contentHash = createHash("sha256").update(previous.markdown).digest("hex");
+  const oldBody = previous.markdown;
+  const newBody = oldBody + "\n\n后续验证方案仍待执行。\n";
+  const events: any[] = [];
+  const streaming = deps();
+  const dispatch = vi.fn(async (request, onDelta) => {
+   expect(request.user).toContain("实际证据校验原因：unsupported_evidence_strength");
+   expect(request.user).toContain("证据强度修复");
+   expect(request.user).not.toContain(oldBody);
+   expect(request.user).toContain("已确认来源");
+   await onDelta(newBody.slice(0,100)); await onDelta(newBody.slice(100));
+   return {text:newBody};
+  });
+  streaming.model.completeStream=dispatch;
+  await expect(generateInterviewMarkdown(streaming,{...input,interviewId:snapshot.interviewId,expectedVersion:snapshot.version,expectedDocumentVersion:previous.version,onProgress:event=>{events.push(event);}})).rejects.toThrow("AI_GENERATION_UNAVAILABLE");
+  expect(dispatch).toHaveBeenCalledTimes(1); expect(complete).not.toHaveBeenCalled();
+  expect(events.filter(event=>event.type==="delta").map(event=>event.delta).join("")).toBe(newBody);
+  expect(save).toHaveBeenCalledTimes(1);
+  expect(save.mock.calls[0]![0]).toMatchObject({markdown:newBody,failure:{code:"REPORT_GROUNDING_REJECTED",retryable:true}});
+  expect(snapshot.documents.find(document=>document.step==="report")).toMatchObject({markdown:newBody,version:previous.version+1,contentHash:createHash("sha256").update(newBody).digest("hex")});
+  expect(oldBody).not.toBe(newBody);
  });
  it("requires evidence strength and conditional recommendations on every bounded attempt", async () => {
   complete.mockResolvedValueOnce({text:BAD}).mockResolvedValueOnce({text:GOOD});
@@ -306,15 +399,28 @@ describe("saved report recovery", () => {
   expect(complete).toHaveBeenCalledTimes(1); expect(save).toHaveBeenCalledTimes(1);
   expect(result.states.at(-1)?.status).toBe("draft");
  });
- it("recovers a numbered action section without a model call and repeated recovery creates no extra version", async () => {
+ it("regenerates a qualified historical failed body once before allowing normal reuse", async () => {
   const report = GOOD.replace("建议行动：P0：用独立真人任务验证渠道假设，以完成时长和再次进线率为指标。", "## 6. 下一步验证建议（可执行行动）\n\n独立访谈五位用户，对比任务完成时长。");
   await save({expectedVersion:7,expectedDocumentVersion:0,markdown:report,failure:{code:"AI_GENERATION_UNAVAILABLE",retryable:true},references:[{anchor:"source-1",documentId:"md-runs",version:1}]});
-  save.mockClear(); complete.mockClear();
-  const recovered = await generateInterviewMarkdown({...deps(),modelProvider:"",modelId:""},{...input,expectedVersion:8,expectedDocumentVersion:1});
-  expect(complete).not.toHaveBeenCalled(); expect(save).toHaveBeenCalledTimes(1);
-  expect(recovered.documents.find(d=>d.step==="report")).toMatchObject({markdown:report,contentHash:createHash("sha256").update(report).digest("hex"),version:2});
+  save.mockClear(); complete.mockClear(); complete.mockResolvedValue({text:GOOD});
+  const recovered = await generateInterviewMarkdown(deps(),{...input,expectedVersion:8,expectedDocumentVersion:1});
+  expect(complete).toHaveBeenCalledTimes(1); expect(save).toHaveBeenCalledTimes(1);
+  expect(recovered.documents.find(d=>d.step==="report")).toMatchObject({markdown:GOOD,contentHash:createHash("sha256").update(GOOD).digest("hex"),version:2});
   await generateInterviewMarkdown(deps(),{...input,expectedVersion:9,expectedDocumentVersion:2});
-  expect(save).toHaveBeenCalledTimes(1); expect(complete).not.toHaveBeenCalled();
+  expect(save).toHaveBeenCalledTimes(1); expect(complete).toHaveBeenCalledTimes(1);
+ });
+ it("does not promote a qualified failed body when no provider is configured", async () => {
+  await save({expectedVersion:7,expectedDocumentVersion:0,markdown:GOOD,failure:{code:"AI_GENERATION_UNAVAILABLE",retryable:true},references:[{anchor:"source-1",documentId:"md-runs",version:1}]});
+  save.mockClear(); complete.mockClear(); const previous = structuredClone(snapshot);
+  await expect(generateInterviewMarkdown({...deps(),modelProvider:"",modelId:""},{...input,expectedVersion:8,expectedDocumentVersion:1})).rejects.toThrow("AI_GENERATION_UNAVAILABLE");
+  expect(complete).not.toHaveBeenCalled(); expect(save).not.toHaveBeenCalled(); expect(snapshot).toEqual(previous);
+ });
+ it("preserves qualified failed bytes and version when the single recovery provider call fails", async () => {
+  await save({expectedVersion:7,expectedDocumentVersion:0,markdown:GOOD,failure:{code:"AI_GENERATION_UNAVAILABLE",retryable:true},references:[{anchor:"source-1",documentId:"md-runs",version:1}]});
+  save.mockClear(); complete.mockClear(); const previous = structuredClone(snapshot);
+  complete.mockRejectedValue(new ModelCallError("MODEL_CALL_FAILED", "provider failure fixture"));
+  await expect(generateInterviewMarkdown(deps(),{...input,expectedVersion:8,expectedDocumentVersion:1})).rejects.toThrow();
+  expect(complete).toHaveBeenCalledTimes(1); expect(save).not.toHaveBeenCalled(); expect(snapshot).toEqual(previous);
  });
  it("preserves specific action-only rejection rather than a generic provider failure", async () => {
   complete.mockResolvedValue({text:GOOD.replace(/^建议行动：.*$/mu,"").replace("决策影响：应优先验证客户偏好，暂缓统一渠道。","决策影响：暂缓统一渠道，因为证据不足。")});
@@ -332,9 +438,10 @@ describe("saved report source safety", () => {
  });
  it("does not convert a failed candidate to success when CAS rejects its recovery", async () => {
   await save({expectedVersion:7,expectedDocumentVersion:0,markdown:GOOD,failure:{code:"AI_GENERATION_UNAVAILABLE",retryable:true},references:[{anchor:"source-1",documentId:"md-runs",version:1}]});
+  complete.mockResolvedValue({text:GOOD});
   save.mockRejectedValueOnce(new DigitalInterviewWorkflowError("CONCURRENT_MODIFICATION"));
   await expect(generateInterviewMarkdown(deps(),{...input,expectedVersion:8,expectedDocumentVersion:1})).rejects.toThrow("CONCURRENT_MODIFICATION");
-  expect(complete).not.toHaveBeenCalled(); expect(snapshot.states.at(-1)?.status).toBe("failed");
+  expect(complete).toHaveBeenCalledTimes(1); expect(snapshot.states.at(-1)?.status).toBe("failed");
  });
 });
 

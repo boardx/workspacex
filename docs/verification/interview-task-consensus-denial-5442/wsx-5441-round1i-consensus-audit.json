@@ -1,0 +1,79 @@
+{
+  "runtimeSha": "b72eec700e7c19382bb3018a671bcc8c6d38f0cc",
+  "rawHash": "0b430025ae6be474818d35d76557ee5f3603a81ccb7bce1ab4ca74378fe22ff8",
+  "phraseUtf16": {
+    "start": 1714,
+    "end": 1731
+  },
+  "runtimeLabelsUsed": true,
+  "fullGrounding": {
+    "ok": false,
+    "references": [],
+    "reason": "unsupported_cross_expert_consensus"
+  },
+  "cases": [
+    {
+      "text": "无法判断跨任务或跨专家的共识边界。",
+      "grounding": {
+        "ok": false,
+        "references": [],
+        "reason": "unsupported_cross_expert_consensus"
+      }
+    },
+    {
+      "text": "无法判断跨专家的共识边界。",
+      "grounding": {
+        "ok": true,
+        "references": [
+          {
+            "anchor": "answer-2",
+            "documentId": "md-f637429d-b1dd-436b-bbc4-71b1ea486264",
+            "version": 1,
+            "locator": {
+              "sourceHash": "8724c64d8d7c572530b99a2346ab2a3cfddb8346eaaaba73ec0cc16239cd0883",
+              "start": 10,
+              "end": 27,
+              "quote": "以下回答来自模型模拟，需真人验证。",
+              "expertId": null,
+              "taskKey": null,
+              "evidenceMode": "simulated"
+            }
+          }
+        ],
+        "reason": "exact_quotes_only_not_semantic_approval"
+      }
+    },
+    {
+      "text": "跨任务或跨专家的共识边界已经形成。",
+      "grounding": {
+        "ok": false,
+        "references": [],
+        "reason": "unsupported_cross_expert_consensus"
+      }
+    },
+    {
+      "text": "无法判断跨任务或跨专家的共识边界，但是跨专家共识已经形成。",
+      "grounding": {
+        "ok": false,
+        "references": [],
+        "reason": "unsupported_cross_expert_consensus"
+      }
+    },
+    {
+      "text": "否认无法判断跨任务或跨专家的共识边界。",
+      "grounding": {
+        "ok": false,
+        "references": [],
+        "reason": "unsupported_cross_expert_consensus"
+      }
+    },
+    {
+      "text": "并非无法判断跨任务或跨专家的共识边界。",
+      "grounding": {
+        "ok": false,
+        "references": [],
+        "reason": "unsupported_cross_expert_consensus"
+      }
+    }
+  ]
+}
