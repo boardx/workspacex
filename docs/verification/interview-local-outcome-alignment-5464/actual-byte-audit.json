@@ -1,0 +1,14 @@
+[
+  {
+    "file": "source.json",
+    "actualHash": "e158548446591e28d26511983c24e9d9fba855c1a465e5227f0b29f96c9c70e8",
+    "fixtureHash": "e158548446591e28d26511983c24e9d9fba855c1a465e5227f0b29f96c9c70e8",
+    "byteEqual": true
+  },
+  {
+    "file": "report.md",
+    "actualHash": "877e7bc79720a0bbe272d23edac48736c633a752b0e0e3e50881cf9b05946bcf",
+    "fixtureHash": "877e7bc79720a0bbe272d23edac48736c633a752b0e0e3e50881cf9b05946bcf",
+    "byteEqual": true
+  }
+]

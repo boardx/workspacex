@@ -1,0 +1,42 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/apps/api
+
+ ❯ tests/itv/interview-report-recovery.test.ts (49 tests | 4 failed) 453ms
+   × bounded report quality recovery > aligns result interpretation with measured outcomes using inference-dimensions-5459 (derived failure: false) 8ms
+     → expected [Function] to throw error including 'AI_GENERATION_UNAVAILABLE' but got 'expected \'# 访谈模型上下文\n\n操作：generate_r…'
+   × bounded report quality recovery > aligns result interpretation with measured outcomes using inference-dimensions-5459 (derived failure: true) 51ms
+     → expected [Function] to throw error including 'AI_GENERATION_UNAVAILABLE' but got 'expected \'# 访谈模型上下文\n\n操作：generate_r…'
+   × bounded report quality recovery > aligns result interpretation with measured outcomes using local-outcome-alignment-5464 (derived failure: false) 1ms
+     → expected [Function] to throw error including 'AI_GENERATION_UNAVAILABLE' but got 'expected \'# 访谈模型上下文\n\n操作：generate_r…'
+   × bounded report quality recovery > aligns result interpretation with measured outcomes using local-outcome-alignment-5464 (derived failure: true) 35ms
+     → expected [Function] to throw error including 'AI_GENERATION_UNAVAILABLE' but got 'expected \'# 访谈模型上下文\n\n操作：generate_r…'
+ ✓ tests/itv/interview-report-grounding.test.ts (155 tests) 72ms
+ ✓ tests/itv/interview-report-claim-boundaries.test.ts (196 tests) 140ms
+ ✓ tests/itv/interview-report-diagnostics.test.ts (14 tests) 36ms
+ ✓ tests/itv/digital-interview-report.test.ts (8 tests) 11ms
+ ✓ tests/itv/digital-interview-report-evidence.test.ts (2 tests) 3ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 4 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/itv/interview-report-recovery.test.ts > bounded report quality recovery > aligns result interpretation with measured outcomes using inference-dimensions-5459 (derived failure: false)
+ FAIL  tests/itv/interview-report-recovery.test.ts > bounded report quality recovery > aligns result interpretation with measured outcomes using inference-dimensions-5459 (derived failure: true)
+ FAIL  tests/itv/interview-report-recovery.test.ts > bounded report quality recovery > aligns result interpretation with measured outcomes using local-outcome-alignment-5464 (derived failure: false)
+ FAIL  tests/itv/interview-report-recovery.test.ts > bounded report quality recovery > aligns result interpretation with measured outcomes using local-outcome-alignment-5464 (derived failure: true)
+AssertionError: expected [Function] to throw error including 'AI_GENERATION_UNAVAILABLE' but got 'expected \'# 访谈模型上下文\n\n操作：generate_r…'
+
+Expected: "AI_GENERATION_UNAVAILABLE"
+Received: "expected '# 访谈模型上下文\n\n操作：generate_report\n\n以下…' to contain '每条验证的结果解释就地列明所测指标、可支持的结论范围与尚未测得的结果'"
+
+ ❯ tests/itv/interview-report-recovery.test.ts:51:3
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/4]⎯
+
+ Test Files  1 failed | 5 passed (6)
+      Tests  4 failed | 420 passed (424)
+   Start at  17:13:17
+   Duration  2.73s (transform 458ms, setup 0ms, collect 1.47s, tests 717ms, environment 0ms, prepare 135ms)
+
+undefined
+/Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run --config /tmp/wsx-5464-vitest.mjs
