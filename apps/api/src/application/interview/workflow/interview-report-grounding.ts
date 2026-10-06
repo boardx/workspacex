@@ -165,5 +165,6 @@ function negatesConsensus(text: string, start: number, match: string): boolean {
   const after = text.slice(start + match.length);
   const basisDenied = basis.test(tail) && /^[”’"' \t]*的依据/u.test(after);
   const merged = new RegExp(String.raw`^合并(?:宣称|声称|断言)(?:为|成)?${predicate}$`, "u");
-  return direct.test(tail) || object.test(tail) || basisDenied || merged.test(tail);
+  const mergeInto = new RegExp(String.raw`^合并为${predicate}$`, "u");
+  return direct.test(tail) || object.test(tail) || basisDenied || merged.test(tail) || mergeInto.test(tail);
 }
