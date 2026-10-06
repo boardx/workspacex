@@ -1,7 +1,7 @@
 import { readArtifactSourceBytes } from './read-artifact-source-bytes';
 import { createHash, randomUUID } from 'node:crypto';
 import {
-  WhiteboardOperationUndoRequest, WhiteboardObjectsQuery, WhiteboardObjectsSnapshot, WhiteboardArtifactHandoff, WhiteboardEventCursor, WhiteboardOperationRequest, WhiteboardOperationReceipt,
+  WhiteboardPlacementPreview, WhiteboardOperationUndoRequest, WhiteboardObjectsQuery, WhiteboardObjectsSnapshot, WhiteboardArtifactHandoff, WhiteboardEventCursor, WhiteboardOperationRequest, WhiteboardOperationReceipt,
   type WhiteboardOperationEvent as Event, type WhiteboardOperationReceipt as Receipt,
 } from '@repo/contracts/whiteboard-operation';
 import type { WhiteboardCommand } from '@repo/contracts/whiteboard-document';
@@ -151,6 +151,16 @@ export class WhiteboardOperationService {
       const objects = await this.validator.objects(snapshot.update).catch(collaborationError);
       return WhiteboardObjectsSnapshot.parse({ boardId, revision: { epoch: snapshot.epoch, seq: snapshot.seq },
         role: snapshot.role, archived: snapshot.archived, objects });
+    });
+  }
+  async placementPreview(principal:Principal,boardId:string):Promise<WhiteboardPlacementPreview> {
+    return this.db.withTenant(principal.orgId, async session => {
+      if (!this.validator) throw new WhiteboardOperationError('DEPENDENCY_UNAVAILABLE');
+      // Reuse the collaboration store's fresh membership check and locked snapshot.
+      const snapshot = await this.collaboration.loadInTransaction(session, principal, boardId).catch(collaborationError);
+      const objects = await this.validator.objects(snapshot.update).catch(collaborationError);
+      return WhiteboardPlacementPreview.parse({boardId, revision:{epoch:snapshot.epoch,seq:snapshot.seq},
+        role:snapshot.role, archived:snapshot.archived, objects:objects.map(({id,geometry})=>({id,geometry}))});
     });
   }
   async head(principal:Principal,boardId:string){return this.db.withTenant(principal.orgId,async session=>{const value=await this.audit.lockHead(session,principal,boardId);if(!value)throw new WhiteboardOperationError('NOT_FOUND');return{epoch:value.epoch,seq:value.seq,role:value.actorRole};});}

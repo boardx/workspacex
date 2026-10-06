@@ -1,0 +1,19 @@
+{
+  "fixture": "production UI, mocked Board API",
+  "viewports": [
+    1280,
+    768,
+    375
+  ],
+  "checks": [
+    "no coordinate inputs",
+    "pointer drag",
+    "keyboard placement",
+    "cancel does not insert",
+    "target switch",
+    "JTBD submission",
+    "no horizontal overflow",
+    "no browser exceptions"
+  ],
+  "errors": []
+}

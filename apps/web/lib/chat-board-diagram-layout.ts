@@ -5,7 +5,7 @@ import type { RenderedDiagramLayout } from '@repo/contracts/whiteboard-operation
 
 /** Capture the rendered model, never re-run Mermaid's layout during transport. */
 export function renderedDiagramLayout(model: DiagramModel, artifactId: string, orgId: string, sourceRevision: string): RenderedDiagramLayout {
-  if (model.kind !== 'flowchart' && model.kind !== 'sequence' && !(model.kind === 'template' && model.meta?.templateKey === 'persona')) throw new Error('BOARD_DIAGRAM_FAMILY_UNSUPPORTED');
+  if (model.kind !== 'flowchart' && model.kind !== 'sequence' && model.kind !== 'template') throw new Error('BOARD_DIAGRAM_FAMILY_UNSUPPORTED');
   if (model.nodes.some(node => !['rect','round','stadium','diamond','circle','participant','text','sticky'].includes(node.shape))) throw new Error('BOARD_DIAGRAM_SHAPE_UNSUPPORTED');
   const nodes = new Map(model.nodes.map(node => [node.id, node]));
   const objects: RenderedDiagramLayout['objects'] = [
@@ -48,7 +48,7 @@ export function renderedDiagramLayout(model: DiagramModel, artifactId: string, o
     }),
   ];
   const body = { schemaVersion: 1 as const, artifactId, orgId, sourceRevision,
-    diagramKind: model.kind === 'sequence' ? 'sequence' as const : model.kind === 'template' ? 'persona' as const : 'flowchart' as const,
+    diagramKind: model.kind === 'sequence' ? 'sequence' as const : model.kind === 'template' ? (model.meta?.templateKey === 'persona' ? 'persona' as const : 'template' as const) : 'flowchart' as const,
     objects, selectedSourceIds: [] };
   return { ...body, layoutHash: computeRenderedLayoutHash(body) };
 }
