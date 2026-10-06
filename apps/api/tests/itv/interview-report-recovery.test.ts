@@ -31,6 +31,27 @@ beforeEach(() => {
  });
 });
 describe("bounded report quality recovery", () => {
+ it.each([false,true])("separates observed outcomes and measurement dimensions in real-source requests (derived failed: %s)",async derivedFailed=>{
+  snapshot=JSON.parse(readFileSync(new URL("./fixtures/inference-dimensions-5459/source.json",import.meta.url),"utf8"));
+  const previous=snapshot.documents.find(d=>d.step==="report")!;const raw=previous.markdown;
+  if(derivedFailed){
+   // The actual1k draft remains unchanged on disk; this deliberately invalid citation is only a control.
+   previous.markdown=raw+"\n\n[非原文](#answer-5)";previous.contentHash=createHash("sha256").update(previous.markdown).digest("hex");
+   snapshot.states.find(s=>s.documentId===previous.documentId)!.status="failed";
+   snapshot.states.find(s=>s.documentId===previous.documentId)!.failure={code:"REPORT_GROUNDING_REJECTED",retryable:true};
+  }else{snapshot.documents=snapshot.documents.filter(d=>d.step!=="report");snapshot.states=snapshot.states.filter(s=>s.documentId!==previous.documentId);}
+  const before=structuredClone(snapshot);save.mockClear();complete.mockImplementationOnce(async request=>{
+   expect(request.user).toContain("分别记录已观察结果与待核实的解释变量");
+   expect(request.user).toContain("场景之间的条件差异由条件记录支持");
+   expect(request.user).toContain("发生频率对应发生率，解决难度对应解决率与耗时，决策影响对应购买、暂缓或取消的变化");
+   expect(request.user).toContain("缺少另一维度的数据时保留该维度未知，并安排对应的观察");
+   expect(request.user).toContain("公开合成反例：一个场景安装顺利，不能推断所有场景都顺利。");
+   expect(request.user).not.toContain(raw);expect(request.user).not.toContain(previous.markdown);
+   throw new ModelCallError("MODEL_CALL_FAILED","controlled inspection stops before provider");
+  });
+  await expect(generateInterviewMarkdown(deps(),{...input,interviewId:snapshot.interviewId,expectedVersion:snapshot.version,expectedDocumentVersion:derivedFailed?previous.version:0})).rejects.toThrow("AI_GENERATION_UNAVAILABLE");
+  expect(complete).toHaveBeenCalledTimes(1);expect(save).not.toHaveBeenCalled();expect(snapshot).toEqual(before);
+ });
  it.each([false,true])("keeps original plan identity and explicit numerical design assumptions (saved: %s)",async savedFailure=>{
   snapshot=JSON.parse(readFileSync(new URL("./fixtures/action-design-provenance-5454/source.json",import.meta.url),"utf8"));
   const previous=snapshot.documents.find(d=>d.step==="report")!;const raw=previous.markdown;
