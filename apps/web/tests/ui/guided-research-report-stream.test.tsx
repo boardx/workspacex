@@ -204,19 +204,17 @@ it("observes report conversation generation without classifying user intent in t
   expect(executeResearchRuntime).toHaveBeenCalledTimes(1);
 });
 
-it("pauses active report work and resumes with steering before checkpoint retry", async () => {
-  const active = { ...streaming(), planRevision: 2, controlStatus: "running" as const };
-  const paused = { ...active, busy: false, leaseUntil: null, controlStatus: "paused" as const, planRevision: 3 };
-  vi.mocked(getResearchRuntime).mockResolvedValue(active);
-  vi.mocked(getResearchRuntimeProgress).mockResolvedValue(progressOf(paused));
-  vi.mocked(executeResearchRuntime).mockResolvedValueOnce({ ...paused, busy: true, leaseUntil: active.leaseUntil }).mockResolvedValueOnce({ ...paused, controlStatus: "running", planRevision: 4 }).mockResolvedValueOnce({ ...paused, controlStatus: "running" });
+it("resumes a previously paused report before checkpoint retry without exposing pause", async () => {
+  const paused = { ...streaming(), busy: false, leaseUntil: null, planRevision: 3, controlStatus: "paused" as const };
+  vi.mocked(getResearchRuntime).mockResolvedValue(paused);
+  vi.mocked(executeResearchRuntime).mockResolvedValueOnce({ ...paused, controlStatus: "running", planRevision: 4 }).mockResolvedValueOnce({ ...paused, controlStatus: "running" });
   render(<GuidedResearchLive sessionId={initial.sessionId} onBack={vi.fn()} />);
-  fireEvent.click(await screen.findByRole("button", { name: "暂停生成" }));
-  await waitFor(() => expect(executeResearchRuntime).toHaveBeenCalledTimes(1));
-  expect(vi.mocked(executeResearchRuntime).mock.calls[0]![0]).toMatchObject({ action: "pause", expectedRevision: 2 });
-  fireEvent.click(await screen.findByRole("button", { name: "继续生成" }, { timeout: 3500 }));
-  await waitFor(() => expect(executeResearchRuntime).toHaveBeenCalledTimes(3));
-  expect(vi.mocked(executeResearchRuntime).mock.calls.map(([command]) => command.action)).toEqual(["pause", "resume", "retry"]);
+  const resume = await screen.findByRole("button", { name: "继续生成" });
+  expect(screen.queryByRole("button", { name: "暂停生成" })).not.toBeInTheDocument();
+  fireEvent.click(resume);
+  await waitFor(() => expect(executeResearchRuntime).toHaveBeenCalledTimes(2));
+  expect(vi.mocked(executeResearchRuntime).mock.calls.map(([command]) => command.action)).toEqual(["resume", "retry"]);
+  expect(vi.mocked(executeResearchRuntime).mock.calls[0]![0]).toMatchObject({ expectedRevision: 3 });
 });
 it("offers a separate full regeneration action for a saved interrupted report", async () => {
   const interrupted = { ...idleReport, errorCode: "RESEARCH_WORKFLOW_UNAVAILABLE", reportCheckpoint: { basis: "basis", chapters: [] } };
@@ -228,20 +226,21 @@ it("offers a separate full regeneration action for a saved interrupted report", 
   expect(vi.mocked(executeResearchRuntime).mock.calls[0]![0].action).toBe("generate_report");
 });
 
-it("keeps newer pause controls when an old generation snapshot arrives", async () => {
+it("streams active generation without a pause entry or transient pause display", async () => {
   let observer!: NonNullable<Parameters<typeof executeResearchRuntime>[1]>;
   const active = { ...streaming(), planRevision: 2, controlStatus: "running" as const };
   vi.mocked(executeResearchRuntime).mockImplementationOnce(async (_command, callback) => {
     observer = callback!; callback!({ type: "snapshot", state: active });
     return new Promise(() => {});
-  }).mockResolvedValueOnce({ ...active, planRevision: 3, controlStatus: "paused" });
+  });
   render(<GuidedResearchLive sessionId={initial.sessionId} onBack={vi.fn()} />);
   fireEvent.click(await screen.findByRole("button", { name: "生成报告" }));
-  fireEvent.click(await screen.findByRole("button", { name: "暂停生成" }));
-  await screen.findByText("正在暂停，已保存章节会保留。");
-  await act(async () => observer({ type: "snapshot", state: { ...active, reportStream: { ...active.reportStream!, sequence: 1, text: '{"summary":"新正文' } } }));
-  expect(screen.getByText("正在暂停，已保存章节会保留。")).toBeInTheDocument();
   expect(screen.queryByRole("button", { name: "暂停生成" })).not.toBeInTheDocument();
+  await act(async () => observer({ type: "snapshot", state: { ...active, planRevision: 3, controlStatus: "paused", reportStream: { ...active.reportStream!, sequence: 1, text: '{"summary":"新正文' } } }));
+  expect(screen.queryByText("正在暂停，已保存章节会保留。")).not.toBeInTheDocument();
+  expect(await screen.findByText("新正文")).toBeInTheDocument();
+  expect(executeResearchRuntime).toHaveBeenCalledTimes(1);
+  expect(vi.mocked(executeResearchRuntime).mock.calls[0]![0].action).toBe("generate_report");
 });
 
 describe("terminal stream recovery", () => {

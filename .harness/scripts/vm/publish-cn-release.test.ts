@@ -21,6 +21,8 @@ describe("China production release publisher",()=>{
     expect(source).toContain('rev-parse HEAD');
     expect(source).toContain('status --porcelain');
     expect(source).toContain('merge-base --is-ancestor "$revision" origin/main');
+    expect(source).toContain('--verify-build-checkout "$tool_binding"');
+    expect(source).not.toContain('REPOSITORY_DIR=${');
     expect(source).toContain("@sha256:[a-f0-9]{64}");
   });
   it("exports the Agent source from the immutable Git object and never copies local secrets",()=>{

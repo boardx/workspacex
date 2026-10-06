@@ -37,7 +37,7 @@ class Tests(unittest.TestCase):
    p,_=fixture();db=DATABASES[0];cid='1'*64
    with tempfile.TemporaryDirectory() as td:
     root=pathlib.Path(td);s=Source(db,cid,setup(root,cid));s.observed['sessions'][0]['ssl']=tls
-    proof=BackupBackendCollector(s,root).collect(p,db,cid,100,'wsx-backup-test')
+    proof=BackupBackendCollector(s,root).collect(p,db,cid,100,'wsx-backup-test',expected_identity=p['identity'])
     self.assertFalse(proof['readOnlyEvidence']['sqlObserved'])
     self.assertEqual(proof['facts']['session']['pid'],42)
     self.assertEqual(len(s.exception_calls),0 if tls else 1)
@@ -55,10 +55,10 @@ class Tests(unittest.TestCase):
     if variant=='role':row['role']='other'
     if variant=='appname':row['applicationName']='precheck'
     if variant=='tls':row['ssl']=False;s.verify_existing_no_tls_exception=None
-    with self.assertRaises(RuntimeError):BackupBackendCollector(s,root).collect(p,db,cid,100,'wsx-backup-test')
+    with self.assertRaises(RuntimeError):BackupBackendCollector(s,root).collect(p,db,cid,100,'wsx-backup-test',expected_identity=p['identity'])
  def test_strong_sql_readonly_requirement_cannot_be_faked(self):
   p,_=fixture()
   with self.assertRaisesRegex(RuntimeError,'NOT_OBSERVABLE'):
-   BackupBackendCollector(None,'/nonexistent').collect(p,DATABASES[0],'1'*64,100,'app',True)
+   BackupBackendCollector(None,'/nonexistent').collect(p,DATABASES[0],'1'*64,100,'app',True,expected_identity=p['identity'])
 
 if __name__=='__main__':unittest.main()

@@ -33,14 +33,14 @@ def protected(reference,files,mode):
  return f['bytes']
 
 
-def bind_backup_profile(existing,host_reference,files,authority=None):
+def bind_backup_profile(existing,host_reference,files,authority=None,*,expected_identity):
  """Compile data from source-owned actual file captures. Does not write profile.
  Captures must be obtained using root-private nofollow readers at installation;
  this pure function cannot establish truth of caller-supplied metadata itself.
  """
- host=json.loads(protected(host_reference,files,'0600'));p=host['backup'];identity=validate(p)
+ host=json.loads(protected(host_reference,files,'0600'));p=host['backup'];identity=validate(p,expected_identity=expected_identity)
  require(host['identity']==identity and existing['toolRevision']==p['toolRevision'], 'BACKUP_PROFILE_IDENTITY')
- require(host_reference['path']==f'/etc/workspacex-cn/maintenance-backup/{APP}/{identity["attemptId"]}/host-plan.json',
+ require(host_reference['path']==f'/etc/workspacex-cn/maintenance-backup/{identity["sourceRevision"]}/{identity["attemptId"]}/host-plan.json',
          'BACKUP_PROFILE_HOST_PATH')
  for key,approval_hash in (('roleApproval','roleApprovalSha256'),('publicCapabilityApproval','publicCapabilityApprovalSha256')):
   ref=host[key]
@@ -71,9 +71,9 @@ def bind_backup_profile(existing,host_reference,files,authority=None):
   protected(ref,files,mode)
  table=host['queryTable'];raw=protected(table,files,'0700')
  require(existing['installedFilesSha256'].get(table['path'])==table['sha256'] and
-         json.loads(raw)==query_table() and host['statements']==mutation_table(p,host['objectScope']),
+         json.loads(raw)==query_table() and host['statements']==mutation_table(p,host['objectScope'],expected_identity=expected_identity),
          'BACKUP_PROFILE_FIXED_OPERATIONS')
- cfg_hash=p['configurationSha256'];config_path=f'/etc/workspacex-cn/maintenance-host/{APP}/{identity["attemptId"]}/approved-baseline-deployment.json'
+ cfg_hash=p['configurationSha256'];config_path=f'/etc/workspacex-cn/maintenance-host/{identity["sourceRevision"]}/{identity["attemptId"]}/approved-baseline-deployment.json'
  cfg=protected({'path':config_path,'sha256':cfg_hash},files,'0600');environment=json.loads(cfg)['environment']
  require(environment['profile']=='production' and environment['ecsInstanceId']==ECS and
          environment['rdsInstanceId']==RDS,'BACKUP_PROFILE_PRODUCTION_CONFIGURATION')

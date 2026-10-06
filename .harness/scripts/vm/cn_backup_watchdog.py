@@ -93,9 +93,12 @@ def journal_event(plan,event):
 
 def serve(reference):
  raw=private(reference['path']);require(hashlib.sha256(raw).hexdigest()==reference['sha256'],'BACKUP_WATCHDOG_PLAN_PIN')
- host=json.loads(raw);plan=host['backup'];validate(plan);authorization=protected_authorization(plan);channels={}
+ host=json.loads(raw);plan=host['backup']
+ profile=json.loads(private('/etc/workspacex-cn/trusted-tool-binding.json'))
+ require(profile['backupHostPlan']==reference and profile['toolRevision']==plan['toolRevision'],'BACKUP_WATCHDOG_PROFILE')
+ expected_identity=host['identity'];validate(plan,expected_identity=expected_identity);authorization=protected_authorization(plan,expected_identity=expected_identity);channels={}
  try:
-  for db in DATABASES:channels[db]=BackupChannel(reference,db,cleanup_only=True)
+  for db in DATABASES:channels[db]=BackupChannel(reference,db,cleanup_only=True,expected_identity=expected_identity)
   require(all(capture(channels[db],db)['role']==[] for db in DATABASES),'BACKUP_WATCHDOG_PREEXISTING_ROLE')
   # This process owns these new channels; none is inherited from the parent.
   journal_event(plan,'cleanup-owner-preopened')

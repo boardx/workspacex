@@ -121,7 +121,7 @@ class RetainedEpochCapture:
   producer_process={'pid':os.getpid(),'processStart':process_before['processStart'],'namespaces':namespaces,'sourcePath':SOURCE_PATH,'sourceSha256':hashlib.sha256(pathlib.Path(__file__).read_bytes()).hexdigest(),'executableSha256':executable_sha,'cgroupContainerId':process_before['cgroupContainerId']}
 
   # Permissions, stream children and cleanup are verified by source host/lease.
-  result=BackupLease(self.host.plan,self.host,self.journal).run()
+  result=BackupLease(self.host.plan,self.host,self.journal,expected_identity=self.actor.identity).run()
   require(result['cleanupVerified'] is True and result['currentEpochVerified'] is False,'EPOCH_CAPTURE_BACKUP_NOT_QUALIFICATION')
   require(set(self.host.permission_captures)==set(DATABASES) and len(self.host.relays)==3,'EPOCH_CAPTURE_ACTUAL_FACTS_MISSING')
   permissions={db:self.save('permissions-'+db,self.host.permission_captures[db]) for db in DATABASES};lanes={};backend={};database_components={}
@@ -171,11 +171,12 @@ class RetainedEpochCapture:
    ref=qr.reference(path);require(ref['sha256']==h,'EPOCH_CAPTURE_RAW_REF');return b''.join(qr.blocks(ref))
   # Existing actual source consumers verify isolation byte/hash/stage/fidelity;
   # missing replay or six journey outputs never become a collection flag.
-  collect_isolation(external['isolation'],reader=read_raw)
+  # Draft isolation inputs cannot approve their own child attempt. Full
+  # conservation is required later against protected policy invocation outputs.
   require(set(external['collectionDatabaseRefs'])==set(DATABASES) and all(set(v)=={'catalog','roles','acl','sequence','version'} for v in external['collectionDatabaseRefs'].values()),'EPOCH_CAPTURE_EXTERNAL_CATALOG_CLOSURE')
   components={db:{**draft['databaseComponents'][db],**external['collectionDatabaseRefs'][db]} for db in DATABASES}
   collection_input={'kind':'current-held-epoch-evidence-input',**{k:self.b[k] for k in ('identity','toolRevision','host','epoch','holdGeneration')},'before':draft['before']['collection'],'after':draft['after']['collection'],'databases':components,'objects':external['collectionObjectRefs'],'cleanup':draft['cleanup'],'isolation':external['collectionIsolationRefs']}
-  collection=collect_epoch(collection_input,reader=read_raw,large_reader=lambda r:list(qr.blocks(r)))
+  collection=collect_epoch(collection_input,reader=read_raw,large_reader=lambda r:list(qr.blocks(r)),expected_identity=self.actor.identity)
   collection_ref=self.save('epoch-collection',collection);collection_input_ref=self.save('epoch-collection-input',collection_input)
   value={'schemaVersion':2,'kind':'current-held-epoch-qualification','binding':self.b,'sourcePolicy':None,'collection':collection_ref,'collectionInput':collection_input_ref,'recoveryEvidence':external['recoveryEvidence'],'recoveryManifest':external['recoveryManifest'],'before':draft['before']['qualification'],'after':draft['after']['qualification'],'heldJournal':draft['heldJournal'],'permissions':draft['permissions'],'dumpLanes':draft['dumpLanes'],'objects':external['objects'],'isolation':external['isolation'],'journeys':external['journeys'],'outputRoot':str(self.root/'qualified-current-epoch')}
   # Every qualification raw output must match an EXTERNALLY approved invocation.

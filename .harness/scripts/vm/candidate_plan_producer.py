@@ -25,9 +25,9 @@ def exact(value, keys, code):
     require(type(value) is dict and set(value) == set(keys), code)
 
 
-def produce(inputs, transport=None, reader=private_bytes, large_reader=None, epoch_producer=collect_epoch):
+def produce(inputs, transport=None, reader=private_bytes, large_reader=None, epoch_producer=collect_epoch,*,expected_identity):
     exact(inputs, (*BIND, 'refs'), 'CANDIDATE_PRODUCER_INPUT_SCHEMA')
-    bound = binding(inputs)
+    bound = binding(inputs,expected_identity=expected_identity)
     exact(inputs['refs'], REFS, 'CANDIDATE_PRODUCER_REFERENCE_CLOSURE')
     require(transport is not None and all(callable(getattr(transport, method, None)) for method in
         ('require_lock', 'observe_hold', 'observe_retained_sessions', 'verify_current_epoch',
@@ -57,7 +57,7 @@ def produce(inputs, transport=None, reader=private_bytes, large_reader=None, epo
     require(template['identity'] == bound['identity'] and template['host'] == bound['host'] and
             template['baselineRevision'] == BASELINE, 'CANDIDATE_PRODUCER_TEMPLATE_BINDING')
     epoch_input = read('epochInput'); collection = read('epochCollection')
-    require(epoch_producer(epoch_input, reader, large_reader) == collection,
+    require(epoch_producer(epoch_input, reader, large_reader,expected_identity=expected_identity) == collection,
             'CANDIDATE_PRODUCER_EPOCH_RECOMPUTE')
     bound_record(collection)
     require(collection.get('kind') == 'current-held-epoch-evidence-collection' and

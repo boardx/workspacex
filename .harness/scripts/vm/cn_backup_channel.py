@@ -21,8 +21,8 @@ def query_table():
  return out
 
 
-def mutation_table(plan,scope,cleanup_only=False):
- frozen=compile_role_sql(plan,scope,now=plan['authorization']['notBefore'] if cleanup_only else None);out={}
+def mutation_table(plan,scope,cleanup_only=False,*,expected_identity):
+ frozen=compile_role_sql(plan,scope,now=plan['authorization']['notBefore'] if cleanup_only else None,expected_identity=expected_identity);out={}
  for db in scope:
   out[db]={'create':[frozen['create'].rstrip(';')],'grant':grant_statements(scope,db),
    'close':[frozen['close'].rstrip(';')],'revoke':grant_statements(scope,db,True),
@@ -31,10 +31,10 @@ def mutation_table(plan,scope,cleanup_only=False):
 
 
 class BackupChannel:
- def __init__(self,host_reference,db,read=private,spawn=subprocess.Popen,cleanup_only=False):
+ def __init__(self,host_reference,db,read=private,spawn=subprocess.Popen,cleanup_only=False,*,expected_identity):
   raw=read(host_reference['path']);require(hashlib.sha256(raw).hexdigest()==host_reference['sha256'],'BACKUP_CHANNEL_HOST_PIN')
   require(type(cleanup_only) is bool,'BACKUP_CLEANUP_MODE');self.cleanup_only=cleanup_only
-  self.host=json.loads(raw);validate(self.host['backup'],now=self.host['backup']['authorization']['notBefore'] if cleanup_only else None);self.database=db
+  self.host=json.loads(raw);validate(self.host['backup'],now=self.host['backup']['authorization']['notBefore'] if cleanup_only else None,expected_identity=expected_identity);self.database=db
   profile=json.loads(read('/etc/workspacex-cn/trusted-tool-binding.json'));runtime=self.host['connection']['runtime']
   require(profile['toolRevision']==self.host['backup']['toolRevision'] and profile['backupHostPlan']==host_reference and
           runtime==profile['backupRuntime'],'BACKUP_CHANNEL_PROFILE')
@@ -44,7 +44,7 @@ class BackupChannel:
   require(runtime['pgModulePath'] in runtime['files'],'BACKUP_CHANNEL_PG')
   for name,expected in runtime['files'].items():require(hashlib.sha256(read(name,0o644)).hexdigest()==expected,'BACKUP_CHANNEL_RUNTIME')
   table=self.host['queryTable'];require(json.loads(read(table['path'],0o700))==query_table(),'BACKUP_CHANNEL_FIXED_QUERIES')
-  require(self.host['statements']==mutation_table(self.host['backup'],self.host['objectScope'],cleanup_only),'BACKUP_CHANNEL_FIXED_MUTATIONS')
+  require(self.host['statements']==mutation_table(self.host['backup'],self.host['objectScope'],cleanup_only,expected_identity=expected_identity),'BACKUP_CHANNEL_FIXED_MUTATIONS')
   self.process=spawn([runtime['nodePath'],spec['path'],'--backup-json',host_reference['path'],host_reference['sha256'],db]+(['--cleanup-only'] if cleanup_only else []),
        stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,env=SAFE_ENV,start_new_session=True)
   self.sequence=0

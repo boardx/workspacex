@@ -26,11 +26,11 @@ class ObserverTests(unittest.TestCase):
   with self.assertRaisesRegex(RuntimeError,'SESSION_ROWS'):source.read_backup_database_sessions(DATABASES[0])
   self.assertEqual(self.messages[-1]['queryId'],'rollback-readonly')
  def test_actual_backend_collector_invoked_without_factory(self):
-  channels={db:self.channel for db in DATABASES};observer=RetainedBackendObserver(self.plan,channels,self.authority)
+  channels={db:self.channel for db in DATABASES};observer=RetainedBackendObserver(self.plan,channels,self.authority,expected_identity=self.plan['identity'])
   with patch('retained_backend_observer.BackupBackendCollector') as cls:
    cls.return_value.collect.return_value={'kind':'local-mock'}
    self.assertEqual(observer.collect(DATABASES[0],'c'*64,123,'app'),{'kind':'local-mock'})
-   cls.return_value.collect.assert_called_once_with(self.plan,DATABASES[0],'c'*64,123,'app')
+   cls.return_value.collect.assert_called_once_with(self.plan,DATABASES[0],'c'*64,123,'app',expected_identity=self.plan['identity'])
  def test_session_drift_rejected(self):
   source=RetainedObserverSource(self.plan,self.channel,self.authority);self.channel.channel.binding={'pid':999}
   with self.assertRaisesRegex(RuntimeError,'SESSION_DRIFT'):source.read_backup_database_sessions(DATABASES[0])
@@ -42,7 +42,7 @@ from writer_fence import digest
 import hashlib,time
 class ParentRelayTests(unittest.TestCase):
  def setUp(self):
-  self.plan,_=fixture();self.observer=RetainedBackendObserver(self.plan,{db:object() for db in DATABASES},object())
+  self.plan,_=fixture();self.observer=RetainedBackendObserver(self.plan,{db:object() for db in DATABASES},object(),expected_identity=self.plan['identity'])
   self.db=DATABASES[0];self.owner='a'*32;self.name='wsx-backup-'+self.owner;self.binary=b'compiled-docker-fixture';self.app='wsx-backup-'+self.plan['identity']['attemptId']+'-'+self.db
   self.relay=SourceOwnedParentObservation(self.observer,self.db,'c'*64,456,self.app,self.name,self.owner,hashlib.sha256(self.binary).hexdigest(),time.monotonic()+60,'/private/proof')
   facts={'database':self.db,'containerId':'c'*64,'processPid':456,'applicationName':self.app}

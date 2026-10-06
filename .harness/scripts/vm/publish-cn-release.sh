@@ -2,7 +2,15 @@
 # Build and publish one immutable China production release before main-cn promotion.
 # Registry authentication must already exist in root's Docker credential store.
 set -euo pipefail
+# Git location/config overrides cannot redirect the protected checkout authority.
+unset GIT_DIR GIT_WORK_TREE GIT_COMMON_DIR GIT_INDEX_FILE GIT_CONFIG GIT_CONFIG_COUNT GIT_CONFIG_PARAMETERS GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES
+export GIT_CONFIG_NOSYSTEM=1 GIT_CONFIG_GLOBAL=/dev/null GIT_NO_REPLACE_OBJECTS=1 GIT_NO_LAZY_FETCH=1
 
+build_only=0
+if [[ ${1:-} == --build-only ]]; then
+  [[ $# -eq 5 ]] || { echo 'CN_RELEASE_PUBLISH_BUILD_ONLY_ARGUMENTS' >&2; exit 2; }
+  tool_binding=$2; attempt_id=$3; shift 3; build_only=1
+fi
 [[ $# -eq 2 && "$1" =~ ^[a-f0-9]{40}$ && "$2" =~ ^v?[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9]+([.-][a-zA-Z0-9]+)*)?$ ]] || {
   echo "usage: publish-cn-release.sh <40-hex-revision> <semantic-release>" >&2; exit 2;
 }
@@ -11,6 +19,10 @@ revision=$1
 release=$2
 
 REPOSITORY_DIR=/opt/workspacex-cn/repository
+if [[ "$build_only" == 1 ]]; then
+  # Reverify the original protected binding; never consume a caller's path/env override.
+  REPOSITORY_DIR=$(python3 /usr/local/lib/workspacex-cn/cn-build-tool-identity.py --verify-build-checkout "$tool_binding" "$revision" "$release" "$attempt_id" prebuild) || { echo 'CN_RELEASE_PUBLISH_CHECKOUT_REJECTED' >&2; exit 1; }
+fi
 OUTPUT_DIR=/etc/workspacex-cn/releases
 RUNNER_ID_FILE=/etc/workspacex-cn/runner-user
 platform=${WSX_PLATFORM:-linux/amd64}
@@ -47,7 +59,9 @@ done
 [[ -d "$REPOSITORY_DIR/.git" ]] || fail "release repository missing"
 [[ "$(git -C "$REPOSITORY_DIR" rev-parse HEAD)" == "$revision" ]] || fail "checkout is not the requested revision"
 [[ -z "$(git -C "$REPOSITORY_DIR" status --porcelain)" ]] || fail "release checkout is dirty"
-git -C "$REPOSITORY_DIR" merge-base --is-ancestor "$revision" origin/main || fail "release is not contained in origin/main"
+if [[ "$build_only" == 0 ]]; then
+  git -C "$REPOSITORY_DIR" merge-base --is-ancestor "$revision" origin/main || fail "release is not contained in origin/main"
+fi
 [[ -f "$RUNNER_ID_FILE" && ! -L "$RUNNER_ID_FILE" && "$(stat -c '%U:%G:%a' "$RUNNER_ID_FILE")" == root:root:600 ]] || fail "runner identity is not protected"
 runner_user=$(cat "$RUNNER_ID_FILE")
 [[ "$runner_user" =~ ^[a-z_][a-z0-9_-]{0,31}$ ]] || fail "invalid runner identity"

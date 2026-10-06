@@ -1,4 +1,6 @@
-import { readFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 import { expect, it } from "vitest";
 const read=(name:string)=>readFileSync(new URL(name,import.meta.url),"utf8");
@@ -27,9 +29,31 @@ it("direct CLI child inherits the held fd 9 across a cwd-only subshell",()=>{
  expect(deploy).toContain('(cd "$release_checkout"; node --import tsx');
 });
 it("all trusted callers establish private root lock metadata before invoking the config CLI",()=>{
- for(const source of [build,deploy,read("verify-cn-release-promotion.sh")]){
+ for(const source of [deploy,read("verify-cn-release-promotion.sh")]){
   expect(source).toContain('chown root:root "$RUNTIME_ROOT/release.lock"; chmod 0600 "$RUNTIME_ROOT/release.lock"');
  }
+});
+
+it("builder verifies the existing private lock and descriptor before admission without mutating it",()=>{
+ const metadata=build.indexOf('== 0:0:600:1 ]]');
+ const open=build.indexOf('exec 9<>"$RUNTIME_ROOT/release.lock"');
+ const descriptor=build.indexOf('opened=os.fstat(9);actual=os.lstat(sys.argv[1])');
+ const lock=build.indexOf('flock -n 9');
+ const prepare=build.indexOf('cn-candidate-config-cli.ts prepare');
+ expect(metadata).toBeGreaterThan(-1);expect(open).toBeGreaterThan(metadata);
+ expect(descriptor).toBeGreaterThan(open);expect(lock).toBeGreaterThan(descriptor);expect(prepare).toBeGreaterThan(lock);
+ expect(build).toContain('! -L "$RUNTIME_ROOT/release.lock"');
+ expect(build).toContain('stat.S_ISREG(opened.st_mode) and (opened.st_uid,opened.st_gid,stat.S_IMODE(opened.st_mode),opened.st_nlink)==(0,0,0o600,1)');
+ expect(build).toContain('not stat.S_ISLNK(actual.st_mode)');
+ expect(build).toContain('(opened.st_dev,opened.st_ino)==(actual.st_dev,actual.st_ino)');
+ expect(build.slice(0,lock)).not.toMatch(/exec 9>|chown root:root|chmod 0600/);
+ const directory=mkdtempSync(join(tmpdir(),"wsx-config-lock-"));
+ try{
+  const path=join(directory,"release.lock");writeFileSync(path,"retained-lock-evidence\n",{mode:0o600});
+  const command=build.slice(open,build.indexOf("\n",open));
+  const result=spawnSync("bash",["-eu","-c",`${command}\ntest -e /dev/fd/9`],{env:{...process.env,RUNTIME_ROOT:directory},encoding:"utf8"});
+  expect(result.status).toBe(0);expect(readFileSync(path,"utf8")).toBe("retained-lock-evidence\n");
+ }finally{rmSync(directory,{recursive:true,force:true});}
 });
 
 it("selects prebuild by default and artifact-build only for the trusted build-only mode",()=>{

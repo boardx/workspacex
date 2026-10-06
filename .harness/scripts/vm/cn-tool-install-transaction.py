@@ -266,7 +266,28 @@ def profile_content(tool,rows,schema_raw=None,runtime=None):
  exec(compile(schema_raw,PROFILE_SCHEMA_SOURCE,'exec'),namespace)
  return namespace['build_profile'](tool,rows,runtime)
 
-def profile_transaction(m,consumer_raw,inventory_raw,receipt_raw,expected,now,ttl=3600,schema_raw=None):
+def old_profile_allowlist(content,old_files,inventory):
+ require(isinstance(old_files,dict) and old_files and set(content['filesSha256'])==set(old_files),'PROFILE_OLD_ALLOWLIST_CLOSURE')
+ require(all(inventory.get('files',{}).get(source,{}).get('target')==target for source,target in old_files.items()),'PROFILE_OLD_TARGET_AUTHORITY')
+
+def old_profile_binding(old,previous,old_schema_raw=None):
+ import base64,re
+ require(old.get('present') is True and old.get('regular') is True and old.get('symlink') is False and old.get('mode')=='0600' and all(type(old.get(k)) is int for k in ('uid','gid','links')) and (old['uid'],old['gid'],old['links'])==(0,0,1) and re.fullmatch('[a-f0-9]{64}',old.get('sha256','') or ''),'PROFILE_OLD_PRESENT_TRUST')
+ try:raw=base64.b64decode(old['rawBase64'],validate=True);content=json.loads(raw)
+ except Exception:require(False,'PROFILE_OLD_RAW')
+ require(len(raw)<=8000000 and sha(raw)==old['sha256'] and raw==(json.dumps(content,sort_keys=True)+'\n').encode(),'PROFILE_OLD_RAW_BINDING')
+ tool=content.get('toolRevision');require(re.fullmatch('[a-f0-9]{40}',tool or ''),'PROFILE_OLD_TOOL')
+ hashes=content.get('filesSha256');require(isinstance(hashes,dict) and hashes,'PROFILE_OLD_CLOSURE')
+ rows={}
+ for source,digest in hashes.items():
+  before=previous.get('files',{}).get(source);require(isinstance(before,dict),'PROFILE_OLD_SOURCE_INVENTORY')
+  target=before.get('target')
+  if target is not None:require(before.get('present') is True and before.get('regular') is True and before.get('symlink') is False and before.get('sha256')==digest and before.get('uid')==0 and before.get('gid')==0 and before.get('links')==1,'PROFILE_OLD_INSTALLED_BINDING')
+  rows[source]={'target':target,'newSha256':digest}
+ require(content==profile_content(tool,rows,old_schema_raw,previous.get('runtimes',{}).get('node')),'PROFILE_OLD_CONTENT_AUTHORITY')
+ return tool,rows
+
+def profile_transaction(m,consumer_raw,inventory_raw,receipt_raw,expected,now,ttl=3600,schema_raw=None,old_schema_raw=None):
  import ast,re
  require(isinstance(m.get('profileTransactionsV1'),list) and len(m['profileTransactionsV1'])==1,'PROFILE_V1_REQUIRED')
  p=m['profileTransactionsV1'][0];source=p.get('consumerSource');files=m['files']
@@ -280,20 +301,26 @@ def profile_transaction(m,consumer_raw,inventory_raw,receipt_raw,expected,now,tt
  target=paths[0];require(isinstance(target,str) and pathlib.PurePosixPath(target).is_absolute() and '..' not in pathlib.PurePosixPath(target).parts,'PROFILE_TARGET')
  require(p.get('inventoryEvidenceRef')=='inventoryEvidenceV1','PROFILE_EVIDENCE_PROTOCOL')
  require(all(type(p.get(k)) is int for k in ('uid','gid','links','bytes')),'PROFILE_METADATA_TYPES')
- require(p.get('schemaVersion')==1 and p.get('kind')=='reviewed-profile-create-proposal' and p.get('target')==target and p.get('mode')==format(modes[0],'04o') and (p.get('uid'),p.get('gid'),p.get('links'))==(0,0,1),'PROFILE_METADATA')
+ require(p.get('schemaVersion')==1 and p.get('kind') in ('reviewed-profile-create-proposal','reviewed-profile-replace-proposal') and p.get('target')==target and p.get('mode')==format(modes[0],'04o') and (p.get('uid'),p.get('gid'),p.get('links'))==(0,0,1),'PROFILE_METADATA')
  require(re.fullmatch('[a-f0-9]{40}',m.get('toolRevision','') or ''),'PROFILE_EXACT_TOOL')
  content=profile_content(m['toolRevision'],files,schema_raw,json.loads(inventory_raw).get('runtimes',{}).get('node'));raw=(json.dumps(content,sort_keys=True)+'\n').encode()
  require(p.get('content')==content and p.get('newSha256')==sha(raw) and p.get('bytes')==len(raw),'PROFILE_CONTENT')
  inv=verify_inventory_receipt(inventory_raw,receipt_raw,expected,now,ttl)
  require(p.get('previousInventorySha256')==m.get('previousInventorySha256')==sha(inventory_raw) and p.get('inventoryObservedAt')==m.get('inventoryObservedAt')==inv['observedAt'] and p.get('inventorySourceInvocation')==m.get('inventorySourceInvocation')==inv['sourceInvocation'],'PROFILE_INVENTORY_BINDING')
  old=inv.get('profiles',{}).get(target)
- require(isinstance(old,dict) and old.get('present') is False and old.get('regular') is False and old.get('symlink') is False and all(old.get(k) is None for k in ('sha256','mode','uid','gid','links')),'PROFILE_OLD_ABSENT')
- require(p.get('oldPresent') is False and p.get('oldIdentity')==old,'PROFILE_OLD_INVENTORY')
+ require(isinstance(old,dict),'PROFILE_OLD_INVENTORY')
+ if old.get('present') is True:
+  old_profile_binding(old,inv,old_schema_raw)
+  require(p.get('kind')=='reviewed-profile-replace-proposal','PROFILE_OPERATION')
+ else:
+  require(p.get('kind')=='reviewed-profile-create-proposal','PROFILE_OPERATION')
+  require(old.get('present') is False and old.get('regular') is False and old.get('symlink') is False and all(old.get(k) is None for k in ('sha256','mode','uid','gid','links')),'PROFILE_OLD_ABSENT')
+ require(p.get('oldPresent') is old['present'] and p.get('oldIdentity')==old,'PROFILE_OLD_INVENTORY')
  require(set(inv.get('files',{}))==set(files),'INVENTORY_FILES_CLOSURE')
  for s,row in files.items():
   before=inv['files'][s];require(before.get('target')==row['target'] and before.get('present') is row['oldPresent'],'INVENTORY_OLD_TARGET')
   for ik,rk in (('sha256','oldSha256'),('mode','oldMode'),('uid','oldUid'),('gid','oldGid'),('links','oldNlink')):require(before.get(ik)==row.get(rk),'INVENTORY_OLD_METADATA')
- return {'destination':target,'payload':'profileTransactionsV1/0','before':{'absent':True},'sha256':sha(raw),'mode':modes[0],'uid':0,'gid':0},raw
+ return {'destination':target,'payload':'profileTransactionsV1/0','before':({'sha256':old['sha256'],'mode':int(old['mode'],8),'uid':old['uid'],'gid':old['gid'],'nlink':old['links']} if old['present'] else {'absent':True}),'sha256':sha(raw),'mode':modes[0],'uid':0,'gid':0},raw
 
 def manifest_targets(m):
  require(isinstance(m.get('files'),dict) and m['files'],'MANIFEST_FILES')
@@ -369,7 +396,17 @@ def verified_manifest(manifest_path,manifest_hash,admitted_at=None):
  import time
  proposal=m['profileTransactionsV1'][0];consumer=git('show',m['toolRevision']+':'+proposal['consumerSource'])
  validation_time=time.time() if admitted_at is None else admitted_at
- pt,pr=profile_transaction(m,consumer,*inputs,evidence['expected'],validation_time,evidence['ttlSeconds'],git('show',m['toolRevision']+':'+PROFILE_SCHEMA_SOURCE) if PROFILE_SCHEMA_SOURCE in m['files'] else None)
+ old_schema_raw=None
+ old=json.loads(inputs[0]).get('profiles',{}).get(proposal['target'],{})
+ if old.get('present') is True:
+  import base64
+  old_content=json.loads(base64.b64decode(old['rawBase64'],validate=True));old_tool=old_content['toolRevision']
+  old_tree=ast.parse(git('show',old_tool+':.harness/scripts/vm/cn-build-tool-identity.py'));old_assignments=[n for n in old_tree.body if isinstance(n,ast.Assign) and any(isinstance(t,ast.Name) and t.id=='FILES' for t in n.targets)];require(len(old_assignments)==1,'PROFILE_OLD_ALLOWLIST');old_files=ast.literal_eval(old_assignments[0].value)
+  old_profile_allowlist(old_content,old_files,json.loads(inputs[0]))
+  old_schema_raw=git('show',old_tool+':'+PROFILE_SCHEMA_SOURCE) if PROFILE_SCHEMA_SOURCE in old_files else None
+  unused,old_rows=old_profile_binding(old,json.loads(inputs[0]),old_schema_raw)
+  for source,row in old_rows.items():require(sha(git('show',old_tool+':'+source))==row['newSha256'],'PROFILE_OLD_GIT_CLOSURE')
+ pt,pr=profile_transaction(m,consumer,*inputs,evidence['expected'],validation_time,evidence['ttlSeconds'],git('show',m['toolRevision']+':'+PROFILE_SCHEMA_SOURCE) if PROFILE_SCHEMA_SOURCE in m['files'] else None,old_schema_raw)
  require(pt['destination'] not in {x['destination'] for x in m['targets']},'PROFILE_TARGET_DUPLICATE')
  m['targets'].append(pt);payloads[pt['payload']]=pr
  return m,payloads,validation_time

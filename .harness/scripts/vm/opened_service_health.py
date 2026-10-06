@@ -5,9 +5,9 @@ APP='9b25bfa65662b96c0826fe67506b562ea46aa6d0'
 # Node is already in the fixed API image. No user URL, script, env, credential,
 # provider endpoint or SQL is accepted. Unix sandbox is network_mode=none.
 from candidate_readonly_docker import HEALTH_PROBE as PROBE,invoke_readonly_docker
-def collect_service_health(transport,marker,now=time.time):
+def collect_service_health(transport,marker,now=time.time,*,expected_identity):
     transport.require_lock();plan=transport.plan
-    require(plan['identity']['sourceRevision']==APP and type(marker) is str and marker,'SERVICE_HEALTH_BINDING')
+    require(plan['identity']==expected_identity and re.fullmatch('[a-f0-9]{40}',plan['identity']['sourceRevision']) and type(marker) is str and marker,'SERVICE_HEALTH_BINDING')
     api=[w for w in plan['candidateWriters'] if w['binding'].get('service')=='api'];require(len(api)==1,'SERVICE_HEALTH_API_BINDING')
     b=api[0]['binding'];require(re.fullmatch('[a-f0-9]{64}',b['containerId']),'SERVICE_HEALTH_CONTAINER_ID')
     inventory=transport.host.docker_inventory();actual=[v for v in inventory if v.get('Id')==b['containerId']]
@@ -20,6 +20,6 @@ def collect_service_health(transport,marker,now=time.time):
     transport.require_lock()
     return dict(schemaVersion=1,kind='fixed-app-service-health',identity=plan['identity'],deploymentMarker=marker,observedAt=datetime.datetime.fromtimestamp(now(),datetime.timezone.utc).isoformat().replace('+00:00','Z'),apiContainerId=b['containerId'],probeSha256=digest(PROBE),responses=value,services={k:'healthy' for k in value})
 
-def persist_service_health(transport,marker,now=time.time):
+def persist_service_health(transport,marker,now=time.time,*,expected_identity):
     from acceptance_receipt_store import publish_receipt
-    return publish_receipt(transport.plan['identity'],'services',collect_service_health(transport,marker,now))
+    return publish_receipt(transport.plan['identity'],'services',collect_service_health(transport,marker,now,expected_identity=expected_identity),expected_identity=expected_identity)

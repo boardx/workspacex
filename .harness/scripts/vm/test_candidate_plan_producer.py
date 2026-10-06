@@ -71,13 +71,13 @@ def data_fixture():
         def verify_current_epoch(self,ref,b):return dict(**bound,kind='retained-current-epoch-verified',collectionSha256=ref['collection']['sha256'],epochManifestSha256=ref['manifest']['sha256'],recoveryEvidenceSha256='b'*64,acceptanceEvidenceSha256='c'*64)
         def observe_stage(self,b):return copy.deepcopy(stage)
         def observe_completion(self,b):return dict(completion=refs['completion'],ledger=copy.deepcopy(docs['liveLedger']))
-    return inputs,docs,bytes_by_path,reader,Transport(),lambda p,r,l:copy.deepcopy(collection)
+    return inputs,docs,bytes_by_path,reader,Transport(),lambda p,r,l,**kw:copy.deepcopy(collection)
 
 
 class Tests(unittest.TestCase):
     def test_late_plan_uses_actual_sessions_stage_completion_and_compatible_schema(self):
         inputs,docs,raw,reader,transport,epoch=data_fixture()
-        output=produce(inputs,transport,reader,epoch_producer=epoch)
+        output=produce(inputs,transport,reader,epoch_producer=epoch,expected_identity=data_fixture()[0]['identity'])
         validate(output['plan'],inputs['identity'])
         self.assertEqual(set(output),{'schemaVersion','toolRevision','plan','artifact'})
         self.assertEqual(output['plan']['heldSessions']['workspacex'][0]['pid'],101)
@@ -88,9 +88,9 @@ class Tests(unittest.TestCase):
 
     def test_missing_real_transport_cannot_be_replaced_by_plan_boolean(self):
         inputs,docs,raw,reader,transport,epoch=data_fixture()
-        with self.assertRaisesRegex(RuntimeError,'TRANSPORT_REQUIRED'):produce(inputs,None,reader,epoch_producer=epoch)
+        with self.assertRaisesRegex(RuntimeError,'TRANSPORT_REQUIRED'):produce(inputs,None,reader,epoch_producer=epoch,expected_identity=data_fixture()[0]['identity'])
         inputs['qualified']=True
-        with self.assertRaisesRegex(RuntimeError,'INPUT_SCHEMA'):produce(inputs,transport,reader,epoch_producer=epoch)
+        with self.assertRaisesRegex(RuntimeError,'INPUT_SCHEMA'):produce(inputs,transport,reader,epoch_producer=epoch,expected_identity=data_fixture()[0]['identity'])
 
     def test_identity_generation_epoch_peer_completion_stage_and_sessions_fail_closed(self):
         for variant in ('hold','epoch','sessions','stage','completion','recompute','rawhash','live-ledger'):
@@ -100,10 +100,10 @@ class Tests(unittest.TestCase):
             if variant=='sessions':transport.observe_retained_sessions=lambda b:{}
             if variant=='stage':transport.observe_stage=lambda b:{}
             if variant=='completion':transport.observe_completion=lambda b:{}
-            if variant=='recompute':epoch=lambda p,r,l:{}
+            if variant=='recompute':epoch=lambda p,r,l,**kw:{}
             if variant=='rawhash':raw[inputs['refs']['runtimeSeal']['path']]+=b' '
             if variant=='live-ledger':docs['liveLedger']['connection']={}
-            with self.assertRaises((RuntimeError,ValueError)):produce(inputs,transport,reader,epoch_producer=epoch)
+            with self.assertRaises((RuntimeError,ValueError)):produce(inputs,transport,reader,epoch_producer=epoch,expected_identity=data_fixture()[0]['identity'])
 
     def test_valid_hash_does_not_hide_bad_stage_identity_or_qualification(self):
         for variant in ('image','config','compose','running','collection-qualified','session-alias','runtime-unverified','artifact'):
@@ -124,7 +124,7 @@ class Tests(unittest.TestCase):
             if variant=='artifact':raw['/etc/workspacex-cn/artifact.json']=b'tampered'
             ref=inputs['refs'][changed];content=json.dumps(docs[changed],sort_keys=True).encode()
             raw[ref['path']]=content;ref['sha256']=hashlib.sha256(content).hexdigest()
-            with self.assertRaises((RuntimeError,ValueError)):produce(inputs,transport,reader,epoch_producer=epoch)
+            with self.assertRaises((RuntimeError,ValueError)):produce(inputs,transport,reader,epoch_producer=epoch,expected_identity=data_fixture()[0]['identity'])
 
     def test_sanitized_stage_preserves_full_config_hash_without_secret_values(self):
         from candidate_stage_actions import safe_inspection
@@ -135,7 +135,7 @@ class Tests(unittest.TestCase):
         stage['containers']=safe_inspection(stage['containers'])
         content=json.dumps(stage,sort_keys=True).encode();ref=inputs['refs']['stageInspection']
         raw[ref['path']]=content;ref['sha256']=hashlib.sha256(content).hexdigest()
-        output=produce(inputs,transport,reader,epoch_producer=epoch)
+        output=produce(inputs,transport,reader,epoch_producer=epoch,expected_identity=data_fixture()[0]['identity'])
         self.assertEqual(output['plan']['candidateWriters'][0]['binding']['configSha256'],stage['containers'][0]['configSha256'])
 
     def test_native_runtime_completion_and_manifest_paths_are_exact(self):
@@ -143,7 +143,7 @@ class Tests(unittest.TestCase):
             inputs,docs,raw,reader,transport,epoch=data_fixture()
             inputs['refs'][name]['path']='/etc/workspacex-cn/foreign/'+name+'.json'
             with self.assertRaisesRegex(RuntimeError,'REFERENCE_PATH'):
-                produce(inputs,transport,reader,epoch_producer=epoch)
+                produce(inputs,transport,reader,epoch_producer=epoch,expected_identity=data_fixture()[0]['identity'])
 
     def test_epoch_manifest_raw_hash_bridge_rejects_missing_wrong_or_drifted_manifest(self):
         for variant in ('missing','raw-hash','proof-hash','wrong-generation','qualified-flag','drift'):
@@ -168,14 +168,14 @@ class Tests(unittest.TestCase):
                     reads[0]+=1
                     if variant=='drift' and reads[0]>1:return value+b' '
                 return value
-            with self.assertRaises((RuntimeError,ValueError)):produce(inputs,transport,drift,epoch_producer=epoch)
+            with self.assertRaises((RuntimeError,ValueError)):produce(inputs,transport,drift,epoch_producer=epoch,expected_identity=data_fixture()[0]['identity'])
 
     def test_exclusive_private_fsynced_output_without_host_writes(self):
         import os,pathlib,stat,tempfile
         from types import SimpleNamespace
         from unittest.mock import patch
         inputs,docs,raw,reader,transport,epoch=data_fixture()
-        output=produce(inputs,transport,reader,epoch_producer=epoch)
+        output=produce(inputs,transport,reader,epoch_producer=epoch,expected_identity=data_fixture()[0]['identity'])
         target='/etc/workspacex-cn/maintenance-candidate/'+inputs['identity']['sourceRevision']+'/'+inputs['identity']['attemptId']+'/candidate-plan.json'
         with tempfile.TemporaryDirectory() as td:
             local=pathlib.Path(td)/'candidate-plan.json';real_open=os.open;opens=[]
@@ -208,6 +208,6 @@ class Tests(unittest.TestCase):
                     calls[0]+=1
                     return original(b) if calls[0]==1 else {}
                 setattr(transport,name,observe)
-            with self.assertRaisesRegex(RuntimeError,'RACE'):produce(inputs,transport,changed_reader,epoch_producer=epoch)
+            with self.assertRaisesRegex(RuntimeError,'RACE'):produce(inputs,transport,changed_reader,epoch_producer=epoch,expected_identity=data_fixture()[0]['identity'])
 
 if __name__=='__main__':unittest.main()
