@@ -1,3 +1,4 @@
+import {buildDigitalInterviewReportSystemPrompt} from "../../src/application/interview/workflow/digital-report-stream";
 import { REPORT_OUTCOME_GUIDANCE } from "../../src/application/interview/workflow/interview-report-outcome-guidance";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createHash } from "node:crypto";
@@ -32,6 +33,25 @@ beforeEach(() => {
  });
 });
 describe("bounded report quality recovery", () => {
+ it.each([false,true])("separates source action status, existing plan and researcher design using actual1n (saved failure:%s)",async savedFailure=>{
+  snapshot=JSON.parse(readFileSync(new URL("./fixtures/local-negation-5474/source.json",import.meta.url),"utf8"));
+  const previous=snapshot.documents.find(d=>d.step==="report")!;
+  if(!savedFailure){snapshot.documents=snapshot.documents.filter(d=>d.step!=="report");snapshot.states=snapshot.states.filter(state=>state.documentId!==previous.documentId);}
+  const before=structuredClone(snapshot);save.mockClear();complete.mockImplementationOnce(async request=>{
+   for(const layer of [request.system,request.user]){
+    expect(layer).toContain("来源记录先保留原文的动作及发生状态");
+    expect(layer).toContain("文档确认、任务完成只说明材料或生成状态");
+    expect(layer).toContain("既有计划与研究者新增设计分别成节");
+    expect(layer).toContain("招募与比较覆盖目标观测的结果范围");
+   }
+   expect(request.user).toContain("公开合成回答：预算低于报价，需要比较低成本方案。");
+   expect(request.user).toContain("公开合成回答：未来计划访谈五位用户，比较两种任务方案，记录任务完成时间和中途退出原因，再决定投入。这是计划，尚未执行。");
+   expect(request.user).not.toContain(previous.markdown);
+   throw new ModelCallError("MODEL_CALL_FAILED","controlled source-plan inspection stops before provider dispatch");
+  });
+  await expect(generateInterviewMarkdown(deps(),{...input,interviewId:snapshot.interviewId,expectedVersion:snapshot.version,expectedDocumentVersion:savedFailure?previous.version:0})).rejects.toThrow("AI_GENERATION_UNAVAILABLE");
+  expect(complete).toHaveBeenCalledTimes(1);expect(save).not.toHaveBeenCalled();expect(snapshot).toEqual(before);
+ });
  it.each([false,true])("preserves actual source and aligns hypothesis updates across request layers (saved failure: %s)",async savedFailure=>{
   snapshot=JSON.parse(readFileSync(new URL("./fixtures/hypothesis-update-5469/source.json",import.meta.url),"utf8"));
   const previous=snapshot.documents.find(d=>d.step==="report")!;
@@ -516,4 +536,12 @@ it("refreshes grounded locators on an edited draft without calling the model or 
   expect(current.references.filter(r => r.locator).map(r => r.anchor)).toEqual(["answer-4"]);
   await generateInterviewMarkdown(deps(), { ...input, expectedVersion: refreshed.version, expectedDocumentVersion: current.version });
   expect(save).toHaveBeenCalledTimes(1);
+});
+
+it("shares source-plan responsibilities with the legacy structured writer",()=>{
+ const prompt=buildDigitalInterviewReportSystemPrompt(2);
+ expect(prompt).toContain("来源记录先保留原文的动作及发生状态");
+ expect(prompt).toContain("既有计划与研究者新增设计分别成节");
+ expect(prompt).toContain("招募与比较覆盖目标观测的结果范围");
+ expect(prompt).toContain("至少 2 个 finding");
 });

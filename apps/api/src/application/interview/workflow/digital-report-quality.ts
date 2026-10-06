@@ -1,8 +1,10 @@
+import { REPORT_SOURCE_PLAN_GUIDANCE } from "./interview-report-source-plan-guidance";
 export const INTERVIEW_REPORT_ANALYSIS_REQUIREMENTS = `每项核心发现必须形成分析链，而不是逐条复述访谈记录：
-- 证据：指出来自哪位受访者、哪类回答或原话。
-- 分析：跨回答归纳共同模式、差异或因果解释。
-- 决策影响：说明该发现会改变什么选择、优先级或行动。
+- 证据：指出来源角色和完整原话，保留原文记录的动作、条件与发生状态。
+- 分析：跨回答比较已有观察与差异；研究者机制解释标为待验证推论，逐项说明依据、成立条件与未知因素。
+- 决策影响：对应已有结果与测量范围说明可更新的选择或假设；尚未测得的影响保持未知并提出相应观测。
 - 边界与反例：写明反对证据、置信度、适用边界或仍待验证的问题。
+${REPORT_SOURCE_PLAN_GUIDANCE}
 报告还必须包含跨回答综合、分歧/反例和可验证的行动建议；禁止按受访者顺序写成访谈纪要。`;
 
 /** Shared theme guidance for both canonical Markdown and streaming report generation. */
