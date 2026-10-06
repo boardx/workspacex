@@ -124,9 +124,19 @@ test("research persists the confirmed-question pipeline through the real UI, API
   expect(runtime.tasks.every((task: { status: string }) => task.status === "succeeded")).toBe(true);
   expect(runtime.modelCalls.filter((call: { node: string }) => call.node === "report")).toHaveLength(runtime.outline.filter((section: { enabled: boolean }) => section.enabled).length * 2 + 3);
   expect(runtime.researchPlan).toBeNull();
-  const questions = runtime.outline.filter((section: { enabled: boolean }) => section.enabled).flatMap((section: { questions: string[]; subsections: { questions: string[] }[] }) => [...new Set([...section.questions, ...(section.subsections ?? []).flatMap(subsection => subsection.questions)])]);
-  expect(runtime.tasks.map((task: { objective: string }) => task.objective)).toEqual(questions.map((question: string) => question.slice(0, 2000)));
-  expect(new Set(runtime.tasks.map((task: { questionId: string }) => task.questionId)).size).toBe(questions.length);
+  const enabledSections = runtime.outline.filter((section: { enabled: boolean }) => section.enabled)
+    .sort((a: { order: number }, b: { order: number }) => a.order - b.order);
+  expect(runtime.tasks.map((task: { sectionId: string }) => task.sectionId)).toEqual(enabledSections.map((section: { id: string }) => section.id));
+  expect(runtime.tasks.map((task: { objective: string }) => task.objective)).toEqual(enabledSections.map((section: { objective: string; title: string }) => (section.objective || section.title).slice(0, 2000)));
+  expect(runtime.tasks.every((task: { questionId?: string }) => task.questionId === undefined)).toBe(true);
+  for (const section of enabledSections) {
+    const questionCount = new Set([...section.questions, ...(section.subsections ?? []).flatMap((subsection: { questions: string[] }) => subsection.questions)]).size;
+    const coverage = runtime.coverage.filter((item: { sectionId: string }) => item.sectionId === section.id);
+    expect(coverage).toHaveLength(questionCount);
+    expect(new Set(coverage.map((item: { questionId: string }) => item.questionId)).size).toBe(questionCount);
+    expect(coverage.every((item: { status: string; evidenceIds: string[] }) => item.status === "answered" && item.evidenceIds.length > 0)).toBe(true);
+    expect(coverage.every((item: { questionId: string }) => runtime.questionEvidence.some((evidence: { sectionId: string; questionId: string; relevance: string }) => evidence.sectionId === section.id && evidence.questionId === item.questionId && evidence.relevance === "direct"))).toBe(true);
+  }
   expect(runtime.reportSourceAliases.length).toBeGreaterThan(0);
   expect(runtime.reportCheckpoint.chapters).toHaveLength(runtime.outline.filter((section: { enabled: boolean }) => section.enabled).length);
   expect(runtime.report.sections.every((section: { sourceIds: string[] }) => section.sourceIds.every((id) => runtime.sources.some((source: { id: string }) => source.id === id)))).toBe(true);
