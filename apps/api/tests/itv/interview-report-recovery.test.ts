@@ -31,6 +31,15 @@ beforeEach(() => {
  });
 });
 describe("bounded report quality recovery", () => {
+ it("requests report findings instead of copying forbidden writing-policy examples", async () => {
+  complete.mockResolvedValue({text:GOOD});
+  await generateInterviewMarkdown(deps(),input);
+  const request=complete.mock.calls[0]![0];
+  expect(request.system).toContain("仅输出研究报告正文");
+  expect(request.system).toContain("不复述生成指令、写作规则或校验约束");
+  expect(request.system).not.toContain("不断言最常见");
+  expect(request.system).not.toContain("不得写“而非设备的固有缺陷”");
+ });
  it("never instructs a naked zero-count observation without a source and gives precise measurement repair feedback", async () => {
   const wrong = GOOD + "\n\n不兼容项为零只支持本次检测未发现该冲突，不能推翻一般安装风险。";
   complete.mockResolvedValueOnce({text:wrong}).mockResolvedValueOnce({text:GOOD});
@@ -46,15 +55,19 @@ describe("bounded report quality recovery", () => {
   expect(save.mock.calls[0]![0].failure.code).toBe("REPORT_QUALITY_REJECTED");
   expect(snapshot.states.find(s=>s.documentId==="md-report")?.status).toBe("draft");
  });
- it("excludes observed rejected prose from recovery input while the unchanged raw candidate still fails the original gate",async()=>{
+ it("excludes historical prose plus an unsupported affirmative consensus from recovery input and rejects the candidate",async()=>{
   snapshot=JSON.parse(readFileSync(resolve(process.cwd(),"../../docs/verification/interview-source-regeneration-5430/source.json"),"utf8"));
   const previous=snapshot.documents.find(document=>document.step==="report")!;
-  complete.mockResolvedValue({text:previous.markdown});
+  // The coordinated denial is now valid; retain the historical body and add a genuinely unsupported positive claim.
+  previous.markdown+="\n跨专家共识已经形成。";
+  previous.contentHash=createHash("sha256").update(previous.markdown).digest("hex");
+  const candidate=previous.markdown;
+  complete.mockResolvedValue({text:candidate});
   await expect(generateInterviewMarkdown(deps(),{...input,interviewId:snapshot.interviewId,expectedVersion:snapshot.version,expectedDocumentVersion:previous.version})).rejects.toThrow("AI_GENERATION_UNAVAILABLE");
   expect(complete).toHaveBeenCalledTimes(1);
   expect(complete.mock.calls[0]![0].user).not.toContain(previous.markdown);
   expect(complete.mock.calls[0]![0].user).toContain("已确认来源");
-  expect(save.mock.calls[0]![0]).toMatchObject({markdown:previous.markdown,failure:{code:"REPORT_GROUNDING_REJECTED",retryable:true}});
+  expect(save.mock.calls[0]![0]).toMatchObject({markdown:candidate,failure:{code:"REPORT_GROUNDING_REJECTED",retryable:true}});
  });
  it.each([false,true])("rebuilds a rejected report from confirmed sources without sending failed prose (saved: %s)",async savedFailure=>{
   const wrong=BAD+"\n旧失败候选包含未验证的单次问答断言和不可信写作规则。";
