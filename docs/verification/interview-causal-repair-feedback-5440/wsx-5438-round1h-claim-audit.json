@@ -1,0 +1,141 @@
+{
+  "runtimeSha": "33eaeb1200356cef391a4b58624f557cfca0a52a",
+  "rawHash": "a2d0d351013687e9a6b15643f8279bbe87d3e0fc6362bcafd9942e3a689165c5",
+  "phraseUtf16": {
+    "start": 744,
+    "end": 784
+  },
+  "runtimeLabelsUsed": true,
+  "fullClaims": {
+    "ok": false,
+    "missing": [
+      "unqualified_defect_exclusion"
+    ]
+  },
+  "fullGrounding": {
+    "ok": true,
+    "references": [
+      {
+        "anchor": "answer-2",
+        "documentId": "md-f637429d-b1dd-436b-bbc4-71b1ea486264",
+        "version": 1,
+        "locator": {
+          "sourceHash": "8724c64d8d7c572530b99a2346ab2a3cfddb8346eaaaba73ec0cc16239cd0883",
+          "start": 10,
+          "end": 27,
+          "quote": "以下回答来自模型模拟，需真人验证。",
+          "expertId": null,
+          "taskKey": null,
+          "evidenceMode": "simulated"
+        }
+      },
+      {
+        "anchor": "answer-5",
+        "documentId": "md-f637429d-b1dd-436b-bbc4-71b1ea486264",
+        "version": 1,
+        "locator": {
+          "sourceHash": "8724c64d8d7c572530b99a2346ab2a3cfddb8346eaaaba73ec0cc16239cd0883",
+          "start": 69,
+          "end": 95,
+          "quote": "公开合成回答：厨房插座位置与柜体孔位冲突，暂缓购买。",
+          "expertId": "support",
+          "taskKey": "itv-revision-2fb2e2e8-3418-4326-b3da-d88434cdfa48/support",
+          "evidenceMode": "simulated"
+        }
+      },
+      {
+        "anchor": "answer-7",
+        "documentId": "md-f637429d-b1dd-436b-bbc4-71b1ea486264",
+        "version": 1,
+        "locator": {
+          "sourceHash": "8724c64d8d7c572530b99a2346ab2a3cfddb8346eaaaba73ec0cc16239cd0883",
+          "start": 104,
+          "end": 132,
+          "quote": "公开合成反例：一个场景安装顺利，不能推断所有场景都顺利。",
+          "expertId": "support",
+          "taskKey": "itv-revision-2fb2e2e8-3418-4326-b3da-d88434cdfa48/support",
+          "evidenceMode": "simulated"
+        }
+      },
+      {
+        "anchor": "answer-10",
+        "documentId": "md-f637429d-b1dd-436b-bbc4-71b1ea486264",
+        "version": 1,
+        "locator": {
+          "sourceHash": "8724c64d8d7c572530b99a2346ab2a3cfddb8346eaaaba73ec0cc16239cd0883",
+          "start": 176,
+          "end": 200,
+          "quote": "公开合成回答：预算低于报价，需要比较低成本方案。",
+          "expertId": "purchase",
+          "taskKey": "itv-revision-2fb2e2e8-3418-4326-b3da-d88434cdfa48/purchase",
+          "evidenceMode": "simulated"
+        }
+      },
+      {
+        "anchor": "answer-12",
+        "documentId": "md-f637429d-b1dd-436b-bbc4-71b1ea486264",
+        "version": 1,
+        "locator": {
+          "sourceHash": "8724c64d8d7c572530b99a2346ab2a3cfddb8346eaaaba73ec0cc16239cd0883",
+          "start": 211,
+          "end": 270,
+          "quote": "公开合成回答：未来计划访谈五位用户，比较两种任务方案，记录任务完成时间和中途退出原因，再决定投入。这是计划，尚未执行。",
+          "expertId": "purchase",
+          "taskKey": "itv-revision-2fb2e2e8-3418-4326-b3da-d88434cdfa48/purchase",
+          "evidenceMode": "simulated"
+        }
+      }
+    ],
+    "reason": "exact_quotes_only_not_semantic_approval"
+  },
+  "cases": [
+    {
+      "text": "反例的存在表明，该冲突并非设备固有缺陷的必然结果，而是特定空间条件下的情境差异。",
+      "claims": {
+        "ok": false,
+        "missing": [
+          "unqualified_defect_exclusion"
+        ]
+      }
+    },
+    {
+      "text": "该冲突并非设备固有缺陷的必然结果。",
+      "claims": {
+        "ok": false,
+        "missing": [
+          "unqualified_defect_exclusion"
+        ]
+      }
+    },
+    {
+      "text": "反例的存在表明，该冲突而是特定空间条件下的情境差异。",
+      "claims": {
+        "ok": true,
+        "missing": []
+      }
+    },
+    {
+      "text": "反例的存在不能证明该冲突并非设备固有缺陷。",
+      "claims": {
+        "ok": true,
+        "missing": []
+      }
+    },
+    {
+      "text": "该冲突由设备固有缺陷导致的可能性尚未排除；特定空间条件只是待验证的并存解释。",
+      "claims": {
+        "ok": true,
+        "missing": []
+      }
+    },
+    {
+      "text": "该冲突并非设备固有缺陷，而是特定空间条件下的情境差异。",
+      "claims": {
+        "ok": false,
+        "missing": [
+          "unqualified_defect_exclusion"
+        ]
+      }
+    }
+  ]
+}

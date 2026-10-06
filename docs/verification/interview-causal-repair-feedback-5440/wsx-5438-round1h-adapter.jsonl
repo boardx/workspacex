@@ -1,0 +1,6 @@
+{"type":"observer_ready","productionSemanticsUnchanged":true,"noNetworkInterception":true}
+{"type":"report_adapter_entry","observationId":"742c5a43-5718-4d4d-8982-76d338bc7ca2","provider":"dashscope","model":"qwen3.8-max","systemHash":"7e224faafbf8c0bd537fd0b0ac32d4b3901dcf61d66a0349130bba8c98938410","userHash":"10a5f2fe900fa06193e9a59d0157b8f5c9fbaa2aeb8576cc424b4272f5a7e5c4","systemCharacters":1853,"userCharacters":6240,"failedCandidatePresent":false,"strengthFeedbackPresent":false,"feedbackBeforeCandidate":false}
+{"type":"provider_dispatch","observationId":"742c5a43-5718-4d4d-8982-76d338bc7ca2","requestId":"387bd399-998a-44bd-8c19-020614b6eaa3","phase":"started","elapsedMs":0,"usage":{}}
+{"type":"adapter_stream","deltaCount":625,"characters":3563,"streamHash":"a2d0d351013687e9a6b15643f8279bbe87d3e0fc6362bcafd9942e3a689165c5"}
+{"type":"provider_dispatch","observationId":"742c5a43-5718-4d4d-8982-76d338bc7ca2","requestId":"387bd399-998a-44bd-8c19-020614b6eaa3","phase":"terminal","outcome":"succeeded","elapsedMs":46667,"usage":{"total":6936,"prompt":4901,"completion":2035,"cacheInput":2048}}
+{"type":"adapter_output","observationId":"742c5a43-5718-4d4d-8982-76d338bc7ca2","outputHash":"a2d0d351013687e9a6b15643f8279bbe87d3e0fc6362bcafd9942e3a689165c5","outputCharacters":3563,"equalsPreviousFailedBody":false,"elapsedMs":46667}
