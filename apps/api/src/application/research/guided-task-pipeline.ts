@@ -251,13 +251,6 @@ export async function executeTaskPipeline(state: ResearchRuntime, persist: Runti
     check();
   };
   try {
-    if (search.read) await workers(state.sources.filter(source => source.decision === "accepted" && !source.document && (!source.documentError || source.documentError === "unavailable")), async source => {
-      const release = await lockUrls([source.url]);
-      try {
-        const reviewed = await readAndScreen([structuredClone(source)]);
-        await commit(async () => { merge(reviewed); await save(); });
-      } finally { release(); }
-    });
     // Stable plan order is an execution boundary, not only a dispatch sort.
     // Unknown/legacy task sections remain in the tail rather than disappearing.
     const groups = new Map<string, { section?: ResearchRuntime["outline"][number]; tasks: Task[] }>();
@@ -268,8 +261,29 @@ export async function executeTaskPipeline(state: ResearchRuntime, persist: Runti
       if (!groups.has(task.sectionId)) groups.set(task.sectionId, { tasks: [] });
       groups.get(task.sectionId)!.tasks.push(task);
     }
-    for (const { section, tasks } of groups.values()) {
+    const pendingSources = state.sources.filter(source => source.decision === "accepted" && !source.document && (!source.documentError || source.documentError === "unavailable"));
+    const sourceGroups = new Map([...groups.keys()].map(id => [id, [] as Source[]]));
+    const unscopedSources: Source[] = [];
+    for (const source of pendingSources) {
+      // Shared material belongs to its earliest associated plan; review it once.
+      const ids = new Set(sourceTaskIds(source));
+      const owner = [...groups].find(([, group]) => group.tasks.some(task => ids.has(task.id)));
+      if (owner) sourceGroups.get(owner[0])!.push(source);
+      else unscopedSources.push(source);
+    }
+    const reviewPersisted = async (sources: Source[]) => {
+      if (!search.read) return;
+      await workers(sources, async source => {
+        const release = await lockUrls([source.url]);
+        try {
+          const reviewed = await readAndScreen([structuredClone(source)]);
+          await commit(async () => { merge(reviewed); await save(); });
+        } finally { release(); }
+      });
+    };
+    for (const [sectionId, { section, tasks }] of groups) {
       check();
+      await reviewPersisted(sourceGroups.get(sectionId)!);
       await fairTaskWork(tasks, TASK_WORKERS, work, recover, check, stop);
       // The chapter's existing supplements finish in the same boundary. Shared
       // provider/read/cache limits still belong to the entire execution.
@@ -283,6 +297,8 @@ export async function executeTaskPipeline(state: ResearchRuntime, persist: Runti
       }
       await writes; check();
     }
+    // Legacy/user sources without a task association must not preempt plan work.
+    await reviewPersisted(unscopedSources);
     if (state.tasks.some(task => task.status === "failed")) throw new ResearchRuntimeError("RESEARCH_SEARCH_PARTIAL_FAILURE");
   } catch (error) {
     // All workers have drained. Mark issued work interrupted before the service's

@@ -91,3 +91,34 @@ it("aborts before later sections and discards late search results without termin
     expect(f.snapshots).toHaveLength(writes); expect(f.calls).toEqual(["a primary"]);
   } finally { f.release(); await execution; f.budget.dispose(); }
 });
+
+it("finishes first-section task work before reading a persisted later-section source", async () => {
+  const f = fixture("recovery"); f.release();
+  f.state.sources = [{ id: "persisted-b", taskId: "task-b", taskIds: ["task-b"], title: "B source", url: "https://example.org/b", content: "Public policy evidence", retrievedAt: "now", decision: "accepted", addedByUser: true }];
+  let release!: () => void, entered!: () => void;
+  const blocked = new Promise<void>(resolve => { release = resolve; });
+  const reading = new Promise<void>(resolve => { entered = resolve; });
+  f.search.read = vi.fn(async () => { entered(); await blocked; throw new Error("controlled unavailable read"); });
+  const execution = f.run();
+  try {
+    await reading;
+    expect(f.calls).toContain("a primary");
+    expect(f.state.tasks[0]!.status).toBe("failed");
+    expect(f.calls).not.toContain("b primary");
+    expect(f.state.tasks[1]!.status).toBe("pending");
+  } finally { release(); await execution; f.budget.dispose(); }
+  expect(f.calls).toContain("b primary");
+  expect(f.search.read).toHaveBeenCalledTimes(1);
+});
+
+it.each(["shared", "unscoped"] as const)("reviews %s persisted material once at its explicit boundary", async scope => {
+  const f = fixture("recovery"); f.release();
+  f.state.sources = [{ id: "persisted", taskId: scope === "shared" ? "task-b" : "legacy", taskIds: scope === "shared" ? ["task-b", "task-a"] : ["legacy"], title: "Source", url: "https://example.org/shared", content: "Public policy evidence", retrievedAt: "now", decision: "accepted", addedByUser: true }];
+  const reads: string[][] = [];
+  f.search.read = vi.fn(async () => { reads.push([...f.calls]); throw new Error("controlled unavailable read"); });
+  try { await f.run(); } finally { f.budget.dispose(); }
+  expect(reads).toHaveLength(1);
+  if (scope === "shared") expect(reads[0]).toEqual([]);
+  else { expect(reads[0]).toContain("a primary"); expect(reads[0]).toContain("b primary"); }
+  expect(f.calls).toContain("a primary"); expect(f.calls).toContain("b primary");
+});
