@@ -1,6 +1,7 @@
 import { lookup } from "node:dns/promises";
 import { isIP } from "node:net";
 import { inflateSync } from "node:zlib";
+import { z } from "zod";
 import { research as C } from "@repo/contracts";
 import { ResearchRuntimeError, type GuidedSearchPort } from "../../application/research/guided-runtime-ports";
 
@@ -28,7 +29,13 @@ export class GoogleGuidedSearch implements GuidedSearchPort {
         signal: options?.signal ? AbortSignal.any([options.signal, AbortSignal.timeout(45000)]) : AbortSignal.timeout(45000), redirect: "error",
       });
       if (!response.ok) throw new ResearchRuntimeError("RESEARCH_SEARCH_UNAVAILABLE");
-      const hits = C.GuidedResearchSearchProviderResponse.parse(await response.json()).results;
+      const candidates = C.GuidedResearchSearchProviderResponse.extend({ results: z.array(z.unknown()) }).parse(await response.json()).results;
+      const hitSchema = C.GuidedResearchSearchProviderResponse.shape.results.element;
+      const hits = candidates.flatMap(candidate => {
+        const parsed = hitSchema.safeParse(candidate);
+        return parsed.success ? [parsed.data] : [];
+      });
+      if (candidates.length && !hits.length) throw new ResearchRuntimeError("RESEARCH_SEARCH_UNAVAILABLE");
       const usable = new Map<string, { title: string; url: string; content: string }>();
       for (const hit of hits) {
         const sourceUrl = new URL(hit.url);
