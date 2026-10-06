@@ -53,6 +53,7 @@ describe("bounded report quality recovery", () => {
   complete.mockResolvedValueOnce({text:BAD}).mockResolvedValueOnce({text:GOOD});
   await generateInterviewMarkdown(deps(),input);
   expect(complete.mock.calls[1]![0].user).not.toContain("缺陷归因修复");
+ });
  it.each([false, true])("passes actual evidence-strength rejection to bounded repair (existing failure: %s)", async (existing) => {
   const wrong = GOOD + "\n\n安装问题最常见且必然阻止采购。";
   if (existing) {
