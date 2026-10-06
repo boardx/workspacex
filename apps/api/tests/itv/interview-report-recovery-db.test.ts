@@ -132,19 +132,24 @@ describe("#5104 real DB report quality recovery", () => {
 });
 
 describe("#5289 saved canonical report recovery", () => {
- it("recovers numbered saved failure with identical bytes/hash, no model, and no duplicate version", async () => {
+ it("regenerates numbered saved failure once, preserves failed bytes/hash, and reuses the recovered draft", async () => {
   const markdown = await groundedReport(validTemplate.replace("下一步验证建议：独立访谈五位真实教师，测量备课任务完成时长并记录反对证据。", "## 6. 下一步验证建议（可执行行动）\n\n独立访谈五位用户，对比任务完成时长。"));
   const before = await readInterviewMarkdown(dependencies(async () => ({text:"unused"})),{...input,viewerUserId:actorId});
   const references = before.documents.filter(document => document.step !== "report").map((document,index) => ({anchor:`source-${index+1}`,documentId:document.documentId,version:document.version}));
   await reader.saveDraft({...input,step:"report",expectedVersion:before.version,expectedDocumentVersion:0,markdown,references,failure:{code:"AI_GENERATION_UNAVAILABLE",retryable:true}});
-  const failed = await snapshot(); const complete = vi.fn(async () => ({text:"must never run"}));
+  const failed = await snapshot(); const complete = vi.fn(async () => ({text:markdown}));
   const request = {...input,viewerUserId:actorId,step:"report" as const,expectedVersion:failed.version,expectedDocumentVersion:1};
   const started = performance.now();
-  const recovered = await generateInterviewMarkdown({...dependencies(complete),modelProvider:"",modelId:""},request);
+  await expect(generateInterviewMarkdown({...dependencies(complete),modelProvider:"",modelId:""},request)).rejects.toThrow("AI_GENERATION_UNAVAILABLE");
   expect(complete).not.toHaveBeenCalled();
+  expect(await rows()).toMatchObject([{markdown,content_hash:interviewMarkdownContentHash(markdown),status:"failed",version_number:1}]);
+  expect(await rows()).toHaveLength(1);
+  expect((await snapshot()).version).toBe(failed.version);
+  const recovered = await generateInterviewMarkdown(dependencies(complete),request);
+  expect(complete).toHaveBeenCalledTimes(1);
   expect(await rows()).toMatchObject([{markdown,content_hash:interviewMarkdownContentHash(markdown),status:"failed",version_number:1},{markdown,content_hash:interviewMarkdownContentHash(markdown),status:"draft",version_number:2}]);
   await generateInterviewMarkdown(dependencies(complete),{...request,expectedVersion:recovered.version,expectedDocumentVersion:2});
-  expect(await rows()).toHaveLength(2); expect(complete).not.toHaveBeenCalled();
+  expect(await rows()).toHaveLength(2); expect(complete).toHaveBeenCalledTimes(1);
   console.info("#5289 synthetic recovery",{durationMs:Math.round(performance.now()-started),hash:interviewMarkdownContentHash(markdown),modelCalls:complete.mock.calls.length});
  });
  it("persists the specific action-only reason and keeps the rejected report unapproved", async () => {
@@ -163,14 +168,14 @@ describe("#5289 recovery CAS", () => {
   const before = await readInterviewMarkdown(dependencies(async () => ({text:"unused"})),{...input,viewerUserId:actorId});
   const references = before.documents.map((document,index)=>({anchor:`source-${index+1}`,documentId:document.documentId,version:document.version}));
   await reader.saveDraft({...input,step:"report",expectedVersion:before.version,expectedDocumentVersion:0,markdown,references,failure:{code:"REPORT_ACTION_VALIDATION_REJECTED",retryable:true}});
-  const failed = await snapshot(); const complete = vi.fn(async () => ({text:"must never run"}));
+  const failed = await snapshot(); const complete = vi.fn(async () => ({text:markdown}));
   const save = reader.saveDraft.bind(reader);
   vi.spyOn(reader,"saveDraft").mockImplementation(async value => {
     await db.withTenant(ORG,async session => {await session.query(`UPDATE interview_sessions SET version=version+1 WHERE org_id=$1 AND id=$2`,[ORG,ID]);});
     return save(value);
   });
   await expect(generateInterviewMarkdown(dependencies(complete),{...input,viewerUserId:actorId,step:"report",expectedVersion:failed.version,expectedDocumentVersion:1})).rejects.toThrow("CONCURRENT_MODIFICATION");
-  expect(complete).not.toHaveBeenCalled(); expect(await rows()).toMatchObject([{markdown,status:"failed",version_number:1}]);
+  expect(complete).toHaveBeenCalledTimes(1); expect(await rows()).toMatchObject([{markdown,content_hash:interviewMarkdownContentHash(markdown),status:"failed",version_number:1}]);
   expect(await rows()).toHaveLength(1);
  });
 });
