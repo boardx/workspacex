@@ -55,6 +55,7 @@ import { ModelCallError } from "../../application/agent-run/ports";
 import type { ProviderRequestEvent, ReportedUsage } from "../../application/agent-run/ports";
 import { readVisionModelIds, toImagePart, type WireContentPart } from "./model-vision-wire";
 import { isLoopbackBaseUrl } from "./loopback-provider-aliases";
+import { supportsStrictResponseSchema } from "./model-structured-output-capability";
 
 // Independently documented reasoning_effort=none capability; enable_thinking support is not sufficient.
 // https://www.alibabacloud.com/help/en/model-studio/qwen-api-via-openai-chat-completions
@@ -533,6 +534,7 @@ export class ConfiguredModelProvider implements ModelCallPort {
     }
     const outputTokenLimit = input.outputTokenLimit === undefined ? this.config.maxOutputTokens
       : this.config.maxOutputTokens === undefined ? input.outputTokenLimit : Math.min(input.outputTokenLimit, this.config.maxOutputTokens);
+    const strictSchema = input.responseSchema?.policy === "strict-if-supported" && supportsStrictResponseSchema(baseUrl, input.modelId);
     let preparing = true;
     // AbortSignal 保留：它管的是整通调用的 wall-clock 上限，与 headersTimeout /
     // bodyTimeout（「多久没有新字节」）互补，不是同一件事，删掉任何一个都会留下缺口。
@@ -560,8 +562,8 @@ export class ConfiguredModelProvider implements ModelCallPort {
           ...(input.thinkingMode === "off" && this.config.bailianExtensionsEnabled && this.config.thinkingDisableModelIds.has(input.modelId) && BAILIAN_REASONING_NONE_MODELS.has(input.modelId)
             ? { reasoning_effort: "none" }
             : this.config.reasoningEffort === undefined ? {} : { reasoning_effort: this.config.reasoningEffort }),
-          ...(this.config.jsonSchemaEnabled && input.responseSchema
-            ? { response_format: { type: "json_schema", json_schema: { name: input.responseSchema.name, schema: input.responseSchema.schema } } }
+          ...((this.config.jsonSchemaEnabled || strictSchema) && input.responseSchema
+            ? { response_format: { type: "json_schema", json_schema: { name: input.responseSchema.name, schema: input.responseSchema.schema, ...(strictSchema ? { strict: true } : {}) } } }
             : {}),
         }),
       };
