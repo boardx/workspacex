@@ -1,0 +1,7 @@
+# Local defect negation #5474
+
+Independent actual1n audit identified three false defect-exclusion rejections. The preserved whole drafts remain semantic FAIL for sampling bias, observed-plan additions, need-to-compare upgraded to an action, and rule echo. This scope recognizes only the observed local denial grammar; it does not approve the whole report.
+
+RED5 failures/204passes: two raw reports and three local denials fail, all adversarial controls remain rejected. GREENstandard442tests, APItypecheck0. Local bare 未 accepts only when it is the complete modifier before matched 排除. Cannot-infer/conclude accepts only finite operator and device target forms in this clause, with original double-negation exclusion first. No new arbitrary prefix-window waiver. Affirmative, double-negated, different object and closed-clause controls remain rejected; old strict source-bound observed defect scope remains unchanged. No gate/byte/source/CAS/save/max-call alteration other than this false-positive correction, no model calls.
+
+Fixture source and per-attempt raws are byte-preserved public actual1n artifacts from frozen e398100275b3052d749023ab30eef55b1379ee2a. Existing dependency commits already independently reviewed. Original private provider failure remains UNKNOWN and separate. Next real trial requires broader source-plan responsibility diagnosis and exact review, not just this finite gate passing.

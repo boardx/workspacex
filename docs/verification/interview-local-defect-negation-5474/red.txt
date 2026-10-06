@@ -1,0 +1,59 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/apps/api
+
+ ❯ tests/itv/interview-report-claim-boundaries.test.ts (209 tests | 5 failed) 167ms
+   × finite report claim boundaries > keeps actual1n local negation scoped without semantic approval (attempt1) 25ms
+     → expected [ 'unqualified_defect_exclusion' ] to not include 'unqualified_defect_exclusion'
+   × finite report claim boundaries > keeps actual1n local negation scoped without semantic approval (attempt2) 11ms
+     → expected [ 'unqualified_defect_exclusion' ] to not include 'unqualified_defect_exclusion'
+   × finite report claim boundaries > preserves the observed local denial 未排除设备设计缺陷。 1ms
+     → expected false to be true // Object.is equality
+   × finite report claim boundaries > preserves the observed local denial 不能推断该设备在所有场景下无固有缺陷。 1ms
+     → expected false to be true // Object.is equality
+   × finite report claim boundaries > preserves the observed local denial 不能据此得出整机或所有设备无固有缺陷的事实结论。 1ms
+     → expected false to be true // Object.is equality
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 5 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/itv/interview-report-claim-boundaries.test.ts > finite report claim boundaries > keeps actual1n local negation scoped without semantic approval (attempt1)
+ FAIL  tests/itv/interview-report-claim-boundaries.test.ts > finite report claim boundaries > keeps actual1n local negation scoped without semantic approval (attempt2)
+AssertionError: expected [ 'unqualified_defect_exclusion' ] to not include 'unqualified_defect_exclusion'
+ ❯ tests/itv/interview-report-claim-boundaries.test.ts:15:62
+     13|   const source=JSON.parse(readFileSync(new URL("source.json",root),"ut…
+     14|   const index=buildReportEvidenceIndex(source.documents.find((d:{step:…
+     15|   expect(assessReportClaimBoundaries(raw,index).missing).not.toContain…
+       |                                                              ^
+     16|  });
+     17|  it.each([
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/5]⎯
+
+ FAIL  tests/itv/interview-report-claim-boundaries.test.ts > finite report claim boundaries > preserves the observed local denial 未排除设备设计缺陷。
+ FAIL  tests/itv/interview-report-claim-boundaries.test.ts > finite report claim boundaries > preserves the observed local denial 不能推断该设备在所有场景下无固有缺陷。
+ FAIL  tests/itv/interview-report-claim-boundaries.test.ts > finite report claim boundaries > preserves the observed local denial 不能据此得出整机或所有设备无固有缺陷的事实结论。
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ tests/itv/interview-report-claim-boundaries.test.ts:21:102
+     19|   "不能推断该设备在所有场景下无固有缺陷。",
+     20|   "不能据此得出整机或所有设备无固有缺陷的事实结论。",
+     21|  ])("preserves the observed local denial %s",claim=>expect(assessRepor…
+       |                                                                                                      ^
+     22|  it.each([
+     23|   "不能未排除设备设计缺陷。",
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/5]⎯
+
+ Test Files  1 failed (1)
+      Tests  5 failed | 204 passed (209)
+   Start at  18:18:03
+   Duration  908ms (transform 412ms, setup 0ms, collect 634ms, tests 167ms, environment 0ms, prepare 28ms)
+
+undefined
+/Users/shenyangjun/boardx/workspacex/.worktrees/coord-user-research-5019-acceptance/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run --config vitest.interview-markdown-unit.config.ts tests/itv/interview-report-claim-boundaries.test.ts

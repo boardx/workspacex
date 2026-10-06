@@ -54,6 +54,10 @@ function qualifiedDefectExclusion(clause: string, start: number, end: number): b
   // Denying the absence of defects is not a positive defect exclusion.
   if (/(?:并非|不是)\s*(?:不存在|没有|不含|并无|无)/u.test(predicate)) return true;
   if (/否认|否定|不是(?!说)|并非|不会|不可能|不能不|不可不|不得不|而(?:要|应|是)|却/u.test(before)) return false;
+  // Observed local denials: accept only the exact operator/target grammar,
+  // never an arbitrary earlier “cannot” or a different assertion's object.
+  if (/^排除(?:了)?/u.test(predicate) && /^\s*未\s*$/u.test(before)) return true;
+  if (/^\s*(?:不能|不可|无法|不应|不宜|不得)(?:据此)?(?:推断|得出)(?:该设备(?:在所有场景下)?|整机|所有设备|整机或所有设备)\s*$/u.test(before)) return true;
   if (/^(?:安装风险|安装问题|产品)?(?:没有|无)证据排除/u.test(predicate)) return true;
   if (/^排除(?:了)?/u.test(predicate) && /(?:尚未|未能|没有证据)\s*$/u.test(before)) return true;
   return qualified(clause,start,end)
