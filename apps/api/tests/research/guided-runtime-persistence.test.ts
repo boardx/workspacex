@@ -53,7 +53,7 @@ const model: ModelCallPort = { complete: async (input) => {
       return { sourceId: chunk.sourceId, chunkId: chunk.chunkId, irrelevant, matches: irrelevant ? [] : chunk.questionIds.map((questionId) => ({ questionId, quoteRef: chunk.quoteOptions[0]!.quoteRef, insight: "The controlled excerpt supports the supplied policy question.", relevance: "direct" })) };
     }) }) };
   }
-  const node = input.system.includes('Create a concrete web research plan') ? "research" : /Generate the (\w+) step/.exec(input.system)?.[1] ?? context.targetNode;
+  const node = context.reportStage ? "report" : input.system.includes('Create a concrete web research plan') ? "research" : /Generate the (\w+) step/.exec(input.system)?.[1] ?? context.targetNode;
   calls.push(node);
   if (node === failModelNode) throw new Error("model unavailable");
   seenBriefs.push(context.brief);
