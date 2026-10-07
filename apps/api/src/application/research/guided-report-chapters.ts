@@ -340,12 +340,18 @@ export async function generateReportChapters(state: ResearchRuntime, model: Mode
     } : undefined;
     const omitted = "\n[Middle omitted; do not infer omitted claims]\n";
     const perChapterLimit = Math.min(3000, Math.floor(60000 / Math.max(1, trustedChapters.length)));
-    const synthesisChapters = trustedChapters.map((chapter) => ({ ...chapter, title: sections.find((section) => section.id === chapter.sectionId)!.title,
+    // Keep long canonical IDs out of model prose; restore exact IDs only after validation.
+    const synthesisAliases = aliases.filter((item) => cited.has(item.sourceId));
+    const aliasById = new Map(synthesisAliases.map((item) => [item.sourceId, item.alias]));
+    const synthesisChapters = trustedChapters.map((chapter) => ({ ...chapter,
+      body: C.mapGuidedResearchCitations(chapter.body, (id) => `[[source:${aliasById.get(id)!}]]`, () => { throw invalid(); }),
+    })).map((chapter) => ({ ...chapter,
+      sourceIds: chapter.sourceIds.map((id) => aliasById.get(id)!), title: sections.find((section) => section.id === chapter.sectionId)!.title,
       body: chapter.body.length > perChapterLimit ? `${chapter.body.slice(0, Math.floor((perChapterLimit - omitted.length) * 0.65))}${omitted}${chapter.body.slice(-Math.floor((perChapterLimit - omitted.length) * 0.35))}` : chapter.body,
       excerpted: chapter.body.length > perChapterLimit }));
     const synthesisInput = { modelProvider: config.provider, modelId: config.id,
-      system: `${system} Write report prose in the user's language; do not append translations in another language. Preserve technical proper names. Give the report a descriptive, topic-specific, citation-free title; keep verification status in the prose instead of replacing its name. Synthesize only the quality-passed chapters. Unverified scopes have no supplied factual findings; identify their unresolved coverage without inferring answers from their headings or questions. Synthesize the supplied chapters into exactly {"title":string,"summary":string,"introduction":string,"conclusion":string}. Do not produce sections again. Write three distinct formal report components: summary is a concise executive overview of the central findings; introduction explains the research question, scope, method, source coverage and evidence limitations; conclusion integrates cross-chapter comparisons, competing options and tradeoffs into justified priorities, actionable next steps and remaining uncertainty. Do not mechanically repeat the summary in the introduction or conclusion. Use connected analytical prose, not a checklist of chapter summaries. Preserve uncertainty and missing coverage. Explicitly explain evidenceCoverageWarnings in the introduction and relevant conclusions; invalid extractions were excluded and cannot establish complete source coverage. Cite only source IDs already used in chapters. Do not introduce new facts or sources. Chapter bodies may be bounded excerpts; do not infer omitted claims.`,
-      user: JSON.stringify({ reportStage: "synthesis", unverifiedScopes: sections.filter((section) => warnedIds.has(section.id)).map((section) => ({ sectionId: section.id, title: section.title, status: "unverified" })), brief: state.brief, chapters: synthesisChapters, sourceAliases: aliases.filter((item) => cited.has(item.sourceId)), reportPartial: Boolean(state.reportPartial), evidenceCoverageWarnings: state.reportEvidenceWarnings ?? [], instruction: effectiveInstruction }) };
+      system: `${system} Write report prose in the user's language; do not append translations in another language. Preserve technical proper names. Give the report a descriptive, topic-specific, citation-free title; keep verification status in the prose instead of replacing its name. Synthesize only the quality-passed chapters. Unverified scopes have no supplied factual findings; identify their unresolved coverage without inferring answers from their headings or questions. Synthesize the supplied chapters into exactly {"title":string,"summary":string,"introduction":string,"conclusion":string}. Do not produce sections again. Write three distinct formal report components: summary is a concise executive overview of the central findings; introduction explains the research question, scope, method, source coverage and evidence limitations; conclusion integrates cross-chapter comparisons, competing options and tradeoffs into justified priorities, actionable next steps and remaining uncertainty. Do not mechanically repeat the summary in the introduction or conclusion. Use connected analytical prose, not a checklist of chapter summaries. Preserve uncertainty and missing coverage. Explicitly explain evidenceCoverageWarnings in the introduction and relevant conclusions; invalid extractions were excluded and cannot establish complete source coverage. Use only the exact short aliases from sourceAliases in [[source:S1]] citations. Never copy, reconstruct or guess UUIDs. Cite only sources already used in the supplied chapters. Do not introduce new facts or sources. Chapter bodies may be bounded excerpts; do not infer omitted claims.`,
+      user: JSON.stringify({ reportStage: "synthesis", unverifiedScopes: sections.filter((section) => warnedIds.has(section.id)).map((section) => ({ sectionId: section.id, title: section.title, status: "unverified" })), brief: state.brief, chapters: synthesisChapters, sourceAliases: synthesisAliases, reportPartial: Boolean(state.reportPartial), evidenceCoverageWarnings: state.reportEvidenceWarnings ?? [], instruction: effectiveInstruction }) };
     let summary: ReturnType<typeof C.GuidedResearchReportSynthesisModelOutput.parse> | undefined;
     if (!trustedChapters.length) {
       summary = C.GuidedResearchReportSynthesisModelOutput.parse({
@@ -358,11 +364,13 @@ export async function generateReportChapters(state: ResearchRuntime, model: Mode
       await persistTimeline();
     }
     let summaryRaw = "";
+    let validationIssues: { field: string; reason: string; sourceId?: string }[] = [];
     for (let attempt = 0; trustedChapters.length && attempt < 2; attempt++) {
       if (attempt) { await restoreApproved(); framing = "],"; opened = false; framingInvalid = false; }
       try {
-        summary = await audited(attempt ? { ...synthesisInput, user: JSON.stringify({ ...JSON.parse(synthesisInput.user), reportStage: "synthesis_revision", rawOutput: summaryRaw.slice(0, 50000), repairInstruction: "Repair strict JSON and citation IDs using only the provided chapter citations; do not invent or silently discard unsupported findings." }) } : synthesisInput, (text) => {
+        summary = await audited(attempt ? { ...synthesisInput, user: JSON.stringify({ ...JSON.parse(synthesisInput.user), reportStage: "synthesis_revision", rawOutput: summaryRaw.slice(0, 50000), validationIssues, repairInstruction: "Repair each validation issue using only exact supplied short aliases. Rebuild citations from sourceAliases; never reuse corrupted UUIDs from rawOutput, guess replacements, or silently discard unsupported findings. Repair strict JSON as needed." }) } : synthesisInput, (text) => {
           summaryRaw = text;
+          validationIssues = [];
           if (framingInvalid) throw new ResearchRuntimeError("RESEARCH_NODE_STATE_INVALID");
 
           let raw: unknown;
@@ -372,8 +380,19 @@ export async function generateReportChapters(state: ResearchRuntime, model: Mode
           if (inlineReportSources(parsed.data.title).length) throw invalid();
           const result = { ...parsed.data };
           for (const field of ["summary", "introduction", "conclusion"] as const) {
-            result[field] = canonicalReportText(result[field], resolve);
-            if (inlineReportSources(result[field]).some((id) => !cited.has(id)) || /https?:\/\//i.test(result[field])) throw invalid();
+            try {
+              result[field] = canonicalReportText(result[field], (id) => {
+                let canonical: string;
+                try { canonical = resolve(id); }
+                catch { validationIssues.push({ field, reason: "unknown_source", sourceId: id }); throw invalid(); }
+                if (!cited.has(canonical)) { validationIssues.push({ field, reason: "source_not_in_trusted_chapters", sourceId: id }); throw invalid(); }
+                return canonical;
+              });
+            } catch (error) {
+              if (!validationIssues.length) validationIssues.push({ field, reason: "malformed_citation" });
+              throw error;
+            }
+            if (/https?:\/\//i.test(result[field])) { validationIssues.push({ field, reason: "url_forbidden" }); throw invalid(); }
           }
           if (new Set([result.summary.trim(), result.introduction.trim(), result.conclusion.trim()]).size !== 3) throw new ResearchRuntimeError("RESEARCH_NODE_STATE_INVALID");
           return result;

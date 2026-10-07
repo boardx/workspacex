@@ -520,6 +520,29 @@ describe("chapter-based report generation", () => {
     expect(JSON.parse(f.state.reportStream!.text)).toEqual(report);
     expect(f.state.reportStream!.text).not.toContain("[[source:S2]]");
   });
+  it("uses exact short aliases in synthesis and diagnoses a corrupted UUID without guessing", async () => {
+    const f = fixture(); f.state.outline = [f.state.outline[0]!]; let revisions = 0; let chapters = 0;
+    const model: ModelCallPort = { complete: async (input) => {
+      const context = JSON.parse(input.user);
+      if (context.reportStage === "chapter") chapters++;
+      if (context.reportStage.startsWith("synthesis")) {
+        const alias = context.sourceAliases.find((item: any) => item.sourceId === "source-b").alias;
+        expect(context.chapters[0].sourceIds).toEqual([alias]);
+        expect(context.chapters[0].body).toContain(`[[source:${alias}]]`);
+        expect(context.chapters[0].body).not.toContain("[[source:source-b]]");
+        if (context.reportStage === "synthesis") return { text: JSON.stringify({ ...answer(context), summary: "Corrupted [[source:source-b-typo]]" }) };
+        revisions++;
+        expect(context.validationIssues).toContainEqual({ field: "summary", reason: "unknown_source", sourceId: "source-b-typo" });
+        return { text: JSON.stringify({ ...answer(context), summary: `Supported [[source:${alias}]]` }) };
+      }
+      return { text: JSON.stringify(answer(context)) };
+    } };
+    const report = await generateReportChapters(f.state, model, config, f.persist);
+    expect(report.summary).toBe("Supported [[source:source-b]]");
+    expect(report.sections[0]!.sourceIds).toEqual(["source-b"]);
+    expect(chapters).toBe(1); expect(revisions).toBe(1);
+  });
+
   it("repairs malformed synthesis once without regenerating approved chapters", async () => {
     const f = fixture(); f.state.outline = [f.state.outline[0]!]; let revisions = 0; let chapters = 0;
     const model: ModelCallPort = { complete: async (input) => {
