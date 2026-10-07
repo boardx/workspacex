@@ -253,3 +253,61 @@ it("removes a cleared optional execution goal from both compact plan and fingerp
   }
   rememberRuntimeDelta(known, delta); expect(runtimeDelta(state, known).removed).not.toContain("executionGoal");
 });
+
+it("shares only byte-identical history sources and preserves historical ordering", async () => {
+  const { compactPreviousSources, compactRuntimePatch } = await import("../../src/interface/controllers/guided-research-delta");
+  const source = { id: "s1", taskId: "t", title: "Source", url: "https://example.org/s", content: "original body", retrievedAt: "now", decision: "accepted" as const };
+  const second = { ...source, id: "s2" };
+  const previous = { title: "Previous", createdAt: "now", report: null, text: "", chapters: [], sources: [second, source], outline: [], aliases: [] };
+  const current = { ...state, sources: [source, second], reportPrevious: previous };
+  const projected = compactPreviousSources(current);
+  expect(projected).toMatchObject({ previousSourceIds: ["s2", "s1"], reportPrevious: { sources: [] } });
+  expect(current.reportPrevious.sources).toEqual([second, source]);
+  expect(compactPreviousSources({ ...current, reportPrevious: { ...previous, sources: [{ ...source, content: "different historical body" }] } })).not.toHaveProperty("previousSourceIds");
+  const patch = runtimeDelta(current, fingerprints());
+  expect(compactRuntimePatch(current, fingerprints(), patch)).toHaveProperty("previousSourceIds", ["s2", "s1"]);
+  const known = { ...fingerprints(), sources: fieldFingerprint(current.sources) };
+  expect(compactRuntimePatch(current, known, runtimeDelta(current, known))).toHaveProperty("previousSourceIds");
+  expect(compactRuntimePatch(current, fingerprints(), { ...patch, changes: { reportPrevious: previous } })).not.toHaveProperty("previousSourceIds");
+  expect(C.GuidedResearchRuntimePatch.safeParse({ ...patch, previousSourceIds: ["s1", "s1"] }).success).toBe(false);
+  const different = { ...source, content: "distinct archived body" };
+  expect(compactPreviousSources({ ...current, reportPrevious: { ...previous, sources: [second, different] } })).toMatchObject({ previousSourceIds: ["s2", "s1"], reportPrevious: { sources: [different] } });
+});
+
+it("negotiates compact GET while retaining full legacy history and read authorization", async () => {
+  const { GuidedResearchController } = await import("../../src/interface/controllers/guided-research.controller");
+  const { vi } = await import("vitest");
+  const source = { id: "s1", taskId: "t", title: "Source", url: "https://example.org/s", content: "original body", retrievedAt: "now", decision: "accepted" as const };
+  const current = { ...state, sources: [source], reportPrevious: { title: "Previous", createdAt: "now", report: null, text: "", chapters: [], sources: [source], outline: [], aliases: [] } };
+  const get = vi.fn(async () => current);
+  const controller = new GuidedResearchController({} as never, {} as never, {} as never, {} as never, {} as never, { get } as never);
+  const visible = vi.spyOn(controller as never, "current" as never).mockResolvedValue({} as never);
+  const principal = { userId: "u", orgId: "org" as never };
+  expect(await controller.getRuntime(principal, "s")).toEqual(current);
+  expect(await controller.getRuntime(principal, "s", "true")).toMatchObject({ previousSourceIds: ["s1"], reportPrevious: { sources: [] }, sources: [source] });
+  visible.mockRejectedValueOnce(new Error("not visible"));
+  await expect(controller.getRuntime(principal, "s", "true")).rejects.toThrow("not visible");
+  expect(get).toHaveBeenCalledTimes(2);
+});
+
+it("negotiates terminal history references without repeatedly emitting a compacted history", async () => {
+  const { GuidedResearchController } = await import("../../src/interface/controllers/guided-research.controller");
+  const { vi } = await import("vitest");
+  const source = { id: "s1", taskId: "t", title: "Source", url: "https://example.org/s", content: "original body", retrievedAt: "now", decision: "accepted" as const };
+  const current = { ...state, currentNode: "report" as const, sources: [source], reportPrevious: { title: "Previous", createdAt: "now", report: null, text: "", chapters: [], sources: [source], outline: [], aliases: [] } };
+  const execute = vi.fn(async (_scope, _session, _command, send) => {
+    send({ type: "snapshot", state: current });
+    send({ type: "snapshot", state: { ...current, busy: true } });
+    send({ type: "result", state: current });
+  });
+  const controller = new GuidedResearchController({} as never, {} as never, {} as never, {} as never, {} as never, { execute } as never);
+  vi.spyOn(controller as never, "current" as never).mockResolvedValue({} as never);
+  const frames: string[] = [];
+  const response = { setHeader: vi.fn(), flushHeaders: vi.fn(), on: vi.fn(), off: vi.fn(), end: vi.fn(), write: (frame: string) => frames.push(frame), writableLength: 0, destroyed: false };
+  await controller.streamRuntime({ userId: "u", orgId: "org" as never }, "s", { requestId: "r", expectedVersion: 2, node: "report", action: "generate", compactSources: true, knownFields: fingerprints() }, response as never, {} as never);
+  const events = frames.map(frame => JSON.parse(frame.slice(6)));
+  expect(events[0].state).toMatchObject({ previousSourceIds: ["s1"], changes: { sources: [source], reportPrevious: { sources: [] } } });
+  expect(events[1].state.changes).not.toHaveProperty("reportPrevious");
+  expect(events[2].state.changes).not.toHaveProperty("reportPrevious");
+  expect(execute.mock.calls[0]?.[2]).not.toHaveProperty("compactSources");
+});

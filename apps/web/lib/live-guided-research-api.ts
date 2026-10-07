@@ -2,7 +2,7 @@ import { research } from "@repo/contracts";
 import { ApiError, apiRequest, getStoredSessionToken } from "./api-client";
 import { writeResearchMemory } from "./guided-research-memory";
 import { streamResearchCommand, type ResearchStreamEvent } from "./guided-research-stream";
-import { mergeResearchDelta, researchFieldFingerprints, type RuntimePatch } from "./guided-research-delta";
+import { mergeResearchDelta, restorePreviousSourceReferences, researchFieldFingerprints, type RuntimePatch } from "./guided-research-delta";
 import { ResearchRuntimeHydrationError } from "./guided-research-hydration";
 export { ResearchRuntimeHydrationError } from "./guided-research-hydration";
 import type { z } from "zod";
@@ -121,13 +121,14 @@ export type GuidedResearchRuntimeCommand = z.infer<typeof research.GuidedResearc
 export type GuidedResearchRuntimeDraft = z.infer<typeof research.GuidedResearchRuntimeDraft>;
 export async function getResearchRuntime(sessionId: string, signal?: AbortSignal): Promise<GuidedResearchRuntime> {
   const op = research.operations.getGuidedResearchRuntime;
-  return research.GuidedResearchRuntime.parse(await apiRequest(op.path.replace(":sessionId", encodeURIComponent(sessionId)), { method: op.method, signal }));
+  const { previousSourceIds, ...state } = op.out.parse(await apiRequest(`${op.path.replace(":sessionId", encodeURIComponent(sessionId))}?compactSources=true`, { method: op.method, signal }));
+  return research.GuidedResearchRuntime.parse(restorePreviousSourceReferences(state, previousSourceIds));
 }
 export async function executeResearchRuntime(input: GuidedResearchRuntimeCommand, onEvent?: (event: ResearchStreamEvent) => void, signal?: AbortSignal, baseline?: GuidedResearchRuntime): Promise<GuidedResearchRuntime> {
   if (baseline && baseline.sessionId !== input.sessionId) throw new Error("Research baseline belongs to another session");
   if (onEvent) return streamResearchCommand(input, onEvent, signal, baseline);
   const op = research.operations.executeGuidedResearchRuntime;
-  const body = baseline ? { ...input, knownFields: await researchFieldFingerprints(baseline) } : input;
+  const body = baseline ? { ...input, compactSources: true, knownFields: await researchFieldFingerprints(baseline) } : input;
   const result = op.out.parse(await apiRequest(op.path.replace(":sessionId", encodeURIComponent(input.sessionId)), { method: op.method, body }));
   if ("type" in result && result.type === "patch") {
     if (result.sessionId !== input.sessionId) throw new ApiError(502, "RESEARCH_STATE_SESSION_MISMATCH", null);
@@ -166,6 +167,7 @@ export async function getResearchRuntimeProgress(sessionId: string, stream?: Gui
   if (baseline) {
     if (baseline.sessionId !== sessionId) throw new Error("Research baseline belongs to another session");
     query.set("knownFields", JSON.stringify(await researchFieldFingerprints(baseline)));
+    query.set("compactSources", "true");
   }
   return op.out.parse(await apiRequest(`${op.path.replace(":sessionId", encodeURIComponent(sessionId))}?${query}`));
 }

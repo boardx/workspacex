@@ -60,3 +60,23 @@ export function runtimePlanStagePatch(state: ResearchRuntime) {
   return C.GuidedResearchRuntimePatch.parse({ type: "patch", sessionId: state.sessionId,
     version: state.version, revision: state.revision, changes, removed });
 }
+
+/** Only identical whole sources can be shared with an immutable history snapshot.
+ * Differing text, document hashes or metadata always retain their complete copy. */
+export function compactPreviousSources<T extends { sources: ResearchRuntime["sources"]; reportPrevious?: ResearchRuntime["reportPrevious"] }>(state: T) {
+  const previous = state.reportPrevious;
+  if (!previous?.sources.length) return state;
+  const sources = new Map(state.sources.map(source => [source.id, source]));
+  if (sources.size !== state.sources.length || new Set(previous.sources.map(source => source.id)).size !== previous.sources.length) return state;
+  const shared = new Set(previous.sources.filter(source => sources.has(source.id) && fieldFingerprint(source) === fieldFingerprint(sources.get(source.id))).map(source => source.id));
+  if (!shared.size) return state;
+  return { ...state, reportPrevious: { ...previous, sources: previous.sources.filter(source => !shared.has(source.id)) }, previousSourceIds: previous.sources.map(source => source.id) };
+}
+
+export function compactRuntimePatch(state: ResearchRuntime, known: z.infer<typeof C.GuidedResearchRuntimeKnownFields>, patch: z.infer<typeof C.GuidedResearchRuntimePatch>) {
+  // Metadata does not prove that full source bodies are in the client baseline.
+  if (!patch.changes.reportPrevious || (known.sources !== fieldFingerprint(state.sources) && !Object.hasOwn(patch.changes, "sources"))) return patch;
+  const projected = compactPreviousSources({ sources: state.sources, reportPrevious: patch.changes.reportPrevious });
+  return "previousSourceIds" in projected ? C.GuidedResearchRuntimePatch.parse({ ...patch,
+    changes: { ...patch.changes, reportPrevious: projected.reportPrevious }, previousSourceIds: projected.previousSourceIds }) : patch;
+}

@@ -28,6 +28,8 @@ description: 用户研究计划、资料检索、来源证据和研究报告；�
 
 ## 踩坑与经验（append-only）
 
+- 2026-10-07：SSE 的当前与历史来源可以引用同一份完整传输对象，但只有整个来源对象一致、完整 baseline fingerprint 匹配或同 patch 已带完整 sources 时才允许；浏览器先合并后独立克隆历史，元数据不能冒充正文。压缩必须逐帧 flush，并在背压下保留大帧及终态尾部。样本字节减少不等于线上耗时改善（出处：issue #5499、docs/verification/research-compact-report-transport-5499/README.md）。
+
 - 2026-10-07：字段级 SSE patch 仍会在 sources 任一对象改变时重传全部正文；研究中间快照复用 polling 元数据 cursor，最终结果与报告阶段仍完整同步。保活事件不代表模型调用，离线字节减少不能替代线上耗时证据（出处：issue #5491）。
 
 - 2026-10-03：六步研究页头应优先使用 runtime brief.topic，旧会话 title 可能仍是导入的长段落；计划/大纲需独立共享时限，修复输出不得重置计时。限时失败与真实模型成功耗时要分开证明，本地真实 qwen3.8-max 五章节计划实测 25.9 秒（出处：issue #5241）。

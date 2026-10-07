@@ -1093,11 +1093,15 @@ const GuidedResearchSourceMetadata = GuidedResearchSource.pick({ id: true, taskI
 const GuidedResearchSourceDelta = z.object({
   cursor: z.string().regex(/^[a-f0-9]{64}$/), sources: z.array(GuidedResearchSourceMetadata).optional(),
 }).strict();
+const GuidedResearchPreviousSourceIds = z.array(z.string().min(1)).refine(ids => new Set(ids).size === ids.length, "duplicate previous source reference");
+// Transport-only references; canonical persisted runtime keeps complete history.
+export const GuidedResearchRuntimeTransfer = GuidedResearchRuntime.extend({ previousSourceIds: GuidedResearchPreviousSourceIds.optional() });
 export const GuidedResearchRuntimePatch = z.object({
   type: z.literal("patch"), sessionId: z.string(),
   version: z.number().int().nonnegative(), revision: z.number().int().positive(),
   changes: GuidedResearchRuntimeMutable.partial(),
   research: GuidedResearchSourceDelta.optional(),
+  previousSourceIds: GuidedResearchPreviousSourceIds.optional(),
   removed: z.array(GuidedResearchRuntimeMutable.keyof()),
 }).strict();
 export const GuidedResearchRuntimeCommand = z.object({
@@ -1105,6 +1109,7 @@ export const GuidedResearchRuntimeCommand = z.object({
   action: z.enum(["save", "save_chapters", "generate", "confirm", "start", "retry", "complete", "message", "apply", "add_source", "remove_source", "pause", "resume", "refine_scope", "refine_source_policy", "resolve_conflict", "prepare_plan", "generate_report"]),
   requestId: z.string().min(1).max(200), expectedVersion: z.number().int().nonnegative(),
   knownFields: GuidedResearchRuntimeKnownFields.optional(),
+  compactSources: z.boolean().optional(),
   expectedRevision: z.number().int().nonnegative().optional(), idempotencyKey: z.string().min(1).max(200).optional(),
   intent: GuidedResearchIntent.optional(), sourcePolicy: GuidedResearchSourcePolicy.optional(),
   draft: GuidedResearchRuntimeDraft.optional(), message: z.string().trim().min(1).max(10000).optional(),
@@ -1173,7 +1178,7 @@ export const GuidedResearchRuntimeStreamEvent = z.discriminatedUnion("type", [
 export const operations = {
   getGuidedResearchRuntimeProgress: {
     method: "GET", path: "/research/guided-sessions/:sessionId/runtime/progress",
-    in: z.object({ sessionId: z.string().min(1), requestId: z.string().max(200).optional(), digest: z.string().regex(/^[a-f0-9]{64}$/).optional(), sourceCursor: z.string().regex(/^[a-f0-9]{64}$/).optional(), offset: z.coerce.number().int().min(0).max(1048576).optional(), knownFields: z.string().max(8192).transform((value, ctx) => { try { return JSON.parse(value); } catch { ctx.addIssue({ code: "custom", message: "Invalid field fingerprints" }); return z.NEVER; } }).pipe(GuidedResearchRuntimeKnownFields).optional() }).strict(),
+    in: z.object({ sessionId: z.string().min(1), compactSources: z.literal("true").optional(), requestId: z.string().max(200).optional(), digest: z.string().regex(/^[a-f0-9]{64}$/).optional(), sourceCursor: z.string().regex(/^[a-f0-9]{64}$/).optional(), offset: z.coerce.number().int().min(0).max(1048576).optional(), knownFields: z.string().max(8192).transform((value, ctx) => { try { return JSON.parse(value); } catch { ctx.addIssue({ code: "custom", message: "Invalid field fingerprints" }); return z.NEVER; } }).pipe(GuidedResearchRuntimeKnownFields).optional() }).strict(),
     out: z.union([GuidedResearchRuntimePatch, GuidedResearchRuntimeProgress]), err: ["RESEARCH_NOT_FOUND", "RESEARCH_WORKFLOW_UNAVAILABLE"] as const,
   },
   streamGuidedResearchRuntime: {
@@ -1182,7 +1187,7 @@ export const operations = {
   },
   getGuidedResearchRuntime: {
     method: "GET", path: "/research/guided-sessions/:sessionId/runtime",
-    in: z.object({ sessionId: z.string().min(1) }).strict(), out: GuidedResearchRuntime,
+    in: z.object({ sessionId: z.string().min(1), compactSources: z.literal("true").optional() }).strict(), out: GuidedResearchRuntimeTransfer,
     err: ["RESEARCH_NOT_FOUND", "RESEARCH_WORKFLOW_UNAVAILABLE"] as const,
   },
   executeGuidedResearchRuntime: {
