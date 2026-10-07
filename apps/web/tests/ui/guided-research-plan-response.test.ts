@@ -19,7 +19,7 @@ it("hydrates a stage patch with no baseline using one GET and never repeats the 
   expect(await executeResearchRuntime(command)).toEqual(snapshot());
   expect(apiRequest).toHaveBeenCalledTimes(2);
   expect(vi.mocked(apiRequest).mock.calls[0]).toEqual(["/research/guided-sessions/s/runtime/commands", expect.objectContaining({ method: "POST" })]);
-  expect(vi.mocked(apiRequest).mock.calls[1]).toEqual(["/research/guided-sessions/s/runtime", expect.objectContaining({ method: "GET" })]);
+  expect(vi.mocked(apiRequest).mock.calls[1]).toEqual(["/research/guided-sessions/s/runtime?compactSources=true", expect.objectContaining({ method: "GET" })]);
 });
 it("merges ordinary plan generation into the baseline without an extra GET", async () => {
   vi.mocked(apiRequest).mockResolvedValueOnce(patch);

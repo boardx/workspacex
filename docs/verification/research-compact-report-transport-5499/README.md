@@ -26,7 +26,9 @@ All encoded responses decode byte-for-byte to the compact SSE. All 152 historica
 
 - Pure API research suite: 27 files / 601 tests PASS. Focused HTTP tests: 18 PASS; negotiation/q=0, first-frame delivery before execution finishes, Unicode, multi-MB high-entropy frames and terminal tail, slow destination drain, disconnect and queue limits.
 - API/controller tests: legacy and negotiated GET, visibility gate before runtime read (mocked unit proof, not native auth/RLS acceptance), whole-source equality/difference, complete-baseline requirement, ordered references and canonical SSE fingerprint memory.
-- Web tests: 8 files / 64 tests PASS, including compact refresh, full historical divergence, invalid reference rejection, metadata/terminal merge, historical independence, single-language history UI and report recovery paths.
+- Web tests: all 38 guided-research UI files / 366 tests PASS, including compact refresh, full historical divergence, invalid reference rejection, metadata/terminal merge, historical independence, single-language history UI and report recovery paths.
 - API/web/contracts type checks; API and web lint; independent exact-SHA review and PR CI tracked on the PR.
 
-Private local logs: `/private/tmp/research-5499-{red,http,focused,pure,web,web-focused,type,web-type,contracts-type,lint,web-lint}.log`. Replay runner: `/private/tmp/research-5499-replay.mts`. Owned HTTP servers in tests/replay are stopped in finally blocks. No paid models or persistent database were used.
+CI on the prior head caught an outdated exact-URL expectation in `guided-research-plan-response.test.ts`; it was updated to the negotiated compact GET URL while retaining exactly one GET and no repeated POST. The full guided-research UI group then passed. Current-head CI must still be read on the PR.
+
+Private local logs: `/private/tmp/research-5499-{red,http,focused,pure,web,web-focused,web-all,type,web-type,contracts-type,lint,web-lint}.log`. Replay runner: `/private/tmp/research-5499-replay.mts`. Owned HTTP servers in tests/replay are stopped in finally blocks. No paid models or persistent database were used.
