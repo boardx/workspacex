@@ -9,7 +9,7 @@ export async function streamResearchCommand(input: GuidedResearchRuntimeCommand,
   const token = getStoredSessionToken();
   if (baseline && baseline.sessionId !== input.sessionId) throw new ApiError(502, "RESEARCH_STATE_SESSION_MISMATCH", null);
   let current = baseline;
-  const body = baseline ? { ...input, knownFields: await researchFieldFingerprints(baseline) } : input;
+  const body = baseline ? { ...input, compactSources: true, knownFields: await researchFieldFingerprints(baseline) } : input;
   const response = await fetch(apiUrl(op.path.replace(":sessionId", encodeURIComponent(input.sessionId))), {
     method: "POST", signal, credentials: "include", headers: { "Content-Type": "application/json", Accept: "text/event-stream", ...(token ? { Authorization: `Bearer ${token}` } : {}) }, body: JSON.stringify(body),
   });

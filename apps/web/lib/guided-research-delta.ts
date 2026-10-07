@@ -13,6 +13,15 @@ export async function researchFieldFingerprints(state: Runtime) {
   return C.GuidedResearchRuntimeKnownFields.parse(Object.fromEntries(pairs));
 }
 
+/** Restore immutable historical evidence from the complete merged source snapshot. */
+export function restorePreviousSourceReferences(state: Runtime, ids?: string[]): Runtime {
+  if (!ids) return state;
+  if (!state.reportPrevious || state.reportPrevious.sources.length || new Set(ids).size !== ids.length) throw new ApiError(502, "RESEARCH_STATE_SOURCE_REFERENCE_INVALID", null);
+  const byId = new Map(state.sources.map(source => [source.id, source]));
+  if (byId.size !== state.sources.length || ids.some(id => !byId.has(id))) throw new ApiError(502, "RESEARCH_STATE_SOURCE_REFERENCE_INVALID", null);
+  return { ...state, reportPrevious: { ...state.reportPrevious, sources: ids.map(id => structuredClone(byId.get(id)!)) } };
+}
+
 export function mergeResearchDelta(current: Runtime, patch: RuntimePatch): Runtime {
   if (patch.sessionId !== current.sessionId) throw new ApiError(502, "RESEARCH_STATE_SESSION_MISMATCH", null);
   if (patch.version < current.version || (patch.version === current.version && patch.revision < current.revision)) return current;
@@ -27,7 +36,7 @@ export function mergeResearchDelta(current: Runtime, patch: RuntimePatch): Runti
     return merged;
   });
   // Validate the reconstructed snapshot, not merely individual patch fields.
-  const parsed = C.GuidedResearchRuntime.parse(next);
+  const parsed = C.GuidedResearchRuntime.parse(restorePreviousSourceReferences(next, patch.previousSourceIds));
   const count = Object.hasOwn(patch.changes, "reportCheckpoint") || patch.removed.includes("reportCheckpoint")
     ? parsed.reportCheckpoint?.chapters.length ?? 0 : reportSavedChapterCount;
   return { ...parsed, ...(count === undefined ? {} : { reportSavedChapterCount: count }) };

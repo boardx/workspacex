@@ -1,0 +1,25 @@
+{
+  "originalBytes": 9645384,
+  "compactBytes": 5010555,
+  "historicalReferences": 152,
+  "historicalWholeObjectEquality": true,
+  "decodedReduction": 0.4805230149468388,
+  "encodings": {
+    "br": {
+      "bytes": 1269253,
+      "transferReduction": 0.8684082458510725,
+      "lossless": true
+    },
+    "gzip": {
+      "bytes": 1652812,
+      "transferReduction": 0.8286421774394881,
+      "lossless": true
+    },
+    "identity": {
+      "bytes": 5010555,
+      "transferReduction": 0.4805230149468388,
+      "lossless": true
+    }
+  },
+  "fetchAutomaticDecode": true
+}

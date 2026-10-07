@@ -62,3 +62,15 @@ it("merges research metadata, removes deleted sources, and restores authoritativ
   expect(final.sources).toEqual(full);
   expect(fetch).toHaveBeenCalledTimes(1);
 });
+
+it("negotiates and hydrates compact history after sources arrive in the same terminal patch", async () => {
+  const source = { id: "source", taskId: "task", title: "Source", url: "https://example.org/evidence", content: "whole real body", retrievedAt: "now", decision: "accepted" as const };
+  const baseline = { ...runtime, version: 7 };
+  const patch = { type: "patch", sessionId: "session", version: 8, revision: 2, changes: { sources: [source], reportPrevious: { title: "History", createdAt: "now", report: null, text: "", chapters: [], sources: [], outline: [], aliases: [] } }, previousSourceIds: ["source"], removed: [] };
+  respond(`data: ${JSON.stringify({ type: "result_patch", state: patch })}\n\n`);
+  const result = await streamResearchCommand(command, vi.fn(), undefined, baseline);
+  expect(result.reportPrevious?.sources).toEqual([source]);
+  expect(result.reportPrevious?.sources[0]).not.toBe(result.sources[0]);
+  const body = JSON.parse(vi.mocked(fetch).mock.calls[0]?.[1]?.body as string);
+  expect(body).toMatchObject({ compactSources: true, knownFields: expect.any(Object) });
+});

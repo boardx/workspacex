@@ -32,3 +32,19 @@ it("merges compact source metadata without losing cached source evidence", () =>
 it("preserves the display-only checkpoint count when switching from legacy progress to patches", () => {
   expect(mergeResearchDelta({ ...state, reportSavedChapterCount: 2 }, patch).reportSavedChapterCount).toBe(2);
 });
+
+it("rebuilds independent historical source copies from the full merged patch in original order", () => {
+  const source = { id: "s1", taskId: "t", title: "Source", url: "https://example.org/s", content: "real evidence", retrievedAt: "now", decision: "accepted" as const };
+  const second = { ...source, id: "s2" };
+  const previous = { title: "Previous", createdAt: "now", report: null, text: "", chapters: [], sources: [], outline: [], aliases: [] };
+  const compact = { ...patch, changes: { sources: [source, second], reportPrevious: previous }, previousSourceIds: ["s2", "s1"], removed: [] };
+  const next = mergeResearchDelta(state, compact);
+  expect(next.reportPrevious?.sources.map(item => item.id)).toEqual(["s2", "s1"]);
+  expect(next.reportPrevious?.sources[1]).not.toBe(next.sources[0]);
+  next.sources[0]!.content = "changed current evidence";
+  expect(next.reportPrevious?.sources[1]?.content).toBe("real evidence");
+  const cleared = mergeResearchDelta(next, { ...patch, revision: 5, changes: { sources: [] }, removed: [] });
+  expect(cleared.reportPrevious?.sources).toHaveLength(2);
+  expect(() => mergeResearchDelta(state, { ...compact, previousSourceIds: ["missing"] })).toThrow("RESEARCH_STATE_SOURCE_REFERENCE_INVALID");
+  expect(() => mergeResearchDelta(state, { ...compact, previousSourceIds: ["s1", "s1"] })).toThrow("RESEARCH_STATE_SOURCE_REFERENCE_INVALID");
+});

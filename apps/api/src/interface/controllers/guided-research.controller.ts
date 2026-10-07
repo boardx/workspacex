@@ -1,8 +1,9 @@
+import { createResearchStreamWriter } from "./guided-research-stream-transport";
 import { createHash } from "node:crypto";
 import { runtimeProgress } from "./guided-research-progress";
 import type { Request, Response } from "express";
 import { traceIdOf } from "../middleware/trace";
-import { fieldFingerprint, runtimeDelta, runtimePollingDelta, rememberRuntimeDelta, runtimePlanStagePatch } from "./guided-research-delta";
+import { fieldFingerprint, runtimeDelta, runtimePollingDelta, rememberRuntimeDelta, runtimePlanStagePatch, compactPreviousSources, compactRuntimePatch } from "./guided-research-delta";
 import { GUIDED_RUNTIME_SERVICE, ResearchRuntimeError } from "../../application/research/guided-runtime-ports";
 import type { GuidedRuntimeService } from "../../application/research/guided-runtime-service";
 import { BadRequestException, Body, ConflictException, Controller, Delete, Get, Inject, NotFoundException, Param, Post, Put, Query, Req, Res, ServiceUnavailableException } from "@nestjs/common";
@@ -44,10 +45,15 @@ export class GuidedResearchController {
   ) {}
 
   @Get(C.operations.getGuidedResearchRuntime.path)
-  async getRuntime(@CurrentPrincipal() principal: Principal, @Param("sessionId") sessionId: string) {
+  async getRuntime(@CurrentPrincipal() principal: Principal, @Param("sessionId") sessionId: string, @Query("compactSources") compactSources?: string) {
     assertPrincipal(principal);
     const session = await this.current(principal, sessionId);
-    try { return await this.runtime.get({ orgId: principal.orgId, userId: principal.userId, sessionId }, session); }
+    const input = C.operations.getGuidedResearchRuntime.in.safeParse({ sessionId, compactSources });
+    if (!input.success) throw new BadRequestException();
+    try {
+      const state = await this.runtime.get({ orgId: principal.orgId, userId: principal.userId, sessionId }, session);
+      return input.data.compactSources ? compactPreviousSources(state) : state;
+    }
     catch (error) { this.runtimeError(error); }
   }
 
@@ -57,7 +63,10 @@ export class GuidedResearchController {
     if (!input.success) throw new BadRequestException();
     const state = await this.getRuntime(principal, sessionId);
     // Polling keeps source bodies out of transport; command/SSE snapshots use field patches.
-    if (input.data.knownFields) return runtimePollingDelta(state!, input.data.knownFields, input.data.requestId, input.data.offset, input.data.digest, input.data.sourceCursor);
+    if (input.data.knownFields) {
+      const patch = runtimePollingDelta(state!, input.data.knownFields, input.data.requestId, input.data.offset, input.data.digest, input.data.sourceCursor);
+      return input.data.compactSources === "true" ? compactRuntimePatch(state!, input.data.knownFields, patch) : patch;
+    }
     return runtimeProgress(state!, input.data.requestId, input.data.offset, input.data.digest, input.data.sourceCursor);
   }
 
@@ -67,10 +76,11 @@ export class GuidedResearchController {
     const input = C.GuidedResearchRuntimeCommand.safeParse({ ...(raw as object), sessionId });
     if (!input.success) throw new BadRequestException();
     const session = await this.current(principal, sessionId);
-    const { knownFields, ...command } = input.data;
+    const { knownFields, compactSources, ...command } = input.data;
     try {
       const state = await this.runtime.execute({ orgId: principal.orgId, userId: principal.userId, sessionId }, session, command, undefined, traceIdOf(request));
-      return command.node === "outline" ? runtimePlanStagePatch(state) : knownFields ? runtimeDelta(state, knownFields) : state;
+      const patch = command.node === "outline" ? runtimePlanStagePatch(state) : knownFields ? runtimeDelta(state, knownFields) : undefined;
+      return patch && compactSources && knownFields ? compactRuntimePatch(state, knownFields, patch) : patch ?? state;
     }
     catch (error) { this.runtimeError(error); }
   }
@@ -81,11 +91,12 @@ export class GuidedResearchController {
     const input = C.GuidedResearchRuntimeCommand.safeParse({ ...(raw as object), sessionId });
     if (!input.success) throw new BadRequestException();
     const session = await this.current(principal, sessionId);
-    const { knownFields, ...command } = input.data;
+    const { knownFields, compactSources, ...command } = input.data;
     let clientStream: import("../../application/research/guided-runtime-ports").ResearchRuntime["reportStream"];
     response.setHeader("Content-Type", "text/event-stream; charset=utf-8");
     response.setHeader("Cache-Control", "no-cache, no-transform");
     response.setHeader("X-Accel-Buffering", "no");
+    const writer = createResearchStreamWriter(request, response);
     response.flushHeaders();
     let connected = true;
     const detach = () => { connected = false; };
@@ -95,15 +106,15 @@ export class GuidedResearchController {
     let cursor: { requestId?: string; text: string } = { text: "" };
     const send = (event: import("../../application/research/guided-runtime-ports").RuntimeStreamEvent) => {
       if (!connected || response.destroyed) return;
-      // Bound a slow observer's output buffer; recovery reads the durable snapshot.
-      if (response.writableLength > 1048576) { connected = false; response.end(); return; }
+      // The writer bounds plaintext/compressed queues and handles disconnects.
       if (knownFields && (event.type === "snapshot" || event.type === "result")) {
         // During collection, publish the same source metadata as polling rather
         // than retransmitting every retained excerpt when one source changes.
         // The terminal result remains the complete field-delta authority.
-        const patch = event.type === "snapshot" && event.state.currentNode === "research"
+        const rawPatch = event.type === "snapshot" && event.state.currentNode === "research"
           ? runtimePollingDelta(event.state, knownFields, undefined, 0, undefined, sourceCursor)
           : runtimeDelta(event.state, knownFields);
+        const patch = compactSources ? compactRuntimePatch(event.state, knownFields, rawPatch) : rawPatch;
         if (patch.research) {
           sourceCursor = patch.research.cursor;
           // Metadata may remove/change a baseline source then restore it.
@@ -112,9 +123,10 @@ export class GuidedResearchController {
           delete knownFields.sources;
         }
         rememberRuntimeDelta(knownFields, patch);
+        if (patch.previousSourceIds) knownFields.reportPrevious = fieldFingerprint(event.state.reportPrevious);
         if (Object.hasOwn(patch.changes, "reportStream")) clientStream = patch.changes.reportStream;
         else if (!clientStream) clientStream = event.state.reportStream;
-        response.write(`data: ${JSON.stringify({ type: event.type === "result" ? "result_patch" : "patch", state: patch })}\n\n`);
+        writer.write(`data: ${JSON.stringify({ type: event.type === "result" ? "result_patch" : "patch", state: patch })}\n\n`);
         return;
       }
       if (knownFields && event.type === "report_delta" && clientStream && clientStream.requestId === event.requestId && event.sequence === clientStream.sequence + 1) {
@@ -124,20 +136,20 @@ export class GuidedResearchController {
       if (event.type === "snapshot" && !initialized) {
         initialized = true;
         cursor = { requestId: event.state.reportStream?.requestId, text: event.state.reportStream?.text ?? "" };
-        response.write(`data: ${JSON.stringify(event)}\n\n`);
+        writer.write(`data: ${JSON.stringify(event)}\n\n`);
       } else if (event.type === "snapshot") {
         const state = runtimeProgress(event.state, cursor.requestId, cursor.text.length, createHash("sha256").update(cursor.text).digest("hex"));
         if (state.stream) cursor = { requestId: state.stream.requestId, text: (state.stream.offset ? cursor.text : "") + state.stream.delta };
-        response.write(`data: ${JSON.stringify({ type: "progress", state })}\n\n`);
+        writer.write(`data: ${JSON.stringify({ type: "progress", state })}\n\n`);
       } else {
         if (event.type === "report_delta") cursor = { requestId: event.requestId, text: cursor.text + event.delta };
-        response.write(`data: ${JSON.stringify(event)}\n\n`);
+        writer.write(`data: ${JSON.stringify(event)}\n\n`);
       }
     };
-    const heartbeat = setInterval(() => { if (connected && !response.destroyed) response.write(": keepalive\n\n"); }, 15000);
+    const heartbeat = setInterval(() => { if (connected && !response.destroyed) writer.write(": keepalive\n\n"); }, 15000);
     try { await this.runtime.execute({ orgId: principal.orgId, userId: principal.userId, sessionId }, session, command, send, traceIdOf(request)); }
     catch (error) { send({ type: "error", reasonCode: error instanceof ResearchRuntimeError ? error.reasonCode : "RESEARCH_WORKFLOW_UNAVAILABLE" }); }
-    finally { clearInterval(heartbeat); response.off("close", detach); if (!response.destroyed) response.end(); }
+    finally { clearInterval(heartbeat); response.off("close", detach); await writer.end(); }
   }
 
   private runtimeError(error: unknown): never {
