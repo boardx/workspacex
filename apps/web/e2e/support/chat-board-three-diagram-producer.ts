@@ -13,20 +13,21 @@ import { modelToMermaid } from '../../../../packages/fabric-markdown/src/mermaid
  * real stack after generating one flowchart, sequence and persona through Chat. */
 export async function produceChatBoardThreeDiagramEvidence(input: {
   page: Page; api: APIRequestContext; apiOrigin: string; actorId: string;
-  sources: { family: 'flowchart'|'sequence'|'persona'; chatUrl: string }[];
+  sources: { family: 'flowchart'|'sequence'|'persona'|'template'; chatUrl: string }[];
 }) {
   const {page,api,apiOrigin,actorId}=input;
-  expect(input.sources.map(source=>source.family).sort()).toEqual(['flowchart','persona','sequence']);
+  expect(input.sources.map(source=>source.family)).toEqual(expect.arrayContaining(['flowchart','persona','sequence']));
   const token=await page.evaluate(key=>localStorage.getItem(key),SESSION_TOKEN_STORAGE_KEY);
   expect(token,'Use a real authenticated session before the producer').toBeTruthy();
   const headers={Authorization:`Bearer ${token}`};
   const evidence=[];
   for(const source of input.sources){
-    const created=await api.post(`${apiOrigin}/whiteboards`,{headers,data:{requestId:randomUUID(),name:`Chat ${source.family} ${randomUUID()}`}});
+    const boardName=`Chat ${source.family} ${randomUUID()}`;
+    const created=await api.post(`${apiOrigin}/whiteboards`,{headers,data:{requestId:randomUUID(),name:boardName}});
     expect(created.ok(),await created.text()).toBe(true);
     const {id:boardId}=await created.json() as {id:string};
     await page.goto(source.chatUrl);
-    const prefix=source.family==='persona'?'chat-canvas':'chat-diagram';
+    const prefix=(source.family==='persona'||source.family==='template')?'chat-canvas':'chat-diagram';
     const preview=page.getByTestId(`${prefix}-fabric`).first();
     await expect(preview.locator('canvas').first()).toBeVisible();
     await preview.getByTestId(`${prefix}-maximize`).click();
@@ -36,8 +37,15 @@ export async function produceChatBoardThreeDiagramEvidence(input: {
     const insert=preview.getByTestId('chat-diagram-insert-board');
     await expect(insert).toBeEnabled();
     await insert.click();
-    await page.getByTestId('chat-board-target').selectOption(boardId);
-    await page.getByLabel('X 坐标').fill('37'); await page.getByLabel('Y 坐标').fill('59');
+    await expect(page.getByTestId('chat-board-target')).toBeEnabled();
+    await page.getByTestId('chat-board-target').click();
+    await page.getByRole('menuitemradio',{name:boardName,exact:true}).click();
+    const placement=page.getByTestId('chat-board-placement-preview');
+    await expect(placement).toBeVisible();
+    await placement.focus();await page.keyboard.press('ArrowRight');
+    await expect(page.getByTestId('chat-board-handoff-confirm')).toBeEnabled();
+    await expect(page.getByLabel('X 坐标')).toHaveCount(0);
+    await expect(page.getByLabel('Y 坐标')).toHaveCount(0);
     const responsePromise=page.waitForResponse(response=>response.url().endsWith(`/v1/whiteboards/${boardId}/artifact-handoffs`) && response.request().method()==='POST');
     await page.getByTestId('chat-board-handoff-confirm').click();
     const response=await responsePromise;
@@ -52,8 +60,8 @@ export async function produceChatBoardThreeDiagramEvidence(input: {
       const canonical=snapshot.objects.find(object=>(object.extensionData?.content as Record<string,unknown>)?.sourceId===original.sourceId && (object.extensionData?.content as Record<string,unknown>)?.type==='artifact');
       expect(canonical,`Missing source object ${original.sourceId}`).toBeTruthy();
       expect(canonical!.text).toBe(original.text);
-      expect(canonical!.geometry.x).toBeCloseTo(original.geometry.x+37,8);
-      expect(canonical!.geometry.y).toBeCloseTo(original.geometry.y+59,8);
+      expect(canonical!.geometry.x).toBeCloseTo(original.geometry.x+request.offset.x,8);
+      expect(canonical!.geometry.y).toBeCloseTo(original.geometry.y+request.offset.y,8);
       expect(canonical!.geometry.width).toBe(original.geometry.width);
       expect(canonical!.geometry.height).toBe(original.geometry.height);
       expect(canonical!.extensionData?.content).toMatchObject({artifactId:request.layout.artifactId,sourceRevision:request.layout.sourceRevision,layoutHash:request.layout.layoutHash});
@@ -109,7 +117,7 @@ export async function produceChatBoardThreeDiagramEvidence(input: {
     },paintedNode.geometry)).toBeGreaterThan(5);
     await page.getByRole('button',{name:'更多白板操作',exact:true}).click();
     await page.getByTestId('board-diagram-source-export').click();
-    await expect(page.getByTestId('board-diagram-source')).toHaveValue(`\`\`\`${source.family==='persona'?'persona':'mermaid'}\n${code}\n\`\`\``);
+    await expect(page.getByTestId('board-diagram-source')).toHaveValue(`\`\`\`${source.family==='persona'?'persona':source.family==='template'?'canvas':'mermaid'}\n${code}\n\`\`\``);
     evidence.push({family:source.family,boardId,artifactId:request.layout.artifactId,sourceRevision:request.layout.sourceRevision,layoutHash:request.layout.layoutHash,revision:snapshot.revision,canonicalObjects:snapshot.objects.length,source:code});
   }
   return evidence;

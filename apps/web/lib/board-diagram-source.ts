@@ -10,7 +10,7 @@ export function diagramModelFromBoardObjects(objects: import('@repo/contracts/wh
   });
   if (!source.length) throw new Error('BOARD_ARTIFACT_NOT_FOUND');
   const first = source[0]!.extensionData!.content as Record<string, unknown>;
-  const kind = first.diagramKind === 'sequence' ? 'sequence' : first.diagramKind === 'persona' ? 'template' : 'flowchart';
+  const kind = first.diagramKind === 'sequence' ? 'sequence' : (first.diagramKind === 'persona' || first.diagramKind === 'template') ? 'template' : 'flowchart';
   const model: DiagramModel = { kind, direction: 'TD', nodes: [], edges: [] };
   const byId=new Map(objects.map(object=>[object.id,object]));
   const ids = new Map(source.map(object => [object.id, String((object.extensionData!.content as Record<string, unknown>).sourceId)]));

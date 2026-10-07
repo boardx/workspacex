@@ -43,18 +43,19 @@ export function artifactSourceMatchesLayout(bytes:Uint8Array,layout:RenderedDiag
       edges.push({id:object.sourceId,source:object.fromSourceId,target:object.toSourceId,label:object.text||undefined,kind:candidateKind as EdgeKind,...(typeof object.style['sourceLabel']==='string'?{sourceLabel:object.style['sourceLabel']}:{}),...(typeof object.style['targetLabel']==='string'?{targetLabel:object.style['targetLabel']}:{}),...(typeof object.style['order']==='number'?{order:object.style['order']}:{}),...(typeof object.style['seqY']==='number'?{seqY:object.style['seqY']}:{}),...(jsonRecord(object.style['dataJson'])===undefined?{}:{data:jsonRecord(object.style['dataJson'])})});
     }else return false;
   }
-  const kind:DiagramModel['kind']=layout.diagramKind==='sequence'?'sequence':layout.diagramKind==='persona'?'template':'flowchart';
+  const kind:DiagramModel['kind']=layout.diagramKind==='sequence'?'sequence':(layout.diagramKind==='persona'||layout.diagramKind==='template')?'template':'flowchart';
   const reconstructed:DiagramModel={kind,direction,nodes,edges,...(meta===undefined?{}:{meta})};
   const block=blocks[0]!;
-  const expectedLang=layout.diagramKind==='persona'?'persona':'mermaid';
+  const expectedLang=layout.diagramKind==='persona'?'persona':layout.diagramKind==='template'?'canvas':'mermaid';
   const languageMatches=block.lang===expectedLang || (layout.diagramKind==='persona' && block.lang==='canvas');
   if(!languageMatches || normalized(block.code)!==normalized(modelToMermaid(reconstructed)))return false;
-  if(layout.diagramKind==='persona'){
+  if(layout.diagramKind==='persona'||layout.diagramKind==='template'){
     // Template serializers intentionally ignore decorative nodes. Those nodes still
     // become visible Board content, so bind their logical text/roles to the real
     // template expansion too; otherwise arbitrary extra labels could claim provenance.
     try {
-      const expected=templateToModel(block.code,'persona');
+      const expected=templateToModel(block.code,layout.diagramKind==='persona'?'persona':undefined);
+      if(expected.meta?.templateKey!==meta?.templateKey)return false;
       const profile=(node:DiagramNode)=>JSON.stringify({shape:node.shape,label:node.label,role:node.data?.['role']??null,key:node.data?.['key']??null,name:node.data?.['name']??null});
       if(JSON.stringify(nodes.map(profile).sort())!==JSON.stringify(expected.nodes.map(profile).sort()))return false;
     }catch{return false;}

@@ -117,12 +117,19 @@ export const RenderedDiagramObject = z.object({
 export const RenderedDiagramLayout = z.object({
   schemaVersion: z.literal(1), artifactId: z.string().min(1).max(200),
   orgId: z.string().min(1).max(200), sourceRevision: z.string().min(1).max(200),
-  diagramKind: z.enum(['flowchart', 'sequence', 'persona', 'fabric', 'artifact']),
+  diagramKind: z.enum(['flowchart', 'sequence', 'persona', 'template', 'fabric', 'artifact']),
   objects: z.array(RenderedDiagramObject).min(1).max(WHITEBOARD_OPERATION_LIMITS.renderedObjects),
   selectedSourceIds: z.array(z.string().min(1).max(200)).max(WHITEBOARD_OPERATION_LIMITS.renderedObjects).default([]),
   layoutHash: z.string().regex(/^layout-v1:[a-f0-9]{64}$/),
 }).strict();
 export type RenderedDiagramLayout = z.infer<typeof RenderedDiagramLayout>;
+/** Geometry-only human placement preview; content and assets never leave the server. */
+export const WhiteboardPlacementPreview = z.object({
+  boardId: BoardId, revision: Revision, role: BoardRole, archived: z.boolean(),
+  objects: z.array(z.object({id: WhiteboardObjectId, geometry: LayoutGeometry}).strict()).max(WHITEBOARD_LIMITS.objects),
+}).strict();
+export type WhiteboardPlacementPreview = z.infer<typeof WhiteboardPlacementPreview>;
+
 export const WhiteboardArtifactHandoff = z.object({
   requestId:z.string().uuid(),expectedRevision:Revision,layout:RenderedDiagramLayout,
   offset:z.object({x:z.number().finite(),y:z.number().finite()}).strict(),
