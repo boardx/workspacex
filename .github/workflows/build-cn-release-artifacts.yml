@@ -1,0 +1,254 @@
+# Engineering draft: has not been dispatched or validated against the real registry.
+# Install the matching scripts/hosted-release.py before enabling this workflow.
+name: build-cn-release-artifacts
+
+on:
+  workflow_call:
+    inputs:
+      release_sha:
+        required: true
+        type: string
+      release:
+        required: true
+        type: string
+      platform:
+        required: false
+        default: linux/amd64
+        type: string
+    outputs:
+      attempt_id:
+        description: Exact producer attempt
+        value: ${{ jobs.seal.outputs.attempt_id }}
+      sealed_artifact:
+        description: Sealed artifact name for this run attempt
+        value: ${{ jobs.seal.outputs.sealed_artifact }}
+  workflow_dispatch:
+    inputs:
+      release_sha:
+        description: Exact 40-hex main source commit
+        required: true
+        type: string
+      release:
+        description: Semantic release identifier
+        required: true
+        type: string
+      platform:
+        description: Reviewed production image platform
+        required: true
+        default: linux/amd64
+        type: choice
+        # ARM requires a separately reviewed native runner or emulation setup.
+        options: [linux/amd64]
+
+permissions:
+  contents: read
+
+# A retry must rerun all jobs: attempts never borrow plans/results from earlier runs.
+# Serialize immutable registry tags without cancelling a partially published attempt.
+concurrency:
+  group: hosted-cn-artifacts-${{ inputs.release_sha }}
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    environment: production-cn-build
+    timeout-minutes: 10
+    outputs:
+      services: ${{ steps.plan.outputs.services }}
+    steps:
+      - name: Check out control tools
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.sha }}
+          path: control
+          persist-credentials: false
+      - name: Reject non-exact source identity
+        shell: bash
+        env:
+          SOURCE_REVISION: ${{ inputs.release_sha }}
+        run: |
+          set -euo pipefail
+          [[ "$SOURCE_REVISION" =~ ^[a-f0-9]{40}$ ]]
+      - name: Check out exact source with complete history
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ inputs.release_sha }}
+          path: source
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Validate reviewed build inputs without registry writes
+        id: plan
+        working-directory: source
+        shell: bash
+        env:
+          SOURCE_REVISION: ${{ inputs.release_sha }}
+          RELEASE_NAME: ${{ inputs.release }}
+          IMAGE_PLATFORM: ${{ inputs.platform }}
+          ATTEMPT_ID: gha-${{ github.run_id }}-${{ github.run_attempt }}
+          REGISTRY_PREFIX: ${{ vars.WSX_REGISTRY_PREFIX }}
+          ACR_REGION: ${{ vars.WSX_ACR_REGION }}
+          ACR_INSTANCE_ID: ${{ vars.WSX_ACR_INSTANCE_ID }}
+          ACR_PROBE_IMAGE: ${{ vars.WSX_ACR_PROBE_IMAGE }}
+          NODE_IMAGE: ${{ vars.WSX_NODE_IMAGE }}
+          PYTHON_IMAGE: ${{ vars.WSX_PYTHON_IMAGE }}
+          POSTGRES_IMAGE: ${{ vars.WSX_POSTGRES_IMAGE }}
+          REDIS_IMAGE: ${{ vars.WSX_REDIS_IMAGE }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, os
+          e = os.environ
+          value = {
+              "schemaVersion": 1, "sourceRevision": e["SOURCE_REVISION"],
+              "release": e["RELEASE_NAME"], "attemptId": e["ATTEMPT_ID"],
+              "platform": e["IMAGE_PLATFORM"], "registryPrefix": e["REGISTRY_PREFIX"],
+              "acrRegion": e["ACR_REGION"], "acrInstanceId": e["ACR_INSTANCE_ID"],
+              "registryProbeImage": e["ACR_PROBE_IMAGE"],
+              "baseImages": {name: e[key] for name, key in {
+                  "node": "NODE_IMAGE", "python": "PYTHON_IMAGE",
+                  "postgres": "POSTGRES_IMAGE", "redis": "REDIS_IMAGE"}.items()}}
+          with open("../input.json", "x") as handle:
+              json.dump(value, handle)
+          PY
+          python3 ../control/scripts/hosted-release.py validate --input ../input.json --output ../plan.json
+          python3 - <<'PY'
+          import json, os
+          with open("../plan.json") as handle:
+              services = json.load(handle)["services"]
+          with open(os.environ["GITHUB_OUTPUT"], "a") as handle:
+              handle.write("services=" + json.dumps(services, separators=(",", ":")) + "\n")
+          PY
+      - name: Retain credential-free plan
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: hosted-release-plan-${{ github.run_attempt }}
+          path: plan.json
+          if-no-files-found: error
+          retention-days: 7
+
+  build:
+    needs: validate
+    runs-on: ubuntu-24.04
+    environment: production-cn-build
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        service: ${{ fromJSON(needs.validate.outputs.services) }}
+    steps:
+      - name: Check out control tools
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.sha }}
+          path: control
+          persist-credentials: false
+      - name: Check out exact source
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ inputs.release_sha }}
+          path: source
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Download validated plan
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: hosted-release-plan-${{ github.run_attempt }}
+          path: plan
+      - name: Build and publish one immutable image
+        working-directory: source
+        shell: bash
+        env:
+          BUILD_SERVICE: ${{ matrix.service }}
+          ACR_USERNAME: ${{ secrets.WSX_ACR_USERNAME }}
+          ACR_TOKEN: ${{ secrets.WSX_ACR_TOKEN }}
+        run: |
+          set -euo pipefail
+          mkdir -p ../result
+          python3 ../control/scripts/hosted-release.py build --plan ../plan/plan.json --service "$BUILD_SERVICE" --output "../result/$BUILD_SERVICE.json"
+      - name: Retain verified service result
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: hosted-release-result-${{ github.run_attempt }}-${{ matrix.service }}
+          path: result/*.json
+          if-no-files-found: error
+          retention-days: 7
+
+  seal:
+    needs: [validate, build]
+    runs-on: ubuntu-24.04
+    environment: production-cn-build
+    timeout-minutes: 30
+    outputs:
+      attempt_id: ${{ steps.identity.outputs.attempt_id }}
+      sealed_artifact: ${{ steps.identity.outputs.sealed_artifact }}
+    steps:
+      - name: Check out control tools
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.sha }}
+          path: control
+          persist-credentials: false
+      - name: Check out exact source for artifact identity checks
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ inputs.release_sha }}
+          path: source
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Set up pinned Node for control tooling
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22.20.0'
+      - name: Prepare fixed minimal control closure
+        working-directory: control
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm ci --prefix control-runtime --ignore-scripts --no-audit --no-fund
+          python3 scripts/prepare-canonical-control.py --control . --runtime control-runtime --node "$(command -v node)" --output canonical-closure
+          # Reviewed configuration must independently pin every copied byte.
+          # This step never generates or replaces the control configuration/hash.
+      - name: Download validated plan
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: hosted-release-plan-${{ github.run_attempt }}
+          path: plan
+      - name: Download all service results
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          pattern: hosted-release-result-${{ github.run_attempt }}-*
+          path: results
+          merge-multiple: true
+      - name: Verify registry readback and seal with reviewed control closure
+        working-directory: source
+        shell: bash
+        env:
+          ACR_USERNAME: ${{ secrets.WSX_ACR_USERNAME }}
+          ACR_TOKEN: ${{ secrets.WSX_ACR_TOKEN }}
+          CANONICAL_CONTROL_CONFIG: ${{ vars.WSX_CANONICAL_CONTROL_CONFIG }}
+          CANONICAL_CONTROL_SHA256: ${{ vars.WSX_CANONICAL_CONTROL_SHA256 }}
+        run: |
+          set -euo pipefail
+          [[ "$CANONICAL_CONTROL_CONFIG" =~ ^[a-zA-Z0-9._/-]+$ && "$CANONICAL_CONTROL_CONFIG" != /* ]]
+          [[ "/$CANONICAL_CONTROL_CONFIG/" != *"/../"* ]]
+          [[ "$CANONICAL_CONTROL_SHA256" =~ ^[a-f0-9]{64}$ ]]
+          [[ -f "../control/$CANONICAL_CONTROL_CONFIG" ]]
+          python3 ../control/scripts/hosted-release.py aggregate --plan ../plan/plan.json --results ../results --output ../sealed --control "../control/$CANONICAL_CONTROL_CONFIG" --control-sha256 "$CANONICAL_CONTROL_SHA256"
+      - name: Retain sealed artifacts; stop before host preparation
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: hosted-release-sealed-${{ github.run_attempt }}
+          path: sealed/*.json
+          if-no-files-found: error
+          retention-days: 30
+      - name: Export immutable handoff identifiers
+        id: identity
+        shell: bash
+        env:
+          ATTEMPT_ID: gha-${{ github.run_id }}-${{ github.run_attempt }}
+          SEALED_ARTIFACT: hosted-release-sealed-${{ github.run_attempt }}
+        run: |
+          set -euo pipefail
+          echo "attempt_id=$ATTEMPT_ID" >> "$GITHUB_OUTPUT"
+          echo "sealed_artifact=$SEALED_ARTIFACT" >> "$GITHUB_OUTPUT"
