@@ -1,0 +1,30 @@
+
+ RUN  v2.1.9 /Users/shenyanbin/Documents/Codex/2026-10-07/task-3/workspacex/apps/api
+
+[db-isolation] db=wsx_org_create_5494 capacity=100 current=6 required=32
+{"level":"info","msg":"instance telemetry disabled (endpoint_unset)","traceId":"instance-telemetry"}
+{"level":"info","msg":"dev-process projection sync disabled (WSX_DEV_PROJECTION_SYNC_ORG unset)","traceId":"dev-process-projection-sync"}
+{"level":"info","msg":"kg embedding worker not started: no embedding model configured; memory recall uses text + graph only","traceId":"kg-embedding","code":"embedding_not_configured"}
+{"level":"error","msg":"http exception","traceId":"c88f64bb-7a88-41e1-aadb-f1a1b8ba68f4","detail":{"name":"BadRequestException","message":"Bad Request Exception","stack":"BadRequestException: Bad Request Exception\n    at AuthOrgController.joinOrg (/Users/shenyanbin/Documents/Codex/2026-10-07/task-3/workspacex/apps/api/src/interface/controllers/auth-org.controller.ts:170:15)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at /Users/shenyanbin/Documents/Codex/2026-10-07/task-3/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_sgffei4zmw63aa4v2dkhbu25m4/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /Users/shenyanbin/Documents/Codex/2026-10-07/task-3/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_sgffei4zmw63aa4v2dkhbu25m4/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+{"level":"error","msg":"http exception","traceId":"6df940f0-da81-41c9-be87-abe252cdfaaa","detail":{"name":"UnauthorizedException","message":"unauthenticated","stack":"UnauthorizedException: unauthenticated\n    at PrincipalGuard.canActivate (/Users/shenyanbin/Documents/Codex/2026-10-07/task-3/workspacex/apps/api/src/interface/guards/principal.guard.ts:54:27)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)"}}
+{"level":"error","msg":"http exception","traceId":"cbe07d0b-8361-4549-a21e-2256fd6d1b8f","detail":{"name":"NotFoundException","message":"Not Found","stack":"NotFoundException: Not Found\n    at AuthOrgController.switchOrg (/Users/shenyanbin/Documents/Codex/2026-10-07/task-3/workspacex/apps/api/src/interface/controllers/auth-org.controller.ts:148:52)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at /Users/shenyanbin/Documents/Codex/2026-10-07/task-3/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_sgffei4zmw63aa4v2dkhbu25m4/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /Users/shenyanbin/Documents/Codex/2026-10-07/task-3/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_sgffei4zmw63aa4v2dkhbu25m4/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+{"level":"error","msg":"http exception","traceId":"bce1f35c-605e-4704-8ca3-d2e9db119d59","detail":{"name":"UnauthorizedException","message":"unauthenticated","stack":"UnauthorizedException: unauthenticated\n    at PrincipalGuard.canActivate (/Users/shenyanbin/Documents/Codex/2026-10-07/task-3/workspacex/apps/api/src/interface/guards/principal.guard.ts:54:27)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at GuardsConsumer.tryActivate (/Users/shenyanbin/Documents/Codex/2026-10-07/task-3/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_sgffei4zmw63aa4v2dkhbu25m4/node_modules/@nestjs/core/guards/guards-consumer.js:16:17)\n    at canActivateFn (/Users/shenyanbin/Documents/Codex/2026-10-07/task-3/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_sgffei4zmw63aa4v2dkhbu25m4/node_modules/@nestjs/core/router/router-execution-context.js:135:33)\n    at /Users/shenyanbin/Documents/Codex/2026-10-07/task-3/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_sgffei4zmw63aa4v2dkhbu25m4/node_modules/@nestjs/core/router/router-execution-context.js:42:31\n    at /Users/shenyanbin/Documents/Codex/2026-10-07/task-3/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_sgffei4zmw63aa4v2dkhbu25m4/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+ ✓ tests/auth/multi-org-membership.test.ts (13 tests) 13030ms
+   ✓ V10 ①②③：已有账号用新邀请码创建第二个组织 > 不新建账号，只新增 org_membership，两边都是 admin 712ms
+   ✓ V10 ①②③：已有账号用新邀请码创建第二个组织 > V10 ③：重新登录时 orgs 里出现两个组织 886ms
+   ✓ V10 ①②③：已有账号用新邀请码创建第二个组织 > 同一枚码不能加入两次 —— 一码一组织对这条路径同样成立（I-4） 590ms
+   ✓ V10 ④ / coverage V5：切换组织 > 切换成功，且**会话侧**的 currentOrgId 真的变了 575ms
+   ✓ V10 ④ / coverage V5：切换组织 > 反证 C8：/identity/switch-org 成功了，但 principal 的组织没变 584ms
+   ✓ V10 ④ / coverage V5：切换组织 > 切到一个自己不属于的组织 → 404（不泄露它存不存在） 1287ms
+   ✓ V10 ④ / coverage V5：切换组织 > 会话已被吊销时切换被拒（HTTP 层：401，且 Guard 抹平了两个码） 577ms
+   ✓ V10 ④ / coverage V5：切换组织 > 会话已被吊销时切换被拒（application 层：SESSION_REVOKED，不是 SESSION_EXPIRED） 786ms
+ ✓ tests/auth/register-new-account-atomic.test.ts (5 tests) 2060ms
+   ✓ the happy path writes all four things, no code involved > each caller gets their OWN organization -- no shared resource to contend on 487ms
+   ✓ the only failure left (EMAIL_TAKEN) leaves NO half organization (I-4) > email taken: refused, and nothing but the FIRST account's rows exist 754ms
+
+ Test Files  2 passed (2)
+      Tests  18 passed (18)
+   Start at  04:49:07
+   Duration  17.16s (transform 3.23s, setup 7ms, collect 1.33s, tests 15.09s, environment 0ms, prepare 53ms)
+
+[db-isolation] db=wsx_org_create_5494 peak_connections=6

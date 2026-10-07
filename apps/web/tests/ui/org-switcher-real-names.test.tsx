@@ -51,10 +51,11 @@ import {
   SESSION_STORAGE_KEY,
 } from "@/components/session/session-provider";
 
-const { replace, resolveIdentity, switchCurrentOrganization } = vi.hoisted(() => ({
+const { replace, resolveIdentity, switchCurrentOrganization, createOrganizationRequest } = vi.hoisted(() => ({
   replace: vi.fn(),
   resolveIdentity: vi.fn(),
   switchCurrentOrganization: vi.fn(),
+  createOrganizationRequest: vi.fn(),
 }));
 
 vi.mock("next/navigation", () => ({
@@ -62,9 +63,9 @@ vi.mock("next/navigation", () => ({
   usePathname: () => "/projects",
   useSearchParams: () => new URLSearchParams(),
 }));
-vi.mock("@/lib/session-api", () => ({ resolveIdentity, switchCurrentOrganization }));
+vi.mock("@/lib/session-api", () => ({ resolveIdentity, switchCurrentOrganization, createOrganizationRequest }));
 
-import { SessionProvider } from "@/components/session/session-provider";
+import { SessionProvider, useOptionalSession, type SessionContextValue } from "@/components/session/session-provider";
 import { AppShell } from "@/components/shell/app-shell";
 
 /** 注册时填的那个组织，以及注册事务顺手建出来的个人本地组织。两者都有真名。 */
@@ -141,6 +142,7 @@ beforeEach(() => {
   replace.mockReset();
   resolveIdentity.mockReset();
   switchCurrentOrganization.mockReset();
+  createOrganizationRequest.mockReset();
   window.localStorage.clear();
   seedSession();
 });
@@ -203,5 +205,46 @@ describe("#596 组织切换器显示真实组织名", () => {
     // 会话本身仍然可用：一个组织读不到名字，不该把人踢出应用。
     expect(screen.getByTestId("app-shell")).toBeTruthy();
     expect(screen.queryByTestId("session-dependency-failed")).toBeNull();
+  });
+  it("创建后刷新真实列表、保留当前组织，用户可选择切换并持久化新组织", async () => {
+    resolveIdentity.mockImplementation(async (id: string) => identityFor(id, id === CURRENT_ORG.id ? CURRENT_ORG.name : OTHER_ORG.name, "organization"));
+    createOrganizationRequest.mockResolvedValue({ orgId: "org-new", orgName: "新组织" });
+    switchCurrentOrganization.mockResolvedValue(identityFor("org-new", "新组织", "organization"));
+    renderShell();
+    await screen.findByTestId("org-switcher");
+    switcherOptions();
+    fireEvent.click(screen.getByTestId("create-organization-entry"));
+    fireEvent.change(screen.getByLabelText("组织名称"), { target: { value: "新组织" } });
+    fireEvent.click(screen.getByTestId("create-organization-submit"));
+    await screen.findByText("组织已创建");
+    expect(switchCurrentOrganization).not.toHaveBeenCalled();
+    const stored = JSON.parse(window.localStorage.getItem(SESSION_STORAGE_KEY)!);
+    expect(stored.currentOrgId).toBe(CURRENT_ORG.id); expect(stored.orgs).toContain("org-new");
+    fireEvent.click(screen.getByText("完成"));
+    await waitFor(() => expect(switcherOptions()).toContain("新组织"));
+    fireEvent.click(screen.getByTestId("org-switcher-option-org-new"));
+    await waitFor(() => expect(switchCurrentOrganization).toHaveBeenCalledWith("org-new", "bearer-596"));
+    await waitFor(() => expect(JSON.parse(window.localStorage.getItem(SESSION_STORAGE_KEY)!).currentOrgId).toBe("org-new"));
+  });
+
+});
+
+
+describe("organization creation session updates", () => {
+  it("concurrent responses merge with latest session rather than losing a created organization", async () => {
+    let current: SessionContextValue | null = null;
+    function Probe() { current = useOptionalSession(); return null; }
+    resolveIdentity.mockResolvedValue(identityFor(CURRENT_ORG.id, CURRENT_ORG.name, "organization"));
+    let finishFirst!: (value: { orgId: string; orgName: string }) => void;
+    createOrganizationRequest.mockImplementationOnce(() => new Promise(resolve => { finishFirst = resolve; }))
+      .mockResolvedValueOnce({ orgId: "org-second", orgName: "Second" });
+    render(<SessionProvider><Probe /></SessionProvider>);
+    await waitFor(() => expect(current?.status).toBe("authenticated"));
+    const first = current!.createOrganization("First", "b9895d9f-e385-46c8-aa29-484dfda7cb02");
+    await current!.createOrganization("Second", "b9895d9f-e385-46c8-aa29-484dfda7cb03");
+    finishFirst({ orgId: "org-first", orgName: "First" }); await first;
+    const stored = JSON.parse(window.localStorage.getItem(SESSION_STORAGE_KEY)!);
+    expect(stored.orgs).toEqual(expect.arrayContaining(["org-first", "org-second"]));
+    expect(stored.currentOrgId).toBe(CURRENT_ORG.id);
   });
 });

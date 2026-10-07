@@ -103,6 +103,7 @@ export const AuthReason = z.enum([
   "AUTH_SERVICE_UNAVAILABLE",
   /** 数据库已有任意账号；首用户无邀请码入口从此永久关闭。 */
   "BOOTSTRAP_UNAVAILABLE",
+  "ORGANIZATION_CREATION_CONFLICT",
 
   /* ── F22 追加。⚠ 只许追加，不许改写上面的成员 ────────────────────────── */
 
@@ -385,6 +386,13 @@ export const operations = {
    * 靠 body 里有没有 `code` 分支——那种分支会让"要不要建新账号"由一个可伪造的
    * 请求体字段决定。
    */
+  /** Authenticated account; requestId is stable across retries. */
+  createOrganization: {
+    method: "POST", path: "/auth/organizations",
+    in: z.object({ orgName: z.string().trim().min(1).max(100), requestId: z.string().uuid() }).strict(),
+    out: z.object({ orgId: z.string(), orgName: z.string() }).strict(),
+    err: ["SESSION_REVOKED", "EMAIL_NOT_VERIFIED", "ORGANIZATION_CREATION_CONFLICT"] as const,
+  },
   registerNewAccount: {
     method: "POST",
     path: "/auth/register-open",

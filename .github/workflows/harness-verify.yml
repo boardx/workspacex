@@ -531,6 +531,28 @@ jobs:
           MERGE_GROUP_HEAD_SHA: ${{ github.event.merge_group.head_sha }}
         run: pnpm harness merge-gate --merge-group
 
+  # API-fixture browser coverage for logged-in organization creation (#5494).
+  organization-create:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v5
+        with: { fetch-depth: 0, persist-credentials: false }
+      - uses: pnpm/action-setup@v4.4.0
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter web exec playwright install --with-deps chromium
+      - run: pnpm --filter web exec playwright test --config playwright.organization-create.config.ts
+      - name: Upload organization creation fixture screenshots
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: organization-create-api-fixture-${{ github.run_id }}
+          path: evidence/org-create-5494/*.png
+
   fullstack-smoke:
     if: github.event_name != 'schedule' || github.event.schedule == '0 * * * *'
     runs-on: ubuntu-latest

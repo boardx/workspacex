@@ -1,0 +1,36 @@
+# 登录后新建组织（Refs #5494）
+
+基线：远程 main `0d4a041f3`；独立分支 `worker/codex-org-create`。
+
+现有登录账号可从左上角组织菜单创建组织，名称 1–100 字符，创建者复用现有 admin 角色。成功后刷新并持久化组织列表，用户选择后走既有切换流程；创建、取消、失败均不改变当前组织。请求 UUID 与认证用户绑定，PG advisory lock 串行化重试，组织、管理员成员、三类系统 Agent 和幂等收据同一事务提交。未配置套餐/预算/私有模型保持未配置，与当前注册路径一致；不复制任何其他租户数据，不创建第二份账号或个人本地组织。
+
+## 验证
+
+- `./init.sh`：通过（标准快速初始化，非 `--full`）。
+- API/Web/contracts typecheck、API/Web lint：通过。
+- 新增后端：13 条通过（追加了错误 creator/request 回执不得披露的反证），含真实 PG 并发、原子失败重试、RLS；真实 HTTP 默认鉴权、body 身份/租户注入拒绝与 409 契约。
+- 既有注册与多组织成员/切换回归：18 条通过。
+- UI：8 条通过，含校验、loading、重复提交、取消、重试同 key、组织列表持久化、切换及并发响应合并。
+- contracts 全套：122 文件、1204 条通过。
+- Playwright：1 条通过，创建/取消/失败重试/刷新/切换。
+- 契约路由、同源 rewrite 覆盖：通过。
+- 全局颜色 token 检查：失败；干净 main 基线重现相同错误，位于现有白板和模型目录文件，与此改动无关（对照日志）。
+- Web 全套（沙箱）：907 文件，901 通过 / 6 失败；7811 条通过 / 11 失败 / 5 跳过，7 条环境错误。六个失败文件均因沙箱阻止 tsx IPC、本机监听或 Chromium；在允许这些本机能力的环境定向重跑全部六文件 53/53 通过（40 + 6 + 7）。全套汇总与分组重跑日志均保留，未将原失败运行改报全绿。
+- `verify:base` 已按隔离 wrapper 执行，在 `lint:vocabulary` 被 main 原有 `docs/testing/d011-reconstruction/canvas-inventory.md:34` 的 MAAU 词汇错误阻止；已核对 origin/main 同一行，后续链未执行。API 全套隔离运行结果和最终 SHA CI 终态另见 PR 更新；`init.sh --full`、真实模型调用未运行。
+- CI 续检修复了本次引入的三项失败：取消创建回执权限 allowlist（使用 Guarded + creator/request 规则，权限反证 31/31）；同步 auth 生成 mock；将组织创建 Playwright 接入实际 CI job。API typecheck/lint、契约源门禁、E2E 覆盖门禁及本机 Chromium 重跑通过。
+
+初次数据库验证仅连接本机任务专属栈 `wsx-org-create-5494`、端口 `55494`、库 `wsx_org_create_5494`。测试夹具已清理，任务专属栈已释放。后续补跑使用标准 `with-test-isolation.ts` wrapper 自动分配任务专属数据库/端口并清理。
+
+## 浏览器证据
+
+三张 PNG 来自**用户 Mac 上实际运行的 Chromium**，访问本地 `127.0.0.1:30494`。浏览器使用明确的 API 模拟夹具，不是生产截图或真实组织创建证明；数据库行为由独立真实 PostgreSQL 测试验证。已查看 `create-dialog.png` 核验布局。
+
+可重跑：`pnpm --filter web exec playwright test --config playwright.organization-create.config.ts`。
+
+未访问或更改生产、原发布目录、生产导入证据；未合并或部署。Word 参考未下载，本次依据用户完整提示实现。
+
+## PR / CI
+
+Draft PR：https://github.com/boardx/workspacex/pull/5497（main）。pre-push 20 项受影响 build/typecheck/lint 全部通过。GitHub CI 已启动；最终提交的检查状态以 PR checks 页面为准，未宣称 CI 全绿。此 PR 无合并部署授权。
+
+Library 实际保存 ID（均本机 API fixture 截图）：dialog `libfile_c831ae6a1e048191a834226ff395206a`；success `libfile_03e5b64bc5608191b4c9838517b17248`；menu `libfile_d616e1576c608191b2b5ad2a040c9dfa`。

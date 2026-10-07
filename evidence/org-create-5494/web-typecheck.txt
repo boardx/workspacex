@@ -1,0 +1,4 @@
+
+> web@0.1.0 typecheck /Users/shenyanbin/Documents/Codex/2026-10-07/task-3/workspacex/apps/web
+> tsc --noEmit
+

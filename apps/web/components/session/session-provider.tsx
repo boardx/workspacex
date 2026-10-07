@@ -12,6 +12,7 @@ import type { Identity } from "@/lib/identity";
 import { mockIdentity, MOCK_ORGS } from "@/lib/identity";
 import type { OrganizationSummary } from "@/lib/org-display";
 import {
+  createOrganizationRequest,
   resolveIdentity,
   switchCurrentOrganization,
   type ResolvedIdentity,
@@ -50,6 +51,7 @@ export interface SessionContextValue {
   readonly error: ApiError | Error | null;
   startSession(login: LoginOut, replacement?: { expectedToken: string | null }): Promise<void>;
   switchOrganization(orgId: string): Promise<void>;
+  createOrganization(orgName: string, requestId: string): Promise<{ orgId: string; orgName: string }>;
   retry(): Promise<void>;
   logout(): Promise<void>;
   /**
@@ -377,6 +379,26 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     }
   }, [handleFailure, session]);
 
+  const createOrganization = React.useCallback(async (orgName: string, requestId: string) => {
+    if (!session || status !== "authenticated") throw new Error("session_required");
+    const generation = generationRef.current;
+    const created = await createOrganizationRequest(orgName, requestId, session.sessionToken);
+    await withSessionStorageLock(() => {
+      if (generation !== generationRef.current || getStoredSessionToken() !== session.sessionToken) {
+        throw new SessionReplacementSupersededError();
+      }
+      const latest = readSession();
+      if (latest.kind !== "ready" || latest.session.userId !== session.userId) {
+        throw new SessionReplacementSupersededError();
+      }
+      const next = { ...latest.session, orgIds: Array.from(new Set([...latest.session.orgIds, created.orgId])) };
+      persistSessionWhileLocked(next);
+      mergeOrgNames([[created.orgId, created.orgName]]);
+      setSession(next);
+    });
+    return created;
+  }, [mergeOrgNames, session, status]);
+
   const retry = React.useCallback(async () => {
     if (!session) return;
     const generation = ++generationRef.current;
@@ -416,9 +438,9 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
 
   const value = React.useMemo<SessionContextValue>(() => ({
     status, session, identity, organizations, error,
-    startSession, switchOrganization, retry, logout, updateDisplayName, updateOrgName, updateAvatarUrl,
+    startSession, switchOrganization, createOrganization, retry, logout, updateDisplayName, updateOrgName, updateAvatarUrl,
   }), [
-    error, identity, logout, organizations, retry, session, startSession, status,
+    createOrganization, error, identity, logout, organizations, retry, session, startSession, status,
     switchOrganization, updateDisplayName, updateOrgName, updateAvatarUrl,
   ]);
 
@@ -461,6 +483,7 @@ export function PreviewSessionProvider({
       error: null,
       startSession: noopAsync,
       switchOrganization: noopAsync,
+      createOrganization: async () => { throw new Error("session_required"); },
       retry: noopAsync,
       logout: async () => undefined,
       updateDisplayName: noop,

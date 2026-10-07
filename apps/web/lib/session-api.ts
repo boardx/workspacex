@@ -28,3 +28,9 @@ export async function switchCurrentOrganization(
   });
   return resolveIdentity(toOrgId, sessionToken);
 }
+
+export async function createOrganizationRequest(orgName: string, requestId: string, sessionToken: string) {
+  return apiRequest<{ orgId: string; orgName: string }>(auth.operations.createOrganization.path, {
+    method: "POST", body: { orgName, requestId }, sessionToken,
+  });
+}

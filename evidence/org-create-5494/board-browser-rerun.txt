@@ -1,0 +1,14 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyanbin/Documents/Codex/2026-10-07/task-3/workspacex/apps/web
+
+ ✓ tests/ui/board-drawing-choice-style.test.ts (1 test) 837ms
+   ✓ uses instrument alpha once within a stroke and source-over between independent strokes 836ms
+ ✓ tests/ui/board-drawing-stroke-path.test.ts (5 tests) 840ms
+   ✓ composites joint alpha once in real browser pixels and retains scaled eraser masks 835ms
+
+ Test Files  2 passed (2)
+      Tests  6 passed (6)
+   Start at  04:59:30
+   Duration  1.65s (transform 65ms, setup 370ms, collect 780ms, tests 1.68s, environment 0ms, prepare 100ms)
+
