@@ -16,10 +16,12 @@ export async function researchFieldFingerprints(state: Runtime) {
 /** Restore immutable historical evidence from the complete merged source snapshot. */
 export function restorePreviousSourceReferences(state: Runtime, ids?: string[]): Runtime {
   if (!ids) return state;
-  if (!state.reportPrevious || state.reportPrevious.sources.length || new Set(ids).size !== ids.length) throw new ApiError(502, "RESEARCH_STATE_SOURCE_REFERENCE_INVALID", null);
+  if (!state.reportPrevious || new Set(ids).size !== ids.length) throw new ApiError(502, "RESEARCH_STATE_SOURCE_REFERENCE_INVALID", null);
   const byId = new Map(state.sources.map(source => [source.id, source]));
-  if (byId.size !== state.sources.length || ids.some(id => !byId.has(id))) throw new ApiError(502, "RESEARCH_STATE_SOURCE_REFERENCE_INVALID", null);
-  return { ...state, reportPrevious: { ...state.reportPrevious, sources: ids.map(id => structuredClone(byId.get(id)!)) } };
+  const historical = new Map(state.reportPrevious.sources.map(source => [source.id, source]));
+  if (byId.size !== state.sources.length || historical.size !== state.reportPrevious.sources.length
+    || [...historical.keys()].some(id => !ids.includes(id)) || ids.some(id => !historical.has(id) && !byId.has(id))) throw new ApiError(502, "RESEARCH_STATE_SOURCE_REFERENCE_INVALID", null);
+  return { ...state, reportPrevious: { ...state.reportPrevious, sources: ids.map(id => structuredClone(historical.get(id) ?? byId.get(id)!)) } };
 }
 
 export function mergeResearchDelta(current: Runtime, patch: RuntimePatch): Runtime {

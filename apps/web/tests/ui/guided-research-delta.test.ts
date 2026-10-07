@@ -48,3 +48,14 @@ it("rebuilds independent historical source copies from the full merged patch in 
   expect(() => mergeResearchDelta(state, { ...compact, previousSourceIds: ["missing"] })).toThrow("RESEARCH_STATE_SOURCE_REFERENCE_INVALID");
   expect(() => mergeResearchDelta(state, { ...compact, previousSourceIds: ["s1", "s1"] })).toThrow("RESEARCH_STATE_SOURCE_REFERENCE_INVALID");
 });
+
+it("restores shared bodies alongside explicit historical differences without borrowing current evidence", () => {
+  const source = { id: "s1", taskId: "t", title: "Source", url: "https://example.org/s", content: "current fetched evidence", retrievedAt: "now", decision: "accepted" as const };
+  const second = { ...source, id: "s2" };
+  const historical = { ...source, content: "distinct archived evidence" };
+  const previous = { title: "Previous", createdAt: "now", report: null, text: "", chapters: [], sources: [historical], outline: [], aliases: [] };
+  const next = mergeResearchDelta(state, { ...patch, changes: { sources: [source, second], reportPrevious: previous }, previousSourceIds: ["s2", "s1"], removed: [] });
+  expect(next.reportPrevious?.sources.map(item => item.content)).toEqual([second.content, historical.content]);
+  expect(next.reportPrevious?.sources[0]).not.toBe(next.sources[1]);
+  expect(() => mergeResearchDelta(state, { ...patch, changes: { sources: [source, second], reportPrevious: previous }, previousSourceIds: ["s2"], removed: [] })).toThrow("RESEARCH_STATE_SOURCE_REFERENCE_INVALID");
+});

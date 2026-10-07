@@ -270,6 +270,8 @@ it("shares only byte-identical history sources and preserves historical ordering
   expect(compactRuntimePatch(current, known, runtimeDelta(current, known))).toHaveProperty("previousSourceIds");
   expect(compactRuntimePatch(current, fingerprints(), { ...patch, changes: { reportPrevious: previous } })).not.toHaveProperty("previousSourceIds");
   expect(C.GuidedResearchRuntimePatch.safeParse({ ...patch, previousSourceIds: ["s1", "s1"] }).success).toBe(false);
+  const different = { ...source, content: "distinct archived body" };
+  expect(compactPreviousSources({ ...current, reportPrevious: { ...previous, sources: [second, different] } })).toMatchObject({ previousSourceIds: ["s2", "s1"], reportPrevious: { sources: [different] } });
 });
 
 it("negotiates compact GET while retaining full legacy history and read authorization", async () => {

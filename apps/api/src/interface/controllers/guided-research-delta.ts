@@ -67,9 +67,10 @@ export function compactPreviousSources<T extends { sources: ResearchRuntime["sou
   const previous = state.reportPrevious;
   if (!previous?.sources.length) return state;
   const sources = new Map(state.sources.map(source => [source.id, source]));
-  if (sources.size !== state.sources.length || new Set(previous.sources.map(source => source.id)).size !== previous.sources.length
-    || !previous.sources.every(source => sources.has(source.id) && fieldFingerprint(source) === fieldFingerprint(sources.get(source.id)))) return state;
-  return { ...state, reportPrevious: { ...previous, sources: [] }, previousSourceIds: previous.sources.map(source => source.id) };
+  if (sources.size !== state.sources.length || new Set(previous.sources.map(source => source.id)).size !== previous.sources.length) return state;
+  const shared = new Set(previous.sources.filter(source => sources.has(source.id) && fieldFingerprint(source) === fieldFingerprint(sources.get(source.id))).map(source => source.id));
+  if (!shared.size) return state;
+  return { ...state, reportPrevious: { ...previous, sources: previous.sources.filter(source => !shared.has(source.id)) }, previousSourceIds: previous.sources.map(source => source.id) };
 }
 
 export function compactRuntimePatch(state: ResearchRuntime, known: z.infer<typeof C.GuidedResearchRuntimeKnownFields>, patch: z.infer<typeof C.GuidedResearchRuntimePatch>) {
