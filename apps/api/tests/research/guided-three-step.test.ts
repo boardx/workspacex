@@ -34,6 +34,45 @@ function fixture() {
 }
 
 describe("three visible stages with durable composite execution", () => {
+  it("accepts topic-only brief generation while retaining the complete original research scope", async () => {
+    const f = fixture(); const complete = f.model.complete.getMockImplementation()!;
+    const brief = { ...f.latest().brief, topic: C.DEFAULT_RESEARCH_NAME, goal: "完整需求".repeat(10000), focus: "原始重点", region: "中国", timeRange: "2026" };
+    f.set({ ...f.latest(), brief });
+    f.model.complete.mockImplementation(async input => input.system.includes("Generate the brief step")
+      ? { text: JSON.stringify({ topic: "企业知识库" }) } : complete(input));
+    const result = await f.run("prepare_plan");
+    expect(result.errorCode).toBeNull();
+    expect(result.brief).toEqual({ ...brief, topic: "企业知识库" });
+    expect(result.brief.goal).toHaveLength(40000);
+    const input = f.model.complete.mock.calls[0]![0];
+    expect(input.system).toContain('Output exactly {"topic":string}');
+    expect(JSON.parse(input.user)).toEqual({ brief });
+    expect(f.model.complete).toHaveBeenCalledTimes(3);
+  });
+  it("keeps previous report, source and message bodies out of direction generation", async () => {
+    const f = fixture();
+    const old = f.latest();
+    f.set({ ...old, currentNode: "directions", availableNodes: ["brief", "directions"],
+      sources: [{ id: "s", taskId: "t", title: "Old source", url: "https://example.org/old", content: "UNRELATED_SOURCE_BODY", retrievedAt: "now", decision: "accepted" }],
+      report: { title: "Old report", summary: "UNRELATED_REPORT_BODY", sections: [{ sectionId: "old", body: "UNRELATED_REPORT_BODY", sourceIds: [] }] },
+      messages: [{ id: "m", node: "brief", role: "assistant", text: "UNRELATED_MESSAGE_BODY", createdAt: "now" }] });
+    const result = await f.run("generate", "directions");
+    expect(result.errorCode).toBeNull();
+    const input = f.model.complete.mock.calls[0]![0];
+    expect(JSON.parse(input.user)).toEqual({ brief: old.brief });
+    expect(input.user).not.toContain("UNRELATED_");
+    expect(result.directions.every(item => item.decisionQuestions?.length && item.evidenceNeeds?.length)).toBe(true);
+  });
+  it.each([{}, { topic: "" }, { topic: C.DEFAULT_RESEARCH_NAME }, { topic: 7 }, { topic: "x".repeat(201) }, null])("rejects invalid topic-only metadata before downstream planning: %j", async value => {
+    const f = fixture();
+    f.set({ ...f.latest(), brief: { ...f.latest().brief, topic: C.DEFAULT_RESEARCH_NAME } });
+    f.model.complete.mockResolvedValue({ text: JSON.stringify(value) });
+    const result = await f.run("prepare_plan");
+    expect(result.errorCode).toBe("RESEARCH_NODE_STATE_INVALID");
+    expect(result.directions).toEqual([]); expect(result.outline).toEqual([]);
+    expect(result.brief.topic).toBe(C.DEFAULT_RESEARCH_NAME);
+    expect(f.model.complete).toHaveBeenCalledTimes(1);
+  });
   it("accepts only well-positioned composite commands without a partial-research escape hatch", () => {
     const base = { sessionId: "s", requestId: "r", expectedVersion: 0 };
     expect(C.GuidedResearchRuntimeCommand.safeParse({ ...base, node: "brief", action: "prepare_plan" }).success).toBe(true);
