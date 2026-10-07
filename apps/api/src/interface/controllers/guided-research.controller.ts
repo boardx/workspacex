@@ -91,13 +91,26 @@ export class GuidedResearchController {
     const detach = () => { connected = false; };
     response.on("close", detach);
     let initialized = false;
+    let sourceCursor: string | undefined;
     let cursor: { requestId?: string; text: string } = { text: "" };
     const send = (event: import("../../application/research/guided-runtime-ports").RuntimeStreamEvent) => {
       if (!connected || response.destroyed) return;
       // Bound a slow observer's output buffer; recovery reads the durable snapshot.
       if (response.writableLength > 1048576) { connected = false; response.end(); return; }
       if (knownFields && (event.type === "snapshot" || event.type === "result")) {
-        const patch = runtimeDelta(event.state, knownFields);
+        // During collection, publish the same source metadata as polling rather
+        // than retransmitting every retained excerpt when one source changes.
+        // The terminal result remains the complete field-delta authority.
+        const patch = event.type === "snapshot" && event.state.currentNode === "research"
+          ? runtimePollingDelta(event.state, knownFields, undefined, 0, undefined, sourceCursor)
+          : runtimeDelta(event.state, knownFields);
+        if (patch.research) {
+          sourceCursor = patch.research.cursor;
+          // Metadata may remove/change a baseline source then restore it.
+          // It is not a complete-source fingerprint: force the next full
+          // result/report snapshot to hydrate authoritative contents.
+          delete knownFields.sources;
+        }
         rememberRuntimeDelta(knownFields, patch);
         if (Object.hasOwn(patch.changes, "reportStream")) clientStream = patch.changes.reportStream;
         else if (!clientStream) clientStream = event.state.reportStream;

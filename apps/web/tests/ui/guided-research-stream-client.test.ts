@@ -43,3 +43,22 @@ it("reconstructs streamed field patches and report deltas without replacing unch
   expect(state.busy).toBe(false);
   expect(state.reportStream?.text).toBe("报告正文");
 });
+
+it("merges research metadata, removes deleted sources, and restores authoritative bodies at completion", async () => {
+  const source = { id: "source", taskId: "task", title: "Old title", url: "https://example.org/evidence", content: "retained real body", retrievedAt: "now", decision: "accepted" as const };
+  const baseline = { ...runtime, version: 7, sources: [source, { ...source, id: "deleted" }] };
+  const metadata = { id: source.id, taskId: source.taskId, title: "Updated title", url: source.url, retrievedAt: "later", decision: source.decision };
+  const discovered = { ...metadata, id: "new", title: "New source", url: "https://example.org/new" };
+  const patch = { type: "patch", sessionId: "session", version: 8, revision: 2, changes: { busy: true, currentNode: "research" }, removed: [], research: { cursor: "a".repeat(64), sources: [metadata, discovered] } };
+  const full = [{ ...source, ...metadata, content: "updated authoritative body" }, { ...source, ...discovered, content: "new real body" }];
+  const result = { ...patch, research: undefined, changes: { busy: false, sources: full } };
+  respond(`data: ${JSON.stringify({ type: "patch", state: patch })}\n\ndata: ${JSON.stringify({ type: "result_patch", state: result })}\n\n`);
+  const onEvent = vi.fn();
+  const final = await streamResearchCommand(command, onEvent, undefined, baseline);
+  const intermediate = onEvent.mock.calls[0]?.[0].state as GuidedResearchRuntime;
+  expect(intermediate.sources.map(item => item.id)).toEqual(["source", "new"]);
+  expect(intermediate.sources[0]?.content).toBe("retained real body");
+  expect(intermediate.sources[1]?.content).toBe("New source");
+  expect(final.sources).toEqual(full);
+  expect(fetch).toHaveBeenCalledTimes(1);
+});
