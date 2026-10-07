@@ -1,3 +1,4 @@
+import { reviewChapter } from "../../src/application/research/guided-report-quality";
 import { research as C } from "@repo/contracts";
 import { ModelCallError } from "../../src/application/agent-run/ports";
 import { reportBasis, reportSourceAliases, canonicalReportText, aliasResolver } from "../../src/application/research/guided-report-checkpoint";
@@ -87,6 +88,26 @@ describe("report conversation regeneration", () => {
   });
 });
 
+describe("lossless quality review excerpt sharing", () => {
+  it.each([true, false])("shares quotes only within the same source: %s", async (sameSource) => {
+    const quote = "The exact verified excerpt retains punctuation and uncertainty: 中文，未核实。";
+    const evidence = ["q1", "q2"].map((id, index) => ({ id, questionId: id, sectionId: "b", question: "Compare the limited requirement", gap: false,
+      evidence: [{ sourceId: sameSource || index === 0 ? "source-b" : "source-a", quote, insight: "Limited interpretation", relevance: "direct" as const }] }));
+    const original = structuredClone(evidence);
+    const result = await reviewChapter({ sectionId: "b", body: body("source-b"), sourceIds: ["source-b"] }, section("b", "Policy", 0), evidence, config, async (input, validate) => {
+      const context = JSON.parse(input.user);
+      expect(context.verifiedExcerpts).toHaveLength(sameSource ? 1 : 2);
+      for (const question of context.evidenceByQuestion) for (const item of question.evidence) {
+        const excerpt = context.verifiedExcerpts.find((value: any) => value.id === item.quoteRef);
+        expect(excerpt.quote).toBe(quote); expect(excerpt.sourceId).toBe(item.sourceId);
+        expect(item).not.toHaveProperty("quote");
+      }
+      return validate(JSON.stringify({ questions: evidence.map((question) => ({ questionId: question.id, status: "answered", rationale: "Supported by the exact excerpt" })), supported: true, analysisDepth: "adequate", issues: [] }));
+    });
+    expect(result.passed).toBe(true); expect(evidence).toEqual(original);
+  });
+});
+
 describe("chapter-based report generation", () => {
   it("rejects callbacks retained by a failed stream attempt during retry", async () => {
     const f = fixture();
@@ -171,7 +192,7 @@ describe("chapter-based report generation", () => {
     const report = await generateReportChapters(f.state, model, config, f.persist);
     expect(contexts.map((c) => c.reportStage)).toEqual(["evidence", "chapter", "chapter", "quality", "quality", "synthesis"]);
     expect(contexts.filter((c) => c.reportStage === "chapter").map((c) => c.section.title)).toEqual(["Second specified title", "First specified title"]);
-    expect(contexts[1]!.sources[0]).toMatchObject({ id: "source-b", contentKind: "verified_search_excerpt" });
+    expect(contexts[1]!.sources[0]).toMatchObject({ id: "S2", contentKind: "verified_search_excerpt" });
     expect(contexts[1]!.section.questions).toEqual(["What does b establish?"]);
     expect(report.sections.map((s) => s.sectionId)).toEqual(["b", "a"]);
     expect(f.state.modelCalls.map((call) => call.status)).toEqual(Array(6).fill("succeeded"));
@@ -404,7 +425,7 @@ describe("chapter-based report generation", () => {
     await generateReportChapters(f.state, model, config, f.persist, undefined, true);
     const rewrite = calls.find(context => context.reportStage === "chapter");
     expect(rewrite.previousReview.issues).toEqual(warnings![0]!.issues);
-    expect(rewrite.previousChapter).toEqual(previous!.chapters[0]);
+    expect(rewrite.previousChapter).toEqual({ ...previous!.chapters[0], body: previous!.chapters[0]!.body.replaceAll("[[source:source-b]]", "[[source:S2]]"), sourceIds: ["S2"] });
     expect(f.state.reportQualityWarnings).toEqual([]);
   });
 
@@ -520,6 +541,23 @@ describe("chapter-based report generation", () => {
     expect(JSON.parse(f.state.reportStream!.text)).toEqual(report);
     expect(f.state.reportStream!.text).not.toContain("[[source:S2]]");
   });
+  it("keeps canonical UUIDs out of chapter generation and repair evidence context", async () => {
+    const f = fixture(); f.state.outline = [f.state.outline[0]!]; let repairs = 0;
+    const model: ModelCallPort = { complete: async (input) => {
+      const context = JSON.parse(input.user);
+      if (["chapter", "chapter_revision"].includes(context.reportStage)) {
+        expect(context.sources.every((source: any) => /^S\d+$/.test(source.id) && source.id === source.alias)).toBe(true);
+        expect(context.evidenceByQuestion.flatMap((q: any) => q.evidence).every((e: any) => /^S\d+$/.test(e.sourceId))).toBe(true);
+        expect(context.citationScope.allowedSources.every((source: any) => /^S\d+$/.test(source.sourceId))).toBe(true);
+        if (context.reportStage === "chapter") return { text: JSON.stringify({ sectionId: context.section.id, body: body("unknown-id"), sourceIds: ["unknown-id"] }) };
+        repairs++;
+      }
+      return { text: JSON.stringify(answer(context)) };
+    } };
+    const report = await generateReportChapters(f.state, model, config, f.persist);
+    expect(repairs).toBe(1); expect(report.sections[0]!.sourceIds).toEqual(["source-b"]);
+  });
+
   it("uses exact short aliases in synthesis and diagnoses a corrupted UUID without guessing", async () => {
     const f = fixture(); f.state.outline = [f.state.outline[0]!]; let revisions = 0; let chapters = 0;
     const model: ModelCallPort = { complete: async (input) => {
@@ -870,13 +908,13 @@ describe("formal report gate after partial coverage rejection", () => {
     const session = { sessionId: "s", brief: f.state.brief, directions: { versions: [] }, outline: { versions: [] }, sourceCount: 0, status: "draft", resumeStage: "brief" } as any;
     const result = await service.execute(actor, session, { sessionId: "s", requestId: "draft", node: "report", action: "generate", expectedVersion: 4 });
     expect(result.report).toBeNull(); expect(result.completed).toBe(false); expect(result.generatedNodes).not.toContain("report");
-    expect(result.errorCode).toBeNull(); expect(verifications).toBe(2);
+    expect(result.errorCode).toBeNull(); expect(verifications).toBe(failure === "malformed" ? 4 : 2);
     expect(result.reportDraft?.sections).toHaveLength(1); expect(result.reportQualityWarnings?.[0]?.sectionId).toBe("b");
-    expect(verifications).toBe(2);
+    expect(verifications).toBe(failure === "malformed" ? 4 : 2);
     await service.execute(actor, session, { sessionId: "s", requestId: "complete", node: "report", action: "complete", expectedVersion: 4 });
-    expect(f.state.completed).toBe(false); expect(f.state.report).toBeNull(); expect(f.state.errorCode).toBeTruthy(); expect(verifications).toBe(4);
+    expect(f.state.completed).toBe(false); expect(f.state.report).toBeNull(); expect(f.state.errorCode).toBeTruthy(); expect(verifications).toBe(failure === "malformed" ? 8 : 4);
     await service.execute(actor, session, { sessionId: "s", requestId: "retry", node: "report", action: "retry", expectedVersion: 4 });
-    expect(verifications).toBe(6); expect(f.state.completed).toBe(false); expect(f.state.reportQualityWarnings?.[0]?.sectionId).toBe("b");
+    expect(verifications).toBe(failure === "malformed" ? 12 : 6); expect(f.state.completed).toBe(false); expect(f.state.reportQualityWarnings?.[0]?.sectionId).toBe("b");
   });
 });
 
@@ -1296,4 +1334,40 @@ it("resumes an unchanged report basis without re-screening already prepared sour
     expect(prompt).toContain("Preserve the user's language");
     expect(prompt).not.toMatch(/prose only in (Chinese|English)/);
   }
+});
+
+ describe("strict review nested issue compatibility", () => {
+  it.each([{ issues: [] as string[] }, { issues: ["Unsupported causal claim"] }])("preserves nested findings %j", async ({ issues }) => {
+    const evidence = [{ id: "q1", questionId: "q1", sectionId: "b", question: "Policy?", gap: false, evidence: [] }];
+    const result = await reviewChapter({ sectionId: "b", body: body("source-b"), sourceIds: ["source-b"] }, section("b", "Policy", 0), evidence, config, async (_input, validate) => validate(JSON.stringify({ questions: [{ questionId: "q1", status: "answered", rationale: "Supported", issues }], supported: true, analysisDepth: "adequate", issues: [] })));
+    expect(result.passed).toBe(issues.length === 0);
+    expect(result.review.issues).toEqual(issues.map((issue) => `q1: ${issue}`));
+  });
+  it.each([{ issues: "bad" }, { issues: [], extra: true }, { issues: [], questionId: "unknown" }])("retains strict rejection %j", async (extra) => {
+    const evidence = [{ id: "q1", questionId: "q1", sectionId: "b", question: "Policy?", gap: false, evidence: [] }];
+    await expect(reviewChapter({ sectionId: "b", body: body("source-b"), sourceIds: ["source-b"] }, section("b", "Policy", 0), evidence, config, async (_input, validate) => validate(JSON.stringify({ questions: [{ questionId: "q1", status: "answered", rationale: "Supported", ...extra }], supported: true, analysisDepth: "adequate", issues: [] })))).rejects.toThrow();
+  });
+});
+
+it.each(["invalid json", JSON.stringify({ questions: [null] })])("repairs review formatting once without hiding a negative verdict: %s", async (malformed) => {
+  let calls = 0;
+  const evidence = [{ id: "q1", questionId: "q1", sectionId: "b", question: "Policy?", gap: false, evidence: [] }];
+  const result = await reviewChapter({ sectionId: "b", body: body("source-b"), sourceIds: ["source-b"] }, section("b", "Policy", 0), evidence, config, async (input, validate) => {
+    calls++;
+    if (calls === 1) return validate(malformed);
+    const context = JSON.parse(input.user);
+    expect(context.malformedReview).toBe(malformed);
+    expect(context.chapter.body).toBe(body("source-b"));
+    return validate(JSON.stringify({ questions: [{ questionId: "q1", status: "missing", rationale: "Unsupported claim" }], supported: false, analysisDepth: "shallow", issues: ["Unsupported claim"] }));
+  });
+  expect(calls).toBe(2); expect(result.passed).toBe(false); expect(result.issues).toContain("Unsupported claim");
+});
+it("cannot turn malformed negative review into approval", async () => {
+  let calls = 0;
+  const evidence = [{ id: "q1", questionId: "q1", sectionId: "b", question: "Policy?", gap: false, evidence: [] }];
+  await expect(reviewChapter({ sectionId: "b", body: body("source-b"), sourceIds: ["source-b"] }, section("b", "Policy", 0), evidence, config, async (_input, validate) => {
+    calls++;
+    return validate(JSON.stringify({ questions: [{ questionId: "q1", status: calls === 1 ? "missing" : "answered", rationale: "Verdict" }], supported: calls !== 1, analysisDepth: calls === 1 ? "shallow" : "adequate", issues: calls === 1 ? ["Unsupported causal claim"] : [], ...(calls === 1 ? { unexpected: true } : {}) }));
+  })).rejects.toThrow("RESEARCH_REPORT_QUALITY_INSUFFICIENT");
+  expect(calls).toBe(2);
 });

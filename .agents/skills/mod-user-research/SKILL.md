@@ -70,3 +70,5 @@ description: 用户研究计划、资料检索、来源证据和研究报告；�
 - 2026-10-05：用户以「约十分钟完成报告」软性能目标覆盖旧整轮三分钟 deadline。搜索与报告来源准备使用无整轮计时的作用域，逐次 search/read/model 请求仍限时且透传取消；达到 180 秒或 600 秒不得自动把整轮/剩余任务标失败。旧持久化预算失败仅显示上次中断，保留来源与任务，显式重试恢复；plan/model 单调用限时不等同整轮 deadline（替代旧整轮限时约定，出处：issue #5359）。
 
 - 2026-10-07：堆叠 PR 的 MERGED 只代表进入其 base 分支；检查 baseRefName 和 main祖先关系后再声明主线交付。初始检索按章共享时，全部已确认问题与逐题证据门仍保留，旧任务重试不重建；五章六十题反证必须同时检查任务数与问题缺口（出处：issue #5496）。
+
+- #5502 follow-up: model review JSON format errors must not trigger prose rewrites. Preserve recoverable negative verdicts/issues mechanically during bounded formatting repair; passing evidence gaps differ from omitted chapter answers. Model-only chapter source aliases and exact quote registries reduce copying without changing canonical provenance. Real continuation and browser reload evidence: docs/verification/research-synthesis-citations-5502/README.md.
