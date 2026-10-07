@@ -18,7 +18,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: actions/checkout@v5
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
@@ -26,7 +26,7 @@ jobs:
         run: python3 -B -m unittest discover -s tests -p test_cloud_build_only.py -v
       - name: Resolve public base digests once for all five builds
         run: python3 scripts/cloud-build-only.py plan --output build-only-plan.json
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      - uses: actions/upload-artifact@v6
         with:
           name: build-only-plan-${{ github.run_attempt }}
           path: build-only-plan.json
@@ -42,17 +42,17 @@ jobs:
       matrix:
         service: [api, web, agent, sandbox, postgres]
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: actions/checkout@v5
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           path: control
           persist-credentials: false
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: actions/checkout@v5
         with:
           ref: fcdd09cdc230b08947f19defb425e86988a3ecc0
           path: source
           persist-credentials: false
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
         with:
           name: build-only-plan-${{ github.run_attempt }}
           path: plan
@@ -61,7 +61,7 @@ jobs:
         env:
           SERVICE: ${{ matrix.service }}
         run: python3 ../control/scripts/cloud-build-only.py build --plan ../plan/build-only-plan.json --service "$SERVICE" --output ../build-only-result.json
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      - uses: actions/upload-artifact@v6
         with:
           name: build-only-result-${{ github.run_attempt }}-${{ matrix.service }}
           path: build-only-result.json

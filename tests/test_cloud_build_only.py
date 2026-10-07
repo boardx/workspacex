@@ -107,5 +107,7 @@ class BuildOnlyTests(unittest.TestCase):
         self.assertIn('max-parallel: 5',workflow)
         self.assertIn('github.event.pull_request.draft == false',workflow)
         self.assertIn('persist-credentials: false',workflow)
+        uses = [line.strip().split('uses: ', 1)[1] for line in workflow.splitlines() if 'uses: ' in line]
+        self.assertEqual(set(uses), {'actions/checkout@v5', 'actions/upload-artifact@v6', 'actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c'})
 
 if __name__ == '__main__': unittest.main()
