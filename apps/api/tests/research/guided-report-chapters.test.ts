@@ -1371,3 +1371,18 @@ it("cannot turn malformed negative review into approval", async () => {
   })).rejects.toThrow("RESEARCH_REPORT_QUALITY_INSUFFICIENT");
   expect(calls).toBe(2);
 });
+
+it.each(["Report [[source:S2]]", "Report [[source:"])("diagnoses forbidden title citation %s before bounded repair", async (title) => {
+  const f = fixture(); let revisions = 0;
+  const model: ModelCallPort = { complete: async (input) => {
+    const context = JSON.parse(input.user);
+    if (context.reportStage === "synthesis") return { text: JSON.stringify({ ...answer(context), title }) };
+    if (context.reportStage === "synthesis_revision") {
+      revisions++;
+      expect(context.validationIssues).toContainEqual({ field: "title", reason: "citation_forbidden" });
+    }
+    return { text: JSON.stringify(answer(context)) };
+  } };
+  const report = await generateReportChapters(f.state, model, config, f.persist);
+  expect(revisions).toBe(1); expect(report.title).toBe("Evidence-based findings");
+});

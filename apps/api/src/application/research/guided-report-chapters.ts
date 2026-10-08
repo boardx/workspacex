@@ -387,7 +387,12 @@ export async function generateReportChapters(state: ResearchRuntime, model: Mode
           try { raw = JSON.parse(text); } catch { throw new ResearchRuntimeError("RESEARCH_NODE_STATE_INVALID"); }
           const parsed = C.GuidedResearchReportSynthesisModelOutput.safeParse(raw);
           if (!parsed.success) throw new ResearchRuntimeError("RESEARCH_NODE_STATE_INVALID");
-          if (inlineReportSources(parsed.data.title).length) throw invalid();
+          try {
+            if (inlineReportSources(parsed.data.title).length) throw invalid();
+          } catch (error) {
+            validationIssues.push({ field: "title", reason: "citation_forbidden" });
+            throw error;
+          }
           const result = { ...parsed.data };
           for (const field of ["summary", "introduction", "conclusion"] as const) {
             try {
