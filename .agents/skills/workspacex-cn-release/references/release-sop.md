@@ -138,7 +138,7 @@ prepare receipt 至少绑定：source SHA、release、manifest SHA-256、六镜�
 
 ### GitHub prepare-before-approval 通道（#4908）
 
-`prepare-cn-release` 在 successful main backend-gates 后冻结事件的 exact SHA。与 promotion 共用不取消运行的 concurrency group；排队时间计入日历 lead time。先只读核 root 保护的 preparation input 与离线 source cache，随后 build/seal、host `--prepare`，最后运行完整 `workspacex-cn-verify-promotion`。只有最后一个实际 verifier 成功，才能称 prepared。
+`prepare-cn-release` 仅允许 `workflow_dispatch` 且 workflow ref 为 `refs/heads/main`；candidate 来自显式输入的 exact SHA。job 入口及源码导出、build/prepare 两个特权步骤开始时再次检查事件/ref，自动 backend-gates 成功不授权生产准备。与 promotion 共用不取消运行的 concurrency group；排队时间计入日历 lead time。锁仅串行，不证明重跑或不同 attempt 幂等。先只读核 root 保护的 preparation input 与离线 source cache，随后 build/seal、host `--prepare`，最后运行完整 `workspacex-cn-verify-promotion`。只有最后一个实际 verifier 成功，才能称 prepared。
 
 `promote-cn-production` 首先在无 environment 的 `readiness` job 检 exact workflow/source 身份、可信副本、完整 receipt 和实时 baseline；缺失、过期、漂移或门控失败立即 `CN_PROMOTION_NOT_READY`，不请求人工审批。`admit` 依赖 readiness，通过唯一 production-cn-promotion 审批后再次验证相同 receipt。审批期间证据失效即停止，绝不在审批后补 build、源码或 `--prepare`。
 
@@ -201,6 +201,7 @@ Plan B 必须在发布开始前就准备好：私有 OSS 上有 exact SHA 的完
 
 | 日期 | failure code | 机械防线 |
 |---|---|---|
+| 2026-10-08 | `CN_PREPARE_MANUAL_MAIN_REQUIRED` | legacy `workflow_run` 可把任意 main backend-gates 成功转为特权 export/build/prepare；移除自动入口、job 限定手动 main，并在两个含 sudo 的步骤首部重检。`python3 -B -m unittest discover -s tests -p test_prepare_manual_gate.py -v` 执行实际 Bash，自动事件、非 main/缺失 ref、非法 SHA 在 gh/git/sudo 前失败；合法上下文只到本地替身。由原 workflow contract Vitest 接入 CI；锁只串行，未证明幂等或现场发布就绪。 |
 | 2026-10-05 | `TOOL_TREE_REGULAR_ONLY` | #5377：安装包生产者把完整 Git 树误当作全是普通文件，拒绝仓库已跟踪的 Skill 符号链接，导致主机写入前的审批包准备受阻。完整树闭包将 mode `120000` 的链接目标字节作为不经文件系统解析、不跟随的 opaque Git blob 纳入哈希；仅接受仓内已跟踪目标的相对单跳链接，绝对路径、越界、链式链接、循环、未跟踪目标及 gitlink 仍拒绝。128 个安装源码条目及其父路径继续严格要求普通文件，不放宽工具载荷门。发布前运行 `python3 -m unittest discover -s .harness/scripts/vm -p prepare_cn_tool_install_test.py`，机械覆盖真实 Skill 链接正例、完整闭包哈希及上述反证；本地包验证不授权主机安装或生产切流。 |
 | 2026-10-03 | `TLS_EXCEPTION_NOT_ACTUAL` / RDS account password length / deleted instance readback | #5157：通过真实 adapter `observe` 验证精确 `No`、`Disabled`、`off`；其他值及目标/peer/创建时间错误仍拒绝。隔离密码固定 `Aa1!` + 21 随机字节的 28 字符 URL-safe tail（总长 32），生成、读回、账号提交与角色 SQL 消费校验同步；旧 36 字符密码不得静默截断。删除终态仅接受 `InvalidDBInstanceId.NotFound` 或 `InvalidDBInstanceName.NotFound` 精确错误码。发布前运行 `python3 .harness/scripts/vm/isolated_rehearsal_provider_contract_test.py` 及 `node .harness/scripts/vm/isolated_rehearsal_role_password_test.cjs`，并实测 ECS RPC 权限；本地密码反证不等于真实 account 失败唯一根因，未知 mutation 先读回。 provider 非零退出仅传播固定白名单错误码至 root600 私有日志，OOS/account catch 在 mandatory readback 前记录稳定码；真实子进程反证须证明最终 `READBACK_NOT_READY` 仍保留诊断且 mutation 仅调用一次，响应正文或未知错误不泄露。 |
 | 2026-09-15 | `ACR_AUTH_EXPIRED` | 临时凭据 + registry 鉴权 probe + 到期预算 |

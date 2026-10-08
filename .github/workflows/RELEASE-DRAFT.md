@@ -71,11 +71,14 @@ root-private per-attempt expected identity and original prebuild receipts, and
 preserve native tag/environment governance. These capabilities have not been
 proven installed by the offline tests.
 
-Legacy `prepare-cn-release.yml` still runs after successful main backend gates.
-Publishing or merging this branch to main can start that existing host build and
-prepare path. This local commit does not enable publication; review that trigger
-before any push or merge. Existing frontend main-push workflows also remain in
-place and may run when their own path filters match.
+This draft removes the legacy `prepare-cn-release.yml` automatic backend-gates
+entry: only manual dispatch at main can schedule preparation, and both privileged
+steps recheck event/ref before commands. Until a separately reviewed guard-only
+change is merged, live main still retains the old automatic path. Publishing this
+Draft branch runs PR CI; merging main can still trigger existing Devapp deployment.
+Production locking serializes attempts but does not establish idempotence.
+See `docs/verification/cloud-release-oidc/manual-prepare-gate.md` for the first
+safe merge plan; this task does not merge or dispatch.
 
 Personal edition is supported only for artifact-only producer validation, upload
 and sealing. Full-release fails in the hosted input gate before any production
