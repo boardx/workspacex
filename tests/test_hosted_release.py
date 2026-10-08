@@ -107,7 +107,7 @@ class HostedReleaseContracts(unittest.TestCase):
                     changed['packageSources']['npmRegistry'] = 'https://reviewed-other.example/npm'
                 boundary = HostBoundary(self.plan, existing_tag=True, missing_build_label=mutation == 'legacy')
                 output = self.root / ('result-' + mutation + '.json')
-                with patch.dict(h.os.environ, {'ACR_USERNAME': 'synthetic-user', 'ACR_TOKEN': 'synthetic-secret'}), self.subprocesses(boundary):
+                with patch.dict(h.os.environ, {'ACR_USERNAME': 'synthetic-user', 'ACR_TOKEN': 'synthetic-secret', 'ALIBABA_CLOUD_ACCESS_KEY_SECRET':'mock-sts-secret', 'ACTIONS_ID_TOKEN_REQUEST_TOKEN':'mock-oidc-request', 'ACR_PASSWORD':'mock-fixed-password'}), self.subprocesses(boundary):
                     with self.assertRaisesRegex(ValueError, 'IMAGE_BUILD_IDENTITY_MISMATCH'):
                         h.build(changed, 'api', output)
                 self.assertFalse(output.exists())
@@ -197,16 +197,35 @@ class HostedReleaseContracts(unittest.TestCase):
     def test_failed_build_creates_no_result_and_incomplete_attempt_cannot_seal(self):
         directory = self.results(); result = directory / 'api.json'; result.unlink()
         boundary = HostBoundary(self.plan, fail_build=True)
-        with patch.dict(h.os.environ, {'ACR_USERNAME': 'synthetic-user', 'ACR_TOKEN': 'synthetic-secret'}), self.subprocesses(boundary):
+        with patch.dict(h.os.environ, {'ACR_USERNAME': 'synthetic-user', 'ACR_TOKEN': 'synthetic-secret', 'ALIBABA_CLOUD_ACCESS_KEY_SECRET':'mock-sts-secret', 'ACTIONS_ID_TOKEN_REQUEST_TOKEN':'mock-oidc-request', 'ACR_PASSWORD':'mock-fixed-password'}), self.subprocesses(boundary):
             with self.assertRaisesRegex(RuntimeError, 'COMMAND_FAILED_DOCKER'):
                 h.build(self.plan, 'api', result)
         self.assertFalse(result.exists())
         self.assertFalse(any(argv[:2] == ['docker', 'push'] for argv, _ in boundary.calls))
         self.assert_aggregate_rejected(directory, 'RESULT_COUNT_MISMATCH')
 
+    def test_personal_seal_explicit_artifact_only_rejected_by_production_consumer(self):
+        self.plan.update(acrEdition='personal',acrInstanceId='')
+        directory=self.results(); target=self.root/'sealed'; boundary=HostBoundary(self.plan)
+        with patch.dict(h.os.environ,{'ACR_USERNAME':'mock-user','ACR_TOKEN':'mock-token'}),self.subprocesses(boundary):
+            self.aggregate(self.plan,directory,target)
+        receipt=json.loads((target/'artifact-build.json').read_text())
+        self.assertEqual(receipt['receiptKind'],'hosted-personal-artifact-only-v1')
+        self.assertFalse(receipt['productionHandoffSupported'])
+        self.assertTrue(receipt['artifactsVerified'])
+        self.assertTrue((target/'release.sealed.json').is_file())
+        for flag in ('ready','prepared','productionActivated'): self.assertFalse(receipt[flag])
+        spec=importlib.util.spec_from_file_location('personal_handoff_verifier',Path(h.__file__).with_name('verify-hosted-handoff.py'))
+        verifier=importlib.util.module_from_spec(spec); spec.loader.exec_module(verifier)
+        expected={key:self.plan[key] for key in verifier.IDENTITY}
+        expected.update(expectedPythonToolHash='a'*64,expectedCanonicalControlSha256='a'*64,expectedCanonicalVerifierHash='a'*64,acrEdition='personal',productionHandoffSupported=False)
+        path=self.root/'personal-expected.json'; path.write_text(json.dumps(expected))
+        with self.assertRaisesRegex(ValueError,'INVALID_EXPECTED_FIELDS'):
+            verifier.verify('/unused',target,path)
+
     def test_successful_seal_has_no_production_authorization(self):
         directory = self.results(); target = self.root / 'sealed'; boundary = HostBoundary(self.plan)
-        with patch.dict(h.os.environ, {'ACR_USERNAME': 'synthetic-user', 'ACR_TOKEN': 'synthetic-secret'}), self.subprocesses(boundary):
+        with patch.dict(h.os.environ, {'ACR_USERNAME': 'synthetic-user', 'ACR_TOKEN': 'synthetic-secret', 'ALIBABA_CLOUD_ACCESS_KEY_SECRET':'mock-sts-secret', 'ACTIONS_ID_TOKEN_REQUEST_TOKEN':'mock-oidc-request', 'ACR_PASSWORD':'mock-fixed-password'}), self.subprocesses(boundary):
             self.aggregate(self.plan, directory, target)
         receipt = json.loads((target / 'artifact-build.json').read_text())
         self.assertTrue(receipt['artifactsVerified'])
@@ -233,7 +252,7 @@ class HostedReleaseContracts(unittest.TestCase):
     def test_registry_readback_mismatch_prevents_receipt_and_seal(self):
         directory = self.results(); target = self.root / 'sealed'
         boundary = HostBoundary(self.plan, registry_digest='c' * 64)
-        with patch.dict(h.os.environ, {'ACR_USERNAME': 'synthetic-user', 'ACR_TOKEN': 'synthetic-secret'}), self.subprocesses(boundary):
+        with patch.dict(h.os.environ, {'ACR_USERNAME': 'synthetic-user', 'ACR_TOKEN': 'synthetic-secret', 'ALIBABA_CLOUD_ACCESS_KEY_SECRET':'mock-sts-secret', 'ACTIONS_ID_TOKEN_REQUEST_TOKEN':'mock-oidc-request', 'ACR_PASSWORD':'mock-fixed-password'}), self.subprocesses(boundary):
             with self.assertRaisesRegex(ValueError, 'REGISTRY_DIGEST_MISMATCH'):
                 self.aggregate(self.plan, directory, target)
         self.assertFalse((target / 'artifact-build.json').exists())
@@ -242,7 +261,7 @@ class HostedReleaseContracts(unittest.TestCase):
     def test_image_source_mismatch_prevents_seal(self):
         directory = self.results(); target = self.root / 'sealed'
         boundary = HostBoundary(self.plan, revision='c' * 40)
-        with patch.dict(h.os.environ, {'ACR_USERNAME': 'synthetic-user', 'ACR_TOKEN': 'synthetic-secret'}), self.subprocesses(boundary):
+        with patch.dict(h.os.environ, {'ACR_USERNAME': 'synthetic-user', 'ACR_TOKEN': 'synthetic-secret', 'ALIBABA_CLOUD_ACCESS_KEY_SECRET':'mock-sts-secret', 'ACTIONS_ID_TOKEN_REQUEST_TOKEN':'mock-oidc-request', 'ACR_PASSWORD':'mock-fixed-password'}), self.subprocesses(boundary):
             with self.assertRaisesRegex(ValueError, 'IMAGE_REVISION_MISMATCH'):
                 self.aggregate(self.plan, directory, target)
         self.assertFalse((target / 'artifact-build.json').exists())
@@ -250,7 +269,7 @@ class HostedReleaseContracts(unittest.TestCase):
 
     def test_successful_build_credentials_only_on_login_stdin(self):
         output = self.root / 'api.json'; boundary = HostBoundary(self.plan)
-        with patch.dict(h.os.environ, {'ACR_USERNAME': 'synthetic-user', 'ACR_TOKEN': 'synthetic-secret'}), self.subprocesses(boundary):
+        with patch.dict(h.os.environ, {'ACR_USERNAME': 'synthetic-user', 'ACR_TOKEN': 'synthetic-secret', 'ALIBABA_CLOUD_ACCESS_KEY_SECRET':'mock-sts-secret', 'ACTIONS_ID_TOKEN_REQUEST_TOKEN':'mock-oidc-request', 'ACR_PASSWORD':'mock-fixed-password'}), self.subprocesses(boundary):
             h.build(self.plan, 'api', output)
         result = json.loads(output.read_text())
         self.assertEqual(result['attemptId'], self.plan['attemptId'])
@@ -265,6 +284,8 @@ class HostedReleaseContracts(unittest.TestCase):
             self.assertNotIn('synthetic-secret', ' '.join(argv))
             self.assertNotIn('ACR_TOKEN', kwargs['env'])
             self.assertNotIn('ACR_USERNAME', kwargs['env'])
+            for secret_key in ('ALIBABA_CLOUD_ACCESS_KEY_SECRET','ACTIONS_ID_TOKEN_REQUEST_TOKEN','ACR_PASSWORD'):
+                self.assertNotIn(secret_key, kwargs['env'])
         config = Path(logins[0][1]['env']['DOCKER_CONFIG'])
         self.assertFalse(config.exists())
 
@@ -307,6 +328,22 @@ class HostedReleaseContracts(unittest.TestCase):
             loaded = h.load_plan(path)
         self.assertEqual(loaded['_planSha256'], hashlib.sha256(path.read_bytes()).hexdigest())
 
+    def test_acr_edition_explicit_personal_empty_instance_only(self):
+        personal=fixture(); personal.update(acrEdition='personal',acrInstanceId='')
+        self.assertEqual(h.validate_input(personal)['acrEdition'],'personal')
+        for edition, instance in [('enterprise',''),('personal','cri-fake'),('unknown','')]:
+            value=fixture(); value.update(acrEdition=edition,acrInstanceId=instance)
+            with self.subTest(edition=edition),self.assertRaises(ValueError): h.validate_input(value)
+
+    def test_personal_production_handoff_rejected_before_closure_creation(self):
+        spec=importlib.util.spec_from_file_location('expected_generator',Path(h.__file__).with_name('create-hosted-handoff-expected.py'))
+        generator=importlib.util.module_from_spec(spec); spec.loader.exec_module(generator)
+        reviewed={key:fixture()[key] for key in generator.v.IDENTITY}
+        reviewed.update(acrEdition='personal',acrInstanceId='')
+        with patch.object(generator.v,'load',return_value=(reviewed,b'{}')):
+            with self.assertRaisesRegex(ValueError,'ACR_PERSONAL_PRODUCTION_HANDOFF_UNSUPPORTED'):
+                generator.create('/unused','/unused','/unused','/unused','/unused','/unused')
+
     def test_external_registry_probe_is_rejected(self):
         value = fixture(); value['registryProbeImage'] = value['baseImages']['redis']
         with self.assertRaisesRegex(ValueError, 'TARGET_REGISTRY_PROBE_REQUIRED'):
@@ -320,7 +357,7 @@ class HostedReleaseContracts(unittest.TestCase):
                 return subprocess.CompletedProcess(argv, 1, '', 'synthetic auth denied')
             return boundary(argv, **kwargs)
         output = self.root / 'api.json'
-        with patch.dict(h.os.environ, {'ACR_USERNAME': 'synthetic-user', 'ACR_TOKEN': 'synthetic-secret'}), patch.object(h.subprocess, 'run', side_effect=fail_probe):
+        with patch.dict(h.os.environ, {'ACR_USERNAME': 'synthetic-user', 'ACR_TOKEN': 'synthetic-secret', 'ALIBABA_CLOUD_ACCESS_KEY_SECRET':'mock-sts-secret', 'ACTIONS_ID_TOKEN_REQUEST_TOKEN':'mock-oidc-request', 'ACR_PASSWORD':'mock-fixed-password'}), patch.object(h.subprocess, 'run', side_effect=fail_probe):
             with self.assertRaisesRegex(RuntimeError, 'COMMAND_FAILED_DOCKER'):
                 h.build(self.plan, 'api', output)
         self.assertFalse(output.exists())
@@ -332,7 +369,7 @@ class HostedReleaseContracts(unittest.TestCase):
             if argv[:4] == ['docker', 'buildx', 'imagetools', 'inspect'] and argv[-1] == self.plan['registryProbeImage']:
                 return subprocess.CompletedProcess(argv, 0, 'Digest: sha256:' + 'c' * 64 + '\n', '')
             return boundary(argv, **kwargs)
-        with patch.dict(h.os.environ, {'ACR_USERNAME': 'synthetic-user', 'ACR_TOKEN': 'synthetic-secret'}), patch.object(h.subprocess, 'run', side_effect=mismatch):
+        with patch.dict(h.os.environ, {'ACR_USERNAME': 'synthetic-user', 'ACR_TOKEN': 'synthetic-secret', 'ALIBABA_CLOUD_ACCESS_KEY_SECRET':'mock-sts-secret', 'ACTIONS_ID_TOKEN_REQUEST_TOKEN':'mock-oidc-request', 'ACR_PASSWORD':'mock-fixed-password'}), patch.object(h.subprocess, 'run', side_effect=mismatch):
             with self.assertRaisesRegex(ValueError, 'TARGET_REGISTRY_PROBE_MISMATCH'):
                 self.aggregate(self.plan, directory, target)
         self.assertFalse((target / 'artifact-build.json').exists())
@@ -344,7 +381,7 @@ class HostedReleaseContracts(unittest.TestCase):
             if Path(argv[0]).name == 'node' and len(argv) > 4 and argv[4] == 'validate':
                 return subprocess.CompletedProcess(argv, 1, '', 'synthetic canonical reject')
             return boundary(argv, **kwargs)
-        with patch.dict(h.os.environ, {'ACR_USERNAME': 'synthetic-user', 'ACR_TOKEN': 'synthetic-secret'}), patch.object(h.subprocess, 'run', side_effect=reject_validation):
+        with patch.dict(h.os.environ, {'ACR_USERNAME': 'synthetic-user', 'ACR_TOKEN': 'synthetic-secret', 'ALIBABA_CLOUD_ACCESS_KEY_SECRET':'mock-sts-secret', 'ACTIONS_ID_TOKEN_REQUEST_TOKEN':'mock-oidc-request', 'ACR_PASSWORD':'mock-fixed-password'}), patch.object(h.subprocess, 'run', side_effect=reject_validation):
             with self.assertRaisesRegex(RuntimeError, 'COMMAND_FAILED_NODE'):
                 self.aggregate(self.plan, directory, target)
         self.assertFalse((target / 'artifact-build.json').exists())

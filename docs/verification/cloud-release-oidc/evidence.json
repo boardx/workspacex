@@ -1,0 +1,90 @@
+{
+  "status": "draft-code-validated-not-production-ready",
+  "baseMain": "60fda3e6c9cf28d0a778d0723d2b7158bd220050",
+  "applicationCandidate": "ee7e682805c27a38e9fd601c4aca66f11763ba91",
+  "reusedDraftCommit": "d6aac69f8d281df7065a35b4bcab3aaaaad88a7f",
+  "tests": [
+    {
+      "command": "python3 -m unittest discover -s tests -p 'test_*.py' -q",
+      "passed": 122,
+      "failed": 0,
+      "scope": "isolated Python suites including real Node22 canonical seal/consumer commands; external cloud commands mocked"
+    },
+    {
+      "command": "canonical-runtime/node_modules/.bin/vitest run --config /tmp/release-independent-vitest.mjs",
+      "passed": 11,
+      "failed": 0,
+      "selectedFiles": [
+        ".harness/scripts/vm/cn-bootstrap-consumer.test.mjs",
+        ".harness/scripts/vm/cn-promotion-compensation.test.ts"
+      ]
+    },
+    {
+      "command": "python3 .harness/scripts/vm/deploy-cn-production-rollback-browser-test.py",
+      "passed": 6,
+      "failed": 0
+    },
+    {
+      "command": "actionlint -shellcheck= -pyflakes= .github/workflows/build-cn-release-artifacts.yml .github/workflows/release-cn.yml",
+      "passed": true,
+      "limitations": "shellcheck and pyflakes disabled"
+    },
+    {
+      "command": "git diff --check",
+      "passed": true
+    }
+  ],
+  "uniqueExecutedTests": 139,
+  "independentReviewer": "/root/independent_release_review",
+  "independentConclusion": "No new implementation blocker after fixes; retained live qualification and compatibility gates block activation",
+  "compatibility": {
+    "file": ".harness/scripts/vm/deploy-cn-production.sh",
+    "candidateSha256": "a5d9bc982e7f8cf2838dbf9f70ed341cbb772b0a4297817d8ed7440c2c648f7d",
+    "reviewedToolSha256": "d9ca148615a6ca8d3daf87076b0234b619c4ef964d83fe1b6e3441f13641ec10",
+    "differences": [
+      "hosted-import incomplete/changed guard before prepare",
+      "baseline browser verification factored into reusable function",
+      "activation compensation verifies restored baseline browser before claiming rollback"
+    ],
+    "codeFixIncluded": true,
+    "requiredNextCandidate": "A separately approved source revision containing the reviewed deployment entrypoint from this PR, admitted by existing main-source gates; do not relabel ee7 or skip byte equality. Installation of matching reviewed tool closure requires separate authorization."
+  },
+  "simulationCoverage": {
+    "passed": [
+      "OIDC issuer/audience/sub and missing config",
+      "edition hostname mismatch and personal artifact-only rejection at production handoff",
+      "upload interruption/lost response/retry exhaustion/conflicting tag",
+      "source/digest/seal mismatch and expired preflight",
+      "partial import and candidate context restoration",
+      "duplicate dispatch/pagination/ambiguous run and downstream failure",
+      "CAS compensation/reconciliation and missing database schema/ledger",
+      "browser acceptance failure and rollback-unproven branch",
+      "secret child-environment isolation and hash-bound action redaction/cleanup"
+    ],
+    "notExecuted": [
+      "real IAM/OIDC exchange",
+      "Hong Kong registry login/push and production cross-region pull",
+      "current three-database backup and isolated recovery qualification",
+      "real failed migration with persisted production-like data and recovery",
+      "real production full business acceptance and rollback",
+      "Cloud Assistant remote adapter; existing protected runner path retained"
+    ]
+  },
+  "initialFailedChecks": [
+    {
+      "command": "./init.sh",
+      "reason": "pnpm global data path unavailable; redirected XDG paths then dependency fetching blocked by sandbox network; full repository initialization remains unverified"
+    },
+    {
+      "command": "initial Python discovery",
+      "reason": "minimal runtime dependency directory missing; reused pinned preexisting minimal runtime, corrected test hardcoded control source path to current ROOT, final full suite passed"
+    }
+  ],
+  "safety": {
+    "newIAM": false,
+    "secretsReadOrTransferred": false,
+    "cloudCalls": false,
+    "productionChanged": false,
+    "autoProductionTriggerEnabled": false
+  }
+}

@@ -23,7 +23,7 @@ class MinimalControlRuntime(unittest.TestCase):
             config = parent/'canonical-control.json'
             result = subprocess.run([
                 sys.executable, str(ROOT/'scripts/prepare-canonical-control.py'),
-                '--control', '/workspace/workspacex',
+                '--control', str(ROOT),
                 '--runtime', str(ROOT/'control-runtime'),
                 '--node', str(ROOT/'toolchain/node-v22.20.0-linux-x64/bin/node'),
                 '--output', str(parent/'canonical-closure'),

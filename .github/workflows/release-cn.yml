@@ -28,6 +28,7 @@ permissions:
 
 jobs:
   input-gate:
+    environment: production-cn-build
     runs-on: ubuntu-24.04
     timeout-minutes: 3
     steps:
@@ -37,11 +38,14 @@ jobs:
           SOURCE: ${{ inputs.release_sha }}
           BASELINE: ${{ inputs.expected_main_cn_sha }}
           MODE: ${{ inputs.mode }}
+          ACR_EDITION: ${{ vars.WSX_ACR_EDITION }}
         run: |
           set -euo pipefail
           [[ "$SOURCE" =~ ^[a-f0-9]{40}$ ]]
           [[ "$MODE" == artifact-only || "$MODE" == full-release ]]
           if [[ "$MODE" == full-release ]]; then
+            # Existing protected import protocol requires a real enterprise instance.
+            [[ "$ACR_EDITION" == enterprise ]]
             [[ "$GITHUB_REF" == refs/heads/main ]]
             [[ "$BASELINE" =~ ^[a-f0-9]{40}$ ]]
           fi
@@ -147,6 +151,9 @@ jobs:
       always() && !cancelled() && needs.input-gate.result == 'success' &&
       ((inputs.mode == 'artifact-only' && needs.protected-preflight.result == 'skipped') ||
        (inputs.mode == 'full-release' && needs.protected-preflight.result == 'success'))
+    permissions:
+      contents: read
+      id-token: write
     uses: ./.github/workflows/build-cn-release-artifacts.yml
     with:
       release_sha: ${{ inputs.release_sha }}
@@ -259,4 +266,44 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          python3 control/scripts/dispatch-frozen-promotion.py --mode full-release --repository "$GITHUB_REPOSITORY" --source "$REVISION" --baseline "$EXPECTED_MAIN_CN" --attempt "$ATTEMPT_ID" --tag "$RELEASE_TAG"
+          python3 control/scripts/dispatch-frozen-promotion.py --mode full-release --repository "$GITHUB_REPOSITORY" --source "$REVISION" --baseline "$EXPECTED_MAIN_CN" --attempt "$ATTEMPT_ID" --tag "$RELEASE_TAG" --output ../promotion-correlation.json
+      - name: Retain nonsecret promotion correlation
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: cn-promotion-correlation-${{ github.run_attempt }}
+          path: promotion-correlation.json
+          if-no-files-found: error
+          retention-days: 30
+
+  verify-promotion-terminal:
+    if: inputs.mode == 'full-release'
+    needs: prepare-and-dispatch
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    permissions:
+      contents: read
+      actions: read
+    # No host concurrency here: the downstream promotion must acquire its lock.
+    steps:
+      - name: Check out frozen verification control
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Download exact promotion correlation
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: cn-promotion-correlation-${{ github.run_attempt }}
+          path: correlation
+      - name: Require downstream deployment and original acceptance to succeed
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/verify-promotion-result.py --correlation correlation/promotion-correlation.json --output promotion-terminal.json
+      - name: Retain terminal result including failures
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: cn-promotion-terminal-${{ github.run_attempt }}
+          path: promotion-terminal.json
+          if-no-files-found: warn
+          retention-days: 30

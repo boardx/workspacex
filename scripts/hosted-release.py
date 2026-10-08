@@ -67,7 +67,7 @@ def write(path, value):
 
 def validate_input(value):
     required = {'schemaVersion', 'sourceRevision', 'release', 'attemptId', 'platform', 'registryPrefix', 'acrRegion', 'acrInstanceId', 'baseImages', 'registryProbeImage'}
-    reject(isinstance(value, dict) and required <= value.keys() and value.keys() <= required | {'packageSources'}, 'INVALID_INPUT_FIELDS')
+    reject(isinstance(value, dict) and required <= value.keys() and value.keys() <= required | {'packageSources', 'acrEdition'}, 'INVALID_INPUT_FIELDS')
     reject(type(value['schemaVersion']) is int and value['schemaVersion'] == 1, 'INVALID_SCHEMA')
     reject(isinstance(value['sourceRevision'], str) and re.fullmatch('[a-f0-9]{40}', value['sourceRevision']), 'INVALID_SHA')
     reject(isinstance(value['release'], str) and re.fullmatch(r'v?\d+\.\d+\.\d+(?:-[a-zA-Z0-9]+(?:[.-][a-zA-Z0-9]+)*)?', value['release']), 'INVALID_RELEASE')
@@ -77,7 +77,12 @@ def validate_input(value):
     probe = value['registryProbeImage']
     reject(isinstance(probe, str) and DIGEST.fullmatch(probe) and probe.startswith(value['registryPrefix'] + '/'), 'TARGET_REGISTRY_PROBE_REQUIRED')
     reject(value['acrRegion'] == 'cn-hongkong', 'HK_REGION_REQUIRED')
-    reject(isinstance(value['acrInstanceId'], str) and re.fullmatch(r'cri-[a-zA-Z0-9]+', value['acrInstanceId']), 'INVALID_ACR_INSTANCE')
+    edition = value.get('acrEdition', 'enterprise')
+    reject(edition in ('personal', 'enterprise'), 'INVALID_ACR_EDITION')
+    if edition == 'personal':
+        reject(value['acrInstanceId'] == '', 'PERSONAL_ACR_INSTANCE_MUST_BE_EMPTY')
+    else:
+        reject(isinstance(value['acrInstanceId'], str) and re.fullmatch(r'cri-[a-zA-Z0-9]+', value['acrInstanceId']), 'INVALID_ACR_INSTANCE')
     bases = value['baseImages']
     reject(isinstance(bases, dict) and set(bases) == {'node', 'python', 'postgres', 'redis'}, 'INVALID_BASE_SET')
     reject(all(isinstance(v, str) and DIGEST.fullmatch(v) for v in bases.values()), 'REVIEWED_DIGEST_REQUIRED')
@@ -114,8 +119,9 @@ def auth(plan):
     reject(bool(username and token), 'ACR_AUTH_MISSING')
     with tempfile.TemporaryDirectory(prefix='wsx-docker-') as directory:
         env = dict(os.environ, DOCKER_CONFIG=directory, GIT_NO_LAZY_FETCH='1')
-        env.pop('ACR_TOKEN', None)
-        env.pop('ACR_USERNAME', None)
+        for key in tuple(env):
+            if key in ('ACR_TOKEN', 'ACR_USERNAME', 'ACR_PASSWORD', 'ACTIONS_ID_TOKEN_REQUEST_TOKEN', 'ACTIONS_ID_TOKEN_REQUEST_URL', 'GITHUB_TOKEN', 'GH_TOKEN') or key.startswith(('ALIBABA_CLOUD_', 'ALIYUN_', 'ALICLOUD_')):
+                env.pop(key, None)
         registry = plan['registryPrefix'].split('/')[0]
         try:
             run(['docker', 'login', '--username', username, '--password-stdin', registry], env, token)
@@ -238,6 +244,8 @@ def aggregate(plan, directory, output, control_config=None, control_sha256=None)
             issuedAt=issued.isoformat(), expiresAt=(issued + timedelta(hours=1)).isoformat(), clockSource='runner-system-clock-unattested',
             services=list(SERVICES) + ['redis'], artifactsVerified=True,
             ready=False, prepared=False, productionActivated=False)
+        if plan.get('acrEdition', 'enterprise') == 'personal':
+            receipt.update(receiptKind='hosted-personal-artifact-only-v1', acrEdition='personal', productionHandoffSupported=False)
         write(target / 'artifact-build.json', receipt)
 
 def main(argv=None):
