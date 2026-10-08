@@ -63,13 +63,13 @@ export function reportEvidenceContext(index: readonly ReportEvidence[]): string 
 }
 
 /** This proves exact quotation and location only; it does not prove causal/synthesis semantics. */
-export function validateReportEvidence(markdown: string, index: readonly ReportEvidence[], expertLabels: Readonly<Record<string,string>> = {}): {
+export function validateReportEvidence(markdown: string, index: readonly ReportEvidence[], expertLabels: Readonly<Record<string,string>> = {}, options: { requireCitation?: boolean } = {}): {
   ok: boolean; references: Document["references"]; reason: string;
 } {
   const links = interviewMarkdown.parseInterviewEvidenceLinks(markdown);
   const citations = links.filter(link => /^#(?:answer-|source-)/u.test(link.url));
   const references: Document["references"] = [];
-  if (!citations.length) return {ok:false,references,reason:"missing_exact_answer_citation"};
+  if (!citations.length && options.requireCitation !== false) return {ok:false,references,reason:"missing_exact_answer_citation"};
   for (const citation of citations) {
     const entry = index.find(item => `#${item.anchor}` === citation.url);
     if (!entry || citation.text !== entry.quote) return {ok:false,references:[],reason:"invalid_answer_quote_or_locator"};

@@ -31,6 +31,18 @@ beforeEach(() => {
  });
 });
 describe("bounded report quality recovery", () => {
+ it("automatically excludes an unusable citation block after bounded repair and saves the valid report", async () => {
+  const wrong = GOOD + "\n\n无效发现：[不存在的回答](#answer-999)。据此应更换全部渠道。";
+  complete.mockResolvedValue({ text: wrong });
+  await generateInterviewMarkdown(deps(), input);
+  expect(complete).toHaveBeenCalledTimes(2);
+  const report = snapshot.documents.find(document => document.step === "report")!;
+  expect(report.markdown).toBe(GOOD);
+  expect(report.references.some(reference => reference.anchor === "answer-2")).toBe(true);
+  expect(report.references.some(reference => reference.anchor === "answer-999")).toBe(false);
+  expect(snapshot.states.find(state => state.documentId === report.documentId)?.failure).toBeNull();
+ });
+
  it.each([false,true].flatMap(existing=>["反例的存在表明，该冲突并非设备固有缺陷的必然结果，而是特定空间条件下的情境差异。","不同物理环境带来的情境异质性。"].map(claim=>({existing,claim}))))("gives an actual defect/scenario gap precise source-based repair guidance ($existing: $claim)",async ({existing,claim})=>{
   const wrong=GOOD+"\n\n"+claim;
   const repaired=GOOD+"\n\n该冲突由设备固有缺陷导致的可能性尚未排除；特定空间条件只是待验证的并存解释。";
@@ -94,7 +106,7 @@ describe("bounded report quality recovery", () => {
   expect(save.mock.calls[0]![0].failure.code).toBe("REPORT_QUALITY_REJECTED");
   expect(snapshot.states.find(s=>s.documentId==="md-report")?.status).toBe("draft");
  });
- it("excludes a rejected candidate derived from observed prose and rejects a new affirmative claim",async()=>{
+ it("excludes a new unsupported claim from regenerated observed prose",async()=>{
   snapshot=JSON.parse(readFileSync(resolve(process.cwd(),"../../docs/verification/interview-source-regeneration-5430/source.json"),"utf8"));
   const previous=snapshot.documents.find(document=>document.step==="report")!;
   // Preserve the on-disk actual raw; this controlled variant has a real affirmative gap.
@@ -103,7 +115,8 @@ describe("bounded report quality recovery", () => {
   previous.contentHash=createHash("sha256").update(previous.markdown).digest("hex");
   const candidate=original+"\n\n预算必然阻止采购。";
   complete.mockResolvedValue({text:candidate});
-  await expect(generateInterviewMarkdown(deps(),{...input,interviewId:snapshot.interviewId,expectedVersion:snapshot.version,expectedDocumentVersion:previous.version})).rejects.toThrow("AI_GENERATION_UNAVAILABLE");
+  await generateInterviewMarkdown(deps(),{...input,interviewId:snapshot.interviewId,expectedVersion:snapshot.version,expectedDocumentVersion:previous.version});
+  expect(snapshot.documents.find(document=>document.step==="report")?.markdown).not.toContain("预算必然阻止采购");
   expect(complete).toHaveBeenCalledTimes(1);
   expect(complete.mock.calls[0]![0].user).not.toContain(previous.markdown);
   expect(complete.mock.calls[0]![0].user).not.toContain(original);
@@ -169,7 +182,7 @@ describe("bounded report quality recovery", () => {
   expect(complete).toHaveBeenCalledTimes(2);
   expect(save.mock.calls[0]![0]).toMatchObject({markdown:wrong,failure:{code:"REPORT_ACTION_VALIDATION_REJECTED"}});
  });
- it("public failed-version recovery dispatches once and persists its new rejected streamed body, not the previous draft", async () => {
+ it("public failed-version recovery dispatches once and saves usable content while retaining rejected streamed bytes in history", async () => {
   const fixture = resolve(process.cwd(), "../../docs/verification/interview-grounding-repair-5426");
   snapshot = JSON.parse(readFileSync(resolve(fixture,"source.json"),"utf8"));
   const previous = snapshot.documents.find(document=>document.step==="report")!;
@@ -188,12 +201,13 @@ describe("bounded report quality recovery", () => {
    return {text:newBody};
   });
   streaming.model.completeStream=dispatch;
-  await expect(generateInterviewMarkdown(streaming,{...input,interviewId:snapshot.interviewId,expectedVersion:snapshot.version,expectedDocumentVersion:previous.version,onProgress:event=>{events.push(event);}})).rejects.toThrow("AI_GENERATION_UNAVAILABLE");
+  await generateInterviewMarkdown(streaming,{...input,interviewId:snapshot.interviewId,expectedVersion:snapshot.version,expectedDocumentVersion:previous.version,onProgress:event=>{events.push(event);}});
   expect(dispatch).toHaveBeenCalledTimes(1); expect(complete).not.toHaveBeenCalled();
   expect(events.filter(event=>event.type==="delta").map(event=>event.delta).join("")).toBe(newBody);
-  expect(save).toHaveBeenCalledTimes(1);
+  expect(save).toHaveBeenCalledTimes(2);
   expect(save.mock.calls[0]![0]).toMatchObject({markdown:newBody,failure:{code:"REPORT_GROUNDING_REJECTED",retryable:true}});
-  expect(snapshot.documents.find(document=>document.step==="report")).toMatchObject({markdown:newBody,version:previous.version+1,contentHash:createHash("sha256").update(newBody).digest("hex")});
+  expect(snapshot.documents.find(document=>document.step==="report")?.markdown).not.toContain("安装问题最常见且必然阻止采购");
+  expect(snapshot.states.find(state=>state.documentId===snapshot.documents.find(document=>document.step==="report")!.documentId)?.failure).toBeNull();
   expect(oldBody).not.toBe(newBody);
  });
  it("requires evidence strength and conditional recommendations on every bounded attempt", async () => {
@@ -324,14 +338,15 @@ describe("canonical report observation", () => {
 
 
 describe("saved report recovery", () => {
- it("retains unsupported executed measurement bytes and hash after the same bounded gate rejects both attempts", async () => {
+ it("excludes unsupported executed measurement after bounded repair while retaining rejected versions", async () => {
   const report = GOOD + "\n\n不兼容项在本次检测中为零。";
   complete.mockResolvedValue({text:report});
-  await expect(generateInterviewMarkdown(deps(),input)).rejects.toMatchObject({reasonCode:"REPORT_QUALITY_REJECTED"});
-  expect(complete).toHaveBeenCalledTimes(2); expect(save).toHaveBeenCalledTimes(2);
+  await generateInterviewMarkdown(deps(),input);
+  expect(complete).toHaveBeenCalledTimes(2); expect(save).toHaveBeenCalledTimes(3);
   expect(complete.mock.calls[1]?.[0].user).toContain("unsupported_executed_measurement");
-  expect(snapshot.documents.find(d=>d.step==="report")).toMatchObject({markdown:report,contentHash:createHash("sha256").update(report).digest("hex"),version:2});
-  expect(snapshot.states.at(-1)).toMatchObject({status:"failed",failure:{code:"REPORT_QUALITY_REJECTED",retryable:true}});
+  expect(snapshot.documents.find(d=>d.step==="report")).toMatchObject({markdown:GOOD,contentHash:createHash("sha256").update(GOOD).digest("hex"),version:3});
+  expect(save.mock.calls[1]![0]).toMatchObject({markdown:report,failure:{code:"REPORT_QUALITY_REJECTED",retryable:true}});
+  expect(snapshot.states.at(-1)).toMatchObject({status:"draft",failure:null});
  });
  it("rejects an existing failed unsupported claim without a model, write, byte rewrite or version change", async () => {
   const report = GOOD + "\n\n安装风险不是产品固有缺陷。";
