@@ -7,7 +7,7 @@ import { preservePreviousReport } from "./guided-report-history";
 import { recoverableReportProviderError } from "./guided-report-recovery";
 import { reportBasis, reportSourceAliases, aliasResolver, canonicalReportText } from "./guided-report-checkpoint";
 import { extractReportEvidence, selectQuestionEvidence, subsectionPlan, canonicalEvidenceSources } from "./guided-report-evidence";
-import { reviewChapter } from "./guided-report-quality";
+import { reviewChapter, verifyGapVerdict } from "./guided-report-quality";
 import { randomUUID } from "node:crypto";
 import { research as C } from "@repo/contracts";
 import type { ModelCallInput, ModelCallPort } from "../agent-run/ports";
@@ -260,6 +260,7 @@ export async function generateReportChapters(state: ResearchRuntime, model: Mode
       }
       let rawOutput = "";
       let repair: unknown;
+      let gapAdjudicationAttempted = false;
       for (let attempt = 0; sources.length && attempt < 2; attempt++) {
         if (attempt) await restoreChapter();
         const nextInput = attempt ? { ...input, user: JSON.stringify({ ...JSON.parse(input.user), reportStage: "chapter_revision", rawOutput: rawOutput.slice(0, 50000), ...(chapter ? { chapter: modelChapter(chapter) } : {}), review: repair,
@@ -270,6 +271,9 @@ export async function generateReportChapters(state: ResearchRuntime, model: Mode
             return validateChapterOutput(text, section, ids, resolve);
           }, chapterPublish) as Chapter;
           const quality = await reviewChapter(chapter, section, evidenceByQuestion, config, chapterAudit);
+          if (!quality.passed && !gapAdjudicationAttempted && await verifyGapVerdict(chapter, section, evidenceByQuestion, quality, config, (input, validate, publish) => {
+            gapAdjudicationAttempted = true; return chapterAudit(input, validate, publish);
+          })) quality.passed = true;
           if (!quality.passed) { updateReportTimeline(chapterState, "review", "retrying", { sectionId: section.id }); repair = quality; throw new ResearchRuntimeError("RESEARCH_REPORT_QUALITY_INSUFFICIENT"); }
           updateReportTimeline(chapterState, "review", "completed", { sectionId: section.id }); await saveChapter();
           break;

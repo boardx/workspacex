@@ -1386,3 +1386,43 @@ it.each(["Report [[source:S2]]", "Report [[source:"])("diagnoses forbidden title
   const report = await generateReportChapters(f.state, model, config, f.persist);
   expect(revisions).toBe(1); expect(report.title).toBe("Evidence-based findings");
 });
+
+
+describe("bounded automatic gap adjudication in report generation", () => {
+  it.each([true, false])("publishes only an independently proven gap after ordinary repair (verified=%s)", async verified => {
+    const f = fixture(); f.state.outline = [f.state.outline[0]!];
+    const contexts: any[] = [];
+    const model: ModelCallPort = { complete: async input => {
+      const c = JSON.parse(input.user); contexts.push(c);
+      if (c.reportStage === "quality") {
+        if (c.reviewKind === "gap_verdict") return { text: JSON.stringify({ ...answer(c), questions: c.evidenceByQuestion.map((q: any) => ({ questionId: q.id, status: verified ? "gap" : "missing", rationale: "Specific gap with verification.", chapterParagraphId: c.chapterParagraphs[2].id, evidenceQuoteIds: [`${q.id}/E1`] })), issues: verified ? [] : ["The supplied quote answers the omitted question."] }) };
+        return { text: JSON.stringify({ ...answer(c), questions: c.evidenceByQuestion.map((q: any) => ({ questionId: q.id, status: "missing", rationale: "A specific metric is missing from sources despite the chapter acknowledging verification." })) }) };
+      }
+      return { text: JSON.stringify(answer(c)) };
+    } };
+    const report = await generateReportChapters(f.state, model, config, f.persist);
+    expect(report.sections).toHaveLength(1);
+    expect(contexts.filter(c => c.reviewKind === "gap_verdict")).toHaveLength(1);
+    expect(contexts.filter(c => c.reportStage === "chapter_revision")).toHaveLength(verified ? 0 : 1);
+    expect(f.state.reportQualityWarnings?.length ?? 0).toBe(verified ? 0 : 1);
+    expect(f.state.reportTimeline?.find(item => item.id === "review:b")?.status).toBe(verified ? "completed" : "warning");
+  });
+});
+
+
+describe("partial-proof failure recovery", () => {
+  it("retains the valid initial review when a secondary proof is malformed and reaches independent adjudication", async () => {
+    const f = fixture(); f.state.outline = [f.state.outline[0]!];
+    const contexts: any[] = [];
+    const model: ModelCallPort = { complete: async input => {
+      const c = JSON.parse(input.user); contexts.push(c);
+      if (c.reviewKind === "partial_coverage") return { text: "not JSON" };
+      if (c.reportStage === "quality") return { text: JSON.stringify({ ...answer(c), questions: c.evidenceByQuestion.map((q: any) => ({ questionId: q.id, status: "gap", rationale: "A specific metric remains unavailable, with concrete verification described.", ...(c.reviewKind === "gap_verdict" ? { chapterParagraphId: c.chapterParagraphs[2].id, evidenceQuoteIds: [`${q.id}/E1`] } : {}) })) }) };
+      return { text: JSON.stringify(answer(c)) };
+    } };
+    const report = await generateReportChapters(f.state, model, config, f.persist);
+    expect(report.sections).toHaveLength(1);
+    expect(contexts.filter(c => c.reviewKind === "gap_verdict")).toHaveLength(1);
+    expect(f.state.reportQualityWarnings?.length ?? 0).toBe(0);
+  });
+});
