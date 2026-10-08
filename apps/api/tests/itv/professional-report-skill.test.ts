@@ -9,13 +9,13 @@ import { ModelCallError } from '../../src/application/agent-run/ports';
 const read = vi.hoisted(() => vi.fn());
 vi.mock('../../src/application/interview/read-interview-markdown', () => ({ readInterviewMarkdown: read }));
 const body = '# 公共活动信息体验报告\n\n## 执行摘要\n' + '现有访谈反映，出行前需要明确的活动状态与变更通知。'.repeat(6) +
-  '\n\n## 主题分析\n' + '本地居民与外地游客的查询重点不同，应结合出行成本分别组织信息。'.repeat(6) +
-  '\n\n## 综合结论\n信息应同时呈现活动状态、发布时间及入口指引。\n\n## 建议与行动优先级\n优先在活动页面展示状态卡，随后完善异常通知和入口指引。';
+  '\n\n## 主题分析\n' + '跨回答综合显示，本地居民与外地游客的查询重点不同，应结合出行成本分别组织信息。'.repeat(6) +
+  '\n\n## 综合结论\n信息应同时呈现活动状态、发布时间及入口指引。\n\n适用范围：出行前查询；相反意见来自依赖本地经验的查询场景。\n\n## 建议与行动优先级\n决策影响：优先在活动页面展示状态卡，随后完善异常通知和入口指引。';
 const input = { orgId: toOrgId('org-professional-report'), viewerUserId: 'actor', interviewId: 'itv-professional', step: 'report' as const, expectedVersion: 7, expectedDocumentVersion: 1 };
 let snapshot: any;
 beforeEach(() => {
   snapshot = { interviewId: input.interviewId, revisionId: 'revision', version: 7, execution: null, review: null,
-    documents: [{ documentId: 'runs', step: 'runs', version: 2, markdown: '现有访谈：本地居民关注变更，外地游客关注时间与入口。', references: [], contentHash: 'runs' },
+    documents: [{ documentId: 'runs', step: 'runs', version: 2, evidenceMode: 'simulated', markdown: '现有访谈：本地居民关注变更，外地游客关注时间与入口。', references: [], contentHash: 'runs' },
       { documentId: 'report', step: 'report', version: 1, markdown: '旧报告保留', references: [], contentHash: 'old' }],
     states: [{ documentId: 'runs', status: 'completed', failure: null }, { documentId: 'report', status: 'failed', failure: { code: 'REPORT_ACTION_VALIDATION_REJECTED', retryable: true } }] };
   read.mockReset(); read.mockImplementation(async () => structuredClone(snapshot));
@@ -72,4 +72,27 @@ it('loads the published source and rejects tampered skill packs', async () => {
   const pack: any = await new FileSkillStarterPackSource(REPO_SKILL_STARTER_PACK_ROOT).load('standard-methods', '1.5.3');
   pack.skills[0].files[0].contentBase64 = Buffer.from('tampered').toString('base64');
   await expect(loadInterviewReportSkill({ load: async () => pack })).rejects.toThrow();
+});
+
+it.each(['observed', 'simulated', 'mixed'])('retains server-controlled source evidence mode without a blanket authenticity assertion: %s', async mode => {
+  snapshot.documents[0].evidenceMode = mode;
+  const { deps, completeStream } = setup();
+  await generateProfessionalInterviewReport(deps, { ...input, onProgress: vi.fn() });
+  const request = completeStream.mock.calls[0]![0];
+  expect(request.user).toContain(`evidenceMode=${mode}`);
+  expect(request.system).not.toContain('现有资料已由用户认证真实有效');
+});
+it.each(['synthesis', 'decision', 'boundary'])('rejects a formatted report missing analytical substance: %s', async dimension => {
+  const invalid = dimension === 'synthesis' ? body.replaceAll('跨回答综合显示，', '')
+    : dimension === 'decision' ? body.replace('决策影响：', '')
+    : body.replace('适用范围：出行前查询；相反意见来自依赖本地经验的查询场景。', '');
+  const { deps, saveDraft } = setup({ text: invalid });
+  await expect(generateProfessionalInterviewReport(deps, { ...input, onProgress: vi.fn() })).rejects.toThrow('AI_GENERATION_UNAVAILABLE');
+  expect(saveDraft).not.toHaveBeenCalled();
+});
+it('rejects a long per-respondent memorandum with headings but no synthesis or decision impact', async () => {
+  const memo = '# 访谈纪要\n## 王志远\n' + '他讲述了查询活动的经过。'.repeat(25) + '\n## 李伟诚\n' + '他列举了信息渠道。'.repeat(25) + '\n## 记录摘要\n保留以上回答记录。';
+  const { deps, saveDraft } = setup({ text: memo });
+  await expect(generateProfessionalInterviewReport(deps, { ...input, onProgress: vi.fn() })).rejects.toThrow('AI_GENERATION_UNAVAILABLE');
+  expect(saveDraft).not.toHaveBeenCalled();
 });
