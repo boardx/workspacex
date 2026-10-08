@@ -52,16 +52,17 @@ export function projectResearchTrust(runtime: ResearchRuntime): GuidedResearchTr
   const enabledOutline = runtime.outline.filter((section) => section.enabled);
   const questions = enabledOutline.length ? reportQuestions(enabledOutline) : [];
   const coverage = questions.map((question) => {
-    const evidence = (runtime.questionEvidence ?? []).filter((item) => item.questionId === question.id && sourceById.has(item.sourceId));
+    const evidence = (runtime.questionEvidence ?? []).filter((item) => item.questionId === question.id && item.quote.trim().length > 0 && sourceById.get(item.sourceId)?.decision === "accepted" && (sourceById.get(item.sourceId)?.document?.text ?? sourceById.get(item.sourceId)?.content ?? "").includes(item.quote));
     const evidenceIds = [...new Set(evidence.map((item) => item.sourceId))];
+    const contextOnly = evidence.length > 0 && !evidence.some((item) => item.relevance === "direct" && sourceById.get(item.sourceId)?.document);
     const warned = runtime.reportEvidenceWarnings?.some((warning) => warning.questionIds.includes(question.id)) ?? false;
     return C.GuidedResearchCoverageItem.parse({ sectionId: question.sectionId, questionId: question.id,
-      status: evidenceIds.length === 0 ? "missing" : warned ? "weak" : "answered", evidenceIds,
-      reasons: evidenceIds.length === 0 ? ["没有可定位的逐问题证据"] : warned ? ["证据校验存在警告"] : ["问题具有可定位原文"] });
+      status: evidenceIds.length === 0 ? "missing" : warned || contextOnly ? "weak" : "answered", evidenceIds,
+      reasons: evidenceIds.length === 0 ? ["没有可定位的逐问题证据"] : warned ? ["证据校验存在警告"] : contextOnly ? ["仅有背景资料或检索摘要，缺少可定位全文的直接证据"] : ["问题具有可定位原文"] });
   });
   const claimEvidence = (runtime.questionEvidence ?? []).flatMap((evidence, index) => {
     const source = sourceById.get(evidence.sourceId);
-    if (!source) return [];
+    if (!source || source.decision !== "accepted" || !evidence.quote.trim()) return [];
     if (!source.document) return [];
     if (!source.document.text.includes(evidence.quote)) return [];
     return [C.GuidedResearchClaimEvidenceView.parse({ claimId: evidence.questionId, evidenceId: `${evidence.questionId}:${index + 1}`,
@@ -85,7 +86,7 @@ export function projectResearchTrust(runtime: ResearchRuntime): GuidedResearchTr
     openGapCount, overall: average([citationCoverage, authority, recency, crossValidation]),
     explanations: ["引用覆盖按已回答问题计算", "权威性按具有完整读取文档的来源计算", "时效性按近一年检索时间计算", "交叉验证按至少两个来源的问题计算"] });
   const blockers: string[] = [];
-  if (runtime.reportPartial || runtime.tasks.some(task => task.status === "failed")) blockers.push("搜索未完成，报告仅为部分草稿");
+  if (runtime.reportPartial || (!runtime.completed && runtime.tasks.some(task => task.status === "failed"))) blockers.push("搜索未完成，报告仅为部分草稿");
   if (!runtime.report && !runtime.reportDraft) blockers.push("报告尚未生成");
   if (!coverage.length || coverage.some((item) => item.status === "missing")) blockers.push("核心问题覆盖不足");
   if (runtime.report && (!claimEvidence.length || coverage.some((item) => item.status === "weak"))) blockers.push("关键结论缺少来源");

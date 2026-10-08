@@ -151,7 +151,7 @@ describe("durable research runtime with real PostgreSQL and controlled provider 
     expect(reportReloaded.report).toEqual(state.report);
     expect(reportReloaded.coverage).toHaveLength(4);
     expect(new Set(reportReloaded.coverage!.map(item => item.questionId)).size).toBe(4);
-    expect(reportReloaded.coverage!.every(item => item.sectionId === "o1" && item.status === "answered" && item.evidenceIds.length > 0)).toBe(true);
+    expect(reportReloaded.coverage!.every(item => item.sectionId === "o1" && item.status === "weak" && item.evidenceIds.length > 0)).toBe(true);
     expect(reportReloaded.coverage!.every(item => reportReloaded.questionEvidence!.some(evidence => evidence.questionId === item.questionId && evidence.sectionId === item.sectionId && evidence.relevance === "direct"))).toBe(true);
     expect(reportReloaded.tasks.map(task => task.query)).toEqual(reloaded.tasks.map(task => task.query));
     expect(reportReloaded.tasks.map(task => task.searchAttempts)).toEqual(reloaded.tasks.map(task => task.searchAttempts));
