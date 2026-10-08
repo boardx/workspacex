@@ -1,3 +1,4 @@
+import { pruneUnsupportedReportBlocks } from "./interview-report-pruning";
 import { isDeepStrictEqual } from "node:util";
 import { ReportGenerationRejectedError } from "./interview-report-rejection";
 import { validateReportEvidence, type ReportEvidence } from "./interview-report-grounding";
@@ -141,7 +142,21 @@ export async function generateReportWithRecovery(
         ...input, step: "report", actorId: input.viewerUserId, expectedVersion, expectedDocumentVersion,
         markdown: response.text, references, failure: { code: rejectionCode(error.missing), retryable: true },
       }));
-      if (attempt + 1 >= maxCalls) throw new ReportGenerationRejectedError(rejectionCode(error.missing));
+      if (attempt + 1 >= maxCalls) {
+        const retained = pruneUnsupportedReportBlocks(response.text, options.evidenceIndex, options.expertLabels);
+        const assessment = assessReport(retained, options.evidenceIndex);
+        const grounding = validateReportEvidence(retained, options.evidenceIndex, options.expertLabels);
+        if (retained !== response.text.trim() && assessment.ok && grounding.ok) {
+          // Same source versions and actor CAS; rejected bytes remain in version history.
+          await measure("storage", () => deps.reader.saveDraft({
+            ...input, step: "report", actorId: input.viewerUserId,
+            expectedVersion: expectedVersion + 1, expectedDocumentVersion: expectedDocumentVersion + 1,
+            markdown: retained, references: [...references, ...grounding.references],
+          }));
+          return measure("storage", () => readInterviewMarkdown(deps, input));
+        }
+        throw new ReportGenerationRejectedError(rejectionCode(error.missing));
+      }
       // This read reauthorizes the actor; exact versions/bytes prevent an edited candidate or
       // new source revision being silently carried into a second model request.
       const current = await measure("context", async () => {

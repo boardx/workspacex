@@ -64,6 +64,26 @@ async function seedCompletedStudy(singleExpert = false) {
 beforeEach(() => seedCompletedStudy());
 
 describe("#5104 real DB report quality recovery", () => {
+  it("persists a usable report after excluding invalid evidence and reloads without another model call", async () => {
+    const valid = await groundedReport(validTemplate);
+    const candidate = valid + "\n\n不受支持的结论：[不存在的回答](#answer-999)。应全面采用该方案。";
+    const complete = vi.fn(async () => ({ text: candidate }));
+    const result = await generate(complete);
+    expect(complete).toHaveBeenCalledTimes(2);
+    const versions = await rows();
+    expect(versions.map(row => row.status)).toEqual(["failed", "failed", "draft"]);
+    expect(versions.map(row => row.markdown)).toEqual([candidate, candidate, valid.trim()]);
+    const report = result.documents.find(document => document.step === "report")!;
+    expect(report.references.filter(reference => reference.locator)).toHaveLength(2);
+    expect(report.references.some(reference => reference.anchor === "answer-999")).toBe(false);
+    expect(report.evidenceMode).toBe("simulated");
+    expect(result.states.find(state => state.documentId === report.documentId)?.failure).toBeNull();
+    const refreshed = await generateInterviewMarkdown(dependencies(complete), { ...input, viewerUserId: actorId, step: "report", expectedVersion: result.version, expectedDocumentVersion: report.version });
+    expect(complete).toHaveBeenCalledTimes(2);
+    expect(refreshed.documents.find(document => document.step === "report")?.markdown).toBe(valid.trim());
+    expect(await rows()).toHaveLength(3);
+  });
+
   it("preserves rejected v1 bytes/hash/references then saves full rewritten v2 without concatenation, one increment per save", async () => {
     const before = await snapshot(); const savedVersions: number[] = [];
     const save = reader.saveDraft.bind(reader);
