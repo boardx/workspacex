@@ -28,7 +28,7 @@ it.each(['initial','continue','repair'] as const)('uses direct-writing policy an
  const completeStream=vi.fn(async(request:ModelCallInput,onDelta:(text:string)=>Promise<void>)=>{
   requests.push(request);
   if(mode==='repair'&&requests.length===1){await onDelta(incomplete);return {text:incomplete};}
-  throw new ModelCallError('MODEL_CALL_FAILED','controlled provider failure',undefined,undefined,{kind:'timeout'});
+  throw new ModelCallError('MODEL_CALL_FAILED','controlled provider failure');
  });
  const controller=new AbortController();
  const deps={reader:{saveDraft},model:{complete:vi.fn(),completeStream},modelProvider:'fixture',modelId:'qwen3.7-plus'} as unknown as Parameters<typeof generateInterviewMarkdown>[0];
