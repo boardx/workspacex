@@ -66,3 +66,13 @@ it("keeps internal quality diagnostics out of the report and its exports", async
   expect(screen.getByRole("button", { name: "更多操作" })).toBeEnabled();
   expect(executeResearchRuntime).not.toHaveBeenCalled();
 });
+
+it("preserves report primary actions instead of hiding them with the completion label", async () => {
+  const state = { ...runtimeFixture("report"), completed: false };
+  vi.mocked(getResearchRuntime).mockResolvedValue(state);
+  render(<GuidedResearchLive sessionId={state.sessionId} onBack={vi.fn()} />);
+  await screen.findByTestId("research-report-actions");
+  const action = screen.getByRole("button", { name: "完成研究" });
+  expect(action.closest(".hidden")).toBeNull();
+  expect(action).toBeEnabled();
+});
