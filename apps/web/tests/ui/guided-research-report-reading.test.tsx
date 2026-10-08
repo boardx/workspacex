@@ -50,3 +50,19 @@ it("opens the report assistant without losing entered text when collapsed", asyn
   expect(screen.getByRole("textbox", { name: "研究对话" })).toHaveValue("请补充结论");
   expect(executeResearchRuntime).not.toHaveBeenCalled();
 });
+
+it("keeps internal quality diagnostics out of the report and its exports", async () => {
+  const state = { ...runtimeFixture("report"), completed: true,
+    publicationReadiness: { status: "limited" as const, blockers: ["核心问题覆盖不足"], warnings: [], evaluatedAt: "2026-10-08T00:00:00Z" },
+    qualityScore: { citationCoverage: 67.5, authority: 90.3, recency: 100, crossValidation: 57.5, openGapCount: 1, overall: 80, explanations: [] } };
+  vi.mocked(getResearchRuntime).mockResolvedValue(state);
+  render(<GuidedResearchLive sessionId={state.sessionId} onBack={vi.fn()} />);
+  await screen.findByTestId("research-report-document");
+  expect(screen.queryByText("核心问题覆盖不足")).not.toBeInTheDocument();
+  expect(screen.queryByText("发布质量门")).not.toBeInTheDocument();
+  expect(screen.queryByText(/带限制完成/)).not.toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "下载 Word" })).toBeEnabled();
+  expect(screen.getByRole("button", { name: "导出 PDF" })).toBeEnabled();
+  expect(screen.getByRole("button", { name: "更多操作" })).toBeEnabled();
+  expect(executeResearchRuntime).not.toHaveBeenCalled();
+});

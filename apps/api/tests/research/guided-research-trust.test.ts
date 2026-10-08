@@ -40,6 +40,36 @@ describe("research trust projection", () => {
     expect(projectResearchTrust(state).publicationReadiness.status).toBe("limited");
   });
 
+  it("retains traceable snippets as weak coverage instead of missing evidence", () => {
+    const state = fixture();
+    delete (state.sources[0] as { document?: unknown }).document;
+    const result = projectResearchTrust(state);
+    expect(result.coverage[0]).toMatchObject({ status: "weak", evidenceIds: ["src1"] });
+    expect(result.publicationReadiness.blockers).not.toContain("核心问题覆盖不足");
+  });
+
+  it("does not treat contextual evidence as an answered question", () => {
+    const state = fixture();
+    state.questionEvidence[0]!.relevance = "context" as any;
+    expect(projectResearchTrust(state).coverage[0]!.status).toBe("weak");
+  });
+
+  it("does not mistake stale failed search tasks for a partial completed report", () => {
+    const state = readyFixture();
+    state.tasks.push({ ...state.tasks[0]!, id: "old-failed", status: "failed" as any });
+    expect(projectResearchTrust(state).publicationReadiness.blockers).not.toContain("搜索未完成，报告仅为部分草稿");
+  });
+
+  it.each(["excluded", "missing-quote", "empty-quote"])("rejects untraceable coverage: %s", mode => {
+    const state = fixture();
+    if (mode === "excluded") state.sources[0]!.decision = "excluded" as any;
+    if (mode === "missing-quote") state.questionEvidence[0]!.quote = "not in original";
+    if (mode === "empty-quote") state.questionEvidence[0]!.quote = "";
+    const result = projectResearchTrust(state);
+    expect(result.coverage[0]!.status).toBe("missing");
+    expect(result.claimEvidence).toEqual([]);
+  });
+
   it("marks covered questions ready with traceable evidence", () => {
     const result = projectResearchTrust(readyFixture());
     expect(result.coverage[0]).toMatchObject({ status: "answered", evidenceIds: ["src1", "src2"] });
