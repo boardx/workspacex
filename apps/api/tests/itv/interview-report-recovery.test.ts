@@ -31,6 +31,18 @@ beforeEach(() => {
  });
 });
 describe("bounded report quality recovery", () => {
+ it("retains valid sibling findings when only one list item has unusable evidence", async () => {
+  const validItem = "- 有效发现：[反对电话。](#answer-2)，渠道应分层验证。";
+  const candidate = GOOD + "\n\n" + validItem + "\n- 无效发现：[不存在的回答](#answer-999)，应采用统一方案。";
+  complete.mockResolvedValue({ text: candidate });
+  await generateInterviewMarkdown(deps(), input);
+  const report = snapshot.documents.find(document => document.step === "report")!;
+  expect(report.markdown).toContain(validItem);
+  expect(report.markdown).not.toContain("无效发现");
+  expect(report.markdown).not.toContain("answer-999");
+  expect(complete).toHaveBeenCalledTimes(2);
+  expect(snapshot.states.find(state => state.documentId === report.documentId)?.failure).toBeNull();
+ });
  it("automatically excludes an unusable citation block after bounded repair and saves the valid report", async () => {
   const wrong = GOOD + "\n\n无效发现：[不存在的回答](#answer-999)。据此应更换全部渠道。";
   complete.mockResolvedValue({ text: wrong });

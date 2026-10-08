@@ -8,7 +8,8 @@ import { assessReportClaimBoundaries } from "./interview-report-claim-boundaries
 export function pruneUnsupportedReportBlocks(markdown: string, evidence: readonly ReportEvidence[], labels: Readonly<Record<string, string>> = {}): string {
   const tree = unified().use(remarkParse).parse(markdown);
   const removals: Array<{ start: number; end: number }> = [];
-  for (const node of tree.children) {
+  const blocks = tree.children.flatMap(node => node.type === "list" ? node.children : [node]);
+  for (const node of blocks) {
     const start = node.position?.start.offset;
     const end = node.position?.end.offset;
     if (start === undefined || end === undefined) continue;
