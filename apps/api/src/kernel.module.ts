@@ -496,6 +496,8 @@ import {
 import { PgDigitalInterviewRepository } from "./infrastructure/interview/pg-digital-interview-repository";
 import { PgInterviewMarkdownReader } from "./infrastructure/interview/pg-interview-markdown-reader";
 import { INTERVIEW_MARKDOWN_READER } from "./application/interview/read-interview-markdown";
+import { generateProfessionalInterviewReport } from "./application/interview/generate-professional-interview-report";
+import { loadInterviewReportSkill } from "./infrastructure/skill/interview-report-skill";
 import { INTERVIEW_MARKDOWN_GENERATOR, generateInterviewMarkdown, previewVirtualExpertMarkdown } from "./application/interview/generate-interview-markdown";
 import { INTERVIEW_MARKDOWN_EXECUTION, type MarkdownExecutionInput } from "./application/interview/interview-markdown-execution.port";
 import { executeInterviewMarkdown } from "./application/interview/execute-interview-markdown";
@@ -2779,14 +2781,15 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
         reader: import("./application/interview/read-interview-markdown").InterviewMarkdownReader,
         model: ModelCallPort,
         debugTrace: import("./application/ports/debug-trace.port").DebugTracePort,
+        packs: import("./application/skill-import/ports").SkillStarterPackSource,
       ) => {
         const config = readDigitalInterviewModelConfig();
-        const deps = { repo, scope, decisions, reader, model, debugTrace, modelProvider: config.provider, modelId: config.modelId };
+        const deps = { repo, scope, decisions, reader, model, debugTrace, modelProvider: config.provider, modelId: config.modelId, reportSkill: () => loadInterviewReportSkill(packs) };
         return { generate: (input: import("./application/interview/generate-interview-markdown").GenerateMarkdownInput) =>
-          generateInterviewMarkdown(deps, input),
+          input.step === "report" ? generateProfessionalInterviewReport(deps, input) : generateInterviewMarkdown(deps, input),
           previewVirtualExpert: (input: Parameters<typeof previewVirtualExpertMarkdown>[1]) => previewVirtualExpertMarkdown(deps, input) };
       },
-      inject: [DIGITAL_INTERVIEW_REPOSITORY, INTERVIEW_SCOPE_REPOSITORY, DECISION_ID_FACTORY, INTERVIEW_MARKDOWN_READER, MODEL_CALL_PORT, DEBUG_TRACE_PORT],
+      inject: [DIGITAL_INTERVIEW_REPOSITORY, INTERVIEW_SCOPE_REPOSITORY, DECISION_ID_FACTORY, INTERVIEW_MARKDOWN_READER, MODEL_CALL_PORT, DEBUG_TRACE_PORT, SKILL_STARTER_PACK_SOURCE],
     },
     {
       provide: INTERVIEW_MARKDOWN_EXECUTION,
