@@ -49,7 +49,7 @@ jobs:
           persist-credentials: false
       - uses: actions/checkout@v5
         with:
-          ref: fcdd09cdc230b08947f19defb425e86988a3ecc0
+          ref: ee7e682805c27a38e9fd601c4aca66f11763ba91
           path: source
           persist-credentials: false
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c

@@ -19,8 +19,14 @@ def valid_plan():
 
 class BuildOnlyTests(unittest.TestCase):
     def test_frozen_app_and_services(self):
-        self.assertEqual(m.APP, 'fcdd09cdc230b08947f19defb425e86988a3ecc0')
+        self.assertEqual(m.APP, 'ee7e682805c27a38e9fd601c4aca66f11763ba91')
         self.assertEqual(set(m.SERVICES), {'api', 'web', 'agent', 'sandbox', 'postgres'})
+
+    def test_previous_fcdd_plan_rejected(self):
+        value = valid_plan()
+        value["sourceRevision"] = "fcdd09cdc230b08947f19defb425e86988a3ecc0"
+        with self.assertRaisesRegex(ValueError, "INVALID_BUILD_ONLY_IDENTITY"):
+            m.validate(value)
 
     def test_wrong_source_rejected(self):
         value = valid_plan(); value['sourceRevision'] = 'b' * 40

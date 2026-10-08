@@ -9,7 +9,7 @@ import subprocess
 import tarfile
 import tempfile
 
-APP = 'fcdd09cdc230b08947f19defb425e86988a3ecc0'
+APP = 'ee7e682805c27a38e9fd601c4aca66f11763ba91'
 BASES = {'node': 'docker.io/library/node:22-bookworm-slim',
          'python': 'docker.io/library/python:3.11-slim',
          'postgres': 'docker.io/pgvector/pgvector:pg16'}
