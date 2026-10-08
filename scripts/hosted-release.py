@@ -120,7 +120,7 @@ def auth(plan):
     with tempfile.TemporaryDirectory(prefix='wsx-docker-') as directory:
         env = dict(os.environ, DOCKER_CONFIG=directory, GIT_NO_LAZY_FETCH='1')
         for key in tuple(env):
-            if key in ('ACR_TOKEN', 'ACR_USERNAME', 'ACR_PASSWORD', 'ACTIONS_ID_TOKEN_REQUEST_TOKEN', 'ACTIONS_ID_TOKEN_REQUEST_URL', 'GITHUB_TOKEN', 'GH_TOKEN') or key.startswith(('ALIBABA_CLOUD_', 'ALIYUN_', 'ALICLOUD_')):
+            if key in ('ACR_TOKEN', 'ACR_USERNAME', 'ACR_PASSWORD', 'ACTIONS_ID_TOKEN_REQUEST_TOKEN', 'ACTIONS_ID_TOKEN_REQUEST_URL', 'GITHUB_TOKEN', 'GH_TOKEN') or key.startswith(('ALIBABA_CLOUD_', 'ALIBABACLOUD_', 'ALIYUN_', 'ALICLOUD_')):
                 env.pop(key, None)
         registry = plan['registryPrefix'].split('/')[0]
         try:

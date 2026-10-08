@@ -94,6 +94,12 @@ class ReleaseFailureMatrix(unittest.TestCase):
             'ALIBABA_CLOUD_ACCESS_KEY_ID': 'synthetic-id',
             'ALIBABA_CLOUD_ACCESS_KEY_SECRET': 'synthetic-sts-secret',
             'ALIBABA_CLOUD_SECURITY_TOKEN': 'synthetic-sts-token',
+            'ALIBABACLOUD_ACCESS_KEY_ID': 'synthetic-legacy-id',
+            'ALIBABACLOUD_ACCESS_KEY_SECRET': 'synthetic-legacy-secret',
+            'ALIBABACLOUD_SECURITY_TOKEN': 'synthetic-legacy-token',
+            'ALICLOUD_ACCESS_KEY': 'synthetic-terraform-id',
+            'ALICLOUD_SECRET_KEY': 'synthetic-terraform-secret',
+            'ALICLOUD_SECURITY_TOKEN': 'synthetic-terraform-token',
             'ACTIONS_ID_TOKEN_REQUEST_TOKEN': 'synthetic-oidc-token',
             'GH_TOKEN': 'synthetic-github-token',
         }
