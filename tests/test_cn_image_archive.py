@@ -51,6 +51,7 @@ def image(entry, build):
 class Adapter:
     def __init__(self, build, entries):
         self.build=build;self.entries=entries;self.local_images={};self.remote={};self.calls=[];self.fail=None;self.lost_ack=False
+    def check_validity(self): self.calls.append(('ttl-check',))
     def local(self,tag): return self.local_images.get(tag)
     def protect_running_targets(self,*args): self.calls.append(('running-check',))
     def authenticate(self): self.calls.append(('auth',))
@@ -133,6 +134,55 @@ class ArchiveTests(unittest.TestCase):
     def test_preexisting_staging_reference_not_removed(self):
         a=Adapter(self.build,self.entries);entry=self.entries['api'];a.local_images[entry['stagingTag']]=image(entry,self.build)
         i.publish_images({'buildPlan':self.build},self.value(),self.root,a,c);self.assertIn(entry['stagingTag'],a.local_images)
+    def test_unknown_immutable_provider_response_fails_closed(self):
+        now=datetime.now(timezone.utc).isoformat()
+        proof=dict(schemaVersion=1,observedAt=now,accountId='1177216024653153',region='cn-shanghai',instanceId=c.INSTANCE,repositories={})
+        approved={k:proof[k] for k in ('observedAt','accountId','region','instanceId')};approved['repositories']={}
+        for name in c.REPOSITORIES.values():
+            proof['repositories'][name]=dict(IsSuccess=True,Code='success',InstanceId=c.INSTANCE,RepoNamespaceName='workspacex-prod',RepoName=name,RepoStatus='NORMAL',RepoType='PRIVATE',TagImmutability=True,RepoId='crr-fixture'+name.replace('-',''))
+            approved['repositories'][name]=dict(repositoryId=proof['repositories'][name]['RepoId'],immutable=True)
+        # Synthetic positive contract input is not evidence about any real repository.
+        c.validate_immutable_evidence(proof,approved)
+        for unknown in (None,False,'true','unknown',1):
+            bad=copy.deepcopy(proof);bad['repositories']['postgres-age']['TagImmutability']=unknown
+            with self.subTest(unknown=unknown),self.assertRaisesRegex(ValueError,'IMMUTABILITY_RAW_NOT_PROVEN'):c.validate_immutable_evidence(bad,approved)
+        bad=copy.deepcopy(proof);del bad['repositories']['web']
+        with self.assertRaisesRegex(ValueError,'IMMUTABILITY_RAW_COMPLETE'):c.validate_immutable_evidence(bad,approved)
+
+    def test_export_workflow_only_manual_main_without_cloud_authority(self):
+        source=(ROOT/'.github/workflows/export-cn-image-archives.yml').read_text()
+        import re
+        triggers=source.split('\non:\n')[1].split('\npermissions:')[0]
+        self.assertEqual(re.findall(r'^  ([a-z_]+):',triggers,re.M),['workflow_dispatch'])
+        self.assertIn("if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'",source)
+        self.assertIn('contents: read',source);self.assertIn('runs-on: ubuntu-24.04',source)
+        for forbidden in ('self-hosted','id-token:','secrets.','environment:','sudo','--publish','--prepare','aliyun','docker push','docker login'):
+            self.assertNotIn(forbidden,source)
+        self.assertEqual(source.count('persist-credentials: false'),2)
+        self.assertEqual(source.count('[[ "$EVENT_NAME" == workflow_dispatch && "$GITHUB_REF" == refs/heads/main ]]'),2)
+        self.assertIn('compression-level: 0',source)
+        self.assertIn("plan['controlRevision'] == os.environ['GITHUB_SHA']",source)
+        self.assertIn('merge-base --is-ancestor HEAD origin/main',source)
+        self.assertIn('fsck --full --no-reflogs',source)
+
+    def test_export_shell_rejects_automatic_and_wrong_ref_before_tools(self):
+        import os, subprocess
+        source=(ROOT/'.github/workflows/export-cn-image-archives.yml').read_text()
+        scripts=[]
+        for block in source.split('      - name: ')[1:]:
+            if '        run: |\n' in block:
+                body=block.split('        run: |\n',1)[1]
+                scripts.append('\n'.join(line[10:] for line in body.splitlines() if line.startswith('          '))+'\n')
+        self.assertEqual(len(scripts),2)
+        for script in scripts:
+            for event,ref in [('workflow_run','refs/heads/main'),('pull_request','refs/pull/5512/merge'),('push','refs/heads/main'),('workflow_dispatch','refs/heads/branch'),('workflow_dispatch','refs/tags/main')]:
+                env=dict(PATH='/usr/bin:/bin',EVENT_NAME=event,GITHUB_REF=ref,RUNNER_TEMP=str(self.root),BUILD_PLAN='{}')
+                result=subprocess.run(['/bin/bash','-c',script],env=env,text=True,capture_output=True,timeout=5)
+                with self.subTest(event=event,ref=ref):
+                    self.assertEqual(result.returncode,2,result.stderr)
+                    self.assertEqual(result.stderr,'')
+                    self.assertFalse((self.root/'cn-archive-plan.json').exists())
+
     def test_dirty_control_rejected_before_build(self):
         def command(argv,cwd=None):
             if argv[1:]==['rev-parse','HEAD']:return (self.build['controlRevision']+'\n').encode()

@@ -8,6 +8,10 @@ import json
 import os
 from pathlib import Path
 import subprocess
+import selectors
+import shutil
+import signal
+import time
 import sys
 import tarfile
 import tempfile
@@ -27,10 +31,26 @@ def run(argv, cwd=None, stdout=None):
            'GIT_NO_REPLACE_OBJECTS': '1', 'GIT_NO_LAZY_FETCH': '1'}
     with tempfile.TemporaryDirectory(prefix='wsx-export-home-') as home:
         env['HOME'] = home
-        value = subprocess.run(argv, cwd=cwd, env=env, stdout=stdout or subprocess.PIPE,
-                               stderr=subprocess.PIPE, timeout=3600, check=False)
-    contract.require(value.returncode == 0, 'EXPORT_COMMAND_FAILED_' + Path(argv[0]).name.upper())
-    return value.stdout
+        process = subprocess.Popen(argv, cwd=cwd, env=env, stdout=subprocess.PIPE,
+                                   stderr=subprocess.PIPE, start_new_session=True)
+        selector = selectors.DefaultSelector(); buffers = {}; deadline = time.monotonic() + 3600
+        try:
+            for stream in (process.stdout, process.stderr):
+                buffers[stream] = bytearray(); selector.register(stream, selectors.EVENT_READ)
+            while selector.get_map():
+                contract.require(time.monotonic() < deadline, 'EXPORT_COMMAND_TIMEOUT')
+                for key, _ in selector.select(.2):
+                    data = os.read(key.fileobj.fileno(), 8192)
+                    if not data:
+                        selector.unregister(key.fileobj); continue
+                    contract.require(len(buffers[key.fileobj]) + len(data) <= 8 * 1024**2, 'EXPORT_OUTPUT_LIMIT')
+                    buffers[key.fileobj].extend(data)
+            contract.require(process.wait(timeout=1) == 0, 'EXPORT_COMMAND_FAILED_' + Path(argv[0]).name.upper())
+            return bytes(buffers[process.stdout])
+        finally:
+            if process.poll() is None: os.killpg(process.pid, signal.SIGKILL)
+            process.wait(); selector.close(); process.stdout.close(); process.stderr.close()
+
 
 
 def normalize(saved, output, plan, service):
@@ -75,7 +95,10 @@ def produce(plan, source, output, command=run):
     contract.require(not command(['git', 'status', '--porcelain', '--untracked-files=all'], source).strip(), 'SOURCE_DIRTY')
     command(['git', 'merge-base', '--is-ancestor', plan['sourceRevision'], 'origin/main'], source)
     contract.require(set(hosted.SERVICES) == set(contract.REPOSITORIES), 'SERVICE_CONTRACT_DRIFT')
-    output = Path(output); output.mkdir(mode=0o700, parents=False, exist_ok=False)
+    output = Path(output)
+    contract.require(shutil.disk_usage(output.parent).free >= plan['maxTotalBytes'] * 4 + plan['storageMarginBytes'], 'EXPORT_CAPACITY')
+    contract.require(os.statvfs(output.parent).f_favail >= 4096, 'EXPORT_INODE_CAPACITY')
+    output.mkdir(mode=0o700, parents=False, exist_ok=False)
     os.chmod(output, 0o700)
     images = {}; total = 0
     try:
@@ -127,6 +150,10 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--plan', required=True); parser.add_argument('--source', required=True); parser.add_argument('--output', required=True)
     args = parser.parse_args()
+    def deadline(signum, frame):
+        raise contract.Rejected('EXPORT_TOTAL_DEADLINE')
+    signal.signal(signal.SIGALRM, deadline); signal.signal(signal.SIGTERM, deadline); signal.alarm(7200)
+    contract.require(Path(args.plan).stat().st_size <= 16384, 'BUILD_PLAN_SIZE')
     raw = Path(args.plan).read_bytes(); contract.require(len(raw) <= 16384, 'BUILD_PLAN_SIZE')
     produce(contract.decode(raw), Path(args.source).resolve(), args.output)
     print('CN_IMAGE_ARCHIVES_EXPORTED registryPublished=false productionReady=false')

@@ -1,0 +1,91 @@
+name: export-cn-image-archives
+
+on:
+  workflow_dispatch:
+    inputs:
+      build_plan:
+        description: 'Reviewed JSON build plan: exact main source/control SHAs, public base digests, existing Redis digest, budgets and unique attempt'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cn-archive-export-${{ github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  export:
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    steps:
+      - name: Require manual main and bind exact build identities
+        id: identity
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BUILD_PLAN: ${{ inputs.build_plan }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$EVENT_NAME" == workflow_dispatch && "$GITHUB_REF" == refs/heads/main ]] || exit 2
+          python3 - <<'PY'
+          import json, os, pathlib, re
+          raw = os.environ['BUILD_PLAN'].encode()
+          assert len(raw) <= 16384
+          def pairs(items):
+              result = {}
+              for key, value in items:
+                  assert key not in result
+                  result[key] = value
+              return result
+          plan = json.loads(raw, object_pairs_hook=pairs)
+          assert plan['controlRevision'] == os.environ['GITHUB_SHA']
+          assert re.fullmatch('[a-f0-9]{40}', plan['sourceRevision'])
+          pathlib.Path(os.environ['RUNNER_TEMP'], 'cn-archive-plan.json').write_bytes(raw)
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
+              output.write('source=' + plan['sourceRevision'] + '\n')
+          PY
+      - name: Check out exact main control
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.sha }}
+          path: control
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Check out exact source
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ steps.identity.outputs.source }}
+          path: source
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Export five archives without registry credentials
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$EVENT_NAME" == workflow_dispatch && "$GITHUB_REF" == refs/heads/main ]] || exit 2
+          git -C source merge-base --is-ancestor HEAD origin/main
+          git -C source fsck --full --no-reflogs
+          python3 -I -B control/scripts/export-cn-image-archives.py \
+            --plan "$RUNNER_TEMP/cn-archive-plan.json" \
+            --source "$GITHUB_WORKSPACE/source" \
+            --output "$RUNNER_TEMP/cn-image-archives"
+      - name: Preserve archive transport artifacts
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: cn-image-archives-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/cn-image-archives/api.tar
+            ${{ runner.temp }}/cn-image-archives/web.tar
+            ${{ runner.temp }}/cn-image-archives/agent.tar
+            ${{ runner.temp }}/cn-image-archives/sandbox.tar
+            ${{ runner.temp }}/cn-image-archives/postgres.tar
+            ${{ runner.temp }}/cn-image-archives/archive-set.json
+            ${{ runner.temp }}/cn-image-archives/build-plan.json
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 1

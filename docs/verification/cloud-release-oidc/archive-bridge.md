@@ -1,55 +1,111 @@
-# Archive bridge — isolated implementation checkpoint
+# Archive bridge — reviewed code, production inputs pending
 
-Status: incomplete, not approved for installation or publication. `--publish` rejects
-with `ARCHIVE_BRIDGE_REVIEW_INCOMPLETE` before reading the plan or acquiring credentials.
-No workflow invokes the importer; no archive-export workflow has been added yet.
+This code adds an archive-only hosted producer and a separately invoked ECS importer.
+It does not run build/prepare/activation on production. No production command, cloud
+API, archive upload/download, installation, or workflow dispatch was executed here.
 
-The current producer normalizes five Docker-save archives for api, web, deep-agent,
-skill-sandbox and postgres-age. Each archive binds its config image ID, raw layer
-hashes, source/control revision and linux/amd64 platform. Redis remains an independently
-approved existing registry digest. The consumer uses actual RepoDigests and the original
-TypeScript manifest/seal CLIs; image IDs are never treated as registry digests.
+## Boundaries
 
-The fixed prospective target is the existing Shanghai VPC registry
+`export-cn-image-archives.yml` admits only workflow_dispatch on refs/heads/main and repeats
+that gate before export. It uses an ephemeral Ubuntu runner, contents:read, no OIDC,
+cloud secrets, production environment, or self-hosted runner. Exact control/source SHA,
+clean control bytes, full source ancestry and fsck are required. Source is exported from
+Git objects. Docker builds five images and saves complete config/layer archives; output
+is normalized without filesystem extraction. There is no registry login/push or OSS call.
+The workflow uploads only the five archives plus their versioned archive-set/build plan
+as short-retention GitHub artifacts. It was syntax-tested, not dispatched.
+
+The archives bind source/control revisions, linux/amd64, SHA256, byte size, config image
+ID, individual raw layer sizes/hashes and unique attempt staging tags. Unreferenced
+payloads, duplicate members/JSON keys, paths, links, wrong source/architecture or layer
+hashes are rejected. The supported transport is single-image uncompressed Docker-save;
+compressed OCI layers or unsupported save formats fail closed. No real Docker build was
+claimed from offline tests. Producer logs, total time, free space and inodes are bounded.
+
+The prospective importer target is only the existing Shanghai VPC registry
 `workspacex-cn-prod-registry-vpc.cn-shanghai.cr.aliyuncs.com/workspacex-prod`,
-instance `cri-ttm0916mvdvg4ugx`. No real staging object coordinates or upload/download
-principals have been supplied. The transport contract requires them and has no guessed
-bucket, credential, upload/download, or installation fallback.
+instance `cri-ttm0916mvdvg4ugx`, role WorkspacexCnProductionEcsRole. Its STS/account and
+ACR token calls are explicit EcsRamRole/cn-shanghai/instance scoped with ambient profiles
+ignored. Passwords use a bounded anonymous pipe and temporary Docker config, never
+argv/environment or printed errors. Root-owned non-symlink installed tools/binaries,
+the isolated original Node/TypeScript closure and exact approval bytes must be SHA-pinned.
+There is no credential, installer, guessed bucket or transport fallback.
 
-## Evidence at this checkpoint
+`--check-plan` pins and validates inputs without temporary-file/Docker/cloud writes.
+`--publish` additionally requires explicit root-protected publishAuthorized:true, exact
+account/ECS/registry/attempt/source binding, approved transport coordinates/principals,
+and independent provider evidence for all five target repositories. Deadline/approval,
+archive and immutability TTL are checked before side effects; expired/unknown inputs
+reject. File copies are bounded; free space/inodes and DockerRootDir are checked. The
+existing production release.lock is taken nonblocking, never replaced with a competing lock.
 
-`python3 -B -m unittest discover -s tests -p test_cn_image_archive.py -v`
-passed 13 local tests on 2026-10-08. They exercise malformed archives and metadata,
-expiry, duplicate JSON, dirty control rejection, all-target remote collision prechecks,
-lost push acknowledgement, failure cleanup, owned staging references, and repeat
-publication without repeat pushes. Docker/cloud/API/production were not used.
-This proves the isolated contract/sequence cases only, not real Docker/CLI interoperability.
+All local and remote target collisions are checked before load/tag/push. Running-target
+collisions reject. Registry readback is required even after a lost push acknowledgement;
+matching prior publication avoids repeated pushes. Only owned staging references are
+removed, never image IDs or shared layers. Local target references and already-pushed
+remote objects may remain on failure: publication is not transactional and cannot be
+rolled back safely. The lock serializes cooperative local operations, not external writers,
+and does not itself provide idempotency. Different bytes rebuilt for the same source tag
+are rejected; reproducibility is not assumed.
 
-Independent review reproduced the first draft's last-image conflict after four earlier
-pushes. The sequence now probes all five remote configs before loading/tagging/pushing;
-the regression simulation verifies zero such mutations on that conflict.
+Actual Docker RepoDigests plus remote digest readback feed the unchanged TypeScript
+manifest generator/sealer/validator. Image IDs never substitute for registry digests.
+Result files live only under `/var/lib/workspacex-cn/archive-published/<source>/<attempt>`;
+they are not installed into activation pointers. Root-trusted dirfd parents, private pending
+directory, fsync and Linux renameat2(RENAME_NOREPLACE) publish a complete result atomically.
+Completed retries validate and reuse the original seal/receipt bytes. Partial existing
+results, mismatched receipts or concurrent destinations reject. Result flags remain
+ready:false, prepared:false, productionActivated:false.
 
-## Remaining release blockers
+## Independent evidence
 
-- Complete independent review of protected inbox handling, capacity/deadline coverage,
-  credential handling, cleanup error precedence and canonical output path protection.
-- Test the original Node closure end to end and finish completed/torn receipt retry handling.
-- Bind all-five repository immutability to protected provider evidence, not an approval list;
-  only api's immutability was established by prior browser evidence.
-- Add the manual-main-only hosted export workflow and its independent trigger tests.
-- Real approved transport coordinates/principals, binary/control closure and fresh capacity
-  information must be supplied through separately reviewed, root-protected plans.
+- `python3 -B -m unittest discover -s tests -p 'test_cn*archive*.py' -v`: 16 contract/fault tests
+  and 16 real Node22.20.0 original canonical CLI fixtures pass locally.
+- `python3 -B -m unittest discover -s tests -p test_prepare_manual_gate.py -v`: 6 pass.
+- actionlint passes for the existing manual prepare gate, manual exporter, and isolated PR tests.
+- `.github/workflows/archive-bridge-tests.yml` runs the same archive tests on PRs, including Drafts,
+  using an isolated exact-version test runtime. Its Docker boundary is synthetic.
 
-The existing production release lock serializes local operations; it is not idempotency
-and cannot guard external registry writers. Partial remote publication cannot be rolled
-back as a transaction. Failure cleanup must never prune shared images, delete others'
-references, build on production, prepare/activate a release, or change running containers.
+Independent tests found and verified fixes for partial publication before the last target
+collision, reused exclusive temporary outputs breaking retry, and post-rename fsync failure
+incorrectly deleting a completed result. Added counterproofs reject 61-minute old immutability
+evidence, missing observations, missing evidence and actual empty destination overwrite.
+The independent reviewer accepted removal of the temporary software-only hardgate after
+16+16 passed. That acceptance does not approve production execution or establish real
+repository immutability. Offline ownership/Docker fixture inputs are explicitly synthetic.
 
-## First safe integration sequence
+## Provider proof and remaining production blockers
 
-Re-read exact main/PR HEADs and live pending prepare runs. Land the reviewed manual-only
-prepare gate first with separate authorization; existing main currently has an automatic
-workflow_run entry, so any main merge can reach that chain. Do not issue a token by merging
-an OIDC diagnostic around it. Only after guard verification and closure of the blockers
-above should an archive-only hosted run, reviewed staging, and a separately approved
-import/tag/push/readback be considered. Preparation and activation remain separate gates.
+Stage `immutable-provider-response.json` independently; bind its SHA256 in immutableEvidence
+inside the root-protected plan. Its version-1 envelope contains observedAt, accountId, region,
+instanceId and repositories keyed by all five repository names. Each value is the complete
+raw GetRepository response, not a producer-authored assertion. The reviewed approval binds
+the same observation/target and the actual repository IDs. Code requires IsSuccess:true,
+Code:success, matching InstanceId/RepoNamespaceName/RepoName/RepoId, RepoStatus:NORMAL,
+RepoType:PRIVATE and strict TagImmutability:true for every repository. Observations older
+than one hour, missing/unknown/string/bool-like values reject. This validates independently
+reviewed input bytes, not the authenticity of an arbitrary JSON document or live cloud state.
+
+Read-only collection, if separately authorized: in region cn-shanghai use ListRepository
+for instance cri-ttm0916mvdvg4ugx to resolve exact namespace/workspacex-prod names and IDs;
+then GetRepository for api, web, deep-agent, skill-sandbox and postgres-age, passing that
+instance and each actual RepoId. Only api's ID is previously established:
+crr-ylrpsjvjp41v42rj. Do not guess the other IDs. The console's repository Details view
+can show Immutable; do not click Edit/Confirm or change it during collection.
+Official fields: https://www.alibabacloud.com/help/en/acr/developer-reference/api-cr-2018-12-01-getrepository
+
+Fresh all-five raw proof is still absent. Real staging object bucket/region/prefix/version/keys,
+uploadPrincipal/downloadPrincipal, selected source/control/base digests, production Docker
+storage/binary hashes, full approved canonical closure and capacity are also not established.
+No sample/mock plan may be promoted as live evidence. No production readiness is claimed.
+
+## First safe integration
+
+Re-read exact main/PR HEADs and live queued/pending prepare runs. Main still has the older
+automatic backend-gates workflow_run entry; a main merge can reach privileged build/prepare,
+and ordinary PR CI completion can affect the shared pending concurrency slot even when
+its privileged job is skipped. Land and verify the reviewed manual-only prepare guard first
+with separate merge authorization; do not merge an OIDC diagnostic around the old chain.
+Only after guard verification, real inputs and separate execution approval should a hosted
+archive-only dispatch, approved staging and import/tag/push/readback be considered.
+Preparation, activation and live traffic remain separate approval/verification boundaries.

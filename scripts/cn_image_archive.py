@@ -224,3 +224,22 @@ def validate_transport(transport, value, manifest_sha):
         expected = manifest_sha if file == 'archive-set.json' else value['images'][file[:-4]]['sha256']
         require(item['sha256'] == expected, 'TRANSPORT_OBJECT_HASH')
     require(len({item['key'] for item in objects.values()}) == len(objects), 'TRANSPORT_DUPLICATE_KEY')
+
+
+def validate_immutable_evidence(value, approved, now=None):
+    """Verify independently collected raw GetRepository responses; never collect them."""
+    fields = {'schemaVersion', 'observedAt', 'accountId', 'region', 'instanceId', 'repositories'}
+    require(type(value) is dict and set(value) == fields and type(value['schemaVersion']) is int and value['schemaVersion'] == 1, 'IMMUTABILITY_RAW_FIELDS')
+    require(all(value[key] == approved[key] for key in ('observedAt', 'accountId', 'region', 'instanceId')), 'IMMUTABILITY_RAW_BINDING')
+    require(value['accountId'] == '1177216024653153' and value['region'] == 'cn-shanghai' and value['instanceId'] == INSTANCE, 'IMMUTABILITY_RAW_TARGET')
+    clock = now or datetime.now(timezone.utc)
+    require(0 <= (clock-timestamp(value['observedAt'])).total_seconds() <= 3600, 'IMMUTABILITY_RAW_EXPIRED')
+    require(type(value['repositories']) is dict and set(value['repositories']) == set(REPOSITORIES.values()), 'IMMUTABILITY_RAW_COMPLETE')
+    for repository, response in value['repositories'].items():
+        require(type(response) is dict and response.get('IsSuccess') is True and response.get('Code') == 'success'
+                and response.get('InstanceId') == INSTANCE and response.get('RepoNamespaceName') == 'workspacex-prod'
+                and response.get('RepoName') == repository and response.get('RepoStatus') == 'NORMAL'
+                and response.get('RepoType') == 'PRIVATE' and response.get('TagImmutability') is True, 'IMMUTABILITY_RAW_NOT_PROVEN')
+        require(response.get('RepoId') == approved['repositories'][repository]['repositoryId']
+                and approved['repositories'][repository]['immutable'] is True, 'IMMUTABILITY_RAW_IDENTITY')
+    return value

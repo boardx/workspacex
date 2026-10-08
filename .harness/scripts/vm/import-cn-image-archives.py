@@ -8,6 +8,8 @@ No workflow invokes this entry and it has no upload/download/installation fallba
 from contextlib import contextmanager, ExitStack
 from datetime import datetime, timezone
 import argparse
+import ctypes
+import errno
 import fcntl
 import hashlib
 import importlib.util
@@ -30,6 +32,7 @@ ALIYUN_SHA = 'f8726dbe5a88c45e0745e308ba23234d928519b9cb33c96a4bff0bbee1c85c05'
 ROLE = 'WorkspacexCnProductionEcsRole'
 ACCOUNT = '1177216024653153'
 RUNTIME = Path('/var/lib/workspacex-cn/runtime')
+PUBLISHED_ROOT = Path('/var/lib/workspacex-cn/archive-published')
 
 
 class Rejected(ValueError):
@@ -39,6 +42,18 @@ class Rejected(ValueError):
 def need(v, code):
     if not v:
         raise Rejected(code)
+
+
+def atomic_no_replace(directory_fd, temporary, attempt):
+    libc = ctypes.CDLL(None, use_errno=True)
+    need(hasattr(libc, 'renameat2'), 'ATOMIC_NOREPLACE_UNSUPPORTED')
+    function = libc.renameat2
+    function.argtypes = [ctypes.c_int, ctypes.c_char_p, ctypes.c_int, ctypes.c_char_p, ctypes.c_uint]
+    function.restype = ctypes.c_int
+    if function(directory_fd, os.fsencode(temporary), directory_fd, os.fsencode(attempt), 1) != 0:
+        error = ctypes.get_errno()
+        need(error != errno.EEXIST, 'PUBLISHED_RECEIPT_CONCURRENT_COLLISION')
+        raise Rejected('PUBLISHED_ATOMIC_RENAME_FAILED')
 
 
 def digest(raw):
@@ -182,6 +197,7 @@ def publish_images(plan, archive_set, bundle, adapter, c):
             existing = adapter.local(target)
             if existing is not None:
                 image_matches(existing, entry, build, c)
+        adapter.check_validity()
         adapter.protect_running_targets(archive_set, build)
         adapter.authenticate()
         # Probe every target before any image-store mutation or registry push.
@@ -192,26 +208,33 @@ def publish_images(plan, archive_set, bundle, adapter, c):
         results = {}
         for service, entry in archive_set['images'].items():
             tag = entry['stagingTag']; target = c.PREFIX + '/' + c.REPOSITORIES[service] + ':' + build['sourceRevision']
+            adapter.check_validity()
             remote = adapter.pull_optional(target)
             if remote is None:
                 if adapter.local(tag) is None:
                     # Register ownership before load: a failed load can still commit a tag.
                     owned.append((tag, entry))
+                    adapter.check_validity()
                     adapter.load(Path(bundle) / entry['file'])
                 image_matches(adapter.local(tag), entry, build, c)
+                adapter.check_validity()
                 adapter.tag(tag, target)
+                adapter.check_validity()
                 pushed = adapter.push(target)
                 # Verify after both success and lost acknowledgement. Never blindly retry.
+                adapter.check_validity()
                 remote = adapter.pull_optional(target)
                 need(remote is not None, 'REGISTRY_PUSH_UNCONFIRMED' if not pushed else 'REGISTRY_READBACK_MISSING')
             image_matches(remote, entry, build, c)
             results[service] = adapter.registry_digest(target, remote)
         redis = build['baseImages']['redis']
+        adapter.check_validity()
         adapter.pull_required(redis)
         results['redis'] = adapter.registry_digest(redis, adapter.local(redis))
         value = {k: build[k] for k in ('release', 'sourceRevision', 'platform')}
         value.update(schemaVersion=1, images={key: {'image': results[key]} for key in ('web', 'api', 'agent', 'sandbox', 'postgres', 'redis')})
         # Original TypeScript generator/validator/sealer, not a Python imitation.
+        adapter.check_validity()
         return adapter.canonical_publish(value)
     finally:
         for tag, entry in reversed(owned):
@@ -222,6 +245,7 @@ def publish_images(plan, archive_set, bundle, adapter, c):
 class Commands:
     def __init__(self, plan, c, canonical, canonical_path, work):
         self.plan = plan; self.c = c; self.canonical = canonical; self.canonical_path = canonical_path
+        self.deadline = time.monotonic() + plan['maxPublishSeconds']
         self.work = Path(work); self.docker = plan['binaries']['docker']['path']
         self.env = {'PATH': '/usr/bin:/bin', 'HOME': str(self.work), 'LANG': 'C',
                     'DOCKER_CONFIG': str(self.work / 'docker'), 'ALIBABA_CLOUD_IGNORE_PROFILE': 'TRUE'}
@@ -230,10 +254,21 @@ class Commands:
         plugin_path = self.work / 'docker' / 'cli-plugins' / 'docker-buildx'
         plugin_path.write_bytes(plugin); plugin_path.chmod(0o700)
 
-    def command(self, argv, stdin=None, accepted=()):
+    def check_validity(self):
+        need(time.monotonic() < self.deadline, 'PUBLISH_DEADLINE')
+        now = datetime.now(timezone.utc)
+        need(now < self.c.timestamp(self.plan['expiresAt']), 'APPROVAL_EXPIRED')
+        need(now < self.c.timestamp(self.archive_expiry), 'ARCHIVE_SET_EXPIRED')
+        evidence = self.plan.get('immutableEvidence')
+        need(type(evidence) is dict and isinstance(evidence.get('observedAt'), str), 'IMMUTABILITY_EVIDENCE_REQUIRED')
+        age = (now - self.c.timestamp(evidence['observedAt'])).total_seconds()
+        need(0 <= age <= 3600, 'IMMUTABILITY_EVIDENCE_EXPIRED')
+
+    def command(self, argv, stdin=None, accepted=(), timeout=300):
+        need(time.monotonic() < self.deadline, 'PUBLISH_DEADLINE')
         p = subprocess.Popen(argv, env=self.env, cwd='/', stdin=stdin or subprocess.DEVNULL,
                              stdout=subprocess.PIPE, stderr=subprocess.PIPE, start_new_session=True)
-        buffers = {}; selector = selectors.DefaultSelector(); deadline = time.monotonic() + 300
+        buffers = {}; selector = selectors.DefaultSelector(); deadline = min(self.deadline, time.monotonic() + timeout)
         try:
             for stream in (p.stdout, p.stderr):
                 selector.register(stream, selectors.EVENT_READ); buffers[stream] = bytearray()
@@ -286,6 +321,8 @@ class Commands:
     def protect_running_targets(self, archive_set, build):
         forbidden = {entry['stagingTag'] for entry in archive_set['images'].values()}
         forbidden.update(self.c.PREFIX + '/' + repository + ':' + build['sourceRevision'] for repository in self.c.REPOSITORIES.values())
+        storage = self.c.decode(self.command([self.docker, 'info', '--format', '{{json .DockerRootDir}}']))
+        need(storage == '/var/lib/docker', 'DOCKER_STORAGE_LOCATION_UNAPPROVED')
         raw = self.command([self.docker, 'ps', '--no-trunc', '--format', '{{json .}}'])
         for line in raw.splitlines():
             value = self.c.decode(line)
@@ -343,16 +380,21 @@ class Commands:
 
     def remove_owned_tag(self, tag, image_id):
         try:
-            image = self.local(tag)
+            # Deadline exhausted means leave only our reference for operator review.
+            need(time.monotonic() < self.deadline, 'PUBLISH_DEADLINE')
+            raw = self.command([self.docker, 'image', 'inspect', tag], accepted=(rb'No such image',), timeout=10)
+            image = None if raw is None else self.c.decode(raw)[0]
             if image and image.get('Id') == image_id:
-                self.command([self.docker, 'image', 'rm', '--no-prune', tag])
-        except Exception:
+                self.command([self.docker, 'image', 'rm', '--no-prune', tag], timeout=10)
+        except Rejected as error:
+            if str(error) == 'PUBLISH_DEADLINE': raise
             # Do not mask the original failure or prune/kill shared resources.
             raise Rejected('OWNED_TAG_CLEANUP_UNCERTAIN') from None
 
     def canonical_publish(self, build_input):
-        input_path = self.work / 'build-input.json'; input_path.write_bytes(self.c.json_bytes(build_input))
-        manifest = self.work / 'release.json'; seal = self.work / 'release.sealed.json'
+        invocation = os.urandom(8).hex()
+        input_path = self.work / (invocation + '-input.json'); input_path.write_bytes(self.c.json_bytes(build_input))
+        manifest = self.work / (invocation + '-release.json'); seal = self.work / (invocation + '-seal.json')
         with self.canonical.canonical_snapshot(self.canonical_path, self.plan['canonicalConfigurationSha256']) as snapshot:
             node = snapshot['nodeExecutable']; checkout = snapshot['directory']
             self.command([node, '--import', str(Path(checkout) / 'node_modules/tsx/dist/loader.mjs'),
@@ -361,20 +403,90 @@ class Commands:
                           str(Path(checkout) / 'packages/cloud-deploy/src/release-candidate-cli.ts'), 'seal', str(manifest), str(seal)])
             self.command([node, '--import', str(Path(checkout) / 'node_modules/tsx/dist/loader.mjs'),
                           str(Path(checkout) / 'packages/cloud-deploy/src/release-candidate-cli.ts'), 'validate', str(manifest), str(seal), build_input['sourceRevision']])
-        # Artifact-only result, not prepared receipts or canonical activation pointers.
-        output = Path('/var/lib/workspacex-cn/archive-published') / build_input['sourceRevision'] / self.plan['buildPlan']['attemptId']
-        need(not output.exists(), 'PUBLISHED_RECEIPT_ALREADY_EXISTS')
-        output.mkdir(parents=True, mode=0o700)
-        for name, source in (('release.json', manifest), ('release.sealed.json', seal)):
-            with (output / name).open('xb') as stream:
-                stream.write(source.read_bytes())
-            (output / name).chmod(0o600)
-        receipt = dict(schemaVersion=1, receiptKind='cn-archive-published-v1', sourceRevision=build_input['sourceRevision'],
-                       archiveSetSha256=self.plan['archiveSetSha256'], manifestSha256=digest(manifest.read_bytes()),
-                       sealSha256=digest(seal.read_bytes()), registryPrefix=self.c.PREFIX, ready=False, prepared=False, productionActivated=False)
-        with (output / 'published.json').open('xb') as stream:
-            stream.write(self.c.json_bytes(receipt))
-        return receipt
+        return self.store_canonical_result(build_input, manifest, seal)
+
+    def store_canonical_result(self, build_input, manifest, seal):
+        self.check_validity()
+        # Parent trust is checked component by component; fd pins the write boundary.
+        path = PUBLISHED_ROOT / build_input['sourceRevision']
+        fd = os.open('/', os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+        try:
+            for component in path.parts[1:]:
+                try:
+                    os.mkdir(component, mode=0o700, dir_fd=fd)
+                except FileExistsError:
+                    pass
+                child = os.open(component, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=fd)
+                os.close(fd); fd = child
+                st = os.fstat(fd)
+                need(st.st_uid == 0 and st.st_gid == 0 and not st.st_mode & 0o022, 'PUBLISHED_PARENT_TRUST')
+            attempt = self.plan['buildPlan']['attemptId']
+            existing = None
+            try:
+                existing = os.open(attempt, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=fd)
+            except FileNotFoundError:
+                pass
+            if existing is not None:
+                try:
+                    st = os.fstat(existing)
+                    need(st.st_uid == 0 and st.st_gid == 0 and stat.S_IMODE(st.st_mode) == 0o700, 'PUBLISHED_RESULT_TRUST')
+                    need(set(os.listdir(existing)) == {'release.json', 'release.sealed.json', 'published.json'}, 'PUBLISHED_RECEIPT_INCOMPLETE')
+                    def read(name):
+                        child = os.open(name, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=existing)
+                        with os.fdopen(child, 'rb') as stream:
+                            st = os.fstat(stream.fileno())
+                            need(stat.S_ISREG(st.st_mode) and st.st_uid == 0 and st.st_gid == 0 and st.st_nlink == 1
+                                 and stat.S_IMODE(st.st_mode) == 0o600 and st.st_size <= 256 * 1024, 'PUBLISHED_FILE_TRUST')
+                            return stream.read(256 * 1024 + 1)
+                    old_manifest = read('release.json'); old_seal = read('release.sealed.json'); raw_receipt = read('published.json')
+                    receipt = self.c.decode(raw_receipt)
+                    need(old_manifest == manifest.read_bytes(), 'PUBLISHED_MANIFEST_COLLISION')
+                    need(receipt == self.receipt(build_input, old_manifest, old_seal), 'PUBLISHED_RECEIPT_COLLISION')
+                    # Verify the existing seal with original canonical code on every retry.
+                    old_seal_path = self.work / 'existing-seal.json'; old_seal_path.write_bytes(old_seal)
+                    with self.canonical.canonical_snapshot(self.canonical_path, self.plan['canonicalConfigurationSha256']) as snapshot:
+                        checkout = Path(snapshot['directory'])
+                        self.command([snapshot['nodeExecutable'], '--import', str(checkout / 'node_modules/tsx/dist/loader.mjs'),
+                                      str(checkout / 'packages/cloud-deploy/src/release-candidate-cli.ts'), 'validate',
+                                      str(manifest), str(old_seal_path), build_input['sourceRevision']])
+                    return receipt
+                finally:
+                    os.close(existing)
+            # Assemble privately on the same filesystem and publish the whole directory
+            # atomically. Interrupted work has no success receipt at the final location.
+            temporary = '.pending-' + attempt + '-' + os.urandom(8).hex()
+            os.mkdir(temporary, mode=0o700, dir_fd=fd)
+            temp_fd = os.open(temporary, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=fd)
+            names = []
+            try:
+                manifest_raw = manifest.read_bytes(); seal_raw = seal.read_bytes()
+                receipt = self.receipt(build_input, manifest_raw, seal_raw)
+                for name, raw in (('release.json', manifest_raw), ('release.sealed.json', seal_raw), ('published.json', self.c.json_bytes(receipt))):
+                    target = os.open(name, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600, dir_fd=temp_fd)
+                    names.append(name)
+                    with os.fdopen(target, 'wb') as stream:
+                        stream.write(raw); stream.flush(); os.fsync(stream.fileno())
+                os.fsync(temp_fd)
+                # Existing nonempty completed output cannot be replaced by rename.
+                atomic_no_replace(fd, temporary, attempt)
+                names.clear()
+                os.fsync(fd)
+                return receipt
+            finally:
+                for name in names:
+                    try: os.unlink(name, dir_fd=temp_fd)
+                    except FileNotFoundError: pass
+                os.close(temp_fd)
+                try: os.rmdir(temporary, dir_fd=fd)
+                except FileNotFoundError: pass
+        finally:
+            os.close(fd)
+
+    def receipt(self, build_input, manifest_raw, seal_raw):
+        return dict(schemaVersion=1, receiptKind='cn-archive-published-v1', sourceRevision=build_input['sourceRevision'],
+                    archiveSetSha256=self.plan['archiveSetSha256'], manifestSha256=digest(manifest_raw),
+                    sealSha256=digest(seal_raw), registryPrefix=self.c.PREFIX, ready=False, prepared=False, productionActivated=False)
+
 
 
 def main():
@@ -383,10 +495,11 @@ def main():
     parser.add_argument('source'); parser.add_argument('attempt'); parser.add_argument('plan_sha256')
     # Leading -- operation is intentional and must never become an implicit default.
     argv = sys.argv[1:]; need(len(argv) == 4 and argv[0] in ('--check-plan', '--publish'), 'EXPLICIT_OPERATION_REQUIRED')
+    def deadline(signum, frame):
+        raise Rejected('PUBLISH_DEADLINE')
+    started = time.monotonic()
+    signal.signal(signal.SIGALRM, deadline); signal.signal(signal.SIGTERM, deadline); signal.alarm(1200)
     operation, source, attempt, expected = argv
-    # Review checkpoint: publication stays disabled until all independent blockers
-    # and the real canonical Node closure fixture have been resolved in code.
-    need(operation != '--publish', 'ARCHIVE_BRIDGE_REVIEW_INCOMPLETE')
     need(os.geteuid() == 0 and os.getegid() == 0 and sys.flags.isolated and sys.flags.no_site and sys.dont_write_bytecode, 'ISOLATED_ROOT_REQUIRED')
     need(re.fullmatch('[a-f0-9]{40}', source) and re.fullmatch('[a-z0-9][a-z0-9-]{0,63}', attempt)
          and re.fullmatch('[a-f0-9]{64}', expected), 'INVOCATION_IDENTITY')
@@ -403,13 +516,21 @@ def main():
     need(digest(protected(Path(__file__), 1024**2, mode=0o700)) == tools.get('import-cn-image-archives.py'), 'ENTRY_HASH_MISMATCH')
     c = load_helper('cn_image_archive.py', tools.get('cn_image_archive.py'))
     validate_approval(plan, c, source, attempt)
+    provider_raw = protected(directory / 'immutable-provider-response.json', 1024**2, plan['immutableEvidence']['providerResponseSha256'], 0o600)
+    c.validate_immutable_evidence(c.decode(provider_raw), plan['immutableEvidence'])
     canonical = load_helper('canonical_control.py', tools['canonical_control.py'])
     canonical_path = directory / 'canonical-control.json'
-    config = c.decode(protected(canonical_path, 256 * 1024, plan['canonicalConfigurationSha256'], 0o600))
+    config_raw = protected(canonical_path, 256 * 1024, plan['canonicalConfigurationSha256'], 0o600)
+    config = c.decode(config_raw)
+    need(type(config) is dict and set(config) == {'schemaVersion', 'nodeExecutable', 'nodeSha256', 'checkoutDirectory', 'fileSha256'}
+         and type(config['schemaVersion']) is int and config['schemaVersion'] == 1 and c.hex_string(config['nodeSha256'], 64)
+         and type(config['fileSha256']) is dict and canonical.REQUIRED_SOURCE <= config['fileSha256'].keys()
+         and {'node_modules/tsx/package.json', 'node_modules/zod/package.json'} <= config['fileSha256'].keys(), 'CANONICAL_CONFIGURATION_FIELDS')
     need(config.get('checkoutDirectory') == str(directory / 'canonical-source') and config.get('nodeExecutable') == str(directory / 'node'), 'CANONICAL_LOCATION_BOUNDARY')
     protected(config['nodeExecutable'], 128 * 1024**2, config.get('nodeSha256'), 0o700)
     for relative, expected_file in config.get('fileSha256', {}).items():
         c.safe_name(relative)
+        need(c.hex_string(expected_file, 64), 'CANONICAL_FILE_HASH_REQUIRED')
         protected(Path(config['checkoutDirectory']) / relative, 64 * 1024**2, expected_file)
     for binary in plan['binaries'].values():
         protected(binary['path'], 256 * 1024**2, binary['sha256'], 0o755)
@@ -420,7 +541,9 @@ def main():
     def deadline(signum, frame):
         raise Rejected('PUBLISH_DEADLINE')
     signal.signal(signal.SIGALRM, deadline); signal.signal(signal.SIGTERM, deadline)
-    signal.alarm(plan['maxPublishSeconds'])
+    remaining = plan['maxPublishSeconds'] - (time.monotonic() - started)
+    need(remaining > 0, 'PUBLISH_DEADLINE')
+    signal.alarm(max(1, int(remaining)))
     # Keep all original files pinned; validation/check mode creates no temporary files.
     with ExitStack() as pinned:
         streams = {service: pinned.enter_context(protected_stream(inbox / (service + '.tar'), plan['buildPlan']['maxArchiveBytes'])) for service in c.REPOSITORIES}
@@ -429,6 +552,7 @@ def main():
         if operation == '--check-plan':
             print('CN_ARCHIVE_PLAN_VALIDATED sideEffects=false'); return
         need(shutil.disk_usage(tempfile.gettempdir()).free >= total * 4 + plan['buildPlan']['storageMarginBytes'], 'SPOOL_CAPACITY')
+        need(os.statvfs(tempfile.gettempdir()).f_favail >= 4096 and os.statvfs('/var/lib/docker').f_favail >= 4096, 'PUBLISH_INODE_CAPACITY')
         need(shutil.disk_usage('/var/lib/docker').free >= total * 4 + plan['buildPlan']['storageMarginBytes'], 'DOCKER_CAPACITY')
         work_context = pinned.enter_context(tempfile.TemporaryDirectory(prefix='wsx-archive-publish-'))
         work = work_context
@@ -436,11 +560,20 @@ def main():
         for service, stream in streams.items():
             stream.seek(0)
             with (bundle / (service + '.tar')).open('xb') as target:
-                shutil.copyfileobj(stream, target, 1024**2)
+                copied = 0
+                while True:
+                    data = stream.read(1024**2)
+                    if not data: break
+                    copied += len(data)
+                    need(copied <= archive_set['images'][service]['size'], 'INBOX_ARCHIVE_CHANGED')
+                    target.write(data)
+                need(copied == archive_set['images'][service]['size'], 'INBOX_ARCHIVE_CHANGED')
         # Repeat against the private snapshots before Docker consumes them.
         archive_set, total = c.validate_set(bundle, manifest_raw, plan['archiveSetSha256'], plan['buildPlan'])
         with release_lock():
             adapter = Commands(plan, c, canonical, canonical_path, work)
+            adapter.deadline = started + plan['maxPublishSeconds']
+            adapter.archive_expiry = archive_set['expiresAt']
             receipt = publish_images(plan, archive_set, bundle, adapter, c)
         print('CN_ARCHIVE_PUBLISHED=' + json.dumps(receipt, separators=(',', ':')))
 

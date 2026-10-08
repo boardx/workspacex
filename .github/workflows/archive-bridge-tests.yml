@@ -1,0 +1,36 @@
+name: archive-bridge-tests
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - '.github/workflows/archive-bridge-tests.yml'
+      - '.github/workflows/export-cn-image-archives.yml'
+      - 'scripts/cn_image_archive.py'
+      - 'scripts/export-cn-image-archives.py'
+      - 'scripts/canonical_control.py'
+      - '.harness/scripts/vm/import-cn-image-archives.py'
+      - 'tests/test_cn*archive*.py'
+      - 'packages/cloud-deploy/src/release*.ts'
+permissions:
+  contents: read
+jobs:
+  isolated-contracts:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22.20.0'
+      - name: Install isolated test runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --prefix "$RUNNER_TEMP/archive-fixture" --no-audit --no-fund --save-exact tsx@4.20.6 zod@3.25.76
+          echo "CN_ARCHIVE_TEST_NODE=$(command -v node)" >> "$GITHUB_ENV"
+          echo "CN_ARCHIVE_TEST_RUNTIME=$RUNNER_TEMP/archive-fixture" >> "$GITHUB_ENV"
+      - name: Run archive contracts and real canonical Node fixture
+        run: python3 -B -m unittest discover -s tests -p 'test_cn*archive*.py' -v
