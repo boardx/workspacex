@@ -105,7 +105,7 @@ function missingProfessionalAnalysis(markdown: string): InterviewReportAnalysisG
     // Compare sources or themes and describe the resulting relationship, not merely a section name.
     !has(/(?:与|相比|不同|多位|两位|多个|共同|跨回答).{2,100}(?:不同|相同|差异|分歧|一致|互补|表明|显示|意味着|分别|共同指向)/u) && 'cross_answer_synthesis',
     // A concrete priority/tradeoff must carry an action or consequence beyond the label itself.
-    !paragraphs.some(paragraph => /(?:优先|首先|暂缓|停止|选择|建议|应当)(?!级|与行动优先级)[^：:。.!！?？\n]+[。.!！?？]?$/u.test(paragraph.trim())) && 'decision_implication',
+    !paragraphs.some(paragraph => /(?:优先|首先|暂缓|停止|选择|建议|应当)(?!级|与行动优先级)[^：:。.!！?？\n]+/u.test(paragraph.trim())) && 'decision_implication',
     !has(/(?:适用(?:范围|于)?[：:]?|仅限|局限|边界|相反意见|分歧|反例|但是|然而|但).{4,120}/u) && 'boundary_or_counterevidence',
   ].filter((gap): gap is InterviewReportAnalysisGap => Boolean(gap));
 }

@@ -109,7 +109,7 @@ it('rejects labels without analysis and quoted analysis inserted into a memorand
   expect(saveDraft).not.toHaveBeenCalled();
 });
 
-it.each(['建议调整入口名称、固定入口位置，并增加视觉提示。', '优先展示活动状态。'])('accepts a concrete recommendation in natural wording: %s', async recommendation => {
+it.each(['建议调整入口名称、固定入口位置，并增加视觉提示。', '优先展示活动状态。', '建议调整入口名称、固定入口位置，并增加视觉提示。这些调整应保留熟悉用户的既有操作路径。'])('accepts a concrete recommendation in natural wording: %s', async recommendation => {
   const report = body.replace('决策影响：优先在活动页面展示状态卡，随后完善异常通知和入口指引。', recommendation);
   const { deps, saveDraft } = setup({ text: report });
   await generateProfessionalInterviewReport(deps, { ...input, onProgress: vi.fn() });
