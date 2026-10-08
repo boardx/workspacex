@@ -56,6 +56,22 @@
         "sha256": "e98559b7a31ba31be4709f20d22102dc2737fa630f69a339eb89981151e505fe",
         "runsUsing": "node24"
       }
+    },
+    {
+      "kind": "composite",
+      "action": "aliyun/setup-aliyun-cli-action",
+      "workflowRef": "09a5f86915bb556e27bf050e9a5e339aeb073df5",
+      "release": "reviewed immutable commit 09a5f86915bb556e27bf050e9a5e339aeb073df5",
+      "source": {
+        "repository": "aliyun/setup-aliyun-cli-action",
+        "commit": "09a5f86915bb556e27bf050e9a5e339aeb073df5",
+        "actionPath": "action.yaml",
+        "sourceUrl": "https://raw.githubusercontent.com/aliyun/setup-aliyun-cli-action/09a5f86915bb556e27bf050e9a5e339aeb073df5/action.yaml",
+        "snapshotPath": ".harness/fixtures/github-actions/aliyun-setup-cli-09a5f869/action.yaml",
+        "sha256": "ec4ac96be660a63f20554aafd493d040f957fa383a86004ffe724ff5d751cb24",
+        "runsUsing": "composite"
+      },
+      "nested": []
     }
   ]
 }

@@ -67,7 +67,7 @@ jobs:
       cancel-in-progress: false
     steps:
       - name: Check out reviewed preflight control
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        uses: actions/checkout@v5
         with:
           ref: ${{ github.sha }}
           path: control
@@ -88,7 +88,7 @@ jobs:
             cmp --silent "$source" "$target"
           done
       - name: Check out exact application candidate for promotion compatibility
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        uses: actions/checkout@v5
         with:
           ref: ${{ inputs.release_sha }}
           path: source
@@ -177,25 +177,25 @@ jobs:
       cancel-in-progress: false
     steps:
       - name: Check out frozen control tools
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        uses: actions/checkout@v5
         with:
           ref: ${{ github.sha }}
           path: control
           persist-credentials: false
       - name: Check out exact candidate for existing frozen-tag controller
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        uses: actions/checkout@v5
         with:
           ref: ${{ inputs.release_sha }}
           path: source
           fetch-depth: 0
           persist-credentials: false
       - name: Download credential-free producer plan
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
         with:
           name: hosted-release-plan-${{ github.run_attempt }}
           path: incoming/plan
       - name: Download this attempt's sealed artifacts
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
         with:
           name: ${{ needs.artifacts.outputs.sealed_artifact }}
           path: incoming/sealed
@@ -268,7 +268,7 @@ jobs:
           set -euo pipefail
           python3 control/scripts/dispatch-frozen-promotion.py --mode full-release --repository "$GITHUB_REPOSITORY" --source "$REVISION" --baseline "$EXPECTED_MAIN_CN" --attempt "$ATTEMPT_ID" --tag "$RELEASE_TAG" --output ../promotion-correlation.json
       - name: Retain nonsecret promotion correlation
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        uses: actions/upload-artifact@v6
         with:
           name: cn-promotion-correlation-${{ github.run_attempt }}
           path: promotion-correlation.json
@@ -286,12 +286,12 @@ jobs:
     # No host concurrency here: the downstream promotion must acquire its lock.
     steps:
       - name: Check out frozen verification control
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        uses: actions/checkout@v5
         with:
           ref: ${{ github.sha }}
           persist-credentials: false
       - name: Download exact promotion correlation
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
         with:
           name: cn-promotion-correlation-${{ github.run_attempt }}
           path: correlation
@@ -301,7 +301,7 @@ jobs:
         run: python3 scripts/verify-promotion-result.py --correlation correlation/promotion-correlation.json --output promotion-terminal.json
       - name: Retain terminal result including failures
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        uses: actions/upload-artifact@v6
         with:
           name: cn-promotion-terminal-${{ github.run_attempt }}
           path: promotion-terminal.json

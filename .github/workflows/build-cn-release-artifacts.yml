@@ -68,7 +68,7 @@ jobs:
       services: ${{ steps.plan.outputs.services }}
     steps:
       - name: Check out control tools
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        uses: actions/checkout@v5
         with:
           ref: ${{ github.sha }}
           path: control
@@ -84,7 +84,7 @@ jobs:
           set -euo pipefail
           [[ "$SOURCE_REVISION" =~ ^[a-f0-9]{40}$ ]]
       - name: Check out exact source with complete history
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        uses: actions/checkout@v5
         with:
           ref: ${{ inputs.release_sha }}
           path: source
@@ -134,7 +134,7 @@ jobs:
               handle.write("services=" + json.dumps(services, separators=(",", ":")) + "\n")
           PY
       - name: Retain credential-free plan
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        uses: actions/upload-artifact@v6
         with:
           name: hosted-release-plan-${{ github.run_attempt }}
           path: plan.json
@@ -165,20 +165,20 @@ jobs:
         service: ${{ fromJSON(needs.validate.outputs.services) }}
     steps:
       - name: Check out control tools
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        uses: actions/checkout@v5
         with:
           ref: ${{ github.sha }}
           path: control
           persist-credentials: false
       - name: Check out exact source
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        uses: actions/checkout@v5
         with:
           ref: ${{ inputs.release_sha }}
           path: source
           fetch-depth: 0
           persist-credentials: false
       - name: Download validated plan
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
         with:
           name: hosted-release-plan-${{ github.run_attempt }}
           path: plan
@@ -191,7 +191,7 @@ jobs:
         run: python3 control/scripts/aliyun-release-auth.py verify-oidc
       - name: Check out exact official authentication action
         if: env.ACR_EDITION == 'enterprise'
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        uses: actions/checkout@v5
         with:
           repository: aliyun/configure-aliyun-credentials-action
           ref: 1e5248c8d5d93a8781ac344a68e19a43341e79e6
@@ -230,7 +230,7 @@ jobs:
           mkdir -p ../result
           python3 ../control/scripts/hosted-release.py build --plan ../plan/plan.json --service "$BUILD_SERVICE" --output "../result/$BUILD_SERVICE.json"
       - name: Retain verified service result
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        uses: actions/upload-artifact@v6
         with:
           name: hosted-release-result-${{ github.run_attempt }}-${{ matrix.service }}
           path: result/*.json
@@ -260,20 +260,20 @@ jobs:
       sealed_artifact: ${{ steps.identity.outputs.sealed_artifact }}
     steps:
       - name: Check out control tools
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        uses: actions/checkout@v5
         with:
           ref: ${{ github.sha }}
           path: control
           persist-credentials: false
       - name: Check out exact source for artifact identity checks
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        uses: actions/checkout@v5
         with:
           ref: ${{ inputs.release_sha }}
           path: source
           fetch-depth: 0
           persist-credentials: false
       - name: Set up pinned Node for control tooling
-        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        uses: actions/setup-node@v5
         with:
           node-version: '22.20.0'
       - name: Prepare fixed minimal control closure
@@ -286,12 +286,12 @@ jobs:
           # Reviewed configuration must independently pin every copied byte.
           # This step never generates or replaces the control configuration/hash.
       - name: Download validated plan
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
         with:
           name: hosted-release-plan-${{ github.run_attempt }}
           path: plan
       - name: Download all service results
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
         with:
           pattern: hosted-release-result-${{ github.run_attempt }}-*
           path: results
@@ -305,7 +305,7 @@ jobs:
         run: python3 control/scripts/aliyun-release-auth.py verify-oidc
       - name: Check out exact official authentication action
         if: env.ACR_EDITION == 'enterprise'
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        uses: actions/checkout@v5
         with:
           repository: aliyun/configure-aliyun-credentials-action
           ref: 1e5248c8d5d93a8781ac344a68e19a43341e79e6
@@ -348,7 +348,7 @@ jobs:
           [[ -f "../control/$CANONICAL_CONTROL_CONFIG" ]]
           python3 ../control/scripts/hosted-release.py aggregate --plan ../plan/plan.json --results ../results --output ../sealed --control "../control/$CANONICAL_CONTROL_CONFIG" --control-sha256 "$CANONICAL_CONTROL_SHA256"
       - name: Retain sealed artifacts; stop before host preparation
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        uses: actions/upload-artifact@v6
         with:
           name: hosted-release-sealed-${{ github.run_attempt }}
           path: sealed/*.json

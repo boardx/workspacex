@@ -86,5 +86,34 @@
     "cloudCalls": false,
     "productionChanged": false,
     "autoProductionTriggerEnabled": false
+  },
+  "ciFollowup": {
+    "originalHead": "bf8a2d15d17546d45ad5802b9fffd9cdf9d9b46d",
+    "failures": [
+      "verify-affected: committed maintenance controller bundle drift",
+      "verify-control-plane: legacy workflow actions fail repository runtime audit"
+    ],
+    "fixes": [
+      "Regenerate controller with exact repository-locked tsx/esbuild/pg transitive versions",
+      "Align imported workflows with repository-audited action refs",
+      "Audit exact official shell-only CLI composite manifest and complete empty external-action graph"
+    ],
+    "supplementalValidation": [
+      {
+        "command": "node .harness/scripts/build-cn-maintenance-controller.cjs --check",
+        "passed": true
+      },
+      {
+        "command": "/workspace/scratch/release-build-runtime/node_modules/.bin/vitest run --config /tmp/release-maintenance-vitest.mjs",
+        "passed": 3
+      },
+      {
+        "command": "/workspace/scratch/release-build-runtime/node_modules/.bin/vitest run --config /tmp/release-action-audit-vitest.mjs",
+        "passed": 11
+      }
+    ],
+    "counting": "Supplemental wrapper suites not added to prior 139 distinct-test headline; nested fixtures may overlap",
+    "reviewer": "/root/independent_release_review",
+    "newControllerSha256": "d1230b8ca22f5d935de89ab023a54194cbcff69174f793ae948b543bd3f1efa4"
   }
 }

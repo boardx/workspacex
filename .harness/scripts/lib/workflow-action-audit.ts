@@ -129,7 +129,7 @@ export function validateTrustedActionAudits(
     if (actionIdentity(audit.source) !== audit.action) fail(`${audit.action}: action identity differs from its audited source path`);
     const outerSource = readTrustedSnapshot(root, audit.source, `${context}.source`, readText);
     if (manifestRuntime(outerSource, audit.action) !== "composite") fail(`${audit.action}: vendored outer manifest must declare runs.using composite`);
-    if (!Array.isArray(audit.nested) || audit.nested.length === 0) fail(`${audit.action}: composite audit must record nested actions`);
+    if (!Array.isArray(audit.nested)) fail(`${audit.action}: composite audit must record its complete nested action list`);
     const manifestUses = collectUses(parse(outerSource)?.runs?.steps ?? []).filter(use => !use.startsWith("./") && !use.startsWith("docker://"));
     const catalogUses = audit.nested.map(item => item.use);
     if (new Set(manifestUses).size !== manifestUses.length) fail(`${audit.action}: vendored composite manifest contains duplicate nested uses`);
