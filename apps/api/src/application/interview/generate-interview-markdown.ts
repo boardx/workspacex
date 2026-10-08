@@ -23,6 +23,7 @@ export type GenerateMarkdownInput = {
   expectedVersion: number; expectedDocumentVersion: number;
   /** HTTP middleware trace; never accepted from the JSON request body. */
   traceId?: string;
+  signal?: AbortSignal;
   onProgress?: (event: interviewMarkdown.InterviewMarkdownReportStreamEvent) => void | Promise<void>;
 };
 export interface InterviewMarkdownGenerator {
