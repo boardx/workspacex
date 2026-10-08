@@ -102,11 +102,12 @@ describe("reference research workflow", () => {
     const initial = runtimeFixture("report");
     vi.mocked(getResearchRuntime).mockResolvedValue(initial);
     render(<GuidedResearchLive sessionId={initial.sessionId} onBack={vi.fn()} />);
-    expect(await screen.findByRole("button", { name: "在线查看" })).toBeEnabled();
-    expect(screen.getByRole("button", { name: "下载 Word" })).toBeEnabled();
+    expect(await screen.findByRole("button", { name: "下载 Word" })).toBeEnabled();
     expect(screen.getByRole("button", { name: "导出 PDF" })).toBeEnabled();
     expect(screen.getByTestId("research-report-cover")).toHaveTextContent("政策研究报告");
     expect(screen.getAllByRole("navigation", { name: /报告.*目录/ })).toHaveLength(1);
+    fireEvent.pointerDown(await screen.findByRole("button", { name: "更多操作" }), { button: 0, ctrlKey: false });
+    expect(await screen.findByRole("menuitem", { name: "在线查看" })).toBeEnabled();
   });
   it("submits revised content through prepare_plan while retaining the other confirmed brief fields", async()=>{
     const initial=runtimeFixture("brief");vi.mocked(getResearchRuntime).mockResolvedValue(initial);
@@ -274,7 +275,7 @@ describe("reference research workflow", () => {
     const toolbar = within(report).getByTestId("research-report-actions");
     expect(within(toolbar).getByRole("button", { name: "完成研究" })).toBeInTheDocument();
     const more = within(toolbar).getByRole("button", { name: "更多操作" });
-    expect(screen.getByRole("button", { name: "下载 Word" })).toBeEnabled();
+    expect(await screen.findByRole("button", { name: "下载 Word" })).toBeEnabled();
     expect(screen.getByRole("button", { name: "导出 PDF" })).toBeEnabled();
     fireEvent.pointerDown(more, { button: 0, ctrlKey: false });
     expect(await screen.findByRole("menuitem", { name: "重新生成报告" })).toBeInTheDocument();

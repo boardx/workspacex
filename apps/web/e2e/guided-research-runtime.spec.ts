@@ -175,7 +175,7 @@ test("research persists the confirmed-question pipeline through the real UI, API
   await page.screenshot({ path: testInfo.outputPath("research-report-chapters-mobile.png"), fullPage: true });
   await page.setViewportSize({ width: 1280, height: 900 });
   const reportActions = page.getByTestId("research-report-actions");
-  await expect(reportActions.getByRole("status")).toHaveText("研究报告 · 已完成");
+  await expect(reportActions.getByRole("status")).toHaveText("研究报告");
   await expect(page.getByRole("button", { name: "完成研究", exact: true })).toHaveCount(0);
   await expect(reportActions.getByRole("button", { name: "更多操作", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "导出报告", exact: true })).toHaveCount(0);
