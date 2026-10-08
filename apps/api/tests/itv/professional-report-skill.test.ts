@@ -82,9 +82,14 @@ it.each(['observed', 'simulated', 'mixed'])('retains server-controlled source ev
   expect(request.user).toContain(`evidenceMode=${mode}`);
   expect(request.system).not.toContain('现有资料已由用户认证真实有效');
 });
+it.each(['跨回答综合显示，', '决策影响：', '适用范围：'])('accepts substantive analysis without a prescribed label: %s', async label => {
+  const { deps, saveDraft } = setup({ text: body.replaceAll(label, '') });
+  await generateProfessionalInterviewReport(deps, { ...input, onProgress: vi.fn() });
+  expect(saveDraft).toHaveBeenCalled();
+});
 it.each(['synthesis', 'decision', 'boundary'])('rejects a formatted report missing analytical substance: %s', async dimension => {
-  const invalid = dimension === 'synthesis' ? body.replaceAll('跨回答综合显示，', '')
-    : dimension === 'decision' ? body.replace('决策影响：', '')
+  const invalid = dimension === 'synthesis' ? body.replaceAll('跨回答综合显示，本地居民与外地游客的查询重点不同，应结合出行成本分别组织信息。', '')
+    : dimension === 'decision' ? body.replace('决策影响：优先在活动页面展示状态卡，随后完善异常通知和入口指引。', '')
     : body.replace('适用范围：出行前查询；相反意见来自依赖本地经验的查询场景。', '');
   const { deps, saveDraft } = setup({ text: invalid });
   await expect(generateProfessionalInterviewReport(deps, { ...input, onProgress: vi.fn() })).rejects.toThrow('AI_GENERATION_UNAVAILABLE');
@@ -94,5 +99,12 @@ it('rejects a long per-respondent memorandum with headings but no synthesis or d
   const memo = '# 访谈纪要\n## 王志远\n' + '他讲述了查询活动的经过。'.repeat(25) + '\n## 李伟诚\n' + '他列举了信息渠道。'.repeat(25) + '\n## 记录摘要\n保留以上回答记录。';
   const { deps, saveDraft } = setup({ text: memo });
   await expect(generateProfessionalInterviewReport(deps, { ...input, onProgress: vi.fn() })).rejects.toThrow('AI_GENERATION_UNAVAILABLE');
+  expect(saveDraft).not.toHaveBeenCalled();
+});
+
+it('rejects labels without analysis and quoted analysis inserted into a memorandum', async () => {
+  const memo = '# 访谈纪要\n## 跨回答综合\n' + '他讲述了查询活动的经过。'.repeat(25) + '\n## 决策影响\n' + '他列举了信息渠道。'.repeat(25) + '\n## 适用范围\n保留以上回答记录。\n\n> 本地居民与外地游客的重点不同。优先展示状态卡，随后改善通知。适用于出行前查询。';
+  const { deps, saveDraft } = setup({ text: memo });
+  await expect(generateProfessionalInterviewReport(deps, { ...input, onProgress: vi.fn() })).rejects.toThrow();
   expect(saveDraft).not.toHaveBeenCalled();
 });
