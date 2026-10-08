@@ -1,13 +1,13 @@
 // Explicit HTTP provider double for the full-stack research test, never a runtime fallback.
 export function guidedResearchReply(system: string, user: string): string | null {
-  if (!system.includes("You are a research assistant.")) return null;
+  if (!system.includes("You are a research assistant.") && !system.includes("You are an independent evidence reviewer.")) return null;
   const context = JSON.parse(user);
   if (context.researchStage === "source_relevance") return JSON.stringify({ evaluations: context.chunks.map((chunk: { sourceId: string; chunkId: string; content?: string; quoteOptions: { text: string; quoteRef: string }[]; questionIds: string[] }) => {
     const irrelevant = chunk.quoteOptions.map((option) => option.text).join(" ").includes("Controlled unrelated vehicle inventory");
     return { sourceId: chunk.sourceId, chunkId: chunk.chunkId, irrelevant,
       matches: irrelevant ? [] : chunk.questionIds.map((questionId) => ({ questionId, quoteRef: chunk.quoteOptions[0]!.quoteRef, insight: "受控测试摘要提供该任务的政策证据。", relevance: "direct" })) };
   }) });
-  const node = system.includes("Create a concrete web research plan") ? "research" : /Generate the (\w+) step/.exec(system)?.[1] ?? context.targetNode;
+  const node = context.reportStage ? "report" : system.includes("Create a concrete web research plan") ? "research" : /Generate the (\w+) step/.exec(system)?.[1] ?? context.targetNode;
   let value: unknown = context.brief;
   if (node === "directions") value = [{ id: "d-e2e", title: "并网政策", description: "核对实际并网要求", enabled: true, order: 0 }];
   if (node === "outline") value = [

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { reviewChapter } from "../../src/application/research/guided-report-quality";
+import { reviewChapter, verifyGapVerdict } from "../../src/application/research/guided-report-quality";
 import { ResearchRuntimeError } from "../../src/application/research/guided-runtime-ports";
 import type { QuestionEvidence, ReportAudit, ReportSection } from "../../src/application/research/guided-report-evidence";
 
@@ -26,7 +26,7 @@ describe("partial question coverage quality review", () => {
   it("accepts an evidenced answer plus specific honest gap only after bounded independent verification", async () => {
     const f = setup(); const result = await f.run();
     expect(result.passed).toBe(true); expect(result.review.questions[0]!.status).toBe("gap");
-    expect(f.calls).toHaveLength(2); expect(f.calls[1]).toMatchObject({ reportStage: "quality", reviewKind: "partial_coverage", chapter, evidenceByQuestion: evidence });
+    expect(f.calls).toHaveLength(2); expect(f.calls[1]).toMatchObject({ reportStage: "quality", reviewKind: "partial_coverage", chapter, evidenceByQuestion: evidence.map(({ gap, ...question }) => question) });
     expect(f.calls[1].coverageChecks).toHaveLength(2);
   });
   it("rejects ignoring complete evidence after independent review", async () => {
@@ -46,11 +46,11 @@ describe("partial question coverage quality review", () => {
     const gap = setup(); expect((await gap.run(noDirect)).passed).toBe(true); expect(gap.calls).toHaveLength(1);
   });
   it.each(["not JSON", new Error("provider unavailable"), new ResearchRuntimeError("RESEARCH_REPORT_QUALITY_INSUFFICIENT")])("fails closed on re-review error %s", async (error) => {
-    const f = setup(initial, () => error); await expect(f.run()).rejects.toThrow(); expect(f.calls).toHaveLength(2);
+    const f = setup(initial, () => error); if (error instanceof Error && !(error instanceof ResearchRuntimeError)) await expect(f.run()).rejects.toThrow(); else expect((await f.run()).passed).toBe(false); expect(f.calls).toHaveLength(typeof error === "string" ? 3 : 2);
   });
   it.each(["unknown", "duplicate", "missing"])("rejects %s re-review IDs", async (kind) => {
     const f = setup(initial, (context) => ({ ...initial, questions: kind === "missing" ? [] : context.coverageChecks.map((check: any, index: number) => ({ questionId: kind === "unknown" ? "unknown" : context.coverageChecks[0].questionId, status: index ? "gap" : "answered", rationale: index ? gapParagraph : quote })) }));
-    await expect(f.run()).rejects.toThrow("RESEARCH_REPORT_QUALITY_INSUFFICIENT");
+    expect((await f.run()).passed).toBe(false);
   });
   it("rejects generic pass rationales without traceable evidence and gap text", async () => {
     const f = setup(initial, (context) => ({ ...initial, questions: context.coverageChecks.map((check: any) => ({ questionId: check.questionId, status: check.kind === "supported_part" ? "answered" : "gap", rationale: "Looks fine." })) }));
@@ -102,5 +102,49 @@ describe("conflict set verification", () => {
       return { questionId: check.questionId, status: failure === "supported_state" && supported || failure === "remaining_state" && !supported ? "missing" : supported ? "answered" : "gap", rationale: failure === "supported_trace" && supported || failure === "remaining_trace" && !supported ? "Looks fine." : supported ? quote : gapParagraph };
     }) }));
     expect((await f.run()).passed).toBe(false);
+  });
+});
+
+
+describe("automatic gap verdict verification", () => {
+  const failure: Awaited<ReturnType<typeof reviewChapter>> = { passed: false, issues: ["q: Metric missing."], review: { ...initial, analysisDepth: "adequate", questions: [{ questionId: "q", status: "missing" as const, rationale: "The chapter states the unavailable metric and verification." }] } };
+  function verify(overrides: Record<string, unknown> = {}, selected = evidence, previous = failure, draft = chapter) {
+    const calls: any[] = [];
+    const audit: ReportAudit = async (input, validate) => {
+      calls.push(JSON.parse(input.user));
+      return validate(JSON.stringify({ questions: [{ questionId: "q", status: "gap", rationale: "Specific unavailable metric; verification documented.", chapterParagraphId: "P2", evidenceQuoteIds: ["q/E1"] }], supported: true, analysisDepth: "adequate", issues: [], ...overrides }));
+    };
+    return { calls, run: () => verifyGapVerdict(draft, section, selected, previous, { provider: "fixture", id: "fixture" }, audit) };
+  }
+  it("requires independent exact chapter and source traces before replacing an inconsistent missing verdict", async () => {
+    const f = verify(); expect(await f.run()).toBe(true); expect(f.calls).toHaveLength(1);
+    expect(f.calls[0].evidenceByQuestion[0]).not.toHaveProperty("gap");
+    expect(f.calls[0].chapterParagraphs[1]).toEqual({ id: "P2", text: gapParagraph });
+    expect(f.calls[0].evidenceByQuestion[0].evidence[0]).toMatchObject({ quote, quoteId: "q/E1" });
+  });
+  it("independently checks a gap incorrectly listed as a defect rather than suppressing its issue", async () => {
+    const previous = { ...failure, review: { ...failure.review, questions: [{ questionId: "q", status: "gap" as const, rationale: "Valid gap." }], issues: ["The requested metric is unavailable; a specific verification is described."] } };
+    expect(await verify({}, evidence, previous).run()).toBe(true);
+  });
+  it.each([{ supported: false }, { analysisDepth: "shallow" }, { issues: ["An invented number remains."] }, { questions: [{ questionId: "q", status: "missing", rationale: "Missing.", chapterParagraphId: "P2", evidenceQuoteIds: ["q/E1"] }] }, { questions: [{ questionId: "q", status: "gap", rationale: "Approved.", chapterParagraphId: "P999", evidenceQuoteIds: ["q/E1"] }] }, { questions: [{ questionId: "q", status: "gap", rationale: gapParagraph, chapterParagraphId: "P2", evidenceQuoteIds: [] }] }])("fails closed on insufficient independent proof %j", async (failure) => {
+    expect(await verify(failure).run()).toBe(false);
+  });
+  it("rejects omitted mandatory trace fields instead of approving a free-text verdict", async () => {
+    await expect(verify({ questions: [{ questionId: "q", status: "gap", rationale: gapParagraph + quote }] }).run()).rejects.toThrow("RESEARCH_REPORT_QUALITY_INSUFFICIENT");
+  });
+  it("rejects a forged quote mixed with a valid quote", async () => {
+    expect(await verify({ questions: [{ questionId: "q", status: "gap", rationale: "Gap.", chapterParagraphId: "P2", evidenceQuoteIds: ["q/E1", "q/E999"] }] }).run()).toBe(false);
+  });
+  it("requires no quoted evidence when the question has no direct evidence", async () => {
+    expect(await verify({}, evidence.map(q => ({ ...q, gap: true, evidence: [] }))).run()).toBe(false);
+  });
+  it("retains long verbatim proof without relaxing ordinary review schema", async () => {
+    const paragraph = (gapParagraph + " Explicit missing measurement and data-owner verification. ".repeat(25)).trim();
+    expect(await verify({ questions: [{ questionId: "q", status: "gap", rationale: "Specific unavailable metric.", chapterParagraphId: "P2", evidenceQuoteIds: ["q/E1"] }] }, evidence, failure, { ...chapter, body: chapter.body.replace(gapParagraph, paragraph) }).run()).toBe(true);
+    const f = setup({ ...initial, questions: [{ questionId: "q", status: "gap", rationale: paragraph }] }, () => ({ ...initial, questions: [{ questionId: "q", status: "gap", rationale: paragraph }] }));
+    await expect(f.run()).rejects.toThrow("RESEARCH_REPORT_QUALITY_INSUFFICIENT");
+  });
+  it("does not accept a fabricated answered metric without evidence", async () => {
+    expect(await verify({ questions: [{ questionId: "q", status: "answered", rationale: gapParagraph, chapterParagraphId: "P2", evidenceQuoteIds: [] }] }, evidence.map(q => ({ ...q, gap: true, evidence: [] }))).run()).toBe(false);
   });
 });

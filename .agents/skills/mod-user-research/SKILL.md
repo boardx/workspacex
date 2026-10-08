@@ -28,6 +28,8 @@ description: 用户研究计划、资料检索、来源证据和研究报告；�
 
 ## 踩坑与经验（append-only）
 
+- 2026-10-07：综合结论若直接复制长 UUID，模型可能两次重复同一拼写错误。上下文章节正文与来源列表应使用精确短别名，服务端严格还原；修复反馈指出字段及无效引用，不能模糊匹配或放宽质量门。真实续写综合一次成功约11.4秒，但两章质量警告仍阻止正式发布（出处：issue #5502、docs/verification/research-synthesis-citations-5502/README.md）。
+
 - 2026-10-07：SSE 的当前与历史来源可以引用同一份完整传输对象，但只有整个来源对象一致、完整 baseline fingerprint 匹配或同 patch 已带完整 sources 时才允许；浏览器先合并后独立克隆历史，元数据不能冒充正文。压缩必须逐帧 flush，并在背压下保留大帧及终态尾部。样本字节减少不等于线上耗时改善（出处：issue #5499、docs/verification/research-compact-report-transport-5499/README.md）。
 
 - 2026-10-07：字段级 SSE patch 仍会在 sources 任一对象改变时重传全部正文；研究中间快照复用 polling 元数据 cursor，最终结果与报告阶段仍完整同步。保活事件不代表模型调用，离线字节减少不能替代线上耗时证据（出处：issue #5491）。
@@ -68,3 +70,7 @@ description: 用户研究计划、资料检索、来源证据和研究报告；�
 - 2026-10-05：用户以「约十分钟完成报告」软性能目标覆盖旧整轮三分钟 deadline。搜索与报告来源准备使用无整轮计时的作用域，逐次 search/read/model 请求仍限时且透传取消；达到 180 秒或 600 秒不得自动把整轮/剩余任务标失败。旧持久化预算失败仅显示上次中断，保留来源与任务，显式重试恢复；plan/model 单调用限时不等同整轮 deadline（替代旧整轮限时约定，出处：issue #5359）。
 
 - 2026-10-07：堆叠 PR 的 MERGED 只代表进入其 base 分支；检查 baseRefName 和 main祖先关系后再声明主线交付。初始检索按章共享时，全部已确认问题与逐题证据门仍保留，旧任务重试不重建；五章六十题反证必须同时检查任务数与问题缺口（出处：issue #5496）。
+
+- #5502 follow-up: model review JSON format errors must not trigger prose rewrites. Preserve recoverable negative verdicts/issues mechanically during bounded formatting repair; passing evidence gaps differ from omitted chapter answers. Model-only chapter source aliases and exact quote registries reduce copying without changing canonical provenance. Real continuation and browser reload evidence: docs/verification/research-synthesis-citations-5502/README.md.
+
+- 2026-10-08：检索 gap 仅是提示，不应作为正文审核结论传入模型；独立复核保留全部争议问题但避免传入旧 reviewer 对象，否则旧审核错误可能被写成章节 defects。使用不变原文段落注册表和问题所属 direct quote 引用验证，拒绝跨问题引用；正确且具体的数据限制可随正式报告自动保存，不需要用户确认草稿。真实续跑5章、199.499秒、17次模型调用并刷新恢复；此证据不是全新研究 SLA（出处：issue #5502、docs/verification/research-synthesis-citations-5502/README.md）。

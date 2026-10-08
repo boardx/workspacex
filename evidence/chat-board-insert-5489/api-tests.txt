@@ -1,0 +1,12 @@
+
+ RUN  v2.1.9 /private/tmp/wsx-chat-board-insert-20261006/apps/api
+
+ ✓ tests/whiteboard/objects-read.test.ts (19 tests) 17ms
+ ✓ tests/whiteboard/artifact-handoff-verifier.test.ts (4 tests) 9ms
+ ✓ tests/whiteboard/chat-artifact-materialization.test.ts (2 tests) 18ms
+
+ Test Files  3 passed (3)
+      Tests  25 passed (25)
+   Start at  00:00:38
+   Duration  1.33s (transform 526ms, setup 0ms, collect 1.00s, tests 44ms, environment 0ms, prepare 62ms)
+

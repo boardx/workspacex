@@ -8,17 +8,16 @@ import { resolveDiagramType } from '../../../apps/web/lib/mermaid-diagram-type';
 async function main(){
 const root=resolve(import.meta.dirname,'..');
 const source=new FileSkillStarterPackSource(resolve(root,'../starter-packs'));
-const pack=verifySkillStarterPack(await source.load('standard-methods','1.5.2'),{packId:'standard-methods',packVersion:'1.5.2'});
-assert.equal(await new FileSkillStarterPackSource(undefined).load('standard-methods','1.5.2'),null);
+const pack=verifySkillStarterPack(await source.load('standard-methods','1.5.3'),{packId:'standard-methods',packVersion:'1.5.3'});
+assert.equal(await new FileSkillStarterPackSource(undefined).load('standard-methods','1.5.3'),null);
 assert.equal(await source.load('standard-methods','missing'),null);
-const previous=verifySkillStarterPack(await source.load('standard-methods','1.5.1'),{packId:'standard-methods',packVersion:'1.5.1'});assert.equal(previous.packDigest,'3f8a64d6f5801b967b3e3c2f237e79243dafde40c416b3e444a95d19031d6ef3');
-// 1.5.2 只改 design-methods（1.1.1 → 1.1.2，issue #4613 复测：卡片「产出」指向模板后，真实模型仍因
-// SKILL.md「能力检查」自己把 journey 列进 mermaid 白名单而选了 mermaid+表格——这条比卡片更早读到、
-// 更笼统，盖过了卡片的具体指向。1.1.2 在「能力检查」和步骤 5 里各加一条禁止性规则：有 canvas 模板
-// 的 10 个方法必须用 canvas，即使白名单里有同名 mermaid 图类型也不能代替）：
-// 另外三个已发货 skill 必须逐字节不变——这条断言就是「我验证了 X」，不要求复核者自己去比对。
-for(const stableName of ['interview-synthesis','user-research-planning','maau-canvas'])assert.deepEqual(pack.skills.find(s=>s.stableName===stableName),previous.skills.find(s=>s.stableName===stableName));
-assert.equal(previous.skills.find(s=>s.stableName==='design-methods')!.semanticVersion,'1.1.1');
+const previous=verifySkillStarterPack(await source.load('standard-methods','1.5.2'),{packId:'standard-methods',packVersion:'1.5.2'});
+// This release updates only interview-synthesis; all other shipped skills retain their bytes.
+for(const stableName of ['user-research-planning','maau-canvas','design-methods'])assert.deepEqual(pack.skills.find(s=>s.stableName===stableName),previous.skills.find(s=>s.stableName===stableName));
+assert.equal(previous.skills.find(s=>s.stableName==='interview-synthesis')!.semanticVersion,'1.0.0');
+const interview=pack.skills.find(s=>s.stableName==='interview-synthesis')!;
+assert.equal(interview.semanticVersion,'1.1.0');assert.equal(interview.manifest.capabilityId,'WX-S010');
+assert.notEqual(interview.files[0]!.digest,previous.skills.find(s=>s.stableName==='interview-synthesis')!.files[0]!.digest);
 const design=pack.skills.find(s=>s.stableName==='design-methods')!;
 assert.equal(design.semanticVersion,'1.1.2');assert.equal(design.manifest.capabilityId,'WX-S023');
 const decode=(path:string)=>Buffer.from(design.files.find(f=>f.path===path)!.contentBase64,'base64').toString();
@@ -81,8 +80,7 @@ for(const skill of pack.skills){
  assert.match(entry,/工具|能力/);assert.match(entry,/不可用|未配置|缺/);
 }
 const changed=structuredClone(pack);changed.skills[0]!.files[0]!.contentBase64=Buffer.from('tampered').toString('base64');
-assert.throws(()=>verifySkillStarterPack(changed,{packId:'standard-methods',packVersion:'1.5.2'}));
-console.log(`PASS: real FileSkillStarterPackSource reads shipped 1.5.2 and superseded 1.5.1; four skills verified per-file against the editing sources; 1.5.2 only bumps design-methods to 1.1.2 (WX-S023, ${indexIds.size} indexed methods, each with exactly one card, no dangling cross-references, no book attribution or trademarked framework names; ${templateBlocks.length} executable templates — ${canvasFences} canvas fences matched against the real chat template registry, ${mermaidFences} mermaid fences inside the render whitelist) and leaves the three shipped skills byte-identical; missing deployment root/version fail closed; tampering rejected.`);
-
+assert.throws(()=>verifySkillStarterPack(changed,{packId:'standard-methods',packVersion:'1.5.3'}));
+console.log(`PASS: standard-methods 1.5.3 loads with interview-synthesis 1.1.0; all packaged files match editing sources, other skills remain byte-identical to 1.5.2, references/templates resolve, and tampering is rejected.`);
 }
-main().catch(error=>{console.error(error);process.exitCode=1;});
+main().catch(e=>{console.error(e);process.exitCode=1;});

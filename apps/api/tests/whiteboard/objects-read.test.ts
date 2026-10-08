@@ -106,3 +106,30 @@ describe('versioned canonical object read', () => {
     expect(readObjects).not.toHaveBeenCalled();
   });
 });
+
+
+describe('human geometry-only placement preview',()=>{
+  it('returns geometry with its sampled revision and never exposes text or assets',async()=>{
+    const f=fixture();f.state.enabled=false;
+    const result=await f.service.placementPreview(principal,boardId);
+    expect(result).toEqual({boardId,revision:{epoch:3,seq:7},role:'viewer',archived:false,
+      objects:[{id:'note',geometry:{x:10,y:20,width:200,height:100,rotation:0}}]});
+    expect(f.calls.some(call=>call.sql.includes('whiteboard_actor_identities'))).toBe(false);
+    expect(JSON.stringify(result)).not.toContain('Canonical');expect(JSON.stringify(result)).not.toContain('object_key');
+  });
+  it.each(['revoked-member','missing','other-board'] as const)('denies %s before decoding',async reason=>{
+    const f=fixture();if(reason==='revoked-member')f.state.member=false;if(reason==='missing')f.state.missing=true;
+    await expect(f.service.placementPreview(principal,reason==='other-board'?'00000000-0000-4000-8000-000000000002':boardId)).rejects.toMatchObject({code:'NOT_FOUND'});
+    expect(f.objects.get).not.toHaveBeenCalled();expect(f.decode).not.toHaveBeenCalled();
+  });
+  it('fails closed on corrupt durable snapshot bytes',async()=>{
+    const f=fixture();f.state.tampered=true;
+    await expect(f.service.placementPreview(principal,boardId)).rejects.toMatchObject({code:'DEPENDENCY_UNAVAILABLE'});
+  });
+  it('applies the existing objects-read rate limit',async()=>{
+    const placementPreview=vi.fn();
+    const db={withTenant:async(_org:unknown,work:(session:unknown)=>Promise<unknown>)=>work({query:async()=>({rows:[{allowed:false}]})})};
+    const controller=new WhiteboardOperationController({placementPreview} as never,{} as never,{} as never,db as never);
+    await expect(controller.placementPreview(principal,boardId)).rejects.toMatchObject({status:429});expect(placementPreview).not.toHaveBeenCalled();
+  });
+});

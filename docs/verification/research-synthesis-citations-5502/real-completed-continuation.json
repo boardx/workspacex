@@ -1,0 +1,112 @@
+{
+  "version": 14,
+  "errorCode": null,
+  "completed": true,
+  "report": true,
+  "reportDraft": false,
+  "chapters": 5,
+  "warnings": [],
+  "reportTimeline": [
+    {
+      "id": "evidence",
+      "stage": "evidence",
+      "status": "completed",
+      "attempts": 11,
+      "completed": 11,
+      "total": 11,
+      "startedAt": "2026-10-07T18:04:52.791Z",
+      "finishedAt": "2026-10-07T18:05:42.631Z"
+    },
+    {
+      "id": "chapter:market-performance",
+      "stage": "chapter",
+      "sectionId": "market-performance",
+      "status": "completed",
+      "attempts": 0
+    },
+    {
+      "id": "review:market-performance",
+      "stage": "review",
+      "sectionId": "market-performance",
+      "status": "completed",
+      "attempts": 0
+    },
+    {
+      "id": "chapter:competitive-landscape",
+      "stage": "chapter",
+      "sectionId": "competitive-landscape",
+      "status": "completed",
+      "attempts": 0
+    },
+    {
+      "id": "review:competitive-landscape",
+      "stage": "review",
+      "sectionId": "competitive-landscape",
+      "status": "completed",
+      "attempts": 0
+    },
+    {
+      "id": "chapter:esports-ecosystem",
+      "stage": "chapter",
+      "sectionId": "esports-ecosystem",
+      "status": "completed",
+      "attempts": 1,
+      "startedAt": "2026-10-07T18:05:42.791Z",
+      "finishedAt": "2026-10-07T18:06:06.321Z"
+    },
+    {
+      "id": "review:esports-ecosystem",
+      "stage": "review",
+      "sectionId": "esports-ecosystem",
+      "status": "completed",
+      "attempts": 1,
+      "startedAt": "2026-10-07T18:06:06.597Z",
+      "finishedAt": "2026-10-07T18:06:22.042Z"
+    },
+    {
+      "id": "chapter:cultural-ip-expansion",
+      "stage": "chapter",
+      "sectionId": "cultural-ip-expansion",
+      "status": "completed",
+      "attempts": 0
+    },
+    {
+      "id": "review:cultural-ip-expansion",
+      "stage": "review",
+      "sectionId": "cultural-ip-expansion",
+      "status": "completed",
+      "attempts": 0
+    },
+    {
+      "id": "chapter:regulatory-compliance",
+      "stage": "chapter",
+      "sectionId": "regulatory-compliance",
+      "status": "completed",
+      "attempts": 0
+    },
+    {
+      "id": "review:regulatory-compliance",
+      "stage": "review",
+      "sectionId": "regulatory-compliance",
+      "status": "completed",
+      "attempts": 0
+    },
+    {
+      "id": "synthesis",
+      "stage": "synthesis",
+      "status": "completed",
+      "attempts": 1,
+      "startedAt": "2026-10-07T18:06:24.610Z",
+      "finishedAt": "2026-10-07T18:06:41.564Z"
+    },
+    {
+      "id": "validation",
+      "stage": "validation",
+      "status": "completed",
+      "attempts": 1,
+      "startedAt": "2026-10-07T18:06:42.452Z",
+      "finishedAt": "2026-10-07T18:06:42.653Z"
+    }
+  ],
+  "events": 174
+}

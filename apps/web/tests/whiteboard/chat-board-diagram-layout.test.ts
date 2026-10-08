@@ -7,6 +7,7 @@ import { renderedDiagramLayout, diagramModelFromBoardObjects } from '../../lib/c
 import { renderedLayoutToCommands } from '../../../../packages/whiteboard-core/src/artifact-handoff';
 import { createWhiteboardDocument, executeCommands, readObjects } from '../../../../packages/whiteboard-core/src/document';
 import { modelToMermaid } from '@repo/fabric-markdown/mermaid-serializer';
+import { templateToModel, listTemplates } from '@repo/fabric-markdown/templates';
 import { personaToModel } from '@repo/fabric-markdown/diagrams/persona';
 import type { DiagramModel } from '@repo/fabric-markdown/model';
 import type { WhiteboardOperationActor } from '@repo/contracts/whiteboard-operation';
@@ -86,6 +87,28 @@ describe('Chat rendered model to canonical objects and editable source',()=>{
     const restored=diagramModelFromBoardObjects(objects,'artifact');
     expect(restored.nodes[0]).toMatchObject({label:'已编辑',x:210});
     expect(modelToMermaid(restored)).toContain('已编辑');
+  });
+  it.each(listTemplates().map(spec=>[spec.key]))('transports registered workshop %s without dropping decoration or text',key=>{
+    const model=templateToModel(`模板: ${key}`);
+    const {layout,objects}=transport(model);
+    const fence=key==='persona'?'persona':'canvas';
+    expect(artifactSourceMatchesLayout(new TextEncoder().encode(`\`\`\`${fence}\n${modelToMermaid(model)}\n\`\`\``),layout)).toBe(true);
+    expect(modelToMermaid(diagramModelFromBoardObjects(objects,'artifact'))).toBe(modelToMermaid(model));
+  });
+  it('inserts JTBD as editable canonical objects and binds every decoration to its source',()=>{
+    const jtbd=templateToModel('模板: jtbd\n执行者: 学生\n\n## 情境触发\n- 寻找实习\n\n## 核心任务\n- 准备作品集');
+    const {layout,objects}=transport(jtbd);
+    const bytes=new TextEncoder().encode(`\`\`\`canvas\n${modelToMermaid(jtbd)}\n\`\`\``);
+    expect(layout.diagramKind).toBe('template');
+    expect(artifactSourceMatchesLayout(bytes,layout)).toBe(true);
+    const restored=diagramModelFromBoardObjects(objects,'artifact');
+    expect(restored.kind).toBe('template');expect(modelToMermaid(restored)).toBe(modelToMermaid(jtbd));
+    expect(objects).toHaveLength(jtbd.nodes.length);expect(objects.some(o=>o.kind==='sticky'&&o.text==='寻找实习')).toBe(true);
+    const forged={...layout,objects:layout.objects.map((object,index)=>index===0?{...object,text:'伪造标题'}:object)};
+    expect(artifactSourceMatchesLayout(bytes,forged)).toBe(false);
+    expect(artifactSourceMatchesLayout(bytes,{...layout,objects:layout.objects.slice(1)})).toBe(false);
+    objects.find(o=>o.kind==='sticky')!.text='新的实习计划';
+    expect(modelToMermaid(diagramModelFromBoardObjects(objects,'artifact'))).toContain('新的实习计划');
   });
   it('refuses unsupported images/families and dangling exports instead of silently losing them',()=>{
     expect(()=>renderedDiagramLayout({...flow,nodes:[{...flow.nodes[0]!,shape:'image'}]},'a','org','r')).toThrow('UNSUPPORTED');
