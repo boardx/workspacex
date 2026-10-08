@@ -271,6 +271,7 @@ export async function generateReportChapters(state: ResearchRuntime, model: Mode
             return validateChapterOutput(text, section, ids, resolve);
           }, chapterPublish) as Chapter;
           const quality = await reviewChapter(chapter, section, evidenceByQuestion, config, chapterAudit);
+          if (!quality.passed) repair = quality;
           if (!quality.passed && !gapAdjudicationAttempted && await verifyGapVerdict(chapter, section, evidenceByQuestion, quality, config, (input, validate, publish) => {
             gapAdjudicationAttempted = true; return chapterAudit(input, validate, publish);
           })) quality.passed = true;

@@ -1426,3 +1426,19 @@ describe("partial-proof failure recovery", () => {
     expect(f.state.reportQualityWarnings?.length ?? 0).toBe(0);
   });
 });
+
+it("retains concrete failed review when independent gap proof is malformed", async () => {
+  const f = fixture(); f.state.outline = [f.state.outline[0]!];
+  let revision: any; let adjudications = 0;
+  const model: ModelCallPort = { complete: async input => {
+    const c = JSON.parse(input.user);
+    if (c.reviewKind === "gap_verdict") { adjudications++; return { text: "not JSON" }; }
+    if (c.reportStage === "chapter_revision") revision = c;
+    if (c.reportStage === "quality" && !revision) return { text: JSON.stringify({ ...answer(c), issues: ["Specific missing measurement needs verification."], questions: c.evidenceByQuestion.map((q: any) => ({ questionId: q.id, status: "missing", rationale: "Specific planned measurement is not covered." })) }) };
+    return { text: JSON.stringify(answer(c)) };
+  } };
+  await generateReportChapters(f.state, model, config, f.persist);
+  expect(adjudications).toBe(1);
+  expect(revision.review.issues).toContain("Specific missing measurement needs verification.");
+  expect(revision.review.review.questions[0].status).toBe("missing");
+});
