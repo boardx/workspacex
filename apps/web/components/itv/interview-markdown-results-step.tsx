@@ -38,8 +38,11 @@ export function InterviewMarkdownResultsStep({ interviewId, step, runs, legacySe
     if (previous?.interviewId === next.interviewId && previous.revisionId === next.revisionId) {
       const saved = previous.documents.find(item => item.step === "report");
       const incoming = next.documents.find(item => item.step === "report");
-      if (saved && (!incoming || incoming.documentId !== saved.documentId || incoming.version < saved.version ||
-          (incoming.version === saved.version && incoming.contentHash !== saved.contentHash))) return;
+      // Canonical saves append a new document ID for each version. Identity is stable
+      // only within a version; both envelope and report must advance for a new ID.
+      if (saved && (!incoming || incoming.version < saved.version ||
+          (incoming.version === saved.version && (incoming.documentId !== saved.documentId || incoming.contentHash !== saved.contentHash)) ||
+          (incoming.version > saved.version && next.version <= previous.version))) return;
     }
     acceptedSource.current = next;
     latestVersion.current = next.version; setSource(next); callbacks.current.onVersionChange(next.version);

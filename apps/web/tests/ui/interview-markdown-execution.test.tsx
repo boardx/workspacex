@@ -263,3 +263,51 @@ it("does not reveal cached report fragments when current source authorization fa
   await act(async () => { finish({ ...source, interviewId: "itv-denied-stream", revisionId: "rev-denied", version: 3 }); await request; });
   expect(version).not.toHaveBeenCalled();
 });
+
+it("reconciles a legitimate newer report ID after saved-failure resume without refresh", async () => {
+  const {runInterviewGeneration}=await import("@/lib/interview-generation-session");
+  const id="itv-new-report-version-id",old=savedReport(id);
+  old.states=[{documentId:old.documents[0]!.documentId,status:"failed",failure:{code:"AI_GENERATION_UNAVAILABLE",retryable:true}}];
+  let finish!:(next:InterviewMarkdownEnvelope)=>void;
+  const request=runInterviewGeneration(id,"report",update=>{update({attempt:1,markdown:"新稿输出"});return new Promise(resolve=>{finish=resolve;});},{revisionId:old.revisionId,version:old.version});
+  api.initializeInterviewMarkdown.mockResolvedValue(old);
+  render(<InterviewMarkdownResultsStep interviewId={id} step="report" runs={[]} onVersionChange={vi.fn()} onReport={vi.fn()}/>);
+  expect(await screen.findByTestId("itv-source-report-markdown")).toHaveTextContent("已持久化的正文与反例");
+  const next={...old,version:old.version+1,documents:[{...old.documents[0]!,documentId:"report-new-version",version:3,markdown:"# 完整新稿\n\n已保存的新研究正文。",contentHash:"c".repeat(64)}],states:[{documentId:"report-new-version",status:"draft" as const,failure:null}]};
+  await act(async()=>{finish(next);await request;});
+  expect(screen.getByTestId("itv-source-report-markdown")).toHaveTextContent("已保存的新研究正文");
+  expect(screen.getByTestId("itv-source-report-markdown")).not.toHaveTextContent("已持久化的正文与反例");
+  expect(screen.queryByText(/已保存内容不代表完整报告/)).not.toBeInTheDocument();
+});
+it.each(["same-report-version","same-envelope-version"])("rejects changed report identity with %s",async mismatch=>{
+ const {runInterviewGeneration}=await import("@/lib/interview-generation-session");
+ const id=`itv-identity-conflict-${mismatch}`,old=savedReport(id);
+ let finish!:(next:InterviewMarkdownEnvelope)=>void;
+ const request=runInterviewGeneration(id,"report",()=>new Promise(resolve=>{finish=resolve;}),{revisionId:old.revisionId,version:old.version});
+ api.initializeInterviewMarkdown.mockResolvedValue(old);
+ render(<InterviewMarkdownResultsStep interviewId={id} step="report" runs={[]} onVersionChange={vi.fn()} onReport={vi.fn()}/>);
+ expect(await screen.findByTestId("itv-source-report-markdown")).toHaveTextContent("已持久化的正文与反例");
+ const next={...old,version:mismatch==="same-envelope-version"?old.version:old.version+1,documents:[{...old.documents[0]!,documentId:"conflicting-identity",version:mismatch==="same-report-version"?2:3,markdown:"不能覆盖旧稿。"}]};
+ await act(async()=>{finish(next);await request;});
+ expect(screen.getByTestId("itv-source-report-markdown")).toHaveTextContent("已持久化的正文与反例");
+});
+
+it("keeps a newer persisted report when an earlier generation finishes late",async()=>{
+ const {runInterviewGeneration}=await import("@/lib/interview-generation-session");
+ const id="itv-concurrent-newer-report",old=savedReport(id);
+ let finish!:(next:InterviewMarkdownEnvelope)=>void;
+ let progress!:(patch:{attempt:number})=>void;
+ const request=runInterviewGeneration(id,"report",update=>{progress=update;return new Promise(resolve=>{finish=resolve;});},{revisionId:old.revisionId,version:old.version});
+ api.initializeInterviewMarkdown.mockResolvedValue(old);
+ const newer={...old,version:old.version+2,documents:[{...old.documents[0]!,documentId:"report-persisted-later",version:4,markdown:"# 当前报告\n\n更新保存的正文不能被旧生成覆盖。",contentHash:"d".repeat(64)}],states:[{documentId:"report-persisted-later",status:"draft" as const,failure:null}]};
+ api.loadInterviewMarkdown.mockResolvedValue(newer);
+ render(<InterviewMarkdownResultsStep interviewId={id} step="report" runs={[]} onVersionChange={vi.fn()} onReport={vi.fn()}/>);
+ expect(await screen.findByTestId("itv-source-report-markdown")).toHaveTextContent("已持久化的正文与反例");
+ await act(async()=>{progress({attempt:2});});
+ await waitFor(()=>expect(screen.getByTestId("itv-source-report-markdown")).toHaveTextContent("更新保存的正文"));
+ const stale={...old,version:old.version+1,documents:[{...old.documents[0]!,documentId:"report-earlier-generation",version:3,markdown:"过期生成正文。",contentHash:"c".repeat(64)}],states:[{documentId:"report-earlier-generation",status:"draft" as const,failure:null}]};
+ await act(async()=>{finish(stale);await request;});
+ expect(screen.getByTestId("itv-source-report-markdown")).toHaveTextContent("更新保存的正文");
+ expect(screen.getByTestId("itv-source-report-markdown")).not.toHaveTextContent("过期生成正文");
+});
+
