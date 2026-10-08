@@ -46,7 +46,7 @@ describe("partial question coverage quality review", () => {
     const gap = setup(); expect((await gap.run(noDirect)).passed).toBe(true); expect(gap.calls).toHaveLength(1);
   });
   it.each(["not JSON", new Error("provider unavailable"), new ResearchRuntimeError("RESEARCH_REPORT_QUALITY_INSUFFICIENT")])("fails closed on re-review error %s", async (error) => {
-    const f = setup(initial, () => error); await expect(f.run()).rejects.toThrow(); expect(f.calls).toHaveLength(2);
+    const f = setup(initial, () => error); await expect(f.run()).rejects.toThrow(); expect(f.calls).toHaveLength(typeof error === "string" ? 3 : 2);
   });
   it.each(["unknown", "duplicate", "missing"])("rejects %s re-review IDs", async (kind) => {
     const f = setup(initial, (context) => ({ ...initial, questions: kind === "missing" ? [] : context.coverageChecks.map((check: any, index: number) => ({ questionId: kind === "unknown" ? "unknown" : context.coverageChecks[0].questionId, status: index ? "gap" : "answered", rationale: index ? gapParagraph : quote })) }));

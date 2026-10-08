@@ -1,0 +1,128 @@
+{
+  "version": 4,
+  "errorCode": "RESEARCH_REPORT_QUALITY_INSUFFICIENT",
+  "completed": false,
+  "report": false,
+  "reportDraft": true,
+  "chapters": 5,
+  "warnings": [
+    {
+      "sectionId": "esports-ecosystem",
+      "issueCount": 10
+    },
+    {
+      "sectionId": "regulatory-compliance",
+      "issueCount": 1
+    }
+  ],
+  "reportTimeline": [
+    {
+      "id": "evidence",
+      "stage": "evidence",
+      "status": "completed",
+      "attempts": 11,
+      "completed": 11,
+      "total": 11,
+      "startedAt": "2026-10-07T13:38:58.908Z",
+      "finishedAt": "2026-10-07T13:39:55.663Z"
+    },
+    {
+      "id": "chapter:market-performance",
+      "stage": "chapter",
+      "sectionId": "market-performance",
+      "status": "completed",
+      "attempts": 0
+    },
+    {
+      "id": "review:market-performance",
+      "stage": "review",
+      "sectionId": "market-performance",
+      "status": "completed",
+      "attempts": 0
+    },
+    {
+      "id": "chapter:competitive-landscape",
+      "stage": "chapter",
+      "sectionId": "competitive-landscape",
+      "status": "completed",
+      "attempts": 0
+    },
+    {
+      "id": "review:competitive-landscape",
+      "stage": "review",
+      "sectionId": "competitive-landscape",
+      "status": "completed",
+      "attempts": 0
+    },
+    {
+      "id": "chapter:esports-ecosystem",
+      "stage": "chapter",
+      "sectionId": "esports-ecosystem",
+      "status": "completed",
+      "attempts": 2,
+      "startedAt": "2026-10-07T13:39:55.821Z",
+      "finishedAt": "2026-10-07T13:41:21.484Z"
+    },
+    {
+      "id": "review:esports-ecosystem",
+      "stage": "review",
+      "sectionId": "esports-ecosystem",
+      "status": "warning",
+      "attempts": 2,
+      "startedAt": "2026-10-07T13:40:28.821Z",
+      "finishedAt": "2026-10-07T13:41:36.862Z",
+      "reasonCode": "RESEARCH_REPORT_QUALITY_INSUFFICIENT"
+    },
+    {
+      "id": "chapter:cultural-ip-expansion",
+      "stage": "chapter",
+      "sectionId": "cultural-ip-expansion",
+      "status": "completed",
+      "attempts": 0
+    },
+    {
+      "id": "review:cultural-ip-expansion",
+      "stage": "review",
+      "sectionId": "cultural-ip-expansion",
+      "status": "completed",
+      "attempts": 0
+    },
+    {
+      "id": "chapter:regulatory-compliance",
+      "stage": "chapter",
+      "sectionId": "regulatory-compliance",
+      "status": "completed",
+      "attempts": 2,
+      "startedAt": "2026-10-07T13:41:37.394Z",
+      "finishedAt": "2026-10-07T13:42:19.700Z"
+    },
+    {
+      "id": "review:regulatory-compliance",
+      "stage": "review",
+      "sectionId": "regulatory-compliance",
+      "status": "warning",
+      "attempts": 2,
+      "startedAt": "2026-10-07T13:42:19.837Z",
+      "finishedAt": "2026-10-07T13:42:40.919Z",
+      "reasonCode": "RESEARCH_REPORT_QUALITY_INSUFFICIENT"
+    },
+    {
+      "id": "synthesis",
+      "stage": "synthesis",
+      "status": "completed",
+      "attempts": 1,
+      "startedAt": "2026-10-07T13:42:41.231Z",
+      "finishedAt": "2026-10-07T13:42:52.677Z"
+    },
+    {
+      "id": "validation",
+      "stage": "validation",
+      "status": "failed",
+      "attempts": 1,
+      "startedAt": "2026-10-07T13:42:52.998Z",
+      "finishedAt": "2026-10-07T13:42:53.073Z",
+      "reasonCode": "RESEARCH_REPORT_QUALITY_INSUFFICIENT"
+    }
+  ],
+  "events": 326
+}
