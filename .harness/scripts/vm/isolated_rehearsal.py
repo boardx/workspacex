@@ -152,7 +152,9 @@ def rehearse(b,root,invoke):
    stage_payload=dict(payload,operation=stage,previousReceipts=refs,providerObservation=observation)
    result=journal.once(stage,lambda:invoke(stage,stage_payload))
    if result.get('targetInstanceId')!=b['targetInstanceId'] or result.get('attemptId')!=b['attemptId'] or result.get('candidateSha')!=b['candidateSha'] or result.get('accepted') is not True:raise ValueError('STAGE_RECEIPT_BINDING:'+stage)
-   if stage in ('restore','before','after','snapshot','recovery-verify') and set(result.get('databases',[]))!=set(DBS):raise ValueError('THREE_DATABASE_CLOSURE:'+stage)
+   if stage in ('restore','before','after','snapshot','recovery-verify'):
+    databases=result.get('databases')
+    if type(databases) is not list or len(databases)!=len(DBS) or not all(type(db) is str for db in databases) or len(set(databases))!=len(DBS) or set(databases)!=set(DBS):raise ValueError('THREE_DATABASE_CLOSURE:'+stage)
  finally:
   # Cleanup mutations are not retried implicitly. Provider OOS is the deadline backstop.
   try:journal.once('delete',lambda:invoke('cleanup',payload))

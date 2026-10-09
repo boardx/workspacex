@@ -12,6 +12,11 @@ on:
       - 'scripts/cn_archive_oss.py'
       - 'scripts/export-cn-image-archives.py'
       - 'scripts/canonical_control.py'
+      - 'scripts/check-cn-archive-export-inputs.py'
+      - 'scripts/verify-cn-main-registration.py'
+      - 'tests/test_cn_main_registration.py'
+      - '.harness/scripts/vm/isolated_rehearsal.py'
+      - '.harness/scripts/vm/isolated_rehearsal_test.py'
       - '.harness/scripts/vm/import-cn-image-archives.py'
       - 'tests/test_cn*archive*.py'
       - 'packages/cloud-deploy/src/release*.ts'
@@ -41,3 +46,7 @@ jobs:
         run: python3 -B -m unittest discover -s tests -p 'test_cn*archive*.py' -v
       - name: Run credential-free build-only contracts
         run: python3 -I -B -m unittest discover -s tests -p 'test_cloud_build_only.py' -v
+      - name: Run offline registration input consistency contracts
+        run: python3 -I -B -m unittest discover -s tests -p 'test_cn_main_registration.py' -v
+      - name: Run isolated recovery contracts on trusted runner directories
+        run: python3 -I -B .harness/scripts/vm/isolated_rehearsal_test.py
