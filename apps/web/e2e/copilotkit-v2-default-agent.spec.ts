@@ -1,6 +1,9 @@
 import { test, expect, type Page } from "@playwright/test";
 import { CHAT_READ_E2E } from "./chat-read-fixture";
 import { SESSION_TOKEN_STORAGE_KEY } from "../lib/api-client";
+import { defaultAgentE2eIdentity } from "../../api/scripts/chat-default-agent-e2e-identity";
+
+const DEFAULT_AGENT_E2E = defaultAgentE2eIdentity(CHAT_READ_E2E);
 
 /**
  * issue #2038 —— 「标准默认 agent」的服务端 org 级动态解析 + env 配错容错。
@@ -27,10 +30,10 @@ import { SESSION_TOKEN_STORAGE_KEY } from "../lib/api-client";
  *
  * ## 默认解析在本套件里落到谁
  *
- * 种子 org 没有 `ensureDefaultAgent` 的「通用助手」（seed 脚本直插表，不走注册路径），
+ * 本 spec 的独立种子 org 没有「通用助手」；主 chat-read org 保留自己的通用助手。
  * 已发布候选是 `agentId`（chat-read-loopback provider）与 `deepAgentId`
  * （deep-agent provider）——确定性规则第②级（deep-agent 优先）命中 `deepAgentId`，
- * 与 env 默认恰好同一个 agent：回复必须带 deep-agent loopback 替身的确定性输出，
+ * 此处直接请求服务端动态解析，不使用主组织的 env 默认：回复必须带 deep-agent 替身的确定性输出，
  * 且**不带** `[loopback]`（chat-read-loopback 的签名）——两个 provider 的输出结构性
  * 不同，断言不会假阳性。
  */
@@ -38,7 +41,7 @@ test.setTimeout(120_000);
 
 async function login(page: Page): Promise<void> {
   await page.goto("/login");
-  await page.getByTestId("login-email").fill(CHAT_READ_E2E.email);
+  await page.getByTestId("login-email").fill(DEFAULT_AGENT_E2E.email);
   await page.getByTestId("login-password").fill(CHAT_READ_E2E.password);
   await page.getByTestId("login-submit").click();
   await expect(page).toHaveURL(/\/home$/);
