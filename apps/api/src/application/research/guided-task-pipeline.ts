@@ -21,6 +21,7 @@ export type PipelineComplete = (system: string, context: unknown, validate: (val
 const TASK_WORKERS = 3;
 const MODEL_WORKERS = 2;
 const READ_WORKERS = 3;
+const CHAPTER_SOURCE_TARGET = 3;
 
 export function normalizedResearchUrl(value: string): string {
   try {
@@ -191,7 +192,22 @@ export async function executeTaskPipeline(state: ResearchRuntime, persist: Runti
         const cached = existing?.relevanceBasis === sourceRelevanceBasis(state, source) && sourceTaskIds(source).includes(task.id);
         return [key, source.decision === "excluded" || cached ? source : { ...source, taskId: task.id, taskIds: [task.id], addedByUser: false }] as const;
       })).values()];
-      const sources = await readAndScreen(candidates, task);
+      const sources: Source[] = [];
+      // Read provider-ranked candidates in small windows. Once enough approved
+      // documents exist, remaining discovery hits need no download or model scan.
+      // Every admitted source still passes the complete relevance gate.
+      const windowSize = search.read ? READ_WORKERS : candidates.length;
+      for (let offset = 0; offset < candidates.length; offset += windowSize) {
+        check();
+        const screened = await readAndScreen(candidates.slice(offset, offset + windowSize), task);
+        sources.push(...screened);
+        await commit(async () => {
+          merge(screened); await save();
+          if (screened.some(source => source.decision === "accepted") && firstSourceMs === null) firstSourceMs = Date.now() - started;
+        });
+        const readable = new Set(state.sources.filter(source => source.decision === "accepted" && source.document && sourceTaskIds(source).includes(task.id)).map(source => normalizedResearchUrl(source.url)));
+        if (readable.size >= CHAPTER_SOURCE_TARGET) break;
+      }
       return { sources, errorCode: sources.some(source => source.decision !== "excluded" && sourceTaskIds(source).includes(task.id)) ? null : "RESEARCH_SEARCH_NO_RELEVANT_SOURCES", release };
     } catch (error) { release(); throw error; }
   };
@@ -290,7 +306,7 @@ export async function executeTaskPipeline(state: ResearchRuntime, persist: Runti
       if (search.read && section?.enabled) {
         const count = () => new Set(state.sources.filter(source => source.decision === "accepted" && source.document && sourceTaskIds(source).some(id => state.tasks.find(item => item.id === id)?.sectionId === section.id)).map(source => normalizedResearchUrl(source.url))).size;
         for (const { task, query } of scopedSupplementQueries(state, section, ordered)) {
-          check(); if (count() >= 3) break;
+          check(); if (count() >= CHAPTER_SOURCE_TARGET) break;
           if ((task.searchAttempts ?? []).some(record => record.query.trim().toLowerCase() === query.trim().toLowerCase()) || (task.searchAttempts?.length ?? 0) >= C.GUIDED_RESEARCH_SEARCH_ATTEMPT_LIMIT) continue;
           await attempt(task, query, false);
         }

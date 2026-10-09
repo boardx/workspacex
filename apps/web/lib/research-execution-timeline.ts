@@ -41,6 +41,6 @@ export function researchExecutionTimeline(state: Runtime, interrupted = false) {
   ];
   const finished = Boolean(state.report && state.completed && !state.busy && !state.errorCode && !warnings && !interrupted && state.controlStatus !== 'paused' && !tasks.some(task => task.status === 'failed'));
   const runningGoal = leasedWork && state.executionGoal === 'report';
-  const summary = interrupted ? '执行已中断' : state.controlStatus === 'paused' ? '执行已暂停' : state.busy && !leasedWork ? '执行状态待确认' : runningGoal || searching ? '正在执行研究计划' : state.errorCode || tasks.some(task => task.status === 'failed') ? '执行失败' : warnings ? '部分内容待核实' : finished ? '执行完成' : leasedWork ? '正在执行研究计划' : state.report ? '已有报告，请查看质量与保存状态' : '将按以下计划执行';
+  const summary = interrupted ? '执行已中断' : state.controlStatus === 'paused' ? '执行已暂停' : state.busy && !leasedWork ? '执行状态待确认' : runningGoal || searching ? '正在执行研究计划' : state.errorCode || tasks.some(task => task.status === 'failed') ? '执行失败' : warnings ? '部分步骤未完成' : finished ? '执行完成' : leasedWork ? '正在执行研究计划' : state.report ? '已有报告，请查看质量与保存状态' : '将按以下计划执行';
   return { rows, summary, finished };
 }

@@ -50,7 +50,7 @@ describe("editable research design depth", () => {
   });
   it.each([
     ["RESEARCH_EVIDENCE_BUDGET_EXCEEDED", "请精简后重试"],
-    ["RESEARCH_REPORT_QUALITY_INSUFFICIENT", "请完善大纲或补充来源后重试"],
+    ["RESEARCH_REPORT_QUALITY_INSUFFICIENT", "报告处理未完成，已保存的进度会保留"],
   ] as const)("explains %s with an actionable recovery instruction", async (errorCode, message) => {
     vi.mocked(getResearchRuntime).mockResolvedValue({ ...runtimeFixture("report"), report: null, errorCode });
     render(<GuidedResearchLive sessionId="grs-live" onBack={vi.fn()} />);

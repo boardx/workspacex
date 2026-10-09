@@ -11,9 +11,12 @@ export function chapterStructureIssues(chapter: Chapter, section: ReportSection)
   const headingMatches = [...chapter.body.matchAll(/^###\s+(.+)$/gm)];
   const headings = headingMatches.map((match) => match[1]!.trim());
   const paragraphs = chapter.body.split(/\n\s*\n/).filter((part) => !/^\s*#/.test(part) && part.replace(/\[\[source:[^\]]+\]\]/g, "").trim().length >= 30);
-  if (headings.length < 3 || paragraphs.length < 3) issues.push("Provide at least three substantive analytical subsections with separate prose paragraphs; do not merely repeat the outline.");
-  let cursor = 0;
   const required = section.subsections ?? [];
+  // Rich plans define their own section count. Requiring three headings for a
+  // confirmed one/two-section plan contradicts the exact-heading instruction.
+  const minimum = required.length || 3;
+  if (headings.length < minimum || paragraphs.length < minimum) issues.push(`Provide at least ${minimum} substantive analytical subsections with separate prose paragraphs; do not merely repeat the outline.`);
+  let cursor = 0;
   for (const subsection of required) {
     const index = headings.findIndex((title, index) => index >= cursor && title === subsection.title.trim());
     if (index < 0) { issues.push(`Missing or out-of-order required subsection heading: ${subsection.title}`); continue; }
