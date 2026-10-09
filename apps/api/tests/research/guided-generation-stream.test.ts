@@ -1,6 +1,6 @@
 import { expect, it } from "vitest";
 import { research as C } from "@repo/contracts";
-import { researchGenerationEvents } from "../../src/interface/controllers/guided-research-generation-stream";
+import { acceptsResearchNdjson, researchGenerationEvents } from "../../src/interface/controllers/guided-research-generation-stream";
 const state = C.GuidedResearchRuntime.parse({ sessionId: "s", version: 2, revision: 1, currentNode: "report", availableNodes: ["report"], brief: { topic: "topic", goal: "goal", timeRange: "", region: "", focus: "" }, directions: [], outline: [], tasks: [], sources: [], report: null, completed: false, busy: true, leaseUntil: null, errorCode: null, generatedNodes: [], messages: [], proposal: null, modelCalls: [], reportStream: { requestId: "r", sequence: 0, text: "", status: "streaming" } });
 it("uses interview event names without leaking runtime state or resending streamed prose", () => {
   const events: any[] = []; const send = researchGenerationEvents("r", event => events.push(event));
@@ -46,4 +46,17 @@ it("negotiates NDJSON at the HTTP boundary and keeps runtime data off the public
   expect(lines.map(line => JSON.parse(line).type)).toEqual(["stage", "delta", "completed"]);
   expect(lines.join("")).not.toContain('"state"');
   expect(lines.join("")).not.toContain('"modelCalls"');
+});
+
+it("honors Accept quality, specificity and client ordering", () => {
+  expect(acceptsResearchNdjson("application/x-ndjson, text/event-stream;q=0.5")).toBe(true);
+  expect(acceptsResearchNdjson("text/event-stream, application/x-ndjson;q=0")).toBe(false);
+  expect(acceptsResearchNdjson("application/x-ndjson;q=0.2, text/event-stream;q=0.9")).toBe(false);
+  expect(acceptsResearchNdjson("text/event-stream, application/x-ndjson")).toBe(false);
+  expect(acceptsResearchNdjson("application/x-ndjson;q=0, */*;q=1")).toBe(false);
+  expect(acceptsResearchNdjson("APPLICATION/X-NDJSON;Q=1, text/*;q=0.5")).toBe(true);
+  expect(acceptsResearchNdjson("application/x-ndjson;q=bad")).toBe(false);
+  expect(acceptsResearchNdjson("*/*")).toBe(false);
+  expect(acceptsResearchNdjson("*/*, application/x-ndjson")).toBe(true);
+  expect(acceptsResearchNdjson()).toBe(false);
 });

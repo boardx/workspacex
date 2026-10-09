@@ -1,5 +1,5 @@
 import { createResearchStreamWriter } from "./guided-research-stream-transport";
-import { researchGenerationEvents } from "./guided-research-generation-stream";
+import { acceptsResearchNdjson, researchGenerationEvents } from "./guided-research-generation-stream";
 import { createHash } from "node:crypto";
 import { runtimeProgress } from "./guided-research-progress";
 import type { Request, Response } from "express";
@@ -94,7 +94,7 @@ export class GuidedResearchController {
     const session = await this.current(principal, sessionId);
     const { knownFields, compactSources, ...command } = input.data;
     let clientStream: import("../../application/research/guided-runtime-ports").ResearchRuntime["reportStream"];
-    const unified = request.headers?.accept?.includes("application/x-ndjson") === true;
+    const unified = acceptsResearchNdjson(request.headers?.accept);
     response.setHeader("Vary", "Accept");
     response.setHeader("Content-Type", unified ? "application/x-ndjson; charset=utf-8" : "text/event-stream; charset=utf-8");
     response.setHeader("Cache-Control", "no-cache, no-transform");
