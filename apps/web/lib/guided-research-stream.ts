@@ -3,7 +3,10 @@ import { apiUrl, ApiError, extractReasonCode, getStoredSessionToken } from "./ap
 import type { GuidedResearchRuntime, GuidedResearchRuntimeCommand } from "./guided-research-api";
 import type { z } from "zod";
 import { mergeResearchDelta, researchFieldFingerprints } from "./guided-research-delta";
-export type ResearchStreamEvent = z.infer<typeof research.GuidedResearchRuntimeStreamEvent>;
+import { readResearchGenerationStream } from "./guided-research-generation-stream";
+export type ResearchStreamEvent = z.infer<typeof research.GuidedResearchRuntimeStreamEvent> | {
+  type: "report_reset"; sessionId: string; requestId: string; version: number; sequence: number; status: "streaming" | "failed";
+};
 export async function streamResearchCommand(input: GuidedResearchRuntimeCommand, onEvent: (event: ResearchStreamEvent) => void, signal?: AbortSignal, baseline?: GuidedResearchRuntime): Promise<GuidedResearchRuntime> {
   const op = research.operations.streamGuidedResearchRuntime;
   const token = getStoredSessionToken();
@@ -11,9 +14,10 @@ export async function streamResearchCommand(input: GuidedResearchRuntimeCommand,
   let current = baseline;
   const body = baseline ? { ...input, compactSources: true, knownFields: await researchFieldFingerprints(baseline) } : input;
   const response = await fetch(apiUrl(op.path.replace(":sessionId", encodeURIComponent(input.sessionId))), {
-    method: "POST", signal, credentials: "include", headers: { "Content-Type": "application/json", Accept: "text/event-stream", ...(token ? { Authorization: `Bearer ${token}` } : {}) }, body: JSON.stringify(body),
+    method: "POST", signal, credentials: "include", headers: { "Content-Type": "application/json", Accept: "application/x-ndjson, text/event-stream;q=0.5", ...(token ? { Authorization: `Bearer ${token}` } : {}) }, body: JSON.stringify(body),
   });
   if (!response.ok) { const raw: unknown = await response.json().catch(() => null); throw new ApiError(response.status, extractReasonCode(raw), raw); }
+  if (response.body && response.headers.get("content-type")?.includes("application/x-ndjson")) return readResearchGenerationStream(response, input, onEvent, signal, baseline);
   if (!response.body || !response.headers.get("content-type")?.includes("text/event-stream")) throw new ApiError(502, "RESEARCH_STREAM_INVALID", null);
   const reader = response.body.getReader(); const decoder = new TextDecoder(); let buffer = "";
   try {

@@ -1,3 +1,4 @@
+import { GenerationStreamStage, GenerationStreamDelta, GenerationStreamCompleted, GenerationStreamFailed } from "./generation-stream";
 export { mapGuidedResearchCitations } from "./guided-research-citations";
 /**
  * 契约束 `research` — ③ API 契约（**唯一事实源**）
@@ -1175,6 +1176,15 @@ export const GuidedResearchRuntimeStreamEvent = z.discriminatedUnion("type", [
   z.object({ type: z.literal("error"), reasonCode: z.string() }).strict(),
 ]);
 
+/** Interview-compatible public stream; full runtime remains on state APIs. */
+export const GuidedResearchGenerationSource = z.object({ sessionId: z.string().min(1), requestId: z.string().min(1), version: z.number().int().nonnegative(), revision: z.number().int().nonnegative() }).strict();
+export const GuidedResearchGenerationStreamEvent = z.discriminatedUnion("type", [
+  GenerationStreamStage.extend({ source: GuidedResearchGenerationSource, stream: z.object({ sequence: z.number().int().nonnegative(), offset: z.number().int().nonnegative(), status: GuidedResearchRuntime.shape.reportStream.unwrap().unwrap().shape.status }).strict().optional() }),
+  GenerationStreamDelta.extend({ source: GuidedResearchGenerationSource, sequence: z.number().int().positive() }),
+  GenerationStreamCompleted.extend({ source: GuidedResearchGenerationSource }),
+  GenerationStreamFailed,
+]);
+
 export const operations = {
   getGuidedResearchRuntimeProgress: {
     method: "GET", path: "/research/guided-sessions/:sessionId/runtime/progress",
@@ -1183,7 +1193,7 @@ export const operations = {
   },
   streamGuidedResearchRuntime: {
     method: "POST", path: "/research/guided-sessions/:sessionId/runtime/commands/stream",
-    in: GuidedResearchRuntimeCommand, out: GuidedResearchRuntimeStreamEvent, err: guidedWorkflowErrors,
+    in: GuidedResearchRuntimeCommand, out: z.union([GuidedResearchGenerationStreamEvent, GuidedResearchRuntimeStreamEvent]), err: guidedWorkflowErrors,
   },
   getGuidedResearchRuntime: {
     method: "GET", path: "/research/guided-sessions/:sessionId/runtime",
