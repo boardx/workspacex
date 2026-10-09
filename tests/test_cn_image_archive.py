@@ -158,8 +158,8 @@ class ArchiveTests(unittest.TestCase):
         self.assertIn('contents: read',source);self.assertIn('runs-on: ubuntu-24.04',source)
         for forbidden in ('self-hosted','id-token:','secrets.','environment:','sudo','--publish','--prepare','aliyun','docker push','docker login'):
             self.assertNotIn(forbidden,source)
-        self.assertEqual(source.count('persist-credentials: false'),2)
-        self.assertEqual(source.count('[[ "$EVENT_NAME" == workflow_dispatch && "$GITHUB_REF" == refs/heads/main ]]'),2)
+        self.assertEqual(source.count('persist-credentials: false'),4)
+        self.assertEqual(source.count('[[ "$EVENT_NAME" == workflow_dispatch && "$GITHUB_REF" == refs/heads/main ]]'),4)
         self.assertIn('compression-level: 0',source)
         self.assertIn("plan['controlRevision'] == os.environ['GITHUB_SHA']",source)
         self.assertIn('merge-base --is-ancestor HEAD origin/main',source)
@@ -173,7 +173,7 @@ class ArchiveTests(unittest.TestCase):
             if '        run: |\n' in block:
                 body=block.split('        run: |\n',1)[1]
                 scripts.append('\n'.join(line[10:] for line in body.splitlines() if line.startswith('          '))+'\n')
-        self.assertEqual(len(scripts),2)
+        self.assertEqual(len(scripts),4)
         for script in scripts:
             for event,ref in [('workflow_run','refs/heads/main'),('pull_request','refs/pull/5512/merge'),('push','refs/heads/main'),('workflow_dispatch','refs/heads/branch'),('workflow_dispatch','refs/tags/main')]:
                 env=dict(PATH='/usr/bin:/bin',EVENT_NAME=event,GITHUB_REF=ref,RUNNER_TEMP=str(self.root),BUILD_PLAN='{}')

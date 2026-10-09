@@ -16,11 +16,19 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  export:
+  plan:
     if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
-    timeout-minutes: 180
+    timeout-minutes: 10
+    outputs:
+      source: ${{ steps.identity.outputs.source }}
+      plan_sha256: ${{ steps.identity.outputs.plan_sha256 }}
     steps:
+      - name: Check out exact main control
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
       - name: Require manual main and bind exact build identities
         id: identity
         env:
@@ -30,23 +38,37 @@ jobs:
         run: |
           set -euo pipefail
           [[ "$EVENT_NAME" == workflow_dispatch && "$GITHUB_REF" == refs/heads/main ]] || exit 2
-          python3 - <<'PY'
-          import json, os, pathlib, re
+          python3 -I -B - <<'PYCODE'
+          import hashlib, importlib.util, os, pathlib
+          spec = importlib.util.spec_from_file_location('contract', 'scripts/cn_image_archive.py')
+          contract = importlib.util.module_from_spec(spec); spec.loader.exec_module(contract)
           raw = os.environ['BUILD_PLAN'].encode()
           assert len(raw) <= 16384
-          def pairs(items):
-              result = {}
-              for key, value in items:
-                  assert key not in result
-                  result[key] = value
-              return result
-          plan = json.loads(raw, object_pairs_hook=pairs)
+          plan = contract.validate_plan(contract.decode(raw))
           assert plan['controlRevision'] == os.environ['GITHUB_SHA']
-          assert re.fullmatch('[a-f0-9]{40}', plan['sourceRevision'])
           pathlib.Path(os.environ['RUNNER_TEMP'], 'cn-archive-plan.json').write_bytes(raw)
           with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
               output.write('source=' + plan['sourceRevision'] + '\n')
-          PY
+              output.write('plan_sha256=' + hashlib.sha256(raw).hexdigest() + '\n')
+          PYCODE
+      - name: Preserve immutable plan for this run attempt
+        uses: actions/upload-artifact@v6
+        with:
+          name: cn-archive-plan-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/cn-archive-plan.json
+          if-no-files-found: error
+          retention-days: 1
+  export:
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
+    needs: plan
+    runs-on: ubuntu-24.04
+    timeout-minutes: 65
+    strategy:
+      fail-fast: false
+      max-parallel: 5
+      matrix:
+        service: [api, web, agent, sandbox, postgres]
+    steps:
       - name: Check out exact main control
         uses: actions/checkout@v5
         with:
@@ -57,35 +79,128 @@ jobs:
       - name: Check out exact source
         uses: actions/checkout@v5
         with:
-          ref: ${{ steps.identity.outputs.source }}
+          ref: ${{ needs.plan.outputs.source }}
           path: source
           fetch-depth: 0
           persist-credentials: false
-      - name: Export five archives without registry credentials
+      - name: Download immutable plan
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: cn-archive-plan-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/plan
+      - name: Export one retained archive without registry credentials
         env:
           EVENT_NAME: ${{ github.event_name }}
+          PLAN_SHA256: ${{ needs.plan.outputs.plan_sha256 }}
+          SERVICE: ${{ matrix.service }}
         shell: bash
         run: |
           set -euo pipefail
           [[ "$EVENT_NAME" == workflow_dispatch && "$GITHUB_REF" == refs/heads/main ]] || exit 2
+          python3 -I -B - <<'PYCODE'
+          import hashlib, os, pathlib
+          raw = pathlib.Path(os.environ['RUNNER_TEMP'], 'plan/cn-archive-plan.json').read_bytes()
+          assert len(raw) <= 16384 and hashlib.sha256(raw).hexdigest() == os.environ['PLAN_SHA256']
+          PYCODE
           git -C source merge-base --is-ancestor HEAD origin/main
           git -C source fsck --full --no-reflogs
           python3 -I -B control/scripts/export-cn-image-archives.py \
-            --plan "$RUNNER_TEMP/cn-archive-plan.json" \
+            --plan "$RUNNER_TEMP/plan/cn-archive-plan.json" \
             --source "$GITHUB_WORKSPACE/source" \
+            --service "$SERVICE" \
+            --plan-sha256 "$PLAN_SHA256" \
             --output "$RUNNER_TEMP/cn-image-archives"
-      - name: Preserve archive transport artifacts
+      - name: Preserve one transport archive and fragment
         uses: actions/upload-artifact@v6
         with:
-          name: cn-image-archives-${{ github.run_id }}-${{ github.run_attempt }}
+          name: cn-image-archive-${{ matrix.service }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
-            ${{ runner.temp }}/cn-image-archives/api.tar
-            ${{ runner.temp }}/cn-image-archives/web.tar
-            ${{ runner.temp }}/cn-image-archives/agent.tar
-            ${{ runner.temp }}/cn-image-archives/sandbox.tar
-            ${{ runner.temp }}/cn-image-archives/postgres.tar
-            ${{ runner.temp }}/cn-image-archives/archive-set.json
+            ${{ runner.temp }}/cn-image-archives/${{ matrix.service }}.tar
+            ${{ runner.temp }}/cn-image-archives/archive-fragment.json
             ${{ runner.temp }}/cn-image-archives/build-plan.json
           if-no-files-found: error
           compression-level: 0
+          retention-days: 1
+  collect:
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
+    needs: [plan, export]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Check out exact main control
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ github.sha }}
+          path: control
+          persist-credentials: false
+      - name: Download immutable plan
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: cn-archive-plan-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/plan
+      - name: Check collection budget before downloading archives
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PLAN_SHA256: ${{ needs.plan.outputs.plan_sha256 }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$EVENT_NAME" == workflow_dispatch && "$GITHUB_REF" == refs/heads/main ]] || exit 2
+          python3 -I -B - <<'PYCODE'
+          import hashlib, importlib.util, os, pathlib, shutil
+          spec = importlib.util.spec_from_file_location('contract', 'control/scripts/cn_image_archive.py')
+          contract = importlib.util.module_from_spec(spec); spec.loader.exec_module(contract)
+          raw = pathlib.Path(os.environ['RUNNER_TEMP'], 'plan/cn-archive-plan.json').read_bytes()
+          assert len(raw) <= 16384 and hashlib.sha256(raw).hexdigest() == os.environ['PLAN_SHA256']
+          plan = contract.validate_plan(contract.decode(raw))
+          assert plan['controlRevision'] == os.environ['GITHUB_SHA']
+          assert shutil.disk_usage(os.environ['RUNNER_TEMP']).free >= plan['maxTotalBytes'] + plan['storageMarginBytes']
+          assert os.statvfs(os.environ['RUNNER_TEMP']).f_favail >= 4096
+          PYCODE
+      - name: Download api archive from this run attempt
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: cn-image-archive-api-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/cn-image-collection/api
+      - name: Download web archive from this run attempt
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: cn-image-archive-web-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/cn-image-collection/web
+      - name: Download agent archive from this run attempt
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: cn-image-archive-agent-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/cn-image-collection/agent
+      - name: Download sandbox archive from this run attempt
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: cn-image-archive-sandbox-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/cn-image-collection/sandbox
+      - name: Download postgres archive from this run attempt
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: cn-image-archive-postgres-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/cn-image-collection/postgres
+      - name: Validate complete retained archive collection
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PLAN_SHA256: ${{ needs.plan.outputs.plan_sha256 }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$EVENT_NAME" == workflow_dispatch && "$GITHUB_REF" == refs/heads/main ]] || exit 2
+          python3 -I -B control/scripts/export-cn-image-archives.py \
+            --plan "$RUNNER_TEMP/plan/cn-archive-plan.json" \
+            --collect "$RUNNER_TEMP/cn-image-collection" \
+            --plan-sha256 "$PLAN_SHA256" \
+            --output "$RUNNER_TEMP/cn-image-archive-set"
+      - name: Preserve validated collection metadata without duplicating archives
+        uses: actions/upload-artifact@v6
+        with:
+          name: cn-image-archive-set-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/cn-image-archive-set/archive-set.json
+            ${{ runner.temp }}/cn-image-archive-set/build-plan.json
+          if-no-files-found: error
           retention-days: 1
