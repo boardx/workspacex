@@ -82,7 +82,7 @@ test("research persists the confirmed-question pipeline through the real UI, API
     && response.request().postDataJSON()?.node === "outline" && response.request().postDataJSON()?.action === "generate_report");
   await page.getByRole("button", { name: "生成报告", exact: true }).click();
   const streamResponse = await reportResponse;
-  expect(streamResponse.headers()["content-type"]).toContain("text/event-stream");
+  expect(streamResponse.headers()["content-type"]).toContain("application/x-ndjson");
   await expect(page).toHaveURL(/\/research\/[^/]+\/report$/);
   await expect(page.getByTestId("research-execution-timeline")).toBeVisible();
   await expect(page.getByTestId("research-execution-timeline")).not.toContainText(/次尝试|批次/);
@@ -93,7 +93,7 @@ test("research persists the confirmed-question pipeline through the real UI, API
   await expect(page.getByText("正在获取资料", { exact: true })).toHaveCount(0);
   expect(await page.getByTestId("research-execution-timeline").evaluate((timeline) => Boolean(timeline.compareDocumentPosition(document.querySelector('[data-testid="research-report-preview-text"]')!) & Node.DOCUMENT_POSITION_FOLLOWING))).toBe(true);
   await page.screenshot({ path: testInfo.outputPath("research-report-streaming.png"), fullPage: true });
-  // Reload disconnects SSE. The server-owned combined command continues without replay.
+  // Reload disconnects the generation stream. The server-owned combined command continues without replay.
   await page.reload();
   await expect(page.getByTestId("research-report-preview-text")).toContainText("本章分析", { timeout: 10000 });
   await expect(page.getByTestId("research-report")).toContainText("并网政策报告", { timeout: 60000 });
@@ -221,7 +221,7 @@ test("research persists the confirmed-question pipeline through the real UI, API
   await page.getByRole("textbox", { name: "研究对话" }).fill("重新生成报告");
   await page.getByRole("button", { name: "发送研究消息" }).click();
   const regeneratedResponse = await regenerated;
-  expect(regeneratedResponse.headers()["content-type"]).toContain("text/event-stream");
+  expect(regeneratedResponse.headers()["content-type"]).toContain("application/x-ndjson");
   const runtimeUrl = streamResponse.url().replace(/\/commands\/stream$/, "");
   const authorization = streamResponse.request().headers()["authorization"]!;
   // Wait for the new execution's durable terminal state, not an old report still

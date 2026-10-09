@@ -20,3 +20,5 @@ Verification: research orchestration suite, interview unit/controller suite, fra
 This changes the public transport format, not model execution latency. It does not claim a reduction in total traffic including state recovery reads or a measured real-provider speedup.
 
 Verified results: research 687 tests, interview 421 tests, affected Web 27 tests, API/Web typechecks all passed. Independent read-only review accepted the reset/polling fix with no remaining blockers.
+
+CI initially exposed two legacy SSE content-type expectations in the real browser research flow. They now require negotiated NDJSON; full-flow persistence/reload assertions remain unchanged.
