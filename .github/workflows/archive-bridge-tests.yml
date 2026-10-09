@@ -4,6 +4,9 @@ on:
     types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - '.github/workflows/archive-bridge-tests.yml'
+      - '.github/workflows/cloud-build-only.yml'
+      - 'scripts/cloud-build-only.py'
+      - 'tests/test_cloud_build_only.py'
       - '.github/workflows/export-cn-image-archives.yml'
       - 'scripts/cn_image_archive.py'
       - 'scripts/cn_archive_oss.py'
@@ -36,3 +39,5 @@ jobs:
           echo "CN_ARCHIVE_TEST_RUNTIME=$RUNNER_TEMP/archive-fixture" >> "$GITHUB_ENV"
       - name: Run archive contracts and real canonical Node fixture
         run: python3 -B -m unittest discover -s tests -p 'test_cn*archive*.py' -v
+      - name: Run credential-free build-only contracts
+        run: python3 -I -B -m unittest discover -s tests -p 'test_cloud_build_only.py' -v

@@ -218,8 +218,8 @@ STS/RDS successes or a successful object read.
 Current minimal code gaps are concrete:
 
 1. Producer: add bounded archive export to the exact-source isolated build path
-   (cloud-build-only.py already uses buildx --load but is a rehearsal pinned to
-   ee7e682805c27a38e9fd601c4aca66f11763ba91, not the approved new candidate),
+   (cloud-build-only.py uses buildx --load in a manual measurement rehearsal
+   with explicit full source/control SHAs and a digest-bound shared plan),
    with complete target-service
    and required dependency image inventory, platform/revision labels, layer/config
    digest verification, archive SHA/size, and sealed transport receipt. It must
@@ -338,3 +338,23 @@ and confirm the guard on current default-branch bytes. New code cannot gate
 old already-created runs; the lock serializes but does not prove idempotence.
 TLS existing-exception binding, Redis and seven-step production acceptance
 remain required. This update contains proposals, no execution or target switch.
+
+### Manual build-only measurement contracts
+
+The rehearsal accepts an explicit full source SHA, checks source/control identity
+before and after each build, and shares one hash-verified plan of public base-image
+digests. Five services run sequentially on standard isolated GitHub runners. Only
+JSON measurement receipts are retained for one day; all production readiness and
+activation fields remain false. It has no cloud credentials or production runner.
+
+The 2 GiB per-image archive limit is checked after Docker save finishes. The
+4 GiB disk margin and 12 GiB preflight bound are rehearsal limits, not proof of
+actual capacity. Disk measurements sample the workspace filesystem and do not
+guarantee Docker storage coverage or the true peak. The formal exporter retains
+its existing whole-release storage requirements. No actual release-image build,
+export, upload, import or deployment was performed to validate this code change.
+
+PR CI runs credential-free build-only unit contracts alongside archive contracts.
+The first safe merge still requires exact current-main review, production workflow
+state and external trigger inventory, and acceptance of the existing main merge
+side effects. A production lock serializes work; it does not provide idempotency.

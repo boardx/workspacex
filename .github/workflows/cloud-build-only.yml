@@ -1,6 +1,11 @@
 name: cloud-build-only
 on:
   workflow_dispatch:
+    inputs:
+      source_sha:
+        description: 'Exact 40-character candidate SHA; measurement only, no production admission'
+        required: true
+        type: string
 permissions:
   contents: read
 concurrency:
@@ -11,28 +16,48 @@ jobs:
     if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-24.04
     timeout-minutes: 10
+    outputs:
+      source_sha: ${{ steps.plan.outputs.source_sha }}
+      plan_sha256: ${{ steps.plan.outputs.plan_sha256 }}
     steps:
       - uses: actions/checkout@v5
         with:
           ref: ${{ github.sha }}
           persist-credentials: false
       - name: Verify build-only contract
-        run: python3 -B -m unittest discover -s tests -p test_cloud_build_only.py -v
-      - name: Resolve public base digests once for all five builds
-        run: python3 scripts/cloud-build-only.py plan --output build-only-plan.json
+        run: python3 -I -B -m unittest discover -s tests -p test_cloud_build_only.py -v
+      - name: Resolve one digest-pinned measurement plan
+        id: plan
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          SOURCE_SHA: ${{ inputs.source_sha }}
+          CONTROL_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          [[ "$EVENT_NAME" == workflow_dispatch ]] || exit 2
+          python3 -I -B scripts/cloud-build-only.py plan --source-sha "$SOURCE_SHA" --control-sha "$CONTROL_SHA" --output "$RUNNER_TEMP/build-only-plan.json"
+          python3 - <<'PY'
+          import hashlib, json, os, pathlib
+          raw = pathlib.Path(os.environ['RUNNER_TEMP'], 'build-only-plan.json').read_bytes()
+          value = json.loads(raw)
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as out:
+              out.write('source_sha=' + value['sourceRevision'] + '\n')
+              out.write('plan_sha256=' + hashlib.sha256(raw).hexdigest() + '\n')
+          PY
       - uses: actions/upload-artifact@v6
         with:
           name: build-only-plan-${{ github.run_attempt }}
-          path: build-only-plan.json
-          retention-days: 7
+          path: ${{ runner.temp }}/build-only-plan.json
+          retention-days: 1
           if-no-files-found: error
   build:
+    if: github.event_name == 'workflow_dispatch'
     needs: plan
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     strategy:
       fail-fast: false
-      max-parallel: 5
+      max-parallel: 1
       matrix:
         service: [api, web, agent, sandbox, postgres]
     steps:
@@ -43,21 +68,28 @@ jobs:
           persist-credentials: false
       - uses: actions/checkout@v5
         with:
-          ref: ee7e682805c27a38e9fd601c4aca66f11763ba91
+          ref: ${{ needs.plan.outputs.source_sha }}
           path: source
           persist-credentials: false
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
         with:
           name: build-only-plan-${{ github.run_attempt }}
           path: plan
-      - name: Build locally without registry or production writes
+      - name: Measure one exact candidate without publication
         working-directory: source
         env:
+          EVENT_NAME: ${{ github.event_name }}
+          SOURCE_SHA: ${{ needs.plan.outputs.source_sha }}
+          CONTROL_SHA: ${{ github.sha }}
+          PLAN_SHA256: ${{ needs.plan.outputs.plan_sha256 }}
           SERVICE: ${{ matrix.service }}
-        run: python3 ../control/scripts/cloud-build-only.py build --plan ../plan/build-only-plan.json --service "$SERVICE" --output ../build-only-result.json
+        run: |
+          set -euo pipefail
+          [[ "$EVENT_NAME" == workflow_dispatch ]] || exit 2
+          python3 -I -B ../control/scripts/cloud-build-only.py build --source-sha "$SOURCE_SHA" --control-sha "$CONTROL_SHA" --plan ../plan/build-only-plan.json --plan-sha256 "$PLAN_SHA256" --service "$SERVICE" --output "$RUNNER_TEMP/build-only-result.json"
       - uses: actions/upload-artifact@v6
         with:
           name: build-only-result-${{ github.run_attempt }}-${{ matrix.service }}
-          path: build-only-result.json
-          retention-days: 7
+          path: ${{ runner.temp }}/build-only-result.json
+          retention-days: 1
           if-no-files-found: error

@@ -1,130 +1,158 @@
 import copy
+import hashlib
 import importlib.util
 import io
 import json
 from pathlib import Path
+import sys
 import tarfile
 import tempfile
+import time
 import unittest
 from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 spec = importlib.util.spec_from_file_location('build_only', ROOT / 'scripts/cloud-build-only.py')
-m = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(m)
+m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
+SOURCE='a'*40
+CONTROL='b'*40
 
 def valid_plan():
-    return dict(schemaVersion=1, sourceRevision=m.APP, platform='linux/amd64',
-                baseImages={key: tag.rsplit(':', 1)[0] + '@sha256:' + 'a' * 64 for key, tag in m.BASES.items()})
+    return dict(schemaVersion=2, sourceRevision=SOURCE, controlRevision=CONTROL, platform='linux/amd64',
+                baseImages={key: tag.rsplit(':', 1)[0] + '@sha256:' + 'c'*64 for key, tag in m.BASES.items()},
+                maxArchiveBytes=m.MAX_ARCHIVE, storageMarginBytes=m.MARGIN)
 
 class BuildOnlyTests(unittest.TestCase):
-    def test_frozen_app_and_services(self):
-        self.assertEqual(m.APP, 'ee7e682805c27a38e9fd601c4aca66f11763ba91')
-        self.assertEqual(set(m.SERVICES), {'api', 'web', 'agent', 'sandbox', 'postgres'})
+    def setUp(self):
+        m.DEADLINE=None; m.MEASUREMENT=None
 
-    def test_previous_fcdd_plan_rejected(self):
-        value = valid_plan()
-        value["sourceRevision"] = "fcdd09cdc230b08947f19defb425e86988a3ecc0"
-        with self.assertRaisesRegex(ValueError, "INVALID_BUILD_ONLY_IDENTITY"):
-            m.validate(value)
-
-    def test_wrong_source_rejected(self):
-        value = valid_plan(); value['sourceRevision'] = 'b' * 40
-        with self.assertRaises(ValueError): m.validate(value)
-
-    def test_mutable_private_or_missing_base_rejected(self):
-        for base in ['node:22', 'private.invalid/node@sha256:' + 'a'*64, 'docker.io/library/node@sha256:bad']:
-            value = valid_plan(); value['baseImages']['node'] = base
-            with self.assertRaises(ValueError): m.validate(value)
-        value = valid_plan(); del value['baseImages']['postgres']
-        with self.assertRaises(ValueError): m.validate(value)
-
-    def test_extra_authority_and_platform_rejected(self):
-        for key, val in [('registryPrefix', 'prod'), ('platform', 'linux/arm64'), ('schemaVersion', 2)]:
-            value = valid_plan(); value[key] = val
-            with self.assertRaises(ValueError): m.validate(value)
-
-    def fake(self, calls, wrong_head=False, wrong_label=False, fail_build=False):
+    def fake(self, calls, failure=None):
+        source_heads=0
         def execute(argv, env):
+            nonlocal source_heads
             calls.append(argv)
-            if argv[:3] == ['git', 'rev-parse', 'HEAD']: return 'b'*40 if wrong_head else m.APP
-            if argv[:2] == ['git', 'archive']:
-                with tarfile.open(argv[argv.index('--output')+1], 'w') as archive:
-                    info = tarfile.TarInfo('fixture'); info.size = 2
-                    archive.addfile(info, io.BytesIO(b'ok'))
+            if argv[0]=='git':
+                args=argv[3:] if argv[1]=='-C' else argv[1:]
+                if args==['rev-parse','HEAD']:
+                    if argv[1]=='-C': return 'd'*40 if failure=='control' else CONTROL
+                    source_heads+=1
+                    return 'd'*40 if failure=='source' or (failure=='drift' and source_heads>1) else SOURCE
+                if args[:2]==['status','--porcelain']:return ' M source' if failure=='dirty' else ''
+                if args[0]=='archive':
+                    with tarfile.open(args[args.index('--output')+1],'w') as tar:
+                        for path,_,_ in m.SERVICES.values():
+                            info=tarfile.TarInfo(path);info.size=2;tar.addfile(info,io.BytesIO(b'ok'))
+                        if failure=='link':
+                            info=tarfile.TarInfo('escape');info.type=tarfile.SYMTYPE;info.linkname='/etc';tar.addfile(info)
+                    return ''
+            if argv[:3]==['docker','buildx','build']:
+                if failure=='build':raise ValueError('BUILD_ONLY_COMMAND_FAILED')
                 return ''
-            if argv[:3] == ['docker', 'buildx', 'build']:
-                if fail_build: raise RuntimeError('BUILD_FAILED')
-                return ''
-            if argv[:3] == ['docker', 'image', 'inspect']:
-                return json.dumps([{'Id': 'sha256:'+'c'*64, 'Size': 123,
-                                    'Config': {'Labels': {'org.opencontainers.image.revision': 'b'*40 if wrong_label else m.APP}}}])
-            if argv[:4] == ['docker', 'buildx', 'imagetools', 'inspect']:
-                return json.dumps({'digest': 'sha256:'+'a'*64})
-            raise AssertionError('Unapproved command: '+repr(argv))
+            if argv[:3]==['docker','image','inspect']:
+                return json.dumps([{'Id':'sha256:'+'e'*64,'Size':True if failure=='size' else 123,
+                    'Os':'linux','Architecture':'arm64' if failure=='platform' else 'amd64',
+                    'Config':{'Labels':{'org.opencontainers.image.revision':'d'*40 if failure=='label' else SOURCE,
+                                       'org.workspacex.scope':'build-only'}}}])
+            if argv[:3]==['docker','image','save']:
+                Path(argv[argv.index('--output')+1]).write_bytes(b'measurement-only');return ''
+            if argv[:4]==['docker','buildx','imagetools','inspect']:return json.dumps({'digest':'sha256:'+'c'*64})
+            raise AssertionError('Unapproved command '+repr(argv))
         return execute
 
-    def test_five_builds_have_no_publish_or_production_command(self):
-        for service in m.SERVICES:
-            with self.subTest(service=service), tempfile.TemporaryDirectory() as tmp:
-                calls=[]; output=Path(tmp)/'result.json'
-                with patch.object(m, 'execute', self.fake(calls)):
-                    m.build(valid_plan(), service, output, {})
-                value=json.loads(output.read_text())
-                self.assertLess(output.stat().st_size, 16384)
-                for flag in ['pushed', 'sealed', 'prepared', 'productionActivated', 'runtimeVerified']:
-                    self.assertIs(value[flag], False)
-                build=[cmd for cmd in calls if cmd[:3]==['docker','buildx','build']][0]
-                self.assertIn('--load', build)
-                for cmd in calls:
-                    self.assertNotIn('--push', cmd)
-                    self.assertNotIn('push', cmd)
-                    self.assertNotIn('login', cmd)
-                    self.assertNotIn('sudo', cmd)
-                    self.assertNotIn('--cache-to', cmd)
-                self.assertTrue(all(cmd[0] in ['git','docker'] for cmd in calls))
+    def run_build(self, output, calls, failure=None, value=None):
+        with patch.object(m,'execute',self.fake(calls,failure)):
+            m.build(value or valid_plan(),'api',output,{},'f'*64,SOURCE,CONTROL)
 
-    def test_wrong_head_stops_before_docker(self):
-        calls=[]
-        with patch.object(m,'execute',self.fake(calls,wrong_head=True)):
-            with self.assertRaises(ValueError): m.build(valid_plan(),'api','unused',{})
-        self.assertEqual(len(calls),1)
-
-    def test_failure_or_wrong_label_creates_no_result(self):
-        for flags in [dict(fail_build=True),dict(wrong_label=True)]:
-            with tempfile.TemporaryDirectory() as tmp:
-                output=Path(tmp)/'result.json'; calls=[]
-                with patch.object(m,'execute',self.fake(calls,**flags)):
-                    with self.assertRaises((ValueError,RuntimeError)): m.build(valid_plan(),'api',output,{})
-                self.assertFalse(output.exists())
-
-    def test_public_plan_only_reads_three_manifests(self):
+    def test_plan_explicit_identity_and_raw_hash(self):
         with tempfile.TemporaryDirectory() as tmp:
-            calls=[]; output=Path(tmp)/'plan.json'
-            with patch.object(m,'execute',self.fake(calls)): m.plan(output,{})
-            m.validate(json.loads(output.read_text()))
-            self.assertEqual(len(calls),3)
-            self.assertTrue(all(cmd[:4]==['docker','buildx','imagetools','inspect'] for cmd in calls))
+            path=Path(tmp)/'plan';calls=[]
+            with patch.object(m,'execute',self.fake(calls)):
+                digest=m.plan(path,{},SOURCE,CONTROL)
+            self.assertEqual(digest,hashlib.sha256(path.read_bytes()).hexdigest())
+            self.assertEqual(m.decode_plan(path.read_bytes(),digest),valid_plan())
+            self.assertEqual(sum(cmd[:4]==['docker','buildx','imagetools','inspect'] for cmd in calls),3)
 
-    def test_only_explicit_dispatch_can_admit_build(self):
-        workflow = (ROOT / '.github/workflows/cloud-build-only.yml').read_text()
-        trigger = workflow.split('on:\n', 1)[1].split('permissions:', 1)[0]
-        self.assertEqual(trigger, '  workflow_dispatch:\n')
-        gate = workflow.split('  plan:\n', 1)[1].split('    runs-on:', 1)[0]
-        self.assertEqual(gate.strip(), "if: github.event_name == 'workflow_dispatch'")
-        for event in ['pull_request', 'push', 'workflow_run', 'schedule']:
-            self.assertNotIn(event + ':', trigger)
-        self.assertIn('ref: ${{ github.sha }}', workflow)
+    def test_full_sha_required_and_no_frozen_old_source(self):
+        for value in ['main','a'*39,'A'*40,'a'*40+'\n',None]:
+            with self.assertRaises(ValueError):m.exact_sha(value)
+        m.validate(valid_plan());self.assertFalse(hasattr(m,'APP'))
 
-    def test_workflow_has_no_environment_secret_or_privileged_job(self):
+    def test_bad_plan_identity_bases_or_authority(self):
+        patches=[{'schemaVersion':True},{'schemaVersion':1},{'platform':'linux/arm64'},
+                 {'sourceRevision':'main'},{'controlRevision':'main'},{'registryPrefix':'production'},
+                 {'maxArchiveBytes':m.MAX_ARCHIVE+1},{'storageMarginBytes':1}]
+        for changes in patches:
+            value=valid_plan();value.update(changes)
+            with self.assertRaises(ValueError):m.validate(value)
+        for base in ['node:22','private.invalid/node@sha256:'+'c'*64,None]:
+            value=valid_plan();value['baseImages']['node']=base
+            with self.assertRaises(ValueError):m.validate(value)
+
+    def test_plan_tampering_duplicate_keys_or_oversize(self):
+        raw=json.dumps(valid_plan()).encode()
+        with self.assertRaisesRegex(ValueError,'PLAN_HASH_MISMATCH'):m.decode_plan(raw,'0'*64)
+        duplicate=b'{"schemaVersion":2,"schemaVersion":2}'
+        with self.assertRaisesRegex(ValueError,'DUPLICATE_PLAN_KEY'):m.decode_plan(duplicate,hashlib.sha256(duplicate).hexdigest())
+        with self.assertRaises(ValueError):m.decode_plan(b'x'*16385,'f'*64)
+
+    def test_five_measurements_are_not_release_receipts(self):
+        for service in m.SERVICES:
+            with self.subTest(service=service),tempfile.TemporaryDirectory() as tmp:
+                calls=[];path=Path(tmp)/'result'
+                with patch.object(m,'execute',self.fake(calls)):
+                    m.build(valid_plan(),service,path,{},'f'*64,SOURCE,CONTROL)
+                report=json.loads(path.read_text())
+                for flag in ['ready','pushed','sealed','prepared','productionActivated','runtimeVerified','dockerSaveRetained']:
+                    self.assertIs(report[flag],False)
+                self.assertEqual(report['dockerSaveSizeBytes'],len(b'measurement-only'))
+                self.assertEqual(report['planSha256'],'f'*64)
+                self.assertIn('sampled',report['diskMeasurementScope'])
+                for cmd in calls:
+                    for forbidden in ['--push','push','login','sudo','--cache-to']:self.assertNotIn(forbidden,cmd)
+                    self.assertIn(cmd[0],['git','docker'])
+
+    def test_identity_failure_before_docker(self):
+        for failure in ['source','control','dirty']:
+            calls=[]
+            with self.assertRaises(ValueError):self.run_build('unused',calls,failure)
+            self.assertFalse(any(cmd[0]=='docker' for cmd in calls))
+
+    def test_failed_build_bad_image_or_postbuild_drift_has_no_result(self):
+        for failure in ['build','label','platform','size','drift','link']:
+            with tempfile.TemporaryDirectory() as tmp:
+                path=Path(tmp)/'result'
+                with self.assertRaises((ValueError,tarfile.FilterError)):self.run_build(path,[],failure)
+                self.assertFalse(path.exists())
+
+    def test_capacity_and_archive_limit_fail_closed(self):
+        with patch.object(m.shutil,'disk_usage',return_value=type('Disk',(),{'free':1})()):
+            calls=[]
+            with self.assertRaisesRegex(ValueError,'BUILD_ONLY_CAPACITY'):self.run_build('unused',calls)
+            self.assertFalse(any(cmd[0]=='docker' for cmd in calls))
+        with tempfile.TemporaryDirectory() as tmp:
+            path=Path(tmp)/'data';path.write_bytes(b'abc')
+            with patch.object(m,'MAX_ARCHIVE',2):
+                with self.assertRaisesRegex(ValueError,'MEASUREMENT_ARCHIVE_LIMIT'):m.file_hash(path)
+
+    def test_execute_discards_secret_stderr(self):
+        with self.assertRaisesRegex(ValueError,'^BUILD_ONLY_COMMAND_FAILED$'):
+            m.execute([sys.executable,'-c','import sys; sys.stderr.write("SECRET"); sys.exit(1)'],{})
+
+    def test_execute_deadline(self):
+        m.DEADLINE=time.monotonic()+.05
+        with self.assertRaisesRegex(ValueError,'BUILD_ONLY_DEADLINE'):
+            m.execute([sys.executable,'-c','import time; time.sleep(5)'],{})
+
+    def test_workflow_manual_only_sha_bound_serial(self):
         workflow=(ROOT/'.github/workflows/cloud-build-only.yml').read_text()
-        for forbidden in ['secrets.', 'vars.', 'environment:', 'self-hosted', 'contents: write', 'pull_request_target', 'docker push', 'sudo ', 'workflow_run:', 'push:']:
-            self.assertNotIn(forbidden, workflow)
-        self.assertIn('max-parallel: 5',workflow)
-        self.assertIn("if: github.event_name == 'workflow_dispatch'",workflow)
-        self.assertNotIn('pull_request', workflow)
-        self.assertIn('persist-credentials: false',workflow)
-        uses = [line.strip().split('uses: ', 1)[1] for line in workflow.splitlines() if 'uses: ' in line]
-        self.assertEqual(set(uses), {'actions/checkout@v5', 'actions/upload-artifact@v6', 'actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c'})
+        trigger=workflow.split('on:\n',1)[1].split('permissions:',1)[0]
+        for event in ['pull_request','push','workflow_run','schedule']:self.assertNotIn(event+':',trigger)
+        self.assertIn('source_sha:',trigger);self.assertIn('required: true',trigger)
+        self.assertEqual(workflow.count("if: github.event_name == 'workflow_dispatch'"),2)
+        self.assertEqual(workflow.count('[[ "$EVENT_NAME" == workflow_dispatch ]]'),2)
+        self.assertIn('max-parallel: 1',workflow);self.assertIn('--plan-sha256 "$PLAN_SHA256"',workflow)
+        self.assertIn('ref: ${{ needs.plan.outputs.source_sha }}',workflow)
+        self.assertNotIn('ee7e682805c27a38e9fd601c4aca66f11763ba91',workflow)
+        for forbidden in ['secrets.','vars.','environment:','self-hosted','contents: write','pull_request_target','docker push','sudo ']:self.assertNotIn(forbidden,workflow)
 
-if __name__ == '__main__': unittest.main()
+if __name__=='__main__':unittest.main()
