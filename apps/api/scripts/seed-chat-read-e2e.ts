@@ -900,6 +900,9 @@ await asOwner(async (client) => {
     VALUES ($1,$2,'Default resolution E2E',$3,now())`, [defaultFixture.userId, defaultFixture.email, passwordHash]);
 });
 await asApp(defaultFixture.orgId, async (client) => {
+  // fixture schema 没有 organization 外键；重播只清当前隔离租户，保留共享夹具。
+  await client.query("DELETE FROM chat_wave2_fixture.agent_versions WHERE org_id=$1", [defaultFixture.orgId]);
+  await client.query("DELETE FROM chat_wave2_fixture.agents WHERE org_id=$1", [defaultFixture.orgId]);
   for (const [id, provider, model, instructions] of defaultAgentE2eCandidates(defaultFixture, {
     provider: AGENT_MODEL_PROVIDER, model: AGENT_MODEL_ID,
     deepProvider: DEEP_AGENT_MODEL_PROVIDER, deepModel: DEEP_AGENT_MODEL_ID,
