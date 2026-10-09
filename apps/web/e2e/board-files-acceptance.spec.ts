@@ -23,9 +23,18 @@ test('R09 real file drop, multipart filenames, durable refresh download and tena
   let bodyFailed = false;
   try {
     phase('independent-login-and-board-setup');
-    owner = await boardLogin(page);
-    const viewer = await boardLogin(viewerPage, F.leadEmail, F.leadPassword);
-    outsider = await boardLogin(outsiderPage, foreign.email, foreign.password);
+    // These users have independent browser contexts and sessions. Complete all
+    // three real UI logins before touching any Board or its ACL membership.
+    const logins = await Promise.allSettled([
+      boardLogin(page),
+      boardLogin(viewerPage, F.leadEmail, F.leadPassword),
+      boardLogin(outsiderPage, foreign.email, foreign.password),
+    ]);
+    const loginToken = (result: PromiseSettledResult<string>) => {
+      if (result.status === 'rejected') throw result.reason;
+      return result.value;
+    };
+    owner = loginToken(logins[0]); const viewer = loginToken(logins[1]); outsider = loginToken(logins[2]);
     const board = await createAcceptanceBoard(request, owner, 'R09 durable files'), other = await createAcceptanceBoard(request, owner, 'R09 cross-board');
     boards.push(board, other);
     await boardApi(request, owner, 'PUT', `/whiteboards/${board}/members`, {userId: F.leadUserId, role: 'viewer'});
