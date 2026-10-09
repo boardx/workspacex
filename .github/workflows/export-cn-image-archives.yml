@@ -48,14 +48,14 @@ jobs:
               output.write('source=' + plan['sourceRevision'] + '\n')
           PY
       - name: Check out exact main control
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        uses: actions/checkout@v5
         with:
           ref: ${{ github.sha }}
           path: control
           fetch-depth: 0
           persist-credentials: false
       - name: Check out exact source
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        uses: actions/checkout@v5
         with:
           ref: ${{ steps.identity.outputs.source }}
           path: source
@@ -75,7 +75,7 @@ jobs:
             --source "$GITHUB_WORKSPACE/source" \
             --output "$RUNNER_TEMP/cn-image-archives"
       - name: Preserve archive transport artifacts
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        uses: actions/upload-artifact@v6
         with:
           name: cn-image-archives-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
