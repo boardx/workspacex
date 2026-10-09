@@ -58,7 +58,7 @@ describe("continuous generation timeline", () => {
       { id: "r", stage: "review", sectionId: "o1", status: "warning", attempts: 2 },
     ] }} />);
     expect(screen.getByTestId("research-report-timeline")).not.toHaveTextContent(/次尝试|需要完善/);
-    expect(screen.getByTestId("research-report-timeline")).toHaveTextContent("部分内容待核实");
+    expect(screen.getByTestId("research-report-timeline")).toHaveTextContent("部分步骤未完成");
   });
   it("announces completion only after final validation and distinguishes interrupted execution", () => {
     const pending = [{ id: "v", stage: "validation" as const, status: "pending" as const, attempts: 0 }];

@@ -20,3 +20,13 @@ describe("required chapter subsection structure", () => {
     expect(chapterStructureIssues(chapter(body + `\n\n### Evidence\n\n${prose}`), section).some((issue) => issue.includes("exactly"))).toBe(true);
   });
 });
+
+it.each([1, 2])("accepts the exact confirmed %i-subsection plan without inventing extra headings", count => {
+  const selected = { ...section, subsections: section.subsections.slice(0, count) };
+  const body = selected.subsections.map(part => `### ${part.title}\n\n${prose}`).join("\n\n");
+  expect(chapterStructureIssues(chapter(body), selected)).toEqual([]);
+  expect(chapterStructureIssues(chapter(body.replace(prose, "Too short.")), selected).length).toBeGreaterThan(0);
+});
+it("retains the three-subsection depth floor for legacy plans with no confirmed subsection structure", () => {
+  expect(chapterStructureIssues(chapter(`### Evidence\n\n${prose}`), { ...section, subsections: [] }).length).toBeGreaterThan(0);
+});

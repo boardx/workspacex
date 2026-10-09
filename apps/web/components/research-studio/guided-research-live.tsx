@@ -76,7 +76,7 @@ const errors: Record<string, string> = {
   RESEARCH_REPORT_PREPARATION_TIME_BUDGET_EXCEEDED: "上次报告来源准备已中断，已保存章节仍保留，请重试继续生成。",
   RESEARCH_REPORT_MODEL_TIME_BUDGET_EXCEEDED: "报告模型响应超时，已保存章节仍保留，请重试继续生成。",
   RESEARCH_EVIDENCE_BUDGET_EXCEEDED: "大纲问题或来源内容超出本次分析容量，请精简后重试。",
-  RESEARCH_REPORT_QUALITY_INSUFFICIENT: "报告修订后仍未通过证据与分析质量检查，请完善大纲或补充来源后重试。",
+  RESEARCH_REPORT_QUALITY_INSUFFICIENT: "报告处理未完成，已保存的进度会保留。",
   RESEARCH_GRAPH_VERSION_CONFLICT: "研究内容已更新，本次操作未提交。请核对最新进度后继续。",
   RESEARCH_REVISION_CONFLICT: "研究边界已在其他页面更新，请核对最新版本后重试。",
   RESEARCH_SOURCE_ACCESS_DENIED: "所选内部资料不在当前授权范围内。",
