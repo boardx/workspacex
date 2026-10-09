@@ -9,6 +9,9 @@ on:
       - 'tests/test_cloud_build_only.py'
       - '.github/workflows/export-cn-image-archives.yml'
       - '.github/workflows/build-cn-image-candidates.yml'
+      - '.github/workflows/diagnose-cn-image-candidate.yml'
+      - 'scripts/diagnose-cn-image-candidate.py'
+      - 'tests/test_cn_image_diagnostic.py'
       - 'scripts/cn_image_candidate.py'
       - 'scripts/build-cn-image-candidates.py'
       - 'scripts/cn-image-candidate-protocol.md'
@@ -51,6 +54,8 @@ jobs:
         run: python3 -B -m unittest discover -s tests -p 'test_cn*archive*.py' -v
       - name: Run independent non-authorizing five-image candidate contracts
         run: python3 -I -B -m unittest discover -s tests -p 'test_cn_image_candidate.py' -v
+      - name: Run single-agent safe diagnostic contracts without Docker
+        run: python3 -I -B -m unittest discover -s tests -p 'test_cn_image_diagnostic.py' -v
       - name: Run credential-free build-only contracts
         run: python3 -I -B -m unittest discover -s tests -p 'test_cloud_build_only.py' -v
       - name: Run offline registration input consistency contracts
