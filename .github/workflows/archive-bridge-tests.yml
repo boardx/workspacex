@@ -8,6 +8,11 @@ on:
       - 'scripts/cloud-build-only.py'
       - 'tests/test_cloud_build_only.py'
       - '.github/workflows/export-cn-image-archives.yml'
+      - '.github/workflows/build-cn-image-candidates.yml'
+      - 'scripts/cn_image_candidate.py'
+      - 'scripts/build-cn-image-candidates.py'
+      - 'scripts/cn-image-candidate-protocol.md'
+      - 'tests/test_cn_image_candidate.py'
       - 'scripts/cn_image_archive.py'
       - 'scripts/cn_archive_oss.py'
       - 'scripts/export-cn-image-archives.py'
@@ -44,6 +49,8 @@ jobs:
           echo "CN_ARCHIVE_TEST_RUNTIME=$RUNNER_TEMP/archive-fixture" >> "$GITHUB_ENV"
       - name: Run archive contracts and real canonical Node fixture
         run: python3 -B -m unittest discover -s tests -p 'test_cn*archive*.py' -v
+      - name: Run independent non-authorizing five-image candidate contracts
+        run: python3 -I -B -m unittest discover -s tests -p 'test_cn_image_candidate.py' -v
       - name: Run credential-free build-only contracts
         run: python3 -I -B -m unittest discover -s tests -p 'test_cloud_build_only.py' -v
       - name: Run offline registration input consistency contracts

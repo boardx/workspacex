@@ -6,6 +6,7 @@
  * login, identity and Chat HTTP controllers.
  */
 import { agentDefaults } from "@repo/contracts";
+import { defaultAgentE2eCandidates, defaultAgentE2eIdentity } from "./chat-default-agent-e2e-identity";
 import { PgSkillStarterImportRepository } from "../src/infrastructure/skill/pg-skill-starter-import-repository";
 import { importChatReadPdfFixture } from "./chat-read-pdf-fixture-import";
 import { BcryptPasswordHasher } from "../src/infrastructure/auth/bcrypt-password-hasher";
@@ -885,6 +886,56 @@ await addProjectMember(ORG_ID, FIRST_VALUE_PROJECT_ID, USER_ID, "facilitator", n
     await db.close();
   }
 }
+
+// #2038 第②级排序必须在没有通用助手的独立组织验证；主夹具保留第①级默认。
+const defaultFixture = defaultAgentE2eIdentity({ orgId: ORG_ID, userId: USER_ID, projectId: PROJECT_ID,
+  email: EMAIL, agentId: AGENT_ID, deepAgentId: DEEP_AGENT_ID });
+await resetOrgs(defaultFixture.orgId);
+await seedOrg({ orgId: defaultFixture.orgId, projectId: defaultFixture.projectId, groupNames: ["readers"] });
+await addOrgMember(defaultFixture.orgId, defaultFixture.userId, "lead", null);
+await addProjectMember(defaultFixture.orgId, defaultFixture.projectId, defaultFixture.userId, "facilitator", null);
+await asOwner(async (client) => {
+  await client.query("DELETE FROM credentials WHERE user_id=$1 OR email=$2", [defaultFixture.userId, defaultFixture.email]);
+  await client.query(`INSERT INTO credentials (user_id,email,display_name,password_hash,email_verified_at)
+    VALUES ($1,$2,'Default resolution E2E',$3,now())`, [defaultFixture.userId, defaultFixture.email, passwordHash]);
+});
+await asApp(defaultFixture.orgId, async (client) => {
+  // fixture schema 没有 organization 外键；重播只清当前隔离租户，保留共享夹具。
+  await client.query("DELETE FROM chat_wave2_fixture.agent_versions WHERE org_id=$1", [defaultFixture.orgId]);
+  await client.query("DELETE FROM chat_wave2_fixture.agents WHERE org_id=$1", [defaultFixture.orgId]);
+  for (const [id, provider, model, instructions] of defaultAgentE2eCandidates(defaultFixture, {
+    provider: AGENT_MODEL_PROVIDER, model: AGENT_MODEL_ID,
+    deepProvider: DEEP_AGENT_MODEL_PROVIDER, deepModel: DEEP_AGENT_MODEL_ID,
+  })) {
+    const versionId = `${id}-version-1`;
+    const { createHash } = await import("node:crypto");
+    await client.query(`INSERT INTO agents (id,org_id,stable_name,name,status,creator_id,created_at,updated_at)
+      VALUES ($1,$2,$1,$1,'enabled',$3,now(),now())`, [id, defaultFixture.orgId, defaultFixture.userId]);
+    await client.query(`INSERT INTO agent_versions
+      (id,org_id,agent_id,semantic_label,instruction_digest,instructions,skill_version_ids,model_provider,model_id,tool_policy,creator_id,created_at,published_at)
+      VALUES ($1,$2,$3,'1.0.0',$4,$5,'{}'::text[],$6,$7,'[]'::jsonb,$8,now(),now())`,
+    [versionId, defaultFixture.orgId, id, createHash("sha256").update(instructions).digest("hex"), instructions, provider, model, defaultFixture.userId]);
+    await client.query("UPDATE agents SET published_version_id=$1 WHERE id=$2 AND org_id=$3", [versionId, id, defaultFixture.orgId]);
+    await client.query(`INSERT INTO chat_wave2_fixture.agents (id,org_id,status,published_version_id,stable_name)
+      VALUES ($1,$2,'enabled',$3,$1)`, [id, defaultFixture.orgId, versionId]);
+    await client.query(`INSERT INTO chat_wave2_fixture.agent_versions
+      (id,org_id,agent_id,skill_version_ids,model_provider,model_id,instructions,published_at)
+      VALUES ($1,$2,$3,'[]'::jsonb,$4,$5,$6,now())`, [versionId, defaultFixture.orgId, id, provider, model, instructions]);
+  }
+  // 真 DB 前置核验：独立目录必须有竞争候选，且不能误种第①级通用助手。
+  for (const schema of ["public", "chat_wave2_fixture"] as const) {
+    const { rows } = await client.query<{ total: string; defaults: string; deep: string }>(`
+      SELECT count(*)::text AS total,
+        count(*) FILTER (WHERE a.stable_name=$2)::text AS defaults,
+        count(*) FILTER (WHERE v.model_provider=$3)::text AS deep
+      FROM ${schema}.agents a JOIN ${schema}.agent_versions v ON v.id=a.published_version_id AND v.org_id=a.org_id
+      WHERE a.org_id=$1 AND a.status='enabled' AND v.published_at IS NOT NULL`,
+    [defaultFixture.orgId, agentDefaults.DEFAULT_AGENT_STABLE_NAME, DEEP_AGENT_MODEL_PROVIDER]);
+    if (rows[0]?.total !== "2" || rows[0]?.defaults !== "0" || rows[0]?.deep !== "1") {
+      throw new Error("DEFAULT_AGENT_ISOLATED_FIXTURE_INVALID");
+    }
+  }
+});
 
 process.stdout.write(
   `[chat-read-e2e-fixture] seeded org=${ORG_ID} project=${PROJECT_ID} thread=${THREAD_ID} messages=51 `

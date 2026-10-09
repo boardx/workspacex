@@ -31,7 +31,7 @@
 
 ## 组织模板与正常人类入口
 
-GET /canvas/templates：组织库和平台母版，包含 key/displayName/version/status/sections/layoutSource/promptText/recommendAfter；平台行只读，adoptTemplate 才复制为组织自有。createTemplate→updateTemplateDraft/Metadata→mintTemplateVersion→publishTemplate；trialTemplate 与 bindTemplateToSegment→instantiateForSegment 是真实源码实例化入口。组织模板 key 不限内置20个，当前具体组织清单需授权实时列表，不能由源码编造。前端 fence-template-resolver.ts 查询组织库，user-edited 布局覆盖同名内置；未知组织key无数据则诚实错误。MAAU工作流图是第二个 mermaid sequenceDiagram 围栏，非模板内部嵌套图。
+GET /canvas/templates：组织库和平台母版，包含 key/displayName/version/status/sections/layoutSource/promptText/recommendAfter；平台行只读，adoptTemplate 才复制为组织自有。createTemplate→updateTemplateDraft/Metadata→mintTemplateVersion→publishTemplate；trialTemplate 与 bindTemplateToSegment→instantiateForSegment 是真实源码实例化入口。组织模板 key 不限内置20个，当前具体组织清单需授权实时列表，不能由源码编造。前端 fence-template-resolver.ts 查询组织库，user-edited 布局覆盖同名内置；未知组织key无数据则诚实错误。MAAU 画布的工作流图是第二个 mermaid sequenceDiagram 围栏，非模板内部嵌套图。
 
 ## D011 当前实际可调用工具与缺口
 
