@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
@@ -15,16 +16,15 @@ describe("CN release candidate workflow", () => {
     expect(workflow).toContain("actions: read");
     expect(promotion).toContain("actions: write");
   });
-  it("starts only after a successful main backend-gates run", () => {
-    expect(workflow).toContain("workflow_run:");
-    expect(workflow).toContain('workflows: ["backend-gates"]');
-    expect(workflow).toContain("github.event.workflow_run.conclusion == 'success'");
-    expect(workflow).toContain("github.event.workflow_run.head_branch == 'main'");
+  it("requires manual main admission and rejects unsafe contexts before side effects", () => {
+    const result = spawnSync("python3", ["-B", "-m", "unittest", "discover", "-s", "tests", "-p", "test_prepare_manual_gate.py", "-v"], { encoding: "utf8", timeout: 30000 });
+    expect(result.status, result.stdout + result.stderr).toBe(0);
   });
 
   it("builds an exact SHA through the trusted candidate entrypoint", () => {
     expect(workflow).toContain("workspacex-cn-build-candidate");
-    expect(workflow).toContain("github.event.workflow_run.head_sha");
+    expect(workflow).toContain("INPUT_SHA: ${{ inputs.release_sha }}");
+    expect(workflow).not.toContain("workflow_run");
     const promotion = readFileSync(resolve(process.cwd(), ".github/workflows/promote-cn-production.yml"), "utf8");
     // A candidate may prepare the same host later used by activation. Serialize
     // both jobs under the same non-cancelling group instead of racing locks.

@@ -1,0 +1,9 @@
+{
+  "name": "workspacex-canonical-control-runtime",
+  "version": "1.0.0",
+  "private": true,
+  "dependencies": {
+    "tsx": "4.19.0",
+    "zod": "3.25.76"
+  }
+}

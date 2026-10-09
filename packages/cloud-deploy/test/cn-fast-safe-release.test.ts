@@ -187,6 +187,33 @@ describe("CN fast-safe activation", () => {
     expect(actions.promotePreparedPointer).not.toHaveBeenCalled();
   });
 
+  it("restores a pointer that mutated before promotion rejected", async () => {
+    let pointer = "baseline";
+    const calls: string[] = [];
+    const actions = activationActions({
+      promotePreparedPointer: vi.fn(async () => { pointer = "candidate"; calls.push("promote"); throw new Error("transport failed after write"); }),
+      restoreBaseline: vi.fn(async () => { calls.push("restore-baseline"); }),
+      restorePointer: vi.fn(async () => { pointer = "baseline"; calls.push("restore-pointer"); }),
+    });
+    const report = await activatePreparedCnRelease(evidence(), actions, { now: new Date("2026-09-14T01:00:00Z") });
+    expect(report).toMatchObject({ status: "rolled-back", code: "ACTIVATION_FAILED" });
+    expect(pointer).toBe("baseline");
+    expect(calls).toEqual(["promote", "restore-baseline", "restore-pointer"]);
+    expect(actions.activateTraffic).not.toHaveBeenCalled();
+  });
+
+  it("reports unproven rollback when partial promotion cannot be restored", async () => {
+    const actions = activationActions({
+      promotePreparedPointer: vi.fn(async () => { throw new Error("partial mutation"); }),
+      restorePointer: vi.fn(async () => { throw new Error("restore failed"); }),
+    });
+    const report = await activatePreparedCnRelease(evidence(), actions, { now: new Date("2026-09-14T01:00:00Z") });
+    expect(report).toMatchObject({ status: "rollback-unproven", code: "ACTIVATION_FAILED" });
+    expect(actions.restoreBaseline).toHaveBeenCalledOnce();
+    expect(actions.restorePointer).toHaveBeenCalledOnce();
+    expect(actions.activateTraffic).not.toHaveBeenCalled();
+  });
+
   it("rolls traffic and the pointer back when a post-switch gate fails", async () => {
     const actions = activationActions({ verifyCanonical: vi.fn(async () => ({ status: "failed" as const, lockRetained: false, passedStages: 7 })) });
     const report = await activatePreparedCnRelease(evidence(), actions, { now: new Date("2026-09-14T01:00:00Z") });

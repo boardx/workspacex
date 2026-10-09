@@ -7,8 +7,21 @@ class Producer(unittest.TestCase):
   repo=p/'repo';repo.mkdir();subprocess.run(['git','init','-q',str(repo)],check=True)
   source='.harness/scripts/vm/cn-build-tool-identity.py';dest=repo/source;dest.parent.mkdir(parents=True);dest.write_text("FILES={'"+source+"':'/usr/local/bin/fixture'}\ndef validate_identity(value,tool):\n return value.get('toolRoot')=='/opt/workspacex-cn/release-tools/'+tool\n")
   def git(*args):return subprocess.check_output(['git','-C',str(repo),*args],stderr=subprocess.DEVNULL).decode().strip()
+  # Fixture commits must not spawn background Git maintenance while the security
+  # producer inventories immutable metadata. Keep every trust check fail-closed.
+  git('config','maintenance.auto','false');git('config','gc.auto','0')
   git('add','.');git('-c','user.name=Fixture','-c','user.email=fixture@example.test','commit','-qm','fixture');head=git('rev-parse','HEAD')
   inv=p/'inventory.json';value={'schemaVersion':1,'observedAt':'2026-10-03T00:00:00Z','sourceInvocation':'untrusted-fixture','files':{source:{'target':'/usr/local/bin/fixture','present':True,'uid':0,'gid':0,'links':1,'regular':True,'symlink':False,'mode':'0755','sha256':'a'*64}}};inv.write_text(json.dumps(value));return repo,head,inv,value
+ def test_fixture_commits_do_not_spawn_background_maintenance(self):
+  with tempfile.TemporaryDirectory(dir=pathlib.Path(tempfile.gettempdir()).resolve()) as d:
+   p=pathlib.Path(d);repo,h,inv,v=self.fixture(p);trace=p/'git-trace.jsonl'
+   (repo/'next').write_text('second fixture commit')
+   env={**m.git_environment(),'GIT_TRACE2_EVENT':str(trace)}
+   subprocess.run(m.git_command(repo,'add','.'),env=env,check=True)
+   subprocess.run(m.git_command(repo,'-c','user.name=Fixture','-c','user.email=fixture@example.test','commit','-qm','next'),env=env,check=True)
+   children=[row for row in map(json.loads,trace.read_text().splitlines()) if row.get('event')=='child_start']
+   self.assertFalse(any('maintenance' in row.get('argv',[]) or 'gc' in row.get('argv',[]) for row in children),children)
+   self.assertRegex(m.trusted_local_git(repo),r'^[a-f0-9]{64}$')
  def test_old_profile_allowlist_is_independent_and_complete(self):
   files={'schema':None,'script':'/usr/local/lib/old.py'};content={'filesSha256':{'schema':'a'*64,'script':'b'*64}};inv={'files':{'schema':{'target':None},'script':{'target':'/usr/local/lib/old.py'}}}
   m.old_profile_allowlist(content,files,inv)

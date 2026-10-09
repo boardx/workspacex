@@ -202,6 +202,13 @@ flock -n 9 || fail "another deployment is active"
 MAINTENANCE_HOLD_HELPER=/usr/local/lib/workspacex-cn/cn_maintenance_hold.py
 [[ -f "$MAINTENANCE_HOLD_HELPER" && ! -L "$MAINTENANCE_HOLD_HELPER" && "$(stat -c '%u:%g:%a:%h' "$MAINTENANCE_HOLD_HELPER")" == 0:0:700:1 ]] || fail "trusted maintenance hold helper unavailable"
 python3 "$MAINTENANCE_HOLD_HELPER" admit "$RUNTIME_ROOT" >/dev/null || fail "maintenance hold blocks ordinary release"
+# Hosted imports publish a pending marker before either artifact. A partial import
+# cannot be adopted by prepare; ordinary publisher releases have no marker.
+if [[ "$mode" == prepare && ( -e "$RELEASES_DIR/$revision.hosted-import.json" || -L "$RELEASES_DIR/$revision.hosted-import.json" ) ]]; then
+  HOSTED_IMPORT_HELPER=/usr/local/bin/workspacex-cn-import-hosted-artifacts
+  [[ -f "$HOSTED_IMPORT_HELPER" && ! -L "$HOSTED_IMPORT_HELPER" && ( "$(stat -c '%u:%g:%a:%h' "$HOSTED_IMPORT_HELPER")" == 0:0:700:1 || "$(stat -c '%u:%g:%a:%h' "$HOSTED_IMPORT_HELPER")" == 0:0:755:1 ) ]] || fail "trusted hosted import guard unavailable"
+  python3 "$HOSTED_IMPORT_HELPER" --verify-import "$revision" "$attempt_id" >/dev/null || fail "hosted import incomplete or changed"
+fi
 
 
 release=$(node -e 'process.stdout.write(require(process.argv[1]).release)' "$manifest")
@@ -230,12 +237,8 @@ verify_active_release() {
     || fail "active runtime browser smoke failed"
 }
 
-if [[ "$mode" == rollback ]]; then
-  private_root_file "$baseline_state"
-  private_root_file "$baseline_nginx"
-  [[ -d "$release_checkout/.git" ]] || fail "candidate release checkout is unavailable for rollback verification"
-  record_event promotion_cas_rollback_started
-  restore_baseline || fail "promotion CAS rollback failed"
+verify_baseline_browser() {
+  local baseline_runtime public_url browser_executable
   baseline_runtime=$(node -e 'const p=require("node:path"),v=require(process.argv[1]);process.stdout.write(p.dirname(v.composeFile))' "$baseline_state")
   [[ "$baseline_runtime" == "$RUNTIME_ROOT"/* && -f "$baseline_runtime/bootstrap.env" && ! -L "$baseline_runtime/bootstrap.env" ]] \
     || fail "baseline browser credentials are unavailable"
@@ -245,6 +248,15 @@ if [[ "$mode" == rollback ]]; then
   CN_BROWSER_EXECUTABLE_PATH="$browser_executable" timeout 120s \
     node .harness/scripts/vm/cn-release-browser-smoke.mjs "$public_url" "$baseline_runtime/bootstrap.env" >/dev/null \
     || fail "rollback browser smoke failed"
+}
+
+if [[ "$mode" == rollback ]]; then
+  private_root_file "$baseline_state"
+  private_root_file "$baseline_nginx"
+  [[ -d "$release_checkout/.git" ]] || fail "candidate release checkout is unavailable for rollback verification"
+  record_event promotion_cas_rollback_started
+  restore_baseline || fail "promotion CAS rollback failed"
+  (verify_baseline_browser) || fail "rollback browser acceptance unproven"
   record_event promotion_cas_rollback_completed
   printf 'CN_PRODUCTION_ROLLED_BACK candidate_revision=%s\n' "$revision"
   exit 0
@@ -354,7 +366,10 @@ record_event activation_started
 activation_failure() {
   local status=$?
   trap - EXIT
-  if [[ "$activation_started" == 1 ]]; then restore_baseline || { echo "CN_DEPLOY_ROLLBACK_UNPROVEN" >&2; exit 1; }; fi
+  if [[ "$activation_started" == 1 ]]; then
+    restore_baseline || { echo "CN_DEPLOY_ROLLBACK_UNPROVEN" >&2; exit 1; }
+    (verify_baseline_browser) || { echo "CN_DEPLOY_ROLLBACK_UNPROVEN" >&2; exit 1; }
+  fi
   exit "$status"
 }
 trap activation_failure EXIT

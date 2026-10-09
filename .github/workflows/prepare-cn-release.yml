@@ -1,9 +1,6 @@
 name: prepare-cn-release
 
 on:
-  workflow_run:
-    workflows: ["backend-gates"]
-    types: [completed]
   workflow_dispatch:
     inputs:
       release_sha:
@@ -22,6 +19,7 @@ permissions:
   contents: write
   actions: read
 
+# Serialization only: reruns/manual attempts are not made idempotent by this lock.
 concurrency:
   group: workspacex-cn-production-deploy
   cancel-in-progress: false
@@ -29,8 +27,7 @@ concurrency:
 jobs:
   build-candidate:
     if: >-
-      github.event_name == 'workflow_dispatch' ||
-      (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main')
+      github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
     environment: production-cn-build
     runs-on: [self-hosted, linux, workspacex-cn-production]
     timeout-minutes: 45
@@ -39,13 +36,15 @@ jobs:
         shell: bash
         env:
           EVENT_NAME: ${{ github.event_name }}
-          RUN_SHA: ${{ github.event.workflow_run.head_sha }}
           INPUT_SHA: ${{ inputs.release_sha }}
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          revision="${RUN_SHA}"
-          [[ "${EVENT_NAME}" == "workflow_dispatch" ]] && revision="${INPUT_SHA}"
+          [[ "${EVENT_NAME}" == "workflow_dispatch" && "${GITHUB_REF}" == "refs/heads/main" ]] || {
+            echo "::error::CN_PREPARE_MANUAL_MAIN_REQUIRED"
+            exit 2
+          }
+          revision="${INPUT_SHA}"
           [[ "${revision}" =~ ^[a-f0-9]{40}$ ]] || exit 2
           expected_main_cn=$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/main-cn" --jq '.object.sha')
           [[ "${expected_main_cn}" =~ ^[a-f0-9]{40}$ ]] || exit 2
@@ -95,18 +94,17 @@ jobs:
         shell: bash
         env:
           EVENT_NAME: ${{ github.event_name }}
-          RUN_SHA: ${{ github.event.workflow_run.head_sha }}
           INPUT_SHA: ${{ inputs.release_sha }}
           INPUT_RELEASE: ${{ inputs.release }}
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          revision="${RUN_SHA}"
-          release="2026.9.${GITHUB_RUN_NUMBER}-cn.${GITHUB_RUN_ATTEMPT}"
-          if [[ "${EVENT_NAME}" == "workflow_dispatch" ]]; then
-            revision="${INPUT_SHA}"
-            release="${INPUT_RELEASE}"
-          fi
+          [[ "${EVENT_NAME}" == "workflow_dispatch" && "${GITHUB_REF}" == "refs/heads/main" ]] || {
+            echo "::error::CN_PREPARE_MANUAL_MAIN_REQUIRED"
+            exit 2
+          }
+          revision="${INPUT_SHA}"
+          release="${INPUT_RELEASE}"
           attempt_id="gha-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
           [[ "${revision}" =~ ^[a-f0-9]{40}$ ]] || { echo "::error::release SHA must be exact"; exit 1; }
           expected_main_cn=$(git rev-parse origin/main-cn)

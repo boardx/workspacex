@@ -67,6 +67,20 @@ class BindingTests(unittest.TestCase):
    self.assertLess(calls.index('cleanup-readback'),calls.index('restore'))
    self.assertLess(calls.index('snapshot'),calls.index('cleanup'))
    for stage in m.STAGES:self.assertEqual(calls.count(stage),1)
+ def test_malformed_three_database_receipt_stops_before_more_sql_and_cleans(self):
+  for databases in (list(m.DBS)+[m.DBS[0]],dict.fromkeys(m.DBS),list(m.DBS[:2]),list(m.DBS[:2])+[False]):
+   with self.subTest(databases=databases),tempfile.TemporaryDirectory(dir=Path('/tmp').resolve()) as d:
+    x=self.manifest();calls=[]
+    def invoke(op,p):
+     calls.append(op)
+     if op=='observe':return {k:x[k] for k in ('targetInstanceId','peer','providerCreatedUtc')}
+     if op=='cleanup-readback':return dict(registered='cleanup-registration-remove' not in calls,terminal='cleanup-registration-remove' in calls,targetInstanceId=x['targetInstanceId'],deleteBeginEpoch=m.created(x)+6900)
+     if op=='account-readback':return dict(exists=True,user='migration_admin')
+     if op=='cleanup-readback-deleted':return {'notFound':True}
+     if op=='cleanup-registration-readback-removed':return {'removed':True}
+     return dict(accepted=True,databases=databases,**{k:x[k] for k in ('attemptId','targetInstanceId','candidateSha')})
+    with self.assertRaisesRegex(ValueError,'THREE_DATABASE_CLOSURE:restore'):m.rehearse(x,Path(d),invoke)
+    self.assertIn('cleanup',calls);self.assertNotIn('before',calls);self.assertNotIn('migrate',calls)
  def test_sql_failure_cleans_exact_clone(self):
   with tempfile.TemporaryDirectory(dir=Path('/tmp').resolve()) as d:
    x=self.manifest();calls=[]

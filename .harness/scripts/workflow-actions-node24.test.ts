@@ -156,3 +156,18 @@ describe("GitHub workflow actions have an explicit Node.js 24 or trusted composi
     expect(() => auditWorkflowActions([], new Map([["example/action", "v1"]]), new Map([["example/action", "a".repeat(40)]]))).toThrow(/cannot be both/);
   });
 });
+
+// A shell-only composite has a complete, empty external action graph.
+describe("shell-only composite action audit", () => {
+  it("accepts a hash-bound shell-only manifest and rejects invented nested actions", () => {
+    const catalog = cloneCatalog();
+    const cli = catalog.audits.find(audit => audit.action === "aliyun/setup-aliyun-cli-action");
+    if (!cli || cli.kind !== "composite") throw new Error("missing reviewed CLI manifest");
+    expect(cli.nested).toEqual([]);
+    expect(validateTrustedActionAudits(ROOT, catalog).composites.get(cli.action)).toBe(cli.workflowRef);
+    const other = catalog.audits.find(audit => audit.kind === "composite" && audit.nested.length > 0);
+    if (!other || other.kind !== "composite") throw new Error("missing nested fixture");
+    cli.nested.push(structuredClone(other.nested[0]!));
+    expect(() => validateTrustedActionAudits(ROOT, catalog)).toThrow(/complete nested action graph differs/);
+  });
+});

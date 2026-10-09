@@ -212,13 +212,15 @@ export async function activatePreparedCnRelease(input: unknown, actions: Activat
   if (Date.parse(receipt.expiresAt) <= now.getTime()) return report("blocked", "PREPARATION_EXPIRED");
   if (classifyReleaseFailures(receipt.failures, now).blocked.length) return report("blocked", "PREPARATION_GATES_BLOCKED");
   const controller = new AbortController(), timer = setTimeout(() => controller.abort(), deadlineMs);
-  let promoted = false;
+  let promotionAttempted = false;
   const active = () => { if (controller.signal.aborted || performance.now() - started >= deadlineMs) throw new Error("ACTIVATION_DEADLINE_EXCEEDED"); };
   try {
     if (await actions.readBaselineFingerprint() !== receipt.baselineSha256) return report("blocked", "BASELINE_CAS_MISMATCH");
     const drain = await actions.drainRuns(); active();
     if ([drain.queued, drain.running, drain.writebackPending].some(value => !Number.isSafeInteger(value) || value !== 0)) return report("blocked", "RUN_DRAIN_INCOMPLETE");
-    await actions.promotePreparedPointer(); promoted = true; active();
+    // Pointer promotion can mutate before rejecting; attempt means rollback is required.
+    promotionAttempted = true;
+    await actions.promotePreparedPointer(); active();
     await actions.activateTraffic(); active();
     const canonical = await actions.verifyCanonical(); active();
     if (canonical.status !== "passed" || canonical.lockRetained || canonical.passedStages !== 8) throw new Error("CANONICAL_GATE_FAILED");
@@ -226,7 +228,7 @@ export async function activatePreparedCnRelease(input: unknown, actions: Activat
     if (!Object.values(browser).every(value => value === true)) throw new Error("BROWSER_SMOKE_FAILED");
     return report("passed", "ACTIVATED");
   } catch (error) {
-    if (!promoted) return report("blocked", "ACTIVATION_PRECONDITION_FAILED");
+    if (!promotionAttempted) return report("blocked", "ACTIVATION_PRECONDITION_FAILED");
     const code = error instanceof Error && ["CANONICAL_GATE_FAILED", "BROWSER_SMOKE_FAILED"].includes(error.message) ? error.message : "ACTIVATION_FAILED";
     try {
       await actions.restoreBaseline();

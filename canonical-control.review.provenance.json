@@ -1,0 +1,16 @@
+{
+  "configurationSha256": "4931ec9391c9b53de005e989ccc40647e1e4476a2f7d4d67b2058cbee22534de",
+  "nodeVersion": "v22.20.0",
+  "reviewStatus": "draft-unapproved",
+  "runtimeLockSha256": "d692fbf99c043ee23542e2ce551b9dc3780c7755060648a06735435240aebdd4",
+  "sourceFiles": {
+    "package.json": "9b60b05c1acdd99ce7a6ba6e9c920c57e1e954df64def071c2517d4f9aebea56",
+    "packages/cloud-deploy/package.json": "07ea07848b1e55b168409e894739938a2faaaad316e987df9964cdce7d8da9d1",
+    "packages/cloud-deploy/src/image-reference.ts": "1cc57b5f8ca0c7bd7232dc70824634648a3250f4a8ecd3afdf7624e10beccaac",
+    "packages/cloud-deploy/src/release-candidate-cli.ts": "41c11f88a7ee910641cd6ca72e2a4e219bd3fb922c3e749c8a572eedcad5f683",
+    "packages/cloud-deploy/src/release-candidate.ts": "6bb2839a6712c7276a32afdb17dc6a129d34fcfc0f925d333be44288643b4942",
+    "packages/cloud-deploy/src/release-manifest-cli.ts": "2b6b2e709fa963f59b37ae9fb7ffdb23878abd5e5b06eb281105edc835414a5a",
+    "packages/cloud-deploy/src/release-manifest.ts": "92e791efe18b1d264b3b3e0c7f526fef1f65c6f6bc26d9d5ac0a2e3caf7b3f49",
+    "packages/cloud-deploy/src/release.ts": "8ab5f75bb84e1fd1c2d0d6aed32ae7e89f13173ccf7d34988c9ffc4bb74cdc57"
+  }
+}

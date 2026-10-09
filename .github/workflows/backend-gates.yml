@@ -126,6 +126,8 @@ jobs:
   #   了，拆分现在才真正有意义。
   gates-fast:
     runs-on: ubuntu-latest
+    outputs:
+      skip_devapp: ${{ steps.devapp-scope.outputs.skip_devapp }}
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     timeout-minutes: 15
     steps:
@@ -142,6 +144,11 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - name: Test conservative DevApp scope proof
+        run: node --test .harness/scripts/devapp-deploy-scope.selftest.mjs
+      - name: Prove exact main deployment scope
+        id: devapp-scope
+        run: node .harness/scripts/devapp-deploy-scope.mjs
       - name: Verify full disjoint API shard discovery
         run: node .harness/scripts/ci-api-shards.mjs --verify
 
@@ -571,6 +578,8 @@ jobs:
     # refs/heads/main 与 tag，且仍然要全部 gates 通过（第 6 条）。
     if: >-
       always() && !cancelled() && github.event_name != 'merge_group' &&
+      !(github.event_name == 'push' && github.ref == 'refs/heads/main' &&
+        needs.gates-fast.outputs.skip_devapp == 'true') &&
       needs.gates-fast.result == 'success' && needs.gates-test.result == 'success' &&
       needs.gates-runtime.result == 'success' && needs.e2e-core-loop.result == 'success' &&
       needs.native-document-chain.result == 'success' &&

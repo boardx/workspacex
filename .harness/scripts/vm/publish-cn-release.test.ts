@@ -248,9 +248,13 @@ ${scenario==="EXIT" ? "exit 17" : 'wait "${pids[0]}"'}
         expect(code).toBe(scenario==="EXIT" ? 17 : scenario==="INT" ? 130 : 143);
         expect(existsSync(work)).toBe(false);
         for(const pid of [child,descendant]){
-          // Killed orphan descendants may await host init reaping; none may run.
+          // SIGKILL delivery to orphan descendants can finish after the publisher
+          // closes. Bound that observation window; none may remain live at expiry.
           const proc=`/proc/${pid}/stat`;
-          if(existsSync(proc))expect(readFileSync(proc,"utf8").split(") ")[1]?.[0]).toBe("Z");
+          await expect.poll(()=>{
+            try{return readFileSync(proc,"utf8").split(") ")[1]?.[0]==="Z";}
+            catch(error){if((error as NodeJS.ErrnoException).code==="ENOENT")return true;throw error;}
+          },{timeout:1000,interval:10}).toBe(true);
         }
         expect(unrelated.exitCode).toBe(null);
         expect(()=>process.kill(unrelated.pid!,0)).not.toThrow();

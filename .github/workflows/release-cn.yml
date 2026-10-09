@@ -1,0 +1,309 @@
+# Offline engineering draft. No installed production wrapper is implied.
+name: release-cn
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_sha:
+        description: Exact main source SHA
+        required: true
+        type: string
+      release:
+        description: Semantic release identifier
+        required: true
+        type: string
+      mode:
+        description: Artifact-only stops before protected host preparation
+        required: true
+        default: artifact-only
+        type: choice
+        options: [artifact-only, full-release]
+      expected_main_cn_sha:
+        description: Exact reviewed production baseline; required for full-release
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  input-gate:
+    environment: production-cn-build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 3
+    steps:
+      - name: Validate explicit release scope
+        shell: bash
+        env:
+          SOURCE: ${{ inputs.release_sha }}
+          BASELINE: ${{ inputs.expected_main_cn_sha }}
+          MODE: ${{ inputs.mode }}
+          ACR_EDITION: ${{ vars.WSX_ACR_EDITION }}
+        run: |
+          set -euo pipefail
+          [[ "$SOURCE" =~ ^[a-f0-9]{40}$ ]]
+          [[ "$MODE" == artifact-only || "$MODE" == full-release ]]
+          if [[ "$MODE" == full-release ]]; then
+            # Existing protected import protocol requires a real enterprise instance.
+            [[ "$ACR_EDITION" == enterprise ]]
+            [[ "$GITHUB_REF" == refs/heads/main ]]
+            [[ "$BASELINE" =~ ^[a-f0-9]{40}$ ]]
+          fi
+
+  protected-preflight:
+    if: inputs.mode == 'full-release'
+    needs: input-gate
+    environment: production-cn-build
+    runs-on: [self-hosted, linux, workspacex-cn-production]
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      checks: read
+      statuses: read
+      deployments: read
+      actions: read
+    concurrency:
+      group: workspacex-cn-production-deploy
+      cancel-in-progress: false
+    steps:
+      - name: Check out reviewed preflight control
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ github.sha }}
+          path: control
+          persist-credentials: false
+      - name: Require installed preflight tools to match reviewed bytes
+        shell: bash
+        run: |
+          set -euo pipefail
+          declare -A trusted=(
+            [control/.harness/scripts/vm/import-hosted-cn-artifacts.py]=/usr/local/bin/workspacex-cn-import-hosted-artifacts
+            [control/.harness/scripts/vm/deploy-cn-production.sh]=/usr/local/bin/workspacex-cn-deploy
+            [control/.harness/scripts/vm/collect-cn-release-preflight.sh]=/usr/local/lib/workspacex-cn/collect-cn-release-preflight.sh
+            [control/.harness/scripts/vm/verify-cn-release-preflight.sh]=/usr/local/lib/workspacex-cn/verify-cn-release-preflight.sh
+          )
+          for source in "${!trusted[@]}"; do
+            target=${trusted[$source]}
+            [[ -f "$target" && ! -L "$target" && -x "$target" ]]
+            cmp --silent "$source" "$target"
+          done
+      - name: Check out exact application candidate for promotion compatibility
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.release_sha }}
+          path: source
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Reject candidate incompatible with unchanged promotion gates
+        working-directory: source
+        shell: bash
+        env:
+          REVISION: ${{ inputs.release_sha }}
+          EXPECTED_MAIN_CN: ${{ inputs.expected_main_cn_sha }}
+        run: |
+          set -euo pipefail
+          [[ "$(git rev-parse HEAD)" == "$REVISION" ]]
+          [[ -z "$(git status --porcelain)" ]]
+          git merge-base --is-ancestor "$REVISION" origin/main
+          git merge-base --is-ancestor "$EXPECTED_MAIN_CN" "$REVISION"
+          # Mirror all nine unchanged promotion installed-entrypoint gates.
+          # Candidate bytes are canonical repository paths, not scratch patches.
+          declare -A candidate_tools=(
+            [.harness/scripts/vm/build-cn-release-candidate.sh]=/usr/local/bin/workspacex-cn-build-candidate
+            [.harness/scripts/vm/deploy-cn-production.sh]=/usr/local/bin/workspacex-cn-deploy
+            [.harness/scripts/vm/publish-cn-release.sh]=/usr/local/lib/workspacex-cn/publish-cn-release.sh
+            [.harness/scripts/vm/verify-cn-release-preflight.sh]=/usr/local/lib/workspacex-cn/verify-cn-release-preflight.sh
+            [.harness/scripts/vm/collect-cn-release-preflight.sh]=/usr/local/lib/workspacex-cn/collect-cn-release-preflight.sh
+            [.harness/scripts/vm/cn-release-preflight-evidence.mjs]=/usr/local/lib/workspacex-cn/cn-release-preflight-evidence.mjs
+            [.harness/scripts/vm/cn-release-orphans.py]=/usr/local/lib/workspacex-cn/cn-release-orphans.py
+            [.harness/scripts/vm/cn-bootstrap-source-probe.mjs]=/usr/local/lib/workspacex-cn/cn-bootstrap-source-probe.mjs
+            [.harness/scripts/vm/verify-cn-release-promotion.sh]=/usr/local/bin/workspacex-cn-verify-promotion
+          )
+          for source in "${!candidate_tools[@]}"; do
+            target=${candidate_tools[$source]}
+            [[ -f "$target" && ! -L "$target" && -x "$target" ]]
+            cmp --silent "$source" "$target"
+          done
+          cmp --silent ../control/.harness/scripts/vm/cn-frozen-release-identity.mjs .harness/scripts/vm/cn-frozen-release-identity.mjs
+          cmp --silent ../control/.harness/scripts/vm/cn-main-source-admission.mjs .harness/scripts/vm/cn-main-source-admission.mjs
+          grep -q CN_FROZEN_RELEASE_DISPATCHER_V1 .github/workflows/promote-cn-production.yml
+      - name: Validate live preparation inputs and collect original full prebuild
+        shell: bash
+        env:
+          REVISION: ${{ inputs.release_sha }}
+          EXPECTED_MAIN_CN: ${{ inputs.expected_main_cn_sha }}
+          RELEASE_NAME: ${{ inputs.release }}
+          ATTEMPT_ID: gha-${{ github.run_id }}-${{ github.run_attempt }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          [[ "$GITHUB_REF" == refs/heads/main ]]
+          actual_main_cn=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main-cn" --jq '.object.sha')
+          [[ "$actual_main_cn" == "$EXPECTED_MAIN_CN" ]]
+          sudo -n /usr/local/bin/workspacex-cn-deploy --check-prepare-inputs "$REVISION" "$ATTEMPT_ID"
+          sudo -n /usr/local/bin/workspacex-cn-import-hosted-artifacts --prebuild "$REVISION" "$ATTEMPT_ID" --release "$RELEASE_NAME"
+
+  artifacts:
+    needs: [input-gate, protected-preflight]
+    # A skipped protected job is expected only for artifact-only. Never build
+    # after a failed or cancelled full preflight.
+    if: >-
+      always() && !cancelled() && needs.input-gate.result == 'success' &&
+      ((inputs.mode == 'artifact-only' && needs.protected-preflight.result == 'skipped') ||
+       (inputs.mode == 'full-release' && needs.protected-preflight.result == 'success'))
+    permissions:
+      contents: read
+      id-token: write
+    uses: ./.github/workflows/build-cn-release-artifacts.yml
+    with:
+      release_sha: ${{ inputs.release_sha }}
+      release: ${{ inputs.release }}
+      platform: linux/amd64
+
+  prepare-and-dispatch:
+    if: inputs.mode == 'full-release'
+    needs: artifacts
+    environment: production-cn-build
+    runs-on: [self-hosted, linux, workspacex-cn-production]
+    timeout-minutes: 45
+    permissions:
+      contents: write
+      actions: write
+      checks: read
+      statuses: read
+      deployments: read
+    concurrency:
+      group: workspacex-cn-production-deploy
+      cancel-in-progress: false
+    steps:
+      - name: Check out frozen control tools
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ github.sha }}
+          path: control
+          persist-credentials: false
+      - name: Check out exact candidate for existing frozen-tag controller
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.release_sha }}
+          path: source
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Download credential-free producer plan
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: hosted-release-plan-${{ github.run_attempt }}
+          path: incoming/plan
+      - name: Download this attempt's sealed artifacts
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: ${{ needs.artifacts.outputs.sealed_artifact }}
+          path: incoming/sealed
+      - name: Require reviewed installed protected consumer
+        shell: bash
+        run: |
+          set -euo pipefail
+          declare -A trusted=(
+            [control/.harness/scripts/vm/import-hosted-cn-artifacts.py]=/usr/local/bin/workspacex-cn-import-hosted-artifacts
+            [control/scripts/verify-hosted-handoff.py]=/usr/local/lib/workspacex-cn/verify-hosted-handoff.py
+            [control/scripts/hosted-release.py]=/usr/local/lib/workspacex-cn/hosted-release.py
+            [control/scripts/canonical_control.py]=/usr/local/lib/workspacex-cn/canonical_control.py
+            [control/.harness/scripts/vm/deploy-cn-production.sh]=/usr/local/bin/workspacex-cn-deploy
+            [control/.harness/scripts/vm/verify-cn-release-promotion.sh]=/usr/local/bin/workspacex-cn-verify-promotion
+            [control/.harness/scripts/vm/collect-cn-release-preflight.sh]=/usr/local/lib/workspacex-cn/collect-cn-release-preflight.sh
+            [control/.harness/scripts/vm/verify-cn-release-preflight.sh]=/usr/local/lib/workspacex-cn/verify-cn-release-preflight.sh
+          )
+          for source in "${!trusted[@]}"; do
+            target=${trusted[$source]}
+            [[ -f "$target" && ! -L "$target" && -x "$target" ]]
+            cmp --silent "$source" "$target"
+          done
+          cmp --silent control/.harness/scripts/vm/cn-frozen-release-identity.mjs source/.harness/scripts/vm/cn-frozen-release-identity.mjs
+          cmp --silent control/.harness/scripts/vm/cn-main-source-admission.mjs source/.harness/scripts/vm/cn-main-source-admission.mjs
+      - name: Verify original prebuild remains fresh, import and run preactivate
+        working-directory: source
+        shell: bash
+        env:
+          REVISION: ${{ inputs.release_sha }}
+          EXPECTED_MAIN_CN: ${{ inputs.expected_main_cn_sha }}
+          RELEASE_NAME: ${{ inputs.release }}
+          ATTEMPT_ID: ${{ needs.artifacts.outputs.attempt_id }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          [[ "$GITHUB_REF" == refs/heads/main ]]
+          actual_main_cn=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main-cn" --jq '.object.sha')
+          [[ "$actual_main_cn" == "$EXPECTED_MAIN_CN" ]]
+          mkdir -p ../incoming/bundle
+          cp ../incoming/plan/plan.json ../incoming/bundle/plan.json
+          cp -a ../incoming/sealed ../incoming/bundle/sealed
+          bundle=$(realpath ../incoming/bundle)
+          sudo -n /usr/local/bin/workspacex-cn-import-hosted-artifacts "$REVISION" "$ATTEMPT_ID" --release "$RELEASE_NAME" --bundle "$bundle"
+          sudo -n /usr/local/bin/workspacex-cn-deploy --check-prepare-inputs "$REVISION" "$ATTEMPT_ID"
+          sudo -n /usr/local/bin/workspacex-cn-deploy --prepare "$REVISION" "$ATTEMPT_ID"
+      - name: Verify complete preparation and freeze the protected release tag
+        id: freeze
+        working-directory: source
+        shell: bash
+        env:
+          REVISION: ${{ inputs.release_sha }}
+          EXPECTED_MAIN_CN: ${{ inputs.expected_main_cn_sha }}
+          ATTEMPT_ID: ${{ needs.artifacts.outputs.attempt_id }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          identity_file=$(mktemp)
+          trap 'rm -f "$identity_file"' EXIT
+          sudo -n /usr/local/bin/workspacex-cn-verify-promotion "$REVISION" "$EXPECTED_MAIN_CN" "$ATTEMPT_ID" > "$identity_file"
+          node --experimental-strip-types .harness/scripts/vm/cn-frozen-release-identity.mjs freeze-tag "$identity_file"
+      - name: Dispatch existing promotion at its frozen native deployment SHA
+        shell: bash
+        env:
+          REVISION: ${{ inputs.release_sha }}
+          EXPECTED_MAIN_CN: ${{ inputs.expected_main_cn_sha }}
+          ATTEMPT_ID: ${{ needs.artifacts.outputs.attempt_id }}
+          RELEASE_TAG: ${{ steps.freeze.outputs.release_tag }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          python3 control/scripts/dispatch-frozen-promotion.py --mode full-release --repository "$GITHUB_REPOSITORY" --source "$REVISION" --baseline "$EXPECTED_MAIN_CN" --attempt "$ATTEMPT_ID" --tag "$RELEASE_TAG" --output ../promotion-correlation.json
+      - name: Retain nonsecret promotion correlation
+        uses: actions/upload-artifact@v6
+        with:
+          name: cn-promotion-correlation-${{ github.run_attempt }}
+          path: promotion-correlation.json
+          if-no-files-found: error
+          retention-days: 30
+
+  verify-promotion-terminal:
+    if: inputs.mode == 'full-release'
+    needs: prepare-and-dispatch
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    permissions:
+      contents: read
+      actions: read
+    # No host concurrency here: the downstream promotion must acquire its lock.
+    steps:
+      - name: Check out frozen verification control
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Download exact promotion correlation
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: cn-promotion-correlation-${{ github.run_attempt }}
+          path: correlation
+      - name: Require downstream deployment and original acceptance to succeed
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/verify-promotion-result.py --correlation correlation/promotion-correlation.json --output promotion-terminal.json
+      - name: Retain terminal result including failures
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: cn-promotion-terminal-${{ github.run_attempt }}
+          path: promotion-terminal.json
+          if-no-files-found: warn
+          retention-days: 30
