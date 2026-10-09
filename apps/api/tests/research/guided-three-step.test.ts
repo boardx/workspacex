@@ -4,6 +4,7 @@ import { research as C } from "@repo/contracts";
 import { createHash } from "node:crypto";
 import { GuidedRuntimeService, initialRuntime } from "../../src/application/research/guided-runtime-service";
 import { ResearchRuntimeError, type GuidedRuntimeStore, type ResearchRuntime, type RuntimeCommand } from "../../src/application/research/guided-runtime-ports";
+import { parseGeneratedOutlineJson } from "../../src/application/research/guided-outline-json";
 import { tasksFromConfirmedQuestions } from "../../src/application/research/guided-task-pipeline";
 import { guidedResearchReply } from "../../scripts/loopback-guided-research";
 import { toOrgId } from "../../src/domain/org-id";
@@ -95,6 +96,79 @@ describe("three visible stages with durable composite execution", () => {
     const calls = f.model.complete.mock.calls.length;
     await f.run("prepare_plan", "brief", { expectedVersion: 0 }, "same-plan"); await f.service.get(f.actor, f.session); await f.run("retry", "outline");
     expect(f.model.complete).toHaveBeenCalledTimes(calls); expect(f.search).not.toHaveBeenCalled();
+  });
+  it("preserves quoted content and never completes incomplete outline data", () => {
+    expect(parseGeneratedOutlineJson(`[{title:'文本 ,] 与 \"引号\"', questions:['问题'],},]`)).toEqual([{ title: '文本 ,] 与 "引号"', questions: ['问题'] }]);
+    expect(() => parseGeneratedOutlineJson('[{"title":"unfinished')).toThrow(SyntaxError);
+    expect(() => parseGeneratedOutlineJson('prefix [{"title":"valid"}] suffix')).toThrow(SyntaxError);
+  });
+  it("does not apply outline-array repair to discussion proposals", async () => {
+    const f = fixture(); await f.run("prepare_plan"); f.model.complete.mockClear();
+    f.model.complete.mockResolvedValue({ text: '{broken proposal' });
+    const result = await f.run("message", "outline", { message: "调整大纲" });
+    expect(result.errorCode).not.toBeNull(); expect(f.model.complete).toHaveBeenCalledTimes(1);
+  });
+  it("recovers outline trailing commas without another model call or changing values", async () => {
+    const f = fixture(); const complete = f.model.complete.getMockImplementation()!;
+    let expected: unknown;
+    f.model.complete.mockImplementation(async input => {
+      const value = await complete(input);
+      if (!input.system.includes("Generate the outline step")) return value;
+      expected = JSON.parse(value.text);
+      return { text: value.text.slice(0, -1) + ',]' };
+    });
+    const result = await f.run("prepare_plan");
+    expect(result.errorCode).toBeNull(); expect(result.outline).toEqual(expected);
+    expect(f.model.complete).toHaveBeenCalledTimes(3);
+  });
+  it("rejects unparseable outline content without asking a model to invent missing fields", async () => {
+    const f = fixture(); const complete = f.model.complete.getMockImplementation()!;
+    f.model.complete.mockImplementation(async input => input.system.includes("Generate the outline step")
+      ? { text: '[{"id":"chapter", broken JSON]' } : complete(input));
+    const result = await f.run("prepare_plan");
+    expect(result.errorCode).not.toBeNull(); expect(result.outline).toEqual([]);
+    expect(f.model.complete).toHaveBeenCalledTimes(3);
+    expect(result.modelCalls.map(call => [call.node, call.status])).toEqual([["brief", "succeeded"], ["directions", "succeeded"], ["outline", "failed"]]);
+  });
+  it("rejects a truncated outline without a provider flag and keeps successful nodes", async () => {
+    vi.useFakeTimers();
+    try {
+      const f = fixture(); const complete = f.model.complete.getMockImplementation()!;
+      let finish!: (value: { text: string }) => void;
+      f.model.complete.mockImplementation(async input => input.system.includes("Generate the outline step")
+        ? new Promise(resolve => { finish = resolve; }) : complete(input));
+      let result: ResearchRuntime | undefined;
+      const pending = f.run("prepare_plan").then(value => { result = value; });
+      await vi.advanceTimersByTimeAsync(30000);
+      finish({ text: '[{"id":"chapter","title":"incomplete' }); await pending;
+      expect(result?.errorCode).not.toBeNull(); expect(result?.outline).toEqual([]);
+      expect(f.model.complete).toHaveBeenCalledTimes(3);
+      expect(result?.generatedNodes).toEqual(["brief", "directions"]);
+    } finally { vi.useRealTimers(); }
+  });
+  it("does not repair truncated or semantically invalid outline responses", async () => {
+    for (const text of ['[]', '[broken', 'cancelled', 'paused', 'interrupted']) {
+      const f = fixture(); const complete = f.model.complete.getMockImplementation()!; let calls = 0;
+      f.model.complete.mockImplementation(async input => {
+        if (!input.system.includes("Generate the outline step")) return complete(input);
+        calls++; return { text: ['cancelled', 'paused', 'interrupted'].includes(text) ? '[bad' : text, ...(text === '[broken' ? { truncated: true } : {}), ...(text === 'cancelled' ? { cancelled: true } : {}), ...(text === 'paused' ? { paused: true } : {}), ...(text === 'interrupted' ? { interrupted: { toolName: 'controlled', argsSummary: null } } : {}) };
+      });
+      const result = await f.run("prepare_plan");
+      expect(result.errorCode).not.toBeNull(); expect(result.outline).toEqual([]); expect(calls).toBe(1);
+    }
+  });
+  it("does not repair outline provider failures or accept repeatedly malformed output", async () => {
+    for (const transport of [false, true]) {
+      const f = fixture(); const complete = f.model.complete.getMockImplementation()!; let calls = 0;
+      f.model.complete.mockImplementation(async input => {
+        if (!input.system.includes("Generate the outline step")) return complete(input);
+        calls++; if (transport) throw new Error("provider failure");
+        return { text: '[not JSON]' };
+      });
+      const result = await f.run("prepare_plan");
+      expect(result.errorCode).not.toBeNull(); expect(result.outline).toEqual([]);
+      expect(calls).toBe(1); expect(result.busy).toBe(false);
+    }
   });
   it("does not generate an outline after a direction failure and retries only the unfinished plan", async () => {
     const f = fixture(); const complete = f.model.complete.getMockImplementation()!; let fail = true;

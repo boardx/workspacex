@@ -24,6 +24,7 @@ import type { ModelCallPort } from "../agent-run/ports";
 import type { GuidedResearchSession } from "./guided-session-ports";
 import { guidedModelConfig } from "./guided-model-config";
 import { extractJson } from "./guided-structured-json";
+import { parseGeneratedOutlineJson } from "./guided-outline-json";
 import { ResearchRuntimeError, type GuidedInternalSourceAccessPort, type GuidedRuntimeStore, type GuidedSearchPort, type ResearchRuntime, type RuntimeActor, type RuntimeCommand, type RuntimeDraft } from "./guided-runtime-ports";
 import { projectResearchTrust } from "./guided-research-trust";
 const nodes = C.ResearchNode.options;
@@ -269,6 +270,7 @@ export class GuidedRuntimeService {
           user: JSON.stringify(context), ...(parseOutput === parseSourceRelevanceJson ? { responseSchema: sourceRelevanceResponseSchema } : {}), ...(signal || budget ? { signal: signal ?? budget!.signal } : {}) };
         const result = budget ? await budget.run(child => this.model.complete({ ...input, signal: child }), undefined, undefined, signal) : await this.model.complete(input);
         budget?.check(); check?.();
+        if (parseOutput === parseGeneratedOutlineJson && (result.truncated || result.cancelled || result.paused || result.interrupted)) throw new ResearchRuntimeError("RESEARCH_NODE_STATE_INVALID");
         let value: unknown;
         try {
           value = parseOutput(result.text);
@@ -319,7 +321,7 @@ export class GuidedRuntimeService {
         ? { ...state.brief, topic: (generated as Partial<ResearchRuntime["brief"]> | null)?.topic } : generated });
       if (!candidate.success) throw new ResearchRuntimeError("RESEARCH_NODE_STATE_INVALID");
       validateGeneratedResearchDesign(node, candidate.data.value);
-    });
+    }, node === "outline" ? parseGeneratedOutlineJson : extractJson);
     if (node === "report") { updateReportTimeline(state, "validation", "running", { attempt: true }); await persist(); }
     // Model-generated brief metadata cannot rewrite the user's supplied scope.
     const generatedValue = node === "brief" ? { ...state.brief,

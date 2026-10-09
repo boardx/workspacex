@@ -112,6 +112,9 @@ importers:
       jsdom:
         specifier: 30.0.1
         version: 30.0.1(canvas@3.2.3)
+      json5:
+        specifier: ^2.2.3
+        version: 2.2.3
       multer:
         specifier: 2.2.0
         version: 2.2.0
