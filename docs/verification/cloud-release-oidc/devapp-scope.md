@@ -28,7 +28,7 @@ the legacy CN prepare workflow.
 
 Validation:
 
-- `node --test .harness/scripts/devapp-deploy-scope.test.mjs`: real temporary git
+- `node --test .harness/scripts/devapp-deploy-scope.selftest.mjs`: real temporary git
   repository tests for positive proof and counterexamples.
 - `pnpm exec vitest run .harness/scripts/skill-files-preview-deploy.test.ts`:
   evaluates the actual workflow deployment expression and preserves all gates,

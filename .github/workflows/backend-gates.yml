@@ -145,7 +145,7 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - name: Test conservative DevApp scope proof
-        run: node --test .harness/scripts/devapp-deploy-scope.test.mjs
+        run: node --test .harness/scripts/devapp-deploy-scope.selftest.mjs
       - name: Prove exact main deployment scope
         id: devapp-scope
         run: node .harness/scripts/devapp-deploy-scope.mjs
