@@ -12,12 +12,17 @@ import {observeRuntimeChunks, runtimeSourceIdentity, verifyRuntimeIdentity} from
 
 test('R09 real file drop, multipart filenames, durable refresh download and tenant ACL', async ({browser, page, request, baseURL}, info) => {
   if (!baseURL || !process.env.WORKSPACEX_API_PORT) throw new Error('FILES_REQUIRE_EXISTING_RUNTIME_URLS');
+  const phaseStartedAt = Date.now();
+  const phase = (name: string) => console.log(`[R09_PHASE] ${name} elapsedMs=${Date.now() - phaseStartedAt}`);
+  phase('source-and-disposable-fixture');
   const sha = runtimeSourceIdentity(), chunks = observeRuntimeChunks(page);
   const foreign = await securityFixture(), viewerContext = await browser.newContext({baseURL}), outsiderContext = await browser.newContext({baseURL});
   const viewerPage = await viewerContext.newPage(), outsiderPage = await outsiderContext.newPage();
   const boards: string[] = [], observations: Array<Record<string, unknown>> = [];
   let owner = '', outsider = '', frozenBoard: string | null = null;
+  let bodyFailed = false;
   try {
+    phase('independent-login-and-board-setup');
     owner = await boardLogin(page);
     const viewer = await boardLogin(viewerPage, F.leadEmail, F.leadPassword);
     outsider = await boardLogin(outsiderPage, foreign.email, foreign.password);
@@ -25,7 +30,9 @@ test('R09 real file drop, multipart filenames, durable refresh download and tena
     boards.push(board, other);
     await boardApi(request, owner, 'PUT', `/whiteboards/${board}/members`, {userId: F.leadUserId, role: 'viewer'});
     await openBoard(page, board, 0);
+    phase('runtime-identity-before');
     const runtimeBefore = await verifyRuntimeIdentity(request, sha, await chunks());
+    phase('real-drop-and-durable-storage');
     const fileName = 'R09-报告 "原始名称".txt', bytes = Buffer.from(`ordinary file ${randomUUID()}`), digest = `sha256:${createHash('sha256').update(bytes).digest('hex')}`;
     const uploadResponse = page.waitForResponse(response => isBoardFileUploadResponse(response.request().method(), response.url(), board, apiOrigin(), baseURL));
     const transfer = await page.evaluateHandle(({name, data}) => {
@@ -41,6 +48,7 @@ test('R09 real file drop, multipart filenames, durable refresh download and tena
     await expectBoardSynced(page);
     await expect.poll(() => fileAssetRows(F.orgId, board)).toEqual([{asset_id: metadata.assetId, metadata, state: 'active'}]);
     expect(await fileAssetRows(foreign.orgId, board)).toEqual([]); expect(await fileAssetRows(null, board)).toEqual([]);
+    phase('authenticated-native-write-counterproofs');
     const positiveWrites = await fileWriteCounterproof(F.orgId, F.orgId, board, metadata.assetId);
     expect(positiveWrites.attempts).toEqual(['insert', 'update', 'delete'].map(action => ({action, rows: 1, sqlState: null})));
     const deniedWrites = [];
@@ -49,6 +57,7 @@ test('R09 real file drop, multipart filenames, durable refresh download and tena
       expect(proof.attempts).toEqual([{action: 'insert', rows: null, sqlState: '42501'}, {action: 'update', rows: 0, sqlState: null}, {action: 'delete', rows: 0, sqlState: null}]);
       deniedWrites.push({tenant, ...proof});
     }
+    phase('content-http-and-refreshed-browser-download');
     const contentPath = `/whiteboards/${board}/files/${metadata.assetId}/content`;
     const anonymous = await request.get(`${apiOrigin()}${contentPath}`); expect(anonymous.status()).toBe(401);
     const positive = await boardApi(request, owner, 'GET', contentPath);
@@ -64,6 +73,7 @@ test('R09 real file drop, multipart filenames, durable refresh download and tena
     const download = await downloaded; expect(download.suggestedFilename()).toBe('R09-报告 _原始名称_.txt');
     const downloadPath = await download.path(); expect(downloadPath).toBeTruthy(); expect(await readFile(downloadPath!)).toEqual(bytes);
     await page.screenshot({path: info.outputPath('R09-file-refreshed.png'), fullPage: true});
+    phase('legacy-filename-and-deduplication');
     // Distinct bytes ensure deduplication cannot hide a broken legacy filename fallback.
     const legacyBytes = Buffer.from(`legacy client ${randomUUID()}`), legacyName = '旧客户端.txt';
     const legacy = await request.post(`${apiOrigin()}/whiteboards/${board}/files`, {headers: {authorization: `Bearer ${owner}`}, multipart: {file: {name: legacyName, mimeType: 'text/plain', buffer: legacyBytes}}});
@@ -73,6 +83,7 @@ test('R09 real file drop, multipart filenames, durable refresh download and tena
     const firstRows = await fileAssetRows(F.orgId, board); expect(firstRows).toHaveLength(2);
     const duplicate = await request.post(`${apiOrigin()}/whiteboards/${board}/files`, {headers: {authorization: `Bearer ${owner}`}, multipart: {fileName: 'renamed.txt', file: {name: 'renamed.txt', mimeType: 'text/plain', buffer: bytes}}});
     expect(duplicate.status()).toBe(201); expect(await duplicate.json()).toEqual(metadata);
+    phase('invalid-multipart-and-tenant-denials');
     const beforeDeniedHead = await boardHead(request, owner, board);
     for (const fields of [[['fileName', '']], [['unknown', 'bad']], [['fileName', 'one.txt'], ['fileName', 'two.txt']]] as const) {
       const boundary = `R09-${randomUUID()}`;
@@ -88,6 +99,7 @@ test('R09 real file drop, multipart filenames, durable refresh download and tena
     for (const [label, token, path] of [['foreign-tenant', outsider, contentPath], ['cross-board', owner, `/whiteboards/${other}/files/${metadata.assetId}/content`]] as const) {
       const denied = await request.get(`${apiOrigin()}${path}`, {headers: {authorization: `Bearer ${token}`}}); expect([403, 404]).toContain(denied.status()); observations.push({label, status: denied.status()});
     }
+    phase('revocation-and-archived-board-denials');
     await boardApi(request, owner, 'DELETE', `/whiteboards/${board}/members/${F.leadUserId}`);
     const revoked = await request.get(`${apiOrigin()}${contentPath}`, {headers: {authorization: `Bearer ${viewer}`}}); expect([403, 404]).toContain(revoked.status());
     expect(await fileAssetRows(F.orgId, board)).toEqual(firstRows);
@@ -95,6 +107,7 @@ test('R09 real file drop, multipart filenames, durable refresh download and tena
     await archiveAcceptanceBoard(request, owner, board);
     const archivedUpload = await request.post(`${apiOrigin()}/whiteboards/${board}/files`, {headers: {authorization: `Bearer ${owner}`}, multipart: {fileName: 'archived.txt', file: {name: 'archived.txt', mimeType: 'text/plain', buffer: Buffer.from(randomUUID())}}});
     expect([403, 404]).toContain(archivedUpload.status()); expect(await fileAssetRows(F.orgId, board)).toEqual(firstRows);
+    phase('disposable-tenant-freeze-counterproofs');
     frozenBoard = await createAcceptanceBoard(request, outsider, 'R09 disposable frozen-org board');
     const frozenSeed = await request.post(`${apiOrigin()}/whiteboards/${frozenBoard}/files`, {headers: {authorization: `Bearer ${outsider}`}, multipart: {fileName: 'before-freeze.txt', file: {name: 'before-freeze.txt', mimeType: 'text/plain', buffer: Buffer.from(randomUUID())}}});
     expect(frozenSeed.status()).toBe(201); const frozenMetadata = WhiteboardFileMetadata.parse(await frozenSeed.json());
@@ -105,11 +118,17 @@ test('R09 real file drop, multipart filenames, durable refresh download and tena
     const frozenUpload = await request.post(`${apiOrigin()}/whiteboards/${frozenBoard}/files`, {headers: {authorization: `Bearer ${outsider}`}, multipart: {fileName: 'after-freeze.txt', file: {name: 'after-freeze.txt', mimeType: 'text/plain', buffer: Buffer.from(randomUUID())}}});
     expect([403, 404]).toContain(frozenUpload.status()); expect(await fileAssetRows(foreign.orgId, frozenBoard)).toEqual(beforeFreeze);
     await setFileFixtureOrgFrozen(foreign.orgId, false);
+    phase('runtime-identity-after-and-receipt');
     const runtimeAfter = await verifyRuntimeIdentity(request, sha, runtimeBefore.chunks);
     const resultPath = info.outputPath('R09-files-result.json');
     await writeFile(resultPath, JSON.stringify({sha, runtimeBefore, runtimeAfter, boardId: board, metadata, legacyMetadata, persistedRows: firstRows, beforeDeniedHead, positiveWrites, deniedWrites, frozenWrites, observations, viewerUploadStatus: viewerWrite.status(), foreignUploadStatus: foreignWrite.status(), revokedStatus: revoked.status(), archivedUploadStatus: archivedUpload.status(), frozenUploadStatus: frozenUpload.status(), approved: false}, null, 2), {mode: 0o600});
     await info.attach('R09-files-result.json', {path: resultPath, contentType: 'application/json'});
+    phase('body-completed');
+  } catch (error) {
+    bodyFailed = true;
+    throw error;
   } finally {
+    phase('cleanup');
     const errors: unknown[] = [];
     const clean = async (action: () => Promise<unknown>) => { try { await action(); } catch (error) { errors.push(error); } };
     if (frozenBoard) {
@@ -118,6 +137,10 @@ test('R09 real file drop, multipart filenames, durable refresh download and tena
     }
     for (const board of boards) await clean(() => archiveAcceptanceBoard(request, owner, board));
     await clean(() => viewerContext.close()); await clean(() => outsiderContext.close()); await clean(() => foreign.cleanup());
-    if (errors.length) throw new AggregateError(errors, 'R09 file acceptance cleanup failed');
+    if (errors.length) {
+      // Preserve the failing operation's original stack. Cleanup alone must still fail.
+      console.error(`[R09_CLEANUP] errors=${errors.length} bodyFailed=${bodyFailed}`);
+      if (!bodyFailed) throw new AggregateError(errors, 'R09 file acceptance cleanup failed');
+    }
   }
 });
