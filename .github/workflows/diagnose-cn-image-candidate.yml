@@ -1,0 +1,63 @@
+name: diagnose-cn-image-candidate
+on:
+  workflow_dispatch:
+    inputs:
+      candidate_plan:
+        description: 'Reviewed fixed-source candidate plan bound to this exact main control; agent diagnostic only'
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  diagnose:
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - name: Check out exact main control
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ github.sha }}
+          path: control
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Check out fixed source
+        uses: actions/checkout@v5
+        with:
+          ref: 55d904af3edcca54b2fbe17bba59ed2eed09323b
+          path: source
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Diagnose only agent; stop after local build
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BUILD_PLAN: ${{ inputs.candidate_plan }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -I -B control/scripts/diagnose-cn-image-candidate.py \
+            --source "$GITHUB_WORKSPACE/source" \
+            --output "$RUNNER_TEMP/cn-agent-diagnostic.json"
+      - name: Validate diagnostic metadata before preservation
+        id: validate_diagnostic
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -I -B - <<'PYCODE'
+          import importlib.util, os, pathlib, stat
+          spec = importlib.util.spec_from_file_location('diagnostic', 'control/scripts/diagnose-cn-image-candidate.py')
+          diagnostic = importlib.util.module_from_spec(spec); spec.loader.exec_module(diagnostic)
+          p = pathlib.Path(os.environ['RUNNER_TEMP'], 'cn-agent-diagnostic.json')
+          s = p.lstat()
+          assert stat.S_ISREG(s.st_mode) and not p.is_symlink() and s.st_size <= 16384
+          diagnostic.validate_metadata(p.read_bytes())
+          PYCODE
+      - name: Preserve only bounded diagnostic metadata, including failure
+        if: always() && steps.validate_diagnostic.outcome == 'success'
+        uses: actions/upload-artifact@v6
+        with:
+          name: cn-agent-diagnostic-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/cn-agent-diagnostic.json
+          if-no-files-found: error
+          retention-days: 1

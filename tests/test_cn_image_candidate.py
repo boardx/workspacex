@@ -94,7 +94,8 @@ class CandidateTests(unittest.TestCase):
                 with patch.object(b,'control'),patch.object(b.shutil,'disk_usage',return_value=type('Space',(),{'free':free})()):
                     if accepted:self.assertFalse(b.collect(p,raw,folder,root/'out')['productionReady'])
                     else:
-                        with self.assertRaises(a.Rejected):b.collect(p,raw,folder,root/'out')
+                        with self.assertRaises(a.Rejected) as caught:b.collect(p,raw,folder,root/'out')
+                        self.assertEqual(b.diagnostic(caught.exception)['stage'],'COLLECTION_VERIFY');self.assertEqual(b.diagnostic(caught.exception)['code'],'CANDIDATE_COLLECTION_CAPACITY')
                         self.assertFalse((root/'out').exists());self.assertTrue(all((folder/s/(s+'.tar')).is_file() for s in c.hosted.SERVICES))
     def test_producer_simulation_retains_real_tar_and_no_cloud_operations(self):
         p=plan();dockerfile=b'FROM fixture\n'
@@ -128,4 +129,35 @@ class CandidateTests(unittest.TestCase):
             result=c.offline_assembly(p,raw,a.sha(raw),assembly,a.sha(assembly),folder,a.sha(a.json_bytes(p)));self.assertEqual(result['status'],'NOT_READY');self.assertFalse(result['productionReady'])
             v['authenticatedRedis']=True;assembly=a.json_bytes(v)
             with self.assertRaises(a.Rejected):c.offline_assembly(p,raw,a.sha(raw),assembly,a.sha(assembly),folder,a.sha(a.json_bytes(p)))
+class DiagnosticTests(unittest.TestCase):
+    def test_local_command_nonzero_redacts_both_streams_and_preserves_returncode(self):
+        # Python fixture only: no Git, Docker, network or build executed.
+        with self.assertRaises(b.CommandFailure) as caught:
+            b.run([sys.executable,'-c',"import sys;print('SECRET_STDOUT');print('SECRET_STDERR',file=sys.stderr);sys.exit(23)"])
+        b.stage('DOCKER_BUILD');v=b.diagnostic(caught.exception)
+        self.assertEqual(v['returncode'],23);self.assertEqual(v['code'],'COMMAND_NONZERO')
+        self.assertEqual(v['stage'],'DOCKER_BUILD');self.assertNotIn('SECRET',json.dumps(v))
+    def test_command_categories_and_untrusted_exception_redaction(self):
+        for argv,expected in [(['docker','buildx','build','SECRET'],'DOCKER_BUILD'),(['docker','image','save'],'DOCKER_SAVE'),(['git','archive'],'GIT_ARCHIVE'),(['git','merge-base'],'GIT_ANCESTRY')]:
+            self.assertEqual(b.command_category(argv),expected)
+        for error in [ValueError('SECRET'),a.Rejected('SECRET'),a.Rejected(['SECRET']),b.CommandFailure('SECRET','SECRET','SECRET'),b.CommandFailure(['SECRET'],['SECRET'],23)]:
+            self.assertNotIn('SECRET',json.dumps(b.diagnostic(error)))
+        self.assertEqual(b.diagnostic(a.Rejected('CANDIDATE_SOURCE_SHA'))['code'],'CANDIDATE_SOURCE_SHA')
+    def test_source_rejection_has_specific_stage_and_does_not_build(self):
+        with tempfile.TemporaryDirectory() as td,patch.object(b,'control'):
+            with self.assertRaises(a.Rejected) as caught:
+                b.produce(plan(),a.json_bytes(plan()),td,Path(td)/'out','api',lambda *args:b'wrong')
+            v=b.diagnostic(caught.exception)
+            self.assertEqual(v['stage'],'SOURCE_VERIFY');self.assertEqual(v['code'],'CANDIDATE_SOURCE_SHA')
+            self.assertFalse((Path(td)/'out').exists())
+    def test_local_timeout_and_output_limit_redact_streams(self):
+        with patch.object(b.time,'monotonic',side_effect=[0,4000]):
+            with self.assertRaises(b.CommandFailure) as caught:b.run([sys.executable,'-c','pass'])
+        self.assertEqual(b.diagnostic(caught.exception)['code'],'COMMAND_TIMEOUT')
+        with self.assertRaises(b.CommandFailure) as caught:
+            b.run([sys.executable,'-c',"import sys;sys.stdout.write('SECRET'*(2*1024**2))"])
+        v=b.diagnostic(caught.exception);self.assertEqual(v['code'],'COMMAND_OUTPUT_LIMIT');self.assertNotIn('SECRET',json.dumps(v))
+    def test_start_failure_redacts_executable_path(self):
+        with self.assertRaises(b.CommandFailure) as caught:b.run(['/nonexistent/SECRET_EXECUTABLE'])
+        v=b.diagnostic(caught.exception);self.assertEqual(v['code'],'COMMAND_START_FAILED');self.assertIsNone(v['returncode']);self.assertNotIn('SECRET',json.dumps(v))
 if __name__=='__main__':unittest.main()
