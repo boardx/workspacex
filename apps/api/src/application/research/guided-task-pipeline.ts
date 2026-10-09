@@ -205,7 +205,9 @@ export async function executeTaskPipeline(state: ResearchRuntime, persist: Runti
           merge(screened); await save();
           if (screened.some(source => source.decision === "accepted") && firstSourceMs === null) firstSourceMs = Date.now() - started;
         });
-        const readable = new Set(state.sources.filter(source => source.decision === "accepted" && source.document && sourceTaskIds(source).includes(task.id)).map(source => normalizedResearchUrl(source.url)));
+        // Stopping and success both use material approved in this attempt.
+        // Retained documents may need a new scope/material validation on retry.
+        const readable = new Set(sources.filter(source => source.decision === "accepted" && source.document && sourceTaskIds(source).includes(task.id)).map(source => normalizedResearchUrl(source.url)));
         if (readable.size >= CHAPTER_SOURCE_TARGET) break;
       }
       return { sources, errorCode: sources.some(source => source.decision !== "excluded" && sourceTaskIds(source).includes(task.id)) ? null : "RESEARCH_SEARCH_NO_RELEVANT_SOURCES", release };

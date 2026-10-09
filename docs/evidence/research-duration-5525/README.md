@@ -9,7 +9,7 @@
 ## Verification
 
 - Red reproductions: ten reads instead of expected three; accepted source unavailable while subsequent candidates processed; one/two-section plans rejected despite matching confirmed headings.
-- API research unit suite: 30 files, 682 tests (final result recorded in PR).
+- API research unit suite: 30 files, 683 tests (final result recorded in PR).
 - Web affected UI suite: 4 files, 40 tests pass.
 - API and Web typecheck; API lint pass.
 - init.sh --quick passes (dependency/bootstrap check, not full repository verification).
@@ -18,3 +18,5 @@
 ## Limits
 
 This is controlled orchestration and UI verification, not a timed rerun of the private devapp session. Three-source windows can require extra screening calls when earlier candidates are irrelevant; no universal speed/call-count guarantee is made. Existing six-query supplements and per-call timeouts remain. No evidence check is disabled and no draft is promoted merely to conceal a quality failure. The exact cause of the supplied 24-minute server execution has not been established from private diagnostics.
+
+Automatic P1 review reproduced retained-source retry mismatch. Early stopping now uses the same current-attempt approved set as success; a regression starts with three retained documents and an empty first window, then requires later candidates to be screened.

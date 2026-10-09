@@ -78,3 +78,15 @@ it("does not publish a late batch after cancellation, preserving the first appro
     expect(f.state.tasks[0]!.status).not.toBe("succeeded");
   } finally { release(); await execution.catch(() => {}); f.budget.dispose(); }
 });
+it("does not stop a retry on retained documents when the current window has no approved sources", async () => {
+  screen.mockImplementation(async (_state, candidates) => candidates[0].url.endsWith("/0") ? [] : candidates);
+  const f = fixture();
+  f.state.sources = Array.from({ length: 3 }, (_, i) => ({ id: `old-${i}`, taskId: "task-a", taskIds: ["task-a"], title: "Retained", url: `https://example.org/old-${i}`,
+    content: "Earlier evidence", document: { text: "Earlier evidence", contentHash: "a".repeat(64), contentKind: "text" as const, url: `https://example.org/old-${i}`, retrievedAt: "2026-10-09T00:00:00Z", truncated: false }, retrievedAt: "2026-10-09T00:00:00Z", decision: "accepted" as const }));
+  // Already fetched sources bypass persisted pending-document work, but must not
+  // supply this attempt's stopping count without current relevance validation.
+  try { await f.run(); } finally { f.budget.dispose(); }
+  expect(f.read).toHaveBeenCalledTimes(6);
+  expect(f.state.tasks[0]!.status).toBe("succeeded");
+  expect(f.state.tasks[0]!.errorCode).toBeNull();
+});
