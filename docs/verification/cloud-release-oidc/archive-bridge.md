@@ -101,11 +101,85 @@ No sample/mock plan may be promoted as live evidence. No production readiness is
 
 ## First safe integration
 
-Re-read exact main/PR HEADs and live queued/pending prepare runs. Main still has the older
-automatic backend-gates workflow_run entry; a main merge can reach privileged build/prepare,
-and ordinary PR CI completion can affect the shared pending concurrency slot even when
-its privileged job is skipped. Land and verify the reviewed manual-only prepare guard first
-with separate merge authorization; do not merge an OIDC diagnostic around the old chain.
+Re-read exact main/PR HEADs and live queued/pending prepare runs. Main retains the older
+automatic backend-gates workflow_run definition, but the prepare workflow was observed
+`disabled_manually` on 2026-10-09. Keep it disabled throughout integration. This disabled
+state does not protect or cancel existing queued/pending runs bound to the old definition.
+Re-enabling the workflow and canceling old runs each require separate approval and a fresh
+process/lock review. Land and verify the reviewed manual-only guard with separate merge
+authorization; do not merge an OIDC diagnostic around the old chain. Ready/merge must also
+be checked against the reviewed cloud-build-only and DevApp scope gates and external CD.
 Only after guard verification, real inputs and separate execution approval should a hosted
 archive-only dispatch, approved staging and import/tag/push/readback be considered.
 Preparation, activation and live traffic remain separate approval/verification boundaries.
+
+### OSS archive transfer adapter (code and local fixtures only)
+
+`scripts/cn_archive_oss.py` exposes a credential-free Python API, not an installed
+production command. `Transfer(port, buildPlan, transport, manifestBytes,
+manifestSha256, approval)` requires a separate exact operation approval. The approval
+has exactly `schemaVersion: 1`, `transferAuthorized: true`, `operation` (`upload`
+or `download`), source/control/attempt identity, archive-set hash,
+`transportSha256` (SHA256 of canonical JSON using `cn_image_archive.json_bytes`),
+`observedAt`, `expiresAt`, and `versioningFenceProofSha256` binding the independently
+collected policy-fence evidence. Both approval and archive expiry are at most one hour;
+all hashes, schemas and budgets are checked before transport effects. An approval
+object is an input to a trusted supervisor, not a signature or substitute for human
+authorization. No workflow invokes this API.
+
+`OssSdkPort` accepts an already authenticated official **oss2 2.19.1** Bucket,
+explicit region and independently verified actual session principal. A future
+approved supervisor must bind that principal to the actual Bucket credentials,
+account and raw caller-identity evidence, install and hash-pin the SDK dependency
+closure, and load protected approvals. Those authentication/installation pieces
+are deliberately absent: passing an arbitrary principal string is not proof of
+identity. There is no environment credential lookup, pip fallback or client auth
+implementation here. SDK `timeout` must be between zero and ten seconds. Whole
+transfer operations additionally require an exclusive Linux main-thread SIGALRM
+timer (at most 1200 seconds); a BaseException cancellation escapes normal SDK
+Exception retry handlers. This API refuses a pre-existing timer or a worker thread.
+
+Transport remains the importer's exact six-object schema. This adapter restricts
+keys to `cn-image-archives/<source>/<attempt>/<service>.tar` and `archive-set.json`;
+`versionId` must be empty. **Versioned and suspended buckets are rejected**:
+[OSS ignores forbid-overwrite when versioning is enabled](https://www.alibabacloud.com/help/en/oss/user-guide/overview-78/).
+The future supervisor must independently verify an approved policy fence preventing
+versioning changes for the entire operation; the adapter's point-in-time bucket
+versioning GET cannot prove that fence. No bucket or policy is created or changed.
+A valid fence proof hash is mandatory in the approval; its authenticity and actual
+policy binding must be verified by the trusted supervisor before calling this API.
+Do not disable an existing bucket's versioning to use this adapter.
+Supporting approved nonempty object versions would require a separately reviewed
+protocol; this implementation fails closed rather than silently using latest.
+
+Upload pins no-follow regular single-link inputs, snapshots privately under capacity
+and inode prechecks, and validates all five Docker-save archives before network
+writes. It probes all six exact keys before any PUT. Existing objects require full
+bounded SHA256/size readback; foreign collisions fail without writes. Simple uploads
+and sequential 16 MiB multipart uploads use private ACL and
+[forbid-overwrite headers](https://www.alibabacloud.com/help/en/oss/developer-reference/prevent-objects-from-being-overwritten-by-objects-that-have-the-same-names-2).
+An uncertain upload acknowledgement permits only exact readback, never a blind second
+PUT. The archive-set is the completion marker and is uploaded after all five image
+readbacks. An existing marker with missing image objects is rejected. ETags are
+multipart transport identifiers, never treated as archive hashes.
+
+Download traverses all directory components with no-follow directory descriptors,
+creates private 0700 staging and exclusive 0600 files, bounds and hashes each read,
+validates the entire archive set, fsyncs files and staging directory, and publishes
+with Linux `renameat2(RENAME_NOREPLACE)`. Existing destinations are preserved. The
+returned transfer receipt always has `ready=false`, `prepared=false` and
+`productionActivated=false`; a root-installed supervisor is still required to place
+this bundle in the importer's exact root-owned inbox. Download does not import it.
+
+Retries converge only on exact existing bytes. Interrupted uploads can leave partial
+objects or multipart IDs; no broad list, remote abort/delete, rollback, install,
+Docker or cloud permission operation exists. Operators must separately review
+orphan cleanup and receive no transactional guarantee. A failed local download
+removes only its private pending directory; a directory already atomically published
+is preserved even if the final parent fsync fails.
+
+Local tests use fake SDK responses, real filesystem snapshots and Linux no-replace
+publication. They exercise corrupt/oversize bytes, last-object collision, lost
+acknowledgement, partial upload, symlink/hardlink and ancestor attacks, expiry,
+operation/principal/version binding, hard deadline and fsync failures. They do not
+prove real SDK/cloud authentication, policy fencing, network transport or performance.

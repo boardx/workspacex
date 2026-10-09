@@ -6,6 +6,7 @@ on:
       - '.github/workflows/archive-bridge-tests.yml'
       - '.github/workflows/export-cn-image-archives.yml'
       - 'scripts/cn_image_archive.py'
+      - 'scripts/cn_archive_oss.py'
       - 'scripts/export-cn-image-archives.py'
       - 'scripts/canonical_control.py'
       - '.harness/scripts/vm/import-cn-image-archives.py'

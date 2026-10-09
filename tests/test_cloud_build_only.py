@@ -106,12 +106,23 @@ class BuildOnlyTests(unittest.TestCase):
             self.assertEqual(len(calls),3)
             self.assertTrue(all(cmd[:4]==['docker','buildx','imagetools','inspect'] for cmd in calls))
 
+    def test_only_explicit_dispatch_can_admit_build(self):
+        workflow = (ROOT / '.github/workflows/cloud-build-only.yml').read_text()
+        trigger = workflow.split('on:\n', 1)[1].split('permissions:', 1)[0]
+        self.assertEqual(trigger, '  workflow_dispatch:\n')
+        gate = workflow.split('  plan:\n', 1)[1].split('    runs-on:', 1)[0]
+        self.assertEqual(gate.strip(), "if: github.event_name == 'workflow_dispatch'")
+        for event in ['pull_request', 'push', 'workflow_run', 'schedule']:
+            self.assertNotIn(event + ':', trigger)
+        self.assertIn('ref: ${{ github.sha }}', workflow)
+
     def test_workflow_has_no_environment_secret_or_privileged_job(self):
         workflow=(ROOT/'.github/workflows/cloud-build-only.yml').read_text()
         for forbidden in ['secrets.', 'vars.', 'environment:', 'self-hosted', 'contents: write', 'pull_request_target', 'docker push', 'sudo ', 'workflow_run:', 'push:']:
             self.assertNotIn(forbidden, workflow)
         self.assertIn('max-parallel: 5',workflow)
-        self.assertIn('github.event.pull_request.draft == false',workflow)
+        self.assertIn("if: github.event_name == 'workflow_dispatch'",workflow)
+        self.assertNotIn('pull_request', workflow)
         self.assertIn('persist-credentials: false',workflow)
         uses = [line.strip().split('uses: ', 1)[1] for line in workflow.splitlines() if 'uses: ' in line]
         self.assertEqual(set(uses), {'actions/checkout@v5', 'actions/upload-artifact@v6', 'actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c'})

@@ -6,10 +6,10 @@ import { describe, expect, it } from "vitest";
 const workflow=parse(readFileSync(join(import.meta.dirname,"../../.github/workflows/backend-gates.yml"),"utf8"));
 const deploy=workflow.jobs.deploy;
 const sha="a".repeat(40);
-function admitted({ref="refs/heads/codex/ai-capability-studio-live",event="workflow_dispatch",enabled=true,expected=sha,failed="",cancelled=false}={}) {
-  const needs=Object.fromEntries(deploy.needs.map((name:string)=>[name,{result:name===failed?"failure":"success"}]));
+function admitted({ref="refs/heads/codex/ai-capability-studio-live",event="workflow_dispatch",enabled=true,expected=sha,failed="",cancelled=false,skipDevapp=""}={}) {
+  const needs=Object.fromEntries(deploy.needs.map((name:string)=>[name,{result:name===failed?"failure":"success",outputs:{skip_devapp:skipDevapp}}]));
   // Evaluate the actual small checked-in predicate, not a second copy of its policy.
-  const expression=deploy.if.replace(/needs\.([a-z0-9-]+)\.result/g, (_:string,name:string)=>`needs[${JSON.stringify(name)}].result`);
+  const expression=deploy.if.replace(/needs\.([a-z0-9-]+)\./g, (_:string,name:string)=>`needs[${JSON.stringify(name)}].`);
   return new Function("github","inputs","needs","always","cancelled","startsWith",`return (${expression});`)(
     {ref,event_name:event,sha},{deploy_skill_files_preview:enabled,expected_skill_files_sha:expected,deploy_capabilities_preview:false},needs,()=>true,()=>cancelled,(a:string,b:string)=>a.startsWith(b));
 }
@@ -21,6 +21,14 @@ describe("authorized Skill candidate deployment",()=>{
     expect(admitted({expected:""})).toBe(false);
     expect(admitted({event:"pull_request"})).toBe(false);
     expect(admitted({ref:"refs/heads/other"})).toBe(false);
+  });
+  it("skips only a positive main push proof and preserves tag/manual paths",()=>{
+    expect(admitted({event:"push",ref:"refs/heads/main",skipDevapp:"true"})).toBe(false);
+    for(const skipDevapp of ["", "false", "True", "unknown"]) expect(admitted({event:"push",ref:"refs/heads/main",skipDevapp})).toBe(true);
+    expect(admitted({event:"push",ref:"refs/tags/v1",skipDevapp:"true"})).toBe(true);
+    expect(admitted({event:"workflow_dispatch",ref:"refs/heads/main",skipDevapp:"true"})).toBe(true);
+    expect(admitted({skipDevapp:"true"})).toBe(true);
+    expect(admitted({event:"merge_group",ref:"refs/heads/main"})).toBe(false);
   });
   it("keeps every existing gate and deployment serialization",()=>{
     expect(deploy.needs).toEqual(["gates-fast","gates-test","gates-runtime","e2e-core-loop","native-document-chain","native-runtime-lane"]);
