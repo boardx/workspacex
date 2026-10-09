@@ -38,6 +38,19 @@ function seeded(): FakeDesignProjectRepo {
 }
 
 describe("深度 S10：上传的图与模型", () => {
+  it("已有设计迭代的中间占位页不会覆盖原画布，模型失败后仍保留完整原型", async () => {
+    const repo = seeded();
+    const before = (await repo.get("dp-1"))!.prototype;
+    const ai: DesignChatModel = { reply: async (ctx) => {
+      await ctx.onProgress?.([{ frame: "首页" }]);
+      expect((await repo.get("dp-1"))!.prototype).toEqual(before);
+      return { text: "没能完成修改。", source: "fallback", writeback: {}, suggestions: [], fallbackReason: "MODEL_OUTPUT_TRUNCATED" };
+    } };
+    const out = await appendProjectChat({ ...deps(repo), ai }, { projectId: "dp-1", ownerId: "u-1", text: "修改首页" });
+    expect(out.project.prototype).toEqual(before);
+    expect(out.reply.applied).toEqual([]);
+  });
+
   it("模型看到的树（含选中的那个节点）里没有图的字节；整页重画回来，图按 id 补回", async () => {
     // ⭐ 反证锚点：去掉写回时的 `keepImages` ⇒ 这条红——用户上传的图在下一轮对话后悄悄没了。
     const repo = seeded();

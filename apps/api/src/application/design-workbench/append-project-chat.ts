@@ -209,6 +209,9 @@ export async function appendProjectChat(
   const keepImages = (roots: readonly (designPrototype.PrototypeNode | null)[]) =>
     roots.map((r) => designPrototype.restoreImageSources(current.prototype, r));
   const persistProgress = async (screens: readonly { readonly frame: string; readonly root?: designPrototype.PrototypeNode; readonly notes?: string; readonly links?: readonly designPrototype.PrototypeLink[] }[]): Promise<void> => {
+    // Progress is safe for a first generation only. Existing designs must remain
+    // available until a complete iteration is validated and versioned below.
+    if (current.prototype.some((root) => root !== null)) return;
     const check = designPrototype.validateLinks(screens.map((x) => ({ root: x.root, links: x.links })));
     const written = await deps.projects.update(input.projectId, input.ownerId, {
       frames: screens.map((x) => x.frame),
