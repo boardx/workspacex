@@ -121,39 +121,29 @@ describe("three visible stages with durable composite execution", () => {
     expect(result.errorCode).toBeNull(); expect(result.outline).toEqual(expected);
     expect(f.model.complete).toHaveBeenCalledTimes(3);
   });
-  it("repairs malformed outline JSON once without rerunning successful planning nodes", async () => {
+  it("rejects unparseable outline content without asking a model to invent missing fields", async () => {
     const f = fixture(); const complete = f.model.complete.getMockImplementation()!;
-    let outlineCalls = 0;
-    f.model.complete.mockImplementation(async input => {
-      if (input.system.includes("Generate the outline step") && ++outlineCalls === 1) return { text: '[{"id":"chapter", broken JSON]' };
-      return complete(input);
-    });
+    f.model.complete.mockImplementation(async input => input.system.includes("Generate the outline step")
+      ? { text: '[{"id":"chapter", broken JSON]' } : complete(input));
     const result = await f.run("prepare_plan");
-    expect(result.errorCode).toBeNull(); expect(result.outline.length).toBeGreaterThan(0);
-    expect(outlineCalls).toBe(2);
-    expect(result.modelCalls.map(call => [call.node, call.status])).toEqual([["brief", "succeeded"], ["directions", "succeeded"], ["outline", "failed"], ["outline", "succeeded"]]);
-    const repaired = f.model.complete.mock.calls.at(-1)![0];
-    expect(JSON.parse(repaired.user).formatRepair.previousOutput).toBe('[{"id":"chapter", broken JSON]');
-    expect(f.model.complete.mock.calls.filter(([input]) => input.system.includes("Generate the brief step"))).toHaveLength(1);
+    expect(result.errorCode).not.toBeNull(); expect(result.outline).toEqual([]);
+    expect(f.model.complete).toHaveBeenCalledTimes(3);
+    expect(result.modelCalls.map(call => [call.node, call.status])).toEqual([["brief", "succeeded"], ["directions", "succeeded"], ["outline", "failed"]]);
   });
-  it("keeps the original outline deadline during formatting repair and ignores late output", async () => {
+  it("rejects a truncated outline without a provider flag and keeps successful nodes", async () => {
     vi.useFakeTimers();
     try {
       const f = fixture(); const complete = f.model.complete.getMockImplementation()!;
-      let outlineCalls = 0; let finish!: (value: { text: string }) => void;
-      f.model.complete.mockImplementation(async input => {
-        if (!input.system.includes("Generate the outline step")) return complete(input);
-        if (++outlineCalls === 1) { await new Promise(resolve => setTimeout(resolve, 30000)); return { text: '[bad JSON]' }; }
-        return new Promise(resolve => { finish = resolve; });
-      });
+      let finish!: (value: { text: string }) => void;
+      f.model.complete.mockImplementation(async input => input.system.includes("Generate the outline step")
+        ? new Promise(resolve => { finish = resolve; }) : complete(input));
       let result: ResearchRuntime | undefined;
       const pending = f.run("prepare_plan").then(value => { result = value; });
-      await vi.advanceTimersByTimeAsync(55000); await pending;
-      expect(result?.errorCode).toBe("RESEARCH_PLAN_TIME_BUDGET_EXCEEDED");
-      expect(outlineCalls).toBe(2); expect(result?.outline).toEqual([]);
-      const writes = f.writes.length;
-      finish({ text: '[]' }); await vi.advanceTimersByTimeAsync(1);
-      expect(f.writes).toHaveLength(writes);
+      await vi.advanceTimersByTimeAsync(30000);
+      finish({ text: '[{"id":"chapter","title":"incomplete' }); await pending;
+      expect(result?.errorCode).not.toBeNull(); expect(result?.outline).toEqual([]);
+      expect(f.model.complete).toHaveBeenCalledTimes(3);
+      expect(result?.generatedNodes).toEqual(["brief", "directions"]);
     } finally { vi.useRealTimers(); }
   });
   it("does not repair truncated or semantically invalid outline responses", async () => {
@@ -177,7 +167,7 @@ describe("three visible stages with durable composite execution", () => {
       });
       const result = await f.run("prepare_plan");
       expect(result.errorCode).not.toBeNull(); expect(result.outline).toEqual([]);
-      expect(calls).toBe(transport ? 1 : 2); expect(result.busy).toBe(false);
+      expect(calls).toBe(1); expect(result.busy).toBe(false);
     }
   });
   it("does not generate an outline after a direction failure and retries only the unfinished plan", async () => {
