@@ -4,6 +4,8 @@ import argparse
 from datetime import datetime,timedelta,timezone
 import importlib.util
 import io
+import gzip
+import zlib
 import os
 from pathlib import Path
 import shutil
@@ -81,7 +83,18 @@ def control(p,command=run):
     for f in ('scripts/cn_image_candidate.py','scripts/build-cn-image-candidates.py','scripts/cn_image_archive.py','scripts/hosted-release.py','scripts/export-cn-image-archives.py'):
         c.require((root/f).read_bytes()==command(['git','show',p['controlRevision']+':'+f],root),'CANDIDATE_CONTROL_BYTES')
 
+SAFE_CODES=SAFE_CODES|{'CANDIDATE_NORMALIZE_LIMIT','CANDIDATE_LAYER_COMPRESSION'}
+
 def normalize(saved,target,p,service):
+    created=[]
+    try:return _normalize(saved,target,p,service,created)
+    except BaseException:
+        if created:
+            try:Path(target).unlink()
+            except OSError:pass  # Preserve primary failure; never unlink another writer's file.
+        raise
+
+def _normalize(saved,target,p,service,created):
     stage('ARCHIVE_NORMALIZE')
     c.require(Path(saved).stat().st_size<=p['maxArchiveBytes'],'CANDIDATE_SAVE_LIMIT')
     with tarfile.open(saved,'r:') as source:
@@ -90,11 +103,41 @@ def normalize(saved,target,p,service):
         v=m[0];c.require(type(v) is dict and set(v)=={'Config','RepoTags','Layers'} and v['RepoTags']==[c.tag(p,service)] and type(v['Layers']) is list,'CANDIDATE_SAVE_MANIFEST')
         names=[v['Config'],*v['Layers']];c.require(1<len(names)<=129 and len(names)==len(set(names)),'CANDIDATE_SAVE_LAYERS')
         for n in names:a.safe_name(n);c.require(n in ix and ix[n].isfile(),'CANDIDATE_SAVE_MEMBER')
-        with open(target,'xb') as stream,tarfile.open(fileobj=stream,mode='w',format=tarfile.USTAR_FORMAT) as out:
-            for n in names:
-                header=tarfile.TarInfo(n);header.size=ix[n].size;header.mode=0o644
-                with source.extractfile(ix[n]) as payload:out.addfile(header,payload)
-            raw=a.json_bytes(m);header=tarfile.TarInfo('manifest.json');header.size=len(raw);header.mode=0o644;out.addfile(header,io.BytesIO(raw))
+        # Preserve config bytes; only layer payloads may be decompressed.
+        # Stage in private temporary files, stream with a cumulative bound, then
+        # compute the exact USTAR record size before creating the final archive.
+        with tempfile.TemporaryDirectory(prefix='wsx-normalize-',dir=Path(target).parent) as td:
+            payloads=[];total=0
+            for i,n in enumerate(names):
+                f=Path(td)/str(i);size=0
+                with source.extractfile(ix[n]) as original,open(f,'xb') as staged:
+                    magic=original.read(2);original.seek(0)
+                    compressed=i>0 and magic==b'\x1f\x8b'
+                    reader=gzip.GzipFile(fileobj=original) if compressed else original
+                    try:
+                        while True:
+                            # Read at most one byte beyond the remaining budget.
+                            data=reader.read(min(1024**2,p['maxArchiveBytes']-total+1))
+                            if not data:break
+                            total+=len(data);size+=len(data)
+                            c.require(total<=p['maxArchiveBytes'],'CANDIDATE_NORMALIZE_LIMIT')
+                            staged.write(data)
+                    except (gzip.BadGzipFile,EOFError,zlib.error):
+                        raise a.Rejected('CANDIDATE_LAYER_COMPRESSION') from None
+                    finally:
+                        if compressed:reader.close()
+                payloads.append((n,f,size))
+            raw=a.json_bytes(m)
+            # USTAR end blocks and Python tarfile's 10240-byte record padding.
+            logical=sum(512+((size+511)//512)*512 for _,_,size in payloads)+512+((len(raw)+511)//512)*512+1024
+            c.require(((logical+10239)//10240)*10240<=p['maxArchiveBytes'],'CANDIDATE_NORMALIZE_LIMIT')
+            with open(target,'xb') as stream:
+                created.append(True)
+                with tarfile.open(fileobj=stream,mode='w',format=tarfile.USTAR_FORMAT) as out:
+                    for n,f,size in payloads:
+                        header=tarfile.TarInfo(n);header.size=size;header.mode=0o644
+                        with open(f,'rb') as payload:out.addfile(header,payload)
+                    header=tarfile.TarInfo('manifest.json');header.size=len(raw);header.mode=0o644;out.addfile(header,io.BytesIO(raw))
     return c.inspect(target,p,service)
 
 def produce(p,raw,source,output,service,command=run):

@@ -25,8 +25,11 @@ def observe(raw):
  for key,needle in {'dns':b'no such host','tls':b'x509:','authentication':b'unauthorized','rateLimit':b'too many requests','missingFile':b'no such file or directory','noSpace':b'no space left on device','dependencyResolution':b'resolutionimpossible'}.items():HINTS[key]=needle in lower
  HINTS['dockerfileLines']=sorted({int(n) for n in re.findall(rb'(?m)^Dockerfile:([0-9]{1,6})\s*$',raw) if 1<=int(n)<=LINE_LIMIT})[:64]
 
-def run(argv,cwd=None):
+def run(argv,cwd=None,*,stdout_file=None,stdout_limit=None):
     category=command_category(argv)
+    if stdout_file is not None:
+        a.require(type(stdout_limit) is int and 0<stdout_limit<=2*1024**3,'DIAGNOSTIC_OUTPUT')
+    stdout_size=0
     if DEADLINE is not None and time.monotonic()>=DEADLINE:raise CommandFailure(category,'COMMAND_TIMEOUT')
     env={'PATH':'/usr/bin:/bin','LANG':'C','GIT_CONFIG_NOSYSTEM':'1','GIT_CONFIG_GLOBAL':'/dev/null','GIT_NO_REPLACE_OBJECTS':'1','GIT_NO_LAZY_FETCH':'1'}
     with tempfile.TemporaryDirectory(prefix='wsx-candidate-home-') as home:
@@ -41,12 +44,16 @@ def run(argv,cwd=None):
                 for key,_ in selector.select(.2):
                     data=os.read(key.fileobj.fileno(),8192)
                     if not data:selector.unregister(key.fileobj);continue
+                    if key.fileobj is process.stdout and stdout_file is not None:
+                        stdout_size+=len(data)
+                        if stdout_size>stdout_limit:raise a.Rejected('CANDIDATE_SAVE_LIMIT')
+                        stdout_file.write(data);continue
                     if len(buffers[key.fileobj])+len(data)>8*1024**2:raise CommandFailure(category,'COMMAND_OUTPUT_LIMIT')
                     buffers[key.fileobj].extend(data)
             try:rc=process.wait(timeout=1)
             except subprocess.TimeoutExpired:raise CommandFailure(category,'COMMAND_TIMEOUT') from None
             if rc!=0:
-                if category=='DOCKER_BUILD':observe(bytes(buffers[process.stdout])+b'\n'+bytes(buffers[process.stderr]))
+                if category in {'DOCKER_BUILD','DOCKER_SAVE'}:observe(bytes(buffers[process.stdout])+b'\n'+bytes(buffers[process.stderr]))
                 raise CommandFailure(category,'COMMAND_NONZERO',rc)
             return bytes(buffers[process.stdout])
         finally:
