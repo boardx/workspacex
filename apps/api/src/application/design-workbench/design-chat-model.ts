@@ -1066,7 +1066,7 @@ export class ModelDesignChatReplier implements DesignChatModel {
       return null;
     }
     const out = await this.callModel(
-      `现有这一页（共 ${String(screenCount)} 页，这是第 ${String(index)} 页「${focus.frame}」）：\n${page.slice(0, 40_000)}\n\n用户说：${instruction}\n\ndata-goto 的值用页序号（不要指向自己这一页）。`,
+      `${describeProject(ctx, true)}\n\n现有这一页的完整 HTML（共 ${String(screenCount)} 页，这是第 ${String(index)} 页「${focus.frame}」）：\n${page}\n\n用户说：${instruction}\n\ndata-goto 的值用页序号（不要指向自己这一页）。`,
       DESIGN_CHAT_REPLY_TIMEOUT_MS, DESIGN_HTML_PAGE_EDIT_SYSTEM_PROMPT, ctx.refImages,
     );
     const parsed = out.truncated ? null : parsePageEditOutput(out.text, { index, screenCount });
@@ -1277,6 +1277,36 @@ export class ModelDesignChatReplier implements DesignChatModel {
         return fallbackWith(e instanceof Error && e.message === MODEL_TIMEOUT_MESSAGE ? "MODEL_TIMEOUT" : "MODEL_CALL_FAILED");
       }
       return fallbackWith("MODEL_BAD_JSON");
+    }
+    // HTML summaries cannot be used to reconstruct an existing design. Resolve
+    // the requested pages first, then edit their original HTML and commit one patch.
+    if (ctx.prototype.some((root) => root?.type === "html")) {
+      try {
+        const plan = await this.callModel(describeProject(ctx, true), DESIGN_CHAT_REPLY_TIMEOUT_MS,
+          '你是设计协作助手。已有 HTML 设计只能在原文基础上修改，不能用组件树替换。根据最后一条用户消息和对话记录判断要修改哪些已有页面。只输出 JSON：{"reply":"中文回复","screens":[要修改的零起始页序号]}。只选用户要求修改的页；讨论或问题用 screens:[] 并回答。整体风格修改选全部已有页。新增或删除页面暂不支持，用 screens:[] 如实说明。不要输出 writeback、prototype 或 patch。');
+        if (plan.truncated) return fallbackWith("MODEL_OUTPUT_TRUNCATED");
+        const raw = extractJsonObject(plan.text) as Record<string, unknown>;
+        if (!Array.isArray(raw.screens) || typeof raw.reply !== "string" || raw.reply.trim() === "") return fallbackWith("MODEL_BAD_JSON");
+        const indices = [...new Set(raw.screens as unknown[])];
+        if (indices.some((index) => typeof index !== "number" || !Number.isInteger(index) || ctx.prototype[index]?.type !== "html" || ctx.prototype[index]?.id === undefined)) return fallbackWith("MODEL_BAD_JSON");
+        const patch: NonNullable<DesignChatWriteback["patch"]>[number][] = [];
+        const replies: string[] = [];
+        for (const index of indices as number[]) {
+          const root = ctx.prototype[index]!;
+          if (root.type !== "html" || root.id === undefined) return fallbackWith("MODEL_BAD_JSON");
+          const edited = await this.editHtml({ ...ctx, focus: {
+            id: root.id, frame: ctx.frames[index] ?? "", path: ["整页版面"], node: {}, html: { page: root.props.html },
+          } });
+          if (edited?.writeback.patch === undefined) return fallbackWith("MODEL_BAD_JSON");
+          patch.push(...edited.writeback.patch);
+          replies.push(edited.text);
+        }
+        return { text: (replies.length === 0 ? raw.reply.trim() + this.blindNotice(ctx) : replies.join("\n")).slice(0, 4200), source: "model", writeback: patch.length === 0 ? {} : { patch }, suggestions: [] };
+      } catch (e) {
+        this.deps.log("design chat: existing html iteration failed, preserving design", { detail: e instanceof Error ? e.message : "unknown" });
+        if (e instanceof ModelCallError && e.code === "MODEL_PROVIDER_NOT_CONFIGURED") return fallbackWith("MODEL_NOT_CONFIGURED");
+        return fallbackWith(e instanceof Error && e.message === MODEL_TIMEOUT_MESSAGE ? "MODEL_TIMEOUT" : e instanceof ModelCallError ? "MODEL_CALL_FAILED" : "MODEL_BAD_JSON");
+      }
     }
     /**
      * 迭代 12：**首次生成走分页**（还没有任何树 ⇒ 这一句必然要模型吐出全部页）。

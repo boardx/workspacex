@@ -293,11 +293,95 @@ describe("HTML 页局部修改", () => {
   });
 
   it("树形 prompt 里 HTML 页只留摘要，不塞整页 HTML", async () => {
-    const complete = vi.fn(async (_i: { system: string; user: string }) => ({ text: '{"reply":"好的","writeback":{}}' }));
+    const complete = vi.fn(async (_i: { system: string; user: string }) => ({ text: '{"reply":"好的","screens":[]}' }));
     const r = new ModelDesignChatReplier({ model: { complete } as never, chatModel: { provider: "p", modelId: "m" }, log: vi.fn() });
     await r.reply({ ...editCtx(undefined, "随便聊聊"), focus: undefined });
     const user = complete.mock.calls[0]![0].user;
     expect(user).not.toContain("font-size:28px");
     expect(user).toContain("整页版面");
+  });
+
+  it("未选中页面的聊天先定位页，再基于原 HTML 修改，不替换其余设计", async () => {
+    const { r, complete } = make((_user, system) => system.includes('"screens"')
+      ? '{"reply":"修改明细页标题","screens":[1]}'
+      : `<reply>标题已修改。</reply>${wrap(page1.replace("本月账单", "账单明细"))}`);
+    const ctx = { ...editCtx(undefined, "把明细页标题改成账单明细"), focus: undefined };
+    const out = await r.reply(ctx);
+    expect(complete).toHaveBeenCalledTimes(2);
+    expect(complete.mock.calls[1]![0].user).toContain(page1);
+    expect(out.writeback.prototype).toBeUndefined();
+    const updated = designPrototype.applyPrototypePatch(ctx.prototype.map((root) => ({ root: root ?? undefined })), out.writeback.patch!);
+    expect(updated[0]!.root).toEqual(ctx.prototype[0]);
+    expect(updated[1]!.root?.type).toBe("html");
+    expect(JSON.stringify(updated[1])).toContain("账单明细");
+  });
+
+  it("多页迭代后页输出坏了 ⇒ 整轮不写回，不发布半成品、不重新生成设计", async () => {
+    let calls = 0;
+    const { r, complete } = make((_user, system) => {
+      if (system.includes('"screens"')) return '{"reply":"统一风格","screens":[0,1]}';
+      calls += 1;
+      return calls === 1 ? wrap(page0) : "<page><div>没写完";
+    });
+    const onProgress = vi.fn();
+    const out = await r.reply({ ...editCtx(undefined, "统一两页风格"), focus: undefined, onProgress });
+    expect(out.source).toBe("fallback");
+    expect(out.writeback).toEqual({});
+    expect(out.pagedScreens).toBeUndefined();
+    expect(onProgress).not.toHaveBeenCalled();
+    expect(complete).toHaveBeenCalledTimes(3);
+  });
+
+  it("定位轮试图返回组件树 ⇒ 保留 HTML，不进入分页重生成", async () => {
+    const { r, complete } = make(() => '{"reply":"重画好了","writeback":{"prototype":[]}}');
+    const out = await r.reply({ ...editCtx(undefined, "改标题"), focus: undefined });
+    expect(out.writeback).toEqual({});
+    expect(out.source).toBe("fallback");
+    expect(complete).toHaveBeenCalledTimes(1);
+  });
+
+  it("定位轮被截断 ⇒ 不进入分页重生成", async () => {
+    const complete = vi.fn(async () => ({ text: '{"reply":"修改","screens":[0]}', truncated: true }));
+    const r = new ModelDesignChatReplier({ model: { complete } as never, chatModel: { provider: "p", modelId: "m" }, log: vi.fn(), htmlPages: true });
+    const out = await r.reply({ ...editCtx(undefined, "改标题"), focus: undefined });
+    expect(out.fallbackReason).toBe("MODEL_OUTPUT_TRUNCATED");
+    expect(out.writeback).toEqual({});
+    expect(complete).toHaveBeenCalledTimes(1);
+  });
+
+  it("连续三轮修改只更新目标页，每轮都传最新完整 HTML，原布局样式与另一页保留", async () => {
+    let round = 0;
+    let currentPage = page1;
+    const { r, complete } = make((user, system) => {
+      if (system.includes('"screens"')) return '{"reply":"修改明细","screens":[1]}';
+      expect(user).toContain(currentPage);
+      round += 1;
+      currentPage = currentPage.replace(round === 1 ? "本月账单" : `明细第${round - 1}版`, `明细第${round}版`);
+      return `<reply>更新了标题。</reply>${wrap(currentPage)}`;
+    });
+    let ctx = { ...editCtx(undefined, "修改明细标题"), focus: undefined };
+    for (let i = 0; i < 3; i += 1) {
+      const out = await r.reply(ctx);
+      const updated = designPrototype.applyPrototypePatch(ctx.prototype.map((root) => ({ root: root ?? undefined })), out.writeback.patch!);
+      expect(updated[0]!.root).toEqual(ctx.prototype[0]);
+      const root = updated[1]!.root!;
+      expect(root.type).toBe("html");
+      if (root.type === "html") {
+        expect(root.props.html).toContain("font-size:28px");
+        expect(root.props.html).toContain("房租 3200");
+        expect(root.props.html).toContain('data-goto="0"');
+      }
+      ctx = { ...ctx, prototype: updated.map((screen) => screen.root ?? null) };
+    }
+    expect(complete).toHaveBeenCalledTimes(6);
+  });
+
+  it("完整 HTML 超过原先 40000 字符上限 ⇒ 页尾仍发送给模型", async () => {
+    const page = `<div>${"保留内容".repeat(11000)}<footer>页尾必须保留</footer></div>`;
+    const { r, complete } = make(() => wrap(page));
+    const ctx = editCtx(undefined, "改标题");
+    await r.reply({ ...ctx, prototype: [{ id: "p0", type: "html", props: { html: page } }],
+      focus: { ...ctx.focus!, html: { page } } });
+    expect(complete.mock.calls[0]![0].user).toContain(page);
   });
 });
