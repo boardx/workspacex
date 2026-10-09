@@ -74,3 +74,5 @@ description: 用户研究计划、资料检索、来源证据和研究报告；�
 - #5502 follow-up: model review JSON format errors must not trigger prose rewrites. Preserve recoverable negative verdicts/issues mechanically during bounded formatting repair; passing evidence gaps differ from omitted chapter answers. Model-only chapter source aliases and exact quote registries reduce copying without changing canonical provenance. Real continuation and browser reload evidence: docs/verification/research-synthesis-citations-5502/README.md.
 
 - 2026-10-08：检索 gap 仅是提示，不应作为正文审核结论传入模型；独立复核保留全部争议问题但避免传入旧 reviewer 对象，否则旧审核错误可能被写成章节 defects。使用不变原文段落注册表和问题所属 direct quote 引用验证，拒绝跨问题引用；正确且具体的数据限制可随正式报告自动保存，不需要用户确认草稿。真实续跑5章、199.499秒、17次模型调用并刷新恢复；此证据不是全新研究 SLA（出处：issue #5502、docs/verification/research-synthesis-citations-5502/README.md）。
+
+- 2026-10-09：outline 的完整模型响应偶发非法 JSON，会被通用 UNAVAILABLE 包装；本地 qwen3.7-plus 复现 SyntaxError。生成大纲可使用完整 JSON5 数据解析后继续原 schema/深度门，不能截取片段或补齐缺失内容。格式修复只对生成大纲启用且共享原时限，不能误用于讨论提案或取消/截断响应。真实尾随逗号注入五章恢复32.249秒、无额外调用；不代表该线上请求已取证（出处：#5523、docs/evidence/research-outline-recovery-5523/README.md）。
