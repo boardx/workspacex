@@ -46,6 +46,7 @@ on:
       - 'scripts/upgrade-cn-candidate-tools.py'
       - 'scripts/cn-candidate-tool-upgrade.md'
       - 'tests/test_cn_candidate_tool_upgrade.py'
+      - 'tests/fixtures/cn-candidate-upgrade/**'
       - '.harness/scripts/vm/import-cn-image-candidates.py'
       - 'tests/test_cn_candidate_host*.py'
       - 'tests/test_cn_candidate_publication.py'

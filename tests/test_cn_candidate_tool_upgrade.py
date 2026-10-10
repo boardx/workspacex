@@ -23,7 +23,11 @@ class UpgradeTests(unittest.TestCase):
         self.package=self.root/'package';self.package.mkdir(mode=0o700)
         self.uid=os.getuid();self.gid=self.root.stat().st_gid
         helper=self.package/'cn-tool-install-transaction.py'
-        helper.write_bytes((ROOT/'.harness/scripts/vm/cn-tool-install-transaction.py').read_bytes());helper.chmod(0o700)
+        # This historical installer admits one reviewed engine SHA, not HEAD's
+        # independently evolving full-tool installer. Keep its actual bytes fixed.
+        engine_raw=(ROOT/'tests/fixtures/cn-candidate-upgrade/cn-tool-install-transaction-74d5a1b1.py').read_bytes()
+        self.assertEqual(u.sha(engine_raw),u.HELPER_SHA)
+        helper.write_bytes(engine_raw);helper.chmod(0o700)
         self.engine=u.load_engine(self.package,self.uid,self.gid,self.root)
         self.before={n:('# old '+n+'\n').encode() for n in u.OLD}
         self.patcher=patch.object(u,'OLD',{n:u.sha(raw) for n,raw in self.before.items()});self.patcher.start();self.addCleanup(self.patcher.stop)
@@ -33,6 +37,12 @@ class UpgradeTests(unittest.TestCase):
         self.manifest=dict(kind='cn-candidate-tool-upgrade-v1',schemaVersion=1,upgradeId='upgrade-test',oldRevision=u.OLD_REVISION,oldFiles=u.OLD.copy(),newRevision='b'*40,
             files={n:dict(sha256=u.sha(data),size=len(data)) for n,data in self.content.items()},transactionHelperSha256=u.HELPER_SHA,installerSha256='c'*64,
             issuedAt=now.isoformat(),expiresAt=(now+timedelta(minutes=30)).isoformat(),ecsInstanceId=u.HOST,installAuthorized=True)
+    def test_unreviewed_engine_bytes_still_rejected(self):
+        helper=self.package/'cn-tool-install-transaction.py'
+        helper.write_bytes(helper.read_bytes()+b'\n# unreviewed change\n')
+        with self.assertRaisesRegex(ValueError,'FILE_HASH'):
+            u.load_engine(self.package,self.uid,self.gid,self.root)
+
     def execute(self,inject=None):
         u.validate(self.manifest)
         return u.execute(self.engine,self.manifest,'d'*64,self.content,self.tools,self.backup,self.uid,self.gid,self.root,inject)
