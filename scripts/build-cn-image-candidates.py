@@ -92,7 +92,7 @@ def control(p,command=run):
 
 SAFE_CODES=SAFE_CODES|{'CANDIDATE_NORMALIZE_LIMIT','CANDIDATE_LAYER_COMPRESSION',
     'CANDIDATE_SAVE_ENTRY_TYPE','CANDIDATE_SAVE_FIELDS','CANDIDATE_SAVE_TAGS',
-    'CANDIDATE_SAVE_LAYERS_TYPE','CANDIDATE_SAVE_CONFIG_TYPE','CANDIDATE_SAVE_LAYER_SOURCES','CANDIDATE_SAVE_PARENT'}
+    'CANDIDATE_SAVE_LAYER_COUNT','CANDIDATE_SAVE_PATH_COLLISION','CANDIDATE_SAVE_LAYERS_TYPE','CANDIDATE_SAVE_CONFIG_TYPE','CANDIDATE_SAVE_LAYER_SOURCES','CANDIDATE_SAVE_PARENT'}
 
 def normalize(saved,target,p,service):
     created=[]
@@ -125,8 +125,15 @@ def _normalize(saved,target,p,service,created):
         c.require(type(v['Layers']) is list and all(type(n) is str for n in v['Layers']),'CANDIDATE_SAVE_LAYERS_TYPE')
         # Emit the strict three-field candidate format, preserving config bytes.
         v={'Config':v['Config'],'RepoTags':[expected],'Layers':v['Layers']};m=[v]
-        names=[v['Config'],*v['Layers']];c.require(1<len(names)<=129 and len(names)==len(set(names)),'CANDIDATE_SAVE_LAYERS')
+        c.require(0<len(v['Layers'])<=128,'CANDIDATE_SAVE_LAYER_COUNT')
+        names=[v['Config'],*v['Layers']]
+        c.require(v['Config'] not in v['Layers'] and 'manifest.json' not in names,'CANDIDATE_SAVE_PATH_COLLISION')
         for n in names:a.safe_name(n);c.require(n in ix and ix[n].isfile(),'CANDIDATE_SAVE_MEMBER')
+        # Exporters may reference one stored blob at multiple logical positions.
+        # Preserve every occurrence/order; strict output still has unique members.
+        output_names=[v['Config'],*[f'layers/{i:04d}.tar' for i in range(len(v['Layers']))]]
+        c.require(len(output_names)==len(set(output_names)),'CANDIDATE_SAVE_PATH_COLLISION')
+        v['Layers']=output_names[1:]
         # Preserve config bytes; only layer payloads may be decompressed.
         # Stage in private temporary files, stream with a cumulative bound, then
         # compute the exact USTAR record size before creating the final archive.
@@ -150,7 +157,7 @@ def _normalize(saved,target,p,service,created):
                         raise a.Rejected('CANDIDATE_LAYER_COMPRESSION') from None
                     finally:
                         if compressed:reader.close()
-                payloads.append((n,f,size))
+                payloads.append((output_names[i],f,size))
             raw=a.json_bytes(m)
             # USTAR end blocks and Python tarfile's 10240-byte record padding.
             logical=sum(512+((size+511)//512)*512 for _,_,size in payloads)+512+((len(raw)+511)//512)*512+1024
