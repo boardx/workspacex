@@ -1,5 +1,10 @@
 # Native candidate upload (issue #5547)
 
+Two explicit protocols coexist. The new `execute_cache` entrypoint uses an
+untrusted cache and requires no bucket policy or administrative freeze. The older
+`execute` strict-fence entrypoint remains available with its original requirements.
+They do not silently fall back to each other.
+
 `cn_candidate_native_cli.py` uses the installed Alibaba CLI 3.5.0 and ossutil
 2.4.0 with exact SHA-256 pins. OAuth conversion happens inside the official CLI;
 this code never reads profile/credential files, exports credentials, or uses a
@@ -69,3 +74,32 @@ Validation:
 ```
 TMPDIR=/private/tmp python3 -B -m unittest discover -s tests -p 'test_cn_candidate_native*.py' -v
 ```
+
+
+## Explicit untrusted-cache upload
+
+Call `execute_cache(operation, request_raw, independently_approved_request_sha,
+plan_raw, set_raw, bundle, ...)` with operation `check` or `upload`. The request
+kind is `cn-candidate-native-untrusted-cache-upload-v1`, version 1. It retains
+account/principal, original plan/set hashes, transport, upload approval, TTL and
+budget from the native strict request, but does not accept policy/fence fields.
+Its transport/approval use the separate protocol in
+[cn-candidate-untrusted-cache.md](../../scripts/cn-candidate-untrusted-cache.md):
+128-bit delivery ID in a new delivery subprefix and seven exact keys/sizes/hashes.
+A protected revalidation capability is required when the original receipt expired;
+no original bytes or original source/control/build-attempt identity are rewritten.
+
+The native path always attempts at most one conditional PUT per approved key,
+then verifies the entire GET. It deliberately does not infer object absence from
+CLI diagnostic text. Only an exception after the actual PUT child process was
+spawned becomes `UnknownPutOutcome`; pin/identity/version/source failures remain
+fatal. Each PUT and GET observes authenticated identity and disabled versioning
+before/after. A failed observation poisons this operation permanently, even if the
+bucket later returns to Disabled. No policy API or provider-clock fence is called.
+
+This records observed disabled versioning, **not atomic exclusion of a malicious
+administrator**. Cache objects may change after upload; the ECS download consumer
+must still validate all seven bytes in a root-private snapshot, fully inspect the
+tars, publish with NOREPLACE and revalidate before consumption. The resulting
+receipt keeps `remoteCacheImmutable:false`, `atomicVersionFence:false`, and
+`productionReady:false`. Actual transfer remains a separately authorized action.

@@ -122,4 +122,90 @@ class CacheObservationTests(unittest.TestCase):
         self.f.responses['get-bucket-acl']['Owner']['ID']=n.ACCOUNT
         with self.assertRaisesRegex(n.c.Rejected,'NATIVE_CACHE_OBSERVATION_FAILED'):self.port.observe()
 
+class CacheExecuteTests(unittest.TestCase):
+    def setUp(self):
+        self.f=fixture.Tests();self.f.setUp();self.addCleanup(self.f.doCleanups)
+        f=self.f;f.tr.update(kind='approved-candidate-oss-untrusted-cache-v1',bucket=n.BUCKET,
+            uploadPrincipal='acs:ram::'+n.ACCOUNT+':root',deliveryId='0123456789abcdef0123456789abcdef')
+        f.tr['prefix']+='deliveries/'+f.tr['deliveryId']+'/'
+        for name,item in f.tr['objects'].items():
+            item.update(key=f.tr['prefix']+name,bytes=(f.bundle/name).stat().st_size)
+        approval=f.approval();approval.pop('versioningFenceProofSha256')
+        approval.update(kind='cn-candidate-untrusted-cache-approval-v1',schemaVersion=1)
+        now=datetime.now(timezone.utc)
+        self.r=dict(kind='cn-candidate-native-untrusted-cache-upload-v1',schemaVersion=1,accountId=n.ACCOUNT,
+            expectedPrincipal=f.tr['uploadPrincipal'],issuedAt=(now-timedelta(seconds=10)).isoformat(),
+            expiresAt=(now+timedelta(minutes=40)).isoformat(),candidatePlanRawSha256=n.c.sha(f.pr),
+            candidateSetRawSha256=n.c.sha(f.raw),transport=f.tr,transferApproval=approval,maxSeconds=120)
+        self.objects={};self.puts=[];self.lost=False;self.version_changed=False
+        outer=self
+        class Cli:
+            def __init__(self,seconds):self.deadline=time.monotonic()+seconds
+            def check(self):pass
+            def identity(self):return {'AccountId':n.ACCOUNT,'Arn':f.tr['uploadPrincipal'],'IdentityType':'Account'}
+            def api(self,op,bucket):
+                if op=='get-bucket-info':return {'Bucket':{'Name':n.BUCKET,'Location':'oss-cn-shanghai','Owner':{'ID':n.ACCOUNT}}}
+                if op=='get-bucket-acl':return {'Owner':{'ID':n.ACCOUNT},'AccessControlList':{'Grant':'private'}}
+                if op=='get-bucket-versioning':return {'Status':'Enabled'} if outer.version_changed and outer.puts else {}
+                raise AssertionError('untrusted cache must not query policy')
+            def _args(self,args):return args
+            def _run(self,args,limit=262144,target=None,put_outcome=False):
+                if args[0]=='api' and args[1]=='put-object':
+                    assert put_outcome and '--forbid-overwrite' in args
+                    key=args[args.index('--key')+1];outer.puts.append(key)
+                    raw=Path(args[args.index('--body')+1][7:]).read_bytes()
+                    outer.objects.setdefault(key,raw)
+                    if outer.lost:raise n.NativeCommandOutcomeUnknown()
+                    return b'{}'
+                if args[0]=='cat':
+                    key=args[1].split('/',3)[3];raw=outer.objects[key]
+                    n.c.require(len(raw)<=limit,'CLI_OUTPUT_LIMIT');target.write(raw);return b''
+                raise AssertionError('unexpected command')
+        self.cli=Cli
+    def execute(self,operation='upload'):
+        raw=n.c.json_bytes(self.r)
+        with patch.object(n,'NativeCli',self.cli):
+            return n.execute_cache(operation,raw,n.c.sha(raw),self.f.pr,self.f.raw,self.f.bundle,
+                revalidation_raw=getattr(self,'proof_raw',None),revalidation_policy_raw=getattr(self,'proof_policy_raw',None))
+    def test_real_tar_cache_upload_exact_original_bytes(self):
+        result=self.execute()
+        self.assertEqual(len(self.puts),7);self.assertEqual(len(set(self.puts)),7)
+        self.assertEqual(self.objects[self.f.tr['prefix']+n.PLAN],self.f.pr)
+        self.assertEqual(self.objects[self.f.tr['prefix']+n.SET],self.f.raw)
+        self.assertFalse(result['bucketPolicyRead']);self.assertFalse(result['remoteCacheImmutable'])
+        self.assertEqual(result['transfer']['expiresAt'],self.f.v['expiresAt'])
+    def test_lost_ack_readback_no_second_put(self):
+        self.lost=True;self.execute();self.assertEqual(len(self.puts),7)
+    def test_version_change_after_put_stops_without_marker(self):
+        self.version_changed=True
+        with self.assertRaisesRegex(n.c.Rejected,'NATIVE_CACHE_UPLOAD_REJECTED'):self.execute()
+        self.assertEqual(len(self.puts),1);self.assertNotIn(self.f.tr['prefix']+n.SET,self.objects)
+    def test_check_is_read_only(self):
+        result=self.execute('check');self.assertFalse(result['transferStarted']);self.assertEqual(self.puts,[])
+    def test_real_revalidation_upload_keeps_expired_original_receipt(self):
+        import test_cn_candidate_revalidation as rvfixture
+        rv=rvfixture.RevalidationTests();rv.setUp();self.addCleanup(rv.doCleanups)
+        self.proof_raw=rv.produce();self.proof_policy_raw=rv.policy_raw
+        f=self.f;f.pr=rv.plan_raw;f.raw=rv.raw;f.build=rv.plan;f.v=rv.receipt;f.bundle=rv.work/'bundle'
+        for name,item in f.tr['objects'].items():
+            item.update(bytes=(f.bundle/name).stat().st_size,sha256=n.c.sha((f.bundle/name).read_bytes()))
+        ap=f.approval();ap.pop('versioningFenceProofSha256')
+        ap.update(kind='cn-candidate-untrusted-cache-approval-v1',schemaVersion=1,revalidationRawSha256=n.c.sha(self.proof_raw))
+        self.r.update(candidatePlanRawSha256=n.c.sha(f.pr),candidateSetRawSha256=n.c.sha(f.raw),
+            transferApproval=ap,revalidationRawSha256=n.c.sha(self.proof_raw),revalidationPolicyRawSha256=n.c.sha(rv.policy_raw))
+        result=self.execute();self.assertEqual(len(self.puts),7)
+        self.assertEqual(self.objects[f.tr['prefix']+n.SET],rv.raw)
+        self.assertEqual(result['transfer']['expiresAt'],rv.receipt['expiresAt'])
+
+    def test_strict_field_smuggling_rejected(self):
+        self.r['bucketPolicyRawSha256']='f'*64
+        with self.assertRaises(n.c.Rejected):self.execute()
+        self.assertEqual(self.puts,[])
+    def test_foreign_delivery_prefix_rejected_before_auth(self):
+        self.r['transport']['prefix']='foreign/'
+        with patch.object(n,'NativeCli',side_effect=AssertionError('must not authenticate')):
+            raw=n.c.json_bytes(self.r)
+            with self.assertRaises(n.c.Rejected):n.execute_cache('upload',raw,n.c.sha(raw),self.f.pr,self.f.raw,self.f.bundle)
+        self.assertEqual(self.puts,[])
+
 if __name__=='__main__':unittest.main()

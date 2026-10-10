@@ -241,7 +241,9 @@ class UntrustedCacheTransfer(CandidateTransfer):
         hashes = {PLAN: plan_sha, SET: set_sha, **{s+'.tar':e['sha256'] for s,e in self.manifest['images'].items()}}
         c.require(type(transport['objects']) is dict and set(transport['objects']) == set(hashes), 'TRANSPORT_OBJECT_SET')
         for name, sha in hashes.items():
-            c.require(transport['objects'][name] == {'key':prefix+name,'versionId':'','sha256':sha,'bytes':self.size(name)}, 'TRANSPORT_OBJECT_BINDING')
+            item = transport['objects'][name]
+            c.require(type(item) is dict and type(item.get('bytes')) is int
+                      and item == {'key':prefix+name,'versionId':'','sha256':sha,'bytes':self.size(name)}, 'TRANSPORT_OBJECT_BINDING')
         expected = dict(schemaVersion=1, kind='cn-candidate-untrusted-cache-approval-v1', transferAuthorized=True,
                         candidatePlanRawSha256=plan_sha, candidateSetRawSha256=set_sha,
                         candidateIdentity=self.manifest['identity'],

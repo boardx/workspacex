@@ -32,6 +32,8 @@ on:
       - 'scripts/cn-candidate-oss-policy.example.json'
       - 'tests/test_cn_candidate_authenticated_oss*.py'
       - 'tests/test_cn_candidate_oss.py'
+      - 'tests/test_cn_candidate_untrusted_cache.py'
+      - 'scripts/cn-candidate-untrusted-cache.md'
       - 'scripts/cn_candidate_native_cli.py'
       - 'scripts/cn_candidate_native_upload.py'
       - 'docs/operations/cn-candidate-native-upload.md'
@@ -99,6 +101,8 @@ jobs:
         run: python3 -I -B -m unittest discover -s tests -p 'test_cn_candidate_revalidation.py' -v
       - name: Candidate runtime provenance and Linux atomic installation
         run: python3 -I -B -m unittest discover -s tests -p 'test_cn_candidate_runtime.py' -v
+      - name: Untrusted cache delivery protocol and protected snapshots
+        run: python3 -I -B -m unittest discover -s tests -p 'test_cn_candidate_untrusted_cache.py' -v
       - name: Native CLI pins and bounded process contracts
         run: python3 -I -B -m unittest discover -s tests -p 'test_cn_candidate_native_cli.py' -v
       - name: Native candidate upload and provider observation contracts

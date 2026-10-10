@@ -83,6 +83,14 @@ class CacheTests(unittest.TestCase):
             self.tr=copy.deepcopy(initial);change(self.tr)
             with self.assertRaises(c.Rejected):self.transfer()
         self.assertEqual(self.port.calls,[])
+    def test_bytes_rejects_equal_float_and_boolean_types(self):
+        original=self.tr['objects']['api.tar']['bytes']
+        for value in (float(original),True,False):
+            self.tr['objects']['api.tar']['bytes']=value
+            with self.assertRaisesRegex(c.Rejected,'TRANSPORT_OBJECT_BINDING'):self.transfer()
+        self.tr['objects']['api.tar']['bytes']=original
+        self.transfer()
+
     def test_no_dummy_fence_or_strict_approval(self):
         approval=cache_approval(self);approval['versioningFenceProofSha256']='f'*64
         with self.assertRaises(c.Rejected):self.transfer(approval=approval)

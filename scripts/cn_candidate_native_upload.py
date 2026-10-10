@@ -19,7 +19,7 @@ import time
 import cn_image_archive as c
 from cn_candidate_oss import CandidateTransfer, PLAN, SET
 from cn_archive_oss import bounded, directory_fd, private_file, CHUNK
-from cn_candidate_native_cli import NativeCli
+from cn_candidate_native_cli import NativeCli, NativeCommandOutcomeUnknown
 
 ACCOUNT = '1177216024653153'
 BUCKET = 'workspacex-cn-prod-assets'
@@ -177,7 +177,37 @@ class NativeCachePort(NativePort):
             raise
 
 
+    def observe_cache_version(self):
+        return self.observe()['versioning']
+
+    def put(self, key, stream, size, check):
+        from cn_candidate_oss import UnknownPutOutcome
+        items = [v for v in self.transport['objects'].values() if v['key'] == key]
+        c.require(len(items) == 1 and items[0]['bytes'] == size and 0 < size <= 4*1024**3,
+                  'NATIVE_OBJECT_SCOPE')
+        check(); self.observe(); check()
+        path = Path(stream.name); before = os.fstat(stream.fileno())
+        c.require(path.is_absolute() and path.stat().st_ino == before.st_ino and before.st_size == size,
+                  'NATIVE_SOURCE_CHANGED')
+        unknown = False
+        try:
+            self.cli._run(self.cli._args(['api','put-object','--bucket',BUCKET,'--key',key,
+                '--body','file://'+str(path),'--forbid-overwrite','--object-acl','private','--output-format','json']),
+                put_outcome=True)
+        except NativeCommandOutcomeUnknown:
+            unknown = True
+        finally:
+            after = os.fstat(stream.fileno())
+            c.require((before.st_ino,before.st_size,before.st_mtime_ns,before.st_ctime_ns) ==
+                      (after.st_ino,after.st_size,after.st_mtime_ns,after.st_ctime_ns), 'NATIVE_SOURCE_CHANGED')
+        # Identity/version drift is fatal even when PUT acknowledgement was unknown.
+        self.observe(); check()
+        if unknown: raise UnknownPutOutcome() from None
+
+
 class NativeUpload(CandidateTransfer):
+    recoverable_put_error = Exception
+
     @bounded
     def upload(self, bundle):
         c.require(self.approval['operation'] == 'upload', 'TRANSFER_OPERATION_UNAPPROVED')
@@ -203,7 +233,7 @@ class NativeUpload(CandidateTransfer):
                     item=self.transport['objects'][name]
                     with (snapshot/name).open('rb') as source:
                         try: self.port.put(item['key'],source,self.size(name),self.check)
-                        except Exception:
+                        except self.recoverable_put_error:
                             # Unknown acknowledgement or existing object: GET only, never another PUT.
                             self.port.readback(item['key'],self.size(name),item['sha256'],self.check)
                         else:
@@ -230,3 +260,71 @@ def execute(request_raw, request_sha, plan_raw, set_raw, bundle, *, revalidation
                     uploadedBytesReadBack=True,productionReady=False,releaseReady=False)
     except Exception:
         raise c.Rejected('NATIVE_UPLOAD_REJECTED') from None
+
+
+def validate_cache_request(raw, expected):
+    c.require(type(raw) is bytes and len(raw) <= 512*1024 and c.sha(raw) == expected, 'NATIVE_REQUEST_HASH')
+    r = c.decode(raw)
+    fields = {'kind','schemaVersion','accountId','expectedPrincipal','issuedAt','expiresAt',
+              'candidatePlanRawSha256','candidateSetRawSha256','transport','transferApproval','maxSeconds'}
+    optional = {'revalidationRawSha256','revalidationPolicyRawSha256'}
+    c.require(type(r) is dict and set(r) in (fields,fields|optional), 'NATIVE_CACHE_REQUEST_FIELDS')
+    c.require(r['kind'] == 'cn-candidate-native-untrusted-cache-upload-v1'
+              and type(r['schemaVersion']) is int and r['schemaVersion'] == 1 and r['accountId'] == ACCOUNT,
+              'NATIVE_CACHE_REQUEST_IDENTITY')
+    c.require(type(r['maxSeconds']) is int and 1 <= r['maxSeconds'] <= 1200, 'NATIVE_DEADLINE')
+    for key in ('candidatePlanRawSha256','candidateSetRawSha256'):
+        c.require(c.hex_string(r[key],64),'NATIVE_REQUEST_HASH')
+    if optional <= set(r):
+        c.require(all(c.hex_string(r[k],64) for k in optional),'NATIVE_REVALIDATION_HASH')
+    t=r['transport']; a=r['transferApproval']
+    c.require(t['kind'] == 'approved-candidate-oss-untrusted-cache-v1'
+              and t['bucket'] == BUCKET and t['region'] == 'cn-shanghai'
+              and t['endpoint'] == 'https://'+HOST and t['uploadPrincipal'] == r['expectedPrincipal'], 'NATIVE_TARGET')
+    c.require(isinstance(r['expectedPrincipal'],str) and r['expectedPrincipal'].startswith('acs:ram::'+ACCOUNT+':'),
+              'NATIVE_PRINCIPAL')
+    issued,expiry=c.timestamp(r['issuedAt']),c.timestamp(r['expiresAt'])
+    c.require(0 < (expiry-issued).total_seconds() <= 3600 and issued <= datetime.now(timezone.utc) < expiry,
+              'NATIVE_REQUEST_EXPIRED')
+    c.require(a['kind'] == 'cn-candidate-untrusted-cache-approval-v1' and a['operation'] == 'upload'
+              and c.timestamp(a['observedAt']) >= issued and c.timestamp(a['expiresAt']) <= expiry,
+              'NATIVE_APPROVAL')
+    return r
+
+
+def execute_cache(operation, request_raw, request_sha, plan_raw, set_raw, bundle=None,
+                  *, revalidation_raw=None, revalidation_policy_raw=None):
+    """Explicit new cache protocol; no policy read, fence claim or strict fallback."""
+    try:
+        from cn_candidate_oss import UntrustedCacheTransfer, UnknownPutOutcome
+        c.require(operation in ('check','upload'),'NATIVE_CACHE_OPERATION')
+        r=validate_cache_request(request_raw,request_sha); kwargs={}
+        if 'revalidationRawSha256' in r:
+            from cn_candidate_revalidation import admit
+            kwargs['revalidation']=admit(revalidation_raw,r['revalidationRawSha256'],
+                r['revalidationPolicyRawSha256'],revalidation_policy_raw)
+        else:
+            c.require(revalidation_raw is None and revalidation_policy_raw is None,'NATIVE_UNEXPECTED_REVALIDATION')
+        class NativeCacheUpload(UntrustedCacheTransfer):
+            recoverable_put_error = UnknownPutOutcome
+            upload = NativeUpload.upload
+
+            def readback(self,name,target=None):
+                c.require(target is None,'NATIVE_CACHE_UPLOAD_ONLY')
+                item=self.transport['objects'][name]
+                self.port.readback(item['key'],self.size(name),item['sha256'],self.check)
+        transfer=NativeCacheUpload(None,plan_raw,r['candidatePlanRawSha256'],set_raw,r['candidateSetRawSha256'],
+            r['transport'],r['transferApproval'],max_seconds=r['maxSeconds'],**kwargs)
+        cli=NativeCli(r['maxSeconds']);cli.deadline=min(cli.deadline,transfer.deadline)
+        port=NativeCachePort(cli,r);transfer.port=port
+        before=port.observe()
+        result=transfer.upload(bundle) if operation == 'upload' else None
+        after=port.observe()
+        c.require(before['versioning'] == after['versioning'] == 'Disabled','NATIVE_CACHE_VERSION_CHANGED')
+        return dict(kind='cn-candidate-native-untrusted-cache-result-v1',requestRawSha256=request_sha,
+                    transfer=result,authentication=after,transferStarted=operation == 'upload',
+                    bucketVersioningObservedBefore=before['versioning'],bucketVersioningObservedAfter=after['versioning'],
+                    remoteCacheImmutable=False,atomicVersionFence=False,bucketPolicyRead=False,
+                    uploadedBytesReadBack=operation == 'upload',productionReady=False,releaseReady=False)
+    except Exception:
+        raise c.Rejected('NATIVE_CACHE_UPLOAD_REJECTED') from None

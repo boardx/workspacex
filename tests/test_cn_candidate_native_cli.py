@@ -74,6 +74,15 @@ class NativeCliTests(unittest.TestCase):
         with patch.object(n, 'trusted_bytes', return_value=b'changed'):
             with self.assertRaisesRegex(n.c.Rejected, 'CLI_BINARY_HASH'): cli.check()
 
+    def test_put_outcome_only_after_process_started(self):
+        cli=self.cli();cli.check=lambda:(_ for _ in ()).throw(n.c.Rejected('PRECHECK'))
+        with self.assertRaisesRegex(n.c.Rejected,'^PRECHECK$'):
+            cli._run(['-c','pass'],put_outcome=True)
+        with patch.object(n.subprocess,'Popen',side_effect=OSError('spawn failed')):
+            with self.assertRaises(OSError):self.cli()._run(['-c','pass'],put_outcome=True)
+        with self.assertRaises(n.NativeCommandOutcomeUnknown):
+            self.cli()._run(['-c','import sys; sys.exit(1)'],put_outcome=True)
+
     def test_stream_to_target(self):
         target=io.BytesIO()
         self.assertEqual(self.cli()._run(['-c', 'print("data",end="")'], limit=4, target=target), b'')

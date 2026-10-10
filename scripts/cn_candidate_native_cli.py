@@ -31,6 +31,12 @@ def trusted_bytes(path, limit):
         return value
 
 
+class NativeCommandOutcomeUnknown(c.Rejected):
+    """Only created after a child process was successfully spawned for a PUT."""
+    def __init__(self):
+        super().__init__('NATIVE_PUT_OUTCOME_UNKNOWN')
+
+
 class NativeCli:
     def __init__(self, seconds=1200):
         c.require(type(seconds) is int and 0 < seconds <= 1200, 'CLI_DEADLINE')
@@ -52,7 +58,7 @@ class NativeCli:
         age = time.time() - int(raw)
         c.require(0 <= age and age + remaining + 30 < 86400, 'CLI_AUTO_UPDATE_FORBIDDEN')
 
-    def _run(self, args, limit=262144, target=None, pass_fds=()):
+    def _run(self, args, limit=262144, target=None, pass_fds=(), *, put_outcome=False):
         self.check()
         # Allowlist environment: exclude credential, config-path, proxy and debug overrides.
         env = {k: os.environ[k] for k in ('HOME', 'PATH', 'TMPDIR', 'LANG', 'LC_ALL') if k in os.environ}
@@ -85,10 +91,12 @@ class NativeCli:
                 raise c.Rejected('CLI_COMMAND_FAILED')
             self.check()
             return bytes(output)
-        except BaseException:
+        except BaseException as error:
             try: os.killpg(process.pid, signal.SIGKILL)
             except ProcessLookupError: pass
             process.wait()
+            if put_outcome and isinstance(error, Exception):
+                raise NativeCommandOutcomeUnknown() from None
             raise
         finally:
             process.stdout.close(); process.stderr.close()
