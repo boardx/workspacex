@@ -22,7 +22,7 @@ import { promisify } from "node:util";
 
 const execFileAsync = promisify(execFile);
 
-const IMAGE = "workspacex-skill-sandbox:test";
+const IMAGE = process.env.SANDBOX_TEST_IMAGE ?? "workspacex-skill-sandbox:test";
 const SUFFIX = `${process.pid}-${Date.now()}-office`;
 const NETWORK = `wsx-sandbox-net-${SUFFIX}`;
 const ECHO = `wsx-sandbox-echo-${SUFFIX}`;
@@ -61,10 +61,12 @@ describeDocker("F979 V2-b(office libs):三库一起加载,network:none 依然连
   const created: string[] = [];
 
   beforeAll(async () => {
-    await execFileAsync("docker", ["build", "-t", IMAGE, "."], {
-      cwd: join(import.meta.dirname, ".."),
-      timeout: 600_000,
-    });
+    if (!process.env.SANDBOX_TEST_IMAGE) {
+      await execFileAsync("docker", ["build", "-t", IMAGE, "."], {
+        cwd: join(import.meta.dirname, ".."),
+        timeout: 600_000,
+      });
+    }
     await execFileAsync("docker", ["network", "create", NETWORK], { timeout: 60_000 });
     await execFileAsync(
       "docker",
