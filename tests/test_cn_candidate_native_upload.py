@@ -100,4 +100,26 @@ class ObserveTests(unittest.TestCase):
         self.assertEqual(len(calls),1)
         self.assertIn('--forbid-overwrite',calls[0]);self.assertEqual(calls[0][1],'put-object')
 
+class CacheObservationTests(unittest.TestCase):
+    def setUp(self):
+        self.f=ObserveTests();self.f.setUp();self.addCleanup(self.f.doCleanups)
+        self.f.cli.check=lambda:None
+        self.f.cli._run=lambda *a,**k:self.fail('cache must never read bucket policy')
+        self.port=n.NativeCachePort(self.f.cli,self.f.request)
+    def test_cache_never_reads_policy_or_claims_atomic_fence(self):
+        with patch.object(n,'provider_clock',side_effect=AssertionError('no fence clock needed')):
+            result=self.port.observe()
+        self.assertFalse(result['remoteCacheImmutable']);self.assertFalse(result['atomicVersionFence'])
+        self.assertFalse(result['bucketPolicyRead']);self.assertEqual(result['versioning'],'Disabled')
+    def test_observed_version_failure_is_sticky(self):
+        self.f.responses['get-bucket-versioning']={'Status':'Enabled'}
+        with self.assertRaisesRegex(n.c.Rejected,'VERSIONING_MUST_BE_DISABLED'):self.port.observe()
+        self.f.responses['get-bucket-versioning']={}
+        with self.assertRaisesRegex(n.c.Rejected,'NATIVE_CACHE_OBSERVATION_FAILED'):self.port.observe()
+    def test_authentication_failure_is_sticky(self):
+        self.f.responses['get-bucket-acl']['Owner']['ID']='wrong'
+        with self.assertRaises(n.c.Rejected):self.port.observe()
+        self.f.responses['get-bucket-acl']['Owner']['ID']=n.ACCOUNT
+        with self.assertRaisesRegex(n.c.Rejected,'NATIVE_CACHE_OBSERVATION_FAILED'):self.port.observe()
+
 if __name__=='__main__':unittest.main()

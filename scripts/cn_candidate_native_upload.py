@@ -139,6 +139,44 @@ class NativePort:
         self.observe(); check()
 
 
+class NativeCachePort(NativePort):
+    """Untrusted cache observation, deliberately without a bucket policy fence.
+
+    Disabled is an observed state, not an atomic guarantee against an
+    administrator. Any failed observation permanently poisons this operation.
+    """
+    def __init__(self, cli, request):
+        super().__init__(cli, request)
+        self.observation_failed = False
+
+    def observe(self):
+        c.require(not self.observation_failed, 'NATIVE_CACHE_OBSERVATION_FAILED')
+        try:
+            self.cli.check()
+            identity = self.cli.identity()
+            c.require(identity.get('AccountId') == ACCOUNT
+                      and identity.get('Arn') == self.request['expectedPrincipal']
+                      and identity.get('IdentityType') in ('Account','RAMUser','AssumedRoleUser'),
+                      'NATIVE_AUTH_IDENTITY')
+            info = self.cli.api('get-bucket-info', BUCKET)['Bucket']
+            acl = self.cli.api('get-bucket-acl', BUCKET)
+            version = self.cli.api('get-bucket-versioning', BUCKET)
+            c.require(info['Name'] == BUCKET and info['Location'] == 'oss-cn-shanghai'
+                      and info['Owner']['ID'] == ACCOUNT and acl['Owner']['ID'] == ACCOUNT
+                      and acl['AccessControlList']['Grant'] == 'private', 'NATIVE_BUCKET_IDENTITY')
+            c.require(set(version) <= {'+@xmlns'} and 'Status' not in version,
+                      'VERSIONING_MUST_BE_DISABLED')
+            self.cli.check()
+            self.observation = dict(accountId=ACCOUNT, principal=self.request['expectedPrincipal'],
+                                    bucket=BUCKET, versioning='Disabled',
+                                    remoteCacheImmutable=False, atomicVersionFence=False,
+                                    bucketPolicyRead=False)
+            return self.observation
+        except BaseException:
+            self.observation_failed = True
+            raise
+
+
 class NativeUpload(CandidateTransfer):
     @bounded
     def upload(self, bundle):

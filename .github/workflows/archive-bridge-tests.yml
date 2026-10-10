@@ -32,6 +32,13 @@ on:
       - 'scripts/cn-candidate-oss-policy.example.json'
       - 'tests/test_cn_candidate_authenticated_oss*.py'
       - 'tests/test_cn_candidate_oss.py'
+      - 'scripts/cn_candidate_native_cli.py'
+      - 'scripts/cn_candidate_native_upload.py'
+      - 'docs/operations/cn-candidate-native-upload.md'
+      - 'tests/test_cn_candidate_native*.py'
+      - 'scripts/upgrade-cn-candidate-tools.py'
+      - 'scripts/cn-candidate-tool-upgrade.md'
+      - 'tests/test_cn_candidate_tool_upgrade.py'
       - '.harness/scripts/vm/import-cn-image-candidates.py'
       - 'tests/test_cn_candidate_host*.py'
       - 'tests/test_cn_candidate_publication.py'
@@ -92,6 +99,12 @@ jobs:
         run: python3 -I -B -m unittest discover -s tests -p 'test_cn_candidate_revalidation.py' -v
       - name: Candidate runtime provenance and Linux atomic installation
         run: python3 -I -B -m unittest discover -s tests -p 'test_cn_candidate_runtime.py' -v
+      - name: Native CLI pins and bounded process contracts
+        run: python3 -I -B -m unittest discover -s tests -p 'test_cn_candidate_native_cli.py' -v
+      - name: Native candidate upload and provider observation contracts
+        run: python3 -I -B -m unittest discover -s tests -p 'test_cn_candidate_native_upload.py' -v
+      - name: Reviewed candidate tool upgrade transaction
+        run: python3 -I -B -m unittest discover -s tests -p 'test_cn_candidate_tool_upgrade.py' -v
       - name: Authenticated candidate download without cloud calls
         run: python3 -I -B tests/test_cn_candidate_authenticated_oss.py
       - name: Fixed SDK offline signing and model contract
