@@ -112,7 +112,7 @@ function CatalogDetails({ model, onClose, onViewOrganizationModels }: {
         </section>
         <section className="flex flex-col gap-2" aria-label="模型官方来源">
           <h3 className="text-sm font-semibold">官方来源</h3>
-          {model.sources.map((source) => <a key={source.url} href={source.url} target="_blank" rel="noopener noreferrer" className="rounded-sm text-sm text-primary underline underline-offset-4 transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring">{source.title} · 核验日期 {source.observedAt.slice(0, 10)}</a>)}
+          {model.sources.map((source) => <a key={source.url} href={source.url} target="_blank" rel="noopener noreferrer" className="rounded-sm text-sm text-primary underline underline-offset-4 transition-colors focus-visible:ring-2 focus-visible:ring-ring">{source.title} · 核验日期 {source.observedAt.slice(0, 10)}</a>)}
         </section>
         <p className="text-xs text-muted-foreground">使用路径：组织管理员配置模型 → 验证适配和计费规格 → 通过准入后，供 Skills、空间与工作流选择。公共目录不保存密钥。</p>
       </div>
