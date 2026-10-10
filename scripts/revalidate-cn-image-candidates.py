@@ -42,8 +42,14 @@ def read(path,limit,expected,private=False):
 
 
 def main():
-    require(sys.flags.isolated and sys.flags.no_site and sys.dont_write_bytecode and len(sys.argv)==4)
-    policy_path,expected,parent=sys.argv[1:]
+    require(sys.flags.isolated and sys.flags.no_site and sys.dont_write_bytecode and len(sys.argv) in (4,5,7))
+    acquisition=len(sys.argv)==5
+    if acquisition:
+        require(sys.argv[1]=='--acquire')
+        policy_path,expected,parent=sys.argv[2:5]
+    else:policy_path,expected,parent=sys.argv[1:4]
+    cached=len(sys.argv)==7
+    if cached:require(sys.argv[4]=='--cached' and re.fullmatch('[a-f0-9]{64}',sys.argv[6]))
     require(re.fullmatch('[a-f0-9]{64}',expected) and Path(parent)==Path(policy_path).parent)
     def pairs(items):
         value={}
@@ -55,15 +61,19 @@ def main():
     own=Path(__file__).absolute();read(own,1024**2,hashes[own.name])
     st=os.lstat(parent);require(stat.S_ISDIR(st.st_mode) and st.st_uid==os.geteuid() and not st.st_mode & 0o077)
     def expired(*_):raise TimeoutError('REVALIDATION_DEADLINE')
-    signal.signal(signal.SIGALRM,expired);signal.alarm(3600)
+    seconds=policy.get('maxSeconds') if acquisition else 3600
+    require(type(seconds) is int and 0<seconds<=14400)
+    signal.signal(signal.SIGALRM,expired);signal.alarm(seconds)
     with tempfile.TemporaryDirectory(prefix='.revalidation-tools-',dir=parent) as directory:
         for name,digest in hashes.items():
             data=read(own.parent/name,1024**2,digest);target=Path(directory)/name
             with target.open('xb') as output:os.chmod(target,0o700);output.write(data)
         sys.path.insert(0,directory)
         import cn_candidate_github
-        result=cn_candidate_github.run(policy_path,expected,parent)
-        print('CN_CANDIDATE_REVALIDATED='+json.dumps(result,sort_keys=True,separators=(',',':')))
+        if acquisition:result=cn_candidate_github.acquire(policy_path,expected,parent)
+        elif cached:result=cn_candidate_github.run(policy_path,expected,parent,cache_manifest_path=sys.argv[5],cache_manifest_sha=sys.argv[6])
+        else:result=cn_candidate_github.run(policy_path,expected,parent)
+        print(('CN_CANDIDATE_BYTES_ACQUIRED=' if acquisition else 'CN_CANDIDATE_REVALIDATED=')+json.dumps(result,sort_keys=True,separators=(',',':')))
 
 if __name__=='__main__':
     try:main()
