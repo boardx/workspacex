@@ -16,5 +16,10 @@ for(const field of ['mode','productionActionsAuthorized','runtimeSessionBootstra
 });
 test('original canonical cannot be replaced by raw or runtime digest',()=>{const f=originalAuthorityFixture(identity,tool);const reader=(path:string)=>path==='/etc/workspacex-cn/trusted-tool-binding.json'?Buffer.from(JSON.stringify(f.profile)):Buffer.from(JSON.stringify(f.authority.sourcePlan)+'\n');for(const canonical of [f.authority.sourcePlanSha256,'c'.repeat(64)])assert.throws(()=>readOriginalPlanAuthority({...f.host,writerPlanCanonicalSha256:canonical},tool,f.profile,reader),/CANONICAL_BINDING/);});
 
-for(const [sourceRevision,baselineRevision] of [['9b25bfa65662b96c0826fe67506b562ea46aa6d0',identity.baselineRevision],[identity.sourceRevision,'ba6343199f3c834d6a198f83d0c771614292c82b'],['f'.repeat(40),'e'.repeat(40)]])test('independent root plan cannot issue an unapproved pair '+sourceRevision.slice(0,4),()=>{assert.throws(()=>originalAuthorityFixture({...identity,sourceRevision,baselineRevision},tool),/ORIGINAL_PLAN_IDENTITY/);});
+const unapprovedPairs: readonly (readonly [sourceRevision: string, baselineRevision: string])[] = [
+ ['9b25bfa65662b96c0826fe67506b562ea46aa6d0',identity.baselineRevision],
+ [identity.sourceRevision,'ba6343199f3c834d6a198f83d0c771614292c82b'],
+ ['f'.repeat(40),'e'.repeat(40)],
+];
+for(const [sourceRevision,baselineRevision] of unapprovedPairs)test('independent root plan cannot issue an unapproved pair '+sourceRevision.slice(0,4),()=>{assert.throws(()=>originalAuthorityFixture({...identity,sourceRevision,baselineRevision},tool),/ORIGINAL_PLAN_IDENTITY/);});
 test('historic pair stays compatible',()=>{const old={...identity,sourceRevision:'9b25bfa65662b96c0826fe67506b562ea46aa6d0',baselineRevision:'ba6343199f3c834d6a198f83d0c771614292c82b'};assertSourcePlanAuthority(originalAuthorityFixture(old,tool).authority,old,tool);});
