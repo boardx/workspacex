@@ -1,7 +1,7 @@
 # 会话交接 — Sprint 21/01
 
 ## 当前已验证
-F01 真实 Postgres 16/16 通过，API typecheck/lint 通过。2026-10-11 已 rebase 最新 main `882bd3339`，前置凭据夹具问题由主线 PR #5557 修复，颜色门禁也已在主线修复。本次官方 `harness verify` 退出1：根 harness 2482测试通过/1失败，唯一失败为 HEAD~1→HEAD 的 owner_preempted（先前 agent ID 修正为已登记 role_id，仍 in_progress）。origin/main→HEAD 的正式迁移门通过，数据库实现没有失败；需整理尚未合入的本分支提交，使初次认领使用正确身份，再重跑完整门控。F01 保持 in_progress，不能宣称 passing 或交付完成。
+F01 数据库迁移16/16通过，owner历史门禁已修复且10/10通过。第二次官方 verify（head 535bfd12f）退出1：local-runtime有9项环境变量未归类，API三项Python集成缺pytest；完整日志在 evidence/F01.verify.log。F01仍in_progress，无PR、未合入、不得宣称完成。分类缺口已由 #5574 / PR #5585 负责，其Windows前置PR #5582未合入；不重复开发或降低门禁。已按锁文件 uv sync --extra dev --frozen 补齐本机pytest，正在仅复验三项失败测试。
 证据：`evidence/F01.schema.log`；正式门控：`evidence/F01.verify.log`（由 harness 生成）。
 
 ## 本轮改动
@@ -28,3 +28,7 @@ F01 真实 Postgres 16/16 通过，API typecheck/lint 通过。2026-10-11 已 re
 2026-10-11 独立 review 接受 head `c48f0a211e11feb4f3972d58732f599ca2a5a0ff` 的 F01 范围与约束；只证明实现审查，不能替代全量门控。体验判据已加入实施准备：响应丢失时恢复同一充值意图、终态停用二维码、网络错误与付款失败分开、Stripe 立即/到期取消按服务端呈现。后续配置只对 `/billing/config` 使用方法级 `@Public()`，不豁免钱包/订单鉴权；部署配置单源且不完整渠道不声明可用。
 
 2026-10-11 本次失败证据独立保留为 `evidence/F01.owner-transition-failure.log` 与 `evidence/F01.owner-transition-diagnostic.log`，避免下次正式日志覆盖。自身隔离栈 wsx-a99b14cc18f85f180431 已由 wrapper 清理，docker ps -a 零残留；不清理他人栈。
+
+2026-10-11 身份历史修复已落到 `535bfd12f4ae745c5508275a1f40fe2a8bb82d3f`：初次认领直接使用 coord-voice，旧提交保存为 `refs/codex-backups/f01-owner-fix-20261011`。独立 exact SHA review ACCEPT，迁移/测试字节未变。生产迁移门退出0、对应测试10/10；原官方门控再次执行，schema16/16通过后进入 verify:release，全量结果仍待返回。
+
+Python dev依赖按锁文件补齐后，标准隔离复验3文件/6测试全部通过，日志evidence/F01.python-env-retry.log；自身栈wsx-cc3e033269eeeb2b3c4b已清理。剩余全量阻塞为主线local-runtime归类修复#5585（前置#5582全checks结束、尚未合入）。不重复开发；等待实际主线合入后fetch/rebase并重新官方verify。

@@ -64,3 +64,8 @@
 - 后续实现体验判据补入同一充值意图恢复、真实到账后才显示成功、网络异常保留订单、取消订阅按服务端时点显示；原型固定价格及“无限量”文案不得当作实际权益。
 - 其余支付与 token 运行时功能仍未实现；当前只认领 F01，不提前报完成。
 - 本次完整门控返回1：根 harness 2482/2483 测试通过，唯一失败为本分支未合入身份修正的 owner_preempted；main→HEAD 迁移门通过。保留独立失败/诊断日志，整理本分支初次认领历史后重跑，不改门禁或 passing 状态。自身隔离栈已清理。
+- 身份历史修复提交 `535bfd12f` 已推送，独立 exact SHA review ACCEPT，推送前 typecheck/lint 通过；生产迁移门退出0与对应10/10测试日志已保留为 `F01.owner-transition-fixed*.log`。本次完整重验越过根 harness 阶段，继续工作区测试，尚无最终退出码。
+
+- 第二次官方重验最终退出1：schema与根harness通过；local-runtime parity缺9项归类、API三项Python集成缺pytest。完整真实证据F01.verify.log（head535bfd12f）。已锁文件安装dev依赖并进行针对性复验，分类缺口由既有#5574/#5585处理，Windows前置#5582尚未合入；不重复补丁、不假passing。自身栈wsx-9eadb1a49d2f9e454b20已清理。
+
+- Python环境修复定向重跑退出0：3文件/6测试全绿，3条原失败集成均通过，证据F01.python-env-retry.log；隔离资源已清理。剩余阻塞是既有主线PR #5585归类修复，未宣称完整门控通过。
