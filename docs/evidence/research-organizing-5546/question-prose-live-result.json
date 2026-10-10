@@ -1,0 +1,66 @@
+{
+  "sourceCommit": "ea018fbec5522c72adf8ddf8fa900c799634f1e7",
+  "parentCommit": "b15d7c5b48b34680ac3093a5e51a8aed66abf637",
+  "pr": "https://github.com/boardx/workspacex/pull/5587",
+  "ciFailure": {
+    "run": 38078846356,
+    "job": 114291394568,
+    "test": "apps/web/e2e/guided-research-runtime.spec.ts:92",
+    "expected": "执行中",
+    "actual": "章节撰写与检查已完成",
+    "reason": "Raw internal question-bound JSON was withheld, leaving no public prose until approved checkpoint."
+  },
+  "repair": "Single incremental reader projects live body strings into trusted legacy sectionId/body envelope, withholding binding/source/review metadata; discarded attempts reset projection; optional JSON fence uses the same root parser. Formal validation and independent review are unchanged.",
+  "browser": {
+    "command": "pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter web exec playwright test --config playwright.fullstack-smoke.config.ts --project=seeded e2e/guided-research-runtime.spec.ts",
+    "redExit": 1,
+    "greenExit": 0,
+    "passed": 1,
+    "duration": "4.8m",
+    "originalTestFileUnchanged": true,
+    "provider": "explicit HTTP loopback fixture",
+    "newRealModelCalls": 0,
+    "assertions": [
+      "live prose with execution-chapters running",
+      "reload without generation replay",
+      "formal report and valid citations",
+      "full regenerate through normal menu",
+      "persisted negative quality draft"
+    ],
+    "composeProject": "wsx-663b2c1778f15ba7862d",
+    "remainingOwnedContainers": 0,
+    "screenshot": "question-prose-live-streaming.png",
+    "screenshotSha256": "8a6f7cb0e0cc9a10661ff6c2415a7ae5912f18876e67b3f4af979ae55474f3f9"
+  },
+  "regressions": {
+    "realPostgreSqlFiles": 1,
+    "realPostgreSqlTests": 50,
+    "privacyEvidence": "Metadata-only prefix emits no public delta; body prefix appears while busy with chapter running and report null; questionId/paragraphs/sourceIds absent from public stream; execution finally awaited.",
+    "projectionTests": 3,
+    "chapterTests": 145,
+    "webFiles": 4,
+    "webTests": 64,
+    "contractFiles": 122,
+    "contractTests": 1204,
+    "apiWebContractTypes": "passed",
+    "apiAndAffectedWebLint": "passed",
+    "initSh": "passed"
+  },
+  "logSha256": {
+    "browserRed": "b81fe3758cdc25171147bb07d48eb76b0dd399bc71f77c4d83c08a2ab6209cab",
+    "browserGreen": "13c0ffe981006bfeb4c184d5a35c6c6fc1619dc1b0d59591b9fd08feecb5084e",
+    "durable": "81ce02fe16cc8ebe0d6af59ee7c793e235cf537e18b061242ec7f51e61e792e4",
+    "web": "dfd930f6b40766310e492984b5d3f4153cffbb053c1838aaed20bd6541aa8fef",
+    "contracts": "099c3ecf597cbc09a5891409dc92d2b45a0dbcde5cab1b2c412f88d253b6f35d",
+    "apiLint": "f0bc3fe4e24a897ac8f5034eafc5407d549191fb232f41b1f13ca89b23b87379",
+    "init": "71595d645024913cbe86d8df84c31a2ca534db9c9c768124c2cfceb70a684cb5"
+  },
+  "fullReleaseBoundary": "Prior 33/33 dependency-assisted release applies to pre-follow-up source. This follow-up has separate targeted browser/DB/unit/type/lint validation; new PR CI must run.",
+  "originalOnlineRecovery": false,
+  "deployed": false,
+  "independentReview": {
+    "sourceCommit": "ea018fbec5522c72adf8ddf8fa900c799634f1e7",
+    "verdict": "ACCEPT",
+    "scope": "Exact source plus unchanged real browser red/green, safe projection, regression evidence; no main/online completion claim."
+  }
+}
