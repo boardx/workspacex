@@ -15,6 +15,13 @@ export type ReportAudit = (input: ModelCallInput, validate: (text: string) => un
 export interface EvidenceQuestion { id: string; sectionId: string; subsectionId?: string; question: string }
 export interface VerifiedEvidence { sourceId: string; quote: string; insight: string; relevance: "direct" | "context" }
 export interface QuestionEvidence extends EvidenceQuestion { questionId: string; evidence: VerifiedEvidence[]; gap: boolean }
+/** Extraction interpretations remain private ledger diagnostics, never proof.
+ * Every model consumer receives the same lossless quote/relevance projection. */
+export function verifiedQuestionContext(questions: readonly QuestionEvidence[]) {
+  return questions.map(question => ({ ...question,
+    evidence: question.evidence.map(({ insight: _interpretation, ...verified }) => verified),
+  }));
+}
 const invalid = () => new ResearchRuntimeError("RESEARCH_CONTENT_REFERENCE_INVALID");
 const budget = () => new ResearchRuntimeError("RESEARCH_EVIDENCE_BUDGET_EXCEEDED");
 export function subsectionPlan(section: ReportSection) {

@@ -140,7 +140,12 @@ export async function screenResearchSources(state: ResearchRuntime, sources: Sou
           if (!entry || typeof entry !== "object") return entry;
           const candidate = entry as Record<string, unknown>;
           const chunk = batch.find((item) => item.chunkId === candidate.chunkId && item.sourceId === candidate.sourceId);
-          return chunk ? materializeQuoteReferences(candidate, chunk) : entry;
+          if (!chunk) return entry;
+          // Some providers echo this input-only scope. Drop only the exact trusted
+          // value; mismatched task IDs and every other extra field still fail strict parsing.
+          const normalized = { ...candidate };
+          if (typeof normalized.taskId === "string" && normalized.taskId === chunk.taskId) delete normalized.taskId;
+          return materializeQuoteReferences(normalized, chunk);
         }) } : value;
       const parsed = sourceOutput.safeParse(normalized);
       if (!parsed.success) throw new InvalidRelevanceOutput(parsed.error.issues.slice(0, 32).map(({ path, code, message }) => ({ path, code, message })));

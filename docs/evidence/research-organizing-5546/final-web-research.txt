@@ -1,0 +1,104 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/799b/workspacex/apps/web
+
+ ✓ tests/ui/guided-research-execution-timeline.test.tsx (19 tests) 341ms
+stderr | tests/ui/guided-research-home-live.test.tsx > F168 guided research home live data > renders server history and resumes from the server-authored stage
+Not implemented: navigation to another Document
+
+ ✓ tests/ui/guided-research-reference-layout.test.tsx (20 tests) 1497ms
+   ✓ guided research reference layout > keeps topic essentials and offers a three-row freeform other field 365ms
+ ✓ tests/ui/guided-research-transition.test.tsx (14 tests) 2232ms
+   ✓ confirm and generate the next research step > brief immediately shows outline loading and waits for generated content 499ms
+ ✓ tests/ui/guided-research-live.test.tsx (19 tests) 3602ms
+   ✓ live research workspace > preserves a goal-prefix name with unknown provenance instead of guessing it is automatic 470ms
+   ✓ live research workspace > sends session and version bound chat and applies the persisted proposal by id 337ms
+   ✓ research request recovery > preserves the editor on conflict and lets the user resume against the latest version 402ms
+   ✓ research request recovery > requires a successful recovery read before submitting again, and can adopt the server draft 395ms
+ ✓ tests/ui/guided-research-home-live.test.tsx (29 tests) 4051ms
+   ✓ F168 guided research home live data > shows the real workflow stage and a specific next action instead of an opaque percentage 359ms
+   ✓ F168 guided research home live data > uses the status summary to filter the library and composes it with search 355ms
+   ✓ returns a URL-opened report to history without reopening the stale session prop 338ms
+   ✓ keeps a newly saved explicit name after refreshing the projected list 497ms
+   ✓ renders projected default-name topics without full runtime fan-out 428ms
+ ✓ tests/ui/guided-research-reference-workflow.test.tsx (24 tests) 4362ms
+   ✓ reference research workflow > adopts durable combined-plan completion when its POST never closes without replay 649ms
+   ✓ reference research workflow > protects unsaved topic information from the shared return button 317ms
+   ✓ reference research workflow > protects local report chapter edits from the shared header 483ms
+   ✓ reference research workflow > offers direct report view and export actions in the report workspace 301ms
+ ✓ tests/ui/guided-research-flow.test.tsx (21 tests) 4053ms
+   ✓ guided research session routing and lifecycle > shows the research plan without the removed scope cards 630ms
+   ✓ guided research session routing and lifecycle > preserves an unsent assistant message when leaving is cancelled 743ms
+   ✓ guided research session routing and lifecycle > guards browser history navigation while an assistant message is unsent 538ms
+   ✓ guided research session routing and lifecycle > opens the report rather than retaining chapters after returning to the list 335ms
+   ✓ guided research session routing and lifecycle > shows one primary continue action for a persisted search failure and disables duplicate retries 334ms
+ ✓ tests/ui/guided-research-visual-contract.test.tsx (8 tests) 3041ms
+   ✓ F180 signed guided-research visual contract > derives restored budget progress from the selected tier limits 361ms
+   ✓ F180 signed guided-research visual contract > removes the secondary menu from guided research while retaining it for legacy Studio 378ms
+   ✓ F180 signed guided-research visual contract > keeps one work canvas and a collapsible assistant on guided steps 1649ms
+ ✓ tests/ui/guided-research-step-transitions.test.tsx (22 tests) 4706ms
+   ✓ step-aligned research transitions > browses the plan during research and preserves the selected page after completion 878ms
+   ✓ step-aligned research transitions > preserves browsing and retains the submitted draft when an assistant command fails 517ms
+   ✓ step-aligned research transitions > marks the browsed command step busy when messaging an earlier step 366ms
+   ✓ step-aligned research transitions > keeps edited chapters selected and retrieved evidence available after saving 311ms
+ ✓ tests/ui/guided-research-trust-console.test.tsx (8 tests) 826ms
+   ✓ guided research trust console > blocks confirmation until decision and success criteria are present 311ms
+ ✓ tests/ui/guided-research-conversation-live.test.tsx (11 tests) 2507ms
+   ✓ restores the conversation draft on the right and uses it for the next message without applying 519ms
+   ✓ previews report content and requires applying it before completing research 520ms
+   ✓ retains the submitted conversation draft when polling discovers failure before the POST returns 314ms
+ ✓ tests/ui/guided-research-search-recovery.test.tsx (6 tests) 454ms
+ ✓ tests/ui/guided-research-heading.test.tsx (10 tests) 1076ms
+   ✓ shows a concise default before brief generation rather than a long-input excerpt 303ms
+ ✓ tests/ui/guided-research-skill-assistant.test.tsx (6 tests) 890ms
+   ✓ guided research skill assistant > only changes the editor after explicit application and restores it on undo 509ms
+ ✓ tests/ui/guided-research-report-history.test.tsx (7 tests) 1289ms
+   ✓ continuous report history > opens history after failure even when the current draft has content and preserves saved chapters 418ms
+   ✓ continuous report history > keeps completed current and previous documents separate with unique navigation targets 343ms
+ ✓ tests/ui/guided-research-report-timeline.test.tsx (13 tests) 1487ms
+   ✓ continuous generation timeline > resumes an expired failed attempt once and preserves its checkpoint 1092ms
+ ✓ tests/ui/guided-research-report-reading.test.tsx (6 tests) 3038ms
+   ✓ reads a saved final as a report without generation diagnostics 1229ms
+   ✓ reads a saved draft as a report without generation diagnostics 404ms
+   ✓ opens the report assistant without losing entered text when collapsed 907ms
+ ✓ tests/ui/guided-research-design-editor.test.tsx (6 tests) 1472ms
+   ✓ editable research design depth > keeps the detailed direction editor out of the topic confirmation step 595ms
+   ✓ editable research design depth > edits a simple plan title without dropping richer sibling design fields 586ms
+ ✓ tests/ui/guided-research-report-stream.test.tsx (33 tests) 12765ms
+   ✓ research report stream UI > shows actual model text before completion and ignores wrong request and duplicate deltas 506ms
+   ✓ merges terminal progress without reloading the full snapshot and stops 4259ms
+   ✓ unlocks when progress is terminal even if the POST never closes 2092ms
+   ✓ observes report conversation generation without classifying user intent in the client 516ms
+   ✓ offers a separate full regeneration action for a saved interrupted report 330ms
+   ✓ terminal stream recovery > synchronizes a retained message draft on terminal progress after failed recovery 729ms
+   ✓ terminal stream recovery > synchronizes a retained message draft on terminal progress after hanging recovery 556ms
+ ✓ tests/ui/guided-research-markdown-workspace.test.tsx (6 tests) 963ms
+   ✓ GuidedResearchMarkdownWorkspace > opens the plan in preview and enters editing only on double click 456ms
+ ✓ tests/ui/guided-research-export.test.tsx (3 tests) 1438ms
+   ✓ guided report actual export routing > downloads a genuine DOCX with its extension and delayed URL cleanup 1267ms
+ ✓ tests/ui/guided-research-sources.test.tsx (4 tests) 1224ms
+   ✓ compact research sources > shows sources without technical screening badges 599ms
+ ✓ tests/ui/guided-research-state-loading.test.tsx (3 tests) 889ms
+   ✓ does not apply an old poll patch over newer streamed text and timeline 561ms
+ ✓ tests/ui/guided-research-three-step-live.test.tsx (6 tests) 2097ms
+   ✓ prepares the complete plan once for a newly created confirmed intake 595ms
+   ✓ restores a legacy research link into the report step without replay, then starts one durable report command 456ms
+   ✓ keeps unsaved chapter edits through collapse and reopening 387ms
+   ✓ regenerates from the unlocked server node after saving chapters 401ms
+ ✓ tests/ui/guided-research-checkpoints-live.test.tsx (3 tests) 1585ms
+   ✓ human confirmation in the durable model-backed workflow > keeps generated directions out of the topic step and advances with the saved server draft 704ms
+   ✓ human confirmation in the durable model-backed workflow > rejects an empty outline and confirms a complete edited outline 665ms
+ ✓ tests/ui/guided-research-plan-editor.test.tsx (2 tests) 837ms
+   ✓ edits a single plan on click, adds/removes boxes and confirms saving 686ms
+ ✓ tests/ui/guided-research-readiness.test.tsx (3 tests) 81ms
+ ✓ tests/ui/guided-research-quality-draft.test.tsx (2 tests) 129ms
+ ✓ tests/ui/guided-research-three-step.test.tsx (2 tests) 324ms
+   ✓ three visible research steps over durable legacy nodes > renders only content, plan and report while old research execution marks the report running 322ms
+ ✓ tests/ui/guided-research-plan-hydration.test.tsx (1 test) 425ms
+   ✓ keeps the acknowledged plan visible after hydration and recovery reads fail, without replaying a command 424ms
+ ✓ tests/ui/guided-research-readable-sources.test.tsx (2 tests) 282ms
+
+ Test Files  31 passed (31)
+      Tests  319 passed (319)
+   Start at  23:40:40
+   Duration  24.49s (transform 4.88s, setup 11.48s, collect 58.00s, tests 63.96s, environment 56.10s, prepare 5.45s)

@@ -19,13 +19,13 @@ describe("continuous report history", () => {
     expect(screen.getByTestId("research-report-evidence-warning")).not.toHaveTextContent("未通过校验");
     expect(screen.getByTestId("research-report-evidence-warning")).not.toHaveTextContent("无效部分");
   });
-  it("omits previous reports and coverage notices during generation", async () => {
+  it("keeps previous reports accessible and current coverage notices separate during generation", async () => {
     vi.mocked(getResearchRuntime).mockResolvedValue({ ...initial, report: null, reportPartial: true, busy: true, leaseUntil: "2099-01-01T00:00:00Z", reportPrevious: previous,
       reportEvidenceWarnings: [{ batchIndex: 0, sourceIds: ["source1"], questionIds: ["q1"], reason: "invalid_model_evidence" }],
     });
     render(<GuidedResearchLive sessionId={initial.sessionId} onBack={vi.fn()} />);
     await screen.findByTestId("research-flow-report");
-    expect(screen.queryByTestId("research-report-history")).not.toBeInTheDocument();
+    expect(screen.getByTestId("research-report-history")).toHaveAttribute("open");
     expect(screen.queryByTestId("research-report-evidence-gap")).not.toBeInTheDocument();
     expect(screen.queryByTestId("research-report-evidence-warning")).not.toBeInTheDocument();
   });
@@ -33,8 +33,8 @@ describe("continuous report history", () => {
     vi.mocked(getResearchRuntime).mockResolvedValue({ ...initial, report: null, busy: true, leaseUntil: "2099-01-01T00:00:00Z", reportPrevious: previous, sources: [] });
     render(<GuidedResearchLive sessionId={initial.sessionId} onBack={vi.fn()} />);
     await screen.findByTestId("research-flow-report");
-    expect(screen.queryByTestId("research-report-history")).not.toBeInTheDocument();
-    expect(screen.queryByText(/旧结论/)).not.toBeInTheDocument();
+    expect(screen.getByTestId("research-report-history")).toHaveAttribute("open");
+    expect(screen.getByTestId("research-report-history")).toHaveTextContent("旧结论");
     expect(previous.text).toContain("旧结论");
     expect(screen.queryByTestId("research-report")).not.toBeInTheDocument();
     expect(executeResearchRuntime).not.toHaveBeenCalled();

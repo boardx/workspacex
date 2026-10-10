@@ -151,7 +151,7 @@ describe("step-aligned research transitions", () => {
     expect(executeResearchRuntime).not.toHaveBeenCalled();
   });
 
-  it("keeps cross-step task progress and historical report presentation out of the current page", async () => {
+  it("keeps history out of other steps and available beside the current report", async () => {
     const state = runtimeFixture("report");
     vi.mocked(getResearchRuntime).mockResolvedValue({ ...state,
       progress: { stage: "searching", completed: 1, total: 2 },
@@ -160,10 +160,11 @@ describe("step-aligned research transitions", () => {
     const view = render(<GuidedResearchLive sessionId="grs-live" initialNode="brief" onBack={vi.fn()} />);
     await screen.findByRole("textbox", { name: "研究需求" });
     expect(screen.queryByTestId("research-runtime-progress")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("research-report-history")).not.toBeInTheDocument();
     view.unmount();
     render(<GuidedResearchLive sessionId="grs-live" onBack={vi.fn()} />);
     await screen.findByTestId("research-report");
-    expect(screen.queryByTestId("research-report-history")).not.toBeInTheDocument();
+    expect(screen.getByTestId("research-report-history")).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "研究报告" })).not.toBeInTheDocument();
     expect(screen.getByTestId("research-report-document").compareDocumentPosition(screen.getByTestId("research-report-actions")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });

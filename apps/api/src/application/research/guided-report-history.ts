@@ -1,7 +1,11 @@
 import type { ResearchRuntime } from "./guided-runtime-ports";
 
-/** Retain one previous attempt for viewing, never for checkpoint validation or completion. */
+/** Retain the last formal publication, or latest unpublished attempt when none
+ * exists, for viewing only; never for checkpoint validation or completion. */
 export function preservePreviousReport(state: ResearchRuntime) {
+  // A failed regeneration has no publication. Its complete draft must not
+  // replace the last durable formal report when another attempt starts.
+  if (!state.report && state.reportPrevious?.report && !state.reportPrevious.partial) return;
   const chapters = state.reportCheckpoint?.chapters ?? [];
   const text = state.reportStream?.text ?? "";
   // An empty restarted attempt must not overwrite the last visible chapter draft.

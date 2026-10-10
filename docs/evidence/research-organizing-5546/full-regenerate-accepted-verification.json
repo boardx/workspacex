@@ -1,0 +1,68 @@
+{
+  "phase": "regenerate",
+  "formal": true,
+  "completed": true,
+  "outlineSha256": "cf08ac3fae469d202d4fb01bd4ecd08e4d1c87114f7fd9d85eaafcbde2045c75",
+  "reportSha256": "47feb11dd4f015d4d64bfca8fb511254d837639b8138d5b6f9df3fa91ec0253d",
+  "previousReportSha256": "203ecf860d17630d7ebe77b2e19bb46944c79a1b4106e994cef538e097ed2b59",
+  "fullOriginalQuestions": 32,
+  "chapters": [
+    {
+      "sectionId": "ch_1",
+      "originalQuestionCount": 8,
+      "bindingCount": 8,
+      "authorDispatchId": 325,
+      "canonicalChapterSha256": "46bee6d595dd7dee6a81117e220b0dc7692103464c0d3f95630361a862b673c6",
+      "currentFinalCodeReproducesDurableBody": true,
+      "survivingCitationMarkers": 26,
+      "discardedCitationMarkers": 0,
+      "survivingSourceCount": 11,
+      "questionBindingSha256": "cad99fdb7cca4c132b1f2adc68917a63c3306b554292b037760293f25952fb92",
+      "finalProofDispatchId": null,
+      "finalProofBodyMatches": null
+    },
+    {
+      "sectionId": "ch_2",
+      "originalQuestionCount": 8,
+      "bindingCount": 8,
+      "authorDispatchId": 331,
+      "canonicalChapterSha256": "9912f7ed490fb39dddc57f4c690dcdd9d5463433f5b0049cab338b84af585590",
+      "currentFinalCodeReproducesDurableBody": true,
+      "survivingCitationMarkers": 12,
+      "discardedCitationMarkers": 5,
+      "survivingSourceCount": 5,
+      "questionBindingSha256": "66faa2ee36fe5f3135a3b4e80f39b725531f31f38f32c86b1909a862f3ccf8eb",
+      "finalProofDispatchId": 335,
+      "finalProofBodyMatches": true
+    },
+    {
+      "sectionId": "ch_3",
+      "originalQuestionCount": 8,
+      "bindingCount": 8,
+      "authorDispatchId": 329,
+      "canonicalChapterSha256": "7c2c75a8e39b3f51dbda13e444e55698374ecbda41af1c43e0aa7699e3943f35",
+      "currentFinalCodeReproducesDurableBody": true,
+      "survivingCitationMarkers": 13,
+      "discardedCitationMarkers": 1,
+      "survivingSourceCount": 8,
+      "questionBindingSha256": "c90acdc53f58c72077a1b111a6d22eb4e4716e937aca405868c97947cff88754",
+      "finalProofDispatchId": null,
+      "finalProofBodyMatches": null
+    },
+    {
+      "sectionId": "ch_4",
+      "originalQuestionCount": 8,
+      "bindingCount": 8,
+      "authorDispatchId": 339,
+      "canonicalChapterSha256": "af727a114693c3775b5e42c236f89bacfb95616147e2dce952cd9ed95b70dcc8",
+      "currentFinalCodeReproducesDurableBody": true,
+      "survivingCitationMarkers": 15,
+      "discardedCitationMarkers": 1,
+      "survivingSourceCount": 2,
+      "questionBindingSha256": "a6e0805ab25277146cd86c8283144f4ea6a8d92c01a1b531df15c40b2f092660",
+      "finalProofDispatchId": 342,
+      "finalProofBodyMatches": true
+    }
+  ],
+  "privateRawMaterialsCommitted": false
+}

@@ -1,3 +1,4 @@
+import { preservePreviousReport } from "../../src/application/research/guided-report-history";
 import { reviewChapter } from "../../src/application/research/guided-report-quality";
 import { research as C } from "@repo/contracts";
 import { ModelCallError } from "../../src/application/agent-run/ports";
@@ -87,6 +88,10 @@ function answer(context: any) {
     return { sourceId: chunk.sourceId, chunkId: chunk.chunkId, irrelevant: !matches.length, matches };
   }) };
   if (context.reportStage === "quality") return { questions: context.evidenceByQuestion.map((question: any) => ({ questionId: question.id, status: question.gap ? "gap" : "answered", rationale: "The chapter addresses this question with appropriate limitations." })), supported: true, analysisDepth: "adequate", issues: [] };
+  if (context.chapterOutputMode === "question_paragraphs") return { sectionId: context.section.id, paragraphs: context.questionCoveragePlan.map((question: any) => {
+    const sourceIds = [...new Set<string>(question.evidenceScope.map((entry: any) => entry.sourceId))];
+    return { questionId: question.questionId, body: `The verified policy evidence supplies a limited comparison for this question. Its requested measurement remains uncertain; the local data owner must measure the outcome before making the corresponding investment decision. ${sourceIds.map(id => `[[source:${id}]]`).join(" ")}` };
+  }) };
   if (["chapter", "chapter_revision"].includes(context.reportStage)) return { sectionId: context.section.id, body: body(context.sources[0].id), sourceIds: [context.sources[0].id] };
   return { introduction: "This study compares policy requirements using retrieved excerpts, with incomplete implementation coverage.", conclusion: "Prioritize local verification before investment, balancing entry speed against uncertain regulatory obligations.", title: "Evidence-based findings", summary: `The chapters support a cautious comparison. [[source:${context.chapters[0].sourceIds[0]}]]` };
 }
@@ -98,7 +103,7 @@ describe("confirmed chapter question coverage", () => {
     let reviews = 0;
     const model: ModelCallPort = { complete: async input => {
       const context = JSON.parse(input.user); inputs.push(context);
-      if (["chapter", "chapter_revision"].includes(context.reportStage)) return { text: JSON.stringify({sectionId:"b",body:`### Lighting\n\nThe policy excerpt establishes a limited context, leaving the comparison uncertain and requiring local measurements. [[source:${context.sources[0].id}]]`,sourceIds:[context.sources[0].id]}) };
+      if (["chapter", "chapter_revision"].includes(context.reportStage)) return { text: JSON.stringify(answer(context)) };
       if (context.reportStage === "quality" && ++reviews === 1) return {text:JSON.stringify({...answer(context),questions:context.evidenceByQuestion.map((q:any,i:number)=>({questionId:q.id,status:i===0?"missing":"answered",rationale:i===0?"Missing strongest-factor comparison and a specific measurement gap.":"Covered"}))})};
       return {text:JSON.stringify(answer(context))};
     }};
@@ -108,7 +113,8 @@ describe("confirmed chapter question coverage", () => {
     expect(first.questionCoveragePlan.map((q:any)=>[q.question,q.placement])).toEqual([
       ["Which factor is strongest?","chapter_lead"], ["How does density change happiness?","chapter_lead"], ["How does warm lighting help?","light"]]);
     expect(revised.questionCoveragePlan).toEqual(first.questionCoveragePlan);
-    expect(revised.questionsToRepair.map(({evidenceStatus,evidenceScope,...item}:any)=>item)).toEqual([{questionId:"chapter:0/question:0",question:"Which factor is strongest?",placement:"chapter_lead",issue:"Missing strongest-factor comparison and a specific measurement gap."}]);
+    expect(revised.questionsToRepair.map(({evidenceStatus,evidenceScope,requirement,...item}:any)=>item)).toEqual([{questionId:"chapter:0/question:0",question:"Which factor is strongest?",placement:"chapter_lead",issue:"Missing strongest-factor comparison and a specific measurement gap."}]);
+    expect(revised.questionsToRepair[0].requirement).toBe(first.questionCoveragePlan[0].requirement);
   });
 });
 describe("per-question direct/context repair feedback", () => {
@@ -147,7 +153,7 @@ describe("report conversation regeneration", () => {
     const f = fixture(); const old = { title: "Previous report", summary: "Saved summary", sections: ["b", "a"].map((id) => ({ sectionId: id, body: body(`source-${id}`), sourceIds: [`source-${id}`] })) };
     if (draftOnly) f.state.reportDraft = old; else f.state.report = old;
     const contexts: any[] = [];
-    const store: GuidedRuntimeStore = { read: async () => f.state, claim: async () => ({ state: f.state, replay: false }), write: async (_actor, _request, state) => { f.writes.push(structuredClone(state)); } };
+    const store: GuidedRuntimeStore = { read: async () => f.state, claim: async () => { f.state.errorCode = null; return { state: f.state, replay: false }; }, write: async (_actor, _request, state) => { f.writes.push(structuredClone(state)); } };
     const model: ModelCallPort = { complete: async (input) => {
       const c = JSON.parse(input.user); contexts.push(c);
       if (!c.reportStage && !c.researchStage) return { text: JSON.stringify({ assistantMessage: "Edited", action: "save", value: { ...old, summary: "Invalid [[source:unavailable]]" } }) };
@@ -158,7 +164,7 @@ describe("report conversation regeneration", () => {
     const service = new GuidedRuntimeService(store, model, { search: async () => [] }, config);
     const actor = { sessionId: "s", userId: "u", orgId: "org" } as RuntimeActor;
     const session = { sessionId: "s", brief: f.state.brief, directions: { versions: [] }, outline: { versions: [] }, sourceCount: 0, status: "draft", resumeStage: "brief" } as any;
-    return { ...f, contexts, old, run: () => service.execute(actor, session, { sessionId: "s", requestId: "regen", node: "report", action: "message", message, draft: { node: "report", value: { ...old, title: "Unsaved title" } }, expectedVersion: 4 }, (event) => f.events.push(event)) };
+    return { ...f, contexts, old, service, actor, session, run: () => service.execute(actor, session, { sessionId: "s", requestId: "regen", node: "report", action: "message", message, draft: { node: "report", value: { ...old, title: "Unsaved title" } }, expectedVersion: 4 }, (event) => f.events.push(event)) };
   }
   it.each(["重新生成报告", "请重新生成报告", "重新生成", "regenerate report", "Please regenerate the report."])("regenerates explicit %s through the durable report pipeline", async (message) => {
     const f = setup(message); const result = await f.run();
@@ -175,15 +181,28 @@ describe("report conversation regeneration", () => {
     expect(result.errorCode).not.toBeNull(); expect(draftOnly ? result.reportPrevious?.draft : result.reportPrevious?.report).toEqual(f.old);
     expect(result.completed).toBe(false); expect(result.proposal).toBeNull();
   });
-  it("still rejects unavailable citations produced by the generation pipeline", async () => {
+  it("retains the last formal publication when regenerating after a complete failed draft", async () => {
+    const f = setup("重新生成报告"); preservePreviousReport(f.state);
+    const publication = structuredClone(f.state.reportPrevious);
+    f.state.report = null;
+    f.state.reportDraft = { ...f.old, title: "Failed regenerated draft" };
+    f.state.reportQualityWarnings = [{ sectionId: "b", issues: ["Independent proof failed."] }];
+    f.state.errorCode = "RESEARCH_REPORT_QUALITY_INSUFFICIENT";
+    const result = await f.service.execute(f.actor, f.session, { sessionId: "s", requestId: "history-regen", node: "report", action: "generate_report", expectedVersion: 4 });
+    expect(result.completed).toBe(true); expect(result.errorCode).toBeNull();
+    expect(result.reportPrevious).toEqual(publication);
+    const reloaded = PersistedResearchRuntimeSchema.parse(f.writes.at(-1));
+    expect(reloaded.reportPrevious?.report).toEqual(f.old);
+    expect(reloaded.report?.title).toBe("Evidence-based findings");
+    expect(f.contexts.some(c => c.reportStage === "chapter")).toBe(true);
+  });
+  it("discards unavailable citations and completes regeneration through the durable pipeline", async () => {
     const f = setup("重新生成报告", "references"); const result = await f.run();
-    expect(result.errorCode).not.toBeNull();
-    expect(f.contexts.some((c) => c.reportStage === "chapter")).toBe(true);
-    expect(f.contexts.some((c) => c.reportStage === "synthesis")).toBe(false);
+    expect(result.errorCode).toBeNull();
+    expect(f.contexts.some((c) => c.reportStage === "synthesis")).toBe(true);
     expect(result.reportPrevious?.report).toEqual(f.old);
-    expect(result.report).toBeNull();
-    expect(result.completed).toBe(false);
-    expect(result.proposal).toBeNull();
+    expect(result.report?.sections.every(c => c.sourceIds.length === 0 && !c.body.includes("unavailable"))).toBe(true);
+    expect(result.report).not.toBeNull(); expect(result.proposal).toBeNull();
   });
   it("does not bypass missing accepted source preconditions", async () => {
     const f = setup("重新生成报告"); f.state.sources = [];
@@ -334,8 +353,8 @@ describe("chapter-based report generation", () => {
       expect(() => validateGeneratedChapter(bad, f.state.outline[0]!, new Set(["source-b"])) ).toThrow();
     }
     const model: ModelCallPort = { complete: async (input) => { const c = JSON.parse(input.user); return { text: JSON.stringify(c.reportStage.startsWith("synthesis") ? { ...answer(c), title: "Bad", summary: "Invented [[source:unknown]]" } : answer(c)) }; } };
-    await expect(generateReportChapters(f.state, model, config, f.persist)).rejects.toThrow("RESEARCH_CONTENT_REFERENCE_INVALID");
-    expect(f.state.report).toBeNull(); expect(f.state.modelCalls.at(-1)?.status).toBe("failed");
+    const report = await generateReportChapters(f.state, model, config, f.persist);
+    expect(report.summary).toBe("Invented"); expect(f.state.modelCalls.at(-1)?.status).toBe("succeeded");
   });
   it("bounds source excerpts, excludes deleted evidence and labels shared evidence with explicit gaps", async () => {
     const f = fixture(); f.state.sources[1]!.decision = "excluded";
@@ -429,12 +448,12 @@ describe("chapter-based report generation", () => {
     expect(f.state.reportQualityWarnings?.[0]).toMatchObject({ sectionId: "b" });
     expect(f.state.reportTimeline?.find((item) => item.id === "review:b")?.status).toBe("warning");
   });
-  it("requires the rich outline's actual subsection headings despite an approving model review", async () => {
+  it("assembles the rich outline's exact subsection headings before model review", async () => {
     const f = fixture(); f.state.outline = [{ ...f.state.outline[0]!, subsections: [{ id: "specific", title: "Specific required analysis", questions: ["What evidence establishes this requirement?"] }] }];
     const model: ModelCallPort = { complete: async (input) => ({ text: JSON.stringify(answer(JSON.parse(input.user))) }) };
-    await generateReportChapters(f.state, model, config, f.persist);
-    expect(f.state.report).toBeNull();
-    expect(f.state.reportQualityWarnings?.[0]?.issues.join(" ")).toContain("Specific required analysis");
+    const report = await generateReportChapters(f.state, model, config, f.persist);
+    expect(report.sections[0]?.body).toContain("### Specific required analysis");
+    expect(f.state.reportQualityWarnings ?? []).toEqual([]);
   });
 
   it("generates an honest all-gap chapter without forcing unrelated source citations", async () => {
@@ -453,16 +472,16 @@ describe("chapter-based report generation", () => {
     expect(report.sections[0]!.sourceIds).toEqual([]); expect(report.sections[0]!.body).not.toContain("[[source:");
   });
 
-  it.each(["json", "unknown citation"])("repairs one %s failure and persists canonical references from stable aliases", async (failure) => {
+  it.each(["json", "wrong section"])("repairs one %s failure and persists canonical references from stable aliases", async (failure) => {
     const f = fixture(); f.state.outline = [f.state.outline[0]!]; let revisions = 0;
     const model: ModelCallPort = { complete: async (input) => {
       const context = JSON.parse(input.user);
-      if (context.reportStage === "chapter") return { text: failure === "json" ? '{"sectionId":' : JSON.stringify({ sectionId: context.section.id, body: body("S999"), sourceIds: ["S999"] }) };
+      if (context.reportStage === "chapter") return { text: failure === "json" ? '{"sectionId":' : JSON.stringify({ sectionId: "wrong-section", body: body("S2"), sourceIds: ["S2"] }) };
       if (context.reportStage === "chapter_revision") {
         revisions++; expect(context.rawOutput).toBeTruthy();
         if (failure === "json") expect(context.review.validationIssues).toEqual([{ code: "chapter_json_invalid", path: [] }]);
-        if (failure === "unknown citation") {
-          expect(context.review.validationIssues).toEqual([{ code: "citation_unknown", path: ["body"] }]);
+        if (failure === "wrong section") {
+          expect(context.review.validationIssues).toEqual([{ code: "section_mismatch", path: ["sectionId"] }]);
           expect(context.citationScope).toEqual({ expectedSectionId: context.section.id, allowedSources: context.sources.map((source: any) => ({ sourceId: source.id, alias: source.alias })) });
         }
         const alias = context.sources[0].alias;
@@ -476,15 +495,16 @@ describe("chapter-based report generation", () => {
     expect(f.writes[0]!.reportSourceAliases).toEqual([{ alias: "S1", sourceId: "source-a" }, { alias: "S2", sourceId: "source-b" }]);
     expect(f.state.reportCheckpoint?.chapters).toEqual(report.sections);
   });
-  it("rejects repeated unknown aliases after one repair instead of deleting their citations", async () => {
+  it("discards repeated unknown aliases without a format repair", async () => {
     const f = fixture(); f.state.outline = [f.state.outline[0]!]; let attempts = 0;
-    const model: ModelCallPort = { complete: async (input) => {
-      const context = JSON.parse(input.user);
-      if (["chapter", "chapter_revision"].includes(context.reportStage)) { attempts++; return { text: JSON.stringify({ sectionId: context.section.id, body: body("S999"), sourceIds: ["S999"] }) }; }
-      return { text: JSON.stringify(answer(context)) };
+    const model: ModelCallPort = { complete: async input => {
+      const c = JSON.parse(input.user);
+      if (["chapter", "chapter_revision"].includes(c.reportStage)) { attempts++; return { text: JSON.stringify({ sectionId: c.section.id, body: body("S999"), sourceIds: ["S999"] }) }; }
+      return { text: JSON.stringify(answer(c)) };
     } };
-    await expect(generateReportChapters(f.state, model, config, f.persist)).rejects.toThrow("RESEARCH_CONTENT_REFERENCE_INVALID");
-    expect(attempts).toBe(2); expect(f.state.reportCheckpoint?.chapters).toEqual([]); expect(f.state.report).toBeNull();
+    const report = await generateReportChapters(f.state, model, config, f.persist);
+    expect(attempts).toBe(1); expect(report.sections[0]!.sourceIds).toEqual([]);
+    expect(report.sections[0]!.body).not.toContain("S999");
   });
   it("resumes only quality-approved chapters under the same basis and always re-synthesizes", async () => {
     const f = fixture(); let interrupt = true; const stages: string[] = []; const generated: string[] = [];
@@ -505,7 +525,7 @@ describe("chapter-based report generation", () => {
     await generateReportChapters(f.state, model, config, f.persist, undefined, true);
     expect(generated).toEqual(["b", "a"]);
   });
-  it("retains same-basis warned checkpoint repair context after another citation failure", async () => {
+  it("retains same-basis warned checkpoint repair context after another schema failure", async () => {
     const f = fixture(); f.state.outline = [f.state.outline[0]!]; let mode: "warn" | "bad" | "fixed" = "warn";
     let writes = 0; const calls: any[] = [];
     const model: ModelCallPort = { complete: async input => {
@@ -513,7 +533,7 @@ describe("chapter-based report generation", () => {
       const value = answer(context);
       if (mode === "warn" && context.reportStage === "quality") Object.assign(value, { supported: false, issues: ["Correct the proxy subject using current evidence."] });
       if (mode === "bad" && ["chapter", "chapter_revision"].includes(context.reportStage)) {
-        writes++; return { text: JSON.stringify({ sectionId: context.section.id, body: body("S999"), sourceIds: ["S999"] }) };
+        writes++; return { text: JSON.stringify({ sectionId: context.section.id, body: null, sourceIds: ["S999"] }) };
       }
       return { text: JSON.stringify(value) };
     } };
@@ -528,7 +548,7 @@ describe("chapter-based report generation", () => {
     expect(f.state.reportCheckpoint).toEqual(previous); expect(f.state.reportQualityWarnings).toEqual(warnings);
     expect(f.state.reportEvidenceWarnings).toEqual(evidenceWarnings);
     mode = "bad"; calls.length = 0;
-    await expect(generateReportChapters(f.state, model, config, f.persist, undefined, true)).rejects.toThrow("RESEARCH_CONTENT_REFERENCE_INVALID");
+    await expect(generateReportChapters(f.state, model, config, f.persist, undefined, true)).rejects.toThrow("RESEARCH_NODE_STATE_INVALID");
     expect(writes).toBe(2); expect(f.state.reportCheckpoint).toEqual(previous); expect(f.state.reportQualityWarnings).toEqual(warnings);
     expect(f.state.reportEvidenceWarnings).toEqual(evidenceWarnings);
     mode = "fixed"; calls.length = 0;
@@ -539,7 +559,7 @@ describe("chapter-based report generation", () => {
     expect(f.state.reportQualityWarnings).toEqual([]);
   });
 
-  it("keeps two passed chapters when the third chapter fails both citation attempts, then resumes only remaining chapters", async () => {
+  it("keeps two passed chapters when the third chapter fails both schema attempts, then resumes only remaining chapters", async () => {
     const f = fixture(), ids = ["a", "b", "key_players", "d", "e"];
     f.state.outline = ids.map((id, index) => section(id, id, index));
     f.state.tasks = ids.map(id => ({ id: `task-${id}`, sectionId: id, query: `${id} policy`, status: "succeeded", attempts: 1, errorCode: null }));
@@ -547,10 +567,10 @@ describe("chapter-based report generation", () => {
     let broken = true; const calls: any[] = [];
     const model: ModelCallPort = { complete: async input => {
       const context = JSON.parse(input.user); calls.push(context);
-      if (broken && context.section?.id === "key_players" && ["chapter", "chapter_revision"].includes(context.reportStage)) return { text: JSON.stringify({ sectionId: "key_players", body: body("S999"), sourceIds: ["S999"] }) };
+      if (broken && context.section?.id === "key_players" && ["chapter", "chapter_revision"].includes(context.reportStage)) return { text: JSON.stringify({ sectionId: "key_players", body: null, sourceIds: ["S999"] }) };
       return { text: JSON.stringify(answer(context)) };
     } };
-    await expect(generateReportChapters(f.state, model, config, f.persist)).rejects.toThrow("RESEARCH_CONTENT_REFERENCE_INVALID");
+    await expect(generateReportChapters(f.state, model, config, f.persist)).rejects.toThrow("RESEARCH_NODE_STATE_INVALID");
     expect(f.state.reportCheckpoint?.chapters.map(chapter => chapter.sectionId)).toEqual(["a", "b"]);
     expect(calls.filter(context => context.section?.id === "key_players" && ["chapter", "chapter_revision"].includes(context.reportStage))).toHaveLength(2);
     expect(calls.some(context => context.section?.id === "key_players" && context.reportStage === "quality")).toBe(false);
@@ -563,19 +583,19 @@ describe("chapter-based report generation", () => {
     expect(report.sections.map(chapter => chapter.sectionId)).toEqual(ids);
   });
 
-  it("keeps a newly passed replacement ahead of restored warned material after a later citation failure", async () => {
+  it("keeps a newly passed replacement ahead of restored warned material after a later schema failure", async () => {
     const f = fixture(); let mode: "warn" | "mixed" | "fixed" = "warn"; const calls: any[] = [];
     const model: ModelCallPort = { complete: async input => {
       const context = JSON.parse(input.user); calls.push(context); const value = answer(context);
       if (mode === "warn" && context.reportStage === "quality") Object.assign(value, { supported: false, issues: [`Old ${context.section.id} scope needs verification`] });
-      if (mode === "mixed" && context.section?.id === "a" && ["chapter", "chapter_revision"].includes(context.reportStage)) return { text: JSON.stringify({ sectionId: "a", body: body("S999"), sourceIds: ["S999"] }) };
+      if (mode === "mixed" && context.section?.id === "a" && ["chapter", "chapter_revision"].includes(context.reportStage)) return { text: JSON.stringify({ sectionId: "a", body: null, sourceIds: ["S999"] }) };
       if (mode !== "warn" && context.section?.id === "b" && ["chapter", "chapter_revision"].includes(context.reportStage)) value.body += "\n\nNEW_VERIFIED_REPLACEMENT: retain uncertainty while checking the local scope.";
       return { text: JSON.stringify(value) };
     } };
     await generateReportChapters(f.state, model, config, f.persist);
     const oldTail = structuredClone(f.state.reportCheckpoint!.chapters[1]);
     mode = "mixed";
-    await expect(generateReportChapters(f.state, model, config, f.persist, undefined, true)).rejects.toThrow("RESEARCH_CONTENT_REFERENCE_INVALID");
+    await expect(generateReportChapters(f.state, model, config, f.persist, undefined, true)).rejects.toThrow("RESEARCH_NODE_STATE_INVALID");
     expect(f.state.reportCheckpoint?.chapters[0]?.body).toContain("NEW_VERIFIED_REPLACEMENT");
     expect(f.state.reportCheckpoint?.chapters[1]).toEqual(oldTail);
     expect(f.state.reportQualityWarnings?.map(warning => warning.sectionId)).toEqual(["a"]);
@@ -589,14 +609,14 @@ describe("chapter-based report generation", () => {
     const f = fixture(); f.state.outline = [f.state.outline[0]!]; let broken = false; const calls: any[] = [];
     const model: ModelCallPort = { complete: async input => {
       const context = JSON.parse(input.user); calls.push(context); const value = answer(context);
-      if (broken && ["chapter", "chapter_revision"].includes(context.reportStage)) return { text: JSON.stringify({ sectionId: context.section.id, body: body("S999"), sourceIds: ["S999"] }) };
+      if (broken && ["chapter", "chapter_revision"].includes(context.reportStage)) return { text: JSON.stringify({ sectionId: context.section.id, body: null, sourceIds: ["S999"] }) };
       if (context.reportStage === "quality") Object.assign(value, { supported: false, issues: ["Old scope warning"] });
       return { text: JSON.stringify(value) };
     } };
     await generateReportChapters(f.state, model, config, f.persist);
     expect(f.state.reportQualityWarnings?.length).toBe(1);
     f.state.brief.focus = "A newly confirmed scope"; broken = true; calls.length = 0;
-    await expect(generateReportChapters(f.state, model, config, f.persist, undefined, true)).rejects.toThrow("RESEARCH_CONTENT_REFERENCE_INVALID");
+    await expect(generateReportChapters(f.state, model, config, f.persist, undefined, true)).rejects.toThrow("RESEARCH_NODE_STATE_INVALID");
     expect(f.state.reportCheckpoint?.chapters).toEqual([]); expect(f.state.reportQualityWarnings).toEqual([]);
     expect(calls.filter(context => ["chapter", "chapter_revision"].includes(context.reportStage)).every(context => context.previousReview === undefined && context.previousChapter === undefined)).toBe(true);
   });
@@ -659,7 +679,7 @@ describe("chapter-based report generation", () => {
         expect(context.sources.every((source: any) => /^S\d+$/.test(source.id) && source.id === source.alias)).toBe(true);
         expect(context.evidenceByQuestion.flatMap((q: any) => q.evidence).every((e: any) => /^S\d+$/.test(e.sourceId))).toBe(true);
         expect(context.citationScope.allowedSources.every((source: any) => /^S\d+$/.test(source.sourceId))).toBe(true);
-        if (context.reportStage === "chapter") return { text: JSON.stringify({ sectionId: context.section.id, body: body("unknown-id"), sourceIds: ["unknown-id"] }) };
+        if (context.reportStage === "chapter") return { text: JSON.stringify({ sectionId: context.section.id, body: null, sourceIds: [] }) };
         repairs++;
       }
       return { text: JSON.stringify(answer(context)) };
@@ -668,7 +688,7 @@ describe("chapter-based report generation", () => {
     expect(repairs).toBe(1); expect(report.sections[0]!.sourceIds).toEqual(["source-b"]);
   });
 
-  it("uses exact short aliases in synthesis and diagnoses a corrupted UUID without guessing", async () => {
+  it("uses exact short aliases and discards corrupted synthesis references without guessing", async () => {
     const f = fixture(); f.state.outline = [f.state.outline[0]!]; let revisions = 0; let chapters = 0;
     const model: ModelCallPort = { complete: async (input) => {
       const context = JSON.parse(input.user);
@@ -686,9 +706,9 @@ describe("chapter-based report generation", () => {
       return { text: JSON.stringify(answer(context)) };
     } };
     const report = await generateReportChapters(f.state, model, config, f.persist);
-    expect(report.summary).toBe("Supported [[source:source-b]]");
+    expect(report.summary).toBe("Corrupted");
     expect(report.sections[0]!.sourceIds).toEqual(["source-b"]);
-    expect(chapters).toBe(1); expect(revisions).toBe(1);
+    expect(chapters).toBe(1); expect(revisions).toBe(0);
   });
 
   it("repairs malformed synthesis once without regenerating approved chapters", async () => {
@@ -755,7 +775,8 @@ describe("chapter-based report generation", () => {
     const report = await generateReportChapters(f.state, model, config, f.persist);
     expect(report[field as "summary" | "introduction" | "conclusion"]).toContain("[[source:source-b]]");
     bad = true;
-    await expect(generateReportChapters(f.state, model, config, f.persist, undefined, true)).rejects.toThrow("RESEARCH_CONTENT_REFERENCE_INVALID");
+    const regenerated = await generateReportChapters(f.state, model, config, f.persist, undefined, true);
+    expect(regenerated[field as "summary" | "introduction" | "conclusion"]).toBe(`Distinct ${field} analysis`);
   });
 
   it("rejects mechanically repeated formal components after the bounded repair", async () => {
@@ -1123,8 +1144,10 @@ describe("unverified chapter synthesis boundary (#5179)", () => {
     expect(report.sections[0]!.body).toContain("UNSUPPORTED_SENTINEL");
     expect(f.state.reportQualityWarnings?.[0]?.issues.join(" ")).toContain("AUDIT_SENTINEL");
   });
-  it.each(["source-b", "S2"])("rejects synthesis citations available only in warned chapters (%s)", async (citation) => {
-    const f = runCase("bad-citation", citation); await expect(f.run()).rejects.toThrow("RESEARCH_CONTENT_REFERENCE_INVALID");
+  it.each(["source-b", "S2"])("discards synthesis citations available only in warned chapters (%s)", async (citation) => {
+    const f = runCase("bad-citation", citation); const report = await f.run();
+    expect(report.summary).not.toContain(`[[source:${citation}]]`); expect(report.summary).not.toContain("[[source:source-b]]");
+    expect(f.state.reportQualityWarnings?.some(w => w.sectionId === "b")).toBe(true);
   });
   it("uses deterministic honest framing when every chapter is unverified", async () => {
     const f = runCase("all-warn"); const report = await f.run();
@@ -1483,7 +1506,7 @@ it("cannot turn malformed negative review into approval", async () => {
   expect(calls).toBe(2);
 });
 
-it.each(["Report [[source:S2]]", "Report [[source:"])("diagnoses forbidden title citation %s before bounded repair", async (title) => {
+it.each(["Report [[source:S2]]", "Report [[source:"])("discards title citation %s without spending bounded repair", async (title) => {
   const f = fixture(); let revisions = 0;
   const model: ModelCallPort = { complete: async (input) => {
     const context = JSON.parse(input.user);
@@ -1495,11 +1518,172 @@ it.each(["Report [[source:S2]]", "Report [[source:"])("diagnoses forbidden title
     return { text: JSON.stringify(answer(context)) };
   } };
   const report = await generateReportChapters(f.state, model, config, f.persist);
-  expect(revisions).toBe(1); expect(report.title).toBe("Evidence-based findings");
+  expect(revisions).toBe(0); expect(report.title).toBe("Report");
 });
 
 
 describe("bounded automatic gap adjudication in report generation", () => {
+  it("requires rich writers to address every confirmed question in its own prose before full review", async () => {
+    const f = fixture(); f.state.outline = [{ ...f.state.outline[0]!, subsections: [{ id: "details", title: "Evidence details", questions: ["Which measurement remains unknown?"] }] }];
+    const contexts: any[] = [];
+    await generateReportChapters(f.state, { complete: async input => {
+      const c = JSON.parse(input.user); contexts.push(c);
+      if (c.reportStage === "chapter" || c.reportStage === "chapter_revision") {
+        expect(c.chapterOutputMode).toBe("question_paragraphs");
+        return { text: JSON.stringify({ sectionId: c.section.id, paragraphs: c.questionCoveragePlan.map((q: any) => ({ questionId: q.questionId, body: `The original question is ${q.question} The supplied excerpt establishes only a limited policy fact, with implementation uncertainty. Verify remaining measurements with the policy owner before deciding. [[source:${q.evidenceScope[0].sourceId}]]` })) }) };
+      }
+      return { text: JSON.stringify(answer(c)) };
+    } }, config, f.persist);
+    const review = contexts.find(c => c.reportStage === "quality");
+    expect(review.chapter.body).toContain("### Evidence details");
+    expect(review.questionParagraphs.map((p: any) => p.questionId)).toEqual(contexts.find(c => c.reportStage === "chapter").questionCoveragePlan.map((q: any) => q.questionId));
+    expect(f.state.reportQualityWarnings ?? []).toEqual([]);
+  });
+  it("discards a bad rich citation without spending a writer revision", async () => {
+    const f = fixture(); f.state.outline = [{ ...f.state.outline[0]!, subsections: [{ id: "detail", title: "Confirmed analysis", questions: ["Which outcome?"] }] }];
+    let revisions = 0;
+    const report = await generateReportChapters(f.state, { complete: async input => {
+      const c = JSON.parse(input.user); const value = answer(c);
+      if (c.reportStage === "chapter") value.paragraphs[1].body += " [[source:S999]]";
+      if (c.reportStage === "chapter_revision") revisions++;
+      return { text: JSON.stringify(value) };
+    } }, config, f.persist);
+    expect(revisions).toBe(0); expect(report.sections).toHaveLength(1);
+    expect(report.sections[0]!.body).not.toContain("S999");
+    expect(f.state.reportQualityWarnings ?? []).toEqual([]);
+  });
+  it("propagates rich writer cancellation and never exposes its internal streaming JSON", async () => {
+    const f = fixture(); f.state.outline = [{ ...f.state.outline[0]!, subsections: [{ id: "detail", title: "Confirmed analysis", questions: ["Which outcome?"] }] }];
+    const cancellation = new Error("Cancelled"); cancellation.name = "AbortError";
+    const model: ModelCallPort = {
+      complete: async input => ({ text: JSON.stringify(answer(JSON.parse(input.user))) }),
+      completeStream: async (input, emit) => {
+        const c = JSON.parse(input.user);
+        if (c.chapterOutputMode === "question_paragraphs") { await emit('{"sectionId":"b","paragraphs":[{"questionId":"INTERNAL_ID_SENTINEL"'); throw cancellation; }
+        return { text: JSON.stringify(answer(c)) };
+      },
+    };
+    await expect(generateReportChapters(f.state, model, config, f.persist)).rejects.toBe(cancellation);
+    expect(JSON.stringify(f.events)).not.toContain("INTERNAL_ID_SENTINEL");
+    expect(f.state.report).toBeNull();
+  });
+  it.each(["copied_question", "none_false_claim", "context_false_claim"])("never treats complete rich bindings as semantic approval: %s", async defect => {
+    const f = fixture(); f.state.outline = [{ ...f.state.outline[0]!, subsections: [{ id: "detail", title: "Confirmed analysis", questions: ["Which measured effect was established?"] }] }];
+    let writes = 0; let proofs = 0;
+    await generateReportChapters(f.state, { complete: async input => {
+      const c = JSON.parse(input.user);
+      if (c.reportStage === "quality") {
+        expect(c.questionParagraphs.length).toBe(c.evidenceByQuestion.length);
+        expect(c.chapter.body).toContain("### Confirmed analysis");
+        if (c.reviewKind === "gap_verdict") proofs++;
+        return { text: JSON.stringify({ ...answer(c), supported: false, analysisDepth: "shallow", issues: ["Copied question or unsupported measurement is not an answer."], questions: c.evidenceByQuestion.map((q: any) => ({ questionId: q.id, status: "missing", rationale: "No supported answer or specific verification." })) }) };
+      }
+      const value = answer(c);
+      if (c.reportStage === "evidence" || c.reportStage === "evidence_revision") {
+        if (defect === "none_false_claim") value.evaluations.forEach((e: any) => { e.matches = e.matches.filter((m: any) => m.questionId === c.questions[0].id); e.irrelevant = !e.matches.length; });
+        if (defect === "context_false_claim") value.evaluations.forEach((e: any) => e.matches.forEach((m: any) => { m.relevance = "context"; }));
+      }
+      if (c.chapterOutputMode === "question_paragraphs") {
+        writes++;
+        value.paragraphs.forEach((p: any) => { p.body = (defect === "copied_question" ? "Which measured effect was established? Which measured effect was established? " : "The effect was definitively measured and proved for every participant. ") + [...p.body.matchAll(/\[\[source:([^\]]+)\]\]/g)].map((m: RegExpMatchArray) => m[0]).join(" "); });
+      }
+      return { text: JSON.stringify(value) };
+    } }, config, f.persist);
+    expect(writes).toBe(2); expect(proofs).toBe(0);
+    expect(f.state.report).toBeNull(); expect(f.state.reportQualityWarnings?.length).toBeGreaterThan(0);
+  });
+  it("retains rejected malformed negative review as private final-writer feedback", async () => {
+    const f = fixture(); f.state.outline = [f.state.outline[0]!]; let revision: any;
+    const model: ModelCallPort = { complete: async input => {
+      const c = JSON.parse(input.user);
+      if (c.reportStage === "chapter_revision") {
+        revision = c;
+        expect(c.review.feedbackKind).toBe("unvalidated_review_output");
+        expect(c.review.unvalidatedReviewFeedback.supported).toBe(false);
+        expect(c.questionsToRepair[0].questionId).toBe(c.questionCoveragePlan[0].questionId);
+        expect(c.questionsToRepair[0].issue).toContain("Specific missing measurement");
+      }
+      if (c.reportStage === "quality" && !revision) {
+        return { text: JSON.stringify({ ...answer(c), supported: Boolean(c.malformedReview), questions: c.evidenceByQuestion.map((q: any) => ({ questionId: q.id, status: c.malformedReview ? "gap" : "missing", rationale: c.malformedReview ? "Reformatted verdict." : "Specific missing measurement needs owner verification. ".repeat(80) })) }) };
+      }
+      return { text: JSON.stringify(answer(c)) };
+    } };
+    await generateReportChapters(f.state, model, config, f.persist);
+    expect(revision).toBeDefined(); expect(f.state.reportQualityWarnings ?? []).toEqual([]);
+  });
+  it("keeps rejected private review details out of public quality warnings", async () => {
+    const f = fixture(); f.state.outline = [f.state.outline[0]!];
+    await generateReportChapters(f.state, { complete: async input => {
+      const c = JSON.parse(input.user);
+      if (c.reportStage === "quality") return { text: JSON.stringify({ ...answer(c), supported: Boolean(c.malformedReview), questions: c.evidenceByQuestion.map((q: any) => ({ questionId: q.id, status: c.malformedReview ? "gap" : "missing", rationale: c.malformedReview ? "Changed verdict." : "PRIVATE_UNVALIDATED_DETAIL ".repeat(90) })) }) };
+      return { text: JSON.stringify(answer(c)) };
+    } }, config, f.persist);
+    expect(f.state.reportQualityWarnings?.[0]?.issues).toEqual(["Chapter quality could not be verified."]);
+    expect(JSON.stringify(f.state)).not.toContain("PRIVATE_UNVALIDATED_DETAIL");
+  });
+  it("writes from lossless verified excerpts without extraction interpretations", async () => {
+    const f = fixture(); const contexts: any[] = [];
+    await generateReportChapters(f.state, { complete: async input => {
+      const c = JSON.parse(input.user); contexts.push(c); return { text: JSON.stringify(answer(c)) };
+    } }, config, f.persist);
+    for (const c of contexts.filter(c => c.reportStage === "chapter" || c.reportStage === "chapter_revision")) {
+      expect(c.evidenceByQuestion.flatMap((q: any) => q.evidence)).not.toHaveLength(0);
+      for (const q of c.evidenceByQuestion) for (const e of q.evidence) {
+        expect(e).not.toHaveProperty("insight");
+        expect(c.questionCoveragePlan.find((item: any) => item.questionId === q.id).evidenceScope).toContainEqual({ sourceId: e.sourceId, quote: e.quote, relevance: e.relevance });
+      }
+    }
+  });
+  it("propagates cancellation of the final revision without independent proof", async () => {
+    const f = fixture(); f.state.outline = [f.state.outline[0]!];
+    const contexts: any[] = []; const cancellation = new Error("Cancelled"); cancellation.name = "AbortError";
+    const model: ModelCallPort = { complete: async input => {
+      const c = JSON.parse(input.user); contexts.push(c);
+      if (c.reportStage === "chapter_revision") throw cancellation;
+      if (c.reportStage === "quality") return { text: JSON.stringify({ ...answer(c), questions: c.evidenceByQuestion.map((q: any) => ({ questionId: q.id, status: "missing", rationale: "A concrete measurement is missing." })) }) };
+      return { text: JSON.stringify(answer(c)) };
+    } };
+    await expect(generateReportChapters(f.state, model, config, f.persist)).rejects.toBe(cancellation);
+    expect(contexts.filter(c => c.reviewKind === "gap_verdict")).toHaveLength(0);
+  });
+  it("never sends structurally invalid revised prose to independent gap proof", async () => {
+    const f = fixture(); f.state.outline = [f.state.outline[0]!];
+    const contexts: any[] = [];
+    const model: ModelCallPort = { complete: async input => {
+      const c = JSON.parse(input.user); contexts.push(c);
+      if (c.reportStage === "chapter" || c.reportStage === "chapter_revision") return { text: JSON.stringify({ ...answer(c), body: null, sourceIds: [] }) };
+      return { text: JSON.stringify(answer(c)) };
+    } };
+    await expect(generateReportChapters(f.state, model, config, f.persist)).rejects.toThrow();
+    expect(contexts.filter(c => c.reviewKind === "gap_verdict")).toHaveLength(0);
+  });
+  it.each(["valid_gap", "missing", "unsupported"])("reserves the single independent proof for the final revised chapter (%s)", async verdict => {
+    const f = fixture(); f.state.outline = [f.state.outline[0]!];
+    const contexts: any[] = [];
+    let revised = false;
+    const model: ModelCallPort = { complete: async input => {
+      const c = JSON.parse(input.user); contexts.push(c);
+      if (c.reportStage === "chapter_revision") revised = true;
+      if (c.reportStage === "chapter" || c.reportStage === "chapter_revision") {
+        const chapter = answer(c);
+        return { text: JSON.stringify({ ...chapter, body: `${chapter.body}\n\n${revised ? "Final revised verification plan names the missing metric and its data owner." : "Initial draft still needs a concrete measurement plan."}` }) };
+      }
+      if (c.reportStage === "quality") {
+        if (c.reviewKind === "gap_verdict") {
+          const final = c.chapter.body.includes("Final revised verification plan");
+          return { text: JSON.stringify({ ...answer(c), supported: final && verdict !== "unsupported", questions: c.evidenceByQuestion.map((q: any) => ({ questionId: q.id, status: final && verdict === "valid_gap" ? "gap" : "missing", rationale: "Independent final chapter verification.", chapterParagraphId: c.chapterParagraphs.at(-1).id, evidenceQuoteIds: [`${q.id}/E1`] })), issues: final && verdict === "valid_gap" ? [] : ["The final chapter remains insufficient."] }) };
+        }
+        return { text: JSON.stringify({ ...answer(c), questions: c.evidenceByQuestion.map((q: any) => ({ questionId: q.id, status: "missing", rationale: "The requested measurement is unavailable despite specific verification prose." })) }) };
+      }
+      return { text: JSON.stringify(answer(c)) };
+    } };
+    await generateReportChapters(f.state, model, config, f.persist);
+    const proofs = contexts.filter(c => c.reviewKind === "gap_verdict");
+    expect(contexts.filter(c => c.reportStage === "chapter_revision")).toHaveLength(1);
+    expect(proofs).toHaveLength(1);
+    expect(proofs[0].chapter.body).toContain("Final revised verification plan");
+    expect(f.state.reportQualityWarnings?.length ?? 0).toBe(verdict === "valid_gap" ? 0 : 1);
+  });
   it.each([true, false])("publishes only an independently proven gap after ordinary repair (verified=%s)", async verified => {
     const f = fixture(); f.state.outline = [f.state.outline[0]!];
     const contexts: any[] = [];
@@ -1514,7 +1698,7 @@ describe("bounded automatic gap adjudication in report generation", () => {
     const report = await generateReportChapters(f.state, model, config, f.persist);
     expect(report.sections).toHaveLength(1);
     expect(contexts.filter(c => c.reviewKind === "gap_verdict")).toHaveLength(1);
-    expect(contexts.filter(c => c.reportStage === "chapter_revision")).toHaveLength(verified ? 0 : 1);
+    expect(contexts.filter(c => c.reportStage === "chapter_revision")).toHaveLength(1);
     expect(f.state.reportQualityWarnings?.length ?? 0).toBe(verified ? 0 : 1);
     expect(f.state.reportTimeline?.find(item => item.id === "review:b")?.status).toBe(verified ? "completed" : "warning");
   });
@@ -1545,11 +1729,62 @@ it("retains concrete failed review when independent gap proof is malformed", asy
     const c = JSON.parse(input.user);
     if (c.reviewKind === "gap_verdict") { adjudications++; return { text: "not JSON" }; }
     if (c.reportStage === "chapter_revision") revision = c;
-    if (c.reportStage === "quality" && !revision) return { text: JSON.stringify({ ...answer(c), issues: ["Specific missing measurement needs verification."], questions: c.evidenceByQuestion.map((q: any) => ({ questionId: q.id, status: "missing", rationale: "Specific planned measurement is not covered." })) }) };
+    if (c.reportStage === "quality") return { text: JSON.stringify({ ...answer(c), issues: ["Specific missing measurement needs verification."], questions: c.evidenceByQuestion.map((q: any) => ({ questionId: q.id, status: "missing", rationale: "Specific planned measurement is not covered." })) }) };
     return { text: JSON.stringify(answer(c)) };
   } };
   await generateReportChapters(f.state, model, config, f.persist);
   expect(adjudications).toBe(1);
   expect(revision.review.issues).toContain("Specific missing measurement needs verification.");
   expect(revision.review.review.questions[0].status).toBe("missing");
+});
+
+describe("generated citation discard survives durable first and regenerated reports", () => {
+  it.each(["mixed", "gap", "unsupported"] as const)("keeps %s evidence semantics through first, regeneration and reload", async mode => {
+    const f = fixture(); f.state.outline = [section("b", "Policy", 0)];
+    const contexts: any[] = [];
+    const model: ModelCallPort = { complete: async input => {
+      const c = JSON.parse(input.user); contexts.push(c); const value: any = answer(c);
+      if (mode === "gap" && (c.reportStage === "evidence" || c.researchStage === "source_relevance")) {
+        for (const e of value.evaluations) for (const match of e.matches) match.relevance = "context";
+      }
+      if (["chapter", "chapter_revision"].includes(c.reportStage)) {
+        const prose = mode === "gap"
+          ? body("S999").replace("The source describes a limited policy requirement, supporting this comparison while leaving implementation uncertain.", "The policy effect measurement is unavailable; the regulator must supply before/after implementation records to compare entry timing. No policy effect conclusion is established.")
+          : body(mode === "mixed" ? "S2" : "S999");
+        value.body = `${prose}\n\nPreserve this normal prose [[source:S999] after malformed marker with valid continuation. ${mode === "mixed" ? "[[source:S2]]" : ""}`;
+        value.sourceIds = ["S999"];
+      }
+      if (c.reportStage === "quality") {
+        expect(c.chapter.body).not.toContain("S999");
+        expect(c.chapter.body).toContain("after malformed marker with valid continuation.");
+        if (mode !== "mixed") value.questions.forEach((q: any) => { q.status = "gap"; });
+        if (mode === "unsupported") Object.assign(value, { supported: false, analysisDepth: "shallow", issues: ["The positive policy claim has no supporting evidence."] });
+      }
+      return { text: JSON.stringify(value) };
+    } };
+    const store: GuidedRuntimeStore = { read: async () => f.state, claim: async () => ({ state: f.state, replay: false }), write: async (_actor, _request, state) => { f.writes.push(structuredClone(state)); } };
+    const service = new GuidedRuntimeService(store, model, { search: async () => [] }, config);
+    const actor = { sessionId: "s", userId: "u", orgId: "org" } as RuntimeActor;
+    const session = { sessionId: "s", brief: f.state.brief, directions: { versions: [] }, outline: { versions: [] }, sourceCount: 0, status: "draft", resumeStage: "brief" } as any;
+    let version = 4;
+    for (const regenerated of [false, true]) {
+      const result = await service.execute(actor, session, { sessionId: "s", requestId: `discard-${mode}-${regenerated}`, node: "report", expectedVersion: version, ...(regenerated ? { action: "message" as const, message: "重新生成报告" } : { action: "generate" as const }) });
+      version = result.version;
+      const reloaded = PersistedResearchRuntimeSchema.parse(JSON.parse(JSON.stringify(f.writes.at(-1))));
+      if (mode === "unsupported") {
+        expect(result.completed).toBe(false); expect(result.report).toBeNull();
+        expect(reloaded.reportDraft?.sections[0]?.sourceIds).toEqual([]);
+        expect(reloaded.reportQualityWarnings?.[0]?.issues.join(" ")).toContain("no supporting evidence");
+      } else {
+        expect(result.errorCode).toBeNull(); expect(result.report).not.toBeNull();
+        expect(result.report?.sections[0]?.sourceIds).toEqual(mode === "mixed" ? ["source-b"] : []);
+        expect(reloaded.report).toEqual(result.report);
+        expect(result.report?.sections[0]?.body).not.toContain("S999");
+        expect(result.report?.sections[0]?.body).toContain("after malformed marker with valid continuation.");
+        const confirmed = await service.execute(actor, session, { sessionId: "s", requestId: `confirm-${mode}-${regenerated}`, node: "report", action: "complete", expectedVersion: version });
+        expect(confirmed.errorCode).toBeNull(); expect(confirmed.completed).toBe(true); version = confirmed.version;
+      }
+    }
+    expect(contexts.some(c => c.reportStage === "quality")).toBe(true);
+  });
 });

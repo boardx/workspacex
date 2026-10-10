@@ -41,6 +41,35 @@ function complete() {
 }
 
 describe("automatic research source relevance", () => {
+  it("accepts a redundant taskId only when it exactly matches the trusted source chunk", async () => {
+    const state = runtime();
+    const model = vi.fn(async (_system: string, input: unknown, validate: (output: unknown) => void) => {
+      const context = input as Input;
+      const output = { evaluations: evaluation(context).evaluations.map((entry, index) => ({ ...entry, taskId: context.chunks[index]!.taskId })) };
+      validate(output); return output;
+    });
+    expect((await screenResearchSources(state, [direct], model)).map(item => item.id)).toEqual([direct.id]);
+    expect(model).toHaveBeenCalledTimes(1);
+  });
+  it.each([{ taskId: "another-task" }, { taskId: 42 }, { taskId: null }, { taskId: undefined },
+    { arbitraryField: "unexpected" }, { taskId: "task", arbitraryField: "unexpected" }])("rejects untrusted extra evaluation fields %j", async extra => {
+    const model = async (_system: string, input: unknown, validate: (output: unknown) => void) => {
+      const output = { evaluations: evaluation(input as Input).evaluations.map(entry => ({ ...entry, ...extra })) };
+      validate(output); return output;
+    };
+    await expect(screenResearchSources(runtime(), [direct], model)).rejects.toThrow("RESEARCH_SOURCE_RELEVANCE_INVALID");
+  });
+  it.each(["unknown-source", "unknown-chunk", "duplicate"])("retains identity and uniqueness checks with task echoes: %s", async invalid => {
+    const model = async (_system: string, input: unknown, validate: (output: unknown) => void) => {
+      const context = input as Input;
+      const output = { evaluations: evaluation(context).evaluations.map(entry => ({ ...entry, taskId: "task" })) };
+      if (invalid === "unknown-source") output.evaluations[0]!.sourceId = "unknown";
+      if (invalid === "unknown-chunk") output.evaluations[0]!.chunkId = "unknown";
+      if (invalid === "duplicate") output.evaluations.push(output.evaluations[0]!);
+      validate(output); return output;
+    };
+    await expect(screenResearchSources(runtime(), [direct], model)).rejects.toThrow("RESEARCH_SOURCE_RELEVANCE_INVALID");
+  });
   it("skips all 23 unchanged approvals across the complete task and outline geometry", async () => {
     const state = prepareGeometry(runtime());
     for (const item of state.sources) item.relevanceBasis = relevanceModule.sourceRelevanceBasis(state, item);
