@@ -3,12 +3,13 @@
 import pathlib,subprocess,sys
 ROOT=pathlib.Path(__file__).resolve().parents[2]
 VM=ROOT/'.harness/scripts/vm'
+subprocess.run([sys.executable,'-B',str(ROOT/'.harness/scripts/test_cn_pure_supervisor.py')],cwd=ROOT,check=True,timeout=15)
 TESTS=['cn-maintenance-activation-test.py','collect_cn_migration_snapshot_test.py','cn_tool_profile_test.py','cn_maintenance_host_launcher_test.py','cn_maintenance_recovery_evidence_verifier_test.py','cn_production_recovery_cli_test.py','cn_production_recovery_executor_test.py','cn_tool_install_transaction_test.py','prepare_cn_tool_install_test.py','precheck_cn_tool_install_test.py']
 for test in TESTS:
  # This suite verifies full Git objects and real link rejection fixtures.
  timeout=40 if test=='prepare_cn_tool_install_test.py' else 20
  subprocess.run([sys.executable,'-B',str(VM/test)],cwd=ROOT,check=True,timeout=timeout)
-subprocess.run([sys.executable,'-B','-m','unittest','discover','-s',str(VM),'-p','test_*.py'],cwd=ROOT,check=True,timeout=40)
+subprocess.run([sys.executable,'-B',str(ROOT/'.harness/scripts/cn-pure-test-supervisor.py'),'--directory',str(VM),'--timeout','40'],cwd=ROOT,check=True)
 helper_tests=sorted(VM.glob('test_*.cjs'))+[
  VM/'acceptance_receipt_producer_test.cjs',VM/'acceptance_source_closure_test.cjs']
 subprocess.run(['node','--test',*[str(p) for p in helper_tests]],cwd=ROOT,check=True,timeout=20)
