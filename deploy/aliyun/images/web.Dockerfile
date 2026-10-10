@@ -1,6 +1,6 @@
 # Build from repository root. One image serves any prepared same-origin /api domain.
 ARG NODE_IMAGE
-FROM ${NODE_IMAGE}
+FROM ${NODE_IMAGE} AS builder
 ARG NPM_REGISTRY=https://registry.npmjs.org
 WORKDIR /opt/workspacex
 ENV NEXT_TELEMETRY_DISABLED=1
@@ -13,12 +13,19 @@ RUN --mount=type=cache,id=workspacex-cloud-pnpm,target=/root/.local/share/pnpm/s
 ENV NEXT_PUBLIC_API_URL=/api API_INTERNAL_URL=http://api:3200
 RUN --network=none pnpm --filter @repo/contracts typecheck \
  && WORKSPACEX_RELEASE_BUILD=1 NODE_OPTIONS=--max-old-space-size=3072 pnpm --filter web build \
- && chown -R node:node /opt/workspacex/apps/web/.next
+ && test -f apps/web/.next/standalone/apps/web/server.js
+# A clean runtime starts from the same pinned base: no builder dependencies/cache layers.
+FROM ${NODE_IMAGE} AS runtime
+WORKDIR /opt/workspacex
+ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 HOSTNAME=0.0.0.0 PORT=3000
+ENV NEXT_PUBLIC_API_URL=/api API_INTERNAL_URL=http://api:3200
+COPY --from=builder --chown=node:node /opt/workspacex/apps/web/.next/standalone ./
+COPY --from=builder --chown=node:node /opt/workspacex/apps/web/public ./apps/web/public
+COPY --from=builder --chown=node:node /opt/workspacex/apps/web/.next/static ./apps/web/.next/static
 ARG SOURCE_REVISION
 RUN test "${#SOURCE_REVISION}" = 40
 LABEL org.opencontainers.image.revision=$SOURCE_REVISION
-ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1
 USER node
 WORKDIR /opt/workspacex/apps/web
 EXPOSE 3000
-CMD ["node", "node_modules/next/dist/bin/next", "start", "--hostname", "0.0.0.0"]
+CMD ["node", "server.js"]

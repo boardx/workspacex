@@ -1,0 +1,25 @@
+name: web-runtime-contracts
+on:
+  pull_request:
+    paths:
+      - 'deploy/aliyun/images/web.Dockerfile'
+      - 'apps/web/next.config.mjs'
+      - 'apps/web/package.json'
+      - 'pnpm-lock.yaml'
+      - 'tests/test_web_standalone_packaging.py'
+      - '.github/workflows/web-runtime-contracts.yml'
+permissions:
+  contents: read
+jobs:
+  web-runtime-contracts:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22.20.0'
+          package-manager-cache: false
+      - run: python3 -I -B tests/test_web_standalone_packaging.py
