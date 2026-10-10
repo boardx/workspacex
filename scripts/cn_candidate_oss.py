@@ -193,3 +193,141 @@ class CandidateTransfer(oss.Transfer):
                 os.rmdir(pending, dir_fd=parent_fd)
             except FileNotFoundError: pass
             os.close(parent_fd)
+
+
+class UnknownPutOutcome(Exception):
+    """A trusted port raises this only after a PUT was actually dispatched."""
+
+
+class UntrustedCacheTransfer(CandidateTransfer):
+    """Separate approval protocol; remote bytes are always untrusted cache data.
+
+    This does not promise atomic immutability against bucket administrators.
+    The seven exact objects and their original identities remain independently
+    approved; private full-byte verification, not OSS state, admits consumers.
+    """
+    def __init__(self, port, plan_raw, plan_sha, set_raw, set_sha, transport, approval, max_seconds=1200, *, revalidation=None):
+        c.require(type(plan_raw) is bytes and len(plan_raw) <= 16384 and c.sha(plan_raw) == plan_sha,
+                  'CANDIDATE_PLAN_RAW_HASH')
+        self.build = copy.deepcopy(candidate.validate_plan(c.decode(plan_raw)))
+        self.plan_raw = plan_raw; self.plan_sha = plan_sha
+        self.revalidation = revalidation
+        self.manifest = (candidate.validate_receipt(set_raw, self.build, set_sha) if revalidation is None else
+                         revalidation.check(self.build, set_raw, set_sha, plan_sha))
+        c.require(self.manifest['planRawSha256'] == plan_sha, 'CANDIDATE_ORIGINAL_PLAN_BINDING')
+        c.require(set(self.manifest['images']) == set(c.REPOSITORIES), 'CANDIDATE_COMPLETE_FIVE')
+        self.raw = set_raw; self.manifest_sha = set_sha
+        self.total = 0
+        for service, entry in self.manifest['images'].items():
+            c.require(type(entry) is dict and set(entry) == {'file','size','sha256','configSha256','imageId','layers','stagingTag'}
+                      and entry['file'] == service + '.tar' and type(entry['size']) is int
+                      and 0 < entry['size'] <= self.build['maxArchiveBytes'] and c.hex_string(entry['sha256'],64),
+                      'CANDIDATE_TRANSFER_ENTRY')
+            self.total += entry['size']
+        c.require(self.total <= self.build['maxTotalBytes'], 'CANDIDATE_TOTAL')
+        self.total += len(plan_raw) + len(set_raw)
+        fields = {'kind','bucket','region','endpoint','prefix','uploadPrincipal','downloadPrincipal','objects','deliveryId'}
+        c.require(type(transport) is dict and set(transport) == fields
+                  and transport['kind'] == 'approved-candidate-oss-untrusted-cache-v1', 'CANDIDATE_TRANSPORT_FIELDS')
+        for key in ('bucket','region','prefix','uploadPrincipal','downloadPrincipal'):
+            c.require(isinstance(transport[key],str) and 0 < len(transport[key]) <= 512
+                      and not any(ord(x) < 32 for x in transport[key]), 'TRANSPORT_FIELD_INVALID')
+        c.require(c.re.fullmatch(r'[a-z0-9][a-z0-9-]{1,61}[a-z0-9]',transport['bucket'])
+                  and transport['region'] == 'cn-shanghai'
+                  and transport['endpoint'] == 'https://oss-cn-shanghai.aliyuncs.com', 'CANDIDATE_TRANSPORT_TARGET')
+        c.require(c.hex_string(transport['deliveryId'],32), 'CACHE_DELIVERY_ID')
+        prefix = 'cn-image-candidates/' + self.build['sourceRevision'] + '/' + self.build['attemptId'] + '/deliveries/' + transport['deliveryId'] + '/'
+        c.require(transport['prefix'] == prefix, 'TRANSFER_ATTEMPT_PREFIX')
+        hashes = {PLAN: plan_sha, SET: set_sha, **{s+'.tar':e['sha256'] for s,e in self.manifest['images'].items()}}
+        c.require(type(transport['objects']) is dict and set(transport['objects']) == set(hashes), 'TRANSPORT_OBJECT_SET')
+        for name, sha in hashes.items():
+            item = transport['objects'][name]
+            c.require(type(item) is dict and type(item.get('bytes')) is int
+                      and item == {'key':prefix+name,'versionId':'','sha256':sha,'bytes':self.size(name)}, 'TRANSPORT_OBJECT_BINDING')
+        expected = dict(schemaVersion=1, kind='cn-candidate-untrusted-cache-approval-v1', transferAuthorized=True,
+                        candidatePlanRawSha256=plan_sha, candidateSetRawSha256=set_sha,
+                        candidateIdentity=self.manifest['identity'],
+                        **{k:self.build[k] for k in ('sourceRevision','controlRevision','attemptId')},
+                        transportSha256=c.sha(c.json_bytes(transport)))
+        if revalidation is not None: expected['revalidationRawSha256'] = revalidation.sha
+        c.require(type(approval) is dict and set(approval) == set(expected)|{'operation','observedAt','expiresAt'}
+                  and all(type(approval[k]) is type(v) and approval[k] == v for k,v in expected.items())
+                  and approval['operation'] in ('upload','download'), 'TRANSFER_APPROVAL_REQUIRED')
+        c.require(0 < (c.timestamp(approval['expiresAt'])-c.timestamp(approval['observedAt'])).total_seconds() <= 3600,
+                  'TRANSFER_APPROVAL_EXPIRED')
+        c.require(type(max_seconds) is int and 0 < max_seconds <= 1200, 'TRANSFER_DEADLINE_INVALID')
+        self.deadline = time.monotonic() + max_seconds
+        self.port = port; self.transport = copy.deepcopy(transport); self.approval = copy.deepcopy(approval)
+        self.check()
+
+
+    def cache_version(self):
+        self.check()
+        c.require(self.port.observe_cache_version() == 'Disabled', 'CACHE_VERSION_OBSERVATION')
+        self.check()
+
+    def readback(self, name, target=None):
+        self.cache_version()
+        super().readback(name, target)
+        self.cache_version()
+
+    def verify(self, folder):
+        super().verify(folder)
+        if self.approval['operation'] == 'download':
+            # After every tar/config/layer read, before NOREPLACE publication.
+            self.cache_version()
+
+    def receipt(self):
+        self.cache_version()
+        result = super().receipt()
+        result.update(schemaVersion=1, kind='cn-candidate-untrusted-cache-transfer-v1',
+                      remoteCacheImmutable=False, administrativeRaceExcluded=False,
+                      versioningObservedBefore='Disabled', versioningObservedAfter='Disabled')
+        return result
+
+    @bounded
+    def upload(self, bundle):
+        c.require(self.approval['operation'] == 'upload', 'TRANSFER_OPERATION_UNAPPROVED')
+        c.require(shutil.disk_usage(tempfile.gettempdir()).free >= self.total + self.build['storageMarginBytes'], 'TRANSFER_CAPACITY')
+        c.require(os.statvfs(tempfile.gettempdir()).f_favail >= 4096, 'TRANSFER_INODE_CAPACITY')
+        self.check()
+        directory = directory_fd(bundle)
+        try:
+            with ExitStack() as stack, tempfile.TemporaryDirectory(prefix='wsx-oss-snapshot-') as tmp:
+                snapshot = Path(tmp)
+                # Snapshot pinned files; validate all Docker-save bytes before any remote write.
+                for name in self.transport['objects']:
+                    source = stack.enter_context(private_file(directory, name))
+                    before = os.fstat(source.fileno())
+                    with (snapshot / name).open('xb') as out:
+                        total = 0
+                        while True:
+                            self.check(); raw = source.read(CHUNK)
+                            if not raw: break
+                            total += len(raw); c.require(total <= self.size(name), 'SOURCE_SIZE_LIMIT'); out.write(raw)
+                    after = os.fstat(source.fileno())
+                    c.require((before.st_size, before.st_mtime_ns, before.st_ctime_ns) ==
+                              (after.st_size, after.st_mtime_ns, after.st_ctime_ns), 'SOURCE_CHANGED')
+                c.require((snapshot / SET).read_bytes() == self.raw, 'SOURCE_MANIFEST_MISMATCH')
+                self.verify(snapshot)
+                self.check(); self.port.bind(self.transport, 'upload'); self.check()
+                # Manifest is completion marker, published only after five complete readbacks.
+                names = [PLAN] + [service + '.tar' for service in c.REPOSITORIES] + [SET]
+                missing = []
+                for name in names:
+                    try: self.readback(name)
+                    except Exception as error:
+                        if not self.port.missing(error): raise
+                        missing.append(name)
+                c.require(SET in missing or not missing, 'REMOTE_COMPLETION_INCOMPLETE')
+                for name in missing:
+                    self.check()
+                    with (snapshot / name).open('rb') as source:
+                        try: self.port.put(self.transport['objects'][name]['key'], source, self.size(name), self.check)
+                        except UnknownPutOutcome:
+                            # Only a dispatched PUT with unknown outcome admits GET recovery; never retry.
+                            self.readback(name)
+                    self.readback(name)
+                return self.receipt()
+        finally:
+            os.close(directory)

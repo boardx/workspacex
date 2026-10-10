@@ -1,0 +1,25 @@
+{
+  "Version": "1",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": ["oss:GetBucketPolicy"],
+      "Principal": ["arn:sts::1177216024653153:assumed-role/workspacexcnproductionecsrole/*"],
+      "Resource": ["acs:oss:*:1177216024653153:workspacex-cn-prod-assets"],
+      "Condition": {
+        "DateGreaterThanEquals": {"acs:CurrentTime": "<execution-start-UTC>"},
+        "DateLessThan": {"acs:CurrentTime": "<execution-start-plus-at-most-one-hour-UTC>"}
+      }
+    },
+    {
+      "Effect": "Deny",
+      "Action": ["oss:PutBucketVersioning", "oss:PutBucketPolicy", "oss:DeleteBucketPolicy", "oss:PutBucketAcl"],
+      "Principal": ["*"],
+      "Resource": ["acs:oss:*:1177216024653153:workspacex-cn-prod-assets"],
+      "Condition": {
+        "DateGreaterThanEquals": {"acs:CurrentTime": "<execution-start-UTC>"},
+        "DateLessThan": {"acs:CurrentTime": "<execution-start-plus-at-most-one-hour-UTC>"}
+      }
+    }
+  ]
+}

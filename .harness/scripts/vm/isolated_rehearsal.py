@@ -4,6 +4,7 @@ import ast,datetime,hashlib,ipaddress,json,os,re,secrets,stat,subprocess,sys,uui
 from pathlib import Path
 PRODUCTION='pgm-uf6rg214cp381l49'
 DBS=('workspacex','workspacex_agent','workspacex_memory')
+ROLE_NAMES=('app_diag_ro','app_rw','graph_owner','memory_owner','memory_rw','migration_owner')
 STAGES=('restore','before','migrate','canonical-setup','canvas-audit','after','snapshot','recovery-verify')
 SAFE_PROVIDER_CODES=frozenset(('Forbidden','User.NoPermission','InvalidAccountPassword.Format','Account.AddError','InvalidDBInstanceId.NotFound','InvalidDBInstanceName.NotFound'))
 class UnknownOutcome(RuntimeError):pass
@@ -54,10 +55,10 @@ def credentials(root,b):
  else:
   s={k:b[k] for k in ('accountId','regionId','attemptId','targetInstanceId','host','peer','peerSha256','providerCreatedUtc')}
   s.update(user='migration_admin',password='Aa1!'+secrets.token_urlsafe(21),port=5432,tls=b['tls'])
-  s['roles']={role:dict(s,user=role,password='Aa1!'+secrets.token_urlsafe(21)) for role in ('app_diag_ro','app_rw','graph_owner','memory_owner','memory_rw','migration_owner')}
+  s['roles']={role:dict(s,user=role,password='Aa1!'+secrets.token_urlsafe(21)) for role in ROLE_NAMES}
   exclusive(p,s)
  if any(s[k]!=b[k] for k in ('accountId','regionId','attemptId','targetInstanceId','host','peer','peerSha256','providerCreatedUtc')) or s.get('user')!='migration_admin' or s.get('port')!=5432 or s.get('tls')!=b['tls'] or not re.fullmatch(r'Aa1![A-Za-z0-9_-]{28}',s.get('password','')):raise ValueError('SECRET_TARGET_MISMATCH')
- for role in ('app_diag_ro','app_rw','graph_owner','memory_owner','memory_rw','migration_owner'):
+ for role in ROLE_NAMES:
   r=s.get('roles',{}).get(role,{})
   if r.get('user')!=role or r.get('port')!=5432 or r.get('tls')!=b['tls'] or any(r.get(k)!=b[k] for k in ('targetInstanceId','attemptId','host','peer','peerSha256','providerCreatedUtc')) or not re.fullmatch(r'Aa1![A-Za-z0-9_-]{28}',r.get('password','')):raise ValueError('ROLE_SECRET_BINDING')
  return s
@@ -117,6 +118,55 @@ def bounded_readback(read,ready,b,cleanup=False):
   if time.monotonic()>=limit:raise UnknownOutcome('READBACK_NOT_READY')
   time.sleep(min(2,max(0,limit-time.monotonic())))
 
+def role_intent(b,role,nonce):
+ if role not in ROLE_NAMES or type(nonce) is not str or not re.fullmatch('[a-f0-9]{32}',nonce):raise ValueError('ROLE_INTENT_BINDING')
+ return dict(schemaVersion=1,kind='isolated-normal-account-intent',role=role,accountType='Normal',bootstrapNonce=nonce,
+             **{k:b[k] for k in ('accountId','regionId','targetInstanceId','attemptId','candidateSha','providerCreatedUtc')})
+def role_description(intent):
+ return 'wsx-isolated-'+intent['attemptId']+'-'+intent['role']+'-'+intent['bootstrapNonce']
+def bootstrap_role_accounts(b,root,secret,invoke):
+ """Create each fixed Normal account once; only provider reads may reconcile intent."""
+ validate_binding(b)
+ st=root.lstat()
+ if not stat.S_ISDIR(st.st_mode) or st.st_uid!=os.geteuid() or stat.S_IMODE(st.st_mode)!=0o700:raise ValueError('ROLE_JOURNAL_PRIVATE')
+ def record(path):
+  st=path.lstat()
+  if not stat.S_ISREG(st.st_mode) or stat.S_IMODE(st.st_mode)!=0o600 or st.st_uid!=os.geteuid() or st.st_nlink!=1:raise ValueError('ROLE_JOURNAL_PRIVATE')
+  return private_json(path)
+ owned={};intents={}
+ # Validate every durable ownership record before any new mutation.
+ for role in ROLE_NAMES:
+  path=root/('role-'+role+'.intent.json');done=root/('role-'+role+'.receipt.json')
+  if os.path.lexists(path):
+   value=record(path)
+   if value!=role_intent(b,role,value.get('bootstrapNonce')):raise ValueError('ROLE_INTENT_BINDING')
+   intents[role]=value;owned[role]=role_description(value)
+  if os.path.lexists(done):
+   if role not in intents or record(done)!=dict(schemaVersion=1,kind='isolated-normal-account-verified',intent=intents[role],providerVerified=True):raise ValueError('ROLE_RECEIPT_BINDING')
+ def read(role,intent,allowed):
+  payload=dict(binding=b,secret=secret,role=role,roleIntent=intent,ownedRoles=allowed)
+  result=invoke('role-account-readback',payload)
+  expected=dict(targetInstanceId=b['targetInstanceId'],attemptId=b['attemptId'],role=role,accountType='Normal',accountDescription=role_description(intent))
+  if type(result) is not dict or any(result.get(k)!=v for k,v in expected.items()) or type(result.get('exists')) is not bool or type(result.get('absent')) is not bool or (result['exists'] and result['absent']):raise ValueError('ROLE_READBACK_BINDING')
+  return result
+ for role in ROLE_NAMES:
+  if created(b)+6900-datetime.datetime.now(datetime.timezone.utc).timestamp()<330:raise ValueError('CLEANUP_RESERVE_REQUIRED')
+  intent=intents.get(role)
+  if intent is None:
+   intent=role_intent(b,role,uuid.uuid4().hex)
+   if read(role,intent,owned).get('absent') is not True:raise ValueError('ROLE_ACCOUNT_NOT_EMPTY')
+   exclusive(root/('role-'+role+'.intent.json'),intent)
+   intents[role]=intent;owned[role]=role_description(intent)
+   try:invoke('role-account-create',dict(binding=b,secret=secret,role=role,roleIntent=intent,ownedRoles=owned))
+   except UnknownOutcome as error:report_provider_error(error)
+  # Existing intent never re-enters CreateAccount, including crash before dispatch.
+  bounded_readback(lambda:read(role,intent,owned),lambda r:r['exists'] is True,b)
+  done=root/('role-'+role+'.receipt.json')
+  if not os.path.lexists(done):exclusive(done,dict(schemaVersion=1,kind='isolated-normal-account-verified',intent=intent,providerVerified=True))
+ # Reattest all six together before restore. SQL attributes/memberships remain separate gates.
+ for role in ROLE_NAMES:
+  if not read(role,intents[role],owned)['exists']:raise ValueError('ROLE_FINAL_READBACK_REQUIRED')
+
 def rehearse(b,root,invoke):
  validate_binding(b)
  now=lambda:datetime.datetime.now(datetime.timezone.utc).timestamp()
@@ -142,6 +192,7 @@ def rehearse(b,root,invoke):
    if name=='oos':
     if not result.get('registered') or result.get('targetInstanceId')!=b['targetInstanceId'] or result.get('deleteBeginEpoch')!=created(b)+6900:raise ValueError('OOS_READBACK_REQUIRED')
    elif not result.get('exists') or result.get('user')!=secret['user']:raise ValueError('ACCOUNT_READBACK_REQUIRED')
+  bootstrap_role_accounts(b,root,secret,invoke)
   for stage in STAGES:
    if deadline-now()<330:raise ValueError('CLEANUP_RESERVE_REQUIRED')
    observation=observed()  # Reattest actual provider/peer before every SQL-bearing stage.
