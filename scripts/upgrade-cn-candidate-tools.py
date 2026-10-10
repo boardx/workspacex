@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Bounded root candidate closure upgrade; never executes publisher/app code.
 
-Uses the reviewed transaction engine for per-file atomic CAS, backup journal,
+Uses the reviewed transaction engine for locked compare-before-replace, backup journal,
 entry-last commit and interrupted rollback. Not a general-purpose installer.
 """
 from contextlib import contextmanager
@@ -47,6 +47,7 @@ def decode(raw):
 
 def directory(path, uid=0, boundary=None):
     path=Path(path);need(path.is_absolute() and '..' not in path.parts,'DIRECTORY_PATH')
+    expected_gid=0 if uid==0 else os.stat(boundary).st_gid
     if boundary is not None:
         need(path.is_relative_to(boundary),'FIXTURE_BOUNDARY');parts=path.relative_to(boundary).parts
         fd=os.open(boundary,os.O_RDONLY|os.O_DIRECTORY|os.O_NOFOLLOW)
@@ -56,7 +57,7 @@ def directory(path, uid=0, boundary=None):
         for part in (None,*parts):
             if part is not None:
                 child=os.open(part,os.O_RDONLY|os.O_DIRECTORY|os.O_NOFOLLOW,dir_fd=fd);os.close(fd);fd=child
-            st=os.fstat(fd);need(st.st_uid==uid and not st.st_mode & 0o022,'DIRECTORY_TRUST')
+            st=os.fstat(fd);need(st.st_uid==uid and st.st_gid==expected_gid and not st.st_mode & 0o022,'DIRECTORY_TRUST')
         return fd
     except BaseException:os.close(fd);raise
 

@@ -99,6 +99,19 @@ class UpgradeTests(unittest.TestCase):
         with u.locked(path,self.uid,self.gid,self.root):
             with self.assertRaises(BlockingIOError):
                 with u.locked(path,self.uid,self.gid,self.root):pass
+    def test_noncooperating_root_race_is_explicitly_outside_lock_contract(self):
+        # A foreign writer ignoring the canonical lock can race compare+rename.
+        # Record this limit instead of claiming kernel atomic compare-and-swap.
+        original=os.replace;target=self.tools/'canonical_control.py';inserted=[]
+        def replace(source,destination,*args,**kwargs):
+            if destination=='canonical_control.py' and not inserted:
+                foreign=self.root/'noncooperating';foreign.write_bytes(b'foreign');foreign.chmod(0o700)
+                original(foreign,target);inserted.append(True)
+            return original(source,destination,*args,**kwargs)
+        with patch.object(self.engine.os,'replace',replace):self.execute()
+        self.assertEqual(inserted,[True])
+        self.assertEqual(target.read_bytes(),self.content['canonical_control.py'])
+
     def test_completed_attempt_never_reused(self):
         self.execute()
         with self.assertRaises(RuntimeError):self.execute()

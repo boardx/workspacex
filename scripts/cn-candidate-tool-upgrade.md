@@ -7,14 +7,21 @@ checked against the original Git objects. No publisher, application, Docker,
 registry, service restart or migration command is executed.
 
 The installer reuses the exact pinned `cn-tool-install-transaction.py` engine.
-Each replacement is atomic; the nine-file set is a journalled transaction, not
+Each replacement is atomic; compare-before-replace is serialized by the shared
+lock, not a kernel atomic compare-and-swap. The nine-file set is a journalled transaction, not
 one physical multi-file rename. The entry is replaced last and the committed
 journal is written only after complete readback. A concurrent entry sees either
 its complete approved snapshot or a hash rejection before imports: existing
 entry code verifies the full closure before loading modules. Already snapshotted
 old code can finish under its own valid approval; this operation does not kill
 or revoke a process. The canonical release lock prevents concurrent publication
-mutations while installation is in progress.
+mutations while installation is in progress. Every legitimate target writer must
+honor that same lock, and the old no-lock installer/old executors must have stopped
+writing before this transaction begins. The primary operator must reconcile any
+unknown Cloud Assistant command or conflicting process and stop on uncertainty.
+A non-cooperating root writer is outside this threat model: a root replacement
+between comparison and rename can be overwritten. No universal CAS guarantee
+against such a writer is claimed.
 
 ## Independently reviewed package
 
@@ -53,10 +60,12 @@ the new file's absence, every payload and Python syntax without executing it.
 Only the fixed backup subtree `/var/lib/workspacex-cn/candidate-tool-upgrades`
 may be created. The unique upgrade directory holds 0600 before-images, manifest
 binding and crash journal. Stages and backups are fsynced before replacements.
-Target owner/mode/link/hash CAS is repeated immediately before each replacement.
+Target owner/mode/link/hash preconditions are repeated immediately before each
+replacement while the exclusive writer fence and canonical lock remain held.
 
 Ordinary failure or caught interruption rolls back only transaction-owned
-inodes. A foreign replacement is preserved, rollback reports incomplete and all
+inodes. If rollback encounters an inode that the transaction does not own, that inode is
+preserved, rollback reports incomplete and all
 backup/journal evidence remains. No automatic retry, backup deletion or pruning
 is performed. A used upgrade ID is never overwritten.
 
@@ -81,6 +90,6 @@ is reported as committed and is not reversed: a rollback of a completed upgrade
 would need a separately reviewed reverse transaction. If an acknowledgement is
 lost after commit, inspect this journal instead of rerunning installation.
 
-Local tests use real files, CAS races, lock contention, injected failures and
+Local tests use real files, comparison/ownership races, lock contention, injected failures and
 SIGKILL/recovery. Root ownership is mapped to the fixture user's ownership;
 these are not production installation or application acceptance receipts.
