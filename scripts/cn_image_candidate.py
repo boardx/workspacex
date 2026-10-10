@@ -6,6 +6,8 @@ import re
 import tarfile
 import cn_image_archive as a
 SOURCE = '55d904af3edcca54b2fbe17bba59ed2eed09323b'
+# Preserve historical/diagnostic identity; formal builds admit only reviewed exact sources.
+FORMAL_SOURCES = frozenset((SOURCE, '5285bef9a6c91bbb9857ede42779aafa64b98f32'))
 KIND = 'cn-image-candidate-v2'
 LABEL = 'org.workspacex.candidate-build-identity'
 spec = importlib.util.spec_from_file_location('candidate_hosted', Path(__file__).with_name('hosted-release.py'))
@@ -19,7 +21,7 @@ def validate_plan(p):
     require(('budgetProfile' not in p) or profile == 'formal-4g-v1', 'CANDIDATE_BUDGET_PROFILE')
     require(set(p)-({'budgetProfile'} if profile else set()) == {'kind','schemaVersion','sourceRevision','controlRevision','attemptId','platform','baseImages','sourceContracts','maxArchiveBytes','maxTotalBytes','storageMarginBytes'}, 'CANDIDATE_PLAN_FIELDS')
     require(p['kind'] == KIND and type(p['schemaVersion']) is int and p['schemaVersion'] == 2, 'CANDIDATE_SCHEMA')
-    require(p['sourceRevision'] == SOURCE and a.hex_string(p['controlRevision'],40), 'CANDIDATE_EXACT_SHA')
+    require(isinstance(p['sourceRevision'],str) and p['sourceRevision'] in FORMAL_SOURCES and a.hex_string(p['controlRevision'],40), 'CANDIDATE_EXACT_SHA')
     require(isinstance(p['attemptId'],str) and re.fullmatch('[a-z0-9][a-z0-9-]{0,63}',p['attemptId']), 'CANDIDATE_ATTEMPT')
     require(p['platform'] == 'linux/amd64', 'CANDIDATE_PLATFORM')
     bases=p['baseImages']; require(type(bases) is dict and set(bases)=={'node','python','postgres'}, 'CANDIDATE_BASES')
@@ -34,6 +36,7 @@ def validate_plan(p):
 
 def validate_diagnostic_plan(p):
     validate_plan(p)
+    require(p['sourceRevision']==SOURCE,'DIAGNOSTIC_SOURCE_NOT_ALLOWED')
     require('budgetProfile' not in p and p['maxArchiveBytes']==2*1024**3,'DIAGNOSTIC_FIXED_BUDGET')
     return p
 
@@ -58,7 +61,7 @@ def inspect(path,p,s):
         needed={'manifest.json',v['Config'],*names}; require(set(n for n,x in ix.items() if x.isfile())==needed and needed<=set(ix),'CANDIDATE_MEMBERS')
         raw=a.small_member(t,ix[v['Config']]); config=a.decode(raw)
         require(config.get('os')=='linux' and config.get('architecture')=='amd64','CANDIDATE_IMAGE_PLATFORM')
-        labels=config.get('config',{}).get('Labels',{}); require(type(labels) is dict and labels.get('org.opencontainers.image.revision')==SOURCE and labels.get(LABEL)==identity(p) and 'org.workspacex.archive-build-identity' not in labels,'CANDIDATE_LABELS')
+        labels=config.get('config',{}).get('Labels',{}); require(type(labels) is dict and labels.get('org.opencontainers.image.revision')==p['sourceRevision'] and labels.get(LABEL)==identity(p) and 'org.workspacex.archive-build-identity' not in labels,'CANDIDATE_LABELS')
         layers=[{'name':n,'size':ix[n].size,'sha256':a.member_digest(t,ix[n])} for n in names]
         root=config.get('rootfs',{}); require(root.get('type')=='layers' and root.get('diff_ids')==['sha256:'+x['sha256'] for x in layers],'CANDIDATE_DIFF_IDS')
         return {'configSha256':a.sha(raw),'imageId':'sha256:'+a.sha(raw),'layers':layers,'stagingTag':tag(p,s)}

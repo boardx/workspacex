@@ -178,22 +178,22 @@ def produce(p,raw,source,output,service,command=run):
     stage('BUILD_INPUTS')
     c.validate_plan(p);c.require(service in c.hosted.SERVICES,'CANDIDATE_SERVICE');control(p,command)
     stage('SOURCE_VERIFY')
-    source=Path(source);c.require(command(['git','rev-parse','HEAD'],source).decode().strip()==c.SOURCE,'CANDIDATE_SOURCE_SHA')
+    source=Path(source);c.require(command(['git','rev-parse','HEAD'],source).decode().strip()==p['sourceRevision'],'CANDIDATE_SOURCE_SHA')
     c.require(not command(['git','status','--porcelain','--untracked-files=all'],source).strip(),'CANDIDATE_SOURCE_DIRTY')
-    command(['git','merge-base','--is-ancestor',c.SOURCE,'origin/main'],source)
-    for v in p['sourceContracts'].values():c.require(a.sha(command(['git','show',c.SOURCE+':'+v['dockerfile']],source))==v['dockerfileSha256'],'CANDIDATE_DOCKERFILE_HASH')
+    command(['git','merge-base','--is-ancestor',p['sourceRevision'],'origin/main'],source)
+    for v in p['sourceContracts'].values():c.require(a.sha(command(['git','show',p['sourceRevision']+':'+v['dockerfile']],source))==v['dockerfileSha256'],'CANDIDATE_DOCKERFILE_HASH')
     stage('OUTPUT_PREFLIGHT')
     out=Path(output);c.require(not out.exists() and not out.is_symlink() and out.parent.is_dir(),'CANDIDATE_OUTPUT_EXISTS')
     capacity(out.parent,4*p['maxArchiveBytes']+p['storageMarginBytes'])
     out.mkdir(mode=0o700)
     try:
         with tempfile.TemporaryDirectory(prefix='wsx-candidate-',dir=out.parent) as td:
-            stage('SOURCE_ARCHIVE');root=Path(td);savedsource=root/'source.tar';command(['git','archive','--format=tar','--output',str(savedsource),c.SOURCE],source)
+            stage('SOURCE_ARCHIVE');root=Path(td);savedsource=root/'source.tar';command(['git','archive','--format=tar','--output',str(savedsource),p['sourceRevision']],source)
             checkout=root/'source';checkout.mkdir()
             with tarfile.open(savedsource,'r:') as t:t.extractall(checkout,filter='data')
-            v=p['sourceContracts'][service];argv=['docker','buildx','build','--load','--platform',p['platform'],'--label','org.opencontainers.image.revision='+c.SOURCE,'--label',c.LABEL+'='+c.identity(p),'-f',str(checkout/v['dockerfile']),'-t',c.tag(p,service)]
+            v=p['sourceContracts'][service];argv=['docker','buildx','build','--load','--platform',p['platform'],'--label','org.opencontainers.image.revision='+p['sourceRevision'],'--label',c.LABEL+'='+c.identity(p),'-f',str(checkout/v['dockerfile']),'-t',c.tag(p,service)]
             for base in v['bases']:argv+=['--build-arg',{'node':'NODE_IMAGE','python':'PYTHON_IMAGE','postgres':'PGVECTOR_IMAGE'}[base]+'='+p['baseImages'][base]]
-            argv+=['--build-arg','SOURCE_REVISION='+c.SOURCE,str(checkout/v['context'])];stage('DOCKER_BUILD');command(argv)
+            argv+=['--build-arg','SOURCE_REVISION='+p['sourceRevision'],str(checkout/v['context'])];stage('DOCKER_BUILD');command(argv)
             # Build/cache usage is not bounded by the archive budget. Recheck actual free space.
             capacity(out.parent,3*p['maxArchiveBytes']+p['storageMarginBytes'])
             stage('DOCKER_SAVE');saved=root/'save.tar'
