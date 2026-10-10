@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Target-bound isolated rehearsal. No implicit purchase, source credentials or activation."""
-import ast,datetime,hashlib,ipaddress,json,os,re,secrets,stat,subprocess,sys,uuid,signal,time,tempfile,shutil
+import ast,fcntl,datetime,hashlib,ipaddress,json,os,re,secrets,stat,subprocess,sys,uuid,signal,time,tempfile,shutil
 from pathlib import Path
 PRODUCTION='pgm-uf6rg214cp381l49'
 DBS=('workspacex','workspacex_agent','workspacex_memory')
@@ -38,6 +38,59 @@ def validate_binding(b):
   proof=tls.get('providerSslEvidence',{})
   if tls['sslmode']!='disable' or tls.get('approvedException')!='aliyun-postgresql-serverless-no-tls' or proof.get('targetInstanceId')!=target or proof.get('sslEnabled') is not False or proof.get('providerCreatedUtc')!=b['providerCreatedUtc']:raise ValueError('FRESH_TLS_EVIDENCE_REQUIRED')
  return b
+def runner_deadline(b):
+ """Exact provider readback is embedded in the independently hash-pinned root binding."""
+ lifetime=b.get('runnerLifetime',{});identity=lifetime.get('instanceId','')
+ if not re.fullmatch(r'i-[a-z0-9]+',identity) or identity=='i-uf6ga92ewloganobbln6':raise ValueError('ISOLATED_RUNNER_REQUIRED')
+ response=lifetime.get('providerReadback',{})
+ if not isinstance(response.get('RequestId'),str) or not re.fullmatch(r'[A-Za-z0-9-]{1,128}',response['RequestId']):raise ValueError('RUNNER_PROVIDER_REQUEST')
+ rows=response.get('Instances',{}).get('Instance',[])
+ if len(rows)!=1 or rows[0].get('InstanceId')!=identity:raise ValueError('RUNNER_PROVIDER_BINDING')
+ row=rows[0]
+ if row.get('Description')!='wsx-cn-isolated-'+b['attemptId']:raise ValueError('RUNNER_ATTEMPT_BINDING')
+ try:
+  start=datetime.datetime.fromisoformat(row['CreationTime'].replace('Z','+00:00'))
+  end=datetime.datetime.fromisoformat(row['AutoReleaseTime'].replace('Z','+00:00'))
+ except (KeyError,TypeError,ValueError):raise ValueError('RUNNER_LIFETIME_REQUIRED') from None
+ if start.tzinfo is None or end.tzinfo is None or not 0<(end-start).total_seconds()<=7200:raise ValueError('RUNNER_LIFETIME_BOUND')
+ return end.timestamp()
+
+def workload_deadline(b):return min(created(b)+7200,runner_deadline(b))-330
+
+class Admission:
+ """Serial admission/close lock. Already admitted work still needs provider teardown."""
+ def __init__(self,b,root):
+  self.b=b;self.root=root;self.deadline=workload_deadline(b)
+  st=root.lstat()
+  if not stat.S_ISDIR(st.st_mode) or st.st_uid!=os.geteuid() or stat.S_IMODE(st.st_mode)!=0o700:raise ValueError('ADMISSION_PRIVATE_ROOT')
+  self.end=time.monotonic()+max(0,self.deadline-datetime.datetime.now(datetime.timezone.utc).timestamp())
+  fixed={'attemptId':b['attemptId'],'targetInstanceId':b['targetInstanceId'],'runnerLifetimeSha256':hashlib.sha256(json.dumps(b['runnerLifetime'],sort_keys=True,separators=(',',':')).encode()).hexdigest(),'deadlineEpoch':self.deadline}
+  fd=self.lock()
+  try:
+   path=root/'workload-admission-binding.json'
+   if os.path.lexists(path):
+    if private_json(path)!=fixed:raise ValueError('ADMISSION_BINDING_CHANGED')
+   else:exclusive(path,fixed)
+  finally:os.close(fd)
+ def lock(self):
+  fd=os.open(self.root/'workload-admission.lock',os.O_CREAT|os.O_RDWR|os.O_NOFOLLOW,0o600)
+  st=os.fstat(fd)
+  if not stat.S_ISREG(st.st_mode) or st.st_uid!=os.geteuid() or stat.S_IMODE(st.st_mode)!=0o600 or st.st_nlink!=1:
+   os.close(fd);raise ValueError('ADMISSION_LOCK_PRIVATE')
+  fcntl.flock(fd,fcntl.LOCK_EX);return fd
+ def check(self):
+  fd=self.lock()
+  try:
+   if os.path.lexists(self.root/'workload-closed.json'):raise ValueError('WORKLOAD_ADMISSION_CLOSED')
+   if datetime.datetime.now(datetime.timezone.utc).timestamp()>=self.deadline or time.monotonic()>=self.end:raise ValueError('CLEANUP_RESERVE_REQUIRED')
+  finally:os.close(fd)
+ def close(self):
+  fd=self.lock()
+  try:
+   marker=self.root/'workload-closed.json'
+   if not os.path.lexists(marker):exclusive(marker,{'schemaVersion':1,'attemptId':self.b['attemptId'],'targetInstanceId':self.b['targetInstanceId'],'runnerInstanceId':self.b['runnerLifetime']['instanceId'],'state':'closed-no-new-workload-admission'})
+  finally:os.close(fd)
+
 class Journal:
  def __init__(self,root):self.root=root
  def once(self,name,run):
@@ -170,16 +223,23 @@ def bootstrap_role_accounts(b,root,secret,invoke):
 def rehearse(b,root,invoke):
  validate_binding(b)
  now=lambda:datetime.datetime.now(datetime.timezone.utc).timestamp()
- deadline=created(b)+7200
+ admission=Admission(b,root)
+ deadline=admission.deadline
  expired=now()>=deadline
+ provider_invoke=invoke;cleaning=False;closing_failed=False
+ def invoke(operation,payload):
+  if not cleaning:admission.check()
+  return provider_invoke(operation,payload)
  if created(b)>now()+120:raise ValueError('FUTURE_CREATION')
- journal=Journal(root);secret=None if expired else credentials(root,b);payload={'binding':b,'secret':secret}
+ journal=Journal(root);secret=None;payload={'binding':b,'secret':None}
  def observed():
   o=invoke('observe',payload)
   if any(o.get(k)!=b[k] for k in ('targetInstanceId','peer','providerCreatedUtc')):raise ValueError('ACTUAL_PROVIDER_BINDING_FAILED')
   return o
  try:
   if expired:raise ValueError('EXPIRED_ISOLATION')
+  admission.check()
+  secret=credentials(root,b);payload['secret']=secret
   observed()
   # Reconcile unknown registration/account outcomes only by reads, never resubmit.
   for name,op,read in [('oos','cleanup-register','cleanup-readback'),('account','account-create','account-readback')]:
@@ -194,7 +254,7 @@ def rehearse(b,root,invoke):
    elif not result.get('exists') or result.get('user')!=secret['user']:raise ValueError('ACCOUNT_READBACK_REQUIRED')
   bootstrap_role_accounts(b,root,secret,invoke)
   for stage in STAGES:
-   if deadline-now()<330:raise ValueError('CLEANUP_RESERVE_REQUIRED')
+   admission.check()
    observation=observed()  # Reattest actual provider/peer before every SQL-bearing stage.
    refs={}
    for previous in STAGES:
@@ -207,6 +267,9 @@ def rehearse(b,root,invoke):
     databases=result.get('databases')
     if type(databases) is not list or len(databases)!=len(DBS) or not all(type(db) is str for db in databases) or len(set(databases))!=len(DBS) or set(databases)!=set(DBS):raise ValueError('THREE_DATABASE_CLOSURE:'+stage)
  finally:
+  try:admission.close()
+  except Exception:closing_failed=True
+  cleaning=True
   # Cleanup mutations are not retried implicitly. Provider OOS is the deadline backstop.
   try:journal.once('delete',lambda:invoke('cleanup',payload))
   except UnknownOutcome:
@@ -223,6 +286,7 @@ def rehearse(b,root,invoke):
    result=bounded_readback(lambda:invoke('cleanup-registration-readback-removed',payload),lambda r:r.get('removed') is True,b,cleanup=True)
    journal.reconcile('cleanup-iam',result)
   bounded_readback(lambda:invoke('cleanup-registration-readback-removed',payload),lambda r:r.get('removed') is True,b,cleanup=True)
+ if closing_failed:raise ValueError('WORKLOAD_CLOSE_UNCONFIRMED_AFTER_CLEANUP')
  return {'accepted':True,'targetInstanceId':b['targetInstanceId'],'candidateSha':b['candidateSha'],'attemptId':b['attemptId'],'deleted':True}
 def input_ref(ref,private=False):
  if not isinstance(ref,dict) or not {'path','sha256'}<=set(ref):raise ValueError('HASH_BOUND_INPUT_REQUIRED')
@@ -342,6 +406,7 @@ def stage_input_closure(b):
 
 def preflight(b):
  validate_binding(b)
+ workload_deadline(b)
  if b.get('privateRoot')!='/var/lib/workspacex-cn/rehearsal/isolated-rds/'+b['attemptId'] or b['providerDescription']!='wsx-cn-isolated-round2-'+b['attemptId']:raise ValueError('STAGE_PRIVATE_ROOT_DESCRIPTION')
  if not all(isinstance(b.get(k),str) and b[k] for k in ('ecsRole','cleanupRole')):raise ValueError('ROLE_INPUT_REQUIRED')
  iam=b['cleanupIam']
@@ -358,7 +423,13 @@ def main():
  if os.geteuid()!=0 or len(sys.argv) not in (3,4):raise ValueError('ROOT_MANIFEST_AND_HASH_REQUIRED')
  manifest=Path(sys.argv[1]);raw=manifest.read_bytes()
  if hashlib.sha256(raw).hexdigest()!=sys.argv[2]:raise ValueError('MANIFEST_HASH')
- b=private_json(manifest);preflight(b)
+ b=private_json(manifest)
+ if len(sys.argv)==4 and sys.argv[3]=='--close-workload':
+  validate_binding(b)
+  if b.get('privateRoot')!='/var/lib/workspacex-cn/rehearsal/isolated-rds/'+b['attemptId']:raise ValueError('PRIVATE_ROOT_BINDING')
+  Admission(b,Path(b['privateRoot'])).close()
+  print(json.dumps({'admissionClosed':True,'workloadStoppedProven':False,'attemptId':b['attemptId']}));return
+ preflight(b)
  if len(sys.argv)==4:
   if sys.argv[3]!='--preflight':raise ValueError('UNKNOWN_OPTION')
   print(json.dumps(preflight(b)));return
@@ -370,8 +441,8 @@ def main():
  lock=os.open(root/'execution.lock',os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW|os.O_WRONLY,0o600)
  try:
   def budget(operation):
-   if operation in ('cleanup','cleanup-readback-deleted','cleanup-registration-remove','cleanup-iam-remove','cleanup-registration-readback-removed'):return 300
-   return min(1200,max(1,int(created(b)+6900-datetime.datetime.now(datetime.timezone.utc).timestamp())))
+   if operation in ('cleanup','cleanup-readback','cleanup-readback-deleted','cleanup-registration-remove','cleanup-iam-remove','cleanup-registration-readback-removed'):return 300
+   return min(1200,max(1,int(workload_deadline(b)-datetime.datetime.now(datetime.timezone.utc).timestamp())))
   adapter=ProcessAdapter(b['adapterPath'],b['adapterSha256'],budget,b['adapterModules'])
   print(json.dumps(rehearse(b,root,adapter)))
  finally:os.close(lock);(root/'execution.lock').unlink()

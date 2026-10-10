@@ -10,7 +10,73 @@ class BindingTests(unittest.TestCase):
  def manifest(self):
   now=datetime.datetime.now(datetime.timezone.utc)
   attempt=str(uuid.uuid4())
-  return dict(providerDescription='wsx-cn-isolated-round2-'+attempt,readbackBudgetSeconds=0,deleteReadbackBudgetSeconds=0,accountId='1177216024653153',regionId='cn-shanghai',attemptId=attempt,targetInstanceId='pgm-isolatedtest',sourceInstanceId='pgm-uf6rg214cp381l49',providerCreatedUtc=now.isoformat(),candidateSha='1'*40,host='pgm-isolatedtest.rwlb.rds.aliyuncs.com',peer='10.0.0.2',peerSha256=hashlib.sha256(b'10.0.0.2').hexdigest(),tls={'sslmode':'verify-full'})
+  return dict(runnerLifetime={'instanceId':'i-isolatedtest','providerReadback':{'RequestId':'test-provider-request','Instances':{'Instance':[{'InstanceId':'i-isolatedtest','Description':'wsx-cn-isolated-'+attempt,'CreationTime':now.isoformat(),'AutoReleaseTime':(now+datetime.timedelta(hours=2)).isoformat()}]}}},providerDescription='wsx-cn-isolated-round2-'+attempt,readbackBudgetSeconds=0,deleteReadbackBudgetSeconds=0,accountId='1177216024653153',regionId='cn-shanghai',attemptId=attempt,targetInstanceId='pgm-isolatedtest',sourceInstanceId='pgm-uf6rg214cp381l49',providerCreatedUtc=now.isoformat(),candidateSha='1'*40,host='pgm-isolatedtest.rwlb.rds.aliyuncs.com',peer='10.0.0.2',peerSha256=hashlib.sha256(b'10.0.0.2').hexdigest(),tls={'sslmode':'verify-full'})
+ def test_runner_lifetime_earlier_than_late_rds(self):
+  b=self.manifest();end=m.runner_deadline(b);b['providerCreatedUtc']=(datetime.datetime.fromisoformat(b['providerCreatedUtc'])+datetime.timedelta(hours=1)).isoformat()
+  self.assertEqual(m.workload_deadline(b),end-330)
+ def test_runner_lifetime_invalid_provider_binding_rejected(self):
+  import copy
+  base=self.manifest()
+  for mutate in (lambda b:b.pop('runnerLifetime'),lambda b:b['runnerLifetime'].update(instanceId='i-uf6ga92ewloganobbln6'),lambda b:b['runnerLifetime']['providerReadback']['Instances']['Instance'][0].update(InstanceId='i-another'),lambda b:b['runnerLifetime']['providerReadback']['Instances']['Instance'][0].update(Description='foreign'),lambda b:b['runnerLifetime']['providerReadback']['Instances']['Instance'][0].update(AutoReleaseTime='2026-10-10T19:00:00'),lambda b:b['runnerLifetime']['providerReadback']['Instances']['Instance'][0].update(AutoReleaseTime=(datetime.datetime.now(datetime.timezone.utc)+datetime.timedelta(hours=3)).isoformat())):
+   b=copy.deepcopy(base);mutate(b)
+   with self.assertRaises(ValueError):m.runner_deadline(b)
+ def test_admission_closed_irreversible_and_lifetime_cannot_extend(self):
+  with tempfile.TemporaryDirectory(dir=Path('/tmp').resolve()) as d:
+   b=self.manifest();root=Path(d);gate=m.Admission(b,root);gate.check();gate.close()
+   with self.assertRaisesRegex(ValueError,'WORKLOAD_ADMISSION_CLOSED'):m.Admission(b,root).check()
+   b['runnerLifetime']['providerReadback']['RequestId']='changed-observation'
+   with self.assertRaisesRegex(ValueError,'ADMISSION_BINDING_CHANGED'):m.Admission(b,root)
+ def test_closed_symlink_blocks_without_reading_target(self):
+  with tempfile.TemporaryDirectory(dir=Path('/tmp').resolve()) as d:
+   root=Path(d);gate=m.Admission(self.manifest(),root);(root/'workload-closed.json').symlink_to('/no-such-secret')
+   with self.assertRaisesRegex(ValueError,'WORKLOAD_ADMISSION_CLOSED'):gate.check()
+ def test_monotonic_admission_cannot_extend_by_wallclock_rollback(self):
+  with tempfile.TemporaryDirectory(dir=Path('/tmp').resolve()) as d:
+   with patch.object(m.time,'monotonic',return_value=10):gate=m.Admission(self.manifest(),Path(d))
+   with patch.object(m.time,'monotonic',return_value=gate.end):
+    with self.assertRaisesRegex(ValueError,'CLEANUP_RESERVE_REQUIRED'):gate.check()
+ def test_external_close_between_observation_and_stage_blocks_stage(self):
+  with tempfile.TemporaryDirectory(dir=Path('/tmp').resolve()) as d:
+   b=self.manifest();root=Path(d);calls=[]
+   def invoke(op,p):
+    calls.append(op)
+    if op=='observe':
+     if calls.count('observe')==2:m.Admission(b,root).close()
+     return {k:b[k] for k in ('targetInstanceId','peer','providerCreatedUtc')}
+    if op=='cleanup-readback':return dict(registered=True,terminal='cleanup-registration-remove' in calls,targetInstanceId=b['targetInstanceId'],deleteBeginEpoch=m.created(b)+6900)
+    if op=='role-account-readback':return role_fixture(p)
+    if op=='account-readback':return dict(exists=True,user='migration_admin')
+    if op=='cleanup-readback-deleted':return {'notFound':True}
+    if op=='cleanup-registration-readback-removed':return {'removed':True}
+    return dict(accepted=True,databases=list(m.DBS),**{k:b[k] for k in ('attemptId','targetInstanceId','candidateSha')})
+   with self.assertRaisesRegex(ValueError,'WORKLOAD_ADMISSION_CLOSED'):m.rehearse(b,root,invoke)
+   self.assertNotIn('restore',calls);self.assertIn('cleanup',calls)
+ def test_closed_start_creates_no_secret_but_cleanup_still_runs(self):
+  with tempfile.TemporaryDirectory(dir=Path('/tmp').resolve()) as d:
+   b=self.manifest();root=Path(d);m.Admission(b,root).close();calls=[]
+   with self.assertRaisesRegex(ValueError,'WORKLOAD_ADMISSION_CLOSED'):m.rehearse(b,root,lambda op,p:(calls.append(op) or {'notFound':True,'terminal':True,'removed':True}))
+   self.assertFalse((root/'target-secret.json').exists());self.assertNotIn('observe',calls);self.assertIn('cleanup',calls)
+ def test_close_failure_never_skips_cleanup_or_returns_accepted(self):
+  with tempfile.TemporaryDirectory(dir=Path('/tmp').resolve()) as d:
+   b=self.manifest();calls=[]
+   def invoke(op,p):
+    calls.append(op)
+    if op=='observe':return {k:b[k] for k in ('targetInstanceId','peer','providerCreatedUtc')}
+    if op=='cleanup-readback':return dict(registered=True,terminal='cleanup-registration-remove' in calls,targetInstanceId=b['targetInstanceId'],deleteBeginEpoch=m.created(b)+6900)
+    if op=='role-account-readback':return role_fixture(p)
+    if op=='account-readback':return dict(exists=True,user='migration_admin')
+    if op=='cleanup-readback-deleted':return {'notFound':True}
+    if op=='cleanup-registration-readback-removed':return {'removed':True}
+    return dict(accepted=True,databases=list(m.DBS),**{k:b[k] for k in ('attemptId','targetInstanceId','candidateSha')})
+   with patch.object(m.Admission,'close',side_effect=OSError('disk full')):
+    with self.assertRaisesRegex(ValueError,'WORKLOAD_CLOSE_UNCONFIRMED_AFTER_CLEANUP'):m.rehearse(b,Path(d),invoke)
+   for op in ('cleanup','cleanup-registration-remove','cleanup-iam-remove'):self.assertIn(op,calls)
+ def test_runner_expiry_cleans_without_creating_secrets(self):
+  with tempfile.TemporaryDirectory(dir=Path('/tmp').resolve()) as d:
+   b=self.manifest();now=datetime.datetime.now(datetime.timezone.utc);row=b['runnerLifetime']['providerReadback']['Instances']['Instance'][0]
+   row.update(CreationTime=(now-datetime.timedelta(hours=2)).isoformat(),AutoReleaseTime=now.isoformat());calls=[]
+   with self.assertRaisesRegex(ValueError,'EXPIRED_ISOLATION'):m.rehearse(b,Path(d),lambda op,p:(calls.append(op) or {'notFound':True,'terminal':True,'removed':True}))
+   self.assertNotIn('observe',calls);self.assertIn('cleanup',calls);self.assertFalse((Path(d)/'target-secret.json').exists())
  def test_production_and_peer_rejected(self):
   x=self.manifest();m.validate_binding(x)
   x['targetInstanceId']=x['sourceInstanceId']

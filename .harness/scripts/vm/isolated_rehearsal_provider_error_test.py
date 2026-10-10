@@ -44,6 +44,7 @@ class SafeErrors(unittest.TestCase):
   import subprocess,datetime
   for stage,code in (('cleanup-register','User.NoPermission'),('account-create','InvalidAccountPassword.Format')):
    b=dict(self.binding);b['providerCreatedUtc']=datetime.datetime.now(datetime.timezone.utc).isoformat();b['tls']={'sslmode':'verify-full'};b['readbackBudgetSeconds']=0;b['deleteReadbackBudgetSeconds']=0
+   b['runnerLifetime']={'instanceId':'i-isolatedtest','providerReadback':{'RequestId':'test-provider-request','Instances':{'Instance':[{'InstanceId':'i-isolatedtest','Description':'wsx-cn-isolated-'+b['attemptId'],'CreationTime':b['providerCreatedUtc'],'AutoReleaseTime':(datetime.datetime.fromisoformat(b['providerCreatedUtc'])+datetime.timedelta(hours=2)).isoformat()}]}}}
    program=r"""
 import sys,json,tempfile
 from pathlib import Path
