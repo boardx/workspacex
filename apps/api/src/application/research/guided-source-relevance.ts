@@ -44,6 +44,19 @@ function screeningContent(source: Source): string {
 // Include the validator version so a stricter gate can recheck persisted approvals.
 const SOURCE_RELEVANCE_VALIDATOR_VERSION = 4;
 export function sourceTaskIds(source: Source): string[] { return [...new Set([source.taskId, ...(source.taskIds ?? [])])]; }
+/** A refusal belongs to an exact source/task chunk, never every task sharing a URL. */
+export function sourceTaskContentRejected(state: ResearchRuntime, taskId: string): boolean {
+  return Boolean(state.sourceScreenRejections?.some(rejection => rejection.chunks.some(chunk => {
+    const source = state.sources.find(item => item.id === chunk.sourceId && sourceTaskIds(item).includes(taskId));
+    if (!source) return false;
+    let identity: unknown;
+    try { identity = JSON.parse(chunk.chunkId); } catch { return false; }
+    if (!Array.isArray(identity) || identity.length !== 3 || identity[0] !== source.id || identity[1] !== taskId
+      || !Number.isInteger(identity[2]) || identity[2] < 0) return false;
+    const content = screeningContent(source).slice(identity[2], identity[2] + SOURCE_SCREEN_CHUNK_CHARS);
+    return Boolean(content) && createHash("sha256").update(content).digest("hex") === chunk.contentHash;
+  })));
+}
 export function sourceRelevanceBasis(state: ResearchRuntime, source: Source): string {
   return createHash("sha256").update(JSON.stringify({ policy: SOURCE_RELEVANCE_VALIDATOR_VERSION, brief: state.brief,
     taskIds: sourceTaskIds(source).sort(),
@@ -87,14 +100,19 @@ async function screeningBatchWork<T, R>(items: readonly T[], compute: (item: T, 
   return results;
 }
 
-/** No state mutation: publish only after every batch is validated. User exclusions
- * and explicitly added URLs retain their intent; reports still vet their evidence. */
+/** Publish source admission only after batch work completes. Refusal records remain
+ * durable; user exclusions and explicitly added URLs retain their intent. */
 /** Source/task relevance admission is existential: one strictly validated match
  * admits that scope. It does not certify answers to every question, completeness,
  * or absence of contradictory omitted material. Report evidence/quality gates
  * remain independent; adaptive scheduling must never write question coverage. */
 export async function screenResearchSources(state: ResearchRuntime, sources: Source[], complete: Complete, options: { adaptive?: boolean; signal?: AbortSignal; negativeCache?: NegativeSourceScreenCache } = {}): Promise<Source[]> {
   options.signal?.throwIfAborted();
+  // Legacy warnings also carried the failed-request cache. Migrate before any
+  // success clears their active scope, without adding a public contract field.
+  const requestHistory = new Set([...(state.privateSourceScreenRejectedRequests ?? []), ...(state.sourceScreenRejections ?? []).map(item => item.requestBasis)]);
+  if (requestHistory.size) state.privateSourceScreenRejectedRequests = [...requestHistory];
+  const rejectedRequest = (basis: string) => Boolean(state.privateSourceScreenRejectedRequests?.includes(basis));
   const keys = new Map<string, string>(), cachedNegative = new Set<string>();
   const candidates = sources.filter((source) => {
     if (source.decision === "excluded" || source.addedByUser || source.relevanceBasis === sourceRelevanceBasis(state, source)) return false;
@@ -130,7 +148,6 @@ export async function screenResearchSources(state: ResearchRuntime, sources: Sou
   const batches: Chunk[][] = options.adaptive ? [] : sourceScreenBatches(chunks);
   let hadRepair = false;
   let hadRejection = false;
-  const rejectedSources = new Set<string>();
   const evaluate = async (batch: Chunk[], checkBatch: () => void) => {
     const check = () => { options.signal?.throwIfAborted(); checkBatch(); };
     const parse = (value: unknown) => {
@@ -178,24 +195,31 @@ export async function screenResearchSources(state: ResearchRuntime, sources: Sou
     let requestBasis = createHash("sha256").update(JSON.stringify({ instruction, context, configurationIdentity: complete.configurationIdentity })).digest("hex");
     const rejectBatch = () => {
       check(); hadRejection = true;
-      batch.forEach(chunk => rejectedSources.add(chunk.sourceId));
+      state.privateSourceScreenRejectedRequests = [...new Set([...(state.privateSourceScreenRejectedRequests ?? []), requestBasis])];
       const rejection = { batchIndex: Math.max(0, batches.indexOf(batch)), sourceIds: [...new Set(batch.map(chunk => chunk.sourceId))], questionIds: context.questions.map(question => question.id),
         reason: "batch_provider_content_rejected" as const, requestBasis, chunks: batch.map(chunk => ({ sourceId: chunk.sourceId, chunkId: chunk.chunkId, contentHash: createHash("sha256").update(chunk.content).digest("hex") })) };
       state.sourceScreenRejections = [...(state.sourceScreenRejections ?? []).filter(item => item.requestBasis !== requestBasis), rejection].slice(-256);
       return [];
     };
-    if (complete.configurationIdentity && state.sourceScreenRejections?.some(item => item.requestBasis === requestBasis)) return rejectBatch();
+    if (complete.configurationIdentity && rejectedRequest(requestBasis)) return rejectBatch();
     for (let attempt = 0; attempt < 2; attempt++) {
       check();
       try {
         const attemptContext = { ...context,
           ...(attempt ? { repair: { issues: repairIssues, previousOutput: (JSON.stringify(previousOutput) ?? "null").slice(0, 24000), instruction: "Use exact chunk/source/question IDs; evaluate each chunk once; select same-chunk quoteOptions references; irrelevant must agree with matches." } } : {}) };
         requestBasis = createHash("sha256").update(JSON.stringify({ instruction, context: attemptContext, configurationIdentity: complete.configurationIdentity })).digest("hex");
-        if (complete.configurationIdentity && state.sourceScreenRejections?.some(item => item.requestBasis === requestBasis)) return rejectBatch();
+        if (complete.configurationIdentity && rejectedRequest(requestBasis)) return rejectBatch();
         const value = await complete(instruction, attemptContext, (output) => { previousOutput = output; parse(output); }, check);
         check();
         const evaluations = parse(value).evaluations;
         check();
+        // Only strictly validated success supersedes this exact chunk scope.
+        // Keep unprocessed refusals and their failed request identities intact.
+        const processed = new Set(batch.map(chunk => JSON.stringify([chunk.sourceId, chunk.chunkId])));
+        if (state.sourceScreenRejections) state.sourceScreenRejections = state.sourceScreenRejections.flatMap(rejection => {
+          const remaining = rejection.chunks.filter(chunk => !processed.has(JSON.stringify([chunk.sourceId, chunk.chunkId])));
+          return remaining.length ? [{ ...rejection, chunks: remaining, sourceIds: [...new Set(remaining.map(chunk => chunk.sourceId))] }] : [];
+        });
         return evaluations;
       } catch (error) {
         if (error instanceof ModelCallError && error.contentRejection === "content-policy") return rejectBatch();
@@ -244,7 +268,7 @@ export async function screenResearchSources(state: ResearchRuntime, sources: Sou
     }
   }
   const reviewed = new Set(candidates.map((source) => source.id));
-  return sources.filter((source) => !rejectedSources.has(source.id) && !cachedNegative.has(source.id) && (!reviewed.has(source.id) || accepted.has(source.id)))
+  return sources.filter((source) => !cachedNegative.has(source.id) && (!reviewed.has(source.id) || accepted.has(source.id)))
     .map((source) => {
       if (!reviewed.has(source.id)) return source;
       const taskIds = [...accepted.get(source.id)!];

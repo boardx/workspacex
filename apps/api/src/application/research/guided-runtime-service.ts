@@ -9,7 +9,7 @@ import { GUIDED_PLAN_BUDGET_MS, GUIDED_REPORT_MODEL_BUDGET_MS, GUIDED_SEARCH_CAL
 import type { DebugTracePort } from "../ports/debug-trace.port";
 import { recordResearchFailure, recordSourceRelevanceFailure, type ResearchExecutionDiagnostic } from "./guided-runtime-diagnostics";
 import { sourceAllowedByPolicy, sourcePolicyDomains, internalSourceReference } from "./guided-source-policy";
-import { parseSourceRelevanceJson, screenResearchSources, sourceRelevanceBasis, sourceTaskIds, sourceRelevanceResponseSchema } from "./guided-source-relevance";
+import { parseSourceRelevanceJson, screenResearchSources, sourceRelevanceBasis, sourceTaskIds, sourceRelevanceResponseSchema, sourceTaskContentRejected } from "./guided-source-relevance";
 import { generateResearchPlan } from "./guided-research-plan";
 import { collectSourceDocuments } from "./guided-source-documents";
 import { updateReportTimeline, failActiveReportTimeline } from "./guided-report-timeline";
@@ -461,7 +461,7 @@ export class GuidedRuntimeService {
       for (const task of state.tasks) if (affected.has(task.id) && task.status === "succeeded"
         && !sources.some((source) => source.decision !== "excluded" && [source.taskId, ...(source.taskIds ?? [])].includes(task.id))) {
         task.status = "failed";
-        task.errorCode = state.sourceScreenRejections?.some(rejection => rejection.sourceIds.some(id => state.sources.some(source => source.id === id && sourceTaskIds(source).includes(task.id))))
+        task.errorCode = sourceTaskContentRejected(state, task.id)
           ? "RESEARCH_WORKFLOW_UNAVAILABLE" : "RESEARCH_SEARCH_NO_RELEVANT_SOURCES";
       }
       invalidate(state, "research");

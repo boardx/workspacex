@@ -12,6 +12,9 @@ import { PgGuidedRuntimeStore } from "../../src/infrastructure/research/pg-guide
 import { GuidedRuntimeService, initialRuntime } from "../../src/application/research/guided-runtime-service";
 import type { ModelCallPort } from "../../src/application/agent-run/ports";
 import type { RuntimeActor, RuntimeCommand, ResearchRuntime } from "../../src/application/research/guided-runtime-ports";
+import { extractReportEvidence } from "../../src/application/research/guided-report-evidence";
+import { screenResearchSources } from "../../src/application/research/guided-source-relevance";
+import { ModelCallError } from "../../src/application/agent-run/ports";
 const orgId = toOrgId("org-research-runtime-2775");
 const userId = "research-owner";
 const brief = { topic: "Storage policy", goal: "Compare entry options", region: "EU", focus: "Grid", timeRange: "2026" };
@@ -852,6 +855,76 @@ describe("report streaming and explicit partial evidence", () => {
     const late = await store.write(actor, reclaimCommand.requestId, reclaimed.state, false);
     expect(late.controlStatus).toBe("paused"); expect(late.privateLedger).toEqual(persisted.privateLedger);
     expect(await service.get(actor, session)).not.toHaveProperty("privateLedger");
+  });
+  it.each([0, 24000])("persists healthy chunks despite a refused sibling batch at %i and independently validates report evidence", async refusedOffset => {
+    await reachResearch();
+    const store = new PgGuidedRuntimeStore(db);
+    const command = { sessionId: actor.sessionId, node: "research" as const, action: "start" as const, expectedVersion: state.version, requestId: randomUUID() };
+    let internal = (await store.claim(actor, command, "healthy-evidence")).state;
+    const original = internal.sources[0]!;
+    const text = original.content.padEnd(6000, "z").repeat(8);
+    const { relevanceBasis: _basis, ...raw } = original;
+    const candidate = { ...raw, document: { url: original.url, text, contentHash: createHash("sha256").update(text).digest("hex"), retrievedAt: "now", contentKind: "text" as const, truncated: false } };
+    let refusals = 0;
+    const screening = Object.assign(async (system: string, context: unknown, validate: (value: unknown) => void) => {
+      const batch = context as { chunks: { chunkId: string }[] };
+      if (batch.chunks.some(chunk => JSON.parse(chunk.chunkId)[2] === refusedOffset)) {
+        refusals++; throw new ModelCallError("MODEL_CALL_FAILED", "HTTP 400", undefined, undefined, "content-policy");
+      }
+      const answer = await model.complete({ modelProvider: "test", modelId: "test-model", system, user: JSON.stringify(context) });
+      const output = JSON.parse(answer.text); validate(output); return output;
+    }, { configurationIdentity: "mixed-batch-adapter" });
+    internal.sources = await screenResearchSources(internal, [candidate], screening);
+    expect(internal.sources).toHaveLength(1);
+    expect(internal.sources[0]!.document).toEqual(candidate.document);
+    expect(refusals).toBe(1);
+    await store.write(actor, command.requestId, internal, false);
+    internal = await new PgGuidedRuntimeStore(db).read(actor, initialRuntime(session));
+    expect(internal.sources[0]!.document).toEqual(candidate.document);
+    expect(internal.sourceScreenRejections?.[0]?.chunks).toHaveLength(4);
+    expect(internal.privateLedger).toBeUndefined();
+    const seen = new Set<string>();
+    const evidence = await extractReportEvidence(internal, { provider: "test", id: "test-model" }, async (input, validate) => {
+      const batch = JSON.parse(input.user) as { chunks: { sourceId: string }[] };
+      batch.chunks.forEach(chunk => seen.add(chunk.sourceId));
+      return validate((await model.complete(input)).text);
+    });
+    expect([...seen]).toEqual([candidate.id]);
+    expect([...evidence.matches.values()].some(items => items.some(item => item.sourceId === candidate.id))).toBe(true);
+    expect(refusals).toBe(1);
+    await store.write(actor, command.requestId, internal, true);
+  });
+
+  it("keeps request refusal tombstones through real store reload after a successful rescreen clears warnings", async () => {
+    await reachResearch();
+    const sources = state.sources.map(({ relevanceBasis: _basis, ...source }) => source);
+    const store = new PgGuidedRuntimeStore(db);
+    const command = { sessionId: actor.sessionId, node: "research" as const, action: "start" as const, expectedVersion: state.version, requestId: randomUUID() };
+    let internal = (await store.claim(actor, command, "refusal-ledger")).state;
+    const rejected = Object.assign(vi.fn(async () => { throw new ModelCallError("MODEL_CALL_FAILED", "HTTP 400", undefined, undefined, "content-policy"); }), { configurationIdentity: "original-refused-adapter" });
+    expect(await screenResearchSources(internal, sources, rejected)).toEqual([]);
+    const calls = rejected.mock.calls.length;
+    const basis = internal.sourceScreenRejections![0]!.requestBasis;
+    // Actual legacy persisted rows have the active warning but no private ledger.
+    delete internal.privateSourceScreenRejectedRequests;
+    await store.write(actor, command.requestId, internal, false);
+    internal = await new PgGuidedRuntimeStore(db).read(actor, initialRuntime(session));
+    expect(internal.privateSourceScreenRejectedRequests).toBeUndefined();
+    const accepted = Object.assign(async (system: string, context: unknown, validate: (value: unknown) => void) => {
+      const answer = await model.complete({ modelProvider: "test", modelId: "test-model", system, user: JSON.stringify(context) });
+      const output = JSON.parse(answer.text); validate(output); return output;
+    }, { configurationIdentity: "new-accepted-adapter" });
+    internal.sources = await screenResearchSources(internal, sources, accepted);
+    expect(internal.sources).toHaveLength(sources.length);
+    expect(internal.sourceScreenRejections ?? []).toHaveLength(0);
+    await store.write(actor, command.requestId, internal, false);
+    internal = await new PgGuidedRuntimeStore(db).read(actor, initialRuntime(session));
+    expect(internal.privateSourceScreenRejectedRequests).toContain(basis);
+    expect(internal.sourceScreenRejections ?? []).toHaveLength(0);
+    expect(await service.get(actor, session)).not.toHaveProperty("privateSourceScreenRejectedRequests");
+    expect(await screenResearchSources(internal, sources, rejected)).toEqual([]);
+    expect(rejected).toHaveBeenCalledTimes(calls);
+    await store.write(actor, command.requestId, internal, true);
   });
 
 });

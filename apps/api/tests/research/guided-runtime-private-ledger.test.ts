@@ -9,7 +9,7 @@ import { runtimeProgress } from "../../src/interface/controllers/guided-research
 import { toOrgId } from "../../src/domain/org-id";
 function fixture() {
   const session = C.GuidedResearchSession.parse({ sessionId: "ledger-session", title: "Research", brief: { topic: "Grid", goal: "Entry", region: "EU", focus: "Policy", timeRange: "2026" }, stage: "brief", resumeStage: "brief", status: "active", progress: 0, sourceCount: 0, reportId: null, createdAt: "now", updatedAt: "now" });
-  const state = Object.assign(initialRuntime(session), { privateLedger: { validatorVersion: 1, records: [] }, futurePrivateData: "PRIVATE_LEDGER_SENTINEL" });
+  const state = Object.assign(initialRuntime(session), { privateLedger: { validatorVersion: 1, records: [] }, privateSourceScreenRejectedRequests: ["f".repeat(64)], futurePrivateData: "PRIVATE_LEDGER_SENTINEL" });
   const store: GuidedRuntimeStore = { read: vi.fn(async () => structuredClone(state)), claim: vi.fn(async () => ({ state: structuredClone(state), replay: true })), steer: vi.fn(async () => structuredClone(state)), write: vi.fn(async () => undefined) };
   const model = { complete: vi.fn(async () => { throw new Error("must not call model"); }) };
   const service = new GuidedRuntimeService(store, model, { search: vi.fn(async () => []) }, { provider: "test", id: "test" });
@@ -18,7 +18,7 @@ function fixture() {
   return { state, store, service, actor, session, command, model };
 }
 function assertPublic(value: unknown) {
-  expect(JSON.stringify(value)).not.toMatch(/privateLedger|futurePrivateData|PRIVATE_LEDGER_SENTINEL/);
+  expect(JSON.stringify(value)).not.toMatch(/privateLedger|privateSourceScreenRejectedRequests|futurePrivateData|PRIVATE_LEDGER_SENTINEL|f{64}/);
   expect(() => C.GuidedResearchRuntime.parse(value)).not.toThrow();
 }
 describe("private evidence never crosses the public runtime boundary", () => {
@@ -54,8 +54,9 @@ describe("private evidence never crosses the public runtime boundary", () => {
     const f = fixture();
     const publicState = toPublicResearchRuntime(f.state);
     expect(PersistedResearchRuntimeSchema.parse(publicState).privateLedger).toBeUndefined();
-    const internal = PersistedResearchRuntimeSchema.parse({ ...publicState, privateLedger: f.state.privateLedger });
+    const internal = PersistedResearchRuntimeSchema.parse({ ...publicState, privateLedger: f.state.privateLedger, privateSourceScreenRejectedRequests: f.state.privateSourceScreenRejectedRequests });
     expect(PersistedResearchRuntimeSchema.parse(JSON.parse(JSON.stringify(internal))).privateLedger).toEqual(f.state.privateLedger);
+    expect(PersistedResearchRuntimeSchema.parse(JSON.parse(JSON.stringify(internal))).privateSourceScreenRejectedRequests).toEqual(["f".repeat(64)]);
     expect(C.GuidedResearchRuntime.safeParse(internal).success).toBe(false);
     expect(PersistedResearchRuntimeSchema.safeParse({ ...internal, privateLedger: { validatorVersion: 999, records: [] } }).success).toBe(false);
   });
@@ -63,7 +64,7 @@ describe("private evidence never crosses the public runtime boundary", () => {
     const f = fixture();
     const known = Object.fromEntries(C.GuidedResearchRuntimeKnownFields.keySchema.options.map(key => [key, fieldFingerprint(f.state[key])]));
     for (const value of [runtimeDelta(f.state, known), runtimePollingDelta(f.state, known), runtimeProgress(f.state)]) {
-      expect(JSON.stringify(value)).not.toMatch(/privateLedger|futurePrivateData|PRIVATE_LEDGER_SENTINEL/);
+      expect(JSON.stringify(value)).not.toMatch(/privateLedger|privateSourceScreenRejectedRequests|futurePrivateData|PRIVATE_LEDGER_SENTINEL|f{64}/);
     }
     expect(runtimeDelta(f.state, known).changes).toEqual({});
   });
@@ -82,7 +83,7 @@ describe("private evidence never crosses the public runtime boundary", () => {
     const progress = await controller.getRuntimeProgress(principal, f.session.sessionId, knownFields ? { knownFields: JSON.stringify(knownFields) } : {});
     await controller.streamRuntime(principal, f.session.sessionId, command, response as never, {} as never);
     expect(frames).toHaveLength(2);
-    expect(JSON.stringify([get, result, progress, frames])).not.toMatch(/privateLedger|futurePrivateData|PRIVATE_LEDGER_SENTINEL/);
+    expect(JSON.stringify([get, result, progress, frames])).not.toMatch(/privateLedger|privateSourceScreenRejectedRequests|futurePrivateData|PRIVATE_LEDGER_SENTINEL|f{64}/);
     const events = frames.map(frame => JSON.parse(frame.slice(6)));
     expect(events.map(event => event.type)).toEqual(withKnown ? ["patch", "result_patch"] : ["snapshot", "result"]);
   });
