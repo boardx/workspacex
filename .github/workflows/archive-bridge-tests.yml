@@ -50,6 +50,7 @@ on:
       - '.harness/scripts/vm/import-cn-image-archives.py'
       - 'tests/test_cn*archive*.py'
       - 'packages/cloud-deploy/src/release*.ts'
+      - '.harness/scripts/vm/isolated_rehearsal_aliyun.py'
 permissions:
   contents: read
 jobs:
