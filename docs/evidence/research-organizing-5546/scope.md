@@ -1,0 +1,21 @@
+# Scope separation for exact-SHA main review
+
+## Core supplier-content rejection repair
+
+- Configured provider + ModelCallError: classify only HTTP 400/error.code=data_inspection_failed into an owned content-policy category; preserve usage, discard provider body/message, no retry/fallback disposition. Loopback protocol tests cover exact/wrong code/status and body redaction.
+- Report evidence extraction: exact rejection excludes the supplied request batch, keeps separately verified chunks, preserves bounded warning metadata; initial versus repair requests use their own actual payload digests. Identical full request/model-instance bases reuse refusal; changed bases do not. All-refused/no-basis and unrelated failures retain gates.
+- Source relevance + service adapter boundary: a real full-service probe reproduced the same exact supplier refusal here, proving report extraction alone insufficient. Exact rejection excludes the whole batch's sources, records owned metadata, avoids validated irrelevant-source caches and does not mark unsupported tasks succeeded. This is part of the initial provider failure mechanism, not derived report-quality scope.
+- Contracts/persistence, stable wrapper instance identity, safe diagnostics and Web wording support those rejection paths. Old warning enum and absent new fields remain readable.
+- Direct red/green evidence: rejected batch previously propagated MODEL_CALL_FAILED/RESEARCH_WORKFLOW_UNAVAILABLE in controlled first/regeneration/service paths; recovery tests now preserve valid evidence and durable reports when the fixture satisfies unchanged quality checks. Real provider HTTP 400/code was independently reproduced, with explicit historical API diagnostic limitations. This does not prove exact historical source attribution or full devapp recovery.
+
+## Later quality/coverage changes derived from partial local replay
+
+- Writer originally expanded subsectionPlan but lacked explicit placement for section.questions. Added a deduplicated coverage plan sharing extraction/review IDs and chapter_lead placement. Rich no-evidence drafts also retain main questions as unresolved scope; they remain unverified drafts.
+- Immediate repair feedback was named review while system mentioned previousReview. Writer now names both and targets missing question IDs.
+- For answered/no-direct conflicts, the machine gate formerly emitted only the reviewer's positive rationale, hiding its own reason; repair selected only missing. The same predicate now emits an owned rejection explanation, and both first/regeneration paths map the conflict to the exact question, quote direct/context scope and real reason. No verdict/status is rewritten.
+- Independent reviewer instruction explicitly prevents another question's direct quote from automatically establishing this question. Background cross-question analysis remains allowed. Citation, evidence, quality/publication predicates and existing attempt/adjudication limits remain.
+- Direct red/green evidence: absent coverage plan failed its regression; absent main-question scope in no-evidence draft failed; absent machine rejection reason produced q: Claim an answer instead of the required reason. Controlled first/regeneration entry tests verify unified feedback and persistence. These tests do not replace semantic real-model acceptance.
+
+## Still unaccepted
+
+The final seven-source/32-question partial replay yielded four draft chapters for first generation and regeneration, not formal reports (one/three quality warnings). It deliberately lacks the original complete 23-source nonpartial evidence basis. Mandatory release validation also fails at unchanged pre-existing OSS secret-scan locations. The first full runtime snapshot was accidentally overwritten during an unconfigured script check AFTER result/log archival; first draft/history is preserved in the untouched final regeneration reportPrevious, not an independent full first snapshot. See investigation.md. The no-provider-HTTP basis is ConfiguredModelProvider.complete's missing-apiKey guard before request construction/transport dispatch, plus MODEL_PROVIDER_NOT_CONFIGURED output; the relocated script now guards before reads/writes. No further model reruns, PR, merge, passing declaration or deployment.

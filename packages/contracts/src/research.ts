@@ -970,10 +970,18 @@ export const GuidedResearchRuntimeDraft = z.discriminatedUnion("node", [
   z.object({ node: z.literal("research"), value: z.array(z.object({ id: z.string(), decision: z.enum(["pending", "accepted", "excluded"]) }).strict()) }).strict(),
   z.object({ node: z.literal("report"), value: GuidedResearchReport }).strict(),
 ]);
-export const GuidedResearchEvidenceWarning = z.object({
+const GuidedResearchEvidenceWarningBase = z.object({
   batchIndex: z.number().int().nonnegative(), sourceIds: z.array(z.string().min(1)).max(8),
-  questionIds: z.array(z.string().min(1)).max(256), reason: z.literal("invalid_model_evidence"),
+  questionIds: z.array(z.string().min(1)).max(256),
 }).strict();
+export const GuidedResearchProviderBatchRejection = GuidedResearchEvidenceWarningBase.extend({ reason: z.literal("batch_provider_content_rejected"),
+    requestBasis: z.string().regex(/^[a-f0-9]{64}$/),
+    chunks: z.array(z.object({ sourceId: z.string().min(1), chunkId: z.string().min(1), contentHash: z.string().regex(/^[a-f0-9]{64}$/) }).strict()).min(1).max(8),
+  });
+export const GuidedResearchEvidenceWarning = z.discriminatedUnion("reason", [
+  GuidedResearchEvidenceWarningBase.extend({ reason: z.literal("invalid_model_evidence") }),
+  GuidedResearchProviderBatchRejection,
+]);
 export const GuidedResearchQualityWarning = z.object({
   sectionId: z.string().min(1), issues: z.array(z.string().min(1).max(2000)).min(1).max(100),
 }).strict();
@@ -1069,6 +1077,7 @@ export const GuidedResearchRuntime = z.object({
   reportQualityWarnings: z.array(GuidedResearchQualityWarning).max(30).optional(),
   reportPrevious: GuidedResearchPreviousReport.nullable().optional(),
   reportEvidenceWarnings: z.array(GuidedResearchEvidenceWarning).max(256).optional(),
+  sourceScreenRejections: z.array(GuidedResearchProviderBatchRejection).max(256).optional(),
   intent: GuidedResearchIntent.optional(), planRevision: z.number().int().nonnegative().optional(),
   sourcePolicy: GuidedResearchSourcePolicy.optional(),
   controlStatus: z.enum(["running", "paused"]).optional(),

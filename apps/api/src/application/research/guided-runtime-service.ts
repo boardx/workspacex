@@ -3,6 +3,7 @@ import { toPublicResearchRuntime } from "./guided-runtime-persistence";
 import { executeComposite } from "./guided-composite-execution";
 import { executeTaskPipeline, tasksFromConfirmedQuestions, normalizedResearchUrl } from "./guided-task-pipeline";
 import { withGuidedThinkingPolicy } from "./guided-thinking-policy";
+import { ModelCallError } from "../agent-run/ports";
 import { reportBasis } from "./guided-report-checkpoint";
 import { GUIDED_PLAN_BUDGET_MS, GUIDED_REPORT_MODEL_BUDGET_MS, GUIDED_SEARCH_CALL_BUDGET_MS, GUIDED_READ_CALL_BUDGET_MS, SearchBudget } from "./guided-search-budget";
 import type { DebugTracePort } from "../ports/debug-trace.port";
@@ -282,7 +283,7 @@ export class GuidedRuntimeService {
         const succeed = async () => { budget?.check(); check?.(); call.status = "succeeded"; };
         if (admit) await admit(succeed); else await succeed();
         return value;
-      } catch (error) { throw error instanceof ResearchRuntimeError ? error : new ResearchRuntimeError("RESEARCH_WORKFLOW_UNAVAILABLE", { cause: error }); }
+      } catch (error) { throw error instanceof ResearchRuntimeError || (parseOutput === parseSourceRelevanceJson && error instanceof ModelCallError && error.contentRejection === "content-policy") ? error : new ResearchRuntimeError("RESEARCH_WORKFLOW_UNAVAILABLE", { cause: error }); }
     } finally { planningBudget?.dispose(); }
   }
   private context(state: ResearchRuntime) {
@@ -445,8 +446,9 @@ export class GuidedRuntimeService {
   private sourceScreenComplete(state: ResearchRuntime, persist: RuntimePersistence, budget?: SearchBudget) {
     let admission = Promise.resolve();
     const admit = (work: () => Promise<void>) => { admission = admission.then(work); return admission; };
-    return (system: string, context: unknown, validate: (value: unknown) => void, check?: () => void) =>
-      this.completeJson(state, "research", system, context, persist, validate, parseSourceRelevanceJson, budget, admit, check);
+    return Object.assign((system: string, context: unknown, validate: (value: unknown) => void, check?: () => void) =>
+      this.completeJson(state, "research", system, context, persist, validate, parseSourceRelevanceJson, budget, admit, check),
+      { configurationIdentity: JSON.stringify({ model: this.modelConfig, adapter: this.model.configurationIdentity }) });
   }
   private async reviewSources(state: ResearchRuntime, persist: RuntimePersistence, budget?: SearchBudget) {
     const sources = await screenResearchSources(state, state.sources,
@@ -458,7 +460,9 @@ export class GuidedRuntimeService {
     if (affected.size || sources.length !== state.sources.length) {
       for (const task of state.tasks) if (affected.has(task.id) && task.status === "succeeded"
         && !sources.some((source) => source.decision !== "excluded" && [source.taskId, ...(source.taskIds ?? [])].includes(task.id))) {
-        task.status = "failed"; task.errorCode = "RESEARCH_SEARCH_NO_RELEVANT_SOURCES";
+        task.status = "failed";
+        task.errorCode = state.sourceScreenRejections?.some(rejection => rejection.sourceIds.some(id => state.sources.some(source => source.id === id && sourceTaskIds(source).includes(task.id))))
+          ? "RESEARCH_WORKFLOW_UNAVAILABLE" : "RESEARCH_SEARCH_NO_RELEVANT_SOURCES";
       }
       invalidate(state, "research");
     }

@@ -1,3 +1,4 @@
+import {PersistedResearchRuntimeSchema} from "../../src/application/research/guided-runtime-persistence";
 import { tasksFromConfirmedQuestions } from "../../src/application/research/guided-task-pipeline";
 import { reportQuestions, extractReportEvidence, selectQuestionEvidence } from "../../src/application/research/guided-report-evidence";
 import { createHash } from "node:crypto";
@@ -9,6 +10,8 @@ import { GuidedRuntimeService, initialRuntime } from "../../src/application/rese
 import { ResearchRuntimeError, type ResearchRuntime, type GuidedRuntimeStore } from "../../src/application/research/guided-runtime-ports";
 import { toOrgId } from "../../src/domain/org-id";
 import { guidedResearchReply } from "../../scripts/loopback-guided-research";
+import {NegativeSourceScreenCache} from "../../src/application/research/guided-negative-screen-cache";
+import { ModelCallError } from "../../src/application/agent-run/ports";
 
 const session = C.GuidedResearchSession.parse({ sessionId: "relevance-session", title: "王者荣耀", brief: { topic: "王者荣耀综合研究", goal: "市场地位与电竞生态", region: "中国", focus: "用户留存和电竞", timeRange: "2023–2027" }, stage: "brief", resumeStage: "brief", status: "active", progress: 0, sourceCount: 0, reportId: null, createdAt: "now", updatedAt: "now" });
 function runtime() {
@@ -37,6 +40,44 @@ function complete() {
 }
 
 describe("automatic research source relevance", () => {
+  it("records a rejected supplier batch without calling it irrelevant and keeps healthy sources", async () => {
+    const state=runtime(); state.sources=Array.from({length:9},(_,i)=>source(`s${i}`,direct.content));
+    let rejectedCalls=0;
+    const model=Object.assign(async(_system:string,input:unknown,validate:(output:unknown)=>void)=>{
+      const context=input as Input;
+      if(context.chunks.some(chunk=>chunk.sourceId==='s0')){rejectedCalls++;throw new ModelCallError("MODEL_CALL_FAILED","HTTP 400",undefined,undefined,"content-policy");}
+      const output=evaluation(context);validate(output);return output;
+    },{configurationIdentity:"test-config"});
+    const result=await screenResearchSources(state,state.sources,model);
+    expect(result.map(source=>source.id)).toEqual(['s8']);
+    expect(state.sourceScreenRejections?.[0]).toMatchObject({reason:"batch_provider_content_rejected",sourceIds:state.sources.slice(0,8).map(s=>s.id)});
+    await screenResearchSources(state,state.sources,model);
+    expect(rejectedCalls).toBe(1);
+    expect(state.sourceScreenRejections).toHaveLength(1);
+  });
+  it("does not treat other model or persistence failures as supplier rejection", async()=>{
+    const state=runtime();const error=new ModelCallError("MODEL_CALL_FAILED","HTTP 400");
+    await expect(screenResearchSources(state,[direct],async()=>{throw error;})).rejects.toBe(error);
+    expect(state.sourceScreenRejections).toBeUndefined();
+  });
+  it("does not approve rejected sources or cache them as validated irrelevant", async()=>{
+    const state=runtime();state.sources=[direct];const negativeCache=new NegativeSourceScreenCache();vi.spyOn(negativeCache,"remember");
+    const result=await screenResearchSources(state,state.sources,async()=>{throw new ModelCallError("MODEL_CALL_FAILED","HTTP 400",undefined,undefined,"content-policy");},{negativeCache});
+    expect(result).toEqual([]);expect(negativeCache.remember).not.toHaveBeenCalled();
+    expect(PersistedResearchRuntimeSchema.parse(JSON.parse(JSON.stringify(state))).sourceScreenRejections).toHaveLength(1);
+  });
+  it("caches the actual rejected repair payload without skipping the unrefused initial request", async()=>{
+    const state=runtime();state.sources=[direct];let calls=0;
+    const model=Object.assign(async(_system:string,input:unknown,validate:(output:unknown)=>void)=>{
+      calls++;const context=input as Input & {repair?:unknown};
+      if(context.repair) throw new ModelCallError("MODEL_CALL_FAILED","HTTP 400",undefined,undefined,"content-policy");
+      const output=evaluation(context);output.evaluations[0]!.matches[0]!.quote="fabricated";
+      validate(output);return output;
+    },{configurationIdentity:"same"});
+    expect(await screenResearchSources(state,state.sources,model)).toEqual([]);
+    expect(await screenResearchSources(state,state.sources,model)).toEqual([]);
+    expect(calls).toBe(3);
+  });
   it("persists Chinese presentation without rewriting original evidence", async () => {
     const presentation = { title: "电竞商业模式", summary: "说明赛事赞助和版权收入。" };
     const result = await screenResearchSources(runtime(), [direct], async (_system, input, validate) => {

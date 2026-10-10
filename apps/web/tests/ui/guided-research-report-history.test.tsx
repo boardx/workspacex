@@ -12,6 +12,13 @@ beforeEach(() => vi.resetAllMocks());
 const initial = runtimeFixture("report");
 const previous = { title: "上一轮研究", createdAt: "2026-09-08T01:00:00Z", report: null, text: '{"sections":[{"sectionId":"o1","body":"旧结论[[source:S1]]', chapters: [], sources: initial.sources, outline: initial.outline, aliases: [{ alias: "S1", sourceId: "source1" }] };
 describe("continuous report history", () => {
+  it("explains a rejected provider request without asserting invalid individual evidence", () => {
+    const warnings = [{ batchIndex: 0, sourceIds: ["source1"], questionIds: ["q1"], reason: "batch_provider_content_rejected" as const, requestBasis:"a".repeat(64), chunks:[{sourceId:"source1",chunkId:"chunk1",contentHash:"b".repeat(64)}] }];
+    render(<GuidedResearchEvidenceWarning state={{...initial,report:null,busy:true,reportEvidenceWarnings:warnings}}/>);
+    expect(screen.getByTestId("research-report-evidence-warning")).toHaveTextContent("处理请求被模型服务拒绝");
+    expect(screen.getByTestId("research-report-evidence-warning")).not.toHaveTextContent("未通过校验");
+    expect(screen.getByTestId("research-report-evidence-warning")).not.toHaveTextContent("无效部分");
+  });
   it("omits previous reports and coverage notices during generation", async () => {
     vi.mocked(getResearchRuntime).mockResolvedValue({ ...initial, report: null, reportPartial: true, busy: true, leaseUntil: "2099-01-01T00:00:00Z", reportPrevious: previous,
       reportEvidenceWarnings: [{ batchIndex: 0, sourceIds: ["source1"], questionIds: ["q1"], reason: "invalid_model_evidence" }],

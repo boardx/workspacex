@@ -68,7 +68,7 @@ export async function generateReportChapters(state: ResearchRuntime, model: Mode
   state.reportQualityWarnings = (state.reportQualityWarnings ?? []).filter((warning) => approved.some((chapter) => chapter.sectionId === warning.sectionId));
   state.reportDraft = null;
   initializeReportTimeline(state, [...approved, ...reusable.values()]);
-  if (!approved.length && !reusable.size) state.reportEvidenceWarnings = [];
+  if (!approved.length && !reusable.size) state.reportEvidenceWarnings = (state.reportEvidenceWarnings ?? []).filter(warning => warning.reason === "batch_provider_content_rejected");
   state.reportSourceAliases = aliases;
   state.reportCheckpoint = { basis, chapters: structuredClone(approved), ...(effectiveInstruction !== undefined ? { instruction: effectiveInstruction } : {}) };
   const restorePriorCheckpoint = () => {
@@ -169,7 +169,7 @@ export async function generateReportChapters(state: ResearchRuntime, model: Mode
     if (chapters.length) await restoreApproved();
     const remaining = sections.slice(chapters.length).filter((section) => !reusable.has(section.id));
     if (remaining.length) { updateReportTimeline(state, "evidence", "running"); await persistTimeline(); }
-    const extracted = remaining.length ? await extractReportEvidence(state, config, audited, new Set(remaining.map((section) => section.id)), aliases, diagnostic)
+    const extracted = remaining.length ? await extractReportEvidence(state, config, audited, new Set(remaining.map((section) => section.id)), aliases, diagnostic, model.configurationIdentity)
       : { questions: [], sources: canonicalEvidenceSources(state), matches: new Map() };
     if (remaining.length) {
       const evidenceItem = state.reportTimeline?.find((item) => item.stage === "evidence");
@@ -234,10 +234,18 @@ export async function generateReportChapters(state: ResearchRuntime, model: Mode
       const modelEvidence = evidenceByQuestion.map((question) => ({ ...question,
         evidence: question.evidence.map((evidence) => ({ ...evidence, sourceId: chapterAliasById.get(evidence.sourceId)! })),
       }));
+      // Match extraction/review IDs; rich subsection plans omit chapter questions.
+      const questionCoveragePlan = modelEvidence.map(question => ({
+        questionId: question.id, question: question.question,
+        placement: question.subsectionId ?? "chapter_lead",
+        evidenceStatus: question.gap ? (question.evidence.length ? "context_only" : "none") : "direct_available",
+        evidenceScope: question.evidence.map(({ sourceId, quote, relevance }) => ({ sourceId, quote, relevance })),
+        requirement: "Use available verified evidence, then identify any remaining specific missing metric/fact, decision consequence, data owner and measurement method. A heading or copied question is not an answer.",
+      }));
       const citationScope = { expectedSectionId: section.id, allowedSources: sources.map(({ alias }) => ({ sourceId: alias, alias })) };
       const input = { modelProvider: config.provider, modelId: config.id,
-        system: `${system} Write ONLY the specified chapter as {"sectionId":${JSON.stringify(section.id)},"body":string,"sourceIds":string[]}. Follow subsectionPlan exact titles as ### headings and answer their questions, retaining the chapter's objective, analysisApproach and expectedOutput. For a legacy plan add at least three meaningful analytical subheadings. Aim for 400–700 Chinese characters per substantive subsection and roughly 2000–3500 per chapter (equivalent depth in the user's language), but never pad or invent facts to reach a quota. Develop a formal analytical narrative specific to this chapter, with a clear argument connecting its subsections. Avoid repeating a generic evidence/implications/recommendations template in every chapter. Use the exact planned headings, but vary the analysis to fit each question. Across the chapter explain evidence, comparisons or causal reasoning, uncertainty and decision implications; place actions where they follow from the analysis. Base facts on verified quotes; extraction insights are interpretation, not independently proven facts. Do not convert association, audience size, attendance or incentives into causal effects, concurrent viewing metrics, or measured activity spikes. State exactly what each quote establishes. When revising, remove unsupported causal assertions throughout the narrative rather than adding a contradictory disclaimer after them. Context-only excerpts do not answer missing direct evidence: explicitly identify unanswered questions, consequences and verification needed. For every unsupported question, specify the exact missing metric or fact, how its absence limits the decision, and a concrete verification plan naming the data owner and measurement method. Use available supported evidence before explaining the remaining gap; never substitute a gap for an available answer. Explicitly explain evidenceCoverageWarnings relevant to the chapter: excluded invalid extraction leaves incomplete coverage even when other sources support some findings. Do not claim snippets are complete website text. Do not just repeat questions or list findings. Use ONLY the exact S-number identifiers from sources.id in inline [[source:S1]] markers and sourceIds. Never copy or reconstruct UUIDs from prior drafts or rawOutput. Never invent aliases. sourceIds must exactly match distinct inline citation IDs in body. Separate headings and prose paragraphs with blank lines. If previousReview is supplied, correct its issues against the CURRENT verified excerpts or state an honest evidence gap; previousChapter is an unverified draft, never evidence.`,
-        user: JSON.stringify({ reportStage: "chapter", brief: chapterState.brief, section, subsectionPlan: subsectionPlan(section), sources: modelSources, citationScope, evidenceByQuestion: modelEvidence, evidenceGaps, ...(previousWarning ? { previousChapter: modelChapter(previousWarning.chapter), previousReview: { issues: previousWarning.issues } } : {}), reportPartial: Boolean(chapterState.reportPartial), evidenceCoverageWarnings: chapterState.reportEvidenceWarnings ?? [], instruction: effectiveInstruction }) };
+        system: `${system} Write ONLY the specified chapter as {"sectionId":${JSON.stringify(section.id)},"body":string,"sourceIds":string[]}. Complete every questionCoveragePlan item using its own evidenceScope. Direct quotes assigned to another question can support background but never establish this question’s answer. For context_only or none, narrow claims and explicitly identify the exact remaining requested fact/metric, decision consequence and data owner plus measurement method; do not imply the question is fully established. Chapter-level questions with placement chapter_lead require substantive prose BEFORE the first planned subsection heading, comparing findings and distinguishing supported evidence from missing measurements. Subsection questions belong under their planned headings. Follow subsectionPlan exact titles as ### headings and answer their questions, retaining the chapter's objective, analysisApproach and expectedOutput. For a legacy plan add at least three meaningful analytical subheadings. Aim for 400–700 Chinese characters per substantive subsection and roughly 2000–3500 per chapter (equivalent depth in the user's language), but never pad or invent facts to reach a quota. Develop a formal analytical narrative specific to this chapter, with a clear argument connecting its subsections. Avoid repeating a generic evidence/implications/recommendations template in every chapter. Use the exact planned headings, but vary the analysis to fit each question. Across the chapter explain evidence, comparisons or causal reasoning, uncertainty and decision implications; place actions where they follow from the analysis. Base facts on verified quotes; extraction insights are interpretation, not independently proven facts. Do not convert association, audience size, attendance or incentives into causal effects, concurrent viewing metrics, or measured activity spikes. State exactly what each quote establishes. When revising, remove unsupported causal assertions throughout the narrative rather than adding a contradictory disclaimer after them. Context-only excerpts do not answer missing direct evidence: explicitly identify unanswered questions, consequences and verification needed. For every unsupported question, specify the exact missing metric or fact, how its absence limits the decision, and a concrete verification plan naming the data owner and measurement method. Use available supported evidence before explaining the remaining gap; never substitute a gap for an available answer. Explicitly explain evidenceCoverageWarnings relevant to the chapter: excluded invalid extraction leaves incomplete coverage even when other sources support some findings. Do not claim snippets are complete website text. Do not just repeat questions or list findings. Use ONLY the exact S-number identifiers from sources.id in inline [[source:S1]] markers and sourceIds. Never copy or reconstruct UUIDs from prior drafts or rawOutput. Never invent aliases. sourceIds must exactly match distinct inline citation IDs in body. Separate headings and prose paragraphs with blank lines. If review or previousReview is supplied, correct every issue and questionsToRepair item against the CURRENT verified excerpts or state an honest evidence gap; previousChapter is an unverified draft, never evidence.`,
+        user: JSON.stringify({ reportStage: "chapter", brief: chapterState.brief, section, questionCoveragePlan, subsectionPlan: subsectionPlan(section), sources: modelSources, citationScope, evidenceByQuestion: modelEvidence, evidenceGaps, ...(previousWarning ? { previousChapter: modelChapter(previousWarning.chapter), previousReview: { issues: previousWarning.issues } } : {}), reportPartial: Boolean(chapterState.reportPartial), evidenceCoverageWarnings: chapterState.reportEvidenceWarnings ?? [], instruction: effectiveInstruction }) };
       let chapter: Chapter | undefined;
       if (!sources.length) {
         // Confirmed scope remains visible, but cannot supply citations or factual findings.
@@ -245,7 +253,9 @@ export async function generateReportChapters(state: ResearchRuntime, model: Mode
         const gap = reportFraming.gap;
         const prefix = reportFraming.questionPrefix;
         const omitted = reportFraming.omitted;
-        const parts = subsectionPlan(section).map((part) => ({ title: safeScope(part.title), questions: part.questions.map(safeScope) }));
+        const scopeParts = section.subsections?.length && section.questions.length
+          ? [{ title: section.title, questions: section.questions }, ...subsectionPlan(section)] : subsectionPlan(section);
+        const parts = scopeParts.map((part) => ({ title: safeScope(part.title), questions: part.questions.map(safeScope) }));
         const bodyLimit = C.GuidedResearchReport.shape.sections.element.shape.body.maxLength!;
         // Reserve every heading, question marker and gap explanation before excerpting.
         const fixedBody = parts.map((part) => `### ${part.title}\n\n${part.questions.map(() => prefix + omitted).join("\n\n")}\n\n${gap}`).join("\n\n");
@@ -261,10 +271,16 @@ export async function generateReportChapters(state: ResearchRuntime, model: Mode
       let rawOutput = "";
       let repair: unknown;
       let gapAdjudicationAttempted = false;
+      const questionsToRepair = () => {
+        const verdict = repair as { issues?: string[]; review?: { questions?: { questionId: string; status: string; rationale: string }[] } } | undefined;
+        return (verdict?.review?.questions ?? []).filter(question => question.status === "missing" || (question.status === "answered" && modelEvidence.find(item => item.id === question.questionId)?.gap))
+          .flatMap(question => questionCoveragePlan.filter(item => item.questionId === question.questionId)
+            .map(({ requirement: _requirement, ...item }) => ({ ...item, issue: verdict?.issues?.find(issue => issue.startsWith(`${question.questionId}: `))?.slice(question.questionId.length + 2) ?? question.rationale })));
+      };
       for (let attempt = 0; sources.length && attempt < 2; attempt++) {
         if (attempt) await restoreChapter();
-        const nextInput = attempt ? { ...input, user: JSON.stringify({ ...JSON.parse(input.user), reportStage: "chapter_revision", rawOutput: rawOutput.slice(0, 50000), ...(chapter ? { chapter: modelChapter(chapter) } : {}), review: repair,
-          repairInstruction: "Repair the JSON/citation/quality failure using only the supplied evidence and aliases. Do not hide unsupported claims by merely deleting invalid markers." }) } : input;
+        const nextInput = attempt ? { ...input, user: JSON.stringify({ ...JSON.parse(input.user), reportStage: "chapter_revision", rawOutput: rawOutput.slice(0, 50000), ...(chapter ? { chapter: modelChapter(chapter) } : {}), review: repair, questionsToRepair: questionsToRepair(),
+          repairInstruction: "Repair every listed missing question in questionCoveragePlan at its specified placement, including chapter_lead questions. Produce a supported substantive answer or specific remaining evidence gap with decision consequences, data owner and measurement method; never merely repeat questions. Repair the JSON/citation/quality failure using only the supplied evidence and aliases. Do not hide unsupported claims by merely deleting invalid markers." }) } : input;
         try {
           chapter = await chapterAudit(nextInput, (text) => {
             rawOutput = text;

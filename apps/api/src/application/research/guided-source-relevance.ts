@@ -8,10 +8,11 @@ import { zodToJsonSchema } from "zod-to-json-schema";
 import { extractJson } from "./guided-structured-json";
 import { reportQuestions } from "./guided-report-evidence";
 import { ResearchRuntimeError, type ResearchRuntime } from "./guided-runtime-ports";
+import { ModelCallError } from "../agent-run/ports";
 import type { ModelResponseSchema } from "../agent-run/ports";
 
 type Source = ResearchRuntime["sources"][number];
-type Complete = (system: string, context: unknown, validate: (value: unknown) => void, check?: () => void) => Promise<unknown>;
+type Complete = ((system: string, context: unknown, validate: (value: unknown) => void, check?: () => void) => Promise<unknown>) & { configurationIdentity?: string };
 type Chunk = SourceEvidenceChunk;
 type OutputIssue = { path: (string | number)[]; code: SourceRelevanceIssueCode; message: string };
 class InvalidRelevanceOutput extends ResearchRuntimeError {
@@ -128,6 +129,8 @@ export async function screenResearchSources(state: ResearchRuntime, sources: Sou
   if (chunks.length > 512) throw new ResearchRuntimeError("RESEARCH_EVIDENCE_BUDGET_EXCEEDED");
   const batches: Chunk[][] = options.adaptive ? [] : sourceScreenBatches(chunks);
   let hadRepair = false;
+  let hadRejection = false;
+  const rejectedSources = new Set<string>();
   const evaluate = async (batch: Chunk[], checkBatch: () => void) => {
     const check = () => { options.signal?.throwIfAborted(); checkBatch(); };
     const parse = (value: unknown) => {
@@ -164,19 +167,33 @@ export async function screenResearchSources(state: ResearchRuntime, sources: Sou
     };
     let previousOutput: unknown;
     let repairIssues: OutputIssue[] = [];
+    const context = { researchStage: "source_relevance", brief: state.brief,
+      questions: questions.filter((question) => batch.some((chunk) => chunk.questionIds.includes(question.id))),
+      tasks: state.tasks.filter((task) => batch.some((chunk) => chunk.taskId === task.id)), chunks: batch.map(evidenceWireChunk) };
+    let requestBasis = createHash("sha256").update(JSON.stringify({ instruction, context, configurationIdentity: complete.configurationIdentity })).digest("hex");
+    const rejectBatch = () => {
+      check(); hadRejection = true;
+      batch.forEach(chunk => rejectedSources.add(chunk.sourceId));
+      const rejection = { batchIndex: Math.max(0, batches.indexOf(batch)), sourceIds: [...new Set(batch.map(chunk => chunk.sourceId))], questionIds: context.questions.map(question => question.id),
+        reason: "batch_provider_content_rejected" as const, requestBasis, chunks: batch.map(chunk => ({ sourceId: chunk.sourceId, chunkId: chunk.chunkId, contentHash: createHash("sha256").update(chunk.content).digest("hex") })) };
+      state.sourceScreenRejections = [...(state.sourceScreenRejections ?? []).filter(item => item.requestBasis !== requestBasis), rejection].slice(-256);
+      return [];
+    };
+    if (complete.configurationIdentity && state.sourceScreenRejections?.some(item => item.requestBasis === requestBasis)) return rejectBatch();
     for (let attempt = 0; attempt < 2; attempt++) {
       check();
       try {
-        const value = await complete(instruction, { researchStage: "source_relevance", brief: state.brief,
-          questions: questions.filter((question) => batch.some((chunk) => chunk.questionIds.includes(question.id))),
-          tasks: state.tasks.filter((task) => batch.some((chunk) => chunk.taskId === task.id)), chunks: batch.map(evidenceWireChunk),
-          ...(attempt ? { repair: { issues: repairIssues, previousOutput: (JSON.stringify(previousOutput) ?? "null").slice(0, 24000), instruction: "Use exact chunk/source/question IDs; evaluate each chunk once; select same-chunk quoteOptions references; irrelevant must agree with matches." } } : {}) },
-        (output) => { previousOutput = output; parse(output); }, check);
+        const attemptContext = { ...context,
+          ...(attempt ? { repair: { issues: repairIssues, previousOutput: (JSON.stringify(previousOutput) ?? "null").slice(0, 24000), instruction: "Use exact chunk/source/question IDs; evaluate each chunk once; select same-chunk quoteOptions references; irrelevant must agree with matches." } } : {}) };
+        requestBasis = createHash("sha256").update(JSON.stringify({ instruction, context: attemptContext, configurationIdentity: complete.configurationIdentity })).digest("hex");
+        if (complete.configurationIdentity && state.sourceScreenRejections?.some(item => item.requestBasis === requestBasis)) return rejectBatch();
+        const value = await complete(instruction, attemptContext, (output) => { previousOutput = output; parse(output); }, check);
         check();
         const evaluations = parse(value).evaluations;
         check();
         return evaluations;
       } catch (error) {
+        if (error instanceof ModelCallError && error.contentRejection === "content-policy") return rejectBatch();
         // Provider/persistence failures must never be retried as malformed output.
         if (!(error instanceof InvalidRelevanceOutput) || attempt === 1) throw error;
         check();
@@ -212,7 +229,7 @@ export async function screenResearchSources(state: ResearchRuntime, sources: Sou
     }
   }
   options.signal?.throwIfAborted();
-  if (options.negativeCache && !hadRepair) {
+  if (options.negativeCache && !hadRepair && !hadRejection) {
     const scanned = new Set(batches.flat().map(chunk => chunk.chunkId));
     for (const source of candidates) {
       const sourceChunks = chunks.filter(chunk => chunk.sourceId === source.id), key = keys.get(source.id);
@@ -222,7 +239,7 @@ export async function screenResearchSources(state: ResearchRuntime, sources: Sou
     }
   }
   const reviewed = new Set(candidates.map((source) => source.id));
-  return sources.filter((source) => !cachedNegative.has(source.id) && (!reviewed.has(source.id) || accepted.has(source.id)))
+  return sources.filter((source) => !rejectedSources.has(source.id) && !cachedNegative.has(source.id) && (!reviewed.has(source.id) || accepted.has(source.id)))
     .map((source) => {
       if (!reviewed.has(source.id)) return source;
       const taskIds = [...accepted.get(source.id)!];

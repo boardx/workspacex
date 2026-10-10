@@ -42,7 +42,8 @@ describe("partial question coverage quality review", () => {
   it("retains no-direct answered rejection and honest all-gap acceptance", async () => {
     const noDirect = evidence.map((q) => ({ ...q, gap: true, evidence: [] }));
     const answered = setup({ ...initial, questions: [{ questionId: "q", status: "answered", rationale: "Claim an answer." }] });
-    expect((await answered.run(noDirect)).passed).toBe(false); expect(answered.calls).toHaveLength(1);
+    const rejected = await answered.run(noDirect);
+    expect(rejected.passed).toBe(false); expect(rejected.issues[0]).toContain("No direct verified evidence"); expect(answered.calls).toHaveLength(1);
     const gap = setup(); expect((await gap.run(noDirect)).passed).toBe(true); expect(gap.calls).toHaveLength(1);
   });
   it.each(["not JSON", new Error("provider unavailable"), new ResearchRuntimeError("RESEARCH_REPORT_QUALITY_INSUFFICIENT")])("fails closed on re-review error %s", async (error) => {

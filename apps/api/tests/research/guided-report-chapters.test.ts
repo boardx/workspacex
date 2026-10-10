@@ -8,6 +8,9 @@ import { generateReportChapters, validateGeneratedChapter } from "../../src/appl
 import type { RuntimePersistence } from "../../src/application/research/guided-report-stream";
 import type { ResearchRuntime, RuntimeStreamEvent, GuidedRuntimeStore, RuntimeActor } from "../../src/application/research/guided-runtime-ports";
 import type { ModelCallPort } from "../../src/application/agent-run/ports";
+import { PersistedResearchRuntimeSchema } from "../../src/application/research/guided-runtime-persistence";
+import { RoutingModelCallPort } from "../../src/infrastructure/agent-run/routing-model-call-port";
+import { guardCoreModelCalls } from "../../src/infrastructure/model/core-model-runtime-guard";
 const section = (id: string, title: string, order: number, enabled = true) => ({ id, title, order, enabled, questions: [`What does ${id} establish?`] });
 const body = (id: string) => `### Evidence\n\nThe source describes a limited policy requirement, supporting this comparison while leaving implementation uncertain. [[source:${id}]]\n\n### Decision implications\n\nThe requirement may affect entry timing and verification effort; this is an inference, not proof of profitability.\n\n### Recommended next steps\n\nVerify the unanswered implementation questions with local primary sources before making an irreversible investment decision.`;
 function fixture() {
@@ -22,6 +25,61 @@ function fixture() {
   return { state, writes, events, persist };
 }
 const config = { provider: "test", id: "model" };
+describe("provider rejection report recovery", () => {
+  it("reads legacy persisted/public runtime with absent rejection fields and old evidence warnings", () => {
+    const {state} = fixture();
+    state.reportEvidenceWarnings=[{batchIndex:0,sourceIds:["source-b"],questionIds:["chapter:0/question:0"],reason:"invalid_model_evidence"}];
+    const loaded=PersistedResearchRuntimeSchema.parse(JSON.parse(JSON.stringify(state)));
+    expect(loaded.sourceScreenRejections).toBeUndefined();
+    expect(C.GuidedResearchRuntime.parse(loaded).reportEvidenceWarnings).toEqual(state.reportEvidenceWarnings);
+  });
+  it.each([[false,"evidence"],[true,"evidence"],[false,"source_relevance"],[true,"source_relevance"]] as const)("persists first/regenerated generation (%s) after %s supplier rejection", async (regenerated,rejectionStage) => {
+    const f = fixture();
+    const old = {title:"Previous report",summary:"Saved",sections:["b","a"].map(id=>({sectionId:id,body:body(`source-${id}`),sourceIds:[`source-${id}`]}))};
+    if(regenerated) f.state.report = old;
+    f.state.sources = [...Array.from({length:8}, (_,i)=>({...f.state.sources[0]!,id:`blocked-${i}`,url:`https://example.com/blocked-${i}`})),...f.state.sources];
+    const requests: number[] = [];
+    const model: ModelCallPort = {complete:async input=>{
+      const context = JSON.parse(input.user);
+      if(context.reportStage === "evidence") {
+        requests.push(context.batchIndex);
+        if(rejectionStage === "evidence" && context.chunks.some((chunk:any)=>chunk.sourceId.startsWith("blocked-"))) throw new ModelCallError("MODEL_CALL_FAILED", "model provider responded with HTTP 400", undefined, undefined, "content-policy");
+      }
+      if(rejectionStage === "source_relevance" && context.researchStage === "source_relevance" && context.chunks.some((chunk:any)=>chunk.sourceId.startsWith("blocked-"))) throw new ModelCallError("MODEL_CALL_FAILED", "model provider responded with HTTP 400", undefined, undefined, "content-policy");
+      return {text:JSON.stringify(answer(context))};
+    }};
+    const store: GuidedRuntimeStore = {read:async()=>f.state,claim:async()=>({state:f.state,replay:false}),write:async(_actor,_request,state)=>{f.writes.push(structuredClone(state));}};
+    const routed=guardCoreModelCalls(new RoutingModelCallPort(new Map([[config.provider,model]])),{assertAccepted:async()=>{}});
+    // Production composes the guarded router and a separate research-stream wrapper once.
+    const reportModel:ModelCallPort={complete:input=>routed.complete(input)};
+    const service = new GuidedRuntimeService(store,routed,{search:async()=>[]},config,reportModel);
+    const actor = {sessionId:"s",userId:"u",orgId:"org"} as RuntimeActor;
+    const session = {sessionId:"s",brief:f.state.brief,directions:{versions:[]},outline:{versions:[]},sourceCount:0,status:"draft",resumeStage:"brief"} as any;
+    const result = await service.execute(actor,session,{sessionId:"s",requestId:"provider-rejection",node:"report",expectedVersion:4,...(regenerated?{action:"message" as const,message:"重新生成报告"}:{action:"generate" as const})});
+    expect(result.errorCode).toBeNull();
+    expect(result.report?.title).toBe("Evidence-based findings");
+    expect(result.report?.sections).toHaveLength(2);
+    expect(f.state.reportQualityWarnings??[]).toEqual([]);
+    const warnings=rejectionStage==="evidence"?f.state.reportEvidenceWarnings:f.state.sourceScreenRejections;
+    expect(warnings?.[0]?.reason).toBe("batch_provider_content_rejected");
+    expect(requests.filter(i=>i===0)).toHaveLength(1);
+    expect(f.writes.at(-1)?.report).toEqual(result.report);
+    if(regenerated) expect(f.state.reportPrevious?.report).toEqual(old);
+    const reloaded = PersistedResearchRuntimeSchema.parse(JSON.parse(JSON.stringify(f.writes.at(-1))));
+    expect(reloaded.report?.sections).toHaveLength(2);
+    expect((rejectionStage==="evidence"?reloaded.reportEvidenceWarnings:reloaded.sourceScreenRejections)![0]).toHaveProperty("chunks.0.contentHash");
+    if(!regenerated && rejectionStage==="evidence") {
+      const again=await service.execute(actor,session,{sessionId:"s",requestId:"second-generation",node:"report",expectedVersion:result.version,action:"message",message:"重新生成报告"});
+      expect(again.errorCode).toBeNull(); expect(again.report?.sections).toHaveLength(2);
+      expect(requests.filter(i=>i===0)).toHaveLength(1);
+      expect(again.reportPrevious?.report).toEqual(result.report);
+      const restarted=new GuidedRuntimeService(store,routed,{search:async()=>[]},config,reportModel);
+      const afterRestart=await restarted.execute(actor,session,{sessionId:"s",requestId:"new-service",node:"report",expectedVersion:again.version,action:"message",message:"重新生成报告"});
+      expect(afterRestart.errorCode).toBeNull();
+      expect(requests.filter(i=>i===0)).toHaveLength(2);
+    }
+  });
+});
 function answer(context: any) {
   if (context.reportStage === "evidence" || context.researchStage === "source_relevance") return { evaluations: context.chunks.map((chunk: any) => {
     const matches = context.questions.filter((question: any) => context.researchStage === "source_relevance" ? chunk.questionIds.includes(question.id) : chunk.sourceId.endsWith(question.sectionId) || !context.chunks.some((candidate: any) => candidate.sourceId.endsWith(question.sectionId)))
@@ -32,6 +90,58 @@ function answer(context: any) {
   if (["chapter", "chapter_revision"].includes(context.reportStage)) return { sectionId: context.section.id, body: body(context.sources[0].id), sourceIds: [context.sources[0].id] };
   return { introduction: "This study compares policy requirements using retrieved excerpts, with incomplete implementation coverage.", conclusion: "Prioritize local verification before investment, balancing entry speed against uncertain regulatory obligations.", title: "Evidence-based findings", summary: `The chapters support a cautious comparison. [[source:${context.chapters[0].sourceIds[0]}]]` };
 }
+describe("confirmed chapter question coverage", () => {
+  it("keeps main and subsection questions in first generation and targeted repair", async () => {
+    const f = fixture();
+    f.state.outline = [{ ...section("b", "Environment", 0), questions: ["Which factor is strongest?", "How does density change happiness?"], subsections: [{ id: "light", title: "Lighting", questions: ["How does warm lighting help?"] }] }];
+    const inputs: any[] = [];
+    let reviews = 0;
+    const model: ModelCallPort = { complete: async input => {
+      const context = JSON.parse(input.user); inputs.push(context);
+      if (["chapter", "chapter_revision"].includes(context.reportStage)) return { text: JSON.stringify({sectionId:"b",body:`### Lighting\n\nThe policy excerpt establishes a limited context, leaving the comparison uncertain and requiring local measurements. [[source:${context.sources[0].id}]]`,sourceIds:[context.sources[0].id]}) };
+      if (context.reportStage === "quality" && ++reviews === 1) return {text:JSON.stringify({...answer(context),questions:context.evidenceByQuestion.map((q:any,i:number)=>({questionId:q.id,status:i===0?"missing":"answered",rationale:i===0?"Missing strongest-factor comparison and a specific measurement gap.":"Covered"}))})};
+      return {text:JSON.stringify(answer(context))};
+    }};
+    await generateReportChapters(f.state, model, config, f.persist);
+    const first = inputs.find(c=>c.reportStage==="chapter");
+    const revised = inputs.find(c=>c.reportStage==="chapter_revision");
+    expect(first.questionCoveragePlan.map((q:any)=>[q.question,q.placement])).toEqual([
+      ["Which factor is strongest?","chapter_lead"], ["How does density change happiness?","chapter_lead"], ["How does warm lighting help?","light"]]);
+    expect(revised.questionCoveragePlan).toEqual(first.questionCoveragePlan);
+    expect(revised.questionsToRepair.map(({evidenceStatus,evidenceScope,...item}:any)=>item)).toEqual([{questionId:"chapter:0/question:0",question:"Which factor is strongest?",placement:"chapter_lead",issue:"Missing strongest-factor comparison and a specific measurement gap."}]);
+  });
+});
+describe("per-question direct/context repair feedback", () => {
+  it.each([false, true])("repairs context-only answer feedback on first/regenerated execution (%s)", async regenerated => {
+    const f = fixture(); f.state.outline = [section("b", "Policy comparison", 0)];
+    const inputs: any[] = []; const systems: string[] = []; let reviews = 0;
+    const model: ModelCallPort = {complete:async input=>{
+      const c = JSON.parse(input.user); inputs.push(c); systems.push(input.system);
+      const value:any = answer(c);
+      if(c.reportStage === "evidence") for(const e of value.evaluations) for(const m of e.matches) m.relevance="context";
+      if(c.reportStage === "quality") { reviews++; value.questions.forEach((q:any)=>{q.status=reviews===1?"answered":"gap";q.rationale=reviews===1?"The contextual description appears to establish the comparison.":"The revision identifies missing policy effect measurements and the regulator’s primary records needed before investment.";}); }
+      if(c.reportStage === "chapter_revision") value.body += "\n\nThe policy effect measurement remains unavailable; defer the investment comparison until the regulator supplies primary implementation records for a before/after assessment.";
+      return {text:JSON.stringify(value)};
+    }};
+    if (regenerated) f.state.report = {title:"Previous",summary:"Saved",sections:[{sectionId:"b",body:body("source-b"),sourceIds:["source-b"]}]};
+    const store:GuidedRuntimeStore={read:async()=>f.state,claim:async()=>({state:f.state,replay:false}),write:async(_actor,_request,state)=>{f.writes.push(structuredClone(state));}};
+    const service=new GuidedRuntimeService(store,model,{search:async()=>[]},config);
+    const actor={sessionId:"s",userId:"u",orgId:"org"} as RuntimeActor;
+    const session={sessionId:"s",brief:f.state.brief,directions:{versions:[]},outline:{versions:[]},sourceCount:0,status:"draft",resumeStage:"brief"} as any;
+    const result=await service.execute(actor,session,{sessionId:"s",requestId:"question-feedback",node:"report",expectedVersion:4,...(regenerated?{action:"message" as const,message:"重新生成报告"}:{action:"generate" as const})});
+    expect(result.report?.sections).toHaveLength(1);
+    expect(f.writes.at(-1)?.report).toEqual(result.report);
+    const first=inputs.find(c=>c.reportStage==="chapter");
+    const repair=inputs.find(c=>c.reportStage==="chapter_revision");
+    expect(first.questionCoveragePlan[0].evidenceStatus).toBe("context_only");
+    expect(repair.questionsToRepair).toHaveLength(1);
+    expect(repair.questionsToRepair[0]).toMatchObject({questionId:"chapter:0/question:0",question:"What does b establish?",placement:"chapter_lead",evidenceStatus:"context_only"});
+    expect(repair.questionsToRepair[0].evidenceScope).toEqual(first.evidenceByQuestion[0].evidence.map(({sourceId,quote,relevance}:any)=>({sourceId,quote,relevance})));
+    expect(repair.questionsToRepair[0].issue).toContain("No direct verified evidence");
+    expect(systems[inputs.findIndex(c=>c.reportStage==="quality")]).toContain("Another question’s quote");
+    expect(f.state.reportQualityWarnings??[]).toEqual([]);
+  });
+});
 describe("report conversation regeneration", () => {
   function setup(message: string, fail: boolean | "references" = false, draftOnly = false) {
     const f = fixture(); const old = { title: "Previous report", summary: "Saved summary", sections: ["b", "a"].map((id) => ({ sectionId: id, body: body(`source-${id}`), sourceIds: [`source-${id}`] })) };
@@ -1154,6 +1264,7 @@ describe("unverified chapter synthesis boundary (#5179)", () => {
     const report = await generateReportChapters(f.state, model, config, f.persist);
     const gap = report.sections[0]!.body;
     expect(gap.length).toBeLessThanOrEqual(20000);
+    for (const question of before[0]!.questions) expect(gap).toContain(question);
     for (const part of (f.state.outline[0]! as any).subsections!) {
       expect(gap).toContain(`### ${part.title}`);
       const prose = gap.split(`### ${part.title}`)[1]!.split("### ")[0]!;

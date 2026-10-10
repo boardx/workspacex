@@ -82,3 +82,5 @@ description: 用户研究计划、资料检索、来源证据和研究报告；�
 - 2026-10-10：真实正文候选可按三源窗口逐批相关性校验并落盘；满足当前任务三个已批准正文后停止其余候选读取。后续失败/取消保留已批准批次，不能把任务误标成功；纯摘要路径保留批处理以免增加模型调用。富大纲结构门按确认的小节数量检查，legacy 仍要求三节。受控测试不代表 devapp 24 分钟问题已完成线上计时验证（出处：issue #5525、docs/evidence/research-duration-5525/README.md）。
 
 - 2026-10-10：研究公开生成流与访谈共享 NDJSON stage/delta/completed/failed 基础契约；结果仅带 locator，权威状态仍经鉴权 runtime/progress 同步。零 offset reset 只能改最新 UI 的文本流，不可给旧 baseline 赋新 revision 当完整 snapshot；旧序号 reset 不能覆盖轮询已同步的新文本。Accept 协商保留旧 SSE 兼容（出处：issue #5531、docs/evidence/research-unified-stream-5531/README.md）。
+
+- 2026-10-10：供应商 HTTP 400 + 精确 data_inspection_failed 属于整次请求内容拒绝，不等于来源无关或引文无效；只记录受控分类和完整请求摘要，不重试、拆分归因或切供应商。来源筛选和证据提取都需保留该批排除范围；同模型实例、同实际请求才复用拒绝记录，修复请求必须按自身 payload 建摘要。富大纲的 section.questions 与 subsection.questions 要使用提取/审核同源问题 ID 统一规划正文位置，missing 审核意见逐题映射修复，不能以旧正式报告加新草稿宣称重新生成成功（出处：issue #5546、docs/evidence/research-organizing-5546/investigation.md）。

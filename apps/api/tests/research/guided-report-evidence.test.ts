@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { canonicalEvidenceSources, extractReportEvidence, reportQuestions, selectQuestionEvidence, type ReportAudit } from "../../src/application/research/guided-report-evidence";
 import type { ResearchRuntime } from "../../src/application/research/guided-runtime-ports";
+import { ModelCallError } from "../../src/application/agent-run/ports";
 function fixture(count = 16): ResearchRuntime {
   return { sessionId: "s", version: 1, revision: 1, currentNode: "report", availableNodes: ["report"],
     brief: { topic: "Policy", goal: "Compare", timeRange: "2026", region: "EU", focus: "Grid" }, directions: [],
@@ -15,6 +16,62 @@ function auditFor(make: (context: any) => unknown): ReportAudit {
 const evaluate = (context: any) => ({ evaluations: context.chunks.map((chunk: any) => ({ sourceId: chunk.sourceId, chunkId: chunk.chunkId, irrelevant: false,
   matches: context.questions.map((question: any) => ({ questionId: question.id, quote: (chunk.content ?? chunk.quoteOptions[0].text).slice(0, 80), insight: "Interpretation must be checked against the quote.", relevance: "direct" })) })) });
 describe("verified report evidence coverage", () => {
+  it("excludes a provider-rejected batch without replaying it and keeps healthy verified evidence", async () => {
+    const state = fixture(16); const calls: number[] = [];
+    const result = await extractReportEvidence(state, config, async (input, validate) => {
+      const context = JSON.parse(input.user); calls.push(context.batchIndex);
+      if (context.batchIndex === 0) throw new ModelCallError("MODEL_CALL_FAILED", "model provider responded with HTTP 400", undefined, undefined, "content-policy");
+      return validate(JSON.stringify(evaluate(context)));
+    });
+    expect(calls.sort()).toEqual([0, 1]);
+    expect([...result.matches.values()].flat().every(item => Number(item.sourceId.slice(1)) >= 8)).toBe(true);
+    expect([...result.matches.values()].flat()).toHaveLength(state.sources.slice(8).length * state.outline[0]!.questions.length);
+    expect(state.reportEvidenceWarnings?.[0]).toMatchObject({ reason: "batch_provider_content_rejected", sourceIds: state.sources.slice(0, 8).map(s => s.id) });
+  });
+  it.each([undefined, "rate-limited", "temporarily-unavailable"] as const)("does not swallow an unclassified provider error (%s)", async disposition => {
+    const error = new ModelCallError("MODEL_CALL_FAILED", "model provider responded with HTTP 400", undefined, disposition);
+    await expect(extractReportEvidence(fixture(16), config, async () => { throw error; })).rejects.toBe(error);
+  });
+  it("fails when every batch is rejected instead of publishing an empty report", async () => {
+    const state = fixture(16);
+    await expect(extractReportEvidence(state, config, async () => { throw new ModelCallError("MODEL_CALL_FAILED", "model provider responded with HTTP 400", undefined, undefined, "content-policy"); })).rejects.toThrow("RESEARCH_CONTENT_REFERENCE_INVALID");
+    expect(state.reportEvidenceWarnings?.every(w => w.reason === "batch_provider_content_rejected")).toBe(true);
+  });
+  it("reuses only an identical full rejected request within the same adapter configuration", async () => {
+    const state = fixture(16); let rejectedCalls = 0;
+    const audit: ReportAudit = async(input,validate)=>{
+      const context=JSON.parse(input.user);
+      if(context.batchIndex===0){rejectedCalls++;throw new ModelCallError("MODEL_CALL_FAILED","HTTP 400",undefined,undefined,"content-policy");}
+      return validate(JSON.stringify(evaluate(context)));
+    };
+    const run=(identity="same")=>extractReportEvidence(state,config,audit,undefined,[],undefined,identity);
+    await run(); await run(); expect(rejectedCalls).toBe(1);
+    state.outline[0]!.questions[0]="A changed question";
+    await run(); expect(rejectedCalls).toBe(2);
+    await run("new configuration"); expect(rejectedCalls).toBe(3);
+    state.sources[0]!.content+=" Changed original content.";
+    await run("new configuration"); expect(rejectedCalls).toBe(4);
+    expect(state.reportEvidenceWarnings).toHaveLength(1);
+    expect(state.reportEvidenceWarnings![0]).toHaveProperty("chunks.0.contentHash");
+  });
+  it("propagates cancellation rather than treating it as a rejected batch", async () => {
+    const error=new DOMException("Stopped","AbortError");
+    await expect(extractReportEvidence(fixture(16),config,async()=>{throw error;})).rejects.toBe(error);
+  });
+  it("fingerprints the actual rejected repair request and retains already verified chunks", async()=>{
+    const state=fixture(2);let calls=0;
+    const audit:ReportAudit=async(input,validate)=>{
+      calls++;const context=JSON.parse(input.user);
+      if(context.reportStage==="evidence_revision") throw new ModelCallError("MODEL_CALL_FAILED","HTTP 400",undefined,undefined,"content-policy");
+      const output=evaluate(context);output.evaluations[1].matches[0].quote="fabricated";
+      return validate(JSON.stringify(output));
+    };
+    const result=await extractReportEvidence(state,config,audit,undefined,[],undefined,"same");
+    expect([...result.matches.values()].flat().every(match=>match.sourceId==="s0")).toBe(true);
+    expect(state.reportEvidenceWarnings?.[0]?.sourceIds).toEqual(["s1"]);
+    await extractReportEvidence(state,config,audit,undefined,[],undefined,"same");
+    expect(calls).toBe(3); // Initial request still runs; the identical refused repair does not.
+  });
   it("extracts independent batches with a bound and preserves deterministic evidence order", async () => {
     const state = fixture(40);
     let active = 0, peak = 0;
