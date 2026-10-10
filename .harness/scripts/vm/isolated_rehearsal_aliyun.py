@@ -9,9 +9,7 @@ from isolated_rehearsal import validate_binding,created,private_json,UnknownOutc
 
 class ProviderError(ValueError):
  def __init__(self,code):self.code=code;super().__init__('PROVIDER_REJECTED')
-def cleanup_template(b):
- deadline=datetime.datetime.fromtimestamp(created(b)+6900,datetime.timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
- return {'FormatVersion':'OOS-2019-06-01','RamRole':b['cleanupRole'],'Tasks':[{'Name':'waitUntilDeadline','Action':'ACS::Sleep','Properties':{'EndDate':deadline}},{'Name':'deleteExactIsolatedClone','Action':'ACS::ExecuteAPI','Properties':{'Service':'RDS','API':'DeleteDBInstance','Parameters':{'RegionId':'cn-shanghai','DBInstanceId':b['targetInstanceId']}}}]}
+from isolated_external_lifecycle import cleanup_template
 def enc(v):return urllib.parse.quote(str(v),safe='~')
 def credential(role):
  op=urllib.request.build_opener(urllib.request.ProxyHandler({}))
@@ -28,6 +26,9 @@ def rpc(service,action,params,c):
  endpoints={'rds':'https://rds-vpc.cn-shanghai.aliyuncs.com/','oos':'https://oos.cn-shanghai.aliyuncs.com/','ram':'https://ram.vpc-proxy.aliyuncs.com/'}
  versions={'rds':'2014-08-15','oos':'2019-06-01','ram':'2015-05-01'}
  allowed={'rds':{'DescribeDBInstanceAttribute','DescribeDBInstanceNetInfo','DescribeDBInstanceSSL','CreateAccount','DescribeAccounts','DeleteDBInstance'},'oos':{'StartExecution','ListExecutions','CancelExecution','GetExecutionTemplate'},'ram':{'GetRole','GetPolicy','GetPolicyVersion','ListPoliciesForRole','ListEntitiesForPolicy','DetachPolicyFromRole','DeletePolicy','DeleteRole'}}
+ if c.get('_externalReadOnly'):
+  from isolated_external_lifecycle import READS
+  if action not in READS.get(service,set()):raise ValueError('EXTERNAL_RPC_WRITE_FORBIDDEN')
  if service not in allowed or action not in allowed[service]:raise ValueError('RPC_ACTION')
  q=dict(params,Action=action,Version=versions[service],Format='JSON',AccessKeyId=c['AccessKeyId'],SecurityToken=c['SecurityToken'],SignatureMethod='HMAC-SHA1',SignatureVersion='1.0',SignatureNonce=str(uuid.uuid4()),Timestamp=datetime.datetime.now(datetime.timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'))
  canonical='&'.join(enc(k)+'='+enc(v) for k,v in sorted(q.items()))
@@ -70,7 +71,15 @@ def iam_binding(b,c,remove=False):
   get('DeleteRole',{'RoleName':role})
  return {'exactIamBinding':True}
 def run(operation,p):
- b=p['binding'];validate_binding(b);target=b['targetInstanceId'];c=credential(b['ecsRole'])
+ b=p['binding'];validate_binding(b);target=b['targetInstanceId']
+ from isolated_external_lifecycle import mode,OPERATIONS,observe
+ external=mode(b)
+ if external and operation not in OPERATIONS and operation not in ('restore','before','migrate','canonical-setup','canvas-audit','after','snapshot','recovery-verify'):raise ValueError('EXTERNAL_CLOUD_WRITE_FORBIDDEN')
+ c=credential(b['ecsRole'])
+ if external:c=dict(c,_externalReadOnly=True)
+ if operation=='external-lifecycle-readback':
+  if not external:raise ValueError('EXTERNAL_MODE_REQUIRED')
+  return observe(b,lambda service,action,params:rpc(service,action,params,c))
  def rds(action,extra=None):return rpc('rds',action,dict(DBInstanceId=target,RegionId='cn-shanghai',**(extra or {})),c)
  if operation=='observe':
   attrs=rds('DescribeDBInstanceAttribute')['Items']['DBInstanceAttribute'];net=rds('DescribeDBInstanceNetInfo')['DBInstanceNetInfos']['DBInstanceNetInfo']

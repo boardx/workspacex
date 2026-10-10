@@ -65,6 +65,8 @@ class Admission:
   if not stat.S_ISDIR(st.st_mode) or st.st_uid!=os.geteuid() or stat.S_IMODE(st.st_mode)!=0o700:raise ValueError('ADMISSION_PRIVATE_ROOT')
   self.end=time.monotonic()+max(0,self.deadline-datetime.datetime.now(datetime.timezone.utc).timestamp())
   fixed={'attemptId':b['attemptId'],'targetInstanceId':b['targetInstanceId'],'runnerLifetimeSha256':hashlib.sha256(json.dumps(b['runnerLifetime'],sort_keys=True,separators=(',',':')).encode()).hexdigest(),'deadlineEpoch':self.deadline}
+  from isolated_external_lifecycle import mode
+  if mode(b):fixed['externalLifecycleSha256']=hashlib.sha256(json.dumps(b['lifecycle'],sort_keys=True,separators=(',',':')).encode()).hexdigest()
   fd=self.lock()
   try:
    path=root/'workload-admission-binding.json'
@@ -110,6 +112,8 @@ def credentials(root,b):
   s.update(user='migration_admin',password='Aa1!'+secrets.token_urlsafe(21),port=5432,tls=b['tls'])
   s['roles']={role:dict(s,user=role,password='Aa1!'+secrets.token_urlsafe(21)) for role in ROLE_NAMES}
   exclusive(p,s)
+ return validate_secret(s,b)
+def validate_secret(s,b):
  if any(s[k]!=b[k] for k in ('accountId','regionId','attemptId','targetInstanceId','host','peer','peerSha256','providerCreatedUtc')) or s.get('user')!='migration_admin' or s.get('port')!=5432 or s.get('tls')!=b['tls'] or not re.fullmatch(r'Aa1![A-Za-z0-9_-]{28}',s.get('password','')):raise ValueError('SECRET_TARGET_MISMATCH')
  for role in ROLE_NAMES:
   r=s.get('roles',{}).get(role,{})
@@ -222,6 +226,8 @@ def bootstrap_role_accounts(b,root,secret,invoke):
 
 def rehearse(b,root,invoke):
  validate_binding(b)
+ from isolated_external_lifecycle import mode,load,verify_result
+ external=mode(b)
  now=lambda:datetime.datetime.now(datetime.timezone.utc).timestamp()
  admission=Admission(b,root)
  deadline=admission.deadline
@@ -239,22 +245,28 @@ def rehearse(b,root,invoke):
  try:
   if expired:raise ValueError('EXPIRED_ISOLATION')
   admission.check()
-  secret=credentials(root,b);payload['secret']=secret
+  prepared=None
+  if external:prepared,secret,_,_=load(b)
+  else:secret=credentials(root,b)
+  payload['secret']=secret
   observed()
-  # Reconcile unknown registration/account outcomes only by reads, never resubmit.
-  for name,op,read in [('oos','cleanup-register','cleanup-readback'),('account','account-create','account-readback')]:
-   try:journal.once(name,lambda:invoke(op,payload))
-   except UnknownOutcome as error:
-    report_provider_error(error)
+  if external:verify_result(invoke('external-lifecycle-readback',payload),b,prepared)
+  if not external:
+   # Reconcile unknown registration/account outcomes only by reads, never resubmit.
+   for name,op,read in [('oos','cleanup-register','cleanup-readback'),('account','account-create','account-readback')]:
+    try:journal.once(name,lambda:invoke(op,payload))
+    except UnknownOutcome as error:
+     report_provider_error(error)
+     result=bounded_readback(lambda:invoke(read,payload),lambda r:r.get('registered' if name=='oos' else 'exists'),b)
+     journal.reconcile(name,result)
     result=bounded_readback(lambda:invoke(read,payload),lambda r:r.get('registered' if name=='oos' else 'exists'),b)
-    journal.reconcile(name,result)
-   result=bounded_readback(lambda:invoke(read,payload),lambda r:r.get('registered' if name=='oos' else 'exists'),b)
-   if name=='oos':
-    if not result.get('registered') or result.get('targetInstanceId')!=b['targetInstanceId'] or result.get('deleteBeginEpoch')!=created(b)+6900:raise ValueError('OOS_READBACK_REQUIRED')
-   elif not result.get('exists') or result.get('user')!=secret['user']:raise ValueError('ACCOUNT_READBACK_REQUIRED')
-  bootstrap_role_accounts(b,root,secret,invoke)
+    if name=='oos':
+     if not result.get('registered') or result.get('targetInstanceId')!=b['targetInstanceId'] or result.get('deleteBeginEpoch')!=created(b)+6900:raise ValueError('OOS_READBACK_REQUIRED')
+    elif not result.get('exists') or result.get('user')!=secret['user']:raise ValueError('ACCOUNT_READBACK_REQUIRED')
+   bootstrap_role_accounts(b,root,secret,invoke)
   for stage in STAGES:
    admission.check()
+   if external:verify_result(invoke('external-lifecycle-readback',payload),b,prepared)
    observation=observed()  # Reattest actual provider/peer before every SQL-bearing stage.
    refs={}
    for previous in STAGES:
@@ -270,23 +282,25 @@ def rehearse(b,root,invoke):
   try:admission.close()
   except Exception:closing_failed=True
   cleaning=True
-  # Cleanup mutations are not retried implicitly. Provider OOS is the deadline backstop.
-  try:journal.once('delete',lambda:invoke('cleanup',payload))
-  except UnknownOutcome:
-   result=bounded_readback(lambda:invoke('cleanup-readback-deleted',payload),lambda r:r.get('notFound') is True,b,cleanup=True)
-   journal.reconcile('delete',result)
-  bounded_readback(lambda:invoke('cleanup-readback-deleted',payload),lambda r:r.get('notFound') is True,b,cleanup=True)
-  try:journal.once('oos-cancel',lambda:invoke('cleanup-registration-remove',payload))
-  except UnknownOutcome:
-   result=bounded_readback(lambda:invoke('cleanup-readback',payload),lambda r:r.get('terminal') is True,b,cleanup=True)
-   journal.reconcile('oos-cancel',result)
-  bounded_readback(lambda:invoke('cleanup-readback',payload),lambda r:r.get('terminal') is True,b,cleanup=True)
-  try:journal.once('cleanup-iam',lambda:invoke('cleanup-iam-remove',payload))
-  except UnknownOutcome:
-   result=bounded_readback(lambda:invoke('cleanup-registration-readback-removed',payload),lambda r:r.get('removed') is True,b,cleanup=True)
-   journal.reconcile('cleanup-iam',result)
-  bounded_readback(lambda:invoke('cleanup-registration-readback-removed',payload),lambda r:r.get('removed') is True,b,cleanup=True)
+  if not external:
+   # Cleanup mutations are not retried implicitly. Provider OOS is the deadline backstop.
+   try:journal.once('delete',lambda:invoke('cleanup',payload))
+   except UnknownOutcome:
+    result=bounded_readback(lambda:invoke('cleanup-readback-deleted',payload),lambda r:r.get('notFound') is True,b,cleanup=True)
+    journal.reconcile('delete',result)
+   bounded_readback(lambda:invoke('cleanup-readback-deleted',payload),lambda r:r.get('notFound') is True,b,cleanup=True)
+   try:journal.once('oos-cancel',lambda:invoke('cleanup-registration-remove',payload))
+   except UnknownOutcome:
+    result=bounded_readback(lambda:invoke('cleanup-readback',payload),lambda r:r.get('terminal') is True,b,cleanup=True)
+    journal.reconcile('oos-cancel',result)
+   bounded_readback(lambda:invoke('cleanup-readback',payload),lambda r:r.get('terminal') is True,b,cleanup=True)
+   try:journal.once('cleanup-iam',lambda:invoke('cleanup-iam-remove',payload))
+   except UnknownOutcome:
+    result=bounded_readback(lambda:invoke('cleanup-registration-readback-removed',payload),lambda r:r.get('removed') is True,b,cleanup=True)
+    journal.reconcile('cleanup-iam',result)
+   bounded_readback(lambda:invoke('cleanup-registration-readback-removed',payload),lambda r:r.get('removed') is True,b,cleanup=True)
  if closing_failed:raise ValueError('WORKLOAD_CLOSE_UNCONFIRMED_AFTER_CLEANUP')
+ if external:return dict(stagesCompleted=True,cleanupPending=True,a3Accepted=False,workloadStoppedProven=False,**{k:b[k] for k in ('targetInstanceId','candidateSha','attemptId')})
  return {'accepted':True,'targetInstanceId':b['targetInstanceId'],'candidateSha':b['candidateSha'],'attemptId':b['attemptId'],'deleted':True}
 def input_ref(ref,private=False):
  if not isinstance(ref,dict) or not {'path','sha256'}<=set(ref):raise ValueError('HASH_BOUND_INPUT_REQUIRED')
@@ -406,6 +420,8 @@ def stage_input_closure(b):
 
 def preflight(b):
  validate_binding(b)
+ from isolated_external_lifecycle import mode,load
+ if mode(b):load(b)
  workload_deadline(b)
  if b.get('privateRoot')!='/var/lib/workspacex-cn/rehearsal/isolated-rds/'+b['attemptId'] or b['providerDescription']!='wsx-cn-isolated-round2-'+b['attemptId']:raise ValueError('STAGE_PRIVATE_ROOT_DESCRIPTION')
  if not all(isinstance(b.get(k),str) and b[k] for k in ('ecsRole','cleanupRole')):raise ValueError('ROLE_INPUT_REQUIRED')

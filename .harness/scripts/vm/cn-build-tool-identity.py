@@ -83,6 +83,7 @@ FILES={
  '.harness/scripts/vm/isolated_conservation_inputs.py':'/usr/local/lib/workspacex-cn/isolated_conservation_inputs.py',
  '.harness/scripts/vm/isolated_conservation_plan.py':'/usr/local/lib/workspacex-cn/isolated_conservation_plan.py',
  '.harness/scripts/vm/isolated_conservation_stage.py':'/usr/local/lib/workspacex-cn/isolated_conservation_stage.py',
+ '.harness/scripts/vm/isolated_external_lifecycle.py':'/usr/local/lib/workspacex-cn/isolated_external_lifecycle.py',
  '.harness/scripts/vm/isolated_rehearsal.py':'/usr/local/lib/workspacex-cn/isolated_rehearsal.py',
  '.harness/scripts/vm/maintenance_source_operations.py':'/usr/local/lib/workspacex-cn/maintenance_source_operations.py',
  '.harness/scripts/vm/opened_host_evidence.py':'/usr/local/lib/workspacex-cn/opened_host_evidence.py',
