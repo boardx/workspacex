@@ -108,6 +108,28 @@ class WheelTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder:
             self.assertEqual(extract_wheels(raw, lambda n,s: blobs[n], folder), 4)
 
+    def test_only_fixed_unused_jmespath_cli_is_omitted(self):
+        for path, filename, version, succeeds in (
+            ('jmespath-0.10.0.data/scripts/jp.py', 'jmespath-0.10.0-py2.py3-none-any.whl', '0.10.0', True),
+            ('jmespath-0.10.0.data/scripts/evil.py', 'jmespath-0.10.0-py2.py3-none-any.whl', '0.10.0', False),
+            ('jmespath-0.10.0.data/scripts/jp.py', 'jmespath-0.10.0-py3-none-any.whl', '0.10.0', False),
+            ('jmespath-0.10.0.data/scripts/jp.py', 'jmespath-0.10.0-py2.py3-none-any.whl', '0.11.0', False)):
+            raw, blobs = self.fixture()
+            value = json.loads(raw)
+            out = io.BytesIO()
+            with zipfile.ZipFile(out, 'w') as archive:
+                archive.writestr('jmespath/__init__.py', b'pass\n')
+                archive.writestr(path, b'raise RuntimeError("CLI must not run")\n')
+            blob = out.getvalue(); blobs[filename] = blob
+            value['wheels'].append(dict(filename=filename, package='jmespath', version=version,
+                size=len(blob), sha256=hashlib.sha256(blob).hexdigest(), originSha256='a'*64))
+            with tempfile.TemporaryDirectory() as folder:
+                if succeeds:
+                    self.assertEqual(extract_wheels(json.dumps(value).encode(), lambda n,s: blobs[n], folder), 5)
+                    self.assertFalse((Path(folder) / path).exists())
+                else:
+                    with self.assertRaises(ValueError): extract_wheels(json.dumps(value).encode(), lambda n,s: blobs[n], folder)
+
     def test_official_legacy_glibc_tags_and_upper_bound(self):
         raw, _ = self.fixture()
         value = json.loads(raw)

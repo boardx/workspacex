@@ -94,6 +94,12 @@ def extract_wheels(manifest_raw, reader, destination):
                 need(not member.flag_bits & 1 and member.file_size <= MAX_WHEEL, 'SDK_MEMBER_SIZE')
                 if member.is_dir():
                     continue
+                # This approved wheel also ships a standalone CLI; the SDK only
+                # imports jmespath. Do not install or execute its script payload.
+                if (wheel['filename'] == 'jmespath-0.10.0-py2.py3-none-any.whl'
+                        and wheel['package'] == 'jmespath' and wheel['version'] == '0.10.0'
+                        and name == 'jmespath-0.10.0.data/scripts/jp.py'):
+                    continue
                 need(not name.endswith(('.pth', '.pyc')) and not any(p.endswith('.data') for p in path.parts)
                      and name not in files, 'SDK_MEMBER_FORBIDDEN')
                 total += member.file_size

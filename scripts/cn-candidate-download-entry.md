@@ -31,7 +31,10 @@ installer must create this fresh directory without overwriting an existing one.
 No pip or setup.py runs on ECS. Admitted wheels are validated then extracted to a
 new private runtime snapshot under `/var/lib/workspacex-cn` for one invocation.
 Mac wheels, unapproved bytes, symlinks, traversal, `.pth`, `.pyc`, duplicate paths,
-wheel `.data` installers and non-x86_64 native ELF files are rejected. A wheel
+wheel `.data` installers and non-x86_64 native ELF files are rejected. The sole
+exception is the hash-admitted `jmespath-0.10.0-py2.py3-none-any.whl`'s exact unused
+`jmespath-0.10.0.data/scripts/jp.py` CLI, which is omitted rather than installed or
+executed; the imported jmespath package is retained intact. A wheel
 hash proves equality to independently approved bytes; it alone does not prove
 PyPI provenance. The package review must retain PyPI metadata/download SHA256,
 source distribution hashes and, if required, the Linux wheel-build evidence.
