@@ -18,6 +18,11 @@ on:
       - 'tests/test_cn_image_postbuild.py'
       - 'scripts/cn_image_candidate.py'
       - 'scripts/cn_candidate_publication.py'
+      - 'scripts/cn_candidate_host.py'
+      - 'scripts/cn_candidate_oss.py'
+      - 'tests/test_cn_candidate_oss.py'
+      - '.harness/scripts/vm/import-cn-image-candidates.py'
+      - 'tests/test_cn_candidate_host*.py'
       - 'tests/test_cn_candidate_publication.py'
       - 'scripts/build-cn-image-candidates.py'
       - 'scripts/cn-image-candidate-protocol.md'
@@ -68,6 +73,10 @@ jobs:
         run: python3 -I -B -m unittest discover -s tests -p 'test_cn_repeated_layers.py' -v
       - name: Candidate publication ordering without host credentials
         run: python3 -I -B -m unittest discover -s tests -p 'test_cn_candidate_publication.py' -v
+      - name: Candidate host admission and real canonical adapter
+        run: python3 -I -B -m unittest discover -s tests -p 'test_cn_candidate_host*.py' -v
+      - name: Candidate OSS transfer and Linux atomic download
+        run: python3 -I -B -m unittest discover -s tests -p 'test_cn_candidate_oss.py' -v
       - name: Explicit formal budget and metadata admission
         run: python3 -I -B -m unittest discover -s tests -p 'test_cn_formal_budget_profile.py' -v
       - name: Exact formal source admission with legacy identity
