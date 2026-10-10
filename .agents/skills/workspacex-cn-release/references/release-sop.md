@@ -201,6 +201,7 @@ Plan B 必须在发布开始前就准备好：私有 OSS 上有 exact SHA 的完
 
 | 日期 | failure code | 机械防线 |
 |---|---|---|
+| 2026-10-10 | `CANDIDATE_SAVE_LIMIT`（固定源码 Web） | run38029325145 的 Web 在 DOCKER_SAVE 触发原 2 GiB 写前限制；新增显式 formal-4g-v1 身份绑定预算（单件 4 GiB、总量 10 GiB），两个诊断入口仍拒绝该 profile、保持 2 GiB。受信同 run/attempt 的独立 metadata 准入及总量检查先于 tar 下载，最终原文和实物 hash 复验保留；worker 构建前/构建后/save后复查 18/14/10 GiB 空闲，不声称 Docker 缓存硬配额。test_cn_formal_budget_profile.py 覆盖预算、诊断隔离、元数据门和空间反证；无新增权限或生产操作。 |
 | 2026-10-10 | `CANDIDATE_SAVE_LAYERS` | Moby/containerd 可将相同层按顺序多次引用同一 blob；normalizer 改为按逻辑位置输出唯一路径，保留 Config 原字节与重复 diff_ids 顺序，严格 inspector 不变；输入 tar 重名成员、链接、Config/manifest 碰撞仍拒绝。新增 `CANDIDATE_SAVE_LAYER_COUNT` / `CANDIDATE_SAVE_PATH_COLLISION` 固定码及重复展开预算反证。现场仅取得合并失败码，尚未取得失败 manifest，故未认定该次失败唯一根因。 |
 | 2026-10-10 | `CANDIDATE_SAVE_LIMIT` | 正式 candidate producer 原先用 docker save --output，归档大小仅事后检查；改为 stdout 流式写入，每块写入前校验计划上限（最多 2 GiB），空归档拒绝，失败终止并回收子进程及临时文件。`test_cn_formal_save_bound.py` 覆盖真实子进程边界、超限、非零退出、写失败和 producer 清理，并接入 archive-bridge-tests。此限制不覆盖 Docker daemon 构建缓存；未据此认定历史 manifest 失败根因，也不证明五镜像交付或生产就绪。 |
 | 2026-10-08 | `CN_PREPARE_MANUAL_MAIN_REQUIRED` | legacy `workflow_run` 可把任意 main backend-gates 成功转为特权 export/build/prepare；移除自动入口、job 限定手动 main，并在两个含 sudo 的步骤首部重检。`python3 -B -m unittest discover -s tests -p test_prepare_manual_gate.py -v` 执行实际 Bash，自动事件、非 main/缺失 ref、非法 SHA 在 gh/git/sudo 前失败；合法上下文只到本地替身。由原 workflow contract Vitest 接入 CI；锁只串行，未证明幂等或现场发布就绪。 |
