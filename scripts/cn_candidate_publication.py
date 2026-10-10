@@ -257,6 +257,7 @@ def verify_store_archive(path, image, entry, plan):
             else:
                 import gzip
                 import hashlib
+                import zlib
                 total = 0; digest = hashlib.sha256()
                 with tar.extractfile(ix['blobs/sha256/' + layer['digest'][7:]]) as source:
                     try:
@@ -267,7 +268,7 @@ def verify_store_archive(path, image, entry, plan):
                                 total += len(chunk)
                                 a.require(total <= original['size'], 'PUBLICATION_STORE_LAYER_EXPANSION')
                                 digest.update(chunk)
-                    except (OSError, EOFError):
+                    except (OSError, EOFError, zlib.error):
                         raise a.Rejected('PUBLICATION_STORE_LAYER_GZIP') from None
                 a.require(total == original['size'] and digest.hexdigest() == original['sha256'],
                           'PUBLICATION_STORE_LAYER_BINDING')
