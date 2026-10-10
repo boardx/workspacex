@@ -1,3 +1,4 @@
+import {admittedReleaseIdentity} from './release_identity';
 /** Original protected writer-plan authority. Raw file identity is distinct from canonical runtime digests. */
 import {createHash} from 'node:crypto';
 import type {MaintenanceIdentity} from '../cn-maintenance-release';
@@ -19,7 +20,7 @@ export function readOriginalPlanAuthority(host:HostBinding,tool:string,profile:a
  const source=JSON.parse(readBytes(path,pin).toString('utf8'));
  const identity=source.identity;
  need(source.schemaVersion===1&&source.mode==='maintenance-all-writer-fence'&&source.productionActionsAuthorized===true&&source.runtimeSessionBootstrapAuthorized===true&&!['runtimeSourcePlanSha256','runtimePlan','controlSessions','diagnosticSessions'].some(k=>k in source),'ORIGINAL_PLAN_SCHEMA');
- need(identity&&Object.keys(identity).sort().join(',')==='attemptId,baselineRevision,migrationPlanSha256,sourceRevision'&&/^[a-f0-9]{40}$/.test(identity.sourceRevision)&&identity.baselineRevision==='ba6343199f3c834d6a198f83d0c771614292c82b'&&/^[a-f0-9]{64}$/.test(identity.migrationPlanSha256)&&/^[A-Za-z0-9-]{1,128}$/.test(identity.attemptId)&&runtimeDigest(identity)===runtimeDigest(host.identity)&&source.toolRevision===tool&&profile.toolRevision===tool,'ORIGINAL_PLAN_IDENTITY');
+ need(identity&&Object.keys(identity).sort().join(',')==='attemptId,baselineRevision,migrationPlanSha256,sourceRevision'&&/^[a-f0-9]{40}$/.test(identity.sourceRevision)&&admittedReleaseIdentity(identity)&&/^[a-f0-9]{64}$/.test(identity.migrationPlanSha256)&&/^[A-Za-z0-9-]{1,128}$/.test(identity.attemptId)&&runtimeDigest(identity)===runtimeDigest(host.identity)&&source.toolRevision===tool&&profile.toolRevision===tool,'ORIGINAL_PLAN_IDENTITY');
  const capability=profile.maintenanceSourceOperations;
  need(capability?.schemaVersion===1&&capability.sourcePath==='.harness/scripts/vm/maintenance_source_operations.py'&&/^[a-f0-9]{64}$/.test(capability.sha256)&&profile.filesSha256?.[capability.sourcePath]===capability.sha256&&profile.installedFilesSha256?.['/usr/local/lib/workspacex-cn/maintenance_source_operations.py']===capability.sha256,'ORIGINAL_PLAN_SOURCE_CAPABILITY');
  for(const command of [host.hold,host.writerFence])need(profile.installedFilesSha256?.[command.path]===command.sha256,'ORIGINAL_PLAN_HOST_PIN');

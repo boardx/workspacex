@@ -202,8 +202,8 @@ def fixture_authority(operation, identity, isolation, release):
     require(os.geteuid() != 0, 'INVOCATION_ROOT_REQUIRES_PROTECTED_AUTHORITY')
     require(type(identity) is dict and set(identity) == {'sourceRevision', 'baselineRevision', 'migrationPlanSha256', 'attemptId'}, 'INVOCATION_EXPECTED_IDENTITY')
     require(all(type(identity[k]) is str and re.fullmatch('[a-f0-9]{40}', identity[k]) for k in ('sourceRevision', 'baselineRevision')) and type(identity['migrationPlanSha256']) is str and re.fullmatch('[a-f0-9]{64}', identity['migrationPlanSha256']) and type(identity['attemptId']) is str and re.fullmatch('[A-Za-z0-9-]{1,32}', identity['attemptId']), 'INVOCATION_EXPECTED_IDENTITY')
-    from isolated_conservation_evidence_producer import FIXED_BASE
-    require(identity['baselineRevision'] == FIXED_BASE, 'INVOCATION_EXPECTED_BASELINE')
+    from writer_fence import admitted_release_identity
+    require(admitted_release_identity(identity), 'INVOCATION_EXPECTED_BASELINE')
     if operation == 'conservation':
         require(type(isolation) is dict and set(isolation) == {'candidateSha', 'attemptId', 'targetInstanceId'} and isolation['candidateSha'] == identity['sourceRevision'] and all(type(isolation[k]) is str and re.fullmatch('[A-Za-z0-9-]{1,128}', isolation[k]) for k in ('attemptId', 'targetInstanceId')) and type(release) is str and re.fullmatch('[A-Za-z0-9][A-Za-z0-9._-]{0,127}', release), 'INVOCATION_EXPECTED_ISOLATION')
     else:

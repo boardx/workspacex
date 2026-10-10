@@ -5,11 +5,11 @@ from writer_fence import digest
 from candidate_stage_host import candidate_stage_profile_sha256
 class Tests(unittest.TestCase):
  def fixture(self,source_revision=None):
-  i=dict(sourceRevision=source_revision or m.APP,baselineRevision=m.BASE,migrationPlanSha256='a'*64,attemptId='canonical');host=dict(instanceId='host',bootId='boot');files={};calls=[];live=[];plan=dict(identity=i,host=host,holdGeneration='b'*32,epoch='e'*64,candidateWriters=[],baselineWriters=[])
+  i=dict(sourceRevision=source_revision or m.APP,baselineRevision=('a1cb4c7683768566b0cf38ffe6a27b0a8c13f4f0' if source_revision else m.BASE),migrationPlanSha256='a'*64,attemptId='canonical');host=dict(instanceId='host',bootId='boot');files={};calls=[];live=[];plan=dict(identity=i,host=host,holdGeneration='b'*32,epoch='e'*64,candidateWriters=[],baselineWriters=[])
   def ref(path,raw):files[path]=raw;return dict(path=path,sha256=hashlib.sha256(raw).hexdigest())
   for index,(project,service) in enumerate([('candidate',s) for s in sorted(m.SERVICES)]+[('baseline','api')]):
    compose='/etc/workspacex-cn/'+project+'.json';cr=ref(compose,json.dumps(dict(name=project,services={},networks={'default':{'external':True,'name':project+'-runtime'}})).encode());cid=hex(index+1)[2:]*64
-   cfg=dict(Labels={'com.docker.compose.project':project,'com.docker.compose.service':service,'com.docker.compose.project.config_files':compose,'org.opencontainers.image.revision':i['sourceRevision'] if project=='candidate' else m.BASE})
+   cfg=dict(Labels={'com.docker.compose.project':project,'com.docker.compose.service':service,'com.docker.compose.project.config_files':compose,'org.opencontainers.image.revision':i['sourceRevision'] if project=='candidate' else i['baselineRevision']})
    network={'none':dict(IPAMConfig=None,Links=None,Aliases=None,MacAddress='',NetworkID='9'*64,EndpointID=hex(index+10)[2:]*64,Gateway='',IPAddress='',IPPrefixLen=0,IPv6Gateway='',GlobalIPv6Address='',GlobalIPv6PrefixLen=0,DNSNames=None)} if service.startswith('sandbox') else {project+'-runtime':dict(NetworkID=project+'-network',Aliases=[service],DNSNames=[service])}
    v=dict(Id=cid,Image='image-'+project+'-'+service,Config=cfg,HostConfig=dict(NetworkMode='none' if service.startswith('sandbox') else project+'-runtime',PortBindings=None,PublishAllPorts=False),Mounts=[],NetworkSettings=dict(Networks=network,Ports=None),State=dict(Running=project=='candidate',Paused=False));live.append(v)
    w=dict(key=project+'-'+service,binding=dict(service=service,containerId=cid,imageId=v['Image'],configSha256=digest(cfg),composePath=compose,composeSha256=cr['sha256']))
@@ -97,12 +97,12 @@ class Tests(unittest.TestCase):
   with patch.dict(sys.modules,{'compiled_maintenance_activation':source}):
    with self.assertRaisesRegex(RuntimeError,'STAGE_PROFILE'):m.candidate_canonical_receipt(t,b,expected_identity=t.plan['identity'])
 
- def test_a1cb_candidate_uses_exact_source_image_and_stage_scope(self):
-  t,b,s,l,c=self.fixture('a1cb4c7683768566b0cf38ffe6a27b0a8c13f4f0')
+ def test_5285_a1cb_candidate_uses_exact_source_image_and_stage_scope(self):
+  t,b,s,l,c=self.fixture('5285bef9a6c91bbb9857ede42779aafa64b98f32')
   with patch('candidate_readonly_docker.socket_authority',lambda e:e['dockerSocket']),patch.dict(sys.modules,{'compiled_maintenance_activation':s}):
    self.assertEqual(m.candidate_canonical_receipt(t,b,expected_identity=copy.deepcopy(t.plan['identity']))['identity'],t.plan['identity'])
  def test_mixed_original_identity_rejected_before_probes(self):
-  t,b,s,l,c=self.fixture('a1cb4c7683768566b0cf38ffe6a27b0a8c13f4f0');approved=dict(t.plan['identity'],sourceRevision='e'*40)
+  t,b,s,l,c=self.fixture('5285bef9a6c91bbb9857ede42779aafa64b98f32');approved=dict(t.plan['identity'],sourceRevision='e'*40)
   with patch.dict(sys.modules,{'compiled_maintenance_activation':s}):
    with self.assertRaisesRegex(RuntimeError,'IDENTITY'):m.candidate_canonical_receipt(t,b,expected_identity=approved)
   self.assertEqual(c,[])

@@ -1,4 +1,8 @@
 #!/usr/bin/env python3
+# BEGIN GENERATED RELEASE IDENTITIES
+def admitted_release_identity(identity):
+    return type(identity) is dict and ((identity.get('sourceRevision') == '9b25bfa65662b96c0826fe67506b562ea46aa6d0' and identity.get('baselineRevision') == 'ba6343199f3c834d6a198f83d0c771614292c82b') or (identity.get('sourceRevision') == '5285bef9a6c91bbb9857ede42779aafa64b98f32' and identity.get('baselineRevision') == 'a1cb4c7683768566b0cf38ffe6a27b0a8c13f4f0'))
+# END GENERATED RELEASE IDENTITIES
 """Seven writer/recovery callbacks for the existing maintenance controller."""
 import os,json,stat,hashlib,time,pathlib,copy,fcntl
 FAMILIES=('http','socket','queue','background','agent','checkpoint','memory','privileged')
@@ -156,3 +160,22 @@ class WriterFenceAdapter:
  def recordDatabaseRecoveryRequired(self,identity):
   self.bind(identity);self.hold();s=self.observe();self.assert_blocked(s);self.journal.value['databaseRecoveryRequired']=True;self.journal.record('database-recovery-required',holdDisposition='retain',recoveryPlanSha256=self.plan['threeDatabaseRecoveryPlanSha256'],databases=list(DATABASES),observation=s)
  def callbacks(self):return {name:getattr(self,name) for name in ('blockAllWrites','verifyAllWritersDrained','verifyWritesBlocked','resumeWrites','verifyWritesResumed','recordWriteStateReconciliationRequired','recordDatabaseRecoveryRequired')}
+
+
+def approved_release(profile, expected_identity, read_private):
+    """Resolve release only from the independent protected profile and pinned refs."""
+    import re
+    require(admitted_release_identity(expected_identity),'EPOCH_RELEASE_PAIR')
+    entry=profile.get('candidateComposeEmitter')
+    require(type(entry) is dict,'EPOCH_RELEASE_CAPABILITY')
+    refs=[]
+    def pinned(ref):
+        require(type(ref) is dict and set(ref)=={'path','sha256'},'EPOCH_RELEASE_REF')
+        require(type(ref['path']) is str and ref['path'].startswith('/etc/workspacex-cn/') and '..' not in pathlib.Path(ref['path']).parts and type(ref['sha256']) is str and re.fullmatch('[a-f0-9]{64}',ref['sha256']),'EPOCH_RELEASE_REF')
+        raw=read_private(ref['path'])
+        require(hashlib.sha256(raw).hexdigest()==ref['sha256'],'EPOCH_RELEASE_PIN')
+        refs.append((ref,raw));return json.loads(raw)
+    options=pinned(entry['optionsRef']);manifest=pinned(options['manifestRef']);config=pinned(entry['configRef'])
+    require(manifest.get('sourceRevision')==expected_identity['sourceRevision'] and type(manifest.get('release')) is str and re.fullmatch('[A-Za-z0-9][A-Za-z0-9._-]{0,127}',manifest['release']) and type(config.get('provision')) is dict and config['provision'].get('release')==manifest['release'],'EPOCH_RELEASE_IDENTITY')
+    for ref,raw in refs:require(read_private(ref['path'])==raw,'EPOCH_RELEASE_DRIFT')
+    return manifest['release']

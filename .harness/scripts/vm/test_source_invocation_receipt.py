@@ -111,7 +111,7 @@ class InvocationTests(unittest.TestCase):
             dict(expected_release='foreign-release'),
         ]
         for authority in variants:
-            with self.subTest(authority=authority), self.assertRaisesRegex(ValueError, 'SOURCE_FAILED'):
+            with self.subTest(authority=authority), self.assertRaisesRegex(ValueError, 'SOURCE_FAILED|INVOCATION_EXPECTED_BASELINE'):
                 self.run_source(**authority)
             self.assertEqual(list(self.output.iterdir()), [])
 

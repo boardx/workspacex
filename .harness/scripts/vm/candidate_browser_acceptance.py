@@ -2,7 +2,7 @@
 No legacy runtime names, new DB clients, or command runs on import.
 """
 import datetime,hashlib,json,pathlib,re,stat,time
-from writer_fence import require
+from writer_fence import require, admitted_release_identity
 APP='9b25bfa65662b96c0826fe67506b562ea46aa6d0'
 BASE='ba6343199f3c834d6a198f83d0c771614292c82b'
 JOURNEYS=('login','hello','asr','githubFeedbackRead','skillTool','pdfDownload')
@@ -24,7 +24,7 @@ def _runtime_files(runtime,tool):
 def candidate_browser_receipt(transport,binding,now=time.time,*,expected_identity):
     import compiled_maintenance_activation as source
     require(type(binding) is dict and set(binding)=={'identity','browserPlan','nodeBinary'},'CANDIDATE_BROWSER_BINDING')
-    identity=binding['identity'];require(type(identity) is dict and set(identity)=={'sourceRevision','baselineRevision','migrationPlanSha256','attemptId'} and identity==expected_identity and type(identity['sourceRevision']) is str and re.fullmatch('[a-f0-9]{40}',identity['sourceRevision']) and identity['baselineRevision']==BASE and re.fullmatch('[a-f0-9]{64}',identity['migrationPlanSha256']) and re.fullmatch('[A-Za-z0-9-]{1,128}',identity['attemptId']),'CANDIDATE_BROWSER_IDENTITY')
+    identity=binding['identity'];require(type(identity) is dict and set(identity)=={'sourceRevision','baselineRevision','migrationPlanSha256','attemptId'} and identity==expected_identity and type(identity['sourceRevision']) is str and re.fullmatch('[a-f0-9]{40}',identity['sourceRevision']) and admitted_release_identity(identity) and re.fullmatch('[a-f0-9]{64}',identity['migrationPlanSha256']) and re.fullmatch('[A-Za-z0-9-]{1,128}',identity['attemptId']),'CANDIDATE_BROWSER_IDENTITY')
     require(identity==transport.plan['identity'],'CANDIDATE_BROWSER_TRANSPORT_IDENTITY');transport.require_lock();transport._guard(transport.plan)
     ref=binding['browserPlan'];require(type(ref) is dict and set(ref)=={'path','sha256'} and ref['path'].startswith(f"/etc/workspacex-cn/maintenance-activation/{identity['sourceRevision']}/{identity['attemptId']}/") and '..' not in pathlib.Path(ref['path']).parts and re.fullmatch('[a-f0-9]{64}',ref['sha256']),'CANDIDATE_BROWSER_PLAN_SCOPE')
     raw=source.private(ref['path'],ref['sha256']);request=json.loads(raw)

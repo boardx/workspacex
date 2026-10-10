@@ -10,13 +10,13 @@ import {CANDIDATE_COMPOSE_APP,emitCandidateComposeSource} from "../src/cn-candid
 import {createCloudCompose} from "../src/compose.js";
 import {deploymentExample} from "../src/examples.js";
 import {originalAuthorityFixture} from "../src/cn-maintenance-host/source_plan_authority_test_fixture.js";
-const root=resolve(import.meta.dirname,"../../.."),APP="a1cb4c7683768566b0cf38ffe6a27b0a8c13f4f0",tool="b".repeat(40),BASE="ba6343199f3c834d6a198f83d0c771614292c82b";
+const root=resolve(import.meta.dirname,"../../.."),APP="5285bef9a6c91bbb9857ede42779aafa64b98f32",CURRENT_BASELINE="a1cb4c7683768566b0cf38ffe6a27b0a8c13f4f0",tool="b".repeat(40),BASE="ba6343199f3c834d6a198f83d0c771614292c82b";
 function request(source=CANDIDATE_COMPOSE_APP,release="2026.10.3-cn.1"){
  const config=deploymentExample("production");config.provision.release=release;
  const image={image:`registry.example/app/runtime@sha256:${"a".repeat(64)}`};
  return {schemaVersion:1,sourceRevision:source,config,manifest:{schemaVersion:1,release,sourceRevision:source,platform:"linux/amd64",images:{web:image,api:image,agent:image,sandbox:image,postgres:image,redis:image}},options:{projectName:"cn-candidate-local",runtimeDirectory:"/etc/workspacex-cn/candidate-local"}};
 }
-function authority(source=CANDIDATE_COMPOSE_APP){return originalAuthorityFixture({sourceRevision:source,baselineRevision:BASE,migrationPlanSha256:"a".repeat(64),attemptId:"compose"},tool);}
+function authority(source=CANDIDATE_COMPOSE_APP){return originalAuthorityFixture({sourceRevision:source,baselineRevision:source===CANDIDATE_COMPOSE_APP?BASE:CURRENT_BASELINE,migrationPlanSha256:"a".repeat(64),attemptId:"compose"},tool);}
 describe("independently approved native Compose source",()=>{
  it.each([CANDIDATE_COMPOSE_APP,APP])("reuses exact native renderer for %s",source=>{
   const input=request(source),f=authority(source),actual=emitCandidateComposeSource(input,f.authority,input.manifest);
@@ -41,18 +41,39 @@ describe("independently approved native Compose source",()=>{
   if(scenario==="candidate-closure")input.manifest.images.api.image=`registry.example/app/runtime@sha256:${"c".repeat(64)}`;
   expect(()=>emitCandidateComposeSource(input,a,approved)).toThrow();
  });
- it("generator ignores Git environment redirection and rejects real candidate native drift",()=>{
+ it("generator ignores Git environment redirection and rejects native drift through an admitted identity fixture",()=>{
   const dir=mkdtempSync(join(tmpdir(),"wsx-compose-git-fixture-"));
   try{
    const repo=join(dir,"candidate");mkdirSync(join(repo,"packages/cloud-deploy/src"),{recursive:true});
    for(const name of ["compose.ts","config.ts","storage-config.ts","release.ts","image-reference.ts","runtime-bundle.ts"])writeFileSync(join(repo,"packages/cloud-deploy/src",name),"fixture native drift\n");
    const env={...process.env};for(const key of Object.keys(env))if(key.startsWith("GIT_"))delete env[key];
    const git=(...args:string[])=>execFileSync("git",["-C",repo,...args],{env,encoding:"utf8"});
-   git("init","--quiet");git("add","packages");git("-c","user.name=fixture","-c","user.email=fixture@example.invalid","-c","core.hooksPath=/dev/null","commit","--quiet","-m","fixture");const source=git("rev-parse","HEAD").trim();
+   git("init","--quiet");git("add","packages");git("-c","user.name=fixture","-c","user.email=fixture@example.invalid","-c","core.hooksPath=/dev/null","commit","--quiet","-m","fixture");const fixtureCommit=git("rev-parse","HEAD").trim(),source=APP;
    const original=join(dir,"original.json"),manifest=join(dir,"manifest.json"),output=join(dir,"compose.cjs");
-   writeFileSync(original,JSON.stringify({schemaVersion:1,mode:"maintenance-all-writer-fence",productionActionsAuthorized:true,runtimeSessionBootstrapAuthorized:true,identity:{sourceRevision:source,baselineRevision:BASE,migrationPlanSha256:"a".repeat(64),attemptId:"fixture"},toolRevision:tool}));writeFileSync(manifest,JSON.stringify({sourceRevision:source,release:"2026.10.6-cn.1",platform:"linux/amd64"}));
+   writeFileSync(original,JSON.stringify({schemaVersion:1,mode:"maintenance-all-writer-fence",productionActionsAuthorized:true,runtimeSessionBootstrapAuthorized:true,identity:{sourceRevision:source,baselineRevision:CURRENT_BASELINE,migrationPlanSha256:"a".repeat(64),attemptId:"fixture"},toolRevision:tool}));writeFileSync(manifest,JSON.stringify({sourceRevision:source,release:"2026.10.6-cn.1",platform:"linux/amd64"}));
    const sha=(path:string)=>createHash("sha256").update(readFileSync(path)).digest("hex");
-   const result=spawnSync(process.execPath,[resolve(root,".harness/scripts/vm/build-cn-candidate-compose-source.mjs"),output,original,sha(original),manifest,sha(manifest),repo],{cwd:root,encoding:"utf8",env:{...env,GIT_DIR:join(dir,"missing.git"),GIT_WORK_TREE:dir,GIT_CONFIG_COUNT:"1",GIT_CONFIG_KEY_0:"core.fsmonitor",GIT_CONFIG_VALUE_0:"untrusted"}});
+   // Only alias the admitted SHA at the subprocess boundary. All Git reads still run
+   // against the real fixture repo with the builder's environment and arguments.
+   const adapter=join(dir,"fixture-git-alias.mjs");
+   writeFileSync(adapter,`import cp from 'node:child_process';
+import {syncBuiltinESMExports} from 'node:module';
+const original=cp.execFileSync;
+cp.execFileSync=function(command,args,options){
+ if(command==='git'&&args[args.indexOf('-C')+1]===${JSON.stringify(repo)}){
+  const requested=${JSON.stringify(source)},fixture=${JSON.stringify(fixtureCommit)};
+  const mapped=args.map(arg=>arg===requested+'^{commit}'?fixture+'^{commit}':arg.startsWith(requested+':')?fixture+arg.slice(requested.length):arg);
+  const result=original.call(this,command,mapped,options);
+  if(args.includes('rev-parse')&&args.includes(requested+'^{commit}')){
+   if(String(result).trim()!==fixture)throw Error('FIXTURE_COMMIT_MISMATCH');
+   return requested+'\\n';
+  }
+  return result;
+ }
+ return original.call(this,command,args,options);
+};
+syncBuiltinESMExports();
+`);
+   const result=spawnSync(process.execPath,["--import",adapter,resolve(root,".harness/scripts/vm/build-cn-candidate-compose-source.mjs"),output,original,sha(original),manifest,sha(manifest),repo],{cwd:root,encoding:"utf8",env:{...env,GIT_DIR:join(dir,"missing.git"),GIT_WORK_TREE:dir,GIT_CONFIG_COUNT:"1",GIT_CONFIG_KEY_0:"core.fsmonitor",GIT_CONFIG_VALUE_0:"untrusted"}});
    expect(result.status).not.toBe(0);expect(result.stderr).toContain("CANDIDATE_COMPOSE_NATIVE_SOURCE_DRIFT");
   }finally{rmSync(dir,{recursive:true,force:true});}
  });

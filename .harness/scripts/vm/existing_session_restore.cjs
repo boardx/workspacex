@@ -1,4 +1,7 @@
 'use strict';
+// BEGIN GENERATED RELEASE IDENTITIES
+const admittedReleaseIdentity = i => !!i && ((i.sourceRevision === "9b25bfa65662b96c0826fe67506b562ea46aa6d0" && i.baselineRevision === "ba6343199f3c834d6a198f83d0c771614292c82b") || (i.sourceRevision === "5285bef9a6c91bbb9857ede42779aafa64b98f32" && i.baselineRevision === "a1cb4c7683768566b0cf38ffe6a27b0a8c13f4f0"));
+// END GENERATED RELEASE IDENTITIES
 // Inert execution primitive. No Client factory, credentials, decoder, or executable entrypoint.
 // The host must supply a hash-verified offline decoder and independently verified authority.
 // This is not yet reachable from the production recovery transport.
@@ -92,7 +95,7 @@ async function restoreExistingSession({client,Query,identity,binding,transaction
  }
 }
 async function verifyCatalogOnExistingRestore(client,{sourceRaw,sourceBinding,sourceArtifactSha256,sourceCatalogSha256,targetBinding,recoveryIdentity,databaseMapping,requiredRoles,transactionStatus,verifyTransport}){
- proof(recoveryIdentity?.sourceRevision==='9b25bfa65662b96c0826fe67506b562ea46aa6d0'&&recoveryIdentity?.baselineRevision==='ba6343199f3c834d6a198f83d0c771614292c82b'&&recoveryIdentity?.attemptId===targetBinding.attemptId,'RESTORE_CATALOG_RECOVERY_IDENTITY');
+ proof(admittedReleaseIdentity(recoveryIdentity)&&recoveryIdentity?.attemptId===targetBinding.attemptId,'RESTORE_CATALOG_RECOVERY_IDENTITY');
  const catalog=require('./cn-production-recovery-catalog.cjs');
  const source=catalog.verifyCaptureArtifact(sourceRaw,sourceBinding,sourceArtifactSha256,sourceCatalogSha256);
  proof(databaseMapping?.source===sourceBinding.database&&databaseMapping?.target===targetBinding.database&&sourceBinding.side==='source'&&targetBinding.side==='target'&&sourceBinding.backupReceiptSha256===targetBinding.backupReceiptSha256,'RESTORE_CATALOG_PAIR_BINDING');

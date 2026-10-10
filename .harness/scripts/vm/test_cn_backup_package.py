@@ -145,7 +145,7 @@ if __name__=='__main__':unittest.main()
 
 class GenericBackupIdentityTests(unittest.TestCase):
  def test_exact_new_candidate_and_distinct_tool(self):
-  p,_=fixture();approved=dict(p['identity'],sourceRevision='a1cb4c7683768566b0cf38ffe6a27b0a8c13f4f0')
+  p,_=fixture();approved=dict(p['identity'],sourceRevision='5285bef9a6c91bbb9857ede42779aafa64b98f32',baselineRevision='a1cb4c7683768566b0cf38ffe6a27b0a8c13f4f0')
   p['identity']=dict(approved);p['authorization']['identity']=dict(approved)
   self.assertEqual(validate(p,expected_identity=approved),approved)
   self.assertNotEqual(p['toolRevision'],approved['sourceRevision'])

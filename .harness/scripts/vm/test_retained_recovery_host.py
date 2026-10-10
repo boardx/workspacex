@@ -7,7 +7,7 @@ class RetainedRecoveryTests(unittest.TestCase):
  def test_actor_three_database_receipt_and_partial_failure(self):
   for fault in (None,'legacy-approved','second-db','wrong-receipt','guard','replay','unbound-plan','cross-source','cross-attempt','cross-tool','unapproved-original','runtime-original','wrong-original-pin','missing-original'):
    with self.subTest(fault=fault),tempfile.TemporaryDirectory() as tmp:
-    identity={'sourceRevision':('9b25bfa65662b96c0826fe67506b562ea46aa6d0' if fault=='legacy-approved' else 'a1cb4c7683768566b0cf38ffe6a27b0a8c13f4f0'),'baselineRevision':'ba6343199f3c834d6a198f83d0c771614292c82b','migrationPlanSha256':'a'*64,'attemptId':'test'}
+    identity={'sourceRevision':('9b25bfa65662b96c0826fe67506b562ea46aa6d0' if fault=='legacy-approved' else '5285bef9a6c91bbb9857ede42779aafa64b98f32'),'baselineRevision':('ba6343199f3c834d6a198f83d0c771614292c82b' if fault=='legacy-approved' else 'a1cb4c7683768566b0cf38ffe6a27b0a8c13f4f0'),'migrationPlanSha256':'a'*64,'attemptId':'test'}
     name='/etc/workspacex-cn/maintenance-recovery/'+identity['sourceRevision']+'/test/recovery-plan.json';calls=[];events=[];now=time.time()
     peers={db:{'database':db,'serverAddr':'10.0.0.1','serverPort':5432,'systemIdentifier':'42'} for db in DATABASES}
     data={'identity':identity,'toolRevision':'b'*40,'production':{'instanceId':'pgm-uf6rg214cp381l49','databasePeers':peers},'authorization':{'identity':identity,'productionInstanceId':'pgm-uf6rg214cp381l49','action':'replace-three-production-databases-with-exact-baseline','notBefore':now-10,'expiresAt':now+600},'databases':{db:{'ciphertext':{'sha256':'c'*64},'backupReceiptSha256':'d'*64,'sourceCatalogSha256':'e'*64} for db in DATABASES}}

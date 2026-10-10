@@ -2,6 +2,7 @@
 """Offline hash-bound collection only. Never executes replay or grants admission."""
 import hashlib,json,re,sys
 from isolated_rehearsal import STAGES,validate_binding
+from writer_fence import admitted_release_identity
 from isolated_conservation_plan import DBS,private_bytes,read_ref,reject
 from isolated_conservation_stage import verify_result
 
@@ -28,7 +29,7 @@ def produce(payload,reader=private_bytes,*,expected_identity,expected_isolation_
  if type(expected_identity) is not dict or set(expected_identity)!={'sourceRevision','baselineRevision','migrationPlanSha256','attemptId'}:reject('CONSERVATION_AUTHORITY_IDENTITY')
  if type(expected_isolation_binding) is not dict or set(expected_isolation_binding)!={'candidateSha','attemptId','targetInstanceId'}:reject('CONSERVATION_CHILD_AUTHORITY')
  if any(type(expected_identity[k]) is not str or not re.fullmatch('[a-f0-9]{40}',expected_identity[k]) for k in ('sourceRevision','baselineRevision')) or type(expected_identity['migrationPlanSha256']) is not str or not re.fullmatch('[a-f0-9]{64}',expected_identity['migrationPlanSha256']):reject('CONSERVATION_AUTHORITY_IDENTITY')
- if expected_identity['baselineRevision']!=FIXED_BASE or type(expected_identity['attemptId']) is not str or not re.fullmatch('[A-Za-z0-9-]{1,32}',expected_identity['attemptId']):reject('CONSERVATION_AUTHORITY_IDENTITY')
+ if not admitted_release_identity(expected_identity) or type(expected_identity['attemptId']) is not str or not re.fullmatch('[A-Za-z0-9-]{1,32}',expected_identity['attemptId']):reject('CONSERVATION_AUTHORITY_IDENTITY')
  if type(expected_release) is not str or not re.fullmatch('[A-Za-z0-9][A-Za-z0-9._-]{0,127}',expected_release):reject('CONSERVATION_RELEASE_AUTHORITY')
  if expected_isolation_binding['candidateSha']!=expected_identity['sourceRevision'] or any(b[k]!=expected_isolation_binding[k] for k in expected_isolation_binding) or payload.get('baselineSha')!=expected_identity['baselineRevision'] or payload.get('release')!=expected_release:reject('FIXED_RELEASE_IDENTITY')
  refs=payload['stageReceipts']

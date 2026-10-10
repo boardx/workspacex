@@ -135,7 +135,7 @@ if __name__=='__main__':unittest.main()
 class ProtectedGenericHostTests(unittest.TestCase):
  def inputs(self):
   import hashlib,json
-  p,_=fixture();identity=dict(p['identity'],sourceRevision='a1cb4c7683768566b0cf38ffe6a27b0a8c13f4f0')
+  p,_=fixture();identity=dict(p['identity'],sourceRevision='5285bef9a6c91bbb9857ede42779aafa64b98f32',baselineRevision='a1cb4c7683768566b0cf38ffe6a27b0a8c13f4f0')
   p['identity']=dict(identity);p['authorization']['identity']=dict(identity)
   now=time.time();p['authorization'].update(notBefore=now-10,expiresAt=now+1200)
   host={'identity':identity,'backup':p,'connection':{'transport':{d:{'notBefore':now-10,'expiresAt':now+1400} for d in DATABASES}}}

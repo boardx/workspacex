@@ -1,4 +1,7 @@
 'use strict';
+// BEGIN GENERATED RELEASE IDENTITIES
+const admittedReleaseIdentity = i => !!i && ((i.sourceRevision === "9b25bfa65662b96c0826fe67506b562ea46aa6d0" && i.baselineRevision === "ba6343199f3c834d6a198f83d0c771614292c82b") || (i.sourceRevision === "5285bef9a6c91bbb9857ede42779aafa64b98f32" && i.baselineRevision === "a1cb4c7683768566b0cf38ffe6a27b0a8c13f4f0"));
+// END GENERATED RELEASE IDENTITIES
 // Only borrowed, already-open isolated diagnostic sessions. No client constructor.
 const crypto=require('node:crypto'),fs=require('node:fs');
 const {targets,digest,CATALOG_SQL,EXTENSION_SQL,AGENT_SEED_SQL,sourceRoleSelect}=require('./held_candidate_queries.cjs');
@@ -20,13 +23,13 @@ function providerPeer(io,reference,control,binding,db,inReadOnly=false){
 async function collectQualifiedExpected(io){
  need(io&&typeof io.readProtected==='function'&&typeof io.writeProtected==='function','HELD_PRODUCER_SOURCE_IO');
  need(io.producer?.sourcePath==='.harness/scripts/vm/held_candidate_expected_producer.cjs'&&protectedRead(io,io.producer.source).equals(fs.readFileSync(__filename))&&protectedRead(io,io.producer.executable).equals(fs.readFileSync(process.execPath)),'HELD_PRODUCER_ACTUAL_EXECUTABLE');
- const b=structuredClone(io.binding);need(b?.identity?.sourceRevision===APP&&b.identity.baselineRevision===BASE&&b.targetInstanceId!==RDS&&/^[a-f0-9]{64}$/.test(b.identity.migrationPlanSha256)&&/^[a-f0-9]{32}$/.test(b.holdGeneration),'HELD_PRODUCER_FIXED_BINDING');
+ const b=structuredClone(io.binding);need(admittedReleaseIdentity(b?.identity)&&b.targetInstanceId!==RDS&&/^[a-f0-9]{64}$/.test(b.identity.migrationPlanSha256)&&/^[a-f0-9]{32}$/.test(b.holdGeneration),'HELD_PRODUCER_FIXED_BINDING');
  const qualified=JSON.parse(protectedRead(io,io.qualification)),completion=JSON.parse(protectedRead(io,io.migrationCompletion));
  need(qualified.kind==='held-current-epoch-manifest'&&same(qualified.identity,b.identity)&&qualified.toolRevision===b.toolRevision&&qualified.holdGeneration===b.holdGeneration,'HELD_PRODUCER_QUALIFIED_EPOCH');
- need(completion.scope==='validated-production-migration-completion'&&completion.sourceRevision===APP&&completion.baselineRevision===BASE&&completion.attemptId===b.identity.attemptId&&completion.originalPlanSha256===b.identity.migrationPlanSha256&&completion.pendingCount===0&&completion.driftCount===0&&completion.unknownAppliedCount===0&&completion.appliedSqlCount>0&&Date.parse(completion.expiresAt)>Date.now(),'HELD_PRODUCER_COMPLETION');
- const source=JSON.parse(protectedRead(io,io.appSourceManifest));const {seeds,requiredColumns}=deriveFixedAppSource(source,r=>protectedRead(io,r));
+ need(completion.scope==='validated-production-migration-completion'&&completion.sourceRevision===b.identity.sourceRevision&&completion.baselineRevision===b.identity.baselineRevision&&completion.attemptId===b.identity.attemptId&&completion.originalPlanSha256===b.identity.migrationPlanSha256&&completion.pendingCount===0&&completion.driftCount===0&&completion.unknownAppliedCount===0&&completion.appliedSqlCount>0&&Date.parse(completion.expiresAt)>Date.now(),'HELD_PRODUCER_COMPLETION');
+ const source=JSON.parse(protectedRead(io,io.appSourceManifest));const {seeds,requiredColumns}=deriveFixedAppSource(source,r=>protectedRead(io,r),b.identity);
  need(typeof io.orgId==='string'&&io.orgId&&!/[\r\n\0]/.test(io.orgId)&&Object.keys(io.connections||{}).sort().join(',')===[...DBS].sort().join(',')&&Object.keys(io.roles||{}).sort().join(',')===[...DBS].sort().join(','),'HELD_PRODUCER_DB_CLOSURE');
- const root=`/etc/workspacex-cn/maintenance-readback/${APP}/${b.identity.attemptId}/`;let serial=0;
+ const root=`/etc/workspacex-cn/maintenance-readback/${b.identity.sourceRevision}/${b.identity.attemptId}/`;let serial=0;
  const outputs=[];const write=(name,v)=>{const raw=Buffer.from(JSON.stringify(v)),path=root+name;const ref=io.writeProtected(path,raw);need(same(ref,{path,sha256:sha(raw)}),'HELD_PRODUCER_OUTPUT_PIN');need(protectedRead(io,ref).equals(raw),'HELD_PRODUCER_OUTPUT_READBACK');outputs.push(ref);return ref;};
  const all={workspacex:[],workspacex_agent:[],workspacex_memory:[]},inputs=[io.qualification,io.migrationCompletion,io.appSourceManifest,...Object.values(source.files)],stages={};
  const startedAt=Date.now()/1000;
@@ -45,7 +48,7 @@ async function collectQualifiedExpected(io){
   }catch(e){failure=e;}finally{if(began)try{await c.client.query('ROLLBACK');need(c.transactionStatus==='I'&&same(await c.identity(),connection),'HELD_PRODUCER_ROLLBACK_UNPROVEN');}catch{failure=Error('HELD_PRODUCER_ROLLBACK_UNPROVEN');}}
   if(failure)throw failure;
   const refs={};for(const row of rows)refs[String(++serial)]=write('facts-'+serial+'.json',row.facts);
-  const stage=write(db+'-fixed-projections.stage.json',{schemaVersion:1,stage:'held-candidate-fixed-projections',binding:{candidateSha:APP,targetInstanceId:b.targetInstanceId},epochBinding:b,database:db,connection,readOnlyTransaction:true,rollbackComplete:true,proofRefs:refs});stages[db]=stage;
+  const stage=write(db+'-fixed-projections.stage.json',{schemaVersion:1,stage:'held-candidate-fixed-projections',binding:{candidateSha:b.identity.sourceRevision,targetInstanceId:b.targetInstanceId},epochBinding:b,database:db,connection,readOnlyTransaction:true,rollbackComplete:true,proofRefs:refs});stages[db]=stage;
   rows.forEach((r,i)=>all[db].push({targetId:r.targetId,keyValues:r.keyValues,factsRef:Object.values(refs)[i],stageReceipt:stage}));inputs.push(...Object.values(refs),stage);
  }
  const aggregate=write('aggregate.json',{schemaVersion:1,kind:'qualified-held-readback-aggregate',binding:b,qualification:io.qualification,migrationCompletion:io.migrationCompletion,appSourceManifest:io.appSourceManifest,targets:all});

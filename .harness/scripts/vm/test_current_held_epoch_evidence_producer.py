@@ -74,7 +74,7 @@ if __name__=='__main__':unittest.main()
 
 class ProtectedCollectionAuthority(unittest.TestCase):
  def fixture(self):
-  identity={'sourceRevision':'a1cb4c7683768566b0cf38ffe6a27b0a8c13f4f0','baselineRevision':m.BASE,'migrationPlanSha256':'a'*64,'attemptId':'independent-approved'}
+  identity={'sourceRevision':'5285bef9a6c91bbb9857ede42779aafa64b98f32','baselineRevision':'a1cb4c7683768566b0cf38ffe6a27b0a8c13f4f0','migrationPlanSha256':'a'*64,'attemptId':'independent-approved'}
   payload={'identity':copy.deepcopy(identity),'toolRevision':'b'*40,'host':{'instanceId':m.ECS,'bootId':'12345678-1234-1234-1234-123456789012'},'epoch':'c'*64,'holdGeneration':'d'*32}
   original={'schemaVersion':1,'mode':'maintenance-all-writer-fence','productionActionsAuthorized':True,'identity':identity,'toolRevision':'b'*40}
   profile={'toolRevision':'b'*40,'filesSha256':{'.harness/scripts/vm/current_held_epoch_evidence_producer.py':hashlib.sha256(Path(m.__file__).read_bytes()).hexdigest()}}

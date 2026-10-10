@@ -7,8 +7,8 @@ test('actual compiled migrator shares issued authority and refuses forged/drifte
  const output=esbuild.buildSync({entryPoints:[path.join(root,'packages/cloud-deploy/src/cn-maintenance-host/migration_library.ts')],bundle:true,write:false,minify:true,platform:'node',format:'cjs',target:'node20',absWorkingDir:root});
  const mod=new Module(path.join(root,'compiled-migrator-fixture.cjs'),module);mod.filename=path.join(root,'compiled-migrator-fixture.cjs');mod.paths=module.paths;mod._compile(Buffer.from(output.outputFiles[0].contents).toString(),mod.filename);
  const libraries=[mod.exports,require('./cn-maintenance-migrator.cjs')];
- for(const library of libraries){const sourceRevision='a1cb4c7683768566b0cf38ffe6a27b0a8c13f4f0',tool='c'.repeat(40),pin='d'.repeat(64);
- const identity={sourceRevision,baselineRevision:'ba6343199f3c834d6a198f83d0c771614292c82b',migrationPlanSha256:'a'.repeat(64),attemptId:'compiled-bridge'};
+ for(const library of libraries){const sourceRevision='5285bef9a6c91bbb9857ede42779aafa64b98f32',tool='c'.repeat(40),pin='d'.repeat(64);
+ const identity={sourceRevision,baselineRevision:'a1cb4c7683768566b0cf38ffe6a27b0a8c13f4f0',migrationPlanSha256:'a'.repeat(64),attemptId:'compiled-bridge'};
  const source={schemaVersion:1,mode:'maintenance-all-writer-fence',productionActionsAuthorized:true,runtimeSessionBootstrapAuthorized:true,identity,toolRevision:tool};let raw=Buffer.from(JSON.stringify(source)+'\n');
  const canonical=v=>Array.isArray(v)?'['+v.map(canonical).join(',')+']':v&&typeof v==='object'?'{'+Object.keys(v).sort().map(k=>JSON.stringify(k)+':'+canonical(v[k])).join(',')+'}':JSON.stringify(v),hash=b=>crypto.createHash('sha256').update(b).digest('hex');
  const hold='/usr/local/lib/workspacex-cn/cn_maintenance_hold.py',fence='/usr/local/lib/workspacex-cn/host_transport.py',sourcePath='.harness/scripts/vm/maintenance_source_operations.py';

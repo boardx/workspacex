@@ -1,6 +1,6 @@
 """Source-owned late candidate template; no placeholder Docker identities."""
 import copy,hashlib,json,re
-from candidate_writer import validate,APP,BASELINE
+from candidate_writer import validate
 from candidate_stage_actions import SERVICES
 from candidate_plan_producer import BIND
 from writer_fence import require,digest,DATABASES
@@ -51,7 +51,7 @@ def concretize(bound,source,snapshot_ref,stage_binding=None):
             composePath=source.inputs['compose']['path'],composeSha256=source.inputs['compose']['sha256'])))
     plan['candidateWriters']=result
     require(plan['identity']==bound['identity'] and plan['host']==bound['host'] and
-        plan['baselineRevision']==BASELINE and plan['baselineWriters']==source.host.plan['writers'] and
+        plan['baselineRevision']==bound['identity']['baselineRevision'] and plan['baselineWriters']==source.host.plan['writers'] and
         plan['databasePeers']==runtime['runtimePlan']['databasePeers'] and
         all(set(plan['fencedRoles'][db])==set(source.host.plan['databaseWriterRoles'][db]) for db in DATABASES),
         'CANDIDATE_TEMPLATE_RETAINED_SOURCE_BINDING')
@@ -68,7 +68,7 @@ def concretize_and_write(bound,source,snapshot_ref,stage_binding=None):
     import os,pathlib,stat
     from host_transport import private
     plan=concretize(bound,source,snapshot_ref,stage_binding=stage_binding)
-    path=pathlib.Path('/etc/workspacex-cn/maintenance-candidate')/APP/bound['identity']['attemptId']/'candidate-template.json'
+    path=pathlib.Path('/etc/workspacex-cn/maintenance-candidate')/bound['identity']['sourceRevision']/bound['identity']['attemptId']/'candidate-template.json'
     require(os.geteuid()==0 and os.getegid()==0,'CANDIDATE_TEMPLATE_ROOT_REQUIRED')
     for parent in (path.parent,*path.parent.parents):
         s=parent.lstat();require(stat.S_ISDIR(s.st_mode) and s.st_uid==0 and s.st_gid==0 and not s.st_mode&0o022,
