@@ -338,9 +338,9 @@ def profile_transaction(m,consumer_raw,inventory_raw,receipt_raw,expected,now,tt
  old=inv.get('profiles',{}).get(target)
  require(isinstance(old,dict),'PROFILE_OLD_INVENTORY')
  if old.get('present') is True:
+  old_profile_binding(old,inv,old_schema_raw)
   import base64
   require('composeExtensionV1' not in json.loads(base64.b64decode(old['rawBase64'],validate=True)) or m.get('composeExtensionV1') is not None,'COMPOSE_EXTENSION_REMOVAL_NOT_AUTHORIZED')
-  old_profile_binding(old,inv,old_schema_raw)
   require(p.get('kind')=='reviewed-profile-replace-proposal','PROFILE_OPERATION')
  else:
   require(p.get('kind')=='reviewed-profile-create-proposal','PROFILE_OPERATION')
@@ -452,6 +452,10 @@ def verified_manifest(manifest_path,manifest_hash,admitted_at=None,expected_exte
  import time
  proposal=m['profileTransactionsV1'][0];consumer=git('show',m['toolRevision']+':'+proposal['consumerSource'])
  validation_time=time.time() if admitted_at is None else admitted_at
+ def extension_git_blob(rev,source):
+  entry=git('ls-tree',rev,'--',source).decode().split()
+  require(len(entry)==4 and entry[0] in ('100644','100755') and entry[1]=='blob' and entry[3]==source,'COMPOSE_EXTENSION_REGULAR_GIT_BLOB')
+  return git('show',rev+':'+source)
  old_schema_raw=None
  old=json.loads(inputs[0]).get('profiles',{}).get(proposal['target'],{})
  if old.get('present') is True:
@@ -463,10 +467,10 @@ def verified_manifest(manifest_path,manifest_hash,admitted_at=None,expected_exte
   old_schema_raw=git('show',old_tool+':'+PROFILE_SCHEMA_SOURCE) if PROFILE_SCHEMA_SOURCE in old_files else None
   unused,old_rows=old_profile_binding(old,json.loads(inputs[0]),old_schema_raw)
   old_extension=old_content.get('composeExtensionV1')
-  if old_extension is not None:extension_evidence(old_tool,old_rows,old_schema_raw,old_extension,None,git_blob=lambda rev,source:git('show',rev+':'+source),old_projection=True)
+  if old_extension is not None:extension_evidence(old_tool,old_rows,old_schema_raw,old_extension,None,git_blob=extension_git_blob,old_projection=True)
   for source,row in old_rows.items():require(sha(git('show',old_tool+':'+source))==row['newSha256'],'PROFILE_OLD_GIT_CLOSURE')
  schema_raw=git('show',m['toolRevision']+':'+PROFILE_SCHEMA_SOURCE) if PROFILE_SCHEMA_SOURCE in m['files'] else None
- extension=extension_evidence(m['toolRevision'],m['files'],schema_raw,m.get('composeExtensionV1'),expected_extension,m['applicationRevision'],lambda rev,source:git('show',rev+':'+source))
+ extension=extension_evidence(m['toolRevision'],m['files'],schema_raw,m.get('composeExtensionV1'),expected_extension,m['applicationRevision'],extension_git_blob)
  if extension is not None:verify_staged_extension(extension)
  pt,pr=profile_transaction(m,consumer,*inputs,evidence['expected'],validation_time,evidence['ttlSeconds'],git('show',m['toolRevision']+':'+PROFILE_SCHEMA_SOURCE) if PROFILE_SCHEMA_SOURCE in m['files'] else None,old_schema_raw,expected_extension)
  require(pt['destination'] not in {x['destination'] for x in m['targets']},'PROFILE_TARGET_DUPLICATE')

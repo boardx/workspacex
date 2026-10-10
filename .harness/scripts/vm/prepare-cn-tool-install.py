@@ -228,9 +228,9 @@ def profile_transaction(tool,rows,payload,previous,previous_raw,receipt_binding=
  if old is None:return None
  require(previous.get('readOnly') is True and previous.get('ready') is False,'PROFILE_INVENTORY_READ_ONLY')
  if old.get('present') is True:
+  old_profile_binding(old,previous,old_schema_raw)
   import base64
   require('composeExtensionV1' not in json.loads(base64.b64decode(old['rawBase64'],validate=True)) or extension is not None,'COMPOSE_EXTENSION_REMOVAL_NOT_AUTHORIZED')
-  old_profile_binding(old,previous,old_schema_raw)
  else:require(old.get('present') is False and old.get('regular') is False and old.get('symlink') is False and all(old.get(k) is None for k in ('sha256','mode','uid','gid','links')),'PROFILE_OLD_ABSENCE_REQUIRED')
  content=profile_content(tool,rows,payload.get(PROFILE_SCHEMA_SOURCE),previous.get('runtimes',{}).get('node'),extension,expected_extension)
  content_raw=(json.dumps(content,sort_keys=True)+'\n').encode()
@@ -261,7 +261,6 @@ def produce(repo,tool,app,main,inventory,output,provider_receipt=None,expected_p
   require(len(entry)==4 and entry[0] in ('100644','100755') and entry[1]=='blob' and entry[3]==source,'SOURCE_REGULAR_BLOB')
   raw=git(repo,'show',tool+':'+source);payload[source]=raw
   rows[source]={'target':target,'mode':mode,'oldPresent':row['present'],'oldSha256':row.get('sha256'),'oldMode':row.get('mode'),'oldUid':row.get('uid'),'oldGid':row.get('gid'),'oldNlink':row.get('links'),'newSha256':sha(raw),'bytes':len(raw)}
- require(trusted_local_git(repo)==closure['gitMetadataInventorySha256'],'GIT_METADATA_CHANGED')
  out=pathlib.Path(output);require(not os.path.lexists(out),'OUTPUT_EXISTS')
  for parent in out.parents:
   st=parent.lstat();require(stat.S_ISDIR(st.st_mode) and not stat.S_ISLNK(st.st_mode) and (not st.st_mode&0o022 or bool(st.st_mode&stat.S_ISVTX)),'OUTPUT_PARENT')
@@ -275,7 +274,11 @@ def produce(repo,tool,app,main,inventory,output,provider_receipt=None,expected_p
   import base64
   extension_raw=safe_file(compose_extension)
   extension={'sha256':sha(extension_raw),'rawBase64':base64.b64encode(extension_raw).decode()}
- extension_evidence(tool,rows,payload.get(PROFILE_SCHEMA_SOURCE),extension,expected_extension,app,lambda rev,source:git(repo,'show',rev+':'+source))
+ def extension_git_blob(rev,source):
+  entry=git(repo,'ls-tree',rev,'--',source).decode().split()
+  require(len(entry)==4 and entry[0] in ('100644','100755') and entry[1]=='blob' and entry[3]==source,'COMPOSE_EXTENSION_REGULAR_GIT_BLOB')
+  return git(repo,'show',rev+':'+source)
+ extension_evidence(tool,rows,payload.get(PROFILE_SCHEMA_SOURCE),extension,expected_extension,app,extension_git_blob)
  old_schema_raw=None
  for old in previous.get('profiles',{}).values():
   if old.get('present') is True:
@@ -287,7 +290,7 @@ def produce(repo,tool,app,main,inventory,output,provider_receipt=None,expected_p
    old_schema_raw=git(repo,'show',old_tool+':'+PROFILE_SCHEMA_SOURCE) if PROFILE_SCHEMA_SOURCE in old_files else None
    unused,old_rows=old_profile_binding(old,previous,old_schema_raw)
    old_extension=old_content.get('composeExtensionV1')
-   if old_extension is not None:extension_evidence(old_tool,old_rows,old_schema_raw,old_extension,None,git_blob=lambda rev,source:git(repo,'show',rev+':'+source),old_projection=True)
+   if old_extension is not None:extension_evidence(old_tool,old_rows,old_schema_raw,old_extension,None,git_blob=extension_git_blob,old_projection=True)
    for source,row in old_rows.items():require(sha(git(repo,'show',old_tool+':'+source))==row['newSha256'],'PROFILE_OLD_GIT_CLOSURE')
  profile=profile_transaction(tool,rows,payload,previous,previous_raw,receipt_binding,old_schema_raw,extension,expected_extension)
  if extension is not None:
