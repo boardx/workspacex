@@ -270,4 +270,75 @@ class Producer(unittest.TestCase):
    inv.write_text(json.dumps(v))
    with self.assertRaisesRegex(ValueError,'TOOL_INSTALL_SOURCE_SYMLINK'):m.produce(repo,h,h,h,inv,p/'out')
    self.assertFalse((p/'out').exists())
+
+class InventoryEnvelopeTests(unittest.TestCase):
+ @classmethod
+ def setUpClass(cls):
+  import importlib.util
+  path=pathlib.Path(__file__).with_name('cn-tool-install-transaction.py');spec=importlib.util.spec_from_file_location('envelope_transaction',path);cls.installer=importlib.util.module_from_spec(spec);spec.loader.exec_module(cls.installer)
+ def fixture(self):
+  import base64,gzip,datetime
+  inv,receipt,expected,now=Producer().receipt_fixture()
+  remote=json.loads(inv);remote.pop('sourceInvocation');decoded=(json.dumps(remote,sort_keys=True)+'\n').encode()
+  envelope={'schemaVersion':1,'kind':'cn-tool-inventory-gzip-base64-v1','decodedBytes':len(decoded),'decodedSha256':m.sha(decoded),'gzipBase64':base64.b64encode(gzip.compress(decoded,mtime=0)).decode()}
+  self.wrap(receipt,envelope);receipt['decodedInventorySha256']=m.sha(decoded)
+  return inv,receipt,expected,now,envelope,decoded
+ def wrap(self,receipt,envelope):
+  import base64
+  wire=(json.dumps(envelope,sort_keys=True)+'\n').encode();receipt.update(outputEncoding='gzip-base64-inventory-v1',outputBase64=base64.b64encode(wire).decode(),outputSha256=m.sha(wire))
+ def verify_both(self,inv,r,e,now):
+  encoded=json.dumps(r).encode();a=m.verify_inventory_receipt(inv,encoded,e,now);b=self.installer.verify_inventory_receipt(inv,encoded,e,now.timestamp());return a,b
+ def assert_reject_both(self,inv,r,e,now):
+  with self.assertRaises((ValueError,RuntimeError)):m.verify_inventory_receipt(inv,json.dumps(r).encode(),e,now)
+  with self.assertRaises((ValueError,RuntimeError)):self.installer.verify_inventory_receipt(inv,json.dumps(r).encode(),e,now.timestamp())
+ def test_real_132_absent_inventory_fits_wire_without_losing_rows(self):
+  import ast,base64,gzip
+  inv,r,e,now,_,_=self.fixture();value=json.loads(inv);tree=ast.parse((D/'cn-build-tool-identity.py').read_bytes());files=ast.literal_eval(next(n.value for n in tree.body if isinstance(n,ast.Assign)and any(isinstance(t,ast.Name)and t.id=='FILES'for t in n.targets)))
+  absent=dict(present=False,regular=False,symlink=False,sha256=None,mode=None,uid=None,gid=None,links=None)
+  value['files']={source:dict(absent,target=target)for source,target in files.items()};inv=json.dumps(value).encode();r['localInventorySha256']=m.sha(inv);value.pop('sourceInvocation');decoded=(json.dumps(value,sort_keys=True)+'\n').encode();self.assertEqual(len(files),132);self.assertGreater(len(decoded),24000)
+  v={'schemaVersion':1,'kind':'cn-tool-inventory-gzip-base64-v1','decodedBytes':len(decoded),'decodedSha256':m.sha(decoded),'gzipBase64':base64.b64encode(gzip.compress(decoded,mtime=0)).decode()};self.wrap(r,v);r['decodedInventorySha256']=m.sha(decoded)
+  a,b=self.verify_both(inv,r,e,now);self.assertEqual(len(b['files']),132);self.assertLess(len(base64.b64decode(r['outputBase64'])),24000)
+ def test_raw_and_encoded_receipts_preserve_provider_binding(self):
+  inv,r,e,now,envelope,decoded=self.fixture();a,b=self.verify_both(inv,r,e,now);self.assertEqual(a['outputSha256'],r['outputSha256']);self.assertNotEqual(a['outputSha256'],m.sha(decoded));self.assertEqual(b,json.loads(inv))
+  raw,r,e,now=Producer().receipt_fixture();self.verify_both(raw,r,e,now)
+ def test_wire_and_decoded_bindings_and_original_provider_gates(self):
+  for key,value in [('outputSha256','a'*64),('decodedInventorySha256','b'*64),('localInventorySha256','c'*64),('outputEncoding','unknown'),('instanceId','wrong'),('sourceInvocation','wrong'),('commandId','wrong'),('region','wrong'),('exitCode',1),('dropped',1),('invocationStatus','Running'),('productionModified',True)]:
+   with self.subTest(key=key):
+    inv,r,e,now,_,_=self.fixture();r[key]=value;self.assert_reject_both(inv,r,e,now)
+ def test_decoded_bounds_and_boolean_size(self):
+  for value in (0,True,1024*1024+1):
+   inv,r,e,now,v,_=self.fixture();v['decodedBytes']=value;self.wrap(r,v);self.assert_reject_both(inv,r,e,now)
+ def test_gzip_truncation_trailing_members_ratio_and_false_size(self):
+  import base64,gzip
+  for kind in ('truncated','trailing','second-member','ratio','false-size'):
+   with self.subTest(kind=kind):
+    inv,r,e,now,v,decoded=self.fixture();compressed=base64.b64decode(v['gzipBase64'])
+    if kind=='truncated':compressed=compressed[:-1]
+    elif kind=='trailing':compressed+=b'x'
+    elif kind=='second-member':compressed+=gzip.compress(b'x',mtime=0)
+    elif kind=='ratio':compressed=gzip.compress(b' '*100000,mtime=0);v['decodedBytes']=100000
+    else:v['decodedBytes']-=1
+    v['gzipBase64']=base64.b64encode(compressed).decode();self.wrap(r,v);self.assert_reject_both(inv,r,e,now)
+ def test_duplicate_inventory_receipt_and_envelope_keys(self):
+  import base64
+  inv,r,e,now,v,_=self.fixture()
+  for encoded in (inv[:-1]+b',"ready":false}',):
+   self.assert_reject_both(encoded,r,e,now)
+  raw=json.dumps(r).encode()[:-1]+b',"exitCode":0}'
+  with self.assertRaises((ValueError,RuntimeError)):m.verify_inventory_receipt(inv,raw,e,now)
+  with self.assertRaises((ValueError,RuntimeError)):self.installer.verify_inventory_receipt(inv,raw,e,now.timestamp())
+  wire=(json.dumps(v)[:-1]+',"schemaVersion":1}\n').encode();r.update(outputBase64=base64.b64encode(wire).decode(),outputSha256=m.sha(wire));self.assert_reject_both(inv,r,e,now)
+ def test_legacy_does_not_accept_compressed_fields(self):
+  inv,r,e,now,_,_=self.fixture();r.pop('outputEncoding');self.assert_reject_both(inv,r,e,now)
+ def test_ttl_remains_enforced(self):
+  import datetime
+  inv,r,e,now,_,_=self.fixture();self.assert_reject_both(inv,r,e,now+datetime.timedelta(hours=2))
+ def test_nonfinite_json_literals_and_float_overflow(self):
+  for raw in (b'{"x":NaN}',b'{"x":Infinity}',b'{"x":1e999}'):
+   for module in (m,self.installer):
+    with self.subTest(raw=raw),self.assertRaises((ValueError,RuntimeError)):module.inventory_json(raw)
+ def test_pure_helpers_identical_in_producer_installer(self):
+  import inspect
+  self.assertEqual(inspect.getsource(m.inventory_json),inspect.getsource(self.installer.inventory_json));self.assertEqual(inspect.getsource(m.verify_inventory_output),inspect.getsource(self.installer.verify_inventory_output))
+
 if __name__=='__main__':unittest.main()

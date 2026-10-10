@@ -237,10 +237,53 @@ def trust_git(tool,uid=0,boundary=None):
  finally:os.close(fd)
  require(not re.search(rb'^\s*\[(?:include(?:if)?|filter)[\s\]]|^\s*(?:fsmonitor|promisor|partialclone)\s*=',config,re.M|re.I),'GIT_CONFIG_EXECUTION')
 
+# Keep this pure verifier byte-identical in producer and installer (parity-tested).
+def inventory_json(raw):
+ def pairs(items):
+  result={}
+  for key,value in items:
+   require(key not in result,'INVENTORY_DUPLICATE_KEY');result[key]=value
+  return result
+ def constant(value):raise ValueError('INVENTORY_NONFINITE_JSON')
+ def floating(value):
+  import math
+  result=float(value);require(math.isfinite(result),'INVENTORY_NONFINITE_JSON');return result
+ return json.loads(raw,object_pairs_hook=pairs,parse_constant=constant,parse_float=floating)
+
+def verify_inventory_output(receipt,decoded,legacy_error):
+ import base64,zlib
+ encoding=receipt.get('outputEncoding','raw-json-v1')
+ if encoding=='raw-json-v1':
+  require('outputBase64' not in receipt and 'decodedInventorySha256' not in receipt,'PROVIDER_ENCODING_AMBIGUOUS')
+  require(receipt.get('outputSha256')==sha(decoded),legacy_error)
+  return receipt['outputSha256']
+ require(encoding=='gzip-base64-inventory-v1','PROVIDER_OUTPUT_ENCODING')
+ encoded=receipt.get('outputBase64');require(type(encoded)is str and len(encoded)<=32000,'PROVIDER_WIRE_BOUND')
+ try:wire=base64.b64decode(encoded,validate=True)
+ except Exception as e:raise ValueError('PROVIDER_WIRE_BASE64')from e
+ require(0<len(wire)<=24000 and base64.b64encode(wire).decode()==encoded,'PROVIDER_WIRE_BOUND')
+ require(sha(wire)==receipt.get('outputSha256'),'PROVIDER_WIRE_HASH')
+ envelope=inventory_json(wire)
+ require(type(envelope)is dict and set(envelope)=={'schemaVersion','kind','decodedBytes','decodedSha256','gzipBase64'},'PROVIDER_ENVELOPE_SCHEMA')
+ require(type(envelope['schemaVersion'])is int and envelope['schemaVersion']==1 and envelope['kind']=='cn-tool-inventory-gzip-base64-v1','PROVIDER_ENVELOPE_KIND')
+ require((json.dumps(envelope,sort_keys=True)+'\n').encode()==wire,'PROVIDER_ENVELOPE_CANONICAL')
+ size=envelope['decodedBytes'];require(type(size)is int and 0<size<=1024*1024,'PROVIDER_DECODED_BOUND')
+ compressed64=envelope['gzipBase64'];require(type(compressed64)is str and len(compressed64)<=24000,'PROVIDER_GZIP_BOUND')
+ try:compressed=base64.b64decode(compressed64,validate=True)
+ except Exception as e:raise ValueError('PROVIDER_GZIP_BASE64')from e
+ require(0<len(compressed)<=18000 and base64.b64encode(compressed).decode()==compressed64 and size<=len(compressed)*128,'PROVIDER_COMPRESSION_RATIO')
+ try:
+  inflater=zlib.decompressobj(16+zlib.MAX_WBITS);raw=inflater.decompress(compressed,size+1)
+ except zlib.error as e:raise ValueError('PROVIDER_GZIP_INVALID')from e
+ require(len(raw)==size and inflater.eof and not inflater.unused_data and not inflater.unconsumed_tail,'PROVIDER_GZIP_COMPLETE')
+ inventory_json(raw) # Reject nested duplicate keys independently of local normalization.
+ require(raw==decoded and sha(raw)==envelope['decodedSha256']==receipt.get('decodedInventorySha256'),'PROVIDER_DECODED_HASH')
+ return receipt['outputSha256']
+
 def verify_inventory_receipt(inventory_raw,receipt_raw,expected,now,ttl=3600):
  import datetime,re
  require(type(ttl) is int and 0<ttl<=3600,'INVENTORY_TTL')
- inv=json.loads(inventory_raw);r=json.loads(receipt_raw)
+ inv=inventory_json(inventory_raw);r=inventory_json(receipt_raw)
  require(set(expected)=={'region','instanceId','sourceInvocation','commandId'} and all(isinstance(v,str) and v for v in expected.values()),'PROVIDER_EXPECTED_REQUEST')
  require(all(r.get(k)==v for k,v in expected.items()),'PROVIDER_REQUEST_IDENTITY')
  require(r.get('schemaVersion')==1 and r.get('invocationStatus')=='Success' and type(r.get('exitCode')) is int and r['exitCode']==0 and type(r.get('dropped')) is int and r['dropped']==0,'PROVIDER_SUCCESS')
@@ -248,7 +291,7 @@ def verify_inventory_receipt(inventory_raw,receipt_raw,expected,now,ttl=3600):
  require(inv.get('sourceInvocation')==expected['sourceInvocation'] and r.get('localInventorySha256')==sha(inventory_raw),'INVENTORY_HASH_INVOCATION')
  require(r.get('inventoryObservedAt')==inv.get('observedAt'),'INVENTORY_OBSERVED_BINDING')
  remote=dict(inv);del remote['sourceInvocation'];output=(json.dumps(remote,sort_keys=True)+'\n').encode()
- require(sha(output)==r.get('outputSha256'),'PROVIDER_OUTPUT_HASH')
+ verify_inventory_output(r,output,'PROVIDER_OUTPUT_HASH')
  def timestamp(value):
   require(isinstance(value,str),'INVENTORY_TIME_FORMAT');d=datetime.datetime.fromisoformat(value.replace('Z','+00:00'));require(d.tzinfo is not None,'INVENTORY_TIMEZONE');return d.timestamp()
  observed=timestamp(inv['observedAt']);start=timestamp(r['startTime'])
