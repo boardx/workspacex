@@ -65,13 +65,13 @@ class CollectionTests(unittest.TestCase):
   self.mutate('recovery-verify',lambda out:out['snapshots'][DBS[0]].update(ciphertextSha256='c'*64))
   with self.assertRaisesRegex(ValueError,'RECOVERY_SNAPSHOT'):self.run_it()
  def test_secret_rejected(self):
-  self.mutate('migrate',lambda out:out.update(password='never-print'))
+  self.mutate('migrate',lambda out:out.update(password='test-only-never-print'))
   with self.assertRaisesRegex(ValueError,'SECRET_BEARING'):self.run_it()
  def test_unapproved_tls_exception(self):
   self.payload['binding']['tls']['providerSslEvidence']['targetInstanceId']='pgm-other'
   with self.assertRaisesRegex(ValueError,'TLS_EVIDENCE'):self.run_it()
  def test_cli_failure_is_redacted_and_nonzero(self):
-  result=subprocess.run([sys.executable,str(Path(__file__).with_name('isolated_conservation_evidence_producer.py'))],input=b'{"password":"never-print-this"}',capture_output=True)
+  result=subprocess.run([sys.executable,str(Path(__file__).with_name('isolated_conservation_evidence_producer.py'))],input=b'{"password":"test-only-never-print-this"}',capture_output=True)
   self.assertEqual(result.returncode,1);self.assertEqual(result.stdout,b'')
   self.assertEqual(result.stderr,b'ISOLATED_EVIDENCE_COLLECTION_REJECTED\n')
  def test_production_target(self):

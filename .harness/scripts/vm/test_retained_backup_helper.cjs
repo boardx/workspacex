@@ -15,7 +15,7 @@ function fixture(){
  const statements=Object.fromEntries(DBS.map(db=>[db,{begin:['BEGIN'],commit:['COMMIT'],rollback:['ROLLBACK'],create:['CREATE ROLE wsx_release_backup_ro NOLOGIN'],grant:['GRANT SELECT ON TABLE public.t TO wsx_release_backup_ro'],close:['ALTER ROLE wsx_release_backup_ro NOLOGIN'],revoke:['REVOKE SELECT ON TABLE public.t FROM wsx_release_backup_ro']}]));
  const host={identity,backup:{identity,authorization,toolRevision:'e'.repeat(40),functionBodies:record.functions,timeoutSeconds:900,configurationSha256:'c'.repeat(64),providerBindingSha256:hash(Buffer.from(JSON.stringify(canonical(providers))))},roleApproval:role,publicCapabilityApproval:pub,queryTable:table,statements,connection:{serviceFile:'/protected/service.json',transport}};
  const ref=put('/etc/workspacex-cn/maintenance-backup/'+identity.sourceRevision+'/fixture/host-plan.json',host);
- put('/protected/service.json',{credential:{user:'migration_admin',port:5432,host:'pgm-uf6rg214cp381l49.rwlb.rds.aliyuncs.com',password:'fixture-only'}});
+ put('/protected/service.json',{credential:{user:'migration_admin',port:5432,host:'pgm-uf6rg214cp381l49.rwlb.rds.aliyuncs.com',password:'test-only-fixture-only'}});
  const library=put('/usr/local/lib/workspacex-cn/backup_connection.cjs','pinned-library-bytes');
  const profile={toolRevision:host.backup.toolRevision,backupHostPlan:ref,installedFilesSha256:{[table.path]:table.sha256,[library.path]:library.sha256}};
  const binding={role:'migration_admin',peer:{database:'workspacex',serverAddr:'192.168.100.44',serverPort:5432},socket:{remoteAddress:'192.168.100.44',remotePort:5432,localAddress:'192.168.100.40',encrypted:false,authorized:false},pid:123,backendStart:'start'};

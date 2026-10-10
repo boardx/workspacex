@@ -41,15 +41,15 @@ describe('acceptance failure receipts', () => {
 });
 
 it('redacts login fill secrets and tokens throughout nested errors and stacks', () => {
-  const secrets = acceptanceFailureSecrets({password:'private-password',adminPassword:'private-admin'},'private-token');
-  const error = new AggregateError([new Error('fill(\"private-password\") timed out; Bearer private-token'),new Error('private-admin cleanup')], 'private-token wrapper');
+  const secrets = acceptanceFailureSecrets({password:'test-only-private-password',adminPassword:'private-admin'},'private-token');
+  const error = new AggregateError([new Error('fill(\"test-only-private-password\") timed out; Bearer private-token'),new Error('private-admin cleanup')], 'private-token wrapper');
   const receipt = JSON.stringify(primaryFailure(error,secrets));
   for (const secret of secrets) expect(receipt).not.toContain(secret);
   expect(receipt).toContain('[REDACTED]');
 });
 
 it('redacts the owned fault proxy control header in a network failure diagnostic', () => {
-  const secret = 'private-fault-control-secret';
+  const secret = 'test-only-private-fault-control-secret';
   const error = new AggregateError([new Error(`apiRequestContext.post failed\n x-board-fault-control: ${secret}`)], 'proxy restore failed');
   const receipt = JSON.stringify(primaryFailure(error,[secret]));
   expect(receipt).not.toContain(secret);

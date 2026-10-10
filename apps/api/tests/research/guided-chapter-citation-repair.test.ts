@@ -24,7 +24,7 @@ describe("private chapter repair feedback", () => {
     expect((error as ResearchRuntimeError).reasonCode).toBe("RESEARCH_CONTENT_REFERENCE_INVALID");
   });
   it("never echoes unknown model-controlled values into validation feedback", () => {
-    const secret = "MODEL_SECRET https://private.invalid/body";
+    const secret = "test-only-MODEL_SECRET https://private.invalid/body";
     for (const value of [chapter(`Bad [[source:${secret}]]`, ["S7"]), chapter("Good [[source:S7]]", [secret])]) {
       const error = caught(() => validateCanonicalChapter(value, section, new Set(["local-source"]), resolve));
       const issues = chapterValidationIssues(error);
