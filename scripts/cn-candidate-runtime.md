@@ -11,7 +11,7 @@ flowchart LR
  B --> C[Review manifest and offline runtime package]
  C --> D[Root FD copy and no-replace installation]
  D --> E[Host runtime validation before publication]
- classDef tested fill:#d1c4e9,stroke:#673ab7
+ classDef tested fill:#e5f5e8,stroke:#278343
  classDef pending fill:#eeeeee,stroke:#757575
  class A,B,C,D tested
  class E pending
