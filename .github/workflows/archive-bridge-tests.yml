@@ -27,6 +27,9 @@ on:
       - 'scripts/cn_candidate_github.py'
       - 'scripts/revalidate-cn-image-candidates.py'
       - 'tests/test_cn_candidate_revalidation.py'
+      - 'tests/test_cn_candidate_cached_revalidation.py'
+      - 'tests/test_cn_candidate_acquisition.py'
+      - 'scripts/cn-candidate-revalidation.md'
       - 'scripts/cn_candidate_authenticated_oss.py'
       - 'scripts/cn-candidate-authenticated-oss.md'
       - 'scripts/cn-candidate-oss-policy.example.json'
@@ -108,6 +111,10 @@ jobs:
         run: python3 -I -B -m unittest discover -s tests -p 'test_cn_candidate_oss.py' -v
       - name: Authenticated source revalidation without cloud writes
         run: python3 -I -B -m unittest discover -s tests -p 'test_cn_candidate_revalidation.py' -v
+      - name: Explicit untrusted byte acquisition and fresh cached verification
+        run: |
+          python3 -I -B -m unittest discover -s tests -p 'test_cn_candidate_acquisition.py' -v
+          python3 -I -B -m unittest discover -s tests -p 'test_cn_candidate_cached_revalidation.py' -v
       - name: Candidate runtime provenance and Linux atomic installation
         run: python3 -I -B -m unittest discover -s tests -p 'test_cn_candidate_runtime.py' -v
       - name: Untrusted cache delivery protocol and protected snapshots
