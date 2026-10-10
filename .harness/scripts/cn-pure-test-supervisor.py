@@ -110,6 +110,9 @@ def main():
         faulthandler.register(signal.SIGUSR1, all_threads=True)
         suite = unittest.defaultTestLoader.discover(args.directory, pattern='test_*.py')
         result = unittest.TextTestRunner(verbosity=2, resultclass=TimedResult).run(suite)
+        print('[cn-pure] discover testsRun=%d failures=%d errors=%d skipped=%d' %
+              (result.testsRun, len(result.failures), len(result.errors), len(result.skipped)),
+              file=sys.stderr, flush=True)
         return 0 if result.wasSuccessful() else 1
     if sys.platform != 'linux':
         raise RuntimeError('CN pure-test supervisor requires Linux process ownership evidence')

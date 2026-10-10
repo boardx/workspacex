@@ -63,6 +63,7 @@ class SupervisorTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn('test_fixture.Tests.test_ok', result.stderr)
         self.assertIn('elapsed=', result.stderr)
+        self.assertIn('discover testsRun=1 failures=0 errors=0 skipped=0', result.stderr)
 
     def test_failure_retains_assertion_and_nonzero_exit(self):
         result = self.run_fixture('import unittest\nclass Tests(unittest.TestCase):\n def test_bad(self): self.assertEqual(2+2,5)\n')

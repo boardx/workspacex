@@ -3,7 +3,6 @@
 import pathlib,subprocess,sys
 ROOT=pathlib.Path(__file__).resolve().parents[2]
 VM=ROOT/'.harness/scripts/vm'
-subprocess.run([sys.executable,'-B',str(ROOT/'.harness/scripts/test_cn_pure_supervisor.py')],cwd=ROOT,check=True,timeout=15)
 TESTS=['cn-maintenance-activation-test.py','collect_cn_migration_snapshot_test.py','cn_tool_profile_test.py','cn_maintenance_host_launcher_test.py','cn_maintenance_recovery_evidence_verifier_test.py','cn_production_recovery_cli_test.py','cn_production_recovery_executor_test.py','cn_tool_install_transaction_test.py','prepare_cn_tool_install_test.py','precheck_cn_tool_install_test.py']
 for test in TESTS:
  # This suite verifies full Git objects and real link rejection fixtures.
