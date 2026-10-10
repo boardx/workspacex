@@ -55,7 +55,15 @@ operations and publishes no receipt. It creates and removes temporary files;
 Publish mode additionally checks Docker capacity and acquires the existing
 canonical release lock. Existing `Commands` supplies bounded subprocesses,
 short-lived ECS-role ACR authentication in temporary Docker configuration,
-collision checks and exact registry readback. Redis pull and digest readback
+collision checks and exact registry readback. Before STS/ACR credential acquisition
+or Docker login, the v2 adapter obtains an IMDSv2 token and checks live `instance-id`
+and `region-id` against the admitted target. The token is memory-only; requests
+use fixed `100.100.100.200:80`, a 2-second socket timeout, a 4096-byte body cap,
+no proxy environment, redirects, retries, IMDSv1 fallback or credential metadata
+endpoints. A wrong host fails before requesting an ACR token. The sanitized host
+observation is bound into the final atomic receipt. Endpoint/header definitions
+were checked against [Alibaba Cloud instance metadata documentation](https://www.alibabacloud.com/help/en/ecs/user-guide/view-instance-metadata).
+Redis pull and digest readback
 precede every candidate load/tag/push. Every mutation checks original receipt
 expiry; an expired successful build cannot be refreshed here.
 

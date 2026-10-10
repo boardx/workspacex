@@ -7,7 +7,7 @@ from pathlib import Path
 import sys
 import tempfile
 import unittest
-from unittest.mock import patch
+from unittest.mock import patch, Mock
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'scripts'))
@@ -88,6 +88,7 @@ class HostTests(unittest.TestCase):
         instance = object.__new__(h.Commands)
         instance.plan = approval(); instance.approval_sha = '9'*64
         instance.check_validity = lambda: None
+        instance.host_identity = {'ecsInstanceId': 'i-uf6ga92ewloganobbln6', 'region': 'cn-shanghai'}
         binding = {k: instance.plan[k] for k in ('candidatePlanRawSha256', 'candidateSetRawSha256', 'publicationIntentRawSha256')}
         binding.update(candidateIdentity='a'*64, sourceRevision='b'*40, controlRevision='c'*40,
             attemptId='candidate-test', redisImage=a.PREFIX+'/base-redis@sha256:'+'d'*64,
@@ -106,6 +107,70 @@ class HostTests(unittest.TestCase):
         bad = dict(binding, candidateSetRawSha256='0'*64)
         with self.assertRaisesRegex(ValueError, 'BINDING'):
             instance.canonical_publish_candidate(inputs, bad)
+
+    def test_host_identity_failure_precedes_all_credential_commands(self):
+        cases = [([b'token', b'i-another'], 'HOST_INSTANCE_MISMATCH'),
+                 ([b'token', b'i-uf6ga92ewloganobbln6', b'cn-hongkong'], 'HOST_REGION_MISMATCH'),
+                 ([b''], 'HOST_METADATA_TOKEN_SHAPE'),
+                 ([b'token\r\n'], 'HOST_METADATA_TOKEN_SHAPE'),
+                 ([b'x'*4097], 'HOST_METADATA_TOKEN_SHAPE'),
+                 ([a.Rejected('HOST_METADATA_REQUEST_REJECTED')], 'HOST_METADATA_REQUEST_REJECTED')]
+        for responses, expected in cases:
+            with self.subTest(expected=expected):
+                adapter = object.__new__(h.Commands)
+                adapter.plan = approval(); adapter.check_validity = lambda: None
+                adapter.command = Mock()
+                with patch.object(h, 'metadata_request', side_effect=responses):
+                    with self.assertRaisesRegex(ValueError, expected): adapter.authenticate()
+                adapter.command.assert_not_called()  # includes STS, ACR token and Docker login
+
+    def test_exact_host_checked_before_real_inherited_acr_authentication(self):
+        import time
+        adapter = object.__new__(h.Commands)
+        adapter.plan = approval(); adapter.check_validity = lambda: None
+        adapter.c = a; adapter.docker = '/usr/bin/docker'
+        events = []
+        def metadata(method, path, headers):
+            events.append(path)
+            if method == 'PUT':
+                self.assertEqual(headers, {'X-aliyun-ecs-metadata-token-ttl-seconds': '60'})
+                return b'fixture-metadata-token'
+            self.assertEqual(headers, {'X-aliyun-ecs-metadata-token': 'fixture-metadata-token'})
+            return b'i-uf6ga92ewloganobbln6' if path.endswith('instance-id') else b'cn-shanghai'
+        def command(argv, **kwargs):
+            events.append(argv[2] if argv[0] == h.legacy.ALIYUN else 'docker-login')
+            self.assertNotIn('fixture-metadata-token', str(argv))
+            if argv[2] == 'GetCallerIdentity': return a.json_bytes({'AccountId': h.legacy.ACCOUNT})
+            if argv[2] == 'GetAuthorizationToken':
+                return a.json_bytes(dict(TempUsername='fixture', AuthorizationToken='fixture-acr-token',
+                                        ExpireTime=int((time.time()+3600)*1000)))
+            self.assertEqual(kwargs['stdin'].read(), b'fixture-acr-token')
+            return b''
+        adapter.command = command
+        with patch.object(h, 'metadata_request', side_effect=metadata): adapter.authenticate()
+        self.assertEqual(events, ['/latest/api/token', '/latest/meta-data/instance-id',
+            '/latest/meta-data/region-id', 'GetCallerIdentity', 'GetAuthorizationToken', 'docker-login'])
+        self.assertEqual(adapter.host_identity['ecsInstanceId'], 'i-uf6ga92ewloganobbln6')
+        self.assertNotIn('token', str(adapter.host_identity))
+
+    def test_metadata_transport_fixed_no_redirect_no_proxy_and_bounded(self):
+        for status, payload, error in [(302, b'', None), (401, b'', None), (200, b'x'*4097, None),
+                                       (200, b'', None), (200, b'', TimeoutError('private detail'))]:
+            connection = Mock(); response = connection.getresponse.return_value
+            response.status = status; response.read.return_value = payload
+            if error: connection.request.side_effect = error
+            with patch.object(h.http.client, 'HTTPConnection', return_value=connection) as factory, \
+                 patch.dict(h.os.environ, {'HTTP_PROXY': 'http://untrusted.invalid:8080'}):
+                with self.assertRaisesRegex(ValueError, '^HOST_METADATA_REQUEST_REJECTED$'):
+                    h.metadata_request('PUT', '/latest/api/token', {})
+                factory.assert_called_once_with('100.100.100.200', 80, timeout=2)
+                connection.request.assert_called_once()  # no redirect/retry
+                connection.close.assert_called_once()
+                if status == 200 and not error: response.read.assert_called_once_with(4097)
+        with patch.object(h.http.client, 'HTTPConnection') as factory:
+            with self.assertRaisesRegex(ValueError, 'HOST_METADATA_ENDPOINT'):
+                h.metadata_request('GET', 'http://untrusted.invalid/', {})
+            factory.assert_not_called()
 
     def test_entry_rejects_unisolated_invocation_before_host_read(self):
         entry = ROOT / '.harness/scripts/vm/import-cn-image-candidates.py'

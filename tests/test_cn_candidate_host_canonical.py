@@ -19,6 +19,7 @@ class CandidateCanonicalTests(unittest.TestCase):
         fixture.ArchiveCanonicalIntegration.setUp(self)
         self.adapter.__class__ = h.Commands
         self.adapter.approval_sha = '9'*64
+        self.adapter.host_identity = {'ecsInstanceId': 'i-uf6ga92ewloganobbln6', 'region': 'cn-shanghai'}
         self.adapter.plan.update(candidatePlanRawSha256='1'*64,
             candidateSetRawSha256='2'*64, publicationIntentRawSha256='3'*64)
         self.binding = {k:self.adapter.plan[k] for k in ('candidatePlanRawSha256',

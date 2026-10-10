@@ -6,6 +6,7 @@ All credentials remain within legacy Commands' temporary Docker configuration.
 from contextlib import ExitStack
 from datetime import datetime, timezone
 import importlib.util
+import http.client
 import os
 import re
 from pathlib import Path
@@ -85,7 +86,55 @@ def validate_approval(value, source, attempt, now=None):
     return value
 
 
+def metadata_request(method, path, headers):
+    """Fixed IMDS endpoint: HTTPConnection ignores proxy env and never redirects.
+
+    No caller URL, shell, logs, retry, IMDSv1 fallback, or credential endpoints.
+    The only secret here is a short-lived metadata token kept in process memory.
+    """
+    a.require((method, path) in {('PUT', '/latest/api/token'),
+              ('GET', '/latest/meta-data/instance-id'),
+              ('GET', '/latest/meta-data/region-id')}, 'HOST_METADATA_ENDPOINT')
+    connection = http.client.HTTPConnection('100.100.100.200', 80, timeout=2)
+    try:
+        connection.request(method, path, headers=headers)
+        response = connection.getresponse()
+        # 3xx is rejected, never followed, including to the same endpoint.
+        a.require(response.status == 200, 'HOST_METADATA_STATUS')
+        raw = response.read(4097)
+        a.require(0 < len(raw) <= 4096, 'HOST_METADATA_SIZE')
+        return raw
+    except Exception:
+        # Do not propagate request headers, token or provider response text.
+        raise a.Rejected('HOST_METADATA_REQUEST_REJECTED') from None
+    finally:
+        connection.close()
+
+
+def verify_runtime_host(approval):
+    token_raw = metadata_request('PUT', '/latest/api/token',
+        {'X-aliyun-ecs-metadata-token-ttl-seconds': '60'})
+    a.require(0 < len(token_raw) <= 4096 and all(33 <= byte <= 126 for byte in token_raw),
+              'HOST_METADATA_TOKEN_SHAPE')
+    token = token_raw.decode('ascii')
+    headers = {'X-aliyun-ecs-metadata-token': token}
+    instance = metadata_request('GET', '/latest/meta-data/instance-id', headers)
+    a.require(instance == approval['ecsInstanceId'].encode('ascii'), 'HOST_INSTANCE_MISMATCH')
+    region = metadata_request('GET', '/latest/meta-data/region-id', headers)
+    a.require(region == approval['region'].encode('ascii'), 'HOST_REGION_MISMATCH')
+    return {'ecsInstanceId': approval['ecsInstanceId'], 'region': approval['region'],
+            'observedAt': datetime.now(timezone.utc).isoformat(), 'method': 'aliyun-imdsv2'}
+
+
 class Commands(legacy.Commands):
+    def authenticate(self):
+        self.check_validity()
+        # This must precede STS/ACR token acquisition and Docker login. Same
+        # account/role on another ECS is insufficient to admit this attempt.
+        self.host_identity = verify_runtime_host(self.plan)
+        self.check_validity()
+        return super().authenticate()
+
     def canonical_publish_candidate(self, build_input, binding):
         # Binding originates only from the sequence after actual authenticated
         # pulls/readbacks. Store it in the same atomic directory as canonical TS
@@ -101,6 +150,7 @@ class Commands(legacy.Commands):
     def receipt(self, build_input, manifest_raw, seal_raw):
         return dict(self.binding, receiptKind='cn-candidate-published-v2',
                     hostApprovalRawSha256=self.approval_sha,
+                    runtimeHostIdentity=self.host_identity,
                     manifestSha256=a.sha(manifest_raw), sealSha256=a.sha(seal_raw),
                     registryPrefix=a.PREFIX, images=build_input['images'],
                     ready=False, prepared=False, productionActivated=False)
