@@ -17,6 +17,8 @@ on:
       - 'tests/test_cn_agent_postbuild_diagnostic.py'
       - 'tests/test_cn_image_postbuild.py'
       - 'scripts/cn_image_candidate.py'
+      - 'scripts/cn_candidate_publication.py'
+      - 'tests/test_cn_candidate_publication.py'
       - 'scripts/build-cn-image-candidates.py'
       - 'scripts/cn-image-candidate-protocol.md'
       - 'tests/test_cn_image_candidate.py'
@@ -64,6 +66,8 @@ jobs:
         run: python3 -I -B -m unittest discover -s tests -p 'test_cn_image_candidate.py' -v
       - name: Repeated layer input compatibility
         run: python3 -I -B -m unittest discover -s tests -p 'test_cn_repeated_layers.py' -v
+      - name: Candidate publication ordering without host credentials
+        run: python3 -I -B -m unittest discover -s tests -p 'test_cn_candidate_publication.py' -v
       - name: Explicit formal budget and metadata admission
         run: python3 -I -B -m unittest discover -s tests -p 'test_cn_formal_budget_profile.py' -v
       - name: Exact formal source admission with legacy identity
