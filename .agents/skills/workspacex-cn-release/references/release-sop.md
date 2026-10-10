@@ -280,3 +280,25 @@ runner 仅获得 `workspacex-cn-export-source` 的只读参数能力；缓存写
 ## Artifact-only build (#5319)
 
 The trusted fixed-candidate build-only lane uses a separate `artifact-build` receipt and stops after sealing. Full baseline admission remains mandatory before migration and activation. See the single [stage-boundary contract](preflight-contract.md#artifact-only-stage-boundary-5319) for the exact producer/consumer protocol.
+
+## Isolated runner private control API admission
+
+The isolated rehearsal adapter uses fixed Shanghai RDS `rds-vpc.cn-shanghai.aliyuncs.com`
+and RAM `ram.vpc-proxy.aliyuncs.com` endpoints. Its OOS endpoint remains
+`oos.cn-shanghai.aliyuncs.com`. This change applies only to
+`isolated_rehearsal_aliyun.py`; production release adapters are unchanged.
+The former RDS/RAM hosts resolved to public addresses in the same-VPC probe,
+so a successful TCP test on a production host with Internet access did not prove
+that a runner without public egress could use them. Do not purchase that runner
+with the old adapter. Freeze the corrected control artifact, then verify the
+fixed hosts' private DNS, TCP and certificate/hostname-verified TLS before
+admission. No endpoint environment override, public-route fallback or disabled
+TLS verification is permitted. RPC v1 continues signing the exact POST/path/query;
+the request URL also supplies the matching TLS/HTTP host.
+
+Official endpoint tables: [RDS](https://www.alibabacloud.com/help/en/rds/developer-reference/api-rds-2014-08-15-endpoint),
+[RAM](https://www.alibabacloud.com/help/en/ram/developer-reference/api-ram-2015-05-01-endpoint).
+The offline `isolated_rehearsal_endpoint_test.py` regression checks the fixed
+hosts, signed request, unchanged OOS endpoint and rejection before network of
+unknown services or unauthorized actions. It does not replace real network,
+IAM or resource admission.

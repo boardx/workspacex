@@ -27,6 +27,9 @@ on:
       - 'scripts/cn_candidate_github.py'
       - 'scripts/revalidate-cn-image-candidates.py'
       - 'tests/test_cn_candidate_revalidation.py'
+      - 'tests/test_cn_candidate_cached_revalidation.py'
+      - 'tests/test_cn_candidate_acquisition.py'
+      - 'scripts/cn-candidate-revalidation.md'
       - 'scripts/cn_candidate_authenticated_oss.py'
       - 'scripts/cn-candidate-authenticated-oss.md'
       - 'scripts/cn-candidate-oss-policy.example.json'
@@ -46,6 +49,7 @@ on:
       - 'scripts/upgrade-cn-candidate-tools.py'
       - 'scripts/cn-candidate-tool-upgrade.md'
       - 'tests/test_cn_candidate_tool_upgrade.py'
+      - 'tests/fixtures/cn-candidate-upgrade/**'
       - '.harness/scripts/vm/import-cn-image-candidates.py'
       - 'tests/test_cn_candidate_host*.py'
       - 'tests/test_cn_candidate_publication.py'
@@ -69,6 +73,16 @@ on:
       - 'tests/test_cn*archive*.py'
       - 'packages/cloud-deploy/src/release*.ts'
       - '.harness/scripts/vm/isolated_rehearsal_aliyun.py'
+      - '.harness/scripts/vm/isolated_rehearsal_endpoint_test.py'
+      - '.harness/scripts/vm/cn_tool_profile.py'
+      - '.harness/scripts/vm/prepare-cn-tool-install.py'
+      - '.harness/scripts/vm/cn-tool-install-transaction.py'
+      - '.harness/scripts/vm/cn_compose_profile_extension_test.py'
+      - '.harness/scripts/vm/cn_tool_profile_test.py'
+      - '.harness/scripts/vm/prepare_cn_tool_install_test.py'
+      - '.harness/scripts/vm/cn_tool_install_transaction_test.py'
+      - '.harness/scripts/generate-cn-maintenance-identities.py'
+      - 'docs/deployment/cn-compose-profile-extension.md'
 permissions:
   contents: read
 jobs:
@@ -107,6 +121,10 @@ jobs:
         run: python3 -I -B -m unittest discover -s tests -p 'test_cn_candidate_oss.py' -v
       - name: Authenticated source revalidation without cloud writes
         run: python3 -I -B -m unittest discover -s tests -p 'test_cn_candidate_revalidation.py' -v
+      - name: Explicit untrusted byte acquisition and fresh cached verification
+        run: |
+          python3 -I -B -m unittest discover -s tests -p 'test_cn_candidate_acquisition.py' -v
+          python3 -I -B -m unittest discover -s tests -p 'test_cn_candidate_cached_revalidation.py' -v
       - name: Candidate runtime provenance and Linux atomic installation
         run: python3 -I -B -m unittest discover -s tests -p 'test_cn_candidate_runtime.py' -v
       - name: Untrusted cache delivery protocol and protected snapshots
@@ -144,3 +162,13 @@ jobs:
         run: python3 -I -B -m unittest discover -s tests -p 'test_cn_main_registration.py' -v
       - name: Run isolated recovery contracts on trusted runner directories
         run: python3 -I -B .harness/scripts/vm/isolated_rehearsal_test.py
+      - name: Verify isolated private RPC endpoints and signing without credentials
+        run: python3 -I -B .harness/scripts/vm/isolated_rehearsal_endpoint_test.py
+
+      - name: Strict Compose profile extension and unchanged install transactions
+        run: |
+          python3 -B .harness/scripts/generate-cn-maintenance-identities.py --check
+          python3 -B -m unittest discover -s .harness/scripts/vm -p 'cn_compose_profile_extension_test.py' -v
+          python3 -B -m unittest discover -s .harness/scripts/vm -p 'cn_tool_profile_test.py' -v
+          python3 -B -m unittest discover -s .harness/scripts/vm -p 'prepare_cn_tool_install_test.py' -v
+          python3 -B -m unittest discover -s .harness/scripts/vm -p 'cn_tool_install_transaction_test.py' -v

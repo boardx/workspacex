@@ -23,13 +23,16 @@ def credential(role):
  return c
 
 def rpc(service,action,params,c):
+ # This isolated-runner adapter has no public egress. Keep endpoints fixed;
+ # do not change production release adapters or accept environment overrides.
+ endpoints={'rds':'https://rds-vpc.cn-shanghai.aliyuncs.com/','oos':'https://oos.cn-shanghai.aliyuncs.com/','ram':'https://ram.vpc-proxy.aliyuncs.com/'}
  versions={'rds':'2014-08-15','oos':'2019-06-01','ram':'2015-05-01'}
  allowed={'rds':{'DescribeDBInstanceAttribute','DescribeDBInstanceNetInfo','DescribeDBInstanceSSL','CreateAccount','DescribeAccounts','DeleteDBInstance'},'oos':{'StartExecution','ListExecutions','CancelExecution','GetExecutionTemplate'},'ram':{'GetRole','GetPolicy','GetPolicyVersion','ListPoliciesForRole','ListEntitiesForPolicy','DetachPolicyFromRole','DeletePolicy','DeleteRole'}}
- if action not in allowed[service]:raise ValueError('RPC_ACTION')
+ if service not in allowed or action not in allowed[service]:raise ValueError('RPC_ACTION')
  q=dict(params,Action=action,Version=versions[service],Format='JSON',AccessKeyId=c['AccessKeyId'],SecurityToken=c['SecurityToken'],SignatureMethod='HMAC-SHA1',SignatureVersion='1.0',SignatureNonce=str(uuid.uuid4()),Timestamp=datetime.datetime.now(datetime.timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'))
  canonical='&'.join(enc(k)+'='+enc(v) for k,v in sorted(q.items()))
  sign=base64.b64encode(hmac.new((c['AccessKeySecret']+'&').encode(),('POST&%2F&'+enc(canonical)).encode(),hashlib.sha1).digest()).decode()
- endpoint='https://ram.aliyuncs.com/' if service=='ram' else 'https://'+service+'.cn-shanghai.aliyuncs.com/'
+ endpoint=endpoints[service]
  r=urllib.request.Request(endpoint,data=(canonical+'&Signature='+enc(sign)).encode(),headers={'Content-Type':'application/x-www-form-urlencoded'},method='POST')
  try:
   with urllib.request.urlopen(r,timeout=30) as response:z=json.load(response)
