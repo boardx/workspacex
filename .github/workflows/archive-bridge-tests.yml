@@ -20,6 +20,7 @@ on:
       - 'scripts/build-cn-image-candidates.py'
       - 'scripts/cn-image-candidate-protocol.md'
       - 'tests/test_cn_image_candidate.py'
+      - 'tests/test_cn_formal_save_bound.py'
       - 'scripts/cn_image_archive.py'
       - 'scripts/cn_archive_oss.py'
       - 'scripts/export-cn-image-archives.py'
@@ -58,6 +59,8 @@ jobs:
         run: python3 -B -m unittest discover -s tests -p 'test_cn*archive*.py' -v
       - name: Run independent non-authorizing five-image candidate contracts
         run: python3 -I -B -m unittest discover -s tests -p 'test_cn_image_candidate.py' -v
+      - name: Formal save stream bounds
+        run: python3 -I -B -m unittest discover -s tests -p 'test_cn_formal_save_bound.py' -v
       - name: Run single-agent safe diagnostic contracts without Docker
         run: python3 -I -B -m unittest discover -s tests -p 'test_cn_image_diagnostic.py' -v
       - name: Run gzip normalizer post-build boundaries without Docker

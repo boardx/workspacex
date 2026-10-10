@@ -103,7 +103,7 @@ class CandidateTests(unittest.TestCase):
         raw=a.json_bytes(p);calls=[]
         with tempfile.TemporaryDirectory() as td:
             root=Path(td)
-            def command(argv,cwd=None):
+            def command(argv,cwd=None,**kwargs):
                 calls.append(argv)
                 if argv[:3]==['git','rev-parse','HEAD']:return (c.SOURCE+'\n').encode()
                 if argv[:2]==['git','status']:return b''
@@ -111,7 +111,9 @@ class CandidateTests(unittest.TestCase):
                 if argv[:2]==['git','archive']:
                     with tarfile.open(argv[argv.index('--output')+1],'w') as t:
                         h=tarfile.TarInfo('fixture');h.size=1;t.addfile(h,io.BytesIO(b'x'))
-                if argv[:3]==['docker','image','save']:archive(Path(argv[argv.index('--output')+1]),p,'api')
+                if argv[:3]==['docker','image','save']:
+                    self.assertEqual(kwargs['stdout_limit'],p['maxArchiveBytes']);self.assertEqual(argv,['docker','image','save',c.tag(p,'api')])
+                    saved=root/'fixture.tar';archive(saved,p,'api');kwargs['stdout_file'].write(saved.read_bytes());saved.unlink()
                 return b''
             with patch.object(b,'control'),patch.object(b.shutil,'disk_usage',return_value=type('Space',(),{'free':100*1024**3})()):v=b.produce(p,raw,root,root/'out','api',command)
             self.assertFalse(v['releaseReady']);self.assertEqual(set(v['images']),{'api'});self.assertTrue((root/'out'/'api.tar').is_file())
