@@ -1,0 +1,2 @@
+==> feature 迁移门：0e6a9ae95f2e → c48f0a211e11（20 个 phase 目录）
+✗ [owner_preempted] phase-21-billing-payment/F01: F01 的 owner 被从 agt_01KZRABFDHJ0WD5MP3C5TCR79M 改成 coord-voice，而它仍是 in_progress——认领后不可被他人抢占。

@@ -50,3 +50,17 @@
 - ✅ CI 全绿（2026-10-01 13:2x，head 433af460e）：24 pass / 0 fail / 0 pending。重跑的 fullstack-smoke 通过——首轮 4 条 skill-github-import 失败确认为 CI flake（与 diff 零重叠）。PR #4856 等人类 Approve+Merge。
 
 - 评审回合（2026-10-01）：Codex 自动评审 6 条意见（P1×3/P2×3）逐条处理——契约读模型补 stripe、CreditTransaction 补 operatorId、收银台组织流水、发放整数校验、流水分页前类型筛选；31 张截图重拍同步；签核字段一条按 human-decision-packaging 说明（人类对话框确认 + 本 PR merge 为批准事件）。
+
+### 2026-10-10 恢复支付与 token 工作
+- 用户直接交办，授权豁免协调凭据接入；最新主线恢复 F01 六表基础（issue #4883），真实 SQL 重放/事务回滚/租户隔离补强后 16/16，API typecheck/lint 通过。完整高风险 verify 正在运行。
+- 新建 sprint-01；只有 F01 在编，其余 14 条均未实现；禁止将原型或合同当作运行时交付。
+- token 消费方案人类已确认（1 credit=1000 tokens、0.01 向上取整、预留后真实 usage 幂等结算、余额不足拒绝、个人/组织分账、Stripe 不赠额度），需后续独立 delta；本 PR 只交付 F01。
+
+- F01 本轮完整门控失败于主线五处凭据扫描夹具（#5550 单独修复），feature 维持 in_progress；独立评审的发放 source_type 缺口已反证修复，16/16。
+
+### 2026-10-11 按参考功能推进并完善体验
+- 用户要求先按参考实现并考虑体验，继续既有授权。最新 main `882bd3339` 已包含前置修复 #5557 及颜色门禁修复；F01 rebase/push 完成，独立 exact SHA review 接受 `c48f0a211e11feb4f3972d58732f599ca2a5a0ff`。
+- 本次官方 `harness verify --sprint 21/01 --feature F01 --owner coord-voice` 的 16 项专项已通过，高风险全量 `verify:release` 仍在运行，尚无最终退出码。历史失败日志不能代表本次结果，保持 in_progress。
+- 后续实现体验判据补入同一充值意图恢复、真实到账后才显示成功、网络异常保留订单、取消订阅按服务端时点显示；原型固定价格及“无限量”文案不得当作实际权益。
+- 其余支付与 token 运行时功能仍未实现；当前只认领 F01，不提前报完成。
+- 本次完整门控返回1：根 harness 2482/2483 测试通过，唯一失败为本分支未合入身份修正的 owner_preempted；main→HEAD 迁移门通过。保留独立失败/诊断日志，整理本分支初次认领历史后重跑，不改门禁或 passing 状态。自身隔离栈已清理。
