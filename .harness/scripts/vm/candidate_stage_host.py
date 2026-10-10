@@ -5,7 +5,6 @@ source refs, trusted Docker authority and existing closed retained actor.
 """
 import copy
 import hashlib,json,os,pathlib,re,stat
-from candidate_writer import APP
 from candidate_completion_contract import verify_completion
 from candidate_stage_actions import DOCKER_PREFIX,SERVICES
 from fixed_probes import FixedProbes
@@ -156,6 +155,13 @@ class CandidateStageHost:
         raw,_,entry=self._profile();require(raw==self.profile_raw,'CANDIDATE_STAGE_PROFILE_DRIFT')
         for r,b in self.source_reads:require(self._read_ref(r)==b,'CANDIDATE_STAGE_SOURCE_DRIFT')
         return entry
+    def approved_release(self,identity):
+        from writer_fence import approved_release
+        require(identity==self.host.plan['identity'],'CANDIDATE_RELEASE_IDENTITY')
+        _,profile,_=self._profile()
+        from host_transport import private
+        return approved_release(profile,identity,private)
+
     def verify_frozen_compose(self,inputs,manifest):
         self.require_lock();raw,profile,e=self._profile();self.profile_raw=raw;self.source_reads=[]
         def read(r):
@@ -373,7 +379,7 @@ class CandidateStageHost:
         exact=q.exact;need=q.need
         exact(refs,('collection','manifest'),'CANDIDATE_EPOCH_REFS')
         self.require_lock()
-        attempt=bound['identity']['attemptId'];root=pathlib.Path('/etc/workspacex-cn/maintenance-evidence')/q.APP/attempt
+        attempt=bound['identity']['attemptId'];root=pathlib.Path('/etc/workspacex-cn/maintenance-evidence')/bound['identity']['sourceRevision']/attempt
         profile_raw=private('/etc/workspacex-cn/trusted-tool-binding.json')
         profile=json.loads(profile_raw)
         entry=profile.get('currentEpochQualification')
@@ -427,7 +433,7 @@ class CandidateStageHost:
             type(binding) is dict and set(binding)==set(semantic_fields)|{'targetInstanceId','providerBindingSha256'} and
             all(binding[k]==bound[k] for k in semantic_fields),
                 'CANDIDATE_STAGE_QUALIFICATION_BINDING')
-        manifest=dict(path='/etc/workspacex-cn/maintenance-evidence/'+APP+'/'+
+        manifest=dict(path='/etc/workspacex-cn/maintenance-evidence/'+bound['identity']['sourceRevision']+'/'+
             bound['identity']['attemptId']+'/qualified-current-epoch/epoch.json',sha256=stage_binding['epoch'])
         verified=self.verify_current_epoch(dict(collection=qualification['collection'],manifest=manifest),bound)
         require(verified.get('epochManifestSha256')==stage_binding['epoch'],
@@ -450,7 +456,7 @@ class CandidateStageHost:
             require(service in SERVICES and c['State']['Running'] is False and c['State']['Paused'] is False,
                 'CANDIDATE_STAGE_SNAPSHOT_STOPPED')
             self.verify_stage_configuration(service,self.compose['services'][service],c)
-        path=pathlib.Path('/etc/workspacex-cn/maintenance-candidate')/APP/bound['identity']['attemptId']/'stage-snapshot.json'
+        path=pathlib.Path('/etc/workspacex-cn/maintenance-candidate')/bound['identity']['sourceRevision']/bound['identity']['attemptId']/'stage-snapshot.json'
         raw=json.dumps(result,sort_keys=True,separators=(',',':'),allow_nan=False).encode()
         parent=path.parent
         for a in (parent,*parent.parents):
@@ -526,7 +532,7 @@ class CandidateStageHost:
     def observe_completion(self,bound):
         from control_connection import verify_bound_transport
         self.require_lock();receipt=copy.deepcopy(self.journal.value.get('migrationCompletionReceipt'))
-        expected='/etc/workspacex-cn/migration-completion-inputs/'+APP+'/'+bound['identity']['attemptId']+'.completed.json'
+        expected='/etc/workspacex-cn/migration-completion-inputs/'+bound['identity']['sourceRevision']+'/'+bound['identity']['attemptId']+'.completed.json'
         require(type(receipt) is dict and set(receipt)=={'path','sha256'} and receipt['path']==expected and
             receipt==self.journal.value.get('migrationCompletionIntent') and any(e['state']=='migration-completion-durable' and
             e.get('receipt')==receipt and e.get('holdGeneration')==bound['holdGeneration'] for e in self.journal.value['events']),
@@ -544,7 +550,7 @@ class CandidateStageHost:
             require(type(r['name']) is str and re.fullmatch('[A-Za-z0-9_.-]+',r['name']) and
                 type(r['checksum']) is str and re.fullmatch('[a-f0-9]{64}',r['checksum']),'CANDIDATE_STAGE_LEDGER_ROW')
             rows.append(dict(name=r['name'],checksum=r['checksum']))
-        verify_completion(completed,bound,rows)
+        verify_completion(completed,bound,rows,expected_release=self.approved_release(bound['identity']))
         ledger=dict(**bound,kind='retained-live-migration-ledger',connection=copy.deepcopy(c.binding),
             rowCount=len(rows),ledger=sorted(rows,key=lambda r:r['name']))
         require(self._read_ref(receipt)==raw and self.journal.value.get('migrationCompletionReceipt')==receipt and
@@ -557,7 +563,7 @@ class CandidateStageHost:
         self.require_lock();stage=self.observe_stage(bound);completion=self.observe_completion(bound)
         outputs={}
         for name,value in (('stage-inspection',stage),('live-ledger',completion['ledger'])):
-            p=pathlib.Path('/etc/workspacex-cn/maintenance-candidate')/APP/bound['identity']['attemptId']/(name+'.json')
+            p=pathlib.Path('/etc/workspacex-cn/maintenance-candidate')/bound['identity']['sourceRevision']/bound['identity']['attemptId']/(name+'.json')
             for a in (p.parent,*p.parent.parents):
                 s=a.lstat();require(stat.S_ISDIR(s.st_mode) and s.st_uid==0 and s.st_gid==0 and not s.st_mode&0o022,
                     'CANDIDATE_STAGE_EVIDENCE_PARENT')

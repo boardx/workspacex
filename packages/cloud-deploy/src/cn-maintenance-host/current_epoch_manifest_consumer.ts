@@ -1,3 +1,4 @@
+import {admittedReleaseIdentity} from './release_identity';
 import {assertSourcePlanAuthority,assertPreholdArchiveAuthority,type OriginalPlanAuthority} from './source_plan_authority';
 import { z } from 'zod';
 import { protectedPrivateJson, runFixedPython, type CommandRunner, type TrustedExecutable } from './fixed_transport';
@@ -6,7 +7,7 @@ import { runtimeDigest } from './sealed_runtime';
 
 const digest = z.string().regex(/^[a-f0-9]{64}$/);
 const ref = z.object({path:z.string().startsWith('/etc/workspacex-cn/').refine(p=>!p.split('/').includes('..')),sha256:digest}).strict();
-const identity = z.object({sourceRevision:z.string().regex(/^[a-f0-9]{40}$/),baselineRevision:z.literal('ba6343199f3c834d6a198f83d0c771614292c82b'),migrationPlanSha256:digest,attemptId:z.string().regex(/^[A-Za-z0-9-]{1,32}$/)}).strict();
+const identity = z.object({sourceRevision:z.string().regex(/^[a-f0-9]{40}$/),baselineRevision:z.string().regex(/^[a-f0-9]{40}$/),migrationPlanSha256:digest,attemptId:z.string().regex(/^[A-Za-z0-9-]{1,32}$/)}).strict().refine(admittedReleaseIdentity);
 const binding = z.object({identity,toolRevision:z.string().regex(/^[a-f0-9]{40}$/),host:z.object({instanceId:z.string().min(1),bootId:z.string().uuid()}).strict(),epoch:digest,holdGeneration:z.string().regex(/^[a-f0-9]{32}$/),targetInstanceId:z.string().regex(/^pgm-[a-z0-9]+$/)}).strict();
 const collection = binding.omit({targetInstanceId:true}).extend({schemaVersion:z.literal(1),kind:z.literal('current-held-epoch-evidence-collection'),sourceRdsInstanceId:z.literal('pgm-uf6rg214cp381l49'),isolatedTargetInstanceId:z.string(),evidenceRefs:z.record(z.string(),ref.or(ref.extend({bytes:z.number().int().positive()}).strict())),collectionVerified:z.literal(true),ready:z.literal(false),qualified:z.literal(false),prepared:z.literal(false),remainingTransport:z.literal('retained-scoped-backup-transport-required')}).strict();
 export interface CurrentEpochSourcePolicy {

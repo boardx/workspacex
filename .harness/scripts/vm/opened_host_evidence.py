@@ -2,7 +2,7 @@
 import copy,datetime,hashlib,json,re,time
 from host_transport import private
 from opened_service_health import collect_service_health
-from writer_fence import require,digest
+from writer_fence import require,digest, admitted_release_identity
 APP='9b25bfa65662b96c0826fe67506b562ea46aa6d0'
 BASE='ba6343199f3c834d6a198f83d0c771614292c82b'
 SERVICES=('web','api','agent','sandbox')
@@ -12,7 +12,7 @@ MAX_SAFE=9007199254740991
 def collect_opened_host_evidence(transport,binding,read_private=private,now=time.time,*,expected_identity):
     require(type(binding) is dict and set(binding)=={'identity','deploymentMarker','canonicalReceipt','browserReceipt'},'OPENED_BINDING_SCHEMA')
     identity=binding['identity'];plan=transport.plan
-    require(type(identity) is dict and set(identity)=={'sourceRevision','baselineRevision','migrationPlanSha256','attemptId'} and identity==expected_identity and identity==plan['identity'] and type(identity['sourceRevision']) is str and re.fullmatch('[a-f0-9]{40}',identity['sourceRevision']) and identity['baselineRevision']==BASE and re.fullmatch('[a-f0-9]{64}',identity['migrationPlanSha256']) and ID.fullmatch(identity['attemptId']),'OPENED_IDENTITY')
+    require(type(identity) is dict and set(identity)=={'sourceRevision','baselineRevision','migrationPlanSha256','attemptId'} and identity==expected_identity and identity==plan['identity'] and type(identity['sourceRevision']) is str and re.fullmatch('[a-f0-9]{40}',identity['sourceRevision']) and admitted_release_identity(identity) and re.fullmatch('[a-f0-9]{64}',identity['migrationPlanSha256']) and ID.fullmatch(identity['attemptId']),'OPENED_IDENTITY')
     require(type(binding['deploymentMarker']) is str and binding['deploymentMarker'],'OPENED_MARKER')
     transport.require_lock()
     owned=[]

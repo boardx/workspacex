@@ -1,5 +1,6 @@
 import { z } from 'zod';
-import {readNativeCompletion} from './native_completion';
+import {readNativeCompletion,legacyCompletionRelease} from './native_completion';
+import {admittedReleaseIdentity} from './release_identity';
 import type { MaintenanceIdentity } from '../cn-maintenance-release';
 import type { ARouteOperations } from './a_route';
 import { bindARouteHostOperations, type ARouteHostActions } from './a_route_adapter';
@@ -37,7 +38,7 @@ export interface ARouteFactoryConsumers {
   captureAndVerify(identity: MaintenanceIdentity, host: HostBinding): Promise<CurrentEpochEvidence>;
   verifyCurrentEpochIsolatedAcceptance(identity: MaintenanceIdentity, epoch: CurrentEpochEvidence): Promise<void>;
  };
- migration: SourceConsumer & { migrateExactPlan(identity: MaintenanceIdentity, epoch: CurrentEpochEvidence): Promise<FactoryMigrationEvidence> };
+ migration: SourceConsumer & { approvedRelease?(): string; migrateExactPlan(identity: MaintenanceIdentity, epoch: CurrentEpochEvidence): Promise<FactoryMigrationEvidence> };
  heldReadback: SourceConsumer & { verify(identity: MaintenanceIdentity, epoch: CurrentEpochEvidence, completion: FactoryMigrationEvidence): Promise<void> };
  candidate: SourceConsumer & {
   stageAndSeal(identity: MaintenanceIdentity, host: HostBinding, epoch: CurrentEpochEvidence, completion: FactoryMigrationEvidence): Promise<FactoryCandidateEvidence>;
@@ -95,6 +96,10 @@ export async function createARouteFactory(input: ARouteFactoryInputs): Promise<A
  if(!input.consumers?.public?.bindingPolicy)missing.push('public.bindingPolicy');
  if(missing.length)throw Error('A_ROUTE_FACTORY_CONSUMERS_MISSING:'+missing.sort().join(','));
  const identity=Object.freeze(identitySchema.parse(input.binding.identity));
+ need(admittedReleaseIdentity(identity),'A_ROUTE_FACTORY_RELEASE_PAIR');
+ const releaseReader=input.consumers.migration.approvedRelease?.bind(input.consumers.migration);
+ need(typeof releaseReader==='function'||legacyCompletionRelease(identity)!==undefined,'A_ROUTE_FACTORY_RELEASE_AUTHORITY');
+ if(releaseReader){const release=releaseReader();need(typeof release==='string'&&/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(release),'A_ROUTE_FACTORY_RELEASE_AUTHORITY');}
  need(/^[a-f0-9]{40}$/.test(input.toolRevision),'A_ROUTE_FACTORY_TOOL_REVISION');
  const toolRevision=input.toolRevision, run=input.run, acquire=input.acquireReleaseLock, assertSource=input.assertInstalledSource, readEvidence=input.readEvidence;
  const binding={...input.binding,identity,hold:Object.freeze({...input.binding.hold})};
@@ -149,7 +154,7 @@ export async function createARouteFactory(input: ARouteFactoryInputs): Promise<A
    await verifyBlocked(identity);need(await heldGeneration()===generation,'A_ROUTE_FACTORY_EPOCH_HOLD_DRIFT');epoch=frozen(structuredClone(produced));
   },
   verifyCurrentEpochIsolatedCandidateAcceptance:async value=>{id(value);need(epoch,'A_ROUTE_FACTORY_EPOCH_MISSING');await c.epoch.verifyCurrentEpochIsolatedAcceptance(identity,epoch);need(await heldGeneration()===epoch.holdGeneration,'A_ROUTE_FACTORY_EPOCH_HOLD_DRIFT');epochAccepted=true;},
-  migrateExactPlan:async value=>{id(value);need(epoch&&epochAccepted&&!completion,'A_ROUTE_FACTORY_EPOCH_NOT_ACCEPTED');await verifyBlocked(identity);const v=completionSchema.parse(await c.migration.migrateExactPlan(identity,epoch));migrationBinding(v);const raw:any=await readEvidence(v.completion);readNativeCompletion(raw,identity);completion=frozen(structuredClone(v));},
+  migrateExactPlan:async value=>{id(value);need(epoch&&epochAccepted&&!completion,'A_ROUTE_FACTORY_EPOCH_NOT_ACCEPTED');await verifyBlocked(identity);const v=completionSchema.parse(await c.migration.migrateExactPlan(identity,epoch));migrationBinding(v);const raw:any=await readEvidence(v.completion);readNativeCompletion(raw,identity,Date.now(),releaseReader?.());completion=frozen(structuredClone(v));},
   verifyHeldCandidateReadback:async value=>{id(value);need(epoch&&completion,'A_ROUTE_FACTORY_COMPLETION_MISSING');await c.heldReadback.verify(identity,epoch,completion);await verifyBlocked(identity);},
   stageCandidateRuntime:async value=>{
    id(value);need(host&&epoch&&completion&&!candidate,'A_ROUTE_FACTORY_CANDIDATE_STAGE_ORDER');

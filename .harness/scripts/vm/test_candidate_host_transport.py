@@ -71,6 +71,13 @@ class Probes:
 class Tests(unittest.TestCase):
     def setUp(self):
         self.identity,self.p,self.j,_=fixture();self.files={'/etc/workspacex-cn/artifact.json':b'artifact'}
+        def put_release(name,value):
+            path='/etc/workspacex-cn/'+name;raw=json.dumps(value).encode();self.files[path]=raw
+            return {'path':path,'sha256':hashlib.sha256(raw).hexdigest()}
+        manifest=put_release('release-manifest.json',{'sourceRevision':self.identity['sourceRevision'],'release':'2026.10.3-cn.1'})
+        options=put_release('release-options.json',{'manifestRef':manifest})
+        config=put_release('release-config.json',{'provision':{'release':'2026.10.3-cn.1'}})
+        put_release('trusted-tool-binding.json',{'toolRevision':'0'*40,'candidateComposeEmitter':{'optionsRef':options,'configRef':config}})
         self.p['artifactSha256']=hashlib.sha256(b'artifact').hexdigest()
         for w in self.p['candidateWriters']+self.p['baselineWriters']:
             b=w['binding'];configs[w['key']]=dict(Labels={'com.docker.compose.service':b['service'],'com.docker.compose.project.config_files':b['composePath']})

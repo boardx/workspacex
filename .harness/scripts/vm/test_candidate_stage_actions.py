@@ -31,6 +31,8 @@ def fixture():
         content=json.dumps(value,sort_keys=True).encode();raw[path]=content;inputs[name]=dict(path=path,sha256=hashlib.sha256(content).hexdigest())
     calls=[]
     class Source:
+        def approved_release(self,identity):
+            assert identity==b['identity'];return '2026.10.3-cn.1'
         def require_lock(self):calls.append('lock')
         def observe_hold(self):return dict(schemaVersion=1,state='held',identity=b['identity'],host=b['host'],generation=b['holdGeneration'])
         def observe_admission(self):return {db:dict(app=False,lane=False,migration_admin=False) for db in DATABASES}

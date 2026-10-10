@@ -269,7 +269,7 @@ print(json.dumps({'qualifiedFilesVerified':5,'moduleCount':len(payload['moduleMa
   def rootref(name,value):
    raw=q.canonical(value);path='/etc/workspacex-cn/epoch-fixture/'+name;rawfiles[path]=raw;return {'path':path,'sha256':q.sha(raw)}
   manifest=rootref('manifest.json',{'sourceRevision':p['binding']['identity']['sourceRevision'],'release':isolation_fixture.FIXED_RELEASE})
-  profile['candidateComposeEmitter']={'configRef':rootref('config.json',{'release':isolation_fixture.FIXED_RELEASE}),'optionsRef':rootref('options.json',{'manifestRef':manifest})}
+  profile['candidateComposeEmitter']={'configRef':rootref('config.json',{'provision':{'release':isolation_fixture.FIXED_RELEASE}}),'optionsRef':rootref('options.json',{'manifestRef':manifest})}
   class Reads:
    def __init__(self,root):pass
    def blocks(self,r):
@@ -350,11 +350,11 @@ if __name__=='__main__':unittest.main()
 
 class ApprovedReleaseAuthority(unittest.TestCase):
  def fixture(self):
-  identity={'sourceRevision':'a1cb4c7683768566b0cf38ffe6a27b0a8c13f4f0'};store={}
+  identity={'sourceRevision':'5285bef9a6c91bbb9857ede42779aafa64b98f32','baselineRevision':'a1cb4c7683768566b0cf38ffe6a27b0a8c13f4f0'};store={}
   def put(name,value):
    path='/etc/workspacex-cn/'+name;raw=json.dumps(value).encode();store[path]=raw;return {'path':path,'sha256':hashlib.sha256(raw).hexdigest()}
   manifest=put('manifest.json',{'sourceRevision':identity['sourceRevision'],'release':'2026.10.6-cn.1'})
-  profile={'candidateComposeEmitter':{'optionsRef':put('options.json',{'manifestRef':manifest}),'configRef':put('config.json',{'release':'2026.10.6-cn.1'})}}
+  profile={'candidateComposeEmitter':{'optionsRef':put('options.json',{'manifestRef':manifest}),'configRef':put('config.json',{'provision':{'release':'2026.10.6-cn.1'}})}}
   return identity,profile,store
  def test_pinned_manifest_release_succeeds(self):
   identity,profile,store=self.fixture();self.assertEqual(q.approved_release(profile,identity,store.__getitem__),'2026.10.6-cn.1')

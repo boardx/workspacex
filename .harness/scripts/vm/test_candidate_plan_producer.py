@@ -64,6 +64,8 @@ def data_fixture():
         if hashlib.sha256(raw).hexdigest()!=expected:raise RuntimeError('INPUT_HASH_DRIFT')
         return raw
     class Transport:
+        def approved_release(self,value):
+            assert value==identity;return '2026.10.3-cn.1'
         def verify_runtime_seal(self,ref,b):return copy.deepcopy(runtime)
         def require_lock(self):pass
         def observe_hold(self):return dict(schemaVersion=1,state='held',generation=bound['holdGeneration'],identity=identity,host=bound['host'])

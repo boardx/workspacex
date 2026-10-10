@@ -2,8 +2,9 @@
 const test=require('node:test'),assert=require('node:assert/strict');
 const {initializeRetained,canonical,hash}=require('./retained_backup_helper.cjs');
 const DBS=['workspacex','workspacex_agent','workspacex_memory'];
-function fixture(){
+function fixture(pair){
  const now=Date.now()/1000,identity={sourceRevision:'9b25bfa65662b96c0826fe67506b562ea46aa6d0',baselineRevision:'ba6343199f3c834d6a198f83d0c771614292c82b',migrationPlanSha256:'a'.repeat(64),attemptId:'fixture'};
+ if(pair)Object.assign(identity,{sourceRevision:pair[0],baselineRevision:pair[1]});
  const authorization={identity,action:'bounded-three-db-backup-read',notBefore:now-10,expiresAt:now+600,rdsInstanceId:'pgm-uf6rg214cp381l49',ecsInstanceId:'i-uf6ga92ewloganobbln6'};
  const files={},put=(path,value)=>{const raw=Buffer.from(typeof value==='string'?value:JSON.stringify(value));files[path]=raw;return {path,sha256:hash(raw)};};
  const record={schemaVersion:1,role:'wsx_release_backup_ro',functions:{fixed:'b'.repeat(64)},allowedPublicTemp:[],...authorization};
@@ -19,7 +20,7 @@ function fixture(){
  const library=put('/usr/local/lib/workspacex-cn/backup_connection.cjs','pinned-library-bytes');
  const profile={toolRevision:host.backup.toolRevision,backupHostPlan:ref,installedFilesSha256:{[table.path]:table.sha256,[library.path]:library.sha256}};
  const binding={role:'migration_admin',peer:{database:'workspacex',serverAddr:'192.168.100.44',serverPort:5432},socket:{remoteAddress:'192.168.100.44',remotePort:5432,localAddress:'192.168.100.40',encrypted:false,authorized:false},pid:123,backendStart:'start'};
- const calls=[];const control={mode:'control',binding,capabilities:{alterRoleAuthority:true,catalogLockAuthority:true},identity:async()=>binding,transportLibrary:{verifyExistingMaintenanceTransport:()=>true},client:{query:async(sql,params)=>{calls.push({sql,params});return {rows:sql.startsWith('SELECT')?[{name:'t'}]:[],fields:sql.startsWith('SELECT')?[{name:'name'}]:[]};},connect:()=>{throw Error('new connect forbidden');}}};
+ const calls=[];const control={mode:'control',binding,identityBinding:structuredClone(identity),capabilities:{alterRoleAuthority:true,catalogLockAuthority:true},identity:async()=>binding,transportLibrary:{verifyExistingMaintenanceTransport:()=>true},client:{query:async(sql,params)=>{calls.push({sql,params});return {rows:sql.startsWith('SELECT')?[{name:'t'}]:[],fields:sql.startsWith('SELECT')?[{name:'name'}]:[]};},connect:()=>{throw Error('new connect forbidden');}}};
  const options={readJson:path=>path==='/etc/workspacex-cn/trusted-tool-binding.json'?profile:JSON.parse(files[path]),readBytes:path=>files[path]};
  return {control,ref,options,calls,profile,files,host};
 }
@@ -79,3 +80,8 @@ test('approved mutation transaction permits only fixed permission identity queri
  const result=await h.dispatch(h.protocol,{operation:'query',queryId:'catalog'});assert.deepEqual(result.rows,[{name:'t'}]);
  await h.dispatch(h.protocol,{operation:'mutation',action:'rollback',statement:0});assert.equal(f.calls.at(-1).sql,'ROLLBACK');
 });
+
+const currentPair=['5285bef9a6c91bbb9857ede42779aafa64b98f32','a1cb4c7683768566b0cf38ffe6a27b0a8c13f4f0'];
+test('new pair uses the same retained control without connecting',async()=>{const f=fixture(currentPair);const h=await initializeRetained(f.control,f.ref,f.options);assert.deepEqual(h.protocol.identity,f.control.identityBinding);assert.equal(f.calls.length,0);});
+for(const pair of [[currentPair[0],'ba6343199f3c834d6a198f83d0c771614292c82b'],['9b25bfa65662b96c0826fe67506b562ea46aa6d0',currentPair[1]],['f'.repeat(40),'e'.repeat(40)]])test('retained backup rejects cross/third pair '+pair[0].slice(0,4),async()=>{const f=fixture(pair);await assert.rejects(initializeRetained(f.control,f.ref,f.options),/FIXED_IDENTITY/);assert.equal(f.calls.length,0);});
+test('approved backup cannot borrow a different admitted release control',async()=>{const f=fixture(currentPair);f.control.identityBinding.sourceRevision='9b25bfa65662b96c0826fe67506b562ea46aa6d0';f.control.identityBinding.baselineRevision='ba6343199f3c834d6a198f83d0c771614292c82b';await assert.rejects(initializeRetained(f.control,f.ref,f.options),/FIXED_IDENTITY/);assert.equal(f.calls.length,0);});

@@ -11,7 +11,7 @@ class StageHostTests(unittest.TestCase):
             'com.docker.compose.project':'baseline','com.docker.compose.service':'api',
             'com.docker.compose.project.config_files':'/etc/baseline.json'}))
         b=dict(containerId=c['Id'],imageId=c['Image'],configSha256=digest(c['Config']),service='api',composePath='/etc/baseline.json')
-        h=SimpleNamespace(plan=dict(identity={'attemptId':'fixture'},host={'instanceId':'fixed'},holdGeneration='d'*32,writers=[dict(binding=b)]),
+        h=SimpleNamespace(plan=dict(identity={'attemptId':'fixture','sourceRevision':'9b25bfa65662b96c0826fe67506b562ea46aa6d0'},host={'instanceId':'fixed'},holdGeneration='d'*32,writers=[dict(binding=b)]),
                           require_lock=lambda:None,docker_inventory=lambda:[c])
         h.read_hold=lambda:dict(schemaVersion=1,state='held',identity=h.plan['identity'],generation=h.plan['holdGeneration'])
         t=CandidateStageHost(h,SimpleNamespace(value={'identity':h.plan['identity']}))
@@ -183,6 +183,7 @@ class CompletionAndPublicationTests(unittest.TestCase):
         receipt=inputs['refs']['completion'];journal=SimpleNamespace(value=dict(identity=bound['identity'],migrationCompletionReceipt=receipt,
             migrationCompletionIntent=copy.deepcopy(receipt),events=[dict(state='migration-completion-durable',receipt=receipt,holdGeneration=bound['holdGeneration'])]))
         t=CandidateStageHost(host,journal);t._read_ref=lambda r:reader(r['path'],r['sha256'])
+        t.approved_release=lambda identity:'2026.10.3-cn.1'
         t.observe_hold=lambda:dict(schemaVersion=1,state='held',identity=bound['identity'],host=bound['host'],generation=bound['holdGeneration'])
         return t,bound,calls,docs
     def test_actual_durable_ref_and_fixed_existing_diagnostic_ledger(self):
@@ -329,7 +330,7 @@ class SnapshotAuthorityTests(unittest.TestCase):
     def test_snapshot_epoch_is_verified_against_existing_source_qualifier(self):
         import json
         source=object.__new__(CandidateStageHost);source.require_lock=lambda:None
-        semantic=dict(identity={'attemptId':'fixture'},toolRevision='e'*40,host={'instanceId':'host','bootId':'boot'},epoch='a'*64,holdGeneration='f'*32);stage=dict(semantic,epoch='b'*64)
+        semantic=dict(identity={'attemptId':'fixture','sourceRevision':'9b25bfa65662b96c0826fe67506b562ea46aa6d0'},toolRevision='e'*40,host={'instanceId':'host','bootId':'boot'},epoch='a'*64,holdGeneration='f'*32);stage=dict(semantic,epoch='b'*64)
         full_binding=dict(semantic,targetInstanceId='pgm-isolated',providerBindingSha256='9'*64)
         ref={'path':'/etc/workspacex-cn/qualification.json','sha256':'c'*64};calls=[]
         source._recheck=lambda:None;source._profile=lambda:(b'',{'currentEpochQualification':{'input':ref}}, {})
@@ -343,7 +344,7 @@ class SnapshotAuthorityTests(unittest.TestCase):
     def test_snapshot_qualification_rejects_missing_extra_or_changed_binding_keys(self):
         import json,copy
         source=object.__new__(CandidateStageHost);source.require_lock=lambda:None;source._recheck=lambda:None
-        semantic=dict(identity={'attemptId':'fixture'},toolRevision='e'*40,host={'instanceId':'host','bootId':'boot'},epoch='a'*64,holdGeneration='f'*32)
+        semantic=dict(identity={'attemptId':'fixture','sourceRevision':'9b25bfa65662b96c0826fe67506b562ea46aa6d0'},toolRevision='e'*40,host={'instanceId':'host','bootId':'boot'},epoch='a'*64,holdGeneration='f'*32)
         stage=dict(semantic,epoch='b'*64);full=dict(semantic,targetInstanceId='pgm-isolated',providerBindingSha256='9'*64)
         source._profile=lambda:(b'',{'currentEpochQualification':{'input':{}}},{})
         calls=[];source.verify_current_epoch=lambda *args:(calls.append(args) or {'epochManifestSha256':stage['epoch']})

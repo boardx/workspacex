@@ -1,0 +1,3 @@
+// BEGIN GENERATED RELEASE IDENTITIES
+export const admittedReleaseIdentity = (i: {sourceRevision?: unknown; baselineRevision?: unknown} | null | undefined): boolean => !!i && ((i.sourceRevision === "9b25bfa65662b96c0826fe67506b562ea46aa6d0" && i.baselineRevision === "ba6343199f3c834d6a198f83d0c771614292c82b") || (i.sourceRevision === "5285bef9a6c91bbb9857ede42779aafa64b98f32" && i.baselineRevision === "a1cb4c7683768566b0cf38ffe6a27b0a8c13f4f0"));
+// END GENERATED RELEASE IDENTITIES

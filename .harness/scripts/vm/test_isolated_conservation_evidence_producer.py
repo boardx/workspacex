@@ -78,8 +78,9 @@ class CollectionTests(unittest.TestCase):
   self.payload['binding']['targetInstanceId']=self.payload['binding']['sourceInstanceId']
   with self.assertRaisesRegex(ValueError,'PRODUCTION_TARGET'):self.run_it()
 
- def test_a1cb_approved_parent_and_independent_child_uuid_succeed(self):
-  app='a1cb4c7683768566b0cf38ffe6a27b0a8c13f4f0';self.authority['sourceRevision']=app;self.child_authority['candidateSha']=app;self.payload['binding']['candidateSha']=app
+ def test_5285_a1cb_approved_parent_and_independent_child_uuid_succeed(self):
+  self.authority['baselineRevision']='a1cb4c7683768566b0cf38ffe6a27b0a8c13f4f0';self.payload['baselineSha']=self.authority['baselineRevision']
+  app='5285bef9a6c91bbb9857ede42779aafa64b98f32';self.authority['sourceRevision']=app;self.child_authority['candidateSha']=app;self.payload['binding']['candidateSha']=app
   for path,raw in list(self.bytes.items()):
    value=json.loads(raw)
    if value.get('candidateSha')==FIXED_APP:

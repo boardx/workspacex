@@ -3,7 +3,7 @@ from unittest.mock import patch
 import candidate_browser_acceptance as m
 class Tests(unittest.TestCase):
  def fixture(self,source_revision=None):
-  now=1791133200.0;identity=dict(sourceRevision=source_revision or m.APP,baselineRevision=m.BASE,migrationPlanSha256='a'*64,attemptId='browser');calls=[]
+  now=1791133200.0;identity=dict(sourceRevision=source_revision or m.APP,baselineRevision=('a1cb4c7683768566b0cf38ffe6a27b0a8c13f4f0' if source_revision else m.BASE),migrationPlanSha256='a'*64,attemptId='browser');calls=[]
   root='/opt/workspacex-cn/release-tools/'+'f'*40+'/playwright';path=f"/etc/workspacex-cn/maintenance-activation/{identity['sourceRevision']}/browser/browser-plan.json"
   request=dict(playwrightModule=root,browserExecutable='/usr/bin/chromium',audioPath=path.rsplit('/',1)[0]+'/audio.wav',audioSha256='e'*64,deploymentMarker='marker');raw=json.dumps(request).encode()
   binding=dict(identity=identity,browserPlan=dict(path=path,sha256=hashlib.sha256(raw).hexdigest()),nodeBinary=dict(path='/usr/bin/node',sha256='c'*64))
@@ -40,8 +40,8 @@ class Tests(unittest.TestCase):
   t,b,s,result,c,n=self.fixture();store=types.SimpleNamespace(publish_receipt=lambda identity,lane,value,**kw:dict(path='source-ref',sha256=hashlib.sha256(json.dumps(value).encode()).hexdigest()))
   with patch.dict(sys.modules,{'compiled_maintenance_activation':s,'acceptance_receipt_store':store}),patch.object(m,'_runtime_files'):ref=m.persist_candidate_browser_receipt(t,b,lambda:n,expected_identity=t.plan['identity'])
   self.assertEqual(ref['path'],'source-ref');self.assertIn(('invoke','node'),c)
- def test_a1cb_reuses_actual_pinned_browser_entry(self):
-  t,b,s,r,c,n=self.fixture('a1cb4c7683768566b0cf38ffe6a27b0a8c13f4f0')
+ def test_5285_a1cb_reuses_actual_pinned_browser_entry(self):
+  t,b,s,r,c,n=self.fixture('5285bef9a6c91bbb9857ede42779aafa64b98f32')
   with patch.dict(sys.modules,{'compiled_maintenance_activation':s}),patch.object(m,'_runtime_files'):self.assertEqual(m.candidate_browser_receipt(t,b,lambda:n,expected_identity=copy.deepcopy(t.plan['identity']))['identity'],t.plan['identity'])
  def test_missing_original_authority_rejects_before_browser(self):
   t,b,s,r,c,n=self.fixture();t.host.reviewed_plan_ref=None
@@ -49,7 +49,7 @@ class Tests(unittest.TestCase):
    with self.assertRaisesRegex(RuntimeError,'ORIGINAL_REF'):m.candidate_browser_receipt(t,b,lambda:n,expected_identity=t.plan['identity'])
   self.assertNotIn(('invoke','node'),c)
  def test_mixed_candidate_rejected_before_invocation(self):
-  t,b,s,r,c,n=self.fixture('a1cb4c7683768566b0cf38ffe6a27b0a8c13f4f0');approved=copy.deepcopy(t.plan['identity']);b['identity']=dict(b['identity'],sourceRevision='e'*40)
+  t,b,s,r,c,n=self.fixture('5285bef9a6c91bbb9857ede42779aafa64b98f32');approved=copy.deepcopy(t.plan['identity']);b['identity']=dict(b['identity'],sourceRevision='e'*40)
   with patch.dict(sys.modules,{'compiled_maintenance_activation':s}):
    with self.assertRaisesRegex(RuntimeError,'IDENTITY'):m.candidate_browser_receipt(t,b,lambda:n,expected_identity=approved)
   self.assertNotIn(('invoke','node'),c)
@@ -62,7 +62,7 @@ class Tests(unittest.TestCase):
   self.assertNotIn(('invoke','node'),c)
  def test_installed_cli_executes_original_protected_reference_not_stdin_identity(self):
   for mode in ('valid','wrong-tool','runtime-plan','unapproved','foreign-identity'):
-   t,b,source,result,c,n=self.fixture('a1cb4c7683768566b0cf38ffe6a27b0a8c13f4f0')
+   t,b,source,result,c,n=self.fixture('5285bef9a6c91bbb9857ede42779aafa64b98f32')
    original=dict(schemaVersion=1,mode='maintenance-all-writer-fence',productionActionsAuthorized=True,identity=copy.deepcopy(t.plan['identity']),toolRevision='f'*40)
    if mode=='wrong-tool':original['toolRevision']='e'*40
    elif mode=='runtime-plan':original['runtimeSourcePlanSha256']='d'*64

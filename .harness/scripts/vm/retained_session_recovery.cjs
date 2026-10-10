@@ -1,4 +1,7 @@
 'use strict';
+// BEGIN GENERATED RELEASE IDENTITIES
+const admittedReleaseIdentity = i => !!i && ((i.sourceRevision === "9b25bfa65662b96c0826fe67506b562ea46aa6d0" && i.baselineRevision === "ba6343199f3c834d6a198f83d0c771614292c82b") || (i.sourceRevision === "5285bef9a6c91bbb9857ede42779aafa64b98f32" && i.baselineRevision === "a1cb4c7683768566b0cf38ffe6a27b0a8c13f4f0"));
+// END GENERATED RELEASE IDENTITIES
 // Only called by the persistent control helper with a root-sealed authorization.
 // No Client factory, LOGIN operation, database replacement, or standalone CLI.
 const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto');
@@ -17,8 +20,8 @@ function proof(ok,code){if(!ok)throw Error(code);}
 function validateAuthority(auth,identity,toolRevision,now=Date.now()/1000){
  const keys=['schemaVersion','kind','identity','toolRevision','planPath','planSha256','librarySha256','opensslSha256','dockerSha256','operationTimeoutMs','maxCopyBytes','notBefore','expiresAt'];
  proof(auth&&Object.keys(auth).sort().join(',')===keys.sort().join(','),'RECOVERY_AUTHORITY_SCHEMA');
- proof(auth.schemaVersion===1&&auth.kind==='exact-9b-retained-session-recovery'&&canonical(auth.identity)===canonical(identity)&&identity.sourceRevision===APP&&identity.baselineRevision===BASE&&/^[A-Za-z0-9-]{1,128}$/.test(identity.attemptId)&&auth.toolRevision===toolRevision&&/^[a-f0-9]{40}$/.test(toolRevision),'RECOVERY_AUTHORITY_IDENTITY');
- proof(auth.planPath===`/etc/workspacex-cn/maintenance-recovery/${APP}/${identity.attemptId}/recovery-plan.json`,'RECOVERY_AUTHORITY_PATH');
+ proof(auth.schemaVersion===1&&(auth.kind==='exact-source-retained-session-recovery'||auth.kind==='exact-9b-retained-session-recovery'&&identity.sourceRevision===APP)&&canonical(auth.identity)===canonical(identity)&&admittedReleaseIdentity(identity)&&/^[A-Za-z0-9-]{1,128}$/.test(identity.attemptId)&&auth.toolRevision===toolRevision&&/^[a-f0-9]{40}$/.test(toolRevision),'RECOVERY_AUTHORITY_IDENTITY');
+ proof(auth.planPath===`/etc/workspacex-cn/maintenance-recovery/${identity.sourceRevision}/${identity.attemptId}/recovery-plan.json`,'RECOVERY_AUTHORITY_PATH');
  for(const key of ['planSha256','librarySha256','opensslSha256','dockerSha256'])proof(/^[a-f0-9]{64}$/.test(auth[key]),'RECOVERY_AUTHORITY_HASH');
  proof(Number.isSafeInteger(auth.operationTimeoutMs)&&auth.operationTimeoutMs>=10000&&auth.operationTimeoutMs<=1800000&&Number.isSafeInteger(auth.maxCopyBytes)&&auth.maxCopyBytes>0&&auth.maxCopyBytes<=8*1024**3,'RECOVERY_AUTHORITY_LIMIT');
  proof(Number.isFinite(auth.notBefore)&&Number.isFinite(auth.expiresAt)&&auth.notBefore<=now&&now<auth.expiresAt&&auth.expiresAt-auth.notBefore<=3600,'RECOVERY_AUTHORITY_TIME');return auth;
@@ -48,7 +51,7 @@ async function recoverExistingSession(context,auth,fixture){
  }};
  validateAuthority(auth,context.identityBinding,context.toolRevision);proof(context.mode==='control'&&DBS.includes(context.binding.peer.database)&&context.transactionStatus()==='I','RECOVERY_RETAINED_SESSION');
  const p=JSON.parse(io.readPinned({path:auth.planPath,sha256:auth.planSha256},true));const db=context.binding.peer.database,item=p.databases?.[db];
- proof(canonical(p.identity)===canonical(auth.identity)&&p.toolRevision===auth.toolRevision&&p.production?.instanceId===RDS&&Object.keys(p.databases).sort().join(',')===[...DBS].sort().join(',')&&item?.database===db&&item.sourceRdsInstanceId===RDS&&item.baselineRevision===BASE,'RECOVERY_PLAN_IDENTITY');
+ proof(canonical(p.identity)===canonical(auth.identity)&&p.toolRevision===auth.toolRevision&&p.production?.instanceId===RDS&&Object.keys(p.databases).sort().join(',')===[...DBS].sort().join(',')&&item?.database===db&&item.sourceRdsInstanceId===RDS&&item.baselineRevision===auth.identity.baselineRevision,'RECOVERY_PLAN_IDENTITY');
  proof(p.authorization?.action==='replace-three-production-databases-with-exact-baseline'&&canonical(p.authorization.identity)===canonical(auth.identity)&&p.authorization.productionInstanceId===RDS&&p.authorization.notBefore<=Date.now()/1000&&Date.now()/1000<p.authorization.expiresAt,'RECOVERY_PLAN_ACTION');
  proof(canonical(p.production.databasePeers[db])===canonical(context.binding.peer)&&context.binding.role==='migration_admin'&&((context.binding.socket?.authorized===true&&context.binding.tls?.ssl===true)||(context.binding.transport?.sslMode==='disable'&&context.binding.socket?.encrypted===false&&context.binding.socket?.authorized===false&&context.binding.socket?.localAddress==='192.168.100.40'&&context.binding.tls?.ssl===false)),'RECOVERY_PEER_BINDING');
  const stream=context.client.connection.stream,peer=p.production.transportPeers[db];proof(hash(stream.remoteAddress.replace(/^::ffff:/,''))===peer.peerAddressSha256&&stream.remotePort===peer.port,'RECOVERY_TRANSPORT_PEER');

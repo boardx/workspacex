@@ -1,3 +1,4 @@
+import {admittedReleaseIdentity} from './release_identity';
 import {readOriginalPlanAuthority,assertSourcePlanAuthority} from './source_plan_authority';
 /** Fixed 9b source composition. Root inputs contain only protected data refs;
  * all executable operations are assembled here, never from a JSON registry. */
@@ -14,11 +15,11 @@ import {maintenanceOfflinePreparedAction} from './activation_transport';
 import {createMigrationTransport,type MigrationHostBinding} from './migration_transport';
 import {exactMigrationAction,type ExactMigrationInputs} from './reused_actions';
 import type {ProtectedOperationInputs} from './typed_operations';
-import {readNativeCompletion} from './native_completion';
+import {readNativeCompletion,readApprovedCompletionRelease} from './native_completion';
 const hash=z.string().regex(/^[a-f0-9]{64}$/);
 const ref=z.object({path:z.string().startsWith('/etc/workspacex-cn/').refine(v=>!v.split('/').includes('..')),sha256:hash}).strict();
 const command=z.object({path:z.string().startsWith('/usr/local/lib/workspacex-cn/'),sha256:hash}).strict();
-const schema=z.object({schemaVersion:z.literal(2),identity:z.object({sourceRevision:z.string().regex(/^[a-f0-9]{40}$/),baselineRevision:z.literal('ba6343199f3c834d6a198f83d0c771614292c82b'),migrationPlanSha256:hash,attemptId:z.string().regex(/^[A-Za-z0-9-]{1,32}$/)}).strict(),toolRevision:z.string().regex(/^[a-f0-9]{40}$/),
+const schema=z.object({schemaVersion:z.literal(2),identity:z.object({sourceRevision:z.string().regex(/^[a-f0-9]{40}$/),baselineRevision:z.string().regex(/^[a-f0-9]{40}$/),migrationPlanSha256:hash,attemptId:z.string().regex(/^[A-Za-z0-9-]{1,32}$/)}).strict(),toolRevision:z.string().regex(/^[a-f0-9]{40}$/),
  prepared:z.object({receipt:ref,manifest:ref}).strict(),migration:z.object({inputs:ref,binding:z.unknown()}).strict(),
  writerModules:z.object({writer_fence:command,fixed_probes:command,control_connection:command}).strict(),
  candidateModules:z.object({candidate_writer:command,candidate_backend_collector:command,candidate_host_transport:command}).strict(),
@@ -37,7 +38,7 @@ const actual:SourceConsumerRuntime={readJson:protectedPrivateJson,readBytes:prot
  verifyExecutable:c=>{const fd=protectedExecutable(c);closeSync(fd);},lifecycle:createPersistentWriterLifecycle,migration:createMigrationTransport,run:runFixedPython,acquireLock:inheritedFd9Lock};
 export async function createSourceProductionConsumers(plan:EntryPlan,profile:any,value:unknown,fixture:Partial<SourceConsumerRuntime>={}){
  const io={...actual,...fixture},v=schema.parse(value),identity=plan.identity,toolRevision=v.toolRevision;
- need(same(v.identity,identity)&&toolRevision===plan.production.toolRevision&&profile.toolRevision===toolRevision,'SOURCE_CONSUMER_IDENTITY');
+ need(admittedReleaseIdentity(identity)&&same(v.identity,identity)&&toolRevision===plan.production.toolRevision&&profile.toolRevision===toolRevision,'SOURCE_CONSUMER_IDENTITY');
  need(Object.keys(v.sourceOperationModules).sort().join(',')===Object.keys(persistentSourceModules).sort().join(','),'SOURCE_CONSUMER_MODULE_CLOSURE');
  const verify=(c:TrustedExecutable)=>{need(profile.installedFilesSha256?.[c.path]===c.sha256,'SOURCE_CONSUMER_PROFILE_PIN');io.verifyExecutable(c);};
  const all=[plan.host.hold,plan.host.writerFence,...Object.values(v.writerModules),...Object.values(v.candidateModules),...Object.values(v.sourceOperationModules)];
@@ -56,6 +57,8 @@ export async function createSourceProductionConsumers(plan:EntryPlan,profile:any
  const migrationBinding=v.migration.binding as MigrationHostBinding;
  need(same(migrationBinding?.identity,identity)&&migrationBinding.toolRevision===toolRevision,'SOURCE_MIGRATION_BINDING');verify(migrationBinding.collector);
  const authority=readOriginalPlanAuthority(plan.host,toolRevision,profile,io.readBytes);
+ const approvedRelease=()=>readApprovedCompletionRelease(authority,io.readBytes);
+ approvedRelease();
  const sourcePlan=authority.sourcePlan;
  const lifecycle=io.lifecycle({identity,toolRevision,sourcePlanPath:plan.host.writerPlanPath,sourcePlanSha256:plan.host.writerPlanSha256,sourcePlan,host:plan.host,modules:v.writerModules,candidate:{modules:v.candidateModules},sourceOperationModules:v.sourceOperationModules});
  const boundMigration={...migrationBinding};let heldHost:import('./controller').HostBinding|undefined;
@@ -90,7 +93,7 @@ export async function createSourceProductionConsumers(plan:EntryPlan,profile:any
   offline:{...common(operationSource),prepare:offline},
   prehold:{...common(prehold.qualificationExecutable),verifyRecoveryCapability:async()=>{archived=await consumePreholdEpochManifest(prehold,{read:async r=>io.readJson(r.path,r.sha256),run:io.run},authority);},verifyIsolatedAcceptance:async()=>{need(archived,'SOURCE_PREHOLD_NOT_VERIFIED');await consumePreholdEpochManifest(prehold,{read:async r=>io.readJson(r.path,r.sha256),run:io.run},authority);}},
   epoch:{...common(operationSource),captureAndVerify:async()=>{await op('capture-current-epoch-draft');await op('stage-epoch-external-evidence');await op('finalize-epoch-input');current=await op('qualify-current-epoch');return current!;},verifyCurrentEpochIsolatedAcceptance:async(_id,e)=>{need(same(await op('verify-qualified-current-epoch'),e),'SOURCE_CURRENT_EPOCH_RECHECK');}},
-  migration:{...common(migrationBinding.collector),migrateExactPlan:async(id,e)=>{await exactMigrationAction(migrationInputs,transport)(id);const path=boundMigration.completionPath.replace(/\.json$/,'.completed.json');const bytes=io.readBytes(path);readNativeCompletion(JSON.parse(bytes.toString('utf8')),id);return {identity,toolRevision,holdGeneration:e.holdGeneration,epochSha256:e.epoch.sha256,completion:{path,sha256:createHash('sha256').update(bytes).digest('hex')}};}},
+  migration:{...common(migrationBinding.collector),approvedRelease,migrateExactPlan:async(id,e)=>{await exactMigrationAction(migrationInputs,transport)(id);const path=boundMigration.completionPath.replace(/\.json$/,'.completed.json');const bytes=io.readBytes(path);readNativeCompletion(JSON.parse(bytes.toString('utf8')),id,Date.now(),approvedRelease());return {identity,toolRevision,holdGeneration:e.holdGeneration,epochSha256:e.epoch.sha256,completion:{path,sha256:createHash('sha256').update(bytes).digest('hex')}};}},
   heldReadback:{...common(operationSource),verify:async()=>{await op('held-candidate-readback');}},
   candidate:{...common(operationSource),stageAndSeal:async(_id,_host,e,c)=>{const result=await op('stage-candidate-and-seal');return {...c,reference:ref.parse(result.reference)};}},
   writer:{...common(plan.host.writerFence),lifecycle},

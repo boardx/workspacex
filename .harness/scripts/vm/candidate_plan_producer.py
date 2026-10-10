@@ -10,7 +10,7 @@ import os
 import pathlib
 import re
 import stat
-from candidate_writer import validate, APP, BASELINE
+from candidate_writer import validate
 from candidate_completion_contract import verify_completion
 from writer_fence import DATABASES, digest, require
 from current_held_epoch_evidence_producer import binding, produce as collect_epoch
@@ -30,7 +30,7 @@ def produce(inputs, transport=None, reader=private_bytes, large_reader=None, epo
     bound = binding(inputs,expected_identity=expected_identity)
     exact(inputs['refs'], REFS, 'CANDIDATE_PRODUCER_REFERENCE_CLOSURE')
     require(transport is not None and all(callable(getattr(transport, method, None)) for method in
-        ('require_lock', 'observe_hold', 'observe_retained_sessions', 'verify_current_epoch',
+        ('approved_release', 'require_lock', 'observe_hold', 'observe_retained_sessions', 'verify_current_epoch',
          'observe_stage', 'observe_completion', 'verify_runtime_seal')), 'CANDIDATE_PRODUCER_TRANSPORT_REQUIRED')
     refs = inputs['refs']; raw_reads = {}
     def read(name):
@@ -38,8 +38,8 @@ def produce(inputs, transport=None, reader=private_bytes, large_reader=None, epo
         exact(ref, ('path', 'sha256'), 'CANDIDATE_PRODUCER_REFERENCE_SCHEMA')
         attempt=bound['identity']['attemptId']
         fixed_paths=dict(runtimeSeal=f'/var/lib/workspacex-cn/runtime/{attempt}/sealed-writer-runtime.json',
-            completion=f'/etc/workspacex-cn/migration-completion-inputs/{APP}/{attempt}.completed.json',
-            epochManifest=f'/etc/workspacex-cn/maintenance-evidence/{APP}/{attempt}/qualified-current-epoch/epoch.json')
+            completion=f"/etc/workspacex-cn/migration-completion-inputs/{bound['identity']['sourceRevision']}/{attempt}.completed.json",
+            epochManifest=f"/etc/workspacex-cn/maintenance-evidence/{bound['identity']['sourceRevision']}/{attempt}/qualified-current-epoch/epoch.json")
         require(type(ref['path']) is str and '..' not in pathlib.Path(ref['path']).parts and
                 (ref['path']==fixed_paths[name] if name in fixed_paths else ref['path'].startswith('/etc/workspacex-cn/')),
                 'CANDIDATE_PRODUCER_REFERENCE_PATH')
@@ -55,7 +55,7 @@ def produce(inputs, transport=None, reader=private_bytes, large_reader=None, epo
     guard()
     template = read('template'); validate(template, bound['identity'])
     require(template['identity'] == bound['identity'] and template['host'] == bound['host'] and
-            template['baselineRevision'] == BASELINE, 'CANDIDATE_PRODUCER_TEMPLATE_BINDING')
+            template['baselineRevision'] == bound['identity']['baselineRevision'], 'CANDIDATE_PRODUCER_TEMPLATE_BINDING')
     epoch_input = read('epochInput'); collection = read('epochCollection')
     require(epoch_producer(epoch_input, reader, large_reader,expected_identity=expected_identity) == collection,
             'CANDIDATE_PRODUCER_EPOCH_RECOMPUTE')
@@ -121,7 +121,7 @@ def produce(inputs, transport=None, reader=private_bytes, large_reader=None, epo
                 peerSha256=digest(session['peer']),clientIdentity='maintenance-control' if mode=='control' else template['diagnosticClientIdentity']))
     completion = read('completion'); ledger = read('liveLedger'); stage = read('stageInspection'); artifact = read('artifact')
     for value in (ledger,stage,artifact):bound_record(value)
-    ledger_hash=verify_completion(completion,bound,ledger['ledger'])
+    ledger_hash=verify_completion(completion,bound,ledger['ledger'],expected_release=transport.approved_release(bound['identity']))
     require(transport.observe_completion(copy.deepcopy(bound)) == dict(completion=refs['completion'],ledger=ledger),
             'CANDIDATE_PRODUCER_DURABLE_COMPLETION')
     require(ledger.get('kind') == 'retained-live-migration-ledger' and ledger['connection'] == sessions['diagnostic']['workspacex']
@@ -152,7 +152,7 @@ def produce(inputs, transport=None, reader=private_bytes, large_reader=None, epo
     plan=copy.deepcopy(template);plan.update(heldSessions=held,candidateSessions={db:[] for db in DATABASES},
         epoch=refs['epochManifest']['sha256'],holdGeneration=bound['holdGeneration'],migrationCompletionSha256=refs['completion']['sha256'],
         migrationLedgerSha256=ledger_hash)
-    plan['stagingIdentity']=dict(identity=bound['identity'],sourceRevision=APP,baselineRevision=BASELINE,
+    plan['stagingIdentity']=dict(identity=bound['identity'],sourceRevision=bound['identity']['sourceRevision'],baselineRevision=bound['identity']['baselineRevision'],
         writersSha256=digest(plan['candidateWriters']),artifactSha256=plan['artifactSha256'],epoch=plan['epoch'])
     validate(plan,bound['identity'])
     guard()
@@ -173,7 +173,7 @@ def write_candidate(path,value):
     exact(value['artifact'],('path','sha256'),'CANDIDATE_PRODUCER_OUTPUT_ARTIFACT')
     require(value['artifact']['sha256']==value['plan']['artifactSha256'],'CANDIDATE_PRODUCER_OUTPUT_ARTIFACT')
     p=pathlib.Path(path);i=value['plan']['identity']
-    require(str(p)==f"/etc/workspacex-cn/maintenance-candidate/{APP}/{i['attemptId']}/candidate-plan.json",'CANDIDATE_PRODUCER_OUTPUT_PATH')
+    require(str(p)==f"/etc/workspacex-cn/maintenance-candidate/{i['sourceRevision']}/{i['attemptId']}/candidate-plan.json",'CANDIDATE_PRODUCER_OUTPUT_PATH')
     require(os.geteuid()==0,'CANDIDATE_PRODUCER_ROOT_REQUIRED')
     for parent in p.parents:
         s=parent.lstat();require(stat.S_ISDIR(s.st_mode) and s.st_uid==0 and s.st_gid==0 and not s.st_mode&0o022,'CANDIDATE_PRODUCER_PARENT_TRUST')

@@ -1,6 +1,6 @@
 """Candidate-project canonical consumer; no legacy names/network or source patching."""
 import copy,datetime,hashlib,json,pathlib,re,time,stat,ipaddress
-from writer_fence import require,digest
+from writer_fence import require,digest, admitted_release_identity
 from candidate_readonly_docker import invoke_readonly_docker
 from candidate_stage_host import candidate_stage_profile_sha256
 APP='9b25bfa65662b96c0826fe67506b562ea46aa6d0'
@@ -86,7 +86,7 @@ def candidate_canonical_receipt(transport,binding,now=time.time,*,expected_ident
     import compiled_maintenance_activation as source
     require(type(binding) is dict and set(binding)=={'identity','candidateConfig','candidateNginx','stageInspection','browserPlan','nodeBinary'},'CANDIDATE_CANONICAL_BINDING')
     identity=binding['identity'];plan=transport.plan
-    require(identity==expected_identity and identity==plan['identity'] and type(identity['sourceRevision']) is str and re.fullmatch('[a-f0-9]{40}',identity['sourceRevision']) and identity['baselineRevision']==BASE,'CANDIDATE_CANONICAL_IDENTITY')
+    require(identity==expected_identity and identity==plan['identity'] and type(identity['sourceRevision']) is str and re.fullmatch('[a-f0-9]{40}',identity['sourceRevision']) and admitted_release_identity(identity),'CANDIDATE_CANONICAL_IDENTITY')
     transport.require_lock();transport._guard(copy.deepcopy(plan))
     stages=[]
     def read(ref,expected=None):

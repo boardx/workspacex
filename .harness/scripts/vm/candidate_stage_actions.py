@@ -11,7 +11,7 @@ import re
 from writer_fence import DATABASES, digest, require
 from current_held_epoch_evidence_producer import binding
 from isolated_conservation_plan import private_bytes
-from candidate_writer import APP
+from writer_fence import admitted_release_identity
 
 SERVICES=('web','api','agent','sandbox','sandbox-sessions')
 DOCKER_PREFIX=('--config','/etc/workspacex-cn/docker-offline','--host','unix:///run/docker.sock')
@@ -45,7 +45,8 @@ def safe_inspection(containers):
 def prepare(inputs,source=None,reader=private_bytes,*,expected_identity):
     exact(inputs,('identity','toolRevision','host','epoch','holdGeneration','manifest','compose'),'CANDIDATE_STAGE_INPUT_SCHEMA')
     bound=binding(inputs,expected_identity=expected_identity)
-    methods=('require_lock','observe_hold','observe_admission','observe_baseline','verify_frozen_compose',
+    require(admitted_release_identity(bound['identity']),'CANDIDATE_STAGE_RELEASE_PAIR')
+    methods=('approved_release','require_lock','observe_hold','observe_admission','observe_baseline','verify_frozen_compose',
              'run_docker','inspect_stage','verify_stage_configuration','record_stage_intent')
     require(source is not None and all(callable(getattr(source,k,None)) for k in methods),'CANDIDATE_STAGE_SOURCE_TRANSPORT_REQUIRED')
     admission=guard(source,bound);baseline=copy.deepcopy(source.observe_baseline())
@@ -59,8 +60,8 @@ def prepare(inputs,source=None,reader=private_bytes,*,expected_identity):
         raw=reader(ref['path'],ref['sha256']);require(hashlib.sha256(raw).hexdigest()==ref['sha256'],'CANDIDATE_STAGE_REFERENCE_HASH')
         raws[name]=raw;return json.loads(raw)
     manifest=read('manifest');compose=read('compose')
-    require(manifest.get('schemaVersion')==1 and manifest.get('sourceRevision')==APP and
-            manifest.get('release')=='2026.10.3-cn.1' and manifest.get('platform')=='linux/amd64',
+    require(manifest.get('schemaVersion')==1 and manifest.get('sourceRevision')==bound['identity']['sourceRevision'] and
+            manifest.get('release')==source.approved_release(bound['identity']) and manifest.get('platform')=='linux/amd64',
             'CANDIDATE_STAGE_OFFLINE_MANIFEST')
     require(source.verify_frozen_compose(copy.deepcopy(inputs),copy.deepcopy(manifest))==compose,
             'CANDIDATE_STAGE_FROZEN_COMPOSE_UNPROVEN')
@@ -89,7 +90,7 @@ def prepare(inputs,source=None,reader=private_bytes,*,expected_identity):
             value=source.run_docker([*DOCKER_PREFIX,'image','inspect',image])
             require(type(value) is list and len(value)==1,'CANDIDATE_STAGE_LOCAL_IMAGE_CLOSURE')
             entry=value[0]
-            require(image in entry.get('RepoDigests',[]) and entry['Config'].get('Labels',{}).get('org.opencontainers.image.revision')==APP
+            require(image in entry.get('RepoDigests',[]) and entry['Config'].get('Labels',{}).get('org.opencontainers.image.revision')==bound['identity']['sourceRevision']
                     and entry.get('Architecture')=='amd64' and entry.get('Os')=='linux' and
                     type(entry.get('Id')) is str and re.fullmatch('sha256:[a-f0-9]{64}',entry['Id']), 'CANDIDATE_STAGE_LOCAL_IMAGE_IDENTITY')
             images[image]=entry['Id']
@@ -142,12 +143,13 @@ def start_paused(inputs,source=None):
 def held_readback(inputs,source=None,reader=private_bytes,*,expected_identity):
     exact(inputs,('identity','toolRevision','host','epoch','holdGeneration','expectedReadbackRef'),'CANDIDATE_HELD_READBACK_INPUT_SCHEMA')
     bound=binding(inputs,expected_identity=expected_identity)
+    require(admitted_release_identity(bound['identity']),'CANDIDATE_STAGE_RELEASE_PAIR')
     require(source is not None and all(callable(getattr(source,k,None)) for k in
-        ('require_lock','observe_hold','observe_admission','retained_diagnostic_binding','retained_query','verify_expected_readback')),
+        ('approved_release','require_lock','observe_hold','observe_admission','retained_diagnostic_binding','retained_query','verify_expected_readback')),
         'CANDIDATE_HELD_READBACK_TRANSPORT_REQUIRED')
     admission=guard(source,bound);proofs={}
     ref=inputs['expectedReadbackRef'];exact(ref,('path','sha256'),'CANDIDATE_HELD_READBACK_EXPECTED_REF')
-    require(ref['path']==f"/etc/workspacex-cn/maintenance-readback/{APP}/{bound['identity']['attemptId']}/expected.json",
+    require(ref['path']==f"/etc/workspacex-cn/maintenance-readback/{bound['identity']['sourceRevision']}/{bound['identity']['attemptId']}/expected.json",
             'CANDIDATE_HELD_READBACK_EXPECTED_PATH')
     raw=reader(ref['path'],ref['sha256']);require(hashlib.sha256(raw).hexdigest()==ref['sha256'],'CANDIDATE_HELD_READBACK_EXPECTED_HASH')
     expected=json.loads(raw)
