@@ -67,6 +67,8 @@ on:
       - 'scripts/check-cn-archive-export-inputs.py'
       - 'scripts/verify-cn-main-registration.py'
       - 'tests/test_cn_main_registration.py'
+      - '.harness/scripts/vm/isolated_external_lifecycle.py'
+      - '.harness/scripts/vm/isolated_external_lifecycle_test.py'
       - '.harness/scripts/vm/isolated_rehearsal.py'
       - '.harness/scripts/vm/isolated_rehearsal_test.py'
       - '.harness/scripts/vm/isolated_rehearsal_provider_error_test.py'
@@ -167,6 +169,7 @@ jobs:
         run: python3 -I -B .harness/scripts/vm/isolated_rehearsal_test.py
       - name: Verify isolated cleanup and sanitized provider failure boundaries
         run: |
+          python3 -I -B .harness/scripts/vm/isolated_external_lifecycle_test.py
           python3 -I -B .harness/scripts/vm/isolated_rehearsal_provider_contract_test.py
           python3 -I -B .harness/scripts/vm/isolated_rehearsal_provider_error_test.py
       - name: Verify isolated private RPC endpoints and signing without credentials

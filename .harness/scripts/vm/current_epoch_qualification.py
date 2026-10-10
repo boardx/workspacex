@@ -31,7 +31,7 @@ PRODUCER_SOURCE_FILES=(
  'retained_session_recovery.cjs','cn_backup_backend.py','cn_backup_stream.py',
  'isolated_conservation_supervisor.py','conservation-engine.cjs',
  'secondary-conservation-engine-final.cjs',
- 'isolated_rehearsal_aliyun.py','isolated_rehearsal_sql_stage.py',
+ 'isolated_external_lifecycle.py','isolated_rehearsal_aliyun.py','isolated_rehearsal_sql_stage.py',
  'isolated_rehearsal_prepare.py','isolated_rehearsal_restore.py',
  'isolated_rehearsal_snapshot.py','isolated_rehearsal_databases.cjs',
  'isolated_rehearsal_migrate.cjs','isolated_rehearsal_fidelity.cjs',
