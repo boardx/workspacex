@@ -16,7 +16,7 @@ from datetime import datetime, timedelta, timezone
 SCRIPTS = Path(__file__).resolve().parents[1] / 'scripts'
 sys.path.insert(0, str(SCRIPTS))
 from cn_candidate_download_supervisor import supervise, SupervisionError
-from cn_candidate_sdk_runtime import extract_wheels
+from cn_candidate_sdk_runtime import extract_wheels, validate_manifest
 spec = importlib.util.spec_from_file_location('download_entry', SCRIPTS / 'execute-cn-candidate-download.py')
 entry = importlib.util.module_from_spec(spec); spec.loader.exec_module(entry)
 
@@ -107,6 +107,17 @@ class WheelTests(unittest.TestCase):
         raw, blobs = self.fixture()
         with tempfile.TemporaryDirectory() as folder:
             self.assertEqual(extract_wheels(raw, lambda n,s: blobs[n], folder), 4)
+
+    def test_official_legacy_glibc_tags_and_upper_bound(self):
+        raw, _ = self.fixture()
+        value = json.loads(raw)
+        for platform in ('manylinux1_x86_64.manylinux_2_28_x86_64.manylinux_2_5_x86_64',
+                         'manylinux2010_x86_64.manylinux_2_12_x86_64'):
+            value['wheels'][0]['filename'] = 'oss2-2.19.1-cp312-cp312-' + platform + '.whl'
+            validate_manifest(json.dumps(value).encode())
+        for platform in ('manylinux_2_40_x86_64', 'manylinux_2_17_aarch64', 'macosx_11_0_arm64'):
+            value['wheels'][0]['filename'] = 'oss2-2.19.1-cp312-cp312-' + platform + '.whl'
+            with self.assertRaises(ValueError): validate_manifest(json.dumps(value).encode())
 
     def test_foreign_native_wheel_rejects(self):
         raw, blobs = self.fixture()

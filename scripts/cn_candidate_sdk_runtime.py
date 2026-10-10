@@ -63,8 +63,8 @@ def validate_manifest(raw):
         else:
             need((py == 'cp312' and abi in ('cp312', 'abi3'))
                  or (abi == 'abi3' and re.fullmatch(r'cp3(?:[6-9]|1[01])', py)), 'SDK_WHEEL_ABI')
-            need(all(re.fullmatch(r'manylinux_(?:2_(?:1[7-9]|2[0-9]|3[0-9])|2014)_x86_64', tag)
-                     or tag in ('manylinux2014_x86_64', 'linux_x86_64') for tag in platform.split('.')), 'SDK_WHEEL_PLATFORM')
+            need(all(re.fullmatch(r'manylinux_2_(?:[5-9]|[12][0-9]|3[0-9])_x86_64', tag)
+                     or tag in ('manylinux1_x86_64', 'manylinux2010_x86_64', 'manylinux2014_x86_64', 'linux_x86_64') for tag in platform.split('.')), 'SDK_WHEEL_PLATFORM')
     expected = {'oss2': '2.19.1', 'alibabacloud-credentials': '0.3.6',
                 'aliyun-python-sdk-core': '2.16.0', 'aliyun-python-sdk-sts': '3.1.2'}
     need(all(packages.get(k) == v for k, v in expected.items()), 'SDK_FIXED_DIRECT_DEPENDENCIES')
