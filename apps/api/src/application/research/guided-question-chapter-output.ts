@@ -1,4 +1,4 @@
-import { z } from "zod";
+import { research as C } from "@repo/contracts";
 import type { ModelResponseSchema } from "../agent-run/ports";
 import type { ReportSection } from "./guided-report-evidence";
 import { ResearchRuntimeError } from "./guided-runtime-ports";
@@ -6,8 +6,8 @@ import { validateModelChapter, chapterValidationIssues } from "./guided-chapter-
 import { chapterParagraphRegistry, type QuestionParagraphBinding } from "./guided-chapter-paragraphs";
 
 export interface QuestionParagraphPlan { questionId: string; placement: string; evidenceScope: { sourceId: string }[] }
-const paragraph = z.object({ questionId: z.string().min(1), body: z.string().trim().min(30).max(10000) }).strict();
-const output = z.object({ sectionId: z.string().min(1), paragraphs: z.array(paragraph).min(1).max(64) }).strict();
+const paragraph = C.GuidedResearchQuestionParagraphModelOutput;
+const output = C.GuidedResearchQuestionChapterModelOutput;
 class QuestionParagraphOutputError extends ResearchRuntimeError {
   readonly validationIssues: { code: string; path: (string | number)[]; questionId?: string; allowedSourceIds?: string[]; rejectedSourceIds?: string[] }[];
   constructor(code: string, reason = "RESEARCH_NODE_STATE_INVALID", detail?: { path: (string | number)[]; questionId: string; allowedSourceIds: string[]; rejectedSourceIds: string[] }) {

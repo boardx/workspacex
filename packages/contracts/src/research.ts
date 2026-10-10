@@ -947,6 +947,14 @@ const GuidedResearchEvidenceEvaluation = z.object({
 }).strict();
 export const GuidedResearchEvidenceModelOutput = z.object({ evaluations: z.array(GuidedResearchEvidenceEvaluation).min(1).max(8) }).strict();
 
+/** Internal model output; trusted headings and question coverage are assembled server-side. */
+export const GuidedResearchQuestionParagraphModelOutput = z.object({
+  questionId: z.string().min(1), body: z.string().trim().min(30).max(10000),
+}).strict();
+export const GuidedResearchQuestionChapterModelOutput = z.object({
+  sectionId: z.string().min(1), paragraphs: z.array(GuidedResearchQuestionParagraphModelOutput).min(1).max(64),
+}).strict();
+
 export const GuidedResearchChapterReviewModelOutput = z.object({
   questions: z.array(z.object({ questionId: z.string().min(1), status: z.enum(["answered", "gap", "missing"]), rationale: z.string().trim().min(1).max(1000) }).strict()).max(64),
   supported: z.boolean(), analysisDepth: z.enum(["adequate", "shallow"]), issues: z.array(z.string().trim().min(1).max(1000)).max(30),

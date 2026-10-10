@@ -72,6 +72,13 @@ const model: ModelCallPort = { complete: async (input) => {
     const chapter = { sectionId: context.section?.id ?? "o1", body: `### Evidence\n\nThe retrieved policy explains the grid rules and supports a limited comparison of the documented requirements. [[source:${id}]]\n\n### Analysis\n\nThe available evidence supports a cautious policy comparison, while implementation details remain uncertain.\n\n### Recommendations\n\nVerify current local requirements before selecting an entry option; this source does not establish financial returns.`, sourceIds: [id] };
     value = ["chapter", "chapter_revision"].includes(context.reportStage) ? chapter : ["synthesis", "synthesis_revision"].includes(context.reportStage) ? { title: "Findings", summary: "Limited to the available source", introduction: "This study compares documented grid policy within the confirmed scope, using retrieved excerpts rather than complete policy texts.", conclusion: "Prioritize verification of local grid requirements before selecting an entry option. Approval timing remains an evidence gap." } : { title: "Findings", summary: "Limited to the available source", introduction: "This study compares documented grid policy within the confirmed scope, using retrieved excerpts rather than complete policy texts.", conclusion: "Prioritize verification of local grid requirements before selecting an entry option. Approval timing remains an evidence gap.", sections: [chapter] };
   }
+  if (node === "report" && context.chapterOutputMode === "question_paragraphs") value = {
+    sectionId: context.section.id,
+    paragraphs: context.questionCoveragePlan.map((question: { questionId: string; question: string; evidenceScope: { sourceId: string }[] }) => {
+      const id = question.evidenceScope[0]?.sourceId;
+      return { questionId: question.questionId, body: `The policy evidence addresses ${question.question} within the retrieved excerpt's limited scope. ${id ? `[[source:${id}]]` : "No direct source establishes this requirement."} ${badCitation ? "[[source:fabricated]]" : ""} Local implementation and approval timing remain uncertain; the project owner must verify current requirements with the grid authority before choosing an entry option.` };
+    }),
+  };
   if (node === "report" && context.reportStage === "evidence") value = { evaluations: context.chunks.map((chunk: { sourceId: string; chunkId: string; quoteOptions: { quoteRef: string; text: string }[] }) => ({ sourceId: chunk.sourceId, chunkId: chunk.chunkId, irrelevant: false, matches: context.questions.map((question: { id: string }) => ({ questionId: question.id, quoteRef: chunk.quoteOptions[0]!.quoteRef, insight: "The controlled source identifies policy evidence; real-world applicability remains unverified.", relevance: "direct" })) })) };
   if (node === "report" && context.reportStage === "quality") value = { questions: context.evidenceByQuestion.map((question: { questionId: string; gap: boolean }) => ({ questionId: question.questionId, status: question.gap ? "gap" : "answered", rationale: "The chapter discusses supplied evidence, limits and verification actions." })), supported: true, analysisDepth: shallowReport ? "shallow" : "adequate", issues: shallowReport ? ["Explain the policy comparison more deeply."] : [] };
   if (context.targetNode) value = { assistantMessage: "Proposed revision", value: node === "research" ? context.sources.map((source: {id: string;decision: string}) => ({ id: source.id, decision: proposedAction === "complete" ? "accepted" : source.decision })) : value, action: proposedAction };
@@ -559,13 +566,21 @@ describe("durable research runtime with real PostgreSQL and controlled provider 
     expect(state.tasks.map(task => task.id)).toEqual(failedTaskIds);
     expect((await service.get(actor, session)).tasks).toEqual(state.tasks);
   });
-  it("rejects nonexistent sources, unknown citations and cross-node drafts", async () => {
+  it("rejects invalid edited references and cross-node drafts while discarding unknown generated citations", async () => {
     await reachResearch(); await run("start");
     await run("save", { draft: { node: "research", value: [{ id: "foreign", decision: "accepted" }] } });
     expect(state.errorCode).toBe("RESEARCH_CONTENT_REFERENCE_INVALID");
     await run("save", { draft: { node: "research", value: [{ id: state.sources[0]!.id, decision: "accepted" }] } });
     badCitation = true; await run("complete");
-    expect(state.errorCode).toBe("RESEARCH_CONTENT_REFERENCE_INVALID"); expect(state.report).toBeNull();
+    expect(state.errorCode).toBeNull(); expect(state.report).not.toBeNull();
+    expect(state.report!.sections.every((chapter) => !chapter.body.includes("fabricated") && !chapter.sourceIds.includes("fabricated"))).toBe(true);
+    expect(state.report!.sections[0]!.sourceIds).toEqual([state.sources[0]!.id]);
+    expect(state.report!.sections[0]!.body).toContain(`[[source:${state.sources[0]!.id}]]`);
+    const edited = structuredClone(state.report!);
+    edited.sections[0]!.body += "\n\nAn invalid edited reference [[source:foreign]].";
+    edited.sections[0]!.sourceIds.push("foreign");
+    await run("save", { draft: { node: "report", value: edited } });
+    expect(state.errorCode).toBe("RESEARCH_CONTENT_REFERENCE_INVALID");
     expect(C.GuidedResearchRuntimeCommand.safeParse({ sessionId: actor.sessionId, node: "brief", action: "save", requestId: "cross", expectedVersion: 0, draft: { node: "report", value: {} } }).success).toBe(false);
   });
   it("denies another user before any model call and serializes concurrent requests", async () => {
@@ -585,6 +600,10 @@ describe("durable research runtime with real PostgreSQL and controlled provider 
   });
 });
 
+async function useLegacyStreamingOutline() {
+  await db.withTenant(orgId, (tx) => tx.query(`UPDATE guided_research_runtime SET state=jsonb_set(state,'{outline,0}',(state->'outline'->0)-'subsections') WHERE org_id=$1 AND session_id=$2`, [orgId, actor.sessionId]));
+  state = await service.get(actor, session);
+}
 describe("report streaming and explicit partial evidence", () => {
   it.each(["state_read", "claim", "final_persistence"] as const)("binds a rejected %s stream to its HTTP trace without exposing the raw exception", async (phase) => {
     await reachResearch();
@@ -599,7 +618,10 @@ describe("report streaming and explicit partial evidence", () => {
     }, model, search, { provider: "test", id: "test-model" }, model, undefined,
     { record } as unknown as import("../../src/application/ports/debug-trace.port").DebugTracePort);
     const routeService = app.get<GuidedRuntimeService>(GUIDED_RUNTIME_SERVICE);
-    const spy = vi.spyOn(routeService, "execute").mockImplementation((...args) => runtime.execute(...args));
+    let observerExecution: Promise<ResearchRuntime> | undefined;
+    const spy = vi.spyOn(routeService, "execute").mockImplementation((...args) => {
+      observerExecution = runtime.execute(...args); return observerExecution;
+    });
     const command = { sessionId: actor.sessionId, node: "research", action: "resume", requestId: randomUUID(), expectedVersion: original.version, expectedRevision: original.planRevision ?? 0, idempotencyKey: randomUUID() };
     try {
       const response = await fetch(`${base}/research/guided-sessions/${actor.sessionId}/runtime/commands/stream`, {
@@ -620,7 +642,7 @@ describe("report streaming and explicit partial evidence", () => {
   });
 
   it("persists the first provider delta before completion and survives observer disconnect/replay", async () => {
-    await reachResearch();
+    await reachResearch(); await useLegacyStreamingOutline();
     let release!: () => void;
     let started!: () => void;
     const first = new Promise<void>((resolve) => { started = resolve; });
@@ -644,13 +666,38 @@ describe("report streaming and explicit partial evidence", () => {
       expect(snapshot.reportStream?.sequence).toBeGreaterThanOrEqual(1);
       expect(await runtime.execute(actor, session, command)).toEqual(snapshot);
       expect(streamCalls).toBe(1);
-    } finally { release(); }
+    } finally { release(); await execution; }
     state = await execution;
     expect(state.errorCode).toBeNull(); expect(state.report?.title).toBe("Findings");
     expect(state.reportStream).toBeNull(); expect(events[0]).toBe("snapshot"); expect(events.at(-1)).toBe("result");
   });
-  it("serves an authorized SSE observer and keeps generating after the socket closes", async () => {
+  it("keeps internal question paragraph tokens private until the rich chapter is validated", async () => {
     await reachResearch();
+    let started!: () => void; let release!: () => void;
+    const first = new Promise<void>((resolve) => { started = resolve; });
+    const blocked = new Promise<void>((resolve) => { release = resolve; });
+    const streamed: ModelCallPort = { complete: model.complete, completeStream: async (input, delta) => {
+      const answer = await model.complete(input);
+      await delta(answer.text.slice(0, 35)); started(); await blocked;
+      await delta(answer.text.slice(35)); return answer;
+    } };
+    const runtime = new GuidedRuntimeService(new PgGuidedRuntimeStore(db), model, search, { provider: "test", id: "test-model" }, streamed);
+    const events: string[] = [];
+    const execution = runtime.execute(actor, session, { sessionId: actor.sessionId, node: "research", action: "complete", expectedVersion: state.version, requestId: randomUUID() }, (event) => { events.push(event.type); });
+    try {
+      await first;
+      const pending = await runtime.get(actor, session);
+      expect(pending.busy).toBe(true); expect(pending.report).toBeNull();
+      expect(pending.reportStream?.text).toBe("");
+      expect(events).not.toContain("report_delta");
+    } finally { release(); await execution; }
+    const completed = await execution;
+    expect(completed.errorCode).toBeNull(); expect(completed.report).not.toBeNull();
+    expect(completed.report!.sections[0]!.body).not.toContain('"questionId":');
+    expect((await runtime.get(actor, session)).report).toEqual(completed.report);
+  });
+  it("serves an authorized SSE observer and keeps generating after the socket closes", async () => {
+    await reachResearch(); await useLegacyStreamingOutline();
     let release!: () => void;
     const blocked = new Promise<void>((resolve) => { release = resolve; });
     const streamed: ModelCallPort = { complete: model.complete, completeStream: async (input, delta) => {
@@ -659,7 +706,10 @@ describe("report streaming and explicit partial evidence", () => {
     } };
     const runtime = new GuidedRuntimeService(new PgGuidedRuntimeStore(db), model, search, { provider: "test", id: "test-model" }, streamed);
     const routeService = app.get<GuidedRuntimeService>(GUIDED_RUNTIME_SERVICE);
-    const spy = vi.spyOn(routeService, "execute").mockImplementation((...args) => runtime.execute(...args));
+    let observerExecution: Promise<ResearchRuntime> | undefined;
+    const spy = vi.spyOn(routeService, "execute").mockImplementation((...args) => {
+      observerExecution = runtime.execute(...args); return observerExecution;
+    });
     const path = `${base}/research/guided-sessions/${actor.sessionId}/runtime/commands/stream`;
     const command = { sessionId: actor.sessionId, node: "research", action: "complete", expectedVersion: state.version, requestId: randomUUID() };
     const headers = { "content-type": "application/json", "x-kernel-test-principal": `${userId}:${orgId}` };
@@ -676,9 +726,12 @@ describe("report streaming and explicit partial evidence", () => {
       await reader.cancel(); release();
       await expect.poll(async () => (await runtime.get(actor, session)).busy, { timeout: 10000 }).toBe(false);
       expect((await runtime.get(actor, session)).report?.title).toBe("Findings");
-    } finally { release(); spy.mockRestore(); }
+    } finally {
+      release();
+      try { await observerExecution; } finally { spy.mockRestore(); }
+    }
   });
-  it.each(["transport", "citation"])("keeps only approved checkpoint text after a %s failure", async (failure) => {
+  it.each(["transport", "citation"])("retains approved text on transport failure and discards generated invalid references (%s)", async (failure) => {
     await reachResearch();
     badCitation = failure === "citation";
     const streamed: ModelCallPort = { complete: model.complete, completeStream: async (input, delta) => {
@@ -688,7 +741,14 @@ describe("report streaming and explicit partial evidence", () => {
     } };
     const runtime = new GuidedRuntimeService(new PgGuidedRuntimeStore(db), model, search, { provider: "test", id: "test-model" }, streamed);
     const result = await runtime.execute(actor, session, { sessionId: actor.sessionId, node: "research", action: "complete", expectedVersion: state.version, requestId: randomUUID() });
-    expect(result.errorCode).toBe(failure === "citation" ? "RESEARCH_CONTENT_REFERENCE_INVALID" : "RESEARCH_WORKFLOW_UNAVAILABLE");
+    if (failure === "citation") {
+      expect(result.errorCode).toBeNull(); expect(result.report).not.toBeNull();
+      expect(result.report!.sections.every((chapter) => !chapter.body.includes("fabricated"))).toBe(true);
+      expect(result.reportStream).toBeNull();
+      expect((await runtime.get(actor, session)).report).toEqual(result.report);
+      return;
+    }
+    expect(result.errorCode).toBe("RESEARCH_WORKFLOW_UNAVAILABLE");
     expect(result.report).toBeNull(); expect(result.completed).toBe(false); expect(result.generatedNodes).not.toContain("report");
     expect(result.reportStream?.status).toBe("failed"); expect(result.reportStream?.text).not.toContain("Evidence"); expect(result.reportCheckpoint?.chapters).toEqual([]);
     expect((await runtime.get(actor, session)).reportStream).toEqual(result.reportStream);
