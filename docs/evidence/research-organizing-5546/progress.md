@@ -1,3 +1,5 @@
 # #5546 progress
 
 Core exact content-rejection and deterministic question/repair scope changes implemented and regression-tested. Final real-model acceptance remains failed (two persisted drafts, zero formal reports). Release verification is blocked by unchanged secret-scan baseline files. Issue remains open, no PR, no merge, no passing feature declaration. Review handoff pending exact-SHA main-session decision.
+
+Offline follow-up: original 23/23 approvals match current source relevance basis; original route skips screening. Seven-source replay is not equivalent to original full route. Added 23-batch controlled geometry regression retaining healthy same-source chunks and identical rejection reuse; unchanged approvals regression dispatches zero screening calls. Full research suite now 717 tests passes. Formal body export unavailable: pageAssets rejects runtime JSON kind other; 17 exact original document bodies unavailable locally. Metadata/hash/batch map and bounded-call analysis in full-fixture-feasibility.md. Production candidate remains frozen; no more real calls or deployment.

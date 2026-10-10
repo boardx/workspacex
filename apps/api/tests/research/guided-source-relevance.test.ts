@@ -12,6 +12,7 @@ import { toOrgId } from "../../src/domain/org-id";
 import { guidedResearchReply } from "../../scripts/loopback-guided-research";
 import {NegativeSourceScreenCache} from "../../src/application/research/guided-negative-screen-cache";
 import { ModelCallError } from "../../src/application/agent-run/ports";
+import { prepareGeometry } from "./full-source-geometry-fixture";
 
 const session = C.GuidedResearchSession.parse({ sessionId: "relevance-session", title: "王者荣耀", brief: { topic: "王者荣耀综合研究", goal: "市场地位与电竞生态", region: "中国", focus: "用户留存和电竞", timeRange: "2023–2027" }, stage: "brief", resumeStage: "brief", status: "active", progress: 0, sourceCount: 0, reportId: null, createdAt: "now", updatedAt: "now" });
 function runtime() {
@@ -40,6 +41,23 @@ function complete() {
 }
 
 describe("automatic research source relevance", () => {
+  it("skips all 23 unchanged approvals across the complete task and outline geometry", async () => {
+    const state = prepareGeometry(runtime());
+    for (const item of state.sources) item.relevanceBasis = relevanceModule.sourceRelevanceBasis(state, item);
+    const before = structuredClone(state.sources);
+    const model = complete();
+    expect(reportQuestions(state.outline)).toHaveLength(32);
+    expect(state).not.toHaveProperty("planRevision");
+    const screened = await screenResearchSources(state, state.sources, model);
+    expect(model).not.toHaveBeenCalled();
+    expect(screened).toEqual(before);
+    expect(screened).toHaveLength(23);
+    expect(state.reportPartial).toBe(false);
+    // Genuine input changes invalidate only that approval, not the other 22.
+    state.sources[0]!.title += " changed";
+    await screenResearchSources(state, state.sources, model);
+    expect(model).toHaveBeenCalledTimes(1);
+  });
   it("records a rejected supplier batch without calling it irrelevant and keeps healthy sources", async () => {
     const state=runtime(); state.sources=Array.from({length:9},(_,i)=>source(`s${i}`,direct.content));
     let rejectedCalls=0;

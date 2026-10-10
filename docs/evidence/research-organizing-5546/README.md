@@ -24,3 +24,5 @@ pnpm --filter @repo/api exec tsx ../../docs/evidence/research-organizing-5546/re
 ```
 
 The report replay exits 1 unless both generations produce formal reports without drafts/quality warnings. Source pages may change; fixture hash comparisons expose that difference. The completed final run is archived above; do not rerun without the main session's next evidence decision.
+
+Offline full-fixture follow-up: see [full-fixture-feasibility.md](full-fixture-feasibility.md). Original approvals skip screening; prior seven-source partial replay is not equivalent. Test/evidence-only follow-up passes 717 unit tests and preserves same-source healthy chunks after a batch refusal. Full original runtime export remains unavailable. No acceptance or release claim.

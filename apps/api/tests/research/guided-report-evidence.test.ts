@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import { canonicalEvidenceSources, extractReportEvidence, reportQuestions, selectQuestionEvidence, type ReportAudit } from "../../src/application/research/guided-report-evidence";
 import type { ResearchRuntime } from "../../src/application/research/guided-runtime-ports";
 import { ModelCallError } from "../../src/application/agent-run/ports";
+import { prepareGeometry } from "./full-source-geometry-fixture";
+import geometry from "../../../../docs/evidence/research-organizing-5546/original-geometry.json";
 function fixture(count = 16): ResearchRuntime {
   return { sessionId: "s", version: 1, revision: 1, currentNode: "report", availableNodes: ["report"],
     brief: { topic: "Policy", goal: "Compare", timeRange: "2026", region: "EU", focus: "Grid" }, directions: [],
@@ -16,6 +18,34 @@ function auditFor(make: (context: any) => unknown): ReportAudit {
 const evaluate = (context: any) => ({ evaluations: context.chunks.map((chunk: any) => ({ sourceId: chunk.sourceId, chunkId: chunk.chunkId, irrelevant: false,
   matches: context.questions.map((question: any) => ({ questionId: question.id, quote: (chunk.content ?? chunk.quoteOptions[0].text).slice(0, 80), insight: "Interpretation must be checked against the quote.", relevance: "direct" })) })) });
 describe("verified report evidence coverage", () => {
+  it("keeps healthy chunks of a partially rejected source in the original 23-batch geometry", async () => {
+    const state = prepareGeometry(fixture());
+    const originalSources = structuredClone(state.sources);
+    const calls: number[] = [];
+    const run = () => extractReportEvidence(state, config, async (input, validate) => {
+      const context = JSON.parse(input.user);
+      calls.push(context.batchIndex);
+      if (context.batchIndex === 15) throw new ModelCallError("MODEL_CALL_FAILED", "HTTP 400", undefined, undefined, "content-policy");
+      return validate(JSON.stringify({ evaluations: context.chunks.map((chunk: any) => ({ sourceId: chunk.sourceId,
+        chunkId: chunk.chunkId, irrelevant: false, matches: [{ questionId: context.questions[0].id,
+          quoteRef: chunk.quoteOptions[0].quoteRef, insight: "Controlled geometry match, not a semantic acceptance claim.", relevance: "context" }] })) }));
+    }, undefined, [], undefined, "controlled-config");
+    const result = await run();
+    expect(calls.sort((a, b) => a - b)).toEqual(geometry.batches.map(batch => batch.batchIndex));
+    expect(result.sources).toHaveLength(22);
+    expect(state.sources).toEqual(originalSources);
+    const rejected = state.reportEvidenceWarnings?.find(warning => warning.reason === "batch_provider_content_rejected");
+    expect(rejected).toMatchObject({ batchIndex: 15, chunks: geometry.batches[15]!.chunks.map(({ sourceId, chunkId }) => ({ sourceId, chunkId })) });
+    const partialSource = geometry.sources[15]!.id;
+    const retained = state.privateLedger?.records.filter(record => record.sourceId === partialSource) ?? [];
+    expect(retained.map(record => record.chunkId).sort()).toEqual(Array.from({ length: 8 }, (_, index) => `source:${partialSource}/chunk:${index + 2}`).sort());
+    expect([...result.matches.values()].flat().some(match => match.sourceId === partialSource)).toBe(true);
+    calls.length = 0;
+    await run();
+    expect(calls).toHaveLength(22);
+    expect(calls).not.toContain(15);
+    expect(state.sources).toEqual(originalSources);
+  });
   it("excludes a provider-rejected batch without replaying it and keeps healthy verified evidence", async () => {
     const state = fixture(16); const calls: number[] = [];
     const result = await extractReportEvidence(state, config, async (input, validate) => {
