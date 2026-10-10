@@ -67,6 +67,15 @@ on:
       - 'scripts/check-cn-archive-export-inputs.py'
       - 'scripts/verify-cn-main-registration.py'
       - 'tests/test_cn_main_registration.py'
+      - '.harness/scripts/vm/clone_fresh_memory.py'
+      - '.harness/scripts/vm/clone_fresh_memory_engine.py'
+      - '.harness/scripts/vm/clone_fresh_memory_test.py'
+      - '.harness/scripts/vm/clone_quiescence.py'
+      - '.harness/scripts/vm/clone_quiescence_adapter.py'
+      - '.harness/scripts/vm/clone_quiescence_engine.py'
+      - '.harness/scripts/vm/clone_quiescence.sql'
+      - '.harness/scripts/vm/clone_quiescence_test.py'
+      - '.harness/scripts/vm/clone_quiescence_adapter_test.py'
       - '.harness/scripts/vm/isolated_rehearsal.py'
       - '.harness/scripts/vm/isolated_rehearsal_test.py'
       - '.harness/scripts/vm/isolated_rehearsal_provider_error_test.py'
@@ -165,6 +174,11 @@ jobs:
         run: python3 -I -B -m unittest discover -s tests -p 'test_cn_main_registration.py' -v
       - name: Run isolated recovery contracts on trusted runner directories
         run: python3 -I -B .harness/scripts/vm/isolated_rehearsal_test.py
+      - name: Clone quiescence admission and single commit contracts
+        run: |
+          python3 -I -B .harness/scripts/vm/clone_quiescence_test.py
+          python3 -I -B .harness/scripts/vm/clone_quiescence_adapter_test.py
+          python3 -I -B .harness/scripts/vm/clone_fresh_memory_test.py
       - name: Verify isolated cleanup and sanitized provider failure boundaries
         run: |
           python3 -I -B .harness/scripts/vm/isolated_rehearsal_provider_contract_test.py
