@@ -15,7 +15,7 @@ import time
 from email.utils import parsedate_to_datetime
 
 import cn_image_archive as c
-from cn_candidate_oss import CandidateTransfer
+from cn_candidate_oss import CandidateTransfer, UntrustedCacheTransfer
 from cn_archive_oss import OssSdkPort
 
 ACCOUNT = '1177216024653153'
@@ -37,6 +37,8 @@ def validate_request(raw, expected, operation):
     c.require(type(raw) is bytes and len(raw) <= 512 * 1024 and c.sha(raw) == expected,
               'AUTH_TRANSFER_REQUEST_HASH')
     v = c.decode(raw)
+    if type(v) is dict and v.get('kind') == CACHE_REQUEST_KIND:
+        return validate_cache_request(raw, expected, operation)
     fields = {'kind', 'schemaVersion', 'accountId', 'ecsInstanceId', 'roleName',
               'region', 'expectedPrincipal', 'operation', 'issuedAt', 'expiresAt',
               'bucketPolicyRawSha256', 'fenceStartsAt', 'fenceExpiresAt',
@@ -273,7 +275,8 @@ def ecs_port(request):
         req.set_protocol_type('https'); req.set_endpoint('sts.cn-shanghai.aliyuncs.com')
         req.set_method('POST'); req.set_accept_format('json')
         return c.decode(sts.do_action_with_exception(req))
-    return AuthenticatedPort(bucket, identity, request)
+    port_type = UntrustedCacheAuthenticatedPort if request['kind'] == CACHE_REQUEST_KIND else AuthenticatedPort
+    return port_type(bucket, identity, request)
 
 
 def execute_from_ecs(operation, request_raw, request_sha, plan_raw, set_raw,
@@ -313,7 +316,8 @@ def _execute(operation, raw, expected, plan_raw, set_raw, bundle, parent, name, 
         c.require(proof_raw is None and policy_raw is None, 'AUTH_UNEXPECTED_REVALIDATION')
     # Constructor validates original bytes/TTL and approval before credentials.
     kwargs = {'revalidation': revalidation} if revalidation is not None else {}
-    pending = CandidateTransfer(None, plan_raw, request['candidatePlanRawSha256'],
+    transfer_type = UntrustedCacheTransfer if request['kind'] == CACHE_REQUEST_KIND else CandidateTransfer
+    pending = transfer_type(None, plan_raw, request['candidatePlanRawSha256'],
         set_raw, request['candidateSetRawSha256'], request['transport'],
         request['transferApproval'], max_seconds=request['maxSeconds'], **kwargs)
     port = ecs_port(request)
@@ -331,3 +335,108 @@ def _execute(operation, raw, expected, plan_raw, set_raw, bundle, parent, name, 
             'requestRawSha256': expected, 'authentication': port.observe(),
             'transfer': result, 'cacheSnapshotVerified': True,
             'remoteCacheImmutable': False, 'productionReady': False, 'releaseReady': False}
+
+
+CACHE_REQUEST_KIND = 'cn-candidate-authenticated-untrusted-cache-v1'
+
+
+def validate_cache_request(raw, expected, operation):
+    """Independent exact schema: policy/fence fields are not accepted."""
+    c.require(type(raw) is bytes and len(raw) <= 512 * 1024 and c.sha(raw) == expected,
+              'AUTH_TRANSFER_REQUEST_HASH')
+    v = c.decode(raw)
+    fields = {'kind', 'schemaVersion', 'accountId', 'ecsInstanceId', 'roleName',
+              'region', 'expectedPrincipal', 'operation', 'issuedAt', 'expiresAt',
+              'candidatePlanRawSha256', 'candidateSetRawSha256', 'transport',
+              'transferApproval', 'maxSeconds'}
+    optional = {'revalidationRawSha256', 'revalidationPolicyRawSha256'}
+    c.require(type(v) is dict and (set(v) == fields or set(v) == fields | optional),
+              'CACHE_REQUEST_FIELDS')
+    c.require(v['kind'] == CACHE_REQUEST_KIND and type(v['schemaVersion']) is int
+              and v['schemaVersion'] == 1, 'CACHE_REQUEST_KIND')
+    c.require(v['accountId'] == ACCOUNT and v['ecsInstanceId'] == INSTANCE
+              and v['roleName'] == ROLE and v['region'] == REGION, 'AUTH_TRANSFER_TARGET')
+    c.require(operation in ('check', 'download') and v['operation'] == 'download',
+              'AUTH_ECS_DOWNLOAD_ONLY')
+    c.require(isinstance(v['expectedPrincipal'], str) and re.fullmatch(
+              r'acs:ram::' + ACCOUNT + r':assumed-role/' + ROLE + r'/[^/*\s]{1,128}',
+              v['expectedPrincipal'], re.IGNORECASE), 'AUTH_TRANSFER_ROLE_PRINCIPAL')
+    for key in ('candidatePlanRawSha256', 'candidateSetRawSha256'):
+        c.require(c.hex_string(v[key], 64), 'AUTH_TRANSFER_HASH')
+    if optional <= set(v):
+        c.require(all(c.hex_string(v[key], 64) for key in optional), 'AUTH_REVALIDATION_HASH')
+    issued, expiry = c.timestamp(v['issuedAt']), c.timestamp(v['expiresAt'])
+    c.require(0 < (expiry-issued).total_seconds() <= 3600 and issued <= now() < expiry,
+              'AUTH_TRANSFER_EXPIRED')
+    c.require(type(v['maxSeconds']) is int and 1 <= v['maxSeconds'] <= 1200,
+              'AUTH_TRANSFER_DEADLINE')
+    t = v['transport']
+    c.require(type(t) is dict and t.get('kind') == 'approved-candidate-oss-untrusted-cache-v1'
+              and t.get('endpoint') == ENDPOINT and t.get('region') == REGION
+              and t.get('bucket') == BUCKET
+              and t.get('downloadPrincipal') == v['expectedPrincipal'], 'AUTH_TRANSFER_PRINCIPAL_BINDING')
+    ap = v['transferApproval']
+    c.require(type(ap) is dict and ap.get('kind') == 'cn-candidate-untrusted-cache-approval-v1'
+              and ap.get('operation') == 'download', 'AUTH_TRANSFER_APPROVAL')
+    c.require(c.timestamp(ap['observedAt']) >= issued
+              and c.timestamp(ap['expiresAt']) <= expiry, 'AUTH_TRANSFER_APPROVAL_WINDOW')
+    return v
+
+
+class UntrustedCacheAuthenticatedPort(AuthenticatedPort):
+    """Signed same-credential identity and observed version state, no policy API.
+
+    Observations cannot exclude an administrator changing state between reads.
+    Any failed observation permanently poisons this bounded port instance.
+    """
+    def __init__(self, bucket, identity_reader, request):
+        self.failed = False
+        super().__init__(bucket, identity_reader, request)
+
+    def valid(self):
+        c.require(not self.failed, 'CACHE_OBSERVATION_FAILED')
+        super().valid()
+
+    def observe_cache_version(self):
+        try:
+            self.valid()
+            c.require(self.bucket.get_bucket_versioning().status is None,
+                      'VERSIONING_MUST_BE_DISABLED')
+            self.valid()
+            return 'Disabled'
+        except BaseException:
+            self.failed = True
+            raise
+
+    def observe(self):
+        try:
+            self.valid()
+            ident = self.identity_reader()
+            c.require(type(ident) is dict and ident.get('AccountId') == ACCOUNT
+                      and ident.get('Arn') == self.request['expectedPrincipal']
+                      and ident.get('IdentityType') == 'AssumedRoleUser', 'AUTH_STS_IDENTITY')
+            info = self.bucket.get_bucket_info()
+            c.require(info.name == self.request['transport']['bucket']
+                      and info.location == 'oss-cn-shanghai' and info.owner.id == ACCOUNT,
+                      'AUTH_BUCKET_OWNER_REGION')
+            c.require(self.bucket.get_bucket_acl().acl == 'private', 'AUTH_BUCKET_PRIVATE_REQUIRED')
+            self.observe_cache_version()
+            self.observation = {'kind': 'cn-candidate-untrusted-cache-auth-observation-v1',
+                'accountId': ACCOUNT, 'ecsInstanceId': INSTANCE, 'region': REGION,
+                'bucket': self.request['transport']['bucket'],
+                'principalSha256': c.sha(self.principal.encode()),
+                'observedAt': now().isoformat(), 'expiresAt': self.request['expiresAt'],
+                'authenticatedSameCredentialIdentity': True, 'privateAclObserved': True,
+                'versioningObserved': 'Disabled', 'remoteCacheImmutable': False,
+                'administrativeRaceExcluded': False, 'productionReady': False, 'releaseReady': False}
+            return copy.deepcopy(self.observation)
+        except BaseException:
+            self.failed = True
+            raise
+
+    def bind(self, transport, operation):
+        try:
+            super().bind(transport, operation)
+        except BaseException:
+            self.failed = True
+            raise
