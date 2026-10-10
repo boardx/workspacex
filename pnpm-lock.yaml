@@ -618,6 +618,9 @@ importers:
       remark-gfm:
         specifier: ^4
         version: 4.0.1
+      sharp:
+        specifier: 0.34.5
+        version: 0.34.5
       tailwind-merge:
         specifier: ^2.5.4
         version: 2.6.1

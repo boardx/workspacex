@@ -32,6 +32,8 @@ if (existsSync(monacoVsSrc) && !existsSync(monacoVsDest)) {
 /** @type {import('next').NextConfig} */
 export default {
   reactStrictMode: true,
+  // Only release images use a traced runtime; dev/e2e keep their current output.
+  ...(process.env.WORKSPACEX_RELEASE_BUILD === "1" ? { output: "standalone" } : {}),
   /**
    * ⚠ 2026-08-18 实测（真栈 + 真实百炼 `qwen3.8-max` 跑 pptx skill 试跑）：
    * Next 的 rewrite 代理**默认 30s 就掐断连接**（`proxyTimeout` 未配时的内建默认），
@@ -57,6 +59,8 @@ export default {
     // The release builder shares constrained hosts with provisioning verification.
     // Keep compilers/traces sequential and static generation on one worker.
     ...(process.env.WORKSPACEX_RELEASE_BUILD === "1" ? {
+      // Next 14 traces workspace packages and pnpm links from the monorepo root.
+      outputFileTracingRoot: join(__dirname, "../.."),
       cpus: 1,
       webpackBuildWorker: true,
       parallelServerCompiles: false,
