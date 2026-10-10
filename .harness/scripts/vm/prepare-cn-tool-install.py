@@ -156,16 +156,41 @@ def verify_inventory_receipt(inventory_raw,receipt_raw,expected,now=None):
  if finish is not None:require(start<=time(finish)<=current and (current-time(finish)).total_seconds()<3600,'PROVIDER_FINISH_TIME')
  return {'schemaVersion':1,'receiptSha256':sha(receipt_raw),'localInventorySha256':sha(inventory_raw),'outputSha256':sha(output_raw),'expected':expected,'startTime':receipt['startTime'],'finishTime':finish,'inventoryObservedAt':inventory['observedAt'],'freshnessSeconds':3600,'receiptAuthenticity':'externally pinned root-captured receipt required; local byte verification only'}
 PROFILE_SCHEMA_SOURCE='.harness/scripts/vm/cn_tool_profile.py'
-def profile_content(tool,rows,schema_raw=None,runtime=None):
+def profile_content(tool,rows,schema_raw=None,runtime=None,extension=None,expected_extension=None):
  if PROFILE_SCHEMA_SOURCE not in rows:
+  require(extension is None and expected_extension is None,'COMPOSE_EXTENSION_SCHEMA_REQUIRED')
   return {'toolRevision':tool,'filesSha256':{name:row['newSha256'] for name,row in rows.items()}}
  require(schema_raw is not None and sha(schema_raw)==rows[PROFILE_SCHEMA_SOURCE]['newSha256'],'PROFILE_SCHEMA_SOURCE_BINDING')
  namespace={'__name__':'exact_git_bound_profile_schema'}
  exec(compile(schema_raw,PROFILE_SCHEMA_SOURCE,'exec'),namespace)
- return namespace['build_profile'](tool,rows,runtime)
+ if extension is None and expected_extension is None:return namespace['build_profile'](tool,rows,runtime)
+ return namespace['build_profile'](tool,rows,runtime,extension,expected_extension)
+
+def extension_evidence(tool,rows,schema_raw,extension,expected,app=None,git_blob=None,old_projection=False):
+ if extension is None:
+  require(expected is None,'COMPOSE_EXTENSION_UNSOLICITED_PIN');return None
+ require(PROFILE_SCHEMA_SOURCE in rows and sha(schema_raw)==rows[PROFILE_SCHEMA_SOURCE]['newSha256'],'PROFILE_SCHEMA_SOURCE_BINDING')
+ namespace={'__name__':'exact_git_bound_profile_schema'}
+ exec(compile(schema_raw,PROFILE_SCHEMA_SOURCE,'exec'),namespace)
+ require('validate_compose_extension' in namespace,'COMPOSE_EXTENSION_SCHEMA_REQUIRED')
+ if old_projection:return namespace['validate_compose_projection'](extension,tool,app,git_blob)
+ return namespace['validate_compose_extension'](extension,expected,tool,app,git_blob)
+
+def rebuild_old_profile(tool,rows,schema_raw,runtime,projection):
+ if projection is None:return profile_content(tool,rows,schema_raw,runtime)
+ require(PROFILE_SCHEMA_SOURCE in rows and sha(schema_raw)==rows[PROFILE_SCHEMA_SOURCE]['newSha256'],'PROFILE_SCHEMA_SOURCE_BINDING')
+ namespace={'__name__':'exact_git_bound_profile_schema'}
+ exec(compile(schema_raw,PROFILE_SCHEMA_SOURCE,'exec'),namespace)
+ require('rebuild_profile' in namespace,'COMPOSE_EXTENSION_SCHEMA_REQUIRED')
+ return namespace['rebuild_profile'](tool,rows,runtime,projection)
 
 def old_profile_allowlist(content,old_files,inventory):
- require(isinstance(old_files,dict) and old_files and set(content['filesSha256'])==set(old_files),'PROFILE_OLD_ALLOWLIST_CLOSURE')
+ require(isinstance(old_files,dict) and old_files,'PROFILE_OLD_ALLOWLIST_CLOSURE')
+ if 'composeExtensionV1' in content:
+  # Exact old Git FILES is preserved separately; extras are reconstructed by
+  # old_profile_binding from the root-inventory-pinned old schema/container.
+  require(set(content.get('composeBaseFilesSha256',{}))==set(old_files),'PROFILE_OLD_ALLOWLIST_CLOSURE')
+ else:require(set(content['filesSha256'])==set(old_files),'PROFILE_OLD_ALLOWLIST_CLOSURE')
  require(all(inventory.get('files',{}).get(source,{}).get('target')==target for source,target in old_files.items()),'PROFILE_OLD_TARGET_AUTHORITY')
 
 def old_profile_binding(old,previous,old_schema_raw=None):
@@ -176,16 +201,19 @@ def old_profile_binding(old,previous,old_schema_raw=None):
  require(len(raw)<=8000000 and sha(raw)==old['sha256'] and raw==(json.dumps(content,sort_keys=True)+'\n').encode(),'PROFILE_OLD_RAW_BINDING')
  tool=content.get('toolRevision');require(re.fullmatch('[a-f0-9]{40}',tool or ''),'PROFILE_OLD_TOOL')
  hashes=content.get('filesSha256');require(isinstance(hashes,dict) and hashes,'PROFILE_OLD_CLOSURE')
+ extension=content.get('composeExtensionV1')
+ base_hashes=content.get('composeBaseFilesSha256') if extension is not None else hashes
+ require(isinstance(base_hashes,dict) and base_hashes,'PROFILE_OLD_BASE_CLOSURE')
  rows={}
- for source,digest in hashes.items():
+ for source,digest in base_hashes.items():
   before=previous.get('files',{}).get(source);require(isinstance(before,dict),'PROFILE_OLD_SOURCE_INVENTORY')
   target=before.get('target')
   if target is not None:require(before.get('present') is True and before.get('regular') is True and before.get('symlink') is False and before.get('sha256')==digest and before.get('uid')==0 and before.get('gid')==0 and before.get('links')==1,'PROFILE_OLD_INSTALLED_BINDING')
   rows[source]={'target':target,'newSha256':digest}
- require(content==profile_content(tool,rows,old_schema_raw,previous.get('runtimes',{}).get('node')),'PROFILE_OLD_CONTENT_AUTHORITY')
+ require(content==rebuild_old_profile(tool,rows,old_schema_raw,previous.get('runtimes',{}).get('node'),extension),'PROFILE_OLD_CONTENT_AUTHORITY')
  return tool,rows
 
-def profile_transaction(tool,rows,payload,previous,previous_raw,receipt_binding=None,old_schema_raw=None):
+def profile_transaction(tool,rows,payload,previous,previous_raw,receipt_binding=None,old_schema_raw=None,extension=None,expected_extension=None):
  # Existing hold consumer is the authority for the profile location and mode.
  hold=[source for source in rows if pathlib.PurePosixPath(source).name=='cn_maintenance_hold.py']
  if len(hold)!=1:return None
@@ -199,12 +227,15 @@ def profile_transaction(tool,rows,payload,previous,previous_raw,receipt_binding=
  old=previous.get('profiles',{}).get(target)
  if old is None:return None
  require(previous.get('readOnly') is True and previous.get('ready') is False,'PROFILE_INVENTORY_READ_ONLY')
- if old.get('present') is True:old_profile_binding(old,previous,old_schema_raw)
+ if old.get('present') is True:
+  import base64
+  require('composeExtensionV1' not in json.loads(base64.b64decode(old['rawBase64'],validate=True)) or extension is not None,'COMPOSE_EXTENSION_REMOVAL_NOT_AUTHORIZED')
+  old_profile_binding(old,previous,old_schema_raw)
  else:require(old.get('present') is False and old.get('regular') is False and old.get('symlink') is False and all(old.get(k) is None for k in ('sha256','mode','uid','gid','links')),'PROFILE_OLD_ABSENCE_REQUIRED')
- content=profile_content(tool,rows,payload.get(PROFILE_SCHEMA_SOURCE),previous.get('runtimes',{}).get('node'))
+ content=profile_content(tool,rows,payload.get(PROFILE_SCHEMA_SOURCE),previous.get('runtimes',{}).get('node'),extension,expected_extension)
  content_raw=(json.dumps(content,sort_keys=True)+'\n').encode()
  return {'schemaVersion':1,'kind':'reviewed-profile-replace-proposal' if old['present'] else 'reviewed-profile-create-proposal','target':target,'mode':format(mode,'04o'),'uid':0,'gid':0,'links':1,'oldPresent':old['present'],'oldIdentity':old,'previousInventorySha256':sha(previous_raw),'inventoryObservedAt':previous['observedAt'],'inventorySourceInvocation':previous['sourceInvocation'],'consumerSource':source,'consumerSha256':sha(raw),'consumerContract':'Python AST profile=Path(...) and read(profile,mode)','content':content,'newSha256':sha(content_raw),'bytes':len(content_raw),'inventoryEvidenceRef':'inventoryEvidenceV1' if receipt_binding else None,'providerSuccessIndependentlyVerified':False,'installationAuthorized':False,'ready':False}
-def produce(repo,tool,app,main,inventory,output,provider_receipt=None,expected_provider=None,now=None):
+def produce(repo,tool,app,main,inventory,output,provider_receipt=None,expected_provider=None,now=None,compose_extension=None,expected_extension=None):
  for value in (tool,app,main):require(re.fullmatch('[a-f0-9]{40}',value),'EXACT_REVISION')
  metadata_hash=trusted_local_git(repo)
  # This local name scopes unchecked execution to a fully prechecked, finally rechecked session.
@@ -239,23 +270,35 @@ def produce(repo,tool,app,main,inventory,output,provider_receipt=None,expected_p
  if provider_receipt is not None:
   receipt_raw=safe_file(provider_receipt);receipt_binding=verify_inventory_receipt(previous_raw,receipt_raw,expected_provider,now)
   evidence_payload={'inventory.json':previous_raw,'provider-receipt.json':receipt_raw}
+ extension=None
+ if compose_extension is not None:
+  import base64
+  extension_raw=safe_file(compose_extension)
+  extension={'sha256':sha(extension_raw),'rawBase64':base64.b64encode(extension_raw).decode()}
+ extension_evidence(tool,rows,payload.get(PROFILE_SCHEMA_SOURCE),extension,expected_extension,app,lambda rev,source:git(repo,'show',rev+':'+source))
  old_schema_raw=None
  for old in previous.get('profiles',{}).values():
   if old.get('present') is True:
    import base64
    old_content=json.loads(base64.b64decode(old['rawBase64'],validate=True));old_tool=old_content['toolRevision']
+   require('composeExtensionV1' not in old_content or extension is not None,'COMPOSE_EXTENSION_REMOVAL_NOT_AUTHORIZED')
    old_files=allowlist(git(repo,'show',old_tool+':.harness/scripts/vm/cn-build-tool-identity.py'))
    old_profile_allowlist(old_content,old_files,previous)
    old_schema_raw=git(repo,'show',old_tool+':'+PROFILE_SCHEMA_SOURCE) if PROFILE_SCHEMA_SOURCE in old_files else None
    unused,old_rows=old_profile_binding(old,previous,old_schema_raw)
+   old_extension=old_content.get('composeExtensionV1')
+   if old_extension is not None:extension_evidence(old_tool,old_rows,old_schema_raw,old_extension,None,git_blob=lambda rev,source:git(repo,'show',rev+':'+source),old_projection=True)
    for source,row in old_rows.items():require(sha(git(repo,'show',old_tool+':'+source))==row['newSha256'],'PROFILE_OLD_GIT_CLOSURE')
- profile=profile_transaction(tool,rows,payload,previous,previous_raw,receipt_binding,old_schema_raw)
+ profile=profile_transaction(tool,rows,payload,previous,previous_raw,receipt_binding,old_schema_raw,extension,expected_extension)
+ if extension is not None:
+  require(profile is not None,'COMPOSE_EXTENSION_PROFILE_REQUIRED');manifest['composeExtensionV1']=extension
  blockers=['TOOL_ROOT_GIT_ARTIFACT_NOT_PACKAGED','PRODUCTION_INSTALL_APPROVAL_MISSING']
  blockers.append('PROFILE_TRANSACTION_REVIEW_PENDING' if profile else 'ROOT_PROFILE_OLD_INVENTORY_MISSING')
  if profile and not receipt_binding:blockers.append('PROVIDER_RECEIPT_BINDING_MISSING')
  evidence=None
  if receipt_binding:evidence={'inventoryPath':str((out/'evidence/inventory.json').absolute()),'inventorySha256':sha(previous_raw),'providerReceiptPath':str((out/'evidence/provider-receipt.json').absolute()),'providerReceiptSha256':sha(receipt_raw),'expected':expected_provider,'ttlSeconds':3600}
  manifest.update(toolRoot=tool_root,trustedGitClosure=closure,profileEntries=[],profileTransactionsV1=[profile] if profile else [],profileProposal={'toolRevision':tool,'filesSha256':{source:row['newSha256'] for source,row in rows.items()}},inventoryEvidenceV1=evidence,installationBlockers=blockers)
+ require(trusted_local_git(repo)==closure['gitMetadataInventorySha256'],'GIT_METADATA_CHANGED')
  out.mkdir(mode=0o700);owned=out.lstat()
  try:
   for source,raw in payload.items():
@@ -283,10 +326,13 @@ def produce(repo,tool,app,main,inventory,output,provider_receipt=None,expected_p
  return manifest
 if __name__=='__main__':
  try:
+  extra={}
+  if '--compose-extension' in sys.argv:
+   i=sys.argv.index('--compose-extension');require(i==len(sys.argv)-3,'COMPOSE_EXTENSION_ARGUMENTS')
+   extra.update(compose_extension=sys.argv[i+1],expected_extension=sys.argv[i+2]);sys.argv=sys.argv[:i]
   require(len(sys.argv) in (8,10),'USAGE_REPO_TOOL_APP_MERGEDMAIN_INVENTORY_OUTPUT_OPTIONAL_RECEIPT_EXPECTED')
   # Reserved exact protocol version prevents accidental legacy positional invocation.
   require(sys.argv[1]=='--review-package','REVIEW_ONLY')
-  extra={}
-  if len(sys.argv)==10:extra={'provider_receipt':sys.argv[8],'expected_provider':json.loads(safe_file(sys.argv[9]))}
+  if len(sys.argv)==10:extra.update(provider_receipt=sys.argv[8],expected_provider=json.loads(safe_file(sys.argv[9])))
   result=produce(*sys.argv[2:8],**extra);print(json.dumps({'mode':result['mode'],'fileCount':len(result['files']),'installerImplemented':False,'ready':False}))
  except Exception:print('CN_TOOL_REVIEW_PACKAGE_REJECTED',file=sys.stderr);sys.exit(1)
