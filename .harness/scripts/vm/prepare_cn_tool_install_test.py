@@ -341,4 +341,54 @@ class InventoryEnvelopeTests(unittest.TestCase):
   import inspect
   self.assertEqual(inspect.getsource(m.inventory_json),inspect.getsource(self.installer.inventory_json));self.assertEqual(inspect.getsource(m.verify_inventory_output),inspect.getsource(self.installer.verify_inventory_output))
 
+
+class MultipartInventoryTests(unittest.TestCase):
+ setUpClass=classmethod(InventoryEnvelopeTests.setUpClass.__func__)
+ verify_both=InventoryEnvelopeTests.verify_both
+ assert_reject_both=InventoryEnvelopeTests.assert_reject_both
+ def multipart(self):
+  import base64,gzip
+  inv,r,e,now=Producer().receipt_fixture();value=json.loads(inv);value['fixturePadding']=[hashlib.sha256(str(i).encode()).hexdigest()for i in range(500)];inv=json.dumps(value).encode();r['localInventorySha256']=m.sha(inv);value.pop('sourceInvocation');decoded=(json.dumps(value,sort_keys=True)+'\n').encode();compressed=gzip.compress(decoded,mtime=0);count=(len(compressed)+12287)//12288;self.assertGreater(count,1)
+  manifest={'schemaVersion':1,'kind':'cn-tool-inventory-snapshot-v1','snapshotId':'b'*32,'observedAt':value['observedAt'],'decodedBytes':len(decoded),'decodedSha256':m.sha(decoded),'compressedBytes':len(compressed),'compressedSha256':m.sha(compressed),'chunkBytes':12288,'chunkCount':count}
+  self.wire(r,manifest);r.update(outputEncoding='gzip-base64-inventory-parts-v1',decodedInventorySha256=m.sha(decoded),readOnly=False,snapshotWritesOnly=True,username='root',finishTime='2026-10-03T08:47:22+00:00',parts=[]);e['partBindings']=[]
+  for index in range(count):
+   raw=compressed[index*12288:(index+1)*12288];b={'partIndex':index,'sourceInvocation':'part-inv-'+str(index),'commandId':'part-command-'+str(index)};e['partBindings'].append(b)
+   part={**b,'region':e['region'],'instanceId':e['instanceId'],'username':'root','readOnly':True,'invocationStatus':'Success','exitCode':0,'dropped':0,'startTime':'2026-10-03T08:47:23+00:00','finishTime':'2026-10-03T08:47:24+00:00'}
+   payload={'schemaVersion':1,'kind':'cn-tool-inventory-snapshot-part-v1','snapshotManifestSha256':r['outputSha256'],'snapshotId':manifest['snapshotId'],'partIndex':index,'chunkCount':count,'offset':index*12288,'bytes':len(raw),'sha256':m.sha(raw),'base64':base64.b64encode(raw).decode()};self.wire(part,payload);r['parts'].append(part)
+  return inv,r,e,now
+ def wire(self,row,obj):
+  import base64
+  raw=(json.dumps(obj,sort_keys=True)+'\n').encode();row.update(outputBase64=base64.b64encode(raw).decode(),outputSha256=m.sha(raw))
+ def test_multipart_complete_original_inventory(self):
+  inv,r,e,now=self.multipart();a,b=self.verify_both(inv,r,e,now);self.assertEqual(b,json.loads(inv));self.assertEqual(a['outputSha256'],r['outputSha256']);self.assertEqual(a['decodedInventorySha256'],r['decodedInventorySha256'])
+ def test_capture_write_scope_explicit_and_original_scope_not_bypassed(self):
+  for key,value in [('readOnly',True),('snapshotWritesOnly',False),('username','ubuntu'),('productionModified',True)]:
+   inv,r,e,now=self.multipart();r[key]=value;self.assert_reject_both(inv,r,e,now)
+ def test_part_provider_identity_and_terminal_status(self):
+  for key,value in [('sourceInvocation','foreign'),('commandId','foreign'),('region','foreign'),('instanceId','foreign'),('username','ubuntu'),('readOnly',False),('exitCode',True),('exitCode',1),('dropped',1),('invocationStatus','Running'),('startTime','2026-10-03T08:47:20Z'),('finishTime','2026-10-03T09:00:00Z')]:
+   with self.subTest(key=key):
+    inv,r,e,now=self.multipart();r['parts'][0][key]=value;self.assert_reject_both(inv,r,e,now)
+ def test_part_payload_range_and_snapshot_binding(self):
+  import base64
+  for key,value in [('partIndex',True),('partIndex',1),('offset',1),('bytes',12287),('chunkCount',1),('snapshotId','c'*32),('snapshotManifestSha256','d'*64),('sha256','e'*64)]:
+   with self.subTest(key=key):
+    inv,r,e,now=self.multipart();part=r['parts'][0];v=json.loads(base64.b64decode(part['outputBase64']));v[key]=value;self.wire(part,v);self.assert_reject_both(inv,r,e,now)
+ def test_parts_cannot_be_missing_repeated_reordered_or_self_expected(self):
+  for kind in ('missing','repeated','reordered','expectedmissing','expectedrepeated'):
+   inv,r,e,now=self.multipart()
+   if kind=='missing':r['parts'].pop()
+   elif kind=='repeated':r['parts'][1]=r['parts'][0]
+   elif kind=='reordered':r['parts'].reverse()
+   elif kind=='expectedmissing':e.pop('partBindings')
+   else:e['partBindings'][1]['sourceInvocation']=e['partBindings'][0]['sourceInvocation']
+   self.assert_reject_both(inv,r,e,now)
+ def test_parts_never_refresh_original_capture_ttl(self):
+  import datetime
+  inv,r,e,now=self.multipart();later=now+datetime.timedelta(hours=2)
+  for p in r['parts']:p.update(startTime=(later-datetime.timedelta(seconds=10)).isoformat(),finishTime=(later-datetime.timedelta(seconds=5)).isoformat())
+  self.assert_reject_both(inv,r,e,later)
+ def test_multipart_helpers_identical(self):
+  import inspect
+  for name in ('inventory_expected_scope','inventory_capture_scope','inventory_wire','verify_inventory_parts'):self.assertEqual(inspect.getsource(getattr(m,name)),inspect.getsource(getattr(self.installer,name)))
+
 if __name__=='__main__':unittest.main()

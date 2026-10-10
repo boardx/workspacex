@@ -250,9 +250,10 @@ def inventory_json(raw):
   result=float(value);require(math.isfinite(result),'INVENTORY_NONFINITE_JSON');return result
  return json.loads(raw,object_pairs_hook=pairs,parse_constant=constant,parse_float=floating)
 
-def verify_inventory_output(receipt,decoded,legacy_error):
+def verify_inventory_output(receipt,decoded,legacy_error,expected=None,now=None):
  import base64,zlib
  encoding=receipt.get('outputEncoding','raw-json-v1')
+ if encoding=='gzip-base64-inventory-parts-v1':return verify_inventory_parts(receipt,decoded,expected,now)
  if encoding=='raw-json-v1':
   require('outputBase64' not in receipt and 'decodedInventorySha256' not in receipt,'PROVIDER_ENCODING_AMBIGUOUS')
   require(receipt.get('outputSha256')==sha(decoded),legacy_error)
@@ -280,18 +281,81 @@ def verify_inventory_output(receipt,decoded,legacy_error):
  require(raw==decoded and sha(raw)==envelope['decodedSha256']==receipt.get('decodedInventorySha256'),'PROVIDER_DECODED_HASH')
  return receipt['outputSha256']
 
+def inventory_expected_scope(receipt,expected):
+ core={'region','instanceId','sourceInvocation','commandId'}
+ multipart=receipt.get('outputEncoding')=='gzip-base64-inventory-parts-v1'
+ require(type(expected)is dict and set(expected)==(core|{'partBindings'}if multipart else core),'PROVIDER_EXPECTED_BINDING')
+ if multipart:
+  bindings=expected['partBindings'];require(type(bindings)is list and 1<=len(bindings)<=6,'PROVIDER_PART_BINDINGS')
+  seen=set()
+  for index,b in enumerate(bindings):
+   require(type(b)is dict and set(b)=={'partIndex','sourceInvocation','commandId'} and type(b['partIndex'])is int and b['partIndex']==index,'PROVIDER_PART_EXPECTED_INDEX')
+   require(all(type(b[k])is str and b[k] for k in ('sourceInvocation','commandId'))and b['sourceInvocation']not in seen,'PROVIDER_PART_EXPECTED_IDENTITY');seen.add(b['sourceInvocation'])
+  require(expected['sourceInvocation']not in seen,'PROVIDER_CAPTURE_NOT_PART')
+ return {k:expected[k]for k in core}
+
+def inventory_capture_scope(receipt):
+ if receipt.get('outputEncoding')=='gzip-base64-inventory-parts-v1':
+  return receipt.get('readOnly')is False and receipt.get('snapshotWritesOnly')is True and receipt.get('username')=='root'
+ return receipt.get('readOnly')is True and 'snapshotWritesOnly'not in receipt
+
+def inventory_wire(receipt):
+ import base64
+ encoded=receipt.get('outputBase64');require(type(encoded)is str and len(encoded)<=32000,'PROVIDER_WIRE_BOUND')
+ try:wire=base64.b64decode(encoded,validate=True)
+ except Exception as e:raise ValueError('PROVIDER_WIRE_BASE64')from e
+ require(0<len(wire)<=24000 and base64.b64encode(wire).decode()==encoded and sha(wire)==receipt.get('outputSha256'),'PROVIDER_WIRE_HASH')
+ value=inventory_json(wire);require((json.dumps(value,sort_keys=True)+'\n').encode()==wire,'PROVIDER_ENVELOPE_CANONICAL');return value
+
+def verify_inventory_parts(receipt,decoded,expected,now):
+ import base64,datetime,math,re,zlib
+ scope=inventory_expected_scope(receipt,expected);manifest=inventory_wire(receipt)
+ require(type(manifest)is dict and set(manifest)=={'schemaVersion','kind','snapshotId','observedAt','decodedBytes','decodedSha256','compressedBytes','compressedSha256','chunkBytes','chunkCount'},'PROVIDER_SNAPSHOT_SCHEMA')
+ require(type(manifest['schemaVersion'])is int and manifest['schemaVersion']==1 and manifest['kind']=='cn-tool-inventory-snapshot-v1' and type(manifest['snapshotId'])is str and re.fullmatch('[a-f0-9]{32}',manifest['snapshotId']),'PROVIDER_SNAPSHOT_KIND')
+ require(manifest['observedAt']==receipt['inventoryObservedAt'],'PROVIDER_SNAPSHOT_TIME')
+ size=manifest['decodedBytes'];compressed_size=manifest['compressedBytes'];count=manifest['chunkCount']
+ require(type(size)is int and 0<size<=1024*1024 and type(compressed_size)is int and 0<compressed_size<=65536 and size<=compressed_size*128,'PROVIDER_SNAPSHOT_BOUNDS')
+ require(type(manifest['chunkBytes'])is int and manifest['chunkBytes']==12288 and type(count)is int and count==(compressed_size+12287)//12288,'PROVIDER_SNAPSHOT_COUNT')
+ require(all(type(manifest[k])is str and re.fullmatch('[a-f0-9]{64}',manifest[k])for k in ('decodedSha256','compressedSha256')),'PROVIDER_SNAPSHOT_HASH')
+ parts=receipt.get('parts');require(type(parts)is list and len(parts)==count==len(expected['partBindings']),'PROVIDER_PART_COUNT')
+ def stamp(s):
+  require(type(s)is str,'PROVIDER_PART_TIME');d=datetime.datetime.fromisoformat(s.replace('Z','+00:00'));require(d.tzinfo is not None,'PROVIDER_PART_TIME');return d.timestamp()
+ require(type(now)in(int,float)and math.isfinite(now),'PROVIDER_PART_NOW')
+ capture_start=stamp(receipt['startTime']);capture_finish=stamp(receipt['finishTime']);require(capture_start<=capture_finish<=now and capture_start<=stamp(manifest['observedAt'])<=capture_finish+1,'PROVIDER_CAPTURE_TIME')
+ blobs=[]
+ for index,(part,binding)in enumerate(zip(parts,expected['partBindings'])):
+  require(type(part)is dict and set(part)=={'partIndex','sourceInvocation','commandId','region','instanceId','username','readOnly','invocationStatus','exitCode','dropped','startTime','finishTime','outputBase64','outputSha256'},'PROVIDER_PART_RECEIPT_SCHEMA')
+  require(type(part['partIndex'])is int and part['partIndex']==index and all(part[k]==binding[k]for k in ('sourceInvocation','commandId'))and all(part[k]==scope[k]for k in ('region','instanceId')),'PROVIDER_PART_IDENTITY')
+  require(part['username']=='root' and part['readOnly']is True and part['invocationStatus']=='Success' and type(part['exitCode'])is int and part['exitCode']==0 and type(part['dropped'])is int and part['dropped']==0,'PROVIDER_PART_SUCCESS')
+  require(capture_finish<=stamp(part['startTime'])<=stamp(part['finishTime'])<=now,'PROVIDER_PART_TIME')
+  value=inventory_wire(part);require(type(value)is dict and set(value)=={'schemaVersion','kind','snapshotManifestSha256','snapshotId','partIndex','chunkCount','offset','bytes','sha256','base64'},'PROVIDER_PART_SCHEMA')
+  require(type(value['schemaVersion'])is int and value['schemaVersion']==1 and value['kind']=='cn-tool-inventory-snapshot-part-v1' and value['snapshotManifestSha256']==receipt['outputSha256']and value['snapshotId']==manifest['snapshotId'],'PROVIDER_PART_SNAPSHOT')
+  amount=min(12288,compressed_size-index*12288)
+  require(all(type(value[k])is int for k in ('partIndex','chunkCount','offset','bytes'))and(value['partIndex'],value['chunkCount'],value['offset'],value['bytes'])==(index,count,index*12288,amount),'PROVIDER_PART_RANGE')
+  require(type(value['base64'])is str and len(value['base64'])<=16384,'PROVIDER_PART_BOUND')
+  try:blob=base64.b64decode(value['base64'],validate=True)
+  except Exception as e:raise ValueError('PROVIDER_PART_BASE64')from e
+  require(len(blob)==amount and base64.b64encode(blob).decode()==value['base64']and sha(blob)==value['sha256'],'PROVIDER_PART_HASH');blobs.append(blob)
+ compressed=b''.join(blobs);require(len(compressed)==compressed_size and sha(compressed)==manifest['compressedSha256'],'PROVIDER_SNAPSHOT_COMPRESSED_HASH')
+ try:inflater=zlib.decompressobj(16+zlib.MAX_WBITS);raw=inflater.decompress(compressed,size+1)
+ except zlib.error as e:raise ValueError('PROVIDER_GZIP_INVALID')from e
+ require(len(raw)==size and inflater.eof and not inflater.unused_data and not inflater.unconsumed_tail,'PROVIDER_GZIP_COMPLETE');inventory_json(raw)
+ require(raw==decoded and sha(raw)==manifest['decodedSha256']==receipt.get('decodedInventorySha256'),'PROVIDER_DECODED_HASH')
+ return receipt['outputSha256']
+
 def verify_inventory_receipt(inventory_raw,receipt_raw,expected,now,ttl=3600):
  import datetime,re
  require(type(ttl) is int and 0<ttl<=3600,'INVENTORY_TTL')
  inv=inventory_json(inventory_raw);r=inventory_json(receipt_raw)
- require(set(expected)=={'region','instanceId','sourceInvocation','commandId'} and all(isinstance(v,str) and v for v in expected.values()),'PROVIDER_EXPECTED_REQUEST')
- require(all(r.get(k)==v for k,v in expected.items()),'PROVIDER_REQUEST_IDENTITY')
+ scope=inventory_expected_scope(r,expected)
+ require(all(isinstance(v,str) and v for v in scope.values()),'PROVIDER_EXPECTED_REQUEST')
+ require(all(r.get(k)==v for k,v in scope.items()),'PROVIDER_REQUEST_IDENTITY')
  require(r.get('schemaVersion')==1 and r.get('invocationStatus')=='Success' and type(r.get('exitCode')) is int and r['exitCode']==0 and type(r.get('dropped')) is int and r['dropped']==0,'PROVIDER_SUCCESS')
- require(r.get('readOnly') is True and r.get('productionModified') is False and inv.get('schemaVersion')==1 and inv.get('readOnly') is True and inv.get('ready') is False,'INVENTORY_READONLY')
+ require(inventory_capture_scope(r) and r.get('productionModified') is False and inv.get('schemaVersion')==1 and inv.get('readOnly') is True and inv.get('ready') is False,'INVENTORY_READONLY')
  require(inv.get('sourceInvocation')==expected['sourceInvocation'] and r.get('localInventorySha256')==sha(inventory_raw),'INVENTORY_HASH_INVOCATION')
  require(r.get('inventoryObservedAt')==inv.get('observedAt'),'INVENTORY_OBSERVED_BINDING')
  remote=dict(inv);del remote['sourceInvocation'];output=(json.dumps(remote,sort_keys=True)+'\n').encode()
- verify_inventory_output(r,output,'PROVIDER_OUTPUT_HASH')
+ verify_inventory_output(r,output,'PROVIDER_OUTPUT_HASH',expected,now)
  def timestamp(value):
   require(isinstance(value,str),'INVENTORY_TIME_FORMAT');d=datetime.datetime.fromisoformat(value.replace('Z','+00:00'));require(d.tzinfo is not None,'INVENTORY_TIMEZONE');return d.timestamp()
  observed=timestamp(inv['observedAt']);start=timestamp(r['startTime'])
