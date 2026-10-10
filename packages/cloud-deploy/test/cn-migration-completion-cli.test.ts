@@ -18,13 +18,15 @@ describe('protected migration completion CLI', () => {
     const result = spawnSync(process.execPath, ['--import', 'tsx', fileURLToPath(new URL('../src/cn-migration-completion-cli.ts', import.meta.url)), 'main', 'fixture'], { encoding: 'utf8' });
     expect(result.status).toBe(1); expect(result.stdout).toBe(''); expect(result.stderr.trim()).toBe('CN_MIGRATION_COMPLETION_REJECTED');
   });
-  it.each(['success', 'mode', 'symlink', 'hardlink', 'parent-mode', 'replace-race'] as const)('actual private filesystem fixture %s', (kind) => {
+  it.each(['success', 'mode', 'symlink', 'hardlink', 'parent-mode', 'replace-race', 'wrong-gid'] as const)('actual private filesystem fixture %s', (kind) => {
     const directory = fs.mkdtempSync(join(fs.realpathSync(tmpdir()), 'completion-input-'));
     fs.chmodSync(directory, 0o700); const path = join(directory, 'input.json');
     fs.writeFileSync(path, '{"fixture":true}', { mode: 0o600 });
-    const fixture = { uid: process.getuid!(), gid: process.getgid!(), boundary: directory };
+    const owner = fs.lstatSync(directory);
+    const fixture = { uid: owner.uid, gid: owner.gid, boundary: directory };
     let spy: { mockRestore(): void } | undefined;
     try {
+      if (kind === 'wrong-gid') fixture.gid += 1;
       if (kind === 'mode') fs.chmodSync(path, 0o644);
       if (kind === 'parent-mode') fs.chmodSync(directory, 0o777);
       if (kind === 'hardlink') fs.linkSync(path, join(directory, 'alias'));
@@ -39,7 +41,7 @@ describe('protected migration completion CLI', () => {
       else {
         // New recovery verification: a TypeError must never satisfy a security negative.
         const expected = { mode: 'MIGRATION_COMPLETION_INPUT_FILE', hardlink: 'MIGRATION_COMPLETION_INPUT_FILE',
-          'parent-mode': 'MIGRATION_COMPLETION_INPUT_PARENT', 'replace-race': 'MIGRATION_COMPLETION_INPUT_CHANGED', symlink: 'ELOOP' }[kind];
+          'wrong-gid': 'MIGRATION_COMPLETION_INPUT_PARENT', 'parent-mode': 'MIGRATION_COMPLETION_INPUT_PARENT', 'replace-race': 'MIGRATION_COMPLETION_INPUT_CHANGED', symlink: 'ELOOP' }[kind];
         expect(() => readProtectedCompletionInput(path, fixture)).toThrow(expected);
       }
     } finally { spy?.mockRestore(); fs.rmSync(directory, { recursive: true, force: true }); }

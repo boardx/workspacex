@@ -32,14 +32,14 @@ export function BoardShapePicker({ variant, readOnly, onVariantChange }: {
       {BOARD_SHAPE_CATEGORIES.map((item, index) => <button key={item.id} ref={node => { tabs.current[index] = node; }} type="button" role="tab"
         id={`${id}-tab-${item.id}`} aria-controls={`${id}-panel-${item.id}`} aria-selected={index === categoryIndex} tabIndex={index === categoryIndex ? 0 : -1}
         onKeyDown={event => moveTab(event, index)} onClick={() => setCategoryIndex(index)}
-        className={cn("flex-1 rounded-lg px-3 py-2 text-13 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", index === categoryIndex ? "bg-accent font-medium text-foreground" : "text-muted-foreground hover:bg-accent")}>{item.label}</button>)}
+        className={cn("flex-1 rounded-lg px-3 py-2 text-13 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", index === categoryIndex ? "bg-accent font-medium" : "text-muted-foreground hover:bg-accent")}>{item.label}</button>)}
     </div>
     <div role="tabpanel" id={`${id}-panel-${category.id}`} aria-labelledby={`${id}-tab-${category.id}`} className="grid grid-cols-4 gap-1.5">
       {category.shapes.map(shape => <button key={shape.variant} type="button" data-testid={`board-shape-${shape.variant}`} data-board-create-tool="shape"
         aria-label={shape.label} title={shape.label} aria-pressed={variant === shape.variant} disabled={readOnly} draggable={!readOnly}
         onClick={() => onVariantChange(shape.variant)}
         onDragStart={event => { if (!readOnly) event.dataTransfer.setData("application/x-workspacex-board-tool", JSON.stringify({ kind: "shape", variant: shape.variant })); }}
-        className={cn("flex aspect-square min-h-12 items-center justify-center rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:bg-disabled disabled:text-disabled-foreground", variant === shape.variant ? "bg-primary text-primary-foreground" : "text-foreground hover:bg-accent")}>
+        className={cn("flex aspect-square min-h-12 items-center justify-center rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:bg-disabled disabled:text-disabled-foreground", variant === shape.variant ? "bg-primary text-primary-foreground" : "hover:bg-accent")}>
         <ShapeToolPreview variant={shape.variant}/>
       </button>)}
     </div>

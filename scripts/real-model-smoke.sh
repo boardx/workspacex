@@ -54,7 +54,7 @@ cleanup() {
 }
 trap cleanup EXIT
 
-echo "[real-model-smoke] ① 起本地真栈（日志 → $STACK_LOG）"
+echo "[real-model-smoke] ① 起本地真栈（日志 → ${STACK_LOG}）"
 # e2e-up.sh 末尾是 `wait`（它要一直持有 API/沙箱两个子进程），所以放后台跑，
 # 就绪与否用 healthz 判——不靠解析它的 stdout。
 bash "${REPO_ROOT}/e2e-up.sh" > "$STACK_LOG" 2>&1 &
