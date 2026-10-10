@@ -65,3 +65,8 @@ Normal UI full regeneration v10 completed four formal chapters / all 32 original
 ### PR CI live-prose correction
 
 PR #5587 initial b15d7c5 had one actual browser failure. Source `ea018fbec5522c72adf8ddf8fa900c799634f1e7` safely projects question paragraph prose while withholding metadata. The unchanged full browser spec now passes, including live running, reload, formal report, full regenerate and negative draft. DB50 / projection3 / chapter145 / Web64 / contracts1204 / types and lint pass; owned stack cleanup confirmed. Evidence: `question-prose-live-result.json`. Independent final review and updated PR CI remain required. Prior full-release evidence is historical and has not been relabeled as covering this source. Original online report remains unrecovered; no new real model calls.
+
+
+### PR P1/P2 source screening review correction
+
+Source `089c2c1437341823a9278c006d70881e468fa78f` preserves independent healthy chunks/tasks and reconciles only successful active warning scopes. Failed request identities migrate from legacy warnings into a private never-evicted ledger; real store reload proves no repeated A request after B clears warnings. Actual source/task/content hashes isolate failed-task attribution. Full research unit 821 / real PostgreSQL 53 / API types and standard lint pass. PostgreSQL includes both refused batch orders, persisted original documents and independently verified downstream evidence. Private projection matrix covers all response surfaces. Safe evidence: `source-screen-review-result.json`. No new real model calls or original online retries/deployment. Exact review, ordinary PR update and new-head CI still pending; old ec753 green and prior full release are not relabeled as this new delta.

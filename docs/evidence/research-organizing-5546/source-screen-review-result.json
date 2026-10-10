@@ -1,0 +1,53 @@
+{
+  "issue": 5546,
+  "pr": 5587,
+  "source_sha": "089c2c1437341823a9278c006d70881e468fa78f",
+  "previous_head": "ec7535d549c8d5eef3cdca712a29ea65794b586d",
+  "review_threads": [
+    "PRRT_kwDOO5_Nyc6rG-kV",
+    "PRRT_kwDOO5_Nyc6rG-kY"
+  ],
+  "behavior": [
+    "Independent strict accepted chunks retain their source and task scopes despite another whole refused batch. Original document bytes and provenance survive real store reload.",
+    "Successful strict screening reconciles only actually covered active chunk scopes. Omitted/malformed output and uncovered scopes retain warnings.",
+    "Legacy rejection request bases migrate before warning reconciliation into a private deduplicated never-evicted ledger. A refused, B succeeds, real store reload, A again issues zero external calls.",
+    "Current failed-task attribution checks exact source/task/chunk content hash. Private ledger is excluded from public GET, execute, SSE, deltas and polling; public strict schema rejects it.",
+    "Downstream report evidence extraction independently validates original document; no rejected source-screen chunk is treated as approved report evidence. No compensating provider request, split or switch."
+  ],
+  "verification": {
+    "research_unit": {
+      "files": 37,
+      "tests": 821,
+      "exit": 0
+    },
+    "postgres": {
+      "tests": 53,
+      "exit": 0,
+      "actual_store_reload": true,
+      "healthy_batch_refusal_offsets": [
+        0,
+        24000
+      ]
+    },
+    "api_types": {
+      "exit": 0
+    },
+    "api_lint": {
+      "exit": 0
+    }
+  },
+  "private_log_sha256": {
+    "research_unit": "ca12ac16ee0d700e1d54e9af4a1a925853b3b86627b367913fabba354dbf7861",
+    "postgres": "b15304475666b29bde9f345316fc715c3394a57bd6a47fe7d2cad04ee52bb243",
+    "api_types": "e173644c9e8cbbde81268998cabb7ee59683ce5d624def2bd91b9ec1ca08fb67",
+    "api_lint": "f0bc3fe4e24a897ac8f5034eafc5407d549191fb232f41b1f13ca89b23b87379"
+  },
+  "boundaries": {
+    "new_real_model_calls": 0,
+    "online_retry_or_deploy": false,
+    "full_release": "Prior release applies to previously recorded source, not relabeled as this new delta.",
+    "new_head_ci": "Pending ordinary push and new checks. Old ec753 green is not new-head evidence.",
+    "review": "Exact review pending."
+  },
+  "failed_verification_history": "Initial new DB run loaded an old test assertion expecting extractReportEvidence array; actual result is object containing matches Map. Two test-code failures corrected, then all 53 passed naturally without production changes or weakened checks."
+}
