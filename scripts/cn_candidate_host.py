@@ -12,6 +12,8 @@ import re
 from pathlib import Path
 import shutil
 import signal
+import subprocess
+import selectors
 import tempfile
 import time
 
@@ -132,6 +134,63 @@ def verify_runtime_host(approval):
 
 
 class Commands(legacy.Commands):
+    def candidate_image_matches(self, image, entry, plan):
+        # Export by the immutable daemon identity, never by a mutable tag. The
+        # archive stays private and bounded; no network/registry request is made.
+        self.check_validity()
+        image_id = image.get('Id')
+        a.require(isinstance(image_id, str) and re.fullmatch('sha256:[a-f0-9]{64}', image_id),
+                  'PUBLICATION_STORE_ID')
+        limit = entry['size'] * 2 + 16 * 1024**2
+        a.require(shutil.disk_usage(self.work).free >= limit + plan['storageMarginBytes'],
+                  'PUBLICATION_STORE_CAPACITY')
+        fd, name = tempfile.mkstemp(prefix='store-readback-', suffix='.tar', dir=self.work)
+        path = Path(name)
+        process = None
+        selector = selectors.DefaultSelector()
+        try:
+            with os.fdopen(fd, 'wb') as out:
+                process = subprocess.Popen([self.docker, 'image', 'save', image_id],
+                    env=self.env, cwd='/', stdin=subprocess.DEVNULL,
+                    stdout=subprocess.PIPE, stderr=subprocess.PIPE, start_new_session=True)
+                for stream in (process.stdout, process.stderr):
+                    selector.register(stream, selectors.EVENT_READ)
+                total = errors = 0
+                deadline = min(self.deadline, time.monotonic() + 300)
+                while selector.get_map():
+                    self.check_validity()
+                    a.require(time.monotonic() < deadline, 'PUBLICATION_STORE_TIMEOUT')
+                    for key, _ in selector.select(.2):
+                        chunk = os.read(key.fileobj.fileno(), 1024**2)
+                        if not chunk:
+                            selector.unregister(key.fileobj)
+                        elif key.fileobj is process.stdout:
+                            total += len(chunk)
+                            a.require(total <= limit, 'PUBLICATION_STORE_SIZE')
+                            out.write(chunk)
+                        else:
+                            errors += len(chunk)
+                            a.require(errors <= 65536, 'PUBLICATION_STORE_ERROR_LIMIT')
+                a.require(process.wait(timeout=1) == 0, 'PUBLICATION_STORE_EXPORT')
+                out.flush()
+            self.check_validity()
+            publication.image_matches(image, entry, plan, store_archive=path)
+            # Id, platform, labels and RootFS readback must still agree after the
+            # export. No config/manifest identity is substituted into inspect.
+            current = self.local(image_id)
+            a.require(type(current) is dict and all(current.get(k) == image.get(k)
+                      for k in ('Id', 'Descriptor', 'Os', 'Architecture', 'Config', 'RootFS')),
+                      'PUBLICATION_STORE_CHANGED')
+            self.check_validity()
+        finally:
+            if process is not None:
+                if process.poll() is None:
+                    os.killpg(process.pid, signal.SIGKILL)
+                process.wait()
+                process.stdout.close(); process.stderr.close()
+            selector.close()
+            path.unlink(missing_ok=True)
+
     def authenticate(self):
         self.check_validity()
         # This must precede STS/ACR token acquisition and Docker login. Same

@@ -195,3 +195,44 @@ class HostTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class StoreExportHostTests(unittest.TestCase):
+    def setUp(self):
+        import time
+        self.temp = tempfile.TemporaryDirectory(); self.addCleanup(self.temp.cleanup)
+        self.work = Path(self.temp.name)
+        self.obj = object.__new__(h.Commands)
+        self.obj.work = self.work; self.obj.env = {'PATH': '/usr/bin:/bin'}
+        self.obj.deadline = time.monotonic() + 10
+        self.obj.check_validity = lambda: None
+        self.image = {'Id': 'sha256:' + 'a' * 64, 'Os': 'linux', 'Architecture': 'amd64'}
+        self.obj.local = lambda _: dict(self.image)
+        self.entry = {'size': 1}
+        self.plan = {'storageMarginBytes': 0}
+
+    def executable(self, body):
+        target = self.work / 'fake-docker'
+        target.write_text('#!' + sys.executable + '\n' + body)
+        target.chmod(0o700); self.obj.docker = str(target)
+
+    def test_stderr_never_escapes_and_private_export_removed(self):
+        self.executable("import sys\nsys.stderr.write('PUBLIC_DUMMY_PASSWORD')\nsys.exit(1)\n")
+        with self.assertRaisesRegex(a.Rejected, '^PUBLICATION_STORE_EXPORT$'):
+            self.obj.candidate_image_matches(self.image, self.entry, self.plan)
+        self.assertEqual(list(self.work.glob('store-readback-*')), [])
+
+    def test_large_stdout_stops_at_fixed_budget(self):
+        self.executable("import sys\nsys.stdout.buffer.write(b'x'*(17*1024**2))\n")
+        with self.assertRaisesRegex(a.Rejected, 'PUBLICATION_STORE_SIZE'):
+            self.obj.candidate_image_matches(self.image, self.entry, self.plan)
+        self.assertEqual(list(self.work.glob('store-readback-*')), [])
+
+    def test_post_export_identity_drift_rejected(self):
+        self.executable("import sys\nsys.stdout.buffer.write(b'fixture')\n")
+        self.obj.local = lambda _: {'Id': 'sha256:' + 'b' * 64}
+        with patch.object(h.publication, 'image_matches') as verified:
+            with self.assertRaisesRegex(a.Rejected, 'PUBLICATION_STORE_CHANGED'):
+                self.obj.candidate_image_matches(self.image, self.entry, self.plan)
+            verified.assert_called_once()
+        self.assertEqual(list(self.work.glob('store-readback-*')), [])
