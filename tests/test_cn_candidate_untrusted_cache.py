@@ -161,4 +161,38 @@ class CacheAuthenticationTests(unittest.TestCase):
         with self.assertRaises(c.Rejected):self.validate()
 
 
+class CacheRevalidationTests(unittest.TestCase):
+    def setUp(self):
+        import test_cn_candidate_revalidation as revalidation_fixture
+        self.f = revalidation_fixture.RevalidationTests()
+        self.f.setUp(); self.addCleanup(self.f.doCleanups)
+        self.cap = self.f.admitted()
+        self.build=self.f.plan;self.pr=self.f.plan_raw;self.raw=self.f.raw;self.v=self.f.receipt
+        self.bundle=self.f.work/'bundle'
+        prefix='cn-image-candidates/'+self.build['sourceRevision']+'/'+self.build['attemptId']+'/'
+        self.tr=dict(kind='approved-candidate-oss-staging-v2',bucket='fixture-bucket',region='cn-shanghai',endpoint='https://oss-cn-shanghai.aliyuncs.com',prefix=prefix,uploadPrincipal='u',downloadPrincipal='d',objects={p.name:dict(key=prefix+p.name,versionId='',sha256=c.sha(p.read_bytes())) for p in self.bundle.iterdir()})
+        cache_transport(self)
+        self.port=fixture.Port();self.port.observe_cache_version=Mock(return_value='Disabled')
+    def transfer(self,approval=None,cap=True):
+        value=approval or cache_approval(self)
+        value['revalidationRawSha256']=self.cap.sha
+        return core.UntrustedCacheTransfer(self.port,self.pr,c.sha(self.pr),self.raw,c.sha(self.raw),self.tr,value,
+                                           revalidation=self.cap if cap else None)
+    def test_expired_original_requires_independently_admitted_proof(self):
+        with self.assertRaises(c.Rejected):self.transfer(cap=False)
+        result=self.transfer().upload(self.bundle)
+        self.assertEqual(result['revalidationRawSha256'],self.cap.sha)
+        self.assertEqual(result['expiresAt'],self.v['expiresAt'])
+        self.assertEqual(self.port.objects[self.tr['prefix']+core.SET],self.raw)
+    def test_proof_does_not_extend_dynamic_authorization_or_its_own_ttl(self):
+        value=cache_approval(self);value['expiresAt']='2000-01-01T00:00:00Z'
+        with self.assertRaises(c.Rejected):self.transfer(approval=value)
+        self.cap._value['expiresAt']='2000-01-01T00:00:00Z'
+        with self.assertRaises(c.Rejected):self.transfer()
+    def test_proof_does_not_replace_full_tar_readback(self):
+        with (self.bundle/'api.tar').open('ab') as f:f.write(b'tampered')
+        with self.assertRaises(c.Rejected):self.transfer().upload(self.bundle)
+        self.assertEqual(self.port.calls,[])
+
+
 if __name__=='__main__':unittest.main()
