@@ -20,7 +20,7 @@ def execute(raw, source, output, env, command=d.run, save_command=d.run):
     d.HINTS = {}; d.LINE_LIMIT = 0
     d.phase('EVENT_REF'); d.event_guard(env)
     d.phase('PLAN'); a.require(len(raw)<=16384, 'DIAGNOSTIC_PLAN_SIZE')
-    p = c.validate_plan(a.decode(raw))
+    p = c.validate_diagnostic_plan(a.decode(raw))
     a.require(p['controlRevision']==env.get('GITHUB_SHA'), 'DIAGNOSTIC_CONTROL_BINDING')
     d.phase('POSTBUILD_CONTROL')
     for name in ('scripts/diagnose-cn-agent-postbuild.py', '.github/workflows/diagnose-cn-agent-postbuild.yml'):

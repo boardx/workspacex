@@ -34,3 +34,13 @@ assembly输入kind=cn-image-candidate-assembly-v2、schemaVersion=2，包含cand
 后续真正assembly必须新增已审消费者，保持candidate tar不变，以独立assembly receipt绑定晚到的Redis认证及release。不得补旧label冒充schema1归档。原Node manifest generator/validator/sealer、registry immutable readback、backup/recovery、prepare/promotion/activation、业务验收均不可省略；旧消费者仍拒绝候选。
 
 验证：`python3 -I -B tests/test_cn_image_candidate.py`；`actionlint .github/workflows/build-cn-image-candidates.yml`。
+
+## Proposed explicit formal-4g-v1 budget (requires separately authorized execution)
+
+An optional `budgetProfile: formal-4g-v1` selects an exact 4GiB raw-save, decompressed-payload and final-tar limit; total remains exactly 10GiB and margin 2GiB. Absence retains the original 2GiB profile. The explicit profile participates in candidate identity. Both diagnostic entries reject any budgetProfile before commands and retain their original 2GiB/25-minute/JSON-only contracts. This code capability is not evidence of an authorized dispatch.
+
+Workers check available output-filesystem space at startup (18GiB), after build before save (14GiB), and before normalization (10GiB). These checkpoints do not cap Docker daemon/cache usage, reserve disk, or prevent concurrent consumers exhausting it. No pruning, extra runner class, credentials or resources are created.
+
+Every worker preserves a separate bounded metadata artifact. Collection downloads all five metadata artifacts using this exact GitHub run and run_attempt, verifies exact original plan bytes, source/control/attempt/identity, freshness and declared sizes, and rejects total >10GiB before downloading any tar. It checks actual declared total plus 2GiB space. Final collection requires pre-admitted metadata for formal-4g-v1, compares metadata bytes, and retains full tar size/hash/config/layer checks. Same-filesystem rename avoids duplicate archives; no TTL refresh or cross-run borrowing.
+
+Metadata admission trusts the reviewed producer in the same workflow run/attempt and immutable artifact naming. It is not third-party attestation of archive size and does not authenticate arbitrary external fragments. No additional GitHub permission is requested: workflow remains contents:read. The final actual tar size/hash verification is mandatory. Authenticated provider-catalog checks are a possible separately reviewed enhancement, not implemented or required by this proposal.

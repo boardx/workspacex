@@ -13,7 +13,11 @@ hosted = importlib.util.module_from_spec(spec); spec.loader.exec_module(hosted)
 require = a.require
 
 def validate_plan(p):
-    require(type(p) is dict and set(p) == {'kind','schemaVersion','sourceRevision','controlRevision','attemptId','platform','baseImages','sourceContracts','maxArchiveBytes','maxTotalBytes','storageMarginBytes'}, 'CANDIDATE_PLAN_FIELDS')
+    require(type(p) is dict, 'CANDIDATE_PLAN_FIELDS')
+    profile=p.get('budgetProfile')
+    require(profile is None or profile == 'formal-4g-v1', 'CANDIDATE_BUDGET_PROFILE')
+    require(('budgetProfile' not in p) or profile == 'formal-4g-v1', 'CANDIDATE_BUDGET_PROFILE')
+    require(set(p)-({'budgetProfile'} if profile else set()) == {'kind','schemaVersion','sourceRevision','controlRevision','attemptId','platform','baseImages','sourceContracts','maxArchiveBytes','maxTotalBytes','storageMarginBytes'}, 'CANDIDATE_PLAN_FIELDS')
     require(p['kind'] == KIND and type(p['schemaVersion']) is int and p['schemaVersion'] == 2, 'CANDIDATE_SCHEMA')
     require(p['sourceRevision'] == SOURCE and a.hex_string(p['controlRevision'],40), 'CANDIDATE_EXACT_SHA')
     require(isinstance(p['attemptId'],str) and re.fullmatch('[a-z0-9][a-z0-9-]{0,63}',p['attemptId']), 'CANDIDATE_ATTEMPT')
@@ -25,12 +29,19 @@ def validate_plan(p):
     for service,(repo,dockerfile,context,basekeys) in hosted.SERVICES.items():
         v=contracts[service]; require(type(v) is dict and set(v)=={'repository','dockerfile','context','bases','dockerfileSha256'}, 'CANDIDATE_CONTRACT_FIELDS')
         require(v['repository']==repo and v['dockerfile']==dockerfile and v['context']==context and v['bases']==list(basekeys) and a.hex_string(v['dockerfileSha256'],64), 'CANDIDATE_SOURCE_CONTRACT')
-    require(type(p['maxArchiveBytes']) is int and p['maxArchiveBytes']==2*1024**3 and type(p['maxTotalBytes']) is int and p['maxTotalBytes']==10*1024**3 and type(p['storageMarginBytes']) is int and p['storageMarginBytes']==2*1024**3, 'CANDIDATE_FIXED_BUDGET')
+    require(type(p['maxArchiveBytes']) is int and p['maxArchiveBytes']==(4 if profile else 2)*1024**3 and type(p['maxTotalBytes']) is int and p['maxTotalBytes']==10*1024**3 and type(p['storageMarginBytes']) is int and p['storageMarginBytes']==2*1024**3, 'CANDIDATE_FIXED_BUDGET')
+    return p
+
+def validate_diagnostic_plan(p):
+    validate_plan(p)
+    require('budgetProfile' not in p and p['maxArchiveBytes']==2*1024**3,'DIAGNOSTIC_FIXED_BUDGET')
     return p
 
 def identity(p):
     validate_plan(p)
-    return a.sha(a.json_bytes({k:p[k] for k in ('kind','schemaVersion','sourceRevision','controlRevision','platform','baseImages','sourceContracts')}))
+    bound={k:p[k] for k in ('kind','schemaVersion','sourceRevision','controlRevision','platform','baseImages','sourceContracts')}
+    if 'budgetProfile' in p:bound['budgetProfile']=p['budgetProfile']
+    return a.sha(a.json_bytes(bound))
 
 def tag(p,s):
     require(s in hosted.SERVICES,'CANDIDATE_SERVICE')

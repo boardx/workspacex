@@ -63,7 +63,7 @@ def run(argv,cwd=None,*,stdout_file=None,stdout_limit=None):
 def execute(raw,source,output,env,command=run):
  global LINE_LIMIT,HINTS,DEADLINE
  DEADLINE=time.monotonic()+1200;HINTS={};LINE_LIMIT=0;phase('EVENT_REF');event_guard(env)
- phase('PLAN');a.require(len(raw)<=16384,'DIAGNOSTIC_PLAN_SIZE');p=c.validate_plan(a.decode(raw))
+ phase('PLAN');a.require(len(raw)<=16384,'DIAGNOSTIC_PLAN_SIZE');p=c.validate_diagnostic_plan(a.decode(raw))
  a.require(p['controlRevision']==env.get('GITHUB_SHA'),'DIAGNOSTIC_CONTROL_BINDING')
  phase('CONTROL');b.control(p,command)
  root=Path(__file__).resolve().parent.parent
