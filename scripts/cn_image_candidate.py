@@ -66,17 +66,28 @@ def inspect(path,p,s):
         root=config.get('rootfs',{}); require(root.get('type')=='layers' and root.get('diff_ids')==['sha256:'+x['sha256'] for x in layers],'CANDIDATE_DIFF_IDS')
         return {'configSha256':a.sha(raw),'imageId':'sha256:'+a.sha(raw),'layers':layers,'stagingTag':tag(p,s)}
 
-def validate_receipt(raw,p,expected,now=None):
+def validate_historical_receipt(raw,p,expected):
+    """Structure/identity only; NEVER authorizes consuming an expired receipt."""
     require(len(raw)<=256*1024 and a.sha(raw)==expected,'CANDIDATE_RECEIPT_RAW_HASH')
     v=a.decode(raw); require(type(v) is dict and set(v)=={'kind','schemaVersion','planRawSha256','planSha256','identity','attemptId','producedAt','expiresAt','images','releaseReady','productionReady'},'CANDIDATE_RECEIPT_FIELDS')
     require(v['kind']==KIND and type(v['schemaVersion']) is int and v['schemaVersion']==2 and v['identity']==identity(p) and v['attemptId']==p['attemptId'] and v['planSha256']==a.sha(a.json_bytes(p)) and a.hex_string(v['planRawSha256'],64),'CANDIDATE_RECEIPT_IDENTITY')
     require(v['releaseReady'] is False and v['productionReady'] is False,'CANDIDATE_NON_AUTHORIZING')
-    first=a.timestamp(v['producedAt']);last=a.timestamp(v['expiresAt']);require(first<last and (last-first).total_seconds()<=3600 and first<=(now or datetime.now(timezone.utc))<last,'CANDIDATE_EXPIRED')
+    first=a.timestamp(v['producedAt']);last=a.timestamp(v['expiresAt']);require(first<last and (last-first).total_seconds()<=3600 ,'CANDIDATE_EXPIRED')
     require(type(v['images']) is dict and 0<len(v['images'])<=5 and set(v['images'])<=set(hosted.SERVICES),'CANDIDATE_SERVICE_SET')
     return v
 
+def validate_receipt(raw,p,expected,now=None):
+    v=validate_historical_receipt(raw,p,expected)
+    require(a.timestamp(v['producedAt']) <= (now or datetime.now(timezone.utc)) < a.timestamp(v['expiresAt']), 'CANDIDATE_EXPIRED')
+    return v
+
 def verify_bundle(folder,p,raw,expected,raw_plan_sha,now=None,complete=True):
-    v=validate_receipt(raw,p,expected,now);require(v['planRawSha256']==raw_plan_sha,'CANDIDATE_ORIGINAL_PLAN_BINDING')
+    validate_receipt(raw,p,expected,now)
+    return verify_historical_bundle(folder,p,raw,expected,raw_plan_sha,complete)
+
+def verify_historical_bundle(folder,p,raw,expected,raw_plan_sha,complete=True):
+    """Byte verification only. Caller must separately admit provenance/freshness."""
+    v=validate_historical_receipt(raw,p,expected);require(v['planRawSha256']==raw_plan_sha,'CANDIDATE_ORIGINAL_PLAN_BINDING')
     if complete:require(set(v['images'])==set(hosted.SERVICES),'CANDIDATE_COMPLETE_FIVE')
     total=0
     for s,entry in v['images'].items():

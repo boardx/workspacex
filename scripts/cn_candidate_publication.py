@@ -13,12 +13,15 @@ import cn_image_archive as a
 import cn_image_candidate as c
 
 
-def validate_intent(raw, expected_sha, plan, candidate_raw, candidate_sha, plan_sha):
+def validate_intent(raw, expected_sha, plan, candidate_raw, candidate_sha, plan_sha, *, revalidation=None):
     a.require(len(raw) <= 16384 and a.sha(raw) == expected_sha, 'PUBLICATION_INTENT_HASH')
     value = a.decode(raw)
     fields = {'kind', 'schemaVersion', 'candidatePlanRawSha256', 'candidateSetRawSha256',
               'candidateIdentity', 'sourceRevision', 'controlRevision', 'attemptId',
               'release', 'redisImage', 'registryPrefix'}
+    if revalidation is not None:
+        fields.add('revalidationRawSha256')
+        a.require(value.get('revalidationRawSha256') == revalidation.sha, 'PUBLICATION_REVALIDATION_BINDING')
     a.require(type(value) is dict and set(value) == fields, 'PUBLICATION_INTENT_FIELDS')
     a.require(value['kind'] == 'cn-candidate-publication-intent-v2'
               and type(value['schemaVersion']) is int and value['schemaVersion'] == 2,
@@ -38,7 +41,8 @@ def validate_intent(raw, expected_sha, plan, candidate_raw, candidate_sha, plan_
     a.require(isinstance(value['redisImage'], str)
               and re.fullmatch(re.escape(a.PREFIX + '/base-redis') + '@sha256:[a-f0-9]{64}', value['redisImage']),
               'PUBLICATION_REDIS_REFERENCE')
-    receipt = c.validate_receipt(candidate_raw, plan, candidate_sha)
+    receipt = (c.validate_receipt(candidate_raw, plan, candidate_sha) if revalidation is None else
+               revalidation.check(plan, candidate_raw, candidate_sha, plan_sha))
     a.require(receipt['planRawSha256'] == plan_sha, 'PUBLICATION_PLAN_RAW_BINDING')
     a.require(set(receipt['images']) == set(a.REPOSITORIES), 'PUBLICATION_COMPLETE_FIVE')
     return value
@@ -56,7 +60,7 @@ def image_matches(image, entry, plan):
 
 
 def publish(plan_raw, plan_sha, candidate_raw, candidate_sha,
-            intent_raw, intent_sha, bundle, adapter):
+            intent_raw, intent_sha, bundle, adapter, *, revalidation=None):
     """Validate original bytes, authenticate Redis first, then publish five images.
 
     adapter is an internal trusted capability, never a serialized caller input.
@@ -65,12 +69,16 @@ def publish(plan_raw, plan_sha, candidate_raw, candidate_sha,
     """
     a.require(len(plan_raw) <= 16384 and a.sha(plan_raw) == plan_sha, 'PUBLICATION_PLAN_HASH')
     plan = c.validate_plan(a.decode(plan_raw))
-    intent = validate_intent(intent_raw, intent_sha, plan, candidate_raw, candidate_sha, plan_sha)
-    receipt = c.verify_bundle(bundle, plan, candidate_raw, candidate_sha, plan_sha)
+    intent = validate_intent(intent_raw, intent_sha, plan, candidate_raw, candidate_sha, plan_sha, revalidation=revalidation)
+    receipt = (c.verify_bundle(bundle, plan, candidate_raw, candidate_sha, plan_sha) if revalidation is None else
+               revalidation.verify_bundle(bundle, plan, candidate_raw, candidate_sha, plan_sha))
 
     def fresh():
         # Recheck the original receipt before every side effect and final seal.
-        c.validate_receipt(candidate_raw, plan, candidate_sha)
+        if revalidation is None:
+            c.validate_receipt(candidate_raw, plan, candidate_sha)
+        else:
+            revalidation.check(plan, candidate_raw, candidate_sha, plan_sha)
         adapter.check_validity()
 
     def target(service):
@@ -145,6 +153,9 @@ def publish(plan_raw, plan_sha, candidate_raw, candidate_sha,
                    'releaseReady': False, 'productionReady': False}
         # Host adapter must use the original TS manifest generator/validator/sealer
         # and atomically bind this metadata with the real six-digest result.
+        if revalidation is not None:
+            binding['revalidationRawSha256'] = revalidation.sha
+            binding['revalidationExpiresAt'] = revalidation.expires_at
         return adapter.canonical_publish_candidate(manifest_input, binding)
     finally:
         primary = sys.exc_info()[1]

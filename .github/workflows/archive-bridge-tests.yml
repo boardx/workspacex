@@ -20,6 +20,10 @@ on:
       - 'scripts/cn_candidate_publication.py'
       - 'scripts/cn_candidate_host.py'
       - 'scripts/cn_candidate_oss.py'
+      - 'scripts/cn_candidate_revalidation.py'
+      - 'scripts/cn_candidate_github.py'
+      - 'scripts/revalidate-cn-image-candidates.py'
+      - 'tests/test_cn_candidate_revalidation.py'
       - 'tests/test_cn_candidate_oss.py'
       - '.harness/scripts/vm/import-cn-image-candidates.py'
       - 'tests/test_cn_candidate_host*.py'
@@ -77,6 +81,8 @@ jobs:
         run: python3 -I -B -m unittest discover -s tests -p 'test_cn_candidate_host*.py' -v
       - name: Candidate OSS transfer and Linux atomic download
         run: python3 -I -B -m unittest discover -s tests -p 'test_cn_candidate_oss.py' -v
+      - name: Authenticated source revalidation without cloud writes
+        run: python3 -I -B -m unittest discover -s tests -p 'test_cn_candidate_revalidation.py' -v
       - name: Explicit formal budget and metadata admission
         run: python3 -I -B -m unittest discover -s tests -p 'test_cn_formal_budget_profile.py' -v
       - name: Exact formal source admission with legacy identity

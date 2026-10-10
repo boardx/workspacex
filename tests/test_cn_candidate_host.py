@@ -84,6 +84,18 @@ class HostTests(unittest.TestCase):
                     h.copy_snapshots({'web': io.BytesIO(raw)}, Path(directory),
                         {'images': {'web': {'size': 3}}}, {'maxArchiveBytes': 3})
 
+    def test_explicit_revalidated_host_schema_requires_independent_hashes_and_closure(self):
+        value=approval();value.update(kind='cn-candidate-host-revalidated-approval-v1',schemaVersion=1,
+            revalidationRawSha256='a'*64,revalidationPolicyRawSha256='b'*64)
+        value['installedToolSha256']['cn_candidate_revalidation.py']='c'*64
+        h.validate_approval(value,value['sourceRevision'],value['attemptId'])
+        bad=copy.deepcopy(value);del bad['revalidationPolicyRawSha256']
+        with self.assertRaises(a.Rejected):h.validate_approval(bad,bad['sourceRevision'],bad['attemptId'])
+        bad=copy.deepcopy(value);del bad['installedToolSha256']['cn_candidate_revalidation.py']
+        with self.assertRaises(a.Rejected):h.validate_approval(bad,bad['sourceRevision'],bad['attemptId'])
+        bad=copy.deepcopy(value);bad['expiresAt']='2000-01-01T00:00:00Z'
+        with self.assertRaises(a.Rejected):h.validate_approval(bad,bad['sourceRevision'],bad['attemptId'])
+
     def test_adapter_uses_real_canonical_method_and_atomic_receipt_hook(self):
         instance = object.__new__(h.Commands)
         instance.plan = approval(); instance.approval_sha = '9'*64
