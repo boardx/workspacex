@@ -62,5 +62,12 @@
     "sourceCommit": "ea018fbec5522c72adf8ddf8fa900c799634f1e7",
     "verdict": "ACCEPT",
     "scope": "Exact source plus unchanged real browser red/green, safe projection, regression evidence; no main/online completion claim."
+  },
+  "testFixtureAnnotation": {
+    "baseCommit": "c378799c489db7101cc71fa883795bf23bb8e515",
+    "change": "One existing Synthetic test fixture comment on non-string-body negative sample.",
+    "inputsAndAssertionsByteIdenticalAfterCommentRemoval": true,
+    "scannerRulesAndBaselineUnchanged": true,
+    "secretScanNewMatches": 0
   }
 }

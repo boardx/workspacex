@@ -8,7 +8,7 @@ describe("incremental research report preview", () => {
   it("joins only paragraph body strings without exposing question or source metadata", () => {
     expect(researchReportPreview(JSON.stringify({ sections: [{ sectionId: "a", paragraphs: [
       { questionId: "private-id", body: "第一段", sourceIds: ["private-source"] },
-      { body: { secret: "not prose" } }, { body: "第二段" },
+      { body: { secret: "not prose" } }, { body: "第二段" }, // Synthetic test fixture.
     ] }] }))).toEqual({ title: "", summary: "", sections: [{ sectionId: "a", body: "第一段\n\n第二段" }] });
   });
   it("shows only report strings while nested sections are incomplete", () => {
