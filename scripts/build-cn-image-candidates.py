@@ -83,7 +83,9 @@ def control(p,command=run):
     for f in ('scripts/cn_image_candidate.py','scripts/build-cn-image-candidates.py','scripts/cn_image_archive.py','scripts/hosted-release.py','scripts/export-cn-image-archives.py'):
         c.require((root/f).read_bytes()==command(['git','show',p['controlRevision']+':'+f],root),'CANDIDATE_CONTROL_BYTES')
 
-SAFE_CODES=SAFE_CODES|{'CANDIDATE_NORMALIZE_LIMIT','CANDIDATE_LAYER_COMPRESSION'}
+SAFE_CODES=SAFE_CODES|{'CANDIDATE_NORMALIZE_LIMIT','CANDIDATE_LAYER_COMPRESSION',
+    'CANDIDATE_SAVE_ENTRY_TYPE','CANDIDATE_SAVE_FIELDS','CANDIDATE_SAVE_TAGS',
+    'CANDIDATE_SAVE_LAYERS_TYPE','CANDIDATE_SAVE_CONFIG_TYPE','CANDIDATE_SAVE_LAYER_SOURCES','CANDIDATE_SAVE_PARENT'}
 
 def normalize(saved,target,p,service):
     created=[]
@@ -100,7 +102,22 @@ def _normalize(saved,target,p,service,created):
     with tarfile.open(saved,'r:') as source:
         ix=a.members(source);c.require('manifest.json' in ix,'CANDIDATE_MANIFEST')
         m=a.decode(a.small_member(source,ix['manifest.json']));c.require(type(m) is list and len(m)==1,'CANDIDATE_ONE_IMAGE')
-        v=m[0];c.require(type(v) is dict and set(v)=={'Config','RepoTags','Layers'} and v['RepoTags']==[c.tag(p,service)] and type(v['Layers']) is list,'CANDIDATE_SAVE_MANIFEST')
+        v=m[0];c.require(type(v) is dict,'CANDIDATE_SAVE_ENTRY_TYPE')
+        required={'Config','RepoTags','Layers'}
+        # Moby's save format permits LayerSources metadata. It is never used
+        # for retrieval or identity: only embedded payloads are inspected.
+        c.require(required<=set(v)<=required|{'LayerSources','Parent'},'CANDIDATE_SAVE_FIELDS')
+        c.require('LayerSources' not in v or type(v['LayerSources']) is dict,'CANDIDATE_SAVE_LAYER_SOURCES')
+        c.require('Parent' not in v or (type(v['Parent']) is str and
+                  v['Parent'].startswith('sha256:') and a.hex_string(v['Parent'][7:],64)),'CANDIDATE_SAVE_PARENT')
+        expected=c.tag(p,service)
+        # Classic Moby and containerd emit familiar references; retain exact tag.
+        c.require(type(v['RepoTags']) is list and len(v['RepoTags'])==1 and
+                  v['RepoTags'][0]==expected,'CANDIDATE_SAVE_TAGS')
+        c.require(type(v['Config']) is str,'CANDIDATE_SAVE_CONFIG_TYPE')
+        c.require(type(v['Layers']) is list and all(type(n) is str for n in v['Layers']),'CANDIDATE_SAVE_LAYERS_TYPE')
+        # Emit the strict three-field candidate format, preserving config bytes.
+        v={'Config':v['Config'],'RepoTags':[expected],'Layers':v['Layers']};m=[v]
         names=[v['Config'],*v['Layers']];c.require(1<len(names)<=129 and len(names)==len(set(names)),'CANDIDATE_SAVE_LAYERS')
         for n in names:a.safe_name(n);c.require(n in ix and ix[n].isfile(),'CANDIDATE_SAVE_MEMBER')
         # Preserve config bytes; only layer payloads may be decompressed.

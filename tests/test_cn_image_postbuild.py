@@ -14,7 +14,7 @@ a, b, c = fixture.a, fixture.b, fixture.c
 
 
 class PostBuildBoundaryTests(unittest.TestCase):
-    def saved(self, path, plan, compressed=False, bad_identity=False, damage=None, layers=1, bad_platform=False, bad_diff=False):
+    def saved(self, path, plan, compressed=False, bad_identity=False, damage=None, layers=1, bad_platform=False, bad_diff=False, manifest_edit=None):
         # A real inner layer tar, with DiffID over its uncompressed bytes.
         buf = io.BytesIO()
         with tarfile.open(fileobj=buf, mode='w', format=tarfile.USTAR_FORMAT) as layer:
@@ -31,7 +31,8 @@ class PostBuildBoundaryTests(unittest.TestCase):
         config_name = 'blobs/sha256/' + a.sha(config)
         layer_name = 'blobs/sha256/' + a.sha(blob)
         layer_names = [layer_name + ('-' + str(i) if layers > 1 else '') for i in range(layers)]
-        manifest = a.json_bytes([dict(Config=config_name, RepoTags=[c.tag(plan, 'agent')], Layers=layer_names)])
+        entry = dict(Config=config_name, RepoTags=[c.tag(plan, 'agent')], Layers=layer_names)
+        manifest = a.json_bytes([manifest_edit(entry) if manifest_edit else entry])
         with tarfile.open(path, 'w', format=tarfile.USTAR_FORMAT) as saved:
             for name, data in [(config_name, config), *[(n, blob) for n in layer_names], ('manifest.json', manifest), ('oci-layout', b'{"imageLayoutVersion":"1.0.0"}')]:
                 member = tarfile.TarInfo(name); member.size = len(data)
@@ -101,6 +102,45 @@ class PostBuildBoundaryTests(unittest.TestCase):
                 self.assertEqual(str(caught.exception), code)
                 self.assertFalse((root/'agent.tar').exists())
                 self.assertFalse((root/'candidate-fragment.json').exists())
+
+    def test_documented_extensions_emit_strict_manifest(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td); plan = fixture.plan()
+            def edit(v):
+                return dict(v, Parent='sha256:' + '1' * 64,
+                            LayerSources={'sha256:' + '0' * 64: {'urls': ['https://invalid.example/never-fetch']}})
+            self.saved(root/'save.tar', plan, compressed=True, manifest_edit=edit)
+            result = b.normalize(root/'save.tar', root/'agent.tar', plan, 'agent')
+            self.assertEqual(result, c.inspect(root/'agent.tar', plan, 'agent'))
+            with tarfile.open(root/'agent.tar') as normalized:
+                v = a.decode(normalized.extractfile('manifest.json').read())[0]
+            self.assertEqual(set(v), {'Config', 'RepoTags', 'Layers'})
+            self.assertEqual(v['RepoTags'], [c.tag(plan, 'agent')])
+
+    def test_manifest_failures_have_safe_specific_codes_and_no_target(self):
+        cases = [
+            (lambda v: [], 'CANDIDATE_SAVE_ENTRY_TYPE'),
+            (lambda v: dict(v, Unknown='secret'), 'CANDIDATE_SAVE_FIELDS'),
+            (lambda v: {k: x for k, x in v.items() if k != 'Config'}, 'CANDIDATE_SAVE_FIELDS'),
+            (lambda v: dict(v, RepoTags=['evil.example/' + v['RepoTags'][0]]), 'CANDIDATE_SAVE_TAGS'),
+            (lambda v: dict(v, RepoTags=[v['RepoTags'][0], 'extra:tag']), 'CANDIDATE_SAVE_TAGS'),
+            (lambda v: dict(v, RepoTags=None), 'CANDIDATE_SAVE_TAGS'),
+            (lambda v: dict(v, RepoTags=['docker.io/' + v['RepoTags'][0]]), 'CANDIDATE_SAVE_TAGS'),
+            (lambda v: dict(v, Layers=None), 'CANDIDATE_SAVE_LAYERS_TYPE'),
+            (lambda v: dict(v, Layers=[{}]), 'CANDIDATE_SAVE_LAYERS_TYPE'),
+            (lambda v: dict(v, Config=[]), 'CANDIDATE_SAVE_CONFIG_TYPE'),
+            (lambda v: dict(v, LayerSources=[]), 'CANDIDATE_SAVE_LAYER_SOURCES'),
+            (lambda v: dict(v, Parent='not-an-image-id'), 'CANDIDATE_SAVE_PARENT'),
+        ]
+        for edit, code in cases:
+            with self.subTest(code=code), tempfile.TemporaryDirectory() as td:
+                root = Path(td); plan = fixture.plan()
+                self.saved(root/'save.tar', plan, manifest_edit=edit)
+                with self.assertRaises(a.Rejected) as caught:
+                    b.normalize(root/'save.tar', root/'agent.tar', plan, 'agent')
+                self.assertEqual(str(caught.exception), code)
+                self.assertIn(code, b.SAFE_CODES)
+                self.assertFalse((root/'agent.tar').exists())
 
     def test_existing_target_is_preserved(self):
         with tempfile.TemporaryDirectory() as td:
