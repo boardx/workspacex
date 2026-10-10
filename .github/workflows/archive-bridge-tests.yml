@@ -69,6 +69,7 @@ on:
       - 'tests/test_cn*archive*.py'
       - 'packages/cloud-deploy/src/release*.ts'
       - '.harness/scripts/vm/isolated_rehearsal_aliyun.py'
+      - '.harness/scripts/vm/isolated_rehearsal_endpoint_test.py'
 permissions:
   contents: read
 jobs:
@@ -144,3 +145,5 @@ jobs:
         run: python3 -I -B -m unittest discover -s tests -p 'test_cn_main_registration.py' -v
       - name: Run isolated recovery contracts on trusted runner directories
         run: python3 -I -B .harness/scripts/vm/isolated_rehearsal_test.py
+      - name: Verify isolated private RPC endpoints and signing without credentials
+        run: python3 -I -B .harness/scripts/vm/isolated_rehearsal_endpoint_test.py
