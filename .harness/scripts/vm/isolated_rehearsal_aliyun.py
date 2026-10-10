@@ -5,7 +5,7 @@ No clone purchase operation. Never read production database credentials.
 import signal
 import base64,datetime,hashlib,hmac,json,os,re,subprocess,sys,urllib.parse,urllib.request,urllib.error,uuid
 from pathlib import Path
-from isolated_rehearsal import validate_binding,created,private_json,UnknownOutcome,ProcessAdapter,SAFE_PROVIDER_CODES
+from isolated_rehearsal import validate_binding,created,private_json,UnknownOutcome,ProcessAdapter,SAFE_PROVIDER_CODES,ROLE_NAMES,role_intent,role_description
 
 class ProviderError(ValueError):
  def __init__(self,code):self.code=code;super().__init__('PROVIDER_REJECTED')
@@ -86,6 +86,37 @@ def run(operation,p):
  if operation=='account-readback':
   rows=rds('DescribeAccounts').get('Accounts',{}).get('DBInstanceAccount',[]);matches=[x for x in rows if x.get('AccountName')==p['secret']['user'] and x.get('AccountType')=='Super' and x.get('AccountStatus')=='Available']
   return {'exists':len(matches)==1,'user':p['secret']['user'],'targetInstanceId':target}
+ if operation in ('role-account-create','role-account-readback'):
+  role=p.get('role');intent=p.get('roleIntent',{})
+  if intent!=role_intent(b,role,intent.get('bootstrapNonce')):raise ValueError('ROLE_INTENT_BINDING')
+  owned=p.get('ownedRoles')
+  if type(owned) is not dict or not set(owned)<=set(ROLE_NAMES) or any(type(v) is not str or not re.fullmatch('wsx-isolated-'+re.escape(b['attemptId'])+'-'+re.escape(k)+'-[a-f0-9]{32}',v) for k,v in owned.items()):raise ValueError('ROLE_OWNERSHIP_BINDING')
+  description=role_description(intent)
+  if role in owned and owned[role]!=description:raise ValueError('ROLE_OWNERSHIP_BINDING')
+  # Bind actual instance identity afresh, not merely the requested RPC target.
+  attrs=rds('DescribeDBInstanceAttribute')['Items']['DBInstanceAttribute']
+  if len(attrs)!=1 or attrs[0].get('DBInstanceId')!=target or attrs[0].get('CreationTime')!=b['providerCreatedUtc'] or attrs[0].get('DBInstanceDescription')!=b['providerDescription']:raise ValueError('ROLE_PROVIDER_TARGET')
+  page=rds('DescribeAccounts',{'PageNumber':1,'PageSize':100})
+  rows=page.get('Accounts',{}).get('DBInstanceAccount')
+  # A seven-account instance must fit one complete page; incomplete/extra lists never prove absence.
+  if type(rows) is not list or type(page.get('TotalRecordCount')) is not int or page.get('PageNumber')!=1 or page['TotalRecordCount']!=len(rows) or len(rows)>7:raise ValueError('ROLE_ACCOUNT_INCOMPLETE_PAGE')
+  names=set()
+  for row in rows:
+   name=row.get('AccountName')
+   if name in names or row.get('DBInstanceId')!=target:raise ValueError('ROLE_ACCOUNT_TARGET')
+   names.add(name)
+   if name=='migration_admin':
+    if row.get('AccountType')!='Super' or row.get('AccountStatus')!='Available' or row.get('AccountDescription')!='Isolated rehearsal '+b['attemptId']:raise ValueError('ROLE_ADMIN_OWNERSHIP')
+   elif name not in owned or row.get('AccountType')!='Normal' or row.get('AccountDescription')!=owned[name]:raise ValueError('ROLE_FOREIGN_ACCOUNT')
+  if 'migration_admin' not in names:raise ValueError('ROLE_ADMIN_REQUIRED')
+  matches=[r for r in rows if r.get('AccountName')==role]
+  if operation=='role-account-readback':
+   return dict(targetInstanceId=target,attemptId=b['attemptId'],role=role,accountType='Normal',accountDescription=description,absent=not matches,exists=len(matches)==1 and matches[0].get('AccountStatus')=='Available')
+  if role not in owned or matches:raise ValueError('ROLE_ACCOUNT_NOT_EMPTY')
+  secret=p.get('secret',{}).get('roles',{}).get(role,{})
+  if secret.get('user')!=role or secret.get('port')!=5432 or any(secret.get(k)!=b[k] for k in ('targetInstanceId','attemptId','host','peer','peerSha256','providerCreatedUtc','tls')) or not re.fullmatch(r'Aa1![A-Za-z0-9_-]{28}',secret.get('password','')):raise ValueError('ROLE_SECRET_BINDING')
+  rds('CreateAccount',{'AccountName':role,'AccountPassword':secret['password'],'AccountType':'Normal','AccountDescription':description})
+  return dict(submitted=True,targetInstanceId=target,attemptId=b['attemptId'],role=role)
  if operation=='cleanup-register':
   # Role/policy must be independently installed and reviewed before this entry.
   iam_binding(b,c)

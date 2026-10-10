@@ -40,3 +40,39 @@ Before purchase, verify the target-neutral template's source, images, complete r
 Before clone purchase, the same builder accepts `REQUEST_PATH REQUEST_SHA256 --review-template`. It checks a target-neutral frozen template and all referenced bytes/transitive modules without creating manifests or inventing an instance ID. Its result deliberately says only `reviewedInputBytesAvailable`, `targetBindingRequired:true`, `liveAccepted:false`. This is one pre-purchase input check, not authorization to buy a clone, an assertion that runtime images exist, or SQL conservation acceptance. The coordinator separately verifies actual local image/provenance inventory and IAM installation.
 
 Offline semantic admission reuses the actual hashed database helper's validation, the authoritative canonical plan factory and JavaScript JSON serialization for reviewed law body hashes. It checks all five canonical sources and the real source/extractor/runtime JSON contents, derives both secondary database plans again and requires exact bytes, checks CMS key/certificate pairing with OpenSSL and compares every recipient, and binds canvas SQL/migration bytes before any cloud write. Node and OpenSSL are local tool prerequisites; Node's resolved executable/ancestor ownership is checked. Provider, OCI metadata, live roles/peers, archive SQL data fidelity and cleanup remain actual runtime gates and cannot be inferred from offline tests.
+
+## Six Normal accounts before restore (#5547)
+
+After the existing empty-account guard, `migration_admin` creation and Available
+readback, `isolated_rehearsal.bootstrap_role_accounts` creates only the fixed
+`ROLE_NAMES` accounts from their already-bound private `secret.roles` entries.
+The original database preparation helper still verifies SQL role attributes and
+memberships; provider Available is not a substitute for that gate.
+
+Each account requires a complete provider account inventory before a durable
+exclusive intent is written. The inventory may contain only this attempt's
+`migration_admin` and Normal accounts owned by validated intents. The intent
+binds account, region, target instance, provider creation time, candidate,
+attempt, exact account name/type and a locally generated non-secret nonce.
+`AccountDescription` contains attempt/name/nonce. An existing intent never sends
+CreateAccount again, including an interrupted process that may not have sent its
+first request. Unknown acknowledgements reconcile only through Describe reads.
+Missing accounts after an unknown outcome fail; there is no automatic retry.
+
+The adapter rereads actual target metadata and requires complete DescribeAccounts
+pagination metadata, exact per-row DBInstanceId, AccountType and
+AccountDescription. Foreign accounts, incomplete pages and missing descriptions
+fail closed. The official
+[DescribeAccounts contract](https://www.alibabacloud.com/help/en/rds/developer-reference/api-rds-2014-08-15-describeaccounts)
+defines these fields. This path expects at most seven accounts and therefore
+accepts only one complete page (`PageSize=100`, total count equals returned rows).
+It does not infer absence from a partial page.
+
+Only exact Available readback produces each private verified receipt; submitted
+responses are never success receipts. All six are reread before the normal
+provider observation and restore sequence. The target-bound cleanup/deadline
+path remains unchanged. No password is stored in these intents/receipts or
+printed, and this code change does not authorize or perform cloud execution.
+
+Offline regression gate (also the existing archive-bridge CI step):
+`python3 -I -B .harness/scripts/vm/isolated_rehearsal_test.py`.

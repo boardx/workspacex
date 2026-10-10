@@ -3,6 +3,9 @@ from unittest.mock import patch
 from pathlib import Path
 sys.path.insert(0,str(Path(__file__).parent))
 spec=importlib.util.spec_from_file_location('rehearsal',Path(__file__).with_name('isolated_rehearsal.py'));m=importlib.util.module_from_spec(spec);spec.loader.exec_module(m)
+def role_fixture(p):
+ role=p['role'];exists=role in p['ownedRoles']
+ return dict(targetInstanceId=p['binding']['targetInstanceId'],attemptId=p['binding']['attemptId'],role=role,accountType='Normal',accountDescription=m.role_description(p['roleIntent']),exists=exists,absent=not exists)
 class BindingTests(unittest.TestCase):
  def manifest(self):
   now=datetime.datetime.now(datetime.timezone.utc)
@@ -59,6 +62,7 @@ class BindingTests(unittest.TestCase):
     calls.append(op)
     if op=='observe':return {k:x[k] for k in ('targetInstanceId','peer','providerCreatedUtc')}
     if op=='cleanup-readback':return dict(registered='cleanup-registration-remove' not in calls,terminal='cleanup-registration-remove' in calls,targetInstanceId=x['targetInstanceId'],deleteBeginEpoch=m.created(x)+6900)
+    if op=='role-account-readback':return role_fixture(p)
     if op=='account-readback':return dict(exists=True,user='migration_admin')
     if op=='cleanup-readback-deleted':return {'notFound':True}
     if op=='cleanup-registration-readback-removed':return {'removed':True}
@@ -75,6 +79,7 @@ class BindingTests(unittest.TestCase):
      calls.append(op)
      if op=='observe':return {k:x[k] for k in ('targetInstanceId','peer','providerCreatedUtc')}
      if op=='cleanup-readback':return dict(registered='cleanup-registration-remove' not in calls,terminal='cleanup-registration-remove' in calls,targetInstanceId=x['targetInstanceId'],deleteBeginEpoch=m.created(x)+6900)
+     if op=='role-account-readback':return role_fixture(p)
      if op=='account-readback':return dict(exists=True,user='migration_admin')
      if op=='cleanup-readback-deleted':return {'notFound':True}
      if op=='cleanup-registration-readback-removed':return {'removed':True}
@@ -88,6 +93,7 @@ class BindingTests(unittest.TestCase):
     calls.append(op)
     if op=='observe':return {k:x[k] for k in ('targetInstanceId','peer','providerCreatedUtc')}
     if op=='cleanup-readback':return dict(registered='cleanup-registration-remove' not in calls,terminal='cleanup-registration-remove' in calls,targetInstanceId=x['targetInstanceId'],deleteBeginEpoch=m.created(x)+6900)
+    if op=='role-account-readback':return role_fixture(p)
     if op=='account-readback':return dict(exists=True,user='migration_admin')
     if op=='cleanup-readback-deleted':return {'notFound':True}
     if op=='cleanup-registration-readback-removed':return {'removed':True}
@@ -143,6 +149,7 @@ class BindingTests(unittest.TestCase):
     calls.append(op)
     if op=='observe':return {k:x[k] for k in ('targetInstanceId','peer','providerCreatedUtc')}
     if op=='cleanup-readback':return dict(registered='cleanup-registration-remove' not in calls,terminal='cleanup-registration-remove' in calls,targetInstanceId=x['targetInstanceId'],deleteBeginEpoch=m.created(x)+6900)
+    if op=='role-account-readback':return role_fixture(p)
     if op in reads:
      reads[op]+=1
      return {'exists':reads[op]>1,'user':'migration_admin'} if op=='account-readback' else {'notFound':reads[op]>1}
@@ -427,4 +434,115 @@ class InputBuilderTests(unittest.TestCase):
    result=builder.prepare(request,root,lambda _:dict(preparedInputClosure=True));self.assertTrue(result['preparedInputClosure']);before=(root/'bound-stages.json').read_bytes()
    with self.assertRaises(FileExistsError):builder.prepare(request,root,reject)
    self.assertEqual((root/'bound-stages.json').read_bytes(),before)
+class RoleBootstrapTests(unittest.TestCase):
+ def fixture(self):
+  import isolated_rehearsal_aliyun as adapter
+  b=BindingTests.manifest(self);b['ecsRole']='test-role'
+  secret=dict(roles={role:dict(b,user=role,port=5432,password='Aa1!'+'x'*28) for role in m.ROLE_NAMES})
+  rows=[dict(DBInstanceId=b['targetInstanceId'],AccountName='migration_admin',AccountType='Super',AccountStatus='Available',AccountDescription='Isolated rehearsal '+b['attemptId'])]
+  calls=[]
+  def rpc(service,action,args,cred):
+   self.assertEqual(service,'rds');self.assertEqual(args['DBInstanceId'],b['targetInstanceId']);calls.append((action,dict(args)))
+   if action=='DescribeDBInstanceAttribute':return {'Items':{'DBInstanceAttribute':[dict(DBInstanceId=b['targetInstanceId'],CreationTime=b['providerCreatedUtc'],DBInstanceDescription=b['providerDescription'])]}}
+   if action=='DescribeAccounts':return dict(Accounts=dict(DBInstanceAccount=[dict(r) for r in rows]),PageNumber=1,TotalRecordCount=len(rows))
+   if action=='CreateAccount':
+    rows.append(dict(DBInstanceId=b['targetInstanceId'],AccountName=args['AccountName'],AccountType=args['AccountType'],AccountDescription=args['AccountDescription'],AccountStatus='Available'));return {}
+   raise AssertionError(action)
+  def invoke(op,p):
+   with patch.object(adapter,'credential',return_value={}),patch.object(adapter,'rpc',side_effect=rpc):return adapter.run(op,p)
+  return b,secret,rows,calls,rpc,invoke,adapter
+ def test_six_normal_created_once_then_readonly_resume(self):
+  b,s,rows,calls,_,invoke,_=self.fixture()
+  with tempfile.TemporaryDirectory() as d:
+   root=Path(d);m.bootstrap_role_accounts(b,root,s,invoke)
+   self.assertEqual([a['AccountName'] for op,a in calls if op=='CreateAccount'],list(m.ROLE_NAMES))
+   self.assertTrue(all(a['AccountType']=='Normal' for op,a in calls if op=='CreateAccount'))
+   for role in m.ROLE_NAMES:
+    receipt=json.loads((root/('role-'+role+'.receipt.json')).read_text());self.assertTrue(receipt['providerVerified']);self.assertNotIn('password',json.dumps(receipt))
+   calls.clear();m.bootstrap_role_accounts(b,root,s,invoke);self.assertFalse(any(op=='CreateAccount' for op,_ in calls))
+ def test_lost_ack_reconciles_without_second_create(self):
+  b,s,rows,calls,_,invoke,_=self.fixture();lost=[False]
+  def wrapper(op,p):
+   result=invoke(op,p)
+   if op=='role-account-create' and not lost[0]:lost[0]=True;raise m.UnknownOutcome('lost ack')
+   return result
+  with tempfile.TemporaryDirectory() as d:m.bootstrap_role_accounts(b,Path(d),s,wrapper)
+  self.assertEqual(sum(op=='CreateAccount' for op,_ in calls),6)
+ def test_existing_intent_without_remote_result_never_creates(self):
+  b,s,rows,calls,_,invoke,_=self.fixture()
+  with tempfile.TemporaryDirectory() as d:
+   root=Path(d);intent=m.role_intent(b,m.ROLE_NAMES[0],'a'*32);m.exclusive(root/('role-'+m.ROLE_NAMES[0]+'.intent.json'),intent)
+   with self.assertRaises(m.UnknownOutcome):m.bootstrap_role_accounts(b,root,s,invoke)
+   self.assertFalse(any(op=='CreateAccount' for op,_ in calls));self.assertFalse(list(root.glob('*.receipt.json')))
+ def test_foreign_preexisting_account_refuses_without_intent(self):
+  for role in (m.ROLE_NAMES[0],'foreign'):
+   b,s,rows,calls,_,invoke,_=self.fixture();rows.append(dict(DBInstanceId=b['targetInstanceId'],AccountName=role,AccountType='Normal',AccountDescription='foreign',AccountStatus='Available'))
+   with self.subTest(role=role),tempfile.TemporaryDirectory() as d:
+    with self.assertRaisesRegex(ValueError,'ROLE_FOREIGN_ACCOUNT'):m.bootstrap_role_accounts(b,Path(d),s,invoke)
+    self.assertFalse(list(Path(d).glob('*.intent.json')));self.assertFalse(any(op=='CreateAccount' for op,_ in calls))
+ def test_intent_binding_and_symlink_rejected_before_provider(self):
+  for variant in ('target','attempt','nonce','extra','symlink','mode'):
+   b,s,rows,calls,_,invoke,_=self.fixture()
+   with self.subTest(variant=variant),tempfile.TemporaryDirectory() as d:
+    root=Path(d);value=m.role_intent(b,m.ROLE_NAMES[0],'a'*32);path=root/('role-'+m.ROLE_NAMES[0]+'.intent.json')
+    if variant=='target':value['targetInstanceId']='pgm-other'
+    if variant=='attempt':value['attemptId']=str(uuid.uuid4())
+    if variant=='nonce':value['bootstrapNonce']='short'
+    if variant=='extra':value['extra']=True
+    m.exclusive(path,value)
+    if variant=='mode':path.chmod(0o644)
+    if variant=='symlink':path.rename(root/'other');path.symlink_to(root/'other')
+    with self.assertRaises(ValueError):m.bootstrap_role_accounts(b,root,s,invoke)
+    self.assertEqual(calls,[])
+ def test_bad_provider_page_or_identity_never_creates(self):
+  for variant in ('missing-total','partial','duplicate','wrong-target','missing-description','wrong-description','super'):
+   b,s,rows,calls,rpc,_,adapter=self.fixture()
+   def broken(service,action,args,cred):
+    result=rpc(service,action,args,cred)
+    if action=='DescribeAccounts':
+     if variant=='missing-total':result.pop('TotalRecordCount')
+     if variant=='partial':result['TotalRecordCount']+=1
+     if variant=='duplicate':result['Accounts']['DBInstanceAccount']*=2;result['TotalRecordCount']=2
+     if variant=='wrong-target':result['Accounts']['DBInstanceAccount'][0]['DBInstanceId']='pgm-other'
+     if variant=='missing-description':result['Accounts']['DBInstanceAccount'][0].pop('AccountDescription')
+     if variant=='wrong-description':result['Accounts']['DBInstanceAccount'][0]['AccountDescription']='another attempt'
+     if variant=='super':result['Accounts']['DBInstanceAccount'][0]['AccountType']='Normal'
+    return result
+   def invoke(op,p):
+    with patch.object(adapter,'credential',return_value={}),patch.object(adapter,'rpc',side_effect=broken):return adapter.run(op,p)
+   with self.subTest(variant=variant),tempfile.TemporaryDirectory() as d:
+    with self.assertRaises(ValueError):m.bootstrap_role_accounts(b,Path(d),s,invoke)
+    self.assertFalse(any(op=='CreateAccount' for op,_ in calls))
+ def test_unavailable_role_cannot_start_next_create(self):
+  b,s,rows,calls,_,invoke,_=self.fixture()
+  def wrapper(op,p):
+   result=invoke(op,p)
+   if op=='role-account-create':rows[-1]['AccountStatus']='Unavailable'
+   return result
+  with tempfile.TemporaryDirectory() as d:
+   with self.assertRaises(m.UnknownOutcome):m.bootstrap_role_accounts(b,Path(d),s,wrapper)
+   self.assertFalse(list(Path(d).glob('*.receipt.json')))
+  self.assertEqual(sum(op=='CreateAccount' for op,_ in calls),1)
+ def test_receipt_alone_or_changed_nonce_cannot_claim_account(self):
+  b,s,rows,calls,_,invoke,_=self.fixture()
+  with tempfile.TemporaryDirectory() as d:
+   root=Path(d);m.bootstrap_role_accounts(b,root,s,invoke);path=root/('role-'+m.ROLE_NAMES[0]+'.intent.json');path.unlink();calls.clear()
+   with self.assertRaisesRegex(ValueError,'ROLE_RECEIPT_BINDING'):m.bootstrap_role_accounts(b,root,s,invoke)
+   self.assertEqual(calls,[])
+ def test_normal_description_drift_and_wrong_password_binding_stop(self):
+  for variant in ('description','secret'):
+   b,s,rows,calls,_,invoke,_=self.fixture()
+   def wrapper(op,p):
+    if op=='role-account-create' and variant=='secret':p['secret']['roles'][p['role']]['attemptId']='wrong'
+    result=invoke(op,p)
+    if op=='role-account-create' and variant=='description':rows[-1]['AccountDescription']='foreign'
+    return result
+   with self.subTest(variant=variant),tempfile.TemporaryDirectory() as d:
+    with self.assertRaises(ValueError):m.bootstrap_role_accounts(b,Path(d),s,wrapper)
+    self.assertFalse(list(Path(d).glob('*.receipt.json')))
+ def test_initial_admin_empty_guard_remains(self):
+  b,s,rows,calls,_,invoke,_=self.fixture();s.update(dict(b,user='migration_admin',port=5432,password='Aa1!'+'x'*28))
+  with self.assertRaisesRegex(ValueError,'ACCOUNT_NOT_EMPTY'):invoke('account-create',dict(binding=b,secret=s))
+  self.assertFalse(any(op=='CreateAccount' for op,_ in calls))
+
 if __name__=='__main__':unittest.main()
