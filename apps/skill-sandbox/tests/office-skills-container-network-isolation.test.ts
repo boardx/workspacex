@@ -15,14 +15,34 @@
  *
  * 复用 `container-network-isolation.test.ts` 同一套镜像/伴生服务模式,不重新发明。
  */
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { execFile } from "node:child_process";
 import { join } from "node:path";
 import { promisify } from "node:util";
 
 const execFileAsync = promisify(execFile);
 
-const IMAGE = process.env.SANDBOX_TEST_IMAGE ?? "workspacex-skill-sandbox:test";
+function testImageConfig(): { image: string; build: boolean } {
+  const override = process.env.SANDBOX_TEST_IMAGE || undefined;
+  return { image: override ?? "workspacex-skill-sandbox:test", build: !override };
+}
+const IMAGE_CONFIG = testImageConfig();
+const IMAGE = IMAGE_CONFIG.image;
+
+describe("office test image environment", () => {
+  it.each([
+    [undefined, "workspacex-skill-sandbox:test", true],
+    ["", "workspacex-skill-sandbox:test", true],
+    ["registry.example/sandbox@sha256:" + "a".repeat(64), "registry.example/sandbox@sha256:" + "a".repeat(64), false],
+  ] as const)("selects image and build policy for override %s", (override, image, build) => {
+    vi.stubEnv("SANDBOX_TEST_IMAGE", override);
+    try {
+      expect(testImageConfig()).toEqual({ image, build });
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+});
 const SUFFIX = `${process.pid}-${Date.now()}-office`;
 const NETWORK = `wsx-sandbox-net-${SUFFIX}`;
 const ECHO = `wsx-sandbox-echo-${SUFFIX}`;
@@ -61,7 +81,7 @@ describeDocker("F979 V2-b(office libs):三库一起加载,network:none 依然连
   const created: string[] = [];
 
   beforeAll(async () => {
-    if (!process.env.SANDBOX_TEST_IMAGE) {
+    if (IMAGE_CONFIG.build) {
       await execFileAsync("docker", ["build", "-t", IMAGE, "."], {
         cwd: join(import.meta.dirname, ".."),
         timeout: 600_000,
