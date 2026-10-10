@@ -115,7 +115,7 @@ class Tests(unittest.TestCase):
             with self.assertRaises(c.Rejected) as error:m.execute_from_ecs('check',raw,c.sha(raw),self.pr,self.raw)
             self.assertEqual(str(error.exception),'AUTHENTICATED_TRANSFER_REJECTED')
     def test_network_pin_rejects_redirect_proxy_foreign_host_and_write(self):
-        calls=[];session=N(request=lambda *a,**k:calls.append((a,k)))
+        calls=[];session=N(request=lambda *a,**k:calls.append((a,k)),send=lambda *a,**k:calls.append((a,k)))
         m.pin_session(session,'fixture.oss-cn-shanghai.aliyuncs.com',{'GET'})
         session.request('GET','https://fixture.oss-cn-shanghai.aliyuncs.com/x')
         self.assertFalse(session.trust_env)
@@ -141,14 +141,14 @@ class Tests(unittest.TestCase):
         def sts_credential(*values):captures['stsCredential']=values;return values
         def acs(**kw):
             captures['stsOptions']=kw
-            return N(session=N(request=lambda *a,**k:None),do_action_with_exception=lambda req:c.json_bytes(self.identity))
+            return N(session=N(request=lambda *a,**k:None,send=lambda *a,**k:None),do_action_with_exception=lambda req:c.json_bytes(self.identity))
         def bucket(*args,**kw):captures['bucketArgs']=args;captures['bucketOptions']=kw;return self.bucket
         class Request:
             def set_protocol_type(self,value):captures['protocol']=value
-            def set_domain(self,value):captures['domain']=value
+            def set_endpoint(self,value):captures['domain']=value
             def set_method(self,value):captures['method']=value
             def set_accept_format(self,value):captures['format']=value
-        module('oss2',StsAuth=auth,Session=lambda:N(session=N(request=lambda *a,**k:None)),Bucket=bucket)
+        module('oss2',StsAuth=auth,Session=lambda:N(session=N(request=lambda *a,**k:None,send=lambda *a,**k:None)),Bucket=bucket)
         module('alibabacloud_credentials');module('alibabacloud_credentials.client',Client=client)
         module('alibabacloud_credentials.models',Config=config)
         module('aliyunsdkcore');module('aliyunsdkcore.client',AcsClient=acs)

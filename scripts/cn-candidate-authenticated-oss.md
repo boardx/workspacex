@@ -115,3 +115,45 @@ paths or install a production CLI. All result objects keep `productionReady` and
 - [CompleteMultipartUpload](https://www.alibabacloud.com/help/en/oss/developer-reference/completemultipartupload): PutObject permission, overwrite-header/versioning behavior, and continued processing after disconnect.
 - [Python credentials configuration](https://www.alibabacloud.com/help/en/oss/python-configuration-access-credentials): existing ECS-role provider.
 - [Official CLI OSS integration source](https://github.com/aliyun/aliyun-cli/blob/master/cliext/ossutil/ossutil2.go): OAuth-compatible native profile resolution; also documents why automatic binary updates need separate admission.
+
+## Separately approved temporary read grant
+
+The observed existing `WorkspacexCnProductionOssScoped` role policy lacks
+`oss:GetBucketPolicy`. Therefore the caller cannot currently pass its real policy
+readback. `cn-candidate-oss-policy.example.json` is the complete **unapplied draft**
+for the currently policy-less fixed bucket `workspacex-cn-prod-assets`: it adds
+only that read action to the existing ECS role, for the same <=1-hour interval
+as the administrative freeze. The principal uses OSS's documented lowercase
+`arn:sts` role-session form, not the differently formatted STS response ARN.
+The grant covers policy configuration visibility only; it adds no object read,
+write, delete, version, ACL, credential, role-assumption or database permission.
+It applies to all existing sessions of that exact role, not only this process.
+
+An authorized bucket administrator must approve this exact impact before applying
+it. Before execution, generate fresh UTC timestamps within the approved duration,
+read current policy again, preserve any pre-existing statements, bind the exact
+new policy raw SHA in the independent request, and get approval for any material
+scope change. Do not use the placeholder strings as a real policy, silently
+replace an existing policy, or extend the interval automatically. The time-bound
+Deny also constrains the bucket owner and prevents policy removal/ACL/version
+changes until expiry. Ordinary existing object data-plane permissions remain
+available. The draft does not prove an actual applied policy; signed readback
+from both callers remains mandatory and any existing explicit Deny still wins.
+
+[Official role-principal and bucket-policy examples](https://www.alibabacloud.com/help/en/oss/user-guide/use-bucket-policy-to-grant-permission-to-access-oss/)
+and [GetBucketPolicy permission](https://www.alibabacloud.com/help/en/oss/developer-reference/getbucketpolicy)
+provide the grant syntax and action mapping.
+
+## Fixed SDK offline compatibility check
+
+The implementation was additionally exercised with real `oss2==2.19.1`,
+`alibabacloud-credentials==0.3.6`, `aliyun-python-sdk-core==2.16.0` and
+`aliyun-python-sdk-sts==3.1.2` in an isolated `/tmp` environment. Run
+`python -I -B tests/test_cn_candidate_authenticated_oss_sdk.py` there. That test
+blocks socket connections while the real SDK signs STS/OSS requests and parses
+realistic XML/JSON response models. It verifies the direct Session.send path
+used by STS as well as OSS Session.request, including proxy/redirect/TLS pins.
+It found and fixed the STS method name (`set_endpoint`) and its direct send path;
+mock-only tests would not have established this compatibility. Production
+installation, complete dependency hash admission and cloud permissions remain
+unverified. SDK DEBUG=sdk mode is rejected because it can print signed requests.

@@ -8,6 +8,7 @@ from datetime import datetime, timezone, timedelta
 import copy
 import http.client
 import logging
+import os
 import re
 from urllib.parse import urlsplit
 import time
@@ -213,20 +214,28 @@ class AuthenticatedPort(OssSdkPort):
 
 
 def pin_session(session, hostname, methods):
-    """Pin SDK network destinations without reading or serializing signed headers."""
+    """Pin both Session.request and direct Session.send (used by STS SDK)."""
     session.trust_env = False
     original = session.request
-    def request(method, url, **kwargs):
+    original_send = session.send
+    def valid(method, url):
         parsed = urlsplit(url)
         c.require(parsed.scheme == 'https' and parsed.hostname == hostname
                   and parsed.port in (None, 443) and parsed.username is None
                   and parsed.password is None and method.upper() in methods,
                   'AUTH_SDK_ENDPOINT')
+    def options(kwargs):
         kwargs['allow_redirects'] = False
         kwargs['verify'] = True
         kwargs['proxies'] = {}
+    def request(method, url, **kwargs):
+        valid(method, url); options(kwargs)
         return original(method, url, **kwargs)
+    def send(prepared, **kwargs):
+        valid(prepared.method, prepared.url); options(kwargs)
+        return original_send(prepared, **kwargs)
     session.request = request
+    session.send = send
 
 
 def ecs_port(request):
@@ -237,6 +246,7 @@ def ecs_port(request):
     a new role, changes a policy, or emits credential fields.
     """
     c.require(request['operation'] == 'download', 'AUTH_ECS_DOWNLOAD_ONLY')
+    c.require(os.environ.get('DEBUG', '').lower() != 'sdk', 'AUTH_SDK_DEBUG_FORBIDDEN')
     verify_host()
     import oss2
     from alibabacloud_credentials.client import Client
@@ -260,7 +270,7 @@ def ecs_port(request):
                         session=session, connect_timeout=10)
     def identity():
         req = GetCallerIdentityRequest()
-        req.set_protocol_type('https'); req.set_domain('sts.cn-shanghai.aliyuncs.com')
+        req.set_protocol_type('https'); req.set_endpoint('sts.cn-shanghai.aliyuncs.com')
         req.set_method('POST'); req.set_accept_format('json')
         return c.decode(sts.do_action_with_exception(req))
     return AuthenticatedPort(bucket, identity, request)
