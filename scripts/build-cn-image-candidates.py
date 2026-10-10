@@ -38,8 +38,11 @@ def command_category(argv):
         if argv[:len(prefix)]==prefix:return category
     return 'OTHER_COMMAND'
 
-def run(argv,cwd=None):
+def run(argv,cwd=None,*,stdout_file=None,stdout_limit=None):
     category=command_category(argv)
+    if stdout_file is not None:
+        c.require(type(stdout_limit) is int and 0<stdout_limit<=2*1024**3,'CANDIDATE_SAVE_LIMIT')
+    stdout_size=0
     env={'PATH':'/usr/bin:/bin','LANG':'C','GIT_CONFIG_NOSYSTEM':'1','GIT_CONFIG_GLOBAL':'/dev/null','GIT_NO_REPLACE_OBJECTS':'1','GIT_NO_LAZY_FETCH':'1'}
     with tempfile.TemporaryDirectory(prefix='wsx-candidate-home-') as home:
         env['HOME']=home
@@ -53,6 +56,10 @@ def run(argv,cwd=None):
                 for key,_ in selector.select(.2):
                     data=os.read(key.fileobj.fileno(),8192)
                     if not data:selector.unregister(key.fileobj);continue
+                    if key.fileobj is process.stdout and stdout_file is not None:
+                        stdout_size+=len(data)
+                        c.require(stdout_size<=stdout_limit,'CANDIDATE_SAVE_LIMIT')
+                        stdout_file.write(data);continue
                     if len(buffers[key.fileobj])+len(data)>8*1024**2:raise CommandFailure(category,'COMMAND_OUTPUT_LIMIT')
                     buffers[key.fileobj].extend(data)
             try:rc=process.wait(timeout=1)
@@ -177,7 +184,10 @@ def produce(p,raw,source,output,service,command=run):
             v=p['sourceContracts'][service];argv=['docker','buildx','build','--load','--platform',p['platform'],'--label','org.opencontainers.image.revision='+c.SOURCE,'--label',c.LABEL+'='+c.identity(p),'-f',str(checkout/v['dockerfile']),'-t',c.tag(p,service)]
             for base in v['bases']:argv+=['--build-arg',{'node':'NODE_IMAGE','python':'PYTHON_IMAGE','postgres':'PGVECTOR_IMAGE'}[base]+'='+p['baseImages'][base]]
             argv+=['--build-arg','SOURCE_REVISION='+c.SOURCE,str(checkout/v['context'])];stage('DOCKER_BUILD');command(argv)
-            stage('DOCKER_SAVE');saved=root/'save.tar';command(['docker','image','save','--output',str(saved),c.tag(p,service)])
+            stage('DOCKER_SAVE');saved=root/'save.tar'
+            with saved.open('xb') as stream:
+                command(['docker','image','save',c.tag(p,service)],stdout_file=stream,stdout_limit=p['maxArchiveBytes'])
+            c.require(0<saved.stat().st_size<=p['maxArchiveBytes'],'CANDIDATE_SAVE_LIMIT')
             target=out/(service+'.tar');meta=normalize(saved,target,p,service);size,digest=a.file_digest(target,p['maxArchiveBytes'])
         stage('FRAGMENT_WRITE')
         now=datetime.now(timezone.utc);receipt={'kind':c.KIND,'schemaVersion':2,'planRawSha256':a.sha(raw),'planSha256':a.sha(a.json_bytes(p)),'identity':c.identity(p),'attemptId':p['attemptId'],'producedAt':now.isoformat(),'expiresAt':(now+timedelta(hours=1)).isoformat(),'images':{service:{'file':service+'.tar','size':size,'sha256':digest,**meta}},'releaseReady':False,'productionReady':False}
