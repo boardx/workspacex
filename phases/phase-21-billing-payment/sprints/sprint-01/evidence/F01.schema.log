@@ -1,0 +1,21 @@
+[stack-admission] load1=4.01 cores=10 perCore=0.40 running=1/2
+[test-isolation] id=run-mv2c5y4t-5ba51aab-297061f53ab2 db=wsx_297061f53ab283bfae7c compose=wsx-297061f53ab283bfae7c pg=20965 redis=21965 api=24965 web=25965 sandbox=26965 model=27965 deep-agent=28965 asr=29965 vision=30965 loopback-sandbox=31965 mail=19965
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/eaa4/workspacex/apps/api
+
+[db-isolation] db=wsx_297061f53ab283bfae7c capacity=100 current=6 required=32
+ ✓ tests/billing/schema-migration.test.ts (16 tests) 7746ms
+
+ Test Files  1 passed (1)
+      Tests  16 passed (16)
+   Start at  19:53:48
+   Duration  10.67s (transform 124ms, setup 4ms, collect 41ms, tests 7.75s, environment 0ms, prepare 29ms)
+
+[db-isolation] db=wsx_297061f53ab283bfae7c peak_connections=2
+[timing] pnpm --filter @repo/api exec vitest run tests/billing/schema-migration.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：11s
+  清理：0s
+  总计：12s
