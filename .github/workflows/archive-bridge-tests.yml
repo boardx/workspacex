@@ -27,6 +27,10 @@ on:
       - 'scripts/cn_candidate_github.py'
       - 'scripts/revalidate-cn-image-candidates.py'
       - 'tests/test_cn_candidate_revalidation.py'
+      - 'scripts/cn_candidate_authenticated_oss.py'
+      - 'scripts/cn-candidate-authenticated-oss.md'
+      - 'scripts/cn-candidate-oss-policy.example.json'
+      - 'tests/test_cn_candidate_authenticated_oss*.py'
       - 'tests/test_cn_candidate_oss.py'
       - '.harness/scripts/vm/import-cn-image-candidates.py'
       - 'tests/test_cn_candidate_host*.py'
@@ -88,6 +92,15 @@ jobs:
         run: python3 -I -B -m unittest discover -s tests -p 'test_cn_candidate_revalidation.py' -v
       - name: Candidate runtime provenance and Linux atomic installation
         run: python3 -I -B -m unittest discover -s tests -p 'test_cn_candidate_runtime.py' -v
+      - name: Authenticated candidate download without cloud calls
+        run: python3 -I -B tests/test_cn_candidate_authenticated_oss.py
+      - name: Fixed SDK offline signing and model contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m venv "$RUNNER_TEMP/candidate-auth-sdk"
+          "$RUNNER_TEMP/candidate-auth-sdk/bin/pip" install --disable-pip-version-check oss2==2.19.1 alibabacloud-credentials==0.3.6 aliyun-python-sdk-core==2.16.0 aliyun-python-sdk-sts==3.1.2
+          "$RUNNER_TEMP/candidate-auth-sdk/bin/python" -I -B tests/test_cn_candidate_authenticated_oss_sdk.py
       - name: Explicit formal budget and metadata admission
         run: python3 -I -B -m unittest discover -s tests -p 'test_cn_formal_budget_profile.py' -v
       - name: Exact formal source admission with legacy identity

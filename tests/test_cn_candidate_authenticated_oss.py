@@ -18,6 +18,7 @@ class Tests(unittest.TestCase):
     def setUp(self):
         fixture.Tests.setUp(self)
         self.principal = 'acs:ram::'+m.ACCOUNT+':assumed-role/'+m.ROLE+'/fixture'
+        self.tr['bucket'] = m.BUCKET
         self.tr['downloadPrincipal'] = self.principal
         self.tr['uploadPrincipal'] = 'acs:ram::'+m.ACCOUNT+':user/local-oauth'
         start = datetime.now(timezone.utc)-timedelta(seconds=5)
@@ -48,6 +49,9 @@ class Tests(unittest.TestCase):
         self.validate()
         raw=c.json_bytes(self.req)
         with self.assertRaises(c.Rejected):m.validate_request(raw,'0'*64,'check')
+        self.req['transport']['bucket']='foreign-bucket'
+        with self.assertRaises(c.Rejected):self.validate()
+        self.req['transport']['bucket']=m.BUCKET
         self.req['trusted']=True
         with self.assertRaises(c.Rejected):self.validate()
     def test_operation_scope_and_expiry(self):

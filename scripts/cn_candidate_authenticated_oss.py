@@ -23,6 +23,7 @@ INSTANCE = 'i-uf6ga92ewloganobbln6'
 ROLE = 'WorkspacexCnProductionEcsRole'
 REGION = 'cn-shanghai'
 ENDPOINT = 'https://oss-cn-shanghai.aliyuncs.com'
+BUCKET = 'workspacex-cn-prod-assets'
 BUCKET_ACTIONS = ['oss:PutBucketVersioning', 'oss:PutBucketPolicy',
                   'oss:DeleteBucketPolicy', 'oss:PutBucketAcl']
 OBJECT_ACTIONS = ['oss:DeleteObject', 'oss:DeleteObjectVersion', 'oss:PutObjectAcl']
@@ -73,8 +74,7 @@ def validate_request(raw, expected, operation):
               and t.get('region') == REGION
               and t.get(v['operation'] + 'Principal') == v['expectedPrincipal'],
               'AUTH_TRANSFER_PRINCIPAL_BINDING')
-    c.require(isinstance(t.get('bucket'), str)
-              and re.fullmatch('[a-z0-9][a-z0-9-]{1,61}[a-z0-9]', t['bucket']), 'AUTH_BUCKET')
+    c.require(t.get('bucket') == BUCKET, 'AUTH_BUCKET')
     c.require(type(v['transferApproval']) is dict
               and v['transferApproval'].get('operation') == v['operation'], 'AUTH_TRANSFER_APPROVAL')
     c.require(c.timestamp(v['transferApproval']['observedAt']) >= issued
