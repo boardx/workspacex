@@ -37,6 +37,13 @@ class Adapter(unittest.TestCase):
   proc=SimpleNamespace(returncode=0,communicate=lambda raw,timeout:(seen.append(timeout) or b'{}',b''),poll=lambda:0)
   with patch.object(a,'capture',self.capture),patch.object(a.subprocess,'Popen',return_value=proc):a.invoke({'binding':self.b,'deadlineEpoch':time.time()+2,'monotonicDeadline':time.monotonic()+2})
   self.assertTrue(0<seen[0]<=2)
+ def test_memory_runtime_is_selected_explicitly(self):
+  engine=Path(__file__).with_name('clone_fresh_memory_engine.py');self.b['freshMemoryRuntime']={'imageId':self.image,'engine':{'path':str(engine),'sha256':hashlib.sha256(engine.read_bytes()).hexdigest()}}
+  proc=SimpleNamespace(returncode=0,communicate=lambda raw,timeout:(b'{}',b''),poll=lambda:0)
+  with patch.object(a,'capture',self.capture),patch.object(a.subprocess,'Popen',return_value=proc) as pop:
+   a.invoke({'binding':self.b,'deadlineEpoch':time.time()+60,'monotonicDeadline':time.monotonic()+60},runtime_spec_key='freshMemoryRuntime')
+   self.assertEqual(pop.call_args.args[0][-1],engine.read_text())
+  with self.assertRaisesRegex(ValueError,'FIXED_RUNTIME_KIND'):a.invoke({},runtime_spec_key='arbitrary')
  def test_baked_secret_rejected(self):
   self.meta['Config']['Env']=['API_KEY=opaque']
   with patch.object(a,'capture',self.capture),patch.object(a.subprocess,'Popen') as pop:

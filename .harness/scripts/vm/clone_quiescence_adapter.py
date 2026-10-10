@@ -13,9 +13,10 @@ def remaining(p):
  left=min(values[0]-time.time(),values[1]-time.monotonic())
  if left<=0:raise ValueError('ADMISSION_EXPIRED')
  return left
-def invoke(p):
+def invoke(p, *, runtime_spec_key="quiescenceRuntime"):
+ if runtime_spec_key not in ("quiescenceRuntime","freshMemoryRuntime"):raise ValueError("FIXED_RUNTIME_KIND")
  remaining(p)
- b=validate_binding(p['binding']);spec=b['quiescenceRuntime'];engine=trusted_bytes(spec['engine']['path'],spec['engine']['sha256']).decode()
+ b=validate_binding(p['binding']);spec=b[runtime_spec_key];engine=trusted_bytes(spec['engine']['path'],spec['engine']['sha256']).decode()
  image=spec['imageId'];meta=json.loads(capture(['image','inspect',image]).stdout)
  if len(meta)!=1 or meta[0]['Id']!=image or meta[0]['Os']!='linux' or meta[0]['Architecture']!='amd64' or meta[0]['Config']['Labels'].get('org.opencontainers.image.revision')!=b['candidateSha']:raise ValueError('QUIESCENCE_IMAGE_IDENTITY')
  for env in meta[0]['Config'].get('Env',[]):

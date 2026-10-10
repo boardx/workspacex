@@ -23,6 +23,7 @@ SOURCES=('current_epoch_qualification.py','cn-maintenance-recovery-evidence-veri
 # Their pinned bytes may be evidence inputs; they are never dynamically imported
 # or dispatched from policy JSON. New producers require a source review here.
 PRODUCER_SOURCE_FILES=(
+ 'clone_fresh_memory.py','clone_fresh_memory_engine.py',
  'clone_quiescence.py','clone_quiescence_adapter.py','clone_quiescence_engine.py',
  'retained_epoch_capture.py','retained_epoch_acquisition.py',
  'retained_backup_host.py','retained_backend_observer.py',

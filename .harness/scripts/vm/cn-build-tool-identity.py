@@ -3,6 +3,8 @@
 import datetime,fcntl,hashlib,json,os,pathlib,re,stat,subprocess,sys,tempfile,uuid
 FILES={
  '.harness/scripts/vm/clone_quiescence.py':'/usr/local/lib/workspacex-cn/clone_quiescence.py',
+ '.harness/scripts/vm/clone_fresh_memory.py':'/usr/local/lib/workspacex-cn/clone_fresh_memory.py',
+ '.harness/scripts/vm/clone_fresh_memory_engine.py':'/usr/local/lib/workspacex-cn/clone_fresh_memory_engine.py',
  '.harness/scripts/vm/clone_quiescence_adapter.py':'/usr/local/lib/workspacex-cn/clone_quiescence_adapter.py',
  '.harness/scripts/vm/clone_quiescence_engine.py':'/usr/local/lib/workspacex-cn/clone_quiescence_engine.py',
  '.harness/scripts/vm/clone_quiescence.sql':'/usr/local/lib/workspacex-cn/clone_quiescence.sql',
