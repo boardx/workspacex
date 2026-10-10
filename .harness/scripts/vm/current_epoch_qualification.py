@@ -6,6 +6,7 @@ Old recovery admission guards remain untouched.
 import hashlib,importlib,json,math,os,re,stat,sys
 from pathlib import Path
 from cn_backup_package import APP,BASE,RDS,ECS,IMAGE,ROLE
+from writer_fence import admitted_release_identity
 from cn_backup_sql import permission_gaps
 from isolated_conservation_stage import verify_outer,verify_result
 from isolated_conservation_evidence_producer import produce as conservation
@@ -146,7 +147,7 @@ def _qualification(p,reader,source_policy_reference,existing,code_authority,expe
  need(p['schemaVersion']==2 and p['kind']=='current-held-epoch-qualification','EPOCH_SCHEMA2')
  b=p['binding'];exact(b,('identity','toolRevision','host','epoch','holdGeneration','targetInstanceId','providerBindingSha256'),'EPOCH_BINDING')
  i=b['identity'];exact(i,('sourceRevision','baselineRevision','migrationPlanSha256','attemptId'),'EPOCH_IDENTITY')
- exact(expected_identity,('sourceRevision','baselineRevision','migrationPlanSha256','attemptId'),'EPOCH_AUTHORITY_IDENTITY');need(i==expected_identity and type(i['sourceRevision']) is str and re.fullmatch('[a-f0-9]{40}',i['sourceRevision']) and i['baselineRevision']==BASE and hashok(i['migrationPlanSha256']) and re.fullmatch('[A-Za-z0-9-]{1,32}',i['attemptId']),'EPOCH_FROZEN_RELEASE')
+ exact(expected_identity,('sourceRevision','baselineRevision','migrationPlanSha256','attemptId'),'EPOCH_AUTHORITY_IDENTITY');need(i==expected_identity and type(i['sourceRevision']) is str and re.fullmatch('[a-f0-9]{40}',i['sourceRevision']) and admitted_release_identity(i) and hashok(i['migrationPlanSha256']) and re.fullmatch('[A-Za-z0-9-]{1,32}',i['attemptId']),'EPOCH_FROZEN_RELEASE')
  exact(b['host'],('instanceId','bootId'),'EPOCH_HOST');need(b['host']['instanceId']==ECS and re.fullmatch('[a-f0-9-]{36}',b['host']['bootId']),'EPOCH_HOST')
  need(re.fullmatch('[a-f0-9]{40}',b['toolRevision']) and hashok(b['epoch']) and re.fullmatch('[a-f0-9]{32}',b['holdGeneration']) and hashok(b['providerBindingSha256']),'EPOCH_DIGEST')
  need(re.fullmatch('pgm-[a-z0-9]+',b['targetInstanceId']) and b['targetInstanceId']!=RDS,'EPOCH_TARGET')
@@ -234,7 +235,7 @@ def _qualification(p,reader,source_policy_reference,existing,code_authority,expe
    raw=b''.join(reader.blocks(item['content']));need(len(raw)==item['bytes'] and sha(raw)==item['sha256'],'EPOCH_OBJECT_RESTORE_BYTES');keys.append((item['bucket'],item['key'],item['versionId']))
   need(len(keys)==len(set(keys)) and keys==sorted(keys),'EPOCH_OBJECT_INVENTORY_ORDER');objectvalues[side]=o
  need(objectvalues['before']==objectvalues['after']==objectvalues['restored'],'EPOCH_OBJECT_RESTORE_DRIFT')
- iso=p['isolation'];exact(iso,('binding','baselineSha','release','stageReceipts'),'EPOCH_ISOLATION_SCHEMA');need(iso['binding']['candidateSha']==i['sourceRevision'] and iso['binding']['targetInstanceId']==b['targetInstanceId'] and iso['baselineSha']==BASE,'EPOCH_ISOLATION_TARGET')
+ iso=p['isolation'];exact(iso,('binding','baselineSha','release','stageReceipts'),'EPOCH_ISOLATION_SCHEMA');need(iso['binding']['candidateSha']==i['sourceRevision'] and iso['binding']['targetInstanceId']==b['targetInstanceId'] and iso['baselineSha']==i['baselineRevision'],'EPOCH_ISOLATION_TARGET')
  need(set(iso['stageReceipts'])==set(STAGES),'EPOCH_EIGHT_STAGES')
  approved_isolation=None
  for stage,r in iso['stageReceipts'].items():
@@ -281,18 +282,11 @@ def _qualification(p,reader,source_policy_reference,existing,code_authority,expe
  return {**result,'kind':'held-current-epoch-evidence','epoch':epoch}
 
 
+from writer_fence import approved_release as _approved_release
 def approved_release(profile,expected_identity,read_private):
- """Read independently root-profile pinned manifest/config; never request fields."""
- entry=profile.get('candidateComposeEmitter');need(type(entry) is dict,'EPOCH_RELEASE_CAPABILITY')
- refs=[]
- def pinned(ref):
-  exact(ref,('path','sha256'),'EPOCH_RELEASE_REF')
-  need(type(ref['path']) is str and ref['path'].startswith('/etc/workspacex-cn/') and '..' not in Path(ref['path']).parts and hashok(ref['sha256']),'EPOCH_RELEASE_REF')
-  raw=read_private(ref['path']);need(sha(raw)==ref['sha256'],'EPOCH_RELEASE_PIN');refs.append((ref,raw));return json.loads(raw)
- options=pinned(entry['optionsRef']);manifest=pinned(options['manifestRef']);config=pinned(entry['configRef'])
- need(manifest.get('sourceRevision')==expected_identity['sourceRevision'] and type(manifest.get('release')) is str and re.fullmatch('[A-Za-z0-9][A-Za-z0-9._-]{0,127}',manifest['release']) and config.get('release')==manifest['release'],'EPOCH_RELEASE_IDENTITY')
- for ref,raw in refs:need(read_private(ref['path'])==raw,'EPOCH_RELEASE_DRIFT')
- return manifest['release']
+ try:return _approved_release(profile,expected_identity,read_private)
+ except RuntimeError as e:raise ValueError(str(e)) from e
+
 
 def main():
  # Fixed entry only reads root-private source-approved inputs. It never issues

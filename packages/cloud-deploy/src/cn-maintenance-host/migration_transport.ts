@@ -1,10 +1,11 @@
+import {admittedReleaseIdentity} from './release_identity';
 import {assertSourcePlanAuthority,type OriginalPlanAuthority} from './source_plan_authority';
 import { createHash } from 'node:crypto';
 import { closeSync,openSync,constants,lstatSync,fstatSync,writeFileSync,fsyncSync,linkSync,unlinkSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { verifyMigrationCompletion } from '../cn-migration-completion';
-import {readNativeCompletion} from './native_completion';
+import {readNativeCompletion,readApprovedCompletionRelease,legacyCompletionRelease} from './native_completion';
 import { validateMigrationSnapshot } from '../cn-migration-snapshot';
 import { z } from 'zod';
 import { verifyMigrationPeer, approveExistingNoTls } from './pinned-app-9b/migration-pg';
@@ -54,7 +55,7 @@ export function createMigrationTransport(inputs:ExactMigrationInputs,binding:Mig
  if(!lifecycle||typeof lifecycle.migrateExactPlan!=='function'||typeof lifecycle.readDiagnosticLedger!=='function'||typeof lifecycle.recordMigrationCompletion!=='function')throw new Error('PERSISTENT_MIGRATION_LIFECYCLE_REQUIRED');
  const runtime={...defaults,runWriter,persist:async(path:string,bytes:Buffer)=>{assertSourcePlanAuthority(authority,binding.identity,binding.toolRevision);await inheritedFd9Lock();publishMigrationReceipt(path,bytes,undefined,authority);},...fixture};
  const id=binding.identity;assertSourcePlanAuthority(authority,id,binding.toolRevision);const root=`/etc/workspacex-cn/maintenance-migration/${id.sourceRevision}/${id.attemptId}`;
- if(!/^[a-f0-9]{40}$/.test(id.sourceRevision)||id.baselineRevision!=='ba6343199f3c834d6a198f83d0c771614292c82b'||!/^[A-Za-z0-9-]{1,128}$/.test(id.attemptId)||!hex.safeParse(id.migrationPlanSha256).success||binding.configPath!==root+'/config.json'||binding.completionPath!==`/etc/workspacex-cn/migration-completion-inputs/${id.sourceRevision}/${id.attemptId}.json`||!/^[a-f0-9]{40}$/.test(binding.toolRevision)||!hex.safeParse(binding.configSha256).success||!hex.safeParse(binding.writerPlanCanonicalSha256).success||binding.collector.path!=='/usr/local/lib/workspacex-cn/collect-cn-migration-snapshot.py'||binding.writerFence.path!=='/usr/local/lib/workspacex-cn/host_transport.py'||!Number.isSafeInteger(binding.lockTimeoutMs)||binding.lockTimeoutMs<1||binding.lockTimeoutMs>300000)throw new Error('MIGRATION_HOST_BINDING_INVALID');
+ if(!/^[a-f0-9]{40}$/.test(id.sourceRevision)||!admittedReleaseIdentity(id)||!/^[A-Za-z0-9-]{1,128}$/.test(id.attemptId)||!hex.safeParse(id.migrationPlanSha256).success||binding.configPath!==root+'/config.json'||binding.completionPath!==`/etc/workspacex-cn/migration-completion-inputs/${id.sourceRevision}/${id.attemptId}.json`||!/^[a-f0-9]{40}$/.test(binding.toolRevision)||!hex.safeParse(binding.configSha256).success||!hex.safeParse(binding.writerPlanCanonicalSha256).success||binding.collector.path!=='/usr/local/lib/workspacex-cn/collect-cn-migration-snapshot.py'||binding.writerFence.path!=='/usr/local/lib/workspacex-cn/host_transport.py'||!Number.isSafeInteger(binding.lockTimeoutMs)||binding.lockTimeoutMs<1||binding.lockTimeoutMs>300000)throw new Error('MIGRATION_HOST_BINDING_INVALID');
  const source=migrationSourceSchema.parse(inputs.expectedCompletion.productionSource);
  const ddlSource=migrationSourceSchema.parse(binding.ddlSource);const ddlEvidence=sourceEvidenceSchema.parse(binding.ddlSourceEvidence);
  if(!verifyExternalSourceIdentity(ddlSource,ddlEvidence)||ddlSource.user===source.user||['accountId','regionId','dbInstanceId','database','endpointSha256','serverAddressSha256','port','identityLane','clientPeerAddressSha256','clientPeerPort','sslMode','clientEncrypted','clientTlsAuthorized'].some(key=>(ddlSource as any)[key]!==(source as any)[key]))throw new Error('MIGRATION_DDL_DIAGNOSTIC_TARGET_MISMATCH');
@@ -90,6 +91,8 @@ export function createMigrationTransport(inputs:ExactMigrationInputs,binding:Mig
    if(startedAt!==undefined)throw new Error('MIGRATION_REENTRY_FORBIDDEN');
    // Missing collector/credentials reject before any DDL. No provision/force.
    runtime.verifyExecutable(binding.collector);runtime.verifyExecutable(binding.writerFence);
+   const approvedRelease=readApprovedCompletionRelease(authority,path=>runtime.read(path));
+   if((legacyCompletionRelease(id)===undefined||(inputs.expectedCompletion as any).release!==undefined)&&(inputs.expectedCompletion as any).release!==approvedRelease)throw Error('MIGRATION_RELEASE_AUTHORITY');
    const {cfg,evidence}=config();
    const preflight=JSON.parse((await runtime.runBash(binding.collector,['--preflight-completion',id.sourceRevision,id.attemptId,id.migrationPlanSha256])).stdout);
    if(preflight.schemaVersion!==1||preflight.kind!=='migration-collector-preflight'||preflight.ready!==false||preflight.toolRevision!==binding.toolRevision||!preflight.identity||Object.keys(preflight.identity).length!==4||Object.entries(id).some(([k,v])=>preflight.identity[k]!==v)||!hex.safeParse(preflight.querySha256).success||preflight.querySha256!==identityHash('/usr/bin/node /usr/local/lib/workspacex-cn/cn-migration-snapshot-query.cjs --readonly-ledger '+id.sourceRevision+' '+id.attemptId+'\n'))throw new Error('MIGRATION_COLLECTOR_PREFLIGHT_FAILED');
@@ -112,7 +115,7 @@ export function createMigrationTransport(inputs:ExactMigrationInputs,binding:Mig
    const snapshot={schemaVersion:2,kind:'cn-readonly-migration-snapshot',capturedAt:new Date(runtime.now()).toISOString(),source,fullResponseBase64:value.providerResponseBase64,fullResponseSha256:value.providerResponseSha256};
    const sourceBinding={schemaVersion:2,source,sourceEvidence:intended.sourceEvidence,cloud:value.cloud};const validated=validateMigrationSnapshot(snapshot,sourceBinding);if(JSON.stringify(validated.ledger)!==JSON.stringify(liveLedger))throw new Error('MIGRATION_PROVIDER_DIAGNOSTIC_LEDGER_MISMATCH');
    await barrier();
-   const witness=readNativeCompletion(await runtime.verifyCompletion(snapshot,sourceBinding,inputs.checkout,inputs.expectedCompletion,new Date(runtime.now())),id,runtime.now());
+   const witness=readNativeCompletion(await runtime.verifyCompletion(snapshot,sourceBinding,inputs.checkout,inputs.expectedCompletion,new Date(runtime.now())),id,runtime.now(),readApprovedCompletionRelease(authority,path=>runtime.read(path)));
    const receiptPath=binding.completionPath.replace(/\.json$/,'.completed.json');
    const bytes=Buffer.from(JSON.stringify(witness)+'\n');
    const receipt={path:receiptPath,sha256:createHash('sha256').update(bytes).digest('hex')};
@@ -126,7 +129,7 @@ export function boundExactMigrationAction(inputs:ExactMigrationInputs,binding:Mi
 /** Atomic no-overwrite publication; fixture ownership override is not CLI input.
  * A crash leaving the temporary hardlink makes nlink=2 and readers fail closed. */
 export function publishMigrationReceipt(path:string,bytes:Buffer,fixture?:{uid:number;gid:number;boundary:string},authority?:OriginalPlanAuthority):void{
- if(!fixture){if(!authority)throw Error('ORIGINAL_PLAN_AUTHORITY_REQUIRED');assertSourcePlanAuthority(authority,authority.identity,authority.toolRevision);if(path!==`/etc/workspacex-cn/migration-completion-inputs/${authority!.identity.sourceRevision}/${authority!.identity.attemptId}.completed.json`)throw Error('MIGRATION_RECEIPT_AUTHORITY_PATH');readNativeCompletion(JSON.parse(bytes.toString('utf8')),authority!.identity);}
+ if(!fixture){if(!authority)throw Error('ORIGINAL_PLAN_AUTHORITY_REQUIRED');assertSourcePlanAuthority(authority,authority.identity,authority.toolRevision);if(path!==`/etc/workspacex-cn/migration-completion-inputs/${authority!.identity.sourceRevision}/${authority!.identity.attemptId}.completed.json`)throw Error('MIGRATION_RECEIPT_AUTHORITY_PATH');readNativeCompletion(JSON.parse(bytes.toString('utf8')),authority!.identity,Date.now(),readApprovedCompletionRelease(authority!));}
  if(!fixture&&!/^\/etc\/workspacex-cn\/migration-completion-inputs\/[a-f0-9]{40}\/[A-Za-z0-9-]{1,128}\.completed\.json$/.test(path))throw new Error('MIGRATION_RECEIPT_PATH');
  if(bytes.length>8*1024*1024)throw new Error('MIGRATION_RECEIPT_BOUND');
  const uid=fixture?.uid??0,gid=fixture?.gid??0;const parent=dirname(path);

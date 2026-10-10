@@ -1,0 +1,45 @@
+name: Maintenance release identity contracts
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/maintenance-release-identity.yml'
+      - '.harness/scripts/cn-maintenance-release-identities.json'
+      - '.harness/scripts/generate-cn-maintenance-identities.py'
+      - '.harness/scripts/build-cn-maintenance-controller.cjs'
+      - '.harness/scripts/vm/**'
+      - 'packages/cloud-deploy/src/cn-maintenance-host/**'
+      - 'pnpm-lock.yaml'
+permissions:
+  contents: read
+jobs:
+  release-identity-linux:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22.20.0'
+          cache: pnpm
+      - name: Install the repository locked build and test dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Check single-source identities and exact generated controller bytes
+        run: |
+          python3 .harness/scripts/generate-cn-maintenance-identities.py --check
+          node .harness/scripts/build-cn-maintenance-controller.cjs --check
+      - name: Candidate staging, resume and pointer admission contracts
+        run: |
+          python3 -B -m unittest discover -s .harness/scripts/vm -p 'test_candidate*.py'
+          PYTHONPATH=.harness/scripts/vm python3 -B -m unittest test_maintenance_release_identity candidate_browser_acceptance_test candidate_canonical_acceptance_test
+      - name: Real Linux epoch FD closure and retained child invocation
+        run: |
+          PYTHONPATH=.harness/scripts/vm python3 -B -m unittest test_cn_backup_package test_isolated_conservation_evidence_producer test_current_epoch_qualification test_current_held_epoch_evidence_producer test_source_invocation_receipt cn_build_tool_identity_test
+      - name: Actual held query and recovery module entry points
+        run: |
+          node --test .harness/scripts/vm/test_held_candidate_expected.cjs .harness/scripts/vm/test_held_candidate_queries.cjs .harness/scripts/vm/test_held_candidate_expected_producer.cjs .harness/scripts/vm/test_retained_backup_helper.cjs .harness/scripts/vm/acceptance_receipt_producer_test.cjs .harness/scripts/vm/existing_session_restore_test.cjs .harness/scripts/vm/retained_session_recovery_test.cjs
+      - name: Original authority, factory and completion entry points
+        run: |
+          node --import tsx --test packages/cloud-deploy/src/cn-maintenance-host/native_completion_test.ts packages/cloud-deploy/src/cn-maintenance-host/control_retained_backup_test.ts packages/cloud-deploy/src/cn-maintenance-host/control_owned_runs_test.ts packages/cloud-deploy/src/cn-maintenance-host/source_plan_authority_test.ts packages/cloud-deploy/src/cn-maintenance-host/migration_transport_test.ts packages/cloud-deploy/src/cn-maintenance-host/a_route_factory_test.ts packages/cloud-deploy/src/cn-maintenance-host/source_production_consumers_test.ts packages/cloud-deploy/src/cn-maintenance-host/current_epoch_manifest_consumer_test.ts

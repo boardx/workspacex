@@ -12,7 +12,7 @@ import secrets
 import time
 from candidate_writer import validate, verify_candidate_backend_seal
 from candidate_backend_collector import CandidateBackendCollector, conntrack_rows
-from writer_fence import DATABASES, digest, require
+from writer_fence import DATABASES, digest, require, admitted_release_identity
 from fixed_probes import FixedProbes, login_cas_sql
 from host_transport import private, aggregate_run_drain
 from control_connection import verify_bound_transport
@@ -140,9 +140,12 @@ class CandidateHostTransport:
                 'CANDIDATE_LEDGER_PROTOCOL')
         ledger = sorted([dict(name=r['name'], checksum=r['checksum']) for r in value['ledger']], key=lambda r: r['name'])
         from candidate_completion_contract import validate_completed
-        ledger_sha=validate_completed(completed,plan['identity'],ledger)
+        from writer_fence import approved_release
+        profile_raw=self.private('/etc/workspacex-cn/trusted-tool-binding.json');profile=json.loads(profile_raw)
+        require(profile.get('toolRevision')==self.host.plan['toolRevision'],'CANDIDATE_COMPLETION_TOOL_AUTHORITY')
+        ledger_sha=validate_completed(completed,plan['identity'],ledger,expected_release=approved_release(profile,plan['identity'],self.private))
         require(ledger_sha == plan['migrationLedgerSha256'], 'CANDIDATE_LEDGER_DRIFT')
-        self._guard(plan); require(self.private(expected) == raw, 'CANDIDATE_COMPLETION_RACE')
+        self._guard(plan); require(self.private(expected) == raw and self.private('/etc/workspacex-cn/trusted-tool-binding.json')==profile_raw, 'CANDIDATE_COMPLETION_RACE')
         proof = dict(identity=plan['identity'], epoch=plan['epoch'], holdGeneration=plan['holdGeneration'],
                      completionSha256=receipt['sha256'], ledgerSha256=ledger_sha, nonce=nonce,
                      observedAt=time.time(), source='durable-completion-and-live-diagnostic-ledger', databasePeers=plan['databasePeers'])
@@ -276,8 +279,7 @@ class RetainedCandidateActor:
         identity = host.plan['identity']
         expected = '/etc/workspacex-cn/maintenance-candidate/' + identity['sourceRevision'] + '/' + identity['attemptId'] + '/candidate-plan.json'
         require(type(reference) is dict and set(reference) == {'path', 'sha256'} and reference['path'] == expected
-                and re.fullmatch('[a-f0-9]{64}', reference['sha256']) and identity['sourceRevision'] == APP
-                and identity['baselineRevision'] == BASELINE, 'CANDIDATE_ACTOR_PRIVATE_BINDING')
+                and re.fullmatch('[a-f0-9]{64}', reference['sha256']) and admitted_release_identity(identity), 'CANDIDATE_ACTOR_PRIVATE_BINDING')
         raw = read_private(expected); require(hashlib.sha256(raw).hexdigest() == reference['sha256'], 'CANDIDATE_ACTOR_INPUT_PIN')
         value = json.loads(raw)
         require(type(value) is dict and set(value) == {'schemaVersion', 'toolRevision', 'plan', 'artifact'}
@@ -365,7 +367,7 @@ class RetainedBaselineCancellation:
         require(host.plan == adapter.plan and journal is adapter.journal and adapter.transport is host,
                 'BASELINE_CANCEL_EXISTING_ACTOR_REQUIRED')
         identity = host.plan['identity']
-        require(identity['sourceRevision'] == APP and identity['baselineRevision'] == BASELINE,
+        require(admitted_release_identity(identity),
                 'BASELINE_CANCEL_FROZEN_IDENTITY')
         auth = host.plan.get('migrationAuthorization')
         require(type(auth) is dict and auth.get('identity') == identity and auth.get('toolRevision') == host.plan['toolRevision']

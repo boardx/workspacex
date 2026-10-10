@@ -2,8 +2,8 @@
 const test=require('node:test'),assert=require('node:assert/strict'),crypto=require('node:crypto'),fs=require('node:fs');
 const {createQualifiedExpectedVerifier,SOURCE_PATHS}=require('./held_candidate_expected.cjs');
 const {targets,digest}=require('./held_candidate_queries.cjs');
-function fixture(variant){
- const APP='9b25bfa65662b96c0826fe67506b562ea46aa6d0',BASE='ba6343199f3c834d6a198f83d0c771614292c82b';
+function fixture(variant,pair){
+ const [APP,BASE]=pair||['9b25bfa65662b96c0826fe67506b562ea46aa6d0','ba6343199f3c834d6a198f83d0c771614292c82b'];
  const binding={identity:{sourceRevision:APP,baselineRevision:BASE,attemptId:'one',migrationPlanSha256:'a'.repeat(64)},toolRevision:'b'.repeat(40),host:{instanceId:'host',bootId:'boot'},epoch:'c'.repeat(64),holdGeneration:'d'.repeat(32),targetInstanceId:'isolated',providerBindingSha256:'e'.repeat(64)};
  const root=`/etc/workspacex-cn/maintenance-evidence/${APP}/one/`,raw=new Map();let n=0;
  const put=(v,path=root+'fact-'+(++n))=>{const b=Buffer.isBuffer(v)?v:Buffer.from(JSON.stringify(v)),ref={path,sha256:crypto.createHash('sha256').update(b).digest('hex')};raw.set(path,b);return ref;};
@@ -45,7 +45,8 @@ function fixture(variant){
  const expected={...Object.fromEntries(['identity','toolRevision','host','epoch','holdGeneration'].map(k=>[k,binding[k]])),kind:'source-derived-held-candidate-readback',qualificationEvidenceSha256:qualification.sha256,targets:{}};
  for(const [db,rows] of Object.entries(aggregate.targets))expected.targets[db]=rows.map(row=>{const facts=JSON.parse(raw.get(row.factsRef.path));return {targetId:row.targetId,keyValues:row.keyValues,expectedCount:facts.length,expectedDigest:digest(facts)};});
  const entry={expected:put(expected),aggregate:aggregateRef,qualification,qualificationInput,sourcePolicy:policyRef,migrationCompletion:completion,appSourceManifest:app,aggregatePolicy,sourcePath:'.harness/scripts/vm/held_candidate_expected.cjs',sha256:'f'.repeat(64)};
- const profile={toolRevision:binding.toolRevision,heldCandidateExpected:entry,filesSha256:{[entry.sourcePath]:entry.sha256,'.harness/scripts/vm/held_candidate_expected_producer.cjs':source.sha256}};
+ const manifestRef=put({sourceRevision:APP,release:'2026.10.3-cn.1'});
+ const profile={candidateComposeEmitter:{optionsRef:put({manifestRef}),configRef:put({provision:{release:'2026.10.3-cn.1'}})},toolRevision:binding.toolRevision,heldCandidateExpected:entry,filesSha256:{[entry.sourcePath]:entry.sha256,'.harness/scripts/vm/held_candidate_expected_producer.cjs':source.sha256}};
  const verify=createQualifiedExpectedVerifier({profile,readProtected:ref=>raw.get(ref.path)});
  return {verify,entry,expected,raw,put,aggregate,profile};
 }
@@ -62,3 +63,7 @@ test('source-rehashed seed omission, empty facts, missing bootstrap column, prov
  for(const variant of ['seed','duplicate-seed','empty','columns','provider','database']){const f=fixture(variant);assert.throws(()=>f.verify(f.entry.expected,f.expected));}
 });
 module.exports={fixture};
+
+const currentPair=['5285bef9a6c91bbb9857ede42779aafa64b98f32','a1cb4c7683768566b0cf38ffe6a27b0a8c13f4f0'];
+test('new pair uses the same protected expected verifier',()=>{const f=fixture(undefined,currentPair);assert.equal(f.verify(f.entry.expected,f.expected),true);});
+for(const pair of [[currentPair[0],'ba6343199f3c834d6a198f83d0c771614292c82b'],['9b25bfa65662b96c0826fe67506b562ea46aa6d0',currentPair[1]],['f'.repeat(40),'e'.repeat(40)]])test('self-consistent forbidden pair '+pair[0].slice(0,4),()=>{const f=fixture(undefined,pair);assert.throws(()=>f.verify(f.entry.expected,f.expected),/FIXED_APP/);});

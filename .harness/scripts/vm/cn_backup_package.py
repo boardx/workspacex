@@ -7,7 +7,7 @@ Its receipts prove three independent database snapshots, not a held release epoc
 import datetime
 import re
 import time
-from writer_fence import DATABASES, require, digest
+from writer_fence import DATABASES, require, digest, admitted_release_identity
 
 APP = '9b25bfa65662b96c0826fe67506b562ea46aa6d0'
 BASE = 'ba6343199f3c834d6a198f83d0c771614292c82b'
@@ -58,7 +58,7 @@ def validate(plan, now=None, *, expected_identity):
               'recipientCertificate','recipientKey','outputRoot','timeoutSeconds'), 'BACKUP_PLAN')
  i = plan['identity']
  exact(i, ('sourceRevision','baselineRevision','migrationPlanSha256','attemptId'), 'BACKUP_IDENTITY')
- require(i == expected_identity and type(i['sourceRevision']) is str and re.fullmatch('[a-f0-9]{40}', i['sourceRevision']) and i['baselineRevision'] == BASE and
+ require(i == expected_identity and type(i['sourceRevision']) is str and re.fullmatch('[a-f0-9]{40}', i['sourceRevision']) and admitted_release_identity(i) and
          re.fullmatch('[a-f0-9]{64}', i['migrationPlanSha256']) and
          re.fullmatch('[A-Za-z0-9-]{1,32}', i['attemptId']), 'BACKUP_FIXED_IDENTITY')
  require(re.fullmatch('[a-f0-9]{40}', plan['toolRevision']) and plan['clientImage'] == IMAGE,

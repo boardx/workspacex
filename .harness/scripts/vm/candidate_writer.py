@@ -13,7 +13,7 @@ import copy
 import time
 import re
 import secrets
-from writer_fence import DATABASES, FAMILIES, digest, require
+from writer_fence import DATABASES, FAMILIES, digest, require, admitted_release_identity
 
 APP = '9b25bfa65662b96c0826fe67506b562ea46aa6d0'
 BASELINE = 'ba6343199f3c834d6a198f83d0c771614292c82b'
@@ -51,8 +51,10 @@ def validate(plan, identity):
             sha(identity['migrationPlanSha256']), 'CANDIDATE_IDENTITY_FORMAT')
     require(type(plan['diagnosticClientIdentity']) is str and plan['diagnosticClientIdentity'] and
             plan['diagnosticClientIdentity'] != 'maintenance-control', 'CANDIDATE_DIAGNOSTIC_IDENTITY')
-    require(identity.get('sourceRevision') == APP and identity.get('baselineRevision') == BASELINE,
+    require(admitted_release_identity(identity),
             'CANDIDATE_IDENTITY_FROZEN_REVISION')
+    require(plan['identity']==identity and plan['baselineRevision']==identity['baselineRevision'],
+            'CANDIDATE_PLAN_EXPECTED_IDENTITY')
     require(type(plan['holdGeneration']) is str and
             re.fullmatch('[a-f0-9]{32}', plan['holdGeneration']) is not None and
             sha(plan['artifactSha256']) and sha(plan['epoch']) and
@@ -140,7 +142,7 @@ class CandidateWriterAdapter:
         self.runtime_sessions = None
         self.resume_unknown = False
         self.resume_attempted = False
-        require(identity['sourceRevision'] == APP and plan['baselineRevision'] == BASELINE,
+        require(admitted_release_identity(identity) and plan['baselineRevision'] == identity['baselineRevision'],
                 'CANDIDATE_FROZEN_REVISION')
         require(plan['identity'] == identity and journal.value['identity'] == identity,
                 'CANDIDATE_IDENTITY')
@@ -155,8 +157,8 @@ class CandidateWriterAdapter:
         require(not ({w['binding']['containerId'] for w in candidates} &
                      {w['binding'].get('containerId') for w in baseline}),
                 'CANDIDATE_BASELINE_ALIAS')
-        require(plan['stagingIdentity'] == {'identity': identity, 'sourceRevision': APP,
-                'baselineRevision': BASELINE, 'writersSha256': digest(candidates),
+        require(plan['stagingIdentity'] == {'identity': identity, 'sourceRevision': identity['sourceRevision'],
+                'baselineRevision': identity['baselineRevision'], 'writersSha256': digest(candidates),
                 'artifactSha256': plan['artifactSha256'], 'epoch': plan['epoch']}, 'CANDIDATE_STAGING_SCHEMA')
         require(set(plan['heldSessions']) == set(plan['candidateSessions']) == set(DATABASES),
                 'CANDIDATE_SESSION_CLOSURE')

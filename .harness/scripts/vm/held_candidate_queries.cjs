@@ -1,4 +1,7 @@
 'use strict';
+// BEGIN GENERATED RELEASE IDENTITIES
+const admittedReleaseIdentity = i => !!i && ((i.sourceRevision === "9b25bfa65662b96c0826fe67506b562ea46aa6d0" && i.baselineRevision === "ba6343199f3c834d6a198f83d0c771614292c82b") || (i.sourceRevision === "5285bef9a6c91bbb9857ede42779aafa64b98f32" && i.baselineRevision === "a1cb4c7683768566b0cf38ffe6a27b0a8c13f4f0"));
+// END GENERATED RELEASE IDENTITIES
 // Existing diagnostic client only. Importing opens no database or host connection.
 const crypto=require('node:crypto');
 const APP='9b25bfa65662b96c0826fe67506b562ea46aa6d0';
@@ -45,8 +48,8 @@ async function readHeldCandidate(control,queryId,params,context){
  exact(context?.binding,BIND,'HELD_SOURCE_BINDING');
  need(same(control.identityBinding,context.identity)&&control.toolRevision===context.binding.toolRevision,'HELD_SOURCE_TOOL_IDENTITY');
  const ref=context?.expectedReadbackRef;exact(ref,['path','sha256'],'HELD_EXPECTED_REF');
- need(hash(ref.sha256)&&params.expectedReadbackSha256===ref.sha256&&context.identity?.sourceRevision===APP&&
-  ref.path===`/etc/workspacex-cn/maintenance-readback/${APP}/${context.identity.attemptId}/expected.json`&&
+ need(hash(ref.sha256)&&params.expectedReadbackSha256===ref.sha256&&admittedReleaseIdentity(context.identity)&&
+  ref.path===`/etc/workspacex-cn/maintenance-readback/${context.identity.sourceRevision}/${context.identity.attemptId}/expected.json`&&
   typeof context.readPrivate==='function'&&typeof context.verifyQualifiedExpected==='function','HELD_EXPECTED_AUTHORITY');
  const read=async()=>{const bytes=await context.readPrivate(ref);need(Buffer.isBuffer(bytes)&&crypto.createHash('sha256').update(bytes).digest('hex')===ref.sha256,'HELD_EXPECTED_RAW_HASH');return bytes;};
  const raw=await read(),expected=JSON.parse(raw.toString('utf8'));

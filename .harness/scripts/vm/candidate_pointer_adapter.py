@@ -11,7 +11,7 @@ import pathlib
 import re
 import secrets
 from candidate_writer import APP, BASELINE
-from writer_fence import require, digest
+from writer_fence import require, digest, admitted_release_identity, approved_release
 from fixed_probes import FixedProbes
 from control_connection import verify_bound_transport
 from candidate_completion_contract import validate_completed
@@ -47,8 +47,7 @@ class CandidatePointerAdapter:
         exact(b,('identity','toolRevision','host','holdGeneration','epoch','migrationCompletion',
                  'baselineConfig','candidateConfig','baselineNginx','candidateNginx','binaries'),
               'CANDIDATE_POINTER_BINDING_SCHEMA')
-        require(b['identity']==p['identity'] and b['identity']['sourceRevision']==APP and
-                b['identity']['baselineRevision']==BASELINE and b['host']==p['host'] and
+        require(b['identity']==p['identity'] and admitted_release_identity(b['identity']) and b['host']==p['host'] and
                 b['holdGeneration']==p['holdGeneration'] and b['epoch']==p['epoch'] and
                 b['toolRevision']==self.transport.host.plan['toolRevision']==self.profile['toolRevision'] and
                 self.journal.value['identity']==p['identity'],'CANDIDATE_POINTER_IDENTITY')
@@ -66,11 +65,11 @@ class CandidatePointerAdapter:
         attempt=b['identity']['attemptId']
         require(type(attempt) is str and re.fullmatch('[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}',attempt),
                 'CANDIDATE_POINTER_ATTEMPT')
-        root=f'/etc/workspacex-cn/candidate-configs/{APP}/{attempt}'
+        root=f"/etc/workspacex-cn/candidate-configs/{b['identity']['sourceRevision']}/{attempt}"
         paths={'baselineConfig':root+'/baseline.json','candidateConfig':root+'/deployment.json',
-               'baselineNginx':f'/var/lib/workspacex-cn/runtime/{APP}/baseline-nginx.conf',
-               'candidateNginx':f'/var/lib/workspacex-cn/runtime/{APP}/nginx.conf',
-               'migrationCompletion':f'/etc/workspacex-cn/migration-completion-inputs/{APP}/{attempt}.completed.json'}
+               'baselineNginx':f"/var/lib/workspacex-cn/runtime/{b['identity']['sourceRevision']}/baseline-nginx.conf",
+               'candidateNginx':f"/var/lib/workspacex-cn/runtime/{b['identity']['sourceRevision']}/nginx.conf",
+               'migrationCompletion':f"/etc/workspacex-cn/migration-completion-inputs/{b['identity']['sourceRevision']}/{attempt}.completed.json"}
         for name,path in paths.items():
             ref=b[name];exact(ref,('path','sha256'),'CANDIDATE_POINTER_REF')
             require(ref['path']==path and sha(ref['sha256']),'CANDIDATE_POINTER_REF_SCOPE')
@@ -123,7 +122,7 @@ class CandidatePointerAdapter:
                         'CANDIDATE_POINTER_COMPOSE_SOURCE')
                 projects[side].add(labels.get('com.docker.compose.project'))
                 if side=='candidateWriters':
-                    require(b['service'] not in seen and labels.get('org.opencontainers.image.revision')==APP,
+                    require(b['service'] not in seen and labels.get('org.opencontainers.image.revision')==self.binding['identity']['sourceRevision'],
                             'CANDIDATE_POINTER_CANDIDATE_SOURCE')
                     seen.add(b['service'])
         require(seen==SERVICES and all(len(v)==1 and None not in v for v in projects.values()) and
@@ -145,7 +144,7 @@ class CandidatePointerAdapter:
         actual=connection.query('migration-ledger')
         require(type(actual) is dict and type(actual.get('ledger')) is list and
                 actual.get('rowCount')==len(actual['ledger']),'CANDIDATE_POINTER_DIAGNOSTIC_LEDGER')
-        ledger=validate_completed(completed,p['identity'],actual['ledger'])
+        ledger=validate_completed(completed,p['identity'],actual['ledger'],expected_release=approved_release(self.profile,p['identity'],self.source.private))
         require(ledger==p['migrationLedgerSha256'],'CANDIDATE_POINTER_LEDGER_DRIFT')
         proof=self.transport.verify_completed_migration(copy.deepcopy(p),secrets.token_hex(32))
         require(proof['identity']==b['identity'] and proof['epoch']==b['epoch'] and
@@ -159,7 +158,7 @@ class CandidatePointerAdapter:
         require(self._read(self.native_config_ref)==refs['candidateConfig'],'CANDIDATE_POINTER_NATIVE_CONFIG_DRIFT')
         candidate=json.loads(refs['candidateConfig']);baseline=json.loads(refs['baselineConfig'])
         require(candidate.get('schemaVersion')==1 and candidate.get('environment',{}).get('profile')=='production' and
-                candidate.get('provision',{}).get('release')=='2026.10.3-cn.1' and
+                candidate.get('provision',{}).get('release')==approved_release(self.profile,self.binding['identity'],self.source.private) and
                 baseline.get('provision',{}).get('release')!=candidate['provision']['release'],
                 'CANDIDATE_POINTER_CONFIG_RELEASE')
         require(not j.value.get('candidatePointerUnknown'),'CANDIDATE_POINTER_RECONCILIATION_REQUIRED')

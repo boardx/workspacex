@@ -82,6 +82,11 @@ class Fixture:
  def refresh_profile(self):
   closure={m.SOURCE:sha(pathlib.Path(m.__file__).read_bytes()),m.ACTIVATION_SOURCE:sha(pathlib.Path(activation.__file__).read_bytes())}
   self.profile={'toolRevision':'e'*40,'filesSha256':closure,'candidateComposeEmitter':{'configRef':copy.deepcopy(self.binding['candidateConfig'])},'candidatePointerPromotion':{'schemaVersion':1,'sourcePath':m.SOURCE,'sha256':closure[m.SOURCE],'binding':copy.deepcopy(self.binding)}}
+  manifest_path='/etc/workspacex-cn/approved-test-manifest.json'
+  manifest=raw({'sourceRevision':self.identity['sourceRevision'],'release':'2026.10.3-cn.1'});self.put(manifest_path,manifest)
+  options_path='/etc/workspacex-cn/approved-test-options.json'
+  options=raw({'manifestRef':{'path':manifest_path,'sha256':sha(manifest)}});self.put(options_path,options)
+  self.profile['candidateComposeEmitter']['optionsRef']={'path':options_path,'sha256':sha(options)}
   self.put(m.PROFILE,raw(self.profile))
  def require_lock(self):
   if not self.hold:raise RuntimeError('LOCK_OR_HOLD_LOST')

@@ -1,3 +1,4 @@
+import {newReleaseIdentity} from './native_completion_test_fixture';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createARouteFactory, type ARouteFactoryInputs, type ARouteFactoryConsumers, type CurrentEpochEvidence } from './a_route_factory';
@@ -8,7 +9,9 @@ const generation='b'.repeat(32), revision='c'.repeat(40), h='d'.repeat(64);
 const request={...identity,maintenanceOptIn:'stop-all-writes-and-require-database-recovery' as const};
 const privateRoot=`/etc/workspacex-cn/maintenance-evidence/${identity.sourceRevision}/${identity.attemptId}/qualified-current-epoch`;
 const ref=(path:string)=>({path,sha256:h});
-function fixture(){
+function fixture(selectedIdentity=identity){
+ const identity=selectedIdentity;
+ const privateRoot=`/etc/workspacex-cn/maintenance-evidence/${identity.sourceRevision}/${identity.attemptId}/qualified-current-epoch`;
  const calls:string[]=[];let state='absent',g=generation;
  const hold={path:'/usr/local/lib/workspacex-cn/cn_maintenance_hold.py',sha256:h};
  const binding={identity,writerPlanPath:'/etc/workspacex-cn/writer.json',writerPlanSha256:h,writerPlanCanonicalSha256:h,hold,writerFence:{path:'/usr/local/lib/workspacex-cn/host_transport.py',sha256:h}};
@@ -44,7 +47,7 @@ function fixture(){
  };
  const input:ARouteFactoryInputs={binding,toolRevision:revision,installedFilesSha256:installed,consumers,
   run:async(_command,args)=>{calls.push('hold:'+args[0]);if(args[0]==='create')state='held';if(args[0]==='clear')state='cleared';return {stdout:JSON.stringify({schemaVersion:1,state,identity,generation:g,sha256:h,device:1,inode:2})};},
-  readEvidence:async reference=>{calls.push('evidence:read');if(reference.path===epoch.epoch.path){const {epoch:_ref,kind:_kind,...contents}=epoch;return {...structuredClone(contents),kind:'held-current-epoch-manifest'};}if(reference.path===completion.completion.path)return {schemaVersion:1,scope:'validated-production-migration-completion',sourceRevision:identity.sourceRevision,baselineRevision:identity.baselineRevision,attemptId:identity.attemptId,release:'2026.10.3-cn.1',originalPlanSha256:identity.migrationPlanSha256,completionPlanSha256:h,sourceInventorySha256:h,sourceBindingSha256:h,snapshotSha256:h,fullResponseSha256:h,ledgerSha256:h,appliedSqlCount:1,pendingCount:0,driftCount:0,unknownAppliedCount:0,capturedAt:new Date().toISOString(),providerFinishedAt:new Date().toISOString(),expiresAt:new Date(Date.now()+3599000).toISOString(),productionMutationAuthorized:false};if(reference.path===candidate.reference.path)return {schemaVersion:1,toolRevision:revision,plan:{identity,holdGeneration:generation,epoch:h,migrationCompletionSha256:h,artifactSha256:h},artifact:ref('/etc/workspacex-cn/candidate-artifact.json')};throw Error('missing local proof');},
+  readEvidence:async reference=>{calls.push('evidence:read');if(reference.path===epoch.epoch.path){const {epoch:_ref,kind:_kind,...contents}=epoch;return {...structuredClone(contents),kind:'held-current-epoch-manifest'};}if(reference.path===completion.completion.path)return {schemaVersion:1,scope:'validated-production-migration-completion',sourceRevision:identity.sourceRevision,baselineRevision:identity.baselineRevision,attemptId:identity.attemptId,release:identity.sourceRevision===newReleaseIdentity.sourceRevision?'2026.10.10-cn.1':'2026.10.3-cn.1',originalPlanSha256:identity.migrationPlanSha256,completionPlanSha256:h,sourceInventorySha256:h,sourceBindingSha256:h,snapshotSha256:h,fullResponseSha256:h,ledgerSha256:h,appliedSqlCount:1,pendingCount:0,driftCount:0,unknownAppliedCount:0,capturedAt:new Date().toISOString(),providerFinishedAt:new Date().toISOString(),expiresAt:new Date(Date.now()+3599000).toISOString(),productionMutationAuthorized:false};if(reference.path===candidate.reference.path)return {schemaVersion:1,toolRevision:revision,plan:{identity,holdGeneration:generation,epoch:h,migrationCompletionSha256:h,artifactSha256:h},artifact:ref('/etc/workspacex-cn/candidate-artifact.json')};throw Error('missing local proof');},
   acquireReleaseLock:async()=>{calls.push('lock');return async()=>{calls.push('unlock');};},assertInstalledSource:async()=>{calls.push('source:verify');},
  };
  return {input,calls,epoch,completion,candidate,setGeneration:(value:string)=>{g=value;}};
@@ -137,3 +140,7 @@ for(const [name,corrupt] of [
  assert.equal(f.calls.includes('candidate:bind'),false);assert.equal(f.calls.includes('candidate:resume'),false);
  assert.equal(f.calls.includes('unlock'),false);assert.ok(f.calls.includes('recovery:record'));
 });
+
+test('new pair cannot construct factory without source approved release callback',async()=>{const f=fixture(newReleaseIdentity);await assert.rejects(createARouteFactory(f.input),/RELEASE_AUTHORITY/);assert.deepEqual(f.calls,[]);f.input.consumers.migration.approvedRelease=()=> '2026.10.10-cn.1';assert.ok(await createARouteFactory(f.input));});
+
+test('new pair actual A route keeps independently approved completion release through acceptance',async()=>{const f=fixture(newReleaseIdentity);f.input.consumers.migration.approvedRelease=()=> '2026.10.10-cn.1';await runARouteMaintenanceRelease({...newReleaseIdentity,maintenanceOptIn:request.maintenanceOptIn},await createARouteFactory(f.input));assert.deepEqual(f.calls.slice(-2),['writer:close','unlock']);});

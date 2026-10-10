@@ -1,4 +1,7 @@
 'use strict';
+// BEGIN GENERATED RELEASE IDENTITIES
+const admittedReleaseIdentity = i => !!i && ((i.sourceRevision === "9b25bfa65662b96c0826fe67506b562ea46aa6d0" && i.baselineRevision === "ba6343199f3c834d6a198f83d0c771614292c82b") || (i.sourceRevision === "5285bef9a6c91bbb9857ede42779aafa64b98f32" && i.baselineRevision === "a1cb4c7683768566b0cf38ffe6a27b0a8c13f4f0"));
+// END GENERATED RELEASE IDENTITIES
 // Reuses BackupConnection's protected profile/approval/table/deadline/SCRAM
 // admission and fixed-operation compiler. No Client factory is ever called.
 const crypto=require('node:crypto');
@@ -25,7 +28,7 @@ async function initializeRetained(control,hostRef,options={}){
  proxy.handle=async message=>{
   need(message.operation==='connect'&&message.database===pinned.peer.database&&message.diagnosticRole==='migration_admin'&&message.mode==='diagnostic','RETAINED_BACKUP_ADMISSION_ONLY');
   need(same(await control.identity(),pinned),'RETAINED_BACKUP_ADMISSION_DRIFT');
-  need(message.identity.sourceRevision==='9b25bfa65662b96c0826fe67506b562ea46aa6d0'&&message.identity.baselineRevision==='ba6343199f3c834d6a198f83d0c771614292c82b','RETAINED_BACKUP_FIXED_IDENTITY');
+  need(admittedReleaseIdentity(message.identity)&&same(message.identity,control.identityBinding),'RETAINED_BACKUP_FIXED_IDENTITY');
   need(control.transportLibrary&&typeof control.transportLibrary.verifyExistingMaintenanceTransport==='function','RETAINED_BACKUP_TRANSPORT_LIBRARY');
   const b=pinned,s=b.socket;
   control.transportLibrary.verifyExistingMaintenanceTransport(message.connectionTransport,{database:b.peer.database,user:b.role,serverAddress:b.peer.serverAddr,serverPort:b.peer.serverPort,remoteAddress:s.remoteAddress,remotePort:s.remotePort,localAddress:s.localAddress,encrypted:s.encrypted,authorized:s.authorized});

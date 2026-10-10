@@ -3,7 +3,7 @@
 import hashlib,json,math,os,re,stat,sys
 from pathlib import Path
 from cn_backup_package import APP,BASE,RDS,ECS
-from writer_fence import DATABASES,require
+from writer_fence import DATABASES,require,admitted_release_identity
 from isolated_conservation_plan import read_ref,private_bytes
 from isolated_conservation_evidence_producer import safe
 from cn_production_recovery_executor import Protected
@@ -16,7 +16,7 @@ def hash_shape(value):return type(value) is str and re.fullmatch('[a-f0-9]{64}',
 
 def binding(p,*,expected_identity):
  exact(p['identity'],('sourceRevision','baselineRevision','migrationPlanSha256','attemptId'),'EPOCH_IDENTITY_SHAPE')
- i=p['identity'];exact(expected_identity,('sourceRevision','baselineRevision','migrationPlanSha256','attemptId'),'EPOCH_AUTHORITY_IDENTITY');require(i==expected_identity and type(i['sourceRevision']) is str and re.fullmatch('[a-f0-9]{40}',i['sourceRevision']) and i['baselineRevision']==BASE and hash_shape(i['migrationPlanSha256']) and type(i['attemptId']) is str and re.fullmatch('[A-Za-z0-9-]{1,32}',i['attemptId']),'EPOCH_FIXED_IDENTITY')
+ i=p['identity'];exact(expected_identity,('sourceRevision','baselineRevision','migrationPlanSha256','attemptId'),'EPOCH_AUTHORITY_IDENTITY');require(i==expected_identity and type(i['sourceRevision']) is str and re.fullmatch('[a-f0-9]{40}',i['sourceRevision']) and admitted_release_identity(i) and hash_shape(i['migrationPlanSha256']) and type(i['attemptId']) is str and re.fullmatch('[A-Za-z0-9-]{1,32}',i['attemptId']),'EPOCH_FIXED_IDENTITY')
  require(type(p['toolRevision']) is str and re.fullmatch('[a-f0-9]{40}',p['toolRevision']),'EPOCH_TOOL_REVISION')
  exact(p['host'],('instanceId','bootId'),'EPOCH_HOST_SHAPE');require(p['host']['instanceId']==ECS and type(p['host']['bootId']) is str and re.fullmatch('[a-f0-9-]{36}',p['host']['bootId']),'EPOCH_HOST')
  require(hash_shape(p['epoch']) and type(p['holdGeneration']) is str and re.fullmatch('[a-f0-9]{32}',p['holdGeneration']),'EPOCH_GENERATION')

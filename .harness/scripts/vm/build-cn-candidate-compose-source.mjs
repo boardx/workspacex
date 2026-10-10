@@ -1,4 +1,7 @@
 #!/usr/bin/env node
+// BEGIN GENERATED RELEASE IDENTITIES
+const admittedReleaseIdentity = i => !!i && ((i.sourceRevision === "9b25bfa65662b96c0826fe67506b562ea46aa6d0" && i.baselineRevision === "ba6343199f3c834d6a198f83d0c771614292c82b") || (i.sourceRevision === "5285bef9a6c91bbb9857ede42779aafa64b98f32" && i.baselineRevision === "a1cb4c7683768566b0cf38ffe6a27b0a8c13f4f0"));
+// END GENERATED RELEASE IDENTITIES
 // Local compilation/provenance only. Generated metadata does not grant production authority.
 import {createHash} from 'node:crypto';
 import {readFileSync,writeFileSync,realpathSync} from 'node:fs';
@@ -13,7 +16,7 @@ const hash=raw=>createHash('sha256').update(raw).digest('hex');
 const blob=raw=>createHash('sha1').update(`blob ${raw.length}\0`).update(raw).digest('hex');
 const pinned=(path,sha)=>{if(!/^[a-f0-9]{64}$/.test(sha))throw Error('CANDIDATE_COMPOSE_BUILD_PIN');const raw=readFileSync(path);if(hash(raw)!==sha)throw Error('CANDIDATE_COMPOSE_BUILD_PIN');return{raw,value:JSON.parse(raw)};};
 const original=pinned(originalPath,originalSha),manifest=pinned(manifestPath,manifestSha),plan=original.value,id=plan.identity;
-if(plan.schemaVersion!==1||plan.mode!=='maintenance-all-writer-fence'||plan.productionActionsAuthorized!==true||plan.runtimeSessionBootstrapAuthorized!==true||['runtimeSourcePlanSha256','runtimePlan','controlSessions','diagnosticSessions'].some(k=>k in plan)||!id||Object.keys(id).sort().join(',')!=='attemptId,baselineRevision,migrationPlanSha256,sourceRevision'||!/^[a-f0-9]{40}$/.test(id.sourceRevision)||id.baselineRevision!=='ba6343199f3c834d6a198f83d0c771614292c82b'||!/^[a-f0-9]{64}$/.test(id.migrationPlanSha256)||!/^[A-Za-z0-9-]{1,128}$/.test(id.attemptId)||!/^[a-f0-9]{40}$/.test(plan.toolRevision)||manifest.value.sourceRevision!==id.sourceRevision||manifest.value.platform!=='linux/amd64'||!/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(manifest.value.release))throw Error('CANDIDATE_COMPOSE_BUILD_IDENTITY');
+if(plan.schemaVersion!==1||plan.mode!=='maintenance-all-writer-fence'||plan.productionActionsAuthorized!==true||plan.runtimeSessionBootstrapAuthorized!==true||['runtimeSourcePlanSha256','runtimePlan','controlSessions','diagnosticSessions'].some(k=>k in plan)||!id||Object.keys(id).sort().join(',')!=='attemptId,baselineRevision,migrationPlanSha256,sourceRevision'||!/^[a-f0-9]{40}$/.test(id.sourceRevision)||!admittedReleaseIdentity(id)||!/^[a-f0-9]{64}$/.test(id.migrationPlanSha256)||!/^[A-Za-z0-9-]{1,128}$/.test(id.attemptId)||!/^[a-f0-9]{40}$/.test(plan.toolRevision)||manifest.value.sourceRevision!==id.sourceRevision||manifest.value.platform!=='linux/amd64'||!/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(manifest.value.release))throw Error('CANDIDATE_COMPOSE_BUILD_IDENTITY');
 // External Git environment must never redirect the selected ordinary repository.
 const gitEnv=Object.fromEntries(Object.entries(process.env).filter(([key])=>!key.startsWith('GIT_')));
 Object.assign(gitEnv,{GIT_CONFIG_NOSYSTEM:'1',GIT_CONFIG_GLOBAL:'/dev/null',GIT_CONFIG_SYSTEM:'/dev/null',GIT_NO_REPLACE_OBJECTS:'1',GIT_NO_LAZY_FETCH:'1',GIT_TERMINAL_PROMPT:'0'});
