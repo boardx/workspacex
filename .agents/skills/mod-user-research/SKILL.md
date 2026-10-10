@@ -80,3 +80,5 @@ description: 用户研究计划、资料检索、来源证据和研究报告；�
 - #5523 复审修正：truncated 缺席不能证明完整；不允许将 SyntaxError 交给模型补成完整大纲。最终只解析完整 JSON/JSON5，不可解析的响应保留失败，不增加补全调用；对应反证覆盖未标 truncated 的残缺响应。
 
 - 2026-10-10：真实正文候选可按三源窗口逐批相关性校验并落盘；满足当前任务三个已批准正文后停止其余候选读取。后续失败/取消保留已批准批次，不能把任务误标成功；纯摘要路径保留批处理以免增加模型调用。富大纲结构门按确认的小节数量检查，legacy 仍要求三节。受控测试不代表 devapp 24 分钟问题已完成线上计时验证（出处：issue #5525、docs/evidence/research-duration-5525/README.md）。
+
+- 2026-10-10：研究公开生成流与访谈共享 NDJSON stage/delta/completed/failed 基础契约；结果仅带 locator，权威状态仍经鉴权 runtime/progress 同步。零 offset reset 只能改最新 UI 的文本流，不可给旧 baseline 赋新 revision 当完整 snapshot；旧序号 reset 不能覆盖轮询已同步的新文本。Accept 协商保留旧 SSE 兼容（出处：issue #5531、docs/evidence/research-unified-stream-5531/README.md）。

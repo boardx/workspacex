@@ -345,6 +345,13 @@ export function GuidedResearchLive({ sessionId, researchName, onBack, onLoadRetr
           // The server identifies actual generation; ordinary chat proposals keep
           // their editor visible. Retain the draft separately for failure recovery.
           if (action === "message" && next.busy && next.reportStream?.requestId === input.requestId && next.reportStream.status === "streaming") setLoadingNode("report");
+        } else if (event.type === "report_reset") {
+          if (!current || event.sessionId !== sessionId || event.requestId !== input.requestId || current.version !== event.version) return;
+          if (current.reportStream?.requestId === event.requestId && current.reportStream.sequence > event.sequence) return;
+          // Reset only text on the latest UI snapshot; polling may already have
+          // newer sources/plan/task metadata than the stream reader's baseline.
+          const next = { ...current, reportStream: { requestId: event.requestId, sequence: event.sequence, text: "", status: event.status } };
+          snapshotRef.current = next; setState(next);
         } else if (event.type === "report_delta") {
           if (!current || event.sessionId !== sessionId || event.requestId !== input.requestId || event.version !== input.expectedVersion + 1 || current.version !== event.version || !current.busy) return;
           const previous = current.reportStream;

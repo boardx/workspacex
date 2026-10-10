@@ -1,3 +1,4 @@
+import { GenerationStreamAttempt, GenerationStreamStage, GenerationStreamDelta, GenerationStreamCompleted, GenerationStreamFailed } from "./generation-stream";
 import { z } from "zod";
 import { unified } from "unified";
 import remarkParse from "remark-parse";
@@ -149,11 +150,11 @@ const interviewOperationErrors = Object.values(operations).flatMap(operation => 
 export const InterviewMarkdownReportFailureCode = z.enum([...InterviewError.options, ...InterviewReportRejectionCode.options, ...interviewOperationErrors]);
 
 export const InterviewMarkdownReportStreamEvent = z.discriminatedUnion("type", [
-  z.object({ type: z.literal("attempt"), attempt: z.number().int().positive() }).strict(),
-  z.object({ type: z.literal("stage"), stage: z.enum(["context", "model", "validation", "storage"]) }).strict(),
-  z.object({ type: z.literal("delta"), delta: z.string() }).strict(),
-  z.object({ type: z.literal("completed"), source: InterviewMarkdownEnvelope }).strict(),
-  z.object({ type: z.literal("failed"), reasonCode: InterviewMarkdownReportFailureCode }).strict(),
+  GenerationStreamAttempt,
+  GenerationStreamStage.extend({ stage: z.enum(["context", "model", "validation", "storage"]) }),
+  GenerationStreamDelta,
+  GenerationStreamCompleted.extend({ source: InterviewMarkdownEnvelope }),
+  GenerationStreamFailed.extend({ reasonCode: InterviewMarkdownReportFailureCode }),
 ]);
 export type InterviewMarkdownReportStreamEvent = z.infer<typeof InterviewMarkdownReportStreamEvent>;
 

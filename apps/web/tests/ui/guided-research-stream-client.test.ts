@@ -74,3 +74,73 @@ it("negotiates and hydrates compact history after sources arrive in the same ter
   const body = JSON.parse(vi.mocked(fetch).mock.calls[0]?.[1]?.body as string);
   expect(body).toMatchObject({ compactSources: true, knownFields: expect.any(Object) });
 });
+
+function unifiedResponse(events: unknown[]) {
+  const bytes = new TextEncoder().encode(events.map(event => JSON.stringify(event) + "\n").join(""));
+  return new Response(new ReadableStream<Uint8Array>({ start(controller) { for (const byte of bytes) controller.enqueue(new Uint8Array([byte])); controller.close(); } }), { headers: { "content-type": "application/x-ndjson" } });
+}
+const receipt = { sessionId: "session", requestId: "request", version: 8, revision: 1 };
+it("consumes interview-compatible NDJSON and hydrates the completed result once", async () => {
+  const baseline = { ...runtime, busy: true };
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce(unifiedResponse([
+    { type: "stage", stage: "report", source: receipt, stream: { sequence: 0, offset: 0, status: "streaming" } },
+    { type: "delta", source: receipt, sequence: 1, delta: "中国😀" },
+    { type: "completed", source: receipt },
+  ])).mockResolvedValueOnce(new Response(JSON.stringify(runtime), { headers: { "content-type": "application/json" } })));
+  const events = vi.fn();
+  expect(await streamResearchCommand(command, events, undefined, baseline)).toEqual(runtime);
+  expect(events.mock.calls.map(([event]) => event.type)).toEqual(["report_reset", "report_delta", "result"]);
+  expect(events.mock.calls[1]?.[0].delta).toBe("中国😀");
+  expect(fetch).toHaveBeenCalledTimes(2);
+  expect(fetch).toHaveBeenNthCalledWith(1, expect.any(String), expect.objectContaining({ headers: expect.objectContaining({ Accept: expect.stringContaining("application/x-ndjson") }) }));
+});
+it("rejects common failed events and NDJSON without a terminal event", async () => {
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValue(unifiedResponse([{ type: "failed", reasonCode: "RESEARCH_TASKS_INCOMPLETE" }])));
+  await expect(streamResearchCommand(command, vi.fn())).rejects.toMatchObject({ reasonCode: "RESEARCH_TASKS_INCOMPLETE" });
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValue(unifiedResponse([{ type: "stage", stage: "planning", source: receipt }])));
+  await expect(streamResearchCommand(command, vi.fn())).rejects.toMatchObject({ reasonCode: "RESEARCH_STREAM_INTERRUPTED" });
+});
+it("clears earlier streamed text when a retry stage resets the sequence", async () => {
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce(unifiedResponse([
+    { type: "stage", stage: "report", source: receipt, stream: { sequence: 0, offset: 0, status: "streaming" } },
+    { type: "delta", source: receipt, sequence: 1, delta: "旧文" },
+    { type: "stage", stage: "report", source: receipt, stream: { sequence: 2, offset: 0, status: "streaming" } },
+    { type: "delta", source: receipt, sequence: 3, delta: "新文" },
+    { type: "completed", source: receipt },
+  ])).mockResolvedValueOnce(new Response(JSON.stringify(runtime))));
+  const events = vi.fn();
+  await streamResearchCommand(command, events, undefined, runtime);
+  expect(events.mock.calls[2]?.[0]).toMatchObject({ type: "report_reset", sequence: 2 });
+  expect(events.mock.calls[2]?.[0]).not.toHaveProperty("state");
+  expect(events.mock.calls[3]?.[0]).toMatchObject({ type: "report_delta", sequence: 3, delta: "新文" });
+});
+it("rejects a completion for another session without fetching its state", async () => {
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValue(unifiedResponse([{ type: "completed", source: { ...receipt, sessionId: "foreign" } }])));
+  await expect(streamResearchCommand(command, vi.fn())).rejects.toMatchObject({ reasonCode: "RESEARCH_STREAM_INVALID" });
+  expect(fetch).toHaveBeenCalledTimes(1);
+});
+it("emits only a stream reset when newer polling metadata exists, never a stale runtime snapshot", async () => {
+  const baseline = { ...runtime, busy: true, sources: [], reportStream: { requestId: "request", sequence: 1, text: "旧文", status: "streaming" as const } };
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce(unifiedResponse([
+    { type: "stage", stage: "report", source: { ...receipt, revision: 5 }, stream: { sequence: 2, offset: 0, status: "streaming" } },
+    { type: "completed", source: receipt },
+  ])).mockResolvedValueOnce(new Response(JSON.stringify(runtime))));
+  const pollingState = { ...runtime, revision: 5, brief: { ...runtime.brief, topic: "New plan from polling" }, busy: true };
+  let latest = pollingState;
+  await streamResearchCommand(command, event => {
+    if (event.type === "report_reset") latest = { ...latest, reportStream: { requestId: event.requestId, sequence: event.sequence, text: "", status: event.status } };
+    if (event.type === "snapshot") latest = event.state;
+  }, undefined, baseline);
+  expect(latest.brief.topic).toBe("New plan from polling");
+  expect(latest.revision).toBe(5);
+  expect(latest.reportStream).toMatchObject({ sequence: 2, text: "" });
+});
+it("ignores a reset older than an already synchronized stream sequence", async () => {
+  const baseline = { ...runtime, busy: true, reportStream: { requestId: "request", sequence: 4, text: "已同步新正文", status: "streaming" as const } };
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce(unifiedResponse([
+    { type: "stage", stage: "report", source: receipt, stream: { sequence: 2, offset: 0, status: "streaming" } },
+    { type: "completed", source: receipt },
+  ])).mockResolvedValueOnce(new Response(JSON.stringify(runtime))));
+  const events = vi.fn(); await streamResearchCommand(command, events, undefined, baseline);
+  expect(events.mock.calls.map(([event]) => event.type)).toEqual(["result"]);
+});

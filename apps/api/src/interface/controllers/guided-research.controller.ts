@@ -1,4 +1,5 @@
 import { createResearchStreamWriter } from "./guided-research-stream-transport";
+import { acceptsResearchNdjson, researchGenerationEvents } from "./guided-research-generation-stream";
 import { createHash } from "node:crypto";
 import { runtimeProgress } from "./guided-research-progress";
 import type { Request, Response } from "express";
@@ -93,7 +94,9 @@ export class GuidedResearchController {
     const session = await this.current(principal, sessionId);
     const { knownFields, compactSources, ...command } = input.data;
     let clientStream: import("../../application/research/guided-runtime-ports").ResearchRuntime["reportStream"];
-    response.setHeader("Content-Type", "text/event-stream; charset=utf-8");
+    const unified = acceptsResearchNdjson(request.headers?.accept);
+    response.setHeader("Vary", "Accept");
+    response.setHeader("Content-Type", unified ? "application/x-ndjson; charset=utf-8" : "text/event-stream; charset=utf-8");
     response.setHeader("Cache-Control", "no-cache, no-transform");
     response.setHeader("X-Accel-Buffering", "no");
     const writer = createResearchStreamWriter(request, response);
@@ -104,8 +107,10 @@ export class GuidedResearchController {
     let initialized = false;
     let sourceCursor: string | undefined;
     let cursor: { requestId?: string; text: string } = { text: "" };
+    const publicSend = researchGenerationEvents(command.requestId, event => writer.write(`${JSON.stringify(event)}\n`));
     const send = (event: import("../../application/research/guided-runtime-ports").RuntimeStreamEvent) => {
       if (!connected || response.destroyed) return;
+      if (unified) { publicSend(event); return; }
       // The writer bounds plaintext/compressed queues and handles disconnects.
       if (knownFields && (event.type === "snapshot" || event.type === "result")) {
         // During collection, publish the same source metadata as polling rather
@@ -146,7 +151,7 @@ export class GuidedResearchController {
         writer.write(`data: ${JSON.stringify(event)}\n\n`);
       }
     };
-    const heartbeat = setInterval(() => { if (connected && !response.destroyed) writer.write(": keepalive\n\n"); }, 15000);
+    const heartbeat = setInterval(() => { if (connected && !response.destroyed) writer.write(unified ? "\n" : ": keepalive\n\n"); }, 15000);
     try { await this.runtime.execute({ orgId: principal.orgId, userId: principal.userId, sessionId }, session, command, send, traceIdOf(request)); }
     catch (error) { send({ type: "error", reasonCode: error instanceof ResearchRuntimeError ? error.reasonCode : "RESEARCH_WORKFLOW_UNAVAILABLE" }); }
     finally { clearInterval(heartbeat); response.off("close", detach); await writer.end(); }
