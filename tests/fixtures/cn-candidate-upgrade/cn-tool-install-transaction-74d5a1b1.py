@@ -13,10 +13,10 @@ def parent(path,uid,boundary=None):
   s=d.lstat();require(stat.S_ISDIR(s.st_mode) and s.st_uid==uid and not s.st_mode&0o022,'PARENT_TRUST')
   if boundary and d==boundary:break
  return os.open(p,os.O_RDONLY|os.O_DIRECTORY|os.O_NOFOLLOW)
-def read_at(fd,name,uid,max_bytes=8000000):
+def read_at(fd,name,uid):
  f=os.open(name,os.O_RDONLY|os.O_NOFOLLOW,dir_fd=fd)
  try:
-  s=os.fstat(f);require(stat.S_ISREG(s.st_mode) and s.st_uid==uid and s.st_nlink==1 and s.st_size<=max_bytes,'FILE_TRUST')
+  s=os.fstat(f);require(stat.S_ISREG(s.st_mode) and s.st_uid==uid and s.st_nlink==1 and s.st_size<=8000000,'FILE_TRUST')
   chunks=[]
   while True:
    b=os.read(f,65536)
@@ -237,125 +237,18 @@ def trust_git(tool,uid=0,boundary=None):
  finally:os.close(fd)
  require(not re.search(rb'^\s*\[(?:include(?:if)?|filter)[\s\]]|^\s*(?:fsmonitor|promisor|partialclone)\s*=',config,re.M|re.I),'GIT_CONFIG_EXECUTION')
 
-# Keep this pure verifier byte-identical in producer and installer (parity-tested).
-def inventory_json(raw):
- def pairs(items):
-  result={}
-  for key,value in items:
-   require(key not in result,'INVENTORY_DUPLICATE_KEY');result[key]=value
-  return result
- def constant(value):raise ValueError('INVENTORY_NONFINITE_JSON')
- def floating(value):
-  import math
-  result=float(value);require(math.isfinite(result),'INVENTORY_NONFINITE_JSON');return result
- return json.loads(raw,object_pairs_hook=pairs,parse_constant=constant,parse_float=floating)
-
-def verify_inventory_output(receipt,decoded,legacy_error,expected=None,now=None):
- import base64,zlib
- encoding=receipt.get('outputEncoding','raw-json-v1')
- if encoding=='gzip-base64-inventory-parts-v1':return verify_inventory_parts(receipt,decoded,expected,now)
- if encoding=='raw-json-v1':
-  require('outputBase64' not in receipt and 'decodedInventorySha256' not in receipt,'PROVIDER_ENCODING_AMBIGUOUS')
-  require(receipt.get('outputSha256')==sha(decoded),legacy_error)
-  return receipt['outputSha256']
- require(encoding=='gzip-base64-inventory-v1','PROVIDER_OUTPUT_ENCODING')
- encoded=receipt.get('outputBase64');require(type(encoded)is str and len(encoded)<=32000,'PROVIDER_WIRE_BOUND')
- try:wire=base64.b64decode(encoded,validate=True)
- except Exception as e:raise ValueError('PROVIDER_WIRE_BASE64')from e
- require(0<len(wire)<=24000 and base64.b64encode(wire).decode()==encoded,'PROVIDER_WIRE_BOUND')
- require(sha(wire)==receipt.get('outputSha256'),'PROVIDER_WIRE_HASH')
- envelope=inventory_json(wire)
- require(type(envelope)is dict and set(envelope)=={'schemaVersion','kind','decodedBytes','decodedSha256','gzipBase64'},'PROVIDER_ENVELOPE_SCHEMA')
- require(type(envelope['schemaVersion'])is int and envelope['schemaVersion']==1 and envelope['kind']=='cn-tool-inventory-gzip-base64-v1','PROVIDER_ENVELOPE_KIND')
- require((json.dumps(envelope,sort_keys=True)+'\n').encode()==wire,'PROVIDER_ENVELOPE_CANONICAL')
- size=envelope['decodedBytes'];require(type(size)is int and 0<size<=1024*1024,'PROVIDER_DECODED_BOUND')
- compressed64=envelope['gzipBase64'];require(type(compressed64)is str and len(compressed64)<=24000,'PROVIDER_GZIP_BOUND')
- try:compressed=base64.b64decode(compressed64,validate=True)
- except Exception as e:raise ValueError('PROVIDER_GZIP_BASE64')from e
- require(0<len(compressed)<=18000 and base64.b64encode(compressed).decode()==compressed64 and size<=len(compressed)*128,'PROVIDER_COMPRESSION_RATIO')
- try:
-  inflater=zlib.decompressobj(16+zlib.MAX_WBITS);raw=inflater.decompress(compressed,size+1)
- except zlib.error as e:raise ValueError('PROVIDER_GZIP_INVALID')from e
- require(len(raw)==size and inflater.eof and not inflater.unused_data and not inflater.unconsumed_tail,'PROVIDER_GZIP_COMPLETE')
- inventory_json(raw) # Reject nested duplicate keys independently of local normalization.
- require(raw==decoded and sha(raw)==envelope['decodedSha256']==receipt.get('decodedInventorySha256'),'PROVIDER_DECODED_HASH')
- return receipt['outputSha256']
-
-def inventory_expected_scope(receipt,expected):
- core={'region','instanceId','sourceInvocation','commandId'}
- multipart=receipt.get('outputEncoding')=='gzip-base64-inventory-parts-v1'
- require(type(expected)is dict and set(expected)==(core|{'partBindings'}if multipart else core),'PROVIDER_EXPECTED_BINDING')
- if multipart:
-  bindings=expected['partBindings'];require(type(bindings)is list and 1<=len(bindings)<=6,'PROVIDER_PART_BINDINGS')
-  seen=set()
-  for index,b in enumerate(bindings):
-   require(type(b)is dict and set(b)=={'partIndex','sourceInvocation','commandId'} and type(b['partIndex'])is int and b['partIndex']==index,'PROVIDER_PART_EXPECTED_INDEX')
-   require(all(type(b[k])is str and b[k] for k in ('sourceInvocation','commandId'))and b['sourceInvocation']not in seen,'PROVIDER_PART_EXPECTED_IDENTITY');seen.add(b['sourceInvocation'])
-  require(expected['sourceInvocation']not in seen,'PROVIDER_CAPTURE_NOT_PART')
- return {k:expected[k]for k in core}
-
-def inventory_capture_scope(receipt):
- if receipt.get('outputEncoding')=='gzip-base64-inventory-parts-v1':
-  return receipt.get('readOnly')is False and receipt.get('snapshotWritesOnly')is True and receipt.get('username')=='root'
- return receipt.get('readOnly')is True and 'snapshotWritesOnly'not in receipt
-
-def inventory_wire(receipt):
- import base64
- encoded=receipt.get('outputBase64');require(type(encoded)is str and len(encoded)<=32000,'PROVIDER_WIRE_BOUND')
- try:wire=base64.b64decode(encoded,validate=True)
- except Exception as e:raise ValueError('PROVIDER_WIRE_BASE64')from e
- require(0<len(wire)<=24000 and base64.b64encode(wire).decode()==encoded and sha(wire)==receipt.get('outputSha256'),'PROVIDER_WIRE_HASH')
- value=inventory_json(wire);require((json.dumps(value,sort_keys=True)+'\n').encode()==wire,'PROVIDER_ENVELOPE_CANONICAL');return value
-
-def verify_inventory_parts(receipt,decoded,expected,now):
- import base64,datetime,math,re,zlib
- scope=inventory_expected_scope(receipt,expected);manifest=inventory_wire(receipt)
- require(type(manifest)is dict and set(manifest)=={'schemaVersion','kind','snapshotId','observedAt','decodedBytes','decodedSha256','compressedBytes','compressedSha256','chunkBytes','chunkCount'},'PROVIDER_SNAPSHOT_SCHEMA')
- require(type(manifest['schemaVersion'])is int and manifest['schemaVersion']==1 and manifest['kind']=='cn-tool-inventory-snapshot-v1' and type(manifest['snapshotId'])is str and re.fullmatch('[a-f0-9]{32}',manifest['snapshotId']),'PROVIDER_SNAPSHOT_KIND')
- require(manifest['observedAt']==receipt['inventoryObservedAt'],'PROVIDER_SNAPSHOT_TIME')
- size=manifest['decodedBytes'];compressed_size=manifest['compressedBytes'];count=manifest['chunkCount']
- require(type(size)is int and 0<size<=1024*1024 and type(compressed_size)is int and 0<compressed_size<=65536 and size<=compressed_size*128,'PROVIDER_SNAPSHOT_BOUNDS')
- require(type(manifest['chunkBytes'])is int and manifest['chunkBytes']==12288 and type(count)is int and count==(compressed_size+12287)//12288,'PROVIDER_SNAPSHOT_COUNT')
- require(all(type(manifest[k])is str and re.fullmatch('[a-f0-9]{64}',manifest[k])for k in ('decodedSha256','compressedSha256')),'PROVIDER_SNAPSHOT_HASH')
- parts=receipt.get('parts');require(type(parts)is list and len(parts)==count==len(expected['partBindings']),'PROVIDER_PART_COUNT')
- def stamp(s):
-  require(type(s)is str,'PROVIDER_PART_TIME');d=datetime.datetime.fromisoformat(s.replace('Z','+00:00'));require(d.tzinfo is not None,'PROVIDER_PART_TIME');return d.timestamp()
- require(type(now)in(int,float)and math.isfinite(now),'PROVIDER_PART_NOW')
- capture_start=stamp(receipt['startTime']);capture_finish=stamp(receipt['finishTime']);require(capture_start<=capture_finish<=now and capture_start<=stamp(manifest['observedAt'])<=capture_finish+1,'PROVIDER_CAPTURE_TIME')
- blobs=[]
- for index,(part,binding)in enumerate(zip(parts,expected['partBindings'])):
-  require(type(part)is dict and set(part)=={'partIndex','sourceInvocation','commandId','region','instanceId','username','readOnly','invocationStatus','exitCode','dropped','startTime','finishTime','outputBase64','outputSha256'},'PROVIDER_PART_RECEIPT_SCHEMA')
-  require(type(part['partIndex'])is int and part['partIndex']==index and all(part[k]==binding[k]for k in ('sourceInvocation','commandId'))and all(part[k]==scope[k]for k in ('region','instanceId')),'PROVIDER_PART_IDENTITY')
-  require(part['username']=='root' and part['readOnly']is True and part['invocationStatus']=='Success' and type(part['exitCode'])is int and part['exitCode']==0 and type(part['dropped'])is int and part['dropped']==0,'PROVIDER_PART_SUCCESS')
-  require(capture_finish<=stamp(part['startTime'])<=stamp(part['finishTime'])<=now,'PROVIDER_PART_TIME')
-  value=inventory_wire(part);require(type(value)is dict and set(value)=={'schemaVersion','kind','snapshotManifestSha256','snapshotId','partIndex','chunkCount','offset','bytes','sha256','base64'},'PROVIDER_PART_SCHEMA')
-  require(type(value['schemaVersion'])is int and value['schemaVersion']==1 and value['kind']=='cn-tool-inventory-snapshot-part-v1' and value['snapshotManifestSha256']==receipt['outputSha256']and value['snapshotId']==manifest['snapshotId'],'PROVIDER_PART_SNAPSHOT')
-  amount=min(12288,compressed_size-index*12288)
-  require(all(type(value[k])is int for k in ('partIndex','chunkCount','offset','bytes'))and(value['partIndex'],value['chunkCount'],value['offset'],value['bytes'])==(index,count,index*12288,amount),'PROVIDER_PART_RANGE')
-  require(type(value['base64'])is str and len(value['base64'])<=16384,'PROVIDER_PART_BOUND')
-  try:blob=base64.b64decode(value['base64'],validate=True)
-  except Exception as e:raise ValueError('PROVIDER_PART_BASE64')from e
-  require(len(blob)==amount and base64.b64encode(blob).decode()==value['base64']and sha(blob)==value['sha256'],'PROVIDER_PART_HASH');blobs.append(blob)
- compressed=b''.join(blobs);require(len(compressed)==compressed_size and sha(compressed)==manifest['compressedSha256'],'PROVIDER_SNAPSHOT_COMPRESSED_HASH')
- try:inflater=zlib.decompressobj(16+zlib.MAX_WBITS);raw=inflater.decompress(compressed,size+1)
- except zlib.error as e:raise ValueError('PROVIDER_GZIP_INVALID')from e
- require(len(raw)==size and inflater.eof and not inflater.unused_data and not inflater.unconsumed_tail,'PROVIDER_GZIP_COMPLETE');inventory_json(raw)
- require(raw==decoded and sha(raw)==manifest['decodedSha256']==receipt.get('decodedInventorySha256'),'PROVIDER_DECODED_HASH')
- return receipt['outputSha256']
-
 def verify_inventory_receipt(inventory_raw,receipt_raw,expected,now,ttl=3600):
  import datetime,re
  require(type(ttl) is int and 0<ttl<=3600,'INVENTORY_TTL')
- inv=inventory_json(inventory_raw);r=inventory_json(receipt_raw)
- scope=inventory_expected_scope(r,expected)
- require(all(isinstance(v,str) and v for v in scope.values()),'PROVIDER_EXPECTED_REQUEST')
- require(all(r.get(k)==v for k,v in scope.items()),'PROVIDER_REQUEST_IDENTITY')
+ inv=json.loads(inventory_raw);r=json.loads(receipt_raw)
+ require(set(expected)=={'region','instanceId','sourceInvocation','commandId'} and all(isinstance(v,str) and v for v in expected.values()),'PROVIDER_EXPECTED_REQUEST')
+ require(all(r.get(k)==v for k,v in expected.items()),'PROVIDER_REQUEST_IDENTITY')
  require(r.get('schemaVersion')==1 and r.get('invocationStatus')=='Success' and type(r.get('exitCode')) is int and r['exitCode']==0 and type(r.get('dropped')) is int and r['dropped']==0,'PROVIDER_SUCCESS')
- require(inventory_capture_scope(r) and r.get('productionModified') is False and inv.get('schemaVersion')==1 and inv.get('readOnly') is True and inv.get('ready') is False,'INVENTORY_READONLY')
+ require(r.get('readOnly') is True and r.get('productionModified') is False and inv.get('schemaVersion')==1 and inv.get('readOnly') is True and inv.get('ready') is False,'INVENTORY_READONLY')
  require(inv.get('sourceInvocation')==expected['sourceInvocation'] and r.get('localInventorySha256')==sha(inventory_raw),'INVENTORY_HASH_INVOCATION')
  require(r.get('inventoryObservedAt')==inv.get('observedAt'),'INVENTORY_OBSERVED_BINDING')
  remote=dict(inv);del remote['sourceInvocation'];output=(json.dumps(remote,sort_keys=True)+'\n').encode()
- verify_inventory_output(r,output,'PROVIDER_OUTPUT_HASH',expected,now)
+ require(sha(output)==r.get('outputSha256'),'PROVIDER_OUTPUT_HASH')
  def timestamp(value):
   require(isinstance(value,str),'INVENTORY_TIME_FORMAT');d=datetime.datetime.fromisoformat(value.replace('Z','+00:00'));require(d.tzinfo is not None,'INVENTORY_TIMEZONE');return d.timestamp()
  observed=timestamp(inv['observedAt']);start=timestamp(r['startTime'])
@@ -365,41 +258,16 @@ def verify_inventory_receipt(inventory_raw,receipt_raw,expected,now,ttl=3600):
  return inv
 
 PROFILE_SCHEMA_SOURCE='.harness/scripts/vm/cn_tool_profile.py'
-def profile_content(tool,rows,schema_raw=None,runtime=None,extension=None,expected_extension=None):
+def profile_content(tool,rows,schema_raw=None,runtime=None):
  if PROFILE_SCHEMA_SOURCE not in rows:
-  require(extension is None and expected_extension is None,'COMPOSE_EXTENSION_SCHEMA_REQUIRED')
   return {'toolRevision':tool,'filesSha256':{name:row['newSha256'] for name,row in rows.items()}}
  require(schema_raw is not None and sha(schema_raw)==rows[PROFILE_SCHEMA_SOURCE]['newSha256'],'PROFILE_SCHEMA_SOURCE_BINDING')
  namespace={'__name__':'exact_git_bound_profile_schema'}
  exec(compile(schema_raw,PROFILE_SCHEMA_SOURCE,'exec'),namespace)
- if extension is None and expected_extension is None:return namespace['build_profile'](tool,rows,runtime)
- return namespace['build_profile'](tool,rows,runtime,extension,expected_extension)
-
-def extension_evidence(tool,rows,schema_raw,extension,expected,app=None,git_blob=None,old_projection=False):
- if extension is None:
-  require(expected is None,'COMPOSE_EXTENSION_UNSOLICITED_PIN');return None
- require(PROFILE_SCHEMA_SOURCE in rows and sha(schema_raw)==rows[PROFILE_SCHEMA_SOURCE]['newSha256'],'PROFILE_SCHEMA_SOURCE_BINDING')
- namespace={'__name__':'exact_git_bound_profile_schema'}
- exec(compile(schema_raw,PROFILE_SCHEMA_SOURCE,'exec'),namespace)
- require('validate_compose_extension' in namespace,'COMPOSE_EXTENSION_SCHEMA_REQUIRED')
- if old_projection:return namespace['validate_compose_projection'](extension,tool,app,git_blob)
- return namespace['validate_compose_extension'](extension,expected,tool,app,git_blob)
-
-def rebuild_old_profile(tool,rows,schema_raw,runtime,projection):
- if projection is None:return profile_content(tool,rows,schema_raw,runtime)
- require(PROFILE_SCHEMA_SOURCE in rows and sha(schema_raw)==rows[PROFILE_SCHEMA_SOURCE]['newSha256'],'PROFILE_SCHEMA_SOURCE_BINDING')
- namespace={'__name__':'exact_git_bound_profile_schema'}
- exec(compile(schema_raw,PROFILE_SCHEMA_SOURCE,'exec'),namespace)
- require('rebuild_profile' in namespace,'COMPOSE_EXTENSION_SCHEMA_REQUIRED')
- return namespace['rebuild_profile'](tool,rows,runtime,projection)
+ return namespace['build_profile'](tool,rows,runtime)
 
 def old_profile_allowlist(content,old_files,inventory):
- require(isinstance(old_files,dict) and old_files,'PROFILE_OLD_ALLOWLIST_CLOSURE')
- if 'composeExtensionV1' in content:
-  # Exact old Git FILES is preserved separately; extras are reconstructed by
-  # old_profile_binding from the root-inventory-pinned old schema/container.
-  require(set(content.get('composeBaseFilesSha256',{}))==set(old_files),'PROFILE_OLD_ALLOWLIST_CLOSURE')
- else:require(set(content['filesSha256'])==set(old_files),'PROFILE_OLD_ALLOWLIST_CLOSURE')
+ require(isinstance(old_files,dict) and old_files and set(content['filesSha256'])==set(old_files),'PROFILE_OLD_ALLOWLIST_CLOSURE')
  require(all(inventory.get('files',{}).get(source,{}).get('target')==target for source,target in old_files.items()),'PROFILE_OLD_TARGET_AUTHORITY')
 
 def old_profile_binding(old,previous,old_schema_raw=None):
@@ -410,19 +278,16 @@ def old_profile_binding(old,previous,old_schema_raw=None):
  require(len(raw)<=8000000 and sha(raw)==old['sha256'] and raw==(json.dumps(content,sort_keys=True)+'\n').encode(),'PROFILE_OLD_RAW_BINDING')
  tool=content.get('toolRevision');require(re.fullmatch('[a-f0-9]{40}',tool or ''),'PROFILE_OLD_TOOL')
  hashes=content.get('filesSha256');require(isinstance(hashes,dict) and hashes,'PROFILE_OLD_CLOSURE')
- extension=content.get('composeExtensionV1')
- base_hashes=content.get('composeBaseFilesSha256') if extension is not None else hashes
- require(isinstance(base_hashes,dict) and base_hashes,'PROFILE_OLD_BASE_CLOSURE')
  rows={}
- for source,digest in base_hashes.items():
+ for source,digest in hashes.items():
   before=previous.get('files',{}).get(source);require(isinstance(before,dict),'PROFILE_OLD_SOURCE_INVENTORY')
   target=before.get('target')
   if target is not None:require(before.get('present') is True and before.get('regular') is True and before.get('symlink') is False and before.get('sha256')==digest and before.get('uid')==0 and before.get('gid')==0 and before.get('links')==1,'PROFILE_OLD_INSTALLED_BINDING')
   rows[source]={'target':target,'newSha256':digest}
- require(content==rebuild_old_profile(tool,rows,old_schema_raw,previous.get('runtimes',{}).get('node'),extension),'PROFILE_OLD_CONTENT_AUTHORITY')
+ require(content==profile_content(tool,rows,old_schema_raw,previous.get('runtimes',{}).get('node')),'PROFILE_OLD_CONTENT_AUTHORITY')
  return tool,rows
 
-def profile_transaction(m,consumer_raw,inventory_raw,receipt_raw,expected,now,ttl=3600,schema_raw=None,old_schema_raw=None,expected_extension=None):
+def profile_transaction(m,consumer_raw,inventory_raw,receipt_raw,expected,now,ttl=3600,schema_raw=None,old_schema_raw=None):
  import ast,re
  require(isinstance(m.get('profileTransactionsV1'),list) and len(m['profileTransactionsV1'])==1,'PROFILE_V1_REQUIRED')
  p=m['profileTransactionsV1'][0];source=p.get('consumerSource');files=m['files']
@@ -438,7 +303,7 @@ def profile_transaction(m,consumer_raw,inventory_raw,receipt_raw,expected,now,tt
  require(all(type(p.get(k)) is int for k in ('uid','gid','links','bytes')),'PROFILE_METADATA_TYPES')
  require(p.get('schemaVersion')==1 and p.get('kind') in ('reviewed-profile-create-proposal','reviewed-profile-replace-proposal') and p.get('target')==target and p.get('mode')==format(modes[0],'04o') and (p.get('uid'),p.get('gid'),p.get('links'))==(0,0,1),'PROFILE_METADATA')
  require(re.fullmatch('[a-f0-9]{40}',m.get('toolRevision','') or ''),'PROFILE_EXACT_TOOL')
- content=profile_content(m['toolRevision'],files,schema_raw,json.loads(inventory_raw).get('runtimes',{}).get('node'),m.get('composeExtensionV1'),expected_extension);raw=(json.dumps(content,sort_keys=True)+'\n').encode()
+ content=profile_content(m['toolRevision'],files,schema_raw,json.loads(inventory_raw).get('runtimes',{}).get('node'));raw=(json.dumps(content,sort_keys=True)+'\n').encode()
  require(p.get('content')==content and p.get('newSha256')==sha(raw) and p.get('bytes')==len(raw),'PROFILE_CONTENT')
  inv=verify_inventory_receipt(inventory_raw,receipt_raw,expected,now,ttl)
  require(p.get('previousInventorySha256')==m.get('previousInventorySha256')==sha(inventory_raw) and p.get('inventoryObservedAt')==m.get('inventoryObservedAt')==inv['observedAt'] and p.get('inventorySourceInvocation')==m.get('inventorySourceInvocation')==inv['sourceInvocation'],'PROFILE_INVENTORY_BINDING')
@@ -446,8 +311,6 @@ def profile_transaction(m,consumer_raw,inventory_raw,receipt_raw,expected,now,tt
  require(isinstance(old,dict),'PROFILE_OLD_INVENTORY')
  if old.get('present') is True:
   old_profile_binding(old,inv,old_schema_raw)
-  import base64
-  require('composeExtensionV1' not in json.loads(base64.b64decode(old['rawBase64'],validate=True)) or m.get('composeExtensionV1') is not None,'COMPOSE_EXTENSION_REMOVAL_NOT_AUTHORIZED')
   require(p.get('kind')=='reviewed-profile-replace-proposal','PROFILE_OPERATION')
  else:
   require(p.get('kind')=='reviewed-profile-create-proposal','PROFILE_OPERATION')
@@ -458,32 +321,6 @@ def profile_transaction(m,consumer_raw,inventory_raw,receipt_raw,expected,now,tt
   before=inv['files'][s];require(before.get('target')==row['target'] and before.get('present') is row['oldPresent'],'INVENTORY_OLD_TARGET')
   for ik,rk in (('sha256','oldSha256'),('mode','oldMode'),('uid','oldUid'),('gid','oldGid'),('links','oldNlink')):require(before.get(ik)==row.get(rk),'INVENTORY_OLD_METADATA')
  return {'destination':target,'payload':'profileTransactionsV1/0','before':({'sha256':old['sha256'],'mode':int(old['mode'],8),'uid':old['uid'],'gid':old['gid'],'nlink':old['links']} if old['present'] else {'absent':True}),'sha256':sha(raw),'mode':modes[0],'uid':0,'gid':0},raw
-
-def verify_staged_extension(extension,uid=0,gid=0,boundary=None):
- import base64
- # The installer verifies pre-staged data only; extension never adds targets.
- for name,item in extension['documents'].items():
-  p=pathlib.Path(item['path']);fd=parent(p,uid,boundary)
-  try:raw,st=read_at(fd,p.name,uid)
-  finally:os.close(fd)
-  require(st.st_gid==gid and stat.S_IMODE(st.st_mode)==(0o700 if name=='emitter' else 0o600) and raw==base64.b64decode(item['rawBase64'],validate=True) and sha(raw)==item['sha256'],'COMPOSE_EXTENSION_STAGED_BINDING')
- e=extension['candidateComposeEmitter']
- for pathkey,hashkey in (('nodePath','nodeSha256'),('dockerPath','dockerSha256')):
-  p=pathlib.Path(e[pathkey]);fd=parent(p,uid,boundary);f=None
-  try:
-   f=os.open(p.name,os.O_RDONLY|os.O_NOFOLLOW,dir_fd=fd);st=os.fstat(f)
-   require(stat.S_ISREG(st.st_mode) and st.st_uid==uid and st.st_gid==gid and st.st_nlink==1 and stat.S_IMODE(st.st_mode)==0o755 and st.st_size<=256000000,'COMPOSE_EXTENSION_EXECUTABLE_TRUST')
-   h=hashlib.sha256()
-   while True:
-    chunk=os.read(f,65536)
-    if not chunk:break
-    h.update(chunk)
-   after=os.fstat(f);named=os.stat(p.name,dir_fd=fd,follow_symlinks=False)
-   signature=lambda z:(z.st_dev,z.st_ino,z.st_size,z.st_mtime_ns,z.st_ctime_ns)
-   require(signature(st)==signature(after)==signature(named) and h.hexdigest()==e[hashkey],'COMPOSE_EXTENSION_EXECUTABLE_BINDING')
-  finally:
-   if f is not None:os.close(f)
-   os.close(fd)
 
 def manifest_targets(m):
  require(isinstance(m.get('files'),dict) and m['files'],'MANIFEST_FILES')
@@ -512,9 +349,9 @@ def inherited_lock(path,heldfd,uid=0,gid=0,boundary=None):
   require(identity(os.stat(path,follow_symlinks=False))==identity(s),'LOCK_PATH_CHANGED')
  finally:os.close(fd)
 def require_lock():inherited_lock(LOCK,9)
-def verified_manifest(manifest_path,manifest_hash,admitted_at=None,expected_extension=None):
+def verified_manifest(manifest_path,manifest_hash,admitted_at=None):
  path=pathlib.Path(manifest_path);fd=parent(path,0)
- try:raw,s=read_at(fd,path.name,0,32000000)
+ try:raw,s=read_at(fd,path.name,0)
  finally:os.close(fd)
  require(stat.S_IMODE(s.st_mode)==0o600 and s.st_gid==0 and sha(raw)==manifest_hash,'MANIFEST_PIN')
  m=json.loads(raw);require(m['schemaVersion']==1 and m['ready'] is False,'REVIEW_MANIFEST')
@@ -553,33 +390,23 @@ def verified_manifest(manifest_path,manifest_hash,admitted_at=None,expected_exte
  evidence=m['inventoryEvidenceV1'];inputs=[]
  for pathkey,hashkey in (('inventoryPath','inventorySha256'),('providerReceiptPath','providerReceiptSha256')):
   ep=pathlib.Path(evidence[pathkey]);require(ep.is_absolute() and '..' not in ep.parts,'INVENTORY_EVIDENCE_PATH');ef=parent(ep,0)
-  try:eraw,es=read_at(ef,ep.name,0,32000000)
+  try:eraw,es=read_at(ef,ep.name,0)
   finally:os.close(ef)
   require(es.st_gid==0 and stat.S_IMODE(es.st_mode)==0o600 and sha(eraw)==evidence[hashkey],'ROOT_PRIVATE_INVENTORY_EVIDENCE');inputs.append(eraw)
  import time
  proposal=m['profileTransactionsV1'][0];consumer=git('show',m['toolRevision']+':'+proposal['consumerSource'])
  validation_time=time.time() if admitted_at is None else admitted_at
- def extension_git_blob(rev,source):
-  entry=git('ls-tree',rev,'--',source).decode().split()
-  require(len(entry)==4 and entry[0] in ('100644','100755') and entry[1]=='blob' and entry[3]==source,'COMPOSE_EXTENSION_REGULAR_GIT_BLOB')
-  return git('show',rev+':'+source)
  old_schema_raw=None
  old=json.loads(inputs[0]).get('profiles',{}).get(proposal['target'],{})
  if old.get('present') is True:
   import base64
   old_content=json.loads(base64.b64decode(old['rawBase64'],validate=True));old_tool=old_content['toolRevision']
-  require('composeExtensionV1' not in old_content or m.get('composeExtensionV1') is not None,'COMPOSE_EXTENSION_REMOVAL_NOT_AUTHORIZED')
   old_tree=ast.parse(git('show',old_tool+':.harness/scripts/vm/cn-build-tool-identity.py'));old_assignments=[n for n in old_tree.body if isinstance(n,ast.Assign) and any(isinstance(t,ast.Name) and t.id=='FILES' for t in n.targets)];require(len(old_assignments)==1,'PROFILE_OLD_ALLOWLIST');old_files=ast.literal_eval(old_assignments[0].value)
   old_profile_allowlist(old_content,old_files,json.loads(inputs[0]))
   old_schema_raw=git('show',old_tool+':'+PROFILE_SCHEMA_SOURCE) if PROFILE_SCHEMA_SOURCE in old_files else None
   unused,old_rows=old_profile_binding(old,json.loads(inputs[0]),old_schema_raw)
-  old_extension=old_content.get('composeExtensionV1')
-  if old_extension is not None:extension_evidence(old_tool,old_rows,old_schema_raw,old_extension,None,git_blob=extension_git_blob,old_projection=True)
   for source,row in old_rows.items():require(sha(git('show',old_tool+':'+source))==row['newSha256'],'PROFILE_OLD_GIT_CLOSURE')
- schema_raw=git('show',m['toolRevision']+':'+PROFILE_SCHEMA_SOURCE) if PROFILE_SCHEMA_SOURCE in m['files'] else None
- extension=extension_evidence(m['toolRevision'],m['files'],schema_raw,m.get('composeExtensionV1'),expected_extension,m['applicationRevision'],extension_git_blob)
- if extension is not None:verify_staged_extension(extension)
- pt,pr=profile_transaction(m,consumer,*inputs,evidence['expected'],validation_time,evidence['ttlSeconds'],git('show',m['toolRevision']+':'+PROFILE_SCHEMA_SOURCE) if PROFILE_SCHEMA_SOURCE in m['files'] else None,old_schema_raw,expected_extension)
+ pt,pr=profile_transaction(m,consumer,*inputs,evidence['expected'],validation_time,evidence['ttlSeconds'],git('show',m['toolRevision']+':'+PROFILE_SCHEMA_SOURCE) if PROFILE_SCHEMA_SOURCE in m['files'] else None,old_schema_raw)
  require(pt['destination'] not in {x['destination'] for x in m['targets']},'PROFILE_TARGET_DUPLICATE')
  m['targets'].append(pt);payloads[pt['payload']]=pr
  return m,payloads,validation_time
@@ -587,19 +414,16 @@ def verified_manifest(manifest_path,manifest_hash,admitted_at=None,expected_exte
 def main():
  recovering=len(sys.argv)>1 and sys.argv[1]=='--recover-reviewed'
  args=sys.argv[2:] if recovering else sys.argv[1:]
- expected_extension=None
- if '--compose-extension' in args:
-  i=args.index('--compose-extension');require(i==len(args)-2,'COMPOSE_EXTENSION_ARGUMENTS');expected_extension=args[-1];args=args[:i]
  require(os.geteuid()==0 and len(args)==(4 if recovering else 2),'ROOT_EXACT_ARGUMENTS')
  require_lock()
  if recovering:
   import time
   admission=recovery_admission(BACKUPS,args[2],args[3],args[1],time.time())
-  m,payloads,admitted=verified_manifest(args[0],args[1],admission['admittedAt'],expected_extension)
+  m,payloads,admitted=verified_manifest(args[0],args[1],admission['admittedAt'])
   binding=manifest_binding(args[1],m['toolRevision'],m['targets'],admitted)
   require(binding==admission,'RECOVERY_ADMISSION_BINDING')
  else:
-  m,payloads,admitted=verified_manifest(args[0],args[1],expected_extension=expected_extension);binding=manifest_binding(args[1],m['toolRevision'],m['targets'],admitted)
+  m,payloads,admitted=verified_manifest(args[0],args[1]);binding=manifest_binding(args[1],m['toolRevision'],m['targets'],admitted)
  if recovering:
   print(json.dumps(reviewed_recovery(BACKUPS,args[2],args[3],binding,m['targets'])));return
  # No caller-selected backup path or production fixture UID.

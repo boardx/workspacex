@@ -270,4 +270,125 @@ class Producer(unittest.TestCase):
    inv.write_text(json.dumps(v))
    with self.assertRaisesRegex(ValueError,'TOOL_INSTALL_SOURCE_SYMLINK'):m.produce(repo,h,h,h,inv,p/'out')
    self.assertFalse((p/'out').exists())
+
+class InventoryEnvelopeTests(unittest.TestCase):
+ @classmethod
+ def setUpClass(cls):
+  import importlib.util
+  path=pathlib.Path(__file__).with_name('cn-tool-install-transaction.py');spec=importlib.util.spec_from_file_location('envelope_transaction',path);cls.installer=importlib.util.module_from_spec(spec);spec.loader.exec_module(cls.installer)
+ def fixture(self):
+  import base64,gzip,datetime
+  inv,receipt,expected,now=Producer().receipt_fixture()
+  remote=json.loads(inv);remote.pop('sourceInvocation');decoded=(json.dumps(remote,sort_keys=True)+'\n').encode()
+  envelope={'schemaVersion':1,'kind':'cn-tool-inventory-gzip-base64-v1','decodedBytes':len(decoded),'decodedSha256':m.sha(decoded),'gzipBase64':base64.b64encode(gzip.compress(decoded,mtime=0)).decode()}
+  self.wrap(receipt,envelope);receipt['decodedInventorySha256']=m.sha(decoded)
+  return inv,receipt,expected,now,envelope,decoded
+ def wrap(self,receipt,envelope):
+  import base64
+  wire=(json.dumps(envelope,sort_keys=True)+'\n').encode();receipt.update(outputEncoding='gzip-base64-inventory-v1',outputBase64=base64.b64encode(wire).decode(),outputSha256=m.sha(wire))
+ def verify_both(self,inv,r,e,now):
+  encoded=json.dumps(r).encode();a=m.verify_inventory_receipt(inv,encoded,e,now);b=self.installer.verify_inventory_receipt(inv,encoded,e,now.timestamp());return a,b
+ def assert_reject_both(self,inv,r,e,now):
+  with self.assertRaises((ValueError,RuntimeError)):m.verify_inventory_receipt(inv,json.dumps(r).encode(),e,now)
+  with self.assertRaises((ValueError,RuntimeError)):self.installer.verify_inventory_receipt(inv,json.dumps(r).encode(),e,now.timestamp())
+ def test_real_132_absent_inventory_fits_wire_without_losing_rows(self):
+  import ast,base64,gzip
+  inv,r,e,now,_,_=self.fixture();value=json.loads(inv);tree=ast.parse((D/'cn-build-tool-identity.py').read_bytes());files=ast.literal_eval(next(n.value for n in tree.body if isinstance(n,ast.Assign)and any(isinstance(t,ast.Name)and t.id=='FILES'for t in n.targets)))
+  absent=dict(present=False,regular=False,symlink=False,sha256=None,mode=None,uid=None,gid=None,links=None)
+  value['files']={source:dict(absent,target=target)for source,target in files.items()};inv=json.dumps(value).encode();r['localInventorySha256']=m.sha(inv);value.pop('sourceInvocation');decoded=(json.dumps(value,sort_keys=True)+'\n').encode();self.assertEqual(len(files),132);self.assertGreater(len(decoded),24000)
+  v={'schemaVersion':1,'kind':'cn-tool-inventory-gzip-base64-v1','decodedBytes':len(decoded),'decodedSha256':m.sha(decoded),'gzipBase64':base64.b64encode(gzip.compress(decoded,mtime=0)).decode()};self.wrap(r,v);r['decodedInventorySha256']=m.sha(decoded)
+  a,b=self.verify_both(inv,r,e,now);self.assertEqual(len(b['files']),132);self.assertLess(len(base64.b64decode(r['outputBase64'])),24000)
+ def test_raw_and_encoded_receipts_preserve_provider_binding(self):
+  inv,r,e,now,envelope,decoded=self.fixture();a,b=self.verify_both(inv,r,e,now);self.assertEqual(a['outputSha256'],r['outputSha256']);self.assertNotEqual(a['outputSha256'],m.sha(decoded));self.assertEqual(b,json.loads(inv))
+  raw,r,e,now=Producer().receipt_fixture();self.verify_both(raw,r,e,now)
+ def test_wire_and_decoded_bindings_and_original_provider_gates(self):
+  for key,value in [('outputSha256','a'*64),('decodedInventorySha256','b'*64),('localInventorySha256','c'*64),('outputEncoding','unknown'),('instanceId','wrong'),('sourceInvocation','wrong'),('commandId','wrong'),('region','wrong'),('exitCode',1),('dropped',1),('invocationStatus','Running'),('productionModified',True)]:
+   with self.subTest(key=key):
+    inv,r,e,now,_,_=self.fixture();r[key]=value;self.assert_reject_both(inv,r,e,now)
+ def test_decoded_bounds_and_boolean_size(self):
+  for value in (0,True,1024*1024+1):
+   inv,r,e,now,v,_=self.fixture();v['decodedBytes']=value;self.wrap(r,v);self.assert_reject_both(inv,r,e,now)
+ def test_gzip_truncation_trailing_members_ratio_and_false_size(self):
+  import base64,gzip
+  for kind in ('truncated','trailing','second-member','ratio','false-size'):
+   with self.subTest(kind=kind):
+    inv,r,e,now,v,decoded=self.fixture();compressed=base64.b64decode(v['gzipBase64'])
+    if kind=='truncated':compressed=compressed[:-1]
+    elif kind=='trailing':compressed+=b'x'
+    elif kind=='second-member':compressed+=gzip.compress(b'x',mtime=0)
+    elif kind=='ratio':compressed=gzip.compress(b' '*100000,mtime=0);v['decodedBytes']=100000
+    else:v['decodedBytes']-=1
+    v['gzipBase64']=base64.b64encode(compressed).decode();self.wrap(r,v);self.assert_reject_both(inv,r,e,now)
+ def test_duplicate_inventory_receipt_and_envelope_keys(self):
+  import base64
+  inv,r,e,now,v,_=self.fixture()
+  for encoded in (inv[:-1]+b',"ready":false}',):
+   self.assert_reject_both(encoded,r,e,now)
+  raw=json.dumps(r).encode()[:-1]+b',"exitCode":0}'
+  with self.assertRaises((ValueError,RuntimeError)):m.verify_inventory_receipt(inv,raw,e,now)
+  with self.assertRaises((ValueError,RuntimeError)):self.installer.verify_inventory_receipt(inv,raw,e,now.timestamp())
+  wire=(json.dumps(v)[:-1]+',"schemaVersion":1}\n').encode();r.update(outputBase64=base64.b64encode(wire).decode(),outputSha256=m.sha(wire));self.assert_reject_both(inv,r,e,now)
+ def test_legacy_does_not_accept_compressed_fields(self):
+  inv,r,e,now,_,_=self.fixture();r.pop('outputEncoding');self.assert_reject_both(inv,r,e,now)
+ def test_ttl_remains_enforced(self):
+  import datetime
+  inv,r,e,now,_,_=self.fixture();self.assert_reject_both(inv,r,e,now+datetime.timedelta(hours=2))
+ def test_nonfinite_json_literals_and_float_overflow(self):
+  for raw in (b'{"x":NaN}',b'{"x":Infinity}',b'{"x":1e999}'):
+   for module in (m,self.installer):
+    with self.subTest(raw=raw),self.assertRaises((ValueError,RuntimeError)):module.inventory_json(raw)
+ def test_pure_helpers_identical_in_producer_installer(self):
+  import inspect
+  self.assertEqual(inspect.getsource(m.inventory_json),inspect.getsource(self.installer.inventory_json));self.assertEqual(inspect.getsource(m.verify_inventory_output),inspect.getsource(self.installer.verify_inventory_output))
+
+
+class MultipartInventoryTests(unittest.TestCase):
+ setUpClass=classmethod(InventoryEnvelopeTests.setUpClass.__func__)
+ verify_both=InventoryEnvelopeTests.verify_both
+ assert_reject_both=InventoryEnvelopeTests.assert_reject_both
+ def multipart(self):
+  import base64,gzip
+  inv,r,e,now=Producer().receipt_fixture();value=json.loads(inv);value['fixturePadding']=[hashlib.sha256(str(i).encode()).hexdigest()for i in range(500)];inv=json.dumps(value).encode();r['localInventorySha256']=m.sha(inv);value.pop('sourceInvocation');decoded=(json.dumps(value,sort_keys=True)+'\n').encode();compressed=gzip.compress(decoded,mtime=0);count=(len(compressed)+12287)//12288;self.assertGreater(count,1)
+  manifest={'schemaVersion':1,'kind':'cn-tool-inventory-snapshot-v1','snapshotId':'b'*32,'observedAt':value['observedAt'],'decodedBytes':len(decoded),'decodedSha256':m.sha(decoded),'compressedBytes':len(compressed),'compressedSha256':m.sha(compressed),'chunkBytes':12288,'chunkCount':count}
+  self.wire(r,manifest);r.update(outputEncoding='gzip-base64-inventory-parts-v1',decodedInventorySha256=m.sha(decoded),readOnly=False,snapshotWritesOnly=True,username='root',finishTime='2026-10-03T08:47:22+00:00',parts=[]);e['partBindings']=[]
+  for index in range(count):
+   raw=compressed[index*12288:(index+1)*12288];b={'partIndex':index,'sourceInvocation':'part-inv-'+str(index),'commandId':'part-command-'+str(index)};e['partBindings'].append(b)
+   part={**b,'region':e['region'],'instanceId':e['instanceId'],'username':'root','readOnly':True,'invocationStatus':'Success','exitCode':0,'dropped':0,'startTime':'2026-10-03T08:47:23+00:00','finishTime':'2026-10-03T08:47:24+00:00'}
+   payload={'schemaVersion':1,'kind':'cn-tool-inventory-snapshot-part-v1','snapshotManifestSha256':r['outputSha256'],'snapshotId':manifest['snapshotId'],'partIndex':index,'chunkCount':count,'offset':index*12288,'bytes':len(raw),'sha256':m.sha(raw),'base64':base64.b64encode(raw).decode()};self.wire(part,payload);r['parts'].append(part)
+  return inv,r,e,now
+ def wire(self,row,obj):
+  import base64
+  raw=(json.dumps(obj,sort_keys=True)+'\n').encode();row.update(outputBase64=base64.b64encode(raw).decode(),outputSha256=m.sha(raw))
+ def test_multipart_complete_original_inventory(self):
+  inv,r,e,now=self.multipart();a,b=self.verify_both(inv,r,e,now);self.assertEqual(b,json.loads(inv));self.assertEqual(a['outputSha256'],r['outputSha256']);self.assertEqual(a['decodedInventorySha256'],r['decodedInventorySha256'])
+ def test_capture_write_scope_explicit_and_original_scope_not_bypassed(self):
+  for key,value in [('readOnly',True),('snapshotWritesOnly',False),('username','ubuntu'),('productionModified',True)]:
+   inv,r,e,now=self.multipart();r[key]=value;self.assert_reject_both(inv,r,e,now)
+ def test_part_provider_identity_and_terminal_status(self):
+  for key,value in [('sourceInvocation','foreign'),('commandId','foreign'),('region','foreign'),('instanceId','foreign'),('username','ubuntu'),('readOnly',False),('exitCode',True),('exitCode',1),('dropped',1),('invocationStatus','Running'),('startTime','2026-10-03T08:47:20Z'),('finishTime','2026-10-03T09:00:00Z')]:
+   with self.subTest(key=key):
+    inv,r,e,now=self.multipart();r['parts'][0][key]=value;self.assert_reject_both(inv,r,e,now)
+ def test_part_payload_range_and_snapshot_binding(self):
+  import base64
+  for key,value in [('partIndex',True),('partIndex',1),('offset',1),('bytes',12287),('chunkCount',1),('snapshotId','c'*32),('snapshotManifestSha256','d'*64),('sha256','e'*64)]:
+   with self.subTest(key=key):
+    inv,r,e,now=self.multipart();part=r['parts'][0];v=json.loads(base64.b64decode(part['outputBase64']));v[key]=value;self.wire(part,v);self.assert_reject_both(inv,r,e,now)
+ def test_parts_cannot_be_missing_repeated_reordered_or_self_expected(self):
+  for kind in ('missing','repeated','reordered','expectedmissing','expectedrepeated'):
+   inv,r,e,now=self.multipart()
+   if kind=='missing':r['parts'].pop()
+   elif kind=='repeated':r['parts'][1]=r['parts'][0]
+   elif kind=='reordered':r['parts'].reverse()
+   elif kind=='expectedmissing':e.pop('partBindings')
+   else:e['partBindings'][1]['sourceInvocation']=e['partBindings'][0]['sourceInvocation']
+   self.assert_reject_both(inv,r,e,now)
+ def test_parts_never_refresh_original_capture_ttl(self):
+  import datetime
+  inv,r,e,now=self.multipart();later=now+datetime.timedelta(hours=2)
+  for p in r['parts']:p.update(startTime=(later-datetime.timedelta(seconds=10)).isoformat(),finishTime=(later-datetime.timedelta(seconds=5)).isoformat())
+  self.assert_reject_both(inv,r,e,later)
+ def test_multipart_helpers_identical(self):
+  import inspect
+  for name in ('inventory_expected_scope','inventory_capture_scope','inventory_wire','verify_inventory_parts'):self.assertEqual(inspect.getsource(getattr(m,name)),inspect.getsource(getattr(self.installer,name)))
+
 if __name__=='__main__':unittest.main()
