@@ -31,6 +31,11 @@ on:
       - 'scripts/cn-candidate-authenticated-oss.md'
       - 'scripts/cn-candidate-oss-policy.example.json'
       - 'tests/test_cn_candidate_authenticated_oss*.py'
+      - 'scripts/execute-cn-candidate-download.py'
+      - 'scripts/cn-candidate-download-entry.md'
+      - 'scripts/cn_candidate_download_supervisor.py'
+      - 'scripts/cn_candidate_sdk_runtime.py'
+      - 'tests/test_cn_candidate_download_entry.py'
       - 'tests/test_cn_candidate_oss.py'
       - 'tests/test_cn_candidate_untrusted_cache.py'
       - 'scripts/cn-candidate-untrusted-cache.md'
@@ -95,6 +100,8 @@ jobs:
         run: python3 -I -B -m unittest discover -s tests -p 'test_cn_candidate_publication.py' -v
       - name: Candidate host admission and real canonical adapter
         run: python3 -I -B -m unittest discover -s tests -p 'test_cn_candidate_host*.py' -v
+      - name: Protected candidate download admission and SDK wheel validation
+        run: python3 -I -B -m unittest discover -s tests -p 'test_cn_candidate_download_entry.py' -v
       - name: Candidate OSS transfer and Linux atomic download
         run: python3 -I -B -m unittest discover -s tests -p 'test_cn_candidate_oss.py' -v
       - name: Authenticated source revalidation without cloud writes
