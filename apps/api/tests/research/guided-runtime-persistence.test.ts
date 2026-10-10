@@ -671,15 +671,20 @@ describe("report streaming and explicit partial evidence", () => {
     expect(state.errorCode).toBeNull(); expect(state.report?.title).toBe("Findings");
     expect(state.reportStream).toBeNull(); expect(events[0]).toBe("snapshot"); expect(events.at(-1)).toBe("result");
   });
-  it("keeps internal question paragraph tokens private until the rich chapter is validated", async () => {
+  it("streams rich paragraph prose before validation while keeping internal bindings private", async () => {
     await reachResearch();
     let started!: () => void; let release!: () => void;
     const first = new Promise<void>((resolve) => { started = resolve; });
     const blocked = new Promise<void>((resolve) => { release = resolve; });
+    let proseStarted!: () => void; let releaseProse!: () => void;
+    const firstProse = new Promise<void>((resolve) => { proseStarted = resolve; });
+    const proseBlocked = new Promise<void>((resolve) => { releaseProse = resolve; });
     const streamed: ModelCallPort = { complete: model.complete, completeStream: async (input, delta) => {
       const answer = await model.complete(input);
       await delta(answer.text.slice(0, 35)); started(); await blocked;
-      await delta(answer.text.slice(35)); return answer;
+      const proseEnd = answer.text.indexOf('"body":"') + '"body":"'.length + 30;
+      await delta(answer.text.slice(35, proseEnd)); proseStarted(); await proseBlocked;
+      await delta(answer.text.slice(proseEnd)); return answer;
     } };
     const runtime = new GuidedRuntimeService(new PgGuidedRuntimeStore(db), model, search, { provider: "test", id: "test-model" }, streamed);
     const events: string[] = [];
@@ -690,7 +695,14 @@ describe("report streaming and explicit partial evidence", () => {
       expect(pending.busy).toBe(true); expect(pending.report).toBeNull();
       expect(pending.reportStream?.text).toBe("");
       expect(events).not.toContain("report_delta");
-    } finally { release(); await execution; }
+      release(); await firstProse;
+      const live = await runtime.get(actor, session);
+      expect(live.busy).toBe(true); expect(live.report).toBeNull();
+      expect(C.researchReportPreview(live.reportStream?.text ?? "").sections[0]?.body).toContain("The policy evidence addresses");
+      expect(live.reportStream?.text).not.toMatch(/questionId|paragraphs|sourceIds/);
+      expect(live.reportTimeline?.find(step => step.stage === "chapter")?.status).toBe("running");
+      expect(events).toContain("report_delta");
+    } finally { release(); releaseProse(); await execution; }
     const completed = await execution;
     expect(completed.errorCode).toBeNull(); expect(completed.report).not.toBeNull();
     expect(completed.report!.sections[0]!.body).not.toContain('"questionId":');

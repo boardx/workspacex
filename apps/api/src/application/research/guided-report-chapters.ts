@@ -12,6 +12,7 @@ import { reviewChapter, verifyGapVerdict } from "./guided-report-quality";
 import { reviewRewriteFeedback, isReviewRewriteFeedback } from "./guided-review-rewrite-feedback";
 import { questionParagraphResponseSchema, validateQuestionChapterOutput, questionParagraphValidationIssues } from "./guided-question-chapter-output";
 import type { QuestionParagraphBinding } from "./guided-chapter-paragraphs";
+import { questionParagraphStream } from "./guided-question-paragraph-stream";
 import { randomUUID } from "node:crypto";
 import { research as C } from "@repo/contracts";
 import type { ModelCallInput, ModelCallPort } from "../agent-run/ports";
@@ -203,13 +204,16 @@ export async function generateReportChapters(state: ResearchRuntime, model: Mode
         }
         await persistTimeline();
       };
-      const restoreChapter = async () => { if (visible()) await restoreApproved(); };
+      let resetChapterProjection = () => {};
+      const restoreChapter = async () => { resetChapterProjection(); if (visible()) await restoreApproved(); };
       // Precomputed output is never replayed as pretend provider tokens.
       const foregroundStream = index === frontIndex;
       const questionParagraphMode = Boolean(section.subsections?.length);
-      // Internal question IDs are not product prose. Publish canonical assembled
-      // chapters as the existing durable snapshots, never replay completed tokens.
-      const chapterPublish = publish ? (foregroundStream && !questionParagraphMode ? publish : async (_delta: string) => {}) : undefined;
+      // Only live foreground prose is public; bindings stay internal. Approved
+      // snapshots still replace this provisional text after independent review.
+      const paragraphPublish = publish && foregroundStream && questionParagraphMode ? questionParagraphStream(section.id, publish) : undefined;
+      if (paragraphPublish) resetChapterProjection = paragraphPublish.reset;
+      const chapterPublish = publish ? (foregroundStream ? paragraphPublish ?? publish : async (_delta: string) => {}) : undefined;
       const chapterAudit = makeAudit(chapterState, saveChapter, restoreChapter, () => foregroundStream);
       const reused = reusable.get(section.id);
       if (reused) return { chapter: reused, chapterState, section };
