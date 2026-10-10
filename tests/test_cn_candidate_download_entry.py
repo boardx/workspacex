@@ -120,13 +120,16 @@ class RootFileTests(unittest.TestCase):
     def setUp(self):
         # Test filesystem invariants on a non-root developer host. Production's
         # root guard and the hash-bound OWNER constant are never overridden.
-        self.owner = patch.object(entry, 'OWNER', (os.getuid(), os.getgid()))
-        self.owner.start()
         self.temp = tempfile.TemporaryDirectory()
         self.folder = Path(self.temp.name)
         self.fd = os.open(self.folder, os.O_RDONLY | os.O_DIRECTORY)
         (self.folder / 'data').write_bytes(b'original')
         (self.folder / 'data').chmod(0o600)
+        # A setgid temp parent can give fixtures a different group (macOS /private/tmp).
+        fixture_stat = (self.folder / 'data').stat()
+        self.assertEqual(fixture_stat.st_uid, os.getuid())
+        self.owner = patch.object(entry, 'OWNER', (fixture_stat.st_uid, fixture_stat.st_gid))
+        self.owner.start()
 
     def tearDown(self):
         os.close(self.fd); self.temp.cleanup(); self.owner.stop()
