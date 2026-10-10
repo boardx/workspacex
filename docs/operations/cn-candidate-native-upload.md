@@ -24,10 +24,13 @@ Add `--probe-raw-schema` for one raw BucketInfo format observation. It returns
 only structure and Date presence. Both commands discard raw stderr; they do not
 create a policy or upload objects. Existing operator probe evidence confirmed
 account `1177216024653153`, the expected root principal, private Shanghai bucket,
-and absent Versioning Status. The bucket currently has no policy, which is a
-missing fence rather than an authentication failure.
+and absent Versioning Status. The bucket currently has no policy. This is a
+missing fence only for the legacy strict entrypoint, not an authentication
+failure or a prerequisite for the new untrusted-cache entrypoint.
 
-`cn_candidate_native_upload.execute` is the explicit library entrypoint. Integrate
+## Legacy strict-fence entrypoint
+
+`cn_candidate_native_upload.execute` is the legacy strict library entrypoint. Integrate
 with the reviewed `cn_candidate_authenticated_oss` pure fence functions and
 candidate revalidation changes before use. Its separately hashed request schema
 is `cn-candidate-native-upload-v1`; it binds original plan/set SHA, fixed account

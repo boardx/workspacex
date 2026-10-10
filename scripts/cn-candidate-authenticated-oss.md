@@ -1,4 +1,14 @@
-# Candidate v2 authenticated ECS download caller
+# Candidate authenticated ECS download caller
+
+**Select the protocol explicitly.** The new
+`cn-candidate-authenticated-untrusted-cache-v1` request uses the
+[untrusted-cache protocol](cn-candidate-untrusted-cache.md): it requires **no
+GetBucketPolicy call, new grant, bucket policy write, or administrative freeze**.
+The older `cn-candidate-authenticated-transfer-v1` request is the legacy strict
+protocol; only that protocol requires the policy/fence sections below. There is
+no automatic fallback between them. The
+[policy example](cn-candidate-oss-policy.example.json) is a **legacy strict-only,
+unapplied example**, never the default plan for a live cache transfer.
 
 `cn_candidate_authenticated_oss.execute_from_ecs` is an internal library entry for
 `check` or `download`, using the **existing** Shanghai production ECS role. It
@@ -6,14 +16,16 @@ never uploads, installs SDKs, creates credentials, edits a policy, or loads Dock
 The local OAuth uploader is a separate native CLI adapter; Python's default
 credential provider is not assumed to consume the CLI OAuth profile.
 
-## Independent admission
+## Shared independent admission
 
 The operator must admit the code and complete dependency closure and provide a
 request SHA from an independent protected approval. Request JSON contains exact
 account/ECS/role/region, STS assumed-role principal, original plan/set raw SHA,
-transport and nested transfer approval, policy raw SHA, a finite fence window,
-and an operation budget of at most 1,200 seconds. It accepts no `trusted` boolean.
-The caller validates original metadata through CandidateTransfer **before**
+transport and nested transfer approval, and an operation budget of at most
+1,200 seconds. Only the legacy strict request additionally contains a policy raw
+SHA and finite fence window; the new cache request rejects those fields. It
+accepts no `trusted` boolean. The caller validates original metadata through the
+explicitly selected transfer protocol **before**
 acquiring credentials. Expired candidates still fail by default. Explicit renewal
 requires both independently approved proof/policy SHA and the original policy
 bytes; the optional `cn_candidate_revalidation.admit` capability performs renewal.
@@ -27,7 +39,14 @@ SDK logging is suppressed during the bounded operation; provider exception text
 is replaced with a fixed rejection. STS/OSS HTTPS hosts and methods are pinned,
 redirects and proxy environment are disabled. OSS is GET-only for this entry.
 
-The read-only `check` also validates the original metadata, signed caller/account,
+For the new cache protocol, read-only `check` validates the original metadata,
+authenticated caller/account, bucket owner/region/private ACL and observed disabled
+versioning without reading policy. Failed identity or version observations poison
+that operation. These observations do not exclude an administrative race.
+
+### Legacy strict-only policy and clock admission
+
+The legacy strict read-only `check` also validates the original metadata, signed caller/account,
 bucket owner/region/private ACL, disabled versioning, policy raw hash and exact
 required statements. The provider response Date must be fresh and leave the
 remaining operation budget plus a 30-second clock margin inside the policy
@@ -39,8 +58,10 @@ permission expansion or login request follows.
 
 OSS is an **untrusted transport cache**, not a globally immutable release store.
 Authenticated transport does not upgrade data provenance. The uploader's own
-PutObject/CompleteMultipartUpload requests must forbid overwrite while bucket
-version changes are fenced. Other writers may alter cache objects. No receipt
+PutObject/CompleteMultipartUpload requests must forbid overwrite. The legacy
+strict protocol additionally requires its approved version-state fence; the new
+cache protocol observes disabled versioning without claiming atomic exclusion
+of an administrator. Other writers may alter cache objects. No receipt
 claims otherwise (`remoteCacheImmutable` is false).
 
 Download reuses CandidateTransfer's private directory, pinned descriptors, exact
@@ -60,7 +81,7 @@ no-replace, and unknown-ack behavior. The new adapter tests exercise authenticat
 policy/clock/identity rejection and zero-write checks; they are offline tests,
 not proof that cloud access or installed SDK versions currently work.
 
-## Finite policy draft and impact
+## Legacy strict only: finite policy draft and impact
 
 `required_statements(request)` creates the exact statement below, substituting
 only the independently approved bucket and timestamps. Preserve every existing
@@ -101,10 +122,12 @@ disconnect. This entry makes no global write-drain or remote immutability claim.
 Required official Python packages are `oss2`, `alibabacloud-credentials`,
 `aliyun-python-sdk-core`, and `aliyun-python-sdk-sts`. The admitted runtime must pin
 and hash their complete installed closure; this change neither installs nor
-claims a verified production SDK installation. Actual ECS read-only invocation,
-root-owned entry/input admission, independent policy approval/application,
-provider permission checks, revalidation integration and publisher admission
-are still required. The library itself does not grant root trust to supplied
+claims a verified production SDK installation. Both protocols still require
+actual ECS read-only invocation, root-owned entry/input admission, checks of
+existing provider permissions, revalidation integration and publisher admission.
+Only the legacy strict protocol additionally requires independent policy
+approval/application and policy-read permission; these are not release gates for
+the new untrusted-cache protocol, which requests no new grant. The library itself does not grant root trust to supplied
 paths or install a production CLI. All result objects keep `productionReady` and
 `releaseReady` false.
 
@@ -116,11 +139,16 @@ paths or install a production CLI. All result objects keep `productionReady` and
 - [Python credentials configuration](https://www.alibabacloud.com/help/en/oss/python-configuration-access-credentials): existing ECS-role provider.
 - [Official CLI OSS integration source](https://github.com/aliyun/aliyun-cli/blob/master/cliext/ossutil/ossutil2.go): OAuth-compatible native profile resolution; also documents why automatic binary updates need separate admission.
 
-## Separately approved temporary read grant
+## Legacy strict only: separately approved temporary read grant
+
+This section and `cn-candidate-oss-policy.example.json` apply only to the legacy
+strict protocol. They are not a prerequisite or default execution plan for the
+new untrusted-cache protocol. No grant or administrative freeze is required by
+that new protocol.
 
 The observed existing `WorkspacexCnProductionOssScoped` role policy lacks
-`oss:GetBucketPolicy`. Therefore the caller cannot currently pass its real policy
-readback. `cn-candidate-oss-policy.example.json` is the complete **unapplied draft**
+`oss:GetBucketPolicy`. Therefore the legacy strict caller cannot currently pass its real policy
+readback; this does not block the new cache caller, which never requests it. `cn-candidate-oss-policy.example.json` is the complete **unapplied draft**
 for the currently policy-less fixed bucket `workspacex-cn-prod-assets`: it adds
 only that read action to the existing ECS role, for the same <=1-hour interval
 as the administrative freeze. The principal uses OSS's documented lowercase
