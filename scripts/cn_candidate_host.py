@@ -37,9 +37,11 @@ def validate_approval(value, source, attempt, now=None):
               'immutableRepositories', 'immutableEvidence', 'installedToolSha256',
               'canonicalConfigurationSha256', 'binaries', 'maxPublishSeconds',
               'sourceRevision', 'attemptId'}
+    revalidated = type(value) is dict and value.get('kind') == 'cn-candidate-host-revalidated-approval-v1'
+    if revalidated: fields |= {'revalidationRawSha256','revalidationPolicyRawSha256'}
     a.require(type(value) is dict and set(value) == fields, 'CANDIDATE_APPROVAL_FIELDS')
-    a.require(type(value['schemaVersion']) is int and value['schemaVersion'] == 2
-              and value['kind'] == 'cn-candidate-host-approval-v2', 'CANDIDATE_APPROVAL_SCHEMA')
+    a.require(type(value['schemaVersion']) is int and ((value['schemaVersion'] == 2 and value['kind'] == 'cn-candidate-host-approval-v2')
+                   or (revalidated and value['schemaVersion'] == 1)), 'CANDIDATE_APPROVAL_SCHEMA')
     a.require(value['sourceRevision'] == source and value['attemptId'] == attempt,
               'CANDIDATE_APPROVAL_IDENTITY')
     a.require(value['publishAuthorized'] is True, 'PUBLISH_NOT_AUTHORIZED')
@@ -49,8 +51,11 @@ def validate_approval(value, source, attempt, now=None):
     for key in ('candidatePlanRawSha256', 'candidateSetRawSha256', 'publicationIntentRawSha256',
                 'canonicalConfigurationSha256'):
         a.require(a.hex_string(value[key], 64), 'APPROVAL_HASH_REQUIRED')
+    if revalidated:
+        for key in ('revalidationRawSha256','revalidationPolicyRawSha256'):
+            a.require(a.hex_string(value[key],64), 'REVALIDATION_APPROVAL_HASH')
     tools = value['installedToolSha256']
-    a.require(type(tools) is dict and set(tools) == CLOSURE
+    a.require(type(tools) is dict and set(tools) == (CLOSURE | {'cn_candidate_revalidation.py'} if revalidated else CLOSURE)
               and all(a.hex_string(x, 64) for x in tools.values()), 'INSTALLED_CLOSURE_REQUIRED')
     clock = now or datetime.now(timezone.utc)
     issued = a.timestamp(value['issuedAt']); expiry = a.timestamp(value['expiresAt'])
@@ -144,6 +149,8 @@ class Commands(legacy.Commands):
                   and binding['candidateSetRawSha256'] == self.plan['candidateSetRawSha256']
                   and binding['publicationIntentRawSha256'] == self.plan['publicationIntentRawSha256'],
                   'CANDIDATE_BINDING_MISMATCH')
+        if 'revalidationRawSha256' in self.plan:
+            a.require(binding.get('revalidationRawSha256') == self.plan['revalidationRawSha256'], 'CANDIDATE_REVALIDATION_BINDING')
         self.binding = dict(binding)
         return super().canonical_publish(build_input)
 
@@ -206,9 +213,16 @@ def run(operation, source, attempt, approval, approval_sha, directory, started):
                                approval['candidateSetRawSha256'], 0o600)
     raw_intent = legacy.protected(directory / 'publication-intent.json', 16384,
                                   approval['publicationIntentRawSha256'], 0o600)
+    revalidation = None
+    if approval['kind'] == 'cn-candidate-host-revalidated-approval-v1':
+        import cn_candidate_revalidation as rv
+        proof = legacy.protected(directory / 'candidate-revalidation.json', 256*1024, approval['revalidationRawSha256'], 0o600)
+        policy_raw = legacy.protected(directory / 'candidate-revalidation-policy.json', 256*1024, approval['revalidationPolicyRawSha256'], 0o600)
+        revalidation = rv.admit(proof, approval['revalidationRawSha256'], approval['revalidationPolicyRawSha256'], policy_raw)
     publication.validate_intent(raw_intent, approval['publicationIntentRawSha256'], plan,
-        raw_set, approval['candidateSetRawSha256'], approval['candidatePlanRawSha256'])
-    receipt = c.validate_receipt(raw_set, plan, approval['candidateSetRawSha256'])
+        raw_set, approval['candidateSetRawSha256'], approval['candidatePlanRawSha256'], revalidation=revalidation)
+    receipt = (c.validate_receipt(raw_set, plan, approval['candidateSetRawSha256']) if revalidation is None else
+               revalidation.check(plan, raw_set, approval['candidateSetRawSha256'], approval['candidatePlanRawSha256']))
     provider = legacy.protected(directory / 'immutable-provider-response.json', 1024**2,
         approval['immutableEvidence']['providerResponseSha256'], 0o600)
     a.validate_immutable_evidence(a.decode(provider), approval['immutableEvidence'])
@@ -232,7 +246,10 @@ def run(operation, source, attempt, approval, approval_sha, directory, started):
         work = Path(pinned.enter_context(tempfile.TemporaryDirectory(prefix='wsx-candidate-publish-', dir='/var/tmp')))
         bundle = work / 'archives'; bundle.mkdir(mode=0o700)
         copy_snapshots(streams, bundle, receipt, plan)
-        c.verify_bundle(bundle, plan, raw_set, approval['candidateSetRawSha256'], approval['candidatePlanRawSha256'])
+        if revalidation is None:
+            c.verify_bundle(bundle, plan, raw_set, approval['candidateSetRawSha256'], approval['candidatePlanRawSha256'])
+        else:
+            revalidation.verify_bundle(bundle, plan, raw_set, approval['candidateSetRawSha256'], approval['candidatePlanRawSha256'])
         if operation == '--check-plan':
             print('CN_CANDIDATE_PLAN_VALIDATED publicationSideEffects=false')
             return
@@ -243,7 +260,7 @@ def run(operation, source, attempt, approval, approval_sha, directory, started):
             adapter = Commands(internal, a, canonical, canonical_path, work)
             adapter.approval_sha = approval_sha
             adapter.deadline = started + approval['maxPublishSeconds']
-            adapter.archive_expiry = receipt['expiresAt']
+            adapter.archive_expiry = receipt['expiresAt'] if revalidation is None else revalidation.expires_at
             result = publication.publish(raw_plan, approval['candidatePlanRawSha256'], raw_set,
-                approval['candidateSetRawSha256'], raw_intent, approval['publicationIntentRawSha256'], bundle, adapter)
+                approval['candidateSetRawSha256'], raw_intent, approval['publicationIntentRawSha256'], bundle, adapter, revalidation=revalidation)
     print('CN_CANDIDATE_PUBLISHED=' + a.json_bytes(result).decode())

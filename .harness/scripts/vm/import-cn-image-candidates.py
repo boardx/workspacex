@@ -86,8 +86,9 @@ def main():
     raw = protected(directory / 'approval.json', 256 * 1024, expected, 0o600)
     approval = decode(raw)
     need(type(approval) is dict, 'APPROVAL_FIELDS')
+    closure = CLOSURE | {'cn_candidate_revalidation.py'} if approval.get('kind') == 'cn-candidate-host-revalidated-approval-v1' else CLOSURE
     hashes = approval.get('installedToolSha256')
-    need(type(hashes) is dict and set(hashes) == CLOSURE
+    need(type(hashes) is dict and set(hashes) == closure
          and all(isinstance(x, str) and re.fullmatch('[a-f0-9]{64}', x) for x in hashes.values()),
          'INSTALLED_CLOSURE_REQUIRED')
     need(Path(__file__) == TOOLS / 'import-cn-image-candidates.py', 'ENTRY_LOCATION')
@@ -101,7 +102,7 @@ def main():
     tempfile.tempdir = str(temp_root)
     with tempfile.TemporaryDirectory(prefix='wsx-candidate-tools-', dir=temp_root) as temporary:
         snapshot = Path(temporary)
-        for name in sorted(CLOSURE):
+        for name in sorted(closure):
             content = protected(TOOLS / name, 1024**2, hashes[name], 0o700)
             target = snapshot / name
             target.write_bytes(content)

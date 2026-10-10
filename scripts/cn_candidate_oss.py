@@ -21,12 +21,14 @@ SET = 'candidate-set.json'
 
 class CandidateTransfer(oss.Transfer):
     """Reuses bounded readback and SDK ports, never the v1 protocol admission."""
-    def __init__(self, port, plan_raw, plan_sha, set_raw, set_sha, transport, approval, max_seconds=1200):
+    def __init__(self, port, plan_raw, plan_sha, set_raw, set_sha, transport, approval, max_seconds=1200, *, revalidation=None):
         c.require(type(plan_raw) is bytes and len(plan_raw) <= 16384 and c.sha(plan_raw) == plan_sha,
                   'CANDIDATE_PLAN_RAW_HASH')
         self.build = copy.deepcopy(candidate.validate_plan(c.decode(plan_raw)))
         self.plan_raw = plan_raw; self.plan_sha = plan_sha
-        self.manifest = candidate.validate_receipt(set_raw, self.build, set_sha)
+        self.revalidation = revalidation
+        self.manifest = (candidate.validate_receipt(set_raw, self.build, set_sha) if revalidation is None else
+                         revalidation.check(self.build, set_raw, set_sha, plan_sha))
         c.require(self.manifest['planRawSha256'] == plan_sha, 'CANDIDATE_ORIGINAL_PLAN_BINDING')
         c.require(set(self.manifest['images']) == set(c.REPOSITORIES), 'CANDIDATE_COMPLETE_FIVE')
         self.raw = set_raw; self.manifest_sha = set_sha
@@ -59,6 +61,7 @@ class CandidateTransfer(oss.Transfer):
                         candidateIdentity=self.manifest['identity'],
                         **{k:self.build[k] for k in ('sourceRevision','controlRevision','attemptId')},
                         transportSha256=c.sha(c.json_bytes(transport)))
+        if revalidation is not None: expected['revalidationRawSha256'] = revalidation.sha
         c.require(type(approval) is dict and set(approval) == set(expected)|{'operation','observedAt','expiresAt','versioningFenceProofSha256'}
                   and all(type(approval[k]) is type(v) and approval[k] == v for k,v in expected.items())
                   and approval['operation'] in ('upload','download')
@@ -70,6 +73,13 @@ class CandidateTransfer(oss.Transfer):
         self.port = port; self.transport = copy.deepcopy(transport); self.approval = copy.deepcopy(approval)
         self.check()
 
+    def check(self):
+        if self.revalidation is None:
+            return super().check()
+        c.require(time.monotonic() < self.deadline, 'TRANSFER_DEADLINE')
+        c.require(c.timestamp(self.approval['observedAt']) <= c.datetime.now(c.timezone.utc) < c.timestamp(self.approval['expiresAt']), 'TRANSFER_APPROVAL_EXPIRED')
+        self.revalidation.check(self.build, self.raw, self.manifest_sha, self.plan_sha)
+
     def size(self, name):
         if name == PLAN: return len(self.plan_raw)
         if name == SET: return len(self.raw)
@@ -78,15 +88,21 @@ class CandidateTransfer(oss.Transfer):
     def verify(self, folder):
         c.require((folder / PLAN).read_bytes() == self.plan_raw and (folder / SET).read_bytes() == self.raw,
                   'CANDIDATE_ORIGINAL_BYTES')
-        candidate.verify_bundle(folder, self.build, self.raw, self.manifest_sha, self.plan_sha)
+        if self.revalidation is None:
+            candidate.verify_bundle(folder, self.build, self.raw, self.manifest_sha, self.plan_sha)
+        else:
+            self.revalidation.verify_bundle(folder, self.build, self.raw, self.manifest_sha, self.plan_sha)
 
     def receipt(self):
         self.check()
-        return dict(schemaVersion=2, kind='cn-candidate-transfer-v2', candidatePlanRawSha256=self.plan_sha,
+        result = dict(schemaVersion=2, kind='cn-candidate-transfer-v2', candidatePlanRawSha256=self.plan_sha,
                     candidateSetRawSha256=self.manifest_sha, candidateIdentity=self.manifest['identity'],
                     **{k:self.build[k] for k in ('sourceRevision','controlRevision','attemptId')},
                     expiresAt=self.manifest['expiresAt'], transport=copy.deepcopy(self.transport),
                     authenticatedPrincipalProven=False, releaseReady=False, productionReady=False)
+        if self.revalidation is not None:
+            result.update(revalidationRawSha256=self.revalidation.sha, revalidationExpiresAt=self.revalidation.expires_at)
+        return result
 
     @bounded
     def upload(self, bundle):
