@@ -2,6 +2,7 @@
 """Bounded unittest discovery with failure evidence and owned-process cleanup."""
 import argparse
 import ctypes
+import errno
 import faulthandler
 import os
 import pathlib
@@ -44,6 +45,19 @@ def descendants():
     return {pid: table[pid][1] for pid in owned if pid != os.getpid()}
 
 
+def kill_owned(pid, started):
+    # Bind identity first. A numeric PID may be reassigned after /proc validation;
+    # the pidfd cannot be reassigned to the replacement process.
+    fd = os.pidfd_open(pid)
+    try:
+        if descendants().get(pid) != started:
+            return False
+        signal.pidfd_send_signal(fd, signal.SIGKILL)
+        return True
+    finally:
+        os.close(fd)
+
+
 def cleanup(child):
     seen = set()
     deadline = time.monotonic() + 2
@@ -52,12 +66,10 @@ def cleanup(child):
         seen.update(owned)
         for pid, started in owned.items():
             try:
-                # PID reuse cannot authorize killing a different process.
-                fields = pathlib.Path('/proc/%s/stat' % pid).read_text().rsplit(')', 1)[1].split()
-                if fields[19] == started:
-                    os.kill(pid, signal.SIGKILL)
-            except (OSError, IndexError):
-                pass
+                kill_owned(pid, started)
+            except OSError as error:
+                if error.errno != errno.ESRCH:
+                    raise
         child.poll()
         while True:
             try:
@@ -101,6 +113,11 @@ def main():
         return 0 if result.wasSuccessful() else 1
     if sys.platform != 'linux':
         raise RuntimeError('CN pure-test supervisor requires Linux process ownership evidence')
+    if not hasattr(os, 'pidfd_open') or not hasattr(signal, 'pidfd_send_signal'):
+        raise RuntimeError('CN pure-test cleanup requires pidfd support; no bare PID fallback')
+    # Kernel support must be known before creating anything that needs cleanup.
+    probe_fd = os.pidfd_open(os.getpid())
+    os.close(probe_fd)
     # Adopt setsid grandchildren when the worker exits; no shared process namespace.
     libc = ctypes.CDLL(None, use_errno=True)
     if libc.prctl(36, 1, 0, 0, 0) != 0:  # PR_SET_CHILD_SUBREAPER
