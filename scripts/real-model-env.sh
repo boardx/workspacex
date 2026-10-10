@@ -35,7 +35,7 @@ real_model_load_env_file() {
     source "$env_file"
     set +a
   else
-    echo "[real-model-env] 未找到 env 文件（$env_file）——改用已导出的环境变量。"
+    echo "[real-model-env] 未找到 env 文件（${env_file}）——改用已导出的环境变量。"
     echo "[real-model-env] 换一个路径：WORKSPACEX_ENV_FILE=/path/to/.env.local"
   fi
   real_model_alias_deployment_credentials
@@ -88,7 +88,7 @@ real_model_alias_deployment_credentials() {
     local target="$1" source="$2"
     [ -z "${!target:-}" ] && [ -n "${!source:-}" ] || return 0
     export "$target=${!source}"
-    mapped+=("$target←$source")
+    mapped+=("${target}←${source}")
   }
   _alias_one DASHSCOPE_API_KEY  KERNEL_MODEL_API_KEY
   _alias_one DASHSCOPE_BASE_URL KERNEL_MODEL_BASE_URL
