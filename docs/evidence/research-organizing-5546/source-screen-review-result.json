@@ -34,13 +34,28 @@
     },
     "api_lint": {
       "exit": 0
+    },
+    "init": {
+      "exit": 0
+    },
+    "secret_scan": {
+      "exit": 0,
+      "baseline_hits": 99,
+      "new_hits": 0,
+      "rules_and_baseline_changed": false
+    },
+    "cleanup": {
+      "owned_final_pg_containers": 0,
+      "owned_previous_pg_containers": 0
     }
   },
   "private_log_sha256": {
     "research_unit": "ca12ac16ee0d700e1d54e9af4a1a925853b3b86627b367913fabba354dbf7861",
     "postgres": "b15304475666b29bde9f345316fc715c3394a57bd6a47fe7d2cad04ee52bb243",
     "api_types": "e173644c9e8cbbde81268998cabb7ee59683ce5d624def2bd91b9ec1ca08fb67",
-    "api_lint": "f0bc3fe4e24a897ac8f5034eafc5407d549191fb232f41b1f13ca89b23b87379"
+    "api_lint": "f0bc3fe4e24a897ac8f5034eafc5407d549191fb232f41b1f13ca89b23b87379",
+    "init": "1755f838c1295eff23e84db997b532cad3b938acbe48c98be103c026c3adce9d",
+    "secret_scan": "9f038ab2e357b63b745dab4f670ab1ebe9709efd46b84f61f6eb166b26be88ba"
   },
   "boundaries": {
     "new_real_model_calls": 0,
