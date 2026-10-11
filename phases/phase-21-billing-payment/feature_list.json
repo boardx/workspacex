@@ -19,7 +19,7 @@
       "verification": [
         "pnpm --filter api exec vitest run tests/billing/schema-migration.test.ts"
       ],
-      "evidence": "evidence/F01.verify.log @ 2026-10-11T05:13:33.310Z",
+      "evidence": "evidence/F01.verify.log @ 2026-10-11T06:44:35.511Z",
       "notes": "依据契约束 billing-credits domain.md §二/§四（I-4/I-7/I-2）；语义对齐参考实现但按本仓 NestJS+Postgres 重做（00 R10）。跨束共享表 billing_webhook_events 由本 feature 单源创建（provider 列含 wechat/stripe，subscription 束只引用不重复建，design-coherence XC-01）。覆盖 V15 的数据侧。requirements 无 `估点 **n**` 头部，点数由 requirement-author 估定。束 design-signoff.md 尚未人类签核，开工前须补签（ADR-023）。"
     },
     {

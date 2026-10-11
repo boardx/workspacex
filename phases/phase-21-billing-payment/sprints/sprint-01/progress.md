@@ -1,6 +1,7 @@
 # 进度日志 — Sprint 21/01
 
 ## 当前已验证状态
+- 2026-10-11 PR #5590 返工：接受全局事件 ID 唯一审查，fresh DB 反例红、修复后正式 backfill 16/16 绿；独立审查 ACCEPT cef2c6254。已衔接 #5593 主线修复；最新完整 CI 与 main 闭环待完成，历史全量证据独立保留。
 - 代码检出：`/Users/shenyangjun/.codex/worktrees/eaa4/workspacex`。
 - 标准启动：`pnpm turbo run dev --filter=web --filter=@repo/api`。
 - 当前目标：F01 六表迁移，issue #4883；未宣称整个支付闭环完成。

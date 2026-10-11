@@ -1,7 +1,8 @@
 # 会话交接 — Sprint 21/01
 
 ## 当前已验证
-第三次官方verify已退出0（执行head9cf0252e2），high_risk release33/33任务通过，local-runtime247/API14949测试通过；harness自动将F01升级passing。正式证据evidence/F01.verify.log，原失败独立保留。当前整理证据并创建Closes #4883的PR，尚待CI/review/main闭环，不能宣称整个支付或F01交付完成。#5585已合入且是当前head祖先；Python依赖已按锁文件修复。
+PR #5590 审查返工：已 rebase 最新 main 21e697885（含审计死锁修复 #5593），修正 provider_event_id 全局唯一，与两束签核一致。新隔离 DB 反例红 15/16，修复后官方 backfill 16/16 退出0，证据指纹 cef2c6254；独立 exact SHA 审查 ACCEPT。passing 未手改；本次 backfill 按脚本不跑 base，最新完整 CI 仍须通过，尚未合入 main。
+此前第三次官方 verify 的 high_risk release33/33 全绿证据保存在 evidence/F01.pre-review.verify.log（执行 head9cf0252e2）。该历史结果不代表修复后完整门禁已绿。当前 evidence/F01.verify.log 为本次正式补写结果。自有新隔离栈均已清理。
 证据：`evidence/F01.schema.log`；正式门控：`evidence/F01.verify.log`（由 harness 生成）。
 
 ## 本轮改动
