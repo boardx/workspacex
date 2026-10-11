@@ -1,9 +1,24 @@
 /* Design Thinking × AI: shared brand tokens, no script required. */
+:root {
+  color-scheme: light;
+  --bg: #ffffff;
+  --bg-sink: #ffffff;
+  --surface: #f8f7f6;
+  --surface-2: #f0eeec;
+  --hairline: rgba(24, 23, 22, 0.12);
+  --hairline-2: rgba(24, 23, 22, 0.22);
+  --fg: #181716;
+  --fg-soft: #45413d;
+  --fg-dim: #625c56;
+  --fg-faint: #706960;
+  --brand-ink: #b80050;
+}
+::selection { background: #fbd6e5; color: var(--fg); }
 .aidt-header { position: sticky; top: 0; z-index: 100; background: var(--bg-sink); border-bottom: 1px solid var(--hairline); }
 .aidt-header__inner { display: flex; align-items: center; justify-content: space-between; gap: 1rem; min-height: var(--nav-h); padding-block: 0.75rem; }
 .aidt-header__links { display: flex; align-items: center; flex-wrap: wrap; justify-content: flex-end; gap: 1.25rem; font-size: var(--t-small); }
 .aidt-header__links a { color: var(--fg-soft); }
-.aidt-header__links [aria-current] { color: var(--brand-ink); }
+.aidt-header__links [aria-current] { color: var(--on-grad); }
 .aidt-hero { position: relative; padding-block: clamp(4rem, 9vw, 8rem); overflow: hidden; }
 .aidt-hero::before { content: ""; position: absolute; width: 38rem; height: 38rem; top: -10rem; right: -15rem; background: radial-gradient(circle, rgb(var(--c-2-rgb) / 0.12), transparent 65%); pointer-events: none; }
 .aidt-hero__grid { position: relative; display: grid; grid-template-columns: 1.2fr 1fr; align-items: center; gap: 3rem; }
