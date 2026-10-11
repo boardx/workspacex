@@ -4,6 +4,11 @@ on:
     types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - '.github/workflows/archive-bridge-tests.yml'
+      - '.github/workflows/transfer-cn-candidates-via-hongkong.yml'
+      - '.github/release-plans/hk-*'
+      - 'scripts/cn-hk-*.py'
+      - 'tests/test_cn_hk_*.py'
+      - 'docs/operations/hk-release-transfer/**'
       - '.github/workflows/cloud-build-only.yml'
       - 'scripts/cloud-build-only.py'
       - 'tests/test_cloud_build_only.py'
@@ -136,6 +141,10 @@ jobs:
         run: python3 -I -B -m unittest discover -s tests -p 'test_cn_candidate_native_cli.py' -v
       - name: Native candidate upload and provider observation contracts
         run: python3 -I -B -m unittest discover -s tests -p 'test_cn_candidate_native_upload.py' -v
+      - name: Hong Kong original-artifact transfer without cloud calls
+        run: |
+          python3 -I -B tests/test_cn_hk_original_artifact_upload.py
+          python3 -I -B tests/test_cn_hk_proof_integration.py
       - name: Reviewed candidate tool upgrade transaction
         run: python3 -I -B -m unittest discover -s tests -p 'test_cn_candidate_tool_upgrade.py' -v
       - name: Authenticated candidate download without cloud calls

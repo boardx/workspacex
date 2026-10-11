@@ -1,0 +1,33 @@
+{
+  "Statement": [
+    {
+      "Action": [
+        "oss:GetBucketInfo",
+        "oss:GetBucketAcl"
+      ],
+      "Effect": "Allow",
+      "Resource": [
+        "acs:oss:*:1177216024653153:workspacex-hk-release-cache-1177216024653153"
+      ]
+    },
+    {
+      "Action": [
+        "oss:PutObject",
+        "oss:GetObject"
+      ],
+      "Effect": "Allow",
+      "Resource": [
+        "acs:oss:*:1177216024653153:workspacex-hk-release-cache-1177216024653153/runs/38146134231/1/plan.zip",
+        "acs:oss:*:1177216024653153:workspacex-hk-release-cache-1177216024653153/runs/38146134231/1/set.zip",
+        "acs:oss:*:1177216024653153:workspacex-hk-release-cache-1177216024653153/runs/38146134231/1/api.zip",
+        "acs:oss:*:1177216024653153:workspacex-hk-release-cache-1177216024653153/runs/38146134231/1/web.zip",
+        "acs:oss:*:1177216024653153:workspacex-hk-release-cache-1177216024653153/runs/38146134231/1/agent.zip",
+        "acs:oss:*:1177216024653153:workspacex-hk-release-cache-1177216024653153/runs/38146134231/1/sandbox.zip",
+        "acs:oss:*:1177216024653153:workspacex-hk-release-cache-1177216024653153/runs/38146134231/1/postgres.zip",
+        "acs:oss:*:1177216024653153:workspacex-hk-release-cache-1177216024653153/runs/38146134231/1/proof.json",
+        "acs:oss:*:1177216024653153:workspacex-hk-release-cache-1177216024653153/runs/38146134231/1/policy.json"
+      ]
+    }
+  ],
+  "Version": "1"
+}
