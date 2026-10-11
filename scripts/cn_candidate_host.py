@@ -9,7 +9,7 @@ import importlib.util
 import http.client
 import os
 import re
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 import shutil
 import signal
 import subprocess
@@ -222,6 +222,16 @@ class Commands(legacy.Commands):
                     ready=False, prepared=False, productionActivated=False)
 
 
+def canonical_relative_name(relative):
+    """Canonical npm closure paths are not archive member names (scopes use @)."""
+    a.require(isinstance(relative, str) and 0 < len(relative) <= 256, 'CANONICAL_PATH_INVALID')
+    path = PurePosixPath(relative)
+    a.require(not path.is_absolute() and relative == str(path) and '..' not in path.parts
+              and '\\' not in relative and relative != '.'
+              and re.fullmatch(r'[a-zA-Z0-9._/@-]+', relative) is not None,
+              'CANONICAL_PATH_INVALID')
+
+
 def admit_canonical(directory, approval):
     path = directory / 'canonical-control.json'
     raw = legacy.protected(path, 256 * 1024, approval['canonicalConfigurationSha256'], 0o600)
@@ -236,7 +246,7 @@ def admit_canonical(directory, approval):
               and config['nodeExecutable'] == str(directory / 'node'), 'CANONICAL_LOCATION_BOUNDARY')
     legacy.protected(config['nodeExecutable'], 128 * 1024**2, config['nodeSha256'], 0o700)
     for relative, expected in config['fileSha256'].items():
-        a.safe_name(relative)
+        canonical_relative_name(relative)
         a.require(a.hex_string(expected, 64), 'CANONICAL_FILE_HASH_REQUIRED')
         legacy.protected(Path(config['checkoutDirectory']) / relative, 64 * 1024**2, expected)
     return path

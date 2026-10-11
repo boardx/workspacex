@@ -50,3 +50,13 @@ python3 .agents/skills/workspacex-cn-release/scripts/validate_preflight.py prefl
 ## Artifact-only build (#5319)
 
 The trusted fixed-candidate build-only lane uses a separate `artifact-build` receipt and stops after sealing. Full baseline admission remains mandatory before migration and activation. See the single [stage-boundary contract](references/preflight-contract.md#artifact-only-stage-boundary-5319) for the exact producer/consumer protocol.
+
+### Canonical scoped npm dependency admission
+
+`ARCHIVE_PATH_INVALID` at candidate host canonical admission can identify a valid
+`node_modules/@esbuild/linux-x64/*` closure rejected by the archive-member rule.
+Use the canonical-only relative path validator and retain every file hash and
+protected no-follow read. Do not remove scoped dependency pins or relax archive
+member validation. `tests/test_cn_candidate_host.py::CanonicalScopedPaths`
+provides scoped-path positives, traversal/normalization negatives, and proof that
+scoped files still reach the protected hash reader.
