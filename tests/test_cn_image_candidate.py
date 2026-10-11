@@ -33,6 +33,24 @@ def receipt(p,images,now=None):
     return dict(kind=c.KIND,schemaVersion=2,planRawSha256=a.sha(a.json_bytes(p)),planSha256=a.sha(a.json_bytes(p)),identity=c.identity(p),attemptId=p['attemptId'],producedAt=now.isoformat(),expiresAt=(now+timedelta(hours=1)).isoformat(),images=images,releaseReady=False,productionReady=False)
 
 class CandidateTests(unittest.TestCase):
+    def test_reviewed_devapp_source_builds_non_authorizing_candidate(self):
+        p=plan();p['sourceRevision']='f0eb9d07398a66fdd5646a9e6b855fa1b940e571'
+        for formal in (False,True):
+            candidate=copy.deepcopy(p)
+            if formal:candidate.update(budgetProfile='formal-4g-v1',maxArchiveBytes=4*1024**3)
+            with self.subTest(formal=formal),tempfile.TemporaryDirectory() as td:
+                self.assertEqual(c.validate_plan(candidate),candidate)
+                folder=Path(td)
+                labels={'org.opencontainers.image.revision':candidate['sourceRevision'],c.LABEL:c.identity(candidate)}
+                images={s:archive(folder/(s+'.tar'),candidate,s,labels) for s in c.hosted.SERVICES}
+                value=receipt(candidate,images);raw=a.json_bytes(value)
+                self.assertEqual(c.verify_bundle(folder,candidate,raw,a.sha(raw),value['planRawSha256']),value)
+                self.assertFalse(value['releaseReady']);self.assertFalse(value['productionReady'])
+        with self.assertRaisesRegex(a.Rejected,'DIAGNOSTIC_SOURCE_NOT_ALLOWED'):c.validate_diagnostic_plan(p)
+    def test_unreviewed_source_remains_rejected(self):
+        for source in ('f'*40,'f0eb9d07398a66fdd5646a9e6b855fa1b940e570','F0EB9D07398A66FDD5646A9E6B855FA1B940E571'):
+            p=plan();p['sourceRevision']=source
+            with self.subTest(source=source),self.assertRaisesRegex(a.Rejected,'CANDIDATE_EXACT_SHA'):c.validate_plan(p)
     def test_three_bases_only_old_schema_rejects(self):
         p=plan();self.assertEqual(c.validate_plan(p),p)
         with self.assertRaises(a.Rejected):a.validate_plan(p)
