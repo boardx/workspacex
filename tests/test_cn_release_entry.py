@@ -138,12 +138,19 @@ class EntryTests(unittest.TestCase):
         terminal=e.decode((self.state/'test-one/00-consume.terminal.json').read_bytes())
         self.assertEqual(terminal['reason'],'TIMEOUT')
         self.assertFalse(marker.exists())
-        # Dead/zombie descendant groups may remain visible on some systems: this
-        # must block reconcile, never be interpreted as permission to retry.
-        if terminal['processGroupStillPresent']:
-            with self.assertRaisesRegex(e.Rejected,'PROCESS_STILL_ACTIVE'):e.entry('reconcile',h,'test-one')
+        # Terminal.json is a historical snapshot: a zombie group can be reaped
+        # before reconciliation. The live execution probe owns that decision.
+        with patch.object(e,'execution_terminal',return_value=False):
+            with self.assertRaisesRegex(e.Rejected,'PROCESS_STILL_ACTIVE'):
+                e.entry('reconcile',h,'test-one')
+        try:
+            result=e.entry('reconcile',h,'test-one')
+        except e.Rejected as error:
+            self.assertEqual(str(error),'PROCESS_STILL_ACTIVE_OR_UNPROVEN')
         else:
-            self.assertEqual(e.entry('reconcile',h,'test-one')['status'],'COMPLETED')
+            self.assertEqual(result['status'],'COMPLETED')
+            self.assertFalse(result['mutationExecuted'])
+        self.assertFalse(marker.exists())
 
     def test_output_overflow_and_secret_error_not_persisted(self):
         action=(shlex.quote(sys.executable)+" -c 'print(\"SENSITIVE\"*20000)'\n").encode()
