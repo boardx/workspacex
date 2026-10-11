@@ -4,6 +4,9 @@ on:
     types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - '.github/workflows/archive-bridge-tests.yml'
+      - 'scripts/cn-release-audit.py'
+      - 'tests/test_cn_release_audit.py'
+      - 'docs/operations/cn-release-five-round-audit.md'
       - '.github/workflows/transfer-cn-candidates-via-hongkong.yml'
       - '.github/release-plans/hk-*'
       - 'scripts/cn-hk-*.py'
@@ -119,6 +122,8 @@ jobs:
           echo "CN_ARCHIVE_TEST_RUNTIME=$RUNNER_TEMP/archive-fixture" >> "$GITHUB_ENV"
       - name: Run archive contracts and real canonical Node fixture
         run: python3 -B -m unittest discover -s tests -p 'test_cn*archive*.py' -v
+      - name: Run bounded release scenario and offline chain regressions
+        run: python3 -B scripts/cn-release-audit.py test --suite all --budget-seconds 300
       - name: Run independent non-authorizing five-image candidate contracts
         run: python3 -I -B -m unittest discover -s tests -p 'test_cn_image_candidate.py' -v
       - name: Repeated layer input compatibility

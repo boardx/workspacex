@@ -1,9 +1,9 @@
 import { z } from 'zod';
 import type { MaintenanceIdentity } from '../cn-maintenance-release';
+import { cnReleaseBrowserSchema } from '../cn-release-browser-contract';
 
 const hash = z.string().regex(/^[a-f0-9]{64}$/);
 const identitySchema = z.object({ sourceRevision: z.string().regex(/^[a-f0-9]{40}$/), baselineRevision: z.string().regex(/^[a-f0-9]{40}$/), migrationPlanSha256: hash, attemptId: z.string().regex(/^[A-Za-z0-9-]{1,128}$/) }).strict();
-const browserSchema = z.object({ login: z.literal(true), hello: z.literal(true), asr: z.literal(true), githubFeedbackRead: z.literal(true), skillTool: z.literal(true), pdfDownload: z.literal(true) }).strict();
 const markerSchema = z.object({ sourceRevision: z.string(), deploymentMarker: z.string().min(1), trustworthy: z.literal(true) }).strict();
 const observationSchema = z.object({ identity: identitySchema, deploymentMarker: z.string(), holdPresent: z.literal(false), queued: z.number().int().nonnegative().safe(), running: z.number().int().nonnegative().safe(), writebackPending: z.number().int().nonnegative().safe(), failedOwnedRuns: z.literal(0), unhealthyServices: z.literal(0) }).strict();
 export interface PublicAcceptanceTransport {
@@ -40,7 +40,7 @@ export function bindPublicAcceptance(binding: PublicAcceptanceBinding, transport
    if (!same(value)) throw Error('PUBLIC_ACCEPTANCE_IDENTITY_CHANGED');
    await readMarker();
    z.object({ status: z.literal('passed'), lockRetained: z.literal(true), passedStages: z.literal(8) }).strict().parse(await canonical());
-   browserSchema.parse(await browser());
+   cnReleaseBrowserSchema.parse(await browser());
    // A deployment change during real provider/browser work invalidates evidence.
    await readMarker();
   },

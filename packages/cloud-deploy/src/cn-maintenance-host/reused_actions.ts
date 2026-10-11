@@ -45,9 +45,19 @@ export function exactMigrationAction(input: ExactMigrationInputs, transport: Exa
 }
 export function preparedActivationAction(receipt: unknown, actions: ActivationActions) {
   return async (identity: MaintenanceIdentity) => {
+    assertPreparedActivationCapability();
     const prepared = validatePreparedCnRelease(receipt);
     if (prepared.sourceRevision !== identity.sourceRevision) throw new Error('ACTIVATION_IDENTITY_MISMATCH');
     const report = await activatePreparedCnRelease(receipt, actions);
     if (report.status !== 'passed') throw new Error('MAINTENANCE_ACTIVATION_NOT_ACCEPTED');
   };
+}
+
+/** The generic Promise adapter has no process-group cancellation/join contract
+ * or independent rollback browser transport. Its timer is cooperative only.
+ * Block this legacy production factory before mutations; use the existing
+ * supervised shell/A-route lane. Never race a still-writing Promise against
+ * rollback or turn an arbitrary profile boolean into a capability proof. */
+export function assertPreparedActivationCapability(): never {
+  throw Error('PREPARED_ACTIVATION_SUPERVISED_TRANSPORT_NOT_IMPLEMENTED');
 }

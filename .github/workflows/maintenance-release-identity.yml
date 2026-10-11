@@ -8,6 +8,9 @@ on:
       - '.harness/scripts/build-cn-maintenance-controller.cjs'
       - '.harness/scripts/vm/**'
       - 'packages/cloud-deploy/src/cn-maintenance-host/**'
+      - 'packages/cloud-deploy/src/cn-fast-safe-release.ts'
+      - 'packages/cloud-deploy/src/cn-release-browser-contract.ts'
+      - 'packages/cloud-deploy/test/cn-fast-safe-release.test.ts'
       - 'pnpm-lock.yaml'
 permissions:
   contents: read
@@ -43,3 +46,7 @@ jobs:
       - name: Original authority, factory and completion entry points
         run: |
           node --import tsx --test packages/cloud-deploy/src/cn-maintenance-host/native_completion_test.ts packages/cloud-deploy/src/cn-maintenance-host/control_retained_backup_test.ts packages/cloud-deploy/src/cn-maintenance-host/control_owned_runs_test.ts packages/cloud-deploy/src/cn-maintenance-host/source_plan_authority_test.ts packages/cloud-deploy/src/cn-maintenance-host/migration_transport_test.ts packages/cloud-deploy/src/cn-maintenance-host/a_route_factory_test.ts packages/cloud-deploy/src/cn-maintenance-host/source_production_consumers_test.ts packages/cloud-deploy/src/cn-maintenance-host/current_epoch_manifest_consumer_test.ts
+      - name: Activation failure and runtime browser contract regressions
+        run: |
+          node --import tsx --test packages/cloud-deploy/src/cn-maintenance-host/actions_test.ts packages/cloud-deploy/src/cn-maintenance-host/typed_operations_test.ts
+          pnpm exec vitest run packages/cloud-deploy/test/cn-fast-safe-release.test.ts packages/cloud-deploy/src/cn-maintenance-host/public_acceptance.test.ts --maxWorkers=1 --minWorkers=1
