@@ -23,6 +23,7 @@ MODULES={
  'runtime':'scripts/cn-release-runtime-delegation.py',
  'stage':'scripts/cn-release-runtime-stage.py',
  'terminal':'scripts/cn-release-terminal-delegation.py',
+ 'recovery':'scripts/cn-release-recovery-admission.py',
  'finalize':'scripts/cn-release-continuation-finalize.py',
  'rds':'scripts/cn-release-rds-backup.py',
  'business':'scripts/cn-release-business-observer.py',
@@ -32,6 +33,19 @@ MODULES={
  'journal':'scripts/cn-release-continuation-journal.py',
 }
 PHASES={'hold-stage':'hold','stop-stage':'stop','backup-stage':'backup','switch-stage':'switch'}
+
+
+def render_contract(path,pin,stage):
+    """Pure installed-path rendering shared by offline approval generation."""
+    e.need(stage in e.STAGES and e.HEX.fullmatch(pin),'CONTRACT_SCOPE')
+    observer=('/usr/bin/python3 -I -B '+str(path)+' observe '+stage+'\n').encode()
+    verifier=("import hashlib\ndef verify(raw,manifest,previous,mode):\n"
+        +" p="+repr(str(path))+"\n"
+        +" with open(p,'rb') as f: source=f.read()\n"
+        +" assert hashlib.sha256(source).hexdigest()=="+repr(pin)+"\n"
+        +" ns={'__file__':p,'__name__':'stage_contract'};exec(compile(source,p,'exec'),ns)\n"
+        +" return ns['verify']("+repr(stage)+",raw,manifest,previous,mode)\n").encode()
+    return observer,verifier
 
 
 class Router:
@@ -77,6 +91,12 @@ class Router:
         # A baseline browser/clear adapter is not proof that an uncertain prior
         # Docker/provider operation is safe to recover. No approval boolean can
         # replace the missing fixed independent recovery capability.
+        capability=self.load('recovery').preflight(self.a)
+        e.need(capability=={'kind':'cn-recovery-capability-v1','heldPhases':['stop','backup','rds-backup','switch'],
+               'postClear':'REHOLD_APPROVAL_REQUIRED','unknownAction':'MANUAL_RECONCILIATION','cloudMutation':False},
+               'RECOVERY_OBSERVATION_CAPABILITY_UNPROVEN')
+        # Classification is now executable. Keep the separate execution gate:
+        # a held rollback alone is not completed baseline business recovery.
         recovery_preflight=getattr(self.load('terminal'),'recovery_capability',None)
         e.need(callable(recovery_preflight),'RECOVERY_TERMINAL_CAPABILITY_MISSING')
         e.need(recovery_preflight(self.a) is True,'RECOVERY_TERMINAL_CAPABILITY_UNPROVEN')
@@ -89,14 +109,7 @@ class Router:
         path=ROOT/'scripts/cn-release-stage-contract.py'
         source=e.read(path,1048576);pin=self.a['codeFiles']['scripts/cn-release-stage-contract.py']
         e.need(e.digest(source)==pin,'CONTRACT_CODE_PIN')
-        observer=('/usr/bin/python3 -I -B '+str(path)+' observe '+stage+'\n').encode()
-        verifier=("import hashlib\ndef verify(raw,manifest,previous,mode):\n"
-            +" p="+repr(str(path))+"\n"
-            +" with open(p,'rb') as f: source=f.read()\n"
-            +" assert hashlib.sha256(source).hexdigest()=="+repr(pin)+"\n"
-            +" ns={'__file__':p,'__name__':'stage_contract'};exec(compile(source,p,'exec'),ns)\n"
-            +" return ns['verify']("+repr(stage)+",raw,manifest,previous,mode)\n").encode()
-        return observer,verifier
+        return render_contract(path,pin,stage)
     def admission(self,release,stage):
         e.need(release==self.release,'RELEASE_CHANGED')
         if stage=='clear-hold':

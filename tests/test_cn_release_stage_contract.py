@@ -54,6 +54,31 @@ class ContractTests(unittest.TestCase):
             del files[root/'bindings'/(c.e.digest(old)+'.json')]
             with self.assertRaises(KeyError):c.staged(ctx)
 
+    def test_fresh_root_pointer_routes_original_manifest_and_raw(self):
+        prior,m=self.context('switch');release='f'*64;identity={'attemptId':'fixture'}
+        request=c.e.digest(c.e.encode(m));fresh=c.e.encode({'releaseSha256':release,
+            'failedRequestSha256':request,'failedStage':'switch','identity':identity})
+        pin=c.e.digest(fresh);pointer=c.e.encode({'approvalSha256':pin})
+        files={c.RECOVERY_APPROVALS/'by-failed-request'/(request+'.json'):pointer,
+               c.RECOVERY_APPROVALS/(pin+'.json'):fresh}
+        seen=[]
+        def verify(raw,manifest,previous,mode,ctx):
+            seen.append((raw,manifest,previous,mode,ctx))
+            return {'externalWritesTerminal':True,'safeToRecover':True}
+        with patch.object(c,'context',return_value=({'identity':identity},{},m,release)),patch.object(c.e,'read',lambda p,*args:files[p]),patch.object(c,'load',return_value=SimpleNamespace(verify=verify)):
+            self.assertEqual(c.verify('switch',b'original',m,prior,'pre-recovery'),{'externalWritesTerminal':True,'safeToRecover':True})
+            self.assertEqual(seen,[(b'original',m,prior,'pre-recovery',{'releaseSha256':release,'recoveryApprovalSha256':pin})])
+            files[c.RECOVERY_APPROVALS/(pin+'.json')]=fresh+b' '
+            with self.assertRaisesRegex(c.e.Rejected,'RECOVERY_APPROVAL_HASH'):c.verify('switch',b'original',m,prior,'pre-recovery')
+    def test_pointer_cannot_select_foreign_identity_or_unscoped_result(self):
+        prior,m=self.context('switch');release='f'*64;request=c.e.digest(c.e.encode(m))
+        for identity,result,error in [({'attemptId':'foreign'}, {'externalWritesTerminal':True,'safeToRecover':True},'RECOVERY_POINTER_SCOPE'),
+                                      ({'attemptId':'fixture'},True,'RECOVERY_RESULT_CONTRACT')]:
+            fresh=c.e.encode({'releaseSha256':release,'failedRequestSha256':request,'failedStage':'switch','identity':identity});pin=c.e.digest(fresh)
+            files={c.RECOVERY_APPROVALS/'by-failed-request'/(request+'.json'):c.e.encode({'approvalSha256':pin}),c.RECOVERY_APPROVALS/(pin+'.json'):fresh}
+            with patch.object(c,'context',return_value=({'identity':{'attemptId':'fixture'}},{},m,release)),patch.object(c.e,'read',lambda p,*args:files[p]),patch.object(c,'load',return_value=SimpleNamespace(verify=lambda *args:result)):
+                with self.assertRaisesRegex(c.e.Rejected,error):c.verify('switch',b'original',m,prior,'pre-recovery')
+
     def test_all_stages_route_both_live_and_normal_modes(self):
         for stage in c.e.STAGES:
             for mode in ('advance','reconcile','terminal'):

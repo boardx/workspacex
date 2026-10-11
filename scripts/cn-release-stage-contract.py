@@ -18,9 +18,10 @@ def module(path,name):
 e=module(ROOT/'.harness/scripts/vm/cn-release-advance.py','contract_entry')
 APPROVALS=Path('/etc/workspacex-cn/release-approvals')
 GENERATED=Path('/var/lib/workspacex-cn/release-generated')
+RECOVERY_APPROVALS=Path('/etc/workspacex-cn/release-recovery-approvals')
 MODULES={'consume':'scripts/cn-release-acquire-observer.py','publication':'scripts/cn-release-publication-observer.py',
          'runtime':'scripts/cn-release-runtime-observe.py','rds':'scripts/cn-release-rds-backup.py',
-         'business':'scripts/cn-release-business-observer.py'}
+         'business':'scripts/cn-release-business-observer.py','recovery':'scripts/cn-release-recovery-admission.py'}
 
 
 def context(stage,manifest=None):
@@ -90,6 +91,23 @@ def observe(stage):
 
 def verify(stage,raw,manifest,previous,mode):
     a,ctx,m,release=context(stage,manifest)
+    if mode=='pre-recovery':
+        # Only a root-installed pointer selects fresh authority. The immutable
+        # failed package cannot accept a caller-provided path or approval flag.
+        request=e.digest(e.encode(m))
+        pointer=e.decode(e.read(RECOVERY_APPROVALS/'by-failed-request'/(request+'.json')))
+        e.need(isinstance(pointer,dict) and set(pointer)=={'approvalSha256'}
+               and isinstance(pointer['approvalSha256'],str) and e.HEX.fullmatch(pointer['approvalSha256']),
+               'RECOVERY_POINTER')
+        fresh=e.read(RECOVERY_APPROVALS/(pointer['approvalSha256']+'.json'))
+        e.need(e.digest(fresh)==pointer['approvalSha256'],'RECOVERY_APPROVAL_HASH')
+        f=e.decode(fresh)
+        e.need(f['releaseSha256']==release and f['failedRequestSha256']==request
+               and f['failedStage']==stage and f['identity']==a['identity'],'RECOVERY_POINTER_SCOPE')
+        result=load('recovery').verify(raw,m,previous,mode,
+            {'releaseSha256':release,'recoveryApprovalSha256':pointer['approvalSha256']})
+        e.need(result=={'externalWritesTerminal':True,'safeToRecover':True},'RECOVERY_RESULT_CONTRACT')
+        return result
     e.need(mode in ('advance','reconcile','terminal'),'NORMAL_CONTRACT_ONLY')
     if stage=='consume':return load('consume').verify(raw,m,previous,mode,ctx['requestSha256'])
     if stage in ('publication-stage','check-plan','publish'):return load('publication').verify(raw,m,previous,mode,ctx['requestSha256'])

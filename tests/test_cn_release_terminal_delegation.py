@@ -168,6 +168,10 @@ class TerminalTests(unittest.TestCase):
             operation='abort-original',issuedAt=self.f.now.isoformat(),expiresAt=(self.f.now+dt.timedelta(minutes=20)).isoformat(),
             inputHashes={k:m.sha(v)for k,v in inputs.items()},originalBindingSha256=m.sha(inputs['binding']),failedStage='stop',
             failedRequestSha256=h,terminalVerifierSha256=m.sha(verifier))
+        old_approvals=m.RECOVERY_APPROVALS;m.RECOVERY_APPROVALS=self.j.e.STATE/'recovery-approvals'
+        self.addCleanup(setattr,m,'RECOVERY_APPROVALS',old_approvals)
+        (m.RECOVERY_APPROVALS/'by-failed-request').mkdir(parents=True)
+        self.j.write(m.RECOVERY_APPROVALS/'by-failed-request'/(h+'.json'),m.enc({'approvalSha256':m.sha(m.enc(fresh))}))
         upgrade=mod('specialized_recovery',b.root/'runtime/upgrade-draft.py')
         return fresh,inputs,upgrade
 
@@ -185,7 +189,14 @@ class TerminalTests(unittest.TestCase):
             m.derive_recovery(m.enc(self.a),m.enc(fresh),inputs,self.j.e,upgrade,now=self.f.now)
         self.j.e.execution_terminal=lambda _:True
         inputs['terminalObservation']=m.enc({'terminal':False});fresh['inputHashes']['terminalObservation']=m.sha(inputs['terminalObservation'])
+        self.j.write(m.RECOVERY_APPROVALS/'by-failed-request'/(fresh['failedRequestSha256']+'.json'),m.enc({'approvalSha256':m.sha(m.enc(fresh))}))
         with self.assertRaises(AssertionError):m.derive_recovery(m.enc(self.a),m.enc(fresh),inputs,self.j.e,upgrade,now=self.f.now)
+
+    def test_recovery_rejects_different_fresh_approval_pointer(self):
+        fresh,inputs,upgrade=self.recovery_fixture()
+        self.j.write(m.RECOVERY_APPROVALS/'by-failed-request'/(fresh['failedRequestSha256']+'.json'),m.enc({'approvalSha256':'f'*64}))
+        with self.assertRaisesRegex(ValueError,'RECOVERY_POINTER_APPROVAL_MISMATCH'):
+            m.derive_recovery(m.enc(self.a),m.enc(fresh),inputs,self.j.e,upgrade,now=self.f.now)
 
     def test_recovery_requires_independent_scope_and_no_retiming(self):
         fresh,inputs,upgrade=self.recovery_fixture();fresh['identity']['requestedAt']=self.f.now.isoformat()

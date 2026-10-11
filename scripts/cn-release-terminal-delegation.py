@@ -163,6 +163,8 @@ def derive_recovery(approval_raw,fresh_raw,inputs,entry,upgrade,*,now=None):
         need(manifest['verifierSha256']==f['terminalVerifierSha256'],'RECOVERY_VERIFIER_PIN')
         previous=entry.read(root/('%02d-%s.receipt.json'%(index-1,entry.STAGES[index-1])))if index else None
         need(manifest['previousReceiptSha256']==(sha(previous)if previous else None),'RECOVERY_PREVIOUS')
+        pointer=parse(entry.read(RECOVERY_APPROVALS/'by-failed-request'/(f['failedRequestSha256']+'.json')))
+        need(pointer=={'approvalSha256':sha(fresh_raw)},'RECOVERY_POINTER_APPROVAL_MISMATCH')
         entry.verify(files['verify.py'],inputs['terminalObservation'],manifest,parse(previous)if previous else None,'pre-recovery')
         reconciliation=parse(inputs['reconciliation'])
         # Existing upgrade validator enforces fresh <=10m reconciliation,
@@ -306,7 +308,7 @@ def main():
     if args.recovery_approval_sha256:
         h=args.recovery_approval_sha256;need(re.fullmatch('[a-f0-9]{64}',h),'RECOVERY_SHA')
         fresh=private(RECOVERY_APPROVALS/(h+'.json'));need(sha(fresh)==h,'RECOVERY_HASH');f=parse(fresh)
-        inputs={k:private(root/('recovery-'+k+'.json'))for k in ('binding','reconciliation','terminalObservation')}
+        inputs={k:private(root/('recovery-'+('original-binding'if k=='binding'else k)+'.json'))for k in ('binding','reconciliation','terminalObservation')}
         # Runtime comes from the exact approved root runtime directory, never a CLI path.
         runtime=Path(f['runtimeRoot']);need(runtime.parent==Path('/var/lib/workspacex-cn/runtime') and re.fullmatch('upgrade-f0eb-[a-z0-9-]{1,64}',runtime.name),'RUNTIME_SCOPE')
         code=private(runtime/'upgrade-draft.py');need(sha(code)==f['upgradeSha256']==parse(inputs['binding'])['scriptSha256'],'RECOVERY_RUNTIME_PIN')
