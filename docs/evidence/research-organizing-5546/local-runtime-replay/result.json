@@ -1,0 +1,201 @@
+{
+  "oldSourceSHA": "4d407d2ff1df62abd6b6429395ccb3115b36ca4d",
+  "currentSourceSHA": "bafd12839169bdccc209ad8361821e809e8b25c7",
+  "templateSHA256": "5a28422b614cd8e0330ab737043eb13648ff87d1caec0a5f5929a14c45278aaf",
+  "runs": [
+    {
+      "label": "old-first",
+      "exitCode": 1,
+      "executedSourceSHA256": "88f6542bf9a0b52718f43171bcb1afa2bccc7d9270a25e1abaa7a9320933f80c",
+      "results": [
+        {
+          "kind": "comparison",
+          "fault": "rejected",
+          "regenerated": false,
+          "actualError": "RESEARCH_WORKFLOW_UNAVAILABLE",
+          "expectedError": null,
+          "sections": 0,
+          "batch15Calls": 1
+        }
+      ]
+    },
+    {
+      "label": "old-regeneration",
+      "exitCode": 1,
+      "executedSourceSHA256": "d98dac82c5cfff65a2a4aa442005d12c0823e4223455bdb4801652a676167c14",
+      "results": [
+        {
+          "kind": "comparison",
+          "fault": "rejected",
+          "regenerated": true,
+          "actualError": "RESEARCH_WORKFLOW_UNAVAILABLE",
+          "expectedError": null,
+          "sections": 0,
+          "batch15Calls": 1
+        }
+      ]
+    },
+    {
+      "label": "current",
+      "exitCode": 0,
+      "executedSourceSHA256": "b53b71625dce758fa189ac6899f9385c469439d4bbaf3697248109ddcbe13081",
+      "results": [
+        {
+          "kind": "comparison",
+          "fault": "rejected",
+          "regenerated": false,
+          "actualError": null,
+          "expectedError": null,
+          "sections": 4,
+          "batch15Calls": 1
+        },
+        {
+          "fault": "rejected",
+          "regenerated": false,
+          "errorCode": null,
+          "sections": 4,
+          "modelCalls": 55,
+          "evidenceBatches": 23,
+          "healthy": true
+        },
+        {
+          "kind": "comparison",
+          "fault": "rejected",
+          "regenerated": true,
+          "actualError": null,
+          "expectedError": null,
+          "sections": 4,
+          "batch15Calls": 1
+        },
+        {
+          "fault": "rejected",
+          "regenerated": true,
+          "errorCode": null,
+          "sections": 4,
+          "modelCalls": 55,
+          "evidenceBatches": 23,
+          "healthy": true
+        },
+        {
+          "kind": "comparison",
+          "fault": "invalid-reference",
+          "regenerated": false,
+          "actualError": null,
+          "expectedError": null,
+          "sections": 4,
+          "batch15Calls": 1
+        },
+        {
+          "fault": "invalid-reference",
+          "regenerated": false,
+          "errorCode": null,
+          "sections": 4,
+          "modelCalls": 56,
+          "evidenceBatches": 23,
+          "healthy": true
+        },
+        {
+          "kind": "comparison",
+          "fault": "invalid-reference",
+          "regenerated": true,
+          "actualError": null,
+          "expectedError": null,
+          "sections": 4,
+          "batch15Calls": 1
+        },
+        {
+          "fault": "invalid-reference",
+          "regenerated": true,
+          "errorCode": null,
+          "sections": 4,
+          "modelCalls": 56,
+          "evidenceBatches": 23,
+          "healthy": true
+        },
+        {
+          "kind": "comparison",
+          "fault": "unclassified",
+          "regenerated": false,
+          "actualError": "RESEARCH_WORKFLOW_UNAVAILABLE",
+          "expectedError": "RESEARCH_WORKFLOW_UNAVAILABLE",
+          "sections": 0,
+          "batch15Calls": 1
+        },
+        {
+          "fault": "unclassified",
+          "regenerated": false,
+          "errorCode": "RESEARCH_WORKFLOW_UNAVAILABLE",
+          "sections": 0,
+          "modelCalls": 42,
+          "evidenceBatches": 19,
+          "healthy": false
+        },
+        {
+          "kind": "comparison",
+          "fault": "unclassified",
+          "regenerated": true,
+          "actualError": "RESEARCH_WORKFLOW_UNAVAILABLE",
+          "expectedError": "RESEARCH_WORKFLOW_UNAVAILABLE",
+          "sections": 0,
+          "batch15Calls": 1
+        },
+        {
+          "fault": "unclassified",
+          "regenerated": true,
+          "errorCode": "RESEARCH_WORKFLOW_UNAVAILABLE",
+          "sections": 0,
+          "modelCalls": 42,
+          "evidenceBatches": 19,
+          "healthy": false
+        },
+        {
+          "kind": "comparison",
+          "fault": "authentication",
+          "regenerated": false,
+          "actualError": "RESEARCH_WORKFLOW_UNAVAILABLE",
+          "expectedError": "RESEARCH_WORKFLOW_UNAVAILABLE",
+          "sections": 0,
+          "batch15Calls": 1
+        },
+        {
+          "fault": "authentication",
+          "regenerated": false,
+          "errorCode": "RESEARCH_WORKFLOW_UNAVAILABLE",
+          "sections": 0,
+          "modelCalls": 42,
+          "evidenceBatches": 19,
+          "healthy": false
+        },
+        {
+          "kind": "comparison",
+          "fault": "authentication",
+          "regenerated": true,
+          "actualError": "RESEARCH_WORKFLOW_UNAVAILABLE",
+          "expectedError": "RESEARCH_WORKFLOW_UNAVAILABLE",
+          "sections": 0,
+          "batch15Calls": 1
+        },
+        {
+          "fault": "authentication",
+          "regenerated": true,
+          "errorCode": "RESEARCH_WORKFLOW_UNAVAILABLE",
+          "sections": 0,
+          "modelCalls": 42,
+          "evidenceBatches": 19,
+          "healthy": false
+        }
+      ]
+    }
+  ],
+  "limits": [
+    "synthetic geometry and loopback HTTP",
+    "fixed semantic review verdicts",
+    "memory storage, not database durability",
+    "invalid-reference is an evidence quote, not prose citation",
+    "no online recovery or running SHA claim"
+  ],
+  "command": "node docs/evidence/research-organizing-5546/local-runtime-replay/replay.mjs",
+  "store": "in-memory clones",
+  "semanticReview": "controlled fixed verdicts, not quality acceptance",
+  "sharedFixtureSourceSHA": "bafd12839169bdccc209ad8361821e809e8b25c7"
+}
