@@ -67,6 +67,63 @@ class EntryTests(unittest.TestCase):
         self.assertEqual(two['status'],'COMPLETED')
         self.assertFalse(receipt['productionAcceptanceClaimedByTransport'])
 
+    def test_independent_terminal_observation_bytes_are_hash_bound(self):
+        observed=b'{ "verified" : true }\n'
+        command=("printf '%s' "+shlex.quote(observed.decode())+"\n").encode()
+        result=self.advance(self.package(observer=command))
+        prefix=self.state/'test-one/00-consume'
+        receipt=e.decode(Path(str(prefix)+'.receipt.json').read_bytes())
+        self.assertEqual(Path(str(prefix)+'.terminal-observation.json').read_bytes(),observed)
+        self.assertEqual(receipt['terminalObservationSha256'],e.digest(observed))
+        self.assertNotEqual(receipt['terminalObservationSha256'],receipt['evidenceSha256'])
+
+    def test_reconcile_persists_original_terminal_observation(self):
+        h=self.package(action=b'exit 7\n')
+        with self.assertRaises(e.Rejected):self.advance(h)
+        e.entry('reconcile',h,'test-one')
+        prefix=self.state/'test-one/00-consume'
+        receipt=e.decode(Path(str(prefix)+'.receipt.json').read_bytes())
+        self.assertEqual(receipt['terminalObservationSha256'],receipt['evidenceSha256'])
+        self.assertEqual(Path(str(prefix)+'.terminal-observation.json').read_bytes(),b'{"verified":true}\n')
+
+    def test_completed_status_and_advance_reject_changed_observation(self):
+        h=self.package();self.advance(h)
+        observed=self.state/'test-one/00-consume.terminal-observation.json'
+        observed.write_bytes(b'{}')
+        for mode in ('status','advance'):
+            with self.assertRaisesRegex(e.Rejected,'COMPLETION_OBSERVATION_CHANGED'):
+                e.entry(mode,h,'test-one')
+        observed.unlink()
+        for mode in ('status','advance'):
+            with self.assertRaises(FileNotFoundError):e.entry(mode,h,'test-one')
+
+    def test_partial_evidence_is_retained_and_never_replays_action(self):
+        marker=self.root/'once'
+        action=('printf x >> '+shlex.quote(str(marker))+'\n').encode()+ACTION
+        observer=b"printf '%s\\n' '{ \"verified\" : true }'\n"
+        h=self.package(action=action,observer=observer)
+        original=e.create
+        def fail_receipt(path,raw):
+            if str(path).endswith('.receipt.json'):raise RuntimeError('simulated receipt failure')
+            original(path,raw)
+        with patch.object(e,'create',side_effect=fail_receipt):
+            with self.assertRaises(RuntimeError):self.advance(h)
+        with self.assertRaisesRegex(e.Rejected,'EVIDENCE_CHANGED'):e.entry('reconcile',h,'test-one')
+        self.assertEqual(marker.read_text(),'x')
+        self.assertEqual((self.state/'test-one/00-consume.evidence.json').read_bytes(),b'{"verified":true}\n')
+        self.assertFalse((self.state/'test-one/00-consume.receipt.json').exists())
+
+    def test_kill_permission_race_preserves_primary_failure_and_closes_pipes(self):
+        pipes=[];real_pipe=os.pipe
+        def tracked_pipe():
+            pair=real_pipe();pipes.extend(pair);return pair
+        def failed_start(pid,domain):raise RuntimeError('durable pid failed')
+        with patch.object(e.os,'pipe',side_effect=tracked_pipe), patch.object(e.os,'killpg',side_effect=PermissionError('race')):
+            with self.assertRaisesRegex(RuntimeError,'durable pid failed'):
+                e.run_command(ACTION,1,failed_start)
+        for fd in pipes:
+            with self.assertRaises(OSError):os.fstat(fd)
+
     def test_wrong_receipt_does_not_execute(self):
         self.advance(self.package())
         with self.assertRaisesRegex(e.Rejected,'PREVIOUS_RECEIPT_CHANGED'):
@@ -138,12 +195,19 @@ class EntryTests(unittest.TestCase):
         terminal=e.decode((self.state/'test-one/00-consume.terminal.json').read_bytes())
         self.assertEqual(terminal['reason'],'TIMEOUT')
         self.assertFalse(marker.exists())
-        # Dead/zombie descendant groups may remain visible on some systems: this
-        # must block reconcile, never be interpreted as permission to retry.
-        if terminal['processGroupStillPresent']:
-            with self.assertRaisesRegex(e.Rejected,'PROCESS_STILL_ACTIVE'):e.entry('reconcile',h,'test-one')
+        # Terminal.json is a historical snapshot: a zombie group can be reaped
+        # before reconciliation. The live execution probe owns that decision.
+        with patch.object(e,'execution_terminal',return_value=False):
+            with self.assertRaisesRegex(e.Rejected,'PROCESS_STILL_ACTIVE'):
+                e.entry('reconcile',h,'test-one')
+        try:
+            result=e.entry('reconcile',h,'test-one')
+        except e.Rejected as error:
+            self.assertEqual(str(error),'PROCESS_STILL_ACTIVE_OR_UNPROVEN')
         else:
-            self.assertEqual(e.entry('reconcile',h,'test-one')['status'],'COMPLETED')
+            self.assertEqual(result['status'],'COMPLETED')
+            self.assertFalse(result['mutationExecuted'])
+        self.assertFalse(marker.exists())
 
     def test_output_overflow_and_secret_error_not_persisted(self):
         action=(shlex.quote(sys.executable)+" -c 'print(\"SENSITIVE\"*20000)'\n").encode()

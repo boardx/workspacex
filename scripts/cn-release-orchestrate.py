@@ -58,7 +58,7 @@ def installation_plan(probe_path):
     sha=e.digest(source.read_bytes());target='/usr/local/bin/workspacex-cn-release-advance'
     observed=[v for v in probe.get('wrappers',probe.get('targets',[])) if v.get('path')==target]
     old=observed[0] if len(observed)==1 else None
-    script_names=('cn-release-orchestrate.py','cn-release-continuation-bind.py','cn-release-continuation-acquire.py','cn-release-continuation-finalize.py','cn-release-derived-approval.py')
+    script_names=('cn-release-orchestrate.py','cn-release-continuation-bind.py','cn-release-continuation-acquire.py','cn-release-continuation-finalize.py','cn-release-derived-approval.py','cn-release-continuation-journal.py')
     relative=[Path('scripts')/name for name in script_names]
     relative += [Path('.harness/scripts/vm/cn-release-advance.py'),Path('packages/cloud-deploy/src/cn-release-browser-contract.ts')]
     relative += [p.relative_to(ROOT) for p in (ROOT/'.harness/scripts/vm/cn-runtime-continuation').rglob('*') if p.is_file() and '__pycache__' not in p.parts]
