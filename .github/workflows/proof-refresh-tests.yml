@@ -1,0 +1,25 @@
+name: proof-refresh-tests
+on:
+  pull_request:
+    paths:
+      - 'scripts/cn-proof-only-refresh.py'
+      - 'scripts/prepare-cn-proof-refresh.py'
+      - 'scripts/swap-cn-proof-approval.py'
+      - 'tests/test_cn_proof_refresh*.py'
+      - 'tests/cn_proof_refresh_linux.py'
+      - '.github/workflows/refresh-cn-candidate-proof.yml'
+      - '.github/workflows/proof-refresh-tests.yml'
+      - '.github/release-plans/proof-refresh.json'
+permissions:
+  contents: read
+jobs:
+  original-proof-and-linux-exchange:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - run: python3 -B -m unittest discover -s tests -p 'test_cn_proof_refresh*.py' -v
+      - name: Actual Linux directory exchange and failure reconciliation
+        run: python3 -I -B tests/cn_proof_refresh_linux.py
