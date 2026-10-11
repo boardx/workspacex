@@ -75,6 +75,25 @@ class NoRedirect(urllib.request.HTTPRedirectHandler):
         raise AuthError('OIDC_REDIRECT_REJECTED')
 
 
+def oidc_request_endpoint_allowed(url):
+    # GitHub documents *.actions.githubusercontent.com for retrieving OIDC tokens:
+    # https://docs.github.com/en/actions/reference/runners/github-hosted-runners#communication-requirements
+    # Validate before urlsplit, which can discard raw tabs/newlines/control bytes.
+    if not isinstance(url, str) or any(ord(c) <= 32 or ord(c) == 127 for c in url) or '\\' in url or '#' in url:
+        return False
+    try:
+        parsed = urllib.parse.urlsplit(url)
+        host = parsed.hostname or ''
+        labels = host.split('.')
+        dns_name = len(host) <= 253 and all(re.fullmatch(r'[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?', label) for label in labels)
+        return (parsed.scheme == 'https' and dns_name
+                and host.endswith('.actions.githubusercontent.com')
+                and parsed.username is None and parsed.password is None
+                and parsed.port in (None, 443))
+    except ValueError:
+        return False
+
+
 def verify_oidc(env, opener=None):
     if opener is None:
         opener = urllib.request.build_opener(NoRedirect()).open
@@ -84,13 +103,9 @@ def verify_oidc(env, opener=None):
             raise AuthError('INVALID_' + name)
     audience = required(env, 'ALIYUN_OIDC_AUDIENCE')
     url = required(env, 'ACTIONS_ID_TOKEN_REQUEST_URL')
-    parsed = urllib.parse.urlsplit(url)
-    try:
-        safe_endpoint = parsed.scheme == 'https' and parsed.hostname == 'pipelines.actions.githubusercontent.com' and not parsed.username and not parsed.password and parsed.port in (None, 443)
-    except ValueError:
-        safe_endpoint = False
-    if not safe_endpoint:
+    if not oidc_request_endpoint_allowed(url):
         raise AuthError('OIDC_REQUEST_ENDPOINT_REJECTED')
+    parsed = urllib.parse.urlsplit(url)
     query = urllib.parse.parse_qsl(parsed.query, keep_blank_values=True)
     query = [(k, v) for k, v in query if k != 'audience'] + [('audience', audience)]
     url = urllib.parse.urlunsplit(parsed._replace(query=urllib.parse.urlencode(query)))

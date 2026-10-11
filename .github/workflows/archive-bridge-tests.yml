@@ -7,6 +7,8 @@ on:
       - '.github/workflows/transfer-cn-candidates-via-hongkong.yml'
       - '.github/release-plans/hk-*'
       - 'scripts/cn-hk-*.py'
+      - 'scripts/aliyun-release-auth.py'
+      - 'tests/test_aliyun_release_auth.py'
       - 'tests/test_cn_hk_*.py'
       - 'docs/operations/hk-release-transfer/**'
       - '.github/workflows/cloud-build-only.yml'
@@ -141,6 +143,8 @@ jobs:
         run: python3 -I -B -m unittest discover -s tests -p 'test_cn_candidate_native_cli.py' -v
       - name: Native candidate upload and provider observation contracts
         run: python3 -I -B -m unittest discover -s tests -p 'test_cn_candidate_native_upload.py' -v
+      - name: Alibaba release authentication endpoint and claims contracts
+        run: python3 -I -B -m unittest discover -s tests -p 'test_aliyun_release_auth.py' -v
       - name: Hong Kong original-artifact transfer without cloud calls
         run: |
           python3 -I -B tests/test_cn_hk_original_artifact_upload.py
