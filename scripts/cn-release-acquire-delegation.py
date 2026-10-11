@@ -121,9 +121,16 @@ def verify_completion(chain,release,release_sha,runtime_raw,entry):
     for value in (manifest,receipt):
         for key in ('sourceRevision','baselineRevision','controlRevision','attemptId','requestedAt','deadlineAt'):need(value[key]==release['identity'][key],'CONSUME_ENTRY_IDENTITY')
         need(value['stage']=='consume' and value['scope']=='runtime-only-reviewed-continuation' and value['previousReceiptSha256'] is None,'CONSUME_ENTRY_SCOPE')
-    need(receipt['mode']=='advance' and receipt['withinTotalBudget'] is True,'NORMAL_CONSUME_COMPLETION_REQUIRED')
+    need(receipt['mode'] in ('advance','reconcile') and receipt['withinTotalBudget'] is True,'NORMAL_CONSUME_COMPLETION_REQUIRED')
     need(receipt['requestSha256']==sha(chain['manifest']),'CONSUME_ENTRY_MANIFEST_HASH')
-    need(receipt['evidenceSha256']==sha(chain['evidence'])==sha(runtime_raw),'CONSUME_ENTRY_EVIDENCE_HASH')
+    need(receipt['evidenceSha256']==sha(chain['evidence']),'CONSUME_ENTRY_EVIDENCE_HASH')
+    if receipt['mode']=='advance':
+        need(sha(chain['evidence'])==sha(runtime_raw),'CONSUME_ENTRY_EVIDENCE_HASH')
+    else:
+        need(chain['evidence']==chain['terminalObservation'],'CONSUME_RECONCILE_OBSERVATION_CHANGED')
+        observation=parse(chain['evidence'])
+        need(observation.get('runtimeReceiptSha256')==sha(runtime_raw),'CONSUME_PHYSICAL_RECEIPT_CHANGED')
+        need(observation.get('requestSha256')==prior['requestSha256'],'CONSUME_RECONCILE_REQUEST_CHANGED')
     need(receipt['terminalObservationSha256']==sha(chain['terminalObservation']),'CONSUME_TERMINAL_OBSERVER_HASH')
     need(instant(receipt['finishedAt'])<=instant(release['identity']['deadlineAt']),'CONSUME_ENTRY_LATE')
     for key,value in release['acquire']['consumeEntryCode'].items():need(manifest[key]==value,'CONSUME_VERIFIER_OR_OBSERVER_CHANGED')
@@ -132,9 +139,7 @@ def verify_completion(chain,release,release_sha,runtime_raw,entry):
     need(loaded==manifest,'CONSUME_ENTRY_PACKAGE_CHANGED')
     path=entry.STATE/release['identity']['attemptId']/'00-consume.receipt.json'
     need(entry.read(path)==chain['receipt'],'CONSUME_ENTRY_RECEIPT_CHANGED')
-    entry.verify_receipt_files(path,receipt)
-    entry.verify(files['verify.py'],chain['evidence'],manifest,None,'advance')
-    entry.verify(files['verify.py'],chain['terminalObservation'],manifest,None,'terminal')
+    entry.verify_historical_receipt(path,receipt,manifest)
     return {n:sha(raw) for n,raw in chain.items()}
 
 

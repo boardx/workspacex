@@ -1,0 +1,39 @@
+name: Fixed approved CN release
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: Continue approved release or inspect it; never auto-retry uncertain writes
+        required: true
+        type: choice
+        options: [status, run, reconcile]
+      release_sha256:
+        description: Exact separately approved root-installed release request hash
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: workspacex-cn-production-deploy
+  cancel-in-progress: false
+
+jobs:
+  release:
+    if: github.ref == 'refs/heads/main'
+    environment: production-cn-promotion
+    runs-on: [self-hosted, linux, workspacex-cn-production]
+    timeout-minutes: 35
+    steps:
+      - name: Invoke the fixed installed release driver
+        shell: bash
+        env:
+          MODE: ${{ inputs.mode }}
+          RELEASE_SHA: ${{ inputs.release_sha256 }}
+        run: |
+          set -euo pipefail
+          [[ "$MODE" =~ ^(status|run|reconcile)$ ]]
+          [[ "$RELEASE_SHA" =~ ^[a-f0-9]{64}$ ]]
+          sudo -n /usr/local/bin/workspacex-cn-fixed-release "$MODE" "$RELEASE_SHA"

@@ -25,7 +25,7 @@ class DelegationTests(unittest.TestCase):
   self.release=dict(schemaVersion=1,kind='cn-fixed-release-approval-v1',target=d.TARGET.copy(),identity=dict(sourceRevision=consume['sourceRevision'],baselineRevision='c'*40,controlRevision=consume['controlRevision'],publicationAttemptId=consume['attemptId'],attemptId='runtime-attempt',requestedAt=consume['requestedAt'],deadlineAt=consume['deadlineAt']),issuedAt=consume['requestedAt'],expiresAt=consume['deadlineAt'],codeFiles={n:d.sha((ROOT/n).read_bytes()) for n in d.CODE},acquire={'requests':{'consume':consume,'publication':publication},'templateFiles':{n:d.sha((fixture.m.TEMPLATES/n).read_bytes()) for n in d.TEMPLATES},'consumeEntryCode':{'observerSha256':d.sha(b'fixture observer'),'verifierSha256':d.sha(self.verifier())}})
  @staticmethod
  def verifier():return b"import json\ndef verify(raw,manifest,previous,mode):\n v=json.loads(raw)\n return {'externalWritesTerminal':v.get('externalWritesTerminal') is True} if mode=='terminal' else v.get('promotedToExactPublisherInbox') is True\n"
- def completion(self,live):
+ def completion(self,live,reconcile=False):
   from unittest.mock import patch
   import os
   out=self.f.root/'delegated-consume';params=(out/'parameters.json').read_bytes();prior=(out/'delegation.json').read_bytes()
@@ -33,6 +33,10 @@ class DelegationTests(unittest.TestCase):
   manifest.update(schemaVersion=1,scope='runtime-only-reviewed-continuation',stage='consume',previousReceiptSha256=None,issuedAt=self.release['issuedAt'],expiresAt=self.release['expiresAt'],timeoutSeconds=30,actionSha256=d.sha(json.loads(params)['CommandContent'].encode()),observerSha256=d.sha(b'fixture observer'),verifierSha256=d.sha(self.verifier()),authorizationEvidenceSha256=d.sha(b'{}'))
   manifest_raw=d.encode(manifest);terminal=d.encode({'externalWritesTerminal':True})
   receipt={**manifest,'requestSha256':d.sha(manifest_raw),'mode':'advance','withinTotalBudget':True,'evidenceSha256':d.sha(live),'terminalObservationSha256':d.sha(terminal),'finishedAt':dt.datetime.now(dt.timezone.utc).isoformat()}
+  if reconcile:
+   terminal=d.encode({'runtimeReceiptSha256':d.sha(live),'requestSha256':d.sha(d.encode(self.release['acquire']['requests']['consume']))});live=terminal;receipt.update(mode='reconcile',evidenceSha256=d.sha(live),terminalObservationSha256=d.sha(terminal))
+  admission=d.encode({'kind':'cn-entry-admission-v1',**{k:manifest[k] for k in ('verifierSha256','observerSha256','authorizationEvidenceSha256')},**{k:receipt[k] for k in ('requestSha256','evidenceSha256','terminalObservationSha256')}})
+  receipt['admissionSha256']=d.sha(admission)
   chain={'manifest':manifest_raw,'receipt':d.encode(receipt),'evidence':live,'terminalObservation':terminal,'parameters':params,'delegation':prior}
   entry=d.load_entry(ROOT);entry.REQUESTS=self.f.root/'packages';entry.STATE=self.f.root/'entry-state';entry.OWNER=os.getuid();entry.directory=lambda path:None
   package=entry.REQUESTS/d.sha(manifest_raw);package.mkdir(parents=True)
@@ -41,6 +45,8 @@ class DelegationTests(unittest.TestCase):
   journal=entry.STATE/identity['attemptId'];journal.mkdir(parents=True)
   for n,key in (('receipt','receipt'),('evidence','evidence'),('terminal-observation','terminalObservation')):
    path=journal/('00-consume.'+n+'.json');path.write_bytes(chain[key]);path.chmod(0o600)
+  for name,raw in {'admission':admission,'intent':d.encode({'requestSha256':receipt['requestSha256']}),'process':d.encode({'requestSha256':receipt['requestSha256']})}.items():
+   path=journal/('00-consume.'+name+'.json');path.write_bytes(raw);path.chmod(0o600)
   patcher=patch.object(d,'load_entry',return_value=entry);patcher.start();self.addCleanup(patcher.stop)
   return chain
  def inputs(self,phase):return {n:self.f.inputs[n] for n in self.release['acquire']['requests'][phase]['inputs']}
@@ -55,6 +61,17 @@ class DelegationTests(unittest.TestCase):
   for action in publication['actions']:
    raw=(out/action['parameters']).read_bytes();self.assertEqual(d.sha(raw),action['parametersSha256']);self.assertEqual(d.sha(json.loads(raw)['CommandContent'].encode()),action['commandSha256'])
   self.assertFalse(publication['retryAllowed']);self.assertEqual(publication['cloudCalls'],0)
+ def test_reconcile_history_allows_publication_without_rerunning_old_live(self):
+  from unittest.mock import patch
+  self.derive();live=self.receipt();chain=self.completion(live,reconcile=True);entry=d.load_entry(ROOT)
+  with patch.object(entry,'verify',side_effect=AssertionError('OLD_LIVE_MUST_NOT_RERUN')):
+   result=self.derive('publication',live,chain)
+  self.assertEqual(result['runtimeReceiptSha256'],d.sha(live))
+ def test_reconcile_wrong_physical_receipt_hash_rejected(self):
+  self.derive();live=self.receipt();chain=self.completion(live,reconcile=True)
+  value=json.loads(chain['evidence']);value['runtimeReceiptSha256']='0'*64;chain['evidence']=chain['terminalObservation']=d.encode(value)
+  receipt=json.loads(chain['receipt']);receipt['evidenceSha256']=receipt['terminalObservationSha256']=d.sha(chain['evidence']);chain['receipt']=d.encode(receipt)
+  with self.assertRaisesRegex(ValueError,'CONSUME_PHYSICAL_RECEIPT_CHANGED'):self.derive('publication',live,chain)
  def test_publication_requires_live_receipt(self):
   with self.assertRaisesRegex(ValueError,'LIVE_CONSUME_RECEIPT_REQUIRED'):self.derive('publication')
  def test_wrong_receipt_identity_path_images_or_hash_rejected(self):
@@ -69,7 +86,7 @@ class DelegationTests(unittest.TestCase):
   self.derive();live=self.receipt();chain=self.completion(live);entry=d.load_entry(ROOT)
   chain['terminalObservation']=d.encode({'externalWritesTerminal':False});receipt=json.loads(chain['receipt']);receipt['terminalObservationSha256']=d.sha(chain['terminalObservation']);chain['receipt']=d.encode(receipt)
   journal=entry.STATE/self.release['identity']['attemptId'];(journal/'00-consume.terminal-observation.json').write_bytes(chain['terminalObservation']);(journal/'00-consume.receipt.json').write_bytes(chain['receipt'])
-  with self.assertRaisesRegex(Exception,'TERMINAL_OR_RECOVERY_UNPROVEN'):self.derive('publication',live,chain)
+  with self.assertRaisesRegex(Exception,'HISTORICAL_ADMISSION_CHANGED'):self.derive('publication',live,chain)
  def test_changed_requested_deadline_cannot_delegate(self):
   self.release['acquire']['requests']['publication']['deadlineAt']=(self.f.now+dt.timedelta(minutes=26)).isoformat()
   with self.assertRaisesRegex(ValueError,'ACQUIRE_RELEASE_IDENTITY'):self.derive()

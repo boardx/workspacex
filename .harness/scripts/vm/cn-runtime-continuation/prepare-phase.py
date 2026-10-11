@@ -61,6 +61,7 @@ def prepare(config):
  pins={'scriptSha256':hashfile(out/'sessions-after-stop.sh'),'bindingSha256':hashfile(out/'binding.json')}
  (out/'sessions-check-pins.json').write_text(json.dumps(pins,sort_keys=True)+'\n');(out/'sessions-check-pins.json').chmod(0o600)
  (out/'preparation.json').write_text(json.dumps({'phase':phase,'bindingSha256':hashfile(out/'binding.json'),'inputs':{k:hashfile(config[k])for k in ('authorization','publication')},'files':{n:hashfile(out/n)for n in values},'cloudCalls':0,'dispatchAuthorizedByGenerator':False},indent=2)+'\n')
+ (out/'preparation.json').chmod(0o600)
  print(json.dumps({'phase':phase,'output':str(out),'bindingSha256':hashfile(out/'binding.json'),'cloudCalls':0}))
 if __name__=='__main__':
  p=argparse.ArgumentParser();p.add_argument('config');args=p.parse_args();prepare(read(args.config))

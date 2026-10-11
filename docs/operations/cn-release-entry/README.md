@@ -2,6 +2,8 @@
 
 This increment provides a durable host executor and reusable, parameterized continuation generators. It is **not yet the complete one-request production release**. It does not install anything, grant permissions, or claim that the current production release completed. The existing production operator remains the only mutation owner until the exact code, cgroup capability, observers and authorization closure are reviewed and installed.
 
+The follow-up [fixed request driver](fixed-driver.md) connects root-derived packages and the A4 held-health / separately approved A5 clear / A6 public-business sequence. It remains subject to exact installation and full-chain validation; the older finalize contract below is preserved for its original consumers.
+
 ## Reused code and actual behavior
 
 | Component | Executable behavior | Evidence boundary |
@@ -38,7 +40,7 @@ The current generator adapters parameterize acquire/publication, four normal run
 | Scenario | Reused route | What cannot be skipped |
 |---|---|---|
 | Hotfix, no schema diff | Same exact-source runtime-only route with scheduling priority | Startup side effects disclosure, actual preceding receipts, current-epoch backup, terminal observers and business acceptance |
-| No schema diff, ordinary release | Consume → canonical publish → hold → exact stop → session observation → host/RDS backup → switch → six journeys → clear → stable public observation | Empty SQL diff is not proof of no writes: API startup cleanup/seed/task recovery remain relevant |
+| No schema diff, ordinary release | Consume → canonical publish → hold → exact stop → session observation → host/RDS backup → switch → held health → separately approved A5 clear → A6 six journeys and stable public observation | Empty SQL diff is not proof of no writes: API startup cleanup/seed/task recovery remain relevant |
 | Prepared candidate | Reuse already admitted exact artifacts and receipts, still verify freshness and source/baseline identity | Never reset the original requestedAt to hide build or waiting time; report activation duration separately |
 | Cold release | Include producer plan, five parallel jobs and final collection before transfer | Build/collect, authentication, transfer, waiting and failures all count toward calendar lead time |
 | Schema/data migration | Existing seven-step A0–A6 route | This runtime-only binder rejects it; backup, isolated restore, migration/readback and separate writer approval remain mandatory |
@@ -91,3 +93,5 @@ Real Linux supervision evidence is now available for base PR #5628 at exact head
 The publication adapter now accepts a separately root-approved `publicationCapability` window (maximum 30 minutes, bounded by the real proof policy) while preserving the original requestedAt/deadlineAt. Each action rechecks that original deadline and clamps its duration; the 957-second preparation fixture with 843 seconds left now passes capability admission without extending execution time. This is a tested code correction, not a measured production latency improvement.
 
 Shanghai consumption of the same original artifacts took another **530 seconds** (2026-10-11T18:16:07Z–18:24:57Z, invocation `t-sh06zqpp8w5oxds`), with successful promotion to the exact publisher inbox. The sum of measured build/HK/Shanghai segments is **1,487 seconds / 24m47s**, before ACR publication, backup or switching. Subsequent check-plan found `SPOOL_CAPACITY`: 18.866 GB free before consumption passed its old isolated check, but retaining approximately 7.65 GB of ZIP/TAR data left less than the publisher's required 17,450,958,848 bytes. This is a missing cross-stage peak-space admission, not permission to lower the publisher guard. The adapter now derives the unchanged publisher thresholds from the pinned canonical host source and checks each filesystem before any GET. On shared filesystems its admission threshold includes retained consumer bytes as well as subsequent publisher space; distinct filesystems are checked separately. This is a free-space observation, not an exclusive reservation against unrelated writers. Exact-boundary, compressed-input and zero-GET rejection tests cover this defect. This covers consumption through publication; later backup space remains a separate required admission check.
+
+The fixed driver currently materializes the runtime-only, no-schema-migration lane. Scenario classification is planning/admission metadata, not implemented branching that skips stages. Pages marketing, config-only, web-only and migration lanes require their own reviewed execution contracts; none is implied by a classifier result. Prepared receipts must be revalidated, not used to reset the full request clock.

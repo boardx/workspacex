@@ -173,5 +173,7 @@ flowchart TD
 | 跨阶段容量 | 同盘和分盘、边界 ±1 字节、保留 ZIP/TAR、回滚镜像与后续空间门 | 消费后 publisher 空间不足已在现场暴露；修复必须在 GET/hold/stop 前拒绝，保留原 guard |
 | Linux 与运行时恢复 | 新 exact head 的 cgroup/截止监督；临时 Docker 栈半组 recreate 失败后恢复 exact 旧五容器 | 基础 cgroup 真测试已通过；后继新代码需重跑，Docker 故障恢复尚缺真实测试 |
 | 数据库边界 | 无迁移仍验证 session 0、当前 epoch 备份及隔离恢复；兼容迁移验证 old/new 读写 | 当前 runtime-only binder 拒绝迁移；SQL diff 为空不免除启动清理/seed 风险 |
-| 云端与业务 | prepared hotfix/无迁移真实发布 → 六业务 → 同 generation clear → 稳定观察；隔离目标真实故障恢复到旧版业务 | 尚缺完整发布与故障恢复证据，不能用静态 200 或离线替身替代 |
+| 云端与业务 | prepared hotfix/无迁移真实发布 → held health → 单独 A5 授权同 generation clear → A6 六业务及稳定观察；隔离目标真实故障恢复到旧版业务 | 尚缺完整发布与故障恢复证据，不能用静态 200 或离线替身替代 |
 | 30 分钟 | 不可重置 requestedAt → 实际 public.business，prepared 同报完整 lead time 与 activation time | 当前逐段时序未包含全部后续步骤；全链 30 分钟尚未达标 |
+
+后继固定入口的跨阶段问题与修复见 [fixed-driver.md](cn-release-entry/fixed-driver.md)。分段测试不替代真实 router/materializer/entry 链和生产端到端验收；尤其保留 A5 授权及数据库启动副作用边界。
