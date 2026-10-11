@@ -48,8 +48,11 @@ def validate_intent(raw, expected_sha, plan, candidate_raw, candidate_sha, plan_
     return value
 
 
-def image_matches(image, entry, plan):
-    a.require(type(image) is dict and image.get('Id') == entry['imageId'], 'PUBLICATION_IMAGE_ID')
+def image_matches(image, entry, plan, *, store_archive=None):
+    a.require(type(image) is dict, 'PUBLICATION_IMAGE_ID')
+    if image.get('Id') != entry['imageId']:
+        a.require(store_archive is not None, 'PUBLICATION_IMAGE_ID')
+        verify_store_archive(store_archive, image, entry, plan)
     a.require(image.get('Os') == 'linux' and image.get('Architecture') == 'amd64',
               'PUBLICATION_IMAGE_PLATFORM')
     labels = image.get('Config', {}).get('Labels') or {}
@@ -84,6 +87,13 @@ def publish(plan_raw, plan_sha, candidate_raw, candidate_sha,
     def target(service):
         return a.PREFIX + '/' + a.REPOSITORIES[service] + ':' + plan['sourceRevision']
 
+    def matches(image, entry):
+        if type(image) is dict and image.get('Id') != entry['imageId']:
+            a.require(callable(getattr(adapter, 'candidate_image_matches', None)), 'PUBLICATION_IMAGE_ID')
+            adapter.candidate_image_matches(image, entry, plan)
+        else:
+            image_matches(image, entry, plan)
+
     owned = []
     try:
         fresh()
@@ -92,7 +102,7 @@ def publish(plan_raw, plan_sha, candidate_raw, candidate_sha,
             for tag in (entry['stagingTag'], target(service)):
                 existing = adapter.local(tag)
                 if existing is not None:
-                    image_matches(existing, entry, plan)
+                    matches(existing, entry)
         adapter.protect_running_targets(receipt, plan)
         fresh()
         adapter.authenticate()
@@ -117,10 +127,12 @@ def publish(plan_raw, plan_sha, candidate_raw, candidate_sha,
             remote = adapter.pull_optional(target(service))
             if remote is None:
                 if adapter.local(entry['stagingTag']) is None:
-                    owned.append((entry['stagingTag'], entry['imageId']))
                     fresh()
                     adapter.load(bundle / entry['file'])
-                image_matches(adapter.local(entry['stagingTag']), entry, plan)
+                    loaded = adapter.local(entry['stagingTag'])
+                    matches(loaded, entry)
+                    owned.append((entry['stagingTag'], loaded['Id']))
+                matches(adapter.local(entry['stagingTag']), entry)
                 fresh()
                 adapter.tag(entry['stagingTag'], target(service))
                 fresh()
@@ -130,7 +142,7 @@ def publish(plan_raw, plan_sha, candidate_raw, candidate_sha,
                 remote = adapter.pull_optional(target(service))
                 a.require(remote is not None,
                           'PUBLICATION_PUSH_UNCONFIRMED' if not pushed else 'PUBLICATION_READBACK_MISSING')
-            image_matches(remote, entry, plan)
+            matches(remote, entry)
             fresh()
             reference = adapter.registry_digest(target(service), remote)
             a.require(isinstance(reference, str)
@@ -170,3 +182,94 @@ def publish(plan_raw, plan_sha, candidate_raw, candidate_sha,
                 primary.add_note('PUBLICATION_OWNED_TAG_CLEANUP_UNCONFIRMED')
             else:
                 raise a.Rejected('PUBLICATION_OWNED_TAG_CLEANUP_UNCONFIRMED') from None
+
+
+def verify_store_archive(path, image, entry, plan):
+    """Docker containerd store Id is a manifest digest. Bind actual exported bytes.
+
+    This accepts only a single linux/amd64 manifest and exact original
+    config/layer bytes. It never treats an inspect-supplied config label as proof.
+    The trusted host exports by immutable Id and rechecks its tag afterwards.
+    """
+    import tarfile
+    from pathlib import Path
+    a.require(type(image) is dict and type(image.get('Descriptor')) is dict,
+              'PUBLICATION_STORE_DESCRIPTOR')
+    descriptor = image['Descriptor']; digest = descriptor.get('digest')
+    media = ('application/vnd.docker.distribution.manifest.v2+json',
+             'application/vnd.oci.image.manifest.v1+json')
+    a.require(digest == image.get('Id') and isinstance(digest, str)
+              and re.fullmatch('sha256:[a-f0-9]{64}', digest)
+              and descriptor.get('mediaType') in media, 'PUBLICATION_STORE_DESCRIPTOR')
+    a.require(0 < Path(path).stat().st_size <= entry['size'] * 2 + 16 * 1024**2,
+              'PUBLICATION_STORE_SIZE')
+    with tarfile.open(path, 'r:') as tar:
+        ix = a.members(tar)
+        def blob(ref, small=True):
+            a.require(type(ref) is dict and isinstance(ref.get('digest'), str)
+                      and re.fullmatch('sha256:[a-f0-9]{64}', ref['digest'])
+                      and type(ref.get('size')) is int and ref['size'] > 0,
+                      'PUBLICATION_STORE_BLOB')
+            name = 'blobs/sha256/' + ref['digest'][7:]
+            a.require(name in ix and ix[name].isfile() and ix[name].size == ref['size'],
+                      'PUBLICATION_STORE_BLOB_SIZE')
+            raw = a.small_member(tar, ix[name]) if small else None
+            actual = a.sha(raw) if small else a.member_digest(tar, ix[name])
+            a.require('sha256:' + actual == ref['digest'], 'PUBLICATION_STORE_BLOB_HASH')
+            return raw
+        a.require('index.json' in ix, 'PUBLICATION_STORE_INDEX')
+        index = a.decode(a.small_member(tar, ix['index.json']))
+        a.require(type(index) is dict and index.get('schemaVersion') == 2
+                  and type(index.get('manifests')) is list and len(index['manifests']) == 1,
+                  'PUBLICATION_STORE_SINGLE_IMAGE')
+        ref = index['manifests'][0]
+        a.require(ref.get('digest') == digest and ref.get('mediaType') == descriptor['mediaType']
+                  and ref.get('size') == descriptor.get('size'), 'PUBLICATION_STORE_INDEX_BINDING')
+        manifest = a.decode(blob(ref))
+        a.require(manifest.get('schemaVersion') == 2 and manifest.get('mediaType') in media,
+                  'PUBLICATION_STORE_MANIFEST')
+        config_raw = blob(manifest.get('config'))
+        a.require(a.sha(config_raw) == entry['configSha256']
+                  and 'sha256:' + a.sha(config_raw) == entry['imageId'], 'PUBLICATION_STORE_CONFIG')
+        config = a.decode(config_raw)
+        a.require(config.get('os') == 'linux' and config.get('architecture') == 'amd64',
+                  'PUBLICATION_STORE_PLATFORM')
+        labels = config.get('config', {}).get('Labels') or {}
+        a.require(labels.get('org.opencontainers.image.revision') == plan['sourceRevision']
+                  and labels.get(c.LABEL) == c.identity(plan)
+                  and 'org.workspacex.archive-build-identity' not in labels, 'PUBLICATION_STORE_LABELS')
+        expected = ['sha256:' + layer['sha256'] for layer in entry['layers']]
+        a.require(config.get('rootfs') == {'type': 'layers', 'diff_ids': expected}
+                  and image.get('RootFS') == {'Type': 'layers', 'Layers': expected},
+                  'PUBLICATION_STORE_ROOTFS')
+        layers = manifest.get('layers')
+        a.require(type(layers) is list and len(layers) == len(entry['layers']),
+                  'PUBLICATION_STORE_LAYERS')
+        for layer, original in zip(layers, entry['layers']):
+            kind = layer.get('mediaType')
+            plain = ('application/vnd.docker.image.rootfs.diff.tar', 'application/vnd.oci.image.layer.v1.tar')
+            compressed = ('application/vnd.docker.image.rootfs.diff.tar.gzip', 'application/vnd.oci.image.layer.v1.tar+gzip')
+            a.require(kind in plain + compressed, 'PUBLICATION_STORE_LAYER_BINDING')
+            blob(layer, small=False)  # Hash the stored compressed bytes as well.
+            if kind in plain:
+                a.require(layer['digest'] == 'sha256:' + original['sha256']
+                          and layer['size'] == original['size'], 'PUBLICATION_STORE_LAYER_BINDING')
+            else:
+                import gzip
+                import hashlib
+                import zlib
+                total = 0; digest = hashlib.sha256()
+                with tar.extractfile(ix['blobs/sha256/' + layer['digest'][7:]]) as source:
+                    try:
+                        with gzip.GzipFile(fileobj=source, mode='rb') as expanded:
+                            while True:
+                                chunk = expanded.read(65536)
+                                if not chunk: break
+                                total += len(chunk)
+                                a.require(total <= original['size'], 'PUBLICATION_STORE_LAYER_EXPANSION')
+                                digest.update(chunk)
+                    except (OSError, EOFError, zlib.error):
+                        raise a.Rejected('PUBLICATION_STORE_LAYER_GZIP') from None
+                a.require(total == original['size'] and digest.hexdigest() == original['sha256'],
+                          'PUBLICATION_STORE_LAYER_BINDING')
+    return entry['imageId']
