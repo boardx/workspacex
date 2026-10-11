@@ -50,6 +50,53 @@ class AuthTests(unittest.TestCase):
         with self.assertRaises(auth.AuthError): auth.verify_oidc(env,opener)
         opener.assert_not_called()
 
+    def test_documented_oidc_subdomains_fetch_and_validate_claims(self):
+        for host in ('pipelines.actions.githubusercontent.com',
+                     'example.run-actions-1.actions.githubusercontent.com',
+                     'example.run-actions-2.actions.githubusercontent.com:443'):
+            env = config()
+            env['ACTIONS_ID_TOKEN_REQUEST_URL'] = 'https://' + host + '/token?audience=wrong&api-version=2.0'
+            response = io.BytesIO(json.dumps({'value': token(exp=time.time()+60)}).encode())
+            opener = Mock(return_value=response)
+            with self.subTest(host=host):
+                auth.verify_oidc(env, opener)
+                request = opener.call_args.args[0]
+                parsed = auth.urllib.parse.urlsplit(request.full_url)
+                query = auth.urllib.parse.parse_qs(parsed.query)
+                self.assertEqual(query['audience'], ['sts.aliyuncs.com'])
+                self.assertEqual(query['api-version'], ['2.0'])
+                self.assertEqual(request.get_header('Authorization'), 'Bearer request-secret')
+
+    def test_endpoint_boundary_rejected_before_bearer_request(self):
+        urls = [
+            'https://actions.githubusercontent.com/token',
+            'https://pipelines.actions.githubusercontent.com.evil.example/token',
+            'https://evil-actions.githubusercontent.com/token',
+            'https://evil.example/token',
+            'http://pipelines.actions.githubusercontent.com/token',
+            'https://pipelines.actions.githubusercontent.com:444/token',
+            'https://pipelines.actions.githubusercontent.com:wrong/token',
+            'https://user@pipelines.actions.githubusercontent.com/token',
+            'https://@pipelines.actions.githubusercontent.com/token',
+            'https://user:secret@pipelines.actions.githubusercontent.com/token',
+            'https://bad_label.actions.githubusercontent.com/token',
+            'https://-bad.actions.githubusercontent.com/token',
+            'https://bad-.actions.githubusercontent.com/token',
+            'https://bad..actions.githubusercontent.com/token',
+            'https://' + 'a'*64 + '.actions.githubusercontent.com/token',
+            'https://é.actions.githubusercontent.com/token',
+            'https://pipelines.actions.githubusercontent.com/token#fragment',
+            'https://pipelines.actions.githubusercontent.com/token#',
+            'https://pipelines.actions.githubusercontent.com\\@evil.example/token',
+            'https://pipe\tlines.actions.githubusercontent.com/token',
+            'https://pipelines.actions.githubusercontent.com/token\x7f',
+        ]
+        for url in urls:
+            env = config(); env['ACTIONS_ID_TOKEN_REQUEST_URL'] = url; opener = Mock()
+            with self.subTest(url=url), self.assertRaisesRegex(auth.AuthError, '^OIDC_REQUEST_ENDPOINT_REJECTED$'):
+                auth.verify_oidc(env, opener)
+            opener.assert_not_called()
+
     def test_request_failure_redacted(self):
         opener=Mock(side_effect=RuntimeError('secret-token'))
         with self.assertRaisesRegex(auth.AuthError,'^OIDC_REQUEST_FAILED$'): auth.verify_oidc(config(),opener)
