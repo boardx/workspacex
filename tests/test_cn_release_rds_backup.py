@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import patch
 
 ROOT=Path(__file__).resolve().parents[1]
 s=importlib.util.spec_from_file_location('rds',ROOT/'scripts/cn-release-rds-backup.py');m=importlib.util.module_from_spec(s);s.loader.exec_module(m)
@@ -155,4 +156,55 @@ class Tests(unittest.TestCase):
   self.time+=dt.timedelta(minutes=11)
   with self.assertRaisesRegex(ValueError,'STOP_STALE'):self.runop('action')
   self.assertFalse((self.root/'intent.json').exists())
+class SdkManifestTests(unittest.TestCase):
+ def setUp(self):
+  self.tmp=tempfile.TemporaryDirectory();self.addCleanup(self.tmp.cleanup);self.root=Path(self.tmp.name);self.root.chmod(0o700)
+  self.sdk=self.root/'sdk';self.sdk.mkdir(mode=0o700);self.manifest=self.root/'rds-sdk-manifest.json'
+  for name,data in [('client.py',b'approved client'),('nested/module.py',b'approved dependency')]:
+   path=self.sdk/name;path.parent.mkdir(mode=0o700,exist_ok=True);path.write_bytes(data);path.chmod(0o600)
+  self.files={str(p.relative_to(self.sdk)):m.sha(p.read_bytes())for p in self.sdk.rglob('*')if p.is_file()}
+  self.reader=m.r.Reader(owner=os.getuid(),trust_root=self.root)
+  self.addCleanup(patch.stopall);patch.object(m,'SDK_ROOT',self.sdk).start();patch.object(m,'SDK_MANIFEST',self.manifest).start();self.sign()
+ def sign(self,files=None):
+  raw=m.encode({'kind':'cn-rds-sdk-manifest-v1','sdkRoot':str(self.sdk),'filesSha256':files or self.files});self.manifest.write_bytes(raw);self.manifest.chmod(0o600)
+  self.cfg={'sdkRoot':str(self.sdk),'sdkManifestSha256':m.sha(raw)}
+ def test_exact_private_manifest_and_files_pass(self):self.assertEqual(m.verify_sdk(self.cfg,self.reader),self.sdk)
+ def test_changed_or_extra_or_missing_file_rejected(self):
+  path=self.sdk/'client.py';path.write_bytes(b'drift')
+  with self.assertRaisesRegex(ValueError,'SDK_HASH'):m.verify_sdk(self.cfg,self.reader)
+  path.unlink()
+  with self.assertRaisesRegex(ValueError,'EXTRA_OR_MISSING'):m.verify_sdk(self.cfg,self.reader)
+ def test_unlisted_file_rejected(self):
+  (self.sdk/'extra.py').write_bytes(b'extra')
+  with self.assertRaisesRegex(ValueError,'EXTRA_OR_MISSING'):m.verify_sdk(self.cfg,self.reader)
+ def test_directory_symlink_even_unlisted_rejected(self):
+  (self.sdk/'linked').symlink_to(self.sdk/'nested',target_is_directory=True)
+  with self.assertRaisesRegex(ValueError,'SDK_SYMLINK'):m.verify_sdk(self.cfg,self.reader)
+ def test_file_symlink_and_mode_rejected(self):
+  path=self.sdk/'client.py';path.chmod(0o644)
+  with self.assertRaisesRegex(ValueError,'UNTRUSTED_FILE'):m.verify_sdk(self.cfg,self.reader)
+  path.unlink();path.symlink_to(self.sdk/'nested/module.py')
+  with self.assertRaisesRegex(ValueError,'SDK_SYMLINK'):m.verify_sdk(self.cfg,self.reader)
+ def test_manifest_hash_schema_and_inline_map_rejected(self):
+  self.cfg['sdkManifestSha256']='0'*64
+  with self.assertRaisesRegex(ValueError,'MANIFEST_HASH'):m.verify_sdk(self.cfg,self.reader)
+  self.sign();self.cfg['sdkFiles']=self.files
+  with self.assertRaisesRegex(ValueError,'INLINE_MAP'):m.verify_sdk(self.cfg,self.reader)
+ def test_large_real_file_map_external_authority_stays_small(self):
+  files=dict(self.files)
+  for i in range(1180):
+   path=self.sdk/f'long_dependency_name_{i:04d}.py';path.write_bytes(b'fixture');path.chmod(0o600);files[path.name]=m.sha(b'fixture')
+  self.sign(files);self.assertGreater(self.manifest.stat().st_size,65536);self.assertLess(len(m.encode(self.cfg)),256)
+  self.assertEqual(m.verify_sdk(self.cfg,self.reader),self.sdk)
+ def test_unsafe_directory_and_manifest_link_rejected(self):
+  (self.sdk/'nested').chmod(0o777)
+  with self.assertRaisesRegex(ValueError,'UNTRUSTED_DIRECTORY'):m.verify_sdk(self.cfg,self.reader)
+  (self.sdk/'nested').chmod(0o700);self.manifest.unlink();self.manifest.symlink_to(self.sdk/'client.py')
+  with self.assertRaises(OSError):m.verify_sdk(self.cfg,self.reader)
+ def test_manifest_bound_and_path_escape_rejected(self):
+  self.manifest.write_bytes(b' '*(m.SDK_MANIFEST_MAX+1))
+  with self.assertRaisesRegex(ValueError,'FILE_LIMIT'):m.verify_sdk(self.cfg,self.reader)
+  self.sign({'../outside.py':'a'*64})
+  with self.assertRaisesRegex(ValueError,'SDK_PATH'):m.verify_sdk(self.cfg,self.reader)
+
 if __name__=='__main__':unittest.main()

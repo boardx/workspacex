@@ -11,6 +11,7 @@ import json
 import os
 from pathlib import Path
 import re
+import stat
 import sys
 import time
 
@@ -19,6 +20,8 @@ DB='pgm-uf6rg214cp381l49'; REGION='cn-shanghai'; ACCOUNT='1177216024653153'
 ROLE='WorkspacexCnProductionEcsRole'
 BASE=Path('/var/lib/workspacex-cn/release-generated')
 SDK_ROOT=Path('/usr/local/lib/workspacex-cn/rds-sdk')
+SDK_MANIFEST=Path('/etc/workspacex-cn/rds-sdk-manifest.json')
+SDK_MANIFEST_MAX=1048576
 APPROVALS=Path('/etc/workspacex-cn/release-approvals')
 TARGET={'accountId':ACCOUNT,'region':REGION,'ecsInstanceId':'i-uf6ga92ewloganobbln6'}
 CREATE={'RegionId':REGION,'DBInstanceId':DB,'BackupMethod':'Snapshot'}
@@ -74,16 +77,33 @@ def permission(approval,reader,clock):
     need(dt.timedelta(0)<=clock-instant(p['observedAt'])<=dt.timedelta(hours=1),'RDS_CAPABILITY_STALE')
     return cfg
 
+def verify_sdk(cfg,reader):
+    """Small authority reference, full fixed-root inventory verification before imports."""
+    need('sdkFiles' not in cfg,'SDK_INLINE_MAP_FORBIDDEN')
+    need(cfg['sdkRoot']==str(SDK_ROOT),'SDK_FIXED_ROOT')
+    pin=cfg['sdkManifestSha256'];need(type(pin)is str and re.fullmatch('[a-f0-9]{64}',pin),'SDK_MANIFEST_PIN')
+    raw=reader.file(SDK_MANIFEST,limit=SDK_MANIFEST_MAX)
+    need(sha(raw)==pin,'SDK_MANIFEST_HASH');manifest=parse(raw)
+    need(set(manifest)=={'kind','sdkRoot','filesSha256'} and manifest['kind']=='cn-rds-sdk-manifest-v1' and manifest['sdkRoot']==str(SDK_ROOT),'SDK_MANIFEST_SCHEMA')
+    files=manifest['filesSha256'];need(type(files)is dict and 0<len(files)<=10000,'SDK_CLOSURE')
+    for name,digest in files.items():
+        need(type(name)is str and bool(name) and not Path(name).is_absolute() and '..'not in Path(name).parts and str(Path(name))==name,'SDK_PATH')
+        need(type(digest)is str and re.fullmatch('[a-f0-9]{64}',digest),'SDK_HASH_FORMAT')
+    reader.directory(SDK_ROOT);actual=set()
+    for path in SDK_ROOT.rglob('*'):
+        info=path.lstat();need(not stat.S_ISLNK(info.st_mode),'SDK_SYMLINK')
+        if stat.S_ISDIR(info.st_mode):reader.directory(path)
+        else:actual.add(str(path.relative_to(SDK_ROOT)))
+    need(actual==set(files),'SDK_EXTRA_OR_MISSING_FILES')
+    for name,digest in files.items():need(sha(reader.file(SDK_ROOT/name,limit=32*1024*1024))==digest,'SDK_HASH')
+    # Detect a changed authority file during inventory verification as well.
+    need(reader.file(SDK_MANIFEST,limit=SDK_MANIFEST_MAX)==raw,'SDK_MANIFEST_CHANGED')
+    return SDK_ROOT
+
 class Provider:
     """Preinstalled hash-complete SDK; IMDSv2 only, no credential-file chain."""
     def __init__(self,cfg,reader):
-        sdk=Path(cfg['sdkRoot']);need(sdk==SDK_ROOT,'SDK_FIXED_ROOT');reader.directory(sdk)
-        files=cfg['sdkFiles'];need(isinstance(files,dict) and files,'SDK_CLOSURE')
-        actual={str(p.relative_to(sdk)) for p in sdk.rglob('*') if not p.is_dir()}
-        need(actual==set(files),'SDK_EXTRA_OR_MISSING_FILES')
-        for name,digest in files.items():
-            need(not Path(name).is_absolute() and '..' not in Path(name).parts,'SDK_PATH')
-            need(sha(reader.file(sdk/name,limit=32*1024*1024))==digest,'SDK_HASH')
+        sdk=verify_sdk(cfg,reader)
         sys.dont_write_bytecode=True;sys.path.insert(0,str(sdk))
         # Root-installed release closure pins this existing host/HTTP policy.
         sys.path.insert(0,str(ROOT/'scripts'))

@@ -16,7 +16,7 @@ Fixed approval: `/etc/workspacex-cn/release-approvals/<SHA>.json`, kind `cn-fixe
 - `roleName`: `WorkspacexCnProductionEcsRole`
 - `principalArn`: exact STS observed session principal
 - `sdkRoot`: `/usr/local/lib/workspacex-cn/rds-sdk` (new approved installation required)
-- `sdkFiles`: complete relative-file-to-SHA256 map for the approved preinstalled SDK, no extra files
+- `sdkManifestSha256`: SHA256 of fixed root-private `/etc/workspacex-cn/rds-sdk-manifest.json` (at most 1 MiB). Its exact `{kind:"cn-rds-sdk-manifest-v1",sdkRoot,filesSha256}` schema contains the complete installed relative-file-to-SHA256 map. All files and safe parent permissions are verified; extras, symlinks and inline `sdkFiles` are rejected. The release approval remains bounded to 64 KiB.
 - `adapterSha256`, `holdHelperSha256`
 - `permissionEvidence`: `{path, sha256}` for a root-owned independently approved capability receipt
 

@@ -31,3 +31,16 @@ The final populated approval must fit the entry's 65,536-byte limit, including S
 Local tests distinguish package/contract routing, actual canonical materialization, provider fixtures and actual local Chromium/TLS journeys. They are not a production E2E result. The new exact head must pass Linux cgroup and browser CI. Recovery to baseline additionally needs its separately approved clear and business capability. The normal router currently blocks with `RECOVERY_TERMINAL_CAPABILITY_MISSING` before mutation because no fixed pre-recovery observer proves an uncertain Docker/provider operation safe to recover. Baseline clear and browser adapters do not establish that proof. After an A6 failure, writers may already be resumed; a held-only rollback is insufficient. This remains an implementation blocker, not a passed E2E test.
 
 Measured build + Hong Kong transfer/readback + Shanghai consume took **440 + 517 + 530 = 1,487 seconds (24m47s)**. ACR publish, backup, switch, A5 approval and A6 were not included. This leaves 313 seconds of a 30-minute request budget; no full-chain 30-minute result is established. Prepared activation must report both full request lead time and activation time. Pure Pages is a separate path; web-only can omit backend backup only after proving no backend recreation and compatibility, not merely because a diff has no SQL.
+
+### RDS SDK manifest reference
+
+The RDS configuration pins `sdkManifestSha256` instead of embedding `sdkFiles`
+in the 65,536-byte root release approval. The manifest path is fixed at
+`/etc/workspacex-cn/rds-sdk-manifest.json`; its exact schema is
+`{kind: "cn-rds-sdk-manifest-v1", sdkRoot: "/usr/local/lib/workspacex-cn/rds-sdk", filesSha256: {...}}`.
+The private manifest is bounded to 1 MiB and hash-verified before parsing.
+The complete installed SDK inventory is still verified before imports: every
+file hash, no extra/missing file, root ownership/private file modes, safe
+parents, and no symlink. Inline maps are rejected. This does not grant IAM
+permissions or prove an SDK is installed. The actual Linux inventory and final
+serialized approval size must be measured before installation/admission.
