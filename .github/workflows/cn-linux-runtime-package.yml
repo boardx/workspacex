@@ -12,6 +12,8 @@ on:
     paths:
       - 'scripts/build-cn-linux-runtime.py'
       - 'scripts/check-cn-linux-runtime.py'
+      - 'scripts/cn-release-business-state.py'
+      - 'tests/test_cn_release_business_state.py'
       - '.github/release-plans/linux-runtime-package/**'
       - '.github/workflows/cn-linux-runtime-package.yml'
       - 'tests/test_cn_linux_runtime_package.py'
@@ -34,7 +36,9 @@ jobs:
         with:
           python-version: '3.12'
       - name: Offline contract tests
-        run: python -B -m unittest discover -s tests -p test_cn_linux_runtime_package.py
+        run: |
+          python -B -m unittest discover -s tests -p test_cn_linux_runtime_package.py
+          python -B -m unittest discover -s tests -p test_cn_release_business_state.py
       - name: Build proposed Linux package and execute smoke tests
         env:
           INPUT_CONTROL: ${{ inputs.control_sha }}

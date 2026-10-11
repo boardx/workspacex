@@ -59,6 +59,29 @@ class PackageTests(unittest.TestCase):
             with self.assertRaises(RuntimeError): b.run(['pip'])
         self.assertNotIn('TOPSECRET',output.getvalue())
         self.assertEqual(json.loads(output.getvalue())['stderrBytes'],31)
+    def test_chrome_exact_path_bounds(self):
+        from unittest.mock import patch
+        cap=512*1024**2
+        for relative, exception, size, accepted in [
+            ('chromium/chrome','chromium/chrome',cap,True),
+            ('chromium/chrome','chromium/chrome',cap+1,False),
+            ('other/chrome','chromium/chrome',256*1024**2+1,False),
+            ('chromium/sub/chrome','chromium/chrome',256*1024**2+1,False),
+            ('chromium/chrome.so','chromium/chrome',256*1024**2+1,False),
+            ('chrome','chrome',cap,True),
+            ('chrome',None,256*1024**2+1,False)]:
+            with self.subTest(relative=relative,exception=exception,size=size), tempfile.TemporaryDirectory() as t:
+                root=Path(t); target=root/relative; target.parent.mkdir(parents=True,exist_ok=True)
+                with target.open('wb') as f: f.truncate(size)
+                b.normalize(root)
+                with patch.object(b,'sha',return_value='a'*64):
+                    if accepted: self.assertEqual(b.tree(root,256*1024**2,exception),{relative:'a'*64})
+                    else:
+                        with self.assertRaises(ValueError): b.tree(root,256*1024**2,exception)
+    def test_chrome_exception_cannot_raise_sdk_or_arbitrary_path(self):
+        with tempfile.TemporaryDirectory() as t:
+            for limit,exception in [(32*1024**2,'chrome'),(256*1024**2,'other/chrome'),(256*1024**2,'../chrome')]:
+                with self.assertRaises(ValueError): b.tree(Path(t),limit,exception)
     def test_recipe_empty_rejected(self):
         with tempfile.TemporaryDirectory() as t:
             p=Path(t); (p/b.PLAN).mkdir(parents=True)

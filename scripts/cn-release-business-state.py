@@ -54,7 +54,10 @@ class Reader:
         for p in path.rglob('*'):
             s=p.lstat();need(not stat.S_ISLNK(s.st_mode),'TREE_SYMLINK')
             if stat.S_ISDIR(s.st_mode):self.directory(p)
-            else:actual[str(p.relative_to(path))]=sha(self.file(p,256*1024*1024,False))
+            else:
+                chrome_tree=path.parent.parent==TOOLS and re.fullmatch('[a-f0-9]{40}',path.parent.name) and path.name=='chromium'
+                limit=512*1024*1024 if chrome_tree and p==path/'chrome' else 256*1024*1024
+                actual[str(p.relative_to(path))]=sha(self.file(p,limit,False))
         need(actual==pins,'TREE_CLOSURE')
 
 

@@ -48,7 +48,9 @@ def run(args, **kw):
                           'stderrBytes': len(raw), 'stderrSha256': hashlib.sha256(raw).hexdigest()}), file=sys.stderr)
         raise RuntimeError('BUILD_STEP_FAILED') from None
 
-def tree(root, limit):
+def tree(root, limit, chrome_relative=None):
+    if chrome_relative is not None and (limit != 256 * 1024**2 or chrome_relative not in ('chrome', 'chromium/chrome')):
+        raise ValueError('CHROME_EXCEPTION_SCOPE')
     result = {}
     for p in sorted(root.rglob('*')):
         s = p.lstat()
@@ -57,9 +59,10 @@ def tree(root, limit):
         if s.st_mode & 0o022:
             raise ValueError('WRITABLE_TREE')
         if p.is_file():
-            if s.st_nlink != 1 or s.st_size > limit:
+            file_limit = 512 * 1024**2 if p.relative_to(root).as_posix() == chrome_relative else limit
+            if s.st_nlink != 1 or s.st_size > file_limit:
                 print(json.dumps({'stage': 'tree-admission', 'tree': root.name, 'fileBytes': s.st_size,
-                                  'fileLimitBytes': limit, 'linkCount': s.st_nlink}), file=sys.stderr)
+                                  'fileLimitBytes': file_limit, 'linkCount': s.st_nlink}), file=sys.stderr)
                 raise ValueError('FILE_BOUND_OR_HARDLINK')
             result[p.relative_to(root).as_posix()] = sha(p)
     if not result:
@@ -112,7 +115,8 @@ def verify_recipe(root, expected):
     rows = json.loads(manifest.read_text())
     required = set(SOURCES + ['scripts/build-cn-linux-runtime.py', 'scripts/check-cn-linux-runtime.py',
         '.github/workflows/cn-linux-runtime-package.yml', 'tests/test_cn_linux_runtime_package.py',
-        'docs/operations/cn-release-entry/linux-runtime-package.md'] + [PLAN + '/' + name for name in
+        'docs/operations/cn-release-entry/linux-runtime-package.md', 'scripts/cn-release-business-state.py',
+        'tests/test_cn_release_business_state.py'] + [PLAN + '/' + name for name in
         ['package.json', 'package-lock.json', 'rds-requirements.lock', 'rds-sources.json', 'build-tools.lock', 'upstream.json']])
     if not isinstance(rows, dict) or set(rows) != required:
         raise ValueError('RECIPE_CLOSURE')
@@ -199,11 +203,11 @@ def main():
         run([py, '-I', '-B', root / 'scripts/check-cn-linux-runtime.py', out])
         normalize(out)
         business = tree(out / 'business', 256 * 1024**2)
-        # Existing Reader.tree caps every file at 256 MiB, including chrome.
+        # Match the consumer's existing 512 MiB pin only for the exact Chrome executable.
         print(json.dumps({'stage': 'chromium-size-admission',
                           'chromiumBytes': (out / 'chromium/chrome').stat().st_size,
-                          'fileLimitBytes': 256 * 1024**2}), flush=True)
-        chromium = tree(out / 'chromium', 256 * 1024**2)
+                          'fileLimitBytes': 512 * 1024**2}), flush=True)
+        chromium = tree(out / 'chromium', 256 * 1024**2, 'chrome')
         sdk = tree(out / 'rds-sdk', 32 * 1024**2)
         sdk_manifest = {'kind': 'cn-rds-sdk-manifest-v1', 'sdkRoot': '/usr/local/lib/workspacex-cn/rds-sdk', 'filesSha256': sdk}
         if len(sdk) > 10000 or len(json.dumps(sdk_manifest).encode()) > 1024**2:
@@ -216,7 +220,7 @@ def main():
               'proposedNodeSha256': sha(node), 'businessFilesSha256': business, 'chromiumFilesSha256': chromium,
               'chromiumBytes': (out / 'chromium/chrome').stat().st_size,
               'target': pins['target'], 'smokePassed': True})
-        files = tree(out, 256 * 1024**2)
+        files = tree(out, 256 * 1024**2, 'chromium/chrome')
         file_manifest = out.parent / (out.name + '.files.json')
         write(file_manifest, files)
         packed = out.parent / (out.name + '.tar.gz')
