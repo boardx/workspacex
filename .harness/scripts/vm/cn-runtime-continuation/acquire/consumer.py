@@ -10,6 +10,12 @@ INBOX=Path('/var/lib/workspacex-cn/candidate-inbox')
 RUNTIME=Path('/var/lib/workspacex-cn/runtime')
 ATTEMPT=CONFIG['attemptId']
 sha=lambda raw:hashlib.sha256(raw).hexdigest()
+PLAN_LIMIT=16384
+SET_LIMIT=256*1024
+FRAGMENT_LIMIT=256*1024
+RECEIPT_LIMIT=65536
+# At most 128 files/directories/rounding units across download, extraction, bundle.
+ALLOCATION_UNITS=128
 def validate(v):
  assert v['kind']=='cn-hk-consumer-v1' and v['bucket']==BUCKET and v['endpoint']==ENDPOINT and v['prefix']==PREFIX
  assert v['sourceRevision']==SOURCE and v['controlRevision']==CONTROL and v['runId']==CONFIG['runId'] and v['runAttempt']==CONFIG['runAttempt']
@@ -24,6 +30,65 @@ def validate(v):
  now=datetime.datetime.now(datetime.timezone.utc);issued=datetime.datetime.fromisoformat(v['issuedAt']);expiry=datetime.datetime.fromisoformat(v['expiresAt'])
  assert issued<=now<expiry and expiry-issued<=datetime.timedelta(minutes=30)
  return v
+
+def filesystem(path, allow_missing=False):
+ """Pinned root-owned directory device/free; nearest ancestor only for inbox."""
+ fd=os.open('/',os.O_RDONLY|os.O_DIRECTORY|os.O_NOFOLLOW)
+ try:
+  parts=Path(path).parts[1:]
+  for index,part in enumerate(parts):
+   try:n=os.open(part,os.O_RDONLY|os.O_DIRECTORY|os.O_NOFOLLOW,dir_fd=fd)
+   except FileNotFoundError:
+    if allow_missing:break
+    raise
+   os.close(fd);fd=n;s=os.fstat(fd)
+   # Only the fixed spool observation may traverse its standard sticky endpoint.
+   # This exception authorizes capacity observation, never trusted file storage.
+   sticky_spool=(str(path)=='/var/tmp' and index==len(parts)-1 and stat.S_IMODE(s.st_mode)==0o1777)
+   assert s.st_uid==s.st_gid==0 and (not s.st_mode&0o022 or sticky_spool)
+  s=os.fstat(fd);v=os.fstatvfs(fd)
+  return {'device':s.st_dev,'free':v.f_bavail*v.f_frsize,'allocationUnit':v.f_frsize}
+ finally:os.close(fd)
+
+def storage_plan(v, observations):
+ """Consumer retention plus the original publisher gates, grouped by device.
+
+ This does not reserve space or claim to cover later backup/runtime stages.
+ """
+ capacity=v['capacity'];t=capacity['imageBytes'];margin=capacity['storageMarginBytes']
+ assert type(t)is int and t>0 and type(margin)is int and margin>=0
+ assert re.fullmatch('[a-f0-9]{64}',capacity['canonicalHostSha256'])
+ assert set(capacity['guards'])=={'SPOOL_CAPACITY','DOCKER_CAPACITY'}
+ z=sum(x['bytes'] for x in v['objects'].values())
+ # Extracted plan + set + five fragments/plans, copied bundle metadata,
+ # two bounded receipts, plus conservative filesystem allocation rounding.
+ metadata=(PLAN_LIMIT+(PLAN_LIMIT+SET_LIMIT)+5*(PLAN_LIMIT+FRAGMENT_LIMIT)
+           +PLAN_LIMIT+SET_LIMIT+v['objects']['proof']['bytes']+v['objects']['policy']['bytes']
+           +2*RECEIPT_LIMIT+ALLOCATION_UNITS*observations['consumer']['allocationUnit'])
+ retained=max(2*z,z+t+metadata)
+ assert observations['consumer']['device']==observations['inbox']['device'],'INBOX_PROMOTION_CROSS_DEVICE'
+ devices={}
+ for name,o in observations.items():
+  assert type(o['device'])is int and type(o['free'])is int and o['free']>=0 and type(o['allocationUnit'])is int and o['allocationUnit']>0
+  item=devices.setdefault(o['device'],dict(device=o['device'],free=o['free'],consumerRetained=0,publisherSpool=0,publisherDocker=0,required=0,paths=[]))
+  item['free']=min(item['free'],o['free']);item['paths'].append(name)
+ local=devices[observations['consumer']['device']];local['consumerRetained']=retained;local['required']=retained+margin
+ for code,name,field,path in (('SPOOL_CAPACITY','spool','publisherSpool','/var/tmp'),('DOCKER_CAPACITY','docker','publisherDocker','/var/lib/docker')):
+  guard=capacity['guards'][code];assert set(guard)=={'path','imageMultiplier','marginField'} and guard['path']==path and guard['marginField']=='storageMarginBytes'
+  assert type(guard['imageMultiplier'])is int and guard['imageMultiplier']>0
+  item=devices[observations[name]['device']];threshold=t*guard['imageMultiplier']+margin
+  item[field]=threshold;item['required']=max(item['required'],item['consumerRetained']+threshold)
+ return dict(kind='cn-consume-publisher-storage-v1',canonicalHostSha256=capacity['canonicalHostSha256'],imageBytes=t,objectBytes=z,metadataUpperBound=metadata,storageMarginBytes=margin,devices=list(devices.values()),scope='consumer-retention-and-canonical-publisher-gates',spaceReserved=False)
+
+def admit_storage(v):
+ observations={'consumer':filesystem('/var/lib/workspacex-cn'),'inbox':filesystem(str(INBOX),True),'spool':filesystem('/var/tmp'),'docker':filesystem('/var/lib/docker')}
+ evidence=storage_plan(v,observations)
+ evidence['admitted']=all(x['free']>=x['required'] for x in evidence['devices'])
+ return evidence
+
+def write_receipt(path,value):
+ raw=(json.dumps(value,sort_keys=True)+'\n').encode();assert len(raw)<=RECEIPT_LIMIT
+ with path.open('xb')as f:path.chmod(0o600);f.write(raw);f.flush();os.fsync(f.fileno())
 
 def extract(z,folder,limits):
  with zipfile.ZipFile(z)as archive:
@@ -54,6 +119,9 @@ def download_one(bucket,x,path,check):
 
 def run(v):
  validate(v);assert os.geteuid()==os.getegid()==0;logging.disable(logging.CRITICAL)
+ # Before credential acquisition, SDK construction or any OSS GET.
+ capacity_evidence=admit_storage(v)
+ if not capacity_evidence['admitted']:return dict(status='CAPACITY_REJECTED',code='CONSUMER_PUBLISHER_CAPACITY',storageAdmission=capacity_evidence,cloudCalls=0,ossGets=0,productionReady=False)
  from cn_candidate_authenticated_oss import verify_host,pin_session,ACCOUNT,ROLE,REGION
  from cn_candidate_revalidation import admit
  import cn_image_candidate as candidate
@@ -68,7 +136,6 @@ def run(v):
  parent=Path('/var/lib/workspacex-cn')
  for p in (parent,*parent.parents):
   s=p.lstat();assert stat.S_ISDIR(s.st_mode)and s.st_uid==s.st_gid==0 and not s.st_mode&0o022
- assert shutil.disk_usage(parent).free>=2*sum(x['bytes']for x in v['objects'].values())+2*1024**3
  deadline=time.monotonic()+v['maxSeconds']
  def check():assert time.monotonic()<deadline and datetime.datetime.now(datetime.timezone.utc)<datetime.datetime.fromisoformat(v['expiresAt'])
  verify_host();credential=Client(Config(type='ecs_ram_role',role_name=ROLE,disable_imds_v1=True,timeout=2000,connect_timeout=2000)).get_credential()
@@ -82,8 +149,9 @@ def run(v):
  # Original object bytes are untrusted until the independently pinned SHA matches.
  for name,x in v['objects'].items():download_one(bucket,x,cache/(name+('.zip'if name not in ('proof','policy')else '.json')),check)
  result=verify_downloaded(v,root,check)
+ result['storageAdmission']=capacity_evidence
  result['bundle']=str(promote_verified(root,result,check));result['promotedToExactPublisherInbox']=True
- with (root/'promoted-receipt.json').open('x')as f:json.dump(result,f,sort_keys=True);f.write('\n')
+ write_receipt(root/'promoted-receipt.json',result)
  return result
 
 def verify_downloaded(v,root,check):
@@ -95,13 +163,13 @@ def verify_downloaded(v,root,check):
  for name in ('api','web','agent','sandbox','postgres','plan','set'):
   expected=v['objects'][name];actual=pv['github']['artifacts'][name]
   assert actual['artifactId']==expected['artifactId']and actual['zipBytes']==expected['bytes']and actual['zipSha256']==expected['sha256']
- for name,limits in [('plan',{'cn-candidate-plan.json':16384}),('set',{'candidate-set.json':256*1024,'candidate-plan.json':16384})]:
+ for name,limits in [('plan',{'cn-candidate-plan.json':PLAN_LIMIT}),('set',{'candidate-set.json':SET_LIMIT,'candidate-plan.json':PLAN_LIMIT})]:
   folder=root/name;folder.mkdir(mode=0o700);extract(cache/(name+'.zip'),folder,limits)
  planraw=(root/'plan/cn-candidate-plan.json').read_bytes();setraw=(root/'set/candidate-set.json').read_bytes();assert sha(planraw)==v['candidatePlanRawSha256']and sha(setraw)==v['candidateSetRawSha256']
  assert (root/'set/candidate-plan.json').read_bytes()==planraw
  plan=candidate.validate_plan(json.loads(planraw));receipt=cap.check(plan,setraw,sha(setraw),sha(planraw));bundle=root/'bundle';bundle.mkdir(mode=0o700)
  for name,item in receipt['images'].items():
-  check();folder=root/name;folder.mkdir(mode=0o700);extract(cache/(name+'.zip'),folder,{'candidate-plan.json':16384,'candidate-fragment.json':256*1024,name+'.tar':item['size']})
+  check();folder=root/name;folder.mkdir(mode=0o700);extract(cache/(name+'.zip'),folder,{'candidate-plan.json':PLAN_LIMIT,'candidate-fragment.json':FRAGMENT_LIMIT,name+'.tar':item['size']})
   assert (folder/'candidate-plan.json').read_bytes()==planraw
   fragment=(folder/'candidate-fragment.json').read_bytes();assert sha(fragment)==pv['fragmentSha256'][name]
   assert candidate.validate_historical_receipt(fragment,plan,sha(fragment))['images']=={name:item}
@@ -110,7 +178,7 @@ def verify_downloaded(v,root,check):
  for name,raw in [('candidate-plan.json',planraw),('candidate-set.json',setraw),('revalidation.json',proof),('revalidation-policy.json',policy)]:
   with (bundle/name).open('xb')as f:(bundle/name).chmod(0o600);f.write(raw);f.flush();os.fsync(f.fileno())
  result=dict(kind='cn-hk-consumed-revalidated-bundle-v1',root=str(root),bundle=str(bundle),originalZipsPreserved=True,proofGenerated=False,proofSha256=sha(proof),policySha256=sha(policy),expiresAt=cap.expires_at,sourceRevision=SOURCE,controlRevision=CONTROL,images=verified['images'],cloudWrites=0,publicationExecuted=False,productionReady=False,finishedAt=datetime.datetime.now(datetime.timezone.utc).isoformat())
- with (root/'receipt.json').open('x')as f:json.dump(result,f,sort_keys=True);f.write('\n')
+ write_receipt(root/'receipt.json',result)
  return result
 
 

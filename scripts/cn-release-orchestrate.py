@@ -58,7 +58,7 @@ def installation_plan(probe_path):
     sha=e.digest(source.read_bytes());target='/usr/local/bin/workspacex-cn-release-advance'
     observed=[v for v in probe.get('wrappers',probe.get('targets',[])) if v.get('path')==target]
     old=observed[0] if len(observed)==1 else None
-    script_names=('cn-release-orchestrate.py','cn-release-continuation-bind.py','cn-release-continuation-acquire.py','cn-release-continuation-finalize.py','cn-release-derived-approval.py','cn-release-continuation-journal.py')
+    script_names=('cn-release-orchestrate.py','cn-release-continuation-bind.py','cn-release-continuation-acquire.py','cn-release-continuation-finalize.py','cn-release-derived-approval.py','cn-release-continuation-journal.py','cn-release-runtime-readback.py')
     relative=[Path('scripts')/name for name in script_names]
     relative += [Path('.harness/scripts/vm/cn-release-advance.py'),Path('packages/cloud-deploy/src/cn-release-browser-contract.ts')]
     relative += [p.relative_to(ROOT) for p in (ROOT/'.harness/scripts/vm/cn-runtime-continuation').rglob('*') if p.is_file() and '__pycache__' not in p.parts]
@@ -77,7 +77,7 @@ def installation_plan(probe_path):
                     'bytesBase64':__import__('base64').b64encode(e.encode({'schemaVersion':1,'entrySha256':sha})).decode()},
             'sudoRule':'ghrunner ALL=(root) NOPASSWD: /usr/local/bin/workspacex-cn-release-advance *',
             'sudoTarget':'/etc/sudoers.d/workspacex-cn-release-advance',
-            'directories':['/etc/workspacex-cn/continuation-requests','/etc/workspacex-cn/continuation-approvals','/var/lib/workspacex-cn/continuation','/etc/workspacex-cn/release-approvals','/etc/workspacex-cn/continuation-finalize-approvals','/var/lib/workspacex-cn/continuation-evidence','/var/lib/workspacex-cn/continuation-derived-requests'],
+            'directories':['/etc/workspacex-cn/continuation-requests','/etc/workspacex-cn/continuation-approvals','/var/lib/workspacex-cn/continuation','/etc/workspacex-cn/release-approvals','/etc/workspacex-cn/runtime-readback-approvals','/etc/workspacex-cn/continuation-finalize-approvals','/var/lib/workspacex-cn/continuation-evidence','/var/lib/workspacex-cn/continuation-derived-requests'],
             'processIsolation':{'kind':'cgroup-v2','root':'/sys/fs/cgroup/workspacex-cn-continuation','requiresCgroupKill':True,'runtimeCreationAndCleanupRequiresApproval':True},
             'ecsIamDelta':[],'oidcTrustDelta':[],
             'requiresSeparateApproval':True,'installationReady':False,

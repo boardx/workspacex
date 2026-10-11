@@ -15,10 +15,21 @@ def ref(v):
  need(set(v)=={'path','sha256'} and re.fullmatch('[a-f0-9]{64}',v['sha256']))
  p=Path(v['path']);need(p.is_absolute() and not p.is_symlink());b=p.read_bytes();need(0<len(b)<=1048576 and sha(b)==v['sha256']);return b
 def params(command,name,timeout):return {'RegionId':'cn-shanghai','InstanceId.1':'i-uf6ga92ewloganobbln6','Type':'RunShellScript','Name':name,'CommandContent':command,'ContentEncoding':'PlainText','Timeout':str(timeout),'WorkingDir':'/','Username':'root','RepeatMode':'Once','KeepCommand':'false','EnableParameter':'false'}
+def bounded_parameters(source,name,limit,d):
+ now=datetime.now(timezone.utc);deadline=datetime.fromisoformat(d['deadlineAt'].replace('Z','+00:00'));requested=datetime.fromisoformat(d['requestedAt'].replace('Z','+00:00'))
+ need(requested<=now<deadline and 0<(deadline-requested).total_seconds()<=1800)
+ remaining=int((deadline-now).total_seconds());timeout=min(limit,remaining);need(timeout>=1)
+ config=dict(requestedAt=d['requestedAt'],deadlineAt=d['deadlineAt'],maxSeconds=timeout,source=base64.b64encode(source).decode(),sourceSha256=sha(source))
+ runtime=Path(__file__).with_name('deadline-runtime.py').read_text().replace('__CONFIG__',repr(config)).encode()
+ packed=base64.b64encode(zlib.compress(runtime)).decode()
+ command="/usr/bin/python3.12 -I -S -B - <<'CN_DEADLINE'\nimport base64,zlib,hashlib\nb=zlib.decompress(base64.b64decode("+repr(packed)+"))\nassert hashlib.sha256(b).hexdigest()=="+repr(sha(runtime))+"\nexec(compile(b,'<deadline-guard>','exec'))\nCN_DEADLINE\n"
+ need(len(command.encode())<=18000)
+ return enc(params(command,name,timeout))
+
 def generate(d,raw,repo):
  global SOURCE,CONTROL,ATTEMPT
  identity=d["identity"];SOURCE=identity["sourceRevision"];CONTROL=identity["controlRevision"];ATTEMPT=identity["attemptId"]
- need(set(d)=={'kind','publishAuthorized','issuedAt','expiresAt','release','refs','identity'} and d['kind']=='cn-reviewed-publication-decision-v1' and d['publishAuthorized'] is True)
+ need(set(d)=={'kind','publishAuthorized','issuedAt','expiresAt','release','refs','identity','requestedAt','deadlineAt'} and d['kind']=='cn-reviewed-publication-decision-v1' and d['publishAuthorized'] is True)
  need(set(d['refs'])=={'plan','set','proof','policy','tools','canonical','provider','redis','binaries'})
  b={k:ref(v) for k,v in d['refs'].items()};v={k:json.loads(x) for k,x in b.items()};plan=v['plan']
  need((plan['sourceRevision'],plan['controlRevision'],plan['attemptId'])==(SOURCE,CONTROL,ATTEMPT))
@@ -50,10 +61,24 @@ def generate(d,raw,repo):
   root='/etc/workspacex-cn/candidate-publish/'+SOURCE+'/'+ATTEMPT
   config=dict(root=root,inbox='/var/lib/workspacex-cn/candidate-inbox/'+SOURCE+'/'+ATTEMPT,tools=v['tools']['files'],canonicalSha=approval['canonicalConfigurationSha256'],setSha=sha(b['set']),files={k:dict(sha256=sha(x),base64=base64.b64encode(x).decode()) for k,x in content.items()})
   runtime=Path(__file__).with_name('stage-runtime.py').read_text();need(sha(runtime.encode())=='cdf483cbb3880a81ac7bcaf647bb1d5372fbcb61fb5e2a1492ad187fee92c5a7');stage=runtime.replace('__CONFIG__',repr(config)).encode();content['stage.py']=stage
-  command="/usr/bin/python3.12 -I -S -B - <<'PY'\nimport base64,hashlib,zlib\nb=zlib.decompress(base64.b64decode("+repr(base64.b64encode(zlib.compress(stage)).decode())+"))\nassert hashlib.sha256(b).hexdigest()=="+repr(sha(stage))+"\nexec(compile(b,'<reviewed-publication-stage>','exec'))\nPY\n"
-  need(len(command.encode())<=18000);content['stage-parameters.json']=enc(params(command,'cn-publication-stage',120))
+  transport=Path(__file__).with_name('transport-runtime.py').read_bytes()
+  compressed=zlib.compress(stage);need(0<len(stage)<=1024**2 and len(compressed)<=1024**2)
+  # 5 KiB accommodates the exact-byte transport plus the deadline guard below 18 KiB.
+  chunks=[compressed[i:i+5000] for i in range(0,len(compressed),5000)]
+  directory='publication-bytes-'+sha(raw)
+  configs=[dict(op='chunk',directory=directory,index=i,data=base64.b64encode(x).decode(),size=len(x),sha256=sha(x)) for i,x in enumerate(chunks)]
+  configs.append(dict(op='assemble',directory=directory,chunks=[dict(size=len(x),sha256=sha(x)) for x in chunks],compressedSha256=sha(compressed),stageSize=len(stage),stageSha256=sha(stage)))
+  steps=[]
+  for i,configuration in enumerate(configs):
+   code=transport.decode().replace('__CONFIG__',repr(configuration)).encode()
+   name=('stage-chunk-%03d'%i) if configuration['op']=='chunk' else 'stage-assemble'
+   filename=name+'-parameters.json';content[filename]=bounded_parameters(code,'cn-publication-'+name,120,d)
+   steps.append(dict(parameters=filename,sha256=sha(content[filename]),operation=name))
   for op in ('check-plan','publish'):
-   cmd='/usr/bin/python3.12 -I -S -B /usr/local/lib/workspacex-cn/import-cn-image-candidates.py --'+op+' '+SOURCE+' '+ATTEMPT+' '+sha(content['approval.json'])
-   content[op+'-parameters.json']=enc(params(cmd,'cn-publication-'+op,1200))
+   argv=['/usr/bin/python3.12','-I','-S','-B','/usr/local/lib/workspacex-cn/import-cn-image-candidates.py','--'+op,SOURCE,ATTEMPT,sha(content['approval.json'])]
+   source=('import os\nos.execv('+repr(argv[0])+','+repr(argv)+')\n').encode()
+   filename=op+'-parameters.json';content[filename]=bounded_parameters(source,'cn-publication-'+op,1200,d)
+   steps.append(dict(parameters=filename,sha256=sha(content[filename]),operation=op))
+  content['stage-order.json']=enc(dict(kind='cn-publication-split-stage-v3',decisionSha256=sha(raw),steps=steps,retryAllowed=False,requestedAt=d['requestedAt'],deadlineAt=d['deadlineAt'],independentObserverRequired=True))
   content['receipt.json']=enc(dict(kind='cn-publication-materialization-v1',decisionSha256=sha(raw),files={k:sha(x) for k,x in content.items()},cloudCalls=0))
   return content

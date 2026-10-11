@@ -41,7 +41,8 @@ class JournalTests(unittest.TestCase):
             releaseRequestSha256=self.release,release={k:v for k,v in self.identity.items()if k!='scope'},
             target=m.TARGET,allowedPhases=list(m.ENDS),issuedAt=self.start,expiresAt=self.end,
             evidenceValidatorSha256='4'*64,entrySha256='5'*64,
-            stageVerifierSha256={s:m.sha(self.verify)for s in self.e.STAGES})
+            stageVerifierSha256={s:m.sha(self.verify)for s in self.e.STAGES},
+            stageObserverSha256={s:m.sha(b'observer')for s in self.e.STAGES})
         self.a['release']['publicationAttemptId']='build-test'
         static={k:m.encode(dict(sourceRevision='1'*40,baselineRevision='2'*40,attemptId='journal-test',issuedAt=self.start,expiresAt=self.end))for k in m.STATIC_INPUTS}
         self.inputs=static
@@ -81,7 +82,19 @@ class JournalTests(unittest.TestCase):
         for name,stage in m.STAGE_INPUTS.items():
             if name in m.input_names(phase):
                 i=self.e.STAGES.index(stage)
-                self.inputs[name]=(self.attempt/('%02d-%s.evidence.json'%(i,stage))).read_bytes()
+                suffix='terminal-observation' if name in m.TERMINAL_INPUTS else 'evidence'
+                self.inputs[name]=(self.attempt/('%02d-%s.%s.json'%(i,stage,suffix))).read_bytes()
+
+    def test_backup_input_comes_from_live_observer_not_action_summary(self):
+        self.make_chain(11);self.set_phase_inputs('switch')
+        self.project('switch')
+        self.inputs['hostBackup']=(self.attempt/'10-backup.evidence.json').read_bytes()
+        with self.assertRaisesRegex(ValueError,'INPUT_NOT_ORIGINAL_STAGE_EVIDENCE_hostBackup'):
+            self.project('switch')
+
+    def test_unapproved_observer_blocks_journal(self):
+        self.a['stageObserverSha256']['consume']='f'*64
+        with self.assertRaisesRegex(ValueError,'LIVE_OBSERVER_NOT_APPROVED'):self.project()
 
     def project(self,phase='hold'):
         gen=m.project(self.e,self.release,m.encode(self.a),phase,self.inputs,now=self.now)

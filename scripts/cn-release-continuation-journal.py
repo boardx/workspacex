@@ -23,6 +23,7 @@ ENDS={'hold':3,'stop':5,'backup':8,'switch':11}
 PROJECT={'publish':'publish','hold':'hold','stop':'stop','sessions':'sessionzero','backup':'backup','rds-backup':'rds-backup'}
 IDENTITY=('sourceRevision','baselineRevision','controlRevision','attemptId','requestedAt','deadlineAt')
 STAGE_INPUTS={'publication':'publish','hold':'hold','stop':'sessions','hostBackup':'backup','rdsBackup':'rds-backup'}
+TERMINAL_INPUTS={'hostBackup':'backup'}
 STATIC_INPUTS={'authorization','template','migrationDiff'}
 TARGET={'accountId':'1177216024653153','region':'cn-shanghai','ecsInstanceId':'i-uf6ga92ewloganobbln6'}
 
@@ -111,7 +112,7 @@ def project(entry,release_sha,approval_raw,phase,inputs,*,now=None):
         receipts=sorted(root.glob('*.receipt.json'))
         expected=[root/('%02d-%s.receipt.json'%(i,entry.STAGES[i]))for i in range(ENDS[phase]+1)]
         need(receipts==expected,'PHASE_SKIP_OR_FUTURE_RECEIPT')
-        previous=None;completed=[];raw_receipts={};stage_refs=[];action_bytes={};last=entry.instant(r['requestedAt'])
+        previous=None;completed=[];raw_receipts={};stage_refs=[];action_bytes={};terminal_bytes={};last=entry.instant(r['requestedAt'])
         for index,path in enumerate(expected):
             raw=entry.read(path);v=entry.decode(raw);stage=entry.STAGES[index]
             need(v['stage']==stage and v['mode']in ('advance','reconcile'),'RECOVERY_OR_STAGE')
@@ -121,6 +122,7 @@ def project(entry,release_sha,approval_raw,phase,inputs,*,now=None):
             need(manifest['stage']==stage and all(manifest[k]==identity[k]for k in identity)
                  and manifest['previousReceiptSha256']==v['previousReceiptSha256'],'MANIFEST_IDENTITY')
             need(manifest['verifierSha256']==a['stageVerifierSha256'][stage],'LIVE_VERIFIER_NOT_APPROVED')
+            need(manifest['observerSha256']==a['stageObserverSha256'][stage],'LIVE_OBSERVER_NOT_APPROVED')
             prefix=path.name.removesuffix('.receipt.json')
             intent=entry.decode(entry.read(root/(prefix+'.intent.json')))
             need(intent['requestSha256']==v['requestSha256'],'INTENT_REQUEST')
@@ -132,7 +134,7 @@ def project(entry,release_sha,approval_raw,phase,inputs,*,now=None):
             prev=entry.decode(previous)if previous else None
             entry.verify(files['verify.py'],evidence,manifest,prev,v['mode'])
             entry.verify(files['verify.py'],terminal,manifest,prev,'terminal')
-            action_bytes[stage]=evidence
+            action_bytes[stage]=evidence;terminal_bytes[stage]=terminal
             finished=entry.instant(v['finishedAt']);need(last<=finished<=now and finished<=entry.instant(r['deadlineAt']),'RECEIPT_TIME')
             last=finished
             stage_refs.append({'stage':stage,'receiptSha256':sha(raw),'evidenceSha256':sha(evidence),
@@ -143,12 +145,13 @@ def project(entry,release_sha,approval_raw,phase,inputs,*,now=None):
                     'attemptId':attempt,'validatorSha256':a['evidenceValidatorSha256'],
                     'observedAt':v['finishedAt'],'receiptSha256':sha(raw)})
             previous=raw
-        # No user-selected extractor or JSON reserialization is allowed. If a
-        # real action emits a wrapper instead of the required receipt, an
-        # independently reviewed fixed extractor is needed; this version blocks.
+        # Fixed backup readback emits the exact backup-result bytes after live
+        # archive/config/hold verification. Bind that independent observation,
+        # never the action's completion summary. Other inputs remain action bytes.
         for name,stage in STAGE_INPUTS.items():
             if name in inputs:
-                need(stage in action_bytes and inputs[name]==action_bytes[stage],
+                originals=terminal_bytes if name in TERMINAL_INPUTS else action_bytes
+                need(stage in originals and inputs[name]==originals[stage],
                      'INPUT_NOT_ORIGINAL_STAGE_EVIDENCE_'+name)
         journal={'kind':'cn-release-validated-journal-v1','releaseRequestSha256':release_sha,'identity':r,
             'target':TARGET,'phaseReady':phase,'validatorSha256':a['evidenceValidatorSha256'],
