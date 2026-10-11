@@ -85,6 +85,26 @@ class JournalTests(unittest.TestCase):
                 suffix='terminal-observation' if name in m.TERMINAL_INPUTS else 'evidence'
                 self.inputs[name]=(self.attempt/('%02d-%s.%s.json'%(i,stage,suffix))).read_bytes()
 
+    def test_hold_input_uses_original_readback_not_action_wrapper(self):
+        self.make_chain(5);self.set_phase_inputs('stop');self.project('stop')
+        self.inputs['hold']=(self.attempt/'05-hold.evidence.json').read_bytes()
+        with self.assertRaisesRegex(ValueError,'INPUT_NOT_ORIGINAL_STAGE_EVIDENCE_hold'):
+            self.project('stop')
+
+    def test_actual_hold_producer_emits_wrapper_and_preserves_original_hold(self):
+        from types import SimpleNamespace
+        runtime=module('actual_hold_runtime',ROOT/'.harness/scripts/vm/cn-runtime-continuation/upgrade-draft.py')
+        binding={'previousHold':None,'attemptId':'actual-test','migrationDiffEvidenceSha256':'a'*64}
+        identity={'sourceRevision':runtime.SOURCE,'baselineRevision':runtime.BASELINE,'attemptId':'actual-test','migrationPlanSha256':'a'*64}
+        hold={'state':'held','generation':'one','identity':identity}
+        records={}
+        result=runtime.create_hold_phase(binding,self.root,'b'*64,None,lambda:hold,
+            lambda actual:SimpleNamespace(returncode=0,stdout=m.encode(hold)),
+            lambda root,name,value:records.update({name:value}))
+        self.assertNotEqual(m.encode(result),m.encode(hold))
+        self.assertEqual(result['actualHold'],hold);self.assertEqual(records['hold-result.json'],hold)
+        self.assertEqual(m.TERMINAL_INPUTS['hold'],'hold')
+
     def test_backup_input_comes_from_live_observer_not_action_summary(self):
         self.make_chain(11);self.set_phase_inputs('switch')
         self.project('switch')

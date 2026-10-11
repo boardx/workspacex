@@ -23,7 +23,7 @@ ENDS={'hold':3,'stop':5,'backup':8,'switch':11}
 PROJECT={'publish':'publish','hold':'hold','stop':'stop','sessions':'sessionzero','backup':'backup','rds-backup':'rds-backup'}
 IDENTITY=('sourceRevision','baselineRevision','controlRevision','attemptId','requestedAt','deadlineAt')
 STAGE_INPUTS={'publication':'publish','hold':'hold','stop':'sessions','hostBackup':'backup','rdsBackup':'rds-backup'}
-TERMINAL_INPUTS={'hostBackup':'backup'}
+TERMINAL_INPUTS={'hold':'hold','hostBackup':'backup'}
 STATIC_INPUTS={'authorization','template','migrationDiff'}
 TARGET={'accountId':'1177216024653153','region':'cn-shanghai','ecsInstanceId':'i-uf6ga92ewloganobbln6'}
 
@@ -147,7 +147,7 @@ def project(entry,release_sha,approval_raw,phase,inputs,*,now=None):
             previous=raw
         # Fixed backup readback emits the exact backup-result bytes after live
         # archive/config/hold verification. Bind that independent observation,
-        # never the action's completion summary. Other inputs remain action bytes.
+        # never the action's completion summary. Hold likewise uses the independent helper readback; its action emits a wrapper. Other inputs remain action bytes.
         for name,stage in STAGE_INPUTS.items():
             if name in inputs:
                 originals=terminal_bytes if name in TERMINAL_INPUTS else action_bytes
