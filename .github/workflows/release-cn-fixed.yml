@@ -3,14 +3,25 @@ name: Fixed approved CN release
 on:
   workflow_dispatch:
     inputs:
+      lane:
+        description: Normal release or separately approved baseline recovery
+        required: true
+        type: choice
+        default: release
+        options: [release, recovery]
       mode:
         description: Continue approved release or inspect it; never auto-retry uncertain writes
         required: true
         type: choice
-        options: [status, run, reconcile]
+        options: [status, run, reconcile, readback, prepare-seal, seal, seal-reconcile]
       release_sha256:
         description: Exact separately approved root-installed release request hash
         required: true
+        type: string
+
+      recovery_sha256:
+        description: Required only for recovery; exact fresh root-installed recovery approval hash
+        required: false
         type: string
 
 permissions:
@@ -30,10 +41,21 @@ jobs:
       - name: Invoke the fixed installed release driver
         shell: bash
         env:
+          LANE: ${{ inputs.lane }}
           MODE: ${{ inputs.mode }}
+          RECOVERY_SHA: ${{ inputs.recovery_sha256 }}
           RELEASE_SHA: ${{ inputs.release_sha256 }}
         run: |
           set -euo pipefail
-          [[ "$MODE" =~ ^(status|run|reconcile)$ ]]
-          [[ "$RELEASE_SHA" =~ ^[a-f0-9]{64}$ ]]
-          sudo -n /usr/local/bin/workspacex-cn-fixed-release "$MODE" "$RELEASE_SHA"
+          [[ "$RELEASE_SHA" =~ ^[a-f0-9]{64}$ ]] || exit 2
+          if [[ "$LANE" == release ]]; then
+            [[ "$MODE" =~ ^(status|run|reconcile)$ ]] || exit 2
+            [[ -z "$RECOVERY_SHA" ]] || exit 2
+            sudo -n /usr/local/bin/workspacex-cn-fixed-release "$MODE" "$RELEASE_SHA"
+          elif [[ "$LANE" == recovery ]]; then
+            [[ "$MODE" =~ ^(status|run|reconcile|readback|prepare-seal|seal|seal-reconcile)$ ]] || exit 2
+            [[ "$RECOVERY_SHA" =~ ^[a-f0-9]{64}$ ]] || exit 2
+            sudo -n /usr/local/bin/workspacex-cn-fixed-recovery "$MODE" "$RELEASE_SHA" "$RECOVERY_SHA"
+          else
+            exit 2
+          fi

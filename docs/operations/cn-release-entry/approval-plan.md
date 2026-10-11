@@ -43,7 +43,7 @@ helper hash/current generation; installed canonical control checkout; current
 free space and publication proof lifetime. No credentials or browser-plan secret
 bytes should be copied into this proposal or CI artifacts.
 
-A complete local fixture with 50 code files measured **18,052 bytes**, including
+A complete local fixture with 52 code files measured **18,268 bytes**, including
 both acquire requests, all 17 route hashes and external manifest/profile
 references. Provider identities in that fixture are synthetic. This proves the
 builder measures and enforces the full request, not that a final real production

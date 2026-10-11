@@ -24,6 +24,7 @@ MODULES={
  'stage':'scripts/cn-release-runtime-stage.py',
  'terminal':'scripts/cn-release-terminal-delegation.py',
  'recovery':'scripts/cn-release-recovery-admission.py',
+ 'recovery-driver':'scripts/cn-release-recovery-driver.py',
  'finalize':'scripts/cn-release-continuation-finalize.py',
  'rds':'scripts/cn-release-rds-backup.py',
  'business':'scripts/cn-release-business-observer.py',
@@ -65,7 +66,7 @@ class Router:
             'scripts/cn-release-fixed-driver.py','scripts/cn-release-stage-router.py','.harness/scripts/vm/cn-release-advance.py',
             'scripts/cn-release-continuation-bind.py','scripts/cn-release-derived-approval.py',
             'scripts/cn-release-continuation-acquire.py','scripts/cn-release-runtime-readback.py',
-            'scripts/cn-release-business-state.py','scripts/cn-release-business-recovery.py','scripts/cn-release-recovery-writer.py','scripts/cn-release-business-entry.ts','scripts/cn-release-business-runner.ts',
+            'scripts/cn-release-recovery-contract.py','scripts/cn-release-business-state.py','scripts/cn-release-business-recovery.py','scripts/cn-release-recovery-writer.py','scripts/cn-release-business-entry.ts','scripts/cn-release-business-runner.ts',
             '.harness/scripts/vm/cn-maintenance-browser.cjs','packages/cloud-deploy/src/cn-release-browser-contract.ts',
             'packages/cloud-deploy/src/cn-maintenance-host/acceptance_contract.ts',
             '.harness/scripts/vm/cn-runtime-continuation/finalize/runtime.py'}
@@ -95,11 +96,10 @@ class Router:
         e.need(capability=={'kind':'cn-recovery-capability-v1','heldPhases':['stop','backup','rds-backup','switch'],
                'postClear':'REHOLD_APPROVAL_REQUIRED','unknownAction':'MANUAL_RECONCILIATION','cloudMutation':False},
                'RECOVERY_OBSERVATION_CAPABILITY_UNPROVEN')
-        # Classification is now executable. Keep the separate execution gate:
-        # a held rollback alone is not completed baseline business recovery.
-        recovery_preflight=getattr(self.load('terminal'),'recovery_capability',None)
-        e.need(callable(recovery_preflight),'RECOVERY_TERMINAL_CAPABILITY_MISSING')
-        e.need(recovery_preflight(self.a) is True,'RECOVERY_TERMINAL_CAPABILITY_UNPROVEN')
+        recovery_execution=self.load('recovery-driver').capability(self.a)
+        e.need(recovery_execution=={'kind':'cn-recovery-driver-capability-v1',
+               'stages':['runtime','clear','business'],'unknownReplayAllowed':False,'productionInstalled':False},
+               'RECOVERY_EXECUTION_CAPABILITY_UNPROVEN')
         for directory in (OUTPUTS,INPUTS/self.release,e.REQUESTS,CONTROL,
                 self.load('consume-observer').APPROVALS,self.load('publication-observer').APPROVALS,
                 self.load('runtime-observer').APPROVALS,Path('/etc/workspacex-cn/writer-resume-approvals/by-release')):

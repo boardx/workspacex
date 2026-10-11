@@ -69,7 +69,7 @@ class FullChain(unittest.TestCase):
   p=patch.object(self.router.load('acquire'),'load_entry',return_value=r.e);p.start();self.addCleanup(p.stop)
   self.consume=self.f.receipt();self.virtual[str(af.d.receipt_path(self.a))]=self.consume
   self.rds=rf.Tests();self.rds.setUp();self.addCleanup(self.rds.doCleanups)
-  self.hold={'state':'held','generation':'full-generation','identity':{k:ident[k]for k in ('sourceRevision','baselineRevision','attemptId')}|{'migrationPlanSha256':r.e.digest(self.static['migrationDiff'])}}
+  self.hold={'schemaVersion':1,'state':'held','generation':'9'*32,'identity':{k:ident[k]for k in ('sourceRevision','baselineRevision','attemptId')}|{'migrationPlanSha256':r.e.digest(self.static['migrationDiff'])}}
   template=json.loads(self.static['template']);self.publication=r.e.encode({'receiptKind':'cn-candidate-published-v2','sourceRevision':ident['sourceRevision'],'controlRevision':ident['controlRevision'],'attemptId':ident['publicationAttemptId'],'images':{k:{'image':v}for k,v in template['rollbackImages'].items()if k!='sandbox-sessions'}})
   self.virtual[str(Path('/var/lib/workspacex-cn/archive-published')/ident['sourceRevision']/ident['publicationAttemptId']/'published.json')]=self.publication
   self.switch=r.e.encode({'exactFiveRunning':True,'holdRetained':True,'businessAcceptancePassed':False});self.virtual[self.remote+'/switch-result.json']=self.switch
