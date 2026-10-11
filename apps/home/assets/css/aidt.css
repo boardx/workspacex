@@ -1,19 +1,4 @@
 /* Design Thinking × AI: shared brand tokens, no script required. */
-:root {
-  color-scheme: light;
-  --bg: #ffffff;
-  --bg-sink: #ffffff;
-  --surface: #f8f7f6;
-  --surface-2: #f0eeec;
-  --hairline: rgba(24, 23, 22, 0.12);
-  --hairline-2: rgba(24, 23, 22, 0.22);
-  --fg: #181716;
-  --fg-soft: #45413d;
-  --fg-dim: #625c56;
-  --fg-faint: #706960;
-  --brand-ink: #b80050;
-}
-::selection { background: #fbd6e5; color: var(--fg); }
 .aidt-header { position: sticky; top: 0; z-index: 100; background: var(--bg-sink); border-bottom: 1px solid var(--hairline); }
 .aidt-header__inner { display: flex; align-items: center; justify-content: space-between; gap: 1rem; min-height: var(--nav-h); padding-block: 0.75rem; }
 .aidt-header__links { display: flex; align-items: center; flex-wrap: wrap; justify-content: flex-end; gap: 1.25rem; font-size: var(--t-small); }
