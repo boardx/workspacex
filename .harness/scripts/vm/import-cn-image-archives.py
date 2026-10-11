@@ -347,8 +347,14 @@ class Commands:
         return config
 
     def pull_optional(self, image):
+        # Docker's resolver names the missing reference twice. Both must match
+        # exactly; auth, DNS and additional diagnostic lines remain failures.
+        target = re.escape(image.encode('utf-8'))
+        missing_target = (rb'(?-i:\AError response from daemon: failed to resolve reference "'
+                          + target + rb'": ' + target + rb': not found\r?\n?\Z)')
         result = self.command([self.docker, 'pull', '--platform', 'linux/amd64', image],
-                              accepted=(rb'manifest unknown', rb'MANIFEST_UNKNOWN', rb'no such manifest'))
+                              accepted=(rb'manifest unknown', rb'MANIFEST_UNKNOWN', rb'no such manifest',
+                                        missing_target))
         return None if result is None else self.local(image)
 
     def pull_required(self, image):

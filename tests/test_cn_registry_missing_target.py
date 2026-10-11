@@ -72,6 +72,29 @@ class MissingTargetTests(unittest.TestCase):
                           'config': {'digest': digest}}).encode()
         self.assertEqual(self.probe(b'', raw, 0), digest)
 
+    def test_pull_exact_resolver_missing(self):
+        message = ('Error response from daemon: failed to resolve reference "'
+                   + self.target + '": ' + self.target + ': not found').encode()
+        for newline in (b'', b'\n', b'\r\n'):
+            with self.subTest(newline=newline):
+                self.assertIsNone(self.probe(message + newline, pull=True))
+
+    def test_pull_resolver_other_target_and_failures_rejected(self):
+        def message(first, second):
+            return ('Error response from daemon: failed to resolve reference "'
+                    + first + '": ' + second + ': not found').encode()
+        exact = message(self.target, self.target)
+        errors = [message('other', self.target), message(self.target, 'other'),
+                  message(self.target.upper(), self.target),
+                  message(self.target, self.target.upper())]
+        for error in (b'unauthorized', b'denied', b'lookup registry: no such host',
+                      b'401 Unauthorized', b'403 Forbidden', b'i/o timeout'):
+            errors.extend((error, error + b'\n' + exact, exact + b'\n' + error))
+        for error in errors:
+            with self.subTest(error=error):
+                with self.assertRaisesRegex(entry.Rejected, '^COMMAND_FAILED$'):
+                    self.probe(error, pull=True)
+
     def test_pull_optional_not_broadened(self):
         with self.assertRaisesRegex(entry.Rejected, '^COMMAND_FAILED$'):
             self.probe(b'ERROR: ' + self.target.encode() + b': not found', pull=True)
