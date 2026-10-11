@@ -39,6 +39,17 @@ jobs:
           ATTEMPT: ${{ github.run_attempt }}
           REF: ${{ github.ref }}
         run: test "$ATTEMPT" = 1 && test "$REF" = refs/heads/main
+      - name: Validate exact plan and complete uploader code closure before credentials
+        env:
+          PLAN_SHA: ${{ inputs.plan_sha256 }}
+        run: |
+          python3 -I -B - <<'PYCODE'
+          import importlib.util,os,pathlib
+          p=pathlib.Path('scripts/cn-hk-original-artifact-upload.py')
+          s=importlib.util.spec_from_file_location('uploader',p);m=importlib.util.module_from_spec(s);s.loader.exec_module(m)
+          raw=pathlib.Path('.github/release-plans/hk-original-artifacts.json').read_bytes()
+          m.need(m.sha(raw)==os.environ['PLAN_SHA']);m.validate_plan(m.rawjson(raw))
+          PYCODE
       - uses: actions/checkout@v5
         with:
           ref: 27bada5321e45fbdd5f0506fd06d08fa29ea24ce

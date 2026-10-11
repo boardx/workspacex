@@ -1,0 +1,27 @@
+name: hk-transfer-performance-tests
+on:
+  pull_request:
+    paths:
+      - 'scripts/cn-hk-original-artifact-upload.py'
+      - 'scripts/bounded_workers.py'
+      - 'scripts/cn-hk-generate-proof.py'
+      - 'tests/test_cn_hk*.py'
+      - 'tests/cn_hk_performance_linux.py'
+      - '.github/release-plans/hk-original-artifacts.json'
+      - '.github/workflows/transfer-cn-candidates-via-hongkong.yml'
+      - '.github/workflows/hk-transfer-performance-tests.yml'
+permissions:
+  contents: read
+jobs:
+  linux-process-and-uploader-fixtures:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - run: python3 -B -m unittest discover -s tests -p 'test_cn_hk*.py' -v
+      - name: Existing canonical revalidation integration
+        run: python3 -B -m unittest discover -s tests -p 'test_cn_candidate_revalidation.py' -v
+      - name: Real Linux process groups and isolated uploader with fake SDK
+        run: python3 -I -B tests/cn_hk_performance_linux.py -v
