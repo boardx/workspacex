@@ -36,6 +36,7 @@ const checks = [
    dependency of this project. They skip themselves when it is absent, so this
    command stays runnable on a bare checkout. */
 const browserChecks = [
+  ['design thinking landing page', '../tests/aidt.test.mjs'],
   ['browser behaviour', '../tests/browser.test.mjs'],
   ['scripted demo', '../tests/demo.test.mjs'],
   ['user manual and print', '../tests/manual.test.mjs'],

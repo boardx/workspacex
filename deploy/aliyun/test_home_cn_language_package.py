@@ -113,6 +113,39 @@ class PackageTest(unittest.TestCase):
         result = transform_html(text, '/zh/index.html', '/')
         self.assertIn('/en/privacy?x=1#part', result)
         self.assertIn('https://example.org/', result)
+        self.assertIn('https://app.boardx.com.cn/start?next=%2Fhome#section',
+                      transform_html('<a href="https://devapp.boardx.us/start?next=%2Fhome#section">Start</a>',
+                                     '/index.html', '/'))
+
+    def test_new_bilingual_landing_page_keeps_cn_default_and_english_choice(self):
+        for language, prefix in [('en', ''), ('zh-Hans', 'zh/')]:
+            folder = self.source / prefix / 'aidt'
+            folder.mkdir(parents=True)
+            (folder / 'index.html').write_text(f'''<html lang="{language}"><head>
+<link rel="canonical" href="https://workspacex.us/{prefix}aidt/">
+<link rel="alternate" hreflang="x-default" href="https://workspacex.us/aidt/">
+</head><body><a href="/aidt/" hreflang="en">EN</a>
+<a href="/zh/aidt/" hreflang="zh-Hans">中文</a>
+<link rel="stylesheet" href="/assets/css/aidt.css"></body></html>''')
+        self.source.joinpath('sitemap.xml').write_text('''<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+<url><loc>https://workspacex.us/aidt/</loc></url>
+<url><loc>https://workspacex.us/zh/aidt/</loc></url></urlset>''')
+        before = fingerprints(self.source)
+        output = Path(self.tmp.name) / 'cn-with-aidt'
+        build_cn_package(self.source, output)
+        for relative, language in [('aidt/index.html', 'zh-Hans'),
+                                   ('en/aidt/index.html', 'en'),
+                                   ('zh/aidt/index.html', 'zh-Hans')]:
+            text = (output / relative).read_text()
+            self.assertIn(f'<html lang="{language}"', text)
+            self.assertIn('href="/en/aidt/" hreflang="en"', text)
+            self.assertIn('href="/zh/aidt/" hreflang="zh-Hans"', text)
+            self.assertIn('hreflang="x-default" href="https://www.boardx.com.cn/aidt/"', text)
+            self.assertIn('href="/assets/css/aidt.css"', text)
+            canonical = relative.removesuffix('index.html')
+            self.assertIn(f'rel="canonical" href="https://www.boardx.com.cn/{canonical}"', text)
+            self.assertIn(f'<loc>https://www.boardx.com.cn/{canonical}</loc>', (output / 'sitemap.xml').read_text())
+        self.assertEqual(fingerprints(self.source), before)
 
 
 if __name__ == '__main__':

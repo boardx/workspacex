@@ -345,6 +345,8 @@ p, .lead, .keyline { hanging-punctuation: first last; }
 }
 .section:first-of-type { border-top: 0; }
 
+.section[id] { scroll-margin-top: calc(1.5rem - var(--section-y)); }
+
 .section__head { max-width: 48rem; margin-bottom: clamp(2.5rem, 5vw, 4.5rem); }
 
 .eyebrow {

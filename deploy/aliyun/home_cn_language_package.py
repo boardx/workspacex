@@ -10,10 +10,13 @@ import json
 from pathlib import Path
 import re
 import shutil
+import xml.etree.ElementTree as ET
 from urllib.parse import urljoin, urlsplit, urlunsplit
 
 ORIGIN = 'https://www.boardx.com.cn'
 SOURCE_ORIGIN = 'https://workspacex.us'
+SOURCE_APP_ORIGIN = 'https://devapp.boardx.us'
+APP_ORIGIN = 'https://app.boardx.com.cn'
 EN_PATHS = {'/': '/en/', '/index.html': '/en/',
             '/privacy': '/en/privacy', '/privacy.html': '/en/privacy'}
 ATTR = re.compile(r'\b(href|src|action|poster)=("|\')(.*?)\2')
@@ -23,6 +26,8 @@ def mapped_url(value, original_path):
     if not value or value.startswith(('#', 'mailto:', 'tel:', 'data:')):
         return value
     parsed = urlsplit(urljoin(SOURCE_ORIGIN + original_path, value))
+    if parsed.scheme in ('http', 'https') and parsed.netloc == urlsplit(SOURCE_APP_ORIGIN).netloc:
+        return APP_ORIGIN + urlunsplit(('', '', parsed.path, parsed.query, parsed.fragment))
     if parsed.scheme not in ('https', 'http') or parsed.netloc not in (
             'workspacex.us', 'www.boardx.com.cn'):
         return value
@@ -31,8 +36,18 @@ def mapped_url(value, original_path):
     return ORIGIN + result if value.startswith(('https://', 'http://')) else result
 
 
-def transform_html(text, original_path, destination_path):
-    text = ATTR.sub(lambda m: m[1] + '=' + m[2] + mapped_url(m[3], original_path) + m[2], text)
+def transform_html(text, original_path, destination_path, en_paths=None):
+    en_paths = EN_PATHS if en_paths is None else en_paths
+    def map_url(value):
+        mapped = mapped_url(value, original_path)
+        parsed = urlsplit(mapped)
+        if parsed.netloc and parsed.netloc != urlsplit(ORIGIN).netloc:
+            return mapped
+        if not value or value.startswith(('#', 'mailto:', 'tel:', 'data:')):
+            return mapped
+        path = en_paths.get(parsed.path, parsed.path)
+        return urlunsplit((parsed.scheme, parsed.netloc, path, parsed.query, parsed.fragment))
+    text = ATTR.sub(lambda m: m[1] + '=' + m[2] + map_url(m[3]) + m[2], text)
     # Canonical and social URLs describe the destination, including the new CN root.
     text = re.sub(r'(<link rel="canonical" href=")[^"]+("\s*/?>)',
                   lambda m: m[1] + ORIGIN + destination_path + m[2], text)
@@ -40,7 +55,7 @@ def transform_html(text, original_path, destination_path):
                   lambda m: m[1] + ORIGIN + destination_path + m[2], text)
     text = text.replace(SOURCE_ORIGIN + '/', ORIGIN + '/')
     # x-default is now Chinese. Explicit en/zh alternatives remain available.
-    default_path = '/privacy' if 'privacy' in destination_path else '/'
+    default_path = destination_path.removeprefix('/en').removeprefix('/zh') or '/'
     text = re.sub(r'(<link rel="alternate" hreflang="x-default" href=")[^"]+("\s*/?>)',
                   lambda m: m[1] + ORIGIN + default_path + m[2], text)
     return text.replace('x-default points at the English page.',
@@ -62,15 +77,27 @@ def build_cn_package(source, destination):
     shutil.copytree(source, destination)
     # Transform every original page against its ORIGINAL location before moving it.
     pages = {str(p.relative_to(source)): p.read_text() for p in source.rglob('*.html')}
+    # Discover bilingual pairs so new landing pages retain the CN default language.
+    pairs = {name: 'zh/' + name for name in pages if 'zh/' + name in pages
+             and '<html lang="en"' in pages[name]
+             and '<html lang="zh-Hans"' in pages['zh/' + name]}
+    en_paths = dict(EN_PATHS)
+    for name in pairs:
+        original = '/' + name
+        canonical = original.removesuffix('index.html').removesuffix('.html')
+        en_paths[original] = '/en' + canonical
+        en_paths[canonical] = '/en' + canonical
     for relative, text in pages.items():
         original = '/' + relative
         canonical = original.removesuffix('index.html').removesuffix('.html')
-        (destination / relative).write_text(transform_html(text, original, canonical))
+        (destination / relative).write_text(transform_html(text, original, canonical, en_paths))
     (destination / 'en').mkdir(exist_ok=True)
-    for name in ('index.html', 'privacy.html'):
-        suffix = '' if name == 'index.html' else 'privacy'
-        (destination / 'en' / name).write_text(transform_html(pages[name], '/' + name, '/en/' + suffix))
-        (destination / name).write_text(transform_html(pages['zh/' + name], '/zh/' + name, '/' + suffix))
+    for name, chinese in pairs.items():
+        canonical = ('/' + name).removesuffix('index.html').removesuffix('.html')
+        target = destination / 'en' / name
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(transform_html(pages[name], '/' + name, '/en' + canonical, en_paths))
+        (destination / name).write_text(transform_html(pages[chinese], '/' + chinese, canonical, en_paths))
     redirects = destination / '_redirects'
     lines = redirects.read_text().splitlines()
     lines = [line for line in lines if not re.match(r'^/en(?:\s|/\*)', line)]
@@ -89,10 +116,21 @@ def build_cn_package(source, destination):
     robots = destination / 'robots.txt'
     robots.write_text(robots.read_text().replace(SOURCE_ORIGIN, ORIGIN))
     # CN sitemap has CN destinations only; no US deployment files are touched.
-    urls = ('/', '/zh/', '/en/', '/privacy', '/zh/privacy', '/en/privacy', '/manual/')
+    urls = {'/', '/zh/', '/en/', '/privacy', '/zh/privacy', '/en/privacy', '/manual/'}
+    source_sitemap = source / 'sitemap.xml'
+    if source_sitemap.exists():
+        ns = {'s': 'http://www.sitemaps.org/schemas/sitemap/0.9'}
+        for loc in ET.fromstring(source_sitemap.read_text()).findall('s:url/s:loc', ns):
+            parsed = urlsplit(loc.text or '')
+            if parsed.netloc != urlsplit(SOURCE_ORIGIN).netloc:
+                raise ValueError('Unexpected sitemap origin')
+            urls.add(en_paths.get(parsed.path, parsed.path))
+    for name in pairs:
+        path = ('/' + name).removesuffix('index.html').removesuffix('.html')
+        urls.update((path, '/zh' + path, '/en' + path))
     sitemap = '<?xml version="1.0" encoding="UTF-8"?>\n'
     sitemap += '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
-    sitemap += ''.join(f'  <url><loc>{ORIGIN}{url}</loc></url>\n' for url in urls)
+    sitemap += ''.join(f'  <url><loc>{ORIGIN}{url}</loc></url>\n' for url in sorted(urls))
     (destination / 'sitemap.xml').write_text(sitemap + '</urlset>\n')
 
 
