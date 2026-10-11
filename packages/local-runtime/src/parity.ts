@@ -48,7 +48,30 @@ export interface ParityGroup {
  *
  * ⚠ 顺序无意义，分组才有意义；一个名字只能出现在一组里（测试钉住）。
  */
+export const BILLING_PAYMENT_ENV_KEYS: readonly string[] = [
+  "WECHAT_PAY_APP_ID",
+  "WECHAT_PAY_MCH_ID",
+  "WECHAT_PAY_API_V3_KEY",
+  "WECHAT_PAY_MCH_SERIAL_NO",
+  "WECHAT_PAY_PRIVATE_KEY",
+  "WECHAT_PAY_PRIVATE_KEY_PATH",
+  "WECHAT_PAY_PLATFORM_PUBLIC_KEY",
+  "WECHAT_PAY_PLATFORM_PUBLIC_KEY_PATH",
+  "WECHAT_PAY_PLATFORM_KEY_ID",
+  "WECHAT_PAY_NOTIFY_URL",
+  "STRIPE_SECRET_KEY",
+  "STRIPE_WEBHOOK_SECRET",
+  "STRIPE_PAYMENT_LINK",
+  "STRIPE_MANAGEMENT_PORTAL",
+];
+
 export const LOCAL_ENV_PARITY: readonly ParityGroup[] = [
+  {
+    status: "unavailable-locally",
+    reason: "微信充值和 Stripe 订阅需要外部支付服务及商户凭据，本地版零出网且不配置这些凭据。" +
+      "缺失时 billing/config 返回空渠道，购买入口隐藏；本地模型使用不需要在线支付。",
+    names: BILLING_PAYMENT_ENV_KEYS,
+  },
   {
     status: "default-ok",
     reason: "Quota admission, request accounting and native usage mirroring are explicit cloud opt-ins " +

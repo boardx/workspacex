@@ -1,0 +1,92 @@
+import { createPrivateKey, createPublicKey, X509Certificate, type KeyObject } from "node:crypto";
+import { readFileSync } from "node:fs";
+import type { BillingConfigPort } from "../../application/billing/billing-config.port";
+
+function readDeployment() {
+  return {
+    WECHAT_PAY_APP_ID: process.env.WECHAT_PAY_APP_ID,
+    WECHAT_PAY_MCH_ID: process.env.WECHAT_PAY_MCH_ID,
+    WECHAT_PAY_API_V3_KEY: process.env.WECHAT_PAY_API_V3_KEY,
+    WECHAT_PAY_MCH_SERIAL_NO: process.env.WECHAT_PAY_MCH_SERIAL_NO,
+    WECHAT_PAY_PRIVATE_KEY: process.env.WECHAT_PAY_PRIVATE_KEY,
+    WECHAT_PAY_PRIVATE_KEY_PATH: process.env.WECHAT_PAY_PRIVATE_KEY_PATH,
+    WECHAT_PAY_PLATFORM_PUBLIC_KEY: process.env.WECHAT_PAY_PLATFORM_PUBLIC_KEY,
+    WECHAT_PAY_PLATFORM_PUBLIC_KEY_PATH: process.env.WECHAT_PAY_PLATFORM_PUBLIC_KEY_PATH,
+    WECHAT_PAY_PLATFORM_KEY_ID: process.env.WECHAT_PAY_PLATFORM_KEY_ID,
+    WECHAT_PAY_NOTIFY_URL: process.env.WECHAT_PAY_NOTIFY_URL,
+    STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY,
+    STRIPE_WEBHOOK_SECRET: process.env.STRIPE_WEBHOOK_SECRET,
+    STRIPE_PAYMENT_LINK: process.env.STRIPE_PAYMENT_LINK,
+    STRIPE_MANAGEMENT_PORTAL: process.env.STRIPE_MANAGEMENT_PORTAL,
+  };
+}
+export const BILLING_ENV_KEYS = Object.keys(readDeployment());
+type Deployment = Readonly<Record<string, string | undefined>>;
+export type WechatDeployment = Readonly<{
+  appId: string; mchId: string; apiV3Key: string; mchSerialNo: string;
+  privateKey: KeyObject; platformKey: KeyObject; platformKeyId: string; notifyUrl: string;
+}>;
+export type StripeDeployment = Readonly<{
+  secretKey: string; webhookSecret: string; paymentLink: string; managementPortal: string;
+}>;
+function text(env: Deployment, name: string): string { return env[name]?.trim() ?? ""; }
+function httpsUrl(value: string): boolean {
+  try { const url = new URL(value); return url.protocol === "https:" && Boolean(url.hostname) && !url.username && !url.password; }
+  catch { return false; }
+}
+function pem(env: Deployment, inline: string, path: string): string {
+  const value = text(env, inline);
+  return value ? value.replace(/\\n/g, "\n") : text(env, path) ? readFileSync(text(env, path), "utf8") : "";
+}
+function rsa(key: KeyObject): boolean {
+  return key.asymmetricKeyType === "rsa" && (key.asymmetricKeyDetails?.modulusLength ?? 0) >= 2048;
+}
+function wechat(env: Deployment): WechatDeployment | null {
+  try {
+    const appId = text(env, "WECHAT_PAY_APP_ID"), mchId = text(env, "WECHAT_PAY_MCH_ID");
+    const apiV3Key = text(env, "WECHAT_PAY_API_V3_KEY"), mchSerialNo = text(env, "WECHAT_PAY_MCH_SERIAL_NO");
+    const notifyUrl = text(env, "WECHAT_PAY_NOTIFY_URL");
+    if (!appId || !/^\d+$/.test(mchId) || Buffer.byteLength(apiV3Key, "utf8") !== 32
+      || !/^[a-fA-F0-9]+$/.test(mchSerialNo) || !httpsUrl(notifyUrl)) return null;
+    const privateKey = createPrivateKey(pem(env, "WECHAT_PAY_PRIVATE_KEY", "WECHAT_PAY_PRIVATE_KEY_PATH"));
+    const platformPem = pem(env, "WECHAT_PAY_PLATFORM_PUBLIC_KEY", "WECHAT_PAY_PLATFORM_PUBLIC_KEY_PATH");
+    let platformKeyId = text(env, "WECHAT_PAY_PLATFORM_KEY_ID");
+    let platformKey: KeyObject;
+    if (platformPem.includes("-----BEGIN CERTIFICATE-----")) {
+      const certificate = new X509Certificate(platformPem);
+      const now = Date.now();
+      if (Date.parse(certificate.validFrom) > now || Date.parse(certificate.validTo) <= now) return null;
+      const serial = certificate.serialNumber.replaceAll(":", "").toUpperCase();
+      if (platformKeyId && platformKeyId.toUpperCase() !== serial) return null;
+      platformKeyId = serial;
+      platformKey = certificate.publicKey;
+    } else {
+      if (!/^PUB_KEY_ID_[A-Za-z0-9_]+$/.test(platformKeyId)) return null;
+      platformKey = createPublicKey(platformPem);
+    }
+    if (!rsa(privateKey) || !rsa(platformKey)) return null;
+    return Object.freeze({ appId, mchId, apiV3Key, mchSerialNo, privateKey, platformKey, platformKeyId, notifyUrl });
+  } catch { return null; } // missing mounts and invalid credentials disable this channel; never abort boot.
+}
+function stripe(env: Deployment): StripeDeployment | null {
+  const secretKey = text(env, "STRIPE_SECRET_KEY"), webhookSecret = text(env, "STRIPE_WEBHOOK_SECRET");
+  const paymentLink = text(env, "STRIPE_PAYMENT_LINK"), managementPortal = text(env, "STRIPE_MANAGEMENT_PORTAL");
+  if (!/^sk_(test|live)_[A-Za-z0-9]+$/.test(secretKey) || !/^whsec_.+$/.test(webhookSecret)
+    || !httpsUrl(paymentLink) || !httpsUrl(managementPortal)) return null;
+  return Object.freeze({ secretKey, webhookSecret, paymentLink, managementPortal });
+}
+
+/** One immutable startup snapshot, shared by public availability and later payment adapters. */
+export class DeploymentBillingConfig implements BillingConfigPort {
+  private readonly wechat: WechatDeployment | null;
+  private readonly stripe: StripeDeployment | null;
+  constructor(env: Deployment = readDeployment()) {
+    this.wechat = wechat(env);
+    this.stripe = stripe(env);
+  }
+  getPublicConfig(): ReturnType<BillingConfigPort["getPublicConfig"]> {
+    return { enabledProviders: [...(this.wechat ? ["wechat" as const] : []), ...(this.stripe ? ["stripe" as const] : [])] };
+  }
+  getWechat(): WechatDeployment | null { return this.wechat; }
+  getStripe(): StripeDeployment | null { return this.stripe; }
+}

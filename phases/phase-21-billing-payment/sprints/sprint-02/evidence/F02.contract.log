@@ -1,0 +1,10 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/eaa4/workspacex/packages/contracts
+
+ ✓ tests/billing/billing-operations-export.test.ts (2 tests) 2ms
+
+ Test Files  1 passed (1)
+      Tests  2 passed (2)
+   Start at  13:39:46
+   Duration  917ms (transform 466ms, setup 0ms, collect 725ms, tests 2ms, environment 0ms, prepare 30ms)
+
