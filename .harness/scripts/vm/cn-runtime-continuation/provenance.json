@@ -1,0 +1,34 @@
+{
+  "kind": "cn-runtime-continuation-template-provenance-v1",
+  "bytePreservingImport": true,
+  "files": {
+    "prepare-phase.py": {
+      "sha256": "6749b71aeddd7a24bcec1c3e067775c93b96263782d51e362bf38bbe7607e1b7",
+      "bytes": 4803,
+      "originalRelativePath": "release-continuation/devapp-f0eb-release/prep/prepare-phase.py"
+    },
+    "upgrade-draft.py": {
+      "sha256": "9e1b0e124691b4d3a32e4a650a52d5aca247f3343886b9aebd4af39bd6324113",
+      "bytes": 15513,
+      "originalRelativePath": "release-continuation/devapp-f0eb-release/prep/upgrade-draft.py"
+    },
+    "backup-host.DRAFT.py": {
+      "sha256": "f78db3508680d1a0ee4e9c0aa675ba3625449b0f415f625db2b0e77f0627d12c",
+      "bytes": 6434,
+      "originalRelativePath": "release-continuation/devapp-f0eb-release/prep/backup-host.DRAFT.py"
+    },
+    "sessions-after-stop.py": {
+      "sha256": "b344e52d9cdaf68848167643f35a65894bc701c916ad5467cc8a1f1578e1fdca",
+      "bytes": 2917,
+      "originalRelativePath": "release-continuation/devapp-f0eb-release/prep/sessions-after-stop.py"
+    },
+    "sessions-after-stop.sh": {
+      "sha256": "7cb65ce586c2002d79394f6cfcffe7630be1bb646ea056a1245e3c5e7a1aed3f",
+      "bytes": 2769,
+      "originalRelativePath": "release-continuation/devapp-f0eb-release/prep/sessions-after-stop.sh"
+    }
+  },
+  "secretsIncluded": false,
+  "scope": "Reviewed runtime source only; no live binding, authorization, credentials or environment values. sessions-after-stop.sh retains historical paths, image digest, database names and environment hash; next release must review these pins.",
+  "executionAuthorization": false
+}

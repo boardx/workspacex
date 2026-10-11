@@ -5,6 +5,16 @@ on:
     paths:
       - '.github/workflows/archive-bridge-tests.yml'
       - 'scripts/cn-release-audit.py'
+      - 'scripts/cn-release-orchestrate.py'
+      - 'scripts/cn-release-continuation-*.py'
+      - '.harness/scripts/vm/cn-release-advance.py'
+      - '.harness/scripts/vm/cn-runtime-continuation/**'
+      - 'tests/test_cn_release_entry.py'
+      - 'tests/cn_release_cgroup_linux.py'
+      - 'scripts/cn-release-derived-approval.py'
+      - 'tests/test_cn_release_derived_approval.py'
+      - 'tests/test_cn_release_continuation_*.py'
+      - '.github/workflows/release-cn-continuation.yml'
       - 'tests/test_cn_release_audit.py'
       - 'docs/operations/cn-release-five-round-audit.md'
       - '.github/workflows/transfer-cn-candidates-via-hongkong.yml'
@@ -150,6 +160,13 @@ jobs:
         run: python3 -I -B -m unittest discover -s tests -p 'test_cn_candidate_native_cli.py' -v
       - name: Native candidate upload and provider observation contracts
         run: python3 -I -B -m unittest discover -s tests -p 'test_cn_candidate_native_upload.py' -v
+      - name: Persistent continuation entry and parameterized binding without cloud calls
+        run: |
+          python3 -I -B -m unittest discover -s tests -p 'test_cn_release_entry.py' -v
+          python3 -I -B -m unittest discover -s tests -p 'test_cn_release_continuation_*.py' -v
+          python3 -I -B -m unittest discover -s tests -p 'test_cn_release_derived_approval.py' -v
+      - name: Real Linux cgroup escape and timeout verification
+        run: sudo -n /usr/bin/python3 -I -B tests/cn_release_cgroup_linux.py
       - name: Alibaba release authentication endpoint and claims contracts
         run: python3 -I -B -m unittest discover -s tests -p 'test_aliyun_release_auth.py' -v
       - name: Sanitized credential action failures and cleanup

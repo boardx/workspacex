@@ -313,3 +313,7 @@ The offline `isolated_rehearsal_endpoint_test.py` regression checks the fixed
 hosts, signed request, unchanged OOS endpoint and rejection before network of
 unknown services or unauthorized actions. It does not replace real network,
 IAM or resource admission.
+
+### 持久 continuation 入口（#5623，安装与真实 E2E 尚未完成）
+
+实现和边界见 [持久入口说明](../../../../docs/operations/cn-release-entry/README.md)：root-owned 批准包、跨阶段原始 requestedAt 预算、未知写只核对不重放、cgroup 与外部终态 observer、参数化真实 materializers。该入口尚不能替代完整单次批准发布；无 schema diff 不免当前 epoch 备份。发布前必须完成真实只读 OIDC/STS readiness，不能等制品构建/过期后首次验证认证。
