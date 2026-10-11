@@ -123,13 +123,17 @@ activation + 公网业务 5 分钟。**这是最初目标分配，尚无真实�
 - 香港 workflow/plan 的 `38146134231`、control SHA、prefix、九对象权限是刻意的一次
   授权闭包；下一 run 不能只改一个 source SHA 就当作通用运输。需生成新精确计划、
   对应最小对象权限并经过现有授权流程，不能改成通配桶权限。
-- #5623 已把 consumer/publication、四个 runtime phase、finalize 材料化器持久化，
-  并加入不可变意图、观察证据和 root journal。一次授权的全链推进、完整业务观察器
-  和真实故障恢复仍未全部连接；不能把分段材料化测试当作全链可执行。
+- #5623 的分段持久化已由 PR #5632（精确测试 head
+  `53eb0186935dc60e29da0b4a0a26e304a9a85472`）接成 17 阶段固定驱动、原始回执链和
+  真实浏览器执行器；A5 仍单独批准。恢复 driver 已串联持锁 runtime 恢复、独立批准的
+  baseline clear、旧版六业务及原 entry seal；UNKNOWN 不重放，clear 后仍需独立 re-hold 授权。
+  本地完整链 fixture、实际 Chromium/localhost TLS 和该 head 的 Linux CI 已通过；
+  目标安装、实际云侧故障恢复及生产六业务仍未验收，不能将离线通过称为生产成功。
 - 真正完成仍要求 GitHub → HK → 上海 → 新运行身份 → 公网六业务的真实证据，
   并对至少一次真实失败执行可证明的回滚/恢复；当前离线测试不替代它。
-- 30 分钟目标没有真实成功样本；维护/破坏性变更单独安排窗口。下次应先补齐上述链路，
-  再使用 timeline 的日历时钟验收，而不是从构建完成才计时。
+- 30 分钟目标没有真实成功样本；维护/破坏性变更单独安排窗口。下次应先完成目标
+  安装、权限和实际证据准入，再执行上述已接通的链路，以 timeline 日历时钟验收，
+  不能从构建完成才计时。
 
 ## 执行计划
 
@@ -169,9 +173,9 @@ flowchart TD
 
 | 层级 | 必须通过的实际路径 | 当前证据边界 |
 |---|---|---|
-| 离线 hotfix / 无迁移 | 同一原字节链经过 consumer → publication → journal → 四 phase binder → finalize | 已有分段真 materializer；完整派生/驱动尚未连接，不能以 classifier 通过替代 |
+| 离线 hotfix / 无迁移 | 同一原字节链经过 consumer → publication → journal → 四 phase binder → finalize | PR #5632 已有真实 driver/router/journal/binder/materializer/entry 的 17 阶段离线链；外部服务为替身，不能以 classifier 或离线通过替代生产证据 |
 | 跨阶段容量 | 同盘和分盘、边界 ±1 字节、保留 ZIP/TAR、回滚镜像与后续空间门 | 消费后 publisher 空间不足已在现场暴露；修复必须在 GET/hold/stop 前拒绝，保留原 guard |
-| Linux 与运行时恢复 | 新 exact head 的 cgroup/截止监督；临时 Docker 栈半组 recreate 失败后恢复 exact 旧五容器 | 基础 cgroup 真测试已通过；后继新代码需重跑，Docker 故障恢复尚缺真实测试 |
+| Linux 与运行时恢复 | 新 exact head 的 cgroup/截止监督；临时 Docker 栈半组 recreate 失败后恢复 exact 旧五容器 | 精确 head 53eb 的 Ubuntu CI 已通过 2 个实际 cgroup 案例；持久恢复/entry seal 已有本地集成，Docker 半组重建故障恢复仍缺真实测试 |
 | 数据库边界 | 无迁移仍验证 session 0、当前 epoch 备份及隔离恢复；兼容迁移验证 old/new 读写 | 当前 runtime-only binder 拒绝迁移；SQL diff 为空不免除启动清理/seed 风险 |
 | 云端与业务 | prepared hotfix/无迁移真实发布 → held health → 单独 A5 授权同 generation clear → A6 六业务及稳定观察；隔离目标真实故障恢复到旧版业务 | 尚缺完整发布与故障恢复证据，不能用静态 200 或离线替身替代 |
 | 30 分钟 | 不可重置 requestedAt → 实际 public.business，prepared 同报完整 lead time 与 activation time | 当前逐段时序未包含全部后续步骤；全链 30 分钟尚未达标 |
