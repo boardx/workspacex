@@ -8,6 +8,8 @@ on:
       - '.github/release-plans/hk-*'
       - 'scripts/cn-hk-*.py'
       - 'scripts/aliyun-release-auth.py'
+      - 'scripts/harden-aliyun-action.py'
+      - 'tests/test_auth_action_hardening.py'
       - 'tests/test_aliyun_release_auth.py'
       - 'tests/test_cn_hk_*.py'
       - 'docs/operations/hk-release-transfer/**'
@@ -145,6 +147,8 @@ jobs:
         run: python3 -I -B -m unittest discover -s tests -p 'test_cn_candidate_native_upload.py' -v
       - name: Alibaba release authentication endpoint and claims contracts
         run: python3 -I -B -m unittest discover -s tests -p 'test_aliyun_release_auth.py' -v
+      - name: Sanitized credential action failures and cleanup
+        run: python3 -I -B -m unittest discover -s tests -p 'test_auth_action_hardening.py' -v
       - name: Hong Kong original-artifact transfer without cloud calls
         run: |
           python3 -I -B tests/test_cn_hk_original_artifact_upload.py

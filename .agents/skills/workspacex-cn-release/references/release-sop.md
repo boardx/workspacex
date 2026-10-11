@@ -201,6 +201,7 @@ Plan B 必须在发布开始前就准备好：私有 OSS 上有 exact SHA 的完
 
 | 日期 | failure code | 机械防线 |
 |---|---|---|
+| 2026-10-11 | `ALIBABA_CLOUD_AUTHENTICATION_FAILED` | run38156223016 在 OIDC claims 校验后、上传前失败；旧脱敏处理丢失阶段和 STS 状态，临时文件清理也可能掩盖原异常。固定 action hash/替换形状，输出固定阶段、整数 HTTP 状态和精确白名单类别；未知为 OTHER，禁止原始响应/消息/stack/token。清理 ENOENT 幂等，其他错误仍阻断且保留原异常。test_auth_action_hardening.py 实际执行 Node 反证，覆盖敏感值、状态边界和双重异常；接入 CI。本修复提供诊断，尚未证明现场认证失败根因或发布成功。 |
 | 2026-10-10 | `CANDIDATE_SAVE_LIMIT`（固定源码 Web） | run38029325145 的 Web 在 DOCKER_SAVE 触发原 2 GiB 写前限制；新增显式 formal-4g-v1 身份绑定预算（单件 4 GiB、总量 10 GiB），两个诊断入口仍拒绝该 profile、保持 2 GiB。受信同 run/attempt 的独立 metadata 准入及总量检查先于 tar 下载，最终原文和实物 hash 复验保留；worker 构建前/构建后/save后复查 18/14/10 GiB 空闲，不声称 Docker 缓存硬配额。test_cn_formal_budget_profile.py 覆盖预算、诊断隔离、元数据门和空间反证；无新增权限或生产操作。 |
 | 2026-10-10 | `CANDIDATE_SAVE_LAYERS` | Moby/containerd 可将相同层按顺序多次引用同一 blob；normalizer 改为按逻辑位置输出唯一路径，保留 Config 原字节与重复 diff_ids 顺序，严格 inspector 不变；输入 tar 重名成员、链接、Config/manifest 碰撞仍拒绝。新增 `CANDIDATE_SAVE_LAYER_COUNT` / `CANDIDATE_SAVE_PATH_COLLISION` 固定码及重复展开预算反证。现场仅取得合并失败码，尚未取得失败 manifest，故未认定该次失败唯一根因。 |
 | 2026-10-10 | `CANDIDATE_SAVE_LIMIT` | 正式 candidate producer 原先用 docker save --output，归档大小仅事后检查；改为 stdout 流式写入，每块写入前校验计划上限（最多 2 GiB），空归档拒绝，失败终止并回收子进程及临时文件。`test_cn_formal_save_bound.py` 覆盖真实子进程边界、超限、非零退出、写失败和 producer 清理，并接入 archive-bridge-tests。此限制不覆盖 Docker daemon 构建缓存；未据此认定历史 manifest 失败根因，也不证明五镜像交付或生产就绪。 |
