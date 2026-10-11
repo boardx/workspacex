@@ -4,7 +4,7 @@
 - 代码检出：`/Users/shenyangjun/.codex/worktrees/eaa4/workspacex`。
 - 标准启动：`pnpm turbo run dev --filter=web --filter=@repo/api`。
 - 当前目标：F01 六表迁移，issue #4883；未宣称整个支付闭环完成。
-- F01 状态由 `feature_list.json` 和 `harness verify` 权威判定；完整高风险门控失败：凭据扫描的五处主线测试夹具命中（前置修复 #5550）。
+- F01 状态由 `feature_list.json` 和 `harness verify` 权威判定；第三次官方高风险门控退出0、自动passing，尚待PR/CI/main闭环。此前夹具、owner与环境归类失败均有独立历史证据。
 
 ## 2026-10-10 恢复支付开发
 - 人类直接要求参考 BoardX 后端与前端完成微信、Stripe 支付及 token 使用，优先于 readiness 队列；队列外原因已写 #4883。
@@ -23,3 +23,7 @@
 - #5550 创建草稿 PR 的确认及 token 完整书面草案复核等待人类回复。F01 不变更 passing。
 
 2026-10-10 元数据修正：owner 使用人类提供且 registry 已登记的 role_id coord-voice（不占协调席位）；历史日志中的 agent ID 保留为当时执行证据。sprint 收敛到 F01，其余未认领占位功能不提前领入。
+
+## 2026-10-11 主线修复后全量通过
+- #5585已实际合入并rebase，执行head9cf0252e2。官方verify退出0：33/33任务、local-runtime247项、API14949项通过；F01自动passing，owner为coord-voice。
+- 正式证据F01.verify.log，历史归类失败F01.main-parity-prerequisite-failure.log；资源已清理，PR正在准备，未宣称已合入main。

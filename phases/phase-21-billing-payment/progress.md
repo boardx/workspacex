@@ -1,11 +1,12 @@
 # 进度日志 — Phase 21 billing-payment
 
-## 当前已验证状态(唯一真相)
-- 仓库根目录: /Users/shenyangjun/boardx/workspacex（当前工作分支：`codex/interview-acceptance-optimizations`，本阶段全部产物**尚未提交**）
-- 标准启动路径: `pnpm -w run dev`
-- 标准验证路径: 见 ADR-106（`verify:quick`/`verify:harness`/`verify:release`，不确定就跑 `verify:release`）
-- 当前最高优先级未完成功能: 15 个 feature 就绪（0 开工，全部 `not_started`，占位 id `F-TBD-*` 待 claim 取号）
-- 当前 blocker: 无；下一道门 = **人类签核**（束级 `design-signoff.md` ×2 + 阶段 `design-coherence.md`，S6）
+## 当前已验证状态
+- 当前检出：`/Users/shenyangjun/.codex/worktrees/eaa4/workspacex`，F01工作分支已推送；新验证证据正在整理为PR。
+- 标准启动：`pnpm -w run dev`；标准验证：`pnpm harness verify --sprint 21/01 --feature F01 --owner coord-voice`。
+- 2026-10-11第三次官方验证退出0，harness自动将F01标为passing；high_risk release33/33任务成功，local-runtime247/API14949测试通过。
+- 已验证证据：sprint-01/evidence/F01.verify.log，执行head9cf0252e2；历史失败另存独立日志。
+- 交付边界：F01尚待PR/CI与合入main、关闭#4883，不宣称完成定义全部满足。其余14项尚未开始；支付/token运行链路仍待实现。
+- 束级设计签核与阶段一致性复核已确认，配置为下一项功能；不改人类签核状态。
 
 ## 会话记录
 
@@ -69,3 +70,5 @@
 - 第二次官方重验最终退出1：schema与根harness通过；local-runtime parity缺9项归类、API三项Python集成缺pytest。完整真实证据F01.verify.log（head535bfd12f）。已锁文件安装dev依赖并进行针对性复验，分类缺口由既有#5574/#5585处理，Windows前置#5582尚未合入；不重复补丁、不假passing。自身栈wsx-9eadb1a49d2f9e454b20已清理。
 
 - Python环境修复定向重跑退出0：3文件/6测试全绿，3条原失败集成均通过，证据F01.python-env-retry.log；隔离资源已清理。剩余阻塞是既有主线PR #5585归类修复，未宣称完整门控通过。
+
+- #5585实际合入后，第三次官方verify退出0，harness自动升级F01；本轮资源wsx-4683e2a75dd8e74d45e6已清理。PR交付尚待完成，不将正式验证通过等同全支付功能完成。

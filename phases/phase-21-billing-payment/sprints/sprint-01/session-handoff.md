@@ -1,7 +1,7 @@
 # 会话交接 — Sprint 21/01
 
 ## 当前已验证
-F01 数据库迁移16/16通过，owner历史门禁已修复且10/10通过。第二次官方 verify（head 535bfd12f）退出1：local-runtime有9项环境变量未归类，API三项Python集成缺pytest；完整日志在 evidence/F01.verify.log。F01仍in_progress，无PR、未合入、不得宣称完成。分类缺口已由 #5574 / PR #5585 负责，其Windows前置PR #5582未合入；不重复开发或降低门禁。已按锁文件 uv sync --extra dev --frozen 补齐本机pytest，正在仅复验三项失败测试。
+第三次官方verify已退出0（执行head9cf0252e2），high_risk release33/33任务通过，local-runtime247/API14949测试通过；harness自动将F01升级passing。正式证据evidence/F01.verify.log，原失败独立保留。当前整理证据并创建Closes #4883的PR，尚待CI/review/main闭环，不能宣称整个支付或F01交付完成。#5585已合入且是当前head祖先；Python依赖已按锁文件修复。
 证据：`evidence/F01.schema.log`；正式门控：`evidence/F01.verify.log`（由 harness 生成）。
 
 ## 本轮改动
@@ -11,7 +11,7 @@ F01 数据库迁移16/16通过，owner历史门禁已修复且10/10通过。第�
 微信下单/回调、Stripe 订阅、钱包与管理端、前端真实接线仍未实现。token 使用目前只有既有计量/配额基础，没有充值钱包消费闭环。人类确认 1 credit=1000 tokens、0.01 credit 向上取整、预留与真实 usage 幂等结算、余额不足拒绝；现有 credits 契约只入不耗且整数，需后续独立消费设计 delta，不得在 F01 改签核状态或扩展整数形状。
 
 ## 下一步最佳动作
-完成 `pnpm harness verify --sprint 21/01 --feature F01 --owner coord-voice`，提交 F01 的独立 PR（Closes #4883），跟进 CI/review 到绿，由协调者合并。然后取 `F-TBD-billing-config`，先 claim 原子取号，再 `pnpm harness sync --phase 21 --apply`，只做一个 feature。已有签核可复用；消费新契约另行物化。
+已完成正式verify；提交 F01 的独立 PR（Closes #4883），跟进 CI/review 到绿，由协调者合并。然后取 `F-TBD-billing-config`，先 claim 原子取号，再 `pnpm harness sync --phase 21 --apply`，只做一个 feature。已有签核可复用；消费新契约另行物化。
 
 ## 命令
 - 启动：`pnpm turbo run dev --filter=web --filter=@repo/api`
@@ -32,3 +32,9 @@ F01 数据库迁移16/16通过，owner历史门禁已修复且10/10通过。第�
 2026-10-11 身份历史修复已落到 `535bfd12f4ae745c5508275a1f40fe2a8bb82d3f`：初次认领直接使用 coord-voice，旧提交保存为 `refs/codex-backups/f01-owner-fix-20261011`。独立 exact SHA review ACCEPT，迁移/测试字节未变。生产迁移门退出0、对应测试10/10；原官方门控再次执行，schema16/16通过后进入 verify:release，全量结果仍待返回。
 
 Python dev依赖按锁文件补齐后，标准隔离复验3文件/6测试全部通过，日志evidence/F01.python-env-retry.log；自身栈wsx-cc3e033269eeeb2b3c4b已清理。剩余全量阻塞为主线local-runtime归类修复#5585（前置#5582全checks结束、尚未合入）。不重复开发；等待实际主线合入后fetch/rebase并重新官方verify。
+
+用户确认#5585合入后已实际核对MERGED（merge f5a4d9ab9），fetch并rebase最新main，ancestor退出0；新head 9cf0252e2。F01仍唯一in_progress，接下来重跑官方完整verify，不复用旧失败日志作当前结论。
+
+第二次门控的9项归类/pytest失败日志独立保留到 evidence/F01.main-parity-prerequisite-failure.log，避免第三次正式F01.verify.log覆盖历史证据；第三次最终退出仍待返回。
+
+第三次验证49m30s，33/33任务成功；自身compose wsx-4683e2a75dd8e74d45e6已清理，无quarantine异常。体验接线准备仍为未实现边界，不混入F01范围。
