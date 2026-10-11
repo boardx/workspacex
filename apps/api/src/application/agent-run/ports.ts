@@ -1234,6 +1234,8 @@ export class ModelCallError extends Error {
     readonly usage?: ReportedUsage,
     /** Adapter-owned HTTP classification; absent means no automatic fallback. */
     readonly retryDisposition?: "rate-limited" | "temporarily-unavailable",
+    /** Exact adapter-owned content rejection; never permission to retry or change providers. */
+    readonly contentRejection?: "content-policy",
   ) {
     super(code);
     this.name = "ModelCallError";
@@ -1336,6 +1338,8 @@ export interface ProviderRequestEvent {
 }
 
 export interface ModelCallPort {
+  /** Opaque adapter-instance identity; a reconfigured/restarted adapter invalidates rejection reuse. */
+  readonly configurationIdentity?: string;
   /** Registered route names only; never endpoints, credentials or automatic candidates. */
   registeredProviders?():readonly string[];
   /** True only for adapters reporting every actual dispatch through onProviderRequest. */

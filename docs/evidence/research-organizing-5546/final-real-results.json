@@ -1,0 +1,70 @@
+{
+  "exitCode": 1,
+  "scope": "Local seven-source partial replay, not original full online recovery",
+  "results": [
+    {
+      "event": "generation_result",
+      "generation": "first",
+      "durationMs": 269603,
+      "cumulativeDurationMs": 269603,
+      "calls": 25,
+      "rejected": 1,
+      "errorCode": null,
+      "chapters": 0,
+      "draftChapters": 4,
+      "qualityWarnings": 1,
+      "evidenceWarnings": 0,
+      "reloadedReport": true,
+      "reloadedDraft": true,
+      "qualityWarningDetails": [
+        {
+          "sectionId": "ch_4",
+          "issues": [
+            "chapter:3/question:7: No direct verified evidence for this question; its quotes are context only or absent. Another question’s direct quote cannot establish this answer. Narrow the claim to the supplied context and explain the specific remaining fact/metric, decision consequence and data owner plus measurement method. Reviewer observation: The chapter addresses the correlation by noting that user churn is linked to the failure of interactive design to sustain reciprocity (lack of response/'spectator' behavior), rather than interface complexity per se. This interpretation is supported by E6, where a user states they would quit if no one responded, leading to a loss of achievement. The chapter correctly distinguishes between 'complexity' and 'lack of reciprocity' based on the evidence."
+          ]
+        }
+      ],
+      "partial": true,
+      "sourceScreenRejections": 1,
+      "retainedSources": 3
+    },
+    {
+      "event": "generation_result",
+      "generation": "regenerate",
+      "durationMs": 231740,
+      "cumulativeDurationMs": 501343,
+      "calls": 19,
+      "rejected": 1,
+      "errorCode": null,
+      "chapters": 0,
+      "draftChapters": 4,
+      "qualityWarnings": 3,
+      "evidenceWarnings": 0,
+      "reloadedReport": true,
+      "reloadedDraft": true,
+      "qualityWarningDetails": [
+        {
+          "sectionId": "ch_2",
+          "issues": [
+            "chapter:1/question:6: No direct verified evidence for this question; its quotes are context only or absent. Another question’s direct quote cannot establish this answer. Narrow the claim to the supplied context and explain the specific remaining fact/metric, decision consequence and data owner plus measurement method. Reviewer observation: The chapter identifies specific spatial layout strategies supported by E3 and E2: combining indoor/outdoor areas (Planning Art Museum + squares), creating multiple fixed stages/interaction points (5 areas, IP castles), and using a total area of 66,000 sqm to distribute flow. The answer connects these layout features to the creation of a vibrant atmosphere."
+          ]
+        },
+        {
+          "sectionId": "ch_3",
+          "issues": [
+            "No usable verified excerpts are available for this chapter. Obtain relevant evidence and retry."
+          ]
+        },
+        {
+          "sectionId": "ch_4",
+          "issues": [
+            "chapter:3/question:7: No direct verified evidence for this question; its quotes are context only or absent. Another question’s direct quote cannot establish this answer. Narrow the claim to the supplied context and explain the specific remaining fact/metric, decision consequence and data owner plus measurement method. Reviewer observation: The chapter addresses the correlation by clarifying that churn is not driven by interface complexity but by the lack of interactive feedback ('no one cares', 'lookers only'), as supported by E6. It refutes the premise of 'complexity' being the primary driver and instead points to the absence of a feedback loop as the cause of user withdrawal, providing a substantive, evidence-based correction/answer."
+          ]
+        }
+      ],
+      "partial": true,
+      "sourceScreenRejections": 1,
+      "retainedSources": 3
+    }
+  ]
+}

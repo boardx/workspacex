@@ -1,0 +1,96 @@
+{
+  "completed": false,
+  "reportPartial": false,
+  "reportHash": null,
+  "previousReportHash": null,
+  "draftHash": "a90a6049ce5ea17930b157392d9f548930c5728f26f0c2ea155891c19fdc23a7",
+  "outlineHash": "cf08ac3fae469d202d4fb01bd4ecd08e4d1c87114f7fd9d85eaafcbde2045c75",
+  "sessionId": "grs_d47eeb4a76e4405a900615e1068edf6f",
+  "version": 5,
+  "busy": false,
+  "errorCode": "RESEARCH_REPORT_QUALITY_INSUFFICIENT",
+  "progress": {
+    "executionVersion": 5,
+    "stage": "synthesizing",
+    "completed": 4,
+    "total": 4
+  },
+  "modelCalls": 157,
+  "formalChapters": 0,
+  "draftChapters": 4,
+  "qualityWarnings": [
+    {
+      "sectionId": "ch_3",
+      "issues": [
+        "Question chapter:2/question:5 is marked missing because the chapter acknowledges the lack of evidence but fails to provide a concrete, specific verification plan comparable to other valid gaps.",
+        "Question chapter:2/question:6 is marked missing because the chapter acknowledges the lack of evidence but the proposed verification is generic ('post-evaluation') rather than a specific, actionable data collection strategy defined in the rationale.",
+        "chapter:2/question:5: The question asks how narrative coherence affects evaluations of liveliness. The evidence list is empty. The chapter text states 'currently there is no evidence supporting or refuting this hypothesis' and 'no data or qualitative description'. However, it fails to provide a concrete verification plan (e.g., specific survey metrics or observational methods) comparable to other gap sections, and simply states the unknown without the 'honest specific evidence gap with concrete verification' structure required for a passing 'gap' status in this context, leaning towards missing due to lack of actionable verification path defined in the rationale.",
+        "chapter:2/question:6: The question asks for the optimal ratio of structured to free time. The evidence list is empty. The chapter states the information is missing and suggests future research by professionals. Similar to Q5, while it acknowledges the gap, it does not offer a concrete, immediate verification step based on available data structures, and the 'missing' status is appropriate when the chapter offers no supported answer and the gap acknowledgement lacks the specific verification detail seen in accepted gaps (like Q0/Q1).",
+        "Revise unsupported claims to match the quoted evidence or explicitly state uncertainty.",
+        "chapter:2/question:0: The chapter identifies various activities (sports, cultural markets, gamified experiences) that generate engagement but explicitly states that existing evidence lacks quantitative comparative data on participation rates. It correctly identifies this as a gap requiring specific verification (counting/retention metrics) rather than providing an unsupported answer.",
+        "chapter:2/question:3: While the chapter describes different game mechanisms (stress cards, emotion cards, healing cards) based on E10, it explicitly states that the sources do not provide quantitative weights or specific contribution values of these mechanisms to participant activity levels. It correctly flags this quantification gap and proposes A/B testing for verification."
+      ]
+    }
+  ],
+  "evidenceWarnings": [],
+  "sources": 16,
+  "documents": 16,
+  "activityFailures": 4,
+  "timeline": [
+    {
+      "id": "evidence",
+      "status": "completed",
+      "attempts": 18
+    },
+    {
+      "id": "chapter:ch_1",
+      "status": "completed",
+      "attempts": 1
+    },
+    {
+      "id": "review:ch_1",
+      "status": "completed",
+      "attempts": 1
+    },
+    {
+      "id": "chapter:ch_2",
+      "status": "completed",
+      "attempts": 1
+    },
+    {
+      "id": "review:ch_2",
+      "status": "completed",
+      "attempts": 1
+    },
+    {
+      "id": "chapter:ch_3",
+      "status": "completed",
+      "attempts": 2
+    },
+    {
+      "id": "review:ch_3",
+      "status": "warning",
+      "attempts": 4
+    },
+    {
+      "id": "chapter:ch_4",
+      "status": "completed",
+      "attempts": 1
+    },
+    {
+      "id": "review:ch_4",
+      "status": "completed",
+      "attempts": 1
+    },
+    {
+      "id": "synthesis",
+      "status": "completed",
+      "attempts": 1
+    },
+    {
+      "id": "validation",
+      "status": "failed",
+      "attempts": 1
+    }
+  ]
+}
