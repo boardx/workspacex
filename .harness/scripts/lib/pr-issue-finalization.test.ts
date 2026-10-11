@@ -117,6 +117,15 @@ describe("pending current PR issue finalization", () => {
     sh('git branch -f origin-main feature', f.repo);
     expect(mayAwaitIssueFinalization(context, 87, f.head, f.repo, "origin-main")).toBe(false);
   });
+  it("does not hide already integrated evidence when origin/main is stale", () => {
+    const f = fixture();
+    f.event.pull_request.base.sha = f.head;
+    f.live.baseRefOid = f.head;
+    writeFileSync(f.eventPath, JSON.stringify(f.event));
+    const context = readPendingIssuePr(f.env, f.repo, () => f.live);
+    expect(context).not.toBeNull();
+    expect(mayAwaitIssueFinalization(context, 87, f.head, f.repo, "origin-main")).toBe(false);
+  });
   it("does not accept evidence made only in the synthetic merge", () => {
     const f = fixture();
     sh('git switch -qc merge origin-main && git merge -q --no-ff feature -m merge', f.repo);

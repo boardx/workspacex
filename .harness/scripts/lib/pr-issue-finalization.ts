@@ -3,7 +3,7 @@ import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { REPO_ROOT } from "./paths";
 
-export type PendingIssuePr = { number: number; head: string; closingIssues: readonly number[] };
+export type PendingIssuePr = { number: number; head: string; base: string; closingIssues: readonly number[] };
 type Environment = Readonly<Record<string, string | undefined>>;
 type ReadLivePr = (repo: string, number: number) => unknown;
 function object(value: unknown): Record<string, unknown> | null {
@@ -64,7 +64,7 @@ export function readPendingIssuePr(
       const parents = git(repoRoot, ["show", "-s", "--format=%P", "HEAD"]);
       if (parents !== `${base} ${head}`) return null;
     }
-    return { number: number as number, head, closingIssues: nodes.filter((node) => field(node, "repository", "nameWithOwner") === repo).map((node) => field(node, "number") as number) };
+    return { number: number as number, head, base, closingIssues: nodes.filter((node) => field(node, "repository", "nameWithOwner") === repo).map((node) => field(node, "number") as number) };
   } catch {
     return null; // malformed event, unavailable authority, or incomplete data remains strict.
   }
@@ -81,5 +81,6 @@ export function mayAwaitIssueFinalization(
   // A missing main ref must not turn unknown integration into "not yet merged".
   if (!git(repoRoot, ["rev-parse", "--verify", `${mainRef}^{commit}`])) return false;
   return ancestorStatus(repoRoot, evidenceCommit, context.head) === 0
+    && ancestorStatus(repoRoot, evidenceCommit, context.base) === 1
     && ancestorStatus(repoRoot, evidenceCommit, mainRef) === 1;
 }
