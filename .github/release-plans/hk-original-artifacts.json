@@ -39,7 +39,7 @@
   },
   "bucket": "workspacex-hk-release-cache-1177216024653153",
   "endpoint": "https://oss-cn-hongkong.aliyuncs.com",
-  "expiresAt": "2026-10-11T18:00:00Z",
+  "expiresAt": "2026-10-11T20:00:00Z",
   "kind": "hk-original-artifact-transfer-v1",
   "oidcProviderArn": "acs:ram::1177216024653153:oidc-provider/WorkspacexGithubActionsOidc",
   "prefix": "runs/38146134231/1/",

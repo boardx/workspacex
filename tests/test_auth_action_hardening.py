@@ -23,7 +23,7 @@ const fsx = {
 class Config {}
 class CredentialClient {
  async getCredential() {
-  const response = {statusCode: scenario.status || 200, body: Buffer.from(scenario.body || '{}')};
+  const response = {statusCode: scenario.status || 200, headers: scenario.headers || {}, body: Buffer.from(scenario.body || '{}')};
   if (response.statusCode !== 200) {
    throw new Error(`get sts token failed with OIDC: ${response.body.toString('utf8')}`);
   }
@@ -92,12 +92,12 @@ class HardenTests(unittest.TestCase):
  def test_real_js_sts_allowlist_and_cleanup_preserves_primary(self):
   code,result=self.execute(dict(status=403,body=json.dumps({'Code':'NoPermission','Message':'SENSITIVE_TOKEN_BODY_STACK'}),cleanup='EACCES'))
   self.assertEqual(code,1)
-  self.assertEqual(result,dict(stage='STS_EXCHANGE',category='NoPermission',httpStatus=403,cleanupFailed=True))
+  self.assertEqual({k:result[k] for k in ('stage','category','httpStatus','cleanupFailed')},dict(stage='STS_EXCHANGE',category='NoPermission',httpStatus=403,cleanupFailed=True))
  def test_real_js_unknown_provider_code_never_echoed(self):
   for body in ('not json SENSITIVE_TOKEN_BODY_STACK', json.dumps({'Code':'SENSITIVE_TOKEN_BODY_STACK'})):
    with self.subTest(body=body):
     code,result=self.execute(dict(status=400,body=body))
-    self.assertEqual(code,1);self.assertEqual(result['category'],'OTHER');self.assertEqual(result['httpStatus'],400)
+    self.assertEqual(code,1);self.assertIn(result['category'],('OTHER','NON_JSON_RESPONSE'));self.assertEqual(result['httpStatus'],400)
  def test_real_js_cleanup_idempotence_and_failure(self):
   self.assertEqual(self.execute(dict(cleanup='ENOENT')),(0,None))
   code,result=self.execute(dict(cleanup='EACCES'))
@@ -117,3 +117,71 @@ class HardenTests(unittest.TestCase):
    raw=p.read_bytes();hashes['dist/main/index.js']=hashlib.sha256(raw).hexdigest()
    with patch.object(h,'HASHES',hashes),self.assertRaises(ValueError):h.harden(root)
    self.assertEqual(p.read_bytes(),raw)
+
+ def test_response_structure_and_known_codes(self):
+  for body,presence,kind,category in [
+   ('{"code":"invalid_token"}','LOWER','STRING','invalid_token'),
+   ('{"Code":"Unauthorized"}','UPPER','STRING','Unauthorized'),
+   ('{"Code":42}','UPPER','NUMBER','OTHER'),
+   ('{"Code":null}','UPPER','NULL','OTHER'),
+   ('{"Code":[]}','UPPER','ARRAY','OTHER'),
+   ('{"Code":{}}','UPPER','OBJECT','OTHER'),
+   ('{"Code":true}','UPPER','BOOLEAN','OTHER'),
+   ('{}','NONE','MISSING','OTHER'),
+   ('{"Code":"NoPermission","code":"invalid_token"}','BOTH','STRING','OTHER')]:
+   with self.subTest(body=body):
+    _,r=self.execute(dict(status=401,body=body,headers={'content-type':'application/json; charset=utf-8','content-encoding':'gzip'}))
+    self.assertTrue(r['jsonParsed']);self.assertTrue(r['topLevelObject']);self.assertEqual(r['codeFieldPresence'],presence);self.assertEqual(r['codeType'],kind);self.assertEqual(r['category'],category);self.assertEqual(r['contentType'],'JSON');self.assertEqual(r['contentEncoding'],'GZIP')
+ def test_non_json_response_shapes_never_echo_payload(self):
+  for body,mime,category in [
+   ('<html>SENSITIVE_TOKEN_BODY_STACK</html>','text/html','HTML_RESPONSE'),
+   ('<Error><Code>InvalidIdentityToken</Code><Message>SENSITIVE_TOKEN_BODY_STACK</Message></Error>','application/xml','XML_RESPONSE'),
+   ('<Error><Code>SENSITIVE_TOKEN_BODY_STACK</Code></Error>','text/xml','XML_RESPONSE'),
+   ('Unauthorized','text/plain','Unauthorized'),
+   ('SENSITIVE_TOKEN_BODY_STACK','text/plain','TEXT_RESPONSE'),
+   ('SENSITIVE_TOKEN_BODY_STACK','SENSITIVE_TOKEN_BODY_STACK','NON_JSON_RESPONSE')]:
+   with self.subTest(category=category):
+    _,r=self.execute(dict(status=401,body=body,headers={'content-type':mime,'content-encoding':'SENSITIVE_TOKEN_BODY_STACK'}))
+    self.assertFalse(r['jsonParsed']);self.assertEqual(r['category'],category);self.assertEqual(r['contentEncoding'],'OTHER')
+ def test_json_primitive_and_large_body(self):
+  for body in ('null','[]','"SENSITIVE_TOKEN_BODY_STACK"'):
+   _,r=self.execute(dict(status=401,body=body));self.assertTrue(r['jsonParsed']);self.assertFalse(r['topLevelObject'])
+  _,r=self.execute(dict(status=401,body='x'*65537));self.assertEqual(r['category'],'BODY_UNCLASSIFIED')
+
+ def test_official_oidc_401_codes(self):
+  codes = ('AuthenticationFail.OIDCToken.AudienceNotMatch', 'AuthenticationFail.OIDCToken.Expired', 'AuthenticationFail.OIDCToken.Invalid', 'AuthenticationFail.OIDCToken.InvalidSignature', 'AuthenticationFail.OIDCToken.IssuerConfigurationBroken', 'AuthenticationFail.OIDCToken.IssuerNotMatch', 'AuthenticationFail.OIDCToken.PublicKeyFingerprintMismatch')
+  for code in codes:
+   with self.subTest(code=code):
+    status,r=self.execute(dict(status=401,body=json.dumps({"Code":code,"Message":"SENSITIVE_TOKEN_BODY_STACK"})))
+    self.assertEqual(status,1);self.assertEqual(r["category"],code);self.assertEqual(r["httpStatus"],401)
+
+ def test_xml_embedded_or_conflicting_codes_are_not_provider_codes(self):
+  for body in ("<Error><Message><Code>NoPermission</Code></Message></Error>", "<Error><Code>unknown</Code><Code>NoPermission</Code></Error>", "<Error><!-- <Code>NoPermission</Code> --></Error>"):
+   _,r=self.execute(dict(status=401,body=body,headers={"content-type":"application/xml"}))
+   self.assertEqual(r["category"],"XML_RESPONSE")
+
+ def test_all_39_documented_sts_codes(self):
+  public_codes = ('AuthenticationFail.NoPermission', 'AuthenticationFail.OIDCToken.AudienceNotMatch', 'AuthenticationFail.OIDCToken.Expired', 'AuthenticationFail.OIDCToken.HttpsUrlInvalid', 'AuthenticationFail.OIDCToken.Invalid', 'AuthenticationFail.OIDCToken.InvalidSignature', 'AuthenticationFail.OIDCToken.IssuerConfigurationBroken', 'AuthenticationFail.OIDCToken.IssuerNotMatch', 'AuthenticationFail.OIDCToken.PublicKeyFingerprintMismatch', 'AuthenticationFail.SAMLAssertion.Expired', 'AuthenticationFail.SAMLAssertion.Invalid', 'EntityNotExist.Role', 'EntityNotExist.SAMLProvider', 'EntityNotExist.Ticket', 'EntityNotExist.User', 'InternalError', 'InvalidParameter', 'InvalidParameter.AssumeRoleFor', 'InvalidParameter.Conditions', 'InvalidParameter.DurationSeconds', 'InvalidParameter.ExternalId', 'InvalidParameter.Policy.StarCount', 'InvalidParameter.PolicyGrammar', 'InvalidParameter.PolicySize', 'InvalidParameter.RoleArn', 'InvalidParameter.RoleSessionName', 'InvalidParameter.SourceIdentity', 'InvalidParameter.UserSessionName', 'InvalidVersion', 'ISVAuthenticationFail.SignatureNotMatch', 'MissingAccessKeyId', 'MissingParameter.OIDCProviderArn', 'MissingParameter.RoleArn', 'MissingParameter.RoleSessionName', 'MissingParameter.SAMLAssertion', 'MissingParameter.SAMLProviderArn', 'NoPermission', 'NoPermission.NotTrusted', 'NotSupported')
+  self.assertEqual(len(set(public_codes)),39)
+  for code in public_codes:
+   with self.subTest(code=code):
+    status,r=self.execute(dict(status=401,body=json.dumps({'Code':code,'Message':'SENSITIVE_TOKEN_BODY_STACK'})))
+    self.assertEqual(status,1);self.assertEqual(r['category'],code);self.assertEqual(r['unknownCodeState'],'NONE');self.assertIsNone(r['unknownCodeSha256'])
+ def test_exact_safe_message_categories(self):
+  cases=[('AuthenticationFail.NoPermission','No such OIDC Provider registered.','OIDC_PROVIDER_NOT_REGISTERED'),('AuthenticationFail.NoPermission','There is no permission','PERMISSION_DENIED'),('AuthenticationFail.OIDCToken.HttpsUrlInvalid','Invoke url failed due to certificate chain validation','CERTIFICATE_CHAIN_VALIDATION_FAILED')]
+  for code,message,expected in cases:
+   with self.subTest(code=code,message=message):
+    _,r=self.execute(dict(status=401,body=json.dumps({'Code':code,'Message':message})));self.assertEqual(r['messageCategory'],expected)
+    for altered in (message+'SENSITIVE_TOKEN_BODY_STACK', 'SENSITIVE_TOKEN_BODY_STACK'+message, {'secret':'SENSITIVE_TOKEN_BODY_STACK'}):
+     _,r=self.execute(dict(status=401,body=json.dumps({'Code':code,'Message':altered})));self.assertEqual(r['messageCategory'],'OTHER')
+  _,r=self.execute(dict(status=401,body=json.dumps({'Code':'NoPermission','Message':cases[0][1]})));self.assertEqual(r['messageCategory'],'OTHER')
+ def test_unknown_code_fingerprint_only(self):
+  for field in ('Code','code'):
+   for value in ('SENSITIVE_TOKEN_BODY_STACK','x'*256,'é'*128):
+    with self.subTest(field=field,value=value):
+     _,r=self.execute(dict(status=401,body=json.dumps({field:value,'Message':'SENSITIVE_TOKEN_BODY_STACK'})))
+     self.assertEqual(r['category'],'OTHER');self.assertEqual(r['unknownCodeState'],'FINGERPRINTED');self.assertEqual(r['unknownCodeBytes'],len(value.encode()));self.assertEqual(r['unknownCodeSha256'],hashlib.sha256(value.encode()).hexdigest())
+  for value in ('','x'*257,'é'*129):
+   _,r=self.execute(dict(status=401,body=json.dumps({'Code':value})));self.assertEqual(r['unknownCodeState'],'OUT_OF_BOUNDS');self.assertIsNone(r['unknownCodeBytes']);self.assertIsNone(r['unknownCodeSha256'])
+  for body in ({'Code':None},{'Code':42},{'Code':['SENSITIVE_TOKEN_BODY_STACK']},{'Code':'unknown','code':'conflict'},{'Message':'SENSITIVE_TOKEN_BODY_STACK'}):
+   _,r=self.execute(dict(status=401,body=json.dumps(body)));self.assertEqual(r['unknownCodeState'],'NONE');self.assertIsNone(r['unknownCodeSha256'])

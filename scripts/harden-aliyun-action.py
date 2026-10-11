@@ -25,27 +25,131 @@ def harden(directory):
    raise ValueError('AUTH_ACTION_PATCH_SHAPE_MISMATCH')
   main = main.replace(old, new)
  # Values emitted below come only from literals, an exact enum, or an integer.
- codes = ('InvalidParameter.OIDCToken', 'InvalidIdentityToken', 'InvalidParameter',
-          'NoPermission', 'Forbidden', 'EntityNotExist.Role', 'EntityNotExist.OIDCProvider',
-          'InvalidOIDCToken', 'InvalidParameter.DurationSeconds')
+ # Public STS documentation lists 39 unique codes; this is not an exhaustive runtime set.
+ # https://www.alibabacloud.com/help/en/ram/developer-reference/api-sts-2015-04-01-errorcodes
+ public_codes = (
+          'AuthenticationFail.NoPermission',
+          'AuthenticationFail.OIDCToken.AudienceNotMatch',
+          'AuthenticationFail.OIDCToken.Expired',
+          'AuthenticationFail.OIDCToken.HttpsUrlInvalid',
+          'AuthenticationFail.OIDCToken.Invalid',
+          'AuthenticationFail.OIDCToken.InvalidSignature',
+          'AuthenticationFail.OIDCToken.IssuerConfigurationBroken',
+          'AuthenticationFail.OIDCToken.IssuerNotMatch',
+          'AuthenticationFail.OIDCToken.PublicKeyFingerprintMismatch',
+          'AuthenticationFail.SAMLAssertion.Expired',
+          'AuthenticationFail.SAMLAssertion.Invalid',
+          'EntityNotExist.Role',
+          'EntityNotExist.SAMLProvider',
+          'EntityNotExist.Ticket',
+          'EntityNotExist.User',
+          'InternalError',
+          'InvalidParameter',
+          'InvalidParameter.AssumeRoleFor',
+          'InvalidParameter.Conditions',
+          'InvalidParameter.DurationSeconds',
+          'InvalidParameter.ExternalId',
+          'InvalidParameter.Policy.StarCount',
+          'InvalidParameter.PolicyGrammar',
+          'InvalidParameter.PolicySize',
+          'InvalidParameter.RoleArn',
+          'InvalidParameter.RoleSessionName',
+          'InvalidParameter.SourceIdentity',
+          'InvalidParameter.UserSessionName',
+          'InvalidVersion',
+          'ISVAuthenticationFail.SignatureNotMatch',
+          'MissingAccessKeyId',
+          'MissingParameter.OIDCProviderArn',
+          'MissingParameter.RoleArn',
+          'MissingParameter.RoleSessionName',
+          'MissingParameter.SAMLAssertion',
+          'MissingParameter.SAMLProviderArn',
+          'NoPermission',
+          'NoPermission.NotTrusted',
+          'NotSupported',
+)
+ # Compatibility/OAuth categories remain exact literals, not arbitrary provider output.
+ codes = public_codes + ('InvalidParameter.OIDCToken', 'InvalidIdentityToken',
+          'Forbidden', 'EntityNotExist.OIDCProvider', 'InvalidOIDCToken',
+          'invalid_token', 'invalid_request', 'unauthorized_client', 'access_denied',
+          'invalid_grant', 'Unauthorized', 'AuthenticationFail')
  import json
  provider_error = "throw new Error(`get sts token failed with OIDC: ${response.body.toString('utf8')}`);"
  replace_once(provider_error, """const safeError = new Error('AUTH_STS_RESPONSE_REJECTED');
             safeError.authHttpStatus = Number.isInteger(response.statusCode) && response.statusCode >= 100 && response.statusCode <= 599 ? response.statusCode : null;
-            safeError.authCategory = 'OTHER';
-            try {
-                const parsed = JSON.parse(response.body.toString('utf8'));
-                const allowed = """ + json.dumps(codes) + """;
-                if (parsed && allowed.includes(parsed.Code)) safeError.authCategory = parsed.Code;
-            } catch (_) { /* Never expose provider response bytes. */ }
+            const allowed = """ + json.dumps(codes) + """;
+            const headers = response.headers || {};
+            const mime = typeof headers['content-type'] === 'string' ? headers['content-type'].split(';')[0].trim().toLowerCase() : '';
+            const contentType = !mime ? 'MISSING' : ['application/json', 'application/problem+json'].includes(mime) ? 'JSON' : ['application/xml', 'text/xml'].includes(mime) ? 'XML' : mime === 'text/html' ? 'HTML' : mime === 'text/plain' ? 'TEXT' : 'OTHER';
+            const encoding = typeof headers['content-encoding'] === 'string' ? headers['content-encoding'].trim().toLowerCase() : '';
+            const contentEncoding = !encoding ? 'MISSING' : ({identity:'IDENTITY',gzip:'GZIP',deflate:'DEFLATE',br:'BR'})[encoding] || 'OTHER';
+            safeError.authShape = {jsonParsed:false, topLevelObject:false, codeFieldPresence:'NONE', codeType:'MISSING', contentType, contentEncoding};
+            safeError.authCategory = 'NON_JSON_RESPONSE';
+            if (Buffer.isBuffer(response.body) && response.body.length <= 65536) {
+              const text = response.body.toString('utf8');
+              try {
+                const parsed = JSON.parse(text);
+                safeError.authShape.jsonParsed = true;
+                safeError.authShape.topLevelObject = parsed !== null && typeof parsed === 'object' && !Array.isArray(parsed);
+                safeError.authCategory = 'OTHER';
+                if (safeError.authShape.topLevelObject) {
+                  const upper = Object.prototype.hasOwnProperty.call(parsed, 'Code');
+                  const lower = Object.prototype.hasOwnProperty.call(parsed, 'code');
+                  safeError.authShape.codeFieldPresence = upper && lower ? 'BOTH' : upper ? 'UPPER' : lower ? 'LOWER' : 'NONE';
+                  const code = upper ? parsed.Code : parsed.code;
+                  safeError.authShape.codeType = !upper && !lower ? 'MISSING' : code === null ? 'NULL' : Array.isArray(code) ? 'ARRAY' : ({string:'STRING',number:'NUMBER',boolean:'BOOLEAN',object:'OBJECT'})[typeof code] || 'OTHER';
+                  const conflict = upper && lower && parsed.Code !== parsed.code;
+                  if (!conflict && allowed.includes(code)) {
+                    safeError.authCategory = code;
+                    const message = parsed.Message;
+                    if (code === 'AuthenticationFail.NoPermission' && message === 'No such OIDC Provider registered.') safeError.authMessageCategory = 'OIDC_PROVIDER_NOT_REGISTERED';
+                    if (code === 'AuthenticationFail.NoPermission' && message === 'There is no permission') safeError.authMessageCategory = 'PERMISSION_DENIED';
+                    if (code === 'AuthenticationFail.OIDCToken.HttpsUrlInvalid' && message === 'Invoke url failed due to certificate chain validation') safeError.authMessageCategory = 'CERTIFICATE_CHAIN_VALIDATION_FAILED';
+                  } else if (!conflict && typeof code === 'string' && !allowed.includes(code)) {
+                    const size = Buffer.byteLength(code, 'utf8');
+                    if (size > 0 && size <= 256) {
+                      safeError.authUnknownCodeBytes = size;
+                      safeError.authUnknownCodeSha256 = require('crypto').createHash('sha256').update(code, 'utf8').digest('hex');
+                      safeError.authUnknownCodeState = 'FINGERPRINTED';
+                    } else safeError.authUnknownCodeState = 'OUT_OF_BOUNDS';
+                  }
+                }
+              } catch (_) {
+                safeError.authCategory = ({XML:'XML_RESPONSE',HTML:'HTML_RESPONSE',TEXT:'TEXT_RESPONSE'})[contentType] || 'NON_JSON_RESPONSE';
+                // XML remains structural only; text matches cannot establish a provider Code.
+                if (text.trim() === 'Unauthorized') safeError.authCategory = 'Unauthorized';
+              }
+            } else safeError.authCategory = 'BODY_UNCLASSIFIED';
             throw safeError;""")
  diagnostic = """let authStage = 'INITIALIZE';
 let authCleanupFailed = false;
 function safeAuthDiagnostic(err) {
   const allowed = """ + json.dumps(codes) + """;
-  const category = err && allowed.includes(err.authCategory) ? err.authCategory : 'OTHER';
+  const categories = allowed.concat(['OTHER','NON_JSON_RESPONSE','XML_RESPONSE','HTML_RESPONSE','TEXT_RESPONSE','BODY_UNCLASSIFIED']);
+  const category = err && categories.includes(err.authCategory) ? err.authCategory : 'OTHER';
   const status = err && Number.isInteger(err.authHttpStatus) && err.authHttpStatus >= 100 && err.authHttpStatus <= 599 ? err.authHttpStatus : null;
-  return JSON.stringify({stage: authStage, category, httpStatus: status, cleanupFailed: authCleanupFailed});
+  const shape = err && err.authShape || {};
+  const select = (value, values, fallback) => values.includes(value) ? value : fallback;
+  const fingerprintValid = category === 'OTHER' && err && err.authUnknownCodeState === 'FINGERPRINTED' &&
+    Number.isInteger(err.authUnknownCodeBytes) && err.authUnknownCodeBytes >= 1 && err.authUnknownCodeBytes <= 256 &&
+    typeof err.authUnknownCodeSha256 === 'string' && /^[a-f0-9]{64}$/.test(err.authUnknownCodeSha256);
+  const messageCategory = category === 'AuthenticationFail.NoPermission' ?
+    select(err && err.authMessageCategory, ['OIDC_PROVIDER_NOT_REGISTERED','PERMISSION_DENIED'], 'OTHER') :
+    category === 'AuthenticationFail.OIDCToken.HttpsUrlInvalid' ?
+    select(err && err.authMessageCategory, ['CERTIFICATE_CHAIN_VALIDATION_FAILED'], 'OTHER') : 'OTHER';
+  return JSON.stringify({
+    stage: select(authStage, ['INITIALIZE','TOKEN_REQUEST','TOKEN_WRITE','STS_EXCHANGE','CREDENTIAL_EXPORT','TOKEN_CLEANUP'], 'INITIALIZE'),
+    category, httpStatus: status, cleanupFailed: authCleanupFailed === true,
+    messageCategory,
+    unknownCodeState: fingerprintValid ? 'FINGERPRINTED' : category === 'OTHER' && err && err.authUnknownCodeState === 'OUT_OF_BOUNDS' ? 'OUT_OF_BOUNDS' : 'NONE',
+    unknownCodeBytes: fingerprintValid ? err.authUnknownCodeBytes : null,
+    unknownCodeSha256: fingerprintValid ? err.authUnknownCodeSha256 : null,
+    jsonParsed: shape.jsonParsed === true, topLevelObject: shape.topLevelObject === true,
+    codeFieldPresence: select(shape.codeFieldPresence, ['NONE','UPPER','LOWER','BOTH'], 'NONE'),
+    codeType: select(shape.codeType, ['MISSING','NULL','ARRAY','STRING','NUMBER','BOOLEAN','OBJECT','OTHER'], 'MISSING'),
+    contentType: select(shape.contentType, ['JSON','XML','HTML','TEXT','OTHER','MISSING'], 'MISSING'),
+    contentEncoding: select(shape.contentEncoding, ['IDENTITY','GZIP','DEFLATE','BR','OTHER','MISSING'], 'MISSING')
+  });
 }
 async function run() {"""
  replace_once('async function run() {', diagnostic)
