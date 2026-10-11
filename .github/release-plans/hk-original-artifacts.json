@@ -1,0 +1,51 @@
+{
+  "accountId": "1177216024653153",
+  "artifacts": {
+    "agent": {
+      "bytes": 410873957,
+      "id": 11704877196,
+      "sha256": "baca72ccc242f4a4233531a07941ac8b943f0d9c639ab1baff8ebd76d6f717f3"
+    },
+    "api": {
+      "bytes": 983577941,
+      "id": 11705141666,
+      "sha256": "98911883a5a05c1d26c06e39af43d7b7c24585192892543a67a1a79d41f1dde2"
+    },
+    "plan": {
+      "bytes": 1010,
+      "id": 11704303102,
+      "sha256": "cabf792681b6768f4fd6302a47a001317eebbd23d33497244aa295a7dc8d803c"
+    },
+    "postgres": {
+      "bytes": 460160021,
+      "id": 11704517675,
+      "sha256": "fbec6c72df7be5886e0e45a8584dc27d40d038819e745c60d4f1abda52dbfcca"
+    },
+    "sandbox": {
+      "bytes": 1577550220,
+      "id": 11705066985,
+      "sha256": "7c4e2654b03a721036548c9b4fceb5eddc8e8d2ef36df111183871a2ac0d5c6a"
+    },
+    "set": {
+      "bytes": 5255,
+      "id": 11705296861,
+      "sha256": "017b64edf5cefcecbf3d42a439034ff9478388bb3b0ab704fa8041564a4b4576"
+    },
+    "web": {
+      "bytes": 393732413,
+      "id": 11704512913,
+      "sha256": "19c720096e107f073b93b14afcc4ea31af3b129ed47e807eb46d6613710c5a24"
+    }
+  },
+  "bucket": "workspacex-hk-release-cache-1177216024653153",
+  "endpoint": "https://oss-cn-hongkong.aliyuncs.com",
+  "expiresAt": "2026-10-11T18:00:00Z",
+  "kind": "hk-original-artifact-transfer-v1",
+  "oidcProviderArn": "acs:ram::1177216024653153:oidc-provider/WorkspacexGithubActionsOidc",
+  "prefix": "runs/38146134231/1/",
+  "producerControl": "27bada5321e45fbdd5f0506fd06d08fa29ea24ce",
+  "region": "cn-hongkong",
+  "sourceRun": 38146134231,
+  "subject": "repo:boardx/workspacex:environment:production-cn-build",
+  "uploaderRoleArn": "acs:ram::1177216024653153:role/workspacexgithubhongkongtransferrole"
+}

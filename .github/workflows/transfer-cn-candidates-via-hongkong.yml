@@ -1,0 +1,84 @@
+# Local review draft. Copy with uploader and bound plan only after authorized setup.
+name: transfer-cn-candidates-via-hongkong
+on:
+  workflow_dispatch:
+    inputs:
+      plan_sha256:
+        description: Independently reviewed SHA256 of checked-in exact transfer plan
+        type: string
+        required: true
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: hk-original-artifacts-38146134231-1
+  cancel-in-progress: false
+jobs:
+  transfer:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    environment: production-cn-build
+    permissions:
+      contents: read
+      actions: read
+      id-token: write
+    env:
+      ALIYUN_OIDC_AUDIENCE: sts.aliyuncs.com
+      ALIYUN_OIDC_SUBJECT: repo:boardx/workspacex:environment:production-cn-build
+      ALIYUN_ROLE_ARN: acs:ram::1177216024653153:role/workspacexgithubhongkongtransferrole
+      ALIYUN_OIDC_PROVIDER_ARN: acs:ram::1177216024653153:oidc-provider/WorkspacexGithubActionsOidc
+      REVIEWED_ROLE_ARN: acs:ram::1177216024653153:role/workspacexgithubhongkongtransferrole
+      REVIEWED_OIDC_SUBJECT: repo:boardx/workspacex:environment:production-cn-build
+      REVIEWED_PROVIDER_ARN: acs:ram::1177216024653153:oidc-provider/WorkspacexGithubActionsOidc
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - name: Require exact single workflow attempt and main
+        env:
+          ATTEMPT: ${{ github.run_attempt }}
+          REF: ${{ github.ref }}
+        run: test "$ATTEMPT" = 1 && test "$REF" = refs/heads/main
+      - uses: actions/checkout@v5
+        with:
+          ref: 27bada5321e45fbdd5f0506fd06d08fa29ea24ce
+          path: producer-control
+          persist-credentials: false
+      - name: Verify actual OIDC claims before federation
+        run: python3 scripts/aliyun-release-auth.py verify-oidc
+      - uses: actions/checkout@v5
+        with:
+          repository: aliyun/configure-aliyun-credentials-action
+          ref: 1e5248c8d5d93a8781ac344a68e19a43341e79e6
+          path: .release-auth-action
+          persist-credentials: false
+      - run: python3 scripts/harden-aliyun-action.py --directory .release-auth-action
+      - uses: ./.release-auth-action
+        with:
+          role-to-assume: acs:ram::1177216024653153:role/workspacexgithubhongkongtransferrole
+          oidc-provider-arn: acs:ram::1177216024653153:oidc-provider/WorkspacexGithubActionsOidc
+          audience: sts.aliyuncs.com
+          role-session-name: hk-${{ github.run_id }}-${{ github.run_attempt }}
+          role-session-expiration: 3600
+      - name: Install reviewed SDK
+        run: |
+          python3 -c "import sys; assert sys.version_info[:2] == (3,12)"
+          python3 -m venv "$RUNNER_TEMP/hk-sdk"
+          "$RUNNER_TEMP/hk-sdk/bin/pip" install --disable-pip-version-check --no-deps --require-hashes -r .github/release-plans/hk-sdk-build-tools.lock
+          "$RUNNER_TEMP/hk-sdk/bin/pip" install --disable-pip-version-check --no-build-isolation --no-deps --require-hashes -r .github/release-plans/hk-sdk-requirements-pypi.lock
+          "$RUNNER_TEMP/hk-sdk/bin/pip" check
+      - name: Transfer original ZIPs once and read back SHA256
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PLAN_SHA: ${{ inputs.plan_sha256 }}
+        run: '"$RUNNER_TEMP/hk-sdk/bin/python" -I -B scripts/cn-hk-original-artifact-upload.py --plan .github/release-plans/hk-original-artifacts.json --plan-sha256 "$PLAN_SHA" --output "$RUNNER_TEMP/hk-original-artifacts"'
+      - name: Retain only sanitized receipt
+        uses: actions/upload-artifact@v6
+        with:
+          name: hk-transfer-receipt-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/hk-original-artifacts/receipt.json
+            ${{ runner.temp }}/hk-original-artifacts/revalidation/hk-cloud-proof/candidate-revalidation.json
+            ${{ runner.temp }}/hk-original-artifacts/revalidation/revalidation-policy.json
+          retention-days: 1
+          if-no-files-found: error
