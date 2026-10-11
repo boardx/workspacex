@@ -40,7 +40,8 @@ import {
   type TargetAllowlistKey,
 } from "./lib/verification-targets";
 import { sh } from "./lib/sh";
-import { evidenceLogRelPath, isEvidenceCommitIntegrated } from "./lib/evidence-integration";
+import { evidenceLogCommit, evidenceLogRelPath, isEvidenceCommitIntegrated } from "./lib/evidence-integration";
+import { readPendingIssuePr, mayAwaitIssueFinalization, type PendingIssuePr } from "./lib/pr-issue-finalization";
 import { describeIssueListFailure, listAllIssues, type IssueListResult } from "./lib/github-issues";
 import { PR_GREEN_RULE_EFFECTIVE_FROM, commitStatusToObservation, judgeClosingPrGreen, type CheckRunObservation, type ClosingPr } from "./lib/pr-green";
 import type { QueueMergeEvidence } from "./lib/merge-queue";
@@ -835,18 +836,27 @@ function checkIssueExists(phaseId: string, f: Feature, issues: GhIssue[], findin
  * ② passing 的 feature，它的 issue 必须已关闭 —— 否则看板上永远显示在做。
  *
  * ⚠ 与 ③ 同样的鸡生蛋：issue 由 PR 的 `Closes #N` 关闭，而 PR 要先 push 才能开。
- *   ⇒ pre-push 是 WARN，CI（`--strict`）才是 FAIL。第一版两条都写成 FAIL，都撞上了。
+ *   ⇒ pre-push WARN；main strict FAIL。当前 PR 的 live 关闭引用与证据经校验后，
+ *      仅该 issue 在合并前 WARN，合入后的关闭/绿 CI 审计仍照常执行。
  */
-function checkIssueClosed(
+export function checkIssueClosed(
   phaseId: string,
   f: Feature,
   issues: GhIssue[],
   findings: Finding[],
   level: "FAIL" | "WARN",
+  pendingPr: PendingIssuePr | null = null,
+  repoRoot = REPO_ROOT,
+  mainRef = "origin/main",
 ): void {
   if (f.status !== "passing") return;
   const issue = findIssue(issues, phaseId, f);
   if (!issue || issue.state === "CLOSED") return;
+  const rel = evidenceLogRelPath(phaseId, f);
+  if (mayAwaitIssueFinalization(pendingPr, issue.number, rel ? evidenceLogCommit(rel, repoRoot) : null, repoRoot, mainRef)) {
+    findings.push({ level: "WARN", phase: phaseId, msg: `${f.id} 已验证，issue #${issue.number} 等待当前 PR #${pendingPr!.number} 合并后关闭（尚未完成 main 闭环）` });
+    return;
+  }
   findings.push({
     level,
     phase: phaseId,
@@ -1168,6 +1178,7 @@ export function doctor(args: Args): void {
   // GitHub 侧一次拉全，离线时降级为一条 WARN 而不是阻断本地开发
   const { issues, gap: issueGap } = loadIssues();
   const repo = syncRepo();
+  const pendingPr = repo && repo === process.env.GITHUB_REPOSITORY ? readPendingIssuePr() : null;
   if (issueGap) {
     authorityGaps.push(issueGap);
     findings.push({
@@ -1210,7 +1221,7 @@ export function doctor(args: Args): void {
       checkFeatureIdIntegrity(id, f, findings);
       if (issues) {
         checkIssueExists(id, f, issues, findings);
-        checkIssueClosed(id, f, issues, findings, strict ? "FAIL" : "WARN");
+        checkIssueClosed(id, f, issues, findings, strict ? "FAIL" : "WARN", pendingPr);
         checkIssueClosedButNotDone(id, f, issues, findings, strict ? "FAIL" : "WARN");
         checkClosingPrGreen(id, f, issues, findings, strict ? "FAIL" : "WARN", repo);
       }
