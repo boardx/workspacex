@@ -1,0 +1,50 @@
+
+> @repo/api@0.0.0 test:research-unit /Users/shenyangjun/.codex/worktrees/799b/workspacex/apps/api
+> vitest run --config vitest.research-unit.config.ts
+
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/799b/workspacex/apps/api
+
+ ✓ tests/research/guided-report-chapters.test.ts (127 tests) 2724ms
+   ✓ chapter-based report generation > rejects callbacks retained by a failed stream attempt during retry 504ms
+   ✓ chapter-based report generation > retries a recoverable chapter stream from the approved prefix 502ms
+   ✓ chapter-based report generation > retries a recoverable synthesis stream from the approved prefix 503ms
+   ✓ chapter-based report generation > bounds provider HTTP 503 attempts at 2 503ms
+ ✓ tests/research/guided-source-relevance.test.ts (67 tests) 181ms
+ ✓ tests/research/guided-search-recovery.test.ts (68 tests) 454ms
+ ✓ tests/research/guided-three-step.test.ts (42 tests) 949ms
+ ✓ tests/research/guided-runtime-delta.test.ts (26 tests) 550ms
+   ✓ strips cache hints from command execution and returns only changed fields 493ms
+ ✓ tests/research/guided-runtime-diagnostics.test.ts (31 tests) 36ms
+ ✓ tests/research/guided-report-evidence.test.ts (23 tests) 63ms
+ ✓ tests/research/guided-report-partial-coverage.test.ts (41 tests) 16ms
+ ✓ tests/research/guided-evidence-ledger.test.ts (25 tests) 49ms
+ ✓ tests/research/google-guided-search.test.ts (42 tests) 1036ms
+ ✓ tests/research/guided-plan-repair.test.ts (13 tests) 33ms
+ ✓ tests/research/guided-runtime-orchestration.test.ts (6 tests) 52ms
+ ✓ tests/research/guided-supplement-task-scope.test.ts (12 tests) 26ms
+ ✓ tests/research/guided-negative-screen-cache.test.ts (22 tests) 60ms
+ ✓ tests/research/guided-research-trust.test.ts (18 tests) 6ms
+ ✓ tests/research/guided-serial-plan-search.test.ts (10 tests) 14ms
+ ✓ tests/research/guided-partial-report-recovery.test.ts (12 tests) 18ms
+ ✓ tests/research/guided-source-documents.test.ts (8 tests) 24ms
+ ✓ tests/research/guided-runtime-private-ledger.test.ts (10 tests) 244ms
+ ✓ tests/research/guided-source-document-references.test.ts (11 tests) 9ms
+ ✓ tests/agent-runtime/model-response-schema.test.ts (13 tests) 74ms
+ ✓ tests/research/guided-runtime-progress.test.ts (7 tests) 38ms
+ ✓ tests/research/guided-stream-transport.test.ts (18 tests) 124ms
+ ✓ tests/research/guided-search-recovery-query-scope.test.ts (24 tests) 7ms
+ ✓ tests/research/guided-progressive-candidates.test.ts (5 tests) 12ms
+ ✓ tests/research/guided-generation-stream.test.ts (5 tests) 179ms
+ ✓ tests/research/guided-negative-screen-cache-pipeline.test.ts (2 tests) 19ms
+ ✓ tests/research/guided-research-design.test.ts (7 tests) 4ms
+ ✓ tests/research/guided-chapter-citation-repair.test.ts (7 tests) 4ms
+ ✓ tests/research/guided-report-quality.test.ts (5 tests) 2ms
+ ✓ tests/research/guided-call-budget.test.ts (4 tests) 5ms
+ ✓ tests/research/guided-provider-content-rejection.test.ts (6 tests) 28ms
+
+ Test Files  32 passed (32)
+      Tests  717 passed (717)
+   Start at  17:34:23
+   Duration  18.72s (transform 989ms, setup 0ms, collect 8.03s, tests 7.04s, environment 2ms, prepare 915ms)
+

@@ -37,8 +37,15 @@ export function runAffectedTests({
     }
     run(process.execPath, [coreCli(), 'install', '--with-deps', '--only-shell', 'chromium'], { stdio: 'inherit' });
   }
-  // Same base, fork filter and browser path as planning/installation; no test skipping.
-  run('pnpm', args, { stdio: 'inherit' });
+  // CN's fixed 40s discover shares this runner with the full affected fanout.
+  // Complete the selected package fresh before competing package tests start.
+  const selectedCloud = plan.tasks.some(task => task.taskId === '@repo/cloud-deploy#test' &&
+    typeof task.command === 'string' && task.command.length > 0 && task.command !== '<NONEXISTENT>');
+  if (selectedCloud) {
+    run('pnpm', ['turbo', 'run', 'test', '--filter=@repo/cloud-deploy', '--force'], { stdio: 'inherit' });
+  }
+  // Same base, fork filter and browser path; exclude only a package that just passed in full.
+  run('pnpm', [...args, ...(selectedCloud ? ['--filter=!@repo/cloud-deploy'] : [])], { stdio: 'inherit' });
 }
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   try { runAffectedTests(); } catch (error) { console.error(error); process.exitCode = 1; }

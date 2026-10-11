@@ -1,0 +1,10 @@
+{
+  "firstObservedDispatchId": 236,
+  "lastObservedDispatchId": 305,
+  "requests": 70,
+  "responses": 70,
+  "failures": 0,
+  "normalUiRecovery": true,
+  "recoveredCheckpointFromVersion": 8,
+  "formalVersion": 9
+}

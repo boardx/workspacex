@@ -1,0 +1,9 @@
+{
+  "firstObservedDispatchId": 306,
+  "lastObservedDispatchId": 343,
+  "requests": 38,
+  "responses": 38,
+  "failures": 0,
+  "normalUiFullRegeneration": true,
+  "formalVersion": 10
+}

@@ -8,7 +8,7 @@ for test in TESTS:
  # This suite verifies full Git objects and real link rejection fixtures.
  timeout=40 if test=='prepare_cn_tool_install_test.py' else 20
  subprocess.run([sys.executable,'-B',str(VM/test)],cwd=ROOT,check=True,timeout=timeout)
-subprocess.run([sys.executable,'-B','-m','unittest','discover','-s',str(VM),'-p','test_*.py'],cwd=ROOT,check=True,timeout=40)
+subprocess.run([sys.executable,'-B',str(ROOT/'.harness/scripts/cn-pure-test-supervisor.py'),'--directory',str(VM),'--timeout','40'],cwd=ROOT,check=True)
 helper_tests=sorted(VM.glob('test_*.cjs'))+[
  VM/'acceptance_receipt_producer_test.cjs',VM/'acceptance_source_closure_test.cjs']
 subprocess.run(['node','--test',*[str(p) for p in helper_tests]],cwd=ROOT,check=True,timeout=20)

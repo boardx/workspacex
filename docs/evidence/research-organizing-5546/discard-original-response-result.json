@@ -1,0 +1,28 @@
+[
+  {
+    "id": 22,
+    "chapter": "ch_2",
+    "originalQuestions": 8,
+    "bindings": 8,
+    "beforeCitationMarkers": 20,
+    "afterCitationMarkers": 17,
+    "survivingSourceIds": 8,
+    "rawResponseUnchanged": true,
+    "responseSha256": "9328cb52f72c1ad7f890f3aa757adb032ac31fcab9f34397accddaee5faa1cbb",
+    "semanticApproval": false,
+    "realDispatches": 0
+  },
+  {
+    "id": 24,
+    "chapter": "ch_2",
+    "originalQuestions": 8,
+    "bindings": 8,
+    "beforeCitationMarkers": 20,
+    "afterCitationMarkers": 17,
+    "survivingSourceIds": 8,
+    "rawResponseUnchanged": true,
+    "responseSha256": "9328cb52f72c1ad7f890f3aa757adb032ac31fcab9f34397accddaee5faa1cbb",
+    "semanticApproval": false,
+    "realDispatches": 0
+  }
+]

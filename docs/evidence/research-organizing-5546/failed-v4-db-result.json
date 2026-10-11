@@ -1,0 +1,90 @@
+{
+  "completed": false,
+  "reportPartial": false,
+  "reportHash": null,
+  "previousReportHash": null,
+  "draftHash": "d364254bb66faedd09fced5ed0890a9048a58571f120847760285c6a891008e5",
+  "outlineHash": "cf08ac3fae469d202d4fb01bd4ecd08e4d1c87114f7fd9d85eaafcbde2045c75",
+  "sessionId": "grs_d47eeb4a76e4405a900615e1068edf6f",
+  "version": 4,
+  "busy": false,
+  "errorCode": "RESEARCH_REPORT_QUALITY_INSUFFICIENT",
+  "progress": {
+    "executionVersion": 4,
+    "stage": "synthesizing",
+    "completed": 4,
+    "total": 4
+  },
+  "modelCalls": 126,
+  "formalChapters": 0,
+  "draftChapters": 4,
+  "qualityWarnings": [
+    {
+      "sectionId": "ch_3",
+      "issues": [
+        "Chapter quality could not be verified."
+      ]
+    }
+  ],
+  "evidenceWarnings": [],
+  "sources": 16,
+  "documents": 16,
+  "activityFailures": 4,
+  "timeline": [
+    {
+      "id": "evidence",
+      "status": "completed",
+      "attempts": 23
+    },
+    {
+      "id": "chapter:ch_1",
+      "status": "completed",
+      "attempts": 1
+    },
+    {
+      "id": "review:ch_1",
+      "status": "completed",
+      "attempts": 1
+    },
+    {
+      "id": "chapter:ch_2",
+      "status": "completed",
+      "attempts": 2
+    },
+    {
+      "id": "review:ch_2",
+      "status": "completed",
+      "attempts": 7
+    },
+    {
+      "id": "chapter:ch_3",
+      "status": "completed",
+      "attempts": 2
+    },
+    {
+      "id": "review:ch_3",
+      "status": "warning",
+      "attempts": 7
+    },
+    {
+      "id": "chapter:ch_4",
+      "status": "completed",
+      "attempts": 1
+    },
+    {
+      "id": "review:ch_4",
+      "status": "completed",
+      "attempts": 1
+    },
+    {
+      "id": "synthesis",
+      "status": "completed",
+      "attempts": 1
+    },
+    {
+      "id": "validation",
+      "status": "failed",
+      "attempts": 1
+    }
+  ]
+}
