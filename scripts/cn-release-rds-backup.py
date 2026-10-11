@@ -154,6 +154,7 @@ def _execute(mode,approval,root,provider,reader,hold_reader,clock=now,sleep=time
             dispatch=parse(raw);need(dispatch.get('BackupJobId') and dispatch.get('RequestId'),'CREATE_UNKNOWN')
         intent_raw=reader.file(root/'intent.json');intent=parse(intent_raw)
         need(intent['request']==CREATE and intent['holdGeneration']==hold['generation'] and intent['attemptId']==approval['identity']['attemptId'] and all(intent[k]==v for k,v in refs.items()),'INTENT_IDENTITY')
+        need(instant(intent['createdAt'])>=instant(stop['finishedAt']),'CREATE_BEFORE_STOP')
         # An absent/unknown create response cannot be converted into terminal success by timestamp correlation.
         dispatch_raw=reader.file(root/'dispatch.json');dispatch=parse(dispatch_raw)
         need(dispatch.get('BackupJobId') and dispatch.get('RequestId'),'CREATE_UNKNOWN')
@@ -192,7 +193,7 @@ def _execute(mode,approval,root,provider,reader,hold_reader,clock=now,sleep=time
         need(hold_reader()==hold,'CURRENT_HOLD_CHANGED')
         # Retain each original response, not only a synthesized flattened page.
         evidence={'intent':sha(intent_raw),'dispatch':sha(dispatch_raw),**refs,'pages':[sha(x) for x in pages],'task':sha(task_raw)}
-        receipt={'dbInstanceId':DB,'backupId':v['BackupId'],'backupStatus':'Success','metaStatus':'OK','backupStartTime':v['BackupStartTime'],'backupEndTime':v['BackupEndTime'],'holdGeneration':hold['generation'],'attemptId':intent['attemptId'],'requestedBackupJobId':dispatch['BackupJobId'],'providerRequestId':dispatch['RequestId'],'association':'DescribeBackupTasks exact BackupJobId returned Finished and BackupId; matching DescribeBackups current-epoch snapshot','originalEvidenceSha256':evidence,'isolatedRestoreTested':False,'redisBackup':False,'ossBackup':False}
+        receipt={'createIntentCreatedAt':intent['createdAt'],'dbInstanceId':DB,'backupId':v['BackupId'],'backupStatus':'Success','metaStatus':'OK','backupStartTime':v['BackupStartTime'],'backupEndTime':v['BackupEndTime'],'holdGeneration':hold['generation'],'attemptId':intent['attemptId'],'requestedBackupJobId':dispatch['BackupJobId'],'providerRequestId':dispatch['RequestId'],'association':'DescribeBackupTasks exact BackupJobId returned Finished and BackupId; matching DescribeBackups current-epoch snapshot','originalEvidenceSha256':evidence,'isolatedRestoreTested':False,'redisBackup':False,'ossBackup':False}
         if mode=='action':
             result=encode(receipt);store(root,'backup-receipt.json',result);return result
         original=reader.file(root/'backup-receipt.json');saved=parse(original)

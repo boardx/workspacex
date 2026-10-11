@@ -53,7 +53,7 @@ class Tests(unittest.TestCase):
   self.assertEqual(self.p.calls,[])
  def test_exact_job_mapping_and_independent_observer(self):
   raw=self.runop('action');self.assertEqual(self.runop('observe'),raw)
-  v=m.parse(raw);self.assertFalse(v['isolatedRestoreTested']);self.assertEqual(v['backupId'],'456');self.assertEqual(v['requestedBackupJobId'],'123')
+  v=m.parse(raw);self.assertFalse(v['isolatedRestoreTested']);self.assertEqual(v['backupId'],'456');self.assertEqual(v['requestedBackupJobId'],'123');self.assertEqual(v['createIntentCreatedAt'],m.parse((self.root/'intent.json').read_bytes())['createdAt']);self.assertEqual(v['originalEvidenceSha256']['stopReceiptSha256'],m.sha((self.root/'inputs/stop.json').read_bytes()))
   self.assertTrue((self.root/('task-'+v['originalEvidenceSha256']['task']+'.json')).exists())
  def test_other_success_snapshot_does_not_match_job(self):
   self.p.rows=[{**self.row,'BackupId':'999'}]

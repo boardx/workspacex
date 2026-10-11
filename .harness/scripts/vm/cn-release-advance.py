@@ -517,6 +517,8 @@ def entry(mode, request_hash, attempt):
             observed = evidence
             verify(files['verify.py'], observed, manifest, decode(previous_raw) if previous_raw else None, 'terminal')
         verify(files['verify.py'], evidence, manifest, decode(previous_raw) if previous_raw else None, mode)
+        if mode in ('advance','recover'):
+            need(now() < instant(manifest['expiresAt']), 'VERIFIER_AFTER_EXPIRY_RECONCILE')
         # Persist original evidence only AFTER the reviewed verifier accepts it.
         evidence_path = Path(str(prefix) + '.evidence.json')
         if evidence_path.exists():

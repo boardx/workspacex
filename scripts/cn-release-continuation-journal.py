@@ -151,6 +151,8 @@ def project(entry,release_sha,approval_raw,phase,inputs,*,now=None):
         # never the action's completion summary. Hold likewise uses the independent helper readback; its action emits a wrapper. Other inputs remain action bytes.
         for name,stage in STAGE_INPUTS.items():
             if name in inputs:
+                if name=='publication':
+                    publication_input(inputs[name],action_bytes[stage],terminal_bytes[stage]);continue
                 originals=terminal_bytes if name in TERMINAL_INPUTS else action_bytes
                 need(stage in originals and inputs[name]==originals[stage],
                      'INPUT_NOT_ORIGINAL_STAGE_EVIDENCE_'+name)
@@ -160,6 +162,22 @@ def project(entry,release_sha,approval_raw,phase,inputs,*,now=None):
             'completed':completed,'inputHashes':{k:sha(v)for k,v in inputs.items()},'entryStages':stage_refs}
         yield journal,raw_receipts
     finally:os.close(lockfd)
+
+
+def publication_input(original, action, terminal):
+    """Bind pure published.json bytes without parsing/re-encoding their content.
+
+    Normal action stdout has one exact prefix and print's extra newline. A
+    reconciled action is the independently verified observation itself.
+    """
+    observed=parse(terminal)
+    need(observed.get('kind')=='cn-publication-readonly-observation-v1'
+         and observed.get('phase')=='publish'
+         and observed.get('publishedReceiptSha256')==sha(original),
+         'INPUT_NOT_ORIGINAL_STAGE_EVIDENCE_publication')
+    need(action==b'CN_CANDIDATE_PUBLISHED='+original+b'\n' or action==terminal,
+         'INPUT_NOT_ORIGINAL_STAGE_EVIDENCE_publication')
+    return original
 
 
 def publish(entry,release_sha,approval_raw,phase,inputs,evidence_root=EVIDENCE,*,now=None):

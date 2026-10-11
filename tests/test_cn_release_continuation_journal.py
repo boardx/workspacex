@@ -68,6 +68,9 @@ class JournalTests(unittest.TestCase):
             p=subprocess.Popen([sys.executable,'-c','import json;print(json.dumps('+repr({'stage':stage,'result':'actual-child-output'})+'))'],stdout=subprocess.PIPE)
             evidence=p.communicate()[0];self.assertEqual(p.returncode,0)
             terminal=subprocess.check_output([sys.executable,'-c','print(\'{"state":"terminal-observed"}\')'])
+            if stage=='publish':
+                terminal=m.encode({'kind':'cn-publication-readonly-observation-v1','phase':'publish','publishedReceiptSha256':m.sha(evidence)})
+                evidence=b'CN_CANDIDATE_PUBLISHED='+evidence+b'\n'
             finished=(self.now-dt.timedelta(seconds=15-i)).isoformat()
             receipt=dict(schemaVersion=1,**self.identity,stage=stage,requestSha256=request,previousReceiptSha256=manifest['previousReceiptSha256'],
                 evidenceSha256=m.sha(evidence),terminalObservationSha256=m.sha(terminal),mode='advance',finishedAt=finished)
@@ -90,6 +93,16 @@ class JournalTests(unittest.TestCase):
                 i=self.e.STAGES.index(stage)
                 suffix='terminal-observation' if name in m.TERMINAL_INPUTS else 'evidence'
                 self.inputs[name]=(self.attempt/('%02d-%s.%s.json'%(i,stage,suffix))).read_bytes()
+                if name=='publication':self.inputs[name]=self.inputs[name][len(b'CN_CANDIDATE_PUBLISHED='):-1]
+
+    def test_publication_original_bytes_and_reconciled_observation(self):
+        raw=b'{"original":  true}\n'
+        terminal=m.encode({'kind':'cn-publication-readonly-observation-v1','phase':'publish','publishedReceiptSha256':m.sha(raw)})
+        self.assertEqual(m.publication_input(raw,b'CN_CANDIDATE_PUBLISHED='+raw+b'\n',terminal),raw)
+        self.assertEqual(m.publication_input(raw,terminal,terminal),raw)
+        for changed in (raw+b' ',m.encode({'original':True})):
+            with self.assertRaisesRegex(ValueError,'INPUT_NOT_ORIGINAL'):m.publication_input(changed,terminal,terminal)
+        with self.assertRaisesRegex(ValueError,'INPUT_NOT_ORIGINAL'):m.publication_input(raw,b'CN_CANDIDATE_PUBLISHED='+raw,terminal)
 
     def test_history_survives_legitimate_later_live_state_change(self):
         self.e.verify=lambda *args:(_ for _ in ()).throw(AssertionError('old live observer must not run'))
