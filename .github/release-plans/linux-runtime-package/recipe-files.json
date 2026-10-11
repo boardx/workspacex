@@ -5,9 +5,9 @@
   ".github/release-plans/linux-runtime-package/rds-requirements.lock": "a4561b014bf3728fa4e6e47787961aee68594dab6cb9670ce87eaf2a2e6c2df7",
   ".github/release-plans/linux-runtime-package/rds-sources.json": "0485693e7864711a6ea3e966d511ada46f79e343032892bc4036962fdf250314",
   ".github/release-plans/linux-runtime-package/upstream.json": "fa51cd36af900eb74c3d7719253a31ed2e431ff524b251763138ab598b1ed28c",
-  ".github/workflows/cn-linux-runtime-package.yml": "24fdce5eeffc7da103a0d902ea744399b48f039176d377755381e25baffb8cd8",
+  ".github/workflows/cn-linux-runtime-package.yml": "ed7c4d4edc5d183a8e9d6a3c6dc0816db36ff44069054c88b627294510620e4b",
   ".harness/scripts/vm/cn-maintenance-browser.cjs": "3aa186d48cc524703e14088cc5aeab5604b80c27482a167f523118715b2342e6",
-  "docs/operations/cn-release-entry/linux-runtime-package.md": "95eedfc8f955e880fc4fcd894756c5ad38809b1ee487b5bdd2a59c865ffd2c11",
+  "docs/operations/cn-release-entry/linux-runtime-package.md": "23c02c70f270b24a6de76d45358dd2129e0f9f97478292ae1ea5bc6304574e30",
   "packages/cloud-deploy/src/cn-maintenance-host/acceptance_contract.ts": "7c388c30f8569127c9cd9f23463dd48671c3d61b84f26ee5161cd1b84bbf17c8",
   "packages/cloud-deploy/src/cn-release-browser-contract.ts": "5dfe1563bddef368bc99586413f1dbaf1f383778f9a639a416503200ef783444",
   "scripts/build-cn-business-runtime.cjs": "cf70e04b09fbf18d3702eae6e67f196123d2e8dcf2ec7d770f5eaf9371c11459",
@@ -16,6 +16,6 @@
   "scripts/cn-release-business-entry.ts": "93c3668dcae22f8afda753e50edf4ab19d3e7e5401e4dd2be4ce9a93a28a8842",
   "scripts/cn-release-business-runner.ts": "19ff9005c2654be2537abd341ed86ef37385301d9ba2442f9040668bb9fbadfc",
   "scripts/cn-release-business-state.py": "836bc0a08035d6abe94719cefe46d2a93e51500061f113a2657db8c3f188f4e7",
-  "tests/test_cn_linux_runtime_package.py": "a2fcce1fb1f81006f00b54ed1244ff7c833cbe1e3d4738e01e9c0ecc287c309e",
+  "tests/test_cn_linux_runtime_package.py": "c54ad8b6df287cbea89f1701a26e1185575b8e3bdf10968f4ea24f0dbd9533f0",
   "tests/test_cn_release_business_state.py": "0dc1b83102712753058809312fe22912cd243d1182bb308116127fa929e623e9"
 }

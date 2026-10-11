@@ -1,6 +1,6 @@
 # Linux runtime proposal package
 
-`cn-linux-runtime-package.yml` builds only on Ubuntu 24.04 x86_64 / CPython 3.12. It has contents-read permission, no OIDC, credentials, cloud API or production install step. Root coordinates its PR and explicit dispatch. Do not download the large artifact to a Mac.
+`cn-linux-runtime-package.yml` builds only on Ubuntu 24.04 x86_64 / the runner’s system `/usr/bin/python3.12`. This follows the existing system-Python route in `archive-bridge-tests.yml`; no Python setup action or action-audit exception is required. It has contents-read permission, no OIDC, credentials, cloud API or production install step. Root coordinates its PR and explicit dispatch. Do not download the large artifact to a Mac.
 
 Manual inputs bind one reviewed Git commit and the SHA256 of `.github/release-plans/linux-runtime-package/recipe-files.json`. The script checks HEAD, clean checkout and every recipe file before fetching dependencies. npm's full integrity lock is installed with lifecycle scripts disabled; native esbuild is supplied by the locked Linux optional package. RDS distributions and build tools are hash locked; runtime sdists build without network dependency resolution or build isolation. Missing runtime dependencies fail the installed METADATA closure check.
 

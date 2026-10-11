@@ -32,13 +32,10 @@ jobs:
         with:
           node-version: '22.20.0'
           package-manager-cache: false
-      - uses: actions/setup-python@v6
-        with:
-          python-version: '3.12'
       - name: Offline contract tests
         run: |
-          python -B -m unittest discover -s tests -p test_cn_linux_runtime_package.py
-          python -B -m unittest discover -s tests -p test_cn_release_business_state.py
+          /usr/bin/python3.12 -B -m unittest discover -s tests -p test_cn_linux_runtime_package.py
+          /usr/bin/python3.12 -B -m unittest discover -s tests -p test_cn_release_business_state.py
       - name: Build proposed Linux package and execute smoke tests
         env:
           INPUT_CONTROL: ${{ inputs.control_sha }}
@@ -52,15 +49,15 @@ jobs:
             control="$(git rev-parse HEAD)"
             recipe="$(sha256sum .github/release-plans/linux-runtime-package/recipe-files.json | cut -d' ' -f1)"
           fi
-          python -B scripts/build-cn-linux-runtime.py --control-sha "$control" --recipe-sha256 "$recipe" --output "$RUNNER_TEMP/cn-linux-runtime"
-      - uses: actions/upload-artifact@v4
+          /usr/bin/python3.12 -B scripts/build-cn-linux-runtime.py --control-sha "$control" --recipe-sha256 "$recipe" --output "$RUNNER_TEMP/cn-linux-runtime"
+      - uses: actions/upload-artifact@v6
         with:
           name: cn-linux-runtime-proposal
           path: |
             ${{ runner.temp }}/cn-linux-runtime.tar.gz
           retention-days: 1
           if-no-files-found: error
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: cn-linux-runtime-summary
           path: ${{ runner.temp }}/cn-linux-runtime.summary.json

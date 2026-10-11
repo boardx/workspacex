@@ -82,6 +82,10 @@ class PackageTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as t:
             for limit,exception in [(32*1024**2,'chrome'),(256*1024**2,'other/chrome'),(256*1024**2,'../chrome')]:
                 with self.assertRaises(ValueError): b.tree(Path(t),limit,exception)
+    def test_workflow_uses_explicit_system_python(self):
+        workflow=(ROOT/'.github/workflows/cn-linux-runtime-package.yml').read_text()
+        self.assertNotIn('actions/setup-python',workflow)
+        self.assertEqual(workflow.count('/usr/bin/python3.12 -B'),3)
     def test_recipe_empty_rejected(self):
         with tempfile.TemporaryDirectory() as t:
             p=Path(t); (p/b.PLAN).mkdir(parents=True)
