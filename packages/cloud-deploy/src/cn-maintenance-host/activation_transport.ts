@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { createHash } from 'node:crypto';
 import { preparedCnReleaseSchema, type ActivationActions } from '../cn-fast-safe-release';
+import { cnReleaseBrowserSchema } from '../cn-release-browser-contract';
 import { validateReleaseManifest } from '../release';
 import type { MaintenanceIdentity } from '../cn-maintenance-release';
 import { runFixedPython, type CommandRunner, type TrustedExecutable } from './fixed_transport';
@@ -42,7 +43,7 @@ export function maintenanceActivationAction(input:unknown,actions:ActivationActi
    // A command can partially mutate before failing: rollback cannot depend on its response.
    promotionAttempted=true;await actions.promotePreparedPointer();await actions.activateTraffic();
    const c=await actions.verifyCanonical();if(c.status!=='passed'||c.lockRetained!==true||c.passedStages!==8)throw Error('MAINTENANCE_CANONICAL_REJECTED');
-   const browser=await actions.runBrowserSmoke();if(!['login','hello','asr','githubFeedbackRead','skillTool','pdfDownload'].every(k=>browser[k as keyof typeof browser]===true))throw Error('MAINTENANCE_BROWSER_REJECTED');
+   const browser=await actions.runBrowserSmoke();if(!cnReleaseBrowserSchema.safeParse(browser).success)throw Error('MAINTENANCE_BROWSER_REJECTED');
   }catch{
    if(promotionAttempted){try{await actions.restoreBaseline();await actions.restorePointer();}catch{throw Error('MAINTENANCE_ROLLBACK_UNPROVEN');}}
    throw Error('MAINTENANCE_ACTIVATION_NOT_ACCEPTED');
@@ -79,7 +80,7 @@ export function fixedMaintenanceActivationActions(binding:MaintenanceActivationB
   promotePreparedPointer:async()=>{z.object({pointerPromoted:z.literal(true)}).strict().parse(await operation('promote-prepared-pointer'));},
   activateTraffic:async()=>{z.object({trafficActivated:z.literal(true)}).strict().parse(await operation('activate-traffic'));},
   verifyCanonical:async()=>z.object({status:z.literal('passed'),lockRetained:z.literal(true),passedStages:z.literal(8)}).strict().parse(await operation('verify-canonical')),
-  runBrowserSmoke:async()=>z.object({login:z.literal(true),hello:z.literal(true),asr:z.literal(true),githubFeedbackRead:z.literal(true),skillTool:z.literal(true),pdfDownload:z.literal(true)}).strict().parse(await operation('browser-acceptance')),
+  runBrowserSmoke:async()=>cnReleaseBrowserSchema.parse(await operation('browser-acceptance')),
   restoreBaseline:async()=>{
    if(!recoverRetained)throw Error('PERSISTENT_RECOVERY_REQUIRED');
    // Exact private plan is reread/hash checked by the command, then the actual

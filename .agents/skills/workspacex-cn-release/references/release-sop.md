@@ -71,6 +71,13 @@ flowchart TD
 
 ### 3.2 预准备与发布时重检
 
+场景的只读机器规划与统一离线回归入口见
+[`scripts/cn-release-audit.py`](../../../../scripts/cn-release-audit.py)。
+五轮审查、hotfix/无迁移边界、测试集和 30 分钟实测口径见
+[`cn-release-five-round-audit.md`](../../../../docs/operations/cn-release-five-round-audit.md)。
+分类结果不授权发布；`sealed/valid` 声明仍由 canonical verifier 实时复核。
+hotfix 只改变优先级，不降低迁移、CAS、停写、恢复或公网业务验收。
+
 发布前可异步完成 immutable build、ACR 重拉校验、离线 source 上传与闭包校验、manifest/seal、stable-secret continuity、bootstrap compatibility、影子 canonical 8/8、候选浏览器验收、baseline exact digest/入口快照和回滚演练。证据必须绑定 exact SHA、输入 hash、生成时间和 TTL。
 
 正式发布时不重做未漂移的昂贵工作，只重检会随时间变化的事实：production baseline fingerprint、receipt TTL、`main-cn` CAS、release lock/孤儿、活跃任务 drain、临时 IAM 的真实 Describe、外部依赖可达性、凭据剩余寿命和候选/回滚浏览器运行时。任一重检失败都不得复用旧的“绿色”静态记录。
