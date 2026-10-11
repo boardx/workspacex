@@ -7,7 +7,7 @@
  *
  * 库内门（不靠调用方自觉）：
  *  · I-4  钱包 (owner_type, owner_id) 唯一
- *  · I-7  billing_webhook_events (provider, provider_event_id) 唯一（回调幂等键）
+ *  · I-7  billing_webhook_events provider_event_id 全局唯一（回调幂等键）
  *  · I-2  流水 (source_type, source_id, type) 唯一（同一订单至多一次入账）
  *  · I-8  人工发放（type='grant'）必带 operator_id 与 reason
  *  · I-5  billing_orders 的快照列（主体/套餐/金额/额度/时间）由触发器拒绝 UPDATE
@@ -115,7 +115,7 @@ CREATE TABLE IF NOT EXISTS billing_webhook_events (
   signature_verified boolean NOT NULL,
   result             text NOT NULL CHECK (result IN ('ok', 'rejected', 'ignored')),
   processed_at       timestamptz NOT NULL DEFAULT now(),
-  UNIQUE (provider, provider_event_id)  -- I-7：回调幂等
+  UNIQUE (provider_event_id)  -- I-7：跨渠道的全局回调幂等键
 );
 
 -- I-5：下单时的快照列永不改变（状态机只允许动 status / paid_at / notify_at / closed_at / last_error_*）
@@ -175,7 +175,7 @@ COMMENT ON TABLE credit_transactions IS
   'kernel-no-tenant-data: 额度流水，按 wallet 归属（I-2 去重键）。被攻陷的 app_rw 可读到'
   '全部充值/赠送/发放流水，含人工发放的操作者与原因（I-8）——归属校验在应用层。';
 COMMENT ON TABLE billing_webhook_events IS
-  'kernel-no-tenant-data: 支付渠道回调的幂等记录（I-7），键为 (provider, provider_event_id)，'
+  'kernel-no-tenant-data: 支付渠道回调的幂等记录（I-7），键为 provider_event_id（全局唯一），'
   '是系统级去重事实。被攻陷的 app_rw 可读到全部回调事件及其关联订单号。';
 
 -- 授权面（最小化）：账本只增不改、订单/钱包/设置可更新、套餐只读

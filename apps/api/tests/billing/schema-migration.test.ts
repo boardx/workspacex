@@ -282,16 +282,20 @@ describe("约束与幂等键", () => {
        VALUES ($1, 'grant', 10, 1330, 'admin_grant', 'grant-1', 'admin-x', '回调延迟补偿')`, [walletId]));
   });
 
-  it("回调事件 (provider, provider_event_id) 唯一（I-7）；Stripe 行 order_no 可空", async () => {
+  it("回调事件 provider_event_id 全局唯一（I-7）；Stripe 行 order_no 可空", async () => {
     await asApp(null, (c) => c.query(
       `INSERT INTO billing_webhook_events (provider, provider_event_id, order_no, signature_verified, result)
        VALUES ('wechat', 'f01-evt-1', $1, true, 'ok')`, [ORDER_A]));
     await expect(asApp(null, (c) => c.query(
       `INSERT INTO billing_webhook_events (provider, provider_event_id, signature_verified, result)
        VALUES ('wechat', 'f01-evt-1', true, 'ok')`))).rejects.toThrow(/duplicate key/);
-    await asApp(null, (c) => c.query(
+    await expect(asApp(null, (c) => c.query(
       `INSERT INTO billing_webhook_events (provider, provider_event_id, signature_verified, result)
-       VALUES ('stripe', 'f01-evt-1', true, 'ignored')`)); // 不同 provider 不互相撞
+       VALUES ('stripe', 'f01-evt-1', true, 'ignored')`))).rejects.toThrow(/duplicate key/);
+    const stripe = await asApp(null, (c) => c.query<{ order_no: string | null }>(
+      `INSERT INTO billing_webhook_events (provider, provider_event_id, signature_verified, result)
+       VALUES ('stripe', 'f01-evt-stripe-1', true, 'ignored') RETURNING order_no`));
+    expect(stripe.rows[0]!.order_no).toBeNull();
     await expect(asApp(null, (c) => c.query(
       `INSERT INTO billing_webhook_events (provider, provider_event_id, signature_verified, result)
        VALUES ('wechat', 'f01-evt-2', true, 'weird')`))).rejects.toThrow(/check constraint/);
