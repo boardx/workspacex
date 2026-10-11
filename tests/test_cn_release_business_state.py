@@ -62,4 +62,28 @@ class LiveState(unittest.TestCase):
   self.now+=dt.timedelta(minutes=10)
   with self.assertRaisesRegex(ValueError,'RELEASE_DEADLINE'):self.run_state()
   self.assertTrue(self.run_state(read_only=True)[0]['runtimeHealthy'])
+class ChromeTreeLimits(unittest.TestCase):
+ def test_only_exact_versioned_chrome_has_existing_512_mib_limit(self):
+  with tempfile.TemporaryDirectory() as temp:
+   base=Path(temp);base.chmod(0o700);tools=base/'tools'
+   for suffix,relative,expected in [
+    ('a'*40+'/chromium','chrome',512),
+    ('a'*40+'/chromium','other',256),
+    ('a'*40+'/chromium','sub/chrome',256),
+    ('a'*40+'/business','chrome',256),
+    ('not-a-revision/chromium','chrome',256)]:
+    with self.subTest(suffix=suffix,relative=relative):
+     root=tools/suffix;target=root/relative;target.parent.mkdir(parents=True,exist_ok=True,mode=0o700)
+     target.write_bytes(b'x');target.chmod(0o600)
+     reader=m.Reader(os.getuid(),base);limits={}
+     def file(path,limit,private):limits[path]=limit;return b'x'
+     pins={str(p.relative_to(root)):m.sha(b'x') for p in root.rglob('*') if p.is_file()}
+     with patch.object(m,'TOOLS',tools),patch.object(reader,'file',side_effect=file):reader.tree(root,pins)
+     self.assertEqual(limits[target],expected*1024**2)
+ def test_actual_file_over_512_mib_rejected_before_read(self):
+  with tempfile.TemporaryDirectory() as temp:
+   base=Path(temp);base.chmod(0o700);p=base/'chrome'
+   with p.open('wb') as f:f.truncate(512*1024**2+1)
+   p.chmod(0o600)
+   with self.assertRaisesRegex(ValueError,'UNTRUSTED_FILE'):m.Reader(os.getuid(),base).file(p,512*1024**2,False)
 if __name__=='__main__':unittest.main()
