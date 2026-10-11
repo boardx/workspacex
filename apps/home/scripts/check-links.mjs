@@ -23,7 +23,7 @@ const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const SITE = readFileSync(join(dirname(fileURLToPath(import.meta.url)), 'build-i18n.mjs'), 'utf8')
   .match(/^const SITE = '([^']+)';/m)[1];
 
-const PAGES = ['index.html', 'privacy.html', '404.html', 'zh/index.html', 'zh/privacy.html', 'manual/index.html'];
+const PAGES = ['aidt/index.html', 'index.html', 'privacy.html', '404.html', 'zh/aidt/index.html', 'zh/index.html', 'zh/privacy.html', 'manual/index.html'];
 
 const problems = [];
 let refs = 0;
@@ -94,7 +94,7 @@ for (const line of redirects.split('\n')) {
    "boardx.us" and flagged the GitHub repo, the app and the developer portal,
    which are three different and correct destinations. */
 const SELF_REF = /<(?:link rel="canonical"|link rel="alternate"|meta property="og:(?:url|image)"|meta name="twitter:image")[^>]*(?:href|content)="(https?:\/\/[^"]+)"/g;
-for (const page of ['index.html', 'privacy.html', '404.html']) {
+for (const page of ['aidt/index.html', 'index.html', 'privacy.html', '404.html']) {
   const html = readFileSync(join(root, page), 'utf8');
   for (const m of html.matchAll(SELF_REF)) {
     refs += 1;
@@ -108,7 +108,7 @@ for (const page of ['index.html', 'privacy.html', '404.html']) {
    because this site has no <img> elements at all; the hero backdrop is a CSS
    background and everything else is inline SVG. The alt a social card carries
    is the only alt text on the site, and nothing read it. */
-for (const page of ['index.html', 'privacy.html', '404.html', 'zh/index.html', 'zh/privacy.html']) {
+for (const page of ['aidt/index.html', 'index.html', 'privacy.html', '404.html', 'zh/aidt/index.html', 'zh/index.html', 'zh/privacy.html']) {
   const html = readFileSync(join(root, page), 'utf8');
   if (!/<meta property="og:image"/.test(html)) continue;
   for (const [attr, name] of [['property', 'og:image:alt'], ['name', 'twitter:image:alt']]) {
@@ -125,7 +125,7 @@ for (const page of ['index.html', 'privacy.html', '404.html', 'zh/index.html', '
    they take zh_CN, zh_TW, zh_HK. `en` was the same mistake in the other
    direction. Nothing renders differently, which is why it survived: the card
    is built on somebody else's machine. */
-for (const page of ['index.html', 'privacy.html', 'zh/index.html', 'zh/privacy.html']) {
+for (const page of ['aidt/index.html', 'index.html', 'privacy.html', 'zh/aidt/index.html', 'zh/index.html', 'zh/privacy.html']) {
   const html = readFileSync(join(root, page), 'utf8');
   for (const m of html.matchAll(/<meta property="(og:locale(?::alternate)?)" content="([^"]*)"/g)) {
     refs += 1;

@@ -25,6 +25,10 @@
 }
 .section:first-of-type { border-top: 0; }
 
+/* Fragment navigation should land on the section heading, rather than its
+   decorative top padding. Native CSS also covers direct links and no-JS use. */
+.section[id] { scroll-margin-top: calc(1.5rem - var(--section-y)); }
+
 .section__head { max-width: 48rem; margin-bottom: clamp(2.5rem, 5vw, 4.5rem); }
 
 .eyebrow {

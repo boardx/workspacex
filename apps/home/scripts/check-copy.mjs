@@ -15,7 +15,7 @@ import { dirname, join } from 'node:path';
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const read = (p) => readFileSync(join(root, p), 'utf8');
 
-const html = ['index.html', 'privacy.html', '404.html'].map(read).join('\n');
+const html = ['aidt/index.html', 'index.html', 'privacy.html', '404.html'].map(read).join('\n');
 const zhSource = read('assets/js/zh.js');
 const diagramSource = read('assets/js/diagram-strings.js');
 
@@ -46,7 +46,7 @@ for (const m of html.matchAll(/data-i18n(?:-html)?="[^"]+"[^>]*>([^<]+)</g)) {
    excluded: they are projections of these. */
 const HAN = /[\u4e00-\u9fff]/;
 const sources = [
-  'index.html', 'privacy.html', '404.html', 'scripts/og-card.html',
+  'aidt/index.html', 'index.html', 'privacy.html', '404.html', 'scripts/og-card.html',
   ...readdirSync(join(root, 'scripts')).filter((f) => f.endsWith('.mjs')).map((f) => `scripts/${f}`),
   ...readdirSync(join(root, 'assets/js')).filter((f) => f.endsWith('.js')).map((f) => `assets/js/${f}`),
 ];

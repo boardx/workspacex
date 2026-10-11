@@ -320,6 +320,22 @@ edits the source and have no reason to travel to a browser. It prints both
 sizes when it runs, which is the only place those numbers should live — the
 pair quoted here went 16% stale without anyone noticing.
 
+## Design Thinking × AI
+
+`/aidt/` introduces human-centered AI transformation, design thinking mindsets,
+five-stage practice and workshop co-creation. Its English source is
+`aidt/index.html`; `assets/js/zh.js` and `build-i18n.mjs` generate `/zh/aidt/`.
+The page reuses brand tokens and adds `assets/css/aidt.css`; it works without
+JavaScript. Workshop inquiry opens the established `hello@boardx.us` mailbox.
+`tests/aidt.test.mjs` checks both languages, four viewport widths, no-JS links,
+accessibility and homepage fragment alignment.
+
+Pages packaging includes both routes. China ESA Pages uses
+`deploy/aliyun/home_cn_language_package.py` to serve Chinese at `/aidt/`,
+English at `/en/aidt/`, and retain `/zh/aidt/`. It converts a separate package,
+preserving the shared source and the US default language. Deployment and public
+readback are separate from these local checks.
+
 ## User manual
 
 `manual/index.html` is the single Chinese content source for `/manual/` and
