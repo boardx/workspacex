@@ -1,0 +1,16 @@
+$ pnpm --filter api exec vitest run tests/billing/schema-migration.test.ts
+[exit 0]
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/eaa4/workspacex/apps/api
+
+[db-isolation] db=wsx_bbc94056b6eaeee44798 capacity=100 current=6 required=32
+ ✓ tests/billing/schema-migration.test.ts (16 tests) 7223ms
+
+ Test Files  1 passed (1)
+      Tests  16 passed (16)
+   Start at  14:44:25
+   Duration  9.78s (transform 129ms, setup 4ms, collect 38ms, tests 7.22s, environment 0ms, prepare 23ms)
+
+[db-isolation] db=wsx_bbc94056b6eaeee44798 peak_connections=2
+
+[harness-verify v1 sha256=e0d2af108fa0b85805d3974664df58e165e72edff8cff6a55383effb4eb6ac8c commit=cef2c62542ce1fa15fe4ed443ce18f8db22d9f02 at=2026-10-11T06:44:35.510Z]
