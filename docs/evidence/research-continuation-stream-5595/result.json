@@ -1,0 +1,47 @@
+{
+  "issue": 5595,
+  "source_sha": "db61d64593afaeff325d2c1fb18de48f003c2c17",
+  "base_main": "fd5b3c3f1ad6a667f53e8973bdad13a49e386af3",
+  "user_request": "8c015506-c550-4f9d-888f-0a8973e0431c",
+  "scope": "Snapshot stream metadata must belong to the current request; preserve real current failed stream and terminal failure.",
+  "red": {
+    "failed": 2,
+    "passed": 5,
+    "exit": 1
+  },
+  "green": {
+    "research_unit": {
+      "files": 37,
+      "tests": 823,
+      "exit": 0,
+      "note": "Before adding the one current-failed-stream counterexample; source unchanged."
+    },
+    "targeted_final": {
+      "generation_stream": 8,
+      "private_boundary": 10,
+      "exit": 0
+    },
+    "types": 0,
+    "lint": 0,
+    "init": 0
+  },
+  "log_sha256": {
+    "red": "d855701231138f56b6525ee9bd5e5e2f6edb94f0503e6581c96acf477f9f4a63",
+    "research_unit": "09e0503108375c45ca1310d6511940300e1e79a290cadf2a4122c797a18e5c29",
+    "targeted_green": "37d0cae39e7f81ebdc648cc69dd0d3efae9b89f403412c5fe914da0d44d033de",
+    "types": "e173644c9e8cbbde81268998cabb7ee59683ce5d624def2bd91b9ec1ca08fb67",
+    "lint": "b05f8f275e8896890b14017048888b2642c78223df6d9c97a3b673edc2e3d39e",
+    "init": "4b26f2a210f5aa7f4977f37a5837e7035050d7963100b09a493ed7bd6dd9b6be"
+  },
+  "boundaries": {
+    "terminal_workflow_unavailable_root_cause": "Unknown; exact backend diagnostic safeErrors is not yet available.",
+    "original_report_recovered": false,
+    "deployment_triggered": false,
+    "real_model_requests": 0,
+    "docker_stacks_started": 0,
+    "new_worktree_created": false,
+    "existing_legacy_sse": "Unchanged production path; full research unit retains legacy/privacy regression coverage."
+  },
+  "review": "Pending exact independent review.",
+  "pr_ci": "Not yet pushed; do not claim green."
+}
