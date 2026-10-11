@@ -82,3 +82,11 @@ description: 用户研究计划、资料检索、来源证据和研究报告；�
 - 2026-10-10：真实正文候选可按三源窗口逐批相关性校验并落盘；满足当前任务三个已批准正文后停止其余候选读取。后续失败/取消保留已批准批次，不能把任务误标成功；纯摘要路径保留批处理以免增加模型调用。富大纲结构门按确认的小节数量检查，legacy 仍要求三节。受控测试不代表 devapp 24 分钟问题已完成线上计时验证（出处：issue #5525、docs/evidence/research-duration-5525/README.md）。
 
 - 2026-10-10：研究公开生成流与访谈共享 NDJSON stage/delta/completed/failed 基础契约；结果仅带 locator，权威状态仍经鉴权 runtime/progress 同步。零 offset reset 只能改最新 UI 的文本流，不可给旧 baseline 赋新 revision 当完整 snapshot；旧序号 reset 不能覆盖轮询已同步的新文本。Accept 协商保留旧 SSE 兼容（出处：issue #5531、docs/evidence/research-unified-stream-5531/README.md）。
+
+- 2026-10-10：供应商 HTTP 400 + 精确 data_inspection_failed 属于整次请求内容拒绝，不等于来源无关或引文无效；只记录受控分类和完整请求摘要，不重试、拆分归因或切供应商。来源筛选和证据提取都需保留该批排除范围；同模型实例、同实际请求才复用拒绝记录，修复请求必须按自身 payload 建摘要。富大纲的 section.questions 与 subsection.questions 要使用提取/审核同源问题 ID 统一规划正文位置，missing 审核意见逐题映射修复，不能以旧正式报告加新草稿宣称重新生成成功（出处：issue #5546、docs/evidence/research-organizing-5546/investigation.md）。
+
+- #5546 后续修复：rich 章节内部逐题写作使用可信 question ID 绑定实质正文，服务端只按确认大纲排序组装；引用失败反馈须定位具体题/段落/允许 alias，不能由服务清洗坏引用。最终完整正文继续经过独立支持性/深度/缺口审核，绑定不代表语义通过。gap proof 只为 direct entry 生成可选 proof ID，context 原文及来源/相关性保留但没有证明 ID；私有 ID/模型响应不能进入产品正文或持久公开状态。实际诊断通过仍不等于正常 UI 首次+重新生成双正式报告验收（出处：issue #5546、docs/evidence/research-organizing-5546/full-scope-repair.md）。
+
+- #5546 人类后续覆盖：2026-10-10 明确要求引用失败丢弃且不影响主流程，替代本任务前述禁止丢弃 marker 约束。仅生成边界集中弃用 unknown/malformed/题外引用，sourceIds 从幸存正文派生，零引用允许进入完整语义审核；不能把弃用引用后的原断言自动当可信，严格持久化/编辑 canonical 输入仍拒绝非法引用。残缺 parser fragment 包含整行后文，不可整段删除；须保留后续中文说明、代码与同一行好引用（出处：issue #5546、docs/evidence/research-organizing-5546/full-scope-repair.md）。
+
+- #5546 最终验收：独立普通/缺口审核共享明确 supported_answer / explicit_evidence_gap / omitted_answer wire 含义，成功响应先严格 schema 后映射 canonical；格式修复前同源映射已有负 verdict，防止改写成 gap 假绿。完整段落注册表让 reviewer 检查正文而非只查引文。上一版正式报告须跨失败/续写保留，现有 history reader 必须实际挂在 report 页（包含生成中），previous-锚点/导出动作与当前文档隔离。真实 v10 正常从头生成4章32题，38调用，7坏引用弃用，刷新保持当前/上一版hash；初次v2不可变响应经最终guard离线复核，不能宣称v2运行了后来wire协议（出处：issue #5546、docs/evidence/research-organizing-5546/README.md）。

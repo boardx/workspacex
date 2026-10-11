@@ -1,6 +1,7 @@
 import { research as C } from "@repo/contracts";
 import { chapterStructureIssues } from "./guided-report-quality";
 import { ResearchRuntimeError, type ResearchRuntime } from "./guided-runtime-ports";
+import { discardInvalidReportCitations } from "./guided-report-citation-discard";
 
 type Chapter = NonNullable<ResearchRuntime["report"]>["sections"][number];
 type Section = ResearchRuntime["outline"][number];
@@ -39,10 +40,10 @@ export function inlineReportSources(text: string): string[] {
   C.mapGuidedResearchCitations(text, id => { ids.push(id); return `[[source:${id}]]`; }, () => fail("citation_malformed", ["body"]));
   return [...new Set(ids)];
 }
-export function validateGeneratedChapter(value: unknown, section: Section, allowed: ReadonlySet<string>, checkStructure = true): Chapter {
+export function validateGeneratedChapter(value: unknown, section: Section, allowed: ReadonlySet<string>, checkStructure = true, requireCitations = true): Chapter {
   const chapter = parseChapter(value);
   if (chapter.sectionId !== section.id) fail("section_mismatch", ["sectionId"]);
-  if (allowed.size > 0 && !chapter.sourceIds.length) fail("citations_required", ["sourceIds"]);
+  if (requireCitations && allowed.size > 0 && !chapter.sourceIds.length) fail("citations_required", ["sourceIds"]);
   if (new Set(chapter.sourceIds).size !== chapter.sourceIds.length) fail("citation_duplicate", ["sourceIds"]);
   const inline = inlineReportSources(chapter.body);
   if (inline.some(id => !allowed.has(id))) fail("citation_not_allowed", ["body"]);
@@ -66,5 +67,13 @@ export function validateCanonicalChapter(value: unknown, section: Section, allow
 export function validateChapterOutput(text: string, section: Section, allowed: ReadonlySet<string>, resolve: (id: string) => string): Chapter {
   let value: unknown;
   try { value = JSON.parse(text); } catch { fail("chapter_json_invalid", [], "RESEARCH_NODE_STATE_INVALID"); }
-  return validateCanonicalChapter(value, section, allowed, resolve);
+  return validateModelChapter(value, section, allowed, resolve);
+}
+
+/** The generation boundary discards bad references before semantic review.
+ * Strict persisted/canonical validators remain available to other consumers. */
+export function validateModelChapter(value: unknown, section: Section, allowed: ReadonlySet<string>, resolve: (id: string) => string): Chapter {
+  const chapter = parseChapter(value);
+  const body = discardInvalidReportCitations(chapter.body, allowed, resolve);
+  return validateGeneratedChapter({ ...chapter, body, sourceIds: inlineReportSources(body) }, section, allowed, false, false);
 }

@@ -195,3 +195,80 @@ class HostTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class StoreExportHostTests(unittest.TestCase):
+    def setUp(self):
+        import time
+        self.temp = tempfile.TemporaryDirectory(); self.addCleanup(self.temp.cleanup)
+        self.work = Path(self.temp.name)
+        self.obj = object.__new__(h.Commands)
+        self.obj.work = self.work; self.obj.env = {'PATH': '/usr/bin:/bin'}
+        self.obj.deadline = time.monotonic() + 10
+        self.obj.check_validity = lambda: None
+        self.image = {'Id': 'sha256:' + 'a' * 64, 'Os': 'linux', 'Architecture': 'amd64'}
+        self.obj.local = lambda _: dict(self.image)
+        self.entry = {'size': 1}
+        self.plan = {'storageMarginBytes': 0}
+
+    def executable(self, body):
+        target = self.work / 'fake-docker'
+        target.write_text('#!' + sys.executable + '\n' + body)
+        target.chmod(0o700); self.obj.docker = str(target)
+
+    def test_stderr_never_escapes_and_private_export_removed(self):
+        self.executable("import sys\nsys.stderr.write('PUBLIC_DUMMY_PASSWORD')\nsys.exit(1)\n")
+        with self.assertRaisesRegex(a.Rejected, '^PUBLICATION_STORE_EXPORT$'):
+            self.obj.candidate_image_matches(self.image, self.entry, self.plan)
+        self.assertEqual(list(self.work.glob('store-readback-*')), [])
+
+    def test_large_stdout_stops_at_fixed_budget(self):
+        self.executable("import sys\nsys.stdout.buffer.write(b'x'*(17*1024**2))\n")
+        with self.assertRaisesRegex(a.Rejected, 'PUBLICATION_STORE_SIZE'):
+            self.obj.candidate_image_matches(self.image, self.entry, self.plan)
+        self.assertEqual(list(self.work.glob('store-readback-*')), [])
+
+    def test_post_export_identity_drift_rejected(self):
+        self.executable("import sys\nsys.stdout.buffer.write(b'fixture')\n")
+        self.obj.local = lambda _: {'Id': 'sha256:' + 'b' * 64}
+        with patch.object(h.publication, 'image_matches') as verified:
+            with self.assertRaisesRegex(a.Rejected, 'PUBLICATION_STORE_CHANGED'):
+                self.obj.candidate_image_matches(self.image, self.entry, self.plan)
+            verified.assert_called_once()
+        self.assertEqual(list(self.work.glob('store-readback-*')), [])
+
+
+class CanonicalScopedPaths(unittest.TestCase):
+    def test_scoped_dependency_and_ordinary_paths(self):
+        for name in ('node_modules/@esbuild/linux-x64/bin/esbuild',
+                     'node_modules/@esbuild/linux-x64/package.json',
+                     'node_modules/@esbuild/linux-x64/README.md',
+                     'node_modules/tsx/package.json', 'packages/cloud-deploy/src/index.ts'):
+            h.canonical_relative_name(name)
+
+    def test_unsafe_paths_rejected(self):
+        for name in ('', '.', '/node_modules/@esbuild/linux-x64', '../x',
+                     'node_modules/@esbuild/../x', 'node_modules//x', './x', 'x/',
+                     'x/./y', 'node_modules\\@esbuild/x', 'x\x00y', 'x\ny',
+                     'x' * 257, 42):
+            with self.subTest(name=name), self.assertRaisesRegex(ValueError, 'CANONICAL_PATH_INVALID'):
+                h.canonical_relative_name(name)
+
+    def test_archive_names_remain_strict(self):
+        with self.assertRaisesRegex(ValueError, 'ARCHIVE_PATH_INVALID'):
+            a.safe_name('node_modules/@esbuild/linux-x64/bin/esbuild')
+
+    def test_scoped_hashes_still_pass_to_protected_reader(self):
+        import json
+        directory = Path('/etc/workspacex-cn/candidate-publish/test')
+        files = {n: 'a' * 64 for n in h.canonical.REQUIRED_SOURCE}
+        files.update({n: 'b' * 64 for n in ('node_modules/tsx/package.json',
+                     'node_modules/zod/package.json', 'node_modules/@esbuild/linux-x64/bin/esbuild')})
+        config = dict(schemaVersion=1, nodeExecutable=str(directory / 'node'), nodeSha256='c' * 64,
+                      checkoutDirectory=str(directory / 'canonical-source'), fileSha256=files)
+        raw = json.dumps(config).encode()
+        with patch.object(h.legacy, 'protected', side_effect=[raw] + [b''] * (len(files) + 1)) as reader:
+            h.admit_canonical(directory, {'canonicalConfigurationSha256': a.sha(raw)})
+        reader.assert_any_call(directory / 'canonical-source/node_modules/@esbuild/linux-x64/bin/esbuild',
+                               64 * 1024**2, 'b' * 64)
+        self.assertEqual(reader.call_count, len(files) + 2)

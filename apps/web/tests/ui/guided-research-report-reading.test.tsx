@@ -20,7 +20,8 @@ it.each(["final", "draft"])("reads a saved %s as a report without generation dia
   vi.mocked(getResearchRuntime).mockResolvedValue(state);
   render(<GuidedResearchLive sessionId={state.sessionId} onBack={vi.fn()} />);
   await screen.findByRole("heading", { name: base.report!.title });
-  expect(screen.queryByTestId("research-report-history")).not.toBeInTheDocument();
+  expect(screen.getByTestId("research-report-history")).toHaveTextContent("历史报告");
+  expect(screen.getByTestId("research-report-history").querySelectorAll('[id^="previous-"]').length).toBeGreaterThan(0);
   expect(screen.getByTestId(kind === "final" ? "research-report-document" : "research-report-preview-text").querySelectorAll('[data-testid="research-report-chapter"]')).toHaveLength(base.report!.sections.length);
   expect(screen.getByTestId("research-execution-timeline")).not.toHaveTextContent("Critical Evidence Mismatch");
   expect(screen.queryByTestId("research-report-evidence-warning")).not.toBeInTheDocument();
@@ -75,4 +76,18 @@ it("preserves report primary actions instead of hiding them with the completion 
   const action = screen.getByRole("button", { name: "完成研究" });
   expect(action.closest(".hidden")).toBeNull();
   expect(action).toBeEnabled();
+});
+
+ it("keeps the previous formal report readable while regeneration has no current content", async () => {
+  const base = runtimeFixture("report");
+  const state = { ...base, busy: true, completed: false, report: null, reportDraft: null, leaseUntil: "2099-01-01T00:00:00Z",
+    reportPrevious: { title: "上一版正式报告", createdAt: "2026-01-01T00:00:00Z", text: "", chapters: [], aliases: [], sources: base.sources, outline: base.outline, report: { ...base.report!, title: "上一版正式报告" } } };
+  vi.mocked(getResearchRuntime).mockResolvedValue(state);
+  render(<GuidedResearchLive sessionId={state.sessionId} onBack={vi.fn()} />);
+  const history = await screen.findByTestId("research-report-history");
+  expect(history).toHaveAttribute("open");
+  expect(history).toHaveTextContent("上一版正式报告");
+  expect(history.querySelectorAll('[data-testid="research-report-chapter"]')).toHaveLength(base.report!.sections.length);
+  expect(screen.queryByTestId("research-report-document")).not.toBeInTheDocument();
+  expect(executeResearchRuntime).not.toHaveBeenCalled();
 });

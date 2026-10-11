@@ -233,3 +233,122 @@ class PublicationTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class ContainerdStoreTests(unittest.TestCase):
+    def setUp(self):
+        import tarfile
+        import io
+        self.tmp = tempfile.TemporaryDirectory(); self.addCleanup(self.tmp.cleanup)
+        self.folder = Path(self.tmp.name); self.plan = plan()
+        self.entry = archive(self.folder / 'api.tar', self.plan, 'api')
+        with tarfile.open(self.folder / 'api.tar') as tar:
+            row = a.decode(tar.extractfile('manifest.json').read())[0]
+            self.config = tar.extractfile(row['Config']).read()
+            self.layer_bytes = [tar.extractfile(n).read() for n in row['Layers']]
+        self.manifest = {'schemaVersion': 2, 'mediaType': 'application/vnd.oci.image.manifest.v1+json',
+            'config': {'mediaType': 'application/vnd.oci.image.config.v1+json',
+                       'digest': self.entry['imageId'], 'size': len(self.config)},
+            'layers': [{'mediaType': 'application/vnd.oci.image.layer.v1.tar',
+                        'digest': 'sha256:' + a.sha(raw), 'size': len(raw)} for raw in self.layer_bytes]}
+        self.write()
+
+    def write(self, corrupt_config=False):
+        import tarfile
+        import io
+        manifest = a.json_bytes(self.manifest)
+        descriptor = {'mediaType': self.manifest['mediaType'], 'digest': 'sha256:' + a.sha(manifest), 'size': len(manifest)}
+        self.image = {'Id': descriptor['digest'], 'Descriptor': descriptor, 'Os': 'linux', 'Architecture': 'amd64',
+                      'Config': a.decode(self.config)['config'],
+                      'RootFS': {'Type': 'layers', 'Layers': a.decode(self.config)['rootfs']['diff_ids']}}
+        blobs = {'index.json': a.json_bytes({'schemaVersion': 2, 'manifests': [descriptor]}),
+                 'blobs/sha256/' + a.sha(manifest): manifest,
+                 'blobs/sha256/' + a.sha(self.config): (b'x' * len(self.config) if corrupt_config else self.config)}
+        blobs.update({'blobs/sha256/' + a.sha(raw): raw for raw in getattr(self, 'stored_layers', self.layer_bytes)})
+        self.path = self.folder / 'store.tar'
+        with tarfile.open(self.path, 'w') as tar:
+            for name, raw in blobs.items():
+                item = tarfile.TarInfo(name); item.size = len(raw); tar.addfile(item, io.BytesIO(raw))
+
+    def test_manifest_id_requires_actual_original_config_and_layer_bytes(self):
+        self.assertNotEqual(self.image['Id'], self.entry['imageId'])
+        p.image_matches(self.image, self.entry, self.plan, store_archive=self.path)
+
+    def test_no_inspect_only_bypass(self):
+        with self.assertRaisesRegex(a.Rejected, 'PUBLICATION_IMAGE_ID'):
+            p.image_matches(self.image, self.entry, self.plan)
+
+    def test_raw_config_tamper_rejected(self):
+        self.write(corrupt_config=True)
+        with self.assertRaisesRegex(a.Rejected, 'PUBLICATION_STORE_BLOB_HASH'):
+            p.image_matches(self.image, self.entry, self.plan, store_archive=self.path)
+
+    def test_wrong_descriptor_and_rootfs_rejected(self):
+        for key, value in [('Id', 'sha256:' + 'f' * 64), ('RootFS', {'Type': 'layers', 'Layers': []})]:
+            with self.subTest(key=key):
+                image = copy.deepcopy(self.image); image[key] = value
+                with self.assertRaises(a.Rejected):
+                    p.image_matches(image, self.entry, self.plan, store_archive=self.path)
+
+    def test_changed_layer_size_or_compressed_layer_rejected(self):
+        self.manifest['layers'][0]['size'] += 1; self.write()
+        with self.assertRaisesRegex(a.Rejected, 'PUBLICATION_STORE_BLOB_SIZE'):
+            p.image_matches(self.image, self.entry, self.plan, store_archive=self.path)
+        self.manifest['layers'][0]['size'] -= 1
+        self.manifest['layers'][0]['mediaType'] += '+zstd'; self.write()
+        with self.assertRaisesRegex(a.Rejected, 'PUBLICATION_STORE_LAYER_BINDING'):
+            p.image_matches(self.image, self.entry, self.plan, store_archive=self.path)
+
+    def test_label_mismatch_not_hidden_by_valid_store_id(self):
+        self.image['Config']['Labels']['org.opencontainers.image.revision'] = 'a' * 40
+        with self.assertRaisesRegex(a.Rejected, 'PUBLICATION_IMAGE_LABELS'):
+            p.image_matches(self.image, self.entry, self.plan, store_archive=self.path)
+
+    def test_gzip_store_layers_keep_exact_original_diff_ids(self):
+        import gzip
+        self.stored_layers = [gzip.compress(raw, mtime=0) for raw in self.layer_bytes]
+        self.manifest['layers'] = [{'mediaType': 'application/vnd.oci.image.layer.v1.tar+gzip',
+            'digest': 'sha256:' + a.sha(raw), 'size': len(raw)} for raw in self.stored_layers]
+        self.write()
+        p.image_matches(self.image, self.entry, self.plan, store_archive=self.path)
+
+    def test_gzip_expansion_cannot_exceed_original_layer_size(self):
+        import gzip
+        self.stored_layers = [gzip.compress(raw + b'x', mtime=0) for raw in self.layer_bytes]
+        self.manifest['layers'] = [{'mediaType': 'application/vnd.oci.image.layer.v1.tar+gzip',
+            'digest': 'sha256:' + a.sha(raw), 'size': len(raw)} for raw in self.stored_layers]
+        self.write()
+        with self.assertRaisesRegex(a.Rejected, 'PUBLICATION_STORE_LAYER_EXPANSION'):
+            p.image_matches(self.image, self.entry, self.plan, store_archive=self.path)
+
+
+class ContainerdPublicationSequenceTests(unittest.TestCase):
+    setUp = PublicationTests.setUp
+    invoke = PublicationTests.invoke
+
+    def test_verified_store_identity_is_used_for_owned_tag_cleanup(self):
+        base_image = self.port.image
+        calls = []
+        def stored(service):
+            image = base_image(service)
+            image['Id'] = 'sha256:' + a.sha(service.encode())
+            return image
+        def verify(image, entry, plan):
+            calls.append(image['Id'])
+            self.assertNotEqual(image['Id'], entry['imageId'])
+        removed = []
+        self.port.image = stored
+        self.port.candidate_image_matches = verify
+        self.port.remove_owned_tag = lambda tag, image_id: removed.append((tag, image_id))
+        self.invoke()
+        self.assertGreaterEqual(len(calls), len(a.REPOSITORIES))
+        self.assertEqual(set(removed), {(entry['stagingTag'], stored(s)['Id']) for s, entry in self.images.items()})
+
+    def test_store_verification_failure_prevents_tag_push_and_unsafe_cleanup(self):
+        self.port.image = lambda service: {'Id': 'sha256:' + 'f' * 64}
+        def reject(*_):
+            raise a.Rejected('PUBLICATION_STORE_CONFIG')
+        self.port.candidate_image_matches = reject
+        with self.assertRaisesRegex(a.Rejected, 'PUBLICATION_STORE_CONFIG'):
+            self.invoke()
+        self.assertFalse(any(e.startswith(('tag:', 'push:', 'cleanup:')) for e in self.port.events))

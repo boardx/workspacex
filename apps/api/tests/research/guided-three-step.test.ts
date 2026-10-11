@@ -254,7 +254,7 @@ describe("three visible stages with durable composite execution", () => {
     f.model.complete.mockImplementation(async input => {
       const result = await complete(input), context = JSON.parse(input.user);
       if (context.section?.id === warnedId && ["chapter", "chapter_revision"].includes(context.reportStage)) {
-        const value = JSON.parse(result.text); value.body += "\n\nUNVERIFIED_BODY_SENTINEL unsupported claim."; return { text: JSON.stringify(value) };
+        const value = JSON.parse(result.text); if (value.paragraphs) value.paragraphs[0].body += "\n\nUNVERIFIED_BODY_SENTINEL unsupported claim."; else value.body += "\n\nUNVERIFIED_BODY_SENTINEL unsupported claim."; return { text: JSON.stringify(value) };
       }
       if (context.section?.id === warnedId && context.reportStage === "quality") {
         const value = JSON.parse(result.text); value.supported = false; value.issues = ["UNVERIFIED_AUDIT_SENTINEL"]; return { text: JSON.stringify(value) };

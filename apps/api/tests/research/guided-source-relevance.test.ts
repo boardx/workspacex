@@ -1,3 +1,4 @@
+import {PersistedResearchRuntimeSchema} from "../../src/application/research/guided-runtime-persistence";
 import { tasksFromConfirmedQuestions } from "../../src/application/research/guided-task-pipeline";
 import { reportQuestions, extractReportEvidence, selectQuestionEvidence } from "../../src/application/research/guided-report-evidence";
 import { createHash } from "node:crypto";
@@ -9,6 +10,9 @@ import { GuidedRuntimeService, initialRuntime } from "../../src/application/rese
 import { ResearchRuntimeError, type ResearchRuntime, type GuidedRuntimeStore } from "../../src/application/research/guided-runtime-ports";
 import { toOrgId } from "../../src/domain/org-id";
 import { guidedResearchReply } from "../../scripts/loopback-guided-research";
+import {NegativeSourceScreenCache} from "../../src/application/research/guided-negative-screen-cache";
+import { ModelCallError } from "../../src/application/agent-run/ports";
+import { prepareGeometry } from "./full-source-geometry-fixture";
 
 const session = C.GuidedResearchSession.parse({ sessionId: "relevance-session", title: "王者荣耀", brief: { topic: "王者荣耀综合研究", goal: "市场地位与电竞生态", region: "中国", focus: "用户留存和电竞", timeRange: "2023–2027" }, stage: "brief", resumeStage: "brief", status: "active", progress: 0, sourceCount: 0, reportId: null, createdAt: "now", updatedAt: "now" });
 function runtime() {
@@ -37,6 +41,185 @@ function complete() {
 }
 
 describe("automatic research source relevance", () => {
+  it.each([0, 24000])("retains healthy chunks of one long source when request batch at %i is refused", async refusedOffset => {
+    const state = runtime();
+    const block = direct.content.padEnd(6000, "z");
+    const text = block.repeat(8);
+    const long = { ...direct, document: { url: direct.url, text, contentHash: createHash("sha256").update(text).digest("hex"), retrievedAt: "now", contentKind: "text" as const, truncated: false } };
+    const before = structuredClone(long);
+    let refused = 0;
+    const model = Object.assign(vi.fn(async (_system: string, input: unknown, validate: (output: unknown) => void) => {
+      const batch = input as Input;
+      if (batch.chunks.some(chunk => JSON.parse(chunk.chunkId)[2] === refusedOffset)) {
+        refused++; throw new ModelCallError("MODEL_CALL_FAILED", "HTTP 400", undefined, undefined, "content-policy");
+      }
+      const output = evaluation(batch); validate(output); return output;
+    }), { configurationIdentity: "same-adapter" });
+    const retained = await screenResearchSources(state, [long], model);
+    expect(retained.map(item => item.id)).toEqual([long.id]);
+    expect(retained[0]!.document).toEqual(before.document);
+    expect(retained[0]!.taskIds).toEqual(["task"]);
+    expect(state.sourceScreenRejections?.[0]?.chunks).toHaveLength(4);
+    await screenResearchSources(state, [long], model);
+    expect(refused).toBe(1);
+    expect(model).toHaveBeenCalledTimes(3);
+  });
+  it("admits only the independently healthy task scope of a shared long source", async () => {
+    const state = runtime(); state.tasks.push({ ...state.tasks[0]!, id: "task-healthy" });
+    const text = direct.content.padEnd(6000, "z").repeat(4);
+    const long = { ...direct, taskIds: ["task", "task-healthy"], document: { url: direct.url, text, contentHash: createHash("sha256").update(text).digest("hex"), retrievedAt: "now", contentKind: "text" as const, truncated: false } };
+    const model = Object.assign(vi.fn(async (_system: string, input: unknown, validate: (output: unknown) => void) => {
+      const batch = input as Input;
+      if (batch.chunks.some(chunk => chunk.taskId === "task")) throw new ModelCallError("MODEL_CALL_FAILED", "HTTP 400", undefined, undefined, "content-policy");
+      const output = evaluation(batch); validate(output); return output;
+    }), { configurationIdentity: "task-scoped-adapter" });
+    const retained = await screenResearchSources(state, [long], model);
+    expect(retained).toHaveLength(1);
+    expect(retained[0]!.taskId).toBe("task-healthy"); expect(retained[0]!.taskIds).toEqual(["task-healthy"]);
+    expect(retained[0]!.document).toEqual(long.document);
+    expect(state.sourceScreenRejections?.[0]?.chunks.every(chunk => JSON.parse(chunk.chunkId)[1] === "task")).toBe(true);
+    expect(model).toHaveBeenCalledTimes(2);
+  });
+  it("clears only successfully rescreened chunk scopes after a new request identity", async () => {
+    const state = runtime();
+    const rejected = Object.assign(async () => { throw new ModelCallError("MODEL_CALL_FAILED", "HTTP 400", undefined, undefined, "content-policy"); }, { configurationIdentity: "old-adapter" });
+    await screenResearchSources(state, [direct, context], rejected);
+    expect(state.sourceScreenRejections?.[0]?.chunks).toHaveLength(2);
+    const accepted = Object.assign(complete(), { configurationIdentity: "new-adapter" });
+    expect(await screenResearchSources(state, [direct], accepted)).toHaveLength(1);
+    expect(state.sourceScreenRejections?.[0]?.sourceIds).toEqual([context.id]);
+    expect(state.sourceScreenRejections?.[0]?.chunks.map(chunk => chunk.sourceId)).toEqual([context.id]);
+    expect(await screenResearchSources(state, [context], accepted)).toHaveLength(1);
+    expect(state.sourceScreenRejections ?? []).toHaveLength(0);
+  });
+  it("retains the exact rejected-request tombstone after another basis completely clears active warnings", async () => {
+    let state = runtime();
+    const rejected = Object.assign(vi.fn(async () => { throw new ModelCallError("MODEL_CALL_FAILED", "HTTP 400", undefined, undefined, "content-policy"); }), { configurationIdentity: "rejected-adapter" });
+    await screenResearchSources(state, [direct], rejected);
+    const oldBasis = state.sourceScreenRejections![0]!.requestBasis;
+    const accepted = Object.assign(complete(), { configurationIdentity: "successful-adapter" });
+    expect(await screenResearchSources(state, [direct], accepted)).toHaveLength(1);
+    expect(state.sourceScreenRejections ?? []).toHaveLength(0);
+    state = PersistedResearchRuntimeSchema.parse(JSON.parse(JSON.stringify(state)));
+    expect(await screenResearchSources(state, [direct], rejected)).toEqual([]);
+    expect(rejected).toHaveBeenCalledTimes(1);
+    expect(state.sourceScreenRejections?.[0]?.requestBasis).toBe(oldBasis);
+  });
+  it.each(["omitted", "malformed"])("preserves active rejection scopes when new output is %s", async mode => {
+    const state = runtime();
+    await screenResearchSources(state, [direct, context], Object.assign(async () => { throw new ModelCallError("MODEL_CALL_FAILED", "HTTP 400", undefined, undefined, "content-policy"); }, { configurationIdentity: "old-adapter" }));
+    const warnings = structuredClone(state.sourceScreenRejections);
+    const invalid = Object.assign(vi.fn(async (_system: string, input: unknown, validate: (value: unknown) => void) => {
+      const output = mode === "omitted" ? { evaluations: [] } : { evaluations: [{ arbitrary: true }] };
+      validate(output); return output;
+    }), { configurationIdentity: "new-adapter" });
+    await expect(screenResearchSources(state, [direct], invalid)).rejects.toThrow("RESEARCH_SOURCE_RELEVANCE_INVALID");
+    expect(state.sourceScreenRejections).toEqual(warnings);
+    expect(state.privateSourceScreenRejectedRequests).toContain(warnings![0]!.requestBasis);
+  });
+  it("matches current rejection by exact task, source and content bytes", async () => {
+    const state = runtime(); state.sources = [direct];
+    await screenResearchSources(state, [direct], Object.assign(async () => { throw new ModelCallError("MODEL_CALL_FAILED", "HTTP 400", undefined, undefined, "content-policy"); }, { configurationIdentity: "old-adapter" }));
+    expect(relevanceModule.sourceTaskContentRejected(state, "task")).toBe(true);
+    expect(relevanceModule.sourceTaskContentRejected(state, "other-task")).toBe(false);
+    state.sources = [{ ...direct, content: direct.content + " Changed." }];
+    expect(relevanceModule.sourceTaskContentRejected(state, "task")).toBe(false);
+  });
+  it("clears an obsolete active provider warning on a strict semantic negative without admitting the source", async () => {
+    const state = runtime();
+    await screenResearchSources(state, [direct], Object.assign(async () => { throw new ModelCallError("MODEL_CALL_FAILED", "HTTP 400", undefined, undefined, "content-policy"); }, { configurationIdentity: "old-adapter" }));
+    const negative = Object.assign(vi.fn(async (_system: string, input: unknown, validate: (output: unknown) => void) => {
+      const output = { evaluations: (input as Input).chunks.map(chunk => ({ sourceId: chunk.sourceId, chunkId: chunk.chunkId, irrelevant: true, matches: [] })) };
+      validate(output); return output;
+    }), { configurationIdentity: "new-adapter" });
+    expect(await screenResearchSources(state, [direct], negative)).toEqual([]);
+    expect(state.sourceScreenRejections ?? []).toHaveLength(0);
+    expect(negative).toHaveBeenCalledTimes(1);
+  });
+  it("accepts a redundant taskId only when it exactly matches the trusted source chunk", async () => {
+    const state = runtime();
+    const model = vi.fn(async (_system: string, input: unknown, validate: (output: unknown) => void) => {
+      const context = input as Input;
+      const output = { evaluations: evaluation(context).evaluations.map((entry, index) => ({ ...entry, taskId: context.chunks[index]!.taskId })) };
+      validate(output); return output;
+    });
+    expect((await screenResearchSources(state, [direct], model)).map(item => item.id)).toEqual([direct.id]);
+    expect(model).toHaveBeenCalledTimes(1);
+  });
+  it.each([{ taskId: "another-task" }, { taskId: 42 }, { taskId: null }, { taskId: undefined },
+    { arbitraryField: "unexpected" }, { taskId: "task", arbitraryField: "unexpected" }])("rejects untrusted extra evaluation fields %j", async extra => {
+    const model = async (_system: string, input: unknown, validate: (output: unknown) => void) => {
+      const output = { evaluations: evaluation(input as Input).evaluations.map(entry => ({ ...entry, ...extra })) };
+      validate(output); return output;
+    };
+    await expect(screenResearchSources(runtime(), [direct], model)).rejects.toThrow("RESEARCH_SOURCE_RELEVANCE_INVALID");
+  });
+  it.each(["unknown-source", "unknown-chunk", "duplicate"])("retains identity and uniqueness checks with task echoes: %s", async invalid => {
+    const model = async (_system: string, input: unknown, validate: (output: unknown) => void) => {
+      const context = input as Input;
+      const output = { evaluations: evaluation(context).evaluations.map(entry => ({ ...entry, taskId: "task" })) };
+      if (invalid === "unknown-source") output.evaluations[0]!.sourceId = "unknown";
+      if (invalid === "unknown-chunk") output.evaluations[0]!.chunkId = "unknown";
+      if (invalid === "duplicate") output.evaluations.push(output.evaluations[0]!);
+      validate(output); return output;
+    };
+    await expect(screenResearchSources(runtime(), [direct], model)).rejects.toThrow("RESEARCH_SOURCE_RELEVANCE_INVALID");
+  });
+  it("skips all 23 unchanged approvals across the complete task and outline geometry", async () => {
+    const state = prepareGeometry(runtime());
+    for (const item of state.sources) item.relevanceBasis = relevanceModule.sourceRelevanceBasis(state, item);
+    const before = structuredClone(state.sources);
+    const model = complete();
+    expect(reportQuestions(state.outline)).toHaveLength(32);
+    expect(state).not.toHaveProperty("planRevision");
+    const screened = await screenResearchSources(state, state.sources, model);
+    expect(model).not.toHaveBeenCalled();
+    expect(screened).toEqual(before);
+    expect(screened).toHaveLength(23);
+    expect(state.reportPartial).toBe(false);
+    // Genuine input changes invalidate only that approval, not the other 22.
+    state.sources[0]!.title += " changed";
+    await screenResearchSources(state, state.sources, model);
+    expect(model).toHaveBeenCalledTimes(1);
+  });
+  it("records a rejected supplier batch without calling it irrelevant and keeps healthy sources", async () => {
+    const state=runtime(); state.sources=Array.from({length:9},(_,i)=>source(`s${i}`,direct.content));
+    let rejectedCalls=0;
+    const model=Object.assign(async(_system:string,input:unknown,validate:(output:unknown)=>void)=>{
+      const context=input as Input;
+      if(context.chunks.some(chunk=>chunk.sourceId==='s0')){rejectedCalls++;throw new ModelCallError("MODEL_CALL_FAILED","HTTP 400",undefined,undefined,"content-policy");}
+      const output=evaluation(context);validate(output);return output;
+    },{configurationIdentity:"test-config"});
+    const result=await screenResearchSources(state,state.sources,model);
+    expect(result.map(source=>source.id)).toEqual(['s8']);
+    expect(state.sourceScreenRejections?.[0]).toMatchObject({reason:"batch_provider_content_rejected",sourceIds:state.sources.slice(0,8).map(s=>s.id)});
+    await screenResearchSources(state,state.sources,model);
+    expect(rejectedCalls).toBe(1);
+    expect(state.sourceScreenRejections).toHaveLength(1);
+  });
+  it("does not treat other model or persistence failures as supplier rejection", async()=>{
+    const state=runtime();const error=new ModelCallError("MODEL_CALL_FAILED","HTTP 400");
+    await expect(screenResearchSources(state,[direct],async()=>{throw error;})).rejects.toBe(error);
+    expect(state.sourceScreenRejections).toBeUndefined();
+  });
+  it("does not approve rejected sources or cache them as validated irrelevant", async()=>{
+    const state=runtime();state.sources=[direct];const negativeCache=new NegativeSourceScreenCache();vi.spyOn(negativeCache,"remember");
+    const result=await screenResearchSources(state,state.sources,async()=>{throw new ModelCallError("MODEL_CALL_FAILED","HTTP 400",undefined,undefined,"content-policy");},{negativeCache});
+    expect(result).toEqual([]);expect(negativeCache.remember).not.toHaveBeenCalled();
+    expect(PersistedResearchRuntimeSchema.parse(JSON.parse(JSON.stringify(state))).sourceScreenRejections).toHaveLength(1);
+  });
+  it("caches the actual rejected repair payload without skipping the unrefused initial request", async()=>{
+    const state=runtime();state.sources=[direct];let calls=0;
+    const model=Object.assign(async(_system:string,input:unknown,validate:(output:unknown)=>void)=>{
+      calls++;const context=input as Input & {repair?:unknown};
+      if(context.repair) throw new ModelCallError("MODEL_CALL_FAILED","HTTP 400",undefined,undefined,"content-policy");
+      const output=evaluation(context);output.evaluations[0]!.matches[0]!.quote="fabricated";
+      validate(output);return output;
+    },{configurationIdentity:"same"});
+    expect(await screenResearchSources(state,state.sources,model)).toEqual([]);
+    expect(await screenResearchSources(state,state.sources,model)).toEqual([]);
+    expect(calls).toBe(3);
+  });
   it("persists Chinese presentation without rewriting original evidence", async () => {
     const presentation = { title: "电竞商业模式", summary: "说明赛事赞助和版权收入。" };
     const result = await screenResearchSources(runtime(), [direct], async (_system, input, validate) => {
@@ -146,6 +329,18 @@ function serviceFixture(hits: typeof direct[], malformed = false, seed = runtime
     run: (action: "start" | "retry" = "start") => service.execute(actor, session, { node: "research", action, sessionId: session.sessionId, requestId: action, expectedVersion: state.version }) };
 }
 describe("research runtime source publication", () => {
+  it("does not attribute a different task's historical rejection to a current valid no-match", async () => {
+    const seed = runtime(); seed.currentNode = "report"; seed.availableNodes.push("report");
+    seed.tasks[0]!.id = "task-current"; seed.tasks[0]!.status = "succeeded";
+    seed.sources = [{ ...direct, taskId: "task-current" }];
+    seed.sourceScreenRejections = [{ batchIndex: 0, sourceIds: [direct.id], questionIds: ["old-question"], reason: "batch_provider_content_rejected", requestBasis: "a".repeat(64),
+      chunks: [{ sourceId: direct.id, chunkId: JSON.stringify([direct.id, "task-old", 0]), contentHash: createHash("sha256").update(direct.content).digest("hex") }] }];
+    const f = serviceFixture([], false, seed, "task-current");
+    const result = await f.report();
+    expect(result.tasks[0]!.status).toBe("failed");
+    expect(result.tasks[0]!.errorCode).toBe("RESEARCH_SEARCH_NO_RELEVANT_SOURCES");
+    expect(result.sourceScreenRejections?.[0]?.chunks[0]?.chunkId).toBe(JSON.stringify([direct.id, "task-old", 0]));
+  });
   it("retries old succeeded tasks whose only source was rejected during migration", async () => {
     const seed = runtime(); seed.sources = [car]; seed.tasks[0]!.status = "succeeded";
     const f = serviceFixture([direct], false, seed); const result = await f.run();

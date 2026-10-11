@@ -1,6 +1,16 @@
 import { describe, expect, it } from "vitest";
 import { researchReportPreview } from "@/lib/research-report-preview";
 describe("incremental research report preview", () => {
+  it("shows question paragraph prose before the author response finishes", () => {
+    expect(researchReportPreview('{"sections":[{"sectionId":"a","paragraphs":[{"questionId":"private-id","body":"本章分析'))
+      .toEqual({ title: "", summary: "", sections: [{ sectionId: "a", body: "本章分析" }] });
+  });
+  it("joins only paragraph body strings without exposing question or source metadata", () => {
+    expect(researchReportPreview(JSON.stringify({ sections: [{ sectionId: "a", paragraphs: [
+      { questionId: "private-id", body: "第一段", sourceIds: ["private-source"] },
+      { body: { secret: "not prose" } }, { body: "第二段" }, // Synthetic test fixture.
+    ] }] }))).toEqual({ title: "", summary: "", sections: [{ sectionId: "a", body: "第一段\n\n第二段" }] });
+  });
   it("shows only report strings while nested sections are incomplete", () => {
     expect(researchReportPreview('{"title":"研究","summary":"摘要","sections":[{"sectionId":"a","body":"部分正文')).toEqual({ title: "研究", summary: "摘要", sections: [{ sectionId: "a", body: "部分正文" }] });
   });

@@ -15,7 +15,7 @@ import { GuidedResearchConversation } from "./guided-research-conversation";
 import { ResearchLoading, researchSteps as steps, researchStepLabels as labels } from "./guided-research-presentation";
 import { researchReportDocument } from "@/lib/research-report-document";
 import { ResearchPrototypeReport } from "./research-prototype-report";
-import { GuidedResearchEvidenceWarning } from "./guided-research-report-history";
+import { GuidedResearchEvidenceWarning, GuidedResearchReportHistory } from "./guided-research-report-history";
 import { GuidedResearchQualityDraft } from "./guided-research-quality-draft";
 import { GuidedResearchReportPreview } from "./guided-research-report-preview";
 import { researchReportPreview } from "@/lib/research-report-preview";
@@ -539,6 +539,7 @@ return <GuidedResearchSixStepShell researchName={guidedResearchHeading(state, re
         {researchBlocked && !waiting && <p role="status" className="text-12 text-muted-foreground">{researchPending ? "检索仍在进行，任务结束后可生成报告。" : "请完成检索并保留至少一个真实来源后生成报告。"}</p>}
 
         </>}
+        {viewedNode === "report" && !chaptersOpen && <GuidedResearchReportHistory state={state} />}
         {reportVisible && !readingReport && !waiting && (!state.reportDraft || node === "research") && reportActions}
         {!reportVisible && node !== "research" && !chaptersOpen && !waiting && !recovery && (state.errorCode || expired) && <div className="flex justify-end"><Button variant="primary" disabled={busy} onClick={() => void run("retry")}>继续重试</Button></div>}
       </div>
