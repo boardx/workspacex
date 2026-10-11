@@ -173,5 +173,33 @@ flowchart TD
 | 跨阶段容量 | 同盘和分盘、边界 ±1 字节、保留 ZIP/TAR、回滚镜像与后续空间门 | 消费后 publisher 空间不足已在现场暴露；修复必须在 GET/hold/stop 前拒绝，保留原 guard |
 | Linux 与运行时恢复 | 新 exact head 的 cgroup/截止监督；临时 Docker 栈半组 recreate 失败后恢复 exact 旧五容器 | 基础 cgroup 真测试已通过；后继新代码需重跑，Docker 故障恢复尚缺真实测试 |
 | 数据库边界 | 无迁移仍验证 session 0、当前 epoch 备份及隔离恢复；兼容迁移验证 old/new 读写 | 当前 runtime-only binder 拒绝迁移；SQL diff 为空不免除启动清理/seed 风险 |
-| 云端与业务 | prepared hotfix/无迁移真实发布 → 六业务 → 同 generation clear → 稳定观察；隔离目标真实故障恢复到旧版业务 | 尚缺完整发布与故障恢复证据，不能用静态 200 或离线替身替代 |
+| 云端与业务 | prepared hotfix/无迁移真实发布 → held health → 单独 A5 授权同 generation clear → A6 六业务及稳定观察；隔离目标真实故障恢复到旧版业务 | 尚缺完整发布与故障恢复证据，不能用静态 200 或离线替身替代 |
 | 30 分钟 | 不可重置 requestedAt → 实际 public.business，prepared 同报完整 lead time 与 activation time | 当前逐段时序未包含全部后续步骤；全链 30 分钟尚未达标 |
+
+后继固定入口的跨阶段问题与修复见 [fixed-driver.md](cn-release-entry/fixed-driver.md)。分段测试不替代真实 router/materializer/entry 链和生产端到端验收；尤其保留 A5 授权及数据库启动副作用边界。
+
+## 固定单入口后续验证进展（PR #5632）
+
+上述前五轮表格是初始审查记录。后续已补足一次批准后的 17 阶段固定路由、
+原始回执链、独立当前观察与历史 admission 分离、A5 单独恢复 writer 批准，以及
+RDS 精确 BackupJobId → Finished → BackupId → snapshot 读回。无 SQL 变更不免除
+API 启动清理、seed、后台任务副作用授权或当前 epoch 备份。
+
+本轮已独审的完整链 fixture 实际调用 driver、router、journal、binder、materializer
+和 entry，覆盖 17 阶段、A5 等待/继续、丢失响应和超时。外部 Docker、provider、
+现场 live verifier/preflight 是显式替身，因此它证明代码接口连接，不代表生产云 E2E。
+另外保留真实本地 Chromium/TLS 六业务和 Linux cgroup 逃逸测试，分别报告证据。
+
+固定 root fresh-approval pointer 已接入恢复前只读准入：本次 materializer 与独立
+terminal verifier 必须使用同一 fresh SHA；原 requestedAt 不后移。UNKNOWN 禁止
+重放。持锁 runtime 恢复与后续独立批准的 baseline clear/旧版六业务已由持久恢复 driver 分阶段连接，
+不能把 `holdRetained` 当成完整恢复成功；writer 已 clear 后不能复用 held-only 批准。
+
+完整审批生成器和安装清单见 [approval-plan.md](cn-release-entry/approval-plan.md)。
+它使用真实版本目录和代码清单计算全部路由 hash，测量整个 JSON 并执行 64 KiB
+硬上限；不授予权限或安装。RDS 的完整 SDK 清单改为固定 root 私有文件的 SHA
+引用，仍检查每个文件、额外文件、符号链接、权限与大小。
+
+当前普通无迁移与 hotfix 走相同准入门；prepared、配置、web-only、迁移与 Pages
+分类不是固定 driver 已实现的不同分支。Pages 走已有营销发布工作流。新驱动尚无
+真实生产全链成功样本，已有三段 1,487 秒不能证明剩余步骤可在 313 秒内完成。

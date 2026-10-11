@@ -34,6 +34,19 @@ class EntryTests(unittest.TestCase):
         self.addCleanup(self.temp.cleanup)
         for p in self.patches: self.addCleanup(p.stop)
 
+    def test_verifier_cannot_complete_normal_release_after_original_deadline(self):
+        request=self.package()
+        manifest,_=e.load_package(request,'test-one')
+        original=e.verify;expired=e.instant(manifest['expiresAt'])+dt.timedelta(seconds=1)
+        def late(code,evidence,m,previous,mode):
+            original(code,evidence,m,previous,mode)
+            if mode=='advance':
+                p=patch.object(e,'now',lambda:expired);p.start();self.addCleanup(p.stop)
+        with patch.object(e,'verify',late):
+            with self.assertRaisesRegex(e.Rejected,'VERIFIER_AFTER_EXPIRY_RECONCILE'):self.advance(request)
+        self.assertTrue((self.state/'test-one/00-consume.intent.json').exists())
+        self.assertFalse((self.state/'test-one/00-consume.receipt.json').exists())
+
     def package(self, stage='consume', previous=None, action=ACTION, observer=ACTION, verifier=VERIFIER, attempt='test-one', **updates):
         start = self.clocks.setdefault(attempt, e.now() - dt.timedelta(seconds=2))
         m = dict(schemaVersion=1, sourceRevision='1'*40, baselineRevision='2'*40, controlRevision='3'*40,

@@ -23,7 +23,7 @@ ENDS={'hold':3,'stop':5,'backup':8,'switch':11}
 PROJECT={'publish':'publish','hold':'hold','stop':'stop','sessions':'sessionzero','backup':'backup','rds-backup':'rds-backup'}
 IDENTITY=('sourceRevision','baselineRevision','controlRevision','attemptId','requestedAt','deadlineAt')
 STAGE_INPUTS={'publication':'publish','hold':'hold','stop':'sessions','hostBackup':'backup','rdsBackup':'rds-backup'}
-TERMINAL_INPUTS={'hostBackup':'backup'}
+TERMINAL_INPUTS={'hold':'hold','hostBackup':'backup'}
 STATIC_INPUTS={'authorization','template','migrationDiff'}
 TARGET={'accountId':'1177216024653153','region':'cn-shanghai','ecsInstanceId':'i-uf6ga92ewloganobbln6'}
 
@@ -127,13 +127,14 @@ def project(entry,release_sha,approval_raw,phase,inputs,*,now=None):
             intent=entry.decode(entry.read(root/(prefix+'.intent.json')))
             need(intent['requestSha256']==v['requestSha256'],'INTENT_REQUEST')
             process=entry.decode(entry.read(root/(prefix+'.process.json')))
-            need(process['requestSha256']==v['requestSha256'] and entry.execution_terminal(process),'EXECUTION_NOT_TERMINAL')
+            need(process['requestSha256']==v['requestSha256'],'EXECUTION_REQUEST_CHANGED')
             evidence=entry.read(root/(prefix+'.evidence.json'))
             terminal=entry.read(root/(prefix+'.terminal-observation.json'))
             need(sha(evidence)==v['evidenceSha256'] and sha(terminal)==v['terminalObservationSha256'],'RAW_EVIDENCE_HASH')
             prev=entry.decode(previous)if previous else None
-            entry.verify(files['verify.py'],evidence,manifest,prev,v['mode'])
-            entry.verify(files['verify.py'],terminal,manifest,prev,'terminal')
+            # Original root-protected receipt attests admission already passed.
+            # Do not re-run old live probes after later phases changed state.
+            entry.verify_historical_receipt(path,v,manifest)
             action_bytes[stage]=evidence;terminal_bytes[stage]=terminal
             finished=entry.instant(v['finishedAt']);need(last<=finished<=now and finished<=entry.instant(r['deadlineAt']),'RECEIPT_TIME')
             last=finished
@@ -147,9 +148,11 @@ def project(entry,release_sha,approval_raw,phase,inputs,*,now=None):
             previous=raw
         # Fixed backup readback emits the exact backup-result bytes after live
         # archive/config/hold verification. Bind that independent observation,
-        # never the action's completion summary. Other inputs remain action bytes.
+        # never the action's completion summary. Hold likewise uses the independent helper readback; its action emits a wrapper. Other inputs remain action bytes.
         for name,stage in STAGE_INPUTS.items():
             if name in inputs:
+                if name=='publication':
+                    publication_input(inputs[name],action_bytes[stage],terminal_bytes[stage]);continue
                 originals=terminal_bytes if name in TERMINAL_INPUTS else action_bytes
                 need(stage in originals and inputs[name]==originals[stage],
                      'INPUT_NOT_ORIGINAL_STAGE_EVIDENCE_'+name)
@@ -159,6 +162,22 @@ def project(entry,release_sha,approval_raw,phase,inputs,*,now=None):
             'completed':completed,'inputHashes':{k:sha(v)for k,v in inputs.items()},'entryStages':stage_refs}
         yield journal,raw_receipts
     finally:os.close(lockfd)
+
+
+def publication_input(original, action, terminal):
+    """Bind pure published.json bytes without parsing/re-encoding their content.
+
+    Normal action stdout has one exact prefix and print's extra newline. A
+    reconciled action is the independently verified observation itself.
+    """
+    observed=parse(terminal)
+    need(observed.get('kind')=='cn-publication-readonly-observation-v1'
+         and observed.get('phase')=='publish'
+         and observed.get('publishedReceiptSha256')==sha(original),
+         'INPUT_NOT_ORIGINAL_STAGE_EVIDENCE_publication')
+    need(action==b'CN_CANDIDATE_PUBLISHED='+original+b'\n' or action==terminal,
+         'INPUT_NOT_ORIGINAL_STAGE_EVIDENCE_publication')
+    return original
 
 
 def publish(entry,release_sha,approval_raw,phase,inputs,evidence_root=EVIDENCE,*,now=None):

@@ -364,6 +364,38 @@ def verify_receipt_files(path, receipt):
         need(digest(read(observed_path)) == receipt.get('terminalObservationSha256'), 'COMPLETION_OBSERVATION_CHANGED')
 
 
+def verify_historical_receipt(path, receipt, manifest):
+    """Check a protected successful entry attestation without re-running its action.
+
+    entry() writes this receipt only after both action and live terminal observer
+    admission. Later stages may intentionally change the hold/container state;
+    current live observation belongs to the current stage, not an old receipt.
+    Every file is still root-owned, immutable and linked to its original package.
+    """
+    need(receipt.get('mode') in ('advance','reconcile'), 'HISTORICAL_NORMAL_RECEIPT_REQUIRED')
+    original, _ = load_package(receipt['requestSha256'], receipt['attemptId'])
+    need(original == manifest, 'HISTORICAL_PACKAGE_CHANGED')
+    for key in ('sourceRevision','baselineRevision','controlRevision','attemptId','scope','stage',
+                'requestedAt','deadlineAt','previousReceiptSha256'):
+        need(receipt.get(key) == manifest.get(key), 'HISTORICAL_IDENTITY_CHANGED')
+    need(instant(manifest['requestedAt']) <= instant(receipt['finishedAt']) <= instant(manifest['deadlineAt']),
+         'HISTORICAL_BUDGET_INVALID')
+    prefix = str(path).removesuffix('.receipt.json')
+    intent = decode(read(Path(prefix + '.intent.json')))
+    process = decode(read(Path(prefix + '.process.json')))
+    need(intent['requestSha256'] == process['requestSha256'] == receipt['requestSha256'],
+         'HISTORICAL_EXECUTION_CHANGED')
+    verify_receipt_files(path, receipt)
+    admission_raw = read(Path(prefix + '.admission.json'))
+    need(digest(admission_raw) == receipt.get('admissionSha256'), 'HISTORICAL_ADMISSION_CHANGED')
+    admission = decode(admission_raw)
+    need(admission == {'kind':'cn-entry-admission-v1','requestSha256':receipt['requestSha256'],
+          'verifierSha256':manifest['verifierSha256'],'observerSha256':manifest['observerSha256'],
+          'authorizationEvidenceSha256':manifest['authorizationEvidenceSha256'],
+          'evidenceSha256':receipt['evidenceSha256'],
+          'terminalObservationSha256':receipt['terminalObservationSha256']}, 'HISTORICAL_ADMISSION_CHANGED')
+
+
 def completed_attempt(root):
     """Partial files and transport-only receipts cannot release another attempt."""
     candidates = [root / '16-observe.receipt.json', *root.glob('*.recovery.receipt.json')]
@@ -485,6 +517,8 @@ def entry(mode, request_hash, attempt):
             observed = evidence
             verify(files['verify.py'], observed, manifest, decode(previous_raw) if previous_raw else None, 'terminal')
         verify(files['verify.py'], evidence, manifest, decode(previous_raw) if previous_raw else None, mode)
+        if mode in ('advance','recover'):
+            need(now() < instant(manifest['expiresAt']), 'VERIFIER_AFTER_EXPIRY_RECONCILE')
         # Persist original evidence only AFTER the reviewed verifier accepts it.
         evidence_path = Path(str(prefix) + '.evidence.json')
         if evidence_path.exists():
@@ -499,12 +533,22 @@ def entry(mode, request_hash, attempt):
             else:
                 create(observation_path, observed)
             observation_hash = digest(observed)
+        admission_hash = None
+        if mode in ('advance','reconcile'):
+            admission = encode({'kind':'cn-entry-admission-v1','requestSha256':request_hash,
+                'verifierSha256':manifest['verifierSha256'],'observerSha256':manifest['observerSha256'],
+                'authorizationEvidenceSha256':manifest['authorizationEvidenceSha256'],
+                'evidenceSha256':digest(evidence),'terminalObservationSha256':observation_hash})
+            admission_path = Path(str(prefix) + '.admission.json')
+            if admission_path.exists():need(read(admission_path)==admission,'ADMISSION_CHANGED')
+            else:create(admission_path,admission)
+            admission_hash = digest(admission)
         finished = now()
         switch_intent = root / '13-switch.intent.json'
         activation_start = decode(read(switch_intent))['createdAt'] if switch_intent.exists() else None
         receipt = {'schemaVersion': 1, **identity, 'stage': manifest['stage'], 'requestSha256': request_hash,
                    'previousReceiptSha256': manifest['previousReceiptSha256'], 'evidenceSha256': digest(evidence),
-                   'terminalObservationSha256': observation_hash,
+                   'terminalObservationSha256': observation_hash, 'admissionSha256':admission_hash,
                    'mode': mode, 'finishedAt': finished.isoformat(),
                    'elapsedSeconds': (finished-instant(manifest['requestedAt'])).total_seconds(),
                    'activationStartedAt': activation_start,

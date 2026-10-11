@@ -34,7 +34,21 @@ def prepare(config):
   host=read(config['hostBackup']);assert host['holdGeneration']==b['hold']['generation']
   b['hostBackupReceiptSha256']=hashfile(config['hostBackup'])
   provider=read(config['rdsBackup']);assert provider['holdGeneration']==b['hold']['generation'] and provider['backupStatus']=='Success' and provider['metaStatus']=='OK' and provider['dbInstanceId']=='pgm-uf6rg214cp381l49'
-  assert datetime.datetime.fromisoformat(provider['backupStartTime'].replace('Z','+00:00'))>=datetime.datetime.fromisoformat(read(config['stop'])['finishedAt'].replace('Z','+00:00'))
+  provider_start=datetime.datetime.fromisoformat(provider['backupStartTime'].replace('Z','+00:00'))
+  stop_finished=datetime.datetime.fromisoformat(stop['finishedAt'].replace('Z','+00:00'))
+  if provider_start<stop_finished:
+   # Provider may report only minute/second precision. Keep its original time;
+   # the independently verified exact job binds the durable Create intent to
+   # these exact stop bytes. A nearby unrelated manual snapshot is insufficient.
+   created=datetime.datetime.fromisoformat(provider['createIntentCreatedAt'].replace('Z','+00:00'))
+   assert created.tzinfo is not None and created>=stop_finished
+   assert provider['originalEvidenceSha256']['stopReceiptSha256']==hashfile(config['stop'])
+   for key in ('intent','dispatch','task'):
+    assert re.fullmatch('[a-f0-9]{64}',provider['originalEvidenceSha256'][key])
+   assert str(provider['requestedBackupJobId']).isdigit() and str(provider['backupId']).isdigit()
+   assert provider['association']=='DescribeBackupTasks exact BackupJobId returned Finished and BackupId; matching DescribeBackups current-epoch snapshot'
+   floor=created.replace(second=0,microsecond=0) if re.search(r'T[0-9]{2}:[0-9]{2}(?:Z|[+-])',provider['backupStartTime']) else created.replace(microsecond=0)
+   assert provider_start>=floor
   b['rdsBackupReceiptSha256']=hashfile(config['rdsBackup']);b['backupProviderObservationReviewed']=True
  m.validate_binding(b)
  out=Path(config['output']);out.mkdir(mode=0o700)
@@ -47,6 +61,7 @@ def prepare(config):
  pins={'scriptSha256':hashfile(out/'sessions-after-stop.sh'),'bindingSha256':hashfile(out/'binding.json')}
  (out/'sessions-check-pins.json').write_text(json.dumps(pins,sort_keys=True)+'\n');(out/'sessions-check-pins.json').chmod(0o600)
  (out/'preparation.json').write_text(json.dumps({'phase':phase,'bindingSha256':hashfile(out/'binding.json'),'inputs':{k:hashfile(config[k])for k in ('authorization','publication')},'files':{n:hashfile(out/n)for n in values},'cloudCalls':0,'dispatchAuthorizedByGenerator':False},indent=2)+'\n')
+ (out/'preparation.json').chmod(0o600)
  print(json.dumps({'phase':phase,'output':str(out),'bindingSha256':hashfile(out/'binding.json'),'cloudCalls':0}))
 if __name__=='__main__':
  p=argparse.ArgumentParser();p.add_argument('config');args=p.parse_args();prepare(read(args.config))

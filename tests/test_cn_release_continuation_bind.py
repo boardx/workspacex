@@ -269,6 +269,45 @@ class ReviewedPackageIntegration(unittest.TestCase):
         original=importlib.util.module_from_spec(original_spec);original_spec.loader.exec_module(original)
         with self.assertRaises(AssertionError): original.validate_binding(binding)
 
+    def test_actual_rds_adapter_receipt_flows_into_original_switch_materializer(self):
+        spec=importlib.util.spec_from_file_location('rds_fixture',SCRIPT.parents[1]/'tests/test_cn_release_rds_backup.py')
+        fixture=importlib.util.module_from_spec(spec);spec.loader.exec_module(fixture)
+        rds=fixture.Tests();rds.setUp();self.addCleanup(rds.doCleanups)
+        self.advance_inputs('switch')
+        stop=json.loads(self.inputs['stop']);instant=dt.datetime.fromisoformat(stop['finishedAt'].replace('Z','+00:00')).replace(second=30,microsecond=500000)
+        stop['finishedAt']=instant.isoformat();self.inputs['stop']=enc(stop)
+        rds.time=instant+dt.timedelta(seconds=1);rds.stop=stop;rds.hold=json.loads(self.inputs['hold'])
+        permission=json.loads((rds.root/'permission.json').read_bytes());permission['observedAt']=(rds.time-dt.timedelta(seconds=1)).isoformat()
+        rds.put('permission.json',permission);rds.a['rds']['permissionEvidence']['sha256']=m.sha((rds.root/'permission.json').read_bytes())
+        rds.a['identity'].update(sourceRevision='c'*40,attemptId='runtime-next')
+        for name in ('stop','hold'):
+            path=rds.root/'inputs'/(name+'.json');path.write_bytes(self.inputs[name]);path.chmod(0o600)
+        rds.put('rds-request.json',{'identity':rds.a['identity'],'inputHashes':{name:m.sha(self.inputs[name]) for name in ('stop','hold')}})
+        rds.p.rows=[{**rds.row,'BackupStartTime':instant.replace(second=0,microsecond=0).strftime('%Y-%m-%dT%H:%MZ'),'BackupEndTime':rds.time.isoformat()}]
+        raw=rds.runop('action');self.assertEqual(rds.runop('observe'),raw)
+        self.inputs['rdsBackup']=raw;self.run_bind('actual-rds-switch')
+        binding=json.loads((self.root/'actual-rds-switch/binding.json').read_bytes())
+        self.assertEqual(binding['rdsBackupReceiptSha256'],m.sha(raw))
+        self.assertEqual(json.loads(raw)['backupStartTime'],rds.p.rows[0]['BackupStartTime'])
+        self.assertEqual(sum(op=='CreateBackup' for op,_ in rds.p.calls),1)
+
+    def test_exact_rds_job_intent_admits_provider_minute_precision(self):
+        self.advance_inputs('switch')
+        stop=json.loads(self.inputs['stop']);instant=dt.datetime.fromisoformat(stop['finishedAt'].replace('Z','+00:00')).replace(second=30,microsecond=500000)
+        stop['finishedAt']=instant.isoformat();self.inputs['stop']=enc(stop)
+        provider=json.loads(self.inputs['rdsBackup'])
+        provider.update(backupStartTime=instant.replace(second=0,microsecond=0).strftime('%Y-%m-%dT%H:%MZ'),
+            createIntentCreatedAt=(instant+dt.timedelta(seconds=1)).isoformat(),requestedBackupJobId='41',backupId='42',
+            association='DescribeBackupTasks exact BackupJobId returned Finished and BackupId; matching DescribeBackups current-epoch snapshot',
+            originalEvidenceSha256={'stopReceiptSha256':m.sha(self.inputs['stop']),'intent':'1'*64,'dispatch':'2'*64,'task':'3'*64})
+        self.inputs['rdsBackup']=enc(provider);self.run_bind('precision-success')
+        for key,value in [('createIntentCreatedAt',(instant-dt.timedelta(seconds=1)).isoformat()),('association','nearby manual snapshot')]:
+            changed={**provider,key:value};self.inputs['rdsBackup']=enc(changed)
+            with self.assertRaisesRegex(ValueError,'MATERIALIZER_REJECTED'):self.run_bind('precision-'+key)
+        changed={**provider,'originalEvidenceSha256':{**provider['originalEvidenceSha256'],'stopReceiptSha256':'0'*64}}
+        self.inputs['rdsBackup']=enc(changed)
+        with self.assertRaisesRegex(ValueError,'MATERIALIZER_REJECTED'):self.run_bind('precision-other-stop')
+
     def test_real_materializer_rejects_cross_request_hold_and_backup(self):
         self.advance_inputs('switch')
         hold=json.loads(self.inputs['hold']);hold['identity']['attemptId']='other-release'
@@ -281,7 +320,9 @@ class ReviewedPackageIntegration(unittest.TestCase):
 
     def test_byte_preserving_template_provenance(self):
         provenance=json.loads((self.package/'provenance.json').read_bytes())
-        self.assertTrue(provenance['bytePreservingImport'])
+        self.assertFalse(provenance['bytePreservingImport'])
+        self.assertTrue(provenance['originalImportWasBytePreserving'])
+        self.assertEqual(provenance['files']['prepare-phase.py']['originalSha256'],'6749b71aeddd7a24bcec1c3e067775c93b96263782d51e362bf38bbe7607e1b7')
         self.assertEqual(set(provenance['files']),set(m.PACKAGE_FILES))
         for name,entry in provenance['files'].items():
             raw=(self.package/name).read_bytes()

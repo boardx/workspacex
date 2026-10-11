@@ -68,9 +68,18 @@ class JournalTests(unittest.TestCase):
             p=subprocess.Popen([sys.executable,'-c','import json;print(json.dumps('+repr({'stage':stage,'result':'actual-child-output'})+'))'],stdout=subprocess.PIPE)
             evidence=p.communicate()[0];self.assertEqual(p.returncode,0)
             terminal=subprocess.check_output([sys.executable,'-c','print(\'{"state":"terminal-observed"}\')'])
+            if stage=='publish':
+                terminal=m.encode({'kind':'cn-publication-readonly-observation-v1','phase':'publish','publishedReceiptSha256':m.sha(evidence)})
+                evidence=b'CN_CANDIDATE_PUBLISHED='+evidence+b'\n'
             finished=(self.now-dt.timedelta(seconds=15-i)).isoformat()
             receipt=dict(schemaVersion=1,**self.identity,stage=stage,requestSha256=request,previousReceiptSha256=manifest['previousReceiptSha256'],
                 evidenceSha256=m.sha(evidence),terminalObservationSha256=m.sha(terminal),mode='advance',finishedAt=finished)
+            admission=m.encode({'kind':'cn-entry-admission-v1','requestSha256':request,
+                'verifierSha256':manifest['verifierSha256'],'observerSha256':manifest['observerSha256'],
+                'authorizationEvidenceSha256':manifest['authorizationEvidenceSha256'],
+                'evidenceSha256':m.sha(evidence),'terminalObservationSha256':m.sha(terminal)})
+            self.write(Path(str(prefix)+'.admission.json'),admission)
+            receipt['admissionSha256']=m.sha(admission)
             receipt_raw=m.encode(receipt)
             for suffix,data in {'.receipt.json':receipt_raw,'.intent.json':m.encode({'requestSha256':request}),
                 '.process.json':m.encode({'requestSha256':request,'pid':p.pid}),'.evidence.json':evidence,'.terminal-observation.json':terminal}.items():
@@ -84,6 +93,46 @@ class JournalTests(unittest.TestCase):
                 i=self.e.STAGES.index(stage)
                 suffix='terminal-observation' if name in m.TERMINAL_INPUTS else 'evidence'
                 self.inputs[name]=(self.attempt/('%02d-%s.%s.json'%(i,stage,suffix))).read_bytes()
+                if name=='publication':self.inputs[name]=self.inputs[name][len(b'CN_CANDIDATE_PUBLISHED='):-1]
+
+    def test_publication_original_bytes_and_reconciled_observation(self):
+        raw=b'{"original":  true}\n'
+        terminal=m.encode({'kind':'cn-publication-readonly-observation-v1','phase':'publish','publishedReceiptSha256':m.sha(raw)})
+        self.assertEqual(m.publication_input(raw,b'CN_CANDIDATE_PUBLISHED='+raw+b'\n',terminal),raw)
+        self.assertEqual(m.publication_input(raw,terminal,terminal),raw)
+        for changed in (raw+b' ',m.encode({'original':True})):
+            with self.assertRaisesRegex(ValueError,'INPUT_NOT_ORIGINAL'):m.publication_input(changed,terminal,terminal)
+        with self.assertRaisesRegex(ValueError,'INPUT_NOT_ORIGINAL'):m.publication_input(raw,b'CN_CANDIDATE_PUBLISHED='+raw,terminal)
+
+    def test_history_survives_legitimate_later_live_state_change(self):
+        self.e.verify=lambda *args:(_ for _ in ()).throw(AssertionError('old live observer must not run'))
+        self.e.execution_terminal=lambda *args:False  # old PID may now be reused
+        self.project('hold')
+
+    def test_history_still_rejects_original_observation_tamper(self):
+        path=self.attempt/'00-consume.terminal-observation.json'
+        self.write(path,b'{"changedGeneration":true}')
+        with self.assertRaisesRegex(ValueError,'RAW_EVIDENCE_HASH'):self.project('hold')
+
+    def test_hold_input_uses_original_readback_not_action_wrapper(self):
+        self.make_chain(5);self.set_phase_inputs('stop');self.project('stop')
+        self.inputs['hold']=(self.attempt/'05-hold.evidence.json').read_bytes()
+        with self.assertRaisesRegex(ValueError,'INPUT_NOT_ORIGINAL_STAGE_EVIDENCE_hold'):
+            self.project('stop')
+
+    def test_actual_hold_producer_emits_wrapper_and_preserves_original_hold(self):
+        from types import SimpleNamespace
+        runtime=module('actual_hold_runtime',ROOT/'.harness/scripts/vm/cn-runtime-continuation/upgrade-draft.py')
+        binding={'previousHold':None,'attemptId':'actual-test','migrationDiffEvidenceSha256':'a'*64}
+        identity={'sourceRevision':runtime.SOURCE,'baselineRevision':runtime.BASELINE,'attemptId':'actual-test','migrationPlanSha256':'a'*64}
+        hold={'state':'held','generation':'one','identity':identity}
+        records={}
+        result=runtime.create_hold_phase(binding,self.root,'b'*64,None,lambda:hold,
+            lambda actual:SimpleNamespace(returncode=0,stdout=m.encode(hold)),
+            lambda root,name,value:records.update({name:value}))
+        self.assertNotEqual(m.encode(result),m.encode(hold))
+        self.assertEqual(result['actualHold'],hold);self.assertEqual(records['hold-result.json'],hold)
+        self.assertEqual(m.TERMINAL_INPUTS['hold'],'hold')
 
     def test_backup_input_comes_from_live_observer_not_action_summary(self):
         self.make_chain(11);self.set_phase_inputs('switch')
@@ -124,7 +173,7 @@ class JournalTests(unittest.TestCase):
     def test_terminal_verifier_rejects_false_evidence_even_with_correct_hash(self):
         p=self.attempt/'03-publish.terminal-observation.json';self.write(p,b'{"state":"still-running"}')
         r=self.attempt/'03-publish.receipt.json';v=m.parse(r.read_bytes());v['terminalObservationSha256']=m.sha(p.read_bytes());self.write(r,m.encode(v))
-        with self.assertRaises(AssertionError):self.project()
+        with self.assertRaisesRegex(self.e.Rejected,'HISTORICAL_ADMISSION_CHANGED'):self.project()
 
     def test_active_attempt_unknown_and_cross_attempt_blocked(self):
         pending=self.attempt/'04-hold-stage.intent.json';self.write(pending,b'{}')

@@ -1,11 +1,14 @@
 {
   "kind": "cn-runtime-continuation-template-provenance-v1",
-  "bytePreservingImport": true,
+  "bytePreservingImport": false,
   "files": {
     "prepare-phase.py": {
-      "sha256": "6749b71aeddd7a24bcec1c3e067775c93b96263782d51e362bf38bbe7607e1b7",
-      "bytes": 4803,
-      "originalRelativePath": "release-continuation/devapp-f0eb-release/prep/prepare-phase.py"
+      "sha256": "0cb281fa0c3529de203bd5547e06eab1c3b7ae21531ed0886fb16348e3bc022c",
+      "bytes": 5945,
+      "originalRelativePath": "release-continuation/devapp-f0eb-release/prep/prepare-phase.py",
+      "originalSha256": "6749b71aeddd7a24bcec1c3e067775c93b96263782d51e362bf38bbe7607e1b7",
+      "originalBytes": 4803,
+      "reviewedChange": "Exact provider job and original Create intent/stop hashes admit documented timestamp precision without altering provider time. Preparation metadata is private mode 0600 for the root-only reader."
     },
     "upgrade-draft.py": {
       "sha256": "9e1b0e124691b4d3a32e4a650a52d5aca247f3343886b9aebd4af39bd6324113",
@@ -30,5 +33,6 @@
   },
   "secretsIncluded": false,
   "scope": "Reviewed runtime source only; no live binding, authorization, credentials or environment values. sessions-after-stop.sh retains historical paths, image digest, database names and environment hash; next release must review these pins.",
-  "executionAuthorization": false
+  "executionAuthorization": false,
+  "originalImportWasBytePreserving": true
 }

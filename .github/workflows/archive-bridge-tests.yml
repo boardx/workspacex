@@ -4,6 +4,12 @@ on:
     types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - '.github/workflows/archive-bridge-tests.yml'
+      - 'scripts/cn-release-*.py'
+      - 'scripts/cn-release-business-*.ts'
+      - 'scripts/build-cn-business-runtime.cjs'
+      - 'tests/test_cn_release_*.py'
+      - 'tests/cn-release-business-*.ts'
+      - '.github/workflows/release-cn-fixed.yml'
       - 'scripts/cn-release-audit.py'
       - 'scripts/cn-release-orchestrate.py'
       - 'scripts/cn-release-runtime-readback.py'
@@ -164,10 +170,7 @@ jobs:
         run: python3 -I -B -m unittest discover -s tests -p 'test_cn_candidate_native_upload.py' -v
       - name: Persistent continuation entry and parameterized binding without cloud calls
         run: |
-          python3 -I -B -m unittest discover -s tests -p 'test_cn_release_entry.py' -v
-          python3 -I -B -m unittest discover -s tests -p 'test_cn_release_continuation_*.py' -v
-          python3 -I -B -m unittest discover -s tests -p 'test_cn_release_derived_approval.py' -v
-          python3 -I -B -m unittest discover -s tests -p 'test_cn_release_runtime_readback.py' -v
+          python3 -I -B -m unittest discover -s tests -p 'test_cn_release_*.py' -v
       - name: Real Linux cgroup escape and timeout verification
         run: sudo -n /usr/bin/python3 -I -B tests/cn_release_cgroup_linux.py
       - name: Alibaba release authentication endpoint and claims contracts
@@ -221,3 +224,30 @@ jobs:
           python3 -B -m unittest discover -s .harness/scripts/vm -p 'cn_tool_profile_test.py' -v
           python3 -B -m unittest discover -s .harness/scripts/vm -p 'prepare_cn_tool_install_test.py' -v
           python3 -B -m unittest discover -s .harness/scripts/vm -p 'cn_tool_install_transaction_test.py' -v
+
+  isolated-business-browser:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22.20.0'
+          package-manager-cache: false
+      - name: Install exact isolated browser test dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --prefix "$RUNNER_TEMP/business-fixture" --no-audit --no-fund --save-exact tsx@4.20.6 zod@3.25.76 playwright@1.62.0
+          "$RUNNER_TEMP/business-fixture/node_modules/.bin/playwright" install --with-deps chromium
+      - name: Canonical business contracts and actual local TLS browser journey
+        shell: bash
+        run: |
+          set -euo pipefail
+          export NODE_PATH="$RUNNER_TEMP/business-fixture/node_modules"
+          export CN_TEST_PLAYWRIGHT="$NODE_PATH/playwright"
+          export CN_TEST_CHROMIUM="$(node -e 'process.stdout.write(require(process.env.CN_TEST_PLAYWRIGHT).chromium.executablePath())')"
+          node --import "$NODE_PATH/tsx/dist/loader.mjs" --test tests/cn-release-business-runner.test.ts tests/cn-release-business-browser.integration.ts
