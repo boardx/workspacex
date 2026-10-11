@@ -6,6 +6,8 @@ on:
       - '.github/workflows/archive-bridge-tests.yml'
       - 'scripts/cn-release-audit.py'
       - 'scripts/cn-release-orchestrate.py'
+      - 'scripts/cn-release-runtime-readback.py'
+      - 'tests/test_cn_release_runtime_readback.py'
       - 'scripts/cn-release-continuation-*.py'
       - '.harness/scripts/vm/cn-release-advance.py'
       - '.harness/scripts/vm/cn-runtime-continuation/**'
@@ -165,6 +167,7 @@ jobs:
           python3 -I -B -m unittest discover -s tests -p 'test_cn_release_entry.py' -v
           python3 -I -B -m unittest discover -s tests -p 'test_cn_release_continuation_*.py' -v
           python3 -I -B -m unittest discover -s tests -p 'test_cn_release_derived_approval.py' -v
+          python3 -I -B -m unittest discover -s tests -p 'test_cn_release_runtime_readback.py' -v
       - name: Real Linux cgroup escape and timeout verification
         run: sudo -n /usr/bin/python3 -I -B tests/cn_release_cgroup_linux.py
       - name: Alibaba release authentication endpoint and claims contracts

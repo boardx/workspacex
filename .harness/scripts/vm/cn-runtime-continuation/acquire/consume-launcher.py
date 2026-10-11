@@ -39,6 +39,7 @@ def main():
    runtime=root/'sdk';runtime.mkdir(mode=0o700);extract_wheels(manifest,lambda name,size:boot['read'](sdk,name,maximum=size),runtime);sys.path.insert(0,str(runtime))
    ns={'__name__':'hk_consumer','CONFIG':CONFIG};exec(compile(CONSUMER,'hk_consumer','exec'),ns)
    result=supervise(lambda:ns['run'](CONFIG),CONFIG['maxSeconds']);print(json.dumps(result,sort_keys=True))
+   if result.get('status')=='CAPACITY_REJECTED':raise SystemExit(1)
  finally:
   for fd in reversed(handles):os.close(fd)
 try:main()

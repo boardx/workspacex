@@ -319,14 +319,29 @@ def run_command(raw, timeout, started):
                 os.killpg(pid, signal.SIGKILL)
             except ProcessLookupError:
                 pass
+            except OSError:
+                reason = 'ISOLATION_UNPROVEN'
             if status is None:
                 try:
                     os.kill(pid, signal.SIGKILL)
                 except ProcessLookupError:
                     pass
-                _, status = os.waitpid(pid, 0)
+                except OSError:
+                    reason = 'ISOLATION_UNPROVEN'
+                # Cleanup races must not mask the primary failure or skip fd
+                # cleanup. If termination cannot be proven, never report exit.
+                until = time.monotonic() + 5
+                while status is None and time.monotonic() < until:
+                    ended, value = os.waitpid(pid, os.WNOHANG)
+                    if ended:
+                        status = value
+                    else:
+                        time.sleep(.01)
+                if status is None:
+                    reason = 'ISOLATION_UNPROVEN'
             os.close(out_r); os.close(ready_r)
-        return reason, os.waitstatus_to_exitcode(status), bytes(output[:MAX]), pid
+        return reason, os.waitstatus_to_exitcode(status) if status is not None else None, bytes(output[:MAX]), pid
+
 
 
 def verify(code, evidence, manifest, previous, mode):
@@ -341,6 +356,14 @@ def verify(code, evidence, manifest, previous, mode):
         need(verdict is True, 'EVIDENCE_NOT_VERIFIED')
 
 
+def verify_receipt_files(path, receipt):
+    evidence_path = path.with_name(path.name.replace('.receipt.json', '.evidence.json'))
+    need(digest(read(evidence_path)) == receipt.get('evidenceSha256'), 'COMPLETION_EVIDENCE_CHANGED')
+    if receipt.get('mode') in ('advance', 'reconcile'):
+        observed_path = path.with_name(path.name.replace('.receipt.json', '.terminal-observation.json'))
+        need(digest(read(observed_path)) == receipt.get('terminalObservationSha256'), 'COMPLETION_OBSERVATION_CHANGED')
+
+
 def completed_attempt(root):
     """Partial files and transport-only receipts cannot release another attempt."""
     candidates = [root / '16-observe.receipt.json', *root.glob('*.recovery.receipt.json')]
@@ -352,8 +375,7 @@ def completed_attempt(root):
              and receipt.get('mode') in ('advance', 'reconcile', 'recover', 'reconcile-recovery')
              and isinstance(receipt.get('requestSha256'), str) and HEX.fullmatch(receipt['requestSha256'])
              and isinstance(receipt.get('evidenceSha256'), str) and HEX.fullmatch(receipt['evidenceSha256']), 'COMPLETION_RECEIPT_INVALID')
-        evidence_path = path.with_name(path.name.replace('.receipt.json', '.evidence.json'))
-        need(digest(read(evidence_path)) == receipt['evidenceSha256'], 'COMPLETION_EVIDENCE_CHANGED')
+        verify_receipt_files(path, receipt)
         return True
     return False
 
@@ -372,6 +394,7 @@ def entry(mode, request_hash, attempt):
         if receipt_path.exists():
             raw = read(receipt_path)
             need(decode(raw)['requestSha256'] == request_hash, 'STAGE_ALREADY_COMPLETED_OTHER_REQUEST')
+            verify_receipt_files(receipt_path, decode(raw))
             return {'status': 'COMPLETED', 'receiptSha256': digest(raw), 'mutationExecuted': False}
         return {'status': 'UNCERTAIN' if Path(str(prefix) + '.intent.json').exists() else 'NOT_STARTED', 'mutationExecuted': False}
     if not root.exists():
@@ -408,6 +431,7 @@ def entry(mode, request_hash, attempt):
         if receipt_path.exists():
             receipt = decode(read(receipt_path))
             need(receipt['requestSha256'] == request_hash, 'STAGE_ALREADY_COMPLETED_OTHER_REQUEST')
+            verify_receipt_files(receipt_path, receipt)
             return {'status': 'COMPLETED', 'receiptSha256': digest(read(receipt_path)), 'mutationExecuted': False}
         if recovery:
             original, _ = load_package(manifest['recoveryOf'], attempt)
@@ -458,7 +482,8 @@ def entry(mode, request_hash, attempt):
             verify(files['verify.py'], observed, manifest, decode(previous_raw) if previous_raw else None, 'terminal')
             need(now() < instant(manifest['expiresAt']), 'OBSERVER_AFTER_EXPIRY_RECONCILE')
         if mode == 'reconcile':
-            verify(files['verify.py'], evidence, manifest, decode(previous_raw) if previous_raw else None, 'terminal')
+            observed = evidence
+            verify(files['verify.py'], observed, manifest, decode(previous_raw) if previous_raw else None, 'terminal')
         verify(files['verify.py'], evidence, manifest, decode(previous_raw) if previous_raw else None, mode)
         # Persist original evidence only AFTER the reviewed verifier accepts it.
         evidence_path = Path(str(prefix) + '.evidence.json')
@@ -466,11 +491,20 @@ def entry(mode, request_hash, attempt):
             need(read(evidence_path) == evidence, 'EVIDENCE_CHANGED')
         else:
             create(evidence_path, evidence)
+        observation_hash = None
+        if mode in ('advance', 'reconcile'):
+            observation_path = Path(str(prefix) + '.terminal-observation.json')
+            if observation_path.exists():
+                need(read(observation_path) == observed, 'TERMINAL_OBSERVATION_CHANGED')
+            else:
+                create(observation_path, observed)
+            observation_hash = digest(observed)
         finished = now()
         switch_intent = root / '13-switch.intent.json'
         activation_start = decode(read(switch_intent))['createdAt'] if switch_intent.exists() else None
         receipt = {'schemaVersion': 1, **identity, 'stage': manifest['stage'], 'requestSha256': request_hash,
                    'previousReceiptSha256': manifest['previousReceiptSha256'], 'evidenceSha256': digest(evidence),
+                   'terminalObservationSha256': observation_hash,
                    'mode': mode, 'finishedAt': finished.isoformat(),
                    'elapsedSeconds': (finished-instant(manifest['requestedAt'])).total_seconds(),
                    'activationStartedAt': activation_start,

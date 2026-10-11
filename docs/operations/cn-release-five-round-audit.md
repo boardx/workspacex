@@ -23,7 +23,9 @@
 `preparedActivationAction` 和 legacy `bindTypedProductionOperations` 现在返回
 `PREPARED_ACTIVATION_SUPERVISED_TRANSPORT_NOT_IMPLEMENTED`，且在任何 transport
 调用前失败。低层单元状态机仍可用于契约测试，但不再通过该 factory 进入生产。
-未来解除此门必须实现并证明：每个动作的剩余预算、停止整个进程组、join 后再恢复、
+后继持久执行器已加入真实 Linux cgroup 监督与独立终态观察；其最新证据见
+[持久入口说明](cn-release-entry/README.md)。进程组本身不能阻止 setsid 逃逸。
+解除旧适配器门仍必须实现并证明：每个动作的剩余预算、停止整个受控进程树、join 后再恢复、
 独立旧版业务验收。不能用一个配置 boolean 声称具备这些能力。
 
 ## 不同情况如何发布
@@ -34,7 +36,7 @@
 |---|---|---|---|
 | 生产故障 / 刚激活失败 | 紧急恢复 exact baseline | 不构建新版本、不等新功能 CI | 原 digest/入口闭包、恢复后真实业务、恢复不确定时保留锁 |
 | hotfix，无迁移，已 prepared | 场景 4，安排最前 | 重用未漂移的 seal、prepare、影子验收；不再 build/pull | TTL、baseline CAS、锁、drain、exact 运行身份、公网业务、可证明回滚 |
-| 普通代码改动，无数据库迁移 | 场景 4/5/6，按准备程度选择 | 无 pending migration 才不执行迁移；复用未变服务构建缓存 | 当前数据库 ledger/漂移读回、启动副作用评估、全套稳定密钥/配置连续性 |
+| 普通代码改动，无数据库迁移 | 场景 4/5/6，按准备程度选择 | 无 pending migration 才不执行迁移；复用未变服务构建缓存 | 当前数据库 ledger/漂移读回、当前 epoch 备份、启动副作用评估、全套稳定密钥/配置连续性 |
 | 兼容新增迁移 | 常规通道，但保留既有兼容性证明 | 不把所有兼容迁移一律变维护窗口 | 精确 migration plan、备份、隔离 old/new read/write 兼容证明、迁移后读回 |
 | 破坏性/未知迁移、密钥轮换、基础设施变化 | 场景 2 维护窗口 | 可提前构建、演练与静态准备 | 当前 epoch 备份、停写屏障、恢复闭包、检查点授权；不承诺统一 30 分钟 |
 | 仅配置或幂等 seed，代码/schema 未变 | 场景 3 | 不构建 OCI | 配置快照、幂等反证、数据版本/锁、业务验收 |
@@ -96,7 +98,8 @@ public.business`；最终业务事件必须为最后一项。维护场景还需�
 
 规划预算可分为：排队/预检 3 分钟，受影响服务并行构建及 seal 10 分钟，
 GitHub → 香港私有 OSS → 上海运输和校验 7 分钟，离线 prepare 5 分钟，
-activation + 公网业务 5 分钟。**这是目标分配，尚无真实样本证明可实现**。
+activation + 公网业务 5 分钟。**这是最初目标分配，尚无真实样本证明可实现；已测运输段超过该分配**。
+最新逐段实测、容量故障及修复证据集中维护在[持久入口说明](cn-release-entry/README.md)，避免在此重复维护变化中的数字。
 若当前 run 的构建、带宽或备份达不到预算，不把耗时转移到未计时的“准备”名目里。
 预先 prepared 的发布应同时报告完整准备 lead time 与批准到可用时间。
 
@@ -114,13 +117,15 @@ activation + 公网业务 5 分钟。**这是目标分配，尚无真实样本�
 
 ## 仍未完成的真实交付边界
 
-- 当前审查时，真实 run `38156223016` 的 OIDC claims 已通过，但 Alibaba STS
-  交换失败，尚未实际 HK PUT。认证诊断由主发布执行者单独修复，不在本 PR 擅自扩 IAM。
+- #5617 初始审查时，run `38156223016` 的 STS 交换失败是**历史状态**。后续 run
+  `38162328601` 已完成真实 STS、HK PUT/GET/proof，上海也已消费并晋级 exact inbox。
+  Linux cgroup 实测已通过；最新证据和当前剩余能力以[持久入口说明](cn-release-entry/README.md)为准。
 - 香港 workflow/plan 的 `38146134231`、control SHA、prefix、九对象权限是刻意的一次
   授权闭包；下一 run 不能只改一个 source SHA 就当作通用运输。需生成新精确计划、
   对应最小对象权限并经过现有授权流程，不能改成通配桶权限。
-- 当前临时 continuation 里的上海 consumer、publish、hold/backup/switch/clear 工具
-  尚未全并入一条持久 GitHub 单入口。本 PR 没有声称完成此迁移。
+- #5623 已把 consumer/publication、四个 runtime phase、finalize 材料化器持久化，
+  并加入不可变意图、观察证据和 root journal。一次授权的全链推进、完整业务观察器
+  和真实故障恢复仍未全部连接；不能把分段材料化测试当作全链可执行。
 - 真正完成仍要求 GitHub → HK → 上海 → 新运行身份 → 公网六业务的真实证据，
   并对至少一次真实失败执行可证明的回滚/恢复；当前离线测试不替代它。
 - 30 分钟目标没有真实成功样本；维护/破坏性变更单独安排窗口。下次应先补齐上述链路，
@@ -156,5 +161,17 @@ flowchart TD
   %% evidence R4: 33项Vitest、9项Node契约、typecheck、controller --check
   %% evidence R5: 独立审查后三项修复；34项Vitest、32项Node、typecheck、生成器精确检查
   %% blocked G: 真实云端E2E与30分钟目标尚未验收
-  %% blocked E: STS真实交换失败，上海入场和公网业务未执行，30分钟未实测
+  %% blocked E: 尚缺完整运行身份/公网业务/真实恢复证据；30分钟未验收
 ```
+
+
+## 后继验收矩阵
+
+| 层级 | 必须通过的实际路径 | 当前证据边界 |
+|---|---|---|
+| 离线 hotfix / 无迁移 | 同一原字节链经过 consumer → publication → journal → 四 phase binder → finalize | 已有分段真 materializer；完整派生/驱动尚未连接，不能以 classifier 通过替代 |
+| 跨阶段容量 | 同盘和分盘、边界 ±1 字节、保留 ZIP/TAR、回滚镜像与后续空间门 | 消费后 publisher 空间不足已在现场暴露；修复必须在 GET/hold/stop 前拒绝，保留原 guard |
+| Linux 与运行时恢复 | 新 exact head 的 cgroup/截止监督；临时 Docker 栈半组 recreate 失败后恢复 exact 旧五容器 | 基础 cgroup 真测试已通过；后继新代码需重跑，Docker 故障恢复尚缺真实测试 |
+| 数据库边界 | 无迁移仍验证 session 0、当前 epoch 备份及隔离恢复；兼容迁移验证 old/new 读写 | 当前 runtime-only binder 拒绝迁移；SQL diff 为空不免除启动清理/seed 风险 |
+| 云端与业务 | prepared hotfix/无迁移真实发布 → 六业务 → 同 generation clear → 稳定观察；隔离目标真实故障恢复到旧版业务 | 尚缺完整发布与故障恢复证据，不能用静态 200 或离线替身替代 |
+| 30 分钟 | 不可重置 requestedAt → 实际 public.business，prepared 同报完整 lead time 与 activation time | 当前逐段时序未包含全部后续步骤；全链 30 分钟尚未达标 |
