@@ -71,6 +71,12 @@ class JournalTests(unittest.TestCase):
             finished=(self.now-dt.timedelta(seconds=15-i)).isoformat()
             receipt=dict(schemaVersion=1,**self.identity,stage=stage,requestSha256=request,previousReceiptSha256=manifest['previousReceiptSha256'],
                 evidenceSha256=m.sha(evidence),terminalObservationSha256=m.sha(terminal),mode='advance',finishedAt=finished)
+            admission=m.encode({'kind':'cn-entry-admission-v1','requestSha256':request,
+                'verifierSha256':manifest['verifierSha256'],'observerSha256':manifest['observerSha256'],
+                'authorizationEvidenceSha256':manifest['authorizationEvidenceSha256'],
+                'evidenceSha256':m.sha(evidence),'terminalObservationSha256':m.sha(terminal)})
+            self.write(Path(str(prefix)+'.admission.json'),admission)
+            receipt['admissionSha256']=m.sha(admission)
             receipt_raw=m.encode(receipt)
             for suffix,data in {'.receipt.json':receipt_raw,'.intent.json':m.encode({'requestSha256':request}),
                 '.process.json':m.encode({'requestSha256':request,'pid':p.pid}),'.evidence.json':evidence,'.terminal-observation.json':terminal}.items():
@@ -84,6 +90,16 @@ class JournalTests(unittest.TestCase):
                 i=self.e.STAGES.index(stage)
                 suffix='terminal-observation' if name in m.TERMINAL_INPUTS else 'evidence'
                 self.inputs[name]=(self.attempt/('%02d-%s.%s.json'%(i,stage,suffix))).read_bytes()
+
+    def test_history_survives_legitimate_later_live_state_change(self):
+        self.e.verify=lambda *args:(_ for _ in ()).throw(AssertionError('old live observer must not run'))
+        self.e.execution_terminal=lambda *args:False  # old PID may now be reused
+        self.project('hold')
+
+    def test_history_still_rejects_original_observation_tamper(self):
+        path=self.attempt/'00-consume.terminal-observation.json'
+        self.write(path,b'{"changedGeneration":true}')
+        with self.assertRaisesRegex(ValueError,'RAW_EVIDENCE_HASH'):self.project('hold')
 
     def test_hold_input_uses_original_readback_not_action_wrapper(self):
         self.make_chain(5);self.set_phase_inputs('stop');self.project('stop')
@@ -144,7 +160,7 @@ class JournalTests(unittest.TestCase):
     def test_terminal_verifier_rejects_false_evidence_even_with_correct_hash(self):
         p=self.attempt/'03-publish.terminal-observation.json';self.write(p,b'{"state":"still-running"}')
         r=self.attempt/'03-publish.receipt.json';v=m.parse(r.read_bytes());v['terminalObservationSha256']=m.sha(p.read_bytes());self.write(r,m.encode(v))
-        with self.assertRaises(AssertionError):self.project()
+        with self.assertRaisesRegex(self.e.Rejected,'HISTORICAL_ADMISSION_CHANGED'):self.project()
 
     def test_active_attempt_unknown_and_cross_attempt_blocked(self):
         pending=self.attempt/'04-hold-stage.intent.json';self.write(pending,b'{}')

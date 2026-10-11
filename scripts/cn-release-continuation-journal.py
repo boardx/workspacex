@@ -127,13 +127,14 @@ def project(entry,release_sha,approval_raw,phase,inputs,*,now=None):
             intent=entry.decode(entry.read(root/(prefix+'.intent.json')))
             need(intent['requestSha256']==v['requestSha256'],'INTENT_REQUEST')
             process=entry.decode(entry.read(root/(prefix+'.process.json')))
-            need(process['requestSha256']==v['requestSha256'] and entry.execution_terminal(process),'EXECUTION_NOT_TERMINAL')
+            need(process['requestSha256']==v['requestSha256'],'EXECUTION_REQUEST_CHANGED')
             evidence=entry.read(root/(prefix+'.evidence.json'))
             terminal=entry.read(root/(prefix+'.terminal-observation.json'))
             need(sha(evidence)==v['evidenceSha256'] and sha(terminal)==v['terminalObservationSha256'],'RAW_EVIDENCE_HASH')
             prev=entry.decode(previous)if previous else None
-            entry.verify(files['verify.py'],evidence,manifest,prev,v['mode'])
-            entry.verify(files['verify.py'],terminal,manifest,prev,'terminal')
+            # Original root-protected receipt attests admission already passed.
+            # Do not re-run old live probes after later phases changed state.
+            entry.verify_historical_receipt(path,v,manifest)
             action_bytes[stage]=evidence;terminal_bytes[stage]=terminal
             finished=entry.instant(v['finishedAt']);need(last<=finished<=now and finished<=entry.instant(r['deadlineAt']),'RECEIPT_TIME')
             last=finished
