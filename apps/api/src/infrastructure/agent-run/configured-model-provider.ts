@@ -663,6 +663,9 @@ export class ConfiguredModelProvider implements ModelCallPort {
       } catch (error) {
         throw new ModelCallError("MODEL_CALL_FAILED", `model provider response was not JSON (${classifyTransportError(error)})`);
       }
+      if (parsed.choices?.[0]?.finish_reason === "content_filter") {
+        throw new ModelCallError("MODEL_CALL_FAILED", "model provider content was filtered", readUsage(parsed.usage), undefined, "content-policy");
+      }
       const message = parsed.choices?.[0]?.message;
       const content = message?.content;
       if (typeof content !== "string" || content.trim() === "") {
@@ -786,6 +789,9 @@ export class ConfiguredModelProvider implements ModelCallPort {
                 completion: framed.completion ?? usage.completion,
                 cacheInput: framed.cacheInput ?? usage.cacheInput, reasoningOutput: framed.reasoningOutput ?? usage.reasoningOutput,
               });
+              if (chunk.choices?.[0]?.finish_reason === "content_filter") {
+                throw new ModelCallError("MODEL_CALL_FAILED", "model provider content was filtered", usage, undefined, "content-policy");
+              }
               const delta = chunk.choices?.[0]?.delta?.content;
               if (typeof delta === "string" && delta !== "") {
                 text += delta;
@@ -799,7 +805,7 @@ export class ConfiguredModelProvider implements ModelCallPort {
           total: e.usage?.total ?? usage.total, prompt: e.usage?.prompt ?? usage.prompt,
           completion: e.usage?.completion ?? usage.completion,
           cacheInput: e.usage?.cacheInput ?? usage.cacheInput, reasoningOutput: e.usage?.reasoningOutput ?? usage.reasoningOutput,
-        }));
+        }), e.retryDisposition, e.contentRejection);
         // 同 `postCompletions`：只取枚举 token，`message` 不读。
         throw new ModelCallError(
           "MODEL_CALL_FAILED",

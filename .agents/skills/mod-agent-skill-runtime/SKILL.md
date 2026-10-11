@@ -136,6 +136,8 @@ MCP 接线、模型路由、context-pack、provenance；不含对话 UI 本身�
 - 2026-09-18：skill 产出的 PDF 体积直接决定 `wx_artifact_publish` 会不会超时——`maau-venture-valuation` 用 pdf-lib 整份嵌入 `NotoSansSC-Common.otf`（CFF，不能子集化）得到 6.7MB，devapp 上 publish 工具一直没返回（`tool_call_unresolved`），前 3 步都成功也白搭。改嵌 `/usr/share/fonts/workspacex/analysis/AnalysisSans.ttf` + `{subset:true}`（这份 TrueType 子集化实测正常：MuPDF 光栅化、fontTools 解析 488 个字形轮廓全部非空——Dockerfile 里"运行期子集器不可靠"那条只对 DroidSansFallback 与 CFF 成立），8 页压到 ~140KB；缺的希腊字母/数学符号按字符落到 StandardFonts.Symbol / Helvetica，判据读字体本身的 glyph id / 编码表而不是手写清单。教训：**沙箱里生成要发布的文件，先看字节数——超过 1MB 的字体嵌入就是发布链路的隐性超时**（出处：PR #3730 的 devapp 复现，本次修复 PR 见 `git log -- skills/maau-diagnostics/scripts/verify.ts`）。
 - 2026-09-18：标准包升级只认同 `stable_name`——换了 stableName 的新版（`maau-diagnostics` 1.0.0 `maau-recursive-asset-report` → 2.0.1 `maau-venture-valuation`）会让新旧两个 skill 并排留在目录里，模型按 description 自选时可能挑到旧的。修法是 `SkillStarterImportRepository.retireSuperseded`：按血统（同 `pack_id` 的 succeeded 导入的 `skillIds`）下线本版不再发货的行，写 `skills.status` + `capability_listings.enabled` 两张表；在 `importSkillStarterPack` 成功后**单独跑，重放也跑**（改动部署前已装过新版的环境，只在首次落库那条路径下线永远轮不到）；重新发货即复活，且复活要放在「正文没变早退」之前。教训：**幂等种子只负责"有"，不负责"没有了"**——发货全集变小时，多出来的那部分需要一条独立的收敛步骤（出处：issue #3733）。
 
+- 2026-10-11：HTTP 200 不代表模型内容可用；`choices[0].finish_reason=content_filter` 在完整响应和 SSE 中都须分类为 `ModelCallError.contentRejection=content-policy`，拒绝该输出并保留数值 usage。研究证据整理仅隔离这一明确分类，普通 400/401 与其他空响应仍失败；stream 包装错误须保留分类元数据（出处：issue #5602，`guided-provider-content-rejection.test.ts`、`guided-provider-content-filter-runtime.test.ts`；本地 HTTP/内存存储验证不证明线上根因或数据库持久性）。
+
 ## 知识回流规则（本文件怎么迭代——这是这个 skill 存在的意义）
 
 1. **谁干活谁回流**：在本模块交付 feature/修 bug/做 review 时，踩到新坑、建立新做法、
