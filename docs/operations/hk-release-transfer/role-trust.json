@@ -1,7 +1,7 @@
 {
   "Statement": [
     {
-      "Action": "sts:AssumeRoleWithOIDC",
+      "Action": "sts:AssumeRole",
       "Condition": {
         "StringEquals": {
           "oidc:aud": "sts.aliyuncs.com",

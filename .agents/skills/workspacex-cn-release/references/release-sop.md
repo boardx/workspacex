@@ -208,6 +208,7 @@ Plan B 必须在发布开始前就准备好：私有 OSS 上有 exact SHA 的完
 
 | 日期 | failure code | 机械防线 |
 |---|---|---|
+| 2026-10-11 | OIDC trust 动作错用 API 名 | run38162020555 明确报 AuthenticationFail.NoPermission/PERMISSION_DENIED；角色信任动作误写 sts:AssumeRoleWithOIDC，官方 OIDC trust 要求 sts:AssumeRole。仅纠正动作并保持 Federated/iss/aud/sub/九对象原权限后，run38162328601 的 STS 和 SDK 阶段实际成功。API 仍调用 AssumeRoleWithOIDC，不混同 API 名与授权动作。跨 plan/trust/writer/reader 契约及 10 种漂移反证防复发；STS 成功不代表运输、入仓或生产验收。 |
 | 2026-10-11 | STS 产品错误码表不完整 | run38160575401 的 JSON Code 是字符串，但仍 OTHER；产品接口 48 条不等于公共完整错误码。以官方公共文档 39 个唯一类别补齐并保留兼容枚举，固定消息只能精确映射为预定义分类；未知 Code 只输出有界散列/长度，禁止原文和消息散列。制品真实元数据未漂移时可生成新的限时运输计划，不能重写旧 proof 的时效或据 OTHER 扩权。 |
 | 2026-10-11 | `STS_EXCHANGE` HTTP 401 / `OTHER` | run38158786691 证明身份交换响应非成功且清理正常，但旧 OTHER 混淆非 JSON、缺 Code、字段类型异常与未知类别。诊断仅输出固定格式/字段类型/编码枚举和静态允许类别；JSON Code/code 冲突不采信、正文仅内存限长解析，原始字段永不输出。实际 Node 反证覆盖格式分支和恶意 body/header；这仍不是现场认证根因或传输成功证明，禁止据此扩展信任或权限。 |
 | 2026-10-11 | `ALIBABA_CLOUD_AUTHENTICATION_FAILED` | run38156223016 在 OIDC claims 校验后、上传前失败；旧脱敏处理丢失阶段和 STS 状态，临时文件清理也可能掩盖原异常。固定 action hash/替换形状，输出固定阶段、整数 HTTP 状态和精确白名单类别；未知为 OTHER，禁止原始响应/消息/stack/token。清理 ENOENT 幂等，其他错误仍阻断且保留原异常。test_auth_action_hardening.py 实际执行 Node 反证，覆盖敏感值、状态边界和双重异常；接入 CI。本修复提供诊断，尚未证明现场认证失败根因或发布成功。 |
