@@ -117,3 +117,14 @@ records its fault seed. Changes require a new series, not removal of old failure
 Skipped or expected-failing required tests cannot count toward complete coverage.
 Cloud substitutes and unmeasured live metrics must remain explicit; fixture
 duration cannot establish the 30-minute production release goal.
+
+### Promotion receipt crash recovery
+
+Persist a private prepared intent before the no-replace inbox rename. An intent
+alone is never success. If the final receipt is absent, recover its exact bytes
+read-only only after original ZIPs, inbox, canonical verifier, identity, proof
+and deadline all pass again. The actual fixed router must use the pinned recovery
+interface; fixing only the standalone delegation CLI leaves the main chain
+broken. `tests/test_cn_release_promotion_recovery.py` exercises a real process
+exit after kernel rename, locking, tampering and routing. An existing damaged
+receipt currently fails closed; do not overwrite it or claim that case recovered.

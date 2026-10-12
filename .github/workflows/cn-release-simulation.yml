@@ -1,0 +1,78 @@
+name: Isolated CN release simulation
+on:
+  workflow_dispatch:
+    inputs:
+      rounds:
+        description: Ten complete regressions use this single immutable checkout
+        type: choice
+        options: ['1', '10']
+        default: '1'
+      seed:
+        description: Integer base seed for isolated fault fixtures
+        type: string
+        default: '0'
+  pull_request:
+    paths:
+      - 'scripts/cn-release-*.py'
+      - 'scripts/cn-hk-*.py'
+      - 'scripts/cn_candidate*.py'
+      - 'scripts/cn_image*.py'
+      - 'scripts/cn_archive*.py'
+      - 'scripts/bounded_workers.py'
+      - 'scripts/cn_release_simulation_domain.py'
+      - '.harness/scripts/vm/cn-runtime-continuation/**'
+      - '.harness/scripts/vm/cn-release-advance.py'
+      - 'tests/test_cn_release_*.py'
+      - 'tests/test_cn_candidate_*.py'
+      - 'tests/test_cn_image*.py'
+      - 'tests/test_cn_archive*.py'
+      - 'tests/test_release_failure_matrix.py'
+      - 'tests/test_cn_hk*.py'
+      - 'tests/cn_hk_performance_linux.py'
+      - 'tests/cn_release_simulation_domain_linux.py'
+      - '.github/workflows/cn-release-simulation.yml'
+permissions:
+  contents: read
+jobs:
+  simulation:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22.20.0'
+          package-manager-cache: false
+      - name: Install isolated fixture dependencies
+        run: |
+          npm install --prefix "$RUNNER_TEMP/cn-fixture" --no-audit --no-fund --save-exact tsx@4.20.6 zod@3.25.76
+          echo "CN_ARCHIVE_TEST_NODE=$(command -v node)" >> "$GITHUB_ENV"
+          echo "CN_ARCHIVE_TEST_RUNTIME=$RUNNER_TEMP/cn-fixture" >> "$GITHUB_ENV"
+          python3 -m venv "$RUNNER_TEMP/cn-test-sdk"
+          "$RUNNER_TEMP/cn-test-sdk/bin/pip" install --disable-pip-version-check oss2==2.19.1 alibabacloud-credentials==0.3.6 aliyun-python-sdk-core==2.16.0 aliyun-python-sdk-sts==3.1.2
+      - name: Run production-code fixture suites with bounded logs
+        env:
+          ROUNDS: ${{ inputs.rounds || '1' }}
+          SEED: ${{ inputs.seed || '0' }}
+        run: 'sudo -n env -i PATH="$PATH" CN_ARCHIVE_TEST_NODE="$CN_ARCHIVE_TEST_NODE" CN_ARCHIVE_TEST_RUNTIME="$CN_ARCHIVE_TEST_RUNTIME" GITHUB_RUN_ID="$GITHUB_RUN_ID" GITHUB_RUN_ATTEMPT="$GITHUB_RUN_ATTEMPT" "$RUNNER_TEMP/cn-test-sdk/bin/python" -I -B scripts/cn-release-simulation.py --output "$RUNNER_TEMP/cn-simulation" --workers 3 --timeout-seconds 300 --rounds "$ROUNDS" --seed "$SEED"'
+      - name: Export bounded reports for the unprivileged artifact uploader
+        if: always()
+        run: |
+          mkdir -m 700 "$RUNNER_TEMP/cn-simulation-artifacts"
+          sudo -n env -i PATH="$PATH" /usr/bin/python3 -I -B scripts/cn-release-simulation.py --export-parent "$RUNNER_TEMP"
+      - name: Preserve simulation report and failure evidence
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: cn-simulation-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/cn-simulation-artifacts/*.json
+            ${{ runner.temp }}/cn-simulation-artifacts/*.csv
+            ${{ runner.temp }}/cn-simulation-artifacts/*.txt
+            ${{ runner.temp }}/cn-simulation-artifacts/round-*/*.json
+            ${{ runner.temp }}/cn-simulation-artifacts/round-*/*.log
+          retention-days: 7
+          if-no-files-found: warn
