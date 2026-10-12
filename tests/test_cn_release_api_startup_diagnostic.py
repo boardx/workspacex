@@ -1,8 +1,27 @@
 """Secret-safe projection tests; not a database or startup acceptance claim."""
-import json,subprocess,unittest
+import ast,json,subprocess,unittest
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
 class Diagnostic(unittest.TestCase):
+    def test_fixture_supplies_actual_required_cipher_factory(self):
+        tree=ast.parse((ROOT/'tests/cn_release_api_startup_linux.py').read_text())
+        values=[node.value for node in ast.walk(tree) if isinstance(node,ast.Assign) and any(isinstance(t,ast.Name)and t.id=='appenv' for t in node.targets)]
+        self.assertEqual(len(values),1)
+        env={k.value:v.value for k,v in zip(values[0].keys,values[0].values) if isinstance(k,ast.Constant)and isinstance(v,ast.Constant)}
+        key=env['MODEL_CREDENTIAL_KEY'];self.assertEqual(key,'cn-startup-fixture-key-not-a-secret')
+        js=r"""
+import assert from 'node:assert/strict';
+import {credentialCipherFromEnv}from './apps/api/src/infrastructure/model/aes-credential-cipher.ts';
+delete process.env.MODEL_CREDENTIAL_KEY;
+assert.throws(()=>credentialCipherFromEnv(),/missing env var MODEL_CREDENTIAL_KEY/);
+process.env.MODEL_CREDENTIAL_KEY=process.argv[1];
+const cipher=credentialCipherFromEnv();assert.equal(cipher.algorithm,'aes-256-gcm');
+assert.match(cipher.encrypt('synthetic-roundtrip-input'),/^[a-f0-9]+\.[a-f0-9]+\.[a-f0-9]+$/);
+console.log(JSON.stringify({requiredFactoryPassed:true,productionAccepted:false}));
+"""
+        r=subprocess.run(['node','--import',str(ROOT/'apps/api/node_modules/tsx/dist/loader.mjs'),'--input-type=module','-e',js,key],cwd=ROOT,capture_output=True,text=True,timeout=30)
+        self.assertEqual(r.returncode,0,r.stderr);self.assertTrue(json.loads(r.stdout)['requiredFactoryPassed'])
+
     def test_real_exception_projection_and_secret_counterexamples(self):
         js=r'''
 import assert from 'node:assert/strict';

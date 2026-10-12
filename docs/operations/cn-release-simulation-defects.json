@@ -258,8 +258,8 @@
         ".github/workflows/cn-release-simulation.yml"
       ],
       "review": {
-        "file": "docs/operations/cn-release-independent-review-code-review-v6.json",
-        "sha256": "2bde42fa971f58435ea3875d446f506e0075f8db2e73920542a42aaf31912fd9"
+        "file": "docs/operations/cn-release-independent-review-code-review-v7.json",
+        "sha256": "a139d68c6793ace55520bd1660dcf84bb54de428f1bbbc1f0a4e81f029847551"
       },
       "remainingGap": null,
       "historicalEvidence": "Independent code review before checkpoint; no production operation."
@@ -385,6 +385,27 @@
       "review": null,
       "remainingGap": "Actual isolated API startup failure root cause remains open; diagnostic improvements do not repair business startup.",
       "historicalEvidence": "GitHub38243707763 API startup failed; limited safe diagnostics preserved, actual cause requires subsequent Linux evidence."
+    },
+    {
+      "id": "SIM-13",
+      "severity": "P1",
+      "author": "/root/automation_workflow_audit",
+      "disposition": "fixed-awaiting-replay",
+      "fixCommit": null,
+      "requiredCaseIds": [
+        "test_cn_release_fullstack_fixture_setup.FullstackSetup.test_fixed_environment_omits_only_desktop_binary_not_lifecycle_scripts",
+        "test_cn_release_fullstack_fixture_setup.FullstackSetup.test_original_electron_installer_no_switch_hits_download_but_fixed_env_does_not"
+      ],
+      "requiredReviewedFiles": [
+        "scripts/cn-release-fullstack-fixture-setup.py",
+        "tests/test_cn_release_fullstack_fixture_setup.py"
+      ],
+      "review": {
+        "file": "docs/operations/cn-release-independent-review-code-review-v7.json",
+        "sha256": "a139d68c6793ace55520bd1660dcf84bb54de428f1bbbc1f0a4e81f029847551"
+      },
+      "remainingGap": "Fixture-only Electron binary-download omission awaits committed identity, independent review and actual GitHub dependency setup; API01 startup remains independently open.",
+      "historicalEvidence": "GitHub38245538777 failed before test execution: electron postinstall HTTP504. Actual installed upstream script offline counterexample reaches downloader without switch and exits0 before download with fixed environment."
     }
   ],
   "note": "Historical narrative closure is not final candidate ten-round verification. Missing independent raw review bytes remain unverified."

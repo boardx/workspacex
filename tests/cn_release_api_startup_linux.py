@@ -94,6 +94,8 @@ def main():
             run([*create,database])
             folder=temporary/scenario;folder.mkdir(mode=0o700);output=folder/'receipt.json'
             appenv={**env,'HOME':str(folder),'TMPDIR':str(folder),'NODE_ENV':'test','CN_API_STARTUP_FIXTURE':'1',
+                # Synthetic fixture-only material; required by the real Nest cipher provider.
+                'MODEL_CREDENTIAL_KEY':'cn-startup-fixture-key-not-a-secret',
                 'PGHOST':'127.0.0.1','PGPORT':port,'PGDATABASE':database,'WORKSPACEX_DB':database,
                 'APP_DB_USER':'app_rw','APP_DB_PASSWORD':'app_rw_dev','MIGRATION_DB_USER':'postgres',
                 'MIGRATION_DB_PASSWORD':password,'DIAG_DB_USER':'app_diag_ro','DIAG_DB_PASSWORD':'app_diag_ro_dev',

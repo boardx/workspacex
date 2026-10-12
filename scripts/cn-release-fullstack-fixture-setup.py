@@ -25,6 +25,16 @@ def need(value, code):
     if not value: raise RuntimeError(code)
 
 
+def install_environment(home):
+    # This lane needs API/Web Node packages, not the desktop Electron runtime.
+    # Electron's own install.js honors this switch; lifecycle scripts for native
+    # API dependencies remain enabled. Never inherit arbitrary install flags.
+    return {'PATH': os.environ.get('PATH', os.defpath), 'HOME': str(home), 'LANG': 'C.UTF-8',
+            'CI': 'true', 'GIT_TERMINAL_PROMPT': '0', 'GIT_CONFIG_NOSYSTEM': '1',
+            'GIT_CONFIG_GLOBAL': '/dev/null', 'DOCKER_CONFIG': str(home / '.docker'),
+            'ELECTRON_SKIP_BINARY_DOWNLOAD': '1'}
+
+
 def prepare(repo, output, image):
     need(sys.platform == 'linux' and os.geteuid() == 0 and os.environ.get('GITHUB_ACTIONS') == 'true'
          and re.fullmatch('[0-9]+', os.environ.get('GITHUB_RUN_ID', '')), 'GITHUB_LINUX_ROOT_ONLY')
@@ -40,9 +50,7 @@ def prepare(repo, output, image):
         info = parent.lstat()
         need(stat.S_ISDIR(info.st_mode) and info.st_uid == 0 and not info.st_mode & 0o022, 'PRIVATE_OUTPUT_OWNER')
     output.mkdir(mode=0o700); home = output / 'home'; home.mkdir(mode=0o700)
-    env = {'PATH': os.environ.get('PATH', os.defpath), 'HOME': str(home), 'LANG': 'C.UTF-8',
-           'CI': 'true', 'GIT_TERMINAL_PROMPT': '0', 'GIT_CONFIG_NOSYSTEM': '1',
-           'GIT_CONFIG_GLOBAL': '/dev/null', 'DOCKER_CONFIG': str(home / '.docker')}
+    env = install_environment(home)
     def read(command):
         value = subprocess.check_output(command, cwd=repo, env=env, timeout=30, stderr=subprocess.DEVNULL)
         need(len(value) <= 65536, 'PREFLIGHT_OUTPUT_LIMIT')
@@ -108,7 +116,9 @@ def prepare(repo, output, image):
     result = {'kind': 'cn-api-startup-fixture-setup-v1', 'prepared': True, 'commit': commit,
               'lockfileSha256': lock_before, 'postgresDockerfileSha256': hashlib.sha256((repo / 'apps/api/docker/postgres-age/Dockerfile').read_bytes()).hexdigest(),
               'postgresImageId': image, 'node': str(Path(node).resolve()), 'workspace': str(repo),
-              'resolvedModules': resolved, 'dependencyInstallSeconds': round(install_seconds, 3),
+              'resolvedModules': resolved, 'desktopElectronBinaryInstalled': False,
+              'installPolicy': 'full-frozen-workspace-lifecycle-enabled-electron-binary-omitted',
+              'dependencyInstallSeconds': round(install_seconds, 3),
               'totalSetupSeconds': round(time.monotonic() - started, 3), 'installProcessCleanup': cleanup,
               'roundDatabaseCreated': False, 'containersStarted': False, 'productionAccepted': False,
               'environment': {'CN_API_STARTUP_PG_IMAGE': image, 'CN_API_STARTUP_NODE': str(Path(node).resolve())},
