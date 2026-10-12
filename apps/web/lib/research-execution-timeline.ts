@@ -32,6 +32,9 @@ export function researchExecutionTimeline(state: Runtime, interrupted = false) {
   });
   const warnings = Boolean(state.reportDraft || state.reportQualityWarnings?.length || state.reportEvidenceWarnings?.length);
   const validation = aggregate(timeline.filter(step => step.stage === 'validation').map(step => step.status));
+  // Coverage limitations remain in report prose and source diagnostics. Only a
+  // persisted, quality-passed current publication proves execution completion.
+  const finished = Boolean(state.report && state.completed && validation === 'completed' && !state.reportDraft && !state.reportQualityWarnings?.length && !state.busy && !state.errorCode && !interrupted && state.controlStatus !== 'paused');
   const rows: ExecutionRow[] = [
     { id: 'search', title: '检索资料', status: active(search), ...(searching && failedSearch ? { detail: '部分检索失败' } : {}) },
     { id: 'documents', title: '读取并整理真实来源', status: active(document), ...(reading && failedDocument ? { detail: '部分来源读取失败' } : {}) },
@@ -39,8 +42,12 @@ export function researchExecutionTimeline(state: Runtime, interrupted = false) {
     { id: 'synthesis', title: '综合结论', status: active(aggregate(timeline.filter(step => step.stage === 'synthesis').map(step => step.status))) },
     { id: 'validation', title: '质量检查与保存', status: active(warnings ? 'warning' : validation === 'completed' && !state.report ? 'pending' : validation) },
   ];
-  const finished = Boolean(state.report && state.completed && !state.busy && !state.errorCode && !warnings && !interrupted && state.controlStatus !== 'paused' && !tasks.some(task => task.status === 'failed'));
+  if (finished) for (const row of rows) {
+    if (row.id === 'search' && failedSearch) row.detail = '检索局限已在报告说明';
+    if (row.id === 'documents' && failedDocument) row.detail = '不可用来源已排除';
+    row.status = 'completed';
+  }
   const runningGoal = leasedWork && state.executionGoal === 'report';
-  const summary = interrupted ? '执行已中断' : state.controlStatus === 'paused' ? '执行已暂停' : state.busy && !leasedWork ? '执行状态待确认' : runningGoal || searching ? '正在执行研究计划' : state.errorCode || tasks.some(task => task.status === 'failed') ? '执行失败' : warnings ? '部分步骤未完成' : finished ? '执行完成' : leasedWork ? '正在执行研究计划' : state.report ? '已有报告，请查看质量与保存状态' : '将按以下计划执行';
+  const summary = interrupted ? '执行已中断' : state.controlStatus === 'paused' ? '执行已暂停' : state.busy && !leasedWork ? '执行状态待确认' : runningGoal || searching ? '正在执行研究计划' : finished ? '执行完成' : state.errorCode || tasks.some(task => task.status === 'failed') ? '执行失败' : warnings ? '部分步骤未完成' : leasedWork ? '正在执行研究计划' : state.report ? '已有报告，请查看质量与保存状态' : '将按以下计划执行';
   return { rows, summary, finished };
 }

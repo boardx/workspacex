@@ -24,6 +24,14 @@ function fixture() {
   return { state, steps, run, failure };
 }
 describe("terminal partial search draft admission", () => {
+  it("automatically completes a quality-passed formal report despite terminal search limitations", async () => {
+    const f = fixture();
+    f.steps.generate = vi.fn(async () => { f.state.report = { title: "Evidence-limited formal report" } as ResearchRuntime["report"]; });
+    await f.run();
+    expect(f.state.reportPartial).toBe(true);
+    expect(f.state.tasks[1]!.status).toBe("failed");
+    expect(f.steps.completeReport).toHaveBeenCalledOnce();
+  });
   it("preserves failure and refuses completion even after generating a draft", async () => {
     const f = fixture(); await expect(f.run()).rejects.toMatchObject({ reasonCode: "RESEARCH_SEARCH_PARTIAL_FAILURE" });
     expect(f.steps.generate).toHaveBeenCalledWith("report", false); expect(f.steps.completeReport).not.toHaveBeenCalled();
