@@ -62,13 +62,13 @@ def directory(path):
 class Reader:
     """Hold nofollow descriptors; every inode is rechecked after canonical reads."""
     def __init__(self):self.handles=[]
-    def read(self,path,maximum,expected=None,keep=True,mode=0o600):
+    def read(self,path,maximum,expected=None,keep=True,mode=0o600,allow_empty=False):
         path=Path(path);parent=directory(path.parent)
         try:fd=os.open(path.name,os.O_RDONLY|os.O_NOFOLLOW|os.O_NONBLOCK,dir_fd=parent)
         except BaseException:os.close(parent);raise
         s=os.fstat(fd)
         self.handles.append((fd,parent,path.name,signature(s)))
-        need(stat.S_ISREG(s.st_mode) and s.st_uid==s.st_gid==0 and s.st_nlink==1 and stat.S_IMODE(s.st_mode) in ((mode,) if type(mode) is int else mode) and 0<s.st_size<=maximum,'UNTRUSTED_FILE')
+        need(stat.S_ISREG(s.st_mode) and s.st_uid==s.st_gid==0 and s.st_nlink==1 and stat.S_IMODE(s.st_mode) in ((mode,) if type(mode) is int else mode) and (0<=s.st_size<=maximum if allow_empty else 0<s.st_size<=maximum),'UNTRUSTED_FILE')
         h=hashlib.sha256();size=0;parts=[]
         while True:
             raw=os.read(fd,min(1048576,maximum-size+1))
@@ -114,7 +114,35 @@ print(json.dumps({'images':receipt['images'],'expiresAt':cap.expires_at},sort_ke
 '''
 
 
-def observe(request_sha):
+def prepared_receipt(reader,consumed,inbox,request):
+    """Derive bytes from a durable intent; physical/canonical admission follows.
+
+    This helper alone is never a success observation or an authority source.
+    """
+    raw=reader.read(consumed/'promotion-intent.json',65536);intent=parse(raw)
+    need(set(intent)=={'kind','sourceBundle','target','prePromotionReceiptSha256','receipt','finalReceiptSha256'}
+         and intent['kind']=='cn-hk-promotion-intent-v1','PROMOTION_INTENT_FIELDS')
+    need(intent['sourceBundle']==str(consumed/'bundle') and intent['target']==str(inbox),'PROMOTION_INTENT_LOCATION')
+    receipt=intent['receipt']
+    need(type(receipt)is dict and set(receipt)=={'kind','root','bundle','originalZipsPreserved','proofGenerated','proofSha256','policySha256','expiresAt','sourceRevision','controlRevision','images','cloudWrites','publicationExecuted','productionReady','finishedAt','storageAdmission'},'PROMOTION_PREPARED_RECEIPT_FIELDS')
+    need(receipt['kind']=='cn-hk-consumed-revalidated-bundle-v1' and receipt['root']==str(consumed)
+         and receipt['bundle']==str(consumed/'bundle'),'PROMOTION_PREPARED_LOCATION')
+    need(receipt['originalZipsPreserved']is True and receipt['proofGenerated']is False
+         and receipt['cloudWrites']==0 and receipt['publicationExecuted']is False
+         and receipt['productionReady']is False and receipt['storageAdmission']['admitted']is True,'PROMOTION_PREPARED_SCOPE')
+    before=reader.read(consumed/'receipt.json',65536,intent['prePromotionReceiptSha256'])
+    need(parse(before)=={k:v for k,v in receipt.items()if k!='storageAdmission'},'PROMOTION_PRE_RECEIPT_CHANGED')
+    now=dt.datetime.now(dt.timezone.utc)
+    need(stamp(request['requestedAt'])<=stamp(receipt['finishedAt'])<=now<stamp(request['deadlineAt'])
+         and now<stamp(receipt['expiresAt']),'PROMOTION_RECOVERY_EXPIRED')
+    final={**receipt,'bundle':str(inbox),'promotedToExactPublisherInbox':True}
+    # Preserve the consumer's exact serializer, not this observer's compact one.
+    derived=(json.dumps(final,sort_keys=True)+'\n').encode()
+    need(len(derived)<=65536 and sha(derived)==intent['finalReceiptSha256'],'PROMOTION_FINAL_RECEIPT_CHANGED')
+    return derived,sha(raw)
+
+
+def _observe(request_sha):
     need(re.fullmatch('[a-f0-9]{64}',request_sha),'REQUEST_SHA');reader=Reader();lock=None
     try:
         root=APPROVALS/request_sha
@@ -141,19 +169,48 @@ def observe(request_sha):
         for name,item in images.items():
             need(name in ('api','web','agent','sandbox','postgres') and item['file']==name+'.tar','TAR_NAME')
             facts['inbox/'+name+'.tar']=reader.read(inbox/(name+'.tar'),item['size'],item['sha256'],keep=False)
-        receipt_raw=reader.read(consumed/'promoted-receipt.json',65536);receipt=parse(receipt_raw)
+        recovered=False;intent_sha=None
+        try:receipt_raw=reader.read(consumed/'promoted-receipt.json',65536,allow_empty=True)
+        except FileNotFoundError:receipt_raw=None
+        try:reader.read(consumed/'promotion-intent.json',65536)
+        except FileNotFoundError:
+            need(receipt_raw is not None,'PROMOTION_INTENT_REQUIRED')
+        else:
+            expected_receipt,intent_sha=prepared_receipt(reader,consumed,inbox,request)
+            if receipt_raw!=expected_receipt:
+                # A stable empty/prefix file can be the interrupted original
+                # write. Arbitrary changed bytes are not a recovery fallback.
+                need(receipt_raw is None or len(receipt_raw)<len(expected_receipt)
+                     and expected_receipt.startswith(receipt_raw),'PROMOTION_PARTIAL_RECEIPT_MISMATCH')
+                receipt_raw=expected_receipt;recovered=True
+            need(not (consumed/'bundle').exists() and not (consumed/'bundle').is_symlink(),'PROMOTION_SOURCE_STILL_PRESENT')
+        receipt=parse(receipt_raw)
         need(receipt['sourceRevision']==request['sourceRevision'] and receipt['controlRevision']==request['controlRevision'] and receipt['bundle']==str(inbox) and receipt['root']==str(consumed),'PHYSICAL_RECEIPT_IDENTITY')
         need(receipt['images']==images and receipt['proofSha256']==request['inputs']['proof'] and receipt['policySha256']==request['inputs']['policy'],'PHYSICAL_RECEIPT_BYTES')
         timeout=min(120,int((stamp(request['deadlineAt'])-dt.datetime.now(dt.timezone.utc)).total_seconds()));need(timeout>0,'OBSERVATION_BUDGET')
         child=subprocess.run([sys.executable,'-I','-S','-B','-c',CANONICAL,str(CODE/request['controlRevision']),str(inbox),request['inputs']['proof'],request['inputs']['policy']],env={'PATH':'/usr/bin:/bin','LANG':'C'},capture_output=True,timeout=timeout)
         need(child.returncode==0 and len(child.stdout)<=65536,'CANONICAL_READBACK_REJECTED');canonical=parse(child.stdout);need(canonical['images']==images,'CANONICAL_IMAGES')
+        if intent_sha is not None:need(receipt['expiresAt']==canonical['expiresAt'],'PROMOTION_RECOVERY_PROOF_EXPIRY')
         reader.stable();need(signature(os.fstat(lock))==signature((STATE/'runtime/release.lock').lstat()),'LOCK_CHANGED')
         need(dt.datetime.now(dt.timezone.utc)<stamp(request['deadlineAt']),'OBSERVATION_AFTER_DEADLINE')
         value={'kind':'cn-consume-readonly-observation-v1','requestSha256':request_sha,'actionSha256':approval['actionSha256'],'entryIdentity':approval['entryIdentity'],'runtimeReceiptSha256':sha(receipt_raw),'files':facts,'canonicalImages':canonical['images'],'canonicalExpiresAt':canonical['expiresAt'],'codeFiles':approval['codeFiles'],'scope':'approved-get-only-consume-local-files','cloudCalls':0,'writesPerformed':False}
-        raw=encode(value);need(len(raw)<=65536,'OBSERVATION_OUTPUT_LIMIT');return raw
+        if recovered:value.update(runtimeReceiptRecovered=True,promotionIntentSha256=intent_sha)
+        raw=encode(value);need(len(raw)<=65536,'OBSERVATION_OUTPUT_LIMIT');return raw,receipt_raw
     finally:
         if lock is not None:os.close(lock)
         reader.close()
+
+
+def observe(request_sha):
+    return _observe(request_sha)[0]
+
+
+def recover_receipt(request_sha):
+    """Read-only exact receipt, admitted by the complete physical/canonical read.
+
+    Does not create a receipt file, extend TTL or retry the original consumer.
+    """
+    return _observe(request_sha)[1]
 
 
 def verify(raw,manifest,previous,mode,request_sha):

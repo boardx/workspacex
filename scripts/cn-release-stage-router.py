@@ -148,7 +148,7 @@ class Router:
         inputs={n:e.read(INPUTS/self.release/(n+'.json'),1048576)for n in self.a['acquire']['requests'][phase]['inputs']}
         receipt=None;chain=None
         if phase=='publication':
-            receipt=e.read(helper.receipt_path(self.a));prefix=e.STATE/self.attempt/'00-consume'
+            receipt=helper.consume_receipt(self.a,ROOT,reader=e.read);e.need(receipt is not None,'LIVE_CONSUME_RECEIPT_REQUIRED');prefix=e.STATE/self.attempt/'00-consume'
             chain={n:e.read(Path(str(prefix)+'.'+suffix+'.json'))for n,suffix in (('receipt','receipt'),('evidence','evidence'),('terminalObservation','terminal-observation'))}
             chain['manifest']=e.read(e.REQUESTS/e.decode(chain['receipt'])['requestSha256']/'manifest.json')
             for n,file in (('parameters','parameters.json'),('delegation','delegation.json')):chain[n]=e.read(self.base/'acquire/consume'/file,1048576)
