@@ -330,21 +330,18 @@ export class GuidedRuntimeService {
     const draft = C.GuidedResearchRuntimeDraft.safeParse({ node, value: generatedValue });
     if (!draft.success) throw new ResearchRuntimeError("RESEARCH_NODE_STATE_INVALID");
     validateGeneratedResearchDesign(node, draft.data.value);
-    if (node === "report" && draft.data.node === "report" && (state.reportQualityWarnings?.length || (state.executionGoal === "report" && state.reportPartial))) {
+    if (node === "report" && draft.data.node === "report" && state.reportPartial) {
+      const failed = state.tasks.filter(task => task.status === "failed").length;
+      const limitation = C.guidedResearchReportFraming(state.brief).language === "Chinese"
+        ? `检索范围与局限：${state.tasks.length} 个检索任务中有 ${failed} 个未取得可用结果。本报告基于已核验的保留资料生成，相关问题的数据局限与后续核验要求在正文中说明。\n\n`
+        : `Search limitation: ${failed} of ${state.tasks.length} search tasks returned no usable results. This report uses retained verified materials; specific evidence limitations and verification needs are stated in the report.\n\n`;
+      draft.data.value.introduction = limitation + (draft.data.value.introduction ?? "");
+      if (!C.GuidedResearchReport.shape.introduction.safeParse(draft.data.value.introduction).success) throw new ResearchRuntimeError("RESEARCH_REPORT_QUALITY_INSUFFICIENT");
+    }
+    if (node === "report" && draft.data.node === "report" && state.reportQualityWarnings?.length) {
       validateRuntimeDraft(state, draft.data);
       invalidate(state, "report");
-      if (state.executionGoal === "report" && state.reportPartial) {
-        const failed = state.tasks.filter(task => task.status === "failed").length;
-        const limitation = C.guidedResearchReportFraming(state.brief).language === "Chinese"
-          ? `搜索局限：${state.tasks.length} 个检索任务中有 ${failed} 个未成功。本稿基于保留资料生成；未完成的检索及问题缺口仍须补充；不是正式完成报告。\n\n`
-          : `Search limitation: ${failed} of ${state.tasks.length} search tasks failed. Preserved materials were used to prepare this draft; failed searches and unanswered questions still require further research. This is not a completed report.\n\n`;
-        const introduction = limitation + (draft.data.value.introduction ?? "");
-        // Never truncate an already audited summary to make room for metadata.
-        if (!C.GuidedResearchReport.shape.introduction.safeParse(introduction).success) throw new ResearchRuntimeError("RESEARCH_REPORT_QUALITY_INSUFFICIENT");
-        draft.data.value.introduction = introduction;
-      }
       state.reportDraft = draft.data.value;
-      if (state.executionGoal === "report" && state.reportPartial) updateReportTimeline(state, "validation", "warning");
       state.report = null; state.reportStream = null; state.completed = false;
       state.generatedNodes = state.generatedNodes.filter((item) => item !== "report");
       return;
