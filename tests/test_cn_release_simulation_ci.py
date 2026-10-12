@@ -86,6 +86,26 @@ class CiBootstrap(unittest.TestCase):
   with tempfile.TemporaryDirectory()as td,patch.object(m,'setup_domain',return_value=Domain()),patch.object(m.importlib.util,'spec_from_file_location')as load:
    with self.assertRaises(m.SetupCleanupUnproven):m.run_owned_simulation([],ROOT,{}, {},'a'*40,'123',Path(td))
    load.assert_not_called()
+ def test_sim14_active_roots_share_deadline_and_one_failure_does_not_stop_control(self):
+  import types,time
+  calls=[];deadline=time.monotonic()+10
+  class Domain:
+   def spawn(self,command,**kw):return subprocess.Popen(command,**kw)
+   def close(self,process):process.wait(timeout=2);return {'verified':True,'populated':0,'removed':True}
+  def recover(path,*args,**kw):
+   calls.append((path,kw['deadline']))
+   if path.name=='target':raise RuntimeError('unknown target')
+   return {'verified':True}
+  with tempfile.TemporaryDirectory()as td:
+   root=Path(td);base=root/'sim14-owners/round-01/api-outer-recovery'
+   for name in ('target','control','negative-evidence'):(base/name).mkdir(parents=True)
+   fake=types.SimpleNamespace(recover_all=recover)
+   with patch.object(m,'setup_domain',return_value=Domain()),patch.object(m.importlib.util,'module_from_spec',return_value=fake),patch.object(m.importlib.util,'spec_from_file_location',return_value=types.SimpleNamespace(loader=types.SimpleNamespace(exec_module=lambda module:None))):
+    with self.assertRaises(m.SetupCleanupUnproven):m.run_owned_simulation([sys.executable,'-I','-B','-c','pass'],ROOT,{}, {},'a'*40,'123',root,recovery_deadline=deadline)
+   self.assertEqual([p.name for p,d in calls],['api-owners','target','control'])
+   self.assertTrue(all(d==deadline for p,d in calls))
+   import json
+   result=json.loads((root/'six-recovery.json').read_text());self.assertFalse(result['verified']);self.assertTrue(result['registries']['sim14-01-control']['verified'])
  def test_local_copy_has_no_shared_objects_or_global_config(self):
   text=(ROOT/'scripts/cn-release-simulation-ci.py').read_text()
   self.assertIn("'GIT_ALLOW_PROTOCOL':'file'",text);self.assertIn("'--no-hardlinks'",text)

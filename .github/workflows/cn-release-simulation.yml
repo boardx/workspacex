@@ -37,6 +37,7 @@ on:
       - 'tests/cn_release_api_startup_linux.py'
       - 'tests/cn_release_docker_cleanup_linux.py'
       - 'tests/cn_release_boundary_reap_linux.py'
+      - 'tests/cn_release_api_outer_recovery_linux.py'
       - 'tests/cn_release_postclear_recovery_linux.py'
       - 'tests/fixtures/cn-postclear-recovery/**'
       - 'tests/cn_release_application_recovery_linux.py'
@@ -184,6 +185,7 @@ jobs:
             ${{ runner.temp }}/cn-simulation-artifacts/round-*/api-container-owner/cleanup.json
             ${{ runner.temp }}/cn-simulation-artifacts/round-*/api-container-owner/recovery-cleanup.json
             ${{ runner.temp }}/cn-simulation-artifacts/round-*/application-recovery-owner/*.json
+            ${{ runner.temp }}/cn-simulation-artifacts/round-*/sim14-evidence/*.json
             ${{ runner.temp }}/cn-simulation-artifacts/round-*/six-business/*.json
             ${{ runner.temp }}/cn-simulation-artifacts/round-*/six-business/application.log
             ${{ runner.temp }}/cn-simulation-artifacts/round-*/six-infra-owner/*.json

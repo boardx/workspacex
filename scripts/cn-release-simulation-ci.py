@@ -68,6 +68,15 @@ def run_owned_simulation(command,checkout,env,registries,sha,run_id,receipt_root
                 spec=importlib.util.spec_from_file_location('ci_api_recovery',checkout/'scripts/cn-release-fixture-docker-cleanup.py');api=importlib.util.module_from_spec(spec);spec.loader.exec_module(api)
                 results['api-and-application']=api.recover_all(api_owner_root if api_owner_root is not None else receipt_root/'api-owners',run_id,cleanup,deadline=recovery_deadline)
             except Exception as error:results['api-and-application']={'verified':False,'errorType':type(error).__name__}
+            # Only the two active real-resource roots; synthetic negative evidence
+            # is deliberately excluded and remains a false diagnostic receipt.
+            for index in range(1,11):
+                for name in ('target','control'):
+                    path=receipt_root/'sim14-owners'/('round-%02d'%index)/'api-outer-recovery'/name
+                    if not path.exists()and not path.is_symlink():continue
+                    key='sim14-%02d-%s'%(index,name)
+                    try:results[key]=api.recover_all(path,run_id,cleanup,deadline=recovery_deadline)
+                    except Exception as error:results[key]={'verified':False,'errorType':type(error).__name__}
             recovery={'verified':all(v.get('verified')is True for v in results.values()),'registries':results}
             with (receipt_root/'six-recovery.json').open('x')as f:json.dump(recovery,f);f.flush();os.fsync(f.fileno())
             if recovery.get('verified')is not True:raise RuntimeError('CI_SIX_RECOVERY_UNPROVEN')
@@ -114,6 +123,7 @@ def execute(sha,rounds,seed):
         registries={}
         for key,name in (('CN_SIX_OWNER_ROOT','six-owners'),('CN_SIX_KILL_TARGET_ROOT','six-kill-targets'),('CN_SIX_KILL_CONTROL_ROOT','six-kill-controls')):
             registry=owned/name;registry.mkdir(mode=0o700);registries[name]=registry;env[key]=str(registry)
+        sim14=owned/'sim14-owners';sim14.mkdir(mode=0o700);env['CN_SIM14_REGISTRY_ROOT']=str(sim14)
         api_owners=owned/'api-owners';api_owners.mkdir(mode=0o700);env['CN_API_OWNER_ROOT']=str(api_owners)
         env['CN_SIX_SOURCE_COMMIT']=sha
         return run_owned_simulation([sys.executable,'-I','-B',str(checkout/'scripts/cn-release-simulation.py'),
@@ -154,6 +164,22 @@ def execute(sha,rounds,seed):
                         if not stat.S_ISREG(info.st_mode)or origin.is_symlink()or info.st_uid!=0 or info.st_nlink!=1 or info.st_size>16384:raise ValueError('CI_API_OWNER_REPORT_REJECTED')
                         destination=report/rid/registry;destination.mkdir(mode=0o700,parents=True,exist_ok=True)
                         with (destination/name).open('xb')as sink,origin.open('rb')as src:shutil.copyfileobj(src,sink,65536)
+            for index in range(1,11):
+                rid='round-%02d'%index;base=owned/'sim14-owners'/rid/'api-outer-recovery';destination=report/rid/'sim14-evidence'
+                paths={}
+                for case in ('success','uncertain'):
+                    for name in ('simulation-outer-cleanup.json','six-recovery.json'):paths[case+'-'+name]=base/case/name
+                paths['negative-provenance.json']=base/'negative-evidence/negative-provenance.json'
+                for scope in ('target','control','negative-evidence'):
+                    for registry in ('api-container-owner','application-recovery-owner'):
+                        for name in ('owner.json','api-create-intent.json','api-create-receipt.json','cleanup.json','recovery-cleanup.json'):
+                            paths[scope+'-'+registry+'-'+name]=base/scope/'round-01'/registry/name
+                for name,origin in paths.items():
+                    if not origin.exists():continue
+                    info=origin.lstat()
+                    if not stat.S_ISREG(info.st_mode)or origin.is_symlink()or info.st_uid!=0 or info.st_nlink!=1 or info.st_size>16384:raise ValueError('CI_SIM14_REPORT_REJECTED')
+                    destination.mkdir(mode=0o700,parents=True,exist_ok=True)
+                    with (destination/name).open('xb')as sink,origin.open('rb')as src:shutil.copyfileobj(src,sink,65536)
             for registry_name,destination_name in (('six-kill-targets','six-kill-target-owner'),('six-kill-controls','six-kill-control-owner')):
                 for index in range(1,11):
                     rid='round-%02d'%index;origin_dir=owned/registry_name/rid/'six-infra-owner';destination=report/rid/destination_name

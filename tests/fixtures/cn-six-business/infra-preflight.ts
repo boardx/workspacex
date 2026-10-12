@@ -19,6 +19,9 @@ export function validateDatabaseEnvironment(env:NodeJS.ProcessEnv){
 }
 export function postgresCommand(port:number){return ['postgres','-c','listen_addresses=127.0.0.1','-c','shared_preload_libraries=age','-p',String(port)];}
 export function validatePostgresCommand(command:unknown,port:number){need(JSON.stringify(command)===JSON.stringify(postgresCommand(port)),'INFRA_LOOPBACK_COMMAND');}
+// PostgreSQL text(inet) preserves /32; host(inet) returns the exact host address.
+// https://www.postgresql.org/docs/current/functions-net.html (Table 9.40)
+export const DATABASE_IDENTITY_SQL="SELECT current_database() AS database, host(inet_server_addr()) AS address, inet_server_port() AS port, current_setting('shared_preload_libraries') AS preload";
 export function validateDatabaseReadback(row:any,database:string,port:number){
  need(row?.database===database&&row?.address==='127.0.0.1'&&Number(row?.port)===port&&row?.preload==='age','LIVE_DATABASE_IDENTITY_OR_AGE_MISMATCH');
 }
@@ -51,7 +54,7 @@ stage='pg-import';const require=createRequire(new URL('../../../apps/api/package
 const client=new (require('pg').Client)(boundedClientConfig({...cfg}));
 try{
  stage='pg-connect';await client.connect();
- stage='pg-query';const result=await client.query("SELECT current_database() AS database, inet_server_addr()::text AS address, inet_server_port() AS port, current_setting('shared_preload_libraries') AS preload");
+ stage='pg-query';const result=await client.query(DATABASE_IDENTITY_SQL);
  need(result.rows.length===1,'LIVE_DATABASE_READBACK_SHAPE');
  stage='pg-readback';validateDatabaseReadback(result.rows[0],r.dbName,r.postgres.port);
 }finally{await client.end();}

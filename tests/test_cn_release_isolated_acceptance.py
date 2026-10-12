@@ -123,7 +123,7 @@ raise SystemExit(m.main())
   fixed={name.replace('-','_')+'_contract':(name,'cn_release_'+file+'_linux.py')for name,file in (
    ('linux-domain','simulation_domain'),('linux-postgres','postgres'),('linux-postgres-lifecycle','postgres_lifecycle'),
    ('linux-storage','storage'),('linux-api-startup','api_startup'),('linux-docker-cleanup','docker_cleanup'),
-   ('linux-postclear-recovery','postclear_recovery'),('linux-application-recovery','application_recovery'),('linux-six-business','six_business'),('linux-six-cleanup','six_cleanup'),('linux-migration-guard','migration_guard'),('linux-migration-terminal','migration_terminal'),('linux-migration-owner','migration_owner'),('linux-fsync','fsync'),('linux-readiness','readiness'),('linux-boundary-reap','boundary_reap'),('linux-entry','cgroup'),('linux-browser','browser'))}
+   ('linux-api-outer-recovery','api_outer_recovery'),('linux-postclear-recovery','postclear_recovery'),('linux-application-recovery','application_recovery'),('linux-six-business','six_business'),('linux-six-cleanup','six_cleanup'),('linux-migration-guard','migration_guard'),('linux-migration-terminal','migration_terminal'),('linux-migration-owner','migration_owner'),('linux-fsync','fsync'),('linux-readiness','readiness'),('linux-boundary-reap','boundary_reap'),('linux-entry','cgroup'),('linux-browser','browser'))}
   self.assertIn(identifier,fixed,'Unregistered standalone aggregate')
   suite,filename=fixed[identifier]
   source=ROOT/'tests'/filename;tree=ast.parse(source.read_text())

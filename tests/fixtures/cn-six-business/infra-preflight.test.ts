@@ -42,3 +42,15 @@ test('failure projection emits only fixed stage and exact known codes, never arb
  const bad=safeFailure({code:secret,message:secret,stack:secret},secret);
  assert.equal(bad.stage,'OTHER');assert.equal(bad.code,'OTHER');assert.ok(!JSON.stringify(bad).includes(secret));
 });
+
+test('original SQL casts preserve slash32: query normalizes host without relaxing identity',async()=>{
+ const {DATABASE_IDENTITY_SQL}=await import('./infra-preflight');
+ assert.match(DATABASE_IDENTITY_SQL,/host\(inet_server_addr\(\)\) AS address/);
+ assert.ok(!DATABASE_IDENTITY_SQL.includes('inet_server_addr()::text'));
+ const actualTextCast={database:db,address:'127.0.0.1/32',port:23456,preload:'age'};
+ // The old query necessarily fails the strict host contract; do not strip or
+ // accept arbitrary slash suffixes in the validator to mask a query defect.
+ assert.throws(()=>validateDatabaseReadback(actualTextCast,db,23456),/LIVE_DATABASE_IDENTITY/);
+ validateDatabaseReadback({...actualTextCast,address:'127.0.0.1'},db,23456);
+ for(const address of ['127.0.0.2','10.0.0.1','::1','127.0.0.1/24'])assert.throws(()=>validateDatabaseReadback({...actualTextCast,address},db,23456));
+});
