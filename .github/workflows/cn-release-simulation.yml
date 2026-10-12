@@ -37,6 +37,20 @@ on:
       - 'tests/cn_release_api_startup_linux.py'
       - 'tests/cn_release_docker_cleanup_linux.py'
       - 'tests/cn_release_boundary_reap_linux.py'
+      - 'tests/cn_release_application_recovery_linux.py'
+      - 'tests/fixtures/cn-application-recovery/**'
+      - 'tests/cn_release_six_business_linux.py'
+      - 'tests/cn_release_six_cleanup_linux.py'
+      - 'scripts/cn-release-six-port-lease.ts'
+      - 'tests/fixtures/cn-six-business/**'
+      - 'apps/web/e2e/cn-release-six-business.spec.ts'
+      - 'apps/web/playwright.cn-six-business.config.ts'
+      - 'tests/cn_release_migration_guard_linux.py'
+      - 'tests/cn_release_migration_terminal_linux.py'
+      - 'tests/cn_release_migration_owner_linux.py'
+      - 'tests/fixtures/cn-migration-owner/**'
+      - 'tests/cn_release_fsync_linux.py'
+      - 'tests/fixtures/cn-storage-fsync/**'
       - 'tests/cn_release_readiness_linux.py'
       - 'packages/cloud-deploy/src/cn-release-readiness-dispatch.ts'
       - 'packages/cloud-deploy/test/cn-release-readiness-dispatch.test.ts'
@@ -108,6 +122,25 @@ jobs:
           [[ "$image" =~ ^sha256:[a-f0-9]{64}$ ]]
           echo "CN_API_STARTUP_PG_IMAGE=$image" >> "$GITHUB_ENV"
           python3 -c 'import json,sys,time;json.dump(dict(kind="cn-fixture-image-setup-v1",commit=sys.argv[1],baseDigest=sys.argv[2],imageId=sys.argv[3],buildSeconds=int(time.time())-int(sys.argv[4]),productionAccepted=False),open(sys.argv[5],"x"))' "$GITHUB_SHA" "$base" "$image" "$started" "$RUNNER_TEMP/cn-image-setup.json"
+      - name: Resolve job-local Redis fixture image once
+        timeout-minutes: 5
+        shell: bash
+        run: |
+          set -euo pipefail
+          started=$(date +%s)
+          docker pull redis:7-alpine
+          digest=$(docker image inspect redis:7-alpine --format '{{index .RepoDigests 0}}')
+          [[ "$digest" =~ ^redis@sha256:[a-f0-9]{64}$ ]]
+          image=$(docker image inspect "$digest" --format '{{.Id}}')
+          [[ "$image" =~ ^sha256:[a-f0-9]{64}$ ]]
+          [[ "$(docker image inspect "$image" --format '{{.Os}}/{{.Architecture}}')" == linux/amd64 ]]
+          echo "CN_SIX_REDIS_IMAGE=$image" >> "$GITHUB_ENV"
+          python3 -c 'import json,sys,time;json.dump(dict(kind="cn-fixture-redis-setup-v1",commit=sys.argv[1],digest=sys.argv[2],imageId=sys.argv[3],setupSeconds=int(time.time())-int(sys.argv[4]),productionAccepted=False),open(sys.argv[5],"x"))' "$GITHUB_SHA" "$digest" "$image" "$started" "$RUNNER_TEMP/cn-redis-setup.json"
+      - name: Install isolated FUSE fixture build prerequisites
+        run: |
+          sudo -n apt-get update
+          sudo -n apt-get install -y libfuse3-dev pkg-config gcc
+          test -c /dev/fuse
       - name: Install isolated fixture dependencies
         run: |
           npm install --prefix "$RUNNER_TEMP/cn-fixture" --no-audit --no-fund --save-exact tsx@4.20.6 zod@3.25.76 pg@8.13.1 playwright@1.62.0
@@ -123,12 +156,13 @@ jobs:
         env:
           ROUNDS: ${{ inputs.rounds || '1' }}
           SEED: ${{ inputs.seed || '0' }}
-        run: 'sudo -n env -i PATH="$PATH" CN_ARCHIVE_TEST_NODE="$CN_ARCHIVE_TEST_NODE" CN_ARCHIVE_TEST_RUNTIME="$CN_ARCHIVE_TEST_RUNTIME" NODE_PATH="$NODE_PATH" CN_TEST_PLAYWRIGHT="$CN_TEST_PLAYWRIGHT" CN_TEST_CHROMIUM="$CN_TEST_CHROMIUM" GITHUB_ACTIONS=true CN_API_STARTUP_PG_IMAGE="$CN_API_STARTUP_PG_IMAGE" GITHUB_RUN_ID="$GITHUB_RUN_ID" GITHUB_RUN_ATTEMPT="$GITHUB_RUN_ATTEMPT" GITHUB_WORKSPACE="$GITHUB_WORKSPACE" RUNNER_TEMP="$RUNNER_TEMP" "$RUNNER_TEMP/cn-test-sdk/bin/python" -I -B scripts/cn-release-simulation-ci.py --sha "$GITHUB_SHA" --rounds "$ROUNDS" --seed "$SEED"'
+        run: 'sudo -n env -i PATH="$PATH" CN_ARCHIVE_TEST_NODE="$CN_ARCHIVE_TEST_NODE" CN_ARCHIVE_TEST_RUNTIME="$CN_ARCHIVE_TEST_RUNTIME" NODE_PATH="$NODE_PATH" CN_TEST_PLAYWRIGHT="$CN_TEST_PLAYWRIGHT" CN_TEST_CHROMIUM="$CN_TEST_CHROMIUM" GITHUB_ACTIONS=true CN_API_STARTUP_PG_IMAGE="$CN_API_STARTUP_PG_IMAGE" CN_SIX_REDIS_IMAGE="$CN_SIX_REDIS_IMAGE" GITHUB_RUN_ID="$GITHUB_RUN_ID" GITHUB_RUN_ATTEMPT="$GITHUB_RUN_ATTEMPT" GITHUB_WORKSPACE="$GITHUB_WORKSPACE" RUNNER_TEMP="$RUNNER_TEMP" "$RUNNER_TEMP/cn-test-sdk/bin/python" -I -B scripts/cn-release-simulation-ci.py --sha "$GITHUB_SHA" --rounds "$ROUNDS" --seed "$SEED"'
       - name: Export bounded reports for the unprivileged artifact uploader
         if: always()
         run: |
           mkdir -m 700 "$RUNNER_TEMP/cn-simulation-artifacts"
           if [ -f "$RUNNER_TEMP/cn-image-setup.json" ]; then cp "$RUNNER_TEMP/cn-image-setup.json" "$RUNNER_TEMP/cn-simulation-artifacts/image-setup.json"; fi
+          if [ -f "$RUNNER_TEMP/cn-redis-setup.json" ]; then cp "$RUNNER_TEMP/cn-redis-setup.json" "$RUNNER_TEMP/cn-simulation-artifacts/redis-setup.json"; fi
           sudo -n env -i PATH="$PATH" /usr/bin/python3 -I -B scripts/cn-release-simulation.py --export-parent "$RUNNER_TEMP"
       - name: Preserve simulation report and failure evidence
         if: always()
@@ -146,5 +180,12 @@ jobs:
             ${{ runner.temp }}/cn-simulation-artifacts/round-*/api-container-owner/api-create-intent.json
             ${{ runner.temp }}/cn-simulation-artifacts/round-*/api-container-owner/api-create-receipt.json
             ${{ runner.temp }}/cn-simulation-artifacts/round-*/api-container-owner/cleanup.json
+            ${{ runner.temp }}/cn-simulation-artifacts/round-*/api-container-owner/recovery-cleanup.json
+            ${{ runner.temp }}/cn-simulation-artifacts/round-*/application-recovery-owner/*.json
+            ${{ runner.temp }}/cn-simulation-artifacts/round-*/six-business/*.json
+            ${{ runner.temp }}/cn-simulation-artifacts/round-*/six-business/application.log
+            ${{ runner.temp }}/cn-simulation-artifacts/round-*/six-infra-owner/*.json
+            ${{ runner.temp }}/cn-simulation-artifacts/round-*/six-kill-target-owner/*.json
+            ${{ runner.temp }}/cn-simulation-artifacts/round-*/six-kill-control-owner/*.json
           retention-days: 7
           if-no-files-found: warn

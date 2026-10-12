@@ -37,7 +37,7 @@ class BrowserWrapperTests(unittest.TestCase):
    for pattern in patterns:
     for source in (ROOT/'tests').glob(pattern):
      self.assertNotIn(source,seen,(suite,seen.get(source),source.name));seen[source]=suite
-  self.assertEqual(len(runner.SUITES),17)
+  self.assertEqual(len(runner.SUITES),24)
   for name in ('cn_release_boundary_reap_linux.py','cn_release_browser_linux.py','cn_release_cgroup_linux.py','test_cn_formal_budget_profile.py','test_aliyun_release_auth.py'):
    self.assertIn(ROOT/'tests'/name,seen)
 

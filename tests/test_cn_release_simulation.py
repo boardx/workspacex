@@ -126,10 +126,26 @@ class SimulationTests(unittest.TestCase):
    self.assertEqual(stat.S_IMODE(source.stat().st_mode),0o700)
    self.assertEqual((target/'summary.json').stat().st_uid,target.stat().st_uid)
    self.assertEqual(stat.S_IMODE((target/'summary.json').stat().st_mode),0o600)
+ def test_heavy_suites_share_one_slot_while_light_suite_can_progress(self):
+  import concurrent.futures,threading,time
+  active=0;peak=0;lock=threading.Lock();heavy_started=threading.Event();light_seen=threading.Event()
+  def fake(name):
+   nonlocal active,peak
+   if name in m.HEAVY_SUITES:
+    with lock:active+=1;peak=max(peak,active)
+    heavy_started.set();light_seen.wait(1);time.sleep(.02)
+    with lock:active-=1
+   else:
+    heavy_started.wait(1);light_seen.set()
+   return name
+  with patch.object(m,'execute',side_effect=fake),concurrent.futures.ThreadPoolExecutor(max_workers=3)as pool:
+   jobs=[pool.submit(m.scheduled_execute,n)for n in ('linux-api-startup','linux-six-business','release')]
+   self.assertEqual([j.result(timeout=2)for j in jobs],['linux-api-startup','linux-six-business','release'])
+  self.assertEqual(peak,1);self.assertTrue(light_seen.is_set())
  def test_report_export_all_ten_rounds_fixed_inventory(self):
   with tempfile.TemporaryDirectory()as d:
    root=Path(d);source=root/'cn-simulation';target=root/'cn-simulation-artifacts';source.mkdir(mode=0o700);target.mkdir(mode=0o700)
-   top=('summary.json','metrics.csv','cases.csv','report.txt','fullstack-setup.json','fullstack-install.log','fullstack-outer-cleanup.json')
+   top=m.EXPORT_TOP_FILES
    suffixes=('.log','.tests.json','.tests.inventory.json','.tests.cases.json')
    registry=('owner.json','api-create-intent.json','api-create-receipt.json','cleanup.json')
    for name in top:(source/name).write_bytes(b'')
@@ -137,11 +153,12 @@ class SimulationTests(unittest.TestCase):
     rd=source/('round-%02d'%index);rd.mkdir(mode=0o700);(rd/'round.json').write_bytes(b'')
     for suite in m.SUITES:
      for suffix in suffixes:(rd/(suite+suffix)).write_bytes(b'')
-    owned=rd/'api-container-owner';owned.mkdir(mode=0o700)
-    for name in registry:(owned/name).write_bytes(b'')
+    for directory,files in m.EXPORT_NESTED_FILES.items():
+     owned=rd/directory;owned.mkdir(mode=0o700)
+     for name in files:(owned/name).write_bytes(b'')
     (rd/'unapproved.log').write_text('not exported')
    extra=source/'round-11';extra.mkdir();(extra/'round.json').write_text('not exported')
-   result=m.export_reports(root);expected=len(top)+10*(1+len(m.SUITES)*len(suffixes)+len(registry))
+   result=m.export_reports(root);expected=len(top)+10*(1+len(m.SUITES)*len(suffixes)+sum(map(len,m.EXPORT_NESTED_FILES.values())))
    self.assertGreater(expected,500);self.assertEqual(result['files'],expected);self.assertEqual(result['bytes'],0)
    self.assertEqual(len([p for p in target.rglob('*')if p.is_file()]),expected)
    self.assertFalse((target/'round-11').exists());self.assertFalse((target/'round-01/unapproved.log').exists())

@@ -1,9 +1,17 @@
 #!/usr/bin/env python3
 """Credential-free isolated regressions of production release code, not a deployment."""
+import threading
 import argparse,concurrent.futures,csv,datetime,hashlib,importlib.util,json,os,platform,re,selectors,stat,statistics,subprocess,sys,time,unittest
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
-SUITES={'release':['test_cn_release_*.py'],'hongkong':['test_cn_hk*.py'],'candidate':['test_cn_candidate_*.py'],'image-archive':['test_cn_image*.py','test_cn_archive*.py'],'legacy-faults':['test_release_failure_matrix.py'],'linux-process':['cn_hk_performance_linux.py'],'linux-domain':['cn_release_simulation_domain_linux.py'],'linux-postgres':['cn_release_postgres_linux.py'],'linux-postgres-lifecycle':['cn_release_postgres_lifecycle_linux.py'],'linux-storage':['cn_release_storage_linux.py'],'linux-readiness':['cn_release_readiness_linux.py'],'linux-api-startup':['cn_release_api_startup_linux.py'],'linux-docker-cleanup':['cn_release_docker_cleanup_linux.py'],'linux-boundary-reap':['cn_release_boundary_reap_linux.py'],'linux-entry':['cn_release_cgroup_linux.py'],'linux-browser':['cn_release_browser_linux.py'],'offline-contracts':['test_cn_formal_save_bound.py','test_cn_repeated_layers.py','test_cn_formal_budget_profile.py','test_cn_exact_source_admission.py','test_cn_agent_postbuild_diagnostic.py','test_cloud_build_only.py','test_aliyun_release_auth.py','test_auth_action_hardening.py','test_cn_main_registration.py']}
+SUITES={'release':['test_cn_release_*.py'],'hongkong':['test_cn_hk*.py'],'candidate':['test_cn_candidate_*.py'],'image-archive':['test_cn_image*.py','test_cn_archive*.py'],'legacy-faults':['test_release_failure_matrix.py'],'linux-process':['cn_hk_performance_linux.py'],'linux-domain':['cn_release_simulation_domain_linux.py'],'linux-postgres':['cn_release_postgres_linux.py'],'linux-postgres-lifecycle':['cn_release_postgres_lifecycle_linux.py'],'linux-storage':['cn_release_storage_linux.py'],'linux-readiness':['cn_release_readiness_linux.py'],'linux-api-startup':['cn_release_api_startup_linux.py'],'linux-docker-cleanup':['cn_release_docker_cleanup_linux.py'],'linux-boundary-reap':['cn_release_boundary_reap_linux.py'],'linux-entry':['cn_release_cgroup_linux.py'],'linux-browser':['cn_release_browser_linux.py'],'linux-application-recovery':['cn_release_application_recovery_linux.py'],'linux-six-business':['cn_release_six_business_linux.py'],'linux-six-cleanup':['cn_release_six_cleanup_linux.py'],'linux-migration-guard':['cn_release_migration_guard_linux.py'],'linux-migration-terminal':['cn_release_migration_terminal_linux.py'],'linux-migration-owner':['cn_release_migration_owner_linux.py'],'linux-fsync':['cn_release_fsync_linux.py'],'offline-contracts':['test_cn_formal_save_bound.py','test_cn_repeated_layers.py','test_cn_formal_budget_profile.py','test_cn_exact_source_admission.py','test_cn_agent_postbuild_diagnostic.py','test_cloud_build_only.py','test_aliyun_release_auth.py','test_auth_action_hardening.py','test_cn_main_registration.py']}
+# Share one slot for database/browser-heavy suites on the standard runner.
+HEAVY_SUITES=frozenset(('linux-postgres','linux-postgres-lifecycle','linux-api-startup','linux-docker-cleanup','linux-application-recovery','linux-six-business','linux-six-cleanup'))
+HEAVY_SLOT=threading.Semaphore(1)
+def scheduled_execute(name,*args,**kwargs):
+    if name in HEAVY_SUITES:
+        with HEAVY_SLOT:return execute(name,*args,**kwargs)
+    return execute(name,*args,**kwargs)
 LOG_LIMIT=4*1024*1024
 GAPS=['External GitHub/OSS/ACR/ECS/RDS operations use fixtures; no live provider acceptance.',
       'No production image build, paid resource, production database, traffic switch or live business acceptance.',
@@ -15,7 +23,7 @@ def write_json(path,value):
 def child(suite,result):
     if suite.startswith('linux-') and platform.system()!='Linux':raise RuntimeError('LINUX_REQUIRED')
     loader=unittest.TestLoader();tests=unittest.TestSuite()
-    if suite in ('linux-domain','linux-postgres','linux-postgres-lifecycle','linux-storage','linux-api-startup','linux-docker-cleanup','linux-readiness','linux-boundary-reap','linux-entry','linux-browser'):
+    if suite in ('linux-domain','linux-postgres','linux-postgres-lifecycle','linux-storage','linux-api-startup','linux-docker-cleanup','linux-readiness','linux-boundary-reap','linux-entry','linux-browser','linux-application-recovery','linux-six-business','linux-six-cleanup','linux-migration-guard','linux-migration-terminal','linux-migration-owner','linux-fsync'):
         spec=importlib.util.spec_from_file_location('cn_simulation_standalone_integration',ROOT/'tests'/SUITES[suite][0])
         module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
         def real_domain_contract():
@@ -55,22 +63,26 @@ def child(suite,result):
 
 def environment(output):
     home=output/'home';home.mkdir(mode=0o700,exist_ok=True)
-    allowed=('PATH','TMPDIR','TEMP','TMP','CN_ARCHIVE_TEST_NODE','CN_ARCHIVE_TEST_RUNTIME','NODE_PATH','CN_TEST_PLAYWRIGHT','CN_TEST_CHROMIUM','CN_API_STARTUP_NODE','CN_API_STARTUP_PG_IMAGE','GITHUB_ACTIONS','GITHUB_RUN_ID','GITHUB_RUN_ATTEMPT')
+    allowed=('PATH','TMPDIR','TEMP','TMP','CN_ARCHIVE_TEST_NODE','CN_ARCHIVE_TEST_RUNTIME','NODE_PATH','CN_TEST_PLAYWRIGHT','CN_TEST_CHROMIUM','CN_API_STARTUP_NODE','CN_API_STARTUP_PG_IMAGE','CN_API_OWNER_ROOT','CN_SIX_REDIS_IMAGE','CN_SIX_OWNER_ROOT','CN_SIX_KILL_TARGET_ROOT','CN_SIX_KILL_CONTROL_ROOT','CN_SIX_SOURCE_COMMIT','GITHUB_ACTIONS','GITHUB_RUN_ID','GITHUB_RUN_ATTEMPT')
     return {**{k:os.environ[k]for k in allowed if k in os.environ},'HOME':str(home),'LANG':'C.UTF-8','PYTHONHASHSEED':'0','PYTHONDONTWRITEBYTECODE':'1','GIT_TERMINAL_PROMPT':'0','GIT_CONFIG_NOSYSTEM':'1'}
 def domain_factory():
     spec=importlib.util.spec_from_file_location('cn_simulation_domain',ROOT/'scripts/cn_release_simulation_domain.py')
     module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
     return module.Domain()
-def docker_owner_factory(output):
+def docker_owner_factory(output,registry="api-container-owner"):
     spec=importlib.util.spec_from_file_location('fixture_docker_cleanup',ROOT/'scripts/cn-release-fixture-docker-cleanup.py')
     module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
-    return module.Owner(output,os.environ.get('GITHUB_RUN_ID'),output.name)
+    root=Path(os.environ['CN_API_OWNER_ROOT']);module.trusted_directory(root)
+    if root.name!='api-owners':raise ValueError('API_OWNER_ROOT_REJECTED')
+    folder=root/output.name
+    folder.mkdir(mode=0o700,exist_ok=True);module.trusted_directory(folder)
+    return module.Owner(folder,os.environ.get('GITHUB_RUN_ID'),output.name,registry)
 def execute(name,command,output,env,seconds,limit=LOG_LIMIT):
     start=time.monotonic();log=output/(name+'.log');result=output/(name+'.tests.json');reason=None;size=0;p=None;domain=None;cleanup=None;docker_owner=None;docker_cleanup=None
     try:
         with log.open('xb')as stream:
-            if name=='linux-api-startup':
-                docker_owner=docker_owner_factory(output);env={**env,**docker_owner.environment}
+            if name in ('linux-api-startup','linux-application-recovery'):
+                docker_owner=docker_owner_factory(output)if name=='linux-api-startup'else docker_owner_factory(output,'application-recovery-owner');env={**env,**docker_owner.environment}
             domain=domain_factory()
             p=domain.spawn(command,cwd=ROOT,env=env,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,start_new_session=True)
             selector=selectors.DefaultSelector();selector.register(p.stdout,selectors.EVENT_READ)
@@ -98,6 +110,7 @@ def execute(name,command,output,env,seconds,limit=LOG_LIMIT):
     finally:
         if docker_owner is not None:
             try:
+                if not isinstance(cleanup,dict)or cleanup.get('verified')is not True or cleanup.get('populated')!=0:raise RuntimeError('PROCESS_DOMAIN_UNPROVEN')
                 docker_cleanup=docker_owner.close()
                 if docker_cleanup.get('verified')is not True:reason='docker-cleanup-unproven'
             except Exception as error:reason='docker-cleanup-'+type(error).__name__
@@ -198,11 +211,15 @@ def render_reports(output):
     with (output/'report.txt').open('x')as f:
         f.write('Isolated release regression: '+value['status']+'\nCommit: '+value['commit']+'\nCompleted rounds: '+str(value['completedRounds'])+'/'+str(value['requestedRounds'])+'\nCase counts: '+json.dumps(value['caseCounts'],sort_keys=True)+'\nMatrix coverage by round: '+json.dumps([{'roundId':c['roundId'],'cases':[c['caseNumerator'],c['caseDenominator']],'requirements':[c['requirementNumerator'],c['requirementDenominator']]}for c in value['matrixCoverage']],sort_keys=True)+'\nProduction accepted: false\nFull acceptance gates: '+json.dumps(value['acceptanceGates'],sort_keys=True)+'\nDuration sample summary (fixture time only): '+json.dumps(value['durationDistribution'],sort_keys=True)+'\nNull metrics are unmeasured. CSV is derived from summary.json.\n'+'\n'.join(value['integrationGaps'])+'\n')
 
-EXPORT_TOP_FILES=('summary.json','metrics.csv','cases.csv','report.txt','fullstack-setup.json','fullstack-install.log','fullstack-outer-cleanup.json')
+EXPORT_TOP_FILES=('summary.json','metrics.csv','cases.csv','report.txt','fullstack-setup.json','fullstack-install.log','fullstack-outer-cleanup.json','simulation-outer-cleanup.json','six-recovery.json')
 EXPORT_SUITE_SUFFIXES=('.log','.tests.json','.tests.inventory.json','.tests.cases.json')
-EXPORT_REGISTRY_FILES=('owner.json','api-create-intent.json','api-create-receipt.json','cleanup.json')
+EXPORT_REGISTRY_FILES=('owner.json','api-create-intent.json','api-create-receipt.json','cleanup.json','recovery-cleanup.json')
+EXPORT_NESTED_FILES={'api-container-owner':EXPORT_REGISTRY_FILES,'six-business':('session-intent.json','port-reservation.json','session-ready.json','playwright-report.json','session-cleanup.json','result.json','application.log'),'six-infra-owner':('owner.json','postgres-create-intent.json','postgres-create-receipt.json','postgres-start-intent.json','redis-create-intent.json','redis-create-receipt.json','redis-start-intent.json','database-create-intent.json','infra-receipt.json','cleanup.json','recovery-cleanup.json')}
+EXPORT_NESTED_FILES['application-recovery-owner']=EXPORT_REGISTRY_FILES
+EXPORT_NESTED_FILES['six-kill-target-owner']=EXPORT_NESTED_FILES['six-infra-owner']
+EXPORT_NESTED_FILES['six-kill-control-owner']=EXPORT_NESTED_FILES['six-infra-owner']
 EXPORT_MAX_ROUNDS=10
-EXPORT_MAX_FILES=len(EXPORT_TOP_FILES)+EXPORT_MAX_ROUNDS*(1+len(SUITES)*len(EXPORT_SUITE_SUFFIXES)+len(EXPORT_REGISTRY_FILES))
+EXPORT_MAX_FILES=len(EXPORT_TOP_FILES)+EXPORT_MAX_ROUNDS*(1+len(SUITES)*len(EXPORT_SUITE_SUFFIXES)+sum(map(len,EXPORT_NESTED_FILES.values())))
 
 def export_reports(parent):
     """Copy only bounded named reports; never expose HOME or chmod source data.
@@ -247,17 +264,18 @@ def export_reports(parent):
                     copy_file(round_fd,out_fd,'round.json')
                     for suite in SUITES:
                         for suffix in EXPORT_SUITE_SUFFIXES:copy_file(round_fd,out_fd,suite+suffix)
-                    try:registry_fd=os.open('api-container-owner',flags,dir_fd=round_fd)
-                    except FileNotFoundError:registry_fd=None
-                    if registry_fd is not None:
-                        try:
-                            os.mkdir('api-container-owner',0o700,dir_fd=out_fd)
-                            registry_out=os.open('api-container-owner',flags,dir_fd=out_fd)
+                    for directory,allowed_files in EXPORT_NESTED_FILES.items():
+                        try:registry_fd=os.open(directory,flags,dir_fd=round_fd)
+                        except FileNotFoundError:registry_fd=None
+                        if registry_fd is not None:
                             try:
-                                os.fchown(registry_out,owner.st_uid,owner.st_gid)
-                                for entry in EXPORT_REGISTRY_FILES:copy_file(registry_fd,registry_out,entry)
-                            finally:os.close(registry_out)
-                        finally:os.close(registry_fd)
+                                os.mkdir(directory,0o700,dir_fd=out_fd)
+                                registry_out=os.open(directory,flags,dir_fd=out_fd)
+                                try:
+                                    os.fchown(registry_out,owner.st_uid,owner.st_gid)
+                                    for entry in allowed_files:copy_file(registry_fd,registry_out,entry)
+                                finally:os.close(registry_out)
+                            finally:os.close(registry_fd)
                 finally:os.close(out_fd)
             finally:os.close(round_fd)
         return {'files':count,'bytes':total,'sourceMissing':False}
@@ -296,9 +314,9 @@ def main():
     for index in range(args.rounds):
         round_start=time.monotonic();round_started=datetime.datetime.now(datetime.timezone.utc).isoformat()
         round_id='%02d'%(index+1);folder=output/('round-'+round_id);folder.mkdir(mode=0o700)
-        seed=args.seed+index;env=environment(folder);env['CN_RELEASE_SIMULATION_SEED']=str(seed)
+        seed=args.seed+index;env=environment(folder);env['CN_RELEASE_SIMULATION_SEED']=str(seed);env['CN_SIX_ROUND_ID']='round-'+round_id
         with concurrent.futures.ThreadPoolExecutor(max_workers=args.workers)as pool:
-            futures=[pool.submit(execute,name,[sys.executable,'-I','-B',str(Path(__file__).resolve()),'--child',name,'--result',str(folder/(name+'.tests.json'))],folder,env,1200 if name=='linux-api-startup'else 60 if name=='linux-boundary-reap'else args.timeout_seconds)for name in names]
+            futures=[pool.submit(scheduled_execute,name,[sys.executable,'-I','-B',str(Path(__file__).resolve()),'--child',name,'--result',str(folder/(name+'.tests.json'))],folder,env,800 if name=='linux-application-recovery'else 1500 if name=='linux-six-business'else 510 if name=='linux-six-cleanup'else 1200 if name=='linux-api-startup'else 60 if name=='linux-boundary-reap'else 180 if name in ('linux-migration-guard','linux-migration-terminal','linux-migration-owner')else args.timeout_seconds)for name in names]
             rows=[future.result()for future in futures]
         head=subprocess.check_output(['git','-c','safe.directory='+str(ROOT),'-C',str(ROOT),'rev-parse','HEAD'],text=True).strip()
         state_after=status_snapshot(subprocess.check_output(['git','-c','safe.directory='+str(ROOT),'-C',str(ROOT),'status','--porcelain','--untracked-files=all'],text=True))

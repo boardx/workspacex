@@ -406,6 +406,55 @@
       },
       "remainingGap": "Fixture-only Electron binary-download omission awaits committed identity, independent review and actual GitHub dependency setup; API01 startup remains independently open.",
       "historicalEvidence": "GitHub38245538777 failed before test execution: electron postinstall HTTP504. Actual installed upstream script offline counterexample reaches downloader without switch and exits0 before download with fixed environment."
+    },
+    {
+      "id": "BIZ-01",
+      "severity": "P1",
+      "author": "/root/automation_workflow_audit",
+      "disposition": "open",
+      "fixCommit": null,
+      "requiredCaseIds": [
+        "linux_six_business_contract",
+        "linux_six_cleanup_contract",
+        "test_cn_release_six_infra.SixInfra.test_lost_create_receipt_can_cleanup_exact_object_but_never_verify",
+        "test_cn_release_six_infra.SixInfra.test_real_command_honors_shared_deadline_before_default_ten_seconds",
+        "test_cn_release_six_session.SixSession.test_partial_prepare_failure_closes_application_before_daemon_owner"
+      ],
+      "requiredReviewedFiles": [
+        "scripts/cn-release-six-infra.py",
+        "scripts/cn-release-six-session.py",
+        "scripts/cn-release-simulation-ci.py",
+        "tests/cn_release_six_cleanup_linux.py",
+        "tests/fixtures/cn-six-business/infra-preflight.ts"
+      ],
+      "review": null,
+      "remainingGap": "T22 real six flows and SIGKILL recovery require same-commit Linux execution and independent exact-byte review; fake daemon tests do not close business acceptance.",
+      "subFindings": [
+        "PGHOST binding before first migration write",
+        "AGE preload retained in explicit PostgreSQL command",
+        "bounded client SQL query timeout",
+        "creator SIGKILL target and control registry coverage",
+        "shared monotonic setup/cleanup deadlines"
+      ],
+      "historicalEvidence": "Pre-integration static review and offline protocol counterexamples; no production execution."
+    },
+    {
+      "id": "SIM-14",
+      "severity": "P1",
+      "author": "/root/automation_workflow_audit",
+      "disposition": "open",
+      "fixCommit": null,
+      "requiredCaseIds": [
+        "test_cn_release_fixture_docker_cleanup.DockerCleanupTests.test_recovery_continues_after_unknown_owner_and_requires_outer_proof",
+        "test_cn_release_simulation_ci.CiBootstrap.test_simulation_recovery_attempts_every_registry_after_domain_empty"
+      ],
+      "requiredReviewedFiles": [
+        "scripts/cn-release-fixture-docker-cleanup.py",
+        "scripts/cn-release-simulation-ci.py",
+        "scripts/cn-release-simulation.py"
+      ],
+      "review": null,
+      "remainingGap": "Whole simulation SIGKILL bypassed inner API owner finally; exact durable API and application owner recovery requires independent review and real Linux evidence."
     }
   ],
   "note": "Historical narrative closure is not final candidate ten-round verification. Missing independent raw review bytes remain unverified."
