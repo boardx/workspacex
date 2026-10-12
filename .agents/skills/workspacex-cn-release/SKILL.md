@@ -121,10 +121,12 @@ duration cannot establish the 30-minute production release goal.
 ### Promotion receipt crash recovery
 
 Persist a private prepared intent before the no-replace inbox rename. An intent
-alone is never success. If the final receipt is absent, recover its exact bytes
+alone is never success. If the final receipt is absent, empty, or an exact byte
+prefix of the independently reconstructed receipt, recover its exact bytes
 read-only only after original ZIPs, inbox, canonical verifier, identity, proof
 and deadline all pass again. The actual fixed router must use the pinned recovery
 interface; fixing only the standalone delegation CLI leaves the main chain
 broken. `tests/test_cn_release_promotion_recovery.py` exercises a real process
-exit after kernel rename, locking, tampering and routing. An existing damaged
-receipt currently fails closed; do not overwrite it or claim that case recovered.
+exit after kernel rename and partial write, locking, tampering and routing.
+Recovery never overwrites an existing receipt. Non-prefix bytes, conflicting
+complete JSON, expiry and evidence drift fail closed.
