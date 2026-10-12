@@ -4,6 +4,7 @@ import { orderedChapterWork } from "./guided-report-chapter-work";
 import type { EvidenceAttemptDiagnostic } from "./guided-report-evidence-validation";
 import { initializeReportTimeline, updateReportTimeline, failActiveReportTimeline } from "./guided-report-timeline";
 import { preservePreviousReport } from "./guided-report-history";
+import { reportIntroductionCapacity, reportSearchLimitation } from "./guided-report-limitations";
 import { recoverableReportProviderError } from "./guided-report-recovery";
 import { reportBasis, reportSourceAliases, aliasResolver } from "./guided-report-checkpoint";
 import { discardInvalidReportCitations } from "./guided-report-citation-discard";
@@ -406,6 +407,8 @@ export async function generateReportChapters(state: ResearchRuntime, model: Mode
     const synthesisInput = { modelProvider: config.provider, modelId: config.id,
       system: `${system} Write report prose in the user's language; do not append translations in another language. Preserve technical proper names. Give the report a descriptive, topic-specific, citation-free title; keep verification status in the prose instead of replacing its name. Synthesize only the quality-passed chapters. Unverified scopes have no supplied factual findings; identify their unresolved coverage without inferring answers from their headings or questions. Synthesize the supplied chapters into exactly {"title":string,"summary":string,"introduction":string,"conclusion":string}. Do not produce sections again. Write three distinct formal report components: summary is a concise executive overview of the central findings; introduction explains the research question, scope, method, source coverage and evidence limitations; conclusion integrates cross-chapter comparisons, competing options and tradeoffs into justified priorities, actionable next steps and remaining uncertainty. Do not mechanically repeat the summary in the introduction or conclusion. Use connected analytical prose, not a checklist of chapter summaries. Preserve uncertainty and missing coverage. Explicitly explain evidenceCoverageWarnings in the introduction and relevant conclusions; invalid extractions were excluded and cannot establish complete source coverage. Use only the exact short aliases from sourceAliases in [[source:S1]] citations. Never copy, reconstruct or guess UUIDs. Cite only sources already used in the supplied chapters. Do not introduce new facts or sources. Chapter bodies may be bounded excerpts; do not infer omitted claims.`,
       user: JSON.stringify({ reportStage: "synthesis", unverifiedScopes: sections.filter((section) => warnedIds.has(section.id)).map((section) => ({ sectionId: section.id, title: section.title, status: "unverified" })), brief: state.brief, chapters: synthesisChapters, sourceAliases: synthesisAliases, reportPartial: Boolean(state.reportPartial), evidenceCoverageWarnings: state.reportEvidenceWarnings ?? [], instruction: effectiveInstruction }) };
+    const introductionCapacity = reportIntroductionCapacity(state);
+    if (reportSearchLimitation(state)) synthesisInput.system += ` The introduction must contain at most ${introductionCapacity} characters, including whitespace; server-added research limitations use the remaining contract space. Preserve substantive scope, methods and evidence limitations within that budget.`;
     let summary: ReturnType<typeof C.GuidedResearchReportSynthesisModelOutput.parse> | undefined;
     if (!trustedChapters.length) {
       summary = C.GuidedResearchReportSynthesisModelOutput.parse({
@@ -418,7 +421,7 @@ export async function generateReportChapters(state: ResearchRuntime, model: Mode
       await persistTimeline();
     }
     let summaryRaw = "";
-    let validationIssues: { field: string; reason: string; sourceId?: string }[] = [];
+    let validationIssues: { field: string; reason: string; sourceId?: string; maxLength?: number }[] = [];
     for (let attempt = 0; trustedChapters.length && attempt < 2; attempt++) {
       if (attempt) { await restoreApproved(); framing = "],"; opened = false; framingInvalid = false; }
       try {
@@ -437,6 +440,10 @@ export async function generateReportChapters(state: ResearchRuntime, model: Mode
             if (/https?:\/\//i.test(result[field])) { validationIssues.push({ field, reason: "url_forbidden" }); throw invalid(); }
           }
           if (!C.GuidedResearchReportSynthesisModelOutput.safeParse(result).success) throw new ResearchRuntimeError("RESEARCH_NODE_STATE_INVALID");
+          if (result.introduction.length > introductionCapacity) {
+            validationIssues.push({ field: "introduction", reason: "reserved_limitation_budget_exceeded", maxLength: introductionCapacity });
+            throw new ResearchRuntimeError("RESEARCH_NODE_STATE_INVALID");
+          }
           if (new Set([result.summary.trim(), result.introduction.trim(), result.conclusion.trim()]).size !== 3) throw new ResearchRuntimeError("RESEARCH_NODE_STATE_INVALID");
           return result;
 

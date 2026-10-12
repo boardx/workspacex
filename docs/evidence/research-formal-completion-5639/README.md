@@ -19,7 +19,7 @@ Current main already contains the question-paragraph generation and supported-an
 Commands run in `/Users/shenyangjun/.codex/worktrees/799b/workspacex`:
 
 ```sh
-pnpm --filter @repo/api exec vitest run --config vitest.research-unit.config.ts tests/research/guided-report-chapters.test.ts tests/research/guided-partial-report-recovery.test.ts tests/research/guided-report-partial-coverage.test.ts tests/research/guided-report-quality.test.ts tests/research/guided-three-step.test.ts
+pnpm --filter @repo/api exec vitest run --config vitest.research-unit.config.ts tests/research/guided-report-chapters.test.ts tests/research/guided-partial-report-recovery.test.ts tests/research/guided-report-partial-coverage.test.ts tests/research/guided-report-quality.test.ts
 pnpm --filter web exec vitest run tests/ui/guided-research-execution-timeline.test.tsx tests/ui/guided-research-report-history.test.tsx tests/ui/guided-research-report-reading.test.tsx
 pnpm --filter @repo/api typecheck
 pnpm --filter web typecheck
@@ -27,7 +27,7 @@ pnpm --filter @repo/api lint
 pnpm --filter web exec next lint --max-warnings 0 --file lib/research-execution-timeline.ts --file tests/ui/guided-research-execution-timeline.test.tsx
 ```
 
-API 268 tests and web 33 tests pass; typechecks and lint pass. The new UI regression first failed with `执行失败` for an already completed formal report carrying coverage limitations. The API regression first failed because the generated report was still null under the old partial-search draft branch.
+The cumulative affected API coverage is 299 tests, with 219 rerun after the review fixes; web 33 tests pass; typechecks and lint pass. The new UI regression first failed with `执行失败` for an already completed formal report carrying coverage limitations. The API regression first failed because the generated report was still null under the old partial-search draft branch.
 
 The existing local endpoint driver and strict readback assertion were reused, with an isolated copy of the new session. No new test framework, production write or online regeneration was used. Credentials were loaded only into child-process environment. Raw source text, prompts and responses remain private temporary files.
 
@@ -41,3 +41,17 @@ First generation used 29 actual model requests. Regeneration used 27 exact-reque
 Private local evidence: `/tmp/research-5639-local-safe-result.json`, `/tmp/research-5639-final-assert-safe.json`; raw/private artifacts are not committed. This is the actual production controller/service/provider on a loopback HTTP endpoint with isolated file/memory persistence. It does not attest PostgreSQL transactions, production auth, production deployment or two independent live-model runs. UI refresh here means serialized saved-state readback plus component rerender, not a successful production-browser regeneration. Online state remains unchanged pending deployment and separate browser verification.
 
 CI shard 4 initially found four obsolete expectations in `guided-three-step.test.ts` that required terminal failed searches to force an otherwise quality-passed report into a draft until manual retry. Those expectations now assert automatic Chinese/English formal delivery, complete stored readback, retained failed-task facts and exact history across retry. All 42 tests in that file pass, including the unchanged invalid-evidence, paused-work and unresolved-quality negative controls. Production code is unchanged in this follow-up.
+
+## Review corrections
+
+Two valid inline P2 findings were addressed in the same PR. Publication readiness now recognizes a formal report only with completed validation, completed workflow, no active work/draft/quality/error state, and no pause. Data gaps keep their actual missing/weak coverage and unchanged numeric evidence scores, becoming research limitations rather than a draft blocker for an already validated formal report. Genuine quality drafts, failed/unfinished execution and severe unresolved conflicts remain limited. Trust projection is computed after final validation status is set and is reset on failed final persistence.
+
+A shared report-limitation function determines both the final introduction prefix and the synthesis character capacity from the canonical contract maximum. Partial synthesis receives the reserved budget; an oversized introduction is corrected by the existing single synthesis revision. The service retains its final schema guard. No server truncation, additional retry loop, schema-limit expansion or new real-model run was introduced.
+
+Four red assertions reproduced the incorrect formal/draft readiness and the previously valid maximum-length introduction failing after prefix addition. Final review verification:
+
+```sh
+pnpm --filter @repo/api exec vitest run --config vitest.research-unit.config.ts tests/research/guided-research-trust.test.ts tests/research/guided-report-chapters.test.ts tests/research/guided-three-step.test.ts
+```
+
+219 tests pass, including maximum-length preservation, missing/running validation, busy/draft/quality/error/paused/incomplete publication guards, and a severe-conflict guard. API typecheck passes. The existing original-input offline assertion still passes with no model/network calls; it additionally verifies formal publication readiness and byte-equal evidence scores, preserving both report hashes and all 32 question prose entries.

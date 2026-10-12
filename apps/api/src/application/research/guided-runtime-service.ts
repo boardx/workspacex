@@ -28,6 +28,7 @@ import { extractJson } from "./guided-structured-json";
 import { parseGeneratedOutlineJson } from "./guided-outline-json";
 import { ResearchRuntimeError, type GuidedInternalSourceAccessPort, type GuidedRuntimeStore, type GuidedSearchPort, type ResearchRuntime, type RuntimeActor, type RuntimeCommand, type RuntimeDraft } from "./guided-runtime-ports";
 import { projectResearchTrust } from "./guided-research-trust";
+import { reportSearchLimitation } from "./guided-report-limitations";
 const nodes = C.ResearchNode.options;
 type Node = z.infer<typeof C.ResearchNode>;
 const shapes: Record<Node, string> = {
@@ -222,7 +223,6 @@ export class GuidedRuntimeService {
     try {
       await this.perform(state, command, persist, internalSources);
       state.progress = null;
-      Object.assign(state, projectResearchTrust(state));
     } catch (error) {
       recordResearchFailure(this.debugTrace, diagnostic, actor, command, error, state.progress?.stage);
       if (error instanceof ResearchRuntimeError && error.reasonCode === "RESEARCH_WORKFLOW_PAUSED") {
@@ -238,6 +238,7 @@ export class GuidedRuntimeService {
     const validation = state.reportTimeline?.find((item) => item.stage === "validation");
     const committingReport = validation?.status === "running" && Boolean(state.report || state.reportDraft) && !state.errorCode;
     if (committingReport) updateReportTimeline(state, "validation", state.reportDraft ? "warning" : "completed", state.reportDraft ? { reasonCode: "RESEARCH_REPORT_QUALITY_INSUFFICIENT" } : {});
+    Object.assign(state, projectResearchTrust(state));
     diagnostic.phase = "final_persistence";
     try { await this.store.write(actor, command.requestId, state, true); }
     catch (error) {
@@ -245,6 +246,7 @@ export class GuidedRuntimeService {
         updateReportTimeline(state, "validation", "failed", { reasonCode: "RESEARCH_WORKFLOW_UNAVAILABLE" });
         state.report = null; state.reportDraft = null; state.completed = false;
         state.generatedNodes = state.generatedNodes.filter((node) => node !== "report");
+        Object.assign(state, projectResearchTrust(state));
       }
       throw error;
     }
@@ -331,11 +333,7 @@ export class GuidedRuntimeService {
     if (!draft.success) throw new ResearchRuntimeError("RESEARCH_NODE_STATE_INVALID");
     validateGeneratedResearchDesign(node, draft.data.value);
     if (node === "report" && draft.data.node === "report" && state.reportPartial) {
-      const failed = state.tasks.filter(task => task.status === "failed").length;
-      const limitation = C.guidedResearchReportFraming(state.brief).language === "Chinese"
-        ? `检索范围与局限：${state.tasks.length} 个检索任务中有 ${failed} 个未取得可用结果。本报告基于已核验的保留资料生成，相关问题的数据局限与后续核验要求在正文中说明。\n\n`
-        : `Search limitation: ${failed} of ${state.tasks.length} search tasks returned no usable results. This report uses retained verified materials; specific evidence limitations and verification needs are stated in the report.\n\n`;
-      draft.data.value.introduction = limitation + (draft.data.value.introduction ?? "");
+      draft.data.value.introduction = reportSearchLimitation(state) + (draft.data.value.introduction ?? "");
       if (!C.GuidedResearchReport.shape.introduction.safeParse(draft.data.value.introduction).success) throw new ResearchRuntimeError("RESEARCH_REPORT_QUALITY_INSUFFICIENT");
     }
     if (node === "report" && draft.data.node === "report" && state.reportQualityWarnings?.length) {

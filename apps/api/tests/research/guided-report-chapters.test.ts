@@ -26,6 +26,30 @@ function fixture() {
   return { state, writes, events, persist };
 }
 const config = { provider: "test", id: "model" };
+it("reserves server limitation space in synthesis without truncating model-authored introduction", async () => {
+  const f = fixture(); f.state.executionGoal = "report"; f.state.reportPartial = true;
+  f.state.tasks.push({ id: "missing", sectionId: "b", query: "Missing measurement", status: "failed", attempts: 1, errorCode: "RESEARCH_SEARCH_EMPTY" });
+  let syntheses = 0; let reservedLength = 0;
+  const model: ModelCallPort = { complete: async input => {
+    const context = JSON.parse(input.user); const value: any = answer(context);
+    if (context.reportStage?.startsWith("synthesis")) {
+      syntheses++;
+      reservedLength = context.validationIssues?.find((issue: any) => issue.field === "introduction")?.maxLength ?? 0;
+      value.introduction = syntheses === 1 ? "x".repeat(C.GuidedResearchReportSynthesisModelOutput.shape.introduction.maxLength!) : "y".repeat(reservedLength);
+    }
+    return { text: JSON.stringify(value) };
+  } };
+  const store: GuidedRuntimeStore = { read: async () => f.state, claim: async () => ({ state: f.state, replay: false }), write: async (_actor, _request, state) => { f.writes.push(structuredClone(state)); } };
+  const service = new GuidedRuntimeService(store, model, { search: async () => [] }, config);
+  const result = await service.execute({ sessionId: "s", userId: "u", orgId: "org" } as RuntimeActor,
+    { sessionId: "s", brief: f.state.brief, directions: { versions: [] }, outline: { versions: [] }, sourceCount: 0, status: "draft", resumeStage: "brief" } as any,
+    { sessionId: "s", requestId: "intro-limit", node: "report", action: "generate", expectedVersion: 4 });
+  expect(result.errorCode).toBeNull(); expect(result.report).not.toBeNull(); expect(syntheses).toBe(2);
+  expect(result.report!.introduction).toHaveLength(C.GuidedResearchReportSynthesisModelOutput.shape.introduction.maxLength!);
+  expect(result.report!.introduction).toContain("Search limitation:");
+  expect(result.report!.introduction!.endsWith("y".repeat(reservedLength))).toBe(true);
+  expect(reservedLength).toBeGreaterThan(0);
+});
 it("publishes quality-passed source-limited reports automatically on first generation and regeneration", async () => {
   const f = fixture();
   f.state.executionGoal = "report"; f.state.reportPartial = true;
