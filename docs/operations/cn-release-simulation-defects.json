@@ -16,7 +16,7 @@
       ],
       "review": {
         "file": "docs/operations/cn-release-independent-review-root.json",
-        "sha256": "1bb6935061ec6ad09b4b81b05ee5b736b65f51c1b76fb7789fdcd0e9e7f0256e"
+        "sha256": "daf90efb21d3281f957795a598c2b8e722eff367f962d0652b91f9cff96df42a"
       },
       "remainingGap": null,
       "historicalEvidence": "docs/operations/cn-release-simulation-matrix.md"
@@ -38,7 +38,7 @@
       ],
       "review": {
         "file": "docs/operations/cn-release-independent-review-root.json",
-        "sha256": "1bb6935061ec6ad09b4b81b05ee5b736b65f51c1b76fb7789fdcd0e9e7f0256e"
+        "sha256": "daf90efb21d3281f957795a598c2b8e722eff367f962d0652b91f9cff96df42a"
       },
       "remainingGap": null,
       "historicalEvidence": "docs/operations/cn-release-simulation-matrix.md"
@@ -58,7 +58,7 @@
       ],
       "review": {
         "file": "docs/operations/cn-release-independent-review-root.json",
-        "sha256": "1bb6935061ec6ad09b4b81b05ee5b736b65f51c1b76fb7789fdcd0e9e7f0256e"
+        "sha256": "daf90efb21d3281f957795a598c2b8e722eff367f962d0652b91f9cff96df42a"
       },
       "remainingGap": null,
       "historicalEvidence": "docs/operations/cn-release-simulation-matrix.md"
@@ -158,7 +158,7 @@
       ],
       "review": {
         "file": "docs/operations/cn-release-independent-review-root.json",
-        "sha256": "1bb6935061ec6ad09b4b81b05ee5b736b65f51c1b76fb7789fdcd0e9e7f0256e"
+        "sha256": "daf90efb21d3281f957795a598c2b8e722eff367f962d0652b91f9cff96df42a"
       },
       "remainingGap": null,
       "historicalEvidence": "docs/operations/cn-release-simulation-matrix.md"
@@ -258,8 +258,8 @@
         ".github/workflows/cn-release-simulation.yml"
       ],
       "review": {
-        "file": "docs/operations/cn-release-independent-review-code-review-v7.json",
-        "sha256": "a139d68c6793ace55520bd1660dcf84bb54de428f1bbbc1f0a4e81f029847551"
+        "file": "docs/operations/cn-release-independent-review-code-review-v10.json",
+        "sha256": "3eab50c65170dcf83f09f951751ae92e24ebd96a9613d827bd9983e9b7eefedb"
       },
       "remainingGap": null,
       "historicalEvidence": "Independent code review before checkpoint; no production operation."
@@ -269,7 +269,7 @@
       "severity": "P1",
       "author": "/root/build_reuse_audit",
       "disposition": "open",
-      "fixCommit": "0e1f7005383e1185ba87458db9e3366c1a64532f",
+      "fixCommit": "b250b3fc8ec7bccd3e2dbffd9fbdee0f53d9889f",
       "requiredCaseIds": [],
       "requiredReviewedFiles": [
         "packages/cloud-deploy/src/cn-maintenance-host/a_route_factory.ts",
@@ -280,7 +280,7 @@
         "file": "docs/operations/cn-release-independent-review-code-review-v5.json",
         "sha256": "5ee670b1620542bb1b683413375dbde4066825d75a1c5c9967b2aa286b3f22a4"
       },
-      "remainingGap": "Code fix independently passed 48 local TS cases; no fixed GitHub aggregate case binding for all ten rounds yet.",
+      "remainingGap": "Reviewed canonical owner/terminal code, 51 guard and 68 terminal Node plus19 Python fixture tests integrated; actual Linux aggregate and complete source-bound release validation pending.",
       "historicalEvidence": "Independent code review before checkpoint; no production operation."
     },
     {
@@ -318,8 +318,8 @@
         "tests/test_cn_release_simulation.py"
       ],
       "review": {
-        "file": "docs/operations/cn-release-independent-review-code-review-v6.json",
-        "sha256": "2bde42fa971f58435ea3875d446f506e0075f8db2e73920542a42aaf31912fd9"
+        "file": "docs/operations/cn-release-independent-review-code-review-v10.json",
+        "sha256": "3eab50c65170dcf83f09f951751ae92e24ebd96a9613d827bd9983e9b7eefedb"
       },
       "remainingGap": null,
       "historicalEvidence": "Real local ten-round 16-suite file export reproduced EXPORT_TOTAL_LIMIT at legacy 500-file cap; derived finite allowlist capacity is697."
@@ -341,8 +341,8 @@
         "scripts/cn-release-simulation.py"
       ],
       "review": {
-        "file": "docs/operations/cn-release-independent-review-code-review-v6.json",
-        "sha256": "2bde42fa971f58435ea3875d446f506e0075f8db2e73920542a42aaf31912fd9"
+        "file": "docs/operations/cn-release-independent-review-code-review-v10.json",
+        "sha256": "3eab50c65170dcf83f09f951751ae92e24ebd96a9613d827bd9983e9b7eefedb"
       },
       "remainingGap": null,
       "historicalEvidence": "GitHub38243707763 and local reproduction: linux_readiness_contract caused split-dot ValueError; actual child registration is now checked against fixed source mappings, with explicit synthetic main only."
@@ -352,7 +352,7 @@
       "severity": "P1",
       "author": "/root/browser_linux_integration",
       "disposition": "fixed-awaiting-replay",
-      "fixCommit": "a434402d8c1b6b6cc41e2bd0da5cfb81302e1b38",
+      "fixCommit": "5feaa6ac7c4537f24e964a489a14110ceb568cef",
       "requiredCaseIds": [
         "test_cn_release_boundary_faults.BoundaryFaults.test_10_backup_timeout",
         "linux_boundary_reap_contract"
@@ -363,8 +363,8 @@
         "scripts/cn-release-simulation.py"
       ],
       "review": {
-        "file": "docs/operations/cn-release-independent-review-code-review-v6.json",
-        "sha256": "2bde42fa971f58435ea3875d446f506e0075f8db2e73920542a42aaf31912fd9"
+        "file": "docs/operations/cn-release-independent-review-code-review-v10.json",
+        "sha256": "3eab50c65170dcf83f09f951751ae92e24ebd96a9613d827bd9983e9b7eefedb"
       },
       "remainingGap": null,
       "historicalEvidence": "GitHub38243707763 reported processGroupStillPresent. Historical process state absent, zombie mechanism remains to be tested, not proven as CI root cause."
@@ -373,8 +373,8 @@
       "id": "API-01",
       "severity": "P1",
       "author": "/root/automation_evidence_audit",
-      "disposition": "open",
-      "fixCommit": null,
+      "disposition": "fixed-awaiting-replay",
+      "fixCommit": "2638673a93937b3c58db49b2956728e22acb3be4",
       "requiredCaseIds": [
         "linux_api_startup_contract"
       ],
@@ -382,9 +382,12 @@
         "tests/cn_release_api_startup_linux.py",
         "tests/fixtures/cn-api-startup/startup.ts"
       ],
-      "review": null,
-      "remainingGap": "Actual isolated API startup failure root cause remains open; diagnostic improvements do not repair business startup.",
-      "historicalEvidence": "GitHub38243707763 API startup failed; limited safe diagnostics preserved, actual cause requires subsequent Linux evidence."
+      "review": {
+        "file": "docs/operations/cn-release-independent-review-code-review-v10.json",
+        "sha256": "3eab50c65170dcf83f09f951751ae92e24ebd96a9613d827bd9983e9b7eefedb"
+      },
+      "remainingGap": null,
+      "historicalEvidence": "GitHub38243707763 API startup failed; limited safe diagnostics preserved, actual cause requires subsequent Linux evidence. Mandatory synthetic MODEL_CREDENTIAL_KEY was missing; actual control-checkout normal/cleanup-denied/seed-denied startup verified in 38247007815. Historical unique failure cause remains unproven; extended T20 scenarios not yet run."
     },
     {
       "id": "SIM-13",
@@ -412,7 +415,7 @@
       "severity": "P1",
       "author": "/root/automation_workflow_audit",
       "disposition": "open",
-      "fixCommit": null,
+      "fixCommit": "5feaa6ac7c4537f24e964a489a14110ceb568cef",
       "requiredCaseIds": [
         "linux_six_business_contract",
         "linux_six_cleanup_contract",
@@ -443,7 +446,7 @@
       "severity": "P1",
       "author": "/root/automation_workflow_audit",
       "disposition": "open",
-      "fixCommit": null,
+      "fixCommit": "5feaa6ac7c4537f24e964a489a14110ceb568cef",
       "requiredCaseIds": [
         "test_cn_release_fixture_docker_cleanup.DockerCleanupTests.test_recovery_continues_after_unknown_owner_and_requires_outer_proof",
         "test_cn_release_simulation_ci.CiBootstrap.test_simulation_recovery_attempts_every_registry_after_domain_empty"
@@ -453,8 +456,11 @@
         "scripts/cn-release-simulation-ci.py",
         "scripts/cn-release-simulation.py"
       ],
-      "review": null,
-      "remainingGap": "Whole simulation SIGKILL bypassed inner API owner finally; exact durable API and application owner recovery requires independent review and real Linux evidence."
+      "review": {
+        "file": "docs/operations/cn-release-independent-review-code-review-v10.json",
+        "sha256": "3eab50c65170dcf83f09f951751ae92e24ebd96a9613d827bd9983e9b7eefedb"
+      },
+      "remainingGap": "Code and bounded protocol independently reviewed; whole-simulation SIGKILL with real Docker still needs Linux counterexample. Remains open."
     }
   ],
   "note": "Historical narrative closure is not final candidate ten-round verification. Missing independent raw review bytes remain unverified."
