@@ -16,7 +16,7 @@ mkdirSync(evidence, { recursive: true });
 try {
   for (const [language, route] of [['en', '/aidt/'], ['zh-Hans', '/zh/aidt/']]) {
     for (const width of [320, 390, 760, 1440]) {
-      const context = await browser.newContext({ javaScriptEnabled: false, viewport: { width, height: 900 } });
+      const context = await browser.newContext({ javaScriptEnabled: false, viewport: { width, height: 900 }, reducedMotion: 'reduce' });
       const page = await context.newPage();
       const missing = [];
       page.on('response', r => { if (r.status() >= 400) missing.push(r.url()); });
@@ -41,6 +41,16 @@ try {
       }));
       assert.equal(layout.overflow, false, `${route} at ${width}: page overflow`);
       assert.deepEqual(layout.hidden, [], `${route} at ${width}: clipped content`);
+      await page.locator('.aidt-hero a[href="#education"]').click();
+      await page.waitForTimeout(800);
+      assert.ok(await page.locator('#education-title').isVisible());
+      const partners = page.locator('.aidt-partners');
+      await partners.evaluate(element => element.scrollIntoView({ behavior: 'instant' }));
+      await page.waitForFunction(() => [...document.querySelectorAll('.aidt-partner img')]
+        .every(img => img.complete && img.naturalWidth > 0), { }, { polling: 100, timeout: 10000 });
+      assert.equal(await partners.locator('img').count(), 2);
+      assert.equal(await page.locator('#education a[href^="mailto:hello@boardx.us?subject=AIDT%20"]').count(), 2);
+      await page.screenshot({ path: join(evidence, `partners-${language}-${width}.png`) });
       await page.locator('.aidt-hero a[href="#workshop"]').click();
       await page.waitForTimeout(800);
       assert.ok(await page.locator('#workshop-title').isVisible());
@@ -73,7 +83,7 @@ try {
     assert.ok(position.heading - position.nav < 120, `${route}: excessive anchor gap`);
     await context.close();
   }
-  console.log('✓ aidt: EN/ZH, 4 widths, no-JS navigation, workshop CTA, accessibility and homepage fragments');
+  console.log('✓ aidt: EN/ZH, 4 widths, no-JS navigation, higher education and workshop CTAs, partner logos, accessibility and homepage fragments');
 } finally {
   await browser.close();
   close();
