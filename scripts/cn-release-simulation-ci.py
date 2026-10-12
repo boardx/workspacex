@@ -156,7 +156,7 @@ def execute(sha,rounds,seed):
                         with (destination/name).open('xb')as sink,origin.open('rb')as src:shutil.copyfileobj(src,sink,65536)
             for index in range(1,11):
                 rid='round-%02d'%index
-                for registry in ('api-container-owner','application-recovery-owner'):
+                for registry in ('api-container-owner','application-recovery-owner','application-recovery-complete-owner'):
                     for name in ('owner.json','api-create-intent.json','api-create-receipt.json','cleanup.json','recovery-cleanup.json'):
                         origin=owned/'api-owners'/rid/registry/name
                         if not origin.exists():continue

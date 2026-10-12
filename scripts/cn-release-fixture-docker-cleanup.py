@@ -103,7 +103,7 @@ class Owner:
         return value
 
 
-REGISTRY_NAMES=('api-container-owner','application-recovery-owner')
+REGISTRY_NAMES=('api-container-owner','application-recovery-owner','application-recovery-complete-owner')
 def trusted_directory(directory):
     if directory.resolve(strict=True)!=directory:raise ValueError('DOCKER_RECOVERY_CANONICAL_REQUIRED')
     for parent in (directory,*directory.parents):

@@ -12,6 +12,15 @@ spec=importlib.util.spec_from_file_location('simulation_ci',ROOT/'scripts/cn-rel
 m=importlib.util.module_from_spec(spec);spec.loader.exec_module(m)
 
 class CiBootstrap(unittest.TestCase):
+ def test_full_control_owner_receipts_have_explicit_export_whitelist(self):
+  import ast
+  tree=ast.parse((ROOT/'scripts/cn-release-simulation-ci.py').read_text())
+  loops=[n for n in ast.walk(tree)if isinstance(n,ast.For)and isinstance(n.target,ast.Name)and n.target.id=='registry'and isinstance(n.iter,ast.Tuple)]
+  matched=[n for n in loops if 'application-recovery-complete-owner'in [v.value for v in n.iter.elts if isinstance(v,ast.Constant)]]
+  self.assertEqual(len(matched),1)
+  self.assertEqual([v.value for v in matched[0].iter.elts],['api-container-owner','application-recovery-owner','application-recovery-complete-owner'])
+  body=ast.unparse(matched[0]);self.assertIn('16384',body);self.assertIn('is_symlink',body)
+  for name in ('owner.json','api-create-intent.json','api-create-receipt.json','cleanup.json','recovery-cleanup.json'):self.assertIn(name,body)
  def test_exact_sha_rejects_refs_and_shell_before_any_directory(self):
   with patch.object(m.tempfile,'mkdtemp')as create:
    for value in ('main','HEAD','a'*39,'A'*40,'a'*40+';touch /tmp/no'):

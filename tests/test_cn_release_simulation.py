@@ -15,6 +15,27 @@ class FixtureDomain:
    process.wait()
   return {'verified':True,'fixtureOnly':True}
 class SimulationTests(unittest.TestCase):
+ def test_full_control_recovery_is_independent_linux_heavy_suite(self):
+  name='linux-application-recovery-complete'
+  self.assertEqual(m.SUITES[name],['cn_release_application_recovery_complete_linux.py'])
+  self.assertIn(name,m.HEAVY_SUITES)
+  self.assertEqual(m.DOCKER_SUITE_REGISTRIES[name],'application-recovery-complete-owner')
+  self.assertEqual(len(set(m.DOCKER_SUITE_REGISTRIES.values())),3)
+  self.assertEqual(m.EXPORT_NESTED_FILES['application-recovery-complete-owner'],m.EXPORT_REGISTRY_FILES)
+  with tempfile.TemporaryDirectory()as td,patch.object(m.platform,'system',return_value='Darwin'):
+   with self.assertRaisesRegex(RuntimeError,'LINUX_REQUIRED'):m.child(name,Path(td)/'result.json')
+ def test_new_linux_suites_have_distinct_real_child_interfaces_and_budgets(self):
+  self.assertEqual(len(m.SUITES),28)
+  self.assertEqual(m.SUITES['linux-fsync'],['cn_release_fsync_linux.py'])
+  self.assertEqual(m.SUITES['linux-fsync-entry'],['cn_release_fsync_entry_linux.py'])
+  import contextlib,io
+  for name,seconds in [('linux-fsync-entry',90),('linux-application-recovery-complete',800)]:
+   seen=[]
+   def execute(suite,command,output,env,budget):
+    seen.append((suite,budget));return dict(suite=suite,status='passed',exitCode=0,statistics=self.stats())
+   with tempfile.TemporaryDirectory()as td,patch.object(m,'execute',execute),patch.object(m.subprocess,'check_output',side_effect=lambda cmd,**kw:'a'*40+'\n'if 'rev-parse'in cmd else ''),patch.object(sys,'argv',['simulation','--output',str(Path(td)/'out'),'--suite',name]):
+    with contextlib.redirect_stdout(io.StringIO()):m.main()
+   self.assertEqual(seen,[(name,seconds)])
  def run_case(self,body,seconds=2,limit=4096):
   with tempfile.TemporaryDirectory()as d:
    output=Path(d);env=m.environment(output)

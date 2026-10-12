@@ -123,7 +123,7 @@ raise SystemExit(m.main())
   fixed={name.replace('-','_')+'_contract':(name,'cn_release_'+file+'_linux.py')for name,file in (
    ('linux-domain','simulation_domain'),('linux-postgres','postgres'),('linux-postgres-lifecycle','postgres_lifecycle'),
    ('linux-storage','storage'),('linux-api-startup','api_startup'),('linux-docker-cleanup','docker_cleanup'),
-   ('linux-api-outer-recovery','api_outer_recovery'),('linux-postclear-recovery','postclear_recovery'),('linux-application-recovery','application_recovery'),('linux-six-business','six_business'),('linux-six-cleanup','six_cleanup'),('linux-migration-guard','migration_guard'),('linux-migration-terminal','migration_terminal'),('linux-migration-owner','migration_owner'),('linux-fsync','fsync'),('linux-readiness','readiness'),('linux-boundary-reap','boundary_reap'),('linux-entry','cgroup'),('linux-browser','browser'))}
+   ('linux-api-outer-recovery','api_outer_recovery'),('linux-postclear-recovery','postclear_recovery'),('linux-application-recovery','application_recovery'),('linux-application-recovery-complete','application_recovery_complete'),('linux-six-business','six_business'),('linux-six-cleanup','six_cleanup'),('linux-migration-guard','migration_guard'),('linux-migration-terminal','migration_terminal'),('linux-migration-owner','migration_owner'),('linux-fsync','fsync'),('linux-fsync-entry','fsync_entry'),('linux-readiness','readiness'),('linux-boundary-reap','boundary_reap'),('linux-entry','cgroup'),('linux-browser','browser'))}
   self.assertIn(identifier,fixed,'Unregistered standalone aggregate')
   suite,filename=fixed[identifier]
   source=ROOT/'tests'/filename;tree=ast.parse(source.read_text())
@@ -138,6 +138,13 @@ raise SystemExit(m.main())
    result=Path(td)/'aggregate.tests.json';self.assertEqual(runner.child(suite,result),0)
    load.assert_called_once_with('cn_simulation_standalone_integration',source)
    rows=json.loads(result.with_suffix('.cases.json').read_text());self.assertEqual([(r['caseId'],r['status'])for r in rows],[(identifier,'pass')])
+ def test_new_aggregates_register_actual_child_but_reject_wrong_sources(self):
+  # Synthetic main only: proves child registration, not Linux PG/FUSE execution.
+  for identifier,suite in [('linux_application_recovery_complete_contract','linux-application-recovery-complete'),('linux_fsync_entry_contract','linux-fsync-entry')]:
+   with self.subTest(identifier=identifier):
+    self.assert_standalone_binding(identifier)
+    with self.assertRaises(AssertionError):
+     self.assert_standalone_binding(identifier,lambda runner:runner.SUITES.__setitem__(suite,['cn_release_postgres_linux.py']))
  def test_standalone_binding_rejects_unregistered_identifier(self):
   for identifier in ('unknown_contract','linux_readiness','linux_readiness_contract.extra'):
    with self.assertRaises(AssertionError):self.assert_standalone_binding(identifier)

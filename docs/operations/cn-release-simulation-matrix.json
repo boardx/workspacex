@@ -49,11 +49,12 @@
       "requiredCaseIds": [
         "test_cn_image_postbuild.PostBuildBoundaryTests.test_expansion_budget_and_tar_padding_budget_reject",
         "test_cn_candidate_oss.Tests.test_disk_metadata_binding",
-        "linux_storage_contract"
+        "linux_storage_contract",
+        "linux_fsync_entry_contract"
       ],
       "implementation": "partial",
       "notImplemented": [
-        "Real fsync failure and storage recovery across the full release remain untested; private tmpfs concurrent ENOSPC is a local entry primitive contract."
+        "Synthetic single consume stage; not full release recovery or physical power loss. Actual Linux execution remains pending; one aggregate counts only when observed passing in this round."
       ],
       "scope": "Isolated production-code contract only; provider/live application calls remain fixtures."
     },
@@ -239,11 +240,12 @@
       "title": "Restore failure and old/new database compatibility",
       "severity": "P1",
       "requiredCaseIds": [
-        "linux_postgres_lifecycle_contract"
+        "linux_postgres_lifecycle_contract",
+        "linux_application_recovery_complete_contract"
       ],
       "implementation": "partial",
       "notImplemented": [
-        "Actual durable core plus real PostgreSQL synthetic old/new SQL lifecycle is wired; complete application/production release scope remains unverified."
+        "Control checkout synthetic fixture only; not exact f0eb 415-schema or baseline 5285 image. Real Linux full-schema execution remains pending; one aggregate counts only when observed passing in this round."
       ],
       "scope": "Actual durable core and fresh local PostgreSQL, synthetic SQL/business contracts. External provider operations and full production business acceptance are not exercised."
     },
@@ -253,11 +255,12 @@
       "title": "Partial migration and ledger recovery",
       "severity": "P1",
       "requiredCaseIds": [
-        "linux_postgres_lifecycle_contract"
+        "linux_postgres_lifecycle_contract",
+        "linux_application_recovery_complete_contract"
       ],
       "implementation": "partial",
       "notImplemented": [
-        "Actual durable core plus real PostgreSQL synthetic old/new SQL lifecycle is wired; complete application/production release scope remains unverified."
+        "Control checkout synthetic fixture only; not exact f0eb 415-schema or baseline 5285 image. Real Linux full-schema execution remains pending; one aggregate counts only when observed passing in this round."
       ],
       "scope": "Actual durable core and fresh local PostgreSQL, synthetic SQL/business contracts. External provider operations and full production business acceptance are not exercised."
     },
@@ -403,11 +406,12 @@
       "title": "Additive migration retains rehearsal and readback",
       "severity": "P1",
       "requiredCaseIds": [
-        "test_cn_release_audit.Scenarios.test_additive_changes_retain_backup_rehearsal_readback"
+        "test_cn_release_audit.Scenarios.test_additive_changes_retain_backup_rehearsal_readback",
+        "linux_application_recovery_complete_contract"
       ],
       "implementation": "partial",
       "notImplemented": [
-        "Full-chain restore/migrate/readback is not implemented in the fixed runtime lane."
+        "Control checkout synthetic fixture only; not exact f0eb 415-schema or baseline 5285 image. Real Linux full-schema execution remains pending; one aggregate counts only when observed passing in this round."
       ],
       "scope": "Isolated production-code contract only; provider/live application calls remain fixtures."
     },
@@ -1478,6 +1482,46 @@
       ],
       "platform": "Linux root",
       "coverageLimit": "One aggregate requires actual successful main execution in this round; pending CI does not count as passed."
+    },
+    {
+      "caseId": "linux_application_recovery_complete_contract",
+      "source": "tests/cn_release_application_recovery_complete_linux.py",
+      "suite": "linux-application-recovery-complete",
+      "caseKind": "standalone-aggregate-contract",
+      "severity": "P1",
+      "requiredBy": [
+        "T18",
+        "T19",
+        "S05"
+      ],
+      "evidenceLayer": "isolated-production-code-fixture",
+      "realBoundaries": [
+        "Original full control-schema migrator, same-epoch dump/restore/catalog and real ARouteFactory/HoldStore with transaction rollback/readback."
+      ],
+      "mockBoundaries": [
+        "Provider, application-image and public business acceptance remain fixtures or untested."
+      ],
+      "platform": "Linux root",
+      "coverageLimit": "Control checkout synthetic fixture only; not exact f0eb 415-schema or baseline 5285 image. Real Linux full-schema execution remains pending; one aggregate counts only when observed passing in this round."
+    },
+    {
+      "caseId": "linux_fsync_entry_contract",
+      "source": "tests/cn_release_fsync_entry_linux.py",
+      "suite": "linux-fsync-entry",
+      "caseKind": "standalone-aggregate-contract",
+      "severity": "P1",
+      "requiredBy": [
+        "T04"
+      ],
+      "evidenceLayer": "isolated-production-code-fixture",
+      "realBoundaries": [
+        "Original entry/flock/owned cgroup with real kernel FUSE terminal fsync EIO, no replay, missing prior-receipt publication rejection and original reconcile."
+      ],
+      "mockBoundaries": [
+        "Provider, application-image and public business acceptance remain fixtures or untested."
+      ],
+      "platform": "Linux root",
+      "coverageLimit": "Synthetic single consume stage; not full release recovery or physical power loss. Actual Linux execution remains pending; one aggregate counts only when observed passing in this round."
     }
   ],
   "coverageContract": {

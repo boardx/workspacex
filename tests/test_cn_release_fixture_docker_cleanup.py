@@ -10,6 +10,39 @@ ROOT=Path(__file__).resolve().parents[1]
 spec=importlib.util.spec_from_file_location('owned_docker',ROOT/'scripts/cn-release-fixture-docker-cleanup.py');m=importlib.util.module_from_spec(spec);spec.loader.exec_module(m)
 
 class DockerCleanupTests(unittest.TestCase):
+ def test_complete_recovery_has_independent_fixed_owner_and_shared_deadline(self):
+  import types,time
+  with tempfile.TemporaryDirectory()as td:
+   root=Path(td);names=('api-container-owner','application-recovery-owner','application-recovery-complete-owner')
+   self.assertEqual(m.REGISTRY_NAMES,names)
+   for name in names:(root/'round-01'/name).mkdir(parents=True)
+   calls=[];end=time.monotonic()+30
+   def restore(path,*args):
+    def close(receipt,deadline):
+     calls.append((path.name,deadline));return {'verified':path.name!='application-recovery-owner'}
+    return types.SimpleNamespace(close=close)
+   with patch.object(m,'restore',side_effect=restore):result=m.recover_all(root,'123',{'verified':True,'populated':0,'removed':True},deadline=end)
+   self.assertFalse(result['verified']);self.assertEqual([x[0]for x in calls],list(names));self.assertTrue(all(x[1]==end for x in calls))
+   self.assertTrue(result['owners']['round-01/application-recovery-complete-owner']['verified'])
+ def test_complete_owner_reaches_child_and_unknown_cleanup_fails_closed(self):
+  import os
+  spec=importlib.util.spec_from_file_location('complete_runner',ROOT/'scripts/cn-release-simulation.py');runner=importlib.util.module_from_spec(spec);spec.loader.exec_module(runner)
+  events=[]
+  class Domain:
+   def spawn(self,command,**kwargs):
+    import subprocess
+    self.p=subprocess.Popen(command,**kwargs);return self.p
+   def close(self,p):p.wait(timeout=2);events.append('domain-empty');return {'verified':True,'populated':0}
+  class Owner:
+   environment={'CN_API_STARTUP_OWNER_TOKEN':'synthetic-complete-only'}
+   def close(self):events.append('owner-close');return {'verified':False,'unacknowledgedCreate':True}
+  with tempfile.TemporaryDirectory()as td:
+   output=Path(td);name='linux-application-recovery-complete';stats=dict(tests=1,failures=0,errors=0,skipped=0,expectedFailures=0,unexpectedSuccesses=0)
+   code='import os;from pathlib import Path;assert os.environ["CN_API_STARTUP_OWNER_TOKEN"]=="synthetic-complete-only";Path('+repr(str(output/(name+'.tests.json')))+').write_text('+repr(json.dumps(stats))+')'
+   with patch.object(runner,'docker_owner_factory',return_value=Owner())as create,patch.object(runner,'domain_factory',return_value=Domain()):
+    result=runner.execute(name,[sys.executable,'-I','-B','-c',code],output,runner.environment(output),2)
+   create.assert_called_once_with(output,'application-recovery-complete-owner')
+   self.assertEqual(events,['domain-empty','owner-close']);self.assertEqual(result['status'],'failed');self.assertEqual(result['reason'],'docker-cleanup-unproven')
  def setUp(self):
   self.tmp=tempfile.TemporaryDirectory();self.addCleanup(self.tmp.cleanup);self.root=Path(self.tmp.name)
   self.owner=m.Owner.__new__(m.Owner);self.owner.directory=self.root;self.owner.identity=(self.root.stat().st_dev,self.root.stat().st_ino);self.owner.token='a'*32;self.owner.docker='/fixture/docker'
