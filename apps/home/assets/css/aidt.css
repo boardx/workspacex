@@ -4,8 +4,10 @@
 .aidt-header__links { display: flex; align-items: center; flex-wrap: wrap; justify-content: flex-end; gap: 1.25rem; font-size: var(--t-small); }
 .aidt-header__links a { color: var(--fg-soft); }
 .aidt-header__links [aria-current] { color: var(--on-grad); }
-.aidt-hero { position: relative; padding-block: clamp(4rem, 9vw, 8rem); overflow: hidden; }
-.aidt-hero::before { content: ""; position: absolute; width: 38rem; height: 38rem; top: -10rem; right: -15rem; background: radial-gradient(circle, rgb(var(--c-2-rgb) / 0.12), transparent 65%); pointer-events: none; }
+.aidt-hero { position: relative; padding-block: clamp(2rem, 4vw, 3rem) clamp(4rem, 9vw, 8rem); overflow: hidden; }
+.aidt-hero-partner { position: relative; display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem 1.5rem; width: fit-content; max-width: 100%; margin-bottom: 2.5rem; color: var(--fg-soft); }
+.aidt-hero-partner__label { font-size: var(--t-small); }
+.aidt-hero-partner .aidt-partner__logo { display: block; width: clamp(14rem, 23vw, 20rem); max-width: 100%; flex-shrink: 0; }
 .aidt-hero__grid { position: relative; display: grid; grid-template-columns: 1.2fr 1fr; align-items: center; gap: 3rem; }
 .aidt-hero h1 { max-width: 13ch; }
 .aidt-hero .lead { max-width: 36rem; }

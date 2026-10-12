@@ -41,7 +41,7 @@ try {
       }));
       assert.equal(layout.overflow, false, `${route} at ${width}: page overflow`);
       assert.deepEqual(layout.hidden, [], `${route} at ${width}: clipped content`);
-      await page.locator('.aidt-hero a[href="#education"]').click();
+      await page.locator('.aidt-hero .aidt-actions a[href="#education"]').click();
       await page.waitForTimeout(800);
       assert.ok(await page.locator('#education-title').isVisible());
       const partners = page.locator('.aidt-partners');
