@@ -4,6 +4,7 @@ import multiprocessing as mp
 import os
 from pathlib import Path
 import tempfile
+from cn_release_private_fixture import private_temporary_directory
 import unittest
 import test_cn_release_conditional_writer_policy as policy_tests
 m = policy_tests.m
@@ -57,7 +58,7 @@ class Fixture:
 
 class StorageTests(unittest.TestCase):
     def setUp(self):
-        self.tmp=tempfile.TemporaryDirectory(); self.addCleanup(self.tmp.cleanup)
+        self.tmp=private_temporary_directory(); self.addCleanup(self.tmp.cleanup)
         self.f=Fixture(self.tmp.name); self.f.prepare()
 
     def test_real_two_process_race_only_one_publishes(self):
@@ -70,7 +71,7 @@ class StorageTests(unittest.TestCase):
 
     def test_crashes_after_claim_and_publication_never_redispatch(self):
         for point in ('claimed','approval-published','pointer-published'):
-            with self.subTest(point=point), tempfile.TemporaryDirectory() as root:
+            with self.subTest(point=point), private_temporary_directory() as root:
                 f=Fixture(root);f.prepare();ctx=mp.get_context('fork');q=ctx.Queue()
                 p=ctx.Process(target=worker,args=(root,point,q));p.start();p.join(10)
                 self.assertEqual(p.exitcode,73)

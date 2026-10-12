@@ -82,6 +82,11 @@ def coordinate(release,approval,router,*,mode='run',executor=e.entry,clock=e.now
         elif current['status']=='NOT_STARTED':
             if mode!='run':return {'status':'NOT_STARTED','stage':stage,'completed':receipts}
             e.need(clock()<e.instant(approval['expiresAt']),'RELEASE_DEADLINE')
+            if stage=='clear-hold':
+                # A durable generated package is not a permanent writer grant.
+                # Recheck policy revocation even when lookup found the package.
+                admission=router.admission(release,stage)
+                if admission is not None:return {'status':admission,'stage':stage,'completed':receipts,'intentCreated':False}
             current=executor('advance',request,attempt)
         e.need(current['status']=='COMPLETED','ENTRY_NOT_COMPLETED')
         # Re-read through the original status path after execution, including

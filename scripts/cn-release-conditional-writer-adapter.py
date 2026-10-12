@@ -122,6 +122,7 @@ def _execute(release_raw, policy_raw, pointer_raw, modules, paths, read, check_c
                        releaseSha256=release,observationSha256=sha(observation),inputHashes=proposal['inputHashes'],
                        writerApprovalSha256=proposal['writerApprovalSha256'],state='claimed-no-redispatch')
             with store.directory(state/'claims') as directory:
+                directory.exclusive('release-'+release+'.json',p.enc(claim))
                 directory.exclusive(proposal['policyId']+'.json',p.enc(claim))
             # The durable claim precedes original materializer filesystem writes.
             result=t.derive_writer_resume_locked(release_raw,proposal['writerApprovalRaw'],values,e,
@@ -163,3 +164,42 @@ def materialize(release, *, enabled=False):
     return _execute(release_raw,policy_raw,pointer_raw,modules,
                     (POLICIES,STATE,WRITERS,GENERATED,INPUTS,PUBLISHED),private,check,
                     clock=lambda:dt.datetime.now(dt.timezone.utc))
+
+
+def _disposition(release, paths, read, *, clock):
+    policies,state,writers=paths
+    try: raw=read(state/'claims'/('release-'+release+'.json'))
+    except FileNotFoundError: return 'UNCLAIMED'
+    claim=decode(raw)
+    need(set(claim)=={'kind','policyId','policySha256','releaseSha256','observationSha256',
+                     'inputHashes','writerApprovalSha256','state'} and
+         claim['kind']=='cn-writer-policy-claim-v1' and claim['releaseSha256']==release and
+         re.fullmatch('[0-9a-f]{32}',claim['policyId']) and
+         re.fullmatch('[0-9a-f]{64}',claim['policySha256']) and
+         re.fullmatch('[0-9a-f]{64}',claim['writerApprovalSha256']) and
+         claim['state']=='claimed-no-redispatch','CONDITIONAL_CLAIM_INVALID')
+    try:
+        need(read(state/'claims'/(claim['policyId']+'.json'))==raw,'CONDITIONAL_CLAIM_CONFLICT')
+        decision=decode(read(state/'decisions'/(claim['policyId']+'.json')))
+        need(decision=={'kind':'cn-writer-policy-decision-v1','claimSha256':sha(raw),
+            'policyId':claim['policyId'],'releaseSha256':release,'writerApprovalSha256':claim['writerApprovalSha256'],
+            'state':'published-terminal-reverified','writerResumed':False},'CONDITIONAL_DECISION_INVALID')
+        need(decode(read(writers/'by-release'/(release+'.json')))=={'approvalSha256':claim['writerApprovalSha256']},'CONDITIONAL_POINTER_CHANGED')
+        need(sha(read(writers/(claim['writerApprovalSha256']+'.json')))==claim['writerApprovalSha256'],'CONDITIONAL_APPROVAL_CHANGED')
+        need(decode(read(policies/'by-release'/(release+'.json')))=={'policySha256':claim['policySha256']},'CONDITIONAL_POLICY_CHANGED')
+        policy_raw=read(policies/(claim['policySha256']+'.json'));need(sha(policy_raw)==claim['policySha256'],'CONDITIONAL_POLICY_CHANGED')
+        policy=decode(policy_raw)
+        need(policy['policyId']==claim['policyId'] and policy['releaseSha256']==release,'CONDITIONAL_POLICY_CHANGED')
+        issued=dt.datetime.fromisoformat(policy['issuedAt'].replace('Z','+00:00'))
+        expires=dt.datetime.fromisoformat(policy['expiresAt'].replace('Z','+00:00'))
+        need(issued<=clock()<expires,'CONDITIONAL_POLICY_EXPIRED')
+    except FileNotFoundError:
+        raise ValueError('CONDITIONAL_CONSUMPTION_UNKNOWN') from None
+    return 'PUBLISHED'
+
+
+def disposition(release, *, enabled=False):
+    need(enabled is True,'POLICY_DISABLED');need(os.geteuid()==0,'ROOT_REQUIRED')
+    need(type(release)is str and re.fullmatch('[0-9a-f]{64}',release),'RELEASE_HASH')
+    return _disposition(release,(POLICIES,STATE,WRITERS),private,
+                        clock=lambda:dt.datetime.now(dt.timezone.utc))

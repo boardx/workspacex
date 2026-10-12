@@ -76,6 +76,7 @@ class Router:
         for name,h in self.a['codeFiles'].items():
             path=Path(name);e.need(not path.is_absolute() and '..' not in path.parts,'CODE_PATH')
             e.need(e.digest(e.read(ROOT/path,1048576))==h,'CODE_CLOSURE_CHANGED')
+        self.conditional_writer()
         contracts={stage:self.contract(stage) for stage in e.STAGES}
         for stage,(observer,verifier) in contracts.items():
             e.need(self.a['runtime']['stageObserverSha256'][stage]==e.digest(observer)
@@ -110,11 +111,34 @@ class Router:
         source=e.read(path,1048576);pin=self.a['codeFiles']['scripts/cn-release-stage-contract.py']
         e.need(e.digest(source)==pin,'CONTRACT_CODE_PIN')
         return render_contract(path,pin,stage)
+    def conditional_writer(self):
+        config=self.a.get('conditionalWriterPolicy')
+        if config is None:return None
+        e.need(type(config)is dict and set(config)=={'enabled'} and type(config['enabled'])is bool,'CONDITIONAL_WRITER_CONFIG')
+        if not config['enabled']:return None
+        names={'scripts/cn-release-conditional-writer-adapter.py',
+               'scripts/cn-release-conditional-writer-store.py',
+               'scripts/cn-release-conditional-writer-policy.py'}
+        e.need(names<=set(self.a['codeFiles']),'CONDITIONAL_CODE_CLOSURE')
+        for name in names:e.need(e.digest(e.read(ROOT/name,1048576))==self.a['codeFiles'][name],'CONDITIONAL_CODE_CHANGED')
+        key='conditional-writer'
+        if key not in self.modules:
+            self.modules[key]=module(ROOT/'scripts/cn-release-conditional-writer-adapter.py','fixed_conditional_writer')
+        return self.modules[key]
     def admission(self,release,stage):
         e.need(release==self.release,'RELEASE_CHANGED')
         if stage=='clear-hold':
             pointer=Path('/etc/workspacex-cn/writer-resume-approvals/by-release')/(release+'.json')
-            if not pointer.exists():return 'WAITING_FOR_WRITER_APPROVAL'
+            conditional=self.conditional_writer()
+            # Once claimed, a partial derived pointer must never become an
+            # unrelated static approval or reset its budget under a new policy.
+            if conditional is not None:conditional.disposition(release,enabled=True)
+            if not pointer.exists():
+                if conditional is None:return 'WAITING_FOR_WRITER_APPROVAL'
+                result=conditional.materialize(release,enabled=True)
+                if result.get('status')=='WAITING_FOR_WRITER_APPROVAL':return 'WAITING_FOR_WRITER_APPROVAL'
+                e.need(conditional.disposition(release,enabled=True)=='PUBLISHED','CONDITIONAL_NOT_PUBLISHED')
+                e.need(pointer.exists(),'CONDITIONAL_POINTER_MISSING')
             value=e.decode(e.read(pointer));e.need(set(value)=={'approvalSha256'} and e.HEX.fullmatch(value['approvalSha256']),'WRITER_APPROVAL_POINTER')
             raw=e.read(pointer.parent.parent/(value['approvalSha256']+'.json'));e.need(e.digest(raw)==value['approvalSha256'],'WRITER_APPROVAL_HASH')
         return None
