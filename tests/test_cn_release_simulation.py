@@ -188,6 +188,27 @@ class SimulationTests(unittest.TestCase):
    inherited=m.environment(root);self.assertEqual(inherited['PYTHONDONTWRITEBYTECODE'],'1')
    child=subprocess.run([sys.executable,'-c',code,target],env=inherited,capture_output=True,timeout=5)
    self.assertEqual(child.returncode,0,child.stderr);self.assertFalse(cache.exists())
+ def test_nested_domain_import_explicit_flag_prevents_bytecode(self):
+  import ast,shutil
+  tree=ast.parse((ROOT/'tests/cn_release_simulation_domain_linux.py').read_text())
+  nested=next(n for n in tree.body if isinstance(n,ast.FunctionDef) and n.name=='nested_case')
+  parent=next(ast.literal_eval(n.value) for n in ast.walk(nested) if isinstance(n,ast.Assign) and any(isinstance(t,ast.Name) and t.id=='parent' for t in n.targets))
+  spawn=next(n for n in ast.walk(nested) if isinstance(n,ast.Call) and isinstance(n.func,ast.Attribute) and n.func.attr=='spawn' and isinstance(n.func.value,ast.Name) and n.func.value.id=='outer')
+  flags=[ast.literal_eval(n) for n in spawn.args[0].elts[1:] if isinstance(n,ast.Constant)]
+  self.assertEqual(flags,['-I','-B','-c'])
+  # Exercise the exact import prefix without requiring Linux cgroup access.
+  code='import sys;sys.pycache_prefix=None\n'+parent.split('d=m.Domain();',1)[0]
+  with tempfile.TemporaryDirectory()as td:
+   root=Path(td);target=root/'cn_release_simulation_domain.py';shutil.copyfile(ROOT/'scripts'/target.name,target)
+   env={'PATH':os.defpath,'HOME':td}
+   # Apple's patched Python may disable bytecode for -I by default; make
+   # the vulnerable baseline explicit, without changing the fixed child.
+   before=subprocess.run([sys.executable,'-I','-c','import sys;sys.dont_write_bytecode=False\n'+code,str(target)],env=env,capture_output=True,timeout=5)
+   self.assertEqual(before.returncode,0,before.stderr);cache=root/'__pycache__';self.assertTrue(list(cache.glob('cn_release_simulation_domain.*.pyc')))
+   shutil.rmtree(cache)
+   env['PYTHONDONTWRITEBYTECODE']='1'
+   after=subprocess.run([sys.executable,*flags,code,str(target)],env=env,capture_output=True,timeout=5)
+   self.assertEqual(after.returncode,0,after.stderr);self.assertFalse(cache.exists())
  def test_source_status_is_bounded_redacted_and_never_excludes_cache(self):
   raw='?? scripts/__pycache__/module.pyc\n?? bad path-with-control\tvalue\n'+''.join('?? tests/extra%d.py\n'%i for i in range(100))
   state=m.status_snapshot(raw);self.assertTrue(state['dirty']);self.assertTrue(state['truncated']);self.assertEqual(state['entryCount'],102);self.assertEqual(len(state['entries']),64)

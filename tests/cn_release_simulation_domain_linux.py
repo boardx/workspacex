@@ -74,7 +74,7 @@ while True:time.sleep(.1)
 '''
         outer = module.Domain(); process = None
         try:
-            process = outer.spawn([sys.executable, '-I', '-c', parent, str(Path(module.__file__).resolve()), child, str(ready), str(late)],
+            process = outer.spawn([sys.executable, '-I', '-B', '-c', parent, str(Path(module.__file__).resolve()), child, str(ready), str(late)],
                                   stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, start_new_session=True)
             end = time.monotonic() + 3
             while not ready.exists() and time.monotonic() < end:
