@@ -258,8 +258,8 @@
         ".github/workflows/cn-release-simulation.yml"
       ],
       "review": {
-        "file": "docs/operations/cn-release-independent-review-code-review-v5.json",
-        "sha256": "5ee670b1620542bb1b683413375dbde4066825d75a1c5c9967b2aa286b3f22a4"
+        "file": "docs/operations/cn-release-independent-review-code-review-v6.json",
+        "sha256": "2bde42fa971f58435ea3875d446f506e0075f8db2e73920542a42aaf31912fd9"
       },
       "remainingGap": null,
       "historicalEvidence": "Independent code review before checkpoint; no production operation."
@@ -318,8 +318,8 @@
         "tests/test_cn_release_simulation.py"
       ],
       "review": {
-        "file": "docs/operations/cn-release-independent-review-code-review-v5.json",
-        "sha256": "5ee670b1620542bb1b683413375dbde4066825d75a1c5c9967b2aa286b3f22a4"
+        "file": "docs/operations/cn-release-independent-review-code-review-v6.json",
+        "sha256": "2bde42fa971f58435ea3875d446f506e0075f8db2e73920542a42aaf31912fd9"
       },
       "remainingGap": null,
       "historicalEvidence": "Real local ten-round 16-suite file export reproduced EXPORT_TOTAL_LIMIT at legacy 500-file cap; derived finite allowlist capacity is697."
@@ -328,36 +328,45 @@
       "id": "SIM-11",
       "severity": "P1",
       "author": "/root/automation_workflow_audit",
-      "disposition": "open",
-      "fixCommit": null,
+      "disposition": "fixed-awaiting-replay",
+      "fixCommit": "a434402d8c1b6b6cc41e2bd0da5cfb81302e1b38",
       "requiredCaseIds": [
         "test_cn_release_isolated_acceptance.AcceptanceTests.test_actual_registry_case_ids_exist_in_inventory_sources",
         "test_cn_release_isolated_acceptance.AcceptanceTests.test_standalone_binding_rejects_unregistered_identifier",
         "test_cn_release_isolated_acceptance.AcceptanceTests.test_standalone_binding_rejects_wrong_source_mapping"
       ],
       "requiredReviewedFiles": [
-        "tests/test_cn_release_isolated_acceptance.py"
+        "tests/test_cn_release_isolated_acceptance.py",
+        "scripts/cn-release-isolated-acceptance.py",
+        "scripts/cn-release-simulation.py"
       ],
-      "review": null,
-      "remainingGap": "Standalone aggregate inventory assertion fix awaits committed identity, independent review and same-candidate replay.",
+      "review": {
+        "file": "docs/operations/cn-release-independent-review-code-review-v6.json",
+        "sha256": "2bde42fa971f58435ea3875d446f506e0075f8db2e73920542a42aaf31912fd9"
+      },
+      "remainingGap": null,
       "historicalEvidence": "GitHub38243707763 and local reproduction: linux_readiness_contract caused split-dot ValueError; actual child registration is now checked against fixed source mappings, with explicit synthetic main only."
     },
     {
       "id": "SIM-12",
       "severity": "P1",
       "author": "/root/browser_linux_integration",
-      "disposition": "open",
-      "fixCommit": null,
+      "disposition": "fixed-awaiting-replay",
+      "fixCommit": "a434402d8c1b6b6cc41e2bd0da5cfb81302e1b38",
       "requiredCaseIds": [
-        "linux_boundary_reap_contract",
-        "test_cn_release_boundary_faults.BoundaryFaults.test_10_backup_timeout"
+        "test_cn_release_boundary_faults.BoundaryFaults.test_10_backup_timeout",
+        "linux_boundary_reap_contract"
       ],
       "requiredReviewedFiles": [
+        "tests/test_cn_release_boundary_faults.py",
         "tests/cn_release_boundary_reap_linux.py",
-        "tests/test_cn_release_boundary_faults.py"
+        "scripts/cn-release-simulation.py"
       ],
-      "review": null,
-      "remainingGap": "Offline timeout fixture exec/reaping repair awaits commit, independent review and real Linux counterexample.",
+      "review": {
+        "file": "docs/operations/cn-release-independent-review-code-review-v6.json",
+        "sha256": "2bde42fa971f58435ea3875d446f506e0075f8db2e73920542a42aaf31912fd9"
+      },
+      "remainingGap": null,
       "historicalEvidence": "GitHub38243707763 reported processGroupStillPresent. Historical process state absent, zombie mechanism remains to be tested, not proven as CI root cause."
     },
     {
