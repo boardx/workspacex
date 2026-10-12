@@ -37,6 +37,27 @@ class CiBootstrap(unittest.TestCase):
   self.assertIn('scripts/cn-release-simulation-ci.py --sha "$GITHUB_SHA"',workflow)
   self.assertIn('GITHUB_WORKSPACE="$GITHUB_WORKSPACE" RUNNER_TEMP="$RUNNER_TEMP"',workflow)
   self.assertNotIn('secrets.',workflow);self.assertNotIn('id-token:',workflow)
+ def test_setup_outer_timeout_closes_domain_and_preserves_failure(self):
+  class Domain:
+   def __init__(self):self.process=None;self.closed=False
+   def spawn(self,command,**kwargs):self.process=subprocess.Popen(command,**kwargs);return self.process
+   def close(self,process):
+    self.closed=True
+    if process is not None and process.poll()is None:process.kill()
+    if process is not None:process.wait(timeout=2)
+    return {'verified':True,'fixtureOnly':True}
+  with tempfile.TemporaryDirectory()as td:
+   domain=Domain();receipt=Path(td)/'cleanup.json'
+   with patch.object(m,'setup_domain',return_value=domain):
+    with self.assertRaises(subprocess.TimeoutExpired):m.run_owned_setup([sys.executable,'-I','-B','-c','import time;time.sleep(3)'],ROOT,{},timeout=.05,receipt_path=receipt)
+   self.assertTrue(domain.closed);self.assertIsNotNone(domain.process.returncode);self.assertTrue(receipt.is_file())
+ def test_setup_missing_cleanup_proof_is_distinct_blocker(self):
+  class Domain:
+   def spawn(self,*args,**kw):raise ValueError('fixture spawn failed')
+   def close(self,process):return {'verified':False}
+  with patch.object(m,'setup_domain',return_value=Domain()):
+   with self.assertRaises(m.SetupCleanupUnproven):m.run_owned_setup([],ROOT,{})
+  text=(ROOT/'scripts/cn-release-simulation-ci.py').read_text();self.assertIn('if owned_cleanup_verified:shutil.rmtree(owned)',text)
  def test_local_copy_has_no_shared_objects_or_global_config(self):
   text=(ROOT/'scripts/cn-release-simulation-ci.py').read_text()
   self.assertIn("'GIT_ALLOW_PROTOCOL':'file'",text);self.assertIn("'--no-hardlinks'",text)

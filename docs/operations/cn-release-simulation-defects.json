@@ -1,0 +1,309 @@
+{
+  "kind": "cn-release-isolated-defect-ledger-v1",
+  "issues": [
+    {
+      "id": "SIM-01",
+      "severity": "P1",
+      "author": "/root/automation_workflow_audit",
+      "disposition": "fixed-awaiting-replay",
+      "fixCommit": "adb974927dd88eac76db0f90e0075252741f8498",
+      "requiredCaseIds": [
+        "test_cn_release_simulation.SimulationTests.test_skip_and_expected_failure_cannot_report_green"
+      ],
+      "requiredReviewedFiles": [
+        "scripts/cn-release-simulation.py",
+        "tests/test_cn_release_simulation.py"
+      ],
+      "review": {
+        "file": "docs/operations/cn-release-independent-review-root.json",
+        "sha256": "5c6cca9957fad89c672d10c4edf89d418c14ff3e7a4edad10d8fe0273fc4309c"
+      },
+      "remainingGap": null,
+      "historicalEvidence": "docs/operations/cn-release-simulation-matrix.md"
+    },
+    {
+      "id": "SIM-02",
+      "severity": "P1",
+      "author": "/root/automation_workflow_audit",
+      "disposition": "fixed-awaiting-replay",
+      "fixCommit": "adb974927dd88eac76db0f90e0075252741f8498",
+      "requiredCaseIds": [
+        "test_cn_release_simulation.SimulationTests.test_nested_domain_import_explicit_flag_prevents_bytecode",
+        "test_cn_release_simulation.SimulationTests.test_source_status_is_bounded_redacted_and_never_excludes_cache",
+        "test_cn_release_simulation.SimulationTests.test_ten_rounds_dirty_tree_is_rejected"
+      ],
+      "requiredReviewedFiles": [
+        "scripts/cn-release-simulation.py",
+        "tests/test_cn_release_simulation.py"
+      ],
+      "review": {
+        "file": "docs/operations/cn-release-independent-review-root.json",
+        "sha256": "5c6cca9957fad89c672d10c4edf89d418c14ff3e7a4edad10d8fe0273fc4309c"
+      },
+      "remainingGap": null,
+      "historicalEvidence": "docs/operations/cn-release-simulation-matrix.md"
+    },
+    {
+      "id": "SIM-03",
+      "severity": "P1",
+      "author": "/root/automation_workflow_audit",
+      "disposition": "fixed-awaiting-replay",
+      "fixCommit": "adb974927dd88eac76db0f90e0075252741f8498",
+      "requiredCaseIds": [
+        "test_cn_release_simulation.SimulationTests.test_linux_suite_requires_real_linux"
+      ],
+      "requiredReviewedFiles": [
+        "scripts/cn-release-simulation.py",
+        "tests/test_cn_release_simulation.py"
+      ],
+      "review": {
+        "file": "docs/operations/cn-release-independent-review-root.json",
+        "sha256": "5c6cca9957fad89c672d10c4edf89d418c14ff3e7a4edad10d8fe0273fc4309c"
+      },
+      "remainingGap": null,
+      "historicalEvidence": "docs/operations/cn-release-simulation-matrix.md"
+    },
+    {
+      "id": "SIM-04",
+      "severity": "P1",
+      "author": "/root/browser_linux_integration",
+      "disposition": "fixed-awaiting-replay",
+      "fixCommit": "adb974927dd88eac76db0f90e0075252741f8498",
+      "requiredCaseIds": [
+        "linux_domain_contract"
+      ],
+      "requiredReviewedFiles": [
+        "scripts/cn_release_simulation_domain.py",
+        "tests/cn_release_simulation_domain_linux.py"
+      ],
+      "review": {
+        "file": "docs/operations/cn-release-independent-review-code-review.json",
+        "sha256": "fa52b49b2447227dca45f3ac8432052f6ee1ebba6b2a95ca9c72dcd656542038"
+      },
+      "remainingGap": null,
+      "historicalEvidence": "docs/operations/cn-release-simulation-matrix.md"
+    },
+    {
+      "id": "SIM-05",
+      "severity": "P1",
+      "author": "/root/automation_workflow_audit",
+      "disposition": "open",
+      "fixCommit": "adb974927dd88eac76db0f90e0075252741f8498",
+      "requiredCaseIds": [
+        "test_cn_release_browser_wrapper.BrowserWrapperTests.test_fixed_inventory_has_no_duplicate_source_files"
+      ],
+      "requiredReviewedFiles": [
+        "scripts/cn-release-simulation.py"
+      ],
+      "review": null,
+      "remainingGap": "Full scenario matrix and remaining independent release modes are not yet implemented.",
+      "historicalEvidence": "docs/operations/cn-release-simulation-matrix.md"
+    },
+    {
+      "id": "SIM-06",
+      "severity": "P1",
+      "author": "/root/browser_linux_integration",
+      "disposition": "fixed-awaiting-replay",
+      "fixCommit": "adb974927dd88eac76db0f90e0075252741f8498",
+      "requiredCaseIds": [
+        "linux_domain_contract",
+        "linux_entry_contract"
+      ],
+      "requiredReviewedFiles": [
+        "scripts/cn_release_simulation_domain.py",
+        "tests/cn_release_cgroup_linux.py",
+        "tests/cn_release_simulation_domain_linux.py"
+      ],
+      "review": {
+        "file": "docs/operations/cn-release-independent-review-code-review.json",
+        "sha256": "fa52b49b2447227dca45f3ac8432052f6ee1ebba6b2a95ca9c72dcd656542038"
+      },
+      "remainingGap": null,
+      "historicalEvidence": "docs/operations/cn-release-simulation-matrix.md"
+    },
+    {
+      "id": "CI-01",
+      "severity": "P1",
+      "author": "/root/build_reuse_audit",
+      "disposition": "fixed-awaiting-replay",
+      "fixCommit": "e9100a7e90bf3f2ba1e8b556080c8bf80cb8ca87",
+      "requiredCaseIds": [
+        "test_cn_release_conditional_writer_adapter.RouterTests.test_generated_package_revocation_blocks_before_advance"
+      ],
+      "requiredReviewedFiles": [
+        "tests/cn_release_private_fixture.py",
+        "tests/test_cn_release_conditional_writer_adapter.py",
+        "tests/test_cn_release_conditional_writer_store.py"
+      ],
+      "review": {
+        "file": "docs/operations/cn-release-independent-review-code-review.json",
+        "sha256": "fa52b49b2447227dca45f3ac8432052f6ee1ebba6b2a95ca9c72dcd656542038"
+      },
+      "remainingGap": null,
+      "historicalEvidence": "docs/operations/cn-release-simulation-matrix.md"
+    },
+    {
+      "id": "CI-02",
+      "severity": "P1",
+      "author": "/root/code_review",
+      "disposition": "fixed-awaiting-replay",
+      "fixCommit": "c0991a504a3e823e11cc1a61e75bf86f4f1572ae",
+      "requiredCaseIds": [
+        "test_cn_release_promotion_recovery.RecoveryTests.test_original_exact_base_rejects_actual_empty_receipt",
+        "test_cn_release_promotion_recovery.RecoveryTests.test_original_exact_base_rejects_actual_partial_receipt"
+      ],
+      "requiredReviewedFiles": [
+        "tests/fixtures/cn-promotion-recovery/acquire-observer-8c5d4eac.py",
+        "tests/test_cn_release_promotion_recovery.py"
+      ],
+      "review": {
+        "file": "docs/operations/cn-release-independent-review-root.json",
+        "sha256": "5c6cca9957fad89c672d10c4edf89d418c14ff3e7a4edad10d8fe0273fc4309c"
+      },
+      "remainingGap": null,
+      "historicalEvidence": "docs/operations/cn-release-simulation-matrix.md"
+    },
+    {
+      "id": "AUTH-01",
+      "severity": "P1",
+      "author": "/root/build_reuse_audit",
+      "disposition": "fixed-awaiting-replay",
+      "fixCommit": "e9100a7e90bf3f2ba1e8b556080c8bf80cb8ca87",
+      "requiredCaseIds": [
+        "test_cn_release_conditional_writer_adapter.RouterTests.test_generated_package_revocation_blocks_before_advance",
+        "test_cn_release_conditional_writer_adapter.RouterTests.test_pointer_before_decision_crash_is_not_static_approval",
+        "test_cn_release_conditional_writer_adapter.RouterTests.test_policy_replacement_cannot_reset_release_consumption"
+      ],
+      "requiredReviewedFiles": [
+        ".harness/scripts/vm/cn-release-advance.py",
+        "scripts/cn-release-conditional-writer-adapter.py",
+        "scripts/cn-release-fixed-driver.py",
+        "scripts/cn-release-stage-router.py",
+        "tests/test_cn_release_conditional_writer_adapter.py"
+      ],
+      "review": {
+        "file": "docs/operations/cn-release-independent-review-code-review.json",
+        "sha256": "fa52b49b2447227dca45f3ac8432052f6ee1ebba6b2a95ca9c72dcd656542038"
+      },
+      "remainingGap": null,
+      "historicalEvidence": "docs/operations/cn-release-simulation-matrix.md"
+    },
+    {
+      "id": "UPG-01",
+      "severity": "P2",
+      "author": null,
+      "disposition": "open",
+      "fixCommit": "e9100a7e90bf3f2ba1e8b556080c8bf80cb8ca87",
+      "requiredCaseIds": [],
+      "requiredReviewedFiles": [
+        "scripts/cn-release-fixed-driver.py"
+      ],
+      "review": null,
+      "remainingGap": "Complete production-main rollback entry coverage remains pending.",
+      "historicalEvidence": "docs/operations/cn-release-simulation-matrix.md"
+    },
+    {
+      "id": "SIM-07",
+      "severity": "P1",
+      "author": "/root/automation_workflow_audit",
+      "disposition": "fixed-awaiting-replay",
+      "fixCommit": "443bfdbbd37d1fcbaf1e33799049a87c9e2a688b",
+      "requiredCaseIds": [
+        "test_cn_release_simulation.SimulationTests.test_nested_domain_import_explicit_flag_prevents_bytecode"
+      ],
+      "requiredReviewedFiles": [
+        "tests/cn_release_simulation_domain_linux.py",
+        "tests/test_cn_release_simulation.py"
+      ],
+      "review": {
+        "file": "docs/operations/cn-release-independent-review-code-review-v2.json",
+        "sha256": "44e06cd677f0e9ba2c82dc1e879583844d816e8f4a004e492fab08f23ffa6409"
+      },
+      "remainingGap": null,
+      "historicalEvidence": "GitHub run38238615663: incorrect AST parent branch caused FileNotFound, not source pollution; fix awaiting committed identity and independent review."
+    },
+    {
+      "id": "SIM-08",
+      "severity": "P1",
+      "author": "/root/build_reuse_audit",
+      "disposition": "fixed-awaiting-replay",
+      "fixCommit": "1870f1537a56838f92e3e37684e93ccbf8991e3a",
+      "requiredCaseIds": [
+        "linux_postgres_lifecycle_contract"
+      ],
+      "requiredReviewedFiles": [
+        "tests/fixtures/cn-postgres-lifecycle/driver_bridge.py"
+      ],
+      "review": {
+        "file": "docs/operations/cn-release-independent-review-code-review-v3.json",
+        "sha256": "018bbb0b2ecc3f65342feded3fb2b3b64c1e9c76af30d0079d8789d42b12185a"
+      },
+      "remainingGap": null,
+      "historicalEvidence": "Sixth CI CalledProcessError; bridge CGROUP_BASE mismatch repaired in1870f1537. Seventh GitHub run38241219747 succeeded; final same-commit ten-round replay remains pending."
+    },
+    {
+      "id": "SIM-09",
+      "severity": "P1",
+      "author": "/root/automation_workflow_audit",
+      "disposition": "open",
+      "fixCommit": null,
+      "requiredCaseIds": [
+        "test_cn_release_simulation_ci.CiBootstrap.test_setup_outer_timeout_closes_domain_and_preserves_failure",
+        "test_cn_release_simulation_ci.CiBootstrap.test_setup_missing_cleanup_proof_is_distinct_blocker"
+      ],
+      "requiredReviewedFiles": [
+        "scripts/cn-release-simulation-ci.py",
+        "tests/test_cn_release_simulation_ci.py"
+      ],
+      "review": null,
+      "remainingGap": "Setup parent-only timeout could leave dependency-install descendants; outer owned Domain repair awaiting committed identity and independent review.",
+      "historicalEvidence": "Independent code review before checkpoint; no production operation."
+    },
+    {
+      "id": "MIG-01",
+      "severity": "P1",
+      "author": "/root/build_reuse_audit",
+      "disposition": "open",
+      "fixCommit": null,
+      "requiredCaseIds": [],
+      "requiredReviewedFiles": [
+        "packages/cloud-deploy/src/cn-maintenance-host/migration_scope_adapter.ts"
+      ],
+      "review": null,
+      "remainingGap": "beforeDDL holdGeneration mismatch repair awaits exact committed identity and independent counterexample binding.",
+      "historicalEvidence": "Independent code review before checkpoint; no production operation."
+    },
+    {
+      "id": "PREP-01",
+      "severity": "P1",
+      "author": "/root/cn_independent_review",
+      "disposition": "open",
+      "fixCommit": null,
+      "requiredCaseIds": [],
+      "requiredReviewedFiles": [
+        "packages/cloud-deploy/src/cn-release-readiness-dispatch.ts"
+      ],
+      "review": null,
+      "remainingGap": "Cold readiness invalid config/options could execute external build before validation; repair and counterexample binding pending.",
+      "historicalEvidence": "Independent code review before checkpoint; no production operation."
+    },
+    {
+      "id": "SIM-10",
+      "severity": "P1",
+      "author": "/root/automation_workflow_audit",
+      "disposition": "open",
+      "fixCommit": null,
+      "requiredCaseIds": [
+        "test_cn_release_simulation.SimulationTests.test_report_export_all_ten_rounds_fixed_inventory"
+      ],
+      "requiredReviewedFiles": [
+        "scripts/cn-release-simulation.py",
+        "tests/test_cn_release_simulation.py"
+      ],
+      "review": null,
+      "remainingGap": "Fixed export allowlist capacity repair awaits committed identity and independent review.",
+      "historicalEvidence": "Real local ten-round 16-suite file export reproduced EXPORT_TOTAL_LIMIT at legacy 500-file cap; derived finite allowlist capacity is697."
+    }
+  ],
+  "note": "Historical narrative closure is not final candidate ten-round verification. Missing independent raw review bytes remain unverified."
+}

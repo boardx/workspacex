@@ -1,3 +1,5 @@
+import {migrationSourceSchema} from '../cn-migration-source-identity';
+import {optionalMigrationScopeAdmission} from './migration_scope_adapter';
 import {admittedReleaseIdentity} from './release_identity';
 import {readOriginalPlanAuthority,assertSourcePlanAuthority} from './source_plan_authority';
 /** Fixed 9b source composition. Root inputs contain only protected data refs;
@@ -81,6 +83,11 @@ export async function createSourceProductionConsumers(plan:EntryPlan,profile:any
  const common=(source:TrustedExecutable)=>({binding:{identity,toolRevision,source,inputRefs:[{path:plan.consumerInputsPath,sha256:plan.consumerInputsSha256}]},assertCapability:async()=>{all.forEach(verify);}});
  let archived:CurrentEpochEvidence|undefined,current:CurrentEpochEvidence|undefined;
  const manifest=io.readBytes(v.prepared.manifest.path,v.prepared.manifest.sha256);
+ const migrationScope=authority.sourcePlan.releaseContinuation===undefined?undefined:(()=>{
+  const productionSource=migrationSourceSchema.parse(migrationInputs.expectedCompletion.productionSource);
+  return optionalMigrationScopeAdmission(authority,{preparedManifest:manifest,consumerInputsSha256:plan.consumerInputsSha256,codeFiles:profile.filesSha256,
+   target:{accountId:productionSource.accountId,regionId:productionSource.regionId,dbInstanceId:productionSource.dbInstanceId,ecsInstanceId:authority.sourcePlan.host?.instanceId}},io.readBytes);
+ })();
  const offline=maintenanceOfflinePreparedAction(io.readJson(v.prepared.receipt.path,v.prepared.receipt.sha256),manifest,verifyOfflineManifest(identity,manifest,v.prepared.manifest.sha256,v.dockerRuntime));
  const readReceipt=(value:any,lane:'canonical'|'browser')=>{
   const r=ref.parse(value.receipt);need(r.path===`/etc/workspacex-cn/maintenance-acceptance/${identity.sourceRevision}/${identity.attemptId}/${lane}.json`,'SOURCE_ACCEPTANCE_RECEIPT_PATH');
@@ -88,7 +95,7 @@ export async function createSourceProductionConsumers(plan:EntryPlan,profile:any
   need(receipt?.schemaVersion===1&&receipt.kind===lane+'-acceptance-completed'&&same(receipt.identity,identity)&&receipt.deploymentMarker===v.publicPolicy.deploymentMarker,'SOURCE_ACCEPTANCE_RECEIPT_BINDING');return receipt.checks;
  };
  try{
- const route=await createARouteFactory({binding:plan.host,toolRevision,installedFilesSha256:profile.installedFilesSha256,run:io.run,
+ const route=await createARouteFactory({migrationScope,binding:plan.host,toolRevision,installedFilesSha256:profile.installedFilesSha256,run:io.run,
   acquireReleaseLock:async()=>{const release=await io.acquireLock();return async()=>{await release();};},assertInstalledSource:async c=>verify(c),readEvidence:async r=>io.readJson(r.path,r.sha256),consumers:{
   offline:{...common(operationSource),prepare:offline},
   prehold:{...common(prehold.qualificationExecutable),verifyRecoveryCapability:async()=>{archived=await consumePreholdEpochManifest(prehold,{read:async r=>io.readJson(r.path,r.sha256),run:io.run},authority);},verifyIsolatedAcceptance:async()=>{need(archived,'SOURCE_PREHOLD_NOT_VERIFIED');await consumePreholdEpochManifest(prehold,{read:async r=>io.readJson(r.path,r.sha256),run:io.run},authority);}},

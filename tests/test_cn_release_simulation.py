@@ -58,8 +58,9 @@ class SimulationTests(unittest.TestCase):
    return dict(suite=name,status='passed',exitCode=0,statistics=self.stats())
   with tempfile.TemporaryDirectory()as d,patch.object(m,'execute',execute),patch.object(m.subprocess,'check_output',side_effect=lambda cmd,**kw:'a'*40+'\n'if 'rev-parse'in cmd else ''),patch.object(sys,'argv',['simulation','--output',str(Path(d)/'out'),'--rounds','10','--seed','42']):
    import contextlib,io
-   with contextlib.redirect_stdout(io.StringIO()):self.assertEqual(m.main(),0)
+   with contextlib.redirect_stdout(io.StringIO()):self.assertEqual(m.main(),1)
    summary=json.loads((Path(d)/'out/summary.json').read_text())
+   self.assertEqual(summary['testsStatus'],'passed');self.assertEqual(summary['exitStatus'],'blocked')
    self.assertEqual(summary['completedRounds'],10);self.assertEqual({r['commit']for r in summary['rounds']},{'a'*40});self.assertEqual([r['seed']for r in summary['rounds']],list(range(42,52)))
    self.assertEqual(len({path for path,seed in seen}),10);self.assertEqual(len(seen),10*len(m.SUITES))
  def test_ten_rounds_dirty_tree_is_rejected(self):
@@ -125,6 +126,25 @@ class SimulationTests(unittest.TestCase):
    self.assertEqual(stat.S_IMODE(source.stat().st_mode),0o700)
    self.assertEqual((target/'summary.json').stat().st_uid,target.stat().st_uid)
    self.assertEqual(stat.S_IMODE((target/'summary.json').stat().st_mode),0o600)
+ def test_report_export_all_ten_rounds_fixed_inventory(self):
+  with tempfile.TemporaryDirectory()as d:
+   root=Path(d);source=root/'cn-simulation';target=root/'cn-simulation-artifacts';source.mkdir(mode=0o700);target.mkdir(mode=0o700)
+   top=('summary.json','metrics.csv','cases.csv','report.txt','fullstack-setup.json','fullstack-install.log','fullstack-outer-cleanup.json')
+   suffixes=('.log','.tests.json','.tests.inventory.json','.tests.cases.json')
+   registry=('owner.json','api-create-intent.json','api-create-receipt.json','cleanup.json')
+   for name in top:(source/name).write_bytes(b'')
+   for index in range(1,11):
+    rd=source/('round-%02d'%index);rd.mkdir(mode=0o700);(rd/'round.json').write_bytes(b'')
+    for suite in m.SUITES:
+     for suffix in suffixes:(rd/(suite+suffix)).write_bytes(b'')
+    owned=rd/'api-container-owner';owned.mkdir(mode=0o700)
+    for name in registry:(owned/name).write_bytes(b'')
+    (rd/'unapproved.log').write_text('not exported')
+   extra=source/'round-11';extra.mkdir();(extra/'round.json').write_text('not exported')
+   result=m.export_reports(root);expected=len(top)+10*(1+len(m.SUITES)*len(suffixes)+len(registry))
+   self.assertGreater(expected,500);self.assertEqual(result['files'],expected);self.assertEqual(result['bytes'],0)
+   self.assertEqual(len([p for p in target.rglob('*')if p.is_file()]),expected)
+   self.assertFalse((target/'round-11').exists());self.assertFalse((target/'round-01/unapproved.log').exists())
  def test_report_export_rejects_symlink_and_does_not_overwrite(self):
   with tempfile.TemporaryDirectory()as d:
    root=Path(d);source=root/'cn-simulation';target=root/'cn-simulation-artifacts';source.mkdir(mode=0o700);target.mkdir(mode=0o700)

@@ -159,7 +159,8 @@
         "test_cn_release_entry.EntryTests.test_timeout_joins_process_before_allowing_observation",
         "test_cn_release_entry.EntryTests.test_parent_dies_before_child_session_no_late_mutation",
         "linux_domain_contract",
-        "linux_entry_contract"
+        "linux_entry_contract",
+        "linux_docker_cleanup_contract"
       ],
       "implementation": "implemented",
       "notImplemented": [],
@@ -266,11 +267,12 @@
       "title": "Startup failure cannot claim accepted business",
       "severity": "P1",
       "requiredCaseIds": [
-        "test_cn_release_failure_isolation.RuntimeFailures.test_start_partial_failure_keeps_hold_and_cannot_claim_business"
+        "test_cn_release_failure_isolation.RuntimeFailures.test_start_partial_failure_keeps_hold_and_cannot_claim_business",
+        "linux_api_startup_contract"
       ],
       "implementation": "partial",
       "notImplemented": [
-        "Existing test extracts production switch AST with boundary fixtures; full API startup/database/seed side effects are not exercised."
+        "Actual startApi isolated fixture is wired; full production runtime switch/business acceptance remains outside this fixture and unverified."
       ],
       "scope": "Isolated production-code contract only; provider/live application calls remain fixtures."
     },
@@ -386,11 +388,12 @@
       "title": "Prepared, artifact-ready and cold classification",
       "severity": "P1",
       "requiredCaseIds": [
-        "test_cn_release_audit.Scenarios.test_all_six_sop_scenarios_and_priority"
+        "test_cn_release_audit.Scenarios.test_all_six_sop_scenarios_and_priority",
+        "linux_readiness_contract"
       ],
       "implementation": "partial",
       "notImplemented": [
-        "Classifier coverage only; optimized separate end-to-end execution paths are not implemented."
+        "Actual preparation dispatcher files are exercised; complete independent production release paths and prepared production readiness remain unverified."
       ],
       "scope": "Isolated production-code contract only; provider/live application calls remain fixtures."
     },
@@ -1418,6 +1421,63 @@
       ],
       "platform": "Linux root",
       "coverageLimit": "One aggregate case credits only successful actual main execution in this round; no production acceptance."
+    },
+    {
+      "caseId": "linux_api_startup_contract",
+      "source": "tests/cn_release_api_startup_linux.py",
+      "suite": "linux-api-startup",
+      "caseKind": "standalone-aggregate-contract",
+      "severity": "P1",
+      "requiredBy": [
+        "T20"
+      ],
+      "evidenceLayer": "isolated-production-code-fixture",
+      "realBoundaries": [
+        "Real startApi and complete schema migration in fresh local PostgreSQL container; baseline and isolated cloned databases"
+      ],
+      "mockBoundaries": [
+        "External cloud/production state is not exercised"
+      ],
+      "platform": "Linux root",
+      "coverageLimit": "One aggregate requires actual successful main execution in this round; pending CI does not count as passed."
+    },
+    {
+      "caseId": "linux_docker_cleanup_contract",
+      "source": "tests/cn_release_docker_cleanup_linux.py",
+      "suite": "linux-docker-cleanup",
+      "caseKind": "standalone-aggregate-contract",
+      "severity": "P1",
+      "requiredBy": [
+        "T12"
+      ],
+      "evidenceLayer": "isolated-production-code-fixture",
+      "realBoundaries": [
+        "Real local Docker daemon, killed fixture creator, exact owned-container cleanup and unaffected control container"
+      ],
+      "mockBoundaries": [
+        "External cloud/production state is not exercised"
+      ],
+      "platform": "Linux root",
+      "coverageLimit": "One aggregate requires actual successful main execution in this round; pending CI does not count as passed."
+    },
+    {
+      "caseId": "linux_readiness_contract",
+      "source": "tests/cn_release_readiness_linux.py",
+      "suite": "linux-readiness",
+      "caseKind": "standalone-aggregate-contract",
+      "severity": "P1",
+      "requiredBy": [
+        "S04"
+      ],
+      "evidenceLayer": "isolated-production-code-fixture",
+      "realBoundaries": [
+        "Actual prepareHost and verifyPreparedHost with real files and TLS fixture; build/pull external commands are test callbacks"
+      ],
+      "mockBoundaries": [
+        "External cloud/production state is not exercised"
+      ],
+      "platform": "Linux root",
+      "coverageLimit": "One aggregate requires actual successful main execution in this round; pending CI does not count as passed."
     }
   ],
   "coverageContract": {

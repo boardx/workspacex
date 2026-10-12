@@ -34,6 +34,18 @@ on:
       - 'tests/cn_release_postgres_lifecycle_linux.py'
       - 'tests/fixtures/cn-postgres-lifecycle/**'
       - 'tests/cn_release_storage_linux.py'
+      - 'tests/cn_release_api_startup_linux.py'
+      - 'tests/cn_release_docker_cleanup_linux.py'
+      - 'tests/cn_release_readiness_linux.py'
+      - 'packages/cloud-deploy/src/cn-release-readiness-dispatch.ts'
+      - 'packages/cloud-deploy/test/cn-release-readiness-dispatch.test.ts'
+      - 'tests/fixtures/cn-api-startup/**'
+      - 'apps/api/docker/postgres-age/Dockerfile'
+      - 'apps/api/src/main.ts'
+      - 'apps/api/scripts/migrator.ts'
+      - 'apps/api/migrations/**'
+      - 'pnpm-lock.yaml'
+      - 'package.json'
       - 'tests/cn_release_private_fixture.py'
       - 'tests/cn_release_browser_linux.py'
       - 'tests/cn_release_cgroup_linux.py'
@@ -55,22 +67,46 @@ on:
       - 'tests/fixtures/cn-postgres-isolation/**'
       - 'tests/fixtures/cn-promotion-recovery/**'
       - 'docs/operations/cn-release-simulation-matrix.json'
+      - 'docs/operations/cn-release-simulation-defects.json'
+      - 'docs/operations/cn-release-simulation-invariants.json'
+      - 'docs/operations/cn-release-independent-review-*.json'
       - '.github/workflows/cn-release-simulation.yml'
 permissions:
   contents: read
 jobs:
   simulation:
     runs-on: ubuntu-24.04
-    timeout-minutes: 120
+    timeout-minutes: 300
     steps:
       - uses: actions/checkout@v5
         with:
           ref: ${{ github.sha }}
+          # Ancestor-bound independent review requires old fixCommit objects.
+          # Fetch once in GitHub; the root-owned clone and evaluator stay offline.
+          fetch-depth: 0
           persist-credentials: false
       - uses: actions/setup-node@v5
         with:
           node-version: '22.20.0'
           package-manager-cache: false
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.0
+          run_install: false
+      - name: Build job-local PostgreSQL fixture image once
+        timeout-minutes: 20
+        shell: bash
+        run: |
+          set -euo pipefail
+          started=$(date +%s)
+          docker pull pgvector/pgvector:pg16
+          base=$(docker image inspect pgvector/pgvector:pg16 --format '{{index .RepoDigests 0}}')
+          [[ "$base" =~ ^pgvector/pgvector@sha256:[a-f0-9]{64}$ ]]
+          docker build --build-arg "PGVECTOR_IMAGE=$base" --build-arg "SOURCE_REVISION=$GITHUB_SHA" --iidfile "$RUNNER_TEMP/cn-startup-image.id" apps/api/docker/postgres-age
+          image=$(cat "$RUNNER_TEMP/cn-startup-image.id")
+          [[ "$image" =~ ^sha256:[a-f0-9]{64}$ ]]
+          echo "CN_API_STARTUP_PG_IMAGE=$image" >> "$GITHUB_ENV"
+          python3 -c 'import json,sys,time;json.dump(dict(kind="cn-fixture-image-setup-v1",commit=sys.argv[1],baseDigest=sys.argv[2],imageId=sys.argv[3],buildSeconds=int(time.time())-int(sys.argv[4]),productionAccepted=False),open(sys.argv[5],"x"))' "$GITHUB_SHA" "$base" "$image" "$started" "$RUNNER_TEMP/cn-image-setup.json"
       - name: Install isolated fixture dependencies
         run: |
           npm install --prefix "$RUNNER_TEMP/cn-fixture" --no-audit --no-fund --save-exact tsx@4.20.6 zod@3.25.76 pg@8.13.1 playwright@1.62.0
@@ -86,11 +122,12 @@ jobs:
         env:
           ROUNDS: ${{ inputs.rounds || '1' }}
           SEED: ${{ inputs.seed || '0' }}
-        run: 'sudo -n env -i PATH="$PATH" CN_ARCHIVE_TEST_NODE="$CN_ARCHIVE_TEST_NODE" CN_ARCHIVE_TEST_RUNTIME="$CN_ARCHIVE_TEST_RUNTIME" NODE_PATH="$NODE_PATH" CN_TEST_PLAYWRIGHT="$CN_TEST_PLAYWRIGHT" CN_TEST_CHROMIUM="$CN_TEST_CHROMIUM" GITHUB_RUN_ID="$GITHUB_RUN_ID" GITHUB_RUN_ATTEMPT="$GITHUB_RUN_ATTEMPT" GITHUB_WORKSPACE="$GITHUB_WORKSPACE" RUNNER_TEMP="$RUNNER_TEMP" "$RUNNER_TEMP/cn-test-sdk/bin/python" -I -B scripts/cn-release-simulation-ci.py --sha "$GITHUB_SHA" --rounds "$ROUNDS" --seed "$SEED"'
+        run: 'sudo -n env -i PATH="$PATH" CN_ARCHIVE_TEST_NODE="$CN_ARCHIVE_TEST_NODE" CN_ARCHIVE_TEST_RUNTIME="$CN_ARCHIVE_TEST_RUNTIME" NODE_PATH="$NODE_PATH" CN_TEST_PLAYWRIGHT="$CN_TEST_PLAYWRIGHT" CN_TEST_CHROMIUM="$CN_TEST_CHROMIUM" GITHUB_ACTIONS=true CN_API_STARTUP_PG_IMAGE="$CN_API_STARTUP_PG_IMAGE" GITHUB_RUN_ID="$GITHUB_RUN_ID" GITHUB_RUN_ATTEMPT="$GITHUB_RUN_ATTEMPT" GITHUB_WORKSPACE="$GITHUB_WORKSPACE" RUNNER_TEMP="$RUNNER_TEMP" "$RUNNER_TEMP/cn-test-sdk/bin/python" -I -B scripts/cn-release-simulation-ci.py --sha "$GITHUB_SHA" --rounds "$ROUNDS" --seed "$SEED"'
       - name: Export bounded reports for the unprivileged artifact uploader
         if: always()
         run: |
           mkdir -m 700 "$RUNNER_TEMP/cn-simulation-artifacts"
+          if [ -f "$RUNNER_TEMP/cn-image-setup.json" ]; then cp "$RUNNER_TEMP/cn-image-setup.json" "$RUNNER_TEMP/cn-simulation-artifacts/image-setup.json"; fi
           sudo -n env -i PATH="$PATH" /usr/bin/python3 -I -B scripts/cn-release-simulation.py --export-parent "$RUNNER_TEMP"
       - name: Preserve simulation report and failure evidence
         if: always()
@@ -101,7 +138,12 @@ jobs:
             ${{ runner.temp }}/cn-simulation-artifacts/*.json
             ${{ runner.temp }}/cn-simulation-artifacts/*.csv
             ${{ runner.temp }}/cn-simulation-artifacts/*.txt
+            ${{ runner.temp }}/cn-simulation-artifacts/fullstack-install.log
             ${{ runner.temp }}/cn-simulation-artifacts/round-*/*.json
             ${{ runner.temp }}/cn-simulation-artifacts/round-*/*.log
+            ${{ runner.temp }}/cn-simulation-artifacts/round-*/api-container-owner/owner.json
+            ${{ runner.temp }}/cn-simulation-artifacts/round-*/api-container-owner/api-create-intent.json
+            ${{ runner.temp }}/cn-simulation-artifacts/round-*/api-container-owner/api-create-receipt.json
+            ${{ runner.temp }}/cn-simulation-artifacts/round-*/api-container-owner/cleanup.json
           retention-days: 7
           if-no-files-found: warn

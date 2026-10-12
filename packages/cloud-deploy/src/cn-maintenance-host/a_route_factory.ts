@@ -1,3 +1,4 @@
+import {assertMigrationScopeAdmission,checkMigrationScopeAdmission,type MigrationScopeAdmission} from './migration_scope_adapter';
 import { z } from 'zod';
 import {readNativeCompletion,legacyCompletionRelease} from './native_completion';
 import {admittedReleaseIdentity} from './release_identity';
@@ -48,6 +49,7 @@ export interface ARouteFactoryConsumers {
  disposition: SourceConsumer & { recordRecoveryRequired(identity: MaintenanceIdentity): Promise<void>; recordReconciliationRequired(identity: MaintenanceIdentity): Promise<void> };
 }
 export interface ARouteFactoryInputs {
+ migrationScope?: MigrationScopeAdmission;
  binding: HostBinding; toolRevision: string;
  installedFilesSha256: Readonly<Record<string,string>>;
  consumers: ARouteFactoryConsumers;
@@ -95,6 +97,8 @@ export async function createARouteFactory(input: ARouteFactoryInputs): Promise<A
  for(const name of ['readPublicIdentity','verifyCanonical','runBrowserSmoke','readObservation'])if(typeof (input.consumers?.public?.transport as any)?.[name]!=='function')missing.push('public.transport.'+name);
  if(!input.consumers?.public?.bindingPolicy)missing.push('public.bindingPolicy');
  if(missing.length)throw Error('A_ROUTE_FACTORY_CONSUMERS_MISSING:'+missing.sort().join(','));
+ const migrationScope=input.migrationScope;
+ if(migrationScope!==undefined)assertMigrationScopeAdmission(migrationScope);
  const identity=Object.freeze(identitySchema.parse(input.binding.identity));
  need(admittedReleaseIdentity(identity),'A_ROUTE_FACTORY_RELEASE_PAIR');
  const releaseReader=input.consumers.migration.approvedRelease?.bind(input.consumers.migration);
@@ -119,7 +123,7 @@ export async function createARouteFactory(input: ARouteFactoryInputs): Promise<A
  }
  for(const command of commands)need(input.installedFilesSha256?.[command.path]===command.sha256,'A_ROUTE_FACTORY_PROFILE_BINDING');
  let host:HostBinding|undefined, epoch:CurrentEpochEvidence|undefined, epochAccepted=false, completion:FactoryMigrationEvidence|undefined;
- let candidate:FactoryCandidateEvidence|undefined, resumeIntent=false, resumed=false, lockAcquired=false;
+ let candidate:FactoryCandidateEvidence|undefined, resumeIntent=false, resumed=false, lockAcquired=false, lockHeld=false;
  const id=(value:MaintenanceIdentity)=>need(same(value,identity),'A_ROUTE_FACTORY_IDENTITY_CHANGED');
  async function heldGeneration(state='held'){
   const v=JSON.parse((await run(binding.hold,['read','/var/lib/workspacex-cn/runtime'])).stdout);
@@ -137,7 +141,7 @@ export async function createARouteFactory(input: ARouteFactoryInputs): Promise<A
   need(value.completion.path===`/etc/workspacex-cn/migration-completion-inputs/${identity.sourceRevision}/${identity.attemptId}.completed.json`,'A_ROUTE_FACTORY_COMPLETION_PATH');
  }
  const actions:ARouteHostActions={
-  acquireReleaseLock:async value=>{id(value);need(!lockAcquired,'A_ROUTE_FACTORY_ATTEMPT_REUSE');const release=await acquire(identity);lockAcquired=true;return async()=>{if(host)await lifecycle.closeAfterAccepted();await release();};},
+  acquireReleaseLock:async value=>{id(value);need(!lockAcquired,'A_ROUTE_FACTORY_ATTEMPT_REUSE');const release=await acquire(identity);lockAcquired=true;lockHeld=true;return async()=>{try{if(host)await lifecycle.closeAfterAccepted();await release();}finally{lockHeld=false;}};},
   prepareOffline:value=>{id(value);return c.offline.prepare(identity);},
   verifyPreholdRecoveryCapability:value=>{id(value);return c.prehold.verifyRecoveryCapability(identity);},
   verifyIsolatedCandidateAcceptance:value=>{id(value);return c.prehold.verifyIsolatedAcceptance(identity);},
@@ -154,7 +158,7 @@ export async function createARouteFactory(input: ARouteFactoryInputs): Promise<A
    await verifyBlocked(identity);need(await heldGeneration()===generation,'A_ROUTE_FACTORY_EPOCH_HOLD_DRIFT');epoch=frozen(structuredClone(produced));
   },
   verifyCurrentEpochIsolatedCandidateAcceptance:async value=>{id(value);need(epoch,'A_ROUTE_FACTORY_EPOCH_MISSING');await c.epoch.verifyCurrentEpochIsolatedAcceptance(identity,epoch);need(await heldGeneration()===epoch.holdGeneration,'A_ROUTE_FACTORY_EPOCH_HOLD_DRIFT');epochAccepted=true;},
-  migrateExactPlan:async value=>{id(value);need(epoch&&epochAccepted&&!completion,'A_ROUTE_FACTORY_EPOCH_NOT_ACCEPTED');await verifyBlocked(identity);const v=completionSchema.parse(await c.migration.migrateExactPlan(identity,epoch));migrationBinding(v);const raw:any=await readEvidence(v.completion);readNativeCompletion(raw,identity,Date.now(),releaseReader?.());completion=frozen(structuredClone(v));},
+  migrateExactPlan:async value=>{id(value);need(epoch&&epochAccepted&&!completion,'A_ROUTE_FACTORY_EPOCH_NOT_ACCEPTED');await verifyBlocked(identity);if(migrationScope){need(lockHeld,'MIGRATION_SCOPE_RELEASE_LOCK_REQUIRED');need(await heldGeneration()===epoch.holdGeneration,'MIGRATION_SCOPE_HOLD_DRIFT');checkMigrationScopeAdmission(migrationScope,'before-ddl',epoch);}const v=completionSchema.parse(await c.migration.migrateExactPlan(identity,epoch));migrationBinding(v);const raw:any=await readEvidence(v.completion);readNativeCompletion(raw,identity,Date.now(),releaseReader?.());completion=frozen(structuredClone(v));},
   verifyHeldCandidateReadback:async value=>{id(value);need(epoch&&completion,'A_ROUTE_FACTORY_COMPLETION_MISSING');await c.heldReadback.verify(identity,epoch,completion);await verifyBlocked(identity);},
   stageCandidateRuntime:async value=>{
    id(value);need(host&&epoch&&completion&&!candidate,'A_ROUTE_FACTORY_CANDIDATE_STAGE_ORDER');
@@ -165,7 +169,7 @@ export async function createARouteFactory(input: ARouteFactoryInputs): Promise<A
   },
   verifyCandidateRuntimeIdentity:async value=>{id(value);need(candidate,'A_ROUTE_FACTORY_CANDIDATE_UNBOUND');await lifecycle.candidateOperation(identity,'verify-staging');},
   persistCandidateResumeIntent:async value=>{id(value);need(candidate&&!resumeIntent,'A_ROUTE_FACTORY_RESUME_INTENT_ORDER');await lifecycle.candidateOperation(identity,'prepare-resume-intent');resumeIntent=true;},
-  resumeExactCandidateWriters:async value=>{id(value);need(candidate&&resumeIntent,'A_ROUTE_FACTORY_RESUME_WITHOUT_INTENT');await lifecycle.candidateOperation(identity,'resume');},
+  resumeExactCandidateWriters:async value=>{id(value);need(candidate&&resumeIntent,'A_ROUTE_FACTORY_RESUME_WITHOUT_INTENT');if(migrationScope){need(lockHeld&&epoch&&completion,'MIGRATION_SCOPE_RELEASE_LOCK_REQUIRED');await verifyBlocked(identity);need(await heldGeneration()===epoch!.holdGeneration,'MIGRATION_SCOPE_HOLD_DRIFT');checkMigrationScopeAdmission(migrationScope,'before-resume',epoch!);}await lifecycle.candidateOperation(identity,'resume');},
   verifyCandidateWritersResumed:async value=>{id(value);need(candidate&&resumeIntent,'A_ROUTE_FACTORY_RESUME_WITHOUT_INTENT');await lifecycle.candidateOperation(identity,'verify-resumed');resumed=true;},
   verifyPublicAcceptance:async value=>{id(value);need(resumed,'A_ROUTE_FACTORY_PUBLIC_BEFORE_RESUME');await acceptance.verifyPublicAcceptance(identity);},
   observeOpenedCandidate:async value=>{id(value);need(resumed&&epoch,'A_ROUTE_FACTORY_PUBLIC_BEFORE_RESUME');need(await heldGeneration('cleared')===epoch.holdGeneration,'A_ROUTE_FACTORY_OPEN_HOLD_DRIFT');await lifecycle.candidateOperation(identity,'observe-opened');await acceptance.observeOpenedCandidate(identity);await lifecycle.candidateOperation(identity,'observe-opened');},

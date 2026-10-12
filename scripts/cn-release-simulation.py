@@ -3,7 +3,7 @@
 import argparse,concurrent.futures,csv,datetime,hashlib,importlib.util,json,os,platform,re,selectors,stat,statistics,subprocess,sys,time,unittest
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
-SUITES={'release':['test_cn_release_*.py'],'hongkong':['test_cn_hk*.py'],'candidate':['test_cn_candidate_*.py'],'image-archive':['test_cn_image*.py','test_cn_archive*.py'],'legacy-faults':['test_release_failure_matrix.py'],'linux-process':['cn_hk_performance_linux.py'],'linux-domain':['cn_release_simulation_domain_linux.py'],'linux-postgres':['cn_release_postgres_linux.py'],'linux-postgres-lifecycle':['cn_release_postgres_lifecycle_linux.py'],'linux-storage':['cn_release_storage_linux.py'],'linux-entry':['cn_release_cgroup_linux.py'],'linux-browser':['cn_release_browser_linux.py'],'offline-contracts':['test_cn_formal_save_bound.py','test_cn_repeated_layers.py','test_cn_formal_budget_profile.py','test_cn_exact_source_admission.py','test_cn_agent_postbuild_diagnostic.py','test_cloud_build_only.py','test_aliyun_release_auth.py','test_auth_action_hardening.py','test_cn_main_registration.py']}
+SUITES={'release':['test_cn_release_*.py'],'hongkong':['test_cn_hk*.py'],'candidate':['test_cn_candidate_*.py'],'image-archive':['test_cn_image*.py','test_cn_archive*.py'],'legacy-faults':['test_release_failure_matrix.py'],'linux-process':['cn_hk_performance_linux.py'],'linux-domain':['cn_release_simulation_domain_linux.py'],'linux-postgres':['cn_release_postgres_linux.py'],'linux-postgres-lifecycle':['cn_release_postgres_lifecycle_linux.py'],'linux-storage':['cn_release_storage_linux.py'],'linux-readiness':['cn_release_readiness_linux.py'],'linux-api-startup':['cn_release_api_startup_linux.py'],'linux-docker-cleanup':['cn_release_docker_cleanup_linux.py'],'linux-entry':['cn_release_cgroup_linux.py'],'linux-browser':['cn_release_browser_linux.py'],'offline-contracts':['test_cn_formal_save_bound.py','test_cn_repeated_layers.py','test_cn_formal_budget_profile.py','test_cn_exact_source_admission.py','test_cn_agent_postbuild_diagnostic.py','test_cloud_build_only.py','test_aliyun_release_auth.py','test_auth_action_hardening.py','test_cn_main_registration.py']}
 LOG_LIMIT=4*1024*1024
 GAPS=['External GitHub/OSS/ACR/ECS/RDS operations use fixtures; no live provider acceptance.',
       'No production image build, paid resource, production database, traffic switch or live business acceptance.',
@@ -15,7 +15,7 @@ def write_json(path,value):
 def child(suite,result):
     if suite.startswith('linux-') and platform.system()!='Linux':raise RuntimeError('LINUX_REQUIRED')
     loader=unittest.TestLoader();tests=unittest.TestSuite()
-    if suite in ('linux-domain','linux-postgres','linux-postgres-lifecycle','linux-storage','linux-entry','linux-browser'):
+    if suite in ('linux-domain','linux-postgres','linux-postgres-lifecycle','linux-storage','linux-api-startup','linux-docker-cleanup','linux-readiness','linux-entry','linux-browser'):
         spec=importlib.util.spec_from_file_location('cn_simulation_standalone_integration',ROOT/'tests'/SUITES[suite][0])
         module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
         def real_domain_contract():
@@ -55,16 +55,22 @@ def child(suite,result):
 
 def environment(output):
     home=output/'home';home.mkdir(mode=0o700,exist_ok=True)
-    allowed=('PATH','TMPDIR','TEMP','TMP','CN_ARCHIVE_TEST_NODE','CN_ARCHIVE_TEST_RUNTIME','NODE_PATH','CN_TEST_PLAYWRIGHT','CN_TEST_CHROMIUM')
+    allowed=('PATH','TMPDIR','TEMP','TMP','CN_ARCHIVE_TEST_NODE','CN_ARCHIVE_TEST_RUNTIME','NODE_PATH','CN_TEST_PLAYWRIGHT','CN_TEST_CHROMIUM','CN_API_STARTUP_NODE','CN_API_STARTUP_PG_IMAGE','GITHUB_ACTIONS','GITHUB_RUN_ID','GITHUB_RUN_ATTEMPT')
     return {**{k:os.environ[k]for k in allowed if k in os.environ},'HOME':str(home),'LANG':'C.UTF-8','PYTHONHASHSEED':'0','PYTHONDONTWRITEBYTECODE':'1','GIT_TERMINAL_PROMPT':'0','GIT_CONFIG_NOSYSTEM':'1'}
 def domain_factory():
     spec=importlib.util.spec_from_file_location('cn_simulation_domain',ROOT/'scripts/cn_release_simulation_domain.py')
     module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
     return module.Domain()
+def docker_owner_factory(output):
+    spec=importlib.util.spec_from_file_location('fixture_docker_cleanup',ROOT/'scripts/cn-release-fixture-docker-cleanup.py')
+    module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+    return module.Owner(output,os.environ.get('GITHUB_RUN_ID'),output.name)
 def execute(name,command,output,env,seconds,limit=LOG_LIMIT):
-    start=time.monotonic();log=output/(name+'.log');result=output/(name+'.tests.json');reason=None;size=0;p=None;domain=None;cleanup=None
+    start=time.monotonic();log=output/(name+'.log');result=output/(name+'.tests.json');reason=None;size=0;p=None;domain=None;cleanup=None;docker_owner=None;docker_cleanup=None
     try:
         with log.open('xb')as stream:
+            if name=='linux-api-startup':
+                docker_owner=docker_owner_factory(output);env={**env,**docker_owner.environment}
             domain=domain_factory()
             p=domain.spawn(command,cwd=ROOT,env=env,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,start_new_session=True)
             selector=selectors.DefaultSelector();selector.register(p.stdout,selectors.EVENT_READ)
@@ -89,6 +95,12 @@ def execute(name,command,output,env,seconds,limit=LOG_LIMIT):
         if domain is not None and cleanup is None:
             try:cleanup=domain.close(p)
             except Exception:reason='cleanup-unproven'
+    finally:
+        if docker_owner is not None:
+            try:
+                docker_cleanup=docker_owner.close()
+                if docker_cleanup.get('verified')is not True:reason='docker-cleanup-unproven'
+            except Exception as error:reason='docker-cleanup-'+type(error).__name__
     stats=None
     if result.exists():
         try:
@@ -99,7 +111,7 @@ def execute(name,command,output,env,seconds,limit=LOG_LIMIT):
         except (ValueError,OSError):pass
     rc=p.returncode if p else None
     passed=reason is None and cleanup is not None and cleanup.get('verified')is True and rc==0 and stats is not None and stats['tests']>0 and stats['failures']==stats['errors']==stats['unexpectedSuccesses']==stats['skipped']==stats['expectedFailures']==0
-    return dict(suite=name,command=command,cleanup=cleanup,exitCode=rc,status='passed'if passed else 'failed',reason=reason or (None if passed else 'test-failure-or-missing-stats'),durationSeconds=round(time.monotonic()-start,3),statistics=stats,casesEvidence=result.with_suffix('.cases.json').name if result.with_suffix('.cases.json').exists()else None,inventoryEvidence=result.with_suffix('.inventory.json').name if result.with_suffix('.inventory.json').exists()else None,log=log.name,logSha256=hashlib.sha256(log.read_bytes()).hexdigest()if log.exists()else None)
+    return dict(suite=name,command=command,cleanup=cleanup,dockerCleanup=docker_cleanup,exitCode=rc,status='passed'if passed else 'failed',reason=reason or (None if passed else 'test-failure-or-missing-stats'),durationSeconds=round(time.monotonic()-start,3),statistics=stats,casesEvidence=result.with_suffix('.cases.json').name if result.with_suffix('.cases.json').exists()else None,inventoryEvidence=result.with_suffix('.inventory.json').name if result.with_suffix('.inventory.json').exists()else None,log=log.name,logSha256=hashlib.sha256(log.read_bytes()).hexdigest()if log.exists()else None)
 def matrix_coverage(matrix,results,commit,run_id,round_id):
     """Count exact observed IDs once in this round; never fill missing results."""
     registry={case['caseId']:case for case in matrix['cases']}
@@ -160,10 +172,22 @@ def quantify(summary,output):
     summary['metrics']=metrics
     summary['durationDistribution']={'sampleCount':len(durations),'minSeconds':min(durations)if durations else None,'medianSeconds':statistics.median(durations)if durations else None,'maxSeconds':max(durations)if durations else None,'evidence':[f"round-{r['roundId']}/round.json" for r in summary['rounds']]}
     no_bad=complete_cases and bool(all_cases)and all(c['status']=='pass'for c in all_cases)
-    summary['completeRegressionAccepted']=False
-    summary['acceptanceGates']={'tenOfTen':summary['requestedRounds']==summary['completedRounds']==10 and summary['status']=='passed','requiredCasesNoFailureOrSkip':no_bad,'fullMatrixCoverage':bool(summary['matrixCoverage'])and all(c['complete']for c in summary['matrixCoverage']),'seriousIssuesClosed':None,'safetyInvariantsZeroViolations':None,'realCloudThirtyMinutes':None,'accepted':False}
+    registries={}
+    for name in ('defects','invariants'):
+        raw=(ROOT/('docs/operations/cn-release-simulation-'+name+'.json')).read_bytes()
+        registries[name]=json.loads(raw);summary[name+'RegistrySha256']=hashlib.sha256(raw).hexdigest()
+    spec=importlib.util.spec_from_file_location('isolated_acceptance',ROOT/'scripts/cn-release-isolated-acceptance.py')
+    admission=importlib.util.module_from_spec(spec);spec.loader.exec_module(admission)
+    decision=admission.evaluate(summary,registries['defects'],registries['invariants'],ROOT)
+    summary['isolatedAcceptanceDecision']=decision;summary['isolatedAcceptance']=decision['isolatedAcceptance'];summary['completeRegressionAccepted']=decision['isolatedAcceptance']
+    summary['acceptanceGates']={key:decision[key]for key in ('tenOfTen','requiredCasesNoFailureOrSkip','fullMatrixCoverage','seriousIssuesClosed','allKnownIssuesClosed','safetyInvariantAssertionsPassed','realCloudThirtyMinutes')}
+    summary['acceptanceGates']['accepted']=decision['isolatedAcceptance']
+    summary['acceptanceGates']['scope']='complete-declared-isolated-regression'
+    summary['productionAccepted']=False
+    metric('assertedInvariantFailureCount',decision['assertedInvariantFailureCount'],'assertion failures',decision['assertedInvariantCaseDenominator']if decision['assertedInvariantFailureCount']is not None else None,'summary.json#isolatedAcceptanceDecision')
     summary['coverageLayers']={'isolatedFixtures':{'executed':True,'evidence':'summary.json'},'realLocalProcesses':{'executed':None,'reason':'Suite includes real subprocess tests; no per-case audited layer mapping yet.'},'realCloud':{'executed':False},'production':{'executed':False}}
-    summary['integrationGaps']+=['Full required matrix (including browser, cgroup and legacy coverage) and serious issue closure are not independently attested; simulation acceptance remains blocked.','Unmeasured bytes, throughput, retries, peak disk, recovery time and safety violations are null, not zero.']
+    if not decision['isolatedAcceptance']:summary['integrationGaps'].append('Complete isolated matrix, independent defect closure and ten-round invariant assertion gates are not all satisfied.')
+    summary['integrationGaps'].append('Unmeasured bytes, throughput, retries, peak disk, recovery time and global safety violations are null, not zero. Isolated assertion results do not certify production.')
 def render_reports(output):
     # JSON is the single source for CSV and human-readable evidence.
     value=json.loads((output/'summary.json').read_text())
@@ -173,6 +197,12 @@ def render_reports(output):
         fields=['caseId','status','durationSeconds','layer','roundId','suite','commit','runId','observedAt','evidence'];writer=csv.DictWriter(f,fieldnames=fields);writer.writeheader();writer.writerows(value['caseResults'])
     with (output/'report.txt').open('x')as f:
         f.write('Isolated release regression: '+value['status']+'\nCommit: '+value['commit']+'\nCompleted rounds: '+str(value['completedRounds'])+'/'+str(value['requestedRounds'])+'\nCase counts: '+json.dumps(value['caseCounts'],sort_keys=True)+'\nMatrix coverage by round: '+json.dumps([{'roundId':c['roundId'],'cases':[c['caseNumerator'],c['caseDenominator']],'requirements':[c['requirementNumerator'],c['requirementDenominator']]}for c in value['matrixCoverage']],sort_keys=True)+'\nProduction accepted: false\nFull acceptance gates: '+json.dumps(value['acceptanceGates'],sort_keys=True)+'\nDuration sample summary (fixture time only): '+json.dumps(value['durationDistribution'],sort_keys=True)+'\nNull metrics are unmeasured. CSV is derived from summary.json.\n'+'\n'.join(value['integrationGaps'])+'\n')
+
+EXPORT_TOP_FILES=('summary.json','metrics.csv','cases.csv','report.txt','fullstack-setup.json','fullstack-install.log','fullstack-outer-cleanup.json')
+EXPORT_SUITE_SUFFIXES=('.log','.tests.json','.tests.inventory.json','.tests.cases.json')
+EXPORT_REGISTRY_FILES=('owner.json','api-create-intent.json','api-create-receipt.json','cleanup.json')
+EXPORT_MAX_ROUNDS=10
+EXPORT_MAX_FILES=len(EXPORT_TOP_FILES)+EXPORT_MAX_ROUNDS*(1+len(SUITES)*len(EXPORT_SUITE_SUFFIXES)+len(EXPORT_REGISTRY_FILES))
 
 def export_reports(parent):
     """Copy only bounded named reports; never expose HOME or chmod source data.
@@ -193,7 +223,7 @@ def export_reports(parent):
             with os.fdopen(fd,'rb')as stream:
                 before=os.fstat(stream.fileno())
                 if not stat.S_ISREG(before.st_mode)or before.st_nlink!=1 or before.st_size>16*1024*1024:raise ValueError('EXPORT_FILE_REJECTED')
-                if count>=500 or total+before.st_size>512*1024*1024:raise ValueError('EXPORT_TOTAL_LIMIT')
+                if count>=EXPORT_MAX_FILES or total+before.st_size>512*1024*1024:raise ValueError('EXPORT_TOTAL_LIMIT')
                 out=os.open(name,os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW,0o600,dir_fd=dst_fd)
                 with os.fdopen(out,'wb')as sink:
                     os.fchown(sink.fileno(),owner.st_uid,owner.st_gid)
@@ -205,8 +235,8 @@ def export_reports(parent):
                     after=os.fstat(stream.fileno())
                     if stream.read(1)or (before.st_size,before.st_mtime_ns,before.st_ctime_ns)!=(after.st_size,after.st_mtime_ns,after.st_ctime_ns):raise ValueError('EXPORT_CHANGED')
                 total+=before.st_size;count+=1
-        for name in ('summary.json','metrics.csv','cases.csv','report.txt'):copy_file(source_fd,target_fd,name)
-        for index in range(1,11):
+        for name in EXPORT_TOP_FILES:copy_file(source_fd,target_fd,name)
+        for index in range(1,EXPORT_MAX_ROUNDS+1):
             name='round-%02d'%index
             try:round_fd=os.open(name,flags,dir_fd=source_fd)
             except FileNotFoundError:continue
@@ -216,7 +246,18 @@ def export_reports(parent):
                     os.fchown(out_fd,owner.st_uid,owner.st_gid)
                     copy_file(round_fd,out_fd,'round.json')
                     for suite in SUITES:
-                        for suffix in ('.log','.tests.json','.tests.inventory.json','.tests.cases.json'):copy_file(round_fd,out_fd,suite+suffix)
+                        for suffix in EXPORT_SUITE_SUFFIXES:copy_file(round_fd,out_fd,suite+suffix)
+                    try:registry_fd=os.open('api-container-owner',flags,dir_fd=round_fd)
+                    except FileNotFoundError:registry_fd=None
+                    if registry_fd is not None:
+                        try:
+                            os.mkdir('api-container-owner',0o700,dir_fd=out_fd)
+                            registry_out=os.open('api-container-owner',flags,dir_fd=out_fd)
+                            try:
+                                os.fchown(registry_out,owner.st_uid,owner.st_gid)
+                                for entry in EXPORT_REGISTRY_FILES:copy_file(registry_fd,registry_out,entry)
+                            finally:os.close(registry_out)
+                        finally:os.close(registry_fd)
                 finally:os.close(out_fd)
             finally:os.close(round_fd)
         return {'files':count,'bytes':total,'sourceMissing':False}
@@ -257,7 +298,7 @@ def main():
         round_id='%02d'%(index+1);folder=output/('round-'+round_id);folder.mkdir(mode=0o700)
         seed=args.seed+index;env=environment(folder);env['CN_RELEASE_SIMULATION_SEED']=str(seed)
         with concurrent.futures.ThreadPoolExecutor(max_workers=args.workers)as pool:
-            futures=[pool.submit(execute,name,[sys.executable,'-I','-B',str(Path(__file__).resolve()),'--child',name,'--result',str(folder/(name+'.tests.json'))],folder,env,args.timeout_seconds)for name in names]
+            futures=[pool.submit(execute,name,[sys.executable,'-I','-B',str(Path(__file__).resolve()),'--child',name,'--result',str(folder/(name+'.tests.json'))],folder,env,1200 if name=='linux-api-startup'else args.timeout_seconds)for name in names]
             rows=[future.result()for future in futures]
         head=subprocess.check_output(['git','-c','safe.directory='+str(ROOT),'-C',str(ROOT),'rev-parse','HEAD'],text=True).strip()
         state_after=status_snapshot(subprocess.check_output(['git','-c','safe.directory='+str(ROOT),'-C',str(ROOT),'status','--porcelain','--untracked-files=all'],text=True))
@@ -268,5 +309,9 @@ def main():
         if value['status']!='passed':break
     summary=dict(kind='cn-release-isolated-simulation-v1',commit=commit,trackedChanges=dirty,initialSourceState=initial_state,githubRunId=os.environ.get('GITHUB_RUN_ID'),githubRunAttempt=os.environ.get('GITHUB_RUN_ATTEMPT'),startedAt=started,finishedAt=datetime.datetime.now(datetime.timezone.utc).isoformat(),requestedRounds=args.rounds,completedRounds=len(rounds),baseSeed=args.seed,rounds=rounds,status='passed'if len(rounds)==args.rounds and all(x['status']=='passed'for x in rounds)else'failed',productionAccepted=False,externalServiceMode='fixtures',integrationGaps=GAPS)
     quantify(summary,output)
-    write_json(output/'summary.json',summary);render_reports(output);print(json.dumps({'summary':str(output/'summary.json'),'status':summary['status'],'commit':commit,'completedRounds':len(rounds),'completeRegressionAccepted':False},sort_keys=True));return 0 if summary['status']=='passed'else 1
+    summary['testsStatus']=summary['status']
+    accepted_run=summary['status']=='passed'and(args.rounds==1 or summary['isolatedAcceptance']is True)
+    summary['exitStatus']='passed'if accepted_run else 'blocked'if summary['status']=='passed'else 'failed'
+    summary['blockedReason']='FINAL_ISOLATED_ACCEPTANCE_INCOMPLETE'if summary['exitStatus']=='blocked'else None
+    write_json(output/'summary.json',summary);render_reports(output);print(json.dumps({'summary':str(output/'summary.json'),'status':summary['exitStatus'],'testsStatus':summary['testsStatus'],'blockedReason':summary['blockedReason'],'commit':commit,'completedRounds':len(rounds),'completeRegressionAccepted':summary['completeRegressionAccepted']},sort_keys=True));return 0 if accepted_run else 1
 if __name__=='__main__':sys.exit(main())

@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Run isolated tests from a root-owned local clone of the exact CI checkout."""
 import argparse
+import json
+import importlib.util
 import os
 from pathlib import Path
 import re
@@ -18,6 +20,31 @@ def absolute_directory(value):
     return path
 
 
+class SetupCleanupUnproven(RuntimeError):
+    pass
+
+
+def setup_domain(checkout):
+    spec=importlib.util.spec_from_file_location('ci_setup_domain',checkout/'scripts/cn_release_simulation_domain.py')
+    module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+    return module.Domain()
+
+
+def run_owned_setup(command,checkout,env,timeout=660,receipt_path=None):
+    domain=setup_domain(checkout);process=None
+    try:
+        process=domain.spawn(command,cwd=checkout,env=env,start_new_session=True)
+        code=process.wait(timeout=timeout)
+        if code:raise subprocess.CalledProcessError(code,command)
+    finally:
+        try:cleanup=domain.close(process)
+        except Exception as error:raise SetupCleanupUnproven('CI_SETUP_OUTER_CLEANUP_UNPROVEN')from error
+        if not isinstance(cleanup,dict)or cleanup.get('verified')is not True:raise SetupCleanupUnproven('CI_SETUP_OUTER_CLEANUP_UNPROVEN')
+        if receipt_path is not None:
+            with receipt_path.open('x')as stream:json.dump(cleanup,stream);stream.flush();os.fsync(stream.fileno())
+    return cleanup
+
+
 def execute(sha,rounds,seed):
     if not re.fullmatch('[a-f0-9]{40}',sha):raise ValueError('CI_EXACT_SHA_REQUIRED')
     if rounds not in (1,10):raise ValueError('CI_ROUNDS_REQUIRED')
@@ -26,7 +53,7 @@ def execute(sha,rounds,seed):
     temporary=absolute_directory(os.environ['RUNNER_TEMP'])
     if not (source/'.git').is_dir() or (source/'.git').is_symlink():raise ValueError('CI_LOCAL_CHECKOUT_REQUIRED')
     # No global Git configuration, cloud/GitHub credentials, hooks or network.
-    owned=Path(tempfile.mkdtemp(prefix='wsx-cn-simulation-',dir='/var/lib'))
+    owned=Path(tempfile.mkdtemp(prefix='wsx-cn-simulation-',dir='/var/lib'));owned_cleanup_verified=True
     try:
         owned.chmod(0o700);home=owned/'home';home.mkdir(mode=0o700)
         env={'PATH':os.environ.get('PATH',os.defpath),'HOME':str(home),'LANG':'C.UTF-8',
@@ -35,6 +62,7 @@ def execute(sha,rounds,seed):
         git=['/usr/bin/git','-c','safe.directory='+str(source),'-c','safe.directory='+str(source/'.git'),'-c','core.hooksPath=/dev/null']
         def read(*args):return subprocess.check_output([*git,*args],env=env,text=True,timeout=60).strip()
         if read('-C',str(source),'rev-parse','HEAD')!=sha:raise ValueError('CI_SOURCE_HEAD_CHANGED')
+        if read('-C',str(source),'rev-parse','--is-shallow-repository')!='false':raise ValueError('CI_FULL_HISTORY_REQUIRED')
         if read('-C',str(source),'status','--porcelain','--untracked-files=all'):raise ValueError('CI_SOURCE_NOT_CLEAN')
         tree=read('-C',str(source),'rev-parse',sha+'^{tree}')
         checkout=owned/'checkout'
@@ -45,14 +73,33 @@ def execute(sha,rounds,seed):
         for parent in (checkout,*checkout.parents):
             info=parent.stat()
             if info.st_uid!=0 or info.st_gid!=0 or info.st_mode&0o022:raise ValueError('CI_CLONE_ANCESTOR_UNTRUSTED')
-        for key in ('CN_ARCHIVE_TEST_NODE','CN_ARCHIVE_TEST_RUNTIME','CN_TEST_PLAYWRIGHT','CN_TEST_CHROMIUM','NODE_PATH','GITHUB_RUN_ID','GITHUB_RUN_ATTEMPT'):
+        for key in ('CN_ARCHIVE_TEST_NODE','CN_ARCHIVE_TEST_RUNTIME','CN_TEST_PLAYWRIGHT','CN_TEST_CHROMIUM','NODE_PATH','GITHUB_RUN_ID','GITHUB_RUN_ATTEMPT','GITHUB_ACTIONS','CN_API_STARTUP_PG_IMAGE'):
             if key in os.environ:env[key]=os.environ[key]
+        setup=owned/'fullstack-setup'
+        outer_cleanup=run_owned_setup([sys.executable,'-I','-B',str(checkout/'scripts/cn-release-fullstack-fixture-setup.py'),
+            '--repo',str(checkout),'--output',str(setup),'--pg-image',env['CN_API_STARTUP_PG_IMAGE']],checkout,env,receipt_path=owned/'setup-outer-cleanup.json')
+        facts=json.loads((setup/'setup.json').read_bytes())
+        if facts.get('prepared')is not True or facts.get('commit')!=sha:raise ValueError('CI_FULLSTACK_SETUP_UNPROVEN')
+        for key in ('CN_API_STARTUP_NODE','CN_API_STARTUP_PG_IMAGE'):env[key]=facts['environment'][key]
         return subprocess.run([sys.executable,'-I','-B',str(checkout/'scripts/cn-release-simulation.py'),
             '--output',str(temporary/'cn-simulation'),'--workers','3','--timeout-seconds','300',
             '--rounds',str(rounds),'--seed',str(seed)],cwd=checkout,env=env).returncode
+    except SetupCleanupUnproven:
+        owned_cleanup_verified=False
+        raise
     finally:
-        # This invocation created exactly this root; never chown/chmod source.
-        shutil.rmtree(owned)
+        # Preserve only bounded setup reports, including dependency failures.
+        try:
+            report=temporary/'cn-simulation'
+            for origin,name in ((owned/'fullstack-setup/setup.json','fullstack-setup.json'),(owned/'fullstack-setup/install.log','fullstack-install.log'),(owned/'setup-outer-cleanup.json','fullstack-outer-cleanup.json')):
+                if origin.is_file()and not origin.is_symlink():
+                    info=origin.stat()
+                    if info.st_uid!=0 or info.st_size>16*1024*1024:raise ValueError('CI_SETUP_REPORT_REJECTED')
+                    report.mkdir(mode=0o700,exist_ok=True)
+                    with (report/name).open('xb')as sink,origin.open('rb')as source:shutil.copyfileobj(source,sink,65536)
+        finally:
+            # This invocation created exactly this root; never chown/chmod source.
+            if owned_cleanup_verified:shutil.rmtree(owned)
 
 
 def main():

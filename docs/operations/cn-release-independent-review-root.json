@@ -2,30 +2,31 @@
   "kind": "cn-release-independent-code-review-v1",
   "reviewer": "/root",
   "sourceRef": "Direct local source review plus Python 3.12 unittest execution and exact Git-object byte comparison",
-  "reviewedAt": "2026-10-12T10:58:13.345198+00:00",
+  "reviewedAt": "2026-10-12T11:32:49.733934+00:00",
   "findings": [
     {
       "issueId": "SIM-01",
       "disposition": "accepted",
       "reviewedFiles": {
-        "scripts/cn-release-simulation.py": "90a7dd37a43b4f0b07784562c2e53036dd31c45402b0125f4def5dfa28ae0c18",
-        "tests/test_cn_release_simulation.py": "9f5b6edcfdbf8a6439b98364f87c05eb09137bfcbae77f542772d89f6bdb0b2f"
+        "scripts/cn-release-simulation.py": "768410e11b4717cec2534f6fdb987431fe833136d51a4ca1f5da548b5f638aed",
+        "tests/test_cn_release_simulation.py": "3a9ae65135ebae3e807fb66da0a18f6001151298eefd79cbfcedf533d8efa2cf"
       },
       "scope": "Runner requires nonempty tests, zero skipped/expected failures, nonzero failure propagation; per-case/subtest failures retained.",
       "requiredCounterexampleCaseIds": [
         "test_cn_release_simulation.SimulationTests.test_skip_and_expected_failure_cannot_report_green"
       ],
       "executionEvidence": {
-        "localSimulationPassed": 27,
-        "finalCandidateCI": "pending"
+        "localSimulationPassed": 28,
+        "finalCandidateCI": "pending",
+        "localAcceptanceEvaluatorPassed": 14
       }
     },
     {
       "issueId": "SIM-02",
       "disposition": "accepted",
       "reviewedFiles": {
-        "scripts/cn-release-simulation.py": "90a7dd37a43b4f0b07784562c2e53036dd31c45402b0125f4def5dfa28ae0c18",
-        "tests/test_cn_release_simulation.py": "9f5b6edcfdbf8a6439b98364f87c05eb09137bfcbae77f542772d89f6bdb0b2f"
+        "scripts/cn-release-simulation.py": "768410e11b4717cec2534f6fdb987431fe833136d51a4ca1f5da548b5f638aed",
+        "tests/test_cn_release_simulation.py": "3a9ae65135ebae3e807fb66da0a18f6001151298eefd79cbfcedf533d8efa2cf"
       },
       "scope": "All untracked files remain in dirty gate; immutable HEAD and clean status checked before/after every round. Exact unique Domain branch selected for real before/after Python bytecode experiment.",
       "requiredCounterexampleCaseIds": [
@@ -34,24 +35,26 @@
         "test_cn_release_simulation.SimulationTests.test_nested_domain_import_explicit_flag_prevents_bytecode"
       ],
       "executionEvidence": {
-        "localSimulationPassed": 27,
-        "finalCandidateCI": "pending"
+        "localSimulationPassed": 28,
+        "finalCandidateCI": "pending",
+        "localAcceptanceEvaluatorPassed": 14
       }
     },
     {
       "issueId": "SIM-03",
       "disposition": "accepted",
       "reviewedFiles": {
-        "scripts/cn-release-simulation.py": "90a7dd37a43b4f0b07784562c2e53036dd31c45402b0125f4def5dfa28ae0c18",
-        "tests/test_cn_release_simulation.py": "9f5b6edcfdbf8a6439b98364f87c05eb09137bfcbae77f542772d89f6bdb0b2f"
+        "scripts/cn-release-simulation.py": "768410e11b4717cec2534f6fdb987431fe833136d51a4ca1f5da548b5f638aed",
+        "tests/test_cn_release_simulation.py": "3a9ae65135ebae3e807fb66da0a18f6001151298eefd79cbfcedf533d8efa2cf"
       },
       "scope": "All linux-* child suites require actual Linux before discovery; standalone main is executed with nonzero rejected.",
       "requiredCounterexampleCaseIds": [
         "test_cn_release_simulation.SimulationTests.test_linux_suite_requires_real_linux"
       ],
       "executionEvidence": {
-        "localSimulationPassed": 27,
-        "finalCandidateCI": "pending"
+        "localSimulationPassed": 28,
+        "finalCandidateCI": "pending",
+        "localAcceptanceEvaluatorPassed": 14
       }
     },
     {
