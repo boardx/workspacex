@@ -175,12 +175,13 @@ class Commands(legacy.Commands):
                 out.flush()
             self.check_validity()
             publication.image_matches(image, entry, plan, store_archive=path)
-            # Id, platform, labels and RootFS readback must still agree after the
-            # export. No config/manifest identity is substituted into inspect.
+            # Revalidate content using the same exported archive. Inspect may
+            # gain auxiliary metadata; the immutable Id and verified content
+            # must still match, without substituting config/manifest identities.
             current = self.local(image_id)
-            a.require(type(current) is dict and all(current.get(k) == image.get(k)
-                      for k in ('Id', 'Descriptor', 'Os', 'Architecture', 'Config', 'RootFS')),
+            a.require(type(current) is dict and current.get('Id') == image_id,
                       'PUBLICATION_STORE_CHANGED')
+            publication.image_matches(current, entry, plan, store_archive=path)
             self.check_validity()
         finally:
             if process is not None:
