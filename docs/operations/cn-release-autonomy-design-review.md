@@ -1,12 +1,12 @@
 # CN 发布自主执行：方案级独立审查
 
-日期：2026-10-12。基线 HEAD `8c5d4eac8dd9d44b9837fc38a0e754b54ddda6cc`，当前 `github-autonomous-release` 工作树仍在修复，本文是**设计审查，不是执行授权或最终代码验收**。只读核对入口/回执/测试；不创建生产参数、不批准策略、不触发 GitHub 发布、云写、付费资源或 A5。
+日期：2026-10-12。原审查基线 `8c5d4eac8dd9d44b9837fc38a0e754b54ddda6cc`；本次闭环更新读取本地 HEAD `f9db09b2e`。当前 `github-autonomous-release` 工作树仍在修复，本文是**设计审查，不是执行授权或最终代码验收**。只读核对入口/回执/测试；不创建生产参数、不批准策略、不触发 GitHub 发布、云写、付费资源或 A5。
 
 ## 1. 结论
 
 当前代码已有 root-installed exact release approval、固定17阶段driver、独立A5 writer approval和恢复入口，因此**不能说每次运行在技术上必须依赖 Chat**。但尚未证明 GitHub 从冻结源版本、构建、香港传输、生产消费、发布、备份切换到A5/A6与失败恢复的完整自动接线已在同一真实隔离运行中成立。
 
-现有A5消费的是绑定**已经产生的**hold generation、switch receipt、held-health等原始hash的静态批准文件。没有合法指针即等待。这不同于“用户事先批准条件策略，然后可信执行器根据本次fresh事实生成派生授权”。后者是本文提出的设计，**当前未实现、未批准**；不能靠预装空hash、通配target、模型判定或删审批绕过。
+现有A5消费的是绑定**已经产生的**hold generation、switch receipt、held-health等原始hash的静态批准文件。没有合法指针即等待。这不同于“用户事先批准条件策略，然后可信执行器根据本次fresh事实生成派生授权”。后者已有纯策略验证器（本地提交 `0ceac126d`）及待独审的 root 存储/适配器代码；**自动 Router 接线尚未完成，生产策略未批准、未安装**；不能靠预装空hash、通配target、模型判定或删审批绕过。
 
 目标应是：人在运行前批准准确版本/目标/副作用及条件边界；运行时由固定受信代码核验全部条件、记录派生A5能力；GitHub只调度固定入口并读取事实。不把聊天在线、人工复制文件或临时脚本作为正常happy-path依赖，同时保留拒绝、撤销、未知结果和超范围恢复的人类决策门。
 
@@ -26,7 +26,7 @@
 
 A5目前的严格字段：`releaseSha256`、完整`identity`、exact`target`、`issuedAt/expiresAt`、`bindingSha256`、`switchReceiptSha256`、`heldHealthSha256`、`holdRawSha256`、`holdGeneration`、`userAuthorizationEvidenceSha256`、固定scope、`testDataScopeSha256`、`publicOrigin`。还核真实journal链与原始字节，不能退化为一组caller布尔值。
 
-## 3. 目标执行路径（设计，尚未接线）
+## 3. 目标执行路径（部分组件已实现，全链尚未验收）
 
 1. 冻结源：同时核GitHub exact source、已部署DevApp身份和required gates；`main`、公开marker与所有实际服务可能不同。记录差异，不能自动拿最新main替换已批准source。
 2. 提案：离线生成 exact release approval、安装CAS/完整closure、物料/权限/空间/时间预算及候选A5条件策略。所有输出默认inactive，由人类审阅范围。
@@ -38,7 +38,7 @@ A5目前的严格字段：`releaseSha256`、完整`identity`、exact`target`、`
 
 ## 4. A5预批准条件策略：最小契约
 
-建议新增**版本化策略类型**与小型root评估器；不能默默改变现有`cn-writer-resume-approval-v1`字段含义。策略审批的是生成一次exact A5能力的条件，不是批准无条件恢复writer。
+已新增默认关闭的 `cn-conditional-writer-policy-v1` 纯验证器；小型 root 适配器仍待独立审查与 Router 接线。不能默默改变现有`cn-writer-resume-approval-v1`字段含义。策略审批的是生成一次exact A5能力的条件，不是批准无条件恢复writer。
 
 | 策略字段组 | 必须固定的内容 |
 | --- | --- |
@@ -51,7 +51,7 @@ A5目前的严格字段：`releaseSha256`、完整`identity`、exact`target`、`
 | A6范围 | exact test-data scope和业务plan hash、允许的fixture/org/业务动作/外部调用上限、stable observation窗口；不允许任意用户内容外发或运行时扩大 |
 | 评估器 | exact版本/完整code closure/hash、固定输入解析和validator、独立root读源；不得依赖模型判断、Chat消息、runner传入结果布尔、任意脚本或工作树代码 |
 
-执行事务（设计）：
+执行事务（目标契约；当前源码的具体闭环见第 7 节）：
 
 - 先核策略准入/取消/expiry和目标；从现有root journal及独立live observer取fresh原字节，生成观测bundle hash。不能把原策略里不存在的实际generation当历史人类已签的字面值，而应清楚记录“此generation由已批准谓词验证”。
 - 同一authoritative锁/同一次CAS检查下核hold generation、receipt链与当前exact运行体；在clear前再次fresh读回，避免评估后漂移。两次观察之间不能扩大scope。
@@ -84,20 +84,38 @@ A5目前的严格字段：`releaseSha256`、完整`identity`、exact`target`、`
 
 ## 7. 新增高风险项与关闭条件
 
-| ID | 风险/新增点 | 严重性 | 当前证据 / 关闭条件 |
-| --- | --- | --- | --- |
-| AUTO-01 | 将静态exact A5批准误当未来条件授权，或使用空hash/通配值预装 | P1 | 源码已确认当前只消费exactfacts；须独立versioned条件授权契约、明确人类批准及反例，当前未实现 |
-| AUTO-02 | evaluator与release SHA互相包含造成hash循环，或两个文件互相自证授权 | P1 | 设计风险，未动态复现；冻结单向信任图/完整rawhash链，审批根必须独立于执行产物 |
-| AUTO-03 | 评估后hold/runtime漂移、policy重复消费或unknown clear后再次mint | P1 | 设计风险；同锁fresh读回、exact CAS、durable one-use和崩溃并发反例 |
-| AUTO-04 | GitHub runner取得写root approval/code目录的能力，以安装代替审批 | P1 | 当前workflow只读权限不证明主机sudoers最小；实际安装/权限读回及否定测试，不能为自动化加任意root shell |
-| AUTO-05 | 旧source/路径/角色耦合导致新候选部分使用旧物料或错误receipt | P1 | 代码含固定模板/target及exactspecializer；逐消费者同源验证，router真实路径修复仍待冻结复核 |
-| AUTO-06 | workflow exit假绿或十轮缺suite/skip/mutable snapshot，被汇总为可发布 | P1 | 已有具体矩阵SIM问题，修复中；独审逐项关闭，不以重复次数替代覆盖 |
-| AUTO-07 | 30分钟耗尽时已停写，但策略/恢复未就绪 | P1 | 实测分段预算已紧；stop前全链能力/时间准入，保留独立恢复窗口和terminal对账；不得静默延时 |
-| AUTO-08 | held-health/fixture六业务被当真实业务，或新策略范围允许任意数据外发 | P1 | 测试边界已确认；真实隔离业务与exact testscope/外部调用验收，策略不能扩大业务授权 |
-| AUTO-09 | current-epoch backup被误写为可恢复，post-clear runtime rollback被误写为数据恢复 | P1 | RDS输出明确restore false；必须实际隔离restore/migration失败恢复证据，独立post-clear能力 |
-| AUTO-10 | 取消/撤销已批准策略只改GitHub状态，现场仍继续消费旧root pointer | P1 | 新设计风险；可信撤销CAS/失败closed语义、并发clear边界与证据保留测试，GitHub标签不直接充当现场事实 |
+本表区分“源码修复”“本地独审”“真实系统验收”。本地提交不等于已推送、已合入或现场部署；未运行的边界继续保持 OPEN。
 
-本节设计风险均未宣称动态复现；具体既有代码缺陷与本地执行记录见 `cn-release-simulation-matrix.md`，两者不可混计。
+| ID | Severity | 问题与状态 | 修复提交 / 路径 | 验证证据 | 仍未测范围 / 关闭条件 |
+| --- | --- | --- | --- | --- | --- |
+| AUTO-01 | P1 | 静态批准不能等同未来条件授权。PARTIAL：纯策略已审；存储/固定适配器待审 | 本地 `0ceac126d`；`scripts/cn-release-conditional-writer-policy.py`；未提交 `conditional-writer-store.py` / `conditional-writer-adapter.py`（均在 scripts/cn-release- 前缀下） | 纯策略 18 项 PASS，独审 ACCEPT_LOCAL_ONLY；默认 disabled，独立 policy SHA、target/version/digests/code/evidence/TTL 门；返回未安装草案 | 独立人类策略批准及安装尚无；自动 Router 调用尚未写；root 实际文件安装、权限与云 A5 未验收 |
+| AUTO-02 | P1 | 策略/发布哈希循环及互相自证。PARTIAL：代码采用单向引用 | `0ceac126d`：policy 固定 `releaseSha256`；adapter 草稿读取独立 root `by-release` pointer→policy SHA→原文；release code closure 只包含代码 hash，不包含 policy SHA | 18 项含无 approval、policy 篡改、缺独立 observation 拒绝；新 adapter 旧 release 缺新增 code pins 反例 PASS | 外部批准/安装者身份未现场验证；内部 fixture 参数不构成真实 root 信任锚；不得自行生成或安装 pointer |
+| AUTO-03 | P1 | 漂移、重复消费、unknown 后重发。PARTIAL：本地存储已审，锁集成待审 | 未提交 store、adapter；`scripts/cn-release-terminal-delegation.py` 增加 owned-lock capability | 存储 10 项：真实双进程竞争、claim/批准文件/pointer 三处 `os._exit` 后不重发、terminal 失败/撤销/事实改变无 pointer；锁 4 项：真实 fork/thread、伪造/失效 capability、原 materializer 同锁 | 新 adapter 固定 store→entry 锁顺序和发布前复验待独审；仅进程崩溃，不是断电/文件系统故障实测；未验证真实 host hold 并发或 cloud clear CAS |
+| AUTO-04 | P1 | runner 能写 root 批准/代码而自授授权。OPEN | adapter 草稿固定 `/etc/workspacex-cn/`、`/usr/local/lib/workspacex-cn/release-control`，私有 FD/完整 code closure 读回；不是权限部署 | 本地 symlink、mode、静态 pointer 不覆盖测试；公开默认 disabled；未执行真实 policy 安装 | self-hosted runner/sudoers/root ownership/目录 ACL 实际读回及低权限反例仍缺；不得以代码检查替代机器权限 |
+| AUTO-05 | P1 | 旧 source/路径耦合与错误实际 receipt。PARTIAL | 本地 `e7e3769b6` 修 acquire consumer/delegation/observer/router 原 receipt 提升；`f9db09b2e` 补断点/冲突反例；模板 specialization 保留 | 本轮核提交与路径；原表只读局部 upgrade 检查继续有效；新 adapter 5 项使用实际 driver/Router admission与command/entry/materializer（provider 是 fixture） | 不宣称任意 source/路径/角色通用；完整生产安装路径和真实 promoted receipt 未验证；promoted receipt 新测试的独审结果由其 owner 记录，本文不冒认执行 |
+| AUTO-06 | P1 | exit 假绿、skip/缺 suite/漂移 snapshot 与十轮误计。PARTIAL | `441bcf6d3` fixed/recovery driver 终态 exit 与故障证据；`c710982bb` simulation/workflow/domain；`e70b6e13b` CI exact root clone；runner 当前仍有未提交改动 | 精确问题账本见 simulation matrix；这些提交存在已核，但本文未独立关闭 SIM-01…05；正式同 final commit 十轮尚无结果 | required inventory、真实 Linux containment、完整故障矩阵/缺依赖门、同提交十轮最终证据仍需统一核实；不能把作者 PASS 或 workflow 文件当现场验收 |
+| AUTO-07 | P1 | 全局 30 分钟在停写后耗尽。OPEN | policy/terminal 保留原 requestedAt/deadline；adapter 以实际 status.observedAt 评 freshness，不改为当前时间续租 | policy expiry/stale/future 反例 PASS；既有 1487 秒只是三段测量 | 停写前真实剩余预算、全链真实延迟、超时后远端 terminal/恢复仍无完整样本；不承诺 SLA、不暗增窗口 |
+| AUTO-08 | P1 | held-health/fixture 被当真实业务或扩大数据外发。OPEN（证据边界已明确） | 原 A5 输出 `businessAcceptancePassed:false`；policy 固定 test-data-scope 原 hash；adapter receipt `writerResumed:false` | 实际 Router 离线接续至 `CHAIN_COMPLETED`，但 provider/live admission 仍 fixture；原 browser integration 仍手写 API/SSE/ASR/PDF | 真实 WorkspaceX 六业务、模型/ASR、用户/组织 scope、外发限制、TLS 与实际 owned run IDs 仍需授权后独立验收 |
+| AUTO-09 | P1 | 备份误当可恢复、runtime rollback 误当数据恢复。OPEN | `cn-release-rds-backup.py` 原 receipt 明确 `isolatedRestoreTested:false`；本次未扩大恢复能力 | 现 backup provider fixture 仅证明请求/回执契约；升级测试仍有 UPG-01 局部覆盖限制 | 真实 current-epoch restore、迁移/启动失败恢复及 post-clear rehold/data 恢复未证明；须保持独立授权 |
+| AUTO-10 | P1 | GitHub 取消不等于现场撤销。PARTIAL：本地 pointer 撤销门 | store/adapter 草稿发布前重读独立 policy pointer/raw，claim 保留；不覆盖原 writer pointer | store terminal 内撤销 policy 反例 PASS；只保证该本地模型不发布；adapter 从原 status 时间及同 entry 锁再核 | root 撤销与批准发布的统一安装锁协议、真实并发 revoke/clear、GitHub取消到现场的认证通路尚未实现；不得宣称任意外部 root 改文件都与本锁原子协调 |
+
+### 本次测试与源码快照（2026-10-12）
+
+固定解释器：`/Users/shenyanbin/.local/share/uv/python/cpython-3.12.14-macos-aarch64-none/bin/python3.12`，使用 `PYTHONDONTWRITEBYTECODE=1`。
+
+- `unittest discover -s tests -p 'test_cn_release_conditional_writer*.py' -q`：33 PASS = policy 18 + storage 10 + adapter 5；无 skip。存储并发/崩溃使用真实本地进程与临时文件，不使用 mock history 替代这些故障。
+- `test_cn_release_writer_lock.py`：4 PASS，包含真实 `fork`/`flock` 竞争及线程归属；`test_cn_release_terminal_delegation.py`：12 原有测试 PASS。总计 49 项，本地本轮代码验证，**不是正式十轮**。
+- 最后 static wrapper 顺序修复后，12 + 4 + 5 再次 PASS；仍先校验原批准/时间/输入再持锁，避免无效请求提前触碰 attempt 状态。
+- Adapter 的 5 项实际执行 driver、Router admission/command、entry journal、原 materializer。外部命令响应/live provider verifier 使用 `test_cn_release_full_chain` 的明确 fixture；固定 root loader/production 文件权限没有在 Mac 假装 root 实测。
+- Store 独审曾 ACCEPT_OFFLINE_PRIMITIVE_ONLY；terminal owned-lock + fixed adapter 此快照仍在独审。`git diff --check` PASS；尚无本轮集成 commit/PR/CI 结论。
+
+| 文件 | 本次最后核对 SHA-256 |
+| --- | --- |
+| `scripts/cn-release-terminal-delegation.py` | `9270f08121509708c313dd27a1388e7893d1acb46105d2f05806c986649a84a1` |
+| `scripts/cn-release-conditional-writer-adapter.py` | `0f8e98d74b7e696943a88a325ca6a551edadd6b22abd10b7e4df0b7d90162612` |
+| `scripts/cn-release-conditional-writer-store.py` | `f7718d48a965fc02686ede4f46b9d476ddd516467f9199c9dabd951f9ab17b03` |
+
+以上 hashes 只对应该轮测试快照；后续独审修复必须更新快照和重新验证，不沿用旧 PASS。并发 revocation/clear、remote mutation 终态、真实恢复和业务不能由这 49 项推导。
 
 ## 8. 仍需的权限和现场前置
 
@@ -107,4 +125,4 @@ A5目前的严格字段：`releaseSha256`、完整`identity`、exact`target`、`
 - 当前真实DevApp/生产服务身份、baseline、配置与稳定密钥continuity、磁盘和global预算、完整备份/restore能力、A6业务输入；只接受原始观测，不手填成功。
 - 所有新付费隔离资源、真实模型/ASR/数据外发若超已批准范围必须先有具体范围授权。本文只设计，不消耗这些能力。
 
-**当前方案状态：需要修改并验证；未证明全自动生产发布就绪。A5现有实现不依赖Chat协议，但未来freshfacts条件授权和全链GitHub自主接线尚未实现/验收。**
+**当前方案状态：需要修改并验证；未证明全自动生产发布就绪。A5现有实现不依赖Chat协议；条件策略纯验证已提交，本地固定适配器待独审/自动路由接线，全链GitHub自主发布及生产条件授权均未验收/启用。**
