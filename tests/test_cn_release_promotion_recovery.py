@@ -42,13 +42,25 @@ class RecoveryTests(unittest.TestCase):
   p=patch.object(ctypes,'CDLL',return_value=types.SimpleNamespace(renameat2=Rename()));p.start();self.addCleanup(p.stop)
 
  def promote(self):return self.consumer['promote_verified'](self.original,self.result,lambda:None)
- def crash(self):
+ def crash(self,cut=None):
   self.prepared();pid=os.fork()
   if pid==0:
-   try:self.promote();os._exit(73)  # After rename/fsync; before final receipt write.
+   try:
+    self.promote()
+    if cut is not None:
+     data=b''if cut=='empty'else self.expected[:-1]if cut=='newline'else self.expected[:len(self.expected)//2]
+     fd=os.open(self.original/'promoted-receipt.json',os.O_WRONLY|os.O_CREAT|os.O_EXCL,0o600)
+     try:
+      if data:assert os.write(fd,data)==len(data)
+      os.fsync(fd)
+     finally:os.close(fd)
+     fd=os.open(self.original,os.O_RDONLY|os.O_DIRECTORY)
+     try:os.fsync(fd)
+     finally:os.close(fd)
+    os._exit(73)  # After rename/fsync and interrupted original receipt write.
    except BaseException:os._exit(74)
   done,status=os.waitpid(pid,0);self.assertEqual(done,pid);self.assertEqual(os.WEXITSTATUS(status),73)
-  self.assertTrue(self.inbox.exists());self.assertFalse((self.original/'bundle').exists());self.assertFalse((self.original/'promoted-receipt.json').exists())
+  self.assertTrue(self.inbox.exists());self.assertFalse((self.original/'bundle').exists());self.assertEqual((self.original/'promoted-receipt.json').exists(),cut is not None)
 
  def test_actual_process_exit_after_rename_recovers_exact_bytes_readonly(self):
   self.crash();before={str(p):p.read_bytes()for p in self.state.rglob('*')if p.is_file()}
@@ -140,8 +152,8 @@ class RecoveryTests(unittest.TestCase):
   final={**v['receipt'],'bundle':str(self.inbox),'promotedToExactPublisherInbox':True};v['finalReceiptSha256']=base.o.sha((json.dumps(final,sort_keys=True)+'\n').encode());path.write_bytes(base.o.encode(v))
   with self.assertRaisesRegex(ValueError,'PROMOTION_RECOVERY_PROOF_EXPIRY'):base.o.recover_receipt(self.request_sha)
 
- def test_actual_router_publication_route_uses_physical_recovery_not_redownload(self):
-  self.crash();control=self.root/'route-control';(control/'scripts').mkdir(parents=True)
+ def router_recovery(self,cut=None):
+  self.crash(cut);partial_before=(self.original/'promoted-receipt.json').read_bytes()if cut is not None else None;control=self.root/'route-control';(control/'scripts').mkdir(parents=True)
   code=b'from test_cn_release_acquire_observer import o\ndef recover_receipt(request_sha):return o.recover_receipt(request_sha)\n';(control/'scripts/cn-release-acquire-observer.py').write_bytes(code)
   spec=importlib.util.spec_from_file_location('recovery_router',ROOT/'scripts/cn-release-stage-router.py');r=importlib.util.module_from_spec(spec);spec.loader.exec_module(r)
   request={'inputs':{'proof':self.f.r['inputs']['proof']}};release={'acquire':{'requests':{'consume':self.f.r,'publication':request}},'codeFiles':{'scripts/cn-release-acquire-observer.py':d.sha(code)}}
@@ -157,5 +169,76 @@ class RecoveryTests(unittest.TestCase):
   # pinned recovery module, all ZIP/tar hashes and canonical child run unchanged.
   with patch.object(d,'STATE',self.state),patch.object(r,'ROOT',control),patch.object(r,'INPUTS',inputs.parent),patch.object(r.e,'STATE',self.state),patch.object(r.e,'REQUESTS',packages),patch.object(r.e,'read',lambda p,*args:p.read_bytes()),patch.object(d,'derive',side_effect=generation):
    folder,result=router.acquire('publication')
-  self.assertEqual(captured,[('publication',self.expected)]);self.assertTrue(result['interfaceReached']);self.assertFalse((self.original/'promoted-receipt.json').exists())
+  self.assertEqual(captured,[('publication',self.expected)]);self.assertTrue(result['interfaceReached']);self.assertEqual((self.original/'promoted-receipt.json').exists(),cut is not None)
+  if cut is not None:self.assertEqual((self.original/'promoted-receipt.json').read_bytes(),partial_before)
+ def check_partial_recovery(self,cut):
+  self.crash(cut);path=self.original/'promoted-receipt.json';before=path.read_bytes();signature=base.o.signature(path.stat())
+  result=base.o.recover_receipt(self.request_sha);self.assertEqual(result,self.expected)
+  observed=base.o.parse(base.o.observe(self.request_sha));self.assertTrue(observed['runtimeReceiptRecovered']);self.assertEqual(observed['runtimeReceiptSha256'],base.o.sha(self.expected))
+  self.assertEqual(path.read_bytes(),before);self.assertEqual(base.o.signature(path.stat()),signature);self.assertFalse(observed['writesPerformed'])
+
+ def test_actual_child_exit_with_empty_receipt_recovers_no_overwrite(self):
+  self.check_partial_recovery('empty')
+
+ def test_actual_child_exit_with_half_receipt_recovers_no_overwrite(self):
+  self.check_partial_recovery('middle')
+
+ def test_actual_child_exit_with_final_newline_missing_recovers_exact_bytes(self):
+  self.check_partial_recovery('newline')
+
+ def test_nonprefix_trailing_bytes_or_different_valid_receipt_reject(self):
+  self.crash('middle');path=self.original/'promoted-receipt.json';different=json.loads(self.expected);different['images']={}
+  for raw in (b'x'+self.expected[1:100],self.expected+b'x',base.o.encode(different),base.o.encode(json.loads(self.expected))):
+   with self.subTest(raw=raw[:30]):
+    path.write_bytes(raw);before=path.read_bytes()
+    with self.assertRaisesRegex(ValueError,'PROMOTION_PARTIAL_RECEIPT_MISMATCH'):base.o.recover_receipt(self.request_sha)
+    self.assertEqual(path.read_bytes(),before)
+
+ def test_partial_prefix_requires_intent_and_actual_lock(self):
+  import fcntl
+  self.crash('empty');fd=os.open(self.state/'runtime/release.lock',os.O_RDONLY)
+  try:
+   fcntl.flock(fd,fcntl.LOCK_EX|fcntl.LOCK_NB)
+   with self.assertRaises(BlockingIOError):base.o.recover_receipt(self.request_sha)
+  finally:os.close(fd)
+  (self.original/'promotion-intent.json').unlink()
+  with self.assertRaises(ValueError):base.o.recover_receipt(self.request_sha)
+
+ def test_partial_file_changed_during_canonical_read_is_not_admitted(self):
+  self.crash('middle');original=base.o.subprocess.run
+  def changed(*args,**kwargs):
+   result=original(*args,**kwargs);path=self.original/'promoted-receipt.json';path.write_bytes(b'wrong');return result
+  with patch.object(base.o.subprocess,'run',side_effect=changed),self.assertRaisesRegex(ValueError,'FILE_CHANGED_DURING_OBSERVATION'):base.o.recover_receipt(self.request_sha)
+
+ def test_partial_prefix_cannot_extend_request_deadline(self):
+  self.crash('middle');future=dt.datetime.now(dt.timezone.utc)+dt.timedelta(hours=1)
+  class Clock:
+   @staticmethod
+   def now(zone):return future
+   fromisoformat=dt.datetime.fromisoformat
+  with patch.object(base.o.dt,'datetime',Clock),self.assertRaisesRegex(ValueError,'OBSERVATION_DEADLINE'):base.o.recover_receipt(self.request_sha)
+ def test_actual_router_publication_route_uses_physical_recovery_not_redownload(self):
+  self.router_recovery()
+
+ def test_actual_router_empty_receipt_calls_full_recovery(self):
+  self.router_recovery('empty')
+
+ def test_actual_router_partial_receipt_calls_full_recovery(self):
+  self.router_recovery('middle')
+
+ def baseline_rejection(self,cut,code):
+  import subprocess
+  self.crash(cut)
+  original=subprocess.check_output(['git','show','8c5d4eac8dd9d44b9837fc38a0e754b54ddda6cc:scripts/cn-release-acquire-observer.py'],cwd=ROOT)
+  script=self.root/'baseline-observer.py';script.write_bytes(original);script.chmod(0o700)
+  ns={'__name__':'baseline_observer','__file__':str(script)};exec(compile(original,str(script),'exec'),ns)
+  ns.update(STATE=self.state,CODE=self.code,APPROVALS=self.approvals,directory=base.o.directory)
+  approval_path=self.approvals/self.request_sha/'approval.json';approval=json.loads(approval_path.read_bytes());approval['observerSha256']=base.o.sha(original);approval_path.write_bytes(base.o.encode(approval))
+  with self.assertRaisesRegex(ValueError,code):ns['observe'](self.request_sha)
+
+ def test_original_exact_base_rejects_actual_empty_receipt(self):
+  self.baseline_rejection('empty','UNTRUSTED_FILE')
+
+ def test_original_exact_base_rejects_actual_partial_receipt(self):
+  self.baseline_rejection('middle','Unterminated|Expecting')
 if __name__=='__main__':unittest.main()
