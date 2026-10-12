@@ -19,7 +19,7 @@ Current main already contains the question-paragraph generation and supported-an
 Commands run in `/Users/shenyangjun/.codex/worktrees/799b/workspacex`:
 
 ```sh
-pnpm --filter @repo/api exec vitest run --config vitest.research-unit.config.ts tests/research/guided-report-chapters.test.ts tests/research/guided-partial-report-recovery.test.ts tests/research/guided-report-partial-coverage.test.ts tests/research/guided-report-quality.test.ts
+pnpm --filter @repo/api exec vitest run --config vitest.research-unit.config.ts tests/research/guided-report-chapters.test.ts tests/research/guided-partial-report-recovery.test.ts tests/research/guided-report-partial-coverage.test.ts tests/research/guided-report-quality.test.ts tests/research/guided-three-step.test.ts
 pnpm --filter web exec vitest run tests/ui/guided-research-execution-timeline.test.tsx tests/ui/guided-research-report-history.test.tsx tests/ui/guided-research-report-reading.test.tsx
 pnpm --filter @repo/api typecheck
 pnpm --filter web typecheck
@@ -27,7 +27,7 @@ pnpm --filter @repo/api lint
 pnpm --filter web exec next lint --max-warnings 0 --file lib/research-execution-timeline.ts --file tests/ui/guided-research-execution-timeline.test.tsx
 ```
 
-API 226 tests and web 33 tests pass; typechecks and lint pass. The new UI regression first failed with `执行失败` for an already completed formal report carrying coverage limitations. The API regression first failed because the generated report was still null under the old partial-search draft branch.
+API 268 tests and web 33 tests pass; typechecks and lint pass. The new UI regression first failed with `执行失败` for an already completed formal report carrying coverage limitations. The API regression first failed because the generated report was still null under the old partial-search draft branch.
 
 The existing local endpoint driver and strict readback assertion were reused, with an isolated copy of the new session. No new test framework, production write or online regeneration was used. Credentials were loaded only into child-process environment. Raw source text, prompts and responses remain private temporary files.
 
@@ -39,3 +39,5 @@ The existing local endpoint driver and strict readback assertion were reused, wi
 First generation used 29 actual model requests. Regeneration used 27 exact-request recorded responses plus one actual request: total 30 actual requests, below the predeclared 65-call limit. These are not two wholly fresh vendor runs. Stored current report equals the full checkpoint chapters and canonical synthesis output; the prior formal report is retained exactly. JSON readback passed the production persisted-runtime schema and the production execution-timeline helper returns finished / `执行完成` with completed rows. Both formal report hashes were `bf98f4a89f6e6e63a3ed9ed815cdea2650e2bbe0e565d089f2497c22c8675ed2`.
 
 Private local evidence: `/tmp/research-5639-local-safe-result.json`, `/tmp/research-5639-final-assert-safe.json`; raw/private artifacts are not committed. This is the actual production controller/service/provider on a loopback HTTP endpoint with isolated file/memory persistence. It does not attest PostgreSQL transactions, production auth, production deployment or two independent live-model runs. UI refresh here means serialized saved-state readback plus component rerender, not a successful production-browser regeneration. Online state remains unchanged pending deployment and separate browser verification.
+
+CI shard 4 initially found four obsolete expectations in `guided-three-step.test.ts` that required terminal failed searches to force an otherwise quality-passed report into a draft until manual retry. Those expectations now assert automatic Chinese/English formal delivery, complete stored readback, retained failed-task facts and exact history across retry. All 42 tests in that file pass, including the unchanged invalid-evidence, paused-work and unresolved-quality negative controls. Production code is unchanged in this follow-up.
