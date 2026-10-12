@@ -60,3 +60,15 @@ protected no-follow read. Do not remove scoped dependency pins or relax archive
 member validation. `tests/test_cn_candidate_host.py::CanonicalScopedPaths`
 provides scoped-path positives, traversal/normalization negatives, and proof that
 scoped files still reach the protected hash reader.
+
+### Publisher post-export content revalidation
+
+`PUBLICATION_STORE_CHANGED` can occur after archive verification when complete
+Docker inspect objects differ. The observed failed release did not capture the
+changed field; do not infer its exact cause from the error alone. Keep the exact
+immutable image ID check and run the original complete archive verifier again
+against the post-export inspect result and the same archive. Auxiliary metadata
+may differ, but descriptor identity, platform, required labels, configuration
+bytes, rootfs and layer bytes must still verify. `StoreContentRevalidationTests` in
+`tests/test_cn_candidate_host.py` covers metadata-only differences and rejection
+of identity/content changes.
