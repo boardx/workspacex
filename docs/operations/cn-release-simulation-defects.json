@@ -212,12 +212,12 @@
         "test_cn_release_simulation.SimulationTests.test_nested_domain_import_explicit_flag_prevents_bytecode"
       ],
       "requiredReviewedFiles": [
-        "tests/cn_release_simulation_domain_linux.py",
-        "tests/test_cn_release_simulation.py"
+        "tests/test_cn_release_simulation.py",
+        "tests/cn_release_simulation_domain_linux.py"
       ],
       "review": {
-        "file": "docs/operations/cn-release-independent-review-code-review-v2.json",
-        "sha256": "44e06cd677f0e9ba2c82dc1e879583844d816e8f4a004e492fab08f23ffa6409"
+        "file": "docs/operations/cn-release-independent-review-code-review-v5.json",
+        "sha256": "5ee670b1620542bb1b683413375dbde4066825d75a1c5c9967b2aa286b3f22a4"
       },
       "remainingGap": null,
       "historicalEvidence": "GitHub run38238615663: incorrect AST parent branch caused FileNotFound, not source pollution; fix awaiting committed identity and independent review."
@@ -245,18 +245,23 @@
       "id": "SIM-09",
       "severity": "P1",
       "author": "/root/automation_workflow_audit",
-      "disposition": "open",
-      "fixCommit": null,
+      "disposition": "fixed-awaiting-replay",
+      "fixCommit": "0e1f7005383e1185ba87458db9e3366c1a64532f",
       "requiredCaseIds": [
         "test_cn_release_simulation_ci.CiBootstrap.test_setup_outer_timeout_closes_domain_and_preserves_failure",
         "test_cn_release_simulation_ci.CiBootstrap.test_setup_missing_cleanup_proof_is_distinct_blocker"
       ],
       "requiredReviewedFiles": [
         "scripts/cn-release-simulation-ci.py",
-        "tests/test_cn_release_simulation_ci.py"
+        "tests/test_cn_release_simulation_ci.py",
+        "scripts/cn-release-simulation.py",
+        ".github/workflows/cn-release-simulation.yml"
       ],
-      "review": null,
-      "remainingGap": "Setup parent-only timeout could leave dependency-install descendants; outer owned Domain repair awaiting committed identity and independent review.",
+      "review": {
+        "file": "docs/operations/cn-release-independent-review-code-review-v5.json",
+        "sha256": "5ee670b1620542bb1b683413375dbde4066825d75a1c5c9967b2aa286b3f22a4"
+      },
+      "remainingGap": null,
       "historicalEvidence": "Independent code review before checkpoint; no production operation."
     },
     {
@@ -264,35 +269,47 @@
       "severity": "P1",
       "author": "/root/build_reuse_audit",
       "disposition": "open",
-      "fixCommit": null,
+      "fixCommit": "0e1f7005383e1185ba87458db9e3366c1a64532f",
       "requiredCaseIds": [],
       "requiredReviewedFiles": [
+        "packages/cloud-deploy/src/cn-maintenance-host/a_route_factory.ts",
+        "packages/cloud-deploy/src/cn-maintenance-host/a_route_factory_test.ts",
         "packages/cloud-deploy/src/cn-maintenance-host/migration_scope_adapter.ts"
       ],
-      "review": null,
-      "remainingGap": "beforeDDL holdGeneration mismatch repair awaits exact committed identity and independent counterexample binding.",
+      "review": {
+        "file": "docs/operations/cn-release-independent-review-code-review-v5.json",
+        "sha256": "5ee670b1620542bb1b683413375dbde4066825d75a1c5c9967b2aa286b3f22a4"
+      },
+      "remainingGap": "Code fix independently passed 48 local TS cases; no fixed GitHub aggregate case binding for all ten rounds yet.",
       "historicalEvidence": "Independent code review before checkpoint; no production operation."
     },
     {
       "id": "PREP-01",
       "severity": "P1",
       "author": "/root/cn_independent_review",
-      "disposition": "open",
-      "fixCommit": null,
-      "requiredCaseIds": [],
-      "requiredReviewedFiles": [
-        "packages/cloud-deploy/src/cn-release-readiness-dispatch.ts"
+      "disposition": "fixed-awaiting-replay",
+      "fixCommit": "0e1f7005383e1185ba87458db9e3366c1a64532f",
+      "requiredCaseIds": [
+        "linux_readiness_contract"
       ],
-      "review": null,
-      "remainingGap": "Cold readiness invalid config/options could execute external build before validation; repair and counterexample binding pending.",
+      "requiredReviewedFiles": [
+        "packages/cloud-deploy/src/cn-release-readiness-dispatch.ts",
+        "packages/cloud-deploy/test/cn-release-readiness-dispatch.test.ts",
+        "tests/cn_release_readiness_linux.py"
+      ],
+      "review": {
+        "file": "docs/operations/cn-release-independent-review-code-review-v5.json",
+        "sha256": "5ee670b1620542bb1b683413375dbde4066825d75a1c5c9967b2aa286b3f22a4"
+      },
+      "remainingGap": null,
       "historicalEvidence": "Independent code review before checkpoint; no production operation."
     },
     {
       "id": "SIM-10",
       "severity": "P1",
       "author": "/root/automation_workflow_audit",
-      "disposition": "open",
-      "fixCommit": null,
+      "disposition": "fixed-awaiting-replay",
+      "fixCommit": "0e1f7005383e1185ba87458db9e3366c1a64532f",
       "requiredCaseIds": [
         "test_cn_release_simulation.SimulationTests.test_report_export_all_ten_rounds_fixed_inventory"
       ],
@@ -300,8 +317,11 @@
         "scripts/cn-release-simulation.py",
         "tests/test_cn_release_simulation.py"
       ],
-      "review": null,
-      "remainingGap": "Fixed export allowlist capacity repair awaits committed identity and independent review.",
+      "review": {
+        "file": "docs/operations/cn-release-independent-review-code-review-v5.json",
+        "sha256": "5ee670b1620542bb1b683413375dbde4066825d75a1c5c9967b2aa286b3f22a4"
+      },
+      "remainingGap": null,
       "historicalEvidence": "Real local ten-round 16-suite file export reproduced EXPORT_TOTAL_LIMIT at legacy 500-file cap; derived finite allowlist capacity is697."
     }
   ],
