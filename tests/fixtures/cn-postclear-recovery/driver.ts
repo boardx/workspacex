@@ -45,8 +45,18 @@ export async function withReheldController(root:string,python:string,onOpen:()=>
    readEvidence:async r=>{if(r.path===epoch.epoch.path){const{epoch:_ref,kind:_kind,...rest}=epoch;return{...rest,kind:'held-current-epoch-manifest'};}if(r.path===completion.completion.path)return{...hello.completion,capturedAt:new Date().toISOString(),providerFinishedAt:new Date().toISOString(),expiresAt:new Date(Date.now()+60000).toISOString()};if(r.path===candidate.reference.path)return{schemaVersion:1,toolRevision:tool,plan:{identity,holdGeneration:g,epoch:h,migrationCompletionSha256:h,artifactSha256:h},artifact:ref('/etc/workspacex-cn/artifact.json')};throw Error('FIXTURE_EVIDENCE_MISSING');},
    consumers:{offline:{...common('offline'),prepare:async()=>{}},prehold:{...common('prehold'),verifyRecoveryCapability:async()=>{},verifyIsolatedAcceptance:async()=>{}},epoch:{...common('epoch'),captureAndVerify:async()=>epoch,verifyCurrentEpochIsolatedAcceptance:async()=>{}},migration:{...common('migration'),migrateExactPlan:async()=>completion},heldReadback:{...common('held'),verify:async()=>{}},candidate:{...common('candidate'),stageAndSeal:async()=>candidate},writer:{...common('writer'),lifecycle},public:{...common('public'),bindingPolicy:{identity,deploymentMarker:'fixture',observationSamples:2,maximumOutstandingRuns:0},transport:{readPublicIdentity:async()=>({sourceRevision:identity.sourceRevision,deploymentMarker:'fixture',trustworthy:true}),verifyCanonical:async()=>({status:'passed',lockRetained:true,passedStages:8}),runBrowserSmoke:async()=>({login:true,hello:true,asr:true,githubFeedbackRead:true,skillTool:true,pdfDownload:true}),readObservation:async()=>{await onOpen();opened=true;throw Error('ISOLATED_POSTCLEAR_FAULT');}}},disposition:{...common('disposition'),recordRecoveryRequired:async()=>{disposition='recovery';},recordReconciliationRequired:async()=>{disposition='unknown';}}}
   };
-  let failure='';try{await runARouteMaintenanceRelease({...identity,maintenanceOptIn:'stop-all-writes-and-require-database-recovery'},await createARouteFactory(input));}catch(e){failure=String(e);}
-  if(!opened||!failure.includes('DATABASE_RECOVERY_REQUIRED')||disposition!=='recovery'||released)throw Error('ORIGINAL_CATCH_NOT_COMPLETED',{cause:actorFailure});
+  let failure='',routeFailure:unknown,operationFailure:unknown;
+  try{
+   const operations=await createARouteFactory(input);
+   // Observe the original error before the production catch converts it to a
+   // recovery disposition. Rethrow unchanged; never retry or alter an operation.
+   for(const name of Object.keys(operations) as Array<keyof typeof operations>){
+    const original=operations[name];
+    (operations as any)[name]=async(...args:unknown[])=>{try{return await (original as any)(...args);}catch(error){operationFailure??=error;throw error;}};
+   }
+   await runARouteMaintenanceRelease({...identity,maintenanceOptIn:'stop-all-writes-and-require-database-recovery'},operations);
+  }catch(e){routeFailure=e;failure=String(e);}
+  if(!opened||!failure.includes('DATABASE_RECOVERY_REQUIRED')||disposition!=='recovery'||released)throw Error('ORIGINAL_CATCH_NOT_COMPLETED',{cause:actorFailure??operationFailure??routeFailure});
   const state=await rpc('state');if(state.running||!state.resumeDisabled||state.hold.state!=='held'||state.hold.generation===g)throw Error('ACTUAL_REBLOCK_REQUIRED');
   await assertAuthority();await rpc('lock');
   const context=Object.freeze({authority,oldGeneration:g,newGeneration:state.hold.generation,eventsSha256:digest(state.events)});

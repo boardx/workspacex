@@ -14,6 +14,8 @@ def safe_diagnostic(raw):
     lines=[line for line in raw.splitlines()if line.startswith(b'CN_POSTCLEAR_DIAGNOSTIC ')]
     if len(lines)!=1:return None
     try:
+        fixed=json.loads((ROOT/'tests/fixtures/cn-postclear-recovery/fixed-error-codes.json').read_bytes())
+        reasons.update(fixed['actorReasons']);reasons.update(fixed['routeReasons'])
         v=json.loads(lines[0].split(b' ',1)[1])
         if set(v)!={'kind','stage','reason','sqlstate','childExit','stderrBytes','stderrSha256'}:return None
         if v['kind']!='postclear-fixture-diagnostic-v1' or v['stage'] not in stages or v['reason'] not in reasons:return None

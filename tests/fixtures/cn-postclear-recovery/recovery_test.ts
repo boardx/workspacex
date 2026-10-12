@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {mkdir,rm,access} from 'node:fs/promises';
 import {randomBytes} from 'node:crypto';
 import {withReheldController,trackFixtureActor} from './driver';
+import {diagnostic} from './diagnostic';
 import {spawn} from 'node:child_process';
 import {once,EventEmitter} from 'node:events';
 import type {ChildProcess} from 'node:child_process';
@@ -39,4 +40,14 @@ test('runtime actor error cannot be reported as successful cleanup',async()=>{
  const child=Object.assign(new EventEmitter(),{pid:123,exitCode:null,signalCode:null,kill:()=>true});
  const stop=trackFixtureActor(child as unknown as ChildProcess);child.emit('error',Error('KILL_FAILED'));
  await assert.rejects(stop(),/ACTOR_EXIT_UNPROVEN/);
+});
+test('original operation error survives maintenance catch without retry',async()=>{
+ const root='/tmp/wsx-postclear-'+randomBytes(16).toString('hex');await mkdir(root,{mode:0o700});let writes=0;
+ try{
+  await assert.rejects(withReheldController(root,process.env.CN_POSTCLEAR_PYTHON||'/usr/bin/python3',async()=>{
+   writes++;throw Object.assign(Error('secret SQL/password'),{code:'42501'});
+  },async()=>{throw Error('MUST_NOT_RECOVER');}),error=>{
+   const value=diagnostic(error);assert.equal(value.sqlstate,'42501');assert.equal(value.reason,'ORIGINAL_CATCH_NOT_COMPLETED');assert(!JSON.stringify(value).includes('secret'));return true;
+  });assert.equal(writes,1);
+ }finally{await rm(root,{recursive:true,force:true});}
 });

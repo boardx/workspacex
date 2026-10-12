@@ -1,5 +1,8 @@
 /** Fixed-vocabulary diagnostics; never serialize query, argv, stack or message. */
 import {createHash} from 'node:crypto';
+import {readFileSync} from 'node:fs';
+// Committed vocabulary, traced to original source literals by the offline tests.
+const fixed=JSON.parse(readFileSync(new URL('./fixed-error-codes.json',import.meta.url),'utf8'));
 const stages=['module-load','read-config','facts-rows','facts-catalog','create-roles','create-source-databases','controller-start','postclear-write','controller-reheld','observe-writers','capture-catalog','dump','write-archive','restore-archive-identity','create-target','restore','restore-catalog'] as const;
 let current='module-load';
 export function mark(stage:string){current=stages.includes(stage as any)?stage:'unknown';}
@@ -10,7 +13,7 @@ export function diagnostic(error:unknown){
  let e:any=error;const seen=new Set();
  for(let i=0;i<4&&e&&typeof e==='object'&&!seen.has(e);i++,e=e.cause){
   seen.add(e);const message=typeof e.message==='string'?e.message:'';
-  const reason=reasons.find(r=>message===r||message.startsWith(r+':')||e.code===r);
+  const reason=[...reasons,...fixed.actorReasons,...fixed.routeReasons].find(r=>message===r||message.startsWith(r+':')||e.code===r);
   if(reason)result.reason=reason;
   if(typeof e.code==='string'&&sqlstates.has(e.code))result.sqlstate=e.code;
   if(Number.isInteger(e.code)&&Math.abs(e.code)<256)result.childExit=e.code;

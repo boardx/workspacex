@@ -16,3 +16,7 @@ class DiagnosticTests(unittest.TestCase):
     def test_invalid_types_rejected(self):
         for field in ('stderrBytes','childExit'):
             v=self.value();v[field]=True;self.assertIsNone(m.safe_diagnostic(self.raw(v)))
+    def test_fixed_original_candidate_reason_exported(self):
+        v=self.value();v['reason']='ACTOR_CANDIDATE_PLAN_DRIFT'
+        self.assertEqual(m.safe_diagnostic(self.raw(v)),v)
+        v['reason']='ACTOR_SECRET_PASSWORD';self.assertIsNone(m.safe_diagnostic(self.raw(v)))
