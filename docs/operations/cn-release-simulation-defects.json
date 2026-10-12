@@ -16,7 +16,7 @@
       ],
       "review": {
         "file": "docs/operations/cn-release-independent-review-root.json",
-        "sha256": "5c6cca9957fad89c672d10c4edf89d418c14ff3e7a4edad10d8fe0273fc4309c"
+        "sha256": "1bb6935061ec6ad09b4b81b05ee5b736b65f51c1b76fb7789fdcd0e9e7f0256e"
       },
       "remainingGap": null,
       "historicalEvidence": "docs/operations/cn-release-simulation-matrix.md"
@@ -38,7 +38,7 @@
       ],
       "review": {
         "file": "docs/operations/cn-release-independent-review-root.json",
-        "sha256": "5c6cca9957fad89c672d10c4edf89d418c14ff3e7a4edad10d8fe0273fc4309c"
+        "sha256": "1bb6935061ec6ad09b4b81b05ee5b736b65f51c1b76fb7789fdcd0e9e7f0256e"
       },
       "remainingGap": null,
       "historicalEvidence": "docs/operations/cn-release-simulation-matrix.md"
@@ -58,7 +58,7 @@
       ],
       "review": {
         "file": "docs/operations/cn-release-independent-review-root.json",
-        "sha256": "5c6cca9957fad89c672d10c4edf89d418c14ff3e7a4edad10d8fe0273fc4309c"
+        "sha256": "1bb6935061ec6ad09b4b81b05ee5b736b65f51c1b76fb7789fdcd0e9e7f0256e"
       },
       "remainingGap": null,
       "historicalEvidence": "docs/operations/cn-release-simulation-matrix.md"
@@ -158,7 +158,7 @@
       ],
       "review": {
         "file": "docs/operations/cn-release-independent-review-root.json",
-        "sha256": "5c6cca9957fad89c672d10c4edf89d418c14ff3e7a4edad10d8fe0273fc4309c"
+        "sha256": "1bb6935061ec6ad09b4b81b05ee5b736b65f51c1b76fb7789fdcd0e9e7f0256e"
       },
       "remainingGap": null,
       "historicalEvidence": "docs/operations/cn-release-simulation-matrix.md"
@@ -323,6 +323,59 @@
       },
       "remainingGap": null,
       "historicalEvidence": "Real local ten-round 16-suite file export reproduced EXPORT_TOTAL_LIMIT at legacy 500-file cap; derived finite allowlist capacity is697."
+    },
+    {
+      "id": "SIM-11",
+      "severity": "P1",
+      "author": "/root/automation_workflow_audit",
+      "disposition": "open",
+      "fixCommit": null,
+      "requiredCaseIds": [
+        "test_cn_release_isolated_acceptance.AcceptanceTests.test_actual_registry_case_ids_exist_in_inventory_sources",
+        "test_cn_release_isolated_acceptance.AcceptanceTests.test_standalone_binding_rejects_unregistered_identifier",
+        "test_cn_release_isolated_acceptance.AcceptanceTests.test_standalone_binding_rejects_wrong_source_mapping"
+      ],
+      "requiredReviewedFiles": [
+        "tests/test_cn_release_isolated_acceptance.py"
+      ],
+      "review": null,
+      "remainingGap": "Standalone aggregate inventory assertion fix awaits committed identity, independent review and same-candidate replay.",
+      "historicalEvidence": "GitHub38243707763 and local reproduction: linux_readiness_contract caused split-dot ValueError; actual child registration is now checked against fixed source mappings, with explicit synthetic main only."
+    },
+    {
+      "id": "SIM-12",
+      "severity": "P1",
+      "author": "/root/browser_linux_integration",
+      "disposition": "open",
+      "fixCommit": null,
+      "requiredCaseIds": [
+        "linux_boundary_reap_contract",
+        "test_cn_release_boundary_faults.BoundaryFaults.test_10_backup_timeout"
+      ],
+      "requiredReviewedFiles": [
+        "tests/cn_release_boundary_reap_linux.py",
+        "tests/test_cn_release_boundary_faults.py"
+      ],
+      "review": null,
+      "remainingGap": "Offline timeout fixture exec/reaping repair awaits commit, independent review and real Linux counterexample.",
+      "historicalEvidence": "GitHub38243707763 reported processGroupStillPresent. Historical process state absent, zombie mechanism remains to be tested, not proven as CI root cause."
+    },
+    {
+      "id": "API-01",
+      "severity": "P1",
+      "author": "/root/automation_evidence_audit",
+      "disposition": "open",
+      "fixCommit": null,
+      "requiredCaseIds": [
+        "linux_api_startup_contract"
+      ],
+      "requiredReviewedFiles": [
+        "tests/cn_release_api_startup_linux.py",
+        "tests/fixtures/cn-api-startup/startup.ts"
+      ],
+      "review": null,
+      "remainingGap": "Actual isolated API startup failure root cause remains open; diagnostic improvements do not repair business startup.",
+      "historicalEvidence": "GitHub38243707763 API startup failed; limited safe diagnostics preserved, actual cause requires subsequent Linux evidence."
     }
   ],
   "note": "Historical narrative closure is not final candidate ten-round verification. Missing independent raw review bytes remain unverified."

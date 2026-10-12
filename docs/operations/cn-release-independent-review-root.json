@@ -2,13 +2,13 @@
   "kind": "cn-release-independent-code-review-v1",
   "reviewer": "/root",
   "sourceRef": "Direct local source review plus Python 3.12 unittest execution and exact Git-object byte comparison",
-  "reviewedAt": "2026-10-12T11:32:49.733934+00:00",
+  "reviewedAt": "2026-10-12T11:50:23.347169+00:00",
   "findings": [
     {
       "issueId": "SIM-01",
       "disposition": "accepted",
       "reviewedFiles": {
-        "scripts/cn-release-simulation.py": "768410e11b4717cec2534f6fdb987431fe833136d51a4ca1f5da548b5f638aed",
+        "scripts/cn-release-simulation.py": "0a807a200f0ea845db87799e36ac0606cf51b1a716b12fbebe5c40e47105ec32",
         "tests/test_cn_release_simulation.py": "3a9ae65135ebae3e807fb66da0a18f6001151298eefd79cbfcedf533d8efa2cf"
       },
       "scope": "Runner requires nonempty tests, zero skipped/expected failures, nonzero failure propagation; per-case/subtest failures retained.",
@@ -18,14 +18,14 @@
       "executionEvidence": {
         "localSimulationPassed": 28,
         "finalCandidateCI": "pending",
-        "localAcceptanceEvaluatorPassed": 14
+        "localAcceptanceEvaluatorPassed": 16
       }
     },
     {
       "issueId": "SIM-02",
       "disposition": "accepted",
       "reviewedFiles": {
-        "scripts/cn-release-simulation.py": "768410e11b4717cec2534f6fdb987431fe833136d51a4ca1f5da548b5f638aed",
+        "scripts/cn-release-simulation.py": "0a807a200f0ea845db87799e36ac0606cf51b1a716b12fbebe5c40e47105ec32",
         "tests/test_cn_release_simulation.py": "3a9ae65135ebae3e807fb66da0a18f6001151298eefd79cbfcedf533d8efa2cf"
       },
       "scope": "All untracked files remain in dirty gate; immutable HEAD and clean status checked before/after every round. Exact unique Domain branch selected for real before/after Python bytecode experiment.",
@@ -37,14 +37,14 @@
       "executionEvidence": {
         "localSimulationPassed": 28,
         "finalCandidateCI": "pending",
-        "localAcceptanceEvaluatorPassed": 14
+        "localAcceptanceEvaluatorPassed": 16
       }
     },
     {
       "issueId": "SIM-03",
       "disposition": "accepted",
       "reviewedFiles": {
-        "scripts/cn-release-simulation.py": "768410e11b4717cec2534f6fdb987431fe833136d51a4ca1f5da548b5f638aed",
+        "scripts/cn-release-simulation.py": "0a807a200f0ea845db87799e36ac0606cf51b1a716b12fbebe5c40e47105ec32",
         "tests/test_cn_release_simulation.py": "3a9ae65135ebae3e807fb66da0a18f6001151298eefd79cbfcedf533d8efa2cf"
       },
       "scope": "All linux-* child suites require actual Linux before discovery; standalone main is executed with nonzero rejected.",
@@ -54,7 +54,7 @@
       "executionEvidence": {
         "localSimulationPassed": 28,
         "finalCandidateCI": "pending",
-        "localAcceptanceEvaluatorPassed": 14
+        "localAcceptanceEvaluatorPassed": 16
       }
     },
     {

@@ -6,7 +6,7 @@ import re
 import subprocess
 
 REQUIREMENTS = {'T%02d' % i for i in range(1,26)} | {'S%02d' % i for i in range(1,8)}
-KNOWN_DEFECTS = {'SIM-%02d'%i for i in range(1,11)} | {'CI-01','CI-02','AUTH-01','UPG-01','MIG-01','PREP-01'}
+KNOWN_DEFECTS = {'SIM-%02d'%i for i in range(1,13)} | {'CI-01','CI-02','AUTH-01','UPG-01','MIG-01','PREP-01','API-01'}
 KNOWN_INVARIANTS = {'no-false-green','exact-clean-source','local-descendants-contained','production-acceptance-not-forged'}
 
 

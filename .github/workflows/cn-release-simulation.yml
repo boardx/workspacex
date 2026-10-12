@@ -36,6 +36,7 @@ on:
       - 'tests/cn_release_storage_linux.py'
       - 'tests/cn_release_api_startup_linux.py'
       - 'tests/cn_release_docker_cleanup_linux.py'
+      - 'tests/cn_release_boundary_reap_linux.py'
       - 'tests/cn_release_readiness_linux.py'
       - 'packages/cloud-deploy/src/cn-release-readiness-dispatch.ts'
       - 'packages/cloud-deploy/test/cn-release-readiness-dispatch.test.ts'

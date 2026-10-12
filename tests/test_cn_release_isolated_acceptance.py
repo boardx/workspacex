@@ -117,13 +117,50 @@ raise SystemExit(m.main())
     self.assertEqual(result.returncode,0 if rounds==1 else 1,result.stderr)
     value=json.loads((out/'summary.json').read_text());self.assertEqual(value['testsStatus'],'passed');self.assertFalse(value['completeRegressionAccepted'])
     self.assertEqual(value['blockedReason'],'FINAL_ISOLATED_ACCEPTANCE_INCOMPLETE' if rounds==10 else None)
+ def assert_standalone_binding(self,identifier,mutate_runner=None):
+  import ast,types
+  from unittest.mock import patch
+  fixed={name.replace('-','_')+'_contract':(name,'cn_release_'+file+'_linux.py')for name,file in (
+   ('linux-domain','simulation_domain'),('linux-postgres','postgres'),('linux-postgres-lifecycle','postgres_lifecycle'),
+   ('linux-storage','storage'),('linux-api-startup','api_startup'),('linux-docker-cleanup','docker_cleanup'),
+   ('linux-readiness','readiness'),('linux-boundary-reap','boundary_reap'),('linux-entry','cgroup'),('linux-browser','browser'))}
+  self.assertIn(identifier,fixed,'Unregistered standalone aggregate')
+  suite,filename=fixed[identifier]
+  source=ROOT/'tests'/filename;tree=ast.parse(source.read_text())
+  self.assertTrue(any(isinstance(n,ast.FunctionDef)and n.name=='main'for n in tree.body))
+  rs=importlib.util.spec_from_file_location('actual_simulation_runner',ROOT/'scripts/cn-release-simulation.py');runner=importlib.util.module_from_spec(rs);rs.loader.exec_module(runner)
+  if mutate_runner is not None:mutate_runner(runner)
+  self.assertEqual(runner.SUITES.get(suite),[filename])
+  # Exercise actual child registration with a explicitly synthetic main, without
+  # claiming execution of the Linux integration itself.
+  fake=types.SimpleNamespace(main=lambda:0);loader=types.SimpleNamespace(exec_module=lambda module:None)
+  with tempfile.TemporaryDirectory()as td,patch.object(runner.platform,'system',return_value='Linux'),patch.object(runner.importlib.util,'spec_from_file_location',return_value=types.SimpleNamespace(loader=loader))as load,patch.object(runner.importlib.util,'module_from_spec',return_value=fake):
+   result=Path(td)/'aggregate.tests.json';self.assertEqual(runner.child(suite,result),0)
+   load.assert_called_once_with('cn_simulation_standalone_integration',source)
+   rows=json.loads(result.with_suffix('.cases.json').read_text());self.assertEqual([(r['caseId'],r['status'])for r in rows],[(identifier,'pass')])
+ def test_standalone_binding_rejects_unregistered_identifier(self):
+  for identifier in ('unknown_contract','linux_readiness','linux_readiness_contract.extra'):
+   with self.assertRaises(AssertionError):self.assert_standalone_binding(identifier)
+ def test_standalone_binding_rejects_wrong_source_mapping(self):
+  with self.assertRaises(AssertionError):self.assert_standalone_binding('linux_readiness_contract',lambda runner:runner.SUITES.__setitem__('linux-readiness',['cn_release_postgres_linux.py']))
  def test_actual_registry_case_ids_exist_in_inventory_sources(self):
   import ast
   ledger=json.loads((ROOT/'docs/operations/cn-release-simulation-defects.json').read_text());inv=json.loads((ROOT/'docs/operations/cn-release-simulation-invariants.json').read_text())
   ids=set(i for row in ledger['issues']+inv['invariants'] for i in row['requiredCaseIds'])
   for identifier in ids:
-   if identifier in ('linux_domain_contract','linux_entry_contract','linux_postgres_lifecycle_contract'):continue
-   module,cls,name=identifier.split('.');tree=ast.parse((ROOT/'tests'/(module+'.py')).read_text())
+   if '.'not in identifier:
+    self.assert_standalone_binding(identifier);continue
+   module,cls,name=identifier.split('.')
+   if module=='test_cn_release_boundary_faults':
+    # This fixed original suite generates its 51 methods from real STAGES.
+    # Load the inventory without running setup or any test body.
+    loaded=unittest.defaultTestLoader.loadTestsFromName(identifier)
+    def flatten(items):
+     for item in items:
+      if isinstance(item,unittest.TestSuite):yield from flatten(item)
+      else:yield item.id()
+    self.assertEqual(list(flatten(loaded)),[identifier]);continue
+   tree=ast.parse((ROOT/'tests'/(module+'.py')).read_text())
    self.assertTrue(any(isinstance(c,ast.ClassDef)and c.name==cls and any(isinstance(f,ast.FunctionDef)and f.name==name for f in c.body)for c in tree.body),identifier)
 
 if __name__=='__main__':unittest.main()

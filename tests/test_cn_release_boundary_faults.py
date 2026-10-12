@@ -82,7 +82,11 @@ class BoundaryFaults(unittest.TestCase):
             if fault == 'timeout':
                 # A real child process crosses the bounded entry timeout. The
                 # seed decides if the external fixture completed before timeout.
-                command = ('sleep %.3f\n' % (timeout + jitter + .1)).encode()
+                # This offline action owns one process. exec keeps sleep as the
+                # entry's waitable leader instead of orphaning a killed child
+                # whose zombie can keep killpg(pid, 0) true until init reaps it.
+                # Descendant/setsid cleanup remains covered by the Linux cgroup suites.
+                command = ('exec sleep %.3f\n' % (timeout + jitter + .1)).encode()
                 return f.realrun(command, timeout, started)
             command = ('sleep %.3f\nexit %d\n' %
                        (jitter, 17 if fault == 'lost-response' else 23)).encode()

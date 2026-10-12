@@ -3,7 +3,7 @@
 import argparse,concurrent.futures,csv,datetime,hashlib,importlib.util,json,os,platform,re,selectors,stat,statistics,subprocess,sys,time,unittest
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
-SUITES={'release':['test_cn_release_*.py'],'hongkong':['test_cn_hk*.py'],'candidate':['test_cn_candidate_*.py'],'image-archive':['test_cn_image*.py','test_cn_archive*.py'],'legacy-faults':['test_release_failure_matrix.py'],'linux-process':['cn_hk_performance_linux.py'],'linux-domain':['cn_release_simulation_domain_linux.py'],'linux-postgres':['cn_release_postgres_linux.py'],'linux-postgres-lifecycle':['cn_release_postgres_lifecycle_linux.py'],'linux-storage':['cn_release_storage_linux.py'],'linux-readiness':['cn_release_readiness_linux.py'],'linux-api-startup':['cn_release_api_startup_linux.py'],'linux-docker-cleanup':['cn_release_docker_cleanup_linux.py'],'linux-entry':['cn_release_cgroup_linux.py'],'linux-browser':['cn_release_browser_linux.py'],'offline-contracts':['test_cn_formal_save_bound.py','test_cn_repeated_layers.py','test_cn_formal_budget_profile.py','test_cn_exact_source_admission.py','test_cn_agent_postbuild_diagnostic.py','test_cloud_build_only.py','test_aliyun_release_auth.py','test_auth_action_hardening.py','test_cn_main_registration.py']}
+SUITES={'release':['test_cn_release_*.py'],'hongkong':['test_cn_hk*.py'],'candidate':['test_cn_candidate_*.py'],'image-archive':['test_cn_image*.py','test_cn_archive*.py'],'legacy-faults':['test_release_failure_matrix.py'],'linux-process':['cn_hk_performance_linux.py'],'linux-domain':['cn_release_simulation_domain_linux.py'],'linux-postgres':['cn_release_postgres_linux.py'],'linux-postgres-lifecycle':['cn_release_postgres_lifecycle_linux.py'],'linux-storage':['cn_release_storage_linux.py'],'linux-readiness':['cn_release_readiness_linux.py'],'linux-api-startup':['cn_release_api_startup_linux.py'],'linux-docker-cleanup':['cn_release_docker_cleanup_linux.py'],'linux-boundary-reap':['cn_release_boundary_reap_linux.py'],'linux-entry':['cn_release_cgroup_linux.py'],'linux-browser':['cn_release_browser_linux.py'],'offline-contracts':['test_cn_formal_save_bound.py','test_cn_repeated_layers.py','test_cn_formal_budget_profile.py','test_cn_exact_source_admission.py','test_cn_agent_postbuild_diagnostic.py','test_cloud_build_only.py','test_aliyun_release_auth.py','test_auth_action_hardening.py','test_cn_main_registration.py']}
 LOG_LIMIT=4*1024*1024
 GAPS=['External GitHub/OSS/ACR/ECS/RDS operations use fixtures; no live provider acceptance.',
       'No production image build, paid resource, production database, traffic switch or live business acceptance.',
@@ -15,7 +15,7 @@ def write_json(path,value):
 def child(suite,result):
     if suite.startswith('linux-') and platform.system()!='Linux':raise RuntimeError('LINUX_REQUIRED')
     loader=unittest.TestLoader();tests=unittest.TestSuite()
-    if suite in ('linux-domain','linux-postgres','linux-postgres-lifecycle','linux-storage','linux-api-startup','linux-docker-cleanup','linux-readiness','linux-entry','linux-browser'):
+    if suite in ('linux-domain','linux-postgres','linux-postgres-lifecycle','linux-storage','linux-api-startup','linux-docker-cleanup','linux-readiness','linux-boundary-reap','linux-entry','linux-browser'):
         spec=importlib.util.spec_from_file_location('cn_simulation_standalone_integration',ROOT/'tests'/SUITES[suite][0])
         module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
         def real_domain_contract():
@@ -298,7 +298,7 @@ def main():
         round_id='%02d'%(index+1);folder=output/('round-'+round_id);folder.mkdir(mode=0o700)
         seed=args.seed+index;env=environment(folder);env['CN_RELEASE_SIMULATION_SEED']=str(seed)
         with concurrent.futures.ThreadPoolExecutor(max_workers=args.workers)as pool:
-            futures=[pool.submit(execute,name,[sys.executable,'-I','-B',str(Path(__file__).resolve()),'--child',name,'--result',str(folder/(name+'.tests.json'))],folder,env,1200 if name=='linux-api-startup'else args.timeout_seconds)for name in names]
+            futures=[pool.submit(execute,name,[sys.executable,'-I','-B',str(Path(__file__).resolve()),'--child',name,'--result',str(folder/(name+'.tests.json'))],folder,env,1200 if name=='linux-api-startup'else 60 if name=='linux-boundary-reap'else args.timeout_seconds)for name in names]
             rows=[future.result()for future in futures]
         head=subprocess.check_output(['git','-c','safe.directory='+str(ROOT),'-C',str(ROOT),'rev-parse','HEAD'],text=True).strip()
         state_after=status_snapshot(subprocess.check_output(['git','-c','safe.directory='+str(ROOT),'-C',str(ROOT),'status','--porcelain','--untracked-files=all'],text=True))

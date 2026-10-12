@@ -1,4 +1,5 @@
 /** Actual startApi/full migrations; synthetic dedicated database, no live model. */
+import { startupDiagnostic } from './diagnostic';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { createRequire } from 'node:module';
@@ -66,7 +67,9 @@ try {
   }
   // Deliberately calls startApi, not createApp. No replacing sweep/seed/recovery.
   stage = 'actual-startApi';
+  stage = 'import-actual-main';
   const {startApi} = await import('../../../apps/api/src/main');
+  stage = 'invoke-actual-startApi';
   app = await startApi({port:0,listenHost:'127.0.0.1',loadLocalEnv:false});
   need(app.getHttpServer().listening, 'API_LISTENER_NOT_RUNNING');
   stage = 'read-back-startup-effects';
@@ -98,6 +101,6 @@ try {
   try { await owner.end(); } catch {}
   // No raw database error/DSN/query output in the public evidence.
   writeFileSync(output,JSON.stringify({kind:'cn-api-startup-fixture-v1',scenario,verified:false,
-    errorType:error instanceof Error?error.name:'Unknown',stage,checks,productionAccepted:false})+'\n',{flag:'wx',mode:0o600});
+    diagnostic:startupDiagnostic(error),stage,checks,productionAccepted:false})+'\n',{flag:'wx',mode:0o600});
   process.exit(1);
 }
