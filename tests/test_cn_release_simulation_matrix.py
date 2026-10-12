@@ -41,7 +41,7 @@ class MatrixContract(unittest.TestCase):
    else:self.assertTrue(row['notImplemented'])
    if row['implementation']=='notImplemented':self.assertEqual(row['requiredCaseIds'],[])
   for identifier in ('T18','T19'):
-   self.assertEqual(next(r for r in self.matrix['requirements']if r['id']==identifier)['implementation'],'notImplemented')
+   self.assertEqual(next(r for r in self.matrix['requirements']if r['id']==identifier)['implementation'],'partial')
  def test_boundaries_and_actual_evidence_fields_are_required(self):
   for case in self.matrix['cases']:
    self.assertTrue(case['realBoundaries']);self.assertTrue(case['mockBoundaries']);self.assertTrue(case['coverageLimit'])
@@ -59,7 +59,7 @@ class MatrixContract(unittest.TestCase):
   ids=[c['caseId']for c in self.matrix['cases']]
   values=[self.observation(ids[0]),self.observation(ids[1],'skip'),self.observation(ids[2],'fail'),self.observation(ids[3]),self.observation(ids[3])]
   result=self.calculate(values)
-  self.assertEqual(result['caseDenominator'],55);self.assertEqual(result['caseNumerator'],1)
+  self.assertEqual(result['caseDenominator'],57);self.assertEqual(result['caseNumerator'],1)
   by_id={c['caseId']:c for c in result['cases']}
   self.assertEqual(by_id[ids[4]]['status'],'notrun');self.assertTrue(by_id[ids[3]]['duplicate']);self.assertFalse(result['complete'])
  def test_other_round_or_commit_cannot_fill_this_round(self):
@@ -68,7 +68,7 @@ class MatrixContract(unittest.TestCase):
   result=self.calculate([first,second]);self.assertEqual(result['caseNumerator'],0);self.assertEqual(result['foreignIdentityResults'],2)
  def test_all_implemented_cases_do_not_fill_unimplemented_requirements(self):
   result=self.calculate([self.observation(c['caseId'])for c in self.matrix['cases']])
-  self.assertEqual(result['caseNumerator'],55);self.assertEqual(result['requirementDenominator'],32);self.assertEqual(result['requirementNumerator'],22);self.assertFalse(result['complete'])
+  self.assertEqual(result['caseNumerator'],57);self.assertEqual(result['requirementDenominator'],32);self.assertEqual(result['requirementNumerator'],22);self.assertFalse(result['complete'])
  def test_pass_without_evidence_is_not_counted(self):
   value=self.observation(self.matrix['cases'][0]['caseId']);value['evidence']=None
   self.assertEqual(self.calculate([value])['caseNumerator'],0)

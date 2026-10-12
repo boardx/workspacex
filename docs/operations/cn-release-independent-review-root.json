@@ -1,0 +1,77 @@
+{
+  "kind": "cn-release-independent-code-review-v1",
+  "reviewer": "/root",
+  "sourceRef": "Direct local source review plus Python 3.12 unittest execution and exact Git-object byte comparison",
+  "reviewedAt": "2026-10-12T10:58:13.345198+00:00",
+  "findings": [
+    {
+      "issueId": "SIM-01",
+      "disposition": "accepted",
+      "reviewedFiles": {
+        "scripts/cn-release-simulation.py": "90a7dd37a43b4f0b07784562c2e53036dd31c45402b0125f4def5dfa28ae0c18",
+        "tests/test_cn_release_simulation.py": "9f5b6edcfdbf8a6439b98364f87c05eb09137bfcbae77f542772d89f6bdb0b2f"
+      },
+      "scope": "Runner requires nonempty tests, zero skipped/expected failures, nonzero failure propagation; per-case/subtest failures retained.",
+      "requiredCounterexampleCaseIds": [
+        "test_cn_release_simulation.SimulationTests.test_skip_and_expected_failure_cannot_report_green"
+      ],
+      "executionEvidence": {
+        "localSimulationPassed": 27,
+        "finalCandidateCI": "pending"
+      }
+    },
+    {
+      "issueId": "SIM-02",
+      "disposition": "accepted",
+      "reviewedFiles": {
+        "scripts/cn-release-simulation.py": "90a7dd37a43b4f0b07784562c2e53036dd31c45402b0125f4def5dfa28ae0c18",
+        "tests/test_cn_release_simulation.py": "9f5b6edcfdbf8a6439b98364f87c05eb09137bfcbae77f542772d89f6bdb0b2f"
+      },
+      "scope": "All untracked files remain in dirty gate; immutable HEAD and clean status checked before/after every round. Exact unique Domain branch selected for real before/after Python bytecode experiment.",
+      "requiredCounterexampleCaseIds": [
+        "test_cn_release_simulation.SimulationTests.test_ten_rounds_dirty_tree_is_rejected",
+        "test_cn_release_simulation.SimulationTests.test_source_status_is_bounded_redacted_and_never_excludes_cache",
+        "test_cn_release_simulation.SimulationTests.test_nested_domain_import_explicit_flag_prevents_bytecode"
+      ],
+      "executionEvidence": {
+        "localSimulationPassed": 27,
+        "finalCandidateCI": "pending"
+      }
+    },
+    {
+      "issueId": "SIM-03",
+      "disposition": "accepted",
+      "reviewedFiles": {
+        "scripts/cn-release-simulation.py": "90a7dd37a43b4f0b07784562c2e53036dd31c45402b0125f4def5dfa28ae0c18",
+        "tests/test_cn_release_simulation.py": "9f5b6edcfdbf8a6439b98364f87c05eb09137bfcbae77f542772d89f6bdb0b2f"
+      },
+      "scope": "All linux-* child suites require actual Linux before discovery; standalone main is executed with nonzero rejected.",
+      "requiredCounterexampleCaseIds": [
+        "test_cn_release_simulation.SimulationTests.test_linux_suite_requires_real_linux"
+      ],
+      "executionEvidence": {
+        "localSimulationPassed": 27,
+        "finalCandidateCI": "pending"
+      }
+    },
+    {
+      "issueId": "CI-02",
+      "disposition": "accepted",
+      "reviewedFiles": {
+        "tests/fixtures/cn-promotion-recovery/acquire-observer-8c5d4eac.py": "7cec7e65c6d1f00f5c87f0d0b91d2aa63084c454632af2ce069926f86a8fd05c",
+        "tests/test_cn_release_promotion_recovery.py": "2d9f2af5a8be528c0d3d1c3fb8ab36e4e73bdeb6ff82cd6dddf7c75dcdce755f"
+      },
+      "scope": "Pinned historical observer bytes equal original Git object; observer rejection semantics retained without shallow checkout git-show dependency.",
+      "requiredCounterexampleCaseIds": [
+        "test_cn_release_promotion_recovery.RecoveryTests.test_original_exact_base_rejects_actual_empty_receipt",
+        "test_cn_release_promotion_recovery.RecoveryTests.test_original_exact_base_rejects_actual_partial_receipt"
+      ],
+      "executionEvidence": {
+        "localPromotionPassed": 23,
+        "fixtureOriginalBytesEqual": true,
+        "finalCandidateCI": "pending"
+      }
+    }
+  ],
+  "productionExecuted": false
+}

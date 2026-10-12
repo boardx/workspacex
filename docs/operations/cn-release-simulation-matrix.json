@@ -48,11 +48,12 @@
       "severity": "P1",
       "requiredCaseIds": [
         "test_cn_image_postbuild.PostBuildBoundaryTests.test_expansion_budget_and_tar_padding_budget_reject",
-        "test_cn_candidate_oss.Tests.test_disk_metadata_binding"
+        "test_cn_candidate_oss.Tests.test_disk_metadata_binding",
+        "linux_storage_contract"
       ],
       "implementation": "partial",
       "notImplemented": [
-        "Real concurrent ENOSPC/fsync failure across the whole release is not implemented."
+        "Real fsync failure and storage recovery across the full release remain untested; private tmpfs concurrent ENOSPC is a local entry primitive contract."
       ],
       "scope": "Isolated production-code contract only; provider/live application calls remain fixtures."
     },
@@ -236,24 +237,28 @@
       "kind": "fault",
       "title": "Restore failure and old/new database compatibility",
       "severity": "P1",
-      "requiredCaseIds": [],
-      "implementation": "notImplemented",
-      "notImplemented": [
-        "Fixed release chain has no isolated restore stage; no actual restored database compatibility case."
+      "requiredCaseIds": [
+        "linux_postgres_lifecycle_contract"
       ],
-      "scope": "Isolated production-code contract only; provider/live application calls remain fixtures."
+      "implementation": "partial",
+      "notImplemented": [
+        "Actual durable core plus real PostgreSQL synthetic old/new SQL lifecycle is wired; complete application/production release scope remains unverified."
+      ],
+      "scope": "Actual durable core and fresh local PostgreSQL, synthetic SQL/business contracts. External provider operations and full production business acceptance are not exercised."
     },
     {
       "id": "T19",
       "kind": "fault",
       "title": "Partial migration and ledger recovery",
       "severity": "P1",
-      "requiredCaseIds": [],
-      "implementation": "notImplemented",
-      "notImplemented": [
-        "Runtime-only chain does not execute migration; no full-chain partial SQL recovery case."
+      "requiredCaseIds": [
+        "linux_postgres_lifecycle_contract"
       ],
-      "scope": "Isolated production-code contract only; provider/live application calls remain fixtures."
+      "implementation": "partial",
+      "notImplemented": [
+        "Actual durable core plus real PostgreSQL synthetic old/new SQL lifecycle is wired; complete application/production release scope remains unverified."
+      ],
+      "scope": "Actual durable core and fresh local PostgreSQL, synthetic SQL/business contracts. External provider operations and full production business acceptance are not exercised."
     },
     {
       "id": "T20",
@@ -1374,6 +1379,45 @@
       ],
       "platform": "Linux root cgroup v2",
       "coverageLimit": "Only successful aggregate execution counts; internal checks are not inflated into independent unittest cases."
+    },
+    {
+      "caseId": "linux_storage_contract",
+      "source": "tests/cn_release_storage_linux.py",
+      "suite": "linux-storage",
+      "caseKind": "standalone-aggregate-contract",
+      "severity": "P1",
+      "requiredBy": [
+        "T04"
+      ],
+      "evidenceLayer": "isolated-production-code-fixture",
+      "realBoundaries": [
+        "Actual private mount namespace, bounded tmpfs ENOSPC and production entry journal primitive; no fsync failure injection"
+      ],
+      "mockBoundaries": [
+        "Cloud/provider operations and production application state are not exercised"
+      ],
+      "platform": "Linux root",
+      "coverageLimit": "One aggregate case credits only successful actual main execution in this round; no production acceptance."
+    },
+    {
+      "caseId": "linux_postgres_lifecycle_contract",
+      "source": "tests/cn_release_postgres_lifecycle_linux.py",
+      "suite": "linux-postgres-lifecycle",
+      "caseKind": "standalone-aggregate-contract",
+      "severity": "P1",
+      "requiredBy": [
+        "T18",
+        "T19"
+      ],
+      "evidenceLayer": "isolated-production-code-fixture",
+      "realBoundaries": [
+        "Actual durable driver core, real PostgreSQL dump/restore/migration with synthetic old/new SQL business contracts"
+      ],
+      "mockBoundaries": [
+        "Cloud/provider operations and production application state are not exercised"
+      ],
+      "platform": "Linux root",
+      "coverageLimit": "One aggregate case credits only successful actual main execution in this round; no production acceptance."
     }
   ],
   "coverageContract": {

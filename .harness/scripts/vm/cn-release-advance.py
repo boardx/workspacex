@@ -130,20 +130,64 @@ def create(path, raw):
     fsync_dir(path.parent)
 
 
-def load_package(request_hash, attempt):
+# A library-only fixture seam. The installed CLI never constructs this context.
+# Package bytes cannot choose a schema, paths, or a production target.
+PG_PHASES = ('init', 'backup', 'restore', 'compatibility', 'migration-fault',
+             'startup-fault', 'postclear-fault', 'finalize')
+PG_SCOPE = 'isolated-postgres-lifecycle-fixture-v1'
+
+
+class IsolatedPostgresTransport:
+    STAGES = PG_PHASES
+    scope = PG_SCOPE
+
+    def __init__(self, fixture_root, identity):
+        self.root = Path(fixture_root)
+        need(self.root.is_absolute() and self.root == self.root.resolve(), 'FIXTURE_ROOT_INVALID')
+        need(self.root.name.startswith('wsx-pg-entry-'), 'FIXTURE_ROOT_INVALID')
+        need(not any(self.root == p or p in self.root.parents for p in
+                     (Path('/etc/workspacex-cn'), Path('/var/lib/workspacex-cn'))), 'PRODUCTION_PATH_FORBIDDEN')
+        directory(self.root)
+        need(set(identity) == {'sourceRevision','baselineRevision','controlRevision','attemptId','requestedAt','deadlineAt'}, 'FIXTURE_IDENTITY')
+        self.identity = dict(identity)
+        self.requests = self.root / 'requests'
+        self.state = self.root / 'state'
+        directory(self.requests); directory(self.state)
+
+    def check(self, manifest):
+        directory(self.root); directory(self.requests); directory(self.state)
+        need(all(manifest[k] == v for k,v in self.identity.items()), 'FIXTURE_IDENTITY_CHANGED')
+
+    def load_package(self, request, attempt):
+        return load_package(request, attempt, _transport=self)
+
+    def entry(self, mode, request, attempt):
+        need(mode in ('advance','status','reconcile'), 'FIXTURE_RECOVERY_FORBIDDEN')
+        return _entry(mode, request, attempt, self)
+
+
+def _contract(transport):
+    if transport is None:
+        return STAGES, 'runtime-only-reviewed-continuation', 'runtime-only-reviewed-recovery', REQUESTS, STATE
+    need(type(transport) is IsolatedPostgresTransport, 'TRANSPORT_INVALID')
+    return PG_PHASES, PG_SCOPE, None, transport.requests, transport.state
+
+
+def load_package(request_hash, attempt, *, _transport=None):
+    stages, scope, recovery_scope, requests, _ = _contract(_transport)
     need(HEX.fullmatch(request_hash) and ATTEMPT.fullmatch(attempt), 'ARGUMENT_INVALID')
-    package = REQUESTS / request_hash
+    package = requests / request_hash
     raw = read(package / 'manifest.json')
     need(digest(raw) == request_hash, 'REQUEST_HASH_CHANGED')
     m = decode(raw)
     keys = {'schemaVersion', 'sourceRevision', 'baselineRevision', 'controlRevision', 'attemptId',
             'scope', 'stage', 'previousReceiptSha256', 'issuedAt', 'expiresAt', 'requestedAt', 'deadlineAt', 'timeoutSeconds',
             'actionSha256', 'observerSha256', 'verifierSha256', 'authorizationEvidenceSha256'}
-    recovery = isinstance(m, dict) and m.get('scope') == 'runtime-only-reviewed-recovery'
+    recovery = isinstance(m, dict) and recovery_scope is not None and m.get('scope') == recovery_scope
     if recovery:
         keys.add('recoveryOf')
     need(isinstance(m, dict) and set(m) == keys and type(m['schemaVersion']) is int and m['schemaVersion'] == 1, 'MANIFEST_SHAPE')
-    need(m['scope'] in ('runtime-only-reviewed-continuation', 'runtime-only-reviewed-recovery') and m['attemptId'] == attempt and m['stage'] in STAGES, 'SCOPE_INVALID')
+    need(m['scope'] in ((scope, recovery_scope) if recovery_scope else (scope,)) and m['attemptId'] == attempt and m['stage'] in stages, 'SCOPE_INVALID')
     for name in ('sourceRevision', 'baselineRevision', 'controlRevision'):
         need(isinstance(m[name], str) and SHA.fullmatch(m[name]), 'REVISION_INVALID')
     for name in ('actionSha256', 'observerSha256', 'verifierSha256', 'authorizationEvidenceSha256'):
@@ -163,6 +207,7 @@ def load_package(request_hash, attempt):
     for name, key in (('action.sh', 'actionSha256'), ('observe.sh', 'observerSha256'), ('verify.py', 'verifierSha256'), ('authorization.json', 'authorizationEvidenceSha256')):
         files[name] = read(package / name)
         need(digest(files[name]) == m[key], 'PACKAGE_FILE_CHANGED')
+    if _transport is not None: _transport.check(m)
     return m, files
 
 
@@ -396,14 +441,15 @@ def verify_historical_receipt(path, receipt, manifest):
           'terminalObservationSha256':receipt['terminalObservationSha256']}, 'HISTORICAL_ADMISSION_CHANGED')
 
 
-def completed_attempt(root):
+def completed_attempt(root, _transport=None):
+    stages, _, _, _, _ = _contract(_transport)
     """Partial files and transport-only receipts cannot release another attempt."""
-    candidates = [root / '16-observe.receipt.json', *root.glob('*.recovery.receipt.json')]
+    candidates = [root / ('%02d-%s.receipt.json' % (len(stages)-1, stages[-1])), *root.glob('*.recovery.receipt.json')]
     for path in candidates:
         if not path.exists():
             continue
         receipt = decode(read(path))
-        need(isinstance(receipt, dict) and receipt.get('stage') in STAGES
+        need(isinstance(receipt, dict) and receipt.get('stage') in stages
              and receipt.get('mode') in ('advance', 'reconcile', 'recover', 'reconcile-recovery')
              and isinstance(receipt.get('requestSha256'), str) and HEX.fullmatch(receipt['requestSha256'])
              and isinstance(receipt.get('evidenceSha256'), str) and HEX.fullmatch(receipt['evidenceSha256']), 'COMPLETION_RECEIPT_INVALID')
@@ -413,14 +459,19 @@ def completed_attempt(root):
 
 
 def entry(mode, request_hash, attempt):
+    return _entry(mode, request_hash, attempt, None)
+
+
+def _entry(mode, request_hash, attempt, transport):
+    stages, scope, recovery_scope, _, state = _contract(transport)
     need(mode in ('advance', 'reconcile', 'status', 'recover', 'reconcile-recovery'), 'MODE_INVALID')
-    manifest, files = load_package(request_hash, attempt)
-    recovery = manifest['scope'] == 'runtime-only-reviewed-recovery'
+    manifest, files = load_package(request_hash, attempt, _transport=transport)
+    recovery = recovery_scope is not None and manifest['scope'] == recovery_scope
     need((mode in ('recover', 'reconcile-recovery')) == recovery or mode == 'status', 'RECOVERY_MODE_REQUIRED')
-    directory(STATE)
-    root = STATE / attempt
+    directory(state)
+    root = state / attempt
     if mode == 'status':
-        index = STAGES.index(manifest['stage'])
+        index = stages.index(manifest['stage'])
         prefix = root / ('%02d-%s%s' % (index, manifest['stage'], '.recovery' if recovery else ''))
         receipt_path = Path(str(prefix) + '.receipt.json')
         if receipt_path.exists():
@@ -431,9 +482,9 @@ def entry(mode, request_hash, attempt):
         return {'status': 'UNCERTAIN' if Path(str(prefix) + '.intent.json').exists() else 'NOT_STARTED', 'mutationExecuted': False}
     if not root.exists():
         root.mkdir(mode=0o700)
-        fsync_dir(STATE)
+        fsync_dir(state)
     directory(root)
-    lockfd = os.open(STATE / 'entry.lock', os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW, 0o600)
+    lockfd = os.open(state / 'entry.lock', os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW, 0o600)
     try:
         s = os.fstat(lockfd)
         need(stat.S_ISREG(s.st_mode) and s.st_uid == OWNER and s.st_nlink == 1 and not s.st_mode & 0o077, 'LOCK_UNTRUSTED')
@@ -442,17 +493,17 @@ def entry(mode, request_hash, attempt):
         except BlockingIOError:
             raise Rejected('ANOTHER_ENTRY_ACTIVE') from None
         identity = {k: manifest[k] for k in ('sourceRevision', 'baselineRevision', 'controlRevision', 'attemptId', 'scope', 'requestedAt', 'deadlineAt')}
-        identity['scope'] = 'runtime-only-reviewed-continuation'
+        identity['scope'] = scope
         identity_path = root / 'identity.json'
         if identity_path.exists():
             need(decode(read(identity_path)) == identity, 'IDENTITY_CHANGED')
         else:
             create(identity_path, encode(identity))
-        index = STAGES.index(manifest['stage'])
+        index = stages.index(manifest['stage'])
         prefix = root / ('%02d-%s%s' % (index, manifest['stage'], '.recovery' if recovery else ''))
         previous_raw = None
         if index:
-            previous_raw = read(root / ('%02d-%s.receipt.json' % (index - 1, STAGES[index - 1])))
+            previous_raw = read(root / ('%02d-%s.receipt.json' % (index - 1, stages[index - 1])))
             need(digest(previous_raw) == manifest['previousReceiptSha256'], 'PREVIOUS_RECEIPT_CHANGED')
         else:
             need(manifest['previousReceiptSha256'] is None, 'INITIAL_PREVIOUS_INVALID')
@@ -466,8 +517,8 @@ def entry(mode, request_hash, attempt):
             verify_receipt_files(receipt_path, receipt)
             return {'status': 'COMPLETED', 'receiptSha256': digest(read(receipt_path)), 'mutationExecuted': False}
         if recovery:
-            original, _ = load_package(manifest['recoveryOf'], attempt)
-            need(original['scope'] == 'runtime-only-reviewed-continuation' and all(original[k] == manifest[k] for k in identity if k != 'scope') and original['stage'] == manifest['stage'] and original['previousReceiptSha256'] == manifest['previousReceiptSha256'], 'RECOVERY_ORIGINAL_CHANGED')
+            original, _ = load_package(manifest['recoveryOf'], attempt, _transport=transport)
+            need(original['scope'] == scope and all(original[k] == manifest[k] for k in identity if k != 'scope') and original['stage'] == manifest['stage'] and original['previousReceiptSha256'] == manifest['previousReceiptSha256'], 'RECOVERY_ORIGINAL_CHANGED')
             original_prefix = root / ('%02d-%s' % (index, manifest['stage']))
             original_intent = decode(read(Path(str(original_prefix)+'.intent.json')))
             original_process = decode(read(Path(str(original_prefix)+'.process.json')))
@@ -477,16 +528,16 @@ def entry(mode, request_hash, attempt):
             need(instant(manifest['issuedAt']) <= now() < instant(manifest['expiresAt']), 'REQUEST_EXPIRED')
             need(not intent_path.exists(), 'UNCERTAIN_RECONCILE_NO_RETRY')
             KillDomain.preflight()
-            active = STATE / 'active-attempt.json'
+            active = state / 'active-attempt.json'
             if active.exists():
                 old = decode(read(active))
                 need(isinstance(old, str) and ATTEMPT.fullmatch(old), 'ACTIVE_ATTEMPT_INVALID')
                 if old != attempt:
-                    need(completed_attempt(STATE / old), 'OTHER_RELEASE_INCOMPLETE')
-                    pending = STATE / ('active-attempt.%d.json' % os.getpid())
+                    need(completed_attempt(state / old, transport), 'OTHER_RELEASE_INCOMPLETE')
+                    pending = state / ('active-attempt.%d.json' % os.getpid())
                     create(pending, encode(attempt))
                     os.replace(pending, active)
-                    fsync_dir(STATE)
+                    fsync_dir(state)
             else:
                 create(active, encode(attempt))
             if recovery:
@@ -545,7 +596,7 @@ def entry(mode, request_hash, attempt):
             admission_hash = digest(admission)
         finished = now()
         switch_intent = root / '13-switch.intent.json'
-        activation_start = decode(read(switch_intent))['createdAt'] if switch_intent.exists() else None
+        activation_start = decode(read(switch_intent))['createdAt'] if transport is None and switch_intent.exists() else None
         receipt = {'schemaVersion': 1, **identity, 'stage': manifest['stage'], 'requestSha256': request_hash,
                    'previousReceiptSha256': manifest['previousReceiptSha256'], 'evidenceSha256': digest(evidence),
                    'terminalObservationSha256': observation_hash, 'admissionSha256':admission_hash,

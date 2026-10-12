@@ -38,31 +38,34 @@ def validate(sha,raw,now):
     return a
 
 
-def package_identity(request,approval,stage,previous,release):
-    m,files=e.load_package(request,approval['identity']['attemptId'])
+def package_identity(request,approval,stage,previous,release,transport=None):
+    transport = e if transport is None else transport
+    m,files=transport.load_package(request,approval['identity']['attemptId'])
     e.need(e.digest(files['authorization.json'])==release and e.decode(files['authorization.json'])==approval,'PACKAGE_RELEASE_AUTHORITY')
     # The complete original approval binds publicationAttemptId although the
     # lower-level transport manifest predates that acquire identity field.
     e.need(e.decode(files['authorization.json'])['identity']['publicationAttemptId']==approval['identity']['publicationAttemptId'],'PUBLICATION_ATTEMPT')
-    e.need(m['scope']=='runtime-only-reviewed-continuation' and m['stage']==stage,'ROUTER_STAGE')
+    e.need(m['scope']==getattr(transport,'scope','runtime-only-reviewed-continuation') and m['stage']==stage,'ROUTER_STAGE')
     for k in ('sourceRevision','baselineRevision','controlRevision','attemptId','requestedAt','deadlineAt'):
         e.need(m[k]==approval['identity'][k],'ROUTER_IDENTITY')
     e.need(m['previousReceiptSha256']==previous,'ROUTER_PREVIOUS')
     return m
 
 
-def coordinate(release,approval,router,*,mode='run',executor=e.entry,clock=e.now):
+def coordinate(release,approval,router,*,mode='run',executor=None,clock=e.now,transport=None):
     """Router returns a request SHA; executor remains the original durable entry.
 
     Test seams model external terminal outcomes; they do not claim cloud E2E.
     A single approval permits the fixed ordered chain, never skip or reset time.
     """
+    transport = e if transport is None else transport
+    executor = transport.entry if executor is None else executor
     e.need(mode in ('run','status','reconcile'),'DRIVER_MODE')
     previous=None;receipts=[];attempt=approval['identity']['attemptId']
     # Validate the entire installed route before consuming or stopping writers.
     # Missing later observers/recovery capabilities cannot be deferred to stop.
     if mode=='run':router.preflight(release)
-    for stage in e.STAGES:
+    for stage in transport.STAGES:
         # Lookup is read-only. The router may create the next package only after
         # all previous receipts passed original immutable-file checks.
         request=router.lookup(release,stage)
@@ -72,7 +75,7 @@ def coordinate(release,approval,router,*,mode='run',executor=e.entry,clock=e.now
             admission=router.admission(release,stage)
             if admission is not None:return {'status':admission,'stage':stage,'completed':receipts,'intentCreated':False}
             request=router.generate(release,stage,previous)
-        package_identity(request,approval,stage,previous,release)
+        package_identity(request,approval,stage,previous,release,transport)
         current=executor('status',request,attempt)
         if current['status']=='UNCERTAIN':
             if mode!='reconcile':

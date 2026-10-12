@@ -192,7 +192,12 @@ class SimulationTests(unittest.TestCase):
   import ast,shutil
   tree=ast.parse((ROOT/'tests/cn_release_simulation_domain_linux.py').read_text())
   nested=next(n for n in tree.body if isinstance(n,ast.FunctionDef) and n.name=='nested_case')
-  parent=next(ast.literal_eval(n.value) for n in ast.walk(nested) if isinstance(n,ast.Assign) and any(isinstance(t,ast.Name) and t.id=='parent' for t in n.targets))
+  parents=[ast.literal_eval(n.value) for n in ast.walk(nested) if isinstance(n,ast.Assign) and any(isinstance(t,ast.Name) and t.id=='parent' for t in n.targets)]
+  # Select the Domain branch explicitly; the legacy-entry branch imports a
+  # different module. Keep the actual before/after bytecode experiment below.
+  domain_parents=[value for value in parents if 'd=m.Domain();' in value]
+  self.assertEqual(len(domain_parents),1)
+  parent=domain_parents[0]
   spawn=next(n for n in ast.walk(nested) if isinstance(n,ast.Call) and isinstance(n.func,ast.Attribute) and n.func.attr=='spawn' and isinstance(n.func.value,ast.Name) and n.func.value.id=='outer')
   flags=[ast.literal_eval(n) for n in spawn.args[0].elts[1:] if isinstance(n,ast.Constant)]
   self.assertEqual(flags,['-I','-B','-c'])
