@@ -227,9 +227,10 @@ class RecoveryTests(unittest.TestCase):
   self.router_recovery('middle')
 
  def baseline_rejection(self,cut,code):
-  import subprocess
   self.crash(cut)
-  original=subprocess.check_output(['git','show','8c5d4eac8dd9d44b9837fc38a0e754b54ddda6cc:scripts/cn-release-acquire-observer.py'],cwd=ROOT)
+  # Exact observer bytes from commit 8c5d4eac8dd9d44b9837fc38a0e754b54ddda6cc.
+  original=(ROOT/'tests/fixtures/cn-promotion-recovery/acquire-observer-8c5d4eac.py').read_bytes()
+  self.assertEqual(base.o.sha(original),'7cec7e65c6d1f00f5c87f0d0b91d2aa63084c454632af2ce069926f86a8fd05c')
   script=self.root/'baseline-observer.py';script.write_bytes(original);script.chmod(0o700)
   ns={'__name__':'baseline_observer','__file__':str(script)};exec(compile(original,str(script),'exec'),ns)
   ns.update(STATE=self.state,CODE=self.code,APPROVALS=self.approvals,directory=base.o.directory)
