@@ -57,7 +57,7 @@ jobs:
         env:
           ROUNDS: ${{ inputs.rounds || '1' }}
           SEED: ${{ inputs.seed || '0' }}
-        run: 'sudo -n env -i PATH="$PATH" CN_ARCHIVE_TEST_NODE="$CN_ARCHIVE_TEST_NODE" CN_ARCHIVE_TEST_RUNTIME="$CN_ARCHIVE_TEST_RUNTIME" GITHUB_RUN_ID="$GITHUB_RUN_ID" GITHUB_RUN_ATTEMPT="$GITHUB_RUN_ATTEMPT" "$RUNNER_TEMP/cn-test-sdk/bin/python" -I -B scripts/cn-release-simulation.py --output "$RUNNER_TEMP/cn-simulation" --workers 3 --timeout-seconds 300 --rounds "$ROUNDS" --seed "$SEED"'
+        run: 'sudo -n env -i PATH="$PATH" CN_ARCHIVE_TEST_NODE="$CN_ARCHIVE_TEST_NODE" CN_ARCHIVE_TEST_RUNTIME="$CN_ARCHIVE_TEST_RUNTIME" GITHUB_RUN_ID="$GITHUB_RUN_ID" GITHUB_RUN_ATTEMPT="$GITHUB_RUN_ATTEMPT" GITHUB_WORKSPACE="$GITHUB_WORKSPACE" RUNNER_TEMP="$RUNNER_TEMP" "$RUNNER_TEMP/cn-test-sdk/bin/python" -I -B scripts/cn-release-simulation-ci.py --sha "$GITHUB_SHA" --rounds "$ROUNDS" --seed "$SEED"'
       - name: Export bounded reports for the unprivileged artifact uploader
         if: always()
         run: |

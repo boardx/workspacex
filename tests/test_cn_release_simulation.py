@@ -49,7 +49,7 @@ class SimulationTests(unittest.TestCase):
  def test_workflow_no_production_auth_and_always_evidence(self):
   text=(ROOT/'.github/workflows/cn-release-simulation.yml').read_text()
   for forbidden in ('id-token:','environment:','secrets.','production-cn','workflow_run:'):self.assertNotIn(forbidden,text)
-  self.assertEqual(text.count('sudo -n env -i'),2);self.assertIn('scripts/cn-release-simulation.py --output',text)
+  self.assertEqual(text.count('sudo -n env -i'),2);self.assertIn('scripts/cn-release-simulation-ci.py --sha "$GITHUB_SHA"',text)
   self.assertIn('if: always()',text);self.assertIn('persist-credentials: false',text)
  def test_ten_rounds_fixed_commit_distinct_seed_and_output(self):
   seen=[]
