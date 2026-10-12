@@ -112,10 +112,14 @@ def main():
         st=os.fstat(fd);e.need(stat.S_ISREG(st.st_mode) and st.st_uid==0 and st.st_nlink==1 and not st.st_mode&0o077,'DRIVER_LOCK')
         try:fcntl.flock(fd,fcntl.LOCK_EX|fcntl.LOCK_NB)
         except BlockingIOError:raise e.Rejected('ANOTHER_DRIVER_ACTIVE')from None
-        print(e.encode(coordinate(args.release_sha256,a,router,mode=args.mode)).decode(),end='')
+        result=coordinate(args.release_sha256,a,router,mode=args.mode)
+        print(e.encode(result).decode(),end='')
+        # A durable wait/unknown result is observable, but not successful execution.
+        # Preserve its exact JSON; status remains a successful read-only query.
+        return 0 if result['status']=='CHAIN_COMPLETED' else 2
     finally:os.close(fd)
 
 if __name__=='__main__':
-    try:main()
+    try:sys.exit(main())
     except Exception:
         print('{"status":"BLOCKED_OR_UNKNOWN","automaticRetry":false,"automaticRecovery":false}',file=sys.stderr);sys.exit(1)

@@ -84,6 +84,7 @@ jobs:
           PLAN_SHA: ${{ inputs.plan_sha256 }}
         run: '"$RUNNER_TEMP/hk-sdk/bin/python" -I -B scripts/cn-hk-original-artifact-upload.py --plan .github/release-plans/hk-original-artifacts.json --plan-sha256 "$PLAN_SHA" --output "$RUNNER_TEMP/hk-original-artifacts"'
       - name: Retain only sanitized receipt
+        if: ${{ always() }}
         uses: actions/upload-artifact@v6
         with:
           name: hk-transfer-receipt-${{ github.run_id }}-${{ github.run_attempt }}
@@ -91,5 +92,12 @@ jobs:
             ${{ runner.temp }}/hk-original-artifacts/receipt.json
             ${{ runner.temp }}/hk-original-artifacts/revalidation/hk-cloud-proof/candidate-revalidation.json
             ${{ runner.temp }}/hk-original-artifacts/revalidation/revalidation-policy.json
+            ${{ runner.temp }}/hk-original-artifacts/*.put-intent.json
+            ${{ runner.temp }}/hk-original-artifacts/*.worker-result.json
+            ${{ runner.temp }}/hk-original-artifacts/pipeline-failed.json
+            ${{ runner.temp }}/hk-original-artifacts/proof-failed.json
+            ${{ runner.temp }}/hk-original-artifacts/pipeline-complete.json
           retention-days: 1
-          if-no-files-found: error
+          # Admission/auth failure can precede creation of any transfer intent.
+          # Preserve that original failed step; absence is not a successful transfer.
+          if-no-files-found: warn
