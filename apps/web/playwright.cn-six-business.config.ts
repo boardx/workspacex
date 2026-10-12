@@ -1,17 +1,10 @@
 /** Real Next dev/Nest/PG; deterministic external provider protocols, not production acceptance. */
 import {defineConfig} from '@playwright/test';
 import base from './playwright.chat-read.config';
-import {lstatSync,existsSync} from 'node:fs';
-import {dirname,resolve} from 'node:path';
+import {admitOutputs} from '../../tests/fixtures/cn-six-business/output-admission';
 const reportPath=process.env.CN_SIX_REPORT_PATH,outputPath=process.env.CN_SIX_OUTPUT_DIR;
 if(Boolean(reportPath)!==Boolean(outputPath))throw Error('PAIRED_PRIVATE_OUTPUTS_REQUIRED');
-if(reportPath&&outputPath){
- for(const path of [reportPath,outputPath]){
-  if(!path.startsWith('/var/lib/')||resolve(path)!==path||existsSync(path))throw Error('NEW_PRIVATE_OUTPUT_REQUIRED');
-  let parent=dirname(path);for(;;){const st=lstatSync(parent);if(!st.isDirectory()||st.isSymbolicLink()||st.uid!==0||(st.mode&0o022))throw Error('PRIVATE_OUTPUT_PARENT_REQUIRED');if(parent===dirname(path)&&(st.mode&0o777)!==0o700)throw Error('PRIVATE_OUTPUT_OWNER_MODE');if(parent==='/')break;parent=dirname(parent);}
- }
- if(reportPath===outputPath||reportPath.startsWith(outputPath+'/')||outputPath.startsWith(reportPath+'/'))throw Error('OUTPUT_PATH_OVERLAP');
-}
+if(reportPath&&outputPath)admitOutputs(reportPath,outputPath,process.env.TEST_WORKER_INDEX);
 if(process.env.CN_RELEASE_FULLSTACK_FIXTURE!=='1'||process.env.WORKSPACEX_REUSE_INFRA==='1'||!process.env.CN_SIX_INFRA_RECEIPT)throw Error('EXPLICIT_FRESH_SIX_JOURNEY_FIXTURE_REQUIRED');
 const infraReceipt=process.env.CN_SIX_INFRA_RECEIPT;
 const servers=Array.isArray(base.webServer)?base.webServer:[];
