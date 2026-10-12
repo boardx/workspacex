@@ -8,7 +8,7 @@ BRANCH='worker/codex-cn-autonomous-release'
 LABEL='cn-exact-f0eb-preflight-38251278777'
 TOTAL=2100
 WORK=1800
-STAGES=frozenset(('initial','event','checkout','resources','daemon-resources','domain-create','resource-limits','worker-spawn','worker-wait','worker-validation','worker-clone','worker-selection','worker-metadata','worker-download','worker-preflight','worker-image-snapshot','worker-load'))
+STAGES=frozenset(('initial','event','checkout','resources','daemon-resources','unit-worker','domain-create','resource-limits','worker-spawn','worker-wait','worker-validation','worker-clone','worker-selection','worker-metadata','worker-download','worker-preflight','worker-image-snapshot','worker-load'))
 REASONS=frozenset(('RESOURCE_CONTROLLER_UNAVAILABLE','RESOURCE_LIMIT_READBACK','TOTAL_DEADLINE','SIZE_LIMIT','DEADLINE','COMMAND_FAILED','GITHUB_ROOT_WORKER_ONLY','WORKER_EXACT_HEAD','OWNED_ROOT_PATH','OWNED_ROOT_PRIVATE','CLONE_HEAD','GH_REQUIRED','DOCKER_REQUIRED','BEFORE_IMAGE_IDS','WRAPPER_RAW_BYTES','WRAPPER_CHANGED','WRAPPER_EXPIRED','WRAPPER_METADATA_CHANGED','WRAPPER_TIME_EXPIRED','FIXED_SEVEN_WRAPPERS','STANDARD_RUNNER_DISK_INSUFFICIENT','MEMTOTAL','ROOT_CGROUP_REQUIRED','ACTUAL_EVENT_CHECKOUT','DOCKER_ROOT_REQUIRED','EVENT_LIMIT','GITHUB_LINUX_ONLY','FIXED_LABEL_ATTEMPT_ONLY','FIXED_SAME_REPO_PR','EXACT_EVENT_HEAD','RUN_ID'))
 CONTROLS=(('memory.max',str(3*1024**3)),('memory.swap.max','0'),('pids.max','128'),('cpu.max','200000 100000'))
 def diagnostic(stage,error):
@@ -78,6 +78,10 @@ def run(argv,end,limit=1048576,sink=None,*,token=False):
     try:return preserve.stream([str(x)for x in argv],limit,remaining,sink)
     finally:os.environ.update(removed)
 def copy_reports(owned,report):
+    for name in ('unit-claim.json','unit-observed.json','unit-worker-result.json','unit-cleanup.json','unit-bridge-diagnostic.json'):
+        source=owned/name
+        if source.exists():
+            st=source.lstat();need(stat.S_ISREG(st.st_mode)and st.st_nlink==1 and st.st_size<=65536,'UNIT_REPORT_BOUND');preserve.private_file(report/name,source.read_bytes())
     for source,name in ((owned/'worker-diagnostic.json','worker-diagnostic.json'),(owned/'controllers.json','controllers.json'),(owned/'resources.json','resources.json'),(owned/'daemon-resources.json','daemon-resources.json'),(owned/'selection.json','selection.json'),(owned/'preflight/preflight.json','preflight.json'),(owned/'preflight/loaded.json','loaded.json'),(owned/'preflight/load-claim.json','load-claim.json'),(owned/'before-image-ids.json','before-image-ids.json'),(owned/'cleanup.json','cleanup.json')):
         if not source.exists():continue
         st=source.lstat();need(stat.S_ISREG(st.st_mode)and st.st_nlink==1 and st.st_size<=1048576,'REPORT_BOUND')
@@ -166,23 +170,18 @@ def main():
         dockerroot=Path(json.loads(raw));need(dockerroot.is_absolute()and dockerroot.is_dir(),'DOCKER_ROOT_REQUIRED')
         write(owned/'daemon-resources.json',{'dockerRootDir':str(dockerroot),'diskFreeBytes':shutil.disk_usage(dockerroot).free,'requiredLoadFreeBytes':12*1024**3,'productionReady':False})
         need(free>=30*1024**3,'STANDARD_RUNNER_DISK_INSUFFICIENT')
-        stage='domain-create'
-        domain=module('exact_owned_domain',ROOT/'scripts/cn_release_simulation_domain.py').Domain()
-        stage='resource-limits'
-        # Only this newly-created process domain; no host/controller expansion.
-        try:resource_limits(domain.path)
-        finally:write(owned/'controllers.json',{'controllers':controller_snapshot(domain.path),'productionReady':False})
-        env={k:v for k,v in os.environ.items()if k in ('PATH','GH_TOKEN','EXACT_CHECKOUT_SHA','GITHUB_ACTIONS','GITHUB_REPOSITORY','GITHUB_RUN_ID','GITHUB_RUN_ATTEMPT','LANG')};env['PYTHONDONTWRITEBYTECODE']='1'
-        stage='worker-spawn'
-        process=domain.spawn([sys.executable,'-I','-B',__file__,'--worker','--owned',str(owned),'--head',head],cwd=ROOT,env=env,start_new_session=True)
-        stage='worker-wait'
-        code=process.wait(timeout=TOTAL);status='passed'if code==0 else'failed'
+        stage='unit-worker'
+        unit=module('exact_transient_unit',ROOT/'scripts/cn-exact-f0eb-unit.py')
+        code,cleanup=unit.run(owned,head);status='passed'if code==0 else'failed'
     except Exception as error:
         status='failed';failure=diagnostic(stage,error)
     finally:
         if domain is not None:
             try:cleanup=domain.close(process)
             except Exception:cleanup={'verified':False}
+        elif owned is not None and (owned/'unit-claim.json').exists():
+            try:cleanup=json.loads((owned/'unit-cleanup.json').read_bytes())
+            except Exception:cleanup={'verified':False,'reason':'UNIT_CLEANUP_UNKNOWN'}
         elif process is None:cleanup={'verified':True,'populated':0,'notSpawned':True}
         if owned is not None:
             try:

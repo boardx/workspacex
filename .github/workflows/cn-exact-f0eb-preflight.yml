@@ -43,6 +43,11 @@ jobs:
             ${{ runner.temp }}/cn-exact-f0eb-report/result.json
             ${{ runner.temp }}/cn-exact-f0eb-report/controllers.json
             ${{ runner.temp }}/cn-exact-f0eb-report/worker-diagnostic.json
+            ${{ runner.temp }}/cn-exact-f0eb-report/unit-claim.json
+            ${{ runner.temp }}/cn-exact-f0eb-report/unit-observed.json
+            ${{ runner.temp }}/cn-exact-f0eb-report/unit-worker-result.json
+            ${{ runner.temp }}/cn-exact-f0eb-report/unit-cleanup.json
+            ${{ runner.temp }}/cn-exact-f0eb-report/unit-bridge-diagnostic.json
             ${{ runner.temp }}/cn-exact-f0eb-report/resources.json
             ${{ runner.temp }}/cn-exact-f0eb-report/daemon-resources.json
             ${{ runner.temp }}/cn-exact-f0eb-report/selection.json
