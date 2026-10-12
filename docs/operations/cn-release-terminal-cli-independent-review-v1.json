@@ -1,0 +1,16 @@
+{
+  "decision": "ACCEPT_FOR_LINUX_CI",
+  "reviewer": "browser_linux_integration",
+  "files": {
+    "tests/cn_release_migration_terminal_linux.py": "e6d78f78099a2eec2eb15260780939b83d6cfd8cc1fa5ff75b94b8925a3a53a2",
+    "tests/test_cn_release_migration_terminal_wrapper.py": "d35d3cf3fbbf3c63d1e921522ac76b6e31e8a35de7ed818d2843c8ab94db48fd"
+  },
+  "scope": "Only root-authored explicit argv/imported main isolation change; strict TAP and 68Node/19Python gates unchanged.",
+  "validation": {
+    "wrapperUnitTests": 9,
+    "failures": 0,
+    "toolChunk": "a8999d",
+    "mockMainResultNotLinuxEvidence": true
+  },
+  "linuxRerunPending": true
+}

@@ -74,4 +74,4 @@ async function captureExistingRestoreTransaction(client,expected,requiredRoles,t
  // It is not an independent read-only capture receipt and cannot enter verifyCapture().
  return {schemaVersion:1,kind:'existing-restore-transaction-catalog',binding:b,bindingSha256:hash(JSON.stringify(b)),sqlSha256,facts,catalogSha256:hash(JSON.stringify(facts)),readOnlyQueries:true,transactionOwner:'existing-session-restore',rollbackComplete:false};
 }
-module.exports={verifyBorrowedTransport,QUERIES,identitySql,sqlSha256,capture,captureExistingRestoreTransaction,compare,canonical,hash,binding,verifyCaptureArtifact};
+module.exports={collectFacts,verifyBorrowedTransport,QUERIES,identitySql,sqlSha256,capture,captureExistingRestoreTransaction,compare,canonical,hash,binding,verifyCaptureArtifact};

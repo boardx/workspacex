@@ -38,6 +38,8 @@ e.stack='Error: hidden\n at '+process.cwd()+'/apps/api/src/main.ts:59:21';
 const d=startupDiagnostic(e);assert.equal(d.errorCode,'ERR_MODULE_NOT_FOUND');assert(d.categories.moduleResolution);
 assert.deepEqual(d.frames,[{file:'apps/api/src/main.ts',line:59,column:21}]);
 const pg=new Error('sensitive SQL');pg.code='42501';assert.equal(startupDiagnostic(pg).errorCode,'42501');
+for(const [code,klass]of [['53100','disk_full'],['53200','out_of_memory'],['57014','query_canceled']]){const x=new Error(secret);x.name='error';x.code=code;const d=startupDiagnostic(x);assert.equal(d.errorCode,code);assert.equal(d.postgresClass,klass);assert.equal(d.errorType,'PostgresError');assert(!JSON.stringify(d).includes(secret));}
+const timeout=startupDiagnostic(new Error('Query read timeout'));assert.equal(timeout.clientQueryReadTimeout,true);assert.equal(timeout.postgresClass,null);
 assert.equal(startupDiagnostic('raw token '+secret).errorType,'Unknown');
 console.log(JSON.stringify({verified:true,productionAccepted:false}));
 '''

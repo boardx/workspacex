@@ -11,6 +11,7 @@ import stat
 import subprocess
 import sys
 import tempfile
+import time
 
 
 def absolute_directory(value):
@@ -45,7 +46,7 @@ def run_owned_setup(command,checkout,env,timeout=660,receipt_path=None):
     return cleanup
 
 
-def run_owned_simulation(command,checkout,env,registries,sha,run_id,receipt_root,timeout=16500,api_owner_root=None):
+def run_owned_simulation(command,checkout,env,registries,sha,run_id,receipt_root,timeout=16500,api_owner_root=None,recovery_deadline=None):
     """CI finally remains alive if a Session/simulation child is SIGKILLed."""
     domain=setup_domain(checkout);process=None;code=1;cleanup=None;recovery=None
     try:
@@ -57,14 +58,15 @@ def run_owned_simulation(command,checkout,env,registries,sha,run_id,receipt_root
             if cleanup.get('verified')is not True or cleanup.get('populated')!=0:raise RuntimeError('CI_SIMULATION_DOMAIN_UNPROVEN')
             with (receipt_root/'simulation-outer-cleanup.json').open('x')as f:json.dump(cleanup,f);f.flush();os.fsync(f.fileno())
             spec=importlib.util.spec_from_file_location('ci_six_recovery',checkout/'scripts/cn-release-six-infra.py');module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+            recovery_deadline=recovery_deadline if recovery_deadline is not None else time.monotonic()+360
             results={}
             for name,path in registries.items():
-                try:results[name]=module.recover_all(path,run_id,sha,cleanup)
+                try:results[name]=module.recover_all(path,run_id,sha,cleanup,deadline=recovery_deadline)
                 except Exception as error:results[name]={'verified':False,'errorType':type(error).__name__}
             # One unknown registry must never prevent recovery of the others.
             try:
                 spec=importlib.util.spec_from_file_location('ci_api_recovery',checkout/'scripts/cn-release-fixture-docker-cleanup.py');api=importlib.util.module_from_spec(spec);spec.loader.exec_module(api)
-                results['api-and-application']=api.recover_all(api_owner_root if api_owner_root is not None else receipt_root/'api-owners',run_id,cleanup)
+                results['api-and-application']=api.recover_all(api_owner_root if api_owner_root is not None else receipt_root/'api-owners',run_id,cleanup,deadline=recovery_deadline)
             except Exception as error:results['api-and-application']={'verified':False,'errorType':type(error).__name__}
             recovery={'verified':all(v.get('verified')is True for v in results.values()),'registries':results}
             with (receipt_root/'six-recovery.json').open('x')as f:json.dump(recovery,f);f.flush();os.fsync(f.fileno())

@@ -80,11 +80,11 @@ def run_command(command, seconds, limit=2 * 1024 * 1024):
         process.wait(timeout=5); process.stdout.close()
 
 
-def main():
+def main(argv=()):
     if sys.platform!='linux':raise RuntimeError('LINUX_REQUIRED')
-    if sys.argv[1:]==['--python-suite']:
+    if list(argv)==['--python-suite']:
         python_suite();return 0
-    if sys.argv[1:]:raise ValueError('FIXED_COMMAND_REQUIRED')
+    if argv:raise ValueError('FIXED_COMMAND_REQUIRED')
     node=Path(os.environ['CN_API_STARTUP_NODE']);loader=ROOT/'node_modules/tsx/dist/loader.mjs'
     if not node.is_absolute()or not node.is_file()or not loader.is_file():raise RuntimeError('TERMINAL_RUNTIME_REQUIRED')
     started=time.monotonic();deadline=started+BUDGET_SECONDS
@@ -94,4 +94,4 @@ def main():
     return 0
 
 
-if __name__=='__main__':sys.exit(main())
+if __name__=='__main__':sys.exit(main(sys.argv[1:]))

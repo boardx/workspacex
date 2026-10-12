@@ -6,6 +6,23 @@ ROOT=Path(__file__).resolve().parents[1]
 SPEC=importlib.util.spec_from_file_location('application_recovery',ROOT/'tests/cn_release_application_recovery_linux.py')
 m=importlib.util.module_from_spec(SPEC);SPEC.loader.exec_module(m)
 class FixtureBoundaries(unittest.TestCase):
+    def test_bridge_real_nested_imports_do_not_write_source_bytecode(self):
+        with tempfile.TemporaryDirectory(prefix='application-bridge-cache-')as tmp:
+            root=Path(tmp)
+            for relative in ('tests/fixtures/cn-postgres-lifecycle/driver_bridge.py','scripts/cn-release-fixed-driver.py','.harness/scripts/vm/cn-release-advance.py'):
+                target=root/relative;target.parent.mkdir(parents=True,exist_ok=True)
+                target.write_bytes((ROOT/relative).read_bytes())
+            probe=root/'probe.py'
+            probe.write_text('import importlib.util,sys\nfrom pathlib import Path\nr=Path(__file__).parent\ns=importlib.util.spec_from_file_location("bridge",r/"tests/fixtures/cn-postgres-lifecycle/driver_bridge.py")\nm=importlib.util.module_from_spec(s);s.loader.exec_module(m)\nd=m.module(r/"scripts/cn-release-fixed-driver.py","actual_driver")\nassert callable(d.coordinate) and callable(d.e.entry)\nprint(int(sys.flags.isolated),int(sys.dont_write_bytecode))\n')
+            result=m.run(m.bridge_command(probe),cwd=root)
+            self.assertEqual(result.stdout,b'1 1\n')
+            self.assertEqual(list(root.rglob('__pycache__')),[])
+            self.assertEqual(list(root.rglob('*.pyc')),[])
+            # Same real import chain without the child flag reproduces the
+            # source mutation. This is a disposable tree, never the checkout.
+            m.run([sys.executable,'-I',probe],cwd=root)
+            self.assertTrue(list((root/'scripts').rglob('*.pyc')))
+            self.assertTrue(list((root/'.harness').rglob('*.pyc')))
     def test_non_linux_cannot_create_container(self):
         with patch.object(m.sys,'platform','darwin'),patch.object(m.subprocess,'Popen')as spawn,contextlib.redirect_stdout(io.StringIO())as output:
             self.assertEqual(m.main(),2);spawn.assert_not_called()

@@ -37,6 +37,8 @@ on:
       - 'tests/cn_release_api_startup_linux.py'
       - 'tests/cn_release_docker_cleanup_linux.py'
       - 'tests/cn_release_boundary_reap_linux.py'
+      - 'tests/cn_release_postclear_recovery_linux.py'
+      - 'tests/fixtures/cn-postclear-recovery/**'
       - 'tests/cn_release_application_recovery_linux.py'
       - 'tests/fixtures/cn-application-recovery/**'
       - 'tests/cn_release_six_business_linux.py'

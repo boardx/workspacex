@@ -35,6 +35,13 @@ class TerminalWrapperTests(unittest.TestCase):
         self.assertEqual(len(m.TEST_FILES),5)
         self.assertNotIn('packages/cloud-deploy/src/cn-maintenance-host/a_route_factory_test.ts',m.TEST_FILES)
         self.assertEqual(m.BUDGET_SECONDS,180)
+    def test_imported_main_does_not_consume_outer_runner_arguments(self):
+        native={'tests':19,'failures':0,'errors':0,'skipped':0,'expectedFailures':0,'unexpectedSuccesses':0}
+        with patch.object(m.sys,'platform','linux'),patch.object(m.sys,'argv',['runner.py','--child','linux-migration-terminal','--result','outer.json']),patch.dict(m.os.environ,{'CN_API_STARTUP_NODE':m.sys.executable}),patch.object(m,'run_command',side_effect=[self.tap(),('NATIVE_RESULT='+json.dumps(native)).encode()]):
+            self.assertEqual(m.main(),0)
+    def test_explicit_unknown_cli_arguments_are_rejected(self):
+        with patch.object(m.sys,'platform','linux'),self.assertRaisesRegex(ValueError,'FIXED_COMMAND_REQUIRED'):
+            m.main(['--unknown'])
     def test_contradictory_failure_or_bailout_is_never_green(self):
         for extra in (b'not ok 999 - unexpected failure\n',b'Bail out! failure\n',b'  not ok 1 - nested failure\n',b'  bail out! nested failure\n'):
             with self.subTest(extra=extra),self.assertRaisesRegex(ValueError,'TAP_FAILURE_OR_BAILOUT'):m.validate_tap(self.tap()+extra)

@@ -33,3 +33,12 @@ test('pg client receives separate connect server and protocol-response timeouts'
  assert.equal(client.connectionParameters.statement_timeout,5000);
  assert.equal(client.connectionParameters.host,'127.0.0.1');
 });
+
+test('failure projection emits only fixed stage and exact known codes, never arbitrary secret text',async()=>{
+ const {safeFailure}=await import('./infra-preflight');
+ const secret='token-password-sentinel-DO-NOT-LOG';
+ assert.deepEqual(safeFailure(new Error('INFRA_IDENTITY_MISMATCH'),'receipt-identity'),{kind:'cn-six-preflight-failure-v1',verified:false,stage:'receipt-identity',code:'INFRA_IDENTITY_MISMATCH'});
+ assert.equal(safeFailure({code:'ECONNREFUSED',message:secret},'pg-connect').code,'ECONNREFUSED');
+ const bad=safeFailure({code:secret,message:secret,stack:secret},secret);
+ assert.equal(bad.stage,'OTHER');assert.equal(bad.code,'OTHER');assert.ok(!JSON.stringify(bad).includes(secret));
+});

@@ -34,12 +34,40 @@ def validate_container_storage(info):
     need(host.get('Tmpfs')=={PGDATA:'rw,size='+str(TMPFS_BYTES)} and not host.get('Binds'),'TMPFS_LIMIT_MISMATCH')
     mounts=info.get('Mounts',[])
     need(all(x.get('Type')=='tmpfs' and x.get('Destination')==PGDATA for x in mounts),'IMPLICIT_PERSISTENT_VOLUME')
+def drop_verified_clone(run,docker,container,database,baseline,record):
+    need(database!=baseline and re.fullmatch('cn_startup_[a-f0-9]{16}',database),'DROP_CLONE_IDENTITY')
+    need(record.get('exitCode')==0 and record.get('receipt',{}).get('verified')is True,'DROP_UNVERIFIED_CLONE')
+    run([docker,'exec',container,'dropdb','-U','postgres',database])
+    absent=run([docker,'exec',container,'psql','-XAt','-U','postgres','-d','postgres','-c',f"SELECT count(*) FROM pg_database WHERE datname='{database}'"]).stdout.strip()
+    need(absent==b'0','CLONE_DROP_UNPROVEN')
+    record['verifiedCloneDropped']=True
+
+def storage_snapshot(run,docker,container,databases):
+    # Only numeric values from the owned container, no paths/SQL/error text emitted.
+    snapshot={}
+    try:
+        raw=run([docker,'exec',container,'df','-Pk',PGDATA],timeout=5).stdout
+        cols=raw.decode('ascii').splitlines()[-1].split()
+        need(len(cols)>=6 and all(x.isdigit()for x in cols[1:4]),'DF_SHAPE')
+        snapshot['tmpfsKiB']=dict(zip(('total','used','available'),map(int,cols[1:4])))
+    except Exception:snapshot['tmpfsObservation']='unavailable'
+    sizes=[]
+    for scenario,database in databases:
+        need(scenario in SCENARIOS and re.fullmatch('cn_startup_[a-f0-9]{16}',database),'SIZE_CLONE_IDENTITY')
+        try:
+            raw=run([docker,'exec',container,'psql','-XAt','-U','postgres','-d','postgres','-c',f"SELECT pg_database_size(oid) FROM pg_database WHERE datname='{database}'"],timeout=5).stdout.strip()
+            need(not raw or raw.isdigit(),'DB_SIZE_SHAPE')
+            sizes.append({'scenario':scenario,'bytes':int(raw)if raw else None,'absent':not bool(raw)})
+        except Exception:sizes.append({'scenario':scenario,'observation':'unavailable'})
+    snapshot['ownedDatabases']=sizes
+    return snapshot
+
 def main():
     if sys.platform!='linux':
         print(json.dumps({'verified':False,'status':'CAPABILITY_UNAVAILABLE','reason':'LINUX_REQUIRED','productionAccepted':False}));return 2
     started=time.monotonic();records=[];container=None;name='wsx-cn-api-'+secrets.token_hex(8);token=os.environ.get('CN_API_STARTUP_OWNER_TOKEN','')
     env={'PATH':os.environ.get('PATH','/usr/bin:/bin'),'LANG':'C.UTF-8'}
-    docker=shutil.which('docker');temporary=None;stage='capability';cleanup=False;registry_fd=None;cleanup_mode=False
+    docker=shutil.which('docker');temporary=None;stage='capability';cleanup=False;registry_fd=None;cleanup_mode=False;owned_databases=[];storage=[]
     def run(args,*,timeout=60,check=True,childenv=None,cwd=None):
         timeout=operation_timeout(started,time.monotonic(),timeout,cleanup_mode)
         p=subprocess.Popen([str(x)for x in args],stdin=subprocess.DEVNULL,stdout=subprocess.PIPE,stderr=subprocess.PIPE,
@@ -117,7 +145,7 @@ def main():
             stage=scenario;database='cn_startup_'+secrets.token_hex(8)
             create=[docker,'exec',container,'createdb','-U','postgres']
             if baseline:create.extend(['--template',baseline])
-            run([*create,database])
+            run([*create,database]);owned_databases.append((scenario,database))
             folder=temporary/scenario;folder.mkdir(mode=0o700);output=folder/'receipt.json'
             appenv={**env,'HOME':str(folder),'TMPDIR':str(folder),'NODE_ENV':'test','CN_API_STARTUP_FIXTURE':'1',
                 # Synthetic fixture-only material; required by the real Nest cipher provider.
@@ -135,12 +163,16 @@ def main():
                 need(not output.is_symlink() and output.stat().st_size<=16384,'RECEIPT_BOUND')
                 record['receipt']=json.loads(output.read_bytes())
             records.append(record)
+            storage.append({'afterScenario':scenario,**storage_snapshot(run,docker,container,owned_databases)})
             need(result.returncode==0 and record.get('receipt',{}).get('verified')is True,'STARTUP_SCENARIO_FAILED')
             if scenario=='baseline':
                 baseline=database
                 run([docker,'exec',container,'psql','-XAt','-U','postgres','-c',f'ALTER DATABASE {baseline} WITH ALLOW_CONNECTIONS false'])
                 locked=run([docker,'exec',container,'psql','-XAt','-U','postgres','-c',f"SELECT datallowconn FROM pg_database WHERE datname='{baseline}'"]).stdout.strip()
                 need(locked==b'f','BASELINE_NOT_LOCKED')
+            else:
+                drop_verified_clone(run,docker,container,database,baseline,record)
+                storage.append({'afterDrop':scenario,**storage_snapshot(run,docker,container,owned_databases)})
         stage='complete'
     except Exception as error:
         failure={'type':type(error).__name__,'stage':stage}
@@ -165,7 +197,7 @@ def main():
         if temporary is not None and cleanup:shutil.rmtree(temporary)
     passed=failure is None and cleanup and len(records)==len(SCENARIOS)
     print(json.dumps({'kind':'cn-real-api-startup-linux-v1','verified':passed,'status':'PASSED'if passed else'FAILED_OR_CAPABILITY_UNAVAILABLE',
-                      'failure':failure,'scenarios':records,'cleanupVerified':cleanup,'durationSeconds':round(time.monotonic()-started,3),
+                      'failure':failure,'storageObservations':storage,'scenarios':records,'cleanupVerified':cleanup,'durationSeconds':round(time.monotonic()-started,3),
                       'realStartApi':passed,'freshScenarioClones':sum(r.get('receipt',{}).get('verifiedMigrationClone')is True for r in records),'realFullMigrationDatabases':sum(r.get('receipt',{}).get('fullMigrations') is True for r in records),'productionAccepted':False,
                       'queuedModelWorkerExecutionTested':passed,'debugRowCountLimitTested':passed,'candidateExactSourceTested':False,'memoryLimitBytes':MEMORY_BYTES,'pgdataTmpfsBytes':TMPFS_BYTES,'sharedBudgetSeconds':TOTAL_SECONDS,'cleanupReserveSeconds':CLEANUP_RESERVE_SECONDS,'cloudCalls':0,'imagePulledByTest':False,'startupSourceSha256':hashlib.sha256((ROOT/'apps/api/src/main.ts').read_bytes()).hexdigest()}))
     return 0 if passed else 1

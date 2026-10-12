@@ -12,6 +12,10 @@ TMPFS_BYTES=1024**3
 PGDATA='/var/lib/postgresql/data'
 def need(value,code):
     if not value:raise RuntimeError(code)
+def bridge_command(bridge,*arguments):
+    # The child environment is deliberately minimal; parent Python flags and
+    # PYTHONDONTWRITEBYTECODE do not propagate across exec. Pin both explicitly.
+    return [sys.executable,'-I','-B',bridge,*arguments]
 def validate_image_storage(image):
     config=image.get('Config',{})
     need(set((config.get('Volumes')or{}))<= {PGDATA},'UNEXPECTED_IMAGE_VOLUME')
@@ -104,9 +108,9 @@ def main():
         config=temporary/'config.json';config.write_text(json.dumps(dict(host=str(socket),port=5432,user='fixture_owner',database='postgres',seed=seed,containerId=container,ownerToken=token,imageId=image,checkoutRevision=revision)));config.chmod(0o600)
         stage='original-durable-driver'
         bridge=ROOT/'tests/fixtures/cn-postgres-lifecycle/driver_bridge.py'
-        observed=run([sys.executable,bridge,'--config',config,'--node',node,'--loader',loader,
+        observed=run(bridge_command(bridge,'--config',config,'--node',node,'--loader',loader,
                       '--fixture',ROOT/'tests/fixtures/cn-application-recovery/lifecycle.ts',
-                      '--entry-source',ROOT/'.harness/scripts/vm/cn-release-advance.py','--driver-source',ROOT/'scripts/cn-release-fixed-driver.py'],
+                      '--entry-source',ROOT/'.harness/scripts/vm/cn-release-advance.py','--driver-source',ROOT/'scripts/cn-release-fixed-driver.py'),
                      timeout=650,check=False,cwd=ROOT)
         need(observed.returncode==0,'DURABLE_CHAIN_FAILED')
         result=json.loads(observed.stdout);need(result['verified']is True and result['actualApplicationMigrator']is True and result['driverBridge']['actualDurableCore']is True,'ACTUAL_CHAIN_REQUIRED')

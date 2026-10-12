@@ -67,7 +67,7 @@ class CiBootstrap(unittest.TestCase):
     if process.poll()is None:process.kill()
     process.wait(timeout=2);events.append('domain-empty')
     return {'verified':True,'populated':0,'removed':True}
-  def recover(path,*args):
+  def recover(path,*args,**kwargs):
    events.append(path.name)
    if path.name=='target':raise RuntimeError('fixture unknown')
    return {'verified':True}
