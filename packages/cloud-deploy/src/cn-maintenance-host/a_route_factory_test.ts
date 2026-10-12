@@ -153,6 +153,7 @@ test('actual A-route rejects a fabricated migration guard before lock or hold',a
 });
 test('actual A-route carries root-pinned migration policy under its existing lock',async()=>{
  const f=fixture(),p=migrationScopeFixture(()=>{},identity,revision);
+ f.input.recordCanonicalTerminal=async()=>{f.calls.push('terminal:record');};
  f.input.migrationScope=optionalMigrationScopeAdmission(p.authority,p.inputs,p.read,()=>migrationScopeClock);
  await runARouteMaintenanceRelease(request,await createARouteFactory(f.input));
  assert.ok(f.calls.indexOf('lock')<f.calls.indexOf('migration'));
@@ -161,6 +162,7 @@ test('actual A-route carries root-pinned migration policy under its existing loc
 });
 test('actual A-route policy revoked after candidate preparation blocks resume without old-dump recovery',async()=>{
  const f=fixture(),p=migrationScopeFixture(()=>{},identity,revision);
+ f.input.recordCanonicalTerminal=async()=>{f.calls.push('terminal:record');};
  f.input.migrationScope=optionalMigrationScopeAdmission(p.authority,p.inputs,p.read,()=>migrationScopeClock);
  const stage=f.input.consumers.candidate.stageAndSeal;
  f.input.consumers.candidate.stageAndSeal=async(...args)=>{const result=await stage(...args);p.setRaw(Buffer.from('{}'));return result;};
@@ -171,6 +173,7 @@ test('actual A-route policy revoked after candidate preparation blocks resume wi
 
 test('removing caller input guard after factory construction cannot bypass revocation',async()=>{
  const f=fixture(),p=migrationScopeFixture(()=>{},identity,revision);
+ f.input.recordCanonicalTerminal=async()=>{f.calls.push('terminal:record');};
  f.input.migrationScope=optionalMigrationScopeAdmission(p.authority,p.inputs,p.read,()=>migrationScopeClock);
  const route=await createARouteFactory(f.input);delete f.input.migrationScope;p.setRaw(Buffer.from('{}'));
  await assert.rejects(runARouteMaintenanceRelease(request,route));
@@ -179,6 +182,7 @@ test('removing caller input guard after factory construction cannot bypass revoc
 
 test('new held generation after isolated acceptance cannot reuse old epoch for DDL',async()=>{
  const f=fixture(),p=migrationScopeFixture(()=>{},identity,revision);let changeBeforeDdl=false;
+ f.input.recordCanonicalTerminal=async()=>{f.calls.push('terminal:record');};
  f.input.migrationScope=optionalMigrationScopeAdmission(p.authority,p.inputs,p.read,()=>migrationScopeClock);
  const accepted=f.input.consumers.epoch.verifyCurrentEpochIsolatedAcceptance;
  f.input.consumers.epoch.verifyCurrentEpochIsolatedAcceptance=async(...args)=>{await accepted(...args);changeBeforeDdl=true;};
@@ -189,4 +193,25 @@ test('new held generation after isolated acceptance cannot reuse old epoch for D
  };
  await assert.rejects(runARouteMaintenanceRelease(request,await createARouteFactory(f.input)));
  assert.ok(!f.calls.includes('migration'));assert.ok(!f.calls.includes('candidate:resume'));
+});
+test('migration scope without fixed terminal sink rejects before release lock',async()=>{
+ const f=fixture(),p=migrationScopeFixture(()=>{},identity,revision);
+ f.input.migrationScope=optionalMigrationScopeAdmission(p.authority,p.inputs,p.read,()=>migrationScopeClock);
+ await assert.rejects(createARouteFactory(f.input),/TERMINAL_SINK_REQUIRED/);assert.deepEqual(f.calls,[]);
+});
+test('terminal sink runs after both opened observations and before unlock',async()=>{
+ const f=fixture(),p=migrationScopeFixture(()=>{},identity,revision);
+ f.input.migrationScope=optionalMigrationScopeAdmission(p.authority,p.inputs,p.read,()=>migrationScopeClock);
+ f.input.recordCanonicalTerminal=async evidence=>{assert.equal(evidence.epoch.holdGeneration,generation);assert.equal(evidence.completion.completion.sha256,h);f.calls.push('terminal:sealed');};
+ await runARouteMaintenanceRelease(request,await createARouteFactory(f.input));
+ assert.ok(f.calls.lastIndexOf('candidate:observe-opened')<f.calls.indexOf('terminal:sealed'));
+ assert.ok(f.calls.indexOf('terminal:sealed')<f.calls.indexOf('unlock'));
+});
+test('terminal persistence failure after clear reholds, retains lock and never resumes baseline',async()=>{
+ const f=fixture(),p=migrationScopeFixture(()=>{},identity,revision);
+ f.input.migrationScope=optionalMigrationScopeAdmission(p.authority,p.inputs,p.read,()=>migrationScopeClock);
+ f.input.recordCanonicalTerminal=async()=>{throw Error('PRIVATE_DISK_FAILED');};
+ await assert.rejects(runARouteMaintenanceRelease(request,await createARouteFactory(f.input)));
+ assert.ok(f.calls.includes('candidate:block'));assert.ok(f.calls.includes('recovery:record'));
+ assert.equal(f.calls.includes('unlock'),false);assert.equal(f.calls.some(c=>c==='baseline:resume-baseline'),false);
 });
