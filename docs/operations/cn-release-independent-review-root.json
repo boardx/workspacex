@@ -28,20 +28,24 @@
       "disposition": "accepted",
       "reviewedFiles": {
         "scripts/cn-release-simulation.py": "b81045c79507c1e9992763c02b24fb2fe1b66e1fe6be96f483f61bdcf97248b7",
-        "tests/test_cn_release_simulation.py": "38a3abd167a799fc26cad200bed44bf9739b84ad94238c51fa2a569021edbee1"
+        "tests/test_cn_release_simulation.py": "38a3abd167a799fc26cad200bed44bf9739b84ad94238c51fa2a569021edbee1",
+        "tests/cn_release_application_recovery_linux.py": "6219bc2e5c9753ed6773d3ff50c74090ba3040677cef13f6678cbea50d45441b",
+        "tests/test_cn_release_application_recovery_fixture.py": "bc5bc541857847f9fa66508c6d78ca48ff6061975c54d4483f6916fae8cbefc7"
       },
-      "scope": "All untracked files remain in dirty gate; immutable HEAD and clean status checked before/after every round. Exact unique Domain branch selected for real before/after Python bytecode experiment.",
+      "scope": "All untracked files remain in dirty gate; immutable HEAD and clean status checked before/after every round. Exact unique Domain branch selected for real before/after Python bytecode experiment. Actual application-recovery nested bridge now pins -I -B; without-B disposable-tree counterexample reproduces both source caches.",
       "requiredCounterexampleCaseIds": [
         "test_cn_release_simulation.SimulationTests.test_ten_rounds_dirty_tree_is_rejected",
         "test_cn_release_simulation.SimulationTests.test_source_status_is_bounded_redacted_and_never_excludes_cache",
-        "test_cn_release_simulation.SimulationTests.test_nested_domain_import_explicit_flag_prevents_bytecode"
+        "test_cn_release_simulation.SimulationTests.test_nested_domain_import_explicit_flag_prevents_bytecode",
+        "test_cn_release_application_recovery_fixture.FixtureBoundaries.test_bridge_real_nested_imports_do_not_write_source_bytecode"
       ],
       "executionEvidence": {
         "localSimulationPassed": 29,
         "finalCandidateCI": "pending",
         "localAcceptanceEvaluatorPassed": 16,
         "localSimulationSeconds": 1.294,
-        "localAcceptanceEvaluatorSeconds": 14.273
+        "localAcceptanceEvaluatorSeconds": 14.273,
+        "actualNestedBridgeCounterexamples": 8
       }
     },
     {
