@@ -11,9 +11,14 @@ test('actual six config resolves installed web Next without inherited workspace 
  const quote=(v:string)=>"'"+v.replace(/'/g,"'\"'\"'")+"'";
  try{
   for(const [index,name]of ['WORKSPACEX_API_PORT','WORKSPACEX_WEB_PORT','WORKSPACEX_MODEL_PROVIDER_PORT','WORKSPACEX_DEEP_AGENT_PROVIDER_PORT','WORKSPACEX_LOOPBACK_SANDBOX_PORT','WORKSPACEX_ASR_PROVIDER_PORT','WORKSPACEX_VISION_PROVIDER_PORT'].entries())process.env[name]=String(25000+index);
+  // Executable binding fixture only; this test never launches a browser.
+  process.env.CN_TEST_CHROMIUM=process.execPath;
   process.env.CN_RELEASE_FULLSTACK_FIXTURE='1';process.env.CN_SIX_INFRA_RECEIPT='/var/lib/fixture-not-executed/infra.json';
   delete process.env.WORKSPACEX_REUSE_INFRA;delete process.env.CN_SIX_REPORT_PATH;delete process.env.CN_SIX_OUTPUT_DIR;
   const {default:config}=await import('../../../apps/web/playwright.cn-six-business.config');
+  assert.equal(config.use?.launchOptions?.executablePath,process.execPath);
+  assert.deepEqual(config.use?.launchOptions?.args,['--use-fake-device-for-media-stream','--use-fake-ui-for-media-stream']);
+  assert.deepEqual(config.use?.permissions,['microphone']);
   const servers=Array.isArray(config.webServer)?config.webServer:[];
   const next=servers.filter(s=>s.command.includes('NEXT_DIST_DIR=.next-chat-read-e2e'));
   assert.equal(next.length,1);assert.match(next[0]!.command,/pnpm --filter web exec next dev -p 25001$/);

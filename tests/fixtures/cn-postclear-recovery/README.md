@@ -74,7 +74,8 @@ facts must match. Fixture row-data checks remain separate.
 The original production `capture`/`compare` binding protocol is **not** executed:
 it requires port 5432 and independent provider instances, while this disposable
 fixture uses a random port and separate databases within one isolated cluster.
-No socket or provider identity is fabricated. Output states
+Catalog database socket identity is actually checked; candidate container socket
+witnesses remain synthetic as described above, and provider identity is not claimed. Output states
 `originalCatalogFactsVerified: true`, `originalCaptureProtocolExecuted: false`,
 `providerBindingVerified: false` after the algorithm succeeds. No production provider or capture-protocol acceptance is claimed.
 
@@ -83,3 +84,14 @@ client, full query/role coverage, missing ACL/function comparison rejection, que
 failure rollback, real-socket binding rejection, and unchanged production gates.
 These are not real PostgreSQL tests. Run `catalog_test.ts` alongside
 `recovery_test.ts`; real Linux execution is still required.
+# Socket fixture endpoint fidelity
+
+Run 38260954556 rejected `ACTOR_CANDIDATE_SOCKET_OWNER_NOT_PROVEN` before
+the post-clear write. The original unit-test seal hard-coded `10.0.0.1:5432`,
+while this fixture's real PostgreSQL peer is loopback with a random port and
+the original probe's `inet` text representation. `isolated_socket_seal` now
+binds only the synthetic remote endpoint to the separately validated local
+cluster peer. The original socket ownership verifier is unchanged. Regression
+checks reject the previous endpoint, wrong port, wrong cgroup and peer drift.
+Socket/process/container witnesses remain explicit fixtures: this fix does not
+prove real container socket ownership. Real Linux recovery must run again.

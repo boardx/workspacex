@@ -4,7 +4,7 @@ No production path is written and no production CLI is invoked.
 """
 import fcntl,json,os,re,sys,subprocess,copy
 from pathlib import Path
-from postgres_peer import read_peer,sql_error_code
+from postgres_peer import read_peer,sql_error_code,isolated_socket_seal
 ROOT=Path(__file__).resolve().parents[3]
 sys.path.insert(0,str(ROOT/'.harness/scripts/vm'))
 from cn_maintenance_hold import HoldStore
@@ -21,6 +21,7 @@ def main():
     os.dup2(lock,9)
     store=HoldStore(str(runtime.resolve()),os.getuid(),runtime.stat().st_gid);f=Tests();f.setUp()
     try:
+        socket_fixture=seal_fixture
         config_path=root/'postgres.json'
         if config_path.exists():
             cfg=json.loads(config_path.read_bytes())
@@ -49,6 +50,7 @@ def main():
             def execute(db,query,control=False):
                 assert control;sql(db,query);f.host.login=login()
             f.host.database_execute=execute
+            socket_fixture=lambda plan,nonce:isolated_socket_seal(plan,nonce,cfg)
         actor=None
         f.host.read_hold=store.read
         print(json.dumps({'identity':f.identity,'oldGeneration':f.p['holdGeneration'],'completion':json.loads(f.raw)}),flush=True)
@@ -65,7 +67,7 @@ def main():
                         actor=f.actor()
                         def collect(plan,nonce,expected_hold_state='held'):
                             assert store.read()['state']==expected_hold_state
-                            return seal_fixture(plan,nonce)
+                            return socket_fixture(plan,nonce)
                         actor.transport.collector.collect=collect
                 elif action=='read':value=store.read()
                 elif action=='clear':value=store.clear(message['data'])

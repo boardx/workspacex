@@ -17,3 +17,24 @@ def sql_error_code(stderr):
     for code in ('LOGIN_PEER_CAS','LOGIN_STATE_CAS'):
         if re.search(rb'(?:ERROR|FATAL):\s+'+code.encode()+rb'(?:\r?\n|$)',stderr[:8192]):return code
     return 'FIXTURE_SQL_FAILED'
+
+def isolated_socket_seal(plan,nonce,config):
+    """Synthetic socket/container fixture, bound to the separately read PG peer.
+
+    This is not an observation of real container sockets. The original ownership
+    verifier remains intact; only the isolated fixture's endpoint is parameterized.
+    """
+    from test_candidate_writer import seal_fixture
+    from writer_fence import DATABASES
+    for db in DATABASES:
+        peer=plan['databasePeers'][db]
+        if (peer.get('database')!=db or peer.get('serverAddr')not in ('127.0.0.1','127.0.0.1/32')
+            or type(peer.get('serverPort'))is not int or not 1024<peer['serverPort']<65536
+            or peer['serverPort']!=config['port'] or peer.get('systemIdentifier')!=config['systemIdentifier']):
+            raise RuntimeError('FIXTURE_DATABASE_PEER')
+    proof=seal_fixture(plan,nonce)
+    for db in DATABASES:
+        for witness in proof['socketWitnesses'][db]:
+            witness['remoteAddr']=plan['databasePeers'][db]['serverAddr']
+            witness['remotePort']=plan['databasePeers'][db]['serverPort']
+    return proof

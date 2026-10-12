@@ -1,6 +1,7 @@
 /** Real Next dev/Nest/PG; deterministic external provider protocols, not production acceptance. */
 import {defineConfig} from '@playwright/test';
 import base from './playwright.chat-read.config';
+import {chromiumLaunch} from '../../tests/fixtures/cn-six-business/chromium-launch';
 import {admitOutputs} from '../../tests/fixtures/cn-six-business/output-admission';
 const reportPath=process.env.CN_SIX_REPORT_PATH,outputPath=process.env.CN_SIX_OUTPUT_DIR;
 if(Boolean(reportPath)!==Boolean(outputPath))throw Error('PAIRED_PRIVATE_OUTPUTS_REQUIRED');
@@ -25,7 +26,7 @@ const webServer=servers.map(server=>{
 });
 if(replaced!==1)throw Error('EXACT_API_STARTUP_SHAPE_REQUIRED');
 if(nextReplaced!==1)throw Error('EXACT_NEXT_STARTUP_SHAPE_REQUIRED');
-export default defineConfig({...base,workers:1,retries:0,forbidOnly:true,
+export default defineConfig({...base,use:{...base.use,launchOptions:chromiumLaunch(base.use?.launchOptions,process.env.CN_TEST_CHROMIUM)},workers:1,retries:0,forbidOnly:true,
  projects:[{name:'cn-six-business',testMatch:'cn-release-six-business.spec.ts'}],
  webServer,reporter:[['line'],['json',{outputFile:reportPath??'test-results/cn-six-business.json'}]],
  outputDir:outputPath??'test-results/cn-six-business',globalTimeout:1200000});

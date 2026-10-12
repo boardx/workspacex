@@ -22,3 +22,31 @@ class PeerTests(unittest.TestCase):
     def test_fixed_sql_error_no_secret_output(self):
         self.assertEqual(m.sql_error_code(b'ERROR:  LOGIN_PEER_CAS\nCONTEXT: secret'),'LOGIN_PEER_CAS')
         self.assertEqual(m.sql_error_code(b'ERROR:  secret token\n'),'FIXTURE_SQL_FAILED')
+    def test_socket_fixture_uses_actual_peer_original_verifier_stays_strict(self):
+        import copy
+        sys.path.insert(0,str(ROOT/'.harness/scripts/vm'))
+        from test_candidate_host_transport import Tests
+        from test_candidate_writer import seal_fixture
+        from candidate_writer import verify_candidate_backend_seal
+        from writer_fence import DATABASES,digest
+        f=Tests();f.setUp()
+        try:
+            config=dict(port=34567,systemIdentifier='123456')
+            for db in DATABASES:
+                peer=dict(database=db,serverAddr='127.0.0.1/32',serverPort=34567,systemIdentifier='123456')
+                f.p['databasePeers'][db]=peer
+                for row in f.p['heldSessions'][db]+f.p['candidateSessions'][db]:row['peerSha256']=digest(peer)
+            nonce='f'*64
+            with self.assertRaisesRegex(RuntimeError,'CANDIDATE_SOCKET_OWNER_NOT_PROVEN'):
+                verify_candidate_backend_seal(f.p,nonce,seal_fixture(f.p,nonce))
+            proof=m.isolated_socket_seal(f.p,nonce,config)
+            verify_candidate_backend_seal(f.p,nonce,proof)
+            for field,value in [('remotePort',5432),('remoteAddr','10.0.0.1'),('cgroupContainerId','0'*64)]:
+                bad=copy.deepcopy(proof);bad['socketWitnesses'][DATABASES[0]][0][field]=value
+                with self.assertRaisesRegex(RuntimeError,'CANDIDATE_SOCKET_OWNER_NOT_PROVEN'):
+                    verify_candidate_backend_seal(f.p,nonce,bad)
+            for field,value in [('serverPort',34568),('serverAddr','8.8.8.8'),('systemIdentifier','999')]:
+                bad=copy.deepcopy(f.p);bad['databasePeers'][DATABASES[0]][field]=value
+                with self.assertRaisesRegex(RuntimeError,'FIXTURE_DATABASE_PEER'):
+                    m.isolated_socket_seal(bad,nonce,config)
+        finally:f.doCleanups()
