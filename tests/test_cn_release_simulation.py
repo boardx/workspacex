@@ -96,7 +96,7 @@ class SimulationTests(unittest.TestCase):
   with tempfile.TemporaryDirectory()as d:
    out=Path(d);value={'commit':'a'*40,'githubRunId':None,'finishedAt':'fixture-time','rounds':[{'roundId':'01','durationSeconds':1.5,'finishedAt':'fixture-time','suites':[]}],'requestedRounds':1,'completedRounds':1,'status':'passed','integrationGaps':[]}
    m.quantify(value,out);self.assertIsNone(next(v['value']for v in value['metrics']if v['name']=='artifactBytes'))
-   self.assertFalse(value['acceptanceGates']['accepted']);self.assertIsNone(value['acceptanceGates']['fullMatrixCoverage'])
+   self.assertFalse(value['acceptanceGates']['accepted']);self.assertFalse(value['acceptanceGates']['fullMatrixCoverage'])
    m.write_json(out/'summary.json',value);m.render_reports(out)
    import csv
    rows=list(csv.DictReader((out/'metrics.csv').read_text().splitlines()));self.assertEqual(next(v['value']for v in rows if v['name']=='artifactBytes'),'')
@@ -171,5 +171,26 @@ class SimulationTests(unittest.TestCase):
    path=Path(d)/'fixture.tests.json'
    with contextlib.redirect_stderr(io.StringIO()):self.assertEqual(m.child('release',path),1)
    cases=json.loads(path.with_suffix('.cases.json').read_text());self.assertEqual(cases[0]['status'],'skip')
+
+ def test_real_acquire_help_import_does_not_pollute_checkout(self):
+  import shutil
+  with tempfile.TemporaryDirectory()as td:
+   root=Path(td);scripts=root/'scripts';scripts.mkdir()
+   for name in ('cn-release-continuation-acquire.py','cn-release-continuation-bind.py'):shutil.copyfile(ROOT/'scripts'/name,scripts/name)
+   target=str(scripts/'cn-release-continuation-acquire.py')
+   code='import sys,runpy;sys.pycache_prefix=None;sys.argv=[sys.argv[1],"--help"];runpy.run_path(sys.argv[0],run_name="__main__")'
+   env={'PATH':os.defpath,'HOME':str(root),'LANG':'C.UTF-8'}
+   before=subprocess.run([sys.executable,'-c',code,target],env=env,capture_output=True,timeout=5)
+   self.assertEqual(before.returncode,0,before.stderr);cache=scripts/'__pycache__';self.assertTrue(list(cache.glob('cn-release-continuation-bind.*.pyc')))
+   shutil.rmtree(cache)
+   fixed=subprocess.run([sys.executable,'-I','-B',target,'--help'],env=env,capture_output=True,timeout=5)
+   self.assertEqual(fixed.returncode,0,fixed.stderr);self.assertFalse(cache.exists())
+   inherited=m.environment(root);self.assertEqual(inherited['PYTHONDONTWRITEBYTECODE'],'1')
+   child=subprocess.run([sys.executable,'-c',code,target],env=inherited,capture_output=True,timeout=5)
+   self.assertEqual(child.returncode,0,child.stderr);self.assertFalse(cache.exists())
+ def test_source_status_is_bounded_redacted_and_never_excludes_cache(self):
+  raw='?? scripts/__pycache__/module.pyc\n?? bad path-with-control\tvalue\n'+''.join('?? tests/extra%d.py\n'%i for i in range(100))
+  state=m.status_snapshot(raw);self.assertTrue(state['dirty']);self.assertTrue(state['truncated']);self.assertEqual(state['entryCount'],102);self.assertEqual(len(state['entries']),64)
+  self.assertEqual(state['entries'][0]['path'],'scripts/__pycache__/module.pyc');self.assertTrue(state['entries'][1]['path'].startswith('<redacted:'));self.assertNotIn('control',json.dumps(state))
 
 if __name__=='__main__':unittest.main()

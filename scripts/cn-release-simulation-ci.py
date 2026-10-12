@@ -31,7 +31,7 @@ def execute(sha,rounds,seed):
         owned.chmod(0o700);home=owned/'home';home.mkdir(mode=0o700)
         env={'PATH':os.environ.get('PATH',os.defpath),'HOME':str(home),'LANG':'C.UTF-8',
              'GIT_CONFIG_NOSYSTEM':'1','GIT_CONFIG_GLOBAL':'/dev/null',
-             'GIT_TERMINAL_PROMPT':'0','GIT_ALLOW_PROTOCOL':'file'}
+             'GIT_TERMINAL_PROMPT':'0','GIT_ALLOW_PROTOCOL':'file','PYTHONDONTWRITEBYTECODE':'1'}
         git=['/usr/bin/git','-c','safe.directory='+str(source),'-c','safe.directory='+str(source/'.git'),'-c','core.hooksPath=/dev/null']
         def read(*args):return subprocess.check_output([*git,*args],env=env,text=True,timeout=60).strip()
         if read('-C',str(source),'rev-parse','HEAD')!=sha:raise ValueError('CI_SOURCE_HEAD_CHANGED')

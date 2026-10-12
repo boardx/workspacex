@@ -30,6 +30,9 @@ on:
       - 'tests/test_cn_hk*.py'
       - 'tests/cn_hk_performance_linux.py'
       - 'tests/cn_release_simulation_domain_linux.py'
+      - 'tests/cn_release_postgres_linux.py'
+      - 'tests/fixtures/cn-postgres-isolation/**'
+      - 'docs/operations/cn-release-simulation-matrix.json'
       - '.github/workflows/cn-release-simulation.yml'
 permissions:
   contents: read
@@ -48,7 +51,7 @@ jobs:
           package-manager-cache: false
       - name: Install isolated fixture dependencies
         run: |
-          npm install --prefix "$RUNNER_TEMP/cn-fixture" --no-audit --no-fund --save-exact tsx@4.20.6 zod@3.25.76
+          npm install --prefix "$RUNNER_TEMP/cn-fixture" --no-audit --no-fund --save-exact tsx@4.20.6 zod@3.25.76 pg@8.13.1
           echo "CN_ARCHIVE_TEST_NODE=$(command -v node)" >> "$GITHUB_ENV"
           echo "CN_ARCHIVE_TEST_RUNTIME=$RUNNER_TEMP/cn-fixture" >> "$GITHUB_ENV"
           python3 -m venv "$RUNNER_TEMP/cn-test-sdk"

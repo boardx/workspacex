@@ -1,0 +1,1369 @@
+{
+  "schemaVersion": 1,
+  "kind": "cn-release-required-simulation-matrix",
+  "basis": "docs/operations/cn-release-simulation-matrix.md",
+  "requirements": [
+    {
+      "id": "T01",
+      "kind": "fault",
+      "title": "Missing or mixed original artifacts, hashes and expiry",
+      "severity": "P1",
+      "requiredCaseIds": [
+        "test_cn_candidate_untrusted_cache.CacheTests.test_seven_keys_sizes_hashes_delivery_and_attempt_are_exact",
+        "test_cn_candidate_untrusted_cache.CacheRevalidationTests.test_expired_original_requires_independently_admitted_proof"
+      ],
+      "implementation": "implemented",
+      "notImplemented": [],
+      "scope": "Isolated production-code contract only; provider/live application calls remain fixtures."
+    },
+    {
+      "id": "T02",
+      "kind": "fault",
+      "title": "Interrupted or corrupted download cannot publish",
+      "severity": "P1",
+      "requiredCaseIds": [
+        "test_cn_candidate_untrusted_cache.CacheTests.test_download_corruption_never_publishes"
+      ],
+      "implementation": "implemented",
+      "notImplemented": [],
+      "scope": "Isolated production-code contract only; provider/live application calls remain fixtures."
+    },
+    {
+      "id": "T03",
+      "kind": "fault",
+      "title": "Atomic no-replace promotion and path collision",
+      "severity": "P1",
+      "requiredCaseIds": [
+        "test_cn_candidate_untrusted_cache.CacheTests.test_linux_download_full_validation_and_noreplace",
+        "test_cn_release_promotion_recovery.RecoveryTests.test_no_repromotion_or_download_on_existing_inbox"
+      ],
+      "implementation": "implemented",
+      "notImplemented": [],
+      "scope": "Isolated production-code contract only; provider/live application calls remain fixtures."
+    },
+    {
+      "id": "T04",
+      "kind": "fault",
+      "title": "Archive expansion and storage budget",
+      "severity": "P1",
+      "requiredCaseIds": [
+        "test_cn_image_postbuild.PostBuildBoundaryTests.test_expansion_budget_and_tar_padding_budget_reject",
+        "test_cn_candidate_oss.Tests.test_disk_metadata_binding"
+      ],
+      "implementation": "partial",
+      "notImplemented": [
+        "Real concurrent ENOSPC/fsync failure across the whole release is not implemented."
+      ],
+      "scope": "Isolated production-code contract only; provider/live application calls remain fixtures."
+    },
+    {
+      "id": "T05",
+      "kind": "fault",
+      "title": "Unknown OSS PUT acknowledgement no duplicate PUT",
+      "severity": "P1",
+      "requiredCaseIds": [
+        "test_cn_candidate_untrusted_cache.CacheTests.test_unknown_dispatched_put_recovers_only_by_get",
+        "test_cn_candidate_untrusted_cache.CacheTests.test_generic_failure_cannot_be_hidden_by_matching_cache"
+      ],
+      "implementation": "implemented",
+      "notImplemented": [],
+      "scope": "Isolated production-code contract only; provider/live application calls remain fixtures."
+    },
+    {
+      "id": "T06",
+      "kind": "fault",
+      "title": "Legacy upload transient versus authorization failure",
+      "severity": "P1",
+      "requiredCaseIds": [
+        "test_release_failure_matrix.ReleaseFailureMatrix.test_transient_upload_interruption_retries_then_verifies",
+        "test_release_failure_matrix.ReleaseFailureMatrix.test_upload_retry_exhaustion_publishes_no_result",
+        "test_release_failure_matrix.ReleaseFailureMatrix.test_auth_denial_is_not_retried_or_recorded_as_success"
+      ],
+      "implementation": "implemented",
+      "notImplemented": [],
+      "scope": "Isolated production-code contract only; provider/live application calls remain fixtures."
+    },
+    {
+      "id": "T07",
+      "kind": "fault",
+      "title": "Registry conflict and Redis identity failure",
+      "severity": "P1",
+      "requiredCaseIds": [
+        "test_cn_candidate_publication.PublicationTests.test_remote_collision_rejects_before_redis_or_candidate_mutations",
+        "test_cn_candidate_publication.PublicationTests.test_redis_failure_prevents_candidate_load_tag_push",
+        "test_cn_candidate_publication.PublicationTests.test_redis_digest_mismatch_prevents_candidate_mutation"
+      ],
+      "implementation": "implemented",
+      "notImplemented": [],
+      "scope": "Isolated production-code contract only; provider/live application calls remain fixtures."
+    },
+    {
+      "id": "T08",
+      "kind": "fault",
+      "title": "Image store identity requires original bytes",
+      "severity": "P1",
+      "requiredCaseIds": [
+        "test_cn_candidate_publication.ContainerdStoreTests.test_no_inspect_only_bypass",
+        "test_cn_candidate_publication.ContainerdStoreTests.test_raw_config_tamper_rejected",
+        "test_cn_candidate_publication.ContainerdStoreTests.test_changed_layer_size_or_compressed_layer_rejected"
+      ],
+      "implementation": "implemented",
+      "notImplemented": [],
+      "scope": "Isolated production-code contract only; provider/live application calls remain fixtures."
+    },
+    {
+      "id": "T09",
+      "kind": "fault",
+      "title": "Lost action response retains intent without replay",
+      "severity": "P1",
+      "requiredCaseIds": [
+        "test_cn_release_full_chain.FullChain.test_lost_publish_response_never_reissues_mutation"
+      ],
+      "implementation": "implemented",
+      "notImplemented": [],
+      "scope": "Isolated production-code contract only; provider/live application calls remain fixtures."
+    },
+    {
+      "id": "T10",
+      "kind": "fault",
+      "title": "Renaming attempt cannot bypass once-only write",
+      "severity": "P1",
+      "requiredCaseIds": [
+        "test_cn_release_entry.EntryTests.test_unknown_failed_write_cannot_be_retried_or_renamed"
+      ],
+      "implementation": "implemented",
+      "notImplemented": [],
+      "scope": "Isolated production-code contract only; provider/live application calls remain fixtures."
+    },
+    {
+      "id": "T11",
+      "kind": "fault",
+      "title": "Concurrent lock and recovery handoff",
+      "severity": "P1",
+      "requiredCaseIds": [
+        "test_cn_release_entry.EntryTests.test_global_lock_prevents_parallel_attempts_and_reconcile",
+        "test_cn_release_promotion_recovery.RecoveryTests.test_actual_lock_contention_creates_no_intent_or_rename",
+        "test_cn_release_recovery_driver.CliHandoff.test_seal_releases_real_flock_before_original_entry_and_propagates_race"
+      ],
+      "implementation": "implemented",
+      "notImplemented": [],
+      "scope": "Isolated production-code contract only; provider/live application calls remain fixtures."
+    },
+    {
+      "id": "T12",
+      "kind": "fault",
+      "title": "Timeout and escaped descendants cannot advance",
+      "severity": "P1",
+      "requiredCaseIds": [
+        "test_cn_release_entry.EntryTests.test_timeout_joins_process_before_allowing_observation",
+        "test_cn_release_entry.EntryTests.test_parent_dies_before_child_session_no_late_mutation"
+      ],
+      "implementation": "partial",
+      "notImplemented": [
+        "Exact Linux cgroup/setsid integration results are not yet mapped to stable per-case IDs."
+      ],
+      "scope": "Isolated production-code contract only; provider/live application calls remain fixtures."
+    },
+    {
+      "id": "T13",
+      "kind": "fault",
+      "title": "Missing permission or installed capability blocks writes",
+      "severity": "P1",
+      "requiredCaseIds": [
+        "test_cn_release_rds_backup.Tests.test_permission_missing_blocks_before_cloud",
+        "test_cn_release_rds_backup.SdkManifestTests.test_changed_or_extra_or_missing_file_rejected",
+        "test_cn_release_entry.EntryTests.test_capability_failure_leaves_no_intent_or_global_owner"
+      ],
+      "implementation": "implemented",
+      "notImplemented": [],
+      "scope": "Isolated production-code contract only; provider/live application calls remain fixtures."
+    },
+    {
+      "id": "T14",
+      "kind": "fault",
+      "title": "Partial generation or receipt does not replay",
+      "severity": "P1",
+      "requiredCaseIds": [
+        "test_cn_release_entry.EntryTests.test_partial_evidence_is_retained_and_never_replays_action",
+        "test_cn_release_stage_router.RouterTests.test_generation_failure_not_retried"
+      ],
+      "implementation": "implemented",
+      "notImplemented": [],
+      "scope": "Isolated production-code contract only; provider/live application calls remain fixtures."
+    },
+    {
+      "id": "T15",
+      "kind": "fault",
+      "title": "Stop timeout retains hold without backup/switch",
+      "severity": "P1",
+      "requiredCaseIds": [
+        "test_cn_release_full_chain.FullChain.test_stop_timeout_retains_hold_and_never_starts_backup_or_switch"
+      ],
+      "implementation": "implemented",
+      "notImplemented": [],
+      "scope": "Isolated production-code contract only; provider/live application calls remain fixtures."
+    },
+    {
+      "id": "T16",
+      "kind": "fault",
+      "title": "Damaged backup cannot establish recoverability",
+      "severity": "P1",
+      "requiredCaseIds": [
+        "test_cn_release_recovery_admission.Admission.test_empty_local_cgroup_does_not_prove_missing_backup_or_changed_tar",
+        "test_cn_release_recovery_admission.Admission.test_real_complete_backup_tar_and_original_validator_proves_terminal"
+      ],
+      "implementation": "implemented",
+      "notImplemented": [],
+      "scope": "Isolated production-code contract only; provider/live application calls remain fixtures."
+    },
+    {
+      "id": "T17",
+      "kind": "fault",
+      "title": "RDS lost ACK, pending, failed and wrong job",
+      "severity": "P1",
+      "requiredCaseIds": [
+        "test_cn_release_rds_backup.Tests.test_create_once_unknown_does_not_retry",
+        "test_cn_release_rds_backup.Tests.test_pending_and_failed_observer_reject",
+        "test_cn_release_rds_backup.Tests.test_other_success_snapshot_does_not_match_job",
+        "test_cn_release_full_chain.FullChain.test_rds_lost_response_reconciles_original_job_without_second_create"
+      ],
+      "implementation": "implemented",
+      "notImplemented": [],
+      "scope": "Isolated production-code contract only; provider/live application calls remain fixtures."
+    },
+    {
+      "id": "T18",
+      "kind": "fault",
+      "title": "Restore failure and old/new database compatibility",
+      "severity": "P1",
+      "requiredCaseIds": [],
+      "implementation": "notImplemented",
+      "notImplemented": [
+        "Fixed release chain has no isolated restore stage; no actual restored database compatibility case."
+      ],
+      "scope": "Isolated production-code contract only; provider/live application calls remain fixtures."
+    },
+    {
+      "id": "T19",
+      "kind": "fault",
+      "title": "Partial migration and ledger recovery",
+      "severity": "P1",
+      "requiredCaseIds": [],
+      "implementation": "notImplemented",
+      "notImplemented": [
+        "Runtime-only chain does not execute migration; no full-chain partial SQL recovery case."
+      ],
+      "scope": "Isolated production-code contract only; provider/live application calls remain fixtures."
+    },
+    {
+      "id": "T20",
+      "kind": "fault",
+      "title": "Startup failure cannot claim accepted business",
+      "severity": "P1",
+      "requiredCaseIds": [
+        "test_cn_release_failure_isolation.RuntimeFailures.test_start_partial_failure_keeps_hold_and_cannot_claim_business"
+      ],
+      "implementation": "partial",
+      "notImplemented": [
+        "Existing test extracts production switch AST with boundary fixtures; full API startup/database/seed side effects are not exercised."
+      ],
+      "scope": "Isolated production-code contract only; provider/live application calls remain fixtures."
+    },
+    {
+      "id": "T21",
+      "kind": "fault",
+      "title": "Missing, wrong or expired writer approval",
+      "severity": "P1",
+      "requiredCaseIds": [
+        "test_cn_release_full_chain.FullChain.test_real_materializers_and_entry_seventeen_stage_a5_pause_resume",
+        "test_cn_release_full_chain.FullChain.test_a5_wrong_generation_blocks_before_clear_or_business",
+        "test_cn_release_full_chain.FullChain.test_a5_wait_does_not_reset_original_release_clock"
+      ],
+      "implementation": "implemented",
+      "notImplemented": [],
+      "scope": "Isolated production-code contract only; provider/live application calls remain fixtures."
+    },
+    {
+      "id": "T22",
+      "kind": "fault",
+      "title": "Six business journeys fail without false acceptance",
+      "severity": "P1",
+      "requiredCaseIds": [
+        "test_cn_release_business_observer.Admission.test_timeout_and_oversize_kill_without_receipt"
+      ],
+      "implementation": "partial",
+      "notImplemented": [
+        "Chromium/local TLS and all six business-failure cases are not mapped here; actual application and model integration remains untested."
+      ],
+      "scope": "Isolated production-code contract only; provider/live application calls remain fixtures."
+    },
+    {
+      "id": "T23",
+      "kind": "fault",
+      "title": "Baseline recovery waiting, unknown and failed business",
+      "severity": "P1",
+      "requiredCaseIds": [
+        "test_cn_release_recovery_driver.RecoveryActualCli.test_nonterminal_run_and_reconcile_are_not_success",
+        "test_cn_release_recovery_driver.Durable.test_business_failure_not_repeated_even_with_fresh_process",
+        "test_cn_release_recovery_driver.Durable.test_wait_before_clear_intent_then_resume_without_second_runtime"
+      ],
+      "implementation": "implemented",
+      "notImplemented": [],
+      "scope": "Isolated production-code contract only; provider/live application calls remain fixtures."
+    },
+    {
+      "id": "T24",
+      "kind": "fault",
+      "title": "Post-clear recovery requires new rehold authority",
+      "severity": "P1",
+      "requiredCaseIds": [
+        "test_cn_release_recovery_admission.Admission.test_clear_intent_requires_new_rehold_approval"
+      ],
+      "implementation": "partial",
+      "notImplemented": [
+        "Complete post-clear rehold/stop/data recovery path is not implemented by the held-only recovery lane."
+      ],
+      "scope": "Isolated production-code contract only; provider/live application calls remain fixtures."
+    },
+    {
+      "id": "T25",
+      "kind": "fault",
+      "title": "Original deadline cannot be extended by verification or wait",
+      "severity": "P1",
+      "requiredCaseIds": [
+        "test_cn_release_entry.EntryTests.test_verifier_cannot_complete_normal_release_after_original_deadline",
+        "test_cn_release_entry.EntryTests.test_budget_cannot_be_reset_by_later_stage",
+        "test_cn_release_full_chain.FullChain.test_a5_wait_does_not_reset_original_release_clock"
+      ],
+      "implementation": "implemented",
+      "notImplemented": [],
+      "scope": "Isolated production-code contract only; provider/live application calls remain fixtures."
+    },
+    {
+      "id": "S01",
+      "kind": "scenario",
+      "title": "Normal runtime-only release without schema changes",
+      "severity": "P1",
+      "requiredCaseIds": [
+        "test_cn_release_full_chain.FullChain.test_real_materializers_and_entry_seventeen_stage_a5_pause_resume"
+      ],
+      "implementation": "implemented",
+      "notImplemented": [],
+      "scope": "Isolated production-code contract only; provider/live application calls remain fixtures."
+    },
+    {
+      "id": "S02",
+      "kind": "scenario",
+      "title": "Hotfix urgency does not bypass gates",
+      "severity": "P1",
+      "requiredCaseIds": [
+        "test_cn_release_audit.Scenarios.test_hotfix_is_priority_not_admission_bypass"
+      ],
+      "implementation": "implemented",
+      "notImplemented": [],
+      "scope": "Isolated production-code contract only; provider/live application calls remain fixtures."
+    },
+    {
+      "id": "S03",
+      "kind": "scenario",
+      "title": "No SQL change does not waive database side effects",
+      "severity": "P1",
+      "requiredCaseIds": [
+        "test_cn_release_audit.Scenarios.test_no_sql_diff_is_not_no_database_side_effects"
+      ],
+      "implementation": "implemented",
+      "notImplemented": [],
+      "scope": "Isolated production-code contract only; provider/live application calls remain fixtures."
+    },
+    {
+      "id": "S04",
+      "kind": "scenario",
+      "title": "Prepared, artifact-ready and cold classification",
+      "severity": "P1",
+      "requiredCaseIds": [
+        "test_cn_release_audit.Scenarios.test_all_six_sop_scenarios_and_priority"
+      ],
+      "implementation": "partial",
+      "notImplemented": [
+        "Classifier coverage only; optimized separate end-to-end execution paths are not implemented."
+      ],
+      "scope": "Isolated production-code contract only; provider/live application calls remain fixtures."
+    },
+    {
+      "id": "S05",
+      "kind": "scenario",
+      "title": "Additive migration retains rehearsal and readback",
+      "severity": "P1",
+      "requiredCaseIds": [
+        "test_cn_release_audit.Scenarios.test_additive_changes_retain_backup_rehearsal_readback"
+      ],
+      "implementation": "partial",
+      "notImplemented": [
+        "Full-chain restore/migrate/readback is not implemented in the fixed runtime lane."
+      ],
+      "scope": "Isolated production-code contract only; provider/live application calls remain fixtures."
+    },
+    {
+      "id": "S06",
+      "kind": "scenario",
+      "title": "Destructive migration, infrastructure or secret changes",
+      "severity": "P1",
+      "requiredCaseIds": [
+        "test_cn_release_audit.Scenarios.test_all_six_sop_scenarios_and_priority"
+      ],
+      "implementation": "partial",
+      "notImplemented": [
+        "Maintenance classification is tested; full isolated migration/infrastructure recovery is not implemented here."
+      ],
+      "scope": "Isolated production-code contract only; provider/live application calls remain fixtures."
+    },
+    {
+      "id": "S07",
+      "kind": "scenario",
+      "title": "Config, seed, web-only and Pages separation",
+      "severity": "P1",
+      "requiredCaseIds": [
+        "test_cn_release_audit.Scenarios.test_config_and_seed_cannot_conceal_any_code_diff"
+      ],
+      "implementation": "partial",
+      "notImplemented": [
+        "No separately verified config/seed-only, web-only or Pages deployment chain in this simulation."
+      ],
+      "scope": "Isolated production-code contract only; provider/live application calls remain fixtures."
+    }
+  ],
+  "cases": [
+    {
+      "caseId": "test_cn_candidate_oss.Tests.test_disk_metadata_binding",
+      "source": "tests/test_cn_candidate_oss.py",
+      "severity": "P1",
+      "requiredBy": [
+        "T04"
+      ],
+      "evidenceLayer": "isolated-production-code-fixture",
+      "realBoundaries": [
+        "Python production code execution with test-specific seams; see source assertions"
+      ],
+      "mockBoundaries": [
+        "External provider, registry, database and application responses where used are fixtures; no live cloud/production acceptance"
+      ],
+      "platform": "suite-defined",
+      "coverageLimit": "A passing named case proves only its assertions, not every failure mode in the requirement."
+    },
+    {
+      "caseId": "test_cn_candidate_publication.ContainerdStoreTests.test_changed_layer_size_or_compressed_layer_rejected",
+      "source": "tests/test_cn_candidate_publication.py",
+      "severity": "P1",
+      "requiredBy": [
+        "T08"
+      ],
+      "evidenceLayer": "isolated-production-code-fixture",
+      "realBoundaries": [
+        "Python production code execution with test-specific seams; see source assertions"
+      ],
+      "mockBoundaries": [
+        "External provider, registry, database and application responses where used are fixtures; no live cloud/production acceptance"
+      ],
+      "platform": "suite-defined",
+      "coverageLimit": "A passing named case proves only its assertions, not every failure mode in the requirement."
+    },
+    {
+      "caseId": "test_cn_candidate_publication.ContainerdStoreTests.test_no_inspect_only_bypass",
+      "source": "tests/test_cn_candidate_publication.py",
+      "severity": "P1",
+      "requiredBy": [
+        "T08"
+      ],
+      "evidenceLayer": "isolated-production-code-fixture",
+      "realBoundaries": [
+        "Python production code execution with test-specific seams; see source assertions"
+      ],
+      "mockBoundaries": [
+        "External provider, registry, database and application responses where used are fixtures; no live cloud/production acceptance"
+      ],
+      "platform": "suite-defined",
+      "coverageLimit": "A passing named case proves only its assertions, not every failure mode in the requirement."
+    },
+    {
+      "caseId": "test_cn_candidate_publication.ContainerdStoreTests.test_raw_config_tamper_rejected",
+      "source": "tests/test_cn_candidate_publication.py",
+      "severity": "P1",
+      "requiredBy": [
+        "T08"
+      ],
+      "evidenceLayer": "isolated-production-code-fixture",
+      "realBoundaries": [
+        "Python production code execution with test-specific seams; see source assertions"
+      ],
+      "mockBoundaries": [
+        "External provider, registry, database and application responses where used are fixtures; no live cloud/production acceptance"
+      ],
+      "platform": "suite-defined",
+      "coverageLimit": "A passing named case proves only its assertions, not every failure mode in the requirement."
+    },
+    {
+      "caseId": "test_cn_candidate_publication.PublicationTests.test_redis_digest_mismatch_prevents_candidate_mutation",
+      "source": "tests/test_cn_candidate_publication.py",
+      "severity": "P1",
+      "requiredBy": [
+        "T07"
+      ],
+      "evidenceLayer": "isolated-production-code-fixture",
+      "realBoundaries": [
+        "Python production code execution with test-specific seams; see source assertions"
+      ],
+      "mockBoundaries": [
+        "External provider, registry, database and application responses where used are fixtures; no live cloud/production acceptance"
+      ],
+      "platform": "suite-defined",
+      "coverageLimit": "A passing named case proves only its assertions, not every failure mode in the requirement."
+    },
+    {
+      "caseId": "test_cn_candidate_publication.PublicationTests.test_redis_failure_prevents_candidate_load_tag_push",
+      "source": "tests/test_cn_candidate_publication.py",
+      "severity": "P1",
+      "requiredBy": [
+        "T07"
+      ],
+      "evidenceLayer": "isolated-production-code-fixture",
+      "realBoundaries": [
+        "Python production code execution with test-specific seams; see source assertions"
+      ],
+      "mockBoundaries": [
+        "External provider, registry, database and application responses where used are fixtures; no live cloud/production acceptance"
+      ],
+      "platform": "suite-defined",
+      "coverageLimit": "A passing named case proves only its assertions, not every failure mode in the requirement."
+    },
+    {
+      "caseId": "test_cn_candidate_publication.PublicationTests.test_remote_collision_rejects_before_redis_or_candidate_mutations",
+      "source": "tests/test_cn_candidate_publication.py",
+      "severity": "P1",
+      "requiredBy": [
+        "T07"
+      ],
+      "evidenceLayer": "isolated-production-code-fixture",
+      "realBoundaries": [
+        "Python production code execution with test-specific seams; see source assertions"
+      ],
+      "mockBoundaries": [
+        "External provider, registry, database and application responses where used are fixtures; no live cloud/production acceptance"
+      ],
+      "platform": "suite-defined",
+      "coverageLimit": "A passing named case proves only its assertions, not every failure mode in the requirement."
+    },
+    {
+      "caseId": "test_cn_candidate_untrusted_cache.CacheRevalidationTests.test_expired_original_requires_independently_admitted_proof",
+      "source": "tests/test_cn_candidate_untrusted_cache.py",
+      "severity": "P1",
+      "requiredBy": [
+        "T01"
+      ],
+      "evidenceLayer": "isolated-production-code-fixture",
+      "realBoundaries": [
+        "Python production code execution with test-specific seams; see source assertions"
+      ],
+      "mockBoundaries": [
+        "External provider, registry, database and application responses where used are fixtures; no live cloud/production acceptance"
+      ],
+      "platform": "suite-defined",
+      "coverageLimit": "A passing named case proves only its assertions, not every failure mode in the requirement."
+    },
+    {
+      "caseId": "test_cn_candidate_untrusted_cache.CacheTests.test_download_corruption_never_publishes",
+      "source": "tests/test_cn_candidate_untrusted_cache.py",
+      "severity": "P1",
+      "requiredBy": [
+        "T02"
+      ],
+      "evidenceLayer": "isolated-production-code-fixture",
+      "realBoundaries": [
+        "Python production code execution with test-specific seams; see source assertions"
+      ],
+      "mockBoundaries": [
+        "External provider, registry, database and application responses where used are fixtures; no live cloud/production acceptance"
+      ],
+      "platform": "suite-defined",
+      "coverageLimit": "A passing named case proves only its assertions, not every failure mode in the requirement."
+    },
+    {
+      "caseId": "test_cn_candidate_untrusted_cache.CacheTests.test_generic_failure_cannot_be_hidden_by_matching_cache",
+      "source": "tests/test_cn_candidate_untrusted_cache.py",
+      "severity": "P1",
+      "requiredBy": [
+        "T05"
+      ],
+      "evidenceLayer": "isolated-production-code-fixture",
+      "realBoundaries": [
+        "Python production code execution with test-specific seams; see source assertions"
+      ],
+      "mockBoundaries": [
+        "External provider, registry, database and application responses where used are fixtures; no live cloud/production acceptance"
+      ],
+      "platform": "suite-defined",
+      "coverageLimit": "A passing named case proves only its assertions, not every failure mode in the requirement."
+    },
+    {
+      "caseId": "test_cn_candidate_untrusted_cache.CacheTests.test_linux_download_full_validation_and_noreplace",
+      "source": "tests/test_cn_candidate_untrusted_cache.py",
+      "severity": "P1",
+      "requiredBy": [
+        "T03"
+      ],
+      "evidenceLayer": "isolated-production-code-fixture",
+      "realBoundaries": [
+        "Python production code execution with test-specific seams; see source assertions"
+      ],
+      "mockBoundaries": [
+        "External provider, registry, database and application responses where used are fixtures; no live cloud/production acceptance"
+      ],
+      "platform": "linux",
+      "coverageLimit": "A passing named case proves only its assertions, not every failure mode in the requirement."
+    },
+    {
+      "caseId": "test_cn_candidate_untrusted_cache.CacheTests.test_seven_keys_sizes_hashes_delivery_and_attempt_are_exact",
+      "source": "tests/test_cn_candidate_untrusted_cache.py",
+      "severity": "P1",
+      "requiredBy": [
+        "T01"
+      ],
+      "evidenceLayer": "isolated-production-code-fixture",
+      "realBoundaries": [
+        "Python production code execution with test-specific seams; see source assertions"
+      ],
+      "mockBoundaries": [
+        "External provider, registry, database and application responses where used are fixtures; no live cloud/production acceptance"
+      ],
+      "platform": "suite-defined",
+      "coverageLimit": "A passing named case proves only its assertions, not every failure mode in the requirement."
+    },
+    {
+      "caseId": "test_cn_candidate_untrusted_cache.CacheTests.test_unknown_dispatched_put_recovers_only_by_get",
+      "source": "tests/test_cn_candidate_untrusted_cache.py",
+      "severity": "P1",
+      "requiredBy": [
+        "T05"
+      ],
+      "evidenceLayer": "isolated-production-code-fixture",
+      "realBoundaries": [
+        "Python production code execution with test-specific seams; see source assertions"
+      ],
+      "mockBoundaries": [
+        "External provider, registry, database and application responses where used are fixtures; no live cloud/production acceptance"
+      ],
+      "platform": "suite-defined",
+      "coverageLimit": "A passing named case proves only its assertions, not every failure mode in the requirement."
+    },
+    {
+      "caseId": "test_cn_image_postbuild.PostBuildBoundaryTests.test_expansion_budget_and_tar_padding_budget_reject",
+      "source": "tests/test_cn_image_postbuild.py",
+      "severity": "P1",
+      "requiredBy": [
+        "T04"
+      ],
+      "evidenceLayer": "isolated-production-code-fixture",
+      "realBoundaries": [
+        "Python production code execution with test-specific seams; see source assertions"
+      ],
+      "mockBoundaries": [
+        "External provider, registry, database and application responses where used are fixtures; no live cloud/production acceptance"
+      ],
+      "platform": "suite-defined",
+      "coverageLimit": "A passing named case proves only its assertions, not every failure mode in the requirement."
+    },
+    {
+      "caseId": "test_cn_release_audit.Scenarios.test_additive_changes_retain_backup_rehearsal_readback",
+      "source": "tests/test_cn_release_audit.py",
+      "severity": "P1",
+      "requiredBy": [
+        "S05"
+      ],
+      "evidenceLayer": "isolated-production-code-fixture",
+      "realBoundaries": [
+        "Python production code execution with test-specific seams; see source assertions"
+      ],
+      "mockBoundaries": [
+        "External provider, registry, database and application responses where used are fixtures; no live cloud/production acceptance"
+      ],
+      "platform": "suite-defined",
+      "coverageLimit": "A passing named case proves only its assertions, not every failure mode in the requirement."
+    },
+    {
+      "caseId": "test_cn_release_audit.Scenarios.test_all_six_sop_scenarios_and_priority",
+      "source": "tests/test_cn_release_audit.py",
+      "severity": "P1",
+      "requiredBy": [
+        "S04",
+        "S06"
+      ],
+      "evidenceLayer": "isolated-production-code-fixture",
+      "realBoundaries": [
+        "Python production code execution with test-specific seams; see source assertions"
+      ],
+      "mockBoundaries": [
+        "External provider, registry, database and application responses where used are fixtures; no live cloud/production acceptance"
+      ],
+      "platform": "suite-defined",
+      "coverageLimit": "A passing named case proves only its assertions, not every failure mode in the requirement."
+    },
+    {
+      "caseId": "test_cn_release_audit.Scenarios.test_config_and_seed_cannot_conceal_any_code_diff",
+      "source": "tests/test_cn_release_audit.py",
+      "severity": "P1",
+      "requiredBy": [
+        "S07"
+      ],
+      "evidenceLayer": "isolated-production-code-fixture",
+      "realBoundaries": [
+        "Python production code execution with test-specific seams; see source assertions"
+      ],
+      "mockBoundaries": [
+        "External provider, registry, database and application responses where used are fixtures; no live cloud/production acceptance"
+      ],
+      "platform": "suite-defined",
+      "coverageLimit": "A passing named case proves only its assertions, not every failure mode in the requirement."
+    },
+    {
+      "caseId": "test_cn_release_audit.Scenarios.test_hotfix_is_priority_not_admission_bypass",
+      "source": "tests/test_cn_release_audit.py",
+      "severity": "P1",
+      "requiredBy": [
+        "S02"
+      ],
+      "evidenceLayer": "isolated-production-code-fixture",
+      "realBoundaries": [
+        "Python production code execution with test-specific seams; see source assertions"
+      ],
+      "mockBoundaries": [
+        "External provider, registry, database and application responses where used are fixtures; no live cloud/production acceptance"
+      ],
+      "platform": "suite-defined",
+      "coverageLimit": "A passing named case proves only its assertions, not every failure mode in the requirement."
+    },
+    {
+      "caseId": "test_cn_release_audit.Scenarios.test_no_sql_diff_is_not_no_database_side_effects",
+      "source": "tests/test_cn_release_audit.py",
+      "severity": "P1",
+      "requiredBy": [
+        "S03"
+      ],
+      "evidenceLayer": "isolated-production-code-fixture",
+      "realBoundaries": [
+        "Python production code execution with test-specific seams; see source assertions"
+      ],
+      "mockBoundaries": [
+        "External provider, registry, database and application responses where used are fixtures; no live cloud/production acceptance"
+      ],
+      "platform": "suite-defined",
+      "coverageLimit": "A passing named case proves only its assertions, not every failure mode in the requirement."
+    },
+    {
+      "caseId": "test_cn_release_business_observer.Admission.test_timeout_and_oversize_kill_without_receipt",
+      "source": "tests/test_cn_release_business_observer.py",
+      "severity": "P1",
+      "requiredBy": [
+        "T22"
+      ],
+      "evidenceLayer": "isolated-production-code-fixture",
+      "realBoundaries": [
+        "Python production code execution with test-specific seams; see source assertions"
+      ],
+      "mockBoundaries": [
+        "External provider, registry, database and application responses where used are fixtures; no live cloud/production acceptance"
+      ],
+      "platform": "suite-defined",
+      "coverageLimit": "A passing named case proves only its assertions, not every failure mode in the requirement."
+    },
+    {
+      "caseId": "test_cn_release_entry.EntryTests.test_budget_cannot_be_reset_by_later_stage",
+      "source": "tests/test_cn_release_entry.py",
+      "severity": "P1",
+      "requiredBy": [
+        "T25"
+      ],
+      "evidenceLayer": "isolated-production-code-fixture",
+      "realBoundaries": [
+        "Python production code execution with test-specific seams; see source assertions"
+      ],
+      "mockBoundaries": [
+        "External provider, registry, database and application responses where used are fixtures; no live cloud/production acceptance"
+      ],
+      "platform": "suite-defined",
+      "coverageLimit": "A passing named case proves only its assertions, not every failure mode in the requirement."
+    },
+    {
+      "caseId": "test_cn_release_entry.EntryTests.test_capability_failure_leaves_no_intent_or_global_owner",
+      "source": "tests/test_cn_release_entry.py",
+      "severity": "P1",
+      "requiredBy": [
+        "T13"
+      ],
+      "evidenceLayer": "isolated-production-code-fixture",
+      "realBoundaries": [
+        "Python production code execution with test-specific seams; see source assertions"
+      ],
+      "mockBoundaries": [
+        "External provider, registry, database and application responses where used are fixtures; no live cloud/production acceptance"
+      ],
+      "platform": "suite-defined",
+      "coverageLimit": "A passing named case proves only its assertions, not every failure mode in the requirement."
+    },
+    {
+      "caseId": "test_cn_release_entry.EntryTests.test_global_lock_prevents_parallel_attempts_and_reconcile",
+      "source": "tests/test_cn_release_entry.py",
+      "severity": "P1",
+      "requiredBy": [
+        "T11"
+      ],
+      "evidenceLayer": "isolated-production-code-fixture",
+      "realBoundaries": [
+        "Python production code execution with test-specific seams; see source assertions"
+      ],
+      "mockBoundaries": [
+        "External provider, registry, database and application responses where used are fixtures; no live cloud/production acceptance"
+      ],
+      "platform": "suite-defined",
+      "coverageLimit": "A passing named case proves only its assertions, not every failure mode in the requirement."
+    },
+    {
+      "caseId": "test_cn_release_entry.EntryTests.test_parent_dies_before_child_session_no_late_mutation",
+      "source": "tests/test_cn_release_entry.py",
+      "severity": "P1",
+      "requiredBy": [
+        "T12"
+      ],
+      "evidenceLayer": "isolated-production-code-fixture",
+      "realBoundaries": [
+        "Python production code execution with test-specific seams; see source assertions"
+      ],
+      "mockBoundaries": [
+        "External provider, registry, database and application responses where used are fixtures; no live cloud/production acceptance"
+      ],
+      "platform": "suite-defined",
+      "coverageLimit": "A passing named case proves only its assertions, not every failure mode in the requirement."
+    },
+    {
+      "caseId": "test_cn_release_entry.EntryTests.test_partial_evidence_is_retained_and_never_replays_action",
+      "source": "tests/test_cn_release_entry.py",
+      "severity": "P1",
+      "requiredBy": [
+        "T14"
+      ],
+      "evidenceLayer": "isolated-production-code-fixture",
+      "realBoundaries": [
+        "Python production code execution with test-specific seams; see source assertions"
+      ],
+      "mockBoundaries": [
+        "External provider, registry, database and application responses where used are fixtures; no live cloud/production acceptance"
+      ],
+      "platform": "suite-defined",
+      "coverageLimit": "A passing named case proves only its assertions, not every failure mode in the requirement."
+    },
+    {
+      "caseId": "test_cn_release_entry.EntryTests.test_timeout_joins_process_before_allowing_observation",
+      "source": "tests/test_cn_release_entry.py",
+      "severity": "P1",
+      "requiredBy": [
+        "T12"
+      ],
+      "evidenceLayer": "isolated-production-code-fixture",
+      "realBoundaries": [
+        "Python production code execution with test-specific seams; see source assertions"
+      ],
+      "mockBoundaries": [
+        "External provider, registry, database and application responses where used are fixtures; no live cloud/production acceptance"
+      ],
+      "platform": "suite-defined",
+      "coverageLimit": "A passing named case proves only its assertions, not every failure mode in the requirement."
+    },
+    {
+      "caseId": "test_cn_release_entry.EntryTests.test_unknown_failed_write_cannot_be_retried_or_renamed",
+      "source": "tests/test_cn_release_entry.py",
+      "severity": "P1",
+      "requiredBy": [
+        "T10"
+      ],
+      "evidenceLayer": "isolated-production-code-fixture",
+      "realBoundaries": [
+        "Python production code execution with test-specific seams; see source assertions"
+      ],
+      "mockBoundaries": [
+        "External provider, registry, database and application responses where used are fixtures; no live cloud/production acceptance"
+      ],
+      "platform": "suite-defined",
+      "coverageLimit": "A passing named case proves only its assertions, not every failure mode in the requirement."
+    },
+    {
+      "caseId": "test_cn_release_entry.EntryTests.test_verifier_cannot_complete_normal_release_after_original_deadline",
+      "source": "tests/test_cn_release_entry.py",
+      "severity": "P1",
+      "requiredBy": [
+        "T25"
+      ],
+      "evidenceLayer": "isolated-production-code-fixture",
+      "realBoundaries": [
+        "Python production code execution with test-specific seams; see source assertions"
+      ],
+      "mockBoundaries": [
+        "External provider, registry, database and application responses where used are fixtures; no live cloud/production acceptance"
+      ],
+      "platform": "suite-defined",
+      "coverageLimit": "A passing named case proves only its assertions, not every failure mode in the requirement."
+    },
+    {
+      "caseId": "test_cn_release_failure_isolation.RuntimeFailures.test_start_partial_failure_keeps_hold_and_cannot_claim_business",
+      "source": "tests/test_cn_release_failure_isolation.py",
+      "severity": "P1",
+      "requiredBy": [
+        "T20"
+      ],
+      "evidenceLayer": "isolated-production-code-fixture",
+      "realBoundaries": [
+        "Python production code execution with test-specific seams; see source assertions"
+      ],
+      "mockBoundaries": [
+        "External provider, registry, database and application responses where used are fixtures; no live cloud/production acceptance"
+      ],
+      "platform": "suite-defined",
+      "coverageLimit": "A passing named case proves only its assertions, not every failure mode in the requirement."
+    },
+    {
+      "caseId": "test_cn_release_full_chain.FullChain.test_a5_wait_does_not_reset_original_release_clock",
+      "source": "tests/test_cn_release_full_chain.py",
+      "severity": "P1",
+      "requiredBy": [
+        "T21",
+        "T25"
+      ],
+      "evidenceLayer": "isolated-production-code-fixture",
+      "realBoundaries": [
+        "Python production code execution with test-specific seams; see source assertions"
+      ],
+      "mockBoundaries": [
+        "External provider, registry, database and application responses where used are fixtures; no live cloud/production acceptance"
+      ],
+      "platform": "suite-defined",
+      "coverageLimit": "A passing named case proves only its assertions, not every failure mode in the requirement."
+    },
+    {
+      "caseId": "test_cn_release_full_chain.FullChain.test_a5_wrong_generation_blocks_before_clear_or_business",
+      "source": "tests/test_cn_release_full_chain.py",
+      "severity": "P1",
+      "requiredBy": [
+        "T21"
+      ],
+      "evidenceLayer": "isolated-production-code-fixture",
+      "realBoundaries": [
+        "Python production code execution with test-specific seams; see source assertions"
+      ],
+      "mockBoundaries": [
+        "External provider, registry, database and application responses where used are fixtures; no live cloud/production acceptance"
+      ],
+      "platform": "suite-defined",
+      "coverageLimit": "A passing named case proves only its assertions, not every failure mode in the requirement."
+    },
+    {
+      "caseId": "test_cn_release_full_chain.FullChain.test_lost_publish_response_never_reissues_mutation",
+      "source": "tests/test_cn_release_full_chain.py",
+      "severity": "P1",
+      "requiredBy": [
+        "T09"
+      ],
+      "evidenceLayer": "isolated-production-code-fixture",
+      "realBoundaries": [
+        "Python production code execution with test-specific seams; see source assertions"
+      ],
+      "mockBoundaries": [
+        "External provider, registry, database and application responses where used are fixtures; no live cloud/production acceptance"
+      ],
+      "platform": "suite-defined",
+      "coverageLimit": "A passing named case proves only its assertions, not every failure mode in the requirement."
+    },
+    {
+      "caseId": "test_cn_release_full_chain.FullChain.test_rds_lost_response_reconciles_original_job_without_second_create",
+      "source": "tests/test_cn_release_full_chain.py",
+      "severity": "P1",
+      "requiredBy": [
+        "T17"
+      ],
+      "evidenceLayer": "isolated-production-code-fixture",
+      "realBoundaries": [
+        "Python production code execution with test-specific seams; see source assertions"
+      ],
+      "mockBoundaries": [
+        "External provider, registry, database and application responses where used are fixtures; no live cloud/production acceptance"
+      ],
+      "platform": "suite-defined",
+      "coverageLimit": "A passing named case proves only its assertions, not every failure mode in the requirement."
+    },
+    {
+      "caseId": "test_cn_release_full_chain.FullChain.test_real_materializers_and_entry_seventeen_stage_a5_pause_resume",
+      "source": "tests/test_cn_release_full_chain.py",
+      "severity": "P1",
+      "requiredBy": [
+        "T21",
+        "S01"
+      ],
+      "evidenceLayer": "isolated-production-code-fixture",
+      "realBoundaries": [
+        "Python production code execution with test-specific seams; see source assertions"
+      ],
+      "mockBoundaries": [
+        "External provider, registry, database and application responses where used are fixtures; no live cloud/production acceptance"
+      ],
+      "platform": "suite-defined",
+      "coverageLimit": "A passing named case proves only its assertions, not every failure mode in the requirement."
+    },
+    {
+      "caseId": "test_cn_release_full_chain.FullChain.test_stop_timeout_retains_hold_and_never_starts_backup_or_switch",
+      "source": "tests/test_cn_release_full_chain.py",
+      "severity": "P1",
+      "requiredBy": [
+        "T15"
+      ],
+      "evidenceLayer": "isolated-production-code-fixture",
+      "realBoundaries": [
+        "Python production code execution with test-specific seams; see source assertions"
+      ],
+      "mockBoundaries": [
+        "External provider, registry, database and application responses where used are fixtures; no live cloud/production acceptance"
+      ],
+      "platform": "suite-defined",
+      "coverageLimit": "A passing named case proves only its assertions, not every failure mode in the requirement."
+    },
+    {
+      "caseId": "test_cn_release_promotion_recovery.RecoveryTests.test_actual_lock_contention_creates_no_intent_or_rename",
+      "source": "tests/test_cn_release_promotion_recovery.py",
+      "severity": "P1",
+      "requiredBy": [
+        "T11"
+      ],
+      "evidenceLayer": "isolated-production-code-fixture",
+      "realBoundaries": [
+        "Python production code execution with test-specific seams; see source assertions"
+      ],
+      "mockBoundaries": [
+        "External provider, registry, database and application responses where used are fixtures; no live cloud/production acceptance"
+      ],
+      "platform": "suite-defined",
+      "coverageLimit": "A passing named case proves only its assertions, not every failure mode in the requirement."
+    },
+    {
+      "caseId": "test_cn_release_promotion_recovery.RecoveryTests.test_no_repromotion_or_download_on_existing_inbox",
+      "source": "tests/test_cn_release_promotion_recovery.py",
+      "severity": "P1",
+      "requiredBy": [
+        "T03"
+      ],
+      "evidenceLayer": "isolated-production-code-fixture",
+      "realBoundaries": [
+        "Python production code execution with test-specific seams; see source assertions"
+      ],
+      "mockBoundaries": [
+        "External provider, registry, database and application responses where used are fixtures; no live cloud/production acceptance"
+      ],
+      "platform": "suite-defined",
+      "coverageLimit": "A passing named case proves only its assertions, not every failure mode in the requirement."
+    },
+    {
+      "caseId": "test_cn_release_rds_backup.SdkManifestTests.test_changed_or_extra_or_missing_file_rejected",
+      "source": "tests/test_cn_release_rds_backup.py",
+      "severity": "P1",
+      "requiredBy": [
+        "T13"
+      ],
+      "evidenceLayer": "isolated-production-code-fixture",
+      "realBoundaries": [
+        "Python production code execution with test-specific seams; see source assertions"
+      ],
+      "mockBoundaries": [
+        "External provider, registry, database and application responses where used are fixtures; no live cloud/production acceptance"
+      ],
+      "platform": "suite-defined",
+      "coverageLimit": "A passing named case proves only its assertions, not every failure mode in the requirement."
+    },
+    {
+      "caseId": "test_cn_release_rds_backup.Tests.test_create_once_unknown_does_not_retry",
+      "source": "tests/test_cn_release_rds_backup.py",
+      "severity": "P1",
+      "requiredBy": [
+        "T17"
+      ],
+      "evidenceLayer": "isolated-production-code-fixture",
+      "realBoundaries": [
+        "Python production code execution with test-specific seams; see source assertions"
+      ],
+      "mockBoundaries": [
+        "External provider, registry, database and application responses where used are fixtures; no live cloud/production acceptance"
+      ],
+      "platform": "suite-defined",
+      "coverageLimit": "A passing named case proves only its assertions, not every failure mode in the requirement."
+    },
+    {
+      "caseId": "test_cn_release_rds_backup.Tests.test_other_success_snapshot_does_not_match_job",
+      "source": "tests/test_cn_release_rds_backup.py",
+      "severity": "P1",
+      "requiredBy": [
+        "T17"
+      ],
+      "evidenceLayer": "isolated-production-code-fixture",
+      "realBoundaries": [
+        "Python production code execution with test-specific seams; see source assertions"
+      ],
+      "mockBoundaries": [
+        "External provider, registry, database and application responses where used are fixtures; no live cloud/production acceptance"
+      ],
+      "platform": "suite-defined",
+      "coverageLimit": "A passing named case proves only its assertions, not every failure mode in the requirement."
+    },
+    {
+      "caseId": "test_cn_release_rds_backup.Tests.test_pending_and_failed_observer_reject",
+      "source": "tests/test_cn_release_rds_backup.py",
+      "severity": "P1",
+      "requiredBy": [
+        "T17"
+      ],
+      "evidenceLayer": "isolated-production-code-fixture",
+      "realBoundaries": [
+        "Python production code execution with test-specific seams; see source assertions"
+      ],
+      "mockBoundaries": [
+        "External provider, registry, database and application responses where used are fixtures; no live cloud/production acceptance"
+      ],
+      "platform": "suite-defined",
+      "coverageLimit": "A passing named case proves only its assertions, not every failure mode in the requirement."
+    },
+    {
+      "caseId": "test_cn_release_rds_backup.Tests.test_permission_missing_blocks_before_cloud",
+      "source": "tests/test_cn_release_rds_backup.py",
+      "severity": "P1",
+      "requiredBy": [
+        "T13"
+      ],
+      "evidenceLayer": "isolated-production-code-fixture",
+      "realBoundaries": [
+        "Python production code execution with test-specific seams; see source assertions"
+      ],
+      "mockBoundaries": [
+        "External provider, registry, database and application responses where used are fixtures; no live cloud/production acceptance"
+      ],
+      "platform": "suite-defined",
+      "coverageLimit": "A passing named case proves only its assertions, not every failure mode in the requirement."
+    },
+    {
+      "caseId": "test_cn_release_recovery_admission.Admission.test_clear_intent_requires_new_rehold_approval",
+      "source": "tests/test_cn_release_recovery_admission.py",
+      "severity": "P1",
+      "requiredBy": [
+        "T24"
+      ],
+      "evidenceLayer": "isolated-production-code-fixture",
+      "realBoundaries": [
+        "Python production code execution with test-specific seams; see source assertions"
+      ],
+      "mockBoundaries": [
+        "External provider, registry, database and application responses where used are fixtures; no live cloud/production acceptance"
+      ],
+      "platform": "suite-defined",
+      "coverageLimit": "A passing named case proves only its assertions, not every failure mode in the requirement."
+    },
+    {
+      "caseId": "test_cn_release_recovery_admission.Admission.test_empty_local_cgroup_does_not_prove_missing_backup_or_changed_tar",
+      "source": "tests/test_cn_release_recovery_admission.py",
+      "severity": "P1",
+      "requiredBy": [
+        "T16"
+      ],
+      "evidenceLayer": "isolated-production-code-fixture",
+      "realBoundaries": [
+        "Python production code execution with test-specific seams; see source assertions"
+      ],
+      "mockBoundaries": [
+        "External provider, registry, database and application responses where used are fixtures; no live cloud/production acceptance"
+      ],
+      "platform": "suite-defined",
+      "coverageLimit": "A passing named case proves only its assertions, not every failure mode in the requirement."
+    },
+    {
+      "caseId": "test_cn_release_recovery_admission.Admission.test_real_complete_backup_tar_and_original_validator_proves_terminal",
+      "source": "tests/test_cn_release_recovery_admission.py",
+      "severity": "P1",
+      "requiredBy": [
+        "T16"
+      ],
+      "evidenceLayer": "isolated-production-code-fixture",
+      "realBoundaries": [
+        "Python production code execution with test-specific seams; see source assertions"
+      ],
+      "mockBoundaries": [
+        "External provider, registry, database and application responses where used are fixtures; no live cloud/production acceptance"
+      ],
+      "platform": "suite-defined",
+      "coverageLimit": "A passing named case proves only its assertions, not every failure mode in the requirement."
+    },
+    {
+      "caseId": "test_cn_release_recovery_driver.CliHandoff.test_seal_releases_real_flock_before_original_entry_and_propagates_race",
+      "source": "tests/test_cn_release_recovery_driver.py",
+      "severity": "P1",
+      "requiredBy": [
+        "T11"
+      ],
+      "evidenceLayer": "isolated-production-code-fixture",
+      "realBoundaries": [
+        "Python production code execution with test-specific seams; see source assertions"
+      ],
+      "mockBoundaries": [
+        "External provider, registry, database and application responses where used are fixtures; no live cloud/production acceptance"
+      ],
+      "platform": "suite-defined",
+      "coverageLimit": "A passing named case proves only its assertions, not every failure mode in the requirement."
+    },
+    {
+      "caseId": "test_cn_release_recovery_driver.Durable.test_business_failure_not_repeated_even_with_fresh_process",
+      "source": "tests/test_cn_release_recovery_driver.py",
+      "severity": "P1",
+      "requiredBy": [
+        "T23"
+      ],
+      "evidenceLayer": "isolated-production-code-fixture",
+      "realBoundaries": [
+        "Python production code execution with test-specific seams; see source assertions"
+      ],
+      "mockBoundaries": [
+        "External provider, registry, database and application responses where used are fixtures; no live cloud/production acceptance"
+      ],
+      "platform": "suite-defined",
+      "coverageLimit": "A passing named case proves only its assertions, not every failure mode in the requirement."
+    },
+    {
+      "caseId": "test_cn_release_recovery_driver.Durable.test_wait_before_clear_intent_then_resume_without_second_runtime",
+      "source": "tests/test_cn_release_recovery_driver.py",
+      "severity": "P1",
+      "requiredBy": [
+        "T23"
+      ],
+      "evidenceLayer": "isolated-production-code-fixture",
+      "realBoundaries": [
+        "Python production code execution with test-specific seams; see source assertions"
+      ],
+      "mockBoundaries": [
+        "External provider, registry, database and application responses where used are fixtures; no live cloud/production acceptance"
+      ],
+      "platform": "suite-defined",
+      "coverageLimit": "A passing named case proves only its assertions, not every failure mode in the requirement."
+    },
+    {
+      "caseId": "test_cn_release_recovery_driver.RecoveryActualCli.test_nonterminal_run_and_reconcile_are_not_success",
+      "source": "tests/test_cn_release_recovery_driver.py",
+      "severity": "P1",
+      "requiredBy": [
+        "T23"
+      ],
+      "evidenceLayer": "isolated-production-code-fixture",
+      "realBoundaries": [
+        "Python production code execution with test-specific seams; see source assertions"
+      ],
+      "mockBoundaries": [
+        "External provider, registry, database and application responses where used are fixtures; no live cloud/production acceptance"
+      ],
+      "platform": "suite-defined",
+      "coverageLimit": "A passing named case proves only its assertions, not every failure mode in the requirement."
+    },
+    {
+      "caseId": "test_cn_release_stage_router.RouterTests.test_generation_failure_not_retried",
+      "source": "tests/test_cn_release_stage_router.py",
+      "severity": "P1",
+      "requiredBy": [
+        "T14"
+      ],
+      "evidenceLayer": "isolated-production-code-fixture",
+      "realBoundaries": [
+        "Python production code execution with test-specific seams; see source assertions"
+      ],
+      "mockBoundaries": [
+        "External provider, registry, database and application responses where used are fixtures; no live cloud/production acceptance"
+      ],
+      "platform": "suite-defined",
+      "coverageLimit": "A passing named case proves only its assertions, not every failure mode in the requirement."
+    },
+    {
+      "caseId": "test_release_failure_matrix.ReleaseFailureMatrix.test_auth_denial_is_not_retried_or_recorded_as_success",
+      "source": "tests/test_release_failure_matrix.py",
+      "severity": "P1",
+      "requiredBy": [
+        "T06"
+      ],
+      "evidenceLayer": "isolated-production-code-fixture",
+      "realBoundaries": [
+        "Python production code execution with test-specific seams; see source assertions"
+      ],
+      "mockBoundaries": [
+        "External provider, registry, database and application responses where used are fixtures; no live cloud/production acceptance"
+      ],
+      "platform": "suite-defined",
+      "coverageLimit": "A passing named case proves only its assertions, not every failure mode in the requirement."
+    },
+    {
+      "caseId": "test_release_failure_matrix.ReleaseFailureMatrix.test_transient_upload_interruption_retries_then_verifies",
+      "source": "tests/test_release_failure_matrix.py",
+      "severity": "P1",
+      "requiredBy": [
+        "T06"
+      ],
+      "evidenceLayer": "isolated-production-code-fixture",
+      "realBoundaries": [
+        "Python production code execution with test-specific seams; see source assertions"
+      ],
+      "mockBoundaries": [
+        "External provider, registry, database and application responses where used are fixtures; no live cloud/production acceptance"
+      ],
+      "platform": "suite-defined",
+      "coverageLimit": "A passing named case proves only its assertions, not every failure mode in the requirement."
+    },
+    {
+      "caseId": "test_release_failure_matrix.ReleaseFailureMatrix.test_upload_retry_exhaustion_publishes_no_result",
+      "source": "tests/test_release_failure_matrix.py",
+      "severity": "P1",
+      "requiredBy": [
+        "T06"
+      ],
+      "evidenceLayer": "isolated-production-code-fixture",
+      "realBoundaries": [
+        "Python production code execution with test-specific seams; see source assertions"
+      ],
+      "mockBoundaries": [
+        "External provider, registry, database and application responses where used are fixtures; no live cloud/production acceptance"
+      ],
+      "platform": "suite-defined",
+      "coverageLimit": "A passing named case proves only its assertions, not every failure mode in the requirement."
+    }
+  ],
+  "coverageContract": {
+    "caseDenominator": "Count of unique cases[].caseId; never discovered test count or Markdown rows.",
+    "caseNumerator": "Required IDs with exactly one actual child result in this round and status pass; duplicates fail closed.",
+    "requirementDenominator": 32,
+    "requirementNumerator": "Only implemented requirements whose nonempty requiredCaseIds all pass in this round.",
+    "missingCaseStatus": "notrun",
+    "nonPassingStatuses": [
+      "fail",
+      "skip",
+      "notrun"
+    ],
+    "roundIsolation": "Never merge successful cases across rounds or commits.",
+    "requiredEvidence": [
+      "commit",
+      "runId",
+      "roundId",
+      "observedAt",
+      "caseId",
+      "status",
+      "evidence"
+    ],
+    "completeGate": "False if any requirement is partial/notImplemented, any required case is missing/duplicate/nonpass, or independent full-matrix/issue/invariant gates are absent."
+  },
+  "integrationGaps": [
+    "Real provider and production operations are not executed.",
+    "Linux cgroup and Chromium standalone results require stable per-case mapping before full coverage admission."
+  ],
+  "productionAccepted": false
+}
