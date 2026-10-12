@@ -3,7 +3,7 @@
 import argparse,concurrent.futures,csv,datetime,hashlib,importlib.util,json,os,platform,re,selectors,stat,statistics,subprocess,sys,time,unittest
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
-SUITES={'release':['test_cn_release_*.py'],'hongkong':['test_cn_hk*.py'],'candidate':['test_cn_candidate_*.py'],'image-archive':['test_cn_image*.py','test_cn_archive*.py'],'legacy-faults':['test_release_failure_matrix.py'],'linux-process':['cn_hk_performance_linux.py'],'linux-domain':['cn_release_simulation_domain_linux.py'],'linux-postgres':['cn_release_postgres_linux.py']}
+SUITES={'release':['test_cn_release_*.py'],'hongkong':['test_cn_hk*.py'],'candidate':['test_cn_candidate_*.py'],'image-archive':['test_cn_image*.py','test_cn_archive*.py'],'legacy-faults':['test_release_failure_matrix.py'],'linux-process':['cn_hk_performance_linux.py'],'linux-domain':['cn_release_simulation_domain_linux.py'],'linux-postgres':['cn_release_postgres_linux.py'],'linux-entry':['cn_release_cgroup_linux.py'],'linux-browser':['cn_release_browser_linux.py'],'offline-contracts':['test_cn_formal_save_bound.py','test_cn_repeated_layers.py','test_cn_formal_budget_profile.py','test_cn_exact_source_admission.py','test_cn_agent_postbuild_diagnostic.py','test_cloud_build_only.py','test_aliyun_release_auth.py','test_auth_action_hardening.py','test_cn_main_registration.py']}
 LOG_LIMIT=4*1024*1024
 GAPS=['External GitHub/OSS/ACR/ECS/RDS operations use fixtures; no live provider acceptance.',
       'No production image build, paid resource, production database, traffic switch or live business acceptance.',
@@ -15,7 +15,7 @@ def write_json(path,value):
 def child(suite,result):
     if suite.startswith('linux-') and platform.system()!='Linux':raise RuntimeError('LINUX_REQUIRED')
     loader=unittest.TestLoader();tests=unittest.TestSuite()
-    if suite in ('linux-domain','linux-postgres'):
+    if suite in ('linux-domain','linux-postgres','linux-entry','linux-browser'):
         spec=importlib.util.spec_from_file_location('cn_simulation_standalone_integration',ROOT/'tests'/SUITES[suite][0])
         module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
         def real_domain_contract():

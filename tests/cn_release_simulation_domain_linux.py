@@ -57,7 +57,7 @@ while True:time.sleep(.1)
         return receipt
 
 
-def nested_case():
+def nested_case(legacy_entry=False):
     with tempfile.TemporaryDirectory(prefix='wsx-simulation-nested-') as td:
         ready = Path(td) / 'ready'; late = Path(td) / 'late'
         child = '''import os,time,signal,json,sys
@@ -67,7 +67,18 @@ os.rename(sys.argv[1]+'.tmp',sys.argv[1]);time.sleep(1.5)
 open(sys.argv[2],'w').write('escaped')
 while True:time.sleep(.1)
 '''
-        parent = '''import importlib.util,sys,time
+        if legacy_entry:
+            parent = '''import importlib.util,sys,shlex,uuid
+from pathlib import Path
+s=importlib.util.spec_from_file_location('domain',sys.argv[1]);d=importlib.util.module_from_spec(s);s.loader.exec_module(d)
+entry=Path(sys.argv[1]).parents[1]/'.harness/scripts/vm/cn-release-advance.py'
+s=importlib.util.spec_from_file_location('entry',entry);m=importlib.util.module_from_spec(s);s.loader.exec_module(m)
+m.CGROUP_BASE=d.current_cgroup()/('workspacex-ci-entry-'+uuid.uuid4().hex);m.CGROUP_BASE.mkdir(mode=0o700)
+command=' '.join(shlex.quote(x) for x in [sys.executable,'-I','-B','-c',sys.argv[2],sys.argv[3],sys.argv[4]])+' &'+chr(10)+'wait'+chr(10)
+m.run_command(command.encode(),30,lambda pid,domain:None)
+'''
+        else:
+            parent = '''import importlib.util,sys,time
 s=importlib.util.spec_from_file_location('nested',sys.argv[1]);m=importlib.util.module_from_spec(s);s.loader.exec_module(m)
 d=m.Domain();p=d.spawn([sys.executable,'-I','-c',sys.argv[2],sys.argv[3],sys.argv[4]])
 while True:time.sleep(.1)
@@ -87,7 +98,12 @@ while True:time.sleep(.1)
             expected = '/' + str(outer.path.relative_to('/sys/fs/cgroup')) + '/'
             assert cgroup_path.startswith(expected), 'nested domain escaped outer subtree'
             nested = Path('/sys/fs/cgroup') / cgroup_path.lstrip('/')
-            assert nested.parent == outer.path and module.owned_name(nested.name)
+            if legacy_entry:
+                assert nested.parent.parent == outer.path
+                assert module.named_uuid(nested.parent.name, 'workspacex-ci-entry-')
+                assert module.named_uuid(nested.name, 'op-')
+            else:
+                assert nested.parent == outer.path and module.owned_name(nested.name)
             try: process.wait(timeout=.1)
             except subprocess.TimeoutExpired: pass
             else: raise AssertionError('outer timeout fixture unexpectedly exited')
@@ -105,7 +121,7 @@ def main():
         print(json.dumps({'verified': False, 'status': 'CAPABILITY_UNAVAILABLE', 'reason': 'LINUX_ROOT_REQUIRED'}))
         return 2
     try:
-        receipts = [case(True), case(False), nested_case()]
+        receipts = [case(True), case(False), nested_case(), nested_case(legacy_entry=True)]
         # Cancellation can happen before the join wrapper gets CPU time.
         domain = module.Domain()
         process = domain.spawn([sys.executable, '-I', '-c', 'import time;time.sleep(30)'])
@@ -115,7 +131,8 @@ def main():
         return 1
     print(json.dumps({'verified': True, 'status': 'PASSED', 'cloudCalls': 0, 'tests': [
         'leader_exit_kills_setsid_descendant', 'timeout_kills_setsid_descendant',
-        'outer_timeout_kills_nested_setsid_descendant', 'immediate_cleanup_join_race'], 'cleanup': receipts}))
+        'outer_timeout_kills_nested_setsid_descendant',
+        'outer_timeout_kills_actual_entry_op_setsid_descendant', 'immediate_cleanup_join_race'], 'cleanup': receipts}))
     return 0
 
 

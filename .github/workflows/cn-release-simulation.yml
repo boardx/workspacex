@@ -32,6 +32,23 @@ on:
       - 'tests/cn_release_simulation_domain_linux.py'
       - 'tests/cn_release_postgres_linux.py'
       - 'tests/cn_release_private_fixture.py'
+      - 'tests/cn_release_browser_linux.py'
+      - 'tests/cn_release_cgroup_linux.py'
+      - 'tests/cn-release-business-*.ts'
+      - 'scripts/cn-release-business-*.ts'
+      - 'scripts/build-cn-business-runtime.cjs'
+      - 'scripts/aliyun-release-auth.py'
+      - 'scripts/harden-aliyun-action.py'
+      - 'scripts/cloud-build-only.py'
+      - 'scripts/diagnose-cn-agent-postbuild.py'
+      - 'tests/test_cn_formal_*.py'
+      - 'tests/test_cn_repeated_layers.py'
+      - 'tests/test_cn_exact_source_admission.py'
+      - 'tests/test_cn_agent_postbuild_diagnostic.py'
+      - 'tests/test_cloud_build_only.py'
+      - 'tests/test_aliyun_release_auth.py'
+      - 'tests/test_auth_action_hardening.py'
+      - 'tests/test_cn_main_registration.py'
       - 'tests/fixtures/cn-postgres-isolation/**'
       - 'tests/fixtures/cn-promotion-recovery/**'
       - 'docs/operations/cn-release-simulation-matrix.json'
@@ -53,7 +70,11 @@ jobs:
           package-manager-cache: false
       - name: Install isolated fixture dependencies
         run: |
-          npm install --prefix "$RUNNER_TEMP/cn-fixture" --no-audit --no-fund --save-exact tsx@4.20.6 zod@3.25.76 pg@8.13.1
+          npm install --prefix "$RUNNER_TEMP/cn-fixture" --no-audit --no-fund --save-exact tsx@4.20.6 zod@3.25.76 pg@8.13.1 playwright@1.62.0
+          "$RUNNER_TEMP/cn-fixture/node_modules/.bin/playwright" install --with-deps chromium
+          echo "NODE_PATH=$RUNNER_TEMP/cn-fixture/node_modules" >> "$GITHUB_ENV"
+          echo "CN_TEST_PLAYWRIGHT=$RUNNER_TEMP/cn-fixture/node_modules/playwright" >> "$GITHUB_ENV"
+          echo "CN_TEST_CHROMIUM=$(node -e 'process.stdout.write(require(process.argv[1]).chromium.executablePath())' "$RUNNER_TEMP/cn-fixture/node_modules/playwright")" >> "$GITHUB_ENV"
           echo "CN_ARCHIVE_TEST_NODE=$(command -v node)" >> "$GITHUB_ENV"
           echo "CN_ARCHIVE_TEST_RUNTIME=$RUNNER_TEMP/cn-fixture" >> "$GITHUB_ENV"
           python3 -m venv "$RUNNER_TEMP/cn-test-sdk"
@@ -62,7 +83,7 @@ jobs:
         env:
           ROUNDS: ${{ inputs.rounds || '1' }}
           SEED: ${{ inputs.seed || '0' }}
-        run: 'sudo -n env -i PATH="$PATH" CN_ARCHIVE_TEST_NODE="$CN_ARCHIVE_TEST_NODE" CN_ARCHIVE_TEST_RUNTIME="$CN_ARCHIVE_TEST_RUNTIME" GITHUB_RUN_ID="$GITHUB_RUN_ID" GITHUB_RUN_ATTEMPT="$GITHUB_RUN_ATTEMPT" GITHUB_WORKSPACE="$GITHUB_WORKSPACE" RUNNER_TEMP="$RUNNER_TEMP" "$RUNNER_TEMP/cn-test-sdk/bin/python" -I -B scripts/cn-release-simulation-ci.py --sha "$GITHUB_SHA" --rounds "$ROUNDS" --seed "$SEED"'
+        run: 'sudo -n env -i PATH="$PATH" CN_ARCHIVE_TEST_NODE="$CN_ARCHIVE_TEST_NODE" CN_ARCHIVE_TEST_RUNTIME="$CN_ARCHIVE_TEST_RUNTIME" NODE_PATH="$NODE_PATH" CN_TEST_PLAYWRIGHT="$CN_TEST_PLAYWRIGHT" CN_TEST_CHROMIUM="$CN_TEST_CHROMIUM" GITHUB_RUN_ID="$GITHUB_RUN_ID" GITHUB_RUN_ATTEMPT="$GITHUB_RUN_ATTEMPT" GITHUB_WORKSPACE="$GITHUB_WORKSPACE" RUNNER_TEMP="$RUNNER_TEMP" "$RUNNER_TEMP/cn-test-sdk/bin/python" -I -B scripts/cn-release-simulation-ci.py --sha "$GITHUB_SHA" --rounds "$ROUNDS" --seed "$SEED"'
       - name: Export bounded reports for the unprivileged artifact uploader
         if: always()
         run: |

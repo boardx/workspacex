@@ -1,7 +1,7 @@
 # CN 发布隔离仿真覆盖矩阵
 
-审计日期：2026-10-12。基线 HEAD：`8c5d4eac8dd9d44b9837fc38a0e754b54ddda6cc`，工作树 `github-autonomous-release`。
-本轮只修改本文件；审计时主端正在修改 fixed-driver、相应测试及香港传输 workflow，因此下面本地执行结果是**工作树快照证据，不是最终提交的十轮结果**。
+更新日期：2026-10-12。历史审计基线为 `8c5d4eac8dd9d44b9837fc38a0e754b54ddda6cc`；本次已完成 CI 对应 merge commit `c0ee7397a2b3b5a2e17a1a3791cb1542f5fb7887`（候选含 `e9100a7e9`），工作树 `github-autonomous-release`。
+**最终同一提交十轮：0/10；生产未执行。** 四次已完成 GitHub 仿真均为不同提交的一轮诊断，不累计为最终轮次。第四次 CI `38237133763` 已通过现有 suite，但完整范围未覆盖，不能按 runtime-only 结案。此次仅更新本 Markdown，不改变机器矩阵、计划、代码或授权。
 
 ## 范围和证据等级
 
@@ -35,7 +35,7 @@ consume → publication-stage → check-plan → publish → hold-stage → hold
 | normal fixed driver `run/reconcile` | `CHAIN_COMPLETED` 为 0；非终态为 2；异常为 1，`BLOCKED_OR_UNKNOWN` | 2 不是成功发布；保留具体 stage/status；0 仍带 `productionAcceptanceClaimedByDriver:false` |
 | normal fixed driver `status` | 成功读取即 0，可为 `NOT_STARTED`/unknown/等待 | 只读命令成功不等于业务成功 |
 | 原始 `cn-release-advance.py` | 成功返回对象为 0，异常为 1/`BLOCKED` | `status` 的0不可替代COMPLETED；normal driver做了额外终态判断 |
-| recovery driver（审计发现的缺陷） | `main()` 对正常返回的等待/unknown/NOT_STARTED打印后返回None，脚本调用`main()`，因此0；异常才1 | **待修复**：workflow可能把未完成 recovery 判绿；不得按0认定恢复完成 |
+| recovery driver（D01 已修代码） | 当前 `run/reconcile` 仅 `RECOVERY_VERIFIED` 返回0，其他正常非终态2；异常1；`status` 成功读取0；`__main__` 使用 `sys.exit(main())` | 不再将非终态当成功；本表是当前源码核对，不能借普通 driver CLI 测试替代 recovery CLI 的精确复验 |
 | Python library 测试 | 成功返回/异常，不天然定义CLI退出码 | 必须另测实际CLI；coordinate单元测试不能证明workflow exit合同 |
 
 ## 场景准入覆盖
@@ -82,7 +82,7 @@ consume → publication-stage → check-plan → publish → hold-stage → hold
 | T24 已clear后的故障 | 不能套held-only rollback；当前明确block | 无自动成功恢复receipt | 必须单独review rehold/stop scope和当前业务写影响；不可恢复已删除数据的声明 | recovery_admission `clear_intent_requires_new_rehold_approval`；完整post-clear恢复 G |
 | T25 deadline / receipt最后验证耗尽 | verification结束后过期不产生normal完成receipt；A5等待不重置时间 | normal1或等待2；历史原clock保留 | 显式readonly reconcile可在过期后；正常action不得续租 | entry late verifier、full_chain A5 clock、recovery fresh approval L+F |
 
-## 本轮实际执行记录及可直接执行的测试
+## 历史本地执行记录及可直接执行的测试
 
 本轮没有cloud/Docker/付费操作，也没有真实生产验收。父端负责完整 `test_cn_release_*.py` 基线，本文不重复运行该全集。
 
@@ -113,7 +113,7 @@ PY=/Users/shenyanbin/.local/share/uv/python/cpython-3.12.14-macos-aarch64-none/b
 
 | 编号 | 发现 | 最小修复/验收要求 | 状态 |
 | --- | --- | --- | --- |
-| D01 | recovery CLI对等待/unknown正常return导致exit0，workflow只看退出码 | 按mode定义完整成功状态；run未完成非0，status/readback语义分别明确；新增真正CLI子进程+workflow反例，不只coordinate测试 | 已报主端；审计不修改源码，待最终diff复核 |
+| D01 | 历史 recovery CLI 非终态返回0 | 当前已按 `RECOVERY_VERIFIED`/mode 区分0与2，并传播异常1 | 代码修复已核；精确 CLI 覆盖须看对应 case，不把整组通过等同该反例通过 |
 | D02 | Python3.9缺tarfile extraction filter | 测试/CI固定兼容解释器；不得删除安全filter换取绿 | 已用3.12.14确认9项PASS |
 | D03 | classifier被误当normal/hotfix/migration执行分支风险 | 报告lane实际能力；migration/Pages/web-only另建明确契约，或明确拒绝 | 现文档明确，不能据十轮fixture宣称补齐 |
 | D04 | 17stage的provider/live verifier和六业务服务器fixture替代关键真实系统 | 在独立隔离栈接实际Docker/DB/应用/模型；保留fixture定位边界 | 未完成真实全链验收 |
@@ -131,21 +131,51 @@ PY=/Users/shenyanbin/.local/share/uv/python/cpython-3.12.14-macos-aarch64-none/b
 5. 每轮报告：`candidateSha`、suite/runtime pins、round1..10、UTC起止、每项证据等级、pass/fail/skip数、exit、cleanup、原始artifact SHA、剩余G。无执行不得填PASS；skip不得充作真实平台验证。
 6. 只有明确真实隔离栈执行完成的项可提升L/P范围；十轮fixture通过仍只证明十轮fixture。生产发布仍需独立审批、现场版本/权限/备份恢复/业务证据；本矩阵不触发生产。
 
-## 独立审查问题账本（runner 草稿，未冻结）
+## 真实 GitHub 诊断记录（按 run / commit 分开）
 
-本表记录源码审查证据，**不把静态可推导路径写成已经动态复现**。`reproduced=false` 表示独审没有运行该反例，不表示问题不存在；`fixed` 只有精确冻结修复已确认才为 true；`reverified` 必须有独立执行证据，作者测试不自动替代。优先级 P1 为阻止完整十轮验收的问题；P2 为覆盖/证据范围限制。
+证据根目录为任务目录 `release-continuation/simulation-evidence-20261012/`。每个 `github-<run>/summary.json` 是原始汇总，`round-01/round.json` 是轮次及 suite 结果，`*.tests.cases.json`/`*.tests.inventory.json`/`*.log` 是用例清单与原输出；CSV/report 为派生视图。不得把 suite 数、主题数或不同提交的通过项相加为轮数。
 
-2026-10-12 本次更新只读看到作者修改中的 runner SHA `89c8a5301767f2a6fefa1536c927700ef82402e4c4be0eebc2a5cb7e13ee48d2`、workflow SHA `e3e9c6fb513361bfe24616f647d25afdef57bb7036f34cf166c80a5275eb25b1`。这不是完整候选冻结，也不是下面问题的关闭证明。原审查旧版未记录完整文件SHA，因此用明确函数/语句与既有源文件定位，不伪造旧hash。后续作者可能继续写入；独审须重新核最终字节。
+| GitHub run / 精确 commit | 原始结果 | 本次真实结论 |
+| --- | --- | --- |
+| [38233060655](https://github.com/boardx/workspacex/actions/runs/38233060655) / `874d6ce568d7a0480370ecff4cc55f2442d74a55` | 1/1 诊断轮；762 pass、42 fail、1 skip；129.662秒；整轮 failed | 保留 entry/root 路径、依赖、归档等失败原文；不能把平台 skip 计绿。原件：`github-38233060655/summary.json`、`round-01/{release,hongkong,candidate,image-archive}.log` |
+| [38235230946](https://github.com/boardx/workspacex/actions/runs/38235230946) / `50c6dc602a1f69dffbb9144b08fd2086ee5b2a59` | 1/1；828 pass、0 fail、0 skip；140.472秒；整轮仍 failed | 七组用例通过，但 `sourceUnchanged=false`，源码清洁门没有被绕过；不是完整通过轮。原件：`github-38235230946/summary.json`、`round-01/round.json` |
+| [38236194304](https://github.com/boardx/workspacex/actions/runs/38236194304) / `dbd5f20c1684b894f1f37b295f6eab40c09efe06` | 1/1；857 pass、13 fail、0 skip；156.042秒；failed；机器矩阵 cases 53/53、requirements 21/32 | 八组含 Linux PostgreSQL；13失败来自 conditional-writer 测试私有父目录（11项）和浅克隆缺历史 Git 对象（2项）。另有 `scripts/__pycache__/cn_release_simulation_domain.cpython-312.pyc` 污染，sourceUnchanged=false。原件：`github-38236194304/summary.json`、`round-01/release.log`、`round-01/round.json` |
+| [38237133763](https://github.com/boardx/workspacex/actions/runs/38237133763) / `c0ee7397a2b3b5a2e17a1a3791cb1542f5fb7887`（含候选 `e9100a7e9`） | 1/1；878 pass、0 fail、0 skip；160.123秒；passed；sourceUnchanged=true，轮前后均干净；53/53 case、21/32 requirement | 现有诊断轮通过；`accepted=false`、`fullMatrixCoverage=false`、`tenOfTen=false`。原件：`github-38237133763/summary.json`、`round-01/round.json`、`round-01/release.tests.cases.json`。不是最终十轮之一 |
 
-| ID | Severity | 问题/证据 | reproduced | fixed | reverified | 当前状态 / 关闭门 |
-| --- | --- | --- | --- | --- | --- | --- |
-| SIM-01 | P1 | 原 `scripts/cn-release-simulation.py` 的 `child()` 使用`wasSuccessful()`，`execute()` passed未检查skipped/expectedFailures；unittest允许这两种结果整体successful，故可把缺依赖/平台skip计为绿 | false（源码确认；未运行skip反例） | false | false | OPEN / 作者修复中；现源码已见两处零skip/零expectedFailure门，尚待冻结及独立skip、expectedFailure、缺依赖反例 |
-| SIM-02 | P1 | 原十轮前后`git status --untracked-files=no`，而`loader.discover`读取工作树通配文件；untracked测试可参与执行但不在声明commit且不触发dirty | false（源码确认；未动态增删测试） | false | false | OPEN / 作者修复中；现已见`--untracked-files=all`，需最终反例及固定测试inventory/snapshot证明；只检查轮首尾不能声称期间源码绝对不可变 |
-| SIM-03 | P1 | `linux-process`通过discover导入`tests/cn_hk_performance_linux.py`，绕过该文件`__main__`的Linux_REQUIRED；Mac `/proc`不存在的assert分支可能误算已停止 | false（源码确认；未在Mac跑该suite） | false | false | OPEN / 作者修复中；现child显式platform门已见，需实际非Linux拒绝且Linux运行的最终证据 |
-| SIM-04 | P1 | `execute()`只对suite.pid进程组SIGKILL；被测`.harness/scripts/vm/cn-release-advance.py`会创建独立session，suite超时/log-limit时该action可不属suite PGID。现runner timeout测试只有单sleep leader | false（跨源码控制流确认；未创建逃逸进程） | false | false | OPEN；需独占隔离Linux终止域或等价准确后代管理，真实suite→setsid descendant反例、超时后停止读回，不能按进程名全机kill |
-| SIM-05 | P1 | `SUITES`只有release/hongkong/candidate/linux-process四个Python组；不含`tests/cn_release_cgroup_linux.py`、`cn-release-business-browser.integration.ts`、`test_release_failure_matrix.py`，所以`--suite all --rounds 10`不是本矩阵完整回归 | false（文件/配置静态集合比较；不需假称动态复现） | false | false | OPEN；作者已加入`simulationAcceptance`阻塞说明，但说明不等于补齐执行；必须冻结完整required suite manifest、实际平台依赖与每轮无缺项证据 |
-| UPG-01 | P2 | `tests/test_cn_release_failure_isolation.py::actual_switch_branch`从生产main AST只编译末段，注入private/run/hold、固定`mode='switch'`；未执行main前置授权/锁/FD，也没有同分支rollback正例 | false（明确覆盖限制，非宣称运行缺陷） | false | false | OPEN-COVERAGE；补完整入口/rollback反例或持续明确“局部分支覆盖”，不可把其通过称完整升级恢复验收 |
+上述时间只是隔离仿真 suite 用时；真实云端及生产层在四个 summary 中均为 `executed:false`。未测的吞吐、恢复耗时、磁盘峰值、安全违规数保持 null，不将 null 写成0。
 
-量化状态：**6 项，P1=5、P2=1；独立动态 reproduced=0、fixed=0、reverified=0、closed=0**。这不是说全部问题都未经分析：SIM-01/02/03/05可直接由源码/文件集合确认；SIM-04为具体可达控制流风险，动态回归待执行；UPG-01是证据范围说明。作者修复方向已看到3项（SIM-01/02/03），但不提前关单。
+## 缺陷闭环：代码、复验、缺口分别记录
 
-升级代码局部审读结论：`upgrade-draft.py` 新增exact-five、service集合、唯一container ID、CN名称/project、非restarting及exact image检查未发现新增阻断。其当前原始字节SHA `baaa95ad3690277fd33c711f71a6945148682d28e5fac3007bc784adf41a2cd1`、长度16042，与`provenance.json`一致；历史originalSHA/15513字节仍保留。`failure_isolation`测试文件SHA `6a4e6f995be38c399858510ec172189f60ab3d16396b465093060d2671ff3035`。这仅是源码/哈希核验，**本次独审没有重复运行作者的测试或声称生产可执行**。
+历史 SIM-01..05 的发现保留如下，取消过期的“全部 fixed=false”总计。**代码修复与某个 CI 的反例通过不等于最终完整矩阵通过**；当前没有 `accepted=true` 的最终十轮结果。
+
+| ID / 严重性 | 历史缺陷与当前代码 | 已有真实复验证据 | 状态 / 剩余门 |
+| --- | --- | --- | --- |
+| SIM-01 / P1 | 原 `wasSuccessful()` 允许 skip/expectedFailure。当前 `child()` 和 `execute()` 均要求零 skip、零 expectedFailure、非空测试，并逐 case 记结果 | 第三次 `round-01/release.tests.cases.json` 中 `SimulationTests.test_skip_and_expected_failure_cannot_report_green` 为 pass；首次42fail/1skip仍整体failed | CLOSED（本缺陷范围）；第四次指定反例 pass，最终提交十轮仍待验 |
+| SIM-02 / P1 | 原不包含 untracked 的 dirty 检查漏掉动态发现文件。当前 `source_status` 包括所有 untracked，记录轮首尾状态；CI 从精确 SHA 建 root-owned 私有 clone，核 tree/父目录/清洁度 | 第三次 `test_ten_rounds_dirty_tree_is_rejected`、`test_source_status_is_bounded_redacted_and_never_excludes_cache` pass；原 `round.json` 实际发现 pycache 并拒绿 | CLOSED（本缺陷范围）；第四次相同反例 pass，轮前后 dirty=false、sourceUnchanged=true，bytecode 污染已在该提交复验消除；前三次失败保留 |
+| SIM-03 / P1 | discover 曾绕过 Linux 文件 main 平台门。当前 child 对所有 `linux-*` 明确拒绝非 Linux；standalone 合同实际调用 main | 第三次 `test_linux_suite_requires_real_linux` pass；`round-01/linux-process.tests.cases.json` 与 `linux-domain.tests.cases.json` 已有 Linux pass | CLOSED（本缺陷范围）；第四次平台反例和 Linux suite pass；Mac 结果仍不替代 Linux |
+| SIM-04 / P1 | 只 kill suite PGID 无法约束 setsid 后代。当前 `cn_release_simulation_domain.py` 管理私有 cgroup，spawn/close 要求可证明 cleanup，未能证明就失败 | 第三次 `round-01/linux-domain.log` / `.tests.cases.json` 的 `linux_domain_contract` pass；真实 leader-exit、timeout、嵌套 setsid、cleanup race 合同，另 `linux-process` pass | CLOSED（原4场景范围）；第四次真实 Linux 合同 pass；新增第5场景的问题另列 SIM-06，不用原4场景覆盖它，也不证明远端写已终止 |
+| SIM-05 / P1 | 原 all 只有4组，遗漏覆盖。现8组：release、hongkong、candidate、image-archive、legacy-faults、linux-process、linux-domain、linux-postgres；机器矩阵逐 exact case/commit/run/round 核覆盖 | 第三次8组真实执行，53/53 case，但只21/32 requirement；`fullMatrixCoverage=false`。独立 Chromium及其他 requirement 不可借 suite 名称填绿 | 部分补齐，**仍 OPEN-COVERAGE**；需全部 required requirement 的同轮证据，不能放宽分母 |
+| UPG-01 / P2 | `failure_isolation.actual_switch_branch` 仍为 AST 末段编译及 fixture，未证明完整生产 main 授权/锁/FD/真实 Docker rollback | 第三次 `round-01/release.tests.cases.json` 的 RuntimeFailures 通过仅证明声明边界 | OPEN-COVERAGE；真实完整入口恢复不由局部分支测试替代 |
+| CI-01 / P1 | 第三次 conditional-writer 11项先被 `UNSAFE_PARENT` 挡住，未到目标反例；当前测试改用 `cn_release_private_fixture.private_temporary_directory` | 失败原文 `github-38236194304/round-01/release.log`；修复源码 `tests/test_cn_release_conditional_writer_{store,adapter}.py`，候选 `e9100a7e9` | CLOSED；第四次 `release.tests.cases.json` 中 conditional-writer store/adapter 对应11项全部 pass，已到达目标失败/竞争反例 |
+| CI-02 / P1 | 两个历史回执反例用 `git show 8c5d...`，浅克隆无该对象。当前用入库原字节并验证原 SHA，未改原拒绝行为 | 失败同上 log；修复 `c0991a504`、`tests/fixtures/cn-promotion-recovery/acquire-observer-8c5d4eac.py` 与测试读取/hash断言 | CLOSED；第四次 `test_original_exact_base_rejects_actual_empty_receipt` 与 `test_original_exact_base_rejects_actual_partial_receipt` 均 pass；原失败不删除 |
+| AUTH-01 / P1 | conditional writer authority 在生成后、真正 advance 前仍需重新检查撤销/漂移；`e9100a7e9` 增加实际 advance 前检查 | 第四次 `release.tests.cases.json`：`RouterTests.test_generated_package_revocation_blocks_before_advance`、`test_policy_replacement_cannot_reset_release_consumption`、`test_pointer_before_decision_crash_is_not_static_approval` 均 pass；对应真实 adapter/router 代码 | CLOSED；第四次实际候选反例已复验；已有请求仍必须最新 authority 检查 |
+
+| SIM-06 / P1 | 新增第5个 cgroup 场景中，`tests/cn_release_simulation_domain_linux.py` 构造 entry 专用 `parent` 后又被普通 nested-domain 的 `parent` 无条件覆盖，目标路径未真实执行 | code_review 静审发现：`nested_case(legacy_entry=True)` 的 actual-entry parent 被覆盖，目标 entry 未实际运行；没有实际 Linux 失败回执或异常 code，不把预期断言失败写成已复现。作者已加 `else` 并做 AST 分支构造检查 | OPEN（代码已修、验证待完成）；仍需独审及实际 Linux entry 分支日志后再关，待新11-suite CI |
+
+**量化账本：原9项中已关闭7项（SIM-01..04、CI-01、CI-02、AUTH-01），仍开放2项（SIM-05、UPG-01）；新增 SIM-06 一项开放。合计10项：closed=7、open=3；P1共9项（closed=7/open=2），P2共1项（open=1）。** 关闭只指该缺陷的代码与具体反例，不表示发布全范围完成。第四次原件位于 `github-38237133763/round-01/release.tests.cases.json`、`linux-domain.log`、`linux-process.tests.cases.json`；不能把运行器未知/null的 `seriousIssuesClosed` 擅自改成 true。
+
+完整目标继续包含 **hotfix、无DB变化、有迁移的发布、隔离恢复与恢复后的验证**。普通 runtime-only 十七阶段和 PostgreSQL standalone 通过不足以结案。当前新增 PostgreSQL lifecycle 正在接真实 driver，新11-suite 尚待 CI；未执行的新范围不计已覆盖、不回填第四次的53/53与21/32。真实 PostgreSQL fixture 仍不等于上海 RDS 恢复或生产数据验收。D03..08 中未被新证据明确覆盖的真实应用、迁移、已 clear 后恢复及30分钟全云时延缺口继续有效。
+
+## 可复用执行说明（不等于已调度）
+
+先完成缺陷修复并取得候选的一轮完整诊断结果，再冻结同一提交。workflow 为 `.github/workflows/cn-release-simulation.yml`：Ubuntu 24.04、只 `contents:read`、无生产 environment/OIDC/云凭据，原结果保留7天。依赖在临时目录安装；CI wrapper 精确核对 `$GITHUB_SHA`，从本地 checkout 克隆 root-owned 隔离树；不修改生产或全局 Git 配置。
+
+以下仅为待执行命令模板；`<FROZEN_REF>` 必须是审核后固定到唯一 final commit 的远端分支或 tag，调度后必须核对 run.headSha。**GitHub API 必须支持该 ref 上 workflow_dispatch，且调用账号已有相应权限。若 API 拒绝，不改跑其他 ref、不新增凭据或权限，也不能写“已启动”。** 本文未执行这条命令，最终十轮仍0/10。
+
+```sh
+gh workflow run cn-release-simulation.yml --repo boardx/workspacex   --ref '<FROZEN_REF>' -f rounds=10 -f seed=100
+```
+
+一次请求在一个固定 checkout 中顺序跑十轮；每轮必须运行冻结候选定义的完整 suites（第四次为8组；新11组待验证）、独立输出目录，seed 逐轮变化并保存在 `round.json`。若任何轮失败即停止后续轮，保存失败；改源码后新 commit 从1重新计。各组内仍有明确 fixture：外部 GitHub/OSS/ACR/ECS/RDS、full-chain 的 live verifier/preflight 与浏览器模拟服务，不升级成真实云验收。
+
+验收读取 `summary.json` 的 commit、requested/completedRounds、各轮 sourceUnchanged/seed、所有 suite exit/cleanup、case counts、machine matrix coverage 和 acceptanceGates；还要看实际缺失项，不能只读 UI 绿色、`completedRounds` 或测试总数。`completedRounds=10` 也不自动证明所有门通过。当前报告对未独立证明的安全不变量、严重问题关闭和真实云30分钟保持 unknown/null，完整验收仍受这些门约束。

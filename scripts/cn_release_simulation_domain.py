@@ -30,6 +30,21 @@ def owned_name(name):
     return name.startswith('wsx-simulation-') and len(suffix) == 32 and all(x in '0123456789abcdef' for x in suffix)
 
 
+def named_uuid(name, prefix):
+    suffix = name.removeprefix(prefix)
+    return name.startswith(prefix) and len(suffix) == 32 and all(x in '0123456789abcdef' for x in suffix)
+
+
+def owned_child(parent, child):
+    # Only these known test-created hierarchies are allowed. In particular an
+    # op-* domain is never accepted directly below an outer suite domain.
+    if owned_name(parent):
+        return owned_name(child) or named_uuid(child, 'workspacex-ci-entry-')
+    if named_uuid(parent, 'workspacex-ci-entry-'):
+        return named_uuid(child, 'op-')
+    return False
+
+
 def remove_empty_tree(path, identity):
     st = path.lstat()
     if not stat.S_ISDIR(st.st_mode) or (st.st_dev, st.st_ino) != identity:
@@ -39,7 +54,7 @@ def remove_empty_tree(path, identity):
     for child in path.iterdir():
         child_stat = child.lstat()
         if stat.S_ISDIR(child_stat.st_mode):
-            if not owned_name(child.name):
+            if not owned_child(path.name, child.name):
                 raise RuntimeError('SIMULATION_UNEXPECTED_NESTED_DOMAIN')
             remove_empty_tree(child, (child_stat.st_dev, child_stat.st_ino))
         elif stat.S_ISLNK(child_stat.st_mode):

@@ -156,13 +156,13 @@
       "severity": "P1",
       "requiredCaseIds": [
         "test_cn_release_entry.EntryTests.test_timeout_joins_process_before_allowing_observation",
-        "test_cn_release_entry.EntryTests.test_parent_dies_before_child_session_no_late_mutation"
+        "test_cn_release_entry.EntryTests.test_parent_dies_before_child_session_no_late_mutation",
+        "linux_domain_contract",
+        "linux_entry_contract"
       ],
-      "implementation": "partial",
-      "notImplemented": [
-        "Exact Linux cgroup/setsid integration results are not yet mapped to stable per-case IDs."
-      ],
-      "scope": "Isolated production-code contract only; provider/live application calls remain fixtures."
+      "implementation": "implemented",
+      "notImplemented": [],
+      "scope": "Real local Linux cgroup/setsid aggregate contracts, including timeout and nested descendants. Does not prove remote provider writes have stopped."
     },
     {
       "id": "T13",
@@ -1336,6 +1336,44 @@
       ],
       "platform": "suite-defined",
       "coverageLimit": "A passing named case proves only its assertions, not every failure mode in the requirement."
+    },
+    {
+      "caseId": "linux_domain_contract",
+      "source": "tests/cn_release_simulation_domain_linux.py",
+      "suite": "linux-domain",
+      "caseKind": "standalone-aggregate-contract",
+      "severity": "P1",
+      "requiredBy": [
+        "T12"
+      ],
+      "evidenceLayer": "isolated-production-code-fixture",
+      "realBoundaries": [
+        "Actual Linux processes, setsid descendants and owned cgroup cleanup; one aggregate unittest case invokes all main checks"
+      ],
+      "mockBoundaries": [
+        "No cloud/provider operation; local emptiness does not prove remote writes stopped"
+      ],
+      "platform": "Linux root cgroup v2",
+      "coverageLimit": "Only successful aggregate execution counts; internal checks are not inflated into independent unittest cases."
+    },
+    {
+      "caseId": "linux_entry_contract",
+      "source": "tests/cn_release_cgroup_linux.py",
+      "suite": "linux-entry",
+      "caseKind": "standalone-aggregate-contract",
+      "severity": "P1",
+      "requiredBy": [
+        "T12"
+      ],
+      "evidenceLayer": "isolated-production-code-fixture",
+      "realBoundaries": [
+        "Actual Linux processes, setsid descendants and owned cgroup cleanup; one aggregate unittest case invokes all main checks"
+      ],
+      "mockBoundaries": [
+        "No cloud/provider operation; local emptiness does not prove remote writes stopped"
+      ],
+      "platform": "Linux root cgroup v2",
+      "coverageLimit": "Only successful aggregate execution counts; internal checks are not inflated into independent unittest cases."
     }
   ],
   "coverageContract": {
@@ -1363,7 +1401,7 @@
   },
   "integrationGaps": [
     "Real provider and production operations are not executed.",
-    "Linux cgroup and Chromium standalone results require stable per-case mapping before full coverage admission."
+    "Chromium standalone results and other partial requirements still need complete matrix mapping; local cgroup evidence never establishes remote write termination."
   ],
   "productionAccepted": false
 }

@@ -45,7 +45,7 @@ def execute(sha,rounds,seed):
         for parent in (checkout,*checkout.parents):
             info=parent.stat()
             if info.st_uid!=0 or info.st_gid!=0 or info.st_mode&0o022:raise ValueError('CI_CLONE_ANCESTOR_UNTRUSTED')
-        for key in ('CN_ARCHIVE_TEST_NODE','CN_ARCHIVE_TEST_RUNTIME','GITHUB_RUN_ID','GITHUB_RUN_ATTEMPT'):
+        for key in ('CN_ARCHIVE_TEST_NODE','CN_ARCHIVE_TEST_RUNTIME','CN_TEST_PLAYWRIGHT','CN_TEST_CHROMIUM','NODE_PATH','GITHUB_RUN_ID','GITHUB_RUN_ATTEMPT'):
             if key in os.environ:env[key]=os.environ[key]
         return subprocess.run([sys.executable,'-I','-B',str(checkout/'scripts/cn-release-simulation.py'),
             '--output',str(temporary/'cn-simulation'),'--workers','3','--timeout-seconds','300',

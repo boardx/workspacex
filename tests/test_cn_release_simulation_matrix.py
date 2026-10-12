@@ -17,6 +17,11 @@ class MatrixContract(unittest.TestCase):
   cases=self.matrix['cases'];ids=[c['caseId']for c in cases]
   self.assertEqual(len(ids),len(set(ids)))
   for case in cases:
+   if case.get('caseKind')=='standalone-aggregate-contract':
+    spec=importlib.util.spec_from_file_location('simulation_inventory',ROOT/'scripts/cn-release-simulation.py');runner=importlib.util.module_from_spec(spec);spec.loader.exec_module(runner)
+    self.assertEqual(case['caseId'],case['suite'].replace('-','_')+'_contract')
+    self.assertEqual(case['source'],'tests/'+runner.SUITES[case['suite']][0])
+    self.assertTrue(any(isinstance(n,ast.FunctionDef)and n.name=='main' for n in ast.parse((ROOT/case['source']).read_text()).body));continue
    module,cls,method=case['caseId'].split('.')
    self.assertEqual(case['source'],'tests/'+module+'.py')
    classes=[c for c in ast.parse((ROOT/case['source']).read_text()).body if isinstance(c,ast.ClassDef)and c.name==cls]
@@ -54,7 +59,7 @@ class MatrixContract(unittest.TestCase):
   ids=[c['caseId']for c in self.matrix['cases']]
   values=[self.observation(ids[0]),self.observation(ids[1],'skip'),self.observation(ids[2],'fail'),self.observation(ids[3]),self.observation(ids[3])]
   result=self.calculate(values)
-  self.assertEqual(result['caseDenominator'],53);self.assertEqual(result['caseNumerator'],1)
+  self.assertEqual(result['caseDenominator'],55);self.assertEqual(result['caseNumerator'],1)
   by_id={c['caseId']:c for c in result['cases']}
   self.assertEqual(by_id[ids[4]]['status'],'notrun');self.assertTrue(by_id[ids[3]]['duplicate']);self.assertFalse(result['complete'])
  def test_other_round_or_commit_cannot_fill_this_round(self):
@@ -63,7 +68,7 @@ class MatrixContract(unittest.TestCase):
   result=self.calculate([first,second]);self.assertEqual(result['caseNumerator'],0);self.assertEqual(result['foreignIdentityResults'],2)
  def test_all_implemented_cases_do_not_fill_unimplemented_requirements(self):
   result=self.calculate([self.observation(c['caseId'])for c in self.matrix['cases']])
-  self.assertEqual(result['caseNumerator'],53);self.assertEqual(result['requirementDenominator'],32);self.assertEqual(result['requirementNumerator'],21);self.assertFalse(result['complete'])
+  self.assertEqual(result['caseNumerator'],55);self.assertEqual(result['requirementDenominator'],32);self.assertEqual(result['requirementNumerator'],22);self.assertFalse(result['complete'])
  def test_pass_without_evidence_is_not_counted(self):
   value=self.observation(self.matrix['cases'][0]['caseId']);value['evidence']=None
   self.assertEqual(self.calculate([value])['caseNumerator'],0)
