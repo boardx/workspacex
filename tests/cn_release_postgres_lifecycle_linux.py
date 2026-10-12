@@ -5,18 +5,43 @@ Uses installed Linux PostgreSQL binaries, a fresh non-root initdb and private
 Unix socket (TCP disabled). pg_dump/pg_restore are tool-layer tests, not claims
 of RDS backup or full release-driver acceptance. Missing capabilities fail.
 """
-import hashlib,json,os,pwd,shutil,signal,subprocess,sys,tempfile
+import hashlib,json,os,pwd,re,shutil,signal,subprocess,sys,tempfile
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
 TOOLS=('initdb','pg_ctl','psql','pg_dump','pg_restore')
 def require(ok,code):
     if not ok:raise RuntimeError(code)
+def fixture_diagnostic(error,stage):
+    """Only isolated fixture subprocesses; never emit argv or environment."""
+    allowed=('capability','driver-bridge','migrator-import','initdb','pg_ctl-start','pg_ctl-stop','pg_ctl-status','postgres','psql')
+    result={'scope':'fixture-only','stage':stage if stage in allowed else 'unknown-fixture-stage','error':type(error).__name__}
+    if isinstance(error,RuntimeError) and re.fullmatch(r'[A-Z][A-Z0-9_]{0,127}',str(error)):result['code']=str(error)
+    if isinstance(error,(subprocess.CalledProcessError,subprocess.TimeoutExpired)):
+        result['returncode']=getattr(error,'returncode',None)
+        for key in ('stdout','stderr'):
+            raw=getattr(error,key,None)or b''
+            if isinstance(raw,str):raw=raw.encode()
+            text=raw[:4096].decode('utf8','replace')
+            text=re.sub(r'https?://[^\s\"\']+','<URL>',text)
+            text=re.sub(r'(?i)(token|password|secret|authorization|credential)[^\n]*','<REDACTED>',text)
+            text=re.sub(r'/tmp/wsx-pg-fixture-[^/\s]+','<FIXTURE>',text)
+            text=re.sub(r'/var/lib/wsx-[^/\s]+','<ISOLATED>',text)
+            text=''.join(c if c in '\n\t' or ord(c)>=32 else '?' for c in text)
+            result[key]={'bytes':len(raw),'sha256':hashlib.sha256(raw).hexdigest(),'excerpt':text[:2500],'truncated':len(raw)>4096 or len(text)>2500}
+        while len(json.dumps(result).encode())>8192:
+            for key in ('stdout','stderr'):result[key]['excerpt']=result[key]['excerpt'][:len(result[key]['excerpt'])//2];result[key]['truncated']=True
+    return result
+
 def main():
     if sys.platform!='linux':
         print(json.dumps({'status':'CAPABILITY_UNAVAILABLE','reason':'LINUX_REQUIRED','verified':False}));return 2
-    temp=None;started=False;initialized=False;pgctl=None;identity={};env={};checks=[]
+    temp=None;started=False;initialized=False;pgctl=None;identity={};env={};checks=[];stage='capability'
     def run(args,*,input=None,timeout=40,check=True,as_root=False):
+        nonlocal stage
         command=[str(x)for x in args]
+        stage=('driver-bridge' if any(Path(x).name=='driver_bridge.py' for x in command) else
+               'migrator-import' if '--input-type=module' in command else
+               Path(command[0]).name+('-'+command[-1] if Path(command[0]).name=='pg_ctl' and command[-1] in ('start','stop','status') else ''))
         process=subprocess.Popen(command,stdin=subprocess.PIPE if input is not None else subprocess.DEVNULL,
                                  stdout=subprocess.PIPE,stderr=subprocess.PIPE,start_new_session=True,
                                  env=env,cwd=str(temp) if temp is not None else '/',**({} if as_root else identity))
@@ -106,7 +131,7 @@ def main():
                        isolatedDependencyBytes=module_bytes,testCount=len(checks),tcpEnabled=False)
         require(run([bindir/'psql','-XAt','-h',socket,'-U','fixture_owner','-d','postgres','-c','SHOW listen_addresses']).stdout.strip()==b'','TCP_ENABLED')
     except Exception as error:
-        receipt={'status':'FAILED_OR_CAPABILITY_UNAVAILABLE','verified':False,'error':type(error).__name__,'tests':checks,'productionAccepted':False}
+        receipt={'status':'FAILED_OR_CAPABILITY_UNAVAILABLE','verified':False,'error':type(error).__name__,'diagnostic':fixture_diagnostic(error,stage),'tests':checks,'productionAccepted':False}
     finally:
         try:
             if initialized:
@@ -118,6 +143,6 @@ def main():
             if temp is not None:
                 require(not started,'POSTGRES_CLEANUP_UNPROVEN');shutil.rmtree(temp)
         except Exception as error:
-            receipt={'status':'CLEANUP_UNPROVEN','verified':False,'error':type(error).__name__,'tests':checks,'productionAccepted':False}
+            receipt={'status':'CLEANUP_UNPROVEN','verified':False,'error':type(error).__name__,'diagnostic':fixture_diagnostic(error,stage),'tests':checks,'productionAccepted':False}
     print(json.dumps(receipt,sort_keys=True));return 0 if receipt['verified']else 1
 if __name__=='__main__':sys.exit(main())

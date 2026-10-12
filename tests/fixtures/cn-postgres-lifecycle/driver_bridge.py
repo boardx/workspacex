@@ -3,6 +3,7 @@
 Not installed by the production CLI. No cloud target or production acceptance.
 """
 import argparse
+from contextlib import contextmanager
 import base64
 import datetime as dt
 import hashlib
@@ -11,6 +12,11 @@ import json
 import os
 from pathlib import Path
 import shlex
+import re
+import stat
+import sys
+import time
+import uuid
 import tempfile
 
 
@@ -43,8 +49,44 @@ def verify(raw,manifest,previous,mode):
 '''
 
 
+@contextmanager
+def isolated_cgroup(e):
+    e.need(sys.platform=='linux' and os.geteuid()==0,'LINUX_ROOT_CGROUP_REQUIRED')
+    rows=[line[3:] for line in Path('/proc/self/cgroup').read_text().splitlines() if line.startswith('0::')]
+    e.need(len(rows)==1 and rows[0].startswith('/') and '..' not in Path(rows[0]).parts,'CURRENT_CGROUP_REQUIRED')
+    parent=Path('/sys/fs/cgroup')/rows[0].lstrip('/')
+    e.need(parent.resolve(strict=True)==parent and (parent/'cgroup.procs').is_file(),'CURRENT_CGROUP_UNAVAILABLE')
+    base=parent/('workspacex-ci-entry-'+uuid.uuid4().hex)
+    base.mkdir(mode=0o700)
+    st=base.lstat();identity=(st.st_dev,st.st_ino);old=e.CGROUP_BASE
+    try:
+        e.CGROUP_BASE=base;e.KillDomain.preflight()
+        yield
+    finally:
+        e.CGROUP_BASE=old
+        e.need(base.parent==parent and re.fullmatch('workspacex-ci-entry-[a-f0-9]{32}',base.name),'CGROUP_OWNERSHIP')
+        current=base.lstat()
+        e.need(stat.S_ISDIR(current.st_mode) and (current.st_dev,current.st_ino)==identity,'CGROUP_IDENTITY_CHANGED')
+        fd=os.open(base/'cgroup.kill',os.O_WRONLY|os.O_NOFOLLOW)
+        try:os.write(fd,b'1')
+        finally:os.close(fd)
+        deadline=time.monotonic()+5
+        while 'populated 0' not in (base/'cgroup.events').read_text().splitlines() and time.monotonic()<deadline:time.sleep(.02)
+        e.need('populated 0' in (base/'cgroup.events').read_text().splitlines(),'CGROUP_NOT_EMPTY')
+        for child in base.iterdir():
+            child_st=child.lstat();e.need(not stat.S_ISLNK(child_st.st_mode),'CGROUP_SYMLINK')
+            if stat.S_ISDIR(child_st.st_mode):
+                e.need(re.fullmatch('op-[a-f0-9]{32}',child.name) and 'populated 0' in (child/'cgroup.events').read_text().splitlines(),'CGROUP_CHILD_UNPROVEN')
+                after=child.lstat();e.need((after.st_dev,after.st_ino)==(child_st.st_dev,child_st.st_ino),'CGROUP_CHILD_CHANGED');child.rmdir()
+        current=base.lstat();e.need((current.st_dev,current.st_ino)==identity,'CGROUP_IDENTITY_CHANGED');base.rmdir()
+
+
 def run(args):
-    driver = module(Path(args.driver_source), 'pg_fixture_fixed_driver')
+    driver=module(Path(args.driver_source),'pg_fixture_fixed_driver')
+    with isolated_cgroup(driver.e):return run_driver(args,driver)
+
+
+def run_driver(args,driver):
     e = driver.e
     e.need(Path(args.entry_source).read_bytes() == Path(e.__file__).read_bytes(), 'ENTRY_SOURCE_CHANGED')
     config = Path(args.config).resolve(); cfg = json.loads(config.read_bytes())
