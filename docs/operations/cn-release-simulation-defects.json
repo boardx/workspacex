@@ -391,7 +391,7 @@
       "severity": "P1",
       "author": "/root/automation_workflow_audit",
       "disposition": "fixed-awaiting-replay",
-      "fixCommit": null,
+      "fixCommit": "2638673a93937b3c58db49b2956728e22acb3be4",
       "requiredCaseIds": [
         "test_cn_release_fullstack_fixture_setup.FullstackSetup.test_fixed_environment_omits_only_desktop_binary_not_lifecycle_scripts",
         "test_cn_release_fullstack_fixture_setup.FullstackSetup.test_original_electron_installer_no_switch_hits_download_but_fixed_env_does_not"
