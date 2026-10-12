@@ -4,6 +4,43 @@ from unittest.mock import patch
 ROOT=Path(__file__).resolve().parents[1]
 s=importlib.util.spec_from_file_location('exact_job',ROOT/'scripts/cn-exact-f0eb-github.py');m=importlib.util.module_from_spec(s);s.loader.exec_module(m)
 class ExactGithub(unittest.TestCase):
+ def test_diagnostic_fixed_stage_and_reason_never_exports_arbitrary_text(self):
+  secret='https://user:secret@example.test/?token=must-not-export'
+  for error in (RuntimeError(secret),PermissionError(secret),OSError(secret)):
+   result=m.diagnostic(secret,error);raw=json.dumps(result)
+   self.assertNotIn(secret,raw);self.assertNotIn('must-not-export',raw);self.assertEqual(result['stage'],'initial')
+  self.assertEqual(m.diagnostic('resource-limits',RuntimeError('RESOURCE_LIMIT_READBACK'))['reason'],'RESOURCE_LIMIT_READBACK')
+ def test_real_fixed_controller_write_readback_and_no_parent_enable(self):
+  with tempfile.TemporaryDirectory()as td:
+   root=Path(td);parent=root/'cgroup.subtree_control';parent.write_text('untouched');domain=root/'owned';domain.mkdir()
+   for name,_ in m.CONTROLS:(domain/name).write_text('max')
+   m.resource_limits(domain)
+   rows=m.controller_snapshot(domain)
+   self.assertEqual(len(rows),4);self.assertTrue(all(row['actual']==row['expected'] and row['exists'] for row in rows));self.assertEqual(parent.read_text(),'untouched')
+ def test_missing_controller_reports_all_four_without_enabling_it(self):
+  with tempfile.TemporaryDirectory()as td:
+   root=Path(td);(root/'memory.max').write_text('max')
+   with self.assertRaisesRegex(RuntimeError,'RESOURCE_CONTROLLER_UNAVAILABLE'):m.resource_limits(root)
+   rows=m.controller_snapshot(root)
+   self.assertEqual(rows[0]['actual'],str(3*1024**3));self.assertFalse(rows[1]['exists']);self.assertEqual(rows[1]['readStatus'],'absent')
+   self.assertEqual(set(p.name for p in root.iterdir()),{'memory.max'})
+ def test_controller_invalid_value_is_not_exported(self):
+  with tempfile.TemporaryDirectory()as td:
+   root=Path(td);(root/'memory.max').write_text('secret-token='+('x'*200))
+   rows=m.controller_snapshot(root);self.assertEqual(rows[0]['readStatus'],'invalid-value');self.assertIsNone(rows[0]['actual']);self.assertNotIn('secret-token',json.dumps(rows))
+ def test_worker_diagnostic_rejects_unowned_destination(self):
+  with tempfile.TemporaryDirectory()as td:
+   m.persist_worker_diagnostic(Path(td),m.diagnostic('worker-clone',RuntimeError('secret')))
+   self.assertEqual(list(Path(td).iterdir()),[])
+ def test_diagnostic_artifacts_are_copied_and_explicitly_uploaded(self):
+  workflow=(ROOT/'.github/workflows/cn-exact-f0eb-preflight.yml').read_text()
+  with tempfile.TemporaryDirectory()as td:
+   root=Path(td);owned=root/'owned';report=root/'report';owned.mkdir();report.mkdir()
+   for name in ('controllers.json','worker-diagnostic.json'):
+    (owned/name).write_text('{}')
+    self.assertEqual(workflow.count('${{ runner.temp }}/cn-exact-f0eb-report/'+name),1)
+   m.copy_reports(owned,report)
+   self.assertEqual({p.name for p in report.iterdir()},{'controllers.json','worker-diagnostic.json'})
  def test_source_git_has_only_exact_cross_uid_checkout_trust(self):
   argv=m.source_git();values=[argv[i+1]for i,v in enumerate(argv[:-1])if v=='-c']
   self.assertEqual([v for v in values if v.startswith('safe.directory=')],['safe.directory='+str(ROOT),'safe.directory='+str(ROOT/'.git')])
