@@ -44,11 +44,32 @@
 .aidt-outcomes li { display: grid; grid-template-columns: 1fr 2fr; gap: 1.5rem; padding-block: 1.25rem; border-bottom: 1px solid var(--hairline); }
 .aidt-outcomes span { color: var(--fg-soft); }
 .aidt-contact { background: var(--bg-sink); }
+.aidt-education h2 { max-width: 28ch; }
+.aidt-education h3 { font-size: var(--t-xl); margin-bottom: 1rem; }
+.aidt-education h4 { font-size: var(--t-body); margin-bottom: 0.75rem; }
+.aidt-education p { color: var(--fg-soft); }
+.aidt-education p + p { margin-top: 1rem; }
+.aidt-education__block { margin-block: 3rem; }
+.aidt-education__journey { padding-inline-start: 1.5rem; display: grid; gap: 1.5rem; margin-block: 2rem; }
+.aidt-education__journey li { padding-inline-start: 0.5rem; }
+.aidt-education__journey li::marker { color: var(--brand-ink); font-weight: 600; }
+.aidt-education__invite { border-top: 1px solid var(--hairline); padding-top: 2rem; }
+.aidt-partners { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2rem; margin-block: 2rem; }
+.aidt-partner { min-width: 0; padding: 1.5rem; border: 1px solid var(--hairline); border-radius: var(--r-md); background: var(--bg); }
+.aidt-partner figcaption { color: var(--fg-dim); font-size: var(--t-small); margin-top: 1rem; }
+/* Display the horizontal marks from the original supplied sheets, unchanged. */
+.aidt-partner__logo { position: relative; overflow: hidden; }
+.aidt-partner__logo img { position: absolute; height: auto; max-width: none; }
+.aidt-partner__logo--school { aspect-ratio: 1550 / 520; }
+.aidt-partner__logo--school img { width: 123.871%; left: -5.806%; top: -8.654%; }
+.aidt-partner__logo--lab { aspect-ratio: 865 / 315; }
+.aidt-partner__logo--lab img { width: 236.763%; left: -5.549%; top: -101.587%; }
 .aidt-footer { border-top: 1px solid var(--hairline); padding-block: 2rem; color: var(--fg-dim); font-size: var(--t-small); }
 .aidt-footer__inner { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 1rem; }
 @media (hover: hover) { .aidt-header__links a:hover, .aidt-footer a:hover { color: var(--fg); } }
 @media (max-width: 53.75rem) { .aidt-hero__grid { grid-template-columns: 1fr; } .aidt-hero h1 { max-width: 18ch; } .aidt-grid--three { grid-template-columns: 1fr; } }
 @media (max-width: 43.75rem) {
+  .aidt-partners { grid-template-columns: 1fr; }
   .aidt-header__inner { flex-wrap: wrap; }
   .aidt-header__links { justify-content: flex-start; gap: 1rem; }
   .aidt-grid, .aidt-mindset, .aidt-outcomes li { grid-template-columns: 1fr; gap: 0.75rem; }
