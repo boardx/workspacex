@@ -1,6 +1,6 @@
 import { test } from "vitest";
 import assert from "node:assert/strict";
-import { r08DiscoveryEnvironment } from "./lint-spec-gate-coverage.mjs";
+import { r08DiscoveryEnvironment, cnDiscoveryEnvironment } from "./lint-spec-gate-coverage.mjs";
 
 test("R01 and R08 discovery placeholders are available only to explicit Playwright list", () => {
   const result = r08DiscoveryEnvironment(["exec", "playwright", "test", "--list"], {});
@@ -22,4 +22,19 @@ test("discovery preserves explicit owner environment without mutating or inventi
   assert.deepEqual(environment, before);
   assert.equal(r08DiscoveryEnvironment(["--list"], {}).BOARD_PEER_RUNTIME_MANIFEST, undefined);
   assert.equal(r08DiscoveryEnvironment(["--list"], {}).BOARD_CONNECTOR_RUNTIME_VERIFIER, undefined);
+});
+
+
+test("CN placeholders are isolated to the exact CN config and explicit list", () => {
+  const environment = { CN_RELEASE_FULLSTACK_FIXTURE: "owner", CN_SIX_INFRA_RECEIPT: "/owned/real.json", WORKSPACEX_REUSE_INFRA: "owner", CN_SIX_REPORT_PATH: "/owned/report", CN_SIX_OUTPUT_DIR: "/owned/output" };
+  const before = { ...environment };
+  for (const config of ["apps/web/playwright.r08.config.ts", "apps/web/playwright.config.ts", "other/playwright.cn-six-business.config.ts", "apps/web/playwright.cn-six-business.config.ts.extra"])
+    assert.deepEqual(cnDiscoveryEnvironment(["--list"], config, environment), before);
+  assert.deepEqual(environment, before);
+  const cn = cnDiscoveryEnvironment(["--list"], "apps/web/playwright.cn-six-business.config.ts", environment);
+  assert.equal(cn.CN_RELEASE_FULLSTACK_FIXTURE, "1");
+  assert.equal(cn.CN_SIX_REPORT_PATH, "");
+  assert.equal(cn.CN_SIX_INFRA_RECEIPT, "spec-gate-discovery-only/no-runtime-receipt.json");
+  assert.deepEqual(environment, before);
+  assert.throws(() => cnDiscoveryEnvironment(["--list=false"], "apps/web/playwright.cn-six-business.config.ts", environment), /require Playwright --list/);
 });

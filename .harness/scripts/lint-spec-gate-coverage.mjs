@@ -607,12 +607,6 @@ export function r08DiscoveryEnvironment(args, environment = process.env) {
   if (!args.includes("--list")) throw new Error("Coverage placeholders require Playwright --list");
   return {
     ...environment,
-    // Discovery only: Playwright --list never launches the guarded six stack.
-    CN_RELEASE_FULLSTACK_FIXTURE: "1",
-    CN_SIX_INFRA_RECEIPT: "spec-gate-discovery-only/no-runtime-receipt.json",
-    WORKSPACEX_REUSE_INFRA: "0",
-    CN_SIX_REPORT_PATH: "",
-    CN_SIX_OUTPUT_DIR: "",
     BOARD_R01_WEB_URL: environment.BOARD_R01_WEB_URL ?? "http://127.0.0.1:39002",
     BOARD_R01_OUTPUT_DIR: environment.BOARD_R01_OUTPUT_DIR ?? "spec-gate-discovery-only",
     BOARD_CONNECTOR_RUNTIME_MANIFEST: environment.BOARD_CONNECTOR_RUNTIME_MANIFEST ?? "spec-gate-discovery-only/no-runtime-manifest.json",
@@ -621,6 +615,20 @@ export function r08DiscoveryEnvironment(args, environment = process.env) {
     BOARD_ACCEPTANCE_SHA: environment.BOARD_ACCEPTANCE_SHA ?? "discovery-not-runtime",
     BOARD_ACCEPTANCE_RUNTIME_MARKER: environment.BOARD_ACCEPTANCE_RUNTIME_MARKER ?? "discovery-not-runtime",
     BOARD_ACCEPTANCE_RUNTIME_STARTED_AT: environment.BOARD_ACCEPTANCE_RUNTIME_STARTED_AT ?? "discovery-not-runtime",
+  };
+}
+
+/** CN-only --list placeholders; never contaminate another config's owner env. */
+export function cnDiscoveryEnvironment(args, configPath, environment = process.env) {
+  if (!args.includes("--list")) throw new Error("Coverage placeholders require Playwright --list");
+  if (configPath !== "apps/web/playwright.cn-six-business.config.ts") return { ...environment };
+  return {
+    ...environment,
+    CN_RELEASE_FULLSTACK_FIXTURE: "1",
+    CN_SIX_INFRA_RECEIPT: "spec-gate-discovery-only/no-runtime-receipt.json",
+    WORKSPACEX_REUSE_INFRA: "0",
+    CN_SIX_REPORT_PATH: "",
+    CN_SIX_OUTPUT_DIR: "",
   };
 }
 
@@ -641,7 +649,7 @@ export function specsMatchedBy({ pkgDir, configPath, projects = [] }) {
       encoding: "utf8",
       maxBuffer: 64 * 1024 * 1024,
       env: {
-        ...r08DiscoveryEnvironment(args),
+        ...cnDiscoveryEnvironment(args, configPath, r08DiscoveryEnvironment(args)),
         WORKSPACEX_API_PORT: process.env.WORKSPACEX_API_PORT ?? "39001",
         WORKSPACEX_WEB_PORT: process.env.WORKSPACEX_WEB_PORT ?? "39002",
         PGPORT: process.env.PGPORT ?? "39003",

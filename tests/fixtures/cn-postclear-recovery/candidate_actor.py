@@ -4,6 +4,7 @@ No production path is written and no production CLI is invoked.
 """
 import fcntl,json,os,re,sys,subprocess,copy
 from pathlib import Path
+from postgres_peer import read_peer,sql_error_code
 ROOT=Path(__file__).resolve().parents[3]
 sys.path.insert(0,str(ROOT/'.harness/scripts/vm'))
 from cn_maintenance_hold import HoldStore
@@ -27,13 +28,14 @@ def main():
             assert re.fullmatch(r'/usr/lib/postgresql/[0-9]+/bin',cfg['binDir']) and re.fullmatch('[0-9]+',cfg['systemIdentifier'])
             def sql(db,query):
                 assert db in DATABASES
-                r=subprocess.run([cfg['binDir']+'/psql','-X','-A','-t','-v','ON_ERROR_STOP=1','-h','127.0.0.1','-p',str(cfg['port']),'-U','fixture_owner','-d',db],input=query.encode(),stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,timeout=15,check=True)
+                r=subprocess.run([cfg['binDir']+'/psql','-X','-A','-t','-v','ON_ERROR_STOP=1','-h','127.0.0.1','-p',str(cfg['port']),'-U','fixture_owner','-d',db],input=query.encode(),stdout=subprocess.PIPE,stderr=subprocess.PIPE,timeout=15,check=False)
+                if r.returncode:raise RuntimeError(sql_error_code(r.stderr))
                 return r.stdout.decode().strip()
             def login():
                 rows=json.loads(sql(DATABASES[0],"SELECT json_object_agg(rolname,rolcanlogin) FROM pg_roles WHERE rolname IN ('app','lane','migration_admin');"))
                 return {'kind':'role-login-v1','login':{db:copy.deepcopy(rows)for db in DATABASES}}
             for db in DATABASES:
-                peer={'database':db,'serverAddr':'127.0.0.1','serverPort':cfg['port'],'systemIdentifier':cfg['systemIdentifier']}
+                peer=read_peer(sql,db,cfg)
                 f.p['databasePeers'][db]=peer
                 for row in f.p['heldSessions'][db]+f.p['candidateSessions'][db]:row['peerSha256']=digest(peer)
             f.host.plan['databasePeers']=copy.deepcopy(f.p['databasePeers'])

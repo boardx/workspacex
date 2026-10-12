@@ -26,7 +26,8 @@ export async function withReheldController(root:string,python:string,onOpen:()=>
  const stopActor=trackFixtureActor(child);child.stdin.on('error',()=>{});
  child.stderr.resume();const lines=createInterface({input:child.stdout});const iterator=lines[Symbol.asyncIterator]();
  const receive=async()=>{let timer:NodeJS.Timeout;try{return await Promise.race([iterator.next().then(r=>{if(r.done)throw Error('ACTOR_EOF');return JSON.parse(r.value);}),new Promise<never>((_,reject)=>{timer=setTimeout(()=>reject(Error('ACTOR_DEADLINE')),10000);})]);}finally{clearTimeout(timer!);}};
- const rpc=async(action:string,data?:unknown)=>{child.stdin.write(JSON.stringify({action,...(data===undefined?{}:{data})})+'\n');const r=await receive();if(!r.ok){console.error('isolated actor rejection',action,r.code);throw Error('ACTOR_'+r.code);}return r.value;};
+ let actorFailure:Error|undefined;
+ const rpc=async(action:string,data?:unknown)=>{child.stdin.write(JSON.stringify({action,...(data===undefined?{}:{data})})+'\n');const r=await receive();if(!r.ok){const error=Error('ACTOR_'+r.code);actorFailure??=error;throw error;}return r.value;};
  try{
   const hello=await receive(),identity=hello.identity,tool='0'.repeat(40),h='e'.repeat(64);let g=hello.oldGeneration,created=false;
   const {authority,host}=originalAuthorityFixture(identity,tool);let disposition='',released=false,opened=false;
@@ -45,7 +46,7 @@ export async function withReheldController(root:string,python:string,onOpen:()=>
    consumers:{offline:{...common('offline'),prepare:async()=>{}},prehold:{...common('prehold'),verifyRecoveryCapability:async()=>{},verifyIsolatedAcceptance:async()=>{}},epoch:{...common('epoch'),captureAndVerify:async()=>epoch,verifyCurrentEpochIsolatedAcceptance:async()=>{}},migration:{...common('migration'),migrateExactPlan:async()=>completion},heldReadback:{...common('held'),verify:async()=>{}},candidate:{...common('candidate'),stageAndSeal:async()=>candidate},writer:{...common('writer'),lifecycle},public:{...common('public'),bindingPolicy:{identity,deploymentMarker:'fixture',observationSamples:2,maximumOutstandingRuns:0},transport:{readPublicIdentity:async()=>({sourceRevision:identity.sourceRevision,deploymentMarker:'fixture',trustworthy:true}),verifyCanonical:async()=>({status:'passed',lockRetained:true,passedStages:8}),runBrowserSmoke:async()=>({login:true,hello:true,asr:true,githubFeedbackRead:true,skillTool:true,pdfDownload:true}),readObservation:async()=>{await onOpen();opened=true;throw Error('ISOLATED_POSTCLEAR_FAULT');}}},disposition:{...common('disposition'),recordRecoveryRequired:async()=>{disposition='recovery';},recordReconciliationRequired:async()=>{disposition='unknown';}}}
   };
   let failure='';try{await runARouteMaintenanceRelease({...identity,maintenanceOptIn:'stop-all-writes-and-require-database-recovery'},await createARouteFactory(input));}catch(e){failure=String(e);}
-  if(!opened||!failure.includes('DATABASE_RECOVERY_REQUIRED')||disposition!=='recovery'||released)throw Error('ORIGINAL_CATCH_NOT_COMPLETED:'+failure+':'+disposition+':'+released);
+  if(!opened||!failure.includes('DATABASE_RECOVERY_REQUIRED')||disposition!=='recovery'||released)throw Error('ORIGINAL_CATCH_NOT_COMPLETED',{cause:actorFailure});
   const state=await rpc('state');if(state.running||!state.resumeDisabled||state.hold.state!=='held'||state.hold.generation===g)throw Error('ACTUAL_REBLOCK_REQUIRED');
   await assertAuthority();await rpc('lock');
   const context=Object.freeze({authority,oldGeneration:g,newGeneration:state.hold.generation,eventsSha256:digest(state.events)});
