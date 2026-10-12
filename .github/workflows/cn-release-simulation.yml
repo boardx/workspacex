@@ -33,6 +33,7 @@ on:
       - 'tests/cn_release_postgres_linux.py'
       - 'tests/cn_release_private_fixture.py'
       - 'tests/fixtures/cn-postgres-isolation/**'
+      - 'tests/fixtures/cn-promotion-recovery/**'
       - 'docs/operations/cn-release-simulation-matrix.json'
       - '.github/workflows/cn-release-simulation.yml'
 permissions:
