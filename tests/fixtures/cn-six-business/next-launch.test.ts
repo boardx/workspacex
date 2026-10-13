@@ -8,6 +8,7 @@ import {runInNewContext} from 'node:vm';
 import {spawn} from 'node:child_process';
 import {createHash} from 'node:crypto';
 import {tmpdir} from 'node:os';
+const memoryObserver=createRequire(import.meta.url)('./next-memory-sample.cjs');
 
 test('actual six config resolves installed web Next without inherited workspace bin PATH',async()=>{
  const before={...process.env};
@@ -69,7 +70,7 @@ test('fixed observer preserves fork arguments and retains signal without exposin
  const directory=realpathSync(mkdtempSync(join(tmpdir(),'cn-next-worker-')));chmodSync(directory,0o700);
  const source=resolve('tests/fixtures/cn-six-business/next-worker-observer.cjs'),real=createRequire(source);
  const cli=real.resolve('next/dist/bin/next',{paths:[resolve('apps/web')]}),worker=real.resolve('next/dist/server/lib/start-server',{paths:[resolve('apps/web')]});
- const listeners:Record<string,Function>={};const child={pid:process.pid,on:(event:string,fn:Function)=>{listeners[event]=fn;return child;}};let seen:any[]=[];
+ const listeners:Record<string,Function>={};let listenerAdds=0;const child={pid:process.pid,on:(event:string,fn:Function)=>{listenerAdds++;listeners[event]=fn;return child;}};let seen:any[]=[];
  const cp={fork:(...args:any[])=>{seen=args;return child;}};const options={env:{NODE_OPTIONS:'--max-old-space-size=3072',SECRET:'never-export'}};
  const req:any=(name:string)=>name==='node:child_process'?cp:real(name);req.resolve=real.resolve.bind(real);
  try{
@@ -78,6 +79,7 @@ test('fixed observer preserves fork arguments and retains signal without exposin
   const raw=readFileSync(join(directory,'next-worker-1.json'),'utf8'),receipt=JSON.parse(raw);
   assert.ok(receipt.elapsedMilliseconds>=0);assert.match(receipt.forkedAt,/^20[0-9]{2}-/);assert.match(receipt.exitedAt,/^20[0-9]{2}-/);assert.equal(receipt.signal,'SIGKILL');assert.equal(receipt.exitCode,null);assert.equal(receipt.heapMiB,3072);assert.equal(raw.includes('never-export'),false);assert.equal(raw.includes(worker),false);
   cp.fork('/unrelated-worker',[],options);assert.equal(seen[0],'/unrelated-worker');
+  for(let i=0;i<3;i++)cp.fork(worker,[],options);const beforeFifth=listenerAdds;cp.fork(worker,[],options);assert.equal(listenerAdds,beforeFifth);
  }finally{rmSync(directory,{recursive:true,force:true});}
 });
 
@@ -98,4 +100,40 @@ test('resource observation retains memory-enabled parent of a domain without con
 test('fixture heap budget is enforced by the actual Node runtime',()=>{
  const result=spawnSync(process.execPath,['-e',"console.log(require('node:v8').getHeapStatistics().heap_size_limit)"],{env:{...process.env,NODE_OPTIONS:'--max-old-space-size=3072'},encoding:'utf8',timeout:10000});
  assert.equal(result.status,0);const bytes=Number(result.stdout.trim());assert.ok(bytes>=3072*1024*1024&&bytes<3328*1024*1024);
+});
+
+test('fixed numeric memory topic is ignored by the installed Next parent handshake',()=>{
+ const require=createRequire(import.meta.url);
+ const cli=require.resolve('next/dist/cli/next-dev',{paths:[resolve('apps/web')]});
+ const source=readFileSync(cli,'utf8');
+ const match=source.match(/child\.on\("message", \(msg\)=>\{([\s\S]*?)\n {12}\}\);/);
+ assert.ok(match,'installed Next message handler must remain explicitly verified');
+ let sends=0,resolves=0;
+ const make=new Function('child','startServerOptions','resolve',`let resolved=false;return(msg)=>{${match[1]}};`);
+ const handler=make({send:()=>{sends++;}},{fixture:true},()=>{resolves++;});
+ handler({[memoryObserver.TAG]:1,pid:123,sample:1,elapsedMilliseconds:0,rssBytes:100,heapTotalBytes:80,heapUsedBytes:50,externalBytes:10,arrayBuffersBytes:5});
+ assert.equal(sends,0);assert.equal(resolves,0);
+ handler({nextWorkerReady:true});assert.equal(sends,1);assert.equal(resolves,0);
+ handler({nextServerReady:true});assert.equal(resolves,1);handler({nextServerReady:true});assert.equal(resolves,1);
+});
+
+test('sampler bounds frequency and packet count, unrefs its timer and unloads on disconnect',()=>{
+ let now=0,callback:Function=()=>{},unrefs=0,clears=0;const hooks:Record<string,Function>={},packets:any[]=[];
+ const actor={pid:123,connected:true,once:(k:string,fn:Function)=>{hooks[k]=fn;},memoryUsage:()=>({rss:100,heapTotal:80,heapUsed:50,external:10,arrayBuffers:5}),send:(packet:unknown)=>{packets.push(packet);}};
+ const timers={setInterval:(fn:Function,ms:number)=>{assert.equal(ms,5000);callback=fn;return{unref:()=>{unrefs++;}};},clearInterval:()=>{clears++;}};
+ memoryObserver.startSampler(actor,timers,()=>now);
+ for(let i=1;i<=125;i++){now=i*5000;callback();}
+ assert.equal(packets.length,120);assert.equal(unrefs,1);assert.ok(clears>0);
+ for(const packet of packets)assert.ok(Object.values(packet).every(v=>Number.isSafeInteger(v)&&Number(v)>=0));
+ const before=packets.length;hooks.disconnect!();callback();assert.equal(packets.length,before);
+});
+
+test('collector binds child PID and numeric shape, rejects secrets, reuse and oversampling',()=>{
+ let listener:Function=()=>{};const child={pid:123,on:(_event:string,fn:Function)=>{listener=fn;}};
+ const snapshot=memoryObserver.collect(child),packet={[memoryObserver.TAG]:1,pid:123,sample:1,elapsedMilliseconds:0,rssBytes:100,heapTotalBytes:80,heapUsedBytes:50,externalBytes:10,arrayBuffersBytes:5};
+ listener({nextWorkerReady:true});listener({...packet,pid:999});listener({...packet,secret:'do-not-retain'});listener({...packet,rssBytes:-1});listener({...packet,rssBytes:NaN});
+ listener(packet);listener({...packet,sample:2,elapsedMilliseconds:100});
+ let result=snapshot();assert.equal(result.observedSamples,1);assert.equal(result.rejectedSamples,5);assert.equal(JSON.stringify(result).includes('do-not-retain'),false);
+ for(let i=2;i<=120;i++)listener({...packet,sample:i,elapsedMilliseconds:i*5000});
+ listener({...packet,sample:121,elapsedMilliseconds:605000});result=snapshot();assert.equal(result.observedSamples,120);assert.equal(result.capReached,true);assert.equal(result.rejectedSamples,6);
 });

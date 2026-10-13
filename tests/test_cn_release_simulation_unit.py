@@ -6,6 +6,42 @@ ROOT=Path(__file__).resolve().parents[1]
 spec=importlib.util.spec_from_file_location('sim_unit',ROOT/'scripts/cn-release-simulation-unit.py')
 m=importlib.util.module_from_spec(spec);spec.loader.exec_module(m)
 class SimulationUnit(unittest.TestCase):
+ def test_owned_rss_only_reads_bound_pid_executable_and_rejects_foreign_or_reused_pid(self):
+  with tempfile.TemporaryDirectory()as directory:
+   root=Path(directory).resolve();control='/system.slice/unit';group=root/'cgroup'/control.lstrip('/');child=group/'child';child.mkdir(parents=True)
+   (group/'cgroup.procs').write_text('123\n124\n125\n');(child/'cgroup.procs').write_text('')
+   binary=root/'bin/node';binary.parent.mkdir();binary.write_bytes(b'fixture')
+   for pid in (123,124,125):
+    proc=root/'proc'/str(pid);proc.mkdir(parents=True)
+    (proc/'cgroup').write_text('0::'+(control+'/child'if pid!=124 else'/system.slice/foreign')+'\n')
+    (proc/'status').write_text('PPid: 9\nVmRSS: 11 kB\nVmHWM: 22 kB\n')
+    (proc/'exe').symlink_to(binary)
+   real_path=Path
+   def mapped(value):
+    text=str(value)
+    if text=='/proc':return root/'proc'
+    if text=='/sys/fs/cgroup':return root/'cgroup'
+    return real_path(value)
+   calls={}
+   def ticks(pid):
+    calls[pid]=calls.get(pid,0)+1
+    return 13 if pid==125 and calls[pid]>1 else 12
+   with patch.object(m,'Path',side_effect=mapped),patch.object(m.base,'process_identity',side_effect=ticks):
+    result=m.owned_process_snapshot(group,control)
+   self.assertTrue(result['available']);self.assertEqual(result['observedProcessCount'],1);self.assertEqual(result['rejectedCount'],2)
+   row=result['largest'][0];self.assertEqual(row['pid'],123);self.assertEqual(row['rssBytes'],11264);self.assertEqual(row['class'],'node')
+   self.assertEqual(row['executable']['inode'],binary.stat().st_ino);self.assertEqual(row['cgroup']['inode'],child.stat().st_ino)
+   self.assertNotIn('fixture',json.dumps(result));self.assertNotIn(str(root),json.dumps(result))
+
+ def test_resource_memory_stat_is_numeric_and_unknown_pid_snapshot_stays_explicit(self):
+  with tempfile.TemporaryDirectory()as directory:
+   root=Path(directory).resolve();control='/system.slice/unit';group=root/control.lstrip('/');group.mkdir(parents=True)
+   for name,value in {'memory.current':'10','memory.peak':'20','pids.current':'3','memory.events':'oom 0\noom_kill 0','cpu.stat':'usage_usec 10','memory.stat':'anon 7\nfile 3\nkernel 1'}.items():(group/name).write_text(value)
+   st=group.stat();real_path=Path
+   with patch.object(m,'Path',side_effect=lambda p:root if str(p)=='/sys/fs/cgroup'else real_path(p)),patch.object(m,'owned_process_snapshot',return_value={'available':False,'reason':'fixture-unavailable'}):
+    value=m.resource_snapshot({'controlGroup':control,'device':st.st_dev,'inode':st.st_ino})
+   self.assertEqual(value['memory.stat'],{'anon':7,'file':3,'kernel':1});self.assertFalse(value['ownedProcesses']['available'])
+
  def fixture(self):
   unit='wsx-cn-simulation-'+'a'*32+'.service';root=Path('/var/lib/wsx-cn-simulation-fixture');argv=m.bridge_argv(root)
   value={**m.PROPERTIES,'RuntimeMaxUSec':'4h 35min','Id':unit,'LoadState':'loaded','ActiveState':'active','MainPID':'123','InvocationID':'b'*32,'ControlGroup':'/system.slice/'+unit,'ExecStart':'{ path='+argv[0]+' ; argv[]='+' '.join(argv)+' ; ignore_errors=no ; }'}

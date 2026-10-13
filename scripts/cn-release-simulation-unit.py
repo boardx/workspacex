@@ -176,13 +176,54 @@ def release_frame(fd,seconds=45):
     need(data.endswith(b'\n') and data.count(b'\n')==1,'SIMULATION_RELEASE_SHAPE')
     v=json.loads(data);need(type(v)is dict and set(v)=={'readySha256','invocationId'} and re.fullmatch('[a-f0-9]{64}',v.get('readySha256','')) and re.fullmatch('[a-f0-9]{32}',v.get('invocationId','')),'SIMULATION_RELEASE_SHAPE');return v
 
+def owned_process_snapshot(group,control_group):
+    """Read numeric status/executable identity only for this observed Unit."""
+    try:
+        pending=[(group,0)];groups=0;pids=set();truncated=False
+        while pending and groups<64:
+            folder,depth=pending.pop();groups+=1
+            st=folder.lstat();need(stat.S_ISDIR(st.st_mode)and not folder.is_symlink(),'SIMULATION_PROCESS_GROUP')
+            raw=(folder/'cgroup.procs').read_text();need(len(raw)<=16384 and all(v.isdigit()for v in raw.split()),'SIMULATION_PROCESS_LIST')
+            pids.update(int(v)for v in raw.split())
+            if len(pids)>256:truncated=True;pids=set(sorted(pids)[:256])
+            for entry_index,child in enumerate(folder.iterdir()):
+                if entry_index>=256:truncated=True;break
+                if child.is_symlink():raise RuntimeError('SIMULATION_PROCESS_GROUP')
+                if child.is_dir():
+                    if depth>=8 or groups+len(pending)>=64:truncated=True
+                    else:pending.append((child,depth+1))
+        truncated=truncated or bool(pending)or len(pids)>256
+        rows=[];gone=0;rejected=0
+        for pid in sorted(pids)[:256]:
+            try:
+                ticks=base.process_identity(pid);need(ticks is not None,'SIMULATION_PROCESS_GONE')
+                proc=Path('/proc')/str(pid);membership=(proc/'cgroup').read_text().strip()
+                need(membership.startswith('0::'),'SIMULATION_PROCESS_MEMBERSHIP');relative=membership[3:]
+                need(relative.startswith('/')and '..'not in relative.split('/')and (relative==control_group or relative.startswith(control_group+'/')),'SIMULATION_PROCESS_FOREIGN')
+                cg=Path('/sys/fs/cgroup')/relative.lstrip('/');need(cg.resolve()==cg and not cg.is_symlink(),'SIMULATION_PROCESS_GROUP');cst=cg.stat()
+                raw=(proc/'status').read_text();need(len(raw)<=16384,'SIMULATION_PROCESS_STATUS')
+                values=dict(line.split(':',1)for line in raw.splitlines()if ':'in line)
+                rss=re.fullmatch(r'\s*([0-9]+)\s+kB\s*',values.get('VmRSS',''));hwm=re.fullmatch(r'\s*([0-9]+)\s+kB\s*',values.get('VmHWM',''))
+                ppid=values.get('PPid','').strip();need(rss and hwm and ppid.isdigit(),'SIMULATION_PROCESS_STATUS')
+                executable=os.readlink(proc/'exe');est=(proc/'exe').stat();name=Path(executable).name
+                category='node'if name=='node'else'python'if name.startswith('python')else'chromium'if name in ('chrome','chromium','chromium-browser')else'compiler'if name in ('esbuild','cc1','cc1plus')else'other'
+                after=cg.stat();last_exe=(proc/'exe').stat();need(os.readlink(proc/'exe')==executable and (last_exe.st_dev,last_exe.st_ino)==(est.st_dev,est.st_ino),'SIMULATION_EXECUTABLE_DRIFT');need(base.process_identity(pid)==ticks and (proc/'cgroup').read_text().strip()==membership and (after.st_dev,after.st_ino)==(cst.st_dev,cst.st_ino),'SIMULATION_PROCESS_DRIFT')
+                rows.append({'pid':pid,'startTicks':ticks,'ppid':int(ppid),'class':category,'rssBytes':int(rss[1])*1024,'highWaterRssBytes':int(hwm[1])*1024,'executable':{'device':est.st_dev,'inode':est.st_ino,'pathSha256':sha(executable.encode())},'cgroup':{'device':cst.st_dev,'inode':cst.st_ino}})
+            except (FileNotFoundError,ProcessLookupError):gone+=1
+            except (RuntimeError,ValueError,OSError):rejected+=1
+        rows.sort(key=lambda v:v['rssBytes'],reverse=True)
+        return {'available':True,'observedProcessCount':len(rows),'goneCount':gone,'rejectedCount':rejected,'truncated':truncated,'sumRssBytesNotUnique':sum(v['rssBytes']for v in rows),'largest':rows[:12]}
+    except (RuntimeError,ValueError,OSError):
+        return {'available':False,'reason':'OWNED_PROCESS_OBSERVATION_UNAVAILABLE'}
+
 def resource_snapshot(obs):
     group=Path('/sys/fs/cgroup')/obs['controlGroup'].lstrip('/');st=group.stat();need((st.st_dev,st.st_ino)==(obs['device'],obs['inode']),'SIMULATION_METRICS_INODE')
     value={}
     for key in ('memory.current','memory.peak','pids.current'):
         raw=(group/key).read_text().strip();need(raw.isdigit(),'SIMULATION_METRICS');value[key]=int(raw)
-    for key in ('memory.events','cpu.stat'):
+    for key in ('memory.events','cpu.stat','memory.stat'):
         rows=dict(x.split()for x in (group/key).read_text().splitlines());need(all(v.isdigit()for v in rows.values()),'SIMULATION_METRICS');value[key]={k:int(v)for k,v in rows.items()}
+    value['ownedProcesses']=owned_process_snapshot(group,obs['controlGroup'])
     after=group.stat();need((after.st_dev,after.st_ino)==(obs['device'],obs['inode']),'SIMULATION_METRICS_INODE')
     return value
 
