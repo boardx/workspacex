@@ -2,6 +2,8 @@ import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { stripControlMarkersForDisplay } from "@repo/contracts/chat-control-markers";
 import { chatShare as C } from "@repo/contracts";
 import type { OrgId } from "../../domain/org-id";
+import { isLocalOrg } from "../../domain/identity/local-org";
+import { isMessageAwaitingReview } from "../../domain/chat/thread-badges";
 import { decideSharedSnapshot } from "../../domain/chat/share-access";
 import { declaredMimeMatchesBytes } from "../../domain/chat/attachment-mime-sniff";
 import { discloseDecided, isDisclosed } from "../security/permission-filter";
@@ -29,7 +31,7 @@ export class ChatShareService {
     // Being able to read a colleague's thread does not confer publication rights.
     if (outcome.kind !== "allow" || facts.createdBy !== input.userId || outcome.actor.projectRole === "observer") throw new ThreadNotVisibleError();
     const org = await this.deps.repo.findOrganization(input.orgId);
-    if (!org || org.kind === "personal-local") throw new ThreadNotVisibleError();
+    if (!org || isLocalOrg(org.kind)) throw new ThreadNotVisibleError();
     return outcome;
   }
   async preview(input: ShareActor): Promise<C.PreviewValue> {
@@ -39,7 +41,7 @@ export class ChatShareService {
     const disclosed = discloseDecided(guarded, outcome.base);
     if (!isDisclosed(disclosed)) throw new ThreadNotVisibleError();
     // Do not export raw transcripts or pending-review messages into an anonymous surface.
-    const rows = disclosed.payload.filter(m => !m.rawTranscript && !m.reviewPending);
+    const rows = disclosed.payload.filter(m => !m.rawTranscript && !isMessageAwaitingReview(m));
     if (!rows.length) throw new ShareEmptyError();
     if (rows.length > C.SHARE_LIMITS.messages) throw new ShareTooLargeError();
     const meta = await this.deps.chat.findThreadPresentation(input.orgId, input.threadId);
