@@ -186,11 +186,10 @@ describe("F06 interview answers to report", () => {
     expect(screen.getByTestId("itv-report-markdown").querySelector("script")).toBeNull();
     expect(screen.getByTestId("itv-report-markdown").querySelector("pre")).toBeNull();
 
-    fireEvent.click(screen.getByTestId("itv-report-export-word"));
-    fireEvent.click(screen.getByTestId("itv-report-export-pdf"));
     expect(screen.getByTestId("itv-live-report-quality")).toHaveTextContent("需要补齐分析链");
-    expect(screen.getByTestId("itv-report-export-word")).toBeDisabled();
-    expect(screen.getByTestId("itv-report-export-pdf")).toBeDisabled();
+    expect(screen.queryByTestId("itv-report-export-word")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("itv-report-export-pdf")).not.toBeInTheDocument();
+    expect(screen.getByTestId("itv-report-current-files")).toHaveAttribute("href", `/itv/${encodeURIComponent(completed.interviewId)}/report`);
     expect(exportWord).not.toHaveBeenCalled();
     expect(exportPdf).not.toHaveBeenCalled();
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
