@@ -154,6 +154,9 @@ afterAll(async () => {
 });
 type ReportFileFormat = keyof typeof REPORT_FILE_FORMATS;
 const formats = (process.env.WX_REPORT_FILES_FORMATS ?? 'pdf,docx,pptx').split(',') as ReportFileFormat[];
+// Test-only budget; product admission/accounting remains unchanged.
+const requestBudget = Number(process.env.WX_REPORT_FILES_REQUEST_BUDGET ?? '20');
+if (!Number.isInteger(requestBudget) || requestBudget < 1 || requestBudget > 24) throw new Error('native evidence request budget must be an integer from 1 to 24');
 for (const format of formats) for (const kind of ['interview', 'research'] as const) it(`${kind} current report produces a real ${format} via genuine AgentRun native Skill execution and authenticated attachment download`, async () => {
   const binding = bindings.find(item => item.kind === kind)!;
   const source = ReportFileSourceInfo.parse(await json(`/report-files/sources/${kind}/${binding.id}`));
@@ -168,7 +171,7 @@ for (const format of formats) for (const kind of ['interview', 'research'] as co
     if (cancelling) return;
     cancelling = true;
     void asApp(org, c => c.query<{ count: string }>('SELECT count(*) FROM model_request_starts WHERE org_id=$1 AND run_id=$2', [org, runId])).then(async result => {
-      if (Number(result.rows[0]!.count) >= 20) { exceeded = true; await fetch(`${base}/agent-runs/${runId}/cancel`, { method: 'POST', headers }); }
+      if (Number(result.rows[0]!.count) >= requestBudget) { exceeded = true; await fetch(`${base}/agent-runs/${runId}/cancel`, { method: 'POST', headers }); }
     }).catch(() => { exceeded = true; }).finally(() => { cancelling = false; });
   }, 2000);
   try { await app!.get<AgentRunExecutorPort>(AGENT_RUN_EXECUTOR).tick(org); }
@@ -199,5 +202,5 @@ for (const format of formats) for (const kind of ['interview', 'research'] as co
   await writeFile(join(evidence, `${kind}-${format}${REPORT_FILE_FORMATS[format].extension}`), bytes, { mode: 0o600 });
   const starts = await asApp(org, c => c.query<{ count: string }>('SELECT count(*) FROM model_request_starts WHERE org_id=$1 AND run_id=$2', [org, runId]));
   expect(Number(starts.rows[0]!.count)).toBeGreaterThan(0);
-  receipts.push({ sourceHead: execFileSync('git', ['rev-parse', 'HEAD'], { cwd: repoRoot, encoding: 'utf8' }).trim(), kind, format, source, job, attachmentId: output[0]!.id, actualModelRequests: Number(starts.rows[0]!.count) });
+  receipts.push({ sourceHead: execFileSync('git', ['rev-parse', 'HEAD'], { cwd: repoRoot, encoding: 'utf8' }).trim(), kind, format, requestBudget, source, job, attachmentId: output[0]!.id, actualModelRequests: Number(starts.rows[0]!.count) });
 }, 600000);
