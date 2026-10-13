@@ -65,6 +65,7 @@ class SimulationUnit(unittest.TestCase):
    bad=list(cmd);bad[index]=value
    with self.assertRaises(RuntimeError):m.validate_worker(bad,ROOT)
  def test_exact_suite_and_workers_enum_ten_requires_all(self):
+  self.assertIn('linux-boundary-reap',m.WORKER_SUITES)
   base=[str(Path(sys.executable).absolute()),'-I','-B',str(ROOT/'scripts/cn-release-simulation.py'),'--output',str(Path('/tmp/fresh-report').resolve()),'--workers','3','--timeout-seconds','300','--rounds','1','--seed','0']
   for suite in m.WORKER_SUITES:
    for workers in ('1','3'):
@@ -97,6 +98,12 @@ class SimulationUnit(unittest.TestCase):
   with patch.object(m,'current_unit_context')as observation:
    with self.assertRaisesRegex(RuntimeError,'FIXED_COMMAND'):m.admit_fault([sys.executable,'-I','-B','-c','pass'],ROOT,{},'a'*40,'123',Path('/var/lib/fake'),'api-outer-noop')
    observation.assert_not_called()
+ def test_modes_are_fixed_and_default_old_arguments_stay_acceptance(self):
+  cmd=[str(Path(sys.executable).absolute()),'-I','-B',str(ROOT/'scripts/cn-release-simulation.py'),'--output',str(Path('/tmp/fresh-report').resolve()),'--workers','3','--timeout-seconds','300','--rounds','10','--seed','0','--suite','all']
+  m.validate_worker(cmd,ROOT)
+  for mode in ('acceptance','development'):m.validate_worker([*cmd,'--mode',mode],ROOT)
+  for extra in (['--mode','skip'],['--other','development'],['--mode','development','--arbitrary']):
+   with self.assertRaises(RuntimeError):m.validate_worker(cmd+extra,ROOT)
  def test_environment_whitelist_drops_credentials_before_file_or_manager(self):
   self.assertEqual(m.safe_env({'PATH':'/usr/bin','GH_TOKEN':'secret','GITHUB_TOKEN':'secret2','AWS_SECRET_ACCESS_KEY':'secret3','CN_API_STARTUP_PG_IMAGE':'sha256:fixture'}),{'PATH':'/usr/bin','CN_API_STARTUP_PG_IMAGE':'sha256:fixture'})
  def test_setup_node_is_preserved_and_admitted_by_plan_whitelist(self):

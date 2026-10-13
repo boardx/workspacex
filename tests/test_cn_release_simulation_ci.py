@@ -1,5 +1,6 @@
 """CI bootstrap contract; live root-owned clone execution requires Linux CI."""
 import importlib.util
+import ast
 import os
 from pathlib import Path
 import subprocess
@@ -12,6 +13,22 @@ spec=importlib.util.spec_from_file_location('simulation_ci',ROOT/'scripts/cn-rel
 m=importlib.util.module_from_spec(spec);spec.loader.exec_module(m)
 
 class CiBootstrap(unittest.TestCase):
+ def test_main_boundary_argv_reaches_fixed_worker_and_unit_gate(self):
+  spec=importlib.util.spec_from_file_location('boundary_unit_gate',ROOT/'scripts/cn-release-simulation-unit.py');unit=importlib.util.module_from_spec(spec);spec.loader.exec_module(unit)
+  def execute(sha,rounds,seed,suite,workers,mode):
+   self.assertEqual((sha,rounds,seed,suite,workers,mode),('a'*40,1,0,'linux-boundary-reap',1,'development'))
+   tree=ast.parse((ROOT/'scripts/cn-release-simulation-ci.py').read_text())
+   function=next(n for n in tree.body if isinstance(n,ast.FunctionDef)and n.name=='execute')
+   calls=[n for n in ast.walk(function)if isinstance(n,ast.Call)and isinstance(n.func,ast.Name)and n.func.id=='run_owned_simulation']
+   self.assertEqual(len(calls),1);self.assertIsInstance(calls[0].args[0],ast.List)
+   # Evaluate the actual execute argv expression with parsed CLI arguments.
+   command=eval(compile(ast.Expression(calls[0].args[0]),'<fixed-worker-argv>','eval'),{'sys':sys,'str':str},{'checkout':ROOT,'temporary':Path('/tmp').resolve(),'rounds':rounds,'seed':seed,'suite':suite,'workers':workers,'mode':mode})
+   unit.validate_worker(command,ROOT);self.assertEqual(command[15],'linux-boundary-reap');return 0
+  with patch.object(sys,'argv',['ci','--sha','a'*40,'--suite','linux-boundary-reap','--workers','1','--mode','development']),patch.object(m,'execute',side_effect=execute)as run:
+   self.assertEqual(m.main(),0);run.assert_called_once()
+  with patch.object(m.tempfile,'mkdtemp')as create:
+   with self.assertRaisesRegex(ValueError,'TEN_ALL'):m.execute('a'*40,10,0,'linux-boundary-reap',1)
+   create.assert_not_called()
  def test_full_control_owner_receipts_have_explicit_export_whitelist(self):
   import ast
   tree=ast.parse((ROOT/'scripts/cn-release-simulation-ci.py').read_text())
@@ -58,6 +75,10 @@ class CiBootstrap(unittest.TestCase):
    fake.admit_fault=lambda *a:(_ for _ in ()).throw(RuntimeError('UNVERIFIED_UNIT'))
    with self.assertRaisesRegex(RuntimeError,'UNVERIFIED_UNIT'):m.setup_fault_domain([],ROOT,{},'a'*40,'123',Path('/fixture'),'api-outer-sigkill')
    self.assertEqual(events,['verified-unit','durable-admission','nested-domain'])
+ def test_unknown_mode_rejected_before_setup(self):
+  with patch.object(m.tempfile,'mkdtemp')as create:
+   with self.assertRaisesRegex(ValueError,'MODE'):m.execute('a'*40,10,0,mode='skip')
+   create.assert_not_called()
  def test_nonroot_or_nonlinux_rejects_before_clone(self):
   with patch.object(m.sys,'platform','darwin'),patch.object(m.tempfile,'mkdtemp')as create:
    with self.assertRaisesRegex(ValueError,'LINUX_ROOT'):m.execute('a'*40,1,0)

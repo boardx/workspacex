@@ -10,13 +10,18 @@ on:
       lane:
         description: Targeted repairs run in four independent VMs; all preserves full regression
         type: choice
-        options: ['all', 'targeted', 'linux-application-recovery-complete', 'linux-six-business']
+        options: ['all', 'release', 'targeted', 'linux-application-recovery-complete', 'linux-six-business', 'linux-boundary-reap']
         default: 'all'
       six_web_mode:
         description: Opt-in isolated single six-business production artifact fixture
         type: choice
         options: ['dev', 'production-single']
         default: 'dev'
+      mode:
+        description: Development retains known clean business failures; never final acceptance
+        type: choice
+        options: ['acceptance', 'development']
+        default: 'acceptance'
       seed:
         description: Integer base seed for isolated fault fixtures
         type: string
@@ -106,7 +111,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        suite: ${{ fromJSON(inputs.lane == 'targeted' && '["release","linux-api-outer-recovery","linux-application-recovery-complete","linux-six-business"]' || inputs.lane == 'linux-application-recovery-complete' && '["linux-application-recovery-complete"]' || inputs.lane == 'linux-six-business' && '["linux-six-business"]' || '["all"]') }}
+        suite: ${{ fromJSON(inputs.lane == 'release' && '["release"]' || inputs.lane == 'targeted' && '["release","linux-api-outer-recovery","linux-application-recovery-complete","linux-six-business"]' || inputs.lane == 'linux-application-recovery-complete' && '["linux-application-recovery-complete"]' || inputs.lane == 'linux-six-business' && '["linux-six-business"]' || inputs.lane == 'linux-boundary-reap' && '["linux-boundary-reap"]' || '["all"]') }}
     runs-on: ubuntu-24.04
     timeout-minutes: 300
     steps:
@@ -119,7 +124,7 @@ jobs:
         run: |
           case "$SIX_WEB_MODE" in dev|production-single) ;; *) echo SIX_WEB_MODE_REQUIRED >&2; exit 1 ;; esac
           if [ "$SIX_WEB_MODE" = production-single ] && { [ "$LANE" != linux-six-business ] || [ "$ROUNDS" != 1 ] || [ "$WORKERS" != 1 ]; }; then echo SIX_PRODUCTION_SINGLE_REQUIRED >&2; exit 1; fi
-          case "$LANE" in all|targeted|linux-application-recovery-complete|linux-six-business) ;; *) echo CI_FIXED_LANE_REQUIRED >&2; exit 1 ;; esac
+          case "$LANE" in all|release|targeted|linux-application-recovery-complete|linux-six-business|linux-boundary-reap) ;; *) echo CI_FIXED_LANE_REQUIRED >&2; exit 1 ;; esac
           if [ "$LANE" != all ] && [ "$ROUNDS" = 10 ]; then
             echo 'CI_TEN_ALL_REQUIRED' >&2
             exit 1
@@ -188,9 +193,10 @@ jobs:
           ROUNDS: ${{ inputs.rounds || '1' }}
           CN_SIX_WEB_MODE: ${{ inputs.six_web_mode || 'dev' }}
           SEED: ${{ inputs.seed || '0' }}
+          MODE: ${{ inputs.mode || 'acceptance' }}
           SUITE: ${{ matrix.suite }}
           WORKERS: ${{ matrix.suite == 'all' && '3' || '1' }}
-        run: 'sudo -n env -i PATH="$PATH" CN_SIX_WEB_MODE="$CN_SIX_WEB_MODE" CN_ARCHIVE_TEST_NODE="$CN_ARCHIVE_TEST_NODE" CN_ARCHIVE_TEST_RUNTIME="$CN_ARCHIVE_TEST_RUNTIME" NODE_PATH="$NODE_PATH" CN_TEST_PLAYWRIGHT="$CN_TEST_PLAYWRIGHT" CN_TEST_CHROMIUM="$CN_TEST_CHROMIUM" GITHUB_ACTIONS=true CN_API_STARTUP_PG_IMAGE="$CN_API_STARTUP_PG_IMAGE" CN_SIX_REDIS_IMAGE="$CN_SIX_REDIS_IMAGE" GITHUB_RUN_ID="$GITHUB_RUN_ID" GITHUB_RUN_ATTEMPT="$GITHUB_RUN_ATTEMPT" GITHUB_WORKSPACE="$GITHUB_WORKSPACE" RUNNER_TEMP="$RUNNER_TEMP" "$RUNNER_TEMP/cn-test-sdk/bin/python" -I -B scripts/cn-release-simulation-ci.py --sha "$GITHUB_SHA" --rounds "$ROUNDS" --seed "$SEED" --suite "$SUITE" --workers "$WORKERS"'
+        run: 'sudo -n env -i PATH="$PATH" CN_SIX_WEB_MODE="$CN_SIX_WEB_MODE" CN_ARCHIVE_TEST_NODE="$CN_ARCHIVE_TEST_NODE" CN_ARCHIVE_TEST_RUNTIME="$CN_ARCHIVE_TEST_RUNTIME" NODE_PATH="$NODE_PATH" CN_TEST_PLAYWRIGHT="$CN_TEST_PLAYWRIGHT" CN_TEST_CHROMIUM="$CN_TEST_CHROMIUM" GITHUB_ACTIONS=true CN_API_STARTUP_PG_IMAGE="$CN_API_STARTUP_PG_IMAGE" CN_SIX_REDIS_IMAGE="$CN_SIX_REDIS_IMAGE" GITHUB_RUN_ID="$GITHUB_RUN_ID" GITHUB_RUN_ATTEMPT="$GITHUB_RUN_ATTEMPT" GITHUB_WORKSPACE="$GITHUB_WORKSPACE" RUNNER_TEMP="$RUNNER_TEMP" "$RUNNER_TEMP/cn-test-sdk/bin/python" -I -B scripts/cn-release-simulation-ci.py --sha "$GITHUB_SHA" --rounds "$ROUNDS" --seed "$SEED" --suite "$SUITE" --workers "$WORKERS" --mode "$MODE"'
       - name: Export bounded reports for the unprivileged artifact uploader
         if: always()
         run: |

@@ -42,6 +42,17 @@ def failure_projection(stderr,root):
             terminal=value
         except (ValueError,TypeError,KeyError):continue
     return dict(reason=found[-1]if found and found[-1]in reasons else 'UNCLASSIFIED',frames=frames,phaseRecords=records,phaseRecordsVerified=False,restoreTerminalDiagnostic=terminal)
+def development_failure(failure, exit_code):
+    # A missing receipt can make the driver uncertain even after an observed
+    # assertion exit. Only its actual terminal record proves that distinction.
+    if not isinstance(failure,dict) or failure.get('stage')!='original-durable-driver' or failure.get('reason')!='DURABLE_CHAIN_FAILED' or type(exit_code)is not int or exit_code!=1:return False
+    diagnostic=failure.get('bridgeDiagnostic')or{}
+    if diagnostic.get('reason') not in ('FIXTURE_CHAIN_INCOMPLETE','EXECUTION_UNCERTAIN_RECONCILE_NO_RETRY'):return False
+    record=diagnostic.get('restoreTerminalDiagnostic')or{}
+    terminal=record.get('terminal')or{}
+    return (record.get('kind')=='pg-restore-terminal-diagnostic-v1' and terminal.get('reason')=='EXITED'
+            and type(terminal.get('exitCode'))is int and terminal['exitCode']>0
+            and terminal.get('processGroupStillPresent')is False)
 def validate_image_storage(image):
     config=image.get('Config',{})
     need(set((config.get('Volumes')or{}))<= {PGDATA},'UNEXPECTED_IMAGE_VOLUME')
@@ -144,7 +155,7 @@ def main():
         stage='complete'
     except Exception as error:
         # No error body, credentials, SQL text or raw process output.
-        failure={'type':type(error).__name__,'stage':stage}
+        failure={'type':type(error).__name__,'stage':stage,'reason':'DURABLE_CHAIN_FAILED' if str(error)=='DURABLE_CHAIN_FAILED' else 'UNCLASSIFIED'}
         if temporary is not None:
             diagnostic=temporary/'failure-diagnostic.json'
             if diagnostic.is_file() and not diagnostic.is_symlink() and diagnostic.stat().st_size<=16384:failure['diagnostic']=json.loads(diagnostic.read_bytes())
@@ -165,6 +176,10 @@ def main():
             except Exception:failure={'type':'CleanupUnproven','stage':'cleanup'}
         if temporary is not None and cleanup:shutil.rmtree(temporary)
     passed=failure is None and cleanup and result is not None
+    import importlib.util
+    spec=importlib.util.spec_from_file_location('complete_development_outcome',ROOT/'scripts/cn-release-development-outcome.py');outcome=importlib.util.module_from_spec(spec);spec.loader.exec_module(outcome)
+    known=development_failure(failure,observed.returncode if 'observed'in locals()else None)
+    outcome.write('linux-application-recovery-complete',business_failure=bool(known),inner_cleanup=cleanup is True,reason='known-business-failure' if known else 'not-continuable')
     print(json.dumps(dict(kind='cn-real-app-migration-recovery-linux-v1',verified=passed,failure=failure,result=result,
                          memoryLimitBytes=MEMORY_BYTES,pgdataTmpfsBytes=TMPFS_BYTES,cleanupVerified=cleanup,durationSeconds=round(time.monotonic()-started,3),productionAccepted=False,candidateValidation=False,imagePulledByTest=False)))
     return 0 if passed else 1

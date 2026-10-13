@@ -18,6 +18,32 @@ spec.loader.exec_module(fixture)
 
 
 class PreloadContract(unittest.TestCase):
+    def test_catalog_comparison_rejects_large_drift_without_diff_or_rows(self):
+        node=shutil.which('node');self.assertTrue(node)
+        code="""import assert from 'node:assert/strict';
+import {assertCatalogEqual,constraintDifferences} from './tests/fixtures/cn-application-recovery-complete/catalog-assert.ts';
+import {diagnostic,mark} from './tests/fixtures/cn-application-recovery-complete/diagnostic.ts';
+const original={functions:Array.from({length:20000},(_,i)=>({name:'secret_'+i,definition:'PRIVATE SQL '.repeat(20)})),roles:[{name:'owner'}]};
+assertCatalogEqual(structuredClone(original),original);
+mark('compatibility');assert.equal(diagnostic(new Error('private')).catalogCategory,null);
+const constraint={schema:'private',relation:'private',name:'private',kind:'c',deferrable:false,deferred:false,validated:false,definition:'PRIVATE CHECK SQL NOT VALID'};
+const delta=constraintDifferences([{...constraint,validated:true,definition:'PRIVATE CHECK SQL'}],[constraint]);
+assert.equal(delta.differingCount,1);assert.deepEqual(delta.changes[0].fields,['validated','definition']);assert(!JSON.stringify(delta).includes('PRIVATE'));assert.equal(delta.changes[0].expected.notValid,true);
+const sourceTrigger={schema:'private',relation:'private',name:'RI_ConstraintTrigger_a_1',enabled:'O',internal:true,definition:'CREATE CONSTRAINT TRIGGER RI_ConstraintTrigger_a_1 PRIVATE FUNCTION'};
+const newTrigger={...sourceTrigger,name:'RI_ConstraintTrigger_a_2',definition:sourceTrigger.definition.replace('_a_1','_a_2')};
+try{assertCatalogEqual({triggers:[newTrigger]},{triggers:[sourceTrigger]});assert.fail('gate removed');}catch(e){assert.equal(diagnostic(e).catalogFormatting.riGeneratedNameProjectionEqual,true);assert(!JSON.stringify(diagnostic(e)).includes('PRIVATE'));}
+for(const changed of [{...newTrigger,enabled:'D'},{...newTrigger,definition:newTrigger.definition+' CHANGED'},{...newTrigger,internal:false}]){
+ try{assertCatalogEqual({triggers:[changed]},{triggers:[sourceTrigger]});assert.fail('gate removed');}catch(e){assert.equal(diagnostic(e).catalogFormatting.riGeneratedNameProjectionEqual,false);}
+}
+for(const value of [{...original,functions:[...original.functions,{name:'PRIVATE'}]}, {...original,roles:[{name:'other'}]}, {...original,extra:[]}]){
+ try{assertCatalogEqual(value,original);assert.fail('accepted drift');}catch(e){assert.match(e.message,/^RESTORE_CATALOG_(?:SCOPE_)?MISMATCH$/);assert(e.message.length<80);}
+}
+mark('restore-catalog');try{assertCatalogEqual({...original,roles:[]},original);}catch(e){console.log(JSON.stringify(diagnostic(e)));}
+"""
+        value=json.loads(subprocess.check_output([node,'--import','tsx','--input-type=module','-e',code],cwd=ROOT,timeout=15))
+        self.assertEqual(value['catalogCategory'],'roles');self.assertEqual(value['stage'],'restore-catalog')
+        self.assertNotIn('PRIVATE',json.dumps(value));self.assertLess(len(json.dumps(value)),8192)
+
     def test_restore_journal_projection_and_rejected_reason(self):
         spec=importlib.util.spec_from_file_location('restore_bridge',ROOT/'tests/fixtures/cn-postgres-lifecycle/driver_bridge.py');bridge=importlib.util.module_from_spec(spec);spec.loader.exec_module(bridge)
         e=SimpleNamespace(read=lambda p:p.read_bytes(),decode=json.loads)

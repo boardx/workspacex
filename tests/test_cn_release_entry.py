@@ -328,6 +328,84 @@ class EntryTests(unittest.TestCase):
         self.assertGreaterEqual(seen[0][0],.18)
         self.assertTrue(seen[0][1])
 
+    def test_short_action_timeout_starts_after_proven_session_and_durable_pid(self):
+        original=e.os.setsid
+        seen=[];began=time.monotonic()
+        def delayed():
+            time.sleep(.05)
+            original()
+        with patch.object(e.os,'setsid',side_effect=delayed):
+            result=e.run_command(b'exec sleep .2\n',.02,
+                lambda pid,domain:seen.append((time.monotonic()-began,os.getpgid(pid)==pid)))
+        self.assertEqual(result[0],'TIMEOUT')
+        self.assertNotEqual(result[1],0)
+        self.assertEqual(len(seen),1)
+        self.assertGreaterEqual(seen[0][0],.045)
+        self.assertTrue(seen[0][1])
+        self.assertFalse(e.alive(result[3]))
+
+    def test_unproven_session_never_releases_action_with_separate_setup_budget(self):
+        marker=self.root/'unproven-session-action'
+        command=('touch '+shlex.quote(str(marker))).encode()
+        original=e.os.setsid
+        def late():
+            time.sleep(.05)
+            original()
+        for mode in ('missing-ready','wrong-session','setup-timeout'):
+            with self.subTest(mode=mode):
+                seen=[]
+                replacement=(lambda:(_ for _ in ()).throw(RuntimeError('no-session'))) if mode=='missing-ready' else (lambda:None) if mode=='wrong-session' else late
+                with patch.object(e.os,'setsid',side_effect=replacement),patch.object(e,'SESSION_READY_SECONDS',.02):
+                    with self.assertRaisesRegex(e.Rejected,'CHILD_SESSION_UNPROVEN'):
+                        e.run_command(command,1,lambda *args:seen.append(args))
+                self.assertEqual(seen,[])
+                self.assertFalse(marker.exists())
+
+    def test_expiry_during_session_setup_or_pid_fsync_never_releases_action(self):
+        for phase in ('setup','pid-fsync'):
+            with self.subTest(phase=phase):
+                attempt='expiry-'+phase;marker=self.root/attempt
+                request=self.package(attempt=attempt,action=('touch '+shlex.quote(str(marker))).encode()+b'\n'+ACTION)
+                manifest,_=e.load_package(request,attempt)
+                clock=[e.now()];expired=e.instant(manifest['expiresAt'])+dt.timedelta(seconds=1)
+                original_select=e.select.select;original_create=e.create
+                state=self.root/('expiry-state-'+phase);state.mkdir(mode=0o700)
+                def selecting(*args):
+                    result=original_select(*args)
+                    if phase=='setup':clock[0]=expired
+                    return result
+                def creating(path,raw):
+                    original_create(path,raw)
+                    if phase=='pid-fsync' and str(path).endswith('.process.json'):clock[0]=expired
+                with patch.object(e,'STATE',state),patch.object(e,'now',side_effect=lambda:clock[0]),patch.object(e.select,'select',side_effect=selecting),patch.object(e,'create',side_effect=creating):
+                    with self.assertRaisesRegex(e.Rejected,'REQUEST_EXPIRED'):
+                        e.entry('advance',request,attempt)
+                prefix=state/attempt/'00-consume'
+                self.assertTrue(Path(str(prefix)+'.intent.json').exists())
+                self.assertEqual(Path(str(prefix)+'.process.json').exists(),phase=='pid-fsync')
+                self.assertFalse(Path(str(prefix)+'.receipt.json').exists())
+                self.assertFalse(marker.exists())
+
+    def test_dynamic_remaining_budget_is_finite_bounded_and_not_extended_after_callback(self):
+        marker=self.root/'budget-action';command=('touch '+shlex.quote(str(marker))).encode()
+        for malformed in (False,0,1,[],'x'):
+            with self.subTest(malformed=malformed):
+                with self.assertRaisesRegex(e.Rejected,'EXECUTION_BUDGET_UNPROVEN'):
+                    e.run_command(command,1,lambda *args:malformed)
+                self.assertFalse(marker.exists())
+        for remaining in (True,0,-1,float('nan'),float('inf'),2):
+            with self.subTest(remaining=remaining):
+                with self.assertRaisesRegex(e.Rejected,'EXECUTION_BUDGET_UNPROVEN'):
+                    e.run_command(command,1,lambda *args:{'remainingSeconds':remaining,'observedMonotonic':time.monotonic()})
+                self.assertFalse(marker.exists())
+        def exhausted(*args):
+            value={'remainingSeconds':.02,'observedMonotonic':time.monotonic()}
+            time.sleep(.04)
+            return value
+        with self.assertRaisesRegex(e.Rejected,'EXECUTION_BUDGET_EXPIRED'):
+            e.run_command(command,1,exhausted)
+        self.assertFalse(marker.exists())
+
     def test_parent_dies_before_child_session_no_late_mutation(self):
         marker=self.root/'late-after-parent-death';ready=self.root/'parent-ready';journal=self.root/'pid-journal'
         code=f"""import importlib.util,os,time

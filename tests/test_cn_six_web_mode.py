@@ -38,6 +38,9 @@ class SingleMode(unittest.TestCase):
  def test_unit_rejects_existing_command_contract(self):
   base=[str(Path(sys.executable).absolute()),'-I','-B',str(ROOT/'scripts/cn-release-simulation.py'),'--output',str(Path('/tmp/cn-mode-output').resolve()),'--workers','1','--timeout-seconds','300','--rounds','1','--seed','0','--suite','linux-six-business']
   unit.validate_worker(base,ROOT,'production-single')
+  unit.validate_worker([*base,'--mode','development'],ROOT,'production-single')
+  unit.validate_worker([*base,'--mode','acceptance'],ROOT,'production-single')
+  with self.assertRaisesRegex(RuntimeError,'FIXED_MODE'):unit.validate_worker([*base,'--mode','other'],ROOT,'production-single')
   for index,value in [(7,'3'),(11,'10'),(15,'all')]:
    candidate=base.copy();candidate[index]=value
    with self.assertRaises(RuntimeError):unit.validate_worker(candidate,ROOT,'production-single')

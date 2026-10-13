@@ -7,12 +7,15 @@ import {withCompleteController}from'./controller';
 import fs from 'node:fs/promises';
 import {writeFileSync}from'node:fs';
 import {startupDiagnostic}from'../cn-api-startup/diagnostic';
-import {mark}from'./diagnostic';
+import {mark,markConstraintRoundtrip}from'./diagnostic';
+import {assertCatalogEqual}from'./catalog-assert';
+import {constraintRoundtrip}from'./constraint-roundtrip';
+import {triggerRoundtrip}from'./trigger-roundtrip';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import {createRequire}from'node:module';
 import {execFile}from'node:child_process';
-import {promisify}from'node:util';
+import {promisify,isDeepStrictEqual}from'node:util';
 import {migrate,migrationFiles,MIGRATIONS_DIR}from'../../../apps/api/src/infrastructure/db/migrator';
 import {PgDatabase}from'../../../apps/api/src/infrastructure/db/pg-database';
 import {PgIdentityRepository}from'../../../apps/api/src/infrastructure/identity/pg-identity-repository';
@@ -49,6 +52,7 @@ async function dockerTool(tool:string,args:string[]){await checkContainer();
  return exec('docker',['exec',cfg.containerId,'timeout','85s',tool,'-U','fixture_owner',...args],{timeout:90000,maxBuffer:64*1024*1024,encoding:'buffer',env:{PATH:process.env.PATH!,LANG:'C.UTF-8'}});
 }
 async function catalogFacts(db:string){const c=new pg.Client(dbcfg(db));await c.connect();try{await c.query('BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY');await c.query("SET LOCAL search_path='pg_catalog'");const facts=await catalog.collectFacts(c,['fixture_owner','app_rw','app_diag_ro']);await c.query('ROLLBACK');return facts;}finally{await c.end();}}
+async function constraintPretty(db:string){return query(db,"SELECT conname,pg_get_constraintdef(oid,true) definition FROM pg_constraint WHERE conname=ANY($1::text[]) ORDER BY conname",[['organization_core_models_fields_check','project_tags_tag_check']]);}
 async function backup(destination=dump){await held('app_epoch');const result=await dockerTool('pg_dump',['-Fc','app_epoch']);assert(result.stdout.length>0&&result.stdout.length<=64*1024*1024);await rawOnce(destination,result.stdout);const meta={sha256:hash(result.stdout),bytes:result.stdout.length};if(destination===dump){state.dumpSha256=meta.sha256;state.dumpBytes=meta.bytes;}return meta;}
 async function restore(db:string,archive=dump,archiveSha=state.dumpSha256){assert.equal(state.originalEpochRetired,false,'OLD_EPOCH_RESTORE_FORBIDDEN');assert.match(db,/^app_[a-z_]+$/);const bytes=await fs.readFile(archive);assert.equal(hash(bytes),archiveSha);
  await checkContainer();await query('postgres','CREATE DATABASE '+db);
@@ -60,8 +64,14 @@ async function restore(db:string,archive=dump,archiveSha=state.dumpSha256){asser
   child.on('error',reject);child.stdin.on('error',reject);child.on('close',code=>{clearTimeout(timer);code===0?resolve():reject(Error('RESTORE_FAILED'));});child.stdin.end(bytes);
  });});
  // Preserve original owners/ACLs in the same isolated cluster, then compare all original catalog categories.
- await hold(db);assert.deepEqual(await ledger(db),state.originalLedger);assert.deepEqual(await actualRead(db),state.applicationReadback);
- assert.deepEqual(await query(db,'TABLE cn_recovery_canary'),state.canary);assert.deepEqual(await catalogFacts(db),state.originalCatalog);
+ mark('restore-ledger');await hold(db);assert(isDeepStrictEqual(await ledger(db),state.originalLedger),'RESTORE_LEDGER_MISMATCH');
+ mark('restore-repository');assert(isDeepStrictEqual(await actualRead(db),state.applicationReadback),'RESTORE_REPOSITORY_MISMATCH');
+ mark('restore-canary');assert(isDeepStrictEqual(await query(db,'TABLE cn_recovery_canary'),state.canary),'RESTORE_CANARY_MISMATCH');
+ mark('restore-catalog');const restoredCatalog=await catalogFacts(db);
+ const pretty=await constraintPretty(db);markConstraintRoundtrip({prettyDefinitionsEqual:isDeepStrictEqual(pretty,state.originalPrettyConstraints),originalPrettySha256:hash(JSON.stringify(state.originalPrettyConstraints)),restoredPrettySha256:hash(JSON.stringify(pretty)),sourceCount:state.originalPrettyConstraints.length,targetCount:pretty.length});
+ // Compare the entire original catalog without constructing an unbounded
+ // AssertionError diff of full application schema/data on a failed comparison.
+ assertCatalogEqual(restoredCatalog,state.originalCatalog);
  await event('isolated-restore',{database:db,originalDumpSha256:archiveSha,ledgerSha256:hash(JSON.stringify(await ledger(db))),actualRepository:'PgIdentityRepository.findOrganization',holdRetained:true});
 }
 async function readPhase(p:string){const raw=await fs.readFile(path.join(journal,p+'.result.json'));const v=JSON.parse(raw.toString());assert.equal(v.epoch,state.epoch);assert.equal(v.seed,seed);assert.equal(v.phase,p);assert.equal(v.verified,true);for(const item of v.journalRecords){const bytes=await fs.readFile(path.join(journal,item.name));assert.equal(hash(bytes),item.sha256);assert.equal(bytes.toString('base64'),item.rawBase64);}return{raw,value:v};}
@@ -69,6 +79,8 @@ if(mode==='--observe'){process.stdout.write((await readPhase(phase)).raw);proces
 assert.equal(phases[state.finished.length],phase);const intent=path.join(journal,phase+'.intent.json');await once(intent,{epoch:state.epoch,phase,seed});const begin=state.events.length;
 mark(phase);
 if(phase==='init'){
+ const probe=new pg.Client(dbcfg('postgres'));await probe.connect();try{state.constraintCanonicalization=await constraintRoundtrip(probe);state.triggerCanonicalization=await triggerRoundtrip(probe,catalog.QUERIES.triggers);}finally{await probe.end();}
+ await event('catalog-roundtrip-probes',{constraints:state.constraintCanonicalization,triggers:state.triggerCanonicalization});
  mark('initial-migrations');
  const names=migrationFiles();assert(names.length>=416);state.fullCount=names.length;state.originalCount=names.length;
  const manifest=[];for(const name of names){const raw=await fs.readFile(path.join(MIGRATIONS_DIR,name));manifest.push({name,sha256:hash(raw)});}
@@ -77,7 +89,7 @@ if(phase==='init'){
  await query('app_epoch',"INSERT INTO organizations(id,name,kind) VALUES('org-app-recovery','Current epoch application fixture','organization')");
  await query('app_epoch',"CREATE TABLE cn_recovery_canary(value text);INSERT INTO cn_recovery_canary VALUES('original-current-epoch');GRANT SELECT,INSERT,UPDATE,DELETE ON cn_recovery_canary TO app_rw");
  state.applicationReadback=await actualRead('app_epoch');assert.equal(state.applicationReadback?.name,'Current epoch application fixture');state.canary=await query('app_epoch','TABLE cn_recovery_canary');await hold('app_epoch');
- mark('initial-catalog');state.originalCatalog=await catalogFacts('app_epoch');state.originalLedger=await ledger('app_epoch');await once(path.join(root,'original-ledger.json'),state.originalLedger);
+ mark('initial-catalog');state.originalCatalog=await catalogFacts('app_epoch');state.originalPrettyConstraints=await constraintPretty('app_epoch');state.originalLedger=await ledger('app_epoch');await once(path.join(root,'original-ledger.json'),state.originalLedger);
  await event('original-app-prefix-held',{migrationCount:state.originalCount,fullApplicationMigrationCount:names.length,ledgerSha256:hash(JSON.stringify(state.originalLedger)),fullControlSchemaFixture:true,holdRetained:true});
  state.checks.push('original_application_prefix_migrations_and_actual_repository');
 }else if(phase==='backup'){await held('app_epoch');await backup();await event('current-epoch-backup',{sha256:state.dumpSha256,bytes:state.dumpBytes,epoch:state.epoch});
@@ -105,6 +117,6 @@ if(phase==='init'){
 state.finished.push(phase);const tmp=stateFile+'.'+phase;await once(tmp,state);await fs.rename(tmp,stateFile);await syncDir(root);
 const records=[];for(const item of state.events.slice(begin)){const raw=await fs.readFile(path.join(journal,item.name));records.push({...item,rawBase64:raw.toString('base64')});}
 const previous=state.finished.length>1?hash((await readPhase(state.finished.at(-2))).raw):null;
-const summary=phase==='finalize'?{verified:true,seed,tests:state.checks,epoch:state.epoch,backupSha256:state.dumpSha256,backupBytes:state.dumpBytes,originalMigrationCount:state.originalCount,fullApplicationMigrationCount:state.fullCount,migrationManifestSha256:state.migrationManifestSha256,actualApplicationMigrator:true,businessLayer:'actual-PgIdentityRepository-readback',actualStartApiTested:false,fullControlSchemaFixture:true,oldVersionImageTested:false,originalCatalogAlgorithm:true,productionProviderBindingVerified:false,transaction:state.transaction,aRoute:state.aRoute,holdDrift:state.holdDrift,candidateValidation:false,checkoutRevision:cfg.checkoutRevision,productionAccepted:false,cloudCalls:0}:undefined;
+const summary=phase==='finalize'?{verified:true,seed,tests:state.checks,epoch:state.epoch,backupSha256:state.dumpSha256,backupBytes:state.dumpBytes,originalMigrationCount:state.originalCount,fullApplicationMigrationCount:state.fullCount,migrationManifestSha256:state.migrationManifestSha256,actualApplicationMigrator:true,businessLayer:'actual-PgIdentityRepository-readback',actualStartApiTested:false,fullControlSchemaFixture:true,oldVersionImageTested:false,originalCatalogAlgorithm:true,productionProviderBindingVerified:false,constraintCanonicalization:state.constraintCanonicalization,triggerCanonicalization:state.triggerCanonicalization,transaction:state.transaction,aRoute:state.aRoute,holdDrift:state.holdDrift,candidateValidation:false,checkoutRevision:cfg.checkoutRevision,productionAccepted:false,cloudCalls:0}:undefined;
 const result={kind:'isolated-pg-phase-receipt-v1',scope:'fixture-only',seed,epoch:state.epoch,phase,sequence:state.finished.length,previousPhaseSha256:previous,verified:true,terminal:true,journalRecords:records,expectedFaultScenario:['migration-fault','startup-fault','postclear-fault'].includes(phase),productionAccepted:false,...(summary?{summary}:{})};
 await once(path.join(journal,phase+'.result.json'),result);console.log(JSON.stringify(result));

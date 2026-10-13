@@ -11,9 +11,28 @@ const QUERIES=Object.freeze({
  namespaces:`SELECT n.nspname name,pg_get_userbyid(n.nspowner) owner,${acl('n.nspacl','n','n.nspowner')} acl FROM pg_namespace n WHERE ${USER}`,
  relations:`SELECT n.nspname schema,c.relname name,c.relkind kind,pg_get_userbyid(c.relowner) owner,c.relrowsecurity rls,c.relforcerowsecurity force_rls,${acl('c.relacl',"CASE WHEN c.relkind='S' THEN 's'::\"char\" ELSE 'r'::\"char\" END",'c.relowner')} acl FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE ${USER} AND c.relkind IN ('r','p','v','m','S','f')`,
  columns:`SELECT n.nspname schema,c.relname relation,a.attnum ordinal,a.attname name,pg_catalog.format_type(a.atttypid,a.atttypmod) type,a.attnotnull not_null,a.attidentity identity,a.attgenerated generated,pg_get_expr(d.adbin,d.adrelid) default_expression,cn.nspname collation_schema,co.collname collation,a.attstorage storage,(to_jsonb(a)->>'attcompression') compression FROM pg_attribute a JOIN pg_class c ON c.oid=a.attrelid JOIN pg_namespace n ON n.oid=c.relnamespace LEFT JOIN pg_attrdef d ON d.adrelid=a.attrelid AND d.adnum=a.attnum LEFT JOIN pg_collation co ON co.oid=a.attcollation LEFT JOIN pg_namespace cn ON cn.oid=co.collnamespace WHERE ${USER} AND a.attnum>0 AND NOT a.attisdropped AND c.relkind IN ('r','p','v','m','f')`,
- constraints:`SELECT n.nspname schema,c.relname relation,k.conname name,k.contype kind,k.condeferrable AS "deferrable",k.condeferred deferred,k.convalidated validated,pg_get_constraintdef(k.oid,false) definition FROM pg_constraint k JOIN pg_namespace n ON n.oid=k.connamespace LEFT JOIN pg_class c ON c.oid=k.conrelid WHERE ${USER}`,
+ // PostgreSQL decompiles BETWEEN to nested AND nodes. Dump/reparse can flatten
+ // those nodes and change redundant parentheses in nonpretty text. Use the
+ // server's complete pretty decompilation for equality, never strip SQL tokens.
+ // This remains bound to sqlSha256 and the caller's exact database/runtime.
+ constraints:`SELECT n.nspname schema,c.relname relation,k.conname name,k.contype kind,k.condeferrable AS "deferrable",k.condeferred deferred,k.convalidated validated,pg_get_constraintdef(k.oid,true) definition FROM pg_constraint k JOIN pg_namespace n ON n.oid=k.connamespace LEFT JOIN pg_class c ON c.oid=k.conrelid WHERE ${USER}`,
  indexes:`SELECT n.nspname schema,c.relname relation,ic.relname name,i.indisunique AS "unique",i.indisprimary primary_key,i.indisexclusion exclusion,i.indisvalid valid,i.indisready ready,i.indislive live,i.indisreplident replica_identity,pg_get_indexdef(i.indexrelid) definition FROM pg_index i JOIN pg_class c ON c.oid=i.indrelid JOIN pg_class ic ON ic.oid=i.indexrelid JOIN pg_namespace n ON n.oid=c.relnamespace WHERE ${USER}`,
- triggers:`SELECT n.nspname schema,c.relname relation,t.tgname name,t.tgenabled enabled,t.tgisinternal internal,pg_get_triggerdef(t.oid,false) definition FROM pg_trigger t JOIN pg_class c ON c.oid=t.tgrelid JOIN pg_namespace n ON n.oid=c.relnamespace WHERE ${USER}`,
+ // Internal FK trigger names contain disposable catalog OIDs. Bind their
+ // semantic identity to the full FK/table/event/function instead. Only the
+ // exact decompiled header identifier changes; the remaining SQL stays intact.
+ // The full binding is retained: md5 is a short display name, not an authority.
+ triggers:`SELECT n.nspname schema,c.relname relation,z.stable_name name,t.tgenabled enabled,t.tgisinternal internal,b.binding constraint_binding,
+ CASE WHEN z.stable_name<>t.tgname THEN overlay(d.definition placing quote_ident(z.stable_name) from length('CREATE CONSTRAINT TRIGGER ')+1 for length(quote_ident(t.tgname))) ELSE d.definition END definition
+ FROM pg_trigger t JOIN pg_class c ON c.oid=t.tgrelid JOIN pg_namespace n ON n.oid=c.relnamespace
+ LEFT JOIN pg_constraint k ON k.oid=t.tgconstraint LEFT JOIN pg_namespace kn ON kn.oid=k.connamespace LEFT JOIN pg_class kc ON kc.oid=k.conrelid
+ LEFT JOIN pg_class rc ON rc.oid=t.tgconstrrelid LEFT JOIN pg_namespace rn ON rn.oid=rc.relnamespace
+ JOIN pg_proc p ON p.oid=t.tgfoid JOIN pg_namespace pn ON pn.oid=p.pronamespace
+ CROSS JOIN LATERAL(SELECT pg_get_triggerdef(t.oid,false) definition)d
+ CROSS JOIN LATERAL(SELECT CASE WHEN t.tgisinternal AND k.contype='f' AND t.tgnargs=0 AND t.tgname ~ '^RI_ConstraintTrigger_[ac]_[0-9]+$'
+ THEN jsonb_build_object('schema',kn.nspname,'relation',kc.relname,'constraint',k.conname,'referencedSchema',rn.nspname,'referencedRelation',rc.relname,'triggerType',t.tgtype,'functionSchema',pn.nspname,'function',p.proname,'functionArguments',pg_get_function_identity_arguments(p.oid),'deferrable',t.tgdeferrable,'initiallyDeferred',t.tginitdeferred) ELSE NULL END binding)b
+ CROSS JOIN LATERAL(SELECT CASE WHEN b.binding IS NOT NULL AND left(d.definition,length('CREATE CONSTRAINT TRIGGER '||quote_ident(t.tgname)||' '))='CREATE CONSTRAINT TRIGGER '||quote_ident(t.tgname)||' '
+ THEN 'RI_ConstraintTrigger_'||substring(t.tgname from '^RI_ConstraintTrigger_([ac])_')||'_'||md5(b.binding::text) ELSE t.tgname END stable_name)z
+ WHERE ${USER}`,
  views:`SELECT n.nspname schema,c.relname name,c.relkind kind,pg_get_viewdef(c.oid,false) definition,c.reloptions options FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE ${USER} AND c.relkind IN ('v','m')`,
  rules:`SELECT n.nspname schema,c.relname relation,r.rulename name,r.ev_enabled enabled,pg_get_ruledef(r.oid,false) definition FROM pg_rewrite r JOIN pg_class c ON c.oid=r.ev_class JOIN pg_namespace n ON n.oid=c.relnamespace WHERE ${USER}`,
  inheritance:`SELECT n.nspname schema,c.relname relation,pn.nspname parent_schema,p.relname parent,i.inhseqno ordinal,pg_get_expr(c.relpartbound,c.oid) partition_bound,CASE WHEN c.relkind='p' THEN pg_get_partkeydef(c.oid) ELSE NULL END partition_key FROM pg_inherits i JOIN pg_class c ON c.oid=i.inhrelid JOIN pg_namespace n ON n.oid=c.relnamespace JOIN pg_class p ON p.oid=i.inhparent JOIN pg_namespace pn ON pn.oid=p.relnamespace WHERE ${USER}`,

@@ -29,6 +29,8 @@ def write_json(path,value):
     raw=(json.dumps(value,sort_keys=True,indent=2)+'\n').encode()
     with path.open('x')as f:f.write(raw.decode());f.flush();os.fsync(f.fileno())
 def child(suite,result):
+    if suite in ('linux-application-recovery-complete','linux-six-business'):
+        os.environ['CN_SIMULATION_OUTCOME_PATH']=str(result.with_suffix('.outcome.json'))
     if suite.startswith('linux-') and platform.system()!='Linux':raise RuntimeError('LINUX_REQUIRED')
     loader=unittest.TestLoader();tests=unittest.TestSuite()
     if suite in ('linux-domain','linux-postgres','linux-postgres-lifecycle','linux-storage','linux-api-startup','linux-docker-cleanup','linux-readiness','linux-boundary-reap','linux-entry','linux-browser','linux-api-outer-recovery','linux-postclear-recovery','linux-application-recovery','linux-application-recovery-complete','linux-six-business','linux-six-cleanup','linux-migration-guard','linux-migration-terminal','linux-migration-owner','linux-fsync','linux-fsync-entry'):
@@ -142,6 +144,58 @@ def execute(name,command,output,env,seconds,limit=LOG_LIMIT):
     rc=p.returncode if p else None
     passed=reason is None and cleanup is not None and cleanup.get('verified')is True and rc==0 and stats is not None and stats['tests']>0 and stats['failures']==stats['errors']==stats['unexpectedSuccesses']==stats['skipped']==stats['expectedFailures']==0
     return dict(suite=name,command=command,cleanup=cleanup,dockerCleanup=docker_cleanup,exitCode=rc,status='passed'if passed else 'failed',reason=reason or (None if passed else 'test-failure-or-missing-stats'),durationSeconds=round(time.monotonic()-start,3),statistics=stats,casesEvidence=result.with_suffix('.cases.json').name if result.with_suffix('.cases.json').exists()else None,inventoryEvidence=result.with_suffix('.inventory.json').name if result.with_suffix('.inventory.json').exists()else None,log=log.name,logSha256=hashlib.sha256(log.read_bytes()).hexdigest()if log.exists()else None)
+KNOWN_DEVELOPMENT_CASES={name:name.replace('-','_')+'_contract' for name in ('linux-application-recovery-complete','linux-six-business')}
+
+def bounded_evidence(path,limit):
+    fd=os.open(path,os.O_RDONLY|os.O_NOFOLLOW|os.O_NONBLOCK)
+    try:
+        a=os.fstat(fd)
+        if not stat.S_ISREG(a.st_mode)or a.st_nlink!=1 or a.st_size>limit:raise ValueError('EVIDENCE_FILE')
+        raw=os.read(fd,limit+1);b=os.fstat(fd);c=path.lstat()
+        stamp=lambda x:(x.st_dev,x.st_ino,x.st_size,x.st_mtime_ns,x.st_ctime_ns)
+        if len(raw)>limit or stamp(a)!=stamp(b)or stamp(a)!=stamp(c):raise ValueError('EVIDENCE_DRIFT')
+        return json.loads(raw),hashlib.sha256(raw).hexdigest()
+    finally:os.close(fd)
+
+def round_continuation(mode,value,names,folder,run_id):
+    """Development is a diagnostic loop, never a waiver of test acceptance.
+    Fresh complete inventories and owned-resource cleanup are required even for
+    passed peers; only the two fixed failed case IDs may continue.
+    """
+    if mode=='acceptance':return dict(allowed=value['status']=='passed',reason='strict-acceptance',outcomes=[])
+    if mode!='development':return dict(allowed=False,reason='invalid-mode',outcomes=[])
+    outcomes=[]
+    try:
+        if value['sourceUnchanged']is not True:raise ValueError('source-drift')
+        rows=value['suites']
+        if len(rows)!=len(names)or {x['suite']for x in rows}!=set(names):raise ValueError('incomplete-suites')
+        for row in rows:
+            name=row['suite'];stats=row.get('statistics');cleanup=row.get('cleanup')or{}
+            if cleanup.get('verified')is not True or cleanup.get('populated')!=0:raise ValueError('process-cleanup')
+            if name in DOCKER_SUITE_REGISTRIES and (row.get('dockerCleanup')or{}).get('verified')is not True:raise ValueError('daemon-cleanup')
+            if not isinstance(stats,dict)or set(stats)!={'tests','failures','errors','skipped','expectedFailures','unexpectedSuccesses'}or not all(type(v)is int and v>=0 for v in stats.values())or stats['tests']<1:raise ValueError('missing-statistics')
+            if any(stats[k]for k in ('skipped','expectedFailures','unexpectedSuccesses')):raise ValueError('skip-or-unexpected')
+            if row.get('casesEvidence')!=name+'.tests.cases.json'or row.get('inventoryEvidence')!=name+'.tests.inventory.json':raise ValueError('missing-inventory')
+            cases,_=bounded_evidence(folder/row['casesEvidence'],4*1024*1024);inventory,_=bounded_evidence(folder/row['inventoryEvidence'],4*1024*1024)
+            if not isinstance(cases,list)or not isinstance(inventory,list):raise ValueError('inventory-shape')
+            ids=[x['caseId']for x in cases];expected=[x['caseId']for x in inventory]
+            if len(ids)!=stats['tests']or len(set(ids))!=len(ids)or len(set(expected))!=len(expected)or set(ids)!=set(expected):raise ValueError('inventory-mismatch')
+            if any(x.get('status')not in ('pass','fail')for x in cases):raise ValueError('skip-or-notrun')
+            failed=[x['caseId']for x in cases if x['status']=='fail']
+            if row['status']=='passed':
+                if failed or row.get('exitCode')!=0 or row.get('reason')is not None or stats['failures']or stats['errors']:raise ValueError('passed-inconsistent')
+                continue
+            if name not in KNOWN_DEVELOPMENT_CASES or failed!=[KNOWN_DEVELOPMENT_CASES[name]]or stats['tests']!=1 or stats['failures']+stats['errors']!=1:raise ValueError('unknown-failed-case')
+            if row.get('reason')!='test-failure-or-missing-stats'or row.get('exitCode')!=1:raise ValueError('runner-timeout-or-unknown')
+            receipt,digest=bounded_evidence(folder/(name+'.tests.outcome.json'),16384)
+            expected_receipt=dict(kind='cn-development-fixture-outcome-v1',suite=name,caseId=KNOWN_DEVELOPMENT_CASES[name],commit=value['commit'],runId=run_id,roundId=folder.name,businessFailure=True,innerCleanupVerified=True,reason='known-business-failure',sideEffectScope='isolated-local-fixture-only',productionAccepted=False)
+            if receipt!=expected_receipt:raise ValueError('fixture-outcome-unproven')
+            outcomes.append(dict(suite=name,caseId=failed[0],outcomeSha256=digest))
+        return dict(allowed=True,reason='development-complete-clean-round',outcomes=outcomes)
+    except (OSError,ValueError,TypeError,KeyError)as exc:
+        reason=str(exc)if isinstance(exc,ValueError)else'evidence-unavailable'
+        return dict(allowed=False,reason=reason if re.fullmatch('[a-z-]{1,64}',reason)else'evidence-invalid',outcomes=outcomes)
+
 def matrix_coverage(matrix,results,commit,run_id,round_id):
     """Count exact observed IDs once in this round; never fill missing results."""
     registry={case['caseId']:case for case in matrix['cases']}
@@ -229,7 +283,7 @@ def render_reports(output):
         f.write('Isolated release regression: '+value['status']+'\nCommit: '+value['commit']+'\nCompleted rounds: '+str(value['completedRounds'])+'/'+str(value['requestedRounds'])+'\nCase counts: '+json.dumps(value['caseCounts'],sort_keys=True)+'\nMatrix coverage by round: '+json.dumps([{'roundId':c['roundId'],'cases':[c['caseNumerator'],c['caseDenominator']],'requirements':[c['requirementNumerator'],c['requirementDenominator']]}for c in value['matrixCoverage']],sort_keys=True)+'\nProduction accepted: false\nFull acceptance gates: '+json.dumps(value['acceptanceGates'],sort_keys=True)+'\nDuration sample summary (fixture time only): '+json.dumps(value['durationDistribution'],sort_keys=True)+'\nNull metrics are unmeasured. CSV is derived from summary.json.\n'+'\n'.join(value['integrationGaps'])+'\n')
 
 EXPORT_TOP_FILES=('summary.json','metrics.csv','cases.csv','report.txt','fullstack-setup.json','fullstack-install.log','fullstack-outer-cleanup.json','simulation-outer-cleanup.json','six-recovery.json')
-EXPORT_SUITE_SUFFIXES=('.log','.tests.json','.tests.inventory.json','.tests.cases.json')
+EXPORT_SUITE_SUFFIXES=('.log','.tests.json','.tests.inventory.json','.tests.cases.json','.tests.outcome.json')
 EXPORT_REGISTRY_FILES=('owner.json','api-create-intent.json','api-create-receipt.json','cleanup.json','recovery-cleanup.json')
 EXPORT_NESTED_FILES={'api-container-owner':EXPORT_REGISTRY_FILES,'six-business':('session-intent.json','port-reservation.json','session-ready.json','next-launch-intent.json','next-launch-started.json','next-launch-exit.json','next-worker-1.json','next-worker-2.json','next-worker-3.json','next-worker-4.json','next-worker-runtime.json','playwright-report.json','session-cleanup.json','result.json','application.log','next-build-summary.json','next-build-observation.json','next-build-cleanup.json'),'six-infra-owner':('owner.json','postgres-create-intent.json','postgres-create-receipt.json','postgres-start-intent.json','redis-create-intent.json','redis-create-receipt.json','redis-start-intent.json','database-create-intent.json','infra-receipt.json','cleanup.json','recovery-cleanup.json')}
 EXPORT_NESTED_FILES['application-recovery-owner']=EXPORT_REGISTRY_FILES
@@ -320,7 +374,7 @@ def six_suite_timeout(six_web_mode):
     return 2400 if six_web_mode=='production-single' else 1500
 
 def main():
-    p=argparse.ArgumentParser(description=__doc__);p.add_argument('--export-parent',type=Path);p.add_argument('--child',choices=SUITES);p.add_argument('--result',type=Path);p.add_argument('--output',type=Path);p.add_argument('--suite',choices=['all',*SUITES],default='all');p.add_argument('--workers',type=int,choices=range(1,4),default=3);p.add_argument('--timeout-seconds',type=int,default=480);p.add_argument('--rounds',type=int,choices=(1,10),default=1);p.add_argument('--seed',type=int,default=0);args=p.parse_args()
+    p=argparse.ArgumentParser(description=__doc__);p.add_argument('--export-parent',type=Path);p.add_argument('--child',choices=SUITES);p.add_argument('--result',type=Path);p.add_argument('--output',type=Path);p.add_argument('--suite',choices=['all',*SUITES],default='all');p.add_argument('--workers',type=int,choices=range(1,4),default=3);p.add_argument('--timeout-seconds',type=int,default=480);p.add_argument('--rounds',type=int,choices=(1,10),default=1);p.add_argument('--seed',type=int,default=0);p.add_argument('--mode',choices=('acceptance','development'),default='acceptance');args=p.parse_args()
     if args.export_parent is not None:
         print(json.dumps(export_reports(args.export_parent),sort_keys=True));return 0
     six_web_mode=validate_six_web_mode(os.environ.get('CN_SIX_WEB_MODE','dev'),args.rounds,args.child or args.suite,1 if args.child else args.workers)
@@ -351,12 +405,20 @@ def main():
         changed=state_after['dirty']
         fixed=head==commit and not dirty and not changed
         value=dict(roundId=round_id,startedAt=round_started,finishedAt=datetime.datetime.now(datetime.timezone.utc).isoformat(),durationSeconds=round(time.monotonic()-round_start,3),commit=commit,seed=seed,sourceStateBefore=state_before,sourceStateAfter=state_after,sourceUnchanged=fixed,suites=rows,status='passed'if fixed and all(x['status']=='passed'for x in rows)else'failed',externalServiceMode='fixtures',integrationGaps=GAPS)
+        value['mode']=args.mode
+        value['continuation']=round_continuation(args.mode,value,names,folder,os.environ.get('GITHUB_RUN_ID'))
         write_json(folder/'round.json',value);rounds.append(value);state_before=state_after
-        if value['status']!='passed':break
-    summary=dict(kind='cn-release-isolated-simulation-v1',commit=commit,trackedChanges=dirty,initialSourceState=initial_state,githubRunId=os.environ.get('GITHUB_RUN_ID'),githubRunAttempt=os.environ.get('GITHUB_RUN_ATTEMPT'),startedAt=started,finishedAt=datetime.datetime.now(datetime.timezone.utc).isoformat(),requestedRounds=args.rounds,completedRounds=len(rounds),baseSeed=args.seed,rounds=rounds,status='passed'if len(rounds)==args.rounds and all(x['status']=='passed'for x in rounds)else'failed',productionAccepted=False,externalServiceMode='fixtures',integrationGaps=GAPS)
+        print(json.dumps({'event':'round-finished','roundId':round_id,'mode':args.mode,'status':value['status'],'continueAllowed':value['continuation']['allowed'],'reason':value['continuation']['reason'],'completedSuites':len(rows)},sort_keys=True),flush=True)
+        if not value['continuation']['allowed']:break
+    summary=dict(kind='cn-release-isolated-simulation-v1',mode=args.mode,commit=commit,trackedChanges=dirty,initialSourceState=initial_state,githubRunId=os.environ.get('GITHUB_RUN_ID'),githubRunAttempt=os.environ.get('GITHUB_RUN_ATTEMPT'),startedAt=started,finishedAt=datetime.datetime.now(datetime.timezone.utc).isoformat(),requestedRounds=args.rounds,completedRounds=len(rounds),baseSeed=args.seed,rounds=rounds,status='passed'if len(rounds)==args.rounds and all(x['status']=='passed'for x in rounds)else'failed',productionAccepted=False,externalServiceMode='fixtures',integrationGaps=GAPS)
     quantify(summary,output)
+    if args.mode=='development':
+        summary['completeRegressionAccepted']=False;summary['isolatedAcceptance']=False
+        summary['isolatedAcceptanceDecision']['isolatedAcceptance']=False
+        summary['acceptanceGates']['accepted']=False
+        summary['integrationGaps'].append('Development mode retains known clean fixture failures and never certifies final ten-round acceptance.')
     summary['testsStatus']=summary['status']
-    accepted_run=summary['status']=='passed'and(args.rounds==1 or summary['isolatedAcceptance']is True)
+    accepted_run=args.mode=='acceptance'and summary['status']=='passed'and(args.rounds==1 or summary['isolatedAcceptance']is True)
     summary['exitStatus']='passed'if accepted_run else 'blocked'if summary['status']=='passed'else 'failed'
     summary['blockedReason']='FINAL_ISOLATED_ACCEPTANCE_INCOMPLETE'if summary['exitStatus']=='blocked'else None
     write_json(output/'summary.json',summary);render_reports(output);print(json.dumps({'summary':str(output/'summary.json'),'status':summary['exitStatus'],'testsStatus':summary['testsStatus'],'blockedReason':summary['blockedReason'],'commit':commit,'completedRounds':len(rounds),'completeRegressionAccepted':summary['completeRegressionAccepted']},sort_keys=True));return 0 if accepted_run else 1
