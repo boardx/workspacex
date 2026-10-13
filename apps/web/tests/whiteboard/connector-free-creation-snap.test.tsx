@@ -14,7 +14,7 @@ it.each(['accepted','bypass','locked','deleted','readonly','cancel'] as const)('
   clientX:x,clientY:y,button:0,buttons:1,pointerId:1,metaKey:false,ctrlKey:mode==='bypass',altKey:false,shiftKey:false,
   currentTarget:host,target:host,relatedTarget:null,bubbles:true,cancelable:true,defaultPrevented:false,eventPhase:2,isTrusted:false,timeStamp:0,type:'pointerdown',
   pressure:.5,tangentialPressure:0,tiltX:0,tiltY:0,twist:0,width:1,height:1,pointerType:'mouse',isPrimary:true,
-  detail:0,view:window,pageX:x,pageY:y,screenX:x,screenY:y,movementX:0,movementY:0,
+  detail:0,view:{document,styleMedia:{type:'screen',matchMedium:()=>true}},pageX:x,pageY:y,screenX:x,screenY:y,movementX:0,movementY:0,
   nativeEvent:new MouseEvent('pointerdown',{clientX:x,clientY:y}) as PointerEvent,
   getModifierState(key){return key==='Control'&&mode==='bypass';},preventDefault(){},stopPropagation(){},persist(){},isDefaultPrevented(){return false;},isPropagationStopped(){return false;},
  });
