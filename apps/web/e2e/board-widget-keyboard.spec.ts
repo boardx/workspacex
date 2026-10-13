@@ -1,16 +1,18 @@
 import {test,expect} from '@playwright/test';
 import {FULLSTACK_E2E as F} from './fullstack-smoke-fixture';
 import {boardLogin,canonicalBoardSnapshot,createAcceptanceBoard,object,createCommands,operate} from './board-acceptance-support';
+import {runtimeSourceIdentity,observeRuntimeChunks,verifyRuntimeIdentity} from './board-runtime-evidence';
 import {deleteOwnedConnectorFixture} from './support/connector-acceptance-fixture';
 
 test('real canvas sticky and rectangle Tab continue/select; Delete and each undo persist atomically',async({page,request:api},info)=>{
+ const sourceSha=runtimeSourceIdentity(),chunks=observeRuntimeChunks(page);
  const token=await boardLogin(page),owned:Array<{id:string;title:string}>=[];let failure:unknown;
  const synced=async()=>{await expect(page.getByTestId('board-sync-status')).toHaveAttribute('data-sync-phase','synced');};
  try{
   for(const kind of ['sticky','rectangle'] as const){
    const title=`Keyboard ${kind} ${info.project.name}`,id=await createAcceptanceBoard(api,token,title);owned.push({id,title});
    const source=object(`keyboard-${kind}`,kind,100,220,'',80,70);await operate(api,token,id,createCommands([source]));
-   await page.goto(`/studio/board/${id}`);await synced();const before=await canonicalBoardSnapshot(api,token,id),surface=page.getByTestId('board-fabric-surface');
+   await page.goto(`/studio/board/${id}`);await synced();const runtimeProof=await verifyRuntimeIdentity(api,sourceSha,await chunks());await info.attach(`${kind}-runtime-before`,{body:JSON.stringify(runtimeProof,null,2),contentType:'application/json'});const before=await canonicalBoardSnapshot(api,token,id),surface=page.getByTestId('board-fabric-surface');
    const box=await surface.boundingBox();expect(box).not.toBeNull();const zoom=Number(await surface.getAttribute('data-viewport-zoom')),panX=Number(await surface.getAttribute('data-viewport-pan-x')),panY=Number(await surface.getAttribute('data-viewport-pan-y'));
    const point={x:box!.x+panX+140*zoom,y:box!.y+panY+255*zoom};
    expect(await page.evaluate(p=>document.elementFromPoint(p.x,p.y)?.tagName==='CANVAS',point)).toBe(true);await page.mouse.click(point.x,point.y);
@@ -26,6 +28,7 @@ test('real canvas sticky and rectangle Tab continue/select; Delete and each undo
    await surface.focus();await page.keyboard.press('ControlOrMeta+a');await page.getByTestId('board-title-menu').click();const input=page.getByLabel('白板名称');await input.fill(`${title}X`);await input.press('Home');await input.press('Delete');await expect(input).toHaveValue(`${title.slice(1)}X`);await input.fill(title);await input.press('Tab');
    expect((await canonicalBoardSnapshot(api,token,id)).objects).toEqual(before.objects);await page.keyboard.press('Escape');
    await page.screenshot({path:info.outputPath(`${kind}-keyboard.png`)});
+   await info.attach(`${kind}-runtime-after`,{body:JSON.stringify(await verifyRuntimeIdentity(api,sourceSha,await chunks()),null,2),contentType:'application/json'});
   }
  }catch(error){failure=error;}
  finally{const errors:unknown[]=[];for(const board of owned){try{await deleteOwnedConnectorFixture(api,token,board.id,F.userId,board.title);}catch(error){errors.push(error);}}if(errors.length)failure=new AggregateError([...(failure?[failure]:[]),...errors],'Keyboard execution/cleanup failures');}
