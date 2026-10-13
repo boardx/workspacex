@@ -1,7 +1,7 @@
 'use strict';
 // Observe only Next's fixed dev-server fork. No restart, signal or argv changes.
 const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto');
-const cp=require('node:child_process');
+const cp=require('node:child_process'),{performance}=require('node:perf_hooks');
 const web=path.resolve(__dirname,'../../../apps/web');
 const cli=require.resolve('next/dist/bin/next',{paths:[web]});
 const worker=require.resolve('next/dist/server/lib/start-server',{paths:[web]});
@@ -15,12 +15,12 @@ if(process.argv[1]===cli&&process.env.CN_RELEASE_FULLSTACK_FIXTURE==='1'){
   const child=Reflect.apply(original,this,[modulePath,...rest]);
   if(modulePath!==worker)return child;
   const options=rest.find(v=>v&&typeof v==='object'&&!Array.isArray(v));const values=String(options?.env?.NODE_OPTIONS||'').match(/--max-old-space-size=(\d+)/g)||[];
-  const heapMiB=values.length===1?Number(values[0].split('=')[1]):null;const index=++sequence;
+  const heapMiB=values.length===1?Number(values[0].split('=')[1]):null;const index=++sequence,forkedAt=new Date().toISOString(),at=performance.now();
   // Next may restart its own worker; retain only a bounded observation sequence.
   if(index>4)return child;
   let started=null;
   child.on('spawn',()=>{try{started=identity(child.pid);}catch{}});
-  child.on('exit',(exitCode,signal)=>{try{const after=fs.lstatSync(directory);need(after.ino===st.ino&&after.dev===st.dev);store(directory,`next-worker-${index}.json`,{kind:'cn-next-worker-exit-v1',workerPathSha256:crypto.createHash('sha256').update(worker).digest('hex'),process:started,heapMiB,exitCode,signal:['SIGKILL','SIGTERM','SIGINT','SIGABRT','SIGSEGV','SIGBUS'].includes(signal)?signal:null});}catch{}});
+  child.on('exit',(exitCode,signal)=>{try{const after=fs.lstatSync(directory);need(after.ino===st.ino&&after.dev===st.dev);store(directory,`next-worker-${index}.json`,{kind:'cn-next-worker-exit-v1',forkedAt,exitedAt:new Date().toISOString(),elapsedMilliseconds:Number((performance.now()-at).toFixed(3)),workerPathSha256:crypto.createHash('sha256').update(worker).digest('hex'),process:started,heapMiB,exitCode,signal:['SIGKILL','SIGTERM','SIGINT','SIGABRT','SIGSEGV','SIGBUS'].includes(signal)?signal:null});}catch{}});
   return child;
  };
 }

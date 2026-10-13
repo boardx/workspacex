@@ -76,7 +76,7 @@ test('fixed observer preserves fork arguments and retains signal without exposin
   runInNewContext(readFileSync(source,'utf8'),{require:req,module:{exports:{}},__dirname:resolve('tests/fixtures/cn-six-business'),process:{argv:['node',cli],env:{CN_RELEASE_FULLSTACK_FIXTURE:'1',CN_SIX_REPORT_PATH:join(directory,'report.json')},getuid:process.getuid!.bind(process)}});
   assert.equal(cp.fork(worker,[],options),child);assert.equal(seen[2],options);listeners.spawn!();listeners.exit!(null,'SIGKILL');
   const raw=readFileSync(join(directory,'next-worker-1.json'),'utf8'),receipt=JSON.parse(raw);
-  assert.equal(receipt.signal,'SIGKILL');assert.equal(receipt.exitCode,null);assert.equal(receipt.heapMiB,3072);assert.equal(raw.includes('never-export'),false);assert.equal(raw.includes(worker),false);
+  assert.ok(receipt.elapsedMilliseconds>=0);assert.match(receipt.forkedAt,/^20[0-9]{2}-/);assert.match(receipt.exitedAt,/^20[0-9]{2}-/);assert.equal(receipt.signal,'SIGKILL');assert.equal(receipt.exitCode,null);assert.equal(receipt.heapMiB,3072);assert.equal(raw.includes('never-export'),false);assert.equal(raw.includes(worker),false);
   cp.fork('/unrelated-worker',[],options);assert.equal(seen[0],'/unrelated-worker');
  }finally{rmSync(directory,{recursive:true,force:true});}
 });
