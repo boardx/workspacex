@@ -70,7 +70,20 @@ test("research and interview use consistent command controls without model execu
       return { text: el.textContent, height: box.height, background: style.backgroundColor, color: style.color, position: style.position };
     }));
     metrics.push({ domain, width, buttons });
-    if (!baseline) expect(await file.evaluate(el => el.getBoundingClientRect().height)).toBe(36);
+    if (!baseline) {
+      const footer = page.locator('[data-workflow-action-bar="footer"]');
+      await expect(footer).toHaveCount(1);
+      await expect(footer.locator('[data-workflow-action-bar]')).toHaveCount(0);
+      expect(await footer.evaluate(node => node.previousElementSibling !== null && getComputedStyle(node).position !== "fixed")).toBe(true);
+      expect(await footer.locator("button").evaluateAll(nodes => nodes.every(node => node.getBoundingClientRect().height === 36))).toBe(true);
+      const back = domain === "research" ? page.getByTestId("research-flow-back") : page.getByTestId("itv-return-history");
+      expect(await back.evaluate(node => node.getBoundingClientRect().height)).toBe(36);
+      expect(await back.evaluate(node => getComputedStyle(node).backgroundColor)).toBe(await file.evaluate(node => getComputedStyle(node).backgroundColor));
+      await back.click();
+      await expect(page).toHaveURL(domain === "research" ? /\/research$/ : /\/itv\?tab=history$/);
+      await page.goto(route);
+      await expect(file).toBeEnabled();
+    }
     await page.screenshot({ path: resolve(output, `${baseline ? "before" : "after"}-${domain}-${width}.png`), fullPage: true });
   }
   expect(await activity()).toEqual(before);

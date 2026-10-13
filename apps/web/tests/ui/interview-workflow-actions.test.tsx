@@ -1,6 +1,7 @@
 import * as React from 'react';
 import { cleanup,render,screen,fireEvent,waitFor } from '@testing-library/react';
 import { afterEach,it,expect,vi } from 'vitest';
+import { InterviewRunsStep } from '@/components/itv/interview-runs-step';
 import { InterviewIntakeStep } from '@/components/itv/interview-intake-step';
 import { InterviewExpertsStep } from '@/components/itv/interview-experts-step';
 import { InterviewOutlineStep } from '@/components/itv/interview-outline-step';
@@ -25,4 +26,11 @@ it('does not confuse read-only expert controls with active loading',async()=>{
 it('uses the same footer for question actions without moving local delete controls',()=>{
  render(<InterviewOutlineStep document={{...document,step:'outline',markdown:'# 问题\n\n## [模拟专家](#expert-virtual-actions)\n\n1. 谁负责预算？'}} pending={false} onChange={vi.fn()} onSave={vi.fn()} onConfirm={vi.fn()} onGenerate={vi.fn()}/>);
  const footer=screen.getByTestId('itv-step-actions');expect(footer).toHaveAttribute('data-workflow-action-bar','footer');expect(footer.lastElementChild).toHaveTextContent('确认问题并开始访谈');expect(screen.getByRole('button',{name:'删除问题 1'}).closest('[data-workflow-action-bar]')).toBeNull();
+});
+
+it('keeps report generation idle while a simulation command is pending',()=>{
+ const {rerender}=render(<InterviewRunsStep runs={[]} pending onGenerateReport={vi.fn()}/>);
+ const button=screen.getByRole('button',{name:/^生成报告$/});expect(button).toBeDisabled();expect(button).not.toHaveAttribute('aria-busy','true');expect(button.querySelector('.animate-spin')).toBeNull();
+ rerender(<InterviewRunsStep runs={[]} pending generatingReport onGenerateReport={vi.fn()}/>);
+ expect(screen.getByRole('button',{name:'正在生成报告…'})).toHaveAttribute('aria-busy','true');
 });

@@ -37,9 +37,9 @@ function savedInsights(document: interviewMarkdown.InterviewMarkdownDocument, pr
   }
   return insights;
 }
-export function InterviewRunsStep({ runs, document, pending, onGenerateReport, taskProgress = false, actions }: {
+export function InterviewRunsStep({ runs, document, pending, generatingReport = false, onGenerateReport, taskProgress = false, actions }: {
   readonly runs: readonly RunMetadata[]; readonly document?: interviewMarkdown.InterviewMarkdownDocument;
-  readonly pending: boolean; readonly onGenerateReport: () => void;
+  readonly generatingReport?: boolean; readonly pending: boolean; readonly onGenerateReport: () => void;
   readonly taskProgress?: boolean;
   readonly actions?: React.ReactNode;
 }) {
@@ -98,6 +98,6 @@ export function InterviewRunsStep({ runs, document, pending, onGenerateReport, t
         </div>
         </section>
     </div>
-    <InterviewStepActions>{actions}<ActionButton variant="primary" loading={pending} icon={<FileText className="size-4" aria-hidden />} disabled={!ready || pending} onClick={onGenerateReport}>{pending ? "正在生成报告…" : "生成报告"}</ActionButton></InterviewStepActions>
+    <InterviewStepActions>{actions}<ActionButton variant="primary" loading={generatingReport} icon={<FileText className="size-4" aria-hidden />} disabled={!ready || pending} onClick={onGenerateReport}>{generatingReport ? "正在生成报告…" : "生成报告"}</ActionButton></InterviewStepActions>
   </div>;
 }

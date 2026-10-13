@@ -35,3 +35,15 @@ describe("shared research/interview workflow commands", () => {
     fireEvent.click(link); expect(parentClick).toHaveBeenCalledOnce(); expect(childClick).toHaveBeenCalledOnce();
   });
 });
+
+it("blocks auxiliary link activation while loading and restores callbacks and tab order", () => {
+ const parent=vi.fn(), child=vi.fn((event: React.MouseEvent)=>event.preventDefault());
+ const {rerender}=render(<WorkflowActionButton asChild loading onAuxClick={parent}><a href="/research" tabIndex={0} onAuxClick={child}>返回</a></WorkflowActionButton>);
+ const link=screen.getByRole('link',{name:'返回'});
+ expect(link).toHaveAttribute('tabindex','-1');
+ expect(fireEvent(link,new MouseEvent('auxclick',{bubbles:true,cancelable:true,button:1}))).toBe(false);
+ expect(parent).not.toHaveBeenCalled();expect(child).not.toHaveBeenCalled();
+ rerender(<WorkflowActionButton asChild onAuxClick={parent}><a href="/research" tabIndex={0} onAuxClick={child}>返回</a></WorkflowActionButton>);
+ expect(link).toHaveAttribute('tabindex','0');
+ fireEvent(link,new MouseEvent('auxclick',{bubbles:true,cancelable:true,button:1}));expect(parent).toHaveBeenCalledTimes(1);expect(child).toHaveBeenCalledTimes(1);
+});
