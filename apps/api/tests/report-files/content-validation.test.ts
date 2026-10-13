@@ -33,3 +33,14 @@ it('allows an authorized appendix to repeat a quotation also present in the cano
   const text = `中文报告 用户需要可下载和编辑的真实报告文件。 ${source.notices.join(' ')} ${repeated.appendixMarkdown}`;
   expect(() => validateReportContent('docx', text, repeated)).not.toThrow();
 });
+
+it('checks wrapped PDF autolinks without duplicating their identical display target', () => {
+  const url = 'https://example.com/procurement-proof';
+  const paragraph = `来源链接（验收样本）：${url}`;
+  const linked = { ...source, markdown: `${source.markdown}\n\n${paragraph}` };
+  const prose = `中文报告 用户需要可下载和编辑的真实报告文件。 ${source.notices.join(' ')}`;
+  // Anydoc recognizes the first visual line as an autolink; the continuation is plain text.
+  const extracted = `${prose} 来源链接（验收样本）：[https://example.com/procurement-pr](https://example.com/procurement-pr) oof`;
+  expect(() => validateReportContent('pdf', extracted, linked)).not.toThrow();
+  expect(() => validateReportContent('pdf', extracted.replace(' oof', ''), linked)).toThrow();
+});

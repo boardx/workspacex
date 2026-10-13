@@ -1,5 +1,6 @@
 import { REPORT_FILE_FORMATS } from '@repo/contracts/report-files';
-import { PLATFORM_ORG_ID } from '../../domain/org-id';
+import { listSkills } from '../../application/skill/list-skills';
+import { PgSkillContractRepository } from '../skill/pg-skill-contract-repository';
 import { PLATFORM_SKILL_CATALOG } from '../../domain/skill/platform-skill-catalog';
 import type { DatabasePort } from '../../application/ports/database.port';
 import type { AgentRunStore, AgentRunExecutorPort } from '../../application/agent-run/ports';
@@ -29,14 +30,22 @@ export class ChatReportFileRuntime implements ReportFileChatRuntime {
     const stableName = REPORT_FILE_FORMATS[format].skillStableName;
     const official = PLATFORM_SKILL_CATALOG.find(item => item.stableName === stableName);
     if (!official) throw new ReportFileError('SKILL_UNAVAILABLE');
-    const rows = await this.deps.db.withTenant(actor.orgId, async session => (await session.query<{ version_id: string; digest: string }>(
-      `SELECT v.id AS version_id, f.digest FROM skills sk
-       JOIN skill_versions v ON v.skill_id=sk.id AND v.org_id=sk.org_id AND v.published
-       JOIN skill_version_files f ON f.version_id=v.id AND f.org_id=v.org_id AND f.path='SKILL.md'
-       WHERE sk.id=$1 AND sk.org_id=$2 AND sk.stable_name=$3 AND sk.status='enabled'
-       ORDER BY v.created_at DESC, v.id DESC LIMIT 1`, [official.skillId, PLATFORM_ORG_ID, stableName])).rows);
-    if (!rows[0]) throw new ReportFileError('SKILL_UNAVAILABLE');
-    return { stableName, versionId: rows[0].version_id, digest: rows[0].digest };
+    const membership = await this.deps.messages.repo.findOrgMembership(actor.userId, actor.orgId);
+    if (!membership) throw new ReportFileError('SKILL_UNAVAILABLE');
+    const catalog = await listSkills({ orgId: actor.orgId, entry: 'chat-mount',
+      orgRole: membership?.orgRole ?? null, requesterTeamId: membership?.teamId ?? null }, {
+      catalog: new PgSkillContractRepository(this.deps.db).forOrg(actor.orgId),
+      nextDecisionId: () => this.deps.messages.ids.next(),
+    });
+    const visible = catalog.items.find(item => item.skillId === official.skillId && item.status === '已启用');
+    if (!visible?.currentVersionId) throw new ReportFileError('SKILL_UNAVAILABLE');
+    // Only the authorized catalog's current official version is read; acceptance additionally
+    // checks it against the actual General Agent's existing authorized version pool.
+    const [selected] = await this.deps.runs.readPinnedSkills(actor.orgId, [visible.currentVersionId]);
+    const digest = selected?.package?.files.find(file => file.path === 'SKILL.md')?.digest;
+    if (selected?.stableName !== stableName || selected.package?.skillId !== official.skillId || !digest)
+      throw new ReportFileError('SKILL_UNAVAILABLE');
+    return { stableName, versionId: selected.versionId, digest };
   }
   async accept(record: StoredReportFileJob, source: ReportFileSourceSnapshot, saveThread: (id: string) => Promise<void>) {
     const actor = record.actor;

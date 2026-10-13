@@ -1,3 +1,4 @@
+// @global-scope-fixture seeder:ensurePlatformSkillCatalogSeeded: The required with-test-isolation runner drops its owned database, including platform seed rows, after this opted-in native lane.
 import 'reflect-metadata';
 import { createHash, randomUUID } from 'node:crypto';
 import { createServer, type Server } from 'node:http';

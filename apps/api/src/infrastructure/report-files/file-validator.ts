@@ -47,7 +47,7 @@ export class ReportGeneratedFileValidator implements ReportFileValidator {
 }
 
 export function normalizeReportText(text: string): string {
-  return text.replace(/\[([^\]]*)\]\(([^)]*)\)/g, '$1 $2').replace(/[#*_`>|\[\]\s]/g, '').normalize('NFKC');
+  return text.replace(/\[([^\]]*)\]\(([^)]*)\)/g, (_match, label: string, url: string) => label === url ? label : `${label} ${url}`).replace(/[#*_`>|\[\]\s]/g, '').normalize('NFKC');
 }
 /** Data completeness only. Never repair/rewrite the canonical report with another model. */
 export function validateReportContent(format: FileRequest['format'], extracted: string, source: ReportFileSourceSnapshot, relationUrls: readonly string[] = []): void {
