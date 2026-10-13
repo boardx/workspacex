@@ -330,7 +330,12 @@ export async function appendProjectChat(
       : ai.writeback.frames !== undefined && framesKeepPagesAligned(current.prototype, ai.writeback.frames)
         ? { frames: ai.writeback.frames } : {}),
   };
-  const patch: DesignProjectPatch = assembled.prototype === undefined ? assembled : { ...assembled, prototype: keepImages(assembled.prototype) };
+  const patch: DesignProjectPatch = assembled.prototype === undefined ? assembled : {
+    ...assembled, prototype: keepImages(assembled.prototype),
+    ...(patched === undefined || ai.pageNotes === undefined ? {} : {
+      frameNotes: patched.map((screen, index) => ai.pageNotes?.find((note) => note.screen === index)?.notes ?? screen.notes ?? ""),
+    }),
+  };
   if (ai.writeback.frames !== undefined && screens === undefined && !framesKeepPagesAligned(current.prototype, ai.writeback.frames)) {
     // 拒绝要留痕：静默丢字段会让「模型说加了页、页数没变」看起来像模型抽风，而不是一条门控。
     deps.logger?.info("design chat: frames writeback rejected, page count would desync prototype", {

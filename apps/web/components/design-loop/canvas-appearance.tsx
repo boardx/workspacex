@@ -1,6 +1,6 @@
 "use client";
 /**
- * 迭代 24 —— 画布工具条的「外观」面板：明暗、强调色、设备三件事收进一个按钮。
+ * 画布工具条的「外观」面板：明暗、颜色、字体等样式设置。设备选择已移到 header。
  *
  * ## 为什么要收起来
  *
@@ -9,7 +9,7 @@
  * 对第一次来做原型的人，这一行里真正每天要用的只有两三个（切页、编辑/预览），
  * 而最显眼的是那八个圆点——他既不知道那是什么，也不知道该不该动它。
  *
- * 外观这三件事的共同点是**设一次就不再动**。把它们收进一个按钮，常态下工具条少掉
+ * 设备经常需要调整，直接显示在 header；其余外观设置保留在此面板。把它们收进一个按钮，常态下工具条少掉
  * 十几个控件；点开之后每一节有中文小标题，那八个圆点第一次有了名字。
  *
  * 顺带解决一个硬伤：这一排在 375 档把整个页面撑出 460px 的横向滚动
@@ -21,11 +21,10 @@
  * Esc 关掉」。引一个新原语要连带定位策略、焦点陷阱、portal 三件事，都是这一处用不上的。
  */
 import * as React from "react";
-import { Moon, Palette, RotateCw, Sun } from "lucide-react";
+import { Moon, Palette, Sun } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { designWorkbench } from "@repo/contracts";
 import type { PrototypeAccent } from "@/lib/live-design-workbench";
-import type { PrototypeDevicePreset } from "./prototype-canvas";
 
 /** 对标 R1：字体档位的人话名（只有这个面板说它们）。 */
 const FONT_LABEL: Readonly<Record<designWorkbench.PrototypeFont, string>> = {
@@ -62,7 +61,7 @@ function Segmented<T extends string>({ options, value, label, onPick, kind, prev
 export function CanvasAppearance({
   theme, onTheme, accent, accentOptions, accentLabel, accentSwatch, onAccent,
   brand, onBrand, font, onFont, radius, onRadius, density, onDensity,
-  devices, deviceId, onDevice, landscape, onLandscape, rotatable, open: openProp, onOpenChange, hideTrigger = false,
+  open: openProp, onOpenChange, hideTrigger = false,
 }: {
   readonly theme: "light" | "dark";
   readonly onTheme: (t: "light" | "dark") => void;
@@ -81,12 +80,6 @@ export function CanvasAppearance({
   readonly onRadius: (r: designWorkbench.PrototypeRadiusScale) => void;
   readonly density: designWorkbench.PrototypeDensity;
   readonly onDensity: (d: designWorkbench.PrototypeDensity) => void;
-  readonly devices: readonly PrototypeDevicePreset[];
-  readonly deviceId: string;
-  readonly onDevice: (id: string) => void;
-  readonly landscape: boolean;
-  readonly onLandscape: () => void;
-  readonly rotatable: boolean;
   /**
    * design-delta `novice-progressive-disclosure`：「外观」收进详情页的「更多」菜单——由菜单项打开，
    * 自带的触发按钮不再出现在首屏。三个都不传 ⇒ 行为与之前逐字相同。
@@ -130,7 +123,7 @@ export function CanvasAppearance({
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
         data-testid="design-detail-appearance"
-        title="外观：明暗、强调色、设备尺寸"
+        title="外观：明暗、颜色、字体"
         className={cn(
           "inline-flex items-center gap-1 rounded-control border border-border px-2 py-1 text-11 transition-colors duration-fast focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
           open ? "bg-card text-card-foreground" : "text-muted-foreground hover:bg-card/60",
@@ -257,30 +250,7 @@ export function CanvasAppearance({
             />
           </Section>
 
-          <Section title="设备" hint="只改画板尺寸；原型没有断点，内容按 flex 自适应">
-            <div className="flex items-center gap-1">
-              <select
-                value={deviceId}
-                onChange={(e) => onDevice(e.target.value)}
-                data-testid="design-detail-device"
-                aria-label="设备尺寸"
-                className="h-7 min-w-0 flex-1 rounded-control border border-border bg-panel px-1 text-11 text-card-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              >
-                {devices.map((d) => (
-                  <option key={d.id} value={d.id}>{d.label} {d.w}×{d.h}</option>
-                ))}
-              </select>
-              <button
-                type="button" onClick={onLandscape} disabled={!rotatable}
-                aria-pressed={landscape && rotatable} data-testid="design-detail-rotate"
-                title={rotatable ? "横过来看" : "这个尺寸没有竖屏一说"}
-                className={cn("inline-flex shrink-0 items-center rounded-control px-1.5 py-1 transition-colors duration-fast disabled:bg-disabled disabled:text-disabled-foreground",
-                  landscape && rotatable ? "bg-panel text-card-foreground" : "text-muted-foreground hover:bg-panel/60")}
-              >
-                <RotateCw aria-hidden className="h-3 w-3" />
-              </button>
-            </div>
-          </Section>
+
         </div>
       )}
     </div>

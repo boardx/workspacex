@@ -24,6 +24,8 @@ import { GithubBadge, SevereBadge } from "./badges";
 import { useDialogFocus } from "./use-dialog-focus";
 import { CardMeta, ItemStatusBadge, KindLabel, describeFailure, formatRelative, type NavigateLink } from "./inbox-shared";
 import { TagEditor } from "./inbox-tags";
+import { DesignHandoffDetails } from "./design-handoff-details";
+import { buildDesignDocMarkdown } from "@/lib/design-doc-markdown";
 
 /**
  * 2026-09-08——运营收件箱的详情 drawer，从 `inbox-screen.tsx` 拆出（该文件已撞 2000 行上限）。
@@ -104,9 +106,8 @@ export function buildInboxIssueDraft(item: InboxItem): FeedbackIssueDraft {
  * 什么、源自哪条反馈"。硬塞进一个函数会变成一串 `item.kind === ...` 的三元表达式，
  * 两边的措辞都会被对方拖住。
  *
- * ⚠ 能放进来的只有**收件箱条目身上有的字段**：`criteria`/`frames` 住在 `DesignProject` 上，
- *   收件箱投影没有带它们（契约 `InboxItem` 的"仅某类"字段表里 design 那几行是"—"）。
- *   正文里因此写了一句"验收标准见方案详情页"并附上回链，而不是编造几条读不到的验收标准。
+ * 收件箱的 design 投影带完整项目，草稿附上逐页设计文档；完整源代码与设计数据
+ * 可从排期详情下载。老条目没有 design 时保留回链提示。
  */
 export function buildDesignIssueDraft(item: InboxItem): FeedbackIssueDraft {
   const B = "**";
@@ -122,7 +123,10 @@ export function buildDesignIssueDraft(item: InboxItem): FeedbackIssueDraft {
     typeof window !== "undefined" && window.location !== undefined
       ? `${window.location.origin}${window.location.pathname}?open=${encodeURIComponent(item.id)}`
       : null;
-  lines.push("", "验收标准与原型画布页见方案详情页（下方链接）。");
+  if (item.design !== undefined) {
+    lines.push("", "### 完整设计交付", "", buildDesignDocMarkdown(item.design));
+    lines.push("", "完整 HTML、组件树、图片与设计参数可在下方开发排期链接的设计详情中下载完整设计包（JSON）。");
+  } else lines.push("", "验收标准与原型画布页见方案详情页（下方链接）。");
   lines.push("", "---", `来源：PM 设计工作台 · 方案 ID ${item.id}${inboxUrl !== null ? ` · ${inboxUrl}` : ""}`);
   return { title: item.title, body: lines.join("\n"), labels: ["design-handoff"] };
 }
@@ -328,6 +332,7 @@ export function InboxDrawer({
           ) : (
             <p className="whitespace-pre-wrap text-13 text-card-foreground">{item.body}</p>
           )}
+          {item.kind === "design" && item.design !== undefined && <DesignHandoffDetails key={item.id} project={item.design} />}
           {/* UC-17.8 D1：反馈类条目的结构化字段。 */}
           {item.kind === "feedback" && item.structured != null && item.feedbackKind !== null && (
             <FeedbackStructuredView

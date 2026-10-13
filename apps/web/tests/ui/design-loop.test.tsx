@@ -1632,7 +1632,7 @@ describe("⑨ PM 设计工作台首页：真栈 listMyProjects / createProject /
       expect(frame().getAttribute("data-chrome")).toBe("phone");
       expect(frame().style.width).toBe("393px");
 
-      await openAppearance();
+      expect(screen.queryByTestId("design-detail-appearance-panel")).toBeNull();
       fireEvent.change(screen.getByTestId("design-detail-device"), { target: { value: "laptop" } });
       expect(frame().getAttribute("data-device")).toBe("laptop");
       expect(frame().getAttribute("data-chrome")).toBe("browser");
@@ -3040,6 +3040,26 @@ describe("2026-09-08：看板五条改进（同异常折叠 / 归档箱 / 标签
 });
 
 describe("⑬ 2026-09-05：设计方案「转开发」——收件箱 drawer 建 GitHub Issue", () => {
+  it("排期详情和建 Issue 草稿均包含完整逐页设计、交互与验收，HTML 页尾文字不丢", async () => {
+    const detail = project({ id: "d1", frames: ["AR 资料页"],
+      prototype: [{ id: "html0", type: "html", props: { html: `<div>${"设计细节".repeat(100)}<button>扫描AR名片</button></div>` } }],
+      criteria: ["AR 扫描失败可以重试"], frameNotes: ["扫描成功进入社区"], frameLinks: [[]] });
+    mockInbox([designItem({ design: detail })]);
+    render(<DesignLoopInboxScreen state="default" />);
+    fireEvent.click(await screen.findByTestId("inbox-card-D-1"));
+    const handoff = await screen.findByTestId("inbox-design-handoff");
+    expect(handoff.textContent).toContain("AR 扫描失败可以重试");
+    expect(handoff.textContent).toContain("扫描成功进入社区");
+    expect(handoff.textContent).toContain("扫描AR名片");
+    expect(within(handoff).getByText("下载完整设计包")).toBeTruthy();
+    fireEvent.click(screen.getByTestId("inbox-action-design-handoff"));
+    const body = (await screen.findByTestId("inbox-issue-body") as HTMLTextAreaElement).value;
+    expect(body).toContain("AR 资料页");
+    expect(body).toContain("AR 扫描失败可以重试");
+    expect(body).toContain("扫描成功进入社区");
+    expect(body).toContain("扫描AR名片");
+  });
+
   it("没有 issue 的设计条目 ⇒ drawer 有「转入开发」按钮（此前 design 条目没有任何操作）", async () => {
     mockInbox([designItem()]);
     render(<DesignLoopInboxScreen state="default" />);

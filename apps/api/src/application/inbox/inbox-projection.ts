@@ -305,6 +305,7 @@ export function buildDesignInboxItems(rows: readonly DesignProjectView[]): Inbox
       code: codes.get(row.id)!,
       title: row.name,
       body: row.problem.trim() !== "" ? row.problem : null,
+      design: { ...row, share: null },
       structured: null,
       feedbackKind: null,
       sourceStatus: issue === null ? "已推送" : "已转开发",

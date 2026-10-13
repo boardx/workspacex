@@ -19,7 +19,7 @@ export function CanvasToolbar({
   project, preview, frame, setFrame, canvasMode, setCanvasMode, viewMode, setViewMode, setBackStack, setSelectedId,
   sideOpen, setSideOpen, renamePage, addPage, duplicatePage, removePage, pageCount, comments, undoLast, undoing, redo,
   redoStack, askVariants, sending, variants, variantScreen, historyOpen, setHistoryOpen, setPreview, appearance, codeOpen, setCodeOpen, onPresent,
-  onOpenAppearance, onOpenSpec, onOpenExport, onPush, onImportThread,
+  onOpenAppearance, onOpenSpec, onOpenExport, onPush, onImportThread, deviceControls,
 }: {
   readonly project: DesignProject;
   readonly preview: PrototypeVersion | null;
@@ -50,8 +50,9 @@ export function CanvasToolbar({
   readonly historyOpen: boolean;
   readonly setHistoryOpen: Setter<boolean>;
   readonly setPreview: Setter<PrototypeVersion | null>;
-  /** 外观面板（明暗、强调色、品牌色、字体、圆角、密度、设备）——它的十几个回调都在详情页，整块传进来。 */
+  /** 外观面板（明暗、强调色、品牌色、字体、圆角、密度）——它的十几个回调都在详情页，整块传进来。 */
   readonly appearance: React.ReactNode;
+  readonly deviceControls: React.ReactNode;
   readonly codeOpen: boolean;
   readonly setCodeOpen: Setter<boolean>;
   /** 深度 S7：进演示模式（状态在详情页：演示时整个编辑器离屏）。 */
@@ -120,7 +121,8 @@ export function CanvasToolbar({
         {/* 页管理（改名 / 加页 / 复制 / 删页）：design-delta `novice-progressive-disclosure` 起在「更多」→「这一页」。 */}
         </div>
         )}
-        <div className="ml-auto inline-flex rounded-control border border-border p-0.5" role="group" aria-label="画布视图">
+        {deviceControls}
+        <div className="inline-flex rounded-control border border-border p-0.5" role="group" aria-label="画布视图">
           <button type="button" onClick={() => setViewMode("board")} aria-pressed={viewMode === "board"} data-testid="design-detail-view-board" title="画板：所有页并排，可平移缩放"
             className={cn("inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 text-10 transition-colors duration-fast", viewMode === "board" ? "bg-card text-card-foreground" : "text-muted-foreground hover:bg-card/60")}>
             <LayoutGrid aria-hidden className="h-3 w-3" /> 画板
@@ -218,7 +220,7 @@ export function CanvasToolbar({
               <MessageSquarePlus aria-hidden className="h-3.5 w-3.5" /> 批注：在画面上钉一句话{comments.comments.some((c) => !c.resolved) ? `（${comments.comments.filter((c) => !c.resolved).length}）` : ""}
             </MenuItem>
             <MenuItem data-testid="design-detail-appearance" onSelect={onOpenAppearance}>
-              <Palette aria-hidden className="h-3.5 w-3.5" /> 外观：明暗、颜色、字体、设备
+              <Palette aria-hidden className="h-3.5 w-3.5" /> 外观：明暗、颜色、字体
             </MenuItem>
             <MenuItem data-testid="design-detail-variants" aria-pressed={variants !== null}
               disabled={preview !== null || sending || variants?.kind === "loading" || (project.prototype[variantScreen] ?? null) === null}

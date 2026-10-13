@@ -37,6 +37,22 @@ function designView(over: Partial<DesignProjectView> = {}): DesignProjectView {
 }
 
 describe("buildDesignInboxItems", () => {
+  it("开发排期携带完整设计、交互、验收与对话，原 HTML 不截断，发布令牌不随交付暴露", () => {
+    const html = `<style>.page{color:purple}</style><div>${"完整细节".repeat(1000)}<button>AR 扫描</button></div>`;
+    const view = designView({ frames: ["AR 用户资料"], prototype: [{ id: "p0", type: "html", props: { html } }],
+      frameNotes: ["扫描成功后打开用户资料"], frameLinks: [[]], criteria: ["AR 扫描失败时可以重试"],
+      chat: [{ role: "user", text: "保留个人资料与AR名片", at: "2026-10-13T01:00:00Z" }],
+      share: { token: "private-publishing-token", scope: "full", publishedAt: "2026-10-13T01:00:00Z", stale: false } });
+    const item = buildDesignInboxItems([view])[0]!.item;
+    expect(item.design).toEqual({ ...view, share: null });
+    expect(JSON.stringify(item.design)).toContain(html.replace(/"/g, '\\"'));
+    expect(item.design!.frameNotes).toEqual(view.frameNotes);
+    expect(item.design!.criteria).toEqual(view.criteria);
+    expect(item.design!.chat).toEqual(view.chat);
+    expect(item.design!.share).toBeNull();
+    expect(JSON.stringify(item.design)).not.toContain("private-publishing-token");
+  });
+
   it("未推送的项目不出现", () => {
     const out = buildDesignInboxItems([designView({ id: "dp-1", pushed: false })]);
     expect(out).toHaveLength(0);
