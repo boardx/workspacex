@@ -11,10 +11,9 @@ import { SharedChatMessages } from "./shared-chat-messages";
 function errorCopy(error: unknown): string {
   if (error instanceof ApiError) {
     if (error.status === 404) return "只有对话创建者可以对外分享。";
-    const serialized = error.reasonCode ?? "";
-    if (serialized.includes("SHARE_PREVIEW_CHANGED")) return "对话内容已更新，请重新打开分享并预览后再生成链接。";
-    if (serialized.includes("SHARE_EMPTY")) return "当前没有可分享的消息。";
-    if (serialized.includes("SHARE_TOO_LARGE")) return "对话或图片过大，暂时无法生成分享。";
+    if (error.reasonCode?.includes("SHARE_PREVIEW_CHANGED")) return "对话内容已更新，请重新打开分享并预览后再生成链接。";
+    if (error.reasonCode?.includes("SHARE_EMPTY")) return "当前没有可分享的消息。";
+    if (error.reasonCode?.includes("SHARE_TOO_LARGE")) return "对话或图片过大，暂时无法生成分享。";
   }
   return "操作失败，请稍后重试。";
 }
