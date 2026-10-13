@@ -85,6 +85,13 @@ export function validatePptxBounds(bytes: Buffer): void {
   const width = Number(size[1]), height = Number(size[2]);
   for (const file of files.filter(entry => /^ppt\/slides\/slide\d+\.xml$/.test(entry.name))) {
     const xml = file.bytes.toString('utf8');
+    // PptxGenJS writes zero-height text boxes when height is omitted. They are inside
+    // slide bounds but centered text expands across headings in actual Office renderers.
+    for (const shape of xml.matchAll(/<p:sp(?:\s[^>]*)?>([\s\S]*?)<\/p:sp>/g)) {
+      if (!/<a:t(?:\s[^>]*)?>/.test(shape[1]!)) continue;
+      const extent = /<a:xfrm\b[^>]*>[\s\S]*?<a:ext\b[^>]*cx="(\d+)"[^>]*cy="(\d+)"/.exec(shape[1]!);
+      if (extent && (Number(extent[1]) <= 0 || Number(extent[2]) <= 0)) throw new ReportFileError('INVALID_FILE');
+    }
     for (const transform of xml.matchAll(/<a:xfrm\b[^>]*>([\s\S]*?)<\/a:xfrm>/g)) {
       const offset = /<a:off\b[^>]*x="(-?\d+)"[^>]*y="(-?\d+)"/.exec(transform[1]!);
       const extent = /<a:ext\b[^>]*cx="(\d+)"[^>]*cy="(\d+)"/.exec(transform[1]!);
