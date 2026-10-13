@@ -18,7 +18,7 @@ function fixture(projectId: string | null = null) {
 describe('canonical interview report file source',()=>{
  it('preserves canonical bytes, document version, personal scope and unapproved simulation notices',async()=>{
   const f=fixture(); const value=await f.resolver.read({orgId,userId:'owner'},'interview');
-  expect(value.markdown).toBe(f.report.markdown);expect(value.reportHash).toBe(digest(value.markdown));expect(value.reportVersion).toBe(2);expect(value.projectId).toBeNull();expect(value.notices.join(' ')).toContain('模拟');expect(value.notices.join(' ')).toContain('未批准');
+  expect(value.markdown).toBe(f.report.markdown);expect(value.reportHash).toBe(digest(value.markdown));expect(value.reportVersion).toBe(2);expect(value.notices.join(" ")).toContain(`文档版本 2 · 内容哈希 ${value.reportHash}`);expect(value.projectId).toBeNull();expect(value.notices.join(' ')).toContain('模拟');expect(value.notices.join(' ')).toContain('未批准');
  });
  it('takes project identity from authorized visibility facts',async()=>{expect((await fixture('project').resolver.read({orgId,userId:'owner'},'interview')).projectId).toBe('project');});
  it('rejects outsiders and cross-org without reading canonical content',async()=>{

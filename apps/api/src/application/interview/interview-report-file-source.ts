@@ -23,7 +23,7 @@ export class InterviewReportFileSource implements ReportFileSourceResolver {
    if(!current.revisionId || !document || !document.markdown.trim() || !state || !['draft','confirmed','completed'].includes(state.status)) throw new ReportFileSourceError('REPORT_UNAVAILABLE');
    const reportHash = hash(document.markdown);
    if(reportHash!==document.contentHash) throw new ReportFileSourceError('REPORT_CHANGED');
-   const notices:string[]=[];
+   const notices:string[]=[`文档版本 ${document.version} · 内容哈希 ${reportHash}`];
    if(document.evidenceMode==='simulated') notices.push('本报告基于 AI 模拟访谈，不代表真实用户证据，需真人验证。');
    if(document.evidenceMode==='mixed') notices.push('本报告包含混合证据，模拟内容不代表真实用户证据。');
    if(state.status==='draft') notices.push('当前报告为已保存草稿。');
