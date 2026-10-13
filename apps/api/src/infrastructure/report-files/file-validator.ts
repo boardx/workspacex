@@ -62,8 +62,8 @@ export function validateReportContent(format: FileRequest['format'], extracted: 
     const required = reportFileContentRequirements(completeInput);
     const urls = normalizeReportText(extracted + relationUrls.join(' '));
     if (required.urls.some(url => !urls.includes(normalizeReportText(url)))) throw new ReportFileError('INVALID_FILE');
-    const title = normalizeReportText(source.title);
-    if (title && text.split(title).length - 1 > Math.max(1, canonical.split(title).length - 1)) throw new ReportFileError('INVALID_FILE');
+    const title = normalizeReportText(required.title ?? source.title);
+    if (title && (!text.includes(title) || text.split(title).length - 1 > Math.max(1, canonical.split(title).length - 1))) throw new ReportFileError('INVALID_FILE');
     for (const paragraph of required.paragraphs.map(normalizeReportText).filter(value => value.length >= 12)) {
       if (!text.includes(paragraph)) throw new ReportFileError('INVALID_FILE');
       const count = (value: string, needle: string) => value.split(needle).length - 1;

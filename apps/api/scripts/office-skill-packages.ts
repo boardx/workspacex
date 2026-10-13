@@ -56,8 +56,14 @@ Do not call an unconfigured soffice wrapper. Do not redraw a separate PDF and cl
 it is a preview of the DOCX/XLSX/PPTX. Spot-check only the PNGs in the manifest's inspect
 list (at most 3); do not open every page. Exit 0 still requires that visual spot-check; a
 font warning alone is not a rendering failure.
-Do not run npm/pip installs. Publish the verified actual source and previews with
-wx_artifact_publish. Adapt legacy environment-variable examples to these native paths.
+Do not run npm/pip installs. Complete required rendering and visual spot-checks before
+publishing the verified actual source with wx_artifact_publish. Preview files are internal
+QA by default: publish them additionally only when the caller explicitly requests preview
+attachments. A request for one source file must produce only that source attachment.
+A successful staged result means publication is accepted; finish the final reply after
+verification, without rewriting or republishing the same verified source or polling for
+ready. The existing successful run writeback makes the artifact and attachment ready.
+Adapt legacy environment-variable examples to these native paths.
 
 `;
 export function officeSkillPackage(spec:{skillId:string;stableName:string;content:string}) {

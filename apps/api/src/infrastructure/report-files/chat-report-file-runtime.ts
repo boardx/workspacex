@@ -100,5 +100,6 @@ export class ChatReportFileRuntime implements ReportFileChatRuntime {
 
 /** UTF-8 attachment bytes preserve real Markdown line breaks and the authorized input exactly. */
 export function encodeSavedReportInput(source: ReportFileSourceSnapshot): Uint8Array {
-  return Buffer.from(`# 文件生成披露\n\n${source.notices.join('\n\n')}\n\n# 报告正文\n\n${source.markdown}\n\n# 已授权来源附录\n\n${source.appendixMarkdown ?? ''}`);
+  const appendix = source.appendixMarkdown ? `\n\n## 已授权来源附录\n\n${source.appendixMarkdown}` : '';
+  return Buffer.from(`${source.markdown}\n\n## 文件生成披露\n\n${source.notices.join('\n\n')}${appendix}`);
 }

@@ -44,3 +44,12 @@ it('checks wrapped PDF autolinks without duplicating their identical display tar
   expect(() => validateReportContent('pdf', extracted, linked)).not.toThrow();
   expect(() => validateReportContent('pdf', extracted.replace(' oof', ''), linked)).toThrow();
 });
+
+it.each(['pdf', 'docx'] as const)('requires the full canonical H1 rather than a truncated metadata title in %s', format => {
+  const fullTitle = '原始报告的完整研究主题与研究目的';
+  const saved = { ...source, title: '原始报告', markdown: `# ${fullTitle}\n\n用户需要可下载和编辑的真实报告文件。` };
+  const body = `用户需要可下载和编辑的真实报告文件。 ${source.notices.join(' ')}`;
+  expect(() => validateReportContent(format, body, saved)).toThrow();
+  expect(() => validateReportContent(format, `原始报告 ${body}`, saved)).toThrow();
+  expect(() => validateReportContent(format, `${fullTitle} ${body}`, saved)).not.toThrow();
+});
