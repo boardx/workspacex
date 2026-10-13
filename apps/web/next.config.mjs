@@ -420,7 +420,7 @@ export default {
         "approval-requests", "artifacts", "citations", "messages", "presets",
         "projects", "tasks", "threads", "visibility", "asr-draft",
         // 2026-09-29：契约里有、此前漏掉的三个 `/chat/*` 命名空间（`chat.ts`）。
-        "agent-runs", "observer-grants", "realtime-digital-human",
+        "agent-runs", "observer-grants", "realtime-digital-human", "shares",
       ].flatMap((ns) => [
         { source: `${prefix}/chat/${ns}`, destination: `${apiOrigin}/chat/${ns}` },
         { source: `${prefix}/chat/${ns}/:path*`, destination: `${apiOrigin}/chat/${ns}/:path*` },

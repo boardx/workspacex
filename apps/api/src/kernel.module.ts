@@ -569,6 +569,8 @@ import { ChatAttachmentController } from "./interface/controllers/chat-attachmen
 // 不是 agent-runtime 束 `ModelPoolRepository` 的第二份实现。
 import { APPROVAL_MODEL_REGISTRY_READER } from "./application/chat/approval-model-registry";
 import { PgApprovalModelRegistryReader } from "./infrastructure/chat/pg-approval-model-registry";
+import { ChatShareController } from "./interface/controllers/chat-share.controller";
+import { CHAT_SHARE_PROVIDERS } from "./infrastructure/chat/chat-share-providers";
 import { ChatController } from "./interface/controllers/chat.controller";
 // #414（Wave 2 delta §5）：最小无工具 AgentRun 的执行与轮询读。
 // 快照来自 #415 在受理时写下的 run 行；本束不解析 Agent head，也不做 provider fallback。
@@ -1261,6 +1263,7 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
     InterviewScopeController,
     InterviewInsightController,
     ChatController,
+    ChatShareController,
     ChatFollowUpSuggestionsController,
     ChatAttachmentController,
     OrgInviteController,
@@ -2100,6 +2103,7 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
     // （契约 KNOWN_CONTRACT_GAPS.C13）。给一个不存在的能力留个绑定，
     // 会让下一个接管理界面的人以为它已经在跑了。
     // F108. 仓储只负责取数，可见性判定在 domain 一处——见 pg-chat-repository 头部。
+    ...CHAT_SHARE_PROVIDERS,
     {
       provide: CHAT_REPOSITORY,
       useFactory: (db: DatabasePort) => new PgChatRepository(db),
