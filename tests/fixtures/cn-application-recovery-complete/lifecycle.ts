@@ -8,11 +8,12 @@ import fs from 'node:fs/promises';
 import {writeFileSync}from'node:fs';
 import {startupDiagnostic}from'../cn-api-startup/diagnostic';
 import {mark}from'./diagnostic';
+import {assertCatalogEqual}from'./catalog-assert';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import {createRequire}from'node:module';
 import {execFile}from'node:child_process';
-import {promisify}from'node:util';
+import {promisify,isDeepStrictEqual}from'node:util';
 import {migrate,migrationFiles,MIGRATIONS_DIR}from'../../../apps/api/src/infrastructure/db/migrator';
 import {PgDatabase}from'../../../apps/api/src/infrastructure/db/pg-database';
 import {PgIdentityRepository}from'../../../apps/api/src/infrastructure/identity/pg-identity-repository';
@@ -60,8 +61,13 @@ async function restore(db:string,archive=dump,archiveSha=state.dumpSha256){asser
   child.on('error',reject);child.stdin.on('error',reject);child.on('close',code=>{clearTimeout(timer);code===0?resolve():reject(Error('RESTORE_FAILED'));});child.stdin.end(bytes);
  });});
  // Preserve original owners/ACLs in the same isolated cluster, then compare all original catalog categories.
- await hold(db);assert.deepEqual(await ledger(db),state.originalLedger);assert.deepEqual(await actualRead(db),state.applicationReadback);
- assert.deepEqual(await query(db,'TABLE cn_recovery_canary'),state.canary);assert.deepEqual(await catalogFacts(db),state.originalCatalog);
+ mark('restore-ledger');await hold(db);assert(isDeepStrictEqual(await ledger(db),state.originalLedger),'RESTORE_LEDGER_MISMATCH');
+ mark('restore-repository');assert(isDeepStrictEqual(await actualRead(db),state.applicationReadback),'RESTORE_REPOSITORY_MISMATCH');
+ mark('restore-canary');assert(isDeepStrictEqual(await query(db,'TABLE cn_recovery_canary'),state.canary),'RESTORE_CANARY_MISMATCH');
+ mark('restore-catalog');const restoredCatalog=await catalogFacts(db);
+ // Compare the entire original catalog without constructing an unbounded
+ // AssertionError diff of full application schema/data on a failed comparison.
+ assertCatalogEqual(restoredCatalog,state.originalCatalog);
  await event('isolated-restore',{database:db,originalDumpSha256:archiveSha,ledgerSha256:hash(JSON.stringify(await ledger(db))),actualRepository:'PgIdentityRepository.findOrganization',holdRetained:true});
 }
 async function readPhase(p:string){const raw=await fs.readFile(path.join(journal,p+'.result.json'));const v=JSON.parse(raw.toString());assert.equal(v.epoch,state.epoch);assert.equal(v.seed,seed);assert.equal(v.phase,p);assert.equal(v.verified,true);for(const item of v.journalRecords){const bytes=await fs.readFile(path.join(journal,item.name));assert.equal(hash(bytes),item.sha256);assert.equal(bytes.toString('base64'),item.rawBase64);}return{raw,value:v};}
