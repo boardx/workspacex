@@ -25,6 +25,7 @@ import {assertCatalogEqual} from './tests/fixtures/cn-application-recovery-compl
 import {diagnostic,mark} from './tests/fixtures/cn-application-recovery-complete/diagnostic.ts';
 const original={functions:Array.from({length:20000},(_,i)=>({name:'secret_'+i,definition:'PRIVATE SQL '.repeat(20)})),roles:[{name:'owner'}]};
 assertCatalogEqual(structuredClone(original),original);
+mark('compatibility');assert.equal(diagnostic(new Error('private')).catalogCategory,null);
 for(const value of [{...original,functions:[...original.functions,{name:'PRIVATE'}]}, {...original,roles:[{name:'other'}]}, {...original,extra:[]}]){
  try{assertCatalogEqual(value,original);assert.fail('accepted drift');}catch(e){assert.match(e.message,/^RESTORE_CATALOG_(?:SCOPE_)?MISMATCH$/);assert(e.message.length<80);}
 }
