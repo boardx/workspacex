@@ -12,6 +12,11 @@ on:
         type: choice
         options: ['all', 'targeted', 'linux-application-recovery-complete', 'linux-six-business']
         default: 'all'
+      mode:
+        description: Development retains known clean business failures; never final acceptance
+        type: choice
+        options: ['acceptance', 'development']
+        default: 'acceptance'
       seed:
         description: Integer base seed for isolated fault fixtures
         type: string
@@ -178,9 +183,10 @@ jobs:
         env:
           ROUNDS: ${{ inputs.rounds || '1' }}
           SEED: ${{ inputs.seed || '0' }}
+          MODE: ${{ inputs.mode || 'acceptance' }}
           SUITE: ${{ matrix.suite }}
           WORKERS: ${{ matrix.suite == 'all' && '3' || '1' }}
-        run: 'sudo -n env -i PATH="$PATH" CN_ARCHIVE_TEST_NODE="$CN_ARCHIVE_TEST_NODE" CN_ARCHIVE_TEST_RUNTIME="$CN_ARCHIVE_TEST_RUNTIME" NODE_PATH="$NODE_PATH" CN_TEST_PLAYWRIGHT="$CN_TEST_PLAYWRIGHT" CN_TEST_CHROMIUM="$CN_TEST_CHROMIUM" GITHUB_ACTIONS=true CN_API_STARTUP_PG_IMAGE="$CN_API_STARTUP_PG_IMAGE" CN_SIX_REDIS_IMAGE="$CN_SIX_REDIS_IMAGE" GITHUB_RUN_ID="$GITHUB_RUN_ID" GITHUB_RUN_ATTEMPT="$GITHUB_RUN_ATTEMPT" GITHUB_WORKSPACE="$GITHUB_WORKSPACE" RUNNER_TEMP="$RUNNER_TEMP" "$RUNNER_TEMP/cn-test-sdk/bin/python" -I -B scripts/cn-release-simulation-ci.py --sha "$GITHUB_SHA" --rounds "$ROUNDS" --seed "$SEED" --suite "$SUITE" --workers "$WORKERS"'
+        run: 'sudo -n env -i PATH="$PATH" CN_ARCHIVE_TEST_NODE="$CN_ARCHIVE_TEST_NODE" CN_ARCHIVE_TEST_RUNTIME="$CN_ARCHIVE_TEST_RUNTIME" NODE_PATH="$NODE_PATH" CN_TEST_PLAYWRIGHT="$CN_TEST_PLAYWRIGHT" CN_TEST_CHROMIUM="$CN_TEST_CHROMIUM" GITHUB_ACTIONS=true CN_API_STARTUP_PG_IMAGE="$CN_API_STARTUP_PG_IMAGE" CN_SIX_REDIS_IMAGE="$CN_SIX_REDIS_IMAGE" GITHUB_RUN_ID="$GITHUB_RUN_ID" GITHUB_RUN_ATTEMPT="$GITHUB_RUN_ATTEMPT" GITHUB_WORKSPACE="$GITHUB_WORKSPACE" RUNNER_TEMP="$RUNNER_TEMP" "$RUNNER_TEMP/cn-test-sdk/bin/python" -I -B scripts/cn-release-simulation-ci.py --sha "$GITHUB_SHA" --rounds "$ROUNDS" --seed "$SEED" --suite "$SUITE" --workers "$WORKERS" --mode "$MODE"'
       - name: Export bounded reports for the unprivileged artifact uploader
         if: always()
         run: |

@@ -103,11 +103,12 @@ def run_owned_simulation(command,checkout,env,registries,sha,run_id,receipt_root
 
 SUITES=('all','release','linux-api-outer-recovery','linux-application-recovery-complete','linux-six-business')
 
-def execute(sha,rounds,seed,suite='all',workers=3):
+def execute(sha,rounds,seed,suite='all',workers=3,mode='acceptance'):
     if not re.fullmatch('[a-f0-9]{40}',sha):raise ValueError('CI_EXACT_SHA_REQUIRED')
     if rounds not in (1,10):raise ValueError('CI_ROUNDS_REQUIRED')
     if type(seed)is not int or not 0<=seed<=2**32-1:raise ValueError('CI_SEED_REQUIRED')
     if suite not in SUITES or type(workers)is not int or workers not in (1,3):raise ValueError('CI_FIXED_LANE_REQUIRED')
+    if mode not in ('acceptance','development'):raise ValueError('CI_MODE_REQUIRED')
     if rounds==10 and suite!='all':raise ValueError('CI_TEN_ALL_REQUIRED')
     if sys.platform!='linux' or os.geteuid()!=0:raise ValueError('CI_LINUX_ROOT_REQUIRED')
     source=absolute_directory(os.environ['GITHUB_WORKSPACE'])
@@ -150,7 +151,7 @@ def execute(sha,rounds,seed,suite='all',workers=3):
         env['CN_SIX_SOURCE_COMMIT']=sha
         return run_owned_simulation([sys.executable,'-I','-B',str(checkout/'scripts/cn-release-simulation.py'),
             '--output',str(temporary/'cn-simulation'),'--workers',str(workers),'--timeout-seconds','300',
-            '--rounds',str(rounds),'--seed',str(seed),'--suite',suite],checkout,env,registries,sha,env['GITHUB_RUN_ID'],owned,api_owner_root=api_owners)
+            '--rounds',str(rounds),'--seed',str(seed),'--suite',suite,'--mode',mode],checkout,env,registries,sha,env['GITHUB_RUN_ID'],owned,api_owner_root=api_owners)
     except SetupCleanupUnproven:
         owned_cleanup_verified=False
         raise
@@ -221,7 +222,8 @@ def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--sha',required=True);parser.add_argument('--rounds',type=int,choices=(1,10),default=1);parser.add_argument('--seed',type=int,default=0)
     parser.add_argument('--suite',choices=SUITES,default='all');parser.add_argument('--workers',type=int,choices=(1,3),default=3)
-    args=parser.parse_args();return execute(args.sha,args.rounds,args.seed,args.suite,args.workers)
+    parser.add_argument('--mode',choices=('acceptance','development'),default='acceptance')
+    args=parser.parse_args();return execute(args.sha,args.rounds,args.seed,args.suite,args.workers,args.mode)
 
 
 if __name__=='__main__':sys.exit(main())

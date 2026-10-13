@@ -81,11 +81,12 @@ def validate_show(v,unit,argv,seconds,invocation=None):
 WORKER_SUITES=frozenset(('all','release','linux-api-outer-recovery','linux-application-recovery-complete','linux-six-business'))
 
 def validate_worker(command_,checkout):
-    need(len(command_) in (14,16) and command_[:4]==[str(Path(sys.executable).absolute()),'-I','-B',str(checkout/'scripts/cn-release-simulation.py')],'SIMULATION_FIXED_WORKER')
+    need(len(command_) in (14,16,18) and command_[:4]==[str(Path(sys.executable).absolute()),'-I','-B',str(checkout/'scripts/cn-release-simulation.py')],'SIMULATION_FIXED_WORKER')
     need(command_[4]=='--output' and Path(command_[5]).is_absolute() and str(Path(command_[5]).resolve())==command_[5],'SIMULATION_OUTPUT')
     need(command_[6]=='--workers' and command_[7] in ('1','3') and command_[8:11]==['--timeout-seconds','300','--rounds'] and command_[11] in ('1','10') and command_[12]=='--seed' and command_[13].isdigit() and 0<=int(command_[13])<=2**32-1,'SIMULATION_FIXED_ARGUMENTS')
     suite='all' if len(command_)==14 else command_[15]
     need(len(command_)==14 or(command_[14]=='--suite' and suite in WORKER_SUITES),'SIMULATION_FIXED_SUITE')
+    need(len(command_)!=18 or(command_[16]=='--mode' and command_[17] in ('acceptance','development')),'SIMULATION_FIXED_MODE')
     need(command_[11]!='10' or suite=='all','SIMULATION_TEN_ALL_REQUIRED')
 
 FAULT_MODES={'api-outer-sigkill':'--child','api-outer-noop':'--noop'}

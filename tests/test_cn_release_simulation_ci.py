@@ -47,6 +47,10 @@ class CiBootstrap(unittest.TestCase):
    fake.admit_fault=lambda *a:(_ for _ in ()).throw(RuntimeError('UNVERIFIED_UNIT'))
    with self.assertRaisesRegex(RuntimeError,'UNVERIFIED_UNIT'):m.setup_fault_domain([],ROOT,{},'a'*40,'123',Path('/fixture'),'api-outer-sigkill')
    self.assertEqual(events,['verified-unit','durable-admission','nested-domain'])
+ def test_unknown_mode_rejected_before_setup(self):
+  with patch.object(m.tempfile,'mkdtemp')as create:
+   with self.assertRaisesRegex(ValueError,'MODE'):m.execute('a'*40,10,0,mode='skip')
+   create.assert_not_called()
  def test_nonroot_or_nonlinux_rejects_before_clone(self):
   with patch.object(m.sys,'platform','darwin'),patch.object(m.tempfile,'mkdtemp')as create:
    with self.assertRaisesRegex(ValueError,'LINUX_ROOT'):m.execute('a'*40,1,0)

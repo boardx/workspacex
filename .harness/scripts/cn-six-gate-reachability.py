@@ -12,10 +12,12 @@ def verified(root):
  ci=parse('scripts/cn-release-simulation-ci.py');sim=parse('scripts/cn-release-simulation.py');wrapper=parse('tests/cn_release_six_business_linux.py');session=parse('scripts/cn-release-six-session.py')
  execute=fn(ci,'execute');defaults=dict(zip([x.arg for x in execute.args.args][-len(execute.args.defaults):],execute.args.defaults))
  assert isinstance(defaults.get('suite'),ast.Constant)and defaults['suite'].value=='all'
+ assert isinstance(defaults.get('mode'),ast.Constant)and defaults['mode'].value=='acceptance'
  ci_main=fn(ci,'main');assert any(x.args and isinstance(x.args[0],ast.Constant)and x.args[0].value=='--suite'and any(k.arg=='default'and isinstance(k.value,ast.Constant)and k.value.value=='all'for k in x.keywords)for x in calls(ci_main,'add_argument'))
- assert any(len(x.args)==5 and ast.unparse(x.args[3])=='args.suite'for x in calls(ci_main,'execute'))
+ assert any(x.args and isinstance(x.args[0],ast.Constant)and x.args[0].value=='--mode'and any(k.arg=='default'and isinstance(k.value,ast.Constant)and k.value.value=='acceptance'for k in x.keywords)for x in calls(ci_main,'add_argument'))
+ assert any(len(x.args)==6 and ast.unparse(x.args[3])=='args.suite' and ast.unparse(x.args[5])=='args.mode'for x in calls(ci_main,'execute'))
  invocations=calls(execute,'run_owned_simulation')
- assert any(isinstance(x.args[0],ast.List)and 'scripts/cn-release-simulation.py'in strings(x.args[0])and len(x.args[0].elts)==16 and isinstance(x.args[0].elts[-2],ast.Constant)and x.args[0].elts[-2].value=='--suite'and isinstance(x.args[0].elts[-1],ast.Name)and x.args[0].elts[-1].id=='suite'for x in invocations)
+ assert any(isinstance(x.args[0],ast.List)and 'scripts/cn-release-simulation.py'in strings(x.args[0])and len(x.args[0].elts)==18 and isinstance(x.args[0].elts[-4],ast.Constant)and x.args[0].elts[-4].value=='--suite'and isinstance(x.args[0].elts[-3],ast.Name)and x.args[0].elts[-3].id=='suite' and ast.unparse(x.args[0].elts[-2])=="'--mode'" and ast.unparse(x.args[0].elts[-1])=='mode'for x in invocations)
  assert calls(fn(ci,'run_owned_simulation'),'spawn')
  suites=next(ast.literal_eval(x.value)for x in sim.body if isinstance(x,ast.Assign)and any(isinstance(t,ast.Name)and t.id=='SUITES'for t in x.targets))
  assert suites['linux-six-business']==['cn_release_six_business_linux.py']
