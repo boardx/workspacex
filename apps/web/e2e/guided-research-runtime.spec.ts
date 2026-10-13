@@ -239,7 +239,9 @@ test("research persists the confirmed-question pipeline through the real UI, API
       && saved.messages.at(-1)?.text === "已重新生成报告内容。";
   }, { timeout: 60000 }).toBe(true);
   await expect(page.getByTestId("research-report-document")).toBeVisible({ timeout: 60000 });
-  await expect(page.getByTestId("research-report-execution-controls").getByRole("button", { name: "暂停生成", exact: true })).toHaveCount(0, { timeout: 60000 });
+  await expect(page.getByTestId("research-report-actions")).toHaveCount(1);
+  await expect(page.getByTestId("research-report-actions")).toHaveAttribute("data-workflow-action-bar", "footer");
+  await expect(page.getByTestId("research-report-actions").getByRole("button", { name: "暂停生成", exact: true })).toHaveCount(0, { timeout: 60000 });
   await expect(page.getByTestId("research-report-document")).toContainText("并网政策报告");
   // Next's route announcer is a global alert; only research errors belong here.
   await expect(page.getByTestId("research-flow-report").getByRole("alert")).toHaveCount(0);
