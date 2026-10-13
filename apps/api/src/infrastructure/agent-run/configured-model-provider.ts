@@ -406,6 +406,7 @@ export class ConfiguredModelProvider implements ModelCallPort {
    * `MODEL_PROVIDER_NOT_CONFIGURED`。同一道回环闸：baseUrl 不是回环地址 ⇒ 别名一律忽略，生产不变。
    */
   private readonly loopbackAliases: ReadonlySet<string>;
+  readonly configurationIdentity = randomUUID();
 
   constructor(config: ConfiguredModelProviderConfig, loopbackAliases: readonly string[] = []) {
     this.config = config;
@@ -638,8 +639,12 @@ export class ConfiguredModelProvider implements ModelCallPort {
          * 读不动（非 JSON / 体已被消费）就当没报，不让它影响失败本身。
          */
         let failedUsage: ReportedUsage | undefined;
+        let contentRejected = false;
         try {
-          failedUsage = readUsage(((await response.json()) as CompletionResponse).usage);
+          const body = await response.json() as CompletionResponse & { error?: { code?: unknown } };
+          failedUsage = readUsage(body.usage);
+          // Exact protocol code only. Never retain vendor messages or classify arbitrary 400s.
+          contentRejected = response.status === 400 && body.error?.code === "data_inspection_failed";
         } catch {
           failedUsage = undefined;
         }
@@ -648,6 +653,7 @@ export class ConfiguredModelProvider implements ModelCallPort {
           `model provider responded with HTTP ${response.status}`,
           failedUsage,
           response.status === 429 ? "rate-limited" : response.status === 503 ? "temporarily-unavailable" : undefined,
+          contentRejected ? "content-policy" : undefined,
         );
       }
 
@@ -656,6 +662,9 @@ export class ConfiguredModelProvider implements ModelCallPort {
         parsed = await response.json() as CompletionResponse;
       } catch (error) {
         throw new ModelCallError("MODEL_CALL_FAILED", `model provider response was not JSON (${classifyTransportError(error)})`);
+      }
+      if (parsed.choices?.[0]?.finish_reason === "content_filter") {
+        throw new ModelCallError("MODEL_CALL_FAILED", "model provider content was filtered", readUsage(parsed.usage), undefined, "content-policy");
       }
       const message = parsed.choices?.[0]?.message;
       const content = message?.content;
@@ -780,6 +789,9 @@ export class ConfiguredModelProvider implements ModelCallPort {
                 completion: framed.completion ?? usage.completion,
                 cacheInput: framed.cacheInput ?? usage.cacheInput, reasoningOutput: framed.reasoningOutput ?? usage.reasoningOutput,
               });
+              if (chunk.choices?.[0]?.finish_reason === "content_filter") {
+                throw new ModelCallError("MODEL_CALL_FAILED", "model provider content was filtered", usage, undefined, "content-policy");
+              }
               const delta = chunk.choices?.[0]?.delta?.content;
               if (typeof delta === "string" && delta !== "") {
                 text += delta;
@@ -793,7 +805,7 @@ export class ConfiguredModelProvider implements ModelCallPort {
           total: e.usage?.total ?? usage.total, prompt: e.usage?.prompt ?? usage.prompt,
           completion: e.usage?.completion ?? usage.completion,
           cacheInput: e.usage?.cacheInput ?? usage.cacheInput, reasoningOutput: e.usage?.reasoningOutput ?? usage.reasoningOutput,
-        }));
+        }), e.retryDisposition, e.contentRejection);
         // 同 `postCompletions`：只取枚举 token，`message` 不读。
         throw new ModelCallError(
           "MODEL_CALL_FAILED",

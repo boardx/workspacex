@@ -1,0 +1,24 @@
+本轮单次 GitHub→香港OSS→上海方案，尚未云写/创建资源/触发workflow。
+
+发布到业务repo的文本映射（不要提交sdk-wheels二进制）：
+transfer-workflow.yml -> .github/workflows/transfer-cn-candidates-via-hongkong.yml
+uploader.py -> scripts/cn-hk-original-artifact-upload.py
+generate-proof.py -> scripts/cn-hk-generate-proof.py
+revalidation-template.json -> .github/release-plans/hk-revalidation-template.json
+sdk-requirements-pypi.lock -> .github/release-plans/hk-sdk-requirements-pypi.lock
+sdk-build-tools.lock -> .github/release-plans/hk-sdk-build-tools.lock
+transfer-plan.UNBOUND.json -> .github/release-plans/hk-original-artifacts.json（批准/真实CreateRole返回后绑定）
+
+必要未绑定项：真实CreateRole返回Role.Arn，不能用建议角色名猜ARN大小写；transfer plan expiresAt在批准后的实际执行前绑定。workflow中__ROLE_ARN_FROM_CREATE_ROLE__同步绑定。plan rawSHA独审后dispatch输入，不提前声称执行就绪。主体取/tmp/workspacex-oidc-sub-template.json真default模板；environment production-cn-build只main的既有保护不改。
+
+IAM：role-trust.json精确provider/issuer/aud/derived env subject；role-policy.json仅BucketInfo/ACL读和9精确对象Put/Get。bucket-read-policy.DRAFT.json仅现有ECS role assumed-role principal Get9对象。OSS bucket Principal格式依据https://www.alibabacloud.com/help/doc-detail/2997536.html；Provider创建/读回仍需真实成功。此IAM主体允许同repo同protected env其他workflow，不宣称仅本workflow可用。Root准备bucket creation/public block/lifecycle，1天过期/预算需用户批准；这里无云资源修改。
+
+证明链：下载原run38146134231的7ZIP并校官方SHA、前后metadata，先完成7大ZIP的Put与完整GET读回，再使用producer-control27bada的原7文件verifier代码、GitHub真实GITHUB_TOKEN，先--acquire全部reusePaths真生成acquisition-manifest.json，再--cached真产生proof。proof时间此时新发、<=1h，原plan/set不变；不是复制旧proof。最后上传proof.json+policy.json两小对象，全部9对象forbid-overwrite且完整GET SHA；Mac只允许小receipt/proof/policy artifact。
+
+运行器：Ubuntu24.04 python3.12，私有venv；16依赖复用既有官方files.pythonhosted.org来源/hash锁，预安装hash锁定setuptools/wheel，no-deps/no-build-isolation，pip check。旧sdk-wheels8.8MB仅本机核验参考，不进PR。没有无锁pip依赖链。
+
+磁盘：保守要求2份ZIP+原tar3825868800B+2GiB=约13.63GB可用。--acquire完成后删除本进程已验证重复原ZIP，保留真实cache并用其路径上传，不做无关runner清理。真实hosted可用量尚未观察，不足则失败。25min脚本alarm/30minjob为截止，不保证达到速度目标。
+
+成本：完整runner GET readback+上海GET约7.66GB香港出流量（另小proof），10元仅用户目标预算不是硬封顶，尚无实际账单报价；没有为了节省去掉wholeSHA。
+
+测试：python3.12 -B test-local.py，9项本地单元通过（scope、9对象、subjectprincipal、SDKhash、超量下载停止等）；脚本语法通过，真实原verifier --acquire+--cached 离线假provider/真7ZIP集成也通过。尚无云端端到端/真实SDK auth/upload/proof集成运行，独审需检查后续runtime接口。

@@ -9,7 +9,12 @@ import asyncio
 from contextlib import contextmanager
 from contextvars import ContextVar
 import json
-import fcntl
+try:
+    import fcntl
+except ModuleNotFoundError as error:
+    if error.name != "fcntl":
+        raise
+    fcntl = None
 import logging
 import os
 import sqlite3
@@ -172,6 +177,8 @@ def validate_inflight_metadata(start, request_id):
 
 class Journal:
     def __init__(self, directory: str):
+        if fcntl is None or os.name != "posix":
+            raise RuntimeUsageError("usage_accounting_platform_unsupported")
         root = Path(directory)
         if not directory or not root.is_absolute():
             raise RuntimeUsageError("usage_persistent_spool_unconfigured")

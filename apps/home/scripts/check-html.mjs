@@ -18,7 +18,7 @@ const root = join(dirname(fileURLToPath(import.meta.url)), '..');
    later and every gate here silently ignored it, which is the failure mode of
    any check that names its input instead of discovering it. Generated pages
    (zh/) are excluded: build-i18n.mjs already guarantees they match. */
-const SOURCES = ['index.html', 'privacy.html', '404.html', 'manual/index.html'];
+const SOURCES = ['aidt/index.html', 'index.html', 'privacy.html', '404.html', 'manual/index.html'];
 const problems = [];
 let html = '';
 const lineOf = (index) => html.slice(0, index).split('\n').length;
@@ -120,7 +120,7 @@ for (const m of html.matchAll(/<a\b[^>]*href="https?:\/\/[^"]*"[^>]*>/g)) {
    privacy page's "back to the site" landed in English. Both shipped, because
    nothing checked that a translated page keeps the reader in its language.
    The language switch is exempt: pointing at the other language is its job. */
-for (const file of ['zh/index.html', 'zh/privacy.html']) {
+for (const file of ['zh/aidt/index.html', 'zh/index.html', 'zh/privacy.html']) {
   let body;
   try { body = readFileSync(join(root, file), 'utf8'); } catch { continue; }
   for (const m of body.matchAll(/<a\b[^>]*>/g)) {

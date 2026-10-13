@@ -3,12 +3,13 @@ import { toPublicResearchRuntime } from "./guided-runtime-persistence";
 import { executeComposite } from "./guided-composite-execution";
 import { executeTaskPipeline, tasksFromConfirmedQuestions, normalizedResearchUrl } from "./guided-task-pipeline";
 import { withGuidedThinkingPolicy } from "./guided-thinking-policy";
+import { ModelCallError } from "../agent-run/ports";
 import { reportBasis } from "./guided-report-checkpoint";
 import { GUIDED_PLAN_BUDGET_MS, GUIDED_REPORT_MODEL_BUDGET_MS, GUIDED_SEARCH_CALL_BUDGET_MS, GUIDED_READ_CALL_BUDGET_MS, SearchBudget } from "./guided-search-budget";
 import type { DebugTracePort } from "../ports/debug-trace.port";
 import { recordResearchFailure, recordSourceRelevanceFailure, type ResearchExecutionDiagnostic } from "./guided-runtime-diagnostics";
 import { sourceAllowedByPolicy, sourcePolicyDomains, internalSourceReference } from "./guided-source-policy";
-import { parseSourceRelevanceJson, screenResearchSources, sourceRelevanceBasis, sourceTaskIds, sourceRelevanceResponseSchema } from "./guided-source-relevance";
+import { parseSourceRelevanceJson, screenResearchSources, sourceRelevanceBasis, sourceTaskIds, sourceRelevanceResponseSchema, sourceTaskContentRejected } from "./guided-source-relevance";
 import { generateResearchPlan } from "./guided-research-plan";
 import { collectSourceDocuments } from "./guided-source-documents";
 import { updateReportTimeline, failActiveReportTimeline } from "./guided-report-timeline";
@@ -27,6 +28,7 @@ import { extractJson } from "./guided-structured-json";
 import { parseGeneratedOutlineJson } from "./guided-outline-json";
 import { ResearchRuntimeError, type GuidedInternalSourceAccessPort, type GuidedRuntimeStore, type GuidedSearchPort, type ResearchRuntime, type RuntimeActor, type RuntimeCommand, type RuntimeDraft } from "./guided-runtime-ports";
 import { projectResearchTrust } from "./guided-research-trust";
+import { reportSearchLimitation } from "./guided-report-limitations";
 const nodes = C.ResearchNode.options;
 type Node = z.infer<typeof C.ResearchNode>;
 const shapes: Record<Node, string> = {
@@ -221,7 +223,6 @@ export class GuidedRuntimeService {
     try {
       await this.perform(state, command, persist, internalSources);
       state.progress = null;
-      Object.assign(state, projectResearchTrust(state));
     } catch (error) {
       recordResearchFailure(this.debugTrace, diagnostic, actor, command, error, state.progress?.stage);
       if (error instanceof ResearchRuntimeError && error.reasonCode === "RESEARCH_WORKFLOW_PAUSED") {
@@ -237,6 +238,7 @@ export class GuidedRuntimeService {
     const validation = state.reportTimeline?.find((item) => item.stage === "validation");
     const committingReport = validation?.status === "running" && Boolean(state.report || state.reportDraft) && !state.errorCode;
     if (committingReport) updateReportTimeline(state, "validation", state.reportDraft ? "warning" : "completed", state.reportDraft ? { reasonCode: "RESEARCH_REPORT_QUALITY_INSUFFICIENT" } : {});
+    Object.assign(state, projectResearchTrust(state));
     diagnostic.phase = "final_persistence";
     try { await this.store.write(actor, command.requestId, state, true); }
     catch (error) {
@@ -244,6 +246,7 @@ export class GuidedRuntimeService {
         updateReportTimeline(state, "validation", "failed", { reasonCode: "RESEARCH_WORKFLOW_UNAVAILABLE" });
         state.report = null; state.reportDraft = null; state.completed = false;
         state.generatedNodes = state.generatedNodes.filter((node) => node !== "report");
+        Object.assign(state, projectResearchTrust(state));
       }
       throw error;
     }
@@ -282,7 +285,7 @@ export class GuidedRuntimeService {
         const succeed = async () => { budget?.check(); check?.(); call.status = "succeeded"; };
         if (admit) await admit(succeed); else await succeed();
         return value;
-      } catch (error) { throw error instanceof ResearchRuntimeError ? error : new ResearchRuntimeError("RESEARCH_WORKFLOW_UNAVAILABLE", { cause: error }); }
+      } catch (error) { throw error instanceof ResearchRuntimeError || (parseOutput === parseSourceRelevanceJson && error instanceof ModelCallError && error.contentRejection === "content-policy") ? error : new ResearchRuntimeError("RESEARCH_WORKFLOW_UNAVAILABLE", { cause: error }); }
     } finally { planningBudget?.dispose(); }
   }
   private context(state: ResearchRuntime) {
@@ -329,21 +332,14 @@ export class GuidedRuntimeService {
     const draft = C.GuidedResearchRuntimeDraft.safeParse({ node, value: generatedValue });
     if (!draft.success) throw new ResearchRuntimeError("RESEARCH_NODE_STATE_INVALID");
     validateGeneratedResearchDesign(node, draft.data.value);
-    if (node === "report" && draft.data.node === "report" && (state.reportQualityWarnings?.length || (state.executionGoal === "report" && state.reportPartial))) {
+    if (node === "report" && draft.data.node === "report" && state.reportPartial) {
+      draft.data.value.introduction = reportSearchLimitation(state) + (draft.data.value.introduction ?? "");
+      if (!C.GuidedResearchReport.shape.introduction.safeParse(draft.data.value.introduction).success) throw new ResearchRuntimeError("RESEARCH_REPORT_QUALITY_INSUFFICIENT");
+    }
+    if (node === "report" && draft.data.node === "report" && state.reportQualityWarnings?.length) {
       validateRuntimeDraft(state, draft.data);
       invalidate(state, "report");
-      if (state.executionGoal === "report" && state.reportPartial) {
-        const failed = state.tasks.filter(task => task.status === "failed").length;
-        const limitation = C.guidedResearchReportFraming(state.brief).language === "Chinese"
-          ? `搜索局限：${state.tasks.length} 个检索任务中有 ${failed} 个未成功。本稿基于保留资料生成；未完成的检索及问题缺口仍须补充；不是正式完成报告。\n\n`
-          : `Search limitation: ${failed} of ${state.tasks.length} search tasks failed. Preserved materials were used to prepare this draft; failed searches and unanswered questions still require further research. This is not a completed report.\n\n`;
-        const introduction = limitation + (draft.data.value.introduction ?? "");
-        // Never truncate an already audited summary to make room for metadata.
-        if (!C.GuidedResearchReport.shape.introduction.safeParse(introduction).success) throw new ResearchRuntimeError("RESEARCH_REPORT_QUALITY_INSUFFICIENT");
-        draft.data.value.introduction = introduction;
-      }
       state.reportDraft = draft.data.value;
-      if (state.executionGoal === "report" && state.reportPartial) updateReportTimeline(state, "validation", "warning");
       state.report = null; state.reportStream = null; state.completed = false;
       state.generatedNodes = state.generatedNodes.filter((item) => item !== "report");
       return;
@@ -445,8 +441,9 @@ export class GuidedRuntimeService {
   private sourceScreenComplete(state: ResearchRuntime, persist: RuntimePersistence, budget?: SearchBudget) {
     let admission = Promise.resolve();
     const admit = (work: () => Promise<void>) => { admission = admission.then(work); return admission; };
-    return (system: string, context: unknown, validate: (value: unknown) => void, check?: () => void) =>
-      this.completeJson(state, "research", system, context, persist, validate, parseSourceRelevanceJson, budget, admit, check);
+    return Object.assign((system: string, context: unknown, validate: (value: unknown) => void, check?: () => void) =>
+      this.completeJson(state, "research", system, context, persist, validate, parseSourceRelevanceJson, budget, admit, check),
+      { configurationIdentity: JSON.stringify({ model: this.modelConfig, adapter: this.model.configurationIdentity }) });
   }
   private async reviewSources(state: ResearchRuntime, persist: RuntimePersistence, budget?: SearchBudget) {
     const sources = await screenResearchSources(state, state.sources,
@@ -458,7 +455,9 @@ export class GuidedRuntimeService {
     if (affected.size || sources.length !== state.sources.length) {
       for (const task of state.tasks) if (affected.has(task.id) && task.status === "succeeded"
         && !sources.some((source) => source.decision !== "excluded" && [source.taskId, ...(source.taskIds ?? [])].includes(task.id))) {
-        task.status = "failed"; task.errorCode = "RESEARCH_SEARCH_NO_RELEVANT_SOURCES";
+        task.status = "failed";
+        task.errorCode = sourceTaskContentRejected(state, task.id)
+          ? "RESEARCH_WORKFLOW_UNAVAILABLE" : "RESEARCH_SEARCH_NO_RELEVANT_SOURCES";
       }
       invalidate(state, "research");
     }

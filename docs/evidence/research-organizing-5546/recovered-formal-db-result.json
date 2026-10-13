@@ -1,0 +1,78 @@
+{
+  "completed": true,
+  "reportPartial": false,
+  "reportHash": "9d7828d57ef25a1101dc454a6dab625dc40716ac193fffd1778972b6a519387b",
+  "previousReportHash": null,
+  "draftHash": null,
+  "outlineHash": "cf08ac3fae469d202d4fb01bd4ecd08e4d1c87114f7fd9d85eaafcbde2045c75",
+  "sessionId": "grs_d47eeb4a76e4405a900615e1068edf6f",
+  "version": 7,
+  "busy": false,
+  "errorCode": null,
+  "progress": null,
+  "modelCalls": 235,
+  "formalChapters": 4,
+  "draftChapters": 0,
+  "qualityWarnings": [],
+  "evidenceWarnings": [],
+  "sources": 16,
+  "documents": 16,
+  "activityFailures": 4,
+  "timeline": [
+    {
+      "id": "evidence",
+      "status": "completed",
+      "attempts": 18
+    },
+    {
+      "id": "chapter:ch_1",
+      "status": "completed",
+      "attempts": 0
+    },
+    {
+      "id": "review:ch_1",
+      "status": "completed",
+      "attempts": 0
+    },
+    {
+      "id": "chapter:ch_2",
+      "status": "completed",
+      "attempts": 0
+    },
+    {
+      "id": "review:ch_2",
+      "status": "completed",
+      "attempts": 0
+    },
+    {
+      "id": "chapter:ch_3",
+      "status": "completed",
+      "attempts": 0
+    },
+    {
+      "id": "review:ch_3",
+      "status": "completed",
+      "attempts": 0
+    },
+    {
+      "id": "chapter:ch_4",
+      "status": "completed",
+      "attempts": 2
+    },
+    {
+      "id": "review:ch_4",
+      "status": "completed",
+      "attempts": 5
+    },
+    {
+      "id": "synthesis",
+      "status": "completed",
+      "attempts": 1
+    },
+    {
+      "id": "validation",
+      "status": "completed",
+      "attempts": 1
+    }
+  ]
+}

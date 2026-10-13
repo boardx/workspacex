@@ -1,0 +1,27 @@
+{
+  "releaseCandidateHead": "a5d9dd687cf9798c41963b8da72fa35f7215019e",
+  "businessSourceCommit": "4528cf7035c90c996c8723b005b12fcbf79f672d",
+  "latestMain": "882bd33397200bd608448c0914be75cf6ec3cc15",
+  "postReleaseMergeHead": "2787f9cb4e1d1b9d50e80fcbae1d0f2b13a49671",
+  "checkedPathCount": 69,
+  "matchingPathCount": 64,
+  "unmergedBaselinePaths": [
+    "apps/deep-agent-service/src/deep_agent_service/model_request_accounting.py",
+    "apps/deep-agent-service/tests/test_accounting_platform_import.py",
+    "apps/skill-sandbox/tests/office-skills-container-network-isolation.test.ts",
+    "packages/local-runtime/src/parity.ts",
+    "turbo.json"
+  ],
+  "unexpectedSourceChanges": [],
+  "allOwnedResearchAndMergedBaselineFilesMatchReleaseInputs": true,
+  "fullReleaseExecutedBeforeMainMerge": true,
+  "affectedVerification": {
+    "file": "tests/research/guided-chapter-citation-repair.test.ts",
+    "files": 1,
+    "tests": 7,
+    "exitCode": 0,
+    "privateLogSha256": "b62e61363362028acddbf0c40dde61f37247cd21c2474f02654f70f897621005",
+    "newModelDispatches": 0
+  },
+  "ownedReleaseStackRemoved": true
+}

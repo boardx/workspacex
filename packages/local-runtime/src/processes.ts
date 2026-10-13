@@ -239,7 +239,8 @@ function baseEnv(): Record<string, string> {
   const out: Record<string, string> = {};
   const parity = parityIndex();
   for (const [k, v] of Object.entries(process.env)) {
-    if (v === undefined || parity.get(k) === "must-stay-unset") continue;
+    const status = parity.get(k);
+    if (v === undefined || status === "must-stay-unset" || status === "cloud-only") continue;
     if (/^(KERNEL_|PG|REDIS_|OSS_|S3_|WORKSPACEX_|MODEL_|DEEP_AGENT_|NEXT_PUBLIC_)/.test(k)) continue;
     out[k] = v;
   }

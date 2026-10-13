@@ -3,6 +3,27 @@ import { afterEach, expect, it } from 'vitest';
 import { GuidedResearchExecutionTimeline } from '@/components/research-studio/guided-research-execution-timeline';
 import { runtimeFixture } from '../guided-runtime-fixture';
 afterEach(cleanup);
+it('treats saved formal report limitations as completed after generation and reload', () => {
+  const base = runtimeFixture('report');
+  const state = { ...base, completed: true, reportPartial: true,
+    tasks: [{ ...base.tasks[0]!, status: 'failed' as const, errorCode: 'RESEARCH_SEARCH_EMPTY' }],
+    sources: [{ ...base.sources[0]!, documentError: 'unavailable' as const }],
+    reportEvidenceWarnings: [{ batchIndex: 0, sourceIds: ['source1'], questionIds: ['q'], reason: 'invalid_model_evidence' as const }],
+    reportTimeline: [{ id: 'validation', stage: 'validation' as const, status: 'completed' as const, attempts: 1 }],
+  };
+  const view = render(<GuidedResearchExecutionTimeline state={state} />);
+  expect(screen.getByRole('status')).toHaveTextContent('执行完成');
+  expect(screen.queryByText('部分未完成')).not.toBeInTheDocument();
+  expect(screen.getByTestId('execution-validation')).toHaveTextContent('已完成');
+  view.rerender(<GuidedResearchExecutionTimeline state={JSON.parse(JSON.stringify(state))} />);
+  expect(screen.getByRole('status')).toHaveTextContent('执行完成');
+  view.rerender(<GuidedResearchExecutionTimeline state={{ ...state, errorCode: 'RESEARCH_WORKFLOW_UNAVAILABLE' }} />);
+  expect(screen.getByRole('status')).toHaveTextContent('执行失败');
+  view.rerender(<GuidedResearchExecutionTimeline state={{ ...state, reportTimeline: [] }} />);
+  expect(screen.getByRole('status')).not.toHaveTextContent('执行完成');
+  view.rerender(<GuidedResearchExecutionTimeline state={{ ...state, report: null, reportDraft: state.report }} />);
+  expect(screen.getByRole('status')).not.toHaveTextContent('执行完成');
+});
 it('shows pending work before any execution',()=>{render(<GuidedResearchExecutionTimeline state={{...runtimeFixture('outline'),tasks:[],sources:[]}} />);expect(screen.getAllByText('待执行')).toHaveLength(5);expect(screen.queryByText('执行完成')).not.toBeInTheDocument();});
 it('does not invent active work from a busy report goal',()=>{render(<GuidedResearchExecutionTimeline state={{...runtimeFixture('research'),tasks:[],sources:[],busy:true,executionGoal:'report'} as ReturnType<typeof runtimeFixture>}/>);expect(screen.getAllByText('待执行')).toHaveLength(5);});
 it('shows partial task failure without overall completion',()=>{const s=runtimeFixture('research');render(<GuidedResearchExecutionTimeline state={{...s,busy:false,tasks:[{id:'bad',sectionId:'o',query:'q',attempts:1,status:'failed',errorCode:'RESEARCH_SEARCH_EMPTY'}],sources:[],report:null}}/>);expect(screen.getByText('执行失败')).toBeInTheDocument();expect(screen.queryByText('执行完成')).not.toBeInTheDocument();});

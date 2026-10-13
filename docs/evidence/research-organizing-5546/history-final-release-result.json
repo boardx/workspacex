@@ -1,0 +1,26 @@
+{
+  "dependencyPrs": [
+    5557,
+    5562,
+    5566
+  ],
+  "dependencyShas": [
+    "65af047d0b1a6a661df213e9bd850d387a3ab567",
+    "1ced77833cef9ec01956024c72fbcf5247f7245a",
+    "967071899359906bf50312886e829fd25060c4a6"
+  ],
+  "temporaryPatchesOnly": true,
+  "dependencyFilesRestored": true,
+  "releaseExitCode": 1,
+  "harness": {
+    "testFilesPassed": 206,
+    "testFilesFailed": 2,
+    "testsPassed": 2475,
+    "testsFailed": 4,
+    "failureFiles": [
+      ".harness/scripts/real-model-smoke.test.ts",
+      ".harness/scripts/vm/deploy-secret-argv.test.ts"
+    ]
+  },
+  "privateLogSha256": "9be91003eb508dba42de8ebead64591895643afa674152c469a3ba1a371a74f5"
+}

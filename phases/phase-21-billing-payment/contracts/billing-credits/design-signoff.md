@@ -1,7 +1,7 @@
 ---
 bundle: billing-credits
 phase: "21"
-covers: [F-TBD-billing-schema, F-TBD-billing-config, F-TBD-credit-order-core, F-TBD-wallet-ledger-query, F-TBD-wechat-notify, F-TBD-order-close-task, F-TBD-mock-paid, F-TBD-admin-grant, F-TBD-org-billing-setting, F-TBD-cashier-ui, F-TBD-admin-ui, F-TBD-org-billing-ui]
+covers: [F01, F-TBD-billing-config, F-TBD-credit-order-core, F-TBD-wallet-ledger-query, F-TBD-wechat-notify, F-TBD-order-close-task, F-TBD-mock-paid, F-TBD-admin-grant, F-TBD-org-billing-setting, F-TBD-cashier-ui, F-TBD-admin-ui, F-TBD-org-billing-ui]
 status: confirmed
 confirmed_by: "usamshen"
 confirmed_at: "2026-10-01T03:23:47Z"
@@ -18,7 +18,7 @@ confirmed_via: "人类对话确认（2026-10-01；agent 按人类指示代为回
 
 | feature | 能力边界 |
 |---|---|
-| F-TBD-billing-schema | 六表迁移与套餐种子（共享表 `billing_webhook_events` 单源） |
+| F01 | 六表迁移与套餐种子（共享表 `billing_webhook_events` 单源） |
 | F-TBD-billing-config | 渠道配置读模型 + 旧骨架收敛（未配置不阻塞启动） |
 | F-TBD-credit-order-core | 套餐列表 / 创建订单（无金额入参）/ 订单查询归属 |
 | F-TBD-wallet-ledger-query | 钱包与流水查询（账实相符的查询侧） |

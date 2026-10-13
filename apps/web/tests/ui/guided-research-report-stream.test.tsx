@@ -23,6 +23,22 @@ const idleReport: Runtime = { ...initial, currentNode: "report", availableNodes:
 beforeEach(() => { vi.resetAllMocks(); vi.mocked(getResearchRuntime).mockResolvedValue(idleReport); });
 afterEach(() => vi.useRealTimers());
 describe("research report stream UI", () => {
+  it("shows question-bound prose while writing without promoting or duplicating it", async () => {
+    vi.mocked(executeResearchRuntime).mockImplementation(async (input, callback) => {
+      callback!({ type: "snapshot", state: { ...streaming(input.requestId), reportTimeline: [{ id: "chapter-s1", stage: "chapter", sectionId: "s1", status: "running", attempts: 1 }] } });
+      const delta = { type: "report_delta" as const, sessionId: input.sessionId, requestId: input.requestId, version: 8, sequence: 1,
+        delta: '{"sections":[{"sectionId":"s1","paragraphs":[{"questionId":"private-question-binding","body":"实时问题段落' };
+      callback!(delta); callback!(delta);
+      return new Promise(() => undefined);
+    });
+    render(<GuidedResearchLive sessionId={initial.sessionId} onBack={vi.fn()} />);
+    fireEvent.click(await screen.findByRole("button", { name: "生成报告" }));
+    expect(await screen.findByText("实时问题段落")).toBeInTheDocument();
+    expect(screen.getAllByText("实时问题段落")).toHaveLength(1);
+    expect(screen.getByTestId("execution-chapters")).toHaveTextContent("执行中");
+    expect(screen.getByTestId("research-report-preview-text")).not.toHaveTextContent("private-question-binding");
+    expect(screen.queryByTestId("research-report")).not.toBeInTheDocument();
+  });
   it("renders the execution timeline before the live report area before text arrives", async () => {
     vi.mocked(getResearchRuntime).mockResolvedValue({ ...streaming(), reportTimeline: [{ id: "evidence", stage: "evidence", status: "running", attempts: 1 }] });
     render(<GuidedResearchLive sessionId={initial.sessionId} onBack={vi.fn()} />);

@@ -12,7 +12,7 @@ class SourceAdmission(unittest.TestCase):
         return f.archive(path,p,'api',labels={'org.opencontainers.image.revision':p['sourceRevision'],c.LABEL:c.identity(p)})
     def test_exact_list_and_legacy_golden_identity(self):
         self.assertEqual(c.SOURCE,'55d904af3edcca54b2fbe17bba59ed2eed09323b')
-        self.assertEqual(c.FORMAL_SOURCES,{c.SOURCE,NEW})
+        self.assertEqual(c.FORMAL_SOURCES,{c.SOURCE,NEW,'f0eb9d07398a66fdd5646a9e6b855fa1b940e571'})
         self.assertEqual(c.identity(f.plan()),'022b995c3bf4640f07df026e33e95a7fd8c11d63a509f77caae131859ca55b15')
         self.assertNotEqual(c.identity(self.plan()),c.identity(f.plan()))
         for source in ['a'*40,'main',NEW.upper(),None,[],True]:

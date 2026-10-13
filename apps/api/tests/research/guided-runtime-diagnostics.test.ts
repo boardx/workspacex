@@ -32,6 +32,12 @@ function fixture() {
 }
 
 describe("traceable research execution failures", () => {
+  it("records only the owned supplier rejection category", () => {
+    const f=fixture();
+    recordResearchFailure({record:f.record} as unknown as DebugTracePort, {phase:"perform",traceId:f.traceId}, f.actor, f.command,new ModelCallError("MODEL_CALL_FAILED","PRIVATE PROVIDER SECRET",undefined,undefined,"content-policy"));
+    expect(f.record.mock.calls[0]![0].data.errors).toContainEqual({type:"ModelCallError",code:"MODEL_CALL_FAILED",contentRejection:"content-policy"});
+    expect(JSON.stringify(f.record.mock.calls)).not.toContain("SECRET");
+  });
   it.each(["state_read", "source_authorization", "claim", "steer", "final_persistence"] as const)("records %s rejection without replacing the original error or saved chapter", async (phase) => {
     const f = fixture();
     const error = Object.assign(new Error("PRIVATE BODY postgres://SECRET"), { code: "23505" });

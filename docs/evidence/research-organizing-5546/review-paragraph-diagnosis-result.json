@@ -1,0 +1,46 @@
+{
+  "diagnosticOnly": true,
+  "runtimeWritten": false,
+  "providerDispatches": 1,
+  "originalDispatchId": 156,
+  "unchangedChapterSha256": "2dd142779ad89b9ab2670c09a2630121e41bf79e66ca3b7e3a290565192490c5",
+  "chapterParagraphs": 8,
+  "originalQuestionBindings": 8,
+  "supported": true,
+  "analysisDepth": "adequate",
+  "issueCount": 0,
+  "questions": [
+    {
+      "questionId": "chapter:2/question:0",
+      "status": "gap"
+    },
+    {
+      "questionId": "chapter:2/question:1",
+      "status": "gap"
+    },
+    {
+      "questionId": "chapter:2/question:2",
+      "status": "gap"
+    },
+    {
+      "questionId": "chapter:2/question:3",
+      "status": "gap"
+    },
+    {
+      "questionId": "chapter:2/question:4",
+      "status": "gap"
+    },
+    {
+      "questionId": "chapter:2/question:5",
+      "status": "gap"
+    },
+    {
+      "questionId": "chapter:2/question:6",
+      "status": "gap"
+    },
+    {
+      "questionId": "chapter:2/question:7",
+      "status": "gap"
+    }
+  ]
+}

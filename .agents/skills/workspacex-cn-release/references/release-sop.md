@@ -71,6 +71,13 @@ flowchart TD
 
 ### 3.2 预准备与发布时重检
 
+场景的只读机器规划与统一离线回归入口见
+[`scripts/cn-release-audit.py`](../../../../scripts/cn-release-audit.py)。
+五轮审查、hotfix/无迁移边界、测试集和 30 分钟实测口径见
+[`cn-release-five-round-audit.md`](../../../../docs/operations/cn-release-five-round-audit.md)。
+分类结果不授权发布；`sealed/valid` 声明仍由 canonical verifier 实时复核。
+hotfix 只改变优先级，不降低迁移、CAS、停写、恢复或公网业务验收。
+
 发布前可异步完成 immutable build、ACR 重拉校验、离线 source 上传与闭包校验、manifest/seal、stable-secret continuity、bootstrap compatibility、影子 canonical 8/8、候选浏览器验收、baseline exact digest/入口快照和回滚演练。证据必须绑定 exact SHA、输入 hash、生成时间和 TTL。
 
 正式发布时不重做未漂移的昂贵工作，只重检会随时间变化的事实：production baseline fingerprint、receipt TTL、`main-cn` CAS、release lock/孤儿、活跃任务 drain、临时 IAM 的真实 Describe、外部依赖可达性、凭据剩余寿命和候选/回滚浏览器运行时。任一重检失败都不得复用旧的“绿色”静态记录。
@@ -201,6 +208,10 @@ Plan B 必须在发布开始前就准备好：私有 OSS 上有 exact SHA 的完
 
 | 日期 | failure code | 机械防线 |
 |---|---|---|
+| 2026-10-11 | OIDC trust 动作错用 API 名 | run38162020555 明确报 AuthenticationFail.NoPermission/PERMISSION_DENIED；角色信任动作误写 sts:AssumeRoleWithOIDC，官方 OIDC trust 要求 sts:AssumeRole。仅纠正动作并保持 Federated/iss/aud/sub/九对象原权限后，run38162328601 的 STS 和 SDK 阶段实际成功。API 仍调用 AssumeRoleWithOIDC，不混同 API 名与授权动作。跨 plan/trust/writer/reader 契约及 10 种漂移反证防复发；STS 成功不代表运输、入仓或生产验收。 |
+| 2026-10-11 | STS 产品错误码表不完整 | run38160575401 的 JSON Code 是字符串，但仍 OTHER；产品接口 48 条不等于公共完整错误码。以官方公共文档 39 个唯一类别补齐并保留兼容枚举，固定消息只能精确映射为预定义分类；未知 Code 只输出有界散列/长度，禁止原文和消息散列。制品真实元数据未漂移时可生成新的限时运输计划，不能重写旧 proof 的时效或据 OTHER 扩权。 |
+| 2026-10-11 | `STS_EXCHANGE` HTTP 401 / `OTHER` | run38158786691 证明身份交换响应非成功且清理正常，但旧 OTHER 混淆非 JSON、缺 Code、字段类型异常与未知类别。诊断仅输出固定格式/字段类型/编码枚举和静态允许类别；JSON Code/code 冲突不采信、正文仅内存限长解析，原始字段永不输出。实际 Node 反证覆盖格式分支和恶意 body/header；这仍不是现场认证根因或传输成功证明，禁止据此扩展信任或权限。 |
+| 2026-10-11 | `ALIBABA_CLOUD_AUTHENTICATION_FAILED` | run38156223016 在 OIDC claims 校验后、上传前失败；旧脱敏处理丢失阶段和 STS 状态，临时文件清理也可能掩盖原异常。固定 action hash/替换形状，输出固定阶段、整数 HTTP 状态和精确白名单类别；未知为 OTHER，禁止原始响应/消息/stack/token。清理 ENOENT 幂等，其他错误仍阻断且保留原异常。test_auth_action_hardening.py 实际执行 Node 反证，覆盖敏感值、状态边界和双重异常；接入 CI。本修复提供诊断，尚未证明现场认证失败根因或发布成功。 |
 | 2026-10-10 | `CANDIDATE_SAVE_LIMIT`（固定源码 Web） | run38029325145 的 Web 在 DOCKER_SAVE 触发原 2 GiB 写前限制；新增显式 formal-4g-v1 身份绑定预算（单件 4 GiB、总量 10 GiB），两个诊断入口仍拒绝该 profile、保持 2 GiB。受信同 run/attempt 的独立 metadata 准入及总量检查先于 tar 下载，最终原文和实物 hash 复验保留；worker 构建前/构建后/save后复查 18/14/10 GiB 空闲，不声称 Docker 缓存硬配额。test_cn_formal_budget_profile.py 覆盖预算、诊断隔离、元数据门和空间反证；无新增权限或生产操作。 |
 | 2026-10-10 | `CANDIDATE_SAVE_LAYERS` | Moby/containerd 可将相同层按顺序多次引用同一 blob；normalizer 改为按逻辑位置输出唯一路径，保留 Config 原字节与重复 diff_ids 顺序，严格 inspector 不变；输入 tar 重名成员、链接、Config/manifest 碰撞仍拒绝。新增 `CANDIDATE_SAVE_LAYER_COUNT` / `CANDIDATE_SAVE_PATH_COLLISION` 固定码及重复展开预算反证。现场仅取得合并失败码，尚未取得失败 manifest，故未认定该次失败唯一根因。 |
 | 2026-10-10 | `CANDIDATE_SAVE_LIMIT` | 正式 candidate producer 原先用 docker save --output，归档大小仅事后检查；改为 stdout 流式写入，每块写入前校验计划上限（最多 2 GiB），空归档拒绝，失败终止并回收子进程及临时文件。`test_cn_formal_save_bound.py` 覆盖真实子进程边界、超限、非零退出、写失败和 producer 清理，并接入 archive-bridge-tests。此限制不覆盖 Docker daemon 构建缓存；未据此认定历史 manifest 失败根因，也不证明五镜像交付或生产就绪。 |
@@ -302,3 +313,7 @@ The offline `isolated_rehearsal_endpoint_test.py` regression checks the fixed
 hosts, signed request, unchanged OOS endpoint and rejection before network of
 unknown services or unauthorized actions. It does not replace real network,
 IAM or resource admission.
+
+### 持久 continuation 入口（#5623，安装与真实 E2E 尚未完成）
+
+实现和边界见 [持久入口说明](../../../../docs/operations/cn-release-entry/README.md)：root-owned 批准包、跨阶段原始 requestedAt 预算、未知写只核对不重放、cgroup 与外部终态 observer、参数化真实 materializers。该入口尚不能替代完整单次批准发布；无 schema diff 不免当前 epoch 备份。发布前必须完成真实只读 OIDC/STS readiness，不能等制品构建/过期后首次验证认证。

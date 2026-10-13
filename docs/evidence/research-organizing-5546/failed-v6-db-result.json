@@ -1,0 +1,94 @@
+{
+  "completed": false,
+  "reportPartial": false,
+  "reportHash": null,
+  "previousReportHash": null,
+  "draftHash": "cf7e0999acf090bbf22fc0dfc628bf66f4a1c1102b05caa66364c675b4e32169",
+  "outlineHash": "cf08ac3fae469d202d4fb01bd4ecd08e4d1c87114f7fd9d85eaafcbde2045c75",
+  "sessionId": "grs_d47eeb4a76e4405a900615e1068edf6f",
+  "version": 6,
+  "busy": false,
+  "errorCode": "RESEARCH_REPORT_QUALITY_INSUFFICIENT",
+  "progress": {
+    "executionVersion": 6,
+    "stage": "synthesizing",
+    "completed": 4,
+    "total": 4
+  },
+  "modelCalls": 209,
+  "formalChapters": 0,
+  "draftChapters": 4,
+  "qualityWarnings": [
+    {
+      "sectionId": "ch_4",
+      "issues": [
+        "chapter:3/question:0: The chapter acknowledges that virtual activities can create a sense of 'collective effervescence' and intimacy but explicitly states that this is 'artificial' and lacks quantitative comparison metrics (such as emotional arousal scores) against offline gatherings. It identifies this lack of direct comparative data as a gap and proposes specific verification methods (A/B testing), which constitutes a valid evidence gap rather than a missing answer.",
+        "chapter:3/question:1: The chapter identifies real-name constraints and mutual attention as foundational for spontaneous interaction but explicitly states that existing evidence does not provide quantified data on the contribution rates of specific digital functions (like algorithms or specific UI components). It marks this as a missing metric and suggests verification via log analysis, fitting the definition of a passing gap.",
+        "chapter:3/question:2: The chapter argues that real-time collaborative tools (exemplified by 'conformist participation' like stealing vegetables) enhance engagement compared to passive isolation, citing qualitative evidence of social bonding. However, it explicitly admits the absence of direct comparative data on specific participation indicators (like dwell time or click-through rates) between collaborative and passive formats. This honest admission of missing quantitative comparison with a proposed verification method classifies it as a gap.",
+        "chapter:3/question:6: While the chapter lists general platform features (logs, status updates) that simulate interaction, it explicitly states that existing evidence does not specifically compare the effectiveness of different characteristics (such as chat vs. video breakout rooms) in simulating offline spontaneous interaction. It marks this lack of comparative data as a gap and suggests user testing for verification.",
+        "chapter:3/question:7: The chapter discusses factors related to user churn (life stage changes, ad clutter) but explicitly states that there is no direct quantitative correlation coefficient provided between interaction design complexity and churn rate. It identifies this missing metric and proposes multivariate regression analysis for verification, which is a valid gap."
+      ]
+    }
+  ],
+  "evidenceWarnings": [],
+  "sources": 16,
+  "documents": 16,
+  "activityFailures": 4,
+  "timeline": [
+    {
+      "id": "evidence",
+      "status": "completed",
+      "attempts": 19
+    },
+    {
+      "id": "chapter:ch_1",
+      "status": "completed",
+      "attempts": 2
+    },
+    {
+      "id": "review:ch_1",
+      "status": "completed",
+      "attempts": 7
+    },
+    {
+      "id": "chapter:ch_2",
+      "status": "completed",
+      "attempts": 2
+    },
+    {
+      "id": "review:ch_2",
+      "status": "completed",
+      "attempts": 6
+    },
+    {
+      "id": "chapter:ch_3",
+      "status": "completed",
+      "attempts": 2
+    },
+    {
+      "id": "review:ch_3",
+      "status": "completed",
+      "attempts": 6
+    },
+    {
+      "id": "chapter:ch_4",
+      "status": "completed",
+      "attempts": 2
+    },
+    {
+      "id": "review:ch_4",
+      "status": "warning",
+      "attempts": 5
+    },
+    {
+      "id": "synthesis",
+      "status": "completed",
+      "attempts": 1
+    },
+    {
+      "id": "validation",
+      "status": "failed",
+      "attempts": 1
+    }
+  ]
+}

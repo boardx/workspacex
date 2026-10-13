@@ -1,0 +1,46 @@
+{
+  "offlineOriginalResponseReplay": true,
+  "liveModelDispatches": 0,
+  "runtimeWritten": false,
+  "originalFirstVersion": 2,
+  "originalFirstReportSha256": "49087acd040d42f3237a48f6f158e71ba1b2fad9e0532e5ed17c44eac7b1f8a5",
+  "chapters": [
+    {
+      "sectionId": "ch_1",
+      "canonicalChapterSha256": "a5a3d4d7aa6a7e333d7737f641cf510e14dc4ea6c021765f75c8c4737729889d",
+      "recordedReviewDispatches": [
+        24
+      ],
+      "currentQualityGatesPassed": true
+    },
+    {
+      "sectionId": "ch_2",
+      "canonicalChapterSha256": "d52f610a5771c1ebdc6aa84620cf2bdf588fb24b4357fa69e842e6314cd1cfcc",
+      "recordedReviewDispatches": [
+        29,
+        31,
+        33
+      ],
+      "currentQualityGatesPassed": true
+    },
+    {
+      "sectionId": "ch_3",
+      "canonicalChapterSha256": "71ed30a133138025dc2a135c762cc23762eb915ecefdf5e503e4087356934f7b",
+      "recordedReviewDispatches": [
+        28,
+        30,
+        32,
+        40
+      ],
+      "currentQualityGatesPassed": true
+    },
+    {
+      "sectionId": "ch_4",
+      "canonicalChapterSha256": "c7a2314e68e828c69ee884c3c5dd3d9994f10f878cdc5afeb559fd07d1ade988",
+      "recordedReviewDispatches": [
+        41
+      ],
+      "currentQualityGatesPassed": true
+    }
+  ]
+}

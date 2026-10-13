@@ -37,6 +37,21 @@ const SITE = 'https://workspacex.us';
    lives at, which is what canonical, hreflang and og:url have to say. */
 const PAGES = [
   {
+    source: 'aidt/index.html',
+    target: 'zh/aidt/index.html',
+    path: '/zh/aidt/',
+    enPath: '/aidt/',
+    depth: 2,
+    weight: { changefreq: 'monthly', priority: '0.8' },
+    zh: {
+      title: '设计思维 × AI — WorkspaceX',
+      description: '以人为本，让 AI 转型找到方向。用 AI 增强设计思维心态、五阶段实践与共创工作坊，将共同理解转化为可验证的行动。',
+      ogTitle: '设计思维 × AI — WorkspaceX',
+      ogDescription: '让设计思维为 AI 转型确立方向，让 AI 增强洞察、创意与行动，让每一步改变都回应人的真实需求。',
+      ogImageAlt: 'WorkspaceX——面向人与 AI 的开放协作运行空间。',
+    },
+  },
+  {
     source: 'index.html',
     target: 'zh/index.html',
     path: '/zh/',

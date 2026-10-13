@@ -34,7 +34,7 @@
 }
 @keyframes d-pop { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 .d-chain__core { filter: drop-shadow(0 0 6px rgb(var(--c-2-rgb) / .6)); }
-.d-chain__pulse { filter: drop-shadow(0 0 7px rgba(255,255,255,.85)); opacity: .9; }
+.d-chain__pulse { filter: drop-shadow(0 0 7px rgba(24, 23, 22,.85)); opacity: .9; }
 
 /* ---- shift axis ---------------------------------------------------------- */
 .d-axis { width: 100%; height: 92px; overflow: visible; }
@@ -72,7 +72,7 @@
   opacity: calc(0.45 + 0.55 * var(--e, 0));
 }
 .d-loop__ring {
-  stroke: rgba(255, 255, 255, calc(0.16 + 0.26 * var(--e, 0)));
+  stroke: rgba(24, 23, 22, calc(0.16 + 0.26 * var(--e, 0)));
 }
 /* The inactive labels were faded to 62% on top of --fg-dim: about 2.8:1 on
    the page, under the 4.5 a 13px label needs. axe does not look inside SVG,
@@ -93,8 +93,8 @@
 /* ---- architecture -------------------------------------------------------- */
 .d-arch { width: 100%; height: auto; overflow: visible; }
 .d-arch__plate {
-  fill: rgba(255,255,255,.035);
-  stroke: rgba(255,255,255,.12);
+  fill: rgba(24, 23, 22,.035);
+  stroke: rgba(24, 23, 22,.12);
   transition: fill var(--dur) var(--ease-out), stroke var(--dur) var(--ease-out);
 }
 .d-arch__row[data-tone="core"] .d-arch__plate {
@@ -108,7 +108,7 @@
 }
 [data-reveal].is-in .d-arch__row { opacity: 1; transform: none; }
 .d-arch__bracket.is-fast { color: var(--fg-faint); }
-.d-arch__bracket.is-core { color: var(--c-2); }
+.d-arch__bracket.is-core { color: var(--brand-ink); }
 
 /* ---- harness ------------------------------------------------------------- */
 .d-harness { width: 100%; height: auto; overflow: visible; }
@@ -204,4 +204,4 @@
   stroke: rgb(var(--c-1-rgb) / 0.3);
   stroke-dasharray: 4 3;
 }
-@media (hover: hover) { .d-arch__row[data-layer]:hover .d-arch__plate { stroke: rgba(255, 255, 255, 0.34); } }
+@media (hover: hover) { .d-arch__row[data-layer]:hover .d-arch__plate { stroke: rgba(24, 23, 22, 0.34); } }

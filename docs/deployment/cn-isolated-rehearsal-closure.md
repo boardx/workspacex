@@ -76,3 +76,49 @@ printed, and this code change does not authorize or perform cloud execution.
 
 Offline regression gate (also the existing archive-bridge CI step):
 `python3 -I -B .harness/scripts/vm/isolated_rehearsal_test.py`.
+
+
+## Dedicated runner admission deadline and external closure (#5547)
+
+The protected root manifest now requires `runnerLifetime.instanceId` and
+`runnerLifetime.providerReadback`, the exact successful `DescribeInstances`
+response captured by the independent coordinator. It must contain one matching
+nonproduction ECS instance, the attempt description `wsx-cn-isolated-<UUID>`,
+`CreationTime`, and `AutoReleaseTime` no more than two hours later. The manifest's
+independently approved raw SHA binds this observation; an arbitrary caller clock
+or an old runner observation is not an acceptable input. The coordinator must
+verify actual ownership, account, region and auto-release policy before freezing
+this input. No new permission is added by this field.
+
+Admission ends at `min(runner AutoReleaseTime, RDS CreationTime + 7200) - 330`.
+The current invocation also has a monotonic bound, so wall-clock rollback cannot
+extend admission. The exact runner observation and deadline are persisted once
+under the private attempt root; resumption with different values fails. Before
+every provider/stage invocation, the loop checks the deadline and permanent
+`workload-closed.json` marker. Exceptions and normal completion close admission
+before entering the existing independent cleanup sequence. Cleanup remains
+available after expiry/closure and never replays an unknown mutation.
+
+An external root coordinator can close admission without loading stage secrets,
+revalidating expired source inputs, or invoking cloud APIs:
+
+```sh
+python3 .harness/scripts/vm/isolated_rehearsal.py ROOT_MANIFEST_PATH EXACT_MANIFEST_SHA256 --close-workload
+```
+
+The marker is written under the same private admission lock. This serializes the
+admission decision with closure; an invocation admitted before closure can still
+be in flight. The command reports `workloadStoppedProven:false`. It does not kill
+unrelated processes, enumerate containers by name, or claim child sessions have
+stopped. A timeout signal or parent PID exit is not a final stop proof.
+
+The external coordinator must destroy only the exact dedicated runner and target
+RDS covered by their original create receipts and deletion approvals. Final
+workload-stop evidence requires successful exact ECS absence and the originally
+recorded disk/ENI absence checks. Provider errors or unknown delete responses are
+not absence. The existing AutoReleaseTime and OOS backstop remain independent;
+330 seconds is reserve, not a guarantee of physical deletion or billing cutoff.
+For successful A3, all actual six-business/conservation/recovery receipts must be
+persisted and hash-bound outside the runner before destruction. Destroying a
+failed runner proves termination only; it cannot manufacture A3 success or prove
+that an earlier stage cleaned every descendant while the host was still alive.

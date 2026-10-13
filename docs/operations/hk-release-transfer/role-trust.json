@@ -1,0 +1,21 @@
+{
+  "Statement": [
+    {
+      "Action": "sts:AssumeRole",
+      "Condition": {
+        "StringEquals": {
+          "oidc:aud": "sts.aliyuncs.com",
+          "oidc:iss": "https://token.actions.githubusercontent.com",
+          "oidc:sub": "repo:boardx/workspacex:environment:production-cn-build"
+        }
+      },
+      "Effect": "Allow",
+      "Principal": {
+        "Federated": [
+          "acs:ram::1177216024653153:oidc-provider/WorkspacexGithubActionsOidc"
+        ]
+      }
+    }
+  ],
+  "Version": "1"
+}

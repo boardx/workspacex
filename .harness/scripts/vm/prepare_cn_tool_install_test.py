@@ -291,13 +291,13 @@ class InventoryEnvelopeTests(unittest.TestCase):
  def assert_reject_both(self,inv,r,e,now):
   with self.assertRaises((ValueError,RuntimeError)):m.verify_inventory_receipt(inv,json.dumps(r).encode(),e,now)
   with self.assertRaises((ValueError,RuntimeError)):self.installer.verify_inventory_receipt(inv,json.dumps(r).encode(),e,now.timestamp())
- def test_real_132_absent_inventory_fits_wire_without_losing_rows(self):
+ def test_current_absent_inventory_fits_wire_without_losing_rows(self):
   import ast,base64,gzip
   inv,r,e,now,_,_=self.fixture();value=json.loads(inv);tree=ast.parse((D/'cn-build-tool-identity.py').read_bytes());files=ast.literal_eval(next(n.value for n in tree.body if isinstance(n,ast.Assign)and any(isinstance(t,ast.Name)and t.id=='FILES'for t in n.targets)))
   absent=dict(present=False,regular=False,symlink=False,sha256=None,mode=None,uid=None,gid=None,links=None)
-  value['files']={source:dict(absent,target=target)for source,target in files.items()};inv=json.dumps(value).encode();r['localInventorySha256']=m.sha(inv);value.pop('sourceInvocation');decoded=(json.dumps(value,sort_keys=True)+'\n').encode();self.assertEqual(len(files),132);self.assertGreater(len(decoded),24000)
+  value['files']={source:dict(absent,target=target)for source,target in files.items()};inv=json.dumps(value).encode();r['localInventorySha256']=m.sha(inv);value.pop('sourceInvocation');decoded=(json.dumps(value,sort_keys=True)+'\n').encode();self.assertGreater(len(decoded),24000)
   v={'schemaVersion':1,'kind':'cn-tool-inventory-gzip-base64-v1','decodedBytes':len(decoded),'decodedSha256':m.sha(decoded),'gzipBase64':base64.b64encode(gzip.compress(decoded,mtime=0)).decode()};self.wrap(r,v);r['decodedInventorySha256']=m.sha(decoded)
-  a,b=self.verify_both(inv,r,e,now);self.assertEqual(len(b['files']),132);self.assertLess(len(base64.b64decode(r['outputBase64'])),24000)
+  a,b=self.verify_both(inv,r,e,now);self.assertEqual(b['files'],value['files']);self.assertLess(len(base64.b64decode(r['outputBase64'])),24000)
  def test_raw_and_encoded_receipts_preserve_provider_binding(self):
   inv,r,e,now,envelope,decoded=self.fixture();a,b=self.verify_both(inv,r,e,now);self.assertEqual(a['outputSha256'],r['outputSha256']);self.assertNotEqual(a['outputSha256'],m.sha(decoded));self.assertEqual(b,json.loads(inv))
   raw,r,e,now=Producer().receipt_fixture();self.verify_both(raw,r,e,now)

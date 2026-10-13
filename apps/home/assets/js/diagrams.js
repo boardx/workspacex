@@ -90,12 +90,12 @@ function chainNarrow(host) {
   const x = 60;
   s.append(el('line', {
     x1: x, y1: 26, x2: x, y2: 26 + rowH * (items.length - 1),
-    stroke: 'rgba(255,255,255,.14)', 'stroke-width': 1.5,
+    stroke: 'rgba(24,23,22,.14)', 'stroke-width': 1.5,
   }));
   items.forEach((key, i) => {
     const y = 26 + rowH * i;
     const g = el('g', { class: 'd-chain__node', style: `--i:${i}` });
-    g.append(el('circle', { cx: x, cy: y, r: 16, fill: '#0c0a10', stroke: 'rgba(255,255,255,.16)' }));
+    g.append(el('circle', { cx: x, cy: y, r: 16, fill: 'var(--bg)', stroke: 'rgba(24,23,22,.16)' }));
     g.append(el('circle', { cx: x, cy: y, r: 4.5, fill: 'url(#g1)', class: 'd-chain__core' }));
     g.append(el('text', { x: x + 30, y: y + 5, class: 'd-label d-label--lg' }, t(`d.chain.${key}`)));
     s.append(g);
@@ -103,7 +103,7 @@ function chainNarrow(host) {
   // the return arc that makes it a cycle
   s.append(el('path', {
     d: `M ${x} ${26 + rowH * (items.length - 1) + 22} q 0 24 -26 24 q -26 0 -26 -26 V 52 q 0 -26 26 -26 q 26 0 26 22`,
-    stroke: 'rgba(255,255,255,.10)', 'stroke-width': 1.5, 'stroke-dasharray': '4 5', fill: 'none',
+    stroke: 'rgba(24,23,22,.10)', 'stroke-width': 1.5, 'stroke-dasharray': '4 5', fill: 'none',
   }));
   host.replaceChildren(s);
   registerScale(s);
@@ -122,20 +122,20 @@ function chainWide(host) {
   // connecting rail
   s.append(el('line', {
     x1: pad, y1: y, x2: W - pad, y2: y,
-    stroke: 'rgba(255,255,255,.14)', 'stroke-width': 1.5,
+    stroke: 'rgba(24,23,22,.14)', 'stroke-width': 1.5,
   }));
 
   // the loop-back arc: what makes it a cycle rather than a pipeline
   s.append(el('path', {
     d: `M ${W - pad} ${y} q 46 0 46 32 q 0 30 -60 30 H ${pad + 14} q -60 0 -60 -30 q 0 -32 46 -32`,
-    stroke: 'rgba(255,255,255,.10)', 'stroke-width': 1.5,
+    stroke: 'rgba(24,23,22,.10)', 'stroke-width': 1.5,
     'stroke-dasharray': '4 5', fill: 'none',
   }));
 
   items.forEach((key, i) => {
     const x = pad + step * i;
     const g = el('g', { class: 'd-chain__node', style: `--i:${i}` });
-    g.append(el('circle', { cx: x, cy: y, r: 22, fill: 'rgba(255,255,255,.03)', stroke: 'rgba(255,255,255,.16)' }));
+    g.append(el('circle', { cx: x, cy: y, r: 22, fill: 'rgba(24,23,22,.03)', stroke: 'rgba(24,23,22,.16)' }));
     g.append(el('circle', { cx: x, cy: y, r: 5, fill: `url(#g1)`, class: 'd-chain__core' }));
     g.append(el('text', {
       x, y: y + 46, 'text-anchor': 'middle', class: 'd-label',
@@ -144,7 +144,7 @@ function chainWide(host) {
   });
 
   if (!reducedMotion()) {
-    const pulse = el('circle', { r: 4.5, fill: '#fff', class: 'd-chain__pulse' });
+    const pulse = el('circle', { r: 4.5, fill: 'var(--fg)', class: 'd-chain__pulse' });
     const path = el('path', {
       id: 'chainpath', d: `M ${pad} ${y} H ${W - pad}`, fill: 'none', stroke: 'none',
     });
@@ -168,13 +168,13 @@ function axisNarrow(host) {
   const s = svg(`0 0 ${W} ${H}`, { class: 'd-axis d-axis--v', preserveAspectRatio: 'xMidYMid meet' });
   defs(s, 'g2');
   const x = 26;
-  s.append(el('line', { x1: x, y1: 26, x2: x, y2: H - 46, stroke: 'rgba(255,255,255,.12)', 'stroke-width': 2 }));
+  s.append(el('line', { x1: x, y1: 26, x2: x, y2: H - 46, stroke: 'rgba(24,23,22,.12)', 'stroke-width': 2 }));
   s.append(el('line', {
     x1: x, y1: 26, x2: x, y2: H - 46, stroke: 'url(#g2)', 'stroke-width': 2,
     class: 'd-axis__fill', 'stroke-linecap': 'round',
   }));
   [['a1', 26], ['a2', (H - 20) / 2], ['a3', H - 46]].forEach(([key, y], i) => {
-    s.append(el('circle', { cx: x, cy: y, r: i === 2 ? 7 : 5, fill: i === 2 ? 'url(#g2)' : 'rgba(255,255,255,.35)' }));
+    s.append(el('circle', { cx: x, cy: y, r: i === 2 ? 7 : 5, fill: i === 2 ? 'url(#g2)' : 'rgba(24,23,22,.35)' }));
     s.append(el('text', { x: x + 22, y: y + 5, class: 'd-label d-label--lg' }, t(`d.axis.${key}`)));
   });
   s.append(el('text', { x: x + 22, y: 12, class: 'd-label d-label--xs d-label--dim' }, t('d.axis.was')));
@@ -189,7 +189,7 @@ function axisWide(host) {
   defs(s, 'g2');
 
   const y = 46;
-  s.append(el('line', { x1: 40, y1: y, x2: W - 40, y2: y, stroke: 'rgba(255,255,255,.12)', 'stroke-width': 2 }));
+  s.append(el('line', { x1: 40, y1: y, x2: W - 40, y2: y, stroke: 'rgba(24,23,22,.12)', 'stroke-width': 2 }));
   s.append(el('line', {
     x1: 40, y1: y, x2: W - 40, y2: y, stroke: 'url(#g2)', 'stroke-width': 2,
     class: 'd-axis__fill', 'stroke-linecap': 'round',
@@ -197,7 +197,7 @@ function axisWide(host) {
 
   [['a1', 40], ['a2', W / 2], ['a3', W - 40]].forEach(([key, x], i) => {
     const anchor = i === 0 ? 'start' : i === 2 ? 'end' : 'middle';
-    s.append(el('circle', { cx: x, cy: y, r: i === 2 ? 7 : 5, fill: i === 2 ? 'url(#g2)' : 'rgba(255,255,255,.35)' }));
+    s.append(el('circle', { cx: x, cy: y, r: i === 2 ? 7 : 5, fill: i === 2 ? 'url(#g2)' : 'rgba(24,23,22,.35)' }));
     s.append(el('text', { x, y: y - 18, 'text-anchor': anchor, class: 'd-label d-label--lg' }, t(`d.axis.${key}`)));
   });
 
@@ -232,7 +232,7 @@ function brokenChainNarrow(host) {
     const g = el('g', { class: 'd-break__box', style: `--i:${i}` });
     g.append(el('rect', {
       x, y, width: boxW, height: boxH, rx: 11,
-      fill: 'rgba(255,255,255,.07)', stroke: 'rgba(255,255,255,.22)',
+      fill: 'rgba(24,23,22,.07)', stroke: 'rgba(24,23,22,.22)',
     }));
     g.append(el('text', { x: W / 2, y: y + boxH / 2 + 5, 'text-anchor': 'middle', class: 'd-label' }, t(`d.break.${key}`)));
     s.append(g);
@@ -272,7 +272,7 @@ function brokenChainWide(host) {
     const g = el('g', { class: 'd-break__box', style: `--i:${i}` });
     g.append(el('rect', {
       x, y, width: boxW, height: boxH, rx: 12,
-      fill: 'rgba(255,255,255,.07)', stroke: 'rgba(255,255,255,.22)',
+      fill: 'rgba(24,23,22,.07)', stroke: 'rgba(24,23,22,.22)',
     }));
     g.append(el('text', { x: x + boxW / 2, y: y + boxH / 2 + 5, 'text-anchor': 'middle', class: 'd-label' }, t(`d.break.${key}`)));
     s.append(g);
@@ -282,11 +282,11 @@ function brokenChainWide(host) {
       const gx = x + boxW + gap / 2;
       s.append(el('line', {
         x1: x + boxW + 6, y1: y + boxH / 2, x2: gx - 9, y2: y + boxH / 2,
-        stroke: 'rgba(255,255,255,.18)', 'stroke-width': 1.2,
+        stroke: 'rgba(24,23,22,.18)', 'stroke-width': 1.2,
       }));
       s.append(el('line', {
         x1: gx + 9, y1: y + boxH / 2, x2: x + boxW + gap - 6, y2: y + boxH / 2,
-        stroke: 'rgba(255,255,255,.18)', 'stroke-width': 1.2,
+        stroke: 'rgba(24,23,22,.18)', 'stroke-width': 1.2,
       }));
       // a break mark, and particles drifting up out of it
       const b = el('g', { class: 'd-break__gap', style: `--i:${i}` });
@@ -342,7 +342,7 @@ function loopRing(host) {
   const s = svg(`0 0 ${S} ${S}`, { class: 'd-loop', preserveAspectRatio: 'xMidYMid meet' });
   defs(s, 'g4');
 
-  s.append(el('circle', { cx: C, cy: C, r: R, stroke: 'rgba(255,255,255,.10)', 'stroke-width': 1.5 }));
+  s.append(el('circle', { cx: C, cy: C, r: R, stroke: 'rgba(24,23,22,.10)', 'stroke-width': 1.5 }));
 
   const arc = el('circle', {
     cx: C, cy: C, r: R, stroke: 'url(#g4)', 'stroke-width': 3, 'stroke-linecap': 'round',
@@ -358,7 +358,7 @@ function loopRing(host) {
     const x = C + R * Math.cos(angle);
     const y = C + R * Math.sin(angle);
     const g = el('g', { class: 'd-loop__node', 'data-step': i });
-    g.append(el('circle', { cx: x, cy: y, r: 27, fill: '#0c0a10', stroke: 'rgba(255,255,255,.16)', class: 'd-loop__ring' }));
+    g.append(el('circle', { cx: x, cy: y, r: 27, fill: 'var(--bg)', stroke: 'rgba(24,23,22,.16)', class: 'd-loop__ring' }));
     const dot = el('circle', { cx: x, cy: y, r: 7, fill: LEAD_COLOR[stage.lead], class: 'd-loop__dot' });
     g.append(dot);
     // labels pushed outward along the radius so they never sit on the ring
@@ -409,7 +409,7 @@ function loopRing(host) {
         const stage = LOOP_STAGES[idx];
         title.textContent = t(`d.loop.${stage.key}`);
         who.textContent = t(LEAD_LABEL[stage.lead]);
-        title.setAttribute('fill', LEAD_COLOR[stage.lead]);
+        title.setAttribute('fill', stage.lead === 'both' ? 'var(--brand-ink)' : LEAD_COLOR[stage.lead]);
         // re-trigger the crossfade without a class-removal round trip
         centre.style.animation = 'none';
         void centre.getBoundingClientRect();
@@ -575,14 +575,14 @@ function harnessNarrow(host) {
     const g = el('g', { class: 'd-harness__gate', 'data-gate': key, style: `--i:${i}` });
     g.append(el('rect', {
       x, y, width: boxW, height: boxH, rx: 11,
-      fill: 'rgba(255,255,255,.05)', stroke: 'rgba(255,255,255,.16)', class: 'd-harness__plate',
+      fill: 'rgba(24,23,22,.05)', stroke: 'rgba(24,23,22,.16)', class: 'd-harness__plate',
     }));
     g.append(el('text', { x: x + boxW / 2, y: y + boxH / 2 + 5, 'text-anchor': 'middle', class: 'd-label' }, t(`d.harness.${key}`)));
     s.append(g);
     if (i < GATES.length - 1) {
       s.append(el('path', {
         d: `M ${x + boxW / 2} ${y + boxH + 4} V ${y + rowH - 6} m -4 -6 l 4 6 l 4 -6`,
-        stroke: 'rgba(255,255,255,.22)', 'stroke-width': 1.3, fill: 'none',
+        stroke: 'rgba(24,23,22,.22)', 'stroke-width': 1.3, fill: 'none',
         'stroke-linecap': 'round', 'stroke-linejoin': 'round',
       }));
     }
@@ -631,14 +631,14 @@ function harnessWide(host) {
     const g = el('g', { class: 'd-harness__gate', 'data-gate': key, style: `--i:${i}` });
     g.append(el('rect', {
       x, y, width: boxW, height: boxH, rx: 12,
-      fill: 'rgba(255,255,255,.035)', stroke: 'rgba(255,255,255,.14)', class: 'd-harness__plate',
+      fill: 'rgba(24,23,22,.035)', stroke: 'rgba(24,23,22,.14)', class: 'd-harness__plate',
     }));
     g.append(el('text', { x: x + boxW / 2, y: y + boxH / 2 + 5, 'text-anchor': 'middle', class: 'd-label' }, t(`d.harness.${key}`)));
     s.append(g);
     if (i < GATES.length - 1) {
       s.append(el('path', {
         d: `M ${x + boxW + 7} ${y + boxH / 2} H ${x + boxW + gap - 11} m -6 -4 l 6 4 l -6 4`,
-        stroke: 'rgba(255,255,255,.22)', 'stroke-width': 1.3, fill: 'none',
+        stroke: 'rgba(24,23,22,.22)', 'stroke-width': 1.3, fill: 'none',
         'stroke-linecap': 'round', 'stroke-linejoin': 'round',
       }));
     }
@@ -797,7 +797,7 @@ function graph(host) {
     const n1 = byId[a], n2 = byId[b];
     s.append(el('line', {
       x1: n1.x, y1: n1.y, x2: n2.x, y2: n2.y,
-      stroke: 'rgba(255,255,255,.13)', 'stroke-width': 1.2,
+      stroke: 'rgba(24,23,22,.13)', 'stroke-width': 1.2,
       class: 'd-graph__edge', style: `--i:${i}`,
     }));
   });
@@ -806,8 +806,8 @@ function graph(host) {
     const g = el('g', { class: 'd-graph__node', 'data-tone': n.tone ?? '', style: `--i:${i}` });
     g.append(el('circle', {
       cx: n.x, cy: n.y, r: n.r,
-      fill: n.tone === 'hot' ? 'url(#g7)' : 'rgba(255,255,255,.04)',
-      stroke: n.tone === 'ev' ? 'var(--c-evidence)' : 'rgba(255,255,255,.18)',
+      fill: n.tone === 'hot' ? 'url(#g7)' : 'rgba(24,23,22,.04)',
+      stroke: n.tone === 'ev' ? 'var(--c-evidence)' : 'rgba(24,23,22,.18)',
       'fill-opacity': n.tone === 'hot' ? '.9' : '1',
     }));
     g.append(el('text', {

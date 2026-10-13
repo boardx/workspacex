@@ -1,0 +1,65 @@
+name: CN Linux runtime package
+on:
+  workflow_dispatch:
+    inputs:
+      control_sha:
+        description: Exact reviewed 40-character control commit
+        required: true
+      recipe_sha256:
+        description: SHA256 of that commit's recipe-files.json
+        required: true
+  pull_request:
+    paths:
+      - 'scripts/build-cn-linux-runtime.py'
+      - 'scripts/check-cn-linux-runtime.py'
+      - 'scripts/cn-release-business-state.py'
+      - 'tests/test_cn_release_business_state.py'
+      - '.github/release-plans/linux-runtime-package/**'
+      - '.github/workflows/cn-linux-runtime-package.yml'
+      - 'tests/test_cn_linux_runtime_package.py'
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.control_sha || github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22.20.0'
+          package-manager-cache: false
+      - name: Offline contract tests
+        run: |
+          /usr/bin/python3.12 -B -m unittest discover -s tests -p test_cn_linux_runtime_package.py
+          /usr/bin/python3.12 -B -m unittest discover -s tests -p test_cn_release_business_state.py
+      - name: Build proposed Linux package and execute smoke tests
+        env:
+          INPUT_CONTROL: ${{ inputs.control_sha }}
+          INPUT_RECIPE: ${{ inputs.recipe_sha256 }}
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          set -euo pipefail
+          control="$INPUT_CONTROL"
+          recipe="$INPUT_RECIPE"
+          if [ "$EVENT_NAME" = pull_request ]; then
+            control="$(git rev-parse HEAD)"
+            recipe="$(sha256sum .github/release-plans/linux-runtime-package/recipe-files.json | cut -d' ' -f1)"
+          fi
+          /usr/bin/python3.12 -B scripts/build-cn-linux-runtime.py --control-sha "$control" --recipe-sha256 "$recipe" --output "$RUNNER_TEMP/cn-linux-runtime"
+      - uses: actions/upload-artifact@v6
+        with:
+          name: cn-linux-runtime-proposal
+          path: |
+            ${{ runner.temp }}/cn-linux-runtime.tar.gz
+          retention-days: 1
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v6
+        with:
+          name: cn-linux-runtime-summary
+          path: ${{ runner.temp }}/cn-linux-runtime.summary.json
+          retention-days: 1
+          if-no-files-found: error

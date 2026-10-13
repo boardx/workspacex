@@ -1,0 +1,67 @@
+// Controlled local-only test. Fixed semantic verdicts and memory storage are not quality or DB acceptance.
+import {createServer} from "node:http";
+import assert from "node:assert/strict";
+import type {AddressInfo} from "node:net";
+import {ConfiguredModelProvider} from "__API_SOURCE__/infrastructure/agent-run/configured-model-provider.ts";
+import {GuidedRuntimeService} from "__API_SOURCE__/application/research/guided-runtime-service.ts";
+import {prepareGeometry} from "__GEOMETRY_FIXTURE__";
+type ResearchRuntime=any;type RuntimePersistence=any;type RuntimeStreamEvent=any;
+const section = (id: string, title: string, order: number, enabled = true) => ({ id, title, order, enabled, questions: [`What does ${id} establish?`] });
+const body = (id: string) => `### Evidence\n\nThe source describes a limited policy requirement, supporting this comparison while leaving implementation uncertain. [[source:${id}]]\n\n### Decision implications\n\nThe requirement may affect entry timing and verification effort; this is an inference, not proof of profitability.\n\n### Recommended next steps\n\nVerify the unanswered implementation questions with local primary sources before making an irreversible investment decision.`;
+function fixture() {
+  const state: ResearchRuntime = { sessionId: "s", version: 4, revision: 1, currentNode: "report", availableNodes: ["report"],
+    brief: { topic: "Policy", goal: "Compare", timeRange: "2026", region: "EU", focus: "Grid" }, directions: [],
+    outline: [section("b", "Second specified title", 0), section("disabled", "Excluded", 1, false), section("a", "First specified title", 2)],
+    tasks: ["a", "b"].map((id) => ({ id: `task-${id}`, sectionId: id, query: `${id} policy`, status: "succeeded", attempts: 1, errorCode: null })),
+    sources: ["a", "b"].map((id) => ({ id: `source-${id}`, taskId: `task-${id}`, title: id, content: `Evidence for ${id}`, url: `https://example.com/${id}`, retrievedAt: "2026-09-07", decision: "accepted" })), report: null,
+    completed: false, busy: true, leaseUntil: null, errorCode: null, generatedNodes: [], messages: [], proposal: null, modelCalls: [] };
+  const writes: ResearchRuntime[] = []; const events: RuntimeStreamEvent[] = [];
+  const persist: RuntimePersistence = Object.assign(async () => { writes.push(structuredClone(state)); }, { requestId: "request", observe: (event: RuntimeStreamEvent) => { events.push(event); } });
+  return { state, writes, events, persist };
+}
+const config = { provider: "test", id: "model" };
+function answer(context: any) {
+  if (context.reportStage === "evidence" || context.researchStage === "source_relevance") return { evaluations: context.chunks.map((chunk: any) => {
+    const matches = context.questions.filter((question: any) => context.researchStage === "source_relevance" ? chunk.questionIds.includes(question.id) : chunk.sourceId.endsWith(question.sectionId) || !context.chunks.some((candidate: any) => candidate.sourceId.endsWith(question.sectionId)))
+      .map((question: any) => ({ questionId: question.id, quote: (chunk.content ?? chunk.quoteOptions[0].text).slice(0, 80), insight: "The excerpt supports a limited policy comparison.", relevance: "direct" }));
+    return { sourceId: chunk.sourceId, chunkId: chunk.chunkId, irrelevant: !matches.length, matches };
+  }) };
+  if (context.reportStage === "quality") return { questions: context.evidenceByQuestion.map((question: any) => ({ questionId: question.id, status: question.gap ? "gap" : "answered", rationale: "The chapter addresses this question with appropriate limitations." })), supported: true, analysisDepth: "adequate", issues: [] };
+  if (context.chapterOutputMode === "question_paragraphs") return { sectionId: context.section.id, paragraphs: context.questionCoveragePlan.map((question: any) => {
+    const sourceIds = [...new Set<string>(question.evidenceScope.map((entry: any) => entry.sourceId))];
+    return { questionId: question.questionId, body: `The verified policy evidence supplies a limited comparison for this question. Its requested measurement remains uncertain; the local data owner must measure the outcome before making the corresponding investment decision. ${sourceIds.map(id => `[[source:${id}]]`).join(" ")}` };
+  }) };
+  if (["chapter", "chapter_revision"].includes(context.reportStage)) return { sectionId: context.section.id, body: body(context.sources[0].id), sourceIds: [context.sources[0].id] };
+  return { introduction: "This study compares policy requirements using retrieved excerpts, with incomplete implementation coverage.", conclusion: "Prioritize local verification before investment, balancing entry speed against uncertain regulatory obligations.", title: "Evidence-based findings", summary: `The chapters support a cautious comparison. [[source:${context.chapters[0].sourceIds[0]}]]` };
+}
+
+const cases=__CASES__; const modes=__MODES__;
+let scenario="rejected";let observed:number[]=[];
+const server=createServer((request,response)=>{let raw="";request.on("data",b=>raw+=b);request.on("end",()=>{try{
+const input=JSON.parse(raw);const context=JSON.parse(input.messages.find((m:any)=>m.role==="user").content);
+if(context.reportStage==="evidence")observed.push(context.batchIndex);
+if(context.reportStage==="evidence"&&context.batchIndex===15){
+if(scenario==="rejected"||scenario==="unclassified"||scenario==="authentication"){
+ response.writeHead(scenario==="authentication"?401:400,{"content-type":"application/json"});
+ response.end(JSON.stringify({error:{code:scenario==="rejected"?"data_inspection_failed":"invalid_parameter"}}));return;}
+}
+let output=answer(context.reportStage==="evidence_revision"?{...context,reportStage:"evidence"}:context);
+if(["evidence","evidence_revision"].includes(context.reportStage)&&context.batchIndex===15&&scenario==="invalid-reference")output.evaluations.forEach((e:any)=>e.matches.forEach((m:any)=>m.quote="invented quotation absent from source"));
+response.writeHead(200,{"content-type":"application/json"});response.end(JSON.stringify({choices:[{message:{content:JSON.stringify(output)},finish_reason:"stop"}],usage:{prompt_tokens:1,completion_tokens:1}}));
+}catch{response.writeHead(500);response.end();}});});
+await new Promise<void>(r=>server.listen(0,"127.0.0.1",r));
+try{for(const fault of cases){for(const regenerated of modes){
+scenario=fault;observed=[];const f=fixture();prepareGeometry(f.state);
+const previous={title:"Previous report",summary:"Saved",sections:f.state.outline.map((s:any)=>({sectionId:s.id,body:body(f.state.sources[0].id),sourceIds:[f.state.sources[0].id]}))};
+if(regenerated)f.state.report=previous;
+const provider=new ConfiguredModelProvider({provider:"test",baseUrl:`http://127.0.0.1:${(server.address() as AddressInfo).port}`,apiKey:"local-test-only",timeoutMs:5000,streamEnabled:false,visionModelIds:new Set(),thinkingDisableModelIds:new Set(),bailianExtensionsEnabled:false});
+const store:any={read:async()=>f.state,claim:async()=>({state:f.state,replay:false}),write:async(_a:any,_r:any,state:any)=>f.writes.push(structuredClone(state))};
+const service=new GuidedRuntimeService(store,provider,{search:async()=>[]},config);
+const result=await service.execute({sessionId:"s",userId:"u",orgId:"org"} as any,{sessionId:"s",brief:f.state.brief,directions:{versions:[]},outline:{versions:[]},sourceCount:0,status:"draft",resumeStage:"brief"} as any,{sessionId:"s",requestId:`local-${fault}-${regenerated}`,node:"report",expectedVersion:4,...(regenerated?{action:"message",message:"重新生成报告"}:{action:"generate"})} as any);
+const healthy=["rejected","invalid-reference"].includes(fault);
+console.log(JSON.stringify({kind:"comparison",fault,regenerated,actualError:result.errorCode,expectedError:healthy?null:"RESEARCH_WORKFLOW_UNAVAILABLE",sections:result.report?.sections.length??0,batch15Calls:observed.filter(i=>i===15).length}));
+assert.equal(result.errorCode,healthy?null:"RESEARCH_WORKFLOW_UNAVAILABLE");
+if(healthy){assert.equal(result.report?.sections.length,4);assert.equal(result.reportDraft??null,null);assert.equal((result.reportQualityWarnings??[]).length,0);assert.equal(new Set(result.questionEvidence?.map((q:any)=>q.questionId)).size,32);if(fault==="rejected")assert.equal(observed.filter(i=>i===15).length,1);assert.equal(f.writes.at(-1)?.report?.sections.length,4);if(regenerated)assert.deepEqual(result.reportPrevious?.report,previous);}
+if(!healthy){assert.notEqual(result.report?.title,"Evidence-based findings");if(regenerated)assert.deepEqual((result.reportPrevious?.report??result.report),previous);}
+console.log(JSON.stringify({fault,regenerated,errorCode:result.errorCode,sections:result.report?.sections.length??0,modelCalls:result.modelCalls.length,evidenceBatches:observed.length,healthy}));
+}}}finally{await new Promise<void>(r=>server.close(()=>r()));}

@@ -1,11 +1,12 @@
 # 进度日志 — Phase 21 billing-payment
 
-## 当前已验证状态(唯一真相)
-- 仓库根目录: /Users/shenyangjun/boardx/workspacex（当前工作分支：`codex/interview-acceptance-optimizations`，本阶段全部产物**尚未提交**）
-- 标准启动路径: `pnpm -w run dev`
-- 标准验证路径: 见 ADR-106（`verify:quick`/`verify:harness`/`verify:release`，不确定就跑 `verify:release`）
-- 当前最高优先级未完成功能: 15 个 feature 就绪（0 开工，全部 `not_started`，占位 id `F-TBD-*` 待 claim 取号）
-- 当前 blocker: 无；下一道门 = **人类签核**（束级 `design-signoff.md` ×2 + 阶段 `design-coherence.md`，S6）
+## 当前已验证状态
+- 当前检出：`/Users/shenyangjun/.codex/worktrees/eaa4/workspacex`，F01工作分支已推送；新验证证据正在整理为PR。
+- 标准启动：`pnpm -w run dev`；标准验证：`pnpm harness verify --sprint 21/01 --feature F01 --owner coord-voice`。
+- 2026-10-11第三次官方验证退出0，harness自动将F01标为passing；high_risk release33/33任务成功，local-runtime247/API14949测试通过。
+- 已验证证据：sprint-01/evidence/F01.verify.log，执行head9cf0252e2；历史失败另存独立日志。
+- 交付边界：F01尚待PR/CI与合入main、关闭#4883，不宣称完成定义全部满足。其余14项尚未开始；支付/token运行链路仍待实现。
+- 束级设计签核与阶段一致性复核已确认，配置为下一项功能；不改人类签核状态。
 
 ## 会话记录
 
@@ -50,3 +51,24 @@
 - ✅ CI 全绿（2026-10-01 13:2x，head 433af460e）：24 pass / 0 fail / 0 pending。重跑的 fullstack-smoke 通过——首轮 4 条 skill-github-import 失败确认为 CI flake（与 diff 零重叠）。PR #4856 等人类 Approve+Merge。
 
 - 评审回合（2026-10-01）：Codex 自动评审 6 条意见（P1×3/P2×3）逐条处理——契约读模型补 stripe、CreditTransaction 补 operatorId、收银台组织流水、发放整数校验、流水分页前类型筛选；31 张截图重拍同步；签核字段一条按 human-decision-packaging 说明（人类对话框确认 + 本 PR merge 为批准事件）。
+
+### 2026-10-10 恢复支付与 token 工作
+- 用户直接交办，授权豁免协调凭据接入；最新主线恢复 F01 六表基础（issue #4883），真实 SQL 重放/事务回滚/租户隔离补强后 16/16，API typecheck/lint 通过。完整高风险 verify 正在运行。
+- 新建 sprint-01；只有 F01 在编，其余 14 条均未实现；禁止将原型或合同当作运行时交付。
+- token 消费方案人类已确认（1 credit=1000 tokens、0.01 向上取整、预留后真实 usage 幂等结算、余额不足拒绝、个人/组织分账、Stripe 不赠额度），需后续独立 delta；本 PR 只交付 F01。
+
+- F01 本轮完整门控失败于主线五处凭据扫描夹具（#5550 单独修复），feature 维持 in_progress；独立评审的发放 source_type 缺口已反证修复，16/16。
+
+### 2026-10-11 按参考功能推进并完善体验
+- 用户要求先按参考实现并考虑体验，继续既有授权。最新 main `882bd3339` 已包含前置修复 #5557 及颜色门禁修复；F01 rebase/push 完成，独立 exact SHA review 接受 `c48f0a211e11feb4f3972d58732f599ca2a5a0ff`。
+- 本次官方 `harness verify --sprint 21/01 --feature F01 --owner coord-voice` 的 16 项专项已通过，高风险全量 `verify:release` 仍在运行，尚无最终退出码。历史失败日志不能代表本次结果，保持 in_progress。
+- 后续实现体验判据补入同一充值意图恢复、真实到账后才显示成功、网络异常保留订单、取消订阅按服务端时点显示；原型固定价格及“无限量”文案不得当作实际权益。
+- 其余支付与 token 运行时功能仍未实现；当前只认领 F01，不提前报完成。
+- 本次完整门控返回1：根 harness 2482/2483 测试通过，唯一失败为本分支未合入身份修正的 owner_preempted；main→HEAD 迁移门通过。保留独立失败/诊断日志，整理本分支初次认领历史后重跑，不改门禁或 passing 状态。自身隔离栈已清理。
+- 身份历史修复提交 `535bfd12f` 已推送，独立 exact SHA review ACCEPT，推送前 typecheck/lint 通过；生产迁移门退出0与对应10/10测试日志已保留为 `F01.owner-transition-fixed*.log`。本次完整重验越过根 harness 阶段，继续工作区测试，尚无最终退出码。
+
+- 第二次官方重验最终退出1：schema与根harness通过；local-runtime parity缺9项归类、API三项Python集成缺pytest。完整真实证据F01.verify.log（head535bfd12f）。已锁文件安装dev依赖并进行针对性复验，分类缺口由既有#5574/#5585处理，Windows前置#5582尚未合入；不重复补丁、不假passing。自身栈wsx-9eadb1a49d2f9e454b20已清理。
+
+- Python环境修复定向重跑退出0：3文件/6测试全绿，3条原失败集成均通过，证据F01.python-env-retry.log；隔离资源已清理。剩余阻塞是既有主线PR #5585归类修复，未宣称完整门控通过。
+
+- #5585实际合入后，第三次官方verify退出0，harness自动升级F01；本轮资源wsx-4683e2a75dd8e74d45e6已清理。PR交付尚待完成，不将正式验证通过等同全支付功能完成。

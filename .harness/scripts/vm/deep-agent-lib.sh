@@ -311,6 +311,7 @@ native_runtime_wait_for_api_env() {
   deadline=$((SECONDS + timeout_seconds))
   for ((attempt = 1; attempt <= attempts && SECONDS < deadline; attempt++)); do
     remaining=$((deadline - SECONDS))
+    ((remaining > 0)) || break
     query_timeout=$((remaining < 2 ? remaining : 2))
     pid=$(timeout --signal=KILL "$query_timeout" systemctl show --property MainPID --value "$service" 2>/dev/null) || pid=""
     if [[ "$pid" =~ ^[1-9][0-9]*$ ]]; then

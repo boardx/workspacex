@@ -1,0 +1,130 @@
+[stack-admission] load1=2.32 cores=10 perCore=0.23 running=0/2
+[test-isolation] id=run-mv3gidam-67cb8d0d-cdc339ecd1bd db=wsx_cdc339ecd1bd5cea069d compose=wsx-cdc339ecd1bd5cea069d pg=20628 redis=21628 api=24628 web=25628 sandbox=26628 model=27628 deep-agent=28628 asr=29628 vision=30628 loopback-sandbox=31628 mail=19628
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/eaa4/workspacex/apps/api
+
+[db-isolation] db=wsx_cdc339ecd1bd5cea069d capacity=100 current=6 required=32
+ ❯ tests/billing/schema-migration.test.ts (16 tests | 1 failed) 7187ms
+   × 约束与幂等键 > 回调事件 provider_event_id 全局唯一（I-7）；Stripe 行 order_no 可空 20ms
+     → promise resolved "Result{ command: 'INSERT', …(9) }" instead of rejecting
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/billing/schema-migration.test.ts > 约束与幂等键 > 回调事件 provider_event_id 全局唯一（I-7）；Stripe 行 order_no 可空
+AssertionError: promise resolved "Result{ command: 'INSERT', …(9) }" instead of rejecting
+
+- Expected
++ Received
+
+- [Error: rejected promise]
++ Result {
++   "RowCtor": null,
++   "_parsers": undefined,
++   "_prebuiltEmptyResultObject": null,
++   "_types": TypeOverrides {
++     "_types": Object {
++       "arrayParser": Object {
++         "create": [Function create],
++       },
++       "builtins": Object {
++         "ABSTIME": 702,
++         "ACLITEM": 1033,
++         "BIT": 1560,
++         "BOOL": 16,
++         "BPCHAR": 1042,
++         "BYTEA": 17,
++         "CHAR": 18,
++         "CID": 29,
++         "CIDR": 650,
++         "CIRCLE": 718,
++         "DATE": 1082,
++         "FLOAT4": 700,
++         "FLOAT8": 701,
++         "GTSVECTOR": 3642,
++         "INET": 869,
++         "INT2": 21,
++         "INT4": 23,
++         "INT8": 20,
++         "INTERVAL": 1186,
++         "JSON": 114,
++         "JSONB": 3802,
++         "MACADDR": 829,
++         "MACADDR8": 774,
++         "MONEY": 790,
++         "NUMERIC": 1700,
++         "OID": 26,
++         "PATH": 602,
++         "PG_DEPENDENCIES": 3402,
++         "PG_LSN": 3220,
++         "PG_NDISTINCT": 3361,
++         "PG_NODE_TREE": 194,
++         "POLYGON": 604,
++         "REFCURSOR": 1790,
++         "REGCLASS": 2205,
++         "REGCONFIG": 3734,
++         "REGDICTIONARY": 3769,
++         "REGNAMESPACE": 4089,
++         "REGOPER": 2203,
++         "REGOPERATOR": 2204,
++         "REGPROC": 24,
++         "REGPROCEDURE": 2202,
++         "REGROLE": 4096,
++         "REGTYPE": 2206,
++         "RELTIME": 703,
++         "SMGR": 210,
++         "TEXT": 25,
++         "TID": 27,
++         "TIME": 1083,
++         "TIMESTAMP": 1114,
++         "TIMESTAMPTZ": 1184,
++         "TIMETZ": 1266,
++         "TINTERVAL": 704,
++         "TSQUERY": 3615,
++         "TSVECTOR": 3614,
++         "TXID_SNAPSHOT": 2970,
++         "UUID": 2950,
++         "VARBIT": 1562,
++         "VARCHAR": 1043,
++         "XID": 28,
++         "XML": 142,
++       },
++       "getTypeParser": [Function getTypeParser],
++       "setTypeParser": [Function setTypeParser],
++     },
++     "binary": Object {},
++     "text": Object {},
++   },
++   "command": "INSERT",
++   "fields": Array [],
++   "oid": 0,
++   "rowAsArray": false,
++   "rowCount": 1,
++   "rows": Array [],
++ }
+
+ ❯ tests/billing/schema-migration.test.ts:294:58
+    292|     await expect(asApp(null, (c) => c.query(
+    293|       `INSERT INTO billing_webhook_events (provider, provider_event_id…
+    294|        VALUES ('stripe', 'f01-evt-1', true, 'ignored')`))).rejects.toT…
+       |                                                          ^
+    295|     const stripe = await asApp(null, (c) => c.query<{ order_no: string…
+    296|       `INSERT INTO billing_webhook_events (provider, provider_event_id…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 15 passed (16)
+   Start at  14:43:12
+   Duration  10.32s (transform 115ms, setup 4ms, collect 40ms, tests 7.19s, environment 0ms, prepare 24ms)
+
+[db-isolation] db=wsx_cdc339ecd1bd5cea069d peak_connections=2
+undefined
+/Users/shenyangjun/.codex/worktrees/eaa4/workspacex/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/billing/schema-migration.test.ts
+[timing] pnpm --filter api exec vitest run tests/billing/schema-migration.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：11s
+  清理：0s
+  总计：11s

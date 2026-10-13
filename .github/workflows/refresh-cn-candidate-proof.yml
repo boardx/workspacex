@@ -1,0 +1,59 @@
+name: refresh-cn-candidate-proof
+on:
+  workflow_dispatch:
+    inputs:
+      plan_sha256:
+        description: Reviewed SHA256 of exact proof-only refresh plan
+        type: string
+        required: true
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: proof-refresh-${{ inputs.plan_sha256 }}
+  cancel-in-progress: false
+jobs:
+  refresh:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - name: Require main and one workflow attempt
+        env:
+          REF: ${{ github.ref }}
+          ATTEMPT: ${{ github.run_attempt }}
+        run: test "$REF" = refs/heads/main && test "$ATTEMPT" = 1
+      - name: Validate reviewed plan and select exact verifier
+        id: plan
+        env:
+          PLAN_SHA: ${{ inputs.plan_sha256 }}
+        run: |
+          python3 - <<'PY'
+          import datetime,importlib.util,os,pathlib
+          s=importlib.util.spec_from_file_location('runner','scripts/cn-proof-only-refresh.py');m=importlib.util.module_from_spec(s);s.loader.exec_module(m)
+          raw=pathlib.Path('.github/release-plans/proof-refresh.json').read_bytes();assert m.sha(raw)==os.environ['PLAN_SHA']
+          p=m.validate(m.parse(raw),datetime.datetime.now(datetime.timezone.utc))
+          with open(os.environ['GITHUB_OUTPUT'],'a') as f:f.write('control='+p['verifierRevision']+'\n')
+          PY
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ steps.plan.outputs.control }}
+          path: producer-control
+          persist-credentials: false
+      - name: Download original ZIPs and run unchanged canonical revalidation
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PLAN_SHA: ${{ inputs.plan_sha256 }}
+          EXECUTION_ID: ${{ github.run_id }}-${{ github.run_attempt }}
+        run: python3 -I -B scripts/cn-proof-only-refresh.py --plan .github/release-plans/proof-refresh.json --plan-sha256 "$PLAN_SHA" --control producer-control --output "$RUNNER_TEMP/cn-proof-refresh" --execution-id "$EXECUTION_ID"
+      - uses: actions/upload-artifact@v6
+        with:
+          name: cn-proof-refresh-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/cn-proof-refresh/small/proof.json
+            ${{ runner.temp }}/cn-proof-refresh/small/policy.json
+            ${{ runner.temp }}/cn-proof-refresh/small/receipt.json
+          if-no-files-found: error
+          retention-days: 1

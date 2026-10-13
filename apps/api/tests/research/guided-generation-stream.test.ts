@@ -60,3 +60,28 @@ it("honors Accept quality, specificity and client ordering", () => {
   expect(acceptsResearchNdjson("*/*, application/x-ndjson")).toBe(true);
   expect(acceptsResearchNdjson()).toBe(false);
 });
+
+
+it.each(["failed", "streaming"] as const)("does not attribute an old %s stream to a continuation request", status => {
+  const events: any[] = [];
+  const send = researchGenerationEvents("continuation", event => events.push(event));
+  send({ type: "snapshot", state: { ...state, reportStream: { requestId: "previous", sequence: 9, text: "previous prose", status } } });
+  expect(events[0].source.requestId).toBe("continuation");
+  expect(events[0]).not.toHaveProperty("stream");
+  send({ type: "snapshot", state: { ...state, reportStream: { requestId: "continuation", sequence: 0, text: "", status: "streaming" } } });
+  expect(events.at(-1).stream).toEqual({ sequence: 0, offset: 0, status: "streaming" });
+  send({ type: "report_delta", sessionId: "s", requestId: "continuation", version: 2, sequence: 1, delta: "current prose" });
+  send({ type: "result", state: { ...state, errorCode: "RESEARCH_WORKFLOW_UNAVAILABLE" } });
+  expect(events.at(-1)).toEqual({ type: "failed", reasonCode: "RESEARCH_WORKFLOW_UNAVAILABLE" });
+  expect(JSON.stringify(events)).not.toContain("previous prose");
+});
+
+
+it("preserves a failed stream belonging to the current request and its terminal failure", () => {
+  const events: any[] = [], send = researchGenerationEvents("r", event => events.push(event));
+  const failed = { ...state, reportStream: { ...state.reportStream!, status: "failed" as const }, errorCode: "RESEARCH_WORKFLOW_UNAVAILABLE" as const };
+  send({ type: "snapshot", state: failed });
+  send({ type: "result", state: failed });
+  expect(events[0].stream).toEqual({ sequence: 0, offset: 0, status: "failed" });
+  expect(events[1]).toEqual({ type: "failed", reasonCode: "RESEARCH_WORKFLOW_UNAVAILABLE" });
+});

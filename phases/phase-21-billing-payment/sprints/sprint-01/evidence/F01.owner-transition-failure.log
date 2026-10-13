@@ -1,0 +1,1741 @@
+$ pnpm --filter api exec vitest run tests/billing/schema-migration.test.ts
+[exit 0]
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/eaa4/workspacex/apps/api
+
+[db-isolation] db=wsx_a99b14cc18f85f180431 capacity=100 current=6 required=32
+ ✓ tests/billing/schema-migration.test.ts (16 tests) 26234ms
+   ✓ 约束与幂等键 > 订单快照列不可变（I-5）：状态可推进、金额改不动 484ms
+   ✓ 约束与幂等键 > 流水去重键（I-2）与发放留痕（I-8） 347ms
+
+ Test Files  1 passed (1)
+      Tests  16 passed (16)
+   Start at  02:24:54
+   Duration  34.30s (transform 326ms, setup 16ms, collect 168ms, tests 26.23s, environment 0ms, prepare 102ms)
+
+[db-isolation] db=wsx_a99b14cc18f85f180431 peak_connections=2
+
+
+
+[BASE VERIFY] (risk=high_risk; matched: apps/api/migrations/20261001090000_billing_credits_core.sql⟵apps/api/migrations/**) $ pnpm -w run verify:release
+[exit 1]
+
+> agentic-harness-template@ verify:release /Users/shenyangjun/.codex/worktrees/eaa4/workspacex
+> pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm run verify:base:raw
+
+[harness-isolation] outer_db=wsx_a99b14cc18f85f180431 inner_db=wsx_a99b14cc18f85f180431 outer_compose=wsx-a99b14cc18f85f180431 inner_compose=wsx-a99b14cc18f85f180431 status=matched
+[stack-admission] load1=10.65 cores=10 perCore=1.07 running=2/2
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 0s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 5s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 10s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 15s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 20s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 25s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 30s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 35s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 40s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 45s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 50s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 55s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 60s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 65s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 70s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 75s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 80s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 85s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 90s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 95s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 100s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 105s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 110s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 115s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 120s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 125s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 130s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 135s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 140s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 145s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 150s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 155s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 160s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 165s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 170s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 175s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 180s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 185s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 190s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 195s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 200s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 205s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 210s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 215s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 220s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 225s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 230s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 235s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 240s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 245s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 250s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 255s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 260s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 265s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 270s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 275s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 280s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 285s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 290s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 295s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 300s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排到了，等了 305s
+[test-isolation] id=run-mv2q4wad-3d63f1e4-a99b14cc18f8 db=wsx_a99b14cc18f85f180431 compose=wsx-a99b14cc18f85f180431 pg=20908 redis=21908 api=24908 web=25908 sandbox=26908 model=27908 deep-agent=28908 asr=29908 vision=30908 loopback-sandbox=31908 mail=19908
+
+> agentic-harness-template@ verify:base:raw /Users/shenyangjun/.codex/worktrees/eaa4/workspacex
+> pnpm run verify:harness:raw && turbo run typecheck lint --continue && turbo run test --continue --concurrency=1
+
+
+> agentic-harness-template@ verify:harness:raw /Users/shenyangjun/.codex/worktrees/eaa4/workspacex
+> pnpm run lint:ui-material && pnpm run lint:third-artifact && pnpm run lint:shipped-pack-version && pnpm run lint:skill-metadata-source && pnpm run lint:ui-prototyper-single-source && pnpm run lint:execution-plan && pnpm run lint:work-stack-graph && pnpm run lint:root-router && pnpm run lint:self-host-compose && pnpm run lint:vocabulary && pnpm run lint:contracts-no-workspace-deps && pnpm run lint:ee-boundary && pnpm run lint:local-zero-egress && pnpm run lint:production-not-on-ops && pnpm run lint:cf-access && pnpm run lint:telemetry-schema && pnpm run lint:ops-incident-schema && pnpm run lint:ops-gtm-schema && pnpm run lint:ops-crm-schema && pnpm run lint:commitments && pnpm run lint:package-license && pnpm run lint:oss-secret-scan && pnpm run lint:third-party-license && pnpm run lint:maau-manifest && pnpm run lint:verification && pnpm run lint:nav-reachability && pnpm run lint:ui-wiring && pnpm run lint:rewrite-coverage && pnpm run lint:contract-route-coverage && pnpm run lint:body-path-param-leak && pnpm run lint:contract-negative-assertion && pnpm run lint:test-listen-loopback && pnpm run lint:test-shared-grant && pnpm run lint:pnpm-override-selector && pnpm run lint:spec-gate-coverage && pnpm run lint:e2e-testid-gate && pnpm run lint:user-facing-error-text && pnpm run lint:tailwind-color-tokens && pnpm run lint:chat-path-coverage && pnpm run lint:vitest-config-reachability && pnpm run lint:contract-state-names && pnpm run lint:minio-image-lock && pnpm run lint:templates-doctor && pnpm run lint:role-freeze-doctor && pnpm run lint:graph-authority-doctor && pnpm run lint:readiness && pnpm run lint:skills-doctor && pnpm exec vitest run --config .harness/vitest.config.ts --dir .harness
+
+
+> agentic-harness-template@ lint:ui-material /Users/shenyangjun/.codex/worktrees/eaa4/workspacex
+> node .harness/scripts/lint-ui-material.mjs
+
+  ✓ phase-03-reuse-and-governance/feedback-drafts   9/20 *(ui-preview/feedback-design-loop)
+  ✓ phase-03-reuse-and-governance/inbox-unified  11/20 *(ui-preview/feedback-design-loop)
+  ✓ phase-01-run-a-project/agent-interrupts   25/25  (ui-preview/agent-interrupts)
+  ✓ phase-01-run-a-project/agent-runtime      49/49  (ui-preview/agent-runtime-v2)
+  ✓ phase-01-run-a-project/asset-governance   64/64  (ui-preview/asset-governance)
+  ✓ phase-01-run-a-project/canvas             51/51  (ui-preview/canvas-v2)
+  ✓ phase-01-run-a-project/chat               20/20  (ui-preview/chat-v2)
+  ✓ phase-01-run-a-project/chat-file-upload   12/12  (ui-preview/chat-file-upload)
+  ✓ phase-01-run-a-project/files              15/15  (ui-preview/files)
+  ✓ phase-01-run-a-project/interview          62/62  (ui-preview/itv-v2)
+  ✓ phase-01-run-a-project/org-admin          48/48  (ui-preview/org-admin)
+  ✓ phase-01-run-a-project/personal-realtime-transcription   3/3   (ui-preview/realtime-transcription)
+  ✓ phase-01-run-a-project/plan-control        8/8   (ui-preview/plan-control)
+  ✓ phase-01-run-a-project/project            92/92  (ui-preview/project-v2)
+  ✓ phase-01-run-a-project/recording          56/56  (ui-preview/rec-v2)
+  ✓ phase-01-run-a-project/research           49/49  (ui-preview/research)
+  ✓ phase-01-run-a-project/skills             67/67  (ui-preview/skill-v2)
+  ✓ phase-01-run-a-project/templates          41/41  (ui-preview/tpl-v2)
+  ✓ phase-02-visible-outcomes/survey           6/6   (ui-preview/survey-v2)
+  ✓ phase-03-reuse-and-governance/design-ai-collab   2/2   (ui-preview/design-ai-collab)
+  ✓ phase-03-reuse-and-governance/design-prototype  14/14  (ui-preview/design-prototype)
+  ✓ phase-03-reuse-and-governance/design-workbench  16/16  (ui-preview/design-workbench)
+  ✓ phase-03-reuse-and-governance/feedback-loop   6/6   (ui-preview/feedback-loop)
+  ✓ phase-04-digital-expert-interview-studio/digital-expert-interview  10/10  (ui-preview/digital-expert-interview)
+  ✓ phase-05-studio-style-unification/studio-style   3/3   (ui-preview/studio-style)
+  ✓ phase-06-deep-research/deep-research       7/7   (ui-preview/deep-research)
+  ✓ phase-07-user-research/user-research       1/1   (ui-preview/user-research)
+  ✓ phase-08-transcription/transcription       1/1   (ui-preview/transcription)
+  ✓ phase-09-survey/survey                     1/1   (ui-preview/survey)
+  ✓ phase-10-live-collaboration-orchestration/group-checkin   3/3   (ui-preview/group-checkin)
+  ✓ phase-10-live-collaboration-orchestration/module-routing   5/5   (ui-preview/module-routing)
+  ✓ phase-10-live-collaboration-orchestration/segment-engine   4/4   (ui-preview/segment-engine)
+  ✓ phase-10-live-collaboration-orchestration/stage-aggregation   5/5   (ui-preview/stage-aggregation)
+  ✓ phase-10-live-collaboration-orchestration/viewer-role   5/5   (ui-preview/viewer-role)
+  ✓ phase-12-uiux-foundation/accessibility-guardrails   4/4   (ui-preview/accessibility-guardrails)
+  ✓ phase-12-uiux-foundation/interaction-primitives   5/5   (ui-preview/interaction-primitives)
+  ✓ phase-12-uiux-foundation/motion-microinteraction   4/4   (ui-preview/motion-microinteraction)
+  ✓ phase-12-uiux-foundation/review-governance   3/3   (ui-preview/review-governance)
+  ✓ phase-14-agent-kernel-unification/artifacts-steering   3/3   (ui-preview/artifacts-steering)
+  ✓ phase-14-agent-kernel-unification/error-observability   1/1   (ui-preview/error-observability)
+  ✓ phase-14-agent-kernel-unification/plan-permissions   2/2   (ui-preview/plan-permissions)
+  ✓ phase-14-agent-kernel-unification/streaming-transport   5/5   (ui-preview/streaming-transport)
+  ✓ phase-19-board-visual-workspace/board-fabric-surface   1/1   (ui-preview/board-fabric-surface)
+  ✓ phase-20-work-stack-foundation/agent-role   8/8   (ui-preview/agent-role)
+  ✓ phase-20-work-stack-foundation/work-content   8/8   (ui-preview/work-content)
+  ✓ phase-20-work-stack-foundation/work-eval   8/8   (ui-preview/work-eval)
+  ✓ phase-20-work-stack-foundation/work-skill-meta   8/8   (ui-preview/skill-catalog)
+  ✓ phase-20-work-stack-foundation/workflow-runtime   8/8   (ui-preview/workflow-runtime)
+  ✓ phase-21-billing-payment/billing-credits  24/24  (ui-preview/billing-credits)
+  ✓ phase-21-billing-payment/billing-subscription   9/9   (ui-preview/billing-subscription)
+  ✓ phase-01-run-a-project/chat-context-engine  20/20  (ui-preview/chat-v2)
+  ✓ phase-01-run-a-project/curated-capability-packs  67/67  (ui-preview/skill-v2)
+  ✓ phase-14-agent-kernel-unification/kernel-gateway   5/5   (ui-preview/streaming-transport)
+  * = 共用目录组：本束引用数 / 组目录总数。不变量是「组内并集 == 实存集」，不是逐束相等。
+✅ lint-ui-material: 53 个契约束的 ui.md 引用集合 == ui-preview 实存集合（共 984 张截图，无死链、无孤图）
+
+> agentic-harness-template@ lint:third-artifact /Users/shenyangjun/.codex/worktrees/eaa4/workspacex
+> node .harness/scripts/lint-third-artifact.mjs
+
+  ✓ phase-00-shared-kernel/api-kernel            形态 B  R12  10 行  无对外 HTTP 面（已显式声明 + 门控命令列已填）
+  ✓ phase-00-shared-kernel/artifact              形态 A  R12   8 行  packages/contracts/src/artifact.ts
+  ✓ phase-00-shared-kernel/auth                  形态 A  R12  12 行  packages/contracts/src/auth.ts
+  ✓ phase-00-shared-kernel/context-pack          形态 A  R12  13 行  packages/contracts/src/context-pack.ts
+  ✓ phase-00-shared-kernel/identity              形态 A  R12  23 行  packages/contracts/src/identity.ts
+  ✓ phase-00-shared-kernel/web-kernel            形态 B  R12  10 行  无对外 HTTP 面（已显式声明 + 门控命令列已填）
+  ✓ phase-01-run-a-project/agent-interrupts      形态 A  R12  16 行  packages/contracts/src/agent-interrupts.ts
+  ✓ phase-01-run-a-project/agent-runtime         形态 A  R12 160 行  packages/contracts/src/agent-runtime.ts
+  ✓ phase-01-run-a-project/asset-governance      形态 A  R12 108 行  packages/contracts/src/asset-governance.ts
+  ✓ phase-01-run-a-project/canvas                形态 A  R12  57 行  packages/contracts/src/canvas.ts
+  ✓ phase-01-run-a-project/chat                  形态 A  R12  67 行  packages/contracts/src/chat.ts
+  ✓ phase-01-run-a-project/chat-context-engine   形态 B  R12   7 行  无对外 HTTP 面（已显式声明 + 门控命令列已填）
+  ✓ phase-01-run-a-project/chat-file-upload      形态 A  R12   7 行  packages/contracts/src/chat-file-upload.ts
+  ✓ phase-01-run-a-project/curated-capability-packs 形态 A  R12  12 行  packages/contracts/src/curated-capability-packs.ts
+  ✓ phase-01-run-a-project/files                 形态 A  R12  50 行  packages/contracts/src/files.ts
+  ✓ phase-01-run-a-project/interview             形态 A  R12 105 行  packages/contracts/src/interview.ts
+  ✓ phase-01-run-a-project/org-admin             形态 A  R12  61 行  packages/contracts/src/org-admin.ts
+  ✓ phase-01-run-a-project/personal-realtime-transcription 形态 A  R12   9 行  packages/contracts/src/personal-realtime-transcription.ts
+  ✓ phase-01-run-a-project/plan-control          形态 A  R12  10 行  packages/contracts/src/plan-control.ts
+  ✓ phase-01-run-a-project/project               形态 A  R12  38 行  packages/contracts/src/project.ts
+  ✓ phase-01-run-a-project/recording             形态 A  R12  48 行  packages/contracts/src/recording.ts
+  ✓ phase-01-run-a-project/research              形态 A  R12  41 行  packages/contracts/src/research.ts
+  ✓ phase-01-run-a-project/skills                形态 A  R12  77 行  packages/contracts/src/skills.ts
+  ✓ phase-01-run-a-project/templates             形态 A  R12  64 行  packages/contracts/src/templates.ts
+  ✓ phase-02-visible-outcomes/survey             形态 A  R12   7 行  packages/contracts/src/survey.ts
+  ✓ phase-03-reuse-and-governance/design-ai-collab 形态 A  R12   9 行  packages/contracts/src/design-ai-collab.ts
+  ✓ phase-03-reuse-and-governance/design-prototype 形态 A  R12  16 行  packages/contracts/src/design-prototype.ts
+  ✓ phase-03-reuse-and-governance/design-workbench 形态 A  R12   9 行  packages/contracts/src/design-workbench.ts
+  ✓ phase-03-reuse-and-governance/feedback-drafts 形态 A  R12   9 行  packages/contracts/src/feedback-loop.ts
+  ✓ phase-03-reuse-and-governance/feedback-loop  形态 A  R12  12 行  packages/contracts/src/feedback-loop.ts
+  ✓ phase-03-reuse-and-governance/inbox-unified  形态 A  R12  12 行  packages/contracts/src/inbox.ts
+  ✓ phase-04-digital-expert-interview-studio/digital-expert-interview 形态 A  R12   9 行  packages/contracts/src/interview.ts
+  ✓ phase-05-studio-style-unification/studio-style 形态 B  R12   4 行  无对外 HTTP 面（已显式声明 + 门控命令列已填）
+  ✓ phase-06-deep-research/deep-research         形态 A  R12   5 行  packages/contracts/src/research.ts
+  ✓ phase-07-user-research/user-research         形态 A  R12   3 行  packages/contracts/src/research.ts
+  ✓ phase-08-transcription/transcription         形态 A  R12   4 行  packages/contracts/src/recording.ts
+  ✓ phase-09-survey/survey                       形态 A  R12   6 行  packages/contracts/src/survey.ts
+  ✓ phase-10-live-collaboration-orchestration/group-checkin 形态 A  R12   7 行  packages/contracts/src/org-admin.ts
+  ✓ phase-10-live-collaboration-orchestration/module-routing 形态 A  R12   7 行  packages/contracts/src/live-collab-module-routing.ts
+  ✓ phase-10-live-collaboration-orchestration/segment-engine 形态 A  R12   7 行  packages/contracts/src/project.ts
+  ✓ phase-10-live-collaboration-orchestration/stage-aggregation 形态 A  R12   9 行  packages/contracts/src/live-collab-stage-aggregation.ts
+  ✓ phase-10-live-collaboration-orchestration/viewer-role 形态 A  R12  11 行  packages/contracts/src/viewer-role.ts
+  ✓ phase-12-uiux-foundation/accessibility-guardrails 形态 B  R12   4 行  无对外 HTTP 面（已显式声明 + 门控命令列已填）
+  ✓ phase-12-uiux-foundation/interaction-primitives 形态 B  R12   5 行  无对外 HTTP 面（已显式声明 + 门控命令列已填）
+  ✓ phase-12-uiux-foundation/motion-microinteraction 形态 B  R12   6 行  无对外 HTTP 面（已显式声明 + 门控命令列已填）
+  ✓ phase-12-uiux-foundation/review-governance   形态 B  R12   4 行  无对外 HTTP 面（已显式声明 + 门控命令列已填）
+  ✓ phase-14-agent-kernel-unification/artifacts-steering 形态 A  R12   5 行  packages/contracts/src/artifacts-steering.ts
+  ✓ phase-14-agent-kernel-unification/error-observability 形态 A  R12   4 行  packages/contracts/src/error-observability.ts
+  ✓ phase-14-agent-kernel-unification/kernel-gateway 形态 A  R12   6 行  packages/contracts/src/kernel-gateway.ts
+  ✓ phase-14-agent-kernel-unification/plan-permissions 形态 A  R12   7 行  packages/contracts/src/plan-permissions.ts
+  ✓ phase-14-agent-kernel-unification/streaming-transport 形态 A  R12   5 行  packages/contracts/src/streaming-transport.ts
+  ✓ phase-19-board-visual-workspace/board-fabric-surface 形态 B  R12   7 行  无对外 HTTP 面（已显式声明 + 门控命令列已填）
+  ✓ phase-20-work-stack-foundation/agent-role    形态 A  R12  13 行  packages/contracts/src/agent-role.ts
+  ✓ phase-20-work-stack-foundation/work-content  形态 A  R12   9 行  packages/contracts/src/work-content.ts
+  ✓ phase-20-work-stack-foundation/work-eval     形态 A  R12  16 行  packages/contracts/src/work-eval.ts
+  ✓ phase-20-work-stack-foundation/work-skill-meta 形态 A  R12  19 行  packages/contracts/src/work-skill-meta.ts
+  ✓ phase-20-work-stack-foundation/workflow-runtime 形态 A  R12  16 行  packages/contracts/src/workflow-runtime.ts
+  ✓ phase-21-billing-payment/billing-credits     形态 A  R12  19 行  packages/contracts/src/billing-credits.ts
+  ✓ phase-21-billing-payment/billing-subscription 形态 A  R12   8 行  packages/contracts/src/billing-subscription.ts
+✅ lint-third-artifact: 59 个契约束的第 ③ 件均成立（形态 A 50 束 / 形态 B 9 束）
+
+> agentic-harness-template@ lint:shipped-pack-version /Users/shenyangjun/.codex/worktrees/eaa4/workspacex
+> node .harness/scripts/lint-shipped-pack-version.mjs
+
+✅ [shipped-pack-version] 10 个标准包的发货版本与构建版本逐字一致
+
+> agentic-harness-template@ lint:skill-metadata-source /Users/shenyangjun/.codex/worktrees/eaa4/workspacex
+> pnpm exec tsx .harness/scripts/lint-skill-metadata-source.mjs
+
+✅ [skill-metadata-source] 10 个构建脚本零手写元数据，19 个 SKILL.md frontmatter 是唯一来源；metadata: 嵌套遗留 5 条（只减不增）
+
+> agentic-harness-template@ lint:ui-prototyper-single-source /Users/shenyangjun/.codex/worktrees/eaa4/workspacex
+> node .harness/scripts/lint-ui-prototyper-single-source.mjs
+
+✅ [ui-prototyper-single-source] 9 条规则原文只在 .harness/instructions/ui-prototyper-hard-rules.md；2 个消费方均只引用不复述
+
+> agentic-harness-template@ lint:execution-plan /Users/shenyangjun/.codex/worktrees/eaa4/workspacex
+> node .harness/scripts/execution-plan.mjs check
+
+✓ .agents/skills/execution-plan/SKILL.md（只引用规范，不复述调色板）
+✓ .harness/instructions/execution-plan-visualization.md（classDef 副本与调色板一致）
+✓ .harness/templates/execution-plan.template.md
+✓ phases/phase-09-survey/sprints/sprint-03/plans/F09.plan.md
+✓ phases/phase-09-survey/sprints/sprint-04/plans/F10.plan.md
+✓ phases/phase-09-survey/sprints/sprint-05/plans/F11.plan.md
+✓ phases/phase-09-survey/sprints/sprint-06/plans/F12.plan.md
+✓ phases/phase-09-survey/sprints/sprint-07/plans/F13.plan.md
+✓ phases/phase-09-survey/sprints/sprint-08/plans/F14.plan.md
+✓ phases/phase-21-billing-payment/sprints/sprint-01/plans/F01.plan.md
+
+> agentic-harness-template@ lint:work-stack-graph /Users/shenyangjun/.codex/worktrees/eaa4/workspacex
+> node .harness/scripts/lint-work-stack-graph.mjs
+
+✓ Work Stack v2 组合图闭合：320 个实体，已作者化 120，已评审 86
+
+> agentic-harness-template@ lint:root-router /Users/shenyangjun/.codex/worktrees/eaa4/workspacex
+> pnpm exec tsx .harness/scripts/lint-root-router.mjs
+
+✅ [root-router] AGENTS.md 无占位符、写明项目身份、139/140 行在预算内、引用的 instructions 均可达
+
+> agentic-harness-template@ lint:self-host-compose /Users/shenyangjun/.codex/worktrees/eaa4/workspacex
+> node .harness/scripts/lint-self-host-compose.mjs && node --test .harness/scripts/lint-self-host-compose.selftest.mjs
+
+  docker compose config 解析通过
+✓ compose.yaml：1 个 include，均存在、无运营平面、必填变量齐全
+TAP version 13
+# Subtest: 真实仓库通过（纯 node 部分）
+ok 1 - 真实仓库通过（纯 node 部分）
+  ---
+  duration_ms: 9.601708
+  type: 'test'
+  ...
+# Subtest: parseIncludes 两种写法
+ok 2 - parseIncludes 两种写法
+  ---
+  duration_ms: 0.6975
+  type: 'test'
+  ...
+# Subtest: 合法 fixture 通过
+ok 3 - 合法 fixture 通过
+  ---
+  duration_ms: 6.40875
+  type: 'test'
+  ...
+# Subtest: 空 include 判红
+ok 4 - 空 include 判红
+  ---
+  duration_ms: 6.577417
+  type: 'test'
+  ...
+# Subtest: 被 include 的文件不存在判红
+ok 5 - 被 include 的文件不存在判红
+  ---
+  duration_ms: 5.769875
+  type: 'test'
+  ...
+# Subtest: 复制服务定义判红
+ok 6 - 复制服务定义判红
+  ---
+  duration_ms: 6.577709
+  type: 'test'
+  ...
+# Subtest: include 运营平面文件判红
+ok 7 - include 运营平面文件判红
+  ---
+  duration_ms: 5.893875
+  type: 'test'
+  ...
+# Subtest: build context 指向运营平面判红
+ok 8 - build context 指向运营平面判红
+  ---
+  duration_ms: 7.192709
+  type: 'test'
+  ...
+# Subtest: 服务名撞运营目录判红
+ok 9 - 服务名撞运营目录判红
+  ---
+  duration_ms: 6.696375
+  type: 'test'
+  ...
+# Subtest: include dev compose 判红
+ok 10 - include dev compose 判红
+  ---
+  duration_ms: 6.943
+  type: 'test'
+  ...
+# Subtest: 必填变量缺样例判红
+ok 11 - 必填变量缺样例判红
+  ---
+  duration_ms: 6.605458
+  type: 'test'
+  ...
+# Subtest: upgrade.sh 缺失或语法错判红
+ok 12 - upgrade.sh 缺失或语法错判红
+  ---
+  duration_ms: 7.906
+  type: 'test'
+  ...
+1..12
+# tests 12
+# suites 0
+# pass 12
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 164.087708
+
+> agentic-harness-template@ lint:vocabulary /Users/shenyangjun/.codex/worktrees/eaa4/workspacex
+> node .harness/scripts/lint-vocabulary.mjs --strict
+
+词汇检查：扫描 docs / .harness/instructions / .agents 下的 Markdown，命中 0 处
+✅ 没有已取代的叫法
+
+> agentic-harness-template@ lint:contracts-no-workspace-deps /Users/shenyangjun/.codex/worktrees/eaa4/workspacex
+> node .harness/scripts/lint-contracts-no-workspace-deps.mjs
+
+契约包依赖检查：扫描 package.json + 170 个源码文件，违规 0 处
+✅ 契约包不依赖任何工作区包
+
+> agentic-harness-template@ lint:ee-boundary /Users/shenyangjun/.codex/worktrees/eaa4/workspacex
+> node .harness/scripts/lint-ee-boundary.mjs
+
+开源/企业版边界检查：开源包 11 个、源码文件 9543 个，企业版包 0 个，违规 0 处
+✅ 开源代码不依赖企业版代码
+
+> agentic-harness-template@ lint:local-zero-egress /Users/shenyangjun/.codex/worktrees/eaa4/workspacex
+> node .harness/scripts/lint-local-zero-egress.mjs
+
+本地零出网静态检查：扫描 3 个本地版目录、源码文件 39 个，违规 0 处
+✅ 本地版代码路径没有硬编码外部主机
+
+> agentic-harness-template@ lint:production-not-on-ops /Users/shenyangjun/.codex/worktrees/eaa4/workspacex
+> node .harness/scripts/lint-production-not-on-ops.mjs
+
+生产不依赖运营平面：运营平面 10 个目录（10 个包），检查生产 14 个目录、9593 个源码文件，违规 0 处
+✅ 生产不依赖运营平面
+
+> agentic-harness-template@ lint:cf-access /Users/shenyangjun/.codex/worktrees/eaa4/workspacex
+> node .harness/scripts/lint-cf-access.mjs && node --test .harness/scripts/lint-cf-access.selftest.mjs
+
+✓ lint-cf-access：4 个 wrangler app 均已登记，protected 应用全部走 @repo/coord-access 且声明 AUD/团队域名
+TAP version 13
+# Subtest: 真实仓库通过
+ok 1 - 真实仓库通过
+  ---
+  duration_ms: 330.9905
+  type: 'test'
+  ...
+# Subtest: 合法 fixture 通过
+ok 2 - 合法 fixture 通过
+  ---
+  duration_ms: 1.951375
+  type: 'test'
+  ...
+# Subtest: 空集判红
+ok 3 - 空集判红
+  ---
+  duration_ms: 0.680583
+  type: 'test'
+  ...
+# Subtest: 有 wrangler.toml 未登记判红
+ok 4 - 有 wrangler.toml 未登记判红
+  ---
+  duration_ms: 1.211333
+  type: 'test'
+  ...
+# Subtest: 登记了但 app 不存在判红
+ok 5 - 登记了但 app 不存在判红
+  ---
+  duration_ms: 1.231291
+  type: 'test'
+  ...
+# Subtest: protected 未依赖共享包判红
+ok 6 - protected 未依赖共享包判红
+  ---
+  duration_ms: 1.116708
+  type: 'test'
+  ...
+# Subtest: protected 未 import 共享包判红（自己写一份）
+ok 7 - protected 未 import 共享包判红（自己写一份）
+  ---
+  duration_ms: 1.314791
+  type: 'test'
+  ...
+# Subtest: protected 未声明 AUD 变量判红（注释掉不算）
+ok 8 - protected 未声明 AUD 变量判红（注释掉不算）
+  ---
+  duration_ms: 1.28675
+  type: 'test'
+  ...
+# Subtest: protected 没有 behind_access host 判红
+ok 9 - protected 没有 behind_access host 判红
+  ---
+  duration_ms: 1.549333
+  type: 'test'
+  ...
+# Subtest: public 应用却读 Access 头判红
+ok 10 - public 应用却读 Access 头判红
+  ---
+  duration_ms: 1.604833
+  type: 'test'
+  ...
+# Subtest: 共享包之外自拉证书端点判红
+ok 11 - 共享包之外自拉证书端点判红
+  ---
+  duration_ms: 1.623625
+  type: 'test'
+  ...
+# Subtest: 共享包之外自己验签判红
+ok 12 - 共享包之外自己验签判红
+  ---
+  duration_ms: 1.71875
+  type: 'test'
+  ...
+# Subtest: 共享包内部不算违规
+ok 13 - 共享包内部不算违规
+  ---
+  duration_ms: 1.651709
+  type: 'test'
+  ...
+1..13
+# tests 13
+# suites 0
+# pass 13
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 407.433916
+
+> agentic-harness-template@ lint:telemetry-schema /Users/shenyangjun/.codex/worktrees/eaa4/workspacex
+> pnpm exec tsx .harness/scripts/lint-telemetry-schema.mjs
+
+上报 schema 检查：InstanceTelemetryReport，叶子字段 35 个，违规 0 处
+上报 schema 检查：FirstValueLocalFact，叶子字段 4 个，违规 0 处
+上报 schema 检查：FirstValueFunnelCounts，叶子字段 8 个，违规 0 处
+✅ 3 份上报 schema 里没有能装下客户内容的字段
+
+> agentic-harness-template@ lint:ops-incident-schema /Users/shenyangjun/.codex/worktrees/eaa4/workspacex
+> pnpm exec tsx .harness/scripts/lint-telemetry-schema.mjs --module apps/ops-console/src/incident-schema.ts --export IncidentRecord
+
+上报 schema 检查：IncidentRecord，叶子字段 11 个，违规 0 处
+✅ 1 份上报 schema 里没有能装下客户内容的字段
+
+> agentic-harness-template@ lint:ops-gtm-schema /Users/shenyangjun/.codex/worktrees/eaa4/workspacex
+> pnpm exec tsx .harness/scripts/lint-telemetry-schema.mjs --module apps/ops-console/src/gtm-schema.ts --export GtmStoredShapes,FunnelIngestBatch
+
+上报 schema 检查：GtmStoredShapes，叶子字段 13 个，违规 0 处
+上报 schema 检查：FunnelIngestBatch，叶子字段 7 个，违规 0 处
+✅ 2 份上报 schema 里没有能装下客户内容的字段
+
+> agentic-harness-template@ lint:ops-crm-schema /Users/shenyangjun/.codex/worktrees/eaa4/workspacex
+> pnpm exec tsx .harness/scripts/lint-telemetry-schema.mjs --module apps/ops-console/src/crm-schema.ts --export LeadRef,CreateLeadRefInput,UpdateLeadRefInput
+
+上报 schema 检查：LeadRef，叶子字段 6 个，违规 0 处
+上报 schema 检查：CreateLeadRefInput，叶子字段 4 个，违规 0 处
+上报 schema 检查：UpdateLeadRefInput，叶子字段 2 个，违规 0 处
+✅ 3 份上报 schema 里没有能装下客户内容的字段
+
+> agentic-harness-template@ lint:commitments /Users/shenyangjun/.codex/worktrees/eaa4/workspacex
+> node .harness/scripts/lint-commitments.mjs
+
+承诺登记表对账：对照表 16 行，角色体验设计 11 个（显式暂缓 2），显式缺口 1 处，问题 0 处
+  显式缺口 4.9 安全研究者「谁负责」：未定（安全联系人尚未指定，`SECURITY.md` 的邮箱仍是占位——这是组织决策，不由写文档的人定）
+✅ 承诺登记表与仓库现实一致，每类角色的体验六格齐全
+
+> agentic-harness-template@ lint:package-license /Users/shenyangjun/.codex/worktrees/eaa4/workspacex
+> node .harness/scripts/lint-package-license.mjs
+
+包许可证对账：21 个工作区包（oss 11 · sold 0 · ops 10 · 未定 0），问题 0 处
+✅ 每个工作区包的许可证都与归属表一致
+
+> agentic-harness-template@ lint:oss-secret-scan /Users/shenyangjun/.codex/worktrees/eaa4/workspacex
+> node .harness/scripts/oss-secret-scan.mjs --head-only --baseline .harness/state/oss-secret-scan-baseline.json
+
+可见 commit 数    11583
+扫描范围          仅工作树
+跳过的文件        2675（二进制或超过 2 MB）
+命中              115
+  assigned-secret   110
+  private-key-block 3
+  jwt               1
+  github-token      1
+
+命中明细（只打印规则与位置，不回显完整凭据）：
+  [assigned-secret] commit (工作树)
+  [jwt] commit (工作树)
+  [private-key-block] commit (工作树)
+  [github-token] commit (工作树)
+
+命中不等于泄露，但每一条都要人工确认，并假定该凭据已泄露、立即轮换。
+
+基线 99 条 · 基线外新命中 0 处
+✅ 没有基线外的新命中
+
+> agentic-harness-template@ lint:third-party-license /Users/shenyangjun/.codex/worktrees/eaa4/workspacex
+> node .harness/scripts/lint-third-party-license.mjs
+
+第三方许可证门控：随产品分发 1320 个（已安装并判定 1232 · 本机未装未判 88），已审放行 8，问题 0 处
+✅ 随产品分发的已安装第三方包许可证均在允许清单内或已审
+
+> agentic-harness-template@ lint:maau-manifest /Users/shenyangjun/.codex/worktrees/eaa4/workspacex
+> pnpm exec tsx .harness/scripts/lint-maau-manifest.mjs
+
+技能包清单检查：109 个技能包，89 个有问题，共 259 处
+
+按规则：
+  namespace    89
+  license      89
+  required     81
+
+明细：
+  work-customer-success/customer-escalation    capability_id "WX-WORK-S189" 不符合命名空间
+  work-customer-success/customer-escalation    既无 license 字段也无 LICENSE 文件，无法判定开源还是付费内容
+  work-customer-success/draft-support-response capability_id "WX-WORK-S188" 不符合命名空间
+  work-customer-success/draft-support-response 既无 license 字段也无 LICENSE 文件，无法判定开源还是付费内容
+  work-customer-success/kb-article             capability_id "WX-WORK-S190" 不符合命名空间
+  work-customer-success/kb-article             既无 license 字段也无 LICENSE 文件，无法判定开源还是付费内容
+  work-customer-success/qbr-preparation        capability_id "WX-WORK-S191" 不符合命名空间
+  work-customer-success/qbr-preparation        既无 license 字段也无 LICENSE 文件，无法判定开源还是付费内容
+  work-customer-success/renewal-risk           capability_id "WX-WORK-S192" 不符合命名空间
+  work-customer-success/renewal-risk           既无 license 字段也无 LICENSE 文件，无法判定开源还是付费内容
+  work-customer-success/support-operations     capability_id "WX-WORK-S194" 不符合命名空间
+  work-customer-success/support-operations     既无 license 字段也无 LICENSE 文件，无法判定开源还是付费内容
+  work-customer-success/support-triage         capability_id "WX-WORK-S187" 不符合命名空间
+  work-customer-success/support-triage         既无 license 字段也无 LICENSE 文件，无法判定开源还是付费内容
+  work-customer-success/voice-of-customer      capability_id "WX-WORK-S193" 不符合命名空间
+  work-customer-success/voice-of-customer      既无 license 字段也无 LICENSE 文件，无法判定开源还是付费内容
+  work-engineering/technical-documentation     缺 description
+  work-engineering/technical-documentation     capability_id "WX-WORK-S179" 不符合命名空间
+  work-engineering/technical-documentation     既无 license 字段也无 LICENSE 文件，无法判定开源还是付费内容
+  work-executive/board-meeting-preparation     缺 description
+  work-executive/board-meeting-preparation     capability_id "WX-WORK-S196" 不符合命名空间
+  work-executive/board-meeting-preparation     既无 license 字段也无 LICENSE 文件，无法判定开源还是付费内容
+  work-executive/business-model-analysis       缺 description
+  work-executive/business-model-analysis       capability_id "WX-WORK-S199" 不符合命名空间
+  work-executive/business-model-analysis       既无 license 字段也无 LICENSE 文件，无法判定开源还是付费内容
+  work-executive/decision-logging              缺 description
+  work-executive/decision-logging              capability_id "WX-WORK-S197" 不符合命名空间
+  work-executive/decision-logging              既无 license 字段也无 LICENSE 文件，无法判定开源还是付费内容
+  work-executive/okr-alignment                 缺 description
+  work-executive/okr-alignment                 capability_id "WX-WORK-S198" 不符合命名空间
+  work-executive/okr-alignment                 既无 license 字段也无 LICENSE 文件，无法判定开源还是付费内容
+  work-executive/scenario-analysis             缺 description
+  work-executive/scenario-analysis             capability_id "WX-WORK-S013" 不符合命名空间
+  work-executive/scenario-analysis             既无 license 字段也无 LICENSE 文件，无法判定开源还是付费内容
+  work-executive/strategy-review               缺 description
+  work-executive/strategy-review               capability_id "WX-WORK-S195" 不符合命名空间
+  work-executive/strategy-review               既无 license 字段也无 LICENSE 文件，无法判定开源还是付费内容
+  work-operations/capacity-planning            缺 description
+  work-operations/capacity-planning            capability_id "WX-WORK-S144" 不符合命名空间
+  work-operations/capacity-planning            既无 license 字段也无 LICENSE 文件，无法判定开源还是付费内容
+  work-operations/change-request               缺 description
+  work-operations/change-request               capability_id "WX-WORK-S145" 不符合命名空间
+  work-operations/change-request               既无 license 字段也无 LICENSE 文件，无法判定开源还是付费内容
+  work-operations/continuous-improvement       缺 description
+  work-operations/continuous-improvement       capability_id "WX-WORK-S156" 不符合命名空间
+  work-operations/continuous-improvement       既无 license 字段也无 LICENSE 文件，无法判定开源还是付费内容
+  work-operations/execution-plan               缺 description
+  work-operations/execution-plan               capability_id "WX-WORK-S154" 不符合命名空间
+  work-operations/execution-plan               既无 license 字段也无 LICENSE 文件，无法判定开源还是付费内容
+  work-operations/incident-response            缺 description
+  work-operations/incident-response            capability_id "WX-WORK-S177" 不符合命名空间
+  work-operations/incident-response            既无 license 字段也无 LICENSE 文件，无法判定开源还是付费内容
+  work-operations/meeting-facilitation         缺 description
+  work-operations/meeting-facilitation         capability_id "WX-WORK-S153" 不符合命名空间
+  work-operations/meeting-facilitation         既无 license 字段也无 LICENSE 文件，无法判定开源还是付费内容
+  work-operations/process-documentation        缺 description
+  work-operations/process-documentation        capability_id "WX-WORK-S148" 不符合命名空间
+  work-operations/process-documentation        既无 license 字段也无 LICENSE 文件，无法判定开源还是付费内容
+  work-operations/project-planning             缺 description
+  work-operations/project-planning             capability_id "WX-WORK-S141" 不符合命名空间
+  work-operations/project-planning             既无 license 字段也无 LICENSE 文件，无法判定开源还是付费内容
+  work-operations/status-reporting             缺 description
+  work-operations/status-reporting             capability_id "WX-WORK-S143" 不符合命名空间
+  work-operations/status-reporting             既无 license 字段也无 LICENSE 文件，无法判定开源还是付费内容
+  work-product/business-review                 缺 description
+  work-product/business-review                 capability_id "WX-WORK-S155" 不符合命名空间
+  work-product/business-review                 既无 license 字段也无 LICENSE 文件，无法判定开源还是付费内容
+  work-product/competitive-analysis            缺 description
+  work-product/competitive-analysis            capability_id "WX-WORK-S008" 不符合命名空间
+  work-product/competitive-analysis            既无 license 字段也无 LICENSE 文件，无法判定开源还是付费内容
+  work-product/customer-research               缺 description
+  work-product/customer-research               capability_id "WX-WORK-S009" 不符合命名空间
+  work-product/customer-research               既无 license 字段也无 LICENSE 文件，无法判定开源还是付费内容
+  work-product/data-exploration                缺 description
+  work-product/data-exploration                capability_id "WX-WORK-S157" 不符合命名空间
+  work-product/data-exploration                既无 license 字段也无 LICENSE 文件，无法判定开源还是付费内容
+  work-product/design-critique                 缺 description
+  work-product/design-critique                 capability_id "WX-WORK-S075" 不符合命名空间
+  work-product/design-critique                 既无 license 字段也无 LICENSE 文件，无法判定开源还是付费内容
+  work-product/design-handoff                  缺 description
+  work-product/design-handoff                  capability_id "WX-WORK-S076" 不符合命名空间
+  work-product/design-handoff                  既无 license 字段也无 LICENSE 文件，无法判定开源还是付费内容
+  work-product/experiment-design               缺 description
+  work-product/experiment-design               capability_id "WX-WORK-S071" 不符合命名空间
+  work-product/experiment-design               既无 license 字段也无 LICENSE 文件，无法判定开源还是付费内容
+  work-product/kpi-design                      缺 description
+  work-product/kpi-design                      capability_id "WX-WORK-S162" 不符合命名空间
+  work-product/kpi-design                      既无 license 字段也无 LICENSE 文件，无法判定开源还是付费内容
+  work-product/meeting-summary                 缺 description
+  work-product/meeting-summary                 capability_id "WX-WORK-S006" 不符合命名空间
+  work-product/meeting-summary                 既无 license 字段也无 LICENSE 文件，无法判定开源还是付费内容
+  work-product/metrics-review                  缺 description
+  work-product/metrics-review                  capability_id "WX-WORK-S072" 不符合命名空间
+  work-product/metrics-review                  既无 license 字段也无 LICENSE 文件，无法判定开源还是付费内容
+  work-product/opportunity-mapping             缺 description
+  work-product/opportunity-mapping             capability_id "WX-WORK-S065" 不符合命名空间
+  work-product/opportunity-mapping             既无 license 字段也无 LICENSE 文件，无法判定开源还是付费内容
+  work-product/prd-spec-writing                缺 description
+  work-product/prd-spec-writing                capability_id "WX-WORK-S067" 不符合命名空间
+  work-product/prd-spec-writing                既无 license 字段也无 LICENSE 文件，无法判定开源还是付费内容
+  work-product/prioritization                  缺 description
+  work-product/prioritization                  capability_id "WX-WORK-S068" 不符合命名空间
+  work-product/prioritization                  既无 license 字段也无 LICENSE 文件，无法判定开源还是付费内容
+  work-product/problem-framing                 缺 description
+  work-product/problem-framing                 capability_id "WX-WORK-S064" 不符合命名空间
+  work-product/problem-framing                 既无 license 字段也无 LICENSE 文件，无法判定开源还是付费内容
+  work-product/process-mapping                 缺 description
+  work-product/process-mapping                 capability_id "WX-WORK-S018" 不符合命名空间
+  work-product/process-mapping                 既无 license 字段也无 LICENSE 文件，无法判定开源还是付费内容
+  work-product/product-brainstorming           缺 description
+  work-product/product-brainstorming           capability_id "WX-WORK-S066" 不符合命名空间
+  work-product/product-brainstorming           既无 license 字段也无 LICENSE 文件，无法判定开源还是付费内容
+  work-product/product-discovery               缺 description
+  work-product/product-discovery               capability_id "WX-WORK-S061" 不符合命名空间
+  work-product/product-discovery               既无 license 字段也无 LICENSE 文件，无法判定开源还是付费内容
+  work-product/product-launch                  缺 description
+  work-product/product-launch                  capability_id "WX-WORK-S073" 不符合命名空间
+  work-product/product-launch                  既无 license 字段也无 LICENSE 文件，无法判定开源还是付费内容
+  work-product/research-synthesis              缺 description
+  work-product/research-synthesis              capability_id "WX-WORK-S063" 不符合命名空间
+  work-product/research-synthesis              既无 license 字段也无 LICENSE 文件，无法判定开源还是付费内容
+  work-product/roadmap-planning                缺 description
+  work-product/roadmap-planning                capability_id "WX-WORK-S069" 不符合命名空间
+  work-product/roadmap-planning                既无 license 字段也无 LICENSE 文件，无法判定开源还是付费内容
+  work-product/sprint-planning                 缺 description
+  work-product/sprint-planning                 capability_id "WX-WORK-S070" 不符合命名空间
+  work-product/sprint-planning                 既无 license 字段也无 LICENSE 文件，无法判定开源还是付费内容
+  work-product/statistical-analysis            缺 description
+  work-product/statistical-analysis            capability_id "WX-WORK-S161" 不符合命名空间
+  work-product/statistical-analysis            既无 license 字段也无 LICENSE 文件，无法判定开源还是付费内容
+  work-product/status-update                   缺 description
+  work-product/status-update                   capability_id "WX-WORK-S007" 不符合命名空间
+  work-product/status-update                   既无 license 字段也无 LICENSE 文件，无法判定开源还是付费内容
+  work-product/task-extraction                 缺 description
+  work-product/task-extraction                 capability_id "WX-WORK-S017" 不符合命名空间
+  work-product/task-extraction                 既无 license 字段也无 LICENSE 文件，无法判定开源还是付费内容
+  work-product/user-activation                 缺 description
+  work-product/user-activation                 capability_id "WX-WORK-S074" 不符合命名空间
+  work-product/user-activation                 既无 license 字段也无 LICENSE 文件，无法判定开源还是付费内容
+  work-product/user-interview-planning         缺 description
+  work-product/user-interview-planning         capability_id "WX-WORK-S062" 不符合命名空间
+  work-product/user-interview-planning         既无 license 字段也无 LICENSE 文件，无法判定开源还是付费内容
+  work-product/work-item-management            缺 description
+  work-product/work-item-management            capability_id "WX-WORK-S142" 不符合命名空间
+  work-product/work-item-management            既无 license 字段也无 LICENSE 文件，无法判定开源还是付费内容
+  work-research/data-exploration               缺 description
+  work-research/data-exploration               capability_id "WX-WORK-S157" 不符合命名空间
+  work-research/data-exploration               既无 license 字段也无 LICENSE 文件，无法判定开源还是付费内容
+  work-research/data-storytelling              缺 description
+  work-research/data-storytelling              capability_id "WX-WORK-S172" 不符合命名空间
+  work-research/data-storytelling              既无 license 字段也无 LICENSE 文件，无法判定开源还是付费内容
+  work-research/data-validation                缺 description
+  work-research/data-validation                capability_id "WX-WORK-S158" 不符合命名空间
+  work-research/data-validation                既无 license 字段也无 LICENSE 文件，无法判定开源还是付费内容
+  work-research/data-visualization-report      缺 description
+  work-research/data-visualization-report      capability_id "WX-WORK-S164" 不符合命名空间
+  work-research/data-visualization-report      既无 license 字段也无 LICENSE 文件，无法判定开源还是付费内容
+  work-research/decision-brief                 缺 description
+  work-research/decision-brief                 capability_id "WX-WORK-S012" 不符合命名空间
+  work-research/decision-brief                 既无 license 字段也无 LICENSE 文件，无法判定开源还是付费内容
+  work-research/enterprise-search              缺 description
+  work-research/enterprise-search              capability_id "WX-WORK-S003" 不符合命名空间
+  work-research/enterprise-search              既无 license 字段也无 LICENSE 文件，无法判定开源还是付费内容
+  work-research/evidence-review                缺 description
+  work-research/evidence-review                capability_id "WX-WORK-S171" 不符合命名空间
+  work-research/evidence-review                既无 license 字段也无 LICENSE 文件，无法判定开源还是付费内容
+  work-research/executive-briefing             缺 description
+  work-research/executive-briefing             capability_id "WX-WORK-S020" 不符合命名空间
+  work-research/executive-briefing             既无 license 字段也无 LICENSE 文件，无法判定开源还是付费内容
+  work-research/knowledge-capture              缺 description
+  work-research/knowledge-capture              capability_id "WX-WORK-S016" 不符合命名空间
+  work-research/knowledge-capture              既无 license 字段也无 LICENSE 文件，无法判定开源还是付费内容
+  work-research/knowledge-synthesis-review     缺 description
+  work-research/knowledge-synthesis-review     capability_id "WX-WORK-S169" 不符合命名空间
+  work-research/knowledge-synthesis-review     既无 license 字段也无 LICENSE 文件，无法判定开源还是付费内容
+  work-research/market-sizing                  缺 description
+  work-research/market-sizing                  capability_id "WX-WORK-S167" 不符合命名空间
+  work-research/market-sizing                  既无 license 字段也无 LICENSE 文件，无法判定开源还是付费内容
+  work-research/research-synthesis             缺 description
+  work-research/research-synthesis             capability_id "WX-WORK-S063" 不符合命名空间
+  work-research/research-synthesis             既无 license 字段也无 LICENSE 文件，无法判定开源还是付费内容
+  work-research/risk-assessment                缺 description
+  work-research/risk-assessment                capability_id "WX-WORK-S010" 不符合命名空间
+  work-research/risk-assessment                既无 license 字段也无 LICENSE 文件，无法判定开源还是付费内容
+  work-research/scientific-research-planning   缺 description
+  work-research/scientific-research-planning   capability_id "WX-WORK-S170" 不符合命名空间
+  work-research/scientific-research-planning   既无 license 字段也无 LICENSE 文件，无法判定开源还是付费内容
+  work-research/sql-query                      缺 description
+  work-research/sql-query                      capability_id "WX-WORK-S160" 不符合命名空间
+  work-research/sql-query                      既无 license 字段也无 LICENSE 文件，无法判定开源还是付费内容
+  work-research/statistical-analysis           缺 description
+  work-research/statistical-analysis           capability_id "WX-WORK-S161" 不符合命名空间
+  work-research/statistical-analysis           既无 license 字段也无 LICENSE 文件，无法判定开源还是付费内容
+  work-research/task-extraction                缺 description
+  work-research/task-extraction                capability_id "WX-WORK-S017" 不符合命名空间
+  work-research/task-extraction                既无 license 字段也无 LICENSE 文件，无法判定开源还是付费内容
+  work-research/trend-analysis                 缺 description
+  work-research/trend-analysis                 capability_id "WX-WORK-S168" 不符合命名空间
+  work-research/trend-analysis                 既无 license 字段也无 LICENSE 文件，无法判定开源还是付费内容
+  work-resolution/response-drafting            缺 description
+  work-resolution/response-drafting            capability_id "WX-WORK-S015" 不符合命名空间
+  work-resolution/response-drafting            既无 license 字段也无 LICENSE 文件，无法判定开源还是付费内容
+  work-resolution/root-cause-analysis          缺 description
+  work-resolution/root-cause-analysis          capability_id "WX-WORK-S011" 不符合命名空间
+  work-resolution/root-cause-analysis          既无 license 字段也无 LICENSE 文件，无法判定开源还是付费内容
+  work-sales/account-planning                  缺 description
+  work-sales/account-planning                  capability_id "WX-WORK-S023" 不符合命名空间
+  work-sales/account-planning                  既无 license 字段也无 LICENSE 文件，无法判定开源还是付费内容
+  work-sales/account-tiering                   缺 description
+  work-sales/account-tiering                   capability_id "WX-WORK-S022" 不符合命名空间
+  work-sales/account-tiering                   既无 license 字段也无 LICENSE 文件，无法判定开源还是付费内容
+  work-sales/close-plan                        缺 description
+  work-sales/close-plan                        capability_id "WX-WORK-S032" 不符合命名空间
+  work-sales/close-plan                        既无 license 字段也无 LICENSE 文件，无法判定开源还是付费内容
+  work-sales/crm-hygiene                       缺 description
+  work-sales/crm-hygiene                       capability_id "WX-WORK-S034" 不符合命名空间
+  work-sales/crm-hygiene                       既无 license 字段也无 LICENSE 文件，无法判定开源还是付费内容
+  work-sales/customer-health                   缺 description
+  work-sales/customer-health                   capability_id "WX-WORK-S035" 不符合命名空间
+  work-sales/customer-health                   既无 license 字段也无 LICENSE 文件，无法判定开源还是付费内容
+  work-sales/customer-intelligence             缺 description
+  work-sales/customer-intelligence             capability_id "WX-WORK-S021" 不符合命名空间
+  work-sales/customer-intelligence             既无 license 字段也无 LICENSE 文件，无法判定开源还是付费内容
+  work-sales/customer-research                 缺 description
+  work-sales/customer-research                 capability_id "WX-WORK-S009" 不符合命名空间
+  work-sales/customer-research                 既无 license 字段也无 LICENSE 文件，无法判定开源还是付费内容
+  work-sales/forecasting                       缺 description
+  work-sales/forecasting                       capability_id "WX-WORK-S031" 不符合命名空间
+  work-sales/forecasting                       既无 license 字段也无 LICENSE 文件，无法判定开源还是付费内容
+  work-sales/lead-triage                       缺 description
+  work-sales/lead-triage                       capability_id "WX-WORK-S025" 不符合命名空间
+  work-sales/lead-triage                       既无 license 字段也无 LICENSE 文件，无法判定开源还是付费内容
+  work-sales/meeting-prep                      缺 description
+  work-sales/meeting-prep                      capability_id "WX-WORK-S005" 不符合命名空间
+  work-sales/meeting-prep                      既无 license 字段也无 LICENSE 文件，无法判定开源还是付费内容
+  work-sales/opportunity-update                缺 description
+  work-sales/opportunity-update                capability_id "WX-WORK-S029" 不符合命名空间
+  work-sales/opportunity-update                既无 license 字段也无 LICENSE 文件，无法判定开源还是付费内容
+  work-sales/outreach                          缺 description
+  work-sales/outreach                          capability_id "WX-WORK-S026" 不符合命名空间
+  work-sales/outreach                          既无 license 字段也无 LICENSE 文件，无法判定开源还是付费内容
+  work-sales/pipeline-review                   缺 description
+  work-sales/pipeline-review                   capability_id "WX-WORK-S030" 不符合命名空间
+  work-sales/pipeline-review                   既无 license 字段也无 LICENSE 文件，无法判定开源还是付费内容
+  work-sales/proposal-builder                  缺 description
+  work-sales/proposal-builder                  capability_id "WX-WORK-S036" 不符合命名空间
+  work-sales/proposal-builder                  既无 license 字段也无 LICENSE 文件，无法判定开源还是付费内容
+  work-sales/prospecting                       缺 description
+  work-sales/prospecting                       capability_id "WX-WORK-S024" 不符合命名空间
+  work-sales/prospecting                       既无 license 字段也无 LICENSE 文件，无法判定开源还是付费内容
+  work-sales/renewal-radar                     缺 description
+  work-sales/renewal-radar                     capability_id "WX-WORK-S033" 不符合命名空间
+  work-sales/renewal-radar                     既无 license 字段也无 LICENSE 文件，无法判定开源还是付费内容
+  work-sales/risk-assessment                   缺 description
+  work-sales/risk-assessment                   capability_id "WX-WORK-S010" 不符合命名空间
+  work-sales/risk-assessment                   既无 license 字段也无 LICENSE 文件，无法判定开源还是付费内容
+  work-sales/sales-call-summary                缺 description
+  work-sales/sales-call-summary                capability_id "WX-WORK-S028" 不符合命名空间
+  work-sales/sales-call-summary                既无 license 字段也无 LICENSE 文件，无法判定开源还是付费内容
+
+（默认不阻断。接 CI 时用 --strict，并同时补齐存量——长期黄着的门控等于没有。）
+
+> agentic-harness-template@ lint:verification /Users/shenyangjun/.codex/worktrees/eaa4/workspacex
+> node .harness/scripts/lint-verification-can-fail.mjs
+
+  · 00                                   23 feature / 157 条 verification
+  · 01                                  233 feature / 797 条 verification
+  · 02                                   46 feature / 128 条 verification
+  · 03                                   65 feature / 166 条 verification
+  · 04                                    7 feature / 14 条 verification
+  · 05                                    1 feature / 5 条 verification
+  · 06                                    6 feature / 12 条 verification
+  · 07                                    5 feature / 10 条 verification
+  · 08                                    4 feature / 8 条 verification
+  · 09                                    7 feature / 9 条 verification
+  · 10                                   10 feature / 30 条 verification
+  · 11                                    5 feature / 8 条 verification
+  · 12                                   22 feature / 51 条 verification
+  · 13                                    1 feature / 1 条 verification
+  · 14                                   15 feature / 24 条 verification
+  · 15                                    0 feature / 0 条 verification
+  · 18                                   17 feature / 33 条 verification
+  · 19                                   32 feature / 71 条 verification
+  · 20                                   36 feature / 58 条 verification
+  · 21                                   15 feature / 18 条 verification
+  ~ 形态 pnpm-script                  无动态探针（见文件头：换脚本名恰恰 exit 0，靠 ② 静态兜住）
+  ✓ 形态 vitest-file:api              必然失败变体 exit 1
+  ✓ 形态 script-file:direct           必然失败变体 exit 127
+  ✓ 形态 script-file:node             必然失败变体 exit 1
+  ✓ 形态 vitest-file:web              必然失败变体 exit 1
+  ✓ 形态 script-file:pnpm exec tsx    必然失败变体 exit 1
+  ✓ 形态 vitest-file:@repo/contracts  必然失败变体 exit 1
+  ✓ 形态 grep                         必然失败变体 exit 1
+  ✓ 形态 turbo-task:typecheck         必然失败变体 exit 1
+  ✓ 形态 script-file:bash             必然失败变体 exit 127
+  ✓ 形态 root-pnpm-script             必然失败变体 exit 1
+  ✓ 形态 pytest-file:pytest           必然失败变体 exit 127
+  ✓ 形态 pytest-file:uv-run-pytest    必然失败变体 exit 2
+  ✓ 形态 vitest-file:@repo/skill-sandbox 必然失败变体 exit 1
+  ✓ 形态 pnpm-script-arg:web:e2e      必然失败变体 exit 1
+  ✓ 形态 playwright-grep:web:playwright.fullstack-smoke.config.ts 必然失败变体 exit 1
+  ✓ 形态 vitest-file:contracts        必然失败变体 exit 1
+  ✓ 形态 playwright-grep:web:playwright.live-collab-shots.config.ts 必然失败变体 exit 1
+  ✓ 形态 playwright-grep:web:playwright.config.ts 必然失败变体 exit 1
+  ✓ 形态 playwright-grep:web:playwright.chat-shots.config.ts 必然失败变体 exit 1
+  ✓ 形态 playwright-grep:web:playwright.self-service-profile.config.ts 必然失败变体 exit 1
+  ✓ 形态 tsc-noemit:web               必然失败变体 exit 1
+  ✓ 形态 vitest-all:web               必然失败变体 exit 1
+  ✓ 形态 vitest-file:@repo/api        必然失败变体 exit 1
+  ✓ 形态 vitest-file:@repo/fabric-markdown 必然失败变体 exit 1
+  ✓ 形态 playwright-grep:web:tests/e2e/board/playwright.three-browsers.config.ts 必然失败变体 exit 1
+✅ lint-verification-can-fail: 1600 条 verification 全部属于已登记形态，25 种形态实测「指向物不存在时会非 0 退出」
+
+> agentic-harness-template@ lint:nav-reachability /Users/shenyangjun/.codex/worktrees/eaa4/workspacex
+> node .harness/scripts/lint-nav-reachability.mjs
+
+  ✓ phase-01-run-a-project         束可达 18/18 · 导航项 29 · 束内子页 23
+  ✓ phase-03-reuse-and-governance  束可达  6/6  · 导航项 29 · 束内子页 7
+  ✓ phase-14-agent-kernel-unification 束可达  5/5  · 导航项 29 · 束内子页 0
+  ✓ phase-18-org-brain-knowledge-graph 束可达  1/1  · 导航项 29 · 束内子页 0
+  ✓ phase-21-billing-payment       束可达  2/2  · 导航项 29 · 束内子页 0
+✅ lint-nav-reachability: 每个契约束的现行屏都能从 navigation.ts 直接走到，且导航里没有指向非束/旧骨架屏的入口，无死链，束内也没有零引用的孤儿页。
+
+> agentic-harness-template@ lint:ui-wiring /Users/shenyangjun/.codex/worktrees/eaa4/workspacex
+> pnpm exec tsx .harness/scripts/lint-ui-wiring.mjs
+
+[ui-wiring] 路由 133 条：已接线 55 / mock 豁免 23（上限 35）/ 无数据面 18 / 原型 37；controller 146 个。
+[ui-wiring] 清单与代码一致：每条产品路由都解析到已挂载的 controller 与 application 用例。
+
+> agentic-harness-template@ lint:rewrite-coverage /Users/shenyangjun/.codex/worktrees/eaa4/workspacex
+> pnpm exec tsx .harness/scripts/lint-rewrite-coverage.mjs
+
+✓ [rewrite-coverage] 431 条路由、85 条 rewrite 覆盖一致（5 条历史缺口在棘轮名单里，只能变短）
+✓ [rewrite-shadow] 36 条动态页面路由（共 133 个 page.tsx）、211 条 afterFiles 规则，没有新的遮蔽（4 条既有遮蔽在棘轮名单里，只能变短）
+✓ [contract-rewrite-coverage] 908 条契约路由全部有同源代理规则
+
+> agentic-harness-template@ lint:contract-route-coverage /Users/shenyangjun/.codex/worktrees/eaa4/workspacex
+> pnpm exec tsx .harness/scripts/lint-contract-route-coverage.mjs
+
+✓ [contract-route-ratchet] 没有新增的「契约有、路由没有」：名单 249 条，其中 249 条今天仍是缺口。
+
+> agentic-harness-template@ lint:body-path-param-leak /Users/shenyangjun/.codex/worktrees/eaa4/workspacex
+> pnpm exec tsx .harness/scripts/lint-body-path-param-leak.mjs
+
+✓ [body-path-param-leak] 366 个文件，body 里没有未豁免的路径参数泄漏（4 条已知合法冗余在棘轮名单里）
+
+> agentic-harness-template@ lint:contract-negative-assertion /Users/shenyangjun/.codex/worktrees/eaa4/workspacex
+> pnpm exec tsx .harness/scripts/lint-contract-negative-assertion.mjs
+
+[contract-negative-assertion] 扫了 7424 个源文件、857 个契约 operation、2603 个契约字段；扫到 115 条否定性断言。
+  STALE=0  VERIFIED_ABSENT=10  FIELD_ONLY=3  PROSE=103
+  ✓ apps/web/components/canvas/template-admin.tsx:662 断言没有 `deleteTemplate`——契约里确实查不到它。
+  ✓ apps/web/components/canvas/template-admin.tsx:889 断言没有 `deleteTemplate`——契约里确实查不到它。
+  ✓ apps/web/components/design-loop/drafts-screen.tsx:86 断言没有 `restoreFeedbackDraft`——契约里确实查不到它。
+  ✓ apps/web/components/design-loop/drafts-screen.tsx:449 断言没有 `attachmentFileName`——契约里确实查不到它。
+  ✓ apps/web/lib/live-design-workbench.ts:14 断言没有 `getProject`——契约里确实查不到它。
+  ✓ apps/web/tests/session/canvas-template-body-completeness.test.ts:71 断言没有 `nonexistentField`——契约里确实查不到它。
+  ✓ apps/api/src/domain/mcp/review-flow.ts:13 断言没有 `deleteReview`——契约里确实查不到它。
+  ✓ apps/api/src/domain/mcp/review-flow.ts:13 断言没有 `updateReview`——契约里确实查不到它。
+  ✓ apps/api/src/infrastructure/identity/pg-capability-repository.ts:215 断言没有 `enable`——契约里确实查不到它。
+  ✓ apps/api/tests/auth/org-disabled-readonly.test.ts:298 断言没有 `purged`——契约里确实查不到它。
+  ~ apps/web/components/canvas/template-admin.tsx:1246 `ownerTeamId` 不是 operation，只在 packages/contracts/src/canvas.ts:1011 作字段出现——本门不据此判定（字段名不定位契约里的位置）。
+  ~ apps/api/src/application/canvas/create-template.ts:88 `ownerTeamId` 不是 operation，只在 packages/contracts/src/canvas.ts:1011 作字段出现——本门不据此判定（字段名不定位契约里的位置）。
+  ~ apps/api/src/application/chat/ports.ts:671 `citations` 不是 operation，只在 packages/contracts/src/chat.ts:393 作字段出现——本门不据此判定（字段名不定位契约里的位置）。
+  （加 --list 看全部逐条结论，含 PROSE 那些）
+✅ lint-contract-negative-assertion: 没有已经变假的契约否定性断言。
+
+> agentic-harness-template@ lint:test-listen-loopback /Users/shenyangjun/.codex/worktrees/eaa4/workspacex
+> pnpm exec tsx .harness/scripts/lint-test-listen-loopback.mjs
+
+✓ [test-listen-loopback] 7649 个文件，listen(0) 全部绑在回环地址上
+
+> agentic-harness-template@ lint:test-shared-grant /Users/shenyangjun/.codex/worktrees/eaa4/workspacex
+> pnpm exec tsx .harness/scripts/lint-test-shared-grant.mjs
+
+! [test-shared-grant] 4 条存量豁免，待清理（棘轮名单，只许变短）：
+   · apps/api/tests/kernel/admin-audit-access-visible-to-lead.test.ts:219 —— REVOKE INSERT ON provenance_events FROM app_rw
+   · apps/api/tests/kernel/admin-audit-access-visible-to-lead.test.ts:225 —— GRANT INSERT ON provenance_events TO app_rw
+   · apps/api/tests/kernel/provenance-append-only.test.ts:185 —— GRANT DELETE ON organizations TO app_rw
+   · apps/api/tests/kernel/provenance-append-only.test.ts:194 —— REVOKE DELETE ON organizations FROM app_rw
+✓ [test-shared-grant] 3272 个测试文件，13 条授权语句，没有未豁免的共享角色无限定授权（instance-owned=2 shared=4 file-owned=3 database=1 asserted=2 grantee-owned=1）
+
+> agentic-harness-template@ lint:pnpm-override-selector /Users/shenyangjun/.codex/worktrees/eaa4/workspacex
+> pnpm exec tsx .harness/scripts/lint-pnpm-override-selector.mjs
+
+✓ [pnpm-override-selector] 32 个清单 / 0 条 override，无 parent>child 选择器
+
+> agentic-harness-template@ lint:spec-gate-coverage /Users/shenyangjun/.codex/worktrees/eaa4/workspacex
+> node .harness/scripts/lint-spec-gate-coverage.mjs
+
+被 CI 真正调用的 playwright config（无条件 = 每个 PR 或每次合入 main 都跑）：
+  · [条件] apps/devportal/playwright.config.ts  ← deploy-devportal.yml#validate
+  · [无条件] apps/web/e2e/board-connector-existing-runtime.config.ts  ← board-native-acceptance.yml#native-board
+  · [无条件] apps/web/e2e/board-files-completion.config.ts  ← board-native-acceptance.yml#native-board
+  · [条件] apps/web/e2e/board-journey-acceptance.config.ts  ← board-acceptance.yml#journeys
+  · [无条件] apps/web/e2e/board-peer-existing-runtime.config.ts  ← board-native-acceptance.yml#native-board
+  · [条件] apps/web/e2e/board-performance-acceptance.config.ts  ← board-acceptance.yml#performance
+  · [无条件] apps/web/e2e/board-r01-existing-runtime.config.ts  ← board-native-acceptance.yml#native-board
+  · [条件] apps/web/e2e/board-security-acceptance.config.ts  ← board-acceptance.yml#security
+  · [条件] apps/web/e2e/board-visual-accessibility-acceptance.config.ts  ← board-acceptance.yml#board-ui-functional, board-acceptance.yml#visual-deferred
+  · [条件] apps/web/e2e/support/board-import-report-fullstack.config.ts  ← board-acceptance.yml#import
+  · [条件] apps/web/e2e/support/board-vendor-captured-fullstack.config.ts  ← board-acceptance.yml#import-captured
+  · [条件] apps/web/playwright.board-api-ws-objectstore-acceptance.config.ts  ← board-acceptance.yml#api-ws-objectstore
+  · [无条件] apps/web/playwright.board-meeting-room-acceptance.config.ts  ← board-native-acceptance.yml#meeting-room
+  · [条件] apps/web/playwright.board-soak-acceptance.config.ts  ← board-acceptance.yml#collaboration-50
+  · [条件] apps/web/playwright.board-storage-ci.config.ts  ← board-acceptance.yml#storage
+  · [条件] apps/web/playwright.chat-read.config.ts  ← harness-verify.yml#chat-task-workbench
+  · [条件] apps/web/playwright.chat-read.config.ts  ← harness-verify.yml#chat-path-coverage
+  · [无条件] apps/web/playwright.chat-read.config.ts  ← harness-verify.yml#chat-read
+  · [无条件] apps/web/playwright.design-loop.config.ts  ← backend-gates.yml#design-loop-e2e
+  · [无条件] apps/web/playwright.fullstack-smoke.config.ts  ← harness-verify.yml#fullstack-smoke
+  · [无条件] apps/web/playwright.fullstack-smoke.config.ts  ← backend-gates.yml#e2e-core-loop
+  · [无条件] apps/web/playwright.organization-create.config.ts  ← harness-verify.yml#organization-create
+  · [无条件] apps/web/playwright.prototype-audit.config.ts  ← backend-gates.yml#prototype-audit
+  · [条件] apps/web/playwright.real-model-smoke.config.ts  ← real-model-chat-evidence.yml#verify
+  · [无条件] apps/web/playwright.self-service-profile.config.ts  ← harness-verify.yml#self-service-profile
+  · [无条件] apps/web/playwright.skill-files.config.ts  ← skill-files-e2e.yml#skill-files-e2e
+  · [无条件] apps/web/playwright.trace-geometry.config.ts  ← harness-verify.yml#fullstack-smoke
+
+spec 门控注册判定（静态：只看有没有被某条 config 接住，不代表本趟已执行）：
+  🟠 apps/devportal/e2e/p30/auth-gray.spec.ts  [conditional-exempt] ← apps/devportal/playwright.config.ts
+  🟠 apps/devportal/e2e/p30/enroll.spec.ts  [conditional-exempt] ← apps/devportal/playwright.config.ts
+  🟠 apps/devportal/e2e/p30/join-approve.spec.ts  [conditional-exempt] ← apps/devportal/playwright.config.ts
+  🟠 apps/devportal/e2e/p30/me-workbench.spec.ts  [conditional-exempt] ← apps/devportal/playwright.config.ts
+  🟠 apps/devportal/e2e/p30/onboard.spec.ts  [conditional-exempt] ← apps/devportal/playwright.config.ts
+  🟠 apps/devportal/e2e/p30/workspace-authz.spec.ts  [conditional-exempt] ← apps/devportal/playwright.config.ts
+  🧾 apps/web/e2e/agenda-segment-create-smoke.spec.ts  [covered] ← apps/web/playwright.fullstack-smoke.config.ts
+  🧾 apps/web/e2e/agent-chat-core-paths.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
+  🧾 apps/web/e2e/agent-directory-entry-point.spec.ts  [covered] ← apps/web/playwright.fullstack-smoke.config.ts
+  🧾 apps/web/e2e/agent-task-clarification-result.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
+  🧾 apps/web/e2e/agent-task-planning-hitl.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
+  🧾 apps/web/e2e/agent-workbench-control-acceptance.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
+  🧾 apps/web/e2e/agent-workbench-scroll-acceptance.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
+  🧾 apps/web/e2e/agent-workbench-steering-acceptance.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
+  🧾 apps/web/e2e/agent-workbench-ui-refinement.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
+  🟡 apps/web/e2e/axe-image-alt.spec.ts  [exempt]
+  🟡 apps/web/e2e/axe-keyboard-focus.spec.ts  [exempt]
+  🧾 apps/web/e2e/blueprint-contract-gap-audit.spec.ts  [covered] ← apps/web/playwright.fullstack-smoke.config.ts
+  🧾 apps/web/e2e/blueprint-designer-16-panels.spec.ts  [covered] ← apps/web/playwright.fullstack-smoke.config.ts
+  🧾 apps/web/e2e/board-acl-race.spec.ts  [covered] ← apps/web/playwright.fullstack-smoke.config.ts
+  🟠 apps/web/e2e/board-agent-public-api.spec.ts  [conditional-exempt] ← apps/web/playwright.board-api-ws-objectstore-acceptance.config.ts
+  🟠 apps/web/e2e/board-ai-api.spec.ts  [conditional-exempt] ← apps/web/playwright.board-api-ws-objectstore-acceptance.config.ts
+  🟠 apps/web/e2e/board-collaboration-soak.spec.ts  [conditional-exempt] ← apps/web/playwright.board-soak-acceptance.config.ts
+  🟠 apps/web/e2e/board-compact-chrome-acceptance.spec.ts  [conditional-exempt] ← apps/web/e2e/board-visual-accessibility-acceptance.config.ts
+  🧾 apps/web/e2e/board-connector-authority.spec.ts  [covered] ← apps/web/e2e/board-connector-existing-runtime.config.ts
+  🧾 apps/web/e2e/board-connector-copy-defaults.spec.ts  [covered] ← apps/web/e2e/board-connector-existing-runtime.config.ts
+  🧾 apps/web/e2e/board-connector-history.spec.ts  [covered] ← apps/web/e2e/board-connector-existing-runtime.config.ts
+  🧾 apps/web/e2e/board-connector-independent-process.spec.ts  [covered] ← apps/web/e2e/board-connector-existing-runtime.config.ts
+  🧾 apps/web/e2e/board-connector-interchange.spec.ts  [covered] ← apps/web/e2e/board-connector-existing-runtime.config.ts
+  🧾 apps/web/e2e/board-drawing-live-preview.spec.ts  [covered] ← apps/web/playwright.fullstack-smoke.config.ts
+  🟠 apps/web/e2e/board-durable-images.spec.ts  [conditional-exempt] ← apps/web/playwright.board-storage-ci.config.ts
+  🧾 apps/web/e2e/board-fabric-surface.spec.ts  [covered] ← apps/web/playwright.fullstack-smoke.config.ts
+  🧾 apps/web/e2e/board-feedback-20261005.spec.ts  [covered] ← apps/web/playwright.fullstack-smoke.config.ts
+  🧾 apps/web/e2e/board-files-acceptance.spec.ts  [covered] ← apps/web/playwright.fullstack-smoke.config.ts
+  🧾 apps/web/e2e/board-files-boundaries.spec.ts  [covered] ← apps/web/e2e/board-files-completion.config.ts
+  🧾 apps/web/e2e/board-files-filenames.spec.ts  [covered] ← apps/web/e2e/board-files-completion.config.ts
+  🧾 apps/web/e2e/board-files-placement.spec.ts  [covered] ← apps/web/e2e/board-files-completion.config.ts
+  🧾 apps/web/e2e/board-files-retry.spec.ts  [covered] ← apps/web/e2e/board-files-completion.config.ts
+  🟠 apps/web/e2e/board-final-acceptance.spec.ts  [conditional-exempt] ← apps/web/e2e/board-journey-acceptance.config.ts
+  🧾 apps/web/e2e/board-image-ingress-acceptance.spec.ts  [covered] ← apps/web/playwright.fullstack-smoke.config.ts
+  🟠 apps/web/e2e/board-import-report.spec.ts  [conditional-exempt] ← apps/web/e2e/support/board-import-report-fullstack.config.ts
+  🧾 apps/web/e2e/board-library-management.spec.ts  [covered] ← apps/web/playwright.fullstack-smoke.config.ts
+  🟠 apps/web/e2e/board-maintenance.spec.ts  [conditional-exempt] ← apps/web/playwright.board-storage-ci.config.ts
+  🧾 apps/web/e2e/board-meeting-room-acceptance.spec.ts  [covered] ← apps/web/playwright.board-meeting-room-acceptance.config.ts
+  🧾 apps/web/e2e/board-peer-origin-close.spec.ts  [covered] ← apps/web/e2e/board-peer-existing-runtime.config.ts
+  🟠 apps/web/e2e/board-performance-acceptance.spec.ts  [conditional-exempt] ← apps/web/e2e/board-performance-acceptance.config.ts
+  🟠 apps/web/e2e/board-portable-real.spec.ts  [conditional-exempt] ← apps/web/playwright.board-api-ws-objectstore-acceptance.config.ts
+  🧾 apps/web/e2e/board-r01-native-matrix.spec.ts  [covered] ← apps/web/e2e/board-r01-existing-runtime.config.ts
+  🟡 apps/web/e2e/board-real-model-organize.spec.ts  [exempt]
+  🟠 apps/web/e2e/board-security-acceptance.spec.ts  [conditional-exempt] ← apps/web/e2e/board-security-acceptance.config.ts
+  🧾 apps/web/e2e/board-selection-layout.spec.ts  [covered] ← apps/web/playwright.fullstack-smoke.config.ts
+  🧾 apps/web/e2e/board-shared-outbox.spec.ts  [covered] ← apps/web/playwright.board-api-ws-objectstore-acceptance.config.ts, apps/web/playwright.fullstack-smoke.config.ts
+  🧾 apps/web/e2e/board-spatial-relationships.spec.ts  [covered] ← apps/web/playwright.fullstack-smoke.config.ts
+  🧾 apps/web/e2e/board-sync-lifecycle.spec.ts  [covered] ← apps/web/e2e/board-peer-existing-runtime.config.ts
+  🧾 apps/web/e2e/board-thinking-input.spec.ts  [covered] ← apps/web/playwright.fullstack-smoke.config.ts
+  🟠 apps/web/e2e/board-vendor-captured-migration.spec.ts  [conditional-exempt] ← apps/web/e2e/support/board-vendor-captured-fullstack.config.ts
+  🟠 apps/web/e2e/board-vendor-schema-migration.spec.ts  [conditional-exempt] ← apps/web/playwright.board-storage-ci.config.ts
+  🟠 apps/web/e2e/board-visual-accessibility-acceptance.spec.ts  [conditional-exempt] ← apps/web/e2e/board-visual-accessibility-acceptance.config.ts
+  🧾 apps/web/e2e/board-visual-content.spec.ts  [covered] ← apps/web/playwright.fullstack-smoke.config.ts
+  🧾 apps/web/e2e/canvas-template-create-smoke.spec.ts  [covered] ← apps/web/playwright.fullstack-smoke.config.ts
+  🧾 apps/web/e2e/canvas-template-library-design.spec.ts  [covered] ← apps/web/playwright.fullstack-smoke.config.ts
+  🧾 apps/web/e2e/canvas-template-simulate-smoke.spec.ts  [covered] ← apps/web/playwright.fullstack-smoke.config.ts
+  🟡 apps/web/e2e/canvas-tpl-shots.spec.ts  [exempt]
+  🧾 apps/web/e2e/canvas-tpl-sticky-not-clipped.spec.ts  [covered] ← apps/web/playwright.fullstack-smoke.config.ts
+  🧾 apps/web/e2e/capability-mutate-smoke.spec.ts  [covered] ← apps/web/playwright.fullstack-smoke.config.ts
+  🧾 apps/web/e2e/chat-agent-skill-context.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
+  🧾 apps/web/e2e/chat-attachment-image-vision-extraction.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
+  🧾 apps/web/e2e/chat-attachment-preview-download.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
+  🟡 apps/web/e2e/chat-behavior-shots.spec.ts  [exempt]
+  🟡 apps/web/e2e/chat-board-real-model.spec.ts  [exempt]
+  🟡 apps/web/e2e/chat-board-three-diagram.spec.ts  [exempt]
+  🧾 apps/web/e2e/chat-canvas-guidance-render.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
+  🧾 apps/web/e2e/chat-diagram-save-reopen-roundtrip.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
+  🧾 apps/web/e2e/chat-keyboard-navigation.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
+  🟡 apps/web/e2e/chat-main-shots.spec.ts  [exempt]
+  🧾 apps/web/e2e/chat-path-a3-long-session-fact-survival.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
+  🧾 apps/web/e2e/chat-path-a5-cold-start-first-paint.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
+  🟠 apps/web/e2e/chat-path-ab-hitl-continuity.spec.ts  [conditional-exempt] ← apps/web/playwright.chat-read.config.ts
+  🟠 apps/web/e2e/chat-path-c1-canvas-survives-run-finalization.spec.ts  [conditional-exempt] ← apps/web/playwright.chat-read.config.ts
+  🟠 apps/web/e2e/chat-path-c2-canvas-fence-identity.spec.ts  [conditional-exempt] ← apps/web/playwright.chat-read.config.ts
+  🧾 apps/web/e2e/chat-path-c4-two-canvases-one-turn.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
+  🧾 apps/web/e2e/chat-path-c5-consecutive-artifact-turns.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
+  🟠 apps/web/e2e/chat-path-c6-office-artifacts.spec.ts  [conditional-exempt] ← apps/web/playwright.chat-read.config.ts
+  🟠 apps/web/e2e/chat-path-c8-subtask-artifact-writeback.spec.ts  [conditional-exempt] ← apps/web/playwright.chat-read.config.ts
+  🟠 apps/web/e2e/chat-path-d1-failed-tool-card-status.spec.ts  [conditional-exempt] ← apps/web/playwright.chat-read.config.ts
+  🧾 apps/web/e2e/chat-path-d4-skill-three-states.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
+  🟠 apps/web/e2e/chat-path-f1-failure-cause-distinguishable.spec.ts  [conditional-exempt] ← apps/web/playwright.chat-read.config.ts
+  🟠 apps/web/e2e/chat-path-f2-network-drop-reconnect.spec.ts  [conditional-exempt] ← apps/web/playwright.chat-read.config.ts
+  🟠 apps/web/e2e/chat-path-f3-pause-resume-retry-step.spec.ts  [conditional-exempt] ← apps/web/playwright.chat-read.config.ts
+  🟠 apps/web/e2e/chat-path-f5-cancel-propagates-to-subtask.spec.ts  [conditional-exempt] ← apps/web/playwright.chat-read.config.ts
+  🧾 apps/web/e2e/chat-path-f6-concurrent-runs.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
+  🧾 apps/web/e2e/chat-path-f7-upstream-stream-abort.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
+  🧾 apps/web/e2e/chat-plan-panel-scroll-geometry.spec.ts  [covered] ← apps/web/playwright.trace-geometry.config.ts
+  🧾 apps/web/e2e/chat-rail-notifications-geometry.spec.ts  [covered] ← apps/web/playwright.trace-geometry.config.ts
+  🧾 apps/web/e2e/chat-read-plan-surface-visibility.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
+  🧾 apps/web/e2e/chat-read.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
+  🟠 apps/web/e2e/chat-run-always-lands.spec.ts  [conditional-exempt] ← apps/web/playwright.chat-read.config.ts
+  🧾 apps/web/e2e/chat-skill-picker-viewport.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
+  🧾 apps/web/e2e/chat-stop-generation-sidebar-status.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
+  🟠 apps/web/e2e/chat-task-workbench-a11y.spec.ts  [conditional-exempt] ← apps/web/playwright.chat-read.config.ts
+  🟠 apps/web/e2e/chat-task-workbench-approval.spec.ts  [conditional-exempt] ← apps/web/playwright.chat-read.config.ts
+  🧾 apps/web/e2e/chat-task-workbench-capability-cards.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
+  🧾 apps/web/e2e/chat-task-workbench-composer.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
+  🧾 apps/web/e2e/chat-task-workbench-copy.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
+  🧾 apps/web/e2e/chat-task-workbench-empty-state.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
+  🟠 apps/web/e2e/chat-task-workbench-inspector.spec.ts  [conditional-exempt] ← apps/web/playwright.chat-read.config.ts
+  🟠 apps/web/e2e/chat-task-workbench-p1-efficiency.spec.ts  [conditional-exempt] ← apps/web/playwright.chat-read.config.ts
+  🧾 apps/web/e2e/chat-task-workbench-polish.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
+  🧾 apps/web/e2e/chat-task-workbench-scroll-overshoot.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
+  🟠 apps/web/e2e/chat-task-workbench-tool-events.spec.ts  [conditional-exempt] ← apps/web/playwright.chat-read.config.ts
+  🟠 apps/web/e2e/chat-task-workbench-workflow-states.spec.ts  [conditional-exempt] ← apps/web/playwright.chat-read.config.ts
+  🧾 apps/web/e2e/chat-trace-collapsed-spinner-liveness.spec.ts  [covered] ← apps/web/playwright.trace-geometry.config.ts
+  🧾 apps/web/e2e/chat-trace-disclosure-geometry.spec.ts  [covered] ← apps/web/playwright.trace-geometry.config.ts
+  🧾 apps/web/e2e/chat-trace-failure-forward-motion-geometry.spec.ts  [covered] ← apps/web/playwright.trace-geometry.config.ts
+  🟠 apps/web/e2e/chat-ux-eval.spec.ts  [conditional-exempt] ← apps/web/playwright.chat-read.config.ts
+  🧾 apps/web/e2e/chat-vision-honest-degrade.spec.ts  [covered] ← apps/web/playwright.fullstack-smoke.config.ts
+  🟡 apps/web/e2e/composite-primitives-kitchen-sink.spec.ts  [exempt]
+  🧾 apps/web/e2e/context-engine.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
+  🧾 apps/web/e2e/copilotkit-agui-state-snapshot.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
+  🧾 apps/web/e2e/copilotkit-v2-active-file-panel.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
+  🧾 apps/web/e2e/copilotkit-v2-agent-context.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
+  🧾 apps/web/e2e/copilotkit-v2-agent-switch.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
+  🧾 apps/web/e2e/copilotkit-v2-attachments.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
+  🧾 apps/web/e2e/copilotkit-v2-composer-attachment-thumbnails.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
+  🧾 apps/web/e2e/copilotkit-v2-default-agent.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
+  🧾 apps/web/e2e/copilotkit-v2-error-banner.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
+  🧾 apps/web/e2e/copilotkit-v2-hitl-dialog-dismiss.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
+  🧾 apps/web/e2e/copilotkit-v2-hitl.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
+  🧾 apps/web/e2e/copilotkit-v2-materials-drop-upload.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
+  🧾 apps/web/e2e/copilotkit-v2-message-actions.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
+  🧾 apps/web/e2e/copilotkit-v2-persona-archived.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
+  🧾 apps/web/e2e/copilotkit-v2-right-panel.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
+  🧾 apps/web/e2e/copilotkit-v2-roster-landing.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
+  🧾 apps/web/e2e/copilotkit-v2-run-restore-after-switch.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
+  🧾 apps/web/e2e/copilotkit-v2-runtime-adapter.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
+  🧾 apps/web/e2e/copilotkit-v2-skill-mount.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
+  🧾 apps/web/e2e/copilotkit-v2-stream-frame-timing.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
+  🧾 apps/web/e2e/copilotkit-v2-suggestions.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
+  🧾 apps/web/e2e/copilotkit-v2-thread-persistence.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
+  🧾 apps/web/e2e/copilotkit-v2-tool-rendering.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
+  🧾 apps/web/e2e/copilotkit-v2-uiux-shots.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
+  🧾 apps/web/e2e/copilotkit-v2-voice-input.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
+  🧾 apps/web/e2e/core-journey-01-registration.spec.ts  [covered] ← apps/web/playwright.fullstack-smoke.config.ts
+  🧾 apps/web/e2e/core-journey-02-org-management.spec.ts  [covered] ← apps/web/playwright.fullstack-smoke.config.ts
+  🧾 apps/web/e2e/core-journey-03-skill-lifecycle-chat.spec.ts  [covered] ← apps/web/playwright.fullstack-smoke.config.ts
+  🧾 apps/web/e2e/core-journey-04-canvas-template-lifecycle-chat.spec.ts  [covered] ← apps/web/playwright.fullstack-smoke.config.ts
+  🧾 apps/web/e2e/core-journey-05-voice-skill-multichannel-context.spec.ts  [covered] ← apps/web/playwright.fullstack-smoke.config.ts
+  🧾 apps/web/e2e/core-journey-06-project-invite-chat-share.spec.ts  [covered] ← apps/web/playwright.fullstack-smoke.config.ts
+  🧾 apps/web/e2e/core-loop.spec.ts  [covered] ← apps/web/playwright.fullstack-smoke.config.ts
+  🟠 apps/web/e2e/deepagent-plan-execute-reliability.spec.ts  [conditional-exempt] ← apps/web/playwright.chat-read.config.ts
+  🧾 apps/web/e2e/design-html.spec.ts  [covered] ← apps/web/playwright.design-loop.config.ts
+  🧾 apps/web/e2e/design-loop-responsive.spec.ts  [covered] ← apps/web/playwright.design-loop.config.ts
+  🧾 apps/web/e2e/design-parity.spec.ts  [covered] ← apps/web/playwright.design-loop.config.ts
+  🧾 apps/web/e2e/design-prototype-loop.spec.ts  [covered] ← apps/web/playwright.design-loop.config.ts
+  🧾 apps/web/e2e/design-share.spec.ts  [covered] ← apps/web/playwright.design-loop.config.ts
+  🧾 apps/web/e2e/design-workbench-smoke.spec.ts  [covered] ← apps/web/playwright.fullstack-smoke.config.ts
+  🧾 apps/web/e2e/digital-human-journey.spec.ts  [covered] ← apps/web/playwright.fullstack-smoke.config.ts
+  🧾 apps/web/e2e/digital-interview-density-live.spec.ts  [covered] ← apps/web/playwright.fullstack-smoke.config.ts
+  🧾 apps/web/e2e/digital-interview-intake-failure-live.spec.ts  [covered] ← apps/web/playwright.fullstack-smoke.config.ts
+  🧾 apps/web/e2e/digital-interview-report-export-live.spec.ts  [covered] ← apps/web/playwright.fullstack-smoke.config.ts
+  🧾 apps/web/e2e/digital-interview-research-quality.spec.ts  [covered] ← apps/web/playwright.fullstack-smoke.config.ts
+  🧾 apps/web/e2e/feedback-drafts-smoke.spec.ts  [covered] ← apps/web/playwright.fullstack-smoke.config.ts
+  🧾 apps/web/e2e/feedback-loop-smoke.spec.ts  [covered] ← apps/web/playwright.fullstack-smoke.config.ts
+  🟠 apps/web/e2e/first-value-citation-loop.spec.ts  [conditional-exempt] ← apps/web/playwright.chat-read.config.ts
+  🧾 apps/web/e2e/fullstack-smoke.spec.ts  [covered] ← apps/web/playwright.fullstack-smoke.config.ts
+  🧾 apps/web/e2e/guided-research-runtime.spec.ts  [covered] ← apps/web/playwright.fullstack-smoke.config.ts
+  🧾 apps/web/e2e/guided-research-trust-console.spec.ts  [covered] ← apps/web/playwright.fullstack-smoke.config.ts
+  🟡 apps/web/e2e/icon-rail-short-viewport.spec.ts  [exempt]
+  🧾 apps/web/e2e/inbox-smoke.spec.ts  [covered] ← apps/web/playwright.fullstack-smoke.config.ts
+  🧾 apps/web/e2e/interview-subjects-smoke.spec.ts  [covered] ← apps/web/playwright.fullstack-smoke.config.ts
+  🟡 apps/web/e2e/live-collab-orchestration-shots.spec.ts  [exempt]
+  🧾 apps/web/e2e/mail-loopback-smoke.spec.ts  [covered] ← apps/web/playwright.fullstack-smoke.config.ts
+  🟡 apps/web/e2e/motion-orchestration-reduced-motion.spec.ts  [exempt]
+  🧾 apps/web/e2e/org-admin-keyboard-navigation.spec.ts  [covered] ← apps/web/playwright.self-service-profile.config.ts
+  🧾 apps/web/e2e/organization-create.spec.ts  [covered] ← apps/web/playwright.organization-create.config.ts
+  🟡 apps/web/e2e/overlay-primitives-keyboard.spec.ts  [exempt]
+  🟡 apps/web/e2e/overlay-primitives-kitchen-sink.spec.ts  [exempt]
+  🧾 apps/web/e2e/profile-keyboard-navigation.spec.ts  [covered] ← apps/web/playwright.self-service-profile.config.ts
+  🧾 apps/web/e2e/profile-org-fidelity.spec.ts  [covered] ← apps/web/playwright.self-service-profile.config.ts
+  🧾 apps/web/e2e/project-create-smoke.spec.ts  [covered] ← apps/web/playwright.fullstack-smoke.config.ts
+  🧾 apps/web/e2e/project-hub-b3-walkthrough.spec.ts  [covered] ← apps/web/playwright.fullstack-smoke.config.ts
+  🟡 apps/web/e2e/project-results-shots.spec.ts  [exempt]
+  🧾 apps/web/e2e/prototype-audit.spec.ts  [covered] ← apps/web/playwright.prototype-audit.config.ts
+  🟡 apps/web/e2e/real-model-office-matrix.spec.ts  [exempt]
+  🟠 apps/web/e2e/real-model-pdf-smoke.spec.ts  [conditional-exempt] ← apps/web/playwright.real-model-smoke.config.ts
+  🟡 apps/web/e2e/real-model-web-artifact-reliability.spec.ts  [exempt]
+  🧾 apps/web/e2e/realtime-voice-journey.spec.ts  [covered] ← apps/web/playwright.fullstack-smoke.config.ts
+  🟡 apps/web/e2e/responsive.spec.ts  [exempt]
+  🧾 apps/web/e2e/rewrite-coverage-live-smoke.spec.ts  [covered] ← apps/web/playwright.fullstack-smoke.config.ts
+  🧾 apps/web/e2e/save-as-org-template-smoke.spec.ts  [covered] ← apps/web/playwright.fullstack-smoke.config.ts
+  🧾 apps/web/e2e/self-service-profile.spec.ts  [covered] ← apps/web/playwright.self-service-profile.config.ts
+  🧾 apps/web/e2e/skill-agent-import-usecase-audit.spec.ts  [covered] ← apps/web/playwright.fullstack-smoke.config.ts
+  🧾 apps/web/e2e/skill-create-smoke.spec.ts  [covered] ← apps/web/playwright.fullstack-smoke.config.ts
+  🧾 apps/web/e2e/skill-file-pin-live.spec.ts  [covered] ← apps/web/playwright.skill-files.config.ts
+  🧾 apps/web/e2e/skill-review-gate.spec.ts  [covered] ← apps/web/playwright.fullstack-smoke.config.ts
+  🧾 apps/web/e2e/survey-complete-flow.spec.ts  [covered] ← apps/web/playwright.fullstack-smoke.config.ts
+  🧾 apps/web/e2e/survey-trusted-publishing.spec.ts  [covered] ← apps/web/playwright.fullstack-smoke.config.ts
+  🟡 apps/web/e2e/vz-fabric-shots.spec.ts  [exempt]
+  🧾 apps/web/e2e/w029-browser-journey.spec.ts  [covered] ← apps/web/playwright.fullstack-smoke.config.ts
+  🧾 apps/web/e2e/whiteboard-live.spec.ts  [covered] ← apps/web/playwright.fullstack-smoke.config.ts
+  🧾 apps/web/e2e/whiteboard-preview.spec.ts  [covered] ← apps/web/playwright.prototype-audit.config.ts
+
+✅ 每一条 spec 都已被某个**无条件** CI job 的 --project 跑到（或有署名豁免）——闭包已收紧到 project 粒度；仍未接进来的是 -g/--grep 过滤（本仓 CI 命令目前不用）
+
+> agentic-harness-template@ lint:e2e-testid-gate /Users/shenyangjun/.codex/worktrees/eaa4/workspacex
+> node .harness/scripts/lint-e2e-testid-gate.mjs
+
+✅ [e2e-testid-gate] 4573 条 e2e testid 引用全部在源码里有声明（判据池 10434 条；豁免 19 条；解析不了跳过 32 条）
+
+> agentic-harness-template@ lint:user-facing-error-text /Users/shenyangjun/.codex/worktrees/eaa4/workspacex
+> node .harness/scripts/lint-user-facing-error-text.mjs
+
+✅ [user-facing-error-text] 新代码没有内部错误码上屏；存量基线 56 个文件 / 81 处（只准变小）
+
+> agentic-harness-template@ lint:tailwind-color-tokens /Users/shenyangjun/.codex/worktrees/eaa4/workspacex
+> node .harness/scripts/lint-tailwind-color-tokens.mjs
+
+✅ [tailwind-color-tokens] className 里的颜色类名都对得上 token；存量基线 44 处（只准变小）
+
+> agentic-harness-template@ lint:chat-path-coverage /Users/shenyangjun/.codex/worktrees/eaa4/workspacex
+> node .harness/scripts/lint-chat-path-coverage.mjs
+
+chat 路径覆盖矩阵 OK：43 条路径，17 个 chat-path-* 用例，标签全部对得上。
+
+> agentic-harness-template@ lint:vitest-config-reachability /Users/shenyangjun/.codex/worktrees/eaa4/workspacex
+> pnpm exec tsx .harness/scripts/lint-vitest-config-reachability.mjs
+
+✓ [vitest-config-reachability] 50 个 config 全部可从 npm script / workflow 到达，12 个 live spec 全部被可达 config 覆盖
+
+> agentic-harness-template@ lint:contract-state-names /Users/shenyangjun/.codex/worktrees/eaa4/workspacex
+> node .harness/scripts/lint-contract-state-names.mjs
+
+绑定 PlanPhase ← packages/contracts/src/plan-control.ts
+  枚举（唯一事实源，本门控不存副本）：preparing / planning / executing / approving / done / failed / cancelled
+  🧾 [spec] apps/web/e2e/chat-read-plan-surface-visibility.spec.ts  声明 0 条
+  🧾 [spec] apps/web/e2e/chat-task-workbench-workflow-states.spec.ts  声明 14 条
+  🧾 [doc] .harness/instructions/chat-task-workbench-acceptance.md  声明 6 条
+
+✅ 在范围内的 spec 与验收文档，态名全部落在契约枚举里
+
+> agentic-harness-template@ lint:minio-image-lock /Users/shenyangjun/.codex/worktrees/eaa4/workspacex
+> node .harness/scripts/minio-controlled-image.mjs validate
+
+✓ MinIO compose image source and consumers are consistent
+
+> agentic-harness-template@ lint:templates-doctor /Users/shenyangjun/.codex/worktrees/eaa4/workspacex
+> pnpm exec tsx .harness/scripts/cli.ts templates doctor
+
+[templates doctor] 扫到 1 份实例文档
+✓ [templates doctor] PASS
+✓ [templates doctor] drift gate PASS —— 2 份带元数据头的生成物，无手改/无畸形头
+
+以下 Proposal §12 检查项尚未实现（如实列出，不是遗漏）：
+   · #7 renderer 存在（需要 E2）
+   · #8 消费者存在（需要消费者自身可被发现的机制，E2+）
+   · #10 signoff hash 未漂移（需要 E5）
+   · #13 数据源失败不会渲染为零（本文件已遵守此原则，但作为「仓库级」检查需要看板集成，E6）
+   · #14 allowlist 只能相对 merge-base 缩短（本 Epic 没有 allowlist，等真正开始迁移才有意义，E9）
+(node:91942) [TAG_RESOLVE_FAILED] YAMLWarning: Unresolved tag: !override at line 12, column 14:
+
+    volumes: !override
+             ^^^^^^^^^
+
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+> agentic-harness-template@ lint:role-freeze-doctor /Users/shenyangjun/.codex/worktrees/eaa4/workspacex
+> pnpm exec tsx .harness/scripts/cli.ts role-freeze doctor
+
+✓ [role-freeze doctor] 6 个角色文件全部在 registry.yaml 登记
+✓ [role-freeze doctor] 角色元数据（kind/areas/reports_to）两处逐字一致
+
+> agentic-harness-template@ lint:graph-authority-doctor /Users/shenyangjun/.codex/worktrees/eaa4/workspacex
+> pnpm exec tsx .harness/scripts/cli.ts graph-authority doctor
+
+✓ [graph-authority doctor] 4 条已知投影路径全部干净（未被 Git 追踪）
+
+> agentic-harness-template@ lint:readiness /Users/shenyangjun/.codex/worktrees/eaa4/workspacex
+> pnpm exec tsx .harness/scripts/cli.ts readiness --strict
+
+==> 核心闭环就绪度 CLR = 3 / 10   未达标（门槛 9，还差 6）   （实测 HEAD: c48f0a211e11）
+   公式：min( 可达性 10 , 体验均值 3 )
+   —— 走不到的地方做得再好也等于 0，所以可达性是天花板不是加数。
+   ⚠ 4 条 track 的分数已过期：**仍计入 CLR**（方案 A：数字要有信息量），
+      但「达标」要求全部新鲜——过期的那几条需要在当前 HEAD 上重评。
+
+| track | 记录分 | 计入分 | 为什么 |
+|---|---|---|---|
+| R 真实用户可达性 | 10 | 10 | 分数已过期（评分后 watch 路径有改动） |
+| B 行为体验（对标 Claude Code） | 9 | 9 | 分数已过期（评分后 watch 路径有改动） |
+| V-D 项目对话主屏原型保真（ChatReadScreen） | 0 | 0 | 分数已过期（评分后 watch 路径有改动） |
+| V-P 个人对话屏（PersonalChatScreen） | 0 | 0 | 分数已过期（评分后 watch 路径有改动） |
+
+==> 统一队列（所有 agent 的唯一取活口，从上往下做）
+    1. #2307
+    2. #2272
+    3. #2275
+    4. #2278
+    5. #2281
+
+   排序规则：R（天花板）的阻塞项永远在最前——其余 track 修到满分也抬不动总分。
+✓ CLR 记录结构合法（分数高低不影响本检查的退出码）
+
+> agentic-harness-template@ lint:skills-doctor /Users/shenyangjun/.codex/worktrees/eaa4/workspacex
+> pnpm exec tsx .harness/scripts/cli.ts skills doctor
+
+✓ [skills doctor] 35 个 skill，共引用 222 条仓库路径，全部存在
+
+本命令未覆盖（如实列出，不是遗漏）：
+   · 引用内容是否仍然准确（只查路径是否存在，不查语义是否过时）
+   · PR 号/commit hash/ADR 编号这类非路径引用的有效性
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/eaa4/workspacex
+
+ ✓ .harness/scripts/vm/deep-agent-lib.test.ts (49 tests) 4972ms
+   ✓ deep_agent_wait_graph_ready — bounded graph readiness, not just /ok > succeeds once the target graph_id appears, after connection refusals and wrong graphs 606ms
+   ✓ deep_agent_wait_graph_ready — bounded graph readiness, not just /ok > fails bounded when the graph never loads even though the HTTP endpoint answers 612ms
+   ✓ deep_agent_gc_images — best-effort repository-local GC > removes stale tags (incl. manual latest/test-fix) while keeping current SHA and previous tag 524ms
+   ✓ deep_agent_gc_images — best-effort repository-local GC > a failing rmi is logged but never reds the deployment (best-effort contract) 506ms
+   ✓ native_runtime_assert_deep_agent_api_callback readiness wait > API 起得慢：前 3 次 healthz 失败、第 4 次成功 ⇒ 探针通过，且确实等了 4 次 1021ms
+   ✓ native_runtime_assert_deep_agent_api_callback readiness wait > 反证：API 一直起不来 ⇒ 用「就绪」信息失败，而不是「回调探针失败」，且探针根本没打 526ms
+   ✓ native_runtime_assert_deep_agent_api_callback readiness wait > API 已就绪但契约不对（resolve 非 400）⇒ 仍是原来的探针失败信息，两种失败可区分 506ms
+ ✓ .harness/scripts/lib/design-signoff.test.ts (55 tests) 239ms
+ ✓ .harness/scripts/lib/pr-queue.test.ts (49 tests) 10ms
+ ✓ .harness/scripts/vm/deploy-readiness.test.ts (28 tests) 23283ms
+   ✓ #448 post-restart readiness > resets after success -> refusal and passes only after three trustworthy recovery samples 818ms
+   ✓ #448 post-restart readiness > does not count an HTTP 200 whose security assertions are false 894ms
+   ✓ #448 post-restart readiness > fails permanently unavailable API and emits bounded, redacted diagnostics for both services 1777ms
+   ✓ #448 post-restart readiness > fails when Web never becomes ready and diagnoses both services 1812ms
+   ✓ #448 post-restart readiness > fails when the private probe is exposed and diagnoses both services 1901ms
+   ✓ #448 post-restart readiness > preserves a trusted root deploy failure before smoke without probing healthy old services 1671ms
+   ✓ #448 post-restart readiness > fails closed when a repository-controlled pre-smoke command forges the old stdout marker 1568ms
+   ✓ public realtime voice anonymous Upgrade readiness > fails deployment for incorrect voice handshake 200 despite healthy API and web 1772ms
+   ✓ public realtime voice anonymous Upgrade readiness > fails deployment for incorrect voice handshake 404 despite healthy API and web 1835ms
+   ✓ public realtime voice anonymous Upgrade readiness > fails deployment for incorrect voice handshake 502 despite healthy API and web 1826ms
+   ✓ public realtime voice anonymous Upgrade readiness > fails deployment for incorrect voice handshake 101 despite healthy API and web 1906ms
+   ✓ public realtime voice anonymous Upgrade readiness > fails deployment for incorrect voice handshake 000 despite healthy API and web 1763ms
+   ✓ public realtime voice anonymous Upgrade readiness > fails deployment for incorrect voice handshake transport-error despite healthy API and web 1804ms
+   ✓ public realtime voice anonymous Upgrade readiness > accepts the authenticated gateway anonymous refusal without exposing credentials 758ms
+   ✓ anonymous Upgrade probe actual transport > passes production gateway 401 and fails a misrouted HTTP server 992ms
+ ✓ .harness/scripts/lib/core-loop-readiness.test.ts (62 tests) 18ms
+ ✓ .harness/scripts/vm/cn-frozen-release-cli.test.ts (23 tests) 49542ms
+   ✓ real Git frozen-source CLI with controlled GitHub observations > fails NOT_READY for a historical dispatcher instead of borrowing latest main 1841ms
+   ✓ real Git frozen-source CLI with controlled GitHub observations > accepts actual ancestor candidate/tag after main advances without build or mutation 2101ms
+   ✓ real Git frozen-source CLI with controlled GitHub observations > accepts root-verified governance adapter when workflow token cannot see bypass fields 12106ms
+   ✓ real Git frozen-source CLI with controlled GitHub observations > rejects missing or unrelated merged PR and source tree drift at actual CLI 5182ms
+   ✓ real Git frozen-source CLI with controlled GitHub observations > actual source dynamic plan rejects missing final shard or plan job at CLI 3964ms
+   ✓ real Git frozen-source CLI with controlled GitHub observations > runs actual CLI in clean offline runtime without node_modules or NODE_PATH 3051ms
+   ✓ real Git frozen-source CLI with controlled GitHub observations > rejects changed attestation and incomplete actual checks before approval 3915ms
+   ✓ real Git frozen-source CLI with controlled GitHub observations > rejects moving main dispatch, missing evidence and prior-run request digest 3104ms
+   ✓ real Git frozen-source CLI with controlled GitHub observations > verifies real human-creator native admission via current-attempt job API 3709ms
+   ✓ actual embedded nonproduction tag proof program > executes real proof code with success 1107ms
+   ✓ actual embedded nonproduction tag proof program > executes real proof code with permission 711ms
+   ✓ actual embedded nonproduction tag proof program > executes real proof code with patch-success 759ms
+   ✓ actual embedded nonproduction tag proof program > executes real proof code with delete-success 882ms
+   ✓ actual embedded nonproduction tag proof program > executes real proof code with mutated-ref 868ms
+   ✓ actual embedded nonproduction tag proof program > executes real proof code with cleanup-failure 1563ms
+   ✓ actual embedded nonproduction tag proof program > executes real proof code with missing-bypass 344ms
+   ✓ actual embedded nonproduction tag proof program > executes real proof code with hidden-never 814ms
+   ✓ actual embedded nonproduction tag proof program > executes real proof code with hidden-always 1239ms
+   ✓ actual embedded nonproduction tag proof program > executes real proof code with hidden-exempt 369ms
+   ✓ actual embedded nonproduction tag proof program > executes real proof code with visible-bypass 339ms
+   ✓ actual embedded nonproduction tag proof program > executes real proof code with bypass-null 884ms
+   ✓ actual embedded nonproduction tag proof program > executes real proof code with bypass-string 340ms
+   ✓ actual embedded nonproduction tag proof program > executes real proof code with bypass-object 347ms
+ ✓ .harness/scripts/lint-ui-material.test.ts (37 tests) 149ms
+ ✓ .harness/scripts/ci-lane-dedup.test.ts (66 tests) 155ms
+ ✓ .harness/scripts/lint-nav-reachability.test.ts (31 tests) 735ms
+   ✓ 反向反证 —— 真仓库当前必须是绿的 > phase-01：十一束全部可达，导航无非法屏、无死链 319ms
+   ✓ 反向反证 —— 真仓库当前必须是绿的 > phase-01：束内也没有零引用的孤儿页（⑥ 在真仓库上是绿的，且真的扫到了子页） 311ms
+ ✓ .harness/scripts/vm/publish-cn-release.test.ts (18 tests) 1459ms
+   ✓ publisher owned build lifecycle > joins only owned children before cleanup on TERM-resistant 1138ms
+ ✓ .harness/scripts/lint-spec-gate-coverage.test.ts (23 tests) 61669ms
+   ✓ 真实仓库 > 当前仓库没有 unrun、也没有未署名的条件覆盖 20563ms
+   ✓ 真实仓库 > 合成导入报告随 Board 改动运行，真实厂商样本仍由独立 captured 门禁负责 20494ms
+   ✓ 真实仓库 > 门控脚本本身以 0 退出 20395ms
+ ✓ .harness/scripts/fullstack-smoke.test.ts (20 tests) 15794ms
+   ✓ #387 trusted full-stack gate contract > forwards the entire large burst and final marker to a slow reader 5013ms
+   ✓ #387 trusted full-stack gate contract > keeps a real passing test green when it logs the empty-run phrase 1251ms
+   ✓ #387 trusted full-stack gate contract > rejects an actual Vitest zero-selection exit0 and still cleans its scope 872ms
+   ✓ #387 trusted full-stack gate contract > accepts an actual Vitest selected assertion and still cleans its scope 1069ms
+   ✓ #387 trusted full-stack gate contract > accepts a real passed test logging empty-run phrases and still cleans its scope 1212ms
+   ✓ #387 trusted full-stack gate contract > successful child runs one successful scoped down -v and preserves the child outcome 1012ms
+   ✓ #387 trusted full-stack gate contract > failed child runs one successful scoped down -v and preserves the child outcome 1355ms
+   ✓ #387 trusted full-stack gate contract > SIGTERM runs one successful scoped down -v and preserves the child outcome 939ms
+   ✓ #387 trusted full-stack gate contract > successful child fails closed when its only scoped down -v fails 783ms
+   ✓ #387 trusted full-stack gate contract > failed child fails closed when its only scoped down -v fails 1045ms
+   ✓ #387 trusted full-stack gate contract > SIGINT fails closed when its only scoped down -v fails 580ms
+   ✓ #387 trusted full-stack gate contract > SIGTERM fails closed when its only scoped down -v fails 571ms
+ ✓ .harness/scripts/lib/merge-queue.test.ts (46 tests) 9ms
+ ✓ .harness/scripts/lib/verify-cache.test.ts (17 tests) 2745ms
+   ✓ verify-cache > merge-base 不随 origin/main 前进而移动（钉住 #1334 的证伪结论） 529ms
+   ✓ verify-cache > 反证 #1341：evidence 日志（已有 + 新建）不得改变指纹 304ms
+   ✓ verify-cache > 反证 #1341：.harness/state/ 下的门控输入（允许清单）改了 —— 指纹必须变，不许按目录一把梭排除 301ms
+ ✓ .harness/scripts/lib/feature-id.test.ts (23 tests) 1700ms
+   ✓ allocateFeatureId —— 真并发（#1094 的核心断言） > 🔴 对照组：快照式分配（先挑号、后写盘）在同样的并发下必然撞号 416ms
+   ✓ allocateFeatureId —— 真并发（#1094 的核心断言） > 原子取号：同样的并发下 N 个进程拿到 N 个互不相同的号，盘上零重复 1263ms
+ ✓ .harness/scripts/tick.test.ts (11 tests) 100067ms
+   ✓ tick coord-gateway cutover > uses gateway time, renews role:coord-main, and reads the repo-scoped inbox 31588ms
+   ✓ tick coord-gateway cutover > uses --session for scoped/ops identity even when COORD_AGENT_ID is stale 46540ms
+   ✓ tick coord-gateway cutover > renews every lease owned by the current agent and reports heartbeat failures 7118ms
+   ✓ tick coord-gateway cutover > applies an 8 second AbortSignal to claims and heartbeat requests 14817ms
+ ✓ .harness/scripts/vm/devapp-runtime-identity.test.ts (18 tests) 819ms
+   ✓ Devapp runtime identity actual mixed topology > rejects actual committed symlink and Git submodule records 337ms
+ ✓ .harness/scripts/lib/contract-route-coverage.test.ts (33 tests) 9ms
+ ✓ .harness/scripts/registry-integration-team.test.ts (8 tests) 6ms
+ ✓ .harness/scripts/vm/cn-production-bootstrap.test.ts (16 tests) 38ms
+ ✓ .harness/scripts/lint-third-artifact.test.ts (23 tests) 66ms
+ ✓ .harness/scripts/doctor-pr-green.test.ts (21 tests) 117233ms
+   ✓ doctor ⑤：关闭 issue 的 PR 合入时不绿 → 报完成定义第 7 条 > 生效后关闭 + 合入时 required FAILURE → 报出来，理由带 PR 号与 check 名 6419ms
+   ✓ doctor ⑤：关闭 issue 的 PR 合入时不绿 → 报完成定义第 7 条 > 合入前失败、合入前 rerun 成功 → 不报（同名取最晚，不会永远违反） 4850ms
+   ✓ doctor ⑤：关闭 issue 的 PR 合入时不绿 → 报完成定义第 7 条 > 合入时绿、合入后被 rerun 打红 → 不报（合入后的 run 无关） 4617ms
+   ✓ doctor ⑤：关闭 issue 的 PR 合入时不绿 → 报完成定义第 7 条 > 合入前最后一次红、合入后才 rerun 绿 → 仍报（合入时就是红的） 4105ms
+   ✓ doctor ⑤：关闭 issue 的 PR 合入时不绿 → 报完成定义第 7 条 > 合入前开始、合入后才 SUCCESS 完成 → 报（合入时 required 还没结论，不是绿） 4631ms
+   ✓ doctor ⑤：关闭 issue 的 PR 合入时不绿 → 报完成定义第 7 条 > 旧 attempt 合入前绿 + 更新的 rerun 合入时仍在跑 → 报（合入时 GitHub 显示的是 pending，不退回旧的绿） 4380ms
+   ✓ doctor ⑤：关闭 issue 的 PR 合入时不绿 → 报完成定义第 7 条 > 旧 attempt 合入前红 + 更新的 rerun 合入前完成绿 → 不报（最新 attempt 胜出） 5439ms
+   ✓ doctor ⑤：关闭 issue 的 PR 合入时不绿 → 报完成定义第 7 条 > 生效后关闭 + 没有已合入的 PR → 报「没有任何已合入的 PR」 4488ms
+   ✓ doctor ⑤：关闭 issue 的 PR 合入时不绿 → 报完成定义第 7 条 > 生效前关闭的存量 → 不倒查（即使 PR 是红的） 5090ms
+   ✓ doctor ⑤：关闭 issue 的 PR 合入时不绿 → 报完成定义第 7 条 > gh 问不到（graphql 失败）+ --strict → FAIL 级（问不到不等于绿，不 fail-open） 5285ms
+   ✓ doctor ⑤：关闭 issue 的 PR 合入时不绿 → 报完成定义第 7 条 > 关掉 issue 的 PR 在第二页（>100 个引用）→ 翻页到底后照样报出 PR #900 的红 4474ms
+   ✓ doctor ⑤：关闭 issue 的 PR 合入时不绿 → 报完成定义第 7 条 > 第二页拿不到 + --strict → FAIL「查不到」（半份清单不放行） 5206ms
+   ✓ doctor ⑤：关闭 issue 的 PR 合入时不绿 → 报完成定义第 7 条 > graphql 回包不带 pageInfo → 不知道有没有下一页，按「查不到」处理（strict FAIL） 5346ms
+   ✓ doctor ⑤：关闭 issue 的 PR 合入时不绿 → 报完成定义第 7 条 > check run 全绿、但合入前打上的 commit status `coord/andon` 是 failure → 报（rollup 不只有 CheckRun） 4536ms
+   ✓ doctor ⑤：关闭 issue 的 PR 合入时不绿 → 报完成定义第 7 条 > commit status 五个 state（REST 小写）：error 报、pending / expected / success 不报（非必需 context）、未知取值报 23368ms
+   ✓ doctor ⑤：关闭 issue 的 PR 合入时不绿 → 报完成定义第 7 条 > commit status 合入前 failure、合入前又打成 success → 不报（合入前最后一次 state 说了算） 4568ms
+   ✓ doctor ⑤：关闭 issue 的 PR 合入时不绿 → 报完成定义第 7 条 > commit status 合入后才打成 failure → 不报（合入后的观测无关） 4186ms
+   ✓ doctor ⑤：关闭 issue 的 PR 合入时不绿 → 报完成定义第 7 条 > statuses 端点拿不到 + --strict → FAIL「查不到」（只有 check run 那一半不放行） 3933ms
+   ✓ doctor ⑤：关闭 issue 的 PR 合入时不绿 → 报完成定义第 7 条 > gh 问不到 + 非 strict（pre-push）→ WARN 级 3676ms
+   ✓ doctor ⑤：关闭 issue 的 PR 合入时不绿 → 报完成定义第 7 条 > 反证：队列 bot 合入、PR head 全绿 → 不判 ok，报「查不到候选组 commit」（strict FAIL） 4548ms
+   ✓ doctor ⑤：关闭 issue 的 PR 合入时不绿 → 报完成定义第 7 条 > 同一份 PR head 绿、由人直接合入 → 判定行为一字不变（兼容存量，不倒逼全仓变红） 4087ms
+ ✓ .harness/scripts/vm/deploy-image-freshness.test.ts (16 tests) 20ms
+ ✓ .harness/scripts/lib/pr-green.test.ts (27 tests) 8ms
+ ✓ .harness/scripts/lib/test-isolation.test.ts (16 tests) 605391ms
+   ✓ test isolation contract (#74) > asserts the harness verify outer and inner scopes match at wrapper runtime 600337ms
+   ✓ test isolation contract (#74) > hashes isolation inputs into Turbo's test cache key 4828ms
+ ✓ .harness/scripts/lint-e2e-testid-gate.test.ts (35 tests) 1679ms
+   ✓ 真仓库 > 变异反证：源码里改掉一个 e2e 还锚着的 testid ⇒ 立刻红 1667ms
+ ✓ .harness/scripts/lib/contract-negative-assertion.test.ts (19 tests) 4ms
+ ✓ .harness/scripts/lib/ui-wiring.test.ts (17 tests) 3ms
+ ✓ .harness/scripts/board-heavy-batch.test.ts (30 tests) 9ms
+ ✓ .harness/scripts/with-test-isolation-port-leases.test.ts (18 tests) 7035ms
+   ✓ #3128 wrapper owns port leases through teardown > success keeps ownership during cleanup and releases only after successful teardown 1087ms
+   ✓ #3128 wrapper owns port leases through teardown > assertion failure keeps ownership during cleanup and releases only after successful teardown 602ms
+   ✓ #3128 wrapper owns port leases through teardown > cleanup failure keeps ownership during cleanup and releases only after successful teardown 607ms
+   ✓ #3128 wrapper owns port leases through teardown > assertion and cleanup failure keeps ownership during cleanup and releases only after successful teardown 587ms
+   ✓ #3128 wrapper owns port leases through teardown > SIGTERM keeps ownership during cleanup and releases only after successful teardown 570ms
+   ✓ #3128 wrapper owns port leases through teardown > SIGINT keeps ownership during cleanup and releases only after successful teardown 581ms
+   ✓ #3128 wrapper owns port leases through teardown > spawn failure keeps ownership during cleanup and releases only after successful teardown 583ms
+   ✓ #3128 SIGKILL cannot surrender a surviving descendant startup port 530ms
+   ✓ #3128 SIGTERM cannot surrender a surviving descendant startup port 753ms
+   ✓ #3128 exit7 cannot surrender a surviving descendant startup port 749ms
+ ✓ .harness/scripts/lint-contract-state-names.test.ts (27 tests) 86ms
+ ✓ .harness/scripts/lib/phase-readiness-fs.test.ts (8 tests) 940ms
+ ✓ .harness/scripts/lib/cycle-result-gate.test.ts (24 tests) 5ms
+ ✓ .harness/scripts/minio-controlled-image.test.ts (10 tests) 1451ms
+   ✓ controlled MinIO image lock > invokes gh attestation verify with the exact signer identity and provenance flags 461ms
+   ✓ controlled MinIO image lock > executes the mirror copy step without an ambient tag and derives its target tag from the digest 941ms
+ ✓ .harness/scripts/lib/stack-admission.test.ts (13 tests) 8ms
+ ✓ .harness/scripts/sync-github.test.ts (18 tests) 5ms
+ ✓ .harness/scripts/lint-verification-can-fail.test.ts (27 tests) 18ms
+ ✓ .harness/scripts/lib/feature-transition.test.ts (26 tests) 4ms
+ ✓ .harness/scripts/lib/contract-route-ratchet.test.ts (20 tests) 3ms
+ ✓ .harness/scripts/vm/cn-promotion-prepared-receipt.test.ts (11 tests) 662ms
+   ✓ rejects broken preparation input and real source closure before any build 562ms
+ ✓ .harness/scripts/lint-test-shared-grant.test.ts (17 tests) 217ms
+ ✓ .harness/scripts/lib/verification-targets.test.ts (15 tests) 13ms
+ ✓ .harness/scripts/lib/role-scorecard.test.ts (24 tests) 3ms
+ ✓ .harness/scripts/lib/test-isolation-ports.test.ts (11 tests) 29ms
+ ✓ .harness/scripts/vm/cn-frozen-release-identity.test.ts (13 tests) 11ms
+ ✓ .harness/scripts/lib/merge-gate.test.ts (16 tests) 3ms
+ ✓ .harness/scripts/lib/rewrite-shadow.test.ts (14 tests) 4ms
+ ✓ .harness/scripts/workflow-actions-node24.test.ts (11 tests) 78ms
+ ✓ .harness/scripts/cycle-report.test.ts (7 tests) 6ms
+ ✓ .harness/scripts/lib/body-path-param-leak.test.ts (13 tests) 3ms
+ ✓ .harness/scripts/lib/ci-check-policy.test.ts (46 tests) 18ms
+ ✓ .harness/scripts/feature-schema-parity.test.ts (14 tests) 4ms
+ ❯ .harness/scripts/lint-feature-transition.test.ts (10 tests | 1 failed) 8741ms
+   ✓ 真仓库端到端 > 合法迁移（真 appendFingerprint 产出的证据）⇒ 退 0 790ms
+   ✓ 真仓库端到端 > 手改 passing（status 翻了、evidence 写人话、没有日志）⇒ 退 1 694ms
+   ✓ 真仓库端到端 > 手改 passing 但借用一份合法旧日志（最终树三道门全绿）⇒ 退 1 712ms
+   ✓ 真仓库端到端 > 复制一份别人的合法日志冒充自己的证据 ⇒ 退 1 784ms
+   ✓ 真仓库端到端 > 改写日志正文 + 重算指纹（checkFingerprint 返回 ok）⇒ 仍然退 1 765ms
+   ✓ 真仓库端到端 > 只改正文、不重算尾行 ⇒ evidence_tampered 767ms
+   ✓ 真仓库端到端 > passing 退回 in_progress ⇒ status_irreversible 725ms
+   ✓ 真仓库端到端 > 归档搬家（live → feature_list.archive.json）不算记录消失 ⇒ 退 0 726ms
+   ✓ 真仓库端到端 > 不碰 feature 的改动 ⇒ 判定为空转，退 0 690ms
+   × 反向反证：门不是永远红的 > 真仓库 HEAD~1 → HEAD 必须退 0 2088ms
+     → expected 1 to be +0 // Object.is equality
+ ✓ .harness/scripts/lib/test-run-output.test.ts (19 tests) 10ms
+ ✓ .harness/scripts/lint-ui-wiring.test.ts (10 tests) 3096ms
+   ✓ lint-ui-wiring（#397 跨层接线门控） > ① 正样本：干净夹具退出 0 —— 门不是恒红 326ms
+   ✓ lint-ui-wiring（#397 跨层接线门控） > ② 反证：屏和 controller 都在，但 controller 没挂进 kernel controllers[] ⇒ 红 311ms
+   ✓ lint-ui-wiring（#397 跨层接线门控） > ③ 反证：同一条屏连 controller 都不声明（「接到后端」纯属口头）⇒ 红 343ms
+   ✓ lint-ui-wiring（#397 跨层接线门控） > ④ 反证：新页面不进清单 ⇒ 红（不许静默新增未归类的产品路由） 304ms
+   ✓ lint-ui-wiring（#397 跨层接线门控） > ⑥ 反证：把已挂载的 controller 从 kernel controllers[] 里摘掉 ⇒ 红 303ms
+   ✓ lint-ui-wiring（#397 跨层接线门控） > ⑦ 反证：application 用例被改名 / 不再被 controller 调用 ⇒ 红 304ms
+   ✓ lint-ui-wiring（#397 跨层接线门控） > ⑧ 反证：棘轮只减不增 —— mock 路由超过冻结上限 ⇒ 红 307ms
+   ✓ lint-ui-wiring（#397 跨层接线门控） > ⑩ 反证：扫不到任何 page / controller 时不许判绿（空集不是全绿） 305ms
+ ✓ .harness/scripts/lib/heavy-suite-lock.test.ts (11 tests) 8ms
+ ✓ .harness/scripts/vm/cn-production-promotion-workflow.test.ts (9 tests) 7046ms
+   ✓ GitHub-based CN production promotion > executes domestic Git export and runner capability failure fixtures 6831ms
+ ✓ .harness/scripts/vm/cn-main-source-admission.test.ts (29 tests) 285ms
+ ✓ .harness/scripts/lib/evidence-legacy.test.ts (17 tests) 4ms
+ ✓ .harness/scripts/lib/verify-risk.test.ts (12 tests) 1844ms
+ ✓ .harness/scripts/lint-skill-metadata-source.test.ts (22 tests) 13ms
+ ✓ .harness/scripts/lib/feature-owner.test.ts (16 tests) 3ms
+ ✓ .harness/scripts/lib/template-doctor.test.ts (17 tests) 3ms
+ ✓ .harness/scripts/lib/rewrite-coverage.test.ts (14 tests) 3ms
+ ✓ .harness/scripts/vm/native-api-env-readiness.test.ts (9 tests) 8882ms
+   ✓ native API process environment readiness > waits through the pre-exec environment and requires consecutive valid process samples 1218ms
+   ✓ native API process environment readiness > rejects persistent wrong admission and missing binding values at the bounded deadline 1774ms
+   ✓ native API process environment readiness > reacquires MainPID and resets stability when the process changes 1034ms
+   ✓ native API process environment readiness > rejects a process replacement during its environment read 1040ms
+   ✓ native API process environment readiness > never accepts a missing PID or unreadable process environment 1823ms
+   ✓ native API process environment readiness > stops at the elapsed-time deadline even with sampling attempts remaining 731ms
+   ✓ native API process environment readiness > bounds a stalled MainPID query by the remaining deadline 1254ms
+ ✓ .harness/scripts/lib/template-scan.test.ts (5 tests) 14ms
+ ✓ .harness/scripts/vm/cn-controlled-evidence.test.ts (7 tests) 6ms
+ ✓ .harness/scripts/doctor.test.ts (15 tests) 614ms
+   ✓ isEvidenceCommitIntegrated > pull_request CI accepts evidence contained by the checked-out merge ref 304ms
+   ✓ isEvidenceCommitIntegrated > push and local runs still require evidence to be on origin/main 307ms
+ ✓ .harness/scripts/uiux-review-log-schema.test.ts (18 tests) 6ms
+ ✓ .harness/scripts/lint-e2e-artifact-isolation.test.ts (2 tests) 106ms
+ ✓ .harness/scripts/vm/cn-bootstrap-sequencing.test.ts (12 tests) 2109ms
+   ✓ bootstrap phase sequencing > runs the actual prebuild source closure with no reachable DB and no database claims 661ms
+   ✓ bootstrap phase sequencing > rejects invalid actual source input 567ms
+   ✓ bootstrap phase sequencing > does not silently make the preactivate source probe static 581ms
+ ✓ .harness/scripts/execution-plan.test.ts (23 tests) 41ms
+ ✓ .harness/scripts/lint-tailwind-color-tokens.test.ts (10 tests) 12ms
+ ✓ .harness/scripts/lib/spec-ref.test.ts (18 tests) 19ms
+ ✓ .harness/scripts/uiux-review-log-stats.test.ts (11 tests) 4ms
+ ✓ .harness/scripts/lib/ci-job-conditions.test.ts (19 tests) 4ms
+ ✓ .harness/scripts/ci-skill-import-auth-probe.test.ts (21 tests) 6ms
+ ✓ .harness/scripts/lint-vitest-config-reachability.test.ts (10 tests) 3ms
+ ✓ .harness/scripts/ci-fullstack-runtime.test.ts (8 tests) 5ms
+ ✓ .harness/scripts/lint-contract-route-coverage-gate.test.ts (9 tests) 1125ms
+   ✓ 命令行入口（正样本：门不是恒红） > 真仓库 → 退出 0，并说清楚名单有多长 550ms
+   ✓ 命令行入口（正样本：门不是恒红） > 真仓库 + --strict → 同样退出 0（门控模式不是把正常状态判红） 554ms
+ ✓ .harness/scripts/coord-service-retirement.test.ts (4 tests) 2ms
+ ✓ .harness/scripts/vm/deploy-trusted-copy-drift.test.ts (6 tests) 384ms
+ ✓ .harness/scripts/verify-cn-promotion.test.ts (6 tests) 1068ms
+ ✓ .harness/scripts/lint-ci-python-runtime.test.ts (2 tests) 2ms
+ ✓ .harness/scripts/lib/phase-readiness.test.ts (7 tests) 3ms
+ ✓ .harness/scripts/lint-root-router.test.ts (16 tests) 3ms
+ ✓ .harness/scripts/lib/gate-mutation-spec.test.ts (22 tests) 4ms
+ ✓ .harness/scripts/lint-pnpm-override-selector.test.ts (10 tests) 497ms
+   ✓ 真仓库现状 > `pnpm run lint:pnpm-override-selector` 在真仓库上退 0 494ms
+ ✓ .harness/scripts/vm/deploy-env-write-quoting.test.ts (3 tests) 35ms
+ ✓ .harness/scripts/lint-plan-surface-single-source.test.ts (6 tests) 3ms
+ ✓ .harness/scripts/phase-board.test.ts (4 tests) 1501ms
+   ✓ 阶段看板 > 承诺表里没有那张 issue 时仍然跑完整块板，不半途崩掉 534ms
+   ✓ 阶段看板 > 正样本：有承诺时间时渲染倒计时，证明上面那条不是因为整块板都没渲染 400ms
+ ✓ .harness/scripts/realtime-asr-design.test.ts (9 tests) 14ms
+ ✓ .harness/scripts/vm/cn-bootstrap-baseline.test.mjs (19 tests) 4ms
+ ✓ .harness/scripts/lib/role-freeze.test.ts (13 tests) 3ms
+ ✓ .harness/scripts/lint-startup-discovery.test.ts (6 tests) 143ms
+ ✓ .harness/scripts/lib/feature-evidence-ratchet.test.ts (14 tests) 3ms
+ ✓ .harness/scripts/lib/renderer-model.test.ts (12 tests) 11ms
+ ✓ .harness/scripts/vm/deep-agent-deploy-preflight.test.ts (6 tests) 3356ms
+   ✓ derives the image port and initializes durable storage on the same private network 941ms
+   ✓ database readiness failure cleans only its probe and retains the old service 443ms
+   ✓ accepts the health route actually registered by the ASGI runtime 464ms
+   ✓ fails after bounded retries when the runtime health route is unavailable 1291ms
+ ✓ .harness/scripts/doctor-outcome.test.ts (10 tests) 2ms
+ ✓ .harness/scripts/lint-rewrite-shadow.test.ts (6 tests) 2595ms
+   ✓ lint-rewrite-coverage 反方向接线（#610） > ① 加一条遮蔽既有前端页面的通配 rewrite → 退出非 0，并点名那条规则与那个页面 421ms
+   ✓ lint-rewrite-coverage 反方向接线（#610） > ② 同一条遮蔽带理由登记进棘轮 → 退出 0（棘轮是出口，不是把门改松） 423ms
+   ✓ lint-rewrite-coverage 反方向接线（#610） > ③ 棘轮条目没有 reason → 不算登记，照样红 441ms
+   ✓ lint-rewrite-coverage 反方向接线（#610） > ④ 遮蔽修好了、棘轮条目还留着 → 报陈旧并退出非 0（另一个方向的反证） 424ms
+   ✓ lint-rewrite-coverage 反方向接线（#610） > ⑤ 通配收窄之后 → 退出 0（正样本：门不是恒红） 412ms
+   ✓ lint-rewrite-coverage 反方向接线（#610） > ⑥ 真仓库：反方向真的跑到了，而且是拿真实页面路由与求值后的规则在判 473ms
+ ✓ .harness/scripts/source-release.test.mjs (24 tests) 284ms
+ ✓ .harness/scripts/lib/adr-id.test.ts (18 tests) 3ms
+ ✓ .harness/scripts/docker-residue.test.ts (12 tests) 3ms
+ ✓ .harness/scripts/vm/deploy-secret-argv.test.ts (7 tests) 2192ms
+   ✓ loads synthetic credentials after sudo without putting them in captured argv 499ms
+   ✓ password SQL preserves characters and keeps "synthetic'password" out of docker argv 530ms
+   ✓ password SQL preserves characters and keeps "synthetic''end'" out of docker argv 367ms
+   ✓ password SQL preserves characters and keeps "synthetic\\$& spaced" out of docker argv 434ms
+ ✓ .harness/scripts/lint-commitments.test.ts (12 tests) 394ms
+ ✓ .harness/scripts/lib/test-isolation-port-leases.test.ts (6 tests) 438ms
+   ✓ #3128 ownership survives listener release > candidate exhaustion fails closed and rolls back earlier listeners and leases 344ms
+ ✓ .harness/scripts/vm/cn-candidate-config-wiring.test.ts (6 tests) 21ms
+ ✓ .harness/scripts/skill-frontmatter.test.ts (13 tests) 3ms
+ ✓ .harness/scripts/lib/verify-evidence-scope.test.ts (9 tests) 2ms
+ ✓ .harness/scripts/vm/cn-baseline-schema-contract.test.mjs (18 tests) 4ms
+ ✓ .harness/scripts/lib/render-pipeline.test.ts (6 tests) 3ms
+ ✓ .harness/scripts/lib/executed-count.test.ts (12 tests) 3ms
+ ✓ .harness/scripts/vm/deploy-env-key-backfill.test.ts (5 tests) 43ms
+ ✓ .harness/scripts/oss-secret-scan.test.ts (6 tests) 904ms
+ ✓ .harness/scripts/lib/template-model.test.ts (18 tests) 4ms
+ ✓ .harness/scripts/run-verify-lanes.test.ts (7 tests) 4ms
+ ✓ .harness/scripts/lint-third-artifact-race.test.ts (3 tests) 8ms
+ ✓ .harness/scripts/lib/rewrite-coverage-evidence.test.ts (6 tests) 2ms
+ ✓ .harness/scripts/lib/generated-metadata.test.ts (12 tests) 3ms
+ ✓ .harness/scripts/lib/skill-doctor-model.test.ts (13 tests) 3ms
+ ✓ .harness/scripts/lint-run-status-view-single-source.test.ts (6 tests) 5ms
+ ✓ .harness/scripts/vm/api-docker-workspace-context.test.ts (4 tests) 3ms
+ ✓ .harness/scripts/lint-telemetry-schema.test.ts (10 tests) 3765ms
+   ✓ lint-telemetry-schema > 真实契约是干净的，且确实遍历到了叶子字段 337ms
+   ✓ lint-telemetry-schema > 默认目标覆盖第一个价值时刻的两层 schema（backlog E1） 333ms
+   ✓ lint-telemetry-schema > 对照组：全是受约束字段的 strict 对象判绿 306ms
+   ✓ lint-telemetry-schema > ① 不受约束的字符串 ⇒ 红（自由文本能装下客户的一句话） 314ms
+   ✓ lint-telemetry-schema > ② 字段名像个人信息 ⇒ 红（驼峰拆开后按词匹配） 1246ms
+   ✓ lint-telemetry-schema > ③ 对象没有 .strict() ⇒ 红（多出的字段会被悄悄丢掉） 335ms
+   ✓ lint-telemetry-schema > ③ Record 的键是任意字符串 ⇒ 红（等于没有白名单） 302ms
+ ✓ .harness/scripts/vm/real-model-chat-evidence-env.test.ts (2 tests) 30ms
+ ✓ .harness/scripts/lib/evidence-integration.test.ts (7 tests) 1028ms
+ ✓ .harness/scripts/lint-production-not-on-ops.test.ts (8 tests) 2857ms
+   ✓ lint-production-not-on-ops > 当前仓库是干净的，且确实扫到了文件 2684ms
+ ✓ .harness/scripts/lint-shipped-pack-version.test.ts (11 tests) 3ms
+ ✓ .harness/scripts/vm/s013-real-model-evidence.test.ts (7 tests) 83ms
+ ✓ .harness/scripts/ci-api-shards.test.ts (13 tests) 453ms
+ ✓ .harness/scripts/sweep-worktrees.test.ts (3 tests) 1134ms
+   ✓ sweep-worktrees: 已 commit 但未推送的检测 > 反证：分支从未 push 过 —— 必须被判定为有未推送 commit，即使 git status 干净 353ms
+   ✓ sweep-worktrees: 已 commit 但未推送的检测 > 反证：已经 push 到 origin 且完全同步 —— 不应被判定为未推送 361ms
+   ✓ sweep-worktrees: 已 commit 但未推送的检测 > 反证：push 过，但之后又本地新 commit —— 未推送数应该等于「新 commit 数」而不是全部历史 420ms
+ ✓ .harness/scripts/session-skill-descriptions.test.ts (5 tests) 2ms
+ ✓ .harness/scripts/skill-files-preview-deploy.test.ts (4 tests) 70ms
+ ✓ .harness/scripts/real-model-smoke.test.ts (4 tests) 2700ms
+   ✓ real-model-smoke exit status (#4886) > fails on an unbound startup variable even when EXIT sees status zero 608ms
+   ✓ real-model-smoke exit status (#4886) > fails when the stack exits before readiness, without running a spec 437ms
+   ✓ real-model-smoke exit status (#4886) > preserves the completed spec exit code 0 1021ms
+   ✓ real-model-smoke exit status (#4886) > preserves the completed spec exit code 41 634ms
+ ✓ .harness/scripts/lint-maau-manifest.test.ts (6 tests) 1822ms
+   ✓ lint-maau-manifest > 真缺身份时仍报 identity 319ms
+   ✓ lint-maau-manifest > name 与目录名不一致也报——那会让按名字找目录悄悄取错文件 319ms
+   ✓ lint-maau-manifest > 缺许可：默认只报告（退出 0），--strict 判失败 590ms
+ ✓ .harness/scripts/lint-ee-boundary.test.ts (8 tests) 1643ms
+   ✓ lint-ee-boundary > 当前仓库干净，且确实扫到了开源包文件 1413ms
+ ✓ .harness/scripts/vm/realtime-voice-route-repair.test.ts (5 tests) 5423ms
+   ✓ reviewed realtime voice route repair > repairs missing voice on an existing Board deployment; a second run makes no change 1404ms
+   ✓ reviewed realtime voice route repair > repairs both reviewed routes on older deployments 1433ms
+   ✓ reviewed realtime voice route repair > leaves live config unchanged when candidate validation fails 1046ms
+   ✓ reviewed realtime voice route repair > restores previous config when reload and restart fail 1530ms
+ ✓ .harness/scripts/lib/test-port-lease.test.ts (6 tests) 256ms
+ ✓ .harness/scripts/lib/startup-discovery.test.ts (10 tests) 8ms
+ ✓ .harness/scripts/lint-package-license.test.ts (7 tests) 211ms
+ ✓ .harness/scripts/check-dco.test.ts (7 tests) 1413ms
+   ✓ check-dco > merge 提交不查 362ms
+ ✓ .harness/scripts/lib/graph-compiler.test.ts (4 tests) 9ms
+ ✓ .harness/scripts/vm/cn-fixed-candidate-freeze.test.ts (4 tests) 3ms
+ ✓ .harness/scripts/lib/contract-rewrite-coverage.test.ts (6 tests) 2ms
+ ✓ .harness/scripts/doctor-closing-prs-pagination.test.ts (5 tests) 2ms
+ ✓ .harness/scripts/lint-work-stack-graph.test.ts (7 tests) 12ms
+ ✓ .harness/scripts/lint-local-zero-egress.test.ts (7 tests) 202ms
+ ✓ .harness/scripts/lib/verify-timing.test.ts (6 tests) 4ms
+ ✓ .harness/scripts/wave2-runtime-design.test.ts (3 tests) 2ms
+ ✓ .harness/scripts/doctor-issue-truncation.test.ts (2 tests) 5684ms
+   ✓ doctor：issue 清单截断 > 触顶（可能被截断）时降级跳过，**不**报「没有对应 issue」 2819ms
+   ✓ doctor：issue 清单截断 > 反空转正样本：清单**没有**触顶时，那条否定性判断照旧会报 2864ms
+ ✓ .harness/scripts/lint-ci-workflow-concurrency.test.ts (18 tests) 5ms
+ ✓ .harness/scripts/lint-contracts-no-workspace-deps.test.ts (7 tests) 227ms
+ ✓ .harness/scripts/vm/cn-bootstrap-consumer.test.mjs (8 tests) 226ms
+ ✓ .harness/scripts/ci-full-regression.test.ts (9 tests) 29ms
+ ✓ .harness/scripts/vm/native-session-probe.test.ts (2 tests) 104ms
+ ✓ .harness/scripts/sync-issue-truncation.test.ts (2 tests) 4891ms
+   ✓ sync --apply：issue 清单截断（#2483） > 触顶（可能被截断）→ 退出非 0，且**一条**建/改/关都没发出 925ms
+   ✓ sync --apply：issue 清单截断（#2483） > 反空转正样本：清单**没有**触顶时照常走下去，会发出建 issue 的命令 3965ms
+ ✓ .harness/scripts/lib/clr-queue-closed-issues.test.ts (7 tests) 2ms
+ ✓ .harness/scripts/record-readiness-evidence.test.ts (3 tests) 1115ms
+   ✓ record-readiness-evidence：零收集不得产出通过 manifest > `Tests  no tests` 的日志让记录器非零退出且不写 manifest 361ms
+   ✓ record-readiness-evidence：零收集不得产出通过 manifest > 认不出执行条数的日志同样非零退出——不记 0 放行 377ms
+   ✓ record-readiness-evidence：零收集不得产出通过 manifest > 真跑过用例的日志照常产出 manifest，并把执行条数记进去 375ms
+ ✓ .harness/scripts/coordination-protocol-doc.test.ts (4 tests) 2ms
+ ✓ .harness/scripts/lib/contract-route-coverage-fs.test.ts (10 tests) 51ms
+ ✓ .harness/scripts/lib/generated-drift-gate.test.ts (6 tests) 3ms
+ ✓ .harness/scripts/lib/placeholder-gate.test.ts (9 tests) 3ms
+ ✓ .harness/scripts/vm/deep-agent-checkpoint-lib.test.ts (4 tests) 1489ms
+   ✓ bootstraps missing DSN and reuses credentials without placing them in process arguments or output 615ms
+   ✓ retains generated credentials after a database failure for an idempotent retry and redacts diagnostics 322ms
+ ✓ .harness/scripts/lint-third-party-license.test.ts (6 tests) 239ms
+ ✓ .harness/scripts/oss-dependency-inventory.test.ts (11 tests) 737ms
+ ✓ .harness/scripts/lint-isolation-port-single-source.test.ts (4 tests) 3ms
+ ✓ .harness/scripts/vm/real-model-pdf-auto-approve.test.ts (4 tests) 2ms
+ ✓ .harness/scripts/ci-aggregate-consistency.test.ts (4 tests) 2ms
+ ✓ .harness/scripts/lib/agent-identity.test.ts (7 tests) 46ms
+ ✓ .harness/scripts/vm/devapp-operation-mutex.test.ts (18 tests) 170ms
+ ✓ .harness/scripts/init-startup-messaging.test.ts (4 tests) 2ms
+ ✓ .harness/scripts/lint-ui-prototyper-single-source.test.ts (9 tests) 3ms
+ ✓ .harness/scripts/gen-subagents-registry-discovery.test.ts (3 tests) 22ms
+ ✓ .harness/scripts/lib/feature-owner-repo.test.ts (4 tests) 2ms
+ ✓ .harness/scripts/vm/cn-release-candidate-workflow.test.ts (3 tests) 2105ms
+   ✓ CN release candidate workflow > requires manual main admission and rejects unsafe contexts before side effects 2103ms
+ ✓ .harness/scripts/vm/cn-governance-instant.test.ts (10 tests) 4ms
+ ✓ .harness/scripts/lib/graph-validator.test.ts (7 tests) 9ms
+ ✓ .harness/scripts/doctor-evidence-legacy.test.ts (4 tests) 6ms
+ ✓ .harness/scripts/vm/cn-candidate-checkout-restore.test.ts (2 tests) 684ms
+   ✓ restores original branch checkout after an injected publisher failure 331ms
+   ✓ restores original detached checkout after an injected publisher failure 353ms
+ ✓ .harness/scripts/vm/browser-runtime-wiring.test.ts (5 tests) 37ms
+ ✓ .harness/scripts/lint-rewrite-coverage-strict.test.ts (3 tests) 1444ms
+   ✓ lint-rewrite-coverage --strict（#2490：PR 门控不许 fail-open） > ① 扫不全 + 不带 --strict → 退出 0，且明说「没做判断」（只读审计的降级语义保留） 436ms
+   ✓ lint-rewrite-coverage --strict（#2490：PR 门控不许 fail-open） > ② 扫不全 + --strict → 退出非 0（门控模式下「没做判断」不能当绿） 470ms
+   ✓ lint-rewrite-coverage --strict（#2490：PR 门控不许 fail-open） > ③ 真仓库 + --strict → 退出 0（正样本：门不是恒红） 538ms
+ ✓ .harness/scripts/lib/github-issues.test.ts (5 tests) 3ms
+ ✓ .harness/scripts/lib/template-id.test.ts (13 tests) 5ms
+ ✓ .harness/scripts/lint-rewrite-coverage-gate.test.ts (2 tests) 62ms
+ ✓ .harness/scripts/lib/sh.test.ts (2 tests) 12729ms
+   ✓ sh() — 双管道大体量并发输出不挂起（2026-08-15 F156 verify:quick 假死复现修复） > stdout 和 stderr 同时产出远超单条 OS pipe 缓冲区（64KB）的并发数据，不阻塞、不超时 12463ms
+ ✓ .harness/scripts/vm/cn-promotion-compensation.test.ts (3 tests) 15ms
+ ✓ .harness/scripts/lib/agent-spec-discovery.test.ts (7 tests) 2ms
+ ✓ .harness/scripts/claude-skills-link.test.ts (2 tests) 2ms
+ ✓ .harness/scripts/vm/s016-asr-real-evidence.test.ts (2 tests) 47ms
+ ✓ .harness/scripts/lib/graph-authority.test.ts (5 tests) 2ms
+ ✓ .harness/scripts/lint-test-listen-loopback.test.ts (5 tests) 3ms
+ ✓ .harness/scripts/ci-aggregate-cancellation.test.ts (6 tests) 2ms
+ ✓ .harness/scripts/r08-discovery-environment.test.mjs (2 tests) 2ms
+ ✓ .harness/scripts/vm/cn-deploy-pnpm-forwarding.test.ts (1 test) 1080ms
+   ✓ forwards CN deploy CLI arguments under the declared pnpm version 1079ms
+ ✓ .harness/scripts/lib/board-native-receipts.test.mjs (1 test) 10ms
+ ✓ .harness/scripts/preview-lane-isolation.test.ts (4 tests) 169ms
+ ✓ .harness/scripts/vm/cn-offline-source-cache.test.ts (1 test) 333ms
+   ✓ rejects absent, untrusted, and promisor caches before Prepare 333ms
+ ✓ .harness/scripts/lib/evidence-fingerprint.test.ts (6 tests) 125ms
+ ✓ .harness/scripts/lib/graph-stable.test.ts (2 tests) 9ms
+ ✓ .harness/scripts/lib/subagent-orphans.test.ts (4 tests) 2ms
+ ✓ .harness/scripts/verify-no-silent-claim.test.ts (2 tests) 1ms
+ ✓ .harness/scripts/claim.test.ts (2 tests) 1ms
+ ✓ .harness/scripts/merge-gate-advisory.test.ts (4 tests) 1ms
+ ✓ .harness/scripts/lib/graph-integration.test.ts (2 tests) 194ms
+ ✓ .harness/scripts/lint-user-facing-error-text.test.ts (2 tests) 119ms
+ ✓ .harness/scripts/vm/cn-offline-yaml.test.ts (3 tests) 351ms
+   ✓ regenerates official pinned YAML bundle byte-for-byte with lock/license closure 343ms
+ ✓ .harness/scripts/vm/isolated-rehearsal.test.ts (1 test) 12152ms
+   ✓ isolated rehearsal input and failure closure > executes provider, target, durable-intent and real-process counterexamples 12152ms
+ ✓ .harness/scripts/vm/deploy-purge-postinvest-wiring.test.ts (2 tests) 2ms
+ ✓ .harness/scripts/lib/roadmap.test.ts (1 test) 1ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  .harness/scripts/lint-feature-transition.test.ts > 反向反证：门不是永远红的 > 真仓库 HEAD~1 → HEAD 必须退 0
+AssertionError: expected 1 to be +0 // Object.is equality
+
+- Expected
++ Received
+
+- 0
++ 1
+
+ ❯ .harness/scripts/lint-feature-transition.test.ts:230:20
+    228|     const r = runGate(base, head, REPO_ROOT);
+    229|     expect(r.out).not.toContain("[direct_passing_edit]");
+    230|     expect(r.code).toBe(0);
+       |                    ^
+    231|   });
+    232| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed | 207 passed (208)
+      Tests  1 failed | 2482 passed (2483)
+   Start at  02:39:16
+   Duration  1145.71s (transform 1.67s, setup 0ms, collect 7.24s, tests 1116.32s, environment 17ms, prepare 5.65s)
+
+ ELIFECYCLE  Command failed with exit code 1.
+ ELIFECYCLE  Command failed with exit code 1.
+[timing] pnpm run verify:base:raw
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：5m5s
+  命令执行：27m47s
+  清理：1s
+  总计：32m52s
+ ELIFECYCLE  Command failed with exit code 1.
+
+[harness-verify v1 sha256=a72929fb564757ba1034a7f695b1d6abe1a0f8480dce4b97f8952eb5ae25dba8 commit=c48f0a211e11feb4f3972d58732f599ca2a5a0ff at=2026-10-10T18:58:23.222Z]

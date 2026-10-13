@@ -1,0 +1,13 @@
+{
+  "dependencyPrs": [
+    5557,
+    5562
+  ],
+  "dependencyShas": [
+    "65af047d0b1a6a661df213e9bd850d387a3ab567",
+    "1ced77833cef9ec01956024c72fbcf5247f7245a"
+  ],
+  "temporaryPatchesOnly": true,
+  "dependencyFilesRestored": true,
+  "releaseExitCode": 1
+}

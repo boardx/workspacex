@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>WorkspaceX — The Open Operating Workspace for Human + AI</title>
 <meta name="description" content="WorkspaceX is the operating layer that connects context, agents, action, evidence and memory — so intent becomes work, and work leaves proof.">
-<meta name="theme-color" content="#08070b">
+<meta name="theme-color" content="#ffffff">
 <!-- iOS ignores the manifest's short_name; without this the home-screen
      label is the <title>, truncated to something like "WorkspaceX — Th". -->
 <meta name="apple-mobile-web-app-title" content="WorkspaceX">
@@ -78,7 +78,7 @@
   /* The burger needs JS to open the panel, so on a phone without it the whole
      navigation would be unreachable. Show the links inline and put the actions
      back in the bar instead. */
-  .nav { position: static; height: auto; background: #08070b; border-bottom: 1px solid rgba(255,255,255,.09); }
+  .nav { position: static; height: auto; background: var(--bg); border-bottom: 1px solid var(--hairline); }
   .nav__inner { flex-wrap: wrap; padding-block: 0.6rem; }
   .nav__links { display: flex !important; position: static; flex-direction: row; flex-wrap: wrap;
                 background: none; border: 0; padding: 0; margin-inline: 0; }
@@ -199,6 +199,7 @@
      the market-thesis section; the section that answers it is the loop, which
      is what the footer has always called "How it works". -->
       <a class="btn btn--ghost btn--lg" href="#loop" data-i18n="hero.cta2">See how it works</a>
+      <a class="btn btn--ghost btn--lg" href="/aidt/" data-i18n="nav.aidt">Design Thinking + AI</a>
     </div>
 
     <div class="hero__chain" data-animates data-diagram="chain" role="img" aria-labelledby="chain-desc"></div>
@@ -446,8 +447,8 @@
         <aside class="surface__roster" aria-hidden="true">
           <div class="roster__head" data-i18n="surface.roster">Agent team</div>
           <div class="roster__row"><span class="roster__av" style="--c:var(--c-ai)">RS</span><span class="roster__meta"><b data-i18n="surface.r1">Researcher</b><i data-i18n="surface.r1s">reading 24 sources</i></span></div>
-          <div class="roster__row"><span class="roster__av" style="--c:var(--c-3)">AN</span><span class="roster__meta"><b data-i18n="surface.r2">Analyst</b><i data-i18n="surface.r2s">building the model</i></span></div>
-          <div class="roster__row"><span class="roster__av" style="--c:var(--c-1)">WR</span><span class="roster__meta"><b data-i18n="surface.r3">Writer</b><i data-i18n="surface.r3s">drafting section 2</i></span></div>
+          <div class="roster__row"><span class="roster__av" style="--c:var(--brand-ink)">AN</span><span class="roster__meta"><b data-i18n="surface.r2">Analyst</b><i data-i18n="surface.r2s">building the model</i></span></div>
+          <div class="roster__row"><span class="roster__av" style="--c:var(--c-human)">WR</span><span class="roster__meta"><b data-i18n="surface.r3">Writer</b><i data-i18n="surface.r3s">drafting section 2</i></span></div>
           <div class="roster__row"><span class="roster__av" style="--c:var(--c-human)">YS</span><span class="roster__meta"><b data-i18n="surface.r4">You</b><i data-i18n="surface.r4s">reviewing</i></span></div>
         </aside>
 
@@ -1066,6 +1067,7 @@
           <li><a href="mailto:hello@boardx.us" data-i18n="footer.l7">Contact</a></li>
           <li><a href="https://boardx.us" rel="noopener" data-i18n="footer.l8">BoardX</a></li>
           <li><a href="/manual/" data-i18n="footer.manual">User manual (中文)</a></li>
+          <li><a href="/aidt/" data-i18n="nav.aidt">Design Thinking + AI</a></li>
           <li><a href="/privacy" data-i18n="footer.l11">Privacy &amp; security</a></li>
         </ul>
       </div>

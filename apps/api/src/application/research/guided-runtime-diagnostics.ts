@@ -2,6 +2,7 @@ import { sourceRelevanceIssueCodes as relevanceIssueCodes, sourceRelevanceEvalua
 import type { DebugTracePort } from "../ports/debug-trace.port";
 import { research, wave2Runtime } from "@repo/contracts";
 import { ResearchRuntimeError, type RuntimeActor, type RuntimeCommand } from "./guided-runtime-ports";
+import { ModelCallError } from "../agent-run/ports";
 
 export type ResearchExecutionPhase = "steer" | "state_read" | "source_authorization" | "claim" | "perform" | "final_persistence";
 export interface ResearchExecutionDiagnostic { phase: ResearchExecutionPhase; traceId: string; }
@@ -44,7 +45,7 @@ function safeRelevanceIssues(error: unknown): SafeValidationIssue[] {
  * locate failures without turning the debug recorder into a copy of the user's research material.
  */
 function safeErrors(error: unknown) {
-  const result: { type: string; code?: string; reasonCode?: string; status?: number; issues?: SafeValidationIssue[] }[] = [];
+  const result: { type: string; code?: string; reasonCode?: string; status?: number; issues?: SafeValidationIssue[]; contentRejection?: "content-policy" }[] = [];
   const seen = new Set<unknown>();
   for (let current = error; current && typeof current === "object" && result.length < 3 && !seen.has(current);) {
     seen.add(current);
@@ -52,7 +53,7 @@ function safeErrors(error: unknown) {
     const type = current instanceof ResearchRuntimeError ? "ResearchRuntimeError" : typeof item.name === "string" && types.has(item.name) ? item.name : "UnknownError";
     const status = item.status ?? item.statusCode;
     const issues = safeRelevanceIssues(current);
-    result.push({ type, ...(issues.length ? { issues } : {}), ...(current instanceof ResearchRuntimeError && reasonCodes.has(current.reasonCode) ? { reasonCode: current.reasonCode } : {}), ...(typeof item.code === "string" && codes.has(item.code) ? { code: item.code } : {}),
+    result.push({ type, ...(current instanceof ModelCallError && current.contentRejection === "content-policy" ? { contentRejection: current.contentRejection } : {}), ...(issues.length ? { issues } : {}), ...(current instanceof ResearchRuntimeError && reasonCodes.has(current.reasonCode) ? { reasonCode: current.reasonCode } : {}), ...(typeof item.code === "string" && codes.has(item.code) ? { code: item.code } : {}),
       ...(typeof status === "number" && Number.isInteger(status) && status >= 100 && status <= 599 ? { status } : {}) });
     current = item.cause;
   }

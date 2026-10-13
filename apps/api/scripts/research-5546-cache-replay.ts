@@ -1,0 +1,10 @@
+import {readFileSync,writeFileSync} from 'node:fs';
+import {PersistedResearchRuntimeSchema} from '../src/application/research/guided-runtime-persistence';
+import {reconcileEvidenceLedger} from '../src/application/research/guided-evidence-ledger';
+import {sourceRelevanceBasis} from '../src/application/research/guided-source-relevance';
+const dir=process.env.RESEARCH_5546_EVIDENCE_DIR??'/tmp/research-5546-rewrite-feedback-20261010';
+const state=PersistedResearchRuntimeSchema.parse(JSON.parse(readFileSync(`${dir}/input-runtime.json`,'utf8')));
+const before=state.privateLedger?.records.length??0;const valid=reconcileEvidenceLedger(state);
+const result={rawSources:state.sources.length,availableDocuments:state.sources.filter(s=>s.document).length,originalLedgerRecords:before,revalidatedLedgerRecords:valid.records.length,completeApprovalBasisMatches:state.sources.filter(s=>s.relevanceBasis===sourceRelevanceBasis(state,s)).length,formalReport:state.report!==null,draft:Boolean(state.reportDraft),approvedChapterCache:Boolean(state.reportCheckpoint),realDispatches:0};
+if(valid.records.length!==before||result.formalReport||result.draft||result.approvedChapterCache)throw new Error('Fresh report/cache provenance mismatch');
+writeFileSync(`${dir}/offline-cache-result.json`,JSON.stringify(result,null,2),{mode:0o600});console.log(JSON.stringify(result));
