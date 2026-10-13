@@ -87,26 +87,42 @@ class ReapDiagnostic(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError,'STOP_PARENT_CHANGED'):m.stopped_child(101)
             stop.assert_not_called();close.assert_called_once_with(55)
 
-    def test_main_runs_three_independent_workers_and_closes_domain_once(self):
-        domain=Mock();domain.close.return_value={'verified':True}
-        children=[SimpleNamespace(returncode=0,stdout=Mock(),stderr=Mock(),communicate=Mock(return_value=(b'{"verified":true}',b'')))for _ in range(3)]
-        domain.spawn.side_effect=children
-        def load(module):module.Domain=lambda:domain
-        spec=SimpleNamespace(loader=SimpleNamespace(exec_module=load))
+    def run_main_fixture(self,values,cleanup_values=None):
+        domains=[]
+        cleanup_values=cleanup_values or [True]*len(values)
+        class SingleUseDomain:
+            def __init__(inner):
+                if domains:self.assertTrue(domains[-1].closed,'new Domain before prior cleanup')
+                inner.index=len(domains);inner.process=None;inner.closed=False;domains.append(inner)
+            def spawn(inner,*args,**kwargs):
+                self.assertIsNone(inner.process,'Domain API is single-use')
+                inner.process=SimpleNamespace(returncode=0,stdout=Mock(),stderr=Mock(),communicate=Mock(return_value=(json.dumps({'verified':values[inner.index]}).encode(),b'')))
+                return inner.process
+            def close(inner,process):
+                self.assertIs(process,inner.process);self.assertFalse(inner.closed)
+                inner.closed=True
+                return {'verified':cleanup_values[inner.index]}
+        spec=SimpleNamespace(loader=SimpleNamespace(exec_module=lambda module:setattr(module,'Domain',SingleUseDomain)))
         with patch.object(m.sys,'platform','linux'),patch.object(m.os,'geteuid',return_value=0),patch.object(m.importlib.util,'spec_from_file_location',return_value=spec),patch.object(m.importlib.util,'module_from_spec',return_value=SimpleNamespace()),contextlib.redirect_stdout(io.StringIO())as out:
-            self.assertEqual(m.main(),0)
-        result=json.loads(out.getvalue());self.assertEqual(result['roundCount'],3);self.assertEqual(len(result['rounds']),3);self.assertTrue(all(r['verified']for r in result['rounds']))
-        self.assertEqual(domain.spawn.call_count,3);domain.close.assert_called_once_with(children[-1])
-        for child in children:child.communicate.assert_called_once_with(timeout=15)
+            try:status=m.main()
+            except RuntimeError as exc:return domains,str(exc),None
+        return domains,status,json.loads(out.getvalue())
+
+    def test_main_uses_three_fresh_single_use_domains_closed_before_next(self):
+        domains,status,result=self.run_main_fixture([True,True,True])
+        self.assertEqual(status,0);self.assertEqual(result['roundCount'],3);self.assertEqual(len(domains),3)
+        self.assertTrue(all(d.closed for d in domains));self.assertTrue(all(r['supervisorCleanup']['verified']for r in result['rounds']))
+        for domain in domains:domain.process.communicate.assert_called_once_with(timeout=15)
 
     def test_failed_second_worker_cannot_skip_to_green(self):
-        domain=Mock();domain.close.return_value={'verified':True}
-        children=[SimpleNamespace(returncode=0,stdout=Mock(),stderr=Mock(),communicate=Mock(return_value=(json.dumps({'verified':v}).encode(),b'')))for v in (True,False,True)]
-        domain.spawn.side_effect=children
-        spec=SimpleNamespace(loader=SimpleNamespace(exec_module=lambda module:setattr(module,'Domain',lambda:domain)))
-        with patch.object(m.sys,'platform','linux'),patch.object(m.os,'geteuid',return_value=0),patch.object(m.importlib.util,'spec_from_file_location',return_value=spec),patch.object(m.importlib.util,'module_from_spec',return_value=SimpleNamespace()):
-            with self.assertRaisesRegex(RuntimeError,'COUNTEREXAMPLE_UNVERIFIED'):m.main()
-        self.assertEqual(domain.spawn.call_count,2);domain.close.assert_called_once_with(children[1])
+        domains,error,result=self.run_main_fixture([True,False,True])
+        self.assertEqual(error,'COUNTEREXAMPLE_UNVERIFIED');self.assertIsNone(result)
+        self.assertEqual(len(domains),2);self.assertTrue(all(d.closed for d in domains))
+
+    def test_unverified_cleanup_prevents_next_worker(self):
+        domains,error,result=self.run_main_fixture([True,True,True],[False,True,True])
+        self.assertEqual(error,'SUPERVISOR_DOMAIN_CLEANUP_UNPROVEN');self.assertEqual(len(domains),1)
+        self.assertTrue(domains[0].closed);self.assertIsNone(result)
 
 
 if __name__ == '__main__':
