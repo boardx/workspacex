@@ -7,7 +7,7 @@ import {withCompleteController}from'./controller';
 import fs from 'node:fs/promises';
 import {writeFileSync}from'node:fs';
 import {startupDiagnostic}from'../cn-api-startup/diagnostic';
-import {mark}from'./diagnostic';
+import {mark,markConstraintRoundtrip}from'./diagnostic';
 import {assertCatalogEqual}from'./catalog-assert';
 import path from 'node:path';
 import crypto from 'node:crypto';
@@ -50,6 +50,7 @@ async function dockerTool(tool:string,args:string[]){await checkContainer();
  return exec('docker',['exec',cfg.containerId,'timeout','85s',tool,'-U','fixture_owner',...args],{timeout:90000,maxBuffer:64*1024*1024,encoding:'buffer',env:{PATH:process.env.PATH!,LANG:'C.UTF-8'}});
 }
 async function catalogFacts(db:string){const c=new pg.Client(dbcfg(db));await c.connect();try{await c.query('BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY');await c.query("SET LOCAL search_path='pg_catalog'");const facts=await catalog.collectFacts(c,['fixture_owner','app_rw','app_diag_ro']);await c.query('ROLLBACK');return facts;}finally{await c.end();}}
+async function constraintPretty(db:string){return query(db,"SELECT conname,pg_get_constraintdef(oid,true) definition FROM pg_constraint WHERE conname=ANY($1::text[]) ORDER BY conname",[['organization_core_models_fields_check','project_tags_tag_check']]);}
 async function backup(destination=dump){await held('app_epoch');const result=await dockerTool('pg_dump',['-Fc','app_epoch']);assert(result.stdout.length>0&&result.stdout.length<=64*1024*1024);await rawOnce(destination,result.stdout);const meta={sha256:hash(result.stdout),bytes:result.stdout.length};if(destination===dump){state.dumpSha256=meta.sha256;state.dumpBytes=meta.bytes;}return meta;}
 async function restore(db:string,archive=dump,archiveSha=state.dumpSha256){assert.equal(state.originalEpochRetired,false,'OLD_EPOCH_RESTORE_FORBIDDEN');assert.match(db,/^app_[a-z_]+$/);const bytes=await fs.readFile(archive);assert.equal(hash(bytes),archiveSha);
  await checkContainer();await query('postgres','CREATE DATABASE '+db);
@@ -65,6 +66,7 @@ async function restore(db:string,archive=dump,archiveSha=state.dumpSha256){asser
  mark('restore-repository');assert(isDeepStrictEqual(await actualRead(db),state.applicationReadback),'RESTORE_REPOSITORY_MISMATCH');
  mark('restore-canary');assert(isDeepStrictEqual(await query(db,'TABLE cn_recovery_canary'),state.canary),'RESTORE_CANARY_MISMATCH');
  mark('restore-catalog');const restoredCatalog=await catalogFacts(db);
+ const pretty=await constraintPretty(db);markConstraintRoundtrip({prettyDefinitionsEqual:isDeepStrictEqual(pretty,state.originalPrettyConstraints),originalPrettySha256:hash(JSON.stringify(state.originalPrettyConstraints)),restoredPrettySha256:hash(JSON.stringify(pretty)),sourceCount:state.originalPrettyConstraints.length,targetCount:pretty.length});
  // Compare the entire original catalog without constructing an unbounded
  // AssertionError diff of full application schema/data on a failed comparison.
  assertCatalogEqual(restoredCatalog,state.originalCatalog);
@@ -83,7 +85,7 @@ if(phase==='init'){
  await query('app_epoch',"INSERT INTO organizations(id,name,kind) VALUES('org-app-recovery','Current epoch application fixture','organization')");
  await query('app_epoch',"CREATE TABLE cn_recovery_canary(value text);INSERT INTO cn_recovery_canary VALUES('original-current-epoch');GRANT SELECT,INSERT,UPDATE,DELETE ON cn_recovery_canary TO app_rw");
  state.applicationReadback=await actualRead('app_epoch');assert.equal(state.applicationReadback?.name,'Current epoch application fixture');state.canary=await query('app_epoch','TABLE cn_recovery_canary');await hold('app_epoch');
- mark('initial-catalog');state.originalCatalog=await catalogFacts('app_epoch');state.originalLedger=await ledger('app_epoch');await once(path.join(root,'original-ledger.json'),state.originalLedger);
+ mark('initial-catalog');state.originalCatalog=await catalogFacts('app_epoch');state.originalPrettyConstraints=await constraintPretty('app_epoch');state.originalLedger=await ledger('app_epoch');await once(path.join(root,'original-ledger.json'),state.originalLedger);
  await event('original-app-prefix-held',{migrationCount:state.originalCount,fullApplicationMigrationCount:names.length,ledgerSha256:hash(JSON.stringify(state.originalLedger)),fullControlSchemaFixture:true,holdRetained:true});
  state.checks.push('original_application_prefix_migrations_and_actual_repository');
 }else if(phase==='backup'){await held('app_epoch');await backup();await event('current-epoch-backup',{sha256:state.dumpSha256,bytes:state.dumpBytes,epoch:state.epoch});
