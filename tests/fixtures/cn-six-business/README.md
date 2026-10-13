@@ -96,3 +96,13 @@ not a root-cause fix claim. The previous run completed all owned cleanup.
 The actual worker heap receipt, bounded memory samples and original six Linux
 journeys must verify this candidate before acceptance. No Unit limit, source,
 timeout, business assertion or cleanup gate is relaxed.
+
+Compiler phase diagnostics keep the 2048 MiB candidate unchanged. Only connected
+dev fixtures attach numeric snapshots to finishModules, seal, afterCompile,
+afterEmit and afterDone. At most six plugin instances and eight events per fixed
+client/server/edge compiler identity (24 total) are retained in existing worker
+receipts. Module counts use Set.size only; no module source, buffer, stats or
+heap dump is requested. Missing module counts are explicitly unavailable.
+The launcher classifies only fixed ASCII fatal markers across stderr chunks;
+it retains booleans/counts and the existing streaming stderr hash, not raw
+stderr. SIGABRT alone remains insufficient to prove JavaScript heap OOM.

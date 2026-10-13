@@ -9,6 +9,8 @@ import {spawn} from 'node:child_process';
 import {createHash} from 'node:crypto';
 import {tmpdir} from 'node:os';
 const memoryObserver=createRequire(import.meta.url)('./next-memory-sample.cjs');
+const phaseObserver=createRequire(import.meta.url)('./next-compiler-phase.cjs');
+const fatalObserver=createRequire(import.meta.url)('./next-fatal-classifier.cjs');
 
 test('actual six config resolves installed web Next without inherited workspace bin PATH',async()=>{
  const before={...process.env};
@@ -60,7 +62,7 @@ test('fixed supervisor records real child exit and forwards output without retry
   delete (fakeProcess.env as any).NODE_OPTIONS;
   await(mod.exports as any).main();await new Promise<void>(done=>actual.once('close',()=>done()));
   const start=JSON.parse(readFileSync(join(directory,'next-launch-started.json'),'utf8'));const end=JSON.parse(readFileSync(join(directory,'next-launch-exit.json'),'utf8'));
-  assert.equal(start.kind,'cn-next-launch-v1');assert.equal(end.exitCode,7);assert.equal(fakeProcess.exitCode,7);assert.equal(end.output.stdoutBytes,11);assert.equal(end.output.stderrBytes,11);assert.match(forwarded,/fixture-out/);assert.match(forwarded,/fixture-err/);assert.equal(starts,1);
+  assert.equal(start.kind,'cn-next-launch-v1');assert.equal(end.exitCode,7);assert.equal(fakeProcess.exitCode,7);assert.equal(end.output.stdoutBytes,11);assert.equal(end.output.stderrBytes,11);assert.equal(end.fatal.unknown,true);assert.equal(end.fatal.jsHeapOom,false);assert.match(forwarded,/fixture-out/);assert.match(forwarded,/fixture-err/);assert.equal(starts,1);
   assert.equal(end.output.stdoutSha256,createHash('sha256').update('fixture-out').digest('hex'));assert.equal(end.output.stderrSha256,createHash('sha256').update('fixture-err').digest('hex'));
   await assert.rejects((mod.exports as any).main());assert.equal(starts,1);
   fakeProcess.argv[2]='invalid';await assert.rejects((mod.exports as any).main());assert.equal(starts,1);
@@ -114,6 +116,7 @@ test('fixed numeric memory topic is ignored by the installed Next parent handsha
  const make=new Function('child','startServerOptions','resolve',`let resolved=false;return(msg)=>{${match[1]}};`);
  const handler=make({send:()=>{sends++;}},{fixture:true},()=>{resolves++;});
  handler({[memoryObserver.TAG]:1,pid:123,sample:1,elapsedMilliseconds:0,rssBytes:100,heapTotalBytes:80,heapUsedBytes:50,externalBytes:10,arrayBuffersBytes:5});
+ handler({[phaseObserver.TAG]:1,pid:123,compiler:1,event:1,phase:1});
  assert.equal(sends,0);assert.equal(resolves,0);
  handler({nextWorkerReady:true});assert.equal(sends,1);assert.equal(resolves,0);
  handler({nextServerReady:true});assert.equal(resolves,1);handler({nextServerReady:true});assert.equal(resolves,1);
@@ -138,4 +141,60 @@ test('collector binds child PID and numeric shape, rejects secrets, reuse and ov
  let result=snapshot();assert.equal(result.observedSamples,1);assert.equal(result.rejectedSamples,5);assert.equal(JSON.stringify(result).includes('do-not-retain'),false);
  for(let i=2;i<=120;i++)listener({...packet,sample:i,elapsedMilliseconds:i*5000});
  listener({...packet,sample:121,elapsedMilliseconds:605000});result=snapshot();assert.equal(result.observedSamples,120);assert.equal(result.capReached,true);assert.equal(result.rejectedSamples,6);
+});
+
+
+test('compiler phase observer bounds hooks, counts and numeric-only collection',()=>{
+ const packets:any[]=[];const actor={pid:123,connected:true,memoryUsage:()=>({rss:100,heapTotal:80,heapUsed:50,external:10,arrayBuffers:5}),send:(m:any)=>packets.push(m)};
+ let time=0,adds=0;const hooks:Record<string,Function>={};const compiler={hooks:Object.fromEntries(phaseObserver.PHASES.map((k:string)=>[k,{tap:(_name:string,fn:Function)=>{adds++;hooks[k]=fn;}}]))};
+ compiler.hooks.thisCompilation={tap:(_name:string,fn:Function)=>{adds++;fn(compiler);}};
+ const plugin=phaseObserver.plugin('client',actor,()=>time++);plugin.apply(compiler);plugin.apply(compiler);assert.equal(adds,6);
+ const modules={size:42,buffer:()=>{throw Error('must not allocate');},toJSON:()=>{throw Error('must not serialize');}};
+ hooks.finishModules(modules);hooks.seal();for(let i=0;i<40;i++)hooks.afterDone({modules});assert.equal(packets.length,8);assert.equal(packets[0].moduleCount,42);assert.equal(packets[1].moduleCountAvailable,0);
+ actor.connected=false;hooks.finishModules(modules);assert.equal(packets.length,8);
+ for(const name of ['unknown','constructor','__proto__','toString'])assert.equal(phaseObserver.plugin(name,actor),null);for(let i=0;i<5;i++)assert.ok(phaseObserver.plugin('server',actor));assert.equal(phaseObserver.plugin('server',actor),null);
+ let listener:Function=()=>{};const snapshot=phaseObserver.collect({pid:123,on:(_k:string,fn:Function)=>{listener=fn;}});
+ listener({...packets[0],secret:'never-retain'});listener({...packets[0],pid:999});listener({...packets[0],rssBytes:NaN});for(const p of packets)listener(p);listener({...packets.at(-1),event:9});
+ const result=snapshot();assert.equal(result.events.length,8);assert.equal(result.rejectedEvents,4);assert.equal(JSON.stringify(result).includes('never-retain'),false);
+ const worst={...packets[0]};for(const k of Object.keys(worst))if(!['pid','compiler','phase','event',phaseObserver.TAG,'moduleCountAvailable'].includes(k))worst[k]=Number.MAX_SAFE_INTEGER;assert.ok(Buffer.byteLength(JSON.stringify({compilerPhases:{events:Array.from({length:24},()=>worst)},memory:{padding:'x'.repeat(4096)}}))<16384);
+});
+
+test('fatal classifier detects fixed phrases across chunks without retaining stderr',()=>{
+ for(const split of [1,5,12,29]){
+  const classifier=fatalObserver.classifier();const bytes=Buffer.from('secret FATAL ERROR: Reached heap limit Allocation failed - JavaScript heap out of memory secret');
+  for(let i=0;i<bytes.length;i+=split)classifier.feed(bytes.subarray(i,i+split));
+  assert.deepEqual(classifier.snapshot(),{jsHeapOom:true,otherFatal:false,unknown:false,fatalMarkerCount:1,jsHeapOomMarkerCount:1});assert.equal(JSON.stringify(classifier.snapshot()).includes('secret'),false);
+ }
+ const other=fatalObserver.classifier();other.feed(Buffer.from('FATAL ERROR: other'));assert.equal(other.snapshot().otherFatal,true);assert.equal(fatalObserver.classifier().snapshot().unknown,true);
+});
+
+test('real Next config enables phase plugin only in connected dev fixture',()=>{
+ const configPath=resolve('apps/web/next.config.mjs');
+ const script=`import cfg from ${JSON.stringify('file://'+configPath)};import assert from 'node:assert/strict';
+ class Stub {constructor(...args){}};
+ const run=(fixture,connected,dev,name)=>{process.env.CN_RELEASE_FULLSTACK_FIXTURE=fixture;Object.defineProperty(process,'connected',{value:connected,configurable:true});const c={name,plugins:[]};return cfg.webpack(c,{webpack:{NormalModuleReplacementPlugin:Stub,DefinePlugin:Stub},isServer:false,dev}).plugins.length;};
+ const baseline=run('0',true,true,'client');assert.equal(run('1',false,true,'client'),baseline);assert.equal(run('1',true,false,'client'),baseline);assert.equal(run('1',true,true,'unknown'),baseline);assert.equal(run('1',true,true,'client'),baseline+1);`;
+ const result=spawnSync(process.execPath,['--input-type=module','-e',script],{encoding:'utf8',timeout:10000});assert.equal(result.status,0,result.stderr);
+});
+
+
+test('phase plugin applies to the real installed webpack Compiler and Compilation',()=>{
+ const w=createRequire(import.meta.url)(resolve('apps/web/node_modules/next/dist/compiled/webpack/webpack'));w.init();
+ const configured=w.webpack({mode:'development',context:process.cwd(),entry:{},output:{path:process.cwd()}});const compiler=new w.webpack.Compiler(process.cwd(),configured.options);
+ const packets:any[]=[];const actor={pid:123,connected:true,memoryUsage:()=>({rss:100,heapTotal:80,heapUsed:50,external:10,arrayBuffers:5}),send:(m:any)=>packets.push(m)};
+ phaseObserver.plugin('server',actor).apply(compiler);
+ const compilation=new w.webpack.Compilation(compiler);compiler.hooks.thisCompilation.call(compilation,{});
+ compilation.hooks.finishModules.callAsync(new Set([{}]),()=>{});compilation.hooks.seal.call();
+ compiler.hooks.afterCompile.callAsync(compilation,()=>{});compiler.hooks.afterEmit.callAsync(compilation,()=>{});compiler.hooks.afterDone.call({compilation});
+ assert.deepEqual(packets.map(p=>p.phase),[1,2,3,4,5]);assert.equal(packets[0].moduleCount,1);
+});
+
+test('production config loads with no repository fixture helper present',()=>{
+ const directory=realpathSync(mkdtempSync(join(tmpdir(),'cn-config-prod-')));
+ try{
+  const config=readFileSync(resolve('apps/web/next.config.mjs'),'utf8').replace("'./e2e/support/board-provider-receipt-build.mjs'",JSON.stringify('file://'+resolve('apps/web/e2e/support/board-provider-receipt-build.mjs')));
+  const file=join(directory,'next.config.mjs');writeFileSync(file,config);
+  const script=`import cfg from ${JSON.stringify('file://'+file)};class Stub{};for(const [fixture,dev] of [['0',true],['1',false]]){process.env.CN_RELEASE_FULLSTACK_FIXTURE=fixture;Object.defineProperty(process,'connected',{value:true,configurable:true});cfg.webpack({name:'client',plugins:[]},{webpack:{NormalModuleReplacementPlugin:Stub,DefinePlugin:Stub},isServer:false,dev});}`;
+  const result=spawnSync(process.execPath,['--input-type=module','-e',script],{encoding:'utf8',timeout:10000});assert.equal(result.status,0,result.stderr);
+ }finally{rmSync(directory,{recursive:true,force:true});}
 });

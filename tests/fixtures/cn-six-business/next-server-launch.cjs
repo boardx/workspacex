@@ -45,15 +45,16 @@ async function main(){
  store(directory,'next-launch-intent.json',identity);
  const childEnv={...process.env,NODE_OPTIONS:'--max-old-space-size=2048'};
  const child=spawn(process.execPath,['--require',path.join(__dirname,'next-worker-observer.cjs'),cli,'dev','-p',args[0]],{cwd:web,env:childEnv,stdio:['ignore','pipe','pipe'],detached:false});
+ const fatal=require('./next-fatal-classifier.cjs').classifier();
  const counts={stdout:0,stderr:0},hashes={stdout:crypto.createHash('sha256'),stderr:crypto.createHash('sha256')};
- for(const key of ['stdout','stderr']){child[key].on('data',data=>{counts[key]+=data.length;hashes[key].update(data);if(!process[key].write(data))child[key].pause();});process[key].on('drain',()=>child[key].resume());}
+ for(const key of ['stdout','stderr']){child[key].on('data',data=>{counts[key]+=data.length;if(key==='stderr')fatal.feed(data);hashes[key].update(data);if(!process[key].write(data))child[key].pause();});process[key].on('drain',()=>child[key].resume());}
  const before=resources();let started=false;
  child.on('spawn',()=>{try{store(directory,'next-launch-started.json',{...identity,process:proc(child.pid),resources:before});started=true;}catch{child.kill('SIGTERM');}});
  const relay=signal=>{if(child.exitCode===null&&child.signalCode===null)child.kill(signal);};
  process.on('SIGTERM',relay.bind(null,'SIGTERM'));process.on('SIGINT',relay.bind(null,'SIGINT'));
  child.on('error',()=>{process.exitCode=1;});
  child.on('close',(code,signal)=>{
-  try{const after=fs.lstatSync(directory);need(after.ino===st.ino&&after.dev===st.dev);store(directory,'next-launch-exit.json',{...identity,started,exitCode:code,signal:signal&&['SIGKILL','SIGTERM','SIGINT','SIGABRT','SIGSEGV','SIGBUS'].includes(signal)?signal:null,resources:resources(),output:{stdoutBytes:counts.stdout,stderrBytes:counts.stderr,stdoutSha256:hashes.stdout.digest('hex'),stderrSha256:hashes.stderr.digest('hex')}});}catch{process.exitCode=1;return;}
+  try{const after=fs.lstatSync(directory);need(after.ino===st.ino&&after.dev===st.dev);store(directory,'next-launch-exit.json',{...identity,started,exitCode:code,signal:signal&&['SIGKILL','SIGTERM','SIGINT','SIGABRT','SIGSEGV','SIGBUS'].includes(signal)?signal:null,resources:resources(),fatal: fatal.snapshot(),output:{stdoutBytes:counts.stdout,stderrBytes:counts.stderr,stdoutSha256:hashes.stdout.digest('hex'),stderrSha256:hashes.stderr.digest('hex')}});}catch{process.exitCode=1;return;}
   process.exitCode=code??(signal==='SIGKILL'?137:signal==='SIGTERM'?143:1);
  });
 }

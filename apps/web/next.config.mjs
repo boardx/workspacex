@@ -1,3 +1,4 @@
+import { createRequire } from 'node:module';
 import {boardProviderReceiptBuild} from './e2e/support/board-provider-receipt-build.mjs';
 import { cpSync, existsSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -89,7 +90,11 @@ export default {
    * 影响其它任何路由或依赖包的 CSS 处理。`@copilotkit/react-ui/styles.css`
    * （`globals.css` 已引入的那份，见其头注）是完全独立的另一个包/文件，不受影响。
    */
-  webpack(config, { webpack, isServer }) {
+  webpack(config, { webpack, isServer, dev }) {
+    if (dev && process.env.CN_RELEASE_FULLSTACK_FIXTURE === "1" && process.connected) {
+      const phasePlugin = createRequire(import.meta.url)('../../tests/fixtures/cn-six-business/next-compiler-phase.cjs').plugin(config.name);
+      if (phasePlugin) config.plugins.push(phasePlugin);
+    }
     const receiptBuild=boardProviderReceiptBuild(process.env);
     if(receiptBuild){
       // Replace only the no-op observer dependency; actual provider/host code remains unchanged.
