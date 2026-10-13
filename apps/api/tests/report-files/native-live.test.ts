@@ -1,7 +1,7 @@
 import 'reflect-metadata';
 import { createHash, randomUUID } from 'node:crypto';
 import { createServer, type Server } from 'node:http';
-import { spawn, type ChildProcess } from 'node:child_process';
+import { spawn, execFileSync, type ChildProcess } from 'node:child_process';
 import { readFile, writeFile, mkdir, mkdtemp, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -27,6 +27,8 @@ let deepOutput = '';
 let headers: Record<string, string>;
 const bindings: { kind: 'research' | 'interview'; id: string }[] = [];
 const receipts: unknown[] = [];
+const longBody = Array.from({ length: 18 }, (_, index) => `验收段落 ${index + 1}：核验采购预算授权、决策责任、现有系统使用情况与决策时间安排。本段是已保存材料的导出测试数据，尚需通过真实访谈及原始记录逐项确认，不能将模拟推断作为事实。`).join('\n\n');
+const sourceLink = '来源链接（验收样本）：https://example.com/procurement-proof';
 const sha = (bytes: Uint8Array | string) => createHash('sha256').update(bytes).digest('hex');
 async function runProcess(command: string, args: string[], input: string): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -109,7 +111,7 @@ with httpx.Client(transport=httpx.HTTPTransport(uds=p['socket']),base_url='http:
   const path = `/interviews/digital/${created.interviewId}/markdown`;
   let interview = interviewMarkdown.InterviewMarkdownEnvelope.parse(await json(path));
   interview = interviewMarkdown.InterviewMarkdownEnvelope.parse(await json(`${path}/initialize`, { expectedVersion: interview.version }));
-  await json(`${path}/report`, { markdown: '# 中文采购决策报告\n\n## 核心发现\n应追访真实采购负责人，当前为模拟材料，不作为实地证据。\n\n## 下一步\n对预算、采购周期与决策责任开展验证。', expectedVersion: interview.version, expectedDocumentVersion: 0 });
+  await json(`${path}/report`, { markdown: `# 中文采购决策报告\n\n## 核心发现\n应追访真实采购负责人，当前为模拟材料，不作为实地证据。\n\n${longBody}\n\n${sourceLink}\n\n## 下一步\n对预算、采购周期与决策责任开展验证。`, expectedVersion: interview.version, expectedDocumentVersion: 0 });
   bindings.push({ kind: 'interview', id: created.interviewId });
   const session = research.GuidedResearchSession.parse(await json('/research/guided-sessions', { title: '中文研究报告', tags: [], idempotencyKey: randomUUID(), collaboratorUserIds: [], brief: { topic: '采购证据', goal: '核验采购流程', timeRange: '', region: '中国', focus: '决策责任' } }));
   const state = research.GuidedResearchRuntime.parse(await json(`/research/guided-sessions/${session.sessionId}/runtime`));
@@ -117,7 +119,7 @@ with httpx.Client(transport=httpx.HTTPTransport(uds=p['socket']),base_url='http:
     availableNodes: ['brief', 'directions', 'outline', 'research', 'report'],
     outline: [{ id: 'sec-1', title: '核心发现', questions: ['如何核验采购责任？'], enabled: true, order: 0 }],
     report: { title: '中文研究报告', summary: '当前研究发现应先核验预算与采购责任。', introduction: '本报告依据已保存内容形成，尚有证据缺口。',
-      sections: [{ sectionId: 'sec-1', body: '采购责任与预算授权仍需真实材料核验，不能将推断视为事实。', sourceIds: [] }], conclusion: '下一步追访采购负责人并核对预算授权。' } });
+      sections: [{ sectionId: 'sec-1', body: `采购责任与预算授权仍需真实材料核验，不能将推断视为事实。\n\n${longBody}\n\n${sourceLink}`, sourceIds: [] }], conclusion: '下一步追访采购负责人并核对预算授权。' } });
   // A saved report fixture, not a mocked model result or fabricated AgentRun/receipt.
   await asApp(org, c => c.query('UPDATE guided_research_runtime SET state=$3::jsonb WHERE org_id=$1 AND session_id=$2', [org, session.sessionId, JSON.stringify(saved)]));
   bindings.push({ kind: 'research', id: session.sessionId });
@@ -149,7 +151,7 @@ for (const kind of ['interview', 'research'] as const) for (const format of form
     cancelling = true;
     void asApp(org, c => c.query<{ count: string }>('SELECT count(*) FROM model_request_starts WHERE org_id=$1 AND run_id=$2', [org, runId])).then(async result => {
       if (Number(result.rows[0]!.count) >= 20) { exceeded = true; await fetch(`${base}/agent-runs/${runId}/cancel`, { method: 'POST', headers }); }
-    }).finally(() => { cancelling = false; });
+    }).catch(() => { exceeded = true; }).finally(() => { cancelling = false; });
   }, 2000);
   try { await app!.get<AgentRunExecutorPort>(AGENT_RUN_EXECUTOR).tick(org); }
   finally { clearInterval(budget); }
@@ -179,5 +181,5 @@ for (const kind of ['interview', 'research'] as const) for (const format of form
   await writeFile(join(evidence, `${kind}-${format}${REPORT_FILE_FORMATS[format].extension}`), bytes, { mode: 0o600 });
   const starts = await asApp(org, c => c.query<{ count: string }>('SELECT count(*) FROM model_request_starts WHERE org_id=$1 AND run_id=$2', [org, runId]));
   expect(Number(starts.rows[0]!.count)).toBeGreaterThan(0);
-  receipts.push({ kind, format, source, job, attachmentId: output[0]!.id, actualModelRequests: Number(starts.rows[0]!.count) });
+  receipts.push({ sourceHead: execFileSync('git', ['rev-parse', 'HEAD'], { cwd: repoRoot, encoding: 'utf8' }).trim(), kind, format, source, job, attachmentId: output[0]!.id, actualModelRequests: Number(starts.rows[0]!.count) });
 }, 600000);
