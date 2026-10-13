@@ -39,7 +39,7 @@ async function main(){
  const st=fs.lstatSync(directory);need(st.isDirectory()&&!st.isSymbolicLink()&&st.uid===process.getuid()&&(st.mode&0o777)===0o700);
  const identity={kind:'cn-next-launch-v1',sourceSha256:crypto.createHash('sha256').update(fs.readFileSync(__filename)).digest('hex'),port:Number(args[0])};
  store(directory,'next-launch-intent.json',identity);
- const child=spawn(process.execPath,[cli,'dev','-p',args[0]],{cwd:web,env:process.env,stdio:['ignore','pipe','pipe'],detached:false});
+ const child=spawn(process.execPath,['--require',path.join(__dirname,'next-worker-observer.cjs'),cli,'dev','-p',args[0]],{cwd:web,env:process.env,stdio:['ignore','pipe','pipe'],detached:false});
  const counts={stdout:0,stderr:0},hashes={stdout:crypto.createHash('sha256'),stderr:crypto.createHash('sha256')};
  for(const key of ['stdout','stderr']){child[key].on('data',data=>{counts[key]+=data.length;hashes[key].update(data);if(!process[key].write(data))child[key].pause();});process[key].on('drain',()=>child[key].resume());}
  const before=resources();let started=false;
