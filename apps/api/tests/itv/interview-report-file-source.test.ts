@@ -55,3 +55,8 @@ describe('generation eligibility',()=>{
  it('propagates storage failures rather than disguising them as denial',async()=>{const f=fixture();f.readCurrent.mockRejectedValue(new Error('storage unavailable'));await expect(f.resolver.read({orgId,userId:'owner'},'interview')).rejects.toThrow('storage unavailable');});
  it('retains mixed evidence and uses actor-scoped reads',async()=>{const f=fixture();f.report.evidenceMode='mixed';expect((await f.resolver.read({orgId,userId:'owner'},'interview')).notices.join(' ')).toContain('混合证据');expect(f.readCurrent).toHaveBeenCalledWith(orgId,'interview');expect(f.deps.repo.findVisibleById).toHaveBeenLastCalledWith(orgId,'owner','interview');});
 });
+
+it('keeps long canonical text intact while source metadata respects the shared limits',async()=>{
+ const f=fixture();f.report.markdown='# '+ '长标题'.repeat(150)+'\n\n原文不截断。';f.report.contentHash=digest(f.report.markdown);f.report.references=Array.from({length:35},(_,i)=>({anchor:'missing-'+i,documentId:'unavailable-'+i,version:1}));
+ const value=await f.resolver.read({orgId,userId:'owner'},'interview');expect(value.title.length).toBe(300);expect(value.markdown).toBe(f.report.markdown);expect(value.notices.length).toBeLessThanOrEqual(30);expect(value.notices.join(' ')).toContain('35 项引用');
+});

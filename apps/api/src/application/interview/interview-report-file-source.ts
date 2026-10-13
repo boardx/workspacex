@@ -32,15 +32,18 @@ export class InterviewReportFileSource implements ReportFileSourceResolver {
    if(!matching || review.status!=='approved') notices.push('当前报告未批准，不代表已批准结论。');
    if(matching && review.note) notices.push(`复核说明：${review.note}`);
    const appendix:string[]=[];
+   let unavailableReferences = 0;
    for(const reference of document.references){
     const locator=reference.locator;
     const source=current.documents.find(item=>item.documentId===reference.documentId && item.version===reference.version);
     if(!locator || !source || hash(source.markdown)!==source.contentHash || source.contentHash!==locator.sourceHash || source.evidenceMode!==locator.evidenceMode || locator.end>source.markdown.length || source.markdown.slice(locator.start,locator.end)!==locator.quote){
-     notices.push(`引用 ${reference.anchor} 的已保存来源当前不可核验。`);continue;
+     unavailableReferences++;continue;
     }
     appendix.push(`### 引用 ${reference.anchor}\n\n来源版本 ${source.version} · SHA256 ${source.contentHash}\n\n${locator.quote}`);
    }
-   return {kind:this.kind,id,title:interviewMarkdown.parseInterviewMarkdown(document).headings[0]?.text || authorized.interview.name || '访谈报告',reportVersion:document.version,reportHash,bindingKey:JSON.stringify([current.revisionId,document.documentId,document.version,reportHash]),markdown:document.markdown,...(appendix.length?{appendixMarkdown:appendix.join('\n\n')}:{}),projectId:authorized.projectId,notices};
+   if(unavailableReferences) notices.push(`${unavailableReferences} 项引用的已保存来源当前不可核验。`);
+   const title = (interviewMarkdown.parseInterviewMarkdown(document).headings[0]?.text || authorized.interview.name || '访谈报告').slice(0,300);
+   return {kind:this.kind,id,title,reportVersion:document.version,reportHash,bindingKey:JSON.stringify([current.revisionId,document.documentId,document.version,reportHash]),markdown:document.markdown,...(appendix.length?{appendixMarkdown:appendix.join('\n\n')}:{}),projectId:authorized.projectId,notices};
   }catch(error){if(error instanceof NoInterviewAccessError)throw new ReportFileSourceError('REPORT_NOT_FOUND');throw error;}
  }
 }
