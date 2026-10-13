@@ -9,6 +9,7 @@ import {writeFileSync}from'node:fs';
 import {startupDiagnostic}from'../cn-api-startup/diagnostic';
 import {mark,markConstraintRoundtrip}from'./diagnostic';
 import {assertCatalogEqual}from'./catalog-assert';
+import {constraintRoundtrip}from'./constraint-roundtrip';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import {createRequire}from'node:module';
@@ -77,6 +78,7 @@ if(mode==='--observe'){process.stdout.write((await readPhase(phase)).raw);proces
 assert.equal(phases[state.finished.length],phase);const intent=path.join(journal,phase+'.intent.json');await once(intent,{epoch:state.epoch,phase,seed});const begin=state.events.length;
 mark(phase);
 if(phase==='init'){
+ const probe=new pg.Client(dbcfg('postgres'));await probe.connect();try{state.constraintCanonicalization=await constraintRoundtrip(probe);}finally{await probe.end();}
  mark('initial-migrations');
  const names=migrationFiles();assert(names.length>=416);state.fullCount=names.length;state.originalCount=names.length;
  const manifest=[];for(const name of names){const raw=await fs.readFile(path.join(MIGRATIONS_DIR,name));manifest.push({name,sha256:hash(raw)});}
@@ -113,6 +115,6 @@ if(phase==='init'){
 state.finished.push(phase);const tmp=stateFile+'.'+phase;await once(tmp,state);await fs.rename(tmp,stateFile);await syncDir(root);
 const records=[];for(const item of state.events.slice(begin)){const raw=await fs.readFile(path.join(journal,item.name));records.push({...item,rawBase64:raw.toString('base64')});}
 const previous=state.finished.length>1?hash((await readPhase(state.finished.at(-2))).raw):null;
-const summary=phase==='finalize'?{verified:true,seed,tests:state.checks,epoch:state.epoch,backupSha256:state.dumpSha256,backupBytes:state.dumpBytes,originalMigrationCount:state.originalCount,fullApplicationMigrationCount:state.fullCount,migrationManifestSha256:state.migrationManifestSha256,actualApplicationMigrator:true,businessLayer:'actual-PgIdentityRepository-readback',actualStartApiTested:false,fullControlSchemaFixture:true,oldVersionImageTested:false,originalCatalogAlgorithm:true,productionProviderBindingVerified:false,transaction:state.transaction,aRoute:state.aRoute,holdDrift:state.holdDrift,candidateValidation:false,checkoutRevision:cfg.checkoutRevision,productionAccepted:false,cloudCalls:0}:undefined;
+const summary=phase==='finalize'?{verified:true,seed,tests:state.checks,epoch:state.epoch,backupSha256:state.dumpSha256,backupBytes:state.dumpBytes,originalMigrationCount:state.originalCount,fullApplicationMigrationCount:state.fullCount,migrationManifestSha256:state.migrationManifestSha256,actualApplicationMigrator:true,businessLayer:'actual-PgIdentityRepository-readback',actualStartApiTested:false,fullControlSchemaFixture:true,oldVersionImageTested:false,originalCatalogAlgorithm:true,productionProviderBindingVerified:false,constraintCanonicalization:state.constraintCanonicalization,transaction:state.transaction,aRoute:state.aRoute,holdDrift:state.holdDrift,candidateValidation:false,checkoutRevision:cfg.checkoutRevision,productionAccepted:false,cloudCalls:0}:undefined;
 const result={kind:'isolated-pg-phase-receipt-v1',scope:'fixture-only',seed,epoch:state.epoch,phase,sequence:state.finished.length,previousPhaseSha256:previous,verified:true,terminal:true,journalRecords:records,expectedFaultScenario:['migration-fault','startup-fault','postclear-fault'].includes(phase),productionAccepted:false,...(summary?{summary}:{})};
 await once(path.join(journal,phase+'.result.json'),result);console.log(JSON.stringify(result));
