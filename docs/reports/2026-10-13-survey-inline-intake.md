@@ -1,6 +1,6 @@
 # Survey inline AI intake — issue #5660
 
-Scope: `/studio/survey/new/import` now reuses `InterviewVoiceInput` on the page. No public ASR transport/hook, supplier, API, authentication, or database changes. Confirmed speech is appended to existing text only after stop settlement; transient speech is display-only. Recording/settlement/recovery disables generation and other input changes. Existing Markdown proposal correction and explicit canonical draft creation stay intact; publication is untouched.
+Scope: `/studio/survey/new/import` now reuses `InterviewVoiceInput` on the page. No public ASR transport/hook, supplier, API shape, authentication, or database changes. The review follow-up exports the existing text-limit constant and references it in the unchanged API generator length gate. Confirmed speech is appended to existing text only after stop settlement; transient speech is display-only. Recording/settlement/recovery disables generation and other input changes. Existing Markdown proposal correction and explicit canonical draft creation stay intact; publication is untouched.
 
 ## Verification and evidence boundary
 
@@ -26,3 +26,9 @@ Base main: `80ad4b0886cb065acdf602519831e1e35d0b31c0`. Existing worktree retaine
 Browser work is complete. Deliver exact SHA to the main chat for independent review, create the linked PR after acceptance, and repair CI/review to green without merging. All completed isolation-wrapper-owned stacks were released; no unrelated resources may be stopped. Coordination gateway requests returned `fetch failed`, so current lease freshness is unknown; this is not authentication/renewal success and does not block the directly authorized feature.
 
 Raw command output is archived in `assets/issue-5660/ui-tests.txt`, `browser-normal-and-locator-failure.txt` (preserves the initial locator failure), and `browser-capture-faults.txt`. The final fault rerun changes only the locator scope; no business-code changes followed the successful normal journey.
+
+## Review follow-up — 2026-10-14
+
+Automated review identified that textarea `maxLength` does not constrain programmatic speech append. Speech exceeding the existing 20,000-character contract is now preserved in full with a count/error and disabled submission; editing back within the limit restores generation. No silent truncation. `SURVEY_PROPOSAL_TEXT_MAX_CHARS` is the proposal limit single source for schema, request envelope, UI and the existing generator gate; no limit or API-shape change.
+
+The new retention/over-limit regression failed before the fix. After the fix, 26 related UI tests passed (including 19,999/20,000 accepted, 20,001 blocked, and dictated text/edit recovery). Seven pure generator tests passed through the standard database-isolation wrapper; an initial direct invocation was rejected by the isolation guard before executing tests and was rerun correctly. Contracts typecheck passed. See `assets/issue-5660/ui-tests-limit.txt` and `api-generator-limit.txt`. Existing browser evidence remains applicable to the unchanged capture, stop and canonical paths; no broad browser repeat was needed for this validation-only patch.

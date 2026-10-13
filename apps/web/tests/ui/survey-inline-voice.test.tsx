@@ -86,3 +86,38 @@ it('releases its inline stream on leaving the import view without submitting spe
   act(() => handlers.onFinished());
   expect(request).not.toHaveBeenCalled();
 });
+it('preserves over-limit dictated text and blocks generation until edited back within the contract', async () => {
+  render(<SurveyAiProposal locked={false} onApply={vi.fn()} />);
+  const input = screen.getByRole('textbox', { name: '问卷需求' });
+  const original = '字'.repeat(Number(input.getAttribute('maxlength')) - 1);
+  fireEvent.change(input, { target: { value: original } });
+  fireEvent.click(screen.getByRole('button', { name: '语音输入' }));
+  await screen.findByRole('button', { name: '停止并追加文字' });
+  act(() => handlers.onFinal('补充需求。'));
+  fireEvent.click(screen.getByRole('button', { name: '停止并追加文字' }));
+  await act(async () => { handlers.onFinished(); finish(); });
+  expect(input).toHaveValue(original + '\n\n补充需求。');
+  expect(screen.getByRole('alert')).toHaveTextContent('超过');
+  expect(screen.getByRole('button', { name: '生成问卷' })).toBeDisabled();
+  fireEvent.click(screen.getByRole('button', { name: '生成问卷' }));
+  expect(request).not.toHaveBeenCalled();
+  fireEvent.change(input, { target: { value: '缩短后的研究需求' } });
+  expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  expect(screen.getByRole('button', { name: '生成问卷' })).toBeEnabled();
+});
+it.each([19999, 20000])('allows a valid %i-character demand at the contract boundary', length => {
+  request.mockImplementation(() => new Promise(() => {}));
+  render(<SurveyAiProposal locked={false} onApply={vi.fn()} />);
+  fireEvent.change(screen.getByRole('textbox', { name: '问卷需求' }), { target: { value: '字'.repeat(length) } });
+  expect(screen.getByRole('button', { name: '生成问卷' })).toBeEnabled();
+  fireEvent.click(screen.getByRole('button', { name: '生成问卷' }));
+  expect(request.mock.calls[0]?.[1].body.text).toHaveLength(length);
+});
+it('blocks a 20001-character demand without submitting it', () => {
+  render(<SurveyAiProposal locked={false} onApply={vi.fn()} />);
+  fireEvent.change(screen.getByRole('textbox', { name: '问卷需求' }), { target: { value: '字'.repeat(20001) } });
+  expect(screen.getByRole('alert')).toHaveTextContent('超过');
+  expect(screen.getByRole('button', { name: '生成问卷' })).toBeDisabled();
+  fireEvent.click(screen.getByRole('button', { name: '生成问卷' }));
+  expect(request).not.toHaveBeenCalled();
+});

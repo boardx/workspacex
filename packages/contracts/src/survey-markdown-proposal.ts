@@ -1,9 +1,10 @@
 import { z } from 'zod';
 export const SURVEY_PROPOSAL_FILE_MAX_BYTES=262144;
+export const SURVEY_PROPOSAL_TEXT_MAX_CHARS=20000;
 // Base64 plus worst-case JSON escaping of the bounded UTF-16 text/name and envelope.
-export const SURVEY_PROPOSAL_BODY_MAX_BYTES=Math.ceil(SURVEY_PROPOSAL_FILE_MAX_BYTES/3)*4+20000*6+4096;
+export const SURVEY_PROPOSAL_BODY_MAX_BYTES=Math.ceil(SURVEY_PROPOSAL_FILE_MAX_BYTES/3)*4+SURVEY_PROPOSAL_TEXT_MAX_CHARS*6+4096;
 export const SurveyMarkdownProposalInputSchema=z.object({
-  text:z.string().trim().max(20000).default(''),
+  text:z.string().trim().max(SURVEY_PROPOSAL_TEXT_MAX_CHARS).default(''),
   transcriptionId:z.string().min(1).max(200).optional(),
   file:z.object({name:z.string().min(1).max(200),base64:z.string().min(1).max(Math.ceil(SURVEY_PROPOSAL_FILE_MAX_BYTES/3)*4)}).strict().optional(),
 }).strict().refine(value=>!!value.text||!!value.transcriptionId||!!value.file,'输入需求或选择文件/已保存的录音逐字稿')

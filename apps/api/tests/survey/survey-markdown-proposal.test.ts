@@ -24,3 +24,13 @@ it('rejects malformed model output instead of replacing it with canned questions
 it('fails closed when the configured provider is unavailable',async()=>{
   await expect(generateSurveyMarkdownProposal({model:{complete:async()=>{throw new Error('provider unavailable');}},provider:'test',modelId:'model'},{text:'调研客户'})).rejects.toMatchObject({code:'SURVEY_AI_UNAVAILABLE'});
 });
+it.each([19999,20000])('accepts a %i-character source at the existing generator boundary',async length=>{
+ const complete=vi.fn(async()=>({text:markdown}));
+ await expect(generateSurveyMarkdownProposal({model:{complete},provider:'test',modelId:'model'},{text:'字'.repeat(length)})).resolves.toMatchObject({markdown});
+ expect(complete).toHaveBeenCalledTimes(1);
+});
+it('rejects a 20001-character source before calling the model',async()=>{
+ const complete=vi.fn(async()=>({text:markdown}));
+ await expect(generateSurveyMarkdownProposal({model:{complete},provider:'test',modelId:'model'},{text:'字'.repeat(20001)})).rejects.toMatchObject({code:'SURVEY_AI_INPUT_INVALID'});
+ expect(complete).not.toHaveBeenCalled();
+});
