@@ -1,15 +1,17 @@
 import {test,expect} from '@playwright/test';
 import {randomUUID} from 'node:crypto';
 import {boardLogin,createAcceptanceBoard,createCommands,object,operate,openBoard,canonicalBoardSnapshot,objectPoint,boardHead} from './board-acceptance-support';
+import {runtimeSourceIdentity,observeRuntimeChunks,verifyRuntimeIdentity} from './board-runtime-evidence';
 import {expectBoardSynced} from './support/board-sync-status';
 import {deleteOwnedConnectorFixture} from './support/connector-acceptance-fixture';
 import {FULLSTACK_E2E as F} from './fullstack-smoke-fixture';
 
 for(const multiple of [false,true])for(const edge of ['left','right','top','bottom'] as const)test(`selected ${multiple?'multiple widgets':'widget'} drag pans ${edge} edge and commits once`,async({page,request},info)=>{
+ const source=runtimeSourceIdentity(),chunks=observeRuntimeChunks(page);
  const token=await boardLogin(page),title=`Edge pan ${randomUUID()}`,board=await createAcceptanceBoard(request,token,title);let primary:unknown;
  try{
   await operate(request,token,board,createCommands([object('edge-a','sticky',200,200,'A',180,180),object('edge-b','sticky',440,200,'B',180,180)]));
-  await openBoard(page,board,2);const baseline=await canonicalBoardSnapshot(request,token,board);
+  await openBoard(page,board,2);const runtimeBefore=await verifyRuntimeIdentity(request,source,await chunks());const baseline=await canonicalBoardSnapshot(request,token,board);
   const start=await objectPoint(page,'edge-a');
   if(multiple){await page.keyboard.press('ControlOrMeta+a');await expect(page.getByTestId('board-a11y-selection-announcement')).toHaveText('已选择 2 个对象');}
   const surface=page.getByTestId('board-fabric-surface'),bounds=(await surface.boundingBox())!;
@@ -28,6 +30,8 @@ for(const multiple of [false,true])for(const edge of ['left','right','top','bott
   await info.attach('edge-pan-local-viewport',{body:JSON.stringify({edge,multiple,before,held,released}),contentType:'application/json'});
   await page.getByRole('button',{name:'撤销',exact:true}).click();await expect.poll(async()=>(await canonicalBoardSnapshot(request,token,board)).objects).toEqual(baseline.objects);
   await expect.poll(()=>boardHead(request,token,board)).toEqual({epoch:baseline.revision.epoch,seq:baseline.revision.seq+2});
+  const runtimeAfter=await verifyRuntimeIdentity(request,source,await chunks());
+  await info.attach('edge-pan-runtime-proof',{body:JSON.stringify({runtimeBefore,runtimeAfter}),contentType:'application/json'});
  }catch(error){primary=error;}
  finally{try{await page.mouse.up();await deleteOwnedConnectorFixture(request,token,board,F.userId,title);}catch(error){primary=new AggregateError([...(primary?[primary]:[]),error],'Edge pan execution or cleanup failed');}}
  if(primary)throw primary;
