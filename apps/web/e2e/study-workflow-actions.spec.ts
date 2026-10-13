@@ -99,6 +99,7 @@ test("research and interview use consistent command controls without model execu
     expect(await primary.evaluate(node => node.closest('[data-workflow-action-bar="footer"]')?.lastElementChild?.contains(node))).toBe(true);
     metrics.push({ domain: "research", width: 375, state: "ready-to-complete", buttons: await page.locator('[data-workflow-action-bar="footer"] button').evaluateAll(nodes => nodes.map(node => ({ text: node.textContent, height: node.getBoundingClientRect().height, background: getComputedStyle(node).backgroundColor, color: getComputedStyle(node).color, disabled: node.matches(':disabled') }))) });
     await page.screenshot({ path: resolve(output, "after-research-primary-375.png"), fullPage: true });
+    const expectedPrimary = await primary.evaluate(node => ({ background: getComputedStyle(node).backgroundColor, color: getComputedStyle(node).color }));
     const currentInterview = interviewMarkdown.InterviewMarkdownEnvelope.parse(await (await page.request.get(path, { headers })).json());
     const intake = currentInterview.documents.find(document => document.step === "intake");
     expect((await page.request.post(`${path}/intake`, { headers, data: { expectedVersion: currentInterview.version, expectedDocumentVersion: intake?.version ?? 0, markdown: "# 研究需求\n\n核对采购授权与预算。" } })).ok()).toBeTruthy();
@@ -106,6 +107,7 @@ test("research and interview use consistent command controls without model execu
     const interviewPrimary = page.getByRole("button", { name: "下一步：确认分析", exact: true });
     const interviewSecondary = page.getByTestId("itv-return-history");
     await expect(interviewPrimary).toBeEnabled();
+    await expect.poll(() => interviewPrimary.evaluate(node => ({ background: getComputedStyle(node).backgroundColor, color: getComputedStyle(node).color }))).toEqual(expectedPrimary);
     expect(await interviewPrimary.evaluate(node => node.getBoundingClientRect().height)).toBe(36);
     expect(await interviewPrimary.evaluate(node => getComputedStyle(node).backgroundColor)).not.toBe(await interviewSecondary.evaluate(node => getComputedStyle(node).backgroundColor));
     metrics.push({ domain: "interview", width: 375, state: "intake-enabled-primary", buttons: await interviewPrimary.evaluate(node => ({ text: node.textContent, height: node.getBoundingClientRect().height, background: getComputedStyle(node).backgroundColor, color: getComputedStyle(node).color })) });
