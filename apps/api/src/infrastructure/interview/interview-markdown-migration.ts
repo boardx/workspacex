@@ -1,4 +1,4 @@
-import type { interviewMarkdown } from "@repo/contracts";
+import { interviewMarkdown } from "@repo/contracts";
 import type { TenantSession } from "../../application/ports/database.port";
 import type { OrgId } from "../../domain/org-id";
 import { readDigitalInterviewWorkflow } from "./pg-digital-interview-repository";
@@ -48,14 +48,15 @@ export async function migrateInterviewMarkdown(session: TenantSession, orgId: Or
     const markdown = body && old?.markdown && body !== old.markdown
       ? `${body}\n\n# 迁移前步骤正文\n\n${old.markdown}` : body || old?.markdown;
     if (!markdown?.trim()) continue; // Never fabricate analysis or a report for empty stages.
+    const rejectedReport = step === "report" && !interviewMarkdown.assessInterviewReportAnalysis(markdown).ok;
     await appendInterviewMarkdownDocument(session, {
       orgId, interviewId, revisionId: workflow.revisionId, step,
       title: old?.title ?? `${workflow.name} · ${step}`, markdown,
       evidenceMode: old?.evidenceMode ?? workflow.studyEvidenceMode,
       references: [], expectedVersion: old?.version ?? 0, source: "legacy-migration-v1",
-      status: old?.status ?? ((step === "report" && !workflow.report)
+      status: rejectedReport ? "failed" : old?.status ?? ((step === "report" && !workflow.report)
         || (step === "outline" && !workflow.questions.length) ? "draft" : "confirmed"),
-      failure: old?.failure ?? null,
+      failure: rejectedReport ? { code: "AI_GENERATION_UNAVAILABLE", retryable: true } : old?.failure ?? null,
     });
   }
   return guard({ kind: "interview", id: interviewId }, undefined);
