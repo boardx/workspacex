@@ -37,16 +37,22 @@ export class PgReportFileJobStore implements ReportFileJobStore {
         `UPDATE report_skill_file_jobs SET state='running',attempts=attempts+1,lease_token=$4,lease_until=now()+interval '90 seconds',
          metadata=jsonb_set(metadata,'{job,status}','"running"'::jsonb)
          WHERE org_id=$1 AND actor_user_id=$2 AND id=$3 AND attempts<3
-         AND (state='queued' OR (state='running' AND lease_until<=now())) RETURNING metadata`, [actor.orgId, actor.userId, id, leaseToken])).rows;
+         AND metadata->>'runId' IS NULL AND (state='queued' OR (state='running' AND lease_until<=now())) RETURNING metadata`, [actor.orgId, actor.userId, id, leaseToken])).rows;
       return rows[0] ? { record: this.parse(rows[0].metadata), leaseToken } : null;
     });
   }
-  async renew(claim: ClaimedReportFileJob) {
+  async saveThread(claim: ClaimedReportFileJob, threadId: string) {
     const { actor, job } = claim.record;
     return this.db.withTenant(actor.orgId, async session => (await session.query(
-      `UPDATE report_skill_file_jobs SET lease_until=now()+interval '90 seconds'
+      `UPDATE report_skill_file_jobs SET metadata=jsonb_set(metadata,'{threadId}',to_jsonb($5::text))
        WHERE org_id=$1 AND actor_user_id=$2 AND id=$3 AND lease_token=$4 AND state='running' AND lease_until>now() RETURNING id`,
-      [actor.orgId, actor.userId, job.id, claim.leaseToken])).rows.length === 1);
+      [actor.orgId, actor.userId, job.id, claim.leaseToken, threadId])).rows.length === 1);
+  }
+  async update(record: StoredReportFileJob) {
+    return this.db.withTenant(record.actor.orgId, async session => (await session.query(
+      `UPDATE report_skill_file_jobs SET metadata=$4::jsonb,state=$5
+       WHERE org_id=$1 AND actor_user_id=$2 AND id=$3 AND metadata->>'runId'=$6 AND state='running' RETURNING id`,
+      [record.actor.orgId, record.actor.userId, record.job.id, JSON.stringify(record), record.job.status, record.runId])).rows.length === 1);
   }
   async finish(claim: ClaimedReportFileJob, record: StoredReportFileJob) {
     const { actor, job } = claim.record;

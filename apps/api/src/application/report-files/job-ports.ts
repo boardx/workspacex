@@ -11,7 +11,9 @@ export interface StoredReportFileJob {
   readonly bindingKey: string;
   readonly renderHash: string;
   readonly skill: SkillPin;
-  readonly objectKey?: string;
+  readonly threadId?: string;
+  readonly runId?: string;
+  readonly attachmentId?: string;
 }
 export interface ClaimedReportFileJob { readonly record: StoredReportFileJob; readonly leaseToken: string }
 export interface ReportFileJobStore {
@@ -19,14 +21,18 @@ export interface ReportFileJobStore {
   insert(record: StoredReportFileJob): Promise<boolean>;
   get(actor: ReportFileActor, id: string): Promise<StoredReportFileJob | null>;
   claim(actor: ReportFileActor, id: string): Promise<ClaimedReportFileJob | null>;
-  renew(claim: ClaimedReportFileJob): Promise<boolean>;
+  saveThread(claim: ClaimedReportFileJob, threadId: string): Promise<boolean>;
+  update(record: StoredReportFileJob): Promise<boolean>;
   finish(claim: ClaimedReportFileJob, result: StoredReportFileJob): Promise<boolean>;
 }
-export interface ReportFileSkillRuntime {
+/** Thin adapter to existing Chat acceptance, AgentRun reads and attachment download. */
+export interface ReportFileChatRuntime {
   pin(actor: ReportFileActor, format: FileRequest['format']): Promise<SkillPin>;
-  generate(input: { actor: ReportFileActor; snapshot: ReportFileSourceSnapshot; pin: SkillPin; format: FileRequest['format']; jobId: string; assertCurrent: () => Promise<void> }): Promise<{ bytes: Uint8Array; filename: string }>;
+  accept(record: StoredReportFileJob, source: ReportFileSourceSnapshot, saveThread: (threadId: string) => Promise<void>): Promise<{ threadId: string; runId: string }>;
+  read(record: StoredReportFileJob): Promise<{ status: 'pending' } | { status: 'failed' } | { status: 'succeeded'; attachmentId: string; filename: string; bytes: Uint8Array }>;
+  download(record: StoredReportFileJob): Promise<{ filename: string; mime: string; bytes: Uint8Array }>;
 }
 export interface ReportFileValidator {
-  validate(format: FileRequest['format'], bytes: Uint8Array): Promise<void>;
+  validate(format: FileRequest['format'], bytes: Uint8Array, source: ReportFileSourceSnapshot): Promise<void>;
 }
 export type GeneratedFile = z.infer<typeof ReportGeneratedFile>;

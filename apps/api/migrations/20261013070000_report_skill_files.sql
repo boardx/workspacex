@@ -1,5 +1,6 @@
+-- Organization physical deletion follows existing f159 audit retention: receipts remain append-only while the organization exists.
 CREATE TABLE IF NOT EXISTS report_skill_file_jobs (
- id uuid PRIMARY KEY, org_id text NOT NULL REFERENCES organizations(id),
+ id uuid PRIMARY KEY, org_id text NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
  actor_user_id text NOT NULL REFERENCES credentials(user_id), request_id uuid NOT NULL UNIQUE,
  metadata jsonb NOT NULL, state text NOT NULL CHECK (state IN ('queued','running','succeeded','failed')),
  attempts integer NOT NULL DEFAULT 0 CHECK (attempts BETWEEN 0 AND 3),

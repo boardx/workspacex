@@ -1,9 +1,8 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { ReportFileJob, ReportFileRequest, REPORT_FILE_FORMATS, type ReportFileErrorCode } from '@repo/contracts/report-files';
 import type { z } from 'zod';
-import type { ObjectStore } from '../artifact/ports';
 import { ReportFileSourceError, type ReportFileActor, type ReportFileSourceResolver, type ReportFileSourceSnapshot } from './ports';
-import type { ClaimedReportFileJob, FileJob, FileRequest, ReportFileJobStore, ReportFileSkillRuntime, ReportFileValidator, StoredReportFileJob } from './job-ports';
+import type { FileJob, FileRequest, ReportFileJobStore, ReportFileChatRuntime, ReportFileValidator, StoredReportFileJob } from './job-ports';
 export const REPORT_FILE_SERVICE = Symbol('ReportFileService');
 export class ReportFileError extends Error {
   constructor(readonly code: z.infer<typeof ReportFileErrorCode>) { super(code); }
@@ -14,15 +13,13 @@ export function reportRenderHash(snapshot: ReportFileSourceSnapshot): string {
 }
 export interface ReportFileServiceDeps {
   readonly store: ReportFileJobStore;
-  readonly objects: ObjectStore;
-  readonly runtime: ReportFileSkillRuntime;
+  readonly runtime: ReportFileChatRuntime;
   readonly validator: ReportFileValidator;
   readonly sources: readonly ReportFileSourceResolver[];
   readonly newId?: () => string;
   readonly now?: () => string;
-  readonly autostart?: boolean;
 }
-/** One report-specific adapter over existing product Skills; no document renderer here. */
+/** Report-version binding only. Existing Chat/AgentRun owns execution, permissions, billing and files. */
 export class ReportFileService {
   constructor(private readonly deps: ReportFileServiceDeps) {}
   async source(actor: ReportFileActor, source: Pick<FileRequest['source'], 'kind' | 'id'>): Promise<ReportFileSourceSnapshot> {
@@ -39,8 +36,8 @@ export class ReportFileService {
     const previous = await this.deps.store.findByRequest(actor, request.requestId);
     if (previous) {
       if (previous.job.format !== request.format || JSON.stringify(previous.job.source) !== JSON.stringify(request.source) || previous.bindingKey !== snapshot.bindingKey || previous.renderHash !== reportRenderHash(snapshot)) throw new ReportFileError('IDEMPOTENCY_CONFLICT');
-      this.kick(actor, previous.job.id);
-      return ReportFileJob.parse(previous.job);
+      await this.tick(actor, previous.job.id);
+      return this.status(actor, previous.job.id);
     }
     const skill = await this.deps.runtime.pin(actor, request.format);
     if (skill.stableName !== REPORT_FILE_FORMATS[request.format].skillStableName) throw new ReportFileError('SKILL_UNAVAILABLE');
@@ -51,20 +48,43 @@ export class ReportFileService {
       if (!raced) throw new ReportFileError('IDEMPOTENCY_CONFLICT');
       return this.start(actor, request);
     }
-    this.kick(actor, record.job.id);
-    return ReportFileJob.parse(record.job);
+    await this.tick(actor, record.job.id);
+    return this.status(actor, record.job.id);
   }
-  async status(actor: ReportFileActor, id: string) {
-    const record = await this.readCurrent(actor, id);
-    this.kick(actor, id);
+  async status(actor: ReportFileActor, id: string): Promise<FileJob> {
+    let record = await this.readCurrent(actor, id);
+    if (!record.runId && record.job.status !== 'failed') {
+      await this.tick(actor, id);
+      record = await this.readCurrent(actor, id);
+    }
+    if (!record.runId || record.job.status === 'failed' || record.job.status === 'succeeded') return ReportFileJob.parse(record.job);
+    const result = await this.deps.runtime.read(record);
+    if (result.status === 'pending') return ReportFileJob.parse(record.job);
+    if (result.status === 'failed') {
+      record = { ...record, job: { ...record.job, status: 'failed', errorCode: 'GENERATION_FAILED' } };
+    } else {
+      const snapshot = await this.source(actor, record.job.source);
+      this.matchRecord(snapshot, record);
+      try {
+        await this.deps.validator.validate(record.job.format, result.bytes, snapshot);
+        record = { ...record, attachmentId: result.attachmentId, job: ReportFileJob.parse({ ...record.job, status: 'succeeded', skill: record.skill,
+          file: { filename: result.filename, mediaType: REPORT_FILE_FORMATS[record.job.format].mediaType, sizeBytes: result.bytes.byteLength, sha256: sha(result.bytes) } }) };
+      } catch {
+        record = { ...record, job: { ...record.job, status: 'failed', errorCode: 'INVALID_FILE' } };
+      }
+    }
+    await this.readCurrent(actor, id);
+    await this.deps.store.update(record);
     return ReportFileJob.parse(record.job);
   }
   async download(actor: ReportFileActor, id: string) {
     const record = await this.readCurrent(actor, id);
-    if (record.job.status !== 'succeeded' || !record.objectKey) throw new ReportFileError('REPORT_UNAVAILABLE');
-    const bytes = await this.readBytes(record.objectKey, record.job.file.sha256, record.job.file.sizeBytes, record.job.file.mediaType);
+    if (record.job.status !== 'succeeded' || !record.attachmentId) throw new ReportFileError('REPORT_UNAVAILABLE');
+    const content = await this.deps.runtime.download(record);
+    const file = record.job.file;
+    if (content.filename !== file.filename || content.mime !== file.mediaType || content.bytes.byteLength !== file.sizeBytes || sha(content.bytes) !== file.sha256) throw new ReportFileError('STORAGE_UNAVAILABLE');
     await this.readCurrent(actor, id);
-    return { bytes, file: record.job.file };
+    return { bytes: content.bytes, file };
   }
   private async readCurrent(actor: ReportFileActor, id: string) {
     const record = await this.deps.store.get(actor, id);
@@ -80,57 +100,25 @@ export class ReportFileService {
     this.matchRequest(snapshot, record.job.source);
     if (snapshot.bindingKey !== record.bindingKey || reportRenderHash(snapshot) !== record.renderHash) throw new ReportFileError('REPORT_CHANGED');
   }
-  private kick(actor: ReportFileActor, id: string) {
-    if (this.deps.autostart === false) return;
-    // Claims and terminal writes are persistent and fenced. A rejected kick never leaks report data.
-    void this.tick(actor, id).catch(() => undefined);
-  }
+  /** Initialization lease protects only the linkage; it never executes or meters a model. */
   async tick(actor: ReportFileActor, id: string) {
+    const current = await this.readCurrent(actor, id);
+    if (current.runId || current.job.status === 'failed' || current.job.status === 'succeeded') return;
     const claim = await this.deps.store.claim(actor, id);
     if (!claim) return;
-    let lost = false;
-    let renewing = false;
-    const heartbeat = setInterval(() => {
-      if (renewing) return;
-      renewing = true;
-      void this.deps.store.renew(claim).then(ok => { if (!ok) lost = true; }, () => { lost = true; }).finally(() => { renewing = false; });
-    }, 15_000);
+    let threadId = claim.record.threadId;
     try {
-      const assertCurrent = async () => {
-        if (lost || !await this.deps.store.renew(claim)) throw new LeaseLost();
-        await this.readCurrent(actor, id);
-      };
-      await assertCurrent();
       const snapshot = await this.source(actor, claim.record.job.source);
       this.matchRecord(snapshot, claim.record);
-      const result = await this.deps.runtime.generate({ actor, snapshot, pin: claim.record.skill, format: claim.record.job.format, jobId: id, assertCurrent });
-      await this.deps.validator.validate(claim.record.job.format, result.bytes);
-      const format = REPORT_FILE_FORMATS[claim.record.job.format];
-      const file = { filename: result.filename, mediaType: format.mediaType, sizeBytes: result.bytes.byteLength, sha256: sha(result.bytes) };
-      const job = ReportFileJob.parse({ ...claim.record.job, status: 'succeeded', skill: claim.record.skill, file });
-      await assertCurrent();
-      const objectKey = `report-files/${actor.orgId}/${id}/${claim.leaseToken}/${file.filename}`;
-      try {
-        await this.deps.objects.putOnce(objectKey, result.bytes, file.mediaType);
-        await this.readBytes(objectKey, file.sha256, file.sizeBytes, file.mediaType);
-      } catch { throw new ReportFileError('STORAGE_UNAVAILABLE'); }
-      await assertCurrent();
-      if (!await this.deps.store.finish(claim, { ...claim.record, job, objectKey })) throw new LeaseLost();
+      const link = await this.deps.runtime.accept(claim.record, snapshot, async value => {
+        if (!await this.deps.store.saveThread(claim, value)) throw new ReportFileError('GENERATION_FAILED');
+        threadId = value;
+      });
+      await this.readCurrent(actor, id);
+      await this.deps.store.finish(claim, { ...claim.record, ...link, job: { ...claim.record.job, status: 'running' } });
     } catch (error) {
-      if (error instanceof LeaseLost || lost) return;
       const code = error instanceof ReportFileError || error instanceof ReportFileSourceError ? error.code : 'GENERATION_FAILED';
-      await this.deps.store.finish(claim, { ...claim.record, job: { ...this.base(claim), status: 'failed', errorCode: code } });
-    } finally { clearInterval(heartbeat); }
-  }
-  private base(claim: ClaimedReportFileJob) {
-    const { id, source, format, createdAt } = claim.record.job;
-    return { id, source, format, createdAt };
-  }
-  private async readBytes(key: string, hash: string, size: number, mime: string): Promise<Uint8Array> {
-    const bytes = await this.deps.objects.get(key);
-    const head = await this.deps.objects.head(key);
-    if (!bytes || !head || head.sizeBytes !== size || head.mime !== mime || bytes.byteLength !== size || sha(bytes) !== hash) throw new ReportFileError('STORAGE_UNAVAILABLE');
-    return bytes;
+      await this.deps.store.finish(claim, { ...claim.record, threadId, job: { ...claim.record.job, status: 'failed', errorCode: code } });
+    }
   }
 }
-class LeaseLost extends Error {}

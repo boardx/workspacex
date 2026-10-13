@@ -14,27 +14,29 @@ function fixture() {
     insert: vi.fn(async (r: StoredReportFileJob) => { if ([...records.values()].some(x => x.requestId === r.requestId)) return false; records.set(r.job.id, r); return true; }),
     get: vi.fn(async (who: typeof actor, id: string) => { const r = records.get(id); return r?.actor.userId === who.userId && r.actor.orgId === who.orgId ? r : null; }),
     claim: vi.fn(async (_who: typeof actor, id: string) => { const record = records.get(id)!; return record.job.status === 'queued' ? { record, leaseToken: 'lease-1' } : null; }),
-    renew: vi.fn(async () => true),
+    saveThread: vi.fn(async (_claim: unknown, threadId: string) => { const r = records.get('job-1')!; records.set('job-1', { ...r, threadId }); return true; }),
+    update: vi.fn(async (r: StoredReportFileJob) => { records.set(r.job.id, r); return true; }),
     finish: vi.fn(async (_claim: unknown, r: StoredReportFileJob) => { records.set(r.job.id, r); return true; }),
   };
-  const objects = new Map<string, Uint8Array>();
-  const putOnce = vi.fn(async (key: string, bytes: Uint8Array) => { objects.set(key, bytes); });
-  const get = vi.fn(async (key: string) => objects.get(key) ?? null);
-  const head = vi.fn(async (key: string) => ({ sizeBytes: objects.get(key)!.length, mime: 'application/pdf' }));
   const pin = { stableName: 'pdf-create', versionId: 'published-1', digest: hash('SKILL.md') };
-  const runtime = { pin: vi.fn(async () => pin), generate: vi.fn(async () => ({ bytes: Buffer.from('%PDF-real-runtime-result'), filename: 'report.pdf' })) };
-  const service = new ReportFileService({ store, objects: { putOnce, get, head }, runtime,
+  const bytes = Buffer.from('%PDF-real-runtime-result');
+  const runtime = { pin: vi.fn(async () => pin),
+    accept: vi.fn(async (_record: StoredReportFileJob, _source: unknown, saveThread: (id: string) => Promise<void>) => { await saveThread('thr-1'); return { threadId: 'thr-1', runId: 'real-run-1' }; }),
+    read: vi.fn(async () => ({ status: 'succeeded' as const, attachmentId: 'att-1', filename: 'report.pdf', bytes })),
+    download: vi.fn(async () => ({ filename: 'report.pdf', mime: 'application/pdf', bytes })),
+  };
+  const service = new ReportFileService({ store, runtime,
     validator: { validate: vi.fn(async () => undefined) }, sources: [{ kind: 'interview', read: async () => snapshot }],
-    newId: () => 'job-1', now: () => '2026-10-13T00:00:00Z', autostart: false });
+    newId: () => 'job-1', now: () => '2026-10-13T00:00:00Z' });
   const request = { source: { kind: 'interview' as const, id: snapshot.id, reportVersion: snapshot.reportVersion, reportHash: snapshot.reportHash }, format: 'pdf' as const, requestId: '2cd11bc4-bc03-4c39-ad14-c290a6074d9a' };
-  return { actor, service, store, records, runtime, request, putOnce, get, setSnapshot: (next: Partial<typeof snapshot>) => { snapshot = { ...snapshot, ...next }; } };
+  return { actor, service, store, records, runtime, request, setSnapshot: (next: Partial<typeof snapshot>) => { snapshot = { ...snapshot, ...next }; } };
 }
 it('replays the same request without dispatching twice and refuses a different representation', async () => {
   const f = fixture();
   expect(await f.service.start(f.actor, f.request)).toEqual(await f.service.start(f.actor, f.request));
   expect(f.store.insert).toHaveBeenCalledTimes(1);
   await expect(f.service.start(f.actor, { ...f.request, format: 'pptx' })).rejects.toMatchObject({ code: 'IDEMPOTENCY_CONFLICT' });
-  expect(f.runtime.generate).not.toHaveBeenCalled();
+  expect(f.runtime.accept).toHaveBeenCalledTimes(1);
 });
 it('persists verified real bytes before exposing success and rechecks current document identity on download', async () => {
   const f = fixture(); const job = await f.service.start(f.actor, f.request);
@@ -52,10 +54,8 @@ it('does not reuse files when review/evidence notices change without changing re
 });
 it('never reports success when the persisted object read-back is corrupted', async () => {
   const f = fixture(); const job = await f.service.start(f.actor, f.request);
-  f.get.mockImplementation(async () => Buffer.from('corrupt'));
-  await f.service.tick(f.actor, job.id);
-  expect(await f.service.status(f.actor, job.id)).toMatchObject({ status: 'failed', errorCode: 'STORAGE_UNAVAILABLE' });
-  await expect(f.service.download(f.actor, job.id)).rejects.toMatchObject({ code: 'REPORT_UNAVAILABLE' });
+  f.runtime.download.mockResolvedValue({ filename: 'report.pdf', mime: 'application/pdf', bytes: Buffer.from('corrupt') });
+  await expect(f.service.download(f.actor, job.id)).rejects.toMatchObject({ code: 'STORAGE_UNAVAILABLE' });
 });
 it('refuses a request ID owned by another actor instead of exposing their file', async () => {
   const f = fixture(); await f.service.start(f.actor, f.request);
