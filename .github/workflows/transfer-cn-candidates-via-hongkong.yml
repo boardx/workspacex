@@ -11,7 +11,7 @@ permissions:
   contents: read
   actions: read
 concurrency:
-  group: hk-original-artifacts-38146134231-1
+  group: hk-original-artifacts-${{ inputs.plan_sha256 }}
   cancel-in-progress: false
 jobs:
   transfer:
@@ -40,19 +40,29 @@ jobs:
           REF: ${{ github.ref }}
         run: test "$ATTEMPT" = 1 && test "$REF" = refs/heads/main
       - name: Validate exact plan and complete uploader code closure before credentials
+        id: plan
         env:
           PLAN_SHA: ${{ inputs.plan_sha256 }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           python3 -I -B - <<'PYCODE'
           import importlib.util,os,pathlib
           p=pathlib.Path('scripts/cn-hk-original-artifact-upload.py')
           s=importlib.util.spec_from_file_location('uploader',p);m=importlib.util.module_from_spec(s);s.loader.exec_module(m)
           raw=pathlib.Path('.github/release-plans/hk-original-artifacts.json').read_bytes()
-          m.need(m.sha(raw)==os.environ['PLAN_SHA']);m.validate_plan(m.rawjson(raw))
+          m.need(m.sha(raw)==os.environ['PLAN_SHA']);plan=m.validate_plan(m.rawjson(raw))
+          m.validate_source_run(plan)
+          if plan['kind']=='hk-original-artifact-transfer-v2':
+              template=pathlib.Path('.github/release-plans/hk-revalidation-template.json').read_bytes()
+              m.need(m.sha(template)==plan['revalidationTemplateSha256'])
+              proof_spec=importlib.util.spec_from_file_location('proof','scripts/cn-hk-generate-proof.py')
+              proof=importlib.util.module_from_spec(proof_spec);proof_spec.loader.exec_module(proof)
+              proof.validate_binding(plan,m.rawjson(template),template)
+          with open(os.environ['GITHUB_OUTPUT'],'a') as output:output.write('control='+plan['producerControl']+'\n')
           PYCODE
       - uses: actions/checkout@v5
         with:
-          ref: 27bada5321e45fbdd5f0506fd06d08fa29ea24ce
+          ref: ${{ steps.plan.outputs.control }}
           path: producer-control
           persist-credentials: false
       - name: Verify actual OIDC claims before federation

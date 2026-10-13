@@ -25,3 +25,34 @@ Docker 29 with the containerd image store reports the manifest digest as inspect
 This does not rewrite inspect data, the daemon store, candidate archive, original identity, approval, or expiry. Export uses the existing approved Docker binary and deadline; stderr remains undisclosed and bounded. The host repeats immutable image inspection afterwards and removes its private export. Only a newly loaded staging tag whose image was successfully verified enters cleanup, with its actual daemon identity; failed/unknown verification leaves that tag for explicit reconciliation rather than deleting an unverified image. No image-ID deletion or shared cache pruning is added.
 
 A real local Docker 29.6.1/containerd-store API candidate test verified the raw descriptor→config and all original layer bytes in 8.217 seconds with no registry access or application launch. Production Docker 29.1.3/containerd-store observation motivated this compatibility path; it is not a production publication or authorization receipt.
+
+## Explicit attempt-scoped publication intent
+
+The default `cn-candidate-publication-intent-v2` still targets each fixed repository's
+`<sourceRevision>` tag. A separately approved intent may instead use
+`kind: cn-candidate-publication-intent-v3`, integer `schemaVersion: 3`, and the one
+additional field `tagPolicy: source-attempt-v1`. Every other field and admission
+check remains mandatory. Its tags are exactly `<sourceRevision>-<attemptId>`:
+40 lowercase source hex characters, a hyphen, and the original validated attempt
+(up to 64 characters), at most 105 characters. Repository and registry mappings
+remain fixed; arbitrary tag/repository overrides are rejected.
+
+This permits a different candidate attempt to publish without overwriting the
+existing source-only tag. A conflicting config at the same attempt tag still
+rejects before Redis or candidate writes. Running old source tags, staging tags,
+and new attempt tags remain protected. A host without the new target-protection
+method cannot publish v3. Lost push acknowledgements still allow only readback.
+
+Canonical manifests contain actual verified registry digest references, never the
+new mutable tag text. The published binding/receipt remains v2: its exact
+`publicationIntentRawSha256` binds the complete v3 intent, alongside the existing
+source/control/attempt/config and approval gates. Existing manifest/observer
+consumers therefore retain their six-digest contract. No existing production
+intent producer, approval, installed tool closure, TTL, or binding is changed by
+this opt-in implementation. Using it requires explicit approval of the new intent
+bytes and matching installed source hashes; it does not authorize publication.
+
+Local synthetic-tar/port tests cover both tag modes, old-tag preservation,
+same-attempt collisions, strict version/policy fields, bounded tag construction,
+legacy-adapter rejection and lost acknowledgements. Host tests exercise the real
+inherited running/storage gates. They are not registry or production validation.

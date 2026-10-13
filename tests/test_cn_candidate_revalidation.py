@@ -115,16 +115,28 @@ class RevalidationTests(unittest.TestCase):
         with self.assertRaises(a.Rejected):cap.verify_bundle(self.work/'bundle',self.plan,self.raw,a.sha(self.raw),a.sha(self.plan_raw))
         cap._value['expiresAt']='2000-01-01T00:00:00Z'
         with self.assertRaises(a.Rejected):cap.check(self.plan,self.raw,a.sha(self.raw),a.sha(self.plan_raw))
-    def test_explicit_publication_redis_and_dynamic_gate_preserved(self):
+    def test_explicit_publication_redis_and_dynamic_gate_preserved(self, version=2):
         cap=self.admitted();port=PublicationPort(self.plan,self.receipt['images'])
         intent=dict(kind='cn-candidate-publication-intent-v2',schemaVersion=2,candidatePlanRawSha256=a.sha(self.plan_raw),candidateSetRawSha256=a.sha(self.raw),candidateIdentity=c.identity(self.plan),
             **{k:self.plan[k] for k in ('sourceRevision','controlRevision','attemptId')},release='2026.10.10',registryPrefix=a.PREFIX,redisImage=a.PREFIX+'/base-redis@sha256:'+'6'*64,revalidationRawSha256=cap.sha)
+        if version == 3:
+            intent.update(kind='cn-candidate-publication-intent-v3',schemaVersion=3,tagPolicy=pub.ATTEMPT_TAG_POLICY)
         raw=a.json_bytes(intent)
         port.fail_redis=True
         with self.assertRaises(a.Rejected):pub.publish(self.plan_raw,a.sha(self.plan_raw),self.raw,a.sha(self.raw),raw,a.sha(raw),self.work/'bundle',port,revalidation=cap)
         self.assertFalse(any(e.startswith('load:') for e in port.events))
         port.fail_redis=False;result=pub.publish(self.plan_raw,a.sha(self.plan_raw),self.raw,a.sha(self.raw),raw,a.sha(raw),self.work/'bundle',port,revalidation=cap)
         self.assertEqual(result['binding']['revalidationRawSha256'],cap.sha);self.assertEqual(result['binding']['candidateExpiresAt'],self.receipt['expiresAt'])
+        if version == 3:
+            self.assertEqual({e[5:] for e in port.events if e.startswith('push:')},
+                             set(pub.publication_targets(self.plan, attempt_scoped=True).values()))
+            cap._value['expiresAt']='2000-01-01T00:00:00Z'
+            before=list(port.events)
+            with self.assertRaises(a.Rejected):
+                pub.publish(self.plan_raw,a.sha(self.plan_raw),self.raw,a.sha(self.raw),raw,a.sha(raw),self.work/'bundle',port,revalidation=cap)
+            self.assertEqual(port.events,before)
+    def test_v3_revalidation_keeps_redis_and_expiry_gates(self):
+        self.test_explicit_publication_redis_and_dynamic_gate_preserved(version=3)
     def test_oss_explicit_branch_dynamic_authorization_remains(self):
         cap=self.admitted();bundle=self.work/'bundle';prefix='cn-image-candidates/'+self.plan['sourceRevision']+'/'+self.plan['attemptId']+'/'
         tr=dict(kind='approved-candidate-oss-staging-v2',bucket='fixture-bucket',region='cn-shanghai',endpoint='https://oss-cn-shanghai.aliyuncs.com',prefix=prefix,uploadPrincipal='u',downloadPrincipal='d',objects={p.name:dict(key=prefix+p.name,versionId='',sha256=a.sha(p.read_bytes())) for p in bundle.iterdir()})
