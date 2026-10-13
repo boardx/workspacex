@@ -74,7 +74,7 @@ source files; web typecheck and actual loopback HTTP boundary tests passed.
 The updated whole stack has not run on Linux. T22 remains open until complete
 execution, report checks and cleanup pass; discovery is not E2E acceptance.
 
-The fixed Next launcher now caps only its Node child heap at 3072 MiB and
+The fixed Next launcher now caps only its Node child heap at 2048 MiB and
 rejects inherited conflicting `NODE_OPTIONS`. This leaves part of the unchanged
 6 GiB simulation Unit for Nest, Chromium and native allocations; the spare
 capacity is a planning allocation, not a per-component reservation or measured
@@ -87,3 +87,12 @@ The first real worker also records V8's actual heap-size limit. Missing receipts
 remain unknown. A signal alone does not prove an OOM victim; relate its timing
 to warmup/cleanup and the independently observed Unit counters. All six business
 journeys and owned cleanup must pass on Linux before calling this fix accepted.
+
+The 2048 MiB candidate follows run 38349940522: the bound Next worker had
+about 2.56 GB heap used and 2.35 GB ArrayBuffers before the 6 GiB Unit OOM.
+Earlier GC might release short-lived buffers; it might instead expose a real
+JavaScript heap exhaustion. Buffer lifetime has not been proven, and this is
+not a root-cause fix claim. The previous run completed all owned cleanup.
+The actual worker heap receipt, bounded memory samples and original six Linux
+journeys must verify this candidate before acceptance. No Unit limit, source,
+timeout, business assertion or cleanup gate is relaxed.

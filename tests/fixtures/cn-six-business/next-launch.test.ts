@@ -53,9 +53,11 @@ test('fixed supervisor records real child exit and forwards output without retry
  const source=resolve('tests/fixtures/cn-six-business/next-server-launch.cjs');const real=createRequire(source);
  let starts=0;let actual:any;let forwarded='';const mod={exports:{}};
  const fakeProcess={argv:['node',source,'25001'],env:{CN_RELEASE_FULLSTACK_FIXTURE:'1',CN_SIX_REPORT_PATH:join(directory,'report.json')},platform:process.platform,execPath:process.execPath,getuid:process.getuid!.bind(process),on:()=>{},stdout:{write:(b:Buffer)=>{forwarded+=b.toString();return true;},on:()=>{}},stderr:{write:(b:Buffer)=>{forwarded+=b.toString();return true;},on:()=>{}},exitCode:0};
- const req:any=(name:string)=>name==='node:child_process'?{spawn:(_exe:string,args:string[],options:any)=>{starts++;assert.deepEqual(Array.from(args).slice(3),['dev','-p','25001']);assert.equal(options.detached,false);assert.equal(options.env.NODE_OPTIONS,'--max-old-space-size=3072');actual=spawn(process.execPath,['-e',"process.stdout.write('fixture-out');process.stderr.write('fixture-err');process.exitCode=7"],options);return actual;}}:real(name);req.resolve=real.resolve.bind(real);req.main={};
+ const req:any=(name:string)=>name==='node:child_process'?{spawn:(_exe:string,args:string[],options:any)=>{starts++;assert.deepEqual(Array.from(args).slice(3),['dev','-p','25001']);assert.equal(options.detached,false);assert.equal(options.env.NODE_OPTIONS,'--max-old-space-size=2048');actual=spawn(process.execPath,['-e',"process.stdout.write('fixture-out');process.stderr.write('fixture-err');process.exitCode=7"],options);return actual;}}:real(name);req.resolve=real.resolve.bind(real);req.main={};
  runInNewContext(readFileSync(source,'utf8'),{require:req,module:mod,__filename:source,__dirname:resolve('tests/fixtures/cn-six-business'),process:fakeProcess,console});
  try{
+  (fakeProcess.env as any).NODE_OPTIONS='--max-old-space-size=4096';await assert.rejects((mod.exports as any).main());assert.equal(starts,0);assert.equal(existsSync(join(directory,'next-launch-intent.json')),false);
+  delete (fakeProcess.env as any).NODE_OPTIONS;
   await(mod.exports as any).main();await new Promise<void>(done=>actual.once('close',()=>done()));
   const start=JSON.parse(readFileSync(join(directory,'next-launch-started.json'),'utf8'));const end=JSON.parse(readFileSync(join(directory,'next-launch-exit.json'),'utf8'));
   assert.equal(start.kind,'cn-next-launch-v1');assert.equal(end.exitCode,7);assert.equal(fakeProcess.exitCode,7);assert.equal(end.output.stdoutBytes,11);assert.equal(end.output.stderrBytes,11);assert.match(forwarded,/fixture-out/);assert.match(forwarded,/fixture-err/);assert.equal(starts,1);
@@ -71,13 +73,13 @@ test('fixed observer preserves fork arguments and retains signal without exposin
  const source=resolve('tests/fixtures/cn-six-business/next-worker-observer.cjs'),real=createRequire(source);
  const cli=real.resolve('next/dist/bin/next',{paths:[resolve('apps/web')]}),worker=real.resolve('next/dist/server/lib/start-server',{paths:[resolve('apps/web')]});
  const listeners:Record<string,Function>={};let listenerAdds=0;const child={pid:process.pid,on:(event:string,fn:Function)=>{listenerAdds++;listeners[event]=fn;return child;}};let seen:any[]=[];
- const cp={fork:(...args:any[])=>{seen=args;return child;}};const options={env:{NODE_OPTIONS:'--max-old-space-size=3072',SECRET:'never-export'}};
+ const cp={fork:(...args:any[])=>{seen=args;return child;}};const options={env:{NODE_OPTIONS:'--max-old-space-size=2048',SECRET:'never-export'}};
  const req:any=(name:string)=>name==='node:child_process'?cp:real(name);req.resolve=real.resolve.bind(real);
  try{
   runInNewContext(readFileSync(source,'utf8'),{require:req,module:{exports:{}},__dirname:resolve('tests/fixtures/cn-six-business'),process:{argv:['node',cli],env:{CN_RELEASE_FULLSTACK_FIXTURE:'1',CN_SIX_REPORT_PATH:join(directory,'report.json')},getuid:process.getuid!.bind(process)}});
   assert.equal(cp.fork(worker,[],options),child);assert.equal(seen[2],options);listeners.spawn!();listeners.exit!(null,'SIGKILL');
   const raw=readFileSync(join(directory,'next-worker-1.json'),'utf8'),receipt=JSON.parse(raw);
-  assert.ok(receipt.elapsedMilliseconds>=0);assert.match(receipt.forkedAt,/^20[0-9]{2}-/);assert.match(receipt.exitedAt,/^20[0-9]{2}-/);assert.equal(receipt.signal,'SIGKILL');assert.equal(receipt.exitCode,null);assert.equal(receipt.heapMiB,3072);assert.equal(raw.includes('never-export'),false);assert.equal(raw.includes(worker),false);
+  assert.ok(receipt.elapsedMilliseconds>=0);assert.match(receipt.forkedAt,/^20[0-9]{2}-/);assert.match(receipt.exitedAt,/^20[0-9]{2}-/);assert.equal(receipt.signal,'SIGKILL');assert.equal(receipt.exitCode,null);assert.equal(receipt.heapMiB,2048);assert.equal(raw.includes('never-export'),false);assert.equal(raw.includes(worker),false);
   cp.fork('/unrelated-worker',[],options);assert.equal(seen[0],'/unrelated-worker');
   for(let i=0;i<3;i++)cp.fork(worker,[],options);const beforeFifth=listenerAdds;cp.fork(worker,[],options);assert.equal(listenerAdds,beforeFifth);
  }finally{rmSync(directory,{recursive:true,force:true});}
@@ -98,8 +100,8 @@ test('resource observation retains memory-enabled parent of a domain without con
 
 
 test('fixture heap budget is enforced by the actual Node runtime',()=>{
- const result=spawnSync(process.execPath,['-e',"console.log(require('node:v8').getHeapStatistics().heap_size_limit)"],{env:{...process.env,NODE_OPTIONS:'--max-old-space-size=3072'},encoding:'utf8',timeout:10000});
- assert.equal(result.status,0);const bytes=Number(result.stdout.trim());assert.ok(bytes>=3072*1024*1024&&bytes<3328*1024*1024);
+ const result=spawnSync(process.execPath,['-e',"console.log(require('node:v8').getHeapStatistics().heap_size_limit)"],{env:{...process.env,NODE_OPTIONS:'--max-old-space-size=2048'},encoding:'utf8',timeout:10000});
+ assert.equal(result.status,0);const bytes=Number(result.stdout.trim());assert.ok(bytes>=2048*1024*1024&&bytes<2304*1024*1024);
 });
 
 test('fixed numeric memory topic is ignored by the installed Next parent handshake',()=>{

@@ -38,9 +38,12 @@ async function main(){
  const directory=path.dirname(process.env.CN_SIX_REPORT_PATH);need(path.isAbsolute(directory)&&fs.realpathSync(directory)===directory);
  const st=fs.lstatSync(directory);need(st.isDirectory()&&!st.isSymbolicLink()&&st.uid===process.getuid()&&(st.mode&0o777)===0o700);
  const identity={kind:'cn-next-launch-v1',sourceSha256:crypto.createHash('sha256').update(fs.readFileSync(__filename)).digest('hex'),port:Number(args[0])};
+ // Fixture-only candidate: earlier GC may release the observed
+ // ArrayBuffers if they are short-lived; 2048 MiB can also expose a genuine JS heap exhaustion.
+ // The unchanged 6 GiB Unit and original business gates decide acceptance.
+ need(!process.env.NODE_OPTIONS);
  store(directory,'next-launch-intent.json',identity);
- // Next otherwise sizes its heap from host RAM, beyond this fixture's 6 GiB Unit.
- need(!process.env.NODE_OPTIONS);const childEnv={...process.env,NODE_OPTIONS:'--max-old-space-size=3072'};
+ const childEnv={...process.env,NODE_OPTIONS:'--max-old-space-size=2048'};
  const child=spawn(process.execPath,['--require',path.join(__dirname,'next-worker-observer.cjs'),cli,'dev','-p',args[0]],{cwd:web,env:childEnv,stdio:['ignore','pipe','pipe'],detached:false});
  const counts={stdout:0,stderr:0},hashes={stdout:crypto.createHash('sha256'),stderr:crypto.createHash('sha256')};
  for(const key of ['stdout','stderr']){child[key].on('data',data=>{counts[key]+=data.length;hashes[key].update(data);if(!process[key].write(data))child[key].pause();});process[key].on('drain',()=>child[key].resume());}
