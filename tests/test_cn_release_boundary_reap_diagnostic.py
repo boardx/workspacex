@@ -5,6 +5,10 @@ import importlib.util
 import json
 from pathlib import Path
 import unittest
+from unittest.mock import patch,Mock
+from types import SimpleNamespace
+import io
+import contextlib
 
 SOURCE = Path(__file__).with_name('cn_release_boundary_reap_linux.py')
 spec = importlib.util.spec_from_file_location('reap_diagnostic', SOURCE)
@@ -58,14 +62,51 @@ class ReapDiagnostic(unittest.TestCase):
     def test_counterexample_requires_real_child_handshake_and_retained_parent(self):
         tree = ast.parse(SOURCE.read_text())
         worker = next(n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == 'worker')
-        raw = next(n.value.value for n in ast.walk(worker) if isinstance(n, ast.Assign)
-                   and any(isinstance(t, ast.Name) and t.id == 'raw' for t in n.targets))
-        self.assertEqual(raw, b'sleep 30 &\nchild=$!\nprintf "%s\\n" "$child"\nwait "$child"\n')
+        raw = m.stopped_action()
+        self.assertIn(b'--stopped-child "$$" &\nwait "$!"\n',raw)
         self.assertNotIn(b'\\nwait', raw)
         text = SOURCE.read_text()
         self.assertIn("adopted == [expected_child]", text)
         self.assertIn("not entry.alive(group)", text)
         self.assertIn("not entry.alive(new_group)", text)
+
+    def test_foreign_parent_group_session_and_reused_ticks_are_rejected(self):
+        value=dict(pid=101,state='S',ppid=1,group=101,session=101,ticks=42)
+        m.validate_parent(value,101,102)
+        for patch in ({'pid':103},{'group':103},{'session':103},{'ticks':0}):
+            with self.assertRaisesRegex(RuntimeError,'STOP_PARENT_IDENTITY'):
+                m.validate_parent({**value,**patch},101,102)
+        with self.assertRaisesRegex(RuntimeError,'STOP_PARENT_IDENTITY'):m.validate_parent(value,101,101)
+        m.same_parent(value,{**value,'state':'T'})
+        with self.assertRaisesRegex(RuntimeError,'STOP_PARENT_CHANGED'):m.same_parent(value,{**value,'ticks':43})
+
+    def test_reused_parent_instance_never_receives_stop(self):
+        parent=dict(pid=101,state='S',ppid=100,group=101,session=101,ticks=42)
+        child=dict(pid=102,state='R',ppid=101,group=101,session=101,ticks=43)
+        with patch.object(m.os,'getpid',return_value=102),patch.object(m.os,'getppid',return_value=101),patch.object(m,'process_identity',side_effect=[parent,child,{**parent,'ticks':99}]),patch.object(m.os,'pidfd_open',return_value=55,create=True),patch.object(m.os,'close')as close,patch.object(m.signal,'pidfd_send_signal',create=True)as stop:
+            with self.assertRaisesRegex(RuntimeError,'STOP_PARENT_CHANGED'):m.stopped_child(101)
+            stop.assert_not_called();close.assert_called_once_with(55)
+
+    def test_main_runs_three_independent_workers_and_closes_domain_once(self):
+        domain=Mock();domain.close.return_value={'verified':True}
+        children=[SimpleNamespace(returncode=0,stdout=Mock(),stderr=Mock(),communicate=Mock(return_value=(b'{"verified":true}',b'')))for _ in range(3)]
+        domain.spawn.side_effect=children
+        def load(module):module.Domain=lambda:domain
+        spec=SimpleNamespace(loader=SimpleNamespace(exec_module=load))
+        with patch.object(m.sys,'platform','linux'),patch.object(m.os,'geteuid',return_value=0),patch.object(m.importlib.util,'spec_from_file_location',return_value=spec),patch.object(m.importlib.util,'module_from_spec',return_value=SimpleNamespace()),contextlib.redirect_stdout(io.StringIO())as out:
+            self.assertEqual(m.main(),0)
+        result=json.loads(out.getvalue());self.assertEqual(result['roundCount'],3);self.assertEqual(len(result['rounds']),3);self.assertTrue(all(r['verified']for r in result['rounds']))
+        self.assertEqual(domain.spawn.call_count,3);domain.close.assert_called_once_with(children[-1])
+        for child in children:child.communicate.assert_called_once_with(timeout=15)
+
+    def test_failed_second_worker_cannot_skip_to_green(self):
+        domain=Mock();domain.close.return_value={'verified':True}
+        children=[SimpleNamespace(returncode=0,stdout=Mock(),stderr=Mock(),communicate=Mock(return_value=(json.dumps({'verified':v}).encode(),b'')))for v in (True,False,True)]
+        domain.spawn.side_effect=children
+        spec=SimpleNamespace(loader=SimpleNamespace(exec_module=lambda module:setattr(module,'Domain',lambda:domain)))
+        with patch.object(m.sys,'platform','linux'),patch.object(m.os,'geteuid',return_value=0),patch.object(m.importlib.util,'spec_from_file_location',return_value=spec),patch.object(m.importlib.util,'module_from_spec',return_value=SimpleNamespace()):
+            with self.assertRaisesRegex(RuntimeError,'COUNTEREXAMPLE_UNVERIFIED'):m.main()
+        self.assertEqual(domain.spawn.call_count,2);domain.close.assert_called_once_with(children[1])
 
 
 if __name__ == '__main__':

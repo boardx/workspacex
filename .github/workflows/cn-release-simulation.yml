@@ -10,7 +10,7 @@ on:
       lane:
         description: Targeted repairs run in four independent VMs; all preserves full regression
         type: choice
-        options: ['all', 'targeted', 'linux-application-recovery-complete', 'linux-six-business']
+        options: ['all', 'targeted', 'linux-application-recovery-complete', 'linux-six-business', 'linux-boundary-reap']
         default: 'all'
       mode:
         description: Development retains known clean business failures; never final acceptance
@@ -106,7 +106,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        suite: ${{ fromJSON(inputs.lane == 'targeted' && '["release","linux-api-outer-recovery","linux-application-recovery-complete","linux-six-business"]' || inputs.lane == 'linux-application-recovery-complete' && '["linux-application-recovery-complete"]' || inputs.lane == 'linux-six-business' && '["linux-six-business"]' || '["all"]') }}
+        suite: ${{ fromJSON(inputs.lane == 'targeted' && '["release","linux-api-outer-recovery","linux-application-recovery-complete","linux-six-business"]' || inputs.lane == 'linux-application-recovery-complete' && '["linux-application-recovery-complete"]' || inputs.lane == 'linux-six-business' && '["linux-six-business"]' || inputs.lane == 'linux-boundary-reap' && '["linux-boundary-reap"]' || '["all"]') }}
     runs-on: ubuntu-24.04
     timeout-minutes: 300
     steps:
@@ -115,7 +115,7 @@ jobs:
           LANE: ${{ inputs.lane || 'all' }}
           ROUNDS: ${{ inputs.rounds || '1' }}
         run: |
-          case "$LANE" in all|targeted|linux-application-recovery-complete|linux-six-business) ;; *) echo CI_FIXED_LANE_REQUIRED >&2; exit 1 ;; esac
+          case "$LANE" in all|targeted|linux-application-recovery-complete|linux-six-business|linux-boundary-reap) ;; *) echo CI_FIXED_LANE_REQUIRED >&2; exit 1 ;; esac
           if [ "$LANE" != all ] && [ "$ROUNDS" = 10 ]; then
             echo 'CI_TEN_ALL_REQUIRED' >&2
             exit 1
