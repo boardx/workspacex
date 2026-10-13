@@ -684,14 +684,14 @@ export function CollaborativeThinkingEditor({ organizeFitRequest, dockExtension,
       if (event.button !== 0 || mutationBlocked || tool !== "select") return;
       const handle = (event.target as Element).closest<HTMLElement>("[data-testid^='connector-handle-']");
       const match = handle?.dataset.testid?.match(/^connector-handle-(.+)-(top|right|bottom|left)$/);
-      if (!match && creationTool?.kind === "connector" && (event.target as Element).closest("[data-testid='board-fabric-surface']")) { connectorGesture.beginFreeCreation(creationTool.connectorType, event); return; }
+      if (creationTool?.kind === "connector" && (creationTool.connectorType === "free" && match || !match && (event.target as Element).closest("[data-testid='board-fabric-surface']"))) { connectorGesture.beginFreeCreation(creationTool.connectorType, event); return; }
       if (!match) return;
       const source = model.objects.find(object => object.id === match[1]);
       if (!source || source.locked || source.hidden) return;
       const anchor = match[2] as ConnectorAnchor, point = rotatedAnchorPoint(source, anchor);
       connectorGesture.beginCreation({ from: source.id, toPoint: point, fromAnchor: anchor, toAnchor: "left", type: creationTool?.kind === "connector" ? creationTool.connectorType : "straight", startStyle: "none", endStyle: "arrow", lineStyle: "solid", label: "", semanticRelation: "" }, event);
     }}
-    onDoubleClickCapture={(event) => { if (creationTool?.kind === "connector" && creationTool.connectorType === "free" && (event.target as Element).closest("[data-testid=board-fabric-surface]")) { event.preventDefault(); event.stopPropagation(); connectorGesture.finishFree(); } }}
+    onDoubleClickCapture={(event) => { if (creationTool?.kind === "connector" && creationTool.connectorType === "free" && (event.target as Element).closest("[data-testid=board-fabric-surface],[data-testid^=connector-handle-]")) { event.preventDefault(); event.stopPropagation(); connectorGesture.finishFree(); } }}
     onPointerMove={connectorGesture.onPointerMove}
     onPointerUp={connectorGesture.onPointerUp}
     onPointerCancel={connectorGesture.active ? connectorGesture.onPointerCancel : undefined}
