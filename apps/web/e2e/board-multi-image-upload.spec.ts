@@ -1,3 +1,4 @@
+import {observeRuntimeChunks,runtimeSourceIdentity,verifyRuntimeIdentity} from './board-runtime-evidence';
 import {createHash,randomUUID} from 'node:crypto';
 import {test,expect} from '@playwright/test';
 import {boardImagePngFixture} from './support/board-image-fixture';
@@ -6,11 +7,13 @@ import {expectBoardSynced} from './support/board-sync-status';
 
 test('multiple image files preserve successful tiles and only retry a failed upload with exact bytes after refresh',async({page,request:api},info)=>{
  test.setTimeout(120_000);
+ const sha=runtimeSourceIdentity(),chunks=observeRuntimeChunks(page);
  let token='',boardId='',failure:unknown;
  try{
   token=await login(page);
   boardId=(await(await call(api,token,'POST','/whiteboards',{requestId:randomUUID(),name:`Multi image ${randomUUID()}`})).json()).id;
   await page.goto(`/studio/board/${boardId}`);await expectBoardSynced(page);
+  const runtimeBefore=await verifyRuntimeIdentity(api,sha,await chunks());
   const png=boardImagePngFixture(),digest=`sha256:${createHash('sha256').update(png).digest('hex')}`;
   let attempts=0;
   await page.route(`**/whiteboards/${boardId}/assets`,async route=>{
@@ -36,7 +39,8 @@ test('multiple image files preserve successful tiles and only retry a failed upl
    expect(response.status()).toBe(200);expect(await response.body()).toEqual(png);
   }
   await page.reload();await expectBoardSynced(page);expect(images(await canonical(api,token,boardId))).toEqual(complete);
-  await info.attach('multi-image-safe-receipt',{body:JSON.stringify({count:complete.length,uploadAttempts:attempts,contentDigest:digest,byteSize:png.length}),contentType:'application/json'});
+  const runtimeAfter=await verifyRuntimeIdentity(api,sha,await chunks());
+  await info.attach('multi-image-safe-receipt',{body:JSON.stringify({count:complete.length,uploadAttempts:attempts,contentDigest:digest,byteSize:png.length,runtimeBefore,runtimeAfter}),contentType:'application/json'});
  }catch(error){failure=error;throw error;}finally{
   if(boardId&&token)try{const board=await(await call(api,token,'GET',`/whiteboards/${boardId}`)).json();if(!board.archived)await call(api,token,'PATCH',`/whiteboards/${boardId}`,{archived:true,expectedLifecycleRevision:board.lifecycleRevision});}catch(error){if(!failure)throw error;await info.attach('multi-image-cleanup-failure',{body:'Owned board cleanup failed after primary failure',contentType:'text/plain'});}
  }
