@@ -128,10 +128,35 @@ test("interview workflow actions share footer placement and remain usable at 375
       if(width===375||width===1280)await page.screenshot({path:testInfo.outputPath(`itv-${step}-${width}.png`),fullPage:true});
     }
   }
+  // Throttle real transport (no route/response mocking) to observe a real PG save in flight.
+  await page.goto(`/itv/${interviewId}/outline`);
+  const save=page.getByRole('button',{name:'保存问题草稿',exact:true});
+  await expect(save).toBeEnabled();
+  await page.getByRole('textbox',{name:'编辑问题 1',exact:true}).first().fill('谁负责修改后的预算？');
+  const network=await page.context().newCDPSession(page);
+  await network.send('Network.enable');
+  try {
+    await network.send('Network.emulateNetworkConditions',{offline:false,latency:1500,downloadThroughput:-1,uploadThroughput:-1});
+    await save.click();
+    await expect(save).toHaveAttribute('aria-busy','true');
+    const footer=page.getByTestId('itv-step-actions');
+    await expect(footer.locator('[aria-busy="true"]')).toHaveCount(1);
+    await expect(footer.locator('.animate-spin')).toHaveCount(1);
+    for(const name of ['生成访谈问题','确认问题并开始访谈']) {
+      const other=footer.getByRole('button',{name,exact:true});
+      await expect(other).toBeDisabled();await expect(other).not.toHaveAttribute('aria-busy','true');
+    }
+    await page.screenshot({path:testInfo.outputPath('itv-outline-save-pending.png'),fullPage:true});
+    await expect(save).not.toHaveAttribute('aria-busy','true');
+    await expect(save).toBeEnabled();
+  } finally {
+    await network.send('Network.emulateNetworkConditions',{offline:false,latency:0,downloadThroughput:-1,uploadThroughput:-1});
+    await network.detach();
+  }
   await page.getByTestId('itv-workbench-step-intake').click();
   await expect(page).toHaveURL(new RegExp(`/itv/${interviewId}/intake$`));
   await page.getByTestId('itv-return-history').click();await expect(page).toHaveURL(/\/itv\?tab=history$/u);
-  const finalSource=interviewMarkdown.InterviewMarkdownEnvelope.parse(await(await page.request.get(path,{headers})).json());expect(finalSource.version).toBe(source.version);
+  const finalSource=interviewMarkdown.InterviewMarkdownEnvelope.parse(await(await page.request.get(path,{headers})).json());expect(finalSource.version).toBe(source.version+1);expect(finalSource.documents.find(doc=>doc.step==='outline')?.markdown).toContain('谁负责修改后的预算？');
   expect(forbidden).toEqual([]);
   await testInfo.attach('workflow-action-styles',{body:JSON.stringify(samples,null,2),contentType:'application/json'});
 });

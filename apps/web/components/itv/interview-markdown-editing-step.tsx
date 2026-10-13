@@ -7,8 +7,11 @@ import { initializeInterviewMarkdown, loadInterviewMarkdown, saveInterviewMarkdo
 import { getInterviewGenerationSession, subscribeInterviewGeneration, runInterviewGeneration, clearInterviewGenerationSession } from "@/lib/interview-generation-session";
 import { ApiError } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
+import { WorkflowActionButton } from "@/components/research-studio/research-workflow-actions";
 import { InterviewExpertsStep } from "./interview-experts-step";
-import { InterviewOutlineStep, normalizeOutlineForPersistence } from "./interview-outline-step";
+import { InterviewOutlineStep, normalizeOutlineForPersistence, type InterviewOutlineAction } from "./interview-outline-step";
+
+type InterviewEditingAction = InterviewOutlineAction | "retry" | "reload";
 
 export function generationUnavailableMessage(step: "experts" | "outline" | null) {
   return step === "experts"
@@ -28,6 +31,8 @@ export function InterviewMarkdownEditingStep({ interviewId, step, onVersionChang
   const [directoryStatus, setDirectoryStatus] = React.useState<"loading" | "ready" | "error">("loading");
   const [directoryEpoch, setDirectoryEpoch] = React.useState(0);
   const [pending, setPending] = React.useState(true);
+  const [operationState, setOperationState] = React.useState<{ kind: InterviewEditingAction; step: typeof step; interviewId: string } | null>(null);
+  const activeOperation = operationState?.step === step && operationState.interviewId === interviewId ? operationState.kind : null;
   const [generating, setGenerating] = React.useState(false);
   const [error, setError] = React.useState("");
   const [retryGenerationStep, setRetryGenerationStep] = React.useState<"experts" | "outline" | null>(null);
@@ -65,9 +70,10 @@ export function InterviewMarkdownEditingStep({ interviewId, step, onVersionChang
       .catch(() => { if (active) setDirectoryStatus("error"); });
     return () => { active = false; };
   }, [interviewId, step, directoryEpoch]);
-  async function action(operation: () => Promise<void>, generationStep: "experts" | "outline" | null = null) {
+  async function action(operation: () => Promise<void>, generationStep: "experts" | "outline" | null = null, operationKind: InterviewEditingAction = "reload") {
     if (pending) return;
-    setPending(true); setError("");
+    const active = { kind: operationKind, step, interviewId };
+    setPending(true); setOperationState(active); setError("");
     try { await operation(); setRetryGenerationStep(null); }
     catch (cause) {
       if (!(cause instanceof ApiError && cause.status === 409)) {
@@ -79,7 +85,7 @@ export function InterviewMarkdownEditingStep({ interviewId, step, onVersionChang
           ? generationUnavailableMessage(generationStep)
           : "操作未完成，当前编辑保留。请重试。");
       setRetryGenerationStep(cause instanceof ApiError && cause.reasonCode === "AI_GENERATION_UNAVAILABLE" ? generationStep : null);
-    } finally { setPending(false); }
+    } finally { setPending(false); setOperationState(current => current === active ? null : current); }
   }
   async function save(current: InterviewMarkdownEnvelope) {
     const doc = current.documents.find((item) => item.step === step);
@@ -145,7 +151,8 @@ export function InterviewMarkdownEditingStep({ interviewId, step, onVersionChang
       if (session.status === "failed") { setError(generationUnavailableMessage("outline")); setRetryGenerationStep("outline"); }
     }
   }, [session, step, source, receive, interviewId]);
-  const props = { document, pending: pending || immutable || sessionRunning, loading: pending || sessionRunning,
+  const loadingAction = activeOperation === "retry" || activeOperation === "reload" ? null : activeOperation ?? (sessionRunning ? "generate" : null);
+  const props = { document, pending: pending || immutable || sessionRunning, loading: activeOperation === "confirm",
     avatarContext: source?.revisionId ? { interviewId, revisionId: source.revisionId } : undefined,
     savedExpertIds: saved ? interviewMarkdown.projectInterviewMarkdownExperts(saved).map((expert) => expert.expertId) : [],
     onChange: (text: string) => { setMarkdown(text); dirty.current = true; callbacks.current.onDirtyChange(true); },
@@ -176,22 +183,22 @@ export function InterviewMarkdownEditingStep({ interviewId, step, onVersionChang
         throw cause;
       } finally { setPending(false); }
     },
-    onSave: () => void action(async () => { await save(source ?? await loadInterviewMarkdown(interviewId)); }),
-    onConfirm: () => void action(confirm, step === "experts" ? "outline" : null),
+    onSave: () => void action(async () => { await save(source ?? await loadInterviewMarkdown(interviewId)); }, null, "save"),
+    onConfirm: () => void action(confirm, step === "experts" ? "outline" : null, "confirm"),
     onGenerate: () => {
       if (immutable) { setError("已确认文档只读；需创建新修订后才能重新生成。"); return; }
       if (markdown.trim() && markdown !== saved?.markdown) { setError("请先保存或审阅当前编辑，再生成新建议。当前文字不会被丢弃。"); return; }
       setGenerating(true);
       void action(async () => {
         await generateStep(step);
-      }, step).finally(() => setGenerating(false));
+      }, step, "generate").finally(() => setGenerating(false));
     },
   };
-  return <div>{error && <div role="alert" className="mb-5 rounded-xl border border-destructive/20 bg-destructive/5 p-4 text-sm text-destructive"><p>{error}</p><div className="mt-3 flex flex-wrap gap-2"><Button variant="outline" disabled={pending} onClick={retryGenerationStep ? () => {
+  return <div>{error && <div role="alert" className="mb-5 rounded-xl border border-destructive/20 bg-destructive/5 p-4 text-sm text-destructive"><p>{error}</p><div className="mt-3 flex flex-wrap gap-2"><WorkflowActionButton variant="outline" loading={activeOperation === "retry" || activeOperation === "reload"} disabled={pending} onClick={retryGenerationStep ? () => {
     setGenerating(true);
     void action(async () => {
       await generateStep(retryGenerationStep);
       if (step === "experts" && retryGenerationStep === "outline") callbacks.current.onContinue("outline");
-    }, retryGenerationStep).finally(() => setGenerating(false));
-  } : () => void action(async () => { const next = receive(await loadInterviewMarkdown(interviewId)); if (!dirty.current) setMarkdown(next.documents.find((doc) => doc.step === step)?.markdown ?? ""); setDirectoryEpoch((value) => value + 1); })}>{retryGenerationStep === "outline" ? "重新生成问题" : retryGenerationStep === "experts" ? "重新生成专家" : "重新载入（保留编辑）"}</Button>{retryGenerationStep === "outline" && step === "outline" && <Button variant="ghost" disabled={pending} onClick={() => callbacks.current.onContinue("experts")}>返回专家选择</Button>}</div></div>}{step === "experts" ? <InterviewExpertsStep {...props} directory={directory} directoryStatus={directoryStatus} showRecoveryContext={savedStatus === "failed"} onRetryDirectory={() => setDirectoryEpoch((value) => value + 1)} /> : <InterviewOutlineStep {...props} generating={generating} directory={directory} expertsDocument={source?.documents.find((doc) => doc.step === "experts")} />}</div>;
+    }, retryGenerationStep, "retry").finally(() => setGenerating(false));
+  } : () => void action(async () => { const next = receive(await loadInterviewMarkdown(interviewId)); if (!dirty.current) setMarkdown(next.documents.find((doc) => doc.step === step)?.markdown ?? ""); setDirectoryEpoch((value) => value + 1); })}>{retryGenerationStep === "outline" ? "重新生成问题" : retryGenerationStep === "experts" ? "重新生成专家" : "重新载入（保留编辑）"}</WorkflowActionButton>{retryGenerationStep === "outline" && step === "outline" && <Button variant="ghost" disabled={pending} onClick={() => callbacks.current.onContinue("experts")}>返回专家选择</Button>}</div></div>}{step === "experts" ? <InterviewExpertsStep {...props} directory={directory} directoryStatus={directoryStatus} showRecoveryContext={savedStatus === "failed"} onRetryDirectory={() => setDirectoryEpoch((value) => value + 1)} /> : <InterviewOutlineStep {...props} loadingAction={loadingAction} generating={generating} directory={directory} expertsDocument={source?.documents.find((doc) => doc.step === "experts")} />}</div>;
 }

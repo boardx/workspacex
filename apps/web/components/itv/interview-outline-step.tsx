@@ -48,8 +48,10 @@ function expertRole(expertId: string, directory: readonly DigitalExpertCatalogRo
   return body.match(/(?:^|\n)(?:#{1,6}\s*)?(?:专业角色|职业)(?:[：:]\s*|\s*\r?\n+)([^\r\n#]+)/u)?.[1]?.trim() || "未设置职业";
 }
 
-export function InterviewOutlineStep({ document, directory = [], expertsDocument, avatarContext, pending, loading = false, generating = false, onChange, onSave, onConfirm, onGenerate }: {
-  document: InterviewMarkdownDocument; pending: boolean; loading?: boolean; generating?: boolean; onChange: (markdown: string) => void;
+export type InterviewOutlineAction = "save" | "generate" | "confirm";
+
+export function InterviewOutlineStep({ document, directory = [], expertsDocument, avatarContext, pending, loadingAction = null, generating = false, onChange, onSave, onConfirm, onGenerate }: {
+  document: InterviewMarkdownDocument; pending: boolean; loadingAction?: InterviewOutlineAction | null; generating?: boolean; onChange: (markdown: string) => void;
   onSave: () => void; onConfirm: () => void; onGenerate: () => void;
   directory?: readonly DigitalExpertCatalogRow[]; expertsDocument?: InterviewMarkdownDocument;
   avatarContext?: { interviewId: string; revisionId: string };
@@ -96,6 +98,6 @@ export function InterviewOutlineStep({ document, directory = [], expertsDocument
         </article>;
       }) : <div className="rounded-xl border border-border p-5"><p className="py-12 text-center text-sm text-muted-foreground">尚无专家问题，请先生成访谈问题。</p></div>}</section>
     </div>
-    <InterviewStepActions><ActionButton variant="outline" loading={loading} icon={<RotateCcw className="size-4" aria-hidden />} disabled={pending} onClick={onGenerate}>{generating ? `${generationLabel}…` : "生成访谈问题"}</ActionButton><ActionButton variant="outline" disabled={pending || !document.markdown.trim()} onClick={onSave}>保存问题草稿</ActionButton><ActionButton variant="primary" loading={loading} icon={<ArrowRight className="size-4" aria-hidden />} disabled={pending || !groups.length} onClick={onConfirm}>确认问题并开始访谈</ActionButton></InterviewStepActions>
+    <InterviewStepActions><ActionButton variant="outline" loading={loadingAction === "generate"} icon={<RotateCcw className="size-4" aria-hidden />} disabled={pending} onClick={onGenerate}>{generating ? `${generationLabel}…` : "生成访谈问题"}</ActionButton><ActionButton variant="outline" loading={loadingAction === "save"} disabled={pending || !document.markdown.trim()} onClick={onSave}>保存问题草稿</ActionButton><ActionButton variant="primary" loading={loadingAction === "confirm"} icon={<ArrowRight className="size-4" aria-hidden />} disabled={pending || !groups.length} onClick={onConfirm}>确认问题并开始访谈</ActionButton></InterviewStepActions>
   </div>;
 }
