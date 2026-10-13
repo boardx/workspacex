@@ -21,11 +21,14 @@ class PreloadContract(unittest.TestCase):
     def test_catalog_comparison_rejects_large_drift_without_diff_or_rows(self):
         node=shutil.which('node');self.assertTrue(node)
         code="""import assert from 'node:assert/strict';
-import {assertCatalogEqual} from './tests/fixtures/cn-application-recovery-complete/catalog-assert.ts';
+import {assertCatalogEqual,constraintDifferences} from './tests/fixtures/cn-application-recovery-complete/catalog-assert.ts';
 import {diagnostic,mark} from './tests/fixtures/cn-application-recovery-complete/diagnostic.ts';
 const original={functions:Array.from({length:20000},(_,i)=>({name:'secret_'+i,definition:'PRIVATE SQL '.repeat(20)})),roles:[{name:'owner'}]};
 assertCatalogEqual(structuredClone(original),original);
 mark('compatibility');assert.equal(diagnostic(new Error('private')).catalogCategory,null);
+const constraint={schema:'private',relation:'private',name:'private',kind:'c',deferrable:false,deferred:false,validated:false,definition:'PRIVATE CHECK SQL NOT VALID'};
+const delta=constraintDifferences([{...constraint,validated:true,definition:'PRIVATE CHECK SQL'}],[constraint]);
+assert.equal(delta.differingCount,1);assert.deepEqual(delta.changes[0].fields,['validated','definition']);assert(!JSON.stringify(delta).includes('PRIVATE'));assert.equal(delta.changes[0].expected.notValid,true);
 for(const value of [{...original,functions:[...original.functions,{name:'PRIVATE'}]}, {...original,roles:[{name:'other'}]}, {...original,extra:[]}]){
  try{assertCatalogEqual(value,original);assert.fail('accepted drift');}catch(e){assert.match(e.message,/^RESTORE_CATALOG_(?:SCOPE_)?MISMATCH$/);assert(e.message.length<80);}
 }
