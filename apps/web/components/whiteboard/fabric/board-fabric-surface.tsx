@@ -1,5 +1,6 @@
 "use client";
 
+import { createBoardEdgePan } from "./board-edge-pan";
 import { boardObjectControlsVisible } from "../screen-control-visibility";
 import { databaseShapePath } from "./database-shape-path";
 import {beginBoardPinch,updateBoardPinch,type BoardPinchSession} from "./board-pinch-viewport";
@@ -884,6 +885,25 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
     let last: FabricInput | null = null;
     let activeInput: string | null = null;
     let panStart: typeof canvas.viewportTransform | null = null;
+    let edgeEvent: TPointerEventInfo["e"] | null = null;
+    const edgePan = createBoardEdgePan({
+      request: callback => requestAnimationFrame(callback), cancel: id => cancelAnimationFrame(id),
+      bounds: () => canvas.upperCanvasEl.getBoundingClientRect(),
+      active: () => Boolean(activeInput && edgeEvent && !stateRef.current.readOnly && stateRef.current.tool === "select" && !stateRef.current.creationMode && canvas._currentTransform?.action === "drag" && !canvas._currentTransform.target.lockMovementX && !canvas._currentTransform.target.lockMovementY),
+      pan: delta => {
+        const transform = canvas._currentTransform, input = edgeEvent && readFabricInput(edgeEvent, activeInput);
+        if (!transform || !input || !edgeEvent) return;
+        const viewport = [...canvas.viewportTransform]; viewport[4]! += delta.x; viewport[5]! += delta.y;
+        canvas.setViewportTransform(viewport as typeof canvas.viewportTransform);
+        const bounds = canvas.upperCanvasEl.getBoundingClientRect();
+        const cssPointer = new Point((input.x-bounds.left)*canvas.getWidth()/bounds.width,(input.y-bounds.top)*canvas.getHeight()/bounds.height);
+        const scenePointer = util.transformPoint(cssPointer, util.invertTransform(canvas.viewportTransform));
+        const localPointer = transform.target.group ? util.sendPointToPlane(scenePointer, undefined, transform.target.group.calcTransformMatrix()) : scenePointer;
+        canvas._performTransformAction(edgeEvent, transform, localPointer);
+        canvas.requestRenderAll();
+        callbacksRef.current.onViewportChange({ ...stateRef.current.viewport, zoom: canvas.getZoom(), panX: viewport[4]!, panY: viewport[5]! }, "pan");
+      },
+    });
     let penSample: FabricInput | null = null;
     let drawing: { tool: DrawingTool; appearance: BoardDrawingToolStyle; points: Array<{ x: number; y: number; pressure: number }> } | null = null;
     let drawingPreview: TaggedFabricObject[] = [];
@@ -956,6 +976,7 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
     };
     const pressureOf = (input: FabricInput) => input.id === "mouse" && penSample && penSample.x === input.x && penSample.y === input.y ? penSample.pressure : input.pressure;
     const cancelInput = (restorePan = true) => {
+      edgePan.stop(); edgeEvent = null;
       setSnapPreview(null);
       if (restorePan && panning && panStart) {
         canvas.setViewportTransform(panStart);
@@ -1105,6 +1126,7 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
         return;
       }
       activeInput = input.id;
+      edgeEvent = event.e; edgePan.update(input);
       const ids = selectedObjectIdsRef.current.filter((id) => { const canonical = canonicalRef.current.get(id); return canonical && !canonical.locked && canonical.kind !== "placeholder"; });
       duplicateGesture = (event.e as MouseEvent).altKey && ids.length ? { ids, start: { x: point.x, y: point.y }, current: { x: point.x, y: point.y }, handled: false } : null;
       if ((stateRef.current.tool.startsWith("draw-") || stateRef.current.tool === "erase") && !stateRef.current.readOnly) {
@@ -1137,6 +1159,7 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
       if (!activeInput) return;
       const input = readFabricInput(event.e, activeInput);
       if (!input) return;
+      edgeEvent = event.e; edgePan.update(input);
       const scene = canvas.getScenePoint(event.e);
       if (![scene.x, scene.y].every(Number.isFinite)) return;
       if (duplicateGesture && !duplicateGesture.handled) { const point = canvas.getScenePoint(event.e); duplicateGesture.current = { x: point.x, y: point.y }; }
@@ -1167,6 +1190,7 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
       callbacksRef.current.onViewportChange({ ...stateRef.current.viewport, zoom: canvas.getZoom(), panX: transform[4]!, panY: transform[5]! }, "pan");
     };
     const pointerUp = (event: TPointerEventInfo) => {
+      edgePan.stop(); edgeEvent = null;
       if (!activeInput || !readFabricInput(event.e, activeInput)) return;
       if (event.e.type === "touchcancel" || event.e.type === "pointercancel") { cancelInput(); return; }
       const scene = canvas.getScenePoint(event.e);
@@ -1242,6 +1266,7 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
     canvas.on("mouse:out", () => callbacksRef.current.onObjectHoverChange?.(null));
     return () => {
       disposed = true;
+      edgePan.dispose(); edgeEvent = null;
       for (const type of ["mousedown", "mousemove", "mouseup"] as const) inputDocument.removeEventListener(type, auxiliaryMouse, true);
       inputDocument.removeEventListener("contextmenu", preventAuxiliaryMenu);
       inputDocument.removeEventListener("keydown", cancelAuxiliaryKey, true);
