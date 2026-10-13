@@ -80,3 +80,16 @@ test('fixed observer preserves fork arguments and retains signal without exposin
   cp.fork('/unrelated-worker',[],options);assert.equal(seen[0],'/unrelated-worker');
  }finally{rmSync(directory,{recursive:true,force:true});}
 });
+
+test('resource observation retains memory-enabled parent of a domain without controllers',()=>{
+ const source=resolve('tests/fixtures/cn-six-business/next-server-launch.cjs'),real=createRequire(source),mod={exports:{}};
+ const base=real('node:fs');const fakeFs={...base,lstatSync:()=>({ino:1,dev:2,isDirectory:()=>true,isSymbolicLink:()=>false}),readFileSync:(p:string,...rest:any[])=>{
+  if(p==='/proc/self/cgroup')return '0::/system.slice/unit/domain\n';
+  if(p.startsWith('/sys/fs/cgroup/')){if(p.includes('/domain/'))throw Object.assign(Error('missing'),{code:'ENOENT'});return p.endsWith('memory.events')?'oom 0\noom_kill 0\n':'6442450944\n';}
+  return base.readFileSync(p,...rest);
+ }};
+ const req:any=(name:string)=>name==='node:fs'?fakeFs:real(name);req.resolve=real.resolve.bind(real);req.main={};
+ runInNewContext(readFileSync(source,'utf8'),{require:req,module:mod,__filename:source,__dirname:resolve('tests/fixtures/cn-six-business'),process:{platform:'linux'}});
+ const result=(mod.exports as any).resources();assert.equal(result.available,true);assert.equal(result.observations[0].controllerFilesUnavailable,true);assert.equal(result.observations[1]['memory.max'],'6442450944');
+ fakeFs.readFileSync=()=>{throw Object.assign(Error('denied'),{code:'EACCES'});};assert.equal((mod.exports as any).resources().available,false);
+});
