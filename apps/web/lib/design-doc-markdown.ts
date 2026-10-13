@@ -85,7 +85,7 @@ export function describeNode(n: PrototypeNode): string {
     case "table": return `表格（${n.props.columns.join(" / ")}）：${n.props.rows.length} 行${n.props.rows[0] !== undefined ? `，首行「${n.props.rows[0].join(" / ")}」` : ""}`;
     case "chart": return `${n.props.kind === "line" ? "折线图" : "柱状图"}${n.props.title !== undefined ? `「${n.props.title}」` : ""}：${n.props.labels.slice(0, n.props.values.length).map((l, i) => `${l} ${String(n.props.values[i])}${n.props.unit ?? ""}`).join("，")}`;
     // design-delta `prototype-board`：把画布上写了什么、谁连着谁说全——工程据此判断要做的是白板 / 流程图。
-    case "html": return `整页版面（自由排版）：${designHtmlPage.htmlPageVisibleText(n.props.html).slice(0, 160)}`;
+    case "html": return `整页版面（自由排版）：${designHtmlPage.htmlPageVisibleText(n.props.html)}`;
     case "board": {
       const items = n.props.items.map((it) => `${it.kind === "sticky" ? "便签" : it.kind === "shape" ? "形状" : "文字"}「${it.text}」${it.author !== undefined ? `（${it.author}）` : ""}`);
       const links = (n.props.links ?? []).filter((l) => l.from < n.props.items.length && l.to < n.props.items.length)
@@ -119,6 +119,8 @@ export function buildDesignDocMarkdown(project: DesignProject, now: Date = new D
    */
   lines.push(`- 模板：${TEMPLATE_LABEL[project.template]}${project.template === "wireframe" ? "（低保真线框图：不靠颜色传达信息）" : ""}`);
   lines.push(`- 视觉：${project.theme === "light" ? "浅色" : "深色"} · 强调色 ${ACCENT_LABEL[project.accent] ?? project.accent}`);
+  lines.push(`- 设计参数：${JSON.stringify(project.tokens)}`);
+  lines.push(`- 设计更新时间：${project.updatedAt}`);
   lines.push(`- 负责人：${project.ownerName ?? "（未知）"}`);
   if (project.linkedFeedbackId !== null) lines.push(`- 来源反馈：${project.linkedFeedbackId}`);
   if (project.githubIssueUrl !== null) lines.push(`- 开发 issue：${project.githubIssueUrl}`);
@@ -128,9 +130,14 @@ export function buildDesignDocMarkdown(project: DesignProject, now: Date = new D
    */
   lines.push(`- 导出时间：${localTimeStamp(now)}`, "");
   lines.push("## 问题与目标", "", project.problem.trim() === "" ? "（还没写）" : project.problem, "");
+  if (project.pushNote?.trim()) lines.push("## 开发交付备注", "", project.pushNote, "");
   lines.push("## 验收标准", "");
   if (project.criteria.length === 0) lines.push("（还没有）");
   for (const [i, c] of project.criteria.entries()) lines.push(`${i + 1}. ${c}`);
+  if (project.refImages.length > 0) {
+    lines.push("", "## 参考图片", "");
+    for (const image of project.refImages) lines.push(`- ${image.name}（${image.id}）`);
+  }
   lines.push("", "## 原型", "");
   if (project.prototype.length === 0) {
     lines.push(`还没有生成原型。页面划分：${project.frames.join("、") || "（无）"}`);

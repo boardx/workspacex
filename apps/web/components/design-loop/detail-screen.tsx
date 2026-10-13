@@ -22,6 +22,7 @@ import { PrototypeBoard } from "./prototype-board";
 import { PrototypeExportMenu } from "./prototype-export";
 import { ShareDialog } from "./share-dialog";
 import { CanvasAppearance } from "./canvas-appearance";
+import { CanvasDeviceSelector } from "./canvas-device-selector";
 import {
   appendProjectChat as apiAppendProjectChat,
   uploadRefImage,
@@ -1098,6 +1099,10 @@ export function DesignDetailScreen({
                 onOpenExport={() => setExportOpen(true)}
                 onPush={() => setConfirming(true)}
                 onImportThread={() => setImporting(true)}
+                deviceControls={
+                  <CanvasDeviceSelector devices={DEVICE_PRESETS} deviceId={lens.id} onDevice={setDeviceId}
+                    landscape={landscape} onLandscape={() => setLandscape((value) => !value)} rotatable={lens.rotatable} />
+                }
                 appearance={
                   <CanvasAppearance
                     open={appearanceOpen}
@@ -1118,12 +1123,6 @@ export function DesignDetailScreen({
                     onRadius={(radius) => void changeTokens({ radius })}
                     density={project.tokens.density}
                     onDensity={(density) => void changeTokens({ density })}
-                    devices={DEVICE_PRESETS}
-                    deviceId={lens.id}
-                    onDevice={setDeviceId}
-                    landscape={landscape}
-                    onLandscape={() => setLandscape((v) => !v)}
-                    rotatable={lens.rotatable}
                   />
                 }
               />

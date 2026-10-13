@@ -84,6 +84,7 @@ export function projectDesignProject(row: DesignProjectRow, ownerName: string | 
     refImages: [...(row.refImages ?? [])],
     pushed: row.pushed,
     pushedAt: row.pushedAt,
+    pushNote: row.pushNote,
     linkedFeedbackId: row.linkedFeedbackId,
     githubIssueUrl: row.githubIssueUrl,
     githubIssueNumber: row.githubIssueNumber,
