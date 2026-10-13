@@ -41,7 +41,7 @@ export const ReportFileJob = z.discriminatedUnion('status', [
     ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'File representation must match the executed product Skill' });
   }
 });
-export const ReportFileSourceInfo = ReportFileSource.extend({ title: z.string().min(1).max(300), notices: z.array(z.string().max(4000)).max(30) }).strict();
+export const ReportFileSourceInfo = ReportFileSource.extend({ title: z.string().min(1).max(300), notices: z.array(z.string().max(4000)).max(256) }).strict();
 export const operations = {
   source: { method: 'GET', path: '/report-files/sources/:kind/:id' },
   generate: { method: 'POST', path: '/report-files' },
