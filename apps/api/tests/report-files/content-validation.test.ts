@@ -67,3 +67,12 @@ it('rejects real PPTX zero-height text boxes that render over the title', async 
     else expect(() => validatePptxBounds(bytes)).not.toThrow();
   }
 });
+
+it('requires saved source URLs in PPT summaries including actual hyperlink relationships', () => {
+  const url = 'https://example.com/procurement-proof';
+  const linked = { ...source, markdown: `${source.markdown}\n\n来源链接：${url}` };
+  const summary = `中文报告 用户需要可下载和编辑的真实报告文件。 ${source.notices.join(' ')}`;
+  expect(() => validateReportContent('pptx', summary, linked)).toThrow();
+  expect(() => validateReportContent('pptx', `${summary} ${url}`, linked)).not.toThrow();
+  expect(() => validateReportContent('pptx', summary, linked, [url])).not.toThrow();
+});

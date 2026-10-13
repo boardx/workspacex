@@ -202,5 +202,6 @@ for (const format of formats) for (const kind of ['interview', 'research'] as co
   await writeFile(join(evidence, `${kind}-${format}${REPORT_FILE_FORMATS[format].extension}`), bytes, { mode: 0o600 });
   const starts = await asApp(org, c => c.query<{ count: string }>('SELECT count(*) FROM model_request_starts WHERE org_id=$1 AND run_id=$2', [org, runId]));
   expect(Number(starts.rows[0]!.count)).toBeGreaterThan(0);
+  expect(Number(starts.rows[0]!.count), 'final ledger must remain within the configured evidence budget').toBeLessThanOrEqual(requestBudget);
   receipts.push({ sourceHead: execFileSync('git', ['rev-parse', 'HEAD'], { cwd: repoRoot, encoding: 'utf8' }).trim(), kind, format, requestBudget, source, job, attachmentId: output[0]!.id, actualModelRequests: Number(starts.rows[0]!.count) });
 }, 600000);

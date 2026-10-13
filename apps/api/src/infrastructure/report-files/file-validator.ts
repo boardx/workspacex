@@ -58,10 +58,10 @@ export function validateReportContent(format: FileRequest['format'], extracted: 
     if (!source.markdown.includes(match[0])) throw new ReportFileError('INVALID_FILE');
   }
   if (!text.includes(source.reportHash) || source.notices.some(note => !text.includes(normalizeReportText(note)))) throw new ReportFileError('INVALID_FILE');
+  const required = reportFileContentRequirements(completeInput);
+  const urls = normalizeReportText(extracted + relationUrls.join(' '));
+  if (required.urls.some(url => !urls.includes(normalizeReportText(url)))) throw new ReportFileError('INVALID_FILE');
   if (format !== 'pptx') {
-    const required = reportFileContentRequirements(completeInput);
-    const urls = normalizeReportText(extracted + relationUrls.join(' '));
-    if (required.urls.some(url => !urls.includes(normalizeReportText(url)))) throw new ReportFileError('INVALID_FILE');
     const title = normalizeReportText(required.title ?? source.title);
     if (title && (!text.includes(title) || text.split(title).length - 1 > Math.max(1, canonical.split(title).length - 1))) throw new ReportFileError('INVALID_FILE');
     for (const paragraph of required.paragraphs.map(normalizeReportText).filter(value => value.length >= 12)) {
