@@ -303,6 +303,8 @@ export default defineConfig({
       name: "seeded",
       testMatch: [
         "fullstack-smoke.spec.ts",
+        // Anonymous sharing layout/error regressions; real persistence uses its isolated API lane.
+        "chat-public-share.spec.ts",
         "guided-research-runtime.spec.ts",
         // Trust-console preview is deterministic, but keeping it in a CI-reachable project
         // prevents the browser acceptance contract from silently becoming local-only.
