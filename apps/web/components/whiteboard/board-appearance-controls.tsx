@@ -1,7 +1,7 @@
 "use client";
 
 import type { CSSProperties } from "react";
-import { Check, MessageCircle } from "lucide-react";
+import { Check, MessageCircle, Palette } from "lucide-react";
 import { BOARD_INK_COLORS } from "./board-color-palette";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -12,7 +12,11 @@ export const BOARD_APPEARANCE_COLORS = BOARD_INK_COLORS;
 export function BoardColorSwatches({ label, value, disabled, onChange, testId, colors = BOARD_APPEARANCE_COLORS }: { label: string; value: string; disabled?: boolean; onChange: (value: string) => void; testId?: string; colors?: readonly string[] }) {
   return <div role="group" aria-label={label} data-testid={testId} className="flex flex-wrap gap-1">
     {colors.map((color) => <Button key={color} type="button" size="icon" variant="ghost" disabled={disabled} title={`${label} ${color}`} aria-label={`${label} ${color}`} aria-pressed={value.toUpperCase() === color.toUpperCase()} onClick={() => onChange(color)} className="h-9 w-9 rounded-lg"><span className={cn("relative grid h-6 w-6 place-items-center rounded-full border border-border shadow-sm", value.toUpperCase() === color.toUpperCase() && "ring-2 ring-offset-2 ring-offset-card")} style={{ backgroundColor: color }}>{value.toUpperCase() === color.toUpperCase() ? <Check className="h-3 w-3" style={{ color: color === BOARD_APPEARANCE_COLORS[0] ? "hsl(var(--primary-foreground))" : undefined }} /> : null}</span></Button>)}
-    <label className="grid h-9 w-9 cursor-pointer place-items-center rounded-lg border border-border transition-colors hover:bg-accent" title={`${label}自定义`}><span className="sr-only">{label}自定义</span><input type="color" aria-label={`${label}自定义`} disabled={disabled} value={value} onChange={(event) => onChange(event.target.value.toUpperCase())} className="h-6 w-6 cursor-pointer overflow-hidden rounded-full border-0 bg-transparent p-0" /></label>
+    <label className={cn("relative grid h-9 w-9 place-items-center rounded-lg border border-border transition-colors focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2 focus-within:ring-offset-card", disabled ? "cursor-not-allowed opacity-50" : "cursor-pointer hover:bg-accent")} title={`${label}自定义`}>
+      <span className="sr-only">{label}自定义</span>
+      <span aria-hidden="true" className="grid h-6 w-6 place-items-center rounded-full border border-border bg-muted text-muted-foreground"><Palette className="h-4 w-4" /></span>
+      <input type="color" aria-label={`${label}自定义`} disabled={disabled} value={value} onChange={(event) => onChange(event.target.value.toUpperCase())} className="absolute inset-0 h-full w-full cursor-pointer opacity-0 disabled:cursor-not-allowed" />
+    </label>
   </div>;
 }
 
