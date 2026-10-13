@@ -78,7 +78,7 @@ def validate_show(v,unit,argv,seconds,invocation=None):
     need(v.get('ExecStart','').startswith(prefix),'SIMULATION_EXECSTART')
     return int(v['MainPID'])
 
-WORKER_SUITES=frozenset(('all','release','linux-api-outer-recovery','linux-application-recovery-complete','linux-six-business'))
+WORKER_SUITES=frozenset(('all','release','linux-api-outer-recovery','linux-application-recovery-complete','linux-six-business','linux-boundary-reap'))
 
 def validate_worker(command_,checkout):
     need(len(command_) in (14,16,18) and command_[:4]==[str(Path(sys.executable).absolute()),'-I','-B',str(checkout/'scripts/cn-release-simulation.py')],'SIMULATION_FIXED_WORKER')

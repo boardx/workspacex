@@ -101,7 +101,7 @@ def run_owned_simulation(command,checkout,env,registries,sha,run_id,receipt_root
     return code
 
 
-SUITES=('all','release','linux-api-outer-recovery','linux-application-recovery-complete','linux-six-business')
+SUITES=('all','release','linux-api-outer-recovery','linux-application-recovery-complete','linux-six-business','linux-boundary-reap')
 
 def execute(sha,rounds,seed,suite='all',workers=3,mode='acceptance'):
     if not re.fullmatch('[a-f0-9]{40}',sha):raise ValueError('CI_EXACT_SHA_REQUIRED')

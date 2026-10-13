@@ -29,6 +29,7 @@ class SimulationUnit(unittest.TestCase):
    bad=list(cmd);bad[index]=value
    with self.assertRaises(RuntimeError):m.validate_worker(bad,ROOT)
  def test_exact_suite_and_workers_enum_ten_requires_all(self):
+  self.assertIn('linux-boundary-reap',m.WORKER_SUITES)
   base=[str(Path(sys.executable).absolute()),'-I','-B',str(ROOT/'scripts/cn-release-simulation.py'),'--output',str(Path('/tmp/fresh-report').resolve()),'--workers','3','--timeout-seconds','300','--rounds','1','--seed','0']
   for suite in m.WORKER_SUITES:
    for workers in ('1','3'):
