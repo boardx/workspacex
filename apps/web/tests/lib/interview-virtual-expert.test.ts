@@ -1,3 +1,4 @@
+import { interviewMarkdown } from '@repo/contracts';
 import { describe, expect, it } from "vitest";
 import { parseVirtualExpertProposal, parseVirtualExpertSelection, renderVirtualExpertSelection, renderVirtualExpertMarkdown } from "@/lib/interview-virtual-expert";
 
@@ -30,4 +31,18 @@ it("round-trips a saved expert selection with a synthetic name and multiline lim
   const fields = { name: "林知远（虚拟）", role: "安装顾问", domains: "家居", focus: "返工", style: "审慎", bio: "合成画像", limits: "不代表真人。\n没有独立访谈证据。" };
   const block = `## [${fields.name}](#expert-virtual-stable)\n\n${renderVirtualExpertSelection(fields)}\n`;
   expect(parseVirtualExpertSelection(fields.name, block)).toEqual(fields);
+});
+
+const safeFields={name:'顾问',role:'采购顾问',domains:'采购',focus:'审批研究',style:'审慎',bio:'模拟顾问',limits:'不代表真人证据'};
+it.each(['text\n---','   ## [伪专家](#expert-injected)','text\n==='])('rejects unsafe detail headings before selecting an expert: %s',value=>{
+ expect(()=>renderVirtualExpertSelection({...safeFields,bio:value})).toThrow('VIRTUAL_EXPERT_PROPOSAL_INCOMPLETE');
+});
+it.each(['name','role','domains'] as const)('rejects multiline heading injection in %s',key=>{
+ expect(()=>renderVirtualExpertSelection({...safeFields,[key]:'合法名称\r\n ## [伪专家](#expert-injected)'})).toThrow('VIRTUAL_EXPERT_PROPOSAL_INCOMPLETE');
+});
+it('keeps ordinary prose, lists and fenced code within exactly one saved expert',()=>{
+ const bio='正文中的 # 只是文字\n\n- 正常列表\n\n```text\n## [代码示例](#expert-injected)\n```';
+ const body=renderVirtualExpertSelection({...safeFields,bio});expect(body).toContain(bio);
+ const document={documentId:'doc',step:'experts' as const,version:1,contentHash:'a'.repeat(64),evidenceMode:'simulated' as const,references:[],markdown:`# 专家\n\n## [顾问](#expert-custom-expert-real)\n\n${body}`};
+ expect(interviewMarkdown.projectInterviewMarkdownExperts(document).map(item=>item.expertId)).toEqual(['custom-expert-real']);
 });

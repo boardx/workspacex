@@ -9,6 +9,7 @@ import { EXPERT_SPECIALTY_ICON_CATEGORIES } from "@/components/itv/expert-specia
 import { INTERVIEW_PERSONA_CATEGORIES, INTERVIEW_PERSONAS } from "@/lib/interview-personas/persona-library";
 import { MOCK_DIGITAL_EXPERTS, toDigitalExpertCatalogRow } from "@/lib/mock/digital-expert-personas";
 import { interviewMarkdown } from "@repo/contracts";
+vi.mock("@/lib/interview-expert-library-api",()=>({loadCustomInterviewExperts:async()=>({items:[]}),createCustomInterviewExpert:vi.fn()}));
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); vi.unstubAllEnvs(); });
 const source = { documentId: "edit-doc", step: "experts" as const, version: 1, contentHash: "a".repeat(64), evidenceMode: "simulated" as const, references: [], markdown: "# 专家\n" };
 it("matches unavailable recovery copy to the failed generation step", () => {

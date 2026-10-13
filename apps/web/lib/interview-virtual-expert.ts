@@ -1,12 +1,5 @@
-export type VirtualExpertFields = Readonly<{
-  name: string;
-  role: string;
-  domains: string;
-  focus: string;
-  style: string;
-  bio: string;
-  limits: string;
-}>;
+import { InterviewExpertFields } from '@repo/contracts/interview-expert-library';
+export type VirtualExpertFields = Readonly<InterviewExpertFields>;
 
 const sections = [
   ["专业角色", "role"], ["专业领域", "domains"], ["研究关注", "focus"],
@@ -31,26 +24,27 @@ export function parseVirtualExpertProposal(markdown: string): VirtualExpertField
     throw new Error("VIRTUAL_EXPERT_PROPOSAL_INCOMPLETE");
   }
   const values = matches.map((match, index) => normalized.slice((match.index ?? 0) + match[0].length, matches[index + 1]?.index ?? normalized.length).trim());
-  if (!name || values.some((value) => !value || /^#{1,6}\s/gmu.test(value))) throw new Error("VIRTUAL_EXPERT_PROPOSAL_INCOMPLETE");
-  return { name, role: values[0]!, domains: values[1]!, focus: values[2]!, style: values[3]!, bio: values[4]!, limits: values[5]! };
+  const parsed = InterviewExpertFields.safeParse({ name, role: values[0], domains: values[1], focus: values[2], style: values[3], bio: values[4], limits: values[5] });
+  if (!parsed.success) throw new Error("VIRTUAL_EXPERT_PROPOSAL_INCOMPLETE");
+  return parsed.data;
 }
 
+function validatedFields(fields: VirtualExpertFields): InterviewExpertFields {
+  const parsed = InterviewExpertFields.safeParse(fields);
+  if (!parsed.success) throw new Error("VIRTUAL_EXPERT_PROPOSAL_INCOMPLETE");
+  return parsed.data;
+}
+function renderSections(fields: InterviewExpertFields, depth: 2 | 3): string {
+  return sections.map(([heading, field]) => `${"#".repeat(depth)} ${heading}\n${fields[field]}`).join("\n\n");
+}
 export function renderVirtualExpertMarkdown(fields: VirtualExpertFields): string {
-  const name = fields.name.trim();
-  if (!name || name.includes("\n") || /^#{1,6}\s/gmu.test(name)) throw new Error("VIRTUAL_EXPERT_PROPOSAL_INCOMPLETE");
-  const body = sections.map(([heading, field]) => {
-    const value = fields[field].trim();
-    if (!value || /^#{1,6}\s/gmu.test(value)) throw new Error("VIRTUAL_EXPERT_PROPOSAL_INCOMPLETE");
-    return `## ${heading}\n${value}`;
-  }).join("\n\n");
-  return `# ${name}\n\n${body}`;
+  const value = validatedFields(fields);
+  return `# ${value.name}\n\n${renderSections(value, 2)}`;
 }
 
-/** Keep persona details nested beneath the selected expert's ## anchor. */
+/** Generate nested field headings directly, preserving literal code contents. */
 export function renderVirtualExpertSelection(fields: VirtualExpertFields): string {
-  return renderVirtualExpertMarkdown(fields)
-    .replace(/^# [^\n]+\n\n/u, "")
-    .replace(/^## /gmu, "### ")
+  return renderSections(validatedFields(fields), 3)
     + "\n\n材料边界：模拟画像，仅用于模拟研究，不作为真人访谈证据。";
 }
 
