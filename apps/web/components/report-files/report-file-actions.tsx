@@ -54,6 +54,7 @@ export function ReportFileActions({ source, disabled = false }: { source: Report
         {state?.pending ? `正在${state.job?.status === 'succeeded' ? '下载' : '生成'} ${labels[format]}…` : state?.job?.status === 'succeeded' ? `下载 ${labels[format]}` : state?.error ? `重新生成 ${labels[format]}` : `生成 ${labels[format]}`}
       </Button>;
     })}</div>
+    {Object.entries(states).filter(([, state]) => state.job?.execution?.status === 'awaiting_tool_permission').map(([format, state]) => <p role="status" key={format} className="text-12 text-muted-foreground">{labels[format as ReportFileFormat]}：需要确认工具权限。<a className="underline" href={`/chat/${encodeURIComponent(state.job!.execution!.threadId)}`} target="_blank" rel="noopener noreferrer">打开对话继续</a></p>)}
     {Object.entries(states).filter(([, state]) => state.error).map(([format, state]) => <p role="alert" key={format} className="text-12 text-destructive">{labels[format as ReportFileFormat]}：{state.error}</p>)}
   </div>;
 }

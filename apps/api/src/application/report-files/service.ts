@@ -59,6 +59,7 @@ export class ReportFileService {
     }
     if (!record.runId || record.job.status === 'failed' || record.job.status === 'succeeded') return ReportFileJob.parse(record.job);
     const result = await this.deps.runtime.read(record);
+    record = { ...record, job: ReportFileJob.parse({ ...record.job, ...(result.execution ? { execution: result.execution } : {}) }) };
     if (result.status === 'pending') return ReportFileJob.parse(record.job);
     if (result.status === 'failed') {
       record = { ...record, job: { ...record.job, status: 'failed', errorCode: 'GENERATION_FAILED' } };
@@ -115,7 +116,7 @@ export class ReportFileService {
         threadId = value;
       });
       await this.readCurrent(actor, id);
-      await this.deps.store.finish(claim, { ...claim.record, ...link, job: { ...claim.record.job, status: 'running' } });
+      await this.deps.store.finish(claim, { ...claim.record, ...link, job: { ...claim.record.job, status: 'running', execution: { ...link, status: 'queued' } } });
     } catch (error) {
       const code = error instanceof ReportFileError || error instanceof ReportFileSourceError ? error.code : 'GENERATION_FAILED';
       await this.deps.store.finish(claim, { ...claim.record, threadId, job: { ...claim.record.job, status: 'failed', errorCode: code } });

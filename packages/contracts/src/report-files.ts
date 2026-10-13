@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { AgentRunStatus } from './wave2-runtime';
 
 /** Existing product Skill identities and their requested file representations. */
 export const REPORT_FILE_FORMATS = {
@@ -28,7 +29,7 @@ export const ReportGeneratedFile = z.object({
   filename: z.string().min(1).max(200).regex(/^[^/\\\r\n\x00]+$/),
   mediaType: z.string().min(1), sizeBytes: z.number().int().positive().max(30 * 1024 * 1024), sha256,
 }).strict();
-const base = z.object({ id: z.string().min(1), source: ReportFileSource, format: ReportFileFormat, createdAt: z.string().datetime() });
+const base = z.object({ id: z.string().min(1), source: ReportFileSource, format: ReportFileFormat, createdAt: z.string().datetime(), execution: z.object({ runId: z.string().min(1), threadId: z.string().min(1), status: AgentRunStatus }).strict().optional() });
 export const ReportFileJob = z.discriminatedUnion('status', [
   base.extend({ status: z.literal('queued') }).strict(),
   base.extend({ status: z.literal('running') }).strict(),

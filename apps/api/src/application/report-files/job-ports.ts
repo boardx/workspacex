@@ -29,7 +29,7 @@ export interface ReportFileJobStore {
 export interface ReportFileChatRuntime {
   pin(actor: ReportFileActor, format: FileRequest['format']): Promise<SkillPin>;
   accept(record: StoredReportFileJob, source: ReportFileSourceSnapshot, saveThread: (threadId: string) => Promise<void>): Promise<{ threadId: string; runId: string }>;
-  read(record: StoredReportFileJob): Promise<{ status: 'pending' } | { status: 'failed' } | { status: 'succeeded'; attachmentId: string; filename: string; bytes: Uint8Array }>;
+  read(record: StoredReportFileJob): Promise<({ status: 'pending' } | { status: 'failed' } | { status: 'succeeded'; attachmentId: string; filename: string; bytes: Uint8Array }) & { execution?: NonNullable<FileJob['execution']> }>;
   download(record: StoredReportFileJob): Promise<{ filename: string; mime: string; bytes: Uint8Array }>;
 }
 export interface ReportFileValidator {

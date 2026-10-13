@@ -36,3 +36,14 @@ it('shows retry without a download for a failed job', async () => {
   expect(screen.getByRole('button', { name: '重新生成 PDF' })).toBeEnabled();
   expect(screen.queryByRole('button', { name: '下载 PDF' })).not.toBeInTheDocument();
 });
+it('shows the real Chat permission route while keeping an unfinished run unavailable for download', async () => {
+  vi.mocked(generateReportFile).mockResolvedValue({ id: success.id, source, format: 'pdf', createdAt: success.createdAt, status: 'running',
+    execution: { runId: 'real-run', threadId: 'real-report-thread', status: 'awaiting_tool_permission' } });
+  const { unmount } = render(<ReportFileActions source={source} />);
+  fireEvent.click(screen.getByRole('button', { name: '生成 PDF' }));
+  const link = await screen.findByRole('link', { name: '打开对话继续' });
+  expect(link).toHaveAttribute('href', '/chat/real-report-thread');
+  expect(screen.queryByRole('button', { name: '下载 PDF' })).not.toBeInTheDocument();
+  expect(downloadReportFile).not.toHaveBeenCalled();
+  unmount();
+});

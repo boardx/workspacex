@@ -61,11 +61,12 @@ export class ChatReportFileRuntime implements ReportFileChatRuntime {
   async read(record: StoredReportFileJob): ReturnType<ReportFileChatRuntime['read']> {
     if (!record.threadId || !record.runId) return { status: 'pending' };
     const run = await readAgentRun({ ...this.deps.messages, runs: this.deps.runs }, { ...record.actor, runId: record.runId });
-    if (run.threadId !== record.threadId || run.skillVersionIds.length !== 1 || run.skillVersionIds[0] !== record.skill.versionId) return { status: 'failed' };
-    if (run.status === 'failed' || run.status === 'cancelled') return { status: 'failed' };
+    const execution = { runId: run.runId, threadId: run.threadId, status: run.status };
+    if (run.threadId !== record.threadId || run.skillVersionIds.length !== 1 || run.skillVersionIds[0] !== record.skill.versionId) return { status: 'failed', execution };
+    if (run.status === 'failed' || run.status === 'cancelled') return { status: 'failed', execution };
     if (run.status !== 'succeeded') {
       if (run.status === 'queued') this.deps.executor.kick(record.actor.orgId);
-      return { status: 'pending' };
+      return { status: 'pending', execution };
     }
     if (!run.resultMessageId || !run.steps.some(step => {
       if (step.toolName !== 'call_skill' || step.status !== 'succeeded' || !step.toolArgsSummary) return false;
@@ -73,14 +74,14 @@ export class ChatReportFileRuntime implements ReportFileChatRuntime {
         const args = JSON.parse(step.toolArgsSummary) as Record<string, unknown>;
         return (args.skill_stable_name ?? args.skill_name ?? args.name ?? args.skill) === record.skill.stableName;
       } catch { return false; }
-    })) return { status: 'failed' };
+    })) return { status: 'failed', execution };
     const result = await listThreadAttachments(this.deps.attachments, { ...record.actor, threadId: record.threadId, projectId: null });
     const format = REPORT_FILE_FORMATS[record.job.format];
     const files = result.items.filter(item => item.messageId === run.resultMessageId && item.mime === format.mediaType && item.filename.toLowerCase().endsWith(format.extension));
-    if (files.length !== 1) return { status: 'failed' };
+    if (files.length !== 1) return { status: 'failed', execution };
     const file = files[0]!;
     const content = await getAttachmentContent(this.deps.attachments, { ...record.actor, threadId: record.threadId, attachmentId: file.id });
-    return { status: 'succeeded', attachmentId: file.id, filename: content.filename, bytes: content.bytes };
+    return { status: 'succeeded', execution, attachmentId: file.id, filename: content.filename, bytes: content.bytes };
   }
   async download(record: StoredReportFileJob) {
     if (!record.threadId || !record.attachmentId) throw new ReportFileError('REPORT_UNAVAILABLE');
