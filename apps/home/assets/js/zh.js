@@ -537,7 +537,7 @@ export default {
   "aidt.contact.lead": "从一个值得解决的问题开始，邀请团队共同探索 AI 的可能性。让设计思维为转型确立方向，让 AI 增强洞察、创意与行动，让每一步改变都回应人的真实需求。",
   "aidt.contact.cta": "讨论你的 AI 转型挑战",
   "aidt.contact.note": "围绕团队目标，共同设计适合你的共创工作坊。邮件联系：hello@boardx.us。",
-  "aidt.visual.hero.caption": "师生围绕真实问题开展研究与共创，AI 辅助整理、探索和原型制作。",
+  "aidt.visual.hero.caption": "团队围绕真实问题开展研究与共创，AI 辅助整理信息、探索思路和制作原型。",
   "aidt.visual.flow.0.title": "提出／理解问题",
   "aidt.visual.flow.0.human": "观察现象，记录困惑，区分事实与假设。",
   "aidt.visual.flow.0.ai": "辅助追问，梳理隐藏假设，提示遗漏。",
