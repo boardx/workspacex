@@ -16,18 +16,21 @@ function delay(signal: AbortSignal) {
 /** Shared report controls. The server owns canonical content, Skill execution and file access. */
 export function ReportFileActions({ source, disabled = false }: { source: ReportFileSource; disabled?: boolean }) {
   const [states, setStates] = useState<Partial<Record<ReportFileFormat, State>>>({});
-  const epoch = useRef(0);
+  const epoch = useRef({ generation: 0 });
   const controllers = useRef(new Map<ReportFileFormat, AbortController>());
   const sourceKey = JSON.stringify([source.kind, source.id, source.reportVersion, source.reportHash]);
   useEffect(() => {
-    epoch.current++;
-    controllers.current.forEach(controller => controller.abort()); controllers.current.clear(); setStates({});
-    return () => { epoch.current++; controllers.current.forEach(controller => controller.abort()); controllers.current.clear(); };
+    const lifecycle = epoch.current;
+    const activeControllers = controllers.current;
+    lifecycle.generation++;
+    activeControllers.forEach(controller => controller.abort()); activeControllers.clear(); setStates({});
+    return () => { lifecycle.generation++; activeControllers.forEach(controller => controller.abort()); activeControllers.clear(); };
   }, [sourceKey, disabled]);
   async function act(format: ReportFileFormat) {
-    const generation = epoch.current;
+    if (controllers.current.has(format)) return;
+    const generation = epoch.current.generation;
     const controller = new AbortController(); controllers.current.set(format, controller);
-    const current = () => generation === epoch.current && !controller.signal.aborted;
+    const current = () => generation === epoch.current.generation && !controller.signal.aborted;
     const update = (state: State) => { if (current()) setStates(prev => ({ ...prev, [format]: state })); };
     update({ ...states[format], pending: true, error: undefined });
     try {
