@@ -7,7 +7,7 @@ const hash = (text: string) => createHash('sha256').update(text).digest('hex');
 function fixture() {
   const actor = { orgId: toOrgId('org-1'), userId: 'user-1' };
   let snapshot = { kind: 'interview' as const, id: 'report-1', title: '报告', reportVersion: 1,
-    markdown: '# 报告\n正文', reportHash: hash('# 报告\n正文'), bindingKey: 'revision-1/document-1/1', projectId: null, notices: [] as string[] };
+    markdown: '# 报告\n正文', reportHash: hash('# 报告\n正文'), bindingKey: 'revision-1/document-1/1', projectId: null as string | null, notices: [] as string[] };
   const records = new Map<string, StoredReportFileJob>();
   const store = {
     findByRequest: vi.fn(async (who: typeof actor, id: string) => [...records.values()].find(r => r.requestId === id && r.actor.orgId === who.orgId && r.actor.userId === who.userId) ?? null),
@@ -61,4 +61,10 @@ it('refuses a request ID owned by another actor instead of exposing their file',
   const f = fixture(); await f.service.start(f.actor, f.request);
   await expect(f.service.start({ ...f.actor, userId: 'user-2' }, f.request)).rejects.toMatchObject({ code: 'IDEMPOTENCY_CONFLICT' });
   await expect(f.service.status({ ...f.actor, userId: 'user-2' }, 'job-1')).rejects.toMatchObject({ code: 'REPORT_NOT_FOUND' });
+});
+
+it('invalidates an export when its authorized project context changes', async () => {
+  const f = fixture(); const job = await f.service.start(f.actor, f.request);
+  f.setSnapshot({ projectId: 'different-project' });
+  await expect(f.service.download(f.actor, job.id)).rejects.toMatchObject({ code: 'REPORT_CHANGED' });
 });

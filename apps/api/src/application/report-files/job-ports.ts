@@ -11,6 +11,7 @@ export interface StoredReportFileJob {
   readonly bindingKey: string;
   readonly renderHash: string;
   readonly skill: SkillPin;
+  readonly projectId?: string | null;
   readonly threadId?: string;
   readonly runId?: string;
   readonly attachmentId?: string;
