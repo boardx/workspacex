@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { ChatShareButton } from "./chat-share-button";
 import { ChatHandoffStream } from "@/components/chat/chat-handoff-panel";
 import { handoffDraftText, type HandoffView } from "@/lib/agent-handoff";
 import { seedComposerDraft } from "@/lib/chat-workbench/use-composer-draft";
@@ -1298,6 +1299,7 @@ export function CopilotKitV2Shell({
             <Lock aria-hidden className="h-2.5 w-2.5" />
             {projectId ? "按对话权限可见" : "仅自己可见"}
           </span>
+          {selectedThreadId && bearer && threadDetail?.thread.id === selectedThreadId && threadDetail.thread.createdBy === session?.userId && <ChatShareButton key={JSON.stringify([selectedThreadId, bearer, currentOrgId])} threadId={selectedThreadId} bearer={bearer} />}
         </div>
         {/*
           ⚠ 2026-09-03 起 `key` 用的是 `panelMountKey`（组件内部状态，见顶部头注），

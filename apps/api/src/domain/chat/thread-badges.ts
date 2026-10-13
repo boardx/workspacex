@@ -81,6 +81,11 @@ export function messageBadges(m: BadgeMessageFacts): MessageBadge[] {
   return badges;
 }
 
+/** Read the canonical badge decision when publishing a message outside the workspace. */
+export function isMessageAwaitingReview(m: BadgeMessageFacts): boolean {
+  return messageBadges(m).includes("review-pending");
+}
+
 /**
  * 「N 条待复核」。
  *
