@@ -1,3 +1,4 @@
+import type {ConnectorOverlayPointerEvent} from '@/components/whiteboard/board-connector-handles';
 import {act,renderHook,cleanup} from '@testing-library/react';
 import {afterEach,expect,it,vi} from 'vitest';
 import {type WhiteboardObject} from '@repo/whiteboard-core';
@@ -9,7 +10,14 @@ it.each(['accepted','bypass','locked','deleted','readonly','cancel'] as const)('
  const host=document.createElement('div');host.getBoundingClientRect=()=>({x:0,y:0,left:0,top:0,right:700,bottom:500,width:700,height:500,toJSON(){return {};}});
  const props={objects:live,readLiveObjects:()=>live,viewport:{zoom:1,panX:0,panY:0,fitRequest:0,fitMode:'board' as const},blocked:false,selectedId:null,host:()=>host,execute,onCreated:created,onFailure:vi.fn()};
  const {result,rerender}=renderHook(value=>useBoardConnectorGesture(value),{initialProps:props});
- const event=(x:number,y:number)=>({clientX:x,clientY:y,button:0,pointerId:1,metaKey:false,ctrlKey:mode==='bypass',currentTarget:host,target:host,preventDefault(){},stopPropagation(){}});
+ const event=(x:number,y:number):ConnectorOverlayPointerEvent=>({
+  clientX:x,clientY:y,button:0,buttons:1,pointerId:1,metaKey:false,ctrlKey:mode==='bypass',altKey:false,shiftKey:false,
+  currentTarget:host,target:host,relatedTarget:null,bubbles:true,cancelable:true,defaultPrevented:false,eventPhase:2,isTrusted:false,timeStamp:0,type:'pointerdown',
+  pressure:.5,tangentialPressure:0,tiltX:0,tiltY:0,twist:0,width:1,height:1,pointerType:'mouse',isPrimary:true,
+  detail:0,view:window,pageX:x,pageY:y,screenX:x,screenY:y,movementX:0,movementY:0,
+  nativeEvent:new MouseEvent('pointerdown',{clientX:x,clientY:y}) as PointerEvent,
+  getModifierState(key){return key==='Control'&&mode==='bypass';},preventDefault(){},stopPropagation(){},persist(){},isDefaultPrevented(){return false;},isPropagationStopped(){return false;},
+ });
  act(()=>result.current.beginFreeCreation('free',event(100,40)));
  act(()=>result.current.beginFreeCreation('free',event(180,100)));
  act(()=>result.current.beginFreeCreation('free',event(300,40)));
