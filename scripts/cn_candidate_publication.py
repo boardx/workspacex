@@ -13,19 +13,44 @@ import cn_image_archive as a
 import cn_image_candidate as c
 
 
+ATTEMPT_TAG_POLICY = 'source-attempt-v1'
+
+
+def intent_version(value):
+    a.require(type(value) is dict and type(value.get('schemaVersion')) is int,
+              'PUBLICATION_INTENT_SCHEMA')
+    version = value['schemaVersion']
+    a.require(version in (2, 3) and value.get('kind') ==
+              'cn-candidate-publication-intent-v' + str(version), 'PUBLICATION_INTENT_SCHEMA')
+    return version
+
+
+def publication_targets(plan, *, attempt_scoped=False):
+    """Fixed repository/tag mapping; never caller-supplied repository or tag text."""
+    c.validate_plan(plan)
+    a.require(type(attempt_scoped) is bool, 'PUBLICATION_TAG_MODE')
+    tag = plan['sourceRevision']
+    if attempt_scoped:
+        tag += '-' + plan['attemptId']
+    a.require(re.fullmatch(r'[a-zA-Z0-9_][a-zA-Z0-9_.-]{0,127}', tag), 'PUBLICATION_TAG')
+    return {service: a.PREFIX + '/' + repository + ':' + tag
+            for service, repository in a.REPOSITORIES.items()}
+
+
 def validate_intent(raw, expected_sha, plan, candidate_raw, candidate_sha, plan_sha, *, revalidation=None):
     a.require(len(raw) <= 16384 and a.sha(raw) == expected_sha, 'PUBLICATION_INTENT_HASH')
     value = a.decode(raw)
+    version = intent_version(value)
     fields = {'kind', 'schemaVersion', 'candidatePlanRawSha256', 'candidateSetRawSha256',
               'candidateIdentity', 'sourceRevision', 'controlRevision', 'attemptId',
               'release', 'redisImage', 'registryPrefix'}
+    if version == 3:
+        fields.add('tagPolicy')
+        a.require(value.get('tagPolicy') == ATTEMPT_TAG_POLICY, 'PUBLICATION_TAG_POLICY')
     if revalidation is not None:
         fields.add('revalidationRawSha256')
         a.require(value.get('revalidationRawSha256') == revalidation.sha, 'PUBLICATION_REVALIDATION_BINDING')
     a.require(type(value) is dict and set(value) == fields, 'PUBLICATION_INTENT_FIELDS')
-    a.require(value['kind'] == 'cn-candidate-publication-intent-v2'
-              and type(value['schemaVersion']) is int and value['schemaVersion'] == 2,
-              'PUBLICATION_INTENT_SCHEMA')
     c.validate_plan(plan)
     a.require(a.hex_string(plan_sha, 64) and a.hex_string(candidate_sha, 64)
               and a.sha(candidate_raw) == candidate_sha, 'PUBLICATION_INPUT_HASH')
@@ -84,8 +109,11 @@ def publish(plan_raw, plan_sha, candidate_raw, candidate_sha,
             revalidation.check(plan, candidate_raw, candidate_sha, plan_sha)
         adapter.check_validity()
 
+    attempt_scoped = intent_version(intent) == 3
+    targets = publication_targets(plan, attempt_scoped=attempt_scoped)
+
     def target(service):
-        return a.PREFIX + '/' + a.REPOSITORIES[service] + ':' + plan['sourceRevision']
+        return targets[service]
 
     def matches(image, entry):
         if type(image) is dict and image.get('Id') != entry['imageId']:
@@ -103,7 +131,14 @@ def publish(plan_raw, plan_sha, candidate_raw, candidate_sha,
                 existing = adapter.local(tag)
                 if existing is not None:
                     matches(existing, entry)
-        adapter.protect_running_targets(receipt, plan)
+        if attempt_scoped:
+            # Old host closures cannot silently publish new tags without also
+            # protecting their exact running-container references.
+            a.require(callable(getattr(adapter, 'protect_candidate_targets', None)),
+                      'PUBLICATION_ATTEMPT_TARGET_ADAPTER')
+            adapter.protect_candidate_targets(receipt, plan, targets)
+        else:
+            adapter.protect_running_targets(receipt, plan)
         fresh()
         adapter.authenticate()
         for service, entry in receipt['images'].items():
