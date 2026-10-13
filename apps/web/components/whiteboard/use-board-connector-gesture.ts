@@ -66,8 +66,9 @@ export function useBoardConnectorGesture(props: Props) {
     const { viewport } = latest.current;
     if (gesture.nodes) {
       const nodes = gesture.nodes;
-      const relationship: ConnectorRelationship = {...gesture.before, fromPoint:nodes[0], toPoint:gesture.current, route:{kind:'free',waypoints:nodes.slice(1, nodes[nodes.length-1]!.x===gesture.current.x && nodes[nodes.length-1]!.y===gesture.current.y ? -1 : undefined)}};
-      return {relationship,snap:null};
+      const snap=connectorGestureSnap(objects,gesture.current,viewport.zoom,gesture.before.from?[gesture.before.from]:[],gesture.bypass);
+      const relationship=connectorEndpointChange({...gesture.before,route:{kind:'free',waypoints:nodes.slice(1,nodes[nodes.length-1]!.x===gesture.current.x && nodes[nodes.length-1]!.y===gesture.current.y ? -1 : undefined)}},'to',gesture.current,snap);
+      return {relationship,snap};
     }
     const relationship = gesture.creating ? gesture.before : connectorRelationshipFromObject(objects.find(object => object.id === gesture.id)!) ?? gesture.before;
     if (gesture.kind === "from" || gesture.kind === "to") {
@@ -107,10 +108,12 @@ export function useBoardConnectorGesture(props: Props) {
       if (old?.nodes) {
         if (Math.hypot(point.x-old.nodes[old.nodes.length-1]!.x,point.y-old.nodes[old.nodes.length-1]!.y)*latest.current.viewport.zoom < 3) return;
         if (old.nodes.length >= WHITEBOARD_CONNECTOR_LIMITS.freeWaypointsMax + 2) { latest.current.onFailure(); return; }
-        const next = {...old,nodes:[...old.nodes,point],current:point,previewRevision:old.previewRevision+1}; activeRef.current=next;setActive(next); return;
+        const next = {...old,nodes:[...old.nodes,point],current:point,bypass:event.metaKey||event.ctrlKey,previewRevision:old.previewRevision+1}; next.heldSnapTargetId=project(next).snap?.objectId; activeRef.current=next;setActive(next); return;
       }
-      const before: ConnectorRelationship = {fromPoint:point,toPoint:point,type:'free',route:{kind:'free',waypoints:[]},fromAnchor:'right',toAnchor:'left',startStyle:'none',endStyle:'arrow',lineStyle:'solid',label:'',semanticRelation:''};
-      const next: Gesture = {nodes:[point],pointerId:event.pointerId,target:event.currentTarget,id:crypto.randomUUID(),creating:true,kind:'to',handleId:null,initial:point,current:point,before,baseline:null,bypass:true,moved:false,previewRevision:1}; activeRef.current=next;setActive(next); return;
+      const startSnap=connectorGestureSnap(latest.current.objects,point,latest.current.viewport.zoom,[],event.metaKey||event.ctrlKey);
+      const start=startSnap?.point??point;
+      const before: ConnectorRelationship = {...(startSnap?{from:startSnap.objectId}:{fromPoint:start}),toPoint:start,type:'free',route:{kind:'free',waypoints:[]},fromAnchor:startSnap?.anchor??'right',toAnchor:'left',startStyle:'none',endStyle:'arrow',lineStyle:'solid',label:'',semanticRelation:''};
+      const next: Gesture = {nodes:[start],pointerId:event.pointerId,target:event.currentTarget,id:crypto.randomUUID(),creating:true,kind:'to',handleId:null,initial:point,current:point,before,baseline:null,bypass:event.metaKey||event.ctrlKey,moved:false,previewRevision:1}; activeRef.current=next;setActive(next); return;
     }
     const snap = connectorGestureSnap(latest.current.objects, point, latest.current.viewport.zoom, [], event.metaKey || event.ctrlKey);
     const start = snap?.point ?? point;
@@ -130,9 +133,11 @@ export function useBoardConnectorGesture(props: Props) {
     const draft=activeRef.current; if (!draft?.nodes) return;
     const nodes=draft.nodes; const live=latest.current.readLiveObjects?.()??latest.current.objects;
     if (nodes.length<2 || !legal(draft,live)) { cancel();return; }
-    const relationship: ConnectorRelationship={...draft.before,fromPoint:nodes[0],toPoint:nodes[nodes.length-1],route:{kind:'free',waypoints:nodes.slice(1,-1)}};
+    if(draft.heldSnapTargetId&&!live.some(object=>object.id===draft.heldSnapTargetId&&!object.locked&&!object.hidden)){cancel();return;}
+    const final={...draft,current:nodes[nodes.length-1]!};
+    const {relationship}=project(final,live);
     cancel();
-    try { const accepted=latest.current.execute({type:'create-connector',id:draft.id,relationship});if(accepted)latest.current.onCreated(draft.id);else latest.current.onFailure(); } catch {latest.current.onFailure();}
+    try { const accepted=latest.current.execute({type:'create-connector',id:draft.id,relationship},[...new Set([relationship.from,relationship.to].filter((id):id is string=>Boolean(id)))].map(id=>({id,locked:false}))); if(accepted)latest.current.onCreated(draft.id);else latest.current.onFailure(); } catch {latest.current.onFailure();}
   };
   const finishFreeRef = useRef(finishFree); finishFreeRef.current = finishFree;
   const onPointerUp = (event: ConnectorOverlayPointerEvent) => {
