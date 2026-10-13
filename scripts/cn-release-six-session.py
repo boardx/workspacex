@@ -4,6 +4,7 @@ it. CI finally independently calls six_infra.recover_all after its outer Domain
 is empty, so Session death does not rely on this class's finally running.
 """
 import importlib.util
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -114,14 +115,26 @@ def validate_report(path,required_titles):
         if test.get('projectName')!='cn-six-business'or test.get('expectedStatus')!='passed'or test.get('status')!='expected'or len(results)!=1 or results[0].get('status')!='passed'or results[0].get('retry')!=0 or results[0].get('errors'):raise RuntimeError('SIX_REPORT_ATTEMPT_FAILED')
     return dict(verified=True,journeyCount=6,aggregateCaseCount=1,durationMilliseconds=stats.get('duration'),titles=sorted(required_titles),productionAccepted=False,egressIsolated=False)
 
+def report_diagnostic(path):
+    if path.is_symlink()or not path.is_file()or path.stat().st_size>2*1024*1024:return {'reportAvailable':False}
+    value=json.loads(path.read_bytes());stats=value.get('stats',{});errors=value.get('errors',[])
+    if not isinstance(errors,list):return {'reportAvailable':True,'malformedErrors':True}
+    projected=[]
+    for error in errors[:8]:
+        message=error.get('message','')if isinstance(error,dict)else''
+        if not isinstance(message,str):message=''
+        projected.append(dict(messageBytes=len(message.encode()),messageSha256=hashlib.sha256(message.encode()).hexdigest(),chatWarmup='[chat-route-warmup]'in message,budget300s='300000ms'in message))
+    return dict(reportAvailable=True,statistics={k:stats[k]for k in ('expected','unexpected','flaky','skipped','duration')if isinstance(stats.get(k),(int,float))and not isinstance(stats.get(k),bool)},globalErrorCount=len(errors),globalErrors=projected)
+
 
 def run_round(root,run_id,round_id,commit,env,images,required_titles):
     session=None;application=None;process=None;app_cleanup=None;session_cleanup=None;report=None;failure=None
-    begin=time.monotonic()
+    begin=time.monotonic();stage='prepare';diagnostic=None
     try:
         application=domains.Domain()
         session=Session(root,run_id,round_id,commit,env,images)
         prepared=session.prepare()
+        stage='application'
         with (session.output/'application.log').open('xb')as log:
             process=application.spawn(playwright_command(prepared),cwd=ROOT,env=prepared,stdin=subprocess.DEVNULL,stdout=subprocess.PIPE,stderr=subprocess.STDOUT)
             selector=selectors.DefaultSelector();selector.register(process.stdout,selectors.EVENT_READ);end=time.monotonic()+APPLICATION_BUDGET;total=0
@@ -136,8 +149,13 @@ def run_round(root,run_id,round_id,commit,env,images,required_titles):
                     log.write(raw)
                 if process.wait(timeout=max(.01,end-time.monotonic()))!=0:raise RuntimeError('SIX_APPLICATION_FAILED')
             finally:selector.close()
-        report=validate_report(Path(prepared['CN_SIX_REPORT_PATH']),required_titles)
-    except Exception as exc:failure=type(exc).__name__
+        stage='report';report=validate_report(Path(prepared['CN_SIX_REPORT_PATH']),required_titles)
+    except Exception as exc:
+        failure=type(exc).__name__;reason=str(exc)
+        diagnostic=dict(stage=stage,reason=reason if reason in ('SIX_APPLICATION_TIMEOUT','SIX_APPLICATION_FAILED','SIX_APPLICATION_LOG_LIMIT','SIX_REPORT_REQUIRED','SIX_REPORT_NOT_ALL_PASSED','SIX_REPORT_CASE_INVENTORY','SIX_REPORT_SPEC_FAILED','SIX_REPORT_ATTEMPT_FAILED')else'UNCLASSIFIED',exitCode=process.returncode if process is not None else None)
+        if session is not None:
+            try:diagnostic['report']=report_diagnostic(session.output/'playwright-report.json')
+            except Exception:diagnostic['report']={'reportAvailable':False,'projectionFailed':True}
     finally:
         if application is not None:
             try:app_cleanup=application.close(process)
@@ -146,6 +164,6 @@ def run_round(root,run_id,round_id,commit,env,images,required_titles):
         if session is not None:
             try:session_cleanup=session.finish(app_cleanup)
             except Exception as exc:failure='session-cleanup-'+type(exc).__name__
-    result=dict(kind='cn-six-business-isolated-result-v1',verified=failure is None and report is not None and session_cleanup is not None and session_cleanup.get('verified')is True,failure=failure,report=report,applicationCleanup=app_cleanup,sessionCleanup=session_cleanup,elapsedSeconds=time.monotonic()-begin,productionAccepted=False,egressIsolated=False)
+    result=dict(kind='cn-six-business-isolated-result-v1',verified=failure is None and report is not None and session_cleanup is not None and session_cleanup.get('verified')is True,failure=failure,diagnostic=diagnostic,report=report,applicationCleanup=app_cleanup,sessionCleanup=session_cleanup,elapsedSeconds=time.monotonic()-begin,productionAccepted=False,egressIsolated=False)
     if session is not None:infra.durable(session.output,'result.json',result)
     return result

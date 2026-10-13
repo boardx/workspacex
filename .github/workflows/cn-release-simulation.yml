@@ -7,6 +7,11 @@ on:
         type: choice
         options: ['1', '10']
         default: '1'
+      lane:
+        description: Targeted repairs run in four independent VMs; all preserves full regression
+        type: choice
+        options: ['all', 'targeted']
+        default: 'all'
       seed:
         description: Integer base seed for isolated fault fixtures
         type: string
@@ -93,9 +98,22 @@ permissions:
   contents: read
 jobs:
   simulation:
+    strategy:
+      fail-fast: false
+      matrix:
+        suite: ${{ fromJSON(inputs.lane == 'targeted' && '["release","linux-api-outer-recovery","linux-application-recovery-complete","linux-six-business"]' || '["all"]') }}
     runs-on: ubuntu-24.04
     timeout-minutes: 300
     steps:
+      - name: Reject partial ten-round requests before setup
+        env:
+          LANE: ${{ inputs.lane || 'all' }}
+          ROUNDS: ${{ inputs.rounds || '1' }}
+        run: |
+          if [ "$LANE" = targeted ] && [ "$ROUNDS" = 10 ]; then
+            echo 'CI_TEN_ALL_REQUIRED' >&2
+            exit 1
+          fi
       - uses: actions/checkout@v5
         with:
           ref: ${{ github.sha }}
@@ -159,7 +177,9 @@ jobs:
         env:
           ROUNDS: ${{ inputs.rounds || '1' }}
           SEED: ${{ inputs.seed || '0' }}
-        run: 'sudo -n env -i PATH="$PATH" CN_ARCHIVE_TEST_NODE="$CN_ARCHIVE_TEST_NODE" CN_ARCHIVE_TEST_RUNTIME="$CN_ARCHIVE_TEST_RUNTIME" NODE_PATH="$NODE_PATH" CN_TEST_PLAYWRIGHT="$CN_TEST_PLAYWRIGHT" CN_TEST_CHROMIUM="$CN_TEST_CHROMIUM" GITHUB_ACTIONS=true CN_API_STARTUP_PG_IMAGE="$CN_API_STARTUP_PG_IMAGE" CN_SIX_REDIS_IMAGE="$CN_SIX_REDIS_IMAGE" GITHUB_RUN_ID="$GITHUB_RUN_ID" GITHUB_RUN_ATTEMPT="$GITHUB_RUN_ATTEMPT" GITHUB_WORKSPACE="$GITHUB_WORKSPACE" RUNNER_TEMP="$RUNNER_TEMP" "$RUNNER_TEMP/cn-test-sdk/bin/python" -I -B scripts/cn-release-simulation-ci.py --sha "$GITHUB_SHA" --rounds "$ROUNDS" --seed "$SEED"'
+          SUITE: ${{ matrix.suite }}
+          WORKERS: ${{ matrix.suite == 'all' && '3' || '1' }}
+        run: 'sudo -n env -i PATH="$PATH" CN_ARCHIVE_TEST_NODE="$CN_ARCHIVE_TEST_NODE" CN_ARCHIVE_TEST_RUNTIME="$CN_ARCHIVE_TEST_RUNTIME" NODE_PATH="$NODE_PATH" CN_TEST_PLAYWRIGHT="$CN_TEST_PLAYWRIGHT" CN_TEST_CHROMIUM="$CN_TEST_CHROMIUM" GITHUB_ACTIONS=true CN_API_STARTUP_PG_IMAGE="$CN_API_STARTUP_PG_IMAGE" CN_SIX_REDIS_IMAGE="$CN_SIX_REDIS_IMAGE" GITHUB_RUN_ID="$GITHUB_RUN_ID" GITHUB_RUN_ATTEMPT="$GITHUB_RUN_ATTEMPT" GITHUB_WORKSPACE="$GITHUB_WORKSPACE" RUNNER_TEMP="$RUNNER_TEMP" "$RUNNER_TEMP/cn-test-sdk/bin/python" -I -B scripts/cn-release-simulation-ci.py --sha "$GITHUB_SHA" --rounds "$ROUNDS" --seed "$SEED" --suite "$SUITE" --workers "$WORKERS"'
       - name: Export bounded reports for the unprivileged artifact uploader
         if: always()
         run: |
@@ -171,7 +191,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v6
         with:
-          name: cn-simulation-${{ github.run_id }}-${{ github.run_attempt }}
+          name: cn-simulation-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.suite }}
           path: |
             ${{ runner.temp }}/cn-simulation-artifacts/*.json
             ${{ runner.temp }}/cn-simulation-artifacts/*.csv

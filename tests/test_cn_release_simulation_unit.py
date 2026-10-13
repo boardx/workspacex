@@ -24,10 +24,43 @@ class SimulationUnit(unittest.TestCase):
    with self.subTest(key=key),self.assertRaises(RuntimeError):m.validate_show({**v,key:value},unit,argv,16500)
   with self.assertRaisesRegex(RuntimeError,'INVOCATION'):m.validate_show(v,unit,argv,16500,'c'*32)
  def test_fixed_worker_arguments_cannot_authorize_other_command(self):
-  cmd=[str(Path(sys.executable).resolve()),'-I','-B',str(ROOT/'scripts/cn-release-simulation.py'),'--output',str(Path('/tmp/fresh-report').resolve()),'--workers','3','--timeout-seconds','300','--rounds','1','--seed','0'];m.validate_worker(cmd,ROOT)
+  cmd=[str(Path(sys.executable).absolute()),'-I','-B',str(ROOT/'scripts/cn-release-simulation.py'),'--output',str(Path('/tmp/fresh-report').resolve()),'--workers','3','--timeout-seconds','300','--rounds','1','--seed','0'];m.validate_worker(cmd,ROOT)
   for index,value in [(3,'/tmp/arbitrary.py'),(7,'99'),(9,'999999'),(11,'100'),(13,'-1')]:
    bad=list(cmd);bad[index]=value
    with self.assertRaises(RuntimeError):m.validate_worker(bad,ROOT)
+ def test_exact_suite_and_workers_enum_ten_requires_all(self):
+  base=[str(Path(sys.executable).absolute()),'-I','-B',str(ROOT/'scripts/cn-release-simulation.py'),'--output',str(Path('/tmp/fresh-report').resolve()),'--workers','3','--timeout-seconds','300','--rounds','1','--seed','0']
+  for suite in m.WORKER_SUITES:
+   for workers in ('1','3'):
+    cmd=[*base,'--suite',suite];cmd[7]=workers;m.validate_worker(cmd,ROOT)
+  for index,value in ((7,'2'),(14,'--child'),(15,'linux-process')):
+   cmd=[*base,'--suite','release'];cmd[index]=value
+   with self.assertRaises(RuntimeError):m.validate_worker(cmd,ROOT)
+  cmd=[*base,'--suite','release'];cmd[11]='10'
+  with self.assertRaisesRegex(RuntimeError,'TEN_ALL'):m.validate_worker(cmd,ROOT)
+ def test_fault_only_exact_entry_and_verified_unit_context(self):
+  with tempfile.TemporaryDirectory()as directory:
+   registry=Path(directory).resolve();folder=registry/'round-01/api-outer-recovery';folder.mkdir(parents=True)
+   receipt=folder/'success';receipt.mkdir();source=b'exact-fixed-fixture'
+   plan={'sha':'a'*40,'runId':'123','env':{'CN_SIM14_REGISTRY_ROOT':str(registry),'CN_API_STARTUP_PG_IMAGE':'sha256:fixture'}}
+   observed={'unit':'wsx-cn-simulation-'+'a'*32+'.service','invocationId':'b'*32}
+   cmd=[str(Path(sys.executable).absolute()),'-I','-B',str(ROOT/m.FAULT_PATH),'--child']
+   env={'GITHUB_RUN_ID':'123','CN_API_STARTUP_PG_IMAGE':'sha256:fixture','CN_SIM14_CHILD_ROOT':str(folder/'target')}
+   with patch.object(m,'current_unit_context',return_value=(registry,plan,observed)),patch.object(m,'command',return_value=source),patch.object(m,'read',return_value=source):
+    evidence=m.admit_fault(cmd,ROOT,env,'a'*40,'123',receipt,'api-outer-sigkill');self.assertEqual(evidence['faultSourceSha256'],m.sha(source))
+    for args in ((cmd[:-1]+['--arbitrary'],env,'a'*40,'api-outer-sigkill'),(cmd,{**env,'GH_TOKEN':'secret'},'a'*40,'api-outer-sigkill'),(cmd,env,'c'*40,'api-outer-sigkill'),(cmd,env,'a'*40,'other')):
+     with self.assertRaises(RuntimeError):m.admit_fault(args[0],ROOT,args[1],args[2],'123',receipt,args[3])
+    with patch.object(m,'read',return_value=b'drift'):
+     with self.assertRaisesRegex(RuntimeError,'SOURCE_DRIFT'):m.admit_fault(cmd,ROOT,env,'a'*40,'123',receipt,'api-outer-sigkill')
+    with patch.object(m,'current_unit_context',side_effect=RuntimeError('OUTSIDE_UNIT')):
+     with self.assertRaisesRegex(RuntimeError,'OUTSIDE_UNIT'):m.admit_fault(cmd,ROOT,env,'a'*40,'123',receipt,'api-outer-sigkill')
+ def test_environment_claim_cannot_replace_actual_unit_membership(self):
+  with patch.object(m.sys,'platform','linux'),patch.object(m.os,'geteuid',return_value=0),patch.object(m.base,'process_identity',return_value=12),patch.object(Path,'read_text',return_value='0::/runner/not-a-unit\n'),patch.dict(os.environ,{'GITHUB_ACTIONS':'true','GITHUB_RUN_ID':'123'}):
+   with self.assertRaisesRegex(RuntimeError,'OUTSIDE_UNIT'):m.current_unit_context()
+ def test_fault_noop_uses_same_fixed_file_never_python_c(self):
+  with patch.object(m,'current_unit_context')as observation:
+   with self.assertRaisesRegex(RuntimeError,'FIXED_COMMAND'):m.admit_fault([sys.executable,'-I','-B','-c','pass'],ROOT,{},'a'*40,'123',Path('/var/lib/fake'),'api-outer-noop')
+   observation.assert_not_called()
  def test_environment_whitelist_drops_credentials_before_file_or_manager(self):
   self.assertEqual(m.safe_env({'PATH':'/usr/bin','GH_TOKEN':'secret','GITHUB_TOKEN':'secret2','AWS_SECRET_ACCESS_KEY':'secret3','CN_API_STARTUP_PG_IMAGE':'sha256:fixture'}),{'PATH':'/usr/bin','CN_API_STARTUP_PG_IMAGE':'sha256:fixture'})
  def test_setup_node_is_preserved_and_admitted_by_plan_whitelist(self):
@@ -41,6 +74,7 @@ class SimulationUnit(unittest.TestCase):
    site=json.loads(subprocess.check_output([python,'-I','-B','-c','import json,site;print(json.dumps(site.getsitepackages()[0]))'],timeout=5))
    Path(site,'cn_synthetic_sdk.py').write_text('MARKER="local-synthetic-sdk"\n')
    code="import importlib.util,json,sys;from pathlib import Path;s=importlib.util.spec_from_file_location('u',sys.argv[1]);m=importlib.util.module_from_spec(s);s.loader.exec_module(m);import cn_synthetic_sdk;print(json.dumps({'identity':m.python_identity(),'argv':m.bridge_argv(Path('/var/lib/wsx-cn-simulation-fixture')),'sdk':cn_synthetic_sdk.MARKER}))"
+   code += ";cmd=[str(Path(sys.executable).absolute()),'-I','-B',str(m.ROOT/'scripts/cn-release-simulation.py'),'--output',str(Path('/var/lib/report').resolve()),'--workers','1','--timeout-seconds','300','--rounds','1','--seed','0','--suite','release'];m.validate_worker(cmd,m.ROOT);cmd[0]=str(Path(sys.executable).resolve());rejected=False\ntry:m.validate_worker(cmd,m.ROOT)\nexcept RuntimeError:rejected=True\nassert rejected, 'resolved interpreter was admitted'"
    value=json.loads(subprocess.check_output([python,'-I','-B','-c',code,ROOT/'scripts/cn-release-simulation-unit.py'],timeout=5))
    self.assertEqual(value['argv'][0],str(python));self.assertEqual(value['identity']['executable'],str(python));self.assertEqual(value['identity']['prefix'],str(venv))
    self.assertEqual(value['identity']['target'],str(python.resolve()));self.assertEqual(value['sdk'],'local-synthetic-sdk');self.assertIsNotNone(value['identity']['venvConfigSha256'])
@@ -105,7 +139,7 @@ class SimulationUnit(unittest.TestCase):
  def test_unknown_start_is_one_attempt_and_claim_preserved(self):
   with tempfile.TemporaryDirectory()as d:
    root=Path(d);obj=m.Unit(ROOT,root,'a'*40,'123')
-   cmd=[str(Path(sys.executable).resolve()),'-I','-B',str(ROOT/'scripts/cn-release-simulation.py'),'--output','/tmp/fresh-report','--workers','3','--timeout-seconds','300','--rounds','1','--seed','0']
+   cmd=[str(Path(sys.executable).absolute()),'-I','-B',str(ROOT/'scripts/cn-release-simulation.py'),'--output','/tmp/fresh-report','--workers','3','--timeout-seconds','300','--rounds','1','--seed','0']
    with patch.object(m,'gate'),patch.object(m,'host_resources',return_value={}),patch.object(m.subprocess,'Popen',side_effect=OSError('unknown'))as start:
     with self.assertRaises(OSError):obj.spawn(cmd,cwd=ROOT,env={'GH_TOKEN':'secret'})
     with self.assertRaisesRegex(RuntimeError,'ONE_START'):obj.spawn(cmd,cwd=ROOT,env={})

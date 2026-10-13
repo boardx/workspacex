@@ -9,6 +9,11 @@ from unittest.mock import patch
 ROOT=Path(__file__).resolve().parents[1]
 s=importlib.util.spec_from_file_location('six_session',ROOT/'scripts/cn-release-six-session.py');m=importlib.util.module_from_spec(s);s.loader.exec_module(m)
 class SixSession(unittest.TestCase):
+ def test_global_warmup_projection_has_stats_and_hash_not_raw_error(self):
+  with tempfile.TemporaryDirectory()as d:
+   path=Path(d)/'report.json';path.write_text(json.dumps({'stats':{'expected':0,'unexpected':0,'duration':300000},'errors':[{'message':'[chat-route-warmup] secret password URL SELECT 300000ms'}]}))
+   value=m.report_diagnostic(path);self.assertEqual(value['statistics']['expected'],0);self.assertEqual(value['globalErrorCount'],1);self.assertTrue(value['globalErrors'][0]['chatWarmup'])
+   self.assertNotIn('password',json.dumps(value));self.assertNotIn('SELECT',json.dumps(value));self.assertNotIn('secret',json.dumps(value))
  def test_exact_six_report_rejects_skip_retry_duplicate_or_missing(self):
   titles=['journey-'+str(i)for i in range(6)]
   value=dict(stats=dict(expected=6,unexpected=0,flaky=0,skipped=0,duration=123),errors=[],suites=[dict(specs=[dict(title=t,ok=True,tests=[dict(projectName='cn-six-business',expectedStatus='passed',status='expected',results=[dict(status='passed',retry=0,errors=[])])])for t in titles])])

@@ -72,6 +72,17 @@ class SimulationTests(unittest.TestCase):
   for forbidden in ('id-token:','environment:','secrets.','production-cn','workflow_run:'):self.assertNotIn(forbidden,text)
   self.assertEqual(text.count('sudo -n env -i'),2);self.assertIn('scripts/cn-release-simulation-ci.py --sha "$GITHUB_SHA"',text)
   self.assertIn('if: always()',text);self.assertIn('persist-credentials: false',text)
+ def test_targeted_heavy_contracts_have_independent_matrix_jobs(self):
+  text=(ROOT/'.github/workflows/cn-release-simulation.yml').read_text()
+  self.assertIn("options: ['all', 'targeted']",text)
+  self.assertIn('fail-fast: false',text)
+  matrix=next(line for line in text.splitlines()if 'suite: ${{ fromJSON('in line)
+  self.assertIn("inputs.lane == 'targeted'",matrix)
+  for suite in ('release','linux-api-outer-recovery','linux-application-recovery-complete','linux-six-business'):self.assertIn('"'+suite+'"',matrix)
+  self.assertIn("|| '[\"all\"]'",matrix)
+  self.assertIn('--suite "$SUITE" --workers "$WORKERS"',text)
+  self.assertIn("matrix.suite == 'all' && '3' || '1'",text)
+  self.assertIn('${{ github.run_attempt }}-${{ matrix.suite }}',text)
  def test_ten_rounds_fixed_commit_distinct_seed_and_output(self):
   seen=[]
   def execute(name,command,output,env,seconds):

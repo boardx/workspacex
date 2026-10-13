@@ -26,6 +26,27 @@ class CiBootstrap(unittest.TestCase):
    for value in ('main','HEAD','a'*39,'A'*40,'a'*40+';touch /tmp/no'):
     with self.assertRaisesRegex(ValueError,'EXACT_SHA'):m.execute(value,1,0)
    create.assert_not_called()
+ def test_lane_rejects_unknown_and_partial_ten_before_any_clone(self):
+  with patch.object(m.tempfile,'mkdtemp')as create:
+   for suite,workers,rounds in [('other',1,1),('all',2,1),('release',1,10)]:
+    with self.assertRaises(ValueError):m.execute('a'*40,rounds,0,suite,workers)
+   create.assert_not_called()
+ def test_invalid_seed_rejected_before_setup(self):
+  with patch.object(m.tempfile,'mkdtemp')as create:
+   for seed in (-1,2**32,True,'1'):
+    with self.assertRaisesRegex(ValueError,'SEED'):m.execute('a'*40,1,seed)
+   create.assert_not_called()
+ def test_fault_gate_runs_before_nested_domain_and_never_creates_unit(self):
+  import types
+  events=[]
+  fake=types.SimpleNamespace(admit_fault=lambda *a:events.append('verified-unit')or{'fixtureOnly':True},write=lambda *a:events.append('durable-admission'))
+  loader=types.SimpleNamespace(loader=types.SimpleNamespace(exec_module=lambda module:None))
+  with patch.object(m.importlib.util,'module_from_spec',return_value=fake),patch.object(m.importlib.util,'spec_from_file_location',return_value=loader),patch.object(m,'setup_domain',side_effect=lambda *a:events.append('nested-domain')or object()),patch.object(m,'setup_simulation_unit')as unit:
+   m.setup_fault_domain([],ROOT,{},'a'*40,'123',Path('/fixture'),'api-outer-sigkill')
+   self.assertEqual(events,['verified-unit','durable-admission','nested-domain']);unit.assert_not_called()
+   fake.admit_fault=lambda *a:(_ for _ in ()).throw(RuntimeError('UNVERIFIED_UNIT'))
+   with self.assertRaisesRegex(RuntimeError,'UNVERIFIED_UNIT'):m.setup_fault_domain([],ROOT,{},'a'*40,'123',Path('/fixture'),'api-outer-sigkill')
+   self.assertEqual(events,['verified-unit','durable-admission','nested-domain'])
  def test_nonroot_or_nonlinux_rejects_before_clone(self):
   with patch.object(m.sys,'platform','darwin'),patch.object(m.tempfile,'mkdtemp')as create:
    with self.assertRaisesRegex(ValueError,'LINUX_ROOT'):m.execute('a'*40,1,0)

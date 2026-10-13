@@ -1,9 +1,13 @@
 """Offline preload contract checks; no Docker or database is started."""
 import ast
+import json
 import importlib.util
 from pathlib import Path
 from types import SimpleNamespace
 import unittest
+import subprocess
+import tempfile
+import shutil
 from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -14,6 +18,19 @@ spec.loader.exec_module(fixture)
 
 
 class PreloadContract(unittest.TestCase):
+    def test_bridge_projection_reports_phase_and_fixed_reason_without_raw_error(self):
+        with tempfile.TemporaryDirectory()as d:
+            root=Path(d);(root/'application-journal').mkdir();(root/'application-journal/init.intent.json').write_text('{}')
+            raw=b'File "/private/driver_bridge.py", line 133\nRuntimeError: FIXTURE_CHAIN_INCOMPLETE\nsecret password SELECT url=https://private.invalid\n'
+            value=fixture.failure_projection(raw,root);self.assertEqual(value['reason'],'FIXTURE_CHAIN_INCOMPLETE');self.assertEqual(value['frames'],[dict(file='driver_bridge.py',line=133)])
+            self.assertTrue(value['phaseRecords'][0]['intentPresent']);self.assertFalse(value['phaseRecords'][0]['receiptPresent']);self.assertFalse(value['phaseRecordsVerified'])
+            self.assertNotIn('secret',json.dumps(value));self.assertNotIn('SELECT',json.dumps(value))
+            self.assertEqual(fixture.failure_projection(b'RuntimeError: SECRET_VALUE\n',root)['reason'],'UNCLASSIFIED')
+    def test_real_typescript_diagnostic_captures_causes_without_secret(self):
+        node=shutil.which('node');self.assertTrue(node)
+        code="import{diagnostic,mark}from'./tests/fixtures/cn-application-recovery-complete/diagnostic.ts';mark('initial-migrations');const cause=Object.assign(new Error('secret SELECT password url'),{code:'42501'});console.log(JSON.stringify(diagnostic(new Error('private',{cause}))));"
+        value=json.loads(subprocess.check_output([node,'--import','tsx','--input-type=module','-e',code],cwd=ROOT,timeout=15))
+        self.assertEqual(value['stage'],'initial-migrations');self.assertEqual(value['causes'][1]['errorCode'],'42501');self.assertNotIn('secret',json.dumps(value));self.assertNotIn('SELECT',json.dumps(value));self.assertLess(len(json.dumps(value)),8192)
     def test_override_retains_original_image_preload(self):
         image = (ROOT / 'apps/api/docker/postgres-age/Dockerfile').read_text()
         self.assertIn('CMD ["postgres", "-c", "shared_preload_libraries=age"]', image)

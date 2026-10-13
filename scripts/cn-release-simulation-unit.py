@@ -78,10 +78,57 @@ def validate_show(v,unit,argv,seconds,invocation=None):
     need(v.get('ExecStart','').startswith(prefix),'SIMULATION_EXECSTART')
     return int(v['MainPID'])
 
+WORKER_SUITES=frozenset(('all','release','linux-api-outer-recovery','linux-application-recovery-complete','linux-six-business'))
+
 def validate_worker(command_,checkout):
-    need(len(command_)==14 and command_[:4]==[str(Path(sys.executable).absolute()),'-I','-B',str(checkout/'scripts/cn-release-simulation.py')],'SIMULATION_FIXED_WORKER')
+    need(len(command_) in (14,16) and command_[:4]==[str(Path(sys.executable).absolute()),'-I','-B',str(checkout/'scripts/cn-release-simulation.py')],'SIMULATION_FIXED_WORKER')
     need(command_[4]=='--output' and Path(command_[5]).is_absolute() and str(Path(command_[5]).resolve())==command_[5],'SIMULATION_OUTPUT')
-    need(command_[6:11]==['--workers','3','--timeout-seconds','300','--rounds'] and command_[11] in ('1','10') and command_[12]=='--seed' and command_[13].isdigit() and 0<=int(command_[13])<=2**32-1,'SIMULATION_FIXED_ARGUMENTS')
+    need(command_[6]=='--workers' and command_[7] in ('1','3') and command_[8:11]==['--timeout-seconds','300','--rounds'] and command_[11] in ('1','10') and command_[12]=='--seed' and command_[13].isdigit() and 0<=int(command_[13])<=2**32-1,'SIMULATION_FIXED_ARGUMENTS')
+    suite='all' if len(command_)==14 else command_[15]
+    need(len(command_)==14 or(command_[14]=='--suite' and suite in WORKER_SUITES),'SIMULATION_FIXED_SUITE')
+    need(command_[11]!='10' or suite=='all','SIMULATION_TEN_ALL_REQUIRED')
+
+FAULT_MODES={'api-outer-sigkill':'--child','api-outer-noop':'--noop'}
+FAULT_PATH='tests/cn_release_api_outer_recovery_linux.py'
+
+def current_unit_context():
+    # The worker is a descendant of the observed service; environment alone is
+    # never evidence of that service, its limits, or its invocation identity.
+    need(sys.platform=='linux' and os.geteuid()==0,'SIMULATION_FAULT_LINUX_ROOT')
+    pid=os.getpid();ticks=base.process_identity(pid)
+    membership=Path('/proc/self/cgroup').read_text().splitlines()
+    need(len(membership)==1,'SIMULATION_FAULT_MEMBERSHIP')
+    match=re.fullmatch(r'0::(/system.slice/(wsx-cn-simulation-[a-f0-9]{32}\.service))/.*',membership[0])
+    need(match is not None,'SIMULATION_FAULT_OUTSIDE_UNIT')
+    manager=show(match[2]);mainpid=manager.get('MainPID','')
+    need(mainpid.isdigit() and int(mainpid)>1,'SIMULATION_FAULT_MAIN_PID')
+    argv=Path('/proc/'+mainpid+'/cmdline').read_bytes().split(b'\0')[:-1]
+    need(len(argv)==7,'SIMULATION_FAULT_BRIDGE_COMMAND')
+    root=Path(argv[-1].decode());need(argv==[x.encode()for x in bridge_argv(root)],'SIMULATION_FAULT_BRIDGE_COMMAND')
+    plan=json.loads(read(root/'simulation-unit-input.json',262144));gate(root,plan)
+    claim=json.loads(read(root/'simulation-unit-claim.json'));need(claim['unit']==match[2],'SIMULATION_FAULT_UNIT')
+    observed=json.loads(read(root/'simulation-unit-observed.json'))
+    need(observe(root,plan,claim,observed['invocationId'])==observed,'SIMULATION_FAULT_OBSERVATION')
+    need(Path('/proc/self/cgroup').read_text().splitlines()==membership and base.process_identity(pid)==ticks,'SIMULATION_FAULT_PROCESS_DRIFT')
+    return root,plan,observed
+
+def admit_fault(command_,checkout,env,sha_,run_id,receipt_root,mode):
+    need(mode in FAULT_MODES and checkout==ROOT,'SIMULATION_FAULT_MODE')
+    expected=[str(Path(sys.executable).absolute()),'-I','-B',str(ROOT/FAULT_PATH),FAULT_MODES[mode]]
+    need([str(x)for x in command_]==expected,'SIMULATION_FAULT_FIXED_COMMAND')
+    root,plan,observed=current_unit_context()
+    need(plan['sha']==sha_ and plan['runId']==run_id and env.get('GITHUB_RUN_ID')==run_id,'SIMULATION_FAULT_SOURCE_IDENTITY')
+    allowed={'PATH','GITHUB_RUN_ID','GITHUB_ACTIONS','CN_API_STARTUP_PG_IMAGE','CN_SIM14_CHILD_ROOT','CN_SIM14_DEADLINE'}
+    need(set(env)<=allowed and env.get('CN_API_STARTUP_PG_IMAGE')==plan['env'].get('CN_API_STARTUP_PG_IMAGE'),'SIMULATION_FAULT_ENV')
+    registry=Path(plan['env']['CN_SIM14_REGISTRY_ROOT'])
+    folder=receipt_root.parent
+    need(folder.name=='api-outer-recovery' and re.fullmatch(r'round-[0-9]{2}',folder.parent.name) and folder.parent.parent==registry and receipt_root.name==('success' if mode=='api-outer-sigkill' else 'uncertain'),'SIMULATION_FAULT_RECEIPT_ROOT')
+    need(str(receipt_root.resolve())==str(receipt_root) and env.get('CN_SIM14_CHILD_ROOT')==str(folder/'target'),'SIMULATION_FAULT_CHILD_ROOT')
+    # Independently bind the fixed loaded fault source to the complete admitted
+    # control commit, not a caller-provided script hash.
+    original=command(['/usr/bin/git','-c','safe.directory='+str(ROOT),'-c','safe.directory='+str(ROOT/'.git'),'-C',ROOT,'show',sha_+':'+FAULT_PATH])
+    need(sha(original)==sha(read(ROOT/FAULT_PATH,65536)),'SIMULATION_FAULT_SOURCE_DRIFT')
+    return {'unit':observed['unit'],'invocationId':observed['invocationId'],'sourceSha':sha_,'faultSourceSha256':sha(original),'mode':mode}
 
 def private_root(root):
     need(root.parent==Path('/var/lib') and re.fullmatch('wsx-cn-simulation-[A-Za-z0-9_-]+',root.name) and root.resolve()==root,'SIMULATION_PRIVATE_ROOT')

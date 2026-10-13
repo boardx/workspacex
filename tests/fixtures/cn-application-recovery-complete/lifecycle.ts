@@ -7,6 +7,7 @@ import {withCompleteController}from'./controller';
 import fs from 'node:fs/promises';
 import {writeFileSync}from'node:fs';
 import {startupDiagnostic}from'../cn-api-startup/diagnostic';
+import {mark}from'./diagnostic';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import {createRequire}from'node:module';
@@ -66,7 +67,9 @@ async function restore(db:string,archive=dump,archiveSha=state.dumpSha256){asser
 async function readPhase(p:string){const raw=await fs.readFile(path.join(journal,p+'.result.json'));const v=JSON.parse(raw.toString());assert.equal(v.epoch,state.epoch);assert.equal(v.seed,seed);assert.equal(v.phase,p);assert.equal(v.verified,true);for(const item of v.journalRecords){const bytes=await fs.readFile(path.join(journal,item.name));assert.equal(hash(bytes),item.sha256);assert.equal(bytes.toString('base64'),item.rawBase64);}return{raw,value:v};}
 if(mode==='--observe'){process.stdout.write((await readPhase(phase)).raw);process.exit(0);}
 assert.equal(phases[state.finished.length],phase);const intent=path.join(journal,phase+'.intent.json');await once(intent,{epoch:state.epoch,phase,seed});const begin=state.events.length;
+mark(phase);
 if(phase==='init'){
+ mark('initial-migrations');
  const names=migrationFiles();assert(names.length>=416);state.fullCount=names.length;state.originalCount=names.length;
  const manifest=[];for(const name of names){const raw=await fs.readFile(path.join(MIGRATIONS_DIR,name));manifest.push({name,sha256:hash(raw)});}
  await once(path.join(root,'original-migration-manifest.json'),manifest);state.migrationManifestSha256=hash(await fs.readFile(path.join(root,'original-migration-manifest.json')));
@@ -74,7 +77,7 @@ if(phase==='init'){
  await query('app_epoch',"INSERT INTO organizations(id,name,kind) VALUES('org-app-recovery','Current epoch application fixture','organization')");
  await query('app_epoch',"CREATE TABLE cn_recovery_canary(value text);INSERT INTO cn_recovery_canary VALUES('original-current-epoch');GRANT SELECT,INSERT,UPDATE,DELETE ON cn_recovery_canary TO app_rw");
  state.applicationReadback=await actualRead('app_epoch');assert.equal(state.applicationReadback?.name,'Current epoch application fixture');state.canary=await query('app_epoch','TABLE cn_recovery_canary');await hold('app_epoch');
- state.originalCatalog=await catalogFacts('app_epoch');state.originalLedger=await ledger('app_epoch');await once(path.join(root,'original-ledger.json'),state.originalLedger);
+ mark('initial-catalog');state.originalCatalog=await catalogFacts('app_epoch');state.originalLedger=await ledger('app_epoch');await once(path.join(root,'original-ledger.json'),state.originalLedger);
  await event('original-app-prefix-held',{migrationCount:state.originalCount,fullApplicationMigrationCount:names.length,ledgerSha256:hash(JSON.stringify(state.originalLedger)),fullControlSchemaFixture:true,holdRetained:true});
  state.checks.push('original_application_prefix_migrations_and_actual_repository');
 }else if(phase==='backup'){await held('app_epoch');await backup();await event('current-epoch-backup',{sha256:state.dumpSha256,bytes:state.dumpBytes,epoch:state.epoch});

@@ -82,13 +82,13 @@ def main():
     need(re.fullmatch('[a-f0-9]{40}',commit),'EXACT_CONTROL_COMMIT')
     deadline=started+120;recovery_deadline=started+330;proofs={};failure=None;control=None
     # No provider credentials or application configuration cross into the child.
-    env={k:os.environ[k]for k in ('PATH','GITHUB_RUN_ID','CN_API_STARTUP_PG_IMAGE')if k in os.environ}
+    env={k:os.environ[k]for k in ('PATH','GITHUB_RUN_ID','GITHUB_ACTIONS','CN_API_STARTUP_PG_IMAGE')if k in os.environ}
     env.update(CN_SIM14_CHILD_ROOT=str(roots['target']),CN_SIM14_DEADLINE=str(deadline))
     try:
         folder=roots['control']/'round-01';folder.mkdir(mode=0o700)
         control=module.Owner(folder,run_id,'round-01');cid=create(module,control,image,deadline)
         success=base/'success';success.mkdir(mode=0o700)
-        code=ci.run_owned_simulation([sys.executable,'-I','-B',str(Path(__file__).resolve()),'--child'],ROOT,env,{},commit,run_id,success,timeout=max(.1,deadline-time.monotonic()),api_owner_root=roots['target'],recovery_deadline=recovery_deadline)
+        code=ci.run_owned_simulation([sys.executable,'-I','-B',str(Path(__file__).resolve()),'--child'],ROOT,env,{},commit,run_id,success,timeout=max(.1,deadline-time.monotonic()),api_owner_root=roots['target'],recovery_deadline=recovery_deadline,fault_injection='api-outer-sigkill')
         need(code==-signal.SIGKILL,'WHOLE_SIMULATION_NOT_SIGKILLED')
         actual=json.loads((success/'six-recovery.json').read_bytes())
         owners=actual['registries']['api-and-application']['owners']
@@ -109,7 +109,7 @@ def main():
         uncertain=base/'uncertain';uncertain.mkdir(mode=0o700)
         old_path=os.environ.get('PATH','');os.environ['PATH']=str(guard)
         try:
-            try:ci.run_owned_simulation([sys.executable,'-I','-B','-c','pass'],ROOT,env,{},commit,run_id,uncertain,timeout=max(.1,min(10,recovery_deadline-time.monotonic())),api_owner_root=negative,recovery_deadline=recovery_deadline)
+            try:ci.run_owned_simulation([sys.executable,'-I','-B',str(Path(__file__).resolve()),'--noop'],ROOT,env,{},commit,run_id,uncertain,timeout=max(.1,min(10,recovery_deadline-time.monotonic())),api_owner_root=negative,recovery_deadline=recovery_deadline,fault_injection='api-outer-noop')
             except ci.SetupCleanupUnproven:pass
             else:raise RuntimeError('UNKNOWN_CREATE_FALSE_GREEN')
         finally:os.environ['PATH']=old_path
@@ -136,4 +136,7 @@ def main():
     return 0 if passed else 1
 
 if __name__=='__main__':
-    sys.exit(child()if sys.argv[1:]==['--child']else main())
+    if sys.argv[1:]==['--child']:sys.exit(child())
+    if sys.argv[1:]==['--noop']:sys.exit(0)
+    need(not sys.argv[1:],'FIXED_FIXTURE_ARGUMENTS')
+    sys.exit(main())

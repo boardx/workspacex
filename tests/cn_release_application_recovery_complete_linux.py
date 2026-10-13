@@ -23,6 +23,14 @@ def bridge_command(bridge,*arguments):
     # The child environment is deliberately minimal; parent Python flags and
     # PYTHONDONTWRITEBYTECODE do not propagate across exec. Pin both explicitly.
     return [sys.executable,'-I','-B',bridge,*arguments]
+def failure_projection(stderr,root):
+    text=stderr[:8192].decode('utf8',errors='replace')
+    reasons={'FIXTURE_CHAIN_INCOMPLETE','EXECUTION_UNCERTAIN_RECONCILE_NO_RETRY','OBSERVATION_FAILED','EVIDENCE_NOT_VERIFIED','PHASE_EVIDENCE_LIMIT','ENTRY_SOURCE_CHANGED','PHASE_CHAIN_CHANGED','FIXTURE_REPLAY_CHANGED'}
+    found=re.findall(r'^RuntimeError: ([A-Z][A-Z0-9_]{0,79})$',text,re.M)
+    frames=[dict(file=name,line=int(line))for name,line in re.findall(r'File "[^"\n]*/([^/"\n]+)", line ([0-9]+)',text)if name in ('driver_bridge.py','cn-release-fixed-driver.py','cn-release-advance.py')][:6]
+    phases=('init','backup','restore','compatibility','migration-fault','startup-fault','postclear-fault','finalize')
+    records=[dict(phase=p,intentPresent=(root/'application-journal'/(p+'.intent.json')).is_file(),receiptPresent=(root/'application-journal'/(p+'.result.json')).is_file())for p in phases]
+    return dict(reason=found[-1]if found and found[-1]in reasons else 'UNCLASSIFIED',frames=frames,phaseRecords=records,phaseRecordsVerified=False)
 def validate_image_storage(image):
     config=image.get('Config',{})
     need(set((config.get('Volumes')or{}))<= {PGDATA},'UNEXPECTED_IMAGE_VOLUME')
@@ -117,7 +125,7 @@ def main():
         stage='original-durable-driver'
         bridge=ROOT/'tests/fixtures/cn-postgres-lifecycle/driver_bridge.py'
         observed=run(bridge_command(bridge,'--config',config,'--node',node,'--loader',loader,
-                      '--fixture',ROOT/'tests/fixtures/cn-application-recovery-complete/lifecycle.ts',
+                      '--fixture',ROOT/'tests/fixtures/cn-application-recovery-complete/diagnostic-launcher.ts',
                       '--entry-source',ROOT/'.harness/scripts/vm/cn-release-advance.py','--driver-source',ROOT/'scripts/cn-release-fixed-driver.py'),
                      timeout=650,check=False,cwd=ROOT)
         need(observed.returncode==0,'DURABLE_CHAIN_FAILED')
@@ -129,7 +137,7 @@ def main():
         if temporary is not None:
             diagnostic=temporary/'failure-diagnostic.json'
             if diagnostic.is_file() and not diagnostic.is_symlink() and diagnostic.stat().st_size<=16384:failure['diagnostic']=json.loads(diagnostic.read_bytes())
-        if 'observed'in locals():failure.update(exitCode=observed.returncode,stderrBytes=len(observed.stderr),stderrSha256=hashlib.sha256(observed.stderr).hexdigest())
+        if 'observed'in locals():failure.update(exitCode=observed.returncode,stderrBytes=len(observed.stderr),stderrSha256=hashlib.sha256(observed.stderr).hexdigest(),bridgeDiagnostic=failure_projection(observed.stderr,temporary))
     finally:
         DEADLINE=time.monotonic()+60  # Separate bounded cleanup, never a new action budget.
         if registry_fd is not None:os.close(registry_fd)
