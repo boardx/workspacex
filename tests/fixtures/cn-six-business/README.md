@@ -97,22 +97,27 @@ The actual worker heap receipt, bounded memory samples and original six Linux
 journeys must verify this candidate before acceptance. No Unit limit, source,
 timeout, business assertion or cleanup gate is relaxed.
 
-Compiler phase diagnostics keep the 2048 MiB candidate unchanged. Only connected
-dev fixtures attach numeric snapshots to finishModules, seal, afterCompile,
-afterEmit and afterDone. At most six plugin instances and eight events per fixed
-client/server/edge compiler identity (24 total) are retained in existing worker
-receipts. Module counts use Set.size only; no module source, buffer, stats or
-heap dump is requested. Missing module counts are explicitly unavailable.
+Compiler diagnostics keep the 2048 MiB candidate and original resource and
+business gates unchanged. Only connected dev fixtures attach hooks. Per fixed
+client/server/edge identity, six records are reserved for cumulative actual
+buildModule callback milestones 1/512/1024/2048/4096/8192. Two separate records
+are reserved for afterCompile and afterDone, once each, only with an available
+module Set.size >=1024. Small or empty completions cannot spend either quota.
+All records still share eight per compiler and 24 total. Build counts persist
+across compilations and cap at 16384 (that maximum is a lower bound thereafter);
+moduleCount remains the separately observed Set.size. At most six plugin
+instances, 16 compilations per identity and 64 skipped small completions are
+observed. No module path/source/buffer/stats or heap dump is requested.
+
+Run 38355123654 showed the initial 717/824-module compiles consumed the previous
+event budget before later heap growth. Real installed-webpack counterexamples
+now complete two small compiles and prove later 2048/4096 build callbacks still
+emit, with both large completion slots independent. Collector validation binds
+PID, exact numeric shape, phase enum, each category's quota, ordered milestone
+index, monotonic time/callback/skip counters and global event sequence. The full
+worst-case worker envelope including memory latest/peaks remains under 16 KiB.
+
 The launcher classifies only fixed ASCII fatal markers across stderr chunks;
 it retains booleans/counts and the existing streaming stderr hash, not raw
 stderr. SIGABRT alone remains insufficient to prove JavaScript heap OOM.
-
-The follow-up observer does not spend its shared 24-record budget on known empty
-compiles. Empty phases have a separate 64-event cap per compiler identity, with
-at most 16 compilations and six plugin instances. BuildModule counts actual
-callbacks cumulatively across compilations (not module Set size), emitting only
-at 1/256/512/1024/2048/4096/8192/16384. These milestones share the existing
-eight records per compiler budget; phase 6 identifies construction, and the
-separate moduleCount remains the observed Set.size. All counters and retained
-records are bounded; no resource path/source/buffer is accessed. The full
-worst-case worker envelope including memory samples remains under 16 KiB.
+All six actual Linux journeys and owned cleanup must pass before acceptance.
