@@ -6,10 +6,12 @@ const categories=new Set(['database','namespaces','relations','columns','constra
 let catalogCategory:string|null=null;
 let constraintDifferences:unknown=null;
 let constraintRoundtrip:unknown=null;
-export function mark(value:string){stage=stages.has(value)?value:'unknown';catalogCategory=null;constraintDifferences=null;constraintRoundtrip=null;}
+let catalogFormatting:unknown=null;
+export function mark(value:string){stage=stages.has(value)?value:'unknown';catalogCategory=null;constraintDifferences=null;constraintRoundtrip=null;catalogFormatting=null;}
 export function markCatalog(value:string){catalogCategory=categories.has(value)?value:null;}
 export function markConstraintDifferences(value:unknown){constraintDifferences=value;}
 export function markConstraintRoundtrip(value:unknown){constraintRoundtrip=value;}
+export function markCatalogFormatting(value:unknown){catalogFormatting=value;}
 export function diagnostic(error:unknown){
  const causes=[];let e:any=error;const seen=new Set();
  for(let i=0;i<3&&e&&typeof e==='object'&&!seen.has(e);i++,e=e.cause){
@@ -17,5 +19,5 @@ export function diagnostic(error:unknown){
   if(e.name==='AssertionError'){item.errorType='AssertionError';item.errorCode=e.code==='ERR_ASSERTION'?'ERR_ASSERTION':null;}
   causes.push(item);
  }
- return {kind:'application-complete-diagnostic-v1',stage,catalogCategory,constraintDifferences,constraintRoundtrip,causes};
+ return {kind:'application-complete-diagnostic-v1',stage,catalogCategory,constraintDifferences,constraintRoundtrip,catalogFormatting,causes};
 }

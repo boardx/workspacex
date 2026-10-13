@@ -1,7 +1,20 @@
 import assert from 'node:assert/strict';
 import {isDeepStrictEqual} from 'node:util';
 import {createHash} from 'node:crypto';
-import {markCatalog,markConstraintDifferences} from './diagnostic';
+import {markCatalog,markConstraintDifferences,markCatalogFormatting} from './diagnostic';
+function formattingMetadata(actual:Record<string,unknown>,expected:Record<string,unknown>){
+ const categories=['database','namespaces','relations','columns','constraints','indexes','triggers','views','rules','inheritance','types','enumLabels','collations','sequences','functions','policies','defaultAcl','extensions','roles','memberships','agePresence','graphs','labels'];
+ const differences=categories.filter(k=>!isDeepStrictEqual(actual[k],expected[k])).map(category=>({category,sourceCount:Array.isArray(expected[category])?(expected[category]as any[]).length:null,targetCount:Array.isArray(actual[category])?(actual[category]as any[]).length:null}));
+ const projection=(rows:any[])=>rows.map(row=>{
+  const match=row.internal===true&&typeof row.name==='string'?row.name.match(/^RI_ConstraintTrigger_([ac])_\d+$/):null;
+  if(!match||typeof row.definition!=='string')return row;
+  return {...row,name:'RI_ConstraintTrigger_'+match[1],definition:row.definition.split(row.name).join('RI_ConstraintTrigger_'+match[1])};
+ }).map(row=>JSON.stringify(row)).sort();
+ const source=expected.triggers,target=actual.triggers;
+ return {differences,riGeneratedNameProjectionEqual:Array.isArray(source)&&Array.isArray(target)?isDeepStrictEqual(projection(source),projection(target)):null,
+  sourceGeneratedRICount:Array.isArray(source)?source.filter(row=>row.internal===true&&/^RI_ConstraintTrigger_[ac]_\d+$/.test(row.name)).length:null,
+  targetGeneratedRICount:Array.isArray(target)?target.filter(row=>row.internal===true&&/^RI_ConstraintTrigger_[ac]_\d+$/.test(row.name)).length:null};
+}
 export function constraintDifferences(actual:any[],expected:any[]){
  const hash=(s:string)=>createHash('sha256').update(s).digest('hex');
  const key=(row:any)=>JSON.stringify([row.schema,row.relation,row.name,row.kind]);
@@ -18,6 +31,7 @@ export function constraintDifferences(actual:any[],expected:any[]){
 }
 /** Complete comparison; never format the full application catalog on failure. */
 export function assertCatalogEqual(actual:Record<string,unknown>,expected:Record<string,unknown>){
+ markCatalogFormatting(formattingMetadata(actual,expected));
  assert(isDeepStrictEqual(Object.keys(actual).sort(),Object.keys(expected).sort()),'RESTORE_CATALOG_SCOPE_MISMATCH');
  for(const category of Object.keys(expected)){
   markCatalog(category);
