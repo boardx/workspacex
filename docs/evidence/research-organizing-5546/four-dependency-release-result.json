@@ -1,0 +1,36 @@
+{
+  "dependencyShas": [
+    "65af047d0b1a6a661df213e9bd850d387a3ab567",
+    "1ced77833cef9ec01956024c72fbcf5247f7245a",
+    "967071899359906bf50312886e829fd25060c4a6",
+    "3a1d91d9a79fc946d29dcb8d040ee4a26df1a858"
+  ],
+  "temporaryPatchesOnly": true,
+  "dependencyFilesRestored": true,
+  "releaseExitCode": 1,
+  "runnerMetadataDependencyPrs": [
+    5557,
+    5562,
+    5566,
+    5568
+  ],
+  "dependencyPrs": [
+    5557,
+    5562,
+    5566,
+    5569
+  ],
+  "dependencyIssueMapping": {
+    "5569": 5568
+  },
+  "harness": {
+    "testFilesPassed": 207,
+    "testFilesFailed": 1,
+    "testsPassed": 2481,
+    "testsFailed": 1,
+    "failureFiles": [
+      ".harness/scripts/vm/native-api-env-readiness.test.ts"
+    ]
+  },
+  "privateLogSha256": "b54d4f7af723d8a33056b144281076af45113f5aa6db2579f3d21f3466388736"
+}

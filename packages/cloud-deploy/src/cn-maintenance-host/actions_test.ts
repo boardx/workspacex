@@ -1,10 +1,17 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { productionDynamicActions } from './dynamic_gate';
-import { offlinePreparedAction, exactMigrationAction } from './reused_actions';
+import { offlinePreparedAction, exactMigrationAction, preparedActivationAction } from './reused_actions';
+import type { ActivationActions } from '../cn-fast-safe-release';
 const identity = { sourceRevision: 'a'.repeat(40), baselineRevision: 'b'.repeat(40), migrationPlanSha256: 'c'.repeat(64), attemptId: 'attempt-1' };
 const collector = { path: '/usr/local/lib/workspacex-cn/collect-cn-release-preflight.sh', sha256: '1'.repeat(64) };
 const verifier = { path: '/usr/local/lib/workspacex-cn/verify-cn-release-preflight.sh', sha256: '2'.repeat(64) };
+test('legacy Promise production factory blocks before any action, not a fictional hard timeout', async () => {
+  let calls = 0;
+  const actions = new Proxy({}, { get: () => { calls++; return async () => {}; } }) as ActivationActions;
+  await assert.rejects(preparedActivationAction({}, actions)(identity), /PREPARED_ACTIVATION_SUPERVISED_TRANSPORT_NOT_IMPLEMENTED/);
+  assert.equal(calls, 0);
+});
 test('held dynamic adapter rejects legacy bootstrap before any command or readback', async () => {
   const events: unknown[] = [];
   const adapter = productionDynamicActions(collector, verifier, '1.2.3', async (cmd, args) => { events.push([cmd.path, args]); return { stdout: 'ready=true' }; }, async () => { events.push('readback'); });

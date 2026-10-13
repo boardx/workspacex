@@ -82,7 +82,7 @@ html:not(.js) [data-stagger] > * {
 .hero__aurora {
   position: absolute; inset: -12%; z-index: -2; pointer-events: none;
   background: url("../img/aurora.webp") center / cover no-repeat;
-  opacity: 0.85;
+  opacity: 0.2;
   animation: drift 26s var(--ease-io) infinite alternate;
   will-change: transform;
 }
@@ -95,8 +95,8 @@ html:not(.js) [data-stagger] > * {
 .hero::after {
   content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none;
   background:
-    radial-gradient(90% 65% at 50% 45%, transparent 20%, rgba(8,7,11,.72) 78%),
-    linear-gradient(180deg, rgba(8,7,11,.5), transparent 28%, rgba(8,7,11,.9));
+    radial-gradient(90% 65% at 50% 45%, transparent 20%, rgba(255,255,255,.82) 78%),
+    linear-gradient(180deg, rgba(255,255,255,.65), transparent 28%, rgba(255,255,255,.95));
 }
 
 /* minmax(0, 1fr) rather than the default auto track: an auto track takes the

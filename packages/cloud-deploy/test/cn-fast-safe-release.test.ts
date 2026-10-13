@@ -163,11 +163,80 @@ function activationActions(overrides: Partial<ActivationActions> = {}): Activati
     runBrowserSmoke: vi.fn(async () => ({ login: true, hello: true, asr: true, githubFeedbackRead: true, skillTool: true, pdfDownload: true })),
     restoreBaseline: vi.fn(async () => undefined),
     restorePointer: vi.fn(async () => undefined),
+    verifyBaselineBrowser: vi.fn(async () => ({ login: true, hello: true, asr: true, githubFeedbackRead: true, skillTool: true, pdfDownload: true })),
     ...overrides,
   };
 }
 
 describe("CN fast-safe activation", () => {
+  it.each([{}, { login: true }, [], null, { login: true, hello: true, asr: true, githubFeedbackRead: true, skillTool: true, pdfDownload: false }])("rejects incomplete runtime browser evidence %j", async (browser) => {
+    const actions = activationActions({ runBrowserSmoke: vi.fn(async () => browser) as ActivationActions["runBrowserSmoke"] });
+    const result = await activatePreparedCnRelease(evidence(), actions, { now: new Date("2026-09-14T01:00:00Z") });
+    expect(result).toMatchObject({ status: "rolled-back", code: "BROWSER_SMOKE_FAILED" });
+    expect(actions.verifyBaselineBrowser).toHaveBeenCalledOnce();
+  });
+
+  it("rejects absent canonical lock result instead of treating undefined as false", async () => {
+    const actions = activationActions({ verifyCanonical: vi.fn(async () => ({ status: "passed", passedStages: 8 })) as unknown as ActivationActions["verifyCanonical"] });
+    expect(await activatePreparedCnRelease(evidence(), actions, { now: new Date("2026-09-14T01:00:00Z") })).toMatchObject({ status: "rolled-back", code: "CANONICAL_GATE_FAILED" });
+    expect(actions.runBrowserSmoke).not.toHaveBeenCalled();
+  });
+
+  it.each([undefined, async () => ({}), async () => { throw Error("private-provider-body"); }])("never claims rollback without independent complete old-browser evidence", async (verifyBaselineBrowser) => {
+    const actions = activationActions({ activateTraffic: vi.fn(async () => { throw Error("failed"); }), verifyBaselineBrowser });
+    const result = await activatePreparedCnRelease(evidence(), actions, { now: new Date("2026-09-14T01:00:00Z") });
+    expect(result.status).toBe("rollback-unproven");
+    expect(actions.restoreBaseline).toHaveBeenCalledOnce();
+    expect(actions.restorePointer).toHaveBeenCalledOnce();
+    expect(JSON.stringify(result)).not.toContain("private-provider-body");
+  });
+
+  it("does not begin drain when baseline read consumes the deadline", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "performance"] });
+    try {
+      const actions = activationActions({ readBaselineFingerprint: vi.fn(() => new Promise<string>(resolve => setTimeout(() => resolve("b".repeat(64)), 20))) });
+      const pending = activatePreparedCnRelease(evidence(), actions, { now: new Date("2026-09-14T01:00:00Z"), deadlineMs: 10 });
+      await vi.advanceTimersByTimeAsync(20);
+      expect((await pending).status).toBe("blocked");
+      expect(actions.drainRuns).not.toHaveBeenCalled();
+      expect(actions.promotePreparedPointer).not.toHaveBeenCalled();
+    } finally { vi.useRealTimers(); }
+  });
+
+  it("rechecks receipt TTL after awaited reads using monotonic elapsed time", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "performance"] });
+    try {
+      const prepared = evidence();
+      const now = new Date(Date.parse(prepared.expiresAt) - 5);
+      const actions = activationActions({ readBaselineFingerprint: vi.fn(() => new Promise<string>(resolve => setTimeout(() => resolve("b".repeat(64)), 20))) });
+      const pending = activatePreparedCnRelease(prepared, actions, { now, deadlineMs: 300_000 });
+      await vi.advanceTimersByTimeAsync(20);
+      expect((await pending).status).toBe("blocked");
+      expect(actions.drainRuns).not.toHaveBeenCalled();
+      expect(actions.promotePreparedPointer).not.toHaveBeenCalled();
+    } finally { vi.useRealTimers(); }
+  });
+
+  it("joins a late action before restoring instead of racing background writes", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "performance"] });
+    try {
+      let finish!: () => void;
+      const actions = activationActions({ activateTraffic: vi.fn(() => new Promise<void>(resolve => { finish = resolve; })) });
+      const pending = activatePreparedCnRelease(evidence(), actions, { now: new Date("2026-09-14T01:00:00Z"), deadlineMs: 10 });
+      await vi.advanceTimersByTimeAsync(20);
+      expect(actions.restoreBaseline).not.toHaveBeenCalled();
+      finish();
+      expect((await pending).status).toBe("rolled-back");
+      expect(actions.restoreBaseline).toHaveBeenCalledOnce();
+      expect(actions.verifyBaselineBrowser).toHaveBeenCalledOnce();
+    } finally { vi.useRealTimers(); }
+  });
+
+  it("rejects invalid clocks before any transport call", async () => {
+    const actions = activationActions();
+    await expect(activatePreparedCnRelease(evidence(), actions, { now: new Date("invalid") })).rejects.toThrow("INVALID_ACTIVATION_CLOCK");
+    expect(actions.readBaselineFingerprint).not.toHaveBeenCalled();
+  });
   it("uses CAS, drains all run states, then promotes and verifies 8/8 plus browser evidence", async () => {
     const actions = activationActions();
     const report = await activatePreparedCnRelease(evidence(), actions, { now: new Date("2026-09-14T01:00:00Z"), deadlineMs: 300_000 });

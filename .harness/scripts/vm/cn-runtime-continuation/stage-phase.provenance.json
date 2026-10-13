@@ -1,0 +1,8 @@
+{
+  "kind": "cn-stage-template-provenance-v1",
+  "bytePreservingImport": true,
+  "originalRelativePath": "release-continuation/devapp-f0eb-release/prep/stage-phase.py",
+  "sha256": "e9e19ab70a30eb393ab59de3726543ef369770dd3d0b046416069d1faea42b28",
+  "bytes": 5434,
+  "executionAuthorized": false
+}

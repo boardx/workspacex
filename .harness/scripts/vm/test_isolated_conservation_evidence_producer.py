@@ -65,7 +65,7 @@ class CollectionTests(unittest.TestCase):
   self.mutate('recovery-verify',lambda out:out['snapshots'][DBS[0]].update(ciphertextSha256='c'*64))
   with self.assertRaisesRegex(ValueError,'RECOVERY_SNAPSHOT'):self.run_it()
  def test_secret_rejected(self):
-  self.mutate('migrate',lambda out:out.update(password='never-print'))
+  self.mutate('migrate',lambda out:out.update(password='never-print'))  # Synthetic test fixture.
   with self.assertRaisesRegex(ValueError,'SECRET_BEARING'):self.run_it()
  def test_unapproved_tls_exception(self):
   self.payload['binding']['tls']['providerSslEvidence']['targetInstanceId']='pgm-other'

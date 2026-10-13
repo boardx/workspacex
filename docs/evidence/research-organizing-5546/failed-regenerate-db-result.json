@@ -1,0 +1,90 @@
+{
+  "completed": false,
+  "reportPartial": false,
+  "reportHash": null,
+  "previousReportHash": "49087acd040d42f3237a48f6f158e71ba1b2fad9e0532e5ed17c44eac7b1f8a5",
+  "draftHash": "5a4faab5d80b07a0f3bdbb42f04422a475f1b7ec70a4f9cdb5f4dc79a3d62f54",
+  "outlineHash": "cf08ac3fae469d202d4fb01bd4ecd08e4d1c87114f7fd9d85eaafcbde2045c75",
+  "sessionId": "grs_d47eeb4a76e4405a900615e1068edf6f",
+  "version": 3,
+  "busy": false,
+  "errorCode": "RESEARCH_REPORT_QUALITY_INSUFFICIENT",
+  "progress": {
+    "executionVersion": 3,
+    "stage": "synthesizing",
+    "completed": 4,
+    "total": 4
+  },
+  "modelCalls": 80,
+  "formalChapters": 0,
+  "draftChapters": 4,
+  "qualityWarnings": [
+    {
+      "sectionId": "ch_4",
+      "issues": [
+        "chapter:3/question:1: The chapter honestly acknowledges that while it discusses general platform features (like those on Renren) and the nature of emotional labor in e-commerce (E2, E3), it lacks specific evidence identifying which digital functions *most effectively* promote spontaneous and happy social interactions. It explicitly states this knowledge gap and proposes concrete verification methods (A/B testing, user experience studies), which constitutes a passing gap."
+      ]
+    }
+  ],
+  "evidenceWarnings": [],
+  "sources": 16,
+  "documents": 16,
+  "activityFailures": 4,
+  "timeline": [
+    {
+      "id": "evidence",
+      "status": "completed",
+      "attempts": 18
+    },
+    {
+      "id": "chapter:ch_1",
+      "status": "completed",
+      "attempts": 1
+    },
+    {
+      "id": "review:ch_1",
+      "status": "completed",
+      "attempts": 1
+    },
+    {
+      "id": "chapter:ch_2",
+      "status": "completed",
+      "attempts": 1
+    },
+    {
+      "id": "review:ch_2",
+      "status": "completed",
+      "attempts": 1
+    },
+    {
+      "id": "chapter:ch_3",
+      "status": "completed",
+      "attempts": 2
+    },
+    {
+      "id": "review:ch_3",
+      "status": "completed",
+      "attempts": 6
+    },
+    {
+      "id": "chapter:ch_4",
+      "status": "completed",
+      "attempts": 2
+    },
+    {
+      "id": "review:ch_4",
+      "status": "warning",
+      "attempts": 5
+    },
+    {
+      "id": "synthesis",
+      "status": "completed",
+      "attempts": 1
+    },
+    {
+      "id": "validation",
+      "status": "failed",
+      "attempts": 1
+    }
+  ]
+}

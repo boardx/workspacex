@@ -1,0 +1,50 @@
+{
+  "provenance": "Existing private local reread snapshot; no new retrieval performed. Bodies stay outside Git.",
+  "sources": [
+    {
+      "id": "2e143b4d-fae2-40a1-be1e-e2a01b4f4116",
+      "rereadHash": "30d73d941371c8c9a64618b85b8b24495057aff96b1f092e03f7253dcf0dfd9e",
+      "originalHash": "30d73d941371c8c9a64618b85b8b24495057aff96b1f092e03f7253dcf0dfd9e",
+      "identical": true
+    },
+    {
+      "id": "44ac9f92-0871-4a76-8cb2-d61aa2f1bc09",
+      "rereadHash": "65f6b427ae4d7066124e8e718bb71c8e29d54ac203656dade1664b1a7986dd3e",
+      "originalHash": "efc3367f92a7799908299e2b4ee8fb0fc1ea5a946b62335c69a1bfc4b8298cad",
+      "identical": false
+    },
+    {
+      "id": "e77af5a2-5a31-4f1a-958d-eac1470d3105",
+      "rereadHash": "f4789cc047b8737d2f32f5da18d683abc60aa88e40d3db5e7af0d3b69854d878",
+      "originalHash": "f4789cc047b8737d2f32f5da18d683abc60aa88e40d3db5e7af0d3b69854d878",
+      "identical": true
+    },
+    {
+      "id": "c46f74bc-e8e6-4b95-b839-fa29b571bc08",
+      "rereadHash": "48063d926e90b77f3cab0004851ad48df584a35698da30de912c4b1e34801cbe",
+      "originalHash": "48063d926e90b77f3cab0004851ad48df584a35698da30de912c4b1e34801cbe",
+      "identical": true
+    },
+    {
+      "id": "fd56325b-ecee-4488-9475-e3a1ca748572",
+      "rereadHash": "e9c7216065ca9392398dafbd0003a1b0b09a4cf2d9303ad1be3070f93ea72298",
+      "originalHash": "e9c7216065ca9392398dafbd0003a1b0b09a4cf2d9303ad1be3070f93ea72298",
+      "identical": true
+    },
+    {
+      "id": "0228c160-6c16-411f-9392-04a5382f3f99",
+      "rereadHash": "4d43043b6e9bcfef48eb3961c4e01982a1ece8086a0f035123fb97c4bc84ba84",
+      "originalHash": "4d43043b6e9bcfef48eb3961c4e01982a1ece8086a0f035123fb97c4bc84ba84",
+      "identical": true
+    },
+    {
+      "id": "507e5051-2e10-4066-a553-4ae137f11b75",
+      "rereadHash": "f317ef0912a0274c60cdedb194176bc944eb3a5c7683f61822da84195cfb0299",
+      "originalHash": "0add21968751cb1eda31f7bdb0aafa35e7816a648ad6aa418a6ab80f30d927c7",
+      "identical": false
+    }
+  ],
+  "matchedOriginalDocuments": 5,
+  "rereadChangedDocuments": 2,
+  "exactOriginalDocumentsUnavailableLocally": 17
+}

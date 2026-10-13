@@ -1,0 +1,17 @@
+{
+  "kind": "cn-continuation-finalize-provenance-v1",
+  "bytePreservingImport": true,
+  "files": {
+    "prepare.py": {
+      "sha256": "e3f4e70a879a42a96df292320c0db1a83ba387b554372d55d81eb70ac1f6790a",
+      "bytes": 3100,
+      "originalRelativePath": "release-continuation/devapp-f0eb-release/prep/finalize/prepare.py"
+    },
+    "runtime.py": {
+      "sha256": "9eba21713df67a5fc92504cecceafc43f24889dfde7f2d42c9f85e93ce9c463d",
+      "bytes": 7329,
+      "originalRelativePath": "release-continuation/devapp-f0eb-release/prep/finalize/runtime.py"
+    }
+  },
+  "executionAuthorization": false
+}

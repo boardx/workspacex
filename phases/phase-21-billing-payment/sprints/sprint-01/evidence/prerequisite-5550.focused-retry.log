@@ -1,0 +1,53 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/eaa4/workspacex/apps/web
+
+ ✓ tests/ui/personal-chat-screen.test.tsx (23 tests) 1414ms
+ ✓ tests/agent-kernel/terminal-status-and-restore.test.tsx (26 tests) 5381ms
+   ✓ useCopilotKitV2RunRestore：真实 WS 事件驱动，终态到达后确认并回调 settled（E1/R12） > issue #2825：连接层面撑不住准备放弃前，先补一次权威读——读到终态就如实 settled，不再谎称『没能确认』 5024ms
+ ✓ tests/ui/realtime-transcription-history.test.tsx (28 tests) 6700ms
+   ✓ 实时转录历史工作台 > offers manual reconnect after five failed retries and stops retrying 390ms
+   ✓ 实时转录历史工作台 > does not reconnect after leaving the workspace 1303ms
+   ✓ 实时转录历史工作台 > automatically reconnects a dropped stream and retains saved text without stale events 1086ms
+   ✓ 实时转录历史工作台 > cancels scheduled reconnect when the user stops 1277ms
+   ✓ 实时转录历史工作台 > retries a temporary refresh failure after stopping without reporting ASR failure 317ms
+   ✓ 实时转录历史工作台 > keeps saved text and distinguishes persistent refresh failure from stopping failure 826ms
+ ✓ tests/ui/canvas-template-live.test.tsx (81 tests) 5436ms
+   ✓ D-43 已推翻：template-admin 屏重新挂上后台侧栏 AdminNav > 其它屏（如 editor）不挂 AdminNav——只有 template-admin 这一屏需要它 380ms
+   ✓ 2026-08-22 模板管理可用性改进 > ① 搜索框按名字/key 在当前筛选结果内过滤，不发新请求；清空后恢复全部 481ms
+ ✓ tests/ui/guided-research-report-stream.test.tsx (33 tests) 9119ms
+   ✓ research report stream UI > shows actual model text before completion and ignores wrong request and duplicate deltas 339ms
+   ✓ merges terminal progress without reloading the full snapshot and stops 4259ms
+   ✓ unlocks when progress is terminal even if the POST never closes 2091ms
+ ✓ tests/ui/chat-read-screen.test.tsx (46 tests) 9357ms
+   ✓ formal Chat read path > reads list, detail, roster and the contract message page with the provider bearer 711ms
+   ✓ formal Chat read path > 发消息成功后立刻重读右栏「材料」列表，不需要手动刷新页面 328ms
+   ✓ formal Chat read path > run 到终态后左栏重读服务端权威线程列表，会话卡跟着刷新（issue #1609） 309ms
+   ✓ formal Chat read path > 消息内联「落地为产物」调用真实 landAsArtifact 并在成功后重读右栏产物列表 303ms
+   ✓ formal Chat read path > 线程已翻过一页时，发送后 / run 终态后的软重读追着本地已加载列表尾部走，新消息真的渲染出来（issue #728 D6/D7 根因回归） 391ms
+   ✓ formal Chat read path > 线程已被追到底（nextCursor 已塌成 null）后再软重读，追新起点不塌回起点重新拉第一页（issue #728 round 2 H3 阻塞回归） 337ms
+   ✓ formal Chat read path > 推进到终态前持续轮询 AgentRun，状态取自服务端而不是本地推断 659ms
+   ✓ formal Chat read path > run 失败时如实显示 failed 与错误码，不合成回复 341ms
+   ✓ formal Chat read path > 渲染真实的 tool_call 步骤：调用前的计划、工具名、成功状态与结果摘要 415ms
+   ✓ formal Chat read path > 工具调用失败：如实显示失败状态与失败原因，不假装成功 409ms
+   ✓ formal Chat read path > 没有任何 tool_call 步骤时不渲染步骤区域——不是黑盒，是没发生 387ms
+   ✓ formal Chat read path > 流式增量实时追加进草稿气泡，持久消息落位后草稿让位——中途不消失 690ms
+   ✓ formal Chat read path > 默认（没有任何 delta 事件）从不渲染流式草稿气泡——退化到阶段2d之前的样子 423ms
+   ✓ formal Chat read path > 读不到 run 时报读取失败，而不是渲染一个猜出来的状态 408ms
+   ✓ formal Chat read path > keeps the same clientMessageId when a dependency failure is retried 347ms
+stderr | tests/ui/design-loop.test.tsx > UIUX 16：从对话导入的三步里，别把人弄丢 > 列表读失败 ⇒ 说的是「没读到」而不是「你没有对话」，重试真的再读一次
+import-thread failed { status: 500, reasonCode: 'boom' }
+
+stderr | tests/ui/design-loop.test.tsx > UIUX 16：从对话导入的三步里，别把人弄丢 > 翻页失败之后再翻成功 ⇒ 上一次那句报错不再压在结果上面
+import-thread failed { status: 500, reasonCode: 'boom' }
+
+ ✓ tests/ui/design-loop.test.tsx (260 tests) 13003ms
+   ✓ ⑩ 设计详情页：真栈 listMyProjects / appendProjectChat / pushToInbox > B5.3 导出设计文档：点按钮触发一次 .md 下载，内容含问题/验收/原型大纲 1125ms
+   ✓ 工作台首屏不再指向已经不存在的东西 > 搜索筛空 ⇒ 说「被筛掉了」并给清除按钮，而不是说「还没有设计项目」 623ms
+   ✓ UIUX 18：工作台首页与新建弹窗 > 搜索时列表不整屏换成骨架——已有结果留在屏上，只说一句「正在筛」 312ms
+
+ Test Files  7 passed (7)
+      Tests  497 passed (497)
+   Start at  20:14:20
+   Duration  20.17s (transform 9.92s, setup 2.97s, collect 31.41s, tests 50.41s, environment 11.50s, prepare 919ms)
+

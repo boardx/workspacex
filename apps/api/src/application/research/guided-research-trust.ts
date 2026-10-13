@@ -86,11 +86,16 @@ export function projectResearchTrust(runtime: ResearchRuntime): GuidedResearchTr
     openGapCount, overall: average([citationCoverage, authority, recency, crossValidation]),
     explanations: ["引用覆盖按已回答问题计算", "权威性按具有完整读取文档的来源计算", "时效性按近一年检索时间计算", "交叉验证按至少两个来源的问题计算"] });
   const blockers: string[] = [];
-  if (runtime.reportPartial || (!runtime.completed && runtime.tasks.some(task => task.status === "failed"))) blockers.push("搜索未完成，报告仅为部分草稿");
+  const formalReport = Boolean(runtime.report && runtime.completed && !runtime.busy && !runtime.errorCode && !runtime.reportDraft && !runtime.reportQualityWarnings?.length
+    && runtime.controlStatus !== "paused" && runtime.reportTimeline?.some(step => step.stage === "validation" && step.status === "completed"));
+  if (!formalReport && (runtime.reportPartial || (!runtime.completed && runtime.tasks.some(task => task.status === "failed")))) blockers.push("搜索未完成，报告仅为部分草稿");
+  if (runtime.reportDraft || runtime.reportQualityWarnings?.length || runtime.errorCode) blockers.push("报告正文或执行状态尚未通过验证");
+  if (runtime.report && runtime.completed && !formalReport) blockers.push("报告保存与完成状态尚未验证");
   if (!runtime.report && !runtime.reportDraft) blockers.push("报告尚未生成");
-  if (!coverage.length || coverage.some((item) => item.status === "missing")) blockers.push("核心问题覆盖不足");
-  if (runtime.report && (!claimEvidence.length || coverage.some((item) => item.status === "weak"))) blockers.push("关键结论缺少来源");
+  if (!formalReport && (!coverage.length || coverage.some((item) => item.status === "missing"))) blockers.push("核心问题覆盖不足");
+  if (!formalReport && runtime.report && (!claimEvidence.length || coverage.some((item) => item.status === "weak"))) blockers.push("关键结论缺少来源");
   const warnings: string[] = [];
+  if (formalReport && coverage.some(item => item.status === "missing")) warnings.push("部分问题存在已说明的证据局限");
   if (coverage.some((item) => item.status === "weak")) warnings.push("部分问题证据较弱");
   if (runtime.report && crossValidation === 0) warnings.push("关键结论尚未交叉验证");
   if (conflicts.some((conflict) => conflict.severity === "severe" && conflict.status === "open")) blockers.push("存在未解决的严重冲突");

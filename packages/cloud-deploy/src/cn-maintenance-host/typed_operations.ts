@@ -2,7 +2,7 @@ import { bindARouteHostOperations, type ARouteAdapterInputs } from './a_route_ad
 import {aRouteOperationNames,type ARouteOperations} from './a_route';
 import type { MaintenanceIdentity } from '../cn-maintenance-release';
 import type { ActivationActions } from '../cn-fast-safe-release';
-import { offlinePreparedAction, exactMigrationAction, preparedActivationAction, type ExactMigrationInputs, type ExactMigrationTransport } from './reused_actions';
+import { offlinePreparedAction, exactMigrationAction, preparedActivationAction, assertPreparedActivationCapability, type ExactMigrationInputs, type ExactMigrationTransport } from './reused_actions';
 import { maintenanceOfflinePreparedAction, maintenanceActivationAction } from './activation_transport';
 import { productionDynamicActions } from './dynamic_gate';
 import type { CommandRunner, TrustedExecutable } from './fixed_transport';
@@ -50,6 +50,7 @@ export async function bindTypedProductionOperations(value: Partial<ProtectedOper
   if (!value.collector || !value.preactivateVerifier || !value.release) missing.push('dynamicInputs');
   if (missing.length) throw new Error('PROTECTED_OPERATIONS_MISSING:'+missing.sort().join(','));
   const input = value as ProtectedOperationInputs;
+  if (input.lane !== 'maintenance') assertPreparedActivationCapability();
   await input.assertProtectedInputs();
   const dynamic = productionDynamicActions(input.collector,input.preactivateVerifier,input.release,input.runBash,input.readValidatedReceipt);
   return {

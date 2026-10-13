@@ -4,6 +4,36 @@ on:
     types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - '.github/workflows/archive-bridge-tests.yml'
+      - 'scripts/cn-release-*.py'
+      - 'scripts/cn-release-business-*.ts'
+      - 'scripts/build-cn-business-runtime.cjs'
+      - 'tests/test_cn_release_*.py'
+      - 'tests/cn-release-business-*.ts'
+      - '.github/workflows/release-cn-fixed.yml'
+      - 'scripts/cn-release-audit.py'
+      - 'scripts/cn-release-orchestrate.py'
+      - 'scripts/cn-release-runtime-readback.py'
+      - 'tests/test_cn_release_runtime_readback.py'
+      - 'scripts/cn-release-continuation-*.py'
+      - '.harness/scripts/vm/cn-release-advance.py'
+      - '.harness/scripts/vm/cn-runtime-continuation/**'
+      - 'tests/test_cn_release_entry.py'
+      - 'tests/cn_release_cgroup_linux.py'
+      - 'scripts/cn-release-derived-approval.py'
+      - 'tests/test_cn_release_derived_approval.py'
+      - 'tests/test_cn_release_continuation_*.py'
+      - '.github/workflows/release-cn-continuation.yml'
+      - 'tests/test_cn_release_audit.py'
+      - 'docs/operations/cn-release-five-round-audit.md'
+      - '.github/workflows/transfer-cn-candidates-via-hongkong.yml'
+      - '.github/release-plans/hk-*'
+      - 'scripts/cn-hk-*.py'
+      - 'scripts/aliyun-release-auth.py'
+      - 'scripts/harden-aliyun-action.py'
+      - 'tests/test_auth_action_hardening.py'
+      - 'tests/test_aliyun_release_auth.py'
+      - 'tests/test_cn_hk_*.py'
+      - 'docs/operations/hk-release-transfer/**'
       - '.github/workflows/cloud-build-only.yml'
       - 'scripts/cloud-build-only.py'
       - 'tests/test_cloud_build_only.py'
@@ -69,6 +99,15 @@ on:
       - 'tests/test_cn_main_registration.py'
       - '.harness/scripts/vm/isolated_external_lifecycle.py'
       - '.harness/scripts/vm/isolated_external_lifecycle_test.py'
+      - '.harness/scripts/vm/clone_fresh_memory.py'
+      - '.harness/scripts/vm/clone_fresh_memory_engine.py'
+      - '.harness/scripts/vm/clone_fresh_memory_test.py'
+      - '.harness/scripts/vm/clone_quiescence.py'
+      - '.harness/scripts/vm/clone_quiescence_adapter.py'
+      - '.harness/scripts/vm/clone_quiescence_engine.py'
+      - '.harness/scripts/vm/clone_quiescence.sql'
+      - '.harness/scripts/vm/clone_quiescence_test.py'
+      - '.harness/scripts/vm/clone_quiescence_adapter_test.py'
       - '.harness/scripts/vm/isolated_rehearsal.py'
       - '.harness/scripts/vm/isolated_rehearsal_test.py'
       - '.harness/scripts/vm/isolated_rehearsal_provider_error_test.py'
@@ -112,6 +151,8 @@ jobs:
           echo "CN_ARCHIVE_TEST_RUNTIME=$RUNNER_TEMP/archive-fixture" >> "$GITHUB_ENV"
       - name: Run archive contracts and real canonical Node fixture
         run: python3 -B -m unittest discover -s tests -p 'test_cn*archive*.py' -v
+      - name: Run bounded release scenario and offline chain regressions
+        run: python3 -B scripts/cn-release-audit.py test --suite all --budget-seconds 300
       - name: Run independent non-authorizing five-image candidate contracts
         run: python3 -I -B -m unittest discover -s tests -p 'test_cn_image_candidate.py' -v
       - name: Repeated layer input compatibility
@@ -138,6 +179,19 @@ jobs:
         run: python3 -I -B -m unittest discover -s tests -p 'test_cn_candidate_native_cli.py' -v
       - name: Native candidate upload and provider observation contracts
         run: python3 -I -B -m unittest discover -s tests -p 'test_cn_candidate_native_upload.py' -v
+      - name: Persistent continuation entry and parameterized binding without cloud calls
+        run: |
+          python3 -I -B -m unittest discover -s tests -p 'test_cn_release_*.py' -v
+      - name: Real Linux cgroup escape and timeout verification
+        run: sudo -n /usr/bin/python3 -I -B tests/cn_release_cgroup_linux.py
+      - name: Alibaba release authentication endpoint and claims contracts
+        run: python3 -I -B -m unittest discover -s tests -p 'test_aliyun_release_auth.py' -v
+      - name: Sanitized credential action failures and cleanup
+        run: python3 -I -B -m unittest discover -s tests -p 'test_auth_action_hardening.py' -v
+      - name: Hong Kong original-artifact transfer without cloud calls
+        run: |
+          python3 -I -B tests/test_cn_hk_original_artifact_upload.py
+          python3 -I -B tests/test_cn_hk_proof_integration.py
       - name: Reviewed candidate tool upgrade transaction
         run: python3 -I -B -m unittest discover -s tests -p 'test_cn_candidate_tool_upgrade.py' -v
       - name: Authenticated candidate download without cloud calls
@@ -167,6 +221,11 @@ jobs:
         run: python3 -I -B -m unittest discover -s tests -p 'test_cn_main_registration.py' -v
       - name: Run isolated recovery contracts on trusted runner directories
         run: python3 -I -B .harness/scripts/vm/isolated_rehearsal_test.py
+      - name: Clone quiescence admission and single commit contracts
+        run: |
+          python3 -I -B .harness/scripts/vm/clone_quiescence_test.py
+          python3 -I -B .harness/scripts/vm/clone_quiescence_adapter_test.py
+          python3 -I -B .harness/scripts/vm/clone_fresh_memory_test.py
       - name: Verify isolated cleanup and sanitized provider failure boundaries
         run: |
           python3 -I -B .harness/scripts/vm/isolated_external_lifecycle_test.py
@@ -182,3 +241,30 @@ jobs:
           python3 -B -m unittest discover -s .harness/scripts/vm -p 'cn_tool_profile_test.py' -v
           python3 -B -m unittest discover -s .harness/scripts/vm -p 'prepare_cn_tool_install_test.py' -v
           python3 -B -m unittest discover -s .harness/scripts/vm -p 'cn_tool_install_transaction_test.py' -v
+
+  isolated-business-browser:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22.20.0'
+          package-manager-cache: false
+      - name: Install exact isolated browser test dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --prefix "$RUNNER_TEMP/business-fixture" --no-audit --no-fund --save-exact tsx@4.20.6 zod@3.25.76 playwright@1.62.0
+          "$RUNNER_TEMP/business-fixture/node_modules/.bin/playwright" install --with-deps chromium
+      - name: Canonical business contracts and actual local TLS browser journey
+        shell: bash
+        run: |
+          set -euo pipefail
+          export NODE_PATH="$RUNNER_TEMP/business-fixture/node_modules"
+          export CN_TEST_PLAYWRIGHT="$NODE_PATH/playwright"
+          export CN_TEST_CHROMIUM="$(node -e 'process.stdout.write(require(process.env.CN_TEST_PLAYWRIGHT).chromium.executablePath())')"
+          node --import "$NODE_PATH/tsx/dist/loader.mjs" --test tests/cn-release-business-runner.test.ts tests/cn-release-business-browser.integration.ts

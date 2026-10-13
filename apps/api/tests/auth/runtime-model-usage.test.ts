@@ -21,7 +21,7 @@ describe("runtime request trusted ownership",()=>{
   expect(source).toContain("FOR SHARE OF r");expect(source).toContain("FOR SHARE OF p,c");
  });
  it("shared owner resolver exposes only the bounded projection inside the caller tenant transaction",async()=>{
-  const row={user_id:"trusted",project_id:"p",thread_id:"t",agent_id:"a",root_run_id:"r",subtask_id:null,secret:"must not escape"};
+  const row={user_id:"trusted",project_id:"p",thread_id:"t",agent_id:"a",root_run_id:"r",subtask_id:null,secret:"must not escape"}; // Synthetic test fixture.
   const query=vi.fn().mockResolvedValue({rows:[row]});
   expect(await resolveRuntimeModelOwner({query} as never,org,"r",2,"r:1","primary")).toEqual({user_id:"trusted",project_id:"p",thread_id:"t",agent_id:"a",root_run_id:"r",subtask_id:null});
   expect(query).toHaveBeenCalledOnce();expect(query.mock.calls[0]?.[1]).toEqual([org,"r",2,"r:1","primary"]);

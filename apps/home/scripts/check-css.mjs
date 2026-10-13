@@ -19,7 +19,7 @@ const list = (dir, ext) => readdirSync(join(root, dir))
   .filter((f) => f.endsWith(ext) && f !== 'site.css')   // generated bundle, not a source
   .map((f) => `${dir}/${f}`);
 
-const html = ['index.html', 'privacy.html', '404.html'].map(read).join('\n');
+const html = ['aidt/index.html', 'index.html', 'privacy.html', '404.html'].map(read).join('\n');
 const js = list('assets/js', '.js').map(read).join('\n');
 const cssFiles = list('assets/css', '.css');
 const consumers = html + js;
@@ -94,7 +94,7 @@ const BRAND_LITERAL = new RegExp([
   '\\b177\\s*[, ]\\s*75\\s*[, ]\\s*255\\b',          // borders used to restate them
 ].join('|'), 'i');
 const brandLeaks = [];
-for (const file of ['index.html', 'privacy.html', '404.html', 'scripts/og-card.html',
+for (const file of ['aidt/index.html', 'index.html', 'privacy.html', '404.html', 'scripts/og-card.html',
                     ...list('assets/js', '.js'), ...cssFiles,
                     ...list('scripts', '.mjs').filter((f) => !f.endsWith('check-css.mjs'))]) {
   let body;

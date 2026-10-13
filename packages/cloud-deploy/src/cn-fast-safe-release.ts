@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { createHash } from "node:crypto";
 import { validateReleaseManifest } from "./release";
+import { cnReleaseBrowserSchema } from "./cn-release-browser-contract";
 
 const sha = z.string().regex(/^[a-f0-9]{40}$/);
 const sha256 = z.string().regex(/^[a-f0-9]{64}$/);
@@ -195,6 +196,9 @@ export interface ActivationActions {
   runBrowserSmoke(): Promise<{ login: boolean; hello: boolean; asr: boolean; githubFeedbackRead: boolean; skillTool: boolean; pdfDownload: boolean }>;
   restoreBaseline(): Promise<void>;
   restorePointer(): Promise<void>;
+  /** Independent old-runtime browser journey after both restores. Missing or
+   * failed evidence leaves rollback unproven, never reported as recovered. */
+  verifyBaselineBrowser?(): Promise<unknown>;
 }
 export interface ActivationReport {
   status: "passed" | "blocked" | "rolled-back" | "rollback-unproven";
@@ -202,20 +206,28 @@ export interface ActivationReport {
   durationMs: number;
 }
 
-/** Activation consumes only an immutable preparation receipt. Error details are never
- * copied into the report because provider and command errors may contain credentials. */
+/** Low-level cooperative state machine, not a process supervisor. Production
+ * factories must supply supervised transports; the legacy Promise-only factory
+ * is blocked. An action is always joined before rollback, never Promise.raced.
+ * Provider error details are never copied into the report. */
 export async function activatePreparedCnRelease(input: unknown, actions: ActivationActions, options: { now?: Date; deadlineMs?: number } = {}): Promise<ActivationReport> {
   const receipt = validatePreparedCnRelease(input), now = options.now ?? new Date(), deadlineMs = options.deadlineMs ?? 300_000;
   if (!Number.isSafeInteger(deadlineMs) || deadlineMs <= 0 || deadlineMs > 300_000) throw new Error("INVALID_ACTIVATION_DEADLINE");
+  if (!Number.isFinite(now.getTime())) throw new Error("INVALID_ACTIVATION_CLOCK");
   const started = performance.now();
   const report = (status: ActivationReport["status"], code: string): ActivationReport => ({ status, code, durationMs: Math.round(performance.now() - started) });
   if (Date.parse(receipt.expiresAt) <= now.getTime()) return report("blocked", "PREPARATION_EXPIRED");
   if (classifyReleaseFailures(receipt.failures, now).blocked.length) return report("blocked", "PREPARATION_GATES_BLOCKED");
   const controller = new AbortController(), timer = setTimeout(() => controller.abort(), deadlineMs);
   let promotionAttempted = false;
-  const active = () => { if (controller.signal.aborted || performance.now() - started >= deadlineMs) throw new Error("ACTIVATION_DEADLINE_EXCEEDED"); };
+  const active = () => {
+    const elapsed = performance.now() - started;
+    if (controller.signal.aborted || elapsed >= deadlineMs) throw new Error("ACTIVATION_DEADLINE_EXCEEDED");
+    if (now.getTime() + elapsed >= Date.parse(receipt.expiresAt)) throw new Error("PREPARATION_EXPIRED");
+  };
   try {
-    if (await actions.readBaselineFingerprint() !== receipt.baselineSha256) return report("blocked", "BASELINE_CAS_MISMATCH");
+    const baseline = await actions.readBaselineFingerprint(); active();
+    if (baseline !== receipt.baselineSha256) return report("blocked", "BASELINE_CAS_MISMATCH");
     const drain = await actions.drainRuns(); active();
     if ([drain.queued, drain.running, drain.writebackPending].some(value => !Number.isSafeInteger(value) || value !== 0)) return report("blocked", "RUN_DRAIN_INCOMPLETE");
     // Pointer promotion can mutate before rejecting; attempt means rollback is required.
@@ -223,9 +235,9 @@ export async function activatePreparedCnRelease(input: unknown, actions: Activat
     await actions.promotePreparedPointer(); active();
     await actions.activateTraffic(); active();
     const canonical = await actions.verifyCanonical(); active();
-    if (canonical.status !== "passed" || canonical.lockRetained || canonical.passedStages !== 8) throw new Error("CANONICAL_GATE_FAILED");
+    if (!z.object({ status: z.literal("passed"), lockRetained: z.literal(false), passedStages: z.literal(8) }).strict().safeParse(canonical).success) throw new Error("CANONICAL_GATE_FAILED");
     const browser = await actions.runBrowserSmoke(); active();
-    if (!Object.values(browser).every(value => value === true)) throw new Error("BROWSER_SMOKE_FAILED");
+    if (!cnReleaseBrowserSchema.safeParse(browser).success) throw new Error("BROWSER_SMOKE_FAILED");
     return report("passed", "ACTIVATED");
   } catch (error) {
     if (!promotionAttempted) return report("blocked", "ACTIVATION_PRECONDITION_FAILED");
@@ -233,6 +245,7 @@ export async function activatePreparedCnRelease(input: unknown, actions: Activat
     try {
       await actions.restoreBaseline();
       await actions.restorePointer();
+      if (!cnReleaseBrowserSchema.safeParse(await actions.verifyBaselineBrowser?.()).success) return report("rollback-unproven", code);
       return report("rolled-back", code);
     } catch {
       return report("rollback-unproven", code);

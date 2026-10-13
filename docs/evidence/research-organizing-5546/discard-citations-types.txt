@@ -1,0 +1,3 @@
+
+> @repo/api@0.0.0 typecheck /Users/shenyangjun/.codex/worktrees/799b/workspacex/apps/api
+> tsc --noEmit

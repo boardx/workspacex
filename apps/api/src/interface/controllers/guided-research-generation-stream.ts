@@ -35,11 +35,14 @@ export function researchGenerationEvents(requestId: string, write: (event: unkno
       emit(state.errorCode ? { type: "failed", reasonCode: state.errorCode } : { type: "completed", source }); return;
     }
     const stage = state.progress?.stage ?? state.currentNode;
-    const descriptor = state.reportStream && (!stream || stream.sequence !== state.reportStream.sequence || stream.text !== state.reportStream.text || stream.status !== state.reportStream.status)
-      ? { sequence: state.reportStream.sequence, offset: state.reportStream.text.length, status: state.reportStream.status } : undefined;
+    // A continuation snapshot may still contain the preceding request's stream.
+    // Never publish its status, offset or sequence under the current request ID.
+    const currentStream = state.reportStream?.requestId === requestId ? state.reportStream : undefined;
+    const descriptor = currentStream && (!stream || stream.sequence !== currentStream.sequence || stream.text !== currentStream.text || stream.status !== currentStream.status)
+      ? { sequence: currentStream.sequence, offset: currentStream.text.length, status: currentStream.status } : undefined;
     const key = JSON.stringify([stage, state.currentNode, descriptor]);
     if (key !== last || descriptor) emit({ type: "stage", stage, source, ...(descriptor ? { stream: descriptor } : {}) });
     last = key;
-    stream = state.reportStream ? { ...state.reportStream } : undefined;
+    stream = currentStream ? { ...currentStream } : undefined;
   };
 }

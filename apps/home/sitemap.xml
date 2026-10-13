@@ -3,6 +3,22 @@
         xmlns:xhtml="http://www.w3.org/1999/xhtml">
   <url><loc>https://workspacex.us/manual/</loc><changefreq>monthly</changefreq><priority>0.6</priority></url>
   <url>
+    <loc>https://workspacex.us/aidt/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://workspacex.us/aidt/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://workspacex.us/zh/aidt/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://workspacex.us/aidt/"/>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://workspacex.us/zh/aidt/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://workspacex.us/aidt/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://workspacex.us/zh/aidt/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://workspacex.us/aidt/"/>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
     <loc>https://workspacex.us/</loc>
     <xhtml:link rel="alternate" hreflang="en" href="https://workspacex.us/"/>
     <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://workspacex.us/zh/"/>

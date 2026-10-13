@@ -1,0 +1,8 @@
+{
+  "nodeVersion": "22.20.0",
+  "nodeUrl": "https://nodejs.org/dist/v22.20.0/node-v22.20.0-linux-x64.tar.xz",
+  "nodeSha256": "00bbd05e306ea68b6e13e17360d0e2f680b493ef95f2fea1c4296ff7437530bc",
+  "playwrightVersion": "1.62.0",
+  "chromiumImage": "mcr.microsoft.com/playwright@sha256:02bbb2155cd7109e3e9c741941097ed1608cf8b6fa44ee2595896da2bdc1f471",
+  "target": "linux-x86_64-cp312"
+}

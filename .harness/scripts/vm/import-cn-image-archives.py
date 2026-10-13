@@ -329,8 +329,14 @@ class Commands:
             need(value.get('Image') not in forbidden, 'RUNNING_CONTAINER_TARGET_COLLISION')
 
     def remote_config_id(self, target):
+        # Buildx also reports an absent tag as one exact target-bound line.
+        # Anchor the entire stderr so auth, DNS or unrelated not-found errors
+        # (including extra diagnostic lines) cannot authorize publication.
+        missing_target = (rb'(?-i:\A(?:ERROR: )?' + re.escape(target.encode('utf-8'))
+                          + rb': not found\r?\n?\Z)')
         raw = self.command([self.docker, 'buildx', 'imagetools', 'inspect', '--raw', target],
-                           accepted=(rb'manifest unknown', rb'MANIFEST_UNKNOWN', rb'no such manifest'))
+                           accepted=(rb'manifest unknown', rb'MANIFEST_UNKNOWN', rb'no such manifest',
+                                     missing_target))
         if raw is None:
             return None
         value = self.c.decode(raw)
@@ -341,8 +347,14 @@ class Commands:
         return config
 
     def pull_optional(self, image):
+        # Docker's resolver names the missing reference twice. Both must match
+        # exactly; auth, DNS and additional diagnostic lines remain failures.
+        target = re.escape(image.encode('utf-8'))
+        missing_target = (rb'(?-i:\AError response from daemon: failed to resolve reference "'
+                          + target + rb'": ' + target + rb': not found\r?\n?\Z)')
         result = self.command([self.docker, 'pull', '--platform', 'linux/amd64', image],
-                              accepted=(rb'manifest unknown', rb'MANIFEST_UNKNOWN', rb'no such manifest'))
+                              accepted=(rb'manifest unknown', rb'MANIFEST_UNKNOWN', rb'no such manifest',
+                                        missing_target))
         return None if result is None else self.local(image)
 
     def pull_required(self, image):

@@ -1,0 +1,21 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/eaa4/workspacex
+
+ ✓ .harness/scripts/lint-feature-transition.test.ts (10 tests) 26319ms
+   ✓ 真仓库端到端 > 合法迁移（真 appendFingerprint 产出的证据）⇒ 退 0 2318ms
+   ✓ 真仓库端到端 > 手改 passing（status 翻了、evidence 写人话、没有日志）⇒ 退 1 2233ms
+   ✓ 真仓库端到端 > 手改 passing 但借用一份合法旧日志（最终树三道门全绿）⇒ 退 1 2196ms
+   ✓ 真仓库端到端 > 复制一份别人的合法日志冒充自己的证据 ⇒ 退 1 2383ms
+   ✓ 真仓库端到端 > 改写日志正文 + 重算指纹（checkFingerprint 返回 ok）⇒ 仍然退 1 2369ms
+   ✓ 真仓库端到端 > 只改正文、不重算尾行 ⇒ evidence_tampered 2280ms
+   ✓ 真仓库端到端 > passing 退回 in_progress ⇒ status_irreversible 2150ms
+   ✓ 真仓库端到端 > 归档搬家（live → feature_list.archive.json）不算记录消失 ⇒ 退 0 2166ms
+   ✓ 真仓库端到端 > 不碰 feature 的改动 ⇒ 判定为空转，退 0 2242ms
+   ✓ 反向反证：门不是永远红的 > 真仓库 HEAD~1 → HEAD 必须退 0 5980ms
+
+ Test Files  1 passed (1)
+      Tests  10 passed (10)
+   Start at  03:00:09
+   Duration  27.17s (transform 85ms, setup 0ms, collect 163ms, tests 26.32s, environment 1ms, prepare 70ms)
+

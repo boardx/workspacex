@@ -50,3 +50,25 @@ python3 .agents/skills/workspacex-cn-release/scripts/validate_preflight.py prefl
 ## Artifact-only build (#5319)
 
 The trusted fixed-candidate build-only lane uses a separate `artifact-build` receipt and stops after sealing. Full baseline admission remains mandatory before migration and activation. See the single [stage-boundary contract](references/preflight-contract.md#artifact-only-stage-boundary-5319) for the exact producer/consumer protocol.
+
+### Canonical scoped npm dependency admission
+
+`ARCHIVE_PATH_INVALID` at candidate host canonical admission can identify a valid
+`node_modules/@esbuild/linux-x64/*` closure rejected by the archive-member rule.
+Use the canonical-only relative path validator and retain every file hash and
+protected no-follow read. Do not remove scoped dependency pins or relax archive
+member validation. `tests/test_cn_candidate_host.py::CanonicalScopedPaths`
+provides scoped-path positives, traversal/normalization negatives, and proof that
+scoped files still reach the protected hash reader.
+
+### Publisher post-export content revalidation
+
+`PUBLICATION_STORE_CHANGED` can occur after archive verification when complete
+Docker inspect objects differ. The observed failed release did not capture the
+changed field; do not infer its exact cause from the error alone. Keep the exact
+immutable image ID check and run the original complete archive verifier again
+against the post-export inspect result and the same archive. Auxiliary metadata
+may differ, but descriptor identity, platform, required labels, configuration
+bytes, rootfs and layer bytes must still verify. `StoreContentRevalidationTests` in
+`tests/test_cn_candidate_host.py` covers metadata-only differences and rejection
+of identity/content changes.

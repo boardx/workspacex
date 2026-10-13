@@ -195,3 +195,185 @@ class HostTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class StoreExportHostTests(unittest.TestCase):
+    def setUp(self):
+        import time
+        self.temp = tempfile.TemporaryDirectory(); self.addCleanup(self.temp.cleanup)
+        self.work = Path(self.temp.name)
+        self.obj = object.__new__(h.Commands)
+        self.obj.work = self.work; self.obj.env = {'PATH': '/usr/bin:/bin'}
+        self.obj.deadline = time.monotonic() + 10
+        self.obj.check_validity = lambda: None
+        self.image = {'Id': 'sha256:' + 'a' * 64, 'Os': 'linux', 'Architecture': 'amd64'}
+        self.obj.local = lambda _: dict(self.image)
+        self.entry = {'size': 1}
+        self.plan = {'storageMarginBytes': 0}
+
+    def executable(self, body):
+        target = self.work / 'fake-docker'
+        target.write_text('#!' + sys.executable + '\n' + body)
+        target.chmod(0o700); self.obj.docker = str(target)
+
+    def test_stderr_never_escapes_and_private_export_removed(self):
+        self.executable("import sys\nsys.stderr.write('PUBLIC_DUMMY_PASSWORD')\nsys.exit(1)\n")
+        with self.assertRaisesRegex(a.Rejected, '^PUBLICATION_STORE_EXPORT$'):
+            self.obj.candidate_image_matches(self.image, self.entry, self.plan)
+        self.assertEqual(list(self.work.glob('store-readback-*')), [])
+
+    def test_large_stdout_stops_at_fixed_budget(self):
+        self.executable("import sys\nsys.stdout.buffer.write(b'x'*(17*1024**2))\n")
+        with self.assertRaisesRegex(a.Rejected, 'PUBLICATION_STORE_SIZE'):
+            self.obj.candidate_image_matches(self.image, self.entry, self.plan)
+        self.assertEqual(list(self.work.glob('store-readback-*')), [])
+
+    def test_post_export_identity_drift_rejected(self):
+        self.executable("import sys\nsys.stdout.buffer.write(b'fixture')\n")
+        self.obj.local = lambda _: {'Id': 'sha256:' + 'b' * 64}
+        with patch.object(h.publication, 'image_matches') as verified:
+            with self.assertRaisesRegex(a.Rejected, 'PUBLICATION_STORE_CHANGED'):
+                self.obj.candidate_image_matches(self.image, self.entry, self.plan)
+            verified.assert_called_once()
+        self.assertEqual(list(self.work.glob('store-readback-*')), [])
+
+
+class CanonicalScopedPaths(unittest.TestCase):
+    def test_scoped_dependency_and_ordinary_paths(self):
+        for name in ('node_modules/@esbuild/linux-x64/bin/esbuild',
+                     'node_modules/@esbuild/linux-x64/package.json',
+                     'node_modules/@esbuild/linux-x64/README.md',
+                     'node_modules/tsx/package.json', 'packages/cloud-deploy/src/index.ts'):
+            h.canonical_relative_name(name)
+
+    def test_unsafe_paths_rejected(self):
+        for name in ('', '.', '/node_modules/@esbuild/linux-x64', '../x',
+                     'node_modules/@esbuild/../x', 'node_modules//x', './x', 'x/',
+                     'x/./y', 'node_modules\\@esbuild/x', 'x\x00y', 'x\ny',
+                     'x' * 257, 42):
+            with self.subTest(name=name), self.assertRaisesRegex(ValueError, 'CANONICAL_PATH_INVALID'):
+                h.canonical_relative_name(name)
+
+    def test_archive_names_remain_strict(self):
+        with self.assertRaisesRegex(ValueError, 'ARCHIVE_PATH_INVALID'):
+            a.safe_name('node_modules/@esbuild/linux-x64/bin/esbuild')
+
+    def test_scoped_hashes_still_pass_to_protected_reader(self):
+        import json
+        directory = Path('/etc/workspacex-cn/candidate-publish/test')
+        files = {n: 'a' * 64 for n in h.canonical.REQUIRED_SOURCE}
+        files.update({n: 'b' * 64 for n in ('node_modules/tsx/package.json',
+                     'node_modules/zod/package.json', 'node_modules/@esbuild/linux-x64/bin/esbuild')})
+        config = dict(schemaVersion=1, nodeExecutable=str(directory / 'node'), nodeSha256='c' * 64,
+                      checkoutDirectory=str(directory / 'canonical-source'), fileSha256=files)
+        raw = json.dumps(config).encode()
+        with patch.object(h.legacy, 'protected', side_effect=[raw] + [b''] * (len(files) + 1)) as reader:
+            h.admit_canonical(directory, {'canonicalConfigurationSha256': a.sha(raw)})
+        reader.assert_any_call(directory / 'canonical-source/node_modules/@esbuild/linux-x64/bin/esbuild',
+                               64 * 1024**2, 'b' * 64)
+        self.assertEqual(reader.call_count, len(files) + 2)
+
+
+class StoreContentRevalidationTests(unittest.TestCase):
+    """Real OCI bytes exercise both validations; only Docker export is a fixture."""
+    from test_cn_candidate_publication import ContainerdStoreTests as Fixture
+    write = Fixture.write
+
+    def setUp(self):
+        import time
+        self.Fixture.setUp(self)
+        self.current = copy.deepcopy(self.image)
+        self.obj = object.__new__(h.Commands)
+        self.obj.work = self.folder
+        self.obj.env = {'PATH': '/usr/bin:/bin'}
+        self.obj.deadline = time.monotonic() + 10
+        self.obj.check_validity = lambda: None
+        self.obj.local = lambda _: self.current
+        executable = self.folder / 'fake-docker'
+        executable.write_text('#!' + sys.executable + '\nimport sys\n'
+                              'from pathlib import Path\n'
+                              'sys.stdout.buffer.write(Path(' + repr(str(self.path)) + ').read_bytes())\n')
+        executable.chmod(0o700)
+        self.obj.docker = str(executable)
+
+    def invoke(self, after_first=None):
+        original = h.publication.image_matches
+        calls = []
+        def verify(image, entry, plan, *, store_archive):
+            calls.append((image, store_archive))
+            original(image, entry, plan, store_archive=store_archive)
+            if len(calls) == 1 and after_first:
+                after_first(store_archive)
+        try:
+            with patch.object(h.publication, 'image_matches', side_effect=verify):
+                self.obj.candidate_image_matches(self.image, self.entry, self.plan)
+        finally:
+            self.assertEqual(list(self.folder.glob('store-readback-*')), [])
+        return calls
+
+    def test_auxiliary_config_and_descriptor_metadata_accepts_same_content(self):
+        self.current['Config']['AttachStdin'] = False
+        self.current['Config']['Labels']['auxiliary.metadata'] = 'observed'
+        self.current['Descriptor']['annotations'] = {'auxiliary.metadata': 'observed'}
+        calls = self.invoke()
+        self.assertEqual(len(calls), 2)
+        self.assertIs(calls[0][0], self.image)
+        self.assertIs(calls[1][0], self.current)
+        self.assertEqual(calls[0][1], calls[1][1])
+
+    def test_changed_immutable_id_and_missing_inspect_reject(self):
+        for current in (None, {'Id': 'sha256:' + 'f' * 64}):
+            with self.subTest(current=current):
+                self.current = current
+                with self.assertRaisesRegex(a.Rejected, 'PUBLICATION_STORE_CHANGED'):
+                    self.invoke()
+
+    def test_changed_descriptor_core_rejects(self):
+        for key, value in (('digest', 'sha256:' + 'f' * 64),
+                           ('size', self.image['Descriptor']['size'] + 1),
+                           ('mediaType', 'application/vnd.oci.image.index.v1+json')):
+            with self.subTest(key=key):
+                self.current = copy.deepcopy(self.image)
+                self.current['Descriptor'][key] = value
+                with self.assertRaisesRegex(a.Rejected, 'PUBLICATION_STORE_(DESCRIPTOR|INDEX_BINDING)'):
+                    self.invoke()
+
+    def test_changed_platform_rootfs_and_required_labels_reject(self):
+        mutations = [('Os', 'windows', 'PUBLICATION_IMAGE_PLATFORM'),
+                     ('Architecture', 'arm64', 'PUBLICATION_IMAGE_PLATFORM'),
+                     ('RootFS', {'Type': 'layers', 'Layers': []}, 'PUBLICATION_STORE_ROOTFS')]
+        for key, value, code in mutations:
+            with self.subTest(key=key):
+                self.current = copy.deepcopy(self.image); self.current[key] = value
+                with self.assertRaisesRegex(a.Rejected, code): self.invoke()
+        import cn_image_candidate as candidate
+        for key, value in (('org.opencontainers.image.revision', 'f' * 40),
+                           (candidate.LABEL, 'f' * 64),
+                           ('org.workspacex.archive-build-identity', 'forbidden')):
+            with self.subTest(label=key):
+                self.current = copy.deepcopy(self.image)
+                self.current['Config']['Labels'][key] = value
+                with self.assertRaisesRegex(a.Rejected, 'PUBLICATION_IMAGE_LABELS'): self.invoke()
+
+    @staticmethod
+    def tamper_blob(path, digest, grow=False):
+        import tarfile
+        with tarfile.open(path, 'r:') as tar:
+            blobs = [(member.name, tar.extractfile(member).read()) for member in tar.getmembers()]
+        target = 'blobs/sha256/' + digest
+        with tarfile.open(path, 'w') as tar:
+            for name, raw in blobs:
+                if name == target:
+                    raw = raw + b'x' if grow else bytes([raw[0] ^ 1]) + raw[1:]
+                item = tarfile.TarInfo(name); item.size = len(raw)
+                tar.addfile(item, io.BytesIO(raw))
+
+    def test_second_validation_rejects_config_bytes_changed_after_first(self):
+        with self.assertRaisesRegex(a.Rejected, 'PUBLICATION_STORE_BLOB_HASH'):
+            self.invoke(lambda path: self.tamper_blob(path, self.entry['configSha256']))
+
+    def test_second_validation_rejects_layer_bytes_or_size_changed_after_first(self):
+        for grow, code in ((False, 'PUBLICATION_STORE_BLOB_HASH'),
+                           (True, 'PUBLICATION_STORE_BLOB_SIZE')):
+            with self.subTest(grow=grow), self.assertRaisesRegex(a.Rejected, code):
+                self.invoke(lambda path: self.tamper_blob(path, self.entry['layers'][0]['sha256'], grow))

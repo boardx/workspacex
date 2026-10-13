@@ -2,6 +2,12 @@
 """Explicit build-only tool binding; never authorizes prepare or activation."""
 import datetime,fcntl,hashlib,json,os,pathlib,re,stat,subprocess,sys,tempfile,uuid
 FILES={
+ '.harness/scripts/vm/clone_quiescence.py':'/usr/local/lib/workspacex-cn/clone_quiescence.py',
+ '.harness/scripts/vm/clone_fresh_memory.py':'/usr/local/lib/workspacex-cn/clone_fresh_memory.py',
+ '.harness/scripts/vm/clone_fresh_memory_engine.py':'/usr/local/lib/workspacex-cn/clone_fresh_memory_engine.py',
+ '.harness/scripts/vm/clone_quiescence_adapter.py':'/usr/local/lib/workspacex-cn/clone_quiescence_adapter.py',
+ '.harness/scripts/vm/clone_quiescence_engine.py':'/usr/local/lib/workspacex-cn/clone_quiescence_engine.py',
+ '.harness/scripts/vm/clone_quiescence.sql':'/usr/local/lib/workspacex-cn/clone_quiescence.sql',
  '.agents/skills/workspacex-cn-release/scripts/validate_preflight.py':None,
  '.harness/scripts/vm/acceptance_receipt_producer.cjs':'/usr/local/lib/workspacex-cn/acceptance_receipt_producer.cjs',
  '.harness/scripts/vm/acceptance_receipt_store.py':'/usr/local/lib/workspacex-cn/acceptance_receipt_store.py',

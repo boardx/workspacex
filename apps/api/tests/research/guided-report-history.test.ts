@@ -48,10 +48,22 @@ describe("previous report snapshot", () => {
     expect(state.reportPrevious?.report).toBeNull();
     expect(state.reportCheckpoint).toBeUndefined();
   });
-  it("retains only the latest nonempty attempt and accepts old runtimes without history fields", () => {
+  it("retains the last formal publication across a nonempty failed draft and checkpoint", () => {
     const state = fixture(); expect(C.GuidedResearchRuntime.safeParse(state).success).toBe(true);
+    preservePreviousReport(state); const formal = structuredClone(state.reportPrevious);
+    state.report = null; state.reportDraft = { title: "Failed draft", summary: "Unverified", sections: [] };
+    state.reportQualityWarnings = [{ sectionId: "o", issues: ["Unsupported assertion."] }];
+    state.reportCheckpoint = { basis: "current", chapters: [{ sectionId: "o", body: "New saved chapter", sourceIds: [] }] };
     preservePreviousReport(state);
-    state.report = null; state.reportCheckpoint = { basis: "current", chapters: [{ sectionId: "o", body: "New saved chapter", sourceIds: [] }] };
+    expect(state.reportPrevious).toEqual(formal);
+    expect(state.reportDraft.title).toBe("Failed draft");
+    expect(state.reportQualityWarnings).toHaveLength(1);
+  });
+  it("retains the latest nonempty attempt when no formal publication exists", () => {
+    const state = fixture(); state.report = null;
+    state.reportCheckpoint = { basis: "first", chapters: [{ sectionId: "o", body: "First draft", sourceIds: [] }] };
+    preservePreviousReport(state);
+    state.reportCheckpoint = { basis: "next", chapters: [{ sectionId: "o", body: "New saved chapter", sourceIds: [] }] };
     preservePreviousReport(state);
     expect(state.reportPrevious?.chapters[0]?.body).toBe("New saved chapter");
     expect(state.reportPrevious?.report).toBeNull();

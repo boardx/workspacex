@@ -1,0 +1,41 @@
+{
+  "consumer.py": {
+    "originalSha256": "48461f1e641adccb86314f3aa9db832f2216ee19cce860f59ce58036a8134bea",
+    "source": "../release-continuation/devapp-f0eb-release/hk-consumer/consumer.py",
+    "changes": [
+      "generic exact identities",
+      "30-minute original deadline",
+      "pre-GET device-aware consumer-retention plus canonical-publisher capacity admission",
+      "shared metadata limits and bounded private receipts"
+    ]
+  },
+  "materialize-publication.py": {
+    "originalSha256": "441a319b80c5aa5edf49458b9b67ac59efe6e6705a1422a9c3b88fea90c056e7",
+    "source": "../release-continuation/devapp-f0eb-release/transfer-prep/publication-v1/materialize-publication.py",
+    "splitTransportSourceSha256": "153f4a9f45a38adf8680fedcc21b156c8c5b5411c6eab3cc9e65059af8619c12"
+  },
+  "stage-runtime.py": {
+    "originalSha256": "cdf483cbb3880a81ac7bcaf647bb1d5372fbcb61fb5e2a1492ad187fee92c5a7",
+    "source": "../release-continuation/devapp-f0eb-release/transfer-prep/publication-v1/stage-runtime.py"
+  },
+  "consume-launcher.py": {
+    "source": "identity-closure-probe-v2.py prefix + prepare-consumer.py original launch body",
+    "originalLauncherSha256": "485a3a9004c0e595121c970aa96e35cd0adf3608deef904a2f4c66b732f18cd1",
+    "changes": [
+      "generic pinned closure",
+      "nonzero exit with sanitized capacity rejection evidence"
+    ]
+  },
+  "transport-runtime.py": {
+    "source": "publication-v2/transport-runtime.py",
+    "originalSha256": "b8ce1913fe8266cf0a83339b695c9b863f924e2759ce6ae120c10383e9b8d135",
+    "changes": [
+      "strict contiguous chunks",
+      "durable one-shot assemble intent"
+    ]
+  },
+  "deadline-runtime.py": {
+    "source": "new original-deadline guard; not a full external-operation stop guarantee",
+    "requiresIndependentReview": true
+  }
+}

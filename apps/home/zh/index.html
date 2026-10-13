@@ -6,7 +6,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>WorkspaceX — 面向人与 AI 的开放协作运行空间</title>
 <meta name="description" content="WorkspaceX 是把上下文、智能体、行动、证据与记忆连成一条链的运行层——让意图变成工作，让工作留下证据。">
-<meta name="theme-color" content="#08070b">
+<meta name="theme-color" content="#ffffff">
 <!-- iOS ignores the manifest's short_name; without this the home-screen
      label is the <title>, truncated to something like "WorkspaceX — Th". -->
 <meta name="apple-mobile-web-app-title" content="WorkspaceX">
@@ -79,7 +79,7 @@
   /* The burger needs JS to open the panel, so on a phone without it the whole
      navigation would be unreachable. Show the links inline and put the actions
      back in the bar instead. */
-  .nav { position: static; height: auto; background: #08070b; border-bottom: 1px solid rgba(255,255,255,.09); }
+  .nav { position: static; height: auto; background: var(--bg); border-bottom: 1px solid var(--hairline); }
   .nav__inner { flex-wrap: wrap; padding-block: 0.6rem; }
   .nav__links { display: flex !important; position: static; flex-direction: row; flex-wrap: wrap;
                 background: none; border: 0; padding: 0; margin-inline: 0; }
@@ -200,6 +200,7 @@
      the market-thesis section; the section that answers it is the loop, which
      is what the footer has always called "How it works". -->
       <a class="btn btn--ghost btn--lg" href="#loop" data-i18n="hero.cta2">看它怎么工作</a>
+      <a class="btn btn--ghost btn--lg" href="/zh/aidt/" data-i18n="nav.aidt">设计思维 + AI</a>
     </div>
 
     <div class="hero__chain" data-animates data-diagram="chain" role="img" aria-labelledby="chain-desc"></div>
@@ -447,8 +448,8 @@
         <aside class="surface__roster" aria-hidden="true">
           <div class="roster__head" data-i18n="surface.roster">智能体团队</div>
           <div class="roster__row"><span class="roster__av" style="--c:var(--c-ai)">RS</span><span class="roster__meta"><b data-i18n="surface.r1">研究员</b><i data-i18n="surface.r1s">正在读 24 份资料</i></span></div>
-          <div class="roster__row"><span class="roster__av" style="--c:var(--c-3)">AN</span><span class="roster__meta"><b data-i18n="surface.r2">分析师</b><i data-i18n="surface.r2s">正在搭模型</i></span></div>
-          <div class="roster__row"><span class="roster__av" style="--c:var(--c-1)">WR</span><span class="roster__meta"><b data-i18n="surface.r3">撰写</b><i data-i18n="surface.r3s">正在写第 2 节</i></span></div>
+          <div class="roster__row"><span class="roster__av" style="--c:var(--brand-ink)">AN</span><span class="roster__meta"><b data-i18n="surface.r2">分析师</b><i data-i18n="surface.r2s">正在搭模型</i></span></div>
+          <div class="roster__row"><span class="roster__av" style="--c:var(--c-human)">WR</span><span class="roster__meta"><b data-i18n="surface.r3">撰写</b><i data-i18n="surface.r3s">正在写第 2 节</i></span></div>
           <div class="roster__row"><span class="roster__av" style="--c:var(--c-human)">YS</span><span class="roster__meta"><b data-i18n="surface.r4">你</b><i data-i18n="surface.r4s">审阅中</i></span></div>
         </aside>
 
@@ -1067,6 +1068,7 @@
           <li><a href="mailto:hello@boardx.us" data-i18n="footer.l7">联系我们</a></li>
           <li><a href="https://boardx.us" rel="noopener" data-i18n="footer.l8">BoardX</a></li>
           <li><a href="/manual/" data-i18n="footer.manual">用户手册</a></li>
+          <li><a href="/zh/aidt/" data-i18n="nav.aidt">设计思维 + AI</a></li>
           <li><a href="/zh/privacy" data-i18n="footer.l11">隐私与安全</a></li>
         </ul>
       </div>

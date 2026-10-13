@@ -35,14 +35,15 @@ it("loads synthetic credentials after sudo without putting them in captured argv
   const args = readFileSync(argvFile, "utf8") + JSON.stringify(result.argv);
   expect(args).not.toContain(secret); expect(args).not.toContain("fake-model-token"); expect(args).toContain(envFile);
 });
-it("password SQL uses stdin, escapes quote characters and never appears in docker argv", () => {
+it.each(["synthetic'password", "synthetic''end'", "synthetic\\$& spaced", "synthetic\n'line\n"])("password SQL preserves characters and keeps %j out of docker argv", (password) => {
   const dir = mkdtempSync(join(tmpdir(), "deploy-sql-")); temps.push(dir);
   const argvFile = join(dir, "argv"), sqlFile = join(dir, "sql");
   writeFileSync(join(dir, "docker"), '#!/bin/bash\nprintf "%s\\0" "$@" > "$ARGV_FILE"\ncat > "$SQL_FILE"\n'); chmodSync(join(dir, "docker"), 0o755);
+  const replacement = deploy.match(/^sql_quote_replacement=.*$/m)?.[0]; expect(replacement).toBeDefined();
   for (const [role, key] of [["app_rw", "APP_DB_PASSWORD"], ["app_diag_ro", "DIAG_DB_PASSWORD"]]) {
     const snippet = deploy.match(new RegExp(`printf "ALTER ROLE ${role} PASSWORD[^\\n]*\\n[^\\n]*docker exec[^\\n]*`))?.[0]; expect(snippet).toBeDefined();
-    const run = spawnSync("bash", ["-euo", "pipefail", "-c", snippet!], { env: { ...process.env, PATH:`${dir}:${process.env.PATH}`, [key!]:"synthetic'password", ARGV_FILE:argvFile, SQL_FILE:sqlFile }, encoding:"utf8" });
-    expect(run.status, run.stderr).toBe(0); expect(readFileSync(sqlFile,"utf8")).toBe(`ALTER ROLE ${role} PASSWORD 'synthetic''password';\n`);
+    const run = spawnSync("bash", ["-euo", "pipefail", "-c", `${replacement}\n${snippet}`], { env: { ...process.env, PATH:`${dir}:${process.env.PATH}`, [key!]:password, ARGV_FILE:argvFile, SQL_FILE:sqlFile }, encoding:"utf8" });
+    expect(run.status, run.stderr).toBe(0); expect(readFileSync(sqlFile,"utf8")).toBe(`ALTER ROLE ${role} PASSWORD '${password.replaceAll("'", "''")}';\n`);
     expect(readFileSync(argvFile,"utf8")).not.toContain("synthetic"); expect(readFileSync(argvFile,"utf8")).toContain("ON_ERROR_STOP=1");
   }
 });

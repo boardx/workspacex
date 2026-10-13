@@ -51,6 +51,25 @@ export interface ParityGroup {
 export const LOCAL_ENV_PARITY: readonly ParityGroup[] = [
   {
     status: "default-ok",
+    reason: "Quota admission, request accounting and native usage mirroring are explicit cloud opt-ins " +
+      "enabled only by the value 1. Leaving them unset preserves the local PGlite/model runtime " +
+      "defaults without requiring cloud billing credentials or native admission bindings.",
+    names: [
+      "KERNEL_AI_PRODUCT_QUOTA_ENABLED", "KERNEL_ASR_REQUEST_ACCOUNTING_ENABLED",
+      "KERNEL_DEEP_AGENT_REQUEST_ACCOUNTING_ENABLED", "KERNEL_IMAGE_REQUEST_ACCOUNTING_ENABLED",
+      "KERNEL_LOCAL_REQUEST_ACCOUNTING_ENABLED", "KERNEL_NATIVE_USAGE_LEDGER_ENABLED",
+      "KERNEL_RETRIEVAL_REQUEST_ACCOUNTING_ENABLED",
+    ],
+  },
+  {
+    status: "cloud-only",
+    reason: "The platform organization catalog uses a dedicated cloud database role with separate " +
+      "credentials. Local PGlite has no separate catalog role; the API returns no catalog connection " +
+      "when both credentials are absent, so local configuration must not invent cloud credentials.",
+    names: ["PLATFORM_ORG_CATALOG_DB_USER", "PLATFORM_ORG_CATALOG_DB_PASSWORD"],
+  },
+  {
+    status: "default-ok",
     reason:
       "API 自带的默认值就是本地形态要的答案：超时/轮询/日志阈值，默认开着的 autostart，" +
       "以及一路回退到 KERNEL_MODEL_ID 的那些专用模型 id。显式再设一遍只会多一份会漂移的副本。",
