@@ -16,6 +16,7 @@ export interface GetDigitalInterviewDeps {
 
 export interface AuthorizedDigitalInterview {
   readonly interview: StoredDigitalInterview;
+  readonly projectId: string | null;
   readonly decision: PermissionDecision;
 }
 
@@ -37,7 +38,7 @@ export async function authorizeDigitalInterview(
       viewerTeamId: membership.teamId,
     });
     const disclosed = discloseDecided(found.item, decision);
-    if (isDisclosed(disclosed)) return { interview: disclosed.payload, decision };
+    if (isDisclosed(disclosed)) return { interview: disclosed.payload, projectId: found.facts.projectId, decision };
   }
   throw new NoInterviewAccessError(input.interviewId);
 }
