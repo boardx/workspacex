@@ -1,11 +1,10 @@
-import { execFileSync } from "node:child_process";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { expect, test } from "@playwright/test";
 import { interviewMarkdown } from "@repo/contracts";
 import { FULLSTACK_E2E } from "./fullstack-smoke-fixture";
 
 /** Real login, Next proxy, interview API and PostgreSQL; no response interception. */
-test("Word and print use only the current saved report Markdown revision", async ({ page }) => {
+test("Skill file controls use the current saved canonical source and reject an outdated request", async ({ page }) => {
   test.setTimeout(120_000);
   await page.goto("/login");
   await page.getByTestId("login-email").fill(FULLSTACK_E2E.email);
@@ -47,34 +46,23 @@ test("Word and print use only the current saved report Markdown revision", async
   await expect(page.getByTestId("itv-source-report-markdown")).toContainText(currentBody);
   await expect(page.locator("#itv-source-report-print")).not.toContainText(oldBody);
 
-  const [download] = await Promise.all([
-    page.waitForEvent("download"),
-    page.getByRole("button", { name: "导出 Word" }).click(),
-  ]);
-  expect(download.suggestedFilename()).toBe("采购决策报告.docx");
-  const xml = execFileSync("unzip", ["-p", (await download.path())!, "word/document.xml"], { encoding: "utf8" });
-  expect(xml).toContain(currentBody);
-  expect(xml).not.toContain(oldBody);
-  expect(xml).toContain(`文档版本 ${report.version}`);
-  expect(xml).toContain(`内容哈希 ${report.contentHash}`);
-  expect(xml).toContain("不代表已批准结论");
-  expect(xml).toContain("模拟探索");
-
-  await page.evaluate(() => {
-    window.print = () => {
-      const root = document.getElementById("itv-source-report-print");
-      (window as Window & { interviewPrintSnapshot?: string }).interviewPrintSnapshot =
-        `${document.body.dataset.printInterviewReport}|${root?.classList.contains("print-interview-report-root")}|${root?.textContent}`;
-    };
-  });
-  await page.getByRole("button", { name: "导出 PDF" }).click();
-  const printSnapshot = await page.evaluate(() => (window as Window & { interviewPrintSnapshot?: string }).interviewPrintSnapshot);
-  expect(printSnapshot).toContain(`文档版本 ${report.version}`);
-  expect(printSnapshot).toContain(currentBody);
-  expect(printSnapshot).not.toContain(oldBody);
-  expect(printSnapshot).toContain("不代表真实用户证据");
-  expect(printSnapshot).toContain("不代表已批准结论");
-  expect(printSnapshot).toMatch(/^true\|true\|/u);
-  const pdf = await page.pdf({ printBackground: true });
-  expect(pdf.subarray(0, 4).toString()).toBe("%PDF");
+  // This standard lane proves real login/API/DB source and stale-request guards.
+  // Actual registered Skill execution and three file representations are verified in the native lane.
+  for (const label of ["PDF", "Word", "PPT"]) await expect(page.getByRole("button", { name: `生成 ${label}` })).toBeEnabled();
+  await expect(page.getByRole("button", { name: "导出 Word" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "导出 PDF" })).toHaveCount(0);
+  const bound = await page.request.get(`/__fullstack_api/report-files/sources/interview/${encodeURIComponent(interviewId)}`, { headers });
+  expect(bound.status()).toBe(200);
+  const metadata = await bound.json();
+  expect(metadata).toMatchObject({ kind: "interview", id: interviewId, reportVersion: report.version, reportHash: report.contentHash });
+  expect(metadata.notices.join(" ")).toContain("未批准");
+  expect(metadata.notices.join(" ")).toContain("模拟");
+  const oldMarkdown = `# 采购决策报告\n\n## 核心发现\n${oldBody}`;
+  const stale = await page.request.post("/__fullstack_api/report-files", { headers, data: {
+    source: { kind: "interview", id: interviewId, reportVersion: report.version - 1, reportHash: createHash("sha256").update(oldMarkdown).digest("hex") },
+    format: "docx", requestId: randomUUID(),
+  } });
+  expect(stale.status()).toBe(409);
+  expect(await stale.text()).toContain("REPORT_CHANGED");
+  await expect(page.getByTestId("itv-source-report-markdown")).toContainText(currentBody);
 });
