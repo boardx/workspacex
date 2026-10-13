@@ -9,12 +9,15 @@ async function open(){
  return screen.findByTestId('board-zoom-content');
 }
 it('follows the actual portalled Radix side across bottom/top flips, without enlarging the 8px cue',async()=>{
- mount();const content=await open(),cue=screen.getByTestId('board-zoom-submenu-chevron');
+ mount();const content=await open();
  // jsdom has no collision layout: change only Radix's placement output to
  // exercise the observer. Real 390px collision placement remains browser coverage.
  for(const [side,direction] of [['bottom','below'],['top','above'],['bottom','below']] as const){
   await act(async()=>{content.setAttribute('data-side',side);});
-  await waitFor(()=>expect(cue).toHaveAttribute('data-direction',direction));
+  // Lucide changes the SVG component type when direction changes, so the
+  // old SVG is detached. Always assert the current rendered cue.
+  await waitFor(()=>expect(screen.getByTestId('board-zoom-submenu-chevron')).toHaveAttribute('data-direction',direction));
+  const cue=screen.getByTestId('board-zoom-submenu-chevron');
   expect(cue).toHaveAttribute('data-state','open');expect(cue).toHaveStyle({width:'8px',height:'8px'});
  }
 });
