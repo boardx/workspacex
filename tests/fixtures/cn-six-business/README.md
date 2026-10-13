@@ -121,3 +121,17 @@ The launcher classifies only fixed ASCII fatal markers across stderr chunks;
 it retains booleans/counts and the existing streaming stderr hash, not raw
 stderr. SIGABRT alone remains insufficient to prove JavaScript heap OOM.
 All six actual Linux journeys and owned cleanup must pass before acceptance.
+
+Existing phase packets also carry nine fixed-position package callback counts:
+mermaid, fabric-markdown, copilotkit, monaco, codemirror, mui, other third-party,
+other local and unknown. Classification reads only an own string resource data
+property (never a getter), at most 4096 characters, normalizes Windows separators
+and ignores a query suffix before matching the final node_modules package. No
+resource text, module name, source, identifier or stats is retained or sent.
+Counters are cumulative actual build callbacks across compilations, not unique
+modules or currently retained module totals. Repeated resources count repeatedly;
+unknown resources have their own bucket. Each packet's nine nonnegative bounded
+integers sum to buildModuleCallbacks, and collector checks every bucket is
+monotonic. No extra IPC event or resource/business budget is introduced. Counts
+identify graph composition only; they do not attribute any Buffer allocation
+or prove that a particular package caused the heap OOM.
