@@ -16,15 +16,16 @@ export const researchWorkspaceStyle = {
   report: "grid min-w-0 items-start gap-8 bg-card text-card-foreground xl:grid-cols-[12rem_minmax(0,1fr)] xl:gap-x-10",
 } as const;
 
-export function ResearchWorkspaceStepIndicator({ number, active, completed, running }: {
+export function ResearchWorkspaceStepIndicator({ number, active, completed, running, animateRunning = true }: {
   number: number;
   active: boolean;
   completed: boolean;
   running: boolean;
+  animateRunning?: boolean;
 }) {
   return <span className={cn("flex size-8 shrink-0 items-center justify-center rounded-full border text-base",
     active || completed || running ? "border-primary bg-primary text-primary-foreground" : "border-border bg-muted/30 text-muted-foreground",
     (active || running) && "ring-2 ring-primary ring-offset-2")}>
-    {running ? <Loader2 className="size-4 animate-spin motion-reduce:animate-none" aria-hidden /> : completed ? <><Check className="size-4" aria-hidden /><span className="sr-only">已完成</span></> : number}
+    {running && animateRunning ? <Loader2 className="size-4 animate-spin motion-reduce:animate-none" aria-hidden /> : completed ? <><Check className="size-4" aria-hidden /><span className="sr-only">已完成</span></> : number}
   </span>;
 }
