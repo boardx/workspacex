@@ -21,6 +21,17 @@ class CiBootstrap(unittest.TestCase):
   self.assertEqual([v.value for v in matched[0].iter.elts],['api-container-owner','application-recovery-owner','application-recovery-complete-owner'])
   body=ast.unparse(matched[0]);self.assertIn('16384',body);self.assertIn('is_symlink',body)
   for name in ('owner.json','api-create-intent.json','api-create-receipt.json','cleanup.json','recovery-cleanup.json'):self.assertIn(name,body)
+ def test_fixed_next_worker_receipts_survive_both_export_stages(self):
+  import ast
+  expected={f'next-worker-{i}.json'for i in range(1,5)}
+  ci=ast.parse((ROOT/'scripts/cn-release-simulation-ci.py').read_text())
+  names=[n for n in ast.walk(ci)if isinstance(n,ast.Assign)and any(isinstance(t,ast.Name)and t.id=='six_names'for t in n.targets)]
+  self.assertEqual(len(names),1)
+  self.assertEqual({v.value for v in names[0].value.elts if isinstance(v,ast.Constant)and str(v.value).startswith('next-worker-')},expected)
+  simulation=ast.parse((ROOT/'scripts/cn-release-simulation.py').read_text())
+  names=[n for n in ast.walk(simulation)if isinstance(n,ast.Assign)and any(isinstance(t,ast.Name)and t.id=='EXPORT_NESTED_FILES'for t in n.targets)]
+  allowed=ast.literal_eval(next(v for k,v in zip(names[0].value.keys,names[0].value.values)if isinstance(k,ast.Constant)and k.value=='six-business'))
+  self.assertEqual({v for v in allowed if v.startswith('next-worker-')},expected)
  def test_exact_sha_rejects_refs_and_shell_before_any_directory(self):
   with patch.object(m.tempfile,'mkdtemp')as create:
    for value in ('main','HEAD','a'*39,'A'*40,'a'*40+';touch /tmp/no'):
