@@ -22,3 +22,5 @@
 ## 验证
 
 真实标准浏览器使用当前 Next 路由、登录、API 和隔离 PostgreSQL 保存状态，两域代表步骤/报告对照截图及计算样式。检查 375/768/1280 无横向溢出、主次颜色/高度/位置一致、loading/disabled 不产生操作、返回导航可用；审计或验收不能提交生成命令、启动 AgentRun 或调用模型。单元验证关键交互，独立 review 与当前 exact SHA CI 全绿后交付 main PR，不自动合并部署。
+
+验收证据与实际 computed styles：[`evidence/research-interview-actions/verification.md`](evidence/research-interview-actions/verification.md)。
