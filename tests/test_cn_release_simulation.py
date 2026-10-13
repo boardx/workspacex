@@ -74,8 +74,10 @@ class SimulationTests(unittest.TestCase):
   self.assertIn('if: always()',text);self.assertIn('persist-credentials: false',text)
  def test_targeted_heavy_contracts_have_independent_matrix_jobs(self):
   text=(ROOT/'.github/workflows/cn-release-simulation.yml').read_text()
-  self.assertIn("options: ['all', 'targeted']",text)
+  self.assertIn("options: ['all', 'targeted', 'linux-application-recovery-complete', 'linux-six-business']",text)
   self.assertIn('fail-fast: false',text)
+  self.assertIn('if [ \"$LANE\" != all ] && [ \"$ROUNDS\" = 10 ]; then',text)
+  self.assertIn('*) echo CI_FIXED_LANE_REQUIRED >&2; exit 1',text)
   matrix=next(line for line in text.splitlines()if 'suite: ${{ fromJSON('in line)
   self.assertIn("inputs.lane == 'targeted'",matrix)
   for suite in ('release','linux-api-outer-recovery','linux-application-recovery-complete','linux-six-business'):self.assertIn('"'+suite+'"',matrix)

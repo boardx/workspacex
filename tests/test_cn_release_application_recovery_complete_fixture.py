@@ -18,6 +18,22 @@ spec.loader.exec_module(fixture)
 
 
 class PreloadContract(unittest.TestCase):
+    def test_restore_journal_projection_and_rejected_reason(self):
+        spec=importlib.util.spec_from_file_location('restore_bridge',ROOT/'tests/fixtures/cn-postgres-lifecycle/driver_bridge.py');bridge=importlib.util.module_from_spec(spec);spec.loader.exec_module(bridge)
+        e=SimpleNamespace(read=lambda p:p.read_bytes(),decode=json.loads)
+        with tempfile.TemporaryDirectory()as d:
+            root=Path(d);stem=root/'state/pg-lifecycle-fixture/02-restore';stem.parent.mkdir(parents=True)
+            terminal=dict(reason='EXITED',exitCode=1,stdoutSha256='a'*64,processGroupStillPresent=False,finishedAt='private-not-output')
+            process=dict(pid=42,isolation={'secret':'never-output'},requestSha256='b'*64)
+            Path(str(stem)+'.terminal.json').write_text(json.dumps(terminal));Path(str(stem)+'.process.json').write_text(json.dumps(process))
+            value=bridge.restore_failure_projection(e,root)
+            self.assertEqual(value['terminal']['exitCode'],1);self.assertEqual(value['process']['pid'],42);self.assertNotIn('secret',json.dumps(value));self.assertNotIn('private-not-output',json.dumps(value))
+            raw=('CN_PG_RESTORE_DIAGNOSTIC '+json.dumps(value)+'\npg_fixture_entry.Rejected: EXECUTION_UNCERTAIN_RECONCILE_NO_RETRY\n').encode()
+            observed=fixture.failure_projection(raw,root);self.assertEqual(observed['reason'],'EXECUTION_UNCERTAIN_RECONCILE_NO_RETRY');self.assertEqual(observed['restoreTerminalDiagnostic'],value)
+            terminal['reason']='SECRET';Path(str(stem)+'.terminal.json').write_text(json.dumps(terminal));self.assertIsNone(bridge.restore_failure_projection(e,root)['terminal'])
+            value['terminal']['argv']='secret';self.assertIsNone(fixture.failure_projection(('CN_PG_RESTORE_DIAGNOSTIC '+json.dumps(value)).encode(),root)['restoreTerminalDiagnostic'])
+            self.assertEqual(fixture.failure_projection(b'pg_fixture_entry.Rejected: PRIVATE_SECRET\n',root)['reason'],'UNCLASSIFIED')
+
     def test_bridge_projection_reports_phase_and_fixed_reason_without_raw_error(self):
         with tempfile.TemporaryDirectory()as d:
             root=Path(d);(root/'application-journal').mkdir();(root/'application-journal/init.intent.json').write_text('{}')

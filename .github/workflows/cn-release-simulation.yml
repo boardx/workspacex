@@ -10,7 +10,7 @@ on:
       lane:
         description: Targeted repairs run in four independent VMs; all preserves full regression
         type: choice
-        options: ['all', 'targeted']
+        options: ['all', 'targeted', 'linux-application-recovery-complete', 'linux-six-business']
         default: 'all'
       seed:
         description: Integer base seed for isolated fault fixtures
@@ -101,7 +101,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        suite: ${{ fromJSON(inputs.lane == 'targeted' && '["release","linux-api-outer-recovery","linux-application-recovery-complete","linux-six-business"]' || '["all"]') }}
+        suite: ${{ fromJSON(inputs.lane == 'targeted' && '["release","linux-api-outer-recovery","linux-application-recovery-complete","linux-six-business"]' || inputs.lane == 'linux-application-recovery-complete' && '["linux-application-recovery-complete"]' || inputs.lane == 'linux-six-business' && '["linux-six-business"]' || '["all"]') }}
     runs-on: ubuntu-24.04
     timeout-minutes: 300
     steps:
@@ -110,7 +110,8 @@ jobs:
           LANE: ${{ inputs.lane || 'all' }}
           ROUNDS: ${{ inputs.rounds || '1' }}
         run: |
-          if [ "$LANE" = targeted ] && [ "$ROUNDS" = 10 ]; then
+          case "$LANE" in all|targeted|linux-application-recovery-complete|linux-six-business) ;; *) echo CI_FIXED_LANE_REQUIRED >&2; exit 1 ;; esac
+          if [ "$LANE" != all ] && [ "$ROUNDS" = 10 ]; then
             echo 'CI_TEN_ALL_REQUIRED' >&2
             exit 1
           fi

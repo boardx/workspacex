@@ -86,6 +86,27 @@ def run(args):
     with isolated_cgroup(driver.e):return run_driver(args,driver)
 
 
+def restore_failure_projection(e,root):
+    """Read only fixed restore journals before the private temporary tree closes."""
+    stem=root/'state'/'pg-lifecycle-fixture'/'02-restore'
+    result={'kind':'pg-restore-terminal-diagnostic-v1','terminal':None,'process':None}
+    try:
+        value=e.decode(e.read(Path(str(stem)+'.terminal.json')))
+        if (set(value)=={'reason','exitCode','stdoutSha256','processGroupStillPresent','finishedAt'}
+            and value['reason'] in ('EXITED','TIMEOUT','OUTPUT_LIMIT','ISOLATION_UNPROVEN')
+            and (value['exitCode'] is None or type(value['exitCode'])is int)
+            and type(value['processGroupStillPresent'])is bool
+            and re.fullmatch('[a-f0-9]{64}',value['stdoutSha256'])):
+            result['terminal']={k:value[k]for k in ('reason','exitCode','stdoutSha256','processGroupStillPresent')}
+    except Exception:pass
+    try:
+        value=e.decode(e.read(Path(str(stem)+'.process.json')))
+        if set(value)=={'pid','isolation','requestSha256'} and type(value['pid'])is int and value['pid']>0 and re.fullmatch('[a-f0-9]{64}',value['requestSha256']):
+            result['process']={'pid':value['pid'],'requestSha256':value['requestSha256']}
+    except Exception:pass
+    return result
+
+
 def run_driver(args,driver):
     e = driver.e
     e.need(Path(args.entry_source).read_bytes() == Path(e.__file__).read_bytes(), 'ENTRY_SOURCE_CHANGED')
@@ -129,7 +150,11 @@ def run_driver(args,driver):
                 for name,data in {**files,'manifest.json':raw}.items(): e.create(package/name,data)
                 requests[stage]=request; return request
         router=Router()
-        result=driver.coordinate(release,approval,router,transport=transport)
+        try:
+            result=driver.coordinate(release,approval,router,transport=transport)
+        except Exception:
+            print('CN_PG_RESTORE_DIAGNOSTIC '+json.dumps(restore_failure_projection(e,root),sort_keys=True),file=sys.stderr,flush=True)
+            raise
         e.need(result['status']=='CHAIN_COMPLETED','FIXTURE_CHAIN_INCOMPLETE')
         # Replay actual status/core checks, never dispatch SQL again.
         replay=driver.coordinate(release,approval,router,mode='status',transport=transport)

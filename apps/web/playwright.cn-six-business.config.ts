@@ -15,7 +15,7 @@ const webServer=servers.map(server=>{
   nextReplaced++;
   // The isolated launcher invokes Playwright directly, outside a pnpm script.
   // Resolve Next from the web workspace explicitly instead of inherited .bin PATH.
-  return {...server,command:server.command.replace('NEXT_DIST_DIR=.next-chat-read-e2e next dev -p ','NEXT_DIST_DIR=.next-chat-read-e2e pnpm --filter web exec next dev -p ')};
+  return {...server,command:server.command.replace('NEXT_DIST_DIR=.next-chat-read-e2e next dev -p ','NEXT_DIST_DIR=.next-chat-read-e2e node ../../tests/fixtures/cn-six-business/next-server-launch.cjs ')};
  }
  if(!server.command.includes('pnpm --filter @repo/api start 2>&1'))return server;
  replaced++;

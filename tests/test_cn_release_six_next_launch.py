@@ -14,7 +14,8 @@ class NextLaunch(unittest.TestCase):
   result=subprocess.run([node,'--import','tsx','--test',str(ROOT/'tests/fixtures/cn-six-business/next-launch.test.ts')],cwd=ROOT,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,timeout=30)
   self.assertLess(len(result.stdout),65536)
   self.assertEqual(result.returncode,0,result.stdout.decode(errors='replace'))
-  self.assertIn(b'# pass 1',result.stdout);self.assertIn(b'# fail 0',result.stdout);self.assertIn(b'# skipped 0',result.stdout)
+  self.assertIn(b'# pass 2',result.stdout);self.assertIn(b'# fail 0',result.stdout);self.assertIn(b'# skipped 0',result.stdout)
+  self.assertIn(b'fixed supervisor records real child exit and forwards output without retry',result.stdout)
  def test_github_pnpm_in_separate_node_modules_bin_survives_test_path_sanitization(self):
   node=os.environ.get('CN_API_STARTUP_NODE')or shutil.which('node');pnpm=shutil.which('pnpm')
   self.assertTrue(node and pnpm,'Installed Node and pnpm required')
@@ -27,5 +28,5 @@ class NextLaunch(unittest.TestCase):
    self.assertIsNone(shutil.which('pnpm',path=old['PATH']))
    result=subprocess.run([node,'--import','tsx','--test',str(ROOT/'tests/fixtures/cn-six-business/next-launch.test.ts')],cwd=ROOT,env=env,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,timeout=30)
    self.assertLess(len(result.stdout),65536);self.assertEqual(result.returncode,0,result.stdout.decode(errors='replace'))
-   self.assertIn(b'# pass 1',result.stdout);self.assertIn(b'# skipped 0',result.stdout)
+   self.assertIn(b'# pass 2',result.stdout);self.assertIn(b'# skipped 0',result.stdout)
 if __name__=='__main__':unittest.main()

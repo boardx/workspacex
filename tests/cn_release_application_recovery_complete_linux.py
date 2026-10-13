@@ -26,11 +26,22 @@ def bridge_command(bridge,*arguments):
 def failure_projection(stderr,root):
     text=stderr[:8192].decode('utf8',errors='replace')
     reasons={'FIXTURE_CHAIN_INCOMPLETE','EXECUTION_UNCERTAIN_RECONCILE_NO_RETRY','OBSERVATION_FAILED','EVIDENCE_NOT_VERIFIED','PHASE_EVIDENCE_LIMIT','ENTRY_SOURCE_CHANGED','PHASE_CHAIN_CHANGED','FIXTURE_REPLAY_CHANGED'}
-    found=re.findall(r'^RuntimeError: ([A-Z][A-Z0-9_]{0,79})$',text,re.M)
+    found=re.findall(r'^(?:RuntimeError|[A-Za-z_][A-Za-z0-9_]*\.Rejected|Rejected): ([A-Z][A-Z0-9_]{0,79})$',text,re.M)
     frames=[dict(file=name,line=int(line))for name,line in re.findall(r'File "[^"\n]*/([^/"\n]+)", line ([0-9]+)',text)if name in ('driver_bridge.py','cn-release-fixed-driver.py','cn-release-advance.py')][:6]
     phases=('init','backup','restore','compatibility','migration-fault','startup-fault','postclear-fault','finalize')
     records=[dict(phase=p,intentPresent=(root/'application-journal'/(p+'.intent.json')).is_file(),receiptPresent=(root/'application-journal'/(p+'.result.json')).is_file())for p in phases]
-    return dict(reason=found[-1]if found and found[-1]in reasons else 'UNCLASSIFIED',frames=frames,phaseRecords=records,phaseRecordsVerified=False)
+    terminal=None
+    for line in text.splitlines():
+        if not line.startswith('CN_PG_RESTORE_DIAGNOSTIC '):continue
+        try:
+            value=json.loads(line[len('CN_PG_RESTORE_DIAGNOSTIC '):])
+            if set(value)!={'kind','terminal','process'}or value['kind']!='pg-restore-terminal-diagnostic-v1':continue
+            t=value['terminal'];p=value['process']
+            if t is not None and not (isinstance(t,dict)and set(t)=={'reason','exitCode','stdoutSha256','processGroupStillPresent'}and t['reason']in ('EXITED','TIMEOUT','OUTPUT_LIMIT','ISOLATION_UNPROVEN')and (t['exitCode']is None or type(t['exitCode'])is int)and type(t['processGroupStillPresent'])is bool and isinstance(t['stdoutSha256'],str)and re.fullmatch('[a-f0-9]{64}',t['stdoutSha256'])):continue
+            if p is not None and not(isinstance(p,dict)and set(p)=={'pid','requestSha256'}and type(p['pid'])is int and p['pid']>0 and isinstance(p['requestSha256'],str)and re.fullmatch('[a-f0-9]{64}',p['requestSha256'])):continue
+            terminal=value
+        except (ValueError,TypeError,KeyError):continue
+    return dict(reason=found[-1]if found and found[-1]in reasons else 'UNCLASSIFIED',frames=frames,phaseRecords=records,phaseRecordsVerified=False,restoreTerminalDiagnostic=terminal)
 def validate_image_storage(image):
     config=image.get('Config',{})
     need(set((config.get('Volumes')or{}))<= {PGDATA},'UNEXPECTED_IMAGE_VOLUME')

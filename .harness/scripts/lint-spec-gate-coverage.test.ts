@@ -63,6 +63,10 @@ describe("CN six actual Python execution chain", () => {
       expect(cnSixSimulationReachable(tmp)).toBe(true);
       const mutations = [
         [files[0], "scripts/cn-release-simulation.py", "scripts/not-called.py"],
+        [files[0], "seed,suite='all',workers=3", "seed,suite='release',workers=3"],
+        [files[0], "choices=SUITES,default='all'", "choices=SUITES,default='release'"],
+        [files[0], "args.seed,args.suite,args.workers", "args.seed,'release',args.workers"],
+        [files[0], "'--suite',suite]", "'--suite','release']"],
         [files[1], "'linux-six-business':['cn_release_six_business_linux.py']", "'linux-six-business':['not-called.py']"],
         [files[2], "result=m.run_round(", "result=m.not_called("],
         [files[3], "application.spawn(playwright_command(prepared)", "application.spawn(not_called(prepared)"],

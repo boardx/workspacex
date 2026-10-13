@@ -10,7 +10,12 @@ def verified(root):
  def calls(t,name):return [x for x in ast.walk(t)if isinstance(x,ast.Call)and ((isinstance(x.func,ast.Name)and x.func.id==name)or(isinstance(x.func,ast.Attribute)and x.func.attr==name))]
  def strings(t):return {x.value for x in ast.walk(t)if isinstance(x,ast.Constant)and isinstance(x.value,str)}
  ci=parse('scripts/cn-release-simulation-ci.py');sim=parse('scripts/cn-release-simulation.py');wrapper=parse('tests/cn_release_six_business_linux.py');session=parse('scripts/cn-release-six-session.py')
- invocations=calls(ci,'run_owned_simulation');assert any('scripts/cn-release-simulation.py'in strings(x.args[0])and '--suite'not in strings(x.args[0])for x in invocations)
+ execute=fn(ci,'execute');defaults=dict(zip([x.arg for x in execute.args.args][-len(execute.args.defaults):],execute.args.defaults))
+ assert isinstance(defaults.get('suite'),ast.Constant)and defaults['suite'].value=='all'
+ ci_main=fn(ci,'main');assert any(x.args and isinstance(x.args[0],ast.Constant)and x.args[0].value=='--suite'and any(k.arg=='default'and isinstance(k.value,ast.Constant)and k.value.value=='all'for k in x.keywords)for x in calls(ci_main,'add_argument'))
+ assert any(len(x.args)==5 and ast.unparse(x.args[3])=='args.suite'for x in calls(ci_main,'execute'))
+ invocations=calls(execute,'run_owned_simulation')
+ assert any(isinstance(x.args[0],ast.List)and 'scripts/cn-release-simulation.py'in strings(x.args[0])and len(x.args[0].elts)==16 and isinstance(x.args[0].elts[-2],ast.Constant)and x.args[0].elts[-2].value=='--suite'and isinstance(x.args[0].elts[-1],ast.Name)and x.args[0].elts[-1].id=='suite'for x in invocations)
  assert calls(fn(ci,'run_owned_simulation'),'spawn')
  suites=next(ast.literal_eval(x.value)for x in sim.body if isinstance(x,ast.Assign)and any(isinstance(t,ast.Name)and t.id=='SUITES'for t in x.targets))
  assert suites['linux-six-business']==['cn_release_six_business_linux.py']
