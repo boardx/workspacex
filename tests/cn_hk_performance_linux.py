@@ -72,8 +72,8 @@ assert len(list(store.glob('*.zip.get')))==7
 p=out/'proof.json';q=out/'policy.json';p.write_text('{}');q.write_text('{}')
 print(json.dumps({'proofPath':str(p),'policyPath':str(q)}))
 ''')
-   original=(HERE/'transfer-plan.UNBOUND.json')if(HERE/'transfer-plan.UNBOUND.json').exists()else HERE.parent/'.github/release-plans/hk-original-artifacts.json'
-   plan=json.loads(original.read_bytes());plan['expiresAt']=(datetime.datetime.now(datetime.timezone.utc)+datetime.timedelta(minutes=5)).isoformat()
+   fixtures=importlib.import_module('test_uploader'if(HERE/'test_uploader.py').exists()else'test_cn_hk_original_artifact_upload')
+   plan=fixtures.legacy_plan_fixture();plan['expiresAt']=(datetime.datetime.now(datetime.timezone.utc)+datetime.timedelta(minutes=5)).isoformat()
    for item in plan['artifacts'].values():item['bytes']=4;item['sha256']=u.sha(b'data')
    plan['uploaderFiles']={n:u.sha((code/n).read_bytes())for n in ('cn-hk-original-artifact-upload.py','bounded_workers.py','cn-hk-generate-proof.py')}
    raw=json.dumps(plan).encode();(root/'plan.json').write_bytes(raw)
