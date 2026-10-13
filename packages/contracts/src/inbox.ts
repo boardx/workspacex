@@ -89,6 +89,7 @@ import { z } from "zod";
 import { INBOX_TAGS_MAX_COUNT, InboxTag } from "./feedback-tags";
 import { FeedbackAttachment, FeedbackKind, FeedbackStatus, FeedbackStructured } from "./feedback-loop";
 import { SystemErrorStatus } from "./system-error-logs";
+import { DesignProject } from "./design-workbench";
 
 /* ─────────────────────────── 枚举 ─────────────────────────── */
 
@@ -318,6 +319,8 @@ export const InboxItem = z
     title: z.string(),
     /** ⚠ 反馈的 `null` ⟺ 无权看正文（D3），**不是**正文为空——同 `FeedbackItem.detail` */
     body: z.string().nullable(),
+    /** Full design handoff for organization members; absent on legacy and non-design items. Share tokens are never included. */
+    design: DesignProject.optional(),
     /** 仅反馈；与 `body` 同一条 D3 门控（`body === null` ⇒ 恒 `null`） */
     structured: FeedbackStructured.nullable(),
     /** 仅反馈 */

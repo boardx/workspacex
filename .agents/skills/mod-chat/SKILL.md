@@ -53,6 +53,7 @@ chat 只负责把执行状态（含工具调用）渲染出来、把用户输入
 3. 交付：`verify --sprint` 门控；PR 描述里写清对上述契约的影响面。
 
 ## 踩坑与经验（append-only，最新在上）
+- 2026-10-12：composer 完成回执自动关闭不能重新投影底层保留的 ASR error；关闭完成会话应记住终态，下一次 start 才重置。回归须覆盖 done → dismiss → idle 与下一次零转录失败（issue #5643，`use-composer-voice-session`）。
 - 2026-10-03：Chat 画布外壳在模板状态 validating 时就已存在，findByTestId 不能证明 data-template-source 已解析；来源断言须等待最终属性，受控延迟模板响应回归须确认待解析时不会提前完成（issue #5131，chat-canvas-fence）。
 - 2026-10-01：官方角色的一次“启用”会串行写多个 Skill/角色包；只拦组件完成回调不能拦后续 POST。chat picker 应复用 authenticated session revision、冻结组织/token、每步取消 guard 与后端 expectedOrgId 拒绝校验，同时隔离旧要约和迟到目录读（出处：PR #4867，chat-import-scope 反证）。
 - 2026-10-01：本地 API/Web 健康与 Caddy 路由声明不能证明 public 实时语音 Upgrade 已到达网关；部署后须用无凭据 RFC6455 请求确认匿名 401，200/404/502/101 和传输失败均阻断。有界 curl 禁用 curlrc、保留 TLS、不带 token、不跟随重定向；401 仅是路由/拒绝信号，不能证明供应商可用（issue #4874，`deploy-readiness.test.ts` 实际 gateway + curl 401/404 回归）。

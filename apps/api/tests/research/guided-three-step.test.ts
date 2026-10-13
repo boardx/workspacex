@@ -209,23 +209,20 @@ describe("three visible stages with durable composite execution", () => {
     expect(result.errorCode).toBeNull(); expect(result.controlStatus).toBe("paused"); expect(result.executionGoal).toBe("report"); expect(result.completed).toBe(false); expect(f.search).not.toHaveBeenCalled();
     expect(f.model.complete).toHaveBeenCalledTimes(calls);
   });
-  it.each(["Chinese", "English"] as const)("retains successful tasks and a limited %s draft until explicit retry", async language => {
+  it.each(["Chinese", "English"] as const)("automatically delivers a formal %s report with honest search limitations", async language => {
     const f = fixture(); await f.run("prepare_plan");
     f.set({ ...f.latest(), brief: { ...f.latest().brief, topic: language === "Chinese" ? "并网政策研究" : "Grid policy", goal: "Compare entry requirements", focus: "Evidence" } });
     const search = f.search.getMockImplementation()!; let failed = false;
     f.search.mockImplementation(async query => { if (!failed) { failed = true; throw new Error("one task unavailable"); } return search(query); });
     const partial = await f.run("generate_report", "outline");
-    expect(partial.errorCode).toBe("RESEARCH_SEARCH_PARTIAL_FAILURE"); expect(partial.currentNode).toBe("report"); expect(partial.completed).toBe(false);
-    expect(partial.report).toBeNull(); expect(partial.reportPartial).toBe(true); expect(partial.reportDraft).toBeTruthy();
-    expect(partial.reportDraft?.introduction).toContain(language === "Chinese" ? "搜索局限" : "Search limitation:");
-    expect(partial.reportDraft?.introduction).toContain(language === "Chinese" ? "不是正式完成报告" : "not a completed report");
-    expect(partial.reportDraft?.introduction).not.toContain(language === "Chinese" ? "Search limitation:" : "搜索局限");
-    const draftBeforeSave = partial.reportDraft;
-    const rejectedSave = await f.run("save", "report", { draft: { node: "report", value: draftBeforeSave } });
-    expect(rejectedSave.errorCode).toBe("RESEARCH_TASKS_INCOMPLETE"); expect(rejectedSave.reportDraft).toEqual(draftBeforeSave);
-    expect(rejectedSave.report).toBeNull(); expect(rejectedSave.completed).toBe(false);
-    const rejectedComplete = await f.run("complete", "report");
-    expect(rejectedComplete.errorCode).toBe("RESEARCH_TASKS_INCOMPLETE"); expect(rejectedComplete.completed).toBe(false);
+    expect(partial.errorCode).toBeNull(); expect(partial.currentNode).toBe("report"); expect(partial.completed).toBe(true);
+    expect(partial.report).toBeTruthy(); expect(partial.reportPartial).toBe(true); expect(partial.reportDraft).toBeNull();
+    expect(partial.tasks.some(task => task.status === "failed")).toBe(true);
+    expect(partial.report?.introduction).toContain(language === "Chinese" ? "检索范围与局限" : "Search limitation:");
+    expect(partial.report?.introduction).not.toContain(language === "Chinese" ? "不是正式完成报告" : "not a completed report");
+    expect(partial.report?.introduction).not.toContain(language === "Chinese" ? "Search limitation:" : "检索范围与局限");
+    const readback = await f.service.get(f.actor, f.session);
+    expect(readback.report).toEqual(partial.report); expect(readback.completed).toBe(true); expect(readback.reportDraft).toBeNull();
     const succeeded = partial.tasks.filter(task => task.status === "succeeded"); expect(succeeded.length).toBeGreaterThan(0);
     const ids = partial.sources.map(source => source.id), queries = succeeded.map(task => task.query);
     f.search.mockClear(); f.search.mockImplementation(search);
@@ -233,6 +230,7 @@ describe("three visible stages with durable composite execution", () => {
     expect(result.errorCode).toBeNull(); expect(result.completed).toBe(true);
     expect(f.search.mock.calls.some(([query]) => queries.includes(query))).toBe(false);
     expect(ids.every(id => result.sources.some(source => source.id === id))).toBe(true);
+    expect(result.reportPrevious?.report).toEqual(partial.report);
   });
   it("refuses all-invalid strict report evidence after terminal partial search", async () => {
     const f = fixture(); await f.run("prepare_plan");
@@ -346,19 +344,22 @@ describe("three visible stages with durable composite execution", () => {
     expect(result.activity?.some(event => event.stage === "planning" && event.status === "succeeded")).toBe(true);
   });
 
-  it.each([false, true])("does not complete failed tasks from retained sources or a legacy partial report (partial=%s)", async partial => {
+  it.each([false, true])("delivers a newly validated report from retained evidence while preserving failed search facts (partial=%s)", async partial => {
     const f = fixture(); await f.run("prepare_plan"); await f.run("generate_report", "outline");
     const saved = f.latest(), ids = saved.sources.map(source => source.id);
     f.set({ ...saved, tasks: saved.tasks.map(task => ({ ...task, status: "failed" as const, errorCode: "RESEARCH_SEARCH_UNAVAILABLE" })), completed: partial, reportPartial: partial, report: partial ? saved.report : null });
     f.search.mockRejectedValue(new Error("controlled unavailable search"));
     const calls = f.model.complete.mock.calls.length;
     const result = await f.run("retry", "report");
-    expect(result.errorCode).toBe("RESEARCH_SEARCH_PARTIAL_FAILURE"); expect(result.completed).toBe(false);
+    expect(result.errorCode).toBeNull(); expect(result.completed).toBe(true);
     expect(result.currentNode).toBe("report"); expect(result.sources.map(source => source.id)).toEqual(ids);
-    expect(result.reportDraft).toBeTruthy(); expect(result.report).toBeNull();
+    expect(result.reportDraft).toBeNull(); expect(result.report).toBeTruthy();
+    expect(result.reportQualityWarnings).toEqual([]); expect(result.reportPartial).toBe(true);
+    expect(result.report?.introduction).toContain("Search limitation:");
+    expect(result.report).not.toEqual(saved.report);
     expect(result.tasks.every(task => task.status === "failed")).toBe(true);
     expect(f.model.complete.mock.calls.length).toBeGreaterThan(calls);
-    if (partial) { expect(result.report).toBeNull(); expect(result.reportPrevious?.partial).toBe(true); expect(result.reportPrevious?.report).toEqual(saved.report); }
+    if (partial) { expect(result.reportPrevious?.partial).toBe(true); expect(result.reportPrevious?.report).toEqual(saved.report); }
   });
 
   it("archives the old report and clears its completed timeline before fresh source preparation publishes", async () => {

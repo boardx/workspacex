@@ -23,6 +23,8 @@ SOURCES=('current_epoch_qualification.py','cn-maintenance-recovery-evidence-veri
 # Their pinned bytes may be evidence inputs; they are never dynamically imported
 # or dispatched from policy JSON. New producers require a source review here.
 PRODUCER_SOURCE_FILES=(
+ 'clone_fresh_memory.py','clone_fresh_memory_engine.py',
+ 'clone_quiescence.py','clone_quiescence_adapter.py','clone_quiescence_engine.py',
  'retained_epoch_capture.py','retained_epoch_acquisition.py',
  'retained_backup_host.py','retained_backend_observer.py',
  'source_invocation_receipt.py','parent_source_invocation_receipt.py','opened_service_health.py',
@@ -31,7 +33,7 @@ PRODUCER_SOURCE_FILES=(
  'retained_session_recovery.cjs','cn_backup_backend.py','cn_backup_stream.py',
  'isolated_conservation_supervisor.py','conservation-engine.cjs',
  'secondary-conservation-engine-final.cjs',
- 'isolated_rehearsal_aliyun.py','isolated_rehearsal_sql_stage.py',
+ 'isolated_external_lifecycle.py','isolated_rehearsal_aliyun.py','isolated_rehearsal_sql_stage.py',
  'isolated_rehearsal_prepare.py','isolated_rehearsal_restore.py',
  'isolated_rehearsal_snapshot.py','isolated_rehearsal_databases.cjs',
  'isolated_rehearsal_migrate.cjs','isolated_rehearsal_fidelity.cjs',

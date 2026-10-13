@@ -14,7 +14,8 @@ class SafeErrors(unittest.TestCase):
     s=Path(__file__).with_name('isolated_rehearsal_aliyun.py').read_text()
     injection="\nos.geteuid=lambda:0\ncredential=lambda role:{}\ndef fake_rpc(*args):raise ProviderError("+repr(raw)+")\nrpc=fake_rpc\n"
     s=s.replace("if __name__=='__main__':",injection+"if __name__=='__main__':")
-    m=Path(__file__).with_name('isolated_rehearsal.py');modules={'isolated_rehearsal.py':{'path':str(m),'sha256':hashlib.sha256(m.read_bytes()).hexdigest()}}
+    for name in ('isolated_rehearsal.py','isolated_external_lifecycle.py'):
+     m=Path(__file__).with_name(name);modules[name]={'path':str(m),'sha256':hashlib.sha256(m.read_bytes()).hexdigest()}
    else:s='import sys\nsys.stdout.write('+repr(raw)+')\nsys.exit(1)\n'
    p.write_text(s);p.chmod(0o600)
    return core.ProcessAdapter(p,hashlib.sha256(p.read_bytes()).hexdigest(),5,modules)('observe',{'binding':self.binding})

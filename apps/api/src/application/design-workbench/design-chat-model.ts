@@ -69,6 +69,7 @@ const REPAIRABLE_FIELDS = new Set(["prototype", "patch"]);
 
 /** 模型看到的项目上下文：六个字段 + 本项目完整历史（**已含**这次的用户消息）。 */
 export type DesignChatContext = Pick<DesignProjectRow, "name" | "template" | "problem" | "criteria" | "frames" | "prototype" | "chat"> & {
+  readonly frameNotes?: readonly string[];
   /**
    * 迭代 13（delta §1.3）：这一轮要给模型看的参考图（字节已由调用方取好）。
    * **随每一轮发**，不是只发第一轮——「照着这张画」在第 4 页仍然成立（V53）。
@@ -116,6 +117,8 @@ export interface PagedScreen {
 }
 
 export interface DesignChatReplyResult {
+  /** Server-derived interaction notes accompanying a successful page patch. */
+  readonly pageNotes?: readonly { readonly screen: number; readonly notes: string }[];
   readonly text: string;
   readonly source: AiReplySource;
   /** 逐字段解析后**合法**的写回；没有 ⇒ `{}`。 */
@@ -342,6 +345,7 @@ function describeProject(ctx: DesignChatContext, html = false): string {
     `问题背景：${ctx.problem.trim() === "" ? "（还没写）" : ctx.problem}`,
     `验收标准：${JSON.stringify(ctx.criteria)}`,
     `画布页标签：${JSON.stringify(ctx.frames)}`,
+    `每页已有交互说明（按页同序，修改时保留未改变的交互）：${JSON.stringify(ctx.frameNotes ?? [])}`,
     `当前原型（按页，与标签同序；每个节点带 id 供 patch 寻址；空数组 = 还没生成）：${JSON.stringify(ctx.prototype.map(summarizeHtmlNodes))}`,
   ];
   if (ctx.focus !== undefined) {
@@ -1030,7 +1034,7 @@ export class ModelDesignChatReplier implements DesignChatModel {
     const screenCount = Math.max(ctx.prototype.length, 1);
     const instruction = [...ctx.chat].reverse().find((t) => t.role === "user")?.text ?? "";
     const css = htmlPageCss(page).slice(0, 6000);
-    const finish = (html: string, reply: string): DesignChatReplyResult | null => {
+    const finish = (html: string, reply: string, notes?: string): DesignChatReplyResult | null => {
       const pruned = pruneInvalidGotos(html, index, screenCount).html;
       const node = { type: "html" as const, props: { html: pruned } };
       if (!designPrototype.PrototypeNode.safeParse(node).success) return null;
@@ -1045,6 +1049,7 @@ export class ModelDesignChatReplier implements DesignChatModel {
           ],
         },
         suggestions: [],
+        ...(notes === undefined || notes.trim() === "" ? {} : { pageNotes: [{ screen: index, notes }] }),
       };
     };
 
@@ -1070,7 +1075,7 @@ export class ModelDesignChatReplier implements DesignChatModel {
       DESIGN_CHAT_REPLY_TIMEOUT_MS, DESIGN_HTML_PAGE_EDIT_SYSTEM_PROMPT, ctx.refImages,
     );
     const parsed = out.truncated ? null : parsePageEditOutput(out.text, { index, screenCount });
-    return parsed === null ? null : finish(parsed.html, parsed.reply);
+    return parsed === null ? null : finish(parsed.html, parsed.reply, parsed.notes);
   }
 
   /** 解析单页输出并做保守修正（#4321）；解析不了 ⇒ null。**不**判契约，调用方判。 */
@@ -1264,10 +1269,38 @@ export class ModelDesignChatReplier implements DesignChatModel {
     }
   }
 
+  /** Generate only additions, with existing pages as style anchors. No progress
+   * write can replace an existing page, and a failed batch returns no patch. */
+  private async drawAdditionalHtmlScreens(ctx: DesignChatContext, additions: readonly OutlineEntry[]): Promise<readonly PagedScreen[] | null> {
+    const outline = [...ctx.frames.map((frame) => ({ frame, intent: "已有页面，保留原设计" })), ...additions];
+    const anchors = ctx.prototype.flatMap((root, index) => root?.type === "html"
+      ? [{ frame: ctx.frames[index] ?? "", screen: { root } as Record<string, unknown> }] : []).slice(0, 3);
+    const budget = { left: qualityRetryBudget(additions.length) };
+    const screens: PagedScreen[] = [];
+    for (let at = 0; at < additions.length; at += SCREEN_CONCURRENCY) {
+      const batch = await Promise.all(additions.slice(at, at + SCREEN_CONCURRENCY).map(async (entry, offset) => {
+        const index = ctx.frames.length + at + offset;
+        const screen = await this.drawOneHtmlScreen(ctx, { outline, tone: "严格沿用已经画好的页面的色板、字体、布局与组件样式，只画新增页", index, entry, anchors, budget });
+        const parsed = designPrototype.PrototypeScreen.safeParse({ ...screen, frame: entry.frame });
+        return screen === null || !parsed.success ? null : parsed.data;
+      }));
+      if (batch.some((screen) => screen === null)) return null;
+      for (const screen of batch) {
+        if (screen === null) return null;
+        screens.push(screen);
+      }
+    }
+    return screens;
+  }
+
   async reply(ctx: DesignChatContext): Promise<DesignChatReplyResult> {
     const fallbackWith = (reason: designAiCollab.DesignChatFallbackReason): DesignChatReplyResult => this.fallback(reason);
+    const instruction = [...ctx.chat].reverse().find((turn) => turn.role === "user")?.text ?? "";
+    // A selected page/element is edit context, not a prohibition on adding pages.
+    // This only chooses the planner; the model still resolves the actual operation.
+    const asksForPages = /(?:新增|增加|添加|扩展|规划|加)[\s\S]*(?:页面|页|界面)|(?:add|create|plan|expand)[\s\S]*(?:page|screen)/i.test(instruction);
     // 选中的是 HTML 页（或其中一个元素）⇒ 局部修改：模型只看见被选中的那一块，不走整页树形 JSON。
-    if (ctx.focus?.html !== undefined) {
+    if (ctx.focus?.html !== undefined && !asksForPages) {
       try {
         const edited = await this.editHtml(ctx);
         if (edited !== null) return edited;
@@ -1283,25 +1316,41 @@ export class ModelDesignChatReplier implements DesignChatModel {
     if (ctx.prototype.some((root) => root?.type === "html")) {
       try {
         const plan = await this.callModel(describeProject(ctx, true), DESIGN_CHAT_REPLY_TIMEOUT_MS,
-          '你是设计协作助手。已有 HTML 设计只能在原文基础上修改，不能用组件树替换。根据最后一条用户消息和对话记录判断要修改哪些已有页面。只输出 JSON：{"reply":"中文回复","screens":[要修改的零起始页序号]}。只选用户要求修改的页；讨论或问题用 screens:[] 并回答。整体风格修改选全部已有页。新增或删除页面暂不支持，用 screens:[] 如实说明。不要输出 writeback、prototype 或 patch。');
+          '你是设计协作助手。系统支持规划和新增 HTML 页面，旧对话里“不支持新增页面”的说法已经失效，不要重复。已有 HTML 设计只能在原文基础上修改，不能用组件树替换。根据最后一条用户消息和对话记录规划操作。只输出 JSON：{"reply":"中文回复","screens":[要修改的已有页零起始序号],"addPages":[{"frame":"新增页名","intent":"页面用途及交互"}],"generate":true}。screens 只选用户要求修改的已有页；只要求新增时 screens:[]，不要重画旧页。用户要增加 N 页时具体规划 N 个新页面，不能因为已有类似页面就拒绝。新增页追加到末尾，沿用已有风格。仅要求规划而未要求生成/新增时 generate:false，在 reply 中解释规划；要求新增/创建/生成页面时 generate:true。讨论或问题两个数组都为空并回答。整体风格修改选全部已有页。此流程不删除页面。不要输出 writeback、prototype 或 patch。');
         if (plan.truncated) return fallbackWith("MODEL_OUTPUT_TRUNCATED");
         const raw = extractJsonObject(plan.text) as Record<string, unknown>;
         if (!Array.isArray(raw.screens) || typeof raw.reply !== "string" || raw.reply.trim() === "") return fallbackWith("MODEL_BAD_JSON");
         const indices = [...new Set(raw.screens as unknown[])];
         if (indices.some((index) => typeof index !== "number" || !Number.isInteger(index) || ctx.prototype[index]?.type !== "html" || ctx.prototype[index]?.id === undefined)) return fallbackWith("MODEL_BAD_JSON");
+        const additions = raw.addPages === undefined ? [] : parseOutline(raw.addPages);
+        if (raw.addPages !== undefined && (!Array.isArray(raw.addPages) || additions.length !== raw.addPages.length)) return fallbackWith("MODEL_BAD_JSON");
+        if (raw.generate !== undefined && typeof raw.generate !== "boolean") return fallbackWith("MODEL_BAD_JSON");
+        if (raw.generate === false) return { text: (raw.reply.trim() + (additions.length === 0 ? "" : "\n\n" + additions.map((entry, i) => `${i + 1}. ${entry.frame}：${entry.intent}`).join("\n"))).slice(0, 4200), source: "model", writeback: {}, suggestions: [] };
+        const capacity = Math.min(designPrototype.PROTOTYPE_MAX_SCREENS - ctx.frames.length, ctx.maxScreens ?? designPrototype.PROTOTYPE_MAX_SCREENS);
+        if (additions.length > capacity) return { text: `本轮规划新增 ${additions.length} 页，但最多可以新增 ${capacity} 页（项目最多 ${designPrototype.PROTOTYPE_MAX_SCREENS} 页）。已有设计未改动，请减少本轮新增页数。`, source: "model", writeback: {}, suggestions: [] };
+        const newScreens = await this.drawAdditionalHtmlScreens(ctx, additions);
+        if (newScreens === null) return fallbackWith("MODEL_BAD_JSON");
         const patch: NonNullable<DesignChatWriteback["patch"]>[number][] = [];
+        const pageNotes = newScreens.map((screen, i) => ({ screen: ctx.frames.length + i, notes: screen.notes ?? "" }));
         const replies: string[] = [];
+        // Add every page before linking: new pages may link to later new pages.
+        for (const [i, screen] of newScreens.entries()) patch.push({ op: "addScreen", at: ctx.frames.length + i, frame: screen.frame, root: screen.root });
+        for (const [i, screen] of newScreens.entries()) patch.push({ op: "setLinks", screen: ctx.frames.length + i, links: [...(screen.links ?? [])] });
+        const expanded = { ...ctx, frames: [...ctx.frames, ...newScreens.map((screen) => screen.frame)], prototype: [...ctx.prototype, ...newScreens.map((screen) => screen.root ?? null)], frameNotes: [...ctx.frames.map((_, i) => ctx.frameNotes?.[i] ?? ""), ...newScreens.map((screen) => screen.notes ?? "")] };
         for (const index of indices as number[]) {
           const root = ctx.prototype[index]!;
           if (root.type !== "html" || root.id === undefined) return fallbackWith("MODEL_BAD_JSON");
-          const edited = await this.editHtml({ ...ctx, focus: {
+          const edited = await this.editHtml({ ...expanded, focus: ctx.focus?.id === root.id && ctx.focus.html?.ref !== undefined ? ctx.focus : {
             id: root.id, frame: ctx.frames[index] ?? "", path: ["整页版面"], node: {}, html: { page: root.props.html },
           } });
           if (edited?.writeback.patch === undefined) return fallbackWith("MODEL_BAD_JSON");
           patch.push(...edited.writeback.patch);
+          pageNotes.push(...(edited.pageNotes ?? []));
           replies.push(edited.text);
         }
-        return { text: (replies.length === 0 ? raw.reply.trim() + this.blindNotice(ctx) : replies.join("\n")).slice(0, 4200), source: "model", writeback: patch.length === 0 ? {} : { patch }, suggestions: [] };
+        if (newScreens.length > 0) replies.unshift(`已新增 ${newScreens.length} 个页面：${newScreens.map((screen) => screen.frame).join("、")}。`);
+        if (patch.length > 0 && !designPrototype.DesignPrototypePatch.safeParse(patch).success) return fallbackWith("MODEL_BAD_JSON");
+        return { text: (replies.length === 0 ? raw.reply.trim() + this.blindNotice(ctx) : replies.join("\n")).slice(0, 4200), source: "model", writeback: patch.length === 0 ? {} : { patch }, suggestions: [], ...(pageNotes.length === 0 ? {} : { pageNotes }) };
       } catch (e) {
         this.deps.log("design chat: existing html iteration failed, preserving design", { detail: e instanceof Error ? e.message : "unknown" });
         if (e instanceof ModelCallError && e.code === "MODEL_PROVIDER_NOT_CONFIGURED") return fallbackWith("MODEL_NOT_CONFIGURED");

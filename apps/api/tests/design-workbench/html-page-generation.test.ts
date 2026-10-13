@@ -3,7 +3,7 @@
  * 覆盖：简报解析 / 输出解析与清洗 / 质量评分 / 分页生成整条链路（简报下发、跳转投影、截断降级、质量重问）。
  */
 import { describe, expect, it, vi } from "vitest";
-import { designPrototype } from "@repo/contracts";
+import { designHtmlPage, designPrototype } from "@repo/contracts";
 import { ModelDesignChatReplier, type DesignChatContext } from "../../src/application/design-workbench/design-chat-model";
 import {
   briefToText, htmlCanvasWidth, parseDesignBrief, parseHtmlPageOutput, pruneInvalidGotos, scoreHtmlPage,
@@ -292,6 +292,14 @@ describe("HTML 页局部修改", () => {
     expect(out.writeback).toEqual({});
   });
 
+  it("页面修改收到已有交互说明；模型未输出说明时不以空值覆盖原说明", async () => {
+    const { r, complete } = make(() => `<reply>标题已更新。</reply><page>${page0}</page>`);
+    const out = await r.reply({ ...editCtx(undefined, "改标题"), frameNotes: ["AR扫描失败保留重试入口", "返回首页"] });
+    expect(complete.mock.calls[0]![0].user).toContain("AR扫描失败保留重试入口");
+    expect(out.pageNotes).toBeUndefined();
+    expect(out.writeback.patch).toBeDefined();
+  });
+
   it("树形 prompt 里 HTML 页只留摘要，不塞整页 HTML", async () => {
     const complete = vi.fn(async (_i: { system: string; user: string }) => ({ text: '{"reply":"好的","screens":[]}' }));
     const r = new ModelDesignChatReplier({ model: { complete } as never, chatModel: { provider: "p", modelId: "m" }, log: vi.fn() });
@@ -383,5 +391,83 @@ describe("HTML 页局部修改", () => {
     await r.reply({ ...ctx, prototype: [{ id: "p0", type: "html", props: { html: page } }],
       focus: { ...ctx.focus!, html: { page } } });
     expect(complete.mock.calls[0]![0].user).toContain(page);
+  });
+
+  it("已有四页再新增十个 AR 页面：只生成新增页，原 HTML、标签与跳转逐字保留", async () => {
+    const addPages = Array.from({ length: 10 }, (_, i) => ({ frame: `AR 页面 ${i + 1}`, intent: `AR 功能 ${i + 1}` }));
+    const { r, complete } = make((_user, system) => system.includes('"screens"')
+      ? JSON.stringify({ reply: "规划十个 AR 页面", screens: [], addPages })
+      : wrap(goodPage(0)));
+    const base = editCtx(undefined, "再增加10个页面，覆盖AR的能力");
+    const ctx: DesignChatContext = { ...base, focus: undefined, frames: ["发现附近", "我的聊天", "个人主页", "创建动态"],
+      prototype: Array.from({ length: 4 }, (_, i) => ({ id: `p${i}`, type: "html" as const, props: { html: i % 2 === 0 ? page0 : page1 } })) };
+    const out = await r.reply(ctx);
+    expect(out.source).toBe("model");
+    expect(out.text).toContain("已新增 10 个页面");
+    expect(out.writeback.prototype).toBeUndefined();
+    const before = ctx.prototype.map((root, i) => ({ frame: ctx.frames[i], root: root ?? undefined, notes: "原交互说明", links: root?.type === "html" ? designHtmlPage.htmlPageLinks(root.props.html).map(({ from, to }) => ({ from, to })) : [] }));
+    const updated = designPrototype.applyPrototypePatch(before, out.writeback.patch!);
+    expect(updated).toHaveLength(14);
+    expect(updated.slice(0, 4)).toEqual(before);
+    expect(updated.slice(4).map((screen) => screen.frame)).toEqual(addPages.map((entry) => entry.frame));
+    for (const call of complete.mock.calls.slice(1)) {
+      expect(call[0].user).toContain("font-size:28px");
+      expect(call[0].user).toContain("共 14 页");
+      expect(call[0].user).toMatch(/现在只画第 (?:[4-9]|1[0-3]) 页/);
+    }
+  });
+
+  it("选中已有页面时新增 Profile 页：走规划与追加，不重画选中页", async () => {
+    const { r } = make((_user, system) => system.includes('"screens"')
+      ? '{"reply":"新增用户资料页","screens":[],"addPages":[{"frame":"用户 Profile","intent":"查看用户资料"}]}' : wrap(goodPage(0)));
+    const ctx = editCtx("r1", "新增一个用户profile的页面");
+    const out = await r.reply(ctx);
+    const before = ctx.prototype.map((root, i) => ({ frame: ctx.frames[i], root: root ?? undefined, links: [] }));
+    const updated = designPrototype.applyPrototypePatch(before, out.writeback.patch!);
+    expect(updated.slice(0, 2)).toEqual(before);
+    expect(updated[2]).toMatchObject({ frame: "用户 Profile", root: { type: "html" } });
+  });
+
+  it("只规划新页面 ⇒ 展示规划，不宣称已创建，也不修改画布", async () => {
+    const { r, complete } = make(() => '{"reply":"建议新增资料页","screens":[],"addPages":[{"frame":"资料页","intent":"编辑用户资料"}],"generate":false}');
+    const out = await r.reply({ ...editCtx(undefined, "先规划一个资料页，不生成"), focus: undefined });
+    expect(out.text).toContain("资料页：编辑用户资料");
+    expect(out.text).not.toContain("已新增");
+    expect(out.writeback).toEqual({});
+    expect(complete).toHaveBeenCalledTimes(1);
+  });
+
+  it("新增页可跳转到尚未追加的后续新页与已有页", async () => {
+    let pageCalls = 0;
+    const { r } = make((_user, system) => {
+      if (system.includes('"screens"')) return '{"reply":"增加两页","screens":[],"addPages":[{"frame":"AR导览","intent":"去社区"},{"frame":"AR社区","intent":"返回首页"}]}';
+      pageCalls += 1;
+      return wrap(goodPage(pageCalls === 1 ? 3 : 0));
+    });
+    const ctx = { ...editCtx(undefined, "新增两个AR页面"), focus: undefined };
+    const out = await r.reply(ctx);
+    const updated = designPrototype.applyPrototypePatch(ctx.prototype.map((root) => ({ root: root ?? undefined, links: [] as designPrototype.PrototypeLink[] })), out.writeback.patch!);
+    expect(updated[2]!.links).toMatchObject([{ to: 3 }]);
+    expect(updated[3]!.links).toMatchObject([{ to: 0 }]);
+    expect(designPrototype.validateLinks(updated).dropped).toEqual([]);
+  });
+
+  it("新增页生成失败 ⇒ 整轮不追加，无半成品写入，原设计保留", async () => {
+    const { r } = make((_user, system) => system.includes('"screens"')
+      ? '{"reply":"增加两页","screens":[],"addPages":[{"frame":"AR导览"},{"frame":"AR社区"}]}' : "<page><div>没写完");
+    const onProgress = vi.fn();
+    const out = await r.reply({ ...editCtx(undefined, "新增两个页面"), focus: undefined, onProgress });
+    expect(out.source).toBe("fallback");
+    expect(out.writeback).toEqual({});
+    expect(out.pagedScreens).toBeUndefined();
+    expect(onProgress).not.toHaveBeenCalled();
+  });
+
+  it("明确页数上限时不偷偷截断，也不生成后再拒绝", async () => {
+    const { r, complete } = make(() => '{"reply":"增加两页","screens":[],"addPages":[{"frame":"AR导览"},{"frame":"AR社区"}]}');
+    const out = await r.reply({ ...editCtx(undefined, "新增两个页面"), focus: undefined, maxScreens: 1 });
+    expect(out.text).toContain("最多可以新增 1 页");
+    expect(out.writeback).toEqual({});
+    expect(complete).toHaveBeenCalledTimes(1);
   });
 });

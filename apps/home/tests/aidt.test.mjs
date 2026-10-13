@@ -32,6 +32,11 @@ try {
       await other.click();
       assert.equal(await page.locator('html').getAttribute('lang'), language === 'en' ? 'zh-Hans' : 'en');
       await page.goto(base + route);
+      assert.ok(await page.locator('.aidt-hero-art img').evaluate(img => img.complete && img.naturalWidth > 0), `${route}: illustration loads`);
+      const processSummary = page.locator('#process details > summary');
+      await processSummary.focus();
+      await processSummary.press('Enter');
+      assert.ok(await page.locator('.aidt-step__output').first().isVisible(), `${route}: keyboard reveals stage guidance without JS`);
       const layout = await page.evaluate(() => ({
         overflow: document.documentElement.scrollWidth > innerWidth,
         hidden: [...document.querySelectorAll('h1,h2,h3,.btn,.aidt-header a')].filter(e => {
@@ -41,7 +46,9 @@ try {
       }));
       assert.equal(layout.overflow, false, `${route} at ${width}: page overflow`);
       assert.deepEqual(layout.hidden, [], `${route} at ${width}: clipped content`);
-      await page.locator('.aidt-hero a[href="#education"]').click();
+      await processSummary.press('Enter');
+      assert.equal(await page.locator('.aidt-step__output').first().isVisible(), false, `${route}: keyboard collapses stage guidance`);
+      await page.locator('.aidt-hero .aidt-actions a[href="#education"]').click();
       await page.waitForTimeout(800);
       assert.ok(await page.locator('#education-title').isVisible());
       const partners = page.locator('.aidt-partners');

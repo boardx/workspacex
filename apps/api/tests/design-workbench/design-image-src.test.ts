@@ -38,6 +38,18 @@ function seeded(): FakeDesignProjectRepo {
 }
 
 describe("深度 S10：上传的图与模型", () => {
+  it("新增 HTML 页面保存交互说明，已有设计和上传图片原样保留", async () => {
+    const repo = seeded();
+    const ai = new FakeDesignChat();
+    ai.answer = { text: "新增用户资料页。", source: "model", suggestions: [],
+      writeback: { patch: [{ op: "addScreen", at: 1, frame: "用户资料", root: { type: "html", props: { html: "<div>用户资料</div>" } } }] },
+      pageNotes: [{ screen: 1, notes: "点击AR名片进行扫描，扫描失败可以重试" }] };
+    const out = await appendProjectChat({ ...deps(repo), ai }, { projectId: "dp-1", ownerId: "u-1", text: "新增用户资料页" });
+    expect(out.project.frames).toEqual(["首页", "用户资料"]);
+    expect(out.project.prototype[0]).toEqual(tree("旧标题", PNG));
+    expect(out.project.frameNotes[1]).toBe("点击AR名片进行扫描，扫描失败可以重试");
+  });
+
   it("已有设计迭代的中间占位页不会覆盖原画布，模型失败后仍保留完整原型", async () => {
     const repo = seeded();
     const before = (await repo.get("dp-1"))!.prototype;

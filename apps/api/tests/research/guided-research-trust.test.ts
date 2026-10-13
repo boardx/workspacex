@@ -20,6 +20,7 @@ function fixture() {
     sources: [{ id: "src1", taskId: "t1", title: "Official", url: "https://example.com/report", content: "Primary evidence text", retrievedAt: "2026-09-24T00:00:00.000Z", decision: "accepted" as const,
       document: { url: "https://example.com/report", retrievedAt: "2026-09-24T00:00:00.000Z", text: "Primary evidence text", contentHash: "a".repeat(64), contentKind: "html" as const, truncated: false } }],
     report: { title: "Report", summary: "Summary", sections: [{ sectionId: "s1", body: "Supported statement [[source:src1]]", sourceIds: ["src1"] }] },
+    reportTimeline: [{ id: "validation", stage: "validation" as const, status: "completed" as const, attempts: 1 }],
     questionEvidence: [{ questionId: "chapter:0/question:0", sectionId: "s1", sourceId: "src1", quote: "Primary evidence text", relevance: "direct" as const }],
   };
 }
@@ -33,6 +34,37 @@ function readyFixture() {
 }
 
 describe("research trust projection", () => {
+  it.each(["partial-search", "explicit-gap"])("keeps a formally completed report ready with %s limitations without inflating evidence", mode => {
+    const state = readyFixture();
+    if (mode === "partial-search") { state.reportPartial = true; state.tasks[0]!.status = "failed" as any; }
+    else { state.questionEvidence = []; state.report.sections[0]!.body = "The requested outcome cannot be measured from these materials. Obtain the original survey from its owner and compare regional outcomes before deciding."; }
+    const projection = projectResearchTrust(state);
+    expect(projection.publicationReadiness.status).toBe("ready");
+    expect(projection.publicationReadiness.blockers).not.toContain("搜索未完成，报告仅为部分草稿");
+    if (mode === "explicit-gap") { expect(projection.coverage[0]!.status).toBe("missing"); expect(projection.qualityScore.citationCoverage).toBe(0); expect(projection.claimEvidence).toEqual([]); }
+  });
+  it("keeps an unverified quality draft limited even with complete source coverage", () => {
+    const state = { ...readyFixture(), completed: false, report: null, reportDraft: readyFixture().report,
+      reportQualityWarnings: [{ sectionId: "s1", issues: ["Unsupported factual assertion."] }] };
+    expect(projectResearchTrust(state).publicationReadiness.status).toBe("limited");
+  });
+  it.each(["missing-validation", "running-validation", "busy", "draft", "quality", "error", "paused", "not-completed"])("does not promote limited provenance with %s completion state", mode => {
+    const state = readyFixture(); state.reportPartial = true;
+    if (mode === "missing-validation") state.reportTimeline = [];
+    if (mode === "running-validation") state.reportTimeline[0]!.status = "running" as any;
+    if (mode === "busy") state.busy = true;
+    if (mode === "draft") state.reportDraft = state.report;
+    if (mode === "quality") state.reportQualityWarnings = [{ sectionId: "s1", issues: ["Unsupported assertion."] }];
+    if (mode === "error") state.errorCode = "RESEARCH_WORKFLOW_UNAVAILABLE";
+    if (mode === "paused") state.controlStatus = "paused";
+    if (mode === "not-completed") state.completed = false;
+    expect(projectResearchTrust(state).publicationReadiness.status).toBe("limited");
+  });
+  it("keeps a serious unresolved conflict blocking even for a formal report with limitations", () => {
+    const state = readyFixture(); state.reportPartial = true;
+    state.conflicts = [{ id: "critical", claimIds: ["c1", "c2"], sourceIds: ["src1", "src2"], severity: "severe", status: "open", resolution: null }];
+    expect(projectResearchTrust(state).publicationReadiness.blockers).toContain("存在未解决的严重冲突");
+  });
   it.each(["partial", "failed-task"])("never publishes a fully covered recovered draft with %s provenance", mode => {
     const state = { ...readyFixture(), report: null, reportDraft: readyFixture().report, completed: false, reportPartial: mode === "partial" };
     if (mode === "failed-task") state.tasks[0]!.status = "failed" as any;
