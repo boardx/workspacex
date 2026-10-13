@@ -29,6 +29,26 @@ describe('canonical interview report file source',()=>{
  it('binds revision and document identity even with identical bytes and version',async()=>{
   const f=fixture();const a=await f.resolver.read({orgId,userId:'owner'},'interview');f.current.revisionId='revision-b';const b=await f.resolver.read({orgId,userId:'owner'},'interview');f.report.documentId='other-doc';f.state.documentId='other-doc';const c=await f.resolver.read({orgId,userId:'owner'},'interview');expect(a.reportHash).toBe(c.reportHash);expect(a.bindingKey).not.toBe(b.bindingKey);expect(b.bindingKey).not.toBe(c.bindingKey);
  });
+ it('invalidates old bindings when review notes change A to B to A',async()=>{
+  const f=fixture();
+  const review={reviewId:'review-a',revisionId:f.current.revisionId,documentId:f.report.documentId,documentVersion:f.report.version,contentHash:f.report.contentHash,status:'approved' as const,note:'A',reviewedBy:'owner',reviewedAt:'2026-10-13T00:00:00Z'};
+  f.current.review=guard({kind:'interview',id:'interview'},review) as never;
+  const a=await f.resolver.read({orgId,userId:'owner'},'interview');
+  for(const note of ['B','A']){
+   f.current.version++;
+   f.current.review=guard({kind:'interview',id:'interview'},{...review,note}) as never;
+  }
+  const restored=await f.resolver.read({orgId,userId:'owner'},'interview');
+  expect(restored.notices).toEqual(a.notices);
+  expect(restored.reportVersion).toBe(a.reportVersion);
+  expect(restored.reportHash).toBe(a.reportHash);
+  expect(restored.bindingKey).not.toBe(a.bindingKey);
+ });
+ it('rejects a review update between source snapshot and the final version check',async()=>{
+  const f=fixture();
+  f.readCurrent.mockResolvedValueOnce({...f.current}).mockResolvedValueOnce({...f.current,version:f.current.version+1});
+  await expect(f.resolver.read({orgId,userId:'owner'},'interview')).rejects.toMatchObject({code:'REPORT_CHANGED'});
+ });
 });
 
 describe('saved source and access boundaries',()=>{

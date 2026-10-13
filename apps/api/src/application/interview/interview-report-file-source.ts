@@ -43,7 +43,11 @@ export class InterviewReportFileSource implements ReportFileSourceResolver {
    }
    if(unavailableReferences) notices.push(`${unavailableReferences} 项引用的已保存来源当前不可核验。`);
    const title = (interviewMarkdown.parseInterviewMarkdown(document).headings[0]?.text || authorized.interview.name || '访谈报告').slice(0,300);
-   return {kind:this.kind,id,title,reportVersion:document.version,reportHash,bindingKey:JSON.stringify([current.revisionId,document.documentId,document.version,reportHash]),markdown:document.markdown,...(appendix.length?{appendixMarkdown:appendix.join('\n\n')}:{}),projectId:authorized.projectId,notices};
+   // Reviews advance the aggregate version even when the report bytes do not change.
+   // Recheck the monotonic stamp after assembling the authorized source snapshot.
+   const latest = await readInterviewMarkdown(this.deps,input);
+   if(latest.version!==current.version || latest.revisionId!==current.revisionId) throw new ReportFileSourceError('REPORT_CHANGED');
+   return {kind:this.kind,id,title,reportVersion:document.version,reportHash,bindingKey:JSON.stringify([current.version,current.revisionId,document.documentId,document.version,reportHash]),markdown:document.markdown,...(appendix.length?{appendixMarkdown:appendix.join('\n\n')}:{}),projectId:authorized.projectId,notices};
   }catch(error){if(error instanceof NoInterviewAccessError)throw new ReportFileSourceError('REPORT_NOT_FOUND');throw error;}
  }
 }
