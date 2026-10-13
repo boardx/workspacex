@@ -1,5 +1,5 @@
 -- Personal reusable simulated profiles; these never create Agent or user identities.
-CREATE TABLE interview_custom_expert_profiles (
+CREATE TABLE IF NOT EXISTS interview_custom_expert_profiles (
  org_id text NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
  actor_id text NOT NULL REFERENCES credentials(user_id) ON DELETE CASCADE,
  expert_id text NOT NULL CHECK (expert_id LIKE 'custom-expert-%'),
@@ -11,6 +11,7 @@ CREATE TABLE interview_custom_expert_profiles (
 );
 ALTER TABLE interview_custom_expert_profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE interview_custom_expert_profiles FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS interview_custom_expert_profiles_tenant ON interview_custom_expert_profiles;
 CREATE POLICY interview_custom_expert_profiles_tenant ON interview_custom_expert_profiles
  USING(org_id=current_setting('app.current_org',true))
  WITH CHECK(org_id=current_setting('app.current_org',true));
