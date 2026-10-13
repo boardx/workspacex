@@ -146,9 +146,9 @@ test('collector binds child PID and numeric shape, rejects secrets, reuse and ov
 
 test('compiler phase observer bounds hooks, counts and numeric-only collection',()=>{
  const packets:any[]=[];const actor={pid:123,connected:true,memoryUsage:()=>({rss:100,heapTotal:80,heapUsed:50,external:10,arrayBuffers:5}),send:(m:any)=>packets.push(m)};
- let time=0,adds=0;const hooks:Record<string,Function>={};const compiler={hooks:Object.fromEntries(phaseObserver.PHASES.map((k:string)=>[k,{tap:(_name:string,fn:Function)=>{adds++;hooks[k]=fn;}}]))};
+ let time=0,adds=0;const hooks:Record<string,Function>={};const compiler={hooks:Object.fromEntries([...phaseObserver.PHASES,'buildModule'].map((k:string)=>[k,{tap:(_name:string,fn:Function)=>{adds++;hooks[k]=fn;}}]))};
  compiler.hooks.thisCompilation={tap:(_name:string,fn:Function)=>{adds++;fn(compiler);}};
- const plugin=phaseObserver.plugin('client',actor,()=>time++);plugin.apply(compiler);plugin.apply(compiler);assert.equal(adds,6);
+ const plugin=phaseObserver.plugin('client',actor,()=>time++);plugin.apply(compiler);plugin.apply(compiler);assert.equal(adds,7);
  const modules={size:42,buffer:()=>{throw Error('must not allocate');},toJSON:()=>{throw Error('must not serialize');}};
  hooks.finishModules(modules);hooks.seal();for(let i=0;i<40;i++)hooks.afterDone({modules});assert.equal(packets.length,8);assert.equal(packets[0].moduleCount,42);assert.equal(packets[1].moduleCountAvailable,0);
  actor.connected=false;hooks.finishModules(modules);assert.equal(packets.length,8);
@@ -183,10 +183,10 @@ test('phase plugin applies to the real installed webpack Compiler and Compilatio
  const configured=w.webpack({mode:'development',context:process.cwd(),entry:{},output:{path:process.cwd()}});const compiler=new w.webpack.Compiler(process.cwd(),configured.options);
  const packets:any[]=[];const actor={pid:123,connected:true,memoryUsage:()=>({rss:100,heapTotal:80,heapUsed:50,external:10,arrayBuffers:5}),send:(m:any)=>packets.push(m)};
  phaseObserver.plugin('server',actor).apply(compiler);
- const compilation=new w.webpack.Compilation(compiler);compiler.hooks.thisCompilation.call(compilation,{});
+ const compilation=new w.webpack.Compilation(compiler);compilation.modules.add({});compiler.hooks.thisCompilation.call(compilation,{});compilation.hooks.buildModule.call({});
  compilation.hooks.finishModules.callAsync(new Set([{}]),()=>{});compilation.hooks.seal.call();
  compiler.hooks.afterCompile.callAsync(compilation,()=>{});compiler.hooks.afterEmit.callAsync(compilation,()=>{});compiler.hooks.afterDone.call({compilation});
- assert.deepEqual(packets.map(p=>p.phase),[1,2,3,4,5]);assert.equal(packets[0].moduleCount,1);
+ assert.deepEqual(packets.map(p=>p.phase),[6,1,2,3,4,5]);assert.equal(packets[0].moduleCount,1);
 });
 
 test('production config loads with no repository fixture helper present',()=>{
@@ -197,4 +197,31 @@ test('production config loads with no repository fixture helper present',()=>{
   const script=`import cfg from ${JSON.stringify('file://'+file)};class Stub{};for(const [fixture,dev] of [['0',true],['1',false]]){process.env.CN_RELEASE_FULLSTACK_FIXTURE=fixture;Object.defineProperty(process,'connected',{value:true,configurable:true});cfg.webpack({name:'client',plugins:[]},{webpack:{NormalModuleReplacementPlugin:Stub,DefinePlugin:Stub},isServer:false,dev});}`;
   const result=spawnSync(process.execPath,['--input-type=module','-e',script],{encoding:'utf8',timeout:10000});assert.equal(result.status,0,result.stderr);
  }finally{rmSync(directory,{recursive:true,force:true});}
+});
+
+
+test('cold empty compiles preserve the shared event budget for bounded build milestones',()=>{
+ const packets:any[]=[];let reads=0;const actor={pid:123,connected:true,memoryUsage:()=>{reads++;return {rss:100,heapTotal:80,heapUsed:50,external:10,arrayBuffers:5};},send:(m:any)=>packets.push(m)};
+ const compiler=(name:string)=>{const hooks:Record<string,Function>={};const c={hooks:Object.fromEntries(['thisCompilation','afterCompile','afterEmit','afterDone'].map(k=>[k,{tap:(_n:string,fn:Function)=>hooks[k]=fn}]))};phaseObserver.plugin(name,actor).apply(c);return hooks;};
+ const comp=()=>{const hooks:Record<string,Function>={};return {modules:new Set(),hooks:Object.fromEntries(['finishModules','seal','buildModule'].map(k=>[k,{tap:(_n:string,fn:Function)=>hooks[k]=fn}])),callbacks:hooks};};
+ const client=compiler('client'),server=compiler('server'),edge=compiler('edge-server');
+ const emptyCompile=(hooks:Record<string,Function>)=>{const c=comp();hooks.thisCompilation(c);c.callbacks.finishModules?.(c.modules);c.callbacks.seal?.();hooks.afterCompile(c);hooks.afterEmit(c);hooks.afterDone({compilation:c});};
+ for(let round=0;round<2;round++)for(const hooks of [client,server,edge])emptyCompile(hooks);
+ assert.equal(packets.length,0);assert.equal(reads,0);
+ const active=comp();client.thisCompilation(active);for(let i=0;i<512;i++)active.callbacks.buildModule({source:()=>{throw Error('never read source');}});
+ assert.deepEqual(packets.map(m=>m.buildModuleCallbacks),[1,256,512]);assert.ok(packets.every(m=>m.moduleCount===0&&m.emptyEventsSkipped===10&&m.phase===6));
+ const another=comp();client.thisCompilation(another);another.callbacks.buildModule({});assert.equal(packets.length,3);
+ active.modules.add({});active.callbacks.finishModules(active.modules);active.callbacks.seal();client.afterCompile(active);client.afterEmit(active);client.afterDone({compilation:active});assert.equal(packets.length,8);
+ let listener:Function=()=>{};const snapshot=phaseObserver.collect({pid:123,on:(_k:string,fn:Function)=>listener=fn});
+ listener({nextWorkerReady:true});listener({...packets[0],buildModuleCallbacks:2});listener({...packets[0],phase:7});listener({...packets[0],secret:'never-retain'});for(const m of packets)listener(m);
+ assert.equal(snapshot().events.length,8);assert.equal(snapshot().rejectedEvents,3);
+ const secondActor={...actor,send:(_m:any)=>{throw Error('empty cap must close before emission');}};const capHooks:Record<string,Function>={};const capped={hooks:Object.fromEntries(['thisCompilation','afterCompile','afterEmit','afterDone'].map(k=>[k,{tap:(_n:string,fn:Function)=>capHooks[k]=fn}]))};phaseObserver.plugin('client',secondActor).apply(capped);
+ for(let i=0;i<100;i++)emptyCompile(capHooks);const last=comp();capHooks.thisCompilation(last);assert.equal(Object.keys(last.callbacks).length,0);
+});
+
+test('complete worst-case worker envelope with phase records remains below 16KiB',()=>{
+ const max=Number.MAX_SAFE_INTEGER;const event={pid:max,compiler:3,event:8,phase:6,elapsedMilliseconds:max,moduleCountAvailable:1,moduleCount:max,buildModuleCallbacks:16384,emptyEventsSkipped:63,rssBytes:max,heapTotalBytes:max,heapUsedBytes:max,externalBytes:max,arrayBuffersBytes:max};
+ const memoryNumbers={rssBytes:max,heapTotalBytes:max,heapUsedBytes:max,externalBytes:max,arrayBuffersBytes:max};
+ const receipt={kind:'cn-next-worker-exit-v1',forkedAt:'2026-10-13T05:56:13.775Z',exitedAt:'2026-10-13T05:57:54.890Z',elapsedMilliseconds:max,workerPathSha256:'a'.repeat(64),process:{pid:max,startTicks:String(max),cgroup:{inode:max,device:max,pathSha256:'b'.repeat(64)}},heapMiB:2048,exitCode:null,signal:'SIGABRT',memory:{observedSamples:120,rejectedSamples:120,maxSamples:120,intervalMilliseconds:5000,capReached:true,latest:{pid:max,sample:120,elapsedMilliseconds:max,...memoryNumbers},observedPeaks:memoryNumbers},compilerPhases:{available:true,maxEventsPerCompiler:8,maxCompilers:3,maxEmptyEventsPerCompiler:64,maxCompilationsPerCompiler:16,rejectedEvents:24,events:Array.from({length:24},()=>event)}};
+ assert.ok(Buffer.byteLength(JSON.stringify(receipt))<16384);
 });

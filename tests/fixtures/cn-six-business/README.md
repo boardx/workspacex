@@ -106,3 +106,13 @@ heap dump is requested. Missing module counts are explicitly unavailable.
 The launcher classifies only fixed ASCII fatal markers across stderr chunks;
 it retains booleans/counts and the existing streaming stderr hash, not raw
 stderr. SIGABRT alone remains insufficient to prove JavaScript heap OOM.
+
+The follow-up observer does not spend its shared 24-record budget on known empty
+compiles. Empty phases have a separate 64-event cap per compiler identity, with
+at most 16 compilations and six plugin instances. BuildModule counts actual
+callbacks cumulatively across compilations (not module Set size), emitting only
+at 1/256/512/1024/2048/4096/8192/16384. These milestones share the existing
+eight records per compiler budget; phase 6 identifies construction, and the
+separate moduleCount remains the observed Set.size. All counters and retained
+records are bounded; no resource path/source/buffer is accessed. The full
+worst-case worker envelope including memory samples remains under 16 KiB.
