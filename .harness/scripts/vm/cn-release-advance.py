@@ -9,6 +9,7 @@ import datetime as dt
 import fcntl
 import hashlib
 import json
+import math
 import os
 from pathlib import Path
 import re
@@ -23,6 +24,7 @@ STATE = Path('/var/lib/workspacex-cn/continuation')
 OWNER = 0
 SHELL = '/bin/bash'
 CGROUP_BASE = Path('/sys/fs/cgroup/workspacex-cn-continuation')
+SESSION_READY_SECONDS = 5
 STAGES = ('consume', 'publication-stage', 'check-plan', 'publish', 'hold-stage', 'hold',
           'stop-stage', 'stop', 'sessions', 'backup-stage', 'backup', 'rds-backup',
           'switch-stage', 'switch', 'acceptance', 'clear-hold', 'observe')
@@ -323,13 +325,25 @@ def run_command(raw, timeout, started):
         reason = 'EXITED'
         status = None
         try:
-            ready, _, _ = select.select([ready_r], [], [], min(timeout, 5))
+            # Admission precedes execution: a short action deadline must not
+            # turn scheduling delay before setsid into missing session identity.
+            # This separate bounded setup wait never releases an unproven child.
+            ready, _, _ = select.select([ready_r], [], [], SESSION_READY_SECONDS)
             need(ready and os.read(ready_r, 1) == b'1' and os.getpgid(pid) == pid, 'CHILD_SESSION_UNPROVEN')
             domain.attach(pid)
-            started(pid, domain.path.name if domain.path is not None else None)  # fsync before release.
+            budget = started(pid, domain.path.name if domain.path is not None else None)  # fsync before release.
+            need(budget is None or isinstance(budget, dict), 'EXECUTION_BUDGET_UNPROVEN')
+            admitted_at = time.monotonic()
+            end = admitted_at + timeout
+            if isinstance(budget, dict):
+                need(set(budget) == {'remainingSeconds', 'observedMonotonic'}
+                     and all(type(budget[k]) in (int, float) and math.isfinite(budget[k]) for k in budget)
+                     and 0 < budget['remainingSeconds'] <= timeout
+                     and 0 <= budget['observedMonotonic'] <= admitted_at, 'EXECUTION_BUDGET_UNPROVEN')
+                end = min(end, budget['observedMonotonic'] + budget['remainingSeconds'])
+            need(time.monotonic() < end, 'EXECUTION_BUDGET_EXPIRED')
             os.write(gate_w, b'1')
             os.close(gate_w); gate_w = -1
-            end = time.monotonic() + timeout
             while True:
                 if time.monotonic() >= end:
                     reason = 'TIMEOUT'
@@ -545,8 +559,22 @@ def _entry(mode, request_hash, attempt, transport):
                 need(reason == 'EXITED' and code == 0 and not alive(observed_pid), 'RECOVERY_OBSERVATION_FAILED')
                 verify(files['verify.py'], observed, manifest, decode(previous_raw) if previous_raw else None, 'pre-recovery')
                 need(instant(manifest['issuedAt']) <= now() < instant(manifest['expiresAt']), 'RECOVERY_WINDOW_EXPIRED')
+            def action_budget():
+                observed_at = time.monotonic()
+                clock = now()
+                need(instant(manifest['issuedAt']) <= clock < instant(manifest['expiresAt']), 'REQUEST_EXPIRED')
+                if not recovery:
+                    need(clock < instant(manifest['deadlineAt']), 'TOTAL_BUDGET_EXPIRED')
+                limit = instant(manifest['expiresAt']) if recovery else min(instant(manifest['expiresAt']), instant(manifest['deadlineAt']))
+                return {'remainingSeconds': min(manifest['timeoutSeconds'], (limit - clock).total_seconds()),
+                        'observedMonotonic': observed_at}
+            def record_started(p, isolation):
+                action_budget()  # Session setup may have consumed the live window.
+                create(process_path, encode({'pid': p, 'isolation': isolation, 'requestSha256': request_hash}))
+                return action_budget()  # PID fsync precedes the last admission and gate release.
+            action_budget()
             create(intent_path, encode({'requestSha256': request_hash, 'stage': manifest['stage'], 'createdAt': stamp(), 'previousReceiptSha256': manifest['previousReceiptSha256']}))
-            reason, code, evidence, pid = run_command(files['action.sh'], min(manifest['timeoutSeconds'], max(.01, (instant(manifest['expiresAt']) - now()).total_seconds())), lambda p, isolation: create(process_path, encode({'pid': p, 'isolation': isolation, 'requestSha256': request_hash})))
+            reason, code, evidence, pid = run_command(files['action.sh'], manifest['timeoutSeconds'], record_started)
             create(terminal_path, encode({'reason': reason, 'exitCode': code, 'stdoutSha256': digest(evidence), 'processGroupStillPresent': alive(pid), 'finishedAt': stamp()}))
             need(reason == 'EXITED' and code == 0 and not alive(pid), 'EXECUTION_UNCERTAIN_RECONCILE_NO_RETRY')
         else:

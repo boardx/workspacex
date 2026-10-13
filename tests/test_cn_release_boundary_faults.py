@@ -87,7 +87,14 @@ class BoundaryFaults(unittest.TestCase):
                 # whose zombie can keep killpg(pid, 0) true until init reaps it.
                 # Descendant/setsid cleanup remains covered by the Linux cgroup suites.
                 command = ('exec sleep %.3f\n' % (timeout + jitter + .1)).encode()
-                return f.realrun(command, timeout, started)
+                def fault_started(pid, isolation):
+                    budget = started(pid, isolation)
+                    # This fixture deliberately substitutes a shorter action
+                    # budget; retain the entry's post-fsync deadline observation.
+                    if budget is not None:
+                        budget = {**budget, 'remainingSeconds': min(timeout, budget['remainingSeconds'])}
+                    return budget
+                return f.realrun(command, timeout, fault_started)
             command = ('sleep %.3f\nexit %d\n' %
                        (jitter, 17 if fault == 'lost-response' else 23)).encode()
             return f.realrun(command, seconds, started)
