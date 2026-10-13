@@ -43,7 +43,9 @@ follow this section; it does not override the legacy script protocol above.
 Read /skills/${name}/references/editing-and-qa.md before creating or editing files.
 Write explicitly under /workspace. SKILL_SANDBOX_OUT_DIR and SKILL_SANDBOX_CJK_FONT
 in the legacy examples below are not guaranteed native environment variables.
-Do not repeatedly probe the environment or install packages. For embedded PDF CJK
+Use the declared preinstalled libraries and paths directly, without preliminary module,
+font or legacy-environment-variable probes. Diagnose only a specific actual execution
+failure; do not install packages. For embedded PDF CJK
 text, the installed font is /usr/share/fonts/workspacex/NotoSansSC-Common.otf.
 Render the ACTUAL source file with the existing helper:
 python3 /skills/${name}/scripts/render-office.py /workspace/actual-file /workspace/preview
@@ -56,8 +58,14 @@ Do not call an unconfigured soffice wrapper. Do not redraw a separate PDF and cl
 it is a preview of the DOCX/XLSX/PPTX. Spot-check only the PNGs in the manifest's inspect
 list (at most 3); do not open every page. Exit 0 still requires that visual spot-check; a
 font warning alone is not a rendering failure.
-Do not run npm/pip installs. Publish the verified actual source and previews with
-wx_artifact_publish. Adapt legacy environment-variable examples to these native paths.
+Do not run npm/pip installs. Complete required rendering and visual spot-checks before
+publishing the verified actual source with wx_artifact_publish. Preview files are internal
+QA by default: publish them additionally only when the caller explicitly requests preview
+attachments. A request for one source file must produce only that source attachment.
+A successful staged result means publication is accepted; finish the final reply after
+verification, without rewriting or republishing the same verified source or polling for
+ready. The existing successful run writeback makes the artifact and attachment ready.
+Adapt legacy environment-variable examples to these native paths.
 
 `;
 export function officeSkillPackage(spec:{skillId:string;stableName:string;content:string}) {

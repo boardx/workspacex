@@ -147,6 +147,9 @@ export async function acceptHumanMessage(
     text: string; agentId: string;
     /** Legacy selection provenance; scope is always derived from the trusted published catalog. */
     explicitAgent?: boolean;
+    /** Server-owned product action, never accepted from the public message body.
+     * May narrow the trusted general-agent pool; never adds a skill or overrides role pins. */
+    requestedSkillVersionId?: string;
     /** #946 · V9-a F151：挂到本消息的已上传 pending 附件 id（可选）。 */
     attachmentIds?: readonly string[];
       artifactContinuation?: ArtifactContinuationContext;
@@ -223,7 +226,7 @@ export async function acceptHumanMessage(
     if (!isDisclosed(disclosedEnabled)) throw new MessageThreadNotVisibleError();
     orgEnabled = disclosedEnabled.payload;
   }
-  const snapshot: PublishedAgentSnapshot = {
+  let snapshot: PublishedAgentSnapshot = {
     ...agentSnapshot,
     skillScope: !explicitAgent ? "general" : "agent_pins",
     skillVersionIds: resolveRunSkillVersionIds({
@@ -233,6 +236,10 @@ export async function acceptHumanMessage(
       mounted: disclosedMounts.payload,
     }),
   };
+  if (input.requestedSkillVersionId !== undefined) {
+    if (explicitAgent || !snapshot.skillVersionIds.includes(input.requestedSkillVersionId)) throw new AgentSkillScopeViolationError();
+    snapshot = { ...snapshot, skillVersionIds: [input.requestedSkillVersionId] };
+  }
   // 去重后传给仓储：仓储在同一事务内 set message_id，更新数须等于去重后数量，否则回滚。
   const attachmentIds = input.attachmentIds && input.attachmentIds.length > 0
     ? [...new Set(input.attachmentIds)]

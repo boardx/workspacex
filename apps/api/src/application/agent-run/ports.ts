@@ -113,6 +113,8 @@ export interface ClaimedAgentRun {
    * 永远走不到，实际却在运行时命中——最坏的一种绿。
    */
   readonly projectId: string | null;
+  /** Server-owned source scope for AI policy/accounting only; never retrieval or chat ACL. */
+  readonly policyProjectId?: string | null;
   readonly inputMessageId: string;
   readonly inputText: string;
   /**

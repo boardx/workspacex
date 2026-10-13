@@ -87,15 +87,25 @@ export class PgInterviewMarkdownReader implements InterviewMarkdownReader {
         : guard({ kind: "interview", id: interviewId }, []);
       const states = row.revision_id ? await session.query<{
         documentId: string;
+        step: string;
+        markdown: string;
+        contentSource: string;
         status: z.infer<typeof interviewMarkdown.InterviewMarkdownEnvelope>["states"][number]["status"];
         failure: z.infer<typeof interviewMarkdown.InterviewMarkdownEnvelope>["states"][number]["failure"];
       }>(
-        `SELECT DISTINCT ON (step) artifact_id AS "documentId",status,failure FROM digital_interview_artifact_versions
+        `SELECT DISTINCT ON (step) artifact_id AS "documentId",step,markdown,content_source AS "contentSource",status,failure FROM digital_interview_artifact_versions
          WHERE org_id=$1 AND interview_id=$2 AND revision_id=$3 AND content_source IS NOT NULL
          ORDER BY step,version_number DESC`, [orgId, interviewId, row.revision_id],
       ) : { rows: [] };
       const execution = row.revision_id ? (await session.query<{status:string;tasks:unknown}>(`SELECT status,tasks FROM interview_markdown_execution WHERE org_id=$1 AND revision_id=$2`,[orgId,row.revision_id])).rows[0] : null;
-      return { version: Number(row.version), revisionId: row.revision_id, documents, states: states.rows,
+      const disclosedStates = states.rows.map(({documentId,status,failure,step,markdown,contentSource}) => {
+        // Older opt-in migrations may have promoted an incomplete legacy report.
+        // Keep its bytes readable, but expose a recoverable failed state until repaired.
+        if(step==='report' && contentSource==='legacy-migration-v1' && !interviewMarkdown.assessInterviewReportAnalysis(markdown).ok)
+          return {documentId,status:'failed' as const,failure:{code:'AI_GENERATION_UNAVAILABLE' as const,retryable:true}};
+        return {documentId,status,failure};
+      });
+      return { version: Number(row.version), revisionId: row.revision_id, documents, states: disclosedStates,
         review:row.revision_id?await readInterviewMarkdownReportReview(session,orgId,interviewId,row.revision_id):guard({kind:"interview",id:interviewId},null),
         execution: execution ? interviewMarkdown.InterviewMarkdownExecution.parse(execution) : null };
     });

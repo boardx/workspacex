@@ -26,6 +26,10 @@ it('packages original creation recipes and fixed immutable hashes without rewrit
  expect(body).toContain('Never prefix it with rm');
  expect(body).toContain('Do not add &&, ;, pipes or shell cleanup');
  expect(body).toContain('Do not run npm/pip installs');
+ expect(body).not.toContain('Publish the verified actual source and previews with');
+ expect(body).toContain('publish them additionally only when the caller explicitly requests preview');
+ expect(body).toContain('A request for one source file must produce only that source attachment');
+ expect(body).toContain('The existing successful run writeback makes the artifact and attachment ready');
  expect(body).not.toContain('risk_level:');
  // A redistributed/renamed package must retain the original undeclared-risk default.
  expect(resolveSkillRiskLevel({stableName:'imported-office-copy',content:body})).toBe('L1');

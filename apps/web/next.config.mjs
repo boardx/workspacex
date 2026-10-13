@@ -191,6 +191,8 @@ export default {
     // Browser E2E gates must traverse the real API; the test-only same-origin proxy
     // 跨端口 CORS 配置扩张成产品运行时改动。正式 `/chat` 页面本身不被改写。
     const afterFiles = [
+      { source: `${prefix}/report-files`, destination: `${apiOrigin}/report-files` },
+      { source: `${prefix}/report-files/:path*`, destination: `${apiOrigin}/report-files/:path*` },
       { source: `${prefix}/surveys/:path*`, destination: `${apiOrigin}/surveys/:path*` },
       { source: `${prefix}/public/surveys/:path*`, destination: `${apiOrigin}/public/surveys/:path*` },
       { source: `${prefix}/auth/:path*`, destination: `${apiOrigin}/auth/:path*` },

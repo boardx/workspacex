@@ -465,6 +465,8 @@ import { PgConsentDeclineReader } from "./infrastructure/interview/pg-consent-de
 import { ContextApiInsightMaterialReader } from "./infrastructure/interview/context-api-insight-material-reader";
 import { InMemoryInsightCandidateStore } from "./infrastructure/interview/in-memory-insight-candidate-store";
 import { HeuristicCandidateInsightGenerator } from "./infrastructure/interview/heuristic-candidate-insight-generator";
+import { ReportFilesController } from "./interface/controllers/report-files.controller";
+import { reportFileProviders } from "./infrastructure/report-files/report-file.providers";
 import { GuidedResearchController } from "./interface/controllers/guided-research.controller";
 import { GUIDED_RESEARCH_SESSION_REPOSITORY } from "./application/research/guided-session-ports";
 import { GUIDED_RESEARCH_WORKFLOW_SERVICE, GuidedResearchWorkflowService } from "./application/research/guided-workflow-service";
@@ -1260,6 +1262,7 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
     ExpertAvatarPreferenceController,
     InterviewMarkdownReportReviewController,
     GuidedResearchController,
+    ReportFilesController,
     InterviewScopeController,
     InterviewInsightController,
     ChatController,
@@ -1353,6 +1356,7 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
     ModelController,
   ],
   providers: [
+    ...reportFileProviders,
     { provide: EXPERT_AVATAR_PREFERENCE_REPOSITORY, useFactory: (db: DatabasePort) => new PgExpertAvatarPreferenceRepository(db), inject: [DATABASE_PORT] },
     { provide: INTERVIEW_MARKDOWN_REPORT_REVIEW_REPOSITORY, useFactory: (db: DatabasePort) => new PgInterviewMarkdownReportReviewRepository(db), inject: [DATABASE_PORT] },
     { provide: INTERVIEW_MARKDOWN_ATTACHMENTS, useFactory:(db:DatabasePort)=>new PgInterviewMarkdownAttachmentRepository(db),inject:[DATABASE_PORT] },

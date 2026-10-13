@@ -1,0 +1,97 @@
+import * as C from "./research";
+import type { z } from "zod";
+type GuidedResearchRuntime = z.infer<typeof C.GuidedResearchRuntime>;
+
+type Source = GuidedResearchRuntime["sources"][number];
+export type ReportContent = { title: string; summary: string; introduction?: string; conclusion?: string; sections: { sectionId: string; body: string; sourceIds?: string[] }[] };
+export type ReportReference = { number: number; title: string; url: string };
+export type ReportDocument = { title: string; summary: string; introduction?: string; conclusion?: string; headings?: ReturnType<typeof C.guidedResearchReportFraming>["headings"]; sections: { sectionId: string; title: string; body: string }[]; references: ReportReference[]; unresolvedReferences?: number };
+// Citation-like examples inside inline/fenced code remain literal Markdown.
+function outsideCode(text: string, transform: (part: string) => string): string {
+  const code = /^ {0,3}(`{3,}|~{3,})[^\n]*\n[\s\S]*?(?:^ {0,3}\1[ \t]*$|(?![\s\S]))|(`+)[^\n]*?\2/gm;
+  let cursor = 0; let output = "";
+  for (const match of text.matchAll(code)) {
+    output += transform(text.slice(cursor, match.index)) + match[0]; cursor = match.index! + match[0].length;
+  }
+  return output + transform(text.slice(cursor));
+}
+export const citationHref = (number: number) => `#research-reference-${number}`;
+
+/** Match ingestion normalization: canonical HTTP URL, no credentials or fragment. */
+export function researchReferenceUrl(value: string): string | null {
+  try {
+    const url = new URL(value);
+    if (!["https:", "http:"].includes(url.protocol) || url.username || url.password) return null;
+    url.hash = "";
+    return url.toString();
+  } catch { return null; }
+}
+
+/** One numbering pass shared by final rendering, provisional rendering and export. */
+export function researchReportDocument(report: ReportContent, sources: Source[], outline: GuidedResearchRuntime["outline"], options: { provisional?: boolean; aliases?: { alias: string; sourceId: string }[]; brief?: GuidedResearchRuntime["brief"] } = {}): ReportDocument {
+  // Repair only the old deterministic framing, never rewrite authored report prose.
+  if (options.brief && report.title === "尚未验证的研究草稿 / Unverified research draft") {
+    const framing = C.guidedResearchReportFraming(options.brief);
+    const zh = C.guidedResearchReportFraming({ topic: "主题", goal: "", focus: "" });
+    const en = C.guidedResearchReportFraming({ topic: "Topic", goal: "", focus: "" });
+    report = { ...report, title: framing.title, sections: report.sections.map((section) => ({ ...section, body: section.body
+      .replaceAll(zh.gap + en.gap, framing.gap)
+      .replaceAll("待核实问题 / Unanswered question: ", framing.questionPrefix)
+      .replaceAll("…[问题摘录，余文省略 / remainder omitted]", framing.omitted) })) };
+    for (const field of ["summary", "introduction", "conclusion"] as const) {
+      if (report[field] === zh[field] + en[field]) report[field] = framing[field];
+    }
+  }
+  const accepted = new Map(sources.filter((source) => source.decision === "accepted").map((source) => [source.id, source]));
+  const aliases = new Map<string, string | null>();
+  for (const item of options.provisional ? options.aliases ?? [] : []) {
+    aliases.set(item.alias, aliases.has(item.alias) && aliases.get(item.alias) !== item.sourceId ? null : item.sourceId);
+  }
+  let unresolvedReferences = 0;
+  const references: ReportReference[] = [];
+  const byUrl = new Map<string, ReportReference>();
+  function reference(id: string): ReportReference | null {
+    const source = accepted.get(id) ?? accepted.get(aliases.get(id) ?? ""); const url = source && researchReferenceUrl(source.url);
+    if (!source || !url) return null;
+    let item = byUrl.get(url);
+    if (!item) { item = { number: references.length + 1, title: source.title, url }; references.push(item); byUrl.set(url, item); }
+    return item;
+  }
+  function content(body: string, fallback: string[] = []): string {
+    let markers = false;
+    let text = C.mapGuidedResearchCitations(body, (id) => {
+      markers = true; const item = reference(id);
+      if (item) return `[${item.number}](${citationHref(item.number)})`;
+      unresolvedReferences++;
+      return options.provisional ? "" : "〔来源不可用〕";
+    }, () => { unresolvedReferences++; return options.provisional ? "" : "〔来源不可用〕"; });
+    if (!markers && fallback.length) {
+      const used = new Set<number>(); const links: string[] = [];
+      for (const id of fallback) { const item = reference(id); if (item && !used.has(item.number)) { used.add(item.number); links.push(`[${item.number}](${citationHref(item.number)})`); } }
+      if (links.length) text += `\n\n本节来源 ${links.join(" ")}`;
+    }
+    return text;
+  }
+  const summary = content(report.summary);
+  const introduction = report.introduction ? content(report.introduction) : undefined;
+  const sections = report.sections.map((section) => ({ sectionId: section.sectionId, title: outline.find((item) => item.id === section.sectionId)?.title ?? "研究章节", body: content(section.body, section.sourceIds) }));
+  const conclusion = report.conclusion ? content(report.conclusion) : undefined;
+  const headings = C.guidedResearchReportFraming(options.brief ?? { topic: report.title, goal: report.summary, focus: report.introduction ?? "" }).headings;
+  return { title: report.title, summary, headings, ...(introduction ? { introduction } : {}), ...(conclusion ? { conclusion } : {}), sections, references, ...(unresolvedReferences ? { unresolvedReferences } : {}) };
+}
+
+function escapeMarkdown(text: string): string { return text.replace(/[\\`*_[\]<>]/g, "\\$&").replace(/[\r\n]+/g, " "); }
+export function researchReportMarkdown(document: ReportDocument, _partial = false, _excludedEvidenceBatches = 0): string {
+  const footnotes = (text: string) => outsideCode(text, (part) => part.replace(/\[(\d+)\]\(#research-reference-\1\)/g, (_match, number: string) => `[^${number}]`));
+  const blocks = [`# ${escapeMarkdown(document.title)}`];
+  const headings = document.headings ?? C.guidedResearchReportFraming({ topic: document.title, goal: document.summary, focus: document.introduction ?? "" }).headings;
+  if (document.summary) blocks.push(`## ${headings.summary}`, footnotes(document.summary));
+  if (document.introduction) blocks.push(`## ${headings.introduction}`, footnotes(document.introduction));
+  document.sections.forEach((section, index) => blocks.push(`## ${index + 1}. ${escapeMarkdown(section.title)}`, footnotes(section.body)));
+  if (document.conclusion) blocks.push(`## ${headings.conclusion}`, footnotes(document.conclusion));
+  if (document.references.length) {
+    blocks.push(`## ${headings.references}`);
+    for (const reference of document.references) blocks.push(`[^${reference.number}]: [${escapeMarkdown(reference.title)}](<${reference.url.replace(/[<>]/g, encodeURIComponent)}>)`);
+  }
+  return `${blocks.join("\n\n")}\n`;
+}
