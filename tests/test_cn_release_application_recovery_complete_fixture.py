@@ -18,6 +18,22 @@ spec.loader.exec_module(fixture)
 
 
 class PreloadContract(unittest.TestCase):
+    def test_catalog_comparison_rejects_large_drift_without_diff_or_rows(self):
+        node=shutil.which('node');self.assertTrue(node)
+        code="""import assert from 'node:assert/strict';
+import {assertCatalogEqual} from './tests/fixtures/cn-application-recovery-complete/catalog-assert.ts';
+import {diagnostic,mark} from './tests/fixtures/cn-application-recovery-complete/diagnostic.ts';
+const original={functions:Array.from({length:20000},(_,i)=>({name:'secret_'+i,definition:'PRIVATE SQL '.repeat(20)})),roles:[{name:'owner'}]};
+assertCatalogEqual(structuredClone(original),original);
+for(const value of [{...original,functions:[...original.functions,{name:'PRIVATE'}]}, {...original,roles:[{name:'other'}]}, {...original,extra:[]}]){
+ try{assertCatalogEqual(value,original);assert.fail('accepted drift');}catch(e){assert.match(e.message,/^RESTORE_CATALOG_(?:SCOPE_)?MISMATCH$/);assert(e.message.length<80);}
+}
+mark('restore-catalog');try{assertCatalogEqual({...original,roles:[]},original);}catch(e){console.log(JSON.stringify(diagnostic(e)));}
+"""
+        value=json.loads(subprocess.check_output([node,'--import','tsx','--input-type=module','-e',code],cwd=ROOT,timeout=15))
+        self.assertEqual(value['catalogCategory'],'roles');self.assertEqual(value['stage'],'restore-catalog')
+        self.assertNotIn('PRIVATE',json.dumps(value));self.assertLess(len(json.dumps(value)),8192)
+
     def test_restore_journal_projection_and_rejected_reason(self):
         spec=importlib.util.spec_from_file_location('restore_bridge',ROOT/'tests/fixtures/cn-postgres-lifecycle/driver_bridge.py');bridge=importlib.util.module_from_spec(spec);spec.loader.exec_module(bridge)
         e=SimpleNamespace(read=lambda p:p.read_bytes(),decode=json.loads)
