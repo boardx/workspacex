@@ -1,12 +1,13 @@
 "use client";
 import * as React from "react";
-import { ArrowRight, Check, FileText, Loader2 } from "lucide-react";
+import { Check, FileText, Loader2 } from "lucide-react";
 import { interviewMarkdown } from "@repo/contracts";
 import { Button } from "@/components/ui/button";
+import { WorkflowActionButton as ActionButton } from "@/components/research-studio/research-workflow-actions";
 import { ExpertAvatar } from "./expert-avatar";
 import { InterviewReportMarkdown } from "./interview-report-markdown";
 import { interviewTranscriptDisplay } from "./interview-transcript-display";
-import { InterviewStepHeader } from "./interview-step-header";
+import { InterviewStepHeader, InterviewStepActions } from "./interview-step-header";
 import styles from "./interview-runs-step.module.css";
 type RunMetadata = Readonly<{ expertId: string; displayName: string; status: "pending" | "running" | "completed" | "failed"; completedQuestions: number; totalQuestions: number }>;
 type InsightKind = "观点" | "发现" | "风险" | "追问";
@@ -65,10 +66,7 @@ export function InterviewRunsStep({ runs, document, pending, onGenerateReport, t
     { status: "failed", label: "执行失败", color: "bg-destructive/10 text-destructive" },
   ] as const;
   return <div data-testid="itv-source-runs" className="space-y-5">
-    <InterviewStepHeader title="访谈内容" testId="itv-runs-report-action">
-      {actions}
-      <Button variant="primary" size="lg" disabled={!ready || pending} onClick={onGenerateReport}><FileText className="size-4" aria-hidden />{pending ? "正在生成报告…" : "生成报告"}<ArrowRight className="size-4" aria-hidden /></Button>
-    </InterviewStepHeader>
+    <InterviewStepHeader title="访谈内容" testId="itv-runs-report-action" />
     <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground"><span>{taskProgress ? `已完成专家 ${completed}/${runs.length}` : `已保存回答 ${answered}/${total}`}</span><div aria-label="专家任务状态" className="flex flex-wrap gap-2">{statusCounts.map(({ status, label, color }) => { const count = runs.filter((run) => run.status === status).length; return count ? <span key={status} className={`rounded-full px-2 py-1 ${color}`}>{label} {count}</span> : null; })}</div></div>
     <div className="grid items-start overflow-hidden rounded-xl border border-border bg-card lg:grid-cols-[18rem_minmax(0,1fr)] xl:grid-cols-[20rem_minmax(0,1fr)]">
       <aside aria-label="访谈专家" className="min-w-0 border-b border-border bg-muted/20 p-4 lg:self-stretch lg:border-b-0 lg:p-5">
@@ -100,5 +98,6 @@ export function InterviewRunsStep({ runs, document, pending, onGenerateReport, t
         </div>
         </section>
     </div>
+    <InterviewStepActions>{actions}<ActionButton variant="primary" loading={pending} icon={<FileText className="size-4" aria-hidden />} disabled={!ready || pending} onClick={onGenerateReport}>{pending ? "正在生成报告…" : "生成报告"}</ActionButton></InterviewStepActions>
   </div>;
 }

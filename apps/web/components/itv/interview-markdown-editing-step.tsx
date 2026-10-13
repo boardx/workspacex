@@ -145,7 +145,7 @@ export function InterviewMarkdownEditingStep({ interviewId, step, onVersionChang
       if (session.status === "failed") { setError(generationUnavailableMessage("outline")); setRetryGenerationStep("outline"); }
     }
   }, [session, step, source, receive, interviewId]);
-  const props = { document, pending: pending || immutable || sessionRunning,
+  const props = { document, pending: pending || immutable || sessionRunning, loading: pending || sessionRunning,
     avatarContext: source?.revisionId ? { interviewId, revisionId: source.revisionId } : undefined,
     savedExpertIds: saved ? interviewMarkdown.projectInterviewMarkdownExperts(saved).map((expert) => expert.expertId) : [],
     onChange: (text: string) => { setMarkdown(text); dirty.current = true; callbacks.current.onDirtyChange(true); },
