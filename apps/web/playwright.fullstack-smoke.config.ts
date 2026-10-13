@@ -704,6 +704,8 @@ export default defineConfig({
         LOOPBACK_ASR_PROVIDER_PORT: asrProviderPort,
         LOOPBACK_OMNI_E2E_CONTROL: "1",
         LOOPBACK_ASR_TRANSCRIPT_PREFIX: FULLSTACK_E2E.asrTranscriptPrefix,
+        // Survey inline intake asserts updates before stop, not only final output.
+        LOOPBACK_ASR_EMIT_DELTA: "1",
       },
     },
     // #4789：出站邮件观察口。同样只要在 API 之前 ready（API 发信时才连它）。

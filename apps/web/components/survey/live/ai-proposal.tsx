@@ -1,5 +1,7 @@
 'use client';
 import * as React from 'react';
+import { InterviewVoiceInput } from '@/components/itv/interview-voice-input';
+import { getStoredSessionToken } from '@/lib/api-client';
 import { Button } from '@/components/ui/button';
 import { Dialog,DialogContent,DialogTitle,DialogDescription } from '@/components/ui/dialog';
 import { SURVEY_PROPOSAL_FILE_MAX_BYTES,SurveyMarkdownProposalSchema,type SurveyMarkdownProposal } from '@repo/contracts/survey-markdown-proposal';
@@ -15,6 +17,15 @@ export function SurveyAiProposal({locked,onApply,storageKey}:{locked:boolean;onA
   const [recordings,setRecordings]=React.useState<PersonalTranscriptionSummary[]|null>(null);
   const [recordingName,setRecordingName]=React.useState('');
   const [applying,setApplying]=React.useState(false);
+  const [sessionToken,setSessionToken]=React.useState('');
+  const [voicePreview,setVoicePreview]=React.useState('');
+  const [voiceBusy,setVoiceBusy]=React.useState(false);
+  React.useEffect(()=>{setSessionToken(getStoredSessionToken()??'');},[]);
+  const appendVoice=React.useCallback((confirmed:string)=>{
+    setVoicePreview('');
+    setText(current=>[current,confirmed].filter(Boolean).join('\n\n'));
+  },[]);
+  const displayedText=[text,voicePreview].filter(Boolean).join('\n\n');
   React.useEffect(()=>{
     if(!storageKey)return;
     try {const saved=window.sessionStorage.getItem(storageKey);if(!saved)return;
@@ -47,6 +58,7 @@ export function SurveyAiProposal({locked,onApply,storageKey}:{locked:boolean;onA
   function cancel(){revision.current++;abort.current?.abort();setBusy(false);}
   React.useEffect(()=>()=>{revision.current++;fileRevision.current++;abort.current?.abort();},[]);
   async function generate(){
+    if(voiceBusy||reading||busy)return;
     const id=++revision.current;abort.current?.abort();const controller=new AbortController();abort.current=controller;setBusy(true);setError('');
     try{const result=await surveyRequest('/surveys/markdown-proposals',{method:'POST',body:{text,...(transcriptionId?{transcriptionId}: {}),...(file?{file}: {})},signal:controller.signal},SurveyMarkdownProposalSchema);
       if(id!==revision.current||controller.signal.aborted)return;setProposal(result);setMarkdown(result.markdown);
@@ -58,14 +70,15 @@ export function SurveyAiProposal({locked,onApply,storageKey}:{locked:boolean;onA
   return <section aria-label="AI 问卷生成" className="mx-auto mb-4 max-w-6xl space-y-3 rounded-lg border border-border bg-card p-5">
     <h2 className="text-16 font-semibold">AI 智能生成问卷</h2>
     <p className="text-12 text-muted-foreground">描述目标与受众，AI 先生成 Markdown 提案，校对后再应用。不会自动发布。</p>
-    <textarea aria-label="问卷需求" maxLength={20000} disabled={busy} value={text} onChange={event=>setText(event.target.value)} className="min-h-32 w-full rounded-md border border-border bg-background p-3 text-13" placeholder="研究目的、目标受众、关注内容、题型偏好…"/>
-    <label className="block text-13">上传文件<input aria-label="上传问卷文件" type="file" accept=".md,.markdown,.txt,.pdf,.docx" disabled={busy} onChange={event=>upload(event.target.files?.[0])} className="ml-2"/></label>
+    <textarea aria-label="问卷需求" maxLength={20000} disabled={busy||voiceBusy} value={displayedText} onChange={event=>setText(event.target.value)} className="min-h-32 w-full rounded-md border border-border bg-background p-3 text-13" placeholder="研究目的、目标受众、关注内容、题型偏好…"/>
+    <label className="block text-13">上传文件<input aria-label="上传问卷文件" type="file" accept=".md,.markdown,.txt,.pdf,.docx" disabled={busy||voiceBusy} onChange={event=>upload(event.target.files?.[0])} className="ml-2"/></label>
     <p className="text-12 text-muted-foreground">支持 Markdown、TXT、PDF、Word（DOCX），最多 256 KB。{file?.name}</p>
-    <div className="flex flex-wrap items-center gap-2"><Button variant="outline" disabled={busy||reading} onClick={()=>void chooseRecording()}>选择已保存录音</Button><a href="/rec" target="_blank" rel="noopener noreferrer" className="text-13 underline">开始录音</a>{recordingName&&<span className="text-13">已选：{recordingName}</span>}</div>
-    {recordings&&<section aria-label="已保存录音" className="flex flex-wrap gap-2">{recordings.length?recordings.map(item=><Button key={item.sessionId} variant="outline" disabled={busy} onClick={()=>{setTranscriptionId(item.sessionId);setRecordingName(item.name);setFile(null);fileRevision.current++;setRecordings(null);}}>{item.name}</Button>):<p className="text-13 text-muted-foreground">暂无已停止并保存的录音，请先录音后重新选择。</p>}</section>}
-    <p className="text-12 text-muted-foreground">仅使用自己的已停止录音逐字稿；录音在现有录音页面完成，返回后选择。</p>
+    <div className="flex flex-wrap items-center gap-2"><Button variant="outline" disabled={busy||reading||voiceBusy} onClick={()=>void chooseRecording()}>选择已保存录音</Button>{recordingName&&<span className="text-13">已选：{recordingName}</span>}</div>
+    {recordings&&<section aria-label="已保存录音" className="flex flex-wrap gap-2">{recordings.length?recordings.map(item=><Button key={item.sessionId} variant="outline" disabled={busy||voiceBusy||reading} onClick={()=>{setTranscriptionId(item.sessionId);setRecordingName(item.name);setFile(null);fileRevision.current++;setRecordings(null);}}>{item.name}</Button>):<p className="text-13 text-muted-foreground">暂无已停止并保存的录音，请先录音后重新选择。</p>}</section>}
+    <InterviewVoiceInput sessionToken={sessionToken} disabled={busy||reading||applying} onPreview={setVoicePreview} onAppend={appendVoice} onBusyChange={setVoiceBusy}/>
+    <p className="text-12 text-muted-foreground">可直接在本页语音输入。停止并等待转写完成后，文字会追加到需求中，可继续编辑；文本与文件一起用于分析。</p>
     {error&&<p role="alert" className="text-13 text-destructive">{error}</p>}
-    <div className="flex justify-end gap-2">{busy?<Button variant="outline" onClick={cancel}>取消生成</Button>:null}<Button disabled={busy||reading||(!text.trim()&&!transcriptionId&&!file)} onClick={()=>void generate()}>{busy?'正在生成…':'生成问卷'}</Button></div>
+    <div className="flex justify-end gap-2">{busy?<Button variant="outline" onClick={cancel}>取消生成</Button>:null}<Button disabled={busy||reading||voiceBusy||(!text.trim()&&!transcriptionId&&!file)} onClick={()=>void generate()}>{busy?'正在生成…':'生成问卷'}</Button></div>
     <Dialog open={!!proposal} onOpenChange={open=>{if(!open)setProposal(null);}}><DialogContent className="max-h-[85vh] max-w-5xl overflow-auto">
       <DialogTitle>Markdown 预览与校对</DialogTitle><DialogDescription>AI 提案尚未应用。检查内容并修改，确认后应用到问卷。</DialogDescription>
       <p className="text-12 text-muted-foreground">{proposal?.execution.provider} / {proposal?.execution.modelId} · 来源：{proposal?.source.kind}</p>
