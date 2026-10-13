@@ -1,5 +1,6 @@
 "use client";
 
+import { boardWidgetContinuation } from "./board-widget-continuation";
 import { boardSelectAllIds } from './board-select-all';
 import { useCallback, useEffect, useMemo, useRef, useState, type ClipboardEvent, type DragEvent, type PointerEvent } from "react";
 import {useBoardFrame,boardFrameCenter,followBoardFrame} from "./use-board-frame";
@@ -457,6 +458,13 @@ export function CollaborativeThinkingEditor({ organizeFitRequest, dockExtension,
     if (result) awaitingAck.current = { kind: "重做", gestureId };
     setNotice(result ? "重做已在本地应用，正在等待服务器确认" : "未重做：没有可重做的本地修改，或当前画板存在冲突。");
   }, [model, mutationBlocked]);
+  const continueSelectedWidget = useCallback(() => {
+    if (mutationBlocked || selected.length !== 1) return;
+    const continuation = boardWidgetContinuation(readObjects(doc), selected[0]!, crypto.randomUUID(), crypto.randomUUID());
+    if (!continuation || !execute(continuation.commands)) return;
+    setSelected([continuation.widgetId]); setCreationTool(null); setTool("select");
+    setNotice("已用一次操作创建同类型对象并连接；新对象已选中。");
+  }, [doc, execute, mutationBlocked, selected]);
   useEffect(() => { const keydown = (event: KeyboardEvent) => { if (!shouldHandleBoardShortcut(event, chromeHost.current)) return; const key = event.key.toLowerCase();
     if ((event.metaKey || event.ctrlKey) && (key === "z" || (key === "y" && event.ctrlKey && !event.metaKey && !event.shiftKey))) {
       if (event.defaultPrevented || event.isComposing || event.repeat || mutationBlocked || !(event.target instanceof Node) || !chromeHost.current?.contains(event.target)) return;
@@ -474,10 +482,14 @@ export function CollaborativeThinkingEditor({ organizeFitRequest, dockExtension,
     if ((event.metaKey || event.ctrlKey) && key === "d") { if (!readOnly && selected.length) { event.preventDefault(); duplicateRoots(selected); } return; }
     if ((event.metaKey || event.ctrlKey) && key === "g") { event.preventDefault(); if (event.shiftKey && selected.length === 1) executeSpatial({ type: "ungroup", id: selected[0]! }); else if (selected.length > 1) { const id = crypto.randomUUID(); if (executeSpatial({ type: "group", id, objectIds: selected })) setSelected([id]); } return; }
     if (event.metaKey || event.ctrlKey) return;
+    const target = event.target instanceof HTMLElement ? event.target : null;
+    const canvasOwned = target === chromeHost.current || Boolean(target?.closest('[data-testid="board-fabric-surface"]') && (target.tagName === "CANVAS" || target.dataset.testid === "board-fabric-surface"));
+    if (canvasOwned && !event.shiftKey && key === "tab" && selected.length === 1) { event.preventDefault(); continueSelectedWidget(); return; }
+    if (canvasOwned && !event.shiftKey && key === "delete" && selected.length) { event.preventDefault(); if (!mutationBlocked) deleteSelection(); return; }
     if (mutationBlocked && (["sticky", "text", "shape", "pen", "connector", "eraser"] as string[]).includes(BOARD_TOOL_SHORTCUTS[key as keyof typeof BOARD_TOOL_SHORTCUTS])) { event.preventDefault(); return; }
     if (key === "v") { setTool("select"); setCreationTool(null); } else if (key === "h" || event.code === "Space") { event.preventDefault(); setTool("hand"); setCreationTool(null); } else if (key === "n" && event.shiftKey) { event.preventDefault(); if (!readOnly) setBulk(""); } else if (key === "n") { event.preventDefault(); const requested = { kind: "sticky", variant: "square" } as const; setTool("select"); setCreationTool(requested); } else if (key === "t") { event.preventDefault(); const requested = { kind: "text", preset: "body" } as const; setTool("select"); setCreationTool(requested); } else if (key === "s") { event.preventDefault(); const requested = { kind: "shape", variant: "rounded-rectangle" } as const; setTool("select"); setCreationTool(requested); } else if (key === "p") { event.preventDefault(); setDrawChoice("pen"); setDrawAppearance(drawingChoiceStyle("pen")); setCreationTool(null); setTool("draw-pen"); } else if (key === "l") { event.preventDefault(); setTool("select"); setCreationTool({kind:"connector",connectorType:"straight"}); } else if (key === "e") { event.preventDefault(); setDrawChoice("eraser"); setDrawAppearance(drawingChoiceStyle("eraser")); setCreationTool(null); setTool("erase"); }
 
-  }; window.addEventListener("keydown", keydown); return () => window.removeEventListener("keydown", keydown); }, [centerPoint, chromeHost, connectorGesture, createPanelAt, createShapeAt, createStickyAt, createTextAt, duplicateRoots, executeSpatial, model.objects, objects, mutationBlocked, performRedo, performUndo, readOnly, selected, viewport]);
+  }; window.addEventListener("keydown", keydown); return () => window.removeEventListener("keydown", keydown); }, [centerPoint, chromeHost, connectorGesture, continueSelectedWidget, deleteSelection, createPanelAt, createShapeAt, createStickyAt, createTextAt, duplicateRoots, executeSpatial, model.objects, objects, mutationBlocked, performRedo, performUndo, readOnly, selected, viewport]);
 
   const editingObject = editing ? model.objects.find((candidate) => candidate.id === editing.id) : undefined;
   const editingFabricObject = editing ? objects.find((candidate) => candidate.id === editing.id) : undefined;
