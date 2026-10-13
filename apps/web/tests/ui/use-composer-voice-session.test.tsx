@@ -164,6 +164,31 @@ describe("useComposerVoiceSession", () => {
     expect(result.current.phase).toBe("error");
   });
 
+  it("完成回执关闭后不重新显示旧错误；下一次零转录失败仍显示错误", () => {
+    const opts = { setDraft: vi.fn(), getDraft: () => "" };
+    let speech = makeSpeech();
+    const { result, rerender } = renderHook(() => useComposerVoiceSession(speech, opts));
+    act(() => result.current.start());
+    speech = withStatus(speech, "listening", { committedText: "识别成功", elapsedSeconds: 4 });
+    rerender();
+    act(() => result.current.finish());
+    speech = withStatus(speech, "error", { errorReason: "ASR_PROVIDER_UNAVAILABLE" });
+    rerender();
+    expect(result.current.phase).toBe("done");
+    act(() => result.current.dismiss());
+    expect(result.current.phase).toBe("idle");
+    speech = { ...speech, level: 0 };
+    rerender();
+    expect(result.current.phase).toBe("idle");
+
+    act(() => result.current.start());
+    speech = withStatus(speech, "connecting", { committedText: "", partialText: "" });
+    rerender();
+    speech = withStatus(speech, "error");
+    rerender();
+    expect(result.current.phase).toBe("error");
+  });
+
   it("有声音就重置静音计时；关掉自动暂停则只提示不暂停", () => {
     const opts = { setDraft: vi.fn(), getDraft: () => "" };
     let speech = makeSpeech({ level: 0 });

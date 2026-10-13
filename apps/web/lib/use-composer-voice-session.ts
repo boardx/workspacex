@@ -85,6 +85,8 @@ export function useComposerVoiceSession(
 
   /** 结束这一段是为了什么——决定 `stopping → idle` 之后落到 paused 还是 done。 */
   const endIntentRef = React.useRef<"pause" | "finish" | "discard" | null>(null);
+  // 关闭完成回执仅结束界面会话；底层旧 error 不应重新变成告警。
+  const [completionDismissed, setCompletionDismissed] = React.useState(false);
   const [settled, setSettled] = React.useState<"paused" | "done" | null>(null);
   /** 本次会话开始前的输入框文本（撤销转录的还原点），跨暂停/继续不变。 */
   const sessionBaseRef = React.useRef<string | null>(null);
@@ -151,6 +153,7 @@ export function useComposerVoiceSession(
   }, [speech.status, speech.elapsedSeconds, speech.committedText, speech.partialText, settled]);
 
   const start = React.useCallback(() => {
+    setCompletionDismissed(false);
     if (sessionBaseRef.current === null || settled === null) {
       // 全新会话（不是从暂停/完成继续）：记住还原点、清零累计。
       sessionBaseRef.current = opts.getDraft();
@@ -191,11 +194,12 @@ export function useComposerVoiceSession(
     setCarriedChars(0);
   }, [opts]);
   const dismiss = React.useCallback(() => {
+    if (settled === "done") setCompletionDismissed(true);
     sessionBaseRef.current = null;
     setSettled(null);
     setCarriedSeconds(0);
     setCarriedChars(0);
-  }, []);
+  }, [settled]);
 
   // 静音检测：listening 期间每秒看一次"最近一次有声音是什么时候"。
   const lastLoudAtRef = React.useRef<number>(Date.now());
@@ -222,7 +226,7 @@ export function useComposerVoiceSession(
       ? "listening"
       : speech.status === "stopping"
         ? "stopping"
-        : (speech.status === "error" || speech.status === "denied" || speech.status === "unsupported") && settled !== "done"
+        : (speech.status === "error" || speech.status === "denied" || speech.status === "unsupported") && settled !== "done" && !completionDismissed
           ? "error"
           : settled === "paused"
             ? "paused"
