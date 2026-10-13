@@ -21,6 +21,27 @@ describe("board visual appearance controls", () => {
     fireEvent.click(screen.getByRole("button", { name: `笔色 ${BOARD_INK_COLORS[8]}` }));
     expect(change).not.toHaveBeenCalled();
   });
+  it("keeps the custom color input keyboard focusable and commits the native selected value", () => {
+    const change = vi.fn();
+    const { rerender } = render(<BoardColorSwatches label="笔色" value="#123456" onChange={change} />);
+    const input = screen.getByLabelText("笔色自定义") as HTMLInputElement;
+    expect(input.type).toBe("color");
+    input.focus();
+    expect(document.activeElement).toBe(input);
+    fireEvent.change(input, { target: { value: "#abcdef" } });
+    expect(change).toHaveBeenCalledOnce();
+    expect(change).toHaveBeenCalledWith("#ABCDEF");
+    rerender(<BoardColorSwatches label="笔色" value="#ABCDEF" onChange={change} />);
+    expect(input.value).toBe("#abcdef");
+  });
+  it("keeps the custom native picker disabled for a read-only color control", () => {
+    render(<BoardColorSwatches label="笔色" value="#123456" disabled onChange={vi.fn()} />);
+    const input = screen.getByLabelText("笔色自定义") as HTMLInputElement;
+    expect(input.disabled).toBe(true);
+    input.focus();
+    expect(document.activeElement).not.toBe(input);
+    expect(input.value).toBe("#123456");
+  });
   it("renders accessible comment count and opens its object thread", () => {
     const open = vi.fn();
     render(<BoardCommentIndicator objectId="shape" label="形状" count={3} style={{left:10,top:20}} onClick={open} />);
