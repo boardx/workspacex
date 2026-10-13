@@ -72,3 +72,15 @@ may differ, but descriptor identity, platform, required labels, configuration
 bytes, rootfs and layer bytes must still verify. `StoreContentRevalidationTests` in
 `tests/test_cn_candidate_host.py` covers metadata-only differences and rejection
 of identity/content changes.
+
+### Candidate attempt tag collision
+
+Candidate identity includes the original attempt, so two builds of one source may
+have different config digests. Do not overwrite the source-only registry tag or
+relax config/label checks to resolve that collision. Default publication intent v2
+retains its existing behavior; explicit intent v3 (`tagPolicy: source-attempt-v1`)
+uses the fixed repository and exact `<sourceRevision>-<attemptId>` tag. Approve
+its raw intent and installed closure independently; keep canonical manifests on
+verified real digests. Reproduce with `test_cn_candidate_publication.py` (old-tag
+preservation and same-attempt rejection) and `test_cn_candidate_host.py` (running
+old/new target and storage protection). Local fixtures do not prove cloud access.

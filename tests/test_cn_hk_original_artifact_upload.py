@@ -10,7 +10,7 @@ IAM=P if LOCAL else REPO/'docs/operations/hk-release-transfer'
 spec=importlib.util.spec_from_file_location('uploader',UPLOADER);u=importlib.util.module_from_spec(spec);spec.loader.exec_module(u)
 class Tests(unittest.TestCase):
  def plan(self):
-  p=json.loads(PLAN.read_bytes());p['expiresAt']=(datetime.datetime.now(datetime.timezone.utc)+datetime.timedelta(minutes=30)).isoformat();p['uploaderRoleArn']='acs:ram::1177216024653153:role/workspacexgithubhongkongtransferrole';os.environ.update(REVIEWED_ROLE_ARN=p['uploaderRoleArn'],REVIEWED_OIDC_SUBJECT=p['subject'],REVIEWED_PROVIDER_ARN=p['oidcProviderArn']);return p
+  p=json.loads(PLAN.read_bytes());p['expiresAt']=(datetime.datetime.now(datetime.timezone.utc)+datetime.timedelta(minutes=30)).isoformat();p['uploaderFiles']={name:u.sha((UPLOADER.parent/name).read_bytes())for name in p['uploaderFiles']};p['uploaderRoleArn']='acs:ram::1177216024653153:role/workspacexgithubhongkongtransferrole';os.environ.update(REVIEWED_ROLE_ARN=p['uploaderRoleArn'],REVIEWED_OIDC_SUBJECT=p['subject'],REVIEWED_PROVIDER_ARN=p['oidcProviderArn']);return p
  def test_fixed_source(self):
   p=self.plan();u.validate_plan(p);p['sourceRun']+=1
   with self.assertRaises(ValueError):u.validate_plan(p)
