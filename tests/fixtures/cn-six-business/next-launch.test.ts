@@ -52,7 +52,7 @@ test('fixed supervisor records real child exit and forwards output without retry
  const source=resolve('tests/fixtures/cn-six-business/next-server-launch.cjs');const real=createRequire(source);
  let starts=0;let actual:any;let forwarded='';const mod={exports:{}};
  const fakeProcess={argv:['node',source,'25001'],env:{CN_RELEASE_FULLSTACK_FIXTURE:'1',CN_SIX_REPORT_PATH:join(directory,'report.json')},platform:process.platform,execPath:process.execPath,getuid:process.getuid!.bind(process),on:()=>{},stdout:{write:(b:Buffer)=>{forwarded+=b.toString();return true;},on:()=>{}},stderr:{write:(b:Buffer)=>{forwarded+=b.toString();return true;},on:()=>{}},exitCode:0};
- const req:any=(name:string)=>name==='node:child_process'?{spawn:(_exe:string,args:string[],options:any)=>{starts++;assert.deepEqual(Array.from(args).slice(3),['dev','-p','25001']);assert.equal(options.detached,false);actual=spawn(process.execPath,['-e',"process.stdout.write('fixture-out');process.stderr.write('fixture-err');process.exitCode=7"],options);return actual;}}:real(name);req.resolve=real.resolve.bind(real);req.main={};
+ const req:any=(name:string)=>name==='node:child_process'?{spawn:(_exe:string,args:string[],options:any)=>{starts++;assert.deepEqual(Array.from(args).slice(3),['dev','-p','25001']);assert.equal(options.detached,false);assert.equal(options.env.NODE_OPTIONS,'--max-old-space-size=3072');actual=spawn(process.execPath,['-e',"process.stdout.write('fixture-out');process.stderr.write('fixture-err');process.exitCode=7"],options);return actual;}}:real(name);req.resolve=real.resolve.bind(real);req.main={};
  runInNewContext(readFileSync(source,'utf8'),{require:req,module:mod,__filename:source,__dirname:resolve('tests/fixtures/cn-six-business'),process:fakeProcess,console});
  try{
   await(mod.exports as any).main();await new Promise<void>(done=>actual.once('close',()=>done()));
@@ -92,4 +92,10 @@ test('resource observation retains memory-enabled parent of a domain without con
  runInNewContext(readFileSync(source,'utf8'),{require:req,module:mod,__filename:source,__dirname:resolve('tests/fixtures/cn-six-business'),process:{platform:'linux'}});
  const result=(mod.exports as any).resources();assert.equal(result.available,true);assert.equal(result.observations[0].controllerFilesUnavailable,true);assert.equal(result.observations[1]['memory.max'],'6442450944');
  fakeFs.readFileSync=()=>{throw Object.assign(Error('denied'),{code:'EACCES'});};assert.equal((mod.exports as any).resources().available,false);
+});
+
+
+test('fixture heap budget is enforced by the actual Node runtime',()=>{
+ const result=spawnSync(process.execPath,['-e',"console.log(require('node:v8').getHeapStatistics().heap_size_limit)"],{env:{...process.env,NODE_OPTIONS:'--max-old-space-size=3072'},encoding:'utf8',timeout:10000});
+ assert.equal(result.status,0);const bytes=Number(result.stdout.trim());assert.ok(bytes>=3072*1024*1024&&bytes<3328*1024*1024);
 });

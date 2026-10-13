@@ -23,7 +23,7 @@ class CiBootstrap(unittest.TestCase):
   for name in ('owner.json','api-create-intent.json','api-create-receipt.json','cleanup.json','recovery-cleanup.json'):self.assertIn(name,body)
  def test_fixed_next_worker_receipts_survive_both_export_stages(self):
   import ast
-  expected={f'next-worker-{i}.json'for i in range(1,5)}
+  expected={f'next-worker-{i}.json'for i in range(1,5)}|{'next-worker-runtime.json'}
   ci=ast.parse((ROOT/'scripts/cn-release-simulation-ci.py').read_text())
   names=[n for n in ast.walk(ci)if isinstance(n,ast.Assign)and any(isinstance(t,ast.Name)and t.id=='six_names'for t in n.targets)]
   self.assertEqual(len(names),1)

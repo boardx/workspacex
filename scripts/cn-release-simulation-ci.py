@@ -164,7 +164,7 @@ def execute(sha,rounds,seed,suite='all',workers=3):
                     if info.st_uid!=0 or info.st_size>16*1024*1024:raise ValueError('CI_SETUP_REPORT_REJECTED')
                     report.mkdir(mode=0o700,exist_ok=True)
                     with (report/name).open('xb')as sink,origin.open('rb')as source:shutil.copyfileobj(source,sink,65536)
-            six_names=('session-intent.json','port-reservation.json','session-ready.json','next-launch-intent.json','next-launch-started.json','next-launch-exit.json','next-worker-1.json','next-worker-2.json','next-worker-3.json','next-worker-4.json','playwright-report.json','session-cleanup.json','result.json','application.log')
+            six_names=('session-intent.json','port-reservation.json','session-ready.json','next-launch-intent.json','next-launch-started.json','next-launch-exit.json','next-worker-1.json','next-worker-2.json','next-worker-3.json','next-worker-4.json','next-worker-runtime.json','playwright-report.json','session-cleanup.json','result.json','application.log')
             owner_names=('owner.json','postgres-create-intent.json','postgres-create-receipt.json','postgres-start-intent.json','redis-create-intent.json','redis-create-receipt.json','redis-start-intent.json','database-create-intent.json','infra-receipt.json','cleanup.json','recovery-cleanup.json')
             for index in range(1,11):
                 rid='round-%02d'%index;folder=owned/'six-owners'/rid

@@ -24,4 +24,7 @@ if(process.argv[1]===cli&&process.env.CN_RELEASE_FULLSTACK_FIXTURE==='1'){
   return child;
  };
 }
+if(process.argv[1]===worker&&process.env.CN_RELEASE_FULLSTACK_FIXTURE==='1'){
+ try{const directory=path.dirname(process.env.CN_SIX_REPORT_PATH||'');need(path.isAbsolute(directory)&&fs.realpathSync(directory)===directory);const st=fs.lstatSync(directory);need(st.isDirectory()&&!st.isSymbolicLink()&&st.uid===process.getuid()&&(st.mode&0o777)===0o700);store(directory,'next-worker-runtime.json',{kind:'cn-next-worker-runtime-v1',observedAt:new Date().toISOString(),process:identity(process.pid),heapSizeLimitBytes:require('node:v8').getHeapStatistics().heap_size_limit});}catch{}
+}
 module.exports={identity};

@@ -73,3 +73,17 @@ Authoring evidence: the real Playwright loader discovered six tests in three
 source files; web typecheck and actual loopback HTTP boundary tests passed.
 The updated whole stack has not run on Linux. T22 remains open until complete
 execution, report checks and cleanup pass; discovery is not E2E acceptance.
+
+The fixed Next launcher now caps only its Node child heap at 3072 MiB and
+rejects inherited conflicting `NODE_OPTIONS`. This leaves part of the unchanged
+6 GiB simulation Unit for Nest, Chromium and native allocations; the spare
+capacity is a planning allocation, not a per-component reservation or measured
+acceptance. Next 14 otherwise defaults to half of host RAM, which can exceed
+this Unit's limit. No retries, warmup deadline, business cases or cleanup gates
+change. The fixed preload observes only Next's installed `start-server` fork,
+retains its original arguments and restart behavior, and saves bounded typed
+worker PID/start ticks, cgroup identity, heap option and exit signal receipts.
+The first real worker also records V8's actual heap-size limit. Missing receipts
+remain unknown. A signal alone does not prove an OOM victim; relate its timing
+to warmup/cleanup and the independently observed Unit counters. All six business
+journeys and owned cleanup must pass on Linux before calling this fix accepted.
