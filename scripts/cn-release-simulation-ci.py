@@ -103,7 +103,13 @@ def run_owned_simulation(command,checkout,env,registries,sha,run_id,receipt_root
 
 SUITES=('all','release','linux-api-outer-recovery','linux-application-recovery-complete','linux-six-business')
 
+def validate_six_web_mode(six_web_mode,rounds,suite,workers):
+    if six_web_mode not in ('dev','production-single'):raise ValueError('SIX_WEB_MODE_REQUIRED')
+    if six_web_mode=='production-single' and (type(rounds)is not int or rounds!=1 or suite!='linux-six-business' or type(workers)is not int or workers!=1):raise ValueError('SIX_PRODUCTION_SINGLE_REQUIRED')
+    return six_web_mode
+
 def execute(sha,rounds,seed,suite='all',workers=3):
+    six_web_mode=validate_six_web_mode(os.environ.get('CN_SIX_WEB_MODE','dev'),rounds,suite,workers)
     if not re.fullmatch('[a-f0-9]{40}',sha):raise ValueError('CI_EXACT_SHA_REQUIRED')
     if rounds not in (1,10):raise ValueError('CI_ROUNDS_REQUIRED')
     if type(seed)is not int or not 0<=seed<=2**32-1:raise ValueError('CI_SEED_REQUIRED')
@@ -147,7 +153,7 @@ def execute(sha,rounds,seed,suite='all',workers=3):
             registry=owned/name;registry.mkdir(mode=0o700);registries[name]=registry;env[key]=str(registry)
         sim14=owned/'sim14-owners';sim14.mkdir(mode=0o700);env['CN_SIM14_REGISTRY_ROOT']=str(sim14)
         api_owners=owned/'api-owners';api_owners.mkdir(mode=0o700);env['CN_API_OWNER_ROOT']=str(api_owners)
-        env['CN_SIX_SOURCE_COMMIT']=sha
+        env['CN_SIX_SOURCE_COMMIT']=sha;env['CN_SIX_WEB_MODE']=six_web_mode
         return run_owned_simulation([sys.executable,'-I','-B',str(checkout/'scripts/cn-release-simulation.py'),
             '--output',str(temporary/'cn-simulation'),'--workers',str(workers),'--timeout-seconds','300',
             '--rounds',str(rounds),'--seed',str(seed),'--suite',suite],checkout,env,registries,sha,env['GITHUB_RUN_ID'],owned,api_owner_root=api_owners)
@@ -164,7 +170,7 @@ def execute(sha,rounds,seed,suite='all',workers=3):
                     if info.st_uid!=0 or info.st_size>16*1024*1024:raise ValueError('CI_SETUP_REPORT_REJECTED')
                     report.mkdir(mode=0o700,exist_ok=True)
                     with (report/name).open('xb')as sink,origin.open('rb')as source:shutil.copyfileobj(source,sink,65536)
-            six_names=('session-intent.json','port-reservation.json','session-ready.json','next-launch-intent.json','next-launch-started.json','next-launch-exit.json','next-worker-1.json','next-worker-2.json','next-worker-3.json','next-worker-4.json','next-worker-runtime.json','playwright-report.json','session-cleanup.json','result.json','application.log')
+            six_names=('session-intent.json','port-reservation.json','session-ready.json','next-launch-intent.json','next-launch-started.json','next-launch-exit.json','next-worker-1.json','next-worker-2.json','next-worker-3.json','next-worker-4.json','next-worker-runtime.json','playwright-report.json','session-cleanup.json','result.json','application.log','next-build-summary.json','next-build-observation.json','next-build-cleanup.json')
             owner_names=('owner.json','postgres-create-intent.json','postgres-create-receipt.json','postgres-start-intent.json','redis-create-intent.json','redis-create-receipt.json','redis-start-intent.json','database-create-intent.json','infra-receipt.json','cleanup.json','recovery-cleanup.json')
             for index in range(1,11):
                 rid='round-%02d'%index;folder=owned/'six-owners'/rid
@@ -173,7 +179,7 @@ def execute(sha,rounds,seed,suite='all',workers=3):
                         origin=origin_dir/name
                         if not origin.exists():continue
                         info=origin.lstat()
-                        if not stat.S_ISREG(info.st_mode)or origin.is_symlink()or info.st_uid!=0 or info.st_nlink!=1 or info.st_size>16*1024*1024:raise ValueError('CI_SIX_REPORT_REJECTED')
+                        if not stat.S_ISREG(info.st_mode)or origin.is_symlink()or info.st_uid!=0 or info.st_nlink!=1 or info.st_size>(16384 if name.startswith('next-build-') else 16*1024*1024):raise ValueError('CI_SIX_REPORT_REJECTED')
                         destination.mkdir(mode=0o700,parents=True,exist_ok=True)
                         with (destination/name).open('xb')as sink,origin.open('rb')as src:shutil.copyfileobj(src,sink,65536)
             for index in range(1,11):

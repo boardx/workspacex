@@ -135,3 +135,13 @@ integers sum to buildModuleCallbacks, and collector checks every bucket is
 monotonic. No extra IPC event or resource/business budget is introduced. Counts
 identify graph composition only; they do not attribute any Buffer allocation
 or prove that a particular package caused the heap OOM.
+
+## Single-round production artifact experiment
+
+`production-single` is an explicit one-round, one-worker `linux-six-business` mode. It builds the same checked-out SHA using that round's fresh dynamic web/API ports, then starts the verified standalone web closure. API seeding, authentication, the six journey titles, zero retries, and the 300-second business warmup remain unchanged. Cross-round build reuse is not implemented.
+
+Build uses its own owned Domain with a 900-second deadline, a 2048 MiB Node heap, and the existing 6 GiB Unit. Application remains 1200 seconds; prepare/cleanup remain 120/90 seconds. Only this experiment has a 2400-second outer suite ceiling. These are experiment ceilings, not evidence that release completes in 30 minutes.
+
+Scratch, sealed original, and exclusive runtime each have a 2 GiB local bound (6 GiB combined); formal image/save/archive limits are unchanged. Copy bounds are enforced before copying. Scratch and runtime are sampled via anchored directory descriptors with traversal deadlines; sampled peaks do not establish a hard filesystem quota or capture every transient peak.
+
+Source/tree, lock/config/fixture inputs, controlled compile environment, every artifact byte, directories and executable bits are bound to the private manifest. The original is sealed read-only; runtime has an independent copy. Build and verification Domains must all be proved empty before Docker or lease disposal. Unknown cleanup fails and leaves recovery to the independently empty outer Unit. Export contains only bounded summaries, cleanup and digests; no private manifest table, build environment or build log is uploaded.

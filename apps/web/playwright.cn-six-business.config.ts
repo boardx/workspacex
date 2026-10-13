@@ -8,6 +8,9 @@ if(Boolean(reportPath)!==Boolean(outputPath))throw Error('PAIRED_PRIVATE_OUTPUTS
 if(reportPath&&outputPath)admitOutputs(reportPath,outputPath,process.env.TEST_WORKER_INDEX);
 if(process.env.CN_RELEASE_FULLSTACK_FIXTURE!=='1'||process.env.WORKSPACEX_REUSE_INFRA==='1'||!process.env.CN_SIX_INFRA_RECEIPT)throw Error('EXPLICIT_FRESH_SIX_JOURNEY_FIXTURE_REQUIRED');
 const infraReceipt=process.env.CN_SIX_INFRA_RECEIPT;
+const webMode=process.env.CN_SIX_WEB_MODE??'dev';
+if(!['dev','production-single'].includes(webMode))throw Error('EXACT_SIX_WEB_MODE_REQUIRED');
+if(webMode==='production-single'&&!process.env.CN_SIX_WEB_ARTIFACT)throw Error('SIX_PRODUCTION_ARTIFACT_REQUIRED');
 const servers=Array.isArray(base.webServer)?base.webServer:[];
 let replaced=0,nextReplaced=0;
 const webServer=servers.map(server=>{
@@ -15,7 +18,8 @@ const webServer=servers.map(server=>{
   nextReplaced++;
   // The isolated launcher invokes Playwright directly, outside a pnpm script.
   // Resolve Next from the web workspace explicitly instead of inherited .bin PATH.
-  return {...server,command:server.command.replace('NEXT_DIST_DIR=.next-chat-read-e2e next dev -p ','NEXT_DIST_DIR=.next-chat-read-e2e node ../../tests/fixtures/cn-six-business/next-server-launch.cjs ')};
+  const command=server.command.replace('NEXT_DIST_DIR=.next-chat-read-e2e next dev -p ',webMode==='production-single'?'node ../../tests/fixtures/cn-six-business/next-production-start.cjs ':'NEXT_DIST_DIR=.next-chat-read-e2e node ../../tests/fixtures/cn-six-business/next-server-launch.cjs ');
+  return {...server,command};
  }
  if(!server.command.includes('pnpm --filter @repo/api start 2>&1'))return server;
  replaced++;

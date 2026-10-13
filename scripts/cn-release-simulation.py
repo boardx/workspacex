@@ -71,7 +71,7 @@ def child(suite,result):
 
 def environment(output):
     home=output/'home';home.mkdir(mode=0o700,exist_ok=True)
-    allowed=('PATH','TMPDIR','TEMP','TMP','CN_ARCHIVE_TEST_NODE','CN_ARCHIVE_TEST_RUNTIME','NODE_PATH','CN_TEST_PLAYWRIGHT','CN_TEST_CHROMIUM','CN_API_STARTUP_NODE','CN_API_STARTUP_PG_IMAGE','CN_SIM14_REGISTRY_ROOT','CN_API_OWNER_ROOT','CN_SIX_REDIS_IMAGE','CN_SIX_OWNER_ROOT','CN_SIX_KILL_TARGET_ROOT','CN_SIX_KILL_CONTROL_ROOT','CN_SIX_SOURCE_COMMIT','GITHUB_ACTIONS','GITHUB_RUN_ID','GITHUB_RUN_ATTEMPT')
+    allowed=('PATH','TMPDIR','TEMP','TMP','CN_ARCHIVE_TEST_NODE','CN_ARCHIVE_TEST_RUNTIME','NODE_PATH','CN_TEST_PLAYWRIGHT','CN_TEST_CHROMIUM','CN_API_STARTUP_NODE','CN_API_STARTUP_PG_IMAGE','CN_SIM14_REGISTRY_ROOT','CN_API_OWNER_ROOT','CN_SIX_REDIS_IMAGE','CN_SIX_OWNER_ROOT','CN_SIX_KILL_TARGET_ROOT','CN_SIX_KILL_CONTROL_ROOT','CN_SIX_SOURCE_COMMIT','CN_SIX_WEB_MODE','GITHUB_ACTIONS','GITHUB_RUN_ID','GITHUB_RUN_ATTEMPT')
     return {**{k:os.environ[k]for k in allowed if k in os.environ},'HOME':str(home),'LANG':'C.UTF-8','PYTHONHASHSEED':'0','PYTHONDONTWRITEBYTECODE':'1','GIT_TERMINAL_PROMPT':'0','GIT_CONFIG_NOSYSTEM':'1'}
 def domain_factory():
     spec=importlib.util.spec_from_file_location('cn_simulation_domain',ROOT/'scripts/cn_release_simulation_domain.py')
@@ -231,7 +231,7 @@ def render_reports(output):
 EXPORT_TOP_FILES=('summary.json','metrics.csv','cases.csv','report.txt','fullstack-setup.json','fullstack-install.log','fullstack-outer-cleanup.json','simulation-outer-cleanup.json','six-recovery.json')
 EXPORT_SUITE_SUFFIXES=('.log','.tests.json','.tests.inventory.json','.tests.cases.json')
 EXPORT_REGISTRY_FILES=('owner.json','api-create-intent.json','api-create-receipt.json','cleanup.json','recovery-cleanup.json')
-EXPORT_NESTED_FILES={'api-container-owner':EXPORT_REGISTRY_FILES,'six-business':('session-intent.json','port-reservation.json','session-ready.json','next-launch-intent.json','next-launch-started.json','next-launch-exit.json','next-worker-1.json','next-worker-2.json','next-worker-3.json','next-worker-4.json','next-worker-runtime.json','playwright-report.json','session-cleanup.json','result.json','application.log'),'six-infra-owner':('owner.json','postgres-create-intent.json','postgres-create-receipt.json','postgres-start-intent.json','redis-create-intent.json','redis-create-receipt.json','redis-start-intent.json','database-create-intent.json','infra-receipt.json','cleanup.json','recovery-cleanup.json')}
+EXPORT_NESTED_FILES={'api-container-owner':EXPORT_REGISTRY_FILES,'six-business':('session-intent.json','port-reservation.json','session-ready.json','next-launch-intent.json','next-launch-started.json','next-launch-exit.json','next-worker-1.json','next-worker-2.json','next-worker-3.json','next-worker-4.json','next-worker-runtime.json','playwright-report.json','session-cleanup.json','result.json','application.log','next-build-summary.json','next-build-observation.json','next-build-cleanup.json'),'six-infra-owner':('owner.json','postgres-create-intent.json','postgres-create-receipt.json','postgres-start-intent.json','redis-create-intent.json','redis-create-receipt.json','redis-start-intent.json','database-create-intent.json','infra-receipt.json','cleanup.json','recovery-cleanup.json')}
 EXPORT_NESTED_FILES['application-recovery-owner']=EXPORT_REGISTRY_FILES
 EXPORT_NESTED_FILES['application-recovery-complete-owner']=EXPORT_REGISTRY_FILES
 EXPORT_NESTED_FILES['six-kill-target-owner']=EXPORT_NESTED_FILES['six-infra-owner']
@@ -258,7 +258,7 @@ def export_reports(parent):
             except FileNotFoundError:return
             with os.fdopen(fd,'rb')as stream:
                 before=os.fstat(stream.fileno())
-                if not stat.S_ISREG(before.st_mode)or before.st_nlink!=1 or before.st_size>16*1024*1024:raise ValueError('EXPORT_FILE_REJECTED')
+                if not stat.S_ISREG(before.st_mode)or before.st_nlink!=1 or before.st_size>(16384 if name.startswith('next-build-') else 16*1024*1024):raise ValueError('EXPORT_FILE_REJECTED')
                 if count>=EXPORT_MAX_FILES or total+before.st_size>512*1024*1024:raise ValueError('EXPORT_TOTAL_LIMIT')
                 out=os.open(name,os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW,0o600,dir_fd=dst_fd)
                 with os.fdopen(out,'wb')as sink:
@@ -311,10 +311,19 @@ def status_snapshot(raw):
         entries.append({'status':line[:2]if re.fullmatch(r'[ MADRCU?!]{2}',line[:2])else'OTHER','path':path if valid else '<redacted:'+hashlib.sha256(path.encode()).hexdigest()+'>'})
     return {'dirty':bool(raw),'entries':entries,'entryCount':len(raw.splitlines()),'truncated':len(raw.splitlines())>64,'rawSha256':hashlib.sha256(data).hexdigest()}
 
+def validate_six_web_mode(six_web_mode,rounds,suite,workers):
+    if six_web_mode not in ('dev','production-single'):raise ValueError('SIX_WEB_MODE_REQUIRED')
+    if six_web_mode=='production-single' and (type(rounds)is not int or rounds!=1 or suite!='linux-six-business' or type(workers)is not int or workers!=1):raise ValueError('SIX_PRODUCTION_SINGLE_REQUIRED')
+    return six_web_mode
+
+def six_suite_timeout(six_web_mode):
+    return 2400 if six_web_mode=='production-single' else 1500
+
 def main():
     p=argparse.ArgumentParser(description=__doc__);p.add_argument('--export-parent',type=Path);p.add_argument('--child',choices=SUITES);p.add_argument('--result',type=Path);p.add_argument('--output',type=Path);p.add_argument('--suite',choices=['all',*SUITES],default='all');p.add_argument('--workers',type=int,choices=range(1,4),default=3);p.add_argument('--timeout-seconds',type=int,default=480);p.add_argument('--rounds',type=int,choices=(1,10),default=1);p.add_argument('--seed',type=int,default=0);args=p.parse_args()
     if args.export_parent is not None:
         print(json.dumps(export_reports(args.export_parent),sort_keys=True));return 0
+    six_web_mode=validate_six_web_mode(os.environ.get('CN_SIX_WEB_MODE','dev'),args.rounds,args.child or args.suite,1 if args.child else args.workers)
     if args.child:
         if not args.result:p.error('--result required for child')
         return child(args.child,args.result)
@@ -335,7 +344,7 @@ def main():
         round_id='%02d'%(index+1);folder=output/('round-'+round_id);folder.mkdir(mode=0o700)
         seed=args.seed+index;env=environment(folder);env['CN_RELEASE_SIMULATION_SEED']=str(seed);env['CN_SIX_ROUND_ID']='round-'+round_id
         with concurrent.futures.ThreadPoolExecutor(max_workers=args.workers)as pool:
-            futures=[pool.submit(scheduled_execute,name,[sys.executable,'-I','-B',str(Path(__file__).resolve()),'--child',name,'--result',str(folder/(name+'.tests.json'))],folder,env,90 if name=='linux-fsync-entry'else 390 if name=='linux-api-outer-recovery'else 1350 if name=='linux-postclear-recovery'else 800 if name in ('linux-application-recovery','linux-application-recovery-complete')else 1500 if name=='linux-six-business'else 510 if name=='linux-six-cleanup'else 1200 if name=='linux-api-startup'else 60 if name=='linux-boundary-reap'else 180 if name in ('linux-migration-guard','linux-migration-terminal','linux-migration-owner')else args.timeout_seconds)for name in names]
+            futures=[pool.submit(scheduled_execute,name,[sys.executable,'-I','-B',str(Path(__file__).resolve()),'--child',name,'--result',str(folder/(name+'.tests.json'))],folder,env,90 if name=='linux-fsync-entry'else 390 if name=='linux-api-outer-recovery'else 1350 if name=='linux-postclear-recovery'else 800 if name in ('linux-application-recovery','linux-application-recovery-complete')else six_suite_timeout(six_web_mode) if name=='linux-six-business'else 510 if name=='linux-six-cleanup'else 1200 if name=='linux-api-startup'else 60 if name=='linux-boundary-reap'else 180 if name in ('linux-migration-guard','linux-migration-terminal','linux-migration-owner')else args.timeout_seconds)for name in names]
             rows=[future.result()for future in futures]
         head=subprocess.check_output(['git','-c','safe.directory='+str(ROOT),'-C',str(ROOT),'rev-parse','HEAD'],text=True).strip()
         state_after=status_snapshot(subprocess.check_output(['git','-c','safe.directory='+str(ROOT),'-C',str(ROOT),'status','--porcelain','--untracked-files=all'],text=True))

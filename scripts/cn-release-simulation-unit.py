@@ -19,7 +19,7 @@ HOST_RESERVE=1536*1024**2
 MAX_SECONDS=16500
 LIMITS={'memory.max':str(MEMORY),'memory.swap.max':'0','pids.max':'1024','cpu.max':'300000 100000'}
 PROPERTIES={'MemoryMax':str(MEMORY),'MemorySwapMax':'0','TasksMax':'1024','CPUQuotaPerSecUSec':'3s','CPUQuotaPeriodUSec':'100ms','TimeoutStopUSec':'15s','Delegate':'yes','KillMode':'control-group','SendSIGKILL':'yes','Restart':'no','Transient':'yes','Type':'exec','LimitCORE':'0'}
-ENV_KEYS=frozenset(('PATH','HOME','LANG','GIT_CONFIG_NOSYSTEM','GIT_CONFIG_GLOBAL','GIT_TERMINAL_PROMPT','GIT_ALLOW_PROTOCOL','PYTHONDONTWRITEBYTECODE','CN_ARCHIVE_TEST_NODE','CN_ARCHIVE_TEST_RUNTIME','CN_TEST_PLAYWRIGHT','CN_TEST_CHROMIUM','NODE_PATH','GITHUB_RUN_ID','GITHUB_RUN_ATTEMPT','GITHUB_ACTIONS','CN_API_STARTUP_NODE','CN_API_STARTUP_PG_IMAGE','CN_SIX_REDIS_IMAGE','CN_SIX_OWNER_ROOT','CN_SIX_KILL_TARGET_ROOT','CN_SIX_KILL_CONTROL_ROOT','CN_SIM14_REGISTRY_ROOT','CN_API_OWNER_ROOT','CN_SIX_SOURCE_COMMIT'))
+ENV_KEYS=frozenset(('PATH','HOME','LANG','GIT_CONFIG_NOSYSTEM','GIT_CONFIG_GLOBAL','GIT_TERMINAL_PROMPT','GIT_ALLOW_PROTOCOL','PYTHONDONTWRITEBYTECODE','CN_ARCHIVE_TEST_NODE','CN_ARCHIVE_TEST_RUNTIME','CN_TEST_PLAYWRIGHT','CN_TEST_CHROMIUM','NODE_PATH','GITHUB_RUN_ID','GITHUB_RUN_ATTEMPT','GITHUB_ACTIONS','CN_API_STARTUP_NODE','CN_API_STARTUP_PG_IMAGE','CN_SIX_REDIS_IMAGE','CN_SIX_OWNER_ROOT','CN_SIX_KILL_TARGET_ROOT','CN_SIX_KILL_CONTROL_ROOT','CN_SIM14_REGISTRY_ROOT','CN_API_OWNER_ROOT','CN_SIX_SOURCE_COMMIT','CN_SIX_WEB_MODE'))
 
 def safe_env(env):
     # The setup receipt's Node executable must cross the worker boundary;
@@ -80,13 +80,15 @@ def validate_show(v,unit,argv,seconds,invocation=None):
 
 WORKER_SUITES=frozenset(('all','release','linux-api-outer-recovery','linux-application-recovery-complete','linux-six-business'))
 
-def validate_worker(command_,checkout):
+def validate_worker(command_,checkout,six_web_mode='dev'):
+    need(six_web_mode in ('dev','production-single'),'SIMULATION_SIX_WEB_MODE')
     need(len(command_) in (14,16) and command_[:4]==[str(Path(sys.executable).absolute()),'-I','-B',str(checkout/'scripts/cn-release-simulation.py')],'SIMULATION_FIXED_WORKER')
     need(command_[4]=='--output' and Path(command_[5]).is_absolute() and str(Path(command_[5]).resolve())==command_[5],'SIMULATION_OUTPUT')
     need(command_[6]=='--workers' and command_[7] in ('1','3') and command_[8:11]==['--timeout-seconds','300','--rounds'] and command_[11] in ('1','10') and command_[12]=='--seed' and command_[13].isdigit() and 0<=int(command_[13])<=2**32-1,'SIMULATION_FIXED_ARGUMENTS')
     suite='all' if len(command_)==14 else command_[15]
     need(len(command_)==14 or(command_[14]=='--suite' and suite in WORKER_SUITES),'SIMULATION_FIXED_SUITE')
     need(command_[11]!='10' or suite=='all','SIMULATION_TEN_ALL_REQUIRED')
+    need(six_web_mode!='production-single' or(command_[11]=='1' and suite=='linux-six-business' and command_[7]=='1'),'SIMULATION_PRODUCTION_SINGLE_REQUIRED')
 
 FAULT_MODES={'api-outer-sigkill':'--child','api-outer-noop':'--noop'}
 FAULT_PATH='tests/cn_release_api_outer_recovery_linux.py'
@@ -138,13 +140,13 @@ def private_root(root):
 
 def gate(root,plan):
     need(sys.platform=='linux' and os.geteuid()==0 and os.environ.get('GITHUB_ACTIONS')=='true' and plan['env'].get('GITHUB_ACTIONS')=='true','SIMULATION_GITHUB_ROOT')
+    validate_worker(plan['command'],ROOT,plan['env'].get('CN_SIX_WEB_MODE','dev'))
     private_root(root)
     need(re.fullmatch('[a-f0-9]{40}',plan.get('sha','')) and re.fullmatch('[0-9]+',plan.get('runId','')) and plan['env'].get('GITHUB_RUN_ID')==plan['runId'],'SIMULATION_INPUT_IDENTITY')
     need(set(plan['env'])<=ENV_KEYS and plan['checkout']==str(ROOT),'SIMULATION_INPUT_ENV')
     need(type(plan.get('seconds')) is int and 0<plan['seconds']<=MAX_SECONDS,'SIMULATION_BUDGET')
     need(python_identity()==plan['pythonIdentity'],'SIMULATION_INTERPRETER_DRIFT')
     need(os.environ.get('GITHUB_RUN_ID')==plan['runId'],'SIMULATION_MANAGER_RUN_ID')
-    validate_worker(plan['command'],ROOT)
     need(command(['/usr/bin/git','-c','safe.directory='+str(ROOT),'-c','safe.directory='+str(ROOT/'.git'),'-c','core.hooksPath=/dev/null','-C',ROOT,'rev-parse','HEAD']).decode().strip()==plan['sha'],'SIMULATION_CHECKOUT_SHA')
 
 def observe(root,plan,claim,invocation=None):
