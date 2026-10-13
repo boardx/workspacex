@@ -98,12 +98,14 @@ describe("reference research workflow", () => {
     expect(chapters[1]).toMatchObject({ id: initial.outline[0]!.id, order: 1 });
     expect(new Set(chapters.map((chapter: { id: string }) => chapter.id)).size).toBe(2);
   });
-  it("offers direct report view and export actions in the report workspace", async () => {
+  it("offers report reading while withholding file generation until completion", async () => {
     const initial = runtimeFixture("report");
     vi.mocked(getResearchRuntime).mockResolvedValue(initial);
     render(<GuidedResearchLive sessionId={initial.sessionId} onBack={vi.fn()} />);
-    expect(await screen.findByRole("button", { name: "下载 Word" })).toBeEnabled();
-    expect(screen.getByRole("button", { name: "导出 PDF" })).toBeEnabled();
+    await screen.findByTestId("research-report");
+    expect(screen.queryByRole("button", { name: "下载 Word" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "生成 Word" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "生成 PDF" })).not.toBeInTheDocument();
     expect(screen.getByTestId("research-report-cover")).toHaveTextContent("政策研究报告");
     expect(screen.getAllByRole("navigation", { name: /报告.*目录/ })).toHaveLength(1);
     fireEvent.pointerDown(await screen.findByRole("button", { name: "更多操作" }), { button: 0, ctrlKey: false });
@@ -275,8 +277,10 @@ describe("reference research workflow", () => {
     const toolbar = within(report).getByTestId("research-report-actions");
     expect(within(toolbar).getByRole("button", { name: "完成研究" })).toBeInTheDocument();
     const more = within(toolbar).getByRole("button", { name: "更多操作" });
-    expect(await screen.findByRole("button", { name: "下载 Word" })).toBeEnabled();
-    expect(screen.getByRole("button", { name: "导出 PDF" })).toBeEnabled();
+    await screen.findByTestId("research-report");
+    expect(screen.queryByRole("button", { name: "下载 Word" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "生成 Word" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "生成 PDF" })).not.toBeInTheDocument();
     fireEvent.pointerDown(more, { button: 0, ctrlKey: false });
     expect(await screen.findByRole("menuitem", { name: "重新生成报告" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("menuitem", { name: "重新生成报告" }));
