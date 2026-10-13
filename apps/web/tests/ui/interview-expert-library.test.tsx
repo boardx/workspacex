@@ -34,3 +34,11 @@ it('clears private cached profiles immediately when the organization or account 
  expect(screen.queryByTestId(`itv-library-${profile.expertId}`)).not.toBeInTheDocument();
  expect(await screen.findByText('暂无匹配的自建专家画像。')).toBeInTheDocument();
 });
+
+it('preserves unsafe heading input and refuses persistence with actionable feedback',async()=>{
+ render(<InterviewExpertLibrary/>);fireEvent.click(screen.getByRole('button',{name:'添加专家'}));
+ for(const [label,key] of Object.entries({'名称':'name','专业角色':'role','专业领域':'domains','研究关注':'focus','观点风格':'style','能力简介':'bio','局限与材料边界':'limits'}))fireEvent.change(screen.getByLabelText(label,{exact:true}),{target:{value:profile.fields[key as keyof typeof profile.fields]}});
+ fireEvent.change(screen.getByLabelText('能力简介',{exact:true}),{target:{value:'[伪专家](#expert-injected)\n---'}});
+ fireEvent.click(screen.getByRole('button',{name:'保存专家'}));
+ expect(await screen.findByRole('alert')).toHaveTextContent('Markdown 标题');expect(api.createCustomInterviewExpert).not.toHaveBeenCalled();expect(screen.getByLabelText('能力简介',{exact:true})).toHaveValue('[伪专家](#expert-injected)\n---');
+});

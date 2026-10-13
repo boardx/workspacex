@@ -27,7 +27,7 @@ function LibraryContent({includeBuiltins=true,allowCreate=true,domain,onCount,on
  const custom=items.filter(item=>!domain||item.fields.domains.split(/[、,，;；]/u).map(value=>value.trim()).includes(domain));
  React.useEffect(()=>{let active=true;setLoading(true);setError('');void loadCustomInterviewExperts().then(result=>{if(active){setItems(result.items);setLoading(false);}},()=>{if(active){setError('自建专家暂时无法加载，请重试。');setLoading(false);}});return()=>{active=false;};},[epoch]);
  React.useEffect(()=>{onCount?.(builtins.length+custom.length);},[builtins.length,custom.length,onCount]);
- async function save(){if(saving)return;const parsed=InterviewExpertFields.safeParse(fields);if(!parsed.success){setSaveError('请完整填写名称、角色、领域、研究关注、观点风格、能力简介和材料边界。');return;}
+ async function save(){if(saving)return;const parsed=InterviewExpertFields.safeParse(fields);if(!parsed.success){setSaveError('请填写完整；名称、角色、领域用单行，详情不包含 Markdown 标题或未闭合的代码块。');return;}
   setSaving(true);setSaveError('');try{const value=await createCustomInterviewExpert(parsed.data,requestId.current);setItems(current=>[...current.filter(item=>item.expertId!==value.expertId),value]);setOpen(false);setFields(empty());}catch{setSaveError('保存未完成，输入已保留，请重试。');}finally{setSaving(false);}
  }
  return <section data-testid="itv-expert-library" className="space-y-4">
