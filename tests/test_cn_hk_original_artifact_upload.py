@@ -8,9 +8,43 @@ PLAN=P/'transfer-plan.UNBOUND.json' if LOCAL else REPO/'.github/release-plans/hk
 LOCK=P/'sdk-requirements-pypi.lock' if LOCAL else REPO/'.github/release-plans/hk-sdk-requirements-pypi.lock'
 IAM=P if LOCAL else REPO/'docs/operations/hk-release-transfer'
 spec=importlib.util.spec_from_file_location('uploader',UPLOADER);u=importlib.util.module_from_spec(spec);spec.loader.exec_module(u)
+def legacy_plan_fixture():
+ # Legacy contracts and fake SDK catalogs must not inherit a live v2 release.
+ p=json.loads(PLAN.read_bytes())
+ for name in u.REBOUND_FIELDS:p.pop(name,None)
+ p.update(kind='hk-original-artifact-transfer-v1',sourceRun=u.RUN,
+          producerControl=u.CONTROL,prefix=f'runs/{u.RUN}/1/')
+ return p
 class Tests(unittest.TestCase):
  def plan(self):
-  p=json.loads(PLAN.read_bytes());p['expiresAt']=(datetime.datetime.now(datetime.timezone.utc)+datetime.timedelta(minutes=30)).isoformat();p['uploaderFiles']={name:u.sha((UPLOADER.parent/name).read_bytes())for name in p['uploaderFiles']};p['uploaderRoleArn']='acs:ram::1177216024653153:role/workspacexgithubhongkongtransferrole';os.environ.update(REVIEWED_ROLE_ARN=p['uploaderRoleArn'],REVIEWED_OIDC_SUBJECT=p['subject'],REVIEWED_PROVIDER_ARN=p['oidcProviderArn']);return p
+  p=legacy_plan_fixture();p['expiresAt']=(datetime.datetime.now(datetime.timezone.utc)+datetime.timedelta(minutes=30)).isoformat();p['uploaderFiles']={name:u.sha((UPLOADER.parent/name).read_bytes())for name in p['uploaderFiles']};p['uploaderRoleArn']='acs:ram::1177216024653153:role/workspacexgithubhongkongtransferrole';os.environ.update(REVIEWED_ROLE_ARN=p['uploaderRoleArn'],REVIEWED_OIDC_SUBJECT=p['subject'],REVIEWED_PROVIDER_ARN=p['oidcProviderArn']);return p
+ def test_legacy_fixture_does_not_inherit_live_v2_fields(self):
+  p=self.plan();self.assertEqual(p['kind'],'hk-original-artifact-transfer-v1')
+  self.assertFalse(set(p)&u.REBOUND_FIELDS);self.assertEqual(p['sourceRun'],u.RUN)
+  self.assertEqual(p['producerControl'],u.CONTROL)
+  self.assertEqual(p['prefix'],f'runs/{u.RUN}/1/')
+ def test_checked_in_plan_schema_and_actual_code_closure(self):
+  from unittest.mock import patch
+  p=json.loads(PLAN.read_bytes())
+  os.environ.update(REVIEWED_ROLE_ARN=p['uploaderRoleArn'],
+   REVIEWED_OIDC_SUBJECT=p['subject'],REVIEWED_PROVIDER_ARN=p['oidcProviderArn'])
+  expiry=datetime.datetime.fromisoformat(p['expiresAt'].replace('Z','+00:00'))
+  class Clock(datetime.datetime):
+   @classmethod
+   def now(cls,tz=None):return expiry-datetime.timedelta(seconds=1)
+  # Freeze observation time, never rewrite the reviewed plan's deadline/pins.
+  with patch.object(u.datetime,'datetime',Clock):u.validate_plan(p)
+  if p['kind']=='hk-original-artifact-transfer-v2':
+   self.assertEqual(p['sourceRevision'],u.SOURCE)
+   template=PLAN.with_name('hk-revalidation-template.json').read_bytes()
+   self.assertEqual(u.sha(template),p['revalidationTemplateSha256'])
+   spec=importlib.util.spec_from_file_location('proof_binding',UPLOADER.with_name('cn-hk-generate-proof.py'))
+   proof=importlib.util.module_from_spec(spec);spec.loader.exec_module(proof)
+   with patch.object(proof.datetime,'datetime',Clock):
+    proof.validate_binding(p,json.loads(template),template)
+  with patch.object(u,'gh',return_value={}),self.assertRaises(ValueError):
+   # The actual plan cannot admit absent provider run identity.
+   with patch.object(u.datetime,'datetime',Clock):u.validate_source_run(p)
  def test_fixed_source(self):
   p=self.plan();u.validate_plan(p);p['sourceRun']+=1
   with self.assertRaises(ValueError):u.validate_plan(p)
@@ -50,7 +84,7 @@ class Tests(unittest.TestCase):
   self.assertEqual(read['Principal'],['arn:sts::'+plan['accountId']+':assumed-role/workspacexcnproductionecsrole/*'])
   self.assertEqual(set(read['Resource']),objects);self.assertEqual(len(read['Resource']),9)
  def iam_documents(self):
-  return [json.loads(path.read_bytes()) for path in (PLAN,IAM/'role-trust.json',IAM/'role-policy.json',IAM/'bucket-read-policy.DRAFT.json')]
+  return [legacy_plan_fixture()]+[json.loads(path.read_bytes()) for path in (IAM/'role-trust.json',IAM/'role-policy.json',IAM/'bucket-read-policy.DRAFT.json')]
  def test_plan_trust_writer_reader_contract(self):
   self.iam_contract(*self.iam_documents())
  def test_trust_api_action_subject_provider_drift_rejected(self):
