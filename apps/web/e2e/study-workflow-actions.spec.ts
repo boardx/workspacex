@@ -46,7 +46,7 @@ test("research and interview use consistent command controls without model execu
   const session = research.GuidedResearchSession.parse(await created.json());
   const stateResponse = await page.request.get(`/__fullstack_api/research/guided-sessions/${session.sessionId}/runtime`, { headers });
   const state = research.GuidedResearchRuntime.parse(await stateResponse.json());
-  const saved = research.GuidedResearchRuntime.parse({ ...state, version: 1, currentNode: "report", completed: baseline,
+  const saved = research.GuidedResearchRuntime.parse({ ...state, version: 1, currentNode: "report", completed: true,
     availableNodes: ["brief", "directions", "outline", "research", "report"],
     outline: [{ id: "chapter", title: "采购验证", questions: ["如何核验决策责任？"], enabled: true, order: 0 }],
     report: { title: "采购决策研究", summary: "核验预算授权与采购责任。", introduction: "本报告基于已保存资料。",
@@ -66,13 +66,6 @@ test("research and interview use consistent command controls without model execu
     await page.setViewportSize({ width, height: 900 }); await page.goto(route);
     const file = page.getByRole("button", { name: "生成 PDF", exact: true });
     await expect(file).toBeEnabled();
-    if (!baseline && domain === "research") {
-      const primary = page.getByRole("button", { name: "完成研究", exact: true });
-      await expect(primary).toBeEnabled();
-      expect(await primary.evaluate(node => getComputedStyle(node).backgroundColor)).not.toBe(await file.evaluate(node => getComputedStyle(node).backgroundColor));
-      expect(await primary.evaluate(node => node.getBoundingClientRect().height)).toBe(36);
-      expect(await primary.evaluate(node => node === node.closest('[data-workflow-action-bar="footer"]')?.querySelector('button:last-of-type') || node.closest('[data-workflow-action-bar="footer"]')?.lastElementChild?.contains(node))).toBe(true);
-    }
     await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     const buttons = await page.getByRole("button").evaluateAll(elements => elements.filter(el => /返回|生成 PDF|生成 Word|更多操作|完成研究/.test(el.textContent ?? "")).map(el => {
       const style = getComputedStyle(el), box = el.getBoundingClientRect();
@@ -96,6 +89,16 @@ test("research and interview use consistent command controls without model execu
     await page.screenshot({ path: resolve(output, `${baseline ? "before" : "after"}-${domain}-${width}.png`), fullPage: true });
   }
   if (!baseline) {
+    await asApp(FULLSTACK_E2E.orgId, c => c.query("UPDATE guided_research_runtime SET state=$3::jsonb WHERE org_id=$1 AND session_id=$2", [FULLSTACK_E2E.orgId, session.sessionId, JSON.stringify({ ...saved, completed: false })]));
+    await page.goto(`/research/${session.sessionId}/report`);
+    const primary = page.getByRole("button", { name: "完成研究", exact: true });
+    const secondary = page.getByRole("button", { name: "更多操作", exact: true });
+    await expect(primary).toBeEnabled();
+    expect(await primary.evaluate(node => getComputedStyle(node).backgroundColor)).not.toBe(await secondary.evaluate(node => getComputedStyle(node).backgroundColor));
+    expect(await primary.evaluate(node => node.getBoundingClientRect().height)).toBe(36);
+    expect(await primary.evaluate(node => node.closest('[data-workflow-action-bar="footer"]')?.lastElementChild?.contains(node))).toBe(true);
+    metrics.push({ domain: "research", width: 375, state: "ready-to-complete", buttons: await page.locator('[data-workflow-action-bar="footer"] button').evaluateAll(nodes => nodes.map(node => ({ text: node.textContent, height: node.getBoundingClientRect().height, background: getComputedStyle(node).backgroundColor, color: getComputedStyle(node).color, disabled: node.matches(':disabled') }))) });
+    await page.screenshot({ path: resolve(output, "after-research-primary-375.png"), fullPage: true });
     const loading = research.GuidedResearchRuntime.parse({ ...state, version: 2, currentNode: "outline", availableNodes: ["brief", "directions", "outline"], generatedNodes: ["brief", "directions"], busy: true, leaseUntil: "2099-01-01T00:00:00Z" });
     await asApp(FULLSTACK_E2E.orgId, c => c.query("UPDATE guided_research_runtime SET state=$3::jsonb WHERE org_id=$1 AND session_id=$2", [FULLSTACK_E2E.orgId, session.sessionId, JSON.stringify(loading)]));
     await page.goto(`/research/${session.sessionId}/plan`);
