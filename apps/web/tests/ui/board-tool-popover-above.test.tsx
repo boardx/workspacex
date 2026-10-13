@@ -11,6 +11,7 @@ it('flips below a header-adjacent trigger when above has no space',()=>{
  fireEvent.click(screen.getByTestId('trigger'));
  const dialog=screen.getByRole('dialog',{hidden:true});
  expect(dialog).toHaveAttribute('data-board-popover-placement','below');
+ expect(screen.getByTestId('trigger').querySelector('svg.submenu')).toHaveAttribute('data-direction','below');
  expect(dialog).toHaveStyle({top:'132px'});
  expect(dialog).not.toHaveStyle({visibility:'hidden'});
 });
@@ -55,6 +56,7 @@ it('keeps an above submenu within a 390px viewport as its trigger moves',()=>{
  vi.spyOn(screen.getByTestId('trigger'),'getBoundingClientRect').mockReturnValue({left,top:200,bottom:244,right,x:left,y:200,width:44,height:44,toJSON:()=>({})});
  fireEvent.click(screen.getByTestId('trigger'));
  expect(screen.getByRole('dialog')).toHaveAttribute('data-board-popover-placement',side);
+ expect(screen.getByTestId('trigger').querySelector('svg.submenu')).toHaveAttribute('data-direction',side);
  expect(screen.getByRole('dialog')).toHaveStyle({left:`${expectedLeft}px`,top:'200px'});
  vi.unstubAllGlobals();
  });
@@ -75,4 +77,14 @@ it('includes border thickness when clamping a low side submenu inside the viewpo
  expect(screen.getByRole('dialog')).toHaveStyle({top:'862px'});
  expect(862+122).toBe(1000-16);
  offset.mockRestore();client.mockRestore();scroll.mockRestore();vi.unstubAllGlobals();
+});
+
+it('keeps a custom icon and its cue as separate trigger children, with a cue on fallback triggers too',()=>{
+ const view=render(<BoardToolPopover label="图标菜单" trigger={<button data-testid="trigger"><svg data-testid="main-icon" width="24" height="24"/></button>}>Action</BoardToolPopover>);
+ const trigger=screen.getByTestId('trigger'),icon=screen.getByTestId('main-icon'),cue=trigger.querySelector('svg.submenu');
+ expect(trigger).toHaveClass('relative');expect(icon).toHaveAttribute('width','24');expect(icon).toHaveAttribute('height','24');
+ expect(cue).toHaveClass('absolute','pointer-events-none');expect(cue).toHaveStyle({width:'8px',height:'8px'});expect(cue).toHaveAttribute('data-direction','right');
+ expect(icon.parentElement).toBe(trigger);view.unmount();
+ render(<BoardToolPopover label="默认菜单">Action</BoardToolPopover>);
+ expect(screen.getByRole('button',{name:'默认菜单'}).querySelector('svg.submenu')).toHaveAttribute('data-direction','right');
 });
