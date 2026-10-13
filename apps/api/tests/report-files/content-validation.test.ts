@@ -1,8 +1,7 @@
 import { createHash } from 'node:crypto';
 import { Document, Packer, Paragraph } from 'docx';
-import PptxGenJS from 'pptxgenjs';
 import { expect, it } from 'vitest';
-import { ReportGeneratedFileValidator, validateReportContent, validatePptxBounds } from '../../src/infrastructure/report-files/file-validator';
+import { ReportGeneratedFileValidator, validateReportContent } from '../../src/infrastructure/report-files/file-validator';
 const markdown = '# 中文报告\n\n用户需要可下载和编辑的真实报告文件。';
 const reportHash = createHash('sha256').update(markdown).digest('hex');
 const source = { kind: 'interview' as const, id: 'saved-report', title: '中文报告', reportVersion: 1, reportHash,
@@ -19,7 +18,7 @@ it('requires complete Word report body, fixed notices and canonical hash', async
 it('rejects duplicated report prose and lost evidence limitations', () => {
   const text = `中文报告 用户需要可下载和编辑的真实报告文件。 ${source.notices.join(' ')}`;
   expect(() => validateReportContent('docx', text + ' 用户需要可下载和编辑的真实报告文件。', source)).toThrow();
-  expect(() => validateReportContent('pptx', source.title + ' ' + reportHash, source)).toThrow();
+  expect(() => validateReportContent('docx', source.title + ' ' + reportHash, source)).toThrow();
 });
 
 it.each(['pdf', 'docx'] as const)('requires authorized appendix quotations and provenance in %s', format => {
@@ -55,24 +54,11 @@ it.each(['pdf', 'docx'] as const)('requires the full canonical H1 rather than a 
   expect(() => validateReportContent(format, `${fullTitle} ${body}`, saved)).not.toThrow();
 });
 
-it('rejects real PPTX zero-height text boxes that render over the title', async () => {
-  for (const height of [0, 4]) {
-    const deck = new PptxGenJS(); deck.layout = 'LAYOUT_WIDE';
-    const slide = deck.addSlide();
-    slide.addText('中文报告标题', { x: 0.5, y: 0.5, w: 10, h: 0.5 });
-    slide.addText('真实报告正文内容。', { x: 0.5, y: 1.4, w: 10, h: height });
-    const bytes = await deck.write({ outputType: 'nodebuffer' });
-    if (!Buffer.isBuffer(bytes)) throw new Error('expected actual PPTX bytes');
-    if (height === 0) expect(() => validatePptxBounds(bytes)).toThrow();
-    else expect(() => validatePptxBounds(bytes)).not.toThrow();
-  }
-});
-
-it('requires saved source URLs in PPT summaries including actual hyperlink relationships', () => {
+it.each(['pdf', 'docx'] as const)('requires saved source URLs in %s including actual hyperlink relationships', format => {
   const url = 'https://example.com/procurement-proof';
-  const linked = { ...source, markdown: `${source.markdown}\n\n来源链接：${url}` };
-  const summary = `中文报告 用户需要可下载和编辑的真实报告文件。 ${source.notices.join(' ')}`;
-  expect(() => validateReportContent('pptx', summary, linked)).toThrow();
-  expect(() => validateReportContent('pptx', `${summary} ${url}`, linked)).not.toThrow();
-  expect(() => validateReportContent('pptx', summary, linked, [url])).not.toThrow();
+  const linked = { ...source, markdown: `${source.markdown}\n\n[来源链接](${url})` };
+  const text = `中文报告 用户需要可下载和编辑的真实报告文件。 来源链接 ${source.notices.join(' ')}`;
+  expect(() => validateReportContent(format, text, linked)).toThrow();
+  expect(() => validateReportContent(format, `${text} ${url}`, linked)).not.toThrow();
+  expect(() => validateReportContent(format, text, linked, [url])).not.toThrow();
 });

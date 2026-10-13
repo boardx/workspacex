@@ -5,9 +5,9 @@ import { AgentRunStatus } from './wave2-runtime';
 export const REPORT_FILE_FORMATS = {
   pdf: { skillStableName: 'pdf-create', extension: '.pdf', mediaType: 'application/pdf' },
   docx: { skillStableName: 'docx-create', extension: '.docx', mediaType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' },
-  pptx: { skillStableName: 'pptx-create', extension: '.pptx', mediaType: 'application/vnd.openxmlformats-officedocument.presentationml.presentation' },
 } as const;
-export const ReportFileFormat = z.enum(['pdf', 'docx', 'pptx']);
+type ReportFormatKey = keyof typeof REPORT_FILE_FORMATS;
+export const ReportFileFormat = z.enum(Object.keys(REPORT_FILE_FORMATS) as [ReportFormatKey, ...ReportFormatKey[]]);
 export const ReportFileSourceKind = z.enum(['research', 'interview']);
 const sha256 = z.string().regex(/^[a-f0-9]{64}$/);
 export const ReportFileSource = z.object({

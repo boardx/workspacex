@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { generateReportFile, getReportFileJob, downloadReportFile, type ReportFileSource, type ReportFileFormat, type ReportFileJobState } from '@/lib/report-files-api';
-const labels: Record<ReportFileFormat, string> = { pdf: 'PDF', docx: 'Word', pptx: 'PPT' };
+const labels: Record<ReportFileFormat, string> = { pdf: 'PDF', docx: 'Word' };
 type State = { job?: ReportFileJobState; pending?: boolean; error?: string };
 function delay(signal: AbortSignal) {
   return new Promise<void>((resolve, reject) => {

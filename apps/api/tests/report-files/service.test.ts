@@ -35,7 +35,7 @@ it('replays the same request without dispatching twice and refuses a different r
   const f = fixture();
   expect(await f.service.start(f.actor, f.request)).toEqual(await f.service.start(f.actor, f.request));
   expect(f.store.insert).toHaveBeenCalledTimes(1);
-  await expect(f.service.start(f.actor, { ...f.request, format: 'pptx' })).rejects.toMatchObject({ code: 'IDEMPOTENCY_CONFLICT' });
+  await expect(f.service.start(f.actor, { ...f.request, format: 'docx' })).rejects.toMatchObject({ code: 'IDEMPOTENCY_CONFLICT' });
   expect(f.runtime.accept).toHaveBeenCalledTimes(1);
 });
 it('persists verified real bytes before exposing success and rechecks current document identity on download', async () => {

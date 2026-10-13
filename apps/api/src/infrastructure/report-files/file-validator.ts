@@ -1,5 +1,5 @@
 import { reportFileContentRequirements } from '@repo/contracts/report-file-content';
-import { inspectDocx, inspectPptx, unzip } from '@repo/skill-sandbox/ooxml';
+import { inspectDocx, unzip } from '@repo/skill-sandbox/ooxml';
 import { AnydocAttachmentToMarkdown } from '../chat/anydoc-attachment-to-markdown';
 import type { ReportFileSourceSnapshot } from '../../application/report-files/ports';
 import { PDFDocument } from 'pdf-lib';
@@ -28,19 +28,13 @@ export class ReportGeneratedFileValidator implements ReportFileValidator {
         maxDecompressedBytes: UPLOAD_LIMITS.maxDecompressedBytes, maxNestingDepth: UPLOAD_LIMITS.maxZipNestingDepth });
       if (!inspected.ok) throw new Error();
       const zip = await JSZip.loadAsync(bytes);
-      const part = format === 'docx' ? 'word/document.xml' : 'ppt/presentation.xml';
+      const part = 'word/document.xml';
       const types = await zip.file('[Content_Types].xml')?.async('string');
       const document = await zip.file(part)?.async('string');
       if (!types || !document || /<!DOCTYPE|<!ENTITY/i.test(types + document)) throw new Error();
-      if (format === 'docx') {
-        if (!types.includes('wordprocessingml.document.main+xml') || !/<w:body[\s>]/.test(document)) throw new Error();
-      } else {
-        if (!types.includes('presentationml.presentation.main+xml') || !/<p:sldId[\s>]/.test(document)
-          || !Object.keys(zip.files).some(path => /^ppt\/slides\/slide[0-9]+\.xml$/.test(path))) throw new Error();
-      }
+      if (!types.includes('wordprocessingml.document.main+xml') || !/<w:body[\s>]/.test(document)) throw new Error();
       const relationUrls = unzip(Buffer.from(bytes)).filter(file => file.name.endsWith('.rels')).flatMap(file => [...file.bytes.toString('utf8').matchAll(/Target="(https?:[^"]+)"/g)].map(match => match[1]!.replaceAll('&amp;', '&')));
-      if (format === 'pptx') validatePptxBounds(Buffer.from(bytes));
-      const text = format === 'docx' ? inspectDocx(Buffer.from(bytes)).textRuns.join(' ') : inspectPptx(Buffer.from(bytes)).textRuns.join(' ');
+      const text = inspectDocx(Buffer.from(bytes)).textRuns.join(' ');
       validateReportContent(format, text, source, relationUrls);
     } catch { throw new ReportFileError('INVALID_FILE'); }
   }
@@ -61,43 +55,11 @@ export function validateReportContent(format: FileRequest['format'], extracted: 
   const required = reportFileContentRequirements(completeInput);
   const urls = normalizeReportText(extracted + relationUrls.join(' '));
   if (required.urls.some(url => !urls.includes(normalizeReportText(url)))) throw new ReportFileError('INVALID_FILE');
-  if (format !== 'pptx') {
-    const title = normalizeReportText(required.title ?? source.title);
-    if (title && (!text.includes(title) || text.split(title).length - 1 > Math.max(1, canonical.split(title).length - 1))) throw new ReportFileError('INVALID_FILE');
-    for (const paragraph of required.paragraphs.map(normalizeReportText).filter(value => value.length >= 12)) {
-      if (!text.includes(paragraph)) throw new ReportFileError('INVALID_FILE');
-      const count = (value: string, needle: string) => value.split(needle).length - 1;
-      if (count(text, paragraph) > count(canonical, paragraph)) throw new ReportFileError('INVALID_FILE');
-    }
-  } else {
-    const body = source.markdown.split('\n').filter(line => !/^\s*#/.test(line)).join(' ');
-    const evidence = body.split(/[。；.!?]/).map(normalizeReportText).filter(value => value.length >= 12);
-    if (!evidence.some(value => text.includes(value) || (value.length > 24 && text.includes(value.slice(-24))))) throw new ReportFileError('INVALID_FILE');
-  }
-}
-
-/** Declared shape bounds must fit the actual slide; visual raster QA still checks text fit. */
-export function validatePptxBounds(bytes: Buffer): void {
-  const files = unzip(bytes);
-  const presentation = files.find(file => file.name === 'ppt/presentation.xml')?.bytes.toString('utf8') ?? '';
-  const size = /<p:sldSz\b[^>]*cx="(\d+)"[^>]*cy="(\d+)"/.exec(presentation);
-  if (!size) throw new ReportFileError('INVALID_FILE');
-  const width = Number(size[1]), height = Number(size[2]);
-  for (const file of files.filter(entry => /^ppt\/slides\/slide\d+\.xml$/.test(entry.name))) {
-    const xml = file.bytes.toString('utf8');
-    // PptxGenJS writes zero-height text boxes when height is omitted. They are inside
-    // slide bounds but centered text expands across headings in actual Office renderers.
-    for (const shape of xml.matchAll(/<p:sp(?:\s[^>]*)?>([\s\S]*?)<\/p:sp>/g)) {
-      if (!/<a:t(?:\s[^>]*)?>/.test(shape[1]!)) continue;
-      const extent = /<a:xfrm\b[^>]*>[\s\S]*?<a:ext\b[^>]*cx="(\d+)"[^>]*cy="(\d+)"/.exec(shape[1]!);
-      if (extent && (Number(extent[1]) <= 0 || Number(extent[2]) <= 0)) throw new ReportFileError('INVALID_FILE');
-    }
-    for (const transform of xml.matchAll(/<a:xfrm\b[^>]*>([\s\S]*?)<\/a:xfrm>/g)) {
-      const offset = /<a:off\b[^>]*x="(-?\d+)"[^>]*y="(-?\d+)"/.exec(transform[1]!);
-      const extent = /<a:ext\b[^>]*cx="(\d+)"[^>]*cy="(\d+)"/.exec(transform[1]!);
-      if (!offset || !extent) continue;
-      const [x,y,w,h] = [offset[1],offset[2],extent[1],extent[2]].map(Number);
-      if (x! < 0 || y! < 0 || x!+w! > width+9144 || y!+h! > height+9144) throw new ReportFileError('INVALID_FILE');
-    }
+  const title = normalizeReportText(required.title ?? source.title);
+  if (title && (!text.includes(title) || text.split(title).length - 1 > Math.max(1, canonical.split(title).length - 1))) throw new ReportFileError('INVALID_FILE');
+  for (const paragraph of required.paragraphs.map(normalizeReportText).filter(value => value.length >= 12)) {
+    if (!text.includes(paragraph)) throw new ReportFileError('INVALID_FILE');
+    const count = (value: string, needle: string) => value.split(needle).length - 1;
+    if (count(text, paragraph) > count(canonical, paragraph)) throw new ReportFileError('INVALID_FILE');
   }
 }

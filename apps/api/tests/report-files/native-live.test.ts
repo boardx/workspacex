@@ -153,7 +153,8 @@ afterAll(async () => {
   if (root) await rm(root, { recursive: true, force: true });
 });
 type ReportFileFormat = keyof typeof REPORT_FILE_FORMATS;
-const formats = (process.env.WX_REPORT_FILES_FORMATS ?? 'pdf,docx,pptx').split(',') as ReportFileFormat[];
+const formats = (process.env.WX_REPORT_FILES_FORMATS ?? 'pdf,docx').split(',') as ReportFileFormat[];
+if (formats.some(format => !REPORT_FILE_FORMATS[format])) throw new Error('native report acceptance supports PDF and DOCX only');
 // Test-only budget; product admission/accounting remains unchanged.
 const requestBudget = Number(process.env.WX_REPORT_FILES_REQUEST_BUDGET ?? '20');
 if (!Number.isInteger(requestBudget) || requestBudget < 1 || requestBudget > 24) throw new Error('native evidence request budget must be an integer from 1 to 24');

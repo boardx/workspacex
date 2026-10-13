@@ -2,7 +2,8 @@ import { expect, it } from 'vitest';
 import { ReportFileRequest, ReportFileJob } from '../src/report-files';
 const source = { kind: 'interview', id: 'interview-1', reportVersion: 3, reportHash: 'a'.repeat(64) };
 it('accepts only a source locator and an exact real file format', () => {
-  expect(ReportFileRequest.parse({ source, format: 'pptx', requestId: '2cd11bc4-bc03-4c39-ad14-c290a6074d9a' }).format).toBe('pptx');
+  for (const format of ['pdf', 'docx']) expect(ReportFileRequest.parse({ source, format, requestId: '2cd11bc4-bc03-4c39-ad14-c290a6074d9a' }).format).toBe(format);
+  expect(ReportFileRequest.safeParse({ source, format: 'pptx', requestId: '2cd11bc4-bc03-4c39-ad14-c290a6074d9a' }).success).toBe(false);
   expect(ReportFileRequest.safeParse({ source, format: 'html', requestId: '2cd11bc4-bc03-4c39-ad14-c290a6074d9a' }).success).toBe(false);
   expect(ReportFileRequest.safeParse({ source, format: 'pdf', requestId: '2cd11bc4-bc03-4c39-ad14-c290a6074d9a', markdown: 'client injected' }).success).toBe(false);
 });
