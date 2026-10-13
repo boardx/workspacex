@@ -47,8 +47,10 @@ test("Skill file controls use the current saved canonical source and reject an o
   await expect(page.locator("#itv-source-report-print")).not.toContainText(oldBody);
 
   // This standard lane proves real login/API/DB source and stale-request guards.
-  // Actual registered Skill execution and three file representations are verified in the native lane.
-  for (const label of ["PDF", "Word", "PPT"]) await expect(page.getByRole("button", { name: `生成 ${label}` })).toBeEnabled();
+  // Actual registered Skill execution and PDF/Word files are verified in the native lane.
+  for (const label of ["PDF", "Word"]) await expect(page.getByRole("button", { name: `生成 ${label}` })).toBeEnabled();
+  await expect(page.getByRole("button", { name: "生成 PPT" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "下载 PPT" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "导出 Word" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "导出 PDF" })).toHaveCount(0);
   const bound = await page.request.get(`/__fullstack_api/report-files/sources/interview/${encodeURIComponent(interviewId)}`, { headers });

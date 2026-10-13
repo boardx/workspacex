@@ -12,15 +12,20 @@ beforeEach(()=>{
 });
 afterEach(()=>{cleanup();vi.clearAllMocks();});
 describe('interview report product Skill actions integration',()=>{
- it.each([['PDF','pdf'],['Word','docx'],['PPT','pptx']])('requests %s with persisted canonical identity, never browser export',async(label,format)=>{
+ it.each([['PDF','pdf'],['Word','docx']])('requests %s with persisted canonical identity, never browser export',async(label,format)=>{
   render(<InterviewReportStep {...props}/>);fireEvent.click(screen.getByRole('button',{name:`生成 ${label}`}));
   expect(await screen.findByRole('button',{name:`下载 ${label}`})).toBeEnabled();
   expect(api.generateReportFile).toHaveBeenCalledWith({kind:'interview',id:'actual-interview',reportVersion:7,reportHash:'b'.repeat(64)},format,expect.any(String),expect.any(AbortSignal));
   fireEvent.click(screen.getByRole('button',{name:`下载 ${label}`}));
   expect(api.downloadReportFile).toHaveBeenCalled();expect(screen.getByTestId('itv-source-report-markdown')).toHaveTextContent('已保存的正文');
  });
+ it('does not offer unfinished PPT generation or download',()=>{
+  render(<InterviewReportStep {...props}/>);
+  expect(screen.queryByRole('button',{name:'生成 PPT'})).not.toBeInTheDocument();
+  expect(screen.queryByRole('button',{name:'下载 PPT'})).not.toBeInTheDocument();
+ });
  it.each(['generating','failed',undefined] as const)('does not offer generation for state %s',status=>{
-  render(<InterviewReportStep {...props} reportStatus={status}/>);for(const label of ['PDF','Word','PPT'])expect(screen.getByRole('button',{name:`生成 ${label}`})).toBeDisabled();
+  render(<InterviewReportStep {...props} reportStatus={status}/>);for(const label of ['PDF','Word'])expect(screen.getByRole('button',{name:`生成 ${label}`})).toBeDisabled();
  });
  it('clears a completed file on revision ABA even when document version and hash match',async()=>{
   const r=render(<InterviewReportStep {...props}/>);fireEvent.click(screen.getByRole('button',{name:'生成 Word'}));await screen.findByRole('button',{name:'下载 Word'});
