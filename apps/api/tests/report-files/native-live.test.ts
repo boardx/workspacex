@@ -17,6 +17,8 @@ import { createNativeSessionTransport } from '../../src/infrastructure/agent-run
 import { migrationConfig } from '../../src/infrastructure/db/pg-config';
 import { toOrgId } from '../../src/domain/org-id';
 import { ENSURE_DEFAULT_AGENT_REPOSITORY, ensureDefaultAgent } from '../../src/application/agent/ensure-default-agent';
+import { NATIVE_OUTPUT_STAGING, type NativeOutputStaging } from '../../src/application/agent-run/native-output-staging';
+import { OBJECT_STORE, type ObjectStore } from '../../src/application/artifact/ports';
 import { AGENT_RUN_EXECUTOR, type AgentRunExecutorPort } from '../../src/application/agent-run/ports';
 import { TOOL_PERMISSION_GRANT_STORE, type ToolPermissionGrantStore } from '../../src/application/agent-run/tool-permission-grants';
 const org = toOrgId(`report-native-${randomUUID()}`), userId = `report-actor-${randomUUID()}`;
@@ -27,6 +29,7 @@ let deepOutput = '';
 let headers: Record<string, string>;
 const bindings: { kind: 'research' | 'interview'; id: string }[] = [];
 const receipts: unknown[] = [];
+const acceptedRunIds: string[] = [];
 const longBody = Array.from({ length: 18 }, (_, index) => `验收段落 ${index + 1}：核验采购预算授权、决策责任、现有系统使用情况与决策时间安排。本段是已保存材料的导出测试数据，尚需通过真实访谈及原始记录逐项确认，不能将模拟推断作为事实。`).join('\n\n');
 const sourceLink = '来源链接（验收样本）：https://example.com/procurement-proof';
 const sha = (bytes: Uint8Array | string) => createHash('sha256').update(bytes).digest('hex');
@@ -125,6 +128,20 @@ with httpx.Client(transport=httpx.HTTPTransport(uds=p['socket']),base_url='http:
   bindings.push({ kind: 'research', id: session.sessionId });
 }, 180000);
 afterAll(async () => {
+  // Preserve real terminal/journal evidence even when a budget or quality assertion fails.
+  if (base && headers) for (const runId of acceptedRunIds) {
+    for (const [suffix, endpoint] of [['run', `/agent-runs/${runId}`], ['journal', `/agent-runs/${runId}/execution-events`]] as const) {
+      try { await writeFile(join(evidence, `${runId}-${suffix}.json`), JSON.stringify(await json(endpoint), null, 2), { mode: 0o600 }); } catch { /* failure stays failed; cleanup still runs */ }
+    }
+    try {
+      const staged = await app!.get<NativeOutputStaging>(NATIVE_OUTPUT_STAGING).listFiles(org, runId);
+      for (const file of staged) {
+        const bytes = await app!.get<ObjectStore>(OBJECT_STORE).get(file.objectKey);
+        if (bytes) await writeFile(join(evidence, `${runId}-diagnostic-${file.name}`), bytes, { mode: 0o600 });
+      }
+    } catch { /* Diagnostic staged bytes never imply successful report delivery. */ }
+  }
+
   await writeFile(join(evidence, 'receipts.json'), JSON.stringify(receipts, null, 2), { mode: 0o600 }).catch(() => undefined);
   let redacted = deepOutput; for (const key of ['KERNEL_MODEL_API_KEY', 'DASHSCOPE_API_KEY', 'DEEP_AGENT_SERVICE_INTERNAL_KEY', 'NATIVE_SESSION_BINDING_KEY']) { const value = process.env[key]; if (value) redacted = redacted.replaceAll(value, '[redacted]'); }
   await writeFile(join(evidence, 'deep-service.log'), redacted, { mode: 0o600 }).catch(() => undefined);
@@ -136,12 +153,12 @@ afterAll(async () => {
 });
 type ReportFileFormat = keyof typeof REPORT_FILE_FORMATS;
 const formats = (process.env.WX_REPORT_FILES_FORMATS ?? 'pdf,docx,pptx').split(',') as ReportFileFormat[];
-for (const kind of ['interview', 'research'] as const) for (const format of formats) it(`${kind} current report produces a real ${format} via genuine AgentRun native Skill execution and authenticated attachment download`, async () => {
+for (const format of formats) for (const kind of ['interview', 'research'] as const) it(`${kind} current report produces a real ${format} via genuine AgentRun native Skill execution and authenticated attachment download`, async () => {
   const binding = bindings.find(item => item.kind === kind)!;
   const source = ReportFileSourceInfo.parse(await json(`/report-files/sources/${kind}/${binding.id}`));
   let job = ReportFileJob.parse(await json('/report-files', { source: { kind, id: binding.id, reportVersion: source.reportVersion, reportHash: source.reportHash }, format, requestId: randomUUID() }));
   expect(job.status).toBe('running'); expect(job.execution?.runId).toBeTruthy();
-  const runId = job.execution!.runId;
+  const runId = job.execution!.runId; acceptedRunIds.push(runId);
   const grant = app!.get<ToolPermissionGrantStore>(TOOL_PERMISSION_GRANT_STORE);
   for (const tool of ['call_skill', 'list_org_skills', 'write_todos', 'read_file', 'write_file', 'edit_file', 'ls', 'glob', 'execute', 'wx_artifact_publish']) await grant.grantForRun(org, runId, tool);
   // Test-only call budget, enforced through the existing authorized cancellation API.

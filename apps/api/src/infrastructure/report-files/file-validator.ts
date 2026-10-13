@@ -52,13 +52,14 @@ export function normalizeReportText(text: string): string {
 /** Data completeness only. Never repair/rewrite the canonical report with another model. */
 export function validateReportContent(format: FileRequest['format'], extracted: string, source: ReportFileSourceSnapshot, relationUrls: readonly string[] = []): void {
   const text = normalizeReportText(extracted);
-  const canonical = normalizeReportText(source.markdown);
+  const completeInput = `${source.markdown}\n\n${source.appendixMarkdown ?? ''}`;
+  const canonical = normalizeReportText(completeInput);
   for (const match of extracted.matchAll(/(?:ENOENT|no such file or directory|读取失败|SKILL_SANDBOX_INPUT_DIR|\/work\/input)/gi)) {
     if (!source.markdown.includes(match[0])) throw new ReportFileError('INVALID_FILE');
   }
   if (!text.includes(source.reportHash) || source.notices.some(note => !text.includes(normalizeReportText(note)))) throw new ReportFileError('INVALID_FILE');
   if (format !== 'pptx') {
-    const required = reportFileContentRequirements(source.markdown);
+    const required = reportFileContentRequirements(completeInput);
     const urls = normalizeReportText(extracted + relationUrls.join(' '));
     if (required.urls.some(url => !urls.includes(normalizeReportText(url)))) throw new ReportFileError('INVALID_FILE');
     const title = normalizeReportText(source.title);

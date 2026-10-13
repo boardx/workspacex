@@ -20,3 +20,16 @@ it('rejects duplicated report prose and lost evidence limitations', () => {
   expect(() => validateReportContent('docx', text + ' 用户需要可下载和编辑的真实报告文件。', source)).toThrow();
   expect(() => validateReportContent('pptx', source.title + ' ' + reportHash, source)).toThrow();
 });
+
+it.each(['pdf', 'docx'] as const)('requires authorized appendix quotations and provenance in %s', format => {
+  const appendixMarkdown = '### 引用 quote-1\n\n来源版本 3 · SHA256 ' + 'd'.repeat(64) + '\n\n独有引用：真实采购负责人需提供可核验的原始预算授权记录。';
+  const withEvidence = { ...source, appendixMarkdown };
+  const body = `中文报告 用户需要可下载和编辑的真实报告文件。 ${source.notices.join(' ')}`;
+  expect(() => validateReportContent(format, body, withEvidence)).toThrow();
+  expect(() => validateReportContent(format, `${body} ${appendixMarkdown}`, withEvidence)).not.toThrow();
+});
+it('allows an authorized appendix to repeat a quotation also present in the canonical report', () => {
+  const repeated = { ...source, appendixMarkdown: '### 引用 quote-2\n\n来源版本 1 · SHA256 ' + reportHash + '\n\n用户需要可下载和编辑的真实报告文件。' };
+  const text = `中文报告 用户需要可下载和编辑的真实报告文件。 ${source.notices.join(' ')} ${repeated.appendixMarkdown}`;
+  expect(() => validateReportContent('docx', text, repeated)).not.toThrow();
+});
