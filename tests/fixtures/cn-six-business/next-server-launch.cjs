@@ -16,13 +16,13 @@ function resources(){
    const st=fs.lstatSync(current);need(st.isDirectory()&&!st.isSymbolicLink());
    const value={inode:st.ino,device:st.dev,pathSha256:crypto.createHash('sha256').update(current).digest('hex')};
    for(const name of ['memory.current','memory.peak','memory.max','memory.events']){
-    const raw=fs.readFileSync(path.join(current,name),'utf8');need(raw.length<4096);
+    let raw;try{raw=fs.readFileSync(path.join(current,name),'utf8');}catch(error){if(error.code!=='ENOENT')throw error;value.controllerFilesUnavailable=true;continue;}need(raw.length<4096);
     if(name==='memory.events'){value.events={};for(const line of raw.trim().split('\n')){const [key,n]=line.split(' ');if(['low','high','max','oom','oom_kill','oom_group_kill'].includes(key)){need(/^\d+$/.test(n));value.events[key]=n;}}}
     else{need(/^(\d+|max)\s*$/.test(raw));value[name]=raw.trim();}
    }
    const after=fs.lstatSync(current);need(after.ino===st.ino&&after.dev===st.dev);observations.push(value);
   }
-  return {available:true,observations};
+  return {available:observations.some(v=>!v.controllerFilesUnavailable),observations};
  }catch{return {available:false,reason:'RESOURCE_READBACK_UNAVAILABLE'};}
 }
 function store(directory,name,value){
