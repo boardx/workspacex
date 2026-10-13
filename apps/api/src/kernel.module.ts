@@ -1,3 +1,6 @@
+import { InterviewExpertLibraryController } from './interface/controllers/interview-expert-library.controller';
+import { INTERVIEW_CUSTOM_EXPERT_LIBRARY } from './application/interview/custom-expert-library';
+import { PgCustomExpertLibrary } from './infrastructure/interview/pg-custom-expert-library';
 import { ORGANIZATION_CREATION_REPOSITORY } from "./application/auth/create-organization";
 import { PgOrganizationCreationRepository } from "./infrastructure/auth/pg-organization-creation-repository";
 import {CORE_MODEL_RUNTIME_GUARD,createCoreModelRuntimeGuard,guardCoreModelCalls,type CoreModelRuntimeGuard} from "./infrastructure/model/core-model-runtime-guard";
@@ -1258,6 +1261,7 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
     AuthOrgController,
     OrgAdminScopeController,
     InterviewMarkdownAttachmentController,
+    InterviewExpertLibraryController,
     DigitalInterviewController,
     ExpertAvatarPreferenceController,
     InterviewMarkdownReportReviewController,
@@ -1357,6 +1361,7 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
   ],
   providers: [
     ...reportFileProviders,
+    {provide: INTERVIEW_CUSTOM_EXPERT_LIBRARY, useFactory:(db:DatabasePort)=>new PgCustomExpertLibrary(db),inject:[DATABASE_PORT]},
     { provide: EXPERT_AVATAR_PREFERENCE_REPOSITORY, useFactory: (db: DatabasePort) => new PgExpertAvatarPreferenceRepository(db), inject: [DATABASE_PORT] },
     { provide: INTERVIEW_MARKDOWN_REPORT_REVIEW_REPOSITORY, useFactory: (db: DatabasePort) => new PgInterviewMarkdownReportReviewRepository(db), inject: [DATABASE_PORT] },
     { provide: INTERVIEW_MARKDOWN_ATTACHMENTS, useFactory:(db:DatabasePort)=>new PgInterviewMarkdownAttachmentRepository(db),inject:[DATABASE_PORT] },

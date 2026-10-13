@@ -3,10 +3,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { SESSION_TOKEN_STORAGE_KEY } from "@/lib/api-client";
 
+vi.mock("@/lib/interview-expert-library-api",()=>({loadCustomInterviewExperts:async()=>({items:[]}),createCustomInterviewExpert:vi.fn()}));
 const push = vi.fn();
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push }) }));
 
 vi.mock("@/components/session/session-provider", () => ({
+  useOptionalSession: () => ({session:{currentOrgId:"org-f02",userId:"user-f02"}}),
   useSession: () => ({ session: { currentOrgId: "org-f02" } }),
 }));
 
@@ -486,14 +488,14 @@ describe("F02 第 3 组 UI：访谈 Studio 首屏", () => {
     expect(screen.getByTestId("itv-history-card-itv-1")).toBeInTheDocument();
   });
 
-  it("切到专家列表后消费正式专家目录，不注入 Mock persona", async () => {
+  it("专家列表同时显示维护的内置画像与正式专家目录", async () => {
     render(<InterviewStudioHome initialTab="history" />);
     fireEvent.mouseDown(screen.getByTestId("itv-tab-experts"), { button: 0, ctrlKey: false });
     const card = await screen.findByTestId(`itv-expert-card-${catalogExpert.expertId}`);
     expect(within(card).getByText(catalogExpert.displayName)).toBeInTheDocument();
     expect(within(card).getByText(catalogExpert.role)).toBeInTheDocument();
     expect(within(card).queryByText(/Mock/)).not.toBeInTheDocument();
-    expect(screen.getByTestId("itv-expert-count")).toHaveTextContent("1 位专家");
+    expect(screen.getByTestId("itv-expert-count")).toHaveTextContent("98 位专家");
     expect(screen.getByRole("button", { name: "采购" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "全部专家" }))
       .toHaveClass("bg-primary", "text-primary-foreground");

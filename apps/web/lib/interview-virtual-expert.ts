@@ -1,12 +1,5 @@
-export type VirtualExpertFields = Readonly<{
-  name: string;
-  role: string;
-  domains: string;
-  focus: string;
-  style: string;
-  bio: string;
-  limits: string;
-}>;
+import type { InterviewExpertFields } from '@repo/contracts/interview-expert-library';
+export type VirtualExpertFields = Readonly<InterviewExpertFields>;
 
 const sections = [
   ["专业角色", "role"], ["专业领域", "domains"], ["研究关注", "focus"],
