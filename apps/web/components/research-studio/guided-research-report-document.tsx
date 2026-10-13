@@ -2,7 +2,7 @@ import { research as C } from "@repo/contracts";
 import { useRef, useState, type ReactNode } from "react";
 import { researchWorkspaceStyle } from "./research-workspace-style";
 import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
+import { WorkflowActionButton as Button, WorkflowActionBar } from "./research-workflow-actions";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -65,5 +65,5 @@ export function GuidedResearchReportDocument({ document, provisional = false, hi
     {document.conclusion && <section id={anchorId("research-report-conclusion")} className="scroll-mt-6 space-y-3 border-t border-border pt-8" data-testid="research-report-conclusion"><h3 className="text-20 font-semibold">{headings.conclusion}</h3><ResearchReportMarkdown text={document.conclusion} references={document.references} /></section>}
     {document.references.length > 0 && <section id={anchorId("research-report-references")} className="scroll-mt-6 space-y-3 border-t border-border pt-8" aria-label="参考来源" data-testid="research-report-references"><h3 className="text-18 font-semibold">{headings.references}</h3><ol className="list-decimal space-y-3 pl-5 text-12 leading-relaxed">{document.references.map((reference) => <li key={reference.number} id={anchorId(`research-reference-${reference.number}`)}><a href={reference.url} target="_blank" rel="noopener noreferrer" className="break-words text-primary underline underline-offset-2 transition-colors hover:decoration-primary">{reference.title}</a><p className="mt-1 break-all text-muted-foreground">{reference.url}</p></li>)}</ol></section>}
     </div>
-  </article>{!historical && <><div className="flex flex-wrap items-center justify-between gap-3" data-testid="research-report-actions"><div className="ml-auto flex flex-wrap items-center gap-2">{fileActions}{actions}<DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline" aria-label="更多操作" data-testid="research-report-more-actions">更多操作</Button></DropdownMenuTrigger><DropdownMenuContent align="end">{moreActions && <>{moreActions}<DropdownMenuSeparator /></>}{onRegenerate && <><DropdownMenuItem disabled={regenerateDisabled} onSelect={onRegenerate}>重新生成报告</DropdownMenuItem><DropdownMenuSeparator /></>}</DropdownMenuContent></DropdownMenu></div></div></>}</div>;
+  </article>{!historical && <><WorkflowActionBar placement="footer" data-testid="research-report-actions"><DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline" aria-label="更多操作" data-testid="research-report-more-actions">更多操作</Button></DropdownMenuTrigger><DropdownMenuContent align="end">{moreActions && <>{moreActions}<DropdownMenuSeparator /></>}{onRegenerate && <><DropdownMenuItem disabled={regenerateDisabled} onSelect={onRegenerate}>重新生成报告</DropdownMenuItem><DropdownMenuSeparator /></>}</DropdownMenuContent></DropdownMenu>{fileActions}{actions}</WorkflowActionBar></>}</div>;
 }

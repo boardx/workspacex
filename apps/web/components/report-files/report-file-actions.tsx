@@ -1,7 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from 'react';
-import { Loader2 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { WorkflowActionButton } from '@/components/research-studio/research-workflow-actions';
 import { generateReportFile, getReportFileJob, downloadReportFile, type ReportFileSource, type ReportFileFormat, type ReportFileJobState } from '@/lib/report-files-api';
 const labels: Record<ReportFileFormat, string> = { pdf: 'PDF', docx: 'Word' };
 type State = { job?: ReportFileJobState; pending?: boolean; error?: string };
@@ -49,10 +48,10 @@ export function ReportFileActions({ source, disabled = false }: { source: Report
   return <div className="space-y-2" data-testid="report-file-actions">
     <div className="flex flex-wrap items-center gap-2">{(Object.keys(labels) as ReportFileFormat[]).map(format => {
       const state = states[format];
-      return <Button key={format} variant="outline" size="sm" disabled={disabled || state?.pending} onClick={() => void act(format)}>
-        {state?.pending && <Loader2 className="mr-2 size-4 animate-spin motion-reduce:animate-none" aria-hidden />}
+      return <WorkflowActionButton key={format} variant="outline" loading={state?.pending} disabled={disabled || state?.pending} onClick={() => void act(format)}>
+
         {state?.pending ? `正在${state.job?.status === 'succeeded' ? '下载' : '生成'} ${labels[format]}…` : state?.job?.status === 'succeeded' ? `下载 ${labels[format]}` : state?.error ? `重新生成 ${labels[format]}` : `生成 ${labels[format]}`}
-      </Button>;
+      </WorkflowActionButton>;
     })}</div>
     {Object.entries(states).filter(([, state]) => state.job?.execution?.status === 'awaiting_tool_permission').map(([format, state]) => <p role="status" key={format} className="text-12 text-muted-foreground">{labels[format as ReportFileFormat]}：需要确认工具权限。<a className="underline" href={`/chat/${encodeURIComponent(state.job!.execution!.threadId)}`} target="_blank" rel="noopener noreferrer">打开对话继续</a></p>)}
     {Object.entries(states).filter(([, state]) => state.error).map(([format, state]) => <p role="alert" key={format} className="text-12 text-destructive">{labels[format as ReportFileFormat]}：{state.error}</p>)}

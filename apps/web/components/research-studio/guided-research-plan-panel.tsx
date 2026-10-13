@@ -1,14 +1,15 @@
 import type * as React from "react";
 import { ArrowRight } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { WorkflowActionButton, WorkflowActionBar } from "./research-workflow-actions";
 import { Card, CardContent } from "@/components/ui/card";
 
 export type ResearchPlanField = "plan" | "questions" | "criteria" | "materials" | "sources";
 
-export function GuidedResearchPlanPanel({ plan, onConfirm, disabled, onBack }: {
+export function GuidedResearchPlanPanel({ plan, onConfirm, disabled, onBack, loading = false }: {
   plan: React.ReactNode;
   onConfirm: () => void;
   disabled: boolean;
+  loading?: boolean;
   onBack?: () => void;
   questions?: React.ReactNode;
   sourceScope?: React.ReactNode;
@@ -19,6 +20,6 @@ export function GuidedResearchPlanPanel({ plan, onConfirm, disabled, onBack }: {
 }) {
   return <section className="space-y-3" data-testid="guided-research-plan-panel" data-reference-layout="plan-workspace">
     <Card className="shadow-sm"><CardContent className="space-y-3 p-4 text-sm leading-relaxed">{plan}</CardContent></Card>
-    <div className="flex justify-end gap-2">{onBack && <Button variant="primary" className="h-9 px-4 text-sm" onClick={onBack}>上一步</Button>}<Button variant="primary" className="h-9 px-4 text-sm" aria-label="生成报告" disabled={disabled} onClick={onConfirm}>生成报告 <ArrowRight className="size-4" aria-hidden /></Button></div>
+    <WorkflowActionBar placement="footer" data-testid="research-plan-actions">{onBack && <WorkflowActionButton variant="outline" onClick={onBack}>上一步</WorkflowActionButton>}<WorkflowActionButton variant="primary" aria-label="生成报告" loading={loading} disabled={disabled} icon={<ArrowRight className="size-4" aria-hidden />} onClick={onConfirm}>生成报告</WorkflowActionButton></WorkflowActionBar>
   </section>;
 }

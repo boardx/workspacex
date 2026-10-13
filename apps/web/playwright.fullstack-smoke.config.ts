@@ -311,6 +311,7 @@ export default defineConfig({
         "guided-research-trust-console.spec.ts",
         "digital-interview-research-quality.spec.ts",
         "digital-interview-report-export-live.spec.ts",
+        "study-workflow-actions.spec.ts",
         "interview-expert-library-live.spec.ts",
         "digital-interview-intake-failure-live.spec.ts",
         "digital-interview-density-live.spec.ts",

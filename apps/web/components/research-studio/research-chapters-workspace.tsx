@@ -4,6 +4,7 @@ import * as React from "react";
 import { ArrowDown, ArrowUp, Plus, Trash2 } from "lucide-react";
 import { research as C } from "@repo/contracts";
 import { Button } from "@/components/ui/button";
+import { WorkflowActionButton, WorkflowActionBar } from "./research-workflow-actions";
 import { Input } from "@/components/ui/input";
 import { prepareResearchOutline, researchPlanTitle, researchQuestionsForTitle } from "@/lib/guided-research-markdown";
 import type { GuidedResearchRuntime } from "@/lib/guided-research-api";
@@ -68,6 +69,6 @@ export function ResearchChaptersWorkspace({ runtime, disabled, onSave, onNext, o
         <Button variant="outline" disabled={disabled || (selected.subsections?.length ?? 0) >= 8} onClick={() => patch({ subsections: [...(selected.subsections ?? []), { id: crypto.randomUUID(), title: "新小章节", questions: researchQuestionsForTitle("新小章节") }] })}><Plus className="mr-2 size-4" />新增小章节</Button>
       </article>}
     </div>
-    <div className="flex flex-wrap justify-end gap-3">{changed && <Button variant="primary" disabled={disabled || !valid} onClick={() => onSave(prepareResearchOutline(chapters, runtime.outline))}>保存章节结构</Button>}{onBack && <Button variant="outline" disabled={disabled || changed} onClick={onBack}>上一步</Button>}{onNext && <Button variant="primary" disabled={disabled || changed} onClick={onNext}>下一步：生成报告</Button>}</div>
+    <WorkflowActionBar placement="footer">{onBack && <WorkflowActionButton variant="outline" disabled={disabled || changed} onClick={onBack}>上一步</WorkflowActionButton>}{changed && <WorkflowActionButton variant="primary" disabled={disabled || !valid} onClick={() => onSave(prepareResearchOutline(chapters, runtime.outline))}>保存章节结构</WorkflowActionButton>}{onNext && <WorkflowActionButton variant="primary" disabled={disabled || changed} onClick={onNext}>下一步：生成报告</WorkflowActionButton>}</WorkflowActionBar>
   </section>;
 }
