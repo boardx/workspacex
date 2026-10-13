@@ -31,6 +31,12 @@ def setup_domain(checkout):
     return module.Domain()
 
 
+def setup_simulation_unit(checkout,receipt_root,sha,run_id,timeout):
+    spec=importlib.util.spec_from_file_location('ci_simulation_resource_unit',checkout/'scripts/cn-release-simulation-unit.py')
+    module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+    return module.Unit(checkout,receipt_root,sha,run_id,timeout)
+
+
 def run_owned_setup(command,checkout,env,timeout=660,receipt_path=None):
     domain=setup_domain(checkout);process=None
     try:
@@ -48,7 +54,9 @@ def run_owned_setup(command,checkout,env,timeout=660,receipt_path=None):
 
 def run_owned_simulation(command,checkout,env,registries,sha,run_id,receipt_root,timeout=16500,api_owner_root=None,recovery_deadline=None):
     """CI finally remains alive if a Session/simulation child is SIGKILLed."""
-    domain=setup_domain(checkout);process=None;code=1;cleanup=None;recovery=None
+    # Only the worker crosses the resource-unit boundary. This parent and its
+    # existing exact Docker recovery remain alive when that unit is killed.
+    domain=setup_simulation_unit(checkout,receipt_root,sha,run_id,timeout);process=None;code=1;cleanup=None;recovery=None
     try:
         process=domain.spawn(command,cwd=checkout,env=env,start_new_session=True)
         code=process.wait(timeout=timeout)

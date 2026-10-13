@@ -83,7 +83,7 @@ class CiBootstrap(unittest.TestCase):
   fake=types.SimpleNamespace(recover_all=recover)
   with tempfile.TemporaryDirectory()as td:
    root=Path(td)
-   with patch.object(m,'setup_domain',return_value=Domain()),patch.object(m.importlib.util,'module_from_spec',return_value=fake),patch.object(m.importlib.util,'spec_from_file_location',return_value=types.SimpleNamespace(loader=types.SimpleNamespace(exec_module=lambda module:None))):
+   with patch.object(m,'setup_simulation_unit',return_value=Domain()),patch.object(m.importlib.util,'module_from_spec',return_value=fake),patch.object(m.importlib.util,'spec_from_file_location',return_value=types.SimpleNamespace(loader=types.SimpleNamespace(exec_module=lambda module:None))):
     with self.assertRaises(m.SetupCleanupUnproven):m.run_owned_simulation([sys.executable,'-I','-B','-c','import time;time.sleep(3)'],ROOT,{},dict(target=root/'target',control=root/'control'),'a'*40,'123',root,timeout=.05)
    self.assertEqual(events,['domain-empty','target','control','api-owners'])
    import json
@@ -92,7 +92,7 @@ class CiBootstrap(unittest.TestCase):
   class Domain:
    def spawn(self,*args,**kwargs):raise RuntimeError('fixture')
    def close(self,process):return {'verified':False,'populated':1}
-  with tempfile.TemporaryDirectory()as td,patch.object(m,'setup_domain',return_value=Domain()),patch.object(m.importlib.util,'spec_from_file_location')as load:
+  with tempfile.TemporaryDirectory()as td,patch.object(m,'setup_simulation_unit',return_value=Domain()),patch.object(m.importlib.util,'spec_from_file_location')as load:
    with self.assertRaises(m.SetupCleanupUnproven):m.run_owned_simulation([],ROOT,{}, {},'a'*40,'123',Path(td))
    load.assert_not_called()
  def test_sim14_active_roots_share_deadline_and_one_failure_does_not_stop_control(self):
@@ -109,7 +109,7 @@ class CiBootstrap(unittest.TestCase):
    root=Path(td);base=root/'sim14-owners/round-01/api-outer-recovery'
    for name in ('target','control','negative-evidence'):(base/name).mkdir(parents=True)
    fake=types.SimpleNamespace(recover_all=recover)
-   with patch.object(m,'setup_domain',return_value=Domain()),patch.object(m.importlib.util,'module_from_spec',return_value=fake),patch.object(m.importlib.util,'spec_from_file_location',return_value=types.SimpleNamespace(loader=types.SimpleNamespace(exec_module=lambda module:None))):
+   with patch.object(m,'setup_simulation_unit',return_value=Domain()),patch.object(m.importlib.util,'module_from_spec',return_value=fake),patch.object(m.importlib.util,'spec_from_file_location',return_value=types.SimpleNamespace(loader=types.SimpleNamespace(exec_module=lambda module:None))):
     with self.assertRaises(m.SetupCleanupUnproven):m.run_owned_simulation([sys.executable,'-I','-B','-c','pass'],ROOT,{}, {},'a'*40,'123',root,recovery_deadline=deadline)
    self.assertEqual([p.name for p,d in calls],['api-owners','target','control'])
    self.assertTrue(all(d==deadline for p,d in calls))
