@@ -29,6 +29,12 @@ mark('compatibility');assert.equal(diagnostic(new Error('private')).catalogCateg
 const constraint={schema:'private',relation:'private',name:'private',kind:'c',deferrable:false,deferred:false,validated:false,definition:'PRIVATE CHECK SQL NOT VALID'};
 const delta=constraintDifferences([{...constraint,validated:true,definition:'PRIVATE CHECK SQL'}],[constraint]);
 assert.equal(delta.differingCount,1);assert.deepEqual(delta.changes[0].fields,['validated','definition']);assert(!JSON.stringify(delta).includes('PRIVATE'));assert.equal(delta.changes[0].expected.notValid,true);
+const sourceTrigger={schema:'private',relation:'private',name:'RI_ConstraintTrigger_a_1',enabled:'O',internal:true,definition:'CREATE CONSTRAINT TRIGGER RI_ConstraintTrigger_a_1 PRIVATE FUNCTION'};
+const newTrigger={...sourceTrigger,name:'RI_ConstraintTrigger_a_2',definition:sourceTrigger.definition.replace('_a_1','_a_2')};
+try{assertCatalogEqual({triggers:[newTrigger]},{triggers:[sourceTrigger]});assert.fail('gate removed');}catch(e){assert.equal(diagnostic(e).catalogFormatting.riGeneratedNameProjectionEqual,true);assert(!JSON.stringify(diagnostic(e)).includes('PRIVATE'));}
+for(const changed of [{...newTrigger,enabled:'D'},{...newTrigger,definition:newTrigger.definition+' CHANGED'},{...newTrigger,internal:false}]){
+ try{assertCatalogEqual({triggers:[changed]},{triggers:[sourceTrigger]});assert.fail('gate removed');}catch(e){assert.equal(diagnostic(e).catalogFormatting.riGeneratedNameProjectionEqual,false);}
+}
 for(const value of [{...original,functions:[...original.functions,{name:'PRIVATE'}]}, {...original,roles:[{name:'other'}]}, {...original,extra:[]}]){
  try{assertCatalogEqual(value,original);assert.fail('accepted drift');}catch(e){assert.match(e.message,/^RESTORE_CATALOG_(?:SCOPE_)?MISMATCH$/);assert(e.message.length<80);}
 }
