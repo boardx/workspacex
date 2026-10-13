@@ -6,7 +6,7 @@ import { InterviewWorkbenchHeader, INTERVIEW_WORKBENCH_STEPS } from "@/component
 
 afterEach(cleanup);
 
-it("highlights ongoing work identically when viewing a different research or interview step", () => {
+it("shares running highlights while research uses a static step and interview retains its spinner", () => {
   render(<>
     <GuidedResearchSixStepShell current="topic" running="report" available={["import", "topic", "plan", "research", "chapters", "report"]} onNavigate={vi.fn()} main={null} />
     <InterviewWorkbenchHeader name="访谈" tags={[]} steps={INTERVIEW_WORKBENCH_STEPS} activeStep="analysis" runningStep="report" completedSteps={["intake"]} status="draft" version={1} topic={null} onStepChange={vi.fn()} onReturnToList={vi.fn()} />
@@ -18,7 +18,9 @@ it("highlights ongoing work identically when viewing a different research or int
     expect(command).not.toHaveAttribute("aria-current");
     const circle = command.querySelector("span")!;
     expect(circle).toHaveClass("bg-primary", "text-primary-foreground", "ring-2");
-    expect(circle.querySelector("svg")).not.toBeNull();
     expect(circle).not.toHaveTextContent("已完成");
   }
+  expect(research.querySelector(".animate-spin")).toBeNull();
+  expect(research.querySelector("span")).toHaveTextContent("3");
+  expect(interview.querySelector(".animate-spin")).not.toBeNull();
 });
