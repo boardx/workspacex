@@ -822,6 +822,14 @@
       "useCases": [
         "notifications/send-test-email"
       ]
+    },
+    "ChatShareController": {
+      "useCases": [
+        "chat/get-attachment-content",
+        "chat/get-thread",
+        "chat/resolve-visibility",
+        "chat/share-chat"
+      ]
     }
   },
   "routes": {
@@ -1154,6 +1162,7 @@
         "apps/web/lib/live-asr-draft.ts",
         "apps/web/lib/live-canvas.ts",
         "apps/web/lib/live-capabilities.ts",
+        "apps/web/lib/live-chat-share.ts",
         "apps/web/lib/live-chat.ts",
         "apps/web/lib/live-feedback.ts",
         "apps/web/lib/live-files.ts",
@@ -1175,6 +1184,7 @@
         "chat",
         "chat-file-upload",
         "chat-knowledge-graph",
+        "chat-share",
         "design-workbench",
         "feedback-loop",
         "files",
@@ -1198,6 +1208,7 @@
         "ChatAttachmentController",
         "ChatController",
         "ChatFollowUpSuggestionsController",
+        "ChatShareController",
         "CheckinBoardController",
         "CopilotkitAguiController",
         "DesignWorkbenchController",
@@ -1245,6 +1256,7 @@
         "apps/web/lib/live-asr-draft.ts",
         "apps/web/lib/live-canvas.ts",
         "apps/web/lib/live-capabilities.ts",
+        "apps/web/lib/live-chat-share.ts",
         "apps/web/lib/live-chat.ts",
         "apps/web/lib/live-feedback.ts",
         "apps/web/lib/live-files.ts",
@@ -1266,6 +1278,7 @@
         "chat",
         "chat-file-upload",
         "chat-knowledge-graph",
+        "chat-share",
         "design-workbench",
         "feedback-loop",
         "files",
@@ -1289,6 +1302,7 @@
         "ChatAttachmentController",
         "ChatController",
         "ChatFollowUpSuggestionsController",
+        "ChatShareController",
         "CheckinBoardController",
         "CopilotkitAguiController",
         "DesignWorkbenchController",
@@ -1340,6 +1354,7 @@
         "apps/web/lib/live-asr-draft.ts",
         "apps/web/lib/live-canvas.ts",
         "apps/web/lib/live-capabilities.ts",
+        "apps/web/lib/live-chat-share.ts",
         "apps/web/lib/live-chat.ts",
         "apps/web/lib/live-feedback.ts",
         "apps/web/lib/live-files.ts",
@@ -1357,6 +1372,7 @@
         "canvas",
         "chat",
         "chat-file-upload",
+        "chat-share",
         "design-workbench",
         "feedback-loop",
         "files",
@@ -1376,6 +1392,7 @@
         "ChatAttachmentController",
         "ChatController",
         "ChatFollowUpSuggestionsController",
+        "ChatShareController",
         "CopilotkitAguiController",
         "DesignWorkbenchController",
         "EvidenceWithdrawalController",
@@ -1410,6 +1427,7 @@
         "apps/web/lib/live-asr-draft.ts",
         "apps/web/lib/live-canvas.ts",
         "apps/web/lib/live-capabilities.ts",
+        "apps/web/lib/live-chat-share.ts",
         "apps/web/lib/live-chat.ts",
         "apps/web/lib/live-feedback.ts",
         "apps/web/lib/live-files.ts",
@@ -1427,6 +1445,7 @@
         "canvas",
         "chat",
         "chat-file-upload",
+        "chat-share",
         "design-workbench",
         "feedback-loop",
         "files",
@@ -1446,6 +1465,7 @@
         "ChatAttachmentController",
         "ChatController",
         "ChatFollowUpSuggestionsController",
+        "ChatShareController",
         "CopilotkitAguiController",
         "DesignWorkbenchController",
         "EvidenceWithdrawalController",
@@ -4603,6 +4623,27 @@
         "ProjectInviteController",
         "PublicDesignShareController",
         "ToolPermissionGrantController"
+      ]
+    },
+    "/share/chat/[token]": {
+      "kind": "wired",
+      "screen": "apps/web/app/share/chat/[token]/page.tsx",
+      "adapters": [
+        "apps/web/lib/live-chat-share.ts",
+        "apps/web/lib/live-chat.ts"
+      ],
+      "contracts": [
+        "agent-defaults",
+        "chat",
+        "chat-file-upload",
+        "chat-share"
+      ],
+      "controllers": [
+        "ChatAttachmentController",
+        "ChatController",
+        "ChatFollowUpSuggestionsController",
+        "ChatShareController",
+        "CopilotkitAguiController"
       ]
     }
   }

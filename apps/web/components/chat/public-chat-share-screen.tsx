@@ -2,7 +2,7 @@
 import * as React from "react";
 import { chatShare as C } from "@repo/contracts";
 import { Button } from "@/components/ui/button";
-import { readChatShare } from "@/lib/chat-share";
+import { readChatShare } from "@/lib/live-chat-share";
 import { SharedChatMessages } from "./shared-chat-messages";
 
 export function PublicChatShareScreen({ token }: { token: string }) {

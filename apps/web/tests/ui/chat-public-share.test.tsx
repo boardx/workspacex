@@ -3,7 +3,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-libra
 import { ChatShareButton } from '@/components/chat/chat-share-button';
 import { SharedChatMessages } from '@/components/chat/shared-chat-messages';
 const api = vi.hoisted(() => ({ previewChatShare: vi.fn(), listChatShares: vi.fn(), createChatShare: vi.fn(), revokeChatShare: vi.fn() }));
-vi.mock('@/lib/chat-share', async (original) => ({ ...await original<typeof import('@/lib/chat-share')>(), ...api }));
+vi.mock('@/lib/live-chat-share', async (original) => ({ ...await original<typeof import('@/lib/live-chat-share')>(), ...api }));
 const snapshot = { title: '分享测试', messages: [{ authorKind: 'human' as const, text: 'hello', createdAt: '2026-10-13T00:00:00Z', attachments: [] }] };
 const preview = { snapshot, revision: 'a'.repeat(64) };
 const share = { id: 'share-1', createdAt: '2026-10-13T00:00:00Z', revokedAt: null };
@@ -59,7 +59,7 @@ it.each([{ threadId: 'two', bearer: 'account-one' }, { threadId: 'one', bearer: 
 it('reads anonymous snapshots without credentials or bearer headers', async () => {
   const fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 200, json: async () => ({ snapshot, createdAt: share.createdAt }) });
   vi.stubGlobal('fetch', fetchMock);
-  const { readChatShare } = await import('@/lib/chat-share');
+  const { readChatShare } = await import('@/lib/live-chat-share');
   await readChatShare('t'.repeat(43));
   expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining('/chat/shares/'), expect.objectContaining({ credentials: 'omit', cache: 'no-store', referrerPolicy: 'no-referrer' }));
   expect(fetchMock.mock.calls[0]?.[1]).not.toHaveProperty('headers');

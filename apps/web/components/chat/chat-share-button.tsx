@@ -5,7 +5,7 @@ import type { chatShare } from "@repo/contracts";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { ApiError } from "@/lib/api-client";
-import { createChatShare, listChatShares, previewChatShare, revokeChatShare } from "@/lib/chat-share";
+import { createChatShare, listChatShares, previewChatShare, revokeChatShare } from "@/lib/live-chat-share";
 import { SharedChatMessages } from "./shared-chat-messages";
 
 function errorCopy(error: unknown): string {
