@@ -99,6 +99,17 @@ test("research and interview use consistent command controls without model execu
     expect(await primary.evaluate(node => node.closest('[data-workflow-action-bar="footer"]')?.lastElementChild?.contains(node))).toBe(true);
     metrics.push({ domain: "research", width: 375, state: "ready-to-complete", buttons: await page.locator('[data-workflow-action-bar="footer"] button').evaluateAll(nodes => nodes.map(node => ({ text: node.textContent, height: node.getBoundingClientRect().height, background: getComputedStyle(node).backgroundColor, color: getComputedStyle(node).color, disabled: node.matches(':disabled') }))) });
     await page.screenshot({ path: resolve(output, "after-research-primary-375.png"), fullPage: true });
+    const currentInterview = interviewMarkdown.InterviewMarkdownEnvelope.parse(await (await page.request.get(path, { headers })).json());
+    const intake = currentInterview.documents.find(document => document.step === "intake");
+    expect((await page.request.post(`${path}/intake`, { headers, data: { expectedVersion: currentInterview.version, expectedDocumentVersion: intake?.version ?? 0, markdown: "# 研究需求\n\n核对采购授权与预算。" } })).ok()).toBeTruthy();
+    await page.goto(`/itv/${interviewId}/intake`);
+    const interviewPrimary = page.getByRole("button", { name: "下一步：确认分析", exact: true });
+    const interviewSecondary = page.getByTestId("itv-return-history");
+    await expect(interviewPrimary).toBeEnabled();
+    expect(await interviewPrimary.evaluate(node => node.getBoundingClientRect().height)).toBe(36);
+    expect(await interviewPrimary.evaluate(node => getComputedStyle(node).backgroundColor)).not.toBe(await interviewSecondary.evaluate(node => getComputedStyle(node).backgroundColor));
+    metrics.push({ domain: "interview", width: 375, state: "intake-enabled-primary", buttons: await interviewPrimary.evaluate(node => ({ text: node.textContent, height: node.getBoundingClientRect().height, background: getComputedStyle(node).backgroundColor, color: getComputedStyle(node).color })) });
+    await page.screenshot({ path: resolve(output, "after-interview-primary-375.png"), fullPage: true });
     const loading = research.GuidedResearchRuntime.parse({ ...state, version: 2, currentNode: "outline", availableNodes: ["brief", "directions", "outline"], generatedNodes: ["brief", "directions"], busy: true, leaseUntil: "2099-01-01T00:00:00Z" });
     await asApp(FULLSTACK_E2E.orgId, c => c.query("UPDATE guided_research_runtime SET state=$3::jsonb WHERE org_id=$1 AND session_id=$2", [FULLSTACK_E2E.orgId, session.sessionId, JSON.stringify(loading)]));
     await page.goto(`/research/${session.sessionId}/plan`);
